@@ -20,8 +20,11 @@ oneq::electromagnetics::RfSceneReceiverState MakeReceiver() {
   return receiver;
 }
 
-oneq::electromagnetics::RfIncidentLinkResult MakePulseLink(
-    std::uint64_t emission_id, double first_pulse_time_s, double power_w) {
+oneq::electromagnetics::RfIncidentLinkResult MakePulseLink(std::uint64_t emission_id,
+                                                           double first_pulse_time_s,
+                                                           double power_w,
+                                                           double pulse_width_s = 1.0e-3,
+                                                           std::uint32_t pulse_count = 1U) {
   oneq::electromagnetics::RfIncidentLinkResult link;
   link.identity.platform_id = 10U + emission_id;
   link.identity.equipment_id = 20U + emission_id;
@@ -30,8 +33,8 @@ oneq::electromagnetics::RfIncidentLinkResult MakePulseLink(
   link.receiver_equipment_id = 2U;
   link.received_power_before_overlap_w = power_w;
   EXPECT_TRUE(oneq::electromagnetics::TryCreateRfPulseTrainWaveform(
-      first_pulse_time_s, 10.0e9, 1.0e6, 1.0, 1.0e-3, 0.1, 1U, 0.0,
-      emission_id, 0U, &link.emission_waveform));
+      first_pulse_time_s, 10.0e9, 1.0e6, 1.0, pulse_width_s, 0.1, pulse_count, 0.0, emission_id, 0U,
+      &link.emission_waveform));
   return link;
 }
 
@@ -116,10 +119,47 @@ TEST(EsrResolutionCellLedgerTest, LinearSweepUsesPartialInstantaneousChannelDwel
       &result));
 
   ASSERT_EQ(result.candidates.size(), 1U);
-  EXPECT_GT(result.candidates[0].signal_power_w, 0.08);
-  EXPECT_LT(result.candidates[0].signal_power_w, 0.12);
+  EXPECT_NEAR(result.candidates[0].signal_power_w, 1.0, 1.0e-12);
+  EXPECT_GT(result.candidates[0].active_time_s, 0.08);
+  EXPECT_LT(result.candidates[0].active_time_s, 0.12);
   EXPECT_NEAR(result.candidates[0].estimated_center_frequency_hz, 10.0e9,
               5.0e6);
+}
+
+TEST(EsrResolutionCellLedgerTest, PulsePowerAndCountAreInvariantToEmptyWindowPadding) {
+  const auto link = MakePulseLink(1U, 0.1, 2.0);
+  const std::vector<oneq::electromagnetics::RfIncidentLinkResult> links{link};
+  const std::vector<EsrArrivalBearing> bearings{MakeBearing(0.0)};
+  oneq::electromagnetics::RfSceneReceiverState short_receiver = MakeReceiver();
+  short_receiver.window_duration_s = 0.5;
+  const oneq::electromagnetics::RfSceneReceiverState long_receiver = MakeReceiver();
+
+  EsrResolutionCellLedgerResult short_result;
+  EsrResolutionCellLedgerResult long_result;
+  ASSERT_TRUE(TryBuildEsrResolutionCellLedger(links, bearings, short_receiver, 5.0, &short_result));
+  ASSERT_TRUE(TryBuildEsrResolutionCellLedger(links, bearings, long_receiver, 5.0, &long_result));
+  ASSERT_EQ(short_result.candidates.size(), 1U);
+  ASSERT_EQ(long_result.candidates.size(), 1U);
+  EXPECT_NEAR(short_result.candidates[0].signal_power_w, 2.0, 1.0e-12);
+  EXPECT_NEAR(long_result.candidates[0].signal_power_w, 2.0, 1.0e-12);
+  EXPECT_NEAR(short_result.candidates[0].active_time_s, 1.0e-3, 1.0e-12);
+  EXPECT_NEAR(long_result.candidates[0].active_time_s, 1.0e-3, 1.0e-12);
+  EXPECT_EQ(short_result.candidates[0].effective_pulse_count, 1U);
+  EXPECT_EQ(long_result.candidates[0].effective_pulse_count, 1U);
+}
+
+TEST(EsrResolutionCellLedgerTest, PulseCrossingTimeBinBoundaryCountsOnce) {
+  constexpr double kTimeBinDurationS = 1.0 / 256.0;
+  const auto link = MakePulseLink(1U, kTimeBinDurationS - 0.001, 3.0, 0.002);
+  EsrResolutionCellLedgerResult result;
+  ASSERT_TRUE(TryBuildEsrResolutionCellLedger(
+      std::vector<oneq::electromagnetics::RfIncidentLinkResult>{link},
+      std::vector<EsrArrivalBearing>{MakeBearing(0.0)}, MakeReceiver(), 5.0, &result));
+
+  ASSERT_EQ(result.candidates.size(), 1U);
+  EXPECT_NEAR(result.candidates[0].signal_power_w, 3.0, 1.0e-12);
+  EXPECT_NEAR(result.candidates[0].active_time_s, 0.002, 1.0e-12);
+  EXPECT_EQ(result.candidates[0].effective_pulse_count, 1U);
 }
 
 }  // namespace

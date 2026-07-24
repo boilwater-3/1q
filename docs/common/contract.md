@@ -296,7 +296,7 @@ raw pointer 回填组件关系，但 `Impl` 长期持有状态不得同时保存
 
 | 类别 | 承诺 | 归属模块 |
 |---|---|---|
-| **事务性提交** | patch 经 resolver 校验；配置延迟到下个周期边界原子落定；commit 或周期执行失败时，对持有跨周期累积状态的子系统做 capture/restore 完整恢复。 | `airborne_radar` |
+| **事务性提交** | patch 经 resolver 校验并延迟到下个发射边界；实际发射发布前的 commit/执行失败完整恢复，发布后则提交配置与发射事实，只恢复接收、检测和跟踪候选状态。 | `airborne_radar` |
 | **立即提交** | patch 经 resolver 校验；`TryApplyRuntimeConfig` 调用即生效，配置单向落定、不在 session 层回滚。若 pipeline 持有累积状态且执行可能失败，回滚边界由该模块在内部层（如 controller）声明，不上升为 session 层契约。 | `electronic_surveillance_radar`、`electro_optical_sensor`、`sar`、`sbirs_sensor` |
 
 AR 仍以单周期 `StepWithResult()` 作为公共接口。其内部先提交实际发射事实，再完成接收、检测和跟踪；
@@ -306,8 +306,8 @@ AR 仍以单周期 `StepWithResult()` 作为公共接口。其内部先提交实
 规则：
 
 1. **归属由状态空间决定，不由风格偏好决定。** 仅当 pipeline 同时满足"有跨周期累积状态"且"commit/执行存在真实失败路径"时，才采用事务性提交。两者缺一即为立即提交。
-   - `airborne_radar`：4 个子系统各有独立 runtime state，`UpdateConfig`/`UpdateExecutionConfig` 可返回 false，故需事务对齐（`ArSession.cpp:117` CommitPendingRuntimeConfig、`:185-197` capture/restore、`:167-176` 成功后才 FinalizePendingRuntimeConfig）。
-   - `electronic_surveillance_radar`：config 无累积（每 RunCycle 重新派生），`UpdateConfig` 走换 config 留 tracks（`InterceptPipeline.cpp:52-57`）；`InterceptPipelineResult` 包含 observation、emitter、truth-evaluation 三个业务输出及 `sensor_powered_off` execution metadata，当前没有其它 pipeline 执行失败 commit 路径。
+   - `airborne_radar`：4 个子系统各有独立 runtime state，`UpdateConfig`/`UpdateExecutionConfig` 可返回 false，故发射前需要事务对齐；`PrepareRfCycle` 成功后以 post-emission 快照恢复接收候选，并保留 runtime config、emission ID、时间线、跳频/PRI 相位和已消费控制。
+   - `electronic_surveillance_radar`：config 无累积（每 RunCycle 重新派生），`UpdateConfig` 走换 config 留 tracks；`InterceptPipelineResult` 只承载去真值化 observation、emitter 两个业务输出及执行 metadata，当前没有其它 pipeline 执行失败 commit 路径。
    - `electro_optical_sensor`：执行回滚封装在 `EosController::RunOnce`（`EosController.cpp:68-111`），不上升为 session 层事务。
    - `sar`：runtime config 立即提交，但 pipeline 持有 pulse ring、轨迹缓冲、pulse ID 与 PRF
      分数余量。`SarController::RunOnce` 在 pipeline 执行前捕获这些状态，任一执行 abort 后完整

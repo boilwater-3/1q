@@ -25,11 +25,11 @@ struct EsrArrivalBearing {
 /** @brief 一个发射源在全部可分辨单元中的候选与干扰累计结果。 */
 struct EsrResolutionCellCandidate {
   std::size_t source_index{0U};
-  double signal_power_w{0.0};
-  double interference_power_w{0.0};
+  double signal_power_w{0.0};       /**< 候选实际活动时间内的平均信号功率。 */
+  double interference_power_w{0.0}; /**< 同一分辨单元内、候选活动时间口径的干扰功率。 */
   double estimated_center_frequency_hz{0.0};
   double active_time_s{0.0};
-  std::uint32_t effective_pulse_count{1U};
+  std::uint32_t effective_pulse_count{1U}; /**< 去重后的物理脉冲数。 */
 };
 
 /** @brief 分辨单元账本的确定性输出。 */

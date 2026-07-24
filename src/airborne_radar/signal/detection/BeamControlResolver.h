@@ -103,8 +103,6 @@ class BeamControlResolver {
     state.one_way_antenna_gain_db = sample.gain_dbi;
     return state;
   }
-
- private:
   /**
    * @brief 解析当前稳定模式下的挂架坐标系波束指向。
    * @param orientation_config 雷达方向与控制配置。

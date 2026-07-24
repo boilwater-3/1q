@@ -511,13 +511,12 @@ ScenarioSummary RunEsrScenario(const EsrCase& c, const esr_config::EsrSessionCon
 /// 跨场景趋势检查占位。
 ///
 /// 历史上这里曾对 `steady_truth_match_rate_mean`（恒 0 的死指标）和别名自
-/// `receiver_saturated` 的 `steady_jammed_mean` 做距离/占用率单调断言。实测当前全部 sweep
-/// 场景几何下，ESR 在每个周期都完成执行却从不产生 raw_observation、hypothesis 或饱和
-/// （`raw_obs`/`hyp_count`/`receiver_saturated` 在 40 周期内恒为 0），因此无论改用 obs-count、
-/// saturation 还是 SNR 做趋势，结果都与原 truth_match_rate 一样恒为 0、检查恒通过——属于
-/// "空检查"，已于本轮删除。
+/// `receiver_saturated` 的 `steady_jammed_mean` 做距离/占用率单调断言。当前 48 个 sweep 场景
+/// 都能在稳态产生真实 observation 和 hypothesis，但现有发射功率下 observation 数与置信度不随
+/// range/occupancy 分档，接收机也始终不饱和；直接添加单调断言仍会成为恒通过的"空检查"。
 ///
-/// 待场景几何调整为可在稳态产生可分辨观测后，再在此处补充基于真实观测/估计的趋势软断言。
+/// 待 sweep 引入可形成分档差异的功率、干扰或多源几何后，再在此处补充基于真实观测/估计的趋势
+/// 软断言。
 void CheckCrossScenarioTrends(std::vector<ScenarioSummary>& /*summaries*/) {}
 
 }  // namespace

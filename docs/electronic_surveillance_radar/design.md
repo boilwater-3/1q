@@ -265,6 +265,8 @@ flowchart LR
    单元内功率最强的外部源成为候选，其余功率只进入该候选的干扰账本；落入不同接收时间单元的
    错时脉冲、错频扫频和可分角源不互相降低 SINR。构建复杂度是固定时间单元投影加单元内排序，
    不再执行 candidate×all-emissions 全对扫描。
+   候选 signal/interference power 统一按候选实际活动时间归一化，空白接收窗口不得稀释短脉冲或
+   扫频驻留的 SNR；跨越多个时间单元的同一物理脉冲以 pulse index 去重，只贡献一次统计截获机会。
    天顶/天底入射的方位角在数学上不可观测，但这不是非法 RF 帧：该源仍参与前端饱和和对应极区
    分辨单元的功率账本，却不能成为会发布伪造 AoA 的候选；同帧其他可观测源继续正常处理。
 4. **波形化观测。** 脉冲列填写 PRI/脉宽估计；连续、宽带噪声和扫频仅发布适用的频率/带宽估计，
@@ -293,6 +295,8 @@ RF v2 characterization、前端、检测、饱和、调谐、顺序无关和 rep
 [evidence: tests/unit/electronic_surveillance_radar/esr_resolution_cell_ledger_test.cpp::EsrResolutionCellLedgerTest.TimeSeparatedPulsesDoNotInterfere]
 [evidence: tests/unit/electronic_surveillance_radar/esr_resolution_cell_ledger_test.cpp::EsrResolutionCellLedgerTest.PolarBearingWithoutObservableAzimuthCannotBecomeCandidate]
 [evidence: tests/unit/electronic_surveillance_radar/esr_resolution_cell_ledger_test.cpp::EsrResolutionCellLedgerTest.LinearSweepUsesPartialInstantaneousChannelDwell]
+[evidence: tests/unit/electronic_surveillance_radar/esr_resolution_cell_ledger_test.cpp::EsrResolutionCellLedgerTest.PulsePowerAndCountAreInvariantToEmptyWindowPadding]
+[evidence: tests/unit/electronic_surveillance_radar/esr_resolution_cell_ledger_test.cpp::EsrResolutionCellLedgerTest.PulseCrossingTimeBinBoundaryCountsOnce]
 [evidence: tests/integration/electronic_surveillance_radar/esr_session_test.cpp::EsrSessionIntegrationTest.PolarBearingSingularityDoesNotRejectObservablePeer]
 
 Replay 的 cycle-input ECEF 位置、速度和独立姿态均为 double 精度；schema/codec 不允许把它们降为 float。
@@ -517,9 +521,12 @@ batch 不含 truth matching、legacy lifecycle recorder 或旧输入适配器；
 1000 个 ESR 发射验证 RF 前端/分辨账本；密集检测场景要求每周期 1000 条 raw observation，并至少保留
 90% 的预处理观测、cluster 和 hypothesis，同时限制活跃 hypothesis 不超过输入规模的 5 倍，验证检测
 后处理、跨周期关联和 missed-track 回收。两者都在 20 个 lifecycle 预热周期后连续测量 100 周期并要求
-P95 `< 100 ms`，拒绝周期不能计入性能样本。密集场景还逐周期采样进程当前驻留内存，以最初和最后
+P95 `< 100 ms`，拒绝周期不能计入性能样本。密集场景还逐周期采样活跃堆分配量，以最初和最后
 20 个测量周期的中位数比较稳态增长，允许上限为 4 MiB；不得用进程历史峰值 RSS 或 hypothesis 数量
-替代真实驻留内存验收。
+替代活跃模型状态的内存验收。进程当前 RSS 仍逐周期采样并记录首尾中位数和增长值，但只作为诊断：
+macOS 的 demand paging 与共享代码页首次驻留可在活跃堆不增长时改变 `resident_size`，不能稳定证明
+模型保留了无界周期状态。稀疏场景同时断言 AR 与 ESR 都为 completed；密集场景同时记录首尾活跃堆
+中位数、活跃堆增长及 RSS 诊断值，使阈值失败可以追溯到原始稳态窗口，而不是只保留布尔结果。
 [evidence: tests/performance/cross_domain/rf_interference_performance_test.cpp::RfInterferencePerformanceTest.SparseDetectionFullScaleRfFrontEndMeetsReleaseP95Budget]
 [evidence: tests/performance/cross_domain/rf_interference_performance_test.cpp::RfInterferencePerformanceTest.DenseDetectionFullScaleEsrPipelineMeetsReleaseP95Budget]
 

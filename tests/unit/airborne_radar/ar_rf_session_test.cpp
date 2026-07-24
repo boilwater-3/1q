@@ -67,6 +67,14 @@ void AddNoiseInterference(double transmit_power_w, ArCycleInput* input) {
   input->interference.emissions.push_back(emission);
 }
 
+void AddUnconfiguredCoSiteInterference(ArCycleInput* input) {
+  ASSERT_NE(input, nullptr);
+  AddNoiseInterference(1.0, input);
+  oneq::electromagnetics::RfSceneEmission& emission = input->interference.emissions.back();
+  emission.identity.platform_id = input->platform.platform_entity_id;
+  emission.position_ecef_m = input->platform.platform_position_ecef_m;
+}
+
 TEST(ArRfSessionTest, SaturationCompletesWithoutFalseRfObservation) {
   ArCycleInput input = MakeInput(1U, 0.0);
   AddNoiseInterference(1.0e18, &input);
@@ -119,6 +127,112 @@ TEST(ArRfSessionTest, ExternalAgilityDecisionChangesNextActualCarrier) {
   EXPECT_DOUBLE_EQ(
       second.emission_frame.emissions.front().waveform.center_frequency_hz,
       3.1e9);
+}
+
+TEST(ArRfSessionTest, ReceiveRejectionCommitsEmissionIdentityChronologyAndAppliedAgility) {
+  config::ArSessionConfig config;
+  config.hardware.transmitter.frequency_plan_hz = {3.0e9, 3.1e9};
+  ArSession radar = ArSession::Create(config);
+  const ArCycleResult first = radar.StepWithResult(MakeInput(1U, 0.0));
+  ASSERT_EQ(first.status, ArCycleStatus::kCompleted);
+  ASSERT_TRUE(first.has_decision_observation);
+
+  ExternalDecisionResponse response;
+  response.source_cycle_index = first.decision_observation.input_frame.cycle_index;
+  response.source_batch_id = first.decision_observation.input_frame.batch_id;
+  response.proposals.push_back(
+      TacticalProposal{ControlDirective(ControlDirectiveType::REQUEST_AGILITY_FREQUENCY,
+                                        ControlDirectiveSource::SURVIVABILITY),
+                       90, "agility"});
+  ASSERT_EQ(radar.SubmitExternalDecision(response), ExternalDecisionSubmitStatus::kAccepted);
+
+  ArCycleInput rejected_input = MakeInput(2U, 0.5);
+  AddUnconfiguredCoSiteInterference(&rejected_input);
+  const ArCycleResult rejected = radar.StepWithResult(rejected_input);
+  ASSERT_EQ(rejected.status, ArCycleStatus::kRejectedExecution);
+  ASSERT_EQ(rejected.emission_frame.emissions.size(), 1U);
+  EXPECT_EQ(rejected.emission_frame.emissions.front().identity.emission_id, 2U);
+  EXPECT_DOUBLE_EQ(rejected.emission_frame.emissions.front().waveform.center_frequency_hz, 3.1e9);
+  EXPECT_EQ(rejected.applied_decision_source, DecisionControlSource::kExternal);
+
+  const ArCycleResult next = radar.StepWithResult(MakeInput(3U, 1.0));
+  ASSERT_EQ(next.status, ArCycleStatus::kCompleted);
+  ASSERT_EQ(next.emission_frame.emissions.size(), 1U);
+  EXPECT_EQ(next.emission_frame.emissions.front().identity.emission_id, 3U);
+  EXPECT_DOUBLE_EQ(next.emission_frame.emissions.front().waveform.center_frequency_hz, 3.0e9);
+}
+
+TEST(ArRfSessionTest, EccmSidelobeControlsKeepNextReceiverPatternValid) {
+  ArSession radar = ArSession::Create(MakeRfConfig());
+  const ArCycleResult first = radar.StepWithResult(MakeInput(1U, 0.0));
+  ASSERT_EQ(first.status, ArCycleStatus::kCompleted);
+  ASSERT_TRUE(first.has_decision_observation);
+
+  ExternalDecisionResponse response;
+  response.source_cycle_index = first.decision_observation.input_frame.cycle_index;
+  response.source_batch_id = first.decision_observation.input_frame.batch_id;
+  response.proposals.push_back(
+      TacticalProposal{ControlDirective(ControlDirectiveType::REQUEST_ENABLE_SIDELOBE_CANCELLER,
+                                        ControlDirectiveSource::SURVIVABILITY),
+                       90, "sidelobe-canceller"});
+  response.proposals.push_back(
+      TacticalProposal{ControlDirective(ControlDirectiveType::REQUEST_ENABLE_ADAPTIVE_BEAMFORMING,
+                                        ControlDirectiveSource::SURVIVABILITY),
+                       80, "adaptive-beamforming"});
+  ASSERT_EQ(radar.SubmitExternalDecision(response), ExternalDecisionSubmitStatus::kAccepted);
+
+  const ArCycleResult second = radar.StepWithResult(MakeInput(2U, 0.5));
+  EXPECT_EQ(second.status, ArCycleStatus::kCompleted);
+}
+
+TEST(ArRfSessionTest, InertialStabilizationKeepsActualEcefBoresightFixed) {
+  config::ArSessionConfig body_config = MakeRfConfig();
+  body_config.mission.orientation.work_mode = config::ArWorkMode::kStt;
+  body_config.mission.orientation.stabilization_mode = config::StabilizationMode::kBodyStabilized;
+  config::ArSessionConfig inertial_config = body_config;
+  inertial_config.mission.orientation.stabilization_mode =
+      config::StabilizationMode::kInertialStabilized;
+
+  ArCycleInput level_input = MakeInput(1U, 0.0);
+  ArCycleInput yawed_input = level_input;
+  yawed_input.platform.platform_attitude_deg.yaw_deg = 30.0;
+
+  ArSession body_level = ArSession::Create(body_config);
+  ArSession body_yawed = ArSession::Create(body_config);
+  ArSession inertial_level = ArSession::Create(inertial_config);
+  ArSession inertial_yawed = ArSession::Create(inertial_config);
+  const ArCycleResult body_level_result = body_level.StepWithResult(level_input);
+  const ArCycleResult body_yawed_result = body_yawed.StepWithResult(yawed_input);
+  const ArCycleResult inertial_level_result = inertial_level.StepWithResult(level_input);
+  const ArCycleResult inertial_yawed_result = inertial_yawed.StepWithResult(yawed_input);
+
+  ASSERT_EQ(body_level_result.status, ArCycleStatus::kCompleted);
+  ASSERT_EQ(body_yawed_result.status, ArCycleStatus::kCompleted);
+  ASSERT_EQ(inertial_level_result.status, ArCycleStatus::kCompleted);
+  ASSERT_EQ(inertial_yawed_result.status, ArCycleStatus::kCompleted);
+  const auto& body_level_boresight =
+      body_level_result.emission_frame.emissions.front().antenna.boresight_ecef;
+  const auto& body_yawed_boresight =
+      body_yawed_result.emission_frame.emissions.front().antenna.boresight_ecef;
+  const auto& inertial_level_boresight =
+      inertial_level_result.emission_frame.emissions.front().antenna.boresight_ecef;
+  const auto& inertial_yawed_boresight =
+      inertial_yawed_result.emission_frame.emissions.front().antenna.boresight_ecef;
+  const double body_delta_squared = (body_level_boresight.x - body_yawed_boresight.x) *
+                                        (body_level_boresight.x - body_yawed_boresight.x) +
+                                    (body_level_boresight.y - body_yawed_boresight.y) *
+                                        (body_level_boresight.y - body_yawed_boresight.y) +
+                                    (body_level_boresight.z - body_yawed_boresight.z) *
+                                        (body_level_boresight.z - body_yawed_boresight.z);
+  const double inertial_delta_squared =
+      (inertial_level_boresight.x - inertial_yawed_boresight.x) *
+          (inertial_level_boresight.x - inertial_yawed_boresight.x) +
+      (inertial_level_boresight.y - inertial_yawed_boresight.y) *
+          (inertial_level_boresight.y - inertial_yawed_boresight.y) +
+      (inertial_level_boresight.z - inertial_yawed_boresight.z) *
+          (inertial_level_boresight.z - inertial_yawed_boresight.z);
+  EXPECT_GT(body_delta_squared, 0.1);
+  EXPECT_LT(inertial_delta_squared, 1.0e-10);
 }
 
 TEST(ArRfSessionTest, RuntimePointingPatchChangesNextActualBoresight) {

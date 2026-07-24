@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <limits>
 #include <map>
+#include <set>
 #include <tuple>
 #include <utility>
 #include <vector>
@@ -22,7 +23,7 @@ struct CellContribution {
   double center_frequency_hz{0.0};
   double average_power_w{0.0};
   double active_time_s{0.0};
-  std::uint32_t pulse_count{0U};
+  std::vector<std::uint32_t> pulse_indices{};
   bool candidate_eligible{false};
 };
 
@@ -33,7 +34,7 @@ struct SourceAccumulator {
   double interference_energy_j{0.0};
   double frequency_weighted_energy_j_hz{0.0};
   double active_time_s{0.0};
-  std::uint64_t effective_pulse_count{0U};
+  std::set<std::uint32_t> pulse_indices{};
 };
 
 bool IsFinite(double value) { return std::isfinite(value) != 0; }
@@ -65,15 +66,15 @@ AngularCellKey ResolveAngularCell(const EsrArrivalBearing& bearing,
       static_cast<std::int32_t>(std::floor((elevation + 90.0) / angular_resolution_deg)));
 }
 
-bool AddContributionForBin(
-    std::size_t source_index,
-    const oneq::electromagnetics::RfIncidentLinkResult& link,
-    const EsrArrivalBearing& bearing,
-    const oneq::electromagnetics::RfSceneReceiverState& receiver,
-    double angular_resolution_deg, std::size_t time_bin, double active_time_s,
-    std::uint32_t pulse_count, double arrival_sample_time_s,
-    std::map<AngularCellKey, std::vector<CellContribution>>* angular_cells,
-    std::vector<double>* co_site_power_w) {
+bool AddContributionForBin(std::size_t source_index,
+                           const oneq::electromagnetics::RfIncidentLinkResult& link,
+                           const EsrArrivalBearing& bearing,
+                           const oneq::electromagnetics::RfSceneReceiverState& receiver,
+                           double angular_resolution_deg, std::size_t time_bin,
+                           double active_time_s, const std::vector<std::uint32_t>& pulse_indices,
+                           double arrival_sample_time_s,
+                           std::map<AngularCellKey, std::vector<CellContribution>>* angular_cells,
+                           std::vector<double>* co_site_power_w) {
   if (active_time_s <= 0.0 || angular_cells == nullptr || co_site_power_w == nullptr) {
     return true;
   }
@@ -102,9 +103,9 @@ bool AddContributionForBin(
   }
   const double time_bin_duration_s =
       receiver.window_duration_s / static_cast<double>(kTimeCellCount);
-  const double average_power_w =
-      link.received_power_before_overlap_w * overlap_fraction *
-      std::min(1.0, active_time_s / time_bin_duration_s);
+  const double bounded_active_time_s = std::min(time_bin_duration_s, active_time_s);
+  const double average_power_w = link.received_power_before_overlap_w * overlap_fraction *
+                                 (bounded_active_time_s / time_bin_duration_s);
   if (!IsFinite(average_power_w) || average_power_w < 0.0) {
     return false;
   }
@@ -118,8 +119,8 @@ bool AddContributionForBin(
   contribution.upper_frequency_hz = center_frequency_hz + 0.5 * bandwidth_hz;
   contribution.center_frequency_hz = center_frequency_hz;
   contribution.average_power_w = average_power_w;
-  contribution.active_time_s = active_time_s;
-  contribution.pulse_count = pulse_count;
+  contribution.active_time_s = bounded_active_time_s;
+  contribution.pulse_indices = pulse_indices;
   contribution.candidate_eligible = bearing.azimuth_observable;
   (*angular_cells)[ResolveAngularCell(bearing, angular_resolution_deg)].push_back(contribution);
   return true;
@@ -137,7 +138,7 @@ bool AccumulateLink(
   const double time_bin_duration_s =
       receiver.window_duration_s / static_cast<double>(kTimeCellCount);
   std::vector<double> active_time_by_bin(kTimeCellCount, 0.0);
-  std::vector<std::uint32_t> pulse_count_by_bin(kTimeCellCount, 0U);
+  std::vector<std::vector<std::uint32_t>> pulse_indices_by_bin(kTimeCellCount);
   const oneq::electromagnetics::RfWaveformSchedule& waveform = link.emission_waveform;
   if (waveform.kind == oneq::electromagnetics::RfSceneWaveformKind::kPulseTrain) {
     for (std::uint32_t pulse_index = 0U; pulse_index < waveform.pulse_count; ++pulse_index) {
@@ -171,7 +172,7 @@ bool AccumulateLink(
             bin_start_s + time_bin_duration_s);
         if (overlap_s > 0.0) {
           active_time_by_bin[bin] += overlap_s;
-          ++pulse_count_by_bin[bin];
+          pulse_indices_by_bin[bin].push_back(pulse_index);
         }
       }
     }
@@ -194,10 +195,9 @@ bool AccumulateLink(
     }
     const double sample_time_s =
         receiver_start_s + (static_cast<double>(bin) + 0.5) * time_bin_duration_s;
-    if (!AddContributionForBin(
-            source_index, link, bearing, receiver, angular_resolution_deg, bin,
-            active_time_by_bin[bin], pulse_count_by_bin[bin], sample_time_s,
-            &(*time_cells)[bin], co_site_power_w)) {
+    if (!AddContributionForBin(source_index, link, bearing, receiver, angular_resolution_deg, bin,
+                               active_time_by_bin[bin], pulse_indices_by_bin[bin], sample_time_s,
+                               &(*time_cells)[bin], co_site_power_w)) {
       return false;
     }
   }
@@ -224,9 +224,7 @@ void AccumulateFrequencyClusters(
       ++end;
     }
     std::size_t strongest = end;
-    double total_power_w = co_site_power_w;
     for (std::size_t index = begin; index < end; ++index) {
-      total_power_w += (*contributions)[index].average_power_w;
       if ((*contributions)[index].candidate_eligible &&
           (strongest == end ||
            (*contributions)[index].average_power_w >
@@ -245,14 +243,24 @@ void AccumulateFrequencyClusters(
     const CellContribution& candidate = (*contributions)[strongest];
     SourceAccumulator& accumulator = (*accumulators)[candidate.source_index];
     const double signal_energy_j = candidate.average_power_w * time_bin_duration_s;
+    double interference_energy_j = co_site_power_w * candidate.active_time_s;
+    for (std::size_t index = begin; index < end; ++index) {
+      if (index == strongest || (*contributions)[index].active_time_s <= 0.0) {
+        continue;
+      }
+      const CellContribution& interferer = (*contributions)[index];
+      const double instantaneous_power_w =
+          interferer.average_power_w * time_bin_duration_s / interferer.active_time_s;
+      interference_energy_j +=
+          instantaneous_power_w * std::min(candidate.active_time_s, interferer.active_time_s);
+    }
     accumulator.signal_energy_j += signal_energy_j;
-    accumulator.interference_energy_j +=
-        std::max(0.0, total_power_w - candidate.average_power_w) *
-        time_bin_duration_s;
+    accumulator.interference_energy_j += interference_energy_j;
     accumulator.frequency_weighted_energy_j_hz +=
         signal_energy_j * candidate.center_frequency_hz;
     accumulator.active_time_s += candidate.active_time_s;
-    accumulator.effective_pulse_count += candidate.pulse_count;
+    accumulator.pulse_indices.insert(candidate.pulse_indices.begin(),
+                                     candidate.pulse_indices.end());
     begin = end;
   }
 }
@@ -299,25 +307,21 @@ bool TryBuildEsrResolutionCellLedger(
   for (std::size_t source_index = 0U; source_index < accumulators.size();
        ++source_index) {
     const SourceAccumulator& accumulator = accumulators[source_index];
-    if (accumulator.signal_energy_j <= 0.0) {
+    if (accumulator.signal_energy_j <= 0.0 || accumulator.active_time_s <= 0.0) {
       continue;
     }
     EsrResolutionCellCandidate candidate;
     candidate.source_index = source_index;
-    candidate.signal_power_w =
-        accumulator.signal_energy_j / receiver.window_duration_s;
-    candidate.interference_power_w =
-        accumulator.interference_energy_j / receiver.window_duration_s;
+    candidate.signal_power_w = accumulator.signal_energy_j / accumulator.active_time_s;
+    candidate.interference_power_w = accumulator.interference_energy_j / accumulator.active_time_s;
     candidate.estimated_center_frequency_hz =
         accumulator.frequency_weighted_energy_j_hz /
         accumulator.signal_energy_j;
     candidate.active_time_s =
         std::min(receiver.window_duration_s, accumulator.active_time_s);
-    candidate.effective_pulse_count = static_cast<std::uint32_t>(
-        std::max<std::uint64_t>(
-            1U, std::min<std::uint64_t>(
-                    accumulator.effective_pulse_count,
-                    std::numeric_limits<std::uint32_t>::max())));
+    candidate.effective_pulse_count = static_cast<std::uint32_t>(std::max<std::size_t>(
+        1U, std::min<std::size_t>(accumulator.pulse_indices.size(),
+                                  std::numeric_limits<std::uint32_t>::max())));
     if (!IsFinite(candidate.signal_power_w) ||
         !IsFinite(candidate.interference_power_w) ||
         !IsFinite(candidate.estimated_center_frequency_hz) ||

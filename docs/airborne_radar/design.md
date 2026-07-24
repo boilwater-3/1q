@@ -1,9 +1,9 @@
 # Airborne Radar 当前设计
 
 Status: active
-Last-reviewed: 2026-07-22
+Last-reviewed: 2026-07-24
 Authority: current airborne_radar module design
-RF-Interference-Architecture: frozen target; implementation pending
+RF-Interference-Architecture: RF v2 transmitter/receiver current
 
 本文描述 `airborne_radar` 当前架构、数据流和算法边界。跨模块 public API、builder、输出三层模型等共同规则见 `docs/common/contract.md`。
 
@@ -351,14 +351,16 @@ flowchart LR
 状态所有权固定如下：
 
 - transmitter state 由 AR session 的内部发射准备子状态唯一拥有，包括实际 waveform、frequency-hop
-  phase、PRI/rejitter phase、emission ID 和发射随机流。完整单周期成功时与结果原子提交；输入或内部
-  执行拒绝不得消费这些状态。
+  phase、PRI/rejitter phase、emission ID 和发射随机流。输入校验、关机或实际发射发布前的配置拒绝
+  不消费这些状态；实际 emission 一经发布即提交。后续接收/探测执行拒绝只恢复接收侧候选状态，
+  `ArCycleResult::emission_frame` 仍返回该不可撤销的发射事实。
 - receiver operating state 由 signal pipeline 在本周期冻结，包括接收波束/自适应零陷、调谐、预选器、
-  T/R blanking、检测窗口、系统损耗、噪声参数和最大线性输入功率。该状态对本周期所有目标和外部发射
+  检测窗口、系统损耗、噪声参数和最大线性输入功率。该状态对本周期所有目标和外部发射
   相同，禁止逐目标临时重指向。
 - detection/association/tracking state 继续由 pipeline/lifecycle/filter 各自拥有；单周期拒绝时恢复全部
   本周期候选状态，饱和则是成功物理周期并推进 missed-detection。
-- internal/external LPI/ECCM proposal 在下一次**成功单周期执行**时消费；输入拒绝或关机不消费。
+- internal/external LPI/ECCM proposal 在下一次**成功发布实际 emission**时消费；输入拒绝、发射前配置
+  拒绝或关机不消费，发射后的接收拒绝不允许再次消费同一 proposal。
 - 旧 `PrepareCycle` / `CompleteCycle` / `AbandonCycle`、opaque token 和 scene freeze 不进入公共头、示例、
   trace 门面或安装消费者。
 
@@ -474,6 +476,11 @@ AR 的探测不是只按目标 range 计算。目标必须先被解析到当前�
 [evidence: tests/unit/airborne_radar/ar_signal_scan_schedule_test.cpp]
 [evidence: tests/replay/airborne_radar/ar_replay_codec_roundtrip_test.cpp]
 
+实际 emission 与 detection context 在 prepare 阶段冻结同一个挂架坐标波束。机体稳定直接使用扫描中心
+和 dwell；惯性稳定、对地稳定先使用本周期平台姿态和实际安装角反解挂架指向，再同时用于 ECEF
+发射 boresight 与目标方向增益。平台转动不得使惯性/对地稳定波束随机体漂移。
+[evidence: tests/unit/airborne_radar/ar_rf_session_test.cpp::ArRfSessionTest.InertialStabilizationKeepsActualEcefBoresightFixed]
+
 天线波束宽度按轴独立解析，方位轴使用 `nominal_az_beamwidth_deg` / `antenna_length_m`，俯仰轴使用
 `nominal_el_beamwidth_deg` / `antenna_width_m`：
 
@@ -516,9 +523,9 @@ AR 不再提供 heuristic detection toggle 或启发式 pass。冻结目标不�
    波束和驻留。每个目标由 AR 自有双程雷达方程计算 echo，包含本周期 transmit/receive gain、双程
    传播、大气、RCS 和处理前损耗；目标不得转换成公共单程 emission。
 2. **外部入射 RF。** 冻结 `RfSceneFrame` 中的雷达、ECM 和其他发射经公共单程链路到达 AR 接收设备。
-   platform/equipment 路径决定 T/R blanking 或 co-site isolation，不能用零距离自由空间公式或单一实体 ID
-   猜测自扰。
-3. **前端账本。** 在实际接收方向图、预选器和 T/R 时序下聚合整个前端带宽的输入功率。超过
+   platform/equipment 路径决定设备级 co-site isolation，不能用零距离自由空间公式或单一实体 ID
+   猜测自扰。当前单周期模型不实现 T/R blanking；不得把 co-site 衰减描述为发射脉冲消隐。
+3. **前端账本。** 在实际接收方向图和预选器下聚合整个前端带宽的输入功率。超过
    `maximum_linear_input_power_w` 时，本周期仍是物理执行成功，但输出
    `receiver_saturated` impairment，不生成目标量测或虚假 interference observation。
 4. **检测单元账本。** 在 range/Doppler/beam 以及实际 time-frequency window 内，为每个候选目标分别记录
@@ -677,13 +684,16 @@ ECCM 只消费接收机 interference observation；烧穿评分达到阈值后�
 [evidence: tests/unit/airborne_radar/ar_tactical_coordinator_test.cpp::ControlReducerTest.RejectsMissingNonFiniteOutOfRangeAndUnexpectedValues]
 [evidence: tests/unit/airborne_radar/ar_core_controller_test.cpp::RejectsMismatchedDuplicateAndInvalidExternalResponses]
 
-controller 在单周期开始时把 control profile 传给 signal pipeline，因此决策影响下一成功周期，
+controller 在单周期开始时把 control profile 传给 signal pipeline，因此决策影响下一次实际发射，
 不应假设 proposal 立即改变已经完成的探测。输入拒绝或关机保留 proposal；实际 emission 一经内部发布
 即提交 transmitter profile、hop/PRI phase 和相关计数，后续接收侧失败不得让同一 proposal 再次控制下一次
-发射。hold/cooldown 的“成功周期”指成功执行并发布实际 emission 的单周期。
+发射。hold/cooldown 的消费边界同样以成功发布实际 emission 为准。
 
 输入验证失败不消费 control profile、reducer 计数器、internal baseline 或待消费外部响应；该响应可供
-下一次成功执行重试。发射已发布后的接收机 impairment 则是已完成物理周期，不回滚已提交发射事实。
+下一次发射重试。发射已发布后的接收机 impairment 是已完成物理周期；后续内部接收拒绝虽然不产生
+接收/跟踪输出，也必须返回实际 emission，并且不回滚已提交发射事实。
+[evidence: tests/unit/airborne_radar/ar_rf_session_test.cpp::ArRfSessionTest.ReceiveRejectionCommitsEmissionIdentityChronologyAndAppliedAgility]
+[evidence: tests/replay/airborne_radar/ar_rf_trace_session_test.cpp::ArRfTraceSessionTest.PostEmissionReceiveRejectionReplayExactly]
 [evidence: tests/unit/airborne_radar/ar_core_controller_test.cpp::CoreControllerTest.RuntimeRestoreRetainsPendingExternalResponseForRetry]
 [evidence: tests/unit/airborne_radar/ar_core_controller_test.cpp::CoreControllerTest.PublicDecisionControlConfigEnablesHoldWindow]
 [evidence: tests/contract/airborne_radar/ar_public_api_convenience_test.cpp::PublicApiConvenienceTest.RadarRuntimePolicyPatchEnablesDecisionHoldWindow]

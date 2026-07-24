@@ -10,7 +10,9 @@
 
 #if defined(__APPLE__)
 #include <mach/mach.h>
+#include <malloc/malloc.h>
 #elif defined(__linux__)
+#include <malloc.h>
 #include <unistd.h>
 #endif
 
@@ -38,10 +40,9 @@ constexpr std::size_t kDenseMaximumHypothesisCount = 5U * kEsrEmitterCount;
 // full cycles.
 constexpr std::uint32_t kWarmupCycles = 20U;
 constexpr std::uint32_t kMeasuredCycles = 100U;
-constexpr std::size_t kResidentWindowCycles = 20U;
+constexpr std::size_t kMemoryWindowCycles = 20U;
 constexpr double kP95LimitMilliseconds = 100.0;
-constexpr std::size_t kMaximumPostWarmupResidentGrowthBytes =
-    4U * 1024U * 1024U;
+constexpr std::size_t kMaximumPostWarmupAllocatedHeapGrowthBytes = 4U * 1024U * 1024U;
 
 std::size_t ReadResidentBytes() {
 #if defined(__APPLE__)
@@ -67,6 +68,19 @@ std::size_t ReadResidentBytes() {
     return 0U;
   }
   return resident_pages * static_cast<std::size_t>(page_size);
+#else
+  return 0U;
+#endif
+}
+
+std::size_t ReadAllocatedHeapBytes() {
+#if defined(__APPLE__)
+  malloc_statistics_t statistics{};
+  malloc_zone_statistics(malloc_default_zone(), &statistics);
+  return statistics.size_in_use;
+#elif defined(__linux__)
+  const struct mallinfo2 statistics = mallinfo2();
+  return static_cast<std::size_t>(statistics.uordblks);
 #else
   return 0U;
 #endif
@@ -220,6 +234,7 @@ TEST(RfInterferencePerformanceTest,
     const double duration_ms =
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start).count();
     ASSERT_FALSE(ar_result.has_validation_error);
+    ASSERT_EQ(ar_result.status, ar_session::ArCycleStatus::kCompleted);
     ASSERT_FALSE(esr_result.has_validation_error);
     ASSERT_EQ(esr_result.status, esr_session::EsrCycleExecutionStatus::kCompleted);
     if (cycle > kWarmupCycles) {
@@ -256,6 +271,8 @@ TEST(RfInterferencePerformanceTest,
   std::size_t maximum_hypothesis_count = 0U;
   std::vector<std::size_t> resident_samples;
   resident_samples.reserve(kMeasuredCycles);
+  std::vector<std::size_t> allocated_heap_samples;
+  allocated_heap_samples.reserve(kMeasuredCycles);
 
   for (std::uint32_t cycle = 1U;
        cycle <= kWarmupCycles + kMeasuredCycles; ++cycle) {
@@ -298,16 +315,18 @@ TEST(RfInterferencePerformanceTest,
       const std::size_t resident_bytes = ReadResidentBytes();
       ASSERT_GT(resident_bytes, 0U);
       resident_samples.push_back(resident_bytes);
+      const std::size_t allocated_heap_bytes = ReadAllocatedHeapBytes();
+      ASSERT_GT(allocated_heap_bytes, 0U);
+      allocated_heap_samples.push_back(allocated_heap_bytes);
     }
   }
 
   const double p95_ms = ComputeP95Milliseconds(&elapsed_ms);
   ASSERT_EQ(resident_samples.size(), kMeasuredCycles);
   const std::vector<std::size_t> first_resident_window(
-      resident_samples.begin(),
-      resident_samples.begin() + kResidentWindowCycles);
-  const std::vector<std::size_t> last_resident_window(
-      resident_samples.end() - kResidentWindowCycles, resident_samples.end());
+      resident_samples.begin(), resident_samples.begin() + kMemoryWindowCycles);
+  const std::vector<std::size_t> last_resident_window(resident_samples.end() - kMemoryWindowCycles,
+                                                      resident_samples.end());
   const std::size_t first_window_median_bytes =
       ComputeMedianBytes(first_resident_window);
   const std::size_t last_window_median_bytes =
@@ -315,6 +334,19 @@ TEST(RfInterferencePerformanceTest,
   const std::size_t resident_growth_bytes =
       last_window_median_bytes > first_window_median_bytes
           ? last_window_median_bytes - first_window_median_bytes
+          : 0U;
+  ASSERT_EQ(allocated_heap_samples.size(), kMeasuredCycles);
+  const std::vector<std::size_t> first_allocated_heap_window(
+      allocated_heap_samples.begin(), allocated_heap_samples.begin() + kMemoryWindowCycles);
+  const std::vector<std::size_t> last_allocated_heap_window(
+      allocated_heap_samples.end() - kMemoryWindowCycles, allocated_heap_samples.end());
+  const std::size_t first_allocated_heap_window_median_bytes =
+      ComputeMedianBytes(first_allocated_heap_window);
+  const std::size_t last_allocated_heap_window_median_bytes =
+      ComputeMedianBytes(last_allocated_heap_window);
+  const std::size_t allocated_heap_growth_bytes =
+      last_allocated_heap_window_median_bytes > first_allocated_heap_window_median_bytes
+          ? last_allocated_heap_window_median_bytes - first_allocated_heap_window_median_bytes
           : 0U;
   RecordProperty("esr_emitter_count", static_cast<int>(kEsrEmitterCount));
   RecordProperty("raw_observation_count_per_cycle",
@@ -329,11 +361,24 @@ TEST(RfInterferencePerformanceTest,
                  static_cast<int>(maximum_hypothesis_count));
   RecordProperty("measured_cycle_count", static_cast<int>(kMeasuredCycles));
   RecordProperty("p95_milliseconds", std::to_string(p95_ms));
+  RecordProperty("first_resident_window_median_bytes",
+                 static_cast<double>(first_window_median_bytes));
+  RecordProperty("last_resident_window_median_bytes",
+                 static_cast<double>(last_window_median_bytes));
   RecordProperty("post_warmup_resident_growth_bytes",
                  static_cast<double>(resident_growth_bytes));
+  RecordProperty("first_allocated_heap_window_median_bytes",
+                 static_cast<double>(first_allocated_heap_window_median_bytes));
+  RecordProperty("last_allocated_heap_window_median_bytes",
+                 static_cast<double>(last_allocated_heap_window_median_bytes));
+  RecordProperty("post_warmup_allocated_heap_growth_bytes",
+                 static_cast<double>(allocated_heap_growth_bytes));
   EXPECT_LT(p95_ms, kP95LimitMilliseconds);
-  EXPECT_LE(resident_growth_bytes,
-            kMaximumPostWarmupResidentGrowthBytes);
+  // Resident pages are retained as a diagnostic because demand paging and
+  // shared-library code faults can move RSS without retaining model state.
+  // Active heap allocation directly checks whether the steady-state pipeline
+  // keeps an unbounded amount of cycle-owned data.
+  EXPECT_LE(allocated_heap_growth_bytes, kMaximumPostWarmupAllocatedHeapGrowthBytes);
 }
 
 }  // namespace
