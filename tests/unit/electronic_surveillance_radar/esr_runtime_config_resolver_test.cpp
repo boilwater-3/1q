@@ -461,6 +461,85 @@ TEST(EsrRuntimeConfigResolverTest, DisableExplicitBoundsRejectsNonFiniteCenterAt
   EXPECT_FLOAT_EQ(invalid_el.next_config.resolved_scan.scan_end_az_deg, 10.0f);
 }
 
+TEST(EsrRuntimeConfigResolverTest, RejectsUnknownMissionEnumsAtomically) {
+  EsrInternalExecutionConfig current_config;
+  current_config.mission.work_mode = config::EsrWorkMode::kEsm;
+
+  config::EsrRuntimeConfigPatch patch;
+  patch.has_work_mode = true;
+  patch.work_mode = static_cast<config::EsrWorkMode>(99);
+
+  const EsrRuntimeConfigResolveResult resolved =
+      ResolveEsrRuntimeConfigPatch(current_config, patch);
+  EXPECT_FALSE(resolved.is_valid);
+  EXPECT_EQ(resolved.status,
+            EsrRuntimeConfigApplyStatus::kRejectedInvalidMission);
+  EXPECT_EQ(resolved.next_config.mission.work_mode,
+            config::EsrWorkMode::kEsm);
+}
+
+TEST(EsrRuntimeConfigResolverTest, RejectsInvalidPolicyAtomically) {
+  EsrInternalExecutionConfig current_config;
+  current_config.base_detection.pfa = 1.0e-6f;
+
+  config::EsrRuntimeConfigPatch patch;
+  patch.has_policy = true;
+  patch.policy.detection = current_config.base_detection;
+  patch.policy.detection.pfa = 0.0f;
+
+  const EsrRuntimeConfigResolveResult resolved =
+      ResolveEsrRuntimeConfigPatch(current_config, patch);
+  EXPECT_FALSE(resolved.is_valid);
+  EXPECT_EQ(resolved.status,
+            EsrRuntimeConfigApplyStatus::kRejectedInvalidPolicy);
+  EXPECT_FLOAT_EQ(resolved.next_config.base_detection.pfa, 1.0e-6f);
+}
+
+TEST(EsrRuntimeConfigResolverTest, RejectsInvalidEnvironmentAtomically) {
+  EsrInternalExecutionConfig current_config;
+  current_config.environment.atmospheric_physics.enable_physical_model = false;
+
+  config::EsrRuntimeConfigPatch patch;
+  patch.has_environment = true;
+  patch.environment.has_atmospheric_physics = true;
+  patch.environment.atmospheric_physics.enable_physical_model = true;
+  patch.environment.atmospheric_physics.relative_humidity = 2.0f;
+
+  const EsrRuntimeConfigResolveResult resolved =
+      ResolveEsrRuntimeConfigPatch(current_config, patch);
+  EXPECT_FALSE(resolved.is_valid);
+  EXPECT_EQ(resolved.status,
+            EsrRuntimeConfigApplyStatus::kRejectedInvalidEnvironment);
+  EXPECT_FALSE(resolved.next_config.environment.atmospheric_physics
+                   .enable_physical_model);
+}
+
+TEST(EsrRuntimeConfigResolverTest,
+     RepeatedWorkModeChangesDoNotCompoundPolicyAdjustment) {
+  EsrInternalExecutionConfig current_config;
+  current_config.base_detection.pulse_count = 8U;
+  current_config.base_detection.threshold_scale = 1.0f;
+  current_config.detection = current_config.base_detection;
+
+  config::EsrRuntimeConfigPatch rwr_patch;
+  rwr_patch.has_work_mode = true;
+  rwr_patch.work_mode = config::EsrWorkMode::kRwr;
+  const EsrRuntimeConfigResolveResult rwr =
+      ResolveEsrRuntimeConfigPatch(current_config, rwr_patch);
+  ASSERT_TRUE(rwr.is_valid);
+  EXPECT_EQ(rwr.next_config.detection.pulse_count, 4U);
+  EXPECT_FLOAT_EQ(rwr.next_config.detection.threshold_scale, 1.25f);
+
+  config::EsrRuntimeConfigPatch hgesm_patch;
+  hgesm_patch.has_work_mode = true;
+  hgesm_patch.work_mode = config::EsrWorkMode::kHgesm;
+  const EsrRuntimeConfigResolveResult hgesm =
+      ResolveEsrRuntimeConfigPatch(rwr.next_config, hgesm_patch);
+  ASSERT_TRUE(hgesm.is_valid);
+  EXPECT_EQ(hgesm.next_config.detection.pulse_count, 32U);
+  EXPECT_FLOAT_EQ(hgesm.next_config.detection.threshold_scale, 0.85f);
+}
+
 }  // namespace
 }  // namespace internal
 }  // namespace session

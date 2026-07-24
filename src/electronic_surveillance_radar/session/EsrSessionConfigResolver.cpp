@@ -18,7 +18,8 @@ EsrInternalExecutionConfig MapSessionToInternal(const config::EsrSessionConfig& 
   exec.mission = mission;
 
   // Detection: direct policy assignment (no profile abstraction)
-  exec.detection = session_config.policy.detection;
+  exec.base_detection = session_config.policy.detection;
+  exec.detection = exec.base_detection;
 
   // Work mode adjustment
   ApplyWorkModeAdjustment(mission.work_mode, &exec.detection);

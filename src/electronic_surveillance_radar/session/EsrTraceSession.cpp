@@ -159,12 +159,16 @@ EsrCycleResult EsrTraceSession::StepWithResult(const EsrCycleInput& input) {
   return result;
 }
 
-void EsrTraceSession::ApplyRuntimeConfig(const config::EsrRuntimeConfigPatch& patch) {
+EsrRuntimeConfigApplyResult EsrTraceSession::ApplyRuntimeConfig(
+    const config::EsrRuntimeConfigPatch& patch) {
+  const EsrRuntimeConfigApplyResult result =
+      impl_->session.ApplyRuntimeConfigWithResult(patch);
   if (impl_->replay_writer) {
-    impl_->WriteReplayEvent("runtime_config_patch", "EsrRuntimeConfigPatch",
-                            EncodeEsrRuntimeConfigPatch(patch));
+    impl_->WriteReplayEvent(
+        "runtime_config_patch", "EsrRuntimeConfigPatchEvent",
+        EncodeEsrRuntimeConfigPatchEvent(patch, result));
   }
-  impl_->session.ApplyRuntimeConfig(patch);
+  return result;
 }
 
 EsrSession& EsrTraceSession::session() { return impl_->session; }

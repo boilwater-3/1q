@@ -11,7 +11,6 @@
 #include "1q/electronic_surveillance_radar/session/EsrCycleResult.h"
 #include "1q/electronic_surveillance_radar/session/EsrCycleInput.h"
 #include "1q/electronic_surveillance_radar/session/EsrInputValidation.h"
-#include "electronic_surveillance_radar/pipeline/InterceptPipelineTypes.h"
 
 namespace electronic_surveillance_radar {
 namespace pipeline {
@@ -35,7 +34,6 @@ struct EsrControllerRuntimeState {
       session::EsrCycleExecutionStatus::kRejected};
   session::EsrPipelineAbortReason last_abort_reason{
       session::EsrPipelineAbortReason::kNone};
-  extension::InterceptPipelineRuntimeState pipeline_state{};
 };
 
 namespace extension {
@@ -91,7 +89,8 @@ class EsrController {
   session::EsrPipelineAbortReason GetLastInterceptCycleAbortReason() const;
 
   /**
-   * @brief 捕获当前控制器运行态快照（含流水线快照）。
+   * @brief 捕获当前控制器自有运行态快照。
+   * @note 流水线累积状态由 session 事务边界独立捕获，不属于控制器快照。
    * @return 当前运行态快照。
    */
   EsrControllerRuntimeState CaptureRuntimeState() const;

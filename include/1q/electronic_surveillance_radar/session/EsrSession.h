@@ -29,6 +29,9 @@ enum class EsrRuntimeConfigApplyStatus {
   kRejectedInvalidScanCenterAz,         /**< 因扫描中心方位角非法被拒绝 */
   kRejectedInvalidScanCenterEl,         /**< 因扫描中心俯仰角非法被拒绝 */
   kRejectedInvalidExplicitScanBounds,   /**< 因显式扫描边界非法被拒绝 */
+  kRejectedInvalidMission,              /**< 因任务枚举或任务语义非法被拒绝 */
+  kRejectedInvalidPolicy,               /**< 因探测策略非法被拒绝 */
+  kRejectedInvalidEnvironment,          /**< 因环境模型配置非法被拒绝 */
 };
 
 /**

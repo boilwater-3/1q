@@ -12,6 +12,7 @@
 #include "1q/electronic_surveillance_radar/session/EsrCycleResult.h"
 #include "1q/electronic_surveillance_radar/config/EsrSessionConfig.h"
 #include "1q/electronic_surveillance_radar/config/EsrRuntimeConfigPatch.h"
+#include "1q/electronic_surveillance_radar/session/EsrSession.h"
 #include "1q/replay/ReplayTrace.h"
 
 namespace electronic_surveillance_radar {
@@ -51,6 +52,11 @@ std::string EncodeEsrSessionConfig(const config::EsrSessionConfig& value);
  * @return 编码后的二进制字符串。
  */
 std::string EncodeEsrRuntimeConfigPatch(const config::EsrRuntimeConfigPatch& value);
+
+/** @brief 编码一次运行期补丁及其结构化应用结果。 */
+std::string EncodeEsrRuntimeConfigPatchEvent(
+    const config::EsrRuntimeConfigPatch& patch,
+    const EsrRuntimeConfigApplyResult& result);
 
 /**
  * @brief 将 ReplayTraceFailure 失败标记序列化为 FlatBuffers payload。
@@ -98,6 +104,11 @@ bool DecodeEsrSessionConfig(const std::string& bytes, config::EsrSessionConfig* 
  * @return 解码成功返回 true；payload 非法返回 false。
  */
 bool DecodeEsrRuntimeConfigPatch(const std::string& bytes, config::EsrRuntimeConfigPatch* out);
+
+/** @brief 原子解码运行期补丁事件。 */
+bool DecodeEsrRuntimeConfigPatchEvent(
+    const std::string& bytes, config::EsrRuntimeConfigPatch* patch,
+    EsrRuntimeConfigApplyResult* result);
 
 /**
  * @brief 从 FlatBuffers payload 反序列化失败标记。

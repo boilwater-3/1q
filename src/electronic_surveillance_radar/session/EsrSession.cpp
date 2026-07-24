@@ -59,8 +59,17 @@ struct EsrSession::Impl {
             session::EsrPipelineAbortReason::kSensorPoweredOff &&
         Controller().GetLastInterceptCycleAbortReason() !=
             session::EsrPipelineAbortReason::kRfReceiverRejected) {
-      Pipeline().RestoreRuntimeState(pipeline_state);
-      Controller().RestoreRuntimeState(controller_state);
+      const bool pipeline_restored = Pipeline().RestoreRuntimeState(pipeline_state);
+      const bool controller_restored = Controller().RestoreRuntimeState(controller_state);
+      if (!pipeline_restored || !controller_restored) {
+        // 两份快照各自只恢复唯一 owner；任一恢复失败都必须作为结构化内部错误暴露，
+        // 不能继续返回恢复前或半恢复状态。
+        EsrCycleResult result;
+        result.input_cycle_index = input.cycle_index;
+        result.status = EsrCycleExecutionStatus::kRejected;
+        result.abort_reason = session::EsrPipelineAbortReason::kRuntimeStateRestoreRejected;
+        return result;
+      }
     }
     return BuildCycleResult(input);
   }

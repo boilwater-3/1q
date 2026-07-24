@@ -151,6 +151,37 @@ TEST(EsrSessionConfigValidationTest, PassesOnHealthyBuiltConfig) {
   EXPECT_TRUE(issues.empty());
 }
 
+TEST(EsrSessionConfigValidationTest, RejectsUnknownEnumsAndInvalidDomains) {
+  EsrSessionConfig config;
+  config.mission.work_mode = static_cast<EsrWorkMode>(99);
+  config.mission.scan.scan_sequence = static_cast<EsrScanSequence>(99);
+  config.policy.detection.pfa = 1.0f;
+  config.environment.scenario_config.preset =
+      static_cast<EsrEnvironmentPreset>(99);
+
+  const ValidationIssueList issues = ValidateEsrSessionConfig(config);
+  EXPECT_TRUE(ContainsCode(issues, ConfigValidationCode::kMissionEnumInvalid));
+  EXPECT_TRUE(
+      ContainsCode(issues, ConfigValidationCode::kDetectionPolicyInvalid));
+  EXPECT_TRUE(ContainsCode(issues, ConfigValidationCode::kEnvironmentInvalid));
+}
+
+TEST(EsrSessionConfigValidationTest,
+     RejectsEnabledInvalidAtmosphereAndCenterAngles) {
+  EsrSessionConfig config;
+  config.mission.scan.use_explicit_scan_bounds = false;
+  config.mission.scan.scan_center_az_deg =
+      std::numeric_limits<float>::quiet_NaN();
+  config.environment.scenario_config.atmospheric_physics
+      .enable_physical_model = true;
+  config.environment.scenario_config.atmospheric_physics.relative_humidity =
+      1.5f;
+
+  const ValidationIssueList issues = ValidateEsrSessionConfig(config);
+  EXPECT_TRUE(ContainsCode(issues, ConfigValidationCode::kScanCenterNotFinite));
+  EXPECT_TRUE(ContainsCode(issues, ConfigValidationCode::kEnvironmentInvalid));
+}
+
 }  // namespace
 }  // namespace config
 }  // namespace electronic_surveillance_radar

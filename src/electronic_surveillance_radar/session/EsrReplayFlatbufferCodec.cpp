@@ -2,11 +2,14 @@
 
 #include <cstdint>
 #include <string>
+#include <utility>
 
+#include "1q/electronic_surveillance_radar/config/EsrSessionConfigValidation.h"
 #include "flatbuffers/flatbuffers.h"
 #include "common/replay/ReplayFlatbufferCodecSupport.h"
 #include "electronic_surveillance_radar/session/generated/esr_replay_generated.h"
 #include "electronic_surveillance_radar/session/generated/esr_session_replay_generated.h"
+#include "electronic_surveillance_radar/session/EsrConfigDomainValidation.h"
 
 namespace electronic_surveillance_radar {
 namespace session {
@@ -58,6 +61,39 @@ bool IsValidValidationCode(std::int32_t value) {
          value <=
                     static_cast<std::int32_t>(
                         ValidationCode::kUnlocatablePlatformEcef);
+}
+
+bool IsValidRuntimeApplyStatus(std::int32_t value) {
+  return value >=
+             static_cast<std::int32_t>(
+                 EsrRuntimeConfigApplyStatus::kApplied) &&
+         value <= static_cast<std::int32_t>(
+                    EsrRuntimeConfigApplyStatus::kRejectedInvalidEnvironment);
+}
+
+bool IsValidRuntimePatchPayload(
+    const config::EsrRuntimeConfigPatch& patch) {
+  const config::EsrWorkMode final_work_mode =
+      patch.has_work_mode ? patch.work_mode : patch.mission.work_mode;
+  if ((patch.has_work_mode || patch.has_mission) &&
+      !config_validation::IsValidWorkMode(final_work_mode)) {
+    return false;
+  }
+  const config::EsrScanStartPosition final_start =
+      patch.has_scan_start_position ? patch.scan_start_position
+                                    : patch.mission.scan.scan_start_position;
+  if ((patch.has_scan_start_position || patch.has_mission) &&
+      !config_validation::IsValidScanStartPosition(final_start)) {
+    return false;
+  }
+  const config::EsrScanSequence final_sequence =
+      patch.has_scan_sequence ? patch.scan_sequence
+                              : patch.mission.scan.scan_sequence;
+  if ((patch.has_scan_sequence || patch.has_mission) &&
+      !config_validation::IsValidScanSequence(final_sequence)) {
+    return false;
+  }
+  return true;
 }
 
 esr::replay::Vec3 ToV(const oneq::coordinate::EcefPositionM& v) {
@@ -571,10 +607,16 @@ std::string EncodeEsrSessionConfig(const config::EsrSessionConfig& v) {
 }
 
 bool DecodeEsrSessionConfig(const std::string& bytes, config::EsrSessionConfig* out) {
+  if (out == nullptr) {
+    return false;
+  }
   flatbuffers::Verifier ver(reinterpret_cast<const uint8_t*>(bytes.data()), bytes.size());
   if (!ver.VerifyBuffer<esr::replay::EsrSessionConfig>()) {
     return false;
   }
+  config::EsrSessionConfig* destination = out;
+  config::EsrSessionConfig candidate;
+  out = &candidate;
   const auto* fb = flatbuffers::GetRoot<esr::replay::EsrSessionConfig>(bytes.data());
   if (fb->hardware()) {
     const auto* h = fb->hardware();
@@ -660,6 +702,10 @@ bool DecodeEsrSessionConfig(const std::string& bytes, config::EsrSessionConfig* 
           ap->relative_humidity();
     }
   }
+  if (!config::ValidateEsrSessionConfig(candidate).empty()) {
+    return false;
+  }
+  *destination = std::move(candidate);
   return true;
 }
 
@@ -706,10 +752,16 @@ std::string EncodeEsrRuntimeConfigPatch(const config::EsrRuntimeConfigPatch& v) 
 }
 
 bool DecodeEsrRuntimeConfigPatch(const std::string& bytes, config::EsrRuntimeConfigPatch* out) {
+  if (out == nullptr) {
+    return false;
+  }
   flatbuffers::Verifier ver(reinterpret_cast<const uint8_t*>(bytes.data()), bytes.size());
   if (!ver.VerifyBuffer<esr::replay::EsrRuntimeConfigPatch>()) {
     return false;
   }
+  config::EsrRuntimeConfigPatch* destination = out;
+  config::EsrRuntimeConfigPatch candidate;
+  out = &candidate;
   const auto* fb = flatbuffers::GetRoot<esr::replay::EsrRuntimeConfigPatch>(bytes.data());
   out->has_sensor_enabled = fb->has_sensor_enabled();
   out->sensor_enabled = fb->sensor_enabled();
@@ -775,6 +827,62 @@ bool DecodeEsrRuntimeConfigPatch(const std::string& bytes, config::EsrRuntimeCon
           ec->atmospheric_physics()->relative_humidity();
     }
   }
+  if (!IsValidRuntimePatchPayload(candidate)) {
+    return false;
+  }
+  *destination = std::move(candidate);
+  return true;
+}
+
+std::string EncodeEsrRuntimeConfigPatchEvent(
+    const config::EsrRuntimeConfigPatch& patch,
+    const EsrRuntimeConfigApplyResult& result) {
+  flatbuffers::FlatBufferBuilder fbb(768);
+  const std::string patch_bytes = EncodeEsrRuntimeConfigPatch(patch);
+  const auto patch_payload = fbb.CreateVector(
+      reinterpret_cast<const std::uint8_t*>(patch_bytes.data()),
+      patch_bytes.size());
+  const auto apply_result = esr::replay::CreateEsrRuntimeConfigApplyResult(
+      fbb, static_cast<std::int32_t>(result.status),
+      result.has_requested_update, result.applied);
+  fbb.Finish(esr::replay::CreateEsrRuntimeConfigPatchEvent(
+      fbb, patch_payload, apply_result));
+  return oneq::common::replay::CopyFinishedFlatbuffer(fbb);
+}
+
+bool DecodeEsrRuntimeConfigPatchEvent(
+    const std::string& bytes, config::EsrRuntimeConfigPatch* patch,
+    EsrRuntimeConfigApplyResult* result) {
+  if (patch == nullptr || result == nullptr) {
+    return false;
+  }
+  flatbuffers::Verifier verifier(
+      reinterpret_cast<const std::uint8_t*>(bytes.data()), bytes.size());
+  if (!verifier.VerifyBuffer<esr::replay::EsrRuntimeConfigPatchEvent>()) {
+    return false;
+  }
+  const esr::replay::EsrRuntimeConfigPatchEvent* event =
+      flatbuffers::GetRoot<esr::replay::EsrRuntimeConfigPatchEvent>(
+          bytes.data());
+  if (event->patch_payload() == nullptr || event->result() == nullptr ||
+      !IsValidRuntimeApplyStatus(event->result()->status())) {
+    return false;
+  }
+  const std::string patch_bytes(
+      reinterpret_cast<const char*>(event->patch_payload()->data()),
+      event->patch_payload()->size());
+  config::EsrRuntimeConfigPatch patch_candidate;
+  if (!DecodeEsrRuntimeConfigPatch(patch_bytes, &patch_candidate)) {
+    return false;
+  }
+  EsrRuntimeConfigApplyResult result_candidate;
+  result_candidate.status =
+      static_cast<EsrRuntimeConfigApplyStatus>(event->result()->status());
+  result_candidate.has_requested_update =
+      event->result()->has_requested_update();
+  result_candidate.applied = event->result()->applied();
+  *patch = std::move(patch_candidate);
+  *result = result_candidate;
   return true;
 }
 

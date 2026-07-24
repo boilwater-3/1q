@@ -28,7 +28,11 @@ enum class ConfigValidationCode {
   kExplicitScanBoundsElSwapped, /**< 显式扫描俯仰起止颠倒 */
   kExplicitScanBoundsNotFinite, /**< 显式扫描边界包含 NaN 或 Inf */
   kReceiverRfHardwareInvalid,   /**< 接收天线、极化或线性输入边界非法 */
-  kTuningPlanInvalid            /**< 调谐窗口非法或超出硬件频段 */
+  kTuningPlanInvalid,           /**< 调谐窗口非法或超出硬件频段 */
+  kMissionEnumInvalid,          /**< 工作模式、扫描起点或扫描顺序枚举非法 */
+  kScanCenterNotFinite,         /**< 中心扫描模式的中心角非法 */
+  kDetectionPolicyInvalid,      /**< 探测策略数值非法 */
+  kEnvironmentInvalid           /**< 环境预设或启用的大气参数非法 */
 };
 
 /**

@@ -6,7 +6,7 @@ Status: draft
 
 **Review-Baseline:** `b6acda1aecf895803fe2f658add4bc6a3b1da97c`
 
-**Architecture-Reclassification:** 2026-07-22 authority freeze; implementation pending
+**Architecture-Reclassification:** 2026-07-22 historical freeze; AR/ESR current, ECM pending
 
 **Authority:** 非规范性审查记录；不得替代 `docs/common/contract.md`、
 `docs/airborne_radar/design.md`、`docs/electronic_surveillance_radar/design.md` 或
@@ -14,8 +14,12 @@ Status: draft
 
 **AR follow-up (2026-07-23):** AR 已完成 RF v2 单周期门面、detection-cell 接收链、结构化饱和、
 J/N 门控干扰观测、实际 ECCM 状态与 legacy jammer 删除。下文的 baseline 证据矩阵保留为历史审查事实；
-RF-AR-01、RF-AR-02 以及 RF-MIG-01 的 AR 范围已经关闭。ESR 与 ECM 条目继续为 draft，不能因 AR
-收口而视为完成。
+RF-AR-01、RF-AR-02 以及 RF-MIG-01 的 AR 范围已经关闭。
+
+**ESR follow-up (2026-07-24):** ESR 已完成 RF v2 单周期接入、双 receiver state、到达时频角分辨单元
+账本、结构化 RF rejection/饱和、观测统计 hypothesis、waveform class 关联门、单一 pipeline 状态所有权、
+全域 runtime validation、patch apply-result replay、序列与稳态内存验收。RF-ESR-01/02/03、RF-PERF-01
+的 ESR 范围及 RF-MIG-01 的 ESR 范围已经关闭。本文继续保持 draft 仅因为 ECM 条目尚未收口。
 
 ## 1. 范围与结论
 
@@ -55,7 +59,7 @@ ESR 的接收天线方向与扫描事实不一致，并会静默吞掉工程链�
 
 | 实施域 | 已冻结的核心机制 | 原 review 条目映射 |
 |---|---|---|
-| RF-WORLD | world cycle 分成 prepare/emit 与 receive/complete；AR/ECM 发布实际发射后由 orchestrator 原子冻结统一 `RfSceneFrame`；已发布发射不因接收失败回滚 | RF-ECM-01/02、RF-SNAP-01、RF-TEST-01 |
+| RF-WORLD | 当前调用方以普通单周期循环汇集公共 `RfEmissionFrame`；AR/ESR 都只暴露 `Step/StepWithResult`，不暴露 orchestrator、token 或 prepare/complete；ECM 发射事实可直接赋给 AR/ESR 输入 | RF-ECM-01/02、RF-SNAP-01、RF-TEST-01 |
 | RF-COMMON | 检测单元/接收通道级统计精度；platform/equipment/emission 分离；设备级有向 co-site；公共单程链路只到接收设备输入；参数化 waveform 合同在 characterization 后冻结 | RF-COMMON-01、RF-ECM-03、RF-PERF-01 |
 | RF-AR-RX | 目标 echo 保持模块内双程雷达方程；外部 RF 走单程链路；宽带前端与 range/Doppler/beam/time-frequency detection-cell 两级账本；processed SINR/Pfa/Pd 决定量测；独立 interference observation 驱动下一发射准备的 ECCM | RF-AR-01/02 |
 | RF-ESR-RX | 意图中立的统一场景入口；固定 receiver operating state；宽带前端、channel/resolution cell、可分辨性、pulse/energy observation、结构化 impairment；hypothesis 必须由观测统计产生 | RF-ESR-01/02/03 |
@@ -76,16 +80,16 @@ ESR 的接收天线方向与扫描事实不一致，并会静默吞掉工程链�
 | RF-ECM-01 | ESR(N-1) → ECM(N) | `EcmSession.cpp::IsValidInput`、`EcmSession::StepWithResult` | C | P1 | 新观测只要求来源周期小于 ECM 周期，旧帧可被当作新鲜帧；TruthAssisted 仍可残留非零 sensor 来源周期 |
 | RF-ECM-02 | cached observation → glide/safe stop | `EcmSession.cpp::StepWithResult` | C | P1 | TruthAssisted 成功周期不老化缓存的 sensor frame，模式切回后可能复活超过两周期的旧观测 |
 | RF-ECM-03 | ECM input/config → emission frame | `EcmSession.cpp::IsValidConfig`、`IsValidInput`、`BuildEmission` | C | P1 | 发射天线/极化未校验；只按威胁中心频率筛选，阻塞和扫频分段可越过硬件频率上下界；生成后未做 frame 级原子校验 |
-| RF-ESR-01 | active scan beam → receive gain/gate | `InterceptDetectionExecutor.cpp::BuildReceiverSite`、`ProcessSingleEmitter` | C | P1 | gate 使用 active beam，但公共链路中的接收天线波束始终指向当前目标，导致接收增益事实与扫描事实分裂 |
-| RF-ESR-02 | RF link failure → ESR cycle result | `InterceptDetectionExecutor.cpp::ProcessSingleEmitter` | C | P1 | 目标链路失败直接跳过；其他源和工程发射链路失败被忽略，缺失 co-site isolation 等错误不能形成结构化整周期拒绝 |
+| RF-ESR-01 | active scan beam → receive gain/gate | historical baseline: `InterceptDetectionExecutor.cpp::BuildReceiverSite`; follow-up: `EsrRfV2FrontEnd`、`EsrResolutionCellLedger` | closed (ESR) | P1 | 前端/预选器与调谐通道使用同一周期冻结的 active beam；前者只负责 blocking/饱和，后者负责候选检测，不再逐候选重指向 |
+| RF-ESR-02 | RF link failure → ESR cycle result | historical baseline: `InterceptDetectionExecutor.cpp::ProcessSingleEmitter`; follow-up: `InterceptPipelineResult::rf_v2_rejected` | closed (ESR) | P1 | 非法 frame/link/co-site 形成结构化整周期拒绝并冻结状态；合法零重叠不报错；饱和保持 completed impairment |
 | RF-RP-01 | runtime patch trace → replay | `EcmTraceSession.cpp::ApplyRuntimeConfig`、`EcmReplaySession.cpp::OnRuntimeConfigPatch` | C | P1 | trace 在应用前记录 patch 且不记录 apply result；replay 强制要求 `applied=true`，空补丁和拒绝补丁不可忠实回放 |
-| RF-ESR-03 | emitter truth → hypothesis → ECM adapter | `InterceptDetectionExecutor.cpp`、`EmitterHypothesis.h`、`EcmEsrAdapter.cpp` | C/D | P2 | 已冻结为观测统计估计，但 RF、带宽、PRI、脉宽仍直接复制真值，只附加不确定度；adapter 又丢弃 PRI/脉宽不确定度 |
+| RF-ESR-03 | emitter truth → hypothesis → ECM adapter | historical baseline: `InterceptDetectionExecutor.cpp`; follow-up: `EmitterObservation`、`HypothesisAssociator`、`EcmEsrAdapter` | closed (ESR) | P2 | hypothesis 由分辨单元 observation 统计产生，不发布 truth identity；中心频率、带宽、PRI/脉宽及不确定度通过去真值化 DTO 进入 adapter |
 | RF-ECM-04 | observation list → threat state/scheduler | `EcmSession.cpp::SchedulingThreat`、`BuildEmission` | C/D | P2 | 已冻结首期固定/外部已解析天线；当前仍只有整帧缓存和排序，没有逐威胁老化/状态，`channel_index` 不影响实际发射事实 |
 | RF-SNAP-01 | ECM session → snapshot/replay continuation | `EcmTypes.h::EcmRuntimeState`、`EcmSession.cpp::RestoreRuntimeState`、`ecm_replay.fbs` | C/D | P2 | 内存 snapshot 含 RNG/ID/缓存，但恢复未完整校验帧内容及状态组合，FlatBuffers replay schema 也未记录完整累积调度态 |
 | RF-COMMON-01 | public emission → direct link evaluation | `RfLinkBudget.cpp::IsValidSegment`、`TryEvaluateRfLink` | C | P2 | frame validator 拒绝负起始时间，直接 `TryEvaluateRfLink()` 却会接受负 `start_time_s`，公共 API 合同不一致 |
 | RF-TEST-01 | ESR→ECM→AR/ESR integration → acceptance | `multi_model_scenario_test.cpp` | D | P2 | 现有闭环测试主要证明载荷接线和周期执行，未证明 SNR 恶化、interference observation、下一成功周期 ECCM、频率适配和资源重新分配 |
-| RF-PERF-01 | 64/1000/1000 workload → performance gate | `rf_interference_performance_test.cpp` | D | P2 | 已测 100 周期 P95，但只断言无 validation error，未断言实际执行，也没有预热后持续内存增长证明 |
-| RF-MIG-01 | legacy/public/example → engineering-only closure | public AR/ESR headers、replay schemas、`examples/` | partial: AR closed; ESR/ECM open | P2 | AR 已删除 legacy public jammer、adapter 与旧 replay 路径，并迁移示例/consumer/batch/performance；ESR/ECM 的独立迁移删除门仍未满足 |
+| RF-PERF-01 | 64/1000/1000 workload → performance gate | `rf_interference_performance_test.cpp` | closed (AR/ESR) | P2 | 两个场景断言真实执行和声明的发射/目标规模；ESR 密集场景在 20 周期预热后测 100 周期 P95，并以首尾 20 周期当前 RSS 中位数验证稳态增长不超过 4 MiB |
+| RF-MIG-01 | legacy/public/example → engineering-only closure | public AR/ESR headers、replay schemas、`examples/` | partial: AR/ESR closed; ECM open | P2 | AR/ESR 已删除 legacy public jammer、旧 adapter 与旧 replay 路径并迁移示例/consumer/batch/performance；ECM 的独立迁移删除门仍未满足 |
 
 ## 5. P1 阻塞项详述
 
@@ -133,6 +137,10 @@ status 且不发布部分发射、不推进 RNG/ID/热状态。
 
 ### 5.5 ESR 接收方向图与扫描波束不一致
 
+**2026-07-24 状态：已关闭。** 以下为 baseline 缺陷记录。当前双 receiver state 由同一个冻结波束派生：
+宽带前端/预选器只负责 blocking 与饱和，调谐通道只负责候选检测；所有 emission 都按到达时频角写入
+分辨单元账本，不再使用候选乘其它发射的逐对扫描。
+
 ESR 先解析 `active_beam` 并用于 `InterceptGate`，但 `BuildReceiverSite()` 又把接收天线 boresight 指向
 正在处理的 emitter。于是目标和每个干扰源的链路都可能获得与真实扫描指向无关的接收增益，gate 与
 link budget 使用了两套方向事实。
@@ -141,6 +149,10 @@ link budget 使用了两套方向事实。
 都使用该状态计算方向增益，不能逐目标重指向。
 
 ### 5.6 ESR 静默吞掉公共 RF 链路错误
+
+**2026-07-24 状态：已关闭。** 以下为 baseline 缺陷记录。当前非法 RF frame/link/co-site 通过
+`rf_v2_rejected` 上浮为整周期 `kRejected/kRfReceiverRejected`；拒绝周期不提交观测、hypothesis、ID、
+扫描或调谐相位。饱和仍是 completed 的结构化 impairment。
 
 目标链路失败时 `ProcessSingleEmitter()` 直接返回；其他普通辐射源和工程发射的
 `TryEvaluateRfLink()` 失败则被当作零干扰跳过。尤其在同平台发射缺少 co-site isolation 时，这会把必须
@@ -160,10 +172,9 @@ apply 结果并比较，而不是假设所有记录都成功。
 
 ## 6. P2 完整性与证明缺口
 
-1. **去真值化不足。** hypothesis 不含 truth emitter ID，但 RF、带宽、PRI、脉宽中心值仍直接等于场景
-   真值。实现必须从 pulse/energy observation 统计估计，并用 characterization 标定估计误差，使标称误差
-   与所发布的不确定度、SNR 和分辨率一致。
-   `EcmSensorObservation` 还需保留 PRI/脉宽不确定度，或者 authority 明确 ECM 首期不消费这两项。
+1. **ESR 去真值化（已关闭）。** hypothesis 由 pulse/energy observation 统计形成，waveform class
+   参与跨周期关联门控且 snapshot/replay continuation 已覆盖；public output 和 ECM adapter 不携带
+   truth identity，并保留 RF、带宽、PRI/脉宽估计及不确定度。
 2. **威胁状态过薄。** 当前 ECM 对观测整帧缓存并按 score 排序，不维护逐威胁年龄、置信度演化、占用状态
    或通道驻留，channel index 也不改变发射事实。首期已经冻结为固定/外部已解析发射天线；bearing 只可
    用于威胁排序或 attribution，不得在 ECM 内隐式变成指向控制。
@@ -174,11 +185,10 @@ apply 结果并比较，而不是假设所有记录都成功。
    finite。冻结合同要求公共 `Try` evaluator 对非法活动区间自足、无异常、原子拒绝；实现尚未满足。
 5. **跨模块测试只证明接线。** 需要固定至少一个多周期闭环，分别断言 ESR(N-1) 来源、ECM(N) 频带、
    AR/ESR(N) 的接收功率/SNR 损失、AR interference observation、下一成功周期 ECCM、重叠变化与 ECM 重新分配。
-6. **性能验收不完整。** P95 场景应断言 AR/ESR 每周期实际执行；预热后内存增长需要稳定、可移植的测量
-   方式和阈值，不能只凭进程最终退出推断。
-7. **迁移尚未收口。** legacy jammer 字段仍保留是阶段兼容所需，但删除门应由 first-party example、consumer、
-   batch、旧 trace 回放和 public/install/C++11 guard 一起驱动。当前 ECM 缺少聚合公共头和独立示例/batch
-   场景，因此不能删除 legacy，也不能宣称迁移完成。
+6. **AR/ESR 性能验收（已关闭）。** 场景断言周期真实执行；ESR 在 lifecycle 预热后以当前 RSS 的首尾
+   稳态窗口中位数验证持续增长，不用历史峰值或进程退出推断。
+7. **ECM 迁移尚未收口。** AR/ESR 删除门已由 first-party example、consumer、batch、replay 和
+   public/install/C++11 guard 驱动关闭；ECM 缺少的独立示例/batch 与 legacy 删除仍是后续范围。
 
 ## 7. 已冻结的架构选择
 
@@ -186,33 +196,33 @@ apply 结果并比较，而不是假设所有记录都成功。
 
 | 编号 | 已冻结裁决 | Authority |
 |---|---|---|
-| RF-OQ-1 | tuning/channel plan 按成功 ESR receive/complete 周期推进；拒绝、缺失冻结 scene、关机不推进 | ESR design §2.6 |
+| RF-OQ-1 | tuning/channel plan 按成功 completed ESR 单周期推进；validation/RF receiver rejection、关机不推进 | ESR design §2.6 |
 | RF-OQ-2 | 首期 ECM 只使用固定或平台/硬件层已解析天线；ECM scheduler 不拥有 pointing actuator | ECM design §3 |
 | RF-OQ-3 | invalid emission、缺失设备级 co-site、unsupported near-field 是未执行失败；receiver saturation 是已执行 impairment | common contract RF 章节；AR design §2.5；ESR design §2.2/§2.6 |
 | RF-OQ-4 | legacy 删除门是 producer/consumer/example/batch/旧 trace/install/C++11 全部迁移，不以新 DTO 存在为准 | common contract 跨模块输出；ECM design §4 |
 
-此外，本次新增并冻结两项上位选择：精度层级是 detection-cell/receiver-channel 统计模型，不生成复数 IQ；
-世界周期采用 prepare/emit → frozen scene → receive/complete，两阶段间的发射提交与接收回滚相互分离。
+此外，精度层级仍冻结为 detection-cell/receiver-channel 统计模型，不生成复数 IQ。原 review 提出的
+prepare/emit → frozen scene → receive/complete 公共两阶段协议已被后续易用接口纠偏取代：当前 AR/ESR
+公共合同都是单周期值类型输入，两阶段仅可作为模块内部实现细节。
 
 ## 8. 实施关闭顺序
 
 自动化批量编辑须先在 1–2 个文件验证，并以最多 5 个文件为一批；手工语义重构按最小可构建、
 可测试依赖闭包提交，并在真实可编译边界验证：
 
-1. **公共模型与世界编排。** 先 characterization platform/equipment/emission 身份、参数化 pulse/sweep、
-   严格单程链路和设备级 co-site；再冻结 prepare/emit、scene validation/freeze、receive/complete 状态机。
+1. **公共模型与单周期值类型。** platform/equipment/emission 身份、参数化 pulse/sweep、严格单程链路、
+   设备级 co-site 与 frame validation 已完成；调用方只汇集同一时间窗口的 emission frame。
 2. **AR 发射与接收物理链。** 发布实际 AR emission；建立前端/检测单元账本和独立 interference
    observation；删除压制/ECCM 对 lifecycle 的直连；证明实际 ECCM 状态改变下一发射准备和检测裕度。
-3. **ESR 统一接收链。** 用固定 receiver state 消费统一 scene；实现前端/channel ledger、可分辨性、
-   pulse/energy observation、结构化失败/impairment 和由观测产生的 hypothesis。
+3. **ESR 统一接收链（已完成）。** 固定双 receiver state、前端/channel ledger、可分辨性、
+   pulse/energy observation、结构化失败/impairment、观测 hypothesis、snapshot/replay 与性能门已收口。
 4. **ECM 发射状态机。** 严格来源和模式缓存失效，补逐威胁/滑行/资源/热/随机状态，发布通过公共
    validation 的参数化实际发射，并使 runtime patch、snapshot、trace/replay 对称。
-5. **迁移与验收。** 先增加两阶段闭环、replay continuation、性能执行/内存和 batch 场景，再迁移
-   producer/consumer/example/install/C++11；最后删除旧 public jammer 摘要，legacy 欺骗/转发 adapter 暂留。
+5. **迁移与验收。** AR/ESR 已完成单周期 replay continuation、性能执行/内存、batch 及
+   producer/consumer/example/install/C++11 迁移；剩余关闭顺序只适用于 ECM。
 
-每一批仍最多修改 5 个文件，并在 Release 构建、聚焦测试和 `git diff --check` 通过后进入下一批。
-authority 已先于实现更新，因此后续每批必须把“当前行为”与“冻结目标”分别标注，不能提前引用新目标
-作为实现完成证据。
+自动化批量编辑仍按 1–2 文件试验、最多 5 文件一批；手工语义重构按最小可构建、可测试依赖闭包推进，
+不得为满足固定文件数拆断同一语义迁移。
 
 ## 9. 最终验收门
 
@@ -225,6 +235,6 @@ authority 已先于实现更新，因此后续每批必须把“当前行为”�
 - Release 64/1000/1000 × 100 周期 P95 小于 100 ms，所有周期真实执行且预热后无持续内存增长；
 - public/install/C++11、docs、replay、batch-validation guards 通过后，才启动 legacy public 字段删除。
 
-在上述门全部满足前，本 review 保持 `draft`，工程 RF 状态保持“architecture frozen, implementation
-pending”。完成实现和证据迁移后，权威文档改为 current behavior，再删除本 review；不得反向把 review
-提升为长期 authority。
+本 review 因 ECM 门尚未满足而保持 `draft`；AR/ESR current behavior 已迁入各自 design 与 common
+contract，不再处于 implementation pending。ECM 完成实现和证据迁移后删除本 review；不得反向把
+review 提升为长期 authority。

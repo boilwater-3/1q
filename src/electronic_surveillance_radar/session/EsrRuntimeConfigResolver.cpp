@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include "electronic_surveillance_radar/pipeline/InterceptPipelineTypes.h"
+#include "electronic_surveillance_radar/session/EsrConfigDomainValidation.h"
 #include "electronic_surveillance_radar/session/EsrResolutionRules.h"
 #include "common/logging/ProjectLog.h"
 #include "common/validation/ValidationUtils.h"
@@ -42,6 +43,7 @@ EsrRuntimeConfigResolveResult ResolveEsrRuntimeConfigPatch(
   resolved.status = EsrRuntimeConfigApplyStatus::kNoRequestedUpdate;
   bool has_requested_update = false;
   bool scan_policy_changed = false;
+  bool work_mode_or_policy_changed = false;
 
   // ---- Phase 1: 整块域覆盖（先于叶子） ----
 
@@ -49,19 +51,16 @@ EsrRuntimeConfigResolveResult ResolveEsrRuntimeConfigPatch(
     has_requested_update = true;
     resolved.next_config.mission = patch.mission;
     scan_policy_changed = true;
+    work_mode_or_policy_changed = true;
     resolved.runtime_config_changed = true;
     resolved.pipeline_config_changed = true;
   }
 
   if (patch.has_policy) {
     has_requested_update = true;
-    resolved.next_config.detection = patch.policy.detection;
+    resolved.next_config.base_detection = patch.policy.detection;
+    work_mode_or_policy_changed = true;
     resolved.pipeline_config_changed = true;
-  }
-
-  if (patch.has_mission || patch.has_policy) {
-    ApplyWorkModeAdjustment(resolved.next_config.mission.work_mode,
-                            &resolved.next_config.detection);
   }
 
   if (patch.has_environment) {
@@ -80,7 +79,7 @@ EsrRuntimeConfigResolveResult ResolveEsrRuntimeConfigPatch(
 
   if (patch.has_work_mode) {
     resolved.next_config.mission.work_mode = patch.work_mode;
-    ApplyWorkModeAdjustment(patch.work_mode, &resolved.next_config.detection);
+    work_mode_or_policy_changed = true;
     resolved.pipeline_config_changed = true;
     has_requested_update = true;
   }
@@ -132,7 +131,22 @@ EsrRuntimeConfigResolveResult ResolveEsrRuntimeConfigPatch(
     }
   }
 
-  // ---- Phase 3: 对整域与叶子合并后的最终扫描策略统一校验并解析 ----
+  // ---- Phase 3: 对整域与叶子合并后的最终领域状态统一校验并解析 ----
+
+  if (!config_validation::IsValidMissionEnums(resolved.next_config.mission)) {
+    return RejectPatch(current_config, has_requested_update,
+                       EsrRuntimeConfigApplyStatus::kRejectedInvalidMission);
+  }
+  if (!config_validation::IsValidDetectionPolicy(
+          resolved.next_config.base_detection)) {
+    return RejectPatch(current_config, has_requested_update,
+                       EsrRuntimeConfigApplyStatus::kRejectedInvalidPolicy);
+  }
+  if (!config_validation::IsValidEnvironment(
+          resolved.next_config.environment)) {
+    return RejectPatch(current_config, has_requested_update,
+                       EsrRuntimeConfigApplyStatus::kRejectedInvalidEnvironment);
+  }
 
   if (scan_policy_changed) {
     const config::EsrScanPolicyConfig& scan = resolved.next_config.mission.scan;
@@ -168,6 +182,12 @@ EsrRuntimeConfigResolveResult ResolveEsrRuntimeConfigPatch(
       }
     }
     ApplyScanPolicy(resolved.next_config.hardware, scan, &resolved.next_config.resolved_scan);
+  }
+
+  if (work_mode_or_policy_changed) {
+    resolved.next_config.detection = resolved.next_config.base_detection;
+    ApplyWorkModeAdjustment(resolved.next_config.mission.work_mode,
+                            &resolved.next_config.detection);
   }
 
   resolved.has_requested_update = has_requested_update;

@@ -373,10 +373,16 @@ AR 仍以单周期 `StepWithResult()` 作为公共接口。其内部先提交实
    字段布局一致的 `FailureMarker` 空值、空 payload、verifier 和共有字段解码保护。schema、DTO
    映射、payload identifier、模块错误文本、外部数据资格与 divergence 行为继续由模块拥有；
    不得把公共 helper 扩张为万能 codec 或跨模块对象图。
+7. runtime patch trace 必须记录实际应用结果，不能只记录请求。replay 应重新应用 patch 并比较结构化
+   status、是否包含请求以及是否提交；合法拒绝和空补丁是可回放事件，不得被强制解释为成功。输入配置、
+   patch 和输出中以整数存储的 enum 必须逐值校验；未知值应原子拒绝且不得部分修改解码目标。
 
 [evidence: tests/replay/sbirs_sensor/sbirs_replay_codec_roundtrip_test.cpp::DecodeFailureMarkerRejectsNullAndCorrupted]
 [evidence: tests/replay/sar/sar_replay_codec_roundtrip_test.cpp::RejectsEmptyPayload]
 [evidence: tests/replay/airborne_radar/ar_replay_codec_roundtrip_test.cpp::DecodeFailureMarkerRejectsNullAndCorrupted]
+[evidence: tests/replay/electronic_surveillance_radar/esr_replay_codec_roundtrip_test.cpp::EsrReplayCodecRoundtripTest.UnknownSessionConfigEnumRejectsWithoutMutatingDestination]
+[evidence: tests/replay/electronic_surveillance_radar/esr_replay_codec_roundtrip_test.cpp::EsrReplayCodecRoundtripTest.RuntimePatchEventPreservesStructuredApplyResult]
+[evidence: tests/replay/electronic_surveillance_radar/esr_replay_session_test.cpp::EsrReplaySessionTest.RuntimePatchPowerOffAndRecoveryReplayDeterministically]
 
 ## CMake 工程边界
 

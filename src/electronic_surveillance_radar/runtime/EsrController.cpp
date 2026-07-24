@@ -129,17 +129,11 @@ EsrControllerRuntimeState EsrController::CaptureRuntimeState() const {
   state.next_batch_id = impl_->runtime_state.next_batch_id;
   state.last_cycle_status = impl_->last_cycle_status;
   state.last_abort_reason = impl_->last_abort_reason;
-  state.pipeline_state = impl_->pipeline.CaptureRuntimeState();
   return state;
 }
 
 bool EsrController::RestoreRuntimeState(const EsrControllerRuntimeState& state) {
   if (state.owner_identity != this || state.schema_version != 1U) {
-    return false;
-  }
-  if (!impl_->pipeline.RestoreRuntimeState(state.pipeline_state)) {
-    impl_->last_abort_reason = session::EsrPipelineAbortReason::kRuntimeStateRestoreRejected;
-    PROJECT_LOG_ERROR("ESR pipeline runtime state restore rejected");
     return false;
   }
   impl_->runtime_state.has_latest_output = state.has_latest_output;

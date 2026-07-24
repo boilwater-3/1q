@@ -4,8 +4,15 @@
 #include <chrono>
 #include <cmath>
 #include <cstdint>
+#include <fstream>
 #include <string>
 #include <vector>
+
+#if defined(__APPLE__)
+#include <mach/mach.h>
+#elif defined(__linux__)
+#include <unistd.h>
+#endif
 
 #include "1q/airborne_radar/airborne_radar.hpp"
 #include "1q/electromagnetics/RfScene.h"
@@ -25,9 +32,50 @@ constexpr std::size_t kEsrEmitterCount = 1000U;
 constexpr std::size_t kDenseMinimumProcessedCount =
     9U * kEsrEmitterCount / 10U;
 constexpr std::size_t kDenseMaximumHypothesisCount = 5U * kEsrEmitterCount;
-constexpr std::uint32_t kWarmupCycles = 5U;
+// Dense ESR association needs several max-missed windows before track creation
+// and retirement reach steady state. Memory growth is measured only after that
+// physical lifecycle has stabilized, while the measured interval remains 100
+// full cycles.
+constexpr std::uint32_t kWarmupCycles = 20U;
 constexpr std::uint32_t kMeasuredCycles = 100U;
+constexpr std::size_t kResidentWindowCycles = 20U;
 constexpr double kP95LimitMilliseconds = 100.0;
+constexpr std::size_t kMaximumPostWarmupResidentGrowthBytes =
+    4U * 1024U * 1024U;
+
+std::size_t ReadResidentBytes() {
+#if defined(__APPLE__)
+  mach_task_basic_info_data_t task_info_data{};
+  mach_msg_type_number_t task_info_count = MACH_TASK_BASIC_INFO_COUNT;
+  const kern_return_t status =
+      task_info(mach_task_self(), MACH_TASK_BASIC_INFO,
+                reinterpret_cast<task_info_t>(&task_info_data),
+                &task_info_count);
+  if (status != KERN_SUCCESS) {
+    return 0U;
+  }
+  return static_cast<std::size_t>(task_info_data.resident_size);
+#elif defined(__linux__)
+  std::ifstream statm("/proc/self/statm");
+  std::size_t total_pages = 0U;
+  std::size_t resident_pages = 0U;
+  if (!(statm >> total_pages >> resident_pages)) {
+    return 0U;
+  }
+  const long page_size = sysconf(_SC_PAGESIZE);
+  if (page_size <= 0) {
+    return 0U;
+  }
+  return resident_pages * static_cast<std::size_t>(page_size);
+#else
+  return 0U;
+#endif
+}
+
+std::size_t ComputeMedianBytes(std::vector<std::size_t> samples) {
+  std::sort(samples.begin(), samples.end());
+  return samples[samples.size() / 2U];
+}
 
 rf::RfEmissionFrame MakeRfEmissions(std::uint32_t cycle_index,
                                     double cycle_start_time_s,
@@ -206,6 +254,8 @@ TEST(RfInterferencePerformanceTest,
   std::size_t minimum_cluster_count = kEsrEmitterCount;
   std::size_t minimum_hypothesis_count = kEsrEmitterCount;
   std::size_t maximum_hypothesis_count = 0U;
+  std::vector<std::size_t> resident_samples;
+  resident_samples.reserve(kMeasuredCycles);
 
   for (std::uint32_t cycle = 1U;
        cycle <= kWarmupCycles + kMeasuredCycles; ++cycle) {
@@ -245,10 +295,27 @@ TEST(RfInterferencePerformanceTest,
                  result.output_frame.emitter_output.hypotheses.size());
     if (cycle > kWarmupCycles) {
       elapsed_ms.push_back(duration_ms);
+      const std::size_t resident_bytes = ReadResidentBytes();
+      ASSERT_GT(resident_bytes, 0U);
+      resident_samples.push_back(resident_bytes);
     }
   }
 
   const double p95_ms = ComputeP95Milliseconds(&elapsed_ms);
+  ASSERT_EQ(resident_samples.size(), kMeasuredCycles);
+  const std::vector<std::size_t> first_resident_window(
+      resident_samples.begin(),
+      resident_samples.begin() + kResidentWindowCycles);
+  const std::vector<std::size_t> last_resident_window(
+      resident_samples.end() - kResidentWindowCycles, resident_samples.end());
+  const std::size_t first_window_median_bytes =
+      ComputeMedianBytes(first_resident_window);
+  const std::size_t last_window_median_bytes =
+      ComputeMedianBytes(last_resident_window);
+  const std::size_t resident_growth_bytes =
+      last_window_median_bytes > first_window_median_bytes
+          ? last_window_median_bytes - first_window_median_bytes
+          : 0U;
   RecordProperty("esr_emitter_count", static_cast<int>(kEsrEmitterCount));
   RecordProperty("raw_observation_count_per_cycle",
                  static_cast<int>(kEsrEmitterCount));
@@ -262,7 +329,11 @@ TEST(RfInterferencePerformanceTest,
                  static_cast<int>(maximum_hypothesis_count));
   RecordProperty("measured_cycle_count", static_cast<int>(kMeasuredCycles));
   RecordProperty("p95_milliseconds", std::to_string(p95_ms));
+  RecordProperty("post_warmup_resident_growth_bytes",
+                 static_cast<double>(resident_growth_bytes));
   EXPECT_LT(p95_ms, kP95LimitMilliseconds);
+  EXPECT_LE(resident_growth_bytes,
+            kMaximumPostWarmupResidentGrowthBytes);
 }
 
 }  // namespace

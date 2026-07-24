@@ -132,6 +132,7 @@ struct EsrInternalExecutionConfig {
   config::EsrMissionConfig mission{};   /**< 任务域参数（using 别名直接赋值） */
   extension::InterceptScanConfig
       resolved_scan{};             /**< 由 mission.scan + hardware 解析生成的扫描配置 */
+  DetectionConfig base_detection{}; /**< 未施加工作模式倍率的探测策略真值。 */
   DetectionConfig detection{};     /**< 解析后的探测策略参数（SNR/PFA/脉冲/门限/统计） */
   InterceptConfig intercept{};     /**< 截获流水线配置（算法/预处理/检测子/聚类/频谱/建模） */
   RuntimeConfig runtime{};         /**< 运行期可变截获参数（积累器/跟踪关联） */

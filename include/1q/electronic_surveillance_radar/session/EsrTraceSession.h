@@ -77,7 +77,8 @@ class ONEQ_API EsrTraceSession {
    * @brief 应用运行期可变配置补丁，并转发到内部 EsrSession。
    * @param[in] patch 运行期补丁。
    */
-  void ApplyRuntimeConfig(const config::EsrRuntimeConfigPatch& patch);
+  EsrRuntimeConfigApplyResult ApplyRuntimeConfig(
+      const config::EsrRuntimeConfigPatch& patch);
 
   /**
    * @brief 获取内部 EsrSession 的可变引用。
