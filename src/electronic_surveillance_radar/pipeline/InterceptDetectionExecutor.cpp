@@ -23,6 +23,10 @@ using oneq::common::numerics::kNumericFloor;
 
 constexpr std::uint64_t kDetectionRandomDomain = 0x4553524454454354ULL;
 constexpr std::uint64_t kAngleRandomDomain = 0x455352414e474c45ULL;
+constexpr std::uint64_t kRfRandomDomain = 0x4553525246000000ULL;
+constexpr std::uint64_t kBandwidthRandomDomain = 0x4553524257000000ULL;
+constexpr std::uint64_t kPriRandomDomain = 0x4553525052000000ULL;
+constexpr std::uint64_t kPulseWidthRandomDomain = 0x4553525057000000ULL;
 
 std::uint64_t Mix64(std::uint64_t value) {
   value += 0x9e3779b97f4a7c15ULL;
@@ -333,11 +337,18 @@ bool InterceptDetectionExecutor::ProcessRfV2Frame(
                                           static_cast<float>(snr_db), threshold, detection))) {
       continue;
     }
-    const double relative_std = std::max(
-        1.0e-6, std::min(0.25, 1.0 / std::sqrt(std::max(std::pow(10.0, snr_db / 10.0), 1.0e-12))));
     RawObservationRecord record;
-    std::mt19937 angle_rng = MakeEmissionRandomStream(ctx.GetPipelineConfig().algorithm.random_seed,
-                                                      ctx.GetCycleInput().cycle_index,
+    const std::uint32_t session_seed = ctx.GetPipelineConfig().algorithm.random_seed;
+    const std::uint32_t cycle_index = ctx.GetCycleInput().cycle_index;
+    const intercept::RfErrorModelConfig rf_error_config =
+        InterceptComponentFactory::BuildRfErrorModelConfig(ctx.GetPipelineConfig());
+    const intercept::BandwidthErrorModelConfig bandwidth_error_config =
+        InterceptComponentFactory::BuildBandwidthErrorModelConfig(ctx.GetPipelineConfig());
+    const intercept::PriErrorModelConfig pri_error_config =
+        InterceptComponentFactory::BuildPriErrorModelConfig(ctx.GetPipelineConfig());
+    const intercept::PulseWidthErrorModelConfig pulse_width_error_config =
+        InterceptComponentFactory::BuildPulseWidthErrorModelConfig(ctx.GetPipelineConfig());
+    std::mt19937 angle_rng = MakeEmissionRandomStream(session_seed, cycle_index,
                                                       signal.identity, kAngleRandomDomain);
     record.observation.observation_id = next_observation_id++;
     record.observation.timestamp_s = signal.arrival_start_time_s;
@@ -349,17 +360,54 @@ bool InterceptDetectionExecutor::ProcessRfV2Frame(
                                     intercept::AngleErrorModel::SampleErrorDeg(
                                         static_cast<float>(snr_db), static_cast<float>(beamwidth),
                                         &angle_rng, angle_error_config);
-    record.observation.rf_hz = center_hz;
-    record.observation.bandwidth_hz = bandwidth_hz;
+    // RF/带宽/PRI/PW 的发布值是接收机测量估计，而非真值副本。均值在真值上叠加 SNR 驱动的
+    // 零均值高斯误差，std 用同一模型计算，使发布不确定度与采样误差一致。各测量使用独立的
+    // identity-keyed 随机子流（纯派生，无跨周期可变 RNG 状态），保证输入顺序无关与 replay
+    // 字节级确定。
+    const float channel_bandwidth_hz =
+        static_cast<float>(front_end.receiver.bandwidth_hz);
+    const float occupied_bandwidth_hz_f = static_cast<float>(bandwidth_hz);
+    std::mt19937 rf_rng =
+        MakeEmissionRandomStream(session_seed, cycle_index, signal.identity, kRfRandomDomain);
+    record.observation.rf_hz =
+        center_hz + static_cast<double>(intercept::RfErrorModel::SampleErrorHz(
+                        static_cast<float>(snr_db), channel_bandwidth_hz, &rf_rng, rf_error_config));
+    record.observation.rf_std_hz = intercept::RfErrorModel::ComputeStdDevHz(
+        static_cast<float>(snr_db), channel_bandwidth_hz, rf_error_config);
+    std::mt19937 bandwidth_rng = MakeEmissionRandomStream(session_seed, cycle_index,
+                                                          signal.identity, kBandwidthRandomDomain);
+    record.observation.bandwidth_hz = std::max(
+        1.0, bandwidth_hz + static_cast<double>(intercept::BandwidthErrorModel::SampleErrorHz(
+                                static_cast<float>(snr_db), occupied_bandwidth_hz_f, &bandwidth_rng,
+                                bandwidth_error_config)));
+    record.observation.bandwidth_std_hz = intercept::BandwidthErrorModel::ComputeStdDevHz(
+        static_cast<float>(snr_db), occupied_bandwidth_hz_f, bandwidth_error_config);
     if (signal.emission_waveform.kind == oneq::electromagnetics::RfSceneWaveformKind::kPulseTrain) {
-      record.observation.pri_s = signal.emission_waveform.pulse_repetition_interval_s;
-      record.observation.pulse_width_s = signal.emission_waveform.pulse_width_s;
+      const float pri_s_f = static_cast<float>(signal.emission_waveform.pulse_repetition_interval_s);
+      const float pulse_width_s_f = static_cast<float>(signal.emission_waveform.pulse_width_s);
+      std::mt19937 pri_rng =
+          MakeEmissionRandomStream(session_seed, cycle_index, signal.identity, kPriRandomDomain);
+      record.observation.pri_s = std::max(
+          1.0e-12, static_cast<double>(pri_s_f) +
+                       intercept::PriErrorModel::SampleErrorS(static_cast<float>(snr_db), pri_s_f,
+                                                               &pri_rng, pri_error_config));
+      record.observation.pri_std_s = intercept::PriErrorModel::ComputeStdDevS(
+          static_cast<float>(snr_db), pri_s_f, pri_error_config);
+      std::mt19937 pulse_width_rng = MakeEmissionRandomStream(
+          session_seed, cycle_index, signal.identity, kPulseWidthRandomDomain);
+      record.observation.pulse_width_s =
+          std::max(0.0, static_cast<double>(pulse_width_s_f) +
+                            intercept::PulseWidthErrorModel::SampleErrorS(
+                                static_cast<float>(snr_db), pulse_width_s_f, &pulse_width_rng,
+                                pulse_width_error_config));
+      record.observation.pulse_width_std_s = intercept::PulseWidthErrorModel::ComputeStdDevS(
+          static_cast<float>(snr_db), pulse_width_s_f, pulse_width_error_config);
+    } else {
+      record.observation.pri_s = 0.0;
+      record.observation.pulse_width_s = 0.0;
+      record.observation.pri_std_s = 0.0;
+      record.observation.pulse_width_std_s = 0.0;
     }
-    record.observation.rf_std_hz = std::max(1.0, bandwidth_hz * relative_std);
-    record.observation.bandwidth_std_hz = std::max(1.0, bandwidth_hz * relative_std);
-    record.observation.pri_std_s = std::max(1.0e-12, record.observation.pri_s * relative_std);
-    record.observation.pulse_width_std_s =
-        std::max(1.0e-12, record.observation.pulse_width_s * relative_std);
     record.observation.amplitude_db = ToDb(signal.received_power_w);
     record.observation.snr_db = snr_db;
     record.observation.quality = ClassifyObservationQuality(static_cast<float>(snr_db));

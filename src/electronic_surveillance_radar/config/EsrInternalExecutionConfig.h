@@ -39,6 +39,10 @@ struct InterceptDetectionConfig {
 struct InterceptAlgorithmConfig {
   unsigned int random_seed{20260323U};
   float angle_error_coefficient{0.51f};
+  float rf_error_coefficient{0.5f};
+  float bandwidth_error_coefficient{0.5f};
+  float pri_error_coefficient{0.5f};
+  float pulse_width_error_coefficient{0.5f};
 };
 
 /** @brief 观测预处理子配置。 */
@@ -164,6 +168,11 @@ inline extension::InterceptPipelineConfig BuildPipelineConfig(
 
   ext.algorithm.random_seed = internal.intercept.algorithm.random_seed;
   ext.algorithm.angle_error_coefficient = internal.intercept.algorithm.angle_error_coefficient;
+  ext.algorithm.rf_error_coefficient = internal.intercept.algorithm.rf_error_coefficient;
+  ext.algorithm.bandwidth_error_coefficient = internal.intercept.algorithm.bandwidth_error_coefficient;
+  ext.algorithm.pri_error_coefficient = internal.intercept.algorithm.pri_error_coefficient;
+  ext.algorithm.pulse_width_error_coefficient =
+      internal.intercept.algorithm.pulse_width_error_coefficient;
 
   ext.preprocess = extension::InterceptPreprocessConfig();
   ext.preprocess.dedup_time_window_sec = internal.intercept.preprocess.dedup_time_window_sec;

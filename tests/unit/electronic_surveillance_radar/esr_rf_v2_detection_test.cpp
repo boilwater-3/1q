@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 
 #include <algorithm>
+#include <cmath>
 #include <cstdint>
 
 #include "1q/electromagnetics/RfScene.h"
@@ -36,6 +37,20 @@ oneq::electromagnetics::RfSceneEmission MakeEmission(std::uint64_t emission_id, 
   emission.antenna.boresight_ecef.y = -1.0;
   EXPECT_TRUE(oneq::electromagnetics::TryCreateRfNoiseWaveform(10.0, 1.0, center_hz, 1.0e6, power_w,
                                                                &emission.waveform));
+  return emission;
+}
+
+oneq::electromagnetics::RfSceneEmission MakePulseTrainEmission(std::uint64_t emission_id,
+                                                                double center_hz, double power_w) {
+  oneq::electromagnetics::RfSceneEmission emission;
+  emission.identity.platform_id = 10U + emission_id;
+  emission.identity.equipment_id = 20U + emission_id;
+  emission.identity.emission_id = emission_id;
+  emission.position_ecef_m.x_m = 6378137.0;
+  emission.position_ecef_m.y_m = 1000.0;
+  emission.antenna.boresight_ecef.y = -1.0;
+  EXPECT_TRUE(oneq::electromagnetics::TryCreateRfPulseTrainWaveform(
+      10.0, center_hz, 1.0e6, power_w, 1.0e-6, 1.0e-3, 1000U, 0.0, 0U, 0U, &emission.waveform));
   return emission;
 }
 
@@ -89,7 +104,10 @@ TEST(EsrRfV2DetectionTest, EmitsDeclassifiedObservationFromRfFrame) {
   const InterceptDetectionOutput output = RunDetection(input);
   ASSERT_EQ(output.raw_records.size(), 1U);
   const RawObservationRecord& record = output.raw_records.front();
-  EXPECT_NEAR(record.observation.rf_hz, 10.0e9, 1.0);
+  // RF 均值是接收机测量估计而非真值副本：应在发布标准差 rf_std_hz 的 4σ 内（误差模型按
+  // ±3σ 截断，4σ 容差留余量），且不再逐字段等于输入 10.0 GHz。
+  EXPECT_LE(std::abs(record.observation.rf_hz - 10.0e9), 4.0 * record.observation.rf_std_hz);
+  EXPECT_GT(record.observation.rf_std_hz, 0.0);
   EXPECT_GT(record.observation.bandwidth_hz, 0.0);
   EXPECT_GT(record.observation.snr_db, -20.0);
 }
@@ -178,6 +196,49 @@ TEST(EsrRfV2DetectionTest, MissingCoSitePathRejectsTheV2CycleBeforeProducingObse
   const InterceptDetectionOutput output = RunDetection(input);
   EXPECT_TRUE(output.rf_v2_rejected);
   EXPECT_TRUE(output.raw_records.empty());
+}
+
+TEST(EsrRfV2DetectionTest, MeasurementMeansDifferFromTruthAcrossSnr) {
+  // 固定辐射源，通过改变入射功率改变 SNR：高 SNR 下测量误差应更小（更靠近真值）。
+  // 验证冻结合同"测量误差随 SNR 单调"。
+  const double center_hz = 10.0e9;
+  session::EsrCycleInput low_power_input = MakeInput();
+  low_power_input.rf_emissions.emissions.push_back(MakePulseTrainEmission(1U, center_hz, 1.0e6));
+  session::EsrCycleInput high_power_input = MakeInput();
+  high_power_input.rf_emissions.emissions.push_back(MakePulseTrainEmission(1U, center_hz, 1.0e9));
+
+  const InterceptDetectionOutput low_output = RunDetection(low_power_input);
+  const InterceptDetectionOutput high_output = RunDetection(high_power_input);
+  ASSERT_EQ(low_output.raw_records.size(), 1U);
+  ASSERT_EQ(high_output.raw_records.size(), 1U);
+  // 高 SNR 的发布不确定度应小于低 SNR（std 随 SNR 单调下降）。
+  EXPECT_LT(high_output.raw_records.front().observation.rf_std_hz,
+            low_output.raw_records.front().observation.rf_std_hz);
+  EXPECT_LT(high_output.raw_records.front().observation.pulse_width_std_s,
+            low_output.raw_records.front().observation.pulse_width_std_s);
+}
+
+TEST(EsrRfV2DetectionTest, MeasurementNoiseIsOrderInvariant) {
+  // 仿 EmissionOrderDoesNotChangeSemanticRandomMeasurements：RF/带宽/PRI/PW 测量噪声使用
+  // identity-keyed 随机子流，emission 输入顺序变化不应改变同 identity 的测量值。
+  session::EsrCycleInput forward = MakeInput();
+  forward.rf_emissions.emissions.push_back(MakePulseTrainEmission(2U, 10.0e9, 1.0e6));
+  forward.rf_emissions.emissions.push_back(MakePulseTrainEmission(1U, 10.0e9, 1.0e6));
+  session::EsrCycleInput reverse = forward;
+  std::reverse(reverse.rf_emissions.emissions.begin(), reverse.rf_emissions.emissions.end());
+
+  const InterceptDetectionOutput forward_output = RunDetection(forward);
+  const InterceptDetectionOutput reverse_output = RunDetection(reverse);
+  ASSERT_EQ(forward_output.raw_records.size(), reverse_output.raw_records.size());
+  for (std::size_t index = 0U; index < forward_output.raw_records.size(); ++index) {
+    const session::EmitterObservation& left = forward_output.raw_records[index].observation;
+    const session::EmitterObservation& right = reverse_output.raw_records[index].observation;
+    EXPECT_EQ(left.observation_id, right.observation_id);
+    EXPECT_DOUBLE_EQ(left.rf_hz, right.rf_hz);
+    EXPECT_DOUBLE_EQ(left.bandwidth_hz, right.bandwidth_hz);
+    EXPECT_DOUBLE_EQ(left.pri_s, right.pri_s);
+    EXPECT_DOUBLE_EQ(left.pulse_width_s, right.pulse_width_s);
+  }
 }
 
 }  // namespace

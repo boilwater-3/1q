@@ -68,6 +68,10 @@ struct InterceptScanConfig {
 struct InterceptAlgorithmConfig {
   unsigned int random_seed{20260323U};
   float angle_error_coefficient{0.51f};
+  float rf_error_coefficient{0.5f};
+  float bandwidth_error_coefficient{0.5f};
+  float pri_error_coefficient{0.5f};
+  float pulse_width_error_coefficient{0.5f};
 };
 
 /**
