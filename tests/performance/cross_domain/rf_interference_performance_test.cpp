@@ -4,6 +4,7 @@
 #include <chrono>
 #include <cmath>
 #include <cstdint>
+#include <string>
 #include <vector>
 
 #include "1q/airborne_radar/airborne_radar.hpp"
@@ -40,9 +41,11 @@ rf::RfEmissionFrame MakeRfEmissions(std::uint32_t cycle_index,
     emission.identity.platform_id = identity_base + i;
     emission.identity.equipment_id = 1U;
     emission.identity.emission_id = identity_base + 100000U + i;
-    emission.position_ecef_m.x_m = 6378137.0 + 20000.0 + 100.0 * static_cast<double>(i);
-    emission.position_ecef_m.y_m = 500.0 * static_cast<double>(i % 8U);
-    emission.antenna.boresight_ecef.x = -1.0;
+    emission.position_ecef_m.x_m = 6378137.0;
+    emission.position_ecef_m.y_m = 20000.0 + 100.0 * static_cast<double>(i);
+    emission.position_ecef_m.z_m = 500.0 * static_cast<double>(i % 8U);
+    emission.antenna.boresight_ecef.x = 0.0;
+    emission.antenna.boresight_ecef.y = -1.0;
     emission.antenna.peak_gain_dbi = 10.0;
     emission.polarization = rf::RfScenePolarization::kHorizontal;
     EXPECT_TRUE(rf::TryCreateRfNoiseWaveform(
@@ -132,6 +135,7 @@ TEST(RfInterferencePerformanceTest, FullScaleCyclesMeetReleaseP95Budget) {
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start).count();
     ASSERT_FALSE(ar_result.has_validation_error);
     ASSERT_FALSE(esr_result.has_validation_error);
+    ASSERT_EQ(esr_result.status, esr_session::EsrCycleExecutionStatus::kCompleted);
     if (cycle > kWarmupCycles) {
       elapsed_ms.push_back(duration_ms);
     }
@@ -144,7 +148,7 @@ TEST(RfInterferencePerformanceTest, FullScaleCyclesMeetReleaseP95Budget) {
   RecordProperty("ar_target_count", static_cast<int>(kArTargetCount));
   RecordProperty("esr_emitter_count", static_cast<int>(kEsrEmitterCount));
   RecordProperty("measured_cycle_count", static_cast<int>(kMeasuredCycles));
-  RecordProperty("p95_milliseconds", p95_ms);
+  RecordProperty("p95_milliseconds", std::to_string(p95_ms));
   EXPECT_LT(p95_ms, kP95LimitMilliseconds);
 }
 
