@@ -72,6 +72,16 @@ double ReadScanPhase(const pipeline::InterceptPipeline& pipeline) {
   return snapshot == nullptr ? -1.0 : snapshot->scan_phase_cycles;
 }
 
+std::uint64_t ReadCompletedReceiveCycles(
+    const pipeline::InterceptPipeline& pipeline) {
+  const extension::InterceptPipelineRuntimeState state =
+      pipeline.CaptureRuntimeState();
+  const pipeline::PipelineRuntimeSnapshot* snapshot =
+      pipeline::RestorePipelineSnapshot(state);
+  EXPECT_NE(snapshot, nullptr);
+  return snapshot == nullptr ? 0U : snapshot->completed_receive_cycles;
+}
+
 }  // namespace
 
 TEST(EsrControllerRuntimeStateTest, CaptureAndRestoreRoundTripState) {
@@ -118,20 +128,31 @@ TEST(EsrControllerRuntimeStateTest, SuccessfulCyclesAdvanceBatchAndRejectedCycle
   EXPECT_EQ(controller.CaptureRuntimeState().next_batch_id, initial_batch_id + 2U);
 }
 
-TEST(EsrControllerRuntimeStateTest, RestoreRejectsIncompatiblePipelineSnapshot) {
-  pipeline::InterceptPipeline pipeline_a(MakeDefaultConfig());
-  pipeline::InterceptPipeline pipeline_b(MakeDefaultConfig());
+TEST(EsrControllerRuntimeStateTest, RestoreDoesNotMutatePipelineOwnedState) {
+  EsrInternalExecutionConfig config = MakeDefaultConfig();
+  config.mission.scan.scan_rate_hz = 0.25f;
+  pipeline::InterceptPipeline pipeline(config);
   StubEnvironmentService env;
-  EsrController controller_a(pipeline_a, env);
-  EsrController controller_b(pipeline_b, env);
+  EsrController controller(pipeline, env);
 
-  controller_a.RunOnce(MakeValidInput(20U));
-  controller_b.RunOnce(MakeValidInput(30U));
+  session::EsrCycleInput first = MakeValidInput(20U);
+  first.dt_sec = 0.2f;
+  first.rf_emissions.window_duration_s = first.dt_sec;
+  controller.RunOnce(first);
+  const EsrControllerRuntimeState controller_state =
+      controller.CaptureRuntimeState();
+  const double first_phase = ReadScanPhase(pipeline);
 
-  EsrControllerRuntimeState foreign_state = controller_b.CaptureRuntimeState();
-  controller_a.RestoreRuntimeState(foreign_state);
+  session::EsrCycleInput second = MakeValidInput(21U);
+  second.dt_sec = 0.2f;
+  second.rf_emissions.window_duration_s = second.dt_sec;
+  controller.RunOnce(second);
+  const double second_phase = ReadScanPhase(pipeline);
+  ASSERT_NE(first_phase, second_phase);
 
-  EXPECT_EQ(controller_a.GetLatestInterceptOutputFrame().cycle_index, 20U);
+  ASSERT_TRUE(controller.RestoreRuntimeState(controller_state));
+  EXPECT_EQ(controller.GetLatestInterceptOutputFrame().cycle_index, 20U);
+  EXPECT_DOUBLE_EQ(ReadScanPhase(pipeline), second_phase);
 }
 
 TEST(EsrControllerRuntimeStateTest, RestoreRejectsSnapshotFromOtherControllerInstance) {
@@ -188,9 +209,6 @@ TEST(EsrControllerRuntimeStateTest,
 
   controller.RunOnce(MakeValidInput(100U));
   ASSERT_EQ(controller.GetLatestCycleStatus(), session::EsrCycleExecutionStatus::kCompleted);
-
-  const auto pipeline_state = pipeline.CaptureRuntimeState();
-  const auto controller_state = controller.CaptureRuntimeState();
 
   session::EsrCycleInput invalid_input = MakeValidInput(101U);
   invalid_input.dt_sec = 0.0f;
@@ -267,6 +285,28 @@ TEST(EsrControllerRuntimeStateTest, RestoreRejectsNonFiniteScanPhase) {
   corrupted->scan_phase_cycles = std::numeric_limits<double>::quiet_NaN();
   pipeline::CapturePipelineSnapshot(state, corrupted);
   EXPECT_FALSE(pipeline.RestoreRuntimeState(state));
+}
+
+TEST(EsrControllerRuntimeStateTest,
+     PipelineSnapshotRestoresCompletedTuningPhase) {
+  pipeline::InterceptPipeline pipeline(MakeDefaultConfig());
+  StubEnvironmentService env;
+  session::EsrCycleInput input = MakeValidInput(1U);
+
+  ASSERT_FALSE(pipeline.RunCycle(input, env).rf_v2_rejected);
+  ASSERT_EQ(ReadCompletedReceiveCycles(pipeline), 1U);
+  const extension::InterceptPipelineRuntimeState saved =
+      pipeline.CaptureRuntimeState();
+
+  input.cycle_index = 2U;
+  input.cycle_start_time_s = 2.0;
+  input.rf_emissions.world_cycle_index = 2U;
+  input.rf_emissions.window_start_time_s = 2.0;
+  ASSERT_FALSE(pipeline.RunCycle(input, env).rf_v2_rejected);
+  ASSERT_EQ(ReadCompletedReceiveCycles(pipeline), 2U);
+
+  ASSERT_TRUE(pipeline.RestoreRuntimeState(saved));
+  EXPECT_EQ(ReadCompletedReceiveCycles(pipeline), 1U);
 }
 
 }  // namespace extension

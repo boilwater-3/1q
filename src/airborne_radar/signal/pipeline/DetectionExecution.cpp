@@ -12,6 +12,7 @@
 #include "airborne_radar/signal/detection/SignalDetector.h"
 #include "airborne_radar/signal/pipeline/PipelineTargetUtils.h"
 #include "common/atmosphere/AtmospherePhysics.h"
+#include "common/logging/ProjectLog.h"
 #include "common/rcs/RcsPhysics.h"
 
 namespace airborne_radar {
@@ -227,6 +228,8 @@ bool RunPhysicalDetectionPass(const session::ArSceneTargetList& input,
       const Eigen::Vector3f& position = (*buffers->target_geometry)[i].position_m;
       const float position_norm = position.norm();
       if (!std::isfinite(position_norm) || position_norm <= 0.0f) {
+        PROJECT_LOG_ERROR("[DetectionExecution] target {} has invalid local position norm {}.", i,
+                          position_norm);
         return false;
       }
       const Eigen::Vector3f relative_velocity(input[i].velocity_x, input[i].velocity_y,
@@ -235,6 +238,9 @@ bool RunPhysicalDetectionPass(const session::ArSceneTargetList& input,
           -static_cast<double>(relative_velocity.dot(position / position_norm));
       const double two_way_propagation_loss_db = static_cast<double>(env.propagation_loss_db);
       if (!std::isfinite(two_way_propagation_loss_db) || two_way_propagation_loss_db < 0.0) {
+        PROJECT_LOG_ERROR(
+            "[DetectionExecution] target {} has invalid two-way propagation loss {} dB.", i,
+            two_way_propagation_loss_db);
         return false;
       }
       detection::ArDetectionCellConfig cell_config;
@@ -263,6 +269,11 @@ bool RunPhysicalDetectionPass(const session::ArSceneTargetList& input,
               cell_config, cell_target, rf_v2_detection_context->own_emission_identity,
               rf_v2_detection_context->incident_links, static_cast<double>(clutter_w),
               &cell_result)) {
+        PROJECT_LOG_ERROR(
+            "[DetectionExecution] target {} RF detection-cell resolution failed "
+            "(range_m={}, pulse_count={}, incident_links={}).",
+            i, cell_target.range_m, cell_target.effective_pulse_count,
+            rf_v2_detection_context->incident_links.size());
         return false;
       }
       detection_result = signal_detector->DetectResolvedCell(target, cell_result);

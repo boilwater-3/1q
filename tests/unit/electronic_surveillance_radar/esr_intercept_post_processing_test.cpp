@@ -160,6 +160,90 @@ TEST(InterceptPostProcessingExecutorTest, SpectralDisabledSkipsAnalysis) {
   EXPECT_GT(result.observation_output.raw_observation_count, 0u);
 }
 
+TEST(InterceptPostProcessingExecutorTest, ClusteringPartitionsByWaveformClass) {
+  // 构造 3 条 kPulse 脉冲记录 + 3 条 kContinuous CW 记录，
+  // 两组 RF/AoA/SNR 极近（同特征空间）。验证聚类按 waveform class
+  // 分流，不产生跨类混簇。
+  std::vector<RawObservationRecord> records;
+  for (int i = 0; i < 3; ++i) {
+    RawObservationRecord pulse_rec = MakeRecord(10U + i, 1.0, 10.0e9, 10.0f, 1.0f, 15.0f);
+    pulse_rec.observation.waveform_class = session::EsrWaveformClass::kPulse;
+    pulse_rec.observation.pri_s = 1.0e-3;
+    records.push_back(pulse_rec);
+  }
+  for (int i = 0; i < 3; ++i) {
+    RawObservationRecord cw_rec = MakeRecord(20U + i, 1.0, 10.0e9, 10.0f, 1.0f, 15.0f);
+    cw_rec.observation.waveform_class = session::EsrWaveformClass::kContinuous;
+    cw_rec.observation.pulse_width_s = 0.0;
+    records.push_back(cw_rec);
+  }
+
+  MutableEsrContext ctx = MakeContext(false);
+  ObservationPreprocessor preprocessor;
+  KdTreeClusterer clusterer;
+  HypothesisAssociator associator;
+  ObservationFeatureScales feature_scales;
+  std::uint64_t next_id = 1U;
+
+  InterceptPostProcessingExecutor executor;
+  const extension::InterceptPipelineResult result =
+      executor.Execute(records, ctx, preprocessor, clusterer, associator,
+                       feature_scales, next_id);
+
+  // 类分流应产生至少 2 个簇（pulse 桶 + continuous 桶各自产出簇），不应跨类合并。
+  EXPECT_GE(result.observation_output.cluster_count, 2U);
+  // 每个簇内所有观测应属于同一 class。
+  for (const auto& obs : result.observation_output.observations) {
+    EXPECT_TRUE(obs.waveform_class == session::EsrWaveformClass::kPulse ||
+                obs.waveform_class == session::EsrWaveformClass::kContinuous);
+  }
+}
+
+TEST(InterceptPostProcessingExecutorTest, EnergyClassInfersContinuousIllumination) {
+  // 仅 CW 观测记录 → mode 应推断为 kContinuousIllumination，
+  // 不再因 pri=0/pw=0 误判 kSearch。
+  std::vector<RawObservationRecord> records;
+  for (int i = 0; i < 3; ++i) {
+    RawObservationRecord cw_rec = MakeRecord(30U + i, 1.0, 10.0e9, 10.0f, 1.0f, 15.0f);
+    cw_rec.observation.waveform_class = session::EsrWaveformClass::kContinuous;
+    cw_rec.observation.pulse_width_s = 0.0;
+    records.push_back(cw_rec);
+  }
+  // noise 记录单独一份 → mode=kUnknown
+  {
+    RawObservationRecord noise_rec = MakeRecord(40U, 1.0, 10.05e9, 10.0f, 1.0f, 15.0f);
+    noise_rec.observation.waveform_class = session::EsrWaveformClass::kNoise;
+    noise_rec.observation.pulse_width_s = 0.0;
+    records.push_back(noise_rec);
+  }
+
+  MutableEsrContext ctx = MakeContext(false);
+  ObservationPreprocessor preprocessor;
+  KdTreeClusterer clusterer;
+  HypothesisAssociator associator;
+  ObservationFeatureScales feature_scales;
+  std::uint64_t next_id = 1U;
+
+  InterceptPostProcessingExecutor executor;
+  const extension::InterceptPipelineResult result =
+      executor.Execute(records, ctx, preprocessor, clusterer, associator,
+                       feature_scales, next_id);
+
+  ASSERT_GE(result.emitter_output.hypotheses.size(), 1U);
+  bool has_continuous_illumination = false;
+  bool has_unknown = false;
+  for (const auto& hyp : result.emitter_output.hypotheses) {
+    if (hyp.mode == session::EsrEmitterMode::kContinuousIllumination) {
+      has_continuous_illumination = true;
+    }
+    if (hyp.mode == session::EsrEmitterMode::kUnknown) {
+      has_unknown = true;
+    }
+  }
+  EXPECT_TRUE(has_continuous_illumination) << "CW cluster should infer kContinuousIllumination";
+  EXPECT_TRUE(has_unknown) << "Noise cluster should infer kUnknown";
+}
+
 }  // namespace
 }  // namespace pipeline
 }  // namespace electronic_surveillance_radar

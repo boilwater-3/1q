@@ -11,6 +11,7 @@
 #include <vector>
 
 #include "1q/api.hpp"
+#include "1q/electronic_surveillance_radar/session/EmitterObservation.h"
 
 namespace electronic_surveillance_radar {
 namespace session {
@@ -19,10 +20,11 @@ namespace session {
  * @brief EsrEmitterMode 表示辐射源工作模式假设。
  */
 enum class ONEQ_API EsrEmitterMode {
-  kUnknown = 0, /**< 未知模式 */
-  kSearch,      /**< 搜索模式 */
-  kTracking,    /**< 跟踪模式 */
-  kGuidance     /**< 制导模式 */
+  kUnknown = 0,            /**< 未知模式 */
+  kSearch,                 /**< 搜索模式 */
+  kTracking,               /**< 跟踪模式 */
+  kGuidance,               /**< 制导模式 */
+  kContinuousIllumination, /**< 连续波照射（energy 类专用，CW 照射器/末端制导） */
 };
 
 /**
@@ -56,6 +58,7 @@ struct ONEQ_API EmitterHypothesis {
   double pulse_width_std_s{0.0};               /**< 脉宽估计标准差（单位：s） */
   float confidence{0.0f};                       /**< 假设置信度，范围 [0, 1] */
   std::uint32_t last_seen_cycle{0U};            /**< 最近命中周期号 */
+  EsrWaveformClass waveform_class{EsrWaveformClass::kPulse}; /**< 波形类别，默认脉冲 */
 };
 
 /** @brief EmitterHypothesisList 表示辐射源假设列表。 */

@@ -1,5 +1,7 @@
 #include <gtest/gtest.h>
 
+#include <cmath>
+
 #include "1q/electromagnetics/RfScene.h"
 #include "1q/electronic_surveillance_radar/config/EsrRuntimeConfigBuilder.h"
 #include "1q/electronic_surveillance_radar/session/EsrSession.h"
@@ -11,6 +13,7 @@ namespace {
 config::EsrSessionConfig MakeConfig() {
   config::EsrSessionConfig config;
   config.policy.detection.minimum_snr_db = -100.0f;
+  config.policy.detection.enable_statistical_detection = false;
   config.hardware.receiver_band_lower_hz = 9.0e9;
   config.hardware.receiver_band_upper_hz = 11.0e9;
   config.hardware.beam_az_width_deg = 180.0f;
@@ -64,6 +67,27 @@ TEST(EsrSessionIntegrationTest, InvalidCoSitePathRejectsWithoutOutput) {
   EXPECT_EQ(result.status, EsrCycleExecutionStatus::kRejected);
   EXPECT_EQ(result.abort_reason, EsrPipelineAbortReason::kRfReceiverRejected);
   EXPECT_EQ(result.output_frame.cycle_index, 0U);
+}
+
+TEST(EsrSessionIntegrationTest,
+     PolarBearingSingularityDoesNotRejectObservablePeer) {
+  EsrCycleInput input = MakeInput();
+  oneq::electromagnetics::RfSceneEmission polar = MakeEmission(1U, 1.0e6);
+  polar.position_ecef_m.x_m += 1000.0;
+  polar.position_ecef_m.y_m = 0.0;
+  polar.antenna.boresight_ecef.x = -1.0;
+  polar.antenna.boresight_ecef.y = 0.0;
+  input.rf_emissions.emissions.push_back(polar);
+  input.rf_emissions.emissions.push_back(MakeEmission(2U, 1.0e6));
+
+  const EsrCycleResult result =
+      EsrSession::Create(MakeConfig()).StepWithResult(input);
+  EXPECT_EQ(result.status, EsrCycleExecutionStatus::kCompleted);
+  EXPECT_EQ(result.abort_reason, EsrPipelineAbortReason::kNone);
+  ASSERT_EQ(result.output_frame.observation_output.observations.size(), 1U);
+  EXPECT_LT(
+      std::abs(result.output_frame.observation_output.observations.front().aoa_el_deg),
+      30.0);
 }
 
 TEST(EsrSessionIntegrationTest, PowerOffProducesNoHistoricalOutput) {

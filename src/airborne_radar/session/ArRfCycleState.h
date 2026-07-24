@@ -49,7 +49,6 @@ struct ArReceiverOperatingState {
   double matched_filter_bandwidth_hz{0.0};                     /**< 匹配滤波带宽。 */
   double receiver_noise_figure_db{0.0};                        /**< 接收机噪声系数。 */
   double maximum_linear_input_power_w{0.0};                    /**< 前端最大线性输入功率。 */
-  bool transmit_receive_blanking_enabled{false};               /**< 发射脉冲期间是否执行 T/R blanking。 */
   std::vector<oneq::electromagnetics::RfSceneDirection>
       adaptive_nulls_ecef{}; /**< 当前周期实际自适应零陷方向。 */
 };

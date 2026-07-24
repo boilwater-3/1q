@@ -8,6 +8,10 @@
 
 #include "electronic_surveillance_radar/pipeline/InterceptPipelineTypes.h"
 #include "electronic_surveillance_radar/pipeline/AngleErrorModel.h"
+#include "electronic_surveillance_radar/pipeline/BandwidthErrorModel.h"
+#include "electronic_surveillance_radar/pipeline/PriErrorModel.h"
+#include "electronic_surveillance_radar/pipeline/PulseWidthErrorModel.h"
+#include "electronic_surveillance_radar/pipeline/RfErrorModel.h"
 #include "electronic_surveillance_radar/pipeline/ScanPatternGenerator.h"
 
 namespace electronic_surveillance_radar {
@@ -46,6 +50,54 @@ class InterceptComponentFactory final {
       const extension::InterceptPipelineConfig& config) {
     intercept::AngleErrorModelConfig error_config;
     error_config.coefficient = config.algorithm.angle_error_coefficient;
+    return error_config;
+  }
+
+  /**
+   * @brief 构造载频测量误差模型配置。
+   * @param[in] config 顶层流水线配置。
+   * @return 载频测量误差模型配置。
+   */
+  static intercept::RfErrorModelConfig BuildRfErrorModelConfig(
+      const extension::InterceptPipelineConfig& config) {
+    intercept::RfErrorModelConfig error_config;
+    error_config.coefficient = config.algorithm.rf_error_coefficient;
+    return error_config;
+  }
+
+  /**
+   * @brief 构造占用带宽测量误差模型配置。
+   * @param[in] config 顶层流水线配置。
+   * @return 占用带宽测量误差模型配置。
+   */
+  static intercept::BandwidthErrorModelConfig BuildBandwidthErrorModelConfig(
+      const extension::InterceptPipelineConfig& config) {
+    intercept::BandwidthErrorModelConfig error_config;
+    error_config.coefficient = config.algorithm.bandwidth_error_coefficient;
+    return error_config;
+  }
+
+  /**
+   * @brief 构造脉冲重复间隔测量误差模型配置。
+   * @param[in] config 顶层流水线配置。
+   * @return 脉冲重复间隔测量误差模型配置。
+   */
+  static intercept::PriErrorModelConfig BuildPriErrorModelConfig(
+      const extension::InterceptPipelineConfig& config) {
+    intercept::PriErrorModelConfig error_config;
+    error_config.coefficient = config.algorithm.pri_error_coefficient;
+    return error_config;
+  }
+
+  /**
+   * @brief 构造脉宽测量误差模型配置。
+   * @param[in] config 顶层流水线配置。
+   * @return 脉宽测量误差模型配置。
+   */
+  static intercept::PulseWidthErrorModelConfig BuildPulseWidthErrorModelConfig(
+      const extension::InterceptPipelineConfig& config) {
+    intercept::PulseWidthErrorModelConfig error_config;
+    error_config.coefficient = config.algorithm.pulse_width_error_coefficient;
     return error_config;
   }
 };

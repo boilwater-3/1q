@@ -5,6 +5,7 @@
 
 #include "1q/electronic_surveillance_radar/config/EsrSessionConfigValidation.h"
 #include "common/validation/ValidationUtils.h"
+#include "electronic_surveillance_radar/session/EsrConfigDomainValidation.h"
 
 namespace electronic_surveillance_radar {
 namespace config {
@@ -108,17 +109,27 @@ ValidationIssueList ValidateEsrSessionConfig(const config::EsrSessionConfig& con
          "Scan pattern cycle rate must be finite and positive.");
   }
 
-  if (config.hardware.receiver_band_lower_hz >= config.hardware.receiver_band_upper_hz) {
+  if (!session::config_validation::IsValidMissionEnums(config.mission)) {
+    push(ConfigValidationCode::kMissionEnumInvalid, "mission enum fields",
+         "Work mode, scan start position, and scan sequence must be known values.");
+  }
+
+  if (!oneq::common::validation::IsFinite(config.hardware.receiver_band_lower_hz) ||
+      !oneq::common::validation::IsFinite(config.hardware.receiver_band_upper_hz) ||
+      config.hardware.receiver_band_lower_hz <= 0.0 ||
+      config.hardware.receiver_band_lower_hz >= config.hardware.receiver_band_upper_hz) {
     push(ConfigValidationCode::kReceiverBandLowerAboveUpper,
          "hardware.receiver_band_lower_hz / receiver_band_upper_hz",
          "Receiver band lower bound must be below upper bound.");
   }
 
-  if (config.hardware.beam_az_width_deg <= 0.0f) {
+  if (!oneq::common::validation::IsFinite(config.hardware.beam_az_width_deg) ||
+      config.hardware.beam_az_width_deg <= 0.0f) {
     push(ConfigValidationCode::kBeamAzWidthNotPositive, "hardware.beam_az_width_deg",
          "Azimuth beamwidth must be positive.");
   }
-  if (config.hardware.beam_el_width_deg <= 0.0f) {
+  if (!oneq::common::validation::IsFinite(config.hardware.beam_el_width_deg) ||
+      config.hardware.beam_el_width_deg <= 0.0f) {
     push(ConfigValidationCode::kBeamElWidthNotPositive, "hardware.beam_el_width_deg",
          "Elevation beamwidth must be positive.");
   }
@@ -189,6 +200,25 @@ ValidationIssueList ValidateEsrSessionConfig(const config::EsrSessionConfig& con
            "mission.scan.scan_start_el_deg / scan_end_el_deg",
            "Scan start elevation must be less than end elevation.");
     }
+  } else if (!oneq::common::validation::IsFinite(
+                 config.mission.scan.scan_center_az_deg) ||
+             !oneq::common::validation::IsFinite(
+                 config.mission.scan.scan_center_el_deg)) {
+    push(ConfigValidationCode::kScanCenterNotFinite,
+         "mission.scan center fields",
+         "Center-driven scan angles must be finite.");
+  }
+
+  if (!session::config_validation::IsValidDetectionPolicy(
+          config.policy.detection)) {
+    push(ConfigValidationCode::kDetectionPolicyInvalid, "policy.detection",
+         "Detection policy requires finite SNR, Pfa in (0,1), positive pulse count, and positive threshold scale.");
+  }
+
+  if (!session::config_validation::IsValidEnvironment(
+          config.environment.scenario_config)) {
+    push(ConfigValidationCode::kEnvironmentInvalid, "environment.scenario_config",
+         "Environment preset and enabled atmospheric physics values must be valid.");
   }
 
   return issues;

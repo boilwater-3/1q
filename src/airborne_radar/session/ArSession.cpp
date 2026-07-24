@@ -17,6 +17,7 @@
 #include "airborne_radar/session/MutableArContext.h"
 #include "airborne_radar/signal/detection/ArInterferenceObservationResolver.h"
 #include "airborne_radar/signal/detection/ArRfFrontEndResolver.h"
+#include "airborne_radar/signal/detection/BeamControlResolver.h"
 #include "airborne_radar/signal/pipeline/ISignalPipeline.h"
 #include "airborne_radar/signal/pipeline/SignalPipeline.h"
 #include "common/logging/ProjectLog.h"
@@ -199,6 +200,24 @@ struct ArSession::Impl {
     result.input_cycle_index = input.cycle_index;
     result.status = ArCycleStatus::kRejectedExecution;
     result.abort_reason = abort_reason;
+    return result;
+  }
+
+  ArCycleResult BuildPostEmissionAbortResult(const ArCycleInput& input,
+                                             const ArPrepareCycleResult& prepared,
+                                             session::SignalCycleAbortReason abort_reason) const {
+    ArCycleResult result = BuildExecutionAbortResult(input, abort_reason);
+    result.emission_frame.world_cycle_index = input.cycle_index;
+    result.emission_frame.window_start_time_s = input.cycle_start_time_s;
+    result.emission_frame.window_duration_s = input.dt_sec;
+    if (prepared.has_emission) {
+      result.emission_frame.emissions.push_back(prepared.emission);
+    }
+    result.has_control_profile = true;
+    result.control_profile = Controller().GetControlProfile();
+    result.applied_decision_source = Controller().GetLastAppliedDecisionSource();
+    result.applied_decision_cycle_index = Controller().GetLastAppliedDecisionCycleIndex();
+    result.applied_decision_batch_id = Controller().GetLastAppliedDecisionBatchId();
     return result;
   }
 
@@ -423,12 +442,22 @@ struct ArSession::Impl {
         input.platform.platform_attitude_deg, input.platform.radar_mount_angles_deg);
     const config::mapping::RuntimeConfigState& next_operating_state =
         has_pending_runtime_update ? pending_runtime_state : runtime_state;
+    config::ArOrientationConfig actual_orientation =
+        next_operating_state.execution_config.detection.orientation;
+    actual_orientation.mount_angles_deg.yaw_deg =
+        static_cast<float>(input.platform.radar_mount_angles_deg.yaw_deg);
+    actual_orientation.mount_angles_deg.pitch_deg =
+        static_cast<float>(input.platform.radar_mount_angles_deg.pitch_deg);
+    actual_orientation.mount_angles_deg.roll_deg =
+        static_cast<float>(input.platform.radar_mount_angles_deg.roll_deg);
+    config::PlatformAttitudeDeg platform_attitude;
+    platform_attitude.yaw_deg = static_cast<float>(input.platform.platform_attitude_deg.yaw_deg);
+    platform_attitude.pitch_deg =
+        static_cast<float>(input.platform.platform_attitude_deg.pitch_deg);
+    platform_attitude.roll_deg = static_cast<float>(input.platform.platform_attitude_deg.roll_deg);
     prepare_input.beam_pointing_deg =
-        next_operating_state.execution_config.detection.orientation.scan_center_deg;
-    prepare_input.beam_pointing_deg.az_deg +=
-        next_operating_state.dwell_center_deg.az_deg;
-    prepare_input.beam_pointing_deg.el_deg +=
-        next_operating_state.dwell_center_deg.el_deg;
+        signal::detection::BeamControlResolver::ResolveMountFrameBeamPointing(
+            actual_orientation, platform_attitude, next_operating_state.dwell_center_deg);
 
     const ArPrepareCycleResult prepared = PrepareRfCycle(prepare_input);
     if (prepared.status == ArPrepareCycleStatus::kPoweredOff) {
@@ -463,12 +492,27 @@ struct ArSession::Impl {
     complete_input.targets = local_targets;
     complete_input.atmospheric_observation = input.environment.atmospheric_observation;
     complete_input.surface_observation = input.environment.surface_observation;
+    const ArContextRuntimeState post_emission_radar_context_state =
+        RadarContext().CaptureRuntimeState();
+    const signal::SignalPipelineRuntimeState post_emission_pipeline_state =
+        SignalPipeline().CaptureRuntimeState();
+    const environment::EnvironmentServiceRuntimeState post_emission_environment_state =
+        EnvironmentService().CaptureRuntimeState();
+    const extension::ArControllerRuntimeState post_emission_controller_state =
+        Controller().CaptureRuntimeState();
     const ArCompleteCycleResult completed =
         CompleteRfCycle(prepared.token, complete_input);
     if (completed.status != ArCompleteCycleStatus::kCompleted) {
-      (void)restore_user_cycle();
-      return BuildExecutionAbortResult(
-          input, session::SignalCycleAbortReason::kRuntimePreparationFailed);
+      const bool receive_state_restored =
+          RestoreCycleRuntimeState(post_emission_radar_context_state, post_emission_pipeline_state,
+                                   post_emission_environment_state, post_emission_controller_state);
+      const bool emission_finalized =
+          AbandonRfCycle(prepared.token) == ArAbandonCycleStatus::kAbandoned;
+      if (!receive_state_restored || !emission_finalized) {
+        PROJECT_LOG_ERROR("[ArSession] failed to finalize post-emission receive rejection.");
+      }
+      return BuildPostEmissionAbortResult(
+          input, prepared, session::SignalCycleAbortReason::kRuntimePreparationFailed);
     }
     return BuildCompletedCycleResult(input, issues, prepared, completed);
   }
@@ -594,10 +638,14 @@ struct ArSession::Impl {
     receiver_state.antenna = emission.antenna;
     if (control_profile.enable_sidelobe_canceller) {
       receiver_state.antenna.sidelobe_level_db -= 12.0;
+      receiver_state.antenna.backlobe_level_db = std::min(receiver_state.antenna.backlobe_level_db,
+                                                          receiver_state.antenna.sidelobe_level_db);
     }
     if (control_profile.enable_adaptive_beamforming) {
       receiver_state.antenna.half_power_beamwidth_deg *= 0.75;
       receiver_state.antenna.sidelobe_level_db -= 6.0;
+      receiver_state.antenna.backlobe_level_db = std::min(receiver_state.antenna.backlobe_level_db,
+                                                          receiver_state.antenna.sidelobe_level_db);
     }
     receiver_state.polarization = receiver.scene_polarization;
     receiver_state.window_start_time_s = input.window_start_time_s;
@@ -614,7 +662,6 @@ struct ArSession::Impl {
     operating_state.receiver_noise_figure_db = static_cast<double>(receiver.noise_figure_db);
     operating_state.maximum_linear_input_power_w =
         static_cast<double>(receiver.maximum_linear_input_power_w);
-    operating_state.transmit_receive_blanking_enabled = false;
 
     prepared_token.value = next_token_value++;
     prepared_token.world_cycle_index = input.world_cycle_index;
@@ -648,6 +695,7 @@ struct ArSession::Impl {
         input.rf_scene.window_start_time_s != prepared_input.window_start_time_s ||
         input.rf_scene.window_duration_s != prepared_input.window_duration_s ||
         !oneq::electromagnetics::TryValidateRfSceneFrame(input.rf_scene)) {
+      PROJECT_LOG_ERROR("[ArSession] CompleteRfCycle rejected an invalid or mismatched RF scene.");
       result.status = ArCompleteCycleStatus::kRejected;
       return result;
     }
@@ -655,6 +703,7 @@ struct ArSession::Impl {
     for (const auto& emission : input.rf_scene.emissions) {
       if (SameEmissionIdentity(emission.identity, prepared_emission.identity)) {
         if (!SamePreparedEmission(emission, prepared_emission)) {
+          PROJECT_LOG_ERROR("[ArSession] CompleteRfCycle found a modified prepared emission.");
           result.status = ArCompleteCycleStatus::kRejected;
           return result;
         }
@@ -662,6 +711,7 @@ struct ArSession::Impl {
       }
     }
     if (!found_prepared_emission) {
+      PROJECT_LOG_ERROR("[ArSession] CompleteRfCycle did not find the prepared emission.");
       result.status = ArCompleteCycleStatus::kRejected;
       return result;
     }
@@ -671,6 +721,7 @@ struct ArSession::Impl {
             input.rf_scene, prepared_operating_state.rf_receiver,
             prepared_operating_state.maximum_linear_input_power_w,
             oneq::electromagnetics::RfIncidentLinkConfig{}, &front_end)) {
+      PROJECT_LOG_ERROR("[ArSession] CompleteRfCycle RF front-end resolution failed.");
       result.status = ArCompleteCycleStatus::kRejected;
       return result;
     }
@@ -687,6 +738,7 @@ struct ArSession::Impl {
     rf_v2_detection_context.incident_links = front_end.incident_links;
     if (concrete_signal_pipeline_ == nullptr ||
         !concrete_signal_pipeline_->SetNextRfV2DetectionContext(rf_v2_detection_context)) {
+      PROJECT_LOG_ERROR("[ArSession] CompleteRfCycle rejected the frozen RF detection context.");
       result.status = ArCompleteCycleStatus::kRejected;
       return result;
     }
@@ -705,11 +757,14 @@ struct ArSession::Impl {
               front_end.incident_links, thermal_noise_power_w,
               static_cast<double>(detection.receiver.interference_observation_jn_gate_db),
               &interference_observations)) {
+        PROJECT_LOG_ERROR(
+            "[ArSession] CompleteRfCycle interference observation resolution failed.");
         result.status = ArCompleteCycleStatus::kRejected;
         return result;
       }
     }
     if (!Controller().SetPreparedInterferenceObservations(interference_observations)) {
+      PROJECT_LOG_ERROR("[ArSession] CompleteRfCycle rejected prepared interference observations.");
       result.status = ArCompleteCycleStatus::kRejected;
       return result;
     }
@@ -717,6 +772,7 @@ struct ArSession::Impl {
     oneq::coordinate::LlaPositionDegM platform_lla;
     if (!oneq::coordinate::TryEcefToLla(prepared_input.platform_position_ecef_m,
                                         &platform_lla)) {
+      PROJECT_LOG_ERROR("[ArSession] CompleteRfCycle could not resolve platform ECEF to LLA.");
       result.status = ArCompleteCycleStatus::kRejected;
       return result;
     }
@@ -729,6 +785,8 @@ struct ArSession::Impl {
         front_end.receiver_saturated ? ArSceneTargetList{} : input.targets,
         &environment_scene_state, false);
     if (!execution_result.executed) {
+      PROJECT_LOG_ERROR("[ArSession] CompleteRfCycle signal execution failed with abort reason {}.",
+                        static_cast<int>(execution_result.abort_reason));
       result.status = ArCompleteCycleStatus::kRejected;
       return result;
     }

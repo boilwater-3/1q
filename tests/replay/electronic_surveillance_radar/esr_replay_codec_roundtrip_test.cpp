@@ -1,7 +1,10 @@
 #include <gtest/gtest.h>
 
+#include "flatbuffers/flatbuffers.h"
 #include "1q/electromagnetics/RfScene.h"
 #include "electronic_surveillance_radar/session/EsrReplayFlatbufferCodec.h"
+#include "electronic_surveillance_radar/session/generated/esr_replay_generated.h"
+#include "electronic_surveillance_radar/session/generated/esr_session_replay_generated.h"
 
 namespace electronic_surveillance_radar {
 namespace session {
@@ -53,6 +56,122 @@ TEST(EsrReplayCodecRoundtripTest, CycleResultPreservesExplicitStatus) {
   ASSERT_TRUE(DecodeEsrCycleResult(EncodeEsrCycleResult(result), &decoded));
   EXPECT_EQ(decoded.status, EsrCycleExecutionStatus::kPoweredOff);
   EXPECT_EQ(decoded.abort_reason, EsrPipelineAbortReason::kSensorPoweredOff);
+}
+
+TEST(EsrReplayCodecRoundtripTest,
+     UnknownWaveformClassRejectsWithoutMutatingDestination) {
+  flatbuffers::FlatBufferBuilder builder;
+  esr::replay::EmitterObservationBuilder observation_builder(builder);
+  observation_builder.add_observation_id(1U);
+  observation_builder.add_quality(
+      static_cast<std::int32_t>(EsrObservationQuality::kHigh));
+  observation_builder.add_waveform_class(999);
+  const auto observation = observation_builder.Finish();
+  const std::vector<flatbuffers::Offset<esr::replay::EmitterObservation>>
+      observations{observation};
+  esr::replay::ObservationOutputBuilder output_builder(builder);
+  output_builder.add_observations(builder.CreateVector(observations));
+  const auto observation_output = output_builder.Finish();
+  const auto root = esr::replay::CreateEsrOutputFrame(
+      builder, 1U, 2U, observation_output, 0);
+  builder.Finish(root);
+  const std::string bytes(
+      reinterpret_cast<const char*>(builder.GetBufferPointer()),
+      builder.GetSize());
+
+  EsrOutputFrame destination;
+  destination.cycle_index = 777U;
+  EXPECT_FALSE(DecodeEsrOutputFrame(bytes, &destination));
+  EXPECT_EQ(destination.cycle_index, 777U);
+  EXPECT_TRUE(destination.observation_output.observations.empty());
+}
+
+TEST(EsrReplayCodecRoundtripTest,
+     UnknownSessionConfigEnumRejectsWithoutMutatingDestination) {
+  flatbuffers::FlatBufferBuilder builder;
+  const auto mission =
+      esr::replay::CreateEsrMissionConfig(builder, true, 999, 0);
+  builder.Finish(
+      esr::replay::CreateEsrSessionConfig(builder, 0, mission, 0, 0));
+  const std::string bytes(
+      reinterpret_cast<const char*>(builder.GetBufferPointer()),
+      builder.GetSize());
+
+  config::EsrSessionConfig destination;
+  destination.mission.power_on = false;
+  EXPECT_FALSE(DecodeEsrSessionConfig(bytes, &destination));
+  EXPECT_FALSE(destination.mission.power_on);
+  EXPECT_EQ(destination.mission.work_mode, config::EsrWorkMode::kEsm);
+}
+
+TEST(EsrReplayCodecRoundtripTest,
+     UnknownRuntimePatchEnumRejectsWithoutMutatingDestination) {
+  flatbuffers::FlatBufferBuilder builder;
+  esr::replay::EsrRuntimeConfigPatchBuilder patch_builder(builder);
+  patch_builder.add_has_work_mode(true);
+  patch_builder.add_work_mode(999);
+  builder.Finish(patch_builder.Finish());
+  const std::string bytes(
+      reinterpret_cast<const char*>(builder.GetBufferPointer()),
+      builder.GetSize());
+
+  config::EsrRuntimeConfigPatch destination;
+  destination.has_sensor_enabled = true;
+  destination.sensor_enabled = false;
+  EXPECT_FALSE(DecodeEsrRuntimeConfigPatch(bytes, &destination));
+  EXPECT_TRUE(destination.has_sensor_enabled);
+  EXPECT_FALSE(destination.sensor_enabled);
+  EXPECT_FALSE(destination.has_work_mode);
+}
+
+TEST(EsrReplayCodecRoundtripTest,
+     RuntimePatchEventPreservesStructuredApplyResult) {
+  config::EsrRuntimeConfigPatch patch;
+  patch.has_work_mode = true;
+  patch.work_mode = config::EsrWorkMode::kRwr;
+  EsrRuntimeConfigApplyResult expected;
+  expected.status = EsrRuntimeConfigApplyStatus::kApplied;
+  expected.has_requested_update = true;
+  expected.applied = true;
+
+  config::EsrRuntimeConfigPatch decoded_patch;
+  EsrRuntimeConfigApplyResult decoded_result;
+  ASSERT_TRUE(DecodeEsrRuntimeConfigPatchEvent(
+      EncodeEsrRuntimeConfigPatchEvent(patch, expected), &decoded_patch,
+      &decoded_result));
+  EXPECT_TRUE(decoded_patch.has_work_mode);
+  EXPECT_EQ(decoded_patch.work_mode, config::EsrWorkMode::kRwr);
+  EXPECT_EQ(decoded_result.status, expected.status);
+  EXPECT_TRUE(decoded_result.has_requested_update);
+  EXPECT_TRUE(decoded_result.applied);
+}
+
+TEST(EsrReplayCodecRoundtripTest,
+     UnknownRuntimeApplyStatusRejectsEventAtomically) {
+  const std::string patch_bytes =
+      EncodeEsrRuntimeConfigPatch(config::EsrRuntimeConfigPatch{});
+  flatbuffers::FlatBufferBuilder builder;
+  const auto payload = builder.CreateVector(
+      reinterpret_cast<const std::uint8_t*>(patch_bytes.data()),
+      patch_bytes.size());
+  const auto result =
+      esr::replay::CreateEsrRuntimeConfigApplyResult(builder, 999, true, true);
+  builder.Finish(esr::replay::CreateEsrRuntimeConfigPatchEvent(
+      builder, payload, result));
+  const std::string bytes(
+      reinterpret_cast<const char*>(builder.GetBufferPointer()),
+      builder.GetSize());
+
+  config::EsrRuntimeConfigPatch destination_patch;
+  destination_patch.has_sensor_enabled = true;
+  EsrRuntimeConfigApplyResult destination_result;
+  destination_result.status =
+      EsrRuntimeConfigApplyStatus::kRejectedInvalidPolicy;
+  EXPECT_FALSE(DecodeEsrRuntimeConfigPatchEvent(
+      bytes, &destination_patch, &destination_result));
+  EXPECT_TRUE(destination_patch.has_sensor_enabled);
+  EXPECT_EQ(destination_result.status,
+            EsrRuntimeConfigApplyStatus::kRejectedInvalidPolicy);
 }
 
 }  // namespace

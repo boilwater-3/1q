@@ -52,6 +52,47 @@ bool TryResolveBoresight(const session::EsrCycleInput& input, double beam_az_deg
   return true;
 }
 
+bool TryBuildReceiverState(const session::EsrCycleInput& input,
+                           const config::EsrHardwareConfig& hardware,
+                           double beam_az_deg, double beam_el_deg,
+                           double center_frequency_hz, double bandwidth_hz,
+                           oneq::electromagnetics::RfSceneReceiverState* receiver) {
+  if (receiver == nullptr) {
+    return false;
+  }
+  receiver->platform_id = input.platform_entity_id;
+  receiver->equipment_id = hardware.receiver_equipment_id;
+  receiver->position_ecef_m = input.platform_position_ecef_m;
+  receiver->velocity_ecef_mps = input.platform_velocity_ecef_mps;
+  receiver->window_start_time_s = input.cycle_start_time_s;
+  receiver->window_duration_s = static_cast<double>(input.dt_sec);
+  receiver->center_frequency_hz = center_frequency_hz;
+  receiver->bandwidth_hz = bandwidth_hz;
+  receiver->receiver_system_loss_db = static_cast<double>(hardware.integrated_receive_loss_db);
+  receiver->minimum_far_field_range_m = static_cast<double>(hardware.minimum_far_field_range_m);
+  receiver->antenna.peak_gain_dbi = static_cast<double>(hardware.antenna_peak_gain_dbi);
+  receiver->antenna.half_power_beamwidth_deg =
+      std::max(static_cast<double>(hardware.beam_az_width_deg),
+               static_cast<double>(hardware.beam_el_width_deg));
+  receiver->antenna.sidelobe_level_db = static_cast<double>(hardware.antenna_sidelobe_level_db);
+  receiver->antenna.backlobe_level_db = static_cast<double>(hardware.antenna_backlobe_level_db);
+  receiver->antenna.cross_polarization_isolation_db =
+      static_cast<double>(hardware.cross_polarization_isolation_db);
+  receiver->polarization = hardware.polarization;
+  receiver->co_site_paths.reserve(hardware.co_site_paths.size());
+  for (const config::EsrCoSiteIsolationPath& path : hardware.co_site_paths) {
+    oneq::electromagnetics::RfCoSiteIsolationPath resolved_path;
+    resolved_path.transmitter_equipment_id = path.transmitter_equipment_id;
+    resolved_path.receiver_equipment_id = hardware.receiver_equipment_id;
+    resolved_path.isolation_db = path.isolation_db;
+    receiver->co_site_paths.push_back(resolved_path);
+  }
+  return TryResolveBoresight(
+      input, beam_az_deg + static_cast<double>(hardware.antenna_mount_az_deg),
+      beam_el_deg + static_cast<double>(hardware.antenna_mount_el_deg),
+      &receiver->antenna.boresight_ecef);
+}
+
 }  // namespace
 
 bool TryResolveEsrRfV2FrontEnd(const session::EsrCycleInput& input,
@@ -67,6 +108,10 @@ bool TryResolveEsrRfV2FrontEnd(const session::EsrCycleInput& input,
       receiver_center_frequency_hz <= 0.0 || !IsFinite(receiver_bandwidth_hz) ||
       receiver_bandwidth_hz <= 0.0 || !IsFinite(additional_propagation_loss_db) ||
       additional_propagation_loss_db < 0.0 ||
+      !IsFinite(hardware.receiver_band_lower_hz) ||
+      !IsFinite(hardware.receiver_band_upper_hz) ||
+      hardware.receiver_band_lower_hz <= 0.0 ||
+      hardware.receiver_band_upper_hz <= hardware.receiver_band_lower_hz ||
       !oneq::electromagnetics::TryValidateRfSceneFrame(input.rf_emissions) ||
       input.rf_emissions.world_cycle_index != input.cycle_index ||
       input.rf_emissions.window_start_time_s != input.cycle_start_time_s ||
@@ -75,55 +120,41 @@ bool TryResolveEsrRfV2FrontEnd(const session::EsrCycleInput& input,
   }
 
   EsrRfV2FrontEndResult candidate;
-  oneq::electromagnetics::RfSceneReceiverState& receiver = candidate.receiver;
-  receiver.platform_id = input.platform_entity_id;
-  receiver.equipment_id = hardware.receiver_equipment_id;
-  receiver.position_ecef_m = input.platform_position_ecef_m;
-  receiver.velocity_ecef_mps = input.platform_velocity_ecef_mps;
-  receiver.window_start_time_s = input.cycle_start_time_s;
-  receiver.window_duration_s = static_cast<double>(input.dt_sec);
-  receiver.center_frequency_hz = receiver_center_frequency_hz;
-  receiver.bandwidth_hz = receiver_bandwidth_hz;
-  receiver.receiver_system_loss_db = static_cast<double>(hardware.integrated_receive_loss_db);
-  receiver.minimum_far_field_range_m = static_cast<double>(hardware.minimum_far_field_range_m);
-  receiver.antenna.peak_gain_dbi = static_cast<double>(hardware.antenna_peak_gain_dbi);
-  receiver.antenna.half_power_beamwidth_deg =
-      std::max(static_cast<double>(hardware.beam_az_width_deg),
-               static_cast<double>(hardware.beam_el_width_deg));
-  receiver.antenna.sidelobe_level_db = static_cast<double>(hardware.antenna_sidelobe_level_db);
-  receiver.antenna.backlobe_level_db = static_cast<double>(hardware.antenna_backlobe_level_db);
-  receiver.antenna.cross_polarization_isolation_db =
-      static_cast<double>(hardware.cross_polarization_isolation_db);
-  receiver.polarization = hardware.polarization;
-  receiver.co_site_paths.reserve(hardware.co_site_paths.size());
-  for (const config::EsrCoSiteIsolationPath& path : hardware.co_site_paths) {
-    oneq::electromagnetics::RfCoSiteIsolationPath resolved_path;
-    resolved_path.transmitter_equipment_id = path.transmitter_equipment_id;
-    resolved_path.receiver_equipment_id = hardware.receiver_equipment_id;
-    resolved_path.isolation_db = path.isolation_db;
-    receiver.co_site_paths.push_back(resolved_path);
-  }
-  if (!TryResolveBoresight(input,
-                           beam_az_deg + static_cast<double>(hardware.antenna_mount_az_deg),
-                           beam_el_deg + static_cast<double>(hardware.antenna_mount_el_deg),
-                           &receiver.antenna.boresight_ecef)) {
+  const double front_end_bandwidth_hz =
+      hardware.receiver_band_upper_hz - hardware.receiver_band_lower_hz;
+  const double front_end_center_frequency_hz =
+      0.5 * (hardware.receiver_band_lower_hz + hardware.receiver_band_upper_hz);
+  if (!TryBuildReceiverState(input, hardware, beam_az_deg, beam_el_deg,
+                             front_end_center_frequency_hz, front_end_bandwidth_hz,
+                             &candidate.front_end_receiver) ||
+      !TryBuildReceiverState(input, hardware, beam_az_deg, beam_el_deg,
+                             receiver_center_frequency_hz, receiver_bandwidth_hz,
+                             &candidate.channel_receiver)) {
     return false;
   }
 
   oneq::electromagnetics::RfIncidentLinkConfig link_config;
   link_config.additional_propagation_loss_db = additional_propagation_loss_db;
-  candidate.incident_links.reserve(input.rf_emissions.emissions.size());
+  candidate.front_end_incident_links.reserve(input.rf_emissions.emissions.size());
+  candidate.channel_incident_links.reserve(input.rf_emissions.emissions.size());
   for (const oneq::electromagnetics::RfSceneEmission& emission :
        input.rf_emissions.emissions) {
-    oneq::electromagnetics::RfIncidentLinkResult link;
-    if (!oneq::electromagnetics::TryEvaluateRfIncidentLink(emission, receiver, link_config,
-                                                           &link)) {
+    oneq::electromagnetics::RfIncidentLinkResult front_end_link;
+    oneq::electromagnetics::RfIncidentLinkResult channel_link;
+    if (!oneq::electromagnetics::TryEvaluateRfIncidentLink(
+            emission, candidate.front_end_receiver, link_config, &front_end_link) ||
+        !oneq::electromagnetics::TryEvaluateRfIncidentLink(
+            emission, candidate.channel_receiver, link_config, &channel_link)) {
       return false;
     }
-    candidate.incident_links.push_back(link);
+    candidate.front_end_incident_links.push_back(front_end_link);
+    candidate.channel_incident_links.push_back(channel_link);
   }
-  std::sort(candidate.incident_links.begin(), candidate.incident_links.end(), IdentityLess);
-  if (!oneq::electromagnetics::TryAggregateRfIncidentPower(candidate.incident_links,
+  std::sort(candidate.front_end_incident_links.begin(), candidate.front_end_incident_links.end(),
+            IdentityLess);
+  std::sort(candidate.channel_incident_links.begin(), candidate.channel_incident_links.end(),
+            IdentityLess);
+  if (!oneq::electromagnetics::TryAggregateRfIncidentPower(candidate.front_end_incident_links,
                                                            &candidate.total_incident_power_w)) {
     return false;
   }

@@ -133,3 +133,14 @@ table EsrRuntimeConfigPatch {
   has_environment: bool;
   environment:  EsrEnvironmentRuntimeConfigPatch;
 }
+
+table EsrRuntimeConfigApplyResult {
+  status:               int32;
+  has_requested_update: bool;
+  applied:              bool;
+}
+
+table EsrRuntimeConfigPatchEvent {
+  patch_payload: [ubyte];
+  result:        EsrRuntimeConfigApplyResult;
+}

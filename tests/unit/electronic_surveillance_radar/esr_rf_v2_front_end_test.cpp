@@ -51,10 +51,29 @@ TEST(EsrRfV2FrontEndTest, ResolvesEveryEmissionOnceAndAggregatesInStableOrder) {
   EsrRfV2FrontEndResult result;
   ASSERT_TRUE(TryResolveEsrRfV2FrontEnd(input, MakeHardware(), 0.0, 0.0, 10.0e9, 2.0e6, 0.0,
                                         &result));
-  ASSERT_EQ(result.incident_links.size(), 2U);
-  EXPECT_EQ(result.incident_links[0].identity.emission_id, 1U);
-  EXPECT_EQ(result.incident_links[1].identity.emission_id, 2U);
+  ASSERT_EQ(result.front_end_incident_links.size(), 2U);
+  ASSERT_EQ(result.channel_incident_links.size(), 2U);
+  EXPECT_EQ(result.front_end_incident_links[0].identity.emission_id, 1U);
+  EXPECT_EQ(result.channel_incident_links[1].identity.emission_id, 2U);
   EXPECT_GT(result.total_incident_power_w, 0.0);
+  EXPECT_TRUE(result.receiver_saturated);
+}
+
+TEST(EsrRfV2FrontEndTest, StrongHardwareBandSignalOutsideTunedChannelStillSaturates) {
+  session::EsrCycleInput input = MakeInput();
+  input.rf_emissions.emissions.push_back(MakeEmission(1U, 1000.0, 10.0));
+  input.rf_emissions.emissions.back().waveform.center_frequency_hz = 10.1e9;
+
+  config::EsrHardwareConfig hardware = MakeHardware();
+  hardware.receiver_band_lower_hz = 9.0e9;
+  hardware.receiver_band_upper_hz = 11.0e9;
+  EsrRfV2FrontEndResult result;
+  ASSERT_TRUE(TryResolveEsrRfV2FrontEnd(input, hardware, 0.0, 0.0, 10.0e9, 2.0e6, 0.0,
+                                        &result));
+  ASSERT_EQ(result.front_end_incident_links.size(), 1U);
+  ASSERT_EQ(result.channel_incident_links.size(), 1U);
+  EXPECT_GT(result.front_end_incident_links[0].received_power_w, 0.0);
+  EXPECT_EQ(result.channel_incident_links[0].received_power_w, 0.0);
   EXPECT_TRUE(result.receiver_saturated);
 }
 

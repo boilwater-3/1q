@@ -39,6 +39,10 @@ struct InterceptDetectionConfig {
 struct InterceptAlgorithmConfig {
   unsigned int random_seed{20260323U};
   float angle_error_coefficient{0.51f};
+  float rf_error_coefficient{0.5f};
+  float bandwidth_error_coefficient{0.5f};
+  float pri_error_coefficient{0.5f};
+  float pulse_width_error_coefficient{0.5f};
 };
 
 /** @brief 观测预处理子配置。 */
@@ -128,6 +132,7 @@ struct EsrInternalExecutionConfig {
   config::EsrMissionConfig mission{};   /**< 任务域参数（using 别名直接赋值） */
   extension::InterceptScanConfig
       resolved_scan{};             /**< 由 mission.scan + hardware 解析生成的扫描配置 */
+  DetectionConfig base_detection{}; /**< 未施加工作模式倍率的探测策略真值。 */
   DetectionConfig detection{};     /**< 解析后的探测策略参数（SNR/PFA/脉冲/门限/统计） */
   InterceptConfig intercept{};     /**< 截获流水线配置（算法/预处理/检测子/聚类/频谱/建模） */
   RuntimeConfig runtime{};         /**< 运行期可变截获参数（积累器/跟踪关联） */
@@ -164,6 +169,11 @@ inline extension::InterceptPipelineConfig BuildPipelineConfig(
 
   ext.algorithm.random_seed = internal.intercept.algorithm.random_seed;
   ext.algorithm.angle_error_coefficient = internal.intercept.algorithm.angle_error_coefficient;
+  ext.algorithm.rf_error_coefficient = internal.intercept.algorithm.rf_error_coefficient;
+  ext.algorithm.bandwidth_error_coefficient = internal.intercept.algorithm.bandwidth_error_coefficient;
+  ext.algorithm.pri_error_coefficient = internal.intercept.algorithm.pri_error_coefficient;
+  ext.algorithm.pulse_width_error_coefficient =
+      internal.intercept.algorithm.pulse_width_error_coefficient;
 
   ext.preprocess = extension::InterceptPreprocessConfig();
   ext.preprocess.dedup_time_window_sec = internal.intercept.preprocess.dedup_time_window_sec;

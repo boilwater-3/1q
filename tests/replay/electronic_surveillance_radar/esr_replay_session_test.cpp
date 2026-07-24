@@ -3,13 +3,77 @@
 #include <memory>
 
 #include "1q/electromagnetics/RfScene.h"
+#include "1q/electronic_surveillance_radar/config/EsrRuntimeConfigBuilder.h"
 #include "1q/replay/ReplayTrace.h"
 #include "1q/electronic_surveillance_radar/session/EsrReplaySession.h"
 #include "1q/electronic_surveillance_radar/session/EsrTraceSession.h"
+#include "electronic_surveillance_radar/session/EsrReplayFlatbufferCodec.h"
 
 namespace electronic_surveillance_radar {
 namespace session {
 namespace {
+
+EsrCycleInput MakeWaveformClassInput(
+    std::uint32_t cycle_index,
+    oneq::electromagnetics::RfSceneWaveformKind waveform_kind) {
+  EsrCycleInput input;
+  input.cycle_index = cycle_index;
+  input.cycle_start_time_s = static_cast<double>(cycle_index - 1U);
+  input.dt_sec = 1.0f;
+  input.platform_entity_id = 1U;
+  input.has_platform_ecef_kinematics = true;
+  input.platform_position_ecef_m.x_m = 6378137.0;
+  input.rf_emissions.world_cycle_index = cycle_index;
+  input.rf_emissions.window_start_time_s = input.cycle_start_time_s;
+  input.rf_emissions.window_duration_s = input.dt_sec;
+  oneq::electromagnetics::RfSceneEmission emission;
+  emission.identity.platform_id = 2U;
+  emission.identity.equipment_id = 3U;
+  emission.identity.emission_id = cycle_index;
+  emission.position_ecef_m.x_m = 6378137.0;
+  emission.position_ecef_m.y_m = 1000.0;
+  emission.antenna.boresight_ecef.y = -1.0;
+  if (waveform_kind ==
+      oneq::electromagnetics::RfSceneWaveformKind::kPulseTrain) {
+    EXPECT_TRUE(oneq::electromagnetics::TryCreateRfPulseTrainWaveform(
+        input.cycle_start_time_s, 10.0e9, 1.0e6, 1.0e6, 1.0e-6, 1.0e-3,
+        1000U, 0.0, 1U, cycle_index, &emission.waveform));
+  } else {
+    EXPECT_TRUE(oneq::electromagnetics::TryCreateRfContinuousWaveform(
+        input.cycle_start_time_s, input.dt_sec, 10.0e9, 1.0e6, 1.0e6,
+        &emission.waveform));
+  }
+  input.rf_emissions.emissions.push_back(emission);
+  return input;
+}
+
+EsrCycleInput MakeContinuousInput(std::uint32_t cycle_index,
+                                  double center_frequency_hz,
+                                  double transmit_power_w) {
+  EsrCycleInput input = MakeWaveformClassInput(
+      cycle_index, oneq::electromagnetics::RfSceneWaveformKind::kContinuous);
+  input.rf_emissions.emissions.clear();
+  oneq::electromagnetics::RfSceneEmission emission;
+  emission.identity.platform_id = 2U;
+  emission.identity.equipment_id = 3U;
+  emission.identity.emission_id = cycle_index;
+  emission.position_ecef_m.x_m = 6378137.0;
+  emission.position_ecef_m.y_m = 1000.0;
+  emission.antenna.boresight_ecef.y = -1.0;
+  EXPECT_TRUE(oneq::electromagnetics::TryCreateRfContinuousWaveform(
+      input.cycle_start_time_s, input.dt_sec, center_frequency_hz, 1.0e6,
+      transmit_power_w, &emission.waveform));
+  input.rf_emissions.emissions.push_back(emission);
+  return input;
+}
+
+std::shared_ptr<oneq::replay::ReplayTraceWriter> MakeWriter(
+    const std::string& trace_dir) {
+  oneq::replay::ReplayTraceManifest manifest;
+  manifest.module = "electronic_surveillance_radar";
+  return std::shared_ptr<oneq::replay::ReplayTraceWriter>(
+      new oneq::replay::ReplayTraceWriter(trace_dir, manifest, true));
+}
 
 TEST(EsrReplaySessionTest, ReplaysDirectRfV2Input) {
   const std::string trace_dir = "/tmp/1q-esr-rf-v2-replay";
@@ -38,6 +102,194 @@ TEST(EsrReplaySessionTest, ReplaysDirectRfV2Input) {
 
   const EsrReplaySessionResult replay = ReplayEsrTrace(trace_dir);
   EXPECT_TRUE(replay.ok) << replay.first_error;
+}
+
+TEST(EsrReplaySessionTest, WaveformClassGateContinuesDeterministicallyInReplay) {
+  const std::string trace_dir = "/tmp/1q-esr-waveform-class-replay";
+  oneq::replay::ReplayTraceManifest manifest;
+  manifest.module = "electronic_surveillance_radar";
+  std::shared_ptr<oneq::replay::ReplayTraceWriter> writer(
+      new oneq::replay::ReplayTraceWriter(trace_dir, manifest, true));
+
+  config::EsrSessionConfig config;
+  config.hardware.receiver_band_lower_hz = 9.99e9;
+  config.hardware.receiver_band_upper_hz = 10.01e9;
+  config.hardware.beam_az_width_deg = 120.0f;
+  config.hardware.beam_el_width_deg = 120.0f;
+  config.hardware.maximum_linear_input_power_w = 10.0f;
+  config.policy.detection.minimum_snr_db = -100.0f;
+  config.policy.detection.enable_statistical_detection = false;
+  EsrTraceSessionOptions options;
+  options.replay_writer = writer;
+  EsrTraceSession session(config, options);
+
+  const EsrCycleResult pulse_result = session.StepWithResult(MakeWaveformClassInput(
+      1U, oneq::electromagnetics::RfSceneWaveformKind::kPulseTrain));
+  ASSERT_EQ(pulse_result.status, EsrCycleExecutionStatus::kCompleted);
+  ASSERT_EQ(pulse_result.output_frame.emitter_output.hypotheses.size(), 1U);
+  const EsrCycleResult continuous_result =
+      session.StepWithResult(MakeWaveformClassInput(
+          2U, oneq::electromagnetics::RfSceneWaveformKind::kContinuous));
+  ASSERT_EQ(continuous_result.status, EsrCycleExecutionStatus::kCompleted);
+  ASSERT_EQ(continuous_result.output_frame.emitter_output.hypotheses.size(), 2U);
+  EXPECT_NE(continuous_result.output_frame.emitter_output.hypotheses[0].waveform_class,
+            continuous_result.output_frame.emitter_output.hypotheses[1].waveform_class);
+  writer->Flush();
+
+  const EsrReplaySessionResult replay = ReplayEsrTrace(trace_dir);
+  EXPECT_TRUE(replay.ok) << replay.first_error;
+  EXPECT_EQ(replay.playback.compared_output_count, 2U);
+}
+
+TEST(EsrReplaySessionTest,
+     RuntimePatchPowerOffAndRecoveryReplayDeterministically) {
+  const std::string trace_dir = "/tmp/1q-esr-runtime-patch-replay";
+  const auto writer = MakeWriter(trace_dir);
+  config::EsrSessionConfig config;
+  config.hardware.beam_az_width_deg = 120.0f;
+  config.hardware.beam_el_width_deg = 120.0f;
+  config.policy.detection.enable_statistical_detection = false;
+  EsrTraceSessionOptions options;
+  options.replay_writer = writer;
+  EsrTraceSession session(config, options);
+
+  config::EsrRuntimeConfigPatch invalid_policy;
+  invalid_policy.has_policy = true;
+  invalid_policy.policy = config.policy;
+  invalid_policy.policy.detection.pfa = 0.0f;
+  const EsrRuntimeConfigApplyResult rejected =
+      session.ApplyRuntimeConfig(invalid_policy);
+  ASSERT_FALSE(rejected.applied);
+  ASSERT_EQ(rejected.status,
+            EsrRuntimeConfigApplyStatus::kRejectedInvalidPolicy);
+
+  ASSERT_TRUE(session
+                  .ApplyRuntimeConfig(
+                      config::EsrRuntimeConfigBuilder()
+                          .WithSensorEnabled(false)
+                          .Build())
+                  .applied);
+  const EsrCycleResult powered_off =
+      session.StepWithResult(MakeContinuousInput(1U, 10.0e9, 1.0e6));
+  ASSERT_EQ(powered_off.status, EsrCycleExecutionStatus::kPoweredOff);
+
+  ASSERT_TRUE(session
+                  .ApplyRuntimeConfig(
+                      config::EsrRuntimeConfigBuilder()
+                          .WithSensorEnabled(true)
+                          .Build())
+                  .applied);
+  const EsrCycleResult recovered =
+      session.StepWithResult(MakeContinuousInput(2U, 10.0e9, 1.0e6));
+  ASSERT_EQ(recovered.status, EsrCycleExecutionStatus::kCompleted);
+  writer->Flush();
+
+  const EsrReplaySessionResult replay = ReplayEsrTrace(trace_dir);
+  EXPECT_TRUE(replay.ok) << replay.first_error;
+  EXPECT_EQ(replay.report.runtime_config_patch_count, 3U);
+  EXPECT_EQ(replay.playback.compared_output_count, 2U);
+}
+
+TEST(EsrReplaySessionTest, RuntimePatchApplyResultDivergenceFailsReplay) {
+  const std::string trace_dir = "/tmp/1q-esr-runtime-patch-divergence";
+  const auto writer = MakeWriter(trace_dir);
+  oneq::replay::ReplayTraceEvent config_event;
+  config_event.module = "electronic_surveillance_radar";
+  config_event.event_type = "session_config";
+  config_event.payload_type = "EsrSessionConfig";
+  config_event.payload_encoding = "flatbuffers";
+  config_event.payload_bytes =
+      EncodeEsrSessionConfig(config::EsrSessionConfig{});
+  ASSERT_EQ(writer->WriteEvent(config_event),
+            oneq::replay::ReplayTraceWriteStatus::kSuccess);
+
+  config::EsrRuntimeConfigPatch invalid_policy;
+  invalid_policy.has_policy = true;
+  invalid_policy.policy.detection.pfa = 0.0f;
+  EsrRuntimeConfigApplyResult incorrect_expected;
+  incorrect_expected.status = EsrRuntimeConfigApplyStatus::kApplied;
+  incorrect_expected.has_requested_update = true;
+  incorrect_expected.applied = true;
+  oneq::replay::ReplayTraceEvent patch_event;
+  patch_event.module = "electronic_surveillance_radar";
+  patch_event.event_type = "runtime_config_patch";
+  patch_event.payload_type = "EsrRuntimeConfigPatchEvent";
+  patch_event.payload_encoding = "flatbuffers";
+  patch_event.payload_bytes =
+      EncodeEsrRuntimeConfigPatchEvent(invalid_policy, incorrect_expected);
+  ASSERT_EQ(writer->WriteEvent(patch_event),
+            oneq::replay::ReplayTraceWriteStatus::kSuccess);
+  writer->Flush();
+
+  const EsrReplaySessionResult replay = ReplayEsrTrace(trace_dir);
+  EXPECT_FALSE(replay.ok);
+  EXPECT_NE(replay.first_error.find("apply-result divergence"),
+            std::string::npos);
+}
+
+TEST(EsrReplaySessionTest, ReplayEsrTraceContinuesAfterFailureMarker) {
+  const std::string trace_dir = "/tmp/1q-esr-failure-marker-replay";
+  const auto writer = MakeWriter(trace_dir);
+  EsrTraceSessionOptions options;
+  options.replay_writer = writer;
+  EsrTraceSession session(config::EsrSessionConfig{}, options);
+
+  EsrCycleInput invalid = MakeContinuousInput(1U, 10.0e9, 1.0e6);
+  invalid.dt_sec = -1.0f;
+  const EsrCycleResult rejected = session.StepWithResult(invalid);
+  ASSERT_EQ(rejected.status, EsrCycleExecutionStatus::kRejected);
+  ASSERT_TRUE(rejected.has_validation_error);
+
+  const EsrCycleResult recovered =
+      session.StepWithResult(MakeContinuousInput(2U, 10.0e9, 1.0e6));
+  ASSERT_EQ(recovered.status, EsrCycleExecutionStatus::kCompleted);
+  writer->Flush();
+
+  const EsrReplaySessionResult replay = ReplayEsrTrace(trace_dir);
+  EXPECT_TRUE(replay.ok) << replay.first_error;
+  EXPECT_TRUE(replay.reached_failure_marker);
+  EXPECT_EQ(replay.playback.failure_marker_count, 1U);
+  EXPECT_EQ(replay.playback.compared_output_count, 2U);
+}
+
+TEST(EsrReplaySessionTest,
+     SaturationAdvancesTuningPhaseAndReplaysDeterministically) {
+  const std::string trace_dir = "/tmp/1q-esr-saturation-tuning-replay";
+  const auto writer = MakeWriter(trace_dir);
+  config::EsrSessionConfig config;
+  config.hardware.receiver_band_lower_hz = 9.0e9;
+  config.hardware.receiver_band_upper_hz = 11.0e9;
+  config.hardware.beam_az_width_deg = 120.0f;
+  config.hardware.beam_el_width_deg = 120.0f;
+  config.hardware.maximum_linear_input_power_w = 1.0e-8f;
+  config.hardware.tuning_plan.push_back(
+      config::EsrTuningWindow{9.5e9, 10.0e6, 1U});
+  config.hardware.tuning_plan.push_back(
+      config::EsrTuningWindow{10.0e9, 10.0e6, 1U});
+  config.policy.detection.enable_statistical_detection = false;
+  EsrTraceSessionOptions options;
+  options.replay_writer = writer;
+  EsrTraceSession session(config, options);
+
+  const EsrCycleResult saturated =
+      session.StepWithResult(MakeContinuousInput(1U, 9.5e9, 1.0e12));
+  ASSERT_EQ(saturated.status, EsrCycleExecutionStatus::kCompleted);
+  ASSERT_TRUE(saturated.output_frame.observation_output.receiver_saturated);
+  ASSERT_DOUBLE_EQ(
+      saturated.output_frame.observation_output.receiver_center_frequency_hz,
+      9.5e9);
+
+  const EsrCycleResult next =
+      session.StepWithResult(MakeContinuousInput(2U, 10.0e9, 1.0e-6));
+  ASSERT_EQ(next.status, EsrCycleExecutionStatus::kCompleted);
+  ASSERT_DOUBLE_EQ(
+      next.output_frame.observation_output.receiver_center_frequency_hz,
+      10.0e9);
+  writer->Flush();
+
+  const EsrReplaySessionResult replay = ReplayEsrTrace(trace_dir);
+  EXPECT_TRUE(replay.ok) << replay.first_error;
+  EXPECT_EQ(replay.playback.compared_output_count, 2U);
 }
 
 }  // namespace

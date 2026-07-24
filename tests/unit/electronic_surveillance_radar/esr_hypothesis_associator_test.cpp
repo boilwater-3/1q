@@ -33,7 +33,9 @@ namespace {
  */
 ClusterSummary MakeCluster(float x, float y, float az_deg, float el_deg, double rf_hz, float snr_db,
                            std::size_t support_count,
-                           const std::string& spectral_label = std::string()) {
+                           const std::string& spectral_label = std::string(),
+                           session::EsrWaveformClass waveform_class =
+                               session::EsrWaveformClass::kPulse) {
   ClusterSummary summary;
   summary.centroid_feature.values =
       std::array<float, kObservationFeatureDimension>{{x, y, 0.0f, 0.0f, 0.0f}};
@@ -52,7 +54,64 @@ ClusterSummary MakeCluster(float x, float y, float az_deg, float el_deg, double 
   summary.pulse_width_std_s = 1.0e-8;
   summary.confidence_score = 0.8f;
   summary.spectral_class_label = spectral_label;
+  summary.waveform_class = waveform_class;
   return summary;
+}
+
+TEST(EsrHypothesisAssociatorTest, DoesNotAssociateDifferentWaveformClasses) {
+  extension::InterceptAssociationConfig config;
+  config.gate_distance = 1.0f;
+  config.confirm_hits = 1U;
+  config.max_missed_cycles = 3U;
+  config.output_tentative = true;
+  HypothesisAssociator associator(config);
+
+  std::uint64_t next_hypothesis_id = 1U;
+  std::vector<ClusterSummary> first;
+  first.push_back(MakeCluster(0.0f, 0.0f, 10.0f, 0.0f, 10.0e9, 15.0f, 2U));
+  ASSERT_EQ(associator.Update(1U, first, &next_hypothesis_id).size(), 1U);
+
+  std::vector<ClusterSummary> second;
+  second.push_back(MakeCluster(0.0f, 0.0f, 10.0f, 0.0f, 10.0e9, 15.0f, 2U, "",
+                               session::EsrWaveformClass::kContinuous));
+  ASSERT_EQ(associator.Update(2U, second, &next_hypothesis_id).size(), 2U);
+
+  const std::vector<HypothesisAssociator::TrackState> tracks = associator.CaptureTracks();
+  ASSERT_EQ(tracks.size(), 2U);
+  EXPECT_EQ(tracks[0].waveform_class, session::EsrWaveformClass::kPulse);
+  EXPECT_EQ(tracks[0].missed_cycles, 1U);
+  EXPECT_EQ(tracks[1].waveform_class, session::EsrWaveformClass::kContinuous);
+  EXPECT_EQ(tracks[1].missed_cycles, 0U);
+}
+
+TEST(EsrHypothesisAssociatorTest, SnapshotContinuationPreservesWaveformClassGate) {
+  extension::InterceptAssociationConfig config;
+  config.gate_distance = 1.0f;
+  config.confirm_hits = 1U;
+  config.max_missed_cycles = 3U;
+  config.output_tentative = true;
+  HypothesisAssociator original(config);
+
+  std::uint64_t next_hypothesis_id = 1U;
+  std::vector<ClusterSummary> pulse;
+  pulse.push_back(MakeCluster(0.0f, 0.0f, 10.0f, 0.0f, 10.0e9, 15.0f, 2U));
+  ASSERT_EQ(original.Update(1U, pulse, &next_hypothesis_id).size(), 1U);
+
+  HypothesisAssociator restored(config);
+  restored.RestoreTracks(original.CaptureTracks());
+  std::vector<ClusterSummary> continuous;
+  continuous.push_back(MakeCluster(
+      0.0f, 0.0f, 10.0f, 0.0f, 10.0e9, 15.0f, 2U, "",
+      session::EsrWaveformClass::kContinuous));
+  ASSERT_EQ(restored.Update(2U, continuous, &next_hypothesis_id).size(), 2U);
+
+  const std::vector<HypothesisAssociator::TrackState> tracks =
+      restored.CaptureTracks();
+  ASSERT_EQ(tracks.size(), 2U);
+  EXPECT_EQ(tracks[0].waveform_class, session::EsrWaveformClass::kPulse);
+  EXPECT_EQ(tracks[0].missed_cycles, 1U);
+  EXPECT_EQ(tracks[1].waveform_class,
+            session::EsrWaveformClass::kContinuous);
 }
 
 TEST(EsrHypothesisAssociatorTest, MaintainsStableIdsAcrossMatchedCycles) {

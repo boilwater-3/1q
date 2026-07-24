@@ -17,6 +17,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <cmath>
 #include <cstdio>
 #include <cstring>
 #include <filesystem>
@@ -24,6 +25,8 @@
 #include <system_error>
 #include <vector>
 
+#include "1q/coordinate/attitude_transform.h"
+#include "1q/coordinate/position_transform.h"
 #include "1q/electromagnetics/RfScene.h"
 #include "1q/electronic_surveillance_radar/electronic_surveillance_radar.hpp"
 #include "1q/electronic_surveillance_radar/config/EsrRuntimeConfigPatch.h"
@@ -158,6 +161,10 @@ esr_session::EsrCycleInput MakeInput(const EsrCase& c, std::uint32_t cycle_index
   input.rf_emissions.world_cycle_index = cycle_index;
   input.rf_emissions.window_start_time_s = input.cycle_start_time_s;
   input.rf_emissions.window_duration_s = input.dt_sec;
+  oneq::coordinate::LlaPositionDegM platform_lla;
+  if (!oneq::coordinate::TryEcefToLla(input.platform_position_ecef_m, &platform_lla)) {
+    return input;
+  }
   const std::uint32_t count = c.sequence && c.scenario_id.find("dense_emitters") != std::string::npos
                                   ? 3U
                                   : c.sequence && c.scenario_id.find("crossing") != std::string::npos ? 2U : 1U;
@@ -168,15 +175,40 @@ esr_session::EsrCycleInput MakeInput(const EsrCase& c, std::uint32_t cycle_index
     emission.identity.platform_id = 2001U + index;
     emission.identity.equipment_id = 1U;
     emission.identity.emission_id = index + 1U;
-    emission.position_ecef_m = input.platform_position_ecef_m;
-    emission.position_ecef_m.y_m += c.emitter_range_km * 1000.0;
-    emission.position_ecef_m.x_m += (static_cast<double>(index) - 0.5) *
-                                      (12.5 - static_cast<double>(cycle_index)) * 120.0;
+    const double azimuth_deg =
+        (static_cast<double>(index) - 0.5 * static_cast<double>(count - 1U)) * 8.0;
+    const double azimuth_rad = azimuth_deg * 3.14159265358979323846 / 180.0;
+    const oneq::coordinate::Vector3d enu_direction =
+        oneq::coordinate::RotateLocalToEnu(std::cos(azimuth_rad), std::sin(azimuth_rad), 0.0,
+                                            input.platform_attitude_deg);
+    oneq::coordinate::Vector3d ecef_direction;
+    if (!oneq::coordinate::TryEnuToEcefDirection(enu_direction, platform_lla, &ecef_direction)) {
+      continue;
+    }
+    const double range_m = c.emitter_range_km * 1000.0;
+    emission.position_ecef_m.x_m = input.platform_position_ecef_m.x_m + range_m * ecef_direction.x;
+    emission.position_ecef_m.y_m = input.platform_position_ecef_m.y_m + range_m * ecef_direction.y;
+    emission.position_ecef_m.z_m = input.platform_position_ecef_m.z_m + range_m * ecef_direction.z;
     emission.antenna.peak_gain_dbi = 30.0;
+    // Point the source main lobe at the receiver in ECEF.  A local “south” is
+    // not the ECEF Y axis at this latitude; using it was still physically
+    // valid but placed the receiver outside the intended receive lobe.
+    const double toward_receiver_x =
+        input.platform_position_ecef_m.x_m - emission.position_ecef_m.x_m;
+    const double toward_receiver_y =
+        input.platform_position_ecef_m.y_m - emission.position_ecef_m.y_m;
+    const double toward_receiver_z =
+        input.platform_position_ecef_m.z_m - emission.position_ecef_m.z_m;
+    const double toward_receiver_norm = std::sqrt(
+        toward_receiver_x * toward_receiver_x + toward_receiver_y * toward_receiver_y +
+        toward_receiver_z * toward_receiver_z);
+    emission.antenna.boresight_ecef.x = toward_receiver_x / toward_receiver_norm;
+    emission.antenna.boresight_ecef.y = toward_receiver_y / toward_receiver_norm;
+    emission.antenna.boresight_ecef.z = toward_receiver_z / toward_receiver_norm;
     emission.polarization = oneq::electromagnetics::RfScenePolarization::kHorizontal;
     if (oneq::electromagnetics::TryCreateRfNoiseWaveform(
             input.cycle_start_time_s, input.dt_sec, c.carrier_ghz * 1.0e9 + index * 5.0e6,
-            2.0e6, 5.0e7, &emission.waveform)) input.rf_emissions.emissions.push_back(emission);
+            2.0e6, 5.0e6, &emission.waveform)) input.rf_emissions.emissions.push_back(emission);
   }
   return input;
 }
@@ -282,8 +314,18 @@ ScenarioSummary RunEsrScenario(const EsrCase& c, const esr_config::EsrSessionCon
   s.carrier_ghz = c.carrier_ghz;
   s.spectrum_occupancy = static_cast<double>(c.spectrum_occupancy);
 
-  (void)base_config;
   esr_config::EsrSessionConfig config = base_config;
+  // Batch scenarios exercise scene geometry and lifecycle semantics.  Keep a
+  // deterministic, explicitly documented intercept threshold so profile
+  // defaults cannot turn every scenario into a stochastic no-observation run.
+  config.policy.detection.enable_statistical_detection = false;
+  config.policy.detection.minimum_snr_db = -10.0f;
+  config.hardware.tuning_plan.clear();
+  esr_config::EsrTuningWindow tuning_window;
+  tuning_window.center_frequency_hz = c.carrier_ghz * 1.0e9 + 5.0e6;
+  tuning_window.bandwidth_hz = 50.0e6;
+  tuning_window.dwell_cycles = 1U;
+  config.hardware.tuning_plan.push_back(tuning_window);
 
   const std::string trace_dir = output_dir + "/traces/" + c.scenario_id;
   auto replay_writer = batch_validation::MakeReplayWriter(
@@ -354,14 +396,23 @@ ScenarioSummary RunEsrScenario(const EsrCase& c, const esr_config::EsrSessionCon
         session.ApplyRuntimeConfig(patch);
       }
       esr_session::EsrCycleInput input = MakeInput(c, cycle_index);
-      if (c.scenario_id == "esr_seq_invalid_input_recovery" && cycle_index == 9U) {
+      if (c.scenario_id == "esr_seq_invalid_input_recovery" &&
+          (cycle_index == 9U || cycle_index == 10U)) {
         input.dt_sec = 0.0f;
       }
 
       const esr_session::EsrCycleResult result = session.StepWithResult(input);
       if (result.status != esr_session::EsrCycleExecutionStatus::kCompleted) ++nonexecuted_count;
-      if (cycle_index == 8U || cycle_index == 24U) {
-        std::vector<std::uint64_t>& ids = cycle_index == 8U ? established_ids : recovered_ids;
+      const bool capture_established_ids = cycle_index == 8U;
+      const bool capture_recovered_ids =
+          (c.scenario_id == "esr_seq_power_cycle" && cycle_index == 14U) ||
+          (c.scenario_id == "esr_seq_invalid_input_recovery" &&
+           cycle_index == 11U) ||
+          (c.scenario_id == "esr_seq_two_emitter_angular_crossing" &&
+           cycle_index == 24U);
+      if (capture_established_ids || capture_recovered_ids) {
+        std::vector<std::uint64_t>& ids =
+            capture_established_ids ? established_ids : recovered_ids;
         for (const auto& hypothesis : result.output_frame.emitter_output.hypotheses) {
           ids.push_back(hypothesis.hypothesis_id);
         }
@@ -460,13 +511,12 @@ ScenarioSummary RunEsrScenario(const EsrCase& c, const esr_config::EsrSessionCon
 /// 跨场景趋势检查占位。
 ///
 /// 历史上这里曾对 `steady_truth_match_rate_mean`（恒 0 的死指标）和别名自
-/// `receiver_saturated` 的 `steady_jammed_mean` 做距离/占用率单调断言。实测当前全部 sweep
-/// 场景几何下，ESR 在每个周期都完成执行却从不产生 raw_observation、hypothesis 或饱和
-/// （`raw_obs`/`hyp_count`/`receiver_saturated` 在 40 周期内恒为 0），因此无论改用 obs-count、
-/// saturation 还是 SNR 做趋势，结果都与原 truth_match_rate 一样恒为 0、检查恒通过——属于
-/// "空检查"，已于本轮删除。
+/// `receiver_saturated` 的 `steady_jammed_mean` 做距离/占用率单调断言。当前 48 个 sweep 场景
+/// 都能在稳态产生真实 observation 和 hypothesis，但现有发射功率下 observation 数与置信度不随
+/// range/occupancy 分档，接收机也始终不饱和；直接添加单调断言仍会成为恒通过的"空检查"。
 ///
-/// 待场景几何调整为可在稳态产生可分辨观测后，再在此处补充基于真实观测/估计的趋势软断言。
+/// 待 sweep 引入可形成分档差异的功率、干扰或多源几何后，再在此处补充基于真实观测/估计的趋势
+/// 软断言。
 void CheckCrossScenarioTrends(std::vector<ScenarioSummary>& /*summaries*/) {}
 
 }  // namespace

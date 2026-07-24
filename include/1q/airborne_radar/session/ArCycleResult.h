@@ -37,7 +37,9 @@ enum class ArReceiverImpairment : std::uint8_t { kNone = 0, kSaturated };
 
 /**
  * @brief ArCycleResult 描述单周期执行后的聚合观测结果。
- * @note 只有 `status == kCompleted` 时携带本周期输出；拒绝周期不复用上一帧。
+ * @note 只有 `status == kCompleted` 时携带接收、探测和跟踪输出；拒绝周期不复用上一帧。
+ *       若实际发射已经在接收侧失败前提交，`kRejectedExecution` 仍通过
+ *       `emission_frame` 返回该不可撤销的发射事实。
  */
 struct ONEQ_API ArCycleResult {
   std::uint32_t input_cycle_index{0U};   /**< 本次调用输入周期号，用于失败结果与 trace 归属 */

@@ -13,6 +13,7 @@
 #include "common/timing/TimingRegimeModel.h"
 #include "common/validation/ValidationUtils.h"
 #include "electronic_surveillance_radar/pipeline/EsrRfV2FrontEnd.h"
+#include "electronic_surveillance_radar/pipeline/EsrResolutionCellLedger.h"
 #include "electronic_surveillance_radar/pipeline/InterceptComponentFactory.h"
 
 namespace electronic_surveillance_radar {
@@ -23,6 +24,10 @@ using oneq::common::numerics::kNumericFloor;
 
 constexpr std::uint64_t kDetectionRandomDomain = 0x4553524454454354ULL;
 constexpr std::uint64_t kAngleRandomDomain = 0x455352414e474c45ULL;
+constexpr std::uint64_t kRfRandomDomain = 0x4553525246000000ULL;
+constexpr std::uint64_t kBandwidthRandomDomain = 0x4553524257000000ULL;
+constexpr std::uint64_t kPriRandomDomain = 0x4553525052000000ULL;
+constexpr std::uint64_t kPulseWidthRandomDomain = 0x4553525057000000ULL;
 
 std::uint64_t Mix64(std::uint64_t value) {
   value += 0x9e3779b97f4a7c15ULL;
@@ -118,30 +123,20 @@ session::EsrObservationQuality ClassifyObservationQuality(float snr_db) {
                            : session::EsrObservationQuality::kLow;
 }
 
-double ResolveCenterFrequencyHz(const oneq::electromagnetics::RfIncidentLinkResult& link) {
-  const oneq::electromagnetics::RfWaveformSchedule& waveform = link.emission_waveform;
-  if (waveform.kind == oneq::electromagnetics::RfSceneWaveformKind::kLinearSweep) {
-    return 0.5 * (waveform.sweep_start_frequency_hz + waveform.sweep_stop_frequency_hz) +
-           link.doppler_shift_hz;
+session::EsrWaveformClass MapWaveformKindToClass(
+    oneq::electromagnetics::RfSceneWaveformKind kind) {
+  switch (kind) {
+    case oneq::electromagnetics::RfSceneWaveformKind::kPulseTrain:
+      return session::EsrWaveformClass::kPulse;
+    case oneq::electromagnetics::RfSceneWaveformKind::kContinuous:
+      return session::EsrWaveformClass::kContinuous;
+    case oneq::electromagnetics::RfSceneWaveformKind::kLinearSweep:
+      return session::EsrWaveformClass::kSweep;
+    case oneq::electromagnetics::RfSceneWaveformKind::kBandLimitedNoise:
+      return session::EsrWaveformClass::kNoise;
+    default:
+      return session::EsrWaveformClass::kPulse;
   }
-  return waveform.center_frequency_hz + link.doppler_shift_hz;
-}
-
-double ResolveChannelPowerW(const oneq::electromagnetics::RfIncidentLinkResult& source,
-                            double channel_center_hz, double channel_bandwidth_hz) {
-  if (!std::isfinite(channel_center_hz) || !std::isfinite(channel_bandwidth_hz) ||
-      channel_bandwidth_hz <= 0.0 || source.received_power_spectral_density_w_per_hz <= 0.0) {
-    return 0.0;
-  }
-  const double source_center = ResolveCenterFrequencyHz(source);
-  const double source_bandwidth = source.emission_waveform.occupied_bandwidth_hz;
-  const double lower = std::max(channel_center_hz - 0.5 * channel_bandwidth_hz,
-                                source_center - 0.5 * source_bandwidth);
-  const double upper = std::min(channel_center_hz + 0.5 * channel_bandwidth_hz,
-                                source_center + 0.5 * source_bandwidth);
-  return upper > lower ? source.received_power_spectral_density_w_per_hz * (upper - lower) *
-                             source.time_overlap_fraction
-                       : 0.0;
 }
 
 bool TryResolveLookAngles(const oneq::electromagnetics::RfSceneReceiverState& receiver,
@@ -149,8 +144,9 @@ bool TryResolveLookAngles(const oneq::electromagnetics::RfSceneReceiverState& re
                           const oneq::electromagnetics::RfSceneEmission& emission,
                           const oneq::coordinate::EulerAnglesDeg& platform_attitude_deg,
                           double* azimuth_deg,
-                          double* elevation_deg) {
-  if (azimuth_deg == nullptr || elevation_deg == nullptr || !std::isfinite(link.path_length_m) ||
+                          double* elevation_deg, bool* azimuth_observable) {
+  if (azimuth_deg == nullptr || elevation_deg == nullptr ||
+      azimuth_observable == nullptr || !std::isfinite(link.path_length_m) ||
       link.path_length_m <= 0.0 || link.is_co_site) {
     return false;
   }
@@ -163,35 +159,24 @@ bool TryResolveLookAngles(const oneq::electromagnetics::RfSceneReceiverState& re
   const oneq::coordinate::Vector3d local = oneq::coordinate::RotateEnuToLocal(
       enu.east_m, enu.north_m, enu.up_m, platform_attitude_deg);
   const double horizontal = std::hypot(local.x, local.y);
-  if (!std::isfinite(horizontal) || horizontal <= 0.0) {
+  if (!std::isfinite(horizontal) || !std::isfinite(local.z)) {
     return false;
+  }
+  constexpr double kPolarSingularityRelativeTolerance = 1.0e-12;
+  if (horizontal <=
+      kPolarSingularityRelativeTolerance * std::max(1.0, link.path_length_m)) {
+    if (local.z == 0.0) {
+      return false;
+    }
+    *azimuth_deg = 0.0;
+    *elevation_deg = std::copysign(90.0, local.z);
+    *azimuth_observable = false;
+    return true;
   }
   *azimuth_deg = std::atan2(local.y, local.x) * 180.0 / 3.14159265358979323846;
   *elevation_deg = std::atan2(local.z, horizontal) * 180.0 / 3.14159265358979323846;
+  *azimuth_observable = true;
   return std::isfinite(*azimuth_deg) && std::isfinite(*elevation_deg);
-}
-
-struct ArrivalBearing {
-  bool defined{false};
-  double azimuth_deg{0.0};
-  double elevation_deg{0.0};
-};
-
-bool IsAngularResolutionCellShared(const ArrivalBearing& left, const ArrivalBearing& right,
-                                   double beamwidth_deg) {
-  if (!left.defined || !right.defined || !std::isfinite(beamwidth_deg) || beamwidth_deg <= 0.0) {
-    return true;
-  }
-  constexpr double kDegToRad = 3.14159265358979323846 / 180.0;
-  const double left_azimuth = left.azimuth_deg * kDegToRad;
-  const double left_elevation = left.elevation_deg * kDegToRad;
-  const double right_azimuth = right.azimuth_deg * kDegToRad;
-  const double right_elevation = right.elevation_deg * kDegToRad;
-  const double cosine =
-      std::sin(left_elevation) * std::sin(right_elevation) +
-      std::cos(left_elevation) * std::cos(right_elevation) * std::cos(left_azimuth - right_azimuth);
-  const double separation_deg = std::acos(std::max(-1.0, std::min(1.0, cosine))) / kDegToRad;
-  return std::isfinite(separation_deg) && separation_deg < beamwidth_deg;
 }
 
 }  // namespace
@@ -240,8 +225,8 @@ bool InterceptDetectionExecutor::ProcessRfV2Frame(
           std::max(0.0f, ctx.GetEnvironmentSnapshot().propagation_loss_db), &front_end)) {
     return false;
   }
-  output->receiver_center_frequency_hz = front_end.receiver.center_frequency_hz;
-  output->receiver_bandwidth_hz = front_end.receiver.bandwidth_hz;
+  output->receiver_center_frequency_hz = front_end.channel_receiver.center_frequency_hz;
+  output->receiver_bandwidth_hz = front_end.channel_receiver.bandwidth_hz;
   output->receiver_saturated = front_end.receiver_saturated;
   if (front_end.receiver_saturated) {
     return true;
@@ -259,69 +244,58 @@ bool InterceptDetectionExecutor::ProcessRfV2Frame(
                          ? a->identity.equipment_id < b->identity.equipment_id
                          : a->identity.emission_id < b->identity.emission_id;
             });
-  if (emissions.size() != front_end.incident_links.size()) {
+  if (emissions.size() != front_end.channel_incident_links.size()) {
     return false;
   }
   constexpr double kBoltzmannJPerK = 1.380649e-23;
   const config::EsrHardwareConfig& hardware = ctx.GetRuntimeConfig().receiver_hardware;
   const double thermal_noise = kBoltzmannJPerK * hardware.receiver_reference_temperature_k *
-                               front_end.receiver.bandwidth_hz *
+                               front_end.channel_receiver.bandwidth_hz *
                                std::pow(10.0, hardware.receiver_noise_figure_db / 10.0);
   const double ambient_noise =
       std::max(thermal_noise + static_cast<double>(ctx.GetEnvironmentSnapshot().clutter_noise_w),
                kNumericFloor);
   const double beamwidth = std::max(1.0, std::max(static_cast<double>(hardware.beam_az_width_deg),
                                                   static_cast<double>(hardware.beam_el_width_deg)));
-  std::vector<ArrivalBearing> bearings(front_end.incident_links.size());
-  for (std::size_t index = 0U; index < front_end.incident_links.size(); ++index) {
-    if (front_end.incident_links[index].is_co_site ||
-        front_end.incident_links[index].received_power_w <= 0.0) {
+  std::vector<EsrArrivalBearing> bearings(front_end.channel_incident_links.size());
+  for (std::size_t index = 0U; index < front_end.channel_incident_links.size(); ++index) {
+    if (front_end.channel_incident_links[index].is_co_site ||
+        front_end.channel_incident_links[index].received_power_w <= 0.0) {
       continue;
     }
-    ArrivalBearing& bearing = bearings[index];
-    if (!TryResolveLookAngles(front_end.receiver, front_end.incident_links[index],
+    EsrArrivalBearing& bearing = bearings[index];
+    if (!TryResolveLookAngles(front_end.channel_receiver, front_end.channel_incident_links[index],
                               *emissions[index], ctx.GetPlatformAttitude(), &bearing.azimuth_deg,
-                              &bearing.elevation_deg)) {
+                              &bearing.elevation_deg, &bearing.azimuth_observable)) {
       return false;
     }
     bearing.defined = true;
   }
-  for (std::size_t signal_index = 0U; signal_index < front_end.incident_links.size();
-       ++signal_index) {
+
+  EsrResolutionCellLedgerResult cell_ledger;
+  if (!TryBuildEsrResolutionCellLedger(
+          front_end.channel_incident_links, bearings, front_end.channel_receiver,
+          beamwidth, &cell_ledger)) {
+    return false;
+  }
+  for (const EsrResolutionCellCandidate& cell_candidate : cell_ledger.candidates) {
+    const std::size_t signal_index = cell_candidate.source_index;
     const oneq::electromagnetics::RfIncidentLinkResult& signal =
-        front_end.incident_links[signal_index];
-    if (signal.received_power_w <= 0.0) {
-      continue;
-    }
-    // 同平台发射可进入前端噪声/饱和账本，却没有可定义的外部 AoA；将其作为
-    // ESR 发射源观测发布会伪造方向信息。它仍保留在下面对其他入射信号的干扰求和中。
-    if (signal.is_co_site) {
-      continue;
-    }
-    const double center_hz = ResolveCenterFrequencyHz(signal);
+        front_end.channel_incident_links[signal_index];
+    const double center_hz = cell_candidate.estimated_center_frequency_hz;
     const double bandwidth_hz = signal.emission_waveform.occupied_bandwidth_hz;
-    double interference = 0.0;
-    for (std::size_t other = 0U; other < front_end.incident_links.size(); ++other) {
-      if (other != signal_index &&
-          IsAngularResolutionCellShared(bearings[signal_index], bearings[other], beamwidth)) {
-        interference +=
-            ResolveChannelPowerW(front_end.incident_links[other], center_hz, bandwidth_hz);
-      }
-    }
     const double snr_db =
-        ToDb(signal.received_power_w / std::max(ambient_noise + interference, kNumericFloor));
+        ToDb(cell_candidate.signal_power_w /
+             std::max(ambient_noise + cell_candidate.interference_power_w,
+                      kNumericFloor));
     oneq::common::timing::StatisticalDetectionParams detection = base_detection;
-    detection.pulse_count =
-        signal.emission_waveform.kind == oneq::electromagnetics::RfSceneWaveformKind::kPulseTrain
-            ? std::max(1U,
-                       static_cast<std::uint32_t>(std::round(signal.emission_waveform.pulse_count *
-                                                             signal.time_overlap_fraction)))
-            : 1U;
+    detection.pulse_count = cell_candidate.effective_pulse_count;
     const float threshold =
         ctx.GetPipelineConfig().statistical_detection.enable_statistical_detection
             ? std::max(ctx.GetPipelineConfig().detection.minimum_snr_db,
                        oneq::common::timing::ComputeDynamicThresholdSnrDb(
-                           ambient_noise + interference, detection))
+                           ambient_noise + cell_candidate.interference_power_w,
+                           detection))
             : ctx.GetPipelineConfig().detection.minimum_snr_db;
     std::mt19937 detection_rng = MakeEmissionRandomStream(
         ctx.GetPipelineConfig().algorithm.random_seed, ctx.GetCycleInput().cycle_index,
@@ -333,11 +307,18 @@ bool InterceptDetectionExecutor::ProcessRfV2Frame(
                                           static_cast<float>(snr_db), threshold, detection))) {
       continue;
     }
-    const double relative_std = std::max(
-        1.0e-6, std::min(0.25, 1.0 / std::sqrt(std::max(std::pow(10.0, snr_db / 10.0), 1.0e-12))));
     RawObservationRecord record;
-    std::mt19937 angle_rng = MakeEmissionRandomStream(ctx.GetPipelineConfig().algorithm.random_seed,
-                                                      ctx.GetCycleInput().cycle_index,
+    const std::uint32_t session_seed = ctx.GetPipelineConfig().algorithm.random_seed;
+    const std::uint32_t cycle_index = ctx.GetCycleInput().cycle_index;
+    const intercept::RfErrorModelConfig rf_error_config =
+        InterceptComponentFactory::BuildRfErrorModelConfig(ctx.GetPipelineConfig());
+    const intercept::BandwidthErrorModelConfig bandwidth_error_config =
+        InterceptComponentFactory::BuildBandwidthErrorModelConfig(ctx.GetPipelineConfig());
+    const intercept::PriErrorModelConfig pri_error_config =
+        InterceptComponentFactory::BuildPriErrorModelConfig(ctx.GetPipelineConfig());
+    const intercept::PulseWidthErrorModelConfig pulse_width_error_config =
+        InterceptComponentFactory::BuildPulseWidthErrorModelConfig(ctx.GetPipelineConfig());
+    std::mt19937 angle_rng = MakeEmissionRandomStream(session_seed, cycle_index,
                                                       signal.identity, kAngleRandomDomain);
     record.observation.observation_id = next_observation_id++;
     record.observation.timestamp_s = signal.arrival_start_time_s;
@@ -349,20 +330,58 @@ bool InterceptDetectionExecutor::ProcessRfV2Frame(
                                     intercept::AngleErrorModel::SampleErrorDeg(
                                         static_cast<float>(snr_db), static_cast<float>(beamwidth),
                                         &angle_rng, angle_error_config);
-    record.observation.rf_hz = center_hz;
-    record.observation.bandwidth_hz = bandwidth_hz;
+    // RF/带宽/PRI/PW 的发布值是接收机测量估计，而非真值副本。均值在真值上叠加 SNR 驱动的
+    // 零均值高斯误差，std 用同一模型计算，使发布不确定度与采样误差一致。各测量使用独立的
+    // identity-keyed 随机子流（纯派生，无跨周期可变 RNG 状态），保证输入顺序无关与 replay
+    // 字节级确定。
+    const float channel_bandwidth_hz =
+        static_cast<float>(front_end.channel_receiver.bandwidth_hz);
+    const float occupied_bandwidth_hz_f = static_cast<float>(bandwidth_hz);
+    std::mt19937 rf_rng =
+        MakeEmissionRandomStream(session_seed, cycle_index, signal.identity, kRfRandomDomain);
+    record.observation.rf_hz =
+        center_hz + static_cast<double>(intercept::RfErrorModel::SampleErrorHz(
+                        static_cast<float>(snr_db), channel_bandwidth_hz, &rf_rng, rf_error_config));
+    record.observation.rf_std_hz = intercept::RfErrorModel::ComputeStdDevHz(
+        static_cast<float>(snr_db), channel_bandwidth_hz, rf_error_config);
+    std::mt19937 bandwidth_rng = MakeEmissionRandomStream(session_seed, cycle_index,
+                                                          signal.identity, kBandwidthRandomDomain);
+    record.observation.bandwidth_hz = std::max(
+        1.0, bandwidth_hz + static_cast<double>(intercept::BandwidthErrorModel::SampleErrorHz(
+                                static_cast<float>(snr_db), occupied_bandwidth_hz_f, &bandwidth_rng,
+                                bandwidth_error_config)));
+    record.observation.bandwidth_std_hz = intercept::BandwidthErrorModel::ComputeStdDevHz(
+        static_cast<float>(snr_db), occupied_bandwidth_hz_f, bandwidth_error_config);
     if (signal.emission_waveform.kind == oneq::electromagnetics::RfSceneWaveformKind::kPulseTrain) {
-      record.observation.pri_s = signal.emission_waveform.pulse_repetition_interval_s;
-      record.observation.pulse_width_s = signal.emission_waveform.pulse_width_s;
+      const float pri_s_f = static_cast<float>(signal.emission_waveform.pulse_repetition_interval_s);
+      const float pulse_width_s_f = static_cast<float>(signal.emission_waveform.pulse_width_s);
+      std::mt19937 pri_rng =
+          MakeEmissionRandomStream(session_seed, cycle_index, signal.identity, kPriRandomDomain);
+      record.observation.pri_s = std::max(
+          1.0e-12, static_cast<double>(pri_s_f) +
+                       intercept::PriErrorModel::SampleErrorS(static_cast<float>(snr_db), pri_s_f,
+                                                               &pri_rng, pri_error_config));
+      record.observation.pri_std_s = intercept::PriErrorModel::ComputeStdDevS(
+          static_cast<float>(snr_db), pri_s_f, pri_error_config);
+      std::mt19937 pulse_width_rng = MakeEmissionRandomStream(
+          session_seed, cycle_index, signal.identity, kPulseWidthRandomDomain);
+      record.observation.pulse_width_s =
+          std::max(0.0, static_cast<double>(pulse_width_s_f) +
+                            intercept::PulseWidthErrorModel::SampleErrorS(
+                                static_cast<float>(snr_db), pulse_width_s_f, &pulse_width_rng,
+                                pulse_width_error_config));
+      record.observation.pulse_width_std_s = intercept::PulseWidthErrorModel::ComputeStdDevS(
+          static_cast<float>(snr_db), pulse_width_s_f, pulse_width_error_config);
+    } else {
+      record.observation.pri_s = 0.0;
+      record.observation.pulse_width_s = 0.0;
+      record.observation.pri_std_s = 0.0;
+      record.observation.pulse_width_std_s = 0.0;
     }
-    record.observation.rf_std_hz = std::max(1.0, bandwidth_hz * relative_std);
-    record.observation.bandwidth_std_hz = std::max(1.0, bandwidth_hz * relative_std);
-    record.observation.pri_std_s = std::max(1.0e-12, record.observation.pri_s * relative_std);
-    record.observation.pulse_width_std_s =
-        std::max(1.0e-12, record.observation.pulse_width_s * relative_std);
-    record.observation.amplitude_db = ToDb(signal.received_power_w);
+    record.observation.amplitude_db = ToDb(cell_candidate.signal_power_w);
     record.observation.snr_db = snr_db;
     record.observation.quality = ClassifyObservationQuality(static_cast<float>(snr_db));
+    record.observation.waveform_class = MapWaveformKindToClass(signal.emission_waveform.kind);
     output->raw_records.push_back(record);
   }
   return true;

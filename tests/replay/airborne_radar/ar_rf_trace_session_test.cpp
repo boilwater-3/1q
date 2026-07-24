@@ -37,6 +37,22 @@ ArCycleInput MakeCycleInput(std::uint32_t cycle, double start_time_s) {
   return input;
 }
 
+void AddUnconfiguredCoSiteEmission(ArCycleInput* input) {
+  ASSERT_NE(input, nullptr);
+  oneq::electromagnetics::RfSceneEmission emission;
+  emission.identity.platform_id = input->platform.platform_entity_id;
+  emission.identity.equipment_id = 99U;
+  emission.identity.emission_id = 700U;
+  emission.position_ecef_m = input->platform.platform_position_ecef_m;
+  ASSERT_TRUE(oneq::electromagnetics::TryCreateRfNoiseWaveform(
+      input->cycle_start_time_s, input->dt_sec,
+      config::ArSessionConfig{}.hardware.transmitter.frequency_hz, 1.0e6, 1.0, &emission.waveform));
+  input->interference.world_cycle_index = input->cycle_index;
+  input->interference.window_start_time_s = input->cycle_start_time_s;
+  input->interference.window_duration_s = input->dt_sec;
+  input->interference.emissions.push_back(emission);
+}
+
 std::shared_ptr<oneq::replay::ReplayTraceWriter> MakeWriter(
     const std::string& trace_dir) {
   oneq::replay::ReplayTraceManifest manifest;
@@ -111,6 +127,34 @@ TEST(ArRfTraceSessionTest, RejectedCycleAndSameCycleRetryReplayExactly) {
   EXPECT_TRUE(replay.ok) << replay.first_error;
   EXPECT_EQ(replay.playback.applied_input_count, 2U);
   EXPECT_EQ(replay.playback.applied_runtime_patch_count, 1U);
+  EXPECT_EQ(replay.playback.compared_output_count, 2U);
+}
+
+TEST(ArRfTraceSessionTest, PostEmissionReceiveRejectionReplayExactly) {
+  const std::string trace_dir = MakeTraceDir("oneq-ar-post-emission-reject");
+  {
+    const auto writer = MakeWriter(trace_dir);
+    ArTraceSessionOptions options;
+    options.replay_writer = writer;
+    ArTraceSession traced(config::ArSessionConfig{}, options);
+
+    ArCycleInput rejected_input = MakeCycleInput(1U, 10.0);
+    AddUnconfiguredCoSiteEmission(&rejected_input);
+    const ArCycleResult rejected = traced.StepWithResult(rejected_input);
+    ASSERT_EQ(rejected.status, ArCycleStatus::kRejectedExecution);
+    ASSERT_EQ(rejected.emission_frame.emissions.size(), 1U);
+    EXPECT_EQ(rejected.emission_frame.emissions.front().identity.emission_id, 1U);
+
+    const ArCycleResult next = traced.StepWithResult(MakeCycleInput(2U, 10.1));
+    ASSERT_EQ(next.status, ArCycleStatus::kCompleted);
+    ASSERT_EQ(next.emission_frame.emissions.size(), 1U);
+    EXPECT_EQ(next.emission_frame.emissions.front().identity.emission_id, 2U);
+    ASSERT_EQ(writer->Flush(), oneq::replay::ReplayTraceWriteStatus::kSuccess);
+  }
+
+  const ArReplaySessionResult replay = ReplayArTrace(trace_dir);
+  EXPECT_TRUE(replay.ok) << replay.first_error;
+  EXPECT_EQ(replay.playback.applied_input_count, 2U);
   EXPECT_EQ(replay.playback.compared_output_count, 2U);
 }
 

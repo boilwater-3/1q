@@ -183,8 +183,7 @@ EOS / ESR / SAR / SBIRS 同理（`ReplayEosTrace` / `ReplayEsrTrace` / `ReplaySa
 
 ## 当前物理边界
 
-- **ESR sweep 场景无稳态观测**：当前 sweep 场景几何下，ESR 在每个周期都完成执行，却从不
-  产生 raw_observation、hypothesis 或饱和（`raw_obs`/`hyp_count`/`receiver_saturated` 在 40
-  周期内恒为 0）。因此距离/占用率对观测/估计的趋势软断言无从建立，`CheckCrossScenarioTrends`
-  仅保留占位。这是场景几何问题（辐射源与扫描波束的时空关系），不是接收机缺陷；批次仍以执行
-  状态、replay 往返与 sequence 场景的结构化恢复检查验证合同。
+- **ESR sweep 尚无可分档趋势**：48 个 sweep 场景当前都能在稳态产生真实 observation 和
+  hypothesis，且 replay 完整；但现有发射功率、干扰和几何下，observation 数与假设置信度不随
+  range/occupancy 分档，接收机也始终不饱和。因此 `CheckCrossScenarioTrends` 仍只保留占位，
+  避免把恒定序列包装成单调性证明；需要先引入能形成物理分档差异的场景刺激。

@@ -33,7 +33,7 @@ bool EmitterObservationEqual(const session::EmitterObservation& left,
          left.pri_std_s == right.pri_std_s &&
          left.pulse_width_std_s == right.pulse_width_std_s &&
          left.amplitude_db == right.amplitude_db && left.snr_db == right.snr_db &&
-         left.quality == right.quality;
+         left.quality == right.quality && left.waveform_class == right.waveform_class;
 }
 
 bool EmitterHypothesisEqual(const session::EmitterHypothesis& left,
@@ -51,6 +51,7 @@ bool EmitterHypothesisEqual(const session::EmitterHypothesis& left,
       left.pri_std_s != right.pri_std_s ||
       left.pulse_width_std_s != right.pulse_width_std_s ||
       left.last_seen_cycle != right.last_seen_cycle ||
+      left.waveform_class != right.waveform_class ||
       left.candidate_classes.size() != right.candidate_classes.size()) {
     return false;
   }
@@ -191,8 +192,9 @@ bool OnCycleInput(const oneq::replay::ReplayTraceReadEvent& event, void* user_da
 
 bool OnRuntimeConfigPatch(const oneq::replay::ReplayTraceReadEvent& event, void* user_data,
                           std::string* error) {
-  if (event.payload_type != "EsrRuntimeConfigPatch") {
-    *error = "ESR replay expected EsrRuntimeConfigPatch runtime_config_patch";
+  if (event.payload_type != "EsrRuntimeConfigPatchEvent") {
+    *error =
+        "ESR replay expected EsrRuntimeConfigPatchEvent runtime_config_patch";
     return false;
   }
 
@@ -203,11 +205,21 @@ bool OnRuntimeConfigPatch(const oneq::replay::ReplayTraceReadEvent& event, void*
   }
 
   config::EsrRuntimeConfigPatch patch;
-  if (!DecodeEsrRuntimeConfigPatch(event.payload_bytes, &patch)) {
-    *error = "ESR replay failed to decode runtime_config_patch";
+  EsrRuntimeConfigApplyResult expected_result;
+  if (!DecodeEsrRuntimeConfigPatchEvent(event.payload_bytes, &patch,
+                                        &expected_result)) {
+    *error = "ESR replay failed to decode runtime_config_patch event";
     return false;
   }
-  state->session->ApplyRuntimeConfig(patch);
+  const EsrRuntimeConfigApplyResult actual_result =
+      state->session->ApplyRuntimeConfigWithResult(patch);
+  if (actual_result.status != expected_result.status ||
+      actual_result.has_requested_update !=
+          expected_result.has_requested_update ||
+      actual_result.applied != expected_result.applied) {
+    *error = "ESR replay runtime config apply-result divergence";
+    return false;
+  }
   return true;
 }
 

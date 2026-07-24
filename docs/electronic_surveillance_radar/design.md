@@ -1,7 +1,7 @@
 # Electronic Surveillance Radar 当前设计
 
 Status: active
-Last-reviewed: 2026-07-23
+Last-reviewed: 2026-07-24
 Authority: current electronic_surveillance_radar module design
 RF-Interference-Architecture: RF v2 receiver current
 
@@ -59,7 +59,7 @@ flowchart TB
     EsrSession["EsrSession\n电子侦察会话门面"]
     Composition["EsrSessionCompositionRoot\n默认内部装配"]
     Resolver["Session/Runtime resolvers\n配置解析与运行期 patch"]
-    Snapshots["Runtime snapshots\npipeline/controller 累积状态快照"]
+    Snapshots["Runtime snapshots\npipeline / controller 分离所有权"]
   end
 
   subgraph Runtime["Runtime layer\n运行期层"]
@@ -144,6 +144,8 @@ flowchart LR
 
   subgraph Detect["检测层 Detection"]
     Env["EnvironmentSnapshot\natmospheric / clutter"]
+    Front["EsrRfV2FrontEnd\n宽带预选器 / 调谐通道双状态"]
+    Cells["EsrResolutionCellLedger\n到达时间 / 瞬时频率 / 角度单元"]
     Gate["InterceptGate\n范围 / 频段 / 扫描窗口 / SNR 门"]
     Angle["AngleErrorModel\nAOA 误差采样"]
     Raw["RawObservationRecord\n原始观测记录"]
@@ -168,8 +170,10 @@ flowchart LR
 
   Config --> Gate
   Patch --> Gate
-  Cycle --> Gate
+  Cycle --> Front
   Env --> Gate
+  Front --> Cells
+  Cells --> Gate
   Gate --> Angle
   Angle --> Raw
   Raw --> Pre
@@ -182,8 +186,6 @@ flowchart LR
   Obs --> Result
   Emit --> Result
   Obs --> Result
-  Emit --> Result
-  Truth --> Result
 ```
 
 输出只包含两个去真值化通道：
@@ -209,7 +211,7 @@ flowchart LR
   Rx["Receiver operating state\nbeam / tuning / hardware"] --> Front["wideband front-end ledger"]
   Incident --> Front
   Front -->|over limit| Sat["receiver_saturated\nexecuted, no fabricated observation"]
-  Front --> Chan["tuning / frequency-angle resolution cells"]
+  Front --> Chan["tuning / time-frequency-angle resolution cells"]
   Chan --> Sep["resolvable candidates"]
   Chan --> Mix["shared resolution cell\ninterference"]
   Sep --> Detect["intercept probability / SINR / dwell"]
@@ -223,8 +225,9 @@ flowchart LR
 存在于调用方外部业务语义或 debug attribution 中，不得提前改变 raw detection gate。
 
 同周期 active receive beam、安装姿态、tuning window、极化、噪声参数、最大线性
-输入功率和 equipment-level co-site isolation 构成唯一 receiver operating state。它由 pipeline/scheduler
-拥有并进入 snapshot/replay；处理不同候选 emission 时不得逐候选重指向天线、改调谐或改前端带宽。
+输入功率和 equipment-level co-site isolation 构成唯一 receiver operating state。pipeline 唯一拥有
+扫描/调谐累积相位并写入自身 snapshot；trace/replay 由输入与事件重建该状态。处理不同候选 emission
+时不得逐候选重指向天线、改调谐或改前端带宽。
 
 ## 2. 本模块使用的算法
 
@@ -237,7 +240,7 @@ flowchart LR
 | 拦截门控 | `InterceptGate` | range、receiver window、dynamic range、SNR 等 joint constraints | pipeline 内部 |
 | 边界搜索 | `BoundarySearchSolver` | 单调谓词边界查找 | pipeline 内部 |
 | 角误差 | `AngleErrorModel` | 基于 SNR/系数/随机种子的 AOA 扰动 | pipeline 内部 |
-| RF 接收与干扰影响 | `TryEvaluateRfIncidentLink` + `InterceptDetectionExecutor` | 冻结接收机状态、宽带入射账本、饱和、时频与角分辨单元 SINR | pipeline 内部 |
+| RF 接收与干扰影响 | `TryEvaluateRfIncidentLink` + `EsrRfV2FrontEnd` + `EsrResolutionCellLedger` | 双 receiver state、宽带入射账本、饱和、到达时频角分辨单元 SINR | pipeline 内部 |
 | 观测预处理 | `ObservationPreprocessor` | 排序、有限值过滤、质量归一、窗口去重 | pipeline 内部 |
 | 特征编码 | `ObservationFeatureEncoder` | RF/PW/AOA/SNR 按尺度编码到特征空间 | pipeline 内部 |
 | 聚类 | `KdTreeClusterer` | 半径聚类、min-points、noise/border point 处理 | pipeline 内部 |
@@ -255,10 +258,17 @@ flowchart LR
    当前调谐通道，用于最大线性输入、同平台泄漏和强带外 blocking 边界。超过标定上限时输出结构化
    `receiver_saturated` impairment，本周期仍是 executed，但 observation/hypothesis 不生成新记录；不使用
    未标定压缩曲线。
-3. **通道化与可分辨性。** 在显式 tuning window 内按频率重叠和到达角建立候选。相同频率覆盖但角距离
-   不小于冻结波束宽度的外部源不进入彼此 interference；同平台源因无可定义外部 AoA 始终保留在共享单元。
-   当前参数化 waveform 的时间占用由公共 incident link 求解；脉冲级碰撞和独立 channel plan 留作后续精化，
-   不伪造其结果。
+3. **通道化与可分辨性。** `EsrRfV2FrontEnd` 同时冻结两个接收状态：硬件频段的
+   `front_end_receiver` 只服务 blocking/饱和，当前 tuning window 的 `channel_receiver` 只服务候选检测。
+   `EsrResolutionCellLedger` 将调谐通道内的到达活动投影到固定接收时间单元；脉冲使用确定性 jitter 后的
+   实际绝对脉冲时刻累计，线性扫频在每个到达时间单元重新求瞬时频率，再按角单元和重叠频带排序归并。
+   单元内功率最强的外部源成为候选，其余功率只进入该候选的干扰账本；落入不同接收时间单元的
+   错时脉冲、错频扫频和可分角源不互相降低 SINR。构建复杂度是固定时间单元投影加单元内排序，
+   不再执行 candidate×all-emissions 全对扫描。
+   候选 signal/interference power 统一按候选实际活动时间归一化，空白接收窗口不得稀释短脉冲或
+   扫频驻留的 SNR；跨越多个时间单元的同一物理脉冲以 pulse index 去重，只贡献一次统计截获机会。
+   天顶/天底入射的方位角在数学上不可观测，但这不是非法 RF 帧：该源仍参与前端饱和和对应极区
+   分辨单元的功率账本，却不能成为会发布伪造 AoA 的候选；同帧其他可观测源继续正常处理。
 4. **波形化观测。** 脉冲列填写 PRI/脉宽估计；连续、宽带噪声和扫频仅发布适用的频率/带宽估计，
    不伪造 PRI/pulse width。
 5. **截获判决。** 每个候选使用通道输出 signal power、热噪声、未分辨 interference、有效驻留和脉冲
@@ -279,7 +289,15 @@ flowchart LR
 continuation/replay 一致。
 
 RF v2 characterization、前端、检测、饱和、调谐、顺序无关和 replay 测试共同证明当前接收合同。复数 IQ、
-脉冲级 collision、未标定压缩和欺骗/转发不在本模块范围。
+亚时间单元的器件瞬态、未标定压缩和欺骗/转发不在本模块范围。
+
+[evidence: tests/unit/electronic_surveillance_radar/esr_rf_v2_front_end_test.cpp::EsrRfV2FrontEndTest.StrongHardwareBandSignalOutsideTunedChannelStillSaturates]
+[evidence: tests/unit/electronic_surveillance_radar/esr_resolution_cell_ledger_test.cpp::EsrResolutionCellLedgerTest.TimeSeparatedPulsesDoNotInterfere]
+[evidence: tests/unit/electronic_surveillance_radar/esr_resolution_cell_ledger_test.cpp::EsrResolutionCellLedgerTest.PolarBearingWithoutObservableAzimuthCannotBecomeCandidate]
+[evidence: tests/unit/electronic_surveillance_radar/esr_resolution_cell_ledger_test.cpp::EsrResolutionCellLedgerTest.LinearSweepUsesPartialInstantaneousChannelDwell]
+[evidence: tests/unit/electronic_surveillance_radar/esr_resolution_cell_ledger_test.cpp::EsrResolutionCellLedgerTest.PulsePowerAndCountAreInvariantToEmptyWindowPadding]
+[evidence: tests/unit/electronic_surveillance_radar/esr_resolution_cell_ledger_test.cpp::EsrResolutionCellLedgerTest.PulseCrossingTimeBinBoundaryCountsOnce]
+[evidence: tests/integration/electronic_surveillance_radar/esr_session_test.cpp::EsrSessionIntegrationTest.PolarBearingSingularityDoesNotRejectObservablePeer]
 
 Replay 的 cycle-input ECEF 位置、速度和独立姿态均为 double 精度；schema/codec 不允许把它们降为 float。
 输出比较继续使用严格判等，输入必须先做到可精确重组，不能用比较容差
@@ -323,19 +341,22 @@ Replay 的 cycle-input ECEF 位置、速度和独立姿态均为 double 精度�
 `HypothesisAssociator` 维护内部 track state。每周期：
 
 1. 计算 cluster centroid feature 到现有 track feature 的距离。
-2. 有限且距离不大于 `gate_distance` 的 cluster-track pair 进入候选集。
+2. waveform class 相同、距离有限且不大于 `gate_distance` 的 cluster-track pair 进入候选集；pulse、
+   continuous、sweep 和 noise 不允许跨周期互相改写 track 类型。
 3. 对候选图执行一对一全局分配：先最大化匹配数量，再在最大匹配中最小化总距离；总代价相同时按 cluster input index、track hypothesis id 确定性裁决。
 4. 匹配 track 使用 `confidence_alpha` blending 更新 feature、bearing、mode、threat、confidence。
 5. 未匹配 cluster 创建新 hypothesis id。
 6. 未命中 track 累计 missed cycles，达到 `max_missed_cycles` 阈值的当周期回收。
 
 [evidence: tests/unit/electronic_surveillance_radar/esr_hypothesis_associator_test.cpp::EsrHypothesisAssociatorTest.RecyclesTrackAfterConfiguredMissedCycles]
+[evidence: tests/unit/electronic_surveillance_radar/esr_hypothesis_associator_test.cpp::EsrHypothesisAssociatorTest.SnapshotContinuationPreservesWaveformClassGate]
+[evidence: tests/replay/electronic_surveillance_radar/esr_replay_session_test.cpp::EsrReplaySessionTest.WaveformClassGateContinuesDeterministicallyInReplay]
 
 模式和威胁推断：
 
 - pulse width、PRI 和 SNR 推断 search/tracking/guidance。
 - guidance 或高 SNR 提升 threat level。
-- deception support 会降低 confidence，并添加 ambiguous/deception candidate class。
+- waveform class 只参与同类跨周期关联门控；当前不生成 deception/ambiguous candidate。
 
 验证入口：
 
@@ -363,14 +384,16 @@ pipeline 持有归一化扫描相位 `[0, 1)`：本周期先用 `floor(phase × 
 能够解析扫描相位的步长/速率组合，不能依赖 cycle index 隐式轮转波束。
 [evidence: tests/integration/cross_domain/multi_model_scenario_test.cpp::MultiModelScenarioTest.AirToAirHeadOn]
 
-RF 调谐由接收任务的 tuning/channel plan 显式描述中心频率、带宽和成功 receive/complete 周期驻留数；
-空计划表示全硬件频段驻留。调谐位置只在成功接收周期推进；validation rejection、receive 输入缺少
-冻结 RF scene、设备关机均冻结。receiver operating state 以 observation output 的调谐中心、调谐带宽和
-`receiver_saturated` 记录；完整硬件/调谐计划与累积调谐相位由 session snapshot、trace/replay 持有，禁止
-按 world cycle index 隐式轮转。接收硬件拥有方向图、极化、噪声、设备级 co-site isolation 和最大线性输入功率。
+RF 调谐由接收任务的 tuning/channel plan 显式描述中心频率、带宽和成功 completed 周期驻留数；
+空计划表示全硬件频段驻留。调谐位置只在成功完成的 `Step()` / `StepWithResult()` 周期推进；
+validation rejection、RF receiver rejection 和设备关机均冻结。receiver operating state 以 observation
+output 的调谐中心、调谐带宽和 `receiver_saturated` 记录；硬件/调谐计划属于 resolved config，累积
+调谐相位 `completed_receive_cycles` 只由 pipeline snapshot 持有。trace/replay 通过 session config、
+runtime patch 和 cycle 事件重建该状态并逐周期比较结果，不另存第二份调谐相位。禁止按 world cycle
+index 隐式轮转。接收硬件拥有方向图、极化、噪声、设备级 co-site isolation 和最大线性输入功率。
 
-最终工程输入是统一冻结 RF scene，不以 `legacy / engineering` 标签改变接收物理链；旧 public jammer
-摘要和 adapter 已删除。
+最终工程输入是单周期公共 `RfEmissionFrame`，不需要调用方冻结 scene，也不以
+`legacy / engineering` 标签改变接收物理链；旧 public jammer 摘要和 adapter 已删除。
 
 `EmitterHypothesis` 只发布由 observation 统计得到的中心频率、带宽、适用的 PRI/脉宽、bearing 及不确定度；
 truth platform/equipment/emission ID 不进入 ESR 输出。ECM sensor-driven adapter 只能复制这些估计字段和
@@ -398,22 +421,30 @@ payload 中的四个边界字段，并按中心角、硬件扫描范围和天线
 [evidence: tests/unit/electronic_surveillance_radar/esr_runtime_config_resolver_test.cpp::EsrRuntimeConfigResolverTest.MissionDomainRejectsInvalidCenterAtomically]
 [evidence: tests/unit/electronic_surveillance_radar/esr_runtime_config_resolver_test.cpp::EsrRuntimeConfigResolverTest.LeafOverridesAreValidatedAfterInvalidMissionScanValues]
 
-`ApplyRuntimeConfigWithResult()` 通过 `ResolveEsrRuntimeConfigPatch()` 合并 patch，并对最终被选择的 scan
-policy 做原子校验。这里的“有效/无效”当前只覆盖 scan rate、显式边界或中心角；resolver 尚未承诺对
-整块 mission/policy/environment 的所有领域值做统一语义校验。通过当前校验的 patch 立即写入
-`resolved_config`，并同步到 pipeline/environment；被拒绝的扫描 patch 不污染现有配置。是否建立全域
-runtime validation 继续登记在 `docs/common/open_questions.md`。ESR 属于 `docs/common/contract.md`
-定义的立即提交类，配置单向落定，不提供 session 层回滚。
+`ApplyRuntimeConfigWithResult()` 通过 `ResolveEsrRuntimeConfigPatch()` 合并 patch；整域值先合并，leaf
+override 后应用，再对最终 mission 枚举、scan policy、基础 detection policy 和 environment 统一做
+一次领域校验。work mode 对 pulse count/threshold scale 的调整始终从 `base_detection` 派生，重复切换
+模式不会复合缩放。通过校验的 patch 立即写入 `resolved_config` 并同步到 pipeline/environment；被拒绝
+的 patch 原子无污染。ESR 属于 `docs/common/contract.md` 定义的立即提交类，配置单向落定，不提供
+session 层回滚。
+[evidence: tests/unit/electronic_surveillance_radar/esr_runtime_config_resolver_test.cpp::EsrRuntimeConfigResolverTest.RejectsUnknownMissionEnumsAtomically]
+[evidence: tests/unit/electronic_surveillance_radar/esr_runtime_config_resolver_test.cpp::EsrRuntimeConfigResolverTest.RejectsInvalidPolicyAtomically]
+[evidence: tests/unit/electronic_surveillance_radar/esr_runtime_config_resolver_test.cpp::EsrRuntimeConfigResolverTest.RejectsInvalidEnvironmentAtomically]
+[evidence: tests/unit/electronic_surveillance_radar/esr_runtime_config_resolver_test.cpp::EsrRuntimeConfigResolverTest.RepeatedWorkModeChangesDoNotCompoundPolicyAdjustment]
 
 `InterceptPipeline::RunCycle()` 返回 `InterceptPipelineResult`。它显式区分设备关机导致的未执行状态；
 controller 将其传播为 `kPoweredOff`，不复用最近有效输出且不推进 batch。普通空观测仍是合法数据结果。
 
 pipeline/controller 的 `CaptureRuntimeState()` / `RestoreRuntimeState()` 只描述累积运行态能力：
 
-- pipeline 快照含 observation/hypothesis id、hypothesis associator tracks 和归一化扫描相位；随机流由
-  immutable seed/cycle/identity/domain 参数派生，不存在跨周期可变 RNG 状态。
+- pipeline 是接收流水线累积状态的唯一 owner；其快照含 observation/hypothesis id、hypothesis
+  associator tracks、归一化扫描相位和 `completed_receive_cycles` 调谐相位。随机流由 immutable
+  seed/cycle/identity/domain 参数派生，不存在跨周期可变 RNG 状态。
 - pipeline 快照不含 config、feature scales 或环境配置。
-- controller 快照含 latest output、validation issues、batch id 和最近一次执行状态。
+- controller 快照只含其拥有的 latest output、validation issues、batch id 和最近一次执行状态，不嵌套
+  或恢复 pipeline 快照。session 在周期回滚时分别捕获和恢复两个 owner，任一恢复失败均返回
+  `kRuntimeStateRestoreRejected`，不得留下半恢复状态。
+[evidence: tests/unit/electronic_surveillance_radar/esr_controller_runtime_state_test.cpp::EsrControllerRuntimeStateTest.RestoreDoesNotMutatePipelineOwnedState]
 
 设计含义：
 
@@ -449,6 +480,17 @@ pipeline/controller 的 `CaptureRuntimeState()` / `RestoreRuntimeState()` 只描
 中统一为 64 位无符号值。codec 不得把它缩窄到 32 位；大于 `UINT32_MAX` 的值必须无损 roundtrip。
 [evidence: tests/replay/electronic_surveillance_radar/esr_replay_codec_roundtrip_test.cpp::EsrReplayCodecRoundtripTest.CycleResultPreservesBatchIdAboveUint32Max]
 
+Replay 输入配置、runtime patch 和输出中的 work/scan/environment、observation quality、waveform class、
+emitter mode、threat level、cycle status、abort reason、validation 与 patch apply status 枚举必须逐值
+校验。未知值整帧/整事件原子拒绝，不能部分修改调用方目标。runtime patch trace 在实际应用后记录 patch
+及结构化 `status/has_requested_update/applied`，replay 重新应用并逐字段比较；合法拒绝补丁和空补丁不能
+被伪装成成功。failure marker 不终止 replay，后续恢复周期仍进入确定性比较。
+[evidence: tests/replay/electronic_surveillance_radar/esr_replay_codec_roundtrip_test.cpp::EsrReplayCodecRoundtripTest.UnknownWaveformClassRejectsWithoutMutatingDestination]
+[evidence: tests/replay/electronic_surveillance_radar/esr_replay_codec_roundtrip_test.cpp::EsrReplayCodecRoundtripTest.UnknownSessionConfigEnumRejectsWithoutMutatingDestination]
+[evidence: tests/replay/electronic_surveillance_radar/esr_replay_codec_roundtrip_test.cpp::EsrReplayCodecRoundtripTest.RuntimePatchEventPreservesStructuredApplyResult]
+[evidence: tests/replay/electronic_surveillance_radar/esr_replay_session_test.cpp::EsrReplaySessionTest.RuntimePatchPowerOffAndRecoveryReplayDeterministically]
+[evidence: tests/replay/electronic_surveillance_radar/esr_replay_session_test.cpp::EsrReplaySessionTest.ReplayEsrTraceContinuesAfterFailureMarker]
+
 truth identity、外部坐标适配输出与 debug view 不属于 ESR 公共输出合同；消费者只使用观测和 hypothesis 的估计字段。
 
 验证入口：
@@ -466,11 +508,27 @@ ESM/RWR/HGESM 切换、显式扫描边界重定向、关机恢复和无效输入
 - 各场景预期的非执行周期数；
 - 无效输入场景的 failure marker 数；
 - 无效显式边界 patch 的原子拒绝；
-- 角度交叉、关机恢复和无效输入恢复三个场景的建立/恢复 hypothesis id 集合连续性。
+- 角度交叉场景的建立/最终 hypothesis id 集合连续性；
+- 关机恢复和无效输入恢复场景在第一个重新执行周期立即保持建立阶段 hypothesis id 集合。
 
 batch 不含 truth matching、legacy lifecycle recorder 或旧输入适配器；它以 RF v2 发射帧构造场景，并以
 回放、执行状态、观测数、hypothesis 置信度与接收机饱和状态验证合同。
+每个场景显式设置与载频匹配的窄带 tuning window，因此 sweep 与 sequence 都必须产生真实观测；零观测
+不再被当作可接受的空验证。
 场景 ID、结构化 check 和运行方式由 `examples/batch_validation/README.md` 维护。
+
+性能验收分为两个不可互相替代的 Release 场景：稀疏检测场景以 64 个外部 RF 发射、1000 个 AR 目标和
+1000 个 ESR 发射验证 RF 前端/分辨账本；密集检测场景要求每周期 1000 条 raw observation，并至少保留
+90% 的预处理观测、cluster 和 hypothesis，同时限制活跃 hypothesis 不超过输入规模的 5 倍，验证检测
+后处理、跨周期关联和 missed-track 回收。两者都在 20 个 lifecycle 预热周期后连续测量 100 周期并要求
+P95 `< 100 ms`，拒绝周期不能计入性能样本。密集场景还逐周期采样活跃堆分配量，以最初和最后
+20 个测量周期的中位数比较稳态增长，允许上限为 4 MiB；不得用进程历史峰值 RSS 或 hypothesis 数量
+替代活跃模型状态的内存验收。进程当前 RSS 仍逐周期采样并记录首尾中位数和增长值，但只作为诊断：
+macOS 的 demand paging 与共享代码页首次驻留可在活跃堆不增长时改变 `resident_size`，不能稳定证明
+模型保留了无界周期状态。稀疏场景同时断言 AR 与 ESR 都为 completed；密集场景同时记录首尾活跃堆
+中位数、活跃堆增长及 RSS 诊断值，使阈值失败可以追溯到原始稳态窗口，而不是只保留布尔结果。
+[evidence: tests/performance/cross_domain/rf_interference_performance_test.cpp::RfInterferencePerformanceTest.SparseDetectionFullScaleRfFrontEndMeetsReleaseP95Budget]
+[evidence: tests/performance/cross_domain/rf_interference_performance_test.cpp::RfInterferencePerformanceTest.DenseDetectionFullScaleEsrPipelineMeetsReleaseP95Budget]
 
 ## 3. 非目标与边界
 

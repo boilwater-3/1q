@@ -24,6 +24,20 @@ enum class ONEQ_API EsrObservationQuality {
 };
 
 /**
+ * @brief EsrWaveformClass 表示接收机视角下的波形类别。
+ *
+ * 由场景波形类别（`oneq::electromagnetics::RfSceneWaveformKind`）映射而来，
+ * 用于聚类按波形类别分流与工作模式推断。`kPulse` 的 PRI/PW 字段有物理意义，
+ * 其余类别为 energy-only（PRI/PW 保持默认 0）。
+ */
+enum class ONEQ_API EsrWaveformClass : std::uint8_t {
+  kPulse = 0,      /**< 脉冲串；PRI/PW 有物理意义 */
+  kContinuous = 1, /**< 连续波；energy-only */
+  kSweep = 2,      /**< 线性扫频；energy-only */
+  kNoise = 3,      /**< 带限噪声；energy-only */
+};
+
+/**
  * @brief EmitterObservation 描述单条接收机观测。
  */
 struct ONEQ_API EmitterObservation {
@@ -42,6 +56,7 @@ struct ONEQ_API EmitterObservation {
   double amplitude_db{0.0};                             /**< 接收幅度（单位：dB） */
   double snr_db{0.0};                                   /**< 观测信噪比（单位：dB） */
   EsrObservationQuality quality{EsrObservationQuality::kLow}; /**< 观测质量等级 */
+  EsrWaveformClass waveform_class{EsrWaveformClass::kPulse}; /**< 波形类别，默认脉冲 */
 };
 
 /** @brief EmitterObservationList 表示观测记录列表。 */

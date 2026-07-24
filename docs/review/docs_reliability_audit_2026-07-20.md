@@ -77,8 +77,10 @@ Status: draft
 唯一规范入口为 [`docs/common/open_questions.md`](../common/open_questions.md)：
 
 - COMMON-OQ-1：Windows/MSVC shell/GitHub 依赖引导及真实 runner 全链证明；
-- ESR-OQ-1：ESR 非阻塞仿真边界；
 - SBIRS-OQ-1～OQ-4：SBIRS 非阻塞仿真边界。
+
+2026-07-24 follow-up：原 ESR-OQ-1 的 runtime patch 全域校验已进入 ESR design 与 common contract，
+不再属于开放问题。
 
 ## 7. 本批验证记录
 
