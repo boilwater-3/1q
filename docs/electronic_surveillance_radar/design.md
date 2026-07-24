@@ -264,6 +264,8 @@ flowchart LR
    单元内功率最强的外部源成为候选，其余功率只进入该候选的干扰账本；落入不同接收时间单元的
    错时脉冲、错频扫频和可分角源不互相降低 SINR。构建复杂度是固定时间单元投影加单元内排序，
    不再执行 candidate×all-emissions 全对扫描。
+   天顶/天底入射的方位角在数学上不可观测，但这不是非法 RF 帧：该源仍参与前端饱和和对应极区
+   分辨单元的功率账本，却不能成为会发布伪造 AoA 的候选；同帧其他可观测源继续正常处理。
 4. **波形化观测。** 脉冲列填写 PRI/脉宽估计；连续、宽带噪声和扫频仅发布适用的频率/带宽估计，
    不伪造 PRI/pulse width。
 5. **截获判决。** 每个候选使用通道输出 signal power、热噪声、未分辨 interference、有效驻留和脉冲
@@ -288,7 +290,9 @@ RF v2 characterization、前端、检测、饱和、调谐、顺序无关和 rep
 
 [evidence: tests/unit/electronic_surveillance_radar/esr_rf_v2_front_end_test.cpp::EsrRfV2FrontEndTest.StrongHardwareBandSignalOutsideTunedChannelStillSaturates]
 [evidence: tests/unit/electronic_surveillance_radar/esr_resolution_cell_ledger_test.cpp::EsrResolutionCellLedgerTest.TimeSeparatedPulsesDoNotInterfere]
+[evidence: tests/unit/electronic_surveillance_radar/esr_resolution_cell_ledger_test.cpp::EsrResolutionCellLedgerTest.PolarBearingWithoutObservableAzimuthCannotBecomeCandidate]
 [evidence: tests/unit/electronic_surveillance_radar/esr_resolution_cell_ledger_test.cpp::EsrResolutionCellLedgerTest.LinearSweepUsesPartialInstantaneousChannelDwell]
+[evidence: tests/integration/electronic_surveillance_radar/esr_session_test.cpp::EsrSessionIntegrationTest.PolarBearingSingularityDoesNotRejectObservablePeer]
 
 Replay 的 cycle-input ECEF 位置、速度和独立姿态均为 double 精度；schema/codec 不允许把它们降为 float。
 输出比较继续使用严格判等，输入必须先做到可精确重组，不能用比较容差
@@ -490,6 +494,14 @@ batch 不含 truth matching、legacy lifecycle recorder 或旧输入适配器；
 每个场景显式设置与载频匹配的窄带 tuning window，因此 sweep 与 sequence 都必须产生真实观测；零观测
 不再被当作可接受的空验证。
 场景 ID、结构化 check 和运行方式由 `examples/batch_validation/README.md` 维护。
+
+性能验收分为两个不可互相替代的 Release 场景：稀疏检测场景以 64 个外部 RF 发射、1000 个 AR 目标和
+1000 个 ESR 发射验证 RF 前端/分辨账本；密集检测场景要求每周期 1000 条 raw observation，并至少保留
+90% 的预处理观测、cluster 和 hypothesis，同时限制活跃 hypothesis 不超过输入规模的 5 倍，验证检测
+后处理、跨周期关联和 missed-track 回收。两者都连续测量 100 周期并要求 P95 `< 100 ms`，拒绝周期
+不能计入性能样本。
+[evidence: tests/performance/cross_domain/rf_interference_performance_test.cpp::RfInterferencePerformanceTest.SparseDetectionFullScaleRfFrontEndMeetsReleaseP95Budget]
+[evidence: tests/performance/cross_domain/rf_interference_performance_test.cpp::RfInterferencePerformanceTest.DenseDetectionFullScaleEsrPipelineMeetsReleaseP95Budget]
 
 ## 3. 非目标与边界
 

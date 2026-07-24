@@ -22,6 +22,9 @@ namespace rf = oneq::electromagnetics;
 constexpr std::size_t kRfEmissionCount = 64U;
 constexpr std::size_t kArTargetCount = 1000U;
 constexpr std::size_t kEsrEmitterCount = 1000U;
+constexpr std::size_t kDenseMinimumProcessedCount =
+    9U * kEsrEmitterCount / 10U;
+constexpr std::size_t kDenseMaximumHypothesisCount = 5U * kEsrEmitterCount;
 constexpr std::uint32_t kWarmupCycles = 5U;
 constexpr std::uint32_t kMeasuredCycles = 100U;
 constexpr double kP95LimitMilliseconds = 100.0;
@@ -57,6 +60,40 @@ rf::RfEmissionFrame MakeRfEmissions(std::uint32_t cycle_index,
   return frame;
 }
 
+rf::RfEmissionFrame MakeDetectableEsrEmissions(std::uint32_t cycle_index,
+                                                double cycle_start_time_s) {
+  rf::RfEmissionFrame frame;
+  frame.world_cycle_index = cycle_index;
+  frame.window_start_time_s = cycle_start_time_s;
+  frame.window_duration_s = 1.0;
+  frame.emissions.reserve(kEsrEmitterCount);
+  for (std::size_t i = 0U; i < kEsrEmitterCount; ++i) {
+    rf::RfSceneEmission emission;
+    emission.identity.platform_id = 50000U + i;
+    emission.identity.equipment_id = 1U;
+    emission.identity.emission_id = 150000U + i;
+    emission.position_ecef_m.x_m = 6378137.0;
+    emission.position_ecef_m.y_m = 20000.0 + 10.0 * static_cast<double>(i);
+    emission.position_ecef_m.z_m = 10.0 * static_cast<double>(i % 8U);
+    emission.antenna.boresight_ecef.x = 0.0;
+    emission.antenna.boresight_ecef.y = -1.0;
+    emission.antenna.peak_gain_dbi = 10.0;
+    EXPECT_TRUE(rf::TryCreateRfNoiseWaveform(
+        cycle_start_time_s, frame.window_duration_s,
+        9.0e9 + 1.0e6 * static_cast<double>(i), 0.25e6, 1.0e6,
+        &emission.waveform));
+    frame.emissions.push_back(emission);
+  }
+  return frame;
+}
+
+double ComputeP95Milliseconds(std::vector<double>* elapsed_ms) {
+  std::sort(elapsed_ms->begin(), elapsed_ms->end());
+  const std::size_t p95_index =
+      (95U * elapsed_ms->size() + 99U) / 100U - 1U;
+  return (*elapsed_ms)[p95_index];
+}
+
 ar_session::ArCycleInput MakeArInput() {
   ar_session::ArCycleInput input;
   input.dt_sec = 1.0;
@@ -88,7 +125,8 @@ esr_session::EsrCycleInput MakeEsrInput() {
   return input;
 }
 
-TEST(RfInterferencePerformanceTest, FullScaleCyclesMeetReleaseP95Budget) {
+TEST(RfInterferencePerformanceTest,
+     SparseDetectionFullScaleRfFrontEndMeetsReleaseP95Budget) {
   const rf::RfEmissionFrame initial_ar_frame =
       MakeRfEmissions(1U, 0.0, kRfEmissionCount, 20000U);
   const rf::RfEmissionFrame initial_esr_frame =
@@ -141,12 +179,87 @@ TEST(RfInterferencePerformanceTest, FullScaleCyclesMeetReleaseP95Budget) {
     }
   }
 
-  std::sort(elapsed_ms.begin(), elapsed_ms.end());
-  const std::size_t p95_index = (95U * elapsed_ms.size() + 99U) / 100U - 1U;
-  const double p95_ms = elapsed_ms[p95_index];
+  const double p95_ms = ComputeP95Milliseconds(&elapsed_ms);
   RecordProperty("rf_emission_count", static_cast<int>(kRfEmissionCount));
   RecordProperty("ar_target_count", static_cast<int>(kArTargetCount));
   RecordProperty("esr_emitter_count", static_cast<int>(kEsrEmitterCount));
+  RecordProperty("measured_cycle_count", static_cast<int>(kMeasuredCycles));
+  RecordProperty("p95_milliseconds", std::to_string(p95_ms));
+  EXPECT_LT(p95_ms, kP95LimitMilliseconds);
+}
+
+TEST(RfInterferencePerformanceTest,
+     DenseDetectionFullScaleEsrPipelineMeetsReleaseP95Budget) {
+  esr_config::EsrSessionConfig config;
+  config.hardware.beam_az_width_deg = 120.0f;
+  config.hardware.beam_el_width_deg = 120.0f;
+  config.hardware.maximum_linear_input_power_w = 1.0e9f;
+  config.policy.detection.minimum_snr_db = -20.0f;
+  config.policy.detection.enable_statistical_detection = false;
+  config.hardware.tuning_plan.push_back(
+      esr_config::EsrTuningWindow{9.5e9, 1.1e9, 1U});
+  esr_session::EsrSession esr = esr_session::EsrSession::Create(config);
+  esr_session::EsrCycleInput input = MakeEsrInput();
+  std::vector<double> elapsed_ms;
+  elapsed_ms.reserve(kMeasuredCycles);
+  std::size_t minimum_observation_count = kEsrEmitterCount;
+  std::size_t minimum_cluster_count = kEsrEmitterCount;
+  std::size_t minimum_hypothesis_count = kEsrEmitterCount;
+  std::size_t maximum_hypothesis_count = 0U;
+
+  for (std::uint32_t cycle = 1U;
+       cycle <= kWarmupCycles + kMeasuredCycles; ++cycle) {
+    input.cycle_index = cycle;
+    input.cycle_start_time_s = static_cast<double>(cycle - 1U);
+    input.rf_emissions =
+        MakeDetectableEsrEmissions(cycle, input.cycle_start_time_s);
+    const std::chrono::steady_clock::time_point start =
+        std::chrono::steady_clock::now();
+    const esr_session::EsrCycleResult result = esr.StepWithResult(input);
+    const double duration_ms =
+        std::chrono::duration<double, std::milli>(
+            std::chrono::steady_clock::now() - start)
+            .count();
+    ASSERT_EQ(result.status, esr_session::EsrCycleExecutionStatus::kCompleted);
+    ASSERT_EQ(result.output_frame.observation_output.raw_observation_count,
+              kEsrEmitterCount);
+    ASSERT_GE(result.output_frame.observation_output.observations.size(),
+              kDenseMinimumProcessedCount);
+    ASSERT_GE(result.output_frame.observation_output.cluster_count,
+              kDenseMinimumProcessedCount);
+    ASSERT_GE(result.output_frame.emitter_output.hypotheses.size(),
+              kDenseMinimumProcessedCount);
+    ASSERT_LE(result.output_frame.emitter_output.hypotheses.size(),
+              kDenseMaximumHypothesisCount);
+    minimum_observation_count =
+        std::min(minimum_observation_count,
+                 result.output_frame.observation_output.observations.size());
+    minimum_cluster_count =
+        std::min(minimum_cluster_count,
+                 result.output_frame.observation_output.cluster_count);
+    minimum_hypothesis_count =
+        std::min(minimum_hypothesis_count,
+                 result.output_frame.emitter_output.hypotheses.size());
+    maximum_hypothesis_count =
+        std::max(maximum_hypothesis_count,
+                 result.output_frame.emitter_output.hypotheses.size());
+    if (cycle > kWarmupCycles) {
+      elapsed_ms.push_back(duration_ms);
+    }
+  }
+
+  const double p95_ms = ComputeP95Milliseconds(&elapsed_ms);
+  RecordProperty("esr_emitter_count", static_cast<int>(kEsrEmitterCount));
+  RecordProperty("raw_observation_count_per_cycle",
+                 static_cast<int>(kEsrEmitterCount));
+  RecordProperty("minimum_preprocessed_observation_count",
+                 static_cast<int>(minimum_observation_count));
+  RecordProperty("minimum_cluster_count",
+                 static_cast<int>(minimum_cluster_count));
+  RecordProperty("minimum_hypothesis_count",
+                 static_cast<int>(minimum_hypothesis_count));
+  RecordProperty("maximum_hypothesis_count",
+                 static_cast<int>(maximum_hypothesis_count));
   RecordProperty("measured_cycle_count", static_cast<int>(kMeasuredCycles));
   RecordProperty("p95_milliseconds", std::to_string(p95_ms));
   EXPECT_LT(p95_ms, kP95LimitMilliseconds);

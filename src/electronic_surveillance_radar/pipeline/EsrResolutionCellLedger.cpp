@@ -120,7 +120,7 @@ bool AddContributionForBin(
   contribution.average_power_w = average_power_w;
   contribution.active_time_s = active_time_s;
   contribution.pulse_count = pulse_count;
-  contribution.candidate_eligible = true;
+  contribution.candidate_eligible = bearing.azimuth_observable;
   (*angular_cells)[ResolveAngularCell(bearing, angular_resolution_deg)].push_back(contribution);
   return true;
 }
@@ -223,18 +223,24 @@ void AccumulateFrequencyClusters(
       cluster_upper = std::max(cluster_upper, (*contributions)[end].upper_frequency_hz);
       ++end;
     }
-    std::size_t strongest = begin;
+    std::size_t strongest = end;
     double total_power_w = co_site_power_w;
     for (std::size_t index = begin; index < end; ++index) {
       total_power_w += (*contributions)[index].average_power_w;
-      if ((*contributions)[index].average_power_w >
-              (*contributions)[strongest].average_power_w ||
-          ((*contributions)[index].average_power_w ==
-               (*contributions)[strongest].average_power_w &&
-           (*contributions)[index].source_index <
-               (*contributions)[strongest].source_index)) {
+      if ((*contributions)[index].candidate_eligible &&
+          (strongest == end ||
+           (*contributions)[index].average_power_w >
+               (*contributions)[strongest].average_power_w ||
+           ((*contributions)[index].average_power_w ==
+                (*contributions)[strongest].average_power_w &&
+            (*contributions)[index].source_index <
+                (*contributions)[strongest].source_index))) {
         strongest = index;
       }
+    }
+    if (strongest == end) {
+      begin = end;
+      continue;
     }
     const CellContribution& candidate = (*contributions)[strongest];
     SourceAccumulator& accumulator = (*accumulators)[candidate.source_index];

@@ -42,6 +42,14 @@ EsrArrivalBearing MakeBearing(double azimuth_deg) {
   return bearing;
 }
 
+EsrArrivalBearing MakeBearingWithoutObservableAzimuth(double elevation_deg) {
+  EsrArrivalBearing bearing;
+  bearing.defined = true;
+  bearing.azimuth_observable = false;
+  bearing.elevation_deg = elevation_deg;
+  return bearing;
+}
+
 TEST(EsrResolutionCellLedgerTest, TimeSeparatedPulsesDoNotInterfere) {
   std::vector<oneq::electromagnetics::RfIncidentLinkResult> links;
   links.push_back(MakePulseLink(1U, 0.1, 2.0));
@@ -69,6 +77,24 @@ TEST(EsrResolutionCellLedgerTest, SameCellPublishesStrongestAndBooksOtherAsInter
                                                5.0, &result));
   ASSERT_EQ(result.candidates.size(), 1U);
   EXPECT_EQ(result.candidates[0].source_index, 0U);
+  EXPECT_GT(result.candidates[0].interference_power_w, 0.0);
+}
+
+TEST(EsrResolutionCellLedgerTest,
+     PolarBearingWithoutObservableAzimuthCannotBecomeCandidate) {
+  std::vector<oneq::electromagnetics::RfIncidentLinkResult> links;
+  links.push_back(MakePulseLink(1U, 0.1, 2.0));
+  links.push_back(MakePulseLink(2U, 0.1, 1.0));
+  EsrArrivalBearing observable_polar = MakeBearing(0.0);
+  observable_polar.elevation_deg = 90.0;
+  const std::vector<EsrArrivalBearing> bearings{
+      MakeBearingWithoutObservableAzimuth(90.0), observable_polar};
+
+  EsrResolutionCellLedgerResult result;
+  ASSERT_TRUE(TryBuildEsrResolutionCellLedger(links, bearings, MakeReceiver(),
+                                               180.0, &result));
+  ASSERT_EQ(result.candidates.size(), 1U);
+  EXPECT_EQ(result.candidates[0].source_index, 1U);
   EXPECT_GT(result.candidates[0].interference_power_w, 0.0);
 }
 

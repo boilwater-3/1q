@@ -17,6 +17,7 @@ namespace pipeline {
 /** @brief 一条入射链路在接收平台本地坐标系中的到达方向。 */
 struct EsrArrivalBearing {
   bool defined{false};
+  bool azimuth_observable{true}; /**< 天顶/天底方向为 false，不得发布伪造 AoA。 */
   double azimuth_deg{0.0};
   double elevation_deg{0.0};
 };
@@ -41,7 +42,8 @@ struct EsrResolutionCellLedgerResult {
  *
  * @note 输入链路和 bearing 必须按同一稳定 emission identity 顺序排列。
  *       单元内功率最强的外部源成为候选，其余功率只作为该单元的干扰。
- *       同平台源没有可发布 AoA，仅作为调谐通道内的自扰功率。
+ *       同平台源没有可发布 AoA，仅作为调谐通道内的自扰功率；天顶/天底
+ *       方位奇点保留在极区单元中作为非候选功率，不得使整帧拒绝。
  */
 bool TryBuildEsrResolutionCellLedger(
     const std::vector<oneq::electromagnetics::RfIncidentLinkResult>& incident_links,

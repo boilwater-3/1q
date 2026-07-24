@@ -144,8 +144,9 @@ bool TryResolveLookAngles(const oneq::electromagnetics::RfSceneReceiverState& re
                           const oneq::electromagnetics::RfSceneEmission& emission,
                           const oneq::coordinate::EulerAnglesDeg& platform_attitude_deg,
                           double* azimuth_deg,
-                          double* elevation_deg) {
-  if (azimuth_deg == nullptr || elevation_deg == nullptr || !std::isfinite(link.path_length_m) ||
+                          double* elevation_deg, bool* azimuth_observable) {
+  if (azimuth_deg == nullptr || elevation_deg == nullptr ||
+      azimuth_observable == nullptr || !std::isfinite(link.path_length_m) ||
       link.path_length_m <= 0.0 || link.is_co_site) {
     return false;
   }
@@ -158,11 +159,23 @@ bool TryResolveLookAngles(const oneq::electromagnetics::RfSceneReceiverState& re
   const oneq::coordinate::Vector3d local = oneq::coordinate::RotateEnuToLocal(
       enu.east_m, enu.north_m, enu.up_m, platform_attitude_deg);
   const double horizontal = std::hypot(local.x, local.y);
-  if (!std::isfinite(horizontal) || horizontal <= 0.0) {
+  if (!std::isfinite(horizontal) || !std::isfinite(local.z)) {
     return false;
+  }
+  constexpr double kPolarSingularityRelativeTolerance = 1.0e-12;
+  if (horizontal <=
+      kPolarSingularityRelativeTolerance * std::max(1.0, link.path_length_m)) {
+    if (local.z == 0.0) {
+      return false;
+    }
+    *azimuth_deg = 0.0;
+    *elevation_deg = std::copysign(90.0, local.z);
+    *azimuth_observable = false;
+    return true;
   }
   *azimuth_deg = std::atan2(local.y, local.x) * 180.0 / 3.14159265358979323846;
   *elevation_deg = std::atan2(local.z, horizontal) * 180.0 / 3.14159265358979323846;
+  *azimuth_observable = true;
   return std::isfinite(*azimuth_deg) && std::isfinite(*elevation_deg);
 }
 
@@ -253,7 +266,7 @@ bool InterceptDetectionExecutor::ProcessRfV2Frame(
     EsrArrivalBearing& bearing = bearings[index];
     if (!TryResolveLookAngles(front_end.channel_receiver, front_end.channel_incident_links[index],
                               *emissions[index], ctx.GetPlatformAttitude(), &bearing.azimuth_deg,
-                              &bearing.elevation_deg)) {
+                              &bearing.elevation_deg, &bearing.azimuth_observable)) {
       return false;
     }
     bearing.defined = true;

@@ -177,6 +177,24 @@ TEST(EsrRfV2DetectionTest, AngularlyResolvedSameFrequencySourceDoesNotEnterInter
                    baseline.raw_records.front().observation.snr_db);
 }
 
+TEST(EsrRfV2DetectionTest,
+     PolarBearingSingularityDoesNotRejectOtherObservableEmission) {
+  session::EsrCycleInput input = MakeInput();
+  oneq::electromagnetics::RfSceneEmission polar =
+      MakeEmission(1U, 10.005e9, 1.0e6);
+  polar.position_ecef_m.x_m += 1000.0;
+  polar.position_ecef_m.y_m = 0.0;
+  polar.antenna.boresight_ecef.x = -1.0;
+  polar.antenna.boresight_ecef.y = 0.0;
+  input.rf_emissions.emissions.push_back(polar);
+  input.rf_emissions.emissions.push_back(MakeEmission(2U, 10.0e9, 1.0e6));
+
+  const InterceptDetectionOutput output = RunDetection(input);
+  EXPECT_FALSE(output.rf_v2_rejected);
+  ASSERT_EQ(output.raw_records.size(), 1U);
+  EXPECT_LT(std::abs(output.raw_records.front().observation.aoa_el_deg), 30.0);
+}
+
 TEST(EsrRfV2DetectionTest, EmissionOrderDoesNotChangeSemanticRandomMeasurements) {
   session::EsrCycleInput forward = MakeInput();
   forward.rf_emissions.emissions.push_back(MakeEmission(2U, 10.0e9, 1.0e6));
