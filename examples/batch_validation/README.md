@@ -138,7 +138,7 @@ failure marker 数不符、身份/通道/产品连续性错误、配置部分污
 | --- | --- |
 | AR | 近距离 + 高 RCS 应有确认轨迹；`match_rate` ∈ [0,1]；距离↑ 时确认数单调↓ |
 | EOS | 高对比度检出率 ≥ 低对比度；夜间可见光 SNR 显著低于红外 |
-| ESR | 假设置信度 / 真值匹配率 ∈ [0,1]；占用率↑ 时受扰观测↑ |
+| ESR | 假设置信度 ∈ [0,1]；占用率↑ 时接收机饱和↑ |
 | SAR | 聚焦阶段达 `kL1RdaImage`；图像质量指标有效；带宽↑ → 距离分辨率↓ |
 | SBIRS | 两周期均执行；温度↑ 时红外 SNR 不下降；覆盖可检出与门限下不可检出场景 |
 
@@ -183,6 +183,8 @@ EOS / ESR / SAR / SBIRS 同理（`ReplayEosTrace` / `ReplayEsrTrace` / `ReplaySa
 
 ## 当前物理边界
 
-- **ESR 距离/占用率不敏感**：50MW 辐射源在 10–100km 内均远超 ESR 截获门限，故
-  `truth_match_rate` 在所有距离下一致。这反映模块在强信号下的稳定行为，而非缺陷。
-  要观察距离衰减需进一步降低辐射功率（超出本框架的"配置面"范畴）。
+- **ESR sweep 场景无稳态观测**：当前 sweep 场景几何下，ESR 在每个周期都完成执行，却从不
+  产生 raw_observation、hypothesis 或饱和（`raw_obs`/`hyp_count`/`receiver_saturated` 在 40
+  周期内恒为 0）。因此距离/占用率对观测/估计的趋势软断言无从建立，`CheckCrossScenarioTrends`
+  仅保留占位。这是场景几何问题（辐射源与扫描波束的时空关系），不是接收机缺陷；批次仍以执行
+  状态、replay 往返与 sequence 场景的结构化恢复检查验证合同。

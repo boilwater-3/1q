@@ -216,7 +216,7 @@ struct CycleMetrics {
   int abort_reason{0};
   std::size_t raw_obs{0};
   std::size_t cluster{0};
-  std::size_t jammed{0};
+  std::size_t receiver_saturated{0};
   double obs_snr_mean{0.0};
   std::size_t hyp_count{0};
   double hyp_conf_mean{0.0};
@@ -246,7 +246,7 @@ CycleMetrics ExtractCycleMetrics(const esr_session::EsrCycleResult& r) {
   m.hyp_conf_mean = batch_validation::Mean(confs);
   m.hyp_conf_p95 = batch_validation::Percentile(confs, 95.0);
 
-  m.jammed = of.receiver_saturated ? 1U : 0U;
+  m.receiver_saturated = of.receiver_saturated ? 1U : 0U;
   return m;
 }
 
@@ -260,8 +260,7 @@ struct ScenarioSummary {
   std::uint32_t executed_cycles{0};
   double steady_obs_count_mean{0.0};
   double steady_hyp_confidence_mean{0.0};
-  double steady_truth_match_rate_mean{0.0};
-  double steady_jammed_mean{0.0};
+  double steady_receiver_saturated_mean{0.0};
   bool replay_ok{false};
   std::uint64_t replay_compared{0};
   bool replay_divergence{false};
@@ -376,24 +375,23 @@ ScenarioSummary RunEsrScenario(const EsrCase& c, const esr_config::EsrSessionCon
                    c.scenario_id.c_str(), c.sequence ? "sequence" : "sweep", c.family.c_str(),
                    phase, m.cycle_index, static_cast<int>(m.executed),
                    static_cast<int>(m.has_validation_error), m.abort_reason, m.raw_obs, m.cluster,
-                   m.jammed, m.obs_snr_mean, m.hyp_count, m.hyp_conf_mean, m.hyp_conf_p95);
+                   m.receiver_saturated, m.obs_snr_mean, m.hyp_count, m.hyp_conf_mean, m.hyp_conf_p95);
     }
     replay_writer->Flush();
   }
 
   // 聚合
-  std::vector<double> steady_obs, steady_conf, steady_jammed;
+  std::vector<double> steady_obs, steady_conf, steady_receiver_saturated;
   for (const auto& m : metrics) {
     if (m.executed) ++s.executed_cycles;
     if (!m.executed || m.cycle_index <= kWarmupCycles) continue;
     steady_obs.push_back(static_cast<double>(m.raw_obs));
     steady_conf.push_back(m.hyp_conf_mean);
-    steady_jammed.push_back(static_cast<double>(m.jammed));
+    steady_receiver_saturated.push_back(static_cast<double>(m.receiver_saturated));
   }
   s.steady_obs_count_mean = batch_validation::Mean(steady_obs);
   s.steady_hyp_confidence_mean = batch_validation::Mean(steady_conf);
-  s.steady_truth_match_rate_mean = 0.0;
-  s.steady_jammed_mean = batch_validation::Mean(steady_jammed);
+  s.steady_receiver_saturated_mean = batch_validation::Mean(steady_receiver_saturated);
 
   // 回放
   const esr_session::EsrReplaySessionResult replay = esr_session::ReplayEsrTrace(trace_dir);
@@ -459,46 +457,17 @@ ScenarioSummary RunEsrScenario(const EsrCase& c, const esr_config::EsrSessionCon
   return s;
 }
 
-/// 跨场景趋势：固定载频=8GHz、occ=0.1，距离↑ → 真值匹配率应单调↓（或至少不增）；
-/// 固定距离=30km/载频=8GHz，占用率↑ → 受扰观测数应单调↑。
-void CheckCrossScenarioTrends(std::vector<ScenarioSummary>& summaries) {
-  // 距离趋势（fc=8GHz, occ=0.1）
-  std::vector<std::pair<double, double>> by_range;  // (range, truth_match_rate)
-  for (const auto& s : summaries) {
-    if (std::abs(s.carrier_ghz - 8.0) < 1e-9 && std::abs(s.spectrum_occupancy - 0.1) < 1e-6) {
-      by_range.emplace_back(s.emitter_range_km, s.steady_truth_match_rate_mean);
-    }
-  }
-  std::sort(by_range.begin(), by_range.end());
-  std::vector<double> rates;
-  for (auto& pr : by_range) rates.push_back(pr.second);
-  if (rates.size() >= 2 && !batch_validation::IsMonotonicNonIncreasing(rates)) {
-    for (auto& s : summaries) {
-      if (std::abs(s.carrier_ghz - 8.0) < 1e-9 && std::abs(s.spectrum_occupancy - 0.1) < 1e-6) {
-        s.warnings.Warn("cross-scenario: truth_match_rate not monotonic-decreasing in range");
-        break;
-      }
-    }
-  }
-  // 占用率趋势（range=30, fc=8）
-  std::vector<std::pair<double, double>> by_occ;  // (occ, jammed)
-  for (const auto& s : summaries) {
-    if (std::abs(s.emitter_range_km - 30.0) < 1e-9 && std::abs(s.carrier_ghz - 8.0) < 1e-9) {
-      by_occ.emplace_back(s.spectrum_occupancy, s.steady_jammed_mean);
-    }
-  }
-  std::sort(by_occ.begin(), by_occ.end());
-  std::vector<double> jammed;
-  for (auto& pr : by_occ) jammed.push_back(pr.second);
-  if (jammed.size() >= 2 && !batch_validation::IsMonotonicNonDecreasing(jammed)) {
-    for (auto& s : summaries) {
-      if (std::abs(s.emitter_range_km - 30.0) < 1e-9 && std::abs(s.carrier_ghz - 8.0) < 1e-9) {
-        s.warnings.Warn("cross-scenario: jammed count not monotonic-increasing in occupancy");
-        break;
-      }
-    }
-  }
-}
+/// 跨场景趋势检查占位。
+///
+/// 历史上这里曾对 `steady_truth_match_rate_mean`（恒 0 的死指标）和别名自
+/// `receiver_saturated` 的 `steady_jammed_mean` 做距离/占用率单调断言。实测当前全部 sweep
+/// 场景几何下，ESR 在每个周期都完成执行却从不产生 raw_observation、hypothesis 或饱和
+/// （`raw_obs`/`hyp_count`/`receiver_saturated` 在 40 周期内恒为 0），因此无论改用 obs-count、
+/// saturation 还是 SNR 做趋势，结果都与原 truth_match_rate 一样恒为 0、检查恒通过——属于
+/// "空检查"，已于本轮删除。
+///
+/// 待场景几何调整为可在稳态产生可分辨观测后，再在此处补充基于真实观测/估计的趋势软断言。
+void CheckCrossScenarioTrends(std::vector<ScenarioSummary>& /*summaries*/) {}
 
 }  // namespace
 
@@ -580,22 +549,22 @@ int main(int argc, char** argv) {
     std::fprintf(stderr,
                  "  [scenario] module=ESR id=%s range_km=%.3f carrier_ghz=%.3f occupancy=%.3f "
                  "executed=%u/%u observations=%.4f hypothesis_confidence=%.4f "
-                 "truth_match_rate=%.4f jammed=%.4f replay_ok=%d compared=%llu divergence=%d "
+                 "receiver_saturated=%.4f replay_ok=%d compared=%llu divergence=%d "
                  "warn=%zu error=%zu\n",
                  s.scenario_id.c_str(), s.emitter_range_km, s.carrier_ghz,
                  s.spectrum_occupancy, s.executed_cycles,
                  s.suite == "sequence" ? 24U : kNumCycles, s.steady_obs_count_mean,
-                 s.steady_hyp_confidence_mean, s.steady_truth_match_rate_mean,
-                 s.steady_jammed_mean, static_cast<int>(s.replay_ok),
+                 s.steady_hyp_confidence_mean, s.steady_receiver_saturated_mean,
+                 static_cast<int>(s.replay_ok),
                  static_cast<unsigned long long>(s.replay_compared),
                  static_cast<int>(s.replay_divergence),
                  s.warnings.Count(Severity::kWarning), s.warnings.Count(Severity::kError));
     std::fprintf(scenario_writer.file(),
-                 "%s,%s,%s,%.3f,%.3f,%.3f,%u,%.4f,%.4f,%.4f,%.4f,%d,%llu,%d,%zu,%zu,%zu,%zu,%zu,%llu,%s\n",
+                 "%s,%s,%s,%.3f,%.3f,%.3f,%u,%.4f,%.4f,%.4f,%d,%llu,%d,%zu,%zu,%zu,%zu,%zu,%llu,%s\n",
                  s.scenario_id.c_str(), s.suite.c_str(), s.scenario_family.c_str(),
                  s.emitter_range_km, s.carrier_ghz, s.spectrum_occupancy,
                  s.executed_cycles, s.steady_obs_count_mean, s.steady_hyp_confidence_mean,
-                 s.steady_truth_match_rate_mean, s.steady_jammed_mean,
+                 s.steady_receiver_saturated_mean,
                  static_cast<int>(s.replay_ok), static_cast<unsigned long long>(s.replay_compared),
                  static_cast<int>(s.replay_divergence), s.warnings.Count(Severity::kWarning),
                  s.warnings.Count(Severity::kError), s.expected_failure_count,

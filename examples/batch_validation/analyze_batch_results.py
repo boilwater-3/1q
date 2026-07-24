@@ -204,13 +204,13 @@ def print_module_trend(module_dir, display_name, rows):
                       f"fused_db={fmt(to_float(r.get('steady_fused_snr_db_mean', 0)), 10, 3)}")
 
     elif "electronic_surveillance" in module_dir:
-        # ESR: 距离 → 真值匹配率 (固定 fc=8GHz, occ=0.1)
-        print("    距离 → 真值匹配率 (fc=8GHz, occ=0.1):")
+        # ESR: 距离 → 稳态观测数 (固定 fc=8GHz, occ=0.1)
+        print("    距离 → 稳态观测数 (fc=8GHz, occ=0.1):")
         for r in sorted(rows, key=lambda x: to_float(x.get("emitter_range_km", 0))):
             if (abs(to_float(r.get("carrier_ghz", 0)) - 8.0) < 1e-6
                     and abs(to_float(r.get("spectrum_occupancy", 0)) - 0.1) < 1e-6):
                 print(f"      range={fmt(to_float(r['emitter_range_km']), 7, 1)}km  "
-                      f"truth_match={fmt(to_float(r.get('steady_truth_match_rate_mean', 0)))}  "
+                      f"obs_count={fmt(to_float(r.get('steady_obs_count_mean', 0)))}  "
                       f"hyp_conf={fmt(to_float(r.get('steady_hyp_confidence_mean', 0)))}")
 
     elif "sar" in module_dir:
