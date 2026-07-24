@@ -52,7 +52,7 @@ class MutableEsrContext final {
   /** @brief 返回接收平台 ECEF 速度。 */
   const oneq::coordinate::EcefVelocityMps& GetPlatformVelocityEcefMps() const;
   /** @brief 返回当前周期冻结的实际 RF 发射。 */
-  const oneq::electromagnetics::RfEmissionFrame& GetInterference() const;
+  const oneq::electromagnetics::RfEmissionFrame& GetRfEmissions() const;
   /** @brief 返回当前周期环境快照的只读引用。 */
   const session::EsrEnvironmentSnapshot& GetEnvironmentSnapshot() const;
   /** @brief 返回流水线配置的只读引用。 */
@@ -70,7 +70,7 @@ class MutableEsrContext final {
   oneq::coordinate::EcefPositionM platform_position_ecef_m_{};
   oneq::coordinate::EcefVelocityMps platform_velocity_ecef_mps_{};
   oneq::coordinate::EulerAnglesDeg platform_attitude_deg_{};
-  oneq::electromagnetics::RfEmissionFrame interference_{};
+  oneq::electromagnetics::RfEmissionFrame rf_emissions_{};
   session::EsrEnvironmentSnapshot environment_snapshot_{};
   extension::InterceptPipelineConfig pipeline_config_{};
   extension::InterceptRuntimeConfig runtime_config_{};

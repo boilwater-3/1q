@@ -26,7 +26,7 @@ struct ONEQ_API EsrCycleInput {
   oneq::coordinate::EcefPositionM platform_position_ecef_m{}; /**< 接收平台 ECEF 位置（m）。 */
   oneq::coordinate::EcefVelocityMps platform_velocity_ecef_mps{}; /**< 接收平台 ECEF 速度（m/s）。 */
   oneq::coordinate::EulerAnglesDeg platform_attitude_deg{}; /**< 接收设备姿态（局部 yaw/pitch/roll，单位：deg）。 */
-  oneq::electromagnetics::RfEmissionFrame interference{}; /**< 当前周期全部实际 RF 发射。 */
+  oneq::electromagnetics::RfEmissionFrame rf_emissions{}; /**< 当前周期全部实际 RF 发射。 */
   EsrEnvironmentInput environment{}; /**< 本周期环境高层观测输入 */
 };
 

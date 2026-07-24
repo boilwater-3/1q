@@ -247,7 +247,7 @@ bool InterceptDetectionExecutor::ProcessRfV2Frame(
     return true;
   }
   std::vector<const oneq::electromagnetics::RfSceneEmission*> emissions;
-  for (const oneq::electromagnetics::RfSceneEmission& emission : ctx.GetInterference().emissions) {
+  for (const oneq::electromagnetics::RfSceneEmission& emission : ctx.GetRfEmissions().emissions) {
     emissions.push_back(&emission);
   }
   std::sort(emissions.begin(), emissions.end(),

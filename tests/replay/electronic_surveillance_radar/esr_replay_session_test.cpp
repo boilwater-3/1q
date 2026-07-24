@@ -30,9 +30,9 @@ TEST(EsrReplaySessionTest, ReplaysDirectRfV2Input) {
   input.platform_entity_id = 1U;
   input.has_platform_ecef_kinematics = true;
   input.platform_position_ecef_m.x_m = 6378137.0;
-  input.interference.world_cycle_index = 1U;
-  input.interference.window_start_time_s = 10.0;
-  input.interference.window_duration_s = 1.0;
+  input.rf_emissions.world_cycle_index = 1U;
+  input.rf_emissions.window_start_time_s = 10.0;
+  input.rf_emissions.window_duration_s = 1.0;
   ASSERT_EQ(session.StepWithResult(input).status, EsrCycleExecutionStatus::kCompleted);
   writer->Flush();
 

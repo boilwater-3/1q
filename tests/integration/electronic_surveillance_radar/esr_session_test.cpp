@@ -26,9 +26,9 @@ EsrCycleInput MakeInput() {
   input.platform_entity_id = 1U;
   input.has_platform_ecef_kinematics = true;
   input.platform_position_ecef_m.x_m = 6378137.0;
-  input.interference.world_cycle_index = input.cycle_index;
-  input.interference.window_start_time_s = input.cycle_start_time_s;
-  input.interference.window_duration_s = input.dt_sec;
+  input.rf_emissions.world_cycle_index = input.cycle_index;
+  input.rf_emissions.window_start_time_s = input.cycle_start_time_s;
+  input.rf_emissions.window_duration_s = input.dt_sec;
   return input;
 }
 
@@ -47,7 +47,7 @@ oneq::electromagnetics::RfSceneEmission MakeEmission(std::uint64_t emission_id, 
 
 TEST(EsrSessionIntegrationTest, StepWithResultConsumesDirectRfV2Frame) {
   EsrCycleInput input = MakeInput();
-  input.interference.emissions.push_back(MakeEmission(1U, 1.0e6));
+  input.rf_emissions.emissions.push_back(MakeEmission(1U, 1.0e6));
   const EsrCycleResult result = EsrSession::Create(MakeConfig()).StepWithResult(input);
   EXPECT_EQ(result.status, EsrCycleExecutionStatus::kCompleted);
   EXPECT_FALSE(result.has_validation_error);
@@ -59,7 +59,7 @@ TEST(EsrSessionIntegrationTest, InvalidCoSitePathRejectsWithoutOutput) {
   EsrCycleInput input = MakeInput();
   oneq::electromagnetics::RfSceneEmission emission = MakeEmission(1U, 1.0e6);
   emission.identity.platform_id = input.platform_entity_id;
-  input.interference.emissions.push_back(emission);
+  input.rf_emissions.emissions.push_back(emission);
   const EsrCycleResult result = EsrSession::Create(MakeConfig()).StepWithResult(input);
   EXPECT_EQ(result.status, EsrCycleExecutionStatus::kRejected);
   EXPECT_EQ(result.abort_reason, EsrPipelineAbortReason::kRfReceiverRejected);
@@ -69,7 +69,7 @@ TEST(EsrSessionIntegrationTest, InvalidCoSitePathRejectsWithoutOutput) {
 TEST(EsrSessionIntegrationTest, PowerOffProducesNoHistoricalOutput) {
   EsrSession session = EsrSession::Create(MakeConfig());
   EsrCycleInput input = MakeInput();
-  input.interference.emissions.push_back(MakeEmission(1U, 1.0e6));
+  input.rf_emissions.emissions.push_back(MakeEmission(1U, 1.0e6));
   ASSERT_EQ(session.StepWithResult(input).status, EsrCycleExecutionStatus::kCompleted);
   session.ApplyRuntimeConfig(config::EsrRuntimeConfigBuilder().WithSensorEnabled(false).Build());
   const EsrCycleResult powered_off = session.StepWithResult(input);

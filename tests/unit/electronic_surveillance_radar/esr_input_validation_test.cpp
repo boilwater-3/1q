@@ -18,9 +18,9 @@ EsrCycleInput MakeValidInput() {
   input.platform_entity_id = 1U;
   input.has_platform_ecef_kinematics = true;
   input.platform_position_ecef_m.x_m = 6378137.0;
-  input.interference.world_cycle_index = input.cycle_index;
-  input.interference.window_start_time_s = input.cycle_start_time_s;
-  input.interference.window_duration_s = input.dt_sec;
+  input.rf_emissions.world_cycle_index = input.cycle_index;
+  input.rf_emissions.window_start_time_s = input.cycle_start_time_s;
+  input.rf_emissions.window_duration_s = input.dt_sec;
   return input;
 }
 
@@ -30,7 +30,7 @@ TEST(EsrInputValidationTest, AcceptsEmptyRfV2EmissionFrame) {
 
 TEST(EsrInputValidationTest, RejectsFrameOutsideCycleWindow) {
   EsrCycleInput input = MakeValidInput();
-  input.interference.window_start_time_s += 0.1;
+  input.rf_emissions.window_start_time_s += 0.1;
   const ValidationIssueList issues = ValidateEsrCycleInput(input);
   ASSERT_TRUE(HasValidationError(issues));
   EXPECT_EQ(issues.front().code, ValidationCode::kInvalidRfEmissionFrame);

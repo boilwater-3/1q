@@ -15,9 +15,9 @@ EsrCycleInput MakeInput() {
   input.platform_entity_id = 1U;
   input.has_platform_ecef_kinematics = true;
   input.platform_position_ecef_m.x_m = 6378137.0;
-  input.interference.world_cycle_index = input.cycle_index;
-  input.interference.window_start_time_s = input.cycle_start_time_s;
-  input.interference.window_duration_s = input.dt_sec;
+  input.rf_emissions.world_cycle_index = input.cycle_index;
+  input.rf_emissions.window_start_time_s = input.cycle_start_time_s;
+  input.rf_emissions.window_duration_s = input.dt_sec;
   oneq::electromagnetics::RfSceneEmission emission;
   emission.identity.platform_id = 2U;
   emission.identity.equipment_id = 3U;
@@ -28,7 +28,7 @@ EsrCycleInput MakeInput() {
   EXPECT_TRUE(oneq::electromagnetics::TryCreateRfPulseTrainWaveform(
       20.0, 10.0e9, 1.0e6, 100.0, 1.0e-6, 1.0e-3, 10U, 0.0, 9U, 1U,
       &emission.waveform));
-  input.interference.emissions.push_back(emission);
+  input.rf_emissions.emissions.push_back(emission);
   return input;
 }
 
@@ -38,9 +38,9 @@ TEST(EsrReplayCodecRoundtripTest, CycleInputPreservesRfV2Frame) {
   ASSERT_TRUE(DecodeEsrCycleInput(EncodeEsrCycleInput(input), &decoded));
   EXPECT_EQ(decoded.cycle_index, input.cycle_index);
   EXPECT_DOUBLE_EQ(decoded.cycle_start_time_s, input.cycle_start_time_s);
-  ASSERT_EQ(decoded.interference.emissions.size(), 1U);
-  EXPECT_EQ(decoded.interference.emissions.front().identity.emission_id, 4U);
-  EXPECT_EQ(decoded.interference.emissions.front().waveform.kind,
+  ASSERT_EQ(decoded.rf_emissions.emissions.size(), 1U);
+  EXPECT_EQ(decoded.rf_emissions.emissions.front().identity.emission_id, 4U);
+  EXPECT_EQ(decoded.rf_emissions.emissions.front().waveform.kind,
             oneq::electromagnetics::RfSceneWaveformKind::kPulseTrain);
 }
 

@@ -334,9 +334,9 @@ TEST(PublicHeadersSmokeTest, EsrPublicSurfaceSupportsMinimalUsage) {
   input.platform_entity_id = 100U;
   input.has_platform_ecef_kinematics = true;
   input.platform_position_ecef_m.x_m = 6378137.0;
-  input.interference.world_cycle_index = input.cycle_index;
-  input.interference.window_start_time_s = input.cycle_start_time_s;
-  input.interference.window_duration_s = input.dt_sec;
+  input.rf_emissions.world_cycle_index = input.cycle_index;
+  input.rf_emissions.window_start_time_s = input.cycle_start_time_s;
+  input.rf_emissions.window_duration_s = input.dt_sec;
 
   const session::ValidationIssueList issues = session::ValidateEsrCycleInput(input);
   EXPECT_FALSE(session::HasValidationError(issues));

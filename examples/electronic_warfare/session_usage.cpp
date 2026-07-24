@@ -37,9 +37,9 @@ esr_session::EsrCycleInput MakeInput(std::uint32_t cycle_index,
   input.has_platform_ecef_kinematics = true;
   input.platform_position_ecef_m = platform;
   input.environment.propagation_profile = esr_session::EsrPropagationEnvironmentProfile::kOpen;
-  input.interference.world_cycle_index = cycle_index;
-  input.interference.window_start_time_s = input.cycle_start_time_s;
-  input.interference.window_duration_s = input.dt_sec;
+  input.rf_emissions.world_cycle_index = cycle_index;
+  input.rf_emissions.window_start_time_s = input.cycle_start_time_s;
+  input.rf_emissions.window_duration_s = input.dt_sec;
 
   oneq::electromagnetics::RfSceneEmission emitter;
   emitter.identity.platform_id = 1001U;
@@ -52,7 +52,7 @@ esr_session::EsrCycleInput MakeInput(std::uint32_t cycle_index,
   if (oneq::electromagnetics::TryCreateRfNoiseWaveform(
           input.cycle_start_time_s, input.dt_sec, 10.0e9, 2.0e6, 5.0e7,
           &emitter.waveform)) {
-    input.interference.emissions.push_back(emitter);
+    input.rf_emissions.emissions.push_back(emitter);
   }
   return input;
 }

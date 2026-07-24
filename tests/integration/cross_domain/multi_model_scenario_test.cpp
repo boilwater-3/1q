@@ -258,10 +258,10 @@ esr_session::EsrCycleInput BuildEsrInput(const WorldState& ws, float dt, std::ui
   input.platform_position_ecef_m = ws.platform_pos;
   input.platform_velocity_ecef_mps = ws.platform_vel;
   input.environment = esr_env;
-  input.interference.world_cycle_index = cycle_index;
-  input.interference.window_start_time_s = input.cycle_start_time_s;
-  input.interference.window_duration_s = dt;
-  input.interference.emissions.reserve(ws.targets.size());
+  input.rf_emissions.world_cycle_index = cycle_index;
+  input.rf_emissions.window_start_time_s = input.cycle_start_time_s;
+  input.rf_emissions.window_duration_s = dt;
+  input.rf_emissions.emissions.reserve(ws.targets.size());
   for (const WorldTarget& target : ws.targets) {
     if (!target.is_emitting) {
       continue;
@@ -284,7 +284,7 @@ esr_session::EsrCycleInput BuildEsrInput(const WorldState& ws, float dt, std::ui
     if (oneq::electromagnetics::TryCreateRfNoiseWaveform(
             input.cycle_start_time_s, dt, target.carrier_hz, target.bandwidth_hz,
             target.tx_power_w, &emission.waveform)) {
-      input.interference.emissions.push_back(emission);
+      input.rf_emissions.emissions.push_back(emission);
     }
   }
   return input;
@@ -1357,7 +1357,7 @@ TEST(MultiModelScenarioTest, SensorDrivenEcmUsesPreviousSuccessfulEsrFrame) {
   esr_session::EsrCycleInput esr_input =
       BuildEsrInput(world, 1.0f, source_esr_cycle + 1U, esr_environment);
   esr_input.platform_entity_id = 7001U;
-  esr_input.interference = ecm_result.emission_frame;
+  esr_input.rf_emissions = ecm_result.emission_frame;
   const esr_session::EsrCycleResult esr_result = esr.StepWithResult(esr_input);
   EXPECT_FALSE(esr_result.has_validation_error);
   EXPECT_EQ(esr_result.output_frame.cycle_index, source_esr_cycle + 1U);
@@ -1489,7 +1489,7 @@ TEST(MultiModelScenarioTest, FlightDynamicDrivesSensorEcmClosedLoop) {
   esr_session::EsrCycleInput esr_input =
       BuildEsrInput(world, 1.0f, source_esr_cycle + 1U, esr_environment);
   esr_input.platform_entity_id = 7002U;
-  esr_input.interference = ecm_result.emission_frame;
+  esr_input.rf_emissions = ecm_result.emission_frame;
   const esr_session::EsrCycleResult esr_result = esr.StepWithResult(esr_input);
   EXPECT_FALSE(esr_result.has_validation_error);
   EXPECT_EQ(esr_result.output_frame.cycle_index, source_esr_cycle + 1U);

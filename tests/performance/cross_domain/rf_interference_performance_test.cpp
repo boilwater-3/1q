@@ -113,7 +113,7 @@ TEST(RfInterferencePerformanceTest, FullScaleCyclesMeetReleaseP95Budget) {
     ar_input.interference = MakeRfEmissions(cycle, ar_input.cycle_start_time_s);
     esr_input.cycle_index = cycle;
     esr_input.cycle_start_time_s = ar_input.cycle_start_time_s;
-    esr_input.interference = ar_input.interference;
+    esr_input.rf_emissions = ar_input.interference;
     const std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
     const ar_session::ArCycleResult ar_result = ar.StepWithResult(ar_input);
     const esr_session::EsrCycleResult esr_result = esr.StepWithResult(esr_input);

@@ -147,8 +147,8 @@ std::string EncodeEsrCycleInput(const EsrCycleInput& v) {
   env_builder.add_atmospheric_observation(atm);
   auto env_fb = env_builder.Finish();
 
-  const flatbuffers::Offset<esr::replay::RfSceneFrame> interference =
-      BuildRfSceneFrame(fbb, v.interference);
+  const flatbuffers::Offset<esr::replay::RfSceneFrame> rf_emissions =
+      BuildRfSceneFrame(fbb, v.rf_emissions);
   esr::replay::EsrCycleInputBuilder b(fbb);
   b.add_cycle_index(v.cycle_index);
   b.add_dt_sec(v.dt_sec);
@@ -162,7 +162,7 @@ std::string EncodeEsrCycleInput(const EsrCycleInput& v) {
   const esr::replay::EulerDeg platform_attitude = ToE(v.platform_attitude_deg);
   b.add_platform_attitude_deg(&platform_attitude);
   b.add_cycle_start_time_s(v.cycle_start_time_s);
-  b.add_interference(interference);
+  b.add_rf_emissions(rf_emissions);
   fbb.Finish(b.Finish());
   return oneq::common::replay::CopyFinishedFlatbuffer(fbb);
 }
@@ -178,7 +178,7 @@ bool DecodeEsrCycleInput(const std::string& bytes, EsrCycleInput* out) {
   out->dt_sec = fb->dt_sec();
   out->platform_entity_id = fb->platform_entity_id();
   out->has_platform_ecef_kinematics = fb->has_platform_ecef_kinematics();
-  out->interference = FromRfSceneFrame(fb->interference());
+  out->rf_emissions = FromRfSceneFrame(fb->rf_emissions());
   if (fb->platform_position_ecef_m()) {
     out->platform_position_ecef_m.x_m = fb->platform_position_ecef_m()->x();
     out->platform_position_ecef_m.y_m = fb->platform_position_ecef_m()->y();

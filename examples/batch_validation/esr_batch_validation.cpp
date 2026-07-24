@@ -155,9 +155,9 @@ esr_session::EsrCycleInput MakeInput(const EsrCase& c, std::uint32_t cycle_index
   input.platform_position_ecef_m.y_m = 4909946.0;
   input.platform_position_ecef_m.z_m = 3650982.0;
   input.environment = MakeEnvironment(c.spectrum_occupancy);
-  input.interference.world_cycle_index = cycle_index;
-  input.interference.window_start_time_s = input.cycle_start_time_s;
-  input.interference.window_duration_s = input.dt_sec;
+  input.rf_emissions.world_cycle_index = cycle_index;
+  input.rf_emissions.window_start_time_s = input.cycle_start_time_s;
+  input.rf_emissions.window_duration_s = input.dt_sec;
   const std::uint32_t count = c.sequence && c.scenario_id.find("dense_emitters") != std::string::npos
                                   ? 3U
                                   : c.sequence && c.scenario_id.find("crossing") != std::string::npos ? 2U : 1U;
@@ -176,7 +176,7 @@ esr_session::EsrCycleInput MakeInput(const EsrCase& c, std::uint32_t cycle_index
     emission.polarization = oneq::electromagnetics::RfScenePolarization::kHorizontal;
     if (oneq::electromagnetics::TryCreateRfNoiseWaveform(
             input.cycle_start_time_s, input.dt_sec, c.carrier_ghz * 1.0e9 + index * 5.0e6,
-            2.0e6, 5.0e7, &emission.waveform)) input.interference.emissions.push_back(emission);
+            2.0e6, 5.0e7, &emission.waveform)) input.rf_emissions.emissions.push_back(emission);
   }
   return input;
 }

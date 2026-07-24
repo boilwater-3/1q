@@ -67,10 +67,10 @@ bool TryResolveEsrRfV2FrontEnd(const session::EsrCycleInput& input,
       receiver_center_frequency_hz <= 0.0 || !IsFinite(receiver_bandwidth_hz) ||
       receiver_bandwidth_hz <= 0.0 || !IsFinite(additional_propagation_loss_db) ||
       additional_propagation_loss_db < 0.0 ||
-      !oneq::electromagnetics::TryValidateRfSceneFrame(input.interference) ||
-      input.interference.world_cycle_index != input.cycle_index ||
-      input.interference.window_start_time_s != input.cycle_start_time_s ||
-      input.interference.window_duration_s != static_cast<double>(input.dt_sec)) {
+      !oneq::electromagnetics::TryValidateRfSceneFrame(input.rf_emissions) ||
+      input.rf_emissions.world_cycle_index != input.cycle_index ||
+      input.rf_emissions.window_start_time_s != input.cycle_start_time_s ||
+      input.rf_emissions.window_duration_s != static_cast<double>(input.dt_sec)) {
     return false;
   }
 
@@ -112,9 +112,9 @@ bool TryResolveEsrRfV2FrontEnd(const session::EsrCycleInput& input,
 
   oneq::electromagnetics::RfIncidentLinkConfig link_config;
   link_config.additional_propagation_loss_db = additional_propagation_loss_db;
-  candidate.incident_links.reserve(input.interference.emissions.size());
+  candidate.incident_links.reserve(input.rf_emissions.emissions.size());
   for (const oneq::electromagnetics::RfSceneEmission& emission :
-       input.interference.emissions) {
+       input.rf_emissions.emissions) {
     oneq::electromagnetics::RfIncidentLinkResult link;
     if (!oneq::electromagnetics::TryEvaluateRfIncidentLink(emission, receiver, link_config,
                                                            &link)) {
