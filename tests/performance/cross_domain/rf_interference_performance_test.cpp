@@ -25,18 +25,21 @@ constexpr std::uint32_t kWarmupCycles = 5U;
 constexpr std::uint32_t kMeasuredCycles = 100U;
 constexpr double kP95LimitMilliseconds = 100.0;
 
-rf::RfEmissionFrame MakeRfEmissions(std::uint32_t cycle_index, double cycle_start_time_s) {
+rf::RfEmissionFrame MakeRfEmissions(std::uint32_t cycle_index,
+                                    double cycle_start_time_s,
+                                    std::size_t emission_count,
+                                    std::uint64_t identity_base) {
   rf::RfEmissionFrame frame;
   frame.world_cycle_index = cycle_index;
   frame.window_start_time_s = cycle_start_time_s;
   frame.window_duration_s = 1.0;
   std::vector<rf::RfSceneEmission>& emissions = frame.emissions;
-  emissions.reserve(kRfEmissionCount);
-  for (std::size_t i = 0U; i < kRfEmissionCount; ++i) {
+  emissions.reserve(emission_count);
+  for (std::size_t i = 0U; i < emission_count; ++i) {
     rf::RfSceneEmission emission;
-    emission.identity.platform_id = 20000U + i;
+    emission.identity.platform_id = identity_base + i;
     emission.identity.equipment_id = 1U;
-    emission.identity.emission_id = 10000U + i;
+    emission.identity.emission_id = identity_base + 100000U + i;
     emission.position_ecef_m.x_m = 6378137.0 + 20000.0 + 100.0 * static_cast<double>(i);
     emission.position_ecef_m.y_m = 500.0 * static_cast<double>(i % 8U);
     emission.antenna.boresight_ecef.x = -1.0;
@@ -83,8 +86,12 @@ esr_session::EsrCycleInput MakeEsrInput() {
 }
 
 TEST(RfInterferencePerformanceTest, FullScaleCyclesMeetReleaseP95Budget) {
-  const rf::RfEmissionFrame initial_frame = MakeRfEmissions(1U, 0.0);
-  ASSERT_EQ(initial_frame.emissions.size(), kRfEmissionCount);
+  const rf::RfEmissionFrame initial_ar_frame =
+      MakeRfEmissions(1U, 0.0, kRfEmissionCount, 20000U);
+  const rf::RfEmissionFrame initial_esr_frame =
+      MakeRfEmissions(1U, 0.0, kEsrEmitterCount, 40000U);
+  ASSERT_EQ(initial_ar_frame.emissions.size(), kRfEmissionCount);
+  ASSERT_EQ(initial_esr_frame.emissions.size(), kEsrEmitterCount);
 
   ar_config::ArSessionConfig ar_config =
       ar_config::ArSessionConfigBuilder()
@@ -110,10 +117,14 @@ TEST(RfInterferencePerformanceTest, FullScaleCyclesMeetReleaseP95Budget) {
   for (std::uint32_t cycle = 1U; cycle <= kWarmupCycles + kMeasuredCycles; ++cycle) {
     ar_input.cycle_index = cycle;
     ar_input.cycle_start_time_s = static_cast<double>(cycle - 1U);
-    ar_input.interference = MakeRfEmissions(cycle, ar_input.cycle_start_time_s);
+    ar_input.interference =
+        MakeRfEmissions(cycle, ar_input.cycle_start_time_s, kRfEmissionCount,
+                        20000U);
     esr_input.cycle_index = cycle;
     esr_input.cycle_start_time_s = ar_input.cycle_start_time_s;
-    esr_input.rf_emissions = ar_input.interference;
+    esr_input.rf_emissions =
+        MakeRfEmissions(cycle, esr_input.cycle_start_time_s, kEsrEmitterCount,
+                        40000U);
     const std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
     const ar_session::ArCycleResult ar_result = ar.StepWithResult(ar_input);
     const esr_session::EsrCycleResult esr_result = esr.StepWithResult(esr_input);
