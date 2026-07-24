@@ -206,42 +206,6 @@ ArRfTestCycleResult RunArCycle(ar_session::ArTraceSession* session,
   return result;
 }
 
-std::vector<oneq::electromagnetics::RfEmission> ConvertRfV2ForLegacyEsr(
-    const oneq::electromagnetics::RfEmissionFrame& frame) {
-  std::vector<oneq::electromagnetics::RfEmission> converted;
-  converted.reserve(frame.emissions.size());
-  for (const auto& emission : frame.emissions) {
-    oneq::electromagnetics::RfEmission legacy;
-    legacy.emission_id = emission.identity.emission_id;
-    legacy.entity_id = emission.identity.platform_id;
-    legacy.position_ecef_m = emission.position_ecef_m;
-    legacy.velocity_ecef_mps = emission.velocity_ecef_mps;
-    legacy.antenna.boresight_ecef_unit.x = emission.antenna.boresight_ecef.x;
-    legacy.antenna.boresight_ecef_unit.y = emission.antenna.boresight_ecef.y;
-    legacy.antenna.boresight_ecef_unit.z = emission.antenna.boresight_ecef.z;
-    legacy.antenna.peak_gain_dbi = emission.antenna.peak_gain_dbi;
-    legacy.antenna.half_power_beamwidth_deg =
-        emission.antenna.half_power_beamwidth_deg;
-    legacy.antenna.sidelobe_level_db = emission.antenna.sidelobe_level_db;
-    legacy.antenna.backlobe_level_db = emission.antenna.backlobe_level_db;
-    legacy.antenna.cross_polarization_isolation_db =
-        emission.antenna.cross_polarization_isolation_db;
-    legacy.polarization = static_cast<oneq::electromagnetics::RfPolarization>(
-        emission.polarization);
-    legacy.waveform_kind = oneq::electromagnetics::RfWaveformKind::kNoise;
-    oneq::electromagnetics::RfEmissionSegment segment;
-    segment.start_time_s =
-        emission.waveform.activity_start_time_s - frame.window_start_time_s;
-    segment.duration_s = emission.waveform.activity_duration_s;
-    segment.center_frequency_hz = emission.waveform.center_frequency_hz;
-    segment.bandwidth_hz = emission.waveform.occupied_bandwidth_hz;
-    segment.transmit_power_w = emission.waveform.transmit_power_w;
-    legacy.segments.push_back(segment);
-    converted.push_back(legacy);
-  }
-  return converted;
-}
-
 // --- EOS input conversion ---
 
 eos_session::EosExternalPoseInput ToEosPlatform(const oneq::coordinate::EcefPositionM& pos,
@@ -1457,6 +1421,7 @@ TEST(MultiModelScenarioTest, FlightDynamicDrivesSensorEcmClosedLoop) {
 
   esr_config::EsrSessionConfig esr_config = MakeEsrConfigAirToAir();
   esr_config.policy.detection.enable_statistical_detection = false;
+  esr_config.hardware.co_site_paths.push_back({101U, 100.0});
   esr_session::EsrSession esr = esr_session::EsrSession::Create(esr_config);
   esr_session::EsrEnvironmentInput esr_environment;
   esr_environment.clutter_density = esr_session::EsrClutterDensityLevel::kLow;
@@ -1505,7 +1470,11 @@ TEST(MultiModelScenarioTest, FlightDynamicDrivesSensorEcmClosedLoop) {
   ASSERT_FALSE(ecm_result.emission_frame.emissions.empty());
   EXPECT_EQ(ecm_result.source_esr_batch_id, source_esr_batch);
 
-  ar_session::ArSession ar = ar_session::ArSession::Create(MakeArConfigAirToAir());
+  ar_config::ArSessionConfig ar_config = MakeArConfigAirToAir();
+  ar_config.hardware.receiver.co_site_paths.push_back(
+      {ecm_config.transmitter_equipment_id,
+       ar_config.hardware.receiver.equipment_id, 100.0});
+  ar_session::ArSession ar = ar_session::ArSession::Create(ar_config);
   ar_session::ArEnvironmentInputState ar_environment_state(MakeArEnvironment());
   ar_session::ArCycleInput ar_input =
       BuildArInput(world, 1.0f, source_esr_cycle + 1U, ar_environment_state)
@@ -1517,12 +1486,10 @@ TEST(MultiModelScenarioTest, FlightDynamicDrivesSensorEcmClosedLoop) {
   EXPECT_EQ(ar_result.status, ar_session::ArCycleStatus::kCompleted);
   EXPECT_EQ(ar_result.abort_reason, ar_session::SignalCycleAbortReason::kNone);
 
-  esr_environment.interference_mode = oneq::electromagnetics::RfInterferenceMode::kEngineering;
-  esr_environment.engineering_emissions =
-      ConvertRfV2ForLegacyEsr(ecm_result.emission_frame);
   esr_session::EsrCycleInput esr_input =
       BuildEsrInput(world, 1.0f, source_esr_cycle + 1U, esr_environment);
   esr_input.platform_entity_id = 7002U;
+  esr_input.interference = ecm_result.emission_frame;
   const esr_session::EsrCycleResult esr_result = esr.StepWithResult(esr_input);
   EXPECT_FALSE(esr_result.has_validation_error);
   EXPECT_EQ(esr_result.output_frame.cycle_index, source_esr_cycle + 1U);
