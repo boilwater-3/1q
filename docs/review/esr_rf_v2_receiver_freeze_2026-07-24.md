@@ -169,13 +169,13 @@ flight_dynamic 生产代码不在本轮范围。
 | F1 | ✅ done | `94e803e9` | `interference`→`rf_emissions` 全 ESR 闭包改名（含 `.fbs` wire key）。 |
 | F7 | ✅ done | `cf26935a` | 删 batch 死指标 `truth_match_rate`/`jammed`；修 `scenarios.csv` 列错位。 |
 | F2 | ✅ done | `e13eff23` | 测量模型替代真值复制。4 个 AngleErrorModel 风格头文件 + RNG domain 常量 + fill 块重写。 |
-| F3 | ✅ done | — | pulse/energy waveform class 标签 + class-aware 聚类分流 + kContinuousIllumination mode。 |
+| F3 | ✅ done | `804154a9` | pulse/energy waveform class 标签 + class-aware 聚类分流 + kContinuousIllumination mode；FU-3 发现关联未做 class 门控。 |
 | F4 | pending | — | O(N²)→分辨单元账本。 |
 | F5 | pending | — | linear-sweep 瞬时频率驻留。 |
 
 ## 8. Stage B 实施中发现的新 follow-up（未在原冻结矩阵）
 
-下列两项在 F1/F7 实施中由数据暴露，超出已冻结项范围，记录为独立排查项：
+FU-1 和 FU-2 在 F1/F7 实施中由数据暴露，FU-3 在 F3 实施中被设计审查发现。均超出已冻结项范围，记录为独立排查项：
 
 - **FU-1：sequence 场景既有结构化检查失败**。F7 收口时对比 F7 前后 `checks.csv` 字节一致，确认
   F7 未引入失败；但发现 5 个 sequence 场景的结构化检查既有失败：
@@ -194,6 +194,16 @@ flight_dynamic 生产代码不在本轮范围。
   时空关系）问题，不是接收机缺陷。直接后果：距离/占用率对观测/估计的趋势软断言无从建立
   （F7 据此删除了两个空趋势块）。要验证 F2 测量模型的真实误差行为，需要先让 sweep 场景在稳态产生
   可分辨观测；这会影响 F2 的验证策略（见 §9）。
+
+- **FU-3（F3 发现）：HypothesisAssociator 轨道关联未按 waveform class 门控**。F3 的聚类分流（按 class
+  预分桶）保证每簇内观测 class 一致，因此当前关联期（同一周期 cluster→track）不会跨类匹配。但
+  `ComputeGlobalAssignment` 仅用特征距离（5-D 欧氏距离），不检查 `waveform_class`。当一个 track
+  跨周期后其真实 class 在当前周期无对应簇、但另一 class 却存在特征相近的簇时，该 track 可能被错误
+  关联到异类簇，导致 `track.waveform_class` 突变（例如 CW track → pulse cluster）。
+  
+  修复方向：在 `IsBetterPath`/`ComputeDistance` 层或 `ComputeGlobalAssignment` 的边构造层增加
+  class 等性检查——至少应禁止 pulse↔energy 的跨类关联。依赖 F4（分辨单元账本）或独立修复均可，
+  风险较低（需配套单测覆盖跨类拒绝场景）。当前标记为已知设计缺口，F3 done 未阻塞。
 
 ## 9. F2 验证策略前提（由 FU-2 引出）
 
