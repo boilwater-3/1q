@@ -12,6 +12,54 @@ namespace electronic_surveillance_radar {
 namespace session {
 namespace {
 
+bool IsValidObservationQuality(std::int32_t value) {
+  return value >= static_cast<std::int32_t>(EsrObservationQuality::kLow) &&
+         value <= static_cast<std::int32_t>(EsrObservationQuality::kHigh);
+}
+
+bool IsValidWaveformClass(std::int32_t value) {
+  return value >= static_cast<std::int32_t>(EsrWaveformClass::kPulse) &&
+         value <= static_cast<std::int32_t>(EsrWaveformClass::kNoise);
+}
+
+bool IsValidEmitterMode(std::int32_t value) {
+  return value >= static_cast<std::int32_t>(EsrEmitterMode::kUnknown) &&
+         value <=
+                    static_cast<std::int32_t>(
+                        EsrEmitterMode::kContinuousIllumination);
+}
+
+bool IsValidThreatLevel(std::int32_t value) {
+  return value >= static_cast<std::int32_t>(EsrThreatLevel::kLow) &&
+         value <= static_cast<std::int32_t>(EsrThreatLevel::kHigh);
+}
+
+bool IsValidCycleStatus(std::int32_t value) {
+  return value >= static_cast<std::int32_t>(EsrCycleExecutionStatus::kCompleted) &&
+         value <= static_cast<std::int32_t>(EsrCycleExecutionStatus::kPoweredOff);
+}
+
+bool IsValidAbortReason(std::int32_t value) {
+  return value >= static_cast<std::int32_t>(EsrPipelineAbortReason::kNone) &&
+         value <=
+                    static_cast<std::int32_t>(
+                        EsrPipelineAbortReason::kRfReceiverRejected);
+}
+
+bool IsValidValidationSeverity(std::int32_t value) {
+  return value >=
+             static_cast<std::int32_t>(ValidationSeverity::kInfo) &&
+         value <=
+             static_cast<std::int32_t>(ValidationSeverity::kError);
+}
+
+bool IsValidValidationCode(std::int32_t value) {
+  return value >= static_cast<std::int32_t>(ValidationCode::kNone) &&
+         value <=
+                    static_cast<std::int32_t>(
+                        ValidationCode::kUnlocatablePlatformEcef);
+}
+
 esr::replay::Vec3 ToV(const oneq::coordinate::EcefPositionM& v) {
   return {v.x_m, v.y_m, v.z_m};
 }
@@ -285,9 +333,10 @@ flatbuffers::Offset<esr::replay::EsrOutputFrame> CreateEsrOutputFrameTable(
   return esr::replay::CreateEsrOutputFrame(fbb, v.cycle_index, v.batch_id, obs_out, em_out);
 }
 
-void PopulateOutputFrame(const esr::replay::EsrOutputFrame* fb, session::EsrOutputFrame* out) {
-  if (!fb) {
-    return;
+bool PopulateOutputFrame(const esr::replay::EsrOutputFrame* fb,
+                         session::EsrOutputFrame* out) {
+  if (fb == nullptr || out == nullptr) {
+    return false;
   }
   out->cycle_index = fb->cycle_index();
   out->batch_id = fb->batch_id();
@@ -300,6 +349,10 @@ void PopulateOutputFrame(const esr::replay::EsrOutputFrame* fb, session::EsrOutp
     out->observation_output.receiver_saturated = o->receiver_saturated();
     if (o->observations()) {
       for (const auto* obs : *o->observations()) {
+        if (obs == nullptr || !IsValidObservationQuality(obs->quality()) ||
+            !IsValidWaveformClass(obs->waveform_class())) {
+          return false;
+        }
         session::EmitterObservation rec{};
         rec.observation_id = obs->observation_id();
         rec.timestamp_s = obs->timestamp_s();
@@ -325,6 +378,11 @@ void PopulateOutputFrame(const esr::replay::EsrOutputFrame* fb, session::EsrOutp
     const auto* e = fb->emitter_output();
     if (e->hypotheses()) {
       for (const auto* h : *e->hypotheses()) {
+        if (h == nullptr || !IsValidEmitterMode(h->mode()) ||
+            !IsValidThreatLevel(h->threat_level()) ||
+            !IsValidWaveformClass(h->waveform_class())) {
+          return false;
+        }
         session::EmitterHypothesis hyp{};
         hyp.hypothesis_id = h->hypothesis_id();
         hyp.mode = static_cast<session::EsrEmitterMode>(h->mode());
@@ -354,6 +412,7 @@ void PopulateOutputFrame(const esr::replay::EsrOutputFrame* fb, session::EsrOutp
       }
     }
   }
+  return true;
 }
 
 }  // namespace
@@ -365,11 +424,20 @@ std::string EncodeEsrOutputFrame(const session::EsrOutputFrame& v) {
 }
 
 bool DecodeEsrOutputFrame(const std::string& bytes, session::EsrOutputFrame* out) {
+  if (out == nullptr) {
+    return false;
+  }
   flatbuffers::Verifier ver(reinterpret_cast<const uint8_t*>(bytes.data()), bytes.size());
   if (!ver.VerifyBuffer<esr::replay::EsrOutputFrame>()) {
     return false;
   }
-  PopulateOutputFrame(flatbuffers::GetRoot<esr::replay::EsrOutputFrame>(bytes.data()), out);
+  session::EsrOutputFrame candidate;
+  if (!PopulateOutputFrame(
+          flatbuffers::GetRoot<esr::replay::EsrOutputFrame>(bytes.data()),
+          &candidate)) {
+    return false;
+  }
+  *out = std::move(candidate);
   return true;
 }
 
@@ -393,19 +461,33 @@ std::string EncodeEsrCycleResult(const EsrCycleResult& v) {
 }
 
 bool DecodeEsrCycleResult(const std::string& bytes, EsrCycleResult* out) {
+  if (out == nullptr) {
+    return false;
+  }
   flatbuffers::Verifier ver(reinterpret_cast<const uint8_t*>(bytes.data()), bytes.size());
   if (!ver.VerifyBuffer<esr::replay::EsrCycleResult>()) {
     return false;
   }
   const auto* fb = flatbuffers::GetRoot<esr::replay::EsrCycleResult>(bytes.data());
-  out->input_cycle_index = fb->input_cycle_index();
-  PopulateOutputFrame(fb->output_frame(), &out->output_frame);
-  out->has_validation_error = fb->has_validation_error();
-  out->status = static_cast<EsrCycleExecutionStatus>(fb->status());
-  out->abort_reason = static_cast<session::EsrPipelineAbortReason>(fb->abort_reason());
-  out->validation_issues.clear();
+  if (!IsValidCycleStatus(fb->status()) ||
+      !IsValidAbortReason(fb->abort_reason())) {
+    return false;
+  }
+  EsrCycleResult candidate;
+  candidate.input_cycle_index = fb->input_cycle_index();
+  if (!PopulateOutputFrame(fb->output_frame(), &candidate.output_frame)) {
+    return false;
+  }
+  candidate.has_validation_error = fb->has_validation_error();
+  candidate.status = static_cast<EsrCycleExecutionStatus>(fb->status());
+  candidate.abort_reason =
+      static_cast<session::EsrPipelineAbortReason>(fb->abort_reason());
   if (fb->validation_issues()) {
     for (const auto* i : *fb->validation_issues()) {
+      if (i == nullptr || !IsValidValidationSeverity(i->severity()) ||
+          !IsValidValidationCode(i->code())) {
+        return false;
+      }
       ValidationIssue iss{};
       iss.severity = static_cast<ValidationSeverity>(i->severity());
       iss.code = static_cast<ValidationCode>(i->code());
@@ -421,9 +503,10 @@ bool DecodeEsrCycleResult(const std::string& bytes, EsrCycleResult* out) {
       if (i->field()) {
         iss.field = i->field()->str();
       }
-      out->validation_issues.push_back(iss);
+      candidate.validation_issues.push_back(iss);
     }
   }
+  *out = std::move(candidate);
   return true;
 }
 

@@ -1,7 +1,9 @@
 #include <gtest/gtest.h>
 
+#include "flatbuffers/flatbuffers.h"
 #include "1q/electromagnetics/RfScene.h"
 #include "electronic_surveillance_radar/session/EsrReplayFlatbufferCodec.h"
+#include "electronic_surveillance_radar/session/generated/esr_replay_generated.h"
 
 namespace electronic_surveillance_radar {
 namespace session {
@@ -53,6 +55,34 @@ TEST(EsrReplayCodecRoundtripTest, CycleResultPreservesExplicitStatus) {
   ASSERT_TRUE(DecodeEsrCycleResult(EncodeEsrCycleResult(result), &decoded));
   EXPECT_EQ(decoded.status, EsrCycleExecutionStatus::kPoweredOff);
   EXPECT_EQ(decoded.abort_reason, EsrPipelineAbortReason::kSensorPoweredOff);
+}
+
+TEST(EsrReplayCodecRoundtripTest,
+     UnknownWaveformClassRejectsWithoutMutatingDestination) {
+  flatbuffers::FlatBufferBuilder builder;
+  esr::replay::EmitterObservationBuilder observation_builder(builder);
+  observation_builder.add_observation_id(1U);
+  observation_builder.add_quality(
+      static_cast<std::int32_t>(EsrObservationQuality::kHigh));
+  observation_builder.add_waveform_class(999);
+  const auto observation = observation_builder.Finish();
+  const std::vector<flatbuffers::Offset<esr::replay::EmitterObservation>>
+      observations{observation};
+  esr::replay::ObservationOutputBuilder output_builder(builder);
+  output_builder.add_observations(builder.CreateVector(observations));
+  const auto observation_output = output_builder.Finish();
+  const auto root = esr::replay::CreateEsrOutputFrame(
+      builder, 1U, 2U, observation_output, 0);
+  builder.Finish(root);
+  const std::string bytes(
+      reinterpret_cast<const char*>(builder.GetBufferPointer()),
+      builder.GetSize());
+
+  EsrOutputFrame destination;
+  destination.cycle_index = 777U;
+  EXPECT_FALSE(DecodeEsrOutputFrame(bytes, &destination));
+  EXPECT_EQ(destination.cycle_index, 777U);
+  EXPECT_TRUE(destination.observation_output.observations.empty());
 }
 
 }  // namespace
