@@ -165,6 +165,9 @@ co-site 和 W/PSD 域聚合。它仍不替代各传感器的前端/通道账本�
 [evidence: tests/unit/common/common_rf_scene_test.cpp::RfSceneTest.PropagationDelayDopplerAndPriorCycleArrivalAreExplicit]
 [evidence: tests/unit/common/common_rf_link_budget_test.cpp::RfLinkBudgetTest.AggregationIsOrderIndependentAndRejectsDuplicateIdsAtomically]
 [evidence: tests/unit/common/common_rf_link_budget_test.cpp::RfLinkBudgetTest.InvalidInputsAndMissingCoSiteIsolationRejectAtomically]
+[evidence: tests/unit/electronic_surveillance_radar/esr_rf_v2_front_end_test.cpp::EsrRfV2FrontEndTest.StrongHardwareBandSignalOutsideTunedChannelStillSaturates]
+[evidence: tests/unit/electronic_surveillance_radar/esr_resolution_cell_ledger_test.cpp::EsrResolutionCellLedgerTest.SameCellPublishesStrongestAndBooksOtherAsInterference]
+[evidence: tests/unit/electronic_surveillance_radar/esr_resolution_cell_ledger_test.cpp::EsrResolutionCellLedgerTest.LinearSweepUsesPartialInstantaneousChannelDwell]
 
 ### 折射率温标输入迁移
 
