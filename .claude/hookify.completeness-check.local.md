@@ -1,8 +1,11 @@
 ---
 name: completeness-check-before-stop
-enabled: true
+enabled: false
 event: stop
 conditions:
+  - field: transcript
+    operator: contains
+    pattern: (invoke name="Edit"|invoke name="Write")
   - field: transcript
     operator: not_contains
     pattern: (completeness-review|code-review|simplify|ctest --preset|gtest_filter)
