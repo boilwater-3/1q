@@ -24,6 +24,7 @@ struct ArDetectionCellConfig {
   double receiver_loss_db{0.0};
   double receiver_noise_figure_db{0.0};
   double reference_temperature_k{290.0};
+  bool enable_anti_rgpo_leading_edge{false}; /**< 前沿跟踪：kPulseTrain 外部发射有效干扰功率减半 */
 };
 
 /** @brief 一个目标在本周期 detection cell 中的物理事实。 */

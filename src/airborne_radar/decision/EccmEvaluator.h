@@ -55,6 +55,9 @@ class EccmEvaluator final {
     float agility_frequency_score{0.0f};
     float eccm_rejitter_score{0.0f};
     float burnthrough_gain_score{0.0f};
+    float anti_rgpo_score{0.0f};
+    float anti_vgpo_score{0.0f};
+    float anti_false_target_score{0.0f};
   };
 
   /** @brief 构造生存性域控制意图。 */

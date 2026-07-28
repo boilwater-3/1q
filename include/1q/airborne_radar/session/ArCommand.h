@@ -36,7 +36,10 @@ enum class ONEQ_API ArCommandType {
   ENABLE_ADAPTIVE_BEAMFORMING, /**< 开启 ECCM 自适应波束形成 */
   SET_AGILITY_FREQ,            /**< 设置 ECCM 频率捷变 */
   SET_ECCM_REJITTER,           /**< 设置 ECCM 重频抖动 */
-  SET_ECCM_BURNTHROUGH_GAIN    /**< 设置 ECCM 烧穿增益 */
+  SET_ECCM_BURNTHROUGH_GAIN,   /**< 设置 ECCM 烧穿增益 */
+  ENABLE_ANTI_RGPO_LEADING_EDGE,      /**< 启用前沿跟踪对抗 RGPO */
+  ENABLE_ANTI_VGPO_ACCELERATION_BOUND, /**< 启用加速度限幅对抗 VGPO */
+  ENABLE_ANTI_FALSE_TARGET_DISCRIMINATION /**< 启用假目标鉴别 */
 };
 
 /**

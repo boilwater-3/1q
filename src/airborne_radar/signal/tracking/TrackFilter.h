@@ -17,6 +17,8 @@ namespace tracking {
 struct TrackFilterConfig {
   float speed_decay_ratio_on_loss{0.90f}; /**< 失配时的速度衰减系数。 */
   float rcs_decay_ratio_on_loss{0.85f};   /**< 失配时的 RCS 衰减系数。 */
+  bool enable_anti_vgpo_acceleration_bound{false}; /**< 启用加速度限幅对抗 VGPO */
+  double max_acceleration_mps2{100.0}; /**< 最大允许加速度（m/s²），超出此限幅的测量值被裁剪 */
 };
 /**
  * @brief 轨迹滤波器处理上下文。
@@ -24,6 +26,10 @@ struct TrackFilterConfig {
 struct TrackFilterContext {
   bool detection_succeeded{false}; /**< 本周期是否检测成功。 */
   float detection_margin_db{0.0f}; /**< 检测余量（dB）。 */
+  float previous_velocity_x{0.0f}; /**< 上一周期速度 X 分量（m/s），供加速度限幅用。 */
+  float previous_velocity_y{0.0f}; /**< 上一周期速度 Y 分量（m/s）。 */
+  float previous_velocity_z{0.0f}; /**< 上一周期速度 Z 分量（m/s）。 */
+  double cycle_dt_sec{0.0}; /**< 本周期步长（s），供加速度限幅用。 */
 };
 /**
  * @brief 预测后的轨迹状态。

@@ -152,8 +152,13 @@ bool TryResolveCellInterference(
     }
     const long double sample_count = static_cast<long double>(representative_count) *
                                      static_cast<long double>(kSamplesPerEchoGate);
-    total_interference_w += static_cast<long double>(link.received_power_before_overlap_w) *
-                            link_overlap_sum / sample_count;
+    long double effective_power = static_cast<long double>(link.received_power_before_overlap_w);
+    if (config.enable_anti_rgpo_leading_edge &&
+        link.emission_waveform.kind ==
+            oneq::electromagnetics::RfSceneWaveformKind::kPulseTrain) {
+      effective_power *= 0.5L;
+    }
+    total_interference_w += effective_power * link_overlap_sum / sample_count;
   }
   const double candidate = static_cast<double>(total_interference_w);
   if (!std::isfinite(candidate) || candidate < 0.0) {

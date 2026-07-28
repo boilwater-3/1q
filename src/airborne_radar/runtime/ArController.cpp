@@ -34,7 +34,10 @@ bool IsEccmDirective(session::ControlDirectiveType type) {
          type == session::ControlDirectiveType::REQUEST_ENABLE_ADAPTIVE_BEAMFORMING ||
          type == session::ControlDirectiveType::REQUEST_AGILITY_FREQUENCY ||
          type == session::ControlDirectiveType::REQUEST_ECCM_REJITTER ||
-         type == session::ControlDirectiveType::REQUEST_ECCM_BURNTHROUGH_GAIN;
+         type == session::ControlDirectiveType::REQUEST_ECCM_BURNTHROUGH_GAIN ||
+         type == session::ControlDirectiveType::REQUEST_ANTI_RGPO_LEADING_EDGE ||
+         type == session::ControlDirectiveType::REQUEST_ANTI_VGPO_ACCELERATION_BOUND ||
+         type == session::ControlDirectiveType::REQUEST_ANTI_FALSE_TARGET_DISCRIMINATION;
 }
 
 bool HasValidRequestedValue(const session::ControlDirective& directive) {

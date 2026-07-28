@@ -28,6 +28,7 @@ struct RfV2DetectionContext {
   double receive_window_duration_s{0.0};
   config::AzimuthElevationDeg beam_pointing_deg{};
   std::vector<oneq::electromagnetics::RfIncidentLinkResult> incident_links{};
+  bool enable_anti_rgpo_leading_edge{false}; /**< 前沿跟踪对抗 RGPO */
 };
 
 }  // namespace pipeline

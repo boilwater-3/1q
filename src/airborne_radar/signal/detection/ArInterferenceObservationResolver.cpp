@@ -125,6 +125,36 @@ bool TryResolveArInterferenceObservations(
   std::sort(candidate.begin(), candidate.end(), [](const auto& left, const auto& right) {
     return MakeSortKey(left) < MakeSortKey(right);
   });
+
+  // 欺骗特征提取：检测同方向多脉冲列（疑似假目标）。
+  const double beamwidth_deg = receiver.antenna.half_power_beamwidth_deg;
+  for (auto& observation : candidate) {
+    if (observation.estimated_waveform_kind !=
+        oneq::electromagnetics::RfSceneWaveformKind::kPulseTrain) {
+      continue;
+    }
+    std::uint32_t coherent_count = 0U;
+    for (const auto& other : candidate) {
+      if (other.estimated_waveform_kind !=
+          oneq::electromagnetics::RfSceneWaveformKind::kPulseTrain) {
+        continue;
+      }
+      const double az_diff =
+          std::fabs(observation.estimated_bearing_azimuth_deg -
+                    other.estimated_bearing_azimuth_deg);
+      const double el_diff =
+          std::fabs(observation.estimated_bearing_elevation_deg -
+                    other.estimated_bearing_elevation_deg);
+      if (az_diff < beamwidth_deg && el_diff < beamwidth_deg) {
+        ++coherent_count;
+      }
+    }
+    observation.coherent_emission_count = coherent_count;
+    if (coherent_count >= 2U) {
+      observation.deception_class = session::DeceptionClass::kLikelyFalseTarget;
+    }
+  }
+
   for (std::size_t index = 0U; index < candidate.size(); ++index) {
     candidate[index].observation_id = static_cast<std::uint64_t>(index + 1U);
   }

@@ -29,6 +29,12 @@ session::ArCommandType ToArCommandType(
       return session::ArCommandType::SET_ECCM_REJITTER;
     case session::ControlDirectiveType::REQUEST_ECCM_BURNTHROUGH_GAIN:
       return session::ArCommandType::SET_ECCM_BURNTHROUGH_GAIN;
+    case session::ControlDirectiveType::REQUEST_ANTI_RGPO_LEADING_EDGE:
+      return session::ArCommandType::ENABLE_ANTI_RGPO_LEADING_EDGE;
+    case session::ControlDirectiveType::REQUEST_ANTI_VGPO_ACCELERATION_BOUND:
+      return session::ArCommandType::ENABLE_ANTI_VGPO_ACCELERATION_BOUND;
+    case session::ControlDirectiveType::REQUEST_ANTI_FALSE_TARGET_DISCRIMINATION:
+      return session::ArCommandType::ENABLE_ANTI_FALSE_TARGET_DISCRIMINATION;
     case session::ControlDirectiveType::NONE:
     default:
       return session::ArCommandType::NONE;

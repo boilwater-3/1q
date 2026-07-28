@@ -1,7 +1,7 @@
 # Airborne Radar 当前设计
 
 Status: active
-Last-reviewed: 2026-07-24
+Last-reviewed: 2026-07-28
 Authority: current airborne_radar module design
 RF-Interference-Architecture: RF v2 transmitter/receiver current
 
@@ -458,7 +458,12 @@ AR 不从环境场景推导干扰。调用方只提供实际发射事实：发�
 这使普通调用方的单周期输入保持为“平台、目标、自然环境、可选外部 RF”，而不会要求其选择干扰技术
 或预先判断受扰结果。
 
-AR 不保留 legacy jammer DTO、技术类别、J/S 摘要或欺骗/转发适配层；本轮只支持物理压制干扰。
+AR 不保留 legacy jammer DTO、技术类别、J/S 摘要或欺骗/转发适配层；也不直接获取 ECM 的 `EcmDeceptionMode` 真值。外部欺骗发射（ECM 的 RGPO/VGPO/假目标等 kPulseTrain 波形）与压制发射经同一 `RfEmissionFrame` 路径进入接收前端，统一按时频重叠和方向增益计算接收功率。
+
+AR 在接收链的三个层次主动反制欺骗干扰：
+- **观测层**：`ArInterferenceObservationResolver` 从过 J/N 门限的 kPulseTrain 观测中提取同方向相似参数发射数，设置 `deception_class=kLikelyFalseTarget`（§2.5 检测单元账本）；
+- **ECCM 决策层**：`EccmEvaluator` 为 kPulseTrain 观测累加 `anti_rgpo_score` 和 `anti_vgpo_score`，为 `kLikelyFalseTarget` 观测累加 `anti_false_target_score`；达阈值后分别生成 `REQUEST_ANTI_RGPO_LEADING_EDGE`、`REQUEST_ANTI_VGPO_ACCELERATION_BOUND`、`REQUEST_ANTI_FALSE_TARGET_DISCRIMINATION` 提案（§2.7 ECCM）；
+- **信号层**：`ArControlProfile` 的三个 bool 字段通过 `ControlReducer`/`ControlCommandMapper` 经现有 ECCM hold/cooldown 管线生效，分别触发前沿跟踪（kPulseTrain 干扰功率减半）、加速度限幅（航迹速度变化裁剪）和假目标鉴别（生命周期标记）。
 
 ### 2.4 扫描调度、坐标和波束控制
 
@@ -531,6 +536,11 @@ AR 不再提供 heuristic detection toggle 或启发式 pass。冻结目标不�
 4. **检测单元账本。** 在 range/Doppler/beam 以及实际 time-frequency window 内，为每个候选目标分别记录
    echo、热噪声、杂波和未分辨外部 RF。噪声型 spot/barrage/sweep 以其实际 PSD、接收滤波响应和活动
    占空进入单元；带外、错时或被零陷抑制的贡献为零。首期不把压制噪声解释成虚假目标。
+欺骗发射（kPulseTrain）以其参数化脉冲时序、载频和占空比经同一 `TryEvaluateRfArrivalActivity`
+时频重叠机制进入检测单元——与连续/噪声型干扰不同，kPulseTrain 在 PRI 间隙内 activity 为零，
+因此其有效干扰功率积分低于同峰值功率的连续发射。
+当 `enable_anti_rgpo_leading_edge=true` 时，kPulseTrain 外部发射的有效干扰功率乘以 0.5，
+模拟前沿跟踪使接收机只取脉冲前沿、减少与欺骗脉冲重叠时段的反制效果。
 5. **处理后判决。** 匹配滤波、脉冲压缩、相参/非相参积累和其它 processing gain 只属于 AR。
    统一计算 processed `SINR = echo / (thermal + clutter + interference)`，再由 policy 中的 Pfa、
    Swerling/积累模型和最小 margin 得到 Pd；Monte Carlo 只采样检测事件。检测成功后才由 processed SINR、
@@ -613,10 +623,14 @@ association public 配置不再暴露 `unassigned_cost`、启用 hint 或第二�
 
 航迹层进一步处理 confirmed/lost/recycled 状态：
 
-- `TrackFilter` 在 missed detection 时衰减速度和 RCS。
-- AR 不提供 deception/repeater/mixed 兼容路径；工程压制干扰只能经量测存在性和协方差影响航迹，
-  不得改变速度/RCS 衰减。
-- lifecycle manager 管理 tentative/confirmed/lost、track pool 回收、association seeds 导出和 filter writeback。
+- `TrackFilter` 在 missed detection 时衰减速度和 RCS；当 `enable_anti_vgpo_acceleration_bound=true` 时，
+  对检测成功周期的速度变化按 `max_acceleration_mps2 * dt` 裁剪，防止 VGPO 拖引速度门。
+- AR 在 ECCM 层主动反制欺骗发射：kPulseTrain 观测经 `EccmEvaluator` 触发前沿跟踪（优先级 89）、
+  加速度限幅（优先级 85）和假目标鉴别（优先级 81）三项反欺骗提案；三者经现有 `ControlReducer` 
+  ECCM hold/cooldown 管线统一归约后写入 `ArControlProfile` 并作用到下一成功周期。
+  与压制干扰相同，欺骗发射不得直接改变航迹速度/RCS 衰减或生命周期计数。
+  [evidence: tests/unit/airborne_radar/ar_deception_eccm_test.cpp]
+- lifecycle manager 管理 tentative/confirmed/lost、track pool 回收、association seeds 导出和 filter writeback；
 - 生产预测/更新使用 KF；策略可启用 IMM 生命周期作为多模型 KF 融合层。EKF、UDKF、SRIF 是 common 内部资产，不是 AR 的运行期配置路径；可复现性边界见 §2.10。
 
 这些质量指标继续用于结果输出和一般质量退化诊断，但不得被解释为工程干扰观测，也不得生成 J/N、
