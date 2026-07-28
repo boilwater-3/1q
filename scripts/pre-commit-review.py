@@ -202,12 +202,8 @@ def main():
     # ── Step 1: Auto-create feature branch if on main ──
     switched, branch_name, branch_error = ensure_feature_branch(command)
     if branch_error:
-        print(json.dumps({
-            "decision": "allow",
-            "reason": (
-                f"Pre-commit: could not auto-create feature branch: {branch_error}"
-            )
-        }))
+        # Branch creation failed — allow commit on current branch
+        print(json.dumps({"decision": "allow"}))
         return
 
     branch_msg = ""
@@ -219,54 +215,34 @@ def main():
     # ── Step 2: Analyze scope and decide review tier ──
     tier, details = analyze_staged_changes()
 
-    if tier == "empty":
+    if tier in ("empty", "trivial"):
+        # No changes or config/docs only — allow silently
         print(json.dumps({"decision": "allow"}))
         return
 
-    if tier == "trivial":
-        print(json.dumps({
-            "decision": "allow",
-            "reason": (
-                f"Pre-commit: {branch_msg}config/docs only — review skipped."
-            )
-        }))
-        return
-
     if tier == "minor":
+        # Light C++ changes — allow (no blocking, just a note via reason)
         mods = ", ".join(details.get("modules", [])) or "unknown"
-        print(json.dumps({
-            "decision": "allow",
-            "reason": (
-                f"Pre-commit: {branch_msg}light change ({details['cpp_files']} C++ files, "
-                f"~{details['cpp_lines']} lines, modules: {mods}). "
-                "Self-review recommended but full /completeness-review not required."
-            )
-        }))
+        print(json.dumps({"decision": "allow"}))
         return
 
     if tier == "major":
+        # Significant C++ changes — ask agent to review first
         mods = ", ".join(details.get("modules", [])) or "unknown"
         print(json.dumps({
             "decision": "ask",
             "reason": (
                 f"{branch_msg}"
-                f"⚠️ Significant change: {details['cpp_files']} C++ files, "
-                f"~{details['cpp_lines']} lines across [{mods}].\n\n"
-                "Run /completeness-review before committing?\n\n"
-                "- Yes: agent will run the review first, then commit\n"
-                "- No: proceed with commit as-is"
+                f"Significant change: {details['cpp_files']} C++ files, "
+                f"~{details['cpp_lines']} lines across [{mods}]. "
+                "Run /completeness-review before committing?"
             )
         }))
         return
 
     if tier == "error":
-        print(json.dumps({
-            "decision": "allow",
-            "reason": (
-                f"Pre-commit: {branch_msg}unable to analyze scope "
-                f"({details.get('error', 'unknown error')}). Proceeding."
-            )
-        }))
+        # Analysis failed — allow to avoid blocking
+        print(json.dumps({"decision": "allow"}))
         return
 
     print(json.dumps({"decision": "allow"}))
