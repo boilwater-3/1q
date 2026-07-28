@@ -204,7 +204,7 @@ def main():
     if branch_error:
         print(json.dumps({
             "decision": "allow",
-            "systemMessage": (
+            "reason": (
                 f"Pre-commit: could not auto-create feature branch: {branch_error}"
             )
         }))
@@ -226,7 +226,7 @@ def main():
     if tier == "trivial":
         print(json.dumps({
             "decision": "allow",
-            "systemMessage": (
+            "reason": (
                 f"Pre-commit: {branch_msg}config/docs only — review skipped."
             )
         }))
@@ -236,7 +236,7 @@ def main():
         mods = ", ".join(details.get("modules", [])) or "unknown"
         print(json.dumps({
             "decision": "allow",
-            "systemMessage": (
+            "reason": (
                 f"Pre-commit: {branch_msg}light change ({details['cpp_files']} C++ files, "
                 f"~{details['cpp_lines']} lines, modules: {mods}). "
                 "Self-review recommended but full /completeness-review not required."
@@ -262,7 +262,7 @@ def main():
     if tier == "error":
         print(json.dumps({
             "decision": "allow",
-            "systemMessage": (
+            "reason": (
                 f"Pre-commit: {branch_msg}unable to analyze scope "
                 f"({details.get('error', 'unknown error')}). Proceeding."
             )
