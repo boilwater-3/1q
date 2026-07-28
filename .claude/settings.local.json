@@ -71,18 +71,6 @@
           }
         ]
       }
-    ],
-    "PreToolUse": [
-      {
-        "matcher": "Bash",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "python3 ${CLAUDE_PROJECT_DIR}/scripts/pre-commit-review.py",
-            "timeout": 10
-          }
-        ]
-      }
     ]
   }
 }
