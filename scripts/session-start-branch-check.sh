@@ -6,6 +6,6 @@ branch=$(git branch --show-current 2>/dev/null || true)
 
 if [ "$branch" = "main" ] || [ "$branch" = "master" ]; then
   cat <<'EOF'
-{"systemMessage": "📍 On **main** branch. Enter plan mode first — the plan topic will become the branch name (`feature/<topic-slug>`). Create the branch when the plan is approved. Skip if read-only."}
+{"systemMessage": "📍 On **main**. If this is a read-only discussion, ignore. For any code change: enter plan mode, create `feature/<topic>` when the plan is approved. (Safety net: committing on main auto-creates a timestamped feature branch — prefer a semantic name via plan mode.)"}
 EOF
 fi
