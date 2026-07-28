@@ -1,30 +1,51 @@
 # 1Q Simulation Model Library
 
 ## Project Overview
-Simulation model library for external service modules: airborne radar (AR), electronic surveillance radar (ESR), synthetic aperture radar (SAR), electro-optical sensor (EOS), flight dynamics, and space-based infrared sensor (SBIRS).
+
+A static library of simulation models for external service modules — airborne radar (AR), electronic surveillance radar (ESR), synthetic aperture radar (SAR), electro-optical sensor (EOS), flight dynamics, and space-based infrared sensor (SBIRS) — delivered as a single linkable artifact.
 
 ## Tech Stack
-C++17 (minimum C++11), CMake, Conan, GTest/GMock, Eigen, nanoflann, Boost, FlatBuffers, zlib, spdlog/fmt, JSBSim, HighFive (optional).
+
+- Language: C++17 (minimum C++11)
+- Build: CMake, Conan
+- Test: GTest/GMock
+- Runtime libraries: Eigen, nanoflann, Boost, FlatBuffers, zlib, HighFive; plus spdlog/fmt and JSBSim (non-Windows only)
 
 ## Directory Structure
-Module business domains (each has a matching `include/1q/<module>/` public API and `src/<module>/` implementation):
-- `airborne_radar` (AR), `electronic_surveillance_radar` (ESR), `sar` (SAR), `electro_optical_sensor` (EOS), `flight_dynamic`, `sbirs_sensor` (SBIRS)
-- Cross-domain shared types under `include/1q/{coordinate,environment,foundation,replay,trace}/`
-- Cross-module shared implementation under `src/common/` (estimation, geometry, logging, numerics, output, rcs, runtime, timing, trace, validation, ...)
 
-Other top-level:
-- `tests/` — unit / integration / contract / performance / consumer
-- `examples/` — per-module usage examples
-- `tools/` — helper scripts (`schemas/` holds FlatBuffers definitions)
-- Root: `CMakeLists.txt`, `CMakePresets.json`, `CMakeUserPresets.json`, `conanfile.py`, `cmake/`, plus lint configs (`.clang-format`, `.clang-tidy`, `.editorconfig`)
-
-Use `ls`/`find` for sub-directory detail. Namespace-directory mapping is consistent — see Engineering Conventions.
+- **Modules** — `include/1q/<module>/` + `src/<module>/`:
+  `airborne_radar` (AR) — airborne radar,
+  `electronic_surveillance_radar` (ESR) — electronic surveillance radar,
+  `sar` (SAR) — synthetic aperture radar,
+  `electro_optical_sensor` (EOS) — electro-optical sensor,
+  `flight_dynamic` — flight dynamics,
+  `sbirs_sensor` (SBIRS) — space-based infrared sensor
+- **Shared headers** — `include/1q/<domain>/` cross-module public types:
+  `coordinate` — coordinate transforms, `environment` — environment models,
+  `foundation` — base types & utilities, `replay` — replay framework,
+  `trace` — telemetry trace
+- **Shared impl** — `src/common/`:
+  `estimation` — estimators, `geometry` — geometric ops, `logging` — log setup,
+  `numerics` — numerical utils, `output` — output serialization, `rcs` — radar cross section,
+  `runtime` — runtime state, `timing` — clock & timers, `trace` — trace impl,
+  `validation` — input validation
+- **Tests** — `tests/`:
+  `unit` — per-module unit tests, `integration` — cross-module integration tests,
+  `contract` — API contract tests, `performance` — benchmarks,
+  `consumer` — consumer-side acceptance tests
+- **Examples** — `examples/` (per-module usage demos)
+- **Tools** — `tools/` (helper scripts; `schemas/` — FlatBuffers definitions)
+- **Build & config** — `CMakeLists.txt` — top-level build,
+  `CMakePresets.json` — shared presets, `CMakeUserPresets.json` — local presets,
+  `conanfile.py` — dependency manifest, `cmake/` — cmake modules,
+  `.clang-format` / `.clang-tidy` / `.editorconfig` — lint & style
+- **Docs** — `docs/` (`common/contract.md` — cross-module contracts; one `design.md` per module)
 
 ## Build and Test
 
-- Presets: `llvm-ninja-debug-local`, `llvm-ninja-release-local` (from `CMakeUserPresets.json`; base presets `llvm-ninja-debug`/`llvm-ninja-release` live in `CMakePresets.json`). Prefer release for testing — JSBSim runs ~6× faster.
-- Run bootstrap → configure → build → test **serially** for the same preset; never start ctest before build completes. Parallel work is allowed only across different presets.
-- Use log prefix `/tmp/1q` and `-j 4` for parallel test execution.
+- Presets: `llvm-ninja-debug-local`, `llvm-ninja-release-local` (from `CMakeUserPresets.json`; base presets in `CMakePresets.json`). Prefer release — JSBSim runs ~6× faster.
+- Run bootstrap → configure → build → test **serially** for the same preset; parallel only across different presets.
+- Log prefix `/tmp/1q`, ctest `-j 4`.
 
 ```bash
 bash scripts/bootstrap_conan.sh "$preset" >"${log_prefix}-conan.log" 2>&1 || { tail -n 80 "${log_prefix}-conan.log"; false; }
@@ -33,32 +54,10 @@ cmake --build --preset "$preset" >"${log_prefix}-build.log" 2>&1 || { tail -n 80
 ctest --preset "$preset" --output-on-failure -j 4
 ```
 
-### flight_dynamic module build switch
-
-`ONEQ_ENABLE_FLIGHT_DYNAMIC` (default **OFF**) gates `src/flight_dynamic/`. When OFF, all its targets, the `1q_fd_tests` binary, both CTest partitions (`unit::flight_dynamic` and `known_limit::flight_dynamic`), and examples are skipped.
-
-```bash
-cmake --preset "$preset" -D ONEQ_ENABLE_FLIGHT_DYNAMIC=ON
-cmake --build --preset "$preset"
-ctest --preset "$preset" -R 'flight_dynamic'          # stable + known_limit
-```
-
-Caveats: disabling it does **not** drop JSBSim (`src/common/environment/JsbsimAtmosphereAdapter` still needs it); `fd_*` sources are always excluded from `1q_unit_tests`; no preset sets this option today.
-
-### Code coverage
-
-- `llvm-ninja-coverage` preset + `tools/coverage_report.sh` own the full flow (build → ctest → profraw → profdata → report).
-- **Never run `ctest` by hand for coverage** — it scatters `.profraw`; always invoke the script so it owns profile placement.
-- Common options: `--label <ctest-label>`, `--clean` (wipe before regen), `--open`, `--no-test` (regen from existing profraw).
-- Read coverage as a diagnostic, not a KPI. **Branch coverage is the primary metric** — line coverage can read 100% while whole `else` branches stay untested.
-- See `docs/practice/coverage.md` for metric definitions, report reading, troubleshooting, and baseline numbers.
+- `ONEQ_ENABLE_FLIGHT_DYNAMIC` (default **OFF**) gates `src/flight_dynamic/` and its tests. JSBSim remains required regardless (`src/common/environment/JsbsimAtmosphereAdapter`).
+- Code coverage: `llvm-ninja-coverage` preset + `tools/coverage_report.sh`. **Never run ctest by hand** — the script owns `.profraw` placement. Branch coverage is the primary metric; see `docs/practice/coverage.md`.
 
 ## Documentation
-
-Design documentation lives in `docs/` and follows a minimal structure:
-
-- `docs/common/contract.md` — cross-module contracts, public API rules, output model, document governance
-- One `design.md` per module — architecture, algorithms, data flow, limitations with inline `[evidence: ...]` references
 
 Each `design.md` is the sole design authority for its module. It contains:
 - Architecture overview (mermaid component/sequence/data-flow diagrams)
@@ -68,34 +67,41 @@ Each `design.md` is the sole design authority for its module. It contains:
 Evidence references point to existing test files and specific test cases (not branch paths or external docs).
 
 ## Engineering Conventions
+
+**Style**
 - Follow the Google C++ Style Guide.
 - Keep namespace-directory mapping consistent.
-- Prefer internal `src/` changes before widening public headers under `include/`.
+- Keep changes in `src/` unless a public API change is unavoidable.
+- Mark variables and member functions `const` by default; relax only when mutation is required.
+- Never introduce C++ exceptions.
+- Never reformat existing code that was not touched by the current change.
+
+**Architecture**
 - Prefer abstract interfaces at module boundaries.
 - Prefer forward declarations to reduce includes and rebuild cost.
 - Use PIMPL for critical classes when hiding implementation reduces recompilation propagation.
 - Make interfaces easy to use correctly and hard to use incorrectly.
-- For algorithm, architecture, module-internal optimization, output/config semantics, or public API work, use `skills/evidence-first-freeze-contract` before implementation.
-- Log critical paths and events. e.g. Use `spdlog::debug/info` for flow and `spdlog::error` for failures.
-- For Chinese Doxygen work, invoke the `/cpp-chinese-doxygen` skill.
+- Design for current requirements; avoid speculative generality (YAGNI).
+- Guard against known edge cases, not hypothetical ones — don't over-defend at boundaries.
 
-## Constraints
-- Never introduce C++ exceptions.
-- Never introduce project-specific identifiers or prefixes in `cmake/`.
-- Never reformat existing code that was not touched by the current change.
+**Process**
+- Automated bulk edits: verify the exact command on 1-2 files first, then proceed in batches of ≤5 files.
+- Semantic refactors: commit as the smallest buildable and testable closure; enumerate the dependency closure and validate at real compileable boundaries.
 
-## Batch Refactoring Safety
+**Logging**
+- Log critical actions and failures using the project's logging facility, when available.
 
-- Automated bulk edits (for example `sed`, `awk`, scripts, or mechanical text replacement) must first verify the exact command on 1-2 files, then proceed in batches of at most 5 files.
-- Hand-written semantic refactors must be committed as the smallest buildable and testable dependency closure; they are not subject to a fixed file-count limit.
-- Before a large refactor, enumerate the affected dependency closure. Run intermediate build and test validation at real compileable boundaries rather than splitting one semantic migration only to satisfy a file count.
+## Session Workflow
+
+- **New session on `main`**: enter plan mode first. The plan topic doubles as the session topic; create branch `feature/<topic-slug>` (kebab-case, e.g. `feature/add-ar-replay-codec`) when the plan is approved. Skip only when the user explicitly intends read-only discussion.
+- **Branch naming**: `feature/<short-description>` in kebab-case.
+- **Pre-stop review**: before stopping or committing, run `/completeness-review` to verify plan coverage. If a plan file exists (`.claude/plans/` or `.zcode/plans/`), every plan item must be implemented or explicitly deferred.
+- **Merge & cleanup**: after review passes, merge the feature branch into `main` with `--no-ff` and delete it locally (and on remote if pushed) to avoid branch proliferation.
 
 ## Done Means
 - The chosen preset builds successfully.
 - Relevant tests pass for the chosen preset.
+- The static library links cleanly into dependent targets.
 - New public API or significant logic changes include new or updated tests under `tests/`.
-- Documentation stays accurate for changed behavior: update the relevant `design.md` and its inline `[evidence: ...]` references if thresholds, limitations, or veto decisions change.
-
-note: Your mileage may vary. Not all of these rules are necessarily optimal for every setup. Like anything else, feel free to break the rules once...
-- you understand when & why it's okay to break them.
-- you have a good reason to do so.
+- Documentation stays accurate: update the relevant `design.md` and its `[evidence: ...]` when thresholds, limitations, or veto decisions change.
+- When a plan was used, every plan item is implemented or explicitly marked as deferred.

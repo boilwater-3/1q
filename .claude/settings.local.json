@@ -1,0 +1,76 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ctest:*)",
+      "Bash(git add:*)",
+      "Bash(cmake:*)",
+      "Bash(rg:*)",
+      "Bash(xargs sed:*)",
+      "Bash(python3:*)",
+      "Bash(git commit:*)",
+      "Bash(grep:*)",
+      "Bash(done)",
+      "Bash(git mv:*)",
+      "Bash(git rm:*)",
+      "Bash(ls:*)",
+      "Bash(/usr/bin/perl:*)",
+      "Bash(git checkout:*)",
+      "Skill(commit-commands:commit)",
+      "Bash(git:*)",
+      "Bash(DYLD_LIBRARY_PATH=/opt/homebrew/opt/llvm/lib/c++ /Users/aurora/Code/1q/build/llvm-ninja-debug-local/bin/1q_tests --gtest_list_tests)",
+      "Bash(DYLD_LIBRARY_PATH=/opt/homebrew/opt/llvm/lib/c++:/opt/homebrew/opt/llvm/lib /Users/aurora/Code/1q/build/llvm-ninja-debug-local/bin/1q_tests --gtest_filter=\"ThreatAssessmentEvaluatorTest*\" 2>&1)",
+      "Bash(otool -L /Users/aurora/Code/1q/build/llvm-ninja-debug-local/bin/1q_tests)",
+      "Bash(nm -D /usr/lib/libc++.1.dylib)",
+      "Bash(nm /usr/lib/libc++.1.dylib)",
+      "Bash(nm /opt/homebrew/opt/llvm/lib/c++/libc++.1.dylib)",
+      "Bash(DYLD_LIBRARY_PATH=/opt/homebrew/opt/llvm/lib/c++:/opt/homebrew/opt/llvm/lib ctest --preset llvm-ninja-debug-local --output-on-failure)",
+      "Bash(DYLD_LIBRARY_PATH=/opt/homebrew/opt/llvm/lib/c++ /Users/aurora/Code/1q/build/llvm-ninja-debug-local/bin/1q_tests --gtest_filter=\"*\")",
+      "Read(//Library/Developer/CommandLineTools/SDKs/**)",
+      "Bash(sw_vers -buildVersion)",
+      "Bash(DYLD_LIBRARY_PATH=/opt/homebrew/opt/llvm/lib/c++ /Users/aurora/Code/1q/build/llvm-ninja-debug-local/bin/1q_tests --gtest_output=json:/tmp/1q_test_results.json)",
+      "Bash(/opt/homebrew/opt/llvm/bin/clang++ --version)",
+      "Bash(xargs -I{} sh -c \"nm -D {} 2>/dev/null | grep -l \"\"type_descriptor\"\" {}\")",
+      "Bash(nm /Users/aurora/.conan2/p/b/gtest1e3915e8d7c69/p/lib/libgtest_main.a)",
+      "Bash(/tmp/test_hello)",
+      "Bash(preset=llvm-ninja-debug-local)",
+      "Bash(find /Users/aurora/Code/1q -name *review* -type f)",
+      "Bash(brew upgrade:*)",
+      "Bash(find /Users/aurora/Code/1q/tests -type f -name *eos* -o -name *esr* -o -name *Eos* -o -name *Esr*)",
+      "Bash(perl:*)",
+      "Bash(brew install *)",
+      "Bash(gh auth *)",
+      "Bash(curl -s --connect-timeout 5 https://github.com)",
+      "Bash(curl -v --connect-timeout 10 https://github.com)",
+      "Bash(env)",
+      "Bash(/Users/aurora/.conan2/p/b/flatbc073b4aa5b111/p/bin/flatc --version)",
+      "Bash(/Users/aurora/.conan2/p/b/flatbc073b4aa5b111/p/bin/flatc --help)",
+      "Bash(/Users/aurora/.conan2/p/b/flatbc073b4aa5b111/p/bin/flatc --cpp -o /Users/aurora/Code/1q/src/airborne_radar/session/generated /Users/aurora/Code/1q/schemas/replay/airborne_radar_replay.fbs)",
+      "Bash(echo \"EXIT: $?\")",
+      "Bash(/Users/aurora/.conan2/p/b/flatbc073b4aa5b111/p/bin/flatc --cpp -o /Users/aurora/Code/1q/src/electronic_surveillance_radar/session/generated /Users/aurora/Code/1q/schemas/replay/esr_replay.fbs)",
+      "Bash(echo \"esr_replay exit: $?\")",
+      "Bash(/Users/aurora/.conan2/p/b/flatbc073b4aa5b111/p/bin/flatc --cpp -o /Users/aurora/Code/1q/src/electronic_surveillance_radar/session/generated /Users/aurora/Code/1q/schemas/replay/esr_session_replay.fbs)",
+      "Bash(echo \"esr_session exit: $?\")",
+      "Bash(./bin/1q_replay_fast_tests --gtest_filter=\"EsrReplayCodecRoundtripTest.CycleResultPreservesAllFields\")",
+      "Read(//Users/aurora/Library/Caches/Homebrew/**)",
+      "Bash(rm -rf /Users/aurora/Library/Caches/Homebrew/locks/*)",
+      "Bash(rm -rf /Users/aurora/Library/Caches/Homebrew/downloads/*.incomplete)",
+      "Bash(HOMEBREW_NO_AUTO_UPDATE=1 brew install hermes-agent)"
+    ]
+  },
+  "skillOverrides": {},
+  "outputStyle": "default",
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash ${CLAUDE_PROJECT_DIR}/scripts/session-start-branch-check.sh",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  }
+}
