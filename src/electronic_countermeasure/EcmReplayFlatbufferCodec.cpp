@@ -172,7 +172,14 @@ std::string EncodeEcmSessionConfig(const config::EcmSessionConfig& value) {
       value.maximum_total_transmit_power_w, value.maximum_channel_transmit_power_w,
       value.thermal_capacity_j, value.cooling_power_w, value.spot_bandwidth_hz,
       value.barrage_bandwidth_hz, value.sweep_bandwidth_hz, value.sweep_segment_count,
-      static_cast<int32_t>(value.default_technique)));
+      static_cast<int32_t>(value.default_technique),
+      static_cast<ecm::replay::EcmDeceptionMode>(value.default_deception_mode),
+      value.deception_rgpo_rate_m_per_s, value.deception_rgpo_max_range_m,
+      value.deception_vgpo_rate_hz_per_s, value.deception_vgpo_max_doppler_hz,
+      value.deception_hold_time_s, value.deception_power_scale,
+      value.deception_max_active, value.deception_false_target_delay_s,
+      value.deception_false_target_doppler_hz,
+      value.deception_max_false_targets_per_threat));
   return oneq::common::replay::CopyFinishedFlatbuffer(builder);
 }
 
@@ -202,6 +209,19 @@ bool DecodeEcmSessionConfig(const std::string& bytes, config::EcmSessionConfig* 
   decoded.sweep_bandwidth_hz = value->sweep_bandwidth_hz();
   decoded.sweep_segment_count = value->sweep_segment_count();
   decoded.default_technique = static_cast<EcmTechnique>(value->default_technique());
+  decoded.default_deception_mode =
+      static_cast<EcmDeceptionMode>(value->default_deception_mode());
+  decoded.deception_rgpo_rate_m_per_s = value->deception_rgpo_rate_m_per_s();
+  decoded.deception_rgpo_max_range_m = value->deception_rgpo_max_range_m();
+  decoded.deception_vgpo_rate_hz_per_s = value->deception_vgpo_rate_hz_per_s();
+  decoded.deception_vgpo_max_doppler_hz = value->deception_vgpo_max_doppler_hz();
+  decoded.deception_hold_time_s = value->deception_hold_time_s();
+  decoded.deception_power_scale = value->deception_power_scale();
+  decoded.deception_max_active = value->deception_max_active();
+  decoded.deception_false_target_delay_s = value->deception_false_target_delay_s();
+  decoded.deception_false_target_doppler_hz = value->deception_false_target_doppler_hz();
+  decoded.deception_max_false_targets_per_threat =
+      value->deception_max_false_targets_per_threat();
   *output = decoded;
   return true;
 }
@@ -211,7 +231,9 @@ std::string EncodeEcmRuntimeConfigPatch(const config::EcmRuntimeConfigPatch& val
   builder.Finish(ecm::replay::CreateEcmRuntimeConfigPatch(
       builder, value.has_power_on, value.power_on,
       value.has_maximum_total_transmit_power_w, value.maximum_total_transmit_power_w,
-      value.has_default_technique, static_cast<int32_t>(value.default_technique)));
+      value.has_default_technique, static_cast<int32_t>(value.default_technique),
+      value.has_default_deception_mode,
+      static_cast<ecm::replay::EcmDeceptionMode>(value.default_deception_mode)));
   return oneq::common::replay::CopyFinishedFlatbuffer(builder);
 }
 
@@ -233,6 +255,9 @@ bool DecodeEcmRuntimeConfigPatch(const std::string& bytes,
   decoded.maximum_total_transmit_power_w = value->maximum_total_transmit_power_w();
   decoded.has_default_technique = value->has_default_technique();
   decoded.default_technique = static_cast<EcmTechnique>(value->default_technique());
+  decoded.has_default_deception_mode = value->has_default_deception_mode();
+  decoded.default_deception_mode =
+      static_cast<EcmDeceptionMode>(value->default_deception_mode());
   *output = decoded;
   return true;
 }
@@ -243,7 +268,7 @@ std::string EncodeEcmCycleInput(const EcmCycleInput& value) {
   for (const EcmTruthThreat& truth : value.truth_threats) {
     truths.push_back(ecm::replay::CreateTruthThreat(
         builder, truth.truth_entity_id, truth.center_frequency_hz, truth.bandwidth_hz,
-        truth.threat_score));
+        truth.threat_score, truth.estimated_pri_s, truth.estimated_pulse_width_s));
   }
   ecm::replay::Vec3 position = ToVec(value.platform_position_ecef_m);
   ecm::replay::Vec3 velocity = ToVec(value.platform_velocity_ecef_mps);
@@ -296,6 +321,8 @@ bool DecodeEcmCycleInput(const std::string& bytes, EcmCycleInput* output) {
       decoded_truth.center_frequency_hz = truth->center_frequency_hz();
       decoded_truth.bandwidth_hz = truth->bandwidth_hz();
       decoded_truth.threat_score = truth->threat_score();
+      decoded_truth.estimated_pri_s = truth->estimated_pri_s();
+      decoded_truth.estimated_pulse_width_s = truth->estimated_pulse_width_s();
       decoded.truth_threats.push_back(decoded_truth);
     }
   }
@@ -318,8 +345,11 @@ std::string EncodeEcmCycleResult(const EcmCycleResult& value) {
   for (const EcmResourceDecision& decision : value.decisions) {
     decisions.push_back(ecm::replay::CreateResourceDecision(
         builder, decision.source_observation_id, decision.truth_entity_id,
-        static_cast<int32_t>(decision.technique), decision.channel_index,
-        decision.allocated_power_w, builder.CreateString(decision.reason)));
+        static_cast<int32_t>(decision.technique),
+        static_cast<ecm::replay::EcmDeceptionMode>(decision.deception_mode),
+        static_cast<ecm::replay::EcmDeceptionPhase>(decision.deception_phase),
+        decision.channel_index, decision.allocated_power_w,
+        builder.CreateString(decision.reason)));
   }
   builder.Finish(ecm::replay::CreateEcmCycleResult(
       builder, value.input_cycle_index, static_cast<int32_t>(value.status),
@@ -373,6 +403,10 @@ bool DecodeEcmCycleResult(const std::string& bytes, EcmCycleResult* output) {
       decoded_decision.source_observation_id = decision->source_observation_id();
       decoded_decision.truth_entity_id = decision->truth_entity_id();
       decoded_decision.technique = static_cast<EcmTechnique>(decision->technique());
+      decoded_decision.deception_mode =
+          static_cast<EcmDeceptionMode>(decision->deception_mode());
+      decoded_decision.deception_phase =
+          static_cast<EcmDeceptionPhase>(decision->deception_phase());
       decoded_decision.channel_index = decision->channel_index();
       decoded_decision.allocated_power_w = decision->allocated_power_w();
       decoded_decision.reason = decision->reason() ? decision->reason()->str() : std::string();
