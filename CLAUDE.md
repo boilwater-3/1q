@@ -94,7 +94,7 @@ Evidence references point to existing test files and specific test cases (not br
 ## Session Workflow
 
 - **Plan mode & branching**: SessionStart hook prompts when on `main`; pre-commit hook auto-creates `feature/<topic>` from commit message on `main`/`master` as a safety net. Branch naming: `feature/<short-description>` in kebab-case.
-- **Commit messages**: [Conventional Commits](https://www.conventionalcommits.org/) format — `type(scope): description`. Types: `feat`, `fix`, `refactor`, `test`, `docs`, `chore`, `perf`. Scope is the primary module/domain (e.g., `airborne_radar`, `eos`, `sar`). Description in imperative mood, lowercase, derived to the branch topic slug. End every message with `Co-Authored-By: Claude <noreply@anthropic.com>`.
+- **Commit messages**: [Conventional Commits](https://www.conventionalcommits.org/) format — `type(scope): description`. Types: `feat`, `fix`, `refactor`, `test`, `docs`, `chore`, `perf`. Scope is the primary module/domain (e.g., `airborne_radar`, `eos`, `sar`). Description in imperative mood, lowercase. End every message with `Co-Authored-By: Claude <noreply@anthropic.com>`.
 - **Commit gate**: pre-commit hook blocks `major` C++ changes (≥3 files or ≥50 lines) until `/completeness-review` passes. `minor` and `trivial` changes pass through with a warning.
 - **Merge & cleanup**: merge the feature branch into `main` with `--no-ff` only after user approval; delete it locally (and on remote if pushed) to avoid branch proliferation.
 
