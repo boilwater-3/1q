@@ -22,11 +22,28 @@ enum class EcmInputMode : std::uint8_t {
   kTruthAssisted = 1,
 };
 
-/** @brief 首期支持的压制干扰技术。 */
+/** @brief 支持的压制干扰技术。 */
 enum class EcmTechnique : std::uint8_t {
   kSpot = 0,
   kBarrage = 1,
   kSweep = 2,
+  kDeception = 3,
+};
+
+/** @brief 欺骗干扰子技术。 */
+enum class EcmDeceptionMode : std::uint8_t {
+  kRgpo = 0,
+  kVgpo = 1,
+  kRgpoVgpo = 2,
+  kFalseTarget = 3,
+};
+
+/** @brief 欺骗拖引状态机相位。 */
+enum class EcmDeceptionPhase : std::uint8_t {
+  kIdle = 0,
+  kTowing = 1,
+  kHolding = 2,
+  kStopped = 3,
 };
 
 namespace config {
@@ -48,6 +65,18 @@ struct ONEQ_API EcmSessionConfig {
   double sweep_bandwidth_hz{200.0e6};
   std::uint32_t sweep_segment_count{8U};
   EcmTechnique default_technique{EcmTechnique::kSpot};
+  // --- 欺骗干扰配置 ---
+  EcmDeceptionMode default_deception_mode{EcmDeceptionMode::kRgpo};
+  double deception_rgpo_rate_m_per_s{100.0};
+  double deception_rgpo_max_range_m{5000.0};
+  double deception_vgpo_rate_hz_per_s{1000.0};
+  double deception_vgpo_max_doppler_hz{10000.0};
+  double deception_hold_time_s{2.0};
+  double deception_power_scale{0.5};
+  std::uint32_t deception_max_active{4U};
+  double deception_false_target_delay_s{10.0e-6};
+  double deception_false_target_doppler_hz{5000.0};
+  std::uint32_t deception_max_false_targets_per_threat{5U};
 };
 
 /** @brief ECM 运行期可变配置补丁。 */
@@ -58,6 +87,8 @@ struct ONEQ_API EcmRuntimeConfigPatch {
   double maximum_total_transmit_power_w{0.0};
   bool has_default_technique{false};
   EcmTechnique default_technique{EcmTechnique::kSpot};
+  bool has_default_deception_mode{false};
+  EcmDeceptionMode default_deception_mode{EcmDeceptionMode::kRgpo};
 };
 
 }  // namespace config
@@ -98,6 +129,8 @@ struct ONEQ_API EcmTruthThreat {
   double center_frequency_hz{0.0};
   double bandwidth_hz{0.0};
   float threat_score{0.0f};
+  double estimated_pri_s{1.0e-3};
+  double estimated_pulse_width_s{1.0e-6};
 };
 
 /** @brief ECM 单周期输入。 */
@@ -122,6 +155,8 @@ struct ONEQ_API EcmResourceDecision {
   std::uint64_t source_observation_id{0U};
   std::uint64_t truth_entity_id{0U};
   EcmTechnique technique{EcmTechnique::kSpot};
+  EcmDeceptionMode deception_mode{EcmDeceptionMode::kRgpo};
+  EcmDeceptionPhase deception_phase{EcmDeceptionPhase::kIdle};
   std::uint32_t channel_index{0U};
   double allocated_power_w{0.0};
   std::string reason{};
@@ -151,6 +186,18 @@ struct ONEQ_API EcmCycleResult {
   std::vector<EcmResourceDecision> decisions{};
 };
 
+/** @brief 单次欺骗干扰交战累积状态。 */
+struct ONEQ_API EcmDeceptionState {
+  std::uint64_t threat_id{0U};
+  EcmDeceptionMode mode{EcmDeceptionMode::kRgpo};
+  EcmDeceptionPhase phase{EcmDeceptionPhase::kIdle};
+  double current_delay_s{0.0};
+  double current_doppler_offset_hz{0.0};
+  double phase_elapsed_s{0.0};
+  std::uint32_t cycle_count{0U};
+  bool engaged{false};
+};
+
 /** @brief 无异常运行期补丁应用结果。 */
 struct ONEQ_API EcmRuntimeConfigApplyResult {
   bool has_requested_update{false};
@@ -174,6 +221,8 @@ struct ONEQ_API EcmRuntimeState {
   double thermal_energy_j{0.0};
   std::string scheduling_rng_state{};
   std::string tie_break_rng_state{};
+  std::string deception_rng_state{};
+  std::vector<EcmDeceptionState> deception_states{};
 };
 
 }  // namespace session

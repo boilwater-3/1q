@@ -1,16 +1,16 @@
 # Electronic Countermeasure 当前设计
 
 Status: active
-Last-reviewed: 2026-07-22
+Last-reviewed: 2026-07-28
 Authority: current electronic_countermeasure module design
 RF-Interference-Architecture: frozen target; AR/ESR/ECM RF v2 implemented (per-module status in each design.md)
 
 本文是 `electronic_countermeasure` 的唯一设计权威。公共 RF 单位、链路、co-site 与输出分层规则见
-`docs/common/contract.md`。首期精度为参数化 RF 活动/发射调度级，不生成复数 IQ，仅实现点频、阻塞和
-扫频压制干扰；接收机链路预算、受扰状态和探测结果不属于 ECM。
-首期不实现欺骗/转发；AR 已无 legacy adapter，ESR 已迁移到 RF v2 接收。ECM 的 RF v2 压制发射与
-ESR/AR 的接收侧状态严格隔离：ECM 只发布实际 `RfEmissionFrame`，不消费接收机的 J/S、J/N、受扰状态
-或探测结果。SAR/EOS/SBIRS 不在当前联动范围。
+`docs/common/contract.md`。首期精度为参数化 RF 活动/发射调度级，不生成复数 IQ，实现了点频、阻塞和
+扫频三种压制干扰，以及 RGPO、VGPO、RGPO+VGPO 组合和假目标四种欺骗干扰；接收机链路预算、受扰状态
+和探测结果不属于 ECM。
+欺骗干扰使用与压制干扰相同的 `RfEmissionFrame` / `RfWaveformSchedule` 公共路径输出，AR/ESR 作为
+意图中立的接收端无需改动。
 
 ## 1. 架构与边界
 
@@ -71,15 +71,16 @@ pattern、polarization 和 pointing，scheduler 只能选择 waveform、channel�
 声称已经驱动波束指向。若未来引入定向 ECM，必须先冻结 actuator/beam state、slew/settle、资源冲突和
 replay，再把 pointing 写入实际 emission fact。
 
-随机性按 waveform scheduling、tie-break 和其它实际消费者分离；每条流定义无发射/拒绝周期是否采样，
-不得由 threat 输入顺序隐式改变。实现上 session 维护两条独立 `std::mt19937` 流：scheduling 流
-专责 sweep 方向采样，tie-break 流专责等分排序；两者均从会话 `random_seed` 经 splitmix32 终结符
-按各自 domain tag 派生（与 SBIRS `DeriveMeasurementSeed` 同约定），互相不相关。无发射/拒绝/
+随机性按 waveform scheduling、tie-break、deception 和其它实际消费者分离；每条流定义无发射/拒绝周期是否采样，
+不得由 threat 输入顺序隐式改变。实现上 session 维护三条独立 `std::mt19937` 流：scheduling 流
+专责 sweep 方向采样，tie-break 流专责等分排序，deception 流专责欺骗发射的 timing seed 生成；
+三者均从会话 `random_seed` 经 splitmix32 终结符按各自 domain tag 派生
+（与 SBIRS `DeriveMeasurementSeed` 同约定），互相不相关。无发射/拒绝/
 关机周期两条流都不采样。tie-break 流的消耗量只等于“参与排队的可行威胁唯一 ID 数”，scheduling
 流的消耗量只等于“实际生成的 sweep emission 数”，二者都与 threat 输入顺序无关；具体地，tie-break
 键在排序前按威胁稳定 ID 的规范序（而非输入序）逐 ID 派生并回填到威胁，使排序比较器保持纯函数，
 相同威胁集合在任意输入顺序下产出相同的 {ID → 键} 映射与相同的最终排序。scheduling state、next
-emission ID、最近 ESR 帧、逐威胁年龄、滑行年龄、成功 prepare sequence、热能、两条随机流和活动
+emission ID、最近 ESR 帧、逐威胁年龄、滑行年龄、成功 prepare sequence、热能、三条随机流、欺骗状态和活动
 配置均由 session 快照唯一拥有。快照只可恢复到捕获它的同一 session 实例，恢复前完整校验所有嵌套
 observation、重复 ID、provenance、模式组合和随机状态（含两条流的反序列化），失败不得部分修改。
 
@@ -121,7 +122,68 @@ schema 端到端往返。注:快照恢复侧的嵌套 observation / 重复 ID / 
 
 ## 5. 非目标与变更规则
 
-- 不实现新的欺骗、转发、DRFM 或成功概率模型。
+- 不实现新的转发、DRFM 或成功概率模型。
 - 不把 truth ID 引入 sensor-driven 输入或 raw emission。
 - 不让 ECM 计算接收功率、J/S、J/N 或传感器受扰判决。
 - 增加技术、修改滑行/资源/热语义或 snapshot 所有权时，必须同步 unit、trace/replay、跨模块集成和本文证据。
+
+## 6. 欺骗干扰
+
+欺骗干扰通过 `EcmTechnique::kDeception` 技术类别启用，由 `EcmDeceptionMode` 选择具体子模式。
+与压制干扰共享相同的调度器（按威胁分数排序、通道/功率/热预算分配），但使用独立的第三条 RNG 流
+（domain tag `DEPT`）生成 per-emission timing seed。
+
+### 6.1 子技术与状态机
+
+| 子技术 | 波形 | 拖引参数 | 生命周期 |
+|--------|------|----------|----------|
+| `kRgpo` (Range Gate Pull-Off) | `kPulseTrain` | 距离拖引速率 → 假目标时延递增 | Towing → Holding → Stopped |
+| `kVgpo` (Velocity Gate Pull-Off) | `kPulseTrain` | 多普勒拖引速率 → 载频偏移递增 | Towing → Holding → Stopped |
+| `kRgpoVgpo` (组合) | `kPulseTrain` | 距离+多普勒同时递增 | Towing → Holding → Stopped |
+| `kFalseTarget` (假目标) | `kPulseTrain`（每周期 N 个发射） | 固定时延+多普勒偏移 | 直接 Stopped（无拖引/保持） |
+
+状态机四相：`kTowing`（参数递增至最大偏移）→ `kHolding`（保持 `hold_time_s` 秒）→ `kStopped`
+（停拖一周期后释放）→ `kIdle`（释放，通道可重新分配）。`kFalseTarget` 直接从 `kTowing` 转为
+`kStopped`，无牵引和保持相。每个欺骗交战由 `EcmDeceptionState` 追踪，按 `threat_id` 索引；
+相同威胁的已有活跃交战优先复用，否则创建新 Towing 交战。
+
+### 6.2 波形合同
+
+欺骗发射使用公共 RF v2 的 `TryCreateRfPulseTrainWaveform` 生成 `kPulseTrain` 波形，与压制干扰
+发送到相同的 `RfEmissionFrame` 公共路径。具体地：
+- `first_pulse_time_s` = `cycle_start_time_s + current_delay_s`，其中 `current_delay_s` 模拟
+  假目标距离的电磁波双程时延；
+- `center_frequency_hz` = 威胁频率 + `current_doppler_offset_hz`，其中 `current_doppler_offset_hz`
+  模拟假目标径向速度的多普勒偏移；
+- PRI 和脉宽取自威胁估计（SensorDriven 模式来自 ESR hypothesis，TruthAssisted 模式来自
+  `EcmTruthThreat` 新增的 `estimated_pri_s` / `estimated_pulse_width_s` 字段）；
+- 发射功率 = `allocated_power_w * deception_power_scale`（`deception_power_scale` ∈ (0,1]）；
+- `kFalseTarget` 模式下每周期生成 `deception_max_false_targets_per_threat` 个独立发射，功率均分，
+  各发射的 delay 依 index 错开 1μs 以避免时域重叠。
+
+### 6.3 配置字段
+
+欺骗配置作为 `EcmSessionConfig` 的扩展字段：`default_deception_mode`、拖引速率/范围、保持时间、
+功率比例、最大并发交战数、假目标时延/多普勒偏移和单威胁最大假目标数。所有字段均参与
+`IsValidConfig` 校验。`EcmRuntimeConfigPatch` 支持运行期通过 `has_default_deception_mode`
+切换欺骗子模式。
+
+### 6.4 Snapshot 与 Replay
+
+欺骗累积状态（`deception_states` + `deception_rng_state`）作为 `EcmRuntimeState` 的扩展字段，
+参与快照往返和内部一致性校验。`EcmResourceDecision` 新增 `deception_mode`、`deception_phase`
+字段记录每个资源分配决策的欺骗上下文。FlatBuffers schema `ecm_replay.fbs` 已同步扩展以容纳
+欺骗配置和决策字段的编解码。
+
+### 6.5 证据
+
+`ecm_deception_test.cpp`：
+`DeceptionTechniqueProducesPulseTrainWaveform`、
+`RgpoDelayAdvancesEachCycle`、`RgpoHoldAfterMaxDelay`、`RgpoStopAfterHoldTime`、
+`VgpoDopplerOffsetAdvancesEachCycle`、`VgpoHoldAndStop`、`RgpoVgpoCombinedAdvancesBoth`、
+`FalseTargetProducesMultipleEmissions`、`DeceptionPowerScaleIsRespected`、
+`DeceptionStateSnapshotRoundtrip`、`DeceptionRejectedCycleDoesNotAdvanceState`、
+`DeceptionDefaultConfigIsValid`、`DeceptionTechniqueIsKnown`、
+`ConfigRejectsInvalidDeceptionFields`、`ConfigRejectsPowerScaleAboveOne`、
+`ConfigRejectsZeroMaxActive`、`FalseTargetEmissionsHaveUniqueIdentities`、
+`TruthAssistedDeceptionUsesThreatPriAndPulseWidth`、`RuntimePatchCanSwitchToDeception`。
