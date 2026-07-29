@@ -74,20 +74,23 @@ void EccmEvaluator::AccumulateInterferenceObservation(
         std::min(2.0, observation.jammer_to_noise_db / kStrongJammerToNoiseDb);
     selection->burnthrough_gain_score += static_cast<float>(normalized_strength);
   }
-  // 反欺骗评分：按可观测特征路由 RGPO/VGPO，而非让任意 kPulseTrain 同时贡献两者。
-  // 此前实现把 kPulseTrain 对称地给 anti_rgpo_score 与 anti_vgpo_score 各 +1.5，没有可观测
-  // 特征区分两种技术，导致单一脉冲列干扰同时触发两类对抗。现按以下特征路由：
-  //   - VGPO（速度波门拖引）：estimated_range_rate_mps 显著非零 → 加速度限幅；
-  //   - RGPO（距离波门拖引）：coherent_emission_count >= 2（多假目标同方向）→ 前沿跟踪；
-  //   - 单纯 kPulseTrain 无上述特征时不触发任一反欺骗分数。
-  constexpr double kVgpoRangeRateGateMps = 15.0;  // 显著径向速度门限（m/s）
-  if (std::fabs(observation.estimated_range_rate_mps) >= kVgpoRangeRateGateMps) {
+  // 反欺骗评分：按与 ECM 物理匹配的可观测特征路由 RGPO/VGPO。
+  // ECM 的 RGPO 表达为首脉冲时延（距离门被拖远），VGPO 表达为转发载频偏移（速度波门被
+  // 拖离）。此前实现误用 leaked 几何 range-rate 冒充 VGPO、误用 coherent_count 冒充 RGPO，
+  // 致使静止干扰机的 VGPO 与单发射 RGPO 都无法触发反制，反而高速非欺骗源会误触发。现按
+  // 物理特征路由（不依赖 ECM 真值，design.md:461）：
+  //   - VGPO：estimated_carrier_offset_hz 显著偏离本振载频 → 加速度限幅；
+  //   - RGPO：estimated_first_pulse_delay_s 超过几何传播期望 → 前沿跟踪；
+  //   - coherent_emission_count >= 2 / kLikelyFalseTarget 仍只触发假目标鉴别（其正确语义）。
+  constexpr double kVgpoCarrierOffsetGateHz = 1000.0;  // 显著载频偏移门限（Hz）
+  constexpr double kRgpoFirstPulseDelayGateS = 1.0e-7;  // 显著首脉冲时延门限（100 ns ≈ 30m）
+  if (std::fabs(observation.estimated_carrier_offset_hz) >= kVgpoCarrierOffsetGateHz) {
     selection->anti_vgpo_score += 1.5f;
   }
-  if (observation.coherent_emission_count >= 2U) {
+  if (observation.estimated_first_pulse_delay_s >= kRgpoFirstPulseDelayGateS) {
     selection->anti_rgpo_score += 1.5f;
   }
-  // 假目标：观测分类为疑似假目标 → 假目标鉴别。
+  // 假目标：观测分类为疑似假目标（同方向多脉冲列） → 假目标鉴别。
   if (observation.deception_class == session::DeceptionClass::kLikelyFalseTarget) {
     selection->anti_false_target_score += 2.0f;
   }

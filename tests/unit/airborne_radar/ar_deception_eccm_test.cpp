@@ -22,7 +22,8 @@ namespace {
 session::ArInterferenceObservation BuildObservation(
     oneq::electromagnetics::RfSceneWaveformKind waveform_kind,
     double off_boresight_deg, double jammer_to_noise_db,
-    std::uint32_t coherent_emission_count = 0U, double range_rate_mps = 0.0) {
+    std::uint32_t coherent_emission_count = 0U, double range_rate_mps = 0.0,
+    double carrier_offset_hz = 0.0, double first_pulse_delay_s = 0.0) {
   session::ArInterferenceObservation observation;
   observation.observation_id = 1U;
   observation.estimated_bearing_azimuth_deg = 10.0;
@@ -38,6 +39,8 @@ session::ArInterferenceObservation BuildObservation(
   observation.deception_class = session::DeceptionClass::kNone;
   observation.coherent_emission_count = coherent_emission_count;
   observation.estimated_range_rate_mps = range_rate_mps;
+  observation.estimated_carrier_offset_hz = carrier_offset_hz;
+  observation.estimated_first_pulse_delay_s = first_pulse_delay_s;
   return observation;
 }
 
@@ -61,13 +64,15 @@ bool ContainsDirective(const std::vector<session::TacticalProposal>& proposals,
 // Phase 2: 反欺骗 ECCM 评估测试
 // ============================================================================
 
-TEST(ArDeceptionEccmTest, CoherentPulseTrainClusterTriggersAntiRgpoProposal) {
+TEST(ArDeceptionEccmTest, SignificantFirstPulseDelayTriggersAntiRgpoProposal) {
   decision::EccmEvaluator evaluator;
   std::vector<session::TacticalProposal> proposals;
-  // RGPO（距离波门拖引）的可观测特征是多假目标同方向：coherent_emission_count >= 2。
+  // RGPO（距离波门拖引）的物理可观测特征是首脉冲到达滞后于几何传播期望：
+  // estimated_first_pulse_delay_s >= 门限。
   const session::ArInterferenceObservation observation = BuildObservation(
       oneq::electromagnetics::RfSceneWaveformKind::kPulseTrain, 5.0, 8.0,
-      /*coherent_emission_count=*/3U);
+      /*coherent_emission_count=*/0U, /*range_rate_mps=*/0.0,
+      /*carrier_offset_hz=*/0.0, /*first_pulse_delay_s=*/5.0e-6);
 
   const decision::EccmEvaluator::Result result =
       evaluator.Evaluate({observation}, &proposals);
@@ -77,13 +82,14 @@ TEST(ArDeceptionEccmTest, CoherentPulseTrainClusterTriggersAntiRgpoProposal) {
       proposals, session::ControlDirectiveType::REQUEST_ANTI_RGPO_LEADING_EDGE));
 }
 
-TEST(ArDeceptionEccmTest, SignificantRangeRateTriggersAntiVgpoProposal) {
+TEST(ArDeceptionEccmTest, SignificantCarrierOffsetTriggersAntiVgpoProposal) {
   decision::EccmEvaluator evaluator;
   std::vector<session::TacticalProposal> proposals;
-  // VGPO（速度波门拖引）的可观测特征是显著径向速度：|range_rate| >= 门限。
+  // VGPO（速度波门拖引）的物理可观测特征是转发载频偏离本振：|estimated_carrier_offset_hz| >= 门限。
   const session::ArInterferenceObservation observation = BuildObservation(
       oneq::electromagnetics::RfSceneWaveformKind::kPulseTrain, 5.0, 8.0,
-      /*coherent_emission_count=*/0U, /*range_rate_mps=*/30.0);
+      /*coherent_emission_count=*/0U, /*range_rate_mps=*/0.0,
+      /*carrier_offset_hz=*/8000.0);
 
   const decision::EccmEvaluator::Result result =
       evaluator.Evaluate({observation}, &proposals);
@@ -208,10 +214,11 @@ TEST(ArDeceptionEccmTest, NonPulseTrainObservationDoesNotTriggerAntiDeception) {
 TEST(ArDeceptionEccmTest, AntiRgpoProposalHasHigherPriorityThanRejitter) {
   decision::EccmEvaluator evaluator;
   std::vector<session::TacticalProposal> proposals;
-  // kPulseTrain + coherent_emission_count>=2 触发 RGPO（前沿跟踪），同时 kPulseTrain 触发 rejitter。
+  // kPulseTrain + 首脉冲时延触发 RGPO（前沿跟踪），同时 kPulseTrain 触发 rejitter。
   const session::ArInterferenceObservation observation = BuildObservation(
       oneq::electromagnetics::RfSceneWaveformKind::kPulseTrain, 8.0, 12.0,
-      /*coherent_emission_count=*/3U);
+      /*coherent_emission_count=*/0U, /*range_rate_mps=*/0.0,
+      /*carrier_offset_hz=*/0.0, /*first_pulse_delay_s=*/5.0e-6);
 
   evaluator.Evaluate({observation}, &proposals);
 
@@ -236,14 +243,16 @@ TEST(ArDeceptionEccmTest, AntiRgpoProposalHasHigherPriorityThanRejitter) {
 TEST(ArDeceptionEccmTest, MultiplePulseTrainObservationsAccumulateAntiDeceptionScores) {
   decision::EccmEvaluator evaluator;
   std::vector<session::TacticalProposal> proposals;
-  // 两个 kPulseTrain 观测：obs1 带 coherent_emission_count（触发 RGPO），obs2 带显著 range_rate
+  // 两个 kPulseTrain 观测：obs1 带显著首脉冲时延（触发 RGPO），obs2 带显著载频偏移
   // （触发 VGPO）。两者独立路由到不同反欺骗通道，验证可观测特征分离的累积语义。
   const session::ArInterferenceObservation obs1 = BuildObservation(
       oneq::electromagnetics::RfSceneWaveformKind::kPulseTrain, 5.0, 8.0,
-      /*coherent_emission_count=*/3U);
+      /*coherent_emission_count=*/0U, /*range_rate_mps=*/0.0,
+      /*carrier_offset_hz=*/0.0, /*first_pulse_delay_s=*/5.0e-6);
   const session::ArInterferenceObservation obs2 = BuildObservation(
       oneq::electromagnetics::RfSceneWaveformKind::kPulseTrain, 3.0, 7.0,
-      /*coherent_emission_count=*/0U, /*range_rate_mps=*/25.0);
+      /*coherent_emission_count=*/0U, /*range_rate_mps=*/0.0,
+      /*carrier_offset_hz=*/9000.0);
 
   evaluator.Evaluate({obs1, obs2}, &proposals);
 
@@ -830,40 +839,47 @@ TEST(ArDeceptionEccmTest, AntiVgpoClampSyncsImmModelStates) {
   EXPECT_LT(after_miss[0]->velocity.x(), 20.0f);
 }
 
-// EccmEvaluator 路由边界：coherent_emission_count == 2 刚好触发 RGPO 阈值。
-TEST(ArDeceptionEccmTest, CoherentCountExactlyTwoTriggersAntiRgpo) {
+// EccmEvaluator 路由边界：first_pulse_delay 刚好达到 RGPO 门限（100 ns）触发 RGPO。
+TEST(ArDeceptionEccmTest, FirstPulseDelayAtThresholdTriggersAntiRgpo) {
   decision::EccmEvaluator evaluator;
   std::vector<session::TacticalProposal> proposals;
   const session::ArInterferenceObservation observation = BuildObservation(
       oneq::electromagnetics::RfSceneWaveformKind::kPulseTrain, 5.0, 8.0,
-      /*coherent_emission_count=*/2U);
+      /*coherent_emission_count=*/0U, /*range_rate_mps=*/0.0,
+      /*carrier_offset_hz=*/0.0, /*first_pulse_delay_s=*/1.0e-7);
   evaluator.Evaluate({observation}, &proposals);
   EXPECT_TRUE(ContainsDirective(proposals,
       session::ControlDirectiveType::REQUEST_ANTI_RGPO_LEADING_EDGE));
 }
 
-// EccmEvaluator 路由边界：|range_rate| == 15.0 刚好触发 VGPO 阈值。
-TEST(ArDeceptionEccmTest, RangeRateExactlyThresholdTriggersAntiVgpo) {
+// EccmEvaluator 路由边界：|carrier_offset| 刚好达到 VGPO 门限（1000 Hz）触发 VGPO。
+TEST(ArDeceptionEccmTest, CarrierOffsetAtThresholdTriggersAntiVgpo) {
   decision::EccmEvaluator evaluator;
   std::vector<session::TacticalProposal> proposals;
   const session::ArInterferenceObservation observation = BuildObservation(
       oneq::electromagnetics::RfSceneWaveformKind::kPulseTrain, 5.0, 8.0,
-      /*coherent_emission_count=*/0U, /*range_rate_mps=*/15.0);
+      /*coherent_emission_count=*/0U, /*range_rate_mps=*/0.0,
+      /*carrier_offset_hz=*/1000.0);
   evaluator.Evaluate({observation}, &proposals);
   EXPECT_TRUE(ContainsDirective(proposals,
       session::ControlDirectiveType::REQUEST_ANTI_VGPO_ACCELERATION_BOUND));
 }
 
-// EccmEvaluator 路由边界：range_rate 刚好低于阈值不应触发 VGPO。
-TEST(ArDeceptionEccmTest, RangeRateJustBelowThresholdDoesNotTriggerAntiVgpo) {
+// EccmEvaluator 路由边界：carrier_offset 刚好低于门限不应触发 VGPO；同时确认
+// coherent_emission_count 与 range_rate 不再（误）触发任一反欺骗通道——它们已不是
+// RGPO/VGPO 的代理。
+TEST(ArDeceptionEccmTest, CarrierOffsetBelowThresholdDoesNotTriggerAntiVgpo) {
   decision::EccmEvaluator evaluator;
   std::vector<session::TacticalProposal> proposals;
   const session::ArInterferenceObservation observation = BuildObservation(
       oneq::electromagnetics::RfSceneWaveformKind::kPulseTrain, 5.0, 8.0,
-      /*coherent_emission_count=*/0U, /*range_rate_mps=*/14.9);
+      /*coherent_emission_count=*/5U, /*range_rate_mps=*/300.0,
+      /*carrier_offset_hz=*/999.0);
   evaluator.Evaluate({observation}, &proposals);
   EXPECT_FALSE(ContainsDirective(proposals,
       session::ControlDirectiveType::REQUEST_ANTI_VGPO_ACCELERATION_BOUND));
+  EXPECT_FALSE(ContainsDirective(proposals,
+      session::ControlDirectiveType::REQUEST_ANTI_RGPO_LEADING_EDGE));
 }
 
 }  // namespace
