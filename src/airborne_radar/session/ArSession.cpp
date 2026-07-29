@@ -770,11 +770,17 @@ struct ArSession::Impl {
             "[ArSession] CompleteRfCycle could not build platform frame; interference "
             "bearings fall back to ECEF tangent-plane (cross-frame discrimination degraded).");
       }
+      // 去真值化扰动种子：cycle index + receiver equipment id 派生，保证 replay（同 cycle
+      // 重放）下扰动可复现，同时跨周期/跨设备互不相关（contract.md:348）。
+      const std::uint32_t perturbation_seed =
+          (prepared_token.world_cycle_index & 0xFFFF'FFFFU) ^
+          (static_cast<std::uint32_t>(prepared_operating_state.rf_receiver.equipment_id) *
+           2654435761U);
       if (!signal::detection::TryResolveArInterferenceObservations(
               input.rf_scene, prepared_operating_state.rf_receiver, prepared_emission.identity,
               front_end.incident_links, thermal_noise_power_w,
               static_cast<double>(detection.receiver.interference_observation_jn_gate_db),
-              platform_frame, &interference_observations)) {
+              platform_frame, perturbation_seed, &interference_observations)) {
         PROJECT_LOG_ERROR(
             "[ArSession] CompleteRfCycle interference observation resolution failed.");
         result.status = ArCompleteCycleStatus::kRejected;

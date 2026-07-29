@@ -2,8 +2,10 @@
 
 #include <algorithm>
 #include <cmath>
+#include <random>
 #include <tuple>
 
+#include "airborne_radar/signal/detection/RadarEquations.h"
 #include "common/geometry/BearingCluster.h"
 #include "1q/coordinate/attitude_transform.h"
 #include "1q/coordinate/position_transform.h"
@@ -107,6 +109,46 @@ ObservationSortKey MakeSortKey(const session::ArInterferenceObservation& observa
       observation.jammer_to_noise_db);
 }
 
+// splitmix32 finalizer keyed by a per-observable domain tag, mirroring the
+// ECM/SBIRS DeriveStreamSeed convention. Two observables with the same base
+// seed but distinct tags draw from uncorrelated sub-streams, so the range and
+// range-rate perturbations are independent.
+const std::uint32_t kRangeDomain = UINT32_C(0x524e4745);    // "RNGE"
+const std::uint32_t kRangeRateDomain = UINT32_C(0x52415445);  // "RATE"
+
+std::uint32_t DeriveStreamSeed(std::uint32_t base_seed, std::uint32_t domain_tag) {
+  std::uint32_t value = base_seed ^ domain_tag;
+  value ^= value >> 16U;
+  value *= 0x7feb352dU;
+  value ^= value >> 15U;
+  value *= 0x846ca68bU;
+  value ^= value >> 16U;
+  return value == 0U ? 1U : value;
+}
+
+// Add a deterministic zero-mean Gaussian perturbation of the given standard
+// deviation to a truth-derived scalar, so the observable is no longer an exact
+// simulation truth value (contract.md:348). The perturbation is keyed by the
+// base seed + domain tag + an emission-stable position tag, making it
+// reproducible across replays (same inputs ⇒ same output) while decorrelating
+// distinct emissions. Returns the perturbed value, or the original on any
+// non-finite result (caller still validates downstream).
+double Perturb(double truth_value, double std_dev, std::uint32_t base_seed,
+               std::uint32_t domain_tag, std::uint64_t emission_tag) {
+  if (!std::isfinite(truth_value) || !std::isfinite(std_dev) || std_dev <= 0.0) {
+    return truth_value;
+  }
+  // Mix the emission-stable tag into the seed so two emissions in the same
+  // cycle draw independent noise; base seed already encodes cycle + receiver.
+  const std::uint32_t seed =
+      DeriveStreamSeed(base_seed, domain_tag) ^
+      static_cast<std::uint32_t>(emission_tag >> 32U) ^
+      static_cast<std::uint32_t>(emission_tag & 0xFFFF'FFFFU);
+  std::mt19937 engine(seed == 0U ? 1U : seed);
+  std::normal_distribution<double> distribution(0.0, std_dev);
+  return truth_value + distribution(engine);
+}
+
 }  // namespace
 
 bool TryResolveArInterferenceObservations(
@@ -116,6 +158,7 @@ bool TryResolveArInterferenceObservations(
     const std::vector<oneq::electromagnetics::RfIncidentLinkResult>& incident_links,
     double thermal_noise_power_w, double jammer_to_noise_gate_db,
     const oneq::coordinate::LocalFrameReference& platform_frame,
+    std::uint32_t perturbation_seed,
     std::vector<session::ArInterferenceObservation>* observations) {
   if (observations == nullptr || !oneq::electromagnetics::TryValidateRfSceneFrame(scene) ||
       !std::isfinite(thermal_noise_power_w) || thermal_noise_power_w <= 0.0 ||
@@ -152,8 +195,34 @@ bool TryResolveArInterferenceObservations(
     if (!std::isfinite(range_m) || range_m <= 0.0) {
       return false;
     }
+    // 发射稳定的 64 位标签：用于把斜距/径向速度扰动与具体发射绑定，使同种子同输入下
+    // 可复现、不同发射之间互不相关。组合 platform/equipment/emission 身份（truth 身份
+    // 仅用于种子混入，不写入 observation，仍遵守去真值化约定）。
+    const std::uint64_t emission_tag =
+        (static_cast<std::uint64_t>(link.identity.platform_id) << 48U) |
+        (static_cast<std::uint64_t>(link.identity.equipment_id) << 32U) |
+        static_cast<std::uint64_t>(link.identity.emission_id);
+    // 距离/径向速度测量噪声标准差：以接收端 J/N 作为有效信噪比，发射占用带宽作为距离
+    // 分辨带宽。径向速度噪声近似为 σ_v ≈ σ_R / dwell（dwell 取场景窗口时长，下界保护）。
+    const double range_std_m =
+        static_cast<double>(RadarEquations::ComputeRangeErrorStdDev(
+            static_cast<float>(jammer_to_noise_db),
+            static_cast<float>(emission->waveform.occupied_bandwidth_hz)));
+    const double dwell_s = std::isfinite(scene.window_duration_s) && scene.window_duration_s > 0.0
+                               ? scene.window_duration_s
+                               : 1.0e-3;
+    const double range_rate_std_mps = range_std_m / dwell_s;
+
     session::ArInterferenceObservation observation;
-    observation.estimated_slant_range_m = range_m;
+    // 去真值化：斜距叠加由 MeasurementErrorModel 标准差驱动的确定性零均值噪声，
+    // 不再是精确仿真真值（contract.md:348）。
+    double perturbed_range_m =
+        Perturb(range_m, range_std_m, perturbation_seed, kRangeDomain, emission_tag);
+    if (!std::isfinite(perturbed_range_m) || perturbed_range_m <= 0.0) {
+      // 扰动后落入非物理区间时退回真值几何并 fail-closed（与既有 range 校验一致）。
+      return false;
+    }
+    observation.estimated_slant_range_m = perturbed_range_m;
     observation.estimated_bearing_azimuth_deg = std::atan2(y, x) * kRadiansToDegrees;
     observation.estimated_bearing_elevation_deg = std::asin(z / range_m) * kRadiansToDegrees;
     // 雷达局部系方位（与目标 look angle 同系）。无可用 pose 时留零，由下游回退并告警。
@@ -173,6 +242,7 @@ bool TryResolveArInterferenceObservations(
     // 径向速度：相对速度（发射体-接收机）与视线单位向量的点乘（正值表示远离）。
     // 此前实现仅用发射体 ECEF 速度，未扣除接收机（平台）自身运动，对快速移动平台
     // 系统性偏置距离变化率估计，影响反 VGPO 评分门限的准确性。
+    double range_rate_mps = 0.0;
     if (oneq::coordinate::IsFinite(emission->velocity_ecef_mps) &&
         oneq::coordinate::IsFinite(receiver.velocity_ecef_mps)) {
       const double rel_vx =
@@ -181,15 +251,17 @@ bool TryResolveArInterferenceObservations(
           emission->velocity_ecef_mps.y_mps - receiver.velocity_ecef_mps.y_mps;
       const double rel_vz =
           emission->velocity_ecef_mps.z_mps - receiver.velocity_ecef_mps.z_mps;
-      observation.estimated_range_rate_mps =
-          rel_vx * direction_x + rel_vy * direction_y + rel_vz * direction_z;
+      range_rate_mps = rel_vx * direction_x + rel_vy * direction_y + rel_vz * direction_z;
     } else if (oneq::coordinate::IsFinite(emission->velocity_ecef_mps)) {
       // 回退：接收机 ECEF 速度非有限时仅用发射体速度。
-      observation.estimated_range_rate_mps =
-          emission->velocity_ecef_mps.x_mps * direction_x +
-          emission->velocity_ecef_mps.y_mps * direction_y +
-          emission->velocity_ecef_mps.z_mps * direction_z;
+      range_rate_mps = emission->velocity_ecef_mps.x_mps * direction_x +
+                       emission->velocity_ecef_mps.y_mps * direction_y +
+                       emission->velocity_ecef_mps.z_mps * direction_z;
     }
+    // 去真值化：径向速度同样叠加确定性噪声（contract.md:348）。
+    observation.estimated_range_rate_mps =
+        Perturb(range_rate_mps, range_rate_std_mps, perturbation_seed, kRangeRateDomain,
+                emission_tag);
     const double boresight_dot =
         std::max(-1.0, std::min(1.0, direction_x * receiver.antenna.boresight_ecef.x +
                                         direction_y * receiver.antenna.boresight_ecef.y +

@@ -65,7 +65,7 @@ TEST(ArInterferenceObservationResolverTest, GatesByJOverNAndIsOrderIndependent) 
   std::vector<session::ArInterferenceObservation> forward;
   ASSERT_TRUE(TryResolveArInterferenceObservations(
       scene, receiver, oneq::electromagnetics::RfEmissionIdentity{1U, 3U, 4U}, links, 1.0, 0.0,
-      DefaultFrame(), &forward));
+      DefaultFrame(), /*perturbation_seed=*/42U, &forward));
   ASSERT_EQ(forward.size(), 1U);
   EXPECT_EQ(forward.front().observation_id, 1U);
   EXPECT_GT(forward.front().jammer_to_noise_db, 0.0);
@@ -76,7 +76,7 @@ TEST(ArInterferenceObservationResolverTest, GatesByJOverNAndIsOrderIndependent) 
   std::vector<session::ArInterferenceObservation> reverse;
   ASSERT_TRUE(TryResolveArInterferenceObservations(
       scene, receiver, oneq::electromagnetics::RfEmissionIdentity{1U, 3U, 4U}, reversed_links, 1.0,
-      0.0, DefaultFrame(), &reverse));
+      0.0, DefaultFrame(), /*perturbation_seed=*/42U, &reverse));
   ASSERT_EQ(reverse.size(), forward.size());
   EXPECT_DOUBLE_EQ(reverse.front().estimated_bearing_azimuth_deg,
                    forward.front().estimated_bearing_azimuth_deg);
@@ -102,7 +102,7 @@ TEST(ArInterferenceObservationResolverTest, CoherentPulseTrainEmissionsTaggedAsF
   std::vector<session::ArInterferenceObservation> observations;
   ASSERT_TRUE(TryResolveArInterferenceObservations(
       scene, receiver, oneq::electromagnetics::RfEmissionIdentity{1U, 3U, 4U}, links, 1.0, 0.0,
-      DefaultFrame(), &observations));
+      DefaultFrame(), /*perturbation_seed=*/42U, &observations));
   ASSERT_EQ(observations.size(), 2U);
   // 两条观测应均被标记为疑似假目标，且同方向计数 ≥ 2（含自身）。
   for (const auto& obs : observations) {
@@ -126,7 +126,8 @@ TEST(ArInterferenceObservationResolverTest, IsolatedPulseTrainNotTaggedAsFalseTa
   std::vector<session::ArInterferenceObservation> observations;
   ASSERT_TRUE(TryResolveArInterferenceObservations(
       scene, receiver, oneq::electromagnetics::RfEmissionIdentity{1U, 3U, 4U},
-      {MakeLink(scene.emissions.front(), 100.0)}, 1.0, 0.0, DefaultFrame(), &observations));
+      {MakeLink(scene.emissions.front(), 100.0)}, 1.0, 0.0, DefaultFrame(),
+      /*perturbation_seed=*/42U, &observations));
   ASSERT_EQ(observations.size(), 1U);
   EXPECT_EQ(observations.front().deception_class, session::DeceptionClass::kNone);
   EXPECT_EQ(observations.front().coherent_emission_count, 1U);
@@ -147,10 +148,12 @@ TEST(ArInterferenceObservationResolverTest, UncertaintyDecreasesWithJOverN) {
   std::vector<session::ArInterferenceObservation> high;
   ASSERT_TRUE(TryResolveArInterferenceObservations(
       scene, receiver, oneq::electromagnetics::RfEmissionIdentity{1U, 3U, 4U},
-      {MakeLink(scene.emissions.front(), 10.0)}, 1.0, 0.0, DefaultFrame(), &low));
+      {MakeLink(scene.emissions.front(), 10.0)}, 1.0, 0.0, DefaultFrame(),
+      /*perturbation_seed=*/42U, &low));
   ASSERT_TRUE(TryResolveArInterferenceObservations(
       scene, receiver, oneq::electromagnetics::RfEmissionIdentity{1U, 3U, 4U},
-      {MakeLink(scene.emissions.front(), 100.0)}, 1.0, 0.0, DefaultFrame(), &high));
+      {MakeLink(scene.emissions.front(), 100.0)}, 1.0, 0.0, DefaultFrame(),
+      /*perturbation_seed=*/42U, &high));
   ASSERT_EQ(low.size(), 1U);
   ASSERT_EQ(high.size(), 1U);
   EXPECT_LT(high.front().bearing_standard_deviation_deg,
@@ -196,7 +199,8 @@ TEST(ArInterferenceObservationResolverTest, LocalFrameBearingDiffersFromEcefWhen
   std::vector<session::ArInterferenceObservation> observations;
   ASSERT_TRUE(TryResolveArInterferenceObservations(
       scene, receiver, oneq::electromagnetics::RfEmissionIdentity{1U, 3U, 4U},
-      {MakeLink(scene.emissions.front(), 100.0)}, 1.0, 0.0, frame, &observations));
+      {MakeLink(scene.emissions.front(), 100.0)}, 1.0, 0.0, frame, /*perturbation_seed=*/42U,
+      &observations));
   ASSERT_EQ(observations.size(), 1U);
   const auto& obs = observations.front();
   // ECEF 切平面方位：delta=(0,1000,0)，atan2(1000,0)=90 度（这是 ECEF 切平面伪角度，
@@ -206,8 +210,57 @@ TEST(ArInterferenceObservationResolverTest, LocalFrameBearingDiffersFromEcefWhen
   EXPECT_NEAR(obs.estimated_bearing_azimuth_local_deg, -30.0, 1.5);
   // 两者必须显著不同——这是跨系 bug 的直接判据。
   EXPECT_NE(obs.estimated_bearing_azimuth_local_deg, obs.estimated_bearing_azimuth_deg);
-  // slant_range 字段应被填充为约 1000m。
-  EXPECT_NEAR(obs.estimated_slant_range_m, 1000.0, 1.0);
+  // slant_range 字段已去真值化（叠加测量噪声），不再是精确 1000m；断言落在真值附近
+  // 合理区间内（测量噪声 std ≈ 20m，5σ 容差覆盖单次确定性扰动）。
+  EXPECT_NEAR(obs.estimated_slant_range_m, 1000.0, 120.0);
+}
+
+// 去真值化回归：斜距/径向速度必须不再是精确仿真真值（contract.md:348），且同种子同输入
+// 下可复现（replay 稳定）。此前实现直接写真值几何，使真实输出通道泄漏精确真值。
+TEST(ArInterferenceObservationResolverTest, RangeAndRangeRateArePerturbedFromTruth) {
+  oneq::electromagnetics::RfSceneFrame scene;
+  scene.world_cycle_index = 1U;
+  scene.window_start_time_s = 10.0;
+  scene.window_duration_s = 1.0;
+  // 发射体在接收机正东 1000m，沿视线以 100 m/s 远离（径向速度 +100 m/s）。
+  oneq::electromagnetics::RfSceneEmission emission;
+  emission.identity = oneq::electromagnetics::RfEmissionIdentity{10U, 20U, 1U};
+  emission.position_ecef_m.x_m = 1000.0;
+  emission.position_ecef_m.y_m = 0.0;
+  emission.velocity_ecef_mps.x_mps = 100.0;
+  ASSERT_TRUE(oneq::electromagnetics::TryCreateRfNoiseWaveform(10.0, 1.0, 10.0e9, 20.0e6, 10.0,
+                                                               &emission.waveform));
+  scene.emissions = {emission};
+  oneq::electromagnetics::RfSceneReceiverState receiver;
+  receiver.platform_id = 1U;
+  receiver.equipment_id = 2U;
+  receiver.antenna.half_power_beamwidth_deg = 4.0;
+
+  const auto resolve = [&](std::uint32_t seed) {
+    std::vector<session::ArInterferenceObservation> out;
+    EXPECT_TRUE(TryResolveArInterferenceObservations(
+        scene, receiver, oneq::electromagnetics::RfEmissionIdentity{1U, 3U, 4U},
+        {MakeLink(scene.emissions.front(), 100.0)}, 1.0, 0.0, DefaultFrame(), seed, &out));
+    return out;
+  };
+
+  const auto first = resolve(99U);
+  const auto second = resolve(99U);
+  ASSERT_EQ(first.size(), 1U);
+  ASSERT_EQ(second.size(), 1U);
+  // 真值：斜距 1000m，径向速度 +100 m/s。去真值化后两者都不再精确等于真值。
+  EXPECT_NE(first.front().estimated_slant_range_m, 1000.0);
+  EXPECT_NE(first.front().estimated_range_rate_mps, 100.0);
+  // 同种子同输入 → 完全一致（确定性，replay 可复现）。
+  EXPECT_DOUBLE_EQ(first.front().estimated_slant_range_m,
+                   second.front().estimated_slant_range_m);
+  EXPECT_DOUBLE_EQ(first.front().estimated_range_rate_mps,
+                   second.front().estimated_range_rate_mps);
+  // 不同种子 → 扰动不同（跨周期/跨设备互不相关）。
+  const auto other_seed = resolve(200U);
+  ASSERT_EQ(other_seed.size(), 1U);
+  EXPECT_NE(first.front().estimated_slant_range_m,
+            other_seed.front().estimated_slant_range_m);
 }
 
 }  // namespace
