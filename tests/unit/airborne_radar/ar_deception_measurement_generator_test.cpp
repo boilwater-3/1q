@@ -64,7 +64,7 @@ TEST(DeceptionMeasurementGeneratorTest, SynthesizesOneMeasurementPerCoherentEmis
   // 预置一个真实量测，验证合成量测是追加而非覆盖。
   scratch.track_measurements.push_back(tracking::TrackMeasurement{});
 
-  InjectDeceptionMeasurementsPass(context, context.runtime_config, scratch);
+  InjectDeceptionMeasurementsPass(context, scratch);
 
   // 1 个真实量测 + 3 个合成假目标量测。
   ASSERT_EQ(scratch.track_measurements.size(), 4U);
@@ -85,7 +85,7 @@ TEST(DeceptionMeasurementGeneratorTest, PositionFromLocalBearingAndSlantRange) {
 
   CycleExecutionScratch scratch;
   ResetCycleExecutionScratch(empty_input, scratch);
-  InjectDeceptionMeasurementsPass(context, context.runtime_config, scratch);
+  InjectDeceptionMeasurementsPass(context, scratch);
 
   ASSERT_EQ(scratch.track_measurements.size(), 1U);
   const auto& m = scratch.track_measurements.front();
@@ -109,11 +109,11 @@ TEST(DeceptionMeasurementGeneratorTest, AssociationKeyStableAcrossCyclesForSameO
 
   CycleExecutionScratch scratch_a;
   ResetCycleExecutionScratch(empty_input, scratch_a);
-  InjectDeceptionMeasurementsPass(context_a, context_a.runtime_config, scratch_a);
+  InjectDeceptionMeasurementsPass(context_a, scratch_a);
 
   CycleExecutionScratch scratch_b;
   ResetCycleExecutionScratch(empty_input, scratch_b);
-  InjectDeceptionMeasurementsPass(context_b, context_b.runtime_config, scratch_b);
+  InjectDeceptionMeasurementsPass(context_b, scratch_b);
 
   ASSERT_EQ(scratch_a.track_measurements.size(), 1U);
   ASSERT_EQ(scratch_b.track_measurements.size(), 1U);
@@ -125,19 +125,26 @@ TEST(DeceptionMeasurementGeneratorTest, AssociationKeyStableAcrossCyclesForSameO
             0ULL);
 }
 
-TEST(DeceptionMeasurementGeneratorTest, SkipsWhenDiscriminationDisabled) {
+// 反制开关不得反向控制攻击现象：合成假目标量测应始终生成（独立于
+// enable_anti_false_target_discrimination）。开关只在下游 PromoteState 控制抑制策略。
+// 此前实现让开关 OFF 时完全不生成假目标量测，造成因果反转——此处固化该 bug 的断言已移除。
+TEST(DeceptionMeasurementGeneratorTest, GeneratesFalseTargetMeasurementsRegardlessOfSwitch) {
   session::ArInterferenceObservationList observations = {MakeFalseTargetObservation(1U, 3U)};
   session::ArSceneTargetList empty_input;
   static const session::EnvironmentSnapshot kEmptyEnvironment;
-  ExecutionConfig config;  // enable_anti_false_target_discrimination 默认 false
+  // 开关默认 false：仍应生成 3 个合成假目标量测（攻击现象存在），且均标 classified。
+  ExecutionConfig config;
   CycleExecutionContext context(empty_input, kEmptyEnvironment, 1U, 1U, config, 0.0f, nullptr,
                                 &observations);
 
   CycleExecutionScratch scratch;
   ResetCycleExecutionScratch(empty_input, scratch);
-  InjectDeceptionMeasurementsPass(context, context.runtime_config, scratch);
+  InjectDeceptionMeasurementsPass(context, scratch);
 
-  EXPECT_TRUE(scratch.track_measurements.empty());
+  ASSERT_EQ(scratch.track_measurements.size(), 3U);
+  for (const auto& m : scratch.track_measurements) {
+    EXPECT_TRUE(m.raw_measurement.classified_as_false_target);
+  }
 }
 
 TEST(DeceptionMeasurementGeneratorTest, SkipsNonFalseTargetObservations) {
@@ -149,7 +156,7 @@ TEST(DeceptionMeasurementGeneratorTest, SkipsNonFalseTargetObservations) {
 
   CycleExecutionScratch scratch;
   ResetCycleExecutionScratch(empty_input, scratch);
-  InjectDeceptionMeasurementsPass(context, context.runtime_config, scratch);
+  InjectDeceptionMeasurementsPass(context, scratch);
 
   EXPECT_TRUE(scratch.track_measurements.empty());
 }

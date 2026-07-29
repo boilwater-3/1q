@@ -153,8 +153,8 @@ void RunMeasurementBuildPhase(const CycleExecutionContext& context,
                               CycleExecutionScratch& scratch) {
   BuildTrackMeasurementsPass(context.input_state, scratch);
   // 从欺骗干扰观测合成假目标量测，注入到 track_measurements。必须在真实量测构建之后、
-  // 方位匹配标注之前，使鉴别真正作用于合成假目标而非真实场景目标。
-  InjectDeceptionMeasurementsPass(context, context.runtime_config, scratch);
+  // 方位匹配标注之前，使鉴别真正作用于合成假目标而非真实场景目标。合成独立于反制开关。
+  InjectDeceptionMeasurementsPass(context, scratch);
   TagFalseTargetMeasurements(context, context.runtime_config, scratch);
 }
 

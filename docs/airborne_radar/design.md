@@ -463,7 +463,7 @@ AR 不保留 legacy jammer DTO、技术类别、J/S 摘要或欺骗/转发适配
 AR 在接收链的三个层次主动反制欺骗干扰：
 - **观测层**：`ArInterferenceObservationResolver` 从过 J/N 门限的 kPulseTrain 观测中提取同方向相似参数发射数，设置 `deception_class=kLikelyFalseTarget`，并填充 `estimated_slant_range_m`、`estimated_range_rate_mps` 和雷达局部系方位（`estimated_bearing_*_local_deg`），供下游假目标量测合成与 ECCM 决策（§2.5 检测单元账本）。斜距与径向速度在写入前按 `RadarEquations::ComputeRangeErrorStdDev`（以接收端 J/N 为有效信噪比、占用带宽为距离分辨带宽）派生的标准差叠加**确定性零均值噪声**，种子由 cycle index + receiver equipment id 派生，保证 replay 下可复现；二者不再是精确仿真真值（公共合同 contract.md:348）；
 - **ECCM 决策层**：`EccmEvaluator` 按**与 ECM 物理匹配**的可观测特征路由 RGPO/VGPO（不读 ECM `EcmDeceptionMode` 真值）：`|estimated_carrier_offset_hz|` 显著偏离接收机本振载频（≥ 1 kHz 门限）触发 `anti_vgpo_score`（VGPO 把转发载频拖离威胁雷达频率），`estimated_first_pulse_delay_s` 超过几何单程传播期望（≥ 100 ns 门限）触发 `anti_rgpo_score`（RGPO 把首脉冲拖远）。此前误用泄漏的几何 `estimated_range_rate_mps` 冒充 VGPO、用 `coherent_emission_count>=2` 冒充 RGPO，致使静止干扰机的 VGPO 与单发射 RGPO 都无法触发反制。现 `coherent_emission_count>=2` / `kLikelyFalseTarget` 仅触发 `anti_false_target_score`（其正确语义）。达阈值后分别生成 `REQUEST_ANTI_RGPO_LEADING_EDGE`、`REQUEST_ANTI_VGPO_ACCELERATION_BOUND`、`REQUEST_ANTI_FALSE_TARGET_DISCRIMINATION` 提案（§2.7 ECCM）；
-- **信号层**：`ArControlProfile` 的三个 bool 字段通过 `ControlReducer`/`ControlCommandMapper` 经现有 ECCM hold/cooldown 管线生效。`DeceptionMeasurementGenerator` 按启用标志从 `kLikelyFalseTarget` 干扰观测合成假距离/多普勒量测注入 `track_measurements`，使假目标鉴别真正作用于合成假目标而非真实场景目标。反 VGPO 加速度限幅在裁剪 `track.velocity` 后回写 `gaussian_state.mean` 速度分量并重算 `acceleration`，保证下一周期 Predict 从一致状态出发。
+- **信号层**：`ArControlProfile` 的三个 bool 字段通过 `ControlReducer`/`ControlCommandMapper` 经现有 ECCM hold/cooldown 管线生效。`DeceptionMeasurementGenerator` **独立于反制开关**地从 `kLikelyFalseTarget` 干扰观测合成假距离/多普勒量测注入 `track_measurements`（攻击现象始终存在）；反制开关只在 `TrackLifecycleManager::PromoteState` 控制 tentative→confirmed 的抑制策略，使鉴别真正作用于合成假目标而非真实场景目标。反 VGPO 加速度限幅在裁剪 `track.velocity` 后回写 `gaussian_state.mean` 速度分量并重算 `acceleration`，保证下一周期 Predict 从一致状态出发。
 [evidence: tests/unit/airborne_radar/ar_deception_eccm_test.cpp::SignificantFirstPulseDelayTriggersAntiRgpoProposal]
 [evidence: tests/unit/airborne_radar/ar_deception_eccm_test.cpp::SignificantCarrierOffsetTriggersAntiVgpoProposal]
 [evidence: tests/unit/airborne_radar/ar_deception_eccm_test.cpp::PlainPulseTrainWithoutFeaturesDoesNotTriggerAntiDeception]
@@ -473,6 +473,7 @@ AR 在接收链的三个层次主动反制欺骗干扰：
 [evidence: tests/unit/airborne_radar/ar_deception_measurement_generator_test.cpp::SynthesizesOneMeasurementPerCoherentEmission]
 [evidence: tests/unit/airborne_radar/ar_deception_measurement_generator_test.cpp::PositionFromLocalBearingAndSlantRange]
 [evidence: tests/unit/airborne_radar/ar_deception_measurement_generator_test.cpp::AssociationKeyStableAcrossCyclesForSameObservation]
+[evidence: tests/unit/airborne_radar/ar_deception_measurement_generator_test.cpp::GeneratesFalseTargetMeasurementsRegardlessOfSwitch]
 [evidence: tests/unit/airborne_radar/ar_interference_observation_resolver_test.cpp::LocalFrameBearingDiffersFromEcefWhenAttitudeNonZero]
 [evidence: tests/unit/airborne_radar/ar_interference_observation_resolver_test.cpp::RangeAndRangeRateArePerturbedFromTruth]
 [evidence: tests/unit/airborne_radar/ar_interference_observation_resolver_test.cpp::PulseTrainPopulatesCarrierOffsetAndFirstPulseDelay]

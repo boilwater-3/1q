@@ -63,11 +63,11 @@ Eigen::Vector3f ResolveVelocityAlongLineOfSight(double azimuth_deg, double eleva
 }  // namespace
 
 void InjectDeceptionMeasurementsPass(const CycleExecutionContext& context,
-                                     const ExecutionConfig& runtime_config,
                                      CycleExecutionScratch& scratch) {
-  if (!runtime_config.enable_anti_false_target_discrimination) {
-    return;
-  }
+  // 攻击现象独立于反制开关：合成假目标量测始终从 kLikelyFalseTarget 观测注入。
+  // 反制开关（enable_anti_false_target_discrimination）只在下游 PromoteState 控制
+  // tentative→confirmed 的抑制策略——量测本身（含 classified_as_false_target=true）
+  // 必须存在，否则开关 OFF 时假目标现象完全消失，造成因果反转。
   if (context.interference_observations == nullptr ||
       context.interference_observations->empty()) {
     return;
