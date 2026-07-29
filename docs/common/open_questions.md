@@ -40,11 +40,28 @@ Authority: 非规定性记录
   周期性输入而非配置，与 `SetControlProfile` 等配置型 setter 语义不同；且方位匹配的波束宽度
   口径（当前取 detection antenna 的 `nominal_az/el_beamwidth_deg` 较大者）与干扰观测聚类
   （`ArInterferenceObservationResolver` 用 `receiver.antenna.half_power_beamwidth_deg`）不完全一致。
+  此外同一"疑似假目标"概念跨域用了两套命名：观测域 `ArInterferenceObservation.deception_class`
+  （枚举）与量测域 `RawTrackMeasurement.classified_as_false_target`（bool），跨域阅读增加认知负担。
 - **当前边界**：setter 注入是内部端口（`ISignalPipeline` 非公开 API）上的最小侵入桥接，不构成
   公开契约；不得据此宣称 pipeline 对外暴露干扰观测接口。方位匹配的两套波束宽度口径当前均经测试
-  验证行为合理，但未承诺二者数学等价。
+  验证行为合理，但未承诺二者数学等价。两套命名保留，待跨域标注契约收敛时统一。
 - **Stage A 进入条件**：出现第二个跨域标注消费者（如 SAR/EOS 的同类鉴别），或方位匹配精度成为
   验收瓶颈时，先评估提取统一的"观测标注 → 量测"桥接契约与单一波束宽度来源，再决定是否替换 setter 旁路。
+
+### AR-OQ-2：SyncRuntimeTuning 字段同步的手工列表脆弱性
+
+- **现状证据**：`TrackLifecycleManager::SyncRuntimeTuning` 用手工逐字段拷贝从 `LifecycleConfig`
+  同步阈值到内部 `config_`。该列表当前覆盖 8 个字段中的 7 个，刻意排除 `track_pool_thread_safety_mode`
+  （构造期决定、运行期不可变）。反欺骗三个字段（`enable_anti_false_target_discrimination`、
+  `enable_anti_vgpo_acceleration_bound`、`max_acceleration_mps2`）曾被遗漏，导致开关无效——本次修复
+  才补上。这种"想全量同步、但有一个例外"的手工列表没有编译期保证，每新增一个 `LifecycleConfig`
+  字段都必须记得在此加一行，否则成为静默 latent bug。
+- **未决问题**：是否应改为"默认全部同步 + 显式排除例外"的结构（例如用一个不含线程安全模式的
+  可同步子结构，或加 static_assert/注释强制新增字段时审视 SyncRuntimeTuning），以消除手工遗漏风险。
+- **当前边界**：当前手工列表经本次修复已与 `LifecycleConfig` 字段集对齐（含 7 个可同步字段）；
+  但不承诺未来新增字段会自动被覆盖。新增 `LifecycleConfig` 字段时必须同步检查 `SyncRuntimeTuning`。
+- **Stage A 进入条件**：`LifecycleConfig` 字段数继续增长、或再出现一次同步遗漏导致的开关失效后，
+  评估将可同步字段抽成独立子结构（整体赋值）并将 `track_pool_thread_safety_mode` 移出该子结构的重构成本。
 
 ## SBIRS 非阻塞仿真边界
 

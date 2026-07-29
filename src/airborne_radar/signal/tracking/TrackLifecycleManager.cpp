@@ -565,7 +565,7 @@ void TrackLifecycleManager::ComputePhase(LifecycleUpdateScratch& scratch, const 
         }
       }
     } else {
-      PromoteState(track, cycle.cycle_index, false, cycle.extra_miss_tolerance);
+      PromoteState(track, cycle.cycle_index, false, cycle.extra_miss_tolerance, false);
 
       if (track.status == TrackStatus::kRecycled) {
         result.should_recycle = true;

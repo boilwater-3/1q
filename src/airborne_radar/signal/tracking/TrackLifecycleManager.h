@@ -253,12 +253,14 @@ class TrackLifecycleManager : public ITrackLifecycleManager {
    * @param cycle_index 当前周期号。
    * @param hit_this_cycle 本周期是否命中。
    * @param extra_miss_tolerance 控制平面注入的额外失配容忍周期数。
-   * @param classified_as_false_target 本周期量测是否被观测层判定为疑似假目标；
+   * @param classified_as_false_target 本周期量测是否被观测层判定为疑似假目标。
    *        启用假目标鉴别时，疑似假目标的量测不会把 tentative 航迹晋升为 confirmed。
+   *        hit 调用必须传量测的标注；miss 调用传 false（无量测）。
+   *        该参数无默认值，强制每个调用点显式表态，避免遗漏导致鉴别静默失效。
    */
   void PromoteState(TrackState& track, std::uint32_t cycle_index, bool hit_this_cycle,
                     std::uint32_t extra_miss_tolerance,
-                    bool classified_as_false_target = false) const;
+                    bool classified_as_false_target) const;
   /**
    * @brief 将对象重置为可复用状态，避免脏数据泄露。
    * @note `track_id` 在重置时清零，下一次建轨时重新分配；

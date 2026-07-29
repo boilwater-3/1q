@@ -115,6 +115,8 @@ struct CycleExecutionContext {
   std::uint64_t batch_id{0U};
   float platform_altitude_m{0.0f};
   ExecutionConfig runtime_config{};
+  // 以下两个裸指针表达"可选的非拥有引用"：nullptr 表示该周期无此输入，非空时指向调用方
+  // 拥有的、生命周期覆盖整个 ExecuteCycle 的对象。ExecuteCycle 内只读访问，不释放。
   const RfV2DetectionContext* rf_v2_detection_context{nullptr};
   const session::ArInterferenceObservationList* interference_observations{nullptr};
 };

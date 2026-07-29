@@ -160,6 +160,21 @@ TEST(BearingClusterTest, BeamwidthClampedToMinimumFloor) {
   EXPECT_TRUE(AreBearingsCoherent(0.0, 0.0, 0.5, 0.0, 0.0));
 }
 
+TEST(BearingClusterTest, AzimuthWrapAroundAcrossZeroBoundary) {
+  // 方位角跨 0°/360° 边界：359° 与 1° 实际只差 2°，应判为同方向（裸差会得 358°）。
+  EXPECT_TRUE(AreBearingsCoherent(359.0, 0.0, 1.0, 0.0, 4.0));
+  // 对称：1° 与 359° 同样判同方向。
+  EXPECT_TRUE(AreBearingsCoherent(1.0, 0.0, 359.0, 0.0, 4.0));
+}
+
+TEST(BearingClusterTest, AzimuthShortestDifferenceDeg) {
+  EXPECT_DOUBLE_EQ(AzimuthShortestDifferenceDeg(10.0, 10.0), 0.0);
+  EXPECT_DOUBLE_EQ(AzimuthShortestDifferenceDeg(359.0, 1.0), 2.0);
+  EXPECT_DOUBLE_EQ(AzimuthShortestDifferenceDeg(1.0, 359.0), 2.0);
+  EXPECT_DOUBLE_EQ(AzimuthShortestDifferenceDeg(90.0, 270.0), 180.0);
+  EXPECT_NEAR(AzimuthShortestDifferenceDeg(350.0, 10.0), 20.0, 1.0e-9);
+}
+
 TEST(CountCoherentNeighborsTest, SingleMemberReturnsOneIncludingSelf) {
   const std::size_t count = CountCoherentNeighbors(
       1U, [](std::size_t) { return true; }, [](std::size_t) { return 10.0; },
