@@ -190,6 +190,16 @@ bool SnapshotInternallyConsistent(const EcmRuntimeState& state) {
     }
   }
   for (const EcmDeceptionState& deception_state : state.deception_states) {
+    // 模式/相位必须为已知枚举值。
+    if (!IsKnownDeceptionMode(deception_state.mode)) {
+      return false;
+    }
+    if (deception_state.phase != EcmDeceptionPhase::kIdle &&
+        deception_state.phase != EcmDeceptionPhase::kTowing &&
+        deception_state.phase != EcmDeceptionPhase::kHolding &&
+        deception_state.phase != EcmDeceptionPhase::kStopped) {
+      return false;
+    }
     if (deception_state.engaged) {
       if (deception_state.current_delay_s < 0.0 ||
           deception_state.phase_elapsed_s < 0.0 ||
@@ -197,6 +207,52 @@ bool SnapshotInternallyConsistent(const EcmRuntimeState& state) {
           !std::isfinite(deception_state.current_doppler_offset_hz) ||
           !std::isfinite(deception_state.phase_elapsed_s)) {
         return false;
+      }
+      // 激活状态不允许处于 kIdle（与相位机状态转移矛盾）。
+      if (deception_state.phase == EcmDeceptionPhase::kIdle) {
+        return false;
+      }
+      // 拖引状态值不得超出配置上限（delay/doppler 分别针对 RGPO/VGPO 模式）。
+      const double c = 299792458.0;
+      if (deception_state.mode == EcmDeceptionMode::kRgpo ||
+          deception_state.mode == EcmDeceptionMode::kRgpoVgpo) {
+        const double max_delay_s =
+            2.0 * state.active_config.deception_rgpo_max_range_m / c;
+        if (deception_state.current_delay_s > max_delay_s) {
+          return false;
+        }
+      }
+      if (deception_state.mode == EcmDeceptionMode::kVgpo ||
+          deception_state.mode == EcmDeceptionMode::kRgpoVgpo) {
+        if (std::fabs(deception_state.current_doppler_offset_hz) >
+            state.active_config.deception_vgpo_max_doppler_hz) {
+          return false;
+        }
+      }
+    } else {
+      // 非激活状态只能处于 kIdle（kTowing/kHolding/kStopped 均要求 engaged）。
+      if (deception_state.phase != EcmDeceptionPhase::kIdle) {
+        return false;
+      }
+    }
+  }
+  // 激活交战数不得超过欺骗并发上限。
+  {
+    const std::size_t engaged_count = static_cast<std::size_t>(std::count_if(
+        state.deception_states.begin(), state.deception_states.end(),
+        [](const EcmDeceptionState& s) { return s.engaged; }));
+    if (engaged_count > static_cast<std::size_t>(state.active_config.deception_max_active)) {
+      return false;
+    }
+  }
+  // 激活交战的威胁 ID 必须唯一。
+  {
+    std::set<std::uint64_t> engaged_ids;
+    for (const EcmDeceptionState& deception_state : state.deception_states) {
+      if (deception_state.engaged) {
+        if (!engaged_ids.insert(deception_state.threat_id).second) {
+          return false;
+        }
       }
     }
   }
@@ -270,9 +326,15 @@ bool IsFeasibleThreat(const SchedulingThreat& threat,
       default:
         break;
     }
-    return (threat.center_frequency_hz - doppler_margin_hz) >=
+    // 欺骗发射的实际占用带宽为 max(1 MHz, threat bandwidth)（参见
+    // TryBuildDeceptionEmission / TryBuildFalseTargetEmission）。半带宽加 Doppler
+    // margin 后必须落在硬件频率范围内，否则频带边缘的欺骗波形会超出上限被发布。
+    // 此前实现仅用 center ± doppler_margin 检查，遗漏了威胁带宽的半边。
+    const double occupied_half_bw_hz =
+        0.5 * std::max(1'000'000.0, threat.bandwidth_hz);
+    return (threat.center_frequency_hz - occupied_half_bw_hz - doppler_margin_hz) >=
                config.minimum_frequency_hz &&
-           (threat.center_frequency_hz + doppler_margin_hz) <=
+           (threat.center_frequency_hz + occupied_half_bw_hz + doppler_margin_hz) <=
                config.maximum_frequency_hz;
   }
   double occupied_bandwidth_hz = config.spot_bandwidth_hz;

@@ -92,10 +92,18 @@ observation、重复 ID、provenance、模式组合和随机状态（含两条�
 `ecm_scheduler_order_invariance_test.cpp::DifferentSeedsProduceDifferentSweepSequence`、
 `ecm_session_test.cpp::SnapshotFollowsImplAcrossFacadeMoveAndRejectsForeignSession`、
 `ecm_session_test.cpp::RestoreRejectsDirtySnapshotAndLeavesSessionUntouched`、
-`ecm_session_test.cpp::RestoreRejectsShallowInconsistencyRegression`。
-恢复校验现在逐项复用输入侧的 `IsValidSensorObservation` 与 hypothesis ID 唯一性,并断言
-`has_successful_cycle↔last_successful_cycle_index` 一致;脏快照(无效观测、重复 ID、标志/索引不一致、
-`has_last_sensor_frame=false` 但仍有观测)在 fail-closed 下被拒绝且不部分修改 session。
+	`ecm_session_test.cpp::RestoreRejectsShallowInconsistencyRegression`、
+	`ecm_session_test.cpp::SnapshotRejectsIllegalDeceptionModePhaseEnums`、
+	`ecm_session_test.cpp::SnapshotRejectsEngagedExceedingMaxActive`、
+	`ecm_session_test.cpp::SnapshotRejectsEngagedWithPhaseIdle`、
+	`ecm_session_test.cpp::SnapshotRejectsNonEngagedWithPhaseTowing`、
+	`ecm_session_test.cpp::SnapshotRejectsDelayBeyondMaximum`、
+	`ecm_session_test.cpp::SnapshotRejectsDuplicateThreatIdAmongEngaged`。
+	恢复校验现在逐项复用输入侧的 `IsValidSensorObservation` 与 hypothesis ID 唯一性,断言
+	`has_successful_cycle↔last_successful_cycle_index` 一致,并全面校验欺骗状态：已知 mode/phase
+	枚举值、engaged 状态数 ≤ `deception_max_active`、engaged+phase 合法组合、delay/doppler 不超
+	配置上限、engaged 间 threat_id 唯一、非激活状态必须处于 kIdle。脏快照在 fail-closed 下被拒绝
+	且不部分修改 session。
 
 ## 4. Trace、replay 与联动
 
@@ -140,11 +148,12 @@ schema 端到端往返。注:快照恢复侧的嵌套 observation / 重复 ID / 
 | `kRgpo` (Range Gate Pull-Off) | `kPulseTrain` | 距离拖引速率 → 假目标时延递增 | Towing → Holding → Stopped |
 | `kVgpo` (Velocity Gate Pull-Off) | `kPulseTrain` | 多普勒拖引速率 → 载频偏移递增 | Towing → Holding → Stopped |
 | `kRgpoVgpo` (组合) | `kPulseTrain` | 距离+多普勒同时递增 | Towing → Holding → Stopped |
-| `kFalseTarget` (假目标) | `kPulseTrain`（每周期 N 个发射） | 固定时延+多普勒偏移 | 直接 Stopped（无拖引/保持） |
+| `kFalseTarget` (假目标) | `kPulseTrain`（每周期 N 个发射） | 固定时延+多普勒偏移 | 直接 Idle（无拖引/保持，单周期 fire-and-forget） |
 
 状态机四相：`kTowing`（参数递增至最大偏移）→ `kHolding`（保持 `hold_time_s` 秒）→ `kStopped`
 （停拖一周期后释放）→ `kIdle`（释放，通道可重新分配）。`kFalseTarget` 直接从 `kTowing` 转为
-`kStopped`，无牵引和保持相。每个欺骗交战由 `EcmDeceptionState` 追踪，按 `threat_id` 索引；
+`kIdle`（直接释放，无拖引/保持/Stopped 相），与代码 `AdvanceDeceptionStates` 的 `kTowing` 分支
+一致。每个欺骗交战由 `EcmDeceptionState` 追踪，按 `threat_id` 索引；
 相同威胁的已有活跃交战优先复用，否则创建新 Towing 交战。
 
 ### 6.2 波形合同

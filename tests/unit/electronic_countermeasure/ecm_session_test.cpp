@@ -378,6 +378,153 @@ TEST(EcmSessionTest, TruthAssistedSnapshotValidatesDeceptionStates) {
   EXPECT_TRUE(std::isfinite(after.deception_states.front().current_delay_s));
 }
 
+// 快照校验的 P1 加固：验证之前仅检查 engaged 状态有限字段的 SnapshotInternallyConsistent
+// 现拒绝非法 mode/phase 枚举、超上限交战数、delay/doppler 超限、重复 threat_id 及
+// engaged+phase 非法组合。
+TEST(EcmSessionTest, SnapshotRejectsIllegalDeceptionModePhaseEnums) {
+  EcmRuntimeState base = CaptureBaselineSensorSnapshot();
+  // 在基线快照上手工构造一个非法 deception state 并置入。
+  EcmDeceptionState bogus;
+  bogus.threat_id = 999U;
+  bogus.mode = static_cast<EcmDeceptionMode>(99);  // 非法 mode
+  bogus.phase = EcmDeceptionPhase::kTowing;
+  bogus.engaged = true;
+  bogus.current_delay_s = 0.0;
+  bogus.current_doppler_offset_hz = 0.0;
+  bogus.phase_elapsed_s = 0.0;
+  EcmRuntimeState dirty = base;
+  dirty.owner_identity = base.owner_identity;
+  dirty.deception_states.push_back(bogus);
+  EXPECT_FALSE(EcmSession::Create().RestoreRuntimeState(dirty));
+}
+
+TEST(EcmSessionTest, SnapshotRejectsEngagedExceedingMaxActive) {
+  config::EcmSessionConfig config;
+  config.default_technique = EcmTechnique::kDeception;
+  config.default_deception_mode = EcmDeceptionMode::kRgpo;
+  config.deception_max_active = 1U;  // 仅允许一个活跃交战
+  EcmSession session = EcmSession::Create(config);
+  // 运行一个 TruthAssisted 周期生成一个活跃交战。
+  EcmCycleInput input;
+  input.cycle_index = 1U;
+  input.cycle_start_time_s = 0.0;
+  input.dt_sec = 1.0;
+  input.input_mode = EcmInputMode::kTruthAssisted;
+  input.platform_entity_id = 900U;
+  input.platform_position_ecef_m.x_m = 6378137.0;
+  EcmTruthThreat threat;
+  threat.truth_entity_id = 100U;
+  threat.center_frequency_hz = 10.0e9;
+  threat.bandwidth_hz = 10.0e6;
+  threat.threat_score = 0.9f;
+  input.truth_threats.push_back(threat);
+  ASSERT_EQ(session.StepWithResult(input).status, EcmCycleStatus::kExecuted);
+  EcmRuntimeState before = session.CaptureRuntimeState();
+  // 手工插入第二个活跃交战（同名 threat_id 但不同交战）。
+  EcmDeceptionState extra;
+  extra.threat_id = 200U;
+  extra.mode = EcmDeceptionMode::kRgpo;
+  extra.phase = EcmDeceptionPhase::kTowing;
+  extra.engaged = true;
+  extra.current_delay_s = 0.0;
+  extra.current_doppler_offset_hz = 0.0;
+  extra.phase_elapsed_s = 0.0;
+  before.owner_identity = before.owner_identity;
+  before.deception_states.push_back(extra);
+  // 当前 active_config.deception_max_active = 1，插入后共 2 个 → 拒绝。
+  EXPECT_FALSE(session.RestoreRuntimeState(before));
+}
+
+TEST(EcmSessionTest, SnapshotRejectsEngagedWithPhaseIdle) {
+  EcmRuntimeState base = CaptureBaselineSensorSnapshot();
+  EcmDeceptionState engaged_idle;
+  engaged_idle.threat_id = 888U;
+  engaged_idle.mode = EcmDeceptionMode::kRgpo;
+  engaged_idle.phase = EcmDeceptionPhase::kIdle;  // engaged=true 不允许 kIdle
+  engaged_idle.engaged = true;
+  engaged_idle.current_delay_s = 0.0;
+  engaged_idle.current_doppler_offset_hz = 0.0;
+  engaged_idle.phase_elapsed_s = 0.0;
+  EcmRuntimeState dirty = base;
+  dirty.owner_identity = base.owner_identity;
+  dirty.deception_states.push_back(engaged_idle);
+  EXPECT_FALSE(EcmSession::Create().RestoreRuntimeState(dirty));
+}
+
+TEST(EcmSessionTest, SnapshotRejectsNonEngagedWithPhaseTowing) {
+  EcmRuntimeState base = CaptureBaselineSensorSnapshot();
+  EcmDeceptionState towing_not_engaged;
+  towing_not_engaged.threat_id = 777U;
+  towing_not_engaged.mode = EcmDeceptionMode::kRgpo;
+  towing_not_engaged.phase = EcmDeceptionPhase::kTowing;  // kTowing 要求 engaged
+  towing_not_engaged.engaged = false;
+  EcmRuntimeState dirty = base;
+  dirty.owner_identity = base.owner_identity;
+  dirty.deception_states.push_back(towing_not_engaged);
+  EXPECT_FALSE(EcmSession::Create().RestoreRuntimeState(dirty));
+}
+
+TEST(EcmSessionTest, SnapshotRejectsDelayBeyondMaximum) {
+  config::EcmSessionConfig config;
+  config.default_technique = EcmTechnique::kDeception;
+  config.default_deception_mode = EcmDeceptionMode::kRgpo;
+  config.deception_rgpo_max_range_m = 1000.0;  // 最大时延 = 2*1000/c ≈ 6.67 µs
+  EcmSession session = EcmSession::Create(config);
+  // 运行一个 TruthAssisted 周期。
+  EcmCycleInput input;
+  input.cycle_index = 1U;
+  input.cycle_start_time_s = 0.0;
+  input.dt_sec = 1.0;
+  input.input_mode = EcmInputMode::kTruthAssisted;
+  input.platform_entity_id = 900U;
+  input.platform_position_ecef_m.x_m = 6378137.0;
+  EcmTruthThreat threat;
+  threat.truth_entity_id = 100U;
+  threat.center_frequency_hz = 10.0e9;
+  threat.bandwidth_hz = 10.0e6;
+  threat.threat_score = 0.9f;
+  input.truth_threats.push_back(threat);
+  ASSERT_EQ(session.StepWithResult(input).status, EcmCycleStatus::kExecuted);
+  EcmRuntimeState before = session.CaptureRuntimeState();
+  // 篡改 delay 为超大值。
+  before.owner_identity = before.owner_identity;
+  if (!before.deception_states.empty()) {
+    before.deception_states.front().current_delay_s = 1.0;  // 远超上限
+    EXPECT_FALSE(session.RestoreRuntimeState(before));
+  }
+}
+
+TEST(EcmSessionTest, SnapshotRejectsDuplicateThreatIdAmongEngaged) {
+  config::EcmSessionConfig config;
+  config.default_technique = EcmTechnique::kDeception;
+  config.default_deception_mode = EcmDeceptionMode::kRgpo;
+  config.deception_max_active = 3U;
+  EcmSession session = EcmSession::Create(config);
+  EcmCycleInput input;
+  input.cycle_index = 1U;
+  input.cycle_start_time_s = 0.0;
+  input.dt_sec = 1.0;
+  input.input_mode = EcmInputMode::kTruthAssisted;
+  input.platform_entity_id = 900U;
+  input.platform_position_ecef_m.x_m = 6378137.0;
+  EcmTruthThreat threat;
+  threat.truth_entity_id = 100U;
+  threat.center_frequency_hz = 10.0e9;
+  threat.bandwidth_hz = 10.0e6;
+  threat.threat_score = 0.9f;
+  input.truth_threats.push_back(threat);
+  ASSERT_EQ(session.StepWithResult(input).status, EcmCycleStatus::kExecuted);
+  EcmRuntimeState before = session.CaptureRuntimeState();
+  before.owner_identity = before.owner_identity;
+  // 手工克隆已有的 engaged state（相同 threat_id）→ 重复。
+  if (!before.deception_states.empty()) {
+    EcmDeceptionState dup = before.deception_states.front();
+    dup.current_delay_s = 0.5e-6;  // 合法值，仅威胁 id 重复
+    before.deception_states.push_back(dup);
+    EXPECT_FALSE(session.RestoreRuntimeState(before));
+  }
+}
+
 }  // namespace
 }  // namespace session
 }  // namespace electronic_countermeasure
