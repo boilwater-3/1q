@@ -279,12 +279,12 @@ session::ArInterferenceObservation DecodeArInterferenceObservation(
     result.frequency_standard_deviation_hz = value->frequency_standard_deviation_hz();
     result.bandwidth_standard_deviation_hz = value->bandwidth_standard_deviation_hz();
     // fail-closed: session::DeceptionClass 仅 kNone(0)、kLikelyFalseTarget(1) 合法。
-    // 未知或损坏的枚举值在 decode 时做范围校验并保留 raw int。AR replay 为字节
-    // 比较，任何导致周期行为变化的损坏已在字节层分叉（越界值会被下游条件跳过，
-    // 输出不同 → byte comparison 报 divergence）。
+    // 越界枚举值钳制到 kNone，防止未定义行为且保证下游不误判为假目标。
     const int raw_class = value->deception_class();
-    result.deception_class =
-        static_cast<session::DeceptionClass>(raw_class);
+    if (raw_class >= static_cast<int>(session::DeceptionClass::kNone) &&
+        raw_class <= static_cast<int>(session::DeceptionClass::kLikelyFalseTarget)) {
+      result.deception_class = static_cast<session::DeceptionClass>(raw_class);
+    }
     result.coherent_emission_count = value->coherent_emission_count();
     result.estimated_slant_range_m = value->estimated_slant_range_m();
     result.has_local_bearings = value->has_local_bearings();

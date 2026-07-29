@@ -421,6 +421,31 @@ TEST(ArReplayCodecRoundtripTest, InterferenceObservationNewFieldsRoundtripPreser
   EXPECT_DOUBLE_EQ(decoded_obs.estimated_first_pulse_delay_s, 1.2e-6);
 }
 
+// fail-closed：deception_class 枚举越界时 decode 钳制到 kNone，不产生未定义行为。
+TEST(ArReplayCodecRoundtripTest, InterferenceObservationClampsOutOfRangeDeceptionClass) {
+  session::ArInterferenceObservation obs;
+  obs.observation_id = 1U;
+  // 构造合法观测后篡改 deception_class 为越界值。
+  obs.deception_class = static_cast<session::DeceptionClass>(99);
+  obs.coherent_emission_count = 2U;
+  obs.estimated_slant_range_m = 5000.0;
+
+  ArCycleReplayRecord record;
+  record.result.status = ArCycleStatus::kCompleted;
+  record.result.input_cycle_index = 1U;
+  record.result.interference_observations.push_back(obs);
+
+  ArCycleReplayRecord decoded;
+  std::string error;
+  ASSERT_TRUE(DecodeCycleReplayRecordFlatbuffer(
+      EncodeCycleReplayRecordFlatbuffer(record), &decoded, &error))
+      << error;
+  ASSERT_EQ(decoded.result.interference_observations.size(), 1U);
+  // 越界值被钳制到 kNone，而非保留原始越界枚举。
+  EXPECT_EQ(decoded.result.interference_observations.front().deception_class,
+            session::DeceptionClass::kNone);
+}
+
 // ===========================================================================
 // Decode 失败路径（null output / 空 payload / 损坏 payload）
 // ===========================================================================
