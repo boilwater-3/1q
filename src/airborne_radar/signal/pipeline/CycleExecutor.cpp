@@ -107,8 +107,7 @@ void TagFalseTargetMeasurements(const CycleExecutionContext& context,
   bool fell_back_to_ecef = false;
   for (const session::ArInterferenceObservation& obs : *context.interference_observations) {
     if (obs.deception_class == session::DeceptionClass::kLikelyFalseTarget) {
-      if (obs.estimated_bearing_azimuth_local_deg != 0.0 ||
-          obs.estimated_bearing_elevation_local_deg != 0.0) {
+      if (obs.has_local_bearings) {
         false_target_bearings.emplace_back(obs.estimated_bearing_azimuth_local_deg,
                                           obs.estimated_bearing_elevation_local_deg);
       } else {

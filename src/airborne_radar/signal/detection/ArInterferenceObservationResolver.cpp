@@ -162,6 +162,7 @@ bool TryResolveArInterferenceObservations(
       double local_el_deg = 0.0;
       if (TryEcefPositionToRadarLocalAngles(emission->position_ecef_m, receiver.position_ecef_m,
                                             platform_frame, &local_az_deg, &local_el_deg)) {
+        observation.has_local_bearings = true;
         observation.estimated_bearing_azimuth_local_deg = local_az_deg;
         observation.estimated_bearing_elevation_local_deg = local_el_deg;
       }
@@ -169,8 +170,21 @@ bool TryResolveArInterferenceObservations(
     const double direction_x = x / range_m;
     const double direction_y = y / range_m;
     const double direction_z = z / range_m;
-    // 径向速度：发射体 ECEF 速度与视线单位向量的点乘（正值表示远离）。
-    if (oneq::coordinate::IsFinite(emission->velocity_ecef_mps)) {
+    // 径向速度：相对速度（发射体-接收机）与视线单位向量的点乘（正值表示远离）。
+    // 此前实现仅用发射体 ECEF 速度，未扣除接收机（平台）自身运动，对快速移动平台
+    // 系统性偏置距离变化率估计，影响反 VGPO 评分门限的准确性。
+    if (oneq::coordinate::IsFinite(emission->velocity_ecef_mps) &&
+        oneq::coordinate::IsFinite(receiver.velocity_ecef_mps)) {
+      const double rel_vx =
+          emission->velocity_ecef_mps.x_mps - receiver.velocity_ecef_mps.x_mps;
+      const double rel_vy =
+          emission->velocity_ecef_mps.y_mps - receiver.velocity_ecef_mps.y_mps;
+      const double rel_vz =
+          emission->velocity_ecef_mps.z_mps - receiver.velocity_ecef_mps.z_mps;
+      observation.estimated_range_rate_mps =
+          rel_vx * direction_x + rel_vy * direction_y + rel_vz * direction_z;
+    } else if (oneq::coordinate::IsFinite(emission->velocity_ecef_mps)) {
+      // 回退：接收机 ECEF 速度非有限时仅用发射体速度。
       observation.estimated_range_rate_mps =
           emission->velocity_ecef_mps.x_mps * direction_x +
           emission->velocity_ecef_mps.y_mps * direction_y +

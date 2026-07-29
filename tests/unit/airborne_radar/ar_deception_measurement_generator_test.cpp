@@ -32,6 +32,7 @@ session::ArInterferenceObservation MakeFalseTargetObservation(std::uint64_t obse
   session::ArInterferenceObservation obs;
   obs.observation_id = observation_id;
   obs.deception_class = session::DeceptionClass::kLikelyFalseTarget;
+  obs.has_local_bearings = true;
   obs.coherent_emission_count = coherent_count;
   obs.estimated_bearing_azimuth_local_deg = 45.0;
   obs.estimated_bearing_elevation_local_deg = 10.0;

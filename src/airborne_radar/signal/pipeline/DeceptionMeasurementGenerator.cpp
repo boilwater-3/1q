@@ -23,17 +23,14 @@ constexpr std::uint64_t kDeceptionKeyBase = 0x8000'0000'0000'0000ULL;
 constexpr double kRangeGateJitterFraction = 0.001;  // 千分之一视距
 
 double ResolveLocalAzimuthDeg(const session::ArInterferenceObservation& obs) {
-  // 优先局部系方位（与目标 look angle 同系）；无 pose 时回退 ECEF 切平面并告警。
-  if (obs.estimated_bearing_azimuth_local_deg != 0.0 ||
-      obs.estimated_bearing_elevation_local_deg != 0.0) {
+  if (obs.has_local_bearings) {
     return obs.estimated_bearing_azimuth_local_deg;
   }
   return obs.estimated_bearing_azimuth_deg;
 }
 
 double ResolveLocalElevationDeg(const session::ArInterferenceObservation& obs) {
-  if (obs.estimated_bearing_azimuth_local_deg != 0.0 ||
-      obs.estimated_bearing_elevation_local_deg != 0.0) {
+  if (obs.has_local_bearings) {
     return obs.estimated_bearing_elevation_local_deg;
   }
   return obs.estimated_bearing_elevation_deg;
@@ -85,14 +82,19 @@ void InjectDeceptionMeasurementsPass(const CycleExecutionContext& context,
     if (obs.coherent_emission_count == 0U) {
       continue;
     }
-    if (obs.estimated_bearing_azimuth_local_deg == 0.0 &&
-        obs.estimated_bearing_elevation_local_deg == 0.0) {
+    if (!obs.has_local_bearings) {
       fell_back_to_ecef = true;
     }
     const double azimuth_deg = ResolveLocalAzimuthDeg(obs);
     const double elevation_deg = ResolveLocalElevationDeg(obs);
     const double base_range_m =
         obs.estimated_slant_range_m > 0.0 ? obs.estimated_slant_range_m : 50000.0;
+    if (obs.estimated_slant_range_m <= 0.0) {
+      PROJECT_LOG_WARN(
+          "[DeceptionMeasurementGenerator] estimated_slant_range_m <= 0 for observation {}; "
+          "falling back to synthetic range {}m.",
+          obs.observation_id, base_range_m);
+    }
 
     for (std::uint32_t i = 0U; i < obs.coherent_emission_count; ++i) {
       // 第 i 个假目标在距离上按比例抖动分散，避免完全重叠。
@@ -111,7 +113,11 @@ void InjectDeceptionMeasurementsPass(const CycleExecutionContext& context,
       measurement.raw_measurement.classified_as_false_target = true;
       measurement.raw_measurement.position = ResolveLocalPosition(azimuth_deg, elevation_deg, range_m);
       // 量测噪声协方差：由方位标准差与距离导出对角阵（与真实量测同口径的笛卡尔 R）。
-      const double sigma_cross_range = range_m * (obs.bearing_standard_deviation_deg * M_PI / 180.0);
+      // 零或负 bearing_standard_deviation 会导致奇异协方差矩阵，使卡尔曼更新器
+      // Cholesky/LDLT 分解失败。这里加最小下限并与距离联合钳制。
+      const double bearing_sigma_deg =
+          std::max(obs.bearing_standard_deviation_deg, 0.1);
+      const double sigma_cross_range = range_m * (bearing_sigma_deg * M_PI / 180.0);
       const double sigma_range = std::max(sigma_cross_range, 50.0);
       measurement.raw_measurement.measurement_covariance =
           Eigen::Matrix3f(static_cast<Eigen::Matrix3f>(Eigen::DiagonalMatrix<float, 3>(

@@ -50,6 +50,7 @@ struct ONEQ_API ArInterferenceObservation {
   DeceptionClass deception_class{DeceptionClass::kNone};         /**< 欺骗干扰分类。 */
   std::uint32_t coherent_emission_count{0U}; /**< 同方向相似参数脉冲列发射数（假目标检测用）。 */
   double estimated_slant_range_m{0.0};             /**< 干扰源视距（合成假目标量测用）。 */
+  bool has_local_bearings{false}; /**< 局部系方位估算有效标志（pose 可用时置 true，消除与 true boresight 的 (0,0) 歧义）。 */
   double estimated_bearing_azimuth_local_deg{0.0}; /**< 雷达局部系方位估计（鉴别比较用）。 */
   double estimated_bearing_elevation_local_deg{0.0}; /**< 雷达局部系俯仰估计（鉴别比较用）。 */
   double estimated_range_rate_mps{0.0}; /**< 干扰源径向速度（合成多普勒/反 VGPO 评分用）。 */

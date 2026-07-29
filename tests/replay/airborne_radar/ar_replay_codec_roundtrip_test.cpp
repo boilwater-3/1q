@@ -390,6 +390,7 @@ TEST(ArReplayCodecRoundtripTest, InterferenceObservationNewFieldsRoundtripPreser
   obs.deception_class = session::DeceptionClass::kLikelyFalseTarget;
   obs.coherent_emission_count = 5U;
   obs.estimated_slant_range_m = 12500.0;
+  obs.has_local_bearings = true;
   obs.estimated_bearing_azimuth_local_deg = -30.0;
   obs.estimated_bearing_elevation_local_deg = 15.0;
   obs.estimated_range_rate_mps = -120.0;
@@ -410,6 +411,7 @@ TEST(ArReplayCodecRoundtripTest, InterferenceObservationNewFieldsRoundtripPreser
   EXPECT_EQ(decoded_obs.deception_class, session::DeceptionClass::kLikelyFalseTarget);
   EXPECT_EQ(decoded_obs.coherent_emission_count, 5U);
   EXPECT_DOUBLE_EQ(decoded_obs.estimated_slant_range_m, 12500.0);
+  EXPECT_TRUE(decoded_obs.has_local_bearings);
   EXPECT_DOUBLE_EQ(decoded_obs.estimated_bearing_azimuth_local_deg, -30.0);
   EXPECT_DOUBLE_EQ(decoded_obs.estimated_bearing_elevation_local_deg, 15.0);
   EXPECT_DOUBLE_EQ(decoded_obs.estimated_range_rate_mps, -120.0);

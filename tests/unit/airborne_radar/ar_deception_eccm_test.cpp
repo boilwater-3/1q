@@ -760,5 +760,111 @@ TEST(ArDeceptionEccmTest, AntiDeceptionControlDirectiveAppliedByReducer) {
   EXPECT_FALSE(result.profile.enable_lpi_power_control);
 }
 
+// IMM 限幅回写：验证限幅后各 IMM 模型状态的 mean 速度分量同步裁剪。
+// 此前实现只写回 track.gaussian_state 但未同步 IMM 内部 model_states_，
+// 下一周期 Process() 从各模型重新混合会恢复未限幅速度。
+TEST(ArDeceptionEccmTest, AntiVgpoClampSyncsImmModelStates) {
+  signal::tracking::BoostTrackPool pool(4, 16);
+  signal::tracking::LifecycleConfig config;
+  config.confirm_hits = 1;
+  config.max_miss_before_lost = 1;
+  config.max_lost_cycles = 3;
+  config.imm_activation_policy = signal::tracking::ImmActivationPolicy::kAllTracks;
+  config.enable_anti_vgpo_acceleration_bound = true;
+  config.max_acceleration_mps2 = 1.0;  // 0.1s dt → max_delta = 0.1 m/s（紧，IMM 微小速度变化即触发）
+
+  signal::tracking::KalmanPredictorConfig pred_cfg_1;
+  pred_cfg_1.noise_diff_coeff = 0.5f;
+  signal::tracking::KalmanPredictor pred_1(pred_cfg_1);
+  signal::tracking::KalmanPredictorConfig pred_cfg_2;
+  pred_cfg_2.noise_diff_coeff = 15.0f;
+  signal::tracking::KalmanPredictor pred_2(pred_cfg_2);
+
+  signal::tracking::KalmanUpdaterConfig upd_cfg;
+  upd_cfg.measurement_noise_std = 0.1f;
+  signal::tracking::KalmanUpdater upd_1(upd_cfg);
+  signal::tracking::KalmanUpdater upd_2(upd_cfg);
+
+  Eigen::MatrixXf transition_probability(2, 2);
+  transition_probability << 0.95f, 0.05f, 0.05f, 0.95f;
+  Eigen::VectorXf initial_weights(2);
+  initial_weights << 0.5f, 0.5f;
+
+  signal::tracking::TrackLifecycleManager manager(
+      pool, config, {&pred_1, &pred_2}, {&upd_1, &upd_2},
+      transition_probability, initial_weights);
+
+  // 第一周期：建立 IMM track，初始速度 X=10。
+  signal::tracking::TrackMeasurement seed;
+  seed.raw_measurement.association_key = 42;
+  seed.raw_measurement.position = Eigen::Vector3f(100.0f, 0.0f, 0.0f);
+  seed.raw_measurement.measurement_covariance = Eigen::Matrix3f::Identity();
+  seed.filtered_feature.velocity = Eigen::Vector3f(10.0f, 0.0f, 0.0f);
+  manager.Update({1U, 1001U, 0.1f}, {seed});
+
+  // 第二周期：速度突增。IMM Process 更新后限幅触发。
+  signal::tracking::TrackMeasurement jump;
+  jump.raw_measurement.association_key = 42;
+  jump.raw_measurement.matched_existing_track = true;
+  jump.raw_measurement.position = Eigen::Vector3f(110.0f, 0.0f, 0.0f);
+  jump.raw_measurement.measurement_covariance = Eigen::Matrix3f::Identity();
+  jump.filtered_feature.velocity = Eigen::Vector3f(100.0f, 0.0f, 0.0f);
+  manager.Update({2U, 1002U, 0.1f}, {jump});
+
+  const auto active_tracks = manager.GetActiveTracks();
+  ASSERT_EQ(active_tracks.size(), 1U);
+  // max_delta = 0.1 m/s：速度应在 [10, 10.1] 区间。
+  EXPECT_LE(active_tracks[0]->velocity.x(), 10.1f);
+  EXPECT_GE(active_tracks[0]->velocity.x(), 10.0f);
+  // gaussian_state 镜像同步限幅。
+  EXPECT_LE(active_tracks[0]->gaussian_state.mean(1), 10.1f);
+  EXPECT_GE(active_tracks[0]->gaussian_state.mean(1), 10.0f);
+  // IMM 模型状态也应同步限幅——每个模型的 vx 均值 ≤ 10+0.2（容许 IMM 混合平滑）。
+  // 更精确的断言需访问内部 model_states_，这里通过快照层间接验证：
+  // 若模型状态未限幅，下周期 Predict 会从未限幅速度重新跳回。
+  manager.Update({3U, 1003U, 0.1f}, {});
+  const auto after_miss = manager.GetActiveTracks();
+  ASSERT_EQ(after_miss.size(), 1U);
+  // 位置外推应约为 110 + 10*0.1 = 111m（而非 110 + 100*0.1 = 120m）。
+  EXPECT_NEAR(after_miss[0]->position.x(), 111.0f, 5.0f);
+  EXPECT_LT(after_miss[0]->velocity.x(), 20.0f);
+}
+
+// EccmEvaluator 路由边界：coherent_emission_count == 2 刚好触发 RGPO 阈值。
+TEST(ArDeceptionEccmTest, CoherentCountExactlyTwoTriggersAntiRgpo) {
+  decision::EccmEvaluator evaluator;
+  std::vector<session::TacticalProposal> proposals;
+  const session::ArInterferenceObservation observation = BuildObservation(
+      oneq::electromagnetics::RfSceneWaveformKind::kPulseTrain, 5.0, 8.0,
+      /*coherent_emission_count=*/2U);
+  evaluator.Evaluate({observation}, &proposals);
+  EXPECT_TRUE(ContainsDirective(proposals,
+      session::ControlDirectiveType::REQUEST_ANTI_RGPO_LEADING_EDGE));
+}
+
+// EccmEvaluator 路由边界：|range_rate| == 15.0 刚好触发 VGPO 阈值。
+TEST(ArDeceptionEccmTest, RangeRateExactlyThresholdTriggersAntiVgpo) {
+  decision::EccmEvaluator evaluator;
+  std::vector<session::TacticalProposal> proposals;
+  const session::ArInterferenceObservation observation = BuildObservation(
+      oneq::electromagnetics::RfSceneWaveformKind::kPulseTrain, 5.0, 8.0,
+      /*coherent_emission_count=*/0U, /*range_rate_mps=*/15.0);
+  evaluator.Evaluate({observation}, &proposals);
+  EXPECT_TRUE(ContainsDirective(proposals,
+      session::ControlDirectiveType::REQUEST_ANTI_VGPO_ACCELERATION_BOUND));
+}
+
+// EccmEvaluator 路由边界：range_rate 刚好低于阈值不应触发 VGPO。
+TEST(ArDeceptionEccmTest, RangeRateJustBelowThresholdDoesNotTriggerAntiVgpo) {
+  decision::EccmEvaluator evaluator;
+  std::vector<session::TacticalProposal> proposals;
+  const session::ArInterferenceObservation observation = BuildObservation(
+      oneq::electromagnetics::RfSceneWaveformKind::kPulseTrain, 5.0, 8.0,
+      /*coherent_emission_count=*/0U, /*range_rate_mps=*/14.9);
+  evaluator.Evaluate({observation}, &proposals);
+  EXPECT_FALSE(ContainsDirective(proposals,
+      session::ControlDirectiveType::REQUEST_ANTI_VGPO_ACCELERATION_BOUND));
+}
+
 }  // namespace
 }  // namespace airborne_radar

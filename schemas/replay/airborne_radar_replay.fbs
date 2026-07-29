@@ -82,6 +82,7 @@ table ArInterferenceObservation {
   deception_class:int;
   coherent_emission_count:uint;
   estimated_slant_range_m:double;
+  has_local_bearings:bool;
   estimated_bearing_azimuth_local_deg:double;
   estimated_bearing_elevation_local_deg:double;
   estimated_range_rate_mps:double;
