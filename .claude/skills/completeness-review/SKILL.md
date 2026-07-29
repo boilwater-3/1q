@@ -59,14 +59,16 @@ Output a table:
 
 Run three review lanes in parallel. **Prefer plugin skills** where applicable; fall back to sub-agents.
 
-#### Lane 1: Correctness (Agent-based)
+#### Lane 1: Correctness (Agent-based, Opus)
 
-Launch an Agent to review the diff for:
+Launch an Agent with **`model: "opus"`** to review the diff for:
 - Logic errors, boundary conditions (nullptr, empty containers, division-by-zero, out-of-range)
 - Error-handling completeness, RAII / resource leaks
 - Compliance with CLAUDE.md Engineering Conventions (const correctness, no exceptions, namespace consistency)
+- Architecture-level correctness: missing switch cases, inconsistent parallel implementations across files, state-machine invariants
 
 > `code-review` works on PRs only and is NOT usable for uncommitted changes. Use Agent-based review for working-tree correctness checks.
+> Lane 1 uses Opus because correctness review requires deeper architecture-level reasoning that flash models tend to miss (e.g., duplicate IsEccmDirective implementations drifting out of sync across files).
 
 #### Lane 2: Code quality (Plugin: simplify)
 

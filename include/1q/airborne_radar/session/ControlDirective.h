@@ -33,7 +33,10 @@ enum class ONEQ_API ControlDirectiveType {
   REQUEST_ENABLE_ADAPTIVE_BEAMFORMING, /**< 请求启用自适应波束形成 */
   REQUEST_AGILITY_FREQUENCY,           /**< 请求启用频率捷变 */
   REQUEST_ECCM_REJITTER,               /**< 请求启用重频抖动 */
-  REQUEST_ECCM_BURNTHROUGH_GAIN        /**< 请求提升烧穿增益 */
+  REQUEST_ECCM_BURNTHROUGH_GAIN,       /**< 请求提升烧穿增益 */
+  REQUEST_ANTI_RGPO_LEADING_EDGE,      /**< 请求启用前沿跟踪对抗距离拖引 */
+  REQUEST_ANTI_VGPO_ACCELERATION_BOUND, /**< 请求启用加速度限幅对抗速度拖引 */
+  REQUEST_ANTI_FALSE_TARGET_DISCRIMINATION /**< 请求启用假目标鉴别 */
 };
 
 /**

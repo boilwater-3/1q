@@ -16,12 +16,18 @@ constexpr int kBasePriorityAdaptiveBeamforming = 80;
 constexpr int kBasePriorityAgilityFrequency = 84;
 constexpr int kBasePriorityEccmRejitter = 83;
 constexpr int kBasePriorityBurnthroughGain = 82;
+constexpr int kBasePriorityAntiRgpo = 89;
+constexpr int kBasePriorityAntiVgpo = 85;
+constexpr int kBasePriorityAntiFalseTarget = 81;
 
 constexpr float kThresholdSidelobeCanceller = 1.5f;
 constexpr float kThresholdAdaptiveBeamforming = 0.8f;
 constexpr float kThresholdAgilityFrequency = 1.5f;
 constexpr float kThresholdEccmRejitter = 1.5f;
 constexpr float kThresholdBurnthroughGain = 1.5f;
+constexpr float kThresholdAntiRgpo = 1.5f;
+constexpr float kThresholdAntiVgpo = 1.5f;
+constexpr float kThresholdAntiFalseTarget = 1.5f;
 
 void MarkActivated(EccmEvaluator::Result* result) {
   if (result == nullptr) {
@@ -68,6 +74,16 @@ void EccmEvaluator::AccumulateInterferenceObservation(
         std::min(2.0, observation.jammer_to_noise_db / kStrongJammerToNoiseDb);
     selection->burnthrough_gain_score += static_cast<float>(normalized_strength);
   }
+  // 反欺骗评分：kPulseTrain 观测触发预防性前沿跟踪和加速度限幅。
+  if (observation.estimated_waveform_kind ==
+      oneq::electromagnetics::RfSceneWaveformKind::kPulseTrain) {
+    selection->anti_rgpo_score += 1.5f;
+    selection->anti_vgpo_score += 1.5f;
+  }
+  // 假目标：观测分类为疑似假目标 → 假目标鉴别。
+  if (observation.deception_class == session::DeceptionClass::kLikelyFalseTarget) {
+    selection->anti_false_target_score += 2.0f;
+  }
 }
 
 std::string EccmEvaluator::BuildProposalRationale(
@@ -84,6 +100,12 @@ std::string EccmEvaluator::BuildProposalRationale(
       return "RF observation favors pulse rejitter";
     case session::ControlDirectiveType::REQUEST_ECCM_BURNTHROUGH_GAIN:
       return "RF observation favors burnthrough gain";
+    case session::ControlDirectiveType::REQUEST_ANTI_RGPO_LEADING_EDGE:
+      return "RF observation suggests RGPO deception — enable leading-edge tracking";
+    case session::ControlDirectiveType::REQUEST_ANTI_VGPO_ACCELERATION_BOUND:
+      return "RF observation suggests VGPO deception — enable acceleration bound";
+    case session::ControlDirectiveType::REQUEST_ANTI_FALSE_TARGET_DISCRIMINATION:
+      return "RF observation suggests false targets — enable discrimination";
     default:
       return "RF observation requires countermeasure";
   }
@@ -161,6 +183,36 @@ EccmEvaluator::Result EccmEvaluator::Evaluate(
                    BuildProposalRationale(
                        session::ControlDirectiveType::REQUEST_ECCM_BURNTHROUGH_GAIN, selection),
                    proposals, true, ResolveBurnthroughGain(selection.burnthrough_gain_score));
+    MarkActivated(&result);
+  }
+  if (selection.anti_rgpo_score >= kThresholdAntiRgpo) {
+    AppendProposal(session::ControlDirectiveType::REQUEST_ANTI_RGPO_LEADING_EDGE,
+                   ResolvePriorityFromScore(kBasePriorityAntiRgpo,
+                                            selection.anti_rgpo_score),
+                   BuildProposalRationale(
+                       session::ControlDirectiveType::REQUEST_ANTI_RGPO_LEADING_EDGE,
+                       selection),
+                   proposals);
+    MarkActivated(&result);
+  }
+  if (selection.anti_vgpo_score >= kThresholdAntiVgpo) {
+    AppendProposal(session::ControlDirectiveType::REQUEST_ANTI_VGPO_ACCELERATION_BOUND,
+                   ResolvePriorityFromScore(kBasePriorityAntiVgpo,
+                                            selection.anti_vgpo_score),
+                   BuildProposalRationale(
+                       session::ControlDirectiveType::REQUEST_ANTI_VGPO_ACCELERATION_BOUND,
+                       selection),
+                   proposals);
+    MarkActivated(&result);
+  }
+  if (selection.anti_false_target_score >= kThresholdAntiFalseTarget) {
+    AppendProposal(session::ControlDirectiveType::REQUEST_ANTI_FALSE_TARGET_DISCRIMINATION,
+                   ResolvePriorityFromScore(kBasePriorityAntiFalseTarget,
+                                            selection.anti_false_target_score),
+                   BuildProposalRationale(
+                       session::ControlDirectiveType::REQUEST_ANTI_FALSE_TARGET_DISCRIMINATION,
+                       selection),
+                   proposals);
     MarkActivated(&result);
   }
   return result;

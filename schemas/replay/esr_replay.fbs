@@ -123,6 +123,7 @@ table EmitterObservation {
   pri_std_s:      double;
   pulse_width_std_s: double;
   waveform_class: int32 = 0;
+  deception_class: int32 = 0;
 }
 
 table ObservationOutput {

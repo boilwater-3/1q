@@ -174,6 +174,85 @@ TEST(EsrReplayCodecRoundtripTest,
             EsrRuntimeConfigApplyStatus::kRejectedInvalidPolicy);
 }
 
+TEST(EsrReplayCodecRoundtripTest,
+     DeceptionClassFieldRoundtripsCorrectly) {
+  EsrOutputFrame frame;
+  frame.cycle_index = 1U;
+  frame.batch_id = 2U;
+  EmitterObservation obs;
+  obs.observation_id = 10U;
+  obs.quality = EsrObservationQuality::kHigh;
+  obs.waveform_class = EsrWaveformClass::kPulse;
+  obs.deception_class = EsrDeceptionClass::kLikelyFalseTarget;
+  frame.observation_output.observations.push_back(obs);
+  EsrOutputFrame decoded;
+  ASSERT_TRUE(DecodeEsrOutputFrame(EncodeEsrOutputFrame(frame), &decoded));
+  ASSERT_EQ(decoded.observation_output.observations.size(), 1U);
+  EXPECT_EQ(decoded.observation_output.observations.front().deception_class,
+            EsrDeceptionClass::kLikelyFalseTarget);
+}
+
+TEST(EsrReplayCodecRoundtripTest,
+     UnknownDeceptionClassRejectsWithoutMutatingDestination) {
+  flatbuffers::FlatBufferBuilder builder;
+  esr::replay::EmitterObservationBuilder observation_builder(builder);
+  observation_builder.add_observation_id(1U);
+  observation_builder.add_quality(
+      static_cast<std::int32_t>(EsrObservationQuality::kHigh));
+  observation_builder.add_waveform_class(
+      static_cast<std::int32_t>(EsrWaveformClass::kPulse));
+  observation_builder.add_deception_class(999);
+  const auto observation = observation_builder.Finish();
+  const std::vector<flatbuffers::Offset<esr::replay::EmitterObservation>>
+      observations{observation};
+  esr::replay::ObservationOutputBuilder output_builder(builder);
+  output_builder.add_observations(builder.CreateVector(observations));
+  const auto observation_output = output_builder.Finish();
+  const auto root = esr::replay::CreateEsrOutputFrame(
+      builder, 1U, 2U, observation_output, 0);
+  builder.Finish(root);
+  const std::string bytes(
+      reinterpret_cast<const char*>(builder.GetBufferPointer()),
+      builder.GetSize());
+
+  EsrOutputFrame destination;
+  destination.cycle_index = 777U;
+  EXPECT_FALSE(DecodeEsrOutputFrame(bytes, &destination));
+  EXPECT_EQ(destination.cycle_index, 777U);
+  EXPECT_TRUE(destination.observation_output.observations.empty());
+}
+
+// 旧 trace 不含 deception_class 字段时默认解码为 kNone
+TEST(EsrReplayCodecRoundtripTest,
+     MissingDeceptionClassFieldDefaultsToNone) {
+  flatbuffers::FlatBufferBuilder builder;
+  esr::replay::EmitterObservationBuilder observation_builder(builder);
+  observation_builder.add_observation_id(1U);
+  observation_builder.add_quality(
+      static_cast<std::int32_t>(EsrObservationQuality::kHigh));
+  observation_builder.add_waveform_class(
+      static_cast<std::int32_t>(EsrWaveformClass::kPulse));
+  // 故意不调用 add_deception_class —— 模拟旧 trace
+  const auto observation = observation_builder.Finish();
+  const std::vector<flatbuffers::Offset<esr::replay::EmitterObservation>>
+      observations{observation};
+  esr::replay::ObservationOutputBuilder output_builder(builder);
+  output_builder.add_observations(builder.CreateVector(observations));
+  const auto observation_output = output_builder.Finish();
+  const auto root = esr::replay::CreateEsrOutputFrame(
+      builder, 1U, 2U, observation_output, 0);
+  builder.Finish(root);
+  const std::string bytes(
+      reinterpret_cast<const char*>(builder.GetBufferPointer()),
+      builder.GetSize());
+
+  EsrOutputFrame decoded;
+  ASSERT_TRUE(DecodeEsrOutputFrame(bytes, &decoded));
+  ASSERT_EQ(decoded.observation_output.observations.size(), 1U);
+  EXPECT_EQ(decoded.observation_output.observations.front().deception_class,
+            EsrDeceptionClass::kNone);
+}
+
 }  // namespace
 }  // namespace session
 }  // namespace electronic_surveillance_radar

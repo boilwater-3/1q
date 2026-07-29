@@ -102,6 +102,8 @@ struct LifecycleExecutionConfig {
 struct InternalExecutionConfig {
   bool sensor_enabled{true};                        /**< 设备开关机状态 */
   config::DecisionControlConfig decision_control{}; /**< 跨周期 LPI/ECCM 保持与冷却策略 */
+  bool enable_anti_vgpo_acceleration_bound{false};  /**< 加速度限幅对抗 VGPO */
+  bool enable_anti_false_target_discrimination{false}; /**< 假目标鉴别 */
   DetectionExecutionConfig detection{};
   AssociationExecutionConfig association{};
   TrackingExecutionConfig tracking{};

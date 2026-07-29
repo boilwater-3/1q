@@ -257,6 +257,8 @@ bool RunPhysicalDetectionPass(const session::ArSceneTargetList& input,
           static_cast<double>(config.detection.engineering.receiver.receive_loss_db);
       cell_config.receiver_noise_figure_db =
           static_cast<double>(config.detection.engineering.receiver.noise_figure_db);
+      cell_config.enable_anti_rgpo_leading_edge =
+          rf_v2_detection_context->enable_anti_rgpo_leading_edge;
       detection::ArDetectionCellTarget cell_target;
       cell_target.range_m = static_cast<double>((*buffers->target_geometry)[i].range_m);
       cell_target.closing_radial_velocity_mps = closing_radial_velocity_mps;

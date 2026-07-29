@@ -736,6 +736,8 @@ struct ArSession::Impl {
         prepared_operating_state.rf_receiver.window_duration_s;
     rf_v2_detection_context.beam_pointing_deg = prepared_operating_state.beam_pointing_deg;
     rf_v2_detection_context.incident_links = front_end.incident_links;
+    rf_v2_detection_context.enable_anti_rgpo_leading_edge =
+        Controller().GetControlProfile().enable_anti_rgpo_leading_edge;
     if (concrete_signal_pipeline_ == nullptr ||
         !concrete_signal_pipeline_->SetNextRfV2DetectionContext(rf_v2_detection_context)) {
       PROJECT_LOG_ERROR("[ArSession] CompleteRfCycle rejected the frozen RF detection context.");

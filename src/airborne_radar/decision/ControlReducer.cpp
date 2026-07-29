@@ -35,6 +35,9 @@ bool IsLpiDirective(session::ControlDirectiveType type) {
     case session::ControlDirectiveType::REQUEST_AGILITY_FREQUENCY:
     case session::ControlDirectiveType::REQUEST_ECCM_REJITTER:
     case session::ControlDirectiveType::REQUEST_ECCM_BURNTHROUGH_GAIN:
+    case session::ControlDirectiveType::REQUEST_ANTI_RGPO_LEADING_EDGE:
+    case session::ControlDirectiveType::REQUEST_ANTI_VGPO_ACCELERATION_BOUND:
+    case session::ControlDirectiveType::REQUEST_ANTI_FALSE_TARGET_DISCRIMINATION:
     case session::ControlDirectiveType::NONE:
     default:
       return false;
@@ -52,6 +55,9 @@ bool IsEccmDirective(session::ControlDirectiveType type) {
     case session::ControlDirectiveType::REQUEST_AGILITY_FREQUENCY:
     case session::ControlDirectiveType::REQUEST_ECCM_REJITTER:
     case session::ControlDirectiveType::REQUEST_ECCM_BURNTHROUGH_GAIN:
+    case session::ControlDirectiveType::REQUEST_ANTI_RGPO_LEADING_EDGE:
+    case session::ControlDirectiveType::REQUEST_ANTI_VGPO_ACCELERATION_BOUND:
+    case session::ControlDirectiveType::REQUEST_ANTI_FALSE_TARGET_DISCRIMINATION:
       return true;
     case session::ControlDirectiveType::REQUEST_LPI_POWER_REDUCTION:
     case session::ControlDirectiveType::REQUEST_LPI_BEAMFORMING:
@@ -78,6 +84,9 @@ bool IsValidDirectiveValue(const session::ControlDirective& directive) {
     case session::ControlDirectiveType::REQUEST_ENABLE_ADAPTIVE_BEAMFORMING:
     case session::ControlDirectiveType::REQUEST_AGILITY_FREQUENCY:
     case session::ControlDirectiveType::REQUEST_ECCM_REJITTER:
+    case session::ControlDirectiveType::REQUEST_ANTI_RGPO_LEADING_EDGE:
+    case session::ControlDirectiveType::REQUEST_ANTI_VGPO_ACCELERATION_BOUND:
+    case session::ControlDirectiveType::REQUEST_ANTI_FALSE_TARGET_DISCRIMINATION:
       return !directive.has_requested_value;
     case session::ControlDirectiveType::NONE:
     default:
@@ -101,7 +110,9 @@ bool IsLpiDomainActive(const session::ArControlProfile& profile) {
 bool IsEccmDomainActive(const session::ArControlProfile& profile) {
   return profile.enable_agility_frequency || profile.enable_sidelobe_canceller ||
          profile.enable_adaptive_beamforming || profile.enable_eccm_rejitter ||
-         profile.eccm_burnthrough_gain > 1.0f;
+         profile.eccm_burnthrough_gain > 1.0f || profile.enable_anti_rgpo_leading_edge ||
+         profile.enable_anti_vgpo_acceleration_bound ||
+         profile.enable_anti_false_target_discrimination;
 }
 /**
  * @brief 将控制真值中的 LPI 域恢复为默认关闭态。
@@ -130,6 +141,9 @@ void ResetEccmDomain(session::ArControlProfile* profile) {
   profile->enable_adaptive_beamforming = false;
   profile->enable_eccm_rejitter = false;
   profile->eccm_burnthrough_gain = 1.0f;
+  profile->enable_anti_rgpo_leading_edge = false;
+  profile->enable_anti_vgpo_acceleration_bound = false;
+  profile->enable_anti_false_target_discrimination = false;
 }
 
 /**
@@ -164,6 +178,9 @@ void CopyEccmDomain(const session::ArControlProfile& from,
   to->enable_adaptive_beamforming = from.enable_adaptive_beamforming;
   to->enable_eccm_rejitter = from.enable_eccm_rejitter;
   to->eccm_burnthrough_gain = from.eccm_burnthrough_gain;
+  to->enable_anti_rgpo_leading_edge = from.enable_anti_rgpo_leading_edge;
+  to->enable_anti_vgpo_acceleration_bound = from.enable_anti_vgpo_acceleration_bound;
+  to->enable_anti_false_target_discrimination = from.enable_anti_false_target_discrimination;
 }
 
 /**
@@ -234,6 +251,18 @@ void ApplyDirectiveToProfile(const session::ControlDirective& directive,
       break;
     case session::ControlDirectiveType::REQUEST_ECCM_BURNTHROUGH_GAIN:
       profile->eccm_burnthrough_gain = directive.requested_value;
+      applied->push_back(directive);
+      break;
+    case session::ControlDirectiveType::REQUEST_ANTI_RGPO_LEADING_EDGE:
+      profile->enable_anti_rgpo_leading_edge = true;
+      applied->push_back(directive);
+      break;
+    case session::ControlDirectiveType::REQUEST_ANTI_VGPO_ACCELERATION_BOUND:
+      profile->enable_anti_vgpo_acceleration_bound = true;
+      applied->push_back(directive);
+      break;
+    case session::ControlDirectiveType::REQUEST_ANTI_FALSE_TARGET_DISCRIMINATION:
+      profile->enable_anti_false_target_discrimination = true;
       applied->push_back(directive);
       break;
     case session::ControlDirectiveType::NONE:
@@ -319,7 +348,10 @@ bool HasOperationalProfileChanged(const session::ArControlProfile& previous,
          previous.enable_sidelobe_canceller != next.enable_sidelobe_canceller ||
          previous.enable_adaptive_beamforming != next.enable_adaptive_beamforming ||
          previous.enable_eccm_rejitter != next.enable_eccm_rejitter ||
-         previous.eccm_burnthrough_gain != next.eccm_burnthrough_gain;
+         previous.eccm_burnthrough_gain != next.eccm_burnthrough_gain ||
+         previous.enable_anti_rgpo_leading_edge != next.enable_anti_rgpo_leading_edge ||
+         previous.enable_anti_vgpo_acceleration_bound != next.enable_anti_vgpo_acceleration_bound ||
+         previous.enable_anti_false_target_discrimination != next.enable_anti_false_target_discrimination;
 }
 
 }  // namespace

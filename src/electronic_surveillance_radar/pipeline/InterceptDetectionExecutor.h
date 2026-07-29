@@ -66,6 +66,20 @@ class InterceptDetectionExecutor {
       std::uint64_t& next_observation_id, InterceptDetectionOutput* output) const;
 };
 
+/**
+ * @brief 对已检测的观测记录执行欺骗标注。
+ *
+ * 对所有 kPulse 观测执行方位角聚类：同波束宽度内
+ * ≥2 个脉冲观测时标记为 kLikelyFalseTarget。
+ * 纯观测层分类，不改变检测结果。
+ *
+ * @param beam_az_width_deg 方位角波束宽度（单位：deg）。
+ * @param beam_el_width_deg 俯仰角波束宽度（单位：deg）。
+ * @param[in,out] output 检测输出，其 raw_records 中的 deception_class 被原地修改。
+ */
+void ClassifyDeception(float beam_az_width_deg, float beam_el_width_deg,
+                       InterceptDetectionOutput* output);
+
 }  // namespace pipeline
 }  // namespace electronic_surveillance_radar
 

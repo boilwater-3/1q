@@ -181,6 +181,38 @@ bool TryResolveLookAngles(const oneq::electromagnetics::RfSceneReceiverState& re
 
 }  // namespace
 
+void ClassifyDeception(float beam_az_width_deg, float beam_el_width_deg,
+                       InterceptDetectionOutput* output) {
+  if (output == nullptr || output->raw_records.empty()) {
+    return;
+  }
+  const double beamwidth = std::max(
+      1.0, std::max(static_cast<double>(beam_az_width_deg),
+                    static_cast<double>(beam_el_width_deg)));
+  for (auto& record : output->raw_records) {
+    if (record.observation.waveform_class != session::EsrWaveformClass::kPulse) {
+      continue;
+    }
+    std::uint32_t coherent_count = 0U;
+    for (const auto& other : output->raw_records) {
+      if (other.observation.waveform_class != session::EsrWaveformClass::kPulse) {
+        continue;
+      }
+      const double az_diff = std::fabs(
+          record.observation.aoa_az_deg - other.observation.aoa_az_deg);
+      const double el_diff = std::fabs(
+          record.observation.aoa_el_deg - other.observation.aoa_el_deg);
+      if (az_diff < beamwidth && el_diff < beamwidth) {
+        ++coherent_count;
+      }
+    }
+    if (coherent_count >= 2U) {
+      record.observation.deception_class =
+          session::EsrDeceptionClass::kLikelyFalseTarget;
+    }
+  }
+}
+
 InterceptDetectionOutput InterceptDetectionExecutor::Execute(
     const MutableEsrContext& ctx, std::uint64_t& next_observation_id, double* scan_phase_cycles,
     std::uint64_t completed_receive_cycles) {
@@ -384,6 +416,7 @@ bool InterceptDetectionExecutor::ProcessRfV2Frame(
     record.observation.waveform_class = MapWaveformKindToClass(signal.emission_waveform.kind);
     output->raw_records.push_back(record);
   }
+  ClassifyDeception(hardware.beam_az_width_deg, hardware.beam_el_width_deg, output);
   return true;
 }
 

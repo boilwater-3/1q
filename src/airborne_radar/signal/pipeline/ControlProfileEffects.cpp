@@ -105,6 +105,11 @@ void ApplyControlProfileToConfig(const session::ArControlProfile& control_profil
   if (control_profile.enable_adaptive_beamforming) {
     config->detection.engineering.antenna.main_beam_gain_db += cfg.adaptive_beam_gain_boost_db;
   }
+
+  config->enable_anti_vgpo_acceleration_bound =
+      control_profile.enable_anti_vgpo_acceleration_bound;
+  config->enable_anti_false_target_discrimination =
+      control_profile.enable_anti_false_target_discrimination;
 }
 
 }  // namespace pipeline

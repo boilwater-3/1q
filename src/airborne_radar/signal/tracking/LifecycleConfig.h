@@ -37,6 +37,7 @@ struct LifecycleConfig {
       ImmActivationPolicy::kConfirmedTracksOnly}; /**< IMM 激活策略。 */
   TrackPoolThreadSafetyMode track_pool_thread_safety_mode{
       TrackPoolThreadSafetyMode::kSingleThreadNoLock}; /**< 对象池线程安全策略。 */
+  bool enable_anti_false_target_discrimination{false}; /**< 启用假目标鉴别 */
 };
 
 }  // namespace tracking

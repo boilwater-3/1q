@@ -30,6 +30,9 @@ struct ONEQ_API ArControlProfile {
   bool enable_adaptive_beamforming{false};     /**< 是否启用自适应波束形成 */
   bool enable_eccm_rejitter{false};            /**< 是否启用 ECCM 重频抖动 */
   float eccm_burnthrough_gain{1.0f};           /**< ECCM 烧穿增益倍率 */
+  bool enable_anti_rgpo_leading_edge{false};   /**< 是否启用前沿跟踪对抗 RGPO */
+  bool enable_anti_vgpo_acceleration_bound{false}; /**< 是否启用加速度限幅对抗 VGPO */
+  bool enable_anti_false_target_discrimination{false}; /**< 是否启用假目标鉴别 */
 };
 
 

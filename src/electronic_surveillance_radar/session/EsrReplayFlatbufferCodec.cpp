@@ -25,6 +25,11 @@ bool IsValidWaveformClass(std::int32_t value) {
          value <= static_cast<std::int32_t>(EsrWaveformClass::kNoise);
 }
 
+bool IsValidDeceptionClass(std::int32_t value) {
+  return value >= static_cast<std::int32_t>(EsrDeceptionClass::kNone) &&
+         value <= static_cast<std::int32_t>(EsrDeceptionClass::kLikelyFalseTarget);
+}
+
 bool IsValidEmitterMode(std::int32_t value) {
   return value >= static_cast<std::int32_t>(EsrEmitterMode::kUnknown) &&
          value <=
@@ -322,6 +327,7 @@ flatbuffers::Offset<esr::replay::EsrOutputFrame> CreateEsrOutputFrameTable(
     builder.add_pri_std_s(o.pri_std_s);
     builder.add_pulse_width_std_s(o.pulse_width_std_s);
     builder.add_waveform_class(static_cast<int32_t>(o.waveform_class));
+    builder.add_deception_class(static_cast<int32_t>(o.deception_class));
     obs_vec.push_back(builder.Finish());
   }
   esr::replay::ObservationOutputBuilder observation_builder(fbb);
@@ -386,7 +392,8 @@ bool PopulateOutputFrame(const esr::replay::EsrOutputFrame* fb,
     if (o->observations()) {
       for (const auto* obs : *o->observations()) {
         if (obs == nullptr || !IsValidObservationQuality(obs->quality()) ||
-            !IsValidWaveformClass(obs->waveform_class())) {
+            !IsValidWaveformClass(obs->waveform_class()) ||
+            !IsValidDeceptionClass(obs->deception_class())) {
           return false;
         }
         session::EmitterObservation rec{};
@@ -406,6 +413,7 @@ bool PopulateOutputFrame(const esr::replay::EsrOutputFrame* fb,
         rec.snr_db = obs->snr_db();
         rec.quality = static_cast<session::EsrObservationQuality>(obs->quality());
         rec.waveform_class = static_cast<session::EsrWaveformClass>(obs->waveform_class());
+        rec.deception_class = static_cast<session::EsrDeceptionClass>(obs->deception_class());
         out->observation_output.observations.push_back(rec);
       }
     }
