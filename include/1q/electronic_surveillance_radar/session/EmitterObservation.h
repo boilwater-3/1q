@@ -38,6 +38,17 @@ enum class ONEQ_API EsrWaveformClass : std::uint8_t {
 };
 
 /**
+ * @brief EsrDeceptionClass 表示观测的欺骗干扰分类。
+ *
+ * 基于单周期内脉冲列观测的角度一致性进行判定。
+ * 默认 kNone（非欺骗），仅适用于 EsrWaveformClass::kPulse 波形。
+ */
+enum class ONEQ_API EsrDeceptionClass : std::uint8_t {
+  kNone = 0,            /**< 非欺骗（常规观测或未知类型）。 */
+  kLikelyFalseTarget,   /**< 疑似假目标：同波束宽度内有多组脉冲列。 */
+};
+
+/**
  * @brief EmitterObservation 描述单条接收机观测。
  */
 struct ONEQ_API EmitterObservation {
@@ -57,6 +68,7 @@ struct ONEQ_API EmitterObservation {
   double snr_db{0.0};                                   /**< 观测信噪比（单位：dB） */
   EsrObservationQuality quality{EsrObservationQuality::kLow}; /**< 观测质量等级 */
   EsrWaveformClass waveform_class{EsrWaveformClass::kPulse}; /**< 波形类别，默认脉冲 */
+  EsrDeceptionClass deception_class{EsrDeceptionClass::kNone}; /**< 欺骗干扰分类 */
 };
 
 /** @brief EmitterObservationList 表示观测记录列表。 */

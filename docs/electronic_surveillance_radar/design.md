@@ -279,6 +279,11 @@ flowchart LR
 7. **分选与 hypothesis。** preprocess、cluster、deinterleave 和 associator 只能消费实际生成的 observation。
    center frequency、bandwidth、PRI、pulse width、bearing 及不确定度来自观测统计；不得从 scene emitter
    原样复制真值。platform/equipment/emission identity 不进入 observation 或 hypothesis。
+8. **欺骗标注（Strategy A）。** 检测完成后，对已发布的所有观测执行角度聚类：脉冲观测
+   （`EsrWaveformClass::kPulse`）中，与其他脉冲观测在同一天线波束宽度内出现 ≥2 个时，该观测被标记为
+   `kLikelyFalseTarget`。标注是纯观测层分类，不改变检测门限，不触发信号级反制。供下游消费者区分真实与
+   可疑观测。
+   [evidence: tests/unit/electronic_surveillance_radar/esr_deception_detection_test.cpp]
 
 `spectrum_occupancy_ratio` 只能表示尚未显式建模的环境噪声/占用背景，并在 noise PSD 账本中有一次明确
 换算；一旦相同 RF 源已经作为 emission 输入，不得再通过 occupancy 标量重复计入。大气物理继续只提供
