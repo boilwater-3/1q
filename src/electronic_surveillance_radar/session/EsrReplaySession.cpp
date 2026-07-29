@@ -33,7 +33,8 @@ bool EmitterObservationEqual(const session::EmitterObservation& left,
          left.pri_std_s == right.pri_std_s &&
          left.pulse_width_std_s == right.pulse_width_std_s &&
          left.amplitude_db == right.amplitude_db && left.snr_db == right.snr_db &&
-         left.quality == right.quality && left.waveform_class == right.waveform_class;
+         left.quality == right.quality && left.waveform_class == right.waveform_class &&
+         left.deception_class == right.deception_class;
 }
 
 bool EmitterHypothesisEqual(const session::EmitterHypothesis& left,

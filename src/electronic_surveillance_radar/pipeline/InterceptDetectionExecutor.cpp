@@ -187,9 +187,9 @@ void ClassifyDeception(float beam_az_width_deg, float beam_el_width_deg,
   if (output == nullptr || output->raw_records.empty()) {
     return;
   }
-  // 波束宽度取方位/俯仰较大者；共享聚类工具内部再钳制到 1.0 度下限。
-  const double beamwidth = std::max(static_cast<double>(beam_az_width_deg),
-                                    static_cast<double>(beam_el_width_deg));
+  // 方位/俯仰使用独立波束宽度（非对称波束正确分轴比较）。
+  const double az_width = static_cast<double>(beam_az_width_deg);
+  const double el_width = static_cast<double>(beam_el_width_deg);
   const auto is_pulse = [&output](std::size_t i) {
     return output->raw_records[i].observation.waveform_class == session::EsrWaveformClass::kPulse;
   };
@@ -204,7 +204,8 @@ void ClassifyDeception(float beam_az_width_deg, float beam_el_width_deg,
       continue;
     }
     const std::size_t coherent_count = oneq::common::geometry::CountCoherentNeighbors(
-        output->raw_records.size(), is_pulse, azimuth_of, elevation_of, beamwidth, i);
+        output->raw_records.size(), is_pulse, azimuth_of, elevation_of,
+        az_width, el_width, i);
     if (coherent_count >= 2U) {
       output->raw_records[i].observation.deception_class =
           session::EsrDeceptionClass::kLikelyFalseTarget;

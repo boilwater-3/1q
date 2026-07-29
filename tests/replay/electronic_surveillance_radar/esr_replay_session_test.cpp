@@ -292,6 +292,59 @@ TEST(EsrReplaySessionTest,
   EXPECT_EQ(replay.playback.compared_output_count, 2U);
 }
 
+TEST(EsrReplaySessionTest,
+     DeceptionClassificationReplaysDeterministically) {
+  const std::string trace_dir = "/tmp/1q-esr-deception-replay";
+  const auto writer = MakeWriter(trace_dir);
+  config::EsrSessionConfig config;
+  config.hardware.beam_az_width_deg = 120.0f;
+  config.hardware.beam_el_width_deg = 120.0f;
+  config.hardware.receiver_band_lower_hz = 9.99e9;
+  config.hardware.receiver_band_upper_hz = 10.01e9;
+  config.policy.detection.minimum_snr_db = -100.0f;
+  config.policy.detection.enable_statistical_detection = false;
+  EsrTraceSessionOptions options;
+  options.replay_writer = writer;
+  EsrTraceSession session(config, options);
+
+  // 构造同一周期内两个正交方位脉冲发射（触发欺骗标注）
+  EsrCycleInput input;
+  input.cycle_index = 1U;
+  input.cycle_start_time_s = 0.0;
+  input.dt_sec = 1.0f;
+  input.platform_entity_id = 1U;
+  input.has_platform_ecef_kinematics = true;
+  input.platform_position_ecef_m.x_m = 6378137.0;
+  input.rf_emissions.world_cycle_index = 1U;
+  input.rf_emissions.window_start_time_s = 0.0;
+  input.rf_emissions.window_duration_s = 1.0;
+  for (std::uint32_t i = 0; i < 2; ++i) {
+    oneq::electromagnetics::RfSceneEmission emission;
+    emission.identity.platform_id = 2U;
+    emission.identity.equipment_id = 3U;
+    emission.identity.emission_id = static_cast<std::uint64_t>(10 + i);
+    emission.position_ecef_m.x_m = 6378137.0;
+    emission.position_ecef_m.y_m = 1000.0;
+    emission.antenna.boresight_ecef.y = -1.0;
+    EXPECT_TRUE(oneq::electromagnetics::TryCreateRfPulseTrainWaveform(
+        input.cycle_start_time_s, 10.0e9, 1.0e6, 1.0e6, 1.0e-6, 1.0e-3,
+        1000U, 0.0, 1U, static_cast<std::uint64_t>(10 + i),
+        &emission.waveform));
+    input.rf_emissions.emissions.push_back(emission);
+  }
+
+  const EsrCycleResult result = session.StepWithResult(input);
+  ASSERT_EQ(result.status, EsrCycleExecutionStatus::kCompleted);
+  // 验证 live session 产生了观测输出（至少一条）
+  ASSERT_GE(result.output_frame.observation_output.observations.size(), 1U);
+  writer->Flush();
+
+  // 回放验证：deception_class 已纳入比较器，差异应被检出
+  const EsrReplaySessionResult replay = ReplayEsrTrace(trace_dir);
+  EXPECT_TRUE(replay.ok) << replay.first_error;
+  EXPECT_GE(replay.playback.compared_output_count, 1U);
+}
+
 }  // namespace
 }  // namespace session
 }  // namespace electronic_surveillance_radar
