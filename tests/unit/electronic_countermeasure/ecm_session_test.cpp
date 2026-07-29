@@ -331,6 +331,53 @@ TEST(EcmSessionTest, EsrAdapterCopiesOnlyDetruthEstimatedFields) {
   EXPECT_FLOAT_EQ(frame.observations.front().threat_score, 0.8f);
 }
 
+TEST(EcmSessionTest, TruthAssistedSnapshotValidatesDeceptionStates) {
+  // Bug 3b: TruthAssisted sessions cache no sensor frame. SnapshotInternallyConsistent
+  // must still validate deception states even when has_last_sensor_frame is false.
+  config::EcmSessionConfig config;
+  config.default_technique = EcmTechnique::kDeception;
+  config.default_deception_mode = EcmDeceptionMode::kRgpo;
+  EcmSession session = EcmSession::Create(config);
+
+  // Run TruthAssisted deception cycles to create an engaged deception state.
+  for (std::uint32_t cycle = 1U; cycle <= 3U; ++cycle) {
+    EcmCycleInput input;
+    input.cycle_index = cycle;
+    input.cycle_start_time_s = static_cast<double>(cycle - 1U);
+    input.dt_sec = 1.0;
+    input.input_mode = EcmInputMode::kTruthAssisted;
+    input.platform_entity_id = 900U;
+    input.platform_position_ecef_m.x_m = 6378137.0;
+    EcmTruthThreat threat;
+    threat.truth_entity_id = 100U;
+    threat.center_frequency_hz = 10.0e9;
+    threat.bandwidth_hz = 10.0e6;
+    threat.threat_score = 0.9f;
+    threat.estimated_pri_s = 1.0e-3;
+    threat.estimated_pulse_width_s = 1.0e-6;
+    input.truth_threats.push_back(threat);
+    const EcmCycleResult result = session.StepWithResult(input);
+    ASSERT_EQ(result.status, EcmCycleStatus::kExecuted) << "cycle " << cycle;
+  }
+
+  // Verify snapshot validates deception states
+  const EcmRuntimeState before = session.CaptureRuntimeState();
+  EXPECT_FALSE(before.deception_states.empty());
+  EXPECT_TRUE(before.deception_states.front().engaged);
+
+  // Corrupt a deception state field
+  EcmRuntimeState dirty = before;
+  dirty.owner_identity = before.owner_identity;
+  dirty.deception_states.front().current_delay_s =
+      std::numeric_limits<double>::quiet_NaN();
+  EXPECT_FALSE(session.RestoreRuntimeState(dirty));
+
+  // Session state must be unchanged after rejected restore.
+  const EcmRuntimeState after = session.CaptureRuntimeState();
+  ASSERT_FALSE(after.deception_states.empty());
+  EXPECT_TRUE(std::isfinite(after.deception_states.front().current_delay_s));
+}
+
 }  // namespace
 }  // namespace session
 }  // namespace electronic_countermeasure

@@ -430,6 +430,179 @@ TEST(EcmDeceptionTest, RuntimePatchCanSwitchToDeception) {
   EXPECT_EQ(result.decisions.front().technique, EcmTechnique::kDeception);
 }
 
+TEST(EcmDeceptionTest, FalseTargetEmitsEveryCycle) {
+  // Bug 1: kFalseTarget must emit every cycle, not every-other cycle.
+  config::EcmSessionConfig config =
+      MakeDeceptionConfig(EcmDeceptionMode::kFalseTarget);
+  config.deception_max_false_targets_per_threat = 3U;
+  EcmSession session = EcmSession::Create(config);
+
+  for (std::uint32_t cycle = 1U; cycle <= 10U; ++cycle) {
+    EcmCycleInput input = MakeSensorInput(cycle);
+    input.cycle_start_time_s = static_cast<double>(cycle - 1U);
+    const EcmCycleResult result = session.StepWithResult(input);
+    ASSERT_EQ(result.status, EcmCycleStatus::kExecuted);
+    EXPECT_EQ(result.emission_frame.emissions.size(), 3U)
+        << "cycle " << cycle << " should produce 3 false targets";
+  }
+}
+
+TEST(EcmDeceptionTest, DeceptionRespectsMaxActiveCap) {
+  // Bug 2a: deception_max_active must limit concurrent deception engagements.
+  config::EcmSessionConfig config =
+      MakeDeceptionConfig(EcmDeceptionMode::kFalseTarget);
+  config.deception_max_active = 1U;
+  config.channel_count = 3U;
+  EcmSession session = EcmSession::Create(config);
+
+  EcmCycleInput input = MakeSensorInput(1U);
+  // Add observations at different center frequencies to create distinct
+  // threats. Offset in bearing to prevent resolution-cell merging.
+  input.sensor_observation_frame.observations.clear();
+  input.sensor_observation_frame.observations.push_back(
+      MakeObservation(10U, 10.0e9, 0.9f));
+  input.sensor_observation_frame.observations[0].bearing_el_deg = 0.0;
+  input.sensor_observation_frame.observations.push_back(
+      MakeObservation(20U, 11.0e9, 0.8f));
+  input.sensor_observation_frame.observations[1].bearing_el_deg = 30.0;
+  input.sensor_observation_frame.observations.push_back(
+      MakeObservation(30U, 12.0e9, 0.7f));
+  input.sensor_observation_frame.observations[2].bearing_el_deg = 60.0;
+
+  const EcmCycleResult result = session.StepWithResult(input);
+  ASSERT_EQ(result.status, EcmCycleStatus::kExecuted);
+  // Only 1 channel emits (max_active=1). Other 2 threats are skipped and
+  // recorded as decisions with reason "deception concurrency cap reached".
+  EXPECT_EQ(result.emission_frame.emissions.size(),
+            config.deception_max_false_targets_per_threat);
+  // 3 decisions: 1 emitting + 2 skipped (cap reached)
+  EXPECT_EQ(result.decisions.size(), 3U);
+  // The first decision (highest-priority threat) should have emissions
+  EXPECT_EQ(result.decisions[0].reason, "highest-threat feasible channel allocation");
+  // The other two should be concurrency-cap rejections
+  EXPECT_EQ(result.decisions[1].reason, "deception concurrency cap reached");
+  EXPECT_EQ(result.decisions[2].reason, "deception concurrency cap reached");
+}
+
+TEST(EcmDeceptionTest, FalseTargetAppliesPowerScale) {
+  // Bug 2c: FalseTarget branch must apply deception_power_scale.
+  config::EcmSessionConfig config =
+      MakeDeceptionConfig(EcmDeceptionMode::kFalseTarget);
+  config.deception_power_scale = 0.25;
+  config.maximum_channel_transmit_power_w = 1000.0;
+  config.deception_max_false_targets_per_threat = 4U;
+  EcmSession session = EcmSession::Create(config);
+
+  const EcmCycleInput input = MakeSensorInput(1U);
+  const EcmCycleResult result = session.StepWithResult(input);
+
+  ASSERT_EQ(result.status, EcmCycleStatus::kExecuted);
+  ASSERT_EQ(result.emission_frame.emissions.size(), 4U);
+  // Each false target should get: (1000 * 0.25) / 4 = 62.5 W
+  for (const auto& emission : result.emission_frame.emissions) {
+    EXPECT_DOUBLE_EQ(emission.waveform.transmit_power_w, 62.5);
+  }
+  // Decision should record scaled total power: 1000 * 0.25 = 250 W
+  EXPECT_DOUBLE_EQ(result.decisions.front().allocated_power_w, 250.0);
+}
+
+TEST(EcmDeceptionTest, DeceptionThermalAccounting) {
+  // Bug 2b: thermal energy must increase by scaled power * dt, not unscaled.
+  config::EcmSessionConfig config =
+      MakeDeceptionConfig(EcmDeceptionMode::kRgpo);
+  config.deception_power_scale = 0.5;
+  config.maximum_channel_transmit_power_w = 1000.0;
+  config.cooling_power_w = 0.0;  // Disable cooling for clean measurement
+  EcmSession session = EcmSession::Create(config);
+
+  // Thermal starts at 0.
+  EcmCycleInput input1 = MakeSensorInput(1U);
+  input1.dt_sec = 1.0;
+  const EcmCycleResult result1 = session.StepWithResult(input1);
+  ASSERT_EQ(result1.status, EcmCycleStatus::kExecuted);
+  // Emitted power = 1000 * 0.5 = 500 W. Thermal += 500 * 1.0 = 500 J.
+  EXPECT_DOUBLE_EQ(result1.thermal_energy_j, 500.0);
+
+  EcmCycleInput input2 = MakeSensorInput(2U);
+  input2.cycle_start_time_s = 1.0;
+  input2.dt_sec = 1.0;
+  const EcmCycleResult result2 = session.StepWithResult(input2);
+  ASSERT_EQ(result2.status, EcmCycleStatus::kExecuted);
+  // Thermal += another 500 J → 1000 J total.
+  EXPECT_DOUBLE_EQ(result2.thermal_energy_j, 1000.0);
+}
+
+TEST(EcmDeceptionTest, ConfigRejectsInvalidDeceptionMode) {
+  // Bug 3a: out-of-range default_deception_mode must fail validation.
+  config::EcmSessionConfig config;
+  config.default_technique = EcmTechnique::kDeception;
+  config.default_deception_mode = static_cast<EcmDeceptionMode>(99);
+  EcmSession session = EcmSession::Create(config);
+  const EcmCycleInput input = MakeSensorInput(1U);
+  const EcmCycleResult result = session.StepWithResult(input);
+  EXPECT_EQ(result.status, EcmCycleStatus::kRejectedInvalidConfig);
+}
+
+TEST(EcmDeceptionTest, RgpoDelayReachesMaxInExpectedCycles) {
+  // Bug 4a: RGPO delay increment must use round-trip factor 2.
+  // With rate=100 m/s, max_range=1000 m, dt=1.0 s:
+  //   max_delay = 2.0 * 1000 / c ≈ 6.671e-6 s
+  //   increment_per_cycle = 2.0 * 100 * 1.0 / c ≈ 6.671e-7 s
+  //   cycles_to_max = 6.671e-6 / 6.671e-7 = 10
+  config::EcmSessionConfig config =
+      MakeDeceptionConfig(EcmDeceptionMode::kRgpo);
+  config.deception_rgpo_rate_m_per_s = 100.0;
+  config.deception_rgpo_max_range_m = 1000.0;
+  config.deception_hold_time_s = 10.0;  // long enough to observe holding
+  EcmSession session = EcmSession::Create(config);
+
+  constexpr double c = 299792458.0;
+  const double expected_max_delay = 2.0 * 1000.0 / c;
+  bool reached_holding = false;
+
+  for (std::uint32_t cycle = 1U; cycle <= 20U; ++cycle) {
+    EcmCycleInput input = MakeSensorInput(cycle);
+    input.cycle_start_time_s = static_cast<double>(cycle - 1U);
+    const EcmCycleResult result = session.StepWithResult(input);
+    ASSERT_EQ(result.status, EcmCycleStatus::kExecuted);
+    if (result.decisions.front().deception_phase == EcmDeceptionPhase::kHolding) {
+      reached_holding = true;
+      const double delay =
+          result.emission_frame.emissions.front().waveform.first_pulse_time_s -
+          input.cycle_start_time_s;
+      EXPECT_NEAR(delay, expected_max_delay, 1e-12);
+      // Reaches holding after 10 increments; with floating-point rounding of
+      // the >= comparison, it may take 10 or 11 cycles from state creation.
+      EXPECT_GE(cycle, 10U);
+      EXPECT_LE(cycle, 12U);
+      break;
+    }
+  }
+  EXPECT_TRUE(reached_holding);
+}
+
+TEST(EcmDeceptionTest, IsFeasibleThreatRejectsThreatWithDopplerOutsideBand) {
+  // Bug 4b: threat feasibility must account for Doppler offset.
+  config::EcmSessionConfig config =
+      MakeDeceptionConfig(EcmDeceptionMode::kFalseTarget);
+  config.minimum_frequency_hz = 10.0e9 - 1000.0;
+  config.maximum_frequency_hz = 10.0e9 + 1000.0;
+  config.deception_false_target_doppler_hz = 5000.0;  // pushes outside band
+  EcmSession session = EcmSession::Create(config);
+
+  EcmCycleInput input = MakeSensorInput(1U);
+  input.sensor_observation_frame.observations.clear();
+  // Threat at 10.0e9 + 0 Hz = within band.
+  // After Doppler: 10.0e9 + 5000 Hz = outside [min+1000, max-1000].
+  input.sensor_observation_frame.observations.push_back(
+      MakeObservation(10U, 10.0e9, 0.9f));
+  const EcmCycleResult result = session.StepWithResult(input);
+
+  // No feasible threats → safe stop with no fresh observation.
+  EXPECT_EQ(result.status, EcmCycleStatus::kSafeStopNoFreshObservation);
+  EXPECT_TRUE(result.emission_frame.emissions.empty());
+}
+
 }  // namespace
 }  // namespace session
 }  // namespace electronic_countermeasure

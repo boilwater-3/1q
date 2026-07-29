@@ -209,8 +209,13 @@ bool DecodeEcmSessionConfig(const std::string& bytes, config::EcmSessionConfig* 
   decoded.sweep_bandwidth_hz = value->sweep_bandwidth_hz();
   decoded.sweep_segment_count = value->sweep_segment_count();
   decoded.default_technique = static_cast<EcmTechnique>(value->default_technique());
-  decoded.default_deception_mode =
-      static_cast<EcmDeceptionMode>(value->default_deception_mode());
+  {
+    const int32_t raw_mode = value->default_deception_mode();
+    if (raw_mode < 0 || raw_mode > 3) {
+      return false;
+    }
+    decoded.default_deception_mode = static_cast<EcmDeceptionMode>(raw_mode);
+  }
   decoded.deception_rgpo_rate_m_per_s = value->deception_rgpo_rate_m_per_s();
   decoded.deception_rgpo_max_range_m = value->deception_rgpo_max_range_m();
   decoded.deception_vgpo_rate_hz_per_s = value->deception_vgpo_rate_hz_per_s();
@@ -256,8 +261,13 @@ bool DecodeEcmRuntimeConfigPatch(const std::string& bytes,
   decoded.has_default_technique = value->has_default_technique();
   decoded.default_technique = static_cast<EcmTechnique>(value->default_technique());
   decoded.has_default_deception_mode = value->has_default_deception_mode();
-  decoded.default_deception_mode =
-      static_cast<EcmDeceptionMode>(value->default_deception_mode());
+  {
+    const int32_t raw_mode = value->default_deception_mode();
+    if (raw_mode < 0 || raw_mode > 3) {
+      return false;
+    }
+    decoded.default_deception_mode = static_cast<EcmDeceptionMode>(raw_mode);
+  }
   *output = decoded;
   return true;
 }
@@ -403,10 +413,20 @@ bool DecodeEcmCycleResult(const std::string& bytes, EcmCycleResult* output) {
       decoded_decision.source_observation_id = decision->source_observation_id();
       decoded_decision.truth_entity_id = decision->truth_entity_id();
       decoded_decision.technique = static_cast<EcmTechnique>(decision->technique());
-      decoded_decision.deception_mode =
-          static_cast<EcmDeceptionMode>(decision->deception_mode());
-      decoded_decision.deception_phase =
-          static_cast<EcmDeceptionPhase>(decision->deception_phase());
+      {
+        const int32_t raw_mode = decision->deception_mode();
+        if (raw_mode < 0 || raw_mode > 3) {
+          return false;
+        }
+        decoded_decision.deception_mode = static_cast<EcmDeceptionMode>(raw_mode);
+      }
+      {
+        const int32_t raw_phase = decision->deception_phase();
+        if (raw_phase < 0 || raw_phase > 3) {
+          return false;
+        }
+        decoded_decision.deception_phase = static_cast<EcmDeceptionPhase>(raw_phase);
+      }
       decoded_decision.channel_index = decision->channel_index();
       decoded_decision.allocated_power_w = decision->allocated_power_w();
       decoded_decision.reason = decision->reason() ? decision->reason()->str() : std::string();
