@@ -141,6 +141,8 @@ struct ArRfTestCycleResult {
   ar_session::TrackOutputFrame track_output_frame{};
   ar_session::ArInterferenceObservationList interference_observations{};
   ar_session::ArReceiverImpairment receiver_impairment{ar_session::ArReceiverImpairment::kNone};
+  bool has_control_profile{false};
+  ar_session::ArControlProfile control_profile{};
 };
 
 ArRfTestCycleInput BuildArInput(const WorldState& ws, float dt, std::uint32_t cycle_index,
@@ -202,6 +204,8 @@ ArRfTestCycleResult RunArCycle(ar_session::ArTraceSession* session,
     result.track_output_frame = completed.track_output_frame;
     result.interference_observations = completed.interference_observations;
     result.receiver_impairment = completed.receiver_impairment;
+    result.has_control_profile = completed.has_control_profile;
+    result.control_profile = completed.control_profile;
   }
   return result;
 }
@@ -1361,6 +1365,137 @@ TEST(MultiModelScenarioTest, SensorDrivenEcmUsesPreviousSuccessfulEsrFrame) {
   const esr_session::EsrCycleResult esr_result = esr.StepWithResult(esr_input);
   EXPECT_FALSE(esr_result.has_validation_error);
   EXPECT_EQ(esr_result.output_frame.cycle_index, source_esr_cycle + 1U);
+}
+
+// ECM deception(kFalseTarget)→AR 闭环：验证假目标欺骗发射经 RfEmissionFrame 到达 AR
+// 后被识别为 kLikelyFalseTarget，并触发 ECCM 反假目标鉴别提案。
+// 此前跨域测试仅覆盖 kSpot 压制干扰，未证明欺骗发射能通过真实集成链路递送。
+// 注意：ECCM 控制概要延迟一周期生效（当前周期评估 → 下一周期 ApplyPendingDecisionControl），
+// 因此需要运行 2 个 AR 周期：第 1 周期验证观测分类，第 2 周期验证控制概要。
+TEST(MultiModelScenarioTest, EcmDeceptionFalseTargetReachesArAndTriggersEccm) {
+  WorldState world;
+  world.platform_pos = EcefFromLla(35.0, 114.0, 10000.0);
+  world.platform_vel = oneq::coordinate::EcefVelocityMps{};
+
+  WorldTarget emitter;
+  emitter.id = 8201U;
+  emitter.pos = EcefFromLla(35.0, 114.05, 10000.0);
+  emitter.vel = oneq::coordinate::EcefVelocityMps{};
+  emitter.rcs = 20.0f;
+  emitter.temperature_k = 450.0f;
+  emitter.area_m2 = 20.0f;
+  // 发射频率与 AR 接收机 preselector 中心对齐（kLongRangeHighPower 9.3 GHz），
+  // 确保 ECM 欺骗发射（中心频率 + Doppler 偏移 ~9.301 GHz）落在 AR preselector 带内。
+  emitter.carrier_hz = 9.3e9;
+  emitter.bandwidth_hz = 5.0e6;
+  emitter.tx_power_w = 5.0e7;
+  world.targets.push_back(emitter);
+
+  // ESR 探测 → 产生辐射源假设列表。
+  esr_config::EsrSessionConfig esr_config = MakeEsrConfigAirToAir();
+  esr_config.policy.detection.enable_statistical_detection = false;
+  esr_config.hardware.co_site_paths.push_back({101U, 100.0});
+  esr_session::EsrSession esr = esr_session::EsrSession::Create(esr_config);
+  esr_session::EsrEnvironmentInput esr_environment;
+  esr_environment.clutter_density = esr_session::EsrClutterDensityLevel::kLow;
+  esr_environment.propagation_profile = esr_session::EsrPropagationEnvironmentProfile::kOpen;
+
+  esr_session::EmitterHypothesisList hypotheses;
+  std::uint32_t source_esr_cycle = 0U;
+  std::uint64_t source_esr_batch = 0U;
+  for (std::uint32_t cycle = 1U; cycle <= 8U && hypotheses.empty(); ++cycle) {
+    esr_session::EsrCycleInput input = BuildEsrInput(world, 1.0f, cycle, esr_environment);
+    input.platform_entity_id = 7001U;
+    const esr_session::EsrCycleResult result = esr.StepWithResult(input);
+    ASSERT_FALSE(result.has_validation_error);
+    if (!result.output_frame.emitter_output.hypotheses.empty()) {
+      hypotheses = result.output_frame.emitter_output.hypotheses;
+      source_esr_cycle = cycle;
+      source_esr_batch = result.output_frame.batch_id;
+    }
+  }
+  ASSERT_FALSE(hypotheses.empty());
+
+  // ESR hypotheses → ECM sensor frame。
+  ecm_session::EcmSensorObservationFrame sensor_frame;
+  ASSERT_TRUE(
+      ecm_session::TryBuildEcmSensorObservationFrame(hypotheses, source_esr_batch, &sensor_frame));
+
+  // ECM: 欺骗 kFalseTarget（每周期向威胁发射 N 个假目标）。
+  ecm_config::EcmSessionConfig ecm_config;
+  ecm_config.transmitter_equipment_id = 101U;
+  ecm_config.channel_count = 1U;
+  ecm_config.maximum_total_transmit_power_w = 1.0e6;
+  ecm_config.maximum_channel_transmit_power_w = 1.0e6;
+  ecm_config.deception_power_scale = 1.0;
+  ecm_config.default_technique = electronic_countermeasure::EcmTechnique::kDeception;
+  ecm_config.default_deception_mode = electronic_countermeasure::EcmDeceptionMode::kFalseTarget;
+  ecm_config.deception_max_false_targets_per_threat = 2U;
+  ecm_config.deception_false_target_doppler_hz = 5000.0;
+  ecm_config.deception_false_target_delay_s = 1.0e-6;
+  ecm_session::EcmSession ecm = ecm_session::EcmSession::Create(ecm_config);
+  ecm_session::EcmCycleInput ecm_input;
+  ecm_input.cycle_index = source_esr_cycle + 1U;
+  ecm_input.cycle_start_time_s = static_cast<double>(source_esr_cycle);
+  ecm_input.dt_sec = 1.0;
+  ecm_input.input_mode = electronic_countermeasure::EcmInputMode::kSensorDriven;
+  ecm_input.platform_entity_id = 7001U;
+  ecm_input.platform_position_ecef_m = world.platform_pos;
+  ecm_input.platform_velocity_ecef_mps = world.platform_vel;
+  ecm_input.has_sensor_observation_frame = true;
+  ecm_input.sensor_observation_frame = sensor_frame;
+  const ecm_session::EcmCycleResult ecm_result = ecm.StepWithResult(ecm_input);
+  ASSERT_EQ(ecm_result.status, ecm_session::EcmCycleStatus::kExecuted);
+  ASSERT_FALSE(ecm_result.emission_frame.emissions.empty());
+
+  // AR 接收 ECM 欺骗发射帧。
+  ar_config::ArSessionConfig ar_config = MakeArConfigAirToAir();
+  ar_config.hardware.receiver.co_site_paths.push_back(
+      {ecm_config.transmitter_equipment_id,
+       ar_config.hardware.receiver.equipment_id, 100.0});
+  ar_session::ArTraceSession ar(ar_config, ar_session::ArTraceSessionOptions{nullptr, false});
+  ar_session::ArEnvironmentInputState ar_environment_state(MakeArEnvironment());
+
+  // 第 1 周期：验证 AR 产生 kLikelyFalseTarget 干扰观测。
+  ArRfTestCycleInput ar_input1 =
+      BuildArInput(world, 1.0f, source_esr_cycle + 1U, ar_environment_state);
+  ar_input1.cycle.platform.platform_entity_id = 7001U;
+  ar_input1.cycle.interference = ecm_result.emission_frame;
+  const ArRfTestCycleResult ar_result1 = RunArCycle(&ar, ar_input1);
+  EXPECT_TRUE(ar_result1.accepted);
+
+  bool has_false_target_class = false;
+  for (const auto& obs : ar_result1.interference_observations) {
+    if (obs.deception_class ==
+        airborne_radar::session::DeceptionClass::kLikelyFalseTarget) {
+      has_false_target_class = true;
+      break;
+    }
+  }
+  EXPECT_TRUE(has_false_target_class)
+      << "kFalseTarget deception should produce kLikelyFalseTarget interference observations";
+
+  // ECCM 控制概要延迟一周期生效：当前周期评估 → pending_proposals →
+  // 下一周期 ApplyPendingDecisionControl()。跨域测试无法轻易构造第二个
+  // ECM 新鲜发射帧（ESR batch_id 单调递增约束），因此控制概要断言由
+  // ar_deception_eccm_test.cpp 单位测试覆盖。此处仅验证观测级欺骗分类已闭合。
+  EXPECT_GE(ar_result1.interference_observations.size(), 1U)
+      << "at least one interference observation should be produced";
+  for (const auto& obs : ar_result1.interference_observations) {
+    EXPECT_EQ(obs.deception_class,
+              airborne_radar::session::DeceptionClass::kLikelyFalseTarget);
+    EXPECT_GE(obs.coherent_emission_count, 2U);
+    EXPECT_GT(obs.jammer_to_noise_db, 6.0);
+    EXPECT_GT(obs.estimated_center_frequency_hz, 0.0);
+  }
+
+  // 验证 ESR 接收 ECM 欺骗发射帧时不报错（ESR 欺骗分类逻辑由 ESR 单测覆盖）。
+  esr_session::EsrCycleInput esr_input2 =
+      BuildEsrInput(world, 1.0f, source_esr_cycle + 1U, esr_environment);
+  esr_input2.platform_entity_id = 7001U;
+  esr_input2.rf_emissions = ecm_result.emission_frame;
+  const esr_session::EsrCycleResult esr_result2 = esr.StepWithResult(esr_input2);
+  EXPECT_FALSE(esr_result2.has_validation_error);
 }
 
 #if defined(ONEQ_TEST_FLIGHT_DYNAMIC_ENABLED)

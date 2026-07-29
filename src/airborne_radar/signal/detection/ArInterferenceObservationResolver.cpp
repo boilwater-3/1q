@@ -191,10 +191,14 @@ bool TryResolveArInterferenceObservations(
     const double x = emission->position_ecef_m.x_m - receiver.position_ecef_m.x_m;
     const double y = emission->position_ecef_m.y_m - receiver.position_ecef_m.y_m;
     const double z = emission->position_ecef_m.z_m - receiver.position_ecef_m.z_m;
-    const double range_m = std::sqrt(x * x + y * y + z * z);
-    if (!std::isfinite(range_m) || range_m <= 0.0) {
+    const double raw_range_m = std::sqrt(x * x + y * y + z * z);
+    if (!std::isfinite(raw_range_m) || raw_range_m < 0.0) {
       return false;
     }
+    // 同平台（co-site）干扰源物理距离为 0 时，取最小可观测距离作为去真值化基线，
+    // 避免零均值扰动产生非物理负值触发 fail-closed（co-site 隔离已处理功率预算）。
+    constexpr double kMinObservableRangeM = 1.0;
+    const double range_m = std::max(raw_range_m, kMinObservableRangeM);
     // 发射稳定的 64 位标签：用于把斜距/径向速度扰动与具体发射绑定，使同种子同输入下
     // 可复现、不同发射之间互不相关。组合 platform/equipment/emission 身份（truth 身份
     // 仅用于种子混入，不写入 observation，仍遵守去真值化约定）。
@@ -218,8 +222,14 @@ bool TryResolveArInterferenceObservations(
     // 不再是精确仿真真值（contract.md:348）。
     double perturbed_range_m =
         Perturb(range_m, range_std_m, perturbation_seed, kRangeDomain, emission_tag);
+    // 同平台干扰源 range_m 被钳制到 kMinObservableRangeM（~1 m），而误差模型含 20 m
+    // 系统偏置项，扰动后大概率为负值。取绝对值保持去真值化噪声幅度，同时避免触发
+    // fail-closed（非 co-site 场景 range_m >> std，不会产生负值）。
+    if (raw_range_m < kMinObservableRangeM && perturbed_range_m < 0.0 &&
+        std::isfinite(perturbed_range_m)) {
+      perturbed_range_m = -perturbed_range_m;
+    }
     if (!std::isfinite(perturbed_range_m) || perturbed_range_m <= 0.0) {
-      // 扰动后落入非物理区间时退回真值几何并 fail-closed（与既有 range 校验一致）。
       return false;
     }
     observation.estimated_slant_range_m = perturbed_range_m;
