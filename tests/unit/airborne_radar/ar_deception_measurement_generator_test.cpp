@@ -36,6 +36,7 @@ session::ArInterferenceObservation MakeFalseTargetObservation(std::uint64_t obse
   obs.coherent_emission_count = coherent_count;
   obs.estimated_bearing_azimuth_local_deg = 45.0;
   obs.estimated_bearing_elevation_local_deg = 10.0;
+  obs.estimated_center_frequency_hz = 10.0e9;
   obs.estimated_slant_range_m = 20000.0;
   obs.estimated_range_rate_mps = -300.0;  // 接近视距，负径向速度
   obs.bearing_standard_deviation_deg = 2.0;
@@ -117,7 +118,8 @@ TEST(DeceptionMeasurementGeneratorTest, AssociationKeyStableAcrossCyclesForSameO
 
   ASSERT_EQ(scratch_a.track_measurements.size(), 1U);
   ASSERT_EQ(scratch_b.track_measurements.size(), 1U);
-  // 同 observation_id 的假目标跨周期映射到同一 association_key，使 lifecycle 聚到同一假航迹。
+  // 同簇观测的假目标跨周期映射到同一 association_key（由量化局部方位/中心频率派生
+  // 而非每周期重新编号的 observation_id），使 lifecycle 聚到同一假航迹。
   EXPECT_EQ(scratch_a.track_measurements.front().raw_measurement.association_key,
             scratch_b.track_measurements.front().raw_measurement.association_key);
   // key 应落入 deception key 段（高位标志位置 1）。
@@ -159,6 +161,55 @@ TEST(DeceptionMeasurementGeneratorTest, SkipsNonFalseTargetObservations) {
   InjectDeceptionMeasurementsPass(context, scratch);
 
   EXPECT_TRUE(scratch.track_measurements.empty());
+}
+
+// 簇去重防止 N² 量测膨胀：resolver 把同方向 N 个脉冲列各置 coherent_emission_count=N，
+// 生成器应对每个簇（按量化方位/俯仰/中心频率去重）仅生成 N 条量测，而非 N²。
+TEST(DeceptionMeasurementGeneratorTest, CoherentClusterDedupAvoidsNSquaredExpansion) {
+  // 两条观测指向同一簇（相同方位/俯仰/频率），各带 coherent_count=3。
+  session::ArInterferenceObservation obs_a = MakeFalseTargetObservation(1U, 3U);
+  session::ArInterferenceObservation obs_b = MakeFalseTargetObservation(2U, 3U);
+  // 微调方位仍在 1° 量化格内 → 同簇。
+  obs_b.estimated_bearing_azimuth_local_deg = 45.3;
+  obs_b.estimated_bearing_elevation_local_deg = 10.2;
+  session::ArInterferenceObservationList observations = {obs_a, obs_b};
+  session::ArSceneTargetList empty_input;
+  CycleExecutionContext context = MakeContext(observations, empty_input);
+
+  CycleExecutionScratch scratch;
+  ResetCycleExecutionScratch(empty_input, scratch);
+  InjectDeceptionMeasurementsPass(context, scratch);
+
+  // 同簇去重后仅生成 3 条（不是 6 条 N²）。
+  ASSERT_EQ(scratch.track_measurements.size(), 3U);
+  for (const auto& m : scratch.track_measurements) {
+    EXPECT_TRUE(m.raw_measurement.classified_as_false_target);
+  }
+}
+
+// 关联键由簇签名派生（量化方位/俯仰/中心频率），而非每周期重新编号的 observation_id。
+// 不同 observation_id 但同簇的观测应映射到同一 key 段，使同源假目标跨周期聚到同一假航迹。
+TEST(DeceptionMeasurementGeneratorTest, AssociationKeyDerivedFromClusterSignature) {
+  session::ArInterferenceObservation obs1 = MakeFalseTargetObservation(100U, 1U);
+  session::ArInterferenceObservation obs2 = MakeFalseTargetObservation(200U, 1U);
+  // 同簇：方位/俯仰/频率完全一致。
+  session::ArInterferenceObservationList observations_a = {obs1};
+  session::ArInterferenceObservationList observations_b = {obs2};
+  session::ArSceneTargetList empty_input;
+
+  CycleExecutionScratch scratch_a;
+  ResetCycleExecutionScratch(empty_input, scratch_a);
+  InjectDeceptionMeasurementsPass(MakeContext(observations_a, empty_input), scratch_a);
+
+  CycleExecutionScratch scratch_b;
+  ResetCycleExecutionScratch(empty_input, scratch_b);
+  InjectDeceptionMeasurementsPass(MakeContext(observations_b, empty_input), scratch_b);
+
+  ASSERT_EQ(scratch_a.track_measurements.size(), 1U);
+  ASSERT_EQ(scratch_b.track_measurements.size(), 1U);
+  // 同簇签名 → 同 association_key（与 observation_id 无关）。
+  EXPECT_EQ(scratch_a.track_measurements.front().raw_measurement.association_key,
+            scratch_b.track_measurements.front().raw_measurement.association_key);
 }
 
 }  // namespace

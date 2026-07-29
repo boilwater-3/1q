@@ -474,6 +474,8 @@ AR 在接收链的三个层次主动反制欺骗干扰：
 [evidence: tests/unit/airborne_radar/ar_deception_measurement_generator_test.cpp::PositionFromLocalBearingAndSlantRange]
 [evidence: tests/unit/airborne_radar/ar_deception_measurement_generator_test.cpp::AssociationKeyStableAcrossCyclesForSameObservation]
 [evidence: tests/unit/airborne_radar/ar_deception_measurement_generator_test.cpp::GeneratesFalseTargetMeasurementsRegardlessOfSwitch]
+[evidence: tests/unit/airborne_radar/ar_deception_measurement_generator_test.cpp::CoherentClusterDedupAvoidsNSquaredExpansion]
+[evidence: tests/unit/airborne_radar/ar_deception_measurement_generator_test.cpp::AssociationKeyDerivedFromClusterSignature]
 [evidence: tests/unit/airborne_radar/ar_interference_observation_resolver_test.cpp::LocalFrameBearingDiffersFromEcefWhenAttitudeNonZero]
 [evidence: tests/unit/airborne_radar/ar_interference_observation_resolver_test.cpp::RangeAndRangeRateArePerturbedFromTruth]
 [evidence: tests/unit/airborne_radar/ar_interference_observation_resolver_test.cpp::PulseTrainPopulatesCarrierOffsetAndFirstPulseDelay]

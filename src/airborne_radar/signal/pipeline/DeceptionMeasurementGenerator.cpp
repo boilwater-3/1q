@@ -1,6 +1,8 @@
 #include "airborne_radar/signal/pipeline/DeceptionMeasurementGenerator.h"
 
 #include <cmath>
+#include <cstdint>
+#include <set>
 
 #include "common/logging/ProjectLog.h"
 
@@ -10,8 +12,8 @@ namespace pipeline {
 
 namespace {
 
-// 合成量测 source_index 的 sentinel：超出任何真实场景列表大小，TagFalseTargetMeasurements
-// 与 ApplyTrackFilterPass 的边界检查会自然跳过，确保合成量测不索引 per-target scratch 数组。
+// 合成量测 source_index 的 sentinel：超出任何真实场景列表大小，
+  // 使下游 per-target 数组边界检查自然跳过，确保合成量测不索引真实 scratch 数据。
 constexpr std::size_t kDeceptionSourceIndexSentinel =
     static_cast<std::size_t>(-1);
 
@@ -60,6 +62,32 @@ Eigen::Vector3f ResolveVelocityAlongLineOfSight(double azimuth_deg, double eleva
   return Eigen::Vector3f(static_cast<float>(vx), static_cast<float>(vy), static_cast<float>(vz));
 }
 
+// 相干簇的稳定签名：把局部系方位/俯仰/中心频率量化到粗网格，使同源假目标簇跨周期
+// （即使 observation_id 每周期重新编号）映射到同一签名。量化粒度取波束宽度量级，
+// 远大于单周期数值噪声，确保同一物理簇稳定聚合。
+constexpr double kClusterAzimuthGridDeg = 1.0;     // 方位量化格（度）
+constexpr double kClusterElevationGridDeg = 1.0;   // 俯仰量化格（度）
+constexpr double kClusterFrequencyGridHz = 1.0e6;  // 中心频率量化格（1 MHz）
+
+std::uint64_t ClusterSignature(const session::ArInterferenceObservation& obs) {
+  // 方位归一化到 [0, 360) 后量化，消除跨周期 ±360 抖动导致的签名漂移。
+  const double az_deg = ResolveLocalAzimuthDeg(obs);
+  double az_normalized = std::fmod(az_deg, 360.0);
+  if (az_normalized < 0.0) {
+    az_normalized += 360.0;
+  }
+  const std::int64_t az_bin = static_cast<std::int64_t>(std::round(az_normalized / kClusterAzimuthGridDeg));
+  const std::int64_t el_bin =
+      static_cast<std::int64_t>(std::round(ResolveLocalElevationDeg(obs) / kClusterElevationGridDeg));
+  const std::int64_t freq_bin =
+      static_cast<std::int64_t>(std::round(obs.estimated_center_frequency_hz / kClusterFrequencyGridHz));
+  // 签名布局：方位 12 bit（0..3599）、俯仰带符号 12 bit、频率 32 bit。
+  const std::uint64_t az_part = static_cast<std::uint64_t>(az_bin & 0xFFFULL);
+  const std::uint64_t el_part = static_cast<std::uint64_t>(el_bin & 0xFFFULL);
+  const std::uint64_t freq_part = static_cast<std::uint64_t>(freq_bin & 0xFFFF'FFFFLL);
+  return (az_part << 44U) | (el_part << 32U) | freq_part;
+}
+
 }  // namespace
 
 void InjectDeceptionMeasurementsPass(const CycleExecutionContext& context,
@@ -75,6 +103,12 @@ void InjectDeceptionMeasurementsPass(const CycleExecutionContext& context,
   // 仅当局部系方位不可用（pose 缺失）且需回退 ECEF 时告警一次，避免静默使用跨系方位合成。
   bool fell_back_to_ecef = false;
 
+  // 簇去重：resolver 把同方向 N 个脉冲列各置 coherent_emission_count=N，若对每条观测都
+  // 循环 N 次会生成 N² 条量测。改为按簇签名（量化的局部方位/俯仰/中心频率）去重，每个簇
+  // 只由其首个代表生成 N 条量测。签名同时用作跨周期稳定的 association_key（observation_id
+  // 每周期重新编号，不能跨周期聚合同源假航迹）。
+  std::set<std::uint64_t> emitted_signatures;
+
   for (const session::ArInterferenceObservation& obs : *context.interference_observations) {
     if (obs.deception_class != session::DeceptionClass::kLikelyFalseTarget) {
       continue;
@@ -84,6 +118,11 @@ void InjectDeceptionMeasurementsPass(const CycleExecutionContext& context,
     }
     if (!obs.has_local_bearings) {
       fell_back_to_ecef = true;
+    }
+    const std::uint64_t signature = ClusterSignature(obs);
+    if (!emitted_signatures.insert(signature).second) {
+      // 同簇已由先前观测代表生成，跳过以免 N² 膨胀。
+      continue;
     }
     const double azimuth_deg = ResolveLocalAzimuthDeg(obs);
     const double elevation_deg = ResolveLocalElevationDeg(obs);
@@ -103,11 +142,10 @@ void InjectDeceptionMeasurementsPass(const CycleExecutionContext& context,
       measurement.raw_measurement.source_index = kDeceptionSourceIndexSentinel;
       measurement.raw_measurement.target_name = "deception";
       measurement.raw_measurement.external_target_id = 0U;
-      // 确定性 association_key：同 observation_id 的假目标跨周期映射到同一 key 段，
-      // 使 lifecycle 把同源假目标聚到同一假航迹。i 编码区分同一观测的多个假目标。
+      // 跨周期稳定的 association_key：用簇签名（而非每周期重新编号的 observation_id）派生，
+      // 使 lifecycle 把同源假目标跨周期聚到同一假航迹。i 编码区分同一簇的多个假目标。
       measurement.raw_measurement.association_key =
-          kDeceptionKeyBase |
-          ((obs.observation_id & 0x7FFF'FFFF'FFFF'FFFFULL) << 8) |
+          kDeceptionKeyBase | ((signature & 0x00FF'FFFF'FFFF'FFFFULL) << 8) |
           static_cast<std::uint64_t>(i & 0xFFULL);
       measurement.raw_measurement.matched_existing_track = false;
       measurement.raw_measurement.classified_as_false_target = true;

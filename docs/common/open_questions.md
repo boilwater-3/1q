@@ -33,20 +33,20 @@ Authority: 非规定性记录
   （`ArInterferenceObservation`，含方位与波形），但其消费点在航迹生命周期域
   （`TrackLifecycleManager::PromoteState`，抑制 tentative→confirmed）。当前实现通过
   `ISignalPipeline::SetPendingInterferenceObservations` 将干扰观测在 `RunCycle` 前注入
-  pipeline，在量测构建阶段按目标 look angle 与干扰观测方位匹配后，把
-  `classified_as_false_target` 透传到 `RawTrackMeasurement`，再由 `PromoteState` 消费。
+  pipeline，由 `DeceptionMeasurementGenerator` 按簇签名（量化方位/俯仰/中心频率）合成假目标
+  量测并标注 `classified_as_false_target`，再由 `PromoteState` 消费。`TagFalseTargetMeasurements`
+  （曾按方位 proximity 把真实场景目标误标为假目标，使用另一套波束宽度口径）已在
+  `feature/anti-deception-eccm-fix` 中移除——现仅由生成器负责假目标量测注入，波束宽度
+  仅在 resolver `half_power_beamwidth_deg` 口径下聚类。
+
 - **未决问题**：这种"RF 观测 → pipeline setter → 量测标注 → lifecycle 消费"的跨域桥接是否
   应固化为更明确的接口契约，而非当前的 setter 旁路。`pending_interference_observations` 是
-  周期性输入而非配置，与 `SetControlProfile` 等配置型 setter 语义不同；且方位匹配的波束宽度
-  口径（当前取 detection antenna 的 `nominal_az/el_beamwidth_deg` 较大者）与干扰观测聚类
-  （`ArInterferenceObservationResolver` 用 `receiver.antenna.half_power_beamwidth_deg`）不完全一致。
-  此外同一"疑似假目标"概念跨域用了两套命名：观测域 `ArInterferenceObservation.deception_class`
-  （枚举）与量测域 `RawTrackMeasurement.classified_as_false_target`（bool），跨域阅读增加认知负担。
+  周期性输入而非配置，与 `SetControlProfile` 等配置型 setter 语义不同。此外同一"疑似假目标"
+  概念跨域用了两套命名：观测域 `ArInterferenceObservation.deception_class`（枚举）与量测域
+  `RawTrackMeasurement.classified_as_false_target`（bool），跨域阅读增加认知负担。
+
 - **当前边界**：setter 注入是内部端口（`ISignalPipeline` 非公开 API）上的最小侵入桥接，不构成
-  公开契约；不得据此宣称 pipeline 对外暴露干扰观测接口。方位匹配的两套波束宽度口径当前均经测试
-  验证行为合理，但未承诺二者数学等价。两套命名保留，待跨域标注契约收敛时统一。
-- **Stage A 进入条件**：出现第二个跨域标注消费者（如 SAR/EOS 的同类鉴别），或方位匹配精度成为
-  验收瓶颈时，先评估提取统一的"观测标注 → 量测"桥接契约与单一波束宽度来源，再决定是否替换 setter 旁路。
+  公开契约；不得据此宣称 pipeline 对外暴露干扰观测接口。两套命名保留，待跨域标注契约收敛时统一。
 
 ### AR-OQ-2：SyncRuntimeTuning 字段同步的手工列表脆弱性
 
