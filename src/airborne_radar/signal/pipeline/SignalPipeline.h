@@ -109,6 +109,13 @@ class SignalPipeline final : public ISignalPipeline {
   session::ArControlProfile GetControlProfile() const override;
 
   /**
+   * @brief 注入本周期待用的接收机干扰观测，供航迹起批假目标鉴别。
+   * @param observations 干扰观测列表（周期内消费后清空）。
+   */
+  void SetPendingInterferenceObservations(
+      session::ArInterferenceObservationList observations) override;
+
+  /**
    * @brief 更新流水线运行配置。
    * @param config 四域会话配置。
    */

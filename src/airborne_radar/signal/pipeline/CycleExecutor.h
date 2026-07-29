@@ -12,6 +12,7 @@
 
 #include "airborne_radar/environment/EnvironmentTypes.h"
 #include "1q/airborne_radar/session/ArControlProfile.h"
+#include "1q/airborne_radar/session/ArInterferenceObservation.h"
 #include "1q/airborne_radar/session/DecisionInputFrame.h"
 #include "airborne_radar/signal/association/DataAssociation.h"
 #include "airborne_radar/signal/detection/SignalDetector.h"
@@ -96,14 +97,17 @@ struct CycleExecutionContext {
                         const session::EnvironmentSnapshot& environment_snapshot,
                         std::uint32_t cycle_index, std::uint64_t batch_id,
                         ExecutionConfig runtime_config, float platform_altitude_m,
-                        const RfV2DetectionContext* rf_v2_detection_context = nullptr)
+                        const RfV2DetectionContext* rf_v2_detection_context = nullptr,
+                        const session::ArInterferenceObservationList* interference_observations =
+                            nullptr)
       : input_state(input_state),
         environment_snapshot(environment_snapshot),
         cycle_index(cycle_index),
         batch_id(batch_id),
         platform_altitude_m(platform_altitude_m),
         runtime_config(std::move(runtime_config)),
-        rf_v2_detection_context(rf_v2_detection_context) {}
+        rf_v2_detection_context(rf_v2_detection_context),
+        interference_observations(interference_observations) {}
 
   const session::ArSceneTargetList& input_state;
   const session::EnvironmentSnapshot& environment_snapshot;
@@ -112,6 +116,7 @@ struct CycleExecutionContext {
   float platform_altitude_m{0.0f};
   ExecutionConfig runtime_config{};
   const RfV2DetectionContext* rf_v2_detection_context{nullptr};
+  const session::ArInterferenceObservationList* interference_observations{nullptr};
 };
 
 /**

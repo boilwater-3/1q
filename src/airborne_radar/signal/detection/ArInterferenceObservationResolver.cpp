@@ -4,6 +4,8 @@
 #include <cmath>
 #include <tuple>
 
+#include "common/geometry/BearingCluster.h"
+
 namespace airborne_radar {
 namespace signal {
 namespace detection {
@@ -126,32 +128,28 @@ bool TryResolveArInterferenceObservations(
     return MakeSortKey(left) < MakeSortKey(right);
   });
 
-  // 欺骗特征提取：检测同方向多脉冲列（疑似假目标）。
+  // 欺骗特征提取：检测同方向多脉冲列（疑似假目标）。聚类逻辑复用共享几何工具，
+  // 与 ESR 的 ClassifyDeception 保持一致的波束宽度口径（含 1.0 度下限钳制）。
   const double beamwidth_deg = receiver.antenna.half_power_beamwidth_deg;
-  for (auto& observation : candidate) {
-    if (observation.estimated_waveform_kind !=
-        oneq::electromagnetics::RfSceneWaveformKind::kPulseTrain) {
+  const auto is_pulse_train = [&candidate](std::size_t i) {
+    return candidate[i].estimated_waveform_kind ==
+           oneq::electromagnetics::RfSceneWaveformKind::kPulseTrain;
+  };
+  const auto azimuth_of = [&candidate](std::size_t i) {
+    return candidate[i].estimated_bearing_azimuth_deg;
+  };
+  const auto elevation_of = [&candidate](std::size_t i) {
+    return candidate[i].estimated_bearing_elevation_deg;
+  };
+  for (std::size_t i = 0U; i < candidate.size(); ++i) {
+    if (!is_pulse_train(i)) {
       continue;
     }
-    std::uint32_t coherent_count = 0U;
-    for (const auto& other : candidate) {
-      if (other.estimated_waveform_kind !=
-          oneq::electromagnetics::RfSceneWaveformKind::kPulseTrain) {
-        continue;
-      }
-      const double az_diff =
-          std::fabs(observation.estimated_bearing_azimuth_deg -
-                    other.estimated_bearing_azimuth_deg);
-      const double el_diff =
-          std::fabs(observation.estimated_bearing_elevation_deg -
-                    other.estimated_bearing_elevation_deg);
-      if (az_diff < beamwidth_deg && el_diff < beamwidth_deg) {
-        ++coherent_count;
-      }
-    }
-    observation.coherent_emission_count = coherent_count;
+    const std::size_t coherent_count = oneq::common::geometry::CountCoherentNeighbors(
+        candidate.size(), is_pulse_train, azimuth_of, elevation_of, beamwidth_deg, i);
+    candidate[i].coherent_emission_count = static_cast<std::uint32_t>(coherent_count);
     if (coherent_count >= 2U) {
-      observation.deception_class = session::DeceptionClass::kLikelyFalseTarget;
+      candidate[i].deception_class = session::DeceptionClass::kLikelyFalseTarget;
     }
   }
 

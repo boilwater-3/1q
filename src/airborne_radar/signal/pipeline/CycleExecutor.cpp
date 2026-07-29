@@ -9,6 +9,7 @@
 #include "airborne_radar/signal/pipeline/RuntimeAssemblySupport.h"
 #include "airborne_radar/signal/pipeline/ScanScheduleResolver.h"
 #include "airborne_radar/signal/pipeline/TrackMeasurementProcessing.h"
+#include "common/geometry/BearingCluster.h"
 #include "common/logging/ProjectLog.h"
 
 namespace airborne_radar {
@@ -87,9 +88,55 @@ void RunAssociationPhase(const CycleExecutionContext& context, const CycleExecut
 // 量测构建阶段：写入 scratch.measurement_slots / track_measurements
 // ---------------------------------------------------------------------------
 
+// 将接收机干扰观测中的假目标标注按方位匹配到对应量测，供航迹起批鉴别抑制确认。
+// 匹配口径：量测来自的目标 look angle 与某条疑似假目标干扰观测的方位落在同一波束宽度内。
+void TagFalseTargetMeasurements(const CycleExecutionContext& context,
+                                const ExecutionConfig& runtime_config,
+                                CycleExecutionScratch& scratch) {
+  if (context.interference_observations == nullptr ||
+      context.interference_observations->empty() ||
+      scratch.track_measurements.empty()) {
+    return;
+  }
+  // 收集疑似假目标干扰观测的方位。
+  std::vector<std::pair<double, double>> false_target_bearings;
+  for (const session::ArInterferenceObservation& obs : *context.interference_observations) {
+    if (obs.deception_class == session::DeceptionClass::kLikelyFalseTarget) {
+      false_target_bearings.emplace_back(obs.estimated_bearing_azimuth_deg,
+                                        obs.estimated_bearing_elevation_deg);
+    }
+  }
+  if (false_target_bearings.empty()) {
+    return;
+  }
+  const double beamwidth_deg = std::max(
+      static_cast<double>(runtime_config.detection.engineering.antenna.nominal_az_beamwidth_deg),
+      static_cast<double>(runtime_config.detection.engineering.antenna.nominal_el_beamwidth_deg));
+  for (tracking::TrackMeasurement& measurement : scratch.track_measurements) {
+    const std::size_t source_index = measurement.raw_measurement.source_index;
+    if (source_index >= scratch.target_geometry.size()) {
+      continue;
+    }
+    const detection::TargetLookAnglesDeg& look =
+        scratch.target_geometry[source_index].look_angles_deg;
+    if (!look.has_look_angles) {
+      continue;
+    }
+    for (const auto& bearing : false_target_bearings) {
+      if (oneq::common::geometry::AreBearingsCoherent(
+              static_cast<double>(look.look_az_deg), static_cast<double>(look.look_el_deg),
+              bearing.first, bearing.second, beamwidth_deg)) {
+        measurement.raw_measurement.classified_as_false_target = true;
+        break;
+      }
+    }
+  }
+}
+
 void RunMeasurementBuildPhase(const CycleExecutionContext& context,
                               CycleExecutionScratch& scratch) {
   BuildTrackMeasurementsPass(context.input_state, scratch);
+  TagFalseTargetMeasurements(context, context.runtime_config, scratch);
 }
 
 // ---------------------------------------------------------------------------

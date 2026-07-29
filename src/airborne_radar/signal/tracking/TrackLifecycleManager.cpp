@@ -225,6 +225,11 @@ void TrackLifecycleManager::SyncRuntimeTuning(const LifecycleConfig& lifecycle_c
   config_.max_lost_cycles = lifecycle_config.max_lost_cycles;
   config_.nominal_cycle_dt_sec = lifecycle_config.nominal_cycle_dt_sec;
   config_.imm_activation_policy = lifecycle_config.imm_activation_policy;
+  config_.enable_anti_false_target_discrimination =
+      lifecycle_config.enable_anti_false_target_discrimination;
+  config_.enable_anti_vgpo_acceleration_bound =
+      lifecycle_config.enable_anti_vgpo_acceleration_bound;
+  config_.max_acceleration_mps2 = lifecycle_config.max_acceleration_mps2;
 
   UpdatePredictorConfigIfSupported(kalman_predictor_, kalman_noise_diff_coeff);
   UpdateUpdaterConfigIfSupported(kalman_updater_, kalman_measurement_noise_std);
@@ -528,6 +533,9 @@ void TrackLifecycleManager::ComputePhase(LifecycleUpdateScratch& scratch, const 
       if (!measurement.raw_measurement.target_name.empty()) {
         track.target_name = measurement.raw_measurement.target_name;
       }
+      // track.velocity 仍持有上一周期速度（track_before_update 来自持久化 tracks_by_key_），
+      // 在被本周期测量覆盖前保存，供反 VGPO 加速度限幅裁剪。
+      const Eigen::Vector3f velocity_before_update = track.velocity;
       if (measurement.filtered_feature.velocity != Eigen::Vector3f::Zero()) {
         track.velocity = measurement.filtered_feature.velocity;
       } else {
@@ -535,9 +543,27 @@ void TrackLifecycleManager::ComputePhase(LifecycleUpdateScratch& scratch, const 
       }
       track.rcs = measurement.filtered_feature.rcs;
 
-      PromoteState(track, cycle.cycle_index, true, cycle.extra_miss_tolerance);
+      PromoteState(track, cycle.cycle_index, true, cycle.extra_miss_tolerance,
+                   measurement.raw_measurement.classified_as_false_target);
 
       ApplyKalmanHitUpdate(work_item, measurement, track, effective_dt_sec);
+
+      // 反 VGPO 加速度限幅：裁剪超出物理上限的航迹速度变化，抑制 VGPO 制造的速度拖引。
+      // 必须在 Kalman/IMM 更新之后执行，否则后验会覆盖限幅结果。仅对预先存在的航迹限幅——
+      // 新生航迹的 velocity_before_update 为初始零值，不是真实上一周期速度，限幅无意义。
+      if (config_.enable_anti_vgpo_acceleration_bound && work_item.track_existed_before_cycle &&
+          effective_dt_sec > 0.0f) {
+        const float max_delta =
+            static_cast<float>(config_.max_acceleration_mps2 * effective_dt_sec);
+        for (int axis = 0; axis < 3; ++axis) {
+          const float delta = track.velocity[axis] - velocity_before_update[axis];
+          if (delta > max_delta) {
+            track.velocity[axis] = velocity_before_update[axis] + max_delta;
+          } else if (delta < -max_delta) {
+            track.velocity[axis] = velocity_before_update[axis] - max_delta;
+          }
+        }
+      }
     } else {
       PromoteState(track, cycle.cycle_index, false, cycle.extra_miss_tolerance);
 
@@ -642,10 +668,17 @@ void TrackLifecycleManager::ApplyKalmanMissPredict(const TrackUpdateWorkItem& wo
 
 void TrackLifecycleManager::PromoteState(TrackState& track, std::uint32_t cycle_index,
                                          bool hit_this_cycle,
-                                         std::uint32_t extra_miss_tolerance) const {
+                                         std::uint32_t extra_miss_tolerance,
+                                         bool classified_as_false_target) const {
   if (hit_this_cycle) {
-    if (track.status == TrackStatus::kLost ||
-        (track.status == TrackStatus::kTentative && track.hit_count >= config_.confirm_hits)) {
+    // 假目标鉴别：启用时，疑似假目标的量测不把 tentative 航迹晋升为 confirmed，
+    // 抑制欺骗干扰制造的虚假航迹起批。已 confirmed/lost 的航迹不受影响（维持现有状态机语义）。
+    const bool suppressed_by_discrimination =
+        config_.enable_anti_false_target_discrimination && classified_as_false_target &&
+        track.status == TrackStatus::kTentative;
+    if (!suppressed_by_discrimination &&
+        (track.status == TrackStatus::kLost ||
+         (track.status == TrackStatus::kTentative && track.hit_count >= config_.confirm_hits))) {
       track.status = TrackStatus::kConfirmed;
     }
     return;

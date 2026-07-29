@@ -209,16 +209,22 @@ struct SignalPipeline::Impl {
                                   std::move(runtime_config), runtime_.config.platform_altitude_m,
                                   has_pending_rf_v2_detection_context
                                       ? &pending_rf_v2_detection_context
-                                      : nullptr);
+                                      : nullptr,
+                                  pending_interference_observations.empty()
+                                      ? nullptr
+                                      : &pending_interference_observations);
 
     if (!ExecuteCycle(context, runtime_execution, cycle_.scratch)) {
       ResetCycleScratch(&cycle_.scratch);
+      pending_interference_observations.clear();
       session::SignalCycleResult result;
       result.abort_reason = session::SignalCycleAbortReason::kRuntimePreparationFailed;
       return result;
     }
     has_pending_rf_v2_detection_context = false;
     pending_rf_v2_detection_context = RfV2DetectionContext{};
+    // 干扰观测已在本周期量测构建阶段消费，无论周期是否产生假目标标注都应清空，避免跨周期残留。
+    pending_interference_observations.clear();
 
     session::SignalCycleResult result;
     result.executed_this_cycle = true;
@@ -357,6 +363,9 @@ struct SignalPipeline::Impl {
     runtime_.config.control_profile_ = control_profile;
   }
   session::ArControlProfile GetControlProfile() const { return runtime_.config.control_profile_; }
+  void SetPendingInterferenceObservations(session::ArInterferenceObservationList observations) {
+    pending_interference_observations = std::move(observations);
+  }
 
   bool SetNextRfV2DetectionContext(const RfV2DetectionContext& context) {
     if (!IsValidRfV2DetectionContext(context)) {
@@ -381,6 +390,8 @@ struct SignalPipeline::Impl {
   CycleState cycle_;
   bool has_pending_rf_v2_detection_context{false};
   RfV2DetectionContext pending_rf_v2_detection_context{};
+  // 由控制层在 RunCycle 前注入的本周期干扰观测，供航迹起批假目标鉴别；周期内消费后清空。
+  session::ArInterferenceObservationList pending_interference_observations{};
 };
 
 SignalPipeline::SignalPipeline(const ExecutionConfig& config)
@@ -449,6 +460,11 @@ void SignalPipeline::SetControlProfile(const session::ArControlProfile& control_
 
 session::ArControlProfile SignalPipeline::GetControlProfile() const {
   return impl_->GetControlProfile();
+}
+
+void SignalPipeline::SetPendingInterferenceObservations(
+    session::ArInterferenceObservationList observations) {
+  impl_->SetPendingInterferenceObservations(std::move(observations));
 }
 
 bool SignalPipeline::UpdateConfig(const config::ArSessionConfig& config) {

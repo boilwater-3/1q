@@ -9,6 +9,7 @@
 
 #include "1q/coordinate/attitude_transform.h"
 #include "1q/coordinate/position_transform.h"
+#include "common/geometry/BearingCluster.h"
 #include "common/numerics/NumericGuard.h"
 #include "common/timing/TimingRegimeModel.h"
 #include "common/validation/ValidationUtils.h"
@@ -186,28 +187,26 @@ void ClassifyDeception(float beam_az_width_deg, float beam_el_width_deg,
   if (output == nullptr || output->raw_records.empty()) {
     return;
   }
-  const double beamwidth = std::max(
-      1.0, std::max(static_cast<double>(beam_az_width_deg),
-                    static_cast<double>(beam_el_width_deg)));
-  for (auto& record : output->raw_records) {
-    if (record.observation.waveform_class != session::EsrWaveformClass::kPulse) {
+  // 波束宽度取方位/俯仰较大者；共享聚类工具内部再钳制到 1.0 度下限。
+  const double beamwidth = std::max(static_cast<double>(beam_az_width_deg),
+                                    static_cast<double>(beam_el_width_deg));
+  const auto is_pulse = [&output](std::size_t i) {
+    return output->raw_records[i].observation.waveform_class == session::EsrWaveformClass::kPulse;
+  };
+  const auto azimuth_of = [&output](std::size_t i) {
+    return output->raw_records[i].observation.aoa_az_deg;
+  };
+  const auto elevation_of = [&output](std::size_t i) {
+    return output->raw_records[i].observation.aoa_el_deg;
+  };
+  for (std::size_t i = 0U; i < output->raw_records.size(); ++i) {
+    if (!is_pulse(i)) {
       continue;
     }
-    std::uint32_t coherent_count = 0U;
-    for (const auto& other : output->raw_records) {
-      if (other.observation.waveform_class != session::EsrWaveformClass::kPulse) {
-        continue;
-      }
-      const double az_diff = std::fabs(
-          record.observation.aoa_az_deg - other.observation.aoa_az_deg);
-      const double el_diff = std::fabs(
-          record.observation.aoa_el_deg - other.observation.aoa_el_deg);
-      if (az_diff < beamwidth && el_diff < beamwidth) {
-        ++coherent_count;
-      }
-    }
+    const std::size_t coherent_count = oneq::common::geometry::CountCoherentNeighbors(
+        output->raw_records.size(), is_pulse, azimuth_of, elevation_of, beamwidth, i);
     if (coherent_count >= 2U) {
-      record.observation.deception_class =
+      output->raw_records[i].observation.deception_class =
           session::EsrDeceptionClass::kLikelyFalseTarget;
     }
   }

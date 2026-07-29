@@ -274,6 +274,8 @@ void ArController::RunOnce() {
   impl_->signal_pipeline.SetControlProfile(impl_->control_profile);
   impl_->signal_pipeline.UpdatePlatformAttitude(platform_attitude);
   impl_->signal_pipeline.UpdatePlatformAltitudeM(platform_altitude_m);
+  // 注入干扰观测副本供航迹起批假目标鉴别；原件保留给后续 decision_frame 组装。
+  impl_->signal_pipeline.SetPendingInterferenceObservations(impl_->prepared_interference_observations);
 
   session::SignalCycleResult signal_result =
       impl_->signal_pipeline.RunCycle(targets, impl_->environment_service);

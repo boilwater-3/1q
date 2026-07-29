@@ -623,10 +623,23 @@ association public 配置不再暴露 `unassigned_cost`、启用 hint 或第二�
 
 航迹层进一步处理 confirmed/lost/recycled 状态：
 
-- `TrackFilter` 在 missed detection 时衰减速度和 RCS；当 `enable_anti_vgpo_acceleration_bound=true` 时，
-  对检测成功周期的速度变化按 `max_acceleration_mps2 * dt` 裁剪，防止 VGPO 拖引速度门。
+- `TrackFilter` 在 missed detection 时衰减速度和 RCS。
+- 反 VGPO 加速度限幅在 `TrackLifecycleManager` 内实现（而非 `TrackFilter`）：限幅需要跨周期
+  上一周期速度，只有持久化 `tracks_by_key_` 持有该状态；`TrackFilter` 无状态且运行在 lifecycle
+  之前，无法获得合法基准。当 `enable_anti_vgpo_acceleration_bound=true` 时，对已存在航迹在
+  Kalman/IMM 更新之后按 `max_acceleration_mps2 * dt` 裁剪 `track.velocity` 各分量相对上一周期
+  速度的变化；新建航迹豁免（其基准是初始零值，限幅无意义）。
+  [evidence: tests/unit/airborne_radar/ar_deception_eccm_test.cpp AntiVgpoBoundsVelocityChangePerCycle、
+  AntiVgpoDoesNotClampNewlyCreatedTrack]
+- 反假目标鉴别在 `TrackLifecycleManager::PromoteState` 内实现：当 `enable_anti_false_target_
+  discrimination=true` 且量测被观测层标为疑似假目标（`classified_as_false_target`）时，该量测
+  不把 tentative 航迹晋升为 confirmed，抑制欺骗干扰制造的虚假起批。疑似假目标标注由接收机干扰
+  观测的方位聚类产生（`ArInterferenceObservationResolver`），经控制层在 `RunCycle` 前注入 pipeline，
+  在量测构建阶段按目标 look angle 与干扰观测方位匹配后透传到 `RawTrackMeasurement`。
+  [evidence: tests/unit/airborne_radar/ar_deception_eccm_test.cpp AntiFalseTargetSuppressesTentativePromotion、
+  AntiFalseTargetDisabledPromotesNormally]
 - AR 在 ECCM 层主动反制欺骗发射：kPulseTrain 观测经 `EccmEvaluator` 触发前沿跟踪（优先级 89）、
-  加速度限幅（优先级 85）和假目标鉴别（优先级 81）三项反欺骗提案；三者经现有 `ControlReducer` 
+  加速度限幅（优先级 85）和假目标鉴别（优先级 81）三项反欺骗提案；三者经现有 `ControlReducer`
   ECCM hold/cooldown 管线统一归约后写入 `ArControlProfile` 并作用到下一成功周期。
   与压制干扰相同，欺骗发射不得直接改变航迹速度/RCS 衰减或生命周期计数。
   [evidence: tests/unit/airborne_radar/ar_deception_eccm_test.cpp]

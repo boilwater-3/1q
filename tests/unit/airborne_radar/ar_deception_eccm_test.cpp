@@ -7,7 +7,11 @@
 #include "airborne_radar/decision/ControlReducer.h"
 #include "airborne_radar/decision/EccmEvaluator.h"
 #include "airborne_radar/signal/detection/ArDetectionCellResolver.h"
+#include "airborne_radar/signal/tracking/BoostTrackPool.h"
 #include "airborne_radar/signal/tracking/TrackFilter.h"
+#include "airborne_radar/signal/tracking/TrackLifecycleManager.h"
+
+#include <Eigen/Core>
 
 namespace airborne_radar {
 namespace {
@@ -329,55 +333,246 @@ TEST(ArDeceptionEccmTest, AntiRgpoDetectionCellWorksWithAntiRgpoEnabled) {
 }
 
 TEST(ArDeceptionEccmTest, AntiVgpoBoundsVelocityChangePerCycle) {
-  // 验证启用加速度限幅后，速度变化不超出 max_acceleration * dt。
-  signal::tracking::TrackFilterConfig filter_config;
-  filter_config.enable_anti_vgpo_acceleration_bound = true;
-  filter_config.max_acceleration_mps2 = 10.0;  // 最大加速度 10 m/s²
+  // 验证启用加速度限幅后，跨周期速度变化不超出 max_acceleration * dt。
+  // 限幅已在 TrackLifecycleManager 中实现（迁移自 TrackFilter），以 track.velocity 作为
+  // 上一周期基准。本测试通过 lifecycle Update 验证真实管线行为。
+  signal::tracking::BoostTrackPool pool(4, 16);
+  signal::tracking::LifecycleConfig config;
+  config.confirm_hits = 1;
+  config.max_miss_before_lost = 1;
+  config.max_lost_cycles = 2;
+  config.enable_anti_vgpo_acceleration_bound = true;
+  config.max_acceleration_mps2 = 10.0;  // 最大加速度 10 m/s²
 
-  signal::tracking::TrackFilter filter(filter_config);
+  signal::tracking::TrackLifecycleManager manager(pool, config);
 
-  // 构造输入目标：速度突增 50 m/s（远超出允许范围）。
-  session::ArSceneTarget input(100.0f, 50.0f, 0.0f, 1.0f);
-  input.velocity_x = 100.0f;   // 当前测量速度
-  input.velocity_y = 50.0f;
+  // 第一周期：建立 track，初始速度 X=10 m/s, Y=5 m/s。
+  signal::tracking::TrackMeasurement seed_measurement;
+  seed_measurement.raw_measurement.association_key = 42;
+  seed_measurement.raw_measurement.position = Eigen::Vector3f(100.0f, 0.0f, 0.0f);
+  seed_measurement.raw_measurement.measurement_covariance = Eigen::Matrix3f::Identity();
+  seed_measurement.filtered_feature.velocity = Eigen::Vector3f(10.0f, 5.0f, 0.0f);
 
-  // 上下文：上一周期速度仅为 10 m/s，检测成功，dt = 0.1s。
-  signal::tracking::TrackFilterContext context;
-  context.detection_succeeded = true;
-  context.previous_velocity_x = 10.0f;  // 上一周期 X 速度
-  context.previous_velocity_y = 0.0f;   // 上一周期 Y 速度
-  context.previous_velocity_z = 0.0f;
-  context.cycle_dt_sec = 0.1;           // 步长 0.1s
+  signal::tracking::CycleContext cycle1;
+  cycle1.cycle_index = 1;
+  cycle1.batch_id = 1001;
+  cycle1.dt_sec = 0.1f;  // 步长 0.1s → max_delta = 10.0 * 0.1 = 1.0 m/s
+  manager.Update(cycle1, {seed_measurement});
 
-  const session::ArSceneTarget output = filter.Filter(input, context);
+  // 第二周期：测量速度多轴突增（X: 10→100, Y: 5→60, Z: 0→40），均远超 1.0 m/s 上限。
+  signal::tracking::TrackMeasurement jump_measurement;
+  jump_measurement.raw_measurement.association_key = 42;
+  jump_measurement.raw_measurement.matched_existing_track = true;
+  jump_measurement.raw_measurement.position = Eigen::Vector3f(110.0f, 0.0f, 0.0f);
+  jump_measurement.raw_measurement.measurement_covariance = Eigen::Matrix3f::Identity();
+  jump_measurement.filtered_feature.velocity = Eigen::Vector3f(100.0f, 60.0f, 40.0f);
 
-  // max_acceleration * dt = 10.0 * 0.1 = 1.0 m/s
-  // 上一周期 X=10，当前测量 X=100 → 变化 90 m/s，应裁剪为 10+1=11
-  EXPECT_LE(output.velocity_x, 11.0f);
-  // 上一周期 Y=0，当前测量 Y=50 → 变化 50 m/s，应裁剪为 0+1=1
-  EXPECT_LE(output.velocity_y, 1.0f);
+  signal::tracking::CycleContext cycle2;
+  cycle2.cycle_index = 2;
+  cycle2.batch_id = 1002;
+  cycle2.dt_sec = 0.1f;
+  manager.Update(cycle2, {jump_measurement});
+
+  const auto active_tracks = manager.GetActiveTracks();
+  ASSERT_EQ(active_tracks.size(), 1u);
+  // max_delta = 1.0 m/s：各轴变化应被裁剪到 基准 ± 1.0。
+  // X: 基准 10 → 应在 [10, 11]；Y: 基准 5 → 应在 [5, 6]；Z: 基准 0 → 应在 [0, 1]。
+  EXPECT_LE(active_tracks[0]->velocity.x(), 11.0f);
+  EXPECT_GE(active_tracks[0]->velocity.x(), 10.0f);
+  EXPECT_LE(active_tracks[0]->velocity.y(), 6.0f);
+  EXPECT_GE(active_tracks[0]->velocity.y(), 5.0f);
+  EXPECT_LE(active_tracks[0]->velocity.z(), 1.0f);
+  EXPECT_GE(active_tracks[0]->velocity.z(), 0.0f);
+}
+
+TEST(ArDeceptionEccmTest, AntiVgpoDoesNotClampNewlyCreatedTrack) {
+  // 新生航迹的 velocity 基准是初始零值（非真实上一周期速度），限幅必须对其豁免；
+  // 否则首周期测量速度会被裁剪到 0 ± max_delta，破坏航迹初始化。本测试直接覆盖该边界。
+  signal::tracking::BoostTrackPool pool(4, 16);
+  signal::tracking::LifecycleConfig config;
+  config.confirm_hits = 1;
+  config.max_miss_before_lost = 1;
+  config.max_lost_cycles = 2;
+  config.enable_anti_vgpo_acceleration_bound = true;
+  config.max_acceleration_mps2 = 10.0;  // 若误限幅，max_delta = 1.0 m/s
+
+  signal::tracking::TrackLifecycleManager manager(pool, config);
+
+  // 首周期：新航迹，大速度（X=80），若被误限幅则降至 ~1 m/s。
+  signal::tracking::TrackMeasurement first_measurement;
+  first_measurement.raw_measurement.association_key = 7;
+  first_measurement.raw_measurement.position = Eigen::Vector3f(1000.0f, 0.0f, 0.0f);
+  first_measurement.raw_measurement.measurement_covariance = Eigen::Matrix3f::Identity();
+  first_measurement.filtered_feature.velocity = Eigen::Vector3f(80.0f, 0.0f, 0.0f);
+
+  signal::tracking::CycleContext cycle;
+  cycle.cycle_index = 1;
+  cycle.batch_id = 1;
+  cycle.dt_sec = 0.1f;
+  manager.Update(cycle, {first_measurement});
+
+  const auto active_tracks = manager.GetActiveTracks();
+  ASSERT_EQ(active_tracks.size(), 1u);
+  // 新航迹豁免：首周期速度应原样采纳，不因零基准被裁剪。
+  EXPECT_FLOAT_EQ(active_tracks[0]->velocity.x(), 80.0f);
 }
 
 TEST(ArDeceptionEccmTest, AntiVgpoDisabledDoesNotBoundVelocity) {
-  // 不启用时，速度不变（通过 identity filter）。
-  signal::tracking::TrackFilterConfig filter_config;
-  filter_config.enable_anti_vgpo_acceleration_bound = false;
+  // 不启用限幅时，跨周期速度变化原样通过。
+  signal::tracking::BoostTrackPool pool(4, 16);
+  signal::tracking::LifecycleConfig config;
+  config.confirm_hits = 1;
+  config.max_miss_before_lost = 1;
+  config.max_lost_cycles = 2;
+  config.enable_anti_vgpo_acceleration_bound = false;
 
-  signal::tracking::TrackFilter filter(filter_config);
-  session::ArSceneTarget input(100.0f, 50.0f, 0.0f, 1.0f);
+  signal::tracking::TrackLifecycleManager manager(pool, config);
 
-  signal::tracking::TrackFilterContext context;
-  context.detection_succeeded = true;
-  context.previous_velocity_x = 10.0f;
-  context.previous_velocity_y = 0.0f;
-  context.previous_velocity_z = 0.0f;
-  context.cycle_dt_sec = 0.1;
+  signal::tracking::TrackMeasurement seed_measurement;
+  seed_measurement.raw_measurement.association_key = 42;
+  seed_measurement.raw_measurement.position = Eigen::Vector3f(100.0f, 0.0f, 0.0f);
+  seed_measurement.raw_measurement.measurement_covariance = Eigen::Matrix3f::Identity();
+  seed_measurement.filtered_feature.velocity = Eigen::Vector3f(10.0f, 0.0f, 0.0f);
 
-  const session::ArSceneTarget output = filter.Filter(input, context);
+  signal::tracking::CycleContext cycle1;
+  cycle1.cycle_index = 1;
+  cycle1.batch_id = 1001;
+  cycle1.dt_sec = 0.1f;
+  manager.Update(cycle1, {seed_measurement});
 
-  // 不启用限幅 → 速度原样通过。
-  EXPECT_FLOAT_EQ(output.velocity_x, 100.0f);
-  EXPECT_FLOAT_EQ(output.velocity_y, 50.0f);
+  signal::tracking::TrackMeasurement jump_measurement;
+  jump_measurement.raw_measurement.association_key = 42;
+  jump_measurement.raw_measurement.matched_existing_track = true;
+  jump_measurement.raw_measurement.position = Eigen::Vector3f(110.0f, 0.0f, 0.0f);
+  jump_measurement.raw_measurement.measurement_covariance = Eigen::Matrix3f::Identity();
+  jump_measurement.filtered_feature.velocity = Eigen::Vector3f(100.0f, 50.0f, 0.0f);
+
+  signal::tracking::CycleContext cycle2;
+  cycle2.cycle_index = 2;
+  cycle2.batch_id = 1002;
+  cycle2.dt_sec = 0.1f;
+  manager.Update(cycle2, {jump_measurement});
+
+  const auto active_tracks = manager.GetActiveTracks();
+  ASSERT_EQ(active_tracks.size(), 1u);
+  // 不启用限幅 → 测量速度原样写入。
+  EXPECT_FLOAT_EQ(active_tracks[0]->velocity.x(), 100.0f);
+  EXPECT_FLOAT_EQ(active_tracks[0]->velocity.y(), 50.0f);
+}
+
+TEST(ArDeceptionEccmTest, AntiFalseTargetSuppressesTentativePromotion) {
+  // 启用假目标鉴别时，疑似假目标的量测不会把 tentative 航迹晋升为 confirmed，
+  // 即使命中次数已达 confirm_hits。
+  signal::tracking::BoostTrackPool pool(4, 16);
+  signal::tracking::LifecycleConfig config;
+  config.confirm_hits = 2;
+  config.max_miss_before_lost = 1;
+  config.max_lost_cycles = 2;
+  config.enable_anti_false_target_discrimination = true;
+
+  signal::tracking::TrackLifecycleManager manager(pool, config);
+
+  // 构造一条被观测层判定为疑似假目标的量测。
+  signal::tracking::TrackMeasurement false_target_measurement;
+  false_target_measurement.raw_measurement.association_key = 9;
+  false_target_measurement.raw_measurement.classified_as_false_target = true;
+  false_target_measurement.raw_measurement.position = Eigen::Vector3f(500.0f, 0.0f, 0.0f);
+  false_target_measurement.raw_measurement.measurement_covariance = Eigen::Matrix3f::Identity();
+  false_target_measurement.filtered_feature.velocity = Eigen::Vector3f(20.0f, 0.0f, 0.0f);
+
+  signal::tracking::CycleContext cycle;
+  cycle.cycle_index = 1;
+  cycle.batch_id = 1;
+  cycle.dt_sec = 0.1f;
+
+  // 连续命中 2 次（达到 confirm_hits=2），但每次都标为疑似假目标。
+  manager.Update(cycle, {false_target_measurement});
+  cycle.cycle_index = 2;
+  cycle.batch_id = 2;
+  manager.Update(cycle, {false_target_measurement});
+
+  const auto active_tracks = manager.GetActiveTracks();
+  ASSERT_EQ(active_tracks.size(), 1u);
+  // 鉴别生效：命中次数达标但航迹仍停留在 tentative，未被晋升为 confirmed。
+  EXPECT_EQ(active_tracks[0]->status, signal::tracking::TrackStatus::kTentative);
+}
+
+TEST(ArDeceptionEccmTest, AntiFalseTargetDisabledPromotesNormally) {
+  // 鉴别关闭时，疑似假目标的量测按正常状态机晋升（回归）。
+  signal::tracking::BoostTrackPool pool(4, 16);
+  signal::tracking::LifecycleConfig config;
+  config.confirm_hits = 2;
+  config.max_miss_before_lost = 1;
+  config.max_lost_cycles = 2;
+  config.enable_anti_false_target_discrimination = false;
+
+  signal::tracking::TrackLifecycleManager manager(pool, config);
+
+  signal::tracking::TrackMeasurement false_target_measurement;
+  false_target_measurement.raw_measurement.association_key = 9;
+  false_target_measurement.raw_measurement.classified_as_false_target = true;
+  false_target_measurement.raw_measurement.position = Eigen::Vector3f(500.0f, 0.0f, 0.0f);
+  false_target_measurement.raw_measurement.measurement_covariance = Eigen::Matrix3f::Identity();
+  false_target_measurement.filtered_feature.velocity = Eigen::Vector3f(20.0f, 0.0f, 0.0f);
+
+  signal::tracking::CycleContext cycle;
+  cycle.cycle_index = 1;
+  cycle.batch_id = 1;
+  cycle.dt_sec = 0.1f;
+  manager.Update(cycle, {false_target_measurement});
+  cycle.cycle_index = 2;
+  cycle.batch_id = 2;
+  manager.Update(cycle, {false_target_measurement});
+
+  const auto active_tracks = manager.GetActiveTracks();
+  ASSERT_EQ(active_tracks.size(), 1u);
+  // 鉴别关闭：命中 2 次后正常晋升为 confirmed。
+  EXPECT_EQ(active_tracks[0]->status, signal::tracking::TrackStatus::kConfirmed);
+}
+
+TEST(ArDeceptionEccmTest, AntiFalseTargetDoesNotBlockLostTrackReconfirm) {
+  // 假目标鉴别只抑制 tentative→confirmed；已 confirmed 后因失配转为 lost 的真实航迹，
+  // 重新命中时即使量测被标为疑似假目标，仍应恢复为 confirmed（不阻断真实航迹恢复）。
+  signal::tracking::BoostTrackPool pool(4, 16);
+  signal::tracking::LifecycleConfig config;
+  config.confirm_hits = 1;            // 命中 1 次即确认
+  config.max_miss_before_lost = 0;    // 失配 1 次即转 lost
+  config.max_lost_cycles = 5;
+  config.enable_anti_false_target_discrimination = true;
+
+  signal::tracking::TrackLifecycleManager manager(pool, config);
+
+  signal::tracking::TrackMeasurement measurement;
+  measurement.raw_measurement.association_key = 7;
+  measurement.raw_measurement.position = Eigen::Vector3f(200.0f, 0.0f, 0.0f);
+  measurement.raw_measurement.measurement_covariance = Eigen::Matrix3f::Identity();
+  measurement.filtered_feature.velocity = Eigen::Vector3f(10.0f, 0.0f, 0.0f);
+
+  // 第一周期：命中 → confirmed（tentative 命中 1 次，鉴别不阻止，因为首次即达 confirm_hits）。
+  signal::tracking::CycleContext cycle;
+  cycle.cycle_index = 1;
+  cycle.batch_id = 1;
+  cycle.dt_sec = 0.1f;
+  manager.Update(cycle, {measurement});
+  ASSERT_EQ(manager.GetActiveTracks().size(), 1u);
+  ASSERT_EQ(manager.GetActiveTracks()[0]->status, signal::tracking::TrackStatus::kConfirmed);
+
+  // 第二周期：失配 → confirmed 转 lost。
+  cycle.cycle_index = 2;
+  cycle.batch_id = 2;
+  manager.Update(cycle, {});
+  ASSERT_EQ(manager.GetActiveTracks()[0]->status, signal::tracking::TrackStatus::kLost);
+
+  // 第三周期：重新命中，但量测标为疑似假目标。lost 航迹应恢复为 confirmed。
+  measurement.raw_measurement.classified_as_false_target = true;
+  measurement.raw_measurement.matched_existing_track = true;
+  cycle.cycle_index = 3;
+  cycle.batch_id = 3;
+  manager.Update(cycle, {measurement});
+
+  const auto active_tracks = manager.GetActiveTracks();
+  ASSERT_EQ(active_tracks.size(), 1u);
+  EXPECT_EQ(active_tracks[0]->status, signal::tracking::TrackStatus::kConfirmed);
 }
 
 TEST(ArDeceptionEccmTest, AntiDeceptionControlDirectiveAppliedByReducer) {

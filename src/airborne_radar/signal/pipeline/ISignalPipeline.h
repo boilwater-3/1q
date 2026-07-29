@@ -12,6 +12,7 @@
 #include "1q/airborne_radar/config/ArOrientationConfig.h"
 #include "1q/airborne_radar/config/ArSessionConfig.h"
 #include "1q/airborne_radar/session/ArControlProfile.h"
+#include "1q/airborne_radar/session/ArInterferenceObservation.h"
 #include "1q/airborne_radar/session/ArOutputTypes.h"
 #include "1q/airborne_radar/session/ArSceneTypes.h"
 #include "airborne_radar/environment/IEnvironmentService.h"
@@ -97,6 +98,18 @@ class ISignalPipeline {
    * @return 上一周期缓存的关联质量指标。
    */
   virtual AssociationQualityMetrics GetLastAssociationQualityMetrics() const = 0;
+
+  /**
+   * @brief 注入本周期待用的接收机干扰观测，供航迹起批阶段的假目标鉴别使用。
+   *
+   * 调用方在 @ref RunCycle 之前注入；pipeline 在量测构建阶段按方位将其中的假目标标注
+   * 匹配到对应量测。默认空实现使不支持鉴别的 pipeline 实现免于改动。
+   * @param[in] observations 干扰观测列表（按值持有，周期内消费后清空）。
+   */
+  virtual void SetPendingInterferenceObservations(
+      session::ArInterferenceObservationList observations) {
+    (void)observations;
+  }
 
   /**
    * @brief 捕获当前 pipeline 运行态快照。
