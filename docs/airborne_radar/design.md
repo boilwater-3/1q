@@ -481,6 +481,8 @@ AR 在接收链的三个层次主动反制欺骗干扰：
 [evidence: tests/unit/airborne_radar/ar_interference_observation_resolver_test.cpp::PulseTrainPopulatesCarrierOffsetAndFirstPulseDelay]
 [evidence: tests/replay/airborne_radar/ar_replay_codec_roundtrip_test.cpp::AntiDeceptionProfileFlagsRoundtripPreserved]
 [evidence: tests/replay/airborne_radar/ar_replay_codec_roundtrip_test.cpp::InterferenceObservationNewFieldsRoundtripPreserved]
+[evidence: tests/replay/airborne_radar/ar_replay_codec_roundtrip_test.cpp::InterferenceObservationClampsOutOfRangeDeceptionClass]
+[evidence: tests/integration/cross_domain/multi_model_scenario_test.cpp::EcmDeceptionFalseTargetReachesArAndTriggersEccm]
 
 ### 2.4 扫描调度、坐标和波束控制
 
@@ -546,7 +548,9 @@ AR 不再提供 heuristic detection toggle 或启发式 pass。冻结目标不�
    传播、大气、RCS 和处理前损耗；目标不得转换成公共单程 emission。
 2. **外部入射 RF。** 冻结 `RfSceneFrame` 中的雷达、ECM 和其他发射经公共单程链路到达 AR 接收设备。
    platform/equipment 路径决定设备级 co-site isolation，不能用零距离自由空间公式或单一实体 ID
-   猜测自扰。当前单周期模型不实现 T/R blanking；不得把 co-site 衰减描述为发射脉冲消隐。
+   猜测自扰。同平台干扰源 `range_m=0` 时，去真值化扰动钳制到 `kMinObservableRangeM`（1 m）并取
+   负扰动绝对值，避免 MeasurementErrorModel 的 20 m 偏置项产生非物理负距触发 fail-closed。
+   当前单周期模型不实现 T/R blanking；不得把 co-site 衰减描述为发射脉冲消隐。
 3. **前端账本。** 在实际接收方向图和预选器下聚合整个前端带宽的输入功率。超过
    `maximum_linear_input_power_w` 时，本周期仍是物理执行成功，但输出
    `receiver_saturated` impairment，不生成目标量测或虚假 interference observation。
