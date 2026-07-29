@@ -155,7 +155,9 @@ flatbuffers::Offset<fb::ArControlProfile> EncodeArControlProfile(
       *builder, value.version, value.enable_lpi_power_control, value.lpi_power_scale,
       value.enable_lpi_beamforming, value.lpi_dwell_scale, value.enable_agility_frequency,
       value.agility_frequency_hop_phase, value.enable_sidelobe_canceller,
-      value.enable_adaptive_beamforming, value.enable_eccm_rejitter, value.eccm_burnthrough_gain);
+      value.enable_adaptive_beamforming, value.enable_eccm_rejitter, value.eccm_burnthrough_gain,
+      value.enable_anti_rgpo_leading_edge, value.enable_anti_vgpo_acceleration_bound,
+      value.enable_anti_false_target_discrimination);
 }
 
 session::ArControlProfile DecodeArControlProfile(const fb::ArControlProfile* value) {
@@ -172,6 +174,9 @@ session::ArControlProfile DecodeArControlProfile(const fb::ArControlProfile* val
     result.enable_adaptive_beamforming = value->enable_adaptive_beamforming();
     result.enable_eccm_rejitter = value->enable_eccm_rejitter();
     result.eccm_burnthrough_gain = value->eccm_burnthrough_gain();
+    result.enable_anti_rgpo_leading_edge = value->enable_anti_rgpo_leading_edge();
+    result.enable_anti_vgpo_acceleration_bound = value->enable_anti_vgpo_acceleration_bound();
+    result.enable_anti_false_target_discrimination = value->enable_anti_false_target_discrimination();
   }
   return result;
 }
@@ -185,7 +190,10 @@ flatbuffers::Offset<fb::ArInterferenceObservation> EncodeArInterferenceObservati
       value.estimated_center_frequency_hz, value.estimated_bandwidth_hz,
       static_cast<int>(value.estimated_waveform_kind), value.jammer_to_noise_db,
       value.bearing_standard_deviation_deg, value.frequency_standard_deviation_hz,
-      value.bandwidth_standard_deviation_hz);
+      value.bandwidth_standard_deviation_hz,
+      static_cast<int>(value.deception_class), value.coherent_emission_count,
+      value.estimated_slant_range_m, value.estimated_bearing_azimuth_local_deg,
+      value.estimated_bearing_elevation_local_deg, value.estimated_range_rate_mps);
 }
 
 flatbuffers::Offset<fb::DecisionInputFrame> EncodeDecisionInputFrame(
@@ -268,6 +276,13 @@ session::ArInterferenceObservation DecodeArInterferenceObservation(
     result.bearing_standard_deviation_deg = value->bearing_standard_deviation_deg();
     result.frequency_standard_deviation_hz = value->frequency_standard_deviation_hz();
     result.bandwidth_standard_deviation_hz = value->bandwidth_standard_deviation_hz();
+    result.deception_class =
+        static_cast<session::DeceptionClass>(value->deception_class());
+    result.coherent_emission_count = value->coherent_emission_count();
+    result.estimated_slant_range_m = value->estimated_slant_range_m();
+    result.estimated_bearing_azimuth_local_deg = value->estimated_bearing_azimuth_local_deg();
+    result.estimated_bearing_elevation_local_deg = value->estimated_bearing_elevation_local_deg();
+    result.estimated_range_rate_mps = value->estimated_range_rate_mps();
   }
   return result;
 }

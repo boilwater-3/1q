@@ -9,6 +9,7 @@
 #include "airborne_radar/signal/pipeline/RuntimeAssemblySupport.h"
 #include "airborne_radar/signal/pipeline/ScanScheduleResolver.h"
 #include "airborne_radar/signal/pipeline/TrackMeasurementProcessing.h"
+#include "airborne_radar/signal/pipeline/DeceptionMeasurementGenerator.h"
 #include "common/geometry/BearingCluster.h"
 #include "common/logging/ProjectLog.h"
 
@@ -89,7 +90,10 @@ void RunAssociationPhase(const CycleExecutionContext& context, const CycleExecut
 // ---------------------------------------------------------------------------
 
 // 将接收机干扰观测中的假目标标注按方位匹配到对应量测，供航迹起批鉴别抑制确认。
-// 匹配口径：量测来自的目标 look angle 与某条疑似假目标干扰观测的方位落在同一波束宽度内。
+// 匹配口径：量测来自的目标 look angle（雷达局部系）与某条疑似假目标干扰观测的局部方位
+// （estimated_bearing_*_local_deg，同系）落在同一波束宽度内。此前实现直接比较 ECEF
+// 切平面方位与局部 look angle，平台不在 ECEF 原点或姿态非零时确定性漏标/误标。
+// 无局部方位（pose 缺失）时回退 ECEF 方位并告警，避免静默误标。
 void TagFalseTargetMeasurements(const CycleExecutionContext& context,
                                 const ExecutionConfig& runtime_config,
                                 CycleExecutionScratch& scratch) {
@@ -98,16 +102,29 @@ void TagFalseTargetMeasurements(const CycleExecutionContext& context,
       scratch.track_measurements.empty()) {
     return;
   }
-  // 收集疑似假目标干扰观测的方位。
+  // 收集疑似假目标干扰观测的方位（优先雷达局部系，缺失时回退 ECEF 切平面）。
   std::vector<std::pair<double, double>> false_target_bearings;
+  bool fell_back_to_ecef = false;
   for (const session::ArInterferenceObservation& obs : *context.interference_observations) {
     if (obs.deception_class == session::DeceptionClass::kLikelyFalseTarget) {
-      false_target_bearings.emplace_back(obs.estimated_bearing_azimuth_deg,
-                                        obs.estimated_bearing_elevation_deg);
+      if (obs.estimated_bearing_azimuth_local_deg != 0.0 ||
+          obs.estimated_bearing_elevation_local_deg != 0.0) {
+        false_target_bearings.emplace_back(obs.estimated_bearing_azimuth_local_deg,
+                                          obs.estimated_bearing_elevation_local_deg);
+      } else {
+        fell_back_to_ecef = true;
+        false_target_bearings.emplace_back(obs.estimated_bearing_azimuth_deg,
+                                          obs.estimated_bearing_elevation_deg);
+      }
     }
   }
   if (false_target_bearings.empty()) {
     return;
+  }
+  if (fell_back_to_ecef) {
+    PROJECT_LOG_WARN(
+        "[CycleExecutor] false-target bearing match fell back to ECEF tangent-plane "
+        "bearings; platform frame was not available, cross-frame discrimination degraded.");
   }
   const double beamwidth_deg = std::max(
       static_cast<double>(runtime_config.detection.engineering.antenna.nominal_az_beamwidth_deg),
@@ -136,6 +153,9 @@ void TagFalseTargetMeasurements(const CycleExecutionContext& context,
 void RunMeasurementBuildPhase(const CycleExecutionContext& context,
                               CycleExecutionScratch& scratch) {
   BuildTrackMeasurementsPass(context.input_state, scratch);
+  // 从欺骗干扰观测合成假目标量测，注入到 track_measurements。必须在真实量测构建之后、
+  // 方位匹配标注之前，使鉴别真正作用于合成假目标而非真实场景目标。
+  InjectDeceptionMeasurementsPass(context, context.runtime_config, scratch);
   TagFalseTargetMeasurements(context, context.runtime_config, scratch);
 }
 

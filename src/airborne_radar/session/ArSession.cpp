@@ -754,11 +754,27 @@ struct ArSession::Impl {
           kBoltzmannJPerK * kReferenceTemperatureK *
           static_cast<double>(detection.transmitter.bandwidth_hz) *
           std::pow(10.0, static_cast<double>(detection.receiver.noise_figure_db) / 10.0);
+      // 为干扰观测构造雷达局部坐标系：原点 LLA + 合成姿态（平台姿态+挂架角），
+      // 使解析器能把 ECEF 视线转换到与目标 look angle 同系的局部方位。
+      oneq::coordinate::LocalFrameReference platform_frame;
+      bool platform_frame_resolved = false;
+      oneq::coordinate::LlaPositionDegM frame_origin_lla;
+      if (oneq::coordinate::TryEcefToLla(prepared_input.platform_position_ecef_m,
+                                          &frame_origin_lla)) {
+        platform_frame.origin_lla = frame_origin_lla;
+        platform_frame.frame_attitude_deg = prepared_input.radar_frame_attitude_deg;
+        platform_frame_resolved = true;
+      }
+      if (!platform_frame_resolved) {
+        PROJECT_LOG_WARN(
+            "[ArSession] CompleteRfCycle could not build platform frame; interference "
+            "bearings fall back to ECEF tangent-plane (cross-frame discrimination degraded).");
+      }
       if (!signal::detection::TryResolveArInterferenceObservations(
               input.rf_scene, prepared_operating_state.rf_receiver, prepared_emission.identity,
               front_end.incident_links, thermal_noise_power_w,
               static_cast<double>(detection.receiver.interference_observation_jn_gate_db),
-              &interference_observations)) {
+              platform_frame, &interference_observations)) {
         PROJECT_LOG_ERROR(
             "[ArSession] CompleteRfCycle interference observation resolution failed.");
         result.status = ArCompleteCycleStatus::kRejected;

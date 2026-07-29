@@ -62,6 +62,9 @@ table ArControlProfile {
   enable_adaptive_beamforming:bool;
   enable_eccm_rejitter:bool;
   eccm_burnthrough_gain:float;
+  enable_anti_rgpo_leading_edge:bool;
+  enable_anti_vgpo_acceleration_bound:bool;
+  enable_anti_false_target_discrimination:bool;
 }
 
 table ArInterferenceObservation {
@@ -76,6 +79,12 @@ table ArInterferenceObservation {
   bearing_standard_deviation_deg:double;
   frequency_standard_deviation_hz:double;
   bandwidth_standard_deviation_hz:double;
+  deception_class:int;
+  coherent_emission_count:uint;
+  estimated_slant_range_m:double;
+  estimated_bearing_azimuth_local_deg:double;
+  estimated_bearing_elevation_local_deg:double;
+  estimated_range_rate_mps:double;
 }
 
 table AssociationQualityInfo {

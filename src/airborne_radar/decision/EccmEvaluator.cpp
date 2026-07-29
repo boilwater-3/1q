@@ -74,11 +74,18 @@ void EccmEvaluator::AccumulateInterferenceObservation(
         std::min(2.0, observation.jammer_to_noise_db / kStrongJammerToNoiseDb);
     selection->burnthrough_gain_score += static_cast<float>(normalized_strength);
   }
-  // 反欺骗评分：kPulseTrain 观测触发预防性前沿跟踪和加速度限幅。
-  if (observation.estimated_waveform_kind ==
-      oneq::electromagnetics::RfSceneWaveformKind::kPulseTrain) {
-    selection->anti_rgpo_score += 1.5f;
+  // 反欺骗评分：按可观测特征路由 RGPO/VGPO，而非让任意 kPulseTrain 同时贡献两者。
+  // 此前实现把 kPulseTrain 对称地给 anti_rgpo_score 与 anti_vgpo_score 各 +1.5，没有可观测
+  // 特征区分两种技术，导致单一脉冲列干扰同时触发两类对抗。现按以下特征路由：
+  //   - VGPO（速度波门拖引）：estimated_range_rate_mps 显著非零 → 加速度限幅；
+  //   - RGPO（距离波门拖引）：coherent_emission_count >= 2（多假目标同方向）→ 前沿跟踪；
+  //   - 单纯 kPulseTrain 无上述特征时不触发任一反欺骗分数。
+  constexpr double kVgpoRangeRateGateMps = 15.0;  // 显著径向速度门限（m/s）
+  if (std::fabs(observation.estimated_range_rate_mps) >= kVgpoRangeRateGateMps) {
     selection->anti_vgpo_score += 1.5f;
+  }
+  if (observation.coherent_emission_count >= 2U) {
+    selection->anti_rgpo_score += 1.5f;
   }
   // 假目标：观测分类为疑似假目标 → 假目标鉴别。
   if (observation.deception_class == session::DeceptionClass::kLikelyFalseTarget) {

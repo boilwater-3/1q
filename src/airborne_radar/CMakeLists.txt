@@ -14,6 +14,7 @@ set(AIRBORNE_ENGINE_SOURCES
     signal/pipeline/ControlProfileEffects.cpp
     signal/pipeline/CycleContextSupport.cpp
     signal/pipeline/CycleExecutor.cpp
+    signal/pipeline/DeceptionMeasurementGenerator.cpp
     signal/pipeline/DecisionFrameBuilders.cpp
     signal/pipeline/DetectionExecution.cpp
     signal/pipeline/ImmMatrixDefaults.cpp

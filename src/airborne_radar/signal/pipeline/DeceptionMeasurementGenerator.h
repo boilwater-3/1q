@@ -1,0 +1,49 @@
+/**
+ * @file DeceptionMeasurementGenerator.h
+ * @brief 从欺骗干扰观测合成假目标量测的内部 pass。
+ *
+ * 此前「假目标鉴别」实际处理的是真实场景目标：所有航迹量测仅来自 ArSceneTargetList，
+ * 仅按方位把真实目标量测标成假目标并阻止 tentative 起批。本 pass 在量测构建阶段从
+ * kLikelyFalseTarget 干扰观测合成假距离/多普勒量测注入 track_measurements，使鉴别真正
+ * 作用于假目标而非真实目标。
+ *
+ * 合成量测绕过关联引擎（关联在量测构建前已执行），lifecycle 据其 association_key 作
+ * 新航迹处理——这正是「假航迹」的来源。量测的 classified_as_false_target=true 已贯通到
+ * PromoteState 抑制起批。
+ */
+
+#ifndef AIRBORNE_RADAR_SRC_SIGNAL_PIPELINE_DECEPTION_MEASUREMENT_GENERATOR_H_
+#define AIRBORNE_RADAR_SRC_SIGNAL_PIPELINE_DECEPTION_MEASUREMENT_GENERATOR_H_
+
+#include "airborne_radar/signal/pipeline/CycleExecutor.h"
+
+namespace airborne_radar {
+namespace signal {
+namespace pipeline {
+
+/**
+ * @brief 从 kLikelyFalseTarget 干扰观测合成假目标量测并追加到 scratch.track_measurements。
+ *
+ * 仅当 enable_anti_false_target_discrimination 开启时执行。对每条疑似假目标观测，按
+ * coherent_emission_count 合成若干个假距离/多普勒量测：
+ * - 位置：由局部系方位 + estimated_slant_range_m 合成笛卡尔局部坐标；
+ * - 速度：estimated_range_rate_mps 沿视线方向投影；
+ * - classified_as_false_target=true，source_index 取 sentinel（超出场景列表，由下游边界
+ *   检查自然跳过），association_key 用 observation_id 派生的确定性 key（跨周期稳定）。
+ *
+ * 合成量测不索引 per-target scratch 数组（target_geometry/measurement_covariances 等
+ * 恰为 input.size()），位置与协方差内联进 raw_measurement。
+ *
+ * @param context        周期输入上下文（读取 interference_observations 与 runtime_config）。
+ * @param runtime_config 运行时配置（读取 enable_anti_false_target_discrimination 与天线波宽）。
+ * @param scratch        周期暂存区（追加合成量测到 track_measurements）。
+ */
+void InjectDeceptionMeasurementsPass(const CycleExecutionContext& context,
+                                     const ExecutionConfig& runtime_config,
+                                     CycleExecutionScratch& scratch);
+
+}  // namespace pipeline
+}  // namespace signal
+}  // namespace airborne_radar
+
+#endif  // AIRBORNE_RADAR_SRC_SIGNAL_PIPELINE_DECEPTION_MEASUREMENT_GENERATOR_H_

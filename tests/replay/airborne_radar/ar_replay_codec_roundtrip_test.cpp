@@ -361,6 +361,60 @@ TEST(ArReplayCodecRoundtripTest, AttemptsPreserveRejectedRuntimeAndDecisionResul
   EXPECT_EQ(decoded_status, ExternalDecisionSubmitStatus::kSourceMismatch);
 }
 
+// 验证新增的反欺骗 profile 开关在编码途中不丢失（stage 4 / P4 修复的核心断言）。
+TEST(ArReplayCodecRoundtripTest, AntiDeceptionProfileFlagsRoundtripPreserved) {
+  ArCycleReplayRecord record;
+  record.result.status = ArCycleStatus::kCompleted;
+  record.result.input_cycle_index = 1U;
+  record.result.has_control_profile = true;
+  record.result.control_profile.version = 5U;
+  record.result.control_profile.enable_anti_rgpo_leading_edge = true;
+  record.result.control_profile.enable_anti_vgpo_acceleration_bound = true;
+  record.result.control_profile.enable_anti_false_target_discrimination = true;
+
+  ArCycleReplayRecord decoded;
+  std::string error;
+  ASSERT_TRUE(DecodeCycleReplayRecordFlatbuffer(
+      EncodeCycleReplayRecordFlatbuffer(record), &decoded, &error))
+      << error;
+  EXPECT_EQ(decoded.result.control_profile.version, 5U);
+  EXPECT_TRUE(decoded.result.control_profile.enable_anti_rgpo_leading_edge);
+  EXPECT_TRUE(decoded.result.control_profile.enable_anti_vgpo_acceleration_bound);
+  EXPECT_TRUE(decoded.result.control_profile.enable_anti_false_target_discrimination);
+}
+
+// 验证新增的 interference observation 几何与欺骗字段在编码途中不丢失。
+TEST(ArReplayCodecRoundtripTest, InterferenceObservationNewFieldsRoundtripPreserved) {
+  session::ArInterferenceObservation obs;
+  obs.observation_id = 99U;
+  obs.deception_class = session::DeceptionClass::kLikelyFalseTarget;
+  obs.coherent_emission_count = 5U;
+  obs.estimated_slant_range_m = 12500.0;
+  obs.estimated_bearing_azimuth_local_deg = -30.0;
+  obs.estimated_bearing_elevation_local_deg = 15.0;
+  obs.estimated_range_rate_mps = -120.0;
+
+  ArCycleReplayRecord record;
+  record.result.status = ArCycleStatus::kCompleted;
+  record.result.input_cycle_index = 1U;
+  record.result.interference_observations.push_back(obs);
+
+  ArCycleReplayRecord decoded;
+  std::string error;
+  ASSERT_TRUE(DecodeCycleReplayRecordFlatbuffer(
+      EncodeCycleReplayRecordFlatbuffer(record), &decoded, &error))
+      << error;
+  ASSERT_EQ(decoded.result.interference_observations.size(), 1U);
+  const auto& decoded_obs = decoded.result.interference_observations.front();
+  EXPECT_EQ(decoded_obs.observation_id, 99U);
+  EXPECT_EQ(decoded_obs.deception_class, session::DeceptionClass::kLikelyFalseTarget);
+  EXPECT_EQ(decoded_obs.coherent_emission_count, 5U);
+  EXPECT_DOUBLE_EQ(decoded_obs.estimated_slant_range_m, 12500.0);
+  EXPECT_DOUBLE_EQ(decoded_obs.estimated_bearing_azimuth_local_deg, -30.0);
+  EXPECT_DOUBLE_EQ(decoded_obs.estimated_bearing_elevation_local_deg, 15.0);
+  EXPECT_DOUBLE_EQ(decoded_obs.estimated_range_rate_mps, -120.0);
+}
+
 // ===========================================================================
 // Decode 失败路径（null output / 空 payload / 损坏 payload）
 // ===========================================================================

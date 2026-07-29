@@ -9,7 +9,10 @@
 #include "airborne_radar/signal/detection/ArDetectionCellResolver.h"
 #include "airborne_radar/signal/tracking/BoostTrackPool.h"
 #include "airborne_radar/signal/tracking/TrackFilter.h"
+#include "airborne_radar/signal/tracking/KalmanPredictor.h"
+#include "airborne_radar/signal/tracking/KalmanUpdater.h"
 #include "airborne_radar/signal/tracking/TrackLifecycleManager.h"
+#include "airborne_radar/signal/tracking/TrackState.h"
 
 #include <Eigen/Core>
 
@@ -18,7 +21,8 @@ namespace {
 
 session::ArInterferenceObservation BuildObservation(
     oneq::electromagnetics::RfSceneWaveformKind waveform_kind,
-    double off_boresight_deg, double jammer_to_noise_db) {
+    double off_boresight_deg, double jammer_to_noise_db,
+    std::uint32_t coherent_emission_count = 0U, double range_rate_mps = 0.0) {
   session::ArInterferenceObservation observation;
   observation.observation_id = 1U;
   observation.estimated_bearing_azimuth_deg = 10.0;
@@ -32,7 +36,8 @@ session::ArInterferenceObservation BuildObservation(
   observation.frequency_standard_deviation_hz = 1000.0;
   observation.bandwidth_standard_deviation_hz = 2000.0;
   observation.deception_class = session::DeceptionClass::kNone;
-  observation.coherent_emission_count = 0U;
+  observation.coherent_emission_count = coherent_emission_count;
+  observation.estimated_range_rate_mps = range_rate_mps;
   return observation;
 }
 
@@ -56,11 +61,13 @@ bool ContainsDirective(const std::vector<session::TacticalProposal>& proposals,
 // Phase 2: 反欺骗 ECCM 评估测试
 // ============================================================================
 
-TEST(ArDeceptionEccmTest, PulseTrainObservationTriggersAntiRgpoProposal) {
+TEST(ArDeceptionEccmTest, CoherentPulseTrainClusterTriggersAntiRgpoProposal) {
   decision::EccmEvaluator evaluator;
   std::vector<session::TacticalProposal> proposals;
+  // RGPO（距离波门拖引）的可观测特征是多假目标同方向：coherent_emission_count >= 2。
   const session::ArInterferenceObservation observation = BuildObservation(
-      oneq::electromagnetics::RfSceneWaveformKind::kPulseTrain, 5.0, 8.0);
+      oneq::electromagnetics::RfSceneWaveformKind::kPulseTrain, 5.0, 8.0,
+      /*coherent_emission_count=*/3U);
 
   const decision::EccmEvaluator::Result result =
       evaluator.Evaluate({observation}, &proposals);
@@ -70,17 +77,35 @@ TEST(ArDeceptionEccmTest, PulseTrainObservationTriggersAntiRgpoProposal) {
       proposals, session::ControlDirectiveType::REQUEST_ANTI_RGPO_LEADING_EDGE));
 }
 
-TEST(ArDeceptionEccmTest, PulseTrainObservationTriggersAntiVgpoProposal) {
+TEST(ArDeceptionEccmTest, SignificantRangeRateTriggersAntiVgpoProposal) {
   decision::EccmEvaluator evaluator;
   std::vector<session::TacticalProposal> proposals;
+  // VGPO（速度波门拖引）的可观测特征是显著径向速度：|range_rate| >= 门限。
   const session::ArInterferenceObservation observation = BuildObservation(
-      oneq::electromagnetics::RfSceneWaveformKind::kPulseTrain, 5.0, 8.0);
+      oneq::electromagnetics::RfSceneWaveformKind::kPulseTrain, 5.0, 8.0,
+      /*coherent_emission_count=*/0U, /*range_rate_mps=*/30.0);
 
   const decision::EccmEvaluator::Result result =
       evaluator.Evaluate({observation}, &proposals);
 
   EXPECT_TRUE(result.eccm_activated);
   EXPECT_TRUE(ContainsDirective(
+      proposals, session::ControlDirectiveType::REQUEST_ANTI_VGPO_ACCELERATION_BOUND));
+}
+
+// 单纯 kPulseTrain 观测无 RGPO/VGPO 可观测特征时不应触发任一反欺骗提案——
+// 这正是修复前的 bug：旧实现让任意 kPulseTrain 同时给两者加分。
+TEST(ArDeceptionEccmTest, PlainPulseTrainWithoutFeaturesDoesNotTriggerAntiDeception) {
+  decision::EccmEvaluator evaluator;
+  std::vector<session::TacticalProposal> proposals;
+  const session::ArInterferenceObservation observation = BuildObservation(
+      oneq::electromagnetics::RfSceneWaveformKind::kPulseTrain, 5.0, 8.0);
+
+  evaluator.Evaluate({observation}, &proposals);
+
+  EXPECT_FALSE(ContainsDirective(
+      proposals, session::ControlDirectiveType::REQUEST_ANTI_RGPO_LEADING_EDGE));
+  EXPECT_FALSE(ContainsDirective(
       proposals, session::ControlDirectiveType::REQUEST_ANTI_VGPO_ACCELERATION_BOUND));
 }
 
@@ -183,8 +208,10 @@ TEST(ArDeceptionEccmTest, NonPulseTrainObservationDoesNotTriggerAntiDeception) {
 TEST(ArDeceptionEccmTest, AntiRgpoProposalHasHigherPriorityThanRejitter) {
   decision::EccmEvaluator evaluator;
   std::vector<session::TacticalProposal> proposals;
+  // kPulseTrain + coherent_emission_count>=2 触发 RGPO（前沿跟踪），同时 kPulseTrain 触发 rejitter。
   const session::ArInterferenceObservation observation = BuildObservation(
-      oneq::electromagnetics::RfSceneWaveformKind::kPulseTrain, 8.0, 12.0);
+      oneq::electromagnetics::RfSceneWaveformKind::kPulseTrain, 8.0, 12.0,
+      /*coherent_emission_count=*/3U);
 
   evaluator.Evaluate({observation}, &proposals);
 
@@ -209,12 +236,14 @@ TEST(ArDeceptionEccmTest, AntiRgpoProposalHasHigherPriorityThanRejitter) {
 TEST(ArDeceptionEccmTest, MultiplePulseTrainObservationsAccumulateAntiDeceptionScores) {
   decision::EccmEvaluator evaluator;
   std::vector<session::TacticalProposal> proposals;
-  // 两个 kPulseTrain 观测：每个贡献 anti_rgpo_score += 1.5，anti_vgpo_score += 1.5。
-  // 一个观测已足够触发（阈值 1.5），两个应仍触发且得分更高。
+  // 两个 kPulseTrain 观测：obs1 带 coherent_emission_count（触发 RGPO），obs2 带显著 range_rate
+  // （触发 VGPO）。两者独立路由到不同反欺骗通道，验证可观测特征分离的累积语义。
   const session::ArInterferenceObservation obs1 = BuildObservation(
-      oneq::electromagnetics::RfSceneWaveformKind::kPulseTrain, 5.0, 8.0);
+      oneq::electromagnetics::RfSceneWaveformKind::kPulseTrain, 5.0, 8.0,
+      /*coherent_emission_count=*/3U);
   const session::ArInterferenceObservation obs2 = BuildObservation(
-      oneq::electromagnetics::RfSceneWaveformKind::kPulseTrain, 3.0, 7.0);
+      oneq::electromagnetics::RfSceneWaveformKind::kPulseTrain, 3.0, 7.0,
+      /*coherent_emission_count=*/0U, /*range_rate_mps=*/25.0);
 
   evaluator.Evaluate({obs1, obs2}, &proposals);
 
@@ -458,6 +487,131 @@ TEST(ArDeceptionEccmTest, AntiVgpoDisabledDoesNotBoundVelocity) {
   // 不启用限幅 → 测量速度原样写入。
   EXPECT_FLOAT_EQ(active_tracks[0]->velocity.x(), 100.0f);
   EXPECT_FLOAT_EQ(active_tracks[0]->velocity.y(), 50.0f);
+}
+
+// 修复 P3：限幅后必须回写 gaussian_state 和 acceleration。此前实现只改 track.velocity，
+// 下一周期 Predict 从 gaussian_state 读取未限幅速度（bug 根因）。
+// 本测试用无 predictor/updater 的管理器验证限幅后 gaussian_state.mean 速度分量被正确回写。
+TEST(ArDeceptionEccmTest, AntiVgpoClampWritesBackToGaussianState) {
+  signal::tracking::BoostTrackPool pool(4, 16);
+  signal::tracking::LifecycleConfig config;
+  config.confirm_hits = 1;
+  config.max_miss_before_lost = 1;
+  config.max_lost_cycles = 2;
+  config.enable_anti_vgpo_acceleration_bound = true;
+  config.max_acceleration_mps2 = 10.0;  // 0.1s dt → max_delta = 1.0 m/s
+
+  signal::tracking::TrackLifecycleManager manager(pool, config);
+
+  // 第一周期：建立 track，初始速度 X=10。
+  signal::tracking::TrackMeasurement seed;
+  seed.raw_measurement.association_key = 42;
+  seed.raw_measurement.position = Eigen::Vector3f(100.0f, 0.0f, 0.0f);
+  seed.raw_measurement.measurement_covariance = Eigen::Matrix3f::Identity();
+  seed.filtered_feature.velocity = Eigen::Vector3f(10.0f, 0.0f, 0.0f);
+
+  signal::tracking::CycleContext cycle1{1U, 1001U, 0.1f};
+  manager.Update(cycle1, {seed});
+
+  // 第二周期：大速度跳跃 (X: 10→100)，应被限幅到 10±1=11。
+  signal::tracking::TrackMeasurement jump;
+  jump.raw_measurement.association_key = 42;
+  jump.raw_measurement.matched_existing_track = true;
+  jump.raw_measurement.position = Eigen::Vector3f(110.0f, 0.0f, 0.0f);
+  jump.raw_measurement.measurement_covariance = Eigen::Matrix3f::Identity();
+  jump.filtered_feature.velocity = Eigen::Vector3f(100.0f, 0.0f, 0.0f);
+
+  signal::tracking::CycleContext cycle2{2U, 1002U, 0.1f};
+  manager.Update(cycle2, {jump});
+
+  const auto active_tracks = manager.GetActiveTracks();
+  ASSERT_EQ(active_tracks.size(), 1U);
+  // track.velocity 已限幅。
+  EXPECT_FLOAT_EQ(active_tracks[0]->velocity.x(), 11.0f);
+  // gaussian_state.mean 速度分量应同步为限幅值（修复前为未限幅后验速度 ~100 或零值）。
+  EXPECT_FLOAT_EQ(active_tracks[0]->gaussian_state.mean(1), 11.0f);
+}
+
+// 限幅回写后，下一周期 Predict 应从限幅速度出发，而非从未限幅后验重新跳回。
+// 第三周期不注入新量测（miss），让 Predict 单独起作用。
+TEST(ArDeceptionEccmTest, AntiVgpoClampPropagatesToNextPredict) {
+  signal::tracking::BoostTrackPool pool(4, 16);
+  signal::tracking::LifecycleConfig config;
+  config.confirm_hits = 1;
+  config.enable_anti_vgpo_acceleration_bound = true;
+  config.max_acceleration_mps2 = 10.0;  // 0.1s dt → max_delta = 1.0 m/s
+
+  signal::tracking::KalmanPredictorConfig pred_cfg;
+  pred_cfg.noise_diff_coeff = 1.0f;
+  signal::tracking::KalmanPredictor predictor(pred_cfg);
+  signal::tracking::KalmanUpdaterConfig upd_cfg;
+  upd_cfg.measurement_noise_std = 0.1f;
+  signal::tracking::KalmanUpdater updater(upd_cfg);
+
+  signal::tracking::TrackLifecycleManager manager(pool, config, &predictor, &updater);
+
+  signal::tracking::TrackMeasurement seed;
+  seed.raw_measurement.association_key = 42;
+  seed.raw_measurement.position = Eigen::Vector3f(0.0f, 0.0f, 0.0f);
+  seed.raw_measurement.measurement_covariance = Eigen::Matrix3f::Identity();
+  seed.filtered_feature.velocity = Eigen::Vector3f(10.0f, 0.0f, 0.0f);
+
+  manager.Update({1U, 1001U, 0.1f}, {seed});
+
+  // 第二周期：速度突增，限幅到 11 m/s。
+  signal::tracking::TrackMeasurement jump;
+  jump.raw_measurement.association_key = 42;
+  jump.raw_measurement.matched_existing_track = true;
+  jump.raw_measurement.position = Eigen::Vector3f(10.0f, 0.0f, 0.0f);
+  jump.raw_measurement.measurement_covariance = Eigen::Matrix3f::Identity();
+  jump.filtered_feature.velocity = Eigen::Vector3f(100.0f, 0.0f, 0.0f);
+  manager.Update({2U, 1002U, 0.1f}, {jump});
+
+  // 第三周期：miss（无量测），Predict 从 gaussian_state 预测。
+  // 若限幅已正确回写，预测应从 11 m/s 出发，位置推进约 11*0.1=1.1m。
+  manager.Update({3U, 1003U, 0.1f}, {});
+
+  const auto active_tracks = manager.GetActiveTracks();
+  ASSERT_EQ(active_tracks.size(), 1U);
+  // 位置应约为 10 + 11*0.1 = 11.1m（容许测量噪声和滤波平滑）。
+  EXPECT_NEAR(active_tracks[0]->position.x(), 11.0f, 2.0f);
+  // 速度不应跳回未限幅值 (> 90 m/s)。
+  EXPECT_LT(active_tracks[0]->velocity.x(), 20.0f);
+}
+
+// 限幅后 acceleration 应从限幅后速度重算，而非沿用未限幅后验的加速度。
+TEST(ArDeceptionEccmTest, AntiVgpoClampRecomputesAcceleration) {
+  signal::tracking::BoostTrackPool pool(4, 16);
+  signal::tracking::LifecycleConfig config;
+  config.confirm_hits = 1;
+  config.max_miss_before_lost = 1;
+  config.max_lost_cycles = 2;
+  config.enable_anti_vgpo_acceleration_bound = true;
+  config.max_acceleration_mps2 = 10.0;
+
+  signal::tracking::TrackLifecycleManager manager(pool, config);
+
+  signal::tracking::TrackMeasurement seed;
+  seed.raw_measurement.association_key = 42;
+  seed.raw_measurement.position = Eigen::Vector3f(100.0f, 0.0f, 0.0f);
+  seed.raw_measurement.measurement_covariance = Eigen::Matrix3f::Identity();
+  seed.filtered_feature.velocity = Eigen::Vector3f(10.0f, 0.0f, 0.0f);
+  manager.Update({1U, 1001U, 0.1f}, {seed});
+
+  // 速度突增到 100 m/s，限幅到 11 m/s。期望加速度 ≈ (11-10)/0.1 = 10 m/s²。
+  signal::tracking::TrackMeasurement jump;
+  jump.raw_measurement.association_key = 42;
+  jump.raw_measurement.matched_existing_track = true;
+  jump.raw_measurement.position = Eigen::Vector3f(110.0f, 0.0f, 0.0f);
+  jump.raw_measurement.measurement_covariance = Eigen::Matrix3f::Identity();
+  jump.filtered_feature.velocity = Eigen::Vector3f(100.0f, 0.0f, 0.0f);
+  manager.Update({2U, 1002U, 0.1f}, {jump});
+
+  const auto active_tracks = manager.GetActiveTracks();
+  ASSERT_EQ(active_tracks.size(), 1U);
+  EXPECT_FLOAT_EQ(active_tracks[0]->velocity.x(), 11.0f);
+  // 加速度 ≈ (11-10)/0.1 = 10 m/s²（修复前为 (100-10)/0.1 = 900 m/s²）。
+  EXPECT_NEAR(active_tracks[0]->acceleration.x(), 10.0f, 1.0f);
 }
 
 TEST(ArDeceptionEccmTest, AntiFalseTargetSuppressesTentativePromotion) {

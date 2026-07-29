@@ -5,6 +5,9 @@
 #include <tuple>
 
 #include "common/geometry/BearingCluster.h"
+#include "1q/coordinate/attitude_transform.h"
+#include "1q/coordinate/position_transform.h"
+#include "1q/coordinate/velocity_transform.h"
 
 namespace airborne_radar {
 namespace signal {
@@ -12,6 +15,53 @@ namespace detection {
 namespace {
 
 constexpr double kRadiansToDegrees = 57.2957795130823208768;
+
+bool LocalFrameIsUsable(const oneq::coordinate::LocalFrameReference& frame) {
+  // LlaPositionDegM 无 IsFinite 重载，显式检查有限性。
+  const bool lla_finite = std::isfinite(frame.origin_lla.latitude_deg) &&
+                          std::isfinite(frame.origin_lla.longitude_deg) &&
+                          std::isfinite(frame.origin_lla.altitude_m);
+  return lla_finite && oneq::coordinate::IsFinite(frame.frame_attitude_deg);
+}
+
+// 把发射 ECEF 位置转换到雷达局部笛卡尔系下的方位/俯仰（与 ArSceneTarget look angle 同系）。
+// 失败时返回 false，由调用方决定是否回退到 ECEF 切平面方位。
+bool TryEcefPositionToRadarLocalAngles(const oneq::coordinate::EcefPositionM& emission_ecef,
+                                       const oneq::coordinate::EcefPositionM& receiver_ecef,
+                                       const oneq::coordinate::LocalFrameReference& frame,
+                                       double* azimuth_deg, double* elevation_deg) {
+  if (azimuth_deg == nullptr || elevation_deg == nullptr) {
+    return false;
+  }
+  // 以接收机 ECEF 位置为相对原点，构造视线的 ENU 分量：先转 ECEF→ENU（绝对位置）再取差，
+  // 等价于差向量在 origin_lla 处的 ECEF→ENU（线性近似下一致，且与目标 look angle 同口径）。
+  oneq::coordinate::EcefPositionM emission_relative;
+  emission_relative.x_m = emission_ecef.x_m;  // TryEcefToEnu 以 origin_lla 为原点，需绝对 ECEF
+  emission_relative.y_m = emission_ecef.y_m;
+  emission_relative.z_m = emission_ecef.z_m;
+  oneq::coordinate::EcefPositionM receiver_absolute;
+  receiver_absolute.x_m = receiver_ecef.x_m;
+  receiver_absolute.y_m = receiver_ecef.y_m;
+  receiver_absolute.z_m = receiver_ecef.z_m;
+  oneq::coordinate::EnuPositionM emission_enu;
+  oneq::coordinate::EnuPositionM receiver_enu;
+  if (!oneq::coordinate::TryEcefToEnu(emission_relative, frame.origin_lla, &emission_enu) ||
+      !oneq::coordinate::TryEcefToEnu(receiver_absolute, frame.origin_lla, &receiver_enu)) {
+    return false;
+  }
+  const double east = emission_enu.east_m - receiver_enu.east_m;
+  const double north = emission_enu.north_m - receiver_enu.north_m;
+  const double up = emission_enu.up_m - receiver_enu.up_m;
+  // ENU→雷达局部（扣除平台姿态+挂架角）。
+  const oneq::coordinate::Vector3d local =
+      oneq::coordinate::RotateEnuToLocal(east, north, up, frame.frame_attitude_deg);
+  // 局部系方位/俯仰口径与 TargetLookResolver::Resolve 一致：
+  //   az = atan2(local.y, local.x)，el = atan2(local.z, hypot(local.x, local.y))。
+  const double horizontal = std::hypot(local.x, local.y);
+  *azimuth_deg = std::atan2(local.y, local.x) * kRadiansToDegrees;
+  *elevation_deg = std::atan2(local.z, horizontal) * kRadiansToDegrees;
+  return true;
+}
 
 bool SameIdentity(const oneq::electromagnetics::RfEmissionIdentity& left,
                   const oneq::electromagnetics::RfEmissionIdentity& right) {
@@ -65,12 +115,14 @@ bool TryResolveArInterferenceObservations(
     const oneq::electromagnetics::RfEmissionIdentity& own_emission_identity,
     const std::vector<oneq::electromagnetics::RfIncidentLinkResult>& incident_links,
     double thermal_noise_power_w, double jammer_to_noise_gate_db,
+    const oneq::coordinate::LocalFrameReference& platform_frame,
     std::vector<session::ArInterferenceObservation>* observations) {
   if (observations == nullptr || !oneq::electromagnetics::TryValidateRfSceneFrame(scene) ||
       !std::isfinite(thermal_noise_power_w) || thermal_noise_power_w <= 0.0 ||
       !std::isfinite(jammer_to_noise_gate_db)) {
     return false;
   }
+  const bool frame_usable = LocalFrameIsUsable(platform_frame);
 
   std::vector<session::ArInterferenceObservation> candidate;
   candidate.reserve(incident_links.size());
@@ -101,11 +153,29 @@ bool TryResolveArInterferenceObservations(
       return false;
     }
     session::ArInterferenceObservation observation;
+    observation.estimated_slant_range_m = range_m;
     observation.estimated_bearing_azimuth_deg = std::atan2(y, x) * kRadiansToDegrees;
     observation.estimated_bearing_elevation_deg = std::asin(z / range_m) * kRadiansToDegrees;
+    // 雷达局部系方位（与目标 look angle 同系）。无可用 pose 时留零，由下游回退并告警。
+    if (frame_usable) {
+      double local_az_deg = 0.0;
+      double local_el_deg = 0.0;
+      if (TryEcefPositionToRadarLocalAngles(emission->position_ecef_m, receiver.position_ecef_m,
+                                            platform_frame, &local_az_deg, &local_el_deg)) {
+        observation.estimated_bearing_azimuth_local_deg = local_az_deg;
+        observation.estimated_bearing_elevation_local_deg = local_el_deg;
+      }
+    }
     const double direction_x = x / range_m;
     const double direction_y = y / range_m;
     const double direction_z = z / range_m;
+    // 径向速度：发射体 ECEF 速度与视线单位向量的点乘（正值表示远离）。
+    if (oneq::coordinate::IsFinite(emission->velocity_ecef_mps)) {
+      observation.estimated_range_rate_mps =
+          emission->velocity_ecef_mps.x_mps * direction_x +
+          emission->velocity_ecef_mps.y_mps * direction_y +
+          emission->velocity_ecef_mps.z_mps * direction_z;
+    }
     const double boresight_dot =
         std::max(-1.0, std::min(1.0, direction_x * receiver.antenna.boresight_ecef.x +
                                         direction_y * receiver.antenna.boresight_ecef.y +
@@ -130,16 +200,19 @@ bool TryResolveArInterferenceObservations(
 
   // 欺骗特征提取：检测同方向多脉冲列（疑似假目标）。聚类逻辑复用共享几何工具，
   // 与 ESR 的 ClassifyDeception 保持一致的波束宽度口径（含 1.0 度下限钳制）。
+  // 聚类在雷达局部系方位上进行（与目标 look angle 同系）；无可用 pose 时回退 ECEF 方位。
   const double beamwidth_deg = receiver.antenna.half_power_beamwidth_deg;
   const auto is_pulse_train = [&candidate](std::size_t i) {
     return candidate[i].estimated_waveform_kind ==
            oneq::electromagnetics::RfSceneWaveformKind::kPulseTrain;
   };
-  const auto azimuth_of = [&candidate](std::size_t i) {
-    return candidate[i].estimated_bearing_azimuth_deg;
+  const auto azimuth_of = [frame_usable, &candidate](std::size_t i) {
+    return frame_usable ? candidate[i].estimated_bearing_azimuth_local_deg
+                        : candidate[i].estimated_bearing_azimuth_deg;
   };
-  const auto elevation_of = [&candidate](std::size_t i) {
-    return candidate[i].estimated_bearing_elevation_deg;
+  const auto elevation_of = [frame_usable, &candidate](std::size_t i) {
+    return frame_usable ? candidate[i].estimated_bearing_elevation_local_deg
+                        : candidate[i].estimated_bearing_elevation_deg;
   };
   for (std::size_t i = 0U; i < candidate.size(); ++i) {
     if (!is_pulse_train(i)) {

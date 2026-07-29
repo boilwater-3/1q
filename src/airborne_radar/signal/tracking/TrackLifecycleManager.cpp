@@ -555,12 +555,37 @@ void TrackLifecycleManager::ComputePhase(LifecycleUpdateScratch& scratch, const 
           effective_dt_sec > 0.0f) {
         const float max_delta =
             static_cast<float>(config_.max_acceleration_mps2 * effective_dt_sec);
+        bool clamped_any = false;
         for (int axis = 0; axis < 3; ++axis) {
           const float delta = track.velocity[axis] - velocity_before_update[axis];
           if (delta > max_delta) {
             track.velocity[axis] = velocity_before_update[axis] + max_delta;
+            clamped_any = true;
           } else if (delta < -max_delta) {
             track.velocity[axis] = velocity_before_update[axis] - max_delta;
+            clamped_any = true;
+          }
+        }
+        // 限幅回写全套状态：下一周期 Predict 读 track.gaussian_state（非 track.velocity），
+        // 关联门控同样读 gaussian_state（DataAssociation::Predict）。若不回写，限幅只影响
+        // 快照镜像，下次预测会从未限幅后验跳回——这是原实现的缺陷。这里把限幅后速度写回
+        // gaussian_state.mean 的速度分量（[1,3,5]），并按同口径重算 acceleration。
+        if (clamped_any) {
+          track.gaussian_state.mean(1) = track.velocity(0);
+          track.gaussian_state.mean(3) = track.velocity(1);
+          track.gaussian_state.mean(5) = track.velocity(2);
+          track.acceleration = (track.velocity - velocity_before_update) / effective_dt_sec;
+          // IMM 路径：track.gaussian_state 只是镜像，IMM 下一周期从各 model_states_ 重新混合。
+          // 同步把限幅速度写回每个模型的 mean 速度分量（权重不变），保证 re-mix 从限幅状态
+          // 出发。combined_state_ 会暂陈旧，但下个 Process 的 CombineEstimates 会重算。
+          if (work_item.use_imm && work_item.imm_filter != nullptr) {
+            std::vector<ImmModelState> model_states = work_item.imm_filter->GetModelStates();
+            for (ImmModelState& model_state : model_states) {
+              model_state.state.mean(1) = track.velocity(0);
+              model_state.state.mean(3) = track.velocity(1);
+              model_state.state.mean(5) = track.velocity(2);
+            }
+            work_item.imm_filter->SetModelStates(model_states);
           }
         }
       }
