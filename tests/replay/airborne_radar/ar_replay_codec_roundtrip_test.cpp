@@ -394,6 +394,8 @@ TEST(ArReplayCodecRoundtripTest, InterferenceObservationNewFieldsRoundtripPreser
   obs.estimated_bearing_azimuth_local_deg = -30.0;
   obs.estimated_bearing_elevation_local_deg = 15.0;
   obs.estimated_range_rate_mps = -120.0;
+  obs.estimated_carrier_offset_hz = 5000.0;      // VGPO 可观测特征
+  obs.estimated_first_pulse_delay_s = 1.2e-6;    // RGPO 可观测特征
 
   ArCycleReplayRecord record;
   record.result.status = ArCycleStatus::kCompleted;
@@ -415,6 +417,8 @@ TEST(ArReplayCodecRoundtripTest, InterferenceObservationNewFieldsRoundtripPreser
   EXPECT_DOUBLE_EQ(decoded_obs.estimated_bearing_azimuth_local_deg, -30.0);
   EXPECT_DOUBLE_EQ(decoded_obs.estimated_bearing_elevation_local_deg, 15.0);
   EXPECT_DOUBLE_EQ(decoded_obs.estimated_range_rate_mps, -120.0);
+  EXPECT_DOUBLE_EQ(decoded_obs.estimated_carrier_offset_hz, 5000.0);
+  EXPECT_DOUBLE_EQ(decoded_obs.estimated_first_pulse_delay_s, 1.2e-6);
 }
 
 // ===========================================================================

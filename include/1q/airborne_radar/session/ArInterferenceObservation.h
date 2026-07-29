@@ -54,6 +54,8 @@ struct ONEQ_API ArInterferenceObservation {
   double estimated_bearing_azimuth_local_deg{0.0}; /**< 雷达局部系方位估计（鉴别比较用）。 */
   double estimated_bearing_elevation_local_deg{0.0}; /**< 雷达局部系俯仰估计（鉴别比较用）。 */
   double estimated_range_rate_mps{0.0}; /**< 干扰源径向速度（合成多普勒/反 VGPO 评分用）。 */
+  double estimated_carrier_offset_hz{0.0}; /**< 相对接收机调谐载频的中心频率偏移估计（VGPO 可观测特征：正值表示高于本振）。 */
+  double estimated_first_pulse_delay_s{0.0}; /**< 首脉冲到达时间相对几何双程传播期望值的滞后估计（RGPO 可观测特征：正值表示距离门被拖远）。 */
 };
 
 /** @brief AR 干扰观测列表。 */

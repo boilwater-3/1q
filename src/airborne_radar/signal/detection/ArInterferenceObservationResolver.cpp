@@ -271,6 +271,25 @@ bool TryResolveArInterferenceObservations(
     observation.estimated_bandwidth_hz = ObservableBandwidthHz(emission->waveform);
     observation.estimated_waveform_kind = emission->waveform.kind;
     observation.jammer_to_noise_db = jammer_to_noise_db;
+    // VGPO 物理可观测特征：相对接收机调谐载频（本振中心）的中心频率偏移。VGPO 把转发载频
+    // 拖离威胁雷达频率，接收端观测到的偏移即速度波门拖引的直接证据（不依赖 ECM 真值）。
+    const double reference_carrier_hz = std::isfinite(receiver.center_frequency_hz) &&
+                                                receiver.center_frequency_hz > 0.0
+                                            ? receiver.center_frequency_hz
+                                            : observation.estimated_center_frequency_hz;
+    observation.estimated_carrier_offset_hz =
+        observation.estimated_center_frequency_hz - reference_carrier_hz;
+    // RGPO 物理可观测特征：首脉冲到达时间相对几何单程传播期望的滞后。发射体按窗口边界
+    // 准时发射时，接收首脉冲应在 window_start + range/c 到达；超出部分即人工距离拖引。
+    // 仅对 kPulseTrain（具有首脉冲时间）有意义；其他波形保持 0。
+    if (emission->waveform.kind == oneq::electromagnetics::RfSceneWaveformKind::kPulseTrain) {
+      const double c = 299792458.0;
+      const double one_way_propagation_s = range_m / c;
+      const double first_pulse_relative_s =
+          emission->waveform.first_pulse_time_s - scene.window_start_time_s;
+      observation.estimated_first_pulse_delay_s =
+          first_pulse_relative_s - one_way_propagation_s;
+    }
     const double quality_scale = std::sqrt(std::max(1.0, jammer_to_noise_linear));
     observation.bearing_standard_deviation_deg =
         receiver.antenna.half_power_beamwidth_deg / quality_scale;

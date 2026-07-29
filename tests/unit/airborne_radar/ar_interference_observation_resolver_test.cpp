@@ -133,6 +133,44 @@ TEST(ArInterferenceObservationResolverTest, IsolatedPulseTrainNotTaggedAsFalseTa
   EXPECT_EQ(observations.front().coherent_emission_count, 1U);
 }
 
+// RGPO/VGPO 可观测特征：kPulseTrain 发射的载频偏移与首脉冲时延应被填充。
+// - estimated_carrier_offset_hz = 发射载频 − 接收机调谐载频；
+// - estimated_first_pulse_delay_s = (first_pulse_time − window_start) − range/c。
+TEST(ArInterferenceObservationResolverTest, PulseTrainPopulatesCarrierOffsetAndFirstPulseDelay) {
+  constexpr double kLightSpeed = 299792458.0;
+  oneq::electromagnetics::RfSceneFrame scene;
+  scene.world_cycle_index = 1U;
+  scene.window_start_time_s = 10.0;
+  scene.window_duration_s = 1.0;
+  // 距离 1000m（发射在 x=1000）。载频 10.5 GHz（相对 10 GHz 本振偏移 +0.5 GHz）。
+  // 首脉冲窗口相对时间设为 5e-6 s（相对窗口边界人为延迟）。
+  oneq::electromagnetics::RfSceneEmission emission;
+  emission.identity = oneq::electromagnetics::RfEmissionIdentity{10U, 20U, 1U};
+  emission.position_ecef_m.x_m = 1000.0;
+  ASSERT_TRUE(oneq::electromagnetics::TryCreateRfPulseTrainWaveform(
+      /*first_pulse_time_s=*/10.0 + 5.0e-6, 10.5e9, 20.0e6, 10.0, 1.0e-6, 1.0e-3, 5U, 0.0, 0U, 0U,
+      &emission.waveform));
+  scene.emissions = {emission};
+  oneq::electromagnetics::RfSceneReceiverState receiver;
+  receiver.platform_id = 1U;
+  receiver.equipment_id = 2U;
+  receiver.antenna.half_power_beamwidth_deg = 4.0;
+  receiver.center_frequency_hz = 10.0e9;  // 本振调谐载频
+
+  std::vector<session::ArInterferenceObservation> observations;
+  ASSERT_TRUE(TryResolveArInterferenceObservations(
+      scene, receiver, oneq::electromagnetics::RfEmissionIdentity{1U, 3U, 4U},
+      {MakeLink(scene.emissions.front(), 100.0)}, 1.0, 0.0, DefaultFrame(),
+      /*perturbation_seed=*/42U, &observations));
+  ASSERT_EQ(observations.size(), 1U);
+  const auto& obs = observations.front();
+  // 载频偏移 = 10.5e9 − 10.0e9 = 0.5e9 Hz。
+  EXPECT_NEAR(obs.estimated_carrier_offset_hz, 0.5e9, 1.0e3);
+  // 首脉冲时延 = 5e-6 − (1000 / c) ≈ 5e-6 − 3.3356e-6 ≈ 1.664e-6 s。
+  const double expected_delay_s = 5.0e-6 - 1000.0 / kLightSpeed;
+  EXPECT_NEAR(obs.estimated_first_pulse_delay_s, expected_delay_s, 1.0e-9);
+}
+
 TEST(ArInterferenceObservationResolverTest, UncertaintyDecreasesWithJOverN) {
   oneq::electromagnetics::RfSceneFrame scene;
   scene.world_cycle_index = 1U;

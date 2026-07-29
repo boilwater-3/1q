@@ -86,6 +86,8 @@ table ArInterferenceObservation {
   estimated_bearing_azimuth_local_deg:double;
   estimated_bearing_elevation_local_deg:double;
   estimated_range_rate_mps:double;
+  estimated_carrier_offset_hz:double;
+  estimated_first_pulse_delay_s:double;
 }
 
 table AssociationQualityInfo {

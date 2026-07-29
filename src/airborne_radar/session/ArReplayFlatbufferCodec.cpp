@@ -194,7 +194,8 @@ flatbuffers::Offset<fb::ArInterferenceObservation> EncodeArInterferenceObservati
       static_cast<int>(value.deception_class), value.coherent_emission_count,
       value.estimated_slant_range_m, value.has_local_bearings,
       value.estimated_bearing_azimuth_local_deg,
-      value.estimated_bearing_elevation_local_deg, value.estimated_range_rate_mps);
+      value.estimated_bearing_elevation_local_deg, value.estimated_range_rate_mps,
+      value.estimated_carrier_offset_hz, value.estimated_first_pulse_delay_s);
 }
 
 flatbuffers::Offset<fb::DecisionInputFrame> EncodeDecisionInputFrame(
@@ -285,6 +286,8 @@ session::ArInterferenceObservation DecodeArInterferenceObservation(
     result.estimated_bearing_azimuth_local_deg = value->estimated_bearing_azimuth_local_deg();
     result.estimated_bearing_elevation_local_deg = value->estimated_bearing_elevation_local_deg();
     result.estimated_range_rate_mps = value->estimated_range_rate_mps();
+    result.estimated_carrier_offset_hz = value->estimated_carrier_offset_hz();
+    result.estimated_first_pulse_delay_s = value->estimated_first_pulse_delay_s();
   }
   return result;
 }
