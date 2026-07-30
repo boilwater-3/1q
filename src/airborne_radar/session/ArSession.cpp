@@ -15,6 +15,7 @@
 #include "airborne_radar/session/ArRfCycleState.h"
 #include "airborne_radar/session/ArSessionCompositionRoot.h"
 #include "airborne_radar/session/MutableArContext.h"
+#include "airborne_radar/session/ArEmissionFactory.h"
 #include "airborne_radar/session/PreparedCycleLedger.h"
 #include "airborne_radar/signal/detection/ArInterferenceObservationResolver.h"
 #include "airborne_radar/signal/detection/ArRfFrontEndResolver.h"
@@ -34,36 +35,6 @@ bool IsFinitePosition(const oneq::coordinate::EcefPositionM& value) {
 
 bool IsFiniteVelocity(const oneq::coordinate::EcefVelocityMps& value) {
   return std::isfinite(value.x_mps) && std::isfinite(value.y_mps) && std::isfinite(value.z_mps);
-}
-
-bool TryResolveEcefBoresight(const ArPrepareCycleInput& input,
-                             oneq::electromagnetics::RfSceneDirection* boresight_ecef) {
-  if (boresight_ecef == nullptr || !oneq::coordinate::IsFinite(input.radar_frame_attitude_deg) ||
-      !std::isfinite(input.beam_pointing_deg.az_deg) ||
-      !std::isfinite(input.beam_pointing_deg.el_deg) || input.beam_pointing_deg.az_deg < -180.0f ||
-      input.beam_pointing_deg.az_deg > 180.0f || input.beam_pointing_deg.el_deg < -90.0f ||
-      input.beam_pointing_deg.el_deg > 90.0f) {
-    return false;
-  }
-  constexpr double kPi = 3.14159265358979323846;
-  const double azimuth_rad = static_cast<double>(input.beam_pointing_deg.az_deg) * kPi / 180.0;
-  const double elevation_rad = static_cast<double>(input.beam_pointing_deg.el_deg) * kPi / 180.0;
-  const double cos_elevation = std::cos(elevation_rad);
-  const oneq::coordinate::Vector3d local_direction{cos_elevation * std::cos(azimuth_rad),
-                                                   cos_elevation * std::sin(azimuth_rad),
-                                                   std::sin(elevation_rad)};
-  const oneq::coordinate::Vector3d enu_direction = oneq::coordinate::RotateLocalToEnu(
-      local_direction.x, local_direction.y, local_direction.z, input.radar_frame_attitude_deg);
-  oneq::coordinate::LlaPositionDegM platform_lla;
-  oneq::coordinate::Vector3d resolved_ecef;
-  if (!oneq::coordinate::TryEcefToLla(input.platform_position_ecef_m, &platform_lla) ||
-      !oneq::coordinate::TryEnuToEcefDirection(enu_direction, platform_lla, &resolved_ecef)) {
-    return false;
-  }
-  boresight_ecef->x = resolved_ecef.x;
-  boresight_ecef->y = resolved_ecef.y;
-  boresight_ecef->z = resolved_ecef.z;
-  return true;
 }
 
 bool SameEmissionIdentity(const oneq::electromagnetics::RfEmissionIdentity& left,
@@ -560,48 +531,10 @@ struct ArSession::Impl {
     const double carrier_hz = transmitter.frequency_plan_hz[selected_frequency_hop_index];
 
     oneq::electromagnetics::RfSceneEmission emission;
-    emission.identity.platform_id = input.platform_id;
-    emission.identity.equipment_id = transmitter.equipment_id;
-    emission.identity.emission_id = prepared_ledger_.next_emission_id();
-    emission.position_ecef_m = input.platform_position_ecef_m;
-    emission.velocity_ecef_mps = input.platform_velocity_ecef_mps;
-    if (!TryResolveEcefBoresight(input, &emission.antenna.boresight_ecef)) {
-      (void)Controller().RestoreRuntimeState(controller_state_before_prepare);
-      result.status = ArPrepareCycleStatus::kRejected;
-      return result;
-    }
-    emission.antenna.peak_gain_dbi = static_cast<double>(detection.antenna.main_beam_gain_db);
-    emission.antenna.half_power_beamwidth_deg = static_cast<double>(std::max(
-        detection.antenna.nominal_az_beamwidth_deg, detection.antenna.nominal_el_beamwidth_deg));
-    emission.antenna.sidelobe_level_db =
-        static_cast<double>(detection.antenna.pattern.max_sidelobe_level_db);
-    emission.antenna.backlobe_level_db =
-        static_cast<double>(detection.antenna.pattern.backlobe_level_db);
-    emission.antenna.cross_polarization_isolation_db =
-        static_cast<double>(receiver.cross_polarization_isolation_db);
-    emission.polarization = receiver.scene_polarization;
-    const double emission_control_scale =
-        control_profile.enable_lpi_power_control
-            ? std::max(0.0, static_cast<double>(control_profile.lpi_power_scale))
-            : 1.0;
-    const double requested_peak_power_w =
-        static_cast<double>(transmitter.peak_power_w) * emission_control_scale *
-        std::max(1.0, static_cast<double>(control_profile.eccm_burnthrough_gain));
-    const double energy_limited_peak_power_w =
-        static_cast<double>(transmitter.maximum_pulse_energy_j) /
-        static_cast<double>(transmitter.pulse_width_s);
-    const double actual_peak_power_w =
-        std::min({requested_peak_power_w, static_cast<double>(transmitter.maximum_peak_power_w),
-                  energy_limited_peak_power_w});
-    const double radiated_peak_power_w =
-        actual_peak_power_w *
-        std::pow(10.0, -static_cast<double>(transmitter.transmit_loss_db) / 10.0);
-    if (!oneq::electromagnetics::TryCreateRfPulseTrainWaveform(
-            input.window_start_time_s, carrier_hz, static_cast<double>(transmitter.bandwidth_hz),
-            radiated_peak_power_w, static_cast<double>(transmitter.pulse_width_s),
-            pulse_repetition_interval_s, static_cast<std::uint32_t>(pulse_count_value),
-            control_profile.enable_eccm_rejitter ? 0.15 : 0.0, timing_seed,
-            prepared_ledger_.successful_prepare_count(), &emission.waveform)) {
+    if (!ArEmissionFactory::TryBuildEmission(
+            input, detection, control_profile, prepared_ledger_.next_emission_id(), carrier_hz,
+            pulse_repetition_interval_s, static_cast<std::uint32_t>(pulse_count_value), timing_seed,
+            prepared_ledger_.successful_prepare_count(), &emission)) {
       (void)Controller().RestoreRuntimeState(controller_state_before_prepare);
       result.status = ArPrepareCycleStatus::kRejected;
       return result;
