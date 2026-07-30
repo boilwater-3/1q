@@ -327,6 +327,154 @@ TEST(ArInterferenceObservationResolverTest, RangeAndRangeRateArePerturbedFromTru
   EXPECT_NE(first.front().estimated_slant_range_m, other_seed.front().estimated_slant_range_m);
 }
 
+// 表观物理推导回归：候选量测的 apparent 距离/径向速度必须在残差超门限时由 ECM 编入的额外
+// 假距离/假多普勒偏移几何量；门限内保持几何值（contract：门限内不动）。此前实现把 apparent
+// 字段直接拷贝几何值，导致 RGPO/VGPO 假目标量测落在干扰机自身几何位置/速率。
+//
+// 构造一对同束同频率分辨单元的 kPulseTrain（≥2 成员才出候选），其中一个携带显著 RGPO 时延。
+// apparent 与 geometric 均叠加同一 seed 去真值化噪声，故用差值断言（apparent − geometric）消除噪声，
+// 差值精确等于 0.5·c·delay。
+TEST(ArInterferenceObservationResolverTest, ApparentRangeShiftsByHalfLightSpeedDelayForRgpo) {
+  constexpr double kLightSpeed = 299792458.0;
+  constexpr double kRgpoDelayS = 5.0e-6;  // 5 us，远超 100 ns 门限，≈ 749.48 m 单程假距离。
+  oneq::electromagnetics::RfSceneFrame scene;
+  scene.world_cycle_index = 1U;
+  scene.window_start_time_s = 10.0;
+  scene.window_duration_s = 1.0;
+  oneq::electromagnetics::RfSceneEmission delayed = MakePulseTrainJammer(1U, 100.0, 10.0);
+  ASSERT_TRUE(oneq::electromagnetics::TryCreateRfPulseTrainWaveform(
+      scene.window_start_time_s + kRgpoDelayS, 10.0e9, 20.0e6, 10.0, 1.0e-6, 1.0e-3, 5U, 0.0, 0U, 0U,
+      &delayed.waveform));
+  scene.emissions = {delayed, MakePulseTrainJammer(2U, 105.0, 10.0)};
+  oneq::electromagnetics::RfSceneReceiverState receiver;
+  receiver.platform_id = 1U;
+  receiver.equipment_id = 2U;
+  receiver.antenna.half_power_beamwidth_deg = 4.0;
+  receiver.center_frequency_hz = 10.0e9;
+
+  std::vector<session::ArInterferenceObservation> observations;
+  ArDeceptionMeasurementCandidateList candidates;
+  ASSERT_TRUE(TryResolveArInterferenceObservations(
+      scene, receiver, oneq::electromagnetics::RfEmissionIdentity{1U, 3U, 4U},
+      {MakeLink(scene.emissions[0], 100.0), MakeLink(scene.emissions[1], 100.0)}, 1.0, 0.0,
+      DefaultFrame(), /*perturbation_seed=*/42U, &observations, &candidates));
+  ASSERT_EQ(observations.size(), 2U);
+  ASSERT_EQ(candidates.size(), 2U);
+
+  // 定位带时延成员的 observation（按 first_pulse_delay ≈ 5us 识别）与对应候选。
+  const auto delayed_obs_it = std::find_if(
+      observations.begin(), observations.end(),
+      [kRgpoDelayS](const session::ArInterferenceObservation& o) {
+        return std::fabs(o.estimated_first_pulse_delay_s - kRgpoDelayS) < 1.0e-9;
+      });
+  ASSERT_NE(delayed_obs_it, observations.end());
+  const auto delayed_cand_it = std::find_if(
+      candidates.begin(), candidates.end(),
+      [id = delayed_obs_it->observation_id](const ArDeceptionMeasurementCandidate& c) {
+        return c.source_observation_id == id;
+      });
+  ASSERT_NE(delayed_cand_it, candidates.end());
+
+  // 差值断言：apparent − geometric 精确等于 0.5·c·delay（噪声在两侧相消）。
+  const double expected_range_shift_m = 0.5 * kLightSpeed * kRgpoDelayS;
+  EXPECT_NEAR(delayed_cand_it->apparent_slant_range_m - delayed_obs_it->estimated_slant_range_m,
+              expected_range_shift_m, 1.0e-3);
+  // position 范数应同步反映表观距离（沿同一视线方向）。
+  EXPECT_NEAR(delayed_cand_it->position.norm(), delayed_cand_it->apparent_slant_range_m, 1.0e-2);
+}
+
+// VGPO：成员载频相对本振偏移 +1 MHz（远超 1 kHz 门限，但仍 < 20 MHz 分辨带宽，保持同簇）。
+// apparent 径向速度应叠加 Δv = -0.5·λ_ref·Δf（冻结口径，λ_ref 取本振）。两侧均静止 → 几何
+// 径向速度 ≈ 0，故 apparent 直接反映假多普勒偏移。
+TEST(ArInterferenceObservationResolverTest, ApparentRangeRateShiftsByCarrierOffsetForVgpo) {
+  constexpr double kLightSpeed = 299792458.0;
+  constexpr double kCarrierOffsetHz = 1.0e6;     // +1 MHz（≫ 1 kHz 门限，≪ 20 MHz 带宽）。
+  constexpr double kReferenceCarrierHz = 10.0e9;  // 本振。
+  oneq::electromagnetics::RfSceneFrame scene;
+  scene.world_cycle_index = 1U;
+  scene.window_start_time_s = 10.0;
+  scene.window_duration_s = 1.0;
+  oneq::electromagnetics::RfSceneEmission offset = MakePulseTrainJammer(1U, 100.0, 10.0);
+  ASSERT_TRUE(oneq::electromagnetics::TryCreateRfPulseTrainWaveform(
+      10.0, kReferenceCarrierHz + kCarrierOffsetHz, 20.0e6, 10.0, 1.0e-6, 1.0e-3, 5U, 0.0, 0U, 0U,
+      &offset.waveform));
+  scene.emissions = {offset, MakePulseTrainJammer(2U, 105.0, 10.0)};
+  oneq::electromagnetics::RfSceneReceiverState receiver;
+  receiver.platform_id = 1U;
+  receiver.equipment_id = 2U;
+  receiver.antenna.half_power_beamwidth_deg = 4.0;
+  receiver.center_frequency_hz = kReferenceCarrierHz;
+
+  std::vector<session::ArInterferenceObservation> observations;
+  ArDeceptionMeasurementCandidateList candidates;
+  ASSERT_TRUE(TryResolveArInterferenceObservations(
+      scene, receiver, oneq::electromagnetics::RfEmissionIdentity{1U, 3U, 4U},
+      {MakeLink(scene.emissions[0], 100.0), MakeLink(scene.emissions[1], 100.0)}, 1.0, 0.0,
+      DefaultFrame(), /*perturbation_seed=*/42U, &observations, &candidates));
+  ASSERT_EQ(observations.size(), 2U);
+  ASSERT_EQ(candidates.size(), 2U);
+
+  const auto offset_obs_it = std::find_if(
+      observations.begin(), observations.end(),
+      [kCarrierOffsetHz](const session::ArInterferenceObservation& o) {
+        return std::fabs(o.estimated_carrier_offset_hz - kCarrierOffsetHz) < 1.0e3;
+      });
+  ASSERT_NE(offset_obs_it, observations.end());
+  const auto offset_cand_it = std::find_if(
+      candidates.begin(), candidates.end(),
+      [id = offset_obs_it->observation_id](const ArDeceptionMeasurementCandidate& c) {
+        return c.source_observation_id == id;
+      });
+  ASSERT_NE(offset_cand_it, candidates.end());
+
+  const double lambda_ref_m = kLightSpeed / kReferenceCarrierHz;
+  const double expected_rate_shift_mps = -0.5 * lambda_ref_m * kCarrierOffsetHz;
+  // 差值断言：apparent − geometric 精确等于 Δv（噪声在两侧相消）。
+  EXPECT_NEAR(offset_cand_it->apparent_range_rate_mps - offset_obs_it->estimated_range_rate_mps,
+              expected_rate_shift_mps, 1.0e-3);
+}
+
+// 门限内不动：成员首脉冲时延 < 100 ns、载频偏移 < 1 kHz 时，apparent 必须保持几何值
+// （无欺骗场景不漂移）。apparent 直接拷贝自 observation 的去真值化几何量，故精确相等。
+TEST(ArInterferenceObservationResolverTest, SubThresholdResidualsKeepGeometricApparent) {
+  constexpr double kSubThresholdDelayS = 50.0e-9;  // 50 ns，低于 100 ns 门限。
+  oneq::electromagnetics::RfSceneFrame scene;
+  scene.world_cycle_index = 1U;
+  scene.window_start_time_s = 10.0;
+  scene.window_duration_s = 1.0;
+  oneq::electromagnetics::RfSceneEmission first = MakePulseTrainJammer(1U, 100.0, 10.0);
+  ASSERT_TRUE(oneq::electromagnetics::TryCreateRfPulseTrainWaveform(
+      scene.window_start_time_s + kSubThresholdDelayS, 10.0e9, 20.0e6, 10.0, 1.0e-6, 1.0e-3, 5U, 0.0,
+      0U, 0U, &first.waveform));
+  // 第二个成员同载频同束，载频偏移 ≈ 0（< 1 kHz 门限），无时延。
+  scene.emissions = {first, MakePulseTrainJammer(2U, 105.0, 10.0)};
+  oneq::electromagnetics::RfSceneReceiverState receiver;
+  receiver.platform_id = 1U;
+  receiver.equipment_id = 2U;
+  receiver.antenna.half_power_beamwidth_deg = 4.0;
+  receiver.center_frequency_hz = 10.0e9;
+
+  std::vector<session::ArInterferenceObservation> observations;
+  ArDeceptionMeasurementCandidateList candidates;
+  ASSERT_TRUE(TryResolveArInterferenceObservations(
+      scene, receiver, oneq::electromagnetics::RfEmissionIdentity{1U, 3U, 4U},
+      {MakeLink(scene.emissions[0], 100.0), MakeLink(scene.emissions[1], 100.0)}, 1.0, 0.0,
+      DefaultFrame(), /*perturbation_seed=*/42U, &observations, &candidates));
+  ASSERT_EQ(observations.size(), 2U);
+  ASSERT_EQ(candidates.size(), 2U);
+
+  for (const auto& c : candidates) {
+    const auto obs_it = std::find_if(
+        observations.begin(), observations.end(),
+        [id = c.source_observation_id](const session::ArInterferenceObservation& o) {
+          return o.observation_id == id;
+        });
+    ASSERT_NE(obs_it, observations.end());
+    EXPECT_DOUBLE_EQ(c.apparent_slant_range_m, obs_it->estimated_slant_range_m);
+    EXPECT_DOUBLE_EQ(c.apparent_range_rate_mps, obs_it->estimated_range_rate_mps);
+  }
+}
+
 }  // namespace
 }  // namespace detection
 }  // namespace signal

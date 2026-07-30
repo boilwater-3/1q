@@ -12,6 +12,7 @@
 #include "1q/coordinate/velocity_transform.h"
 #include "airborne_radar/signal/detection/RadarEquations.h"
 #include "common/geometry/BearingCluster.h"
+#include "common/numerics/Constants.h"
 
 namespace airborne_radar {
 namespace signal {
@@ -432,10 +433,41 @@ bool TryResolveArInterferenceObservations(
       dc.source_emission_identity = candidate[idx].identity;
       dc.estimated_first_pulse_delay_s = obs.estimated_first_pulse_delay_s;
       dc.estimated_carrier_offset_hz = obs.estimated_carrier_offset_hz;
-      dc.apparent_slant_range_m = obs.estimated_slant_range_m;
-      dc.apparent_range_rate_mps = obs.estimated_range_rate_mps;
       dc.jammer_to_noise_db = obs.jammer_to_noise_db;
       dc.used_local_bearings = obs.has_local_bearings;
+      // 表观距离/径向速度：仅当接收端残差超过可观测门限时，把 ECM 编入波形的额外假距离/假多普勒
+      // 叠加到几何量上，使候选量测落在欺骗后的 apparent 位置/速率而非干扰机几何位置。门限内保持
+      // 几何值，避免无欺骗场景漂移。残差已由 obs 携带（仅 kPulseTrain 有意义），参考载频沿用
+      // estimated_carrier_offset_hz 的同口径（receiver 本振 >0 则用本振，否则发射中心）。
+      const double geometric_range_m = obs.estimated_slant_range_m > 0.0 ? obs.estimated_slant_range_m : 50000.0;
+      double apparent_range_m = geometric_range_m;
+      if (std::isfinite(obs.estimated_first_pulse_delay_s) &&
+          obs.estimated_first_pulse_delay_s >= kRgpoFirstPulseDelayGateS) {
+        // RGPO 双程假距离时延 → 单程等效距离：ΔR = 0.5·c·delay。delay>0 表示距离门被拖远。
+        apparent_range_m =
+            geometric_range_m + 0.5 * static_cast<double>(oneq::common::numerics::kLightSpeed) *
+                                    obs.estimated_first_pulse_delay_s;
+      }
+      double apparent_range_rate_mps = obs.estimated_range_rate_mps;
+      if (std::isfinite(obs.estimated_carrier_offset_hz) &&
+          std::fabs(obs.estimated_carrier_offset_hz) >= kVgpoCarrierOffsetGateHz) {
+        const oneq::electromagnetics::RfSceneEmission* source_emission =
+            FindEmission(scene, candidate[idx].identity);
+        const double transmit_center_frequency_hz =
+            source_emission != nullptr ? CenterFrequencyHz(source_emission->waveform) : 0.0;
+        const double reference_carrier_hz =
+            std::isfinite(receiver.center_frequency_hz) && receiver.center_frequency_hz > 0.0
+                ? receiver.center_frequency_hz
+                : transmit_center_frequency_hz;
+        if (std::isfinite(reference_carrier_hz) && reference_carrier_hz > 0.0) {
+          // VGPO 假多普勒：单基地双程，Δv = -0.5·λ_ref·Δf（冻结口径）。
+          const double lambda_ref_m =
+              static_cast<double>(oneq::common::numerics::kLightSpeed) / reference_carrier_hz;
+          apparent_range_rate_mps = obs.estimated_range_rate_mps - 0.5 * lambda_ref_m * obs.estimated_carrier_offset_hz;
+        }
+      }
+      dc.apparent_slant_range_m = apparent_range_m;
+      dc.apparent_range_rate_mps = apparent_range_rate_mps;
       // 方位/俯仰：优先局部系。
       const double azimuth_deg = obs.has_local_bearings
           ? obs.estimated_bearing_azimuth_local_deg
@@ -446,17 +478,15 @@ bool TryResolveArInterferenceObservations(
       const double az_rad = azimuth_deg * M_PI / 180.0;
       const double el_rad = elevation_deg * M_PI / 180.0;
       const double cos_el = std::cos(el_rad);
-      const double range_m = obs.estimated_slant_range_m > 0.0
-          ? obs.estimated_slant_range_m
-          : 50000.0;
+      const double range_m = apparent_range_m;
       dc.position = Eigen::Vector3f(
           static_cast<float>(range_m * cos_el * std::cos(az_rad)),
           static_cast<float>(range_m * cos_el * std::sin(az_rad)),
           static_cast<float>(range_m * std::sin(el_rad)));
       dc.velocity = Eigen::Vector3f(
-          static_cast<float>(obs.estimated_range_rate_mps * cos_el * std::cos(az_rad)),
-          static_cast<float>(obs.estimated_range_rate_mps * cos_el * std::sin(az_rad)),
-          static_cast<float>(obs.estimated_range_rate_mps * std::sin(el_rad)));
+          static_cast<float>(apparent_range_rate_mps * cos_el * std::cos(az_rad)),
+          static_cast<float>(apparent_range_rate_mps * cos_el * std::sin(az_rad)),
+          static_cast<float>(apparent_range_rate_mps * std::sin(el_rad)));
       // 量测噪声协方差（与 DeceptionMeasurementGenerator 同口径）。
       const double bearing_sigma_deg = std::max(obs.bearing_standard_deviation_deg, 0.1);
       const double sigma_cross_range = range_m * (bearing_sigma_deg * M_PI / 180.0);
