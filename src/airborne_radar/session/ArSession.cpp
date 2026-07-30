@@ -15,6 +15,7 @@
 #include "airborne_radar/session/ArRfCycleState.h"
 #include "airborne_radar/session/ArSessionCompositionRoot.h"
 #include "airborne_radar/session/MutableArContext.h"
+#include "airborne_radar/session/PreparedCycleLedger.h"
 #include "airborne_radar/signal/detection/ArInterferenceObservationResolver.h"
 #include "airborne_radar/signal/detection/ArRfFrontEndResolver.h"
 #include "airborne_radar/signal/detection/BeamControlResolver.h"
@@ -393,17 +394,9 @@ struct ArSession::Impl {
     const bool saved_pending_environment_scenario_config_changed =
         pending_environment_scenario_config_changed;
     const bool saved_pipeline_config_synced = pipeline_config_synced;
-    const bool saved_has_prepared_cycle = has_prepared_cycle;
-    const bool saved_has_world_chronology = has_world_chronology;
-    const double saved_last_world_window_end_s = last_world_window_end_s;
-    const std::uint64_t saved_next_token_value = next_token_value;
-    const std::uint64_t saved_next_emission_id = next_emission_id;
-    const std::uint64_t saved_successful_prepare_count = successful_prepare_count;
-    const std::size_t saved_frequency_hop_index = frequency_hop_index;
-    const ArPreparedCycleToken saved_prepared_token = prepared_token;
-    const ArPrepareCycleInput saved_prepared_input = prepared_input;
-    const oneq::electromagnetics::RfSceneEmission saved_prepared_emission = prepared_emission;
-    const ArReceiverOperatingState saved_prepared_operating_state = prepared_operating_state;
+    // prepared-cycle 书记（编年史、令牌、计数器、冻结输入/发射/接收状态）整体快照——
+    // PrepareRfCycle 失败时单次赋值即可逐字段回滚。
+    const PreparedCycleLedger saved_prepared_ledger = prepared_ledger_;
 
     const auto restore_user_cycle = [&]() {
       const bool restored = RestoreCycleRuntimeState(radar_context_state, pipeline_state,
@@ -415,17 +408,7 @@ struct ArSession::Impl {
       pending_environment_scenario_config_changed =
           saved_pending_environment_scenario_config_changed;
       pipeline_config_synced = saved_pipeline_config_synced;
-      has_prepared_cycle = saved_has_prepared_cycle;
-      has_world_chronology = saved_has_world_chronology;
-      last_world_window_end_s = saved_last_world_window_end_s;
-      next_token_value = saved_next_token_value;
-      next_emission_id = saved_next_emission_id;
-      successful_prepare_count = saved_successful_prepare_count;
-      frequency_hop_index = saved_frequency_hop_index;
-      prepared_token = saved_prepared_token;
-      prepared_input = saved_prepared_input;
-      prepared_emission = saved_prepared_emission;
-      prepared_operating_state = saved_prepared_operating_state;
+      prepared_ledger_ = saved_prepared_ledger;
       return restored;
     };
 
@@ -515,13 +498,12 @@ struct ArSession::Impl {
   }
 
   bool TokenMatches(const ArPreparedCycleToken& token) const {
-    return has_prepared_cycle && token.value != 0U && token.value == prepared_token.value &&
-           token.world_cycle_index == prepared_token.world_cycle_index;
+    return prepared_ledger_.TokenMatches(token);
   }
 
   ArPrepareCycleResult PrepareRfCycle(const ArPrepareCycleInput& input) {
     ArPrepareCycleResult result;
-    if (has_prepared_cycle) {
+    if (prepared_ledger_.has_prepared_cycle()) {
       result.status = ArPrepareCycleStatus::kBusy;
       return result;
     }
@@ -531,7 +513,8 @@ struct ArSession::Impl {
         input.world_cycle_index > std::numeric_limits<std::uint32_t>::max() ||
         !IsFinitePosition(input.platform_position_ecef_m) ||
         !IsFiniteVelocity(input.platform_velocity_ecef_mps) ||
-        (has_world_chronology && input.window_start_time_s < last_world_window_end_s)) {
+        (prepared_ledger_.has_world_chronology() &&
+         input.window_start_time_s < prepared_ledger_.last_world_window_end_s())) {
       result.status = ArPrepareCycleStatus::kRejected;
       return result;
     }
@@ -541,8 +524,7 @@ struct ArSession::Impl {
     }
     FinalizePendingRuntimeConfig();
     if (!runtime_state.execution_config.sensor_enabled) {
-      has_world_chronology = true;
-      last_world_window_end_s = input.window_start_time_s + input.window_duration_s;
+      prepared_ledger_.AdvanceWorldChronology(input.window_start_time_s, input.window_duration_s);
       result.status = ArPrepareCycleStatus::kPoweredOff;
       return result;
     }
@@ -570,17 +552,17 @@ struct ArSession::Impl {
       return result;
     }
     const session::ArControlProfile& control_profile = Controller().GetControlProfile();
-    std::size_t selected_frequency_hop_index = frequency_hop_index;
+    std::size_t selected_frequency_hop_index = prepared_ledger_.frequency_hop_index();
     if (control_profile.enable_agility_frequency && transmitter.frequency_plan_hz.size() > 1U) {
       selected_frequency_hop_index =
-          (frequency_hop_index + 1U) % transmitter.frequency_plan_hz.size();
+          (prepared_ledger_.frequency_hop_index() + 1U) % transmitter.frequency_plan_hz.size();
     }
     const double carrier_hz = transmitter.frequency_plan_hz[selected_frequency_hop_index];
 
     oneq::electromagnetics::RfSceneEmission emission;
     emission.identity.platform_id = input.platform_id;
     emission.identity.equipment_id = transmitter.equipment_id;
-    emission.identity.emission_id = next_emission_id;
+    emission.identity.emission_id = prepared_ledger_.next_emission_id();
     emission.position_ecef_m = input.platform_position_ecef_m;
     emission.velocity_ecef_mps = input.platform_velocity_ecef_mps;
     if (!TryResolveEcefBoresight(input, &emission.antenna.boresight_ecef)) {
@@ -619,7 +601,7 @@ struct ArSession::Impl {
             radiated_peak_power_w, static_cast<double>(transmitter.pulse_width_s),
             pulse_repetition_interval_s, static_cast<std::uint32_t>(pulse_count_value),
             control_profile.enable_eccm_rejitter ? 0.15 : 0.0, timing_seed,
-            successful_prepare_count, &emission.waveform)) {
+            prepared_ledger_.successful_prepare_count(), &emission.waveform)) {
       (void)Controller().RestoreRuntimeState(controller_state_before_prepare);
       result.status = ArPrepareCycleStatus::kRejected;
       return result;
@@ -658,23 +640,13 @@ struct ArSession::Impl {
     operating_state.maximum_linear_input_power_w =
         static_cast<double>(receiver.maximum_linear_input_power_w);
 
-    prepared_token.value = next_token_value++;
-    prepared_token.world_cycle_index = input.world_cycle_index;
-    prepared_input = input;
-    prepared_emission = emission;
-    prepared_operating_state = operating_state;
-    has_prepared_cycle = true;
-    has_world_chronology = true;
-    last_world_window_end_s = input.window_start_time_s + input.window_duration_s;
-    ++next_emission_id;
-    ++successful_prepare_count;
-    frequency_hop_index = selected_frequency_hop_index;
+    prepared_ledger_.CommitPrepared(input, emission, operating_state, selected_frequency_hop_index);
 
     result.status = ArPrepareCycleStatus::kPrepared;
-    result.token = prepared_token;
+    result.token = prepared_ledger_.prepared_token();
     result.has_emission = true;
-    result.emission = prepared_emission;
-    result.operating_state = prepared_operating_state;
+    result.emission = prepared_ledger_.prepared_emission();
+    result.operating_state = prepared_ledger_.prepared_operating_state();
     return result;
   }
 
@@ -685,6 +657,13 @@ struct ArSession::Impl {
       result.status = ArCompleteCycleStatus::kTokenMismatch;
       return result;
     }
+    // 账本冻结的 prepared-cycle 状态——本方法全程只读消费这些值。
+    const ArPreparedCycleToken& prepared_token = prepared_ledger_.prepared_token();
+    const ArPrepareCycleInput& prepared_input = prepared_ledger_.prepared_input();
+    const oneq::electromagnetics::RfSceneEmission& prepared_emission =
+        prepared_ledger_.prepared_emission();
+    const ArReceiverOperatingState& prepared_operating_state =
+        prepared_ledger_.prepared_operating_state();
     result.world_cycle_index = prepared_token.world_cycle_index;
     if (input.rf_scene.world_cycle_index != prepared_token.world_cycle_index ||
         input.rf_scene.window_start_time_s != prepared_input.window_start_time_s ||
@@ -812,8 +791,7 @@ struct ArSession::Impl {
     if (result.has_decision_observation) {
       result.decision_observation = Controller().GetLatestDecisionObservation();
     }
-    has_prepared_cycle = false;
-    prepared_token = ArPreparedCycleToken{};
+    prepared_ledger_.ClearPrepared();
     return result;
   }
 
@@ -821,8 +799,7 @@ struct ArSession::Impl {
     if (!TokenMatches(token)) {
       return ArAbandonCycleStatus::kTokenMismatch;
     }
-    has_prepared_cycle = false;
-    prepared_token = ArPreparedCycleToken{};
+    prepared_ledger_.ReleasePrepared();
     Controller().ReleasePreparedEmissionControl();
     return ArAbandonCycleStatus::kAbandoned;
   }
@@ -833,18 +810,8 @@ struct ArSession::Impl {
   bool pending_execution_config_changed{false};
   bool pending_environment_scenario_config_changed{false};
   bool pipeline_config_synced{true};
-  bool has_prepared_cycle{false};
-  bool has_world_chronology{false};
-  double last_world_window_end_s{0.0};
-  std::uint64_t next_token_value{1U};
-  std::uint64_t next_emission_id{1U};
-  std::uint64_t successful_prepare_count{0U};
+  PreparedCycleLedger prepared_ledger_{};
   std::uint64_t timing_seed{0x41525f5052495f31ULL};
-  std::size_t frequency_hop_index{0U};
-  ArPreparedCycleToken prepared_token{};
-  ArPrepareCycleInput prepared_input{};
-  oneq::electromagnetics::RfSceneEmission prepared_emission{};
-  ArReceiverOperatingState prepared_operating_state{};
   std::unique_ptr<MutableArContext> owned_ar_context;
   std::unique_ptr<signal::ISignalPipeline> owned_signal_pipeline;
   std::unique_ptr<environment::IEnvironmentService> owned_environment_service;
@@ -879,12 +846,13 @@ ArDecisionReplayState ArSessionReplayAccess::CaptureDecisionState(const ArSessio
 
 ArSessionReplayState ArSessionReplayAccess::CaptureSessionState(const ArSession& session) {
   ArSessionReplayState replay_state;
-  replay_state.has_world_chronology = session.impl_->has_world_chronology;
-  replay_state.last_world_window_end_s = session.impl_->last_world_window_end_s;
-  replay_state.next_emission_id = session.impl_->next_emission_id;
-  replay_state.successful_prepare_count = session.impl_->successful_prepare_count;
+  const PreparedCycleLedger& ledger = session.impl_->prepared_ledger_;
+  replay_state.has_world_chronology = ledger.has_world_chronology();
+  replay_state.last_world_window_end_s = ledger.last_world_window_end_s();
+  replay_state.next_emission_id = ledger.next_emission_id();
+  replay_state.successful_prepare_count = ledger.successful_prepare_count();
   replay_state.timing_seed = session.impl_->timing_seed;
-  replay_state.frequency_hop_index = static_cast<std::uint64_t>(session.impl_->frequency_hop_index);
+  replay_state.frequency_hop_index = static_cast<std::uint64_t>(ledger.frequency_hop_index());
   replay_state.has_pending_runtime_update = session.impl_->has_pending_runtime_update;
   replay_state.pending_execution_config_changed = session.impl_->pending_execution_config_changed;
   replay_state.pending_environment_scenario_config_changed =
