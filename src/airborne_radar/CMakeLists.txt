@@ -56,6 +56,7 @@ set(AIRBORNE_CORE_SOURCES
     session/ArReplaySession.cpp
     session/ArSession.cpp
     session/ArEmissionFactory.cpp
+    session/ArReceiverStateBuilder.cpp
     environment/FeatureRepository.cpp
     environment/EnvironmentService.cpp
     environment/SceneManager.cpp
