@@ -371,6 +371,64 @@ TEST(ArReplayCodecRoundtripTest, AntiDeceptionProfileFlagsRoundtripPreserved) {
   EXPECT_TRUE(decoded.result.control_profile.enable_anti_false_target_discrimination);
 }
 
+// pending decision intent（外部 LPI/ECCM 决策响应含 proposals）经独立 attempt payload 完整往返。
+// C8 收敛：此前 replay 只覆盖最终 profile 与 next_emission_id 篡改，
+// 未验证 pending intent（外部决策输入）的 proposals 携带与提交状态在往返中不丢失。
+TEST(ArReplayCodecRoundtripTest, ExternalDecisionAttemptRoundtripPreservesPendingIntent) {
+  session::ExternalDecisionResponse response;
+  response.source_cycle_index = 7U;
+  response.source_batch_id = 42U;
+  response.proposals.push_back(session::TacticalProposal{
+      session::ControlDirective(session::ControlDirectiveType::REQUEST_ANTI_RGPO_LEADING_EDGE,
+                                session::ControlDirectiveSource::SURVIVABILITY),
+      90, "anti-rgpo"});
+  response.proposals.push_back(session::TacticalProposal{
+      session::ControlDirective(session::ControlDirectiveType::REQUEST_ECCM_BURNTHROUGH_GAIN,
+                                session::ControlDirectiveSource::SURVIVABILITY, 1.5f),
+      82, "burnthrough"});
+
+  const std::string payload = EncodeExternalDecisionAttemptFlatbuffer(
+      response, session::ExternalDecisionSubmitStatus::kAccepted);
+  session::ExternalDecisionResponse decoded;
+  session::ExternalDecisionSubmitStatus status = session::ExternalDecisionSubmitStatus::kInvalidProposal;
+  std::string error;
+  ASSERT_TRUE(DecodeExternalDecisionAttemptFlatbuffer(payload, &decoded, &status, &error)) << error;
+  EXPECT_EQ(status, session::ExternalDecisionSubmitStatus::kAccepted);
+  EXPECT_EQ(decoded.source_cycle_index, 7U);
+  EXPECT_EQ(decoded.source_batch_id, 42U);
+  ASSERT_EQ(decoded.proposals.size(), 2U);
+  EXPECT_EQ(decoded.proposals[0].directive.type,
+            session::ControlDirectiveType::REQUEST_ANTI_RGPO_LEADING_EDGE);
+  EXPECT_EQ(decoded.proposals[0].priority, 90);
+  EXPECT_EQ(decoded.proposals[1].directive.type,
+            session::ControlDirectiveType::REQUEST_ECCM_BURNTHROUGH_GAIN);
+  EXPECT_TRUE(decoded.proposals[1].directive.has_requested_value);
+  EXPECT_FLOAT_EQ(decoded.proposals[1].directive.requested_value, 1.5f);
+}
+
+// codec 层不校验 directive type 取值：被篡改为哨兵值 kCount 的 directive type 会原样往返，
+// 责任交由消费端（SubmitExternalDecision 经 ControlReducer::IsValidDirectiveValue 拒绝）。
+// 固化此「codec 信任、消费端校验」的分层契约——这恰是 kCount 在运行期被拒的唯一保障。
+TEST(ArReplayCodecRoundtripTest, ExternalDecisionAttemptPreservesTamperedDirectiveTypeAsIs) {
+  session::ExternalDecisionResponse response;
+  response.source_cycle_index = 3U;
+  // 构造合法响应后篡改 proposal 的 directive type 为哨兵值 kCount（不可作为真实意图）。
+  response.proposals.push_back(session::TacticalProposal{
+      session::ControlDirective(session::ControlDirectiveType::kCount,
+                                session::ControlDirectiveSource::SURVIVABILITY),
+      50, "tampered"});
+
+  const std::string payload =
+      EncodeExternalDecisionAttemptFlatbuffer(response, session::ExternalDecisionSubmitStatus::kAccepted);
+  session::ExternalDecisionResponse decoded;
+  session::ExternalDecisionSubmitStatus status = session::ExternalDecisionSubmitStatus::kAccepted;
+  std::string error;
+  // codec 层不拒绝：原样保留篡改值，校验责任在消费端。
+  ASSERT_TRUE(DecodeExternalDecisionAttemptFlatbuffer(payload, &decoded, &status, &error)) << error;
+  ASSERT_EQ(decoded.proposals.size(), 1U);
+  EXPECT_EQ(decoded.proposals[0].directive.type, session::ControlDirectiveType::kCount);
+}
+
 // 验证新增的 interference observation 几何与欺骗字段在编码途中不丢失。
 TEST(ArReplayCodecRoundtripTest, InterferenceObservationNewFieldsRoundtripPreserved) {
   session::ArInterferenceObservation obs;
