@@ -220,16 +220,18 @@ void TrackLifecycleManager::SyncRuntimeTuning(const LifecycleConfig& lifecycle_c
                                               const std::vector<float>& imm_model_noise_diff_coeffs,
                                               const Eigen::MatrixXf& imm_transition_probability,
                                               const Eigen::VectorXf& imm_initial_weights) {
-  config_.confirm_hits = lifecycle_config.confirm_hits;
-  config_.max_miss_before_lost = lifecycle_config.max_miss_before_lost;
-  config_.max_lost_cycles = lifecycle_config.max_lost_cycles;
-  config_.nominal_cycle_dt_sec = lifecycle_config.nominal_cycle_dt_sec;
-  config_.imm_activation_policy = lifecycle_config.imm_activation_policy;
-  config_.enable_anti_false_target_discrimination =
-      lifecycle_config.enable_anti_false_target_discrimination;
-  config_.enable_anti_vgpo_acceleration_bound =
-      lifecycle_config.enable_anti_vgpo_acceleration_bound;
-  config_.max_acceleration_mps2 = lifecycle_config.max_acceleration_mps2;
+  // 整体赋值（收敛 AR-OQ-2）：
+  // 历史实现用手工逐字段拷贝可同步字段、刻意排除 track_pool_thread_safety_mode，
+  // 该列表无编译期保证——新增 LifecycleConfig 字段时若忘记在此补一行，
+  // 即成为静默 latent bug（反欺骗三字段曾因此遗漏致开关失效）。
+  //
+  // 整体赋值安全的原因：
+  //   1. track_pool_thread_safety_mode 进入 LifecycleConfigSignature，其变化触发
+  //      ShouldRebuildLifecycleAssembly 的重建路径（而非本同步路径），故本路径上
+  //      lifecycle_config.track_pool_thread_safety_mode 与 config_ 内的值恒等。
+  //   2. 本管理器从不读取 config_.track_pool_thread_safety_mode，即便被覆盖也无副作用。
+  // 由此，未来新增任何可同步字段都会随整体赋值自动覆盖，消除手工遗漏风险。
+  config_ = lifecycle_config;
 
   UpdatePredictorConfigIfSupported(kalman_predictor_, kalman_noise_diff_coeff);
   UpdateUpdaterConfigIfSupported(kalman_updater_, kalman_measurement_noise_std);
