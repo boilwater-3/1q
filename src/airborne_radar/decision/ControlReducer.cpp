@@ -25,23 +25,7 @@ bool CompareProposalPriority(const session::TacticalProposal& lhs,
  * @return 属于 LPI 域时返回 true。
  */
 bool IsLpiDirective(session::ControlDirectiveType type) {
-  switch (type) {
-    case session::ControlDirectiveType::REQUEST_LPI_POWER_REDUCTION:
-    case session::ControlDirectiveType::REQUEST_LPI_BEAMFORMING:
-    case session::ControlDirectiveType::REQUEST_LPI_DWELL:
-      return true;
-    case session::ControlDirectiveType::REQUEST_ENABLE_SIDELOBE_CANCELLER:
-    case session::ControlDirectiveType::REQUEST_ENABLE_ADAPTIVE_BEAMFORMING:
-    case session::ControlDirectiveType::REQUEST_AGILITY_FREQUENCY:
-    case session::ControlDirectiveType::REQUEST_ECCM_REJITTER:
-    case session::ControlDirectiveType::REQUEST_ECCM_BURNTHROUGH_GAIN:
-    case session::ControlDirectiveType::REQUEST_ANTI_RGPO_LEADING_EDGE:
-    case session::ControlDirectiveType::REQUEST_ANTI_VGPO_ACCELERATION_BOUND:
-    case session::ControlDirectiveType::REQUEST_ANTI_FALSE_TARGET_DISCRIMINATION:
-    case session::ControlDirectiveType::NONE:
-    default:
-      return false;
-  }
+  return ControlReducer::IsLpiDirective(type);
 }
 /**
  * @brief 判断控制意图是否属于 ECCM 域。
@@ -49,49 +33,11 @@ bool IsLpiDirective(session::ControlDirectiveType type) {
  * @return 属于 ECCM 域时返回 true。
  */
 bool IsEccmDirective(session::ControlDirectiveType type) {
-  switch (type) {
-    case session::ControlDirectiveType::REQUEST_ENABLE_SIDELOBE_CANCELLER:
-    case session::ControlDirectiveType::REQUEST_ENABLE_ADAPTIVE_BEAMFORMING:
-    case session::ControlDirectiveType::REQUEST_AGILITY_FREQUENCY:
-    case session::ControlDirectiveType::REQUEST_ECCM_REJITTER:
-    case session::ControlDirectiveType::REQUEST_ECCM_BURNTHROUGH_GAIN:
-    case session::ControlDirectiveType::REQUEST_ANTI_RGPO_LEADING_EDGE:
-    case session::ControlDirectiveType::REQUEST_ANTI_VGPO_ACCELERATION_BOUND:
-    case session::ControlDirectiveType::REQUEST_ANTI_FALSE_TARGET_DISCRIMINATION:
-      return true;
-    case session::ControlDirectiveType::REQUEST_LPI_POWER_REDUCTION:
-    case session::ControlDirectiveType::REQUEST_LPI_BEAMFORMING:
-    case session::ControlDirectiveType::REQUEST_LPI_DWELL:
-    case session::ControlDirectiveType::NONE:
-    default:
-      return false;
-  }
+  return ControlReducer::IsEccmDirective(type);
 }
 
 bool IsValidDirectiveValue(const session::ControlDirective& directive) {
-  switch (directive.type) {
-    case session::ControlDirectiveType::REQUEST_LPI_POWER_REDUCTION:
-      return directive.has_requested_value && std::isfinite(directive.requested_value) &&
-             directive.requested_value > 0.0f && directive.requested_value <= 1.0f;
-    case session::ControlDirectiveType::REQUEST_LPI_DWELL:
-      return directive.has_requested_value && std::isfinite(directive.requested_value) &&
-             directive.requested_value >= 0.25f && directive.requested_value <= 1.0f;
-    case session::ControlDirectiveType::REQUEST_ECCM_BURNTHROUGH_GAIN:
-      return directive.has_requested_value && std::isfinite(directive.requested_value) &&
-             directive.requested_value > 1.0f && directive.requested_value <= 2.0f;
-    case session::ControlDirectiveType::REQUEST_LPI_BEAMFORMING:
-    case session::ControlDirectiveType::REQUEST_ENABLE_SIDELOBE_CANCELLER:
-    case session::ControlDirectiveType::REQUEST_ENABLE_ADAPTIVE_BEAMFORMING:
-    case session::ControlDirectiveType::REQUEST_AGILITY_FREQUENCY:
-    case session::ControlDirectiveType::REQUEST_ECCM_REJITTER:
-    case session::ControlDirectiveType::REQUEST_ANTI_RGPO_LEADING_EDGE:
-    case session::ControlDirectiveType::REQUEST_ANTI_VGPO_ACCELERATION_BOUND:
-    case session::ControlDirectiveType::REQUEST_ANTI_FALSE_TARGET_DISCRIMINATION:
-      return !directive.has_requested_value;
-    case session::ControlDirectiveType::NONE:
-    default:
-      return false;
-  }
+  return ControlReducer::IsValidDirectiveValue(directive);
 }
 /**
  * @brief 判断当前控制真值中 LPI 域是否处于激活状态。
@@ -355,6 +301,75 @@ bool HasOperationalProfileChanged(const session::ArControlProfile& previous,
 }
 
 }  // namespace
+
+bool ControlReducer::IsLpiDirective(session::ControlDirectiveType type) {
+  switch (type) {
+    case session::ControlDirectiveType::REQUEST_LPI_POWER_REDUCTION:
+    case session::ControlDirectiveType::REQUEST_LPI_BEAMFORMING:
+    case session::ControlDirectiveType::REQUEST_LPI_DWELL:
+      return true;
+    case session::ControlDirectiveType::REQUEST_ENABLE_SIDELOBE_CANCELLER:
+    case session::ControlDirectiveType::REQUEST_ENABLE_ADAPTIVE_BEAMFORMING:
+    case session::ControlDirectiveType::REQUEST_AGILITY_FREQUENCY:
+    case session::ControlDirectiveType::REQUEST_ECCM_REJITTER:
+    case session::ControlDirectiveType::REQUEST_ECCM_BURNTHROUGH_GAIN:
+    case session::ControlDirectiveType::REQUEST_ANTI_RGPO_LEADING_EDGE:
+    case session::ControlDirectiveType::REQUEST_ANTI_VGPO_ACCELERATION_BOUND:
+    case session::ControlDirectiveType::REQUEST_ANTI_FALSE_TARGET_DISCRIMINATION:
+    case session::ControlDirectiveType::NONE:
+    case session::ControlDirectiveType::kCount:
+    default:
+      return false;
+  }
+}
+
+bool ControlReducer::IsEccmDirective(session::ControlDirectiveType type) {
+  switch (type) {
+    case session::ControlDirectiveType::REQUEST_ENABLE_SIDELOBE_CANCELLER:
+    case session::ControlDirectiveType::REQUEST_ENABLE_ADAPTIVE_BEAMFORMING:
+    case session::ControlDirectiveType::REQUEST_AGILITY_FREQUENCY:
+    case session::ControlDirectiveType::REQUEST_ECCM_REJITTER:
+    case session::ControlDirectiveType::REQUEST_ECCM_BURNTHROUGH_GAIN:
+    case session::ControlDirectiveType::REQUEST_ANTI_RGPO_LEADING_EDGE:
+    case session::ControlDirectiveType::REQUEST_ANTI_VGPO_ACCELERATION_BOUND:
+    case session::ControlDirectiveType::REQUEST_ANTI_FALSE_TARGET_DISCRIMINATION:
+      return true;
+    case session::ControlDirectiveType::REQUEST_LPI_POWER_REDUCTION:
+    case session::ControlDirectiveType::REQUEST_LPI_BEAMFORMING:
+    case session::ControlDirectiveType::REQUEST_LPI_DWELL:
+    case session::ControlDirectiveType::NONE:
+    case session::ControlDirectiveType::kCount:
+    default:
+      return false;
+  }
+}
+
+bool ControlReducer::IsValidDirectiveValue(const session::ControlDirective& directive) {
+  switch (directive.type) {
+    case session::ControlDirectiveType::REQUEST_LPI_POWER_REDUCTION:
+      return directive.has_requested_value && std::isfinite(directive.requested_value) &&
+             directive.requested_value > 0.0f && directive.requested_value <= 1.0f;
+    case session::ControlDirectiveType::REQUEST_LPI_DWELL:
+      return directive.has_requested_value && std::isfinite(directive.requested_value) &&
+             directive.requested_value >= 0.25f && directive.requested_value <= 1.0f;
+    case session::ControlDirectiveType::REQUEST_ECCM_BURNTHROUGH_GAIN:
+      return directive.has_requested_value && std::isfinite(directive.requested_value) &&
+             directive.requested_value > 1.0f && directive.requested_value <= 2.0f;
+    case session::ControlDirectiveType::REQUEST_LPI_BEAMFORMING:
+    case session::ControlDirectiveType::REQUEST_ENABLE_SIDELOBE_CANCELLER:
+    case session::ControlDirectiveType::REQUEST_ENABLE_ADAPTIVE_BEAMFORMING:
+    case session::ControlDirectiveType::REQUEST_AGILITY_FREQUENCY:
+    case session::ControlDirectiveType::REQUEST_ECCM_REJITTER:
+    case session::ControlDirectiveType::REQUEST_ANTI_RGPO_LEADING_EDGE:
+    case session::ControlDirectiveType::REQUEST_ANTI_VGPO_ACCELERATION_BOUND:
+    case session::ControlDirectiveType::REQUEST_ANTI_FALSE_TARGET_DISCRIMINATION:
+      return !directive.has_requested_value;
+    case session::ControlDirectiveType::NONE:
+    case session::ControlDirectiveType::kCount:
+    default:
+      return false;
+  }
+}
 
 ControlReducer::ControlReducer(extension::ControlReducerConfig config) : config_(config) {}
 

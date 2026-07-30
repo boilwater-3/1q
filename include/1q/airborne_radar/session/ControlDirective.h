@@ -36,7 +36,13 @@ enum class ONEQ_API ControlDirectiveType {
   REQUEST_ECCM_BURNTHROUGH_GAIN,       /**< 请求提升烧穿增益 */
   REQUEST_ANTI_RGPO_LEADING_EDGE,      /**< 请求启用前沿跟踪对抗距离拖引 */
   REQUEST_ANTI_VGPO_ACCELERATION_BOUND, /**< 请求启用加速度限幅对抗速度拖引 */
-  REQUEST_ANTI_FALSE_TARGET_DISCRIMINATION /**< 请求启用假目标鉴别 */
+  REQUEST_ANTI_FALSE_TARGET_DISCRIMINATION, /**< 请求启用假目标鉴别 */
+  /**
+   * @brief 哨兵值，表示 ControlDirectiveType 的有效取值数量。
+   * @note 仅用于编译期/测试期穷尽性检查（如 switch 覆盖矩阵）。
+   *       不得作为真实意图传递、不得序列化；其本身不参与 LPI/ECCM 域判定。
+   */
+  kCount
 };
 
 /**

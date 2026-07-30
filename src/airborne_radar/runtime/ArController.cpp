@@ -23,57 +23,21 @@ namespace extension {
 
 namespace {
 
-bool IsLpiDirective(session::ControlDirectiveType type) {
-  return type == session::ControlDirectiveType::REQUEST_LPI_POWER_REDUCTION ||
-         type == session::ControlDirectiveType::REQUEST_LPI_BEAMFORMING ||
-         type == session::ControlDirectiveType::REQUEST_LPI_DWELL;
-}
-
-bool IsEccmDirective(session::ControlDirectiveType type) {
-  return type == session::ControlDirectiveType::REQUEST_ENABLE_SIDELOBE_CANCELLER ||
-         type == session::ControlDirectiveType::REQUEST_ENABLE_ADAPTIVE_BEAMFORMING ||
-         type == session::ControlDirectiveType::REQUEST_AGILITY_FREQUENCY ||
-         type == session::ControlDirectiveType::REQUEST_ECCM_REJITTER ||
-         type == session::ControlDirectiveType::REQUEST_ECCM_BURNTHROUGH_GAIN ||
-         type == session::ControlDirectiveType::REQUEST_ANTI_RGPO_LEADING_EDGE ||
-         type == session::ControlDirectiveType::REQUEST_ANTI_VGPO_ACCELERATION_BOUND ||
-         type == session::ControlDirectiveType::REQUEST_ANTI_FALSE_TARGET_DISCRIMINATION;
-}
-
-bool HasValidRequestedValue(const session::ControlDirective& directive) {
-  if (!directive.has_requested_value || !std::isfinite(directive.requested_value)) {
-    return false;
-  }
-  switch (directive.type) {
-    case session::ControlDirectiveType::REQUEST_LPI_POWER_REDUCTION:
-      return directive.requested_value > 0.0f && directive.requested_value <= 1.0f;
-    case session::ControlDirectiveType::REQUEST_LPI_DWELL:
-      return directive.requested_value >= 0.25f && directive.requested_value <= 1.0f;
-    case session::ControlDirectiveType::REQUEST_ECCM_BURNTHROUGH_GAIN:
-      return directive.requested_value > 1.0f && directive.requested_value <= 2.0f;
-    default:
-      return !directive.has_requested_value;
-  }
-}
-
 bool IsValidExternalProposal(const session::TacticalProposal& proposal) {
   const session::ControlDirective& directive = proposal.directive;
-  if (!IsLpiDirective(directive.type) && !IsEccmDirective(directive.type)) {
+  // 域判定与标量合法性共用 reducer 的权威实现，避免重复 `==` 链漂移。
+  const bool is_lpi = decision::ControlReducer::IsLpiDirective(directive.type);
+  const bool is_eccm = decision::ControlReducer::IsEccmDirective(directive.type);
+  if (!is_lpi && !is_eccm) {
     return false;
   }
-  if (IsLpiDirective(directive.type) &&
-      directive.source != session::ControlDirectiveSource::EMISSION_CONTROL) {
+  if (is_lpi && directive.source != session::ControlDirectiveSource::EMISSION_CONTROL) {
     return false;
   }
-  if (IsEccmDirective(directive.type) &&
-      directive.source != session::ControlDirectiveSource::SURVIVABILITY) {
+  if (is_eccm && directive.source != session::ControlDirectiveSource::SURVIVABILITY) {
     return false;
   }
-  const bool requires_value =
-      directive.type == session::ControlDirectiveType::REQUEST_LPI_POWER_REDUCTION ||
-      directive.type == session::ControlDirectiveType::REQUEST_LPI_DWELL ||
-      directive.type == session::ControlDirectiveType::REQUEST_ECCM_BURNTHROUGH_GAIN;
-  return requires_value ? HasValidRequestedValue(directive) : !directive.has_requested_value;
+  return decision::ControlReducer::IsValidDirectiveValue(directive);
 }
 
 extension::ControlReducerConfig MapDecisionControlConfig(

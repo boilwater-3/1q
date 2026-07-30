@@ -195,5 +195,60 @@ TEST(ControlDirectiveMatrixTest, ScalarDirectiveMissingValueIsRejected) {
   EXPECT_EQ(result.rejected_directives.size(), 1U);
 }
 
+// 直接钉住归约权威分类器（IsLpiDirective/IsEccmDirective/IsValidDirectiveValue）。
+// 本次重构把这三个判定提升为 reducer 的公共静态方法，并让 ArController 复用，
+// 此契约必须被直接断言：任何一方漂移都会被本测试捕获。
+TEST(ControlDirectiveMatrixTest, AuthorityClassifiersPartitionDirectivesExhaustively) {
+  using T = session::ControlDirectiveType;
+  // LPI 域：power / beamforming / dwell。
+  for (T type : {T::REQUEST_LPI_POWER_REDUCTION, T::REQUEST_LPI_BEAMFORMING, T::REQUEST_LPI_DWELL}) {
+    EXPECT_TRUE(decision::ControlReducer::IsLpiDirective(type)) << "LPI: " << static_cast<int>(type);
+    EXPECT_FALSE(decision::ControlReducer::IsEccmDirective(type)) << "not ECCM: " << static_cast<int>(type);
+  }
+  // ECCM 域：8 个 ECCM 指令。
+  for (T type : {T::REQUEST_ENABLE_SIDELOBE_CANCELLER, T::REQUEST_ENABLE_ADAPTIVE_BEAMFORMING,
+                 T::REQUEST_AGILITY_FREQUENCY, T::REQUEST_ECCM_REJITTER,
+                 T::REQUEST_ECCM_BURNTHROUGH_GAIN, T::REQUEST_ANTI_RGPO_LEADING_EDGE,
+                 T::REQUEST_ANTI_VGPO_ACCELERATION_BOUND, T::REQUEST_ANTI_FALSE_TARGET_DISCRIMINATION}) {
+    EXPECT_TRUE(decision::ControlReducer::IsEccmDirective(type)) << "ECCM: " << static_cast<int>(type);
+    EXPECT_FALSE(decision::ControlReducer::IsLpiDirective(type)) << "not LPI: " << static_cast<int>(type);
+  }
+  // NONE 与 kCount 既不属于 LPI 也不属于 ECCM（哨兵值必须被两域排除）。
+  for (T type : {T::NONE, T::kCount}) {
+    EXPECT_FALSE(decision::ControlReducer::IsLpiDirective(type)) << "not LPI: " << static_cast<int>(type);
+    EXPECT_FALSE(decision::ControlReducer::IsEccmDirective(type)) << "not ECCM: " << static_cast<int>(type);
+  }
+}
+
+// 权威标量校验：三类标量 directive 的取值边界 + 布尔 directive 禁止带值 + NONE/kCount 无效。
+TEST(ControlDirectiveMatrixTest, AuthorityValueValidationEnforcesScalarBoundaries) {
+  using T = session::ControlDirectiveType;
+  const auto make = [](T type, bool has_value, float value) {
+    session::ControlDirective d(type, session::ControlDirectiveSource::SURVIVABILITY);
+    if (has_value) {
+      d.has_requested_value = true;
+      d.requested_value = value;
+    }
+    return d;
+  };
+  // LPI 功率比例开区间 (0,1]。
+  EXPECT_TRUE(decision::ControlReducer::IsValidDirectiveValue(make(T::REQUEST_LPI_POWER_REDUCTION, true, 1.0f)));
+  EXPECT_FALSE(decision::ControlReducer::IsValidDirectiveValue(make(T::REQUEST_LPI_POWER_REDUCTION, true, 0.0f)));
+  EXPECT_FALSE(decision::ControlReducer::IsValidDirectiveValue(make(T::REQUEST_LPI_POWER_REDUCTION, true, 1.5f)));
+  EXPECT_FALSE(decision::ControlReducer::IsValidDirectiveValue(make(T::REQUEST_LPI_POWER_REDUCTION, false, 0.0f)));
+  // LPI 驻留比例 [0.25,1]。
+  EXPECT_TRUE(decision::ControlReducer::IsValidDirectiveValue(make(T::REQUEST_LPI_DWELL, true, 0.25f)));
+  EXPECT_FALSE(decision::ControlReducer::IsValidDirectiveValue(make(T::REQUEST_LPI_DWELL, true, 0.2f)));
+  // 烧穿增益 (1,2]。
+  EXPECT_TRUE(decision::ControlReducer::IsValidDirectiveValue(make(T::REQUEST_ECCM_BURNTHROUGH_GAIN, true, 2.0f)));
+  EXPECT_FALSE(decision::ControlReducer::IsValidDirectiveValue(make(T::REQUEST_ECCM_BURNTHROUGH_GAIN, true, 1.0f)));
+  // 布尔 directive 禁止携带标量。
+  EXPECT_TRUE(decision::ControlReducer::IsValidDirectiveValue(make(T::REQUEST_ENABLE_SIDELOBE_CANCELLER, false, 0.0f)));
+  EXPECT_FALSE(decision::ControlReducer::IsValidDirectiveValue(make(T::REQUEST_ENABLE_SIDELOBE_CANCELLER, true, 0.5f)));
+  // NONE/kCount 无效（哨兵不可作为真实意图）。
+  EXPECT_FALSE(decision::ControlReducer::IsValidDirectiveValue(make(T::NONE, false, 0.0f)));
+  EXPECT_FALSE(decision::ControlReducer::IsValidDirectiveValue(make(T::kCount, false, 0.0f)));
+}
+
 }  // namespace
 }  // namespace airborne_radar
