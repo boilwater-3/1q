@@ -28,6 +28,7 @@ bool HasOperationalProfileChanged(const session::ArControlProfile& previous,
          previous.enable_lpi_beamforming != next.enable_lpi_beamforming ||
          previous.lpi_dwell_scale != next.lpi_dwell_scale ||
          previous.enable_agility_frequency != next.enable_agility_frequency ||
+         previous.agility_frequency_hop_phase != next.agility_frequency_hop_phase ||
          previous.enable_sidelobe_canceller != next.enable_sidelobe_canceller ||
          previous.enable_adaptive_beamforming != next.enable_adaptive_beamforming ||
          previous.enable_eccm_rejitter != next.enable_eccm_rejitter ||

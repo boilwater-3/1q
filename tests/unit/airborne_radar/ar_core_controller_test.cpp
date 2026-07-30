@@ -810,6 +810,43 @@ TEST_F(CoreControllerTest, ExternalOverrideAlreadySubmitted) {
             session::ExternalDecisionSubmitStatus::kAlreadySubmitted);
 }
 
+TEST_F(CoreControllerTest, ExternalOverrideAppliesHopPhaseChange) {
+  FakeRadarContext radar_context(BuildSingleTarget(800.0f, 2.5f, false));
+  environment::EnvironmentService environment_service;
+  signal::pipeline::SignalPipeline signal_pipeline;
+  extension::ArController controller(radar_context, signal_pipeline, environment_service);
+
+  controller.RunOnce(signal::pipeline::SignalCycleInput{radar_context.GetSceneTargets()});
+
+  // Override enables agility with hop_phase=1
+  {
+    session::ExternalDecisionOverride override_decision;
+    session::ArControlProfile profile;
+    profile.enable_agility_frequency = true;
+    profile.agility_frequency_hop_phase = 1U;
+    override_decision.profile = profile;
+    ASSERT_EQ(controller.SubmitExternalDecision(std::move(override_decision)),
+              session::ExternalDecisionSubmitStatus::kAccepted);
+  }
+  controller.RunOnce(signal::pipeline::SignalCycleInput{radar_context.GetSceneTargets()});
+  EXPECT_TRUE(signal_pipeline.GetControlProfile().enable_agility_frequency);
+  EXPECT_EQ(signal_pipeline.GetControlProfile().agility_frequency_hop_phase, 1U);
+
+  // Subsequent override changes only hop_phase (agility stays enabled)
+  {
+    session::ExternalDecisionOverride override_decision;
+    session::ArControlProfile profile;
+    profile.enable_agility_frequency = true;
+    profile.agility_frequency_hop_phase = 0U;  // only hop_phase differs
+    override_decision.profile = profile;
+    ASSERT_EQ(controller.SubmitExternalDecision(std::move(override_decision)),
+              session::ExternalDecisionSubmitStatus::kAccepted);
+  }
+  controller.RunOnce(signal::pipeline::SignalCycleInput{radar_context.GetSceneTargets()});
+  EXPECT_TRUE(signal_pipeline.GetControlProfile().enable_agility_frequency);
+  EXPECT_EQ(signal_pipeline.GetControlProfile().agility_frequency_hop_phase, 0U);
+}
+
 TEST_F(CoreControllerTest, DiffProfilesGeneratesCorrectDirectives) {
   session::ArControlProfile baseline;
   session::ArControlProfile target;
