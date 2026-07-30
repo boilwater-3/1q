@@ -322,6 +322,15 @@ flowchart TB
   observation 和已采用来源 provenance；完整 proposal、待消费响应与 reducer 计数只属于内部
   `ArReplayCycleRecord`，不进入 public 业务结果。
 - 决策 SPI 不拥有输出结构，也不能绕过内部 output adapter 写系统输出。
+- 公开发布的 `emission_frame`（`RfSceneEmission.antenna`）是 **base 发射身份**：发射功率、载波频率
+  捷变、rejitter 等效果直接由控制 profile 作用到发射（`ArSession::PrepareEmission` 读 profile），但
+  天线方向图字段（`peak_gain_dbi`、`half_power_beamwidth_deg`、`sidelobe_level_db`、`backlobe_level_db`）
+  读取自未经 `ControlProfileEffects` 处理的 base detection 工程配置。旁瓣对消 / 自适应波束的效果**只**
+  作用于 `receiver_state.antenna`（接收态），不进公开发射方向图——与 §2.4「旁瓣对消/自适应波束只修改
+  方向相关接收增益」一致。两个消费者（对外 RF 场景 vs 对内 detector 工程配置）刻意分属两个物理面，
+  常量有意保持差异。
+  [evidence: tests/unit/airborne_radar/ar_rf_session_test.cpp::ArRfSessionTest.SidelobeCancellerLeavesPublishedEmissionSidelobeUnchanged]
+  [evidence: tests/unit/airborne_radar/ar_core_controller_test.cpp::CoreControllerTest.ExternalAdaptiveBeamformingRaisesNextPhysicalDetectionMargin]
 
 ### 1.7 工程 RF 单周期角色与状态所有权
 

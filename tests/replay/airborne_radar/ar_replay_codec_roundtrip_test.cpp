@@ -406,10 +406,13 @@ TEST(ArReplayCodecRoundtripTest, ExternalDecisionAttemptRoundtripPreservesPendin
   EXPECT_FLOAT_EQ(decoded.proposals[1].directive.requested_value, 1.5f);
 }
 
-// codec 层不校验 directive type 取值：被篡改为哨兵值 kCount 的 directive type 会原样往返，
-// 责任交由消费端（SubmitExternalDecision 经 ControlReducer::IsValidDirectiveValue 拒绝）。
-// 固化此「codec 信任、消费端校验」的分层契约——这恰是 kCount 在运行期被拒的唯一保障。
-TEST(ArReplayCodecRoundtripTest, ExternalDecisionAttemptPreservesTamperedDirectiveTypeAsIs) {
+// fail-closed：外部决策响应携带未知/哨兵 directive type（kCount）时必须在 decode 期原子拒绝，
+// 不改写已存在的 decoded 输出。codec 对 ControlDirectiveType/Source 做 range 校验，
+// 与 IsKnownRfSceneWaveformKind / DeceptionClass 同属一层 fail-closed 模式；
+// kCount 是编译期哨兵，不可作为真实意图，越界或哨兵值在 decode 时即被拦截，
+// 不再穿透到消费端等待 IsValidDirectiveValue 兜底。
+TEST(ArReplayCodecRoundtripTest,
+     ExternalDecisionAttemptRejectsSentinelDirectiveTypeWithoutMutation) {
   session::ExternalDecisionResponse response;
   response.source_cycle_index = 3U;
   // 构造合法响应后篡改 proposal 的 directive type 为哨兵值 kCount（不可作为真实意图）。
@@ -421,12 +424,32 @@ TEST(ArReplayCodecRoundtripTest, ExternalDecisionAttemptPreservesTamperedDirecti
   const std::string payload =
       EncodeExternalDecisionAttemptFlatbuffer(response, session::ExternalDecisionSubmitStatus::kAccepted);
   session::ExternalDecisionResponse decoded;
+  decoded.source_cycle_index = 999U;  // 标记位，用于验证拒绝时输出未被改写
   session::ExternalDecisionSubmitStatus status = session::ExternalDecisionSubmitStatus::kAccepted;
   std::string error;
-  // codec 层不拒绝：原样保留篡改值，校验责任在消费端。
-  ASSERT_TRUE(DecodeExternalDecisionAttemptFlatbuffer(payload, &decoded, &status, &error)) << error;
-  ASSERT_EQ(decoded.proposals.size(), 1U);
-  EXPECT_EQ(decoded.proposals[0].directive.type, session::ControlDirectiveType::kCount);
+  EXPECT_FALSE(DecodeExternalDecisionAttemptFlatbuffer(payload, &decoded, &status, &error));
+  // 拒绝时输出保持原状（fail-closed，不钳制、不改写）。
+  EXPECT_EQ(decoded.source_cycle_index, 999U);
+}
+
+// fail-closed：越界的 directive source 同样在 decode 期原子拒绝，不改写输出。
+TEST(ArReplayCodecRoundtripTest,
+     ExternalDecisionAttemptRejectsOutOfRangeDirectiveSourceWithoutMutation) {
+  session::ExternalDecisionResponse response;
+  response.source_cycle_index = 3U;
+  response.proposals.push_back(session::TacticalProposal{
+      session::ControlDirective(session::ControlDirectiveType::REQUEST_AGILITY_FREQUENCY,
+                                static_cast<session::ControlDirectiveSource>(99)),
+      50, "tampered-source"});
+
+  const std::string payload =
+      EncodeExternalDecisionAttemptFlatbuffer(response, session::ExternalDecisionSubmitStatus::kAccepted);
+  session::ExternalDecisionResponse decoded;
+  decoded.source_cycle_index = 777U;
+  session::ExternalDecisionSubmitStatus status = session::ExternalDecisionSubmitStatus::kAccepted;
+  std::string error;
+  EXPECT_FALSE(DecodeExternalDecisionAttemptFlatbuffer(payload, &decoded, &status, &error));
+  EXPECT_EQ(decoded.source_cycle_index, 777U);
 }
 
 // 验证新增的 interference observation 几何与欺骗字段在编码途中不丢失。

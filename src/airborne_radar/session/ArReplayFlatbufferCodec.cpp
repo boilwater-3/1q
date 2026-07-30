@@ -267,6 +267,29 @@ bool IsKnownRfSceneWaveformKind(int raw_value) {
          raw_value == static_cast<int>(RfSceneWaveformKind::kBandLimitedNoise);
 }
 
+// 控制类枚举的 decode 期 range 校验，与 IsKnownRfSceneWaveformKind / DeceptionClass
+// 同属 fail-closed 模式：越界或哨兵值（kCount）必须在 decode 时原子拒绝，
+// 不改写输出、不静默穿透到消费端。kCount 是编译期哨兵，不可作为真实意图。
+bool IsKnownControlDirectiveType(int raw_value) {
+  return raw_value > static_cast<int>(session::ControlDirectiveType::NONE) &&
+         raw_value < static_cast<int>(session::ControlDirectiveType::kCount);
+}
+
+bool IsKnownControlDirectiveSource(int raw_value) {
+  using S = session::ControlDirectiveSource;
+  return raw_value == static_cast<int>(S::UNKNOWN) ||
+         raw_value == static_cast<int>(S::THREAT_ASSESSMENT) ||
+         raw_value == static_cast<int>(S::EMISSION_CONTROL) ||
+         raw_value == static_cast<int>(S::SURVIVABILITY);
+}
+
+bool IsKnownDecisionControlSource(int raw_value) {
+  using S = session::DecisionControlSource;
+  return raw_value == static_cast<int>(S::kNone) ||
+         raw_value == static_cast<int>(S::kInternal) ||
+         raw_value == static_cast<int>(S::kExternal);
+}
+
 bool TryDecodeArInterferenceObservation(const fb::ArInterferenceObservation* value,
                                         session::ArInterferenceObservation* observation) {
   if (value == nullptr || observation == nullptr ||
@@ -364,46 +387,64 @@ bool TryDecodeDecisionObservation(const fb::DecisionObservation* value,
   return true;
 }
 
-session::TacticalProposal DecodeTacticalProposal(const fb::TacticalProposal* value) {
-  session::TacticalProposal result;
-  if (value != nullptr) {
-    if (value->directive() != nullptr) {
-      result.directive.type =
-          static_cast<session::ControlDirectiveType>(value->directive()->type());
-      result.directive.source =
-          static_cast<session::ControlDirectiveSource>(value->directive()->source());
-      result.directive.has_requested_value = value->directive()->has_requested_value();
-      result.directive.requested_value = value->directive()->requested_value();
-    }
-    result.priority = value->priority();
-    if (value->rationale() != nullptr) {
-      result.rationale = value->rationale()->str();
-    }
+bool TryDecodeTacticalProposal(const fb::TacticalProposal* value,
+                               session::TacticalProposal* result) {
+  if (value == nullptr || result == nullptr) {
+    return false;
   }
-  return result;
+  if (value->directive() != nullptr) {
+    const int type_raw = value->directive()->type();
+    const int source_raw = value->directive()->source();
+    // fail-closed：directive type/source 越界或为哨兵值时原子拒绝，不改写 *result。
+    if (!IsKnownControlDirectiveType(type_raw) || !IsKnownControlDirectiveSource(source_raw)) {
+      return false;
+    }
+    result->directive.type = static_cast<session::ControlDirectiveType>(type_raw);
+    result->directive.source = static_cast<session::ControlDirectiveSource>(source_raw);
+    result->directive.has_requested_value = value->directive()->has_requested_value();
+    result->directive.requested_value = value->directive()->requested_value();
+  }
+  result->priority = value->priority();
+  if (value->rationale() != nullptr) {
+    result->rationale = value->rationale()->str();
+  }
+  return true;
 }
 
-std::vector<session::TacticalProposal> DecodeTacticalProposals(
-    const flatbuffers::Vector<flatbuffers::Offset<fb::TacticalProposal>>* values) {
-  std::vector<session::TacticalProposal> result;
-  if (values != nullptr) {
-    result.reserve(values->size());
-    for (flatbuffers::uoffset_t i = 0; i < values->size(); ++i) {
-      result.push_back(DecodeTacticalProposal(values->Get(i)));
-    }
+bool TryDecodeTacticalProposals(
+    const flatbuffers::Vector<flatbuffers::Offset<fb::TacticalProposal>>* values,
+    std::vector<session::TacticalProposal>* result) {
+  if (values == nullptr || result == nullptr) {
+    return false;
   }
-  return result;
+  // 先解码到 candidate，全部成功后再提交，保证拒绝时不改写 *result（fail-closed）。
+  std::vector<session::TacticalProposal> candidate;
+  candidate.reserve(values->size());
+  for (flatbuffers::uoffset_t i = 0; i < values->size(); ++i) {
+    session::TacticalProposal proposal;
+    if (!TryDecodeTacticalProposal(values->Get(i), &proposal)) {
+      return false;
+    }
+    candidate.push_back(proposal);
+  }
+  *result = std::move(candidate);
+  return true;
 }
 
-session::ExternalDecisionResponse DecodeExternalDecisionResponse(
-    const fb::ExternalDecisionResponse* value) {
-  session::ExternalDecisionResponse result;
-  if (value != nullptr) {
-    result.source_cycle_index = value->source_cycle_index();
-    result.source_batch_id = value->source_batch_id();
-    result.proposals = DecodeTacticalProposals(value->proposals());
+bool TryDecodeExternalDecisionResponse(const fb::ExternalDecisionResponse* value,
+                                       session::ExternalDecisionResponse* result) {
+  if (value == nullptr || result == nullptr) {
+    return false;
   }
-  return result;
+  // 先解码到 candidate，全部成功后再提交，保证拒绝时不改写 *result（fail-closed）。
+  session::ExternalDecisionResponse candidate;
+  candidate.source_cycle_index = value->source_cycle_index();
+  candidate.source_batch_id = value->source_batch_id();
+  if (!TryDecodeTacticalProposals(value->proposals(), &candidate.proposals)) {
+    return false;
+  }
+  *result = candidate;
+  return true;
 }
 
 flatbuffers::Offset<fb::ArDecisionReplayState> EncodeDecisionReplayState(
@@ -422,29 +463,43 @@ flatbuffers::Offset<fb::ArDecisionReplayState> EncodeDecisionReplayState(
       value.reducer_state.eccm_cooldown_cycles_remaining);
 }
 
-ArDecisionReplayState DecodeDecisionReplayState(const fb::ArDecisionReplayState* value) {
-  ArDecisionReplayState result;
-  if (value != nullptr) {
-    result.has_pending_internal_decision = value->has_pending_internal_decision();
-    result.pending_internal_cycle_index = value->pending_internal_cycle_index();
-    result.pending_internal_batch_id = value->pending_internal_batch_id();
-    result.pending_internal_proposals =
-        DecodeTacticalProposals(value->pending_internal_proposals());
-    result.applied_decision_source =
-        static_cast<session::DecisionControlSource>(value->applied_decision_source());
-    result.applied_decision_cycle_index = value->applied_decision_cycle_index();
-    result.applied_decision_batch_id = value->applied_decision_batch_id();
-    result.applied_decision_proposals =
-        DecodeTacticalProposals(value->applied_decision_proposals());
-    result.has_pending_external_decision = value->has_pending_external_decision();
-    result.pending_external_decision =
-        DecodeExternalDecisionResponse(value->pending_external_decision());
-    result.reducer_state.lpi_hold_cycles_remaining = value->lpi_hold_cycles_remaining();
-    result.reducer_state.eccm_hold_cycles_remaining = value->eccm_hold_cycles_remaining();
-    result.reducer_state.lpi_cooldown_cycles_remaining = value->lpi_cooldown_cycles_remaining();
-    result.reducer_state.eccm_cooldown_cycles_remaining = value->eccm_cooldown_cycles_remaining();
+bool TryDecodeDecisionReplayState(const fb::ArDecisionReplayState* value,
+                                  ArDecisionReplayState* result) {
+  if (value == nullptr || result == nullptr) {
+    return false;
   }
-  return result;
+  // 先解码到 candidate，全部成功后再提交，保证拒绝时不改写 *result（fail-closed）。
+  ArDecisionReplayState candidate;
+  candidate.has_pending_internal_decision = value->has_pending_internal_decision();
+  candidate.pending_internal_cycle_index = value->pending_internal_cycle_index();
+  candidate.pending_internal_batch_id = value->pending_internal_batch_id();
+  if (!TryDecodeTacticalProposals(value->pending_internal_proposals(),
+                                  &candidate.pending_internal_proposals)) {
+    return false;
+  }
+  const int applied_source_raw = value->applied_decision_source();
+  if (!IsKnownDecisionControlSource(applied_source_raw)) {
+    return false;
+  }
+  candidate.applied_decision_source = static_cast<session::DecisionControlSource>(applied_source_raw);
+  candidate.applied_decision_cycle_index = value->applied_decision_cycle_index();
+  candidate.applied_decision_batch_id = value->applied_decision_batch_id();
+  if (!TryDecodeTacticalProposals(value->applied_decision_proposals(),
+                                  &candidate.applied_decision_proposals)) {
+    return false;
+  }
+  candidate.has_pending_external_decision = value->has_pending_external_decision();
+  if (candidate.has_pending_external_decision &&
+      !TryDecodeExternalDecisionResponse(value->pending_external_decision(),
+                                         &candidate.pending_external_decision)) {
+    return false;
+  }
+  candidate.reducer_state.lpi_hold_cycles_remaining = value->lpi_hold_cycles_remaining();
+  candidate.reducer_state.eccm_hold_cycles_remaining = value->eccm_hold_cycles_remaining();
+  candidate.reducer_state.lpi_cooldown_cycles_remaining = value->lpi_cooldown_cycles_remaining();
+  candidate.reducer_state.eccm_cooldown_cycles_remaining = value->eccm_cooldown_cycles_remaining();
+  *result = candidate;
+  return true;
 }
 
 flatbuffers::Offset<session_fb::EulerAnglesDeg> EncodeSessionEulerAngles(
@@ -1313,8 +1368,11 @@ bool TryDecodeCycleResultV3(const fb::ArCycleResultV3* value, ArCycleResult* res
                                     &candidate.decision_observation)) {
     return false;
   }
-  candidate.applied_decision_source =
-      static_cast<DecisionControlSource>(value->applied_decision_source());
+  const int applied_source_raw = value->applied_decision_source();
+  if (!IsKnownDecisionControlSource(applied_source_raw)) {
+    return false;
+  }
+  candidate.applied_decision_source = static_cast<DecisionControlSource>(applied_source_raw);
   candidate.applied_decision_cycle_index = value->applied_decision_cycle_index();
   candidate.applied_decision_batch_id = value->applied_decision_batch_id();
   *result = candidate;
@@ -1331,22 +1389,22 @@ flatbuffers::Offset<fb::ArSessionReplayStateV3> EncodeSessionReplayStateV3(
       EncodeDecisionReplayState(builder, value.decision_state));
 }
 
-ArSessionReplayState DecodeSessionReplayStateV3(const fb::ArSessionReplayStateV3* value) {
-  ArSessionReplayState result;
-  if (value != nullptr) {
-    result.has_world_chronology = value->has_world_chronology();
-    result.last_world_window_end_s = value->last_world_window_end_s();
-    result.next_emission_id = value->next_emission_id();
-    result.successful_prepare_count = value->successful_prepare_count();
-    result.timing_seed = value->timing_seed();
-    result.frequency_hop_index = value->frequency_hop_index();
-    result.has_pending_runtime_update = value->has_pending_runtime_update();
-    result.pending_execution_config_changed = value->pending_execution_config_changed();
-    result.pending_environment_scenario_config_changed =
-        value->pending_environment_scenario_config_changed();
-    result.decision_state = DecodeDecisionReplayState(value->decision_state());
+bool TryDecodeSessionReplayStateV3(const fb::ArSessionReplayStateV3* value,
+                                   ArSessionReplayState* result) {
+  if (value == nullptr || result == nullptr) {
+    return false;
   }
-  return result;
+  result->has_world_chronology = value->has_world_chronology();
+  result->last_world_window_end_s = value->last_world_window_end_s();
+  result->next_emission_id = value->next_emission_id();
+  result->successful_prepare_count = value->successful_prepare_count();
+  result->timing_seed = value->timing_seed();
+  result->frequency_hop_index = value->frequency_hop_index();
+  result->has_pending_runtime_update = value->has_pending_runtime_update();
+  result->pending_execution_config_changed = value->pending_execution_config_changed();
+  result->pending_environment_scenario_config_changed =
+      value->pending_environment_scenario_config_changed();
+  return TryDecodeDecisionReplayState(value->decision_state(), &result->decision_state);
 }
 
 template <typename FlatbufferType>
@@ -1408,7 +1466,12 @@ bool DecodeExternalDecisionResponseFlatbuffer(const std::string& payload_bytes,
     return false;
   }
 
-  *response = DecodeExternalDecisionResponse(root);
+  if (!TryDecodeExternalDecisionResponse(root, response)) {
+    if (error != nullptr) {
+      *error = "ExternalDecisionResponse contains unknown control directive enum";
+    }
+    return false;
+  }
   return true;
 }
 
@@ -1465,7 +1528,12 @@ bool DecodeCycleReplayRecordFlatbuffer(const std::string& payload_bytes,
     }
     return false;
   }
-  candidate.session_state = DecodeSessionReplayStateV3(root->session_state());
+  if (!TryDecodeSessionReplayStateV3(root->session_state(), &candidate.session_state)) {
+    if (error != nullptr) {
+      *error = "ArCycleReplayRecordV3 contains unknown control directive enum";
+    }
+    return false;
+  }
   *record = candidate;
   return true;
 }
