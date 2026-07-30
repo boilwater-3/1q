@@ -113,7 +113,8 @@ class SignalPipeline final : public ISignalPipeline {
    * @param observations 干扰观测列表（周期内消费后清空）。
    */
   void SetPendingInterferenceObservations(
-      session::ArInterferenceObservationList observations) override;
+      session::ArInterferenceObservationList observations,
+      detection::ArDeceptionClusterList deception_clusters) override;
 
   /**
    * @brief 更新流水线运行配置。

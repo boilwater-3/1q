@@ -30,8 +30,8 @@ oneq::electromagnetics::RfSceneEmission MakeJammer(std::uint64_t emission_id, do
 }
 
 // 构造一个同方位、相近 y 偏移的脉冲列欺骗发射，用于触发假目标方位聚类。
-oneq::electromagnetics::RfSceneEmission MakePulseTrainJammer(std::uint64_t emission_id,
-                                                              double y_m, double power_w) {
+oneq::electromagnetics::RfSceneEmission MakePulseTrainJammer(std::uint64_t emission_id, double y_m,
+                                                             double power_w) {
   oneq::electromagnetics::RfSceneEmission emission;
   emission.identity = oneq::electromagnetics::RfEmissionIdentity{10U, 20U, emission_id};
   emission.position_ecef_m.x_m = 1000.0;
@@ -42,11 +42,28 @@ oneq::electromagnetics::RfSceneEmission MakePulseTrainJammer(std::uint64_t emiss
 }
 
 oneq::electromagnetics::RfIncidentLinkResult MakeLink(
-    const oneq::electromagnetics::RfSceneEmission& emission, double power_w) {
+    const oneq::electromagnetics::RfSceneEmission& emission, double power_w,
+    double propagation_delay_s = 0.0, double doppler_shift_hz = 0.0) {
   oneq::electromagnetics::RfIncidentLinkResult link;
   link.identity = emission.identity;
   link.received_power_w = power_w;
+  link.propagation_delay_s = propagation_delay_s;
+  link.doppler_shift_hz = doppler_shift_hz;
   return link;
+}
+
+bool ResolveWithoutClusters(
+    const oneq::electromagnetics::RfSceneFrame& scene,
+    const oneq::electromagnetics::RfSceneReceiverState& receiver,
+    const oneq::electromagnetics::RfEmissionIdentity& own_emission_identity,
+    const std::vector<oneq::electromagnetics::RfIncidentLinkResult>& incident_links,
+    double thermal_noise_power_w, double jammer_to_noise_gate_db,
+    const oneq::coordinate::LocalFrameReference& platform_frame, std::uint32_t perturbation_seed,
+    std::vector<session::ArInterferenceObservation>* observations) {
+  ArDeceptionClusterList ignored_clusters;
+  return TryResolveArInterferenceObservations(
+      scene, receiver, own_emission_identity, incident_links, thermal_noise_power_w,
+      jammer_to_noise_gate_db, platform_frame, perturbation_seed, observations, &ignored_clusters);
 }
 
 TEST(ArInterferenceObservationResolverTest, GatesByJOverNAndIsOrderIndependent) {
@@ -63,7 +80,7 @@ TEST(ArInterferenceObservationResolverTest, GatesByJOverNAndIsOrderIndependent) 
       MakeLink(scene.emissions[0], 100.0), MakeLink(scene.emissions[1], 0.01)};
 
   std::vector<session::ArInterferenceObservation> forward;
-  ASSERT_TRUE(TryResolveArInterferenceObservations(
+  ASSERT_TRUE(ResolveWithoutClusters(
       scene, receiver, oneq::electromagnetics::RfEmissionIdentity{1U, 3U, 4U}, links, 1.0, 0.0,
       DefaultFrame(), /*perturbation_seed=*/42U, &forward));
   ASSERT_EQ(forward.size(), 1U);
@@ -74,7 +91,7 @@ TEST(ArInterferenceObservationResolverTest, GatesByJOverNAndIsOrderIndependent) 
   auto reversed_links = links;
   std::reverse(reversed_links.begin(), reversed_links.end());
   std::vector<session::ArInterferenceObservation> reverse;
-  ASSERT_TRUE(TryResolveArInterferenceObservations(
+  ASSERT_TRUE(ResolveWithoutClusters(
       scene, receiver, oneq::electromagnetics::RfEmissionIdentity{1U, 3U, 4U}, reversed_links, 1.0,
       0.0, DefaultFrame(), /*perturbation_seed=*/42U, &reverse));
   ASSERT_EQ(reverse.size(), forward.size());
@@ -90,8 +107,7 @@ TEST(ArInterferenceObservationResolverTest, CoherentPulseTrainEmissionsTaggedAsF
   scene.window_start_time_s = 10.0;
   scene.window_duration_s = 1.0;
   // y 偏移 100.0 与 105.0：在 1000m 距离上方位差极小，远小于 4 度波束宽度。
-  scene.emissions = {MakePulseTrainJammer(1U, 100.0, 10.0),
-                     MakePulseTrainJammer(2U, 105.0, 10.0)};
+  scene.emissions = {MakePulseTrainJammer(1U, 100.0, 10.0), MakePulseTrainJammer(2U, 105.0, 10.0)};
   oneq::electromagnetics::RfSceneReceiverState receiver;
   receiver.platform_id = 1U;
   receiver.equipment_id = 2U;
@@ -100,15 +116,21 @@ TEST(ArInterferenceObservationResolverTest, CoherentPulseTrainEmissionsTaggedAsF
       MakeLink(scene.emissions[0], 100.0), MakeLink(scene.emissions[1], 100.0)};
 
   std::vector<session::ArInterferenceObservation> observations;
+  ArDeceptionClusterList clusters;
   ASSERT_TRUE(TryResolveArInterferenceObservations(
       scene, receiver, oneq::electromagnetics::RfEmissionIdentity{1U, 3U, 4U}, links, 1.0, 0.0,
-      DefaultFrame(), /*perturbation_seed=*/42U, &observations));
+      DefaultFrame(), /*perturbation_seed=*/42U, &observations, &clusters));
   ASSERT_EQ(observations.size(), 2U);
   // 两条观测应均被标记为疑似假目标，且同方向计数 ≥ 2（含自身）。
   for (const auto& obs : observations) {
     EXPECT_EQ(obs.deception_class, session::DeceptionClass::kLikelyFalseTarget);
     EXPECT_GE(obs.coherent_emission_count, 2U);
   }
+  ASSERT_EQ(clusters.size(), 1U);
+  EXPECT_EQ(clusters.front().emission_count, 2U);
+  EXPECT_NE(clusters.front().association_key_seed, 0U);
+  EXPECT_GE(clusters.front().representative_observation_id, 1U);
+  EXPECT_LE(clusters.front().representative_observation_id, observations.size());
 }
 
 TEST(ArInterferenceObservationResolverTest, IsolatedPulseTrainNotTaggedAsFalseTarget) {
@@ -124,7 +146,7 @@ TEST(ArInterferenceObservationResolverTest, IsolatedPulseTrainNotTaggedAsFalseTa
   receiver.antenna.half_power_beamwidth_deg = 4.0;
 
   std::vector<session::ArInterferenceObservation> observations;
-  ASSERT_TRUE(TryResolveArInterferenceObservations(
+  ASSERT_TRUE(ResolveWithoutClusters(
       scene, receiver, oneq::electromagnetics::RfEmissionIdentity{1U, 3U, 4U},
       {MakeLink(scene.emissions.front(), 100.0)}, 1.0, 0.0, DefaultFrame(),
       /*perturbation_seed=*/42U, &observations));
@@ -134,8 +156,9 @@ TEST(ArInterferenceObservationResolverTest, IsolatedPulseTrainNotTaggedAsFalseTa
 }
 
 // RGPO/VGPO 可观测特征：kPulseTrain 发射的载频偏移与首脉冲时延应被填充。
-// - estimated_carrier_offset_hz = 发射载频 − 接收机调谐载频；
-// - estimated_first_pulse_delay_s = (first_pulse_time − window_start) − range/c。
+// - estimated_center_frequency_hz = 发射载频 + incident link Doppler；
+// - estimated_carrier_offset_hz 扣除本振与同一 link Doppler，仅保留欺骗偏移；
+// - estimated_first_pulse_delay_s 扣除同一 link propagation，仅保留额外时延。
 TEST(ArInterferenceObservationResolverTest, PulseTrainPopulatesCarrierOffsetAndFirstPulseDelay) {
   constexpr double kLightSpeed = 299792458.0;
   oneq::electromagnetics::RfSceneFrame scene;
@@ -158,17 +181,18 @@ TEST(ArInterferenceObservationResolverTest, PulseTrainPopulatesCarrierOffsetAndF
   receiver.center_frequency_hz = 10.0e9;  // 本振调谐载频
 
   std::vector<session::ArInterferenceObservation> observations;
-  ASSERT_TRUE(TryResolveArInterferenceObservations(
+  ASSERT_TRUE(ResolveWithoutClusters(
       scene, receiver, oneq::electromagnetics::RfEmissionIdentity{1U, 3U, 4U},
-      {MakeLink(scene.emissions.front(), 100.0)}, 1.0, 0.0, DefaultFrame(),
+      {MakeLink(scene.emissions.front(), 100.0, 1000.0 / kLightSpeed, 2000.0)}, 1.0, 0.0,
+      DefaultFrame(),
       /*perturbation_seed=*/42U, &observations));
   ASSERT_EQ(observations.size(), 1U);
   const auto& obs = observations.front();
-  // 载频偏移 = 10.5e9 − 10.0e9 = 0.5e9 Hz。
+  EXPECT_NEAR(obs.estimated_center_frequency_hz, 10.5e9 + 2000.0, 1.0);
+  // link Doppler 被同时用于到达事实和无欺骗期望，因此残差仍为 ECM 额外 0.5GHz。
   EXPECT_NEAR(obs.estimated_carrier_offset_hz, 0.5e9, 1.0e3);
-  // 首脉冲时延 = 5e-6 − (1000 / c) ≈ 5e-6 − 3.3356e-6 ≈ 1.664e-6 s。
-  const double expected_delay_s = 5.0e-6 - 1000.0 / kLightSpeed;
-  EXPECT_NEAR(obs.estimated_first_pulse_delay_s, expected_delay_s, 1.0e-9);
+  // propagation 在到达与期望两侧各出现一次并相消，只留下 ECM 编入的 5us。
+  EXPECT_NEAR(obs.estimated_first_pulse_delay_s, 5.0e-6, 1.0e-9);
 }
 
 TEST(ArInterferenceObservationResolverTest, UncertaintyDecreasesWithJOverN) {
@@ -184,11 +208,11 @@ TEST(ArInterferenceObservationResolverTest, UncertaintyDecreasesWithJOverN) {
 
   std::vector<session::ArInterferenceObservation> low;
   std::vector<session::ArInterferenceObservation> high;
-  ASSERT_TRUE(TryResolveArInterferenceObservations(
+  ASSERT_TRUE(ResolveWithoutClusters(
       scene, receiver, oneq::electromagnetics::RfEmissionIdentity{1U, 3U, 4U},
       {MakeLink(scene.emissions.front(), 10.0)}, 1.0, 0.0, DefaultFrame(),
       /*perturbation_seed=*/42U, &low));
-  ASSERT_TRUE(TryResolveArInterferenceObservations(
+  ASSERT_TRUE(ResolveWithoutClusters(
       scene, receiver, oneq::electromagnetics::RfEmissionIdentity{1U, 3U, 4U},
       {MakeLink(scene.emissions.front(), 100.0)}, 1.0, 0.0, DefaultFrame(),
       /*perturbation_seed=*/42U, &high));
@@ -235,10 +259,10 @@ TEST(ArInterferenceObservationResolverTest, LocalFrameBearingDiffersFromEcefWhen
   frame.frame_attitude_deg.yaw_deg = 30.0;
 
   std::vector<session::ArInterferenceObservation> observations;
-  ASSERT_TRUE(TryResolveArInterferenceObservations(
-      scene, receiver, oneq::electromagnetics::RfEmissionIdentity{1U, 3U, 4U},
-      {MakeLink(scene.emissions.front(), 100.0)}, 1.0, 0.0, frame, /*perturbation_seed=*/42U,
-      &observations));
+  ASSERT_TRUE(ResolveWithoutClusters(scene, receiver,
+                                     oneq::electromagnetics::RfEmissionIdentity{1U, 3U, 4U},
+                                     {MakeLink(scene.emissions.front(), 100.0)}, 1.0, 0.0, frame,
+                                     /*perturbation_seed=*/42U, &observations));
   ASSERT_EQ(observations.size(), 1U);
   const auto& obs = observations.front();
   // ECEF 切平面方位：delta=(0,1000,0)，atan2(1000,0)=90 度（这是 ECEF 切平面伪角度，
@@ -276,7 +300,7 @@ TEST(ArInterferenceObservationResolverTest, RangeAndRangeRateArePerturbedFromTru
 
   const auto resolve = [&](std::uint32_t seed) {
     std::vector<session::ArInterferenceObservation> out;
-    EXPECT_TRUE(TryResolveArInterferenceObservations(
+    EXPECT_TRUE(ResolveWithoutClusters(
         scene, receiver, oneq::electromagnetics::RfEmissionIdentity{1U, 3U, 4U},
         {MakeLink(scene.emissions.front(), 100.0)}, 1.0, 0.0, DefaultFrame(), seed, &out));
     return out;
@@ -290,15 +314,12 @@ TEST(ArInterferenceObservationResolverTest, RangeAndRangeRateArePerturbedFromTru
   EXPECT_NE(first.front().estimated_slant_range_m, 1000.0);
   EXPECT_NE(first.front().estimated_range_rate_mps, 100.0);
   // 同种子同输入 → 完全一致（确定性，replay 可复现）。
-  EXPECT_DOUBLE_EQ(first.front().estimated_slant_range_m,
-                   second.front().estimated_slant_range_m);
-  EXPECT_DOUBLE_EQ(first.front().estimated_range_rate_mps,
-                   second.front().estimated_range_rate_mps);
+  EXPECT_DOUBLE_EQ(first.front().estimated_slant_range_m, second.front().estimated_slant_range_m);
+  EXPECT_DOUBLE_EQ(first.front().estimated_range_rate_mps, second.front().estimated_range_rate_mps);
   // 不同种子 → 扰动不同（跨周期/跨设备互不相关）。
   const auto other_seed = resolve(200U);
   ASSERT_EQ(other_seed.size(), 1U);
-  EXPECT_NE(first.front().estimated_slant_range_m,
-            other_seed.front().estimated_slant_range_m);
+  EXPECT_NE(first.front().estimated_slant_range_m, other_seed.front().estimated_slant_range_m);
 }
 
 }  // namespace

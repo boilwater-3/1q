@@ -11,6 +11,7 @@
 #include "1q/airborne_radar/session/ArInterferenceObservation.h"
 #include "1q/coordinate/types.h"
 #include "1q/electromagnetics/RfScene.h"
+#include "airborne_radar/signal/detection/ArDeceptionCluster.h"
 
 namespace airborne_radar {
 namespace signal {
@@ -35,9 +36,9 @@ bool TryResolveArInterferenceObservations(
     const oneq::electromagnetics::RfEmissionIdentity& own_emission_identity,
     const std::vector<oneq::electromagnetics::RfIncidentLinkResult>& incident_links,
     double thermal_noise_power_w, double jammer_to_noise_gate_db,
-    const oneq::coordinate::LocalFrameReference& platform_frame,
-    std::uint32_t perturbation_seed,
-    std::vector<session::ArInterferenceObservation>* observations);
+    const oneq::coordinate::LocalFrameReference& platform_frame, std::uint32_t perturbation_seed,
+    std::vector<session::ArInterferenceObservation>* observations,
+    ArDeceptionClusterList* deception_clusters);
 
 }  // namespace detection
 }  // namespace signal

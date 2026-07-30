@@ -25,17 +25,17 @@ namespace pipeline {
  * @brief 从 kLikelyFalseTarget 干扰观测合成假目标量测并追加到 scratch.track_measurements。
  *
  * 合成独立于反制开关：假目标攻击现象始终被注入。反制开关只在下游 PromoteState 控制
- * tentative→confirmed 的抑制策略。对每条疑似假目标观测，按 coherent_emission_count 合成
- * 若干个假距离/多普勒量测：
+ * tentative→confirmed 的抑制策略。resolver 为每个疑似假目标簇生成一条内部簇元数据，
+ * 本 pass 按该元数据的 emission_count 合成若干个假距离/多普勒量测：
  * - 位置：由局部系方位 + estimated_slant_range_m 合成笛卡尔局部坐标；
  * - 速度：estimated_range_rate_mps 沿视线方向投影；
  * - classified_as_false_target=true，source_index 取 sentinel（超出场景列表，由下游边界
- *   检查自然跳过），association_key 用 observation_id 派生的确定性 key（跨周期稳定）。
+ *   检查自然跳过），association_key 用 resolver 基于源设备集合生成的稳定种子派生。
  *
  * 合成量测不索引 per-target scratch 数组（target_geometry/measurement_covariances 等
  * 恰为 input.size()），位置与协方差内联进 raw_measurement。
  *
- * @param context 周期输入上下文（读取 interference_observations）。
+ * @param context 周期输入上下文（读取 interference_observations 与 deception_clusters）。
  * @param scratch 周期暂存区（追加合成量测到 track_measurements）。
  */
 void InjectDeceptionMeasurementsPass(const CycleExecutionContext& context,

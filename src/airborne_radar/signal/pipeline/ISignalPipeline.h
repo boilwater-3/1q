@@ -16,6 +16,7 @@
 #include "1q/airborne_radar/session/ArOutputTypes.h"
 #include "1q/airborne_radar/session/ArSceneTypes.h"
 #include "airborne_radar/environment/IEnvironmentService.h"
+#include "airborne_radar/signal/detection/ArDeceptionCluster.h"
 
 namespace airborne_radar {
 namespace environment {
@@ -107,8 +108,10 @@ class ISignalPipeline {
    * @param[in] observations 干扰观测列表（按值持有，周期内消费后清空）。
    */
   virtual void SetPendingInterferenceObservations(
-      session::ArInterferenceObservationList observations) {
+      session::ArInterferenceObservationList observations,
+      detection::ArDeceptionClusterList deception_clusters) {
     (void)observations;
+    (void)deception_clusters;
   }
 
   /**

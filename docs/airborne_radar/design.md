@@ -461,12 +461,13 @@ AR 不从环境场景推导干扰。调用方只提供实际发射事实：发�
 AR 不保留 legacy jammer DTO、技术类别、J/S 摘要或欺骗/转发适配层；也不直接获取 ECM 的 `EcmDeceptionMode` 真值。外部欺骗发射（ECM 的 RGPO/VGPO/假目标等 kPulseTrain 波形）与压制发射经同一 `RfEmissionFrame` 路径进入接收前端，统一按时频重叠和方向增益计算接收功率。
 
 AR 在接收链的三个层次主动反制欺骗干扰：
-- **观测层**：`ArInterferenceObservationResolver` 从过 J/N 门限的 kPulseTrain 观测中提取同方向相似参数发射数，设置 `deception_class=kLikelyFalseTarget`，并填充 `estimated_slant_range_m`、`estimated_range_rate_mps` 和雷达局部系方位（`estimated_bearing_*_local_deg`），供下游假目标量测合成与 ECCM 决策（§2.5 检测单元账本）。斜距与径向速度在写入前按 `RadarEquations::ComputeRangeErrorStdDev`（以接收端 J/N 为有效信噪比、占用带宽为距离分辨带宽）派生的标准差叠加**确定性零均值噪声**，种子由 cycle index + receiver equipment id 派生，保证 replay 下可复现；二者不再是精确仿真真值（公共合同 contract.md:348）；
-- **ECCM 决策层**：`EccmEvaluator` 按**与 ECM 物理匹配**的可观测特征路由 RGPO/VGPO（不读 ECM `EcmDeceptionMode` 真值）：`|estimated_carrier_offset_hz|` 显著偏离接收机本振载频（≥ 1 kHz 门限）触发 `anti_vgpo_score`（VGPO 把转发载频拖离威胁雷达频率），`estimated_first_pulse_delay_s` 超过几何单程传播期望（≥ 100 ns 门限）触发 `anti_rgpo_score`（RGPO 把首脉冲拖远）。此前误用泄漏的几何 `estimated_range_rate_mps` 冒充 VGPO、用 `coherent_emission_count>=2` 冒充 RGPO，致使静止干扰机的 VGPO 与单发射 RGPO 都无法触发反制。现 `coherent_emission_count>=2` / `kLikelyFalseTarget` 仅触发 `anti_false_target_score`（其正确语义）。达阈值后分别生成 `REQUEST_ANTI_RGPO_LEADING_EDGE`、`REQUEST_ANTI_VGPO_ACCELERATION_BOUND`、`REQUEST_ANTI_FALSE_TARGET_DISCRIMINATION` 提案（§2.7 ECCM）；
-- **信号层**：`ArControlProfile` 的三个 bool 字段通过 `ControlReducer`/`ControlCommandMapper` 经现有 ECCM hold/cooldown 管线生效。`DeceptionMeasurementGenerator` **独立于反制开关**地从 `kLikelyFalseTarget` 干扰观测合成假距离/多普勒量测注入 `track_measurements`（攻击现象始终存在）；反制开关只在 `TrackLifecycleManager::PromoteState` 控制 tentative→confirmed 的抑制策略，使鉴别真正作用于合成假目标而非真实场景目标。反 VGPO 加速度限幅在裁剪 `track.velocity` 后回写 `gaussian_state.mean` 速度分量并重算 `acceleration`，保证下一周期 Predict 从一致状态出发。
+- **观测层**：`ArInterferenceObservationResolver` 从过 J/N 门限的 kPulseTrain 观测中，在接收机波束宽度和接收频率分辨单元内建立连通分量，设置 `deception_class=kLikelyFalseTarget`，并为每个分量生成唯一的内部 `ArDeceptionCluster`。cluster 携带代表观测、严格发射数和基于源 platform/equipment 集合的稳定 association seed；它只在 controller/pipeline 单周期与回滚快照内流转，不进入 public result/replay。resolver 同时填充 `estimated_slant_range_m`、`estimated_range_rate_mps` 和雷达局部系方位（`estimated_bearing_*_local_deg`）。斜距与径向速度在写入前按 `RadarEquations::ComputeRangeErrorStdDev` 派生的标准差叠加**确定性零均值噪声**，种子由 cycle index + receiver equipment id 派生，保证 replay 下可复现；二者不再是精确仿真真值（公共合同 contract.md:348）；
+- **ECCM 决策层**：`EccmEvaluator` 仅对 kPulseTrain 按**与 ECM 物理匹配**的接收端残差路由 RGPO/VGPO（不读 ECM `EcmDeceptionMode` 真值）。`estimated_center_frequency_hz` 记录发射中心频率加 incident-link Doppler 的实际到达事实；`estimated_carrier_offset_hz` 再扣除接收机本振和同一 link Doppler，只保留额外转发偏移，绝对值 ≥ 1 kHz 时触发 `anti_vgpo_score`。`estimated_first_pulse_delay_s` 以首脉冲到达时刻减“窗口起点 + 同一 link 单程传播”，传播项在两侧相消，只保留 ECM 额外时延，≥ 100 ns 时触发 `anti_rgpo_score`。`kLikelyFalseTarget` 独立触发 `anti_false_target_score`。达阈值后分别生成三个反欺骗提案（§2.7 ECCM）；
+- **信号层**：`ArControlProfile` 的三个 bool 字段通过 `ControlReducer`/`ControlCommandMapper` 经现有 ECCM hold/cooldown 管线生效。`DeceptionMeasurementGenerator` **独立于反制开关**，只消费 resolver 生成的显式 cluster，并为每簇严格合成 N 条假距离/多普勒量测，避免成员级再次扩展造成 N²；反制开关只在 `TrackLifecycleManager::PromoteState` 控制 tentative→confirmed 的抑制策略。反 VGPO 加速度限幅在裁剪 `track.velocity` 后回写 `gaussian_state.mean` 速度分量并重算 `acceleration`，保证下一周期 Predict 从一致状态出发。
 [evidence: tests/unit/airborne_radar/ar_deception_eccm_test.cpp::SignificantFirstPulseDelayTriggersAntiRgpoProposal]
 [evidence: tests/unit/airborne_radar/ar_deception_eccm_test.cpp::SignificantCarrierOffsetTriggersAntiVgpoProposal]
 [evidence: tests/unit/airborne_radar/ar_deception_eccm_test.cpp::PlainPulseTrainWithoutFeaturesDoesNotTriggerAntiDeception]
+[evidence: tests/unit/airborne_radar/ar_deception_eccm_test.cpp::NonPulseWaveformCannotTriggerRgpoOrVgpoFromResidualFields]
 [evidence: tests/unit/airborne_radar/ar_deception_eccm_test.cpp::AntiVgpoClampWritesBackToGaussianState]
 [evidence: tests/unit/airborne_radar/ar_deception_eccm_test.cpp::AntiVgpoClampPropagatesToNextPredict]
 [evidence: tests/unit/airborne_radar/ar_deception_eccm_test.cpp::AntiVgpoClampRecomputesAcceleration]
@@ -481,7 +482,8 @@ AR 在接收链的三个层次主动反制欺骗干扰：
 [evidence: tests/unit/airborne_radar/ar_interference_observation_resolver_test.cpp::PulseTrainPopulatesCarrierOffsetAndFirstPulseDelay]
 [evidence: tests/replay/airborne_radar/ar_replay_codec_roundtrip_test.cpp::AntiDeceptionProfileFlagsRoundtripPreserved]
 [evidence: tests/replay/airborne_radar/ar_replay_codec_roundtrip_test.cpp::InterferenceObservationNewFieldsRoundtripPreserved]
-[evidence: tests/replay/airborne_radar/ar_replay_codec_roundtrip_test.cpp::InterferenceObservationClampsOutOfRangeDeceptionClass]
+[evidence: tests/replay/airborne_radar/ar_replay_codec_roundtrip_test.cpp::InterferenceObservationRejectsOutOfRangeDeceptionClassWithoutMutation]
+[evidence: tests/replay/airborne_radar/ar_replay_codec_roundtrip_test.cpp::InterferenceObservationRejectsUnknownWaveformKindWithoutMutation]
 [evidence: tests/integration/cross_domain/multi_model_scenario_test.cpp::EcmDeceptionFalseTargetReachesArAndTriggersEccm]
 
 ### 2.4 扫描调度、坐标和波束控制

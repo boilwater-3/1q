@@ -156,8 +156,7 @@ ArRfTestCycleInput BuildArInput(const WorldState& ws, float dt, std::uint32_t cy
   }
   ArRfTestCycleInput input;
   input.cycle.cycle_index = cycle_index;
-  input.cycle.cycle_start_time_s =
-      static_cast<double>(cycle_index - 1U) * static_cast<double>(dt);
+  input.cycle.cycle_start_time_s = static_cast<double>(cycle_index - 1U) * static_cast<double>(dt);
   input.cycle.dt_sec = dt;
   input.cycle.platform = platform;
   input.cycle.targets = targets;
@@ -181,9 +180,8 @@ oneq::electromagnetics::RfEmissionFrame MakeNoiseInterferenceFrame(
   jammer.position_ecef_m.x_m += 1000.0;
   jammer.antenna.boresight_ecef.x = -1.0;
   jammer.antenna.peak_gain_dbi = 35.0;
-  if (!oneq::electromagnetics::TryCreateRfNoiseWaveform(
-          cycle.cycle_start_time_s, cycle.dt_sec, 9.3e9, 20.0e6, 1.0e18,
-          &jammer.waveform)) {
+  if (!oneq::electromagnetics::TryCreateRfNoiseWaveform(cycle.cycle_start_time_s, cycle.dt_sec,
+                                                        9.3e9, 20.0e6, 1.0e18, &jammer.waveform)) {
     return oneq::electromagnetics::RfEmissionFrame{};
   }
   frame.emissions.push_back(jammer);
@@ -285,9 +283,9 @@ esr_session::EsrCycleInput BuildEsrInput(const WorldState& ws, float dt, std::ui
     emission.antenna.peak_gain_dbi = 30.0;
     emission.antenna.peak_gain_dbi = 10.0;
     emission.polarization = oneq::electromagnetics::RfScenePolarization::kHorizontal;
-    if (oneq::electromagnetics::TryCreateRfNoiseWaveform(
-            input.cycle_start_time_s, dt, target.carrier_hz, target.bandwidth_hz,
-            target.tx_power_w, &emission.waveform)) {
+    if (oneq::electromagnetics::TryCreateRfNoiseWaveform(input.cycle_start_time_s, dt,
+                                                         target.carrier_hz, target.bandwidth_hz,
+                                                         target.tx_power_w, &emission.waveform)) {
       input.rf_emissions.emissions.push_back(emission);
     }
   }
@@ -362,8 +360,7 @@ esr_config::EsrSessionConfig MakeEsrConfigAirToAir() {
   config.mission.scan.scan_rate_hz = 0.1f;
   config.policy.detection.minimum_snr_db = -40.0f;
   config.policy.detection.enable_statistical_detection = false;
-  config.hardware.co_site_paths.push_back(
-      esr_config::EsrCoSiteIsolationPath{1U, 80.0});
+  config.hardware.co_site_paths.push_back(esr_config::EsrCoSiteIsolationPath{1U, 80.0});
   return config;
 }
 
@@ -1346,8 +1343,7 @@ TEST(MultiModelScenarioTest, SensorDrivenEcmUsesPreviousSuccessfulEsrFrame) {
 
   ar_config::ArSessionConfig ar_config = MakeArConfigAirToAir();
   ar_config.hardware.receiver.co_site_paths.push_back(
-      {ecm_config.transmitter_equipment_id,
-       ar_config.hardware.receiver.equipment_id, 100.0});
+      {ecm_config.transmitter_equipment_id, ar_config.hardware.receiver.equipment_id, 100.0});
   ar_session::ArTraceSession ar(ar_config, ar_session::ArTraceSessionOptions{nullptr, false});
   ar_session::ArEnvironmentInputState ar_environment_state(MakeArEnvironment());
   ArRfTestCycleInput ar_input =
@@ -1451,8 +1447,7 @@ TEST(MultiModelScenarioTest, EcmDeceptionFalseTargetReachesArAndTriggersEccm) {
   // AR 接收 ECM 欺骗发射帧。
   ar_config::ArSessionConfig ar_config = MakeArConfigAirToAir();
   ar_config.hardware.receiver.co_site_paths.push_back(
-      {ecm_config.transmitter_equipment_id,
-       ar_config.hardware.receiver.equipment_id, 100.0});
+      {ecm_config.transmitter_equipment_id, ar_config.hardware.receiver.equipment_id, 100.0});
   ar_session::ArTraceSession ar(ar_config, ar_session::ArTraceSessionOptions{nullptr, false});
   ar_session::ArEnvironmentInputState ar_environment_state(MakeArEnvironment());
 
@@ -1466,8 +1461,7 @@ TEST(MultiModelScenarioTest, EcmDeceptionFalseTargetReachesArAndTriggersEccm) {
 
   bool has_false_target_class = false;
   for (const auto& obs : ar_result1.interference_observations) {
-    if (obs.deception_class ==
-        airborne_radar::session::DeceptionClass::kLikelyFalseTarget) {
+    if (obs.deception_class == airborne_radar::session::DeceptionClass::kLikelyFalseTarget) {
       has_false_target_class = true;
       break;
     }
@@ -1476,18 +1470,36 @@ TEST(MultiModelScenarioTest, EcmDeceptionFalseTargetReachesArAndTriggersEccm) {
       << "kFalseTarget deception should produce kLikelyFalseTarget interference observations";
 
   // ECCM 控制概要延迟一周期生效：当前周期评估 → pending_proposals →
-  // 下一周期 ApplyPendingDecisionControl()。跨域测试无法轻易构造第二个
-  // ECM 新鲜发射帧（ESR batch_id 单调递增约束），因此控制概要断言由
-  // ar_deception_eccm_test.cpp 单位测试覆盖。此处仅验证观测级欺骗分类已闭合。
+  // 下一周期 ApplyPendingDecisionControl()。
   EXPECT_GE(ar_result1.interference_observations.size(), 1U)
       << "at least one interference observation should be produced";
   for (const auto& obs : ar_result1.interference_observations) {
-    EXPECT_EQ(obs.deception_class,
-              airborne_radar::session::DeceptionClass::kLikelyFalseTarget);
+    EXPECT_EQ(obs.deception_class, airborne_radar::session::DeceptionClass::kLikelyFalseTarget);
     EXPECT_GE(obs.coherent_emission_count, 2U);
     EXPECT_GT(obs.jammer_to_noise_db, 6.0);
     EXPECT_GT(obs.estimated_center_frequency_hz, 0.0);
   }
+
+  // ECM 通过受约束的 sensor glide 产生下一世界周期的欺骗发射；AR 消费该帧时应先
+  // 应用上一成功周期的 pending anti-false-target 提案，闭合 ECM→RF→AR→ECCM 控制链。
+  ecm_session::EcmCycleInput ecm_input2 = ecm_input;
+  ecm_input2.cycle_index = source_esr_cycle + 2U;
+  ecm_input2.cycle_start_time_s = static_cast<double>(source_esr_cycle + 1U);
+  ecm_input2.has_sensor_observation_frame = false;
+  ecm_input2.sensor_observation_frame = {};
+  const ecm_session::EcmCycleResult ecm_result2 = ecm.StepWithResult(ecm_input2);
+  ASSERT_EQ(ecm_result2.status, ecm_session::EcmCycleStatus::kExecuted);
+  ASSERT_TRUE(ecm_result2.used_glided_observation);
+  ASSERT_FALSE(ecm_result2.emission_frame.emissions.empty());
+
+  ArRfTestCycleInput ar_input2 =
+      BuildArInput(world, 1.0f, source_esr_cycle + 2U, ar_environment_state);
+  ar_input2.cycle.platform.platform_entity_id = 7001U;
+  ar_input2.cycle.interference = ecm_result2.emission_frame;
+  const ArRfTestCycleResult ar_result2 = RunArCycle(&ar, ar_input2);
+  ASSERT_TRUE(ar_result2.accepted);
+  ASSERT_TRUE(ar_result2.has_control_profile);
+  EXPECT_TRUE(ar_result2.control_profile.enable_anti_false_target_discrimination);
 
   // 验证 ESR 接收 ECM 欺骗发射帧时不报错（ESR 欺骗分类逻辑由 ESR 单测覆盖）。
   esr_session::EsrCycleInput esr_input2 =
@@ -1607,13 +1619,11 @@ TEST(MultiModelScenarioTest, FlightDynamicDrivesSensorEcmClosedLoop) {
 
   ar_config::ArSessionConfig ar_config = MakeArConfigAirToAir();
   ar_config.hardware.receiver.co_site_paths.push_back(
-      {ecm_config.transmitter_equipment_id,
-       ar_config.hardware.receiver.equipment_id, 100.0});
+      {ecm_config.transmitter_equipment_id, ar_config.hardware.receiver.equipment_id, 100.0});
   ar_session::ArSession ar = ar_session::ArSession::Create(ar_config);
   ar_session::ArEnvironmentInputState ar_environment_state(MakeArEnvironment());
   ar_session::ArCycleInput ar_input =
-      BuildArInput(world, 1.0f, source_esr_cycle + 1U, ar_environment_state)
-          .cycle;
+      BuildArInput(world, 1.0f, source_esr_cycle + 1U, ar_environment_state).cycle;
   ar_input.platform.platform_entity_id = 7002U;
   ar_input.interference = ecm_result.emission_frame;
   const ar_session::ArCycleResult ar_result = ar.StepWithResult(ar_input);

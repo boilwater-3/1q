@@ -48,8 +48,8 @@ bool IsKnownDeceptionMode(EcmDeceptionMode mode) {
 
 bool IsValidConfig(const config::EcmSessionConfig& config) {
   return config.transmitter_equipment_id != 0U && config.channel_count > 0U &&
-         std::isfinite(config.minimum_frequency_hz) &&
-         std::isfinite(config.maximum_frequency_hz) && config.minimum_frequency_hz > 0.0 &&
+         std::isfinite(config.minimum_frequency_hz) && std::isfinite(config.maximum_frequency_hz) &&
+         config.minimum_frequency_hz > 0.0 &&
          config.maximum_frequency_hz > config.minimum_frequency_hz &&
          std::isfinite(config.maximum_total_transmit_power_w) &&
          config.maximum_total_transmit_power_w > 0.0 &&
@@ -70,33 +70,27 @@ bool IsValidConfig(const config::EcmSessionConfig& config) {
          config.deception_vgpo_rate_hz_per_s >= 0.0 &&
          std::isfinite(config.deception_vgpo_max_doppler_hz) &&
          config.deception_vgpo_max_doppler_hz >= 0.0 &&
-         std::isfinite(config.deception_hold_time_s) &&
-         config.deception_hold_time_s >= 0.0 &&
-         std::isfinite(config.deception_power_scale) &&
-         config.deception_power_scale > 0.0 && config.deception_power_scale <= 1.0 &&
-         config.deception_max_active > 0U &&
-         std::isfinite(config.deception_false_target_delay_s) &&
-         config.deception_false_target_delay_s >= 0.0 &&
+         std::isfinite(config.deception_hold_time_s) && config.deception_hold_time_s >= 0.0 &&
+         std::isfinite(config.deception_power_scale) && config.deception_power_scale > 0.0 &&
+         config.deception_power_scale <= 1.0 && config.deception_max_active > 0U &&
          std::isfinite(config.deception_false_target_delay_s) &&
          config.deception_false_target_delay_s >= 0.0 &&
          std::isfinite(config.deception_false_target_doppler_hz) &&
          config.deception_max_false_targets_per_threat > 0U &&
-        IsKnownDeceptionMode(config.default_deception_mode);
+         IsKnownDeceptionMode(config.default_deception_mode);
 }
 
 bool IsValidSensorObservation(const EcmSensorObservation& observation) {
   return std::isfinite(observation.estimated_center_frequency_hz) &&
          observation.estimated_center_frequency_hz > 0.0 &&
          std::isfinite(observation.estimated_bandwidth_hz) &&
-         observation.estimated_bandwidth_hz > 0.0 &&
-         std::isfinite(observation.estimated_pri_s) && observation.estimated_pri_s >= 0.0 &&
-         std::isfinite(observation.estimated_pulse_width_s) &&
+         observation.estimated_bandwidth_hz > 0.0 && std::isfinite(observation.estimated_pri_s) &&
+         observation.estimated_pri_s >= 0.0 && std::isfinite(observation.estimated_pulse_width_s) &&
          observation.estimated_pulse_width_s >= 0.0 &&
          std::isfinite(observation.center_frequency_std_hz) &&
          observation.center_frequency_std_hz >= 0.0 &&
          std::isfinite(observation.bandwidth_std_hz) && observation.bandwidth_std_hz >= 0.0 &&
-         std::isfinite(observation.bearing_az_deg) &&
-         std::isfinite(observation.bearing_el_deg) &&
+         std::isfinite(observation.bearing_az_deg) && std::isfinite(observation.bearing_el_deg) &&
          std::isfinite(observation.bearing_std_deg) && observation.bearing_std_deg >= 0.0 &&
          std::isfinite(observation.threat_score) && observation.threat_score >= 0.0f &&
          observation.threat_score <= 1.0f && std::isfinite(observation.confidence) &&
@@ -146,8 +140,7 @@ bool IsValidInput(const EcmCycleInput& input) {
         threat.bandwidth_hz <= 0.0 || !std::isfinite(threat.threat_score) ||
         threat.threat_score < 0.0f || threat.threat_score > 1.0f ||
         !std::isfinite(threat.estimated_pri_s) || threat.estimated_pri_s <= 0.0 ||
-        !std::isfinite(threat.estimated_pulse_width_s) ||
-        threat.estimated_pulse_width_s < 0.0) {
+        !std::isfinite(threat.estimated_pulse_width_s) || threat.estimated_pulse_width_s < 0.0) {
       return false;
     }
   }
@@ -189,6 +182,11 @@ bool SnapshotInternallyConsistent(const EcmRuntimeState& state) {
       }
     }
   }
+  if (!state.deception_states.empty() &&
+      (!state.active_config.power_on ||
+       state.active_config.default_technique != EcmTechnique::kDeception)) {
+    return false;
+  }
   for (const EcmDeceptionState& deception_state : state.deception_states) {
     // 模式/相位必须为已知枚举值。
     if (!IsKnownDeceptionMode(deception_state.mode)) {
@@ -200,47 +198,52 @@ bool SnapshotInternallyConsistent(const EcmRuntimeState& state) {
         deception_state.phase != EcmDeceptionPhase::kStopped) {
       return false;
     }
-    if (deception_state.engaged) {
-      if (deception_state.current_delay_s < 0.0 ||
-          deception_state.phase_elapsed_s < 0.0 ||
-          !std::isfinite(deception_state.current_delay_s) ||
-          !std::isfinite(deception_state.current_doppler_offset_hz) ||
-          !std::isfinite(deception_state.phase_elapsed_s)) {
-        return false;
-      }
-      // 激活状态不允许处于 kIdle（与相位机状态转移矛盾）。
-      if (deception_state.phase == EcmDeceptionPhase::kIdle) {
-        return false;
-      }
-      // 拖引状态值不得超出配置上限（delay/doppler 分别针对 RGPO/VGPO 模式）。
-      const double c = 299792458.0;
-      if (deception_state.mode == EcmDeceptionMode::kRgpo ||
-          deception_state.mode == EcmDeceptionMode::kRgpoVgpo) {
-        const double max_delay_s =
-            2.0 * state.active_config.deception_rgpo_max_range_m / c;
-        if (deception_state.current_delay_s > max_delay_s) {
+    if (!deception_state.engaged ||
+        deception_state.mode != state.active_config.default_deception_mode ||
+        deception_state.current_delay_s < 0.0 || deception_state.phase_elapsed_s < 0.0 ||
+        !std::isfinite(deception_state.current_delay_s) ||
+        !std::isfinite(deception_state.current_doppler_offset_hz) ||
+        !std::isfinite(deception_state.phase_elapsed_s) ||
+        deception_state.phase == EcmDeceptionPhase::kIdle) {
+      return false;
+    }
+    const double c = 299792458.0;
+    const double max_delay_s = 2.0 * state.active_config.deception_rgpo_max_range_m / c;
+    switch (deception_state.mode) {
+      case EcmDeceptionMode::kRgpo:
+        if (deception_state.current_delay_s > max_delay_s ||
+            deception_state.current_doppler_offset_hz != 0.0) {
           return false;
         }
-      }
-      if (deception_state.mode == EcmDeceptionMode::kVgpo ||
-          deception_state.mode == EcmDeceptionMode::kRgpoVgpo) {
-        if (std::fabs(deception_state.current_doppler_offset_hz) >
-            state.active_config.deception_vgpo_max_doppler_hz) {
+        break;
+      case EcmDeceptionMode::kVgpo:
+        if (deception_state.current_delay_s != 0.0 ||
+            std::fabs(deception_state.current_doppler_offset_hz) >
+                state.active_config.deception_vgpo_max_doppler_hz) {
           return false;
         }
-      }
-    } else {
-      // 非激活状态只能处于 kIdle（kTowing/kHolding/kStopped 均要求 engaged）。
-      if (deception_state.phase != EcmDeceptionPhase::kIdle) {
-        return false;
-      }
+        break;
+      case EcmDeceptionMode::kRgpoVgpo:
+        if (deception_state.current_delay_s > max_delay_s ||
+            std::fabs(deception_state.current_doppler_offset_hz) >
+                state.active_config.deception_vgpo_max_doppler_hz) {
+          return false;
+        }
+        break;
+      case EcmDeceptionMode::kFalseTarget:
+        if (deception_state.phase != EcmDeceptionPhase::kTowing ||
+            deception_state.current_delay_s != 0.0 ||
+            deception_state.current_doppler_offset_hz != 0.0) {
+          return false;
+        }
+        break;
     }
   }
   // 激活交战数不得超过欺骗并发上限。
   {
-    const std::size_t engaged_count = static_cast<std::size_t>(std::count_if(
-        state.deception_states.begin(), state.deception_states.end(),
-        [](const EcmDeceptionState& s) { return s.engaged; }));
+    const std::size_t engaged_count = static_cast<std::size_t>(
+        std::count_if(state.deception_states.begin(), state.deception_states.end(),
+                      [](const EcmDeceptionState& s) { return s.engaged; }));
     if (engaged_count > static_cast<std::size_t>(state.active_config.deception_max_active)) {
       return false;
     }
@@ -308,8 +311,7 @@ void AssignTieBreakKeys(std::vector<SchedulingThreat>* threats, std::mt19937* ti
   }
 }
 
-bool IsFeasibleThreat(const SchedulingThreat& threat,
-                      const config::EcmSessionConfig& config) {
+bool IsFeasibleThreat(const SchedulingThreat& threat, const config::EcmSessionConfig& config) {
   if (config.default_technique == EcmTechnique::kDeception) {
     double doppler_margin_hz = 0.0;
     switch (config.default_deception_mode) {
@@ -330,8 +332,7 @@ bool IsFeasibleThreat(const SchedulingThreat& threat,
     // TryBuildDeceptionEmission / TryBuildFalseTargetEmission）。半带宽加 Doppler
     // margin 后必须落在硬件频率范围内，否则频带边缘的欺骗波形会超出上限被发布。
     // 此前实现仅用 center ± doppler_margin 检查，遗漏了威胁带宽的半边。
-    const double occupied_half_bw_hz =
-        0.5 * std::max(1'000'000.0, threat.bandwidth_hz);
+    const double occupied_half_bw_hz = 0.5 * std::max(1000000.0, threat.bandwidth_hz);
     return (threat.center_frequency_hz - occupied_half_bw_hz - doppler_margin_hz) >=
                config.minimum_frequency_hz &&
            (threat.center_frequency_hz + occupied_half_bw_hz + doppler_margin_hz) <=
@@ -343,17 +344,15 @@ bool IsFeasibleThreat(const SchedulingThreat& threat,
   } else if (config.default_technique == EcmTechnique::kSweep) {
     occupied_bandwidth_hz = config.sweep_bandwidth_hz;
   }
-  return threat.center_frequency_hz - 0.5 * occupied_bandwidth_hz >=
-             config.minimum_frequency_hz &&
-         threat.center_frequency_hz + 0.5 * occupied_bandwidth_hz <=
-             config.maximum_frequency_hz;
+  return threat.center_frequency_hz - 0.5 * occupied_bandwidth_hz >= config.minimum_frequency_hz &&
+         threat.center_frequency_hz + 0.5 * occupied_bandwidth_hz <= config.maximum_frequency_hz;
 }
 
-bool TryBuildEmission(
-    const EcmCycleInput& input, const config::EcmSessionConfig& config,
-    const SchedulingThreat& threat, double allocated_power_w, std::uint32_t channel_index,
-    std::uint64_t emission_id, std::mt19937* scheduling_rng,
-    oneq::electromagnetics::RfSceneEmission* output) {
+bool TryBuildEmission(const EcmCycleInput& input, const config::EcmSessionConfig& config,
+                      const SchedulingThreat& threat, double allocated_power_w,
+                      std::uint32_t channel_index, std::uint64_t emission_id,
+                      std::mt19937* scheduling_rng,
+                      oneq::electromagnetics::RfSceneEmission* output) {
   if (output == nullptr) {
     return false;
   }
@@ -380,19 +379,17 @@ bool TryBuildEmission(
     const double instantaneous_bandwidth_hz =
         config.sweep_bandwidth_hz / static_cast<double>(config.sweep_segment_count);
     if (!oneq::electromagnetics::TryCreateRfLinearSweepWaveform(
-            input.cycle_start_time_s, input.dt_sec, start_frequency_hz,
-            stop_frequency_hz, instantaneous_bandwidth_hz, allocated_power_w,
-            input.dt_sec, &emission.waveform)) {
+            input.cycle_start_time_s, input.dt_sec, start_frequency_hz, stop_frequency_hz,
+            instantaneous_bandwidth_hz, allocated_power_w, input.dt_sec, &emission.waveform)) {
       return false;
     }
   } else {
     const double bandwidth_hz = technique == EcmTechnique::kBarrage
-                                    ? std::max(config.barrage_bandwidth_hz,
-                                               threat.bandwidth_hz)
+                                    ? std::max(config.barrage_bandwidth_hz, threat.bandwidth_hz)
                                     : config.spot_bandwidth_hz;
-    if (!oneq::electromagnetics::TryCreateRfNoiseWaveform(
-            input.cycle_start_time_s, input.dt_sec, threat.center_frequency_hz,
-            bandwidth_hz, allocated_power_w, &emission.waveform)) {
+    if (!oneq::electromagnetics::TryCreateRfNoiseWaveform(input.cycle_start_time_s, input.dt_sec,
+                                                          threat.center_frequency_hz, bandwidth_hz,
+                                                          allocated_power_w, &emission.waveform)) {
       return false;
     }
   }
@@ -402,8 +399,7 @@ bool TryBuildEmission(
 }
 
 void AdvanceDeceptionStates(std::vector<EcmDeceptionState>* states,
-                            const config::EcmSessionConfig& config,
-                            double dt_sec) {
+                            const config::EcmSessionConfig& config, double dt_sec) {
   if (states == nullptr) {
     return;
   }
@@ -417,12 +413,9 @@ void AdvanceDeceptionStates(std::vector<EcmDeceptionState>* states,
 
     switch (state.phase) {
       case EcmDeceptionPhase::kTowing:
-        if (state.mode == EcmDeceptionMode::kRgpo ||
-            state.mode == EcmDeceptionMode::kRgpoVgpo) {
-          const double max_delay =
-              2.0 * config.deception_rgpo_max_range_m / c;
-          state.current_delay_s +=
-              2.0 * (config.deception_rgpo_rate_m_per_s * dt_sec) / c;
+        if (state.mode == EcmDeceptionMode::kRgpo || state.mode == EcmDeceptionMode::kRgpoVgpo) {
+          const double max_delay = 2.0 * config.deception_rgpo_max_range_m / c;
+          state.current_delay_s += 2.0 * (config.deception_rgpo_rate_m_per_s * dt_sec) / c;
           if (state.current_delay_s >= max_delay) {
             state.current_delay_s = max_delay;
             if (state.mode != EcmDeceptionMode::kRgpoVgpo) {
@@ -431,14 +424,10 @@ void AdvanceDeceptionStates(std::vector<EcmDeceptionState>* states,
             }
           }
         }
-        if (state.mode == EcmDeceptionMode::kVgpo ||
-            state.mode == EcmDeceptionMode::kRgpoVgpo) {
-          state.current_doppler_offset_hz +=
-              config.deception_vgpo_rate_hz_per_s * dt_sec;
-          if (std::abs(state.current_doppler_offset_hz) >=
-              config.deception_vgpo_max_doppler_hz) {
-            state.current_doppler_offset_hz =
-                config.deception_vgpo_max_doppler_hz;
+        if (state.mode == EcmDeceptionMode::kVgpo || state.mode == EcmDeceptionMode::kRgpoVgpo) {
+          state.current_doppler_offset_hz += config.deception_vgpo_rate_hz_per_s * dt_sec;
+          if (std::abs(state.current_doppler_offset_hz) >= config.deception_vgpo_max_doppler_hz) {
+            state.current_doppler_offset_hz = config.deception_vgpo_max_doppler_hz;
             if (state.mode != EcmDeceptionMode::kRgpoVgpo) {
               state.phase = EcmDeceptionPhase::kHolding;
               state.phase_elapsed_s = 0.0;
@@ -448,11 +437,9 @@ void AdvanceDeceptionStates(std::vector<EcmDeceptionState>* states,
         // For kRgpoVgpo, transition to kHolding only when both RGPO delay
         // and VGPO doppler have reached their respective maxima.
         if (state.mode == EcmDeceptionMode::kRgpoVgpo) {
-          const double max_delay =
-              2.0 * config.deception_rgpo_max_range_m / c;
+          const double max_delay = 2.0 * config.deception_rgpo_max_range_m / c;
           if (state.current_delay_s >= max_delay &&
-              std::abs(state.current_doppler_offset_hz) >=
-                  config.deception_vgpo_max_doppler_hz) {
+              std::abs(state.current_doppler_offset_hz) >= config.deception_vgpo_max_doppler_hz) {
             state.phase = EcmDeceptionPhase::kHolding;
             state.phase_elapsed_s = 0.0;
           }
@@ -482,18 +469,18 @@ void AdvanceDeceptionStates(std::vector<EcmDeceptionState>* states,
     }
   }
   states->erase(std::remove_if(states->begin(), states->end(),
-                    [](const EcmDeceptionState& s) {
-                      return !s.engaged && s.phase == EcmDeceptionPhase::kIdle;
-                    }),
+                               [](const EcmDeceptionState& s) {
+                                 return !s.engaged && s.phase == EcmDeceptionPhase::kIdle;
+                               }),
                 states->end());
 }
 
 // Returns a pointer into the states vector to the existing or newly created
 // engagement for the given threat. The caller must not retain the pointer
 // across vector mutations.
-EcmDeceptionState* FindOrCreateDeceptionState(
-    std::vector<EcmDeceptionState>* states, std::uint64_t threat_id,
-    EcmDeceptionMode mode, std::uint32_t max_active) {
+EcmDeceptionState* FindOrCreateDeceptionState(std::vector<EcmDeceptionState>* states,
+                                              std::uint64_t threat_id, EcmDeceptionMode mode,
+                                              std::uint32_t max_active) {
   if (states == nullptr) {
     return nullptr;
   }
@@ -504,8 +491,7 @@ EcmDeceptionState* FindOrCreateDeceptionState(
   }
   // Enforce deception concurrency cap before creating a new engagement.
   const std::size_t engaged_count = std::count_if(
-      states->begin(), states->end(),
-      [](const EcmDeceptionState& s) { return s.engaged; });
+      states->begin(), states->end(), [](const EcmDeceptionState& s) { return s.engaged; });
   if (engaged_count >= max_active) {
     return nullptr;
   }
@@ -518,12 +504,11 @@ EcmDeceptionState* FindOrCreateDeceptionState(
   return &states->back();
 }
 
-bool TryBuildDeceptionEmission(
-    const EcmCycleInput& input, const config::EcmSessionConfig& config,
-    const SchedulingThreat& threat, const EcmDeceptionState& deception_state,
-    double allocated_power_w, std::uint64_t emission_id,
-    std::mt19937* scheduling_rng,
-    oneq::electromagnetics::RfSceneEmission* output) {
+bool TryBuildDeceptionEmission(const EcmCycleInput& input, const config::EcmSessionConfig& config,
+                               const SchedulingThreat& threat,
+                               const EcmDeceptionState& deception_state, double allocated_power_w,
+                               std::uint64_t emission_id, std::mt19937* scheduling_rng,
+                               oneq::electromagnetics::RfSceneEmission* output) {
   if (output == nullptr) {
     return false;
   }
@@ -540,14 +525,11 @@ bool TryBuildDeceptionEmission(
       threat.center_frequency_hz + deception_state.current_doppler_offset_hz;
   double bandwidth_hz = std::max(1.0e6, threat.bandwidth_hz);
   double pri_s = std::max(1.0e-6, threat.estimated_pri_s);
-  double pulse_width_s =
-      std::min(threat.estimated_pulse_width_s, pri_s * 0.45);
+  double pulse_width_s = std::min(threat.estimated_pulse_width_s, pri_s * 0.45);
   pulse_width_s = std::max(1.0e-9, pulse_width_s);
-  double first_pulse_time_s =
-      input.cycle_start_time_s + deception_state.current_delay_s;
+  double first_pulse_time_s = input.cycle_start_time_s + deception_state.current_delay_s;
 
-  std::uint32_t pulse_count =
-      static_cast<std::uint32_t>(std::floor(input.dt_sec / pri_s));
+  std::uint32_t pulse_count = static_cast<std::uint32_t>(std::floor(input.dt_sec / pri_s));
   if (pulse_count == 0U) {
     pulse_count = 1U;
   }
@@ -561,21 +543,19 @@ bool TryBuildDeceptionEmission(
   }
 
   bool ok = oneq::electromagnetics::TryCreateRfPulseTrainWaveform(
-      first_pulse_time_s, center_frequency_hz, bandwidth_hz,
-      allocated_power_w, pulse_width_s, pri_s, pulse_count, jitter_fraction,
-      timing_seed, timing_epoch, &emission.waveform);
+      first_pulse_time_s, center_frequency_hz, bandwidth_hz, allocated_power_w, pulse_width_s,
+      pri_s, pulse_count, jitter_fraction, timing_seed, timing_epoch, &emission.waveform);
   if (ok) {
     *output = emission;
   }
   return ok;
 }
 
-bool TryBuildFalseTargetEmission(
-    const EcmCycleInput& input, const config::EcmSessionConfig& config,
-    const SchedulingThreat& threat, double allocated_power_w,
-    std::uint64_t emission_id, std::mt19937* scheduling_rng,
-    std::uint32_t ft_index,
-    oneq::electromagnetics::RfSceneEmission* output) {
+bool TryBuildFalseTargetEmission(const EcmCycleInput& input, const config::EcmSessionConfig& config,
+                                 const SchedulingThreat& threat, double allocated_power_w,
+                                 std::uint64_t emission_id, std::mt19937* scheduling_rng,
+                                 std::uint32_t ft_index,
+                                 oneq::electromagnetics::RfSceneEmission* output) {
   if (output == nullptr) {
     return false;
   }
@@ -592,19 +572,15 @@ bool TryBuildFalseTargetEmission(
       threat.center_frequency_hz + config.deception_false_target_doppler_hz;
   double bandwidth_hz = std::max(1.0e6, threat.bandwidth_hz);
   double pri_s = std::max(1.0e-6, threat.estimated_pri_s);
-  double pulse_width_s =
-      std::min(threat.estimated_pulse_width_s, pri_s * 0.45);
+  double pulse_width_s = std::min(threat.estimated_pulse_width_s, pri_s * 0.45);
   pulse_width_s = std::max(1.0e-9, pulse_width_s);
 
   // Stagger false target delays so they don't coincide in time.
-  double stagger_offset_s =
-      static_cast<double>(ft_index) * 1.0e-6;
+  double stagger_offset_s = static_cast<double>(ft_index) * 1.0e-6;
   double first_pulse_time_s =
-      input.cycle_start_time_s + config.deception_false_target_delay_s +
-      stagger_offset_s;
+      input.cycle_start_time_s + config.deception_false_target_delay_s + stagger_offset_s;
 
-  std::uint32_t pulse_count =
-      static_cast<std::uint32_t>(std::floor(input.dt_sec / pri_s));
+  std::uint32_t pulse_count = static_cast<std::uint32_t>(std::floor(input.dt_sec / pri_s));
   if (pulse_count == 0U) {
     pulse_count = 1U;
   }
@@ -618,9 +594,8 @@ bool TryBuildFalseTargetEmission(
   }
 
   bool ok = oneq::electromagnetics::TryCreateRfPulseTrainWaveform(
-      first_pulse_time_s, center_frequency_hz, bandwidth_hz,
-      allocated_power_w, pulse_width_s, pri_s, pulse_count, jitter_fraction,
-      timing_seed, timing_epoch, &emission.waveform);
+      first_pulse_time_s, center_frequency_hz, bandwidth_hz, allocated_power_w, pulse_width_s,
+      pri_s, pulse_count, jitter_fraction, timing_seed, timing_epoch, &emission.waveform);
   if (ok) {
     *output = emission;
   }
@@ -700,17 +675,15 @@ EcmCycleResult EcmSession::StepWithResult(const EcmCycleInput& input) {
   std::mt19937 candidate_scheduling_rng = impl_->scheduling_rng;
   std::mt19937 candidate_tie_break_rng = impl_->tie_break_rng;
   std::mt19937 candidate_deception_rng = impl_->deception_rng;
-  std::vector<EcmDeceptionState> candidate_deception_states =
-      impl_->deception_states;
-  double candidate_thermal_energy_j = std::max(
-      0.0, impl_->thermal_energy_j - impl_->active_config.cooling_power_w * input.dt_sec);
+  std::vector<EcmDeceptionState> candidate_deception_states = impl_->deception_states;
+  double candidate_thermal_energy_j =
+      std::max(0.0, impl_->thermal_energy_j - impl_->active_config.cooling_power_w * input.dt_sec);
   std::vector<SchedulingThreat> threats;
 
   if (input.input_mode == EcmInputMode::kSensorDriven) {
     if (input.has_sensor_observation_frame) {
-      if (candidate_has_last_frame &&
-          input.sensor_observation_frame.source_esr_batch_id <=
-              candidate_last_frame.source_esr_batch_id) {
+      if (candidate_has_last_frame && input.sensor_observation_frame.source_esr_batch_id <=
+                                          candidate_last_frame.source_esr_batch_id) {
         // Fresh-frame provenance: a new frame must come from a strictly later
         // ESR success batch than the last consumed one (replays/stale frames
         // rejected). batch_id is the ESR monotonic success sequence.
@@ -723,12 +696,10 @@ EcmCycleResult EcmSession::StepWithResult(const EcmCycleInput& input) {
       candidate_age = 0U;
     } else if (candidate_has_last_frame) {
       ++candidate_age;
-      result.used_glided_observation =
-          candidate_age <= kMaximumGlideSuccessfulCycles;
+      result.used_glided_observation = candidate_age <= kMaximumGlideSuccessfulCycles;
     }
     if (candidate_has_last_frame && candidate_age <= kMaximumGlideSuccessfulCycles) {
-      result.source_esr_batch_id =
-          candidate_last_frame.source_esr_batch_id;
+      result.source_esr_batch_id = candidate_last_frame.source_esr_batch_id;
       for (const EcmSensorObservation& observation : candidate_last_frame.observations) {
         SchedulingThreat threat;
         threat.observation_id = observation.source_hypothesis_id;
@@ -754,29 +725,29 @@ EcmCycleResult EcmSession::StepWithResult(const EcmCycleInput& input) {
   }
 
   // Advance deception state machine for existing engagements before scheduling.
-  AdvanceDeceptionStates(&candidate_deception_states, impl_->active_config,
-                         input.dt_sec);
+  AdvanceDeceptionStates(&candidate_deception_states, impl_->active_config, input.dt_sec);
 
   // Filter infeasible threats first: only threats that actually compete for
   // channels participate in the tie-break, so tie_break_rng consumption equals
   // the count of feasible candidates (input-order-independent).
-  threats.erase(std::remove_if(threats.begin(), threats.end(), [&](const SchedulingThreat& threat) {
-                  return !IsFeasibleThreat(threat, impl_->active_config);
-                }),
+  threats.erase(std::remove_if(threats.begin(), threats.end(),
+                               [&](const SchedulingThreat& threat) {
+                                 return !IsFeasibleThreat(threat, impl_->active_config);
+                               }),
                 threats.end());
   // Pre-derive a deterministic tie-break key per threat before sorting, so the
   // comparator below is a pure function (no RNG inside it) and the draw sequence
   // depends only on the feasible threat set, not on input order.
   AssignTieBreakKeys(&threats, &candidate_tie_break_rng);
-  std::stable_sort(threats.begin(), threats.end(), [](const SchedulingThreat& lhs,
-                                                       const SchedulingThreat& rhs) {
-    if (lhs.score != rhs.score) {
-      return lhs.score > rhs.score;
-    }
-    // Same score: order by the pre-derived pseudo-random key (pure comparison).
-    // Keys are unique per threat id, so this fully breaks ties deterministically.
-    return lhs.tie_break_key < rhs.tie_break_key;
-  });
+  std::stable_sort(threats.begin(), threats.end(),
+                   [](const SchedulingThreat& lhs, const SchedulingThreat& rhs) {
+                     if (lhs.score != rhs.score) {
+                       return lhs.score > rhs.score;
+                     }
+                     // Same score: order by the pre-derived pseudo-random key (pure comparison).
+                     // Keys are unique per threat id, so this fully breaks ties deterministically.
+                     return lhs.tie_break_key < rhs.tie_break_key;
+                   });
 
   const std::size_t selected_count =
       std::min<std::size_t>(threats.size(), impl_->active_config.channel_count);
@@ -786,9 +757,9 @@ EcmCycleResult EcmSession::StepWithResult(const EcmCycleInput& input) {
   double remaining_power_w =
       std::min(impl_->active_config.maximum_total_transmit_power_w, thermal_power_limit_w);
   for (std::size_t index = 0U; index < selected_count && remaining_power_w > 0.0; ++index) {
-    const double allocated_power_w = std::min(
-        impl_->active_config.maximum_channel_transmit_power_w,
-        remaining_power_w / static_cast<double>(selected_count - index));
+    const double allocated_power_w =
+        std::min(impl_->active_config.maximum_channel_transmit_power_w,
+                 remaining_power_w / static_cast<double>(selected_count - index));
     if (allocated_power_w <= 0.0) {
       break;
     }
@@ -803,8 +774,7 @@ EcmCycleResult EcmSession::StepWithResult(const EcmCycleInput& input) {
     if (technique == EcmTechnique::kDeception) {
       EcmDeceptionState* state = FindOrCreateDeceptionState(
           &candidate_deception_states, ThreatStableId(threats[index]),
-          impl_->active_config.default_deception_mode,
-          impl_->active_config.deception_max_active);
+          impl_->active_config.default_deception_mode, impl_->active_config.deception_max_active);
       if (state == nullptr) {
         decision.deception_mode = impl_->active_config.default_deception_mode;
         decision.deception_phase = EcmDeceptionPhase::kIdle;
@@ -814,8 +784,7 @@ EcmCycleResult EcmSession::StepWithResult(const EcmCycleInput& input) {
       }
       decision.deception_mode = state->mode;
       decision.deception_phase = state->phase;
-      if (state->phase == EcmDeceptionPhase::kStopped ||
-          state->phase == EcmDeceptionPhase::kIdle) {
+      if (state->phase == EcmDeceptionPhase::kStopped || state->phase == EcmDeceptionPhase::kIdle) {
         decision.reason = "deception engagement released or idle";
         result.decisions.push_back(decision);
         continue;
@@ -825,16 +794,13 @@ EcmCycleResult EcmSession::StepWithResult(const EcmCycleInput& input) {
           allocated_power_w * impl_->active_config.deception_power_scale;
 
       if (state->mode == EcmDeceptionMode::kFalseTarget) {
-        const std::uint32_t ft_count =
-            impl_->active_config.deception_max_false_targets_per_threat;
-        const double ft_power_w =
-            deception_power_w / static_cast<double>(ft_count);
+        const std::uint32_t ft_count = impl_->active_config.deception_max_false_targets_per_threat;
+        const double ft_power_w = deception_power_w / static_cast<double>(ft_count);
         for (std::uint32_t ft_idx = 0U; ft_idx < ft_count; ++ft_idx) {
           oneq::electromagnetics::RfSceneEmission emission;
-          if (!TryBuildFalseTargetEmission(
-                  input, impl_->active_config, threats[index], ft_power_w,
-                  candidate_next_emission_id, &candidate_deception_rng, ft_idx,
-                  &emission)) {
+          if (!TryBuildFalseTargetEmission(input, impl_->active_config, threats[index], ft_power_w,
+                                           candidate_next_emission_id, &candidate_deception_rng,
+                                           ft_idx, &emission)) {
             result.status = EcmCycleStatus::kRejectedInvalidConfig;
             result.decisions.clear();
             result.emission_frame.emissions.clear();
@@ -848,10 +814,9 @@ EcmCycleResult EcmSession::StepWithResult(const EcmCycleInput& input) {
       } else {
         decision.allocated_power_w = deception_power_w;
         oneq::electromagnetics::RfSceneEmission emission;
-        if (!TryBuildDeceptionEmission(
-                input, impl_->active_config, threats[index], *state,
-                deception_power_w, candidate_next_emission_id,
-                &candidate_deception_rng, &emission)) {
+        if (!TryBuildDeceptionEmission(input, impl_->active_config, threats[index], *state,
+                                       deception_power_w, candidate_next_emission_id,
+                                       &candidate_deception_rng, &emission)) {
           result.status = EcmCycleStatus::kRejectedInvalidConfig;
           result.decisions.clear();
           result.emission_frame.emissions.clear();
@@ -864,10 +829,8 @@ EcmCycleResult EcmSession::StepWithResult(const EcmCycleInput& input) {
     } else {
       decision.allocated_power_w = allocated_power_w;
       oneq::electromagnetics::RfSceneEmission emission;
-      if (!TryBuildEmission(input, impl_->active_config, threats[index],
-                            allocated_power_w,
-                            static_cast<std::uint32_t>(index),
-                            candidate_next_emission_id,
+      if (!TryBuildEmission(input, impl_->active_config, threats[index], allocated_power_w,
+                            static_cast<std::uint32_t>(index), candidate_next_emission_id,
                             &candidate_scheduling_rng, &emission)) {
         result.status = EcmCycleStatus::kRejectedInvalidConfig;
         result.decisions.clear();
@@ -917,10 +880,8 @@ EcmCycleResult EcmSession::StepWithResult(const EcmCycleInput& input) {
 EcmRuntimeConfigApplyResult EcmSession::ApplyRuntimeConfig(
     const config::EcmRuntimeConfigPatch& patch) {
   EcmRuntimeConfigApplyResult result;
-  result.has_requested_update = patch.has_power_on ||
-                                patch.has_maximum_total_transmit_power_w ||
-                                patch.has_default_technique ||
-                                patch.has_default_deception_mode;
+  result.has_requested_update = patch.has_power_on || patch.has_maximum_total_transmit_power_w ||
+                                patch.has_default_technique || patch.has_default_deception_mode;
   if (!result.has_requested_update) {
     return result;
   }
@@ -940,7 +901,13 @@ EcmRuntimeConfigApplyResult EcmSession::ApplyRuntimeConfig(
   if (!IsValidConfig(candidate)) {
     return result;
   }
+  const bool invalidates_deception_state =
+      (!candidate.power_on || candidate.default_technique != EcmTechnique::kDeception ||
+       candidate.default_deception_mode != impl_->active_config.default_deception_mode);
   impl_->active_config = candidate;
+  if (invalidates_deception_state) {
+    impl_->deception_states.clear();
+  }
   result.applied = true;
   return result;
 }
@@ -953,8 +920,7 @@ EcmRuntimeState EcmSession::CaptureRuntimeState() const {
   state.has_successful_cycle = impl_->has_successful_cycle;
   state.has_last_sensor_frame = impl_->has_last_sensor_frame;
   state.last_sensor_frame = impl_->last_sensor_frame;
-  state.observation_age_successful_ecm_cycles =
-      impl_->observation_age_successful_ecm_cycles;
+  state.observation_age_successful_ecm_cycles = impl_->observation_age_successful_ecm_cycles;
   state.last_successful_cycle_index = impl_->last_successful_cycle_index;
   state.has_world_chronology = impl_->has_world_chronology;
   state.last_world_cycle_index = impl_->last_world_cycle_index;
@@ -980,7 +946,8 @@ bool EcmSession::RestoreRuntimeState(const EcmRuntimeState& state) {
       !std::isfinite(state.last_world_window_end_time_s) ||
       (state.has_world_chronology && state.last_world_window_end_time_s <= 0.0) ||
       (!state.has_world_chronology && state.last_world_cycle_index != 0U) ||
-      state.thermal_energy_j < 0.0 || state.thermal_energy_j > state.active_config.thermal_capacity_j ||
+      state.thermal_energy_j < 0.0 ||
+      state.thermal_energy_j > state.active_config.thermal_capacity_j ||
       state.next_emission_id == 0U || !SnapshotInternallyConsistent(state)) {
     return false;
   }
@@ -1005,8 +972,7 @@ bool EcmSession::RestoreRuntimeState(const EcmRuntimeState& state) {
   impl_->has_successful_cycle = state.has_successful_cycle;
   impl_->has_last_sensor_frame = state.has_last_sensor_frame;
   impl_->last_sensor_frame = state.last_sensor_frame;
-  impl_->observation_age_successful_ecm_cycles =
-      state.observation_age_successful_ecm_cycles;
+  impl_->observation_age_successful_ecm_cycles = state.observation_age_successful_ecm_cycles;
   impl_->last_successful_cycle_index = state.last_successful_cycle_index;
   impl_->has_world_chronology = state.has_world_chronology;
   impl_->last_world_cycle_index = state.last_world_cycle_index;

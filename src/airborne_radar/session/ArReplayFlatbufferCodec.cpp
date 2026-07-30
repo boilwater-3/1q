@@ -176,26 +176,25 @@ session::ArControlProfile DecodeArControlProfile(const fb::ArControlProfile* val
     result.eccm_burnthrough_gain = value->eccm_burnthrough_gain();
     result.enable_anti_rgpo_leading_edge = value->enable_anti_rgpo_leading_edge();
     result.enable_anti_vgpo_acceleration_bound = value->enable_anti_vgpo_acceleration_bound();
-    result.enable_anti_false_target_discrimination = value->enable_anti_false_target_discrimination();
+    result.enable_anti_false_target_discrimination =
+        value->enable_anti_false_target_discrimination();
   }
   return result;
 }
 
 flatbuffers::Offset<fb::ArInterferenceObservation> EncodeArInterferenceObservation(
-    flatbuffers::FlatBufferBuilder* builder,
-    const session::ArInterferenceObservation& value) {
+    flatbuffers::FlatBufferBuilder* builder, const session::ArInterferenceObservation& value) {
   return fb::CreateArInterferenceObservation(
       *builder, value.observation_id, value.estimated_bearing_azimuth_deg,
       value.estimated_bearing_elevation_deg, value.estimated_off_boresight_deg,
       value.estimated_center_frequency_hz, value.estimated_bandwidth_hz,
       static_cast<int>(value.estimated_waveform_kind), value.jammer_to_noise_db,
       value.bearing_standard_deviation_deg, value.frequency_standard_deviation_hz,
-      value.bandwidth_standard_deviation_hz,
-      static_cast<int>(value.deception_class), value.coherent_emission_count,
-      value.estimated_slant_range_m, value.has_local_bearings,
-      value.estimated_bearing_azimuth_local_deg,
-      value.estimated_bearing_elevation_local_deg, value.estimated_range_rate_mps,
-      value.estimated_carrier_offset_hz, value.estimated_first_pulse_delay_s);
+      value.bandwidth_standard_deviation_hz, static_cast<int>(value.deception_class),
+      value.coherent_emission_count, value.estimated_slant_range_m, value.has_local_bearings,
+      value.estimated_bearing_azimuth_local_deg, value.estimated_bearing_elevation_local_deg,
+      value.estimated_range_rate_mps, value.estimated_carrier_offset_hz,
+      value.estimated_first_pulse_delay_s);
 }
 
 flatbuffers::Offset<fb::DecisionInputFrame> EncodeDecisionInputFrame(
@@ -207,18 +206,16 @@ flatbuffers::Offset<fb::DecisionInputFrame> EncodeDecisionInputFrame(
   }
   std::vector<flatbuffers::Offset<fb::ArInterferenceObservation>> observation_offsets;
   observation_offsets.reserve(value.interference_observations.size());
-  for (const session::ArInterferenceObservation& observation :
-       value.interference_observations) {
+  for (const session::ArInterferenceObservation& observation : value.interference_observations) {
     observation_offsets.push_back(EncodeArInterferenceObservation(builder, observation));
   }
   const session::AssociationQualityInfo& association = value.association_quality_info;
   const session::PerceptionQualityInfo& perception = value.perception_quality_info;
   return fb::CreateDecisionInputFrame(
       *builder, value.cycle_index, value.batch_id, builder->CreateVector(observation_offsets),
-      fb::CreateAssociationQualityInfo(
-          *builder, association.match_rate, association.new_track_rate,
-          association.missed_track_rate, association.mean_match_cost, association.p95_match_cost,
-          association.association_stress),
+      fb::CreateAssociationQualityInfo(*builder, association.match_rate, association.new_track_rate,
+                                       association.missed_track_rate, association.mean_match_cost,
+                                       association.p95_match_cost, association.association_stress),
       fb::CreatePerceptionQualityInfo(*builder,
                                       static_cast<std::uint64_t>(perception.input_target_count),
                                       static_cast<std::uint64_t>(perception.detection_count),
@@ -262,91 +259,109 @@ flatbuffers::Offset<fb::ExternalDecisionResponse> EncodeExternalDecisionResponse
                                             EncodeTacticalProposals(builder, value.proposals));
 }
 
-session::ArInterferenceObservation DecodeArInterferenceObservation(
-    const fb::ArInterferenceObservation* value) {
-  session::ArInterferenceObservation result;
-  if (value != nullptr) {
-    result.observation_id = value->observation_id();
-    result.estimated_bearing_azimuth_deg = value->estimated_bearing_azimuth_deg();
-    result.estimated_bearing_elevation_deg = value->estimated_bearing_elevation_deg();
-    result.estimated_off_boresight_deg = value->estimated_off_boresight_deg();
-    result.estimated_center_frequency_hz = value->estimated_center_frequency_hz();
-    result.estimated_bandwidth_hz = value->estimated_bandwidth_hz();
-    result.estimated_waveform_kind = static_cast<oneq::electromagnetics::RfSceneWaveformKind>(
-        value->estimated_waveform_kind());
-    result.jammer_to_noise_db = value->jammer_to_noise_db();
-    result.bearing_standard_deviation_deg = value->bearing_standard_deviation_deg();
-    result.frequency_standard_deviation_hz = value->frequency_standard_deviation_hz();
-    result.bandwidth_standard_deviation_hz = value->bandwidth_standard_deviation_hz();
-    // fail-closed: session::DeceptionClass 仅 kNone(0)、kLikelyFalseTarget(1) 合法。
-    // 越界枚举值钳制到 kNone，防止未定义行为且保证下游不误判为假目标。
-    const int raw_class = value->deception_class();
-    if (raw_class >= static_cast<int>(session::DeceptionClass::kNone) &&
-        raw_class <= static_cast<int>(session::DeceptionClass::kLikelyFalseTarget)) {
-      result.deception_class = static_cast<session::DeceptionClass>(raw_class);
-    }
-    result.coherent_emission_count = value->coherent_emission_count();
-    result.estimated_slant_range_m = value->estimated_slant_range_m();
-    result.has_local_bearings = value->has_local_bearings();
-    result.estimated_bearing_azimuth_local_deg = value->estimated_bearing_azimuth_local_deg();
-    result.estimated_bearing_elevation_local_deg = value->estimated_bearing_elevation_local_deg();
-    result.estimated_range_rate_mps = value->estimated_range_rate_mps();
-    result.estimated_carrier_offset_hz = value->estimated_carrier_offset_hz();
-    result.estimated_first_pulse_delay_s = value->estimated_first_pulse_delay_s();
-  }
-  return result;
+bool IsKnownRfSceneWaveformKind(int raw_value) {
+  using oneq::electromagnetics::RfSceneWaveformKind;
+  return raw_value == static_cast<int>(RfSceneWaveformKind::kContinuous) ||
+         raw_value == static_cast<int>(RfSceneWaveformKind::kPulseTrain) ||
+         raw_value == static_cast<int>(RfSceneWaveformKind::kLinearSweep) ||
+         raw_value == static_cast<int>(RfSceneWaveformKind::kBandLimitedNoise);
 }
 
-session::DecisionInputFrame DecodeDecisionInputFrame(const fb::DecisionInputFrame* value) {
+bool TryDecodeArInterferenceObservation(const fb::ArInterferenceObservation* value,
+                                        session::ArInterferenceObservation* observation) {
+  if (value == nullptr || observation == nullptr ||
+      !IsKnownRfSceneWaveformKind(value->estimated_waveform_kind()) ||
+      (value->deception_class() != static_cast<int>(session::DeceptionClass::kNone) &&
+       value->deception_class() != static_cast<int>(session::DeceptionClass::kLikelyFalseTarget))) {
+    return false;
+  }
+  session::ArInterferenceObservation candidate;
+  candidate.observation_id = value->observation_id();
+  candidate.estimated_bearing_azimuth_deg = value->estimated_bearing_azimuth_deg();
+  candidate.estimated_bearing_elevation_deg = value->estimated_bearing_elevation_deg();
+  candidate.estimated_off_boresight_deg = value->estimated_off_boresight_deg();
+  candidate.estimated_center_frequency_hz = value->estimated_center_frequency_hz();
+  candidate.estimated_bandwidth_hz = value->estimated_bandwidth_hz();
+  candidate.estimated_waveform_kind =
+      static_cast<oneq::electromagnetics::RfSceneWaveformKind>(value->estimated_waveform_kind());
+  candidate.jammer_to_noise_db = value->jammer_to_noise_db();
+  candidate.bearing_standard_deviation_deg = value->bearing_standard_deviation_deg();
+  candidate.frequency_standard_deviation_hz = value->frequency_standard_deviation_hz();
+  candidate.bandwidth_standard_deviation_hz = value->bandwidth_standard_deviation_hz();
+  candidate.deception_class = static_cast<session::DeceptionClass>(value->deception_class());
+  candidate.coherent_emission_count = value->coherent_emission_count();
+  candidate.estimated_slant_range_m = value->estimated_slant_range_m();
+  candidate.has_local_bearings = value->has_local_bearings();
+  candidate.estimated_bearing_azimuth_local_deg = value->estimated_bearing_azimuth_local_deg();
+  candidate.estimated_bearing_elevation_local_deg = value->estimated_bearing_elevation_local_deg();
+  candidate.estimated_range_rate_mps = value->estimated_range_rate_mps();
+  candidate.estimated_carrier_offset_hz = value->estimated_carrier_offset_hz();
+  candidate.estimated_first_pulse_delay_s = value->estimated_first_pulse_delay_s();
+  *observation = candidate;
+  return true;
+}
+
+bool TryDecodeDecisionInputFrame(const fb::DecisionInputFrame* value,
+                                 session::DecisionInputFrame* frame) {
+  if (value == nullptr || frame == nullptr) {
+    return false;
+  }
   session::DecisionInputFrame result;
-  if (value != nullptr) {
-    result.cycle_index = value->cycle_index();
-    result.batch_id = value->batch_id();
-    if (value->interference_observations() != nullptr) {
-      result.interference_observations.reserve(value->interference_observations()->size());
-      for (flatbuffers::uoffset_t index = 0U;
-           index < value->interference_observations()->size(); ++index) {
-        result.interference_observations.push_back(
-            DecodeArInterferenceObservation(value->interference_observations()->Get(index)));
+  result.cycle_index = value->cycle_index();
+  result.batch_id = value->batch_id();
+  if (value->interference_observations() != nullptr) {
+    result.interference_observations.reserve(value->interference_observations()->size());
+    for (flatbuffers::uoffset_t index = 0U; index < value->interference_observations()->size();
+         ++index) {
+      session::ArInterferenceObservation observation;
+      if (!TryDecodeArInterferenceObservation(value->interference_observations()->Get(index),
+                                              &observation)) {
+        return false;
       }
-    }
-    if (value->association_quality_info() != nullptr) {
-      const fb::AssociationQualityInfo* association = value->association_quality_info();
-      result.association_quality_info.match_rate = association->match_rate();
-      result.association_quality_info.new_track_rate = association->new_track_rate();
-      result.association_quality_info.missed_track_rate = association->missed_track_rate();
-      result.association_quality_info.mean_match_cost = association->mean_match_cost();
-      result.association_quality_info.p95_match_cost = association->p95_match_cost();
-      result.association_quality_info.association_stress = association->association_stress();
-    }
-    if (value->perception_quality_info() != nullptr) {
-      const fb::PerceptionQualityInfo* perception = value->perception_quality_info();
-      result.perception_quality_info.input_target_count =
-          static_cast<std::size_t>(perception->input_target_count());
-      result.perception_quality_info.detection_count =
-          static_cast<std::size_t>(perception->detection_count());
-      result.perception_quality_info.detection_rate = perception->detection_rate();
-      result.perception_quality_info.detection_stress = perception->detection_stress();
-    }
-    const flatbuffers::Vector<flatbuffers::Offset<fb::TrackStateSnapshot>>* tracks =
-        value->tracks();
-    if (tracks != nullptr) {
-      result.tracks.reserve(tracks->size());
-      for (flatbuffers::uoffset_t i = 0; i < tracks->size(); ++i) {
-        result.tracks.push_back(DecodeTrackSnapshot(tracks->Get(i)));
-      }
+      result.interference_observations.push_back(observation);
     }
   }
-  return result;
+  if (value->association_quality_info() != nullptr) {
+    const fb::AssociationQualityInfo* association = value->association_quality_info();
+    result.association_quality_info.match_rate = association->match_rate();
+    result.association_quality_info.new_track_rate = association->new_track_rate();
+    result.association_quality_info.missed_track_rate = association->missed_track_rate();
+    result.association_quality_info.mean_match_cost = association->mean_match_cost();
+    result.association_quality_info.p95_match_cost = association->p95_match_cost();
+    result.association_quality_info.association_stress = association->association_stress();
+  }
+  if (value->perception_quality_info() != nullptr) {
+    const fb::PerceptionQualityInfo* perception = value->perception_quality_info();
+    result.perception_quality_info.input_target_count =
+        static_cast<std::size_t>(perception->input_target_count());
+    result.perception_quality_info.detection_count =
+        static_cast<std::size_t>(perception->detection_count());
+    result.perception_quality_info.detection_rate = perception->detection_rate();
+    result.perception_quality_info.detection_stress = perception->detection_stress();
+  }
+  const flatbuffers::Vector<flatbuffers::Offset<fb::TrackStateSnapshot>>* tracks = value->tracks();
+  if (tracks != nullptr) {
+    result.tracks.reserve(tracks->size());
+    for (flatbuffers::uoffset_t i = 0; i < tracks->size(); ++i) {
+      result.tracks.push_back(DecodeTrackSnapshot(tracks->Get(i)));
+    }
+  }
+  *frame = result;
+  return true;
 }
 
-session::DecisionObservation DecodeDecisionObservation(const fb::DecisionObservation* value) {
-  session::DecisionObservation result;
-  if (value != nullptr) {
-    result.input_frame = DecodeDecisionInputFrame(value->input_frame());
-    result.active_control_profile = DecodeArControlProfile(value->active_control_profile());
+bool TryDecodeDecisionObservation(const fb::DecisionObservation* value,
+                                  session::DecisionObservation* observation) {
+  if (value == nullptr || observation == nullptr) {
+    return false;
   }
-  return result;
+  session::DecisionObservation result;
+  if (!TryDecodeDecisionInputFrame(value->input_frame(), &result.input_frame)) {
+    return false;
+  }
+  result.active_control_profile = DecodeArControlProfile(value->active_control_profile());
+  *observation = result;
+  return true;
 }
 
 session::TacticalProposal DecodeTacticalProposal(const fb::TacticalProposal* value) {
@@ -496,11 +511,9 @@ flatbuffers::Offset<session_fb::DetectionConfig> EncodeSessionDetectionConfig(
       value.antenna.antenna_length_m, value.antenna.antenna_width_m);
   std::vector<flatbuffers::Offset<session_fb::RfCoSiteIsolationPath>> co_site_paths;
   co_site_paths.reserve(value.receiver.co_site_paths.size());
-  for (const oneq::electromagnetics::RfCoSiteIsolationPath& path :
-       value.receiver.co_site_paths) {
+  for (const oneq::electromagnetics::RfCoSiteIsolationPath& path : value.receiver.co_site_paths) {
     co_site_paths.push_back(session_fb::CreateRfCoSiteIsolationPath(
-        *builder, path.transmitter_equipment_id, path.receiver_equipment_id,
-        path.isolation_db));
+        *builder, path.transmitter_equipment_id, path.receiver_equipment_id, path.isolation_db));
   }
   session_fb::ReceiverConfigBuilder receiver_builder(*builder);
   receiver_builder.add_equipment_id(value.receiver.equipment_id);
@@ -512,16 +525,13 @@ flatbuffers::Offset<session_fb::DetectionConfig> EncodeSessionDetectionConfig(
   receiver_builder.add_minimum_far_field_range_m(value.receiver.minimum_far_field_range_m);
   receiver_builder.add_has_co_site_isolation(value.receiver.has_co_site_isolation);
   receiver_builder.add_co_site_isolation_db(value.receiver.co_site_isolation_db);
-  receiver_builder.add_maximum_linear_input_power_w(
-      value.receiver.maximum_linear_input_power_w);
+  receiver_builder.add_maximum_linear_input_power_w(value.receiver.maximum_linear_input_power_w);
   receiver_builder.add_preselector_bandwidth_hz(value.receiver.preselector_bandwidth_hz);
   receiver_builder.add_interference_observation_jn_gate_db(
       value.receiver.interference_observation_jn_gate_db);
-  receiver_builder.add_scene_polarization(
-      static_cast<int>(value.receiver.scene_polarization));
+  receiver_builder.add_scene_polarization(static_cast<int>(value.receiver.scene_polarization));
   receiver_builder.add_co_site_paths(builder->CreateVector(co_site_paths));
-  const flatbuffers::Offset<session_fb::ReceiverConfig> receiver =
-      receiver_builder.Finish();
+  const flatbuffers::Offset<session_fb::ReceiverConfig> receiver = receiver_builder.Finish();
   const flatbuffers::Offset<session_fb::RcsPhysicsConfig> rcs_physics =
       session_fb::CreateRcsPhysicsConfig(
           *builder, value.rcs_physics.enable_physical_rcs, value.rcs_physics.physics_mix_ratio,
@@ -589,8 +599,7 @@ flatbuffers::Offset<session_fb::EnvironmentScenarioConfig> EncodeSessionEnvironm
     flatbuffers::FlatBufferBuilder* builder, const config::EnvironmentScenarioConfig& value) {
   return session_fb::CreateEnvironmentScenarioConfig(
       *builder, EncodeSessionAtmosphericPhysicsConfig(builder, value.atmospheric_physics),
-      EncodeSessionVegetationScatterPhysicsConfig(
-          builder, value.vegetation_scatter_physics));
+      EncodeSessionVegetationScatterPhysicsConfig(builder, value.vegetation_scatter_physics));
 }
 
 flatbuffers::Offset<session_fb::EnvironmentRuntimeConfigPatch>
@@ -710,24 +719,20 @@ config::DetectionConfig DecodeSessionDetectionConfig(const session_fb::Detection
       result.receiver.receive_loss_db = receiver->receive_loss_db();
       result.receiver.polarization =
           static_cast<oneq::electromagnetics::RfPolarization>(receiver->polarization());
-      result.receiver.cross_polarization_isolation_db =
-          receiver->cross_polarization_isolation_db();
+      result.receiver.cross_polarization_isolation_db = receiver->cross_polarization_isolation_db();
       result.receiver.minimum_far_field_range_m = receiver->minimum_far_field_range_m();
       result.receiver.has_co_site_isolation = receiver->has_co_site_isolation();
       result.receiver.co_site_isolation_db = receiver->co_site_isolation_db();
-      result.receiver.maximum_linear_input_power_w =
-          receiver->maximum_linear_input_power_w();
+      result.receiver.maximum_linear_input_power_w = receiver->maximum_linear_input_power_w();
       result.receiver.preselector_bandwidth_hz = receiver->preselector_bandwidth_hz();
       result.receiver.interference_observation_jn_gate_db =
           receiver->interference_observation_jn_gate_db();
       result.receiver.scene_polarization =
-          static_cast<oneq::electromagnetics::RfScenePolarization>(
-              receiver->scene_polarization());
+          static_cast<oneq::electromagnetics::RfScenePolarization>(receiver->scene_polarization());
       result.receiver.co_site_paths.clear();
       if (receiver->co_site_paths() != nullptr) {
         result.receiver.co_site_paths.reserve(receiver->co_site_paths()->size());
-        for (const session_fb::RfCoSiteIsolationPath* encoded :
-             *receiver->co_site_paths()) {
+        for (const session_fb::RfCoSiteIsolationPath* encoded : *receiver->co_site_paths()) {
           oneq::electromagnetics::RfCoSiteIsolationPath path;
           path.transmitter_equipment_id = encoded->transmitter_equipment_id();
           path.receiver_equipment_id = encoded->receiver_equipment_id();
@@ -1043,14 +1048,11 @@ oneq::electromagnetics::RfSceneFrame DecodeRfV2Scene(const fb::RfSceneFrameV2* v
 }
 
 flatbuffers::Offset<fb::EulerAnglesDeg64> EncodeEulerAnglesV3(
-    flatbuffers::FlatBufferBuilder* builder,
-    const oneq::coordinate::EulerAnglesDeg& value) {
-  return fb::CreateEulerAnglesDeg64(*builder, value.yaw_deg, value.pitch_deg,
-                                    value.roll_deg);
+    flatbuffers::FlatBufferBuilder* builder, const oneq::coordinate::EulerAnglesDeg& value) {
+  return fb::CreateEulerAnglesDeg64(*builder, value.yaw_deg, value.pitch_deg, value.roll_deg);
 }
 
-oneq::coordinate::EulerAnglesDeg DecodeEulerAnglesV3(
-    const fb::EulerAnglesDeg64* value) {
+oneq::coordinate::EulerAnglesDeg DecodeEulerAnglesV3(const fb::EulerAnglesDeg64* value) {
   oneq::coordinate::EulerAnglesDeg result;
   if (value != nullptr) {
     result.yaw_deg = value->yaw_deg();
@@ -1061,13 +1063,11 @@ oneq::coordinate::EulerAnglesDeg DecodeEulerAnglesV3(
 }
 
 flatbuffers::Offset<fb::EcefVelocityV3> EncodeEcefVelocityV3(
-    flatbuffers::FlatBufferBuilder* builder,
-    const oneq::coordinate::EcefVelocityMps& value) {
+    flatbuffers::FlatBufferBuilder* builder, const oneq::coordinate::EcefVelocityMps& value) {
   return fb::CreateEcefVelocityV3(*builder, value.x_mps, value.y_mps, value.z_mps);
 }
 
-oneq::coordinate::EcefVelocityMps DecodeEcefVelocityV3(
-    const fb::EcefVelocityV3* value) {
+oneq::coordinate::EcefVelocityMps DecodeEcefVelocityV3(const fb::EcefVelocityV3* value) {
   oneq::coordinate::EcefVelocityMps result;
   if (value != nullptr) {
     result.x_mps = value->x_mps();
@@ -1079,39 +1079,32 @@ oneq::coordinate::EcefVelocityMps DecodeEcefVelocityV3(
 
 flatbuffers::Offset<fb::ArPlatformInputV3> EncodePlatformInputV3(
     flatbuffers::FlatBufferBuilder* builder, const ArPlatformInput& value) {
-  return fb::CreateArPlatformInputV3(
-      *builder, value.platform_entity_id,
-      EncodeRfV2Position(builder, value.platform_position_ecef_m),
-      EncodeEcefVelocityV3(builder, value.platform_velocity_mps),
-      EncodeEulerAnglesV3(builder, value.platform_attitude_deg),
-      EncodeEulerAnglesV3(builder, value.radar_mount_angles_deg));
+  return fb::CreateArPlatformInputV3(*builder, value.platform_entity_id,
+                                     EncodeRfV2Position(builder, value.platform_position_ecef_m),
+                                     EncodeEcefVelocityV3(builder, value.platform_velocity_mps),
+                                     EncodeEulerAnglesV3(builder, value.platform_attitude_deg),
+                                     EncodeEulerAnglesV3(builder, value.radar_mount_angles_deg));
 }
 
 ArPlatformInput DecodePlatformInputV3(const fb::ArPlatformInputV3* value) {
   ArPlatformInput result;
   if (value != nullptr) {
     result.platform_entity_id = value->platform_entity_id();
-    result.platform_position_ecef_m =
-        DecodeRfV2Position(value->platform_position_ecef_m());
-    result.platform_velocity_mps =
-        DecodeEcefVelocityV3(value->platform_velocity_mps());
-    result.platform_attitude_deg =
-        DecodeEulerAnglesV3(value->platform_attitude_deg());
-    result.radar_mount_angles_deg =
-        DecodeEulerAnglesV3(value->radar_mount_angles_deg());
+    result.platform_position_ecef_m = DecodeRfV2Position(value->platform_position_ecef_m());
+    result.platform_velocity_mps = DecodeEcefVelocityV3(value->platform_velocity_mps());
+    result.platform_attitude_deg = DecodeEulerAnglesV3(value->platform_attitude_deg());
+    result.radar_mount_angles_deg = DecodeEulerAnglesV3(value->radar_mount_angles_deg());
   }
   return result;
 }
 
 flatbuffers::Offset<fb::ExternalKinematicsV3> EncodeExternalKinematicsV3(
-    flatbuffers::FlatBufferBuilder* builder,
-    const oneq::coordinate::ExternalKinematics& value) {
+    flatbuffers::FlatBufferBuilder* builder, const oneq::coordinate::ExternalKinematics& value) {
   const oneq::coordinate::LlaPositionDegM& lla = value.position_lla_deg_m;
   return fb::CreateExternalKinematicsV3(
       *builder, static_cast<int>(value.position_frame),
       EncodeRfV2Position(builder, value.position_ecef_m),
-      fb::CreateLlaPositionV3(*builder, lla.latitude_deg, lla.longitude_deg,
-                              lla.altitude_m),
+      fb::CreateLlaPositionV3(*builder, lla.latitude_deg, lla.longitude_deg, lla.altitude_m),
       EncodeEcefVelocityV3(builder, value.velocity_mps),
       EncodeEulerAnglesV3(builder, value.attitude_deg));
 }
@@ -1120,16 +1113,12 @@ oneq::coordinate::ExternalKinematics DecodeExternalKinematicsV3(
     const fb::ExternalKinematicsV3* value) {
   oneq::coordinate::ExternalKinematics result;
   if (value != nullptr) {
-    result.position_frame =
-        static_cast<oneq::coordinate::PositionFrame>(value->position_frame());
+    result.position_frame = static_cast<oneq::coordinate::PositionFrame>(value->position_frame());
     result.position_ecef_m = DecodeRfV2Position(value->position_ecef_m());
     if (value->position_lla_deg_m() != nullptr) {
-      result.position_lla_deg_m.latitude_deg =
-          value->position_lla_deg_m()->latitude_deg();
-      result.position_lla_deg_m.longitude_deg =
-          value->position_lla_deg_m()->longitude_deg();
-      result.position_lla_deg_m.altitude_m =
-          value->position_lla_deg_m()->altitude_m();
+      result.position_lla_deg_m.latitude_deg = value->position_lla_deg_m()->latitude_deg();
+      result.position_lla_deg_m.longitude_deg = value->position_lla_deg_m()->longitude_deg();
+      result.position_lla_deg_m.altitude_m = value->position_lla_deg_m()->altitude_m();
     }
     result.velocity_mps = DecodeEcefVelocityV3(value->velocity_mps());
     result.attitude_deg = DecodeEulerAnglesV3(value->attitude_deg());
@@ -1141,8 +1130,7 @@ flatbuffers::Offset<fb::ArTargetInputV3> EncodeTargetInputV3(
     flatbuffers::FlatBufferBuilder* builder, const ArTargetInput& value) {
   return fb::CreateArTargetInputV3(
       *builder, value.target_id, builder->CreateString(value.target_name),
-      EncodeExternalKinematicsV3(builder, value.kinematics), value.rcs,
-      value.swerling_type);
+      EncodeExternalKinematicsV3(builder, value.kinematics), value.rcs, value.swerling_type);
 }
 
 ArTargetInput DecodeTargetInputV3(const fb::ArTargetInputV3* value) {
@@ -1159,8 +1147,8 @@ ArTargetInput DecodeTargetInputV3(const fb::ArTargetInputV3* value) {
   return result;
 }
 
-flatbuffers::Offset<fb::ArCycleInputV3> EncodeCycleInputV3(
-    flatbuffers::FlatBufferBuilder* builder, const ArCycleInput& value) {
+flatbuffers::Offset<fb::ArCycleInputV3> EncodeCycleInputV3(flatbuffers::FlatBufferBuilder* builder,
+                                                           const ArCycleInput& value) {
   std::vector<flatbuffers::Offset<fb::ArTargetInputV3>> targets;
   targets.reserve(value.targets.size());
   for (const ArTargetInput& target : value.targets) {
@@ -1171,9 +1159,7 @@ flatbuffers::Offset<fb::ArCycleInputV3> EncodeCycleInputV3(
       *builder, value.cycle_index, value.cycle_start_time_s, value.dt_sec,
       EncodePlatformInputV3(builder, value.platform), builder->CreateVector(targets),
       fb::CreateArEnvironmentInputV3(
-          *builder,
-          EncodeCycleAtmosphericObservation(
-              builder, environment.atmospheric_observation),
+          *builder, EncodeCycleAtmosphericObservation(builder, environment.atmospheric_observation),
           EncodeCycleSurfaceObservation(builder, environment.surface_observation)),
       EncodeRfV2Scene(builder, value.interference));
 }
@@ -1193,42 +1179,36 @@ ArCycleInput DecodeCycleInputV3(const fb::ArCycleInputV3* value) {
     }
     if (value->environment() != nullptr) {
       result.environment.atmospheric_observation =
-          DecodeCycleAtmosphericObservation(
-              value->environment()->atmospheric_observation());
+          DecodeCycleAtmosphericObservation(value->environment()->atmospheric_observation());
       result.environment.surface_observation =
-          DecodeCycleSurfaceObservation(
-              value->environment()->surface_observation());
+          DecodeCycleSurfaceObservation(value->environment()->surface_observation());
     }
     result.interference = DecodeRfV2Scene(value->interference());
   }
   return result;
 }
 
-flatbuffers::Offset<fb::AssociationQualityMetricsV3>
-EncodeAssociationQualityMetricsV3(
-    flatbuffers::FlatBufferBuilder* builder,
-    const AssociationQualityMetrics& value) {
+flatbuffers::Offset<fb::AssociationQualityMetricsV3> EncodeAssociationQualityMetricsV3(
+    flatbuffers::FlatBufferBuilder* builder, const AssociationQualityMetrics& value) {
   return fb::CreateAssociationQualityMetricsV3(
       *builder, static_cast<std::uint64_t>(value.prior_track_count),
       static_cast<std::uint64_t>(value.detection_count),
       static_cast<std::uint64_t>(value.matched_count),
       static_cast<std::uint64_t>(value.new_track_count),
-      static_cast<std::uint64_t>(value.missed_track_count), value.match_rate,
-      value.new_track_rate, value.missed_track_rate, value.mean_match_cost,
-      value.p95_match_cost, value.association_stress);
+      static_cast<std::uint64_t>(value.missed_track_count), value.match_rate, value.new_track_rate,
+      value.missed_track_rate, value.mean_match_cost, value.p95_match_cost,
+      value.association_stress);
 }
 
 AssociationQualityMetrics DecodeAssociationQualityMetricsV3(
     const fb::AssociationQualityMetricsV3* value) {
   AssociationQualityMetrics result;
   if (value != nullptr) {
-    result.prior_track_count =
-        static_cast<std::size_t>(value->prior_track_count());
+    result.prior_track_count = static_cast<std::size_t>(value->prior_track_count());
     result.detection_count = static_cast<std::size_t>(value->detection_count());
     result.matched_count = static_cast<std::size_t>(value->matched_count());
     result.new_track_count = static_cast<std::size_t>(value->new_track_count());
-    result.missed_track_count =
-        static_cast<std::size_t>(value->missed_track_count());
+    result.missed_track_count = static_cast<std::size_t>(value->missed_track_count());
     result.match_rate = value->match_rate();
     result.new_track_rate = value->new_track_rate();
     result.missed_track_rate = value->missed_track_rate();
@@ -1243,17 +1223,14 @@ flatbuffers::Offset<fb::ArCycleResultV3> EncodeCycleResultV3(
     flatbuffers::FlatBufferBuilder* builder, const ArCycleResult& value) {
   std::vector<flatbuffers::Offset<fb::ArInterferenceObservation>> observations;
   observations.reserve(value.interference_observations.size());
-  for (const ArInterferenceObservation& observation :
-       value.interference_observations) {
-    observations.push_back(
-        EncodeArInterferenceObservation(builder, observation));
+  for (const ArInterferenceObservation& observation : value.interference_observations) {
+    observations.push_back(EncodeArInterferenceObservation(builder, observation));
   }
   std::vector<flatbuffers::Offset<fb::ArCommandV3>> commands;
   commands.reserve(value.submitted_commands.size());
   for (const ArCommand& command : value.submitted_commands) {
-    commands.push_back(fb::CreateArCommandV3(
-        *builder, static_cast<int>(command.type),
-        static_cast<int>(command.source)));
+    commands.push_back(fb::CreateArCommandV3(*builder, static_cast<int>(command.type),
+                                             static_cast<int>(command.source)));
   }
   std::vector<flatbuffers::Offset<fb::ValidationIssueV3>> issues;
   issues.reserve(value.validation_issues.size());
@@ -1261,106 +1238,100 @@ flatbuffers::Offset<fb::ArCycleResultV3> EncodeCycleResultV3(
     issues.push_back(fb::CreateValidationIssueV3(
         *builder, static_cast<int>(issue.severity), static_cast<int>(issue.code),
         static_cast<int>(issue.location.kind),
-        static_cast<std::uint64_t>(issue.location.entity_index),
-        builder->CreateString(issue.field), builder->CreateString(issue.message)));
+        static_cast<std::uint64_t>(issue.location.entity_index), builder->CreateString(issue.field),
+        builder->CreateString(issue.message)));
   }
   return fb::CreateArCycleResultV3(
       *builder, value.input_cycle_index, static_cast<int>(value.status),
       EncodeTrackOutputFrame(builder, value.track_output_frame),
-      EncodeRfV2Scene(builder, value.emission_frame),
-      static_cast<int>(value.receiver_impairment),
+      EncodeRfV2Scene(builder, value.emission_frame), static_cast<int>(value.receiver_impairment),
       builder->CreateVector(observations), builder->CreateVector(commands),
       builder->CreateVector(issues), value.has_validation_error,
       static_cast<int>(value.abort_reason), value.has_control_profile,
       EncodeArControlProfile(builder, value.control_profile),
-      EncodeAssociationQualityMetricsV3(builder,
-                                        value.association_quality_metrics),
+      EncodeAssociationQualityMetricsV3(builder, value.association_quality_metrics),
       value.has_decision_observation,
       EncodeDecisionObservation(builder, value.decision_observation),
-      static_cast<int>(value.applied_decision_source),
-      value.applied_decision_cycle_index, value.applied_decision_batch_id);
+      static_cast<int>(value.applied_decision_source), value.applied_decision_cycle_index,
+      value.applied_decision_batch_id);
 }
 
-ArCycleResult DecodeCycleResultV3(const fb::ArCycleResultV3* value) {
-  ArCycleResult result;
-  if (value == nullptr) {
-    return result;
+bool TryDecodeCycleResultV3(const fb::ArCycleResultV3* value, ArCycleResult* result) {
+  if (value == nullptr || result == nullptr) {
+    return false;
   }
-  result.input_cycle_index = value->input_cycle_index();
-  result.status = static_cast<ArCycleStatus>(value->status());
-  result.track_output_frame = DecodeTrackOutputFrame(value->track_output_frame());
-  result.emission_frame = DecodeRfV2Scene(value->emission_frame());
-  result.receiver_impairment =
-      static_cast<ArReceiverImpairment>(value->receiver_impairment());
+  ArCycleResult candidate;
+  candidate.input_cycle_index = value->input_cycle_index();
+  candidate.status = static_cast<ArCycleStatus>(value->status());
+  candidate.track_output_frame = DecodeTrackOutputFrame(value->track_output_frame());
+  candidate.emission_frame = DecodeRfV2Scene(value->emission_frame());
+  candidate.receiver_impairment = static_cast<ArReceiverImpairment>(value->receiver_impairment());
   if (value->interference_observations() != nullptr) {
-    result.interference_observations.reserve(
-        value->interference_observations()->size());
-    for (const fb::ArInterferenceObservation* observation :
-         *value->interference_observations()) {
-      result.interference_observations.push_back(
-          DecodeArInterferenceObservation(observation));
+    candidate.interference_observations.reserve(value->interference_observations()->size());
+    for (const fb::ArInterferenceObservation* observation : *value->interference_observations()) {
+      session::ArInterferenceObservation decoded;
+      if (!TryDecodeArInterferenceObservation(observation, &decoded)) {
+        return false;
+      }
+      candidate.interference_observations.push_back(decoded);
     }
   }
   if (value->submitted_commands() != nullptr) {
-    result.submitted_commands.reserve(value->submitted_commands()->size());
+    candidate.submitted_commands.reserve(value->submitted_commands()->size());
     for (const fb::ArCommandV3* command : *value->submitted_commands()) {
-      result.submitted_commands.push_back(
+      candidate.submitted_commands.push_back(
           ArCommand(static_cast<ArCommandType>(command->type()),
                     static_cast<ArCommandSource>(command->source())));
     }
   }
   if (value->validation_issues() != nullptr) {
-    result.validation_issues.reserve(value->validation_issues()->size());
+    candidate.validation_issues.reserve(value->validation_issues()->size());
     for (const fb::ValidationIssueV3* encoded : *value->validation_issues()) {
       ValidationIssue issue;
-      issue.severity =
-          static_cast<ValidationSeverity>(encoded->severity());
+      issue.severity = static_cast<ValidationSeverity>(encoded->severity());
       issue.code = static_cast<ValidationCode>(encoded->code());
-      issue.location.kind =
-          static_cast<ValidationLocationKind>(encoded->location_kind());
-      issue.location.entity_index =
-          static_cast<std::size_t>(encoded->entity_index());
+      issue.location.kind = static_cast<ValidationLocationKind>(encoded->location_kind());
+      issue.location.entity_index = static_cast<std::size_t>(encoded->entity_index());
       if (encoded->field() != nullptr) {
         issue.field = encoded->field()->str();
       }
       if (encoded->message() != nullptr) {
         issue.message = encoded->message()->str();
       }
-      result.validation_issues.push_back(issue);
+      candidate.validation_issues.push_back(issue);
     }
   }
-  result.has_validation_error = value->has_validation_error();
-  result.abort_reason =
-      static_cast<SignalCycleAbortReason>(value->abort_reason());
-  result.has_control_profile = value->has_control_profile();
-  result.control_profile = DecodeArControlProfile(value->control_profile());
-  result.association_quality_metrics =
+  candidate.has_validation_error = value->has_validation_error();
+  candidate.abort_reason = static_cast<SignalCycleAbortReason>(value->abort_reason());
+  candidate.has_control_profile = value->has_control_profile();
+  candidate.control_profile = DecodeArControlProfile(value->control_profile());
+  candidate.association_quality_metrics =
       DecodeAssociationQualityMetricsV3(value->association_quality_metrics());
-  result.has_decision_observation = value->has_decision_observation();
-  result.decision_observation =
-      DecodeDecisionObservation(value->decision_observation());
-  result.applied_decision_source =
+  candidate.has_decision_observation = value->has_decision_observation();
+  if (candidate.has_decision_observation &&
+      !TryDecodeDecisionObservation(value->decision_observation(),
+                                    &candidate.decision_observation)) {
+    return false;
+  }
+  candidate.applied_decision_source =
       static_cast<DecisionControlSource>(value->applied_decision_source());
-  result.applied_decision_cycle_index =
-      value->applied_decision_cycle_index();
-  result.applied_decision_batch_id = value->applied_decision_batch_id();
-  return result;
+  candidate.applied_decision_cycle_index = value->applied_decision_cycle_index();
+  candidate.applied_decision_batch_id = value->applied_decision_batch_id();
+  *result = candidate;
+  return true;
 }
 
 flatbuffers::Offset<fb::ArSessionReplayStateV3> EncodeSessionReplayStateV3(
-    flatbuffers::FlatBufferBuilder* builder,
-    const ArSessionReplayState& value) {
+    flatbuffers::FlatBufferBuilder* builder, const ArSessionReplayState& value) {
   return fb::CreateArSessionReplayStateV3(
-      *builder, value.has_world_chronology, value.last_world_window_end_s,
-      value.next_emission_id, value.successful_prepare_count, value.timing_seed,
-      value.frequency_hop_index, value.has_pending_runtime_update,
-      value.pending_execution_config_changed,
+      *builder, value.has_world_chronology, value.last_world_window_end_s, value.next_emission_id,
+      value.successful_prepare_count, value.timing_seed, value.frequency_hop_index,
+      value.has_pending_runtime_update, value.pending_execution_config_changed,
       value.pending_environment_scenario_config_changed,
       EncodeDecisionReplayState(builder, value.decision_state));
 }
 
-ArSessionReplayState DecodeSessionReplayStateV3(
-    const fb::ArSessionReplayStateV3* value) {
+ArSessionReplayState DecodeSessionReplayStateV3(const fb::ArSessionReplayStateV3* value) {
   ArSessionReplayState result;
   if (value != nullptr) {
     result.has_world_chronology = value->has_world_chronology();
@@ -1370,12 +1341,10 @@ ArSessionReplayState DecodeSessionReplayStateV3(
     result.timing_seed = value->timing_seed();
     result.frequency_hop_index = value->frequency_hop_index();
     result.has_pending_runtime_update = value->has_pending_runtime_update();
-    result.pending_execution_config_changed =
-        value->pending_execution_config_changed();
+    result.pending_execution_config_changed = value->pending_execution_config_changed();
     result.pending_environment_scenario_config_changed =
         value->pending_environment_scenario_config_changed();
-    result.decision_state =
-        DecodeDecisionReplayState(value->decision_state());
+    result.decision_state = DecodeDecisionReplayState(value->decision_state());
   }
   return result;
 }
@@ -1445,14 +1414,13 @@ bool DecodeExternalDecisionResponseFlatbuffer(const std::string& payload_bytes,
 
 std::string EncodeCycleInputFlatbuffer(const ArCycleInput& input) {
   flatbuffers::FlatBufferBuilder builder;
-  const flatbuffers::Offset<fb::ArCycleInputV3> root =
-      EncodeCycleInputV3(&builder, input);
+  const flatbuffers::Offset<fb::ArCycleInputV3> root = EncodeCycleInputV3(&builder, input);
   builder.Finish(root, fb::ArCycleInputV3Identifier());
   return oneq::common::replay::CopyFinishedFlatbuffer(builder);
 }
 
-bool DecodeCycleInputFlatbuffer(const std::string& payload_bytes,
-                                ArCycleInput* input, std::string* error) {
+bool DecodeCycleInputFlatbuffer(const std::string& payload_bytes, ArCycleInput* input,
+                                std::string* error) {
   if (input == nullptr) {
     if (error != nullptr) {
       *error = "null ArCycleInput output";
@@ -1460,8 +1428,7 @@ bool DecodeCycleInputFlatbuffer(const std::string& payload_bytes,
     return false;
   }
   const fb::ArCycleInputV3* root =
-      TryGetReplayRoot<fb::ArCycleInputV3>(payload_bytes, "ArCycleInputV3",
-                                           error);
+      TryGetReplayRoot<fb::ArCycleInputV3>(payload_bytes, "ArCycleInputV3", error);
   if (root == nullptr) {
     return false;
   }
@@ -1469,20 +1436,17 @@ bool DecodeCycleInputFlatbuffer(const std::string& payload_bytes,
   return true;
 }
 
-std::string EncodeCycleReplayRecordFlatbuffer(
-    const ArCycleReplayRecord& record) {
+std::string EncodeCycleReplayRecordFlatbuffer(const ArCycleReplayRecord& record) {
   flatbuffers::FlatBufferBuilder builder;
   const flatbuffers::Offset<fb::ArCycleReplayRecordV3> root =
-      fb::CreateArCycleReplayRecordV3(
-          builder, EncodeCycleResultV3(&builder, record.result),
-          EncodeSessionReplayStateV3(&builder, record.session_state));
+      fb::CreateArCycleReplayRecordV3(builder, EncodeCycleResultV3(&builder, record.result),
+                                      EncodeSessionReplayStateV3(&builder, record.session_state));
   builder.Finish(root);
   return oneq::common::replay::CopyFinishedFlatbuffer(builder);
 }
 
 bool DecodeCycleReplayRecordFlatbuffer(const std::string& payload_bytes,
-                                       ArCycleReplayRecord* record,
-                                       std::string* error) {
+                                       ArCycleReplayRecord* record, std::string* error) {
   if (record == nullptr) {
     if (error != nullptr) {
       *error = "null ArCycleReplayRecord output";
@@ -1490,15 +1454,19 @@ bool DecodeCycleReplayRecordFlatbuffer(const std::string& payload_bytes,
     return false;
   }
   const fb::ArCycleReplayRecordV3* root =
-      TryGetReplayRoot<fb::ArCycleReplayRecordV3>(
-          payload_bytes, "ArCycleReplayRecordV3", error);
-  if (root == nullptr || root->result() == nullptr ||
-      root->session_state() == nullptr) {
+      TryGetReplayRoot<fb::ArCycleReplayRecordV3>(payload_bytes, "ArCycleReplayRecordV3", error);
+  if (root == nullptr || root->result() == nullptr || root->session_state() == nullptr) {
     return false;
   }
-  record->result = DecodeCycleResultV3(root->result());
-  record->session_state =
-      DecodeSessionReplayStateV3(root->session_state());
+  ArCycleReplayRecord candidate;
+  if (!TryDecodeCycleResultV3(root->result(), &candidate.result)) {
+    if (error != nullptr) {
+      *error = "ArCycleReplayRecordV3 contains unknown interference observation enum";
+    }
+    return false;
+  }
+  candidate.session_state = DecodeSessionReplayStateV3(root->session_state());
+  *record = candidate;
   return true;
 }
 

@@ -6,6 +6,7 @@
 #include <gtest/gtest.h>
 
 #include <cstdint>
+#include <functional>
 #include <limits>
 #include <utility>
 
@@ -43,9 +44,27 @@ EcmCycleInput MakeSensorInput(std::uint32_t cycle_index, bool has_frame) {
   if (has_frame) {
     input.sensor_observation_frame.source_esr_batch_id =
         static_cast<std::uint64_t>(cycle_index - 1U);
-    input.sensor_observation_frame.observations.push_back(
-        MakeObservation(10U, 10.0e9, 0.9f));
+    input.sensor_observation_frame.observations.push_back(MakeObservation(10U, 10.0e9, 0.9f));
   }
+  return input;
+}
+
+EcmCycleInput MakeTruthInput(std::uint32_t cycle_index) {
+  EcmCycleInput input;
+  input.cycle_index = cycle_index;
+  input.cycle_start_time_s = static_cast<double>(cycle_index - 1U);
+  input.dt_sec = 1.0;
+  input.input_mode = EcmInputMode::kTruthAssisted;
+  input.platform_entity_id = 900U;
+  input.platform_position_ecef_m.x_m = 6378137.0;
+  EcmTruthThreat threat;
+  threat.truth_entity_id = 100U;
+  threat.center_frequency_hz = 10.0e9;
+  threat.bandwidth_hz = 10.0e6;
+  threat.threat_score = 0.9f;
+  threat.estimated_pri_s = 1.0e-3;
+  threat.estimated_pulse_width_s = 1.0e-6;
+  input.truth_threats.push_back(threat);
   return input;
 }
 
@@ -72,8 +91,7 @@ TEST(EcmSessionTest, SensorFrameGlidesTwoSuccessfulCyclesThenSafelyStops) {
 
 TEST(EcmSessionTest, RejectedMixedModeDoesNotAdvanceSuccessfulState) {
   EcmSession session = EcmSession::Create();
-  ASSERT_EQ(session.StepWithResult(MakeSensorInput(2U, true)).status,
-            EcmCycleStatus::kExecuted);
+  ASSERT_EQ(session.StepWithResult(MakeSensorInput(2U, true)).status, EcmCycleStatus::kExecuted);
 
   EcmCycleInput mixed = MakeSensorInput(3U, false);
   EcmTruthThreat truth;
@@ -102,16 +120,14 @@ TEST(EcmSessionTest, PublishedFrameUsesAbsoluteTimeAndEquipmentIdentity) {
   ASSERT_EQ(result.emission_frame.emissions.size(), 1U);
   EXPECT_EQ(result.emission_frame.emissions.front().identity.platform_id, 900U);
   EXPECT_EQ(result.emission_frame.emissions.front().identity.equipment_id, 17U);
-  EXPECT_DOUBLE_EQ(
-      result.emission_frame.emissions.front().waveform.activity_start_time_s, 1.0);
+  EXPECT_DOUBLE_EQ(result.emission_frame.emissions.front().waveform.activity_start_time_s, 1.0);
 }
 
 TEST(EcmSessionTest, PoweredOffAdvancesChronologyWithoutConsumingEmissionId) {
   config::EcmSessionConfig config;
   config.power_on = false;
   EcmSession session = EcmSession::Create(config);
-  EXPECT_EQ(session.StepWithResult(MakeSensorInput(2U, true)).status,
-            EcmCycleStatus::kPoweredOff);
+  EXPECT_EQ(session.StepWithResult(MakeSensorInput(2U, true)).status, EcmCycleStatus::kPoweredOff);
 
   config::EcmRuntimeConfigPatch patch;
   patch.has_power_on = true;
@@ -135,10 +151,8 @@ TEST(EcmSessionTest, ChannelAndPowerBudgetsAreConservedForAllTechniques) {
     config.default_technique = technique;
     EcmSession session = EcmSession::Create(config);
     EcmCycleInput input = MakeSensorInput(2U, true);
-    input.sensor_observation_frame.observations.push_back(
-        MakeObservation(11U, 9.0e9, 0.8f));
-    input.sensor_observation_frame.observations.push_back(
-        MakeObservation(12U, 8.0e9, 0.7f));
+    input.sensor_observation_frame.observations.push_back(MakeObservation(11U, 9.0e9, 0.8f));
+    input.sensor_observation_frame.observations.push_back(MakeObservation(12U, 8.0e9, 0.7f));
 
     const EcmCycleResult result = session.StepWithResult(input);
     ASSERT_EQ(result.status, EcmCycleStatus::kExecuted);
@@ -182,8 +196,7 @@ TEST(EcmSessionTest, SweepSnapshotContinuationIsDeterministic) {
   config::EcmSessionConfig config;
   config.default_technique = EcmTechnique::kSweep;
   EcmSession session = EcmSession::Create(config);
-  ASSERT_EQ(session.StepWithResult(MakeSensorInput(2U, true)).status,
-            EcmCycleStatus::kExecuted);
+  ASSERT_EQ(session.StepWithResult(MakeSensorInput(2U, true)).status, EcmCycleStatus::kExecuted);
   const EcmRuntimeState snapshot = session.CaptureRuntimeState();
 
   const EcmCycleResult first = session.StepWithResult(MakeSensorInput(3U, false));
@@ -195,17 +208,14 @@ TEST(EcmSessionTest, SweepSnapshotContinuationIsDeterministic) {
   EXPECT_EQ(first.emission_frame.emissions.front().identity.emission_id,
             replayed.emission_frame.emissions.front().identity.emission_id);
   EXPECT_DOUBLE_EQ(first.emission_frame.emissions.front().waveform.sweep_start_frequency_hz,
-                   replayed.emission_frame.emissions.front()
-                       .waveform.sweep_start_frequency_hz);
+                   replayed.emission_frame.emissions.front().waveform.sweep_start_frequency_hz);
   EXPECT_DOUBLE_EQ(first.emission_frame.emissions.front().waveform.sweep_stop_frequency_hz,
-                   replayed.emission_frame.emissions.front()
-                       .waveform.sweep_stop_frequency_hz);
+                   replayed.emission_frame.emissions.front().waveform.sweep_stop_frequency_hz);
 }
 
 TEST(EcmSessionTest, SnapshotFollowsImplAcrossFacadeMoveAndRejectsForeignSession) {
   EcmSession session = EcmSession::Create();
-  ASSERT_EQ(session.StepWithResult(MakeSensorInput(2U, true)).status,
-            EcmCycleStatus::kExecuted);
+  ASSERT_EQ(session.StepWithResult(MakeSensorInput(2U, true)).status, EcmCycleStatus::kExecuted);
   const EcmRuntimeState snapshot = session.CaptureRuntimeState();
 
   EcmSession moved = std::move(session);
@@ -228,11 +238,10 @@ TEST(EcmSessionTest, SnapshotFollowsImplAcrossFacadeMoveAndRejectsForeignSession
 // Capture a baseline well-formed snapshot from a session that has executed one
 // successful sensor-driven cycle (so has_last_sensor_frame and has_successful_
 // cycle are both true with valid nested observations).
-EcmRuntimeState CaptureBaselineSensorSnapshot() {
-  EcmSession session = EcmSession::Create();
-  EXPECT_EQ(session.StepWithResult(MakeSensorInput(2U, true)).status,
-            EcmCycleStatus::kExecuted);
-  return session.CaptureRuntimeState();
+EcmRuntimeState CaptureBaselineSensorSnapshot(EcmSession* session) {
+  EXPECT_NE(session, nullptr);
+  EXPECT_EQ(session->StepWithResult(MakeSensorInput(2U, true)).status, EcmCycleStatus::kExecuted);
+  return session->CaptureRuntimeState();
 }
 
 TEST(EcmSessionTest, RestoreRejectsDirtySnapshotAndLeavesSessionUntouched) {
@@ -241,13 +250,12 @@ TEST(EcmSessionTest, RestoreRejectsDirtySnapshotAndLeavesSessionUntouched) {
   auto run_dirty_case = [](const std::string& /*name*/, EcmRuntimeState dirty) {
     EcmSession session = EcmSession::Create();
     // Advance the session so it has distinguishable state to detect mutation.
-    ASSERT_EQ(session.StepWithResult(MakeSensorInput(2U, true)).status,
-              EcmCycleStatus::kExecuted);
+    ASSERT_EQ(session.StepWithResult(MakeSensorInput(2U, true)).status, EcmCycleStatus::kExecuted);
     const EcmRuntimeState before = session.CaptureRuntimeState();
-    // dirty carries this session's owner_identity (same session captured it).
+    // Replace only the owner token so rejection is decided by nested-state validation,
+    // not short-circuited by the helper snapshot's original session identity.
     dirty.owner_identity = before.owner_identity;
-    EXPECT_FALSE(session.RestoreRuntimeState(dirty))
-        << "dirty snapshot should be rejected";
+    EXPECT_FALSE(session.RestoreRuntimeState(dirty)) << "dirty snapshot should be rejected";
     const EcmRuntimeState after = session.CaptureRuntimeState();
     EXPECT_EQ(after.next_emission_id, before.next_emission_id)
         << "session mutated on rejected restore";
@@ -256,7 +264,8 @@ TEST(EcmSessionTest, RestoreRejectsDirtySnapshotAndLeavesSessionUntouched) {
     EXPECT_EQ(after.last_successful_cycle_index, before.last_successful_cycle_index);
   };
 
-  EcmRuntimeState base = CaptureBaselineSensorSnapshot();
+  EcmSession baseline_session = EcmSession::Create();
+  EcmRuntimeState base = CaptureBaselineSensorSnapshot(&baseline_session);
 
   // Case 1: invalid nested observation (NaN center frequency).
   {
@@ -268,8 +277,7 @@ TEST(EcmSessionTest, RestoreRejectsDirtySnapshotAndLeavesSessionUntouched) {
   // Case 2: duplicate source_hypothesis_id within the frame.
   {
     EcmRuntimeState dirty = base;
-    dirty.last_sensor_frame.observations.push_back(
-        dirty.last_sensor_frame.observations.front());
+    dirty.last_sensor_frame.observations.push_back(dirty.last_sensor_frame.observations.front());
     run_dirty_case("duplicate hypothesis id", dirty);
   }
   // Case 3: has_successful_cycle=false but last_successful_cycle_index != 0.
@@ -290,12 +298,10 @@ TEST(EcmSessionTest, RestoreRejectsShallowInconsistencyRegression) {
   // has_last_sensor_frame=false must still reject non-empty observations or a
   // non-zero glide age (guards against the shallow check being dropped).
   EcmSession session = EcmSession::Create();
-  ASSERT_EQ(session.StepWithResult(MakeSensorInput(2U, true)).status,
-            EcmCycleStatus::kExecuted);
+  ASSERT_EQ(session.StepWithResult(MakeSensorInput(2U, true)).status, EcmCycleStatus::kExecuted);
   const EcmRuntimeState before = session.CaptureRuntimeState();
 
   EcmRuntimeState dirty = before;
-  dirty.owner_identity = before.owner_identity;
   dirty.has_last_sensor_frame = false;
   // leave observations populated -> inconsistent with the cleared flag
   EXPECT_FALSE(session.RestoreRuntimeState(dirty));
@@ -317,8 +323,7 @@ TEST(EcmSessionTest, EsrAdapterCopiesOnlyDetruthEstimatedFields) {
   hypothesis.bandwidth_std_hz = 2000.0;
   hypothesis.bearing_std_deg = 1.0f;
   hypothesis.confidence = 0.8f;
-  hypothesis.threat_level =
-      electronic_surveillance_radar::session::EsrThreatLevel::kHigh;
+  hypothesis.threat_level = electronic_surveillance_radar::session::EsrThreatLevel::kHigh;
   electronic_surveillance_radar::session::EmitterHypothesisList hypotheses;
   hypotheses.push_back(hypothesis);
 
@@ -367,9 +372,7 @@ TEST(EcmSessionTest, TruthAssistedSnapshotValidatesDeceptionStates) {
 
   // Corrupt a deception state field
   EcmRuntimeState dirty = before;
-  dirty.owner_identity = before.owner_identity;
-  dirty.deception_states.front().current_delay_s =
-      std::numeric_limits<double>::quiet_NaN();
+  dirty.deception_states.front().current_delay_s = std::numeric_limits<double>::quiet_NaN();
   EXPECT_FALSE(session.RestoreRuntimeState(dirty));
 
   // Session state must be unchanged after rejected restore.
@@ -378,12 +381,57 @@ TEST(EcmSessionTest, TruthAssistedSnapshotValidatesDeceptionStates) {
   EXPECT_TRUE(std::isfinite(after.deception_states.front().current_delay_s));
 }
 
+TEST(EcmSessionTest, SnapshotRejectsModeIrrelevantDeceptionFieldsWithoutMutation) {
+  const auto run_case = [](EcmDeceptionMode mode,
+                           const std::function<void(EcmDeceptionState*)>& corrupt) {
+    config::EcmSessionConfig config;
+    config.default_technique = EcmTechnique::kDeception;
+    config.default_deception_mode = mode;
+    EcmSession session = EcmSession::Create(config);
+    ASSERT_EQ(session.StepWithResult(MakeTruthInput(1U)).status, EcmCycleStatus::kExecuted);
+    const EcmRuntimeState before = session.CaptureRuntimeState();
+    ASSERT_EQ(before.deception_states.size(), 1U);
+    EcmRuntimeState dirty = before;
+    corrupt(&dirty.deception_states.front());
+    EXPECT_FALSE(session.RestoreRuntimeState(dirty));
+    const EcmRuntimeState after = session.CaptureRuntimeState();
+    EXPECT_DOUBLE_EQ(after.deception_states.front().current_delay_s,
+                     before.deception_states.front().current_delay_s);
+    EXPECT_DOUBLE_EQ(after.deception_states.front().current_doppler_offset_hz,
+                     before.deception_states.front().current_doppler_offset_hz);
+  };
+
+  run_case(EcmDeceptionMode::kRgpo,
+           [](EcmDeceptionState* state) { state->current_doppler_offset_hz = 1.0; });
+  run_case(EcmDeceptionMode::kVgpo,
+           [](EcmDeceptionState* state) { state->current_delay_s = 1.0e-9; });
+  run_case(EcmDeceptionMode::kFalseTarget,
+           [](EcmDeceptionState* state) { state->current_doppler_offset_hz = 1.0; });
+}
+
+TEST(EcmSessionTest, RuntimeTechniqueOrModeChangeReleasesDeceptionState) {
+  config::EcmSessionConfig config;
+  config.default_technique = EcmTechnique::kDeception;
+  config.default_deception_mode = EcmDeceptionMode::kRgpo;
+  EcmSession session = EcmSession::Create(config);
+  ASSERT_EQ(session.StepWithResult(MakeTruthInput(1U)).status, EcmCycleStatus::kExecuted);
+  ASSERT_FALSE(session.CaptureRuntimeState().deception_states.empty());
+
+  config::EcmRuntimeConfigPatch patch;
+  patch.has_default_deception_mode = true;
+  patch.default_deception_mode = EcmDeceptionMode::kVgpo;
+  ASSERT_TRUE(session.ApplyRuntimeConfig(patch).applied);
+  EXPECT_TRUE(session.CaptureRuntimeState().deception_states.empty());
+}
+
 // 快照校验的 P1 加固：验证之前仅检查 engaged 状态有限字段的 SnapshotInternallyConsistent
 // 现拒绝非法 mode/phase 枚举、超上限交战数、delay/doppler 超限、重复 threat_id 及
 // engaged+phase 非法组合。
 TEST(EcmSessionTest, SnapshotRejectsIllegalDeceptionModePhaseEnums) {
-  EcmRuntimeState base = CaptureBaselineSensorSnapshot();
-  // 在基线快照上手工构造一个非法 deception state 并置入。
+  EcmSession session = EcmSession::Create();
+  EcmRuntimeState base = CaptureBaselineSensorSnapshot(&session);
+  base.active_config.default_technique = EcmTechnique::kDeception;
+  // 在基线快照上手工构造非法 deception state 并置入。
   EcmDeceptionState bogus;
   bogus.threat_id = 999U;
   bogus.mode = static_cast<EcmDeceptionMode>(99);  // 非法 mode
@@ -393,9 +441,14 @@ TEST(EcmSessionTest, SnapshotRejectsIllegalDeceptionModePhaseEnums) {
   bogus.current_doppler_offset_hz = 0.0;
   bogus.phase_elapsed_s = 0.0;
   EcmRuntimeState dirty = base;
-  dirty.owner_identity = base.owner_identity;
   dirty.deception_states.push_back(bogus);
-  EXPECT_FALSE(EcmSession::Create().RestoreRuntimeState(dirty));
+  EXPECT_FALSE(session.RestoreRuntimeState(dirty));
+
+  bogus.mode = EcmDeceptionMode::kRgpo;
+  bogus.phase = static_cast<EcmDeceptionPhase>(99);  // 非法 phase
+  dirty = base;
+  dirty.deception_states.push_back(bogus);
+  EXPECT_FALSE(session.RestoreRuntimeState(dirty));
 }
 
 TEST(EcmSessionTest, SnapshotRejectsEngagedExceedingMaxActive) {
@@ -429,14 +482,14 @@ TEST(EcmSessionTest, SnapshotRejectsEngagedExceedingMaxActive) {
   extra.current_delay_s = 0.0;
   extra.current_doppler_offset_hz = 0.0;
   extra.phase_elapsed_s = 0.0;
-  before.owner_identity = before.owner_identity;
   before.deception_states.push_back(extra);
   // 当前 active_config.deception_max_active = 1，插入后共 2 个 → 拒绝。
   EXPECT_FALSE(session.RestoreRuntimeState(before));
 }
 
 TEST(EcmSessionTest, SnapshotRejectsEngagedWithPhaseIdle) {
-  EcmRuntimeState base = CaptureBaselineSensorSnapshot();
+  EcmSession session = EcmSession::Create();
+  EcmRuntimeState base = CaptureBaselineSensorSnapshot(&session);
   EcmDeceptionState engaged_idle;
   engaged_idle.threat_id = 888U;
   engaged_idle.mode = EcmDeceptionMode::kRgpo;
@@ -446,22 +499,23 @@ TEST(EcmSessionTest, SnapshotRejectsEngagedWithPhaseIdle) {
   engaged_idle.current_doppler_offset_hz = 0.0;
   engaged_idle.phase_elapsed_s = 0.0;
   EcmRuntimeState dirty = base;
-  dirty.owner_identity = base.owner_identity;
+  dirty.active_config.default_technique = EcmTechnique::kDeception;
   dirty.deception_states.push_back(engaged_idle);
-  EXPECT_FALSE(EcmSession::Create().RestoreRuntimeState(dirty));
+  EXPECT_FALSE(session.RestoreRuntimeState(dirty));
 }
 
 TEST(EcmSessionTest, SnapshotRejectsNonEngagedWithPhaseTowing) {
-  EcmRuntimeState base = CaptureBaselineSensorSnapshot();
+  EcmSession session = EcmSession::Create();
+  EcmRuntimeState base = CaptureBaselineSensorSnapshot(&session);
   EcmDeceptionState towing_not_engaged;
   towing_not_engaged.threat_id = 777U;
   towing_not_engaged.mode = EcmDeceptionMode::kRgpo;
   towing_not_engaged.phase = EcmDeceptionPhase::kTowing;  // kTowing 要求 engaged
   towing_not_engaged.engaged = false;
   EcmRuntimeState dirty = base;
-  dirty.owner_identity = base.owner_identity;
+  dirty.active_config.default_technique = EcmTechnique::kDeception;
   dirty.deception_states.push_back(towing_not_engaged);
-  EXPECT_FALSE(EcmSession::Create().RestoreRuntimeState(dirty));
+  EXPECT_FALSE(session.RestoreRuntimeState(dirty));
 }
 
 TEST(EcmSessionTest, SnapshotRejectsDelayBeyondMaximum) {
@@ -487,7 +541,6 @@ TEST(EcmSessionTest, SnapshotRejectsDelayBeyondMaximum) {
   ASSERT_EQ(session.StepWithResult(input).status, EcmCycleStatus::kExecuted);
   EcmRuntimeState before = session.CaptureRuntimeState();
   // 篡改 delay 为超大值。
-  before.owner_identity = before.owner_identity;
   if (!before.deception_states.empty()) {
     before.deception_states.front().current_delay_s = 1.0;  // 远超上限
     EXPECT_FALSE(session.RestoreRuntimeState(before));
@@ -515,7 +568,6 @@ TEST(EcmSessionTest, SnapshotRejectsDuplicateThreatIdAmongEngaged) {
   input.truth_threats.push_back(threat);
   ASSERT_EQ(session.StepWithResult(input).status, EcmCycleStatus::kExecuted);
   EcmRuntimeState before = session.CaptureRuntimeState();
-  before.owner_identity = before.owner_identity;
   // 手工克隆已有的 engaged state（相同 threat_id）→ 重复。
   if (!before.deception_states.empty()) {
     EcmDeceptionState dup = before.deception_states.front();

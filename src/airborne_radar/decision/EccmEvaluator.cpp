@@ -39,8 +39,7 @@ void MarkActivated(EccmEvaluator::Result* result) {
 
 }  // namespace
 
-session::ControlDirective EccmEvaluator::BuildDirective(
-    session::ControlDirectiveType type) {
+session::ControlDirective EccmEvaluator::BuildDirective(session::ControlDirectiveType type) {
   return session::ControlDirective(type, session::ControlDirectiveSource::SURVIVABILITY);
 }
 
@@ -53,8 +52,7 @@ float EccmEvaluator::ResolveBurnthroughGain(float score) {
 }
 
 void EccmEvaluator::AccumulateInterferenceObservation(
-    const session::ArInterferenceObservation& observation,
-    EccmProposalSelection* selection) {
+    const session::ArInterferenceObservation& observation, EccmProposalSelection* selection) {
   if (selection == nullptr) {
     return;
   }
@@ -82,13 +80,16 @@ void EccmEvaluator::AccumulateInterferenceObservation(
   //   - VGPO：estimated_carrier_offset_hz 显著偏离本振载频 → 加速度限幅；
   //   - RGPO：estimated_first_pulse_delay_s 超过几何传播期望 → 前沿跟踪；
   //   - coherent_emission_count >= 2 / kLikelyFalseTarget 仍只触发假目标鉴别（其正确语义）。
-  constexpr double kVgpoCarrierOffsetGateHz = 1000.0;  // 显著载频偏移门限（Hz）
+  constexpr double kVgpoCarrierOffsetGateHz = 1000.0;   // 显著载频偏移门限（Hz）
   constexpr double kRgpoFirstPulseDelayGateS = 1.0e-7;  // 显著首脉冲时延门限（100 ns ≈ 30m）
-  if (std::fabs(observation.estimated_carrier_offset_hz) >= kVgpoCarrierOffsetGateHz) {
-    selection->anti_vgpo_score += 1.5f;
-  }
-  if (observation.estimated_first_pulse_delay_s >= kRgpoFirstPulseDelayGateS) {
-    selection->anti_rgpo_score += 1.5f;
+  if (observation.estimated_waveform_kind ==
+      oneq::electromagnetics::RfSceneWaveformKind::kPulseTrain) {
+    if (std::fabs(observation.estimated_carrier_offset_hz) >= kVgpoCarrierOffsetGateHz) {
+      selection->anti_vgpo_score += 1.5f;
+    }
+    if (observation.estimated_first_pulse_delay_s >= kRgpoFirstPulseDelayGateS) {
+      selection->anti_rgpo_score += 1.5f;
+    }
   }
   // 假目标：观测分类为疑似假目标（同方向多脉冲列） → 假目标鉴别。
   if (observation.deception_class == session::DeceptionClass::kLikelyFalseTarget) {
@@ -96,8 +97,8 @@ void EccmEvaluator::AccumulateInterferenceObservation(
   }
 }
 
-std::string EccmEvaluator::BuildProposalRationale(
-    session::ControlDirectiveType type, const EccmProposalSelection& selection) {
+std::string EccmEvaluator::BuildProposalRationale(session::ControlDirectiveType type,
+                                                  const EccmProposalSelection& selection) {
   (void)selection;
   switch (type) {
     case session::ControlDirectiveType::REQUEST_ENABLE_SIDELOBE_CANCELLER:
@@ -121,10 +122,10 @@ std::string EccmEvaluator::BuildProposalRationale(
   }
 }
 
-void EccmEvaluator::AppendProposal(
-    session::ControlDirectiveType type, int priority, const std::string& rationale,
-    std::vector<session::TacticalProposal>* proposals, bool has_requested_value,
-    float requested_value) {
+void EccmEvaluator::AppendProposal(session::ControlDirectiveType type, int priority,
+                                   const std::string& rationale,
+                                   std::vector<session::TacticalProposal>* proposals,
+                                   bool has_requested_value, float requested_value) {
   if (proposals == nullptr) {
     return;
   }
@@ -153,76 +154,69 @@ EccmEvaluator::Result EccmEvaluator::Evaluate(
                    ResolvePriorityFromScore(kBasePrioritySidelobeCanceller,
                                             selection.sidelobe_canceller_score),
                    BuildProposalRationale(
-                       session::ControlDirectiveType::REQUEST_ENABLE_SIDELOBE_CANCELLER,
-                       selection),
+                       session::ControlDirectiveType::REQUEST_ENABLE_SIDELOBE_CANCELLER, selection),
                    proposals);
     MarkActivated(&result);
   }
   if (selection.adaptive_beamforming_score >= kThresholdAdaptiveBeamforming) {
-    AppendProposal(session::ControlDirectiveType::REQUEST_ENABLE_ADAPTIVE_BEAMFORMING,
-                   ResolvePriorityFromScore(kBasePriorityAdaptiveBeamforming,
-                                            selection.adaptive_beamforming_score),
-                   BuildProposalRationale(
-                       session::ControlDirectiveType::REQUEST_ENABLE_ADAPTIVE_BEAMFORMING,
-                       selection),
-                   proposals);
+    AppendProposal(
+        session::ControlDirectiveType::REQUEST_ENABLE_ADAPTIVE_BEAMFORMING,
+        ResolvePriorityFromScore(kBasePriorityAdaptiveBeamforming,
+                                 selection.adaptive_beamforming_score),
+        BuildProposalRationale(session::ControlDirectiveType::REQUEST_ENABLE_ADAPTIVE_BEAMFORMING,
+                               selection),
+        proposals);
     MarkActivated(&result);
   }
   if (selection.agility_frequency_score >= kThresholdAgilityFrequency) {
-    AppendProposal(session::ControlDirectiveType::REQUEST_AGILITY_FREQUENCY,
-                   ResolvePriorityFromScore(kBasePriorityAgilityFrequency,
-                                            selection.agility_frequency_score),
-                   BuildProposalRationale(session::ControlDirectiveType::REQUEST_AGILITY_FREQUENCY,
-                                          selection),
-                   proposals);
+    AppendProposal(
+        session::ControlDirectiveType::REQUEST_AGILITY_FREQUENCY,
+        ResolvePriorityFromScore(kBasePriorityAgilityFrequency, selection.agility_frequency_score),
+        BuildProposalRationale(session::ControlDirectiveType::REQUEST_AGILITY_FREQUENCY, selection),
+        proposals);
     MarkActivated(&result);
   }
   if (selection.eccm_rejitter_score >= kThresholdEccmRejitter) {
-    AppendProposal(session::ControlDirectiveType::REQUEST_ECCM_REJITTER,
-                   ResolvePriorityFromScore(kBasePriorityEccmRejitter,
-                                            selection.eccm_rejitter_score),
-                   BuildProposalRationale(session::ControlDirectiveType::REQUEST_ECCM_REJITTER,
-                                          selection),
-                   proposals);
+    AppendProposal(
+        session::ControlDirectiveType::REQUEST_ECCM_REJITTER,
+        ResolvePriorityFromScore(kBasePriorityEccmRejitter, selection.eccm_rejitter_score),
+        BuildProposalRationale(session::ControlDirectiveType::REQUEST_ECCM_REJITTER, selection),
+        proposals);
     MarkActivated(&result);
   }
   if (selection.burnthrough_gain_score >= kThresholdBurnthroughGain) {
-    AppendProposal(session::ControlDirectiveType::REQUEST_ECCM_BURNTHROUGH_GAIN,
-                   ResolvePriorityFromScore(kBasePriorityBurnthroughGain,
-                                            selection.burnthrough_gain_score),
-                   BuildProposalRationale(
-                       session::ControlDirectiveType::REQUEST_ECCM_BURNTHROUGH_GAIN, selection),
-                   proposals, true, ResolveBurnthroughGain(selection.burnthrough_gain_score));
+    AppendProposal(
+        session::ControlDirectiveType::REQUEST_ECCM_BURNTHROUGH_GAIN,
+        ResolvePriorityFromScore(kBasePriorityBurnthroughGain, selection.burnthrough_gain_score),
+        BuildProposalRationale(session::ControlDirectiveType::REQUEST_ECCM_BURNTHROUGH_GAIN,
+                               selection),
+        proposals, true, ResolveBurnthroughGain(selection.burnthrough_gain_score));
     MarkActivated(&result);
   }
   if (selection.anti_rgpo_score >= kThresholdAntiRgpo) {
     AppendProposal(session::ControlDirectiveType::REQUEST_ANTI_RGPO_LEADING_EDGE,
-                   ResolvePriorityFromScore(kBasePriorityAntiRgpo,
-                                            selection.anti_rgpo_score),
+                   ResolvePriorityFromScore(kBasePriorityAntiRgpo, selection.anti_rgpo_score),
                    BuildProposalRationale(
-                       session::ControlDirectiveType::REQUEST_ANTI_RGPO_LEADING_EDGE,
-                       selection),
+                       session::ControlDirectiveType::REQUEST_ANTI_RGPO_LEADING_EDGE, selection),
                    proposals);
     MarkActivated(&result);
   }
   if (selection.anti_vgpo_score >= kThresholdAntiVgpo) {
-    AppendProposal(session::ControlDirectiveType::REQUEST_ANTI_VGPO_ACCELERATION_BOUND,
-                   ResolvePriorityFromScore(kBasePriorityAntiVgpo,
-                                            selection.anti_vgpo_score),
-                   BuildProposalRationale(
-                       session::ControlDirectiveType::REQUEST_ANTI_VGPO_ACCELERATION_BOUND,
-                       selection),
-                   proposals);
+    AppendProposal(
+        session::ControlDirectiveType::REQUEST_ANTI_VGPO_ACCELERATION_BOUND,
+        ResolvePriorityFromScore(kBasePriorityAntiVgpo, selection.anti_vgpo_score),
+        BuildProposalRationale(session::ControlDirectiveType::REQUEST_ANTI_VGPO_ACCELERATION_BOUND,
+                               selection),
+        proposals);
     MarkActivated(&result);
   }
   if (selection.anti_false_target_score >= kThresholdAntiFalseTarget) {
-    AppendProposal(session::ControlDirectiveType::REQUEST_ANTI_FALSE_TARGET_DISCRIMINATION,
-                   ResolvePriorityFromScore(kBasePriorityAntiFalseTarget,
-                                            selection.anti_false_target_score),
-                   BuildProposalRationale(
-                       session::ControlDirectiveType::REQUEST_ANTI_FALSE_TARGET_DISCRIMINATION,
-                       selection),
-                   proposals);
+    AppendProposal(
+        session::ControlDirectiveType::REQUEST_ANTI_FALSE_TARGET_DISCRIMINATION,
+        ResolvePriorityFromScore(kBasePriorityAntiFalseTarget, selection.anti_false_target_score),
+        BuildProposalRationale(
+            session::ControlDirectiveType::REQUEST_ANTI_FALSE_TARGET_DISCRIMINATION, selection),
+        proposals);
     MarkActivated(&result);
   }
   return result;

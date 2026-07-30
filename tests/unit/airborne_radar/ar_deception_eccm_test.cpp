@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 
+#include <Eigen/Core>
 #include <algorithm>
 #include <vector>
 
@@ -8,22 +9,19 @@
 #include "airborne_radar/decision/EccmEvaluator.h"
 #include "airborne_radar/signal/detection/ArDetectionCellResolver.h"
 #include "airborne_radar/signal/tracking/BoostTrackPool.h"
-#include "airborne_radar/signal/tracking/TrackFilter.h"
 #include "airborne_radar/signal/tracking/KalmanPredictor.h"
 #include "airborne_radar/signal/tracking/KalmanUpdater.h"
+#include "airborne_radar/signal/tracking/TrackFilter.h"
 #include "airborne_radar/signal/tracking/TrackLifecycleManager.h"
 #include "airborne_radar/signal/tracking/TrackState.h"
-
-#include <Eigen/Core>
 
 namespace airborne_radar {
 namespace {
 
 session::ArInterferenceObservation BuildObservation(
-    oneq::electromagnetics::RfSceneWaveformKind waveform_kind,
-    double off_boresight_deg, double jammer_to_noise_db,
-    std::uint32_t coherent_emission_count = 0U, double range_rate_mps = 0.0,
-    double carrier_offset_hz = 0.0, double first_pulse_delay_s = 0.0) {
+    oneq::electromagnetics::RfSceneWaveformKind waveform_kind, double off_boresight_deg,
+    double jammer_to_noise_db, std::uint32_t coherent_emission_count = 0U,
+    double range_rate_mps = 0.0, double carrier_offset_hz = 0.0, double first_pulse_delay_s = 0.0) {
   session::ArInterferenceObservation observation;
   observation.observation_id = 1U;
   observation.estimated_bearing_azimuth_deg = 10.0;
@@ -45,8 +43,8 @@ session::ArInterferenceObservation BuildObservation(
 }
 
 session::ArInterferenceObservation BuildFalseTargetObservation() {
-  session::ArInterferenceObservation observation = BuildObservation(
-      oneq::electromagnetics::RfSceneWaveformKind::kPulseTrain, 5.0, 8.0);
+  session::ArInterferenceObservation observation =
+      BuildObservation(oneq::electromagnetics::RfSceneWaveformKind::kPulseTrain, 5.0, 8.0);
   observation.deception_class = session::DeceptionClass::kLikelyFalseTarget;
   observation.coherent_emission_count = 3U;
   return observation;
@@ -69,30 +67,28 @@ TEST(ArDeceptionEccmTest, SignificantFirstPulseDelayTriggersAntiRgpoProposal) {
   std::vector<session::TacticalProposal> proposals;
   // RGPO（距离波门拖引）的物理可观测特征是首脉冲到达滞后于几何传播期望：
   // estimated_first_pulse_delay_s >= 门限。
-  const session::ArInterferenceObservation observation = BuildObservation(
-      oneq::electromagnetics::RfSceneWaveformKind::kPulseTrain, 5.0, 8.0,
-      /*coherent_emission_count=*/0U, /*range_rate_mps=*/0.0,
-      /*carrier_offset_hz=*/0.0, /*first_pulse_delay_s=*/5.0e-6);
+  const session::ArInterferenceObservation observation =
+      BuildObservation(oneq::electromagnetics::RfSceneWaveformKind::kPulseTrain, 5.0, 8.0,
+                       /*coherent_emission_count=*/0U, /*range_rate_mps=*/0.0,
+                       /*carrier_offset_hz=*/0.0, /*first_pulse_delay_s=*/5.0e-6);
 
-  const decision::EccmEvaluator::Result result =
-      evaluator.Evaluate({observation}, &proposals);
+  const decision::EccmEvaluator::Result result = evaluator.Evaluate({observation}, &proposals);
 
   EXPECT_TRUE(result.eccm_activated);
-  EXPECT_TRUE(ContainsDirective(
-      proposals, session::ControlDirectiveType::REQUEST_ANTI_RGPO_LEADING_EDGE));
+  EXPECT_TRUE(
+      ContainsDirective(proposals, session::ControlDirectiveType::REQUEST_ANTI_RGPO_LEADING_EDGE));
 }
 
 TEST(ArDeceptionEccmTest, SignificantCarrierOffsetTriggersAntiVgpoProposal) {
   decision::EccmEvaluator evaluator;
   std::vector<session::TacticalProposal> proposals;
   // VGPO（速度波门拖引）的物理可观测特征是转发载频偏离本振：|estimated_carrier_offset_hz| >= 门限。
-  const session::ArInterferenceObservation observation = BuildObservation(
-      oneq::electromagnetics::RfSceneWaveformKind::kPulseTrain, 5.0, 8.0,
-      /*coherent_emission_count=*/0U, /*range_rate_mps=*/0.0,
-      /*carrier_offset_hz=*/8000.0);
+  const session::ArInterferenceObservation observation =
+      BuildObservation(oneq::electromagnetics::RfSceneWaveformKind::kPulseTrain, 5.0, 8.0,
+                       /*coherent_emission_count=*/0U, /*range_rate_mps=*/0.0,
+                       /*carrier_offset_hz=*/8000.0);
 
-  const decision::EccmEvaluator::Result result =
-      evaluator.Evaluate({observation}, &proposals);
+  const decision::EccmEvaluator::Result result = evaluator.Evaluate({observation}, &proposals);
 
   EXPECT_TRUE(result.eccm_activated);
   EXPECT_TRUE(ContainsDirective(
@@ -104,13 +100,29 @@ TEST(ArDeceptionEccmTest, SignificantCarrierOffsetTriggersAntiVgpoProposal) {
 TEST(ArDeceptionEccmTest, PlainPulseTrainWithoutFeaturesDoesNotTriggerAntiDeception) {
   decision::EccmEvaluator evaluator;
   std::vector<session::TacticalProposal> proposals;
-  const session::ArInterferenceObservation observation = BuildObservation(
-      oneq::electromagnetics::RfSceneWaveformKind::kPulseTrain, 5.0, 8.0);
+  const session::ArInterferenceObservation observation =
+      BuildObservation(oneq::electromagnetics::RfSceneWaveformKind::kPulseTrain, 5.0, 8.0);
 
   evaluator.Evaluate({observation}, &proposals);
 
+  EXPECT_FALSE(
+      ContainsDirective(proposals, session::ControlDirectiveType::REQUEST_ANTI_RGPO_LEADING_EDGE));
   EXPECT_FALSE(ContainsDirective(
-      proposals, session::ControlDirectiveType::REQUEST_ANTI_RGPO_LEADING_EDGE));
+      proposals, session::ControlDirectiveType::REQUEST_ANTI_VGPO_ACCELERATION_BOUND));
+}
+
+TEST(ArDeceptionEccmTest, NonPulseWaveformCannotTriggerRgpoOrVgpoFromResidualFields) {
+  decision::EccmEvaluator evaluator;
+  std::vector<session::TacticalProposal> proposals;
+  const session::ArInterferenceObservation observation =
+      BuildObservation(oneq::electromagnetics::RfSceneWaveformKind::kBandLimitedNoise, 5.0, 8.0,
+                       /*coherent_emission_count=*/0U, /*range_rate_mps=*/0.0,
+                       /*carrier_offset_hz=*/8000.0, /*first_pulse_delay_s=*/5.0e-6);
+
+  evaluator.Evaluate({observation}, &proposals);
+
+  EXPECT_FALSE(
+      ContainsDirective(proposals, session::ControlDirectiveType::REQUEST_ANTI_RGPO_LEADING_EDGE));
   EXPECT_FALSE(ContainsDirective(
       proposals, session::ControlDirectiveType::REQUEST_ANTI_VGPO_ACCELERATION_BOUND));
 }
@@ -120,8 +132,7 @@ TEST(ArDeceptionEccmTest, FalseTargetClassTriggersAntiFalseTargetProposal) {
   std::vector<session::TacticalProposal> proposals;
   const session::ArInterferenceObservation observation = BuildFalseTargetObservation();
 
-  const decision::EccmEvaluator::Result result =
-      evaluator.Evaluate({observation}, &proposals);
+  const decision::EccmEvaluator::Result result = evaluator.Evaluate({observation}, &proposals);
 
   EXPECT_TRUE(result.eccm_activated);
   EXPECT_TRUE(ContainsDirective(
@@ -131,21 +142,19 @@ TEST(ArDeceptionEccmTest, FalseTargetClassTriggersAntiFalseTargetProposal) {
 TEST(ArDeceptionEccmTest, AntiDeceptionProposalsHaveSurvivabilitySource) {
   decision::EccmEvaluator evaluator;
   std::vector<session::TacticalProposal> proposals;
-  const session::ArInterferenceObservation observation = BuildObservation(
-      oneq::electromagnetics::RfSceneWaveformKind::kPulseTrain, 5.0, 8.0);
+  const session::ArInterferenceObservation observation =
+      BuildObservation(oneq::electromagnetics::RfSceneWaveformKind::kPulseTrain, 5.0, 8.0);
 
   evaluator.Evaluate({observation}, &proposals);
 
   // 验证反欺骗提案来自 SURVIVABILITY 源。
   for (const auto& proposal : proposals) {
-    if (proposal.directive.type ==
-            session::ControlDirectiveType::REQUEST_ANTI_RGPO_LEADING_EDGE ||
+    if (proposal.directive.type == session::ControlDirectiveType::REQUEST_ANTI_RGPO_LEADING_EDGE ||
         proposal.directive.type ==
             session::ControlDirectiveType::REQUEST_ANTI_VGPO_ACCELERATION_BOUND ||
         proposal.directive.type ==
             session::ControlDirectiveType::REQUEST_ANTI_FALSE_TARGET_DISCRIMINATION) {
-      EXPECT_EQ(proposal.directive.source,
-                session::ControlDirectiveSource::SURVIVABILITY);
+      EXPECT_EQ(proposal.directive.source, session::ControlDirectiveSource::SURVIVABILITY);
     }
   }
 }
@@ -153,28 +162,25 @@ TEST(ArDeceptionEccmTest, AntiDeceptionProposalsHaveSurvivabilitySource) {
 TEST(ArDeceptionEccmTest, AntiDeceptionEccmActivatesProtectedEmissionMode) {
   decision::EccmEvaluator evaluator;
   std::vector<session::TacticalProposal> proposals;
-  const session::ArInterferenceObservation observation = BuildObservation(
-      oneq::electromagnetics::RfSceneWaveformKind::kPulseTrain, 5.0, 8.0);
+  const session::ArInterferenceObservation observation =
+      BuildObservation(oneq::electromagnetics::RfSceneWaveformKind::kPulseTrain, 5.0, 8.0);
 
-  const decision::EccmEvaluator::Result result =
-      evaluator.Evaluate({observation}, &proposals);
+  const decision::EccmEvaluator::Result result = evaluator.Evaluate({observation}, &proposals);
 
   // kPulseTrain 触发反欺骗措施，eccm_activated 应为 true。
   EXPECT_TRUE(result.eccm_activated);
-  EXPECT_EQ(result.activation_source,
-            decision::EccmEvaluator::ActivationSource::kReceiverRf);
+  EXPECT_EQ(result.activation_source, decision::EccmEvaluator::ActivationSource::kReceiverRf);
 }
 
 TEST(ArDeceptionEccmTest, EmptyObservationSetDoesNotActivateAntiDeception) {
   decision::EccmEvaluator evaluator;
   std::vector<session::TacticalProposal> proposals;
 
-  const decision::EccmEvaluator::Result result =
-      evaluator.Evaluate({}, &proposals);
+  const decision::EccmEvaluator::Result result = evaluator.Evaluate({}, &proposals);
 
   EXPECT_FALSE(result.eccm_activated);
-  EXPECT_FALSE(ContainsDirective(
-      proposals, session::ControlDirectiveType::REQUEST_ANTI_RGPO_LEADING_EDGE));
+  EXPECT_FALSE(
+      ContainsDirective(proposals, session::ControlDirectiveType::REQUEST_ANTI_RGPO_LEADING_EDGE));
   EXPECT_FALSE(ContainsDirective(
       proposals, session::ControlDirectiveType::REQUEST_ANTI_VGPO_ACCELERATION_BOUND));
   EXPECT_FALSE(ContainsDirective(
@@ -189,50 +195,41 @@ TEST(ArDeceptionEccmTest, NonPulseTrainObservationDoesNotTriggerAntiDeception) {
       {BuildObservation(oneq::electromagnetics::RfSceneWaveformKind::kContinuous, 5.0, 8.0)},
       &proposals_k_continuous);
 
+  EXPECT_FALSE(ContainsDirective(proposals_k_continuous,
+                                 session::ControlDirectiveType::REQUEST_ANTI_RGPO_LEADING_EDGE));
   EXPECT_FALSE(ContainsDirective(
-      proposals_k_continuous,
-      session::ControlDirectiveType::REQUEST_ANTI_RGPO_LEADING_EDGE));
-  EXPECT_FALSE(ContainsDirective(
-      proposals_k_continuous,
-      session::ControlDirectiveType::REQUEST_ANTI_VGPO_ACCELERATION_BOUND));
+      proposals_k_continuous, session::ControlDirectiveType::REQUEST_ANTI_VGPO_ACCELERATION_BOUND));
 
   // 使用带限噪声——不触发反欺骗。
   std::vector<session::TacticalProposal> proposals_noise;
   evaluator.Evaluate(
-      {BuildObservation(oneq::electromagnetics::RfSceneWaveformKind::kBandLimitedNoise, 5.0,
-                        8.0)},
+      {BuildObservation(oneq::electromagnetics::RfSceneWaveformKind::kBandLimitedNoise, 5.0, 8.0)},
       &proposals_noise);
 
+  EXPECT_FALSE(ContainsDirective(proposals_noise,
+                                 session::ControlDirectiveType::REQUEST_ANTI_RGPO_LEADING_EDGE));
   EXPECT_FALSE(ContainsDirective(
-      proposals_noise,
-      session::ControlDirectiveType::REQUEST_ANTI_RGPO_LEADING_EDGE));
-  EXPECT_FALSE(ContainsDirective(
-      proposals_noise,
-      session::ControlDirectiveType::REQUEST_ANTI_VGPO_ACCELERATION_BOUND));
+      proposals_noise, session::ControlDirectiveType::REQUEST_ANTI_VGPO_ACCELERATION_BOUND));
 }
 
 TEST(ArDeceptionEccmTest, AntiRgpoProposalHasHigherPriorityThanRejitter) {
   decision::EccmEvaluator evaluator;
   std::vector<session::TacticalProposal> proposals;
   // kPulseTrain + 首脉冲时延触发 RGPO（前沿跟踪），同时 kPulseTrain 触发 rejitter。
-  const session::ArInterferenceObservation observation = BuildObservation(
-      oneq::electromagnetics::RfSceneWaveformKind::kPulseTrain, 8.0, 12.0,
-      /*coherent_emission_count=*/0U, /*range_rate_mps=*/0.0,
-      /*carrier_offset_hz=*/0.0, /*first_pulse_delay_s=*/5.0e-6);
+  const session::ArInterferenceObservation observation =
+      BuildObservation(oneq::electromagnetics::RfSceneWaveformKind::kPulseTrain, 8.0, 12.0,
+                       /*coherent_emission_count=*/0U, /*range_rate_mps=*/0.0,
+                       /*carrier_offset_hz=*/0.0, /*first_pulse_delay_s=*/5.0e-6);
 
   evaluator.Evaluate({observation}, &proposals);
 
-  const auto rgpo_it = std::find_if(
-      proposals.begin(), proposals.end(),
-      [](const session::TacticalProposal& p) {
-        return p.directive.type ==
-               session::ControlDirectiveType::REQUEST_ANTI_RGPO_LEADING_EDGE;
+  const auto rgpo_it =
+      std::find_if(proposals.begin(), proposals.end(), [](const session::TacticalProposal& p) {
+        return p.directive.type == session::ControlDirectiveType::REQUEST_ANTI_RGPO_LEADING_EDGE;
       });
-  const auto rejitter_it = std::find_if(
-      proposals.begin(), proposals.end(),
-      [](const session::TacticalProposal& p) {
-        return p.directive.type ==
-               session::ControlDirectiveType::REQUEST_ECCM_REJITTER;
+  const auto rejitter_it =
+      std::find_if(proposals.begin(), proposals.end(), [](const session::TacticalProposal& p) {
+        return p.directive.type == session::ControlDirectiveType::REQUEST_ECCM_REJITTER;
       });
   ASSERT_NE(rgpo_it, proposals.end());
   ASSERT_NE(rejitter_it, proposals.end());
@@ -245,19 +242,19 @@ TEST(ArDeceptionEccmTest, MultiplePulseTrainObservationsAccumulateAntiDeceptionS
   std::vector<session::TacticalProposal> proposals;
   // 两个 kPulseTrain 观测：obs1 带显著首脉冲时延（触发 RGPO），obs2 带显著载频偏移
   // （触发 VGPO）。两者独立路由到不同反欺骗通道，验证可观测特征分离的累积语义。
-  const session::ArInterferenceObservation obs1 = BuildObservation(
-      oneq::electromagnetics::RfSceneWaveformKind::kPulseTrain, 5.0, 8.0,
-      /*coherent_emission_count=*/0U, /*range_rate_mps=*/0.0,
-      /*carrier_offset_hz=*/0.0, /*first_pulse_delay_s=*/5.0e-6);
-  const session::ArInterferenceObservation obs2 = BuildObservation(
-      oneq::electromagnetics::RfSceneWaveformKind::kPulseTrain, 3.0, 7.0,
-      /*coherent_emission_count=*/0U, /*range_rate_mps=*/0.0,
-      /*carrier_offset_hz=*/9000.0);
+  const session::ArInterferenceObservation obs1 =
+      BuildObservation(oneq::electromagnetics::RfSceneWaveformKind::kPulseTrain, 5.0, 8.0,
+                       /*coherent_emission_count=*/0U, /*range_rate_mps=*/0.0,
+                       /*carrier_offset_hz=*/0.0, /*first_pulse_delay_s=*/5.0e-6);
+  const session::ArInterferenceObservation obs2 =
+      BuildObservation(oneq::electromagnetics::RfSceneWaveformKind::kPulseTrain, 3.0, 7.0,
+                       /*coherent_emission_count=*/0U, /*range_rate_mps=*/0.0,
+                       /*carrier_offset_hz=*/9000.0);
 
   evaluator.Evaluate({obs1, obs2}, &proposals);
 
-  EXPECT_TRUE(ContainsDirective(
-      proposals, session::ControlDirectiveType::REQUEST_ANTI_RGPO_LEADING_EDGE));
+  EXPECT_TRUE(
+      ContainsDirective(proposals, session::ControlDirectiveType::REQUEST_ANTI_RGPO_LEADING_EDGE));
   EXPECT_TRUE(ContainsDirective(
       proposals, session::ControlDirectiveType::REQUEST_ANTI_VGPO_ACCELERATION_BOUND));
 }
@@ -346,8 +343,8 @@ TEST(ArDeceptionEccmTest, AntiRgpoDetectionCellWorksWithAntiRgpoEnabled) {
   {
     cell_config.enable_anti_rgpo_leading_edge = false;
     signal::detection::ArDetectionCellResult result;
-    ASSERT_TRUE(signal::detection::TryResolveArDetectionCell(
-        cell_config, cell_target, own_id, incident_links, 0.0, &result));
+    ASSERT_TRUE(signal::detection::TryResolveArDetectionCell(cell_config, cell_target, own_id,
+                                                             incident_links, 0.0, &result));
     EXPECT_GT(result.interference_power_w, 0.0);
   }
 
@@ -355,14 +352,14 @@ TEST(ArDeceptionEccmTest, AntiRgpoDetectionCellWorksWithAntiRgpoEnabled) {
   {
     cell_config.enable_anti_rgpo_leading_edge = true;
     signal::detection::ArDetectionCellResult result;
-    ASSERT_TRUE(signal::detection::TryResolveArDetectionCell(
-        cell_config, cell_target, own_id, incident_links, 0.0, &result));
+    ASSERT_TRUE(signal::detection::TryResolveArDetectionCell(cell_config, cell_target, own_id,
+                                                             incident_links, 0.0, &result));
     EXPECT_GT(result.interference_power_w, 0.0);
 
     cell_config.enable_anti_rgpo_leading_edge = false;
     signal::detection::ArDetectionCellResult result_off;
-    ASSERT_TRUE(signal::detection::TryResolveArDetectionCell(
-        cell_config, cell_target, own_id, incident_links, 0.0, &result_off));
+    ASSERT_TRUE(signal::detection::TryResolveArDetectionCell(cell_config, cell_target, own_id,
+                                                             incident_links, 0.0, &result_off));
     EXPECT_GT(result_off.interference_power_w, 0.0);
 
     // 启用 anti-RGPO 后 kPulseTrain 干扰功率应降低约 50%。
@@ -698,8 +695,8 @@ TEST(ArDeceptionEccmTest, AntiFalseTargetDoesNotBlockLostTrackReconfirm) {
   // 重新命中时即使量测被标为疑似假目标，仍应恢复为 confirmed（不阻断真实航迹恢复）。
   signal::tracking::BoostTrackPool pool(4, 16);
   signal::tracking::LifecycleConfig config;
-  config.confirm_hits = 1;            // 命中 1 次即确认
-  config.max_miss_before_lost = 0;    // 失配 1 次即转 lost
+  config.confirm_hits = 1;          // 命中 1 次即确认
+  config.max_miss_before_lost = 0;  // 失配 1 次即转 lost
   config.max_lost_cycles = 5;
   config.enable_anti_false_target_discrimination = true;
 
@@ -743,14 +740,12 @@ TEST(ArDeceptionEccmTest, AntiDeceptionControlDirectiveAppliedByReducer) {
   decision::ControlReducer reducer({});
   std::vector<session::TacticalProposal> proposals;
   proposals.push_back(session::TacticalProposal{
-      session::ControlDirective(
-          session::ControlDirectiveType::REQUEST_ANTI_RGPO_LEADING_EDGE,
-          session::ControlDirectiveSource::SURVIVABILITY),
+      session::ControlDirective(session::ControlDirectiveType::REQUEST_ANTI_RGPO_LEADING_EDGE,
+                                session::ControlDirectiveSource::SURVIVABILITY),
       90, ""});
   proposals.push_back(session::TacticalProposal{
-      session::ControlDirective(
-          session::ControlDirectiveType::REQUEST_ANTI_VGPO_ACCELERATION_BOUND,
-          session::ControlDirectiveSource::SURVIVABILITY),
+      session::ControlDirective(session::ControlDirectiveType::REQUEST_ANTI_VGPO_ACCELERATION_BOUND,
+                                session::ControlDirectiveSource::SURVIVABILITY),
       85, ""});
   proposals.push_back(session::TacticalProposal{
       session::ControlDirective(
@@ -780,7 +775,8 @@ TEST(ArDeceptionEccmTest, AntiVgpoClampSyncsImmModelStates) {
   config.max_lost_cycles = 3;
   config.imm_activation_policy = signal::tracking::ImmActivationPolicy::kAllTracks;
   config.enable_anti_vgpo_acceleration_bound = true;
-  config.max_acceleration_mps2 = 1.0;  // 0.1s dt → max_delta = 0.1 m/s（紧，IMM 微小速度变化即触发）
+  config.max_acceleration_mps2 =
+      1.0;  // 0.1s dt → max_delta = 0.1 m/s（紧，IMM 微小速度变化即触发）
 
   signal::tracking::KalmanPredictorConfig pred_cfg_1;
   pred_cfg_1.noise_diff_coeff = 0.5f;
@@ -800,8 +796,7 @@ TEST(ArDeceptionEccmTest, AntiVgpoClampSyncsImmModelStates) {
   initial_weights << 0.5f, 0.5f;
 
   signal::tracking::TrackLifecycleManager manager(
-      pool, config, {&pred_1, &pred_2}, {&upd_1, &upd_2},
-      transition_probability, initial_weights);
+      pool, config, {&pred_1, &pred_2}, {&upd_1, &upd_2}, transition_probability, initial_weights);
 
   // 第一周期：建立 IMM track，初始速度 X=10。
   signal::tracking::TrackMeasurement seed;
@@ -843,26 +838,26 @@ TEST(ArDeceptionEccmTest, AntiVgpoClampSyncsImmModelStates) {
 TEST(ArDeceptionEccmTest, FirstPulseDelayAtThresholdTriggersAntiRgpo) {
   decision::EccmEvaluator evaluator;
   std::vector<session::TacticalProposal> proposals;
-  const session::ArInterferenceObservation observation = BuildObservation(
-      oneq::electromagnetics::RfSceneWaveformKind::kPulseTrain, 5.0, 8.0,
-      /*coherent_emission_count=*/0U, /*range_rate_mps=*/0.0,
-      /*carrier_offset_hz=*/0.0, /*first_pulse_delay_s=*/1.0e-7);
+  const session::ArInterferenceObservation observation =
+      BuildObservation(oneq::electromagnetics::RfSceneWaveformKind::kPulseTrain, 5.0, 8.0,
+                       /*coherent_emission_count=*/0U, /*range_rate_mps=*/0.0,
+                       /*carrier_offset_hz=*/0.0, /*first_pulse_delay_s=*/1.0e-7);
   evaluator.Evaluate({observation}, &proposals);
-  EXPECT_TRUE(ContainsDirective(proposals,
-      session::ControlDirectiveType::REQUEST_ANTI_RGPO_LEADING_EDGE));
+  EXPECT_TRUE(
+      ContainsDirective(proposals, session::ControlDirectiveType::REQUEST_ANTI_RGPO_LEADING_EDGE));
 }
 
 // EccmEvaluator 路由边界：|carrier_offset| 刚好达到 VGPO 门限（1000 Hz）触发 VGPO。
 TEST(ArDeceptionEccmTest, CarrierOffsetAtThresholdTriggersAntiVgpo) {
   decision::EccmEvaluator evaluator;
   std::vector<session::TacticalProposal> proposals;
-  const session::ArInterferenceObservation observation = BuildObservation(
-      oneq::electromagnetics::RfSceneWaveformKind::kPulseTrain, 5.0, 8.0,
-      /*coherent_emission_count=*/0U, /*range_rate_mps=*/0.0,
-      /*carrier_offset_hz=*/1000.0);
+  const session::ArInterferenceObservation observation =
+      BuildObservation(oneq::electromagnetics::RfSceneWaveformKind::kPulseTrain, 5.0, 8.0,
+                       /*coherent_emission_count=*/0U, /*range_rate_mps=*/0.0,
+                       /*carrier_offset_hz=*/1000.0);
   evaluator.Evaluate({observation}, &proposals);
-  EXPECT_TRUE(ContainsDirective(proposals,
-      session::ControlDirectiveType::REQUEST_ANTI_VGPO_ACCELERATION_BOUND));
+  EXPECT_TRUE(ContainsDirective(
+      proposals, session::ControlDirectiveType::REQUEST_ANTI_VGPO_ACCELERATION_BOUND));
 }
 
 // EccmEvaluator 路由边界：carrier_offset 刚好低于门限不应触发 VGPO；同时确认
@@ -871,15 +866,15 @@ TEST(ArDeceptionEccmTest, CarrierOffsetAtThresholdTriggersAntiVgpo) {
 TEST(ArDeceptionEccmTest, CarrierOffsetBelowThresholdDoesNotTriggerAntiVgpo) {
   decision::EccmEvaluator evaluator;
   std::vector<session::TacticalProposal> proposals;
-  const session::ArInterferenceObservation observation = BuildObservation(
-      oneq::electromagnetics::RfSceneWaveformKind::kPulseTrain, 5.0, 8.0,
-      /*coherent_emission_count=*/5U, /*range_rate_mps=*/300.0,
-      /*carrier_offset_hz=*/999.0);
+  const session::ArInterferenceObservation observation =
+      BuildObservation(oneq::electromagnetics::RfSceneWaveformKind::kPulseTrain, 5.0, 8.0,
+                       /*coherent_emission_count=*/5U, /*range_rate_mps=*/300.0,
+                       /*carrier_offset_hz=*/999.0);
   evaluator.Evaluate({observation}, &proposals);
-  EXPECT_FALSE(ContainsDirective(proposals,
-      session::ControlDirectiveType::REQUEST_ANTI_VGPO_ACCELERATION_BOUND));
-  EXPECT_FALSE(ContainsDirective(proposals,
-      session::ControlDirectiveType::REQUEST_ANTI_RGPO_LEADING_EDGE));
+  EXPECT_FALSE(ContainsDirective(
+      proposals, session::ControlDirectiveType::REQUEST_ANTI_VGPO_ACCELERATION_BOUND));
+  EXPECT_FALSE(
+      ContainsDirective(proposals, session::ControlDirectiveType::REQUEST_ANTI_RGPO_LEADING_EDGE));
 }
 
 }  // namespace

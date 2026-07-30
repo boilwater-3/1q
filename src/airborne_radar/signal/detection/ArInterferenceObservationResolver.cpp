@@ -2,14 +2,17 @@
 
 #include <algorithm>
 #include <cmath>
+#include <map>
 #include <random>
+#include <set>
 #include <tuple>
+#include <utility>
 
-#include "airborne_radar/signal/detection/RadarEquations.h"
-#include "common/geometry/BearingCluster.h"
 #include "1q/coordinate/attitude_transform.h"
 #include "1q/coordinate/position_transform.h"
 #include "1q/coordinate/velocity_transform.h"
+#include "airborne_radar/signal/detection/RadarEquations.h"
+#include "common/geometry/BearingCluster.h"
 
 namespace airborne_radar {
 namespace signal {
@@ -97,8 +100,12 @@ double ObservableBandwidthHz(const oneq::electromagnetics::RfWaveformSchedule& w
   return waveform.occupied_bandwidth_hz;
 }
 
-using ObservationSortKey =
-    std::tuple<double, double, double, double, double, std::uint8_t, double>;
+using ObservationSortKey = std::tuple<double, double, double, double, double, std::uint8_t, double>;
+
+struct ObservationCandidate {
+  session::ArInterferenceObservation observation{};
+  oneq::electromagnetics::RfEmissionIdentity identity{};
+};
 
 ObservationSortKey MakeSortKey(const session::ArInterferenceObservation& observation) {
   return std::make_tuple(
@@ -109,11 +116,43 @@ ObservationSortKey MakeSortKey(const session::ArInterferenceObservation& observa
       observation.jammer_to_noise_db);
 }
 
+std::uint64_t Mix64(std::uint64_t value) {
+  value += UINT64_C(0x9e3779b97f4a7c15);
+  value = (value ^ (value >> 30U)) * UINT64_C(0xbf58476d1ce4e5b9);
+  value = (value ^ (value >> 27U)) * UINT64_C(0x94d049bb133111eb);
+  value ^= value >> 31U;
+  return value;
+}
+
+std::uint64_t HashEmissionIdentity(const oneq::electromagnetics::RfEmissionIdentity& identity) {
+  std::uint64_t hash = Mix64(identity.platform_id);
+  hash = Mix64(hash ^ identity.equipment_id);
+  return Mix64(hash ^ identity.emission_id);
+}
+
+std::uint64_t HashEquipmentSet(
+    const std::set<std::pair<std::uint64_t, std::uint64_t>>& equipment_ids) {
+  std::uint64_t hash = UINT64_C(0x4152444543455054);  // "ARDECEPT"
+  for (const auto& id : equipment_ids) {
+    hash = Mix64(hash ^ Mix64(id.first));
+    hash = Mix64(hash ^ Mix64(id.second));
+  }
+  return hash == 0U ? 1U : hash;
+}
+
+bool WaveformsShareResolutionCell(const session::ArInterferenceObservation& left,
+                                  const session::ArInterferenceObservation& right) {
+  const double half_sum_bandwidth_hz =
+      0.5 * (left.estimated_bandwidth_hz + right.estimated_bandwidth_hz);
+  return std::fabs(left.estimated_center_frequency_hz - right.estimated_center_frequency_hz) <=
+         half_sum_bandwidth_hz;
+}
+
 // splitmix32 finalizer keyed by a per-observable domain tag, mirroring the
 // ECM/SBIRS DeriveStreamSeed convention. Two observables with the same base
 // seed but distinct tags draw from uncorrelated sub-streams, so the range and
 // range-rate perturbations are independent.
-const std::uint32_t kRangeDomain = UINT32_C(0x524e4745);    // "RNGE"
+const std::uint32_t kRangeDomain = UINT32_C(0x524e4745);      // "RNGE"
 const std::uint32_t kRangeRateDomain = UINT32_C(0x52415445);  // "RATE"
 
 std::uint32_t DeriveStreamSeed(std::uint32_t base_seed, std::uint32_t domain_tag) {
@@ -157,17 +196,18 @@ bool TryResolveArInterferenceObservations(
     const oneq::electromagnetics::RfEmissionIdentity& own_emission_identity,
     const std::vector<oneq::electromagnetics::RfIncidentLinkResult>& incident_links,
     double thermal_noise_power_w, double jammer_to_noise_gate_db,
-    const oneq::coordinate::LocalFrameReference& platform_frame,
-    std::uint32_t perturbation_seed,
-    std::vector<session::ArInterferenceObservation>* observations) {
-  if (observations == nullptr || !oneq::electromagnetics::TryValidateRfSceneFrame(scene) ||
+    const oneq::coordinate::LocalFrameReference& platform_frame, std::uint32_t perturbation_seed,
+    std::vector<session::ArInterferenceObservation>* observations,
+    ArDeceptionClusterList* deception_clusters) {
+  if (observations == nullptr || deception_clusters == nullptr ||
+      !oneq::electromagnetics::TryValidateRfSceneFrame(scene) ||
       !std::isfinite(thermal_noise_power_w) || thermal_noise_power_w <= 0.0 ||
       !std::isfinite(jammer_to_noise_gate_db)) {
     return false;
   }
   const bool frame_usable = LocalFrameIsUsable(platform_frame);
 
-  std::vector<session::ArInterferenceObservation> candidate;
+  std::vector<ObservationCandidate> candidate;
   candidate.reserve(incident_links.size());
   for (const auto& link : incident_links) {
     if (SameIdentity(link.identity, own_emission_identity)) {
@@ -202,16 +242,12 @@ bool TryResolveArInterferenceObservations(
     // 发射稳定的 64 位标签：用于把斜距/径向速度扰动与具体发射绑定，使同种子同输入下
     // 可复现、不同发射之间互不相关。组合 platform/equipment/emission 身份（truth 身份
     // 仅用于种子混入，不写入 observation，仍遵守去真值化约定）。
-    const std::uint64_t emission_tag =
-        (static_cast<std::uint64_t>(link.identity.platform_id) << 48U) |
-        (static_cast<std::uint64_t>(link.identity.equipment_id) << 32U) |
-        static_cast<std::uint64_t>(link.identity.emission_id);
+    const std::uint64_t emission_tag = HashEmissionIdentity(link.identity);
     // 距离/径向速度测量噪声标准差：以接收端 J/N 作为有效信噪比，发射占用带宽作为距离
     // 分辨带宽。径向速度噪声近似为 σ_v ≈ σ_R / dwell（dwell 取场景窗口时长，下界保护）。
-    const double range_std_m =
-        static_cast<double>(RadarEquations::ComputeRangeErrorStdDev(
-            static_cast<float>(jammer_to_noise_db),
-            static_cast<float>(emission->waveform.occupied_bandwidth_hz)));
+    const double range_std_m = static_cast<double>(RadarEquations::ComputeRangeErrorStdDev(
+        static_cast<float>(jammer_to_noise_db),
+        static_cast<float>(emission->waveform.occupied_bandwidth_hz)));
     const double dwell_s = std::isfinite(scene.window_duration_s) && scene.window_duration_s > 0.0
                                ? scene.window_duration_s
                                : 1.0e-3;
@@ -255,12 +291,9 @@ bool TryResolveArInterferenceObservations(
     double range_rate_mps = 0.0;
     if (oneq::coordinate::IsFinite(emission->velocity_ecef_mps) &&
         oneq::coordinate::IsFinite(receiver.velocity_ecef_mps)) {
-      const double rel_vx =
-          emission->velocity_ecef_mps.x_mps - receiver.velocity_ecef_mps.x_mps;
-      const double rel_vy =
-          emission->velocity_ecef_mps.y_mps - receiver.velocity_ecef_mps.y_mps;
-      const double rel_vz =
-          emission->velocity_ecef_mps.z_mps - receiver.velocity_ecef_mps.z_mps;
+      const double rel_vx = emission->velocity_ecef_mps.x_mps - receiver.velocity_ecef_mps.x_mps;
+      const double rel_vy = emission->velocity_ecef_mps.y_mps - receiver.velocity_ecef_mps.y_mps;
+      const double rel_vz = emission->velocity_ecef_mps.z_mps - receiver.velocity_ecef_mps.z_mps;
       range_rate_mps = rel_vx * direction_x + rel_vy * direction_y + rel_vz * direction_z;
     } else if (oneq::coordinate::IsFinite(emission->velocity_ecef_mps)) {
       // 回退：接收机 ECEF 速度非有限时仅用发射体速度。
@@ -269,36 +302,41 @@ bool TryResolveArInterferenceObservations(
                        emission->velocity_ecef_mps.z_mps * direction_z;
     }
     // 去真值化：径向速度同样叠加确定性噪声（contract.md:348）。
-    observation.estimated_range_rate_mps =
-        Perturb(range_rate_mps, range_rate_std_mps, perturbation_seed, kRangeRateDomain,
-                emission_tag);
+    observation.estimated_range_rate_mps = Perturb(
+        range_rate_mps, range_rate_std_mps, perturbation_seed, kRangeRateDomain, emission_tag);
     const double boresight_dot =
         std::max(-1.0, std::min(1.0, direction_x * receiver.antenna.boresight_ecef.x +
-                                        direction_y * receiver.antenna.boresight_ecef.y +
-                                        direction_z * receiver.antenna.boresight_ecef.z));
+                                         direction_y * receiver.antenna.boresight_ecef.y +
+                                         direction_z * receiver.antenna.boresight_ecef.z));
     observation.estimated_off_boresight_deg = std::acos(boresight_dot) * kRadiansToDegrees;
-    observation.estimated_center_frequency_hz = CenterFrequencyHz(emission->waveform);
+    const double transmit_center_frequency_hz = CenterFrequencyHz(emission->waveform);
+    const double arrival_center_frequency_hz = transmit_center_frequency_hz + link.doppler_shift_hz;
+    if (!std::isfinite(arrival_center_frequency_hz) || arrival_center_frequency_hz <= 0.0 ||
+        !std::isfinite(link.propagation_delay_s) || link.propagation_delay_s < 0.0) {
+      return false;
+    }
+    observation.estimated_center_frequency_hz = arrival_center_frequency_hz;
     observation.estimated_bandwidth_hz = ObservableBandwidthHz(emission->waveform);
     observation.estimated_waveform_kind = emission->waveform.kind;
     observation.jammer_to_noise_db = jammer_to_noise_db;
-    // VGPO 物理可观测特征：相对接收机调谐载频（本振中心）的中心频率偏移。VGPO 把转发载频
-    // 拖离威胁雷达频率，接收端观测到的偏移即速度波门拖引的直接证据（不依赖 ECM 真值）。
-    const double reference_carrier_hz = std::isfinite(receiver.center_frequency_hz) &&
-                                                receiver.center_frequency_hz > 0.0
-                                            ? receiver.center_frequency_hz
-                                            : observation.estimated_center_frequency_hz;
+    // VGPO 可观测残差：先使用 incident link 的到达载频，再扣除本振与链路物理
+    // Doppler 组成的无欺骗期望。这样公开中心频率代表真实接收端事实，而评分残差只保留
+    // 转发波形相对受害雷达载频的额外偏移。
+    const double reference_carrier_hz =
+        std::isfinite(receiver.center_frequency_hz) && receiver.center_frequency_hz > 0.0
+            ? receiver.center_frequency_hz
+            : transmit_center_frequency_hz;
     observation.estimated_carrier_offset_hz =
-        observation.estimated_center_frequency_hz - reference_carrier_hz;
-    // RGPO 物理可观测特征：首脉冲到达时间相对几何单程传播期望的滞后。发射体按窗口边界
-    // 准时发射时，接收首脉冲应在 window_start + range/c 到达；超出部分即人工距离拖引。
+        observation.estimated_center_frequency_hz - (reference_carrier_hz + link.doppler_shift_hz);
+    // RGPO 可观测残差：首脉冲接收时刻减去“窗口起点 + 同一 incident link 的单程
+    // propagation”。first_pulse_time_s 是发射端绝对时刻，因此传播项在到达时加一次、
+    // 在期望基线减一次，最终恰好留下 ECM 编入发射计划的额外双程假距离时延。
     // 仅对 kPulseTrain（具有首脉冲时间）有意义；其他波形保持 0。
     if (emission->waveform.kind == oneq::electromagnetics::RfSceneWaveformKind::kPulseTrain) {
-      const double c = 299792458.0;
-      const double one_way_propagation_s = range_m / c;
-      const double first_pulse_relative_s =
-          emission->waveform.first_pulse_time_s - scene.window_start_time_s;
-      observation.estimated_first_pulse_delay_s =
-          first_pulse_relative_s - one_way_propagation_s;
+      const double first_pulse_arrival_s =
+          emission->waveform.first_pulse_time_s + link.propagation_delay_s;
+      const double expected_arrival_s = scene.window_start_time_s + link.propagation_delay_s;
+      observation.estimated_first_pulse_delay_s = first_pulse_arrival_s - expected_arrival_s;
     }
     const double quality_scale = std::sqrt(std::max(1.0, jammer_to_noise_linear));
     observation.bearing_standard_deviation_deg =
@@ -307,44 +345,116 @@ bool TryResolveArInterferenceObservations(
         emission->waveform.occupied_bandwidth_hz / (2.0 * quality_scale);
     observation.bandwidth_standard_deviation_hz =
         observation.estimated_bandwidth_hz / quality_scale;
-    candidate.push_back(observation);
+    ObservationCandidate resolved;
+    resolved.observation = observation;
+    resolved.identity = link.identity;
+    candidate.push_back(resolved);
   }
   std::sort(candidate.begin(), candidate.end(), [](const auto& left, const auto& right) {
-    return MakeSortKey(left) < MakeSortKey(right);
+    const ObservationSortKey left_key = MakeSortKey(left.observation);
+    const ObservationSortKey right_key = MakeSortKey(right.observation);
+    return left_key != right_key
+               ? left_key < right_key
+               : std::tie(left.identity.platform_id, left.identity.equipment_id,
+                          left.identity.emission_id) < std::tie(right.identity.platform_id,
+                                                                right.identity.equipment_id,
+                                                                right.identity.emission_id);
   });
 
-  // 欺骗特征提取：检测同方向多脉冲列（疑似假目标）。聚类逻辑复用共享几何工具，
-  // 与 ESR 的 ClassifyDeception 保持一致的波束宽度口径（含 1.0 度下限钳制）。
-  // 聚类在雷达局部系方位上进行（与目标 look angle 同系）；无可用 pose 时回退 ECEF 方位。
+  for (std::size_t index = 0U; index < candidate.size(); ++index) {
+    candidate[index].observation.observation_id = static_cast<std::uint64_t>(index + 1U);
+  }
+
+  // 欺骗特征提取由 resolver 单独拥有：在相同波束与接收频率分辨单元内，对 kPulseTrain
+  // 建立连通分量。每个分量只生成一条内部 cluster 元数据，generator 不再按另一套固定网格
+  // 重新猜测簇，从结构上消除 N 个成员各自扩展 N 次的 N² 路径。
   const double beamwidth_deg = receiver.antenna.half_power_beamwidth_deg;
   const auto is_pulse_train = [&candidate](std::size_t i) {
-    return candidate[i].estimated_waveform_kind ==
+    return candidate[i].observation.estimated_waveform_kind ==
            oneq::electromagnetics::RfSceneWaveformKind::kPulseTrain;
   };
   const auto azimuth_of = [frame_usable, &candidate](std::size_t i) {
-    return frame_usable ? candidate[i].estimated_bearing_azimuth_local_deg
-                        : candidate[i].estimated_bearing_azimuth_deg;
+    return frame_usable ? candidate[i].observation.estimated_bearing_azimuth_local_deg
+                        : candidate[i].observation.estimated_bearing_azimuth_deg;
   };
   const auto elevation_of = [frame_usable, &candidate](std::size_t i) {
-    return frame_usable ? candidate[i].estimated_bearing_elevation_local_deg
-                        : candidate[i].estimated_bearing_elevation_deg;
+    return frame_usable ? candidate[i].observation.estimated_bearing_elevation_local_deg
+                        : candidate[i].observation.estimated_bearing_elevation_deg;
   };
+
+  std::vector<std::size_t> parent(candidate.size());
+  for (std::size_t i = 0U; i < parent.size(); ++i) {
+    parent[i] = i;
+  }
   for (std::size_t i = 0U; i < candidate.size(); ++i) {
     if (!is_pulse_train(i)) {
       continue;
     }
-    const std::size_t coherent_count = oneq::common::geometry::CountCoherentNeighbors(
-        candidate.size(), is_pulse_train, azimuth_of, elevation_of, beamwidth_deg, i);
-    candidate[i].coherent_emission_count = static_cast<std::uint32_t>(coherent_count);
-    if (coherent_count >= 2U) {
-      candidate[i].deception_class = session::DeceptionClass::kLikelyFalseTarget;
+    for (std::size_t j = i + 1U; j < candidate.size(); ++j) {
+      if (!is_pulse_train(j) ||
+          !oneq::common::geometry::AreBearingsCoherent(
+              azimuth_of(i), elevation_of(i), azimuth_of(j), elevation_of(j), beamwidth_deg) ||
+          !WaveformsShareResolutionCell(candidate[i].observation, candidate[j].observation)) {
+        continue;
+      }
+      std::size_t root_i = i;
+      while (parent[root_i] != root_i) {
+        root_i = parent[root_i];
+      }
+      std::size_t root_j = j;
+      while (parent[root_j] != root_j) {
+        root_j = parent[root_j];
+      }
+      const std::size_t root = std::min(root_i, root_j);
+      parent[root_i] = root;
+      parent[root_j] = root;
     }
   }
 
-  for (std::size_t index = 0U; index < candidate.size(); ++index) {
-    candidate[index].observation_id = static_cast<std::uint64_t>(index + 1U);
+  std::map<std::size_t, std::vector<std::size_t>> components;
+  for (std::size_t i = 0U; i < candidate.size(); ++i) {
+    if (!is_pulse_train(i)) {
+      continue;
+    }
+    std::size_t root = i;
+    while (parent[root] != root) {
+      root = parent[root];
+    }
+    components[root].push_back(i);
   }
-  *observations = candidate;
+
+  ArDeceptionClusterList resolved_clusters;
+  std::map<std::uint64_t, std::uint64_t> source_set_ordinals;
+  for (const auto& component : components) {
+    const std::vector<std::size_t>& members = component.second;
+    if (members.size() < 2U) {
+      candidate[members.front()].observation.coherent_emission_count = 1U;
+      continue;
+    }
+    std::set<std::pair<std::uint64_t, std::uint64_t>> equipment_ids;
+    for (std::size_t index : members) {
+      candidate[index].observation.deception_class = session::DeceptionClass::kLikelyFalseTarget;
+      candidate[index].observation.coherent_emission_count =
+          static_cast<std::uint32_t>(members.size());
+      equipment_ids.insert(std::make_pair(candidate[index].identity.platform_id,
+                                          candidate[index].identity.equipment_id));
+    }
+    const std::uint64_t equipment_signature = HashEquipmentSet(equipment_ids);
+    const std::uint64_t ordinal = source_set_ordinals[equipment_signature]++;
+    ArDeceptionCluster cluster;
+    cluster.representative_observation_id = candidate[members.front()].observation.observation_id;
+    cluster.emission_count = static_cast<std::uint32_t>(members.size());
+    cluster.association_key_seed = Mix64(equipment_signature ^ Mix64(ordinal));
+    resolved_clusters.push_back(cluster);
+  }
+
+  std::vector<session::ArInterferenceObservation> resolved_observations;
+  resolved_observations.reserve(candidate.size());
+  for (const ObservationCandidate& item : candidate) {
+    resolved_observations.push_back(item.observation);
+  }
+  *observations = std::move(resolved_observations);
+  *deception_clusters = std::move(resolved_clusters);
   return true;
 }
 

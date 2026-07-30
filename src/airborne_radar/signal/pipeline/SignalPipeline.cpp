@@ -79,11 +79,12 @@ struct SignalPipelineSnapshot {
   tracking::TrackLifecycleRuntimeState lifecycle_runtime{};
   bool has_pending_rf_v2_detection_context{false};
   RfV2DetectionContext pending_rf_v2_detection_context{};
+  session::ArInterferenceObservationList pending_interference_observations{};
+  detection::ArDeceptionClusterList pending_deception_clusters{};
 };
 
 bool IsValidIdentity(const oneq::electromagnetics::RfEmissionIdentity& identity) {
-  return identity.platform_id != 0U && identity.equipment_id != 0U &&
-         identity.emission_id != 0U;
+  return identity.platform_id != 0U && identity.equipment_id != 0U && identity.emission_id != 0U;
 }
 
 bool IsValidRfV2DetectionContext(const RfV2DetectionContext& context) {
@@ -94,17 +95,15 @@ bool IsValidRfV2DetectionContext(const RfV2DetectionContext& context) {
       !std::isfinite(context.receive_window_duration_s) ||
       !std::isfinite(context.beam_pointing_deg.az_deg) ||
       !std::isfinite(context.beam_pointing_deg.el_deg) ||
-      context.beam_pointing_deg.az_deg < -180.0f ||
-      context.beam_pointing_deg.az_deg > 180.0f ||
-      context.beam_pointing_deg.el_deg < -90.0f ||
-      context.beam_pointing_deg.el_deg > 90.0f ||
+      context.beam_pointing_deg.az_deg < -180.0f || context.beam_pointing_deg.az_deg > 180.0f ||
+      context.beam_pointing_deg.el_deg < -90.0f || context.beam_pointing_deg.el_deg > 90.0f ||
       context.receive_window_duration_s <= 0.0) {
     return false;
   }
   double first_pulse_start_s = 0.0;
   double last_pulse_start_s = 0.0;
-  if (!oneq::electromagnetics::TryResolveRfPulseStartTime(
-          context.own_transmit_waveform, 0U, &first_pulse_start_s) ||
+  if (!oneq::electromagnetics::TryResolveRfPulseStartTime(context.own_transmit_waveform, 0U,
+                                                          &first_pulse_start_s) ||
       !oneq::electromagnetics::TryResolveRfPulseStartTime(
           context.own_transmit_waveform, context.own_transmit_waveform.pulse_count - 1U,
           &last_pulse_start_s) ||
@@ -124,8 +123,7 @@ bool IsValidRfV2DetectionContext(const RfV2DetectionContext& context) {
         link.received_power_before_overlap_w < 0.0 ||
         !oneq::electromagnetics::TryEvaluateRfArrivalActivity(
             link.emission_waveform, link.propagation_delay_s, link.doppler_shift_hz,
-            context.receive_window_start_time_s, &unused_active,
-            &unused_arrival_frequency_hz)) {
+            context.receive_window_start_time_s, &unused_active, &unused_arrival_frequency_hz)) {
       return false;
     }
   }
@@ -204,19 +202,17 @@ struct SignalPipeline::Impl {
         runtime_execution.base_config, runtime_execution.control_profile);
     ExecutionConfig runtime_config = resolved.config;
     ApplyScanScheduleToRuntimeConfig(environment_snapshot.cycle_index, &runtime_config);
-    CycleExecutionContext context(input_state, environment_snapshot,
-                                  environment_snapshot.cycle_index, cycle_.batch_id,
-                                  std::move(runtime_config), runtime_.config.platform_altitude_m,
-                                  has_pending_rf_v2_detection_context
-                                      ? &pending_rf_v2_detection_context
-                                      : nullptr,
-                                  pending_interference_observations.empty()
-                                      ? nullptr
-                                      : &pending_interference_observations);
+    CycleExecutionContext context(
+        input_state, environment_snapshot, environment_snapshot.cycle_index, cycle_.batch_id,
+        std::move(runtime_config), runtime_.config.platform_altitude_m,
+        has_pending_rf_v2_detection_context ? &pending_rf_v2_detection_context : nullptr,
+        pending_interference_observations.empty() ? nullptr : &pending_interference_observations,
+        pending_deception_clusters.empty() ? nullptr : &pending_deception_clusters);
 
     if (!ExecuteCycle(context, runtime_execution, cycle_.scratch)) {
       ResetCycleScratch(&cycle_.scratch);
       pending_interference_observations.clear();
+      pending_deception_clusters.clear();
       session::SignalCycleResult result;
       result.abort_reason = session::SignalCycleAbortReason::kRuntimePreparationFailed;
       return result;
@@ -225,6 +221,7 @@ struct SignalPipeline::Impl {
     pending_rf_v2_detection_context = RfV2DetectionContext{};
     // 干扰观测已在本周期量测构建阶段消费，无论周期是否产生假目标标注都应清空，避免跨周期残留。
     pending_interference_observations.clear();
+    pending_deception_clusters.clear();
 
     session::SignalCycleResult result;
     result.executed_this_cycle = true;
@@ -261,16 +258,18 @@ struct SignalPipeline::Impl {
     }
     snapshot->has_pending_rf_v2_detection_context = has_pending_rf_v2_detection_context;
     snapshot->pending_rf_v2_detection_context = pending_rf_v2_detection_context;
+    snapshot->pending_interference_observations = pending_interference_observations;
+    snapshot->pending_deception_clusters = pending_deception_clusters;
 
     SignalPipelineRuntimeState state;
     state.owner_identity = this;
-    state.schema_version = 2U;
+    state.schema_version = 3U;
     state.opaque = snapshot;
     return state;
   }
 
   void RestoreRuntimeState(const SignalPipelineRuntimeState& state) {
-    if (state.owner_identity != this || state.schema_version != 2U) {
+    if (state.owner_identity != this || state.schema_version != 3U) {
       PROJECT_LOG_ERROR(
           "[SignalPipeline] runtime state restore rejected because snapshot owner "
           "or schema does not match this instance.");
@@ -298,6 +297,8 @@ struct SignalPipeline::Impl {
     cycle_.batch_id = snapshot->batch_id;
     has_pending_rf_v2_detection_context = snapshot->has_pending_rf_v2_detection_context;
     pending_rf_v2_detection_context = snapshot->pending_rf_v2_detection_context;
+    pending_interference_observations = snapshot->pending_interference_observations;
+    pending_deception_clusters = snapshot->pending_deception_clusters;
   }
 
   void SetAssociationSeeds(const std::vector<tracking::AssociationTrackSeed>& seeds) {
@@ -363,8 +364,10 @@ struct SignalPipeline::Impl {
     runtime_.config.control_profile_ = control_profile;
   }
   session::ArControlProfile GetControlProfile() const { return runtime_.config.control_profile_; }
-  void SetPendingInterferenceObservations(session::ArInterferenceObservationList observations) {
+  void SetPendingInterferenceObservations(session::ArInterferenceObservationList observations,
+                                          detection::ArDeceptionClusterList deception_clusters) {
     pending_interference_observations = std::move(observations);
+    pending_deception_clusters = std::move(deception_clusters);
   }
 
   bool SetNextRfV2DetectionContext(const RfV2DetectionContext& context) {
@@ -392,6 +395,7 @@ struct SignalPipeline::Impl {
   RfV2DetectionContext pending_rf_v2_detection_context{};
   // 由控制层在 RunCycle 前注入的本周期干扰观测，供航迹起批假目标鉴别；周期内消费后清空。
   session::ArInterferenceObservationList pending_interference_observations{};
+  detection::ArDeceptionClusterList pending_deception_clusters{};
 };
 
 SignalPipeline::SignalPipeline(const ExecutionConfig& config)
@@ -463,8 +467,9 @@ session::ArControlProfile SignalPipeline::GetControlProfile() const {
 }
 
 void SignalPipeline::SetPendingInterferenceObservations(
-    session::ArInterferenceObservationList observations) {
-  impl_->SetPendingInterferenceObservations(std::move(observations));
+    session::ArInterferenceObservationList observations,
+    detection::ArDeceptionClusterList deception_clusters) {
+  impl_->SetPendingInterferenceObservations(std::move(observations), std::move(deception_clusters));
 }
 
 bool SignalPipeline::UpdateConfig(const config::ArSessionConfig& config) {

@@ -32,8 +32,7 @@ TEST(ArReplayCodecRoundtripTest, SessionConfigPreservesAllDomains) {
   config.hardware.transmitter.maximum_pulse_energy_j = 18.0f;
   config.hardware.transmitter.frequency_plan_hz = {8.0e9, 8.2e9, 8.4e9};
   config.hardware.receiver.equipment_id = 42U;
-  config.hardware.receiver.polarization =
-      oneq::electromagnetics::RfPolarization::kVertical;
+  config.hardware.receiver.polarization = oneq::electromagnetics::RfPolarization::kVertical;
   config.hardware.receiver.cross_polarization_isolation_db = 27.0f;
   config.hardware.receiver.minimum_far_field_range_m = 3.0f;
   config.hardware.receiver.has_co_site_isolation = true;
@@ -179,9 +178,7 @@ TEST(ArReplayCodecRoundtripTest, RuntimeConfigPatchPreservesAllFields) {
   EXPECT_TRUE(decoded.commanded_beamwidth_enabled);
   EXPECT_TRUE(decoded.has_environment);
   EXPECT_TRUE(decoded.environment.has_scenario_config);
-  EXPECT_FLOAT_EQ(
-      decoded.environment.scenario_config.atmospheric_physics.relative_humidity,
-      0.45f);
+  EXPECT_FLOAT_EQ(decoded.environment.scenario_config.atmospheric_physics.relative_humidity, 0.45f);
 }
 
 // ---------------------------------------------------------------------------
@@ -245,14 +242,12 @@ TEST(ArReplayCodecRoundtripTest, SingleCycleInputPreservesWorldAndRfFacts) {
   emission.identity = {700U, 1U, 33U};
   emission.position_ecef_m.x_m = 6388137.0;
   ASSERT_TRUE(oneq::electromagnetics::TryCreateRfLinearSweepWaveform(
-      12.5, 0.25, 8.0e9, 10.0e9, 1.0e6, 1000.0, 0.1,
-      &emission.waveform));
+      12.5, 0.25, 8.0e9, 10.0e9, 1.0e6, 1000.0, 0.1, &emission.waveform));
   input.interference.emissions.push_back(emission);
 
   ArCycleInput decoded;
   std::string error;
-  ASSERT_TRUE(DecodeCycleInputFlatbuffer(EncodeCycleInputFlatbuffer(input),
-                                         &decoded, &error))
+  ASSERT_TRUE(DecodeCycleInputFlatbuffer(EncodeCycleInputFlatbuffer(input), &decoded, &error))
       << error;
   EXPECT_EQ(decoded.cycle_index, 71U);
   EXPECT_DOUBLE_EQ(decoded.cycle_start_time_s, 12.5);
@@ -262,9 +257,7 @@ TEST(ArReplayCodecRoundtripTest, SingleCycleInputPreservesWorldAndRfFacts) {
   EXPECT_EQ(decoded.targets.front().target_name, "replay-target");
   EXPECT_EQ(decoded.targets.front().kinematics.position_frame,
             oneq::coordinate::PositionFrame::kLla);
-  EXPECT_DOUBLE_EQ(
-      decoded.targets.front().kinematics.position_lla_deg_m.longitude_deg,
-      121.5);
+  EXPECT_DOUBLE_EQ(decoded.targets.front().kinematics.position_lla_deg_m.longitude_deg, 121.5);
   ASSERT_EQ(decoded.interference.emissions.size(), 1U);
   EXPECT_EQ(decoded.interference.emissions.front().waveform.kind,
             oneq::electromagnetics::RfSceneWaveformKind::kLinearSweep);
@@ -309,19 +302,15 @@ TEST(ArReplayCodecRoundtripTest, SingleCycleRecordPreservesResultAndState) {
 
   ArCycleReplayRecord decoded;
   std::string error;
-  ASSERT_TRUE(DecodeCycleReplayRecordFlatbuffer(
-      EncodeCycleReplayRecordFlatbuffer(record), &decoded, &error))
+  ASSERT_TRUE(DecodeCycleReplayRecordFlatbuffer(EncodeCycleReplayRecordFlatbuffer(record), &decoded,
+                                                &error))
       << error;
   EXPECT_EQ(decoded.result.status, ArCycleStatus::kCompleted);
-  EXPECT_EQ(decoded.result.receiver_impairment,
-            ArReceiverImpairment::kSaturated);
+  EXPECT_EQ(decoded.result.receiver_impairment, ArReceiverImpairment::kSaturated);
   ASSERT_EQ(decoded.result.interference_observations.size(), 1U);
-  EXPECT_DOUBLE_EQ(
-      decoded.result.interference_observations.front().jammer_to_noise_db,
-      14.0);
+  EXPECT_DOUBLE_EQ(decoded.result.interference_observations.front().jammer_to_noise_db, 14.0);
   ASSERT_EQ(decoded.result.submitted_commands.size(), 1U);
-  EXPECT_EQ(decoded.result.submitted_commands.front().type,
-            ArCommandType::SET_AGILITY_FREQ);
+  EXPECT_EQ(decoded.result.submitted_commands.front().type, ArCommandType::SET_AGILITY_FREQ);
   ASSERT_EQ(decoded.result.validation_issues.size(), 1U);
   EXPECT_EQ(decoded.result.validation_issues.front().field, "rcs");
   EXPECT_EQ(decoded.result.association_quality_metrics.matched_count, 5U);
@@ -329,8 +318,7 @@ TEST(ArReplayCodecRoundtripTest, SingleCycleRecordPreservesResultAndState) {
   EXPECT_EQ(decoded.result.decision_observation.input_frame.batch_id, 82U);
   EXPECT_EQ(decoded.session_state.next_emission_id, 34U);
   EXPECT_TRUE(decoded.session_state.has_pending_runtime_update);
-  EXPECT_TRUE(
-      decoded.session_state.decision_state.has_pending_external_decision);
+  EXPECT_TRUE(decoded.session_state.decision_state.has_pending_external_decision);
 }
 
 TEST(ArReplayCodecRoundtripTest, AttemptsPreserveRejectedRuntimeAndDecisionResults) {
@@ -374,8 +362,8 @@ TEST(ArReplayCodecRoundtripTest, AntiDeceptionProfileFlagsRoundtripPreserved) {
 
   ArCycleReplayRecord decoded;
   std::string error;
-  ASSERT_TRUE(DecodeCycleReplayRecordFlatbuffer(
-      EncodeCycleReplayRecordFlatbuffer(record), &decoded, &error))
+  ASSERT_TRUE(DecodeCycleReplayRecordFlatbuffer(EncodeCycleReplayRecordFlatbuffer(record), &decoded,
+                                                &error))
       << error;
   EXPECT_EQ(decoded.result.control_profile.version, 5U);
   EXPECT_TRUE(decoded.result.control_profile.enable_anti_rgpo_leading_edge);
@@ -394,8 +382,8 @@ TEST(ArReplayCodecRoundtripTest, InterferenceObservationNewFieldsRoundtripPreser
   obs.estimated_bearing_azimuth_local_deg = -30.0;
   obs.estimated_bearing_elevation_local_deg = 15.0;
   obs.estimated_range_rate_mps = -120.0;
-  obs.estimated_carrier_offset_hz = 5000.0;      // VGPO 可观测特征
-  obs.estimated_first_pulse_delay_s = 1.2e-6;    // RGPO 可观测特征
+  obs.estimated_carrier_offset_hz = 5000.0;    // VGPO 可观测特征
+  obs.estimated_first_pulse_delay_s = 1.2e-6;  // RGPO 可观测特征
 
   ArCycleReplayRecord record;
   record.result.status = ArCycleStatus::kCompleted;
@@ -404,8 +392,8 @@ TEST(ArReplayCodecRoundtripTest, InterferenceObservationNewFieldsRoundtripPreser
 
   ArCycleReplayRecord decoded;
   std::string error;
-  ASSERT_TRUE(DecodeCycleReplayRecordFlatbuffer(
-      EncodeCycleReplayRecordFlatbuffer(record), &decoded, &error))
+  ASSERT_TRUE(DecodeCycleReplayRecordFlatbuffer(EncodeCycleReplayRecordFlatbuffer(record), &decoded,
+                                                &error))
       << error;
   ASSERT_EQ(decoded.result.interference_observations.size(), 1U);
   const auto& decoded_obs = decoded.result.interference_observations.front();
@@ -421,8 +409,9 @@ TEST(ArReplayCodecRoundtripTest, InterferenceObservationNewFieldsRoundtripPreser
   EXPECT_DOUBLE_EQ(decoded_obs.estimated_first_pulse_delay_s, 1.2e-6);
 }
 
-// fail-closed：deception_class 枚举越界时 decode 钳制到 kNone，不产生未定义行为。
-TEST(ArReplayCodecRoundtripTest, InterferenceObservationClampsOutOfRangeDeceptionClass) {
+// fail-closed：deception_class 枚举越界时必须原子拒绝，不能钳制后接受损坏语义。
+TEST(ArReplayCodecRoundtripTest,
+     InterferenceObservationRejectsOutOfRangeDeceptionClassWithoutMutation) {
   session::ArInterferenceObservation obs;
   obs.observation_id = 1U;
   // 构造合法观测后篡改 deception_class 为越界值。
@@ -436,14 +425,31 @@ TEST(ArReplayCodecRoundtripTest, InterferenceObservationClampsOutOfRangeDeceptio
   record.result.interference_observations.push_back(obs);
 
   ArCycleReplayRecord decoded;
+  decoded.result.input_cycle_index = 777U;
+  decoded.session_state.next_emission_id = 888U;
   std::string error;
-  ASSERT_TRUE(DecodeCycleReplayRecordFlatbuffer(
-      EncodeCycleReplayRecordFlatbuffer(record), &decoded, &error))
-      << error;
-  ASSERT_EQ(decoded.result.interference_observations.size(), 1U);
-  // 越界值被钳制到 kNone，而非保留原始越界枚举。
-  EXPECT_EQ(decoded.result.interference_observations.front().deception_class,
-            session::DeceptionClass::kNone);
+  EXPECT_FALSE(DecodeCycleReplayRecordFlatbuffer(EncodeCycleReplayRecordFlatbuffer(record),
+                                                 &decoded, &error));
+  EXPECT_EQ(decoded.result.input_cycle_index, 777U);
+  EXPECT_EQ(decoded.session_state.next_emission_id, 888U);
+}
+
+TEST(ArReplayCodecRoundtripTest, InterferenceObservationRejectsUnknownWaveformKindWithoutMutation) {
+  session::ArInterferenceObservation obs;
+  obs.observation_id = 1U;
+  obs.estimated_waveform_kind = static_cast<oneq::electromagnetics::RfSceneWaveformKind>(99);
+
+  ArCycleReplayRecord record;
+  record.result.status = ArCycleStatus::kCompleted;
+  record.result.input_cycle_index = 1U;
+  record.result.interference_observations.push_back(obs);
+
+  ArCycleReplayRecord decoded;
+  decoded.result.input_cycle_index = 777U;
+  std::string error;
+  EXPECT_FALSE(DecodeCycleReplayRecordFlatbuffer(EncodeCycleReplayRecordFlatbuffer(record),
+                                                 &decoded, &error));
+  EXPECT_EQ(decoded.result.input_cycle_index, 777U);
 }
 
 // ===========================================================================

@@ -10,11 +10,12 @@
 #include <utility>
 #include <vector>
 
-#include "airborne_radar/environment/EnvironmentTypes.h"
 #include "1q/airborne_radar/session/ArControlProfile.h"
 #include "1q/airborne_radar/session/ArInterferenceObservation.h"
 #include "1q/airborne_radar/session/DecisionInputFrame.h"
+#include "airborne_radar/environment/EnvironmentTypes.h"
 #include "airborne_radar/signal/association/DataAssociation.h"
+#include "airborne_radar/signal/detection/ArDeceptionCluster.h"
 #include "airborne_radar/signal/detection/SignalDetector.h"
 #include "airborne_radar/signal/detection/TargetGeometryResolver.h"
 #include "airborne_radar/signal/pipeline/SignalPipelineExecutionConfig.h"
@@ -53,7 +54,6 @@ struct CycleExecutionScratch {
 
   // 量测构建阶段中间数据
   std::vector<int> measurement_slots;
-
 };
 
 /**
@@ -93,13 +93,13 @@ struct CycleExecutionRuntime {
  * @brief 单周期执行的输入上下文（场景输入、环境、周期编号与运行时配置）。
  */
 struct CycleExecutionContext {
-  CycleExecutionContext(const session::ArSceneTargetList& input_state,
-                        const session::EnvironmentSnapshot& environment_snapshot,
-                        std::uint32_t cycle_index, std::uint64_t batch_id,
-                        ExecutionConfig runtime_config, float platform_altitude_m,
-                        const RfV2DetectionContext* rf_v2_detection_context = nullptr,
-                        const session::ArInterferenceObservationList* interference_observations =
-                            nullptr)
+  CycleExecutionContext(
+      const session::ArSceneTargetList& input_state,
+      const session::EnvironmentSnapshot& environment_snapshot, std::uint32_t cycle_index,
+      std::uint64_t batch_id, ExecutionConfig runtime_config, float platform_altitude_m,
+      const RfV2DetectionContext* rf_v2_detection_context = nullptr,
+      const session::ArInterferenceObservationList* interference_observations = nullptr,
+      const detection::ArDeceptionClusterList* deception_clusters = nullptr)
       : input_state(input_state),
         environment_snapshot(environment_snapshot),
         cycle_index(cycle_index),
@@ -107,7 +107,8 @@ struct CycleExecutionContext {
         platform_altitude_m(platform_altitude_m),
         runtime_config(std::move(runtime_config)),
         rf_v2_detection_context(rf_v2_detection_context),
-        interference_observations(interference_observations) {}
+        interference_observations(interference_observations),
+        deception_clusters(deception_clusters) {}
 
   const session::ArSceneTargetList& input_state;
   const session::EnvironmentSnapshot& environment_snapshot;
@@ -115,10 +116,11 @@ struct CycleExecutionContext {
   std::uint64_t batch_id{0U};
   float platform_altitude_m{0.0f};
   ExecutionConfig runtime_config{};
-  // 以下两个裸指针表达"可选的非拥有引用"：nullptr 表示该周期无此输入，非空时指向调用方
+  // 以下裸指针表达"可选的非拥有引用"：nullptr 表示该周期无此输入，非空时指向调用方
   // 拥有的、生命周期覆盖整个 ExecuteCycle 的对象。ExecuteCycle 内只读访问，不释放。
   const RfV2DetectionContext* rf_v2_detection_context{nullptr};
   const session::ArInterferenceObservationList* interference_observations{nullptr};
+  const detection::ArDeceptionClusterList* deception_clusters{nullptr};
 };
 
 /**
@@ -128,8 +130,7 @@ struct CycleExecutionContext {
  * @param[in,out] cycle_scratch 周期暂存区，承载各阶段中间产物与最终输出。
  * @return 环境阶段失败返回 false；正常完成返回 true。
  */
-bool ExecuteCycle(CycleExecutionContext& context,
-                  const CycleExecutionRuntime& runtime,
+bool ExecuteCycle(CycleExecutionContext& context, const CycleExecutionRuntime& runtime,
                   CycleExecutionScratch& cycle_scratch);
 
 }  // namespace pipeline
