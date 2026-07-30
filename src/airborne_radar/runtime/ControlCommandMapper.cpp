@@ -90,5 +90,71 @@ extension::ControlReductionResult ControlCommandMapper::Apply(
   return reduction_result;
 }
 
+session::ArCommand ControlCommandMapper::DirectiveToCommand(
+    const session::ControlDirective& directive) {
+  return ToArCommand(directive);
+}
+
+std::vector<session::ControlDirective> ControlCommandMapper::DiffProfiles(
+    const session::ArControlProfile& baseline,
+    const session::ArControlProfile& target) {
+  std::vector<session::ControlDirective> diffs;
+
+  // LPI domain
+  if (baseline.enable_lpi_power_control != target.enable_lpi_power_control ||
+      baseline.lpi_power_scale != target.lpi_power_scale) {
+    if (target.enable_lpi_power_control) {
+      diffs.emplace_back(session::ControlDirectiveType::REQUEST_LPI_POWER_REDUCTION,
+                          session::ControlDirectiveSource::UNKNOWN, target.lpi_power_scale);
+    }
+  }
+  if (baseline.enable_lpi_beamforming != target.enable_lpi_beamforming) {
+    diffs.emplace_back(session::ControlDirectiveType::REQUEST_LPI_BEAMFORMING,
+                        session::ControlDirectiveSource::UNKNOWN);
+  }
+  if (baseline.lpi_dwell_scale != target.lpi_dwell_scale && target.lpi_dwell_scale != 1.0f) {
+    diffs.emplace_back(session::ControlDirectiveType::REQUEST_LPI_DWELL,
+                        session::ControlDirectiveSource::UNKNOWN, target.lpi_dwell_scale);
+  }
+
+  // ECCM domain
+  if (baseline.enable_agility_frequency != target.enable_agility_frequency) {
+    diffs.emplace_back(session::ControlDirectiveType::REQUEST_AGILITY_FREQUENCY,
+                        session::ControlDirectiveSource::UNKNOWN);
+  }
+  if (baseline.enable_sidelobe_canceller != target.enable_sidelobe_canceller) {
+    diffs.emplace_back(session::ControlDirectiveType::REQUEST_ENABLE_SIDELOBE_CANCELLER,
+                        session::ControlDirectiveSource::UNKNOWN);
+  }
+  if (baseline.enable_adaptive_beamforming != target.enable_adaptive_beamforming) {
+    diffs.emplace_back(session::ControlDirectiveType::REQUEST_ENABLE_ADAPTIVE_BEAMFORMING,
+                        session::ControlDirectiveSource::UNKNOWN);
+  }
+  if (baseline.enable_eccm_rejitter != target.enable_eccm_rejitter) {
+    diffs.emplace_back(session::ControlDirectiveType::REQUEST_ECCM_REJITTER,
+                        session::ControlDirectiveSource::UNKNOWN);
+  }
+  if (baseline.eccm_burnthrough_gain != target.eccm_burnthrough_gain &&
+      target.eccm_burnthrough_gain > 1.0f) {
+    diffs.emplace_back(session::ControlDirectiveType::REQUEST_ECCM_BURNTHROUGH_GAIN,
+                        session::ControlDirectiveSource::UNKNOWN, target.eccm_burnthrough_gain);
+  }
+  if (baseline.enable_anti_rgpo_leading_edge != target.enable_anti_rgpo_leading_edge) {
+    diffs.emplace_back(session::ControlDirectiveType::REQUEST_ANTI_RGPO_LEADING_EDGE,
+                        session::ControlDirectiveSource::UNKNOWN);
+  }
+  if (baseline.enable_anti_vgpo_acceleration_bound != target.enable_anti_vgpo_acceleration_bound) {
+    diffs.emplace_back(session::ControlDirectiveType::REQUEST_ANTI_VGPO_ACCELERATION_BOUND,
+                        session::ControlDirectiveSource::UNKNOWN);
+  }
+  if (baseline.enable_anti_false_target_discrimination !=
+      target.enable_anti_false_target_discrimination) {
+    diffs.emplace_back(session::ControlDirectiveType::REQUEST_ANTI_FALSE_TARGET_DISCRIMINATION,
+                        session::ControlDirectiveSource::UNKNOWN);
+  }
+
+  return diffs;
+}
+
 }  // namespace extension
 }  // namespace airborne_radar

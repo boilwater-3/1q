@@ -860,5 +860,10 @@ session::ExternalDecisionSubmitStatus ArSession::SubmitExternalDecision(
   return impl_->Controller().SubmitExternalDecision(response);
 }
 
+session::ExternalDecisionSubmitStatus ArSession::SubmitExternalDecision(
+    session::ExternalDecisionOverride override_decision) {
+  return impl_->Controller().SubmitExternalDecision(std::move(override_decision));
+}
+
 }  // namespace session
 }  // namespace airborne_radar

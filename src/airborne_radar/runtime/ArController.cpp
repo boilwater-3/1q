@@ -23,6 +23,22 @@ namespace extension {
 
 namespace {
 
+bool HasOperationalProfileChanged(const session::ArControlProfile& previous,
+                                  const session::ArControlProfile& next) {
+  return previous.enable_lpi_power_control != next.enable_lpi_power_control ||
+         previous.lpi_power_scale != next.lpi_power_scale ||
+         previous.enable_lpi_beamforming != next.enable_lpi_beamforming ||
+         previous.lpi_dwell_scale != next.lpi_dwell_scale ||
+         previous.enable_agility_frequency != next.enable_agility_frequency ||
+         previous.enable_sidelobe_canceller != next.enable_sidelobe_canceller ||
+         previous.enable_adaptive_beamforming != next.enable_adaptive_beamforming ||
+         previous.enable_eccm_rejitter != next.enable_eccm_rejitter ||
+         previous.eccm_burnthrough_gain != next.eccm_burnthrough_gain ||
+         previous.enable_anti_rgpo_leading_edge != next.enable_anti_rgpo_leading_edge ||
+         previous.enable_anti_vgpo_acceleration_bound != next.enable_anti_vgpo_acceleration_bound ||
+         previous.enable_anti_false_target_discrimination != next.enable_anti_false_target_discrimination;
+}
+
 bool IsValidExternalProposal(const session::TacticalProposal& proposal) {
   const session::ControlDirective& directive = proposal.directive;
   // 域判定与标量合法性共用 reducer 的权威实现，避免重复 `==` 链漂移。
@@ -94,6 +110,8 @@ struct ArController::Impl {
   std::vector<session::TacticalProposal> pending_internal_proposals{};
   bool has_pending_external_decision{false};
   session::ExternalDecisionResponse pending_external_decision{};
+  bool has_pending_external_override{false};
+  session::ExternalDecisionOverride pending_external_override{};
   bool has_latest_decision_observation{false};
   session::DecisionObservation latest_decision_observation{};
   session::DecisionControlSource last_applied_decision_source{
@@ -129,17 +147,84 @@ struct ArController::Impl {
     }
   }
 
+  /** @brief 校验外部覆盖返回的 profile 字段是否在合法范围内。 */
+  static bool IsValidOverrideProfile(const session::ArControlProfile& profile) {
+    if (profile.enable_lpi_power_control) {
+      if (!std::isfinite(profile.lpi_power_scale) || profile.lpi_power_scale <= 0.0f ||
+          profile.lpi_power_scale > 1.0f) {
+        return false;
+      }
+    }
+    if (profile.lpi_dwell_scale != 1.0f) {
+      if (!std::isfinite(profile.lpi_dwell_scale) || profile.lpi_dwell_scale < 0.25f ||
+          profile.lpi_dwell_scale > 1.0f) {
+        return false;
+      }
+    }
+    if (profile.eccm_burnthrough_gain != 1.0f) {
+      if (!std::isfinite(profile.eccm_burnthrough_gain) || profile.eccm_burnthrough_gain <= 1.0f ||
+          profile.eccm_burnthrough_gain > 2.0f) {
+        return false;
+      }
+    }
+    if (profile.agility_frequency_hop_phase > 1) {
+      return false;
+    }
+    return true;
+  }
+
+  /** @brief 将外部覆盖应用到原生 profile 上，返回最终 profile。 */
+  static session::ArControlProfile ApplyExternalOverride(
+      const session::ArControlProfile& native_profile,
+      const session::ExternalDecisionOverride& override) {
+    session::ArControlProfile override_profile = override.apply(native_profile);
+    if (!IsValidOverrideProfile(override_profile)) {
+      return native_profile;
+    }
+    override_profile.version = HasOperationalProfileChanged(native_profile, override_profile)
+                                   ? native_profile.version + 1U
+                                   : native_profile.version;
+    return override_profile;
+  }
+
   void ApplyPendingDecisionControl() {
     if (!has_pending_internal_decision) {
       return;
     }
+
+    // 1. 原生归约（始终执行）
     const std::vector<session::TacticalProposal>& selected_proposals =
         has_pending_external_decision ? pending_external_decision.proposals
                                       : pending_internal_proposals;
-    command_mapper->Apply(&control_profile, selected_proposals);
-    last_applied_decision_source = has_pending_external_decision
-                                       ? session::DecisionControlSource::kExternal
-                                       : session::DecisionControlSource::kInternal;
+    const extension::ControlReductionResult native_result =
+        command_mapper->Apply(&control_profile, selected_proposals);
+
+    // 2. 外部覆盖（新路径优先）
+    if (has_pending_external_override) {
+      const session::ArControlProfile override_profile =
+          ApplyExternalOverride(control_profile, pending_external_override);
+      if (override_profile.version != control_profile.version) {
+        control_profile = override_profile;
+        radar_context.UpdateRadarControlProfile(control_profile);
+        // 对差异字段生成 ArCommand
+        const std::vector<session::ControlDirective> diffs =
+            command_mapper->DiffProfiles(native_result.profile, control_profile);
+        for (std::size_t i = 0; i < diffs.size(); ++i) {
+          const session::ArCommand cmd =
+              extension::ControlCommandMapper::DirectiveToCommand(diffs[i]);
+          if (cmd.type != session::ArCommandType::NONE) {
+            radar_context.SubmitControlCommand(cmd);
+          }
+        }
+      }
+      last_applied_decision_source = session::DecisionControlSource::kExternal;
+    } else if (has_pending_external_decision) {
+      // deprecated 路径：Reduce 已在 command_mapper->Apply 中完成
+      last_applied_decision_source = session::DecisionControlSource::kExternal;
+    } else {
+      last_applied_decision_source = session::DecisionControlSource::kInternal;
+    }
+
     last_applied_decision_cycle_index = pending_internal_cycle_index;
     last_applied_decision_batch_id = pending_internal_batch_id;
     last_applied_decision_proposals = selected_proposals;
@@ -147,6 +232,8 @@ struct ArController::Impl {
     pending_internal_proposals.clear();
     has_pending_external_decision = false;
     pending_external_decision = session::ExternalDecisionResponse();
+    has_pending_external_override = false;
+    pending_external_override = session::ExternalDecisionOverride();
   }
 };
 
@@ -355,6 +442,22 @@ session::ExternalDecisionSubmitStatus ArController::SubmitExternalDecision(
   return session::ExternalDecisionSubmitStatus::kAccepted;
 }
 
+session::ExternalDecisionSubmitStatus ArController::SubmitExternalDecision(
+    session::ExternalDecisionOverride override_decision) {
+  if (!impl_->has_pending_internal_decision || !impl_->has_latest_decision_observation) {
+    return session::ExternalDecisionSubmitStatus::kNoPendingObservation;
+  }
+  if (impl_->has_pending_external_override || impl_->has_pending_external_decision) {
+    return session::ExternalDecisionSubmitStatus::kAlreadySubmitted;
+  }
+  if (!override_decision.apply) {
+    return session::ExternalDecisionSubmitStatus::kInvalidProfile;
+  }
+  impl_->pending_external_override = std::move(override_decision);
+  impl_->has_pending_external_override = true;
+  return session::ExternalDecisionSubmitStatus::kAccepted;
+}
+
 session::DecisionControlSource ArController::GetLastAppliedDecisionSource() const {
   return impl_->last_applied_decision_source;
 }
@@ -383,7 +486,7 @@ const session::ExternalDecisionResponse& ArController::GetPendingExternalDecisio
 extension::ArControllerRuntimeState ArController::CaptureRuntimeState() const {
   extension::ArControllerRuntimeState state;
   state.owner_identity = this;
-  state.schema_version = 3U;
+  state.schema_version = 4U;
   state.latest_output = impl_->cycle_state.latest_output;
   state.has_latest_output = impl_->cycle_state.has_latest_output;
   state.last_validation_issues = impl_->cycle_state.last_validation_issues;
@@ -400,6 +503,8 @@ extension::ArControllerRuntimeState ArController::CaptureRuntimeState() const {
   state.pending_internal_proposals = impl_->pending_internal_proposals;
   state.has_pending_external_decision = impl_->has_pending_external_decision;
   state.pending_external_decision = impl_->pending_external_decision;
+  state.has_pending_external_override = impl_->has_pending_external_override;
+  state.pending_external_override = impl_->pending_external_override;
   state.has_latest_decision_observation = impl_->has_latest_decision_observation;
   state.latest_decision_observation = impl_->latest_decision_observation;
   state.last_applied_decision_source = impl_->last_applied_decision_source;
@@ -411,7 +516,7 @@ extension::ArControllerRuntimeState ArController::CaptureRuntimeState() const {
 }
 
 bool ArController::RestoreRuntimeState(const extension::ArControllerRuntimeState& state) {
-  if (state.owner_identity != this || state.schema_version != 3U) {
+  if (state.owner_identity != this || state.schema_version != 4U) {
     PROJECT_LOG_ERROR(
         "[ArController] controller runtime state restore rejected: "
         "owner/schema mismatch.");
@@ -434,6 +539,8 @@ bool ArController::RestoreRuntimeState(const extension::ArControllerRuntimeState
   impl_->pending_internal_proposals = state.pending_internal_proposals;
   impl_->has_pending_external_decision = state.has_pending_external_decision;
   impl_->pending_external_decision = state.pending_external_decision;
+  impl_->has_pending_external_override = state.has_pending_external_override;
+  impl_->pending_external_override = state.pending_external_override;
   impl_->has_latest_decision_observation = state.has_latest_decision_observation;
   impl_->latest_decision_observation = state.latest_decision_observation;
   impl_->last_applied_decision_source = state.last_applied_decision_source;

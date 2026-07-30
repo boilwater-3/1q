@@ -7,6 +7,7 @@
 #define ONEQ_AIRBORNE_RADAR_SESSION_DECISION_CONTROL_TYPES_H_
 
 #include <cstdint>
+#include <functional>
 #include <string>
 #include <vector>
 
@@ -44,12 +45,22 @@ struct ONEQ_API ExternalDecisionResponse {
   std::vector<TacticalProposal> proposals{};
 };
 
+/** @brief 外部模块的 profile 覆盖回调。接收当前活跃 profile，返回修改后的 profile。 */
+using ExternalDecisionOverrideFn =
+    std::function<session::ArControlProfile(const session::ArControlProfile&)>;
+
+/** @brief 外部覆盖提交。 */
+struct ONEQ_API ExternalDecisionOverride {
+  ExternalDecisionOverrideFn apply{};
+};
+
 enum class ONEQ_API ExternalDecisionSubmitStatus {
   kAccepted = 0,
   kNoPendingObservation,
   kSourceMismatch,
   kAlreadySubmitted,
-  kInvalidProposal
+  kInvalidProposal,
+  kInvalidProfile = kInvalidProposal
 };
 
 enum class ONEQ_API DecisionControlSource {

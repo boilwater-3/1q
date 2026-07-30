@@ -52,6 +52,8 @@ struct ArControllerRuntimeState {
   std::vector<session::TacticalProposal> pending_internal_proposals{};
   bool has_pending_external_decision{false};
   session::ExternalDecisionResponse pending_external_decision{};
+  bool has_pending_external_override{false};
+  session::ExternalDecisionOverride pending_external_override{};
   bool has_latest_decision_observation{false};
   session::DecisionObservation latest_decision_observation{};
   session::DecisionControlSource last_applied_decision_source{
@@ -165,6 +167,10 @@ class ArController {
   /** @brief 提交与最新决策观测匹配的外部 LPI/ECCM 响应。 */
   session::ExternalDecisionSubmitStatus SubmitExternalDecision(
       const session::ExternalDecisionResponse& response);
+
+  /** @brief 提交外部 profile 覆盖（回调模式，绕过 TacticalProposal 管线）。 */
+  session::ExternalDecisionSubmitStatus SubmitExternalDecision(
+      session::ExternalDecisionOverride override_decision);
 
   session::DecisionControlSource GetLastAppliedDecisionSource() const;
   std::uint32_t GetLastAppliedDecisionCycleIndex() const;

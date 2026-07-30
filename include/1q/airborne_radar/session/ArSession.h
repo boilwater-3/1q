@@ -105,6 +105,10 @@ class ONEQ_API ArSession {
   session::ExternalDecisionSubmitStatus SubmitExternalDecision(
       const session::ExternalDecisionResponse& response);
 
+  /** @brief 提交外部 profile 覆盖（回调模式，绕过 TacticalProposal 管线）。 */
+  session::ExternalDecisionSubmitStatus SubmitExternalDecision(
+      session::ExternalDecisionOverride override_decision);
+
   /** @brief 使用四域配置创建会话（推荐入口，信任路径，不做配置校验）。 */
   static ArSession Create(const config::ArSessionConfig& config = {});
   /**
