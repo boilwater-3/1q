@@ -500,6 +500,43 @@ TEST_F(CoreControllerTest, ExternalBurnthroughGainAltersNextPhysicalDetection) {
             baseline_measurements[0].raw_measurement.detection_margin_db);
 }
 
+// 自适应波束形成 directive 的检测后果（C1 收敛）：
+// REQUEST_ENABLE_ADAPTIVE_BEAMFORMING 经 ControlProfileEffects 提升 main_beam_gain_db
+// （adaptive_beam_gain_boost_db，默认 +2.0 dB），直接抬高回波功率，应在热噪声范围内提高检测裕度。
+// 此前 sidelobe/adaptive beamforming 仅被断言为 proposal 存在或 cycle 仍完成，
+// 从不断言实际检测后果——这是 C1「两个消费者发散物理量」中最可测量的 detector-config 路径的基线证据。
+TEST_F(CoreControllerTest, ExternalAdaptiveBeamformingRaisesNextPhysicalDetectionMargin) {
+  config::ArSessionConfig session_config = MakeDetectionFocusedConfig();
+  FakeRadarContext radar_context(BuildSingleTarget(220.0f, 10000.0f, false));
+  environment::EnvironmentService environment_service;
+  signal::pipeline::SignalPipeline signal_pipeline(session_config);
+  extension::ArController controller(radar_context, signal_pipeline, environment_service);
+
+  controller.RunOnce(signal::pipeline::SignalCycleInput{radar_context.GetSceneTargets()});
+  const std::vector<signal::tracking::TrackMeasurement> baseline_measurements =
+      signal_pipeline.GetLastTrackMeasurements();
+  ASSERT_EQ(baseline_measurements.size(), 1U);
+  const session::DecisionInputFrame frame = controller.GetLatestDecisionObservation().input_frame;
+  session::ExternalDecisionResponse response;
+  response.source_cycle_index = frame.cycle_index;
+  response.source_batch_id = frame.batch_id;
+  response.proposals.push_back(session::TacticalProposal{
+      session::ControlDirective(session::ControlDirectiveType::REQUEST_ENABLE_ADAPTIVE_BEAMFORMING,
+                                session::ControlDirectiveSource::SURVIVABILITY),
+      88, "external adaptive beamforming"});
+  ASSERT_EQ(controller.SubmitExternalDecision(response),
+            session::ExternalDecisionSubmitStatus::kAccepted);
+
+  controller.RunOnce(signal::pipeline::SignalCycleInput{radar_context.GetSceneTargets()});
+  const std::vector<signal::tracking::TrackMeasurement> controlled_measurements =
+      signal_pipeline.GetLastTrackMeasurements();
+  ASSERT_EQ(controlled_measurements.size(), 1U);
+  EXPECT_TRUE(signal_pipeline.GetControlProfile().enable_adaptive_beamforming);
+  // 自适应波束形成提升主瓣增益：检测裕度应上升。
+  EXPECT_GT(controlled_measurements[0].raw_measurement.detection_margin_db,
+            baseline_measurements[0].raw_measurement.detection_margin_db);
+}
+
 TEST_F(CoreControllerTest, EmptyExternalResponseExplicitlyDisablesInternalControl) {
   FakeRadarContext radar_context(BuildSingleTarget(800.0f, 2.5f, false));
   environment::EnvironmentService environment_service;

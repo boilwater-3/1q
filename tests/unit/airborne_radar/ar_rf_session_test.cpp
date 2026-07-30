@@ -185,6 +185,43 @@ TEST(ArRfSessionTest, EccmSidelobeControlsKeepNextReceiverPatternValid) {
   EXPECT_EQ(second.status, ArCycleStatus::kCompleted);
 }
 
+// 旁瓣对消 directive 与发射天线方向图的关系（C1 架构固化）：
+// REQUEST_ENABLE_SIDELOBE_CANCELLER 经 ControlProfileEffects 只作用于 SignalPipeline 的
+// 内部 detector runtime config（max_sidelobe_level_db -= sidelobe_level_reduction_db）。
+// ArSession 的发射构造读取的是未经 ControlProfileEffects 处理的 base detection 工程配置
+// （detection.antenna.pattern.max_sidelobe_level_db），故公开 emission_frame 的旁瓣电平
+// 不随该 directive 变化；ArSession 的 receiver_state 则另走一套独立常量（12.0 dB）。
+// 这正是 C1「两个消费者代表两个物理面（对内 detector vs 对外 RF 场景）」的可观测证据——
+// 固化此现状，防止未来把两套消费者误并为单一权威而改变公开 emission 契约。
+TEST(ArRfSessionTest, SidelobeCancellerLeavesPublishedEmissionSidelobeUnchanged) {
+  config::ArSessionConfig config;
+  config.hardware.transmitter.frequency_plan_hz = {3.0e9};
+  ArSession radar = ArSession::Create(config);
+  const ArCycleResult first = radar.StepWithResult(MakeInput(1U, 0.0));
+  ASSERT_EQ(first.status, ArCycleStatus::kCompleted);
+  ASSERT_EQ(first.emission_frame.emissions.size(), 1U);
+  const double baseline_sidelobe_db =
+      first.emission_frame.emissions.front().antenna.sidelobe_level_db;
+
+  ExternalDecisionResponse response;
+  response.source_cycle_index = first.decision_observation.input_frame.cycle_index;
+  response.source_batch_id = first.decision_observation.input_frame.batch_id;
+  response.proposals.push_back(
+      TacticalProposal{ControlDirective(ControlDirectiveType::REQUEST_ENABLE_SIDELOBE_CANCELLER,
+                                        ControlDirectiveSource::SURVIVABILITY),
+                       90, "sidelobe-canceller"});
+  ASSERT_EQ(radar.SubmitExternalDecision(response), ExternalDecisionSubmitStatus::kAccepted);
+
+  const ArCycleResult second = radar.StepWithResult(MakeInput(2U, 0.5));
+  ASSERT_EQ(second.status, ArCycleStatus::kCompleted);
+  ASSERT_EQ(second.emission_frame.emissions.size(), 1U);
+  const double controlled_sidelobe_db =
+      second.emission_frame.emissions.front().antenna.sidelobe_level_db;
+  // 发射方向图旁瓣读取自 base detection 工程配置，不经 ControlProfileEffects，
+  // 故 directive 生效后公开 emission 旁瓣电平保持不变（C1 两面物理事实）。
+  EXPECT_DOUBLE_EQ(controlled_sidelobe_db, baseline_sidelobe_db);
+}
+
 TEST(ArRfSessionTest, InertialStabilizationKeepsActualEcefBoresightFixed) {
   config::ArSessionConfig body_config = MakeRfConfig();
   body_config.mission.orientation.work_mode = config::ArWorkMode::kStt;
