@@ -151,12 +151,7 @@ struct ArSession::Impl {
     result.input_cycle_index = input.cycle_index;
     result.status = ArCycleStatus::kCompleted;
     result.track_output_frame = completed.track_output_frame;
-    result.emission_frame.world_cycle_index = input.cycle_index;
-    result.emission_frame.window_start_time_s = input.cycle_start_time_s;
-    result.emission_frame.window_duration_s = input.dt_sec;
-    if (prepared.has_emission) {
-      result.emission_frame.emissions.push_back(prepared.emission);
-    }
+    FillEmissionFrame(result, input, prepared);
     result.receiver_impairment = completed.receiver_impairment;
     result.interference_observations = completed.interference_observations;
     result.submitted_commands = RadarContext().GetSubmittedCommands();
@@ -171,9 +166,7 @@ struct ArSession::Impl {
     if (result.has_decision_observation) {
       result.decision_observation = completed.decision_observation;
     }
-    result.applied_decision_source = Controller().GetLastAppliedDecisionSource();
-    result.applied_decision_cycle_index = Controller().GetLastAppliedDecisionCycleIndex();
-    result.applied_decision_batch_id = Controller().GetLastAppliedDecisionBatchId();
+    FillAppliedDecisionMetadata(result);
     return result;
   }
 
@@ -201,21 +194,32 @@ struct ArSession::Impl {
     return result;
   }
 
-  ArCycleResult BuildPostEmissionAbortResult(const ArCycleInput& input,
-                                             const ArPrepareCycleResult& prepared,
-                                             session::SignalCycleAbortReason abort_reason) const {
-    ArCycleResult result = BuildExecutionAbortResult(input, abort_reason);
+  // 用 prepare 期权威窗口与本周期 AR 发射填充 emission_frame，完成路径与发射后中止路径共用。
+  void FillEmissionFrame(ArCycleResult& result, const ArCycleInput& input,
+                         const ArPrepareCycleResult& prepared) const {
     result.emission_frame.world_cycle_index = input.cycle_index;
     result.emission_frame.window_start_time_s = input.cycle_start_time_s;
     result.emission_frame.window_duration_s = input.dt_sec;
     if (prepared.has_emission) {
       result.emission_frame.emissions.push_back(prepared.emission);
     }
-    result.has_control_profile = true;
-    result.control_profile = Controller().GetControlProfile();
+  }
+
+  // 复制本周期控制器实际采用的控制决策来源元组，完成路径与发射后中止路径共用。
+  void FillAppliedDecisionMetadata(ArCycleResult& result) const {
     result.applied_decision_source = Controller().GetLastAppliedDecisionSource();
     result.applied_decision_cycle_index = Controller().GetLastAppliedDecisionCycleIndex();
     result.applied_decision_batch_id = Controller().GetLastAppliedDecisionBatchId();
+  }
+
+  ArCycleResult BuildPostEmissionAbortResult(const ArCycleInput& input,
+                                             const ArPrepareCycleResult& prepared,
+                                             session::SignalCycleAbortReason abort_reason) const {
+    ArCycleResult result = BuildExecutionAbortResult(input, abort_reason);
+    FillEmissionFrame(result, input, prepared);
+    result.has_control_profile = true;
+    result.control_profile = Controller().GetControlProfile();
+    FillAppliedDecisionMetadata(result);
     return result;
   }
 
