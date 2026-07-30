@@ -84,9 +84,9 @@ class ONEQ_API ArTraceSession {
   /** @brief 尝试应用运行期配置补丁；接受或拒绝结果均写入 replay trace。 */
   bool TryApplyRuntimeConfig(const config::ArRuntimeConfigPatch& patch);
 
-  /** @brief 提交外部 LPI/ECCM 决策；接受或拒绝结果均作为 replay 输入事件写入。 */
+  /** @brief 提交外部 profile 覆盖（回调模式，绕过 TacticalProposal 管线）。 */
   session::ExternalDecisionSubmitStatus SubmitExternalDecision(
-      const session::ExternalDecisionResponse& response);
+      session::ExternalDecisionOverride override_decision);
 
   /** @brief 获取被包装的底层 ArSession（只读）。 */
   const ArSession& session() const;

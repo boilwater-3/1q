@@ -93,34 +93,6 @@ bool OnRuntimeConfigPatch(const oneq::replay::ReplayTraceReadEvent& event,
   return true;
 }
 
-bool OnDecisionInput(const oneq::replay::ReplayTraceReadEvent& event,
-                     void* user_data, std::string* error) {
-  if (event.payload_type != "ArExternalDecisionAttemptV3") {
-    *error = "AR replay rejects legacy decision_input payload type: " +
-             event.payload_type;
-    return false;
-  }
-  ArReplayState* state = static_cast<ArReplayState*>(user_data);
-  if (!state->session) {
-    *error = "AR replay received decision_input before session_config";
-    return false;
-  }
-  ExternalDecisionResponse response;
-  ExternalDecisionSubmitStatus expected_status =
-      ExternalDecisionSubmitStatus::kNoPendingObservation;
-  if (!DecodeExternalDecisionAttemptFlatbuffer(
-          event.payload_bytes, &response, &expected_status, error)) {
-    return false;
-  }
-  const ExternalDecisionSubmitStatus actual_status =
-      state->session->SubmitExternalDecision(response);
-  if (actual_status != expected_status) {
-    *error = "AR replay external decision submit result divergence";
-    return false;
-  }
-  return true;
-}
-
 oneq::replay::ReplayTraceOutputStatus OnCycleOutput(
     const oneq::replay::ReplayTraceReadEvent& event, void* user_data,
     std::string* actual_output, std::string* error) {
@@ -188,7 +160,6 @@ ArReplaySessionResult ReplayArTrace(const std::string& trace_dir) {
   callbacks.user_data = &state;
   callbacks.on_session_config = OnSessionConfig;
   callbacks.on_cycle_input = OnCycleInput;
-  callbacks.on_decision_input = OnDecisionInput;
   callbacks.on_runtime_config_patch = OnRuntimeConfigPatch;
   callbacks.on_cycle_output = OnCycleOutput;
   callbacks.on_failure_marker = OnFailureMarker;

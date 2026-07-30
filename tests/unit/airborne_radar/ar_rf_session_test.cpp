@@ -4,7 +4,7 @@
 #include "1q/airborne_radar/config/ArSessionConfigBuilder.h"
 #include "1q/airborne_radar/session/ArSession.h"
 #include "airborne_radar/session/ArReplayCycleRecord.h"
-#include "1q/airborne_radar/session/ControlDirective.h"
+
 #include "1q/coordinate/position_transform.h"
 
 namespace airborne_radar {
@@ -109,17 +109,14 @@ TEST(ArRfSessionTest, ExternalAgilityDecisionChangesNextActualCarrier) {
   ArSession radar = ArSession::Create(config);
   const ArCycleResult first = radar.StepWithResult(MakeInput(1U, 0.0));
   ASSERT_EQ(first.status, ArCycleStatus::kCompleted);
-  ASSERT_TRUE(first.has_decision_observation);
 
-  ExternalDecisionResponse response;
-  response.source_cycle_index =
-      first.decision_observation.input_frame.cycle_index;
-  response.source_batch_id = first.decision_observation.input_frame.batch_id;
-  response.proposals.push_back(TacticalProposal{
-      ControlDirective(ControlDirectiveType::REQUEST_AGILITY_FREQUENCY,
-                       ControlDirectiveSource::SURVIVABILITY),
-      90, "agility"});
-  ASSERT_EQ(radar.SubmitExternalDecision(response),
+  ExternalDecisionOverride override_decision;
+  override_decision.apply = [](const ArControlProfile& current) {
+    ArControlProfile m = current;
+    m.enable_agility_frequency = true;
+    return m;
+  };
+  ASSERT_EQ(radar.SubmitExternalDecision(std::move(override_decision)),
             ExternalDecisionSubmitStatus::kAccepted);
 
   const ArCycleResult second = radar.StepWithResult(MakeInput(2U, 0.5));
@@ -136,16 +133,15 @@ TEST(ArRfSessionTest, ReceiveRejectionCommitsEmissionIdentityChronologyAndApplie
   ArSession radar = ArSession::Create(config);
   const ArCycleResult first = radar.StepWithResult(MakeInput(1U, 0.0));
   ASSERT_EQ(first.status, ArCycleStatus::kCompleted);
-  ASSERT_TRUE(first.has_decision_observation);
 
-  ExternalDecisionResponse response;
-  response.source_cycle_index = first.decision_observation.input_frame.cycle_index;
-  response.source_batch_id = first.decision_observation.input_frame.batch_id;
-  response.proposals.push_back(
-      TacticalProposal{ControlDirective(ControlDirectiveType::REQUEST_AGILITY_FREQUENCY,
-                                        ControlDirectiveSource::SURVIVABILITY),
-                       90, "agility"});
-  ASSERT_EQ(radar.SubmitExternalDecision(response), ExternalDecisionSubmitStatus::kAccepted);
+  ExternalDecisionOverride override_decision;
+  override_decision.apply = [](const ArControlProfile& current) {
+    ArControlProfile m = current;
+    m.enable_agility_frequency = true;
+    return m;
+  };
+  ASSERT_EQ(radar.SubmitExternalDecision(std::move(override_decision)),
+            ExternalDecisionSubmitStatus::kAccepted);
 
   ArCycleInput rejected_input = MakeInput(2U, 0.5);
   AddUnconfiguredCoSiteInterference(&rejected_input);
@@ -156,6 +152,8 @@ TEST(ArRfSessionTest, ReceiveRejectionCommitsEmissionIdentityChronologyAndApplie
   EXPECT_DOUBLE_EQ(rejected.emission_frame.emissions.front().waveform.center_frequency_hz, 3.1e9);
   EXPECT_EQ(rejected.applied_decision_source, DecisionControlSource::kExternal);
 
+  // Override was consumed during PrepareEmissionControl of cycle 2.
+  // Recovery cycle has no pending override, so native decisions apply (no agility).
   const ArCycleResult next = radar.StepWithResult(MakeInput(3U, 1.0));
   ASSERT_EQ(next.status, ArCycleStatus::kCompleted);
   ASSERT_EQ(next.emission_frame.emissions.size(), 1U);
@@ -167,20 +165,16 @@ TEST(ArRfSessionTest, EccmSidelobeControlsKeepNextReceiverPatternValid) {
   ArSession radar = ArSession::Create(MakeRfConfig());
   const ArCycleResult first = radar.StepWithResult(MakeInput(1U, 0.0));
   ASSERT_EQ(first.status, ArCycleStatus::kCompleted);
-  ASSERT_TRUE(first.has_decision_observation);
 
-  ExternalDecisionResponse response;
-  response.source_cycle_index = first.decision_observation.input_frame.cycle_index;
-  response.source_batch_id = first.decision_observation.input_frame.batch_id;
-  response.proposals.push_back(
-      TacticalProposal{ControlDirective(ControlDirectiveType::REQUEST_ENABLE_SIDELOBE_CANCELLER,
-                                        ControlDirectiveSource::SURVIVABILITY),
-                       90, "sidelobe-canceller"});
-  response.proposals.push_back(
-      TacticalProposal{ControlDirective(ControlDirectiveType::REQUEST_ENABLE_ADAPTIVE_BEAMFORMING,
-                                        ControlDirectiveSource::SURVIVABILITY),
-                       80, "adaptive-beamforming"});
-  ASSERT_EQ(radar.SubmitExternalDecision(response), ExternalDecisionSubmitStatus::kAccepted);
+  ExternalDecisionOverride override_decision;
+  override_decision.apply = [](const ArControlProfile& current) {
+    ArControlProfile m = current;
+    m.enable_sidelobe_canceller = true;
+    m.enable_adaptive_beamforming = true;
+    return m;
+  };
+  ASSERT_EQ(radar.SubmitExternalDecision(std::move(override_decision)),
+            ExternalDecisionSubmitStatus::kAccepted);
 
   const ArCycleResult second = radar.StepWithResult(MakeInput(2U, 0.5));
   EXPECT_EQ(second.status, ArCycleStatus::kCompleted);
@@ -204,14 +198,14 @@ TEST(ArRfSessionTest, SidelobeCancellerLeavesPublishedEmissionSidelobeUnchanged)
   const double baseline_sidelobe_db =
       first.emission_frame.emissions.front().antenna.sidelobe_level_db;
 
-  ExternalDecisionResponse response;
-  response.source_cycle_index = first.decision_observation.input_frame.cycle_index;
-  response.source_batch_id = first.decision_observation.input_frame.batch_id;
-  response.proposals.push_back(
-      TacticalProposal{ControlDirective(ControlDirectiveType::REQUEST_ENABLE_SIDELOBE_CANCELLER,
-                                        ControlDirectiveSource::SURVIVABILITY),
-                       90, "sidelobe-canceller"});
-  ASSERT_EQ(radar.SubmitExternalDecision(response), ExternalDecisionSubmitStatus::kAccepted);
+  ExternalDecisionOverride override_decision;
+  override_decision.apply = [](const ArControlProfile& current) {
+    ArControlProfile m = current;
+    m.enable_sidelobe_canceller = true;
+    return m;
+  };
+  ASSERT_EQ(radar.SubmitExternalDecision(std::move(override_decision)),
+            ExternalDecisionSubmitStatus::kAccepted);
 
   const ArCycleResult second = radar.StepWithResult(MakeInput(2U, 0.5));
   ASSERT_EQ(second.status, ArCycleStatus::kCompleted);

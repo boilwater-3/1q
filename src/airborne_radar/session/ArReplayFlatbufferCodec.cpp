@@ -252,13 +252,6 @@ EncodeTacticalProposals(flatbuffers::FlatBufferBuilder* builder,
   return builder->CreateVector(offsets);
 }
 
-flatbuffers::Offset<fb::ExternalDecisionResponse> EncodeExternalDecisionResponse(
-    flatbuffers::FlatBufferBuilder* builder, const session::ExternalDecisionResponse& value) {
-  return fb::CreateExternalDecisionResponse(*builder, value.source_cycle_index,
-                                            value.source_batch_id,
-                                            EncodeTacticalProposals(builder, value.proposals));
-}
-
 bool IsKnownRfSceneWaveformKind(int raw_value) {
   using oneq::electromagnetics::RfSceneWaveformKind;
   return raw_value == static_cast<int>(RfSceneWaveformKind::kContinuous) ||
@@ -431,22 +424,6 @@ bool TryDecodeTacticalProposals(
   return true;
 }
 
-bool TryDecodeExternalDecisionResponse(const fb::ExternalDecisionResponse* value,
-                                       session::ExternalDecisionResponse* result) {
-  if (value == nullptr || result == nullptr) {
-    return false;
-  }
-  // 先解码到 candidate，全部成功后再提交，保证拒绝时不改写 *result（fail-closed）。
-  session::ExternalDecisionResponse candidate;
-  candidate.source_cycle_index = value->source_cycle_index();
-  candidate.source_batch_id = value->source_batch_id();
-  if (!TryDecodeTacticalProposals(value->proposals(), &candidate.proposals)) {
-    return false;
-  }
-  *result = candidate;
-  return true;
-}
-
 flatbuffers::Offset<fb::ArDecisionReplayState> EncodeDecisionReplayState(
     flatbuffers::FlatBufferBuilder* builder, const ArDecisionReplayState& value) {
   return fb::CreateArDecisionReplayState(
@@ -456,8 +433,6 @@ flatbuffers::Offset<fb::ArDecisionReplayState> EncodeDecisionReplayState(
       static_cast<int>(value.applied_decision_source), value.applied_decision_cycle_index,
       value.applied_decision_batch_id,
       EncodeTacticalProposals(builder, value.applied_decision_proposals),
-      value.has_pending_external_decision,
-      EncodeExternalDecisionResponse(builder, value.pending_external_decision),
       value.reducer_state.lpi_hold_cycles_remaining, value.reducer_state.eccm_hold_cycles_remaining,
       value.reducer_state.lpi_cooldown_cycles_remaining,
       value.reducer_state.eccm_cooldown_cycles_remaining);
@@ -486,12 +461,6 @@ bool TryDecodeDecisionReplayState(const fb::ArDecisionReplayState* value,
   candidate.applied_decision_batch_id = value->applied_decision_batch_id();
   if (!TryDecodeTacticalProposals(value->applied_decision_proposals(),
                                   &candidate.applied_decision_proposals)) {
-    return false;
-  }
-  candidate.has_pending_external_decision = value->has_pending_external_decision();
-  if (candidate.has_pending_external_decision &&
-      !TryDecodeExternalDecisionResponse(value->pending_external_decision(),
-                                         &candidate.pending_external_decision)) {
     return false;
   }
   candidate.reducer_state.lpi_hold_cycles_remaining = value->lpi_hold_cycles_remaining();
@@ -1427,51 +1396,6 @@ const FlatbufferType* TryGetReplayRoot(const std::string& payload_bytes, const c
 
 }  // namespace
 
-std::string EncodeExternalDecisionResponseFlatbuffer(
-    const session::ExternalDecisionResponse& response) {
-  flatbuffers::FlatBufferBuilder builder;
-  const flatbuffers::Offset<fb::ExternalDecisionResponse> root =
-      EncodeExternalDecisionResponse(&builder, response);
-  builder.Finish(root);
-  return oneq::common::replay::CopyFinishedFlatbuffer(builder);
-}
-
-bool DecodeExternalDecisionResponseFlatbuffer(const std::string& payload_bytes,
-                                              session::ExternalDecisionResponse* response,
-                                              std::string* error) {
-  if (response == nullptr) {
-    if (error != nullptr) {
-      *error = "null ExternalDecisionResponse output";
-    }
-    return false;
-  }
-  if (payload_bytes.empty()) {
-    if (error != nullptr) {
-      *error = "empty ExternalDecisionResponse flatbuffers payload";
-    }
-    return false;
-  }
-
-  const std::uint8_t* data = reinterpret_cast<const std::uint8_t*>(payload_bytes.data());
-  flatbuffers::Verifier verifier(data, payload_bytes.size());
-  const fb::ExternalDecisionResponse* root =
-      flatbuffers::GetRoot<fb::ExternalDecisionResponse>(data);
-  if (root == nullptr || !root->Verify(verifier)) {
-    if (error != nullptr) {
-      *error = "invalid ExternalDecisionResponse flatbuffers payload";
-    }
-    return false;
-  }
-
-  if (!TryDecodeExternalDecisionResponse(root, response)) {
-    if (error != nullptr) {
-      *error = "ExternalDecisionResponse contains unknown control directive enum";
-    }
-    return false;
-  }
-  return true;
-}
-
 std::string EncodeCycleInputFlatbuffer(const ArCycleInput& input) {
   flatbuffers::FlatBufferBuilder builder;
   const flatbuffers::Offset<fb::ArCycleInputV3> root = EncodeCycleInputV3(&builder, input);
@@ -1568,45 +1492,6 @@ bool DecodeRuntimeConfigAttemptFlatbuffer(const std::string& payload_bytes,
     return false;
   }
   *accepted = root->accepted();
-  return true;
-}
-
-std::string EncodeExternalDecisionAttemptFlatbuffer(
-    const session::ExternalDecisionResponse& response,
-    session::ExternalDecisionSubmitStatus status) {
-  const std::string response_payload = EncodeExternalDecisionResponseFlatbuffer(response);
-  flatbuffers::FlatBufferBuilder builder;
-  const auto root = fb::CreateArExternalDecisionAttemptV2(
-      builder,
-      builder.CreateVector(reinterpret_cast<const std::uint8_t*>(response_payload.data()),
-                           response_payload.size()),
-      static_cast<int>(status));
-  builder.Finish(root);
-  return oneq::common::replay::CopyFinishedFlatbuffer(builder);
-}
-
-bool DecodeExternalDecisionAttemptFlatbuffer(const std::string& payload_bytes,
-                                             session::ExternalDecisionResponse* response,
-                                             session::ExternalDecisionSubmitStatus* status,
-                                             std::string* error) {
-  if (response == nullptr || status == nullptr) {
-    if (error != nullptr) {
-      *error = "null ArExternalDecisionAttempt output";
-    }
-    return false;
-  }
-  const auto* root = TryGetReplayRoot<fb::ArExternalDecisionAttemptV2>(
-      payload_bytes, "ArExternalDecisionAttemptV2", error);
-  if (root == nullptr || root->response_payload() == nullptr) {
-    return false;
-  }
-  const std::string response_payload(
-      reinterpret_cast<const char*>(root->response_payload()->Data()),
-      root->response_payload()->size());
-  if (!DecodeExternalDecisionResponseFlatbuffer(response_payload, response, error)) {
-    return false;
-  }
-  *status = static_cast<session::ExternalDecisionSubmitStatus>(root->status());
   return true;
 }
 

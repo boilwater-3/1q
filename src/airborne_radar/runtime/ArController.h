@@ -14,6 +14,7 @@
 #include "1q/airborne_radar/session/ArTrackOutput.h"
 #include "1q/airborne_radar/session/DecisionControlTypes.h"
 #include "airborne_radar/decision/ControlReducer.h"
+#include "airborne_radar/decision/ControlReducerTypes.h"
 #include "airborne_radar/environment/IEnvironmentService.h"
 #include "airborne_radar/signal/detection/ArDeceptionMeasurementCandidate.h"
 #include "airborne_radar/signal/pipeline/ISignalPipeline.h"
@@ -50,8 +51,6 @@ struct ArControllerRuntimeState {
   std::uint32_t pending_internal_cycle_index{0U};
   std::uint64_t pending_internal_batch_id{0U};
   std::vector<session::TacticalProposal> pending_internal_proposals{};
-  bool has_pending_external_decision{false};
-  session::ExternalDecisionResponse pending_external_decision{};
   bool has_pending_external_override{false};
   session::ExternalDecisionOverride pending_external_override{};
   bool has_latest_decision_observation{false};
@@ -164,10 +163,6 @@ class ArController {
   /** @brief 当前是否存在可供外部模块响应的决策观测。 */
   bool HasLatestDecisionObservation() const;
 
-  /** @brief 提交与最新决策观测匹配的外部 LPI/ECCM 响应。 */
-  session::ExternalDecisionSubmitStatus SubmitExternalDecision(
-      const session::ExternalDecisionResponse& response);
-
   /** @brief 提交外部 profile 覆盖（回调模式，绕过 TacticalProposal 管线）。 */
   session::ExternalDecisionSubmitStatus SubmitExternalDecision(
       session::ExternalDecisionOverride override_decision);
@@ -176,8 +171,6 @@ class ArController {
   std::uint32_t GetLastAppliedDecisionCycleIndex() const;
   std::uint64_t GetLastAppliedDecisionBatchId() const;
   const std::vector<session::TacticalProposal>& GetLastAppliedDecisionProposals() const;
-  bool HasPendingExternalDecision() const;
-  const session::ExternalDecisionResponse& GetPendingExternalDecision() const;
 
   /**
    * @brief 捕获当前控制器运行态快照。

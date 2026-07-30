@@ -101,10 +101,6 @@ class ONEQ_API ArSession {
    */
   bool TryApplyRuntimeConfig(const config::ArRuntimeConfigPatch& patch);
 
-  /** @brief 提交与最近成功周期观测匹配的外部 LPI/ECCM 决策。 */
-  session::ExternalDecisionSubmitStatus SubmitExternalDecision(
-      const session::ExternalDecisionResponse& response);
-
   /** @brief 提交外部 profile 覆盖（回调模式，绕过 TacticalProposal 管线）。 */
   session::ExternalDecisionSubmitStatus SubmitExternalDecision(
       session::ExternalDecisionOverride override_decision);

@@ -107,7 +107,7 @@ bool CountDecisionInputCallback(const oneq::replay::ReplayTraceReadEvent& event,
   (void)error;
   PlaybackDispatchState* state = static_cast<PlaybackDispatchState*>(user_data);
   ++state->decision_input_calls;
-  return event.payload_type == "ExternalDecisionResponse";
+  return event.payload_type == "ArExternalDecisionAttemptV3";
 }
 
 using oneq::replay::ReplayTraceOutputStatus;
@@ -637,7 +637,7 @@ TEST(ReplayTraceWriterTest, BuildsReplayReportForBComputerEntry) {
     ReplayTraceEvent decision;
     decision.module = "airborne_radar";
     decision.event_type = "decision_input";
-    decision.payload_type = "ExternalDecisionResponse";
+    decision.payload_type = "ArExternalDecisionAttemptV3";
     decision.payload_encoding = "flatbuffers";
     decision.payload_bytes = MakeFlatbuffersPayloadBytes("report-decision");
     writer.WriteEvent(decision);
@@ -801,7 +801,7 @@ TEST(ReplayTraceWriterTest, PlaybackDispatchesEventsAndComparesOutput) {
     ReplayTraceEvent decision;
     decision.module = "airborne_radar";
     decision.event_type = "decision_input";
-    decision.payload_type = "ExternalDecisionResponse";
+    decision.payload_type = "ArExternalDecisionAttemptV3";
     decision.payload_encoding = "flatbuffers";
     decision.payload_bytes = MakeFlatbuffersPayloadBytes("playback-decision");
     writer.WriteEvent(decision);
@@ -848,7 +848,7 @@ TEST(ReplayTraceWriterTest, PlaybackRejectsMissingDecisionInputCallback) {
     ReplayTraceEvent decision;
     decision.module = "airborne_radar";
     decision.event_type = "decision_input";
-    decision.payload_type = "ExternalDecisionResponse";
+    decision.payload_type = "ArExternalDecisionAttemptV3";
     decision.payload_encoding = "flatbuffers";
     decision.payload_bytes = MakeFlatbuffersPayloadBytes("missing-decision-callback");
     writer.WriteEvent(decision);

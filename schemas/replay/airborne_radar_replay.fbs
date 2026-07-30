@@ -133,12 +133,6 @@ table TacticalProposal {
   rationale:string;
 }
 
-table ExternalDecisionResponse {
-  source_cycle_index:uint;
-  source_batch_id:ulong;
-  proposals:[TacticalProposal];
-}
-
 table ArDecisionReplayState {
   has_pending_internal_decision:bool;
   pending_internal_cycle_index:uint;
@@ -148,8 +142,6 @@ table ArDecisionReplayState {
   applied_decision_cycle_index:uint;
   applied_decision_batch_id:ulong;
   applied_decision_proposals:[TacticalProposal];
-  has_pending_external_decision:bool;
-  pending_external_decision:ExternalDecisionResponse;
   lpi_hold_cycles_remaining:uint;
   eccm_hold_cycles_remaining:uint;
   lpi_cooldown_cycles_remaining:uint;
@@ -221,10 +213,6 @@ table AzimuthElevationDeg32 { az_deg:float; el_deg:float; }
 table ArRuntimeConfigAttemptV2 {
   patch_payload:[ubyte];
   accepted:bool;
-}
-table ArExternalDecisionAttemptV2 {
-  response_payload:[ubyte];
-  status:int;
 }
 
 // Single-cycle AR user facade. Two-stage AR records were deliberately removed;

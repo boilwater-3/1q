@@ -10,7 +10,7 @@
 #include "1q/airborne_radar/config/ArRuntimeConfigPatch.h"
 #include "1q/airborne_radar/session/ArReplaySession.h"
 #include "1q/airborne_radar/session/ArTraceSession.h"
-#include "1q/airborne_radar/session/ControlDirective.h"
+#include "airborne_radar/decision/ControlReducerTypes.h"
 #include "1q/replay/ReplayTrace.h"
 #include "airborne_radar/session/ArReplayCycleRecord.h"
 #include "airborne_radar/session/ArReplayFlatbufferCodec.h"
@@ -158,7 +158,7 @@ TEST(ArRfTraceSessionTest, PostEmissionReceiveRejectionReplayExactly) {
   EXPECT_EQ(replay.playback.compared_output_count, 2U);
 }
 
-TEST(ArRfTraceSessionTest, RejectedPatchAndDecisionAttemptsReplayExactly) {
+TEST(ArRfTraceSessionTest, RejectedPatchReplaysExactly) {
   const std::string trace_dir = MakeTraceDir("oneq-ar-cycle-attempts");
   {
     const auto writer = MakeWriter(trace_dir);
@@ -168,61 +168,12 @@ TEST(ArRfTraceSessionTest, RejectedPatchAndDecisionAttemptsReplayExactly) {
 
     config::ArRuntimeConfigPatch empty_patch;
     EXPECT_FALSE(traced.TryApplyRuntimeConfig(empty_patch));
-    ExternalDecisionResponse response;
-    EXPECT_EQ(traced.SubmitExternalDecision(response),
-              ExternalDecisionSubmitStatus::kNoPendingObservation);
     ASSERT_EQ(writer->Flush(),
               oneq::replay::ReplayTraceWriteStatus::kSuccess);
   }
   const ArReplaySessionResult replay = ReplayArTrace(trace_dir);
   EXPECT_TRUE(replay.ok) << replay.first_error;
   EXPECT_EQ(replay.playback.applied_runtime_patch_count, 1U);
-  EXPECT_EQ(replay.playback.applied_decision_input_count, 1U);
-}
-
-TEST(ArRfTraceSessionTest, AcceptedExternalDecisionReplaysIntoNextCycle) {
-  const std::string trace_dir = MakeTraceDir("oneq-ar-cycle-decision");
-  {
-    const auto writer = MakeWriter(trace_dir);
-    ArTraceSessionOptions options;
-    options.replay_writer = writer;
-    config::ArSessionConfig config;
-    config.hardware.transmitter.frequency_plan_hz = {3.0e9, 3.1e9};
-    ArTraceSession traced(config, options);
-
-    const ArCycleResult first =
-        traced.StepWithResult(MakeCycleInput(5U, 50.0));
-    ASSERT_EQ(first.status, ArCycleStatus::kCompleted);
-    ASSERT_TRUE(first.has_decision_observation);
-
-    ExternalDecisionResponse response;
-    response.source_cycle_index =
-        first.decision_observation.input_frame.cycle_index;
-    response.source_batch_id =
-        first.decision_observation.input_frame.batch_id;
-    response.proposals.push_back(TacticalProposal{
-        ControlDirective(ControlDirectiveType::REQUEST_AGILITY_FREQUENCY,
-                         ControlDirectiveSource::SURVIVABILITY),
-        90, "agility"});
-    ASSERT_EQ(traced.SubmitExternalDecision(response),
-              ExternalDecisionSubmitStatus::kAccepted);
-
-    const ArCycleResult second =
-        traced.StepWithResult(MakeCycleInput(6U, 50.1));
-    ASSERT_EQ(second.status, ArCycleStatus::kCompleted);
-    ASSERT_EQ(second.emission_frame.emissions.size(), 1U);
-    EXPECT_DOUBLE_EQ(
-        second.emission_frame.emissions.front().waveform.center_frequency_hz,
-        3.1e9);
-    ASSERT_EQ(writer->Flush(),
-              oneq::replay::ReplayTraceWriteStatus::kSuccess);
-  }
-
-  const ArReplaySessionResult replay = ReplayArTrace(trace_dir);
-  EXPECT_TRUE(replay.ok) << replay.first_error;
-  EXPECT_EQ(replay.playback.applied_input_count, 2U);
-  EXPECT_EQ(replay.playback.applied_decision_input_count, 1U);
-  EXPECT_EQ(replay.playback.compared_output_count, 2U);
 }
 
 TEST(ArRfTraceSessionTest, DetectsSingleCycleStateDivergence) {

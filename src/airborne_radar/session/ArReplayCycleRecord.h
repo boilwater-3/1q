@@ -28,8 +28,6 @@ struct ArDecisionReplayState {
   std::uint32_t applied_decision_cycle_index{0U};
   std::uint64_t applied_decision_batch_id{0U};
   std::vector<session::TacticalProposal> applied_decision_proposals{};
-  bool has_pending_external_decision{false};
-  session::ExternalDecisionResponse pending_external_decision{};
   decision::ControlReducerRuntimeState reducer_state{};
 };
 

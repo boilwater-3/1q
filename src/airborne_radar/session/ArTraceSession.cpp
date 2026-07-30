@@ -149,22 +149,8 @@ bool ArTraceSession::TryApplyRuntimeConfig(
 }
 
 session::ExternalDecisionSubmitStatus ArTraceSession::SubmitExternalDecision(
-    const session::ExternalDecisionResponse& response) {
-  const session::ExternalDecisionSubmitStatus status =
-      impl_->session.SubmitExternalDecision(response);
-  if (impl_->replay_writer) {
-    oneq::replay::ReplayTraceEvent event;
-    event.module = "airborne_radar";
-    event.event_type = "decision_input";
-    event.payload_type = "ArExternalDecisionAttemptV3";
-    event.payload_encoding = "flatbuffers";
-    event.payload_bytes =
-        EncodeExternalDecisionAttemptFlatbuffer(response, status);
-    event.has_cycle_index = true;
-    event.cycle_index = response.source_cycle_index;
-    impl_->replay_writer->WriteEvent(event);
-  }
-  return status;
+    session::ExternalDecisionOverride override_decision) {
+  return impl_->session.SubmitExternalDecision(std::move(override_decision));
 }
 
 const ArSession& ArTraceSession::session() const { return impl_->session; }

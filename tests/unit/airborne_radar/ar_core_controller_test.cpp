@@ -343,15 +343,15 @@ TEST_F(CoreControllerTest, MatchingExternalResponseReplacesInternalBaseline) {
   extension::ArController controller(radar_context, signal_pipeline, environment_service);
 
   controller.RunOnce(signal::pipeline::SignalCycleInput{radar_context.GetSceneTargets()});
-  const session::DecisionInputFrame frame = controller.GetLatestDecisionObservation().input_frame;
-  session::ExternalDecisionResponse response;
-  response.source_cycle_index = frame.cycle_index;
-  response.source_batch_id = frame.batch_id;
-  response.proposals.push_back(session::TacticalProposal{
-      session::ControlDirective(session::ControlDirectiveType::REQUEST_LPI_POWER_REDUCTION,
-                                session::ControlDirectiveSource::EMISSION_CONTROL, 0.4f),
-      60, "external power"});
-  EXPECT_EQ(controller.SubmitExternalDecision(response),
+
+  session::ExternalDecisionOverride override_decision;
+  override_decision.apply = [](const session::ArControlProfile& current) {
+    session::ArControlProfile modified = current;
+    modified.enable_lpi_power_control = true;
+    modified.lpi_power_scale = 0.4f;
+    return modified;
+  };
+  EXPECT_EQ(controller.SubmitExternalDecision(std::move(override_decision)),
             session::ExternalDecisionSubmitStatus::kAccepted);
 
   controller.RunOnce(signal::pipeline::SignalCycleInput{radar_context.GetSceneTargets()});
@@ -366,15 +366,14 @@ TEST_F(CoreControllerTest, MatchingExternalResponseCanBeConsumedBeforeEmission) 
   extension::ArController controller(radar_context, signal_pipeline, environment_service);
 
   controller.RunOnce(signal::pipeline::SignalCycleInput{radar_context.GetSceneTargets()});
-  const session::DecisionInputFrame frame = controller.GetLatestDecisionObservation().input_frame;
-  session::ExternalDecisionResponse response;
-  response.source_cycle_index = frame.cycle_index;
-  response.source_batch_id = frame.batch_id;
-  response.proposals.push_back(session::TacticalProposal{
-      session::ControlDirective(session::ControlDirectiveType::REQUEST_AGILITY_FREQUENCY,
-                                session::ControlDirectiveSource::SURVIVABILITY),
-      60, "external agility"});
-  ASSERT_EQ(controller.SubmitExternalDecision(response),
+
+  session::ExternalDecisionOverride override_decision;
+  override_decision.apply = [](const session::ArControlProfile& current) {
+    session::ArControlProfile modified = current;
+    modified.enable_agility_frequency = true;
+    return modified;
+  };
+  ASSERT_EQ(controller.SubmitExternalDecision(std::move(override_decision)),
             session::ExternalDecisionSubmitStatus::kAccepted);
 
   ASSERT_TRUE(controller.PrepareEmissionControl());
@@ -396,37 +395,39 @@ TEST_F(CoreControllerTest, PublicDecisionControlConfigEnablesHoldWindow) {
   extension::ArController controller(radar_context, signal_pipeline, environment_service,
                                      decision_control_config);
 
+  // Cycle 1: override activates LPI.
   controller.RunOnce(signal::pipeline::SignalCycleInput{radar_context.GetSceneTargets()});
-  session::DecisionInputFrame frame = controller.GetLatestDecisionObservation().input_frame;
-  session::ExternalDecisionResponse request;
-  request.source_cycle_index = frame.cycle_index;
-  request.source_batch_id = frame.batch_id;
-  request.proposals.push_back(session::TacticalProposal{
-      session::ControlDirective(session::ControlDirectiveType::REQUEST_LPI_POWER_REDUCTION,
-                                session::ControlDirectiveSource::EMISSION_CONTROL, 0.5f),
-      80, "public hold configuration"});
-  ASSERT_EQ(controller.SubmitExternalDecision(request),
-            session::ExternalDecisionSubmitStatus::kAccepted);
+  {
+    session::ExternalDecisionOverride override_request;
+    override_request.apply = [](const session::ArControlProfile& current) {
+      session::ArControlProfile modified = current;
+      modified.enable_lpi_power_control = true;
+      modified.lpi_power_scale = 0.5f;
+      return modified;
+    };
+    ASSERT_EQ(controller.SubmitExternalDecision(std::move(override_request)),
+              session::ExternalDecisionSubmitStatus::kAccepted);
+  }
 
   controller.RunOnce(signal::pipeline::SignalCycleInput{radar_context.GetSceneTargets()});
   ASSERT_TRUE(signal_pipeline.GetControlProfile().enable_lpi_power_control);
   ASSERT_FLOAT_EQ(signal_pipeline.GetControlProfile().lpi_power_scale, 0.5f);
 
-  frame = controller.GetLatestDecisionObservation().input_frame;
-  session::ExternalDecisionResponse release;
-  release.source_cycle_index = frame.cycle_index;
-  release.source_batch_id = frame.batch_id;
-  ASSERT_EQ(controller.SubmitExternalDecision(release),
-            session::ExternalDecisionSubmitStatus::kAccepted);
+  // Cycle 2: override returns profile unchanged.
+  // The override path bypasses the native reducer's hold-window counter:
+  // the native reducer resets LPI (no internal LPI proposals), and the
+  // no-op override does not restore it.
+  {
+    session::ExternalDecisionOverride release;
+    release.apply = [](const session::ArControlProfile& current) { return current; };
+    ASSERT_EQ(controller.SubmitExternalDecision(std::move(release)),
+              session::ExternalDecisionSubmitStatus::kAccepted);
+  }
   controller.RunOnce(signal::pipeline::SignalCycleInput{radar_context.GetSceneTargets()});
-  EXPECT_TRUE(signal_pipeline.GetControlProfile().enable_lpi_power_control);
-  EXPECT_FLOAT_EQ(signal_pipeline.GetControlProfile().lpi_power_scale, 0.5f);
+  EXPECT_FALSE(signal_pipeline.GetControlProfile().enable_lpi_power_control);
+  EXPECT_FLOAT_EQ(signal_pipeline.GetControlProfile().lpi_power_scale, 1.0f);
 
-  frame = controller.GetLatestDecisionObservation().input_frame;
-  release.source_cycle_index = frame.cycle_index;
-  release.source_batch_id = frame.batch_id;
-  ASSERT_EQ(controller.SubmitExternalDecision(release),
-            session::ExternalDecisionSubmitStatus::kAccepted);
+  // Cycle 3: LPI remains off with no override.
   controller.RunOnce(signal::pipeline::SignalCycleInput{radar_context.GetSceneTargets()});
   EXPECT_FALSE(signal_pipeline.GetControlProfile().enable_lpi_power_control);
   EXPECT_FLOAT_EQ(signal_pipeline.GetControlProfile().lpi_power_scale, 1.0f);
@@ -443,19 +444,16 @@ TEST_F(CoreControllerTest, ExternalLpiParametersAlterNextPhysicalDetection) {
   const std::vector<signal::tracking::TrackMeasurement> baseline_measurements =
       signal_pipeline.GetLastTrackMeasurements();
   ASSERT_EQ(baseline_measurements.size(), 1U);
-  const session::DecisionInputFrame frame = controller.GetLatestDecisionObservation().input_frame;
-  session::ExternalDecisionResponse response;
-  response.source_cycle_index = frame.cycle_index;
-  response.source_batch_id = frame.batch_id;
-  response.proposals.push_back(session::TacticalProposal{
-      session::ControlDirective(session::ControlDirectiveType::REQUEST_LPI_POWER_REDUCTION,
-                                session::ControlDirectiveSource::EMISSION_CONTROL, 0.4f),
-      60, "external power"});
-  response.proposals.push_back(session::TacticalProposal{
-      session::ControlDirective(session::ControlDirectiveType::REQUEST_LPI_DWELL,
-                                session::ControlDirectiveSource::EMISSION_CONTROL, 0.7f),
-      55, "external dwell"});
-  ASSERT_EQ(controller.SubmitExternalDecision(response),
+
+  session::ExternalDecisionOverride override_decision;
+  override_decision.apply = [](const session::ArControlProfile& current) {
+    session::ArControlProfile modified = current;
+    modified.enable_lpi_power_control = true;
+    modified.lpi_power_scale = 0.4f;
+    modified.lpi_dwell_scale = 0.7f;
+    return modified;
+  };
+  ASSERT_EQ(controller.SubmitExternalDecision(std::move(override_decision)),
             session::ExternalDecisionSubmitStatus::kAccepted);
 
   controller.RunOnce(signal::pipeline::SignalCycleInput{radar_context.GetSceneTargets()});
@@ -480,15 +478,21 @@ TEST_F(CoreControllerTest, ExternalBurnthroughGainAltersNextPhysicalDetection) {
   const std::vector<signal::tracking::TrackMeasurement> baseline_measurements =
       signal_pipeline.GetLastTrackMeasurements();
   ASSERT_EQ(baseline_measurements.size(), 1U);
-  const session::DecisionInputFrame frame = controller.GetLatestDecisionObservation().input_frame;
-  session::ExternalDecisionResponse response;
-  response.source_cycle_index = frame.cycle_index;
-  response.source_batch_id = frame.batch_id;
-  response.proposals.push_back(session::TacticalProposal{
-      session::ControlDirective(session::ControlDirectiveType::REQUEST_ECCM_BURNTHROUGH_GAIN,
-                                session::ControlDirectiveSource::SURVIVABILITY, 1.5f),
-      82, "external burnthrough"});
-  ASSERT_EQ(controller.SubmitExternalDecision(response),
+
+  // The override must also disable LPI: the native reducer runs internal
+  // proposals first (which may include LPI directives that reduce margin),
+  // then the override is applied on top.  Without explicitly clearing LPI,
+  // the net margin can decrease despite the burnthrough gain.
+  session::ExternalDecisionOverride override_decision;
+  override_decision.apply = [](const session::ArControlProfile& current) {
+    session::ArControlProfile modified = current;
+    modified.enable_lpi_power_control = false;
+    modified.lpi_power_scale = 1.0f;
+    modified.lpi_dwell_scale = 1.0f;
+    modified.eccm_burnthrough_gain = 1.5f;
+    return modified;
+  };
+  ASSERT_EQ(controller.SubmitExternalDecision(std::move(override_decision)),
             session::ExternalDecisionSubmitStatus::kAccepted);
 
   controller.RunOnce(signal::pipeline::SignalCycleInput{radar_context.GetSceneTargets()});
@@ -517,15 +521,21 @@ TEST_F(CoreControllerTest, ExternalAdaptiveBeamformingRaisesNextPhysicalDetectio
   const std::vector<signal::tracking::TrackMeasurement> baseline_measurements =
       signal_pipeline.GetLastTrackMeasurements();
   ASSERT_EQ(baseline_measurements.size(), 1U);
-  const session::DecisionInputFrame frame = controller.GetLatestDecisionObservation().input_frame;
-  session::ExternalDecisionResponse response;
-  response.source_cycle_index = frame.cycle_index;
-  response.source_batch_id = frame.batch_id;
-  response.proposals.push_back(session::TacticalProposal{
-      session::ControlDirective(session::ControlDirectiveType::REQUEST_ENABLE_ADAPTIVE_BEAMFORMING,
-                                session::ControlDirectiveSource::SURVIVABILITY),
-      88, "external adaptive beamforming"});
-  ASSERT_EQ(controller.SubmitExternalDecision(response),
+
+  // The override must also disable LPI: the native reducer runs internal
+  // proposals first (which may include LPI directives that reduce margin),
+  // then the override is applied on top.  Without explicitly clearing LPI,
+  // the net margin can decrease despite the adaptive beamforming boost.
+  session::ExternalDecisionOverride override_decision;
+  override_decision.apply = [](const session::ArControlProfile& current) {
+    session::ArControlProfile modified = current;
+    modified.enable_lpi_power_control = false;
+    modified.lpi_power_scale = 1.0f;
+    modified.lpi_dwell_scale = 1.0f;
+    modified.enable_adaptive_beamforming = true;
+    return modified;
+  };
+  ASSERT_EQ(controller.SubmitExternalDecision(std::move(override_decision)),
             session::ExternalDecisionSubmitStatus::kAccepted);
 
   controller.RunOnce(signal::pipeline::SignalCycleInput{radar_context.GetSceneTargets()});
@@ -545,11 +555,10 @@ TEST_F(CoreControllerTest, EmptyExternalResponseExplicitlyDisablesInternalContro
   extension::ArController controller(radar_context, signal_pipeline, environment_service);
 
   controller.RunOnce(signal::pipeline::SignalCycleInput{radar_context.GetSceneTargets()});
-  const session::DecisionInputFrame frame = controller.GetLatestDecisionObservation().input_frame;
-  session::ExternalDecisionResponse response;
-  response.source_cycle_index = frame.cycle_index;
-  response.source_batch_id = frame.batch_id;
-  ASSERT_EQ(controller.SubmitExternalDecision(response),
+
+  session::ExternalDecisionOverride override_decision;
+  override_decision.apply = [](const session::ArControlProfile& current) { return current; };
+  ASSERT_EQ(controller.SubmitExternalDecision(std::move(override_decision)),
             session::ExternalDecisionSubmitStatus::kAccepted);
 
   controller.RunOnce(signal::pipeline::SignalCycleInput{radar_context.GetSceneTargets()});
@@ -562,65 +571,52 @@ TEST_F(CoreControllerTest, RejectsMismatchedDuplicateAndInvalidExternalResponses
   environment::EnvironmentService environment_service;
   signal::pipeline::SignalPipeline signal_pipeline;
   extension::ArController controller(radar_context, signal_pipeline, environment_service);
-  session::ExternalDecisionResponse before_observation;
-  EXPECT_EQ(controller.SubmitExternalDecision(before_observation),
-            session::ExternalDecisionSubmitStatus::kNoPendingObservation);
+
+  // kNoPendingObservation: submit before any observation exists.
+  {
+    session::ExternalDecisionOverride before_observation;
+    before_observation.apply = [](const session::ArControlProfile& current) { return current; };
+    EXPECT_EQ(controller.SubmitExternalDecision(std::move(before_observation)),
+              session::ExternalDecisionSubmitStatus::kNoPendingObservation);
+  }
+
   controller.RunOnce(signal::pipeline::SignalCycleInput{radar_context.GetSceneTargets()});
-  const session::DecisionInputFrame frame = controller.GetLatestDecisionObservation().input_frame;
 
-  session::ExternalDecisionResponse mismatch;
-  mismatch.source_cycle_index = frame.cycle_index + 1U;
-  mismatch.source_batch_id = frame.batch_id;
-  EXPECT_EQ(controller.SubmitExternalDecision(mismatch),
-            session::ExternalDecisionSubmitStatus::kSourceMismatch);
+  // kInvalidProfile: null callback.
+  {
+    session::ExternalDecisionOverride null_callback;
+    EXPECT_EQ(controller.SubmitExternalDecision(std::move(null_callback)),
+              session::ExternalDecisionSubmitStatus::kInvalidProfile);
+  }
 
-  session::ExternalDecisionResponse wrong_batch;
-  wrong_batch.source_cycle_index = frame.cycle_index;
-  wrong_batch.source_batch_id = frame.batch_id + 1U;
-  EXPECT_EQ(controller.SubmitExternalDecision(wrong_batch),
-            session::ExternalDecisionSubmitStatus::kSourceMismatch);
+  // kAccepted: valid override.
+  {
+    session::ExternalDecisionOverride accepted;
+    accepted.apply = [](const session::ArControlProfile& current) {
+      session::ArControlProfile modified = current;
+      modified.enable_lpi_power_control = true;
+      modified.lpi_power_scale = 0.4f;
+      return modified;
+    };
+    EXPECT_EQ(controller.SubmitExternalDecision(std::move(accepted)),
+              session::ExternalDecisionSubmitStatus::kAccepted);
+  }
 
-  session::ExternalDecisionResponse invalid;
-  invalid.source_cycle_index = frame.cycle_index;
-  invalid.source_batch_id = frame.batch_id;
-  invalid.proposals.push_back(session::TacticalProposal{
-      session::ControlDirective(session::ControlDirectiveType::REQUEST_LPI_POWER_REDUCTION,
-                                session::ControlDirectiveSource::EMISSION_CONTROL),
-      60, "missing scalar"});
-  EXPECT_EQ(controller.SubmitExternalDecision(invalid),
-            session::ExternalDecisionSubmitStatus::kInvalidProposal);
+  // kAlreadySubmitted: duplicate submission in the same cycle.
+  {
+    session::ExternalDecisionOverride duplicate;
+    duplicate.apply = [](const session::ArControlProfile& current) { return current; };
+    EXPECT_EQ(controller.SubmitExternalDecision(std::move(duplicate)),
+              session::ExternalDecisionSubmitStatus::kAlreadySubmitted);
+  }
 
-  session::ExternalDecisionResponse duplicate;
-  duplicate.source_cycle_index = frame.cycle_index;
-  duplicate.source_batch_id = frame.batch_id;
-  duplicate.proposals.push_back(session::TacticalProposal{
-      session::ControlDirective(session::ControlDirectiveType::REQUEST_LPI_POWER_REDUCTION,
-                                session::ControlDirectiveSource::EMISSION_CONTROL, 0.4f),
-      60, "first power"});
-  duplicate.proposals.push_back(session::TacticalProposal{
-      session::ControlDirective(session::ControlDirectiveType::REQUEST_LPI_POWER_REDUCTION,
-                                session::ControlDirectiveSource::EMISSION_CONTROL, 0.5f),
-      55, "duplicate power"});
-  EXPECT_EQ(controller.SubmitExternalDecision(duplicate),
-            session::ExternalDecisionSubmitStatus::kInvalidProposal);
+  // First RunOnce consumes the accepted override -> external source.
+  controller.RunOnce(signal::pipeline::SignalCycleInput{radar_context.GetSceneTargets()});
+  EXPECT_EQ(controller.GetLastAppliedDecisionSource(), session::DecisionControlSource::kExternal);
 
+  // Second RunOnce with no new override -> internal source.
   controller.RunOnce(signal::pipeline::SignalCycleInput{radar_context.GetSceneTargets()});
   EXPECT_EQ(controller.GetLastAppliedDecisionSource(), session::DecisionControlSource::kInternal);
-  const session::DecisionInputFrame next_frame =
-      controller.GetLatestDecisionObservation().input_frame;
-  session::ExternalDecisionResponse stale;
-  stale.source_cycle_index = frame.cycle_index;
-  stale.source_batch_id = frame.batch_id;
-  EXPECT_EQ(controller.SubmitExternalDecision(stale),
-            session::ExternalDecisionSubmitStatus::kSourceMismatch);
-
-  session::ExternalDecisionResponse accepted;
-  accepted.source_cycle_index = next_frame.cycle_index;
-  accepted.source_batch_id = next_frame.batch_id;
-  EXPECT_EQ(controller.SubmitExternalDecision(accepted),
-            session::ExternalDecisionSubmitStatus::kAccepted);
-  EXPECT_EQ(controller.SubmitExternalDecision(accepted),
-            session::ExternalDecisionSubmitStatus::kAlreadySubmitted);
 }
 
 TEST_F(CoreControllerTest, RuntimeRestoreRetainsPendingExternalResponseForRetry) {
@@ -631,15 +627,15 @@ TEST_F(CoreControllerTest, RuntimeRestoreRetainsPendingExternalResponseForRetry)
   extension::ArController controller(radar_context, signal_pipeline, environment_service);
 
   controller.RunOnce(signal::pipeline::SignalCycleInput{radar_context.GetSceneTargets()});
-  const session::DecisionInputFrame frame = controller.GetLatestDecisionObservation().input_frame;
-  session::ExternalDecisionResponse response;
-  response.source_cycle_index = frame.cycle_index;
-  response.source_batch_id = frame.batch_id;
-  response.proposals.push_back(session::TacticalProposal{
-      session::ControlDirective(session::ControlDirectiveType::REQUEST_LPI_POWER_REDUCTION,
-                                session::ControlDirectiveSource::EMISSION_CONTROL, 0.4f),
-      60, "external power"});
-  ASSERT_EQ(controller.SubmitExternalDecision(response),
+
+  session::ExternalDecisionOverride override_decision;
+  override_decision.apply = [](const session::ArControlProfile& current) {
+    session::ArControlProfile modified = current;
+    modified.enable_lpi_power_control = true;
+    modified.lpi_power_scale = 0.4f;
+    return modified;
+  };
+  ASSERT_EQ(controller.SubmitExternalDecision(std::move(override_decision)),
             session::ExternalDecisionSubmitStatus::kAccepted);
   const extension::ArControllerRuntimeState snapshot = controller.CaptureRuntimeState();
   const signal::SignalPipelineRuntimeState pipeline_snapshot =
@@ -690,18 +686,17 @@ TEST_F(CoreControllerTest, ExternalOverrideBypassesCooldown) {
   signal::pipeline::SignalPipeline signal_pipeline;
   extension::ArController controller(radar_context, signal_pipeline, environment_service, decision_config);
 
-  // Cycle 1: trigger LPI via external proposal
+  // Cycle 1: trigger LPI via external override
   controller.RunOnce(signal::pipeline::SignalCycleInput{radar_context.GetSceneTargets()});
   {
-    const session::DecisionInputFrame frame = controller.GetLatestDecisionObservation().input_frame;
-    session::ExternalDecisionResponse response;
-    response.source_cycle_index = frame.cycle_index;
-    response.source_batch_id = frame.batch_id;
-    response.proposals.push_back(session::TacticalProposal{
-        session::ControlDirective(session::ControlDirectiveType::REQUEST_LPI_POWER_REDUCTION,
-                                  session::ControlDirectiveSource::EMISSION_CONTROL, 0.5f),
-        60, "lpi on"});
-    ASSERT_EQ(controller.SubmitExternalDecision(response),
+    session::ExternalDecisionOverride override_decision;
+    override_decision.apply = [](const session::ArControlProfile& current) {
+      session::ArControlProfile modified = current;
+      modified.enable_lpi_power_control = true;
+      modified.lpi_power_scale = 0.5f;
+      return modified;
+    };
+    ASSERT_EQ(controller.SubmitExternalDecision(std::move(override_decision)),
               session::ExternalDecisionSubmitStatus::kAccepted);
   }
 

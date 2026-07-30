@@ -759,8 +759,6 @@ ArDecisionReplayState ArSessionReplayAccess::CaptureDecisionState(const ArSessio
   replay_state.applied_decision_cycle_index = controller_state.last_applied_decision_cycle_index;
   replay_state.applied_decision_batch_id = controller_state.last_applied_decision_batch_id;
   replay_state.applied_decision_proposals = controller_state.last_applied_decision_proposals;
-  replay_state.has_pending_external_decision = controller_state.has_pending_external_decision;
-  replay_state.pending_external_decision = controller_state.pending_external_decision;
   replay_state.reducer_state = controller_state.control_reducer_state;
   return replay_state;
 }
@@ -853,11 +851,6 @@ bool ArSession::TryApplyRuntimeConfig(const config::ArRuntimeConfigPatch& patch)
       impl_->pending_environment_scenario_config_changed ||
       resolved.environment_scenario_config_changed;
   return true;
-}
-
-session::ExternalDecisionSubmitStatus ArSession::SubmitExternalDecision(
-    const session::ExternalDecisionResponse& response) {
-  return impl_->Controller().SubmitExternalDecision(response);
 }
 
 session::ExternalDecisionSubmitStatus ArSession::SubmitExternalDecision(

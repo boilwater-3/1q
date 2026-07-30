@@ -29,26 +29,12 @@ std::string EncodeCycleReplayRecordFlatbuffer(const ArCycleReplayRecord& record)
 bool DecodeCycleReplayRecordFlatbuffer(const std::string& payload_bytes,
                                        ArCycleReplayRecord* record, std::string* error);
 
-/** @brief 将外部 LPI/ECCM 决策响应编码为独立 replay 输入 payload。 */
-std::string EncodeExternalDecisionResponseFlatbuffer(
-    const session::ExternalDecisionResponse& response);
-/** @brief 从独立 replay 输入 payload 解码外部 LPI/ECCM 决策响应。 */
-bool DecodeExternalDecisionResponseFlatbuffer(const std::string& payload_bytes,
-                                              session::ExternalDecisionResponse* response,
-                                              std::string* error);
-/** @brief 编解码带接受状态的运行期补丁与外部决策尝试。 */
+/** @brief 编解码带接受状态的运行期补丁尝试。 */
 std::string EncodeRuntimeConfigAttemptFlatbuffer(const config::ArRuntimeConfigPatch& patch,
                                                  bool accepted);
 bool DecodeRuntimeConfigAttemptFlatbuffer(const std::string& payload_bytes,
                                           config::ArRuntimeConfigPatch* patch, bool* accepted,
                                           std::string* error);
-std::string EncodeExternalDecisionAttemptFlatbuffer(
-    const session::ExternalDecisionResponse& response,
-    session::ExternalDecisionSubmitStatus status);
-bool DecodeExternalDecisionAttemptFlatbuffer(const std::string& payload_bytes,
-                                             session::ExternalDecisionResponse* response,
-                                             session::ExternalDecisionSubmitStatus* status,
-                                             std::string* error);
 /**
  * @brief 将四域会话配置编码为 FlatBuffers 字节串。
  * @param[in] config 待编码的会话配置。

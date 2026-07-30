@@ -3,10 +3,9 @@
 > 本模块所有公开类型使用 `Ar*` 命名。
 
 ## 决策域
-- DecisionControlTypes.h — 仅包含 proposal、决策观测、外部响应、提交状态和控制来源；默认战术算法状态/结果不公开
+- DecisionControlTypes.h — 决策观测、外部覆盖回调、提交状态和控制来源；proposal/directive 抽象已收口为内部实现
 - DecisionInputFrame.h — 单周期决策输入帧（关联/探测质量摘要 + 轨迹快照）
 - TrackStateSnapshot.h — 轨迹快照 DTO（位置/速度/加速度/RCS/航迹状态）
-- ControlDirective.h — 决策层输出的控制意图类型
 
 ## 控制域
 - [ArCommand](ArCommand.h) — 行为决策层下发的战术指令（类型 + 来源）

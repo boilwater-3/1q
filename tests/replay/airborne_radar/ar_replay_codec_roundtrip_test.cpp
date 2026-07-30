@@ -295,7 +295,6 @@ TEST(ArReplayCodecRoundtripTest, SingleCycleRecordPreservesResultAndState) {
   record.session_state.successful_prepare_count = 7U;
   record.session_state.frequency_hop_index = 2U;
   record.session_state.has_pending_runtime_update = true;
-  record.session_state.decision_state.has_pending_external_decision = true;
 
   ArCycleReplayRecord decoded;
   std::string error;
@@ -315,10 +314,9 @@ TEST(ArReplayCodecRoundtripTest, SingleCycleRecordPreservesResultAndState) {
   EXPECT_EQ(decoded.result.decision_observation.input_frame.batch_id, 82U);
   EXPECT_EQ(decoded.session_state.next_emission_id, 34U);
   EXPECT_TRUE(decoded.session_state.has_pending_runtime_update);
-  EXPECT_TRUE(decoded.session_state.decision_state.has_pending_external_decision);
 }
 
-TEST(ArReplayCodecRoundtripTest, AttemptsPreserveRejectedRuntimeAndDecisionResults) {
+TEST(ArReplayCodecRoundtripTest, AttemptsPreserveRejectedRuntimeConfigResult) {
   config::ArRuntimeConfigPatch patch;
   patch.has_sensor_enabled = true;
   patch.sensor_enabled = false;
@@ -331,19 +329,6 @@ TEST(ArReplayCodecRoundtripTest, AttemptsPreserveRejectedRuntimeAndDecisionResul
   EXPECT_TRUE(decoded_patch.has_sensor_enabled);
   EXPECT_FALSE(decoded_patch.sensor_enabled);
   EXPECT_FALSE(accepted);
-
-  ExternalDecisionResponse response;
-  response.source_cycle_index = 44U;
-  response.source_batch_id = 55U;
-  ExternalDecisionResponse decoded_response;
-  ExternalDecisionSubmitStatus decoded_status = ExternalDecisionSubmitStatus::kAccepted;
-  ASSERT_TRUE(DecodeExternalDecisionAttemptFlatbuffer(
-      EncodeExternalDecisionAttemptFlatbuffer(response,
-                                              ExternalDecisionSubmitStatus::kSourceMismatch),
-      &decoded_response, &decoded_status, &error))
-      << error;
-  EXPECT_EQ(decoded_response.source_cycle_index, 44U);
-  EXPECT_EQ(decoded_status, ExternalDecisionSubmitStatus::kSourceMismatch);
 }
 
 // 验证新增的反欺骗 profile 开关在编码途中不丢失（stage 4 / P4 修复的核心断言）。
@@ -366,87 +351,6 @@ TEST(ArReplayCodecRoundtripTest, AntiDeceptionProfileFlagsRoundtripPreserved) {
   EXPECT_TRUE(decoded.result.control_profile.enable_anti_rgpo_leading_edge);
   EXPECT_TRUE(decoded.result.control_profile.enable_anti_vgpo_acceleration_bound);
   EXPECT_TRUE(decoded.result.control_profile.enable_anti_false_target_discrimination);
-}
-
-// pending decision intent（外部 LPI/ECCM 决策响应含 proposals）经独立 attempt payload 完整往返。
-// C8 收敛：此前 replay 只覆盖最终 profile 与 next_emission_id 篡改，
-// 未验证 pending intent（外部决策输入）的 proposals 携带与提交状态在往返中不丢失。
-TEST(ArReplayCodecRoundtripTest, ExternalDecisionAttemptRoundtripPreservesPendingIntent) {
-  session::ExternalDecisionResponse response;
-  response.source_cycle_index = 7U;
-  response.source_batch_id = 42U;
-  response.proposals.push_back(session::TacticalProposal{
-      session::ControlDirective(session::ControlDirectiveType::REQUEST_ANTI_RGPO_LEADING_EDGE,
-                                session::ControlDirectiveSource::SURVIVABILITY),
-      90, "anti-rgpo"});
-  response.proposals.push_back(session::TacticalProposal{
-      session::ControlDirective(session::ControlDirectiveType::REQUEST_ECCM_BURNTHROUGH_GAIN,
-                                session::ControlDirectiveSource::SURVIVABILITY, 1.5f),
-      82, "burnthrough"});
-
-  const std::string payload = EncodeExternalDecisionAttemptFlatbuffer(
-      response, session::ExternalDecisionSubmitStatus::kAccepted);
-  session::ExternalDecisionResponse decoded;
-  session::ExternalDecisionSubmitStatus status = session::ExternalDecisionSubmitStatus::kInvalidProposal;
-  std::string error;
-  ASSERT_TRUE(DecodeExternalDecisionAttemptFlatbuffer(payload, &decoded, &status, &error)) << error;
-  EXPECT_EQ(status, session::ExternalDecisionSubmitStatus::kAccepted);
-  EXPECT_EQ(decoded.source_cycle_index, 7U);
-  EXPECT_EQ(decoded.source_batch_id, 42U);
-  ASSERT_EQ(decoded.proposals.size(), 2U);
-  EXPECT_EQ(decoded.proposals[0].directive.type,
-            session::ControlDirectiveType::REQUEST_ANTI_RGPO_LEADING_EDGE);
-  EXPECT_EQ(decoded.proposals[0].priority, 90);
-  EXPECT_EQ(decoded.proposals[1].directive.type,
-            session::ControlDirectiveType::REQUEST_ECCM_BURNTHROUGH_GAIN);
-  EXPECT_TRUE(decoded.proposals[1].directive.has_requested_value);
-  EXPECT_FLOAT_EQ(decoded.proposals[1].directive.requested_value, 1.5f);
-}
-
-// fail-closed：外部决策响应携带未知/哨兵 directive type（kCount）时必须在 decode 期原子拒绝，
-// 不改写已存在的 decoded 输出。codec 对 ControlDirectiveType/Source 做 range 校验，
-// 与 IsKnownRfSceneWaveformKind / DeceptionClass 同属一层 fail-closed 模式；
-// kCount 是编译期哨兵，不可作为真实意图，越界或哨兵值在 decode 时即被拦截，
-// 不再穿透到消费端等待 IsValidDirectiveValue 兜底。
-TEST(ArReplayCodecRoundtripTest,
-     ExternalDecisionAttemptRejectsSentinelDirectiveTypeWithoutMutation) {
-  session::ExternalDecisionResponse response;
-  response.source_cycle_index = 3U;
-  // 构造合法响应后篡改 proposal 的 directive type 为哨兵值 kCount（不可作为真实意图）。
-  response.proposals.push_back(session::TacticalProposal{
-      session::ControlDirective(session::ControlDirectiveType::kCount,
-                                session::ControlDirectiveSource::SURVIVABILITY),
-      50, "tampered"});
-
-  const std::string payload =
-      EncodeExternalDecisionAttemptFlatbuffer(response, session::ExternalDecisionSubmitStatus::kAccepted);
-  session::ExternalDecisionResponse decoded;
-  decoded.source_cycle_index = 999U;  // 标记位，用于验证拒绝时输出未被改写
-  session::ExternalDecisionSubmitStatus status = session::ExternalDecisionSubmitStatus::kAccepted;
-  std::string error;
-  EXPECT_FALSE(DecodeExternalDecisionAttemptFlatbuffer(payload, &decoded, &status, &error));
-  // 拒绝时输出保持原状（fail-closed，不钳制、不改写）。
-  EXPECT_EQ(decoded.source_cycle_index, 999U);
-}
-
-// fail-closed：越界的 directive source 同样在 decode 期原子拒绝，不改写输出。
-TEST(ArReplayCodecRoundtripTest,
-     ExternalDecisionAttemptRejectsOutOfRangeDirectiveSourceWithoutMutation) {
-  session::ExternalDecisionResponse response;
-  response.source_cycle_index = 3U;
-  response.proposals.push_back(session::TacticalProposal{
-      session::ControlDirective(session::ControlDirectiveType::REQUEST_AGILITY_FREQUENCY,
-                                static_cast<session::ControlDirectiveSource>(99)),
-      50, "tampered-source"});
-
-  const std::string payload =
-      EncodeExternalDecisionAttemptFlatbuffer(response, session::ExternalDecisionSubmitStatus::kAccepted);
-  session::ExternalDecisionResponse decoded;
-  decoded.source_cycle_index = 777U;
-  session::ExternalDecisionSubmitStatus status = session::ExternalDecisionSubmitStatus::kAccepted;
-  std::string error;
-  EXPECT_FALSE(DecodeExternalDecisionAttemptFlatbuffer(payload, &decoded, &status, &error));
-  EXPECT_EQ(decoded.source_cycle_index, 777U);
 }
 
 // 验证新增的 interference observation 几何与欺骗字段在编码途中不丢失。

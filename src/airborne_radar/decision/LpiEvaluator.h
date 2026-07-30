@@ -8,7 +8,7 @@
 
 #include <vector>
 
-#include "1q/airborne_radar/session/DecisionControlTypes.h"
+#include "airborne_radar/decision/ControlReducerTypes.h"
 #include "airborne_radar/decision/LpiSourceInfo.h"
 
 namespace airborne_radar {

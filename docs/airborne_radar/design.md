@@ -738,43 +738,48 @@ ECCM 只消费接收机 interference observation；烧穿评分达到阈值后�
 
 ### 2.8 控制归约和跨周期反馈
 
-内部 baseline 或整包外部响应输出的是 tactical proposal，不是直接生效的硬件控制。
-当前实现由 `ControlReducer` 和 `ControlCommandMapper` 在下一成功单阶段周期开始前把二者之一变成唯一
-`ArControlProfile`；外部与内部 proposals 不合并：
+控制决策分为两个阶段：**原生归约**和**外部覆盖**。
 
-- 不同域 proposal 会按优先级、策略表和冲突规则归并。
+**阶段一：原生归约。** 内部 baseline 输出的是 tactical proposal，不是直接生效的硬件控制。
+`ControlReducer` 和 `ControlCommandMapper` 在下一成功周期开始前把 proposals 归并为唯一
+`ArControlProfile`：
+
+- 不同域 proposal 按优先级、策略表和冲突规则归并。
 - beam 类冲突默认偏向生存性。
 - `ArPolicyConfig::decision_control` 可分别配置 LPI/ECCM 的保持窗口，使 proposal 停止后控制继续维持
   指定数量的成功周期。
 - 同一配置可分别设置 LPI/ECCM cooldown，防止控制释放后立即重新激活。
-- 四个周期数默认均为 `0`，表示关闭相应窗口并保持“下一成功周期可立即切换”的兼容行为；调用方可通过
-  初始 session config 或 whole-policy runtime patch 显式启用，snapshot rollback 和 replay 同步保留配置与计数状态。
+- 四个周期数默认均为 `0`，表示关闭相应窗口并保持”下一成功周期可立即切换”的兼容行为。
 - runtime patch 缩短窗口时，当前剩余周期立即收紧为 `min(旧剩余, 新上限)`；改为 `0` 会取消当前窗口。
-  增大配置不会延长已经开始的窗口，只影响下一次新建的 hold/cooldown 窗口。
 - 频率捷变等行为可以有 hop phase 的跨周期状态。
-- LPI 功率要求有限且位于 `(0,1]`，驻留位于 `[0.25,1]`，ECCM 烧穿位于 `(1,2]`；
-  其他布尔 directive 禁止携带标量，参数化 directive 禁止缺值。
+- LPI 功率要求有限且位于 `(0,1]`，驻留位于 `[0.25,1]`，ECCM 烧穿位于 `(1,2]`。
 - 同时出现烧穿和 LPI 降功率时，生存性规则把最终功率比例提升到至少 `0.85`。
-- 外部响应必须匹配最新 observation 的 cycle/batch；错源、重复提交、重复 directive type
-  或任一非法 proposal 都整包拒绝。合法空集合表示明确关闭 LPI/ECCM。
-- 无合法外部响应时自动使用 internal baseline。
-- directive 域判定（LPI/ECCM）与标量合法性以 `ControlReducer::IsLpiDirective`/
-  `IsEccmDirective`/`IsValidDirectiveValue` 静态方法为唯一权威；`ArController` 的外部提案
-  校验复用同一实现，不另起 `==` 链。`ControlDirectiveType::kCount` 为编译期哨兵，不可作为真实意图，
-  其运行期拒绝由 reducer 各 switch 的 `default` 臂与 `IsValidDirectiveValue` 保障。
-[evidence: tests/unit/airborne_radar/ar_tactical_coordinator_test.cpp::ControlReducerTest.RejectsMissingNonFiniteOutOfRangeAndUnexpectedValues]
-[evidence: tests/unit/airborne_radar/ar_core_controller_test.cpp::RejectsMismatchedDuplicateAndInvalidExternalResponses]
-[evidence: tests/unit/airborne_radar/ar_control_directive_matrix_test.cpp::ControlDirectiveMatrixTest.AuthorityClassifiersPartitionDirectivesExhaustively]
-[evidence: tests/unit/airborne_radar/ar_control_directive_matrix_test.cpp::ControlDirectiveMatrixTest.AuthorityValueValidationEnforcesScalarBoundaries]
+- hold/cooldown 仅约束原生路径。
+
+**阶段二：外部覆盖。** 外部模块通过 `ArSession::SubmitExternalDecision(ExternalDecisionOverride)`
+提交一个回调函数，该回调接收原生归约产生的 `ArControlProfile`，返回修改后的 profile。外部覆盖
+**完全绕过 hold/cooldown 和冲突解决**，拥有对 profile 字段的完全控制权。
+
+- 外部覆盖回调在原生归约之后执行，直接操作 `ArControlProfile` 字段。
+- 回调返回的 profile 经字段范围校验（功率/驻留/烧穿比例、hop phase 合法性、无 NaN/Inf）。
+- 校验失败时静默回退到原生 profile。
+- 外部覆盖无 cycle/batch 时序耦合——外部模块通过消息总线通信，固有延迟使得时序匹配不切实际；
+  外部模块随时提交覆盖，雷达在下一个 `StepWithResult` 准备阶段应用。
+- 外部覆盖修改 profile 后，通过 `DiffProfiles` 对差异字段生成 `ArCommand`。
+- `ControlDirective`、`ControlDirectiveType`、`ControlDirectiveSource` 和 `TacticalProposal` 已收口为
+  内部实现细节（`src/airborne_radar/decision/ControlReducerTypes.h`），不再暴露于公共 API。
+[evidence: tests/unit/airborne_radar/ar_core_controller_test.cpp::ExternalOverrideChangesNextProfile]
+[evidence: tests/unit/airborne_radar/ar_core_controller_test.cpp::ExternalOverrideBypassesCooldown]
+[evidence: tests/unit/airborne_radar/ar_core_controller_test.cpp::ExternalOverrideRejectsInvalidProfile]
 
 controller 在单周期开始时把 control profile 传给 signal pipeline，因此决策影响下一次实际发射，
 不应假设 proposal 立即改变已经完成的探测。输入拒绝或关机保留 proposal；实际 emission 一经内部发布
 即提交 transmitter profile、hop/PRI phase 和相关计数，后续接收侧失败不得让同一 proposal 再次控制下一次
 发射。hold/cooldown 的消费边界同样以成功发布实际 emission 为准。
 
-输入验证失败不消费 control profile、reducer 计数器、internal baseline 或待消费外部响应；该响应可供
-下一次发射重试。发射已发布后的接收机 impairment 是已完成物理周期；后续内部接收拒绝虽然不产生
-接收/跟踪输出，也必须返回实际 emission，并且不回滚已提交发射事实。
+输入验证失败不消费 control profile、reducer 计数器或 internal baseline；外部覆盖可供下一次发射重试。
+发射已发布后的接收机 impairment 是已完成物理周期；后续内部接收拒绝虽然不产生接收/跟踪输出，
+也必须返回实际 emission，并且不回滚已提交发射事实。
 [evidence: tests/unit/airborne_radar/ar_rf_session_test.cpp::ArRfSessionTest.ReceiveRejectionCommitsEmissionIdentityChronologyAndAppliedAgility]
 [evidence: tests/replay/airborne_radar/ar_rf_trace_session_test.cpp::ArRfTraceSessionTest.PostEmissionReceiveRejectionReplayExactly]
 [evidence: tests/unit/airborne_radar/ar_core_controller_test.cpp::CoreControllerTest.RuntimeRestoreRetainsPendingExternalResponseForRetry]

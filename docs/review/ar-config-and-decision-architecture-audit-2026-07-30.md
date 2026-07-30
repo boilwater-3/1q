@@ -301,28 +301,17 @@ const auto& selected = has_pending_external_decision
 - 它与 `DetectionPolicyConfig`、`TrackingPolicyConfig` 等 "本体参数" 性质不同 — 后者控制物理/算法行为，前者控制决策状态机
 - 从外部注入者的视角，hold/cooldown 是决策引擎的内部实现细节，不应暴露为顶层配置
 
-### 4.5 建议的决策架构改进方向
+### 4.5 决策架构改进 — ✅ 已实施方案 B
 
-#### 方案 A：最小改动 — 保留当前结构，修复语义问题
+**方案 B：分离原生/外部路径** 已实施并合入。核心变更：
 
-1. 将 `ExternalDecisionResponse.proposals` 重命名为 `directives` 或 `commands`，强调其权威性
-2. 为外部决策添加 `override_cooldown` 选项，允许外部模块绕过 cooldown
-3. 在 `ArControlProfile` 中添加指令级溯源字段 (`source: kNative | kExternal`)
-4. 添加 "外部域级透传" 机制：外部模块可以只声明关注的域，未声明的域自动使用原生提案
-
-#### 方案 B：中等改动 — 分离原生/外部路径
-
-1. 外部决策不再走 `TacticalProposal`，而是直接操作 `ArControlProfile` 的特定字段
-2. `ControlReducer` 分为两个阶段：原生归约 + 外部覆盖
+1. 外部决策不再走 `TacticalProposal`，改为通过 `ExternalDecisionOverride` 回调直接操作 `ArControlProfile`
+2. `ControlReducer` 分为两个阶段：原生归约（含 hold/cooldown）+ 外部覆盖（无 hold/cooldown）
 3. 外部模块接收当前 `ArControlProfile` 作为输入，返回修改后的 `ArControlProfile`
-4. hold/cooldown 仅约束原生路径
-
-#### 方案 C：重大改动 — 参数级注入模型
-
-1. 废弃 `SubmitExternalDecision`，改为 `SetRuntimeParameters(dict)` — 外部模块直接设置运行时参数
-2. 原生 `TacticalCoordinator` 产出的提案经过 `ControlReducer` 后，与外部参数合并（外部优先）
-3. `ArControlProfile` 变为分层结构：`native_layer` + `override_layer`
-4. `DecisionControlPolicyConfig` 仅约束 `native_layer`
+4. hold/cooldown 仅约束原生路径，外部覆盖完全绕过
+5. `ControlDirective`、`ControlDirectiveType`、`ControlDirectiveSource`、`TacticalProposal` 已从公共 API 移入内部
+6. 旧 `ExternalDecisionResponse` 类型和 `SubmitExternalDecision(ExternalDecisionResponse)` 已删除
+7. 外部覆盖无 cycle/batch 时序耦合
 
 ---
 
@@ -330,13 +319,12 @@ const auto& selected = has_pending_external_decision
 
 ### 5.1 配置审计结论
 
-- **83 个字段中 81 个存活**，配置体系整体健康
-- 2 个死配置需处理：
-  - `receiver.polarization` — 标记废弃或移除
-  - `detection.minimum_detection_margin_db` — 实现消费逻辑或移除
+- **82 个字段全部存活**，配置体系健康
+- 2 个死配置已处理：
+  - `receiver.polarization` — ✅ 已移除
+  - `detection.minimum_detection_margin_db` — ✅ 已激活（可靠性裕量门限）
 
 ### 5.2 决策架构结论
 
-当前设计的核心矛盾是：**外部决策在行为上是权威性的（整体替换），但在 API 和 reducer 语义上被当作与原生提案等价的 "提案"**。这导致了命名、cooldown 行为、域级控制粒度等多处反直觉。
-
-建议优先评估 **方案 B** — 它在不破坏现有接口的前提下，将外部决策从 "提案" 提升为 "覆盖"，同时保持原生决策链路的完整性。
+方案 B 已实施，核心矛盾已解决：外部决策从 "提案" 提升为 "覆盖"，通过回调直接操作 `ArControlProfile`，
+不再与原生提案共享类型或管线。原生决策链路的 hold/cooldown 完整性不受外部覆盖影响。

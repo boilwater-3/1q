@@ -14,7 +14,7 @@
 #include <vector>
 
 #include "1q/airborne_radar/session/ArControlProfile.h"
-#include "1q/airborne_radar/session/ControlDirective.h"
+#include "airborne_radar/decision/ControlReducerTypes.h"
 #include "airborne_radar/decision/ControlReducer.h"
 
 namespace airborne_radar {

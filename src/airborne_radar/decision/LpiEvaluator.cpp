@@ -3,7 +3,7 @@
 #include <algorithm>
 #include <string>
 
-#include "1q/airborne_radar/session/ControlDirective.h"
+#include "airborne_radar/decision/ControlReducerTypes.h"
 #include "common/logging/ProjectLog.h"
 
 namespace airborne_radar {

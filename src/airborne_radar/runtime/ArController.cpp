@@ -5,7 +5,6 @@
 #include <cstdint>
 #include <functional>
 #include <memory>
-#include <set>
 
 #include "1q/airborne_radar/session/ArControlProfile.h"
 #include "1q/airborne_radar/session/ArTrackOutput.h"
@@ -37,23 +36,6 @@ bool HasOperationalProfileChanged(const session::ArControlProfile& previous,
          previous.enable_anti_rgpo_leading_edge != next.enable_anti_rgpo_leading_edge ||
          previous.enable_anti_vgpo_acceleration_bound != next.enable_anti_vgpo_acceleration_bound ||
          previous.enable_anti_false_target_discrimination != next.enable_anti_false_target_discrimination;
-}
-
-bool IsValidExternalProposal(const session::TacticalProposal& proposal) {
-  const session::ControlDirective& directive = proposal.directive;
-  // 域判定与标量合法性共用 reducer 的权威实现，避免重复 `==` 链漂移。
-  const bool is_lpi = decision::ControlReducer::IsLpiDirective(directive.type);
-  const bool is_eccm = decision::ControlReducer::IsEccmDirective(directive.type);
-  if (!is_lpi && !is_eccm) {
-    return false;
-  }
-  if (is_lpi && directive.source != session::ControlDirectiveSource::EMISSION_CONTROL) {
-    return false;
-  }
-  if (is_eccm && directive.source != session::ControlDirectiveSource::SURVIVABILITY) {
-    return false;
-  }
-  return decision::ControlReducer::IsValidDirectiveValue(directive);
 }
 
 extension::ControlReducerConfig MapDecisionControlConfig(
@@ -108,8 +90,6 @@ struct ArController::Impl {
   std::uint32_t pending_internal_cycle_index{0U};
   std::uint64_t pending_internal_batch_id{0U};
   std::vector<session::TacticalProposal> pending_internal_proposals{};
-  bool has_pending_external_decision{false};
-  session::ExternalDecisionResponse pending_external_decision{};
   bool has_pending_external_override{false};
   session::ExternalDecisionOverride pending_external_override{};
   bool has_latest_decision_observation{false};
@@ -193,13 +173,10 @@ struct ArController::Impl {
     }
 
     // 1. 原生归约（始终执行）
-    const std::vector<session::TacticalProposal>& selected_proposals =
-        has_pending_external_decision ? pending_external_decision.proposals
-                                      : pending_internal_proposals;
     const extension::ControlReductionResult native_result =
-        command_mapper->Apply(&control_profile, selected_proposals);
+        command_mapper->Apply(&control_profile, pending_internal_proposals);
 
-    // 2. 外部覆盖（新路径优先）
+    // 2. 外部覆盖
     if (has_pending_external_override) {
       const session::ArControlProfile override_profile =
           ApplyExternalOverride(control_profile, pending_external_override);
@@ -218,20 +195,15 @@ struct ArController::Impl {
         }
       }
       last_applied_decision_source = session::DecisionControlSource::kExternal;
-    } else if (has_pending_external_decision) {
-      // deprecated 路径：Reduce 已在 command_mapper->Apply 中完成
-      last_applied_decision_source = session::DecisionControlSource::kExternal;
     } else {
       last_applied_decision_source = session::DecisionControlSource::kInternal;
     }
 
     last_applied_decision_cycle_index = pending_internal_cycle_index;
     last_applied_decision_batch_id = pending_internal_batch_id;
-    last_applied_decision_proposals = selected_proposals;
+    last_applied_decision_proposals = pending_internal_proposals;
     has_pending_internal_decision = false;
     pending_internal_proposals.clear();
-    has_pending_external_decision = false;
-    pending_external_decision = session::ExternalDecisionResponse();
     has_pending_external_override = false;
     pending_external_override = session::ExternalDecisionOverride();
   }
@@ -342,8 +314,6 @@ void ArController::RunOnce(const signal::pipeline::SignalCycleInput& cycle_input
   impl_->pending_internal_cycle_index = stamp.cycle_index;
   impl_->pending_internal_batch_id = stamp.batch_id;
   impl_->pending_internal_proposals = decision_result.proposals;
-  impl_->has_pending_external_decision = false;
-  impl_->pending_external_decision = session::ExternalDecisionResponse();
   impl_->latest_decision_observation.input_frame = decision_frame;
   impl_->latest_decision_observation.active_control_profile = impl_->control_profile;
   impl_->has_latest_decision_observation = true;
@@ -418,36 +388,11 @@ bool ArController::HasLatestDecisionObservation() const {
 }
 
 session::ExternalDecisionSubmitStatus ArController::SubmitExternalDecision(
-    const session::ExternalDecisionResponse& response) {
-  if (!impl_->has_pending_internal_decision || !impl_->has_latest_decision_observation) {
-    return session::ExternalDecisionSubmitStatus::kNoPendingObservation;
-  }
-  if (response.source_cycle_index != impl_->pending_internal_cycle_index ||
-      response.source_batch_id != impl_->pending_internal_batch_id) {
-    return session::ExternalDecisionSubmitStatus::kSourceMismatch;
-  }
-  if (impl_->has_pending_external_decision) {
-    return session::ExternalDecisionSubmitStatus::kAlreadySubmitted;
-  }
-  std::set<session::ControlDirectiveType> directive_types;
-  for (std::size_t i = 0; i < response.proposals.size(); ++i) {
-    const session::TacticalProposal& proposal = response.proposals[i];
-    if (!IsValidExternalProposal(proposal) ||
-        !directive_types.insert(proposal.directive.type).second) {
-      return session::ExternalDecisionSubmitStatus::kInvalidProposal;
-    }
-  }
-  impl_->pending_external_decision = response;
-  impl_->has_pending_external_decision = true;
-  return session::ExternalDecisionSubmitStatus::kAccepted;
-}
-
-session::ExternalDecisionSubmitStatus ArController::SubmitExternalDecision(
     session::ExternalDecisionOverride override_decision) {
   if (!impl_->has_pending_internal_decision || !impl_->has_latest_decision_observation) {
     return session::ExternalDecisionSubmitStatus::kNoPendingObservation;
   }
-  if (impl_->has_pending_external_override || impl_->has_pending_external_decision) {
+  if (impl_->has_pending_external_override) {
     return session::ExternalDecisionSubmitStatus::kAlreadySubmitted;
   }
   if (!override_decision.apply) {
@@ -475,18 +420,10 @@ const std::vector<session::TacticalProposal>& ArController::GetLastAppliedDecisi
   return impl_->last_applied_decision_proposals;
 }
 
-bool ArController::HasPendingExternalDecision() const {
-  return impl_->has_pending_external_decision;
-}
-
-const session::ExternalDecisionResponse& ArController::GetPendingExternalDecision() const {
-  return impl_->pending_external_decision;
-}
-
 extension::ArControllerRuntimeState ArController::CaptureRuntimeState() const {
   extension::ArControllerRuntimeState state;
   state.owner_identity = this;
-  state.schema_version = 4U;
+  state.schema_version = 5U;
   state.latest_output = impl_->cycle_state.latest_output;
   state.has_latest_output = impl_->cycle_state.has_latest_output;
   state.last_validation_issues = impl_->cycle_state.last_validation_issues;
@@ -501,8 +438,6 @@ extension::ArControllerRuntimeState ArController::CaptureRuntimeState() const {
   state.pending_internal_cycle_index = impl_->pending_internal_cycle_index;
   state.pending_internal_batch_id = impl_->pending_internal_batch_id;
   state.pending_internal_proposals = impl_->pending_internal_proposals;
-  state.has_pending_external_decision = impl_->has_pending_external_decision;
-  state.pending_external_decision = impl_->pending_external_decision;
   state.has_pending_external_override = impl_->has_pending_external_override;
   state.pending_external_override = impl_->pending_external_override;
   state.has_latest_decision_observation = impl_->has_latest_decision_observation;
@@ -516,7 +451,7 @@ extension::ArControllerRuntimeState ArController::CaptureRuntimeState() const {
 }
 
 bool ArController::RestoreRuntimeState(const extension::ArControllerRuntimeState& state) {
-  if (state.owner_identity != this || state.schema_version != 4U) {
+  if (state.owner_identity != this || state.schema_version != 5U) {
     PROJECT_LOG_ERROR(
         "[ArController] controller runtime state restore rejected: "
         "owner/schema mismatch.");
@@ -537,8 +472,6 @@ bool ArController::RestoreRuntimeState(const extension::ArControllerRuntimeState
   impl_->pending_internal_cycle_index = state.pending_internal_cycle_index;
   impl_->pending_internal_batch_id = state.pending_internal_batch_id;
   impl_->pending_internal_proposals = state.pending_internal_proposals;
-  impl_->has_pending_external_decision = state.has_pending_external_decision;
-  impl_->pending_external_decision = state.pending_external_decision;
   impl_->has_pending_external_override = state.has_pending_external_override;
   impl_->pending_external_override = state.pending_external_override;
   impl_->has_latest_decision_observation = state.has_latest_decision_observation;
