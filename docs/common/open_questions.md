@@ -31,23 +31,24 @@ Authority: 非规定性记录
 
 - **现状证据**：反假目标鉴别的判据（同方向多脉冲列）天然属于接收机观测域
   （`ArInterferenceObservation`，含方位与波形），但其消费点在航迹生命周期域
-  （`TrackLifecycleManager::PromoteState`，抑制 tentative→confirmed）。当前实现通过
-  `ISignalPipeline::SetPendingInterferenceObservations` 将干扰观测和内部
-  `ArDeceptionClusterList` 在 `RunCycle` 前原子注入 pipeline。resolver 独占簇边界判定，
-  使用接收机波束宽度与接收频率分辨单元建立连通分量，并为每簇生成一个基于源设备集合的稳定
-  association seed；`DeceptionMeasurementGenerator` 只消费该显式簇元数据，严格按簇大小合成
-  假目标量测并标注 `classified_as_false_target`，不再按固定方位/频率网格二次聚类。随后由
-  `PromoteState` 消费该标注。
+  （`TrackLifecycleManager::PromoteState`，抑制 tentative→confirmed）。当前实现由
+  `ArInterferenceObservationResolver` 在波束宽度与接收频率分辨单元内建立连通分量，对
+  ≥2 成员的分量逐成员设置 `deception_class=kLikelyFalseTarget` 并生成一条内部
+  `ArDeceptionMeasurementCandidate`（per-member 结构性收敛，不二次聚类）；controller 经
+  `SetPreparedInterferenceObservations` 在 `RunCycle` 前把干扰观测与候选列表填入
+  `SignalCycleAnnotations`，`DeceptionMeasurementGenerator` 逐候选合成带
+  `classified_as_false_target` 的假目标量测注入 `track_measurements`（候选关联键由正常位置
+  关联产生，不预分配）。随后由 `PromoteState` 消费该标注。
 
-- **未决问题**：这种"RF 观测 → pipeline setter → 量测标注 → lifecycle 消费"的跨域桥接是否
-  应固化为更明确的周期输入端口，而非当前的 setter 旁路。干扰观测与内部簇元数据是
+- **未决问题**：这种"RF 观测 → controller setter → pipeline 注入 → 量测标注 → lifecycle 消费"
+  的跨域桥接是否应固化为更明确的周期输入端口，而非当前的 setter 旁路。干扰观测与候选量测是
   周期性输入而非配置，与 `SetControlProfile` 等配置型 setter 语义不同。此外同一"疑似假目标"
   概念跨域用了两套命名：观测域 `ArInterferenceObservation.deception_class`（枚举）与量测域
   `RawTrackMeasurement.classified_as_false_target`（bool），跨域阅读增加认知负担。
 
-- **当前边界**：setter 注入是内部端口（`ISignalPipeline` 非公开 API）上的最小侵入桥接，不构成
-  公开契约；内部 cluster 不进入 public result 或 replay，公开观测仍是唯一持久化事实。两套命名
-  保留，待跨域标注契约收敛时统一。
+- **当前边界**：controller 注入是内部端口（`ISignalPipeline` 非公开 API）上的最小侵入桥接，不构成
+  公开契约；内部 `ArDeceptionMeasurementCandidate` 不进入 public result 或 replay，公开观测仍是
+  唯一持久化事实。两套命名保留，待跨域标注契约收敛时统一。
 
 ### AR-OQ-2：SyncRuntimeTuning 字段同步的手工列表脆弱性
 

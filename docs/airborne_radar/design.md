@@ -461,9 +461,9 @@ AR 不从环境场景推导干扰。调用方只提供实际发射事实：发�
 AR 不保留 legacy jammer DTO、技术类别、J/S 摘要或欺骗/转发适配层；也不直接获取 ECM 的 `EcmDeceptionMode` 真值。外部欺骗发射（ECM 的 RGPO/VGPO/假目标等 kPulseTrain 波形）与压制发射经同一 `RfEmissionFrame` 路径进入接收前端，统一按时频重叠和方向增益计算接收功率。
 
 AR 在接收链的三个层次主动反制欺骗干扰：
-- **观测层**：`ArInterferenceObservationResolver` 从过 J/N 门限的 kPulseTrain 观测中，在接收机波束宽度和接收频率分辨单元内建立连通分量，设置 `deception_class=kLikelyFalseTarget`，并为每个分量生成唯一的内部 `ArDeceptionCluster`。cluster 携带代表观测、严格发射数和基于源 platform/equipment 集合的稳定 association seed；它只在 controller/pipeline 单周期与回滚快照内流转，不进入 public result/replay。resolver 同时填充 `estimated_slant_range_m`、`estimated_range_rate_mps` 和雷达局部系方位（`estimated_bearing_*_local_deg`）。斜距与径向速度在写入前按 `RadarEquations::ComputeRangeErrorStdDev` 派生的标准差叠加**确定性零均值噪声**，种子由 cycle index + receiver equipment id 派生，保证 replay 下可复现；二者不再是精确仿真真值（公共合同 contract.md:348）；
+- **观测层**：`ArInterferenceObservationResolver` 从过 J/N 门限的 kPulseTrain 观测中，在接收机波束宽度和接收频率分辨单元内建立连通分量，对分量（≥2 同束同频率脉冲列成员）内每个成员 observation 设置 `deception_class=kLikelyFalseTarget`，并逐成员生成一条内部 `ArDeceptionMeasurementCandidate`。候选携带 source observation/emission provenance（`source_observation_id`、`source_emission_identity`）与可观测残差（`estimated_first_pulse_delay_s`、`estimated_carrier_offset_hz`）；候选只在 controller/pipeline 单周期与回滚快照内流转，不进入 public result/replay。候选的关联键不预分配，由正常位置关联产生。resolver 同时填充 `estimated_slant_range_m`、`estimated_range_rate_mps` 和雷达局部系方位（`estimated_bearing_*_local_deg`）。斜距与径向速度在写入前按 `RadarEquations::ComputeRangeErrorStdDev` 派生的标准差叠加**确定性零均值噪声**，种子由 cycle index + receiver equipment id 派生，保证 replay 下可复现；二者不再是精确仿真真值（公共合同 contract.md:348）；
 - **ECCM 决策层**：`EccmEvaluator` 仅对 kPulseTrain 按**与 ECM 物理匹配**的接收端残差路由 RGPO/VGPO（不读 ECM `EcmDeceptionMode` 真值）。`estimated_center_frequency_hz` 记录发射中心频率加 incident-link Doppler 的实际到达事实；`estimated_carrier_offset_hz` 再扣除接收机本振和同一 link Doppler，只保留额外转发偏移，绝对值 ≥ 1 kHz 时触发 `anti_vgpo_score`。`estimated_first_pulse_delay_s` 以首脉冲到达时刻减“窗口起点 + 同一 link 单程传播”，传播项在两侧相消，只保留 ECM 额外时延，≥ 100 ns 时触发 `anti_rgpo_score`。`kLikelyFalseTarget` 独立触发 `anti_false_target_score`。达阈值后分别生成三个反欺骗提案（§2.7 ECCM）；
-- **信号层**：`ArControlProfile` 的三个 bool 字段通过 `ControlReducer`/`ControlCommandMapper` 经现有 ECCM hold/cooldown 管线生效。`DeceptionMeasurementGenerator` **独立于反制开关**，只消费 resolver 生成的显式 cluster，并为每簇严格合成 N 条假距离/多普勒量测，避免成员级再次扩展造成 N²；反制开关只在 `TrackLifecycleManager::PromoteState` 控制 tentative→confirmed 的抑制策略。反 VGPO 加速度限幅在裁剪 `track.velocity` 后回写 `gaussian_state.mean` 速度分量并重算 `acceleration`，保证下一周期 Predict 从一致状态出发。
+- **信号层**：`ArControlProfile` 的三个 bool 字段通过 `ControlReducer`/`ControlCommandMapper` 经现有 ECCM hold/cooldown 管线生效。`DeceptionMeasurementGenerator` **独立于反制开关**，只消费 resolver 生成的候选量测（每成员一条），逐候选合成一条带 `classified_as_false_target` 的假目标量测注入 `track_measurements`；候选数已在 resolver 结构性收敛（每成员一条，不二次扩展），generator 不再按簇大小或固定网格扩展。反制开关只在 `TrackLifecycleManager::PromoteState` 控制 tentative→confirmed 的抑制策略。反 VGPO 加速度限幅在裁剪 `track.velocity` 后回写 `gaussian_state.mean` 速度分量并重算 `acceleration`，保证下一周期 Predict 从一致状态出发。
 [evidence: tests/unit/airborne_radar/ar_deception_eccm_test.cpp::SignificantFirstPulseDelayTriggersAntiRgpoProposal]
 [evidence: tests/unit/airborne_radar/ar_deception_eccm_test.cpp::SignificantCarrierOffsetTriggersAntiVgpoProposal]
 [evidence: tests/unit/airborne_radar/ar_deception_eccm_test.cpp::PlainPulseTrainWithoutFeaturesDoesNotTriggerAntiDeception]
@@ -471,12 +471,11 @@ AR 在接收链的三个层次主动反制欺骗干扰：
 [evidence: tests/unit/airborne_radar/ar_deception_eccm_test.cpp::AntiVgpoClampWritesBackToGaussianState]
 [evidence: tests/unit/airborne_radar/ar_deception_eccm_test.cpp::AntiVgpoClampPropagatesToNextPredict]
 [evidence: tests/unit/airborne_radar/ar_deception_eccm_test.cpp::AntiVgpoClampRecomputesAcceleration]
-[evidence: tests/unit/airborne_radar/ar_deception_measurement_generator_test.cpp::SynthesizesOneMeasurementPerCoherentEmission]
-[evidence: tests/unit/airborne_radar/ar_deception_measurement_generator_test.cpp::PositionFromLocalBearingAndSlantRange]
-[evidence: tests/unit/airborne_radar/ar_deception_measurement_generator_test.cpp::AssociationKeyStableAcrossCyclesForSameObservation]
+[evidence: tests/unit/airborne_radar/ar_deception_measurement_generator_test.cpp::SynthesizesOneMeasurementPerCandidate]
+[evidence: tests/unit/airborne_radar/ar_deception_measurement_generator_test.cpp::PositionPreservedFromCandidate]
+[evidence: tests/unit/airborne_radar/ar_deception_measurement_generator_test.cpp::AssociationKeyFromEngine]
 [evidence: tests/unit/airborne_radar/ar_deception_measurement_generator_test.cpp::GeneratesFalseTargetMeasurementsRegardlessOfSwitch]
-[evidence: tests/unit/airborne_radar/ar_deception_measurement_generator_test.cpp::CoherentClusterDedupAvoidsNSquaredExpansion]
-[evidence: tests/unit/airborne_radar/ar_deception_measurement_generator_test.cpp::AssociationKeyDerivedFromClusterSignature]
+[evidence: tests/unit/airborne_radar/ar_deception_measurement_generator_test.cpp::CandidateCountMatchesInputCount]
 [evidence: tests/unit/airborne_radar/ar_interference_observation_resolver_test.cpp::LocalFrameBearingDiffersFromEcefWhenAttitudeNonZero]
 [evidence: tests/unit/airborne_radar/ar_interference_observation_resolver_test.cpp::RangeAndRangeRateArePerturbedFromTruth]
 [evidence: tests/unit/airborne_radar/ar_interference_observation_resolver_test.cpp::PulseTrainPopulatesCarrierOffsetAndFirstPulseDelay]
@@ -655,10 +654,13 @@ association public 配置不再暴露 `unassigned_cost`、启用 hint 或第二�
   [evidence: tests/unit/airborne_radar/ar_deception_eccm_test.cpp AntiVgpoBoundsVelocityChangePerCycle、
   AntiVgpoDoesNotClampNewlyCreatedTrack]
 - 反假目标鉴别在 `TrackLifecycleManager::PromoteState` 内实现：当 `enable_anti_false_target_
-  discrimination=true` 且量测被观测层标为疑似假目标（`classified_as_false_target`）时，该量测
-  不把 tentative 航迹晋升为 confirmed，抑制欺骗干扰制造的虚假起批。疑似假目标标注由接收机干扰
-  观测的方位聚类产生（`ArInterferenceObservationResolver`），经控制层在 `RunCycle` 前注入 pipeline，
-  在量测构建阶段按目标 look angle 与干扰观测方位匹配后透传到 `RawTrackMeasurement`。
+  discrimination=true` 且量测被标为疑似假目标（`classified_as_false_target`）时，该量测
+  不把 tentative 航迹晋升为 confirmed，抑制欺骗干扰制造的虚假起批。疑似假目标标注来自
+  `ArInterferenceObservationResolver` 在连通分量（≥2 同束同频率 kPulseTrain 成员）内对成员
+  observation 设置的 `deception_class=kLikelyFalseTarget`；`DeceptionMeasurementGenerator`
+  为每条 `ArDeceptionMeasurementCandidate` 合成一条独立量测（`source_index` 取 sentinel，真实
+  target 量测不经此路径）并自带 `classified_as_false_target=true`，经 controller 在 `RunCycle`
+  前填入 `SignalCycleAnnotations` 后注入 pipeline。
   [evidence: tests/unit/airborne_radar/ar_deception_eccm_test.cpp AntiFalseTargetSuppressesTentativePromotion、
   AntiFalseTargetDisabledPromotesNormally]
 - AR 在 ECCM 层主动反制欺骗发射：kPulseTrain 观测经 `EccmEvaluator` 触发前沿跟踪（优先级 89）、
