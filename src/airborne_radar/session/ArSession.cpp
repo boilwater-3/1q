@@ -553,6 +553,57 @@ struct ArSession::Impl {
     return result;
   }
 
+  // 非饱和路径的干扰/欺骗观测解析：构造雷达局部坐标系、热噪声基底、去真值化扰动种子，
+  // 调用 resolver 填充 interference_observations 与 deception_candidates。失败返回 false
+  // （调用方置 kRejected）；饱和路径由调用方跳过本方法、保留空观测。
+  bool TryResolveReceiveObservations(
+      const oneq::electromagnetics::RfSceneFrame& rf_scene,
+      const ArPreparedCycleToken& prepared_token, const ArPrepareCycleInput& prepared_input,
+      const oneq::electromagnetics::RfSceneEmission& prepared_emission,
+      const ArReceiverOperatingState& prepared_operating_state,
+      const signal::detection::ArRfFrontEndResult& front_end,
+      std::vector<ArInterferenceObservation>* interference_observations,
+      signal::detection::ArDeceptionMeasurementCandidateList* deception_candidates) {
+    constexpr double kBoltzmannJPerK = 1.380649e-23;
+    constexpr double kReferenceTemperatureK = 290.0;
+    const config::engineering::DetectionConfig& detection =
+        runtime_state.execution_config.detection.engineering;
+    const double thermal_noise_power_w =
+        kBoltzmannJPerK * kReferenceTemperatureK *
+        static_cast<double>(detection.transmitter.bandwidth_hz) *
+        std::pow(10.0, static_cast<double>(detection.receiver.noise_figure_db) / 10.0);
+    // 为干扰观测构造雷达局部坐标系：原点 LLA + 合成姿态（平台姿态+挂架角），
+    // 使解析器能把 ECEF 视线转换到与目标 look angle 同系的局部方位。
+    oneq::coordinate::LocalFrameReference platform_frame;
+    bool platform_frame_resolved = false;
+    oneq::coordinate::LlaPositionDegM frame_origin_lla;
+    if (oneq::coordinate::TryEcefToLla(prepared_input.platform_position_ecef_m, &frame_origin_lla)) {
+      platform_frame.origin_lla = frame_origin_lla;
+      platform_frame.frame_attitude_deg = prepared_input.radar_frame_attitude_deg;
+      platform_frame_resolved = true;
+    }
+    if (!platform_frame_resolved) {
+      PROJECT_LOG_WARN(
+          "[ArSession] CompleteRfCycle could not build platform frame; interference "
+          "bearings fall back to ECEF tangent-plane (cross-frame discrimination degraded).");
+    }
+    // 去真值化扰动种子：cycle index + receiver equipment id 派生，保证 replay（同 cycle
+    // 重放）下扰动可复现，同时跨周期/跨设备互不相关（contract.md:348）。
+    const std::uint32_t perturbation_seed =
+        (prepared_token.world_cycle_index & 0xFFFF'FFFFU) ^
+        (static_cast<std::uint32_t>(prepared_operating_state.rf_receiver.equipment_id) *
+         2654435761U);
+    if (!signal::detection::TryResolveArInterferenceObservations(
+            rf_scene, prepared_operating_state.rf_receiver, prepared_emission.identity,
+            front_end.incident_links, thermal_noise_power_w,
+            static_cast<double>(detection.receiver.interference_observation_jn_gate_db),
+            platform_frame, perturbation_seed, interference_observations,
+            deception_candidates)) {
+      return false;
+    }
+    return true;
+  }
+
   ArCompleteCycleResult CompleteRfCycle(const ArPreparedCycleToken& token,
                                         const ArCompleteCycleInput& input) {
     ArCompleteCycleResult result;
@@ -618,42 +669,9 @@ struct ArSession::Impl {
     std::vector<ArInterferenceObservation> interference_observations;
     signal::detection::ArDeceptionMeasurementCandidateList deception_candidates;
     if (!front_end.receiver_saturated) {
-      constexpr double kBoltzmannJPerK = 1.380649e-23;
-      constexpr double kReferenceTemperatureK = 290.0;
-      const config::engineering::DetectionConfig& detection =
-          runtime_state.execution_config.detection.engineering;
-      const double thermal_noise_power_w =
-          kBoltzmannJPerK * kReferenceTemperatureK *
-          static_cast<double>(detection.transmitter.bandwidth_hz) *
-          std::pow(10.0, static_cast<double>(detection.receiver.noise_figure_db) / 10.0);
-      // 为干扰观测构造雷达局部坐标系：原点 LLA + 合成姿态（平台姿态+挂架角），
-      // 使解析器能把 ECEF 视线转换到与目标 look angle 同系的局部方位。
-      oneq::coordinate::LocalFrameReference platform_frame;
-      bool platform_frame_resolved = false;
-      oneq::coordinate::LlaPositionDegM frame_origin_lla;
-      if (oneq::coordinate::TryEcefToLla(prepared_input.platform_position_ecef_m,
-                                         &frame_origin_lla)) {
-        platform_frame.origin_lla = frame_origin_lla;
-        platform_frame.frame_attitude_deg = prepared_input.radar_frame_attitude_deg;
-        platform_frame_resolved = true;
-      }
-      if (!platform_frame_resolved) {
-        PROJECT_LOG_WARN(
-            "[ArSession] CompleteRfCycle could not build platform frame; interference "
-            "bearings fall back to ECEF tangent-plane (cross-frame discrimination degraded).");
-      }
-      // 去真值化扰动种子：cycle index + receiver equipment id 派生，保证 replay（同 cycle
-      // 重放）下扰动可复现，同时跨周期/跨设备互不相关（contract.md:348）。
-      const std::uint32_t perturbation_seed =
-          (prepared_token.world_cycle_index & 0xFFFF'FFFFU) ^
-          (static_cast<std::uint32_t>(prepared_operating_state.rf_receiver.equipment_id) *
-           2654435761U);
-      if (!signal::detection::TryResolveArInterferenceObservations(
-              input.rf_scene, prepared_operating_state.rf_receiver, prepared_emission.identity,
-              front_end.incident_links, thermal_noise_power_w,
-              static_cast<double>(detection.receiver.interference_observation_jn_gate_db),
-              platform_frame, perturbation_seed, &interference_observations,
-              &deception_candidates)) {
+      if (!TryResolveReceiveObservations(input.rf_scene, prepared_token, prepared_input,
+                                         prepared_emission, prepared_operating_state, front_end,
+                                         &interference_observations, &deception_candidates)) {
         PROJECT_LOG_ERROR(
             "[ArSession] CompleteRfCycle interference observation resolution failed.");
         result.status = ArCompleteCycleStatus::kRejected;
