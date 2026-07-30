@@ -122,7 +122,16 @@ struct ONEQ_API TrackingConfig {
  * @brief 量测关联参数。
  */
 struct ONEQ_API AssociationConfig {
-  float distance_gate_sigma{3.0f}; /**< 归一化距离关联门限的 sigma 倍数。 */
+  /**
+   * 归一化距离关联门限的 sigma 倍数。
+   *
+   * 内部映射时通过 MapSessionToExecution() / ApplyRuntimePatch() 转换为
+   * unassigned_cost = sigma² 用于归一化距离代价计算。逆映射时取
+   * std::sqrt(unassigned_cost) 恢复为 sigma 倍数。
+   *
+   * @see MappingTransforms.h 中的 SigmaToSquaredCost() / SquaredCostToSigma()。
+   */
+  float distance_gate_sigma{3.0f};
 };
 
 }  // namespace tracking

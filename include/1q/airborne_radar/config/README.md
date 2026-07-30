@@ -25,12 +25,12 @@ config/
 
 ### 四域公开配置
 
-| 域 | 头文件 | 说明 |
-| --- | --- | --- |
-| `hardware` | `ArHardwareConfig.h` | 硬件固有能力（探测链路参数） |
-| `mission` | `ArMissionConfig.h` | 任务态与波束运行态（工作模式、指向与扫描） |
-| `policy` | `ArPolicyConfig.h` | 调度/关联/跟踪/生命周期策略 |
-| `environment` | `ArEnvironmentConfig.h` | 环境默认参数 |
+| 域 | 头文件 | 说明 | 内部映射去向 |
+| --- | --- | --- | --- |
+| `hardware` | `ArHardwareConfig.h` | 硬件固有能力（探测链路参数） | `InternalExecutionConfig::detection.engineering`（与 policy.detection 合并） |
+| `mission` | `ArMissionConfig.h` | 任务态与波束运行态（工作模式、指向与扫描） | `InternalExecutionConfig::sensor_enabled` + `detection.orientation` |
+| `policy` | `ArPolicyConfig.h` | 调度/关联/跟踪/生命周期策略 | `detection.beam_control`、`association`、`tracking`、`lifecycle`、`decision_control` |
+| `environment` | `ArEnvironmentConfig.h` | 环境默认参数 | **独立路径**：`EnvironmentService`（不经过 `MapSessionToExecution`） |
 
 ### ArSessionConfig
 

@@ -182,6 +182,8 @@ config::ArSessionConfig ArSessionConfigBuilder::Build() const {
   config::ArSessionConfig result = base_config_;
   const config::ArSessionConfig default_semantic = BuildDefaultSemanticSessionConfig();
 
+  // 重置 detection 域为语义默认值，然后应用 profile 翻译。
+  // 此操作会覆盖 base_config_ 中 hardware 和 policy.detection 的所有先前细粒度设置。
   if (detection_dirty_) {
     result.hardware = default_semantic.hardware;
     ApplyDetectionSemanticConfig(hardware_profile_, intent_profile_, antenna_profile_,
@@ -189,6 +191,8 @@ config::ArSessionConfig ArSessionConfigBuilder::Build() const {
                                  &result.hardware, &result.policy.detection);
   }
 
+  // 重置 tracking + association 域为语义默认值，然后应用 profile 翻译。
+  // 此操作会覆盖 base_config_ 中 policy.tracking 和 policy.association 的所有先前设置。
   if (tracking_dirty_) {
     result.policy.tracking = default_semantic.policy.tracking;
     result.policy.association = default_semantic.policy.association;
@@ -196,6 +200,8 @@ config::ArSessionConfig ArSessionConfigBuilder::Build() const {
                                 &result.policy.association);
   }
 
+  // 重置 lifecycle 域为语义默认值，然后应用 profile 翻译。
+  // 此操作会覆盖 base_config_ 中 policy.lifecycle 的所有先前设置。
   if (lifecycle_dirty_) {
     result.policy.lifecycle = default_semantic.policy.lifecycle;
     ApplyLifecycleSemanticConfig(enable_imm_fusion_, lifecycle_profile_, &result.policy.lifecycle);

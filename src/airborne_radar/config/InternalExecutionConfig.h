@@ -13,6 +13,11 @@
  * - LifecycleExecutionConfig：航迹生命周期与 IMM
  *
  * 跨域共享的 ControlProfileEffectsConfig 保留在顶层。
+ *
+ * @note 环境域（ArEnvironmentConfig）不包含在本类型中。环境观测数据通过
+ *       独立路径传递给 EnvironmentService 管理，不经过 MapSessionToExecution()。
+ *       设计意图：environment 仅携带自然环境事实（大气物理、植被散射），
+ *       不含算法调参字段，因此无需参与执行配置的合并映射。
  */
 
 #ifndef AIRBORNE_RADAR_SRC_CONFIG_EXECUTION_INTERNAL_EXECUTION_CONFIG_H_
@@ -57,6 +62,7 @@ struct DetectionExecutionConfig {
 };
 
 struct AssociationPolicyConfig {
+  /** 归一化距离关联代价，由 distance_gate_sigma² 映射而来。 */
   float unassigned_cost{9.0f};
 };
 

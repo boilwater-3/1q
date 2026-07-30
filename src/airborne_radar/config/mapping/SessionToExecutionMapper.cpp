@@ -1,6 +1,7 @@
 #include "airborne_radar/config/mapping/SessionToExecutionMapper.h"
 
 #include "airborne_radar/config/mapping/EngineeringResolvers.h"
+#include "airborne_radar/config/mapping/MappingTransforms.h"
 
 namespace airborne_radar {
 namespace config {
@@ -16,19 +17,12 @@ execution::InternalExecutionConfig MapSessionToExecution(
       ResolveDetectionEngineering(session_config.hardware, session_config.policy.detection);
   exec.detection.beam_control = session_config.policy.beam_control;
   exec.association.policy.unassigned_cost =
-      session_config.policy.association.distance_gate_sigma *
-      session_config.policy.association.distance_gate_sigma;
+      SigmaToSquaredCost(session_config.policy.association.distance_gate_sigma);
   exec.tracking.policy = session_config.policy.tracking;
   exec.lifecycle.policy = session_config.policy.lifecycle;
   exec.detection.orientation = session_config.mission.orientation;
 
-  exec.tracking.engineering = exec.tracking.policy;
-  exec.lifecycle.engineering = ResolveLifecycleEngineering(exec.lifecycle.policy);
-
-  if (exec.lifecycle.engineering.enable_imm_lifecycle) {
-    exec.lifecycle.imm_model_noise_diff_coeffs =
-        BuildDefaultImmNoiseDiffCoeffs(exec.lifecycle.policy.model_count_hint);
-  }
+  ReconcilePolicyToEngineering(exec);
 
   return exec;
 }
