@@ -11,13 +11,12 @@
 #include <vector>
 
 #include "1q/airborne_radar/session/ArControlProfile.h"
-#include "1q/airborne_radar/session/ArInterferenceObservation.h"
 #include "1q/airborne_radar/session/DecisionInputFrame.h"
 #include "airborne_radar/environment/EnvironmentTypes.h"
 #include "airborne_radar/signal/association/DataAssociation.h"
-#include "airborne_radar/signal/detection/ArDeceptionCluster.h"
 #include "airborne_radar/signal/detection/SignalDetector.h"
 #include "airborne_radar/signal/detection/TargetGeometryResolver.h"
+#include "airborne_radar/signal/pipeline/SignalCycleAnnotations.h"
 #include "airborne_radar/signal/pipeline/SignalPipelineExecutionConfig.h"
 #include "airborne_radar/signal/pipeline/SignalPipelineRuntimeTypes.h"
 #include "airborne_radar/signal/tracking/ITrackLifecycleManager.h"
@@ -51,6 +50,9 @@ struct CycleExecutionScratch {
   // 关联阶段中间数据
   association::AssociationResult association_result;
   std::vector<std::uint64_t> association_keys;
+
+  // 欺骗候选关联阶段中间数据
+  std::vector<std::uint64_t> deception_candidate_keys;
 
   // 量测构建阶段中间数据
   std::vector<int> measurement_slots;
@@ -98,8 +100,7 @@ struct CycleExecutionContext {
       const session::EnvironmentSnapshot& environment_snapshot, std::uint32_t cycle_index,
       std::uint64_t batch_id, ExecutionConfig runtime_config, float platform_altitude_m,
       const RfV2DetectionContext* rf_v2_detection_context = nullptr,
-      const session::ArInterferenceObservationList* interference_observations = nullptr,
-      const detection::ArDeceptionClusterList* deception_clusters = nullptr)
+      const SignalCycleAnnotations* annotations = nullptr)
       : input_state(input_state),
         environment_snapshot(environment_snapshot),
         cycle_index(cycle_index),
@@ -107,8 +108,7 @@ struct CycleExecutionContext {
         platform_altitude_m(platform_altitude_m),
         runtime_config(std::move(runtime_config)),
         rf_v2_detection_context(rf_v2_detection_context),
-        interference_observations(interference_observations),
-        deception_clusters(deception_clusters) {}
+        annotations(annotations) {}
 
   const session::ArSceneTargetList& input_state;
   const session::EnvironmentSnapshot& environment_snapshot;
@@ -119,8 +119,7 @@ struct CycleExecutionContext {
   // 以下裸指针表达"可选的非拥有引用"：nullptr 表示该周期无此输入，非空时指向调用方
   // 拥有的、生命周期覆盖整个 ExecuteCycle 的对象。ExecuteCycle 内只读访问，不释放。
   const RfV2DetectionContext* rf_v2_detection_context{nullptr};
-  const session::ArInterferenceObservationList* interference_observations{nullptr};
-  const detection::ArDeceptionClusterList* deception_clusters{nullptr};
+  const SignalCycleAnnotations* annotations{nullptr};
 };
 
 /**

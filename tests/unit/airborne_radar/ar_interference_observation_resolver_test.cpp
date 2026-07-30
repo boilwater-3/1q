@@ -60,10 +60,10 @@ bool ResolveWithoutClusters(
     double thermal_noise_power_w, double jammer_to_noise_gate_db,
     const oneq::coordinate::LocalFrameReference& platform_frame, std::uint32_t perturbation_seed,
     std::vector<session::ArInterferenceObservation>* observations) {
-  ArDeceptionClusterList ignored_clusters;
+  ArDeceptionMeasurementCandidateList ignored_candidates;
   return TryResolveArInterferenceObservations(
       scene, receiver, own_emission_identity, incident_links, thermal_noise_power_w,
-      jammer_to_noise_gate_db, platform_frame, perturbation_seed, observations, &ignored_clusters);
+      jammer_to_noise_gate_db, platform_frame, perturbation_seed, observations, &ignored_candidates);
 }
 
 TEST(ArInterferenceObservationResolverTest, GatesByJOverNAndIsOrderIndependent) {
@@ -116,21 +116,26 @@ TEST(ArInterferenceObservationResolverTest, CoherentPulseTrainEmissionsTaggedAsF
       MakeLink(scene.emissions[0], 100.0), MakeLink(scene.emissions[1], 100.0)};
 
   std::vector<session::ArInterferenceObservation> observations;
-  ArDeceptionClusterList clusters;
+  ArDeceptionMeasurementCandidateList candidates;
   ASSERT_TRUE(TryResolveArInterferenceObservations(
       scene, receiver, oneq::electromagnetics::RfEmissionIdentity{1U, 3U, 4U}, links, 1.0, 0.0,
-      DefaultFrame(), /*perturbation_seed=*/42U, &observations, &clusters));
+      DefaultFrame(), /*perturbation_seed=*/42U, &observations, &candidates));
   ASSERT_EQ(observations.size(), 2U);
   // 两条观测应均被标记为疑似假目标，且同方向计数 ≥ 2（含自身）。
   for (const auto& obs : observations) {
     EXPECT_EQ(obs.deception_class, session::DeceptionClass::kLikelyFalseTarget);
     EXPECT_GE(obs.coherent_emission_count, 2U);
   }
-  ASSERT_EQ(clusters.size(), 1U);
-  EXPECT_EQ(clusters.front().emission_count, 2U);
-  EXPECT_NE(clusters.front().association_key_seed, 0U);
-  EXPECT_GE(clusters.front().representative_observation_id, 1U);
-  EXPECT_LE(clusters.front().representative_observation_id, observations.size());
+  // 2 个 deception cluster member 应生成 2 个候选量测。
+  ASSERT_EQ(candidates.size(), 2U);
+  for (const auto& c : candidates) {
+    EXPECT_TRUE(std::isfinite(c.position.x()));
+    EXPECT_TRUE(std::isfinite(c.position.y()));
+    EXPECT_TRUE(std::isfinite(c.position.z()));
+    EXPECT_TRUE(std::isfinite(c.velocity.x()));
+    EXPECT_TRUE(std::isfinite(c.measurement_covariance(0, 0)));
+    EXPECT_NE(c.source_observation_id, 0U);
+  }
 }
 
 TEST(ArInterferenceObservationResolverTest, IsolatedPulseTrainNotTaggedAsFalseTarget) {

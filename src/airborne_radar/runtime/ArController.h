@@ -15,7 +15,7 @@
 #include "1q/airborne_radar/session/DecisionControlTypes.h"
 #include "airborne_radar/decision/ControlReducer.h"
 #include "airborne_radar/environment/IEnvironmentService.h"
-#include "airborne_radar/signal/detection/ArDeceptionCluster.h"
+#include "airborne_radar/signal/detection/ArDeceptionMeasurementCandidate.h"
 #include "airborne_radar/signal/pipeline/ISignalPipeline.h"
 
 namespace airborne_radar {
@@ -60,7 +60,7 @@ struct ArControllerRuntimeState {
   std::vector<session::TacticalProposal> last_applied_decision_proposals{};
   bool control_prepared_for_cycle{false};
   session::ArInterferenceObservationList prepared_interference_observations{};
-  signal::detection::ArDeceptionClusterList prepared_deception_clusters{};
+  signal::detection::ArDeceptionMeasurementCandidateList prepared_deception_candidates{};
 };
 }  // namespace extension
 }  // namespace airborne_radar
@@ -106,7 +106,7 @@ class ArController {
    */
   bool SetPreparedInterferenceObservations(
       const session::ArInterferenceObservationList& observations,
-      const signal::detection::ArDeceptionClusterList& deception_clusters);
+      const signal::detection::ArDeceptionMeasurementCandidateList& deception_candidates = {});
 
   /** @brief 在 Abandon 后释放控制冻结标记，不回滚已消费的控制真值。 */
   void ReleasePreparedEmissionControl();

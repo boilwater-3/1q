@@ -43,10 +43,13 @@ class SignalPipeline final : public ISignalPipeline {
    * @brief 执行单周期信号处理流程。
    * @param scene_targets 当前周期场景目标输入列表。
    * @param environment 当前环境服务。
+   * @param annotations 本周期接收端 annotation（独立于 pipeline 累计状态的周期输入）。
    * @return 当前周期的信号处理输出。
    */
-  session::SignalCycleResult RunCycle(const session::ArSceneTargetList& scene_targets,
-                                      const environment::IEnvironmentService& environment) override;
+  session::SignalCycleResult RunCycle(
+      const session::ArSceneTargetList& scene_targets,
+      const environment::IEnvironmentService& environment,
+      const SignalCycleAnnotations* annotations = nullptr) override;
 
   /**
    * @brief 获取上一周期生成的跟踪量测列表。
@@ -107,14 +110,6 @@ class SignalPipeline final : public ISignalPipeline {
    * @return 当前控制真值。
    */
   session::ArControlProfile GetControlProfile() const override;
-
-  /**
-   * @brief 注入本周期待用的接收机干扰观测，供航迹起批假目标鉴别。
-   * @param observations 干扰观测列表（周期内消费后清空）。
-   */
-  void SetPendingInterferenceObservations(
-      session::ArInterferenceObservationList observations,
-      detection::ArDeceptionClusterList deception_clusters) override;
 
   /**
    * @brief 更新流水线运行配置。

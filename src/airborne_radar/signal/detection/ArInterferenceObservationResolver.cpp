@@ -4,7 +4,6 @@
 #include <cmath>
 #include <map>
 #include <random>
-#include <set>
 #include <tuple>
 #include <utility>
 
@@ -130,16 +129,6 @@ std::uint64_t HashEmissionIdentity(const oneq::electromagnetics::RfEmissionIdent
   return Mix64(hash ^ identity.emission_id);
 }
 
-std::uint64_t HashEquipmentSet(
-    const std::set<std::pair<std::uint64_t, std::uint64_t>>& equipment_ids) {
-  std::uint64_t hash = UINT64_C(0x4152444543455054);  // "ARDECEPT"
-  for (const auto& id : equipment_ids) {
-    hash = Mix64(hash ^ Mix64(id.first));
-    hash = Mix64(hash ^ Mix64(id.second));
-  }
-  return hash == 0U ? 1U : hash;
-}
-
 bool WaveformsShareResolutionCell(const session::ArInterferenceObservation& left,
                                   const session::ArInterferenceObservation& right) {
   const double half_sum_bandwidth_hz =
@@ -198,8 +187,8 @@ bool TryResolveArInterferenceObservations(
     double thermal_noise_power_w, double jammer_to_noise_gate_db,
     const oneq::coordinate::LocalFrameReference& platform_frame, std::uint32_t perturbation_seed,
     std::vector<session::ArInterferenceObservation>* observations,
-    ArDeceptionClusterList* deception_clusters) {
-  if (observations == nullptr || deception_clusters == nullptr ||
+    ArDeceptionMeasurementCandidateList* deception_candidates) {
+  if (observations == nullptr ||
       !oneq::electromagnetics::TryValidateRfSceneFrame(scene) ||
       !std::isfinite(thermal_noise_power_w) || thermal_noise_power_w <= 0.0 ||
       !std::isfinite(jammer_to_noise_gate_db)) {
@@ -423,29 +412,62 @@ bool TryResolveArInterferenceObservations(
     components[root].push_back(i);
   }
 
-  ArDeceptionClusterList resolved_clusters;
-  std::map<std::uint64_t, std::uint64_t> source_set_ordinals;
+  ArDeceptionMeasurementCandidateList resolved_candidates;
   for (const auto& component : components) {
     const std::vector<std::size_t>& members = component.second;
     if (members.size() < 2U) {
       candidate[members.front()].observation.coherent_emission_count = 1U;
       continue;
     }
-    std::set<std::pair<std::uint64_t, std::uint64_t>> equipment_ids;
     for (std::size_t index : members) {
       candidate[index].observation.deception_class = session::DeceptionClass::kLikelyFalseTarget;
       candidate[index].observation.coherent_emission_count =
           static_cast<std::uint32_t>(members.size());
-      equipment_ids.insert(std::make_pair(candidate[index].identity.platform_id,
-                                          candidate[index].identity.equipment_id));
     }
-    const std::uint64_t equipment_signature = HashEquipmentSet(equipment_ids);
-    const std::uint64_t ordinal = source_set_ordinals[equipment_signature]++;
-    ArDeceptionCluster cluster;
-    cluster.representative_observation_id = candidate[members.front()].observation.observation_id;
-    cluster.emission_count = static_cast<std::uint32_t>(members.size());
-    cluster.association_key_seed = Mix64(equipment_signature ^ Mix64(ordinal));
-    resolved_clusters.push_back(cluster);
+    // 逐 member 生成带 physical provenance 的候选量测。
+    for (std::size_t idx : members) {
+      const auto& obs = candidate[idx].observation;
+      ArDeceptionMeasurementCandidate dc;
+      dc.source_observation_id = obs.observation_id;
+      dc.source_emission_identity = candidate[idx].identity;
+      dc.estimated_first_pulse_delay_s = obs.estimated_first_pulse_delay_s;
+      dc.estimated_carrier_offset_hz = obs.estimated_carrier_offset_hz;
+      dc.apparent_slant_range_m = obs.estimated_slant_range_m;
+      dc.apparent_range_rate_mps = obs.estimated_range_rate_mps;
+      dc.jammer_to_noise_db = obs.jammer_to_noise_db;
+      dc.used_local_bearings = obs.has_local_bearings;
+      // 方位/俯仰：优先局部系。
+      const double azimuth_deg = obs.has_local_bearings
+          ? obs.estimated_bearing_azimuth_local_deg
+          : obs.estimated_bearing_azimuth_deg;
+      const double elevation_deg = obs.has_local_bearings
+          ? obs.estimated_bearing_elevation_local_deg
+          : obs.estimated_bearing_elevation_deg;
+      const double az_rad = azimuth_deg * M_PI / 180.0;
+      const double el_rad = elevation_deg * M_PI / 180.0;
+      const double cos_el = std::cos(el_rad);
+      const double range_m = obs.estimated_slant_range_m > 0.0
+          ? obs.estimated_slant_range_m
+          : 50000.0;
+      dc.position = Eigen::Vector3f(
+          static_cast<float>(range_m * cos_el * std::cos(az_rad)),
+          static_cast<float>(range_m * cos_el * std::sin(az_rad)),
+          static_cast<float>(range_m * std::sin(el_rad)));
+      dc.velocity = Eigen::Vector3f(
+          static_cast<float>(obs.estimated_range_rate_mps * cos_el * std::cos(az_rad)),
+          static_cast<float>(obs.estimated_range_rate_mps * cos_el * std::sin(az_rad)),
+          static_cast<float>(obs.estimated_range_rate_mps * std::sin(el_rad)));
+      // 量测噪声协方差（与 DeceptionMeasurementGenerator 同口径）。
+      const double bearing_sigma_deg = std::max(obs.bearing_standard_deviation_deg, 0.1);
+      const double sigma_cross_range = range_m * (bearing_sigma_deg * M_PI / 180.0);
+      const double sigma_range = std::max(sigma_cross_range, 50.0);
+      dc.measurement_covariance = Eigen::Matrix3f(
+          (Eigen::DiagonalMatrix<float, 3>(
+              static_cast<float>(sigma_range * sigma_range),
+              static_cast<float>(sigma_cross_range * sigma_cross_range),
+              static_cast<float>(sigma_cross_range * sigma_cross_range))));
+      resolved_candidates.push_back(dc);
+    }
   }
 
   std::vector<session::ArInterferenceObservation> resolved_observations;
@@ -454,7 +476,9 @@ bool TryResolveArInterferenceObservations(
     resolved_observations.push_back(item.observation);
   }
   *observations = std::move(resolved_observations);
-  *deception_clusters = std::move(resolved_clusters);
+  if (deception_candidates != nullptr) {
+    *deception_candidates = std::move(resolved_candidates);
+  }
   return true;
 }
 

@@ -199,6 +199,14 @@ bool ExecuteCycle(CycleExecutionContext& context, const CycleExecutionRuntime& r
   if (!RunDetectionPhase(context, runtime, cycle_scratch)) {
     return false;
   }
+  // 欺骗候选在 real association 之前运行独立关联 pass，共享 next_key_ 但不消耗 seeds。
+  if (context.annotations != nullptr &&
+      !context.annotations->deception_measurement_candidates.empty()) {
+    cycle_scratch.deception_candidate_keys =
+        runtime.association_engine.AssociateDeceptionCandidates(
+            context.annotations->deception_measurement_candidates,
+            context.environment_snapshot.cycle_dt_sec);
+  }
   RunAssociationPhase(context, runtime, cycle_scratch);
   RunMeasurementBuildPhase(context, cycle_scratch);
   RunTrackFilterPhase(context, runtime, cycle_scratch);

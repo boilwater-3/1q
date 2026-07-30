@@ -12,11 +12,10 @@
 #include "1q/airborne_radar/config/ArOrientationConfig.h"
 #include "1q/airborne_radar/config/ArSessionConfig.h"
 #include "1q/airborne_radar/session/ArControlProfile.h"
-#include "1q/airborne_radar/session/ArInterferenceObservation.h"
 #include "1q/airborne_radar/session/ArOutputTypes.h"
 #include "1q/airborne_radar/session/ArSceneTypes.h"
 #include "airborne_radar/environment/IEnvironmentService.h"
-#include "airborne_radar/signal/detection/ArDeceptionCluster.h"
+#include "airborne_radar/signal/pipeline/SignalCycleAnnotations.h"
 
 namespace airborne_radar {
 namespace environment {
@@ -46,10 +45,14 @@ class ISignalPipeline {
    * @param[in] scene_targets 当前周期场景目标输入列表。
    * @param[in] environment 环境服务只读接口。调用前必须已对该环境服务执行有效的
    *                        `BeginCycle(...)`，并确保其冻结快照携带正的 `cycle_dt_sec`。
+   * @param[in] annotations 本周期接收端 annotation（独立于 pipeline 累计状态的周期输入）。
+   *                        可为 nullptr 表示本周期无干扰/欺骗输入。
    * @return 当前周期信号流水线输出结果。
    */
-  virtual SignalCycleResult RunCycle(const session::ArSceneTargetList& scene_targets,
-                                     const environment::IEnvironmentService& environment) = 0;
+  virtual SignalCycleResult RunCycle(
+      const session::ArSceneTargetList& scene_targets,
+      const environment::IEnvironmentService& environment,
+      const pipeline::SignalCycleAnnotations* annotations = nullptr) = 0;
 
   /**
    * @brief 更新当前搭载平台姿态。
@@ -99,20 +102,6 @@ class ISignalPipeline {
    * @return 上一周期缓存的关联质量指标。
    */
   virtual AssociationQualityMetrics GetLastAssociationQualityMetrics() const = 0;
-
-  /**
-   * @brief 注入本周期待用的接收机干扰观测，供航迹起批阶段的假目标鉴别使用。
-   *
-   * 调用方在 @ref RunCycle 之前注入；pipeline 在量测构建阶段按方位将其中的假目标标注
-   * 匹配到对应量测。默认空实现使不支持鉴别的 pipeline 实现免于改动。
-   * @param[in] observations 干扰观测列表（按值持有，周期内消费后清空）。
-   */
-  virtual void SetPendingInterferenceObservations(
-      session::ArInterferenceObservationList observations,
-      detection::ArDeceptionClusterList deception_clusters) {
-    (void)observations;
-    (void)deception_clusters;
-  }
 
   /**
    * @brief 捕获当前 pipeline 运行态快照。

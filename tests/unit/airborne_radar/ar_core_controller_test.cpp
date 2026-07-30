@@ -66,8 +66,10 @@ class CoreControllerTest : public ::testing::Test {};
 
 class AbortingSignalPipeline : public signal::ISignalPipeline {
  public:
-  session::SignalCycleResult RunCycle(const session::ArSceneTargetList&,
-                                      const environment::IEnvironmentService&) override {
+  session::SignalCycleResult RunCycle(
+      const session::ArSceneTargetList&,
+      const environment::IEnvironmentService&,
+      const signal::pipeline::SignalCycleAnnotations*) override {
     session::SignalCycleResult result;
     result.executed_this_cycle = should_execute_;
     result.abort_reason = should_execute_

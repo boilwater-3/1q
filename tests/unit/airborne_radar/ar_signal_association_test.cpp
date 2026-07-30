@@ -5,10 +5,13 @@
 
 #include <gtest/gtest.h>
 
+#include <cmath>
+
 #include "1q/airborne_radar/session/ArSceneTypes.h"
 #include "airborne_radar/signal/association/DataAssociation.h"
 #include "airborne_radar/signal/association/DistanceMetric.h"
 #include "airborne_radar/signal/association/Hypothesiser.h"
+#include "airborne_radar/signal/detection/ArDeceptionMeasurementCandidate.h"
 
 namespace airborne_radar {
 namespace tests {
@@ -618,6 +621,129 @@ TEST(LapjvSolverTest, InvalidMatrixReturnsNoAssignments) {
   Eigen::MatrixXf non_square(1, 2);
   non_square << 1.0f, 2.0f;
   EXPECT_TRUE(solver.Solve(non_square).empty());
+}
+
+// ---------------------------------------------------------------------------
+// AssociateDeceptionCandidates -- 欺骗候选量测关联测试
+// ---------------------------------------------------------------------------
+
+signal::detection::ArDeceptionMeasurementCandidate MakeTestCandidate(float x, float y, float z) {
+  signal::detection::ArDeceptionMeasurementCandidate c;
+  c.source_observation_id = 1U;
+  c.position = Eigen::Vector3f(x, y, z);
+  c.velocity = Eigen::Vector3f::Zero();
+  c.measurement_covariance = Eigen::Matrix3f::Identity() * 100.0f;
+  return c;
+}
+
+TEST(DataAssociationEngineTest, AssociateDeceptionCandidatesEmptyInput) {
+  signal::association::DataAssociationEngine engine;
+  signal::detection::ArDeceptionMeasurementCandidateList empty;
+  std::vector<std::uint64_t> keys = engine.AssociateDeceptionCandidates(empty);
+  EXPECT_TRUE(keys.empty());
+}
+
+TEST(DataAssociationEngineTest, AssociateDeceptionCandidatesSkipsZeroPosition) {
+  signal::association::DataAssociationEngine engine;
+  signal::detection::ArDeceptionMeasurementCandidateList candidates = {MakeTestCandidate(0.0f, 0.0f, 0.0f)};
+  std::vector<std::uint64_t> keys = engine.AssociateDeceptionCandidates(candidates);
+  ASSERT_EQ(keys.size(), 1U);
+  EXPECT_EQ(keys[0], 0U);
+}
+
+TEST(DataAssociationEngineTest, AssociateDeceptionCandidatesGetsSequentialKeys) {
+  signal::association::DataAssociationEngine engine;
+  signal::detection::ArDeceptionMeasurementCandidateList candidates = {
+      MakeTestCandidate(100.0f, 0.0f, 0.0f),
+      MakeTestCandidate(200.0f, 0.0f, 0.0f)};
+  std::vector<std::uint64_t> keys = engine.AssociateDeceptionCandidates(candidates);
+  ASSERT_EQ(keys.size(), 2U);
+  EXPECT_NE(keys[0], 0U);
+  EXPECT_NE(keys[1], 0U);
+  EXPECT_NE(keys[0], keys[1]);
+}
+
+TEST(DataAssociationEngineTest, AssociateDeceptionCandidatesKeyIncrementsNextKey) {
+  signal::association::DataAssociationEngine engine;
+  // 先分配一个真实目标键。
+  session::ArSceneTargetList warmup = {MakePositionTarget(50.0f, 0.0f, 0.0f)};
+  std::vector<std::uint8_t> detected = {1U};
+  std::vector<std::uint64_t> real_keys = engine.Associate(warmup, detected);
+  ASSERT_EQ(real_keys.size(), 1U);
+  ASSERT_NE(real_keys[0], 0U);
+
+  // candidate 应获得下一个新键（无 external seeds）。
+  signal::detection::ArDeceptionMeasurementCandidateList candidates = {MakeTestCandidate(100.0f, 0.0f, 0.0f)};
+  std::vector<std::uint64_t> candidate_keys = engine.AssociateDeceptionCandidates(candidates);
+  ASSERT_EQ(candidate_keys.size(), 1U);
+  EXPECT_NE(candidate_keys[0], 0U);
+  EXPECT_NE(candidate_keys[0], real_keys[0]);
+}
+
+TEST(DataAssociationEngineTest, AssociateDeceptionCandidatesMatchesExistingTrack) {
+  signal::association::DataAssociationEngine engine;
+  // 建立一条轨迹并获取键。
+  session::ArSceneTargetList cycle_1 = {MakePositionTarget(100.0f, 0.0f, 0.0f)};
+  std::vector<std::uint8_t> detected = {1U};
+  std::vector<std::uint64_t> real_keys = engine.Associate(cycle_1, detected);
+  ASSERT_EQ(real_keys.size(), 1U);
+  const std::uint64_t track_key = real_keys[0];
+
+  // 注入该轨迹的关联种子。
+  std::vector<signal::tracking::AssociationTrackSeed> seeds = {
+      MakeExternalSeed(track_key, Eigen::Vector3f(100.0f, 0.0f, 0.0f))};
+  engine.SetAssociationSeeds(seeds);
+
+  // candidate 紧邻预测位置，应匹配到已有键。
+  signal::detection::ArDeceptionMeasurementCandidateList candidates = {
+      MakeTestCandidate(101.0f, 0.0f, 0.0f)};
+  std::vector<std::uint64_t> candidate_keys = engine.AssociateDeceptionCandidates(candidates);
+  ASSERT_EQ(candidate_keys.size(), 1U);
+  EXPECT_EQ(candidate_keys[0], track_key);
+}
+
+TEST(DataAssociationEngineTest, AssociateDeceptionCandidatesFarFromTrackGetsNewKey) {
+  signal::association::DataAssociationEngine engine;
+  // 建立一条轨迹。
+  session::ArSceneTargetList cycle_1 = {MakePositionTarget(100.0f, 0.0f, 0.0f)};
+  std::vector<std::uint8_t> detected = {1U};
+  std::vector<std::uint64_t> real_keys = engine.Associate(cycle_1, detected);
+  const std::uint64_t track_key = real_keys[0];
+
+  // 注入种子。
+  std::vector<signal::tracking::AssociationTrackSeed> seeds = {
+      MakeExternalSeed(track_key, Eigen::Vector3f(100.0f, 0.0f, 0.0f))};
+  engine.SetAssociationSeeds(seeds);
+
+  // candidate 远离预测位置，应获得新键而非匹配。
+  signal::detection::ArDeceptionMeasurementCandidateList candidates = {
+      MakeTestCandidate(100000.0f, 0.0f, 0.0f)};
+  std::vector<std::uint64_t> candidate_keys = engine.AssociateDeceptionCandidates(candidates);
+  ASSERT_EQ(candidate_keys.size(), 1U);
+  EXPECT_NE(candidate_keys[0], 0U);
+  EXPECT_NE(candidate_keys[0], track_key);
+}
+
+TEST(DataAssociationEngineTest, AssociateDeceptionCandidatesDoesNotConsumeSeeds) {
+  signal::association::DataAssociationEngine engine;
+  // 注入种子。
+  std::vector<signal::tracking::AssociationTrackSeed> seeds = {
+      MakeExternalSeed(42U, Eigen::Vector3f(100.0f, 0.0f, 0.0f))};
+  engine.SetAssociationSeeds(seeds);
+
+  // 先用 candidate 关联（不应消耗种子）。
+  signal::detection::ArDeceptionMeasurementCandidateList candidates = {
+      MakeTestCandidate(101.0f, 0.0f, 0.0f)};
+  std::vector<std::uint64_t> candidate_keys = engine.AssociateDeceptionCandidates(candidates);
+  ASSERT_EQ(candidate_keys.size(), 1U);
+  EXPECT_EQ(candidate_keys[0], 42U);
+
+  // 再走真实关联：种子应仍然可用。
+  session::ArSceneTargetList real_targets = {MakePositionTarget(101.0f, 0.0f, 0.0f)};
+  std::vector<std::uint8_t> detected = {1U};
+  std::vector<std::uint64_t> real_keys = engine.Associate(real_targets, detected);
+  ASSERT_EQ(real_keys.size(), 1U);
+  EXPECT_EQ(real_keys[0], 42U);
 }
 
 }  // namespace tests

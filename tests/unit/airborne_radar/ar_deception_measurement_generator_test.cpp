@@ -1,8 +1,9 @@
 /**
  * @file ar_deception_measurement_generator_test.cpp
- * @brief 验证 DeceptionMeasurementGenerator 从欺骗干扰观测合成假目标量测的正确性。
+ * @brief 验证 DeceptionMeasurementGenerator 从欺骗候选量测合成假目标量测的正确性。
  *
  * 覆盖 P1 修复的核心断言：假目标鉴别处理的应是合成假目标量测，而非真实场景目标。
+ * 候选量测由 resolver 生成（带物理 provenance），关联键由关联引擎分配。
  */
 
 #include <gtest/gtest.h>
@@ -15,10 +16,11 @@
 #include "1q/airborne_radar/session/ArSceneTypes.h"
 #include "airborne_radar/config/InternalExecutionConfig.h"
 #include "airborne_radar/environment/EnvironmentTypes.h"
-#include "airborne_radar/signal/detection/ArDeceptionCluster.h"
+#include "airborne_radar/signal/detection/ArDeceptionMeasurementCandidate.h"
 #include "airborne_radar/signal/pipeline/CycleContextSupport.h"
 #include "airborne_radar/signal/pipeline/CycleExecutor.h"
 #include "airborne_radar/signal/pipeline/DeceptionMeasurementGenerator.h"
+#include "airborne_radar/signal/pipeline/SignalCycleAnnotations.h"
 
 namespace airborne_radar {
 namespace signal {
@@ -27,203 +29,180 @@ namespace {
 
 using ExecutionConfig = config::execution::InternalExecutionConfig;
 
-// 构造一个 kLikelyFalseTarget 干扰观测，携带局部系方位/视距/径向速度与相干发射数。
-session::ArInterferenceObservation MakeFalseTargetObservation(std::uint64_t observation_id,
-                                                              std::uint32_t coherent_count) {
-  session::ArInterferenceObservation obs;
-  obs.observation_id = observation_id;
-  obs.deception_class = session::DeceptionClass::kLikelyFalseTarget;
-  obs.has_local_bearings = true;
-  obs.coherent_emission_count = coherent_count;
-  obs.estimated_bearing_azimuth_local_deg = 45.0;
-  obs.estimated_bearing_elevation_local_deg = 10.0;
-  obs.estimated_center_frequency_hz = 10.0e9;
-  obs.estimated_slant_range_m = 20000.0;
-  obs.estimated_range_rate_mps = -300.0;  // 接近视距，负径向速度
-  obs.bearing_standard_deviation_deg = 2.0;
-  obs.estimated_waveform_kind = oneq::electromagnetics::RfSceneWaveformKind::kPulseTrain;
-  return obs;
+// 构造带物理 provenance 的欺骗候选量测。
+detection::ArDeceptionMeasurementCandidate MakeCandidate(std::uint64_t obs_id,
+                                                         std::uint64_t emission_id = 1U) {
+  detection::ArDeceptionMeasurementCandidate c;
+  c.source_observation_id = obs_id;
+  c.source_emission_identity.emission_id = emission_id;
+  c.estimated_first_pulse_delay_s = 0.0;
+  c.estimated_carrier_offset_hz = 0.0;
+  c.apparent_slant_range_m = 20000.0;
+  c.apparent_range_rate_mps = -300.0;
+  c.jammer_to_noise_db = 30.0;
+  c.used_local_bearings = true;
+  // 方位 45°、俯仰 10°、视距 20000m 的笛卡尔位置。
+  const double az_rad = 45.0 * M_PI / 180.0;
+  const double el_rad = 10.0 * M_PI / 180.0;
+  const double cos_el = std::cos(el_rad);
+  const double range_m = 20000.0;
+  c.position = Eigen::Vector3f(
+      static_cast<float>(range_m * cos_el * std::cos(az_rad)),
+      static_cast<float>(range_m * cos_el * std::sin(az_rad)),
+      static_cast<float>(range_m * std::sin(el_rad)));
+  c.velocity = Eigen::Vector3f(
+      static_cast<float>(-300.0 * cos_el * std::cos(az_rad)),
+      static_cast<float>(-300.0 * cos_el * std::sin(az_rad)),
+      static_cast<float>(-300.0 * std::sin(el_rad)));
+  c.measurement_covariance = Eigen::Matrix3f(static_cast<Eigen::Matrix3f>(
+      Eigen::DiagonalMatrix<float, 3>(1e4f, 1e4f, 1e4f)));
+  return c;
 }
 
-// 构造最小周期上下文：空场景目标列表 + 指定干扰观测。
-CycleExecutionContext MakeContext(const session::ArInterferenceObservationList& observations,
-                                  const session::ArSceneTargetList& input,
-                                  const detection::ArDeceptionClusterList& clusters) {
+// 构造最小周期上下文：空场景目标列表 + 指定候选量测与关联键。
+// annotations 由调用方拥有，生命周期覆盖返回的 CycleExecutionContext。
+CycleExecutionContext MakeContext(const detection::ArDeceptionMeasurementCandidateList& candidates,
+                                  const std::vector<std::uint64_t>& keys,
+                                  SignalCycleAnnotations& annotations) {
   static const session::EnvironmentSnapshot kEmptyEnvironment;
-  ExecutionConfig config;  // 默认；flag 由调用方在 pass 前设置
+  ExecutionConfig config;
   config.enable_anti_false_target_discrimination = true;
-  return CycleExecutionContext(input, kEmptyEnvironment, /*cycle_index=*/1U, /*batch_id=*/1U,
-                               config, /*platform_altitude_m=*/0.0f, /*rf_v2=*/nullptr,
-                               &observations, &clusters);
+  annotations.deception_measurement_candidates = candidates;
+  return CycleExecutionContext(session::ArSceneTargetList{}, kEmptyEnvironment,
+                               /*cycle_index=*/1U, /*batch_id=*/1U, config,
+                               /*platform_altitude_m=*/0.0f, /*rf_v2=*/nullptr, &annotations);
 }
 
-detection::ArDeceptionClusterList MakeClusters(std::uint64_t representative_observation_id,
-                                               std::uint32_t emission_count,
-                                               std::uint64_t association_key_seed = 12345U) {
-  return {{representative_observation_id, emission_count, association_key_seed}};
-}
-
-TEST(DeceptionMeasurementGeneratorTest, SynthesizesOneMeasurementPerCoherentEmission) {
-  session::ArInterferenceObservationList observations = {MakeFalseTargetObservation(1U, 3U)};
-  const auto clusters = MakeClusters(1U, 3U);
-  session::ArSceneTargetList empty_input;
-  CycleExecutionContext context = MakeContext(observations, empty_input, clusters);
+TEST(DeceptionMeasurementGeneratorTest, SynthesizesOneMeasurementPerCandidate) {
+  detection::ArDeceptionMeasurementCandidateList candidates = {MakeCandidate(1U)};
+  std::vector<std::uint64_t> keys = {1001U};
+  SignalCycleAnnotations annotations;
+  CycleExecutionContext context = MakeContext(candidates, keys, annotations);
 
   CycleExecutionScratch scratch;
-  ResetCycleExecutionScratch(empty_input, scratch);
+  ResetCycleExecutionScratch(session::ArSceneTargetList{}, scratch);
   // 预置一个真实量测，验证合成量测是追加而非覆盖。
+  scratch.deception_candidate_keys = keys;
   scratch.track_measurements.push_back(tracking::TrackMeasurement{});
 
   InjectDeceptionMeasurementsPass(context, scratch);
 
-  // 1 个真实量测 + 3 个合成假目标量测。
-  ASSERT_EQ(scratch.track_measurements.size(), 4U);
-  for (std::size_t i = 1; i < scratch.track_measurements.size(); ++i) {
-    const auto& m = scratch.track_measurements[i];
-    EXPECT_TRUE(m.raw_measurement.classified_as_false_target);
-    EXPECT_EQ(m.raw_measurement.source_index,
-              static_cast<std::size_t>(-1));  // sentinel，不索引 per-target 数组
-    EXPECT_EQ(m.raw_measurement.target_name, "deception");
-    EXPECT_EQ(m.raw_measurement.external_target_id, 0U);
-  }
+  // 1 个真实量测 + 1 个合成假目标量测。
+  ASSERT_EQ(scratch.track_measurements.size(), 2U);
+  const auto& m = scratch.track_measurements.back();
+  EXPECT_TRUE(m.raw_measurement.classified_as_false_target);
+  EXPECT_EQ(m.raw_measurement.association_key, 1001U);
+  EXPECT_EQ(m.raw_measurement.source_index, static_cast<std::size_t>(-1));
+  EXPECT_EQ(m.raw_measurement.target_name, "deception");
 }
 
-TEST(DeceptionMeasurementGeneratorTest, PositionFromLocalBearingAndSlantRange) {
-  session::ArInterferenceObservationList observations = {MakeFalseTargetObservation(1U, 2U)};
-  const auto clusters = MakeClusters(1U, 2U);
-  session::ArSceneTargetList empty_input;
-  CycleExecutionContext context = MakeContext(observations, empty_input, clusters);
+TEST(DeceptionMeasurementGeneratorTest, PositionPreservedFromCandidate) {
+  detection::ArDeceptionMeasurementCandidateList candidates = {MakeCandidate(1U)};
+  std::vector<std::uint64_t> keys = {1001U};
+  SignalCycleAnnotations annotations;
+  CycleExecutionContext context = MakeContext(candidates, keys, annotations);
 
   CycleExecutionScratch scratch;
-  ResetCycleExecutionScratch(empty_input, scratch);
+  ResetCycleExecutionScratch(session::ArSceneTargetList{}, scratch);
+  scratch.deception_candidate_keys = keys;
   InjectDeceptionMeasurementsPass(context, scratch);
 
-  ASSERT_EQ(scratch.track_measurements.size(), 2U);
+  ASSERT_FALSE(scratch.track_measurements.empty());
   const auto& m = scratch.track_measurements.front();
-  // 局部系方位 45°、俯仰 10°、视距 20000m 的笛卡尔位置（i=0 不抖动）。
-  const float az = 45.0f * static_cast<float>(M_PI) / 180.0f;
-  const float el = 10.0f * static_cast<float>(M_PI) / 180.0f;
-  const float cos_el = std::cos(el);
-  const Eigen::Vector3f expected(20000.0f * cos_el * std::cos(az), 20000.0f * cos_el * std::sin(az),
-                                 20000.0f * std::sin(el));
-  EXPECT_TRUE(m.raw_measurement.position.isApprox(expected, 1.0f));
-  // 距离应接近视距。
+  // 候选的 position 应直接传递给量测（不重新计算）。
+  EXPECT_TRUE(m.raw_measurement.position.isApprox(candidates[0].position, 1e-6f));
   EXPECT_NEAR(m.raw_measurement.position.norm(), 20000.0f, 1.0f);
 }
 
-TEST(DeceptionMeasurementGeneratorTest, AssociationKeyStableAcrossCyclesForSameObservation) {
-  session::ArInterferenceObservationList observations = {MakeFalseTargetObservation(1U, 2U)};
-  const auto clusters = MakeClusters(1U, 2U);
-  session::ArSceneTargetList empty_input;
-  CycleExecutionContext context_a = MakeContext(observations, empty_input, clusters);
-  CycleExecutionContext context_b = MakeContext(observations, empty_input, clusters);
-
-  CycleExecutionScratch scratch_a;
-  ResetCycleExecutionScratch(empty_input, scratch_a);
-  InjectDeceptionMeasurementsPass(context_a, scratch_a);
-
-  CycleExecutionScratch scratch_b;
-  ResetCycleExecutionScratch(empty_input, scratch_b);
-  InjectDeceptionMeasurementsPass(context_b, scratch_b);
-
-  ASSERT_EQ(scratch_a.track_measurements.size(), 2U);
-  ASSERT_EQ(scratch_b.track_measurements.size(), 2U);
-  // 同簇观测的假目标跨周期映射到同一 association_key（由量化局部方位/中心频率派生
-  // 而非每周期重新编号的 observation_id），使 lifecycle 聚到同一假航迹。
-  EXPECT_EQ(scratch_a.track_measurements.front().raw_measurement.association_key,
-            scratch_b.track_measurements.front().raw_measurement.association_key);
-  // key 应落入 deception key 段（高位标志位置 1）。
-  EXPECT_NE(scratch_a.track_measurements.front().raw_measurement.association_key &
-            0x8000000000000000ULL, 0ULL);
-}
-
-// 反制开关不得反向控制攻击现象：合成假目标量测应始终生成（独立于
-// enable_anti_false_target_discrimination）。开关只在下游 PromoteState 控制抑制策略。
-// 此前实现让开关 OFF 时完全不生成假目标量测，造成因果反转——此处固化该 bug 的断言已移除。
-TEST(DeceptionMeasurementGeneratorTest, GeneratesFalseTargetMeasurementsRegardlessOfSwitch) {
-  session::ArInterferenceObservationList observations = {MakeFalseTargetObservation(1U, 3U)};
-  const auto clusters = MakeClusters(1U, 3U);
-  session::ArSceneTargetList empty_input;
-  static const session::EnvironmentSnapshot kEmptyEnvironment;
-  // 开关默认 false：仍应生成 3 个合成假目标量测（攻击现象存在），且均标 classified。
-  ExecutionConfig config;
-  CycleExecutionContext context(empty_input, kEmptyEnvironment, 1U, 1U, config, 0.0f, nullptr,
-                                &observations, &clusters);
+TEST(DeceptionMeasurementGeneratorTest, AssociationKeyFromEngine) {
+  detection::ArDeceptionMeasurementCandidateList candidates = {MakeCandidate(1U), MakeCandidate(2U)};
+  std::vector<std::uint64_t> keys = {1001U, 1002U};
+  SignalCycleAnnotations annotations;
+  CycleExecutionContext context = MakeContext(candidates, keys, annotations);
 
   CycleExecutionScratch scratch;
-  ResetCycleExecutionScratch(empty_input, scratch);
+  ResetCycleExecutionScratch(session::ArSceneTargetList{}, scratch);
+  scratch.deception_candidate_keys = keys;
   InjectDeceptionMeasurementsPass(context, scratch);
 
-  ASSERT_EQ(scratch.track_measurements.size(), 3U);
-  for (const auto& m : scratch.track_measurements) {
-    EXPECT_TRUE(m.raw_measurement.classified_as_false_target);
-  }
+  ASSERT_EQ(scratch.track_measurements.size(), 2U);
+  // key 来自关联引擎，非预烘焙 seed。
+  EXPECT_EQ(scratch.track_measurements[0].raw_measurement.association_key, 1001U);
+  EXPECT_EQ(scratch.track_measurements[1].raw_measurement.association_key, 1002U);
 }
 
-TEST(DeceptionMeasurementGeneratorTest, SkipsNonFalseTargetObservations) {
-  session::ArInterferenceObservation obs = MakeFalseTargetObservation(1U, 3U);
-  obs.deception_class = session::DeceptionClass::kNone;  // 非假目标
-  session::ArInterferenceObservationList observations = {obs};
-  const auto clusters = MakeClusters(1U, 3U);
-  session::ArSceneTargetList empty_input;
-  CycleExecutionContext context = MakeContext(observations, empty_input, clusters);
+TEST(DeceptionMeasurementGeneratorTest, GeneratesFalseTargetMeasurementsRegardlessOfSwitch) {
+  // 反制开关不得反向控制攻击现象：candidate 独立于开关生成。
+  detection::ArDeceptionMeasurementCandidateList candidates = {MakeCandidate(1U)};
+  std::vector<std::uint64_t> keys = {1001U};
+  ExecutionConfig config;
+  SignalCycleAnnotations annotations;
+  annotations.deception_measurement_candidates = candidates;
+  static const session::EnvironmentSnapshot kEmptyEnvironment;
+  CycleExecutionContext context(session::ArSceneTargetList{}, kEmptyEnvironment, 1U, 1U, config,
+                                0.0f, nullptr, &annotations);
 
   CycleExecutionScratch scratch;
-  ResetCycleExecutionScratch(empty_input, scratch);
+  ResetCycleExecutionScratch(session::ArSceneTargetList{}, scratch);
+  scratch.deception_candidate_keys = keys;
+  InjectDeceptionMeasurementsPass(context, scratch);
+
+  ASSERT_EQ(scratch.track_measurements.size(), 1U);
+  EXPECT_TRUE(scratch.track_measurements.front().raw_measurement.classified_as_false_target);
+}
+
+TEST(DeceptionMeasurementGeneratorTest, SkipsUnassociatedCandidates) {
+  // key=0 的 candidate 应被跳过（未关联）。
+  detection::ArDeceptionMeasurementCandidateList candidates = {MakeCandidate(1U), MakeCandidate(2U)};
+  std::vector<std::uint64_t> keys = {1001U, 0U};  // 第二个未关联
+  SignalCycleAnnotations annotations;
+  CycleExecutionContext context = MakeContext(candidates, keys, annotations);
+
+  CycleExecutionScratch scratch;
+  ResetCycleExecutionScratch(session::ArSceneTargetList{}, scratch);
+  scratch.deception_candidate_keys = keys;
+  InjectDeceptionMeasurementsPass(context, scratch);
+
+  ASSERT_EQ(scratch.track_measurements.size(), 1U);
+  EXPECT_EQ(scratch.track_measurements.front().raw_measurement.association_key, 1001U);
+}
+
+TEST(DeceptionMeasurementGeneratorTest, SkipsZeroPositionCandidate) {
+  // position 为零向量的 candidate 应被跳过。
+  detection::ArDeceptionMeasurementCandidate candidate;
+  candidate.position = Eigen::Vector3f::Zero();
+  candidate.velocity = Eigen::Vector3f::Zero();
+  candidate.measurement_covariance = Eigen::Matrix3f::Zero();
+  detection::ArDeceptionMeasurementCandidateList candidates = {candidate};
+  std::vector<std::uint64_t> keys = {1001U};
+  SignalCycleAnnotations annotations;
+  CycleExecutionContext context = MakeContext(candidates, keys, annotations);
+
+  CycleExecutionScratch scratch;
+  ResetCycleExecutionScratch(session::ArSceneTargetList{}, scratch);
+  scratch.deception_candidate_keys = keys;
   InjectDeceptionMeasurementsPass(context, scratch);
 
   EXPECT_TRUE(scratch.track_measurements.empty());
 }
 
-// resolver 是簇边界的唯一所有者：即使代表观测跨越旧的固定量化网格，generator 也只
-// 消费显式簇元数据并严格生成 N 条量测。
-TEST(DeceptionMeasurementGeneratorTest, CoherentClusterDedupAvoidsNSquaredExpansion) {
-  // 两条观测指向同一簇；刻意放在旧 1° 网格边界两侧，证明 generator 不再重新聚类。
-  session::ArInterferenceObservation obs_a = MakeFalseTargetObservation(1U, 3U);
-  session::ArInterferenceObservation obs_b = MakeFalseTargetObservation(2U, 3U);
-  obs_a.estimated_bearing_azimuth_local_deg = 45.49;
-  obs_b.estimated_bearing_azimuth_local_deg = 45.51;
-  obs_b.estimated_bearing_elevation_local_deg = 10.2;
-  session::ArInterferenceObservationList observations = {obs_a, obs_b};
-  const auto clusters = MakeClusters(1U, 3U);
-  session::ArSceneTargetList empty_input;
-  CycleExecutionContext context = MakeContext(observations, empty_input, clusters);
+TEST(DeceptionMeasurementGeneratorTest, CandidateCountMatchesInputCount) {
+  // 每个有效 candidate 且 key != 0 生成一个量测。
+  detection::ArDeceptionMeasurementCandidateList candidates = {
+      MakeCandidate(1U), MakeCandidate(2U), MakeCandidate(3U)};
+  std::vector<std::uint64_t> keys = {1001U, 1002U, 1003U};
+  SignalCycleAnnotations annotations;
+  CycleExecutionContext context = MakeContext(candidates, keys, annotations);
 
   CycleExecutionScratch scratch;
-  ResetCycleExecutionScratch(empty_input, scratch);
+  ResetCycleExecutionScratch(session::ArSceneTargetList{}, scratch);
+  scratch.deception_candidate_keys = keys;
   InjectDeceptionMeasurementsPass(context, scratch);
 
-  // 同簇去重后仅生成 3 条（不是 6 条 N²）。
   ASSERT_EQ(scratch.track_measurements.size(), 3U);
   for (const auto& m : scratch.track_measurements) {
     EXPECT_TRUE(m.raw_measurement.classified_as_false_target);
   }
-}
-
-// 关联键由 resolver 基于源设备集合生成的稳定种子派生，而非每周期重新编号的
-// observation_id。不同代表 ID 但同种子应映射到同一 key 段。
-TEST(DeceptionMeasurementGeneratorTest, AssociationKeyDerivedFromClusterSignature) {
-  session::ArInterferenceObservation obs1 = MakeFalseTargetObservation(100U, 2U);
-  session::ArInterferenceObservation obs2 = MakeFalseTargetObservation(200U, 2U);
-  session::ArInterferenceObservationList observations_a = {obs1};
-  session::ArInterferenceObservationList observations_b = {obs2};
-  const auto clusters_a = MakeClusters(100U, 2U, 987654321U);
-  const auto clusters_b = MakeClusters(200U, 2U, 987654321U);
-  session::ArSceneTargetList empty_input;
-
-  CycleExecutionScratch scratch_a;
-  ResetCycleExecutionScratch(empty_input, scratch_a);
-  InjectDeceptionMeasurementsPass(MakeContext(observations_a, empty_input, clusters_a), scratch_a);
-
-  CycleExecutionScratch scratch_b;
-  ResetCycleExecutionScratch(empty_input, scratch_b);
-  InjectDeceptionMeasurementsPass(MakeContext(observations_b, empty_input, clusters_b), scratch_b);
-
-  ASSERT_EQ(scratch_a.track_measurements.size(), 2U);
-  ASSERT_EQ(scratch_b.track_measurements.size(), 2U);
-  // 同簇签名 → 同 association_key（与 observation_id 无关）。
-  EXPECT_EQ(scratch_a.track_measurements.front().raw_measurement.association_key,
-            scratch_b.track_measurements.front().raw_measurement.association_key);
 }
 
 }  // namespace

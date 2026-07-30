@@ -734,7 +734,7 @@ struct ArSession::Impl {
       return result;
     }
     std::vector<ArInterferenceObservation> interference_observations;
-    signal::detection::ArDeceptionClusterList deception_clusters;
+    signal::detection::ArDeceptionMeasurementCandidateList deception_candidates;
     if (!front_end.receiver_saturated) {
       constexpr double kBoltzmannJPerK = 1.380649e-23;
       constexpr double kReferenceTemperatureK = 290.0;
@@ -771,7 +771,7 @@ struct ArSession::Impl {
               front_end.incident_links, thermal_noise_power_w,
               static_cast<double>(detection.receiver.interference_observation_jn_gate_db),
               platform_frame, perturbation_seed, &interference_observations,
-              &deception_clusters)) {
+              &deception_candidates)) {
         PROJECT_LOG_ERROR(
             "[ArSession] CompleteRfCycle interference observation resolution failed.");
         result.status = ArCompleteCycleStatus::kRejected;
@@ -779,7 +779,7 @@ struct ArSession::Impl {
       }
     }
     if (!Controller().SetPreparedInterferenceObservations(interference_observations,
-                                                          deception_clusters)) {
+                                                          deception_candidates)) {
       PROJECT_LOG_ERROR("[ArSession] CompleteRfCycle rejected prepared interference observations.");
       result.status = ArCompleteCycleStatus::kRejected;
       return result;
