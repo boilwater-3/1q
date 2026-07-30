@@ -27,43 +27,58 @@ Authority: 非规定性记录
 
 ## Airborne Radar 非阻塞设计边界
 
-### AR-OQ-1：假目标鉴别跨域耦合的传递方式
+### AR-OQ-1：假目标鉴别跨域命名双轨
 
 - **现状证据**：反假目标鉴别的判据（同方向多脉冲列）天然属于接收机观测域
   （`ArInterferenceObservation`，含方位与波形），但其消费点在航迹生命周期域
   （`TrackLifecycleManager::PromoteState`，抑制 tentative→confirmed）。当前实现由
   `ArInterferenceObservationResolver` 在波束宽度与接收频率分辨单元内建立连通分量，对
   ≥2 成员的分量逐成员设置 `deception_class=kLikelyFalseTarget` 并生成一条内部
-  `ArDeceptionMeasurementCandidate`（per-member 结构性收敛，不二次聚类）；controller 经
-  `SignalCycleInput` 在 `RunCycle` 前把干扰观测与候选列表显式传入 pipeline，
+  `ArDeceptionMeasurementCandidate`（per-member 结构性收敛，不二次聚类）；`ArSession` 在
+  `CompleteRfCycle` 把干扰观测与候选列表作为 `SignalCycleInput` 的一部分一次性显式传入 pipeline，
   `DeceptionMeasurementGenerator` 逐候选合成带 `classified_as_false_target` 的假目标量测注入
   `track_measurements`（候选关联键由正常位置关联产生，不预分配）。随后由 `PromoteState` 消费
   该标注。
 
-- **未决问题**：这种"RF 观测 → controller setter → pipeline 注入 → 量测标注 → lifecycle 消费"
-  的跨域桥接是否应固化为更明确的周期输入端口，而非当前的 setter 旁路。干扰观测与候选量测是
-  周期性输入而非配置，与 `SetControlProfile` 等配置型 setter 语义不同。此外同一"疑似假目标"
-  概念跨域用了两套命名：观测域 `ArInterferenceObservation.deception_class`（枚举）与量测域
+- **已收敛的子问题**：跨域传递曾以 `ArController::SetPreparedInterferenceObservations` 与
+  `SignalPipeline::SetNextRfV2DetectionContext` 等 mutable setter 旁路进行，存在调用顺序、
+  失败后残留与 observation/cluster 不同步风险。该子问题已收敛为 `SignalCycleInput`
+  （`CompleteRfCycle` 单点构造、`RunOnce`/`RunCycle` 显式按值传递），旁路 setter 已全部删除；
+  见 `ar_deception_measurement_generator_test`、`ar_signal_pipeline_test`、
+  `ar_core_controller_test`。
+
+- **未决问题**：同一"疑似假目标"概念跨域用了两套命名：观测域
+  `ArInterferenceObservation.deception_class`（枚举）与量测域
   `RawTrackMeasurement.classified_as_false_target`（bool），跨域阅读增加认知负担。
 
-- **当前边界**：controller 注入是内部端口（`ISignalPipeline` 非公开 API）上的最小侵入桥接，不构成
-  公开契约；内部 `ArDeceptionMeasurementCandidate` 不进入 public result 或 replay，公开观测仍是
-  唯一持久化事实。两套命名保留，待跨域标注契约收敛时统一。
+- **当前边界**：`SignalCycleInput` 是周期输入端口（内部 `ISignalPipeline` API），不构成公开契约；
+  内部 `ArDeceptionMeasurementCandidate` 不进入 public result 或 replay，公开观测仍是唯一持久化事实。
+  两套命名保留，待跨域标注契约收敛时统一。
 
-### AR-OQ-2：SyncRuntimeTuning 字段同步的手工列表脆弱性
+### AR-OQ-2：SyncRuntimeTuning 字段同步的手工列表脆弱性（已收敛）
 
-- **现状证据**：`TrackLifecycleManager::SyncRuntimeTuning` 用手工逐字段拷贝从 `LifecycleConfig`
+- **现状证据**：`TrackLifecycleManager::SyncRuntimeTuning` 曾用手工逐字段拷贝从 `LifecycleConfig`
   同步阈值到内部 `config_`。该列表当前覆盖 8 个字段中的 7 个，刻意排除 `track_pool_thread_safety_mode`
   （构造期决定、运行期不可变）。反欺骗三个字段（`enable_anti_false_target_discrimination`、
   `enable_anti_vgpo_acceleration_bound`、`max_acceleration_mps2`）曾被遗漏，导致开关无效——本次修复
   才补上。这种"想全量同步、但有一个例外"的手工列表没有编译期保证，每新增一个 `LifecycleConfig`
   字段都必须记得在此加一行，否则成为静默 latent bug。
-- **未决问题**：是否应改为"默认全部同步 + 显式排除例外"的结构（例如用一个不含线程安全模式的
-  可同步子结构，或加 static_assert/注释强制新增字段时审视 SyncRuntimeTuning），以消除手工遗漏风险。
-- **当前边界**：当前手工列表经本次修复已与 `LifecycleConfig` 字段集对齐（含 7 个可同步字段）；
-  但不承诺未来新增字段会自动被覆盖。新增 `LifecycleConfig` 字段时必须同步检查 `SyncRuntimeTuning`。
-- **Stage A 进入条件**：`LifecycleConfig` 字段数继续增长、或再出现一次同步遗漏导致的开关失效后，
-  评估将可同步字段抽成独立子结构（整体赋值）并将 `track_pool_thread_safety_mode` 移出该子结构的重构成本。
+- **收敛决议**：已把手工逐字段列表替换为整体赋值 `config_ = lifecycle_config`。整体赋值安全的两个前提：
+  (1) `track_pool_thread_safety_mode` 进入 `LifecycleConfigSignature`，其变化触发
+  `ShouldRebuildLifecycleAssembly` 的重建路径（而非同步路径），故同步路径上其值恒等于 `config_`；
+  (2) 生命周期管理器从不读取 `config_.track_pool_thread_safety_mode`，即便被覆盖也无副作用。
+  由此未来新增任何可同步 `LifecycleConfig` 字段都会随整体赋值自动覆盖，手工遗漏风险在根因上消除。
+  见 `tests/unit/airborne_radar/ar_track_lifecycle_test.cpp::SyncRuntimeTuningConfirmHitsChangesPromotionBehavior`
+  （真实生效断言，取代旧的仅 `SUCCEED()` 用例）。
+- **未决子问题（更广的控制效果传播闭包）**：本次同时收敛了 directive→profile 映射的单一权威来源
+  （`ControlReducer` 的 `IsLpiDirective`/`IsEccmDirective`/`IsValidDirectiveValue` 提升为静态方法，
+  `ArController` 不再重复 `==` 链）并新增 `ControlDirectiveType::kCount` 哨兵；但 profile→effect 仍由
+  两个消费者分别翻译：`ControlProfileEffects`（内部 detector runtime config）与 `ArSession` 的
+  RF 场景构造（对外发布的发射/接收方向图）。二者服务于两个不同物理面，常量（旁瓣 6 vs 12 dB、
+  自适应波束 0.60/+2.0dB vs 0.75/6.0dB）有意保持差异，已由
+  `ar_core_controller_test.cpp::ExternalAdaptiveBeamformingRaisesNextPhysicalDetectionMargin` 与
+  `ar_rf_session_test.cpp::SidelobeCancellerLeavesPublishedEmissionSidelobeUnchanged` 固化现状。
+  若未来要统一为单一权威翻译点，需先证明两个物理面应使用相同常量。
 
 ## SBIRS 非阻塞仿真边界
 

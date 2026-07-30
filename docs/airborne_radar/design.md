@@ -671,6 +671,13 @@ association public 配置不再暴露 `unassigned_cost`、启用 hint 或第二�
   ECCM hold/cooldown 管线统一归约后写入 `ArControlProfile` 并作用到下一成功周期。
   与压制干扰相同，欺骗发射不得直接改变航迹速度/RCS 衰减或生命周期计数。
   [evidence: tests/unit/airborne_radar/ar_deception_eccm_test.cpp]
+- `TrackLifecycleManager::SyncRuntimeTuning` 用整体赋值 `config_ = lifecycle_config` 同步运行期
+  生命周期配置，而非手工逐字段列表。安全性来自两点：`track_pool_thread_safety_mode` 属于
+  `LifecycleConfigSignature`，其变化触发重建而非同步路径（故同步路径上其值恒等于 `config_`）；
+  管理器从不读取该字段，即便被覆盖也无副作用。反欺骗开关（`enable_anti_vgpo_acceleration_bound`、
+  `enable_anti_false_target_discrimination`、`max_acceleration_mps2`）经此路径自动覆盖，新增可同步
+  `LifecycleConfig` 字段同样自动同步，消除历史手工列表的静默遗漏风险。
+  [evidence: tests/unit/airborne_radar/ar_track_lifecycle_test.cpp::TrackLifecycleManagerTest.SyncRuntimeTuningConfirmHitsChangesPromotionBehavior]
 - lifecycle manager 管理 tentative/confirmed/lost、track pool 回收、association seeds 导出和 filter writeback；
 - 生产预测/更新使用 KF；策略可启用 IMM 生命周期作为多模型 KF 融合层。EKF、UDKF、SRIF 是 common 内部资产，不是 AR 的运行期配置路径；可复现性边界见 §2.10。
 
@@ -736,8 +743,14 @@ ECCM 只消费接收机 interference observation；烧穿评分达到阈值后�
 - 外部响应必须匹配最新 observation 的 cycle/batch；错源、重复提交、重复 directive type
   或任一非法 proposal 都整包拒绝。合法空集合表示明确关闭 LPI/ECCM。
 - 无合法外部响应时自动使用 internal baseline。
+- directive 域判定（LPI/ECCM）与标量合法性以 `ControlReducer::IsLpiDirective`/
+  `IsEccmDirective`/`IsValidDirectiveValue` 静态方法为唯一权威；`ArController` 的外部提案
+  校验复用同一实现，不另起 `==` 链。`ControlDirectiveType::kCount` 为编译期哨兵，不可作为真实意图，
+  其运行期拒绝由 reducer 各 switch 的 `default` 臂与 `IsValidDirectiveValue` 保障。
 [evidence: tests/unit/airborne_radar/ar_tactical_coordinator_test.cpp::ControlReducerTest.RejectsMissingNonFiniteOutOfRangeAndUnexpectedValues]
 [evidence: tests/unit/airborne_radar/ar_core_controller_test.cpp::RejectsMismatchedDuplicateAndInvalidExternalResponses]
+[evidence: tests/unit/airborne_radar/ar_control_directive_matrix_test.cpp::ControlDirectiveMatrixTest.AuthorityClassifiersPartitionDirectivesExhaustively]
+[evidence: tests/unit/airborne_radar/ar_control_directive_matrix_test.cpp::ControlDirectiveMatrixTest.AuthorityValueValidationEnforcesScalarBoundaries]
 
 controller 在单周期开始时把 control profile 传给 signal pipeline，因此决策影响下一次实际发射，
 不应假设 proposal 立即改变已经完成的探测。输入拒绝或关机保留 proposal；实际 emission 一经内部发布
