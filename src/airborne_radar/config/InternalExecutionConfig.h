@@ -37,6 +37,28 @@ namespace airborne_radar {
 namespace config {
 namespace execution {
 
+// ---------------------------------------------------------------------------
+// 固定运行时常量（不通过四域配置暴露，由算法内部决定）
+// ---------------------------------------------------------------------------
+
+/** Track pool 默认初始分块数。 */
+inline constexpr std::size_t kDefaultTrackPoolInitialChunk{64};
+
+/** Track pool 默认最大分块数。 */
+inline constexpr std::size_t kDefaultTrackPoolMaxChunks{256};
+
+/** IMM 默认激活策略：仅已确认航迹参与 IMM 融合。 */
+inline constexpr signal::tracking::ImmActivationPolicy kDefaultImmActivationPolicy{
+    signal::tracking::ImmActivationPolicy::kConfirmedTracksOnly};
+
+/** Track pool 默认线程安全模式：单线程无锁。 */
+inline constexpr signal::tracking::TrackPoolThreadSafetyMode kDefaultTrackPoolThreadSafetyMode{
+    signal::tracking::TrackPoolThreadSafetyMode::kSingleThreadNoLock};
+
+// ---------------------------------------------------------------------------
+// 子配置类型
+// ---------------------------------------------------------------------------
+
 /**
  * @brief 控制策略 (control profile) 对应的天线/波束增益效果参数 (POD)。
  *
@@ -50,6 +72,9 @@ struct ControlProfileEffectsConfig {
   float adaptive_beamwidth_scale{0.60f};
   float lpi_beamwidth_scale{0.75f};
 };
+
+/** 控制策略天线/波束增益效果默认参数。 */
+inline constexpr ControlProfileEffectsConfig kDefaultControlProfileEffects{};
 
 /**
  * @brief 检测与波束调度相关执行配置。
@@ -79,6 +104,7 @@ struct AssociationExecutionConfig {
 struct TrackingExecutionConfig {
   TrackingConfig policy{};
   engineering::TrackingConfig engineering{};
+  /** Kalman 过程噪声差异系数，由 ArPolicyConfig::TrackingConfig 映射而来。 */
   float kalman_noise_diff_coeff{1.0f};
 };
 
@@ -88,15 +114,18 @@ struct TrackingExecutionConfig {
 struct LifecycleExecutionConfig {
   LifecycleConfig policy{};
   engineering::LifecycleRuntimeConfig engineering{};
-  signal::tracking::ImmActivationPolicy imm_activation_policy{
-      signal::tracking::ImmActivationPolicy::kConfirmedTracksOnly};
+  /** IMM 激活策略（固定默认值，不通过四域配置暴露）。 */
+  signal::tracking::ImmActivationPolicy imm_activation_policy{kDefaultImmActivationPolicy};
+  /** Track pool 线程安全模式（固定默认值，不通过四域配置暴露）。 */
   signal::tracking::TrackPoolThreadSafetyMode track_pool_thread_safety_mode{
-      signal::tracking::TrackPoolThreadSafetyMode::kSingleThreadNoLock};
+      kDefaultTrackPoolThreadSafetyMode};
   std::vector<float> imm_model_noise_diff_coeffs;
   std::vector<float> imm_initial_weights;
   std::vector<float> imm_transition_probability;
-  std::size_t track_pool_initial_chunk{64};
-  std::size_t track_pool_max_chunks{256};
+  /** Track pool 初始分块数（固定默认值，不通过四域配置暴露）。 */
+  std::size_t track_pool_initial_chunk{kDefaultTrackPoolInitialChunk};
+  /** Track pool 最大分块数（固定默认值，不通过四域配置暴露）。 */
+  std::size_t track_pool_max_chunks{kDefaultTrackPoolMaxChunks};
 };
 
 /**
@@ -104,18 +133,23 @@ struct LifecycleExecutionConfig {
  *
  * 按 domain 将字段组织为四个子配置，外加跨域共享的控制效果配置。
  * 各 pipeline phase 函数应只接收其所需的子配置引用，而非整个 InternalExecutionConfig。
+ *
+ * @note enable_anti_vgpo_acceleration_bound 和 enable_anti_false_target_discrimination
+ *       由 ControlProfileEffects 每周期从 ArControlProfile 写入，不经过映射层。
+ *       anti_vgpo_max_acceleration_mps2 由 DecisionControlConfig 映射而来。
  */
 struct InternalExecutionConfig {
   bool sensor_enabled{true};                        /**< 设备开关机状态 */
   config::DecisionControlConfig decision_control{}; /**< 跨周期 LPI/ECCM 保持与冷却策略 */
-  bool enable_anti_vgpo_acceleration_bound{false};  /**< 加速度限幅对抗 VGPO */
-  double anti_vgpo_max_acceleration_mps2{100.0};   /**< 加速度限幅阈值（m/s²），与上方标志同源。 */
-  bool enable_anti_false_target_discrimination{false}; /**< 假目标鉴别 */
+  bool enable_anti_vgpo_acceleration_bound{false};  /**< 加速度限幅对抗 VGPO（运行时由 ControlProfile 写入） */
+  double anti_vgpo_max_acceleration_mps2{100.0};   /**< 加速度限幅阈值（m/s²），由 DecisionControlConfig 映射 */
+  bool enable_anti_false_target_discrimination{false}; /**< 假目标鉴别（运行时由 ControlProfile 写入） */
   DetectionExecutionConfig detection{};
   AssociationExecutionConfig association{};
   TrackingExecutionConfig tracking{};
   LifecycleExecutionConfig lifecycle{};
-  ControlProfileEffectsConfig control_profile_effects{};
+  /** 控制策略增益效果参数（固定默认值，不通过四域配置暴露）。 */
+  ControlProfileEffectsConfig control_profile_effects{kDefaultControlProfileEffects};
 };
 
 }  // namespace execution

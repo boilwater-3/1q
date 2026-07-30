@@ -13,6 +13,8 @@ execution::InternalExecutionConfig MapSessionToExecution(
 
   exec.sensor_enabled = session_config.mission.power_on;
   exec.decision_control = session_config.policy.decision_control;
+  exec.anti_vgpo_max_acceleration_mps2 =
+      session_config.policy.decision_control.anti_vgpo_max_acceleration_mps2;
   exec.detection.engineering =
       ResolveDetectionEngineering(session_config.hardware, session_config.policy.detection);
   exec.detection.beam_control = session_config.policy.beam_control;

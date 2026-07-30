@@ -44,7 +44,10 @@ inline float SquaredCostToSigma(float cost) {
  * 包含以下同步：
  * - tracking.policy → tracking.engineering（直接拷贝）
  * - lifecycle.policy → lifecycle.engineering（通过 ResolveLifecycleEngineering）
- * - 若 IMM 启用，重建 imm_model_noise_diff_coeffs；若禁用，清空 IMM 相关向量
+ * - 若 IMM 启用，重建 imm_model_noise_diff_coeffs；若禁用，清空该向量
+ *
+ * @note imm_initial_weights 和 imm_transition_probability 始终保持为空，
+ *       由 ImmMatrixDefaults 在读取时自动生成默认值。
  *
  * @pre exec.lifecycle.policy 和 exec.tracking.policy 已就绪。
  * @post exec.tracking.engineering、exec.lifecycle.engineering 及 IMM 向量与 policy 一致。
@@ -58,8 +61,6 @@ inline void ReconcilePolicyToEngineering(execution::InternalExecutionConfig& exe
         BuildDefaultImmNoiseDiffCoeffs(exec.lifecycle.policy.model_count_hint);
   } else {
     exec.lifecycle.imm_model_noise_diff_coeffs.clear();
-    exec.lifecycle.imm_initial_weights.clear();
-    exec.lifecycle.imm_transition_probability.clear();
   }
 }
 
