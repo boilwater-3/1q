@@ -577,6 +577,71 @@ TEST(EcmSessionTest, SnapshotRejectsDuplicateThreatIdAmongEngaged) {
   }
 }
 
+// StepWithResult 事务不变量：当波形构造中途失败时，候选状态被丢弃，
+// 会话不得部分推进（既不预扣 emission ID / 热量，也不推进欺骗状态机或任何 RNG 流）。
+// 触发点：欺骗 PRI 被钳位到 1e-6，dt_sec=2.0 使 pulse_count = 2e6 > 1e6 上限，
+// TryCreateRfPulseTrainWaveform 经 IsValidWaveform 拒绝 → TryBuildDeceptionEmission 返回
+// false → EcmSession.cpp 中的 RejectInvalidConfig 分支（波形构造失败→丢弃候选）。
+TEST(EcmSessionTest, WaveformFailureLeavesSessionStateUnchanged) {
+  config::EcmSessionConfig config;
+  config.default_technique = EcmTechnique::kDeception;
+  config.default_deception_mode = EcmDeceptionMode::kRgpo;
+  EcmSession session = EcmSession::Create(config);
+
+  // 先执行一个正常周期，建立可区分的活跃交战与资源状态。
+  ASSERT_EQ(session.StepWithResult(MakeTruthInput(1U)).status, EcmCycleStatus::kExecuted);
+  const EcmRuntimeState before = session.CaptureRuntimeState();
+  ASSERT_EQ(before.next_emission_id, 2U);
+  ASSERT_FALSE(before.deception_states.empty());
+
+  // 构造必然使脉冲计数越界的输入：最小 PRI + 2 秒窗口。
+  // pulse_count = floor(2.0 / 1e-6) = 2,000,000 > kMaximumPulseCount(1,000,000)。
+  // 脉宽设为 1e-9（钳位后 < 0.5*pri），确保失败由计数门决定，而非脉宽门。
+  EcmCycleInput input;
+  input.cycle_index = 2U;
+  input.cycle_start_time_s = 1.0;
+  input.dt_sec = 2.0;
+  input.input_mode = EcmInputMode::kTruthAssisted;
+  input.platform_entity_id = 900U;
+  input.platform_position_ecef_m.x_m = 6378137.0;
+  EcmTruthThreat threat;
+  threat.truth_entity_id = 100U;
+  threat.center_frequency_hz = 10.0e9;
+  threat.bandwidth_hz = 10.0e6;
+  threat.threat_score = 0.9f;
+  threat.estimated_pri_s = 1.0e-6;
+  threat.estimated_pulse_width_s = 1.0e-9;
+  input.truth_threats.push_back(threat);
+
+  const EcmCycleResult result = session.StepWithResult(input);
+  EXPECT_EQ(result.status, EcmCycleStatus::kRejectedInvalidConfig);
+  EXPECT_TRUE(result.emission_frame.emissions.empty());
+  EXPECT_TRUE(result.decisions.empty());
+
+  // 事务不变量：会话状态逐字段不变。
+  const EcmRuntimeState after = session.CaptureRuntimeState();
+  EXPECT_EQ(after.next_emission_id, before.next_emission_id)
+      << "emission ID 不得在失败时被预留";
+  EXPECT_DOUBLE_EQ(after.thermal_energy_j, before.thermal_energy_j)
+      << "热预算不得在失败时被累加";
+  EXPECT_EQ(after.has_successful_cycle, before.has_successful_cycle);
+  EXPECT_EQ(after.last_successful_cycle_index, before.last_successful_cycle_index);
+  ASSERT_EQ(after.deception_states.size(), before.deception_states.size());
+  EXPECT_EQ(after.deception_states.front().threat_id, before.deception_states.front().threat_id);
+  EXPECT_DOUBLE_EQ(after.deception_states.front().current_delay_s,
+                   before.deception_states.front().current_delay_s)
+      << "欺骗状态机不得在失败时被推进";
+  EXPECT_DOUBLE_EQ(after.deception_states.front().cycle_count,
+                   before.deception_states.front().cycle_count);
+  EXPECT_EQ(after.scheduling_rng_state, before.scheduling_rng_state) << "scheduling RNG 不得被消费";
+  EXPECT_EQ(after.tie_break_rng_state, before.tie_break_rng_state) << "tie-break RNG 不得被消费";
+  EXPECT_EQ(after.deception_rng_state, before.deception_rng_state) << "deception RNG 不得被消费";
+
+  // 后续合法周期可正常执行——会话未被失败路径破坏。
+  const EcmCycleResult recovered = session.StepWithResult(MakeTruthInput(2U));
+  EXPECT_EQ(recovered.status, EcmCycleStatus::kExecuted);
+}
+
 }  // namespace
 }  // namespace session
 }  // namespace electronic_countermeasure
