@@ -7,7 +7,6 @@
 #define ONEQ_AIRBORNE_RADAR_SESSION_DECISION_CONTROL_TYPES_H_
 
 #include <cstdint>
-#include <functional>
 
 #include "1q/airborne_radar/session/ArControlProfile.h"
 #include "1q/airborne_radar/session/DecisionInputFrame.h"
@@ -22,13 +21,9 @@ struct ONEQ_API DecisionObservation {
   session::ArControlProfile active_control_profile{};
 };
 
-/** @brief 外部模块的 profile 覆盖回调。接收当前活跃 profile，返回修改后的 profile。 */
-using ExternalDecisionOverrideFn =
-    std::function<session::ArControlProfile(const session::ArControlProfile&)>;
-
-/** @brief 外部覆盖提交。 */
+/** @brief 外部 profile 覆盖提交。profile 为整包替换值，将在下一成功周期替换原生归约结果。 */
 struct ONEQ_API ExternalDecisionOverride {
-  ExternalDecisionOverrideFn apply{};
+  session::ArControlProfile profile{};
 };
 
 enum class ONEQ_API ExternalDecisionSubmitStatus {

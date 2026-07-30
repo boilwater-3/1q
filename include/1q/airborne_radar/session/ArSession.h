@@ -101,7 +101,7 @@ class ONEQ_API ArSession {
    */
   bool TryApplyRuntimeConfig(const config::ArRuntimeConfigPatch& patch);
 
-  /** @brief 提交外部 profile 覆盖（回调模式，绕过 TacticalProposal 管线）。 */
+  /** @brief 提交外部 profile 覆盖（整包替换值，绕过 TacticalProposal 管线与 hold/cooldown）。 */
   session::ExternalDecisionSubmitStatus SubmitExternalDecision(
       session::ExternalDecisionOverride override_decision);
 

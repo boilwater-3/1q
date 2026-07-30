@@ -67,6 +67,11 @@ table ArControlProfile {
   enable_anti_false_target_discrimination:bool;
 }
 
+// 外部 profile 覆盖提交（整包替换值）的回放载荷，用作 decision_input 事件根表。
+table ArControlProfilePayload {
+  profile:ArControlProfile;
+}
+
 table ArInterferenceObservation {
   observation_id:ulong;
   estimated_bearing_azimuth_deg:double;

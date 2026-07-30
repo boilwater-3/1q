@@ -243,6 +243,45 @@ TEST(ArRfTraceSessionTest, RejectsTrailingCycleInputWithoutOutput) {
             std::string::npos);
 }
 
+TEST(ArRfTraceSessionTest, ExternalOverrideReplaysExactly) {
+  const std::string trace_dir = MakeTraceDir("oneq-ar-override-replay");
+  {
+    const auto writer = MakeWriter(trace_dir);
+    ArTraceSessionOptions options;
+    options.replay_writer = writer;
+    ArTraceSession traced(config::ArSessionConfig{}, options);
+
+    // Cycle 1: baseline
+    const ArCycleResult first =
+        traced.StepWithResult(MakeCycleInput(1U, 10.0));
+    ASSERT_EQ(first.status, ArCycleStatus::kCompleted);
+
+    // Submit external override between cycles
+    ExternalDecisionOverride override_decision;
+    ArControlProfile profile;
+    profile.enable_agility_frequency = true;
+    override_decision.profile = profile;
+    ASSERT_EQ(traced.SubmitExternalDecision(std::move(override_decision)),
+              ExternalDecisionSubmitStatus::kAccepted);
+
+    // Cycle 2: should apply override
+    const ArCycleResult second =
+        traced.StepWithResult(MakeCycleInput(2U, 10.5));
+    ASSERT_EQ(second.status, ArCycleStatus::kCompleted);
+    EXPECT_EQ(second.applied_decision_source, DecisionControlSource::kExternal);
+
+    ASSERT_EQ(writer->Flush(),
+              oneq::replay::ReplayTraceWriteStatus::kSuccess);
+  }
+
+  const ArReplaySessionResult replay = ReplayArTrace(trace_dir);
+  EXPECT_TRUE(replay.ok) << replay.first_error;
+  EXPECT_EQ(replay.playback.applied_input_count, 2U);
+  EXPECT_EQ(replay.playback.compared_output_count, 2U);
+  EXPECT_EQ(replay.playback.applied_decision_input_count, 1U);
+  EXPECT_FALSE(replay.playback.divergence_found);
+}
+
 }  // namespace
 }  // namespace session
 }  // namespace airborne_radar

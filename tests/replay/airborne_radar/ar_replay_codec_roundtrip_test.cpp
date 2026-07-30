@@ -12,9 +12,11 @@
 
 #include "1q/airborne_radar/config/ArRuntimeConfigPatch.h"
 #include "1q/airborne_radar/config/ArSessionConfig.h"
+#include "1q/airborne_radar/session/ArControlProfile.h"
 #include "1q/airborne_radar/session/TrackStateSnapshot.h"
 #include "1q/replay/ReplayTrace.h"
 #include "airborne_radar/session/ArReplayFlatbufferCodec.h"
+#include "airborne_radar/session/ArReplayCycleRecord.h"
 
 namespace airborne_radar {
 namespace session {
@@ -457,6 +459,58 @@ TEST(ArReplayCodecRoundtripTest, DecodeFailureMarkerRejectsNullAndCorrupted) {
   EXPECT_FALSE(DecodeFailureMarkerFlatbuffer("", nullptr, &error));
   oneq::replay::ReplayTraceFailure failure;
   EXPECT_FALSE(DecodeFailureMarkerFlatbuffer("bad", &failure, &error));
+}
+
+TEST(ArReplayCodecRoundtripTest, ArControlProfilePayloadRoundtripPreservesAllFields) {
+  session::ArControlProfile profile;
+  profile.version = 42U;
+  profile.enable_lpi_power_control = true;
+  profile.lpi_power_scale = 0.75f;
+  profile.enable_lpi_beamforming = true;
+  profile.lpi_dwell_scale = 0.5f;
+  profile.enable_agility_frequency = true;
+  profile.agility_frequency_hop_phase = 2U;
+  profile.enable_sidelobe_canceller = true;
+  profile.enable_adaptive_beamforming = true;
+  profile.enable_eccm_rejitter = true;
+  profile.eccm_burnthrough_gain = 1.5f;
+  profile.enable_anti_rgpo_leading_edge = true;
+  profile.enable_anti_vgpo_acceleration_bound = true;
+  profile.enable_anti_false_target_discrimination = true;
+
+  const std::string payload = EncodeArControlProfileFlatbuffer(profile);
+  ASSERT_FALSE(payload.empty());
+
+  session::ArControlProfile decoded;
+  std::string error;
+  ASSERT_TRUE(DecodeArControlProfileFlatbuffer(payload, &decoded, &error))
+      << error;
+
+  EXPECT_EQ(decoded.version, 42U);
+  EXPECT_TRUE(decoded.enable_lpi_power_control);
+  EXPECT_FLOAT_EQ(decoded.lpi_power_scale, 0.75f);
+  EXPECT_TRUE(decoded.enable_lpi_beamforming);
+  EXPECT_FLOAT_EQ(decoded.lpi_dwell_scale, 0.5f);
+  EXPECT_TRUE(decoded.enable_agility_frequency);
+  EXPECT_EQ(decoded.agility_frequency_hop_phase, 2U);
+  EXPECT_TRUE(decoded.enable_sidelobe_canceller);
+  EXPECT_TRUE(decoded.enable_adaptive_beamforming);
+  EXPECT_TRUE(decoded.enable_eccm_rejitter);
+  EXPECT_FLOAT_EQ(decoded.eccm_burnthrough_gain, 1.5f);
+  EXPECT_TRUE(decoded.enable_anti_rgpo_leading_edge);
+  EXPECT_TRUE(decoded.enable_anti_vgpo_acceleration_bound);
+  EXPECT_TRUE(decoded.enable_anti_false_target_discrimination);
+}
+
+TEST(ArReplayCodecRoundtripTest, DecodeArControlProfileFlatbufferRejectsNullEmptyAndCorrupted) {
+  std::string error;
+  // null output pointer
+  EXPECT_FALSE(DecodeArControlProfileFlatbuffer("payload", nullptr, &error));
+  // empty payload
+  session::ArControlProfile profile;
+  EXPECT_FALSE(DecodeArControlProfileFlatbuffer("", &profile, &error));
+  // corrupted payload
+  EXPECT_FALSE(DecodeArControlProfileFlatbuffer("bad", &profile, &error));
 }
 
 }  // namespace tests

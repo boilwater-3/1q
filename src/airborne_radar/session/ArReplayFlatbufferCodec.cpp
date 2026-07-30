@@ -1459,6 +1459,31 @@ bool DecodeCycleReplayRecordFlatbuffer(const std::string& payload_bytes,
   return true;
 }
 
+std::string EncodeArControlProfileFlatbuffer(const session::ArControlProfile& profile) {
+  flatbuffers::FlatBufferBuilder builder;
+  const flatbuffers::Offset<fb::ArControlProfilePayload> root =
+      fb::CreateArControlProfilePayload(builder, EncodeArControlProfile(&builder, profile));
+  builder.Finish(root);
+  return oneq::common::replay::CopyFinishedFlatbuffer(builder);
+}
+
+bool DecodeArControlProfileFlatbuffer(const std::string& payload_bytes,
+                                      session::ArControlProfile* profile, std::string* error) {
+  if (profile == nullptr) {
+    if (error != nullptr) {
+      *error = "null ArControlProfile output";
+    }
+    return false;
+  }
+  const fb::ArControlProfilePayload* root =
+      TryGetReplayRoot<fb::ArControlProfilePayload>(payload_bytes, "ArControlProfilePayload", error);
+  if (root == nullptr) {
+    return false;
+  }
+  *profile = DecodeArControlProfile(root->profile());
+  return true;
+}
+
 std::string EncodeRuntimeConfigAttemptFlatbuffer(const config::ArRuntimeConfigPatch& patch,
                                                  bool accepted) {
   const std::string patch_payload = EncodeRuntimeConfigPatchFlatbuffer(patch);

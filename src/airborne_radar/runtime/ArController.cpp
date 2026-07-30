@@ -3,7 +3,6 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
-#include <functional>
 #include <memory>
 
 #include "1q/airborne_radar/session/ArControlProfile.h"
@@ -155,12 +154,12 @@ struct ArController::Impl {
 
   /** @brief 将外部覆盖应用到原生 profile 上，返回最终 profile。 */
   static session::ArControlProfile ApplyExternalOverride(
-      const session::ArControlProfile& native_profile,
-      const session::ExternalDecisionOverride& override) {
-    session::ArControlProfile override_profile = override.apply(native_profile);
-    if (!IsValidOverrideProfile(override_profile)) {
-      return native_profile;
-    }
+    const session::ArControlProfile& native_profile,
+    const session::ExternalDecisionOverride& override) {
+  session::ArControlProfile override_profile = override.profile;
+  if (!IsValidOverrideProfile(override_profile)) {
+    return native_profile;
+  }
     override_profile.version = HasOperationalProfileChanged(native_profile, override_profile)
                                    ? native_profile.version + 1U
                                    : native_profile.version;
@@ -395,7 +394,7 @@ session::ExternalDecisionSubmitStatus ArController::SubmitExternalDecision(
   if (impl_->has_pending_external_override) {
     return session::ExternalDecisionSubmitStatus::kAlreadySubmitted;
   }
-  if (!override_decision.apply) {
+  if (!impl_->IsValidOverrideProfile(override_decision.profile)) {
     return session::ExternalDecisionSubmitStatus::kInvalidProfile;
   }
   impl_->pending_external_override = std::move(override_decision);

@@ -5,6 +5,7 @@
 
 #include "1q/airborne_radar/config/ArRuntimeConfigPatch.h"
 #include "1q/airborne_radar/session/ArSession.h"
+#include "1q/airborne_radar/session/DecisionControlTypes.h"
 #include "airborne_radar/session/ArReplayCycleRecord.h"
 #include "airborne_radar/session/ArReplayFlatbufferCodec.h"
 
@@ -93,6 +94,34 @@ bool OnRuntimeConfigPatch(const oneq::replay::ReplayTraceReadEvent& event,
   return true;
 }
 
+bool OnDecisionInput(const oneq::replay::ReplayTraceReadEvent& event,
+                     void* user_data, std::string* error) {
+  if (event.payload_type != "ArControlProfilePayload") {
+    *error =
+        "AR replay rejects unknown decision_input payload type: " +
+        event.payload_type;
+    return false;
+  }
+  ArReplayState* state = static_cast<ArReplayState*>(user_data);
+  if (!state->session) {
+    *error = "AR replay received decision_input before session_config";
+    return false;
+  }
+  session::ArControlProfile profile;
+  if (!DecodeArControlProfileFlatbuffer(event.payload_bytes, &profile, error)) {
+    return false;
+  }
+  session::ExternalDecisionOverride override_decision;
+  override_decision.profile = profile;
+  const session::ExternalDecisionSubmitStatus status =
+      state->session->SubmitExternalDecision(std::move(override_decision));
+  if (status != session::ExternalDecisionSubmitStatus::kAccepted) {
+    *error = "AR replay decision_input override rejected";
+    return false;
+  }
+  return true;
+}
+
 oneq::replay::ReplayTraceOutputStatus OnCycleOutput(
     const oneq::replay::ReplayTraceReadEvent& event, void* user_data,
     std::string* actual_output, std::string* error) {
@@ -160,6 +189,7 @@ ArReplaySessionResult ReplayArTrace(const std::string& trace_dir) {
   callbacks.user_data = &state;
   callbacks.on_session_config = OnSessionConfig;
   callbacks.on_cycle_input = OnCycleInput;
+  callbacks.on_decision_input = OnDecisionInput;
   callbacks.on_runtime_config_patch = OnRuntimeConfigPatch;
   callbacks.on_cycle_output = OnCycleOutput;
   callbacks.on_failure_marker = OnFailureMarker;

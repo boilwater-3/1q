@@ -22,13 +22,11 @@ int main() {
     return 1;
   }
 
-  // 第二步：构建基于回调的 profile 覆盖并提交。
+  // 第二步：构建 profile 覆盖值（整包替换）并提交。
   airborne_radar::session::ExternalDecisionOverride override_decision;
-  override_decision.apply = [](const airborne_radar::session::ArControlProfile& current) {
-    airborne_radar::session::ArControlProfile modified = current;
-    modified.enable_agility_frequency = true;
-    return modified;
-  };
+  airborne_radar::session::ArControlProfile profile;
+  profile.enable_agility_frequency = true;
+  override_decision.profile = profile;
   if (session.SubmitExternalDecision(std::move(override_decision)) !=
       airborne_radar::session::ExternalDecisionSubmitStatus::kAccepted) {
     return 2;

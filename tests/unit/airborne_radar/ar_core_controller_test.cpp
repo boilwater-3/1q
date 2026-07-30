@@ -345,12 +345,10 @@ TEST_F(CoreControllerTest, MatchingExternalResponseReplacesInternalBaseline) {
   controller.RunOnce(signal::pipeline::SignalCycleInput{radar_context.GetSceneTargets()});
 
   session::ExternalDecisionOverride override_decision;
-  override_decision.apply = [](const session::ArControlProfile& current) {
-    session::ArControlProfile modified = current;
-    modified.enable_lpi_power_control = true;
-    modified.lpi_power_scale = 0.4f;
-    return modified;
-  };
+  session::ArControlProfile profile;
+  profile.enable_lpi_power_control = true;
+  profile.lpi_power_scale = 0.4f;
+  override_decision.profile = profile;
   EXPECT_EQ(controller.SubmitExternalDecision(std::move(override_decision)),
             session::ExternalDecisionSubmitStatus::kAccepted);
 
@@ -368,11 +366,9 @@ TEST_F(CoreControllerTest, MatchingExternalResponseCanBeConsumedBeforeEmission) 
   controller.RunOnce(signal::pipeline::SignalCycleInput{radar_context.GetSceneTargets()});
 
   session::ExternalDecisionOverride override_decision;
-  override_decision.apply = [](const session::ArControlProfile& current) {
-    session::ArControlProfile modified = current;
-    modified.enable_agility_frequency = true;
-    return modified;
-  };
+  session::ArControlProfile profile;
+  profile.enable_agility_frequency = true;
+  override_decision.profile = profile;
   ASSERT_EQ(controller.SubmitExternalDecision(std::move(override_decision)),
             session::ExternalDecisionSubmitStatus::kAccepted);
 
@@ -399,12 +395,10 @@ TEST_F(CoreControllerTest, PublicDecisionControlConfigEnablesHoldWindow) {
   controller.RunOnce(signal::pipeline::SignalCycleInput{radar_context.GetSceneTargets()});
   {
     session::ExternalDecisionOverride override_request;
-    override_request.apply = [](const session::ArControlProfile& current) {
-      session::ArControlProfile modified = current;
-      modified.enable_lpi_power_control = true;
-      modified.lpi_power_scale = 0.5f;
-      return modified;
-    };
+    session::ArControlProfile profile;
+    profile.enable_lpi_power_control = true;
+    profile.lpi_power_scale = 0.5f;
+    override_request.profile = profile;
     ASSERT_EQ(controller.SubmitExternalDecision(std::move(override_request)),
               session::ExternalDecisionSubmitStatus::kAccepted);
   }
@@ -413,13 +407,14 @@ TEST_F(CoreControllerTest, PublicDecisionControlConfigEnablesHoldWindow) {
   ASSERT_TRUE(signal_pipeline.GetControlProfile().enable_lpi_power_control);
   ASSERT_FLOAT_EQ(signal_pipeline.GetControlProfile().lpi_power_scale, 0.5f);
 
-  // Cycle 2: override returns profile unchanged.
+  // Cycle 2: override submits default profile (equivalent to identity/no-op).
   // The override path bypasses the native reducer's hold-window counter:
   // the native reducer resets LPI (no internal LPI proposals), and the
-  // no-op override does not restore it.
+  // default-profile override does not restore it.
   {
     session::ExternalDecisionOverride release;
-    release.apply = [](const session::ArControlProfile& current) { return current; };
+    session::ArControlProfile default_profile{};
+    release.profile = default_profile;
     ASSERT_EQ(controller.SubmitExternalDecision(std::move(release)),
               session::ExternalDecisionSubmitStatus::kAccepted);
   }
@@ -446,13 +441,11 @@ TEST_F(CoreControllerTest, ExternalLpiParametersAlterNextPhysicalDetection) {
   ASSERT_EQ(baseline_measurements.size(), 1U);
 
   session::ExternalDecisionOverride override_decision;
-  override_decision.apply = [](const session::ArControlProfile& current) {
-    session::ArControlProfile modified = current;
-    modified.enable_lpi_power_control = true;
-    modified.lpi_power_scale = 0.4f;
-    modified.lpi_dwell_scale = 0.7f;
-    return modified;
-  };
+  session::ArControlProfile profile;
+  profile.enable_lpi_power_control = true;
+  profile.lpi_power_scale = 0.4f;
+  profile.lpi_dwell_scale = 0.7f;
+  override_decision.profile = profile;
   ASSERT_EQ(controller.SubmitExternalDecision(std::move(override_decision)),
             session::ExternalDecisionSubmitStatus::kAccepted);
 
@@ -484,14 +477,12 @@ TEST_F(CoreControllerTest, ExternalBurnthroughGainAltersNextPhysicalDetection) {
   // then the override is applied on top.  Without explicitly clearing LPI,
   // the net margin can decrease despite the burnthrough gain.
   session::ExternalDecisionOverride override_decision;
-  override_decision.apply = [](const session::ArControlProfile& current) {
-    session::ArControlProfile modified = current;
-    modified.enable_lpi_power_control = false;
-    modified.lpi_power_scale = 1.0f;
-    modified.lpi_dwell_scale = 1.0f;
-    modified.eccm_burnthrough_gain = 1.5f;
-    return modified;
-  };
+  session::ArControlProfile profile;
+  profile.enable_lpi_power_control = false;
+  profile.lpi_power_scale = 1.0f;
+  profile.lpi_dwell_scale = 1.0f;
+  profile.eccm_burnthrough_gain = 1.5f;
+  override_decision.profile = profile;
   ASSERT_EQ(controller.SubmitExternalDecision(std::move(override_decision)),
             session::ExternalDecisionSubmitStatus::kAccepted);
 
@@ -527,14 +518,12 @@ TEST_F(CoreControllerTest, ExternalAdaptiveBeamformingRaisesNextPhysicalDetectio
   // then the override is applied on top.  Without explicitly clearing LPI,
   // the net margin can decrease despite the adaptive beamforming boost.
   session::ExternalDecisionOverride override_decision;
-  override_decision.apply = [](const session::ArControlProfile& current) {
-    session::ArControlProfile modified = current;
-    modified.enable_lpi_power_control = false;
-    modified.lpi_power_scale = 1.0f;
-    modified.lpi_dwell_scale = 1.0f;
-    modified.enable_adaptive_beamforming = true;
-    return modified;
-  };
+  session::ArControlProfile profile;
+  profile.enable_lpi_power_control = false;
+  profile.lpi_power_scale = 1.0f;
+  profile.lpi_dwell_scale = 1.0f;
+  profile.enable_adaptive_beamforming = true;
+  override_decision.profile = profile;
   ASSERT_EQ(controller.SubmitExternalDecision(std::move(override_decision)),
             session::ExternalDecisionSubmitStatus::kAccepted);
 
@@ -548,7 +537,7 @@ TEST_F(CoreControllerTest, ExternalAdaptiveBeamformingRaisesNextPhysicalDetectio
             baseline_measurements[0].raw_measurement.detection_margin_db);
 }
 
-TEST_F(CoreControllerTest, EmptyExternalResponseExplicitlyDisablesInternalControl) {
+TEST_F(CoreControllerTest, DefaultProfileOverridePreservesInternalSource) {
   FakeRadarContext radar_context(BuildSingleTarget(800.0f, 2.5f, false));
   environment::EnvironmentService environment_service;
   signal::pipeline::SignalPipeline signal_pipeline;
@@ -557,7 +546,8 @@ TEST_F(CoreControllerTest, EmptyExternalResponseExplicitlyDisablesInternalContro
   controller.RunOnce(signal::pipeline::SignalCycleInput{radar_context.GetSceneTargets()});
 
   session::ExternalDecisionOverride override_decision;
-  override_decision.apply = [](const session::ArControlProfile& current) { return current; };
+  session::ArControlProfile default_profile{};
+  override_decision.profile = default_profile;
   ASSERT_EQ(controller.SubmitExternalDecision(std::move(override_decision)),
             session::ExternalDecisionSubmitStatus::kAccepted);
 
@@ -575,29 +565,33 @@ TEST_F(CoreControllerTest, RejectsMismatchedDuplicateAndInvalidExternalResponses
   // kNoPendingObservation: submit before any observation exists.
   {
     session::ExternalDecisionOverride before_observation;
-    before_observation.apply = [](const session::ArControlProfile& current) { return current; };
+    session::ArControlProfile profile;
+    profile.enable_agility_frequency = true;
+    before_observation.profile = profile;
     EXPECT_EQ(controller.SubmitExternalDecision(std::move(before_observation)),
               session::ExternalDecisionSubmitStatus::kNoPendingObservation);
   }
 
   controller.RunOnce(signal::pipeline::SignalCycleInput{radar_context.GetSceneTargets()});
 
-  // kInvalidProfile: null callback.
+  // kInvalidProfile: profile with out-of-range field.
   {
-    session::ExternalDecisionOverride null_callback;
-    EXPECT_EQ(controller.SubmitExternalDecision(std::move(null_callback)),
+    session::ExternalDecisionOverride invalid;
+    session::ArControlProfile profile;
+    profile.enable_lpi_power_control = true;
+    profile.lpi_power_scale = 99.0f;  // exceeds [0,1] range
+    invalid.profile = profile;
+    EXPECT_EQ(controller.SubmitExternalDecision(std::move(invalid)),
               session::ExternalDecisionSubmitStatus::kInvalidProfile);
   }
 
   // kAccepted: valid override.
   {
     session::ExternalDecisionOverride accepted;
-    accepted.apply = [](const session::ArControlProfile& current) {
-      session::ArControlProfile modified = current;
-      modified.enable_lpi_power_control = true;
-      modified.lpi_power_scale = 0.4f;
-      return modified;
-    };
+    session::ArControlProfile profile;
+    profile.enable_lpi_power_control = true;
+    profile.lpi_power_scale = 0.4f;
+    accepted.profile = profile;
     EXPECT_EQ(controller.SubmitExternalDecision(std::move(accepted)),
               session::ExternalDecisionSubmitStatus::kAccepted);
   }
@@ -605,7 +599,9 @@ TEST_F(CoreControllerTest, RejectsMismatchedDuplicateAndInvalidExternalResponses
   // kAlreadySubmitted: duplicate submission in the same cycle.
   {
     session::ExternalDecisionOverride duplicate;
-    duplicate.apply = [](const session::ArControlProfile& current) { return current; };
+    session::ArControlProfile profile;
+    profile.enable_eccm_rejitter = true;
+    duplicate.profile = profile;
     EXPECT_EQ(controller.SubmitExternalDecision(std::move(duplicate)),
               session::ExternalDecisionSubmitStatus::kAlreadySubmitted);
   }
@@ -629,12 +625,10 @@ TEST_F(CoreControllerTest, RuntimeRestoreRetainsPendingExternalResponseForRetry)
   controller.RunOnce(signal::pipeline::SignalCycleInput{radar_context.GetSceneTargets()});
 
   session::ExternalDecisionOverride override_decision;
-  override_decision.apply = [](const session::ArControlProfile& current) {
-    session::ArControlProfile modified = current;
-    modified.enable_lpi_power_control = true;
-    modified.lpi_power_scale = 0.4f;
-    return modified;
-  };
+  session::ArControlProfile profile;
+  profile.enable_lpi_power_control = true;
+  profile.lpi_power_scale = 0.4f;
+  override_decision.profile = profile;
   ASSERT_EQ(controller.SubmitExternalDecision(std::move(override_decision)),
             session::ExternalDecisionSubmitStatus::kAccepted);
   const extension::ArControllerRuntimeState snapshot = controller.CaptureRuntimeState();
@@ -653,7 +647,7 @@ TEST_F(CoreControllerTest, RuntimeRestoreRetainsPendingExternalResponseForRetry)
 }
 
 // ============================================================================
-// ExternalDecisionOverride (callback-based override path) tests
+// ExternalDecisionOverride (profile value override path) tests
 // ============================================================================
 
 TEST_F(CoreControllerTest, ExternalOverrideChangesNextProfile) {
@@ -665,11 +659,9 @@ TEST_F(CoreControllerTest, ExternalOverrideChangesNextProfile) {
   controller.RunOnce(signal::pipeline::SignalCycleInput{radar_context.GetSceneTargets()});
 
   session::ExternalDecisionOverride override_decision;
-  override_decision.apply = [](const session::ArControlProfile& current) {
-    session::ArControlProfile modified = current;
-    modified.enable_agility_frequency = true;
-    return modified;
-  };
+  session::ArControlProfile profile;
+  profile.enable_agility_frequency = true;
+  override_decision.profile = profile;
   EXPECT_EQ(controller.SubmitExternalDecision(std::move(override_decision)),
             session::ExternalDecisionSubmitStatus::kAccepted);
 
@@ -690,12 +682,10 @@ TEST_F(CoreControllerTest, ExternalOverrideBypassesCooldown) {
   controller.RunOnce(signal::pipeline::SignalCycleInput{radar_context.GetSceneTargets()});
   {
     session::ExternalDecisionOverride override_decision;
-    override_decision.apply = [](const session::ArControlProfile& current) {
-      session::ArControlProfile modified = current;
-      modified.enable_lpi_power_control = true;
-      modified.lpi_power_scale = 0.5f;
-      return modified;
-    };
+    session::ArControlProfile profile;
+    profile.enable_lpi_power_control = true;
+    profile.lpi_power_scale = 0.5f;
+    override_decision.profile = profile;
     ASSERT_EQ(controller.SubmitExternalDecision(std::move(override_decision)),
               session::ExternalDecisionSubmitStatus::kAccepted);
   }
@@ -704,19 +694,17 @@ TEST_F(CoreControllerTest, ExternalOverrideBypassesCooldown) {
   controller.RunOnce(signal::pipeline::SignalCycleInput{radar_context.GetSceneTargets()});
   EXPECT_TRUE(signal_pipeline.GetControlProfile().enable_lpi_power_control);
 
-  // Cycle 3: release — empty response triggers cooldown
+  // Cycle 3: release — empty proposals trigger cooldown
   controller.RunOnce(signal::pipeline::SignalCycleInput{radar_context.GetSceneTargets()});
 
   // Cycle 4: cooldown active — native proposal would be blocked, but override bypasses
   controller.RunOnce(signal::pipeline::SignalCycleInput{radar_context.GetSceneTargets()});
   {
     session::ExternalDecisionOverride override_decision;
-    override_decision.apply = [](const session::ArControlProfile& current) {
-      session::ArControlProfile modified = current;
-      modified.enable_lpi_power_control = true;
-      modified.lpi_power_scale = 0.6f;
-      return modified;
-    };
+    session::ArControlProfile profile;
+    profile.enable_lpi_power_control = true;
+    profile.lpi_power_scale = 0.6f;
+    override_decision.profile = profile;
     EXPECT_EQ(controller.SubmitExternalDecision(std::move(override_decision)),
               session::ExternalDecisionSubmitStatus::kAccepted);
   }
@@ -735,13 +723,11 @@ TEST_F(CoreControllerTest, ExternalOverrideDoesNotAffectNativeLpi) {
 
   controller.RunOnce(signal::pipeline::SignalCycleInput{radar_context.GetSceneTargets()});
 
-  // Override only touches ECCM, LPI should still come from native path
+  // Override only touches ECCM, LPI should still come from native path (i.e., untouched defaults)
   session::ExternalDecisionOverride override_decision;
-  override_decision.apply = [](const session::ArControlProfile& current) {
-    session::ArControlProfile modified = current;
-    modified.enable_eccm_rejitter = true;
-    return modified;
-  };
+  session::ArControlProfile profile;
+  profile.enable_eccm_rejitter = true;
+  override_decision.profile = profile;
   EXPECT_EQ(controller.SubmitExternalDecision(std::move(override_decision)),
             session::ExternalDecisionSubmitStatus::kAccepted);
 
@@ -758,24 +744,20 @@ TEST_F(CoreControllerTest, ExternalOverrideRejectsInvalidProfile) {
 
   controller.RunOnce(signal::pipeline::SignalCycleInput{radar_context.GetSceneTargets()});
 
-  // Callback returns NaN lpi_power_scale — should fall back to native profile
+  // Profile with NaN lpi_power_scale — rejected at submit time
   session::ExternalDecisionOverride override_decision;
-  override_decision.apply = [](const session::ArControlProfile& current) {
-    session::ArControlProfile modified = current;
-    modified.enable_lpi_power_control = true;
-    modified.lpi_power_scale = std::numeric_limits<float>::quiet_NaN();
-    return modified;
-  };
+  session::ArControlProfile profile;
+  profile.enable_lpi_power_control = true;
+  profile.lpi_power_scale = std::numeric_limits<float>::quiet_NaN();
+  override_decision.profile = profile;
   EXPECT_EQ(controller.SubmitExternalDecision(std::move(override_decision)),
-            session::ExternalDecisionSubmitStatus::kAccepted);
-
+            session::ExternalDecisionSubmitStatus::kInvalidProfile);
+  // Invalid override never reached pending state; next cycle uses native path.
   controller.RunOnce(signal::pipeline::SignalCycleInput{radar_context.GetSceneTargets()});
-  // Invalid override falls back to native profile, source still kExternal
-  // (the override was submitted but the profile was rejected, so native is used)
-  EXPECT_FALSE(signal_pipeline.GetControlProfile().enable_lpi_power_control);
+  EXPECT_EQ(controller.GetLastAppliedDecisionSource(), session::DecisionControlSource::kInternal);
 }
 
-TEST_F(CoreControllerTest, ExternalOverrideEmptyCallbackIsInvalid) {
+TEST_F(CoreControllerTest, ExternalOverrideAcceptsDefaultProfile) {
   FakeRadarContext radar_context(BuildSingleTarget(800.0f, 2.5f, false));
   environment::EnvironmentService environment_service;
   signal::pipeline::SignalPipeline signal_pipeline;
@@ -783,10 +765,11 @@ TEST_F(CoreControllerTest, ExternalOverrideEmptyCallbackIsInvalid) {
 
   controller.RunOnce(signal::pipeline::SignalCycleInput{radar_context.GetSceneTargets()});
 
+  // Default-constructed profile is valid (all fields in range).
   session::ExternalDecisionOverride override_decision;
-  // apply is null
+  // leave profile at default-constructed values
   EXPECT_EQ(controller.SubmitExternalDecision(std::move(override_decision)),
-            session::ExternalDecisionSubmitStatus::kInvalidProfile);
+            session::ExternalDecisionSubmitStatus::kAccepted);
 }
 
 TEST_F(CoreControllerTest, ExternalOverrideNoPendingObservation) {
@@ -797,7 +780,9 @@ TEST_F(CoreControllerTest, ExternalOverrideNoPendingObservation) {
 
   // No RunOnce yet — no pending observation
   session::ExternalDecisionOverride override_decision;
-  override_decision.apply = [](const session::ArControlProfile& current) { return current; };
+  session::ArControlProfile profile;
+  profile.enable_agility_frequency = true;
+  override_decision.profile = profile;
   EXPECT_EQ(controller.SubmitExternalDecision(std::move(override_decision)),
             session::ExternalDecisionSubmitStatus::kNoPendingObservation);
 }
@@ -811,12 +796,16 @@ TEST_F(CoreControllerTest, ExternalOverrideAlreadySubmitted) {
   controller.RunOnce(signal::pipeline::SignalCycleInput{radar_context.GetSceneTargets()});
 
   session::ExternalDecisionOverride first;
-  first.apply = [](const session::ArControlProfile& current) { return current; };
+  session::ArControlProfile profile1;
+  profile1.enable_agility_frequency = true;
+  first.profile = profile1;
   EXPECT_EQ(controller.SubmitExternalDecision(std::move(first)),
             session::ExternalDecisionSubmitStatus::kAccepted);
 
   session::ExternalDecisionOverride second;
-  second.apply = [](const session::ArControlProfile& current) { return current; };
+  session::ArControlProfile profile2;
+  profile2.enable_eccm_rejitter = true;
+  second.profile = profile2;
   EXPECT_EQ(controller.SubmitExternalDecision(std::move(second)),
             session::ExternalDecisionSubmitStatus::kAlreadySubmitted);
 }

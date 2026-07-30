@@ -150,7 +150,22 @@ bool ArTraceSession::TryApplyRuntimeConfig(
 
 session::ExternalDecisionSubmitStatus ArTraceSession::SubmitExternalDecision(
     session::ExternalDecisionOverride override_decision) {
-  return impl_->session.SubmitExternalDecision(std::move(override_decision));
+  // 先序列化 profile 值（移动前），再按返回状态决定是否写回放事件。
+  const std::string replay_payload =
+      impl_->replay_writer ? EncodeArControlProfileFlatbuffer(override_decision.profile)
+                           : std::string{};
+  const session::ExternalDecisionSubmitStatus status =
+      impl_->session.SubmitExternalDecision(std::move(override_decision));
+  if (status == session::ExternalDecisionSubmitStatus::kAccepted && impl_->replay_writer) {
+    oneq::replay::ReplayTraceEvent event;
+    event.module = "airborne_radar";
+    event.event_type = "decision_input";
+    event.payload_type = "ArControlProfilePayload";
+    event.payload_encoding = "flatbuffers";
+    event.payload_bytes = replay_payload;
+    impl_->replay_writer->WriteEvent(event);
+  }
+  return status;
 }
 
 const ArSession& ArTraceSession::session() const { return impl_->session; }

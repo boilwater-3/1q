@@ -16,12 +16,12 @@ RF-Interference-Architecture: RF v2 transmitter/receiver current
 AR 的决策扩展点是同进程步间 observation/response seam：
 
 - 每个成功周期通过 `DecisionObservation` 输出 `DecisionInputFrame` 与实际控制 profile。
-- 调用方在下一次 `Step` 前运行外部模块，并用 `SubmitExternalDecision` 提交完整 LPI/ECCM proposals。
+- 调用方在下一次 `Step` 前运行外部模块，并用 `SubmitExternalDecision` 提交完整的 profile 覆盖值（整包替换 native 归约结果，绕过 hold/cooldown）。
 - 外部模块不替换内部对象；威胁分类和内部 baseline 每个成功周期仍持续计算。
-- 外部 proposals 仍由内部 `ControlReducer` 和 `ControlCommandMapper` 归约为唯一 `ArControlProfile`。
-- trace/replay 在外部响应被接受时立即写入独立 `decision_input` 事件，并在周期输出的内部
-  `ArReplayCycleRecord` 中固化 observation、pending/applied internal/external proposals、来源
-  cycle/batch、reducer 计数和最终 profile；外部整包替换的 next-successful-cycle 语义可被确定性重放。
+- 外部覆盖 profile 由 internal `ControlReducer` 归约之上直接替换控制 profile。
+- trace/replay 在外部覆盖被接受时立即写入独立 `decision_input` 事件（序列化 profile 值），
+  并在周期输出的内部 `ArReplayRecord` 中固化 observation、pending/applied internal proposals、来源
+  cycle/batch、reducer 计数和最终 profile；外部覆盖的 profile 值可被确定性值重放。
 
 当前模块的稳定外部使用方式是：
 
@@ -29,7 +29,7 @@ AR 的决策扩展点是同进程步间 observation/response seam：
 2. 用 `ArCycleInput` 提供绝对周期时间、单一世界坐标平台状态、目标、自然环境和独立 interference frame。
 3. 调用 `ArSession::Step()` 获取本周期 track output，或调用 `ArSession::StepWithResult()` 获取结构化执行结果；
    拒绝周期不复用上一帧。
-4. 如需自定义 LPI/ECCM，读取结果中的 observation，外部评估后调用 `SubmitExternalDecision()`。
+4. 如需自定义 LPI/ECCM，读取结果中的 observation 得到当前活跃 profile，外部修改后调用 `SubmitExternalDecision()` 提交整包覆盖值。
 5. 如需调整运行期参数，使用 runtime patch；patch 提交失败时必须保持各子系统状态一致。
 
 `Ar*` 是 AR 模块的 public API 前缀（config/session/cycle/result/adapter/trace/replay/debug/lifecycle 等 DTO 与门面）。`RadarEquations`、`radar_cross_section`、`radar_mount_angles_deg`、`ComposeRadarAttitudeDeg` 等领域术语与领域函数不属于模块前缀范围，保留原名。
@@ -46,8 +46,8 @@ AR 的决策扩展点是同进程步间 observation/response seam：
 | `config/` | `ArSessionConfig`、runtime patch、semantic builder、validation | 表达硬件、任务、策略和自然环境能力 |
 | `session/` | `ArSession`、cycle input/result、scene target、output types、trace/replay、debug/lifecycle、decision DTO | observation/response 是唯一 public 决策 seam |
 
-Public 决策 DTO 只包含 `TacticalProposal`、`DecisionObservation`、
-`ExternalDecisionResponse`、`ExternalDecisionSubmitStatus` 和 `DecisionControlSource`。
+Public 决策 DTO 只包含 `DecisionObservation`、
+`ExternalDecisionOverride`、`ExternalDecisionSubmitStatus` 和 `DecisionControlSource`。
 默认算法使用的 `TargetCategory`、`TacticalMode`、`TacticalStateStore` 和
 `TacticalDecisionResult` 位于 `src/airborne_radar/decision/`，不属于安装边界。
 
@@ -75,7 +75,7 @@ flowchart TB
     Entry["airborne_radar.hpp\n稳定聚合入口"]
     Config["config/*\nHardware / Mission / Policy / Environment\nRuntimePatch / Builder / Validation"]
     SessionApi["session/*\nArSession / ArCycleInput / ArCycleResult\nTrackOutputFrame / SceneTarget"]
-    DecisionSeam["DecisionObservation / ExternalDecisionResponse\n步间外部决策 seam"]
+    DecisionSeam["DecisionObservation / ExternalDecisionOverride\n步间外部决策 seam"]
     Tools["Trace / Replay / Debug / Lifecycle\n追踪 / 回放 / 调试 / 生命周期"]
   end
 
@@ -205,7 +205,7 @@ sequenceDiagram
       Session->>Session: assemble ArCycleResult from controller/context/pipeline\n组装周期结果
       Session-->>Caller: ArCycleResult + DecisionObservation\n输出结果和决策观测
       Caller->>Caller: external Evaluate(observation)\n同进程外部评估
-      Caller->>Session: SubmitExternalDecision(response)\n在下一次 Step 前提交
+      Caller->>Session: SubmitExternalDecision(override)\n在下一次 Step 前提交
     end
   end
 ```
@@ -223,7 +223,7 @@ flowchart LR
     Patch["ArRuntimeConfigPatch\n运行期工程参数 / 自然环境"]
     Rf["RfEmissionFrame\n外部 RF 干扰"]
     Observation["DecisionObservation\n本周期输入帧 + 实际 profile"]
-    Response["ExternalDecisionResponse\n下一周期完整 LPI/ECCM proposals"]
+    Response["ExternalDecisionOverride\n下一周期完整 profile 覆盖值"]
   end
 
   subgraph Environment["Environment / 自然环境"]
@@ -757,12 +757,12 @@ ECCM 只消费接收机 interference observation；烧穿评分达到阈值后�
 - hold/cooldown 仅约束原生路径。
 
 **阶段二：外部覆盖。** 外部模块通过 `ArSession::SubmitExternalDecision(ExternalDecisionOverride)`
-提交一个回调函数，该回调接收原生归约产生的 `ArControlProfile`，返回修改后的 profile。外部覆盖
-**完全绕过 hold/cooldown 和冲突解决**，拥有对 profile 字段的完全控制权。
+提交一个完整的 `ArControlProfile` 值（整包替换）。外部覆盖**完全绕过 hold/cooldown 和冲突解决**，
+拥有对 profile 字段的完全控制权。
 
-- 外部覆盖回调在原生归约之后执行，直接操作 `ArControlProfile` 字段。
-- 回调返回的 profile 经字段范围校验（功率/驻留/烧穿比例、hop phase 合法性、无 NaN/Inf）。
-- 校验失败时静默回退到原生 profile。
+- 外部覆盖在原生归约之后应用，直接替换 `ArControlProfile` 字段。
+- 提交的 profile 经字段范围校验（功率/驻留/烧穿比例、hop phase 合法性、无 NaN/Inf）；
+  校验不通过立即返回 `kInvalidProfile`，不进入 pending 状态、不写入 trace。
 - 外部覆盖无 cycle/batch 时序耦合——外部模块通过消息总线通信，固有延迟使得时序匹配不切实际；
   外部模块随时提交覆盖，雷达在下一个 `StepWithResult` 准备阶段应用。
 - 外部覆盖修改 profile 后，通过 `DiffProfiles` 对差异字段生成 `ArCommand`。
@@ -799,17 +799,17 @@ controller 在单周期开始时把 control profile 传给 signal pipeline，因
 - controller 提供执行状态、失败原因、校验问题、决策来源 provenance 和 control profile 等运行期来源；
   `ArSession` 再结合 context/pipeline 状态组装 public `ArCycleResult`。完整 proposal、待消费响应和 reducer
   计数由内部 replay access 捕获，不通过 public getter 暴露。
-- trace 的因果顺序是 `cycle_output(N) → decision_input(response) → cycle_input(N+1) → cycle_output(N+1)`。
-  `ArTraceSession::SubmitExternalDecision` 只有在底层返回 `kAccepted` 后才立即写事件，因此即使 trace 在提交后
-  立刻结束，响应也不会丢失。回放在原事件位置提交响应，禁止从后续输出反推前因。
-- `cycle_output` 使用内部 `ArReplayCycleRecord`，由 public result 和 `ArDecisionReplayState` 组成；内部决策按
-  live 路径重新计算，并逐字段比较 pending internal baseline、实际采用 proposal、pending external response、
-  来源 cycle/batch、reducer 计数、observation 和最终 profile。不支持旧 `ArCycleResult` replay 输出格式。
-[evidence: tests/replay/airborne_radar/ar_trace_session_adapter_test.cpp::TraceSessionAdapterTest.RadarReplayRestoresExternalDecisionAcrossRejectedCycleForNextSuccessfulCycle]
-[evidence: tests/replay/airborne_radar/ar_trace_session_adapter_test.cpp::TraceSessionAdapterTest.RadarReplayComparesInternalNextCycleDecision]
-[evidence: tests/replay/airborne_radar/ar_trace_session_adapter_test.cpp::TraceSessionAdapterTest.RadarReplayDetectsDecisionObservationDivergence]
-[evidence: tests/replay/airborne_radar/ar_trace_session_adapter_test.cpp::TraceSessionAdapterTest.RadarReplayRetainsExternalDecisionAcrossPoweredOffAbort]
-[evidence: tests/replay/airborne_radar/ar_trace_session_adapter_test.cpp::TraceSessionAdapterTest.RadarReplayPersistsAcceptedDecisionWhenTraceEndsImmediately]
+	- trace 的因果顺序是 `cycle_output(N) → decision_input(override profile) → cycle_input(N+1) → cycle_output(N+1)`。
+	  `ArTraceSession::SubmitExternalDecision` 只有在底层返回 `kAccepted` 后才立即写事件（序列化 profile 值
+	  为 `ArControlProfilePayload`），因此即使 trace 在提交后立刻结束，覆盖也不会丢失。回放时
+	  `OnDecisionInput` 解码 profile 值并经 `SubmitExternalDecision` 注入会话，使下一周期复现相同控制输出，
+	  禁止从后续输出反推前因。
+	- `cycle_output` 使用内部 `ArReplayCycleRecord`，由 public result 和 `ArDecisionReplayState` 组成；内部决策按
+	  live 路径重新计算，并逐字段比较 pending internal baseline、实际采用 proposal、
+	  来源 cycle/batch、reducer 计数、observation 和最终 profile。不支持旧 `ArCycleResult` replay 输出格式。
+	[evidence: tests/replay/airborne_radar/ar_rf_trace_session_test.cpp::ArRfTraceSessionTest.ExternalOverrideReplaysExactly]
+	[evidence: tests/replay/airborne_radar/ar_replay_codec_roundtrip_test.cpp::ArReplayCodecRoundtripTest.ArControlProfilePayloadRoundtripPreservesAllFields]
+	[evidence: tests/replay/airborne_radar/ar_rf_trace_session_test.cpp::ArRfTraceSessionTest.SingleCycleInputAndOutputReplayExactly]
 
 输出边界要求：
 

@@ -29,6 +29,22 @@ std::string EncodeCycleReplayRecordFlatbuffer(const ArCycleReplayRecord& record)
 bool DecodeCycleReplayRecordFlatbuffer(const std::string& payload_bytes,
                                        ArCycleReplayRecord* record, std::string* error);
 
+/**
+ * @brief 将外部 profile 覆盖值编码为 FlatBuffers 字节串（用作 decision_input 事件载荷）。
+ * @param[in] profile 待编码的外部覆盖 profile（整包替换值）。
+ * @return 序列化后的二进制 payload（std::string）。
+ */
+std::string EncodeArControlProfileFlatbuffer(const session::ArControlProfile& profile);
+/**
+ * @brief 从 FlatBuffers 字节串解码外部 profile 覆盖值。
+ * @param[in] payload_bytes 序列化后的二进制 payload。
+ * @param[out] profile 解码成功的外部覆盖 profile 输出指针（非空）。
+ * @param[out] error 解析失败时回填的错误描述。
+ * @return 解析成功返回 true；失败返回 false 并填充 error。
+ */
+bool DecodeArControlProfileFlatbuffer(const std::string& payload_bytes,
+                                      session::ArControlProfile* profile, std::string* error);
+
 /** @brief 编解码带接受状态的运行期补丁尝试。 */
 std::string EncodeRuntimeConfigAttemptFlatbuffer(const config::ArRuntimeConfigPatch& patch,
                                                  bool accepted);

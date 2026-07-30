@@ -111,11 +111,9 @@ TEST(ArRfSessionTest, ExternalAgilityDecisionChangesNextActualCarrier) {
   ASSERT_EQ(first.status, ArCycleStatus::kCompleted);
 
   ExternalDecisionOverride override_decision;
-  override_decision.apply = [](const ArControlProfile& current) {
-    ArControlProfile m = current;
-    m.enable_agility_frequency = true;
-    return m;
-  };
+  ArControlProfile profile;
+  profile.enable_agility_frequency = true;
+  override_decision.profile = profile;
   ASSERT_EQ(radar.SubmitExternalDecision(std::move(override_decision)),
             ExternalDecisionSubmitStatus::kAccepted);
 
@@ -135,11 +133,9 @@ TEST(ArRfSessionTest, ReceiveRejectionCommitsEmissionIdentityChronologyAndApplie
   ASSERT_EQ(first.status, ArCycleStatus::kCompleted);
 
   ExternalDecisionOverride override_decision;
-  override_decision.apply = [](const ArControlProfile& current) {
-    ArControlProfile m = current;
-    m.enable_agility_frequency = true;
-    return m;
-  };
+  ArControlProfile profile;
+  profile.enable_agility_frequency = true;
+  override_decision.profile = profile;
   ASSERT_EQ(radar.SubmitExternalDecision(std::move(override_decision)),
             ExternalDecisionSubmitStatus::kAccepted);
 
@@ -167,12 +163,10 @@ TEST(ArRfSessionTest, EccmSidelobeControlsKeepNextReceiverPatternValid) {
   ASSERT_EQ(first.status, ArCycleStatus::kCompleted);
 
   ExternalDecisionOverride override_decision;
-  override_decision.apply = [](const ArControlProfile& current) {
-    ArControlProfile m = current;
-    m.enable_sidelobe_canceller = true;
-    m.enable_adaptive_beamforming = true;
-    return m;
-  };
+  ArControlProfile profile;
+  profile.enable_sidelobe_canceller = true;
+  profile.enable_adaptive_beamforming = true;
+  override_decision.profile = profile;
   ASSERT_EQ(radar.SubmitExternalDecision(std::move(override_decision)),
             ExternalDecisionSubmitStatus::kAccepted);
 
@@ -199,11 +193,9 @@ TEST(ArRfSessionTest, SidelobeCancellerLeavesPublishedEmissionSidelobeUnchanged)
       first.emission_frame.emissions.front().antenna.sidelobe_level_db;
 
   ExternalDecisionOverride override_decision;
-  override_decision.apply = [](const ArControlProfile& current) {
-    ArControlProfile m = current;
-    m.enable_sidelobe_canceller = true;
-    return m;
-  };
+  ArControlProfile profile;
+  profile.enable_sidelobe_canceller = true;
+  override_decision.profile = profile;
   ASSERT_EQ(radar.SubmitExternalDecision(std::move(override_decision)),
             ExternalDecisionSubmitStatus::kAccepted);
 
