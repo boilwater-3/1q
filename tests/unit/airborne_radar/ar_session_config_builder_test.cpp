@@ -384,8 +384,7 @@ TEST(RadarSessionConfigValidationTest, ValidatesReceiverRfHardwareBoundary) {
   EXPECT_EQ(issues.back().code, config::ConfigValidationCode::kReceiverRfHardwareInvalid);
   session_config.hardware.receiver.co_site_paths.clear();
 
-  session_config.hardware.receiver.polarization =
-      static_cast<oneq::electromagnetics::RfPolarization>(255);
+  session_config.hardware.receiver.cross_polarization_isolation_db = -1.0f;
   issues = config::ValidateArSessionConfig(session_config);
   ASSERT_FALSE(issues.empty());
   EXPECT_EQ(issues.back().code, config::ConfigValidationCode::kReceiverRfHardwareInvalid);

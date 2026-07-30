@@ -287,7 +287,8 @@ bool RunPhysicalDetectionPass(const session::ArSceneTargetList& input,
 
     (*buffers->signal_term_db)[i] = detection_result.snr_db;
     (*buffers->speed_penalty_db)[i] = 0.0f;
-    (*buffers->detection_margin_db)[i] = detection_result.snr_db;
+    (*buffers->detection_margin_db)[i] =
+        detection_result.snr_db - config.detection.engineering.min_detection_margin_db;
     (*buffers->detection_succeeded)[i] =
         static_cast<std::uint8_t>(detection_result.detected ? 1U : 0U);
     (*buffers->measurement_covariances)[i] = BuildMeasurementCovariance(

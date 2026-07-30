@@ -258,14 +258,7 @@ ValidationIssueList ValidateArSessionConfig(const config::ArSessionConfig& confi
     push(ConfigValidationCode::kEquipmentIdentityInvalid, "hardware.*.equipment_id",
          "Transmitter and receiver equipment identifiers must be non-zero and distinct.");
   }
-  const bool known_receiver_polarization =
-      receiver.polarization == oneq::electromagnetics::RfPolarization::kHorizontal ||
-      receiver.polarization == oneq::electromagnetics::RfPolarization::kVertical ||
-      receiver.polarization == oneq::electromagnetics::RfPolarization::kRightHandCircular ||
-      receiver.polarization == oneq::electromagnetics::RfPolarization::kLeftHandCircular ||
-      receiver.polarization == oneq::electromagnetics::RfPolarization::kUnpolarized;
-  if (!known_receiver_polarization ||
-      !oneq::common::validation::IsFinite(receiver.cross_polarization_isolation_db) ||
+  if (!oneq::common::validation::IsFinite(receiver.cross_polarization_isolation_db) ||
       receiver.cross_polarization_isolation_db < 0.0f ||
       !oneq::common::validation::IsFinite(receiver.minimum_far_field_range_m) ||
       receiver.minimum_far_field_range_m <= 0.0f ||
@@ -278,8 +271,7 @@ ValidationIssueList ValidateArSessionConfig(const config::ArSessionConfig& confi
       receiver.preselector_bandwidth_hz <= 0.0f ||
       !oneq::common::validation::IsFinite(receiver.interference_observation_jn_gate_db)) {
     push(ConfigValidationCode::kReceiverRfHardwareInvalid, "hardware.receiver",
-         "Receiver RF polarization, isolation, far-field range and linear input limit must be "
-         "valid.");
+         "Receiver RF isolation, far-field range and linear input limit must be valid.");
   }
   for (const auto& path : receiver.co_site_paths) {
     if (path.transmitter_equipment_id == 0U ||

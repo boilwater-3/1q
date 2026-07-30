@@ -146,8 +146,6 @@ struct ONEQ_API ReceiverConfig {
   std::uint64_t equipment_id{2U}; /**< RF scene 中的接收设备身份；同平台内必须唯一。 */
   float noise_figure_db{4.0f};    /**< 接收机噪声系数。 */
   float receive_loss_db{2.0f};    /**< 接收链路损耗。 */
-  oneq::electromagnetics::RfPolarization polarization{
-      oneq::electromagnetics::RfPolarization::kHorizontal}; /**< 接收极化。 */
   float cross_polarization_isolation_db{30.0f};             /**< 正交极化隔离（dB）。 */
   float minimum_far_field_range_m{1.0f};                    /**< 远场公式最小适用距离（m）。 */
   bool has_co_site_isolation{false};                        /**< 是否配置同平台耦合隔离。 */

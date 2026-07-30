@@ -79,7 +79,6 @@ table ReceiverConfig {
   equipment_id:ulong;
   noise_figure_db:float;
   receive_loss_db:float;
-  polarization:int;
   cross_polarization_isolation_db:float;
   minimum_far_field_range_m:float;
   has_co_site_isolation:bool;

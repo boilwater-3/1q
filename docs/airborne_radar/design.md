@@ -579,6 +579,12 @@ AR 不再提供 heuristic detection toggle 或启发式 pass。冻结目标不�
    统一计算 processed `SINR = echo / (thermal + clutter + interference)`，再由 policy 中的 Pfa、
    Swerling/积累模型和最小 margin 得到 Pd；Monte Carlo 只采样检测事件。检测成功后才由 processed SINR、
    波束宽度、带宽和有效脉冲数生成 range/angle 量测误差及协方差。
+6. **可靠性裕量门限。** Monte Carlo 判决之后，若 `snr_db < min_detection_margin_db` 则强制
+   `detected = false`。即使随机采样判为检测成功，SNR 低于该门限的检测也不可靠，此门限作为
+   后验安全网独立于 Pd/Monte Carlo 路径。`detection_margin_db` 输出缓冲区记录
+   `snr_db - min_detection_margin_db`（正 = 裕量充足，负 = 裕量不足），语义为相对裕量而非原始 SNR。
+   [evidence: tests/unit/airborne_radar/ar_signal_pipeline_test.cpp]
+   [evidence: tests/unit/airborne_radar/ar_detection_cell_resolver_test.cpp]
 6. **航迹影响。** 压制干扰只能通过量测存在性和量测协方差间接影响 association、Kalman、IMM 和
    lifecycle；任何按干扰类别、ECCM profile 或预计算受扰布尔值直接缩放门限、过程噪声、失配容忍
    或生命周期计数的路径都不属于目标架构。

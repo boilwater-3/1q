@@ -65,6 +65,12 @@ DetectionResult SignalDetector::Detect(const TargetReturn& target, const Environ
     result.detected = RadarEquations::ThresholdDecision(result.detection_prob, rng_);
   }
 
+  // ⑦ 可靠性裕量门限：即使蒙特卡洛判为检测成功，
+  //    SNR 低于 min_detection_margin_db 的检测也不可靠。
+  if (result.detected && result.snr_db < config_.min_detection_margin_db) {
+    result.detected = false;
+  }
+
   return result;
 }
 
@@ -88,6 +94,11 @@ DetectionResult SignalDetector::DetectResolvedCell(const TargetReturn& target,
     return result;
   }
   result.detected = RadarEquations::ThresholdDecision(result.detection_prob, rng_);
+  // 可靠性裕量门限：即使蒙特卡洛判为检测成功，
+  // SNR 低于 min_detection_margin_db 的检测也不可靠。
+  if (result.detected && result.snr_db < config_.min_detection_margin_db) {
+    result.detected = false;
+  }
   return result;
 }
 

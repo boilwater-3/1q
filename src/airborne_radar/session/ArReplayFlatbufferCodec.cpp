@@ -574,7 +574,6 @@ flatbuffers::Offset<session_fb::DetectionConfig> EncodeSessionDetectionConfig(
   receiver_builder.add_equipment_id(value.receiver.equipment_id);
   receiver_builder.add_noise_figure_db(value.receiver.noise_figure_db);
   receiver_builder.add_receive_loss_db(value.receiver.receive_loss_db);
-  receiver_builder.add_polarization(static_cast<int>(value.receiver.polarization));
   receiver_builder.add_cross_polarization_isolation_db(
       value.receiver.cross_polarization_isolation_db);
   receiver_builder.add_minimum_far_field_range_m(value.receiver.minimum_far_field_range_m);
@@ -772,8 +771,6 @@ config::DetectionConfig DecodeSessionDetectionConfig(const session_fb::Detection
       result.receiver.equipment_id = receiver->equipment_id();
       result.receiver.noise_figure_db = receiver->noise_figure_db();
       result.receiver.receive_loss_db = receiver->receive_loss_db();
-      result.receiver.polarization =
-          static_cast<oneq::electromagnetics::RfPolarization>(receiver->polarization());
       result.receiver.cross_polarization_isolation_db = receiver->cross_polarization_isolation_db();
       result.receiver.minimum_far_field_range_m = receiver->minimum_far_field_range_m();
       result.receiver.has_co_site_isolation = receiver->has_co_site_isolation();

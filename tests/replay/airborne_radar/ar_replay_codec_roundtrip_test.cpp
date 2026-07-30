@@ -32,7 +32,6 @@ TEST(ArReplayCodecRoundtripTest, SessionConfigPreservesAllDomains) {
   config.hardware.transmitter.maximum_pulse_energy_j = 18.0f;
   config.hardware.transmitter.frequency_plan_hz = {8.0e9, 8.2e9, 8.4e9};
   config.hardware.receiver.equipment_id = 42U;
-  config.hardware.receiver.polarization = oneq::electromagnetics::RfPolarization::kVertical;
   config.hardware.receiver.cross_polarization_isolation_db = 27.0f;
   config.hardware.receiver.minimum_far_field_range_m = 3.0f;
   config.hardware.receiver.has_co_site_isolation = true;
@@ -86,8 +85,6 @@ TEST(ArReplayCodecRoundtripTest, SessionConfigPreservesAllDomains) {
   EXPECT_EQ(decoded.hardware.transmitter.frequency_plan_hz,
             config.hardware.transmitter.frequency_plan_hz);
   EXPECT_EQ(decoded.hardware.receiver.equipment_id, 42U);
-  EXPECT_EQ(decoded.hardware.receiver.polarization,
-            oneq::electromagnetics::RfPolarization::kVertical);
   EXPECT_FLOAT_EQ(decoded.hardware.receiver.maximum_linear_input_power_w, 2.0e-4f);
   EXPECT_FLOAT_EQ(decoded.hardware.receiver.preselector_bandwidth_hz, 32.0e6f);
   EXPECT_EQ(decoded.hardware.receiver.scene_polarization,

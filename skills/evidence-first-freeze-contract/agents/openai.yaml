@@ -1,4 +1,0 @@
-interface:
-  display_name: "Evidence-First Freeze Contract"
-  short_description: "Evidence matrix before high-risk implementation"
-  default_prompt: "Use $evidence-first-freeze-contract to decide whether a high-risk algorithm freeze item should proceed to implementation."
