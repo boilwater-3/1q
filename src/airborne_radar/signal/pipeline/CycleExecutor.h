@@ -16,7 +16,7 @@
 #include "airborne_radar/signal/association/DataAssociation.h"
 #include "airborne_radar/signal/detection/SignalDetector.h"
 #include "airborne_radar/signal/detection/TargetGeometryResolver.h"
-#include "airborne_radar/signal/pipeline/SignalCycleAnnotations.h"
+#include "airborne_radar/signal/pipeline/SignalCycleInput.h"
 #include "airborne_radar/signal/pipeline/SignalPipelineExecutionConfig.h"
 #include "airborne_radar/signal/pipeline/SignalPipelineRuntimeTypes.h"
 #include "airborne_radar/signal/tracking/ITrackLifecycleManager.h"
@@ -96,30 +96,22 @@ struct CycleExecutionRuntime {
  */
 struct CycleExecutionContext {
   CycleExecutionContext(
-      const session::ArSceneTargetList& input_state,
+      SignalCycleInput cycle_input,
       const session::EnvironmentSnapshot& environment_snapshot, std::uint32_t cycle_index,
-      std::uint64_t batch_id, ExecutionConfig runtime_config, float platform_altitude_m,
-      const RfV2DetectionContext* rf_v2_detection_context = nullptr,
-      const SignalCycleAnnotations* annotations = nullptr)
-      : input_state(input_state),
+      std::uint64_t batch_id, ExecutionConfig runtime_config, float platform_altitude_m)
+      : cycle_input(std::move(cycle_input)),
         environment_snapshot(environment_snapshot),
         cycle_index(cycle_index),
         batch_id(batch_id),
         platform_altitude_m(platform_altitude_m),
-        runtime_config(std::move(runtime_config)),
-        rf_v2_detection_context(rf_v2_detection_context),
-        annotations(annotations) {}
+        runtime_config(std::move(runtime_config)) {}
 
-  const session::ArSceneTargetList& input_state;
+  SignalCycleInput cycle_input;
   const session::EnvironmentSnapshot& environment_snapshot;
   std::uint32_t cycle_index{0U};
   std::uint64_t batch_id{0U};
   float platform_altitude_m{0.0f};
   ExecutionConfig runtime_config{};
-  // 以下裸指针表达"可选的非拥有引用"：nullptr 表示该周期无此输入，非空时指向调用方
-  // 拥有的、生命周期覆盖整个 ExecuteCycle 的对象。ExecuteCycle 内只读访问，不释放。
-  const RfV2DetectionContext* rf_v2_detection_context{nullptr};
-  const SignalCycleAnnotations* annotations{nullptr};
 };
 
 /**

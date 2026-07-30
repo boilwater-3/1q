@@ -76,55 +76,6 @@ bool IsValidExternalProposal(const session::TacticalProposal& proposal) {
   return requires_value ? HasValidRequestedValue(directive) : !directive.has_requested_value;
 }
 
-bool IsValidInterferenceObservationList(
-    const session::ArInterferenceObservationList& observations) {
-  for (std::size_t index = 0U; index < observations.size(); ++index) {
-    const session::ArInterferenceObservation& observation = observations[index];
-    const bool known_waveform =
-        observation.estimated_waveform_kind ==
-            oneq::electromagnetics::RfSceneWaveformKind::kContinuous ||
-        observation.estimated_waveform_kind ==
-            oneq::electromagnetics::RfSceneWaveformKind::kPulseTrain ||
-        observation.estimated_waveform_kind ==
-            oneq::electromagnetics::RfSceneWaveformKind::kLinearSweep ||
-        observation.estimated_waveform_kind ==
-            oneq::electromagnetics::RfSceneWaveformKind::kBandLimitedNoise;
-    const bool valid_deception =
-        (observation.deception_class == session::DeceptionClass::kNone &&
-         observation.coherent_emission_count <= 1U) ||
-        (observation.deception_class == session::DeceptionClass::kLikelyFalseTarget &&
-         observation.coherent_emission_count >= 2U);
-    if (observation.observation_id != static_cast<std::uint64_t>(index + 1U) ||
-        !known_waveform || !valid_deception ||
-        !std::isfinite(observation.estimated_bearing_azimuth_deg) ||
-        !std::isfinite(observation.estimated_bearing_elevation_deg) ||
-        !std::isfinite(observation.estimated_off_boresight_deg) ||
-        observation.estimated_off_boresight_deg < 0.0 ||
-        !std::isfinite(observation.estimated_center_frequency_hz) ||
-        observation.estimated_center_frequency_hz <= 0.0 ||
-        !std::isfinite(observation.estimated_bandwidth_hz) ||
-        observation.estimated_bandwidth_hz <= 0.0 ||
-        !std::isfinite(observation.jammer_to_noise_db) ||
-        !std::isfinite(observation.bearing_standard_deviation_deg) ||
-        observation.bearing_standard_deviation_deg < 0.0 ||
-        !std::isfinite(observation.frequency_standard_deviation_hz) ||
-        observation.frequency_standard_deviation_hz < 0.0 ||
-        !std::isfinite(observation.bandwidth_standard_deviation_hz) ||
-        observation.bandwidth_standard_deviation_hz < 0.0 ||
-        !std::isfinite(observation.estimated_slant_range_m) ||
-        observation.estimated_slant_range_m <= 0.0 ||
-        !std::isfinite(observation.estimated_range_rate_mps) ||
-        !std::isfinite(observation.estimated_carrier_offset_hz) ||
-        !std::isfinite(observation.estimated_first_pulse_delay_s) ||
-        (observation.has_local_bearings &&
-         (!std::isfinite(observation.estimated_bearing_azimuth_local_deg) ||
-          !std::isfinite(observation.estimated_bearing_elevation_local_deg)))) {
-      return false;
-    }
-  }
-  return true;
-}
-
 extension::ControlReducerConfig MapDecisionControlConfig(
     const config::DecisionControlConfig& config) {
   extension::ControlReducerConfig mapped;
@@ -187,8 +138,6 @@ struct ArController::Impl {
   std::uint64_t last_applied_decision_batch_id{0U};
   std::vector<session::TacticalProposal> last_applied_decision_proposals{};
   bool control_prepared_for_cycle{false};
-  session::ArInterferenceObservationList prepared_interference_observations{};
-  signal::detection::ArDeceptionMeasurementCandidateList prepared_deception_candidates{};
 
   /** @brief 构造使用默认 TacticalCoordinator 的控制器。 */
   Impl(session::MutableArContext& ctx, signal::ISignalPipeline& sig,
@@ -254,7 +203,7 @@ void ArController::UpdateDecisionControlConfig(
       MapDecisionControlConfig(decision_control_config));
 }
 
-void ArController::RunOnce() {
+void ArController::RunOnce(const signal::pipeline::SignalCycleInput& cycle_input) {
   const bool control_was_prepared = impl_->control_prepared_for_cycle;
   impl_->ResetPerCycleFlags(control_was_prepared);
 
@@ -289,8 +238,6 @@ void ArController::RunOnce() {
   impl_->environment_service.BeginCycle(environment_cycle_context);
 
   // 执行信号流水线与决策引擎
-  const session::ArSceneTargetList& targets = scene_targets;
-
   if (!control_was_prepared) {
     impl_->ApplyPendingDecisionControl();
   }
@@ -298,13 +245,10 @@ void ArController::RunOnce() {
   impl_->signal_pipeline.SetControlProfile(impl_->control_profile);
   impl_->signal_pipeline.UpdatePlatformAttitude(platform_attitude);
   impl_->signal_pipeline.UpdatePlatformAltitudeM(platform_altitude_m);
-  // 构造本周期接收端 annotation，连同信号周期一起传入 pipeline。
-  signal::pipeline::SignalCycleAnnotations annotations;
-  annotations.interference_observations = impl_->prepared_interference_observations;
-  annotations.deception_measurement_candidates = impl_->prepared_deception_candidates;
+  // 周期输入已通过 SignalCycleInput 显式传入，不再依赖 mutable 旁路状态。
 
   session::SignalCycleResult signal_result =
-      impl_->signal_pipeline.RunCycle(targets, impl_->environment_service, &annotations);
+      impl_->signal_pipeline.RunCycle(cycle_input, impl_->environment_service);
   impl_->control_prepared_for_cycle = false;
 
   impl_->last_cycle_executed = signal_result.executed_this_cycle;
@@ -318,8 +262,7 @@ void ArController::RunOnce() {
   session::DecisionInputFrame decision_frame = signal_result.decision_frame;
   decision_frame.cycle_index = stamp.cycle_index;
   decision_frame.batch_id = stamp.batch_id;
-  decision_frame.interference_observations = impl_->prepared_interference_observations;
-  impl_->prepared_interference_observations.clear();
+  decision_frame.interference_observations = cycle_input.interference_observations;
 
   session::TrackOutputFrame track_output_frame;
   track_output_frame.cycle_index = stamp.cycle_index;
@@ -375,21 +318,8 @@ bool ArController::PrepareEmissionControl() {
   return true;
 }
 
-bool ArController::SetPreparedInterferenceObservations(
-    const session::ArInterferenceObservationList& observations,
-    const signal::detection::ArDeceptionMeasurementCandidateList& deception_candidates) {
-  if (!impl_->control_prepared_for_cycle || !IsValidInterferenceObservationList(observations)) {
-    return false;
-  }
-  impl_->prepared_interference_observations = observations;
-  impl_->prepared_deception_candidates = deception_candidates;
-  return true;
-}
-
 void ArController::ReleasePreparedEmissionControl() {
   impl_->control_prepared_for_cycle = false;
-  impl_->prepared_interference_observations.clear();
-  impl_->prepared_deception_candidates.clear();
 }
 
 const session::ArControlProfile& ArController::GetControlProfile() const {
@@ -398,7 +328,7 @@ const session::ArControlProfile& ArController::GetControlProfile() const {
 
 void ArController::RunCycles(std::size_t cycles) {
   for (std::size_t i = 0; i < cycles; ++i) {
-    RunOnce();
+    RunOnce(signal::pipeline::SignalCycleInput{impl_->radar_context.GetSceneTargets()});
   }
 }
 
@@ -513,14 +443,11 @@ extension::ArControllerRuntimeState ArController::CaptureRuntimeState() const {
   state.last_applied_decision_batch_id = impl_->last_applied_decision_batch_id;
   state.last_applied_decision_proposals = impl_->last_applied_decision_proposals;
   state.control_prepared_for_cycle = impl_->control_prepared_for_cycle;
-  state.prepared_interference_observations = impl_->prepared_interference_observations;
-  state.prepared_deception_candidates = impl_->prepared_deception_candidates;
   return state;
 }
 
 bool ArController::RestoreRuntimeState(const extension::ArControllerRuntimeState& state) {
-  if (state.owner_identity != this || state.schema_version != 3U ||
-      !IsValidInterferenceObservationList(state.prepared_interference_observations)) {
+  if (state.owner_identity != this || state.schema_version != 3U) {
     PROJECT_LOG_ERROR(
         "[ArController] controller runtime state restore rejected: "
         "owner/schema mismatch.");
@@ -550,8 +477,6 @@ bool ArController::RestoreRuntimeState(const extension::ArControllerRuntimeState
   impl_->last_applied_decision_batch_id = state.last_applied_decision_batch_id;
   impl_->last_applied_decision_proposals = state.last_applied_decision_proposals;
   impl_->control_prepared_for_cycle = state.control_prepared_for_cycle;
-  impl_->prepared_interference_observations = state.prepared_interference_observations;
-  impl_->prepared_deception_candidates = state.prepared_deception_candidates;
   return true;
 }
 

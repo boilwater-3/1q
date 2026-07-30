@@ -663,7 +663,7 @@ association public 配置不再暴露 `unassigned_cost`、启用 hint 或第二�
   observation 设置的 `deception_class=kLikelyFalseTarget`；`DeceptionMeasurementGenerator`
   为每条 `ArDeceptionMeasurementCandidate` 合成一条独立量测（`source_index` 取 sentinel，真实
   target 量测不经此路径）并自带 `classified_as_false_target=true`，经 controller 在 `RunCycle`
-  前填入 `SignalCycleAnnotations` 后注入 pipeline。
+  前通过 `SignalCycleInput` 显式传入 pipeline。
   [evidence: tests/unit/airborne_radar/ar_deception_eccm_test.cpp AntiFalseTargetSuppressesTentativePromotion、
   AntiFalseTargetDisabledPromotesNormally]
 - AR 在 ECCM 层主动反制欺骗发射：kPulseTrain 观测经 `EccmEvaluator` 触发前沿跟踪（优先级 89）、

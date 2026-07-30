@@ -21,12 +21,11 @@ void InjectDeceptionMeasurementsPass(const CycleExecutionContext& context,
                                      CycleExecutionScratch& scratch) {
   // 读取已由关联引擎分配 key 的欺骗候选量测。
   // 候选的 position/velocity/covariance 由 resolver 在生成时根据物理波形参数计算。
-  if (context.annotations == nullptr ||
-      context.annotations->deception_measurement_candidates.empty() ||
+  if (context.cycle_input.deception_measurement_candidates.empty() ||
       scratch.deception_candidate_keys.empty()) {
     return;
   }
-  const auto& candidates = context.annotations->deception_measurement_candidates;
+  const auto& candidates = context.cycle_input.deception_measurement_candidates;
   const auto& keys = scratch.deception_candidate_keys;
 
   if (keys.size() != candidates.size()) {

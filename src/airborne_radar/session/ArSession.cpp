@@ -19,6 +19,7 @@
 #include "airborne_radar/signal/detection/ArRfFrontEndResolver.h"
 #include "airborne_radar/signal/detection/BeamControlResolver.h"
 #include "airborne_radar/signal/pipeline/ISignalPipeline.h"
+#include "airborne_radar/signal/pipeline/SignalCycleInput.h"
 #include "airborne_radar/signal/pipeline/SignalPipeline.h"
 #include "common/logging/ProjectLog.h"
 
@@ -293,12 +294,13 @@ struct ArSession::Impl {
 
   ArExecutionCycleResult RunExecutionCycle(
       std::uint32_t cycle_index, float dt_sec, float platform_altitude_m,
-      const oneq::foundation::PoseState& platform_pose, ArSceneTargetList scene_targets,
+      const oneq::foundation::PoseState& platform_pose,
+      signal::pipeline::SignalCycleInput cycle_input,
       const session::EnvironmentSceneState* environment_scene_state,
       bool commit_pending_runtime_config) {
     ArExecutionCycleResult result;
     ValidationIssueList issues = ValidateArCycleDeltaTime(dt_sec);
-    const ValidationIssueList target_issues = ValidateArSceneTargets(scene_targets);
+    const ValidationIssueList target_issues = ValidateArSceneTargets(cycle_input.scene_targets);
     issues.insert(issues.end(), target_issues.begin(), target_issues.end());
     if (HasValidationError(issues)) {
       result.abort_reason = session::SignalCycleAbortReason::kValidationRejected;
@@ -321,9 +323,9 @@ struct ArSession::Impl {
     if (environment_scene_state != nullptr) {
       EnvironmentService().UpdateSceneState(*environment_scene_state);
     }
-    RadarContext().BeginCycle(std::move(scene_targets), platform_pose, platform_altitude_m, dt_sec,
-                              cycle_index);
-    Controller().RunOnce();
+    RadarContext().BeginCycle(cycle_input.scene_targets, platform_pose,
+                              platform_altitude_m, dt_sec, cycle_index);
+    Controller().RunOnce(cycle_input);
 
     if (!Controller().ExecutedLatestCycle()) {
       result.abort_reason = Controller().GetLastSignalCycleAbortReason();
@@ -727,12 +729,6 @@ struct ArSession::Impl {
     rf_v2_detection_context.incident_links = front_end.incident_links;
     rf_v2_detection_context.enable_anti_rgpo_leading_edge =
         Controller().GetControlProfile().enable_anti_rgpo_leading_edge;
-    if (concrete_signal_pipeline_ == nullptr ||
-        !concrete_signal_pipeline_->SetNextRfV2DetectionContext(rf_v2_detection_context)) {
-      PROJECT_LOG_ERROR("[ArSession] CompleteRfCycle rejected the frozen RF detection context.");
-      result.status = ArCompleteCycleStatus::kRejected;
-      return result;
-    }
     std::vector<ArInterferenceObservation> interference_observations;
     signal::detection::ArDeceptionMeasurementCandidateList deception_candidates;
     if (!front_end.receiver_saturated) {
@@ -778,27 +774,28 @@ struct ArSession::Impl {
         return result;
       }
     }
-    if (!Controller().SetPreparedInterferenceObservations(interference_observations,
-                                                          deception_candidates)) {
-      PROJECT_LOG_ERROR("[ArSession] CompleteRfCycle rejected prepared interference observations.");
-      result.status = ArCompleteCycleStatus::kRejected;
-      return result;
-    }
-
     oneq::coordinate::LlaPositionDegM platform_lla;
     if (!oneq::coordinate::TryEcefToLla(prepared_input.platform_position_ecef_m, &platform_lla)) {
       PROJECT_LOG_ERROR("[ArSession] CompleteRfCycle could not resolve platform ECEF to LLA.");
       result.status = ArCompleteCycleStatus::kRejected;
       return result;
     }
+    // 保存干扰观测到结果（在 move 到 cycle_input 之前）。
+    result.interference_observations = interference_observations;
+    // 构造显式周期输入：所有接收端数据经 SignalCycleInput 一次性传入 pipeline，
+    // 不再通过 mutable setter 旁路写入。
+    ArSceneTargetList effective_targets =
+        front_end.receiver_saturated ? ArSceneTargetList{} : input.targets;
+    signal::pipeline::SignalCycleInput cycle_input{
+        std::move(effective_targets), &rf_v2_detection_context,
+        std::move(interference_observations), std::move(deception_candidates)};
     const session::EnvironmentSceneState environment_scene_state =
         BuildSceneStateFromCompleteInput(input);
     const ArExecutionCycleResult execution_result = RunExecutionCycle(
         static_cast<std::uint32_t>(prepared_input.world_cycle_index),
         static_cast<float>(prepared_input.window_duration_s),
         static_cast<float>(platform_lla.altitude_m), oneq::foundation::PoseState{},
-        front_end.receiver_saturated ? ArSceneTargetList{} : input.targets,
-        &environment_scene_state, false);
+        std::move(cycle_input), &environment_scene_state, false);
     if (!execution_result.executed) {
       PROJECT_LOG_ERROR("[ArSession] CompleteRfCycle signal execution failed with abort reason {}.",
                         static_cast<int>(execution_result.abort_reason));
@@ -807,7 +804,6 @@ struct ArSession::Impl {
     }
     result.status = ArCompleteCycleStatus::kCompleted;
     result.track_output_frame = execution_result.track_output_frame;
-    result.interference_observations = interference_observations;
     result.has_decision_observation = Controller().HasLatestDecisionObservation();
     if (result.has_decision_observation) {
       result.decision_observation = Controller().GetLatestDecisionObservation();

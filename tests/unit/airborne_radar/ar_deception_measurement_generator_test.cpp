@@ -20,7 +20,7 @@
 #include "airborne_radar/signal/pipeline/CycleContextSupport.h"
 #include "airborne_radar/signal/pipeline/CycleExecutor.h"
 #include "airborne_radar/signal/pipeline/DeceptionMeasurementGenerator.h"
-#include "airborne_radar/signal/pipeline/SignalCycleAnnotations.h"
+#include "airborne_radar/signal/pipeline/SignalCycleInput.h"
 
 namespace airborne_radar {
 namespace signal {
@@ -63,21 +63,21 @@ detection::ArDeceptionMeasurementCandidate MakeCandidate(std::uint64_t obs_id,
 // annotations 由调用方拥有，生命周期覆盖返回的 CycleExecutionContext。
 CycleExecutionContext MakeContext(const detection::ArDeceptionMeasurementCandidateList& candidates,
                                   const std::vector<std::uint64_t>& keys,
-                                  SignalCycleAnnotations& annotations) {
+                                  SignalCycleInput& cycle_input) {
   static const session::EnvironmentSnapshot kEmptyEnvironment;
   ExecutionConfig config;
   config.enable_anti_false_target_discrimination = true;
-  annotations.deception_measurement_candidates = candidates;
-  return CycleExecutionContext(session::ArSceneTargetList{}, kEmptyEnvironment,
+  cycle_input.deception_measurement_candidates = candidates;
+  return CycleExecutionContext(cycle_input, kEmptyEnvironment,
                                /*cycle_index=*/1U, /*batch_id=*/1U, config,
-                               /*platform_altitude_m=*/0.0f, /*rf_v2=*/nullptr, &annotations);
+                               /*platform_altitude_m=*/0.0f);
 }
 
 TEST(DeceptionMeasurementGeneratorTest, SynthesizesOneMeasurementPerCandidate) {
   detection::ArDeceptionMeasurementCandidateList candidates = {MakeCandidate(1U)};
   std::vector<std::uint64_t> keys = {1001U};
-  SignalCycleAnnotations annotations;
-  CycleExecutionContext context = MakeContext(candidates, keys, annotations);
+  SignalCycleInput cycle_input;
+  CycleExecutionContext context = MakeContext(candidates, keys, cycle_input);
 
   CycleExecutionScratch scratch;
   ResetCycleExecutionScratch(session::ArSceneTargetList{}, scratch);
@@ -99,8 +99,8 @@ TEST(DeceptionMeasurementGeneratorTest, SynthesizesOneMeasurementPerCandidate) {
 TEST(DeceptionMeasurementGeneratorTest, PositionPreservedFromCandidate) {
   detection::ArDeceptionMeasurementCandidateList candidates = {MakeCandidate(1U)};
   std::vector<std::uint64_t> keys = {1001U};
-  SignalCycleAnnotations annotations;
-  CycleExecutionContext context = MakeContext(candidates, keys, annotations);
+  SignalCycleInput cycle_input;
+  CycleExecutionContext context = MakeContext(candidates, keys, cycle_input);
 
   CycleExecutionScratch scratch;
   ResetCycleExecutionScratch(session::ArSceneTargetList{}, scratch);
@@ -117,8 +117,8 @@ TEST(DeceptionMeasurementGeneratorTest, PositionPreservedFromCandidate) {
 TEST(DeceptionMeasurementGeneratorTest, AssociationKeyFromEngine) {
   detection::ArDeceptionMeasurementCandidateList candidates = {MakeCandidate(1U), MakeCandidate(2U)};
   std::vector<std::uint64_t> keys = {1001U, 1002U};
-  SignalCycleAnnotations annotations;
-  CycleExecutionContext context = MakeContext(candidates, keys, annotations);
+  SignalCycleInput cycle_input;
+  CycleExecutionContext context = MakeContext(candidates, keys, cycle_input);
 
   CycleExecutionScratch scratch;
   ResetCycleExecutionScratch(session::ArSceneTargetList{}, scratch);
@@ -136,11 +136,10 @@ TEST(DeceptionMeasurementGeneratorTest, GeneratesFalseTargetMeasurementsRegardle
   detection::ArDeceptionMeasurementCandidateList candidates = {MakeCandidate(1U)};
   std::vector<std::uint64_t> keys = {1001U};
   ExecutionConfig config;
-  SignalCycleAnnotations annotations;
-  annotations.deception_measurement_candidates = candidates;
+  SignalCycleInput cycle_input;
+  cycle_input.deception_measurement_candidates = candidates;
   static const session::EnvironmentSnapshot kEmptyEnvironment;
-  CycleExecutionContext context(session::ArSceneTargetList{}, kEmptyEnvironment, 1U, 1U, config,
-                                0.0f, nullptr, &annotations);
+  CycleExecutionContext context(cycle_input, kEmptyEnvironment, 1U, 1U, config, 0.0f);
 
   CycleExecutionScratch scratch;
   ResetCycleExecutionScratch(session::ArSceneTargetList{}, scratch);
@@ -155,8 +154,8 @@ TEST(DeceptionMeasurementGeneratorTest, SkipsUnassociatedCandidates) {
   // key=0 的 candidate 应被跳过（未关联）。
   detection::ArDeceptionMeasurementCandidateList candidates = {MakeCandidate(1U), MakeCandidate(2U)};
   std::vector<std::uint64_t> keys = {1001U, 0U};  // 第二个未关联
-  SignalCycleAnnotations annotations;
-  CycleExecutionContext context = MakeContext(candidates, keys, annotations);
+  SignalCycleInput cycle_input;
+  CycleExecutionContext context = MakeContext(candidates, keys, cycle_input);
 
   CycleExecutionScratch scratch;
   ResetCycleExecutionScratch(session::ArSceneTargetList{}, scratch);
@@ -175,8 +174,8 @@ TEST(DeceptionMeasurementGeneratorTest, SkipsZeroPositionCandidate) {
   candidate.measurement_covariance = Eigen::Matrix3f::Zero();
   detection::ArDeceptionMeasurementCandidateList candidates = {candidate};
   std::vector<std::uint64_t> keys = {1001U};
-  SignalCycleAnnotations annotations;
-  CycleExecutionContext context = MakeContext(candidates, keys, annotations);
+  SignalCycleInput cycle_input;
+  CycleExecutionContext context = MakeContext(candidates, keys, cycle_input);
 
   CycleExecutionScratch scratch;
   ResetCycleExecutionScratch(session::ArSceneTargetList{}, scratch);
@@ -191,8 +190,8 @@ TEST(DeceptionMeasurementGeneratorTest, CandidateCountMatchesInputCount) {
   detection::ArDeceptionMeasurementCandidateList candidates = {
       MakeCandidate(1U), MakeCandidate(2U), MakeCandidate(3U)};
   std::vector<std::uint64_t> keys = {1001U, 1002U, 1003U};
-  SignalCycleAnnotations annotations;
-  CycleExecutionContext context = MakeContext(candidates, keys, annotations);
+  SignalCycleInput cycle_input;
+  CycleExecutionContext context = MakeContext(candidates, keys, cycle_input);
 
   CycleExecutionScratch scratch;
   ResetCycleExecutionScratch(session::ArSceneTargetList{}, scratch);

@@ -17,6 +17,7 @@
 #include "airborne_radar/environment/IEnvironmentService.h"
 #include "airborne_radar/signal/detection/ArDeceptionMeasurementCandidate.h"
 #include "airborne_radar/signal/pipeline/ISignalPipeline.h"
+#include "airborne_radar/signal/pipeline/SignalCycleInput.h"
 
 namespace airborne_radar {
 namespace environment {
@@ -59,8 +60,6 @@ struct ArControllerRuntimeState {
   std::uint64_t last_applied_decision_batch_id{0U};
   std::vector<session::TacticalProposal> last_applied_decision_proposals{};
   bool control_prepared_for_cycle{false};
-  session::ArInterferenceObservationList prepared_interference_observations{};
-  signal::detection::ArDeceptionMeasurementCandidateList prepared_deception_candidates{};
 };
 }  // namespace extension
 }  // namespace airborne_radar
@@ -90,23 +89,18 @@ class ArController {
   /** @brief 原子更新后续成功周期使用的控制保持/冷却配置。 */
   void UpdateDecisionControlConfig(const config::DecisionControlConfig& decision_control_config);
 
-  /** @brief 执行一次 AR 处理循环 */
-  void RunOnce();
+  /**
+   * @brief 执行一次 AR 处理循环。
+   * @param[in] cycle_input 本周期输入结构体（捆绑 scene_targets、RF v2 detection 上下文、
+   *                         干扰观测与欺骗候选量测）。
+   */
+  void RunOnce(const signal::pipeline::SignalCycleInput& cycle_input);
 
   /**
    * @brief 在发射发布前消费上一成功周期的待决策并冻结本周期控制真值。
    * @return 本周期首次冻结返回 true；重复调用返回 false。
    */
   bool PrepareEmissionControl();
-
-  /**
-   * @brief 写入当前已准备周期的去真值化干扰观测。
-   * @param[in] observations Complete 阶段由接收机链路生成的观测列表。
-   * @return 全部观测有效并原子替换成功时返回 true。
-   */
-  bool SetPreparedInterferenceObservations(
-      const session::ArInterferenceObservationList& observations,
-      const signal::detection::ArDeceptionMeasurementCandidateList& deception_candidates = {});
 
   /** @brief 在 Abandon 后释放控制冻结标记，不回滚已消费的控制真值。 */
   void ReleasePreparedEmissionControl();

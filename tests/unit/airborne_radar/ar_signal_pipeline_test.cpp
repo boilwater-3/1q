@@ -24,6 +24,7 @@
 #include "airborne_radar/signal/tracking/ITrackLifecycleManager.h"
 #include "airborne_radar/signal/tracking/TrackFilter.h"
 #include "airborne_radar/signal/tracking/TrackLifecycleTypes.h"
+#include "airborne_radar/signal/pipeline/SignalCycleInput.h"
 
 namespace airborne_radar {
 namespace tests {
@@ -175,7 +176,8 @@ session::SignalCycleResult RunPipelineCycle(PipelineType* pipeline,
                                             environment::EnvironmentService* environment_service,
                                             std::uint32_t cycle_index = 1u) {
   environment_service->BeginCycle(MakeEnvironmentCycle(cycle_index));
-  return pipeline->RunCycle(ToSceneTargets(input_state), *environment_service);
+  return pipeline->RunCycle(
+      signal::pipeline::SignalCycleInput{ToSceneTargets(input_state)}, *environment_service);
 }
 
 void ApplyHardwareProfile(config::ArSessionConfig* config,
@@ -701,31 +703,17 @@ TEST(SignalPipelineTest, RfV2InterferenceOnlySuppressesDetectionAndIsOneShot) {
                   .executed_this_cycle);
   ASSERT_FALSE(baseline_pipeline.GetLastTrackMeasurements().empty());
 
-  EXPECT_FALSE(jammed_pipeline.SetNextRfV2DetectionContext({}));
-  ASSERT_TRUE(jammed_pipeline.SetNextRfV2DetectionContext(MakeRfV2DetectionContext(1.0e6)));
+  auto ctx = MakeRfV2DetectionContext(1.0e6);
+  signal::pipeline::SignalCycleInput jammed_input{
+      ToSceneTargets(session::ArSceneTargetList{target}), &ctx};
+  jammed_environment.BeginCycle(MakeEnvironmentCycle(1U));
   ASSERT_TRUE(
-      RunPipelineCycle(&jammed_pipeline, {target}, &jammed_environment, 1U).executed_this_cycle);
+      jammed_pipeline.RunCycle(jammed_input, jammed_environment).executed_this_cycle);
   EXPECT_TRUE(jammed_pipeline.GetLastTrackMeasurements().empty());
 
   ASSERT_TRUE(
       RunPipelineCycle(&jammed_pipeline, {target}, &jammed_environment, 2U).executed_this_cycle);
   EXPECT_FALSE(jammed_pipeline.GetLastTrackMeasurements().empty());
-}
-
-TEST(SignalPipelineTest, RuntimeSnapshotRestoresPendingRfV2DetectionContext) {
-  const config::ArSessionConfig config = MakeDetectionFocusedConfig();
-  environment::EnvironmentService environment_service;
-  signal::pipeline::SignalPipeline pipeline(config);
-  const session::ArSceneTarget target = BuildPhysicsTarget(1000.0f, 10.0f);
-
-  ASSERT_TRUE(pipeline.SetNextRfV2DetectionContext(MakeRfV2DetectionContext(1.0e6)));
-  const signal::SignalPipelineRuntimeState pending_snapshot = pipeline.CaptureRuntimeState();
-  ASSERT_TRUE(RunPipelineCycle(&pipeline, {target}, &environment_service, 1U).executed_this_cycle);
-  EXPECT_TRUE(pipeline.GetLastTrackMeasurements().empty());
-
-  pipeline.RestoreRuntimeState(pending_snapshot);
-  ASSERT_TRUE(RunPipelineCycle(&pipeline, {target}, &environment_service, 2U).executed_this_cycle);
-  EXPECT_TRUE(pipeline.GetLastTrackMeasurements().empty());
 }
 
 TEST(SignalPipelineTest, EccmDoesNotRetuneImmLifecycleParameters) {
@@ -1054,7 +1042,8 @@ TEST(SignalPipelineTest, InvalidEnvironmentCycleAbortsAndClearsLastCycleCache) {
   ASSERT_EQ(signal_pipeline.GetLastTrackMeasurements().size(), 1u);
 
   const session::SignalCycleResult invalid_result = signal_pipeline.RunCycle(
-      ToSceneTargets(session::ArSceneTargetList{target}), invalid_environment);
+      signal::pipeline::SignalCycleInput{ToSceneTargets(session::ArSceneTargetList{target})},
+      invalid_environment);
   EXPECT_FALSE(invalid_result.executed_this_cycle);
   EXPECT_EQ(invalid_result.abort_reason, session::SignalCycleAbortReason::kInvalidEnvironmentCycle);
   EXPECT_TRUE(invalid_result.updated_scene_targets.empty());

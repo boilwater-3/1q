@@ -10,7 +10,7 @@ RF-Interference-Architecture: frozen target; AR/ESR/ECM RF v2 implemented (per-m
 ## 证据优先开发模式
 
 对算法、架构、模块内部优化、输出语义、配置语义和 public API 相关改动，默认采用
-`skills/evidence-first-freeze-contract` 定义的证据优先模式。
+`.claude/skills/evidence-first-freeze-contract` 定义的证据优先模式。
 
 强制规则：
 

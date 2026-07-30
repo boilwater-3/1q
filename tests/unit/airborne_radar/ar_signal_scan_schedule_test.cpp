@@ -115,7 +115,8 @@ session::SignalCycleResult RunPipelineCycle(PipelineType* pipeline,
                                             environment::EnvironmentService* environment_service,
                                             std::uint32_t cycle_index) {
   environment_service->BeginCycle(MakeEnvironmentCycle(cycle_index));
-  return pipeline->RunCycle(ToSceneTargets(input_state), *environment_service);
+  return pipeline->RunCycle(signal::pipeline::SignalCycleInput{ToSceneTargets(input_state)},
+                             *environment_service);
 }
 
 class NonAutoLifecycleManager final : public signal::tracking::ITrackLifecycleManager {
@@ -157,9 +158,11 @@ signal::pipeline::CycleExecutionContext BuildContext(
       signal::pipeline::ResolveRuntimePipelineConfig(runtime.base_config, runtime.control_profile);
   ExecutionConfig runtime_config = resolved.config;
   signal::pipeline::ApplyScanScheduleToRuntimeConfig(cycle_index, &runtime_config);
-  return signal::pipeline::CycleExecutionContext(input_state, environment_snapshot, cycle_index,
-                                                 batch_id, std::move(runtime_config),
-                                                 platform_altitude_m);
+  signal::pipeline::SignalCycleInput cycle_input;
+  cycle_input.scene_targets = input_state;
+  return signal::pipeline::CycleExecutionContext(std::move(cycle_input), environment_snapshot,
+                                                 cycle_index, batch_id,
+                                                 std::move(runtime_config), platform_altitude_m);
 }
 
 TEST(ScanScheduleResolverTest, StartPositionControlsFirstBeamQuadrant) {

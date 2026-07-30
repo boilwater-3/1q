@@ -25,6 +25,7 @@
 #include "airborne_radar/session/MutableArContext.h"
 #include "airborne_radar/signal/pipeline/SignalPipeline.h"
 #include "airborne_radar/signal/tracking/ITrackLifecycleManager.h"
+#include "airborne_radar/signal/pipeline/SignalCycleInput.h"
 #include "airborne_radar/signal/tracking/TrackLifecycleTypes.h"
 
 namespace airborne_radar {
@@ -67,9 +68,8 @@ class CoreControllerTest : public ::testing::Test {};
 class AbortingSignalPipeline : public signal::ISignalPipeline {
  public:
   session::SignalCycleResult RunCycle(
-      const session::ArSceneTargetList&,
-      const environment::IEnvironmentService&,
-      const signal::pipeline::SignalCycleAnnotations*) override {
+      const signal::pipeline::SignalCycleInput&,
+      const environment::IEnvironmentService&) override {
     session::SignalCycleResult result;
     result.executed_this_cycle = should_execute_;
     result.abort_reason = should_execute_
@@ -159,7 +159,7 @@ TEST_F(CoreControllerTest, PushesPlatformAttitudeIntoSignalPipelineBeforeRun) {
   signal::pipeline::SignalPipeline signal_pipeline;
   extension::ArController controller(radar_context, signal_pipeline, environment_service);
 
-  controller.RunOnce();
+  controller.RunOnce(signal::pipeline::SignalCycleInput{radar_context.GetSceneTargets()});
 
   const config::PlatformAttitudeDeg cached_platform_attitude =
       signal_pipeline.GetPlatformAttitude();
@@ -177,7 +177,7 @@ TEST_F(CoreControllerTest, DefaultLifecyclePathBuildsTentativeDecisionFrameOnFir
   signal::pipeline::SignalPipeline signal_pipeline;
   extension::ArController controller(radar_context, signal_pipeline, environment_service);
 
-  controller.RunOnce();
+  controller.RunOnce(signal::pipeline::SignalCycleInput{radar_context.GetSceneTargets()});
 
   EXPECT_TRUE(controller.HasLatestTrackOutputFrame());
   const session::TrackOutputFrame& latest_track_output_frame =
@@ -207,7 +207,7 @@ TEST_F(CoreControllerTest, PublicOutputReaderApiExposesLatestTrackOutputFrame) {
 
   EXPECT_FALSE(controller.HasLatestTrackOutputFrame());
 
-  controller.RunOnce();
+  controller.RunOnce(signal::pipeline::SignalCycleInput{radar_context.GetSceneTargets()});
 
   EXPECT_TRUE(controller.HasLatestTrackOutputFrame());
   const session::TrackOutputFrame& latest_track_output_frame =
@@ -229,7 +229,7 @@ TEST_F(CoreControllerTest, RuntimeValidationErrorsAreExposedAndSkipCommandSubmis
   signal::pipeline::SignalPipeline signal_pipeline;
   extension::ArController controller(radar_context, signal_pipeline, environment_service);
 
-  controller.RunOnce();
+  controller.RunOnce(signal::pipeline::SignalCycleInput{radar_context.GetSceneTargets()});
 
   EXPECT_TRUE(controller.HasValidationError());
   const session::ValidationIssueList& issues = controller.GetLastValidationIssues();
@@ -247,7 +247,7 @@ TEST_F(CoreControllerTest, FirstCycleSignalPipelineAbortDoesNotPublishSyntheticL
   AbortingSignalPipeline signal_pipeline;
   extension::ArController controller(radar_context, signal_pipeline, environment_service);
 
-  controller.RunOnce();
+  controller.RunOnce(signal::pipeline::SignalCycleInput{radar_context.GetSceneTargets()});
 
   EXPECT_FALSE(controller.HasValidationError());
   EXPECT_FALSE(controller.HasLatestTrackOutputFrame());
@@ -263,14 +263,14 @@ TEST_F(CoreControllerTest, InvalidDeltaTimeRetainsPreviousValidOutputFrame) {
   signal::pipeline::SignalPipeline signal_pipeline(session_config);
   extension::ArController controller(radar_context, signal_pipeline, environment_service);
 
-  controller.RunOnce();
+  controller.RunOnce(signal::pipeline::SignalCycleInput{radar_context.GetSceneTargets()});
   ASSERT_TRUE(controller.HasLatestTrackOutputFrame());
   const session::TrackOutputFrame previous_frame = controller.GetLatestTrackOutputFrame();
   ASSERT_GT(previous_frame.tracks.size(), 0U);
   const std::vector<session::ArCommand> previous_commands = radar_context.SubmittedCommands();
 
   radar_context.SetCycleDeltaTimeSec(0.0f);
-  controller.RunOnce();
+  controller.RunOnce(signal::pipeline::SignalCycleInput{radar_context.GetSceneTargets()});
 
   EXPECT_TRUE(controller.HasValidationError());
   const session::ValidationIssueList& issues = controller.GetLastValidationIssues();
@@ -301,7 +301,7 @@ TEST_F(CoreControllerTest, DuplicateExternalTargetIdRetainsPreviousValidOutputFr
   signal::pipeline::SignalPipeline signal_pipeline(session_config);
   extension::ArController controller(radar_context, signal_pipeline, environment_service);
 
-  controller.RunOnce();
+  controller.RunOnce(signal::pipeline::SignalCycleInput{radar_context.GetSceneTargets()});
   ASSERT_TRUE(controller.HasLatestTrackOutputFrame());
   const session::TrackOutputFrame previous_frame = controller.GetLatestTrackOutputFrame();
   ASSERT_GT(previous_frame.tracks.size(), 0U);
@@ -314,7 +314,7 @@ TEST_F(CoreControllerTest, DuplicateExternalTargetIdRetainsPreviousValidOutputFr
   duplicate_b.range_m += 50.0f;
   radar_context.SetSceneTargets(session::ArSceneTargetList{duplicate_a, duplicate_b});
 
-  controller.RunOnce();
+  controller.RunOnce(signal::pipeline::SignalCycleInput{radar_context.GetSceneTargets()});
 
   EXPECT_TRUE(controller.HasValidationError());
   const session::ValidationIssueList& issues = controller.GetLastValidationIssues();
@@ -341,7 +341,7 @@ TEST_F(CoreControllerTest, MatchingExternalResponseReplacesInternalBaseline) {
   signal::pipeline::SignalPipeline signal_pipeline;
   extension::ArController controller(radar_context, signal_pipeline, environment_service);
 
-  controller.RunOnce();
+  controller.RunOnce(signal::pipeline::SignalCycleInput{radar_context.GetSceneTargets()});
   const session::DecisionInputFrame frame = controller.GetLatestDecisionObservation().input_frame;
   session::ExternalDecisionResponse response;
   response.source_cycle_index = frame.cycle_index;
@@ -353,7 +353,7 @@ TEST_F(CoreControllerTest, MatchingExternalResponseReplacesInternalBaseline) {
   EXPECT_EQ(controller.SubmitExternalDecision(response),
             session::ExternalDecisionSubmitStatus::kAccepted);
 
-  controller.RunOnce();
+  controller.RunOnce(signal::pipeline::SignalCycleInput{radar_context.GetSceneTargets()});
   EXPECT_EQ(controller.GetLastAppliedDecisionSource(), session::DecisionControlSource::kExternal);
   EXPECT_FLOAT_EQ(signal_pipeline.GetControlProfile().lpi_power_scale, 0.4f);
 }
@@ -364,7 +364,7 @@ TEST_F(CoreControllerTest, MatchingExternalResponseCanBeConsumedBeforeEmission) 
   signal::pipeline::SignalPipeline signal_pipeline;
   extension::ArController controller(radar_context, signal_pipeline, environment_service);
 
-  controller.RunOnce();
+  controller.RunOnce(signal::pipeline::SignalCycleInput{radar_context.GetSceneTargets()});
   const session::DecisionInputFrame frame = controller.GetLatestDecisionObservation().input_frame;
   session::ExternalDecisionResponse response;
   response.source_cycle_index = frame.cycle_index;
@@ -381,7 +381,7 @@ TEST_F(CoreControllerTest, MatchingExternalResponseCanBeConsumedBeforeEmission) 
   EXPECT_TRUE(signal_pipeline.GetControlProfile().enable_agility_frequency);
   EXPECT_FALSE(controller.PrepareEmissionControl());
 
-  controller.RunOnce();
+  controller.RunOnce(signal::pipeline::SignalCycleInput{radar_context.GetSceneTargets()});
   EXPECT_EQ(controller.GetLastAppliedDecisionSource(), session::DecisionControlSource::kExternal);
 }
 
@@ -395,7 +395,7 @@ TEST_F(CoreControllerTest, PublicDecisionControlConfigEnablesHoldWindow) {
   extension::ArController controller(radar_context, signal_pipeline, environment_service,
                                      decision_control_config);
 
-  controller.RunOnce();
+  controller.RunOnce(signal::pipeline::SignalCycleInput{radar_context.GetSceneTargets()});
   session::DecisionInputFrame frame = controller.GetLatestDecisionObservation().input_frame;
   session::ExternalDecisionResponse request;
   request.source_cycle_index = frame.cycle_index;
@@ -407,7 +407,7 @@ TEST_F(CoreControllerTest, PublicDecisionControlConfigEnablesHoldWindow) {
   ASSERT_EQ(controller.SubmitExternalDecision(request),
             session::ExternalDecisionSubmitStatus::kAccepted);
 
-  controller.RunOnce();
+  controller.RunOnce(signal::pipeline::SignalCycleInput{radar_context.GetSceneTargets()});
   ASSERT_TRUE(signal_pipeline.GetControlProfile().enable_lpi_power_control);
   ASSERT_FLOAT_EQ(signal_pipeline.GetControlProfile().lpi_power_scale, 0.5f);
 
@@ -417,7 +417,7 @@ TEST_F(CoreControllerTest, PublicDecisionControlConfigEnablesHoldWindow) {
   release.source_batch_id = frame.batch_id;
   ASSERT_EQ(controller.SubmitExternalDecision(release),
             session::ExternalDecisionSubmitStatus::kAccepted);
-  controller.RunOnce();
+  controller.RunOnce(signal::pipeline::SignalCycleInput{radar_context.GetSceneTargets()});
   EXPECT_TRUE(signal_pipeline.GetControlProfile().enable_lpi_power_control);
   EXPECT_FLOAT_EQ(signal_pipeline.GetControlProfile().lpi_power_scale, 0.5f);
 
@@ -426,7 +426,7 @@ TEST_F(CoreControllerTest, PublicDecisionControlConfigEnablesHoldWindow) {
   release.source_batch_id = frame.batch_id;
   ASSERT_EQ(controller.SubmitExternalDecision(release),
             session::ExternalDecisionSubmitStatus::kAccepted);
-  controller.RunOnce();
+  controller.RunOnce(signal::pipeline::SignalCycleInput{radar_context.GetSceneTargets()});
   EXPECT_FALSE(signal_pipeline.GetControlProfile().enable_lpi_power_control);
   EXPECT_FLOAT_EQ(signal_pipeline.GetControlProfile().lpi_power_scale, 1.0f);
 }
@@ -438,7 +438,7 @@ TEST_F(CoreControllerTest, ExternalLpiParametersAlterNextPhysicalDetection) {
   signal::pipeline::SignalPipeline signal_pipeline(session_config);
   extension::ArController controller(radar_context, signal_pipeline, environment_service);
 
-  controller.RunOnce();
+  controller.RunOnce(signal::pipeline::SignalCycleInput{radar_context.GetSceneTargets()});
   const std::vector<signal::tracking::TrackMeasurement> baseline_measurements =
       signal_pipeline.GetLastTrackMeasurements();
   ASSERT_EQ(baseline_measurements.size(), 1U);
@@ -457,7 +457,7 @@ TEST_F(CoreControllerTest, ExternalLpiParametersAlterNextPhysicalDetection) {
   ASSERT_EQ(controller.SubmitExternalDecision(response),
             session::ExternalDecisionSubmitStatus::kAccepted);
 
-  controller.RunOnce();
+  controller.RunOnce(signal::pipeline::SignalCycleInput{radar_context.GetSceneTargets()});
   const std::vector<signal::tracking::TrackMeasurement> controlled_measurements =
       signal_pipeline.GetLastTrackMeasurements();
   ASSERT_EQ(controlled_measurements.size(), 1U);
@@ -475,7 +475,7 @@ TEST_F(CoreControllerTest, ExternalBurnthroughGainAltersNextPhysicalDetection) {
   signal::pipeline::SignalPipeline signal_pipeline(session_config);
   extension::ArController controller(radar_context, signal_pipeline, environment_service);
 
-  controller.RunOnce();
+  controller.RunOnce(signal::pipeline::SignalCycleInput{radar_context.GetSceneTargets()});
   const std::vector<signal::tracking::TrackMeasurement> baseline_measurements =
       signal_pipeline.GetLastTrackMeasurements();
   ASSERT_EQ(baseline_measurements.size(), 1U);
@@ -490,7 +490,7 @@ TEST_F(CoreControllerTest, ExternalBurnthroughGainAltersNextPhysicalDetection) {
   ASSERT_EQ(controller.SubmitExternalDecision(response),
             session::ExternalDecisionSubmitStatus::kAccepted);
 
-  controller.RunOnce();
+  controller.RunOnce(signal::pipeline::SignalCycleInput{radar_context.GetSceneTargets()});
   const std::vector<signal::tracking::TrackMeasurement> controlled_measurements =
       signal_pipeline.GetLastTrackMeasurements();
   ASSERT_EQ(controlled_measurements.size(), 1U);
@@ -506,7 +506,7 @@ TEST_F(CoreControllerTest, EmptyExternalResponseExplicitlyDisablesInternalContro
   signal::pipeline::SignalPipeline signal_pipeline;
   extension::ArController controller(radar_context, signal_pipeline, environment_service);
 
-  controller.RunOnce();
+  controller.RunOnce(signal::pipeline::SignalCycleInput{radar_context.GetSceneTargets()});
   const session::DecisionInputFrame frame = controller.GetLatestDecisionObservation().input_frame;
   session::ExternalDecisionResponse response;
   response.source_cycle_index = frame.cycle_index;
@@ -514,7 +514,7 @@ TEST_F(CoreControllerTest, EmptyExternalResponseExplicitlyDisablesInternalContro
   ASSERT_EQ(controller.SubmitExternalDecision(response),
             session::ExternalDecisionSubmitStatus::kAccepted);
 
-  controller.RunOnce();
+  controller.RunOnce(signal::pipeline::SignalCycleInput{radar_context.GetSceneTargets()});
   EXPECT_EQ(controller.GetLastAppliedDecisionSource(), session::DecisionControlSource::kExternal);
   EXPECT_EQ(signal_pipeline.GetControlProfile().version, 0U);
 }
@@ -527,7 +527,7 @@ TEST_F(CoreControllerTest, RejectsMismatchedDuplicateAndInvalidExternalResponses
   session::ExternalDecisionResponse before_observation;
   EXPECT_EQ(controller.SubmitExternalDecision(before_observation),
             session::ExternalDecisionSubmitStatus::kNoPendingObservation);
-  controller.RunOnce();
+  controller.RunOnce(signal::pipeline::SignalCycleInput{radar_context.GetSceneTargets()});
   const session::DecisionInputFrame frame = controller.GetLatestDecisionObservation().input_frame;
 
   session::ExternalDecisionResponse mismatch;
@@ -566,7 +566,7 @@ TEST_F(CoreControllerTest, RejectsMismatchedDuplicateAndInvalidExternalResponses
   EXPECT_EQ(controller.SubmitExternalDecision(duplicate),
             session::ExternalDecisionSubmitStatus::kInvalidProposal);
 
-  controller.RunOnce();
+  controller.RunOnce(signal::pipeline::SignalCycleInput{radar_context.GetSceneTargets()});
   EXPECT_EQ(controller.GetLastAppliedDecisionSource(), session::DecisionControlSource::kInternal);
   const session::DecisionInputFrame next_frame =
       controller.GetLatestDecisionObservation().input_frame;
@@ -592,7 +592,7 @@ TEST_F(CoreControllerTest, RuntimeRestoreRetainsPendingExternalResponseForRetry)
   signal_pipeline.SetShouldExecute(true);
   extension::ArController controller(radar_context, signal_pipeline, environment_service);
 
-  controller.RunOnce();
+  controller.RunOnce(signal::pipeline::SignalCycleInput{radar_context.GetSceneTargets()});
   const session::DecisionInputFrame frame = controller.GetLatestDecisionObservation().input_frame;
   session::ExternalDecisionResponse response;
   response.source_cycle_index = frame.cycle_index;
@@ -608,12 +608,12 @@ TEST_F(CoreControllerTest, RuntimeRestoreRetainsPendingExternalResponseForRetry)
       signal_pipeline.CaptureRuntimeState();
 
   signal_pipeline.SetShouldExecute(false);
-  controller.RunOnce();
+  controller.RunOnce(signal::pipeline::SignalCycleInput{radar_context.GetSceneTargets()});
   EXPECT_EQ(signal_pipeline.GetControlProfile().lpi_power_scale, 0.4f);
 
   signal_pipeline.RestoreRuntimeState(pipeline_snapshot);
   ASSERT_TRUE(controller.RestoreRuntimeState(snapshot));
-  controller.RunOnce();
+  controller.RunOnce(signal::pipeline::SignalCycleInput{radar_context.GetSceneTargets()});
   EXPECT_EQ(controller.GetLastAppliedDecisionSource(), session::DecisionControlSource::kExternal);
   EXPECT_FLOAT_EQ(signal_pipeline.GetControlProfile().lpi_power_scale, 0.4f);
 }

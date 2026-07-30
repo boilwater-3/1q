@@ -266,7 +266,7 @@ session::TrackOutputFrame RunScenarioCycle(extension::ArController* controller,
     return session::TrackOutputFrame();
   }
   radar_context->SetSceneTargets(targets);
-  controller->RunOnce();
+  controller->RunOnce(signal::pipeline::SignalCycleInput{targets});
   EXPECT_TRUE(controller->HasLatestTrackOutputFrame());
   return controller->GetLatestTrackOutputFrame();
 }
@@ -671,7 +671,7 @@ TEST(RadarJointIntegrationTest, DuplicateExternalTargetIdsAreRejectedAndPrevious
       BuildAirTarget(9002u, 71.0f, 0.1f, 0.0f, 1.1f, 240.0f, 1.0f, 18.0f),
   };
   radar_context.SetSceneTargets(duplicate_targets);
-  controller.RunOnce();
+  controller.RunOnce(signal::pipeline::SignalCycleInput{duplicate_targets});
 
   EXPECT_TRUE(controller.HasValidationError());
   const session::ValidationIssueList& issues = controller.GetLastValidationIssues();
@@ -1639,7 +1639,7 @@ TEST(RadarJointIntegrationTest,
   targets[0].range_m = 0.0f;
   radar_context.SetSceneTargets(targets);
 
-  controller.RunOnce();
+  controller.RunOnce(signal::pipeline::SignalCycleInput{targets});
 
   EXPECT_TRUE(controller.HasValidationError());
   const session::ValidationIssueList& issues = controller.GetLastValidationIssues();

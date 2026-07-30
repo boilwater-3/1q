@@ -35,10 +35,10 @@ Authority: 非规定性记录
   `ArInterferenceObservationResolver` 在波束宽度与接收频率分辨单元内建立连通分量，对
   ≥2 成员的分量逐成员设置 `deception_class=kLikelyFalseTarget` 并生成一条内部
   `ArDeceptionMeasurementCandidate`（per-member 结构性收敛，不二次聚类）；controller 经
-  `SetPreparedInterferenceObservations` 在 `RunCycle` 前把干扰观测与候选列表填入
-  `SignalCycleAnnotations`，`DeceptionMeasurementGenerator` 逐候选合成带
-  `classified_as_false_target` 的假目标量测注入 `track_measurements`（候选关联键由正常位置
-  关联产生，不预分配）。随后由 `PromoteState` 消费该标注。
+  `SignalCycleInput` 在 `RunCycle` 前把干扰观测与候选列表显式传入 pipeline，
+  `DeceptionMeasurementGenerator` 逐候选合成带 `classified_as_false_target` 的假目标量测注入
+  `track_measurements`（候选关联键由正常位置关联产生，不预分配）。随后由 `PromoteState` 消费
+  该标注。
 
 - **未决问题**：这种"RF 观测 → controller setter → pipeline 注入 → 量测标注 → lifecycle 消费"
   的跨域桥接是否应固化为更明确的周期输入端口，而非当前的 setter 旁路。干扰观测与候选量测是
