@@ -265,6 +265,11 @@ SAR 遵守 `docs/common/contract.md`：
 - `SarSessionConfigBuilder` 是 semantic builder，不承担 leaf setter 或隐式 validation。
 - SAR 输出遵守三层模型：系统输出、结构化结果、调试视图分离。
 - `SarSession::StepWithResult` 在运行期配置和成像链路前调用 `ValidateSarCycleInput`；存在 error 级问题时记录 `invalid_cycle_input` abort 并按既有语义复用上一帧（符合 contract.md §实现安全与失败语义规则 3）。
+- **dt_sec 校验边界（有意差异，勿按"四模块一致"补齐）**：`ValidateSarCycleInput` 对 `dt_sec` 仅校验有限性 + 正值，
+  **故意不含** EOS/SBIRS 的 `dt_sec ≤ 10/frame_rate_hz` 上界。SAR 配置中无 `frame_rate_hz` 概念——其
+  合成孔径时间由孔径几何（平台速度、方位分辨率、斜距）决定，而非成像帧率；dt 的合理性由 PRF 分数余量、
+  孔径拼接和跨周期 raw history 约束（见 §1.5、§2.3），不适用一个全局 frame_rate 上界。该差异已由
+  `SarInputValidation.cpp` 的实测校验链与 `SarCycleInput` 无 frame_rate 字段共同固化。
 - SAR runtime config 属于立即提交；`SarController` 在每次 pipeline 执行前捕获 raw pulse、
   trajectory、pulse ID 和 PRF 分数余量，执行 abort 时恢复这些跨周期状态并按需复用上一有效
   输出。配置不随执行失败回滚，执行状态也不得被失败周期污染。

@@ -387,6 +387,14 @@ pipeline 持有归一化扫描相位 `[0, 1)`：本周期先用 `floor(phase × 
 [evidence: tests/unit/electronic_surveillance_radar/esr_controller_runtime_state_test.cpp]
 [evidence: tests/unit/electronic_surveillance_radar/esr_session_config_builder_test.cpp]
 
+**dt_sec 校验边界（有意差异，勿按"四模块一致"补齐）**：`ValidateEsrCycleInput` 对 `dt_sec` 仅校验有限性 + 正值
+（`EsrInputValidation.cpp`），**故意不含** EOS/SBIRS 的 `dt_sec ≤ 10/frame_rate_hz` 上界。ESR 是被动侦察
+接收机，配置中没有 `frame_rate_hz` 概念——其节拍由 `scan_rate_hz × dt` 决定（见上文扫描相位模型），变步长
+不改变物理扫描速度。dt 的合理性由 `scan_rate_hz × dt` 能否解析扫描相位、RF emission 帧窗口一致性
+（`window_duration_s == dt_sec`）等 ESR 域量约束，不适用一个全局 frame_rate 上界。该差异已由校验链实测、
+`EsrCycleInput` 无 frame_rate 字段、本节扫描相位文档三方共同固化。
+[evidence: src/electronic_surveillance_radar/session/EsrInputValidation.cpp::ValidateEsrCycleInput]
+
 该标量 pipeline 每个 `Step` 只判定当前相位对应的一个波束，不在单周期内积分连续扫过的全部驻留。
 因此 `scan_rate_hz × dt` 为整数时，相位会按物理周期回到同一点；需要观察完整扫描覆盖的场景必须选择
 能够解析扫描相位的步长/速率组合，不能依赖 cycle index 隐式轮转波束。

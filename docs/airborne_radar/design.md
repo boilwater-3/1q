@@ -801,6 +801,13 @@ controller 在单周期开始时把 control profile 传给 signal pipeline，因
 - cycle input 校验失败时不执行 pipeline，`ArCycleResult` 携带 validation issues，且 controller 设置显式 abort reason `SignalCycleAbortReason::kValidationRejected`（数值 4，追加于既有 `kLifecycleUnavailable=1`/`kInvalidEnvironmentCycle=2`/`kRuntimePreparationFailed=3` 之后，保留 replay/trace 数值语义）。
 - 环境配置由 `ArSessionConfig.environment` 提供，运行期更新通过 `ArRuntimeConfigPatch` 提交；环境事实不再通过 `ArCycleInput` 传入，无需 `has_environment` 标志。
 - 已有有效输出时，校验失败可以复用上一帧输出，并标记 `reused_previous_output`。
+- **dt_sec 校验边界（有意差异，勿按"四模块一致"补齐）**：`ValidateArCycleDeltaTime`（`double` 类型）对 `dt_sec`
+  仅校验有限性 + 正值（`ArInputValidation.cpp`），**故意不含** EOS/SBIRS 的 `dt_sec ≤ 10/frame_rate_hz` 上界。
+  AR 配置中没有 `frame_rate_hz` 概念——主动雷达的周期节拍由 PRF、驻留时间、航迹更新率等雷达域量在各自
+  子链路里约束，而非成像帧率；dt 的合理性由 PRI/rejitter、emission 调度和 signal pipeline 消费链把关
+  （见 §2.x PRI/rejitter phase），不适用一个全局 frame_rate 上界。该差异已由 `ArCycleInput.dt_sec` 为
+  `double`（其余模块 `float`）、AR 无 frame_rate 字段、本校验链实测三方共同固化。
+  [evidence: src/airborne_radar/session/ArInputValidation.cpp::ValidateArCycleDeltaTime]
 - signal pipeline abort 时不会发布合成的最新输出。
 - controller 提供执行状态、失败原因、校验问题、决策来源 provenance 和 control profile 等运行期来源；
   `ArSession` 再结合 context/pipeline 状态组装 public `ArCycleResult`。完整 proposal、待消费响应和 reducer

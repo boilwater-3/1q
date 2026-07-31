@@ -252,6 +252,8 @@ resolver 按旧、新配置的字段差异生成内部 impact；相同值 patch 
 
 单周期输入在任何 pipeline mutation 之前 fail-closed 校验：`dt_sec` 必须正、有限、且不超过
 `10 / frame_rate_hz`（默认 10 Hz → 上限 1.0 s；`frame_rate_hz` 来自任务域配置，创建后不可变）；
+该上界仅适用于 SBIRS 与 EOS（凝视/成像传感器有 frame_rate_hz 概念）；SAR/ESR/AR **故意不含**此上界，
+因其配置无 frame_rate 字段、节拍由各自域量（孔径几何 / scan_rate×dt / PRF）决定，详见各模块 design.md。
 卫星和目标 ECEF 必须有限且非原点；`target_id` 必须非零且周期内唯一；温度、emissivity、投影面积
 遵守各自物理域；目标速度在 `has_velocity_ecef_m_per_s=true` 时必须有限，为 false 时必须是有限
 零向量；启用 environment override 时，天气/海况枚举、绝对温度下限、湿度、能见度、透过率和交互权重

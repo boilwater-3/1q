@@ -9,7 +9,8 @@ Authority: 非规定性记录
 
 原 OQ-1、OQ-3、OQ-8、OQ-9、OQ-10a 至 OQ-10m 均已完成、拒绝或冻结；对应结论和测试证据已迁入
 `docs/common/contract.md` 各模块 `design.md`。ESR runtime validation 边界也已完成并迁入 ESR design。
-当前保留一项 Common/Practice 构建边界、一项 Common 跨模块设计边界、三项 ESR 非阻塞设计边界
+当前保留一项 Common/Practice 构建边界、六项 Common 跨模块设计边界（COMMON-OQ-2 原有，新增
+COMMON-OQ-3..7 源自 EOS 反设计复核中识别的跨模块通病）、三项 ESR 非阻塞设计边界
 和四项 SBIRS 非阻塞仿真边界，均不构成已批准实现要求。
 
 ## Common/Practice 非阻塞构建边界
@@ -34,14 +35,91 @@ Authority: 非规定性记录
   `Build()` 时若 Profile dirty flag 为 true，Profile 翻译函数直接覆写对应字段，覆盖用户在
   `WithSessionConfig` 或 Editor 中的直接赋值。AR 额外在 Profile 应用前执行整域重置为语义默认值
   （最激进），ESR/SAR/EOS 仅覆写 Profile switch-case 涉及的字段。ESR 曾存在 `WithSessionConfig()`
-  重置 dirty flag 的独有 bug（工作区已删除该重置，但截至 HEAD `8bd28e19` 修复尚未提交，故"已修复"
-  说法不准确），SAR/EOS 无此问题。
+  重置 dirty flag 的独有 bug（由 `8bd28e19` 引入，`53c56e21` 已删除重置并补 `@note` 固化语义），SAR/EOS 无此问题。
 - **未决问题**：是否应将 Profile 应用改为"缺省填充"模式（仅填充用户未显式设置的字段），而非
   "强制覆写"模式；以及是否需要编译期或运行期机制防止同一字段被 Profile 和直接赋值双重设置。
 - **当前边界**：各模块保持现有"Profile 覆盖直接赋值"语义。ESR `Build()` 注释已补充覆盖说明。
   不得在文档中暗示直接赋值优先于 Profile。
 - **Stage A 进入条件**：出现真实场景要求"Profile 填充 + 局部覆盖"模式，先比较四模块的 Profile
   覆盖字段清单，设计统一的 dirty-field 位图或 builder 优先级规则，再评估跨模块统一方案。
+
+### COMMON-OQ-3：`CreateWithValidation` 非阻断语义命名一致但反直觉
+
+- **现状证据**：五模块（AR/ESR/SAR/EOS/SBIRS）会话工厂签名与行为完全一致——`CreateWithValidation`
+  在实现中**无论校验是否产生 error 都会 `Create(config)` 返回会话**，`issues` 仅为咨询性诊断输出
+  （AR `ArSession.cpp`、ESR `EsrSession.cpp`、SAR `SarSession.cpp`、EOS `EosSession.cpp:63-70`、
+  SBIRS `SbirsSession.cpp`）。五模块头文件甚至使用逐字相同的中文 docstring
+  （"无论 issues 是否为空，都会构造并返回会话（不阻断）"）。命名 `WithValidation` 暗示"校验通过才创建"，
+  实际只附加诊断信息，是跨模块共享的反直觉点；不存在 `CreateWithDiagnostics` 命名。
+- **未决问题**：是否在跨模块层面统一重命名（如 `CreateWithDiagnostics`）或改为返回
+  `std::optional<Session>` / 失败时不构造，以消除命名误导。
+- **当前边界**：五模块保持现有"非阻断 + 咨询性 issues"契约。docstring 已明确语义，调用方据
+  `issues->empty()` 或 `HasValidationError` 决策。不得在文档中宣称校验失败会阻断创建。
+- **Stage A 进入条件**：出现真实场景需要"校验失败即不构造"语义时，先评估跨模块统一重命名/
+  返回类型变更的向后兼容成本与下游消费方影响，再决定是否一次性推广到五模块。
+
+### COMMON-OQ-4：运行时补丁 mission.power_on 与叶子 sensor_enabled 双层冗余控制
+
+- **现状证据**：AR/ESR/EOS/SBIRS 的 `*RuntimeConfigPatch` 同时提供整块 mission 域覆盖（含
+  `mission.power_on`）与叶子级 `sensor_enabled`/`power_on` 快捷字段。解析器统一先应用 mission
+  整块（写入 `sensor_enabled = mission.power_on`），后应用叶子快捷字段（覆写 `sensor_enabled`），
+  故叶子最终胜出（AR `ArRuntimeConfigResolver`、ESR `EsrRuntimeConfigResolver`、
+  EOS `EosRuntimeConfigResolver.cpp:133-134,191-193`、SBIRS `SbirsRuntimeConfigResolver`）。
+  SAR 是例外：其补丁仅含处理开关（`enable_raw_echo_generation` 等），无 mission 块、无电源叶子。
+  另存在命名分裂：四模块用 `sensor_enabled`，SBIRS 用 `power_on`。冲突时无自动 warning。
+- **未决问题**：(1) 是否移除叶子快捷字段、统一经 mission 整块控制电源；(2) 或在两者同时存在时
+  记录 warning；(3) 是否统一 `sensor_enabled` 与 `power_on` 命名。
+- **当前边界**：四模块保持"叶子优先、mission 次之"的解析顺序，各补丁头文件 docnote 已固化
+  该顺序（如 EOS `EosRuntimeConfigPatch.h:28-29`）。不得在文档中暗示 mission.power_on 优先于叶子。
+- **Stage A 进入条件**：出现真实场景因该冲突导致电源状态误配，或要求 mission 与电源解耦时，
+  先比较四模块补丁结构，设计统一的冲突检测/告警或字段拆分（如 `has_scan_params` 与
+  `has_power_state` 分离）方案，再评估跨模块推广。
+
+### COMMON-OQ-5：`Step()` 在校验失败/关机时静默复用上一帧
+
+- **现状证据**：`Step()`（返回 output frame）与 `StepWithResult()`（返回完整 result）两入口在五模块
+  均存在。失败/关机时是否复用上一帧分两组：
+  - **复用组**（SAR/EOS/SBIRS）：校验失败或关机时将 `latest_output` 保留为上一帧，`Step()` 直接返回，
+    仅在 `StepWithResult()` 的 `executed_this_cycle`/`reused_previous_output`/`abort_reason` 中体现
+    （SAR `SarController.cpp`、EOS `EosController.cpp:77-100`、SBIRS `SbirsController.cpp:21-27`）。
+  - **不复用组**（AR/ESR）：失败周期不复用、不回传最近有效输出，状态经 `ArCycleStatus`/`EsrCycleExecutionStatus`
+    枚举表达（AR `ArController.cpp`、ESR `EsrSession.cpp:53-54`）。
+  公共 `OutputFrame`/`CycleResult` 无 `executed_this_cycle` 字段，仅在 result 层暴露。
+- **未决问题**：是否统一五模块为同一组语义（要么全部复用、要么全部不复用）；若统一为复用组，是否在
+  `OutputFrame` 增加失败标识使 `Step()` 也可区分"本轮计算"与"复用旧值"。
+- **当前边界**：两组保持各自现有行为。复用组成员的 `Step()` 静默返回旧帧为已知设计，调用方须用
+  `StepWithResult()` 获取失败/复用信号。不得在文档中暗示 `Step()` 返回值含本轮执行状态。
+- **Stage A 进入条件**：出现真实消费方因无法从 `Step()` 区分新旧帧而误用，或跨模块集成要求统一周期
+  失败语义时，先选定目标组（复用 vs 不复用），再评估迁移五模块的下游影响与测试矩阵。
+
+### COMMON-OQ-6：`ApplyRuntimeConfig` 吞掉 `TryApplyRuntimeConfig` 返回值
+
+- **现状证据**：五模块会话均提供 `ApplyRuntimeConfig(patch)`（void）与 `TryApplyRuntimeConfig(patch)`
+  （bool）两方法；`ApplyRuntimeConfig` 内部 `(void)TryApplyRuntimeConfig(patch)` 显式丢弃成功与否
+  （AR `ArSession.cpp`、ESR `EsrSession.cpp`、SAR `SarSession.cpp`、EOS `EosSession.cpp:83-85`、
+  SBIRS `SbirsSession.cpp`）。ESR 额外提供 `ApplyRuntimeConfigWithResult` 返回结构化
+  `EsrRuntimeConfigApplyResult`（含 `EsrRuntimeConfigApplyStatus` 枚举），其余四模块无此变体。
+  docstring 警告不一致：SAR/SBIRS 标注"不返回成功与否"，AR/EOS 无此警告。
+- **未决问题**：(1) 是否废弃 void 版、统一强制使用 Try/WithResult；(2) 是否向其余四模块推广
+  `ApplyRuntimeConfigWithResult` 结构化结果；(3) 是否统一 docstring 警告。
+- **当前边界**：五模块保持 void+Try 双方法，void 版吞返回值为已知设计。ESR 的 WithResult 变体为
+  ESR 独有增强，不构成跨模块契约。
+- **Stage A 进入条件**：出现真实场景要求 void 版失败必须可观测，或跨模块集成要求统一结果返回形态时，
+  先评估推广 `ApplyRuntimeConfigWithResult` 的 API 成本与四模块补丁结构差异，再决定是否统一。
+
+### COMMON-OQ-7：CycleResult.input_cycle_index 与 OutputFrame.cycle_index 冗余
+
+- **现状证据**：五模块 `CycleResult` 均同时携带 `input_cycle_index`（本次输入周期号）与内嵌
+  `OutputFrame.cycle_index`（AR `ArCycleResult.h`、ESR `EsrCycleResult.h`、SAR `SarCycleResult.h`、
+  EOS `EosCycleResult.h:30-41`、SBIRS `SbirsCycleResult.h`）。成功路径两者均取自 `input.cycle_index`，
+  数值恒等。仅在复用/失败路径（SAR/EOS/SBIRS）二者分歧：`output_frame.cycle_index` 保留上一周期号、
+  `input_cycle_index` 为本次输入号（AR/ESR 不复用，故不发生此分歧）。
+- **未决问题**：是否移除 `input_cycle_index`、统一用 `output_frame.cycle_index`（但需为复用组另寻失败
+  周期号归属），或反向统一为仅保留 `input_cycle_index`。
+- **当前边界**：五模块保留双字段。`input_cycle_index` 在复用组承载"本次失败周期的归属号"语义，
+  不可简单删除；去重须与 COMMON-OQ-5 的周期失败语义统一一并决策。
+- **Stage A 进入条件**：与 COMMON-OQ-5 一同推进——先选定统一的周期失败/复用语义，再据此评估
+  单一周期号字段的可行性及其对 trace/replay 归属的影响。
 
 ## Airborne Radar 非阻塞设计边界
 
