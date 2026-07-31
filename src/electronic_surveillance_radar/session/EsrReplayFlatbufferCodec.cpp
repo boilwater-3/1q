@@ -689,6 +689,19 @@ bool DecodeEsrSessionConfig(const std::string& bytes, config::EsrSessionConfig* 
       out->environment.scenario_config.atmospheric_physics.relative_humidity =
           ap->relative_humidity();
     }
+    out->environment.scenario_config.propagation_profile =
+        static_cast<config::EsrPropagationEnvironmentProfile>(e->propagation_profile());
+    out->environment.scenario_config.clutter_density =
+        static_cast<config::EsrClutterDensityLevel>(e->clutter_density());
+    out->environment.scenario_config.spectrum_occupancy_ratio = e->spectrum_occupancy_ratio();
+    if (e->atmospheric_observation()) {
+      const auto* ao = e->atmospheric_observation();
+      out->environment.scenario_config.atmospheric_observation.relative_humidity_ratio =
+          ao->relative_humidity_ratio();
+      out->environment.scenario_config.atmospheric_observation.precipitation_rate_mmph =
+          ao->precipitation_rate_mmph();
+      out->environment.scenario_config.atmospheric_observation.visibility_km = ao->visibility_km();
+    }
   }
   if (!config::ValidateEsrSessionConfig(candidate).empty()) {
     return false;
@@ -703,8 +716,22 @@ std::string EncodeEsrRuntimeConfigPatch(const config::EsrRuntimeConfigPatch& v) 
   auto ap = esr::replay::CreateEsrAtmosphericPhysicsConfig(
       fbb, ev.atmospheric_physics.enable_physical_model, ev.atmospheric_physics.pressure_hpa,
       ev.atmospheric_physics.temperature_k, ev.atmospheric_physics.relative_humidity);
-  auto env_patch = esr::replay::CreateEsrEnvironmentRuntimeConfigPatch(
-      fbb, ev.has_atmospheric_physics, ap);
+  auto atm_obs = esr::replay::CreateEsrAtmosphericObservation(
+      fbb, ev.atmospheric_observation.relative_humidity_ratio,
+      ev.atmospheric_observation.precipitation_rate_mmph,
+      ev.atmospheric_observation.visibility_km);
+  esr::replay::EsrEnvironmentRuntimeConfigPatchBuilder env_patch_builder(fbb);
+  env_patch_builder.add_has_atmospheric_physics(ev.has_atmospheric_physics);
+  env_patch_builder.add_atmospheric_physics(ap);
+  env_patch_builder.add_has_propagation_profile(ev.has_propagation_profile);
+  env_patch_builder.add_propagation_profile(static_cast<int32_t>(ev.propagation_profile));
+  env_patch_builder.add_has_clutter_density(ev.has_clutter_density);
+  env_patch_builder.add_clutter_density(static_cast<int32_t>(ev.clutter_density));
+  env_patch_builder.add_has_spectrum_occupancy_ratio(ev.has_spectrum_occupancy_ratio);
+  env_patch_builder.add_spectrum_occupancy_ratio(ev.spectrum_occupancy_ratio);
+  env_patch_builder.add_has_atmospheric_observation(ev.has_atmospheric_observation);
+  env_patch_builder.add_atmospheric_observation(atm_obs);
+  auto env_patch = env_patch_builder.Finish();
   flatbuffers::Offset<esr::replay::EsrMissionConfig> mission;
   if (v.has_mission) {
     const auto& sc = v.mission.scan;
@@ -813,6 +840,23 @@ bool DecodeEsrRuntimeConfigPatch(const std::string& bytes, config::EsrRuntimeCon
           ec->atmospheric_physics()->temperature_k();
       out->environment.atmospheric_physics.relative_humidity =
           ec->atmospheric_physics()->relative_humidity();
+    }
+    out->environment.has_propagation_profile = ec->has_propagation_profile();
+    out->environment.propagation_profile =
+        static_cast<config::EsrPropagationEnvironmentProfile>(ec->propagation_profile());
+    out->environment.has_clutter_density = ec->has_clutter_density();
+    out->environment.clutter_density =
+        static_cast<config::EsrClutterDensityLevel>(ec->clutter_density());
+    out->environment.has_spectrum_occupancy_ratio = ec->has_spectrum_occupancy_ratio();
+    out->environment.spectrum_occupancy_ratio = ec->spectrum_occupancy_ratio();
+    out->environment.has_atmospheric_observation = ec->has_atmospheric_observation();
+    if (ec->atmospheric_observation()) {
+      const auto* ao = ec->atmospheric_observation();
+      out->environment.atmospheric_observation.relative_humidity_ratio =
+          ao->relative_humidity_ratio();
+      out->environment.atmospheric_observation.precipitation_rate_mmph =
+          ao->precipitation_rate_mmph();
+      out->environment.atmospheric_observation.visibility_km = ao->visibility_km();
     }
   }
   if (!IsValidRuntimePatchPayload(candidate)) {
