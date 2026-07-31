@@ -303,7 +303,10 @@ eos_config::EosSessionConfig MakeEosConfigAirToAir() {
   config.mission.horizontal_fov_deg = 20.0f;
   config.mission.vertical_fov_deg = 8.0f;
   config.mission.scan_rate_deg_per_sec = 5.0f;
-  config.mission.frame_rate_hz = 30.0f;
+  // 场景步长 1 s/帧，帧率必须与之匹配：ValidateEosCycleInput 拒绝
+  // dt_sec > 10 / frame_rate_hz（53c56e21 收紧；81f7fe6d 修复 stale fixtures
+  // 时漏掉了本跨域测试，此前每周期都被 kCycleDeltaTimeExceedsFramePeriod 拒绝）。
+  config.mission.frame_rate_hz = 1.0f;
   config.mission.scan_start_az_deg = -10.0f;
   config.mission.scan_end_az_deg = 10.0f;
   config.mission.scan_center_el_deg = 0.0f;
@@ -356,7 +359,8 @@ eos_config::EosSessionConfig MakeEosConfigAirToGround() {
   config.mission.horizontal_fov_deg = 20.0f;
   config.mission.vertical_fov_deg = 8.0f;
   config.mission.scan_rate_deg_per_sec = 5.0f;
-  config.mission.frame_rate_hz = 30.0f;
+  // 帧率 1 Hz 与 1 s 场景步长匹配（dt_sec ≤ 10/frame_rate_hz 校验，见 MakeEosConfigAirToAir）。
+  config.mission.frame_rate_hz = 1.0f;
   config.mission.scan_start_az_deg = -10.0f;
   config.mission.scan_end_az_deg = 10.0f;
   config.mission.scan_center_el_deg = -45.0f;
