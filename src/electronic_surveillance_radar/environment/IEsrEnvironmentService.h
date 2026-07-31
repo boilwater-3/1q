@@ -22,7 +22,7 @@ struct ONEQ_API EsrEnvironmentSnapshot {
   float dt_sec{0.0f};
   float propagation_loss_db{0.0f};
   float clutter_noise_w{0.0f};
-  float spectrum_occupancy_ratio{0.0f}; /**< 冻结占用率；检测链按 1+9ρ 计算环境噪声倍率 */
+  float spectrum_occupancy_ratio{0.0f}; /**< 冻结占用率；当前仅冻结与回放，检测链尚未消费（见 docs/common/open_questions.md ESR-OQ-1） */
 };
 
 }  // namespace session

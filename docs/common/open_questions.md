@@ -34,7 +34,8 @@ Authority: 非规定性记录
   `Build()` 时若 Profile dirty flag 为 true，Profile 翻译函数直接覆写对应字段，覆盖用户在
   `WithSessionConfig` 或 Editor 中的直接赋值。AR 额外在 Profile 应用前执行整域重置为语义默认值
   （最激进），ESR/SAR/EOS 仅覆写 Profile switch-case 涉及的字段。ESR 曾存在 `WithSessionConfig()`
-  重置 dirty flag 的独有 bug（已修复），SAR/EOS 无此问题。
+  重置 dirty flag 的独有 bug（工作区已删除该重置，但截至 HEAD `8bd28e19` 修复尚未提交，故"已修复"
+  说法不准确），SAR/EOS 无此问题。
 - **未决问题**：是否应将 Profile 应用改为"缺省填充"模式（仅填充用户未显式设置的字段），而非
   "强制覆写"模式；以及是否需要编译期或运行期机制防止同一字段被 Profile 和直接赋值双重设置。
 - **当前边界**：各模块保持现有"Profile 覆盖直接赋值"语义。ESR `Build()` 注释已补充覆盖说明。
