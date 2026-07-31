@@ -12,8 +12,10 @@ Authority: 非规定性记录
 COMMON-OQ-2 已完成（2026-07-31）：AR/ESR/SAR/EOS 四模块 `SessionConfigBuilder` 已收敛为薄封装，
 Profile 枚举与 dirty flag 机制整体移除，语义档位退化为 `XxxProfileConstants.h` 预定义结构体常量；
 结论回写进 `docs/common/contract.md` §SessionConfigBuilder 与四模块 design.md。
-当前保留一项 Common/Practice 构建边界、五项 Common 跨模块设计边界（COMMON-OQ-3..7）、三项 ESR
-非阻塞设计边界和四项 SBIRS 非阻塞仿真边界，均不构成已批准实现要求。
+当前保留一项 Common/Practice 构建边界、六项 Common 跨模块设计边界（COMMON-OQ-3..8）、三项 ESR
+非阻塞设计边界和四项 SBIRS 非阻塞仿真边界，均不构成已批准实现要求。COMMON-OQ-8 登记于
+2026-07-31 跨域/consumer 排障：AR 周期窗口编年史、ESR RF 帧窗口匹配与零值配置、EOS 帧率-步长
+耦合四处反直觉语义，违反时均静默拒绝，外部调用方难以察觉（两个 consumer 与一个集成测试的教训）。
 
 ## Common/Practice 非阻塞构建边界
 
@@ -108,6 +110,43 @@ Profile 枚举与 dirty flag 机制整体移除，语义档位退化为 `XxxProf
   不可简单删除；去重须与 COMMON-OQ-5 的周期失败语义统一一并决策。
 - **Stage A 进入条件**：与 COMMON-OQ-5 一同推进——先选定统一的周期失败/复用语义，再据此评估
   单一周期号字段的可行性及其对 trace/replay 归属的影响。
+
+### COMMON-OQ-8：周期输入时间/窗口字段无统一契约，违反时静默拒绝
+
+- **现状证据**：三模块各自为政的周期时间/窗口校验，外部调用方违反时多数表现为"静默
+  不生效"而非显式错误，2026-07-31 一次 consumer 排障暴露三条：
+  - **AR 编年史校验**：`PrepareRfCycle` 拒绝 `window_start_time_s < 上一周期窗口结束`
+    （`ArSession.cpp:473`，`PreparedCycleLedger` 记录窗口编年史）。调用方若只递增
+    `cycle_index` 而忘记推进 `cycle_start_time_s`，整周期在决策消费点
+    （`PrepareEmissionControl`，`ArController.cpp:505` 调用链）**之前**被 `kRejected`——
+    即使 `SubmitExternalDecision` 已返回 `kAccepted`，外部覆盖也从未被应用，
+    `applied_decision_source` 保持 `kNone`（ar_extension_consumer 教训）。
+  - **ESR 周期输入完整性**：`ValidateEsrCycleInput` 要求非零 `platform_entity_id` +
+    有限且可定位的 ECEF 运动学（`EsrInputValidation.cpp:35-59`），并要求 `rf_emissions`
+    的 `world_cycle_index`/`window_start_time_s`/`window_duration_s` 与周期 input 的
+    `cycle_index`/`cycle_start_time_s`/`dt_sec` **精确相等**（`EsrInputValidation.cpp:80-89`）。
+    空 RF 帧也必须填这三个窗口字段（esr_extension_consumer 教训）。
+  - **EOS 帧率-步长耦合**：`ValidateEosCycleInput` 拒绝 `dt_sec > 10/frame_rate_hz`
+    （`EosInputValidation.cpp:122-132`，53c56e21 收紧），默认 30 Hz → dt 上限约 0.333 s。
+    1 s 步长的集成场景必须把帧率降到 1 Hz 才合法（multi_model_scenario_test 修复），
+    帧率与步长的匹配义务完全由调用方承担，跨模块无统一约定。
+  - **配置侧不对称**：ESR 零值 `EsrSessionConfig{}` 不合法（scan_rate、receiver_band_lower、
+    receiver_equipment_id、检测策略全零均触发 `ValidateEsrSessionConfig`，
+    `EsrSessionConfigBuilder.cpp:25-141`），而 AR/SBIRS 的 struct 默认即合法档位。
+    叠加 COMMON-OQ-3 的非阻断语义，`EsrSession::Create({})` 静默携带 issues 返回会话，
+    首周期才暴露为 `kRejected`（esr_extension_consumer 教训）。
+- **未决问题**：(1) 是否跨模块统一周期时间/窗口契约——如共享"时间戳必须单调前进"与
+  "RF 帧窗口必须匹配周期"的校验 helper，使违反在输入校验即显式可观测（validation issues），
+  而非运行期静默拒绝；(2) 是否统一"零值配置"语义，或为 ESR 补 `kDefaultEsrSessionConfig`
+  显式默认常量（对齐 SAR：struct 默认即合法档位）；(3) 各 `CycleInput` docstring 是否
+  显式注明时间戳推进义务与窗口匹配要求（当前 AR/ESR 均无此警示）。
+- **当前边界**：各模块保持现有校验。调用方必须：AR 推进 `cycle_start_time_s`（≥ 上一窗口
+  结束）；ESR 填完整平台运动学 + 与周期匹配的 RF 帧窗口字段，并使用语义档位常量而非零值
+  配置；EOS 保证 `dt_sec ≤ 10/frame_rate_hz`（1 s 步长须 1 Hz 帧率）。不得在文档中宣称
+  周期时间戳可任意重复，或零值配置为合法默认。
+- **Stage A 进入条件**：出现第二个真实消费方因时间戳未推进或 RF 帧窗口不匹配而静默失败
+  （当前已有 ar/esr 两个 consumer 教训），或跨模块集成要求统一周期时间契约时，先盘点
+  四模块 CycleInput 的窗口字段与校验差异，设计共享校验与 docstring 警示，再评估跨模块推广。
 
 ## Airborne Radar 非阻塞设计边界
 
