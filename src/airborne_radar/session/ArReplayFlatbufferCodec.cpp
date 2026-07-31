@@ -1480,7 +1480,7 @@ std::string EncodeSessionConfigFlatbuffer(const config::ArSessionConfig& config)
       builder, EncodeSessionDetectionConfig(&builder, config.hardware),
       EncodeSessionOrientation(&builder, config.mission.orientation),
       EncodeSessionPolicyConfig(&builder, config.policy),
-      EncodeEnvironmentDefaultConfig(&builder, config.environment), config.mission.power_on);
+      EncodeEnvironmentDefaultConfig(&builder, config.environment), config.sensor_enabled);
   builder.Finish(root, session_fb::ArSessionConfigIdentifier());
 
   return oneq::common::replay::CopyFinishedFlatbuffer(builder);
@@ -1513,7 +1513,7 @@ bool DecodeSessionConfigFlatbuffer(const std::string& payload_bytes,
   const session_fb::ArSessionConfig* root = session_fb::GetArSessionConfig(data);
   config->hardware = DecodeSessionDetectionConfig(root->hardware_detection());
   config->mission.orientation = DecodeSessionOrientation(root->mission_orientation());
-  config->mission.power_on = root->power_on();
+  config->sensor_enabled = root->sensor_enabled();
   config->policy = DecodeSessionPolicyConfig(root->policy());
   config->environment = DecodeEnvironmentDefaultConfig(root->environment_default_config());
   return true;

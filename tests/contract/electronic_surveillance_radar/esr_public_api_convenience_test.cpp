@@ -63,10 +63,10 @@ TEST(EsrPublicApiConvenienceTest, SemanticProfileConstantsProduceExpectedConfig)
   cfg.mission = config::profiles::kThreatWarningMission;
   cfg.policy.detection = config::profiles::kHighSensitivityDetection;
   cfg.environment.scenario_config.preset = config::EsrEnvironmentPreset::kJammed;
-  cfg.mission.power_on = false;
+  cfg.sensor_enabled = false;
 
   EXPECT_EQ(cfg.mission.work_mode, config::EsrWorkMode::kRwr);
-  EXPECT_FALSE(cfg.mission.power_on);
+  EXPECT_FALSE(cfg.sensor_enabled);
   EXPECT_FLOAT_EQ(cfg.mission.scan.scan_rate_hz, 5.0f);
   EXPECT_FLOAT_EQ(cfg.policy.detection.minimum_snr_db, 3.0f);
   EXPECT_EQ(cfg.environment.scenario_config.preset, config::EsrEnvironmentPreset::kJammed);
@@ -184,7 +184,6 @@ TEST(EsrPublicApiConvenienceTest, RuntimeConfigBuilderSetsSemanticFields) {
 
 TEST(EsrPublicApiConvenienceTest, RuntimeConfigBuilderSupportsDomainOverrides) {
   config::EsrMissionConfig mission;
-  mission.power_on = false;
   mission.work_mode = config::EsrWorkMode::kRwr;
   mission.scan.scan_rate_hz = 5.0f;
 
@@ -195,7 +194,6 @@ TEST(EsrPublicApiConvenienceTest, RuntimeConfigBuilderSupportsDomainOverrides) {
       config::EsrRuntimeConfigBuilder().WithMission(mission).WithPolicy(policy).Build();
 
   EXPECT_TRUE(patch.has_mission);
-  EXPECT_FALSE(patch.mission.power_on);
   EXPECT_EQ(patch.mission.work_mode, config::EsrWorkMode::kRwr);
   EXPECT_FLOAT_EQ(patch.mission.scan.scan_rate_hz, 5.0f);
   EXPECT_TRUE(patch.has_policy);

@@ -100,7 +100,7 @@ TEST(EosReplaySessionTest, ReplayInitialPoweredOffTraceRoundtrip) {
     std::shared_ptr<oneq::replay::ReplayTraceWriter> replay_writer(
         new oneq::replay::ReplayTraceWriter(trace_dir, manifest, true));
     config::EosSessionConfig config;
-    config.mission.power_on = false;
+    config.sensor_enabled = false;
     EosTraceSessionOptions options;
     options.replay_writer = replay_writer;
     options.trace_config_on_construct = true;

@@ -337,10 +337,14 @@ flowchart LR
 
 ### 1.7 Mission 电源命名边界
 
-`power_on` 是 SBIRS mission、runtime patch、builder 与 replay schema 的唯一电源名称；不存在第二个
-同义字段或 DTO 边界改名。pipeline 和 runtime resolver 也只读取该权威字段。
+电源状态单源（COMMON-OQ-4 字段提升，2026-07-31）：`SbirsSessionConfig::sensor_enabled` 是唯一
+权威（mission 域无电源字段）；运行时唯一入口为 `SbirsRuntimeConfigPatch::has_sensor_enabled`，
+builder 为 `WithSensorEnabled`，replay schema 的 session config 表承载 `sensor_enabled`。
+旧名 `power_on`/`has_power_on`/`WithPowerOn` 不得回流（见 `tests/contract/check_cross_domain_naming.cmake`
+阻断 7 与 `docs/common/contract.md` §电源状态单源契约）。
 
 [evidence: tests/contract/sbirs_sensor/sbirs_public_api_convenience_test.cpp::RuntimeConfigBuilderAllFieldsPopulateFlags]
+[evidence: tests/unit/sbirs_sensor/sbirs_runtime_config_resolver_test.cpp::SbirsRuntimeConfigResolverTest.MissionDomainPreservesExistingPowerState]
 [evidence: tests/replay/sbirs_sensor/sbirs_replay_codec_roundtrip_test.cpp::SessionConfigPreservesAllDomains]
 
 ## 2. 本模块使用的算法

@@ -363,7 +363,7 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
   const config::SbirsPolicyConfig& policy = config_.session.policy;
   const config::SbirsEnvironmentConfig& environment_config = config_.session.environment;
 
-  if (mission.work_mode == config::SbirsWorkMode::kStandby || !mission.power_on) {
+  if (mission.work_mode == config::SbirsWorkMode::kStandby || !config_.session.sensor_enabled) {
     target_states_.clear();
     tracking_coordinator_.ClearForStandby();
     nfov_scheduler_.Clear();

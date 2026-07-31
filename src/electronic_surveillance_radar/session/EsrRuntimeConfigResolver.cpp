@@ -65,6 +65,7 @@ EsrRuntimeConfigResolveResult ResolveEsrRuntimeConfigPatch(
 
   if (patch.has_mission) {
     has_requested_update = true;
+    // 电源单源：mission 域无电源字段（COMMON-OQ-4，见 contract.md §电源状态单源契约）。
     resolved.next_config.mission = patch.mission;
     scan_policy_changed = true;
     work_mode_or_policy_changed = true;
@@ -88,7 +89,7 @@ EsrRuntimeConfigResolveResult ResolveEsrRuntimeConfigPatch(
   // ---- Phase 2: 叶子快捷覆盖（覆盖整块域的结果） ----
 
   if (patch.has_sensor_enabled) {
-    resolved.next_config.mission.power_on = patch.sensor_enabled;
+    resolved.next_config.sensor_enabled = patch.sensor_enabled;
     resolved.runtime_config_changed = true;
     has_requested_update = true;
   }

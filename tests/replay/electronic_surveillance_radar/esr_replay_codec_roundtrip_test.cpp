@@ -90,7 +90,7 @@ TEST(EsrReplayCodecRoundtripTest,
      UnknownSessionConfigEnumRejectsWithoutMutatingDestination) {
   flatbuffers::FlatBufferBuilder builder;
   const auto mission =
-      esr::replay::CreateEsrMissionConfig(builder, true, 999, 0);
+      esr::replay::CreateEsrMissionConfig(builder, 999, 0);
   builder.Finish(
       esr::replay::CreateEsrSessionConfig(builder, 0, mission, 0, 0));
   const std::string bytes(
@@ -98,10 +98,37 @@ TEST(EsrReplayCodecRoundtripTest,
       builder.GetSize());
 
   config::EsrSessionConfig destination;
-  destination.mission.power_on = false;
+  destination.sensor_enabled = false;
   EXPECT_FALSE(DecodeEsrSessionConfig(bytes, &destination));
-  EXPECT_FALSE(destination.mission.power_on);
+  EXPECT_FALSE(destination.sensor_enabled);
   EXPECT_EQ(destination.mission.work_mode, config::EsrWorkMode::kEsm);
+}
+
+TEST(EsrReplayCodecRoundtripTest, SessionConfigPreservesSensorEnabled) {
+  // 正向 session config 往返锚点（COMMON-OQ-4 字段提升）：
+  // 非默认值 false 防 decode 漏读。
+  config::EsrSessionConfig config;
+  config.sensor_enabled = false;
+  config.mission.work_mode = config::EsrWorkMode::kRwr;
+  config.mission.scan.scan_rate_hz = 1.0f;
+  config.hardware.receiver_band_lower_hz = 8.5e9;
+  config.hardware.receiver_band_upper_hz = 10.5e9;
+  config.hardware.beam_az_width_deg = 120.0f;
+  config.hardware.beam_el_width_deg = 40.0f;
+  config.policy.detection.minimum_snr_db = -40.0f;
+  config.policy.detection.pfa = 1.0e-6f;
+  config.policy.detection.pulse_count = 16U;
+  config.policy.detection.threshold_scale = 1.0f;
+  config.environment.scenario_config.preset = config::EsrEnvironmentPreset::kStandard;
+
+  const std::string bytes = EncodeEsrSessionConfig(config);
+  ASSERT_FALSE(bytes.empty());
+
+  config::EsrSessionConfig decoded;
+  ASSERT_TRUE(DecodeEsrSessionConfig(bytes, &decoded));
+  EXPECT_FALSE(decoded.sensor_enabled);
+  EXPECT_EQ(decoded.mission.work_mode, config::EsrWorkMode::kRwr);
+  EXPECT_FLOAT_EQ(decoded.mission.scan.scan_rate_hz, 1.0f);
 }
 
 TEST(EsrReplayCodecRoundtripTest,

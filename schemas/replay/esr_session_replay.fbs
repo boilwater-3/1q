@@ -57,7 +57,6 @@ table EsrScanConfig {
 }
 
 table EsrMissionConfig {
-  power_on:  bool;
   work_mode: int32;
   scan:      EsrScanConfig;
 }
@@ -94,10 +93,11 @@ table EsrEnvironmentConfig {
 }
 
 table EsrSessionConfig {
-  hardware:    EsrHardwareConfig;
-  mission:     EsrMissionConfig;
-  policy:      EsrPolicyConfig;
-  environment: EsrEnvironmentConfig;
+  hardware:       EsrHardwareConfig;
+  mission:        EsrMissionConfig;
+  policy:         EsrPolicyConfig;
+  environment:    EsrEnvironmentConfig;
+  sensor_enabled: bool = true;
 }
 
 root_type EsrSessionConfig;

@@ -18,6 +18,9 @@ inline void LoadEsrSessionConfig(
   LoadEsrMission(root["mission"], &config->mission);
   LoadEsrPolicy(root["policy"], &config->policy);
   LoadEsrEnvironment(root["environment"], &config->environment);
+  // 电源状态单源（COMMON-OQ-4 字段提升）：session 级 sensor_enabled
+  config->sensor_enabled = root["sensor_enabled"].IsNull() ||
+                           root["sensor_enabled"].AsBool();
 }
 
 /// Load an config::EsrSessionConfig from a JSON file.

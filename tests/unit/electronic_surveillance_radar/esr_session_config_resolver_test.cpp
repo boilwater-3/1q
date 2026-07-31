@@ -24,7 +24,7 @@ TEST(EsrSessionConfigResolverTest, HardwareAndMissionMapToRuntimeAndScanConfig) 
   config.hardware.beam_el_width_deg = 6.0f;
   config.hardware.antenna_mount_az_deg = 5.0f;
   config.hardware.antenna_mount_el_deg = 2.0f;
-  config.mission.power_on = false;
+  config.sensor_enabled = false;
   config.mission.work_mode = config::EsrWorkMode::kHgesm;
   config.mission.scan.scan_center_az_deg = 10.0f;
   config.mission.scan.scan_center_el_deg = 4.0f;
@@ -35,7 +35,7 @@ TEST(EsrSessionConfigResolverTest, HardwareAndMissionMapToRuntimeAndScanConfig) 
   const EsrInternalExecutionConfig exec = MapSessionToInternal(config);
 
   // power_on maps correctly
-  EXPECT_FALSE(exec.mission.power_on);
+  EXPECT_FALSE(exec.sensor_enabled);
   // receiver window is derived from hardware band
   EXPECT_TRUE(exec.hardware.receiver_band_lower_hz > 0.0);
   // scan rate is preserved

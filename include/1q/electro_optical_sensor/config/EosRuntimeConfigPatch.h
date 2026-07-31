@@ -26,7 +26,9 @@ struct ONEQ_API EosEnvironmentRuntimeConfigPatch {
  * @brief config::EosRuntimeConfigPatch 描述运行期可变高层策略补丁。
  * @note 覆盖顺序：先应用整块域覆盖（mission/policy/environment），
  *       再应用叶子快捷字段（work_mode/scan_rate_deg_per_sec/frame_rate_hz/
- *       sensor_enabled）；因此 sensor_enabled 可覆盖 mission.power_on。
+ *       sensor_enabled）。电源状态仅由叶子 `has_sensor_enabled` 控制
+ *       （COMMON-OQ-4 收敛）：`has_mission` 不改变电源，mission 域在类型层面
+ *       已无电源字段（字段提升）。
  */
 struct ONEQ_API EosRuntimeConfigPatch {
   bool has_mission{false}; /**< 是否整块覆盖 mission */

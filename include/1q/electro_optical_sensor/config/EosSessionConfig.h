@@ -17,12 +17,17 @@ namespace config {
 
 /**
  * @brief config::EosSessionConfig 描述 EOS 会话初始化高层输入。
+ *
+ * 电源状态由顶层 `sensor_enabled` 唯一承载（COMMON-OQ-4 收敛）：
+ * `mission` 域不含电源字段，运行时补丁的电源入口为
+ * `EosRuntimeConfigPatch::has_sensor_enabled`。
  */
 struct ONEQ_API EosSessionConfig {
   EosHardwareConfig hardware{};
   EosMissionConfig mission{};
   EosPolicyConfig policy{};
   config::EosEnvironmentConfig environment{};
+  bool sensor_enabled{true}; /**< 传感器初始电源状态 */
 };
 
 }  // namespace config

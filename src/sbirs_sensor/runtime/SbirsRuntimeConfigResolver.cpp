@@ -73,9 +73,9 @@ SbirsRuntimeConfigImpact ClassifyImpact(const config::SbirsSessionConfig& previo
       impact.previous_nfov_channel_count != impact.next_nfov_channel_count;
 
   const bool previous_inactive =
-      !previous.mission.power_on || previous.mission.work_mode == config::SbirsWorkMode::kStandby;
+      !previous.sensor_enabled || previous.mission.work_mode == config::SbirsWorkMode::kStandby;
   const bool next_inactive =
-      !next.mission.power_on || next.mission.work_mode == config::SbirsWorkMode::kStandby;
+      !next.sensor_enabled || next.mission.work_mode == config::SbirsWorkMode::kStandby;
   impact.clear_for_inactive = !previous_inactive && next_inactive;
   impact.clear_for_wide_search =
       !next_inactive && next.mission.work_mode == config::SbirsWorkMode::kWideSearch &&
@@ -92,11 +92,12 @@ SbirsRuntimeConfigResolution ResolveSbirsRuntimeConfigPatch(
   resolution.resolved_config = current_config;
   resolution.has_requested_update = patch.has_mission || patch.has_policy ||
                                     patch.has_environment || patch.has_work_mode ||
-                                    patch.has_scan_rate_deg_per_sec || patch.has_power_on;
+                                    patch.has_scan_rate_deg_per_sec || patch.has_sensor_enabled;
   if (!resolution.has_requested_update) {
     return resolution;
   }
   if (patch.has_mission) {
+    // 电源单源：mission 域无电源字段（COMMON-OQ-4，见 contract.md §电源状态单源契约）。
     resolution.resolved_config.mission = patch.mission;
   }
   if (patch.has_policy) {
@@ -111,8 +112,8 @@ SbirsRuntimeConfigResolution ResolveSbirsRuntimeConfigPatch(
   if (patch.has_scan_rate_deg_per_sec) {
     resolution.resolved_config.mission.scan_rate_deg_per_sec = patch.scan_rate_deg_per_sec;
   }
-  if (patch.has_power_on) {
-    resolution.resolved_config.mission.power_on = patch.power_on;
+  if (patch.has_sensor_enabled) {
+    resolution.resolved_config.sensor_enabled = patch.sensor_enabled;
   }
   resolution.is_valid = config::ValidateSbirsSessionConfig(resolution.resolved_config).empty();
   if (resolution.is_valid) {

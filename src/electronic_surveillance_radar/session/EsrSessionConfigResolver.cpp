@@ -16,6 +16,8 @@ EsrInternalExecutionConfig MapSessionToInternal(const config::EsrSessionConfig& 
   // Hardware/Mission: using aliases, direct assignment
   exec.hardware = hardware;
   exec.mission = mission;
+  // 电源状态顶层字段（COMMON-OQ-4 字段提升）
+  exec.sensor_enabled = session_config.sensor_enabled;
 
   // Detection: direct policy assignment (no profile abstraction)
   exec.base_detection = session_config.policy.detection;

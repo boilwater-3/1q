@@ -225,7 +225,7 @@ table ArSessionConfig {
   mission_orientation:ArOrientationConfig;
   policy:ArPolicyConfig;
   environment_default_config:EnvironmentDefaultConfig;
-  power_on:bool = true;
+  sensor_enabled:bool = true;
 }
 
 root_type ArSessionConfig;

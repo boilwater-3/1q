@@ -56,6 +56,8 @@ struct ONEQ_API EsrEnvironmentRuntimeConfigPatch {
  * 其中 environment 仅允许模型叶子字段（如 atmospheric_physics），
  * 不支持 runtime preset 热更新。
  * 当整域与叶子同时出现时，先应用整域再应用叶子，叶子具有最终优先级。
+ * 电源状态仅由叶子 `has_sensor_enabled` 控制（COMMON-OQ-4 收敛）：
+ * `has_mission` 不改变电源，mission 域在类型层面已无电源字段（字段提升）。
  */
 struct ONEQ_API EsrRuntimeConfigPatch {
   bool has_mission{false};            /**< [补丁标志] 是否整块覆盖任务域 */
@@ -67,10 +69,8 @@ struct ONEQ_API EsrRuntimeConfigPatch {
   bool has_environment{false}; /**< [补丁标志] 是否更新环境运行期配置 */
   EsrEnvironmentRuntimeConfigPatch environment{};
 
-  bool has_sensor_enabled{false}; /**< [补丁标志] 是否显式设置传感器开关状态。
-       映射至 EsrMissionConfig::power_on。 */
-  bool sensor_enabled{true};      /**< [可外部调整] 传感器开关状态。映射至
-       EsrMissionConfig::power_on；字段名沿用跨模块约定。 */
+  bool has_sensor_enabled{false}; /**< [补丁标志] 是否显式设置传感器开关状态 */
+  bool sensor_enabled{true};      /**< [可外部调整] 传感器开关状态 */
 
   bool has_work_mode{false};                                /**< [补丁标志] 是否显式设置工作模式 */
   EsrWorkMode work_mode{EsrWorkMode::kEsm}; /**< [可外部调整] 工作模式值 */

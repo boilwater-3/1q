@@ -18,7 +18,7 @@ esr_cfg::EsrSessionConfig MakeEmitterSearchConfig() {
   config.mission = esr_cfg::profiles::kElectronicOrderOfBattleMission;
   // kStandard 灵敏度档位为 no-op（struct 默认即该档位），不再显式赋值。
   config.environment.scenario_config.preset = esr_cfg::EsrEnvironmentPreset::kStandard;
-  config.mission.power_on = true;
+  config.sensor_enabled = true;
   config.mission.work_mode = esr_cfg::EsrWorkMode::kEsm;
   config.mission.scan.scan_rate_hz = 1.0f;
   config.policy.detection.minimum_snr_db = 6.0f;
@@ -98,7 +98,7 @@ int main() {
   // mission
   const auto& bm = builder_cfg.mission;
   const auto& fm = file_cfg.mission;
-  ReportB("mission.power_on", bm.power_on, fm.power_on);
+  ReportB("sensor_enabled", builder_cfg.sensor_enabled, file_cfg.sensor_enabled);
   ReportI("mission.work_mode", static_cast<int>(bm.work_mode), static_cast<int>(fm.work_mode));
 
   const auto& bs = bm.scan;

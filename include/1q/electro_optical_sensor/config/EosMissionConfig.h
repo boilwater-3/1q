@@ -33,7 +33,6 @@ struct ONEQ_API EosMissionConfig {
   float scan_end_az_deg{60.0f};                                 /**< 扫描结束方位角（单位：deg） */
   float scan_center_el_deg{0.0f};                               /**< 扫描中心俯仰角（单位：deg） */
   float boresight_depression_deg{45.0f};                        /**< 视轴下俯角（单位：deg） */
-  bool power_on{true};                                           /**< 设备开关机状态 */
 };
 
 }  // namespace config

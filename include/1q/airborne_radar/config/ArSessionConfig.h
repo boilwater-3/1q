@@ -19,12 +19,17 @@ namespace config {
 
 /**
  * @brief ArSessionConfig 会话初始化配置（四域公开模型）。
+ *
+ * 电源状态由顶层 `sensor_enabled` 唯一承载（COMMON-OQ-4 字段提升）：
+ * `mission` 域不含电源字段，运行时补丁的电源入口为
+ * `ArRuntimeConfigPatch::has_sensor_enabled`。
  */
 struct ONEQ_API ArSessionConfig {
   ArHardwareConfig hardware{};
   ArMissionConfig mission{};
   ArPolicyConfig policy{};
   ArEnvironmentConfig environment{};
+  bool sensor_enabled{true}; /**< 传感器初始电源状态 */
 };
 
 

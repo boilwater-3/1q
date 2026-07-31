@@ -568,7 +568,7 @@ std::string EncodeEsrSessionConfig(const config::EsrSessionConfig& v) {
       sc.use_explicit_scan_bounds, sc.scan_start_az_deg, sc.scan_end_az_deg, sc.scan_start_el_deg,
       sc.scan_end_el_deg);
   auto mission = esr::replay::CreateEsrMissionConfig(
-      fbb, v.mission.power_on, static_cast<int32_t>(v.mission.work_mode), scan);
+      fbb, static_cast<int32_t>(v.mission.work_mode), scan);
   // detection_profile and use_profile_defaults retired in Phase 2; pass defaults for schema compat
   auto policy = esr::replay::CreateEsrPolicyConfig(
       fbb, 0, false, v.policy.detection.minimum_snr_db, v.policy.detection.pfa,
@@ -589,7 +589,8 @@ std::string EncodeEsrSessionConfig(const config::EsrSessionConfig& v) {
   env_builder.add_spectrum_occupancy_ratio(es.spectrum_occupancy_ratio);
   env_builder.add_atmospheric_observation(atm_obs);
   auto env = env_builder.Finish();
-  fbb.Finish(esr::replay::CreateEsrSessionConfig(fbb, hw, mission, policy, env));
+  fbb.Finish(esr::replay::CreateEsrSessionConfig(fbb, hw, mission, policy, env,
+                                                 v.sensor_enabled));
   return oneq::common::replay::CopyFinishedFlatbuffer(fbb);
 }
 
@@ -650,7 +651,6 @@ bool DecodeEsrSessionConfig(const std::string& bytes, config::EsrSessionConfig* 
   }
   if (fb->mission()) {
     const auto* m = fb->mission();
-    out->mission.power_on = m->power_on();
     out->mission.work_mode = static_cast<config::EsrWorkMode>(m->work_mode());
     if (m->scan()) {
       const auto* s = m->scan();
@@ -700,6 +700,7 @@ bool DecodeEsrSessionConfig(const std::string& bytes, config::EsrSessionConfig* 
       out->environment.scenario_config.atmospheric_observation.visibility_km = ao->visibility_km();
     }
   }
+  out->sensor_enabled = fb->sensor_enabled();
   if (!config::ValidateEsrSessionConfig(candidate).empty()) {
     return false;
   }
@@ -736,8 +737,8 @@ std::string EncodeEsrRuntimeConfigPatch(const config::EsrRuntimeConfigPatch& v) 
         static_cast<int32_t>(sc.scan_start_position), static_cast<int32_t>(sc.scan_sequence),
         sc.use_explicit_scan_bounds, sc.scan_start_az_deg, sc.scan_end_az_deg, sc.scan_start_el_deg,
         sc.scan_end_el_deg);
-    mission = esr::replay::CreateEsrMissionConfig(fbb, v.mission.power_on,
-                                                  static_cast<int32_t>(v.mission.work_mode), scan);
+    mission = esr::replay::CreateEsrMissionConfig(fbb, static_cast<int32_t>(v.mission.work_mode),
+                                                  scan);
   }
   flatbuffers::Offset<esr::replay::EsrPolicyConfig> policy;
   if (v.has_policy) {
@@ -797,7 +798,6 @@ bool DecodeEsrRuntimeConfigPatch(const std::string& bytes, config::EsrRuntimeCon
   out->has_mission = fb->has_mission();
   if (fb->mission()) {
     const auto* m = fb->mission();
-    out->mission.power_on = m->power_on();
     out->mission.work_mode = static_cast<config::EsrWorkMode>(m->work_mode());
     if (m->scan()) {
       const auto* s = m->scan();

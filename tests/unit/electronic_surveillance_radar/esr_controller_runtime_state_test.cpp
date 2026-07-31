@@ -22,7 +22,7 @@ namespace {
 
 EsrInternalExecutionConfig MakeDefaultConfig() {
   EsrInternalExecutionConfig config;
-  config.mission.power_on = true;
+  config.sensor_enabled = true;
   config.mission.scan.scan_rate_hz = 1.0f;
   config.resolved_scan.scan_start_az_deg = -60.0f;
   config.resolved_scan.scan_end_az_deg = 60.0f;
@@ -263,7 +263,7 @@ TEST(EsrControllerRuntimeStateTest, ScanGeometryResetPowerFreezeAndSnapshotResto
   EXPECT_DOUBLE_EQ(ReadScanPhase(pipeline), 0.0);
 
   pipeline.RunCycle(input, env);
-  config.mission.power_on = false;
+  config.sensor_enabled = false;  // 断电冻结扫描相位（COMMON-OQ-4 字段提升）
   pipeline.UpdateConfig(config);
   const double frozen_phase = ReadScanPhase(pipeline);
   pipeline.RunCycle(input, env);

@@ -312,7 +312,7 @@ class RadarModule {
        << "\n  gain_db=" << hw_main_beam_gain_db_ << " az_bw=" << hw_nominal_az_beamwidth_deg_
        << " el_bw=" << hw_nominal_el_beamwidth_deg_ << " pfa=" << policy_pfa_
        << " minimum_snr_db=" << policy_minimum_snr_db_ << "\n[Mission]\n"
-       << "  power_on=" << mission_power_on_
+       << "  sensor_enabled=" << sensor_enabled_
        << " work_mode=" << static_cast<int>(mission_work_mode_) << " scan_center=["
        << mission_scan_center_az_deg_ << "," << mission_scan_center_el_deg_ << "]"
        << "\n[Policy]\n"
@@ -381,7 +381,8 @@ class RadarModule {
 
     // ---- 任务域 (Mission) ----
     const auto& mission = config.mission;
-    mission_power_on_ = mission.power_on;
+    // 电源状态提升到 SessionConfig 顶层（COMMON-OQ-4 收敛）
+    sensor_enabled_ = config.sensor_enabled;
 
     const auto& orient = mission.orientation;
     mission_mount_yaw_deg_ = static_cast<double>(orient.mount_angles_deg.yaw_deg);
@@ -547,7 +548,7 @@ class RadarModule {
   double hw_max_rcs_m2_{0.0};
   double hw_bistatic_psi_offset_deg_{0.0};
   // -- 任务域 (Mission) --
-  bool mission_power_on_{true};
+  bool sensor_enabled_{true};
   // Mount angles
   double mission_mount_yaw_deg_{0.0};
   double mission_mount_pitch_deg_{0.0};

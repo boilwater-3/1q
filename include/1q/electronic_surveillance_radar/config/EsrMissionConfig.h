@@ -49,9 +49,11 @@ struct ONEQ_API EsrScanPolicyConfig {
 
 /**
  * @brief EsrMissionConfig 描述 ESR 任务控制与扫描语义输入。
+ *
+ * 电源状态由 `EsrSessionConfig::sensor_enabled` 顶层字段唯一承载
+ * （COMMON-OQ-4 收敛）。
  */
 struct ONEQ_API EsrMissionConfig {
-  bool power_on{true};                      /**< 设备开关机状态 */
   EsrWorkMode work_mode{EsrWorkMode::kEsm}; /**< 当前工作模式 */
   EsrScanPolicyConfig scan{};               /**< 扫描策略语义输入 */
 };
