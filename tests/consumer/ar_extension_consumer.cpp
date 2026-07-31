@@ -38,7 +38,10 @@ int main() {
   }
 
   // 第三步：执行下一周期，验证覆盖已生效。
+  // 注意：周期窗口时间戳必须随 cycle_index 前进（PreparedCycleLedger 编年史校验
+  // 拒绝 start < 上一周期窗口结束；此前未推进导致周期 2 被 kRejected，覆盖从未被应用）。
   ++input.cycle_index;
+  input.cycle_start_time_s += input.dt_sec;
   const airborne_radar::session::ArCycleResult second = session.StepWithResult(input);
   return second.status == airborne_radar::session::ArCycleStatus::kCompleted &&
                  second.applied_decision_source ==
