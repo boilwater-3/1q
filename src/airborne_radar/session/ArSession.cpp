@@ -328,7 +328,7 @@ struct ArSession::Impl {
     }
 
     oneq::coordinate::LocalFrameReference reference;
-    oneq::foundation::PoseState platform_pose;
+    oneq::foundation::Vector3f radar_local_velocity;
     const config::mapping::RuntimeConfigState& next_operating_state =
         has_pending_runtime_update ? pending_runtime_state : runtime_state;
     const config::ArOrientationConfig& orientation_config =
@@ -338,13 +338,13 @@ struct ArSession::Impl {
         orientation_config.mount_angles_deg.pitch_deg,
         orientation_config.mount_angles_deg.roll_deg};
     if (!TryMakeArPoseFromExternalKinematics(input.platform, mount_angles_coord,
-                                             &reference, &platform_pose)) {
+                                             &reference, &radar_local_velocity)) {
       return BuildValidationErrorResult(input, issues);
     }
     ArSceneTargetList local_targets;
     for (const ArTargetInput& target : input.targets) {
       ArSceneTarget local_target;
-      if (!TryMakeArTargetFromExternalKinematics(target, reference, platform_pose.velocity_mps,
+      if (!TryMakeArTargetFromExternalKinematics(target, reference, radar_local_velocity,
                                                  &local_target)) {
         return BuildValidationErrorResult(input, issues);
       }

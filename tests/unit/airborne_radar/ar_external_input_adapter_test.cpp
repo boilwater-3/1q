@@ -58,13 +58,13 @@ constexpr EulerAnglesDeg kZeroMount{0.0, 0.0, 0.0};
 // TryMakeArPoseFromExternalKinematics
 // =============================================================================
 
-TEST(ArExternalInputAdapterTest, ValidPoseConvertsToFrameAndPoseState) {
+TEST(ArExternalInputAdapterTest, ValidPoseConvertsToFrameAndVelocity) {
   ArExternalPoseInput input = MakeValidPoseInput();
   LocalFrameReference reference;
-  oneq::foundation::PoseState pose;
+  oneq::foundation::Vector3f velocity;
   ArCoordinateStatus status;
 
-  ASSERT_TRUE(TryMakeArPoseFromExternalKinematics(input, kZeroMount, &reference, &pose, &status));
+  ASSERT_TRUE(TryMakeArPoseFromExternalKinematics(input, kZeroMount, &reference, &velocity, &status));
   EXPECT_EQ(status, ArCoordinateStatus::kOk);
   // 验证 LLA 转换成功且纬度在合理范围
   EXPECT_GT(reference.origin_lla.latitude_deg, 20.0);
@@ -81,17 +81,17 @@ TEST(ArExternalInputAdapterTest, NullOutputsReturnFalseWithStatus) {
 TEST(ArExternalInputAdapterTest, NullStatusDoesNotCrash) {
   ArExternalPoseInput input = MakeValidPoseInput();
   LocalFrameReference reference;
-  oneq::foundation::PoseState pose;
-  EXPECT_TRUE(TryMakeArPoseFromExternalKinematics(input, kZeroMount, &reference, &pose, nullptr));
+  oneq::foundation::Vector3f velocity;
+  EXPECT_TRUE(TryMakeArPoseFromExternalKinematics(input, kZeroMount, &reference, &velocity, nullptr));
 }
 
 TEST(ArExternalInputAdapterTest, InvalidEcefPositionReturnsTransformFail) {
   ArExternalPoseInput input = MakeValidPoseInput();
   input.platform_position_ecef_m = EcefPositionM{0.0, 0.0, 0.0};  // 原点 → norm=0
   LocalFrameReference reference;
-  oneq::foundation::PoseState pose;
+  oneq::foundation::Vector3f velocity;
   ArCoordinateStatus status;
-  EXPECT_FALSE(TryMakeArPoseFromExternalKinematics(input, kZeroMount, &reference, &pose, &status));
+  EXPECT_FALSE(TryMakeArPoseFromExternalKinematics(input, kZeroMount, &reference, &velocity, &status));
   EXPECT_EQ(status, ArCoordinateStatus::kCoordinateTransformFail);
 }
 
@@ -99,13 +99,13 @@ TEST(ArExternalInputAdapterTest, NonFiniteVelocityUsesZeroVelocity) {
   ArExternalPoseInput input = MakeValidPoseInput();
   input.platform_velocity_mps.x_mps = std::numeric_limits<double>::quiet_NaN();
   LocalFrameReference reference;
-  oneq::foundation::PoseState pose;
+  oneq::foundation::Vector3f velocity;
   ArCoordinateStatus status;
   // 非有限速度不导致失败，而是退化为零速度
-  ASSERT_TRUE(TryMakeArPoseFromExternalKinematics(input, kZeroMount, &reference, &pose, &status));
-  EXPECT_EQ(pose.velocity_mps.x, 0.0f);
-  EXPECT_EQ(pose.velocity_mps.y, 0.0f);
-  EXPECT_EQ(pose.velocity_mps.z, 0.0f);
+  ASSERT_TRUE(TryMakeArPoseFromExternalKinematics(input, kZeroMount, &reference, &velocity, &status));
+  EXPECT_EQ(velocity.x, 0.0f);
+  EXPECT_EQ(velocity.y, 0.0f);
+  EXPECT_EQ(velocity.z, 0.0f);
 }
 
 // =============================================================================
@@ -115,8 +115,8 @@ TEST(ArExternalInputAdapterTest, NonFiniteVelocityUsesZeroVelocity) {
 TEST(ArExternalInputAdapterTest, ValidTargetWithEcefPositionConverts) {
   ArExternalPoseInput pose_input = MakeValidPoseInput();
   LocalFrameReference reference;
-  oneq::foundation::PoseState platform_pose;
-  ASSERT_TRUE(TryMakeArPoseFromExternalKinematics(pose_input, kZeroMount, &reference, &platform_pose, nullptr));
+  oneq::foundation::Vector3f velocity;
+  ASSERT_TRUE(TryMakeArPoseFromExternalKinematics(pose_input, kZeroMount, &reference, &velocity, nullptr));
 
   ArExternalTargetInput target_input;
   target_input.target_id = 42U;
@@ -132,7 +132,7 @@ TEST(ArExternalInputAdapterTest, ValidTargetWithEcefPositionConverts) {
   ArSceneTarget target;
   ArCoordinateStatus status;
   ASSERT_TRUE(TryMakeArTargetFromExternalKinematics(
-      target_input, reference, platform_pose.velocity_mps, &target, &status));
+      target_input, reference, velocity, &target, &status));
   EXPECT_EQ(status, ArCoordinateStatus::kOk);
   EXPECT_EQ(target.external_target_id, 42U);
   EXPECT_GT(target.range_m, 0.0f);
@@ -141,8 +141,8 @@ TEST(ArExternalInputAdapterTest, ValidTargetWithEcefPositionConverts) {
 TEST(ArExternalInputAdapterTest, ValidTargetWithLlaPositionConverts) {
   ArExternalPoseInput pose_input = MakeValidPoseInput();
   LocalFrameReference reference;
-  oneq::foundation::PoseState platform_pose;
-  ASSERT_TRUE(TryMakeArPoseFromExternalKinematics(pose_input, kZeroMount, &reference, &platform_pose, nullptr));
+  oneq::foundation::Vector3f velocity;
+  ASSERT_TRUE(TryMakeArPoseFromExternalKinematics(pose_input, kZeroMount, &reference, &velocity, nullptr));
 
   ArExternalTargetInput target_input;
   target_input.target_id = 99U;
@@ -155,7 +155,7 @@ TEST(ArExternalInputAdapterTest, ValidTargetWithLlaPositionConverts) {
   ArSceneTarget target;
   ArCoordinateStatus status;
   ASSERT_TRUE(TryMakeArTargetFromExternalKinematics(
-      target_input, reference, platform_pose.velocity_mps, &target, &status));
+      target_input, reference, velocity, &target, &status));
   EXPECT_EQ(status, ArCoordinateStatus::kOk);
 }
 

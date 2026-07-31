@@ -132,13 +132,13 @@ const airborne_radar::session::ArExternalTrackKinematics* FindExternalTrackByTar
 TrackOutputFrame MakeFrameFromInternalTarget(const ArExternalPoseInput& platform,
                                              const ArExternalTargetInput& target) {
   oneq::coordinate::LocalFrameReference reference;
-  oneq::foundation::PoseState platform_pose;
+  oneq::foundation::Vector3f velocity;
   const oneq::coordinate::EulerAnglesDeg zero_mount{};
   EXPECT_TRUE(airborne_radar::session::TryMakeArPoseFromExternalKinematics(
-      platform, zero_mount, &reference, &platform_pose));
+      platform, zero_mount, &reference, &velocity));
   airborne_radar::session::ArSceneTarget local_target;
   EXPECT_TRUE(airborne_radar::session::TryMakeArTargetFromExternalKinematics(
-      target, reference, platform_pose.velocity_mps, &local_target));
+      target, reference, velocity, &local_target));
   TrackOutputFrame frame;
   frame.cycle_index = 7U;
   frame.batch_id = 11U;

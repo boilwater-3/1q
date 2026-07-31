@@ -65,21 +65,22 @@ ONEQ_API oneq::coordinate::EulerAnglesDeg ComposeRadarAttitudeDeg(
 enum class ONEQ_API ArCoordinateStatus { kOk = 0, kNullOutput, kCoordinateTransformFail };
 
 /**
- * @brief 两步模式——第一步：将外部平台运动学转换为雷达局部位姿。
+ * @brief 两步模式——第一步：将外部平台运动学转换为雷达局部参考系与速度。
  * @param[in] input 外部平台运动学输入。
  * @param[in] mount_angles_deg 雷达安装角（Body->Radar，来自 ArOrientationConfig::mount_angles_deg）。
  * @param[out] reference 输出雷达局部参考系信息，用于后续目标转换。
- * @param[out] platform_pose 输出雷达局部平台位姿。
+ *             其中 `reference->frame_attitude_deg` 为复合后的 ENU->Radar 姿态角。
+ * @param[out] radar_local_velocity_mps 输出雷达局部坐标系下的平台速度（m/s）。
  * @param[out] status 可选输出状态，nullptr 表示不关心失败原因。
  * @return 成功返回 true，输入非法或输出为空返回 false。
- * @note AR 场景输入使用"雷达自身为局部原点"的坐标约定，因此
- *       `platform_pose.position_m` 固定为 `(0,0,0)`；`input.platform_position_ecef_m`
- *       会写入 `reference.origin_lla`，用于把目标位置转换为相对雷达的局部坐标。
+ * @note AR 以传感器自身为局部原点，平台位置无需输出。
+ *       `input.platform_position_ecef_m` 写入 `reference->origin_lla`，
+ *       用于把目标位置转换为相对雷达的局部坐标。
  */
 ONEQ_API bool TryMakeArPoseFromExternalKinematics(const ArExternalPoseInput& input,
                                                   const oneq::coordinate::EulerAnglesDeg& mount_angles_deg,
                                                   oneq::coordinate::LocalFrameReference* reference,
-                                                  oneq::foundation::PoseState* platform_pose,
+                                                  oneq::foundation::Vector3f* radar_local_velocity_mps,
                                                   ArCoordinateStatus* status = nullptr);
 
 /**
