@@ -59,6 +59,14 @@ Profile 枚举与 dirty flag 机制整体移除，语义档位退化为 `XxxProf
   另存在命名分裂：四模块用 `sensor_enabled`，SBIRS 用 `power_on`。冲突时无自动 warning。
 - **未决问题**：(1) 是否移除叶子快捷字段、统一经 mission 整块控制电源；(2) 或在两者同时存在时
   记录 warning；(3) 是否统一 `sensor_enabled` 与 `power_on` 命名。
+- **与 COMMON-OQ-2 收敛模式的关联**：本议题与 OQ-2（SessionConfigBuilder Profile+dirty flag
+  隐式覆写）同属"二重状态 + 隐式优先级"反模式家族。OQ-2 收敛（2026-07-31）沉淀的三原则可
+  平移评估：**单一来源**（`mission.power_on` 与 `sensor_enabled` 映射同一内部字段，应二选一
+  删除冗余来源）；**显式顺序**（"先整块后叶子、叶子胜出"的解析顺序恰好与 OQ-2 收敛后的显式
+  顺序语义一致——整域赋值后微调胜出，应固化为契约与测试而非仅靠解析器内排列）；**可观测化**
+  （冲突时 warning/拒绝，而非静默取叶子）。注意：增量补丁的 `has_*` 标志是 optional 语义的
+  本质，**不可照搬** OQ-2"删状态、直接赋值结构体"的解法——零值补丁必须保持"不改任何字段"，
+  可删除的只有冗余字段来源本身。
 - **当前边界**：四模块保持"叶子优先、mission 次之"的解析顺序，各补丁头文件 docnote 已固化
   该顺序（如 EOS `EosRuntimeConfigPatch.h:28-29`）。不得在文档中暗示 mission.power_on 优先于叶子。
 - **Stage A 进入条件**：出现真实场景因该冲突导致电源状态误配，或要求 mission 与电源解耦时，
@@ -92,6 +100,12 @@ Profile 枚举与 dirty flag 机制整体移除，语义档位退化为 `XxxProf
   docstring 警告不一致：SAR/SBIRS 标注"不返回成功与否"，AR/EOS 无此警告。
 - **未决问题**：(1) 是否废弃 void 版、统一强制使用 Try/WithResult；(2) 是否向其余四模块推广
   `ApplyRuntimeConfigWithResult` 结构化结果；(3) 是否统一 docstring 警告。
+- **与 COMMON-OQ-2 收敛模式的关联**：本议题与 OQ-2（Builder 静默覆盖用户赋值）及 COMMON-OQ-8
+  （周期窗口违规静默拒绝）同属"静默语义"反模式家族——错误发生在调用方看不到的地方。
+  OQ-2 收敛沉淀的**可观测化**原则在此已有局部先例：ESR 的 `ApplyRuntimeConfigWithResult`
+  返回结构化结果（含 `EsrRuntimeConfigApplyStatus`），其余四模块可评估推广；弃 void 版强制
+  Try/WithResult 与"消除隐式状态"同向。与 OQ-4 不同，本议题是纯 API 形态问题，不涉及状态
+  冗余，推广成本主要在下游调用方迁移。
 - **当前边界**：五模块保持 void+Try 双方法，void 版吞返回值为已知设计。ESR 的 WithResult 变体为
   ESR 独有增强，不构成跨模块契约。
 - **Stage A 进入条件**：出现真实场景要求 void 版失败必须可观测，或跨模块集成要求统一结果返回形态时，
