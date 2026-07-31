@@ -12,7 +12,6 @@
 namespace ar = airborne_radar;
 namespace ar_session = airborne_radar::session;
 namespace ar_config = airborne_radar::config;
-namespace ar_env = airborne_radar::config;
 namespace ar_model = airborne_radar::session;
 
 namespace {
@@ -29,7 +28,6 @@ struct SceneState {
   oneq::coordinate::EcefPositionM platform_pos;
   oneq::coordinate::EcefVelocityMps platform_vel;
   std::vector<TargetState> targets;
-  ar_session::ArEnvironmentInputState env_state;
   std::uint32_t cycle{0};
   std::uint32_t validation_errors{0};
 };
@@ -70,17 +68,6 @@ ar_session::ArExternalPoseInput MakePlatformPose(
   return platform;
 }
 
-ar_session::ArEnvironmentInput MakeEnvironment() {
-  ar_session::ArEnvironmentInput env;
-  env.atmospheric_observation.enable_physical_model = true;
-  env.atmospheric_observation.pressure_hpa = 1010.0f;
-  env.atmospheric_observation.temperature_k = 290.0f;
-  env.atmospheric_observation.relative_humidity = 0.45f;
-  env.surface_observation.cover_profile = ar_env::VegetationCoverProfile::kOpenGrassland;
-  env.surface_observation.enable_physical_model = true;
-  return env;
-}
-
 SceneState InitScene() {
   ar_config::ArSessionConfig config;
   std::string error;
@@ -92,7 +79,6 @@ SceneState InitScene() {
 
   SceneState s;
   s.session = ar_session::ArSession::Create(config);
-  s.env_state = ar_session::ArEnvironmentInputState(MakeEnvironment());
 
   s.platform_pos.x_m = -2289512.0;
   s.platform_pos.y_m = 4909946.0;
@@ -148,7 +134,6 @@ ar_session::ArCycleResult Step(SceneState& s, float dt) {
   platform.platform_entity_id = 1U;
   input.platform = platform;
   input.targets = target_inputs;
-  input.environment = s.env_state.Snapshot();
 
   ar_session::ArCycleResult result = s.session.StepWithResult(input);
   if (result.has_validation_error) ++s.validation_errors;

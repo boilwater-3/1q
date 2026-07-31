@@ -239,34 +239,6 @@ std::vector<eos_session::EosExternalTargetInput> MakeTargets(const EosCase& c,
   return targets;
 }
 
-/// 按 lighting 构造环境输入。
-eos_session::EosEnvironmentInput MakeEnvironment(LightingCondition l) {
-  eos_session::EosEnvironmentInput env;
-  switch (l) {
-    case LightingCondition::kDay:
-      env.solar_altitude_deg = 45.0f;
-      env.solar_azimuth_deg = 180.0f;
-      env.solar_irradiance_w_m2 = 850.0f;
-      env.day_night_type = eos_session::DayNightType::kDay;
-      break;
-    case LightingCondition::kNight:
-      env.solar_altitude_deg = -15.0f;  // 太阳在地平线以下
-      env.solar_azimuth_deg = 0.0f;
-      env.solar_irradiance_w_m2 = 0.5f;
-      env.day_night_type = eos_session::DayNightType::kNight;
-      break;
-    case LightingCondition::kTwilight:
-      env.solar_altitude_deg = 5.0f;
-      env.solar_azimuth_deg = 90.0f;
-      env.solar_irradiance_w_m2 = 50.0f;
-      env.day_night_type = eos_session::DayNightType::kTwilight;
-      break;
-  }
-  env.cloud_coverage_ratio = 0.15f;
-  env.background_temperature_k = 290.0f;
-  return env;
-}
-
 // =============================================================================
 // CSV schema
 // =============================================================================
@@ -419,11 +391,9 @@ ScenarioSummary RunEosScenario(const EosCase& c, const eos_config::EosSessionCon
         lighting = cycle_index <= 8U ? LightingCondition::kDay :
                    cycle_index <= 16U ? LightingCondition::kTwilight : LightingCondition::kNight;
       }
-      eos_session::EosEnvironmentInput env = MakeEnvironment(lighting);
-
       eos_session::EosCycleInput input;
       eos_session::EosCoordinateStatus status;
-      if (!eos_session::EosCycleInputAdapter::Build(platform, targets, 1.0f, env, &input, &status)) {
+      if (!eos_session::EosCycleInputAdapter::Build(platform, targets, 1.0f, &input, &status)) {
         s.warnings.Error("EosCycleInputAdapter::Build failed at cycle " +
                          std::to_string(cycle_index));
         break;

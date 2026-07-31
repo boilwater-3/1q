@@ -8,13 +8,6 @@ namespace session {
 bool EosCycleInputAdapter::Build(const EosExternalPoseInput& platform,
                                  const std::vector<EosExternalTargetInput>& targets, float dt_sec,
                                  EosCycleInput* output, EosCoordinateStatus* status) {
-  return Build(platform, targets, dt_sec, EosEnvironmentInput{}, output, status);
-}
-
-bool EosCycleInputAdapter::Build(const EosExternalPoseInput& platform,
-                                 const std::vector<EosExternalTargetInput>& targets, float dt_sec,
-                                 const EosEnvironmentInput& environment, EosCycleInput* output,
-                                 EosCoordinateStatus* status) {
   if (output == nullptr) {
     if (status != nullptr) {
       *status = EosCoordinateStatus::kNullOutput;
@@ -38,7 +31,6 @@ bool EosCycleInputAdapter::Build(const EosExternalPoseInput& platform,
   output->cycle_index = 0U;
   output->dt_sec = dt_sec;
   output->platform_altitude_m = static_cast<float>(reference.origin_lla.altitude_m);
-  output->environment = environment;
   output->scene.clear();
 
   for (std::size_t i = 0; i < targets.size(); ++i) {

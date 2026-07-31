@@ -59,22 +59,6 @@ void ValidatePlatform(const EsrCycleInput& input, ValidationIssueList* issues) {
   }
 }
 
-void ValidateEnvironment(const EsrEnvironmentInput& environment, ValidationIssueList* issues) {
-  if (issues == nullptr) {
-    return;
-  }
-  const EsrAtmosphericObservation& atmosphere = environment.atmospheric_observation;
-  if (!oneq::common::validation::IsRatio01(environment.spectrum_occupancy_ratio) ||
-      !oneq::common::validation::IsRatio01(atmosphere.relative_humidity_ratio) ||
-      !IsFinite(atmosphere.precipitation_rate_mmph) || !IsFinite(atmosphere.visibility_km) ||
-      atmosphere.precipitation_rate_mmph < 0.0f || atmosphere.visibility_km <= 0.0f) {
-    issues->push_back(MakeIssue(
-        ValidationSeverity::kError, ValidationCode::kInvalidEnvironmentObservation,
-        ValidationLocationKind::kEnvironment, static_cast<std::size_t>(-1), "environment",
-        "environment must contain finite ratios in [0, 1] and positive visibility"));
-  }
-}
-
 }  // namespace
 
 ValidationIssueList ValidateEsrCycleInput(const EsrCycleInput& input) {
@@ -104,7 +88,6 @@ ValidationIssueList ValidateEsrCycleInput(const EsrCycleInput& input) {
                                "RF emission frame must be valid and match the cycle window"));
   }
   ValidatePlatform(input, &issues);
-  ValidateEnvironment(input.environment, &issues);
   return issues;
 }
 

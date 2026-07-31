@@ -99,11 +99,6 @@ TEST(EosCycleOutputBuilderTest, MultiCycleMovingTargetsStayNearExternalTruth) {
     ASSERT_TRUE(eos_session::EosCycleInputAdapter::Build(platform, targets, dt_sec, &input))
         << "cycle=" << cycle;
     input.cycle_index = static_cast<std::uint32_t>(cycle);
-    input.environment.solar_irradiance_w_m2 = 900.0f;
-    input.environment.solar_altitude_deg = 45.0f;
-    input.environment.cloud_coverage_ratio = 0.05f;
-    input.environment.background_temperature_k = 285.0f;
-    input.environment.day_night_type = eos_session::DayNightType::kDay;
 
     const eos_session::EosCycleResult result = session.StepWithResult(input);
     ASSERT_FALSE(result.has_validation_error) << "cycle=" << cycle;

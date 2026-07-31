@@ -75,23 +75,9 @@ table RfSceneFrame {
   emissions: [RfSceneEmission];
 }
 
-table EsrAtmosphericObservation {
-  relative_humidity_ratio:  float;
-  precipitation_rate_mmph:  float;
-  visibility_km:            float;
-}
-
-table EsrEnvironmentInput {
-  propagation_profile:      int32;
-  clutter_density:          int32;
-  spectrum_occupancy_ratio: float;
-  atmospheric_observation:  EsrAtmosphericObservation;
-}
-
 table EsrCycleInput {
   cycle_index:             uint32;
   dt_sec:                  float;
-  environment:             EsrEnvironmentInput;
   platform_entity_id:      uint64 = 0;
   has_platform_ecef_kinematics: bool = false;
   platform_position_ecef_m: Vec3;

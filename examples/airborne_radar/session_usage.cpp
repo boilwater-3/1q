@@ -26,7 +26,6 @@
 
 namespace ar = airborne_radar;
 namespace ar_config = airborne_radar::config;
-namespace ar_env = airborne_radar::config;
 namespace ar_model = airborne_radar::session;
 namespace ar_session = airborne_radar::session;
 
@@ -80,19 +79,6 @@ ar_session::ArExternalTargetInput MakeTargetKinematics(
   target.rcs = rcs;
   target.swerling_type = 0;
   return target;
-}
-
-/// 构造环境输入，包括大气观测、空间天气和地表覆盖信息。
-/// 大气物理模型启用后，气压/温度/湿度等参数将参与传播衰减计算。
-ar_session::ArEnvironmentInput MakeInitialEnvironmentInput() {
-  ar_session::ArEnvironmentInput environment;
-  environment.atmospheric_observation.enable_physical_model = true;
-  environment.atmospheric_observation.pressure_hpa = 1010.0f;
-  environment.atmospheric_observation.temperature_k = 290.0f;
-  environment.atmospheric_observation.relative_humidity = 0.45f;
-  environment.surface_observation.cover_profile = ar_env::VegetationCoverProfile::kOpenGrassland;
-  environment.surface_observation.enable_physical_model = true;
-  return environment;
 }
 
 /// 打印单周期结果摘要：航迹数、确认/暂定航迹统计、指令数及是否校验出错。
@@ -153,7 +139,6 @@ MovingAirTarget MakeMovingAirTarget(std::uint64_t id, double x_m, double y_m, do
 ///   5. 根据返回的 dt 推进目标位置（简单欧拉积分）
 bool RunMovingTargetsScenario() {
   ar_session::ArSession session = CreateWideAreaSearchSession();
-  ar_session::ArEnvironmentInputState environment_state(MakeInitialEnvironmentInput());
 
   // 平台初始位置：ECEF 坐标（约对应中纬度某空域）
   oneq::coordinate::EcefPositionM platform_pos;
@@ -201,7 +186,6 @@ bool RunMovingTargetsScenario() {
     platform.platform_entity_id = 1U;
     input.platform = platform;
     input.targets = target_kinematics;
-    input.environment = environment_state.Snapshot();
 
     // 使用返回的 dt 推进目标位置（简单欧拉积分）
     const double dt = input.dt_sec;

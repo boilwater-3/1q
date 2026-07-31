@@ -17,7 +17,6 @@
 #include "config_loader.h"
 
 namespace eos_config = electro_optical_sensor::config;
-namespace eos_env = electro_optical_sensor::session;
 namespace eos_session = electro_optical_sensor::session;
 
 namespace {
@@ -93,14 +92,6 @@ bool RunMovingTargetsScenario() {
     return false;
   }
 
-  eos_session::EosEnvironmentInput environment;
-  environment.solar_altitude_deg = 42.0f;
-  environment.solar_azimuth_deg = 165.0f;
-  environment.solar_irradiance_w_m2 = 850.0f;
-  environment.cloud_coverage_ratio = 0.15f;
-  environment.background_temperature_k = 288.0f;
-  environment.day_night_type = eos_session::DayNightType::kDay;
-
   const std::uint32_t num_cycles = 50;
   const double dt = 1.0;
   std::uint32_t validation_error_count = 0;
@@ -164,7 +155,7 @@ bool RunMovingTargetsScenario() {
 
     eos_session::EosCycleInput input;
     eos_session::EosCoordinateStatus status;
-    if (!eos_session::EosCycleInputAdapter::Build(platform, target_inputs, static_cast<float>(dt), environment,
+    if (!eos_session::EosCycleInputAdapter::Build(platform, target_inputs, static_cast<float>(dt),
                                                   &input, &status)) {
       std::cerr << "eos-moving: cycle " << (i + 1)
                 << " build failed (status=" << static_cast<int>(status) << ")\n";

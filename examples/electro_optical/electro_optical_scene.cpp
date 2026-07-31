@@ -13,7 +13,6 @@
 
 namespace eos_session = electro_optical_sensor::session;
 namespace eos_config = electro_optical_sensor::config;
-namespace eos_env = electro_optical_sensor::session;
 
 namespace {
 
@@ -36,7 +35,6 @@ struct SceneState {
   oneq::coordinate::EcefPositionM platform_ecef;
   oneq::coordinate::EcefVelocityMps platform_vel;
   std::vector<TargetState> targets;
-  eos_session::EosEnvironmentInput environment;
   std::uint32_t cycle{0};
   std::uint32_t validation_errors{0};
 };
@@ -94,13 +92,6 @@ SceneState InitScene() {
   vel_enu.up_mps = 0.0;
   oneq::coordinate::TryEnuToEcefVelocity(vel_enu, s.platform_lla, &s.platform_vel);
 
-  s.environment.solar_altitude_deg = 42.0f;
-  s.environment.solar_azimuth_deg = 165.0f;
-  s.environment.solar_irradiance_w_m2 = 850.0f;
-  s.environment.cloud_coverage_ratio = 0.15f;
-  s.environment.background_temperature_k = 288.0f;
-  s.environment.day_night_type = eos_session::DayNightType::kDay;
-
   // 传感器足印中心经度（7000m 高度，48° 俯视角）
   double base_lon = 114.5 + 0.06925;
 
@@ -152,7 +143,7 @@ eos_session::EosCycleResult Step(SceneState& s, double dt) {
   eos_session::EosCycleInput input;
   eos_session::EosCoordinateStatus status;
   if (!eos_session::EosCycleInputAdapter::Build(
-          platform, target_inputs, static_cast<float>(dt), s.environment,
+          platform, target_inputs, static_cast<float>(dt),
           &input, &status)) {
     std::cerr << "EOS scene: cycle " << s.cycle
               << " build failed (status=" << static_cast<int>(status) << ")\n";

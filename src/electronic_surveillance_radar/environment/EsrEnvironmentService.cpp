@@ -23,19 +23,19 @@ constexpr float kDefaultAtmosphereFrequencyHz = 10.0e9f;
 constexpr float kDefaultAtmospherePathLengthM = 10.0e3f;
 constexpr float kDefaultAtmosphereElevationDeg = 5.0f;
 
-float ResolvePropagationProfileLossDb(session::EsrPropagationEnvironmentProfile profile) {
+float ResolvePropagationProfileLossDb(config::EsrPropagationEnvironmentProfile profile) {
   switch (profile) {
-    case session::EsrPropagationEnvironmentProfile::kOpen:
+    case config::EsrPropagationEnvironmentProfile::kOpen:
       return 2.0f;
-    case session::EsrPropagationEnvironmentProfile::kComplex:
+    case config::EsrPropagationEnvironmentProfile::kComplex:
       return 7.0f;
-    case session::EsrPropagationEnvironmentProfile::kTypical:
+    case config::EsrPropagationEnvironmentProfile::kTypical:
     default:
       return 4.0f;
   }
 }
 
-float ResolveWeatherLossDb(const session::EsrAtmosphericObservation& observation) {
+float ResolveWeatherLossDb(const config::EsrAtmosphericObservation& observation) {
   const float humidity = utils::Clamp01(observation.relative_humidity_ratio);
   const float precipitation = utils::ClampNonNegative(observation.precipitation_rate_mmph);
   const float visibility_km = std::max(0.5f, observation.visibility_km);

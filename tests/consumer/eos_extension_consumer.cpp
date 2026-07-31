@@ -25,9 +25,6 @@ int main() {
   electro_optical_sensor::session::EosCycleInput input;
   input.cycle_index = 1U;
   input.dt_sec = 1.0f;
-  input.environment.solar_irradiance_w_m2 = 800.0f;
-  input.environment.background_temperature_k = 289.0f;
-  input.environment.day_night_type = electro_optical_sensor::session::DayNightType::kDay;
 
   const electro_optical_sensor::session::EosCycleResult result = session.StepWithResult(input);
   if (!result.executed_this_cycle) {
@@ -39,9 +36,6 @@ int main() {
   electro_optical_sensor::session::EosCycleInput input_2;
   input_2.cycle_index = 2U;
   input_2.dt_sec = 1.0f;
-  input_2.environment.solar_irradiance_w_m2 = 800.0f;
-  input_2.environment.background_temperature_k = 289.0f;
-  input_2.environment.day_night_type = electro_optical_sensor::session::DayNightType::kDay;
   const electro_optical_sensor::session::EosOutputFrame frame = session.Step(input_2);
   (void)frame.cycle_index;
 

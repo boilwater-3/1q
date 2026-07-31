@@ -59,11 +59,9 @@ TEST(EsrInputValidationTest, RejectsUnlocatablePlatformEcef) {
   EXPECT_EQ(it->location.kind, ValidationLocationKind::kPlatform);
 }
 
-TEST(EsrInputValidationTest, RejectsNonFiniteWorldTimeAndEnvironment) {
+TEST(EsrInputValidationTest, RejectsNonFiniteWorldTime) {
   EsrCycleInput input = MakeValidInput();
   input.cycle_start_time_s = std::numeric_limits<double>::quiet_NaN();
-  input.environment.atmospheric_observation.visibility_km =
-      std::numeric_limits<float>::quiet_NaN();
   EXPECT_TRUE(HasValidationError(ValidateEsrCycleInput(input)));
 }
 

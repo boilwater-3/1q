@@ -325,8 +325,6 @@ int main(int argc, char** argv) {
 
     // ---- 构造 ArCycleInput ----
     ar_session::ArCycleInput input;
-    ar_session::ArEnvironmentInput env;
-    env.atmospheric_observation.enable_physical_model = false;
 
     input.cycle_index = i + 1;
     input.cycle_start_time_s = static_cast<double>(i);
@@ -334,7 +332,6 @@ int main(int argc, char** argv) {
     platform.platform_entity_id = 1U;
     input.platform = platform;
     input.targets = target_inputs;
-    input.environment = env;
 
     // ---- 推进目标位置（简单欧拉积分） ----
     const double dt = input.dt_sec;

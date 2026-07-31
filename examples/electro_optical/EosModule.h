@@ -93,7 +93,6 @@ class EosModule {
    */
   bool initialize(const eos_config::EosSessionConfig& config = {}) {
     session_ = eos_session::EosSession::Create(config);
-    environment_state_ = eos_session::EosEnvironmentInputState(eos_session::EosEnvironmentInput{});
     initialized_ = true;
     return true;
   }
@@ -131,7 +130,6 @@ class EosModule {
 
     // 3. 用完整配置重建 Session
     session_ = eos_session::EosSession::Create(config);
-    environment_state_ = eos_session::EosEnvironmentInputState(MakeDefaultEnvironmentInput());
     started_ = true;
     return true;
   }
@@ -158,7 +156,6 @@ class EosModule {
       eos_config::EosSessionConfig default_config;
       flattenConfig(default_config);
       session_ = eos_session::EosSession::Create(default_config);
-      environment_state_ = eos_session::EosEnvironmentInputState(MakeDefaultEnvironmentInput());
       started_ = true;
     }
 
@@ -223,23 +220,6 @@ class EosModule {
 
   /** @brief 模块是否已通过 preStart 启动。 */
   bool isStarted() const { return started_; }
-
-  // ==================== 平台 / 场景输入设置 ====================
-
-  /**
-   * @brief 设置当前环境输入（环境状态管理器维护跨周期的环境状态）。
-   *
-   * 引擎可在每周期前调用此方法更新环境事实（大气、光照等），
-   * 这些更新将在下次 stepImp 构造的 EosCycleInput 中反映。
-   */
-  void updateEnvironment(const eos_session::EosEnvironmentInputPatch& patch) {
-    environment_state_.Update(patch);
-  }
-
-  /** @brief 返回当前环境快照。 */
-  eos_session::EosEnvironmentInput currentEnvironment() const {
-    return environment_state_.Snapshot();
-  }
 
   // ==================== 输出三视图 ====================
   //
@@ -462,25 +442,11 @@ class EosModule {
            patch.has_frame_rate_hz || patch.has_sensor_enabled;
   }
 
-  /// 构造默认环境输入（用于 stepImp 的默认值）。
-  static eos_session::EosEnvironmentInput MakeDefaultEnvironmentInput() {
-    eos_session::EosEnvironmentInput env;
-    env.solar_altitude_deg = 45.0f;
-    env.solar_azimuth_deg = 180.0f;
-    env.solar_irradiance_w_m2 = 800.0f;
-    env.cloud_coverage_ratio = 0.2f;
-    env.ambient_wind_speed_mps = 0.0f;
-    env.day_night_type = eos_session::DayNightType::kDay;
-    env.background_temperature_k = 290.0f;
-    return env;
-  }
-
   // ==================== 内部状态 ====================
 
   eos_session::EosSession session_{};
   eos_session::EosCycleInput last_input_{};
   eos_session::EosCycleResult last_result_{};
-  eos_session::EosEnvironmentInputState environment_state_{MakeDefaultEnvironmentInput()};
 
   /// 生命周期记录器（三视图之一）
   eos_session::EosDetectionLifecycleRecorder lifecycle_recorder_{};

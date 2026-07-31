@@ -12,7 +12,6 @@
 #include "1q/electro_optical_sensor/config/EosSessionConfigBuilder.h"
 #include "1q/electro_optical_sensor/session/EosCycleInput.h"
 #include "1q/electro_optical_sensor/session/EosCycleResult.h"
-#include "1q/electro_optical_sensor/session/EosEnvironmentInput.h"
 #include "1q/electro_optical_sensor/session/EosSession.h"
 
 namespace electro_optical_sensor {
@@ -43,11 +42,6 @@ session::EosSceneTarget MakeTarget(std::uint64_t id, float azimuth_deg, float ra
   ::electro_optical_sensor::session::EosCycleInput input;
   input.cycle_index = 1U;
   input.dt_sec = 1.0f;
-  input.environment.solar_irradiance_w_m2 = 850.0f;
-  input.environment.solar_altitude_deg = 45.0f;
-  input.environment.cloud_coverage_ratio = 0.2f;
-  input.environment.background_temperature_k = 289.0f;
-  input.environment.day_night_type = ::electro_optical_sensor::session::DayNightType::kDay;
   input.platform_altitude_m = 1200.0f;
   input.platform_pose.position_m.z = 0.0f;
   input.scene.push_back(MakeTarget(1U, 0.0f, 1500.0f, 4.0f));
@@ -229,20 +223,20 @@ TEST(EosSessionIntegrationTest, OutOfFovTargetIsFiltered) {
 }
 
 TEST(EosSessionIntegrationTest, HigherCloudCoverageReducesVisibleSnr) {
-  config::EosSessionConfig config = MakeSessionConfig();
-  config.mission.work_mode = config::EosWorkMode::kVisibleOnly;
+  config::EosSessionConfig clear_config = MakeSessionConfig();
+  clear_config.mission.work_mode = config::EosWorkMode::kVisibleOnly;
+  clear_config.environment.scenario_config.cloud_coverage_ratio = 0.0f;
 
-  EosSession clear_session = EosSession::Create(config);
-  EosSession cloudy_session = EosSession::Create(config);
+  config::EosSessionConfig cloudy_config = clear_config;
+  cloudy_config.environment.scenario_config.cloud_coverage_ratio = 0.9f;
 
-  ::electro_optical_sensor::session::EosCycleInput clear_input = MakeBaseInput();
-  clear_input.environment.cloud_coverage_ratio = 0.0f;
+  EosSession clear_session = EosSession::Create(clear_config);
+  EosSession cloudy_session = EosSession::Create(cloudy_config);
 
-  ::electro_optical_sensor::session::EosCycleInput cloudy_input = MakeBaseInput();
-  cloudy_input.environment.cloud_coverage_ratio = 0.9f;
+  const ::electro_optical_sensor::session::EosCycleInput input = MakeBaseInput();
 
-  const session::EosOutputFrame clear_frame = clear_session.Step(clear_input);
-  const session::EosOutputFrame cloudy_frame = cloudy_session.Step(cloudy_input);
+  const session::EosOutputFrame clear_frame = clear_session.Step(input);
+  const session::EosOutputFrame cloudy_frame = cloudy_session.Step(input);
 
   ASSERT_FALSE(clear_frame.detections.empty());
   ASSERT_FALSE(cloudy_frame.detections.empty());
@@ -251,22 +245,22 @@ TEST(EosSessionIntegrationTest, HigherCloudCoverageReducesVisibleSnr) {
 }
 
 TEST(EosSessionIntegrationTest, WorseAtmosphereObservationReducesInfraredSnr) {
-  config::EosSessionConfig config = MakeSessionConfig();
-  config.mission.work_mode = config::EosWorkMode::kInfraredOnly;
+  config::EosSessionConfig good_config = MakeSessionConfig();
+  good_config.mission.work_mode = config::EosWorkMode::kInfraredOnly;
+  good_config.environment.scenario_config.cloud_coverage_ratio = 0.1f;
+  good_config.environment.scenario_config.ambient_wind_speed_mps = 3.0f;
 
-  EosSession good_atm_session = EosSession::Create(config);
-  EosSession poor_atm_session = EosSession::Create(config);
+  config::EosSessionConfig poor_config = good_config;
+  poor_config.environment.scenario_config.cloud_coverage_ratio = 0.9f;
+  poor_config.environment.scenario_config.ambient_wind_speed_mps = 70.0f;
 
-  ::electro_optical_sensor::session::EosCycleInput good_input = MakeBaseInput();
-  good_input.environment.cloud_coverage_ratio = 0.1f;
-  good_input.environment.ambient_wind_speed_mps = 3.0f;
+  EosSession good_atm_session = EosSession::Create(good_config);
+  EosSession poor_atm_session = EosSession::Create(poor_config);
 
-  ::electro_optical_sensor::session::EosCycleInput poor_input = MakeBaseInput();
-  poor_input.environment.cloud_coverage_ratio = 0.9f;
-  poor_input.environment.ambient_wind_speed_mps = 70.0f;
+  const ::electro_optical_sensor::session::EosCycleInput input = MakeBaseInput();
 
-  const session::EosOutputFrame good_frame = good_atm_session.Step(good_input);
-  const session::EosOutputFrame poor_frame = poor_atm_session.Step(poor_input);
+  const session::EosOutputFrame good_frame = good_atm_session.Step(input);
+  const session::EosOutputFrame poor_frame = poor_atm_session.Step(input);
 
   ASSERT_FALSE(good_frame.detections.empty());
   ASSERT_FALSE(poor_frame.detections.empty());
@@ -275,19 +269,26 @@ TEST(EosSessionIntegrationTest, WorseAtmosphereObservationReducesInfraredSnr) {
 }
 
 TEST(EosSessionIntegrationTest, NightShiftsFusedWeightTowardInfrared) {
-  config::EosSessionConfig fused_config = MakeSessionConfig();
-  fused_config.mission.work_mode = config::EosWorkMode::kFused;
-  config::EosSessionConfig ir_config = fused_config;
-  ir_config.mission.work_mode = config::EosWorkMode::kInfraredOnly;
-  config::EosSessionConfig vis_config = fused_config;
-  vis_config.mission.work_mode = config::EosWorkMode::kVisibleOnly;
+  config::EosSessionConfig day_fused_config = MakeSessionConfig();
+  day_fused_config.mission.work_mode = config::EosWorkMode::kFused;
+  day_fused_config.environment.scenario_config.day_night_type = config::DayNightType::kDay;
+  config::EosSessionConfig day_ir_config = day_fused_config;
+  day_ir_config.mission.work_mode = config::EosWorkMode::kInfraredOnly;
+  config::EosSessionConfig day_vis_config = day_fused_config;
+  day_vis_config.mission.work_mode = config::EosWorkMode::kVisibleOnly;
 
-  EosSession day_fused = EosSession::Create(fused_config);
-  EosSession day_ir = EosSession::Create(ir_config);
-  EosSession day_vis = EosSession::Create(vis_config);
+  config::EosSessionConfig night_fused_config = day_fused_config;
+  night_fused_config.environment.scenario_config.day_night_type = config::DayNightType::kNight;
+  config::EosSessionConfig night_ir_config = night_fused_config;
+  night_ir_config.mission.work_mode = config::EosWorkMode::kInfraredOnly;
+  config::EosSessionConfig night_vis_config = night_fused_config;
+  night_vis_config.mission.work_mode = config::EosWorkMode::kVisibleOnly;
 
-  ::electro_optical_sensor::session::EosCycleInput day_input = MakeBaseInput();
-  day_input.environment.day_night_type = ::electro_optical_sensor::session::DayNightType::kDay;
+  EosSession day_fused = EosSession::Create(day_fused_config);
+  EosSession day_ir = EosSession::Create(day_ir_config);
+  EosSession day_vis = EosSession::Create(day_vis_config);
+
+  const ::electro_optical_sensor::session::EosCycleInput day_input = MakeBaseInput();
 
   const session::EosOutputFrame day_fused_frame = day_fused.Step(day_input);
   const session::EosOutputFrame day_ir_frame = day_ir.Step(day_input);
@@ -301,12 +302,11 @@ TEST(EosSessionIntegrationTest, NightShiftsFusedWeightTowardInfrared) {
                                          day_ir_frame.detections.front().fused_snr_linear);
   EXPECT_LT(day_dist_to_vis, day_dist_to_ir);
 
-  EosSession night_fused = EosSession::Create(fused_config);
-  EosSession night_ir = EosSession::Create(ir_config);
-  EosSession night_vis = EosSession::Create(vis_config);
+  EosSession night_fused = EosSession::Create(night_fused_config);
+  EosSession night_ir = EosSession::Create(night_ir_config);
+  EosSession night_vis = EosSession::Create(night_vis_config);
 
-  ::electro_optical_sensor::session::EosCycleInput night_input = MakeBaseInput();
-  night_input.environment.day_night_type = ::electro_optical_sensor::session::DayNightType::kNight;
+  const ::electro_optical_sensor::session::EosCycleInput night_input = MakeBaseInput();
 
   const session::EosOutputFrame night_fused_frame = night_fused.Step(night_input);
   const session::EosOutputFrame night_ir_frame = night_ir.Step(night_input);
@@ -506,8 +506,6 @@ TEST(EosSessionIntegrationTest, StraylightFilterReducesOffAxisTargetSnr) {
 
   ::electro_optical_sensor::session::EosCycleInput input = MakeBaseInput();
   input.scene.clear();
-  input.environment.solar_altitude_deg = 75.0f;
-  input.environment.solar_azimuth_deg = 90.0f;
   session::EosSceneTarget target = MakeTarget(1U, 0.0f, 1000.0f, 6.0f);
   target.appearance.apparent_temperature_k = 500.0f;
   input.scene.push_back(target);
@@ -567,8 +565,6 @@ TEST(EosSessionIntegrationTest, RuntimeConfigStraylightToggleWorks) {
   EosSession session = EosSession::Create(config);
 
   ::electro_optical_sensor::session::EosCycleInput input = MakeBaseInput();
-  input.environment.solar_altitude_deg = 75.0f;
-  input.environment.solar_azimuth_deg = 90.0f;
   input.scene.clear();
   session::EosSceneTarget target = MakeTarget(1U, 0.0f, 1000.0f, 6.0f);
   target.appearance.apparent_temperature_k = 500.0f;
@@ -587,8 +583,6 @@ TEST(EosSessionIntegrationTest, RuntimeConfigStraylightToggleWorks) {
 
   ::electro_optical_sensor::session::EosCycleInput input_2 = MakeBaseInput();
   input_2.cycle_index = 2U;
-  input_2.environment.solar_altitude_deg = 75.0f;
-  input_2.environment.solar_azimuth_deg = 90.0f;
   input_2.scene.clear();
   input_2.scene.push_back(target);
 
@@ -606,8 +600,6 @@ TEST(EosSessionIntegrationTest, RuntimeEnvironmentPresetChangeTakesEffect) {
   EosSession session = EosSession::Create(config);
 
   ::electro_optical_sensor::session::EosCycleInput input = MakeBaseInput();
-  input.environment.cloud_coverage_ratio = 0.6f;
-  input.environment.ambient_wind_speed_mps = 100.0f;
   input.scene.clear();
   session::EosSceneTarget target = MakeTarget(1U, 0.0f, 1000.0f, 8.0f);
   target.appearance.apparent_temperature_k = 700.0f;
@@ -624,8 +616,6 @@ TEST(EosSessionIntegrationTest, RuntimeEnvironmentPresetChangeTakesEffect) {
 
   ::electro_optical_sensor::session::EosCycleInput input_2 = MakeBaseInput();
   input_2.cycle_index = 2U;
-  input_2.environment.cloud_coverage_ratio = 0.6f;
-  input_2.environment.ambient_wind_speed_mps = 100.0f;
   input_2.scene.clear();
   input_2.scene.push_back(target);
 

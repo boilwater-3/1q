@@ -9,7 +9,6 @@
 #define ONEQ_ELECTRO_OPTICAL_SENSOR_ELECTRO_OPTICAL_SENSOR_HPP_
 
 #include "1q/electro_optical_sensor/config/electro_optical_sensor_config.hpp"
-#include "1q/electro_optical_sensor/session/EosEnvironmentInput.h"
 #include "1q/electro_optical_sensor/session/EosCycleInput.h"
 #include "1q/electro_optical_sensor/session/EosCycleInputAdapter.h"
 #include "1q/electro_optical_sensor/session/EosCycleOutputAdapter.h"

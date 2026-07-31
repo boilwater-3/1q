@@ -37,6 +37,14 @@ struct ExplicitScanBounds {
 struct ONEQ_API EsrEnvironmentRuntimeConfigPatch {
   bool has_atmospheric_physics{false};
   EsrAtmosphericPhysicsConfig atmospheric_physics{};
+  bool has_propagation_profile{false};
+  EsrPropagationEnvironmentProfile propagation_profile{EsrPropagationEnvironmentProfile::kTypical};
+  bool has_clutter_density{false};
+  EsrClutterDensityLevel clutter_density{EsrClutterDensityLevel::kMedium};
+  bool has_spectrum_occupancy_ratio{false};
+  float spectrum_occupancy_ratio{0.0f};
+  bool has_atmospheric_observation{false};
+  EsrAtmosphericObservation atmospheric_observation{};
 };
 
 /**

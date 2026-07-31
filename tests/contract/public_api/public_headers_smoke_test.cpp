@@ -53,7 +53,6 @@
 #include "1q/electro_optical_sensor/session/EosCycleInputAdapter.h"
 #include "1q/electro_optical_sensor/session/EosCycleResult.h"
 #include "1q/electro_optical_sensor/session/EosDetectionLifecycleRecorder.h"
-#include "1q/electro_optical_sensor/session/EosEnvironmentInput.h"
 #include "1q/electro_optical_sensor/session/EosExternalInputAdapter.h"
 #include "1q/electro_optical_sensor/session/EosInputValidation.h"
 #include "1q/electro_optical_sensor/session/EosOutputDebugView.h"
@@ -67,7 +66,6 @@
 #include "1q/electronic_surveillance_radar/config/electronic_surveillance_radar_config.hpp"
 #include "1q/electronic_surveillance_radar/electronic_surveillance_radar.hpp"
 #include "1q/electronic_surveillance_radar/session/EsrCycleInput.h"
-#include "1q/electronic_surveillance_radar/session/EsrEnvironmentInput.h"
 #include "1q/electronic_surveillance_radar/session/EsrInputValidation.h"
 #include "1q/electronic_surveillance_radar/session/EsrSession.h"
 #include "1q/electronic_surveillance_radar/session/EsrTraceSession.h"
@@ -323,11 +321,6 @@ TEST(PublicHeadersSmokeTest, EsrPublicSurfaceSupportsMinimalUsage) {
   session::EsrCycleInput input;
   input.cycle_index = 4U;
   input.dt_sec = 1.0f;
-  session::EsrEnvironmentInputState environment_state(input.environment);
-  session::EsrEnvironmentInputPatch environment_patch;
-  environment_patch.has_spectrum_occupancy_ratio = true;
-  environment_patch.spectrum_occupancy_ratio = 0.25f;
-  input.environment = environment_state.Update(environment_patch).Snapshot();
   input.platform_entity_id = 100U;
   input.has_platform_ecef_kinematics = true;
   input.platform_position_ecef_m.x_m = 6378137.0;
@@ -373,11 +366,6 @@ TEST(PublicHeadersSmokeTest, EosPublicSurfaceSupportsMinimalUsage) {
   ::electro_optical_sensor::session::EosCycleInput input;
   input.cycle_index = 2U;
   input.dt_sec = 1.0f;
-  session::EosEnvironmentInputState environment_state(input.environment);
-  session::EosEnvironmentInputPatch environment_patch;
-  environment_patch.has_day_night_type = true;
-  environment_patch.day_night_type = ::electro_optical_sensor::session::DayNightType::kDay;
-  input.environment = environment_state.Update(environment_patch).Snapshot();
   session::EosSceneTarget target;
   target.target_id = 7U;
   target.range_m = 1500.0f;

@@ -223,25 +223,11 @@ oneq::electromagnetics::RfEmissionFrame FromRfSceneFrame(
 std::string EncodeEsrCycleInput(const EsrCycleInput& v) {
   flatbuffers::FlatBufferBuilder fbb(1024);
 
-  const auto& env = v.environment;
-  // EsrAtmosphericObservation is a FlatBuffers table, use Create helper
-  auto atm = esr::replay::CreateEsrAtmosphericObservation(
-      fbb, env.atmospheric_observation.relative_humidity_ratio,
-      env.atmospheric_observation.precipitation_rate_mmph,
-      env.atmospheric_observation.visibility_km);
-  esr::replay::EsrEnvironmentInputBuilder env_builder(fbb);
-  env_builder.add_propagation_profile(static_cast<int32_t>(env.propagation_profile));
-  env_builder.add_clutter_density(static_cast<int32_t>(env.clutter_density));
-  env_builder.add_spectrum_occupancy_ratio(env.spectrum_occupancy_ratio);
-  env_builder.add_atmospheric_observation(atm);
-  auto env_fb = env_builder.Finish();
-
   const flatbuffers::Offset<esr::replay::RfSceneFrame> rf_emissions =
       BuildRfSceneFrame(fbb, v.rf_emissions);
   esr::replay::EsrCycleInputBuilder b(fbb);
   b.add_cycle_index(v.cycle_index);
   b.add_dt_sec(v.dt_sec);
-  b.add_environment(env_fb);
   esr::replay::Vec3 platform_position_ecef = ToV(v.platform_position_ecef_m);
   esr::replay::Vec3 platform_velocity_ecef = ToV(v.platform_velocity_ecef_mps);
   b.add_platform_entity_id(v.platform_entity_id);
@@ -282,23 +268,6 @@ bool DecodeEsrCycleInput(const std::string& bytes, EsrCycleInput* out) {
     out->platform_attitude_deg.yaw_deg = fb->platform_attitude_deg()->yaw_deg();
     out->platform_attitude_deg.pitch_deg = fb->platform_attitude_deg()->pitch_deg();
     out->platform_attitude_deg.roll_deg = fb->platform_attitude_deg()->roll_deg();
-  }
-  out->environment = {};
-  if (fb->environment()) {
-    const auto* e = fb->environment();
-    out->environment.propagation_profile =
-        static_cast<EsrPropagationEnvironmentProfile>(e->propagation_profile());
-    out->environment.clutter_density =
-        static_cast<EsrClutterDensityLevel>(e->clutter_density());
-    out->environment.spectrum_occupancy_ratio = e->spectrum_occupancy_ratio();
-    if (e->atmospheric_observation()) {
-      out->environment.atmospheric_observation.relative_humidity_ratio =
-          e->atmospheric_observation()->relative_humidity_ratio();
-      out->environment.atmospheric_observation.precipitation_rate_mmph =
-          e->atmospheric_observation()->precipitation_rate_mmph();
-      out->environment.atmospheric_observation.visibility_km =
-          e->atmospheric_observation()->visibility_km();
-    }
   }
   return true;
 }

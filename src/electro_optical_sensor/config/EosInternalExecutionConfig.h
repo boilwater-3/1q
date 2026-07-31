@@ -67,6 +67,13 @@ struct EnvironmentConfig {
   float aerosol_density_factor{1.0f};                       /**< 气溶胶密度因子 */
   float turbulence_factor{1.0f};                            /**< 湍流因子 */
   oneq::environment::AtmosphericObservation atmospheric_physics{}; /**< 大气物理观测快照 */
+  float solar_altitude_deg{45.0f};              /**< 太阳高度角（单位：deg） */
+  float solar_azimuth_deg{180.0f};              /**< 太阳方位角（单位：deg） */
+  float solar_irradiance_w_m2{800.0f};          /**< 太阳辐照度（单位：W/m^2） */
+  float cloud_coverage_ratio{0.2f};             /**< 云量，范围 [0, 1] */
+  float ambient_wind_speed_mps{0.0f};           /**< 环境风速（单位：m/s） */
+  config::DayNightType day_night_type{config::DayNightType::kDay}; /**< 昼夜类型 */
+  float background_temperature_k{290.0f};       /**< 背景温度（单位：K） */
 };
 
 /** @brief 探测判决配置 — 直接别名到公开类型。 */

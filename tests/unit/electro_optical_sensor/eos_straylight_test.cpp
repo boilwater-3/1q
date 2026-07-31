@@ -62,12 +62,6 @@ session::EosSceneTarget MakeTarget(float azimuth_deg, float elevation_deg) {
   ::electro_optical_sensor::session::EosCycleInput input;
   input.cycle_index = 1U;
   input.dt_sec = 1.0f;
-  input.environment.solar_azimuth_deg = 180.0f;
-  input.environment.solar_altitude_deg = 45.0f;
-  input.environment.solar_irradiance_w_m2 = 900.0f;
-  input.environment.cloud_coverage_ratio = 0.0f;
-  input.environment.background_temperature_k = 220.0f;
-  input.environment.day_night_type = ::electro_optical_sensor::session::DayNightType::kDay;
   input.platform_altitude_m = 1200.0f;
   input.platform_pose.position_m.z = 0.0f;
   input.scene.push_back(MakeTarget(180.0f, 45.0f));

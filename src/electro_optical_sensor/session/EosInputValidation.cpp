@@ -5,7 +5,6 @@
 namespace electro_optical_sensor {
 namespace session {
 
-using ::electro_optical_sensor::session::DayNightType;
 using ::electro_optical_sensor::session::EosCycleInput;
 using ::electro_optical_sensor::session::EosSceneTarget;
 
@@ -18,29 +17,6 @@ ValidationIssue MakeIssue(ValidationSeverity severity, ValidationCode code,
                           const std::string& field, const std::string& message) {
   return oneq::common::validation::MakeLocatedIssue<ValidationIssue, ValidationLocation>(
       severity, code, location_kind, entity_index, field, message);
-}
-
-void ValidateDayNightConsistency(const EosCycleInput& input, ValidationIssueList* issues) {
-  if (issues == nullptr || !IsFinite(input.environment.solar_altitude_deg)) {
-    return;
-  }
-  if (input.environment.day_night_type == DayNightType::kDay &&
-      input.environment.solar_altitude_deg < 0.0f) {
-    issues->push_back(MakeIssue(ValidationSeverity::kWarning,
-                                ValidationCode::kInconsistentDayNightType,
-                                ValidationLocationKind::kEnvironment, static_cast<std::size_t>(-1),
-                                "environment.day_night_type",
-                                "day/night type is day while solar altitude is below horizon"));
-    return;
-  }
-  if (input.environment.day_night_type == DayNightType::kNight &&
-      input.environment.solar_altitude_deg > -6.0f) {
-    issues->push_back(
-        MakeIssue(ValidationSeverity::kWarning, ValidationCode::kInconsistentDayNightType,
-                  ValidationLocationKind::kEnvironment, static_cast<std::size_t>(-1),
-                  "environment.day_night_type",
-                  "day/night type is night while solar altitude indicates twilight/day"));
-  }
 }
 
 void ValidatePlatformPose(const oneq::foundation::PoseState& platform_pose,
@@ -144,50 +120,6 @@ ValidationIssueList ValidateEosCycleInput(
 
   ValidatePlatformPose(input.platform_pose, &issues);
   ValidatePlatformAltitude(input.platform_altitude_m, &issues);
-
-  if (!IsFinite(input.environment.solar_altitude_deg) ||
-      !IsFinite(input.environment.solar_azimuth_deg)) {
-    issues.push_back(MakeIssue(ValidationSeverity::kError, ValidationCode::kNonFiniteSolarAngles,
-                               ValidationLocationKind::kEnvironment, static_cast<std::size_t>(-1),
-                               "environment.solar_altitude_deg/solar_azimuth_deg",
-                               "solar angles must be finite"));
-  } else if (input.environment.solar_altitude_deg < -90.0f ||
-             input.environment.solar_altitude_deg > 90.0f) {
-    issues.push_back(
-        MakeIssue(ValidationSeverity::kError, ValidationCode::kInvalidSolarAltitudeRange,
-                  ValidationLocationKind::kEnvironment, static_cast<std::size_t>(-1),
-                  "environment.solar_altitude_deg", "solar altitude must be in [-90, 90] degrees"));
-  }
-  ValidateDayNightConsistency(input, &issues);
-
-  if (!IsFinite(input.environment.solar_irradiance_w_m2) ||
-      input.environment.solar_irradiance_w_m2 < 0.0f) {
-    issues.push_back(MakeIssue(ValidationSeverity::kError, ValidationCode::kInvalidSolarIrradiance,
-                               ValidationLocationKind::kEnvironment, static_cast<std::size_t>(-1),
-                               "environment.solar_irradiance_w_m2",
-                               "solar irradiance must be finite and non-negative"));
-  }
-  if (!oneq::common::validation::IsRatio01(input.environment.cloud_coverage_ratio)) {
-    issues.push_back(
-        MakeIssue(ValidationSeverity::kError, ValidationCode::kInvalidCloudCoverageRatio,
-                  ValidationLocationKind::kEnvironment, static_cast<std::size_t>(-1),
-                  "environment.cloud_coverage_ratio", "cloud coverage ratio must be in [0, 1]"));
-  }
-  if (!IsFinite(input.environment.ambient_wind_speed_mps) ||
-      input.environment.ambient_wind_speed_mps < 0.0f) {
-    issues.push_back(MakeIssue(ValidationSeverity::kError, ValidationCode::kInvalidAmbientWindSpeed,
-                               ValidationLocationKind::kEnvironment, static_cast<std::size_t>(-1),
-                               "environment.ambient_wind_speed_mps",
-                               "ambient wind speed must be finite and non-negative"));
-  }
-  if (!IsFinite(input.environment.background_temperature_k) ||
-      input.environment.background_temperature_k <= 0.0f) {
-    issues.push_back(MakeIssue(ValidationSeverity::kError,
-                               ValidationCode::kInvalidBackgroundTemperature,
-                               ValidationLocationKind::kEnvironment, static_cast<std::size_t>(-1),
-                               "environment.background_temperature_k",
-                               "background temperature must be finite and positive"));
-  }
 
   for (std::size_t i = 0; i < input.scene.size(); ++i) {
     ValidateTarget(input.scene[i], i, &issues);

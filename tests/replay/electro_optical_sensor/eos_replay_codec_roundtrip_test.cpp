@@ -16,7 +16,6 @@
 #include "1q/electro_optical_sensor/session/EosOutputTypes.h"
 #include "1q/electro_optical_sensor/session/EosCycleInput.h"
 #include "1q/electro_optical_sensor/session/EosCycleResult.h"
-#include "1q/electro_optical_sensor/session/EosEnvironmentInput.h"
 #include "1q/electro_optical_sensor/session/EosSceneTypes.h"
 #include "1q/foundation/pose_types.h"
 #include "electro_optical_sensor/runtime/EosPipelineConfigMapper.h"
@@ -46,14 +45,6 @@ TEST(EosReplayCodecRoundtripTest, CycleInputPreservesAllFields) {
   input.platform_pose.attitude_deg.pitch_deg = 0.0f;
   input.platform_pose.attitude_deg.roll_deg = -3.0f;
 
-  input.environment.solar_altitude_deg = 45.0f;
-  input.environment.solar_azimuth_deg = 180.0f;
-  input.environment.solar_irradiance_w_m2 = 900.0f;
-  input.environment.cloud_coverage_ratio = 0.3f;
-  input.environment.ambient_wind_speed_mps = 5.0f;
-  input.environment.day_night_type = session::DayNightType::kDay;
-  input.environment.background_temperature_k = 295.0f;
-
   EosSceneTarget target;
   target.target_id = 100U;
   target.target_name = "eos-target-alpha";
@@ -78,14 +69,6 @@ TEST(EosReplayCodecRoundtripTest, CycleInputPreservesAllFields) {
   EXPECT_FLOAT_EQ(decoded.platform_pose.position_m.x, 1000.0f);
   EXPECT_FLOAT_EQ(decoded.platform_pose.velocity_mps.y, 10.0f);
   EXPECT_FLOAT_EQ(decoded.platform_pose.attitude_deg.yaw_deg, 90.0f);
-
-  EXPECT_FLOAT_EQ(decoded.environment.solar_altitude_deg, 45.0f);
-  EXPECT_FLOAT_EQ(decoded.environment.solar_azimuth_deg, 180.0f);
-  EXPECT_FLOAT_EQ(decoded.environment.solar_irradiance_w_m2, 900.0f);
-  EXPECT_FLOAT_EQ(decoded.environment.cloud_coverage_ratio, 0.3f);
-  EXPECT_FLOAT_EQ(decoded.environment.ambient_wind_speed_mps, 5.0f);
-  EXPECT_EQ(decoded.environment.day_night_type, session::DayNightType::kDay);
-  EXPECT_FLOAT_EQ(decoded.environment.background_temperature_k, 295.0f);
 
   ASSERT_EQ(decoded.scene.size(), 1U);
   EXPECT_EQ(decoded.scene[0].target_id, 100U);

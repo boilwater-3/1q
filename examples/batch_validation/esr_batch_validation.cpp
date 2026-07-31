@@ -145,8 +145,6 @@ std::string JoinIds(const std::vector<std::uint64_t>& ids) {
 // 输入构造
 // =============================================================================
 
-esr_session::EsrEnvironmentInput MakeEnvironment(float spectrum_occupancy);
-
 esr_session::EsrCycleInput MakeInput(const EsrCase& c, std::uint32_t cycle_index) {
   esr_session::EsrCycleInput input;
   input.cycle_index = cycle_index;
@@ -157,7 +155,6 @@ esr_session::EsrCycleInput MakeInput(const EsrCase& c, std::uint32_t cycle_index
   input.platform_position_ecef_m.x_m = -2289512.0;
   input.platform_position_ecef_m.y_m = 4909946.0;
   input.platform_position_ecef_m.z_m = 3650982.0;
-  input.environment = MakeEnvironment(c.spectrum_occupancy);
   input.rf_emissions.world_cycle_index = cycle_index;
   input.rf_emissions.window_start_time_s = input.cycle_start_time_s;
   input.rf_emissions.window_duration_s = input.dt_sec;
@@ -211,14 +208,6 @@ esr_session::EsrCycleInput MakeInput(const EsrCase& c, std::uint32_t cycle_index
             2.0e6, 5.0e6, &emission.waveform)) input.rf_emissions.emissions.push_back(emission);
   }
   return input;
-}
-
-esr_session::EsrEnvironmentInput MakeEnvironment(float spectrum_occupancy) {
-  esr_session::EsrEnvironmentInput env;
-  env.propagation_profile = esr_session::EsrPropagationEnvironmentProfile::kTypical;
-  env.clutter_density = esr_session::EsrClutterDensityLevel::kMedium;
-  env.spectrum_occupancy_ratio = spectrum_occupancy;
-  return env;
 }
 
 // =============================================================================

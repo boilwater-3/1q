@@ -9,7 +9,6 @@
 #include <cstdint>
 
 #include "1q/api.hpp"
-#include "1q/electro_optical_sensor/session/EosEnvironmentInput.h"
 #include "1q/electro_optical_sensor/session/EosSceneTypes.h"
 #include "1q/foundation/pose_types.h"
 
@@ -25,7 +24,6 @@ struct ONEQ_API EosCycleInput {
   float platform_altitude_m{0.0f};             /**< 平台 WGS84 绝对海拔（单位：m） */
   oneq::foundation::PoseState platform_pose{}; /**< 平台局部位姿状态 */
   EosSceneTargetList scene{};                  /**< 当前周期场景目标输入列表 */
-  EosEnvironmentInput environment{};           /**< 当前周期环境事实输入 */
 };
 
 }  // namespace session

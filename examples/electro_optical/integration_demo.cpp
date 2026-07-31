@@ -335,15 +335,6 @@ int main(int argc, char** argv) {
     return 1;
   }
 
-  // Build initial environment
-  eos_session::EosEnvironmentInput env_input;
-  env_input.solar_altitude_deg = 42.0f;
-  env_input.solar_azimuth_deg = 165.0f;
-  env_input.solar_irradiance_w_m2 = 850.0f;
-  env_input.cloud_coverage_ratio = 0.15f;
-  env_input.background_temperature_k = 288.0f;
-  env_input.day_night_type = eos_session::DayNightType::kDay;
-
   // 4 targets: 2 stationary, 2 moving
   // Platform boresight depression ~48 deg at 7000m intersects ground at
   // ~6303m ground distance. One degree longitude at 35N is ~91024m.
@@ -392,7 +383,7 @@ int main(int argc, char** argv) {
     eos_session::EosCycleInput input;
     eos_session::EosCoordinateStatus status;
     if (!eos_session::EosCycleInputAdapter::Build(
-            platform, target_inputs, static_cast<float>(dt), env_input,
+            platform, target_inputs, static_cast<float>(dt),
             &input, &status)) {
       std::cerr << "  Cycle " << (i + 1)
                 << ": EosCycleInputAdapter::Build failed (status="

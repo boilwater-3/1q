@@ -87,7 +87,6 @@ TEST(EosPublicApiConvenienceTest, SessionConfigBuilderOverridesSemanticFields) {
   EXPECT_EQ(config.mission.work_mode, config::EosWorkMode::kInfraredOnly);
   EXPECT_FLOAT_EQ(config.policy.detection.minimum_snr_db, 60.0f);
   EXPECT_TRUE(config.policy.stray_light.enable_straylight_filter);
-  EXPECT_EQ(config.environment.scenario_config.preset, config::EosEnvironmentPreset::kDusty);
 }
 
 TEST(EosPublicApiConvenienceTest, DetailedSessionConfigBuilderOverridesDomainAndLeafFields) {
@@ -103,14 +102,12 @@ TEST(EosPublicApiConvenienceTest, DetailedSessionConfigBuilderOverridesDomainAnd
   config.policy.stray_light.hood_outer_half_angle_deg = 55.0f;
   config.policy.stray_light.hood_min_suppression_ratio = 0.35f;
   config.policy.stray_light.hood_max_suppression_ratio = 0.95f;
-  config.environment.scenario_config.preset = config::EosEnvironmentPreset::kDusty;
 
   EXPECT_EQ(config.mission.work_mode, config::EosWorkMode::kInfraredOnly);
   EXPECT_NEAR(config.mission.scan_rate_deg_per_sec, 40.0f, 1e-5f);
   EXPECT_NEAR(config.mission.frame_rate_hz, 60.0f, 1e-5f);
   EXPECT_FLOAT_EQ(config.policy.detection.minimum_snr_db, 60.0f);
   EXPECT_TRUE(config.policy.stray_light.enable_straylight_filter);
-  EXPECT_EQ(config.environment.scenario_config.preset, config::EosEnvironmentPreset::kDusty);
 }
 
 TEST(EosPublicApiConvenienceTest, SessionConfigBuilderPreservesPreconfiguredSessionConfig) {
@@ -189,22 +186,11 @@ TEST(EosPublicApiConvenienceTest, RuntimeConfigBuilderSetsAllFields) {
   EXPECT_FLOAT_EQ(patch.policy.detection.minimum_snr_db, 60.0f);
   EXPECT_TRUE(patch.policy.stray_light.enable_straylight_filter);
   EXPECT_TRUE(patch.has_environment);
-  EXPECT_TRUE(patch.environment.has_scenario_config);
-  EXPECT_EQ(patch.environment.scenario_config.preset,
-            config::EosEnvironmentPreset::kTurbulent);
-  EXPECT_TRUE(patch.environment.scenario_config.atmospheric_physics.enable_physical_model);
-  EXPECT_NEAR(patch.environment.scenario_config.atmospheric_physics.relative_humidity,
-              0.8f, 1e-5f);
 }
 
 TEST(EosPublicApiConvenienceTest, InputValidationReportsErrorsForCommonBoundaryCases) {
   ::electro_optical_sensor::session::EosCycleInput input;
   input.dt_sec = 0.0f;
-  input.environment.solar_irradiance_w_m2 = -1.0f;
-  input.environment.cloud_coverage_ratio = -0.1f;
-  input.environment.ambient_wind_speed_mps = -5.0f;
-  input.environment.background_temperature_k = 0.0f;
-  input.environment.solar_altitude_deg = 100.0f;
 
   session::EosSceneTarget invalid_target;
   invalid_target.target_id = 0U;
@@ -218,16 +204,11 @@ TEST(EosPublicApiConvenienceTest, InputValidationReportsErrorsForCommonBoundaryC
   const session::ValidationIssueList issues = session::ValidateEosCycleInput(input);
 
   EXPECT_TRUE(ContainsEosIssueCode(issues, session::ValidationCode::kInvalidCycleDeltaTime));
-  EXPECT_TRUE(ContainsEosIssueCode(issues, session::ValidationCode::kInvalidSolarIrradiance));
-  EXPECT_TRUE(ContainsEosIssueCode(issues, session::ValidationCode::kInvalidCloudCoverageRatio));
-  EXPECT_TRUE(ContainsEosIssueCode(issues, session::ValidationCode::kInvalidAmbientWindSpeed));
-  EXPECT_TRUE(ContainsEosIssueCode(issues, session::ValidationCode::kInvalidBackgroundTemperature));
   EXPECT_TRUE(ContainsEosIssueCode(issues, session::ValidationCode::kInvalidTargetRange));
   EXPECT_TRUE(ContainsEosIssueCode(issues, session::ValidationCode::kInvalidTargetTemperature));
   EXPECT_TRUE(ContainsEosIssueCode(issues, session::ValidationCode::kInvalidTargetEmissivity));
   EXPECT_TRUE(ContainsEosIssueCode(issues, session::ValidationCode::kInvalidTargetReflectance));
   EXPECT_TRUE(ContainsEosIssueCode(issues, session::ValidationCode::kInvalidTargetProjectedArea));
-  EXPECT_TRUE(ContainsEosIssueCode(issues, session::ValidationCode::kInvalidSolarAltitudeRange));
   EXPECT_TRUE(session::HasValidationError(issues));
 }
 
@@ -501,10 +482,6 @@ TEST(EosPublicApiConvenienceTest, EosRuntimeConfigBuilderWithEnvironmentPolicies
       config::EosRuntimeConfigBuilder().WithEnvironmentScenarioConfig(env_config).Build();
 
   EXPECT_TRUE(patch.has_environment);
-  EXPECT_TRUE(patch.environment.has_scenario_config);
-  EXPECT_EQ(patch.environment.scenario_config.preset,
-            config::EosEnvironmentPreset::kTurbulent);
-  EXPECT_TRUE(patch.environment.scenario_config.atmospheric_physics.enable_physical_model);
 }
 
 TEST(EosPublicApiConvenienceTest, CreateWithValidationBuildsSessionAndReportsNoIssuesForHealthyConfig) {
