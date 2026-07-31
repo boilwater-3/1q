@@ -56,7 +56,7 @@ output::SbirsObservationStage InferObservationStage(
 SbirsDetectionLifecycleReason InferReason(
     const output::SbirsDetectionRecord* record,
     const attribution::SbirsDetectionAttributionRecord* attribution) {
-  // 优先消费 attribution 携带的捕获失败原因，修正"捕获失败被误归 FOV 外"的盲点。
+  // 优先消费 attribution 携带的捕获失败原因，确保捕获失败场景不被误归为 FOV 外。
   if (attribution != nullptr) {
     switch (attribution->capture_failure_reason) {
       case attribution::SbirsCaptureFailureReason::kNfovAcquisitionFailed:
