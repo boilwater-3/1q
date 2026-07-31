@@ -393,7 +393,9 @@ ScenarioSummary RunEosScenario(const EosCase& c, const eos_config::EosSessionCon
       }
       eos_session::EosCycleInput input;
       eos_session::EosCoordinateStatus status;
-      if (!eos_session::EosCycleInputAdapter::Build(platform, targets, 1.0f, &input, &status)) {
+      // dt_sec=0.1f：electro_optical.json 的 frame_rate_hz=30，53c56e21 收紧的
+      // dt_sec <= 10/frame_rate_hz 上界为 ≈0.333s，1.0f 会触发校验拒绝。
+      if (!eos_session::EosCycleInputAdapter::Build(platform, targets, 0.1f, &input, &status)) {
         s.warnings.Error("EosCycleInputAdapter::Build failed at cycle " +
                          std::to_string(cycle_index));
         break;

@@ -24,7 +24,7 @@ int main() {
   // 2. StepWithResult
   electro_optical_sensor::session::EosCycleInput input;
   input.cycle_index = 1U;
-  input.dt_sec = 1.0f;
+  input.dt_sec = 0.1f;  // 合法步长：受 53c56e21 收紧的 dt_sec <= 10/frame_rate_hz 上界约束（30Hz → ≈0.333s）。
 
   const electro_optical_sensor::session::EosCycleResult result = session.StepWithResult(input);
   if (!result.executed_this_cycle) {
@@ -35,7 +35,7 @@ int main() {
   // 3. Step
   electro_optical_sensor::session::EosCycleInput input_2;
   input_2.cycle_index = 2U;
-  input_2.dt_sec = 1.0f;
+  input_2.dt_sec = 0.1f;  // 同上，合法步长。
   const electro_optical_sensor::session::EosOutputFrame frame = session.Step(input_2);
   (void)frame.cycle_index;
 
