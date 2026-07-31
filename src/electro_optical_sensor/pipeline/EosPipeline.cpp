@@ -187,7 +187,11 @@ DetectionComputationContext BuildDetectionComputationContext(
   context_values.cloud_coverage_ratio = config.environment.cloud_coverage_ratio;
   context_values.day_night_type = config.environment.day_night_type;
 
-  // 目标相关字段
+  // 目标相关字段。
+  // 注意：range_m 的权威校验在 EosInputValidation（<= 0 为 error），
+  // 控制器在校验失败时不执行本管线，故正常 Session 路径不会传入非法 range_m。
+  // 此处 SafePositive 仅作深度防御，防止直接调用管线（绕过校验）时非法值进入
+  // 辐射传输计算引发 NaN 传播；兜底值 1000m 不应被视为合法输入约定。
   const foundation::radiative_transfer::RadiativeTransferResult transfer_result =
       ComputePathRadiativeTransfer(config, input,
                                    oneq::common::numerics::SafePositive(target.range_m, 1000.0f),

@@ -50,6 +50,7 @@ class ONEQ_API EosSessionConfigBuilder {
   class MissionEditor;
   class HardwareEditor;
   class EnvironmentEditor;
+  class PolicyEditor;
 
   explicit EosSessionConfigBuilder(const config::EosSessionConfig& config = {}) noexcept
       : config_(config) {}
@@ -62,12 +63,19 @@ class ONEQ_API EosSessionConfigBuilder {
   MissionEditor Mission() noexcept;
   HardwareEditor Hardware() noexcept;
   EnvironmentEditor Environment() noexcept;
+  PolicyEditor Policy() noexcept;
 
   /**
    * @brief 将语义档位翻译为配置字段，生成最终会话配置。
    *
    * 如果通过 Editor 设置了 Profile 枚举，Build() 会将语义设定翻译为
    * mission / hardware / policy.detection 中的对应字段。
+   *
+   * @note Profile 覆盖优先级：Build() 先整体拷贝 `config_`（Policy() 的直接赋值包含
+   *       其中），随后才应用 Mission Profile 的跨域翻译，故 Mission Profile 对
+   *       `policy.detection.minimum_snr_db` 的取值**始终覆盖** Policy() 的同字段赋值，
+   *       与各 Editor 的调用顺序无关。若需独立设定 minimum_snr_db，不要在该次 Build()
+   *       中设置 Mission Profile（或接受其带来的 snr 取值）。
    *
    * @return 构建完成的 `config::EosSessionConfig`。
    */
@@ -77,6 +85,7 @@ class ONEQ_API EosSessionConfigBuilder {
   friend class MissionEditor;
   friend class HardwareEditor;
   friend class EnvironmentEditor;
+  friend class PolicyEditor;
 
   config::EosSessionConfig config_{};
   EosMissionProfile mission_profile_{EosMissionProfile::kWideAreaSearch};
@@ -131,6 +140,33 @@ class ONEQ_API EosSessionConfigBuilder::HardwareEditor {
   EosSessionConfigBuilder* builder_;
 };
 
+/**
+ * @brief Policy 编辑器，提供策略域字段的直接设置入口。
+ *
+ * 设计动机：Mission Profile 在 Build() 时会跨域覆写 `policy.detection.minimum_snr_db`，
+ * 在此之前 EOS 缺少独立设置该门限的 Editor。本编辑器补齐该缺口，使其与其余模块
+ * （AR DetectionEditor / ESR DetectionEditor / SAR ProcessingEditor / SBIRS WithPolicy）
+ * 的策略域可达性一致。
+ *
+ * @note 直接写入 `config_`；Build() 先拷贝 `config_`、再应用 Mission Profile 跨域翻译，
+ *       故若同一次 Build() 同时设置了 Mission Profile，其对 minimum_snr_db 的覆写最终
+ *       生效（与调用顺序无关）。需要独立取值时，请不要在该次 Build() 中设置 Mission Profile。
+ */
+class ONEQ_API EosSessionConfigBuilder::PolicyEditor {
+ public:
+  explicit PolicyEditor(EosSessionConfigBuilder* builder) noexcept : builder_(builder) {}
+
+  /** @brief 设置最小检测信噪比门限（单位：dB）。 */
+  PolicyEditor& WithMinimumSnrDb(float minimum_snr_db) noexcept {
+    builder_->config_.policy.detection.minimum_snr_db = minimum_snr_db;
+    return *this;
+  }
+  EosSessionConfigBuilder& End() noexcept { return *builder_; }
+
+ private:
+  EosSessionConfigBuilder* builder_;
+};
+
 inline EosSessionConfigBuilder::MissionEditor EosSessionConfigBuilder::Mission() noexcept {
   return MissionEditor(this);
 }
@@ -141,6 +177,10 @@ inline EosSessionConfigBuilder::HardwareEditor EosSessionConfigBuilder::Hardware
 
 inline EosSessionConfigBuilder::EnvironmentEditor EosSessionConfigBuilder::Environment() noexcept {
   return EnvironmentEditor(this);
+}
+
+inline EosSessionConfigBuilder::PolicyEditor EosSessionConfigBuilder::Policy() noexcept {
+  return PolicyEditor(this);
 }
 
 }  // namespace config
