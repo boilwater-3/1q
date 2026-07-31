@@ -103,8 +103,6 @@ void WriteTempConfig() {
       << "    \"scene_center_longitude_deg\": " << kSceneCenterLonDeg << ",\n"
       << "    \"scene_center_altitude_m\": " << kTargetAltitudeM << ",\n"
       << "    \"nominal_slant_range_m\": " << kNominalSlantRangeM << ",\n"
-      << "    \"synthetic_aperture_time_s\": "
-      << (static_cast<double>(kPulseCount) / kPulseRepetitionFrequencyHz) << ",\n"
       << "    \"platform_speed_mps\": " << kPlatformSpeedMps << ",\n"
       << "    \"range_sample_count\": " << kRangeSamples << ",\n"
       << "    \"azimuth_pulse_count\": " << kPulseCount << ",\n"
@@ -117,7 +115,6 @@ void WriteTempConfig() {
       << "  },\n"
       << "  \"processing\": {\n"
       << "    \"enable_raw_echo_generation\": true,\n"
-      << "    \"enable_range_compression\": true,\n"
       << "    \"enable_l1_rda_imaging\": true,\n"
       << "    \"enable_l2_motion_compensation\": false,\n"
       << "    \"enable_l3_bp_imaging\": false,\n"
@@ -371,8 +368,6 @@ int main() {
   mission_config.scene_center_longitude_deg = kSceneCenterLonDeg;
   mission_config.scene_center_altitude_m = kTargetAltitudeM;
   mission_config.nominal_slant_range_m = kNominalSlantRangeM;
-  mission_config.synthetic_aperture_time_s =
-      static_cast<double>(kPulseCount) / kPulseRepetitionFrequencyHz;
   mission_config.platform_speed_mps = kPlatformSpeedMps;
   mission_config.range_sample_count = kRangeSamples;
   mission_config.azimuth_pulse_count = kPulseCount;

@@ -37,6 +37,14 @@ struct ExplicitScanBounds {
 struct ONEQ_API EsrEnvironmentRuntimeConfigPatch {
   bool has_atmospheric_physics{false};
   EsrAtmosphericPhysicsConfig atmospheric_physics{};
+  bool has_propagation_profile{false};
+  EsrPropagationEnvironmentProfile propagation_profile{EsrPropagationEnvironmentProfile::kTypical};
+  bool has_clutter_density{false};
+  EsrClutterDensityLevel clutter_density{EsrClutterDensityLevel::kMedium};
+  bool has_spectrum_occupancy_ratio{false};
+  float spectrum_occupancy_ratio{0.0f};
+  bool has_atmospheric_observation{false};
+  EsrAtmosphericObservation atmospheric_observation{};
 };
 
 /**
@@ -59,8 +67,10 @@ struct ONEQ_API EsrRuntimeConfigPatch {
   bool has_environment{false}; /**< [补丁标志] 是否更新环境运行期配置 */
   EsrEnvironmentRuntimeConfigPatch environment{};
 
-  bool has_sensor_enabled{false}; /**< [补丁标志] 是否显式设置传感器开关状态 */
-  bool sensor_enabled{true};      /**< [可外部调整] 传感器开关状态 */
+  bool has_sensor_enabled{false}; /**< [补丁标志] 是否显式设置传感器开关状态。
+       映射至 EsrMissionConfig::power_on。 */
+  bool sensor_enabled{true};      /**< [可外部调整] 传感器开关状态。映射至
+       EsrMissionConfig::power_on；字段名沿用跨模块约定。 */
 
   bool has_work_mode{false};                                /**< [补丁标志] 是否显式设置工作模式 */
   EsrWorkMode work_mode{EsrWorkMode::kEsm}; /**< [可外部调整] 工作模式值 */

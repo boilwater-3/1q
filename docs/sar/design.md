@@ -265,6 +265,11 @@ SAR 遵守 `docs/common/contract.md`：
 - `SarSessionConfigBuilder` 是 semantic builder，不承担 leaf setter 或隐式 validation。
 - SAR 输出遵守三层模型：系统输出、结构化结果、调试视图分离。
 - `SarSession::StepWithResult` 在运行期配置和成像链路前调用 `ValidateSarCycleInput`；存在 error 级问题时记录 `invalid_cycle_input` abort 并按既有语义复用上一帧（符合 contract.md §实现安全与失败语义规则 3）。
+- **dt_sec 校验边界（有意差异，勿按"四模块一致"补齐）**：`ValidateSarCycleInput` 对 `dt_sec` 仅校验有限性 + 正值，
+  **故意不含** EOS/SBIRS 的 `dt_sec ≤ 10/frame_rate_hz` 上界。SAR 配置中无 `frame_rate_hz` 概念——其
+  合成孔径时间由孔径几何（平台速度、方位分辨率、斜距）决定，而非成像帧率；dt 的合理性由 PRF 分数余量、
+  孔径拼接和跨周期 raw history 约束（见 §1.5、§2.3），不适用一个全局 frame_rate 上界。该差异已由
+  `SarInputValidation.cpp` 的实测校验链与 `SarCycleInput` 无 frame_rate 字段共同固化。
 - SAR runtime config 属于立即提交；`SarController` 在每次 pipeline 执行前捕获 raw pulse、
   trajectory、pulse ID 和 PRF 分数余量，执行 abort 时恢复这些跨周期状态并按需复用上一有效
   输出。配置不随执行失败回滚，执行状态也不得被失败周期污染。
@@ -337,12 +342,12 @@ SAR session 每周期先由 hardware config 生成 LFM waveform：
 适用边界：
 
 - waveform 生成失败会中止周期。
-- `enable_range_compression` 是 L1 RDA 与 L3 BP 的显式前置条件；关闭时成像配置在执行前被拒绝。
+- L1 RDA 与 L3 BP 的显式前置条件是 `enable_raw_echo_generation`；关闭时成像配置在执行前被拒绝。
 - 当前没有独立距离压缩载荷或独立完成阶段。只有 RDA/BP 实际成功执行内部距离压缩后才置位
-  `has_range_compressed_echo`；`raw=false, range=true` 与 raw-only 路径均不得发布距离压缩完成状态。
+  `has_range_compressed_echo`。
 
 [evidence: tests/unit/sar/sar_session_pipeline_test.cpp::RangeCompressionStatusRequiresExecutedImaging]
-[evidence: tests/unit/sar/sar_session_pipeline_test.cpp::RdaRequiresRawEchoAndRangeCompression]
+[evidence: tests/unit/sar/sar_session_pipeline_test.cpp::RdaRequiresRawEcho]
 [evidence: tests/replay/sar/sar_replay_codec_roundtrip_test.cpp::CycleResultPreservesOutputAndDiagnostics]
 
 验证入口：
@@ -361,7 +366,10 @@ SAR 支持两条 raw history 来源：
 
 内部生成路径的接收链按单站雷达方程处理：`peak_power_w`、双程天线增益、波长与
 `system_loss_db` 决定回波幅度，随后按 `k * 290 K * bandwidth * noise factor` 叠加确定性复高斯
-热噪声。环境开启时，点目标还按真实斜距承受双程大气衰减，地表 sigma0 背景相干叠加到 IQ。
+热噪声。天线物理尺寸（`antenna_length_m`、`antenna_width_m`）通过二维方向图
+`AntennaPattern(antenna, λ, az_off, el_off)` 参与回波幅度调制：每个点目标和杂波单元的幅度
+乘以 √(pattern)（场强域），方位波束宽度 = λ/length，俯仰波束宽度 = λ/width。
+条带模式下波束指向为平台速度矢量的 broadside 方向。环境开启时，点目标还按真实斜距承受双程大气衰减，地表 sigma0 背景相干叠加到 IQ。
 `estimated_snr_db` 是完整孔径内加噪前点目标平均接收功率与“接收机热噪声 + 分布式地表背景功率”
 之比；地表背景不得伪装成目标信号。隔离地表背景后，功率、增益、损耗、噪声系数的单变量变化
 必须分别满足正、正、负、负的方向性。

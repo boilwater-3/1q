@@ -9,7 +9,7 @@
 #include <cstdint>
 
 #include "airborne_radar/decision/ControlReducerTypes.h"
-#include "1q/airborne_radar/session/DecisionControlTypes.h"
+#include "airborne_radar/decision/ControlReducerTypes.h"
 
 namespace airborne_radar {
 namespace decision {
@@ -48,6 +48,31 @@ class ControlReducer {
    * @return 当前 reducer 配置副本。
    */
   extension::ControlReducerConfig GetConfig() const;
+
+  /**
+   * @brief 判断控制意图是否属于 LPI 域（归约权威判定）。
+   * @param[in] type 控制意图类型。
+   * @return 属于 LPI 域时返回 true。
+   * @note reducer 与外部提案校验必须共用此判定，避免重复实现漂移。
+   */
+  static bool IsLpiDirective(session::ControlDirectiveType type);
+
+  /**
+   * @brief 判断控制意图是否属于 ECCM 域（归约权威判定）。
+   * @param[in] type 控制意图类型。
+   * @return 属于 ECCM 域时返回 true。
+   * @note reducer 与外部提案校验必须共用此判定，避免重复实现漂移。
+   */
+  static bool IsEccmDirective(session::ControlDirectiveType type);
+
+  /**
+   * @brief 校验单条控制意图的标量合法性（归约权威判定）。
+   * @param[in] directive 待校验的控制意图。
+   * @return 合法时返回 true。
+   * @note 标量 directive（power/dwell/burnthrough）校验取值范围，
+   *       布尔 directive 要求不携带标量。
+   */
+  static bool IsValidDirectiveValue(const session::ControlDirective& directive);
 
   /**
    * @brief 使用上一版 profile 和 proposal 列表生成下一版 profile。

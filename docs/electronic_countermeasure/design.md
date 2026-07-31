@@ -92,10 +92,19 @@ observation、重复 ID、provenance、模式组合和随机状态（含两条�
 `ecm_scheduler_order_invariance_test.cpp::DifferentSeedsProduceDifferentSweepSequence`、
 `ecm_session_test.cpp::SnapshotFollowsImplAcrossFacadeMoveAndRejectsForeignSession`、
 `ecm_session_test.cpp::RestoreRejectsDirtySnapshotAndLeavesSessionUntouched`、
-`ecm_session_test.cpp::RestoreRejectsShallowInconsistencyRegression`。
-恢复校验现在逐项复用输入侧的 `IsValidSensorObservation` 与 hypothesis ID 唯一性,并断言
-`has_successful_cycle↔last_successful_cycle_index` 一致;脏快照(无效观测、重复 ID、标志/索引不一致、
-`has_last_sensor_frame=false` 但仍有观测)在 fail-closed 下被拒绝且不部分修改 session。
+	`ecm_session_test.cpp::RestoreRejectsShallowInconsistencyRegression`、
+	`ecm_session_test.cpp::SnapshotRejectsIllegalDeceptionModePhaseEnums`、
+	`ecm_session_test.cpp::SnapshotRejectsEngagedExceedingMaxActive`、
+	`ecm_session_test.cpp::SnapshotRejectsEngagedWithPhaseIdle`、
+	`ecm_session_test.cpp::SnapshotRejectsNonEngagedWithPhaseTowing`、
+	`ecm_session_test.cpp::SnapshotRejectsDelayBeyondMaximum`、
+	`ecm_session_test.cpp::SnapshotRejectsDuplicateThreatIdAmongEngaged`。
+	恢复校验现在逐项复用输入侧的 `IsValidSensorObservation` 与 hypothesis ID 唯一性,断言
+	`has_successful_cycle↔last_successful_cycle_index` 一致,并全面校验欺骗状态：已知 mode/phase
+	枚举值、状态数 ≤ `deception_max_active`、所有保留状态均 engaged 且 phase 非 kIdle、mode 必须
+	与当前默认欺骗子模式一致、threat_id 唯一。RGPO 强制 doppler=0，VGPO 强制 delay=0，组合模式
+	同时校验两者上限，false-target 强制 towing 且 delay/doppler 均为 0。脏快照在 fail-closed 下被
+	拒绝且不部分修改 session。
 
 ## 4. Trace、replay 与联动
 
@@ -140,11 +149,12 @@ schema 端到端往返。注:快照恢复侧的嵌套 observation / 重复 ID / 
 | `kRgpo` (Range Gate Pull-Off) | `kPulseTrain` | 距离拖引速率 → 假目标时延递增 | Towing → Holding → Stopped |
 | `kVgpo` (Velocity Gate Pull-Off) | `kPulseTrain` | 多普勒拖引速率 → 载频偏移递增 | Towing → Holding → Stopped |
 | `kRgpoVgpo` (组合) | `kPulseTrain` | 距离+多普勒同时递增 | Towing → Holding → Stopped |
-| `kFalseTarget` (假目标) | `kPulseTrain`（每周期 N 个发射） | 固定时延+多普勒偏移 | 直接 Stopped（无拖引/保持） |
+| `kFalseTarget` (假目标) | `kPulseTrain`（每周期 N 个发射） | 固定时延+多普勒偏移 | 直接 Idle（无拖引/保持，单周期 fire-and-forget） |
 
 状态机四相：`kTowing`（参数递增至最大偏移）→ `kHolding`（保持 `hold_time_s` 秒）→ `kStopped`
 （停拖一周期后释放）→ `kIdle`（释放，通道可重新分配）。`kFalseTarget` 直接从 `kTowing` 转为
-`kStopped`，无牵引和保持相。每个欺骗交战由 `EcmDeceptionState` 追踪，按 `threat_id` 索引；
+`kIdle`（直接释放，无拖引/保持/Stopped 相），与代码 `AdvanceDeceptionStates` 的 `kTowing` 分支
+一致。每个欺骗交战由 `EcmDeceptionState` 追踪，按 `threat_id` 索引；
 相同威胁的已有活跃交战优先复用，否则创建新 Towing 交战。
 
 ### 6.2 波形合同
@@ -166,7 +176,8 @@ schema 端到端往返。注:快照恢复侧的嵌套 observation / 重复 ID / 
 欺骗配置作为 `EcmSessionConfig` 的扩展字段：`default_deception_mode`、拖引速率/范围、保持时间、
 功率比例、最大并发交战数、假目标时延/多普勒偏移和单威胁最大假目标数。所有字段均参与
 `IsValidConfig` 校验。`EcmRuntimeConfigPatch` 支持运行期通过 `has_default_deception_mode`
-切换欺骗子模式。
+切换欺骗子模式；关闭电源、离开 deception technique 或切换欺骗子模式时，旧交战状态立即释放，
+避免新配置继续消费旧模式累积字段。
 
 ### 6.4 Snapshot 与 Replay
 
@@ -174,6 +185,8 @@ schema 端到端往返。注:快照恢复侧的嵌套 observation / 重复 ID / 
 参与快照往返和内部一致性校验。`EcmResourceDecision` 新增 `deception_mode`、`deception_phase`
 字段记录每个资源分配决策的欺骗上下文。FlatBuffers schema `ecm_replay.fbs` 已同步扩展以容纳
 欺骗配置和决策字段的编解码。
+[evidence: tests/unit/electronic_countermeasure/ecm_session_test.cpp::SnapshotRejectsModeIrrelevantDeceptionFieldsWithoutMutation]
+[evidence: tests/unit/electronic_countermeasure/ecm_session_test.cpp::RuntimeTechniqueOrModeChangeReleasesDeceptionState]
 
 ### 6.5 证据
 

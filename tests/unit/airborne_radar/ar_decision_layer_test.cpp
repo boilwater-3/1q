@@ -10,7 +10,7 @@
 #include <string>
 #include <vector>
 
-#include "1q/airborne_radar/session/ControlDirective.h"
+#include "airborne_radar/decision/ControlReducerTypes.h"
 #include "1q/airborne_radar/session/DecisionInputFrame.h"
 #include "1q/airborne_radar/session/TrackStateSnapshot.h"
 #include "airborne_radar/decision/ThreatAssessmentEvaluator.h"

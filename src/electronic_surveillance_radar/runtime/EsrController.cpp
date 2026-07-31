@@ -51,18 +51,14 @@ void EsrController::RunOnce(const session::EsrCycleInput& input) {
 
   // 冻结环境
   {
-    session::EsrEnvironmentCycleContext env_ctx;
-    env_ctx.cycle_index = stamp.cycle_index;
-    env_ctx.dt_sec = input.dt_sec;
     oneq::coordinate::LlaPositionDegM platform_lla;
     if (!oneq::coordinate::TryEcefToLla(input.platform_position_ecef_m, &platform_lla)) {
       impl_->last_cycle_status = session::EsrCycleExecutionStatus::kRejected;
       impl_->last_abort_reason = session::EsrPipelineAbortReason::kValidationRejected;
       return;
     }
-    env_ctx.platform_altitude_m = static_cast<float>(platform_lla.altitude_m);
-    env_ctx.observation = input.environment;
-    impl_->environment_service.BeginCycle(env_ctx);
+    impl_->environment_service.BeginCycle(
+        stamp.cycle_index, input.dt_sec, static_cast<float>(platform_lla.altitude_m));
   }
 
   // 执行

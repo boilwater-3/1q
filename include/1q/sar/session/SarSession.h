@@ -46,11 +46,14 @@ class ONEQ_API SarSession {
 
   /**
    * @brief 应用运行期可变配置补丁。
+   * @note 内部委托 `TryApplyRuntimeConfig`，不返回成功与否；需要判别请使用后者。
+   *       补丁无效时静默忽略（不修改当前配置，不抛出异常）。
    */
   void ApplyRuntimeConfig(const config::SarRuntimeConfigPatch& patch);
 
   /**
    * @brief 尝试应用运行期可变配置补丁。
+   * @return 补丁成功应用时返回 `true`；补丁无效或被拒绝时返回 `false`（当前配置不变）。
    */
   bool TryApplyRuntimeConfig(const config::SarRuntimeConfigPatch& patch);
 

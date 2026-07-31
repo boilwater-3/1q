@@ -69,7 +69,8 @@ void EosController::RunOnce(const ::electro_optical_sensor::session::EosCycleInp
       impl_->pipeline.CaptureRuntimeState();
   impl_->ResetPerCycleFlags();
 
-  const session::ValidationIssueList issues = session::ValidateEosCycleInput(input);
+  const session::ValidationIssueList issues =
+      session::ValidateEosCycleInput(input, impl_->pipeline.GetFrameRateHz());
   impl_->last_validation_issues = issues;
   impl_->has_validation_error = session::HasValidationError(issues);
 

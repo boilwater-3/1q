@@ -68,10 +68,11 @@ bool GeneratePointTargetRawEcho(const RawEchoConfig& config,
                                 RawEchoResult* result);
 
 /**
- * @brief 天线方向图调制配置(聚束/斜视模式)。
+ * @brief 天线方向图调制配置。
  *
  * enabled=false 时,回波生成退化为无方向图加权(条带兼容,broadside 退化不变量)。
- * enabled=true 时,每个目标的幅度乘以方位 sinc² 方向图 AzimuthPattern(off_boresight)。
+ * enabled=true 时,每个目标的幅度乘以二维方向图 AntennaPattern(off_boresight_az, off_boresight_el)。
+ * antenna_length_m 控制方位波束宽度,antenna_width_m 控制俯仰波束宽度。
  */
 struct AntennaModulationConfig {
   geometry::AntennaParams antenna{};
@@ -80,11 +81,12 @@ struct AntennaModulationConfig {
 };
 
 /**
- * @brief 带天线方向图调制的点目标回波生成(聚束/斜视模式)。
+ * @brief 带天线方向图调制的点目标回波生成。
  *
- * 与 GeneratePointTargetRawEcho 逻辑相同,仅在幅度项增加方位方向图加权:
- *   off_boresight = target_azimuth − beam_state.boresight_azimuth
- *   amplitude *= AzimuthPattern(antenna, λ, off_boresight)
+ * 与 GeneratePointTargetRawEcho 逻辑相同,仅在幅度项增加二维方向图加权:
+ *   off_boresight_az = target_azimuth − beam_state.boresight_azimuth
+ *   off_boresight_el = target_elevation − beam_state.boresight_elevation
+ *   amplitude *= sqrt(AntennaPattern(antenna, λ, az, el))
  * antenna_config.enabled=false 时,与 GeneratePointTargetRawEcho 输出完全一致。
  */
 bool GeneratePointTargetRawEchoWithAntenna(const RawEchoConfig& config,
@@ -206,12 +208,14 @@ struct SceneDescription {
  * @brief 生成含点目标 + 杂波的原始回波。
  *        1) 先生成点目标回波,2) 叠加规则网格杂波单元。
  *        grid_spacing ≤ 0 则跳过杂波。
+ * @param antenna_config 可选天线方向图配置。nullptr 或 enabled=false 时不施加方向图调制。
  */
 bool GenerateClutterScene(const RawEchoConfig& config,
                           const geometry::PlatformPulseState& platform,
                           const SceneDescription& scene,
                           const signal::ComplexVector& transmit_waveform,
-                          RawEchoResult* result);
+                          RawEchoResult* result,
+                          const AntennaModulationConfig* antenna_config = nullptr);
 
 }  // namespace echo
 }  // namespace sar

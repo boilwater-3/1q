@@ -3,6 +3,12 @@
  * @brief 机载雷达硬件域主配置类型集合。
  *
  * 硬件域配置（探测链路物理参数、天线方向图、RCS 物理建模等）的主头文件。
+ *
+ * @note 硬件域仅包含物理硬件能力参数（发射机、天线、接收机、RCS 物理）。
+ *       检测判决门限（minimum_snr_db、pfa、pulse_count、minimum_detection_margin_db）
+ *       属于策略域 ArPolicyConfig::detection，不在此类型中。
+ *       内部通过 MapSessionToExecution() 将 hardware + policy.detection 合并为
+ *       engineering::DetectionConfig。
  */
 
 #ifndef ONEQ_AIRBORNE_RADAR_CONFIG_AR_HARDWARE_CONFIG_H_
@@ -146,8 +152,6 @@ struct ONEQ_API ReceiverConfig {
   std::uint64_t equipment_id{2U}; /**< RF scene 中的接收设备身份；同平台内必须唯一。 */
   float noise_figure_db{4.0f};    /**< 接收机噪声系数。 */
   float receive_loss_db{2.0f};    /**< 接收链路损耗。 */
-  oneq::electromagnetics::RfPolarization polarization{
-      oneq::electromagnetics::RfPolarization::kHorizontal}; /**< 接收极化。 */
   float cross_polarization_isolation_db{30.0f};             /**< 正交极化隔离（dB）。 */
   float minimum_far_field_range_m{1.0f};                    /**< 远场公式最小适用距离（m）。 */
   bool has_co_site_isolation{false};                        /**< 是否配置同平台耦合隔离。 */
@@ -193,7 +197,10 @@ struct ONEQ_API RcsPhysicsConfig {
 };
 
 /**
- * @brief 探测聚合配置。
+ * @brief 探测硬件能力聚合配置。
+ *
+ * 仅包含物理硬件能力参数（发射机、天线、接收机、RCS 物理建模）。
+ * 检测判决门限不在此结构中，参见 ArPolicyConfig::detection。
  */
 struct ONEQ_API DetectionConfig {
   TransmitterConfig transmitter{}; /**< 发射机参数。 */
@@ -207,7 +214,11 @@ struct ONEQ_API DetectionConfig {
 using detection::AntennaPatternModelType;
 using detection::DetectionConfig;
 
-/** @brief 雷达硬件域配置——DetectionConfig 别名。 */
+/**
+ * @brief 雷达硬件域配置——DetectionConfig 别名。
+ *
+ * 仅包含物理硬件能力。检测门限（minimum_snr_db 等）在 ArPolicyConfig::detection 中。
+ */
 using ArHardwareConfig = detection::DetectionConfig;
 
 }  // namespace config

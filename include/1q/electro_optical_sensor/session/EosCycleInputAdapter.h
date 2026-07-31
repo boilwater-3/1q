@@ -37,21 +37,6 @@ struct ONEQ_API EosCycleInputAdapter {
                     const std::vector<EosExternalTargetInput>& targets, float dt_sec,
                     EosCycleInput* output, EosCoordinateStatus* status = nullptr);
 
-  /**
-   * @brief 从外部坐标系输入与完整环境快照一步构建 EosCycleInput。
-   * @param[in] platform 外部平台运动学输入。
-   * @param[in] targets 外部目标输入列表。
-   * @param[in] dt_sec 周期步长（单位：秒）。
-   * @param[in] environment 本周期完整环境事实快照。
-   * @param[out] output 输出 EosCycleInput；可为 nullptr。
-   * @param[out] status 可选状态输出，nullptr 表示不关心失败原因。
-   * @return 所有转换成功返回 true。
-   */
-  static bool Build(const EosExternalPoseInput& platform,
-                    const std::vector<EosExternalTargetInput>& targets, float dt_sec,
-                    const EosEnvironmentInput& environment, EosCycleInput* output,
-                    EosCoordinateStatus* status = nullptr);
-
  private:
   EosCycleInputAdapter() = delete;
 };

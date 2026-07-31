@@ -169,9 +169,6 @@ ar_session::ArExternalPoseInput MakePlatformPose(std::uint32_t cycle_index) {
   p.platform_attitude_deg.yaw_deg = 0.0;
   p.platform_attitude_deg.pitch_deg = 0.0;
   p.platform_attitude_deg.roll_deg = 0.0;
-  p.radar_mount_angles_deg.yaw_deg = 0.0;
-  p.radar_mount_angles_deg.pitch_deg = 0.0;
-  p.radar_mount_angles_deg.roll_deg = 0.0;
   return p;
 }
 
@@ -211,17 +208,6 @@ std::vector<ar_session::ArExternalTargetInput> MakeTargets(const ArCase& c,
   }
   (void)cycle_index;
   return targets;
-}
-
-/// 构造默认环境（关闭物理大气模型，避免引入额外衰减干扰趋势）。
-ar_session::ArEnvironmentInput MakeEnvironment(std::uint32_t cycle_index) {
-  (void)cycle_index;
-  ar_session::ArEnvironmentInput env;
-  env.atmospheric_observation.enable_physical_model = false;
-  env.atmospheric_observation.pressure_hpa = 1013.25f;
-  env.atmospheric_observation.temperature_k = 288.15f;
-  env.atmospheric_observation.relative_humidity = 0.5f;
-  return env;
 }
 
 /// 按场景调整 config：
@@ -449,7 +435,6 @@ ScenarioSummary RunArScenario(const ArCase& c, const ar_config::ArSessionConfig&
       }
       ar_session::ArExternalPoseInput platform = MakePlatformPose(cycle_index);
       std::vector<ar_session::ArExternalTargetInput> targets = MakeTargets(c, cycle_index);
-      ar_session::ArEnvironmentInput env = MakeEnvironment(cycle_index);
 
       ar_session::ArCycleInput input;
       input.cycle_index = cycle_index;
@@ -460,7 +445,6 @@ ScenarioSummary RunArScenario(const ArCase& c, const ar_config::ArSessionConfig&
       }
       input.platform = platform;
       input.targets = targets;
-      input.environment = env;
       if (c.scenario_id == "ar_seq_invalid_input_recovery" && cycle_index == 9U) {
         input.dt_sec = 0.0;
       } else if (c.scenario_id == "ar_seq_invalid_input_recovery" && cycle_index == 10U &&

@@ -48,7 +48,7 @@ TEST(EosTraceSessionAdapterTest, WritesConfigInputAndOutputToTraceSink) {
   session::EosTraceSession traced(config, options);
   session::EosCycleInput input;
   input.cycle_index = 1U;
-  input.dt_sec = 1.0f;
+  input.dt_sec = 0.1f;  // 合法步长：受 53c56e21 收紧的 dt_sec <= 10/frame_rate_hz 上界约束（30Hz → ≈0.333s）。
   (void)traced.StepWithResult(input);
 
   const std::vector<std::uint8_t> content = ReadBinaryFile(trace_path);

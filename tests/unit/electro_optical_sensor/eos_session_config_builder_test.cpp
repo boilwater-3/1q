@@ -56,6 +56,41 @@ TEST(EosSessionConfigBuilderTest, HardwareProfilesApplyDefaults) {
 }
 
 // =============================================================================
+// PolicyEditor（策略域独立入口）+ Mission Profile 跨域覆写优先级
+// =============================================================================
+
+TEST(EosSessionConfigBuilderTest, PolicyEditorSetsMinimumSnrDbIndependently) {
+  EosSessionConfigBuilder builder;
+  builder.Policy().WithMinimumSnrDb(9.0f).End();
+  const EosSessionConfig config = builder.Build();
+  EXPECT_FLOAT_EQ(config.policy.detection.minimum_snr_db, 9.0f);
+}
+
+// Mission Profile 对 minimum_snr_db 的跨域覆写始终胜出，与调用顺序无关。
+TEST(EosSessionConfigBuilderTest, MissionProfileOverridesPolicyEditorSnrBefore) {
+  EosSessionConfigBuilder builder;
+  builder.Policy().WithMinimumSnrDb(9.0f).End();
+  builder.Mission().WithMissionProfile(EosMissionProfile::kWideAreaSearch).End();  // snr=6dB
+  const EosSessionConfig config = builder.Build();
+  EXPECT_FLOAT_EQ(config.policy.detection.minimum_snr_db, 6.0f);
+}
+
+TEST(EosSessionConfigBuilderTest, MissionProfileOverridesPolicyEditorSnrAfter) {
+  EosSessionConfigBuilder builder;
+  builder.Mission().WithMissionProfile(EosMissionProfile::kLongRangeSurveillance).End();  // snr=3dB
+  builder.Policy().WithMinimumSnrDb(9.0f).End();
+  const EosSessionConfig config = builder.Build();
+  EXPECT_FLOAT_EQ(config.policy.detection.minimum_snr_db, 3.0f);
+}
+
+TEST(EosSessionConfigBuilderTest, PolicyEditorSnrSurvivesWithoutMissionProfile) {
+  EosSessionConfigBuilder builder;
+  builder.Policy().WithMinimumSnrDb(7.5f).End();
+  const EosSessionConfig config = builder.Build();
+  EXPECT_FLOAT_EQ(config.policy.detection.minimum_snr_db, 7.5f);
+}
+
+// =============================================================================
 // ValidateEosSessionConfig 校验分支
 // =============================================================================
 

@@ -83,29 +83,9 @@ TEST(SarInputValidationTest, NonFiniteTargetFieldIsError) {
   EXPECT_TRUE(found);
 }
 
-TEST(SarInputValidationTest, PulseCountMismatchIsError) {
-  SarCycleInput input;
-  input.dt_sec = 1.0f;
-  input.raw_iq.pulse_count = 5U;
-  SarRawIqFrame::PulseState pulse;
-  pulse.pulse_id = 1U;
-  pulse.time_s = 0.0;
-  input.raw_iq.pulse_states.push_back(pulse);  // 1 个，但声明 5 个
-
-  const ValidationIssueList issues = ValidateSarCycleInput(input);
-  bool found = false;
-  for (const ValidationIssue& issue : issues) {
-    if (issue.code == ValidationCode::kPulseCountMismatch) {
-      found = true;
-    }
-  }
-  EXPECT_TRUE(found);
-}
-
 TEST(SarInputValidationTest, NonContiguousPulseIdIsError) {
   SarCycleInput input;
   input.dt_sec = 1.0f;
-  input.raw_iq.pulse_count = 2U;
 
   SarRawIqFrame::PulseState pulse1;
   pulse1.pulse_id = 1U;
@@ -136,7 +116,6 @@ TEST(SarInputValidationTest, EmptyPulsesProduceNoPulseErrors) {
   for (const ValidationIssue& issue : issues) {
     EXPECT_NE(issue.code, ValidationCode::kNonFinitePulseField);
     EXPECT_NE(issue.code, ValidationCode::kInvalidPulseSequence);
-    EXPECT_NE(issue.code, ValidationCode::kPulseCountMismatch);
   }
 }
 

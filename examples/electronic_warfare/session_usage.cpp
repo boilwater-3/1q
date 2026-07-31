@@ -36,7 +36,6 @@ esr_session::EsrCycleInput MakeInput(std::uint32_t cycle_index,
   input.platform_entity_id = 9001U;
   input.has_platform_ecef_kinematics = true;
   input.platform_position_ecef_m = platform;
-  input.environment.propagation_profile = esr_session::EsrPropagationEnvironmentProfile::kOpen;
   input.rf_emissions.world_cycle_index = cycle_index;
   input.rf_emissions.window_start_time_s = input.cycle_start_time_s;
   input.rf_emissions.window_duration_s = input.dt_sec;

@@ -7,7 +7,6 @@
 
 #include "1q/airborne_radar/config/ArEnvironmentConfig.h"
 #include "1q/airborne_radar/config/ArRuntimeConfigPatch.h"
-#include "1q/airborne_radar/session/ArEnvironmentInput.h"
 
 namespace airborne_radar {
 namespace environment {
@@ -65,24 +64,6 @@ TEST(ArEnvironmentDerivedValueTest, DerivesKFactorFromObservation) {
       oneq::environment::ResolveEffectiveKFactor(physics);
   EXPECT_GT(k_factor, 1.0f);
   EXPECT_LT(k_factor, 2.0f);
-}
-
-TEST(ArEnvironmentInputStateTest, PatchUpdatesOnlySelectedNaturalFacts) {
-  session::ArEnvironmentInput initial;
-  initial.atmospheric_observation.temperature_k = 280.0f;
-  initial.surface_observation.cover_profile =
-      config::VegetationCoverProfile::kOpenGrassland;
-
-  session::ArEnvironmentInputState state(initial);
-  session::ArEnvironmentInputPatch patch;
-  patch.has_atmospheric_observation = true;
-  patch.atmospheric_observation.temperature_k = 305.0f;
-  state.Update(patch);
-
-  const session::ArEnvironmentInput snapshot = state.Snapshot();
-  EXPECT_FLOAT_EQ(snapshot.atmospheric_observation.temperature_k, 305.0f);
-  EXPECT_EQ(snapshot.surface_observation.cover_profile,
-            config::VegetationCoverProfile::kOpenGrassland);
 }
 
 }  // namespace

@@ -8,7 +8,7 @@ namespace session {
 namespace {
 
 bool HasRequestedUpdate(const config::SarRuntimeConfigPatch& patch) {
-  return patch.has_enable_raw_echo_generation || patch.has_enable_range_compression ||
+  return patch.has_enable_raw_echo_generation ||
          patch.has_enable_l1_rda_imaging || patch.has_retain_raw_phase_history ||
          patch.has_retain_focused_image || patch.has_minimum_snr_db;
 }
@@ -45,10 +45,6 @@ SarRuntimeConfigResolveResult ResolveSarRuntimeConfigPatch(
     resolved.next_config.policy.enable_raw_echo_generation = patch.enable_raw_echo_generation;
     resolved.policy_changed = true;
   }
-  if (patch.has_enable_range_compression) {
-    resolved.next_config.policy.enable_range_compression = patch.enable_range_compression;
-    resolved.policy_changed = true;
-  }
   if (patch.has_enable_l1_rda_imaging) {
     resolved.next_config.policy.enable_l1_rda_imaging = patch.enable_l1_rda_imaging;
     resolved.policy_changed = true;
@@ -62,14 +58,12 @@ SarRuntimeConfigResolveResult ResolveSarRuntimeConfigPatch(
     resolved.policy_changed = true;
   }
 
-  // L1 RDA 成像依赖 raw echo generation 与 range compression。基于
-  // resolved.next_config 判定，使同一补丁内同时打开依赖项也能正确放行。
+  // L1 RDA 成像依赖 raw echo generation。基于 resolved.next_config 判定，
+  // 使同一补丁内同时打开依赖项也能正确放行。
   if (resolved.next_config.policy.enable_l1_rda_imaging &&
-      (!resolved.next_config.policy.enable_raw_echo_generation ||
-       !resolved.next_config.policy.enable_range_compression)) {
+      !resolved.next_config.policy.enable_raw_echo_generation) {
     PROJECT_LOG_ERROR(
-        "[SarSession] Rejecting patch: enable_l1_rda_imaging requires raw echo generation and "
-        "range compression.");
+        "[SarSession] Rejecting patch: enable_l1_rda_imaging requires raw echo generation.");
     return RejectPatch(current_config, true);
   }
   if (resolved.next_config.policy.retain_raw_phase_history &&
@@ -83,9 +77,9 @@ SarRuntimeConfigResolveResult ResolveSarRuntimeConfigPatch(
   resolved.has_requested_update = has_requested_update;
   if (has_requested_update) {
     PROJECT_LOG_INFO(
-        "[SarSession] runtime config patch applied: raw_echo={} range_compression={} "
+        "[SarSession] runtime config patch applied: raw_echo={} "
         "l1_rda={} retain_raw={} retain_image={} min_snr_db={}",
-        patch.has_enable_raw_echo_generation, patch.has_enable_range_compression,
+        patch.has_enable_raw_echo_generation,
         patch.has_enable_l1_rda_imaging, patch.has_retain_raw_phase_history,
         patch.has_retain_focused_image, patch.has_minimum_snr_db);
   }

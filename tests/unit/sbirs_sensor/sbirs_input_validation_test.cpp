@@ -24,7 +24,7 @@ TEST(SbirsInputValidationTest, RejectsMissingSatellitePosition) {
           .Build();
 
   const sbirs_sensor::session::ValidationIssueList issues =
-      sbirs_sensor::session::ValidateSbirsCycleInput(input);
+      sbirs_sensor::session::ValidateSbirsCycleInput(input, 10.0f);
   EXPECT_TRUE(sbirs_sensor::session::HasValidationError(issues));
 }
 
@@ -44,7 +44,7 @@ TEST(SbirsInputValidationTest, AcceptsMinimalValidScene) {
           .Build();
 
   const sbirs_sensor::session::ValidationIssueList issues =
-      sbirs_sensor::session::ValidateSbirsCycleInput(input);
+      sbirs_sensor::session::ValidateSbirsCycleInput(input, 10.0f);
   EXPECT_FALSE(sbirs_sensor::session::HasValidationError(issues));
 }
 
@@ -83,23 +83,123 @@ TEST(SbirsInputValidationTest, RejectsFiniteDomainFlagIdAndEnvironmentMatrix) {
   invalid_inputs.back().scene.front().has_velocity_ecef_m_per_s = true;
   invalid_inputs.back().scene.front().velocity_ecef_m_per_s.y =
       std::numeric_limits<double>::quiet_NaN();
-  invalid_inputs.push_back(valid);
-  invalid_inputs.back().environment.has_environment_override = true;
-  invalid_inputs.back().environment.environment.relative_humidity_percent = 101.0f;
-  invalid_inputs.push_back(valid);
-  invalid_inputs.back().environment.has_environment_override = true;
-  invalid_inputs.back().environment.environment.weather_type =
-      static_cast<sbirs_sensor::config::SbirsWeatherType>(99);
-  invalid_inputs.push_back(valid);
-  invalid_inputs.back().environment.has_environment_override = true;
-  invalid_inputs.back().environment.environment.base_atmospheric_transmittance =
-      std::numeric_limits<float>::quiet_NaN();
 
   for (std::size_t i = 0; i < invalid_inputs.size(); ++i) {
     const sbirs_sensor::session::ValidationIssueList issues =
-        sbirs_sensor::session::ValidateSbirsCycleInput(invalid_inputs[i]);
+        sbirs_sensor::session::ValidateSbirsCycleInput(invalid_inputs[i], 10.0f);
     EXPECT_TRUE(sbirs_sensor::session::HasValidationError(issues)) << "case " << i;
   }
+}
+
+TEST(SbirsInputValidationTest, AcceptsDtSecWithinFrameRateBound) {
+  // frame_rate_hz=10 → max_dt = 10/10 = 1.0s; dt_sec=0.5 is within range.
+  sbirs_sensor::session::SbirsSceneTarget target;
+  target.target_id = 1U;
+  target.position_ecef_m = Vector(8000000.0, 0.0, 0.0);
+  target.temperature_k = 1200.0f;
+  target.projected_area_m2 = 10.0f;
+
+  const sbirs_sensor::session::SbirsCycleInput input =
+      sbirs_sensor::session::SbirsCycleInputBuilder()
+          .WithCycleIndex(1U)
+          .WithDeltaTimeSec(0.5f)
+          .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
+          .AddTarget(target)
+          .Build();
+
+  const sbirs_sensor::session::ValidationIssueList issues =
+      sbirs_sensor::session::ValidateSbirsCycleInput(input, 10.0f);
+  EXPECT_FALSE(sbirs_sensor::session::HasValidationError(issues));
+}
+
+TEST(SbirsInputValidationTest, RejectsDtSecExceedingFrameRateBound) {
+  // frame_rate_hz=10 → max_dt = 10/10 = 1.0s; dt_sec=2.0 exceeds the bound.
+  sbirs_sensor::session::SbirsSceneTarget target;
+  target.target_id = 1U;
+  target.position_ecef_m = Vector(8000000.0, 0.0, 0.0);
+  target.temperature_k = 1200.0f;
+  target.projected_area_m2 = 10.0f;
+
+  const sbirs_sensor::session::SbirsCycleInput input =
+      sbirs_sensor::session::SbirsCycleInputBuilder()
+          .WithCycleIndex(1U)
+          .WithDeltaTimeSec(2.0f)
+          .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
+          .AddTarget(target)
+          .Build();
+
+  const sbirs_sensor::session::ValidationIssueList issues =
+      sbirs_sensor::session::ValidateSbirsCycleInput(input, 10.0f);
+  EXPECT_TRUE(sbirs_sensor::session::HasValidationError(issues));
+}
+
+TEST(SbirsInputValidationTest, AcceptsDtSecAtExactFrameRateBound) {
+  // frame_rate_hz=10 → max_dt = 10/10 = 1.0s; dt_sec=1.0 is exactly at the boundary.
+  sbirs_sensor::session::SbirsSceneTarget target;
+  target.target_id = 1U;
+  target.position_ecef_m = Vector(8000000.0, 0.0, 0.0);
+  target.temperature_k = 1200.0f;
+  target.projected_area_m2 = 10.0f;
+
+  const sbirs_sensor::session::SbirsCycleInput input =
+      sbirs_sensor::session::SbirsCycleInputBuilder()
+          .WithCycleIndex(1U)
+          .WithDeltaTimeSec(1.0f)
+          .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
+          .AddTarget(target)
+          .Build();
+
+  const sbirs_sensor::session::ValidationIssueList issues =
+      sbirs_sensor::session::ValidateSbirsCycleInput(input, 10.0f);
+  EXPECT_FALSE(sbirs_sensor::session::HasValidationError(issues));
+}
+
+TEST(SbirsInputValidationTest, RejectsDtSecJustAboveFrameRateBound) {
+  // frame_rate_hz=10 → max_dt = 1.0s; dt_sec=1.001 is just above.
+  sbirs_sensor::session::SbirsSceneTarget target;
+  target.target_id = 1U;
+  target.position_ecef_m = Vector(8000000.0, 0.0, 0.0);
+  target.temperature_k = 1200.0f;
+  target.projected_area_m2 = 10.0f;
+
+  const sbirs_sensor::session::SbirsCycleInput input =
+      sbirs_sensor::session::SbirsCycleInputBuilder()
+          .WithCycleIndex(1U)
+          .WithDeltaTimeSec(1.001f)
+          .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
+          .AddTarget(target)
+          .Build();
+
+  const sbirs_sensor::session::ValidationIssueList issues =
+      sbirs_sensor::session::ValidateSbirsCycleInput(input, 10.0f);
+  EXPECT_TRUE(sbirs_sensor::session::HasValidationError(issues));
+}
+
+TEST(SbirsInputValidationTest, HigherFrameRateAllowsTighterDtSec) {
+  // frame_rate_hz=20 → max_dt = 10/20 = 0.5s; dt_sec=0.8 should fail.
+  sbirs_sensor::session::SbirsSceneTarget target;
+  target.target_id = 1U;
+  target.position_ecef_m = Vector(8000000.0, 0.0, 0.0);
+  target.temperature_k = 1200.0f;
+  target.projected_area_m2 = 10.0f;
+
+  const sbirs_sensor::session::SbirsCycleInput input =
+      sbirs_sensor::session::SbirsCycleInputBuilder()
+          .WithCycleIndex(1U)
+          .WithDeltaTimeSec(0.8f)
+          .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
+          .AddTarget(target)
+          .Build();
+
+  // At 20Hz, max_dt=0.5s → 0.8s should fail.
+  const sbirs_sensor::session::ValidationIssueList issues_20hz =
+      sbirs_sensor::session::ValidateSbirsCycleInput(input, 20.0f);
+  EXPECT_TRUE(sbirs_sensor::session::HasValidationError(issues_20hz));
+
+  // At 10Hz, max_dt=1.0s → 0.8s should pass.
+  const sbirs_sensor::session::ValidationIssueList issues_10hz =
+      sbirs_sensor::session::ValidateSbirsCycleInput(input, 10.0f);
+  EXPECT_FALSE(sbirs_sensor::session::HasValidationError(issues_10hz));
 }
 
 }  // namespace

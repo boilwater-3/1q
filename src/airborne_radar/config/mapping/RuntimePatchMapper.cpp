@@ -3,7 +3,7 @@
 #include <cmath>
 #include <vector>
 
-#include "airborne_radar/config/mapping/EngineeringResolvers.h"
+#include "airborne_radar/config/mapping/MappingTransforms.h"
 #include "common/logging/ProjectLog.h"
 #include "common/validation/ValidationUtils.h"
 
@@ -21,6 +21,30 @@ RuntimeConfigResolveResult RejectPatch(const RuntimeConfigState& current_state,
   return rejected;
 }
 
+/// @brief 验证 AzimuthElevationDeg 的两个分量是否有限。非法时记录日志。
+bool ValidateFiniteAzEl(const AzimuthElevationDeg& v, const char* field_name) {
+  if (!oneq::common::validation::IsFinite(v.az_deg) ||
+      !oneq::common::validation::IsFinite(v.el_deg)) {
+    PROJECT_LOG_ERROR("[ArSession] Rejecting runtime config patch due to non-finite {} "
+                      "(az_deg={}, el_deg={}).",
+                      field_name, v.az_deg, v.el_deg);
+    return false;
+  }
+  return true;
+}
+
+/// @brief 验证 CommandedBeamwidthDeg 的两个分量是否有限。非法时记录日志。
+bool ValidateFiniteBeamwidth(const CommandedBeamwidthDeg& v) {
+  if (!oneq::common::validation::IsFinite(v.commanded_az_beamwidth_deg) ||
+      !oneq::common::validation::IsFinite(v.commanded_el_beamwidth_deg)) {
+    PROJECT_LOG_ERROR("[ArSession] Rejecting runtime config patch due to non-finite "
+                      "commanded_beamwidth_deg (az_deg={}, el_deg={}).",
+                      v.commanded_az_beamwidth_deg, v.commanded_el_beamwidth_deg);
+    return false;
+  }
+  return true;
+}
+
 }  // namespace
 
 RuntimeConfigResolveResult ApplyRuntimePatch(const RuntimeConfigState& current_state,
@@ -35,12 +59,7 @@ RuntimeConfigResolveResult ApplyRuntimePatch(const RuntimeConfigState& current_s
 
   if (patch.has_dwell_center_deg) {
     has_requested_update = true;
-    if (!oneq::common::validation::IsFinite(patch.dwell_center_deg.az_deg) ||
-        !oneq::common::validation::IsFinite(patch.dwell_center_deg.el_deg)) {
-      PROJECT_LOG_ERROR(
-          "[ArSession] Rejecting runtime config patch due to non-finite dwell_center_deg "
-          "(az_deg={}, el_deg={}).",
-          patch.dwell_center_deg.az_deg, patch.dwell_center_deg.el_deg);
+    if (!ValidateFiniteAzEl(patch.dwell_center_deg, "dwell_center_deg")) {
       return RejectPatch(current_state, true);
     }
     resolved.next_state.dwell_center_deg = patch.dwell_center_deg;
@@ -64,6 +83,8 @@ RuntimeConfigResolveResult ApplyRuntimePatch(const RuntimeConfigState& current_s
 
   if (patch.has_policy) {
     next_execution_config.decision_control = patch.policy.decision_control;
+    next_execution_config.anti_vgpo_max_acceleration_mps2 =
+        patch.policy.decision_control.anti_vgpo_max_acceleration_mps2;
     next_execution_config.detection.beam_control = patch.policy.beam_control;
     next_execution_config.detection.engineering.detection_policy.cfar_pfa =
         patch.policy.detection.pfa;
@@ -73,7 +94,7 @@ RuntimeConfigResolveResult ApplyRuntimePatch(const RuntimeConfigState& current_s
     next_execution_config.detection.engineering.min_detection_margin_db =
         patch.policy.detection.minimum_detection_margin_db;
     next_execution_config.association.policy.unassigned_cost =
-        patch.policy.association.distance_gate_sigma * patch.policy.association.distance_gate_sigma;
+        SigmaToSquaredCost(patch.policy.association.distance_gate_sigma);
     next_execution_config.tracking.policy = patch.policy.tracking;
     next_execution_config.lifecycle.policy = patch.policy.lifecycle;
     policy_changed = true;
@@ -87,12 +108,7 @@ RuntimeConfigResolveResult ApplyRuntimePatch(const RuntimeConfigState& current_s
     has_requested_update = true;
   }
   if (patch.has_scan_center_deg) {
-    if (!oneq::common::validation::IsFinite(patch.scan_center_deg.az_deg) ||
-        !oneq::common::validation::IsFinite(patch.scan_center_deg.el_deg)) {
-      PROJECT_LOG_ERROR(
-          "[ArSession] Rejecting runtime config patch due to non-finite scan_center_deg "
-          "(az_deg={}, el_deg={}).",
-          patch.scan_center_deg.az_deg, patch.scan_center_deg.el_deg);
+    if (!ValidateFiniteAzEl(patch.scan_center_deg, "scan_center_deg")) {
       return RejectPatch(current_state, true);
     }
     next_execution_config.detection.orientation.scan_center_deg = patch.scan_center_deg;
@@ -100,15 +116,7 @@ RuntimeConfigResolveResult ApplyRuntimePatch(const RuntimeConfigState& current_s
     has_requested_update = true;
   }
   if (patch.has_commanded_beamwidth_deg) {
-    if (!oneq::common::validation::IsFinite(
-            patch.commanded_beamwidth_deg.commanded_az_beamwidth_deg) ||
-        !oneq::common::validation::IsFinite(
-            patch.commanded_beamwidth_deg.commanded_el_beamwidth_deg)) {
-      PROJECT_LOG_ERROR(
-          "[ArSession] Rejecting runtime config patch due to non-finite "
-          "commanded_beamwidth_deg (az_deg={}, el_deg={}).",
-          patch.commanded_beamwidth_deg.commanded_az_beamwidth_deg,
-          patch.commanded_beamwidth_deg.commanded_el_beamwidth_deg);
+    if (!ValidateFiniteBeamwidth(patch.commanded_beamwidth_deg)) {
       return RejectPatch(current_state, true);
     }
     next_execution_config.detection.orientation.commanded_beamwidth_deg =
@@ -142,17 +150,7 @@ RuntimeConfigResolveResult ApplyRuntimePatch(const RuntimeConfigState& current_s
   }
 
   if (policy_changed) {
-    next_execution_config.tracking.engineering = next_execution_config.tracking.policy;
-    next_execution_config.lifecycle.engineering =
-        ResolveLifecycleEngineering(next_execution_config.lifecycle.policy);
-    if (next_execution_config.lifecycle.engineering.enable_imm_lifecycle) {
-      next_execution_config.lifecycle.imm_model_noise_diff_coeffs =
-          BuildDefaultImmNoiseDiffCoeffs(next_execution_config.lifecycle.policy.model_count_hint);
-    } else {
-      next_execution_config.lifecycle.imm_model_noise_diff_coeffs.clear();
-      next_execution_config.lifecycle.imm_initial_weights.clear();
-      next_execution_config.lifecycle.imm_transition_probability.clear();
-    }
+    ReconcilePolicyToEngineering(next_execution_config);
   }
 
   resolved.next_state.execution_config = next_execution_config;
@@ -172,6 +170,8 @@ config::ArSessionConfig MapExecutionToSession(
   config.hardware.rcs_physics = execution_config.detection.engineering.rcs_physics;
   config.mission.orientation = execution_config.detection.orientation;
   config.policy.decision_control = execution_config.decision_control;
+  config.policy.decision_control.anti_vgpo_max_acceleration_mps2 =
+      execution_config.anti_vgpo_max_acceleration_mps2;
   config.policy.beam_control = execution_config.detection.beam_control;
   config.policy.detection.pfa = execution_config.detection.engineering.detection_policy.cfar_pfa;
   config.policy.detection.minimum_snr_db =
@@ -180,7 +180,7 @@ config::ArSessionConfig MapExecutionToSession(
   config.policy.detection.minimum_detection_margin_db =
       execution_config.detection.engineering.min_detection_margin_db;
   config.policy.association.distance_gate_sigma =
-      std::sqrt(execution_config.association.policy.unassigned_cost);
+      SquaredCostToSigma(execution_config.association.policy.unassigned_cost);
   config.policy.tracking = execution_config.tracking.policy;
   config.policy.lifecycle = execution_config.lifecycle.policy;
   return config;

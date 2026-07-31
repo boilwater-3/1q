@@ -3,9 +3,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
-#include <functional>
 #include <memory>
-#include <set>
 
 #include "1q/airborne_radar/session/ArControlProfile.h"
 #include "1q/airborne_radar/session/ArTrackOutput.h"
@@ -23,83 +21,21 @@ namespace extension {
 
 namespace {
 
-bool IsLpiDirective(session::ControlDirectiveType type) {
-  return type == session::ControlDirectiveType::REQUEST_LPI_POWER_REDUCTION ||
-         type == session::ControlDirectiveType::REQUEST_LPI_BEAMFORMING ||
-         type == session::ControlDirectiveType::REQUEST_LPI_DWELL;
-}
-
-bool IsEccmDirective(session::ControlDirectiveType type) {
-  return type == session::ControlDirectiveType::REQUEST_ENABLE_SIDELOBE_CANCELLER ||
-         type == session::ControlDirectiveType::REQUEST_ENABLE_ADAPTIVE_BEAMFORMING ||
-         type == session::ControlDirectiveType::REQUEST_AGILITY_FREQUENCY ||
-         type == session::ControlDirectiveType::REQUEST_ECCM_REJITTER ||
-         type == session::ControlDirectiveType::REQUEST_ECCM_BURNTHROUGH_GAIN ||
-         type == session::ControlDirectiveType::REQUEST_ANTI_RGPO_LEADING_EDGE ||
-         type == session::ControlDirectiveType::REQUEST_ANTI_VGPO_ACCELERATION_BOUND ||
-         type == session::ControlDirectiveType::REQUEST_ANTI_FALSE_TARGET_DISCRIMINATION;
-}
-
-bool HasValidRequestedValue(const session::ControlDirective& directive) {
-  if (!directive.has_requested_value || !std::isfinite(directive.requested_value)) {
-    return false;
-  }
-  switch (directive.type) {
-    case session::ControlDirectiveType::REQUEST_LPI_POWER_REDUCTION:
-      return directive.requested_value > 0.0f && directive.requested_value <= 1.0f;
-    case session::ControlDirectiveType::REQUEST_LPI_DWELL:
-      return directive.requested_value >= 0.25f && directive.requested_value <= 1.0f;
-    case session::ControlDirectiveType::REQUEST_ECCM_BURNTHROUGH_GAIN:
-      return directive.requested_value > 1.0f && directive.requested_value <= 2.0f;
-    default:
-      return !directive.has_requested_value;
-  }
-}
-
-bool IsValidExternalProposal(const session::TacticalProposal& proposal) {
-  const session::ControlDirective& directive = proposal.directive;
-  if (!IsLpiDirective(directive.type) && !IsEccmDirective(directive.type)) {
-    return false;
-  }
-  if (IsLpiDirective(directive.type) &&
-      directive.source != session::ControlDirectiveSource::EMISSION_CONTROL) {
-    return false;
-  }
-  if (IsEccmDirective(directive.type) &&
-      directive.source != session::ControlDirectiveSource::SURVIVABILITY) {
-    return false;
-  }
-  const bool requires_value =
-      directive.type == session::ControlDirectiveType::REQUEST_LPI_POWER_REDUCTION ||
-      directive.type == session::ControlDirectiveType::REQUEST_LPI_DWELL ||
-      directive.type == session::ControlDirectiveType::REQUEST_ECCM_BURNTHROUGH_GAIN;
-  return requires_value ? HasValidRequestedValue(directive) : !directive.has_requested_value;
-}
-
-bool IsValidInterferenceObservationList(
-    const session::ArInterferenceObservationList& observations) {
-  for (std::size_t index = 0U; index < observations.size(); ++index) {
-    const session::ArInterferenceObservation& observation = observations[index];
-    if (observation.observation_id != static_cast<std::uint64_t>(index + 1U) ||
-        !std::isfinite(observation.estimated_bearing_azimuth_deg) ||
-        !std::isfinite(observation.estimated_bearing_elevation_deg) ||
-        !std::isfinite(observation.estimated_off_boresight_deg) ||
-        observation.estimated_off_boresight_deg < 0.0 ||
-        !std::isfinite(observation.estimated_center_frequency_hz) ||
-        observation.estimated_center_frequency_hz <= 0.0 ||
-        !std::isfinite(observation.estimated_bandwidth_hz) ||
-        observation.estimated_bandwidth_hz <= 0.0 ||
-        !std::isfinite(observation.jammer_to_noise_db) ||
-        !std::isfinite(observation.bearing_standard_deviation_deg) ||
-        observation.bearing_standard_deviation_deg < 0.0 ||
-        !std::isfinite(observation.frequency_standard_deviation_hz) ||
-        observation.frequency_standard_deviation_hz < 0.0 ||
-        !std::isfinite(observation.bandwidth_standard_deviation_hz) ||
-        observation.bandwidth_standard_deviation_hz < 0.0) {
-      return false;
-    }
-  }
-  return true;
+bool HasOperationalProfileChanged(const session::ArControlProfile& previous,
+                                  const session::ArControlProfile& next) {
+  return previous.enable_lpi_power_control != next.enable_lpi_power_control ||
+         previous.lpi_power_scale != next.lpi_power_scale ||
+         previous.enable_lpi_beamforming != next.enable_lpi_beamforming ||
+         previous.lpi_dwell_scale != next.lpi_dwell_scale ||
+         previous.enable_agility_frequency != next.enable_agility_frequency ||
+         previous.agility_frequency_hop_phase != next.agility_frequency_hop_phase ||
+         previous.enable_sidelobe_canceller != next.enable_sidelobe_canceller ||
+         previous.enable_adaptive_beamforming != next.enable_adaptive_beamforming ||
+         previous.enable_eccm_rejitter != next.enable_eccm_rejitter ||
+         previous.eccm_burnthrough_gain != next.eccm_burnthrough_gain ||
+         previous.enable_anti_rgpo_leading_edge != next.enable_anti_rgpo_leading_edge ||
+         previous.enable_anti_vgpo_acceleration_bound != next.enable_anti_vgpo_acceleration_bound ||
+         previous.enable_anti_false_target_discrimination != next.enable_anti_false_target_discrimination;
 }
 
 extension::ControlReducerConfig MapDecisionControlConfig(
@@ -154,8 +90,8 @@ struct ArController::Impl {
   std::uint32_t pending_internal_cycle_index{0U};
   std::uint64_t pending_internal_batch_id{0U};
   std::vector<session::TacticalProposal> pending_internal_proposals{};
-  bool has_pending_external_decision{false};
-  session::ExternalDecisionResponse pending_external_decision{};
+  bool has_pending_external_override{false};
+  session::ExternalDecisionOverride pending_external_override{};
   bool has_latest_decision_observation{false};
   session::DecisionObservation latest_decision_observation{};
   session::DecisionControlSource last_applied_decision_source{
@@ -164,7 +100,6 @@ struct ArController::Impl {
   std::uint64_t last_applied_decision_batch_id{0U};
   std::vector<session::TacticalProposal> last_applied_decision_proposals{};
   bool control_prepared_for_cycle{false};
-  session::ArInterferenceObservationList prepared_interference_observations{};
 
   /** @brief 构造使用默认 TacticalCoordinator 的控制器。 */
   Impl(session::MutableArContext& ctx, signal::ISignalPipeline& sig,
@@ -192,24 +127,85 @@ struct ArController::Impl {
     }
   }
 
+  /** @brief 校验外部覆盖返回的 profile 字段是否在合法范围内。 */
+  static bool IsValidOverrideProfile(const session::ArControlProfile& profile) {
+    if (profile.enable_lpi_power_control) {
+      if (!std::isfinite(profile.lpi_power_scale) || profile.lpi_power_scale <= 0.0f ||
+          profile.lpi_power_scale > 1.0f) {
+        return false;
+      }
+    }
+    if (profile.lpi_dwell_scale != 1.0f) {
+      if (!std::isfinite(profile.lpi_dwell_scale) || profile.lpi_dwell_scale < 0.25f ||
+          profile.lpi_dwell_scale > 1.0f) {
+        return false;
+      }
+    }
+    if (profile.eccm_burnthrough_gain != 1.0f) {
+      if (!std::isfinite(profile.eccm_burnthrough_gain) || profile.eccm_burnthrough_gain <= 1.0f ||
+          profile.eccm_burnthrough_gain > 2.0f) {
+        return false;
+      }
+    }
+    if (profile.agility_frequency_hop_phase > 1) {
+      return false;
+    }
+    return true;
+  }
+
+  /** @brief 将外部覆盖应用到原生 profile 上，返回最终 profile。 */
+  static session::ArControlProfile ApplyExternalOverride(
+    const session::ArControlProfile& native_profile,
+    const session::ExternalDecisionOverride& override) {
+  session::ArControlProfile override_profile = override.profile;
+  if (!IsValidOverrideProfile(override_profile)) {
+    return native_profile;
+  }
+    override_profile.version = HasOperationalProfileChanged(native_profile, override_profile)
+                                   ? native_profile.version + 1U
+                                   : native_profile.version;
+    return override_profile;
+  }
+
   void ApplyPendingDecisionControl() {
     if (!has_pending_internal_decision) {
       return;
     }
-    const std::vector<session::TacticalProposal>& selected_proposals =
-        has_pending_external_decision ? pending_external_decision.proposals
-                                      : pending_internal_proposals;
-    command_mapper->Apply(&control_profile, selected_proposals);
-    last_applied_decision_source = has_pending_external_decision
-                                       ? session::DecisionControlSource::kExternal
-                                       : session::DecisionControlSource::kInternal;
+
+    // 1. 原生归约（始终执行）
+    const extension::ControlReductionResult native_result =
+        command_mapper->Apply(&control_profile, pending_internal_proposals);
+
+    // 2. 外部覆盖
+    if (has_pending_external_override) {
+      const session::ArControlProfile override_profile =
+          ApplyExternalOverride(control_profile, pending_external_override);
+      if (override_profile.version != control_profile.version) {
+        control_profile = override_profile;
+        radar_context.UpdateRadarControlProfile(control_profile);
+        // 对差异字段生成 ArCommand
+        const std::vector<session::ControlDirective> diffs =
+            command_mapper->DiffProfiles(native_result.profile, control_profile);
+        for (std::size_t i = 0; i < diffs.size(); ++i) {
+          const session::ArCommand cmd =
+              extension::ControlCommandMapper::DirectiveToCommand(diffs[i]);
+          if (cmd.type != session::ArCommandType::NONE) {
+            radar_context.SubmitControlCommand(cmd);
+          }
+        }
+      }
+      last_applied_decision_source = session::DecisionControlSource::kExternal;
+    } else {
+      last_applied_decision_source = session::DecisionControlSource::kInternal;
+    }
+
     last_applied_decision_cycle_index = pending_internal_cycle_index;
     last_applied_decision_batch_id = pending_internal_batch_id;
-    last_applied_decision_proposals = selected_proposals;
+    last_applied_decision_proposals = pending_internal_proposals;
     has_pending_internal_decision = false;
     pending_internal_proposals.clear();
-    has_pending_external_decision = false;
-    pending_external_decision = session::ExternalDecisionResponse();
+    has_pending_external_override = false;
+    pending_external_override = session::ExternalDecisionOverride();
   }
 };
 
@@ -230,7 +226,7 @@ void ArController::UpdateDecisionControlConfig(
       MapDecisionControlConfig(decision_control_config));
 }
 
-void ArController::RunOnce() {
+void ArController::RunOnce(const signal::pipeline::SignalCycleInput& cycle_input) {
   const bool control_was_prepared = impl_->control_prepared_for_cycle;
   impl_->ResetPerCycleFlags(control_was_prepared);
 
@@ -265,8 +261,6 @@ void ArController::RunOnce() {
   impl_->environment_service.BeginCycle(environment_cycle_context);
 
   // 执行信号流水线与决策引擎
-  const session::ArSceneTargetList& targets = scene_targets;
-
   if (!control_was_prepared) {
     impl_->ApplyPendingDecisionControl();
   }
@@ -274,9 +268,10 @@ void ArController::RunOnce() {
   impl_->signal_pipeline.SetControlProfile(impl_->control_profile);
   impl_->signal_pipeline.UpdatePlatformAttitude(platform_attitude);
   impl_->signal_pipeline.UpdatePlatformAltitudeM(platform_altitude_m);
+  // 周期输入已通过 SignalCycleInput 显式传入，不再依赖 mutable 旁路状态。
 
   session::SignalCycleResult signal_result =
-      impl_->signal_pipeline.RunCycle(targets, impl_->environment_service);
+      impl_->signal_pipeline.RunCycle(cycle_input, impl_->environment_service);
   impl_->control_prepared_for_cycle = false;
 
   impl_->last_cycle_executed = signal_result.executed_this_cycle;
@@ -290,8 +285,7 @@ void ArController::RunOnce() {
   session::DecisionInputFrame decision_frame = signal_result.decision_frame;
   decision_frame.cycle_index = stamp.cycle_index;
   decision_frame.batch_id = stamp.batch_id;
-  decision_frame.interference_observations = impl_->prepared_interference_observations;
-  impl_->prepared_interference_observations.clear();
+  decision_frame.interference_observations = cycle_input.interference_observations;
 
   session::TrackOutputFrame track_output_frame;
   track_output_frame.cycle_index = stamp.cycle_index;
@@ -320,8 +314,6 @@ void ArController::RunOnce() {
   impl_->pending_internal_cycle_index = stamp.cycle_index;
   impl_->pending_internal_batch_id = stamp.batch_id;
   impl_->pending_internal_proposals = decision_result.proposals;
-  impl_->has_pending_external_decision = false;
-  impl_->pending_external_decision = session::ExternalDecisionResponse();
   impl_->latest_decision_observation.input_frame = decision_frame;
   impl_->latest_decision_observation.active_control_profile = impl_->control_profile;
   impl_->has_latest_decision_observation = true;
@@ -347,18 +339,8 @@ bool ArController::PrepareEmissionControl() {
   return true;
 }
 
-bool ArController::SetPreparedInterferenceObservations(
-    const session::ArInterferenceObservationList& observations) {
-  if (!impl_->control_prepared_for_cycle || !IsValidInterferenceObservationList(observations)) {
-    return false;
-  }
-  impl_->prepared_interference_observations = observations;
-  return true;
-}
-
 void ArController::ReleasePreparedEmissionControl() {
   impl_->control_prepared_for_cycle = false;
-  impl_->prepared_interference_observations.clear();
 }
 
 const session::ArControlProfile& ArController::GetControlProfile() const {
@@ -367,7 +349,7 @@ const session::ArControlProfile& ArController::GetControlProfile() const {
 
 void ArController::RunCycles(std::size_t cycles) {
   for (std::size_t i = 0; i < cycles; ++i) {
-    RunOnce();
+    RunOnce(signal::pipeline::SignalCycleInput{impl_->radar_context.GetSceneTargets()});
   }
 }
 
@@ -406,27 +388,18 @@ bool ArController::HasLatestDecisionObservation() const {
 }
 
 session::ExternalDecisionSubmitStatus ArController::SubmitExternalDecision(
-    const session::ExternalDecisionResponse& response) {
+    session::ExternalDecisionOverride override_decision) {
   if (!impl_->has_pending_internal_decision || !impl_->has_latest_decision_observation) {
     return session::ExternalDecisionSubmitStatus::kNoPendingObservation;
   }
-  if (response.source_cycle_index != impl_->pending_internal_cycle_index ||
-      response.source_batch_id != impl_->pending_internal_batch_id) {
-    return session::ExternalDecisionSubmitStatus::kSourceMismatch;
-  }
-  if (impl_->has_pending_external_decision) {
+  if (impl_->has_pending_external_override) {
     return session::ExternalDecisionSubmitStatus::kAlreadySubmitted;
   }
-  std::set<session::ControlDirectiveType> directive_types;
-  for (std::size_t i = 0; i < response.proposals.size(); ++i) {
-    const session::TacticalProposal& proposal = response.proposals[i];
-    if (!IsValidExternalProposal(proposal) ||
-        !directive_types.insert(proposal.directive.type).second) {
-      return session::ExternalDecisionSubmitStatus::kInvalidProposal;
-    }
+  if (!impl_->IsValidOverrideProfile(override_decision.profile)) {
+    return session::ExternalDecisionSubmitStatus::kInvalidProfile;
   }
-  impl_->pending_external_decision = response;
-  impl_->has_pending_external_decision = true;
+  impl_->pending_external_override = std::move(override_decision);
+  impl_->has_pending_external_override = true;
   return session::ExternalDecisionSubmitStatus::kAccepted;
 }
 
@@ -447,18 +420,10 @@ const std::vector<session::TacticalProposal>& ArController::GetLastAppliedDecisi
   return impl_->last_applied_decision_proposals;
 }
 
-bool ArController::HasPendingExternalDecision() const {
-  return impl_->has_pending_external_decision;
-}
-
-const session::ExternalDecisionResponse& ArController::GetPendingExternalDecision() const {
-  return impl_->pending_external_decision;
-}
-
 extension::ArControllerRuntimeState ArController::CaptureRuntimeState() const {
   extension::ArControllerRuntimeState state;
   state.owner_identity = this;
-  state.schema_version = 1U;
+  state.schema_version = 5U;
   state.latest_output = impl_->cycle_state.latest_output;
   state.has_latest_output = impl_->cycle_state.has_latest_output;
   state.last_validation_issues = impl_->cycle_state.last_validation_issues;
@@ -473,8 +438,8 @@ extension::ArControllerRuntimeState ArController::CaptureRuntimeState() const {
   state.pending_internal_cycle_index = impl_->pending_internal_cycle_index;
   state.pending_internal_batch_id = impl_->pending_internal_batch_id;
   state.pending_internal_proposals = impl_->pending_internal_proposals;
-  state.has_pending_external_decision = impl_->has_pending_external_decision;
-  state.pending_external_decision = impl_->pending_external_decision;
+  state.has_pending_external_override = impl_->has_pending_external_override;
+  state.pending_external_override = impl_->pending_external_override;
   state.has_latest_decision_observation = impl_->has_latest_decision_observation;
   state.latest_decision_observation = impl_->latest_decision_observation;
   state.last_applied_decision_source = impl_->last_applied_decision_source;
@@ -482,12 +447,11 @@ extension::ArControllerRuntimeState ArController::CaptureRuntimeState() const {
   state.last_applied_decision_batch_id = impl_->last_applied_decision_batch_id;
   state.last_applied_decision_proposals = impl_->last_applied_decision_proposals;
   state.control_prepared_for_cycle = impl_->control_prepared_for_cycle;
-  state.prepared_interference_observations = impl_->prepared_interference_observations;
   return state;
 }
 
 bool ArController::RestoreRuntimeState(const extension::ArControllerRuntimeState& state) {
-  if (state.owner_identity != this || state.schema_version != 1U) {
+  if (state.owner_identity != this || state.schema_version != 5U) {
     PROJECT_LOG_ERROR(
         "[ArController] controller runtime state restore rejected: "
         "owner/schema mismatch.");
@@ -508,8 +472,8 @@ bool ArController::RestoreRuntimeState(const extension::ArControllerRuntimeState
   impl_->pending_internal_cycle_index = state.pending_internal_cycle_index;
   impl_->pending_internal_batch_id = state.pending_internal_batch_id;
   impl_->pending_internal_proposals = state.pending_internal_proposals;
-  impl_->has_pending_external_decision = state.has_pending_external_decision;
-  impl_->pending_external_decision = state.pending_external_decision;
+  impl_->has_pending_external_override = state.has_pending_external_override;
+  impl_->pending_external_override = state.pending_external_override;
   impl_->has_latest_decision_observation = state.has_latest_decision_observation;
   impl_->latest_decision_observation = state.latest_decision_observation;
   impl_->last_applied_decision_source = state.last_applied_decision_source;
@@ -517,7 +481,6 @@ bool ArController::RestoreRuntimeState(const extension::ArControllerRuntimeState
   impl_->last_applied_decision_batch_id = state.last_applied_decision_batch_id;
   impl_->last_applied_decision_proposals = state.last_applied_decision_proposals;
   impl_->control_prepared_for_cycle = state.control_prepared_for_cycle;
-  impl_->prepared_interference_observations = state.prepared_interference_observations;
   return true;
 }
 

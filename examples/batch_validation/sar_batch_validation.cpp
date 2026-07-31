@@ -174,8 +174,6 @@ void ApplyCaseToConfig(const SarCase& c, sar_config::SarSessionConfig& config) {
   config.hardware.bandwidth_hz = c.bandwidth_mhz * 1.0e6;
   config.mission.nominal_slant_range_m = c.slant_range_km * 1000.0;
   config.mission.azimuth_pulse_count = c.azimuth_pulses;
-  config.mission.synthetic_aperture_time_s =
-      static_cast<double>(c.azimuth_pulses) / config.hardware.pulse_repetition_frequency_hz;
 }
 
 // =============================================================================
@@ -409,8 +407,6 @@ ScenarioSummary RunSarScenario(const SarCase& c, const sar_config::SarSessionCon
         sar_config::SarRuntimeConfigPatch patch;
         patch.has_enable_l1_rda_imaging = true;
         patch.enable_l1_rda_imaging = cycle_index == 4U;
-        patch.has_enable_range_compression = true;
-        patch.enable_range_compression = true;
         session.ApplyRuntimeConfig(patch);
       }
       if (c.scenario_id == "sar_seq_invalid_runtime_atomic" && cycle_index == 2U) {

@@ -1,7 +1,7 @@
 # Airborne Radar 当前设计
 
 Status: active
-Last-reviewed: 2026-07-28
+Last-reviewed: 2026-07-30
 Authority: current airborne_radar module design
 RF-Interference-Architecture: RF v2 transmitter/receiver current
 
@@ -16,23 +16,23 @@ RF-Interference-Architecture: RF v2 transmitter/receiver current
 AR 的决策扩展点是同进程步间 observation/response seam：
 
 - 每个成功周期通过 `DecisionObservation` 输出 `DecisionInputFrame` 与实际控制 profile。
-- 调用方在下一次 `Step` 前运行外部模块，并用 `SubmitExternalDecision` 提交完整 LPI/ECCM proposals。
+- 调用方在下一次 `Step` 前运行外部模块，并用 `SubmitExternalDecision` 提交完整的 profile 覆盖值（整包替换 native 归约结果，绕过 hold/cooldown）。
 - 外部模块不替换内部对象；威胁分类和内部 baseline 每个成功周期仍持续计算。
-- 外部 proposals 仍由内部 `ControlReducer` 和 `ControlCommandMapper` 归约为唯一 `ArControlProfile`。
-- trace/replay 在外部响应被接受时立即写入独立 `decision_input` 事件，并在周期输出的内部
-  `ArReplayCycleRecord` 中固化 observation、pending/applied internal/external proposals、来源
-  cycle/batch、reducer 计数和最终 profile；外部整包替换的 next-successful-cycle 语义可被确定性重放。
+- 外部覆盖 profile 由 internal `ControlReducer` 归约之上直接替换控制 profile。
+- trace/replay 在外部覆盖被接受时立即写入独立 `decision_input` 事件（序列化 profile 值），
+  并在周期输出的内部 `ArReplayRecord` 中固化 observation、pending/applied internal proposals、来源
+  cycle/batch、reducer 计数和最终 profile；外部覆盖的 profile 值可被确定性值重放。
 
 当前模块的稳定外部使用方式是：
 
 1. 用 `ArSessionConfig` 或 builder 描述硬件、任务、策略、环境四域配置。
-2. 用 `ArCycleInput` 提供绝对周期时间、单一世界坐标平台状态、目标、自然环境和独立 interference frame。
+2. 用 `ArCycleInput` 提供绝对周期时间、单一世界坐标平台状态、目标和独立 interference frame；自然环境配置由 `ArSessionConfig.environment` 提供，运行期更新通过 `ArRuntimeConfigPatch` 提交。
 3. 调用 `ArSession::Step()` 获取本周期 track output，或调用 `ArSession::StepWithResult()` 获取结构化执行结果；
    拒绝周期不复用上一帧。
-4. 如需自定义 LPI/ECCM，读取结果中的 observation，外部评估后调用 `SubmitExternalDecision()`。
+4. 如需自定义 LPI/ECCM，读取结果中的 observation 得到当前活跃 profile，外部修改后调用 `SubmitExternalDecision()` 提交整包覆盖值。
 5. 如需调整运行期参数，使用 runtime patch；patch 提交失败时必须保持各子系统状态一致。
 
-`Ar*` 是 AR 模块的 public API 前缀（config/session/cycle/result/adapter/trace/replay/debug/lifecycle 等 DTO 与门面）。`RadarEquations`、`radar_cross_section`、`radar_mount_angles_deg`、`ComposeRadarAttitudeDeg` 等领域术语与领域函数不属于模块前缀范围，保留原名。
+`Ar*` 是 AR 模块的 public API 前缀（config/session/cycle/result/adapter/trace/replay/debug/lifecycle 等 DTO 与门面）。`RadarEquations`、`radar_cross_section`、`ComposeRadarAttitudeDeg` 等领域术语与领域函数不属于模块前缀范围，保留原名。
 
 历史上的 `Radar*` 模块前缀已一次性迁移到 `Ar*`，不保留 deprecated compat 层：旧 `Radar*.h` public wrapper、`using RadarX = ArX` 别名和 `ar_compat_consumer` 均已删除，`cross_domain_naming_guard` 与 `check_public_api_boundary` 守护目标已切到 `Ar*` 主头。trace/replay schema 与 payload type string 同步迁移到 `Ar*`（namespace 与 file identifier 不变）。新增 public primary 类型不得再使用 `Radar*` 作为模块所有权前缀；`Radar*` 只允许出现在领域术语白名单内。
 
@@ -46,8 +46,8 @@ AR 的决策扩展点是同进程步间 observation/response seam：
 | `config/` | `ArSessionConfig`、runtime patch、semantic builder、validation | 表达硬件、任务、策略和自然环境能力 |
 | `session/` | `ArSession`、cycle input/result、scene target、output types、trace/replay、debug/lifecycle、decision DTO | observation/response 是唯一 public 决策 seam |
 
-Public 决策 DTO 只包含 `TacticalProposal`、`DecisionObservation`、
-`ExternalDecisionResponse`、`ExternalDecisionSubmitStatus` 和 `DecisionControlSource`。
+Public 决策 DTO 只包含 `DecisionObservation`、
+`ExternalDecisionOverride`、`ExternalDecisionSubmitStatus` 和 `DecisionControlSource`。
 默认算法使用的 `TargetCategory`、`TacticalMode`、`TacticalStateStore` 和
 `TacticalDecisionResult` 位于 `src/airborne_radar/decision/`，不属于安装边界。
 
@@ -57,13 +57,13 @@ Public 决策 DTO 只包含 `TacticalProposal`、`DecisionObservation`、
 |---|---|---|
 | `config/mapping/` | session config/runtime state 到内部执行配置映射 | `MapSessionToExecution`、runtime patch mapper |
 | `environment/` | 自然场景、传播与冻结环境快照 | `EnvironmentService`、`SceneManager`、`PropagationModel` |
-| `signal/detection/` | 雷达方程、波束控制、量测误差、目标几何 | `SignalDetector`、`RadarEquations`、`BeamControlResolver` |
-| `signal/pipeline/` | 扫描调度、探测执行、数据关联、航迹生命周期、决策帧构建 | `SignalPipeline`、`ExecuteCycle`、`RunPhysicalDetectionPass` |
+| `signal/detection/` | 雷达方程、波束控制、量测误差、目标几何、前端功率聚合、干扰观测解析、检测单元求解 | `SignalDetector`、`RadarEquations`、`BeamControlResolver`、`ArRfFrontEndResolver`、`ArInterferenceObservationResolver`、`ArDetectionCellResolver` |
+| `signal/pipeline/` | 扫描调度、探测执行、数据关联、航迹生命周期、欺骗量测注入、决策帧构建 | `SignalPipeline`、`ExecuteCycle`、`RunPhysicalDetectionPass`、`SignalCycleInput`、`DeceptionMeasurementGenerator` |
 | `signal/association/` | 数据关联、代价矩阵、LAPJV assignment、关联质量指标 | `DataAssociationEngine`、`LapjvSolver` |
 | `signal/tracking/` | track pool、生命周期；生产路径使用 KF，IMM 生命周期按策略配置启用；其他滤波原语位于 `src/common/estimation/`，不构成 AR 可选生产后端 | `TrackFilter`、`TrackLifecycleManager`、`ImmFilter` |
 | `decision/` | 默认战术协调、威胁评估、LPI、ECCM、控制归约 | `TacticalCoordinator`、`ThreatAssessmentEvaluator`、`LpiEvaluator`、`EccmEvaluator`、`ControlReducer` |
 | `runtime/` | controller 和控制指令映射 | `ArController`、`ControlCommandMapper` |
-| `session/` | public session 装配、context、输入输出适配、trace/replay | `ArSession`、`MutableArContext`、`ArSessionCompositionRoot` |
+| `session/` | public session 装配、context、发射/接收构造、周期账本、输入输出适配、trace/replay | `ArSession`、`MutableArContext`、`ArSessionCompositionRoot`、`ArEmissionFactory`、`ArReceiverStateBuilder`、`PreparedCycleLedger` |
 | `output/` | track output 查询 | `TrackOutputQueries` |
 | `utils/` | 数学和方位工具 | `MathUtils`、`ArOrientationUtils` |
 
@@ -75,7 +75,7 @@ flowchart TB
     Entry["airborne_radar.hpp\n稳定聚合入口"]
     Config["config/*\nHardware / Mission / Policy / Environment\nRuntimePatch / Builder / Validation"]
     SessionApi["session/*\nArSession / ArCycleInput / ArCycleResult\nTrackOutputFrame / SceneTarget"]
-    DecisionSeam["DecisionObservation / ExternalDecisionResponse\n步间外部决策 seam"]
+    DecisionSeam["DecisionObservation / ExternalDecisionOverride\n步间外部决策 seam"]
     Tools["Trace / Replay / Debug / Lifecycle\n追踪 / 回放 / 调试 / 生命周期"]
   end
 
@@ -187,17 +187,12 @@ sequenceDiagram
       Session->>Controller: RestoreRuntimeState\n回滚控制器
       Session-->>Caller: abort result\n返回执行中止
     else commit succeeded / 提交成功
-      alt input.has_environment / 本周期提供环境输入
-        Session->>Env: UpdateSceneState(input.environment)\n更新待生效环境
-      else no environment snapshot / 本周期未提供环境输入
-        Session->>Session: keep current pending scene\n保持当前待生效场景
-      end
       Session->>Context: BeginCycle(input)\n写入周期输入
       Session->>Controller: RunOnce()\n执行一个周期
       Controller->>Env: BeginCycle + SampleEnvironment\n冻结并采样环境
       Controller->>Mapper: Reduce previous external response or internal baseline\n归约上一成功周期控制
       Mapper->>Pipe: SetControlProfile\n写入本周期唯一控制真值
-      Controller->>Pipe: RunCycle(targets, environment)\n探测 / 关联 / 航迹
+      Controller->>Pipe: RunCycle(SignalCycleInput, environment)\nscene targets + RF context + interference obs + deception candidates
       Pipe-->>Controller: SignalCycleResult + DecisionInputFrame\n信号结果与决策帧
       Controller->>Decision: Evaluate(frame, state_store)\n评估战术决策
       Decision-->>Controller: TacticalDecisionResult\n当前分类与下一周期 internal baseline
@@ -205,7 +200,7 @@ sequenceDiagram
       Session->>Session: assemble ArCycleResult from controller/context/pipeline\n组装周期结果
       Session-->>Caller: ArCycleResult + DecisionObservation\n输出结果和决策观测
       Caller->>Caller: external Evaluate(observation)\n同进程外部评估
-      Caller->>Session: SubmitExternalDecision(response)\n在下一次 Step 前提交
+      Caller->>Session: SubmitExternalDecision(override)\n在下一次 Step 前提交
     end
   end
 ```
@@ -219,11 +214,11 @@ sequenceDiagram
 flowchart LR
   subgraph Input["Input / 输入"]
     Config["ArSessionConfig\n硬件 / 任务 / 策略 / 环境"]
-    Cycle["ArCycleInput\n平台姿态 / 高度 / 目标 / 环境输入"]
+    Cycle["ArCycleInput\n平台姿态 / 高度 / 目标 / 干扰"]
     Patch["ArRuntimeConfigPatch\n运行期工程参数 / 自然环境"]
     Rf["RfEmissionFrame\n外部 RF 干扰"]
     Observation["DecisionObservation\n本周期输入帧 + 实际 profile"]
-    Response["ExternalDecisionResponse\n下一周期完整 LPI/ECCM proposals"]
+    Response["ExternalDecisionOverride\n下一周期完整 profile 覆盖值"]
   end
 
   subgraph Environment["Environment / 自然环境"]
@@ -255,7 +250,7 @@ flowchart LR
   Config --> Detect
   Patch --> Detect
   Patch --> Environment
-  Cycle --> Scene
+  Config --> Scene
   Rf --> Detect
   Cycle --> Detect
   Scene --> Snapshot
@@ -322,6 +317,15 @@ flowchart TB
   observation 和已采用来源 provenance；完整 proposal、待消费响应与 reducer 计数只属于内部
   `ArReplayCycleRecord`，不进入 public 业务结果。
 - 决策 SPI 不拥有输出结构，也不能绕过内部 output adapter 写系统输出。
+- 公开发布的 `emission_frame`（`RfSceneEmission.antenna`）是 **base 发射身份**：发射功率、载波频率
+  捷变、rejitter 等效果直接由控制 profile 作用到发射（`ArSession::PrepareEmission` 读 profile），但
+  天线方向图字段（`peak_gain_dbi`、`half_power_beamwidth_deg`、`sidelobe_level_db`、`backlobe_level_db`）
+  读取自未经 `ControlProfileEffects` 处理的 base detection 工程配置。旁瓣对消 / 自适应波束的效果**只**
+  作用于 `receiver_state.antenna`（接收态），不进公开发射方向图——与 §2.4「旁瓣对消/自适应波束只修改
+  方向相关接收增益」一致。两个消费者（对外 RF 场景 vs 对内 detector 工程配置）刻意分属两个物理面，
+  常量有意保持差异。
+  [evidence: tests/unit/airborne_radar/ar_rf_session_test.cpp::ArRfSessionTest.SidelobeCancellerLeavesPublishedEmissionSidelobeUnchanged]
+  [evidence: tests/unit/airborne_radar/ar_core_controller_test.cpp::CoreControllerTest.ExternalAdaptiveBeamformingRaisesNextPhysicalDetectionMargin]
 
 ### 1.7 工程 RF 单周期角色与状态所有权
 
@@ -331,7 +335,7 @@ AR 在工程 RF 世界中同时是主动发射设备和接收设备。面向普�
 
 ```mermaid
 flowchart LR
-  Input["ArCycleInput\nplatform / targets / environment / interference"] --> Prepare["internal prepare\n解析实际频率/功率/PRF/波束/驻留"]
+  Input["ArCycleInput\nplatform / targets / interference"] --> Prepare["internal prepare\n解析实际频率/功率/PRF/波束/驻留"]
   Prior["上一成功周期的 ArControlProfile"] --> Prepare
   Prepare --> Tx["本周期实际 AR emission"]
   Tx --> World["internal RF frame\nAR emission + interference"]
@@ -372,9 +376,9 @@ flowchart LR
 |---|---|---|---|
 | 配置映射与 runtime patch | `MapSessionToExecution`、runtime patch mapper、`CommitPendingRuntimeConfig` | 将四域配置转为内部工程配置；运行期变更可回滚提交 | `ar_session_config_builder_test`、`ar_runtime_patch_mapper_test`、`ar_environment_config_contract_test` |
 | 环境冻结与传播 | `EnvironmentService`、`PropagationModel`、`AtmospherePhysics`（`common/` 共享层） | 管理 pending/active scene，冻结周期环境，计算传播损失/杂波/大气物理 | `ar_environment_service_test`、`ar_propagation_model_test`、`ar_atmosphere_physics_test` |
-| 外部 RF 接入 | `RfEmissionFrame`、`ArRfInterferenceResolver`、`ArInterferenceObservationResolver` | 以实际时频发射事实构建前端与 detection-cell 干扰账本，并在 J/N 门控后生成去真值化观测 | `ar_rf_front_end_resolver_test`、`ar_interference_observation_resolver_test` |
+| 外部 RF 接入 | `RfEmissionFrame`、`ArRfFrontEndResolver`、`ArInterferenceObservationResolver` | 以实际时频发射事实构建前端与 detection-cell 干扰账本，并在 J/N 门控后生成去真值化观测 | `ar_rf_front_end_resolver_test`、`ar_interference_observation_resolver_test` |
 | 扫描和波束控制 | `ScanScheduleResolver`、`BeamControlResolver`、orientation utils | 解析扫描中心、安装/机体/平台坐标、波束增益和波束宽度 | `ar_signal_scan_schedule_test`、`ar_orientation_utils_test`、`ar_antenna_pattern_utils_test` |
-| 探测执行 | `RunPhysicalDetectionPass`、`SignalDetector`、`ArRfInterferenceResolver` | 统一物理链生成 SNR、检测概率和量测协方差；工程干扰按接收功率进入噪声账本 | `ar_signal_detection_test`、`ar_signal_pipeline_test` |
+| 探测执行 | `RunPhysicalDetectionPass`、`SignalDetector`、`ArRfFrontEndResolver`、`ArDetectionCellResolver` | 统一物理链生成 SNR、检测概率和量测协方差；工程干扰按接收功率进入噪声账本 | `ar_signal_detection_test`、`ar_signal_pipeline_test` |
 | RCS 与大气物理 | `ComputeEffectiveTargetRcsM2`、`ComputeTargetSpecificAtmosphericLossDb` | 可选物理 RCS、大气传播损失、目标相关损失修正 | `ar_rcs_physics_test`、`ar_atmosphere_physics_test` |
 | 数据关联 | `DataAssociationEngine`、`DenseCostHypothesiser`、`LapjvSolver` | 默认生产路径；基于位置量测、协方差和 track seeds 进行 assignment | `ar_signal_association_test`、`ar_lapjv_solver_test` |
 | 航迹过滤与生命周期 | `TrackFilter`、`TrackLifecycleManager`、KF、IMM(KF) | 更新航迹、处理 missed detection、确认/丢失/回收；EKF/UDKF/SRIF 仅见 §2.10 评估/否决表 | `ar_track_filter_test`、`ar_track_lifecycle_test`、`ar_advanced_filter_test` |
@@ -388,9 +392,20 @@ flowchart LR
 环境域以 `EnvironmentScenarioConfig` 作为唯一公开 DTO 权威，环境服务直接消费该类型。当前运行路径
 没有执行态专属字段，因此不得维护同型公开 Model 类型或恒等 mapper。只有先证明存在 execution-only
 字段时，才可新增内部执行配置并提供显式映射，不应重新复制公开 DTO。
-[evidence: tests/unit/airborne_radar/ar_environment_config_contract_test.cpp::ArEnvironmentTypeContractTest.DefaultConfigContainsOnlyScenarioConfig]
+[evidence: tests/unit/airborne_radar/ar_environment_config_contract_test.cpp::ArEnvironmentTypeContractTest.DefaultsContainOnlyNaturalEnvironmentFacts]
 
 AR 的 public config 是语义配置，signal pipeline 使用的是内部工程配置。`ArSession` 构造时通过 `MapSessionToExecution` 初始化 runtime state；runtime patch 到达后先暂存到 `pending_runtime_state`。
+
+当前 `MapSessionToExecution` 映射的策略域字段包括：
+`policy.detection.{minimum_snr_db, pfa, pulse_count, minimum_detection_margin_db}` → detection engineering；
+`policy.association.distance_gate_sigma` → `unassigned_cost`（sigma 平方映射）；
+`policy.tracking`（含 `kalman_noise_diff_coeff`）→ tracking policy + engineering；
+`policy.decision_control`（含 `anti_vgpo_max_acceleration_mps2`）→ decision control；
+`policy.lifecycle` → lifecycle policy + engineering；
+`policy.beam_control` → beam control。
+
+以下字段已从公开配置表面移除，固定为 constexpr 默认值，不经过映射层：
+`track_pool_initial_chunk`（64）、`track_pool_max_chunks`（256）、`imm_activation_policy`（kConfirmedTracksOnly）、`track_pool_thread_safety_mode`（kSingleThreadNoLock）、`control_profile_effects`（默认增益参数）。
 
 真正提交发生在下一次 `RunCycle` 前：
 
@@ -404,7 +419,7 @@ AR 的 public config 是语义配置，signal pipeline 使用的是内部工程�
    已验证配置并 finalize。真正的执行 abort 仍保留 pending 状态等待重试。
 
 这个机制避免出现“pipeline 已换配置，但 environment/controller 仍旧”的部分生效状态。任何新增运行期可变项，都必须纳入这个提交/回滚语义。
-[evidence: tests/contract/airborne_radar/ar_public_api_convenience_test.cpp::RadarSessionPreservesPendingExternalDecisionAcrossPoweredOffBoundary]
+[evidence: tests/contract/airborne_radar/ar_public_api_convenience_test.cpp::ArPublicApiContractTest.PoweredOffCycleAdvancesTimeWithoutEmission]
 
 运行期 mapper 必须校验合并后的最终候选配置；例如指令波束宽度在同一 patch 中被启用时，
 方位/俯仰宽度必须均为有限正数。合法工作模式与非法波束字段混合时整个 patch 原子拒绝，
@@ -448,22 +463,45 @@ pending 状态。
 > `ArCycleInput::cycle_start_time_s` 为唯一来源。未来若恢复完整 GTD7/电离层
 > 模型，再作为新能力重新引入。
 
-`ArEnvironmentInput` 与 `EnvironmentSnapshot` 只承载自然环境事实；它们不包含 jammer、J/S、J/N、
+`EnvironmentScenarioConfig`（`ArSessionConfig.environment`）与 `EnvironmentSnapshot` 只承载自然环境事实；它们不包含 jammer、J/S、J/N、
 干扰检测布尔值或预计算接收功率。AR 的外部 RF 输入是独立的
 `oneq::electromagnetics::RfEmissionFrame`，通过 `ArCycleInput::interference` 直接传入。
 空 frame 表示无外部 RF；非空 frame 必须与 AR 周期号、绝对窗口起点和时长完全一致，否则整个周期拒绝。
 
 AR 不从环境场景推导干扰。调用方只提供实际发射事实：发射 platform/equipment/emission 身份、ECEF
 运动学、天线、极化和参数化波形；接收功率、PSD、J/N、饱和和观测质量全部由 AR 当前接收机链计算。
-这使普通调用方的单周期输入保持为“平台、目标、自然环境、可选外部 RF”，而不会要求其选择干扰技术
+这使普通调用方的单周期输入保持为”平台、目标、可选外部 RF”（自然环境由配置提供），而不会要求其选择干扰技术
 或预先判断受扰结果。
 
 AR 不保留 legacy jammer DTO、技术类别、J/S 摘要或欺骗/转发适配层；也不直接获取 ECM 的 `EcmDeceptionMode` 真值。外部欺骗发射（ECM 的 RGPO/VGPO/假目标等 kPulseTrain 波形）与压制发射经同一 `RfEmissionFrame` 路径进入接收前端，统一按时频重叠和方向增益计算接收功率。
 
 AR 在接收链的三个层次主动反制欺骗干扰：
-- **观测层**：`ArInterferenceObservationResolver` 从过 J/N 门限的 kPulseTrain 观测中提取同方向相似参数发射数，设置 `deception_class=kLikelyFalseTarget`（§2.5 检测单元账本）；
-- **ECCM 决策层**：`EccmEvaluator` 为 kPulseTrain 观测累加 `anti_rgpo_score` 和 `anti_vgpo_score`，为 `kLikelyFalseTarget` 观测累加 `anti_false_target_score`；达阈值后分别生成 `REQUEST_ANTI_RGPO_LEADING_EDGE`、`REQUEST_ANTI_VGPO_ACCELERATION_BOUND`、`REQUEST_ANTI_FALSE_TARGET_DISCRIMINATION` 提案（§2.7 ECCM）；
-- **信号层**：`ArControlProfile` 的三个 bool 字段通过 `ControlReducer`/`ControlCommandMapper` 经现有 ECCM hold/cooldown 管线生效，分别触发前沿跟踪（kPulseTrain 干扰功率减半）、加速度限幅（航迹速度变化裁剪）和假目标鉴别（生命周期标记）。
+- **观测层**：`ArInterferenceObservationResolver` 从过 J/N 门限的 kPulseTrain 观测中，在接收机波束宽度和接收频率分辨单元内建立连通分量，对分量（≥2 同束同频率脉冲列成员）内每个成员 observation 设置 `deception_class=kLikelyFalseTarget`，并逐成员生成一条内部 `ArDeceptionMeasurementCandidate`。候选携带 source observation/emission provenance（`source_observation_id`、`source_emission_identity`）与可观测残差（`estimated_first_pulse_delay_s`、`estimated_carrier_offset_hz`）；候选只在 controller/pipeline 单周期与回滚快照内流转，不进入 public result/replay。候选的关联键不预分配，由正常位置关联产生。resolver 同时填充 `estimated_slant_range_m`、`estimated_range_rate_mps` 和雷达局部系方位（`estimated_bearing_*_local_deg`）。斜距与径向速度在写入前按 `RadarEquations::ComputeRangeErrorStdDev` 派生的标准差叠加**确定性零均值噪声**，种子由 cycle index + receiver equipment id 派生，保证 replay 下可复现；二者不再是精确仿真真值（公共合同 contract.md:348）。候选的 `apparent_slant_range_m`/`apparent_range_rate_mps` 与 `position`/`velocity` 在残差超过可观测门限时由 ECM 编入的额外假距离/假多普勒推导：RGPO 当 `estimated_first_pulse_delay_s ≥ 100 ns` 时叠加 `ΔR = 0.5·c·delay`（双程假时延取单程等效距离），VGPO 当 `|estimated_carrier_offset_hz| ≥ 1 kHz` 时叠加 `Δv = -0.5·λ_ref·Δf`（单基地双程，λ_ref 取接收机本振，>0 否则回退发射中心），使候选量测落在欺骗后的 apparent 位置/速率而非干扰机几何位置；门限内保持几何值，避免无欺骗场景漂移；
+- **ECCM 决策层**：`EccmEvaluator` 仅对 kPulseTrain 按**与 ECM 物理匹配**的接收端残差路由 RGPO/VGPO（不读 ECM `EcmDeceptionMode` 真值）。`estimated_center_frequency_hz` 记录发射中心频率加 incident-link Doppler 的实际到达事实；`estimated_carrier_offset_hz` 再扣除接收机本振和同一 link Doppler，只保留额外转发偏移，绝对值 ≥ 1 kHz 时触发 `anti_vgpo_score`。`estimated_first_pulse_delay_s` 以首脉冲到达时刻减“窗口起点 + 同一 link 单程传播”，传播项在两侧相消，只保留 ECM 额外时延，≥ 100 ns 时触发 `anti_rgpo_score`。`kLikelyFalseTarget` 独立触发 `anti_false_target_score`。达阈值后分别生成三个反欺骗提案（§2.7 ECCM）；
+- **信号层**：`ArControlProfile` 的三个 bool 字段通过 `ControlReducer`/`ControlCommandMapper` 经现有 ECCM hold/cooldown 管线生效。`DeceptionMeasurementGenerator` **独立于反制开关**，只消费 resolver 生成的候选量测（每成员一条），逐候选合成一条带 `classified_as_false_target` 的假目标量测注入 `track_measurements`；候选数已在 resolver 结构性收敛（每成员一条，不二次扩展），generator 不再按簇大小或固定网格扩展。反制开关只在 `TrackLifecycleManager::PromoteState` 控制 tentative→confirmed 的抑制策略。反 VGPO 加速度限幅在裁剪 `track.velocity` 后回写 `gaussian_state.mean` 速度分量并重算 `acceleration`，保证下一周期 Predict 从一致状态出发。
+[evidence: tests/unit/airborne_radar/ar_deception_eccm_test.cpp::SignificantFirstPulseDelayTriggersAntiRgpoProposal]
+[evidence: tests/unit/airborne_radar/ar_deception_eccm_test.cpp::SignificantCarrierOffsetTriggersAntiVgpoProposal]
+[evidence: tests/unit/airborne_radar/ar_deception_eccm_test.cpp::PlainPulseTrainWithoutFeaturesDoesNotTriggerAntiDeception]
+[evidence: tests/unit/airborne_radar/ar_deception_eccm_test.cpp::NonPulseWaveformCannotTriggerRgpoOrVgpoFromResidualFields]
+[evidence: tests/unit/airborne_radar/ar_deception_eccm_test.cpp::AntiVgpoClampWritesBackToGaussianState]
+[evidence: tests/unit/airborne_radar/ar_deception_eccm_test.cpp::AntiVgpoClampPropagatesToNextPredict]
+[evidence: tests/unit/airborne_radar/ar_deception_eccm_test.cpp::AntiVgpoClampRecomputesAcceleration]
+[evidence: tests/unit/airborne_radar/ar_deception_measurement_generator_test.cpp::SynthesizesOneMeasurementPerCandidate]
+[evidence: tests/unit/airborne_radar/ar_deception_measurement_generator_test.cpp::PositionPreservedFromCandidate]
+[evidence: tests/unit/airborne_radar/ar_deception_measurement_generator_test.cpp::AssociationKeyFromEngine]
+[evidence: tests/unit/airborne_radar/ar_deception_measurement_generator_test.cpp::GeneratesFalseTargetMeasurementsRegardlessOfSwitch]
+[evidence: tests/unit/airborne_radar/ar_deception_measurement_generator_test.cpp::CandidateCountMatchesInputCount]
+[evidence: tests/unit/airborne_radar/ar_interference_observation_resolver_test.cpp::LocalFrameBearingDiffersFromEcefWhenAttitudeNonZero]
+[evidence: tests/unit/airborne_radar/ar_interference_observation_resolver_test.cpp::RangeAndRangeRateArePerturbedFromTruth]
+[evidence: tests/unit/airborne_radar/ar_interference_observation_resolver_test.cpp::PulseTrainPopulatesCarrierOffsetAndFirstPulseDelay]
+[evidence: tests/unit/airborne_radar/ar_interference_observation_resolver_test.cpp::ApparentRangeShiftsByHalfLightSpeedDelayForRgpo]
+[evidence: tests/unit/airborne_radar/ar_interference_observation_resolver_test.cpp::ApparentRangeRateShiftsByCarrierOffsetForVgpo]
+[evidence: tests/unit/airborne_radar/ar_interference_observation_resolver_test.cpp::SubThresholdResidualsKeepGeometricApparent]
+[evidence: tests/replay/airborne_radar/ar_replay_codec_roundtrip_test.cpp::AntiDeceptionProfileFlagsRoundtripPreserved]
+[evidence: tests/replay/airborne_radar/ar_replay_codec_roundtrip_test.cpp::InterferenceObservationNewFieldsRoundtripPreserved]
+[evidence: tests/replay/airborne_radar/ar_replay_codec_roundtrip_test.cpp::InterferenceObservationRejectsOutOfRangeDeceptionClassWithoutMutation]
+[evidence: tests/replay/airborne_radar/ar_replay_codec_roundtrip_test.cpp::InterferenceObservationRejectsUnknownWaveformKindWithoutMutation]
+[evidence: tests/integration/cross_domain/multi_model_scenario_test.cpp::EcmDeceptionFalseTargetReachesArAndTriggersEccm]
 
 ### 2.4 扫描调度、坐标和波束控制
 
@@ -529,7 +567,9 @@ AR 不再提供 heuristic detection toggle 或启发式 pass。冻结目标不�
    传播、大气、RCS 和处理前损耗；目标不得转换成公共单程 emission。
 2. **外部入射 RF。** 冻结 `RfSceneFrame` 中的雷达、ECM 和其他发射经公共单程链路到达 AR 接收设备。
    platform/equipment 路径决定设备级 co-site isolation，不能用零距离自由空间公式或单一实体 ID
-   猜测自扰。当前单周期模型不实现 T/R blanking；不得把 co-site 衰减描述为发射脉冲消隐。
+   猜测自扰。同平台干扰源 `range_m=0` 时，去真值化扰动钳制到 `kMinObservableRangeM`（1 m）并取
+   负扰动绝对值，避免 MeasurementErrorModel 的 20 m 偏置项产生非物理负距触发 fail-closed。
+   当前单周期模型不实现 T/R blanking；不得把 co-site 衰减描述为发射脉冲消隐。
 3. **前端账本。** 在实际接收方向图和预选器下聚合整个前端带宽的输入功率。超过
    `maximum_linear_input_power_w` 时，本周期仍是物理执行成功，但输出
    `receiver_saturated` impairment，不生成目标量测或虚假 interference observation。
@@ -545,6 +585,12 @@ AR 不再提供 heuristic detection toggle 或启发式 pass。冻结目标不�
    统一计算 processed `SINR = echo / (thermal + clutter + interference)`，再由 policy 中的 Pfa、
    Swerling/积累模型和最小 margin 得到 Pd；Monte Carlo 只采样检测事件。检测成功后才由 processed SINR、
    波束宽度、带宽和有效脉冲数生成 range/angle 量测误差及协方差。
+6. **可靠性裕量门限。** Monte Carlo 判决之后，若 `snr_db < min_detection_margin_db` 则强制
+   `detected = false`。即使随机采样判为检测成功，SNR 低于该门限的检测也不可靠，此门限作为
+   后验安全网独立于 Pd/Monte Carlo 路径。`detection_margin_db` 输出缓冲区记录
+   `snr_db - min_detection_margin_db`（正 = 裕量充足，负 = 裕量不足），语义为相对裕量而非原始 SNR。
+   [evidence: tests/unit/airborne_radar/ar_signal_pipeline_test.cpp]
+   [evidence: tests/unit/airborne_radar/ar_detection_cell_resolver_test.cpp]
 6. **航迹影响。** 压制干扰只能通过量测存在性和量测协方差间接影响 association、Kalman、IMM 和
    lifecycle；任何按干扰类别、ECCM profile 或预计算受扰布尔值直接缩放门限、过程噪声、失配容忍
    或生命周期计数的路径都不属于目标架构。
@@ -623,13 +669,36 @@ association public 配置不再暴露 `unassigned_cost`、启用 hint 或第二�
 
 航迹层进一步处理 confirmed/lost/recycled 状态：
 
-- `TrackFilter` 在 missed detection 时衰减速度和 RCS；当 `enable_anti_vgpo_acceleration_bound=true` 时，
-  对检测成功周期的速度变化按 `max_acceleration_mps2 * dt` 裁剪，防止 VGPO 拖引速度门。
+- `TrackFilter` 在 missed detection 时衰减速度和 RCS。
+- 反 VGPO 加速度限幅在 `TrackLifecycleManager` 内实现（而非 `TrackFilter`）：限幅需要跨周期
+  上一周期速度，只有持久化 `tracks_by_key_` 持有该状态；`TrackFilter` 无状态且运行在 lifecycle
+  之前，无法获得合法基准。当 `enable_anti_vgpo_acceleration_bound=true` 时，对已存在航迹在
+  Kalman/IMM 更新之后按 `max_acceleration_mps2 * dt` 裁剪 `track.velocity` 各分量相对上一周期
+  速度的变化（`max_acceleration_mps2` 来自 `ArPolicyConfig::DecisionControlConfig::anti_vgpo_max_acceleration_mps2`，经 `MapSessionToExecution` 映射到内部生命周期配置）；新建航迹豁免（其基准是初始零值，限幅无意义）。
+  [evidence: tests/unit/airborne_radar/ar_deception_eccm_test.cpp::AntiVgpoBoundsVelocityChangePerCycle]
+  [evidence: tests/unit/airborne_radar/ar_deception_eccm_test.cpp::AntiVgpoDoesNotClampNewlyCreatedTrack]
+- 反假目标鉴别在 `TrackLifecycleManager::PromoteState` 内实现：当 `enable_anti_false_target_
+  discrimination=true` 且量测被标为疑似假目标（`classified_as_false_target`）时，该量测
+  不把 tentative 航迹晋升为 confirmed，抑制欺骗干扰制造的虚假起批。疑似假目标标注来自
+  `ArInterferenceObservationResolver` 在连通分量（≥2 同束同频率 kPulseTrain 成员）内对成员
+  observation 设置的 `deception_class=kLikelyFalseTarget`；`DeceptionMeasurementGenerator`
+  为每条 `ArDeceptionMeasurementCandidate` 合成一条独立量测（`source_index` 取 sentinel，真实
+  target 量测不经此路径）并自带 `classified_as_false_target=true`，经 controller 在 `RunCycle`
+  前通过 `SignalCycleInput` 显式传入 pipeline。
+  [evidence: tests/unit/airborne_radar/ar_deception_eccm_test.cpp::AntiFalseTargetSuppressesTentativePromotion]
+  [evidence: tests/unit/airborne_radar/ar_deception_eccm_test.cpp::AntiFalseTargetDisabledPromotesNormally]
 - AR 在 ECCM 层主动反制欺骗发射：kPulseTrain 观测经 `EccmEvaluator` 触发前沿跟踪（优先级 89）、
-  加速度限幅（优先级 85）和假目标鉴别（优先级 81）三项反欺骗提案；三者经现有 `ControlReducer` 
+  加速度限幅（优先级 85）和假目标鉴别（优先级 81）三项反欺骗提案；三者经现有 `ControlReducer`
   ECCM hold/cooldown 管线统一归约后写入 `ArControlProfile` 并作用到下一成功周期。
   与压制干扰相同，欺骗发射不得直接改变航迹速度/RCS 衰减或生命周期计数。
   [evidence: tests/unit/airborne_radar/ar_deception_eccm_test.cpp]
+- `TrackLifecycleManager::SyncRuntimeTuning` 用整体赋值 `config_ = lifecycle_config` 同步运行期
+  生命周期配置，而非手工逐字段列表。安全性来自两点：`track_pool_thread_safety_mode` 属于
+  `LifecycleConfigSignature`，其变化触发重建而非同步路径（故同步路径上其值恒等于 `config_`）；
+  管理器从不读取该字段，即便被覆盖也无副作用。反欺骗开关（`enable_anti_vgpo_acceleration_bound`、
+  `enable_anti_false_target_discrimination`、`max_acceleration_mps2`）经此路径自动覆盖，新增可同步
+  `LifecycleConfig` 字段同样自动同步，消除历史手工列表的静默遗漏风险。
+  [evidence: tests/unit/airborne_radar/ar_track_lifecycle_test.cpp::TrackLifecycleManagerTest.SyncRuntimeTuningConfirmHitsChangesPromotionBehavior]
 - lifecycle manager 管理 tentative/confirmed/lost、track pool 回收、association seeds 导出和 filter writeback；
 - 生产预测/更新使用 KF；策略可启用 IMM 生命周期作为多模型 KF 融合层。EKF、UDKF、SRIF 是 common 内部资产，不是 AR 的运行期配置路径；可复现性边界见 §2.10。
 
@@ -660,7 +729,7 @@ selected mode 规则：
 默认决策结果始终把目标分类回填到 track output frame，并在每个成功周期推进
 `TacticalStateStore`、计算下一周期 internal baseline。外部响应只覆盖 LPI/ECCM proposals，
 不替换威胁分类路径；因此外部长期生效后，内部 baseline 仍能立即接管。
-[evidence: tests/contract/airborne_radar/ar_public_api_convenience_test.cpp::RadarSessionAppliesMatchingExternalDecisionOnNextSuccessfulCycle]
+[evidence: tests/unit/airborne_radar/ar_core_controller_test.cpp::CoreControllerTest.MatchingExternalResponseReplacesInternalBaseline]
 
 LPI 激活时输出两个参数化 proposal：功率比例沿用威胁/距离分档，范围为 `0.3–0.8`；
 驻留比例为 `clamp(0.5 + 0.5 * power_scale, 0.65, 0.90)`。首批不自动启用 LPI
@@ -669,48 +738,59 @@ beamforming。[evidence: tests/unit/airborne_radar/ar_tactical_coordinator_test.
 
 ECCM 只消费接收机 interference observation；烧穿评分达到阈值后输出
 `clamp(1.0 + 0.25 * burnthrough_gain_score, 1.0, 2.0)`，且实际 proposal 必须落在
-`(1, 2]`。[evidence: tests/unit/airborne_radar/ar_eccm_evaluator_test.cpp::EccmEvaluatorTest.BurnthroughGainIsMonotonicAndClamped]
+`(1, 2]`。[evidence: tests/unit/airborne_radar/ar_eccm_evaluator_test.cpp::EccmEvaluatorTest.BurnthroughRequestIsMonotonicAndHardwareBounded]
 [evidence: tests/unit/airborne_radar/ar_core_controller_test.cpp::CoreControllerTest.ExternalBurnthroughGainAltersNextPhysicalDetection]
 这些测试证明去真值化观测触发的控制会作用到下一成功周期的实际 emission 与探测链。
 
 ### 2.8 控制归约和跨周期反馈
 
-内部 baseline 或整包外部响应输出的是 tactical proposal，不是直接生效的硬件控制。
-当前实现由 `ControlReducer` 和 `ControlCommandMapper` 在下一成功单阶段周期开始前把二者之一变成唯一
-`ArControlProfile`；外部与内部 proposals 不合并：
+控制决策分为两个阶段：**原生归约**和**外部覆盖**。
 
-- 不同域 proposal 会按优先级、策略表和冲突规则归并。
+**阶段一：原生归约。** 内部 baseline 输出的是 tactical proposal，不是直接生效的硬件控制。
+`ControlReducer` 和 `ControlCommandMapper` 在下一成功周期开始前把 proposals 归并为唯一
+`ArControlProfile`：
+
+- 不同域 proposal 按优先级、策略表和冲突规则归并。
 - beam 类冲突默认偏向生存性。
 - `ArPolicyConfig::decision_control` 可分别配置 LPI/ECCM 的保持窗口，使 proposal 停止后控制继续维持
   指定数量的成功周期。
 - 同一配置可分别设置 LPI/ECCM cooldown，防止控制释放后立即重新激活。
-- 四个周期数默认均为 `0`，表示关闭相应窗口并保持“下一成功周期可立即切换”的兼容行为；调用方可通过
-  初始 session config 或 whole-policy runtime patch 显式启用，snapshot rollback 和 replay 同步保留配置与计数状态。
+- 四个周期数默认均为 `0`，表示关闭相应窗口并保持”下一成功周期可立即切换”的兼容行为。
 - runtime patch 缩短窗口时，当前剩余周期立即收紧为 `min(旧剩余, 新上限)`；改为 `0` 会取消当前窗口。
-  增大配置不会延长已经开始的窗口，只影响下一次新建的 hold/cooldown 窗口。
 - 频率捷变等行为可以有 hop phase 的跨周期状态。
-- LPI 功率要求有限且位于 `(0,1]`，驻留位于 `[0.25,1]`，ECCM 烧穿位于 `(1,2]`；
-  其他布尔 directive 禁止携带标量，参数化 directive 禁止缺值。
+- LPI 功率要求有限且位于 `(0,1]`，驻留位于 `[0.25,1]`，ECCM 烧穿位于 `(1,2]`。
 - 同时出现烧穿和 LPI 降功率时，生存性规则把最终功率比例提升到至少 `0.85`。
-- 外部响应必须匹配最新 observation 的 cycle/batch；错源、重复提交、重复 directive type
-  或任一非法 proposal 都整包拒绝。合法空集合表示明确关闭 LPI/ECCM。
-- 无合法外部响应时自动使用 internal baseline。
-[evidence: tests/unit/airborne_radar/ar_tactical_coordinator_test.cpp::ControlReducerTest.RejectsMissingNonFiniteOutOfRangeAndUnexpectedValues]
-[evidence: tests/unit/airborne_radar/ar_core_controller_test.cpp::RejectsMismatchedDuplicateAndInvalidExternalResponses]
+- hold/cooldown 仅约束原生路径。
+
+**阶段二：外部覆盖。** 外部模块通过 `ArSession::SubmitExternalDecision(ExternalDecisionOverride)`
+提交一个完整的 `ArControlProfile` 值（整包替换）。外部覆盖**完全绕过 hold/cooldown 和冲突解决**，
+拥有对 profile 字段的完全控制权。
+
+- 外部覆盖在原生归约之后应用，直接替换 `ArControlProfile` 字段。
+- 提交的 profile 经字段范围校验（功率/驻留/烧穿比例、hop phase 合法性、无 NaN/Inf）；
+  校验不通过立即返回 `kInvalidProfile`，不进入 pending 状态、不写入 trace。
+- 外部覆盖无 cycle/batch 时序耦合——外部模块通过消息总线通信，固有延迟使得时序匹配不切实际；
+  外部模块随时提交覆盖，雷达在下一个 `StepWithResult` 准备阶段应用。
+- 外部覆盖修改 profile 后，通过 `DiffProfiles` 对差异字段生成 `ArCommand`。
+- `ControlDirective`、`ControlDirectiveType`、`ControlDirectiveSource` 和 `TacticalProposal` 已收口为
+  内部实现细节（`src/airborne_radar/decision/ControlReducerTypes.h`），不再暴露于公共 API。
+[evidence: tests/unit/airborne_radar/ar_core_controller_test.cpp::ExternalOverrideChangesNextProfile]
+[evidence: tests/unit/airborne_radar/ar_core_controller_test.cpp::ExternalOverrideBypassesCooldown]
+[evidence: tests/unit/airborne_radar/ar_core_controller_test.cpp::ExternalOverrideRejectsInvalidProfile]
 
 controller 在单周期开始时把 control profile 传给 signal pipeline，因此决策影响下一次实际发射，
 不应假设 proposal 立即改变已经完成的探测。输入拒绝或关机保留 proposal；实际 emission 一经内部发布
 即提交 transmitter profile、hop/PRI phase 和相关计数，后续接收侧失败不得让同一 proposal 再次控制下一次
 发射。hold/cooldown 的消费边界同样以成功发布实际 emission 为准。
 
-输入验证失败不消费 control profile、reducer 计数器、internal baseline 或待消费外部响应；该响应可供
-下一次发射重试。发射已发布后的接收机 impairment 是已完成物理周期；后续内部接收拒绝虽然不产生
-接收/跟踪输出，也必须返回实际 emission，并且不回滚已提交发射事实。
+输入验证失败不消费 control profile、reducer 计数器或 internal baseline；外部覆盖可供下一次发射重试。
+发射已发布后的接收机 impairment 是已完成物理周期；后续内部接收拒绝虽然不产生接收/跟踪输出，
+也必须返回实际 emission，并且不回滚已提交发射事实。
 [evidence: tests/unit/airborne_radar/ar_rf_session_test.cpp::ArRfSessionTest.ReceiveRejectionCommitsEmissionIdentityChronologyAndAppliedAgility]
 [evidence: tests/replay/airborne_radar/ar_rf_trace_session_test.cpp::ArRfTraceSessionTest.PostEmissionReceiveRejectionReplayExactly]
 [evidence: tests/unit/airborne_radar/ar_core_controller_test.cpp::CoreControllerTest.RuntimeRestoreRetainsPendingExternalResponseForRetry]
 [evidence: tests/unit/airborne_radar/ar_core_controller_test.cpp::CoreControllerTest.PublicDecisionControlConfigEnablesHoldWindow]
-[evidence: tests/contract/airborne_radar/ar_public_api_convenience_test.cpp::PublicApiConvenienceTest.RadarRuntimePolicyPatchEnablesDecisionHoldWindow]
+[evidence: tests/unit/airborne_radar/ar_core_controller_test.cpp::CoreControllerTest.PublicDecisionControlConfigEnablesHoldWindow]
 [evidence: tests/unit/airborne_radar/ar_tactical_coordinator_test.cpp::ControlReducerTest.RuntimeConfigClampsActiveHoldAndCooldownWithoutExtendingThem]
 [evidence: tests/unit/airborne_radar/ar_tactical_coordinator_test.cpp::ControlReducerTest.IncreasedRuntimeConfigAppliesToNextNewWindow]
 
@@ -719,23 +799,30 @@ controller 在单周期开始时把 control profile 传给 signal pipeline，因
 `ArSession` 和 `ArController` 都有明确的失败语义：
 
 - cycle input 校验失败时不执行 pipeline，`ArCycleResult` 携带 validation issues，且 controller 设置显式 abort reason `SignalCycleAbortReason::kValidationRejected`（数值 4，追加于既有 `kLifecycleUnavailable=1`/`kInvalidEnvironmentCycle=2`/`kRuntimePreparationFailed=3` 之后，保留 replay/trace 数值语义）。
-- 冗余 `has_environment` 标志与数据必须一致：`has_environment=false` 且 `environment` 为默认值视为省略快照；`has_environment=false` 但 `environment` 含非默认数据时校验报 `kEnvironmentSnapshotFlagMismatch` error 并 abort，避免环境事实（杂波/干扰/大气）被静默跳过（见 contract.md §实现安全与失败语义规则 2）。
+- 环境配置由 `ArSessionConfig.environment` 提供，运行期更新通过 `ArRuntimeConfigPatch` 提交；环境事实不再通过 `ArCycleInput` 传入，无需 `has_environment` 标志。
 - 已有有效输出时，校验失败可以复用上一帧输出，并标记 `reused_previous_output`。
+- **dt_sec 校验边界（有意差异，勿按"四模块一致"补齐）**：`ValidateArCycleDeltaTime`（`double` 类型）对 `dt_sec`
+  仅校验有限性 + 正值（`ArInputValidation.cpp`），**故意不含** EOS/SBIRS 的 `dt_sec ≤ 10/frame_rate_hz` 上界。
+  AR 配置中没有 `frame_rate_hz` 概念——主动雷达的周期节拍由 PRF、驻留时间、航迹更新率等雷达域量在各自
+  子链路里约束，而非成像帧率；dt 的合理性由 PRI/rejitter、emission 调度和 signal pipeline 消费链把关
+  （见 §2.x PRI/rejitter phase），不适用一个全局 frame_rate 上界。该差异已由 `ArCycleInput.dt_sec` 为
+  `double`（其余模块 `float`）、AR 无 frame_rate 字段、本校验链实测三方共同固化。
+  [evidence: src/airborne_radar/session/ArInputValidation.cpp::ValidateArCycleDeltaTime]
 - signal pipeline abort 时不会发布合成的最新输出。
 - controller 提供执行状态、失败原因、校验问题、决策来源 provenance 和 control profile 等运行期来源；
   `ArSession` 再结合 context/pipeline 状态组装 public `ArCycleResult`。完整 proposal、待消费响应和 reducer
   计数由内部 replay access 捕获，不通过 public getter 暴露。
-- trace 的因果顺序是 `cycle_output(N) → decision_input(response) → cycle_input(N+1) → cycle_output(N+1)`。
-  `ArTraceSession::SubmitExternalDecision` 只有在底层返回 `kAccepted` 后才立即写事件，因此即使 trace 在提交后
-  立刻结束，响应也不会丢失。回放在原事件位置提交响应，禁止从后续输出反推前因。
-- `cycle_output` 使用内部 `ArReplayCycleRecord`，由 public result 和 `ArDecisionReplayState` 组成；内部决策按
-  live 路径重新计算，并逐字段比较 pending internal baseline、实际采用 proposal、pending external response、
-  来源 cycle/batch、reducer 计数、observation 和最终 profile。不支持旧 `ArCycleResult` replay 输出格式。
-[evidence: tests/replay/airborne_radar/ar_trace_session_adapter_test.cpp::TraceSessionAdapterTest.RadarReplayRestoresExternalDecisionAcrossRejectedCycleForNextSuccessfulCycle]
-[evidence: tests/replay/airborne_radar/ar_trace_session_adapter_test.cpp::TraceSessionAdapterTest.RadarReplayComparesInternalNextCycleDecision]
-[evidence: tests/replay/airborne_radar/ar_trace_session_adapter_test.cpp::TraceSessionAdapterTest.RadarReplayDetectsDecisionObservationDivergence]
-[evidence: tests/replay/airborne_radar/ar_trace_session_adapter_test.cpp::TraceSessionAdapterTest.RadarReplayRetainsExternalDecisionAcrossPoweredOffAbort]
-[evidence: tests/replay/airborne_radar/ar_trace_session_adapter_test.cpp::TraceSessionAdapterTest.RadarReplayPersistsAcceptedDecisionWhenTraceEndsImmediately]
+	- trace 的因果顺序是 `cycle_output(N) → decision_input(override profile) → cycle_input(N+1) → cycle_output(N+1)`。
+	  `ArTraceSession::SubmitExternalDecision` 只有在底层返回 `kAccepted` 后才立即写事件（序列化 profile 值
+	  为 `ArControlProfilePayload`），因此即使 trace 在提交后立刻结束，覆盖也不会丢失。回放时
+	  `OnDecisionInput` 解码 profile 值并经 `SubmitExternalDecision` 注入会话，使下一周期复现相同控制输出，
+	  禁止从后续输出反推前因。
+	- `cycle_output` 使用内部 `ArReplayCycleRecord`，由 public result 和 `ArDecisionReplayState` 组成；内部决策按
+	  live 路径重新计算，并逐字段比较 pending internal baseline、实际采用 proposal、
+	  来源 cycle/batch、reducer 计数、observation 和最终 profile。不支持旧 `ArCycleResult` replay 输出格式。
+	[evidence: tests/replay/airborne_radar/ar_rf_trace_session_test.cpp::ArRfTraceSessionTest.ExternalOverrideReplaysExactly]
+	[evidence: tests/replay/airborne_radar/ar_replay_codec_roundtrip_test.cpp::ArReplayCodecRoundtripTest.ArControlProfilePayloadRoundtripPreservesAllFields]
+	[evidence: tests/replay/airborne_radar/ar_rf_trace_session_test.cpp::ArRfTraceSessionTest.SingleCycleInputAndOutputReplayExactly]
 
 输出边界要求：
 

@@ -23,16 +23,17 @@ using oneq::foundation::ValidationLocationKind;
 
 /**
  * @brief ValidationCode 表示结构化输入校验编码。
+ *
+ * @note 仅保留 `EosCycleInput` 实际校验路径会触发的编码。环境观测字段
+ *       （太阳辐照度、云量、风速、背景温度、太阳角、昼夜类型）已迁入
+ *       `config::EosEnvironmentScenarioConfig`，不再属于周期输入域，故不在此
+ *       声明对应的校验编码，以免误导调用方以为可以在 CycleInput 上校验这些字段。
  */
 enum class ONEQ_API ValidationCode {
   kNone = 0,                        /**< 无问题占位值 */
   kInvalidCycleDeltaTime,           /**< 周期步长非法（<= 0） */
   kNonFiniteCycleDeltaTime,         /**< 周期步长非有限值 */
   kNonFinitePlatformNumericField,   /**< 平台位姿存在非有限值 */
-  kInvalidSolarIrradiance,          /**< 太阳辐照度非法（< 0） */
-  kInvalidCloudCoverageRatio,       /**< 云量非法（不在 [0, 1]） */
-  kInvalidAmbientWindSpeed,         /**< 环境风速非法（非有限值或 < 0） */
-  kInvalidBackgroundTemperature,    /**< 背景温度非法（<= 0） */
   kNonFiniteTargetNumericField,     /**< 目标存在非有限值字段 */
   kInvalidTargetRange,              /**< 目标斜距非法（<= 0） */
   kInvalidTargetTemperature,        /**< 目标温度非法（<= 0） */
@@ -40,9 +41,7 @@ enum class ONEQ_API ValidationCode {
   kInvalidTargetReflectance,        /**< 目标反射率非法（不在 [0, 1]） */
   kInconsistentTargetEnergyBalance, /**< 目标 emissivity + reflectance 不一致（> 1） */
   kInvalidTargetProjectedArea,      /**< 目标投影面积非法（<= 0） */
-  kNonFiniteSolarAngles,            /**< 太阳角存在非有限值 */
-  kInvalidSolarAltitudeRange,       /**< 太阳高度角越界（不在 [-90, 90]） */
-  kInconsistentDayNightType,        /**< 昼夜类型与太阳高度角不一致 */
+  kCycleDeltaTimeExceedsFramePeriod, /**< 周期步长超出帧率合理范围 */
   kCount                            /**< 枚举哨兵值（非实际错误码） */
 };
 
@@ -63,10 +62,11 @@ using ValidationIssueList = std::vector<ValidationIssue>;
 /**
  * @brief 校验单周期光学传感器输入。
  * @param[in] input 单周期输入。
+ * @param[in] frame_rate_hz 传感器帧率（Hz），用于 dt_sec 上界校验；必须正有限。
  * @return 校验问题列表。
  */
 ONEQ_API ValidationIssueList ValidateEosCycleInput(
-    const ::electro_optical_sensor::session::EosCycleInput& input);
+    const ::electro_optical_sensor::session::EosCycleInput& input, float frame_rate_hz);
 
 /**
  * @brief 判断校验列表中是否存在 error 级问题。

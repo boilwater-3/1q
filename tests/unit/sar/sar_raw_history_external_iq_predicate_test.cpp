@@ -32,10 +32,9 @@ TEST(SarRawHistoryExternalIqPredicateTest, EmptyInputIsNotExternal) {
 }
 
 TEST(SarRawHistoryExternalIqPredicateTest, TrajectoryOnlyIsNotExternal) {
-  // 仅伴随轨迹（pulse_states/pulse_count），无 IQ 样本——不得判为外部 IQ。
+  // 仅伴随轨迹（pulse_states），无 IQ 样本——不得判为外部 IQ。
   // 这是修复的核心行为：防回退到"析取误判"。
   SarCycleInput input;
-  input.raw_iq.pulse_count = 9U;
   for (std::uint64_t i = 0U; i < 9U; ++i) {
     input.raw_iq.pulse_states.push_back(MakePulseState(i));
   }
@@ -46,7 +45,6 @@ TEST(SarRawHistoryExternalIqPredicateTest, TrajectoryOnlyIsNotExternal) {
 TEST(SarRawHistoryExternalIqPredicateTest, SamplesWithoutTrajectoryIsExternal) {
   // 有 IQ 样本即视为外部 IQ，无论是否附带轨迹。
   SarCycleInput input;
-  input.raw_iq.pulse_count = 9U;
   input.raw_iq.samples_per_pulse = 64U;
   input.raw_iq.i_values.assign(9U * 64U, 0.0);
   input.raw_iq.q_values.assign(9U * 64U, 0.0);

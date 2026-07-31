@@ -15,6 +15,7 @@
 #include "1q/airborne_radar/session/ArOutputTypes.h"
 #include "1q/airborne_radar/session/ArSceneTypes.h"
 #include "airborne_radar/environment/IEnvironmentService.h"
+#include "airborne_radar/signal/pipeline/SignalCycleInput.h"
 
 namespace airborne_radar {
 namespace environment {
@@ -41,13 +42,15 @@ class ISignalPipeline {
 
   /**
    * @brief 执行一次信号处理循环。
-   * @param[in] scene_targets 当前周期场景目标输入列表。
+   * @param[in] input 本周期输入结构体（捆绑 scene_targets、RF v2 detection 上下文、
+   *                  干扰观测与欺骗候选量测）。
    * @param[in] environment 环境服务只读接口。调用前必须已对该环境服务执行有效的
    *                        `BeginCycle(...)`，并确保其冻结快照携带正的 `cycle_dt_sec`。
    * @return 当前周期信号流水线输出结果。
    */
-  virtual SignalCycleResult RunCycle(const session::ArSceneTargetList& scene_targets,
-                                     const environment::IEnvironmentService& environment) = 0;
+  virtual SignalCycleResult RunCycle(
+      const pipeline::SignalCycleInput& input,
+      const environment::IEnvironmentService& environment) = 0;
 
   /**
    * @brief 更新当前搭载平台姿态。

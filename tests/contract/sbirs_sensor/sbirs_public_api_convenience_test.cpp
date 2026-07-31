@@ -131,12 +131,12 @@ TEST(SbirsPublicApiConvenienceTest, RuntimeConfigBuilderAllFieldsPopulateFlags) 
 TEST(SbirsPublicApiConvenienceTest, ValidateCycleInputFlagsInvalidDeltaTime) {
   session::SbirsCycleInput input = MakeMinimalInput();
   input.dt_sec = -1.0f;
-  const session::ValidationIssueList issues = session::ValidateSbirsCycleInput(input);
+  const session::ValidationIssueList issues = session::ValidateSbirsCycleInput(input, 10.0f);
   EXPECT_TRUE(session::HasValidationError(issues));
 }
 
 TEST(SbirsPublicApiConvenienceTest, ValidateCycleInputAcceptsValidInput) {
-  const session::ValidationIssueList issues = session::ValidateSbirsCycleInput(MakeMinimalInput());
+  const session::ValidationIssueList issues = session::ValidateSbirsCycleInput(MakeMinimalInput(), 10.0f);
   EXPECT_FALSE(session::HasValidationError(issues));
 }
 

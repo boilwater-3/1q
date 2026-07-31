@@ -95,7 +95,6 @@ class RadarModule {
    */
   bool initialize(const ar_config::ArSessionConfig& config = {}) {
     session_ = ar_session::ArSession::Create(config);
-    environment_state_ = ar_session::ArEnvironmentInputState(ar_session::ArEnvironmentInput{});
     initialized_ = true;
     return true;
   }
@@ -133,7 +132,6 @@ class RadarModule {
 
     // 3. 用完整配置重建 Session
     session_ = ar_session::ArSession::Create(config);
-    environment_state_ = ar_session::ArEnvironmentInputState(MakeDefaultEnvironmentInput());
     started_ = true;
     return true;
   }
@@ -159,7 +157,6 @@ class RadarModule {
       ar_config::ArSessionConfig default_config;
       flattenConfig(default_config);
       session_ = ar_session::ArSession::Create(default_config);
-      environment_state_ = ar_session::ArEnvironmentInputState(MakeDefaultEnvironmentInput());
       started_ = true;
     }
 
@@ -224,23 +221,6 @@ class RadarModule {
 
   /** @brief 模块是否已通过 preStart 启动。 */
   bool isStarted() const { return started_; }
-
-  // ==================== 平台 / 场景输入设置 ====================
-
-  /**
-   * @brief 设置当前环境输入（环境状态管理器维护跨周期的环境状态）。
-   *
-   * 引擎可在每周期前调用此方法更新环境事实（大气、干扰源等），
-   * 这些更新将在下次 stepImp 构造的 ArCycleInput 中反映。
-   */
-  void updateEnvironment(const ar_session::ArEnvironmentInputPatch& patch) {
-    environment_state_.Update(patch);
-  }
-
-  /** @brief 返回当前环境快照。 */
-  ar_session::ArEnvironmentInput currentEnvironment() const {
-    return environment_state_.Snapshot();
-  }
 
   // ==================== 输出三视图 ====================
   //
@@ -510,22 +490,11 @@ class RadarModule {
            patch.has_sensor_enabled;
   }
 
-  /// 构造默认环境输入（用于 stepImp 的默认值）。
-  static ar_session::ArEnvironmentInput MakeDefaultEnvironmentInput() {
-    ar_session::ArEnvironmentInput env;
-    env.atmospheric_observation.enable_physical_model = false;
-    env.atmospheric_observation.pressure_hpa = 1013.25f;
-    env.atmospheric_observation.temperature_k = 288.15f;
-    env.atmospheric_observation.relative_humidity = 0.5f;
-    return env;
-  }
-
   // ==================== 内部状态 ====================
 
   ar_session::ArSession session_{};
   ar_session::ArCycleInput last_input_{};
   ar_session::ArCycleResult last_result_{};
-  ar_session::ArEnvironmentInputState environment_state_{MakeDefaultEnvironmentInput()};
 
   /// 生命周期记录器（三视图之一）
   ar_session::ArTrackLifecycleRecorder lifecycle_recorder_{};

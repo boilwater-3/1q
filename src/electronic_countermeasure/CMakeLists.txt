@@ -1,6 +1,10 @@
 # electronic_countermeasure 模块源文件清单。
 
 oneq_add_component(ecm_core SOURCES
+    DeceptionEngagementManager.cpp
+    EcmConfigValidator.cpp
+    EcmResourceLedger.cpp
+    EcmWaveformFactory.cpp
     EcmEsrAdapter.cpp
     EcmReplayFlatbufferCodec.cpp
     EcmReplaySession.cpp

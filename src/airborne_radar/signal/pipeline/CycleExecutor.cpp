@@ -9,6 +9,7 @@
 #include "airborne_radar/signal/pipeline/RuntimeAssemblySupport.h"
 #include "airborne_radar/signal/pipeline/ScanScheduleResolver.h"
 #include "airborne_radar/signal/pipeline/TrackMeasurementProcessing.h"
+#include "airborne_radar/signal/pipeline/DeceptionMeasurementGenerator.h"
 #include "common/logging/ProjectLog.h"
 
 namespace airborne_radar {
@@ -66,9 +67,9 @@ bool RunDetectionPhase(const CycleExecutionContext& context, const CycleExecutio
   detection_buffers.measurement_covariances = &scratch.measurement_covariances;
 
   return RunPhysicalDetectionPass(
-      context.input_state, context.runtime_config, context.environment_snapshot,
-      context.platform_altitude_m, context.rf_v2_detection_context, runtime.signal_detector,
-      &detection_buffers);
+      context.cycle_input.scene_targets, context.runtime_config, context.environment_snapshot,
+      context.platform_altitude_m, context.cycle_input.rf_v2_detection_context,
+      runtime.signal_detector, &detection_buffers);
 }
 
 // ---------------------------------------------------------------------------
@@ -78,7 +79,8 @@ bool RunDetectionPhase(const CycleExecutionContext& context, const CycleExecutio
 void RunAssociationPhase(const CycleExecutionContext& context, const CycleExecutionRuntime& runtime,
                          CycleExecutionScratch& scratch) {
   scratch.association_result = runtime.association_engine.AssociateDetections(
-      context.input_state, scratch.detection_succeeded, scratch.measurement_covariances,
+      context.cycle_input.scene_targets, scratch.detection_succeeded,
+      scratch.measurement_covariances,
       context.environment_snapshot.cycle_dt_sec);
   scratch.association_keys = scratch.association_result.target_keys;
 }
@@ -87,9 +89,14 @@ void RunAssociationPhase(const CycleExecutionContext& context, const CycleExecut
 // 量测构建阶段：写入 scratch.measurement_slots / track_measurements
 // ---------------------------------------------------------------------------
 
+// 合成假目标量测已由 DeceptionMeasurementGenerator 注入并自带
+// classified_as_false_target=true；真实场景目标不再按方位误标为假目标。
 void RunMeasurementBuildPhase(const CycleExecutionContext& context,
                               CycleExecutionScratch& scratch) {
-  BuildTrackMeasurementsPass(context.input_state, scratch);
+  BuildTrackMeasurementsPass(context.cycle_input.scene_targets, scratch);
+  // 从欺骗干扰观测合成假目标量测，注入到 track_measurements。合成独立于反制开关，
+  // 合成量测自带 classified_as_false_target=true；真实场景目标不再被标注。
+  InjectDeceptionMeasurementsPass(context, scratch);
 }
 
 // ---------------------------------------------------------------------------
@@ -98,7 +105,7 @@ void RunMeasurementBuildPhase(const CycleExecutionContext& context,
 
 void RunTrackFilterPhase(const CycleExecutionContext& context, const CycleExecutionRuntime& runtime,
                          CycleExecutionScratch& scratch) {
-  ApplyTrackFilterPass(context.input_state, runtime.track_filter, scratch);
+  ApplyTrackFilterPass(context.cycle_input.scene_targets, runtime.track_filter, scratch);
 }
 
 // ---------------------------------------------------------------------------
@@ -173,7 +180,7 @@ void AssembleOutputs(std::uint32_t cycle_index, std::uint64_t batch_id,
                      const CycleExecutionContext& context, const CycleExecutionRuntime& runtime,
                      CycleExecutionScratch& scratch) {
   CollectCycleOutputs(cycle_index, batch_id, context.runtime_config, context.environment_snapshot,
-                      context.input_state, &runtime.auto_lifecycle_manager, scratch);
+                      context.cycle_input.scene_targets, &runtime.auto_lifecycle_manager, scratch);
 }
 
 }  // namespace
@@ -184,7 +191,7 @@ void AssembleOutputs(std::uint32_t cycle_index, std::uint64_t batch_id,
 
 bool ExecuteCycle(CycleExecutionContext& context, const CycleExecutionRuntime& runtime,
                   CycleExecutionScratch& cycle_scratch) {
-  ResetCycleExecutionScratch(context.input_state, cycle_scratch);
+  ResetCycleExecutionScratch(context.cycle_input.scene_targets, cycle_scratch);
 
   if (!RunEnvironmentPhase(context, runtime, cycle_scratch)) {
     return false;
@@ -192,6 +199,13 @@ bool ExecuteCycle(CycleExecutionContext& context, const CycleExecutionRuntime& r
   PrepareAssociationSeeds(runtime);
   if (!RunDetectionPhase(context, runtime, cycle_scratch)) {
     return false;
+  }
+  // 欺骗候选在 real association 之前运行独立关联 pass，共享 next_key_ 但不消耗 seeds。
+  if (!context.cycle_input.deception_measurement_candidates.empty()) {
+    cycle_scratch.deception_candidate_keys =
+        runtime.association_engine.AssociateDeceptionCandidates(
+            context.cycle_input.deception_measurement_candidates,
+            context.environment_snapshot.cycle_dt_sec);
   }
   RunAssociationPhase(context, runtime, cycle_scratch);
   RunMeasurementBuildPhase(context, cycle_scratch);

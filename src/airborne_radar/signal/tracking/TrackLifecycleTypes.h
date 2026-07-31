@@ -52,6 +52,7 @@ struct RawTrackMeasurement {
   bool used_external_association_seeds{
       false};                         /**< 当前量测关联时是否使用了外部 Lifecycle 轨迹种子。 */
   float detection_margin_db{0.0f};    /**< 当前量测探测裕量（dB）。 */
+  bool classified_as_false_target{false}; /**< 观测层判定该量测疑似假目标，供起批鉴别抑制确认。 */
   Eigen::Vector3f position{Eigen::Vector3f::Zero()}; /**< 当前量测位置向量（x, y, z）。 */
   Eigen::Matrix3f measurement_covariance{
       Eigen::Matrix3f::Zero()}; /**< 笛卡尔坐标系下的量测噪声协方差矩阵 R。对于 3D 位置

@@ -28,12 +28,12 @@ enum class ONEQ_API EsrMissionProfile {
  * @brief EsrSensitivityProfile 表示探测灵敏度语义档位。
  *
  * 选择档位后 Builder 在 Build() 时自动填写 SNR 门限、脉冲积累数、
- * 虚警概率和门限缩放系数。
+ * 虚警概率、门限缩放系数和统计检测开关（enable_statistical_detection=true）。
  */
 enum class ONEQ_API EsrSensitivityProfile {
-  kStandard = 0,    /**< 均衡：min_snr=6dB，pulse=8，pfa=1e-6 */
-  kHighSensitivity, /**< 高灵敏（远距弱信号）：min_snr=3dB，pulse=16，pfa=5e-6 */
-  kRobust           /**< 抗干扰（复杂电磁环境）：min_snr=10dB，pulse=4，pfa=1e-7 */
+  kStandard = 0,    /**< 均衡：min_snr=6dB，pulse=8，pfa=1e-6，统计检测开 */
+  kHighSensitivity, /**< 高灵敏（远距弱信号）：min_snr=3dB，pulse=16，pfa=5e-6，统计检测开 */
+  kRobust           /**< 抗干扰（复杂电磁环境）：min_snr=10dB，pulse=4，pfa=1e-7，统计检测开 */
 };
 
 /**
@@ -53,8 +53,6 @@ class ONEQ_API EsrSessionConfigBuilder {
 
   EsrSessionConfigBuilder& WithSessionConfig(const config::EsrSessionConfig& config) {
     config_ = config;
-    mission_profile_dirty_ = false;
-    sensitivity_profile_dirty_ = false;
     return *this;
   }
   MissionEditor Mission();
@@ -66,6 +64,10 @@ class ONEQ_API EsrSessionConfigBuilder {
    *
    * 如果通过 Editor 设置了 Profile 枚举，Build() 会将语义设定翻译为
    * mission / policy.detection 中的对应字段。
+   *
+   * @note Profile 会覆盖同一字段上的直接赋值。优先级：mission profile >
+   *       sensitivity profile > WithSessionConfig 基础配置。
+   *       WithSessionConfig() 不会重置已设置的 profile 标志。
    *
    * @return 构建完成的 `config::EsrSessionConfig`。
    */

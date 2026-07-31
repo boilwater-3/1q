@@ -122,7 +122,6 @@ SarCycleInput MakeExternalRawIqReplayInput(std::uint32_t cycle_index = 1U) {
   SarCycleInput input;
   input.cycle_index = cycle_index;
   input.dt_sec = 0.1f;
-  input.raw_iq.pulse_count = 9U;
   input.raw_iq.samples_per_pulse = 64U;
   input.raw_iq.i_values.assign(9U * 64U, 0.0);
   input.raw_iq.q_values.assign(9U * 64U, 0.0);

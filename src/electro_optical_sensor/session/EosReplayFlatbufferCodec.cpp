@@ -104,17 +104,11 @@ std::string EncodeEosCycleInput(const EosCycleInput& v) {
   }
   auto targets = fbb.CreateVector(targets_vec);
   auto pose = BuildPoseState(fbb, v.platform_pose);
-  auto env = eos::replay::CreateEosEnvironmentInput(
-      fbb, v.environment.solar_altitude_deg, v.environment.solar_azimuth_deg,
-      v.environment.solar_irradiance_w_m2, v.environment.cloud_coverage_ratio,
-      v.environment.ambient_wind_speed_mps, static_cast<int32_t>(v.environment.day_night_type),
-      v.environment.background_temperature_k);
 
   eos::replay::EosCycleInputBuilder b(fbb);
   b.add_cycle_index(v.cycle_index);
   b.add_dt_sec(v.dt_sec);
   b.add_platform_pose(pose);
-  b.add_environment(env);
   b.add_scene_targets(targets);
   b.add_platform_altitude_m(v.platform_altitude_m);
   fbb.Finish(b.Finish());
@@ -131,17 +125,6 @@ bool DecodeEosCycleInput(const std::string& bytes, EosCycleInput* out) {
   out->dt_sec = fb->dt_sec();
   out->platform_altitude_m = fb->platform_altitude_m();
   out->platform_pose = FromFbPoseState(fb->platform_pose());
-  if (fb->environment()) {
-    const auto* env = fb->environment();
-    out->environment.solar_altitude_deg = env->solar_altitude_deg();
-    out->environment.solar_azimuth_deg = env->solar_azimuth_deg();
-    out->environment.solar_irradiance_w_m2 = env->solar_irradiance_w_m2();
-    out->environment.cloud_coverage_ratio = env->cloud_coverage_ratio();
-    out->environment.ambient_wind_speed_mps = env->ambient_wind_speed_mps();
-    out->environment.day_night_type =
-        static_cast<::electro_optical_sensor::session::DayNightType>(env->day_night_type());
-    out->environment.background_temperature_k = env->background_temperature_k();
-  }
   out->scene.clear();
   if (fb->scene_targets()) {
     for (const auto* t : *fb->scene_targets()) {
@@ -336,7 +319,10 @@ std::string EncodeEosSessionConfig(const config::EosSessionConfig& v) {
       sc.atmospheric_physics.pressure_hpa, sc.atmospheric_physics.temperature_k,
       sc.atmospheric_physics.relative_humidity);
   auto env = eos::replay::CreateEosEnvironmentConfig(
-      fbb, static_cast<int32_t>(sc.preset), atmospheric_physics);
+      fbb, static_cast<int32_t>(sc.preset), atmospheric_physics,
+      sc.solar_altitude_deg, sc.solar_azimuth_deg, sc.solar_irradiance_w_m2,
+      sc.cloud_coverage_ratio, sc.ambient_wind_speed_mps,
+      static_cast<int32_t>(sc.day_night_type), sc.background_temperature_k);
 
   fbb.Finish(eos::replay::CreateEosSessionConfig(fbb, hw, mission, policy, env));
   return oneq::common::replay::CopyFinishedFlatbuffer(fbb);
@@ -399,6 +385,13 @@ bool DecodeEosSessionConfig(const std::string& bytes, config::EosSessionConfig* 
       sc.atmospheric_physics.relative_humidity =
           e->atmospheric_physics()->relative_humidity();
     }
+    sc.solar_altitude_deg = e->solar_altitude_deg();
+    sc.solar_azimuth_deg = e->solar_azimuth_deg();
+    sc.solar_irradiance_w_m2 = e->solar_irradiance_w_m2();
+    sc.cloud_coverage_ratio = e->cloud_coverage_ratio();
+    sc.ambient_wind_speed_mps = e->ambient_wind_speed_mps();
+    sc.day_night_type = static_cast<config::DayNightType>(e->day_night_type());
+    sc.background_temperature_k = e->background_temperature_k();
   }
   return true;
 }
@@ -431,10 +424,16 @@ std::string EncodeEosRuntimeConfigPatch(const config::EosRuntimeConfigPatch& v) 
         ep.scenario_config.atmospheric_physics.temperature_k,
         ep.scenario_config.atmospheric_physics.relative_humidity);
     env = eos::replay::CreateEosEnvironmentConfig(
-        fbb, static_cast<int32_t>(ep.scenario_config.preset), atmospheric_physics);
+        fbb, static_cast<int32_t>(ep.scenario_config.preset), atmospheric_physics,
+        ep.scenario_config.solar_altitude_deg, ep.scenario_config.solar_azimuth_deg,
+        ep.scenario_config.solar_irradiance_w_m2, ep.scenario_config.cloud_coverage_ratio,
+        ep.scenario_config.ambient_wind_speed_mps,
+        static_cast<int32_t>(ep.scenario_config.day_night_type),
+        ep.scenario_config.background_temperature_k);
   } else {
     env = eos::replay::CreateEosEnvironmentConfig(
-        fbb, 0, flatbuffers::Offset<eos::replay::EosAtmosphericObservation>{});
+        fbb, 0, flatbuffers::Offset<eos::replay::EosAtmosphericObservation>{},
+        0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0, 0.0f);
   }
   fbb.Finish(eos::replay::CreateEosRuntimeConfigPatch(
       fbb, v.has_mission, mission, v.has_policy, policy, v.has_environment, env,
@@ -468,6 +467,14 @@ bool DecodeEosRuntimeConfigPatch(const std::string& bytes, config::EosRuntimeCon
       out->environment.scenario_config.atmospheric_physics.relative_humidity =
           e->atmospheric_physics()->relative_humidity();
     }
+    out->environment.scenario_config.solar_altitude_deg = e->solar_altitude_deg();
+    out->environment.scenario_config.solar_azimuth_deg = e->solar_azimuth_deg();
+    out->environment.scenario_config.solar_irradiance_w_m2 = e->solar_irradiance_w_m2();
+    out->environment.scenario_config.cloud_coverage_ratio = e->cloud_coverage_ratio();
+    out->environment.scenario_config.ambient_wind_speed_mps = e->ambient_wind_speed_mps();
+    out->environment.scenario_config.day_night_type =
+        static_cast<config::DayNightType>(e->day_night_type());
+    out->environment.scenario_config.background_temperature_k = e->background_temperature_k();
   }
   if (fb->policy()) {
     const auto* p = fb->policy();

@@ -11,7 +11,6 @@
 
 #include "electronic_surveillance_radar/runtime/EsrController.h"
 #include "electronic_surveillance_radar/environment/IEsrEnvironmentService.h"
-#include "1q/electronic_surveillance_radar/session/EsrEnvironmentInput.h"
 #include "1q/electronic_surveillance_radar/session/EsrCycleInput.h"
 #include "electronic_surveillance_radar/config/EsrInternalExecutionConfig.h"
 #include "electronic_surveillance_radar/pipeline/InterceptPipeline.h"
@@ -43,7 +42,7 @@ EsrInternalExecutionConfig MakeDefaultConfig() {
 
 class StubEnvironmentService final : public environment::IEsrEnvironmentService {
  public:
-  void BeginCycle(const session::EsrEnvironmentCycleContext&) override {}
+  void BeginCycle(std::uint32_t, float, float) override {}
   session::EsrEnvironmentSnapshot SampleEnvironment() const override {
     return session::EsrEnvironmentSnapshot{};
   }

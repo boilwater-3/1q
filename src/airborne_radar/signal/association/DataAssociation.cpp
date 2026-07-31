@@ -298,6 +298,112 @@ std::vector<std::uint64_t> DataAssociationEngine::Associate(
   return AssociateDetections(targets, detection_succeeded, measurement_covariances).target_keys;
 }
 
+std::vector<std::uint64_t> DataAssociationEngine::AssociateDeceptionCandidates(
+    const detection::ArDeceptionMeasurementCandidateList& candidates,
+    float dt_sec) {
+  const std::size_t candidate_count = candidates.size();
+  std::vector<std::uint64_t> keys(candidate_count, kUnassociatedKey);
+  if (candidate_count == 0U) {
+    return keys;
+  }
+
+  // 筛选有效 candidate：position 全零或非有限视为无效。
+  struct ViableCandidate {
+    Eigen::Vector3f position;
+    tracking::MeasurementCovariance covariance;
+    std::size_t original_index;
+  };
+  std::vector<ViableCandidate> viable;
+  viable.reserve(candidate_count);
+  for (std::size_t i = 0; i < candidate_count; ++i) {
+    const detection::ArDeceptionMeasurementCandidate& c = candidates[i];
+    if (!std::isfinite(c.position.x()) || !std::isfinite(c.position.y()) ||
+        !std::isfinite(c.position.z()) || c.position.isZero(1e-6f)) {
+      continue;
+    }
+    viable.push_back({c.position, c.measurement_covariance, i});
+  }
+
+  // 若处于 external-seed 模式，对 track predictions 运行位置空间 gating。
+  const bool using_external_seeds = UsingExternalSeeds();
+  const std::vector<ExternalSeedTrackSignature>& external_priors = external_seed_tracks_;
+  const std::size_t association_prior_count = using_external_seeds ? external_priors.size() : 0U;
+
+  if (association_prior_count > 0U && !viable.empty()) {
+    const std::size_t prior_count = association_prior_count;
+    const std::size_t viable_count = viable.size();
+    const std::size_t dim = std::max(prior_count, viable_count);
+
+    const PositionAssociationPriors priors =
+        BuildExternalPositionAssociationPriors(external_priors, dt_sec);
+    const float unassigned_cost = config_.unassigned_cost;
+    const float rejected_cost =
+        std::nextafter(unassigned_cost, std::numeric_limits<float>::infinity());
+
+    Eigen::MatrixXf cost_matrix(static_cast<Eigen::Index>(dim),
+                                static_cast<Eigen::Index>(dim));
+    cost_matrix.setConstant(rejected_cost);
+    if (dim > viable_count) {
+      cost_matrix.rightCols(static_cast<Eigen::Index>(dim - viable_count))
+          .setConstant(unassigned_cost);
+    }
+    if (dim > prior_count) {
+      cost_matrix.bottomRows(static_cast<Eigen::Index>(dim - prior_count))
+          .setConstant(unassigned_cost);
+    }
+
+    // 构建 candidate 的 position 和 covariance 列表用于假设生成。
+    std::vector<Eigen::Vector3f> candidate_positions;
+    std::vector<tracking::MeasurementCovariance> candidate_covariances;
+    candidate_positions.reserve(viable_count);
+    candidate_covariances.reserve(viable_count);
+    for (const auto& v : viable) {
+      candidate_positions.push_back(v.position);
+      candidate_covariances.push_back(v.covariance);
+    }
+
+    const std::vector<AssociationHypothesis> hypotheses = position_hypothesiser_.Generate(
+        priors.predicted_tracks, candidate_positions, priors.projected_measurement_covariances,
+        candidate_covariances);
+    for (const AssociationHypothesis& h : hypotheses) {
+      cost_matrix(static_cast<Eigen::Index>(h.track_index),
+                  static_cast<Eigen::Index>(h.measurement_index)) = h.cost;
+    }
+
+    const std::vector<int> assignment = assignment_solver_.Solve(cost_matrix);
+
+    std::vector<std::uint8_t> matched(viable_count, 0U);
+    for (std::size_t r = 0; r < prior_count; ++r) {
+      const int assigned_col = assignment[r];
+      if (assigned_col < 0 || static_cast<std::size_t>(assigned_col) >= viable_count) {
+        continue;
+      }
+      const float matched_cost =
+          cost_matrix(static_cast<Eigen::Index>(r), static_cast<Eigen::Index>(assigned_col));
+      if (matched_cost <= unassigned_cost) {
+        const std::size_t viable_idx = static_cast<std::size_t>(assigned_col);
+        keys[viable[viable_idx].original_index] = priors.keys[r];
+        matched[viable_idx] = 1U;
+      }
+    }
+
+    // 未匹配的 viable candidate 分配新键。
+    for (std::size_t vi = 0; vi < viable_count; ++vi) {
+      if (matched[vi] == 0U) {
+        const std::uint64_t new_key = next_key_++;
+        keys[viable[vi].original_index] = new_key;
+      }
+    }
+  } else if (!viable.empty()) {
+    // 无 external seeds：全部使用递增新键。
+    for (const auto& v : viable) {
+      keys[v.original_index] = next_key_++;
+    }
+  }
+
+  return keys;
+}
+
 bool DataAssociationEngine::SetAssociationSeeds(
     const std::vector<tracking::AssociationTrackSeed>& seeds) {
   external_seed_tracks_.clear();

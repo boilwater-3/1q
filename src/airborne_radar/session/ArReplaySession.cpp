@@ -5,6 +5,7 @@
 
 #include "1q/airborne_radar/config/ArRuntimeConfigPatch.h"
 #include "1q/airborne_radar/session/ArSession.h"
+#include "1q/airborne_radar/session/DecisionControlTypes.h"
 #include "airborne_radar/session/ArReplayCycleRecord.h"
 #include "airborne_radar/session/ArReplayFlatbufferCodec.h"
 
@@ -95,9 +96,10 @@ bool OnRuntimeConfigPatch(const oneq::replay::ReplayTraceReadEvent& event,
 
 bool OnDecisionInput(const oneq::replay::ReplayTraceReadEvent& event,
                      void* user_data, std::string* error) {
-  if (event.payload_type != "ArExternalDecisionAttemptV3") {
-    *error = "AR replay rejects legacy decision_input payload type: " +
-             event.payload_type;
+  if (event.payload_type != "ArControlProfilePayload") {
+    *error =
+        "AR replay rejects unknown decision_input payload type: " +
+        event.payload_type;
     return false;
   }
   ArReplayState* state = static_cast<ArReplayState*>(user_data);
@@ -105,17 +107,16 @@ bool OnDecisionInput(const oneq::replay::ReplayTraceReadEvent& event,
     *error = "AR replay received decision_input before session_config";
     return false;
   }
-  ExternalDecisionResponse response;
-  ExternalDecisionSubmitStatus expected_status =
-      ExternalDecisionSubmitStatus::kNoPendingObservation;
-  if (!DecodeExternalDecisionAttemptFlatbuffer(
-          event.payload_bytes, &response, &expected_status, error)) {
+  session::ArControlProfile profile;
+  if (!DecodeArControlProfileFlatbuffer(event.payload_bytes, &profile, error)) {
     return false;
   }
-  const ExternalDecisionSubmitStatus actual_status =
-      state->session->SubmitExternalDecision(response);
-  if (actual_status != expected_status) {
-    *error = "AR replay external decision submit result divergence";
+  session::ExternalDecisionOverride override_decision;
+  override_decision.profile = profile;
+  const session::ExternalDecisionSubmitStatus status =
+      state->session->SubmitExternalDecision(std::move(override_decision));
+  if (status != session::ExternalDecisionSubmitStatus::kAccepted) {
+    *error = "AR replay decision_input override rejected";
     return false;
   }
   return true;

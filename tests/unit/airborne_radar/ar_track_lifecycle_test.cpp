@@ -885,5 +885,44 @@ TEST(TrackLifecycleManagerTest, SyncRuntimeTuningUpdatesConfigWithoutCrash) {
   SUCCEED();
 }
 
+// SyncRuntimeTuning 的真实生效断言：把 confirm_hits 从 2 提高到 3，
+// 同一命中序列的晋升行为应随之改变。此前的同名用例仅断言 SUCCEED()，
+// 无法证明阈值真正写入 config_——这是 AR-OQ-2 关注的"手工列表是否生效"的基线证据。
+TEST(TrackLifecycleManagerTest, SyncRuntimeTuningConfirmHitsChangesPromotionBehavior) {
+  signal::tracking::BoostTrackPool pool(4, 16);
+  signal::tracking::LifecycleConfig config;
+  config.confirm_hits = 2;
+  config.max_miss_before_lost = 1;
+  config.max_lost_cycles = 2;
+
+  signal::tracking::TrackLifecycleManager manager(pool, config);
+  signal::tracking::TrackMeasurement measurement;
+  measurement.raw_measurement.association_key = 7;
+  measurement.raw_measurement.position = Eigen::Vector3f(100.0f, 0.0f, 0.0f);
+  measurement.raw_measurement.measurement_covariance = Eigen::Matrix3f::Identity();
+  measurement.filtered_feature.velocity = Eigen::Vector3f(3.0f, 0.0f, 0.0f);
+
+  // 第 1 次命中：tentative。
+  manager.Update(MakeCycle(1, 1), {measurement});
+  ASSERT_EQ(manager.GetActiveTracks().size(), 1u);
+  EXPECT_EQ(manager.GetActiveTracks()[0]->status, signal::tracking::TrackStatus::kTentative);
+
+  // 把 confirm_hits 同步提高为 3：此时再命中 1 次仅累计到 2，不应晋升。
+  signal::tracking::LifecycleConfig new_config = config;
+  new_config.confirm_hits = 3;
+  manager.SyncRuntimeTuning(new_config, 1.5f, 0.5f, {0.1f}, Eigen::MatrixXf::Identity(1, 1),
+                            Eigen::VectorXf::Ones(1));
+
+  manager.Update(MakeCycle(2, 2), {measurement});
+  ASSERT_EQ(manager.GetActiveTracks().size(), 1u);
+  // 阈值已生效：命中次数达 2（旧阈值）但未达 3（新阈值），仍停留在 tentative。
+  EXPECT_EQ(manager.GetActiveTracks()[0]->status, signal::tracking::TrackStatus::kTentative);
+
+  // 第 3 次命中后达到新阈值，应晋升。
+  manager.Update(MakeCycle(3, 3), {measurement});
+  ASSERT_EQ(manager.GetActiveTracks().size(), 1u);
+  EXPECT_EQ(manager.GetActiveTracks()[0]->status, signal::tracking::TrackStatus::kConfirmed);
+}
+
 }  // namespace tests
 }  // namespace airborne_radar

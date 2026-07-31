@@ -9,15 +9,29 @@
 #include <vector>
 
 #include "1q/airborne_radar/session/ArInterferenceObservation.h"
+#include "1q/coordinate/types.h"
 #include "1q/electromagnetics/RfScene.h"
+#include "airborne_radar/signal/detection/ArDeceptionMeasurementCandidate.h"
 
 namespace airborne_radar {
 namespace signal {
 namespace detection {
 
 /**
- * @brief 从已求解 incident links 生成超过 J/N 门的本地 RF 观测。
- * @note truth 身份只用于排除自身与查找场景几何，不写入 observation。
+ * @brief 从已求解 incident links 生成超过 J/N 门的本地 RF 观测与欺骗候选量测。
+ * @param[in] platform_frame 雷达局部坐标系（origin_lla + 合成姿态）。用于把 ECEF 视线
+ *            转换到雷达局部系，写入 `estimated_bearing_*_local_deg`，与 ArSceneTarget 的
+ *            look angle 同系，供假目标鉴别比较。当 origin_lla 非有限值时局部系字段留零
+ *            并依赖调用方回退（不静默误标）。
+ * @param[in] perturbation_seed 确定性扰动种子。用于给斜距/径向速度叠加零均值测量噪声，
+ *            使其不再是精确仿真真值（满足公共合同 contract.md:348 "仿真真值不得混入面向
+ *            外部系统的真实输出通道"）。同种子 + 同输入下结果可复现，保证 replay 稳定。
+ *            调用方应从稳定量（如 cycle index + receiver equipment id）派生。
+ * @param[out] observations 干扰观测列表输出。
+ * @param[out] deception_candidates 从欺骗簇成员生成的候选量测（带物理 provenance）。
+ *            可为 nullptr 表示调用方不关心候选量测。
+ * @note truth 身份只用于排除自身与查找场景几何，不写入 observation；斜距/径向速度在写入
+ *       前叠加由 MeasurementErrorModel 标准差驱动的确定性噪声。
  */
 bool TryResolveArInterferenceObservations(
     const oneq::electromagnetics::RfSceneFrame& scene,
@@ -25,7 +39,9 @@ bool TryResolveArInterferenceObservations(
     const oneq::electromagnetics::RfEmissionIdentity& own_emission_identity,
     const std::vector<oneq::electromagnetics::RfIncidentLinkResult>& incident_links,
     double thermal_noise_power_w, double jammer_to_noise_gate_db,
-    std::vector<session::ArInterferenceObservation>* observations);
+    const oneq::coordinate::LocalFrameReference& platform_frame, std::uint32_t perturbation_seed,
+    std::vector<session::ArInterferenceObservation>* observations,
+    ArDeceptionMeasurementCandidateList* deception_candidates = nullptr);
 
 }  // namespace detection
 }  // namespace signal

@@ -12,9 +12,7 @@
 - EosCycleOutputBuilder.h — 周期输出构造器
 
 ## 环境域
-- EosEnvironmentInput.h — 环境运行时输入
-- EosEnvironmentInputPatch.h — 环境输入补丁
-- EosEnvironmentInputState.h — 环境输入状态
+- 环境配置已迁移至 config 目录，见 EosEnvironmentConfig.h（环境场景配置由 `EosSessionConfig.environment` 聚合，运行期更新通过 `EosRuntimeConfigPatch` 提交）
 
 ## 场景与类型
 - EosSceneTypes.h — 场景类型

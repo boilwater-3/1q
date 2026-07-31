@@ -222,20 +222,6 @@ TEST(ArPublicApiContractTest, ReceiverSaturationIsACompletedStructuredImpairment
   EXPECT_TRUE(result.interference_observations.empty());
 }
 
-TEST(ArPublicApiContractTest, InvalidNaturalEnvironmentRejectsBeforeRfStateChanges) {
-  session::ArSession radar = session::ArSession::Create(MakeSessionConfig());
-  session::ArCycleInput input = MakeInput();
-  input.environment.atmospheric_observation.pressure_hpa =
-      std::numeric_limits<float>::quiet_NaN();
-  const session::ArCycleResult rejected = radar.StepWithResult(input);
-  EXPECT_EQ(rejected.status, session::ArCycleStatus::kRejectedInvalidInput);
-
-  const session::ArCycleResult retried = radar.StepWithResult(MakeInput());
-  ASSERT_EQ(retried.status, session::ArCycleStatus::kCompleted);
-  ASSERT_EQ(retried.emission_frame.emissions.size(), 1U);
-  EXPECT_EQ(retried.emission_frame.emissions.front().identity.emission_id, 1U);
-}
-
 TEST(ArPublicApiContractTest, PoweredOffCycleAdvancesTimeWithoutEmission) {
   session::ArSession radar = session::ArSession::Create(MakeSessionConfig());
   const config::ArRuntimeConfigPatch power_off =

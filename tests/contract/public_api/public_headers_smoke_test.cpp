@@ -24,14 +24,12 @@
 #include "1q/airborne_radar/session/ArControlProfile.h"
 #include "1q/airborne_radar/session/ArCycleInput.h"
 #include "1q/airborne_radar/session/ArCycleResult.h"
-#include "1q/airborne_radar/session/ArEnvironmentInput.h"
 #include "1q/airborne_radar/session/ArInputValidation.h"
 #include "1q/airborne_radar/session/ArOutputTypes.h"
 #include "1q/airborne_radar/session/ArSession.h"
 #include "1q/airborne_radar/session/ArTraceSession.h"
 #include "1q/airborne_radar/session/ArTrackLifecycleRecorder.h"
 #include "1q/airborne_radar/session/ArTrackOutputDebugView.h"
-#include "1q/airborne_radar/session/ControlDirective.h"
 #include "1q/airborne_radar/session/DecisionControlTypes.h"
 #include "1q/airborne_radar/session/DecisionInputFrame.h"
 #include "1q/airborne_radar/session/TrackStateSnapshot.h"
@@ -55,7 +53,6 @@
 #include "1q/electro_optical_sensor/session/EosCycleInputAdapter.h"
 #include "1q/electro_optical_sensor/session/EosCycleResult.h"
 #include "1q/electro_optical_sensor/session/EosDetectionLifecycleRecorder.h"
-#include "1q/electro_optical_sensor/session/EosEnvironmentInput.h"
 #include "1q/electro_optical_sensor/session/EosExternalInputAdapter.h"
 #include "1q/electro_optical_sensor/session/EosInputValidation.h"
 #include "1q/electro_optical_sensor/session/EosOutputDebugView.h"
@@ -69,7 +66,6 @@
 #include "1q/electronic_surveillance_radar/config/electronic_surveillance_radar_config.hpp"
 #include "1q/electronic_surveillance_radar/electronic_surveillance_radar.hpp"
 #include "1q/electronic_surveillance_radar/session/EsrCycleInput.h"
-#include "1q/electronic_surveillance_radar/session/EsrEnvironmentInput.h"
 #include "1q/electronic_surveillance_radar/session/EsrInputValidation.h"
 #include "1q/electronic_surveillance_radar/session/EsrSession.h"
 #include "1q/electronic_surveillance_radar/session/EsrTraceSession.h"
@@ -101,7 +97,6 @@
 #include "1q/sbirs_sensor/session/SbirsCycleInputAdapter.h"
 #include "1q/sbirs_sensor/session/SbirsCycleResult.h"
 #include "1q/sbirs_sensor/session/SbirsDetectionLifecycleRecorder.h"
-#include "1q/sbirs_sensor/session/SbirsEnvironmentInput.h"
 #include "1q/sbirs_sensor/session/SbirsExternalInputAdapter.h"
 #include "1q/sbirs_sensor/session/SbirsInputValidation.h"
 #include "1q/sbirs_sensor/session/SbirsOutputDebugView.h"
@@ -220,7 +215,7 @@ TEST(PublicHeadersSmokeTest, SbirsPublicSurfaceSupportsMinimalUsage) {
                                                      .AddTarget(target)
                                                      .Build();
   const sbirs_sensor::session::ValidationIssueList issues =
-      sbirs_sensor::session::ValidateSbirsCycleInput(input);
+      sbirs_sensor::session::ValidateSbirsCycleInput(input, 10.0f);
   EXPECT_FALSE(sbirs_sensor::session::HasValidationError(issues));
 
   const sbirs_sensor::config::SbirsRuntimeConfigPatch patch =
@@ -326,11 +321,6 @@ TEST(PublicHeadersSmokeTest, EsrPublicSurfaceSupportsMinimalUsage) {
   session::EsrCycleInput input;
   input.cycle_index = 4U;
   input.dt_sec = 1.0f;
-  session::EsrEnvironmentInputState environment_state(input.environment);
-  session::EsrEnvironmentInputPatch environment_patch;
-  environment_patch.has_spectrum_occupancy_ratio = true;
-  environment_patch.spectrum_occupancy_ratio = 0.25f;
-  input.environment = environment_state.Update(environment_patch).Snapshot();
   input.platform_entity_id = 100U;
   input.has_platform_ecef_kinematics = true;
   input.platform_position_ecef_m.x_m = 6378137.0;
@@ -375,12 +365,7 @@ TEST(PublicHeadersSmokeTest, EosPublicSurfaceSupportsMinimalUsage) {
 
   ::electro_optical_sensor::session::EosCycleInput input;
   input.cycle_index = 2U;
-  input.dt_sec = 1.0f;
-  session::EosEnvironmentInputState environment_state(input.environment);
-  session::EosEnvironmentInputPatch environment_patch;
-  environment_patch.has_day_night_type = true;
-  environment_patch.day_night_type = ::electro_optical_sensor::session::DayNightType::kDay;
-  input.environment = environment_state.Update(environment_patch).Snapshot();
+  input.dt_sec = 0.1f;
   session::EosSceneTarget target;
   target.target_id = 7U;
   target.range_m = 1500.0f;
@@ -404,7 +389,7 @@ TEST(PublicHeadersSmokeTest, EosPublicSurfaceSupportsMinimalUsage) {
   ASSERT_TRUE(
       session::TryMakeEosPoseFromExternalKinematics(eos_pose_input, eos_reference, &eos_pose));
 
-  const session::ValidationIssueList issues = session::ValidateEosCycleInput(input);
+  const session::ValidationIssueList issues = session::ValidateEosCycleInput(input, 30.0f);
   EXPECT_FALSE(session::HasValidationError(issues));
 
   // 环境 preset 作为唯一公开模型选择入口。
@@ -465,7 +450,6 @@ TEST(PublicHeadersSmokeTest, SarPublicSurfaceSupportsMinimalUsage) {
   target.radar_cross_section_dbsm = 80.0;
   input.point_targets.push_back(target);
   session::SarRawIqFrame raw_iq;
-  raw_iq.pulse_count = 1U;
   raw_iq.samples_per_pulse = 1U;
   raw_iq.i_values.push_back(1.0);
   raw_iq.q_values.push_back(0.0);

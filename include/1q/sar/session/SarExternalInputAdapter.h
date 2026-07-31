@@ -26,6 +26,7 @@
 #include "1q/api.hpp"
 #include "1q/coordinate/types.h"
 #include "1q/sar/config/SarMissionConfig.h"
+#include "1q/sar/config/SarSessionConfig.h"
 #include "1q/sar/session/SarCycleInput.h"
 
 namespace sar {
@@ -63,6 +64,14 @@ struct ONEQ_API SarExternalPulseInput {
  */
 ONEQ_API oneq::coordinate::LocalFrameReference BuildSceneCenterReference(
     const config::SarMissionConfig& mission);
+
+/**
+ * @brief 便捷重载：从 SarSessionConfig 提取 mission 域。
+ */
+inline oneq::coordinate::LocalFrameReference BuildSceneCenterReference(
+    const config::SarSessionConfig& config) {
+  return BuildSceneCenterReference(config.mission);
+}
 
 /**
  * @brief 将单个外部脉冲运动学转换为 scene-center-relative ENU 本地直角坐标 PulseState。

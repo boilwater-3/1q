@@ -25,7 +25,7 @@ namespace session {
 /**
  * @brief EOS 外部平台运动学输入。
  * @note 速度固定为 ECEF 坐标系；EOS 没有独立 mount 字段，示例适配器按传感器视轴与
- *       机体系对齐处理。AR 的 Pose 结构多出 radar_mount_angles_deg 是雷达安装角需求。
+ *       机体系对齐处理。AR 的雷达安装角通过 ArOrientationConfig::mount_angles_deg 配置。
  */
 struct ONEQ_API EosExternalPoseInput {
   oneq::coordinate::EcefPositionM platform_position_ecef_m{}; /**< 平台位置（ECEF，m） */

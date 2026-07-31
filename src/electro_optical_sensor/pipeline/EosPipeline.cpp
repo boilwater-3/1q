@@ -48,11 +48,11 @@ bool WorkModeIncludesVisible(EosPipelineWorkMode mode) {
 }
 
 foundation::radiometry::IlluminationCondition ToIlluminationCondition(
-    ::electro_optical_sensor::session::DayNightType day_night_type) {
-  if (day_night_type == ::electro_optical_sensor::session::DayNightType::kNight) {
+    ::electro_optical_sensor::config::DayNightType day_night_type) {
+  if (day_night_type == ::electro_optical_sensor::config::DayNightType::kNight) {
     return foundation::radiometry::IlluminationCondition::kNight;
   }
-  if (day_night_type == ::electro_optical_sensor::session::DayNightType::kTwilight) {
+  if (day_night_type == ::electro_optical_sensor::config::DayNightType::kTwilight) {
     return foundation::radiometry::IlluminationCondition::kTwilight;
   }
   return foundation::radiometry::IlluminationCondition::kDay;
@@ -73,7 +73,7 @@ foundation::radiative_transfer::RadiativeTransferResult ComputePathRadiativeTran
     const ::electro_optical_sensor::session::EosCycleInput& input, float range_m,
     const environment::EnvironmentModelResult& environment_result) {
   const float cloud_ratio =
-      oneq::common::numerics::Clamp01(input.environment.cloud_coverage_ratio);
+      oneq::common::numerics::Clamp01(config.environment.cloud_coverage_ratio);
   const float aerosol_excess = std::max(0.0f, environment_result.aerosol_density_factor - 1.0f);
   const float turbulence_excess = std::max(0.0f, environment_result.turbulence_factor - 1.0f);
   const float path_km = std::max(0.0f, range_m) * 1.0e-3f;
@@ -90,7 +90,7 @@ foundation::radiative_transfer::RadiativeTransferResult ComputePathRadiativeTran
   transfer_inputs.model = config.environment.radiative_transfer_model;
   transfer_inputs.base_transmittance = derived_base_transmittance;
   transfer_inputs.cloud_coverage_ratio =
-      oneq::common::numerics::Clamp01(input.environment.cloud_coverage_ratio);
+      oneq::common::numerics::Clamp01(config.environment.cloud_coverage_ratio);
   transfer_inputs.path_length_m = std::max(0.0f, range_m);
   transfer_inputs.aerosol_density_factor =
       std::max(1.0f, environment_result.aerosol_density_factor);
@@ -125,11 +125,11 @@ float ComputeVisiblePhotonNoiseEnhancement(
     const ::electro_optical_sensor::session::EosCycleInput& input) {
   const float reference_irradiance = oneq::common::numerics::SafePositive(
       config.detection.visible_reference_irradiance_w_m2, 800.0f);
-  const float observed_irradiance = std::max(0.0f, input.environment.solar_irradiance_w_m2);
+  const float observed_irradiance = std::max(0.0f, config.environment.solar_irradiance_w_m2);
   const float irradiance_ratio = std::max(observed_irradiance, 1.0e-3f) / reference_irradiance;
   const float irradiance_mismatch = std::fabs(std::log2(std::max(irradiance_ratio, 1.0e-6f)));
   const float cloud_factor =
-      1.0f + 0.5f * oneq::common::numerics::Clamp01(input.environment.cloud_coverage_ratio);
+      1.0f + 0.5f * oneq::common::numerics::Clamp01(config.environment.cloud_coverage_ratio);
   return oneq::common::numerics::Clamp(1.0f + 0.12f * irradiance_mismatch * cloud_factor, 1.0f,
                                          2.5f);
 }
@@ -155,6 +155,10 @@ struct DetectionComputationContext {
   float imaging_quality_gain{1.0f};
   float background_spectral_radiance_w_sr_m3{0.0f};
   float visible_photon_noise_enhancement{1.0f};
+  float solar_irradiance_w_m2{800.0f};
+  float solar_altitude_deg{45.0f};
+  float cloud_coverage_ratio{0.2f};
+  config::DayNightType day_night_type{config::DayNightType::kDay};
   foundation::propagation::NepNoiseModelInputs nep_inputs{};
   foundation::noise::BackgroundNoiseModelInputs noise_inputs{};
   foundation::stray_light::StrayLightFilterResult stray_light_result{};
@@ -178,8 +182,16 @@ DetectionComputationContext BuildDetectionComputationContext(
   context_values.optical_transmittance = frame_ctx.optical_transmittance;
   context_values.nep_inputs = frame_ctx.nep_inputs;
   context_values.noise_inputs = frame_ctx.noise_inputs_base;
+  context_values.solar_irradiance_w_m2 = config.environment.solar_irradiance_w_m2;
+  context_values.solar_altitude_deg = config.environment.solar_altitude_deg;
+  context_values.cloud_coverage_ratio = config.environment.cloud_coverage_ratio;
+  context_values.day_night_type = config.environment.day_night_type;
 
-  // 目标相关字段
+  // 目标相关字段。
+  // 注意：range_m 的权威校验在 EosInputValidation（<= 0 为 error），
+  // 控制器在校验失败时不执行本管线，故正常 Session 路径不会传入非法 range_m。
+  // 此处 SafePositive 仅作深度防御，防止直接调用管线（绕过校验）时非法值进入
+  // 辐射传输计算引发 NaN 传播；兜底值 1000m 不应被视为合法输入约定。
   const foundation::radiative_transfer::RadiativeTransferResult transfer_result =
       ComputePathRadiativeTransfer(config, input,
                                    oneq::common::numerics::SafePositive(target.range_m, 1000.0f),
@@ -217,9 +229,9 @@ DetectionComputationContext BuildDetectionComputationContext(
   stray_light_inputs.enabled = config.stray_light.enable_straylight_filter;
   stray_light_inputs.target_azimuth_deg = target.azimuth_deg;
   stray_light_inputs.target_elevation_deg = target.elevation_deg;
-  stray_light_inputs.sun_azimuth_deg = input.environment.solar_azimuth_deg;
-  stray_light_inputs.sun_altitude_deg = input.environment.solar_altitude_deg;
-  stray_light_inputs.cloud_coverage_ratio = input.environment.cloud_coverage_ratio;
+  stray_light_inputs.sun_azimuth_deg = config.environment.solar_azimuth_deg;
+  stray_light_inputs.sun_altitude_deg = config.environment.solar_altitude_deg;
+  stray_light_inputs.cloud_coverage_ratio = config.environment.cloud_coverage_ratio;
   stray_light_inputs.hood_inner_half_angle_deg = config.stray_light.hood_inner_half_angle_deg;
   stray_light_inputs.hood_outer_half_angle_deg = config.stray_light.hood_outer_half_angle_deg;
   stray_light_inputs.min_suppression_ratio = config.stray_light.hood_min_suppression_ratio;
@@ -274,11 +286,11 @@ float ComputeVisibleSnrLinear(const ::electro_optical_sensor::session::EosSceneT
                               const ::electro_optical_sensor::session::EosCycleInput& input,
                               const DetectionComputationContext& context_values) {
   foundation::radiometry::VisibleChannelInputs visible_inputs;
-  visible_inputs.target.solar_irradiance_w_m2 = input.environment.solar_irradiance_w_m2;
-  visible_inputs.target.solar_altitude_deg = input.environment.solar_altitude_deg;
-  visible_inputs.target.cloud_coverage_ratio = input.environment.cloud_coverage_ratio;
+  visible_inputs.target.solar_irradiance_w_m2 = context_values.solar_irradiance_w_m2;
+  visible_inputs.target.solar_altitude_deg = context_values.solar_altitude_deg;
+  visible_inputs.target.cloud_coverage_ratio = context_values.cloud_coverage_ratio;
   visible_inputs.target.reflectance = target.appearance.reflectance;
-  visible_inputs.target.illumination = ToIlluminationCondition(input.environment.day_night_type);
+  visible_inputs.target.illumination = ToIlluminationCondition(context_values.day_night_type);
   visible_inputs.background_reflectance = 0.12f;
   visible_inputs.background_patch_area_m2 = 20.0f;
   const foundation::radiometry::VisibleChannelResult visible_result =
@@ -312,7 +324,7 @@ float ComputeVisibleSnrLinear(const ::electro_optical_sensor::session::EosSceneT
 }
 
 float ComputeFusedSnrLinear(EosPipelineWorkMode work_mode,
-                            ::electro_optical_sensor::session::DayNightType day_night_type,
+                            ::electro_optical_sensor::config::DayNightType day_night_type,
                             float infrared_snr_linear, float visible_snr_linear) {
   if (work_mode == EosPipelineWorkMode::kInfraredOnly) {
     return infrared_snr_linear;
@@ -332,10 +344,10 @@ float ComputeFusedSnrLinear(EosPipelineWorkMode work_mode,
 
   float infrared_weight = 0.5f;
   float visible_weight = 0.5f;
-  if (day_night_type == ::electro_optical_sensor::session::DayNightType::kDay) {
+  if (day_night_type == ::electro_optical_sensor::config::DayNightType::kDay) {
     infrared_weight = 0.35f;
     visible_weight = 0.65f;
-  } else if (day_night_type == ::electro_optical_sensor::session::DayNightType::kNight) {
+  } else if (day_night_type == ::electro_optical_sensor::config::DayNightType::kNight) {
     infrared_weight = 0.80f;
     visible_weight = 0.20f;
   }
@@ -469,7 +481,7 @@ FrameContext EosPipeline::BuildFrameContext(
 
   if (frame.infrared_enabled) {
     frame.background_spectral_radiance_w_sr_m3 = foundation::radiometry::ComputePlanckRadiance(
-        frame.wavelength_center_um, input.environment.background_temperature_k);
+        frame.wavelength_center_um, config_.environment.background_temperature_k);
   }
   frame.visible_photon_noise_enhancement = ComputeVisiblePhotonNoiseEnhancement(config_, input);
   frame.diffraction_resolution_rad =
@@ -500,7 +512,7 @@ FrameContext EosPipeline::BuildFrameContext(
 
   frame.noise_inputs_base.electrical_bandwidth_hz = frame.nep_inputs.electrical_bandwidth_hz;
   frame.noise_inputs_base.integration_time_sec = frame.nep_inputs.integration_time_sec;
-  frame.noise_inputs_base.cloud_coverage_ratio = input.environment.cloud_coverage_ratio;
+  frame.noise_inputs_base.cloud_coverage_ratio = config_.environment.cloud_coverage_ratio;
   frame.noise_inputs_base.detector_area_cm2 = frame.nep_inputs.detector_area_cm2;
 
   environment::EnvironmentModelInputs env_inputs;
@@ -508,8 +520,8 @@ FrameContext EosPipeline::BuildFrameContext(
   env_inputs.base_turbulence_factor = config_.environment.turbulence_factor;
   env_inputs.platform_altitude_m = ResolvePlatformAltitudeM(input);
   env_inputs.cloud_coverage_ratio =
-      oneq::common::numerics::Clamp01(input.environment.cloud_coverage_ratio);
-  env_inputs.wind_speed_mps = std::max(0.0f, input.environment.ambient_wind_speed_mps);
+      oneq::common::numerics::Clamp01(config_.environment.cloud_coverage_ratio);
+  env_inputs.wind_speed_mps = std::max(0.0f, config_.environment.ambient_wind_speed_mps);
   env_inputs.atmospheric_physics = config_.environment.atmospheric_physics;
   frame.environment_result = environment::ResolveEnvironmentFactors(env_inputs);
 
@@ -537,7 +549,7 @@ output::EosDetectionRecord EosPipeline::BuildDetectionRecord(
   record.infrared_snr_linear = infrared_snr_linear;
   record.visible_snr_linear = visible_snr_linear;
   record.fused_snr_linear =
-      ComputeFusedSnrLinear(config_.scan.work_mode, input.environment.day_night_type,
+      ComputeFusedSnrLinear(config_.scan.work_mode, config_.environment.day_night_type,
                             infrared_snr_linear, visible_snr_linear);
   record.fused_snr_db = foundation::propagation::ComputeSnrDb(record.fused_snr_linear);
   record.detected = context_values.is_within_detection_range &&

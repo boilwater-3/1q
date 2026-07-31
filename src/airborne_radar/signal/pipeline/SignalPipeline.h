@@ -41,12 +41,14 @@ class SignalPipeline final : public ISignalPipeline {
 
   /**
    * @brief 执行单周期信号处理流程。
-   * @param scene_targets 当前周期场景目标输入列表。
+   * @param input 本周期输入结构体（捆绑 scene_targets、RF v2 detection 上下文、
+   *              干扰观测与欺骗候选量测）。
    * @param environment 当前环境服务。
    * @return 当前周期的信号处理输出。
    */
-  session::SignalCycleResult RunCycle(const session::ArSceneTargetList& scene_targets,
-                                      const environment::IEnvironmentService& environment) override;
+  session::SignalCycleResult RunCycle(
+      const SignalCycleInput& input,
+      const environment::IEnvironmentService& environment) override;
 
   /**
    * @brief 获取上一周期生成的跟踪量测列表。
@@ -119,13 +121,6 @@ class SignalPipeline final : public ISignalPipeline {
    * @param config execution 运行配置。
    */
   bool UpdateExecutionConfig(const ExecutionConfig& config);
-
-  /**
-   * @brief 注入下一次成功周期使用的 RF v2 detection 上下文。
-   * @return 全部发射身份、波形、窗口和 incident link 合法时返回 true。
-   * @note 输入被完整复制并纳入 runtime snapshot；失败不改变待消费状态。
-   */
-  bool SetNextRfV2DetectionContext(const RfV2DetectionContext& context);
 
  private:
   struct Impl;

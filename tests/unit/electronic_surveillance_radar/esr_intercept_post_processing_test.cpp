@@ -13,7 +13,7 @@
 #include <vector>
 
 #include "1q/electronic_surveillance_radar/session/EsrCycleInput.h"
-#include "1q/electronic_surveillance_radar/session/EsrEnvironmentInput.h"
+#include "electronic_surveillance_radar/environment/IEsrEnvironmentService.h"
 #include "electronic_surveillance_radar/pipeline/InterceptPipelineTypes.h"
 #include "electronic_surveillance_radar/pipeline/InterceptPostProcessingExecutor.h"
 #include "electronic_surveillance_radar/pipeline/KdTreeClusterer.h"

@@ -59,6 +59,14 @@ struct ONEQ_API DecisionControlConfig {
   std::uint32_t eccm_hold_cycles_after_request{0U}; /**< ECCM proposal 消失后额外保持的成功周期数。 */
   std::uint32_t lpi_cooldown_cycles_after_release{0U}; /**< LPI 释放后阻止重新激活的成功周期数。 */
   std::uint32_t eccm_cooldown_cycles_after_release{0U}; /**< ECCM 释放后阻止重新激活的成功周期数。 */
+  /**
+   * 对抗 VGPO 时的加速度限幅阈值（m/s²）。
+   *
+   * 当控制策略启用 enable_anti_vgpo_acceleration_bound 时，
+   * 航迹生命周期管理器使用此值作为加速度上限，超出此阈值的航迹将被标记为可疑。
+   * 该开关由 ArControlProfile 在运行期每周期控制，此处仅设置阈值。
+   */
+  double anti_vgpo_max_acceleration_mps2{100.0};
 };
 
 }  // namespace decision
@@ -116,13 +124,24 @@ struct ONEQ_API TrackingConfig {
   float kalman_measurement_noise_std{10.0f}; /**< 量测噪声标准差。 */
   float speed_decay_ratio_on_loss{1.0f}; /**< 丢失周期速度衰减系数（默认无衰减）。 */
   float rcs_decay_ratio_on_loss{1.0f}; /**< 丢失周期 RCS 衰减系数（默认无衰减）。 */
+  /** Kalman 过程噪声差异系数，控制预测器对状态变化的敏感度。值越大跟踪越平滑但响应越慢。 */
+  float kalman_noise_diff_coeff{1.0f};
 };
 
 /**
  * @brief 量测关联参数。
  */
 struct ONEQ_API AssociationConfig {
-  float distance_gate_sigma{3.0f}; /**< 归一化距离关联门限的 sigma 倍数。 */
+  /**
+   * 归一化距离关联门限的 sigma 倍数。
+   *
+   * 内部映射时通过 MapSessionToExecution() / ApplyRuntimePatch() 转换为
+   * unassigned_cost = sigma² 用于归一化距离代价计算。逆映射时取
+   * std::sqrt(unassigned_cost) 恢复为 sigma 倍数。
+   *
+   * @see MappingTransforms.h 中的 SigmaToSquaredCost() / SquaredCostToSigma()。
+   */
+  float distance_gate_sigma{3.0f};
 };
 
 }  // namespace tracking

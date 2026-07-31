@@ -28,6 +28,30 @@ enum class ONEQ_API EsrEnvironmentPreset {
 using EsrAtmosphericPhysicsConfig = oneq::environment::AtmosphericObservation;
 
 /**
+ * @brief EsrPropagationEnvironmentProfile 描述高层传播环境类型。
+ */
+enum class ONEQ_API EsrPropagationEnvironmentProfile { kOpen = 0, kTypical = 1, kComplex = 2 };
+
+/**
+ * @brief EsrClutterDensityLevel 描述高层杂波密度级别。
+ */
+enum class ONEQ_API EsrClutterDensityLevel { kLow = 0, kMedium = 1, kHigh = 2 };
+
+/**
+ * @brief EsrAtmosphericObservation 描述外部可观测天气事实。
+ */
+/**
+ * @brief EsrAtmosphericObservation 描述外部可观测天气事实。
+ *
+ * @note 湿度统一由 EsrAtmosphericPhysicsConfig::relative_humidity 表达，
+ *       本结构仅保留降水和能见度等物理模型未覆盖的观测。
+ */
+struct ONEQ_API EsrAtmosphericObservation {
+  float precipitation_rate_mmph{0.0f}; /**< 降水率（单位：mm/h） */
+  float visibility_km{20.0f};          /**< 能见度（单位：km） */
+};
+
+/**
  * @brief EsrEnvironmentScenarioConfig 描述环境场景语义输入。
  *
  * @note 不暴露 SpaceWeatherContext（空间天气上下文）：其字段（k_factor、
@@ -37,6 +61,10 @@ using EsrAtmosphericPhysicsConfig = oneq::environment::AtmosphericObservation;
 struct ONEQ_API EsrEnvironmentScenarioConfig {
   EsrEnvironmentPreset preset{EsrEnvironmentPreset::kStandard};
   EsrAtmosphericPhysicsConfig atmospheric_physics{};
+  EsrPropagationEnvironmentProfile propagation_profile{EsrPropagationEnvironmentProfile::kTypical};
+  EsrClutterDensityLevel clutter_density{EsrClutterDensityLevel::kMedium};
+  float spectrum_occupancy_ratio{0.0f};
+  EsrAtmosphericObservation atmospheric_observation{};
 };
 
 /**

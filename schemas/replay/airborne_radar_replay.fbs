@@ -2,18 +2,6 @@ namespace oneq.replay.airborne_radar.fb;
 
 table Vector3d { x:double; y:double; z:double; }
 
-table AtmosphericObservation {
-  enable_physical_model:bool;
-  pressure_hpa:float;
-  temperature_k:float;
-  relative_humidity:float;
-}
-
-table SurfaceObservation {
-  cover_profile:int;
-  enable_physical_model:bool;
-}
-
 table TrackOutputFrame {
   cycle_index:uint;
   published_track_count:ulong;
@@ -62,6 +50,14 @@ table ArControlProfile {
   enable_adaptive_beamforming:bool;
   enable_eccm_rejitter:bool;
   eccm_burnthrough_gain:float;
+  enable_anti_rgpo_leading_edge:bool;
+  enable_anti_vgpo_acceleration_bound:bool;
+  enable_anti_false_target_discrimination:bool;
+}
+
+// 外部 profile 覆盖提交（整包替换值）的回放载荷，用作 decision_input 事件根表。
+table ArControlProfilePayload {
+  profile:ArControlProfile;
 }
 
 table ArInterferenceObservation {
@@ -76,6 +72,15 @@ table ArInterferenceObservation {
   bearing_standard_deviation_deg:double;
   frequency_standard_deviation_hz:double;
   bandwidth_standard_deviation_hz:double;
+  deception_class:int;
+  coherent_emission_count:uint;
+  estimated_slant_range_m:double;
+  has_local_bearings:bool;
+  estimated_bearing_azimuth_local_deg:double;
+  estimated_bearing_elevation_local_deg:double;
+  estimated_range_rate_mps:double;
+  estimated_carrier_offset_hz:double;
+  estimated_first_pulse_delay_s:double;
 }
 
 table AssociationQualityInfo {
@@ -121,12 +126,6 @@ table TacticalProposal {
   rationale:string;
 }
 
-table ExternalDecisionResponse {
-  source_cycle_index:uint;
-  source_batch_id:ulong;
-  proposals:[TacticalProposal];
-}
-
 table ArDecisionReplayState {
   has_pending_internal_decision:bool;
   pending_internal_cycle_index:uint;
@@ -136,8 +135,6 @@ table ArDecisionReplayState {
   applied_decision_cycle_index:uint;
   applied_decision_batch_id:ulong;
   applied_decision_proposals:[TacticalProposal];
-  has_pending_external_decision:bool;
-  pending_external_decision:ExternalDecisionResponse;
   lpi_hold_cycles_remaining:uint;
   eccm_hold_cycles_remaining:uint;
   lpi_cooldown_cycles_remaining:uint;
@@ -210,10 +207,6 @@ table ArRuntimeConfigAttemptV2 {
   patch_payload:[ubyte];
   accepted:bool;
 }
-table ArExternalDecisionAttemptV2 {
-  response_payload:[ubyte];
-  status:int;
-}
 
 // Single-cycle AR user facade. Two-stage AR records were deliberately removed;
 // current replay accepts only V3 cycle records.
@@ -228,7 +221,7 @@ table ArPlatformInputV3 {
   platform_position_ecef_m:Vector3d;
   platform_velocity_mps:EcefVelocityV3;
   platform_attitude_deg:EulerAnglesDeg64;
-  radar_mount_angles_deg:EulerAnglesDeg64;
+  radar_mount_angles_deg:EulerAnglesDeg64 (deprecated);
 }
 table ExternalKinematicsV3 {
   position_frame:int;
@@ -244,17 +237,12 @@ table ArTargetInputV3 {
   rcs:float;
   swerling_type:int;
 }
-table ArEnvironmentInputV3 {
-  atmospheric_observation:AtmosphericObservation;
-  surface_observation:SurfaceObservation;
-}
 table ArCycleInputV3 {
   cycle_index:uint;
   cycle_start_time_s:double;
   dt_sec:double;
   platform:ArPlatformInputV3;
   targets:[ArTargetInputV3];
-  environment:ArEnvironmentInputV3;
   interference:RfSceneFrameV2;
 }
 table ArCommandV3 { type:int; source:int; }

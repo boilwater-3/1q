@@ -39,21 +39,10 @@ table EosTargetState {
   target_name:           string;
 }
 
-table EosEnvironmentInput {
-  solar_altitude_deg:       float;
-  solar_azimuth_deg:        float;
-  solar_irradiance_w_m2:    float;
-  cloud_coverage_ratio:     float;
-  ambient_wind_speed_mps:   float;
-  day_night_type:           int32;
-  background_temperature_k: float;
-}
-
 table EosCycleInput {
   cycle_index:              uint32;
   dt_sec:                   float;
   platform_pose:            PoseState;
-  environment:              EosEnvironmentInput;
   scene_targets:            [EosTargetState];
   platform_altitude_m:      float = 0.0;
 }

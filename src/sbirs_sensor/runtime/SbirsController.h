@@ -42,6 +42,7 @@ class SbirsController {
 
  private:
   pipeline::SbirsPipeline pipeline_;
+  float frame_rate_hz_{};
   bool has_latest_output_{false};
   session::SbirsOutputFrame latest_output_{};
 };

@@ -21,6 +21,7 @@ void ResetCycleExecutionScratch(const session::ArSceneTargetList& input_state,
   scratch.detection_margin_db.resize(target_count);
   scratch.detection_succeeded.resize(target_count);
   scratch.association_keys.resize(target_count);
+  scratch.deception_candidate_keys.clear();
   scratch.measurement_slots.assign(target_count, -1);
   scratch.target_geometry.resize(target_count);
   scratch.association_result = association::AssociationResult();

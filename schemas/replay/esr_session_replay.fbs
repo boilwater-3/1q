@@ -79,9 +79,18 @@ table EsrAtmosphericPhysicsConfig {
   relative_humidity:     float;
 }
 
+table EsrAtmosphericObservation {
+  precipitation_rate_mmph:  float;
+  visibility_km:            float;
+}
+
 table EsrEnvironmentConfig {
-  preset:              int32;
-  atmospheric_physics: EsrAtmosphericPhysicsConfig;
+  preset:                   int32;
+  atmospheric_physics:      EsrAtmosphericPhysicsConfig;
+  propagation_profile:      int32;
+  clutter_density:          int32;
+  spectrum_occupancy_ratio: float;
+  atmospheric_observation:  EsrAtmosphericObservation;
 }
 
 table EsrSessionConfig {
@@ -97,8 +106,16 @@ file_identifier "ESRS";
 // ---- EsrRuntimeConfigPatch ----
 
 table EsrEnvironmentRuntimeConfigPatch {
-  has_atmospheric_physics: bool;
-  atmospheric_physics:     EsrAtmosphericPhysicsConfig;
+  has_atmospheric_physics:      bool;
+  atmospheric_physics:          EsrAtmosphericPhysicsConfig;
+  has_propagation_profile:      bool;
+  propagation_profile:          int32;
+  has_clutter_density:          bool;
+  clutter_density:              int32;
+  has_spectrum_occupancy_ratio: bool;
+  spectrum_occupancy_ratio:     float;
+  has_atmospheric_observation:  bool;
+  atmospheric_observation:      EsrAtmosphericObservation;
 }
 
 table EsrRuntimeConfigPatch {

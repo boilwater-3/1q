@@ -14,6 +14,7 @@
 #include "airborne_radar/signal/association/DistanceMetric.h"
 #include "airborne_radar/signal/association/Hypothesiser.h"
 #include "airborne_radar/signal/association/LapjvSolver.h"
+#include "airborne_radar/signal/detection/ArDeceptionMeasurementCandidate.h"
 #include "airborne_radar/signal/tracking/GaussianTrackState.h"
 #include "airborne_radar/signal/tracking/KalmanPredictor.h"
 #include "airborne_radar/signal/tracking/TrackLifecycleTypes.h"
@@ -148,6 +149,17 @@ class DataAssociationEngine {
    * @details 用于收敛 external seeds 单一入口，清理旁路注入的临时外部 seeds。
    */
   void ResetAssociationSeedModeToStateless();
+
+  /**
+   * @brief 为欺骗候选量测分配关联键。
+   * @param candidates 本周期欺骗候选量测列表。
+   * @param dt_sec 当前周期实际步长（单位：s），用于先验预测。默认值 1.0f 向后兼容。
+   * @return 与 candidates 索引对齐的关联键列表；0 表示未关联（position 无效跳过）。
+   * @note 该方法不消耗 association seeds，不影响后续 real detection 关联。
+   */
+  std::vector<std::uint64_t> AssociateDeceptionCandidates(
+      const detection::ArDeceptionMeasurementCandidateList& candidates,
+      float dt_sec = 1.0f);
 
   DataAssociationRuntimeState CaptureRuntimeState() const;
 

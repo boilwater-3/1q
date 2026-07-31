@@ -10,12 +10,13 @@
 #include <utility>
 #include <vector>
 
-#include "airborne_radar/environment/EnvironmentTypes.h"
 #include "1q/airborne_radar/session/ArControlProfile.h"
 #include "1q/airborne_radar/session/DecisionInputFrame.h"
+#include "airborne_radar/environment/EnvironmentTypes.h"
 #include "airborne_radar/signal/association/DataAssociation.h"
 #include "airborne_radar/signal/detection/SignalDetector.h"
 #include "airborne_radar/signal/detection/TargetGeometryResolver.h"
+#include "airborne_radar/signal/pipeline/SignalCycleInput.h"
 #include "airborne_radar/signal/pipeline/SignalPipelineExecutionConfig.h"
 #include "airborne_radar/signal/pipeline/SignalPipelineRuntimeTypes.h"
 #include "airborne_radar/signal/tracking/ITrackLifecycleManager.h"
@@ -50,9 +51,11 @@ struct CycleExecutionScratch {
   association::AssociationResult association_result;
   std::vector<std::uint64_t> association_keys;
 
+  // 欺骗候选关联阶段中间数据
+  std::vector<std::uint64_t> deception_candidate_keys;
+
   // 量测构建阶段中间数据
   std::vector<int> measurement_slots;
-
 };
 
 /**
@@ -92,26 +95,23 @@ struct CycleExecutionRuntime {
  * @brief 单周期执行的输入上下文（场景输入、环境、周期编号与运行时配置）。
  */
 struct CycleExecutionContext {
-  CycleExecutionContext(const session::ArSceneTargetList& input_state,
-                        const session::EnvironmentSnapshot& environment_snapshot,
-                        std::uint32_t cycle_index, std::uint64_t batch_id,
-                        ExecutionConfig runtime_config, float platform_altitude_m,
-                        const RfV2DetectionContext* rf_v2_detection_context = nullptr)
-      : input_state(input_state),
+  CycleExecutionContext(
+      SignalCycleInput cycle_input,
+      const session::EnvironmentSnapshot& environment_snapshot, std::uint32_t cycle_index,
+      std::uint64_t batch_id, ExecutionConfig runtime_config, float platform_altitude_m)
+      : cycle_input(std::move(cycle_input)),
         environment_snapshot(environment_snapshot),
         cycle_index(cycle_index),
         batch_id(batch_id),
         platform_altitude_m(platform_altitude_m),
-        runtime_config(std::move(runtime_config)),
-        rf_v2_detection_context(rf_v2_detection_context) {}
+        runtime_config(std::move(runtime_config)) {}
 
-  const session::ArSceneTargetList& input_state;
+  SignalCycleInput cycle_input;
   const session::EnvironmentSnapshot& environment_snapshot;
   std::uint32_t cycle_index{0U};
   std::uint64_t batch_id{0U};
   float platform_altitude_m{0.0f};
   ExecutionConfig runtime_config{};
-  const RfV2DetectionContext* rf_v2_detection_context{nullptr};
 };
 
 /**
@@ -121,8 +121,7 @@ struct CycleExecutionContext {
  * @param[in,out] cycle_scratch 周期暂存区，承载各阶段中间产物与最终输出。
  * @return 环境阶段失败返回 false；正常完成返回 true。
  */
-bool ExecuteCycle(CycleExecutionContext& context,
-                  const CycleExecutionRuntime& runtime,
+bool ExecuteCycle(CycleExecutionContext& context, const CycleExecutionRuntime& runtime,
                   CycleExecutionScratch& cycle_scratch);
 
 }  // namespace pipeline

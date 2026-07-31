@@ -88,26 +88,6 @@ session::ArSceneTarget SimpleTrackUpdater::Update(const PredictedTrackState& pre
     output.velocity_z = dir_vz * decayed_speed;
   }
 
-  // 反 VGPO 加速度限幅：裁剪超出物理上限的速度变化。
-  if (config_.enable_anti_vgpo_acceleration_bound && context.detection_succeeded &&
-      context.cycle_dt_sec > 0.0) {
-    const double max_delta =
-        config_.max_acceleration_mps2 * context.cycle_dt_sec;
-    auto bound_component = [max_delta](float current, float previous) -> float {
-      const float delta = current - previous;
-      if (delta > static_cast<float>(max_delta)) {
-        return previous + static_cast<float>(max_delta);
-      }
-      if (delta < -static_cast<float>(max_delta)) {
-        return previous - static_cast<float>(max_delta);
-      }
-      return current;
-    };
-    output.velocity_x = bound_component(output.velocity_x, context.previous_velocity_x);
-    output.velocity_y = bound_component(output.velocity_y, context.previous_velocity_y);
-    output.velocity_z = bound_component(output.velocity_z, context.previous_velocity_z);
-  }
-
   return output;
 }
 

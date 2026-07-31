@@ -320,7 +320,8 @@ bool BuildExternalRawIqHistory(const config::SarSessionConfig& config, const Sar
                 "External raw IQ requires L1 RDA or L3 BP.");
     return false;
   }
-  if (input.raw_iq.pulse_count != config.mission.azimuth_pulse_count ||
+  if (static_cast<std::uint32_t>(input.raw_iq.i_values.size() / input.raw_iq.samples_per_pulse) !=
+          config.mission.azimuth_pulse_count ||
       input.raw_iq.samples_per_pulse != config.mission.range_sample_count ||
       input.raw_iq.i_values.size() != expected_value_count ||
       input.raw_iq.q_values.size() != expected_value_count) {
@@ -330,13 +331,15 @@ bool BuildExternalRawIqHistory(const config::SarSessionConfig& config, const Sar
   }
 
   if ((config.policy.enable_l3_bp_imaging || config.policy.enable_l2_motion_compensation) &&
-      input.raw_iq.pulse_states.size() != input.raw_iq.pulse_count) {
+      input.raw_iq.pulse_states.size() !=
+          input.raw_iq.i_values.size() / input.raw_iq.samples_per_pulse) {
     RecordAbort(result, "external_raw_iq_trajectory_required",
                 "External raw IQ BP/L2 requires one actual pulse state for every IQ row.");
     return false;
   }
   if (config.policy.enable_l2_motion_compensation &&
-      input.raw_iq.ideal_pulse_states.size() != input.raw_iq.pulse_count) {
+      input.raw_iq.ideal_pulse_states.size() !=
+          input.raw_iq.i_values.size() / input.raw_iq.samples_per_pulse) {
     RecordAbort(result, "external_raw_iq_ideal_trajectory_required",
                 "External raw IQ L2 requires one ideal pulse state for every IQ row.");
     return false;
@@ -348,8 +351,10 @@ bool BuildExternalRawIqHistory(const config::SarSessionConfig& config, const Sar
         "External pulse states are ignored by L1 RDA when L2 motion compensation is disabled."));
   }
 
+  const std::uint32_t derived_pulse_count =
+      static_cast<std::uint32_t>(input.raw_iq.i_values.size() / input.raw_iq.samples_per_pulse);
   signal::ComplexMatrix external_history;
-  external_history.rows = input.raw_iq.pulse_count;
+  external_history.rows = derived_pulse_count;
   external_history.cols = input.raw_iq.samples_per_pulse;
   external_history.values.reserve(expected_value_count);
   for (std::size_t index = 0U; index < expected_value_count; ++index) {
@@ -363,7 +368,7 @@ bool BuildExternalRawIqHistory(const config::SarSessionConfig& config, const Sar
     external_history.values.push_back(signal::ComplexSample(i_value, q_value));
   }
   if ((config.policy.enable_l3_bp_imaging || config.policy.enable_l2_motion_compensation) &&
-      !CopyExternalPulseStates(input.raw_iq.pulse_states, input.raw_iq.pulse_count,
+      !CopyExternalPulseStates(input.raw_iq.pulse_states, derived_pulse_count,
                                actual_trajectory_buffer)) {
     RecordAbort(result, "external_raw_iq_invalid_trajectory",
                 "External actual pulse states must be finite, contiguous, and strictly time "
@@ -371,7 +376,7 @@ bool BuildExternalRawIqHistory(const config::SarSessionConfig& config, const Sar
     return false;
   }
   if (config.policy.enable_l2_motion_compensation &&
-      !CopyExternalPulseStates(input.raw_iq.ideal_pulse_states, input.raw_iq.pulse_count,
+      !CopyExternalPulseStates(input.raw_iq.ideal_pulse_states, derived_pulse_count,
                                ideal_trajectory_buffer)) {
     actual_trajectory_buffer->clear();
     RecordAbort(result, "external_raw_iq_invalid_ideal_trajectory",
@@ -383,7 +388,7 @@ bool BuildExternalRawIqHistory(const config::SarSessionConfig& config, const Sar
   result->diagnostics.push_back(
       MakeInfoDiagnostic("sar.external_raw_iq",
                          "SAR consumed external complete-aperture raw IQ pulses=" +
-                             std::to_string(input.raw_iq.pulse_count) +
+                             std::to_string(derived_pulse_count) +
                              ", samples_per_pulse=" +
                              std::to_string(input.raw_iq.samples_per_pulse) +
                              (input.point_targets.empty() ? "." : "; point targets were ignored.")));
@@ -491,11 +496,22 @@ bool BuildRawPulseHistory(const config::SarSessionConfig& config, const SarCycle
   const double link_power_scale = link_amplitude_scale * link_amplitude_scale;
   const double receiver_noise_power_w = ReceiverNoisePowerW(config.hardware);
 
+  // 构建天线方向图配置:从硬件参数推导 AntennaParams,波束指向为平台速度右侧垂直方向(broadside)。
+  const double wavelength_m = kSpeedOfLightMps / config.hardware.carrier_frequency_hz;
+  geometry::AntennaParams antenna_params = geometry::MakeAntennaParams(config.hardware, wavelength_m);
+  echo::AntennaModulationConfig antenna_mod;
+  antenna_mod.antenna = antenna_params;
+  antenna_mod.enabled = true;
+  // broadside:波束指向 = 速度矢量方位角 + π/2
+  const double vx = actual_pulses.empty() ? 0.0 : actual_pulses.front().velocity_x_mps;
+  const double vy = actual_pulses.empty() ? 0.0 : actual_pulses.front().velocity_y_mps;
+  antenna_mod.beam_state.boresight_azimuth_rad = std::atan2(vy, vx) + kPi / 2.0;
+
   std::size_t clipping_count = 0U;
   for (std::size_t row = 0U; row < actual_pulses.size(); ++row) {
     echo::RawEchoResult echo;
     if (!echo::GenerateClutterScene(echo_config, actual_pulses[row], scene,
-                                    transmit_waveform, &echo)) {
+                                    transmit_waveform, &echo, &antenna_mod)) {
       RecordAbort(result, "raw_echo_failed",
                   "SAR failed to generate point-target and surface-background raw echo.");
       return false;

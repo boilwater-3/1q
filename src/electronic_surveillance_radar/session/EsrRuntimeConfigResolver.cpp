@@ -32,6 +32,22 @@ void ApplyEnvironmentRuntimePatch(const config::EsrEnvironmentRuntimeConfigPatch
     resolved->environment.atmospheric_physics = env_patch.atmospheric_physics;
     *env_changed = true;
   }
+  if (env_patch.has_propagation_profile) {
+    resolved->environment.propagation_profile = env_patch.propagation_profile;
+    *env_changed = true;
+  }
+  if (env_patch.has_clutter_density) {
+    resolved->environment.clutter_density = env_patch.clutter_density;
+    *env_changed = true;
+  }
+  if (env_patch.has_spectrum_occupancy_ratio) {
+    resolved->environment.spectrum_occupancy_ratio = env_patch.spectrum_occupancy_ratio;
+    *env_changed = true;
+  }
+  if (env_patch.has_atmospheric_observation) {
+    resolved->environment.atmospheric_observation = env_patch.atmospheric_observation;
+    *env_changed = true;
+  }
 }
 
 }  // namespace

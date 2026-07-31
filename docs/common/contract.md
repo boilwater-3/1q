@@ -10,7 +10,7 @@ RF-Interference-Architecture: frozen target; AR/ESR/ECM RF v2 implemented (per-m
 ## 证据优先开发模式
 
 对算法、架构、模块内部优化、输出语义、配置语义和 public API 相关改动，默认采用
-`skills/evidence-first-freeze-contract` 定义的证据优先模式。
+`.claude/skills/evidence-first-freeze-contract` 定义的证据优先模式。
 
 强制规则：
 
@@ -285,7 +285,7 @@ raw pointer 回填组件关系，但 `Impl` 长期持有状态不得同时保存
 3. AR 唯一 public 决策 seam 是 `ArCycleResult::decision_observation` 与
    `ArSession::SubmitExternalDecision()` 组成的步间 observation/response seam。外部决策模块
    与 session 同进程运行，但不注入或替换内部对象；内部 baseline 每个成功周期仍持续计算。
-   Public seam 只公开 proposal、observation/response、提交状态和控制来源；默认决策器的
+   Public seam 只公开 profile 覆盖值、observation、提交状态和控制来源；默认决策器的
    分类结果、模式与状态存储不得进入 `include/1q`。
    [evidence: tests/contract/airborne_radar/ar_public_api_convenience_test.cpp::RadarSessionAppliesMatchingExternalDecisionOnNextSuccessfulCycle]
 4. 若未来新增非 owned 依赖，必须先在模块 design 或本契约声明其生命周期边界，不能通过 `Impl` 冗余引用隐式表达。

@@ -10,7 +10,6 @@
 
 #include "1q/coordinate/position_transform.h"
 #include "1q/electro_optical_sensor/session/EosCycleInputAdapter.h"
-#include "1q/electro_optical_sensor/session/EosEnvironmentInput.h"
 
 namespace electro_optical_sensor {
 namespace session {
@@ -102,52 +101,6 @@ TEST(EosCycleInputBuilderTest, EmptyTargetsProducesValidCycleInput) {
 }
 
 /// @brief Builder 显式环境重载写入完整环境快照。
-TEST(EosCycleInputBuilderTest, ExplicitEnvironmentSnapshotIsCopiedToCycleInput) {
-  oneq::coordinate::LlaPositionDegM origin_lla;
-  origin_lla.latitude_deg = 31.0;
-  origin_lla.longitude_deg = 121.0;
-  origin_lla.altitude_m = 1000.0;
-  oneq::coordinate::EcefPositionM origin_ecef;
-  ASSERT_TRUE(oneq::coordinate::TryLlaToEcef(origin_lla, &origin_ecef));
-
-  EosExternalPoseInput pose_input;
-  pose_input.platform_position_ecef_m = origin_ecef;
-
-  EosEnvironmentInput environment;
-  environment.solar_altitude_deg = 12.0f;
-  environment.cloud_coverage_ratio = 0.7f;
-  environment.day_night_type = DayNightType::kTwilight;
-
-  EosCycleInput input;
-  ASSERT_TRUE(EosCycleInputAdapter::Build(pose_input, {}, 1.0f, environment, &input));
-
-  EXPECT_FLOAT_EQ(input.environment.solar_altitude_deg, 12.0f);
-  EXPECT_FLOAT_EQ(input.platform_altitude_m, 1000.0f);
-  EXPECT_FLOAT_EQ(input.environment.cloud_coverage_ratio, 0.7f);
-  EXPECT_EQ(input.environment.day_night_type, DayNightType::kTwilight);
-}
-
-/// @brief 环境输入状态只更新 patch 标记过的字段。
-TEST(EosCycleInputBuilderTest, EnvironmentInputStateAppliesOnlyFlaggedFields) {
-  EosEnvironmentInput initial;
-  initial.solar_altitude_deg = 45.0f;
-  initial.cloud_coverage_ratio = 0.1f;
-  initial.background_temperature_k = 280.0f;
-
-  EosEnvironmentInputState state(initial);
-
-  EosEnvironmentInputPatch patch;
-  patch.has_cloud_coverage_ratio = true;
-  patch.cloud_coverage_ratio = 0.8f;
-  patch.background_temperature_k = 310.0f;
-  state.Update(patch);
-
-  const EosEnvironmentInput snapshot = state.Snapshot();
-  EXPECT_FLOAT_EQ(snapshot.solar_altitude_deg, 45.0f);
-  EXPECT_FLOAT_EQ(snapshot.cloud_coverage_ratio, 0.8f);
-  EXPECT_FLOAT_EQ(snapshot.background_temperature_k, 280.0f);
-}
-
 /// @brief Builder 在 nullptr 输出时返回 false 并设置 status。
 TEST(EosCycleInputBuilderTest, NullOutputReturnsFalse) {
   EosExternalPoseInput pose_input;

@@ -220,11 +220,18 @@ void TrackLifecycleManager::SyncRuntimeTuning(const LifecycleConfig& lifecycle_c
                                               const std::vector<float>& imm_model_noise_diff_coeffs,
                                               const Eigen::MatrixXf& imm_transition_probability,
                                               const Eigen::VectorXf& imm_initial_weights) {
-  config_.confirm_hits = lifecycle_config.confirm_hits;
-  config_.max_miss_before_lost = lifecycle_config.max_miss_before_lost;
-  config_.max_lost_cycles = lifecycle_config.max_lost_cycles;
-  config_.nominal_cycle_dt_sec = lifecycle_config.nominal_cycle_dt_sec;
-  config_.imm_activation_policy = lifecycle_config.imm_activation_policy;
+  // 整体赋值（收敛 AR-OQ-2）：
+  // 历史实现用手工逐字段拷贝可同步字段、刻意排除 track_pool_thread_safety_mode，
+  // 该列表无编译期保证——新增 LifecycleConfig 字段时若忘记在此补一行，
+  // 即成为静默 latent bug（反欺骗三字段曾因此遗漏致开关失效）。
+  //
+  // 整体赋值安全的原因：
+  //   1. track_pool_thread_safety_mode 进入 LifecycleConfigSignature，其变化触发
+  //      ShouldRebuildLifecycleAssembly 的重建路径（而非本同步路径），故本路径上
+  //      lifecycle_config.track_pool_thread_safety_mode 与 config_ 内的值恒等。
+  //   2. 本管理器从不读取 config_.track_pool_thread_safety_mode，即便被覆盖也无副作用。
+  // 由此，未来新增任何可同步字段都会随整体赋值自动覆盖，消除手工遗漏风险。
+  config_ = lifecycle_config;
 
   UpdatePredictorConfigIfSupported(kalman_predictor_, kalman_noise_diff_coeff);
   UpdateUpdaterConfigIfSupported(kalman_updater_, kalman_measurement_noise_std);
@@ -528,6 +535,9 @@ void TrackLifecycleManager::ComputePhase(LifecycleUpdateScratch& scratch, const 
       if (!measurement.raw_measurement.target_name.empty()) {
         track.target_name = measurement.raw_measurement.target_name;
       }
+      // track.velocity 仍持有上一周期速度（track_before_update 来自持久化 tracks_by_key_），
+      // 在被本周期测量覆盖前保存，供反 VGPO 加速度限幅裁剪。
+      const Eigen::Vector3f velocity_before_update = track.velocity;
       if (measurement.filtered_feature.velocity != Eigen::Vector3f::Zero()) {
         track.velocity = measurement.filtered_feature.velocity;
       } else {
@@ -535,11 +545,54 @@ void TrackLifecycleManager::ComputePhase(LifecycleUpdateScratch& scratch, const 
       }
       track.rcs = measurement.filtered_feature.rcs;
 
-      PromoteState(track, cycle.cycle_index, true, cycle.extra_miss_tolerance);
+      PromoteState(track, cycle.cycle_index, true, cycle.extra_miss_tolerance,
+                   measurement.raw_measurement.classified_as_false_target);
 
       ApplyKalmanHitUpdate(work_item, measurement, track, effective_dt_sec);
+
+      // 反 VGPO 加速度限幅：裁剪超出物理上限的航迹速度变化，抑制 VGPO 制造的速度拖引。
+      // 必须在 Kalman/IMM 更新之后执行，否则后验会覆盖限幅结果。仅对预先存在的航迹限幅——
+      // 新生航迹的 velocity_before_update 为初始零值，不是真实上一周期速度，限幅无意义。
+      if (config_.enable_anti_vgpo_acceleration_bound && work_item.track_existed_before_cycle &&
+          effective_dt_sec > 0.0f) {
+        const float max_delta =
+            static_cast<float>(config_.max_acceleration_mps2 * effective_dt_sec);
+        bool clamped_any = false;
+        for (int axis = 0; axis < 3; ++axis) {
+          const float delta = track.velocity[axis] - velocity_before_update[axis];
+          if (delta > max_delta) {
+            track.velocity[axis] = velocity_before_update[axis] + max_delta;
+            clamped_any = true;
+          } else if (delta < -max_delta) {
+            track.velocity[axis] = velocity_before_update[axis] - max_delta;
+            clamped_any = true;
+          }
+        }
+        // 限幅回写全套状态：下一周期 Predict 读 track.gaussian_state（非 track.velocity），
+        // 关联门控同样读 gaussian_state（DataAssociation::Predict）。若不回写，限幅只影响
+        // 快照镜像，下次预测会从未限幅后验跳回——这是原实现的缺陷。这里把限幅后速度写回
+        // gaussian_state.mean 的速度分量（[1,3,5]），并按同口径重算 acceleration。
+        if (clamped_any) {
+          track.gaussian_state.mean(1) = track.velocity(0);
+          track.gaussian_state.mean(3) = track.velocity(1);
+          track.gaussian_state.mean(5) = track.velocity(2);
+          track.acceleration = (track.velocity - velocity_before_update) / effective_dt_sec;
+          // IMM 路径：track.gaussian_state 只是镜像，IMM 下一周期从各 model_states_ 重新混合。
+          // 同步把限幅速度写回每个模型的 mean 速度分量（权重不变），保证 re-mix 从限幅状态
+          // 出发。combined_state_ 会暂陈旧，但下个 Process 的 CombineEstimates 会重算。
+          if (work_item.use_imm && work_item.imm_filter != nullptr) {
+            std::vector<ImmModelState> model_states = work_item.imm_filter->GetModelStates();
+            for (ImmModelState& model_state : model_states) {
+              model_state.state.mean(1) = track.velocity(0);
+              model_state.state.mean(3) = track.velocity(1);
+              model_state.state.mean(5) = track.velocity(2);
+            }
+            work_item.imm_filter->SetModelStates(model_states);
+          }
+        }
+      }
     } else {
-      PromoteState(track, cycle.cycle_index, false, cycle.extra_miss_tolerance);
+      PromoteState(track, cycle.cycle_index, false, cycle.extra_miss_tolerance, false);
 
       if (track.status == TrackStatus::kRecycled) {
         result.should_recycle = true;
@@ -642,10 +695,17 @@ void TrackLifecycleManager::ApplyKalmanMissPredict(const TrackUpdateWorkItem& wo
 
 void TrackLifecycleManager::PromoteState(TrackState& track, std::uint32_t cycle_index,
                                          bool hit_this_cycle,
-                                         std::uint32_t extra_miss_tolerance) const {
+                                         std::uint32_t extra_miss_tolerance,
+                                         bool classified_as_false_target) const {
   if (hit_this_cycle) {
-    if (track.status == TrackStatus::kLost ||
-        (track.status == TrackStatus::kTentative && track.hit_count >= config_.confirm_hits)) {
+    // 假目标鉴别：启用时，疑似假目标的量测不把 tentative 航迹晋升为 confirmed，
+    // 抑制欺骗干扰制造的虚假航迹起批。已 confirmed/lost 的航迹不受影响（维持现有状态机语义）。
+    const bool suppressed_by_discrimination =
+        config_.enable_anti_false_target_discrimination && classified_as_false_target &&
+        track.status == TrackStatus::kTentative;
+    if (!suppressed_by_discrimination &&
+        (track.status == TrackStatus::kLost ||
+         (track.status == TrackStatus::kTentative && track.hit_count >= config_.confirm_hits))) {
       track.status = TrackStatus::kConfirmed;
     }
     return;

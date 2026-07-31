@@ -14,7 +14,6 @@ namespace {
 
 using oneq::common::coordinate_utils::RotateEnuPositionToLocal;
 using oneq::common::coordinate_utils::RotateEnuVelocityToLocal;
-using oneq::common::coordinate_utils::ToFoundationEuler;
 using oneq::common::coordinate_utils::ToFoundationVector;
 using oneq::common::validation::IsFinite;
 
@@ -26,19 +25,20 @@ bool IsFiniteVector3f(const oneq::foundation::Vector3f& value) {
 
 oneq::coordinate::EulerAnglesDeg ComposeRadarAttitudeDeg(
     const oneq::coordinate::EulerAnglesDeg& platform_attitude_deg,
-    const oneq::coordinate::EulerAnglesDeg& radar_mount_angles_deg) {
-  return oneq::coordinate::ComposeAttitudeDeg(platform_attitude_deg, radar_mount_angles_deg);
+    const oneq::coordinate::EulerAnglesDeg& mount_angles_deg) {
+  return oneq::coordinate::ComposeAttitudeDeg(platform_attitude_deg, mount_angles_deg);
 }
 
 bool TryMakeArPoseFromExternalKinematics(const ArExternalPoseInput& input,
+                                         const oneq::coordinate::EulerAnglesDeg& mount_angles_deg,
                                          oneq::coordinate::LocalFrameReference* reference,
-                                         oneq::foundation::PoseState* platform_pose,
+                                         oneq::foundation::Vector3f* radar_local_velocity_mps,
                                          ArCoordinateStatus* status) {
   if (status != nullptr) {
     *status = ArCoordinateStatus::kOk;
   }
 
-  if (reference == nullptr || platform_pose == nullptr) {
+  if (reference == nullptr || radar_local_velocity_mps == nullptr) {
     if (status != nullptr) {
       *status = ArCoordinateStatus::kNullOutput;
     }
@@ -54,12 +54,10 @@ bool TryMakeArPoseFromExternalKinematics(const ArExternalPoseInput& input,
   }
   reference->origin_lla = radar_lla;
   reference->frame_attitude_deg =
-      ComposeRadarAttitudeDeg(input.platform_attitude_deg, input.radar_mount_angles_deg);
-
-  platform_pose->position_m = oneq::foundation::Vector3f{};
+      ComposeRadarAttitudeDeg(input.platform_attitude_deg, mount_angles_deg);
 
   if (!oneq::coordinate::IsFinite(input.platform_velocity_mps)) {
-    platform_pose->velocity_mps = oneq::foundation::Vector3f{};
+    *radar_local_velocity_mps = oneq::foundation::Vector3f{};
   } else {
     oneq::coordinate::EnuVelocityMps velocity_enu;
     if (!oneq::coordinate::TryEcefToEnuVelocity(input.platform_velocity_mps, reference->origin_lla,
@@ -69,11 +67,10 @@ bool TryMakeArPoseFromExternalKinematics(const ArExternalPoseInput& input,
       }
       return false;
     }
-    platform_pose->velocity_mps =
+    *radar_local_velocity_mps =
         RotateEnuVelocityToLocal(velocity_enu, reference->frame_attitude_deg);
   }
 
-  platform_pose->attitude_deg = ToFoundationEuler(input.platform_attitude_deg);
   return true;
 }
 

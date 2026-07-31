@@ -15,8 +15,10 @@ namespace config {
 /**
  * @brief SarMissionProfile 表示 SAR 任务剖面语义档位。
  *
- * 选择剖面后 Builder 在 Build() 时自动填写标称斜距、平台速度、
- * 合成孔径时间、方位脉冲数与期望分辨率，免去逐项手工配置。
+ * 选择剖面后 Builder 在 Build() 时自动填写以下 mission 域字段：
+ * `nominal_slant_range_m`、`platform_speed_mps`、`azimuth_pulse_count`、
+ * `range_sample_count`、`desired_ground_range_resolution_m`、`desired_azimuth_resolution_m`。
+ * 不覆盖：`scene_center_*`、`l2_*`、`l3_waypoints`。
  */
 enum class ONEQ_API SarMissionProfile {
   kStripmapSurvey = 0,       /**< 条带普查：斜距 15km，1.5m 分辨率，1024 脉冲 */
@@ -27,8 +29,14 @@ enum class ONEQ_API SarMissionProfile {
 /**
  * @brief SarProcessingProfile 表示 SAR 处理流水线语义档位。
  *
- * 选择档位后 Builder 在 Build() 时自动填写 policy 域的 raw echo /
- * range compression / L1 RDA / L2 运动补偿 / L3 BP 开关与图像保留策略。
+ * 选择档位后 Builder 在 Build() 时自动填写以下 policy 域字段：
+ * `enable_raw_echo_generation`、`enable_l1_rda_imaging`、`enable_l2_motion_compensation`、
+ * `enable_l3_bp_imaging`、`retain_focused_image`。
+ * 不覆盖：`enable_diagnostics`、`retain_raw_phase_history`、`max_allowed_squint_angle_deg`、
+ * `minimum_snr_db`。
+ *
+ * @warning L3 BP 档位（`kL3Backprojection`）启用 `enable_l3_bp_imaging` 但不设置
+ *          mission 域的 `l3_waypoints`（航点数据是场景特定的），用户仍需手动配置。
  */
 enum class ONEQ_API SarProcessingProfile {
   kRawEchoOnly = 0,       /**< 仅生回波：只开 raw echo generation */

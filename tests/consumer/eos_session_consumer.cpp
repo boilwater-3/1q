@@ -19,7 +19,6 @@
 #include "1q/electro_optical_sensor/config/EosSessionConfigBuilder.h"
 #include "1q/electro_optical_sensor/session/EosCycleInput.h"
 #include "1q/electro_optical_sensor/session/EosCycleResult.h"
-#include "1q/electro_optical_sensor/session/EosEnvironmentInput.h"
 #include "1q/electro_optical_sensor/session/EosInputValidation.h"
 #include "1q/electro_optical_sensor/session/EosSession.h"
 
@@ -48,12 +47,7 @@ int main() {
   // 4. CycleInput with a target
   eos::session::EosCycleInput input;
   input.cycle_index = 1U;
-  input.dt_sec = 1.0f;
-  input.environment.solar_irradiance_w_m2 = 850.0f;
-  input.environment.solar_altitude_deg = 45.0f;
-  input.environment.cloud_coverage_ratio = 0.2f;
-  input.environment.background_temperature_k = 289.0f;
-  input.environment.day_night_type = eos::session::DayNightType::kDay;
+  input.dt_sec = 0.1f;
   input.platform_altitude_m = 1200.0f;
   input.platform_pose.position_m.z = 0.0f;
 
@@ -69,7 +63,7 @@ int main() {
   input.scene.push_back(target);
 
   // 5. Input validation
-  const eos::session::ValidationIssueList issues = eos::session::ValidateEosCycleInput(input);
+  const eos::session::ValidationIssueList issues = eos::session::ValidateEosCycleInput(input, 30.0f);
   if (eos::session::HasValidationError(issues)) {
     return 1;
   }

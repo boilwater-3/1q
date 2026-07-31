@@ -15,6 +15,13 @@ void ApplyEnvironmentModelToInternal(
   exec->environment.aerosol_density_factor = model_config.aerosol_density_factor;
   exec->environment.turbulence_factor = model_config.turbulence_factor;
   exec->environment.atmospheric_physics = model_config.atmospheric_physics;
+  exec->environment.solar_altitude_deg = model_config.solar_altitude_deg;
+  exec->environment.solar_azimuth_deg = model_config.solar_azimuth_deg;
+  exec->environment.solar_irradiance_w_m2 = model_config.solar_irradiance_w_m2;
+  exec->environment.cloud_coverage_ratio = model_config.cloud_coverage_ratio;
+  exec->environment.ambient_wind_speed_mps = model_config.ambient_wind_speed_mps;
+  exec->environment.day_night_type = model_config.day_night_type;
+  exec->environment.background_temperature_k = model_config.background_temperature_k;
 }
 
 }  // namespace session
@@ -50,6 +57,13 @@ execution::EnvironmentConfig BuildModelConfigFromScenario(
   }
 
   model_config.atmospheric_physics = scenario_config.atmospheric_physics;
+  model_config.solar_altitude_deg = scenario_config.solar_altitude_deg;
+  model_config.solar_azimuth_deg = scenario_config.solar_azimuth_deg;
+  model_config.solar_irradiance_w_m2 = scenario_config.solar_irradiance_w_m2;
+  model_config.cloud_coverage_ratio = scenario_config.cloud_coverage_ratio;
+  model_config.ambient_wind_speed_mps = scenario_config.ambient_wind_speed_mps;
+  model_config.day_night_type = scenario_config.day_night_type;
+  model_config.background_temperature_k = scenario_config.background_temperature_k;
 
   return model_config;
 }

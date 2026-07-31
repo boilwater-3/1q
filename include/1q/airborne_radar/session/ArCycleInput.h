@@ -11,7 +11,6 @@
 #include <cstdint>
 #include <vector>
 
-#include "1q/airborne_radar/session/ArEnvironmentInput.h"
 #include "1q/airborne_radar/session/ArExternalInputAdapter.h"
 #include "1q/api.hpp"
 #include "1q/electromagnetics/RfScene.h"
@@ -30,7 +29,6 @@ struct ONEQ_API ArCycleInput {
   double dt_sec{1.0};                            /**< 当前周期时长（s）。 */
   ArPlatformInput platform{};                    /**< 雷达平台世界运动学和安装姿态。 */
   ArTargetInputList targets{};                   /**< 世界坐标目标事实。 */
-  ArEnvironmentInput environment{};              /**< 大气、空间天气和地表事实。 */
   oneq::electromagnetics::RfEmissionFrame interference{}; /**< ECM/外部 RF 发射事实。 */
 };
 

@@ -149,7 +149,6 @@ struct EsrInternalExecutionConfig {
 inline extension::InterceptPipelineConfig BuildPipelineConfig(
     const EsrInternalExecutionConfig& internal) {
   extension::InterceptPipelineConfig ext;
-  ext.detection.receiver_noise_floor_w = internal.hardware.receiver_sensitivity_w;
   ext.detection.minimum_snr_db = internal.detection.minimum_snr_db;
   ext.detection.max_detect_range_m = internal.intercept.detection.max_detect_range_m;
   ext.detection.min_dynamic_range_margin_db =
@@ -158,7 +157,7 @@ inline extension::InterceptPipelineConfig BuildPipelineConfig(
   ext.detection.boundary_max_iterations = internal.intercept.detection.boundary_max_iterations;
 
   ext.statistical_detection.pfa = internal.detection.pfa;
-  ext.statistical_detection.min_snr_db = internal.detection.minimum_snr_db;
+  ext.statistical_detection.minimum_snr_db = internal.detection.minimum_snr_db;
   ext.statistical_detection.pulse_count = internal.detection.pulse_count;
   ext.statistical_detection.integration_mode = internal.runtime.integrator.integration_mode;
   ext.statistical_detection.threshold_scale = internal.detection.threshold_scale;

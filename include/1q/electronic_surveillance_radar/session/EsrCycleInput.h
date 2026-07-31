@@ -9,7 +9,6 @@
 #include "1q/api.hpp"
 #include "1q/coordinate/types.h"
 #include "1q/electromagnetics/RfScene.h"
-#include "1q/electronic_surveillance_radar/session/EsrEnvironmentInput.h"
 
 namespace electronic_surveillance_radar {
 namespace session {
@@ -27,7 +26,6 @@ struct ONEQ_API EsrCycleInput {
   oneq::coordinate::EcefVelocityMps platform_velocity_ecef_mps{}; /**< 接收平台 ECEF 速度（m/s）。 */
   oneq::coordinate::EulerAnglesDeg platform_attitude_deg{}; /**< 接收设备姿态（局部 yaw/pitch/roll，单位：deg）。 */
   oneq::electromagnetics::RfEmissionFrame rf_emissions{}; /**< 当前周期全部实际 RF 发射。 */
-  EsrEnvironmentInput environment{}; /**< 本周期环境高层观测输入 */
 };
 
 }  // namespace session

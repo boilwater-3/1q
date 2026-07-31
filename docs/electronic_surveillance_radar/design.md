@@ -285,9 +285,12 @@ flowchart LR
    可疑观测。
    [evidence: tests/unit/electronic_surveillance_radar/esr_deception_detection_test.cpp]
 
-`spectrum_occupancy_ratio` 只能表示尚未显式建模的环境噪声/占用背景，并在 noise PSD 账本中有一次明确
-换算；一旦相同 RF 源已经作为 emission 输入，不得再通过 occupancy 标量重复计入。大气物理继续只提供
-单程附加传播损耗。
+`spectrum_occupancy_ratio` 的设计意图是表示尚未显式建模的环境噪声/占用背景；一旦相同 RF 源已经作为
+emission 输入，不得再通过 occupancy 标量重复计入。大气物理继续只提供单程附加传播损耗。
+**当前实现边界**：`spectrum_occupancy_ratio` 在 `EsrEnvironmentService` 中被冻结并随快照/replay 持久化，
+但检测链（`InterceptDetectionExecutor`）**尚未消费**该字段——既无 noise PSD 换算，也无环境噪声倍率
+项。故当前不得宣称 ESR 具备基于占用率的环境噪声建模或压制干扰感知能力；该字段为预留死字段，去留
+见 `docs/common/open_questions.md` ESR-OQ-1。
 
 检测门与 AoA 误差各使用由 session seed、world cycle、发射 identity 和固定 domain tag 派生的独立流；
 稳定 identity 排序保证输入发射顺序不改变其它发射的随机结果。相同输入、snapshot 和配置必须
@@ -384,6 +387,14 @@ pipeline 持有归一化扫描相位 `[0, 1)`：本周期先用 `floor(phase × 
 [evidence: tests/unit/electronic_surveillance_radar/esr_controller_runtime_state_test.cpp]
 [evidence: tests/unit/electronic_surveillance_radar/esr_session_config_builder_test.cpp]
 
+**dt_sec 校验边界（有意差异，勿按"四模块一致"补齐）**：`ValidateEsrCycleInput` 对 `dt_sec` 仅校验有限性 + 正值
+（`EsrInputValidation.cpp`），**故意不含** EOS/SBIRS 的 `dt_sec ≤ 10/frame_rate_hz` 上界。ESR 是被动侦察
+接收机，配置中没有 `frame_rate_hz` 概念——其节拍由 `scan_rate_hz × dt` 决定（见上文扫描相位模型），变步长
+不改变物理扫描速度。dt 的合理性由 `scan_rate_hz × dt` 能否解析扫描相位、RF emission 帧窗口一致性
+（`window_duration_s == dt_sec`）等 ESR 域量约束，不适用一个全局 frame_rate 上界。该差异已由校验链实测、
+`EsrCycleInput` 无 frame_rate 字段、本节扫描相位文档三方共同固化。
+[evidence: src/electronic_surveillance_radar/session/EsrInputValidation.cpp::ValidateEsrCycleInput]
+
 该标量 pipeline 每个 `Step` 只判定当前相位对应的一个波束，不在单周期内积分连续扫过的全部驻留。
 因此 `scan_rate_hz × dt` 为整数时，相位会按物理周期回到同一点；需要观察完整扫描覆盖的场景必须选择
 能够解析扫描相位的步长/速率组合，不能依赖 cycle index 隐式轮转波束。
@@ -417,6 +428,16 @@ truth platform/equipment/emission ID 不进入 ESR 输出。ECM sensor-driven ad
 payload 中的四个边界字段，并按中心角、硬件扫描范围和天线安装角重建窗口；将被启用的中心角若非有限
 则原子拒绝，不能保留旧显式执行态窗口。runtime 开启显式模式与静态 validation 一致，严格要求两轴
 `start < end`，不接受 equal/swapped 输入。因此最近一次被明确选择的合法表达拥有窗口语义。
+
+**扫描配置的坐标系语义（天线坐标系）。** `EsrScanPolicyConfig`（mission 域）中的
+`scan_center_az_deg` / `scan_center_el_deg`，以及显式模式下的 `scan_start_az_deg` /
+`scan_end_az_deg` / `scan_start_el_deg` / `scan_end_el_deg`，均定义在**天线坐标系**中，
+即默认假定天线 boresight 与接收机参考轴对齐。`EsrHardwareConfig::antenna_mount_az_deg` /
+`antenna_mount_el_deg`（hardware 域）描述天线相对平台参考轴的安装偏置；`ApplyScanPolicy`
+在解算实际接收波束指向时，会从 mission 域扫描角中**减去** hardware 域安装偏置
+（`EsrResolutionRules.cpp`：显式边界减 `mount_az`/`mount_el`，中心驱动模式中心角减 `mount_az`）。
+因此 mission 配置给出的扫描角与最终平台系指向之间相差一个 hardware mount 偏移：消费方只看
+mission 配置无法推断实际平台系扫描方向。这是当前固化语义，不接受在 mission 域直接填写平台系角度。
 [evidence: tests/unit/electronic_surveillance_radar/esr_session_config_builder_test.cpp]
 [evidence: tests/unit/electronic_surveillance_radar/esr_runtime_config_resolver_test.cpp::EsrRuntimeConfigResolverTest.EqualOrSwappedExplicitBoundsRejectWholePatch]
 [evidence: tests/unit/electronic_surveillance_radar/esr_runtime_config_resolver_test.cpp::EsrRuntimeConfigResolverTest.DisableExplicitBoundsRebuildsCenterDrivenWindow]

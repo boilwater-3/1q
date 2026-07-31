@@ -292,6 +292,161 @@ TEST(EsrReplaySessionTest,
   EXPECT_EQ(replay.playback.compared_output_count, 2U);
 }
 
+TEST(EsrReplaySessionTest,
+     DeceptionClassificationReplaysDeterministically) {
+  const std::string trace_dir = "/tmp/1q-esr-deception-replay";
+  const auto writer = MakeWriter(trace_dir);
+  config::EsrSessionConfig config;
+  config.hardware.beam_az_width_deg = 120.0f;
+  config.hardware.beam_el_width_deg = 120.0f;
+  config.hardware.receiver_band_lower_hz = 9.99e9;
+  config.hardware.receiver_band_upper_hz = 10.01e9;
+  config.policy.detection.minimum_snr_db = -100.0f;
+  config.policy.detection.enable_statistical_detection = false;
+  EsrTraceSessionOptions options;
+  options.replay_writer = writer;
+  EsrTraceSession session(config, options);
+
+  // 构造同一周期内两个正交方位脉冲发射（触发欺骗标注）
+  EsrCycleInput input;
+  input.cycle_index = 1U;
+  input.cycle_start_time_s = 0.0;
+  input.dt_sec = 1.0f;
+  input.platform_entity_id = 1U;
+  input.has_platform_ecef_kinematics = true;
+  input.platform_position_ecef_m.x_m = 6378137.0;
+  input.rf_emissions.world_cycle_index = 1U;
+  input.rf_emissions.window_start_time_s = 0.0;
+  input.rf_emissions.window_duration_s = 1.0;
+  for (std::uint32_t i = 0; i < 2; ++i) {
+    oneq::electromagnetics::RfSceneEmission emission;
+    emission.identity.platform_id = 2U;
+    emission.identity.equipment_id = 3U;
+    emission.identity.emission_id = static_cast<std::uint64_t>(10 + i);
+    emission.position_ecef_m.x_m = 6378137.0;
+    emission.position_ecef_m.y_m = 1000.0;
+    emission.antenna.boresight_ecef.y = -1.0;
+    EXPECT_TRUE(oneq::electromagnetics::TryCreateRfPulseTrainWaveform(
+        input.cycle_start_time_s, 10.0e9, 1.0e6, 1.0e6, 1.0e-6, 1.0e-3,
+        1000U, 0.0, 1U, static_cast<std::uint64_t>(10 + i),
+        &emission.waveform));
+    input.rf_emissions.emissions.push_back(emission);
+  }
+
+  const EsrCycleResult result = session.StepWithResult(input);
+  ASSERT_EQ(result.status, EsrCycleExecutionStatus::kCompleted);
+  // 验证 live session 产生了观测输出（至少一条）
+  ASSERT_GE(result.output_frame.observation_output.observations.size(), 1U);
+  writer->Flush();
+
+  // 回放验证：deception_class 已纳入比较器，差异应被检出
+  const EsrReplaySessionResult replay = ReplayEsrTrace(trace_dir);
+  EXPECT_TRUE(replay.ok) << replay.first_error;
+  EXPECT_GE(replay.playback.compared_output_count, 1U);
+}
+
+// Negative oracle：篡改 trace 中 observation 的 deception_class（kNone → kLikelyFalseTarget），
+// 回放时新鲜计算结果（kNone）与篡改后期望值不一致 → 检出 divergence。
+// 验证 deception_class 已纳入 replay 比较器且字段级篡改可被发现。
+TEST(EsrReplaySessionTest,
+     TamperedDeceptionClassCausesReplayDivergence) {
+  // 第一步：录制包含 kLikelyFalseTarget 的 trace（与 DeceptionClassificationReplaysDeterministically 相同配置）。
+  const std::string src_dir = "/tmp/1q-esr-deception-tamper-src";
+  {
+    const auto writer = MakeWriter(src_dir);
+    config::EsrSessionConfig config;
+    config.hardware.beam_az_width_deg = 120.0f;
+    config.hardware.beam_el_width_deg = 120.0f;
+    config.hardware.receiver_band_lower_hz = 9.99e9;
+    config.hardware.receiver_band_upper_hz = 10.01e9;
+    config.policy.detection.minimum_snr_db = -100.0f;
+    config.policy.detection.enable_statistical_detection = false;
+    EsrTraceSessionOptions options;
+    options.replay_writer = writer;
+    EsrTraceSession session(config, options);
+
+    EsrCycleInput input;
+    input.cycle_index = 1U;
+    input.cycle_start_time_s = 0.0;
+    input.dt_sec = 1.0f;
+    input.platform_entity_id = 1U;
+    input.has_platform_ecef_kinematics = true;
+    input.platform_position_ecef_m.x_m = 6378137.0;
+    input.rf_emissions.world_cycle_index = 1U;
+    input.rf_emissions.window_start_time_s = 0.0;
+    input.rf_emissions.window_duration_s = 1.0;
+    for (std::uint32_t i = 0; i < 2; ++i) {
+      oneq::electromagnetics::RfSceneEmission emission;
+      emission.identity.platform_id = 2U;
+      emission.identity.equipment_id = 3U;
+      emission.identity.emission_id = static_cast<std::uint64_t>(10 + i);
+      emission.position_ecef_m.x_m = 6378137.0;
+      emission.position_ecef_m.y_m = 1000.0;
+      emission.antenna.boresight_ecef.y = -1.0;
+      EXPECT_TRUE(oneq::electromagnetics::TryCreateRfPulseTrainWaveform(
+          input.cycle_start_time_s, 10.0e9, 1.0e6, 1.0e6, 1.0e-6, 1.0e-3,
+          1000U, 0.0, 1U, static_cast<std::uint64_t>(10 + i),
+          &emission.waveform));
+      input.rf_emissions.emissions.push_back(emission);
+    }
+    const EsrCycleResult result = session.StepWithResult(input);
+    ASSERT_EQ(result.status, EsrCycleExecutionStatus::kCompleted);
+    ASSERT_GE(result.output_frame.observation_output.observations.size(), 1U);
+    writer->Flush();
+  }
+
+  // 第二步：读取 trace，篡改 cycle_output 中的 deception_class，写入新 trace。
+  const std::string tampered_dir = "/tmp/1q-esr-deception-tamper-modified";
+  {
+    oneq::replay::ReplayTraceReader reader(src_dir);
+    oneq::replay::ReplayTraceManifest manifest;
+    manifest.module = "electronic_surveillance_radar";
+    oneq::replay::ReplayTraceWriter writer(tampered_dir, manifest, true);
+
+    oneq::replay::ReplayTraceReadEvent read_event;
+    while (reader.ReadNextEvent(&read_event) ==
+           oneq::replay::ReplayTraceReadStatus::kEvent) {
+      oneq::replay::ReplayTraceEvent out_event;
+      out_event.module = read_event.module;
+      out_event.event_type = read_event.event_type;
+      out_event.payload_type = read_event.payload_type;
+      out_event.payload_encoding = read_event.payload_encoding;
+      out_event.payload_inline = read_event.payload_inline;
+      out_event.has_cycle_index = read_event.has_cycle_index;
+      out_event.cycle_index = read_event.cycle_index;
+      out_event.has_sim_time_sec = read_event.has_sim_time_sec;
+      out_event.sim_time_sec = read_event.sim_time_sec;
+
+      if (read_event.event_type == "cycle_output" &&
+          read_event.payload_type == "EsrCycleResult") {
+        // 篡改：decode → 修改 deception_class → re-encode。
+        EsrCycleResult tampered;
+        ASSERT_TRUE(DecodeEsrCycleResult(read_event.payload_bytes, &tampered));
+        ASSERT_GE(tampered.output_frame.observation_output.observations.size(), 1U);
+        // 篡改：将 deception_class 从 kNone 改为 kLikelyFalseTarget，
+        // 使回放时新鲜计算结果（kNone）与篡改后期望值不一致 → divergence。
+        for (auto& obs :
+             tampered.output_frame.observation_output.observations) {
+          obs.deception_class = EsrDeceptionClass::kLikelyFalseTarget;
+        }
+        out_event.payload_bytes = EncodeEsrCycleResult(tampered);
+      } else {
+        out_event.payload_bytes = read_event.payload_bytes;
+      }
+      ASSERT_EQ(writer.WriteEvent(out_event),
+                oneq::replay::ReplayTraceWriteStatus::kSuccess);
+    }
+    writer.Flush();
+  }
+
+  // 第三步：回放篡改后的 trace，验证 divergence。
+  const EsrReplaySessionResult replay = ReplayEsrTrace(tampered_dir);
+  EXPECT_FALSE(replay.ok);
+  EXPECT_NE(replay.first_error.find("divergence"), std::string::npos)
+      << "tampered deception_class should cause replay divergence: "
+      << replay.first_error;
+}
+
 }  // namespace
 }  // namespace session
 }  // namespace electronic_surveillance_radar

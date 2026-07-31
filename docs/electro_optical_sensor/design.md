@@ -140,7 +140,7 @@ sequenceDiagram
 
   Caller->>Session: StepWithResult(input)\n提交单周期输入
   Session->>Controller: RunOnce(input)\n执行一个周期
-  Controller->>Validator: ValidateEosCycleInput(input)\n校验平台 / 环境 / 目标
+  Controller->>Validator: ValidateEosCycleInput(input, frame_rate_hz)\n校验步长 / 平台 / 环境 / 目标
   alt invalid input / 输入无效
     Validator-->>Controller: issues\n错误列表
     Controller-->>Session: EosCycleResult with reused output\n直接组装校验状态与最近有效输出
@@ -311,10 +311,24 @@ EOS replay 的 session-config payload 只记录 `preset + atmospheric_physics`�
 仍构造 session。只有 runtime patch 使用先完整校验、后一次提交的原子拒绝语义。硬件配置只保留当前
 生产链实际消费的波段、孔径、探测器和俯仰边界；焦距不再是 public/session/replay 配置。
 
+`EosSessionConfigBuilder` 提供 mission/hardware/environment/policy 四个分域 Editor。`Policy()`
+提供策略域（`policy.detection.minimum_snr_db` 等）的独立设置入口，补齐与其余模块策略域可达性的一致性
+（AR `DetectionEditor`、ESR `DetectionEditor`、SAR `ProcessingEditor`、SBIRS `WithPolicy`）。
+Mission Profile 在 `Build()` 时会**跨域覆写** `policy.detection.minimum_snr_db`；该覆写在 `config_`
+整体拷贝之后执行，故若同一次 `Build()` 同时设置了 Mission Profile，其对 snr 的取值最终胜出，与各 Editor
+的调用顺序无关。需要独立设定该门限时，请不在该次 `Build()` 中设置 Mission Profile。
+
+`target.range_m` 的权威校验在 `EosInputValidation`（`<= 0` 为 error），controller 在校验失败时不执行
+pipeline，故正常 Session 路径不会把非法 `range_m` 传入 pipeline。pipeline 内部的
+`SafePositive(target.range_m, 1000.0f)` 仅为深度防御，防止绕过校验直接调用 pipeline 时引发 NaN 传播，
+兜底值 1000m 不构成合法输入约定。
+
 该规则由全部五种 preset 的 mapper 真值表、自动动态修正、标准大气观测和 runtime patch 测试锁定。
 [evidence: tests/unit/electro_optical_sensor/eos_session_composition_root_test.cpp]
 [evidence: tests/unit/electro_optical_sensor/eos_environment_model_test.cpp]
-[evidence: tests/unit/electro_optical_sensor/eos_session_config_builder_test.cpp]
+[evidence: tests/unit/electro_optical_sensor/eos_session_config_builder_test.cpp::PolicyEditorSetsMinimumSnrDbIndependently]
+[evidence: tests/unit/electro_optical_sensor/eos_session_config_builder_test.cpp::MissionProfileOverridesPolicyEditorSnrBefore]
+[evidence: tests/unit/electro_optical_sensor/eos_session_config_builder_test.cpp::MissionProfileOverridesPolicyEditorSnrAfter]
 [evidence: tests/unit/electro_optical_sensor/eos_runtime_config_resolver_test.cpp]
 [evidence: tests/unit/electro_optical_sensor/eos_pipeline_test.cpp::EosPipelineTest.HigherPressureLowersSnrThroughMolecularAttenuation]
 
@@ -421,7 +435,12 @@ pipeline 先得到红外 SNR 和可见光 SNR，再依据工作模式生成最�
 
 ### 2.9 输入校验、失败输出和运行期状态
 
-`EosController` 在执行 pipeline 前会校验 `EosCycleInput`。无效输入不会直接污染 pipeline 状态：
+`EosController` 在执行 pipeline 前会校验 `EosCycleInput`，其中 `dt_sec` 校验链为：有限性 → 正值 →
+上界 `10 / frame_rate_hz`（默认 30 Hz → 上限 ≈ 0.333 s）。`frame_rate_hz` 从 pipeline 当前配置
+动态读取，支持 runtime patch 热更新；patch 后校验阈值自动跟随新帧率。
+该上界仅适用于 EOS 与 SBIRS（成像/凝视传感器有 frame_rate_hz 概念）；SAR/ESR/AR **故意不含**此上界，
+因其配置无 frame_rate 字段、节拍由各自域量（孔径几何 / scan_rate×dt / PRF）决定，详见各模块 design.md。
+无效输入不会直接污染 pipeline 状态：
 
 - 首个周期输入无效时，不合成虚假的最新输出。
 - 已有成功周期后再遇到无效输入，可以复用最近有效输出，同时在 result 中记录校验失败状态。
@@ -432,7 +451,16 @@ pipeline 先得到红外 SNR 和可见光 SNR，再依据工作模式生成最�
   `sensor_enabled` 按固定优先级覆盖 mission 电源值。
 - controller runtime state 支持 capture/restore，但必须拒绝不兼容的 pipeline snapshot 或其他 controller 实例的 snapshot。
 
+`ValidationCode` 仅保留 `EosCycleInput` 实际校验路径会触发的编码。环境观测字段（太阳辐照度、云量、
+风速、背景温度、太阳角、昼夜类型）已迁入 `config::EosEnvironmentScenarioConfig`，不再属于周期输入域，
+故不声明对应校验编码，以免误导调用方以为可以在 `CycleInput` 上校验这些字段。
+`EosPipelineAbortReason` 采用纯隐式编号（`kSensorPoweredOff` 为第 4 项，无显式 `= 4`），与其他
+枚举一致。
+
 这些规则让 EOS 能在 replay、回归测试和集成场景中保持可解释行为。相关测试包括 `ValidationFailureReturnsEmptyFrameAndStillAdvancesCycleIndex`、`StepReusesPreviousOutputWhenValidationFailsAfterSuccessfulCycle`、`RuntimePatchIsAtomicWhenAnyFieldIsInvalid` 和 `CaptureAndRestoreRoundTripState`。
+[evidence: tests/unit/electro_optical_sensor/eos_input_validation_test.cpp::RejectsDtSecExceedingFrameRateBound]
+[evidence: tests/unit/electro_optical_sensor/eos_input_validation_test.cpp::AcceptsDtSecAtExactFrameRateBound]
+[evidence: tests/unit/electro_optical_sensor/eos_input_validation_test.cpp::HigherFrameRateAllowsTighterDtSec]
 [evidence: tests/contract/electro_optical_sensor/eos_public_api_convenience_test.cpp::EosSessionReportsPoweredOffWithoutContractViolation]
 [evidence: tests/replay/electro_optical_sensor/eos_replay_session_test.cpp::ReplayInitialPoweredOffTraceRoundtrip]
 

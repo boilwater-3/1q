@@ -1,12 +1,12 @@
 #include "1q/airborne_radar/session/ArSession.h"
-#include "1q/coordinate/attitude_transform.h"
-#include "1q/coordinate/position_transform.h"
 
 #include <algorithm>
 #include <cmath>
 #include <limits>
 #include <utility>
 
+#include "1q/coordinate/attitude_transform.h"
+#include "1q/coordinate/position_transform.h"
 #include "airborne_radar/config/mapping/RuntimePatchMapper.h"
 #include "airborne_radar/config/mapping/SessionToExecutionMapper.h"
 #include "airborne_radar/environment/IEnvironmentService.h"
@@ -15,10 +15,14 @@
 #include "airborne_radar/session/ArRfCycleState.h"
 #include "airborne_radar/session/ArSessionCompositionRoot.h"
 #include "airborne_radar/session/MutableArContext.h"
+#include "airborne_radar/session/ArEmissionFactory.h"
+#include "airborne_radar/session/ArReceiverStateBuilder.h"
+#include "airborne_radar/session/PreparedCycleLedger.h"
 #include "airborne_radar/signal/detection/ArInterferenceObservationResolver.h"
 #include "airborne_radar/signal/detection/ArRfFrontEndResolver.h"
 #include "airborne_radar/signal/detection/BeamControlResolver.h"
 #include "airborne_radar/signal/pipeline/ISignalPipeline.h"
+#include "airborne_radar/signal/pipeline/SignalCycleInput.h"
 #include "airborne_radar/signal/pipeline/SignalPipeline.h"
 #include "common/logging/ProjectLog.h"
 
@@ -32,38 +36,6 @@ bool IsFinitePosition(const oneq::coordinate::EcefPositionM& value) {
 
 bool IsFiniteVelocity(const oneq::coordinate::EcefVelocityMps& value) {
   return std::isfinite(value.x_mps) && std::isfinite(value.y_mps) && std::isfinite(value.z_mps);
-}
-
-bool TryResolveEcefBoresight(const ArPrepareCycleInput& input,
-                             oneq::electromagnetics::RfSceneDirection* boresight_ecef) {
-  if (boresight_ecef == nullptr ||
-      !oneq::coordinate::IsFinite(input.radar_frame_attitude_deg) ||
-      !std::isfinite(input.beam_pointing_deg.az_deg) ||
-      !std::isfinite(input.beam_pointing_deg.el_deg) ||
-      input.beam_pointing_deg.az_deg < -180.0f || input.beam_pointing_deg.az_deg > 180.0f ||
-      input.beam_pointing_deg.el_deg < -90.0f || input.beam_pointing_deg.el_deg > 90.0f) {
-    return false;
-  }
-  constexpr double kPi = 3.14159265358979323846;
-  const double azimuth_rad = static_cast<double>(input.beam_pointing_deg.az_deg) * kPi / 180.0;
-  const double elevation_rad = static_cast<double>(input.beam_pointing_deg.el_deg) * kPi / 180.0;
-  const double cos_elevation = std::cos(elevation_rad);
-  const oneq::coordinate::Vector3d local_direction{
-      cos_elevation * std::cos(azimuth_rad), cos_elevation * std::sin(azimuth_rad),
-      std::sin(elevation_rad)};
-  const oneq::coordinate::Vector3d enu_direction = oneq::coordinate::RotateLocalToEnu(
-      local_direction.x, local_direction.y, local_direction.z,
-      input.radar_frame_attitude_deg);
-  oneq::coordinate::LlaPositionDegM platform_lla;
-  oneq::coordinate::Vector3d resolved_ecef;
-  if (!oneq::coordinate::TryEcefToLla(input.platform_position_ecef_m, &platform_lla) ||
-      !oneq::coordinate::TryEnuToEcefDirection(enu_direction, platform_lla, &resolved_ecef)) {
-    return false;
-  }
-  boresight_ecef->x = resolved_ecef.x;
-  boresight_ecef->y = resolved_ecef.y;
-  boresight_ecef->z = resolved_ecef.z;
-  return true;
 }
 
 bool SameEmissionIdentity(const oneq::electromagnetics::RfEmissionIdentity& left,
@@ -107,14 +79,6 @@ bool SamePreparedEmission(const oneq::electromagnetics::RfSceneEmission& left,
          left_waveform.timing_epoch == right_waveform.timing_epoch;
 }
 
-session::EnvironmentSceneState BuildSceneStateFromCompleteInput(
-    const ArCompleteCycleInput& input) {
-  session::EnvironmentSceneState scene_state;
-  scene_state.atmospheric_physics = input.atmospheric_observation;
-  scene_state.vegetation_scatter_physics = input.surface_observation;
-  return scene_state;
-}
-
 struct ArExecutionCycleResult {
   bool executed{false};
   session::SignalCycleAbortReason abort_reason{session::SignalCycleAbortReason::kNone};
@@ -145,20 +109,15 @@ struct ArSession::Impl {
         static_cast<signal::pipeline::SignalPipeline*>(owned_signal_pipeline.get());
   }
 
-  ArCycleResult BuildCompletedCycleResult(
-      const ArCycleInput& input, const ValidationIssueList& issues,
-      const ArPrepareCycleResult& prepared,
-      const ArCompleteCycleResult& completed) const {
+  ArCycleResult BuildCompletedCycleResult(const ArCycleInput& input,
+                                          const ValidationIssueList& issues,
+                                          const ArPrepareCycleResult& prepared,
+                                          const ArCompleteCycleResult& completed) const {
     ArCycleResult result;
     result.input_cycle_index = input.cycle_index;
     result.status = ArCycleStatus::kCompleted;
     result.track_output_frame = completed.track_output_frame;
-    result.emission_frame.world_cycle_index = input.cycle_index;
-    result.emission_frame.window_start_time_s = input.cycle_start_time_s;
-    result.emission_frame.window_duration_s = input.dt_sec;
-    if (prepared.has_emission) {
-      result.emission_frame.emissions.push_back(prepared.emission);
-    }
+    FillEmissionFrame(result, input, prepared);
     result.receiver_impairment = completed.receiver_impairment;
     result.interference_observations = completed.interference_observations;
     result.submitted_commands = RadarContext().GetSubmittedCommands();
@@ -173,9 +132,7 @@ struct ArSession::Impl {
     if (result.has_decision_observation) {
       result.decision_observation = completed.decision_observation;
     }
-    result.applied_decision_source = Controller().GetLastAppliedDecisionSource();
-    result.applied_decision_cycle_index = Controller().GetLastAppliedDecisionCycleIndex();
-    result.applied_decision_batch_id = Controller().GetLastAppliedDecisionBatchId();
+    FillAppliedDecisionMetadata(result);
     return result;
   }
 
@@ -203,21 +160,32 @@ struct ArSession::Impl {
     return result;
   }
 
-  ArCycleResult BuildPostEmissionAbortResult(const ArCycleInput& input,
-                                             const ArPrepareCycleResult& prepared,
-                                             session::SignalCycleAbortReason abort_reason) const {
-    ArCycleResult result = BuildExecutionAbortResult(input, abort_reason);
+  // 用 prepare 期权威窗口与本周期 AR 发射填充 emission_frame，完成路径与发射后中止路径共用。
+  void FillEmissionFrame(ArCycleResult& result, const ArCycleInput& input,
+                         const ArPrepareCycleResult& prepared) const {
     result.emission_frame.world_cycle_index = input.cycle_index;
     result.emission_frame.window_start_time_s = input.cycle_start_time_s;
     result.emission_frame.window_duration_s = input.dt_sec;
     if (prepared.has_emission) {
       result.emission_frame.emissions.push_back(prepared.emission);
     }
-    result.has_control_profile = true;
-    result.control_profile = Controller().GetControlProfile();
+  }
+
+  // 复制本周期控制器实际采用的控制决策来源元组，完成路径与发射后中止路径共用。
+  void FillAppliedDecisionMetadata(ArCycleResult& result) const {
     result.applied_decision_source = Controller().GetLastAppliedDecisionSource();
     result.applied_decision_cycle_index = Controller().GetLastAppliedDecisionCycleIndex();
     result.applied_decision_batch_id = Controller().GetLastAppliedDecisionBatchId();
+  }
+
+  ArCycleResult BuildPostEmissionAbortResult(const ArCycleInput& input,
+                                             const ArPrepareCycleResult& prepared,
+                                             session::SignalCycleAbortReason abort_reason) const {
+    ArCycleResult result = BuildExecutionAbortResult(input, abort_reason);
+    FillEmissionFrame(result, input, prepared);
+    result.has_control_profile = true;
+    result.control_profile = Controller().GetControlProfile();
+    FillAppliedDecisionMetadata(result);
     return result;
   }
 
@@ -296,12 +264,11 @@ struct ArSession::Impl {
 
   ArExecutionCycleResult RunExecutionCycle(
       std::uint32_t cycle_index, float dt_sec, float platform_altitude_m,
-      const oneq::foundation::PoseState& platform_pose, ArSceneTargetList scene_targets,
-      const session::EnvironmentSceneState* environment_scene_state,
+      signal::pipeline::SignalCycleInput cycle_input,
       bool commit_pending_runtime_config) {
     ArExecutionCycleResult result;
     ValidationIssueList issues = ValidateArCycleDeltaTime(dt_sec);
-    const ValidationIssueList target_issues = ValidateArSceneTargets(scene_targets);
+    const ValidationIssueList target_issues = ValidateArSceneTargets(cycle_input.scene_targets);
     issues.insert(issues.end(), target_issues.begin(), target_issues.end());
     if (HasValidationError(issues)) {
       result.abort_reason = session::SignalCycleAbortReason::kValidationRejected;
@@ -321,12 +288,9 @@ struct ArSession::Impl {
       result.abort_reason = session::SignalCycleAbortReason::kRuntimePreparationFailed;
       return result;
     }
-    if (environment_scene_state != nullptr) {
-      EnvironmentService().UpdateSceneState(*environment_scene_state);
-    }
-    RadarContext().BeginCycle(std::move(scene_targets), platform_pose, platform_altitude_m, dt_sec,
-                              cycle_index);
-    Controller().RunOnce();
+    RadarContext().BeginCycle(cycle_input.scene_targets,
+                              platform_altitude_m, dt_sec, cycle_index);
+    Controller().RunOnce(cycle_input);
 
     if (!Controller().ExecutedLatestCycle()) {
       result.abort_reason = Controller().GetLastSignalCycleAbortReason();
@@ -363,15 +327,23 @@ struct ArSession::Impl {
     }
 
     oneq::coordinate::LocalFrameReference reference;
-    oneq::foundation::PoseState platform_pose;
-    if (!TryMakeArPoseFromExternalKinematics(input.platform, &reference, &platform_pose)) {
+    oneq::foundation::Vector3f radar_local_velocity;
+    const config::mapping::RuntimeConfigState& next_operating_state =
+        has_pending_runtime_update ? pending_runtime_state : runtime_state;
+    const config::ArOrientationConfig& orientation_config =
+        next_operating_state.execution_config.detection.orientation;
+    const oneq::coordinate::EulerAnglesDeg mount_angles_coord{
+        orientation_config.mount_angles_deg.yaw_deg,
+        orientation_config.mount_angles_deg.pitch_deg,
+        orientation_config.mount_angles_deg.roll_deg};
+    if (!TryMakeArPoseFromExternalKinematics(input.platform, mount_angles_coord,
+                                             &reference, &radar_local_velocity)) {
       return BuildValidationErrorResult(input, issues);
     }
     ArSceneTargetList local_targets;
     for (const ArTargetInput& target : input.targets) {
       ArSceneTarget local_target;
-      if (!TryMakeArTargetFromExternalKinematics(target, reference,
-                                                 platform_pose.velocity_mps,
+      if (!TryMakeArTargetFromExternalKinematics(target, reference, radar_local_velocity,
                                                  &local_target)) {
         return BuildValidationErrorResult(input, issues);
       }
@@ -383,8 +355,7 @@ struct ArSession::Impl {
         SignalPipeline().CaptureRuntimeState();
     const environment::EnvironmentServiceRuntimeState environment_state =
         EnvironmentService().CaptureRuntimeState();
-    const extension::ArControllerRuntimeState controller_state =
-        Controller().CaptureRuntimeState();
+    const extension::ArControllerRuntimeState controller_state = Controller().CaptureRuntimeState();
     const config::mapping::RuntimeConfigState saved_runtime_state = runtime_state;
     const config::mapping::RuntimeConfigState saved_pending_runtime_state = pending_runtime_state;
     const bool saved_has_pending_runtime_update = has_pending_runtime_update;
@@ -392,24 +363,13 @@ struct ArSession::Impl {
     const bool saved_pending_environment_scenario_config_changed =
         pending_environment_scenario_config_changed;
     const bool saved_pipeline_config_synced = pipeline_config_synced;
-    const bool saved_has_prepared_cycle = has_prepared_cycle;
-    const bool saved_has_world_chronology = has_world_chronology;
-    const double saved_last_world_window_end_s = last_world_window_end_s;
-    const std::uint64_t saved_next_token_value = next_token_value;
-    const std::uint64_t saved_next_emission_id = next_emission_id;
-    const std::uint64_t saved_successful_prepare_count = successful_prepare_count;
-    const std::size_t saved_frequency_hop_index = frequency_hop_index;
-    const ArPreparedCycleToken saved_prepared_token = prepared_token;
-    const ArPrepareCycleInput saved_prepared_input = prepared_input;
-    const oneq::electromagnetics::RfSceneEmission saved_prepared_emission =
-        prepared_emission;
-    const ArReceiverOperatingState saved_prepared_operating_state =
-        prepared_operating_state;
+    // prepared-cycle 书记（编年史、令牌、计数器、冻结输入/发射/接收状态）整体快照——
+    // PrepareRfCycle 失败时单次赋值即可逐字段回滚。
+    const PreparedCycleLedger saved_prepared_ledger = prepared_ledger_;
 
     const auto restore_user_cycle = [&]() {
-      const bool restored =
-          RestoreCycleRuntimeState(radar_context_state, pipeline_state, environment_state,
-                                   controller_state);
+      const bool restored = RestoreCycleRuntimeState(radar_context_state, pipeline_state,
+                                                     environment_state, controller_state);
       runtime_state = saved_runtime_state;
       pending_runtime_state = saved_pending_runtime_state;
       has_pending_runtime_update = saved_has_pending_runtime_update;
@@ -417,17 +377,7 @@ struct ArSession::Impl {
       pending_environment_scenario_config_changed =
           saved_pending_environment_scenario_config_changed;
       pipeline_config_synced = saved_pipeline_config_synced;
-      has_prepared_cycle = saved_has_prepared_cycle;
-      has_world_chronology = saved_has_world_chronology;
-      last_world_window_end_s = saved_last_world_window_end_s;
-      next_token_value = saved_next_token_value;
-      next_emission_id = saved_next_emission_id;
-      successful_prepare_count = saved_successful_prepare_count;
-      frequency_hop_index = saved_frequency_hop_index;
-      prepared_token = saved_prepared_token;
-      prepared_input = saved_prepared_input;
-      prepared_emission = saved_prepared_emission;
-      prepared_operating_state = saved_prepared_operating_state;
+      prepared_ledger_ = saved_prepared_ledger;
       return restored;
     };
 
@@ -439,25 +389,14 @@ struct ArSession::Impl {
     prepare_input.platform_position_ecef_m = input.platform.platform_position_ecef_m;
     prepare_input.platform_velocity_ecef_mps = input.platform.platform_velocity_mps;
     prepare_input.radar_frame_attitude_deg = ComposeRadarAttitudeDeg(
-        input.platform.platform_attitude_deg, input.platform.radar_mount_angles_deg);
-    const config::mapping::RuntimeConfigState& next_operating_state =
-        has_pending_runtime_update ? pending_runtime_state : runtime_state;
-    config::ArOrientationConfig actual_orientation =
-        next_operating_state.execution_config.detection.orientation;
-    actual_orientation.mount_angles_deg.yaw_deg =
-        static_cast<float>(input.platform.radar_mount_angles_deg.yaw_deg);
-    actual_orientation.mount_angles_deg.pitch_deg =
-        static_cast<float>(input.platform.radar_mount_angles_deg.pitch_deg);
-    actual_orientation.mount_angles_deg.roll_deg =
-        static_cast<float>(input.platform.radar_mount_angles_deg.roll_deg);
+        input.platform.platform_attitude_deg, mount_angles_coord);
     config::PlatformAttitudeDeg platform_attitude;
-    platform_attitude.yaw_deg = static_cast<float>(input.platform.platform_attitude_deg.yaw_deg);
-    platform_attitude.pitch_deg =
-        static_cast<float>(input.platform.platform_attitude_deg.pitch_deg);
-    platform_attitude.roll_deg = static_cast<float>(input.platform.platform_attitude_deg.roll_deg);
+    platform_attitude.yaw_deg = input.platform.platform_attitude_deg.yaw_deg;
+    platform_attitude.pitch_deg = input.platform.platform_attitude_deg.pitch_deg;
+    platform_attitude.roll_deg = input.platform.platform_attitude_deg.roll_deg;
     prepare_input.beam_pointing_deg =
         signal::detection::BeamControlResolver::ResolveMountFrameBeamPointing(
-            actual_orientation, platform_attitude, next_operating_state.dwell_center_deg);
+            orientation_config, platform_attitude, next_operating_state.dwell_center_deg);
 
     const ArPrepareCycleResult prepared = PrepareRfCycle(prepare_input);
     if (prepared.status == ArPrepareCycleStatus::kPoweredOff) {
@@ -490,8 +429,6 @@ struct ArSession::Impl {
     complete_input.rf_scene.window_duration_s = input.dt_sec;
     complete_input.rf_scene.emissions.push_back(prepared.emission);
     complete_input.targets = local_targets;
-    complete_input.atmospheric_observation = input.environment.atmospheric_observation;
-    complete_input.surface_observation = input.environment.surface_observation;
     const ArContextRuntimeState post_emission_radar_context_state =
         RadarContext().CaptureRuntimeState();
     const signal::SignalPipelineRuntimeState post_emission_pipeline_state =
@@ -500,8 +437,7 @@ struct ArSession::Impl {
         EnvironmentService().CaptureRuntimeState();
     const extension::ArControllerRuntimeState post_emission_controller_state =
         Controller().CaptureRuntimeState();
-    const ArCompleteCycleResult completed =
-        CompleteRfCycle(prepared.token, complete_input);
+    const ArCompleteCycleResult completed = CompleteRfCycle(prepared.token, complete_input);
     if (completed.status != ArCompleteCycleStatus::kCompleted) {
       const bool receive_state_restored =
           RestoreCycleRuntimeState(post_emission_radar_context_state, post_emission_pipeline_state,
@@ -518,13 +454,12 @@ struct ArSession::Impl {
   }
 
   bool TokenMatches(const ArPreparedCycleToken& token) const {
-    return has_prepared_cycle && token.value != 0U && token.value == prepared_token.value &&
-           token.world_cycle_index == prepared_token.world_cycle_index;
+    return prepared_ledger_.TokenMatches(token);
   }
 
   ArPrepareCycleResult PrepareRfCycle(const ArPrepareCycleInput& input) {
     ArPrepareCycleResult result;
-    if (has_prepared_cycle) {
+    if (prepared_ledger_.has_prepared_cycle()) {
       result.status = ArPrepareCycleStatus::kBusy;
       return result;
     }
@@ -534,7 +469,8 @@ struct ArSession::Impl {
         input.world_cycle_index > std::numeric_limits<std::uint32_t>::max() ||
         !IsFinitePosition(input.platform_position_ecef_m) ||
         !IsFiniteVelocity(input.platform_velocity_ecef_mps) ||
-        (has_world_chronology && input.window_start_time_s < last_world_window_end_s)) {
+        (prepared_ledger_.has_world_chronology() &&
+         input.window_start_time_s < prepared_ledger_.last_world_window_end_s())) {
       result.status = ArPrepareCycleStatus::kRejected;
       return result;
     }
@@ -544,8 +480,7 @@ struct ArSession::Impl {
     }
     FinalizePendingRuntimeConfig();
     if (!runtime_state.execution_config.sensor_enabled) {
-      has_world_chronology = true;
-      last_world_window_end_s = input.window_start_time_s + input.window_duration_s;
+      prepared_ledger_.AdvanceWorldChronology(input.window_start_time_s, input.window_duration_s);
       result.status = ArPrepareCycleStatus::kPoweredOff;
       return result;
     }
@@ -553,7 +488,6 @@ struct ArSession::Impl {
     const config::engineering::DetectionConfig& detection =
         runtime_state.execution_config.detection.engineering;
     const config::engineering::TransmitterConfig& transmitter = detection.transmitter;
-    const config::engineering::ReceiverConfig& receiver = detection.receiver;
     if (transmitter.frequency_plan_hz.empty() || transmitter.prf_hz <= 0.0f) {
       result.status = ArPrepareCycleStatus::kRejected;
       return result;
@@ -573,114 +507,85 @@ struct ArSession::Impl {
       return result;
     }
     const session::ArControlProfile& control_profile = Controller().GetControlProfile();
-    std::size_t selected_frequency_hop_index = frequency_hop_index;
+    std::size_t selected_frequency_hop_index = prepared_ledger_.frequency_hop_index();
     if (control_profile.enable_agility_frequency && transmitter.frequency_plan_hz.size() > 1U) {
       selected_frequency_hop_index =
-          (frequency_hop_index + 1U) % transmitter.frequency_plan_hz.size();
+          (prepared_ledger_.frequency_hop_index() + 1U) % transmitter.frequency_plan_hz.size();
     }
     const double carrier_hz = transmitter.frequency_plan_hz[selected_frequency_hop_index];
 
     oneq::electromagnetics::RfSceneEmission emission;
-    emission.identity.platform_id = input.platform_id;
-    emission.identity.equipment_id = transmitter.equipment_id;
-    emission.identity.emission_id = next_emission_id;
-    emission.position_ecef_m = input.platform_position_ecef_m;
-    emission.velocity_ecef_mps = input.platform_velocity_ecef_mps;
-    if (!TryResolveEcefBoresight(input, &emission.antenna.boresight_ecef)) {
-      (void)Controller().RestoreRuntimeState(controller_state_before_prepare);
-      result.status = ArPrepareCycleStatus::kRejected;
-      return result;
-    }
-    emission.antenna.peak_gain_dbi = static_cast<double>(detection.antenna.main_beam_gain_db);
-    emission.antenna.half_power_beamwidth_deg = static_cast<double>(std::max(
-        detection.antenna.nominal_az_beamwidth_deg, detection.antenna.nominal_el_beamwidth_deg));
-    emission.antenna.sidelobe_level_db =
-        static_cast<double>(detection.antenna.pattern.max_sidelobe_level_db);
-    emission.antenna.backlobe_level_db =
-        static_cast<double>(detection.antenna.pattern.backlobe_level_db);
-    emission.antenna.cross_polarization_isolation_db =
-        static_cast<double>(receiver.cross_polarization_isolation_db);
-    emission.polarization = receiver.scene_polarization;
-    const double emission_control_scale =
-        control_profile.enable_lpi_power_control
-            ? std::max(0.0, static_cast<double>(control_profile.lpi_power_scale))
-            : 1.0;
-    const double requested_peak_power_w =
-        static_cast<double>(transmitter.peak_power_w) * emission_control_scale *
-        std::max(1.0, static_cast<double>(control_profile.eccm_burnthrough_gain));
-    const double energy_limited_peak_power_w =
-        static_cast<double>(transmitter.maximum_pulse_energy_j) /
-        static_cast<double>(transmitter.pulse_width_s);
-    const double actual_peak_power_w =
-        std::min({requested_peak_power_w, static_cast<double>(transmitter.maximum_peak_power_w),
-                  energy_limited_peak_power_w});
-    const double radiated_peak_power_w =
-        actual_peak_power_w *
-        std::pow(10.0, -static_cast<double>(transmitter.transmit_loss_db) / 10.0);
-    if (!oneq::electromagnetics::TryCreateRfPulseTrainWaveform(
-            input.window_start_time_s, carrier_hz, static_cast<double>(transmitter.bandwidth_hz),
-            radiated_peak_power_w, static_cast<double>(transmitter.pulse_width_s),
-            pulse_repetition_interval_s, static_cast<std::uint32_t>(pulse_count_value),
-            control_profile.enable_eccm_rejitter ? 0.15 : 0.0, timing_seed,
-            successful_prepare_count, &emission.waveform)) {
+    if (!ArEmissionFactory::TryBuildEmission(
+            input, detection, control_profile, prepared_ledger_.next_emission_id(), carrier_hz,
+            pulse_repetition_interval_s, static_cast<std::uint32_t>(pulse_count_value), timing_seed,
+            prepared_ledger_.successful_prepare_count(), &emission)) {
       (void)Controller().RestoreRuntimeState(controller_state_before_prepare);
       result.status = ArPrepareCycleStatus::kRejected;
       return result;
     }
 
-    ArReceiverOperatingState operating_state;
-    oneq::electromagnetics::RfSceneReceiverState& receiver_state =
-        operating_state.rf_receiver;
-    receiver_state.platform_id = input.platform_id;
-    receiver_state.equipment_id = receiver.equipment_id;
-    receiver_state.position_ecef_m = input.platform_position_ecef_m;
-    receiver_state.velocity_ecef_mps = input.platform_velocity_ecef_mps;
-    receiver_state.antenna = emission.antenna;
-    if (control_profile.enable_sidelobe_canceller) {
-      receiver_state.antenna.sidelobe_level_db -= 12.0;
-      receiver_state.antenna.backlobe_level_db = std::min(receiver_state.antenna.backlobe_level_db,
-                                                          receiver_state.antenna.sidelobe_level_db);
-    }
-    if (control_profile.enable_adaptive_beamforming) {
-      receiver_state.antenna.half_power_beamwidth_deg *= 0.75;
-      receiver_state.antenna.sidelobe_level_db -= 6.0;
-      receiver_state.antenna.backlobe_level_db = std::min(receiver_state.antenna.backlobe_level_db,
-                                                          receiver_state.antenna.sidelobe_level_db);
-    }
-    receiver_state.polarization = receiver.scene_polarization;
-    receiver_state.window_start_time_s = input.window_start_time_s;
-    receiver_state.window_duration_s = input.window_duration_s;
-    receiver_state.center_frequency_hz = carrier_hz;
-    receiver_state.bandwidth_hz = static_cast<double>(receiver.preselector_bandwidth_hz);
-    receiver_state.receiver_system_loss_db = static_cast<double>(receiver.receive_loss_db);
-    receiver_state.minimum_far_field_range_m =
-        static_cast<double>(receiver.minimum_far_field_range_m);
-    receiver_state.co_site_paths = receiver.co_site_paths;
-    operating_state.beam_pointing_deg = input.beam_pointing_deg;
-    operating_state.matched_filter_bandwidth_hz =
-        static_cast<double>(transmitter.bandwidth_hz);
-    operating_state.receiver_noise_figure_db = static_cast<double>(receiver.noise_figure_db);
-    operating_state.maximum_linear_input_power_w =
-        static_cast<double>(receiver.maximum_linear_input_power_w);
+    const ArReceiverOperatingState operating_state =
+        ArReceiverStateBuilder::Build(input, emission, detection, control_profile, carrier_hz);
 
-    prepared_token.value = next_token_value++;
-    prepared_token.world_cycle_index = input.world_cycle_index;
-    prepared_input = input;
-    prepared_emission = emission;
-    prepared_operating_state = operating_state;
-    has_prepared_cycle = true;
-    has_world_chronology = true;
-    last_world_window_end_s = input.window_start_time_s + input.window_duration_s;
-    ++next_emission_id;
-    ++successful_prepare_count;
-    frequency_hop_index = selected_frequency_hop_index;
+    prepared_ledger_.CommitPrepared(input, emission, operating_state, selected_frequency_hop_index);
 
     result.status = ArPrepareCycleStatus::kPrepared;
-    result.token = prepared_token;
+    result.token = prepared_ledger_.prepared_token();
     result.has_emission = true;
-    result.emission = prepared_emission;
-    result.operating_state = prepared_operating_state;
+    result.emission = prepared_ledger_.prepared_emission();
+    result.operating_state = prepared_ledger_.prepared_operating_state();
     return result;
+  }
+
+  // 非饱和路径的干扰/欺骗观测解析：构造雷达局部坐标系、热噪声基底、去真值化扰动种子，
+  // 调用 resolver 填充 interference_observations 与 deception_candidates。失败返回 false
+  // （调用方置 kRejected）；饱和路径由调用方跳过本方法、保留空观测。
+  bool TryResolveReceiveObservations(
+      const oneq::electromagnetics::RfSceneFrame& rf_scene,
+      const ArPreparedCycleToken& prepared_token, const ArPrepareCycleInput& prepared_input,
+      const oneq::electromagnetics::RfSceneEmission& prepared_emission,
+      const ArReceiverOperatingState& prepared_operating_state,
+      const signal::detection::ArRfFrontEndResult& front_end,
+      std::vector<ArInterferenceObservation>* interference_observations,
+      signal::detection::ArDeceptionMeasurementCandidateList* deception_candidates) {
+    constexpr double kBoltzmannJPerK = 1.380649e-23;
+    constexpr double kReferenceTemperatureK = 290.0;
+    const config::engineering::DetectionConfig& detection =
+        runtime_state.execution_config.detection.engineering;
+    const double thermal_noise_power_w =
+        kBoltzmannJPerK * kReferenceTemperatureK *
+        static_cast<double>(detection.transmitter.bandwidth_hz) *
+        std::pow(10.0, static_cast<double>(detection.receiver.noise_figure_db) / 10.0);
+    // 为干扰观测构造雷达局部坐标系：原点 LLA + 合成姿态（平台姿态+挂架角），
+    // 使解析器能把 ECEF 视线转换到与目标 look angle 同系的局部方位。
+    oneq::coordinate::LocalFrameReference platform_frame;
+    bool platform_frame_resolved = false;
+    oneq::coordinate::LlaPositionDegM frame_origin_lla;
+    if (oneq::coordinate::TryEcefToLla(prepared_input.platform_position_ecef_m, &frame_origin_lla)) {
+      platform_frame.origin_lla = frame_origin_lla;
+      platform_frame.frame_attitude_deg = prepared_input.radar_frame_attitude_deg;
+      platform_frame_resolved = true;
+    }
+    if (!platform_frame_resolved) {
+      PROJECT_LOG_WARN(
+          "[ArSession] CompleteRfCycle could not build platform frame; interference "
+          "bearings fall back to ECEF tangent-plane (cross-frame discrimination degraded).");
+    }
+    // 去真值化扰动种子：cycle index + receiver equipment id 派生，保证 replay（同 cycle
+    // 重放）下扰动可复现，同时跨周期/跨设备互不相关（contract.md:348）。
+    const std::uint32_t perturbation_seed =
+        (prepared_token.world_cycle_index & 0xFFFF'FFFFU) ^
+        (static_cast<std::uint32_t>(prepared_operating_state.rf_receiver.equipment_id) *
+         2654435761U);
+    if (!signal::detection::TryResolveArInterferenceObservations(
+            rf_scene, prepared_operating_state.rf_receiver, prepared_emission.identity,
+            front_end.incident_links, thermal_noise_power_w,
+            static_cast<double>(detection.receiver.interference_observation_jn_gate_db),
+            platform_frame, perturbation_seed, interference_observations,
+            deception_candidates)) {
+      return false;
+    }
+    return true;
   }
 
   ArCompleteCycleResult CompleteRfCycle(const ArPreparedCycleToken& token,
@@ -690,6 +595,13 @@ struct ArSession::Impl {
       result.status = ArCompleteCycleStatus::kTokenMismatch;
       return result;
     }
+    // 账本冻结的 prepared-cycle 状态——本方法全程只读消费这些值。
+    const ArPreparedCycleToken& prepared_token = prepared_ledger_.prepared_token();
+    const ArPrepareCycleInput& prepared_input = prepared_ledger_.prepared_input();
+    const oneq::electromagnetics::RfSceneEmission& prepared_emission =
+        prepared_ledger_.prepared_emission();
+    const ArReceiverOperatingState& prepared_operating_state =
+        prepared_ledger_.prepared_operating_state();
     result.world_cycle_index = prepared_token.world_cycle_index;
     if (input.rf_scene.world_cycle_index != prepared_token.world_cycle_index ||
         input.rf_scene.window_start_time_s != prepared_input.window_start_time_s ||
@@ -738,54 +650,38 @@ struct ArSession::Impl {
     rf_v2_detection_context.incident_links = front_end.incident_links;
     rf_v2_detection_context.enable_anti_rgpo_leading_edge =
         Controller().GetControlProfile().enable_anti_rgpo_leading_edge;
-    if (concrete_signal_pipeline_ == nullptr ||
-        !concrete_signal_pipeline_->SetNextRfV2DetectionContext(rf_v2_detection_context)) {
-      PROJECT_LOG_ERROR("[ArSession] CompleteRfCycle rejected the frozen RF detection context.");
-      result.status = ArCompleteCycleStatus::kRejected;
-      return result;
-    }
     std::vector<ArInterferenceObservation> interference_observations;
+    signal::detection::ArDeceptionMeasurementCandidateList deception_candidates;
     if (!front_end.receiver_saturated) {
-      constexpr double kBoltzmannJPerK = 1.380649e-23;
-      constexpr double kReferenceTemperatureK = 290.0;
-      const config::engineering::DetectionConfig& detection =
-          runtime_state.execution_config.detection.engineering;
-      const double thermal_noise_power_w =
-          kBoltzmannJPerK * kReferenceTemperatureK *
-          static_cast<double>(detection.transmitter.bandwidth_hz) *
-          std::pow(10.0, static_cast<double>(detection.receiver.noise_figure_db) / 10.0);
-      if (!signal::detection::TryResolveArInterferenceObservations(
-              input.rf_scene, prepared_operating_state.rf_receiver, prepared_emission.identity,
-              front_end.incident_links, thermal_noise_power_w,
-              static_cast<double>(detection.receiver.interference_observation_jn_gate_db),
-              &interference_observations)) {
+      if (!TryResolveReceiveObservations(input.rf_scene, prepared_token, prepared_input,
+                                         prepared_emission, prepared_operating_state, front_end,
+                                         &interference_observations, &deception_candidates)) {
         PROJECT_LOG_ERROR(
             "[ArSession] CompleteRfCycle interference observation resolution failed.");
         result.status = ArCompleteCycleStatus::kRejected;
         return result;
       }
     }
-    if (!Controller().SetPreparedInterferenceObservations(interference_observations)) {
-      PROJECT_LOG_ERROR("[ArSession] CompleteRfCycle rejected prepared interference observations.");
-      result.status = ArCompleteCycleStatus::kRejected;
-      return result;
-    }
-
     oneq::coordinate::LlaPositionDegM platform_lla;
-    if (!oneq::coordinate::TryEcefToLla(prepared_input.platform_position_ecef_m,
-                                        &platform_lla)) {
+    if (!oneq::coordinate::TryEcefToLla(prepared_input.platform_position_ecef_m, &platform_lla)) {
       PROJECT_LOG_ERROR("[ArSession] CompleteRfCycle could not resolve platform ECEF to LLA.");
       result.status = ArCompleteCycleStatus::kRejected;
       return result;
     }
-    const session::EnvironmentSceneState environment_scene_state =
-        BuildSceneStateFromCompleteInput(input);
+    // 保存干扰观测到结果（在 move 到 cycle_input 之前）。
+    result.interference_observations = interference_observations;
+    // 构造显式周期输入：所有接收端数据经 SignalCycleInput 一次性传入 pipeline，
+    // 不再通过 mutable setter 旁路写入。
+    ArSceneTargetList effective_targets =
+        front_end.receiver_saturated ? ArSceneTargetList{} : input.targets;
+    signal::pipeline::SignalCycleInput cycle_input{
+        std::move(effective_targets), &rf_v2_detection_context,
+        std::move(interference_observations), std::move(deception_candidates)};
     const ArExecutionCycleResult execution_result = RunExecutionCycle(
         static_cast<std::uint32_t>(prepared_input.world_cycle_index),
         static_cast<float>(prepared_input.window_duration_s),
-        static_cast<float>(platform_lla.altitude_m), oneq::foundation::PoseState{},
-        front_end.receiver_saturated ? ArSceneTargetList{} : input.targets,
-        &environment_scene_state, false);
+        static_cast<float>(platform_lla.altitude_m),
+        std::move(cycle_input), false);
     if (!execution_result.executed) {
       PROJECT_LOG_ERROR("[ArSession] CompleteRfCycle signal execution failed with abort reason {}.",
                         static_cast<int>(execution_result.abort_reason));
@@ -794,13 +690,11 @@ struct ArSession::Impl {
     }
     result.status = ArCompleteCycleStatus::kCompleted;
     result.track_output_frame = execution_result.track_output_frame;
-    result.interference_observations = interference_observations;
     result.has_decision_observation = Controller().HasLatestDecisionObservation();
     if (result.has_decision_observation) {
       result.decision_observation = Controller().GetLatestDecisionObservation();
     }
-    has_prepared_cycle = false;
-    prepared_token = ArPreparedCycleToken{};
+    prepared_ledger_.ClearPrepared();
     return result;
   }
 
@@ -808,8 +702,7 @@ struct ArSession::Impl {
     if (!TokenMatches(token)) {
       return ArAbandonCycleStatus::kTokenMismatch;
     }
-    has_prepared_cycle = false;
-    prepared_token = ArPreparedCycleToken{};
+    prepared_ledger_.ReleasePrepared();
     Controller().ReleasePreparedEmissionControl();
     return ArAbandonCycleStatus::kAbandoned;
   }
@@ -820,18 +713,8 @@ struct ArSession::Impl {
   bool pending_execution_config_changed{false};
   bool pending_environment_scenario_config_changed{false};
   bool pipeline_config_synced{true};
-  bool has_prepared_cycle{false};
-  bool has_world_chronology{false};
-  double last_world_window_end_s{0.0};
-  std::uint64_t next_token_value{1U};
-  std::uint64_t next_emission_id{1U};
-  std::uint64_t successful_prepare_count{0U};
+  PreparedCycleLedger prepared_ledger_{};
   std::uint64_t timing_seed{0x41525f5052495f31ULL};
-  std::size_t frequency_hop_index{0U};
-  ArPreparedCycleToken prepared_token{};
-  ArPrepareCycleInput prepared_input{};
-  oneq::electromagnetics::RfSceneEmission prepared_emission{};
-  ArReceiverOperatingState prepared_operating_state{};
   std::unique_ptr<MutableArContext> owned_ar_context;
   std::unique_ptr<signal::ISignalPipeline> owned_signal_pipeline;
   std::unique_ptr<environment::IEnvironmentService> owned_environment_service;
@@ -858,20 +741,19 @@ ArDecisionReplayState ArSessionReplayAccess::CaptureDecisionState(const ArSessio
   replay_state.applied_decision_cycle_index = controller_state.last_applied_decision_cycle_index;
   replay_state.applied_decision_batch_id = controller_state.last_applied_decision_batch_id;
   replay_state.applied_decision_proposals = controller_state.last_applied_decision_proposals;
-  replay_state.has_pending_external_decision = controller_state.has_pending_external_decision;
-  replay_state.pending_external_decision = controller_state.pending_external_decision;
   replay_state.reducer_state = controller_state.control_reducer_state;
   return replay_state;
 }
 
 ArSessionReplayState ArSessionReplayAccess::CaptureSessionState(const ArSession& session) {
   ArSessionReplayState replay_state;
-  replay_state.has_world_chronology = session.impl_->has_world_chronology;
-  replay_state.last_world_window_end_s = session.impl_->last_world_window_end_s;
-  replay_state.next_emission_id = session.impl_->next_emission_id;
-  replay_state.successful_prepare_count = session.impl_->successful_prepare_count;
+  const PreparedCycleLedger& ledger = session.impl_->prepared_ledger_;
+  replay_state.has_world_chronology = ledger.has_world_chronology();
+  replay_state.last_world_window_end_s = ledger.last_world_window_end_s();
+  replay_state.next_emission_id = ledger.next_emission_id();
+  replay_state.successful_prepare_count = ledger.successful_prepare_count();
   replay_state.timing_seed = session.impl_->timing_seed;
-  replay_state.frequency_hop_index = static_cast<std::uint64_t>(session.impl_->frequency_hop_index);
+  replay_state.frequency_hop_index = static_cast<std::uint64_t>(ledger.frequency_hop_index());
   replay_state.has_pending_runtime_update = session.impl_->has_pending_runtime_update;
   replay_state.pending_execution_config_changed = session.impl_->pending_execution_config_changed;
   replay_state.pending_environment_scenario_config_changed =
@@ -954,8 +836,8 @@ bool ArSession::TryApplyRuntimeConfig(const config::ArRuntimeConfigPatch& patch)
 }
 
 session::ExternalDecisionSubmitStatus ArSession::SubmitExternalDecision(
-    const session::ExternalDecisionResponse& response) {
-  return impl_->Controller().SubmitExternalDecision(response);
+    session::ExternalDecisionOverride override_decision) {
+  return impl_->Controller().SubmitExternalDecision(std::move(override_decision));
 }
 
 }  // namespace session

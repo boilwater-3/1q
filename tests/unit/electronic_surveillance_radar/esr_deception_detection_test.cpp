@@ -118,6 +118,33 @@ TEST(EsrDeceptionDetectionTest, ThreePulsesWithinBeamwidthAllDeceptive) {
   }
 }
 
+// 非对称波束：方位窄(3°)俯仰宽(10°)。脉冲方位差 8°（>3°）越过窄轴 →
+// 不应标记。
+TEST(EsrDeceptionDetectionTest, AsymmetricBeamRespectsNarrowAxis) {
+  auto output = MakePulseOutput({0.0, 8.0});
+  output.raw_records[0].observation.aoa_el_deg = 0.0;
+  output.raw_records[1].observation.aoa_el_deg = 2.0;
+  ClassifyDeception(3.0f, 10.0f, &output);
+  ASSERT_EQ(output.raw_records.size(), 2U);
+  EXPECT_EQ(output.raw_records[0].observation.deception_class,
+            session::EsrDeceptionClass::kNone);
+  EXPECT_EQ(output.raw_records[1].observation.deception_class,
+            session::EsrDeceptionClass::kNone);
+}
+
+// 非对称波束：两个脉冲落在各自轴门限内 → 应标记。
+TEST(EsrDeceptionDetectionTest, AsymmetricBeamStillDetectsWithinBothAxes) {
+  auto output = MakePulseOutput({0.0, 2.0});
+  output.raw_records[0].observation.aoa_el_deg = 0.0;
+  output.raw_records[1].observation.aoa_el_deg = 5.0;
+  ClassifyDeception(3.0f, 10.0f, &output);
+  ASSERT_EQ(output.raw_records.size(), 2U);
+  EXPECT_EQ(output.raw_records[0].observation.deception_class,
+            session::EsrDeceptionClass::kLikelyFalseTarget);
+  EXPECT_EQ(output.raw_records[1].observation.deception_class,
+            session::EsrDeceptionClass::kLikelyFalseTarget);
+}
+
 }  // namespace
 }  // namespace pipeline
 }  // namespace electronic_surveillance_radar

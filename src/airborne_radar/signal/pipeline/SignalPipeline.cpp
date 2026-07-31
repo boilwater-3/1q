@@ -77,60 +77,7 @@ struct SignalPipelineSnapshot {
   std::uint64_t batch_id{1U};
   association::DataAssociationRuntimeState association_runtime{};
   tracking::TrackLifecycleRuntimeState lifecycle_runtime{};
-  bool has_pending_rf_v2_detection_context{false};
-  RfV2DetectionContext pending_rf_v2_detection_context{};
 };
-
-bool IsValidIdentity(const oneq::electromagnetics::RfEmissionIdentity& identity) {
-  return identity.platform_id != 0U && identity.equipment_id != 0U &&
-         identity.emission_id != 0U;
-}
-
-bool IsValidRfV2DetectionContext(const RfV2DetectionContext& context) {
-  if (!IsValidIdentity(context.own_emission_identity) ||
-      context.own_transmit_waveform.kind !=
-          oneq::electromagnetics::RfSceneWaveformKind::kPulseTrain ||
-      !std::isfinite(context.receive_window_start_time_s) ||
-      !std::isfinite(context.receive_window_duration_s) ||
-      !std::isfinite(context.beam_pointing_deg.az_deg) ||
-      !std::isfinite(context.beam_pointing_deg.el_deg) ||
-      context.beam_pointing_deg.az_deg < -180.0f ||
-      context.beam_pointing_deg.az_deg > 180.0f ||
-      context.beam_pointing_deg.el_deg < -90.0f ||
-      context.beam_pointing_deg.el_deg > 90.0f ||
-      context.receive_window_duration_s <= 0.0) {
-    return false;
-  }
-  double first_pulse_start_s = 0.0;
-  double last_pulse_start_s = 0.0;
-  if (!oneq::electromagnetics::TryResolveRfPulseStartTime(
-          context.own_transmit_waveform, 0U, &first_pulse_start_s) ||
-      !oneq::electromagnetics::TryResolveRfPulseStartTime(
-          context.own_transmit_waveform, context.own_transmit_waveform.pulse_count - 1U,
-          &last_pulse_start_s) ||
-      first_pulse_start_s < context.receive_window_start_time_s ||
-      !std::isfinite(last_pulse_start_s)) {
-    return false;
-  }
-  double unused_total_power_w = 0.0;
-  if (!oneq::electromagnetics::TryAggregateRfIncidentPower(context.incident_links,
-                                                           &unused_total_power_w)) {
-    return false;
-  }
-  for (const auto& link : context.incident_links) {
-    bool unused_active = false;
-    double unused_arrival_frequency_hz = 0.0;
-    if (!std::isfinite(link.received_power_before_overlap_w) ||
-        link.received_power_before_overlap_w < 0.0 ||
-        !oneq::electromagnetics::TryEvaluateRfArrivalActivity(
-            link.emission_waveform, link.propagation_delay_s, link.doppler_shift_hz,
-            context.receive_window_start_time_s, &unused_active,
-            &unused_arrival_frequency_hz)) {
-      return false;
-    }
-  }
-  return true;
-}
 
 struct RuntimeState {
   explicit RuntimeState(ExecutionConfig initial_config)
@@ -168,10 +115,8 @@ struct SignalPipeline::Impl {
                                         runtime_.config.control_profile_);
   }
 
-  session::SignalCycleResult RunCycle(const session::ArSceneTargetList& scene_targets,
+  session::SignalCycleResult RunCycle(const SignalCycleInput& cycle_input,
                                       const environment::IEnvironmentService& environment) {
-    const session::ArSceneTargetList& input_state = scene_targets;
-
     if (!runtime_.config.base_config.sensor_enabled) {
       ResetCycleScratch(&cycle_.scratch);
       session::SignalCycleResult result;
@@ -204,12 +149,9 @@ struct SignalPipeline::Impl {
         runtime_execution.base_config, runtime_execution.control_profile);
     ExecutionConfig runtime_config = resolved.config;
     ApplyScanScheduleToRuntimeConfig(environment_snapshot.cycle_index, &runtime_config);
-    CycleExecutionContext context(input_state, environment_snapshot,
-                                  environment_snapshot.cycle_index, cycle_.batch_id,
-                                  std::move(runtime_config), runtime_.config.platform_altitude_m,
-                                  has_pending_rf_v2_detection_context
-                                      ? &pending_rf_v2_detection_context
-                                      : nullptr);
+    CycleExecutionContext context(cycle_input, environment_snapshot,
+                                   environment_snapshot.cycle_index, cycle_.batch_id,
+                                   std::move(runtime_config), runtime_.config.platform_altitude_m);
 
     if (!ExecuteCycle(context, runtime_execution, cycle_.scratch)) {
       ResetCycleScratch(&cycle_.scratch);
@@ -217,13 +159,11 @@ struct SignalPipeline::Impl {
       result.abort_reason = session::SignalCycleAbortReason::kRuntimePreparationFailed;
       return result;
     }
-    has_pending_rf_v2_detection_context = false;
-    pending_rf_v2_detection_context = RfV2DetectionContext{};
 
     session::SignalCycleResult result;
     result.executed_this_cycle = true;
     result.abort_reason = session::SignalCycleAbortReason::kNone;
-    result.updated_scene_targets = scene_targets;
+    result.updated_scene_targets = cycle_input.scene_targets;
     result.decision_frame = cycle_.scratch.decision_frame;
     result.association_quality_metrics = cycle_.scratch.association_quality_metrics;
     cycle_.cycle_index = environment_snapshot.cycle_index + 1U;
@@ -253,18 +193,16 @@ struct SignalPipeline::Impl {
     if (runtime_.owned.auto_lifecycle_manager != nullptr) {
       snapshot->lifecycle_runtime = runtime_.owned.auto_lifecycle_manager->CaptureRuntimeState();
     }
-    snapshot->has_pending_rf_v2_detection_context = has_pending_rf_v2_detection_context;
-    snapshot->pending_rf_v2_detection_context = pending_rf_v2_detection_context;
 
     SignalPipelineRuntimeState state;
     state.owner_identity = this;
-    state.schema_version = 2U;
+    state.schema_version = 3U;
     state.opaque = snapshot;
     return state;
   }
 
   void RestoreRuntimeState(const SignalPipelineRuntimeState& state) {
-    if (state.owner_identity != this || state.schema_version != 2U) {
+    if (state.owner_identity != this || state.schema_version != 3U) {
       PROJECT_LOG_ERROR(
           "[SignalPipeline] runtime state restore rejected because snapshot owner "
           "or schema does not match this instance.");
@@ -290,8 +228,6 @@ struct SignalPipeline::Impl {
     cycle_.scratch.association_quality_metrics = snapshot->association_quality_metrics;
     cycle_.cycle_index = snapshot->cycle_index;
     cycle_.batch_id = snapshot->batch_id;
-    has_pending_rf_v2_detection_context = snapshot->has_pending_rf_v2_detection_context;
-    pending_rf_v2_detection_context = snapshot->pending_rf_v2_detection_context;
   }
 
   void SetAssociationSeeds(const std::vector<tracking::AssociationTrackSeed>& seeds) {
@@ -358,15 +294,6 @@ struct SignalPipeline::Impl {
   }
   session::ArControlProfile GetControlProfile() const { return runtime_.config.control_profile_; }
 
-  bool SetNextRfV2DetectionContext(const RfV2DetectionContext& context) {
-    if (!IsValidRfV2DetectionContext(context)) {
-      return false;
-    }
-    has_pending_rf_v2_detection_context = true;
-    pending_rf_v2_detection_context = context;
-    return true;
-  }
-
   void RebuildOwnedComponents() {
     OwnedComponentSlots component_slots;
     component_slots.kalman_predictor = &runtime_.owned.kalman_predictor;
@@ -379,8 +306,6 @@ struct SignalPipeline::Impl {
 
   RuntimeState runtime_;
   CycleState cycle_;
-  bool has_pending_rf_v2_detection_context{false};
-  RfV2DetectionContext pending_rf_v2_detection_context{};
 };
 
 SignalPipeline::SignalPipeline(const ExecutionConfig& config)
@@ -389,16 +314,12 @@ SignalPipeline::SignalPipeline(const ExecutionConfig& config)
 SignalPipeline::SignalPipeline(const config::ArSessionConfig& config)
     : SignalPipeline(::airborne_radar::config::mapping::MapSessionToExecution(config)) {}
 
-bool SignalPipeline::SetNextRfV2DetectionContext(const RfV2DetectionContext& context) {
-  return impl_->SetNextRfV2DetectionContext(context);
-}
-
 SignalPipeline::~SignalPipeline() = default;
 
 session::SignalCycleResult SignalPipeline::RunCycle(
-    const session::ArSceneTargetList& scene_targets,
+    const SignalCycleInput& input,
     const environment::IEnvironmentService& environment) {
-  return impl_->RunCycle(scene_targets, environment);
+  return impl_->RunCycle(input, environment);
 }
 
 std::vector<tracking::TrackMeasurement> SignalPipeline::GetLastTrackMeasurements() const {

@@ -91,8 +91,10 @@ struct ONEQ_API ArOrientationConfig {
   /**
    * @brief 雷达安装偏置角（单位：deg，参考系：Body -> Radar）。
    * @note 该角度定义在机体坐标系下，描述雷达坐标系相对机体系的固定安装偏置；
-    *       与运行期平台姿态（ENU -> Body）复合后，
+   *       与运行期平台姿态（Body -> ENU）通过旋转矩阵复合后，
    *       可得到"ENU -> Radar"的等效姿态。
+   * @note 当前为静态配置。若未来需要支持可动天线座（运行期安装角变化），
+   *       可通过 ArRuntimeConfigPatch 扩展此字段的运行期更新能力。
    */
   EulerAnglesDeg mount_angles_deg;
   AzimuthElevationDeg scan_center_deg; /**< [可外部调整] 基准指向方向；不是扫描体积中心 */

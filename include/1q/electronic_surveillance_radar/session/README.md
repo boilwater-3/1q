@@ -12,9 +12,7 @@
 - EsrCycleOutputBuilder.h — 周期输出构造器
 
 ## 环境域
-- EsrEnvironmentInput.h — 环境运行时输入
-- EsrEnvironmentInputPatch.h — 环境输入补丁
-- EsrEnvironmentInputState.h — 环境输入状态
+- 环境配置已迁移至 config 目录，见 EsrEnvironmentConfig.h（环境场景配置由 `EsrSessionConfig.environment` 聚合，运行期更新通过 `EsrRuntimeConfigPatch` 提交）
 
 ## 场景与类型
 - EsrOutputTypes.h — 输出类型（TruthAssociationRecord 等）

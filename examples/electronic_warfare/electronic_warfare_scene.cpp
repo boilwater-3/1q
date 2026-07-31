@@ -23,7 +23,6 @@ esr_session::EsrCycleInput MakeSceneInput(std::uint32_t cycle) {
   input.platform_position_ecef_m.x_m = -2289512.0;
   input.platform_position_ecef_m.y_m = 4909946.0;
   input.platform_position_ecef_m.z_m = 3650982.0;
-  input.environment.propagation_profile = esr_session::EsrPropagationEnvironmentProfile::kOpen;
   input.rf_emissions.world_cycle_index = cycle;
   input.rf_emissions.window_start_time_s = input.cycle_start_time_s;
   input.rf_emissions.window_duration_s = input.dt_sec;

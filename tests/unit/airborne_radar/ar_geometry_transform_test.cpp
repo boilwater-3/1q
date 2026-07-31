@@ -7,6 +7,7 @@
 
 #include <cmath>
 
+#include "common/geometry/BearingCluster.h"
 #include "common/geometry/GeometryTransform.h"
 
 namespace oneq {
@@ -136,6 +137,68 @@ TEST(GeometryTransformTest, ResolveStabilizedMountFramePointingPreservesLegacyIn
 
   EXPECT_NEAR(mount_pointing.az_deg, -90.0f, 1.0e-5f);
   EXPECT_NEAR(mount_pointing.el_deg, 0.0f, 1.0e-5f);
+}
+
+// ---------------------------------------------------------------------------
+// BearingCluster：方位聚类工具
+// ---------------------------------------------------------------------------
+
+TEST(BearingClusterTest, IdenticalBearingsAreCoherent) {
+  EXPECT_TRUE(AreBearingsCoherent(10.0, 5.0, 10.0, 5.0, 3.0));
+}
+
+TEST(BearingClusterTest, BearingsBeyondBeamwidthAreNotCoherent) {
+  // 方位差等于波束宽度（严格小于判定）→ 不聚合。
+  EXPECT_FALSE(AreBearingsCoherent(10.0, 5.0, 13.0, 5.0, 3.0));
+  // 俯仰差超出 → 不聚合。
+  EXPECT_FALSE(AreBearingsCoherent(10.0, 5.0, 10.0, 9.0, 3.0));
+}
+
+TEST(BearingClusterTest, BeamwidthClampedToMinimumFloor) {
+  // 零或负波束宽度被钳制到 1.0 度下限，避免退化为点匹配。
+  EXPECT_FALSE(AreBearingsCoherent(0.0, 0.0, 5.0, 0.0, 0.0));
+  EXPECT_TRUE(AreBearingsCoherent(0.0, 0.0, 0.5, 0.0, 0.0));
+}
+
+TEST(BearingClusterTest, AzimuthWrapAroundAcrossZeroBoundary) {
+  // 方位角跨 0°/360° 边界：359° 与 1° 实际只差 2°，应判为同方向（裸差会得 358°）。
+  EXPECT_TRUE(AreBearingsCoherent(359.0, 0.0, 1.0, 0.0, 4.0));
+  // 对称：1° 与 359° 同样判同方向。
+  EXPECT_TRUE(AreBearingsCoherent(1.0, 0.0, 359.0, 0.0, 4.0));
+}
+
+TEST(BearingClusterTest, AzimuthShortestDifferenceDeg) {
+  EXPECT_DOUBLE_EQ(AzimuthShortestDifferenceDeg(10.0, 10.0), 0.0);
+  EXPECT_DOUBLE_EQ(AzimuthShortestDifferenceDeg(359.0, 1.0), 2.0);
+  EXPECT_DOUBLE_EQ(AzimuthShortestDifferenceDeg(1.0, 359.0), 2.0);
+  EXPECT_DOUBLE_EQ(AzimuthShortestDifferenceDeg(90.0, 270.0), 180.0);
+  EXPECT_NEAR(AzimuthShortestDifferenceDeg(350.0, 10.0), 20.0, 1.0e-9);
+}
+
+TEST(CountCoherentNeighborsTest, SingleMemberReturnsOneIncludingSelf) {
+  const std::size_t count = CountCoherentNeighbors(
+      1U, [](std::size_t) { return true; }, [](std::size_t) { return 10.0; },
+      [](std::size_t) { return 5.0; }, 3.0, 0U);
+  EXPECT_EQ(count, 1U);
+}
+
+TEST(CountCoherentNeighborsTest, CountsOnlyMembersWithinBeamwidth) {
+  // 3 个元素，成员判定过滤掉 index 1；index 0 与 index 2 同方位，应计 2（含自身）。
+  auto is_member = [](std::size_t i) { return i != 1U; };
+  auto azimuth = [](std::size_t i) { return i == 0U ? 10.0 : 10.5; };
+  auto elevation = [](std::size_t) { return 0.0; };
+  const std::size_t count =
+      CountCoherentNeighbors(3U, is_member, azimuth, elevation, 3.0, 0U);
+  EXPECT_EQ(count, 2U);
+}
+
+TEST(CountCoherentNeighborsTest, AxisIndependenceDoesNotCrossCouple) {
+  // 两个元素：方位相近但俯仰远离 → 不应聚合。
+  auto azimuth = [](std::size_t) { return 10.0; };
+  auto elevation = [](std::size_t i) { return i == 0U ? 0.0 : 20.0; };
+  const std::size_t count =
+      CountCoherentNeighbors(2U, [](std::size_t) { return true; }, azimuth, elevation, 3.0, 0U);
+  EXPECT_EQ(count, 1U);
 }
 
 }  // namespace

@@ -14,8 +14,11 @@
 #include "1q/airborne_radar/session/ArTrackOutput.h"
 #include "1q/airborne_radar/session/DecisionControlTypes.h"
 #include "airborne_radar/decision/ControlReducer.h"
+#include "airborne_radar/decision/ControlReducerTypes.h"
 #include "airborne_radar/environment/IEnvironmentService.h"
+#include "airborne_radar/signal/detection/ArDeceptionMeasurementCandidate.h"
 #include "airborne_radar/signal/pipeline/ISignalPipeline.h"
+#include "airborne_radar/signal/pipeline/SignalCycleInput.h"
 
 namespace airborne_radar {
 namespace environment {
@@ -48,8 +51,8 @@ struct ArControllerRuntimeState {
   std::uint32_t pending_internal_cycle_index{0U};
   std::uint64_t pending_internal_batch_id{0U};
   std::vector<session::TacticalProposal> pending_internal_proposals{};
-  bool has_pending_external_decision{false};
-  session::ExternalDecisionResponse pending_external_decision{};
+  bool has_pending_external_override{false};
+  session::ExternalDecisionOverride pending_external_override{};
   bool has_latest_decision_observation{false};
   session::DecisionObservation latest_decision_observation{};
   session::DecisionControlSource last_applied_decision_source{
@@ -58,7 +61,6 @@ struct ArControllerRuntimeState {
   std::uint64_t last_applied_decision_batch_id{0U};
   std::vector<session::TacticalProposal> last_applied_decision_proposals{};
   bool control_prepared_for_cycle{false};
-  session::ArInterferenceObservationList prepared_interference_observations{};
 };
 }  // namespace extension
 }  // namespace airborne_radar
@@ -88,22 +90,18 @@ class ArController {
   /** @brief 原子更新后续成功周期使用的控制保持/冷却配置。 */
   void UpdateDecisionControlConfig(const config::DecisionControlConfig& decision_control_config);
 
-  /** @brief 执行一次 AR 处理循环 */
-  void RunOnce();
+  /**
+   * @brief 执行一次 AR 处理循环。
+   * @param[in] cycle_input 本周期输入结构体（捆绑 scene_targets、RF v2 detection 上下文、
+   *                         干扰观测与欺骗候选量测）。
+   */
+  void RunOnce(const signal::pipeline::SignalCycleInput& cycle_input);
 
   /**
    * @brief 在发射发布前消费上一成功周期的待决策并冻结本周期控制真值。
    * @return 本周期首次冻结返回 true；重复调用返回 false。
    */
   bool PrepareEmissionControl();
-
-  /**
-   * @brief 写入当前已准备周期的去真值化干扰观测。
-   * @param[in] observations Complete 阶段由接收机链路生成的观测列表。
-   * @return 全部观测有效并原子替换成功时返回 true。
-   */
-  bool SetPreparedInterferenceObservations(
-      const session::ArInterferenceObservationList& observations);
 
   /** @brief 在 Abandon 后释放控制冻结标记，不回滚已消费的控制真值。 */
   void ReleasePreparedEmissionControl();
@@ -165,16 +163,14 @@ class ArController {
   /** @brief 当前是否存在可供外部模块响应的决策观测。 */
   bool HasLatestDecisionObservation() const;
 
-  /** @brief 提交与最新决策观测匹配的外部 LPI/ECCM 响应。 */
+  /** @brief 提交外部 profile 覆盖（整包替换值，绕过 TacticalProposal 管线与 hold/cooldown）。 */
   session::ExternalDecisionSubmitStatus SubmitExternalDecision(
-      const session::ExternalDecisionResponse& response);
+      session::ExternalDecisionOverride override_decision);
 
   session::DecisionControlSource GetLastAppliedDecisionSource() const;
   std::uint32_t GetLastAppliedDecisionCycleIndex() const;
   std::uint64_t GetLastAppliedDecisionBatchId() const;
   const std::vector<session::TacticalProposal>& GetLastAppliedDecisionProposals() const;
-  bool HasPendingExternalDecision() const;
-  const session::ExternalDecisionResponse& GetPendingExternalDecision() const;
 
   /**
    * @brief 捕获当前控制器运行态快照。

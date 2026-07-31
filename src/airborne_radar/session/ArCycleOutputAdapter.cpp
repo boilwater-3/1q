@@ -11,11 +11,12 @@ bool ArCycleOutputAdapter::Build(const ArExternalPoseInput& platform,
   }
 
   oneq::coordinate::LocalFrameReference reference;
-  oneq::foundation::PoseState platform_pose;
-  if (!TryMakeArPoseFromExternalKinematics(platform, &reference, &platform_pose)) {
+  oneq::foundation::Vector3f radar_local_velocity;
+  const oneq::coordinate::EulerAnglesDeg zero_mount{};
+  if (!TryMakeArPoseFromExternalKinematics(platform, zero_mount, &reference, &radar_local_velocity)) {
     return false;
   }
-  return Build(reference, platform_pose.velocity_mps, frame, output);
+  return Build(reference, radar_local_velocity, frame, output);
 }
 
 bool ArCycleOutputAdapter::Build(const oneq::coordinate::LocalFrameReference& reference,

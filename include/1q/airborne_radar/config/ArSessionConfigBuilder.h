@@ -22,6 +22,12 @@ namespace config {
  * 波束方向与扫描状态（mission.orientation）及环境细项由
  * ArSessionConfig 直接编辑。
  *
+ * @warning 当某个编辑器（Detection/Tracking/Lifecycle）被进入时，
+ *   Build() 会将该域**重置为语义默认值**后再应用 profile。
+ *   这意味着 base_config_ 中该域的先前细粒度设置会丢失。
+ *   如果需要在 profile 基础上进行细粒度调整，请在 Build() 后直接修改
+ *   返回的 ArSessionConfig 的对应字段。
+ *
  * @note 推荐路径：
  * - 会话初始化优先使用本构造器表达高层语义输入；
  * - 运行期热更新统一使用 `ArRuntimeConfigBuilder`；
@@ -74,6 +80,10 @@ class ONEQ_API ArSessionConfigBuilder {
 
   /**
    * @brief 将语义档位翻译为四域配置，生成最终会话配置。
+   *
+   * 仅对标记了 dirty flag 的域执行重置+重翻译；未标记的域保留 base_config_ 原值。
+   * 标记了 dirty flag 的域会被先重置为语义默认值，再应用 profile 翻译结果。
+   *
    * @return 构建完成的 `config::ArSessionConfig`（hardware/mission/policy/environment）。
    */
   config::ArSessionConfig Build() const;

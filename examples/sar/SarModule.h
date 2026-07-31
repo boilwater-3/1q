@@ -311,7 +311,6 @@ class SarModule {
        << "," << mission_scene_center_longitude_deg_
        << "] alt=" << mission_scene_center_altitude_m_
        << "\n  slant_range_m=" << mission_nominal_slant_range_m_
-       << " aperture_time_s=" << mission_synthetic_aperture_time_s_
        << " speed_mps=" << mission_platform_speed_mps_
        << "\n  range_samples=" << mission_range_sample_count_
        << " azimuth_pulses=" << mission_azimuth_pulse_count_
@@ -319,7 +318,6 @@ class SarModule {
        << "," << mission_desired_azimuth_resolution_m_ << "]"
        << "\n[Policy]\n"
        << "  raw_echo=" << policy_enable_raw_echo_generation_
-       << " range_comp=" << policy_enable_range_compression_
        << " l1_rda=" << policy_enable_l1_rda_imaging_
        << " l2_moco=" << policy_enable_l2_motion_compensation_
        << " l3_bp=" << policy_enable_l3_bp_imaging_
@@ -367,7 +365,6 @@ class SarModule {
     mission_scene_center_longitude_deg_ = static_cast<double>(mission.scene_center_longitude_deg);
     mission_scene_center_altitude_m_ = static_cast<double>(mission.scene_center_altitude_m);
     mission_nominal_slant_range_m_ = static_cast<double>(mission.nominal_slant_range_m);
-    mission_synthetic_aperture_time_s_ = static_cast<double>(mission.synthetic_aperture_time_s);
     mission_platform_speed_mps_ = static_cast<double>(mission.platform_speed_mps);
     mission_range_sample_count_ = static_cast<std::uint32_t>(mission.range_sample_count);
     mission_azimuth_pulse_count_ = static_cast<std::uint32_t>(mission.azimuth_pulse_count);
@@ -386,7 +383,6 @@ class SarModule {
     // ---- 策略域 (Policy) ----
     const auto& policy = config.policy;
     policy_enable_raw_echo_generation_ = policy.enable_raw_echo_generation;
-    policy_enable_range_compression_ = policy.enable_range_compression;
     policy_enable_l1_rda_imaging_ = policy.enable_l1_rda_imaging;
     policy_enable_l2_motion_compensation_ = policy.enable_l2_motion_compensation;
     policy_enable_l3_bp_imaging_ = policy.enable_l3_bp_imaging;
@@ -423,7 +419,6 @@ class SarModule {
   /// 判断补丁中是否至少有一个字段被设置。
   static bool hasAnyPatch(const sar_config::SarRuntimeConfigPatch& patch) {
     return patch.has_enable_raw_echo_generation ||
-           patch.has_enable_range_compression ||
            patch.has_enable_l1_rda_imaging ||
            patch.has_retain_raw_phase_history ||
            patch.has_retain_focused_image ||
@@ -468,7 +463,6 @@ class SarModule {
   double mission_scene_center_longitude_deg_{0.0};
   double mission_scene_center_altitude_m_{0.0};
   double mission_nominal_slant_range_m_{0.0};
-  double mission_synthetic_aperture_time_s_{0.0};
   double mission_platform_speed_mps_{0.0};
   std::uint32_t mission_range_sample_count_{0U};
   std::uint32_t mission_azimuth_pulse_count_{0U};
@@ -481,7 +475,6 @@ class SarModule {
 
   // -- 策略域 (Policy) --
   bool policy_enable_raw_echo_generation_{true};
-  bool policy_enable_range_compression_{true};
   bool policy_enable_l1_rda_imaging_{false};
   bool policy_enable_l2_motion_compensation_{false};
   bool policy_enable_l3_bp_imaging_{false};

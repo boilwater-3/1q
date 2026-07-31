@@ -73,7 +73,7 @@ TEST(EosReplaySessionTest, ReplayEosTraceRoundtrip) {
 
     EosCycleInput input;
     input.cycle_index = 1U;
-    input.dt_sec = 1.0f;
+    input.dt_sec = 0.1f;  // 合法步长：受 53c56e21 收紧的 dt_sec <= 10/frame_rate_hz 上界约束（30Hz → ≈0.333s）。
 
     const EosCycleResult result = session.StepWithResult(input);
     EXPECT_GE(result.output_frame.detections.size(), 0U);
@@ -108,7 +108,7 @@ TEST(EosReplaySessionTest, ReplayInitialPoweredOffTraceRoundtrip) {
 
     EosCycleInput input;
     input.cycle_index = 1U;
-    input.dt_sec = 1.0f;
+    input.dt_sec = 0.1f;  // 合法步长：受 53c56e21 收紧的 dt_sec <= 10/frame_rate_hz 上界约束（30Hz → ≈0.333s）。
     const EosCycleResult result = session.StepWithResult(input);
     EXPECT_FALSE(result.executed_this_cycle);
     EXPECT_EQ(result.abort_reason, EosPipelineAbortReason::kSensorPoweredOff);
@@ -139,7 +139,7 @@ TEST(EosReplaySessionTest, ReplayEosTraceDetectsDivergence) {
     config::EosSessionConfig config;
     EosCycleInput input;
     input.cycle_index = 1U;
-    input.dt_sec = 1.0f;
+    input.dt_sec = 0.1f;  // 合法步长：受 53c56e21 收紧的 dt_sec <= 10/frame_rate_hz 上界约束（30Hz → ≈0.333s）。
 
     EosCycleResult tampered_result;
     tampered_result.input_cycle_index = input.cycle_index;
@@ -226,7 +226,7 @@ TEST(EosReplaySessionTest, ReplayEosTraceContinuesAfterFailureMarker) {
 
     EosCycleInput input;
     input.cycle_index = 1U;
-    input.dt_sec = 1.0f;
+    input.dt_sec = 0.1f;  // 合法步长：受 53c56e21 收紧的 dt_sec <= 10/frame_rate_hz 上界约束（30Hz → ≈0.333s）。
     session.StepWithResult(input);
 
     oneq::replay::ReplayTraceFailure failure;
@@ -273,7 +273,7 @@ TEST(EosReplaySessionTest, ReplayEosTraceRejectsTrailingCycleInput) {
 
   EosCycleInput input;
   input.cycle_index = 3U;
-  input.dt_sec = 1.0f;
+  input.dt_sec = 0.1f;  // 合法步长：受 53c56e21 收紧的 dt_sec <= 10/frame_rate_hz 上界约束（30Hz → ≈0.333s）。
   oneq::replay::ReplayTraceEvent input_event;
   input_event.module = "electro_optical_sensor";
   input_event.event_type = "cycle_input";

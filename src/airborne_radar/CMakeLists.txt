@@ -14,6 +14,7 @@ set(AIRBORNE_ENGINE_SOURCES
     signal/pipeline/ControlProfileEffects.cpp
     signal/pipeline/CycleContextSupport.cpp
     signal/pipeline/CycleExecutor.cpp
+    signal/pipeline/DeceptionMeasurementGenerator.cpp
     signal/pipeline/DecisionFrameBuilders.cpp
     signal/pipeline/DetectionExecution.cpp
     signal/pipeline/ImmMatrixDefaults.cpp
@@ -54,6 +55,8 @@ set(AIRBORNE_CORE_SOURCES
     session/ArSessionConfigBuilder.cpp
     session/ArReplaySession.cpp
     session/ArSession.cpp
+    session/ArEmissionFactory.cpp
+    session/ArReceiverStateBuilder.cpp
     environment/FeatureRepository.cpp
     environment/EnvironmentService.cpp
     environment/SceneManager.cpp

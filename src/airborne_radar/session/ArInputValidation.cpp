@@ -22,24 +22,6 @@ ValidationIssue MakeIssue(ValidationSeverity severity, ValidationCode code,
       severity, code, location_kind, entity_index, field, message);
 }
 
-void ValidateEnvironmentInput(const ArEnvironmentInput& environment,
-                              ValidationIssueList* issues) {
-  if (issues == nullptr) {
-    return;
-  }
-  const config::AtmosphericPhysicsConfig& atmosphere = environment.atmospheric_observation;
-  if (!IsFinite(atmosphere.pressure_hpa) || !IsFinite(atmosphere.temperature_k) ||
-      !IsFinite(atmosphere.relative_humidity) || atmosphere.pressure_hpa <= 0.0f ||
-      atmosphere.temperature_k <= 0.0f ||
-      !oneq::common::validation::IsRatio01(atmosphere.relative_humidity)) {
-    issues->push_back(MakeIssue(
-        ValidationSeverity::kError, ValidationCode::kInvalidEnvironmentObservation,
-        ValidationLocationKind::kEnvironment, static_cast<std::size_t>(-1),
-        "environment.atmospheric_observation",
-        "atmospheric observation requires positive pressure/temperature and humidity in [0, 1]"));
-  }
-}
-
 bool FrameMatchesCycle(const ArCycleInput& input) {
   if (input.interference.emissions.empty()) {
     return true;
@@ -121,13 +103,14 @@ ValidationIssueList ValidateArCycleInput(const ArCycleInput& input) {
   }
 
   oneq::coordinate::LocalFrameReference reference;
-  oneq::foundation::PoseState platform_pose;
+  oneq::foundation::Vector3f radar_local_velocity;
+  const oneq::coordinate::EulerAnglesDeg zero_mount{};
   if (input.platform.platform_entity_id == 0U ||
       !oneq::coordinate::IsFinite(input.platform.platform_position_ecef_m) ||
       !oneq::coordinate::IsFinite(input.platform.platform_velocity_mps) ||
       !oneq::coordinate::IsFinite(input.platform.platform_attitude_deg) ||
-      !oneq::coordinate::IsFinite(input.platform.radar_mount_angles_deg) ||
-      !TryMakeArPoseFromExternalKinematics(input.platform, &reference, &platform_pose)) {
+      !TryMakeArPoseFromExternalKinematics(input.platform, zero_mount, &reference,
+                                            &radar_local_velocity)) {
     issues.push_back(MakeIssue(ValidationSeverity::kError,
                                ValidationCode::kInvalidPlatformInput,
                                ValidationLocationKind::kPlatform,
@@ -139,7 +122,7 @@ ValidationIssueList ValidateArCycleInput(const ArCycleInput& input) {
       const ArTargetInput& target = input.targets[index];
       ArSceneTarget local_target;
       if (!TryMakeArTargetFromExternalKinematics(target, reference,
-                                                 platform_pose.velocity_mps,
+                                                 radar_local_velocity,
                                                  &local_target)) {
         issues.push_back(MakeIssue(ValidationSeverity::kError,
                                    ValidationCode::kInvalidTargetInput,
@@ -167,7 +150,6 @@ ValidationIssueList ValidateArCycleInput(const ArCycleInput& input) {
     }
   }
 
-  ValidateEnvironmentInput(input.environment, &issues);
   if (!FrameMatchesCycle(input)) {
     issues.push_back(MakeIssue(ValidationSeverity::kError,
                                ValidationCode::kInterferenceFrameMismatch,

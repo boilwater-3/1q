@@ -101,9 +101,9 @@ class ONEQ_API ArSession {
    */
   bool TryApplyRuntimeConfig(const config::ArRuntimeConfigPatch& patch);
 
-  /** @brief 提交与最近成功周期观测匹配的外部 LPI/ECCM 决策。 */
+  /** @brief 提交外部 profile 覆盖（整包替换值，绕过 TacticalProposal 管线与 hold/cooldown）。 */
   session::ExternalDecisionSubmitStatus SubmitExternalDecision(
-      const session::ExternalDecisionResponse& response);
+      session::ExternalDecisionOverride override_decision);
 
   /** @brief 使用四域配置创建会话（推荐入口，信任路径，不做配置校验）。 */
   static ArSession Create(const config::ArSessionConfig& config = {});

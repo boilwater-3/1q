@@ -223,25 +223,11 @@ oneq::electromagnetics::RfEmissionFrame FromRfSceneFrame(
 std::string EncodeEsrCycleInput(const EsrCycleInput& v) {
   flatbuffers::FlatBufferBuilder fbb(1024);
 
-  const auto& env = v.environment;
-  // EsrAtmosphericObservation is a FlatBuffers table, use Create helper
-  auto atm = esr::replay::CreateEsrAtmosphericObservation(
-      fbb, env.atmospheric_observation.relative_humidity_ratio,
-      env.atmospheric_observation.precipitation_rate_mmph,
-      env.atmospheric_observation.visibility_km);
-  esr::replay::EsrEnvironmentInputBuilder env_builder(fbb);
-  env_builder.add_propagation_profile(static_cast<int32_t>(env.propagation_profile));
-  env_builder.add_clutter_density(static_cast<int32_t>(env.clutter_density));
-  env_builder.add_spectrum_occupancy_ratio(env.spectrum_occupancy_ratio);
-  env_builder.add_atmospheric_observation(atm);
-  auto env_fb = env_builder.Finish();
-
   const flatbuffers::Offset<esr::replay::RfSceneFrame> rf_emissions =
       BuildRfSceneFrame(fbb, v.rf_emissions);
   esr::replay::EsrCycleInputBuilder b(fbb);
   b.add_cycle_index(v.cycle_index);
   b.add_dt_sec(v.dt_sec);
-  b.add_environment(env_fb);
   esr::replay::Vec3 platform_position_ecef = ToV(v.platform_position_ecef_m);
   esr::replay::Vec3 platform_velocity_ecef = ToV(v.platform_velocity_ecef_mps);
   b.add_platform_entity_id(v.platform_entity_id);
@@ -282,23 +268,6 @@ bool DecodeEsrCycleInput(const std::string& bytes, EsrCycleInput* out) {
     out->platform_attitude_deg.yaw_deg = fb->platform_attitude_deg()->yaw_deg();
     out->platform_attitude_deg.pitch_deg = fb->platform_attitude_deg()->pitch_deg();
     out->platform_attitude_deg.roll_deg = fb->platform_attitude_deg()->roll_deg();
-  }
-  out->environment = {};
-  if (fb->environment()) {
-    const auto* e = fb->environment();
-    out->environment.propagation_profile =
-        static_cast<EsrPropagationEnvironmentProfile>(e->propagation_profile());
-    out->environment.clutter_density =
-        static_cast<EsrClutterDensityLevel>(e->clutter_density());
-    out->environment.spectrum_occupancy_ratio = e->spectrum_occupancy_ratio();
-    if (e->atmospheric_observation()) {
-      out->environment.atmospheric_observation.relative_humidity_ratio =
-          e->atmospheric_observation()->relative_humidity_ratio();
-      out->environment.atmospheric_observation.precipitation_rate_mmph =
-          e->atmospheric_observation()->precipitation_rate_mmph();
-      out->environment.atmospheric_observation.visibility_km =
-          e->atmospheric_observation()->visibility_km();
-    }
   }
   return true;
 }
@@ -609,7 +578,17 @@ std::string EncodeEsrSessionConfig(const config::EsrSessionConfig& v) {
   auto ap = esr::replay::CreateEsrAtmosphericPhysicsConfig(
       fbb, es.atmospheric_physics.enable_physical_model, es.atmospheric_physics.pressure_hpa,
       es.atmospheric_physics.temperature_k, es.atmospheric_physics.relative_humidity);
-  auto env = esr::replay::CreateEsrEnvironmentConfig(fbb, static_cast<int32_t>(es.preset), ap);
+  auto atm_obs = esr::replay::CreateEsrAtmosphericObservation(
+      fbb, es.atmospheric_observation.precipitation_rate_mmph,
+      es.atmospheric_observation.visibility_km);
+  esr::replay::EsrEnvironmentConfigBuilder env_builder(fbb);
+  env_builder.add_preset(static_cast<int32_t>(es.preset));
+  env_builder.add_atmospheric_physics(ap);
+  env_builder.add_propagation_profile(static_cast<int32_t>(es.propagation_profile));
+  env_builder.add_clutter_density(static_cast<int32_t>(es.clutter_density));
+  env_builder.add_spectrum_occupancy_ratio(es.spectrum_occupancy_ratio);
+  env_builder.add_atmospheric_observation(atm_obs);
+  auto env = env_builder.Finish();
   fbb.Finish(esr::replay::CreateEsrSessionConfig(fbb, hw, mission, policy, env));
   return oneq::common::replay::CopyFinishedFlatbuffer(fbb);
 }
@@ -709,6 +688,17 @@ bool DecodeEsrSessionConfig(const std::string& bytes, config::EsrSessionConfig* 
       out->environment.scenario_config.atmospheric_physics.relative_humidity =
           ap->relative_humidity();
     }
+    out->environment.scenario_config.propagation_profile =
+        static_cast<config::EsrPropagationEnvironmentProfile>(e->propagation_profile());
+    out->environment.scenario_config.clutter_density =
+        static_cast<config::EsrClutterDensityLevel>(e->clutter_density());
+    out->environment.scenario_config.spectrum_occupancy_ratio = e->spectrum_occupancy_ratio();
+    if (e->atmospheric_observation()) {
+      const auto* ao = e->atmospheric_observation();
+      out->environment.scenario_config.atmospheric_observation.precipitation_rate_mmph =
+          ao->precipitation_rate_mmph();
+      out->environment.scenario_config.atmospheric_observation.visibility_km = ao->visibility_km();
+    }
   }
   if (!config::ValidateEsrSessionConfig(candidate).empty()) {
     return false;
@@ -723,8 +713,21 @@ std::string EncodeEsrRuntimeConfigPatch(const config::EsrRuntimeConfigPatch& v) 
   auto ap = esr::replay::CreateEsrAtmosphericPhysicsConfig(
       fbb, ev.atmospheric_physics.enable_physical_model, ev.atmospheric_physics.pressure_hpa,
       ev.atmospheric_physics.temperature_k, ev.atmospheric_physics.relative_humidity);
-  auto env_patch = esr::replay::CreateEsrEnvironmentRuntimeConfigPatch(
-      fbb, ev.has_atmospheric_physics, ap);
+  auto atm_obs = esr::replay::CreateEsrAtmosphericObservation(
+      fbb, ev.atmospheric_observation.precipitation_rate_mmph,
+      ev.atmospheric_observation.visibility_km);
+  esr::replay::EsrEnvironmentRuntimeConfigPatchBuilder env_patch_builder(fbb);
+  env_patch_builder.add_has_atmospheric_physics(ev.has_atmospheric_physics);
+  env_patch_builder.add_atmospheric_physics(ap);
+  env_patch_builder.add_has_propagation_profile(ev.has_propagation_profile);
+  env_patch_builder.add_propagation_profile(static_cast<int32_t>(ev.propagation_profile));
+  env_patch_builder.add_has_clutter_density(ev.has_clutter_density);
+  env_patch_builder.add_clutter_density(static_cast<int32_t>(ev.clutter_density));
+  env_patch_builder.add_has_spectrum_occupancy_ratio(ev.has_spectrum_occupancy_ratio);
+  env_patch_builder.add_spectrum_occupancy_ratio(ev.spectrum_occupancy_ratio);
+  env_patch_builder.add_has_atmospheric_observation(ev.has_atmospheric_observation);
+  env_patch_builder.add_atmospheric_observation(atm_obs);
+  auto env_patch = env_patch_builder.Finish();
   flatbuffers::Offset<esr::replay::EsrMissionConfig> mission;
   if (v.has_mission) {
     const auto& sc = v.mission.scan;
@@ -833,6 +836,21 @@ bool DecodeEsrRuntimeConfigPatch(const std::string& bytes, config::EsrRuntimeCon
           ec->atmospheric_physics()->temperature_k();
       out->environment.atmospheric_physics.relative_humidity =
           ec->atmospheric_physics()->relative_humidity();
+    }
+    out->environment.has_propagation_profile = ec->has_propagation_profile();
+    out->environment.propagation_profile =
+        static_cast<config::EsrPropagationEnvironmentProfile>(ec->propagation_profile());
+    out->environment.has_clutter_density = ec->has_clutter_density();
+    out->environment.clutter_density =
+        static_cast<config::EsrClutterDensityLevel>(ec->clutter_density());
+    out->environment.has_spectrum_occupancy_ratio = ec->has_spectrum_occupancy_ratio();
+    out->environment.spectrum_occupancy_ratio = ec->spectrum_occupancy_ratio();
+    out->environment.has_atmospheric_observation = ec->has_atmospheric_observation();
+    if (ec->atmospheric_observation()) {
+      const auto* ao = ec->atmospheric_observation();
+      out->environment.atmospheric_observation.precipitation_rate_mmph =
+          ao->precipitation_rate_mmph();
+      out->environment.atmospheric_observation.visibility_km = ao->visibility_km();
     }
   }
   if (!IsValidRuntimePatchPayload(candidate)) {

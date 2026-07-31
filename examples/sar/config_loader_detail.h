@@ -51,7 +51,6 @@ inline void LoadSarMission(const examples::JsonValue& j,
   v->scene_center_longitude_deg = j["scene_center_longitude_deg"].AsDouble();
   v->scene_center_altitude_m = j["scene_center_altitude_m"].AsDouble();
   v->nominal_slant_range_m = j["nominal_slant_range_m"].AsDouble();
-  v->synthetic_aperture_time_s = j["synthetic_aperture_time_s"].AsDouble();
   v->platform_speed_mps = j["platform_speed_mps"].AsDouble();
   v->range_sample_count =
       static_cast<std::uint32_t>(j["range_sample_count"].AsInt());
@@ -78,7 +77,6 @@ inline void LoadSarProcessing(const examples::JsonValue& j,
                               sar::config::SarPolicyConfig* v) {
   if (j.IsNull()) return;
   v->enable_raw_echo_generation = j["enable_raw_echo_generation"].AsBool();
-  v->enable_range_compression = j["enable_range_compression"].AsBool();
   v->enable_l1_rda_imaging = j["enable_l1_rda_imaging"].AsBool();
   v->enable_l2_motion_compensation = j["enable_l2_motion_compensation"].AsBool();
   v->enable_l3_bp_imaging = j["enable_l3_bp_imaging"].AsBool();

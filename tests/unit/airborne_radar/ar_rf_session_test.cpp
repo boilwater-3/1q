@@ -3,7 +3,8 @@
 #include "1q/airborne_radar/config/ArRuntimeConfigBuilder.h"
 #include "1q/airborne_radar/config/ArSessionConfigBuilder.h"
 #include "1q/airborne_radar/session/ArSession.h"
-#include "1q/airborne_radar/session/ControlDirective.h"
+#include "airborne_radar/session/ArReplayCycleRecord.h"
+
 #include "1q/coordinate/position_transform.h"
 
 namespace airborne_radar {
@@ -108,17 +109,12 @@ TEST(ArRfSessionTest, ExternalAgilityDecisionChangesNextActualCarrier) {
   ArSession radar = ArSession::Create(config);
   const ArCycleResult first = radar.StepWithResult(MakeInput(1U, 0.0));
   ASSERT_EQ(first.status, ArCycleStatus::kCompleted);
-  ASSERT_TRUE(first.has_decision_observation);
 
-  ExternalDecisionResponse response;
-  response.source_cycle_index =
-      first.decision_observation.input_frame.cycle_index;
-  response.source_batch_id = first.decision_observation.input_frame.batch_id;
-  response.proposals.push_back(TacticalProposal{
-      ControlDirective(ControlDirectiveType::REQUEST_AGILITY_FREQUENCY,
-                       ControlDirectiveSource::SURVIVABILITY),
-      90, "agility"});
-  ASSERT_EQ(radar.SubmitExternalDecision(response),
+  ExternalDecisionOverride override_decision;
+  ArControlProfile profile;
+  profile.enable_agility_frequency = true;
+  override_decision.profile = profile;
+  ASSERT_EQ(radar.SubmitExternalDecision(std::move(override_decision)),
             ExternalDecisionSubmitStatus::kAccepted);
 
   const ArCycleResult second = radar.StepWithResult(MakeInput(2U, 0.5));
@@ -135,16 +131,13 @@ TEST(ArRfSessionTest, ReceiveRejectionCommitsEmissionIdentityChronologyAndApplie
   ArSession radar = ArSession::Create(config);
   const ArCycleResult first = radar.StepWithResult(MakeInput(1U, 0.0));
   ASSERT_EQ(first.status, ArCycleStatus::kCompleted);
-  ASSERT_TRUE(first.has_decision_observation);
 
-  ExternalDecisionResponse response;
-  response.source_cycle_index = first.decision_observation.input_frame.cycle_index;
-  response.source_batch_id = first.decision_observation.input_frame.batch_id;
-  response.proposals.push_back(
-      TacticalProposal{ControlDirective(ControlDirectiveType::REQUEST_AGILITY_FREQUENCY,
-                                        ControlDirectiveSource::SURVIVABILITY),
-                       90, "agility"});
-  ASSERT_EQ(radar.SubmitExternalDecision(response), ExternalDecisionSubmitStatus::kAccepted);
+  ExternalDecisionOverride override_decision;
+  ArControlProfile profile;
+  profile.enable_agility_frequency = true;
+  override_decision.profile = profile;
+  ASSERT_EQ(radar.SubmitExternalDecision(std::move(override_decision)),
+            ExternalDecisionSubmitStatus::kAccepted);
 
   ArCycleInput rejected_input = MakeInput(2U, 0.5);
   AddUnconfiguredCoSiteInterference(&rejected_input);
@@ -155,6 +148,8 @@ TEST(ArRfSessionTest, ReceiveRejectionCommitsEmissionIdentityChronologyAndApplie
   EXPECT_DOUBLE_EQ(rejected.emission_frame.emissions.front().waveform.center_frequency_hz, 3.1e9);
   EXPECT_EQ(rejected.applied_decision_source, DecisionControlSource::kExternal);
 
+  // Override was consumed during PrepareEmissionControl of cycle 2.
+  // Recovery cycle has no pending override, so native decisions apply (no agility).
   const ArCycleResult next = radar.StepWithResult(MakeInput(3U, 1.0));
   ASSERT_EQ(next.status, ArCycleStatus::kCompleted);
   ASSERT_EQ(next.emission_frame.emissions.size(), 1U);
@@ -166,23 +161,52 @@ TEST(ArRfSessionTest, EccmSidelobeControlsKeepNextReceiverPatternValid) {
   ArSession radar = ArSession::Create(MakeRfConfig());
   const ArCycleResult first = radar.StepWithResult(MakeInput(1U, 0.0));
   ASSERT_EQ(first.status, ArCycleStatus::kCompleted);
-  ASSERT_TRUE(first.has_decision_observation);
 
-  ExternalDecisionResponse response;
-  response.source_cycle_index = first.decision_observation.input_frame.cycle_index;
-  response.source_batch_id = first.decision_observation.input_frame.batch_id;
-  response.proposals.push_back(
-      TacticalProposal{ControlDirective(ControlDirectiveType::REQUEST_ENABLE_SIDELOBE_CANCELLER,
-                                        ControlDirectiveSource::SURVIVABILITY),
-                       90, "sidelobe-canceller"});
-  response.proposals.push_back(
-      TacticalProposal{ControlDirective(ControlDirectiveType::REQUEST_ENABLE_ADAPTIVE_BEAMFORMING,
-                                        ControlDirectiveSource::SURVIVABILITY),
-                       80, "adaptive-beamforming"});
-  ASSERT_EQ(radar.SubmitExternalDecision(response), ExternalDecisionSubmitStatus::kAccepted);
+  ExternalDecisionOverride override_decision;
+  ArControlProfile profile;
+  profile.enable_sidelobe_canceller = true;
+  profile.enable_adaptive_beamforming = true;
+  override_decision.profile = profile;
+  ASSERT_EQ(radar.SubmitExternalDecision(std::move(override_decision)),
+            ExternalDecisionSubmitStatus::kAccepted);
 
   const ArCycleResult second = radar.StepWithResult(MakeInput(2U, 0.5));
   EXPECT_EQ(second.status, ArCycleStatus::kCompleted);
+}
+
+// 旁瓣对消 directive 与发射天线方向图的关系（C1 架构固化）：
+// REQUEST_ENABLE_SIDELOBE_CANCELLER 经 ControlProfileEffects 只作用于 SignalPipeline 的
+// 内部 detector runtime config（max_sidelobe_level_db -= sidelobe_level_reduction_db）。
+// ArSession 的发射构造读取的是未经 ControlProfileEffects 处理的 base detection 工程配置
+// （detection.antenna.pattern.max_sidelobe_level_db），故公开 emission_frame 的旁瓣电平
+// 不随该 directive 变化；ArSession 的 receiver_state 则另走一套独立常量（12.0 dB）。
+// 这正是 C1「两个消费者代表两个物理面（对内 detector vs 对外 RF 场景）」的可观测证据——
+// 固化此现状，防止未来把两套消费者误并为单一权威而改变公开 emission 契约。
+TEST(ArRfSessionTest, SidelobeCancellerLeavesPublishedEmissionSidelobeUnchanged) {
+  config::ArSessionConfig config;
+  config.hardware.transmitter.frequency_plan_hz = {3.0e9};
+  ArSession radar = ArSession::Create(config);
+  const ArCycleResult first = radar.StepWithResult(MakeInput(1U, 0.0));
+  ASSERT_EQ(first.status, ArCycleStatus::kCompleted);
+  ASSERT_EQ(first.emission_frame.emissions.size(), 1U);
+  const double baseline_sidelobe_db =
+      first.emission_frame.emissions.front().antenna.sidelobe_level_db;
+
+  ExternalDecisionOverride override_decision;
+  ArControlProfile profile;
+  profile.enable_sidelobe_canceller = true;
+  override_decision.profile = profile;
+  ASSERT_EQ(radar.SubmitExternalDecision(std::move(override_decision)),
+            ExternalDecisionSubmitStatus::kAccepted);
+
+  const ArCycleResult second = radar.StepWithResult(MakeInput(2U, 0.5));
+  ASSERT_EQ(second.status, ArCycleStatus::kCompleted);
+  ASSERT_EQ(second.emission_frame.emissions.size(), 1U);
+  const double controlled_sidelobe_db =
+      second.emission_frame.emissions.front().antenna.sidelobe_level_db;
+  // 发射方向图旁瓣读取自 base detection 工程配置，不经 ControlProfileEffects，
+  // 故 directive 生效后公开 emission 旁瓣电平保持不变（C1 两面物理事实）。
+  EXPECT_DOUBLE_EQ(controlled_sidelobe_db, baseline_sidelobe_db);
 }
 
 TEST(ArRfSessionTest, InertialStabilizationKeepsActualEcefBoresightFixed) {
@@ -273,6 +297,49 @@ TEST(ArRfSessionTest, PoweredOffCycleDoesNotConsumeEmissionIdentity) {
   ASSERT_EQ(on.status, ArCycleStatus::kCompleted);
   ASSERT_EQ(on.emission_frame.emissions.size(), 1U);
   EXPECT_EQ(on.emission_frame.emissions.front().identity.emission_id, 1U);
+}
+
+// RunCycle 事务不变量：当 PrepareRfCycle 在进入事务区后失败时，restore_user_cycle
+// 必须把会话逐字段回滚到周期开始前——既不预扣 emission ID / token / prepare 计数，
+// 也不推进编年史或频率跳频。
+// 触发点：第一个周期成功（start=0.0, dt=0.5 → last_window_end=0.5）后，第二个周期
+// 用回退的 window_start_time（0.25 < 0.5），命中 PrepareRfCycle 的编年史守护，
+// 经 restore_user_cycle() 返回 kRejectedInvalidConfig。
+TEST(ArRfSessionTest, PrepareFailureLeavesSessionStateUnchanged) {
+  ArSession radar = ArSession::Create();
+  ASSERT_EQ(radar.StepWithResult(MakeInput(1U, 0.0)).status, ArCycleStatus::kCompleted);
+
+  const ArSessionReplayState before = ArSessionReplayAccess::CaptureSessionState(radar);
+  ASSERT_TRUE(before.has_world_chronology);
+  ASSERT_GT(before.next_emission_id, 1U);
+  ASSERT_GT(before.successful_prepare_count, 0U);
+
+  // 回退的起始时间触发 PrepareRfCycle 编年史拒绝（事务快照之后的失败路径）。
+  const ArCycleResult rejected = radar.StepWithResult(MakeInput(2U, 0.25));
+  EXPECT_EQ(rejected.status, ArCycleStatus::kRejectedInvalidConfig);
+  EXPECT_TRUE(rejected.track_output_frame.tracks.empty());
+  EXPECT_TRUE(rejected.emission_frame.emissions.empty());
+
+  // 事务不变量：会话逐字段不变。
+  const ArSessionReplayState after = ArSessionReplayAccess::CaptureSessionState(radar);
+  EXPECT_EQ(after.has_world_chronology, before.has_world_chronology);
+  EXPECT_DOUBLE_EQ(after.last_world_window_end_s, before.last_world_window_end_s);
+  EXPECT_EQ(after.next_emission_id, before.next_emission_id)
+      << "emission ID 不得在 prepare 失败时被预留";
+  EXPECT_EQ(after.successful_prepare_count, before.successful_prepare_count);
+  EXPECT_EQ(after.frequency_hop_index, before.frequency_hop_index);
+  EXPECT_EQ(after.has_pending_runtime_update, before.has_pending_runtime_update);
+  EXPECT_EQ(after.pending_execution_config_changed, before.pending_execution_config_changed);
+  EXPECT_EQ(after.pending_environment_scenario_config_changed,
+           before.pending_environment_scenario_config_changed);
+  EXPECT_EQ(after.decision_state.applied_decision_source,
+            before.decision_state.applied_decision_source);
+  EXPECT_EQ(after.decision_state.applied_decision_cycle_index,
+            before.decision_state.applied_decision_cycle_index);
+
+  // 后续合法周期可正常执行——会话未被失败路径破坏。
+  const ArCycleResult recovered = radar.StepWithResult(MakeInput(2U, 0.5));
+  EXPECT_EQ(recovered.status, ArCycleStatus::kCompleted);
 }
 
 }  // namespace

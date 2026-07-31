@@ -8,6 +8,8 @@
 #include "sar/imaging/SarFocusingSelector.h"
 #include "sar/session/SarDiagnosticUtils.h"
 
+#include "1q/sar/session/SarInputValidation.h"
+
 namespace sar {
 namespace session {
 
@@ -35,29 +37,12 @@ bool HasValidL3Waypoints(const config::SarMissionConfig& mission) {
 bool ValidateRuntimeConfigForStep(const config::SarSessionConfig& config,
                                   bool has_external_raw_iq,
                                   SarCycleResult* result) {
-  if (config.hardware.bandwidth_hz <= 0.0 || config.hardware.sample_rate_hz <= 0.0 ||
-      config.hardware.carrier_frequency_hz <= 0.0 ||
-      config.hardware.pulse_repetition_frequency_hz <= 0.0 ||
-      config.mission.platform_speed_mps <= 0.0 || config.mission.nominal_slant_range_m <= 0.0 ||
-      config.mission.range_sample_count == 0U || config.mission.azimuth_pulse_count == 0U) {
-    RecordAbort(result, "invalid_config", "SAR runtime config contains non-positive fields.");
-    return false;
-  }
-  if (!std::isfinite(config.hardware.peak_power_w) || config.hardware.peak_power_w <= 0.0 ||
-      !std::isfinite(config.hardware.antenna_gain_db) ||
-      !std::isfinite(config.hardware.receiver_noise_figure_db) ||
-      config.hardware.receiver_noise_figure_db < 0.0 ||
-      !std::isfinite(config.hardware.system_loss_db) || config.hardware.system_loss_db < 0.0) {
-    RecordAbort(result, "invalid_hardware_link_budget",
-                "SAR power must be positive; antenna gain, receiver noise figure, and system "
-                "loss must be finite and the latter two non-negative.");
+  if (!session::AreSarHardwareAndMissionFieldsValid(config)) {
+    RecordAbort(result, "invalid_config", "SAR runtime config contains invalid hardware/mission fields.");
     return false;
   }
 
-  // 跨字段物理约束：LFM 脉冲的完整回波需要覆盖整个脉冲持续时间。波形样本数 =
-  // ceil(pulse_width_s * sample_rate_hz)（与 SarWaveform.cpp:68 一致），若它超过
-  // range_sample_count，采样窗口根本装不下脉冲，回波会被裁剪（silent clip），成像必失败。
-  // 在 config 层早失败，而不是让它走到 degenerate_image_peak。
+  // 跨字段物理约束：LFM 脉冲的完整回波需要覆盖整个脉冲持续时间。
   if (config.hardware.pulse_width_s > 0.0) {
     const std::size_t waveform_samples = static_cast<std::size_t>(
         std::ceil(config.hardware.pulse_width_s * config.hardware.sample_rate_hz));
@@ -82,9 +67,9 @@ bool ValidateRuntimeConfigForStep(const config::SarSessionConfig& config,
     return false;
   }
   if (config.policy.enable_l1_rda_imaging &&
-      (!config.policy.enable_raw_echo_generation || !config.policy.enable_range_compression)) {
-    RecordAbort(result, "rda_requires_raw_echo_and_range_compression",
-                "SAR session RDA requires raw echo generation and range compression.");
+      !config.policy.enable_raw_echo_generation) {
+    RecordAbort(result, "rda_requires_raw_echo",
+                "SAR session RDA requires raw echo generation.");
     return false;
   }
   if (config.policy.enable_l2_motion_compensation &&
@@ -98,12 +83,11 @@ bool ValidateRuntimeConfigForStep(const config::SarSessionConfig& config,
     return false;
   }
   if (config.policy.enable_l3_bp_imaging &&
-      (!config.policy.enable_raw_echo_generation || !config.policy.enable_range_compression ||
+      (!config.policy.enable_raw_echo_generation ||
        config.policy.enable_l1_rda_imaging || config.policy.enable_l2_motion_compensation ||
        (!has_external_raw_iq && !HasValidL3Waypoints(config.mission)))) {
     RecordAbort(result, "invalid_l3_bp_config",
-                "SAR L3 BP requires raw echo, range compression, valid waypoints, and no L1/L2 "
-                "path.");
+                "SAR L3 BP requires raw echo, valid waypoints, and no L1/L2 path.");
     return false;
   }
   if (config.policy.enable_l3_bp_imaging &&

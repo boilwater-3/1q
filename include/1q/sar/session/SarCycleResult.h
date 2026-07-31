@@ -66,6 +66,8 @@ using SarDiagnosticIssueList = std::vector<SarDiagnosticIssue>;
 /**
  * @brief 与内部矩阵实现解耦的行主序复数聚焦图像。
  * @note Cycle-result replay 完整保存来源、尺寸、占位状态与复数像素，并按精确值比较。
+ *       `row_count` 对应方位向（L1 RDA = `azimuth_pulse_count`，L3 BP = `azimuth_pulse_count`），
+ *       `column_count` 对应距离向（= `range_sample_count`）。
  */
 struct ONEQ_API SarFocusedImage {
   SarFocusedImageSource source{SarFocusedImageSource::kNone};
@@ -91,6 +93,8 @@ struct ONEQ_API SarRawPhaseHistory {
 
 /**
  * @brief SAR 输出帧元数据。
+ * @note `range_sample_count`、`azimuth_pulse_count`、`center_slant_range_m` 是配置回显
+ *       （从 `SarMissionConfig` 拷贝），非测量值。
  */
 struct ONEQ_API SarOutputFrame {
   std::uint32_t cycle_index{0U};
@@ -108,7 +112,7 @@ struct ONEQ_API SarOutputFrame {
   double image_entropy_nats{0.0};
   double image_contrast{0.0};
   bool has_raw_echo{false};
-  bool has_range_compressed_echo{false}; /**< RDA/BP 已实际完成内部距离压缩的事实摘要。当前不返回独立距离压缩载荷；仅启用 `enable_range_compression` 不会置位 */
+  bool has_range_compressed_echo{false}; /**< RDA/BP 已实际完成内部距离压缩的事实摘要。当前不返回独立距离压缩载荷 */
   bool has_l1_image{false};
   bool has_l3_bp_image{false};
   bool has_image_quality_metrics{false};

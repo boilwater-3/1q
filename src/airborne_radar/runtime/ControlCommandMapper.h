@@ -8,6 +8,7 @@
 
 #include <vector>
 
+#include "1q/airborne_radar/session/ArCommand.h"
 #include "airborne_radar/decision/ControlReducerTypes.h"
 #include "1q/airborne_radar/session/DecisionControlTypes.h"
 
@@ -52,6 +53,14 @@ class ControlCommandMapper {
   extension::ControlReductionResult Apply(
       session::ArControlProfile* current_profile,
       const std::vector<session::TacticalProposal>& proposals);
+
+  /** @brief 比较两个 profile，返回差异字段对应的 ControlDirective 列表。 */
+  static std::vector<session::ControlDirective> DiffProfiles(
+      const session::ArControlProfile& baseline,
+      const session::ArControlProfile& target);
+
+  /** @brief 将单个 ControlDirective 转换为 ArCommand。 */
+  static session::ArCommand DirectiveToCommand(const session::ControlDirective& directive);
 
  private:
   decision::ControlReducer& control_reducer_;

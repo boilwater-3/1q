@@ -22,7 +22,6 @@ void ApplySarMissionSemanticConfig(SarMissionProfile profile, SarMissionConfig* 
   switch (profile) {
     case SarMissionProfile::kStripmapSurvey:
       m.nominal_slant_range_m = 15000.0;
-      m.synthetic_aperture_time_s = 2.0;
       m.platform_speed_mps = 180.0;
       m.azimuth_pulse_count = 1024U;
       m.range_sample_count = 4096U;
@@ -31,7 +30,6 @@ void ApplySarMissionSemanticConfig(SarMissionProfile profile, SarMissionConfig* 
       break;
     case SarMissionProfile::kHighResolutionImaging:
       m.nominal_slant_range_m = 10000.0;
-      m.synthetic_aperture_time_s = 4.0;
       m.platform_speed_mps = 150.0;
       m.azimuth_pulse_count = 2048U;
       m.range_sample_count = 4096U;
@@ -40,7 +38,6 @@ void ApplySarMissionSemanticConfig(SarMissionProfile profile, SarMissionConfig* 
       break;
     case SarMissionProfile::kLongRangeSurveillance:
       m.nominal_slant_range_m = 50000.0;
-      m.synthetic_aperture_time_s = 3.0;
       m.platform_speed_mps = 200.0;
       m.azimuth_pulse_count = 512U;
       m.range_sample_count = 1024U;
@@ -59,7 +56,6 @@ void ApplySarProcessingSemanticConfig(SarProcessingProfile profile, SarPolicyCon
   switch (profile) {
     case SarProcessingProfile::kRawEchoOnly:
       p.enable_raw_echo_generation = true;
-      p.enable_range_compression = false;
       p.enable_l1_rda_imaging = false;
       p.enable_l2_motion_compensation = false;
       p.enable_l3_bp_imaging = false;
@@ -67,7 +63,6 @@ void ApplySarProcessingSemanticConfig(SarProcessingProfile profile, SarPolicyCon
       break;
     case SarProcessingProfile::kRangeCompressedL1:
       p.enable_raw_echo_generation = true;
-      p.enable_range_compression = true;
       p.enable_l1_rda_imaging = true;
       p.enable_l2_motion_compensation = false;
       p.enable_l3_bp_imaging = false;
@@ -75,7 +70,6 @@ void ApplySarProcessingSemanticConfig(SarProcessingProfile profile, SarPolicyCon
       break;
     case SarProcessingProfile::kL3Backprojection:
       p.enable_raw_echo_generation = true;
-      p.enable_range_compression = true;
       p.enable_l1_rda_imaging = false;
       p.enable_l2_motion_compensation = false;
       p.enable_l3_bp_imaging = true;

@@ -28,6 +28,11 @@ tracking::LifecycleConfig SignalComponentFactory::BuildLifecycleConfig(
   lifecycle_config.track_pool_thread_safety_mode = config.lifecycle.track_pool_thread_safety_mode;
   lifecycle_config.enable_anti_false_target_discrimination =
       config.enable_anti_false_target_discrimination;
+  lifecycle_config.enable_anti_vgpo_acceleration_bound =
+      config.enable_anti_vgpo_acceleration_bound;
+  lifecycle_config.max_acceleration_mps2 = config.enable_anti_vgpo_acceleration_bound
+                                               ? config.anti_vgpo_max_acceleration_mps2
+                                               : 100.0;
   return lifecycle_config;
 }
 
@@ -36,8 +41,6 @@ tracking::TrackFilterConfig SignalComponentFactory::BuildTrackFilterConfig(
   tracking::TrackFilterConfig filter_config;
   filter_config.speed_decay_ratio_on_loss = config.tracking.engineering.speed_decay_ratio_on_loss;
   filter_config.rcs_decay_ratio_on_loss = config.tracking.engineering.rcs_decay_ratio_on_loss;
-  filter_config.enable_anti_vgpo_acceleration_bound =
-      config.enable_anti_vgpo_acceleration_bound;
   return filter_config;
 }
 

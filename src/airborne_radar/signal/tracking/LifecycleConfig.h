@@ -37,7 +37,9 @@ struct LifecycleConfig {
       ImmActivationPolicy::kConfirmedTracksOnly}; /**< IMM 激活策略。 */
   TrackPoolThreadSafetyMode track_pool_thread_safety_mode{
       TrackPoolThreadSafetyMode::kSingleThreadNoLock}; /**< 对象池线程安全策略。 */
-  bool enable_anti_false_target_discrimination{false}; /**< 启用假目标鉴别 */
+  bool enable_anti_false_target_discrimination{false}; /**< 启用假目标鉴别。 */
+  bool enable_anti_vgpo_acceleration_bound{false}; /**< 启用加速度限幅对抗 VGPO，裁剪超出物理上限的航迹速度变化。 */
+  double max_acceleration_mps2{100.0}; /**< 最大允许加速度（m/s²），供加速度限幅用。 */
 };
 
 }  // namespace tracking

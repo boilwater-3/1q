@@ -55,7 +55,6 @@ bool SarCycleInputAdapter::Build(const SarPlatformState& platform,
   // 且因 HasExternalRawIq 以 IQ 样本为充要条件，不会把本输出误判为外部 IQ。
   // 详见 SarCycleInputAdapter.h 的契约说明。
   output->raw_iq.pulse_states = std::move(pulse_states);
-  output->raw_iq.pulse_count = static_cast<std::uint32_t>(external_pulses.size());
   return true;
 }
 

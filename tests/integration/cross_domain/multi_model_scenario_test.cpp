@@ -43,7 +43,6 @@ namespace eos_config = electro_optical_sensor::config;
 
 namespace esr = electronic_surveillance_radar;
 namespace esr_session = electronic_surveillance_radar::session;
-namespace esr_env = electronic_surveillance_radar::session;
 namespace esr_config = electronic_surveillance_radar::config;
 namespace ecm_config = electronic_countermeasure::config;
 namespace ecm_session = electronic_countermeasure::session;
@@ -103,9 +102,6 @@ ar_session::ArExternalPoseInput ToArPlatform(const oneq::coordinate::EcefPositio
   p.platform_attitude_deg.yaw_deg = 0.0;
   p.platform_attitude_deg.pitch_deg = 0.0;
   p.platform_attitude_deg.roll_deg = 0.0;
-  p.radar_mount_angles_deg.yaw_deg = 0.0;
-  p.radar_mount_angles_deg.pitch_deg = 0.0;
-  p.radar_mount_angles_deg.roll_deg = 0.0;
   return p;
 }
 
@@ -120,17 +116,6 @@ ar_session::ArExternalTargetInput ToArTarget(const WorldTarget& t) {
   return input;
 }
 
-ar_session::ArEnvironmentInput MakeArEnvironment() {
-  ar_session::ArEnvironmentInput env;
-  env.atmospheric_observation.enable_physical_model = false;
-  env.atmospheric_observation.pressure_hpa = 1010.0f;
-  env.atmospheric_observation.temperature_k = 290.0f;
-  env.atmospheric_observation.relative_humidity = 0.45f;
-  env.surface_observation.cover_profile = ar_env::VegetationCoverProfile::kOpenGrassland;
-  env.surface_observation.enable_physical_model = false;
-  return env;
-}
-
 struct ArRfTestCycleInput {
   ar_session::ArCycleInput cycle{};
   bool valid{false};
@@ -141,10 +126,11 @@ struct ArRfTestCycleResult {
   ar_session::TrackOutputFrame track_output_frame{};
   ar_session::ArInterferenceObservationList interference_observations{};
   ar_session::ArReceiverImpairment receiver_impairment{ar_session::ArReceiverImpairment::kNone};
+  bool has_control_profile{false};
+  ar_session::ArControlProfile control_profile{};
 };
 
-ArRfTestCycleInput BuildArInput(const WorldState& ws, float dt, std::uint32_t cycle_index,
-                                const ar_session::ArEnvironmentInputState& env_state) {
+ArRfTestCycleInput BuildArInput(const WorldState& ws, float dt, std::uint32_t cycle_index) {
   ar_session::ArExternalPoseInput platform = ToArPlatform(ws.platform_pos, ws.platform_vel);
   platform.platform_entity_id = 10U;
   std::vector<ar_session::ArExternalTargetInput> targets;
@@ -154,13 +140,10 @@ ArRfTestCycleInput BuildArInput(const WorldState& ws, float dt, std::uint32_t cy
   }
   ArRfTestCycleInput input;
   input.cycle.cycle_index = cycle_index;
-  input.cycle.cycle_start_time_s =
-      static_cast<double>(cycle_index - 1U) * static_cast<double>(dt);
+  input.cycle.cycle_start_time_s = static_cast<double>(cycle_index - 1U) * static_cast<double>(dt);
   input.cycle.dt_sec = dt;
   input.cycle.platform = platform;
   input.cycle.targets = targets;
-  const ar_session::ArEnvironmentInput environment = env_state.Snapshot();
-  input.cycle.environment = environment;
   input.valid = true;
   return input;
 }
@@ -179,9 +162,8 @@ oneq::electromagnetics::RfEmissionFrame MakeNoiseInterferenceFrame(
   jammer.position_ecef_m.x_m += 1000.0;
   jammer.antenna.boresight_ecef.x = -1.0;
   jammer.antenna.peak_gain_dbi = 35.0;
-  if (!oneq::electromagnetics::TryCreateRfNoiseWaveform(
-          cycle.cycle_start_time_s, cycle.dt_sec, 9.3e9, 20.0e6, 1.0e18,
-          &jammer.waveform)) {
+  if (!oneq::electromagnetics::TryCreateRfNoiseWaveform(cycle.cycle_start_time_s, cycle.dt_sec,
+                                                        9.3e9, 20.0e6, 1.0e18, &jammer.waveform)) {
     return oneq::electromagnetics::RfEmissionFrame{};
   }
   frame.emissions.push_back(jammer);
@@ -202,6 +184,8 @@ ArRfTestCycleResult RunArCycle(ar_session::ArTraceSession* session,
     result.track_output_frame = completed.track_output_frame;
     result.interference_observations = completed.interference_observations;
     result.receiver_impairment = completed.receiver_impairment;
+    result.has_control_profile = completed.has_control_profile;
+    result.control_profile = completed.control_profile;
   }
   return result;
 }
@@ -232,8 +216,7 @@ eos_session::EosExternalTargetInput ToEosTarget(const WorldTarget& t) {
   return input;
 }
 
-eos_session::EosCycleInput BuildEosInput(const WorldState& ws, float dt, std::uint32_t cycle_index,
-                                         const eos_session::EosEnvironmentInput& eos_env) {
+eos_session::EosCycleInput BuildEosInput(const WorldState& ws, float dt, std::uint32_t cycle_index) {
   eos_session::EosExternalPoseInput platform = ToEosPlatform(ws.platform_pos, ws.platform_vel);
   std::vector<eos_session::EosExternalTargetInput> targets;
   targets.reserve(ws.targets.size());
@@ -242,13 +225,12 @@ eos_session::EosCycleInput BuildEosInput(const WorldState& ws, float dt, std::ui
   }
   eos_session::EosCycleInput input;
   eos_session::EosCoordinateStatus status;
-  eos_session::EosCycleInputAdapter::Build(platform, targets, dt, eos_env, &input, &status);
+  eos_session::EosCycleInputAdapter::Build(platform, targets, dt, &input, &status);
   input.cycle_index = cycle_index;
   return input;
 }
 
-esr_session::EsrCycleInput BuildEsrInput(const WorldState& ws, float dt, std::uint32_t cycle_index,
-                                         const esr_session::EsrEnvironmentInput& esr_env) {
+esr_session::EsrCycleInput BuildEsrInput(const WorldState& ws, float dt, std::uint32_t cycle_index) {
   esr_session::EsrCycleInput input;
   input.cycle_index = cycle_index;
   input.cycle_start_time_s = static_cast<double>(cycle_index - 1U) * dt;
@@ -257,7 +239,6 @@ esr_session::EsrCycleInput BuildEsrInput(const WorldState& ws, float dt, std::ui
   input.has_platform_ecef_kinematics = true;
   input.platform_position_ecef_m = ws.platform_pos;
   input.platform_velocity_ecef_mps = ws.platform_vel;
-  input.environment = esr_env;
   input.rf_emissions.world_cycle_index = cycle_index;
   input.rf_emissions.window_start_time_s = input.cycle_start_time_s;
   input.rf_emissions.window_duration_s = dt;
@@ -281,9 +262,9 @@ esr_session::EsrCycleInput BuildEsrInput(const WorldState& ws, float dt, std::ui
     emission.antenna.peak_gain_dbi = 30.0;
     emission.antenna.peak_gain_dbi = 10.0;
     emission.polarization = oneq::electromagnetics::RfScenePolarization::kHorizontal;
-    if (oneq::electromagnetics::TryCreateRfNoiseWaveform(
-            input.cycle_start_time_s, dt, target.carrier_hz, target.bandwidth_hz,
-            target.tx_power_w, &emission.waveform)) {
+    if (oneq::electromagnetics::TryCreateRfNoiseWaveform(input.cycle_start_time_s, dt,
+                                                         target.carrier_hz, target.bandwidth_hz,
+                                                         target.tx_power_w, &emission.waveform)) {
       input.rf_emissions.emissions.push_back(emission);
     }
   }
@@ -358,8 +339,7 @@ esr_config::EsrSessionConfig MakeEsrConfigAirToAir() {
   config.mission.scan.scan_rate_hz = 0.1f;
   config.policy.detection.minimum_snr_db = -40.0f;
   config.policy.detection.enable_statistical_detection = false;
-  config.hardware.co_site_paths.push_back(
-      esr_config::EsrCoSiteIsolationPath{1U, 80.0});
+  config.hardware.co_site_paths.push_back(esr_config::EsrCoSiteIsolationPath{1U, 80.0});
   return config;
 }
 
@@ -573,19 +553,7 @@ TEST(MultiModelScenarioTest, AirToAirHeadOn) {
   esr_opts.trace_config_on_construct = true;
   esr_session::EsrTraceSession esr_trace_sess(MakeEsrConfigAirToAir(), esr_opts);
 
-  ar_session::ArEnvironmentInputState ar_env_state(MakeArEnvironment());
-  eos_session::EosEnvironmentInput eos_env;
-  eos_env.solar_altitude_deg = 60.0f;
-  eos_env.solar_azimuth_deg = 180.0f;
-  eos_env.solar_irradiance_w_m2 = 1000.0f;
-  eos_env.cloud_coverage_ratio = 0.0f;
-  eos_env.background_temperature_k = 230.0f;
-  eos_env.day_night_type = eos_session::DayNightType::kDay;
 
-  esr_session::EsrEnvironmentInput esr_env;
-  esr_env.spectrum_occupancy_ratio = 0.1f;
-  esr_env.clutter_density = esr_session::EsrClutterDensityLevel::kLow;
-  esr_env.propagation_profile = esr_session::EsrPropagationEnvironmentProfile::kOpen;
 
   std::uint32_t ar_tracks_max = 0;
   std::uint32_t esr_hyp_max = 0;
@@ -608,7 +576,7 @@ TEST(MultiModelScenarioTest, AirToAirHeadOn) {
   for (std::uint32_t i = 0; i < num_cycles; ++i) {
     const std::uint32_t cycle = i + 1;
 
-    auto ar_input = BuildArInput(ws, dt, cycle, ar_env_state);
+    auto ar_input = BuildArInput(ws, dt, cycle);
     auto ar_result = RunArCycle(&ar_session, ar_input);
     EXPECT_TRUE(ar_result.accepted) << "AR cycle rejected at cycle " << cycle;
     if (ar_result.track_output_frame.tracks.size() > ar_tracks_max) {
@@ -629,7 +597,7 @@ TEST(MultiModelScenarioTest, AirToAirHeadOn) {
       if (trk.speed > ar_speed_max) ar_speed_max = trk.speed;
     }
 
-    auto eos_input = BuildEosInput(ws, dt, cycle, eos_env);
+    auto eos_input = BuildEosInput(ws, dt, cycle);
     auto eos_result = eos_session.StepWithResult(eos_input);
     EXPECT_FALSE(eos_result.has_validation_error) << "EOS validation error at cycle " << cycle;
     for (const auto& det : eos_result.output_frame.detections) {
@@ -644,7 +612,7 @@ TEST(MultiModelScenarioTest, AirToAirHeadOn) {
       }
     }
 
-    auto esr_input = BuildEsrInput(ws, dt, cycle, esr_env);
+    auto esr_input = BuildEsrInput(ws, dt, cycle);
     auto esr_result = esr_trace_sess.StepWithResult(esr_input);
     EXPECT_FALSE(esr_result.has_validation_error) << "ESR validation error at cycle " << cycle;
     if (esr_result.output_frame.emitter_output.hypotheses.size() > esr_hyp_max) {
@@ -790,19 +758,7 @@ TEST(MultiModelScenarioTest, AirToGroundLookDown) {
   esr_opts.trace_config_on_construct = true;
   esr_session::EsrTraceSession esr_sess(MakeEsrConfigAirToGround(), esr_opts);
 
-  ar_session::ArEnvironmentInputState ar_env_st(MakeArEnvironment());
-  eos_session::EosEnvironmentInput eos_env;
-  eos_env.solar_altitude_deg = 55.0f;
-  eos_env.solar_azimuth_deg = 170.0f;
-  eos_env.solar_irradiance_w_m2 = 900.0f;
-  eos_env.cloud_coverage_ratio = 0.1f;
-  eos_env.background_temperature_k = 295.0f;
-  eos_env.day_night_type = eos_session::DayNightType::kDay;
 
-  esr_session::EsrEnvironmentInput esr_env;
-  esr_env.spectrum_occupancy_ratio = 0.2f;
-  esr_env.clutter_density = esr_session::EsrClutterDensityLevel::kMedium;
-  esr_env.propagation_profile = esr_session::EsrPropagationEnvironmentProfile::kOpen;
 
   // 物理验证累积器
   bool ar_has_track = false;
@@ -824,7 +780,7 @@ TEST(MultiModelScenarioTest, AirToGroundLookDown) {
       esr_emitting_off_count++;
     }
 
-    auto ar_in = BuildArInput(ws, dt, cycle, ar_env_st);
+    auto ar_in = BuildArInput(ws, dt, cycle);
     auto ar_res = RunArCycle(&ar_sess, ar_in);
     EXPECT_TRUE(ar_res.accepted) << "AR cycle rejected at cycle " << cycle;
     for (const auto& trk : ar_res.track_output_frame.tracks) {
@@ -832,7 +788,7 @@ TEST(MultiModelScenarioTest, AirToGroundLookDown) {
       if (std::isnan(trk.position_z)) ar_nan_detected = true;
     }
 
-    auto eos_in = BuildEosInput(ws, dt, cycle, eos_env);
+    auto eos_in = BuildEosInput(ws, dt, cycle);
     auto eos_res = eos_sess.StepWithResult(eos_in);
     EXPECT_FALSE(eos_res.has_validation_error) << "EOS validation error at cycle " << cycle;
     for (const auto& det : eos_res.output_frame.detections) {
@@ -842,7 +798,7 @@ TEST(MultiModelScenarioTest, AirToGroundLookDown) {
       }
     }
 
-    auto esr_in = BuildEsrInput(ws, dt, cycle, esr_env);
+    auto esr_in = BuildEsrInput(ws, dt, cycle);
     auto esr_res = esr_sess.StepWithResult(esr_in);
     EXPECT_FALSE(esr_res.has_validation_error) << "ESR validation error at cycle " << cycle;
     if (!esr_res.output_frame.observation_output.observations.empty()) {
@@ -1003,20 +959,7 @@ TEST(MultiModelScenarioTest, DenseFormationAndJamming) {
   esr_session::EsrTraceSession esr_sess(MakeEsrConfigAirToAir(), esr_opts);
 
   // AR 自然环境与外部 RF 发射事实分离；目标 B 的伴随干扰由 RF frame 表达。
-  ar_session::ArEnvironmentInput ar_env_base = MakeArEnvironment();
-  ar_session::ArEnvironmentInputState ar_env_st(ar_env_base);
-  eos_session::EosEnvironmentInput eos_env;
-  eos_env.solar_altitude_deg = -15.0f;  // 夜间
-  eos_env.solar_azimuth_deg = 0.0f;
-  eos_env.solar_irradiance_w_m2 = 0.0f;
-  eos_env.cloud_coverage_ratio = 0.0f;
-  eos_env.background_temperature_k = 250.0f;
-  eos_env.day_night_type = eos_session::DayNightType::kNight;
 
-  esr_session::EsrEnvironmentInput esr_env;
-  esr_env.spectrum_occupancy_ratio = 0.4f;
-  esr_env.clutter_density = esr_session::EsrClutterDensityLevel::kHigh;
-  esr_env.propagation_profile = esr_session::EsrPropagationEnvironmentProfile::kOpen;
 
   // 物理验证累积器
   bool ar_interference_observed = false;
@@ -1029,7 +972,7 @@ TEST(MultiModelScenarioTest, DenseFormationAndJamming) {
   for (std::uint32_t i = 0; i < num_cycles; ++i) {
     const std::uint32_t cycle = i + 1;
 
-    auto ar_in = BuildArInput(ws, dt, cycle, ar_env_st);
+    auto ar_in = BuildArInput(ws, dt, cycle);
     ar_in.cycle.interference = MakeNoiseInterferenceFrame(ar_in.cycle);
     auto ar_res = RunArCycle(&ar_sess, ar_in);
     EXPECT_TRUE(ar_res.accepted) << "AR cycle rejected at cycle " << cycle;
@@ -1038,7 +981,7 @@ TEST(MultiModelScenarioTest, DenseFormationAndJamming) {
       ar_interference_observed = true;
     }
 
-    auto eos_in = BuildEosInput(ws, dt, cycle, eos_env);
+    auto eos_in = BuildEosInput(ws, dt, cycle);
     auto eos_res = eos_sess.StepWithResult(eos_in);
     EXPECT_FALSE(eos_res.has_validation_error) << "EOS validation error at cycle " << cycle;
     for (const auto& det : eos_res.output_frame.detections) {
@@ -1049,7 +992,7 @@ TEST(MultiModelScenarioTest, DenseFormationAndJamming) {
       }
     }
 
-    auto esr_in = BuildEsrInput(ws, dt, cycle, esr_env);
+    auto esr_in = BuildEsrInput(ws, dt, cycle);
     auto esr_res = esr_sess.StepWithResult(esr_in);
     EXPECT_FALSE(esr_res.has_validation_error) << "ESR validation error at cycle " << cycle;
     esr_obs_total += esr_res.output_frame.observation_output.observations.size();
@@ -1177,19 +1120,7 @@ TEST(MultiModelScenarioTest, ZeroDopplerCrossing) {
   esr_opts.trace_config_on_construct = true;
   esr_session::EsrTraceSession esr_sess(MakeEsrConfigAirToAir(), esr_opts);
 
-  ar_session::ArEnvironmentInputState ar_env_st(MakeArEnvironment());
-  eos_session::EosEnvironmentInput eos_env;
-  eos_env.solar_altitude_deg = 40.0f;
-  eos_env.solar_azimuth_deg = 165.0f;
-  eos_env.solar_irradiance_w_m2 = 850.0f;
-  eos_env.cloud_coverage_ratio = 0.1f;
-  eos_env.background_temperature_k = 260.0f;
-  eos_env.day_night_type = eos_session::DayNightType::kDay;
 
-  esr_session::EsrEnvironmentInput esr_env;
-  esr_env.spectrum_occupancy_ratio = 0.15f;
-  esr_env.clutter_density = esr_session::EsrClutterDensityLevel::kLow;
-  esr_env.propagation_profile = esr_session::EsrPropagationEnvironmentProfile::kOpen;
 
   // 物理验证累积器
   bool ar_nan_detected = false;
@@ -1205,7 +1136,7 @@ TEST(MultiModelScenarioTest, ZeroDopplerCrossing) {
   for (std::uint32_t i = 0; i < num_cycles; ++i) {
     const std::uint32_t cycle = i + 1;
 
-    auto ar_in = BuildArInput(ws, dt, cycle, ar_env_st);
+    auto ar_in = BuildArInput(ws, dt, cycle);
     auto ar_res = RunArCycle(&ar_sess, ar_in);
     EXPECT_TRUE(ar_res.accepted) << "AR cycle rejected at cycle " << cycle;
     for (const auto& trk : ar_res.track_output_frame.tracks) {
@@ -1221,7 +1152,7 @@ TEST(MultiModelScenarioTest, ZeroDopplerCrossing) {
       if (trk.speed > ar_speed_max) ar_speed_max = trk.speed;
     }
 
-    auto eos_in = BuildEosInput(ws, dt, cycle, eos_env);
+    auto eos_in = BuildEosInput(ws, dt, cycle);
     auto eos_res = eos_sess.StepWithResult(eos_in);
     EXPECT_FALSE(eos_res.has_validation_error) << "EOS validation error at cycle " << cycle;
     for (const auto& det : eos_res.output_frame.detections) {
@@ -1233,7 +1164,7 @@ TEST(MultiModelScenarioTest, ZeroDopplerCrossing) {
       if (det.range_m < eos_range_min) eos_range_min = det.range_m;
     }
 
-    auto esr_in = BuildEsrInput(ws, dt, cycle, esr_env);
+    auto esr_in = BuildEsrInput(ws, dt, cycle);
     auto esr_res = esr_sess.StepWithResult(esr_in);
     EXPECT_FALSE(esr_res.has_validation_error) << "ESR validation error at cycle " << cycle;
     esr_obs_total += esr_res.output_frame.observation_output.observations.size();
@@ -1292,15 +1223,12 @@ TEST(MultiModelScenarioTest, SensorDrivenEcmUsesPreviousSuccessfulEsrFrame) {
   esr_config.policy.detection.enable_statistical_detection = false;
   esr_config.hardware.co_site_paths.push_back({101U, 100.0});
   esr_session::EsrSession esr = esr_session::EsrSession::Create(esr_config);
-  esr_session::EsrEnvironmentInput esr_environment;
-  esr_environment.clutter_density = esr_session::EsrClutterDensityLevel::kLow;
-  esr_environment.propagation_profile = esr_session::EsrPropagationEnvironmentProfile::kOpen;
 
   esr_session::EmitterHypothesisList hypotheses;
   std::uint32_t source_esr_cycle = 0U;
   std::uint64_t source_esr_batch = 0U;
   for (std::uint32_t cycle = 1U; cycle <= 8U && hypotheses.empty(); ++cycle) {
-    esr_session::EsrCycleInput input = BuildEsrInput(world, 1.0f, cycle, esr_environment);
+    esr_session::EsrCycleInput input = BuildEsrInput(world, 1.0f, cycle);
     input.platform_entity_id = 7001U;
     const esr_session::EsrCycleResult result = esr.StepWithResult(input);
     ASSERT_FALSE(result.has_validation_error);
@@ -1342,12 +1270,11 @@ TEST(MultiModelScenarioTest, SensorDrivenEcmUsesPreviousSuccessfulEsrFrame) {
 
   ar_config::ArSessionConfig ar_config = MakeArConfigAirToAir();
   ar_config.hardware.receiver.co_site_paths.push_back(
-      {ecm_config.transmitter_equipment_id,
-       ar_config.hardware.receiver.equipment_id, 100.0});
+      {ecm_config.transmitter_equipment_id, ar_config.hardware.receiver.equipment_id, 100.0});
   ar_session::ArTraceSession ar(ar_config, ar_session::ArTraceSessionOptions{nullptr, false});
-  ar_session::ArEnvironmentInputState ar_environment_state(MakeArEnvironment());
+
   ArRfTestCycleInput ar_input =
-      BuildArInput(world, 1.0f, source_esr_cycle + 1U, ar_environment_state);
+      BuildArInput(world, 1.0f, source_esr_cycle + 1U);
   ar_input.cycle.platform.platform_entity_id = 7001U;
   ar_input.cycle.interference = ecm_result.emission_frame;
   ASSERT_FALSE(ar_input.cycle.interference.emissions.empty());
@@ -1355,12 +1282,156 @@ TEST(MultiModelScenarioTest, SensorDrivenEcmUsesPreviousSuccessfulEsrFrame) {
   EXPECT_TRUE(ar_result.accepted);
 
   esr_session::EsrCycleInput esr_input =
-      BuildEsrInput(world, 1.0f, source_esr_cycle + 1U, esr_environment);
+      BuildEsrInput(world, 1.0f, source_esr_cycle + 1U);
   esr_input.platform_entity_id = 7001U;
   esr_input.rf_emissions = ecm_result.emission_frame;
   const esr_session::EsrCycleResult esr_result = esr.StepWithResult(esr_input);
   EXPECT_FALSE(esr_result.has_validation_error);
   EXPECT_EQ(esr_result.output_frame.cycle_index, source_esr_cycle + 1U);
+}
+
+// ECM deception(kFalseTarget)→AR 闭环：验证假目标欺骗发射经 RfEmissionFrame 到达 AR
+// 后被识别为 kLikelyFalseTarget，并触发 ECCM 反假目标鉴别提案。
+// 此前跨域测试仅覆盖 kSpot 压制干扰，未证明欺骗发射能通过真实集成链路递送。
+// 注意：ECCM 控制概要延迟一周期生效（当前周期评估 → 下一周期 ApplyPendingDecisionControl），
+// 因此需要运行 2 个 AR 周期：第 1 周期验证观测分类，第 2 周期验证控制概要。
+TEST(MultiModelScenarioTest, EcmDeceptionFalseTargetReachesArAndTriggersEccm) {
+  WorldState world;
+  world.platform_pos = EcefFromLla(35.0, 114.0, 10000.0);
+  world.platform_vel = oneq::coordinate::EcefVelocityMps{};
+
+  WorldTarget emitter;
+  emitter.id = 8201U;
+  emitter.pos = EcefFromLla(35.0, 114.05, 10000.0);
+  emitter.vel = oneq::coordinate::EcefVelocityMps{};
+  emitter.rcs = 20.0f;
+  emitter.temperature_k = 450.0f;
+  emitter.area_m2 = 20.0f;
+  // 发射频率与 AR 接收机 preselector 中心对齐（kLongRangeHighPower 9.3 GHz），
+  // 确保 ECM 欺骗发射（中心频率 + Doppler 偏移 ~9.301 GHz）落在 AR preselector 带内。
+  emitter.carrier_hz = 9.3e9;
+  emitter.bandwidth_hz = 5.0e6;
+  emitter.tx_power_w = 5.0e7;
+  world.targets.push_back(emitter);
+
+  // ESR 探测 → 产生辐射源假设列表。
+  esr_config::EsrSessionConfig esr_config = MakeEsrConfigAirToAir();
+  esr_config.policy.detection.enable_statistical_detection = false;
+  esr_config.hardware.co_site_paths.push_back({101U, 100.0});
+  esr_session::EsrSession esr = esr_session::EsrSession::Create(esr_config);
+
+  esr_session::EmitterHypothesisList hypotheses;
+  std::uint32_t source_esr_cycle = 0U;
+  std::uint64_t source_esr_batch = 0U;
+  for (std::uint32_t cycle = 1U; cycle <= 8U && hypotheses.empty(); ++cycle) {
+    esr_session::EsrCycleInput input = BuildEsrInput(world, 1.0f, cycle);
+    input.platform_entity_id = 7001U;
+    const esr_session::EsrCycleResult result = esr.StepWithResult(input);
+    ASSERT_FALSE(result.has_validation_error);
+    if (!result.output_frame.emitter_output.hypotheses.empty()) {
+      hypotheses = result.output_frame.emitter_output.hypotheses;
+      source_esr_cycle = cycle;
+      source_esr_batch = result.output_frame.batch_id;
+    }
+  }
+  ASSERT_FALSE(hypotheses.empty());
+
+  // ESR hypotheses → ECM sensor frame。
+  ecm_session::EcmSensorObservationFrame sensor_frame;
+  ASSERT_TRUE(
+      ecm_session::TryBuildEcmSensorObservationFrame(hypotheses, source_esr_batch, &sensor_frame));
+
+  // ECM: 欺骗 kFalseTarget（每周期向威胁发射 N 个假目标）。
+  ecm_config::EcmSessionConfig ecm_config;
+  ecm_config.transmitter_equipment_id = 101U;
+  ecm_config.channel_count = 1U;
+  ecm_config.maximum_total_transmit_power_w = 1.0e6;
+  ecm_config.maximum_channel_transmit_power_w = 1.0e6;
+  ecm_config.deception_power_scale = 1.0;
+  ecm_config.default_technique = electronic_countermeasure::EcmTechnique::kDeception;
+  ecm_config.default_deception_mode = electronic_countermeasure::EcmDeceptionMode::kFalseTarget;
+  ecm_config.deception_max_false_targets_per_threat = 2U;
+  ecm_config.deception_false_target_doppler_hz = 5000.0;
+  ecm_config.deception_false_target_delay_s = 1.0e-6;
+  ecm_session::EcmSession ecm = ecm_session::EcmSession::Create(ecm_config);
+  ecm_session::EcmCycleInput ecm_input;
+  ecm_input.cycle_index = source_esr_cycle + 1U;
+  ecm_input.cycle_start_time_s = static_cast<double>(source_esr_cycle);
+  ecm_input.dt_sec = 1.0;
+  ecm_input.input_mode = electronic_countermeasure::EcmInputMode::kSensorDriven;
+  ecm_input.platform_entity_id = 7001U;
+  ecm_input.platform_position_ecef_m = world.platform_pos;
+  ecm_input.platform_velocity_ecef_mps = world.platform_vel;
+  ecm_input.has_sensor_observation_frame = true;
+  ecm_input.sensor_observation_frame = sensor_frame;
+  const ecm_session::EcmCycleResult ecm_result = ecm.StepWithResult(ecm_input);
+  ASSERT_EQ(ecm_result.status, ecm_session::EcmCycleStatus::kExecuted);
+  ASSERT_FALSE(ecm_result.emission_frame.emissions.empty());
+
+  // AR 接收 ECM 欺骗发射帧。
+  ar_config::ArSessionConfig ar_config = MakeArConfigAirToAir();
+  ar_config.hardware.receiver.co_site_paths.push_back(
+      {ecm_config.transmitter_equipment_id, ar_config.hardware.receiver.equipment_id, 100.0});
+  ar_session::ArTraceSession ar(ar_config, ar_session::ArTraceSessionOptions{nullptr, false});
+
+
+  // 第 1 周期：验证 AR 产生 kLikelyFalseTarget 干扰观测。
+  ArRfTestCycleInput ar_input1 =
+      BuildArInput(world, 1.0f, source_esr_cycle + 1U);
+  ar_input1.cycle.platform.platform_entity_id = 7001U;
+  ar_input1.cycle.interference = ecm_result.emission_frame;
+  const ArRfTestCycleResult ar_result1 = RunArCycle(&ar, ar_input1);
+  EXPECT_TRUE(ar_result1.accepted);
+
+  bool has_false_target_class = false;
+  for (const auto& obs : ar_result1.interference_observations) {
+    if (obs.deception_class == airborne_radar::session::DeceptionClass::kLikelyFalseTarget) {
+      has_false_target_class = true;
+      break;
+    }
+  }
+  EXPECT_TRUE(has_false_target_class)
+      << "kFalseTarget deception should produce kLikelyFalseTarget interference observations";
+
+  // ECCM 控制概要延迟一周期生效：当前周期评估 → pending_proposals →
+  // 下一周期 ApplyPendingDecisionControl()。
+  EXPECT_GE(ar_result1.interference_observations.size(), 1U)
+      << "at least one interference observation should be produced";
+  for (const auto& obs : ar_result1.interference_observations) {
+    EXPECT_EQ(obs.deception_class, airborne_radar::session::DeceptionClass::kLikelyFalseTarget);
+    EXPECT_GE(obs.coherent_emission_count, 2U);
+    EXPECT_GT(obs.jammer_to_noise_db, 6.0);
+    EXPECT_GT(obs.estimated_center_frequency_hz, 0.0);
+  }
+
+  // ECM 通过受约束的 sensor glide 产生下一世界周期的欺骗发射；AR 消费该帧时应先
+  // 应用上一成功周期的 pending anti-false-target 提案，闭合 ECM→RF→AR→ECCM 控制链。
+  ecm_session::EcmCycleInput ecm_input2 = ecm_input;
+  ecm_input2.cycle_index = source_esr_cycle + 2U;
+  ecm_input2.cycle_start_time_s = static_cast<double>(source_esr_cycle + 1U);
+  ecm_input2.has_sensor_observation_frame = false;
+  ecm_input2.sensor_observation_frame = {};
+  const ecm_session::EcmCycleResult ecm_result2 = ecm.StepWithResult(ecm_input2);
+  ASSERT_EQ(ecm_result2.status, ecm_session::EcmCycleStatus::kExecuted);
+  ASSERT_TRUE(ecm_result2.used_glided_observation);
+  ASSERT_FALSE(ecm_result2.emission_frame.emissions.empty());
+
+  ArRfTestCycleInput ar_input2 =
+      BuildArInput(world, 1.0f, source_esr_cycle + 2U);
+  ar_input2.cycle.platform.platform_entity_id = 7001U;
+  ar_input2.cycle.interference = ecm_result2.emission_frame;
+  const ArRfTestCycleResult ar_result2 = RunArCycle(&ar, ar_input2);
+  ASSERT_TRUE(ar_result2.accepted);
+  ASSERT_TRUE(ar_result2.has_control_profile);
+  EXPECT_TRUE(ar_result2.control_profile.enable_anti_false_target_discrimination);
+
+  // 验证 ESR 接收 ECM 欺骗发射帧时不报错（ESR 欺骗分类逻辑由 ESR 单测覆盖）。
+  esr_session::EsrCycleInput esr_input2 =
+      BuildEsrInput(world, 1.0f, source_esr_cycle + 1U);
+  esr_input2.platform_entity_id = 7001U;
+  esr_input2.rf_emissions = ecm_result.emission_frame;
+  const esr_session::EsrCycleResult esr_result2 = esr.StepWithResult(esr_input2);
+  EXPECT_FALSE(esr_result2.has_validation_error);
 }
 
 #if defined(ONEQ_TEST_FLIGHT_DYNAMIC_ENABLED)
@@ -1423,15 +1494,12 @@ TEST(MultiModelScenarioTest, FlightDynamicDrivesSensorEcmClosedLoop) {
   esr_config.policy.detection.enable_statistical_detection = false;
   esr_config.hardware.co_site_paths.push_back({101U, 100.0});
   esr_session::EsrSession esr = esr_session::EsrSession::Create(esr_config);
-  esr_session::EsrEnvironmentInput esr_environment;
-  esr_environment.clutter_density = esr_session::EsrClutterDensityLevel::kLow;
-  esr_environment.propagation_profile = esr_session::EsrPropagationEnvironmentProfile::kOpen;
 
   esr_session::EmitterHypothesisList hypotheses;
   std::uint32_t source_esr_cycle = 0U;
   std::uint64_t source_esr_batch = 0U;
   for (std::uint32_t cycle = 1U; cycle <= 8U && hypotheses.empty(); ++cycle) {
-    esr_session::EsrCycleInput input = BuildEsrInput(world, 1.0f, cycle, esr_environment);
+    esr_session::EsrCycleInput input = BuildEsrInput(world, 1.0f, cycle);
     input.platform_entity_id = 7002U;
     const esr_session::EsrCycleResult result = esr.StepWithResult(input);
     ASSERT_FALSE(result.has_validation_error);
@@ -1472,13 +1540,11 @@ TEST(MultiModelScenarioTest, FlightDynamicDrivesSensorEcmClosedLoop) {
 
   ar_config::ArSessionConfig ar_config = MakeArConfigAirToAir();
   ar_config.hardware.receiver.co_site_paths.push_back(
-      {ecm_config.transmitter_equipment_id,
-       ar_config.hardware.receiver.equipment_id, 100.0});
+      {ecm_config.transmitter_equipment_id, ar_config.hardware.receiver.equipment_id, 100.0});
   ar_session::ArSession ar = ar_session::ArSession::Create(ar_config);
-  ar_session::ArEnvironmentInputState ar_environment_state(MakeArEnvironment());
+
   ar_session::ArCycleInput ar_input =
-      BuildArInput(world, 1.0f, source_esr_cycle + 1U, ar_environment_state)
-          .cycle;
+      BuildArInput(world, 1.0f, source_esr_cycle + 1U).cycle;
   ar_input.platform.platform_entity_id = 7002U;
   ar_input.interference = ecm_result.emission_frame;
   const ar_session::ArCycleResult ar_result = ar.StepWithResult(ar_input);
@@ -1487,7 +1553,7 @@ TEST(MultiModelScenarioTest, FlightDynamicDrivesSensorEcmClosedLoop) {
   EXPECT_EQ(ar_result.abort_reason, ar_session::SignalCycleAbortReason::kNone);
 
   esr_session::EsrCycleInput esr_input =
-      BuildEsrInput(world, 1.0f, source_esr_cycle + 1U, esr_environment);
+      BuildEsrInput(world, 1.0f, source_esr_cycle + 1U);
   esr_input.platform_entity_id = 7002U;
   esr_input.rf_emissions = ecm_result.emission_frame;
   const esr_session::EsrCycleResult esr_result = esr.StepWithResult(esr_input);

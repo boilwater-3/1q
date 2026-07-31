@@ -28,31 +28,6 @@ SbirsVector3M FromFbVec3(const sbirs::replay::Vec3d* fb) {
   return out;
 }
 
-flatbuffers::Offset<sbirs::replay::SbirsCycleEnvironmentConfig> EncodeCycleEnvironmentConfig(
-    flatbuffers::FlatBufferBuilder& fbb, const config::SbirsEnvironmentConfig& value) {
-  return sbirs::replay::CreateSbirsCycleEnvironmentConfig(
-      fbb, static_cast<std::int32_t>(value.weather_type),
-      static_cast<std::int32_t>(value.sea_state), value.temperature_c,
-      value.relative_humidity_percent, value.visibility_km, value.base_atmospheric_transmittance,
-      value.humidity_visibility_interaction_weight, value.rain_humidity_interaction_weight);
-}
-
-config::SbirsEnvironmentConfig DecodeCycleEnvironmentConfig(
-    const sbirs::replay::SbirsCycleEnvironmentConfig* fb) {
-  config::SbirsEnvironmentConfig out;
-  if (fb != nullptr) {
-    out.weather_type = static_cast<config::SbirsWeatherType>(fb->weather_type());
-    out.sea_state = static_cast<config::SbirsSeaState>(fb->sea_state());
-    out.temperature_c = fb->temperature_c();
-    out.relative_humidity_percent = fb->relative_humidity_percent();
-    out.visibility_km = fb->visibility_km();
-    out.base_atmospheric_transmittance = fb->base_atmospheric_transmittance();
-    out.humidity_visibility_interaction_weight = fb->humidity_visibility_interaction_weight();
-    out.rain_humidity_interaction_weight = fb->rain_humidity_interaction_weight();
-  }
-  return out;
-}
-
 flatbuffers::Offset<sbirs::replay::SbirsEnvironmentConfig> EncodeSessionEnvironmentConfig(
     flatbuffers::FlatBufferBuilder& fbb, const config::SbirsEnvironmentConfig& value) {
   return sbirs::replay::CreateSbirsEnvironmentConfig(
@@ -314,13 +289,9 @@ std::string EncodeSbirsCycleInput(const SbirsCycleInput& value) {
   }
 
   const sbirs::replay::Vec3d satellite = ToFbVec3(value.satellite_position_ecef_m);
-  const flatbuffers::Offset<sbirs::replay::SbirsEnvironmentInput> environment =
-      sbirs::replay::CreateSbirsEnvironmentInput(
-          fbb, value.environment.has_environment_override,
-          EncodeCycleEnvironmentConfig(fbb, value.environment.environment));
   fbb.Finish(sbirs::replay::CreateSbirsCycleInput(fbb, value.cycle_index, value.dt_sec,
                                                   value.has_satellite_position, &satellite,
-                                                  environment, fbb.CreateVector(targets)));
+                                                  fbb.CreateVector(targets)));
   return oneq::common::replay::CopyFinishedFlatbuffer(fbb);
 }
 
@@ -335,11 +306,6 @@ bool DecodeSbirsCycleInput(const std::string& bytes, SbirsCycleInput* out) {
   out->dt_sec = fb->dt_sec();
   out->has_satellite_position = fb->has_satellite_position();
   out->satellite_position_ecef_m = FromFbVec3(fb->satellite_position_ecef_m());
-  out->environment = {};
-  if (fb->environment() != nullptr) {
-    out->environment.has_environment_override = fb->environment()->has_environment_override();
-    out->environment.environment = DecodeCycleEnvironmentConfig(fb->environment()->environment());
-  }
   out->scene.clear();
   if (fb->scene_targets() != nullptr) {
     for (const sbirs::replay::SbirsSceneTarget* target : *fb->scene_targets()) {
