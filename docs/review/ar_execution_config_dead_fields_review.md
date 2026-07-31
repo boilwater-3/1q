@@ -1,5 +1,7 @@
 # InternalExecutionConfig 字段映射覆盖审计
 
+Status: draft
+
 > 审计日期：2026-07-30
 > 审计范围：`src/airborne_radar/config/InternalExecutionConfig.h` 全部字段
 > 目的：识别未被映射层（`MapSessionToExecution` / `ApplyRuntimePatch`）填充的字段，确认其实际写入路径
