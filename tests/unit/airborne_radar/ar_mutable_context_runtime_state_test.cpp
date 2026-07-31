@@ -36,14 +36,15 @@ static_assert(!std::is_move_assignable<MutableArContext>::value,
 void BeginContextCycle(MutableArContext* context, std::uint32_t cycle_index,
                        std::uint64_t target_id, float altitude_m, float dt_sec,
                        double yaw_deg) {
-  oneq::foundation::PoseState platform_pose;
-  platform_pose.attitude_deg.yaw_deg = yaw_deg;
-  platform_pose.attitude_deg.pitch_deg = -0.5 * yaw_deg;
-  platform_pose.attitude_deg.roll_deg = 0.25 * yaw_deg;
+  config::PlatformAttitudeDeg attitude;
+  attitude.yaw_deg = yaw_deg;
+  attitude.pitch_deg = -0.5 * yaw_deg;
+  attitude.roll_deg = 0.25 * yaw_deg;
+  context->SetPlatformAttitude(attitude);
   ArSceneTarget target;
   target.external_target_id = target_id;
   target.target_name = "runtime-state-target";
-  context->BeginCycle(ArSceneTargetList{target}, platform_pose, altitude_m, dt_sec, cycle_index);
+  context->BeginCycle(ArSceneTargetList{target}, altitude_m, dt_sec, cycle_index);
 }
 
 void SeedContext(MutableArContext* context, std::uint32_t cycle_index, std::uint64_t target_id,

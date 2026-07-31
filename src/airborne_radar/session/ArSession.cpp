@@ -264,7 +264,6 @@ struct ArSession::Impl {
 
   ArExecutionCycleResult RunExecutionCycle(
       std::uint32_t cycle_index, float dt_sec, float platform_altitude_m,
-      const oneq::foundation::PoseState& platform_pose,
       signal::pipeline::SignalCycleInput cycle_input,
       bool commit_pending_runtime_config) {
     ArExecutionCycleResult result;
@@ -289,7 +288,7 @@ struct ArSession::Impl {
       result.abort_reason = session::SignalCycleAbortReason::kRuntimePreparationFailed;
       return result;
     }
-    RadarContext().BeginCycle(cycle_input.scene_targets, platform_pose,
+    RadarContext().BeginCycle(cycle_input.scene_targets,
                               platform_altitude_m, dt_sec, cycle_index);
     Controller().RunOnce(cycle_input);
 
@@ -681,7 +680,7 @@ struct ArSession::Impl {
     const ArExecutionCycleResult execution_result = RunExecutionCycle(
         static_cast<std::uint32_t>(prepared_input.world_cycle_index),
         static_cast<float>(prepared_input.window_duration_s),
-        static_cast<float>(platform_lla.altitude_m), oneq::foundation::PoseState{},
+        static_cast<float>(platform_lla.altitude_m),
         std::move(cycle_input), false);
     if (!execution_result.executed) {
       PROJECT_LOG_ERROR("[ArSession] CompleteRfCycle signal execution failed with abort reason {}.",

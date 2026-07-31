@@ -14,7 +14,6 @@
 #include "1q/airborne_radar/session/ArControlProfile.h"
 #include "1q/airborne_radar/config/ArOrientationConfig.h"
 #include "1q/airborne_radar/session/ArSceneTypes.h"
-#include "1q/foundation/pose_types.h"
 
 namespace airborne_radar {
 namespace session {
@@ -69,7 +68,6 @@ class MutableArContext final {
 
   /** @brief 以已验证的内部执行事实刷新上下文，并清空本周期输出缓存。 */
   void BeginCycle(ArSceneTargetList scene_targets,
-                  const oneq::foundation::PoseState& platform_pose,
                   float platform_altitude_m, float dt_sec,
                   std::uint32_t cycle_index);
 
@@ -191,7 +189,7 @@ class MutableArContext final {
  private:
   std::shared_ptr<const ArContextRuntimeIdentity> owner_identity_;
   std::shared_ptr<ArSceneTargetList> scene_targets_{new ArSceneTargetList()};
-  oneq::foundation::PoseState platform_pose_{};
+  config::PlatformAttitudeDeg platform_attitude_deg_{};
   float platform_altitude_m_{0.0f};
   float cycle_dt_sec_{1.0f};
   std::uint32_t cycle_index_{0U};

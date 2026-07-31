@@ -11,7 +11,7 @@ struct ArContextRuntimeIdentity {};
 
 struct ArContextRuntimeSnapshot {
   std::shared_ptr<ArSceneTargetList> scene_targets;
-  oneq::foundation::PoseState platform_pose{};
+  config::PlatformAttitudeDeg platform_attitude_deg{};
   float platform_altitude_m{0.0f};
   float cycle_dt_sec{1.0f};
   std::uint32_t cycle_index{0U};
@@ -29,11 +29,9 @@ MutableArContext::MutableArContext(ArSceneTargetList scene_targets)
       cycle_index_(1U) {}
 
 void MutableArContext::BeginCycle(ArSceneTargetList scene_targets,
-                                  const oneq::foundation::PoseState& platform_pose,
                                   float platform_altitude_m, float dt_sec,
                                   std::uint32_t cycle_index) {
   SetSceneTargets(std::move(scene_targets));
-  platform_pose_ = platform_pose;
   platform_altitude_m_ = platform_altitude_m;
   SetCycleDeltaTimeSec(dt_sec);
   cycle_index_ = cycle_index;
@@ -46,7 +44,7 @@ void MutableArContext::SetSceneTargets(ArSceneTargetList scene_targets) {
 
 void MutableArContext::SetPlatformAttitude(
     const config::PlatformAttitudeDeg& platform_attitude_deg) {
-  platform_pose_.attitude_deg = platform_attitude_deg;
+  platform_attitude_deg_ = platform_attitude_deg;
 }
 
 void MutableArContext::SetCycleDeltaTimeSec(float dt_sec) { cycle_dt_sec_ = dt_sec; }
@@ -79,7 +77,7 @@ const session::ArControlProfile& MutableArContext::LatestControlProfile() const 
 ArContextRuntimeState MutableArContext::CaptureRuntimeState() const {
   std::shared_ptr<ArContextRuntimeSnapshot> snapshot(new ArContextRuntimeSnapshot());
   snapshot->scene_targets = scene_targets_;
-  snapshot->platform_pose = platform_pose_;
+  snapshot->platform_attitude_deg = platform_attitude_deg_;
   snapshot->platform_altitude_m = platform_altitude_m_;
   snapshot->cycle_dt_sec = cycle_dt_sec_;
   snapshot->cycle_index = cycle_index_;
@@ -98,7 +96,7 @@ bool MutableArContext::RestoreRuntimeState(const ArContextRuntimeState& state) {
   }
 
   scene_targets_ = state.snapshot_->scene_targets;
-  platform_pose_ = state.snapshot_->platform_pose;
+  platform_attitude_deg_ = state.snapshot_->platform_attitude_deg;
   platform_altitude_m_ = state.snapshot_->platform_altitude_m;
   cycle_dt_sec_ = state.snapshot_->cycle_dt_sec;
   cycle_index_ = state.snapshot_->cycle_index;
@@ -114,7 +112,7 @@ const ArSceneTargetList& MutableArContext::GetSceneTargets() const {
 }
 
 config::PlatformAttitudeDeg MutableArContext::GetPlatformAttitude() const {
-  return platform_pose_.attitude_deg;
+  return platform_attitude_deg_;
 }
 
 float MutableArContext::GetPlatformAltitudeM() const { return platform_altitude_m_; }
