@@ -226,6 +226,9 @@ sequenceDiagram
 ```
 
 运行期配置采用**立即提交**策略（与 EOS 同类），见 `docs/common/contract.md` 运行期配置提交策略表。
+电源状态单源（COMMON-OQ-4 字段提升）：`SbirsSessionConfig::sensor_enabled` 是唯一来源（mission
+域无电源字段），`has_sensor_enabled` 叶子是运行时电源唯一入口（命名自 `has_power_on`/`WithPowerOn`
+统一对齐，见 `check_cross_domain_naming.cmake` 阻断 7）。
 当前 `RunCycle` 后不存在可能失败的 commit 步骤，因此 controller 不捕获或恢复 pipeline。pipeline
 snapshot 仅是经完整校验的 internal checkpoint，用于确定性 continuation 与状态恢复测试，不上升为
 session 层事务契约。

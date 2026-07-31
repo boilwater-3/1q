@@ -12,7 +12,11 @@ Authority: 非规定性记录
 COMMON-OQ-2 已完成（2026-07-31）：AR/ESR/SAR/EOS 四模块 `SessionConfigBuilder` 已收敛为薄封装，
 Profile 枚举与 dirty flag 机制整体移除，语义档位退化为 `XxxProfileConstants.h` 预定义结构体常量；
 结论回写进 `docs/common/contract.md` §SessionConfigBuilder 与四模块 design.md。
-当前保留一项 Common/Practice 构建边界、六项 Common 跨模块设计边界（COMMON-OQ-3..8）、三项 ESR
+COMMON-OQ-4 已完成（2026-07-31）：AR/ESR/EOS/SBIRS 四模块电源状态字段提升——
+`*MissionConfig` 删除 `power_on`，唯一来源为 `*SessionConfig::sensor_enabled`（运行时补丁
+`has_sensor_enabled` 唯一入口，SBIRS 命名对齐），二重状态在类型层面消除；
+结论回写进 `docs/common/contract.md` §电源状态单源契约 与 `check_cross_domain_naming.cmake` 阻断 7。
+当前保留一项 Common/Practice 构建边界、五项 Common 跨模块设计边界（COMMON-OQ-3,5..8）、三项 ESR
 非阻塞设计边界和四项 SBIRS 非阻塞仿真边界，均不构成已批准实现要求。COMMON-OQ-8 登记于
 2026-07-31 跨域/consumer 排障：AR 周期窗口编年史、ESR RF 帧窗口匹配与零值配置、EOS 帧率-步长
 耦合四处反直觉语义，违反时均静默拒绝，外部调用方难以察觉（两个 consumer 与一个集成测试的教训）。
@@ -48,30 +52,26 @@ Profile 枚举与 dirty flag 机制整体移除，语义档位退化为 `XxxProf
 - **Stage A 进入条件**：出现真实场景需要"校验失败即不构造"语义时，先评估跨模块统一重命名/
   返回类型变更的向后兼容成本与下游消费方影响，再决定是否一次性推广到五模块。
 
-### COMMON-OQ-4：运行时补丁 mission.power_on 与叶子 sensor_enabled 双层冗余控制
+### COMMON-OQ-4：运行时补丁 mission.power_on 与叶子 sensor_enabled 双层冗余控制（已收敛 2026-07-31）
 
-- **现状证据**：AR/ESR/EOS/SBIRS 的 `*RuntimeConfigPatch` 同时提供整块 mission 域覆盖（含
-  `mission.power_on`）与叶子级 `sensor_enabled`/`power_on` 快捷字段。解析器统一先应用 mission
-  整块（写入 `sensor_enabled = mission.power_on`），后应用叶子快捷字段（覆写 `sensor_enabled`），
-  故叶子最终胜出（AR `ArRuntimeConfigResolver`、ESR `EsrRuntimeConfigResolver`、
-  EOS `EosRuntimeConfigResolver.cpp:133-134,191-193`、SBIRS `SbirsRuntimeConfigResolver`）。
-  SAR 是例外：其补丁仅含处理开关（`enable_raw_echo_generation` 等），无 mission 块、无电源叶子。
-  另存在命名分裂：四模块用 `sensor_enabled`，SBIRS 用 `power_on`。冲突时无自动 warning。
-- **未决问题**：(1) 是否移除叶子快捷字段、统一经 mission 整块控制电源；(2) 或在两者同时存在时
-  记录 warning；(3) 是否统一 `sensor_enabled` 与 `power_on` 命名。
+- **收敛决议**：采用"字段提升"方案（COMMON-OQ-2 单一来源原则的编译期实现）——
+  `power_on` 从 AR/ESR/EOS/SBIRS 四模块 `*MissionConfig` 中**整体删除**，电源状态唯一由
+  `*SessionConfig` 顶层 `sensor_enabled` 承载；运行时补丁电源入口唯一为
+  `has_sensor_enabled` 叶子（SBIRS 命名从 `has_power_on`/`WithPowerOn` 统一对齐）。
+  `mission` 域在类型层面已无电源字段，二重状态在编译期不可表达，不依赖注释约束。
+  实施要点：resolver 的 `has_mission` 整块域不再映射电源（AR/EOS 删除映射行、ESR/SBIRS
+  全量拷贝天然隔离）；`*InternalExecutionConfig` 顶层 `sensor_enabled` 同步提升；
+  replay schema 的 `power_on` 字段移至 session config 表；`check_cross_domain_naming.cmake`
+  阻断 7 更新为"mission 禁止 power_on、SessionConfig 必须 sensor_enabled、补丁必须
+  has_sensor_enabled、builder 必须 WithSensorEnabled"。
 - **与 COMMON-OQ-2 收敛模式的关联**：本议题与 OQ-2（SessionConfigBuilder Profile+dirty flag
-  隐式覆写）同属"二重状态 + 隐式优先级"反模式家族。OQ-2 收敛（2026-07-31）沉淀的三原则可
-  平移评估：**单一来源**（`mission.power_on` 与 `sensor_enabled` 映射同一内部字段，应二选一
-  删除冗余来源）；**显式顺序**（"先整块后叶子、叶子胜出"的解析顺序恰好与 OQ-2 收敛后的显式
-  顺序语义一致——整域赋值后微调胜出，应固化为契约与测试而非仅靠解析器内排列）；**可观测化**
-  （冲突时 warning/拒绝，而非静默取叶子）。注意：增量补丁的 `has_*` 标志是 optional 语义的
-  本质，**不可照搬** OQ-2"删状态、直接赋值结构体"的解法——零值补丁必须保持"不改任何字段"，
-  可删除的只有冗余字段来源本身。
-- **当前边界**：四模块保持"叶子优先、mission 次之"的解析顺序，各补丁头文件 docnote 已固化
-  该顺序（如 EOS `EosRuntimeConfigPatch.h:28-29`）。不得在文档中暗示 mission.power_on 优先于叶子。
-- **Stage A 进入条件**：出现真实场景因该冲突导致电源状态误配，或要求 mission 与电源解耦时，
-  先比较四模块补丁结构，设计统一的冲突检测/告警或字段拆分（如 `has_scan_params` 与
-  `has_power_state` 分离）方案，再评估跨模块推广。
+  隐式覆写）同属"二重状态 + 隐式优先级"反模式家族。OQ-2 收敛（2026-07-31）沉淀的三原则中
+  **单一来源**在此以更强的形式落地：不是"运行时拒绝/警告"，而是删字段使二重状态在类型层面
+  不存在。显式顺序与可观测化原则仍适用于补丁的几何/模式字段（整块先、叶子后，docnote+测试
+  固化）。
+- **迁移记录**：`config.mission.power_on = X` 一律改写为 `config.sensor_enabled = X`；
+  编译期强制（mission 结构已无该字段），全仓库 69 处构造点与 replay schema/codec 同步迁移，
+  四模块单元/集成/replay/contract 测试全绿，9 个 consumer 全 exit=0。
 
 ### COMMON-OQ-5：`Step()` 在校验失败/关机时静默复用上一帧
 

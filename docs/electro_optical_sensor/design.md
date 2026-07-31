@@ -446,8 +446,8 @@ pipeline 先得到红外 SNR 和可见光 SNR，再依据工作模式生成最�
 - 设备关机返回 `kSensorPoweredOff` 合法非执行状态；controller 保留最近有效输出并设置
   `reused_previous_output`，不得把关机映射为 `kOutputContractViolation`。
 - runtime patch 必须原子校验；任一字段无效时整个 patch 被拒绝。
-- 整块 mission runtime patch 同时更新扫描任务与 `power_on`；随后出现的叶子
-  `sensor_enabled` 按固定优先级覆盖 mission 电源值。
+- 电源状态单源（COMMON-OQ-4 字段提升）：`EosSessionConfig::sensor_enabled` 是唯一来源，
+  整块 mission patch 只更新扫描任务，不触碰电源；`has_sensor_enabled` 叶子是运行时电源唯一入口。
 - controller runtime state 支持 capture/restore，但必须拒绝不兼容的 pipeline snapshot 或其他 controller 实例的 snapshot。
 
 `ValidationCode` 仅保留 `EosCycleInput` 实际校验路径会触发的编码。环境观测字段（太阳辐照度、云量、

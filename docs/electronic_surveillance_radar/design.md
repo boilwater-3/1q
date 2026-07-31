@@ -452,7 +452,8 @@ override 后应用，再对最终 mission 枚举、scan policy、基础 detectio
 一次领域校验。work mode 对 pulse count/threshold scale 的调整始终从 `base_detection` 派生，重复切换
 模式不会复合缩放。通过校验的 patch 立即写入 `resolved_config` 并同步到 pipeline/environment；被拒绝
 的 patch 原子无污染。ESR 属于 `docs/common/contract.md` 定义的立即提交类，配置单向落定，不提供
-session 层回滚。
+session 层回滚。电源状态单源（COMMON-OQ-4 字段提升）：`EsrSessionConfig::sensor_enabled` 是
+唯一来源（mission 域无电源字段），`has_sensor_enabled` 叶子是运行时电源唯一入口。
 [evidence: tests/unit/electronic_surveillance_radar/esr_runtime_config_resolver_test.cpp::EsrRuntimeConfigResolverTest.RejectsUnknownMissionEnumsAtomically]
 [evidence: tests/unit/electronic_surveillance_radar/esr_runtime_config_resolver_test.cpp::EsrRuntimeConfigResolverTest.RejectsInvalidPolicyAtomically]
 [evidence: tests/unit/electronic_surveillance_radar/esr_runtime_config_resolver_test.cpp::EsrRuntimeConfigResolverTest.RejectsInvalidEnvironmentAtomically]

@@ -804,6 +804,7 @@ controller 在单周期开始时把 control profile 传给 signal pipeline，因
 
 - cycle input 校验失败时不执行 pipeline，`ArCycleResult` 携带 validation issues，且 controller 设置显式 abort reason `SignalCycleAbortReason::kValidationRejected`（数值 4，追加于既有 `kLifecycleUnavailable=1`/`kInvalidEnvironmentCycle=2`/`kRuntimePreparationFailed=3` 之后，保留 replay/trace 数值语义）。
 - 环境配置由 `ArSessionConfig.environment` 提供，运行期更新通过 `ArRuntimeConfigPatch` 提交；环境事实不再通过 `ArCycleInput` 传入，无需 `has_environment` 标志。
+- 电源状态单源（COMMON-OQ-4 字段提升）：`ArSessionConfig::sensor_enabled` 是唯一来源（mission 域无电源字段），运行时电源唯一入口为 `ArRuntimeConfigPatch::has_sensor_enabled`。
 - 已有有效输出时，校验失败可以复用上一帧输出，并标记 `reused_previous_output`。
 - **dt_sec 校验边界（有意差异，勿按"四模块一致"补齐）**：`ValidateArCycleDeltaTime`（`double` 类型）对 `dt_sec`
   仅校验有限性 + 正值（`ArInputValidation.cpp`），**故意不含** EOS/SBIRS 的 `dt_sec ≤ 10/frame_rate_hz` 上界。
