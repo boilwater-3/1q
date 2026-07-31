@@ -215,7 +215,7 @@ TEST(PublicHeadersSmokeTest, SbirsPublicSurfaceSupportsMinimalUsage) {
                                                      .AddTarget(target)
                                                      .Build();
   const sbirs_sensor::session::ValidationIssueList issues =
-      sbirs_sensor::session::ValidateSbirsCycleInput(input);
+      sbirs_sensor::session::ValidateSbirsCycleInput(input, 10.0f);
   EXPECT_FALSE(sbirs_sensor::session::HasValidationError(issues));
 
   const sbirs_sensor::config::SbirsRuntimeConfigPatch patch =
@@ -365,7 +365,7 @@ TEST(PublicHeadersSmokeTest, EosPublicSurfaceSupportsMinimalUsage) {
 
   ::electro_optical_sensor::session::EosCycleInput input;
   input.cycle_index = 2U;
-  input.dt_sec = 1.0f;
+  input.dt_sec = 0.1f;
   session::EosSceneTarget target;
   target.target_id = 7U;
   target.range_m = 1500.0f;
@@ -389,7 +389,7 @@ TEST(PublicHeadersSmokeTest, EosPublicSurfaceSupportsMinimalUsage) {
   ASSERT_TRUE(
       session::TryMakeEosPoseFromExternalKinematics(eos_pose_input, eos_reference, &eos_pose));
 
-  const session::ValidationIssueList issues = session::ValidateEosCycleInput(input);
+  const session::ValidationIssueList issues = session::ValidateEosCycleInput(input, 30.0f);
   EXPECT_FALSE(session::HasValidationError(issues));
 
   // 环境 preset 作为唯一公开模型选择入口。
@@ -450,7 +450,6 @@ TEST(PublicHeadersSmokeTest, SarPublicSurfaceSupportsMinimalUsage) {
   target.radar_cross_section_dbsm = 80.0;
   input.point_targets.push_back(target);
   session::SarRawIqFrame raw_iq;
-  raw_iq.pulse_count = 1U;
   raw_iq.samples_per_pulse = 1U;
   raw_iq.i_values.push_back(1.0);
   raw_iq.q_values.push_back(0.0);

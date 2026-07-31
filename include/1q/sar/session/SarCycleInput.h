@@ -16,10 +16,15 @@ namespace sar {
 namespace session {
 
 /**
- * @brief SAR 平台状态输入。
+ * @brief SAR 平台状态输入（LLA + NED 坐标系）。
  * @note 内部生成 raw echo 时，位置、时间、NED 速度和姿态是本周期轨迹起点的权威输入；
  *       三轴速度全零明确表示静止。L3 waypoint 模式的位置轨迹仍由显式 waypoint 配置拥有
  *       authority。
+ *
+ * 坐标系映射（与 `SarRawIqFrame::PulseState` 的 ENU 坐标系对比）：
+ * - `velocity_east_mps`  = PulseState 的 `velocity_x_mps`（东向，直接对应）
+ * - `velocity_north_mps` = PulseState 的 `velocity_y_mps`（北向，直接对应）
+ * - `velocity_down_mps`  = −PulseState 的 `velocity_z_mps`（NED 下向 = −ENU 上向）
  */
 struct ONEQ_API SarPlatformState {
   double time_s{0.0};
@@ -52,6 +57,14 @@ using SarPointTargetList = std::vector<SarPointTarget>;
  * @brief 外部提供的完整孔径行主序复数 IQ 帧。
  * @note 当前支持 L1 RDA、双轨迹 L2+RDA、实际轨迹 BP，以及完整 trace/replay。
  *
+ * 本结构体同时承载两类数据：
+ * - **IQ 样本**：`i_values`、`q_values`、`samples_per_pulse`（信号域数据）
+ * - **平台轨迹**：`pulse_states`、`ideal_pulse_states`（运动学域数据）
+ *
+ * `HasExternalRawIq()` 仅检查 IQ 样本字段（`samples_per_pulse != 0 && !i_values.empty()`），
+ * 忽略轨迹字段。仅提供轨迹而不提供 IQ 样本时（如 `SarCycleInputAdapter` 产物），
+ * 不会触发外部 IQ 路径。
+ *
  * 坐标系约定：`PulseState` 中的位置与速度使用 **本地直角坐标**（local Cartesian），
  * 与 `SarPlatformState` / `SarPointTarget` 的大地坐标（LLA + NED）不同。这是因为外部
  * IQ 数据通常已由上游系统在统一场景坐标系中处理完毕，直接以本地坐标提供可避免重复转换。
@@ -81,7 +94,6 @@ struct ONEQ_API SarRawIqFrame {
     double velocity_z_mps{0.0};     /**< 上向速度（m/s） */
   };
 
-  std::uint32_t pulse_count{0U};
   std::uint32_t samples_per_pulse{0U};
   std::vector<double> i_values{};
   std::vector<double> q_values{};

@@ -30,7 +30,6 @@ TEST(SarSessionConfigBuilderTest, MissionProfileTranslatesFields) {
 
   EXPECT_DOUBLE_EQ(config.mission.nominal_slant_range_m, 10000.0);
   EXPECT_DOUBLE_EQ(config.mission.platform_speed_mps, 150.0);
-  EXPECT_DOUBLE_EQ(config.mission.synthetic_aperture_time_s, 4.0);
   EXPECT_EQ(config.mission.azimuth_pulse_count, 2048U);
   EXPECT_EQ(config.mission.range_sample_count, 4096U);
   EXPECT_DOUBLE_EQ(config.mission.desired_ground_range_resolution_m, 0.5);
@@ -52,7 +51,6 @@ TEST(SarSessionConfigBuilderTest, ProcessingProfileRawEchoOnly) {
   const SarSessionConfig config = builder.Build();
 
   EXPECT_TRUE(config.policy.enable_raw_echo_generation);
-  EXPECT_FALSE(config.policy.enable_range_compression);
   EXPECT_FALSE(config.policy.enable_l1_rda_imaging);
   EXPECT_FALSE(config.policy.enable_l3_bp_imaging);
   EXPECT_FALSE(config.policy.retain_focused_image);
@@ -64,7 +62,6 @@ TEST(SarSessionConfigBuilderTest, ProcessingProfileL3Backprojection) {
   const SarSessionConfig config = builder.Build();
 
   EXPECT_TRUE(config.policy.enable_raw_echo_generation);
-  EXPECT_TRUE(config.policy.enable_range_compression);
   EXPECT_FALSE(config.policy.enable_l1_rda_imaging);
   EXPECT_FALSE(config.policy.enable_l2_motion_compensation);
   EXPECT_TRUE(config.policy.enable_l3_bp_imaging);

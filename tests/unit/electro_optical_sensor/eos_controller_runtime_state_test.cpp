@@ -30,7 +30,7 @@ config::execution::EosInternalExecutionConfig MakePipelineConfig() {
 ::electro_optical_sensor::session::EosCycleInput MakeValidInput(std::uint32_t cycle_index) {
   ::electro_optical_sensor::session::EosCycleInput input;
   input.cycle_index = cycle_index;
-  input.dt_sec = 1.0f;
+  input.dt_sec = 0.1f;
   return input;
 }
 

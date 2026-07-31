@@ -178,10 +178,11 @@ TEST(SarDegenerateDiagnosticsTest, DegenerateImagePeakAbortsCycle) {
   config::SarSessionConfig config = MakeBaselineRdaConfig();
   // external raw IQ 不注入内部接收机热噪声；全零完整孔径因此稳定产生全黑图。
   session::SarCycleInput input = MakeMatchingGeometryInput();
-  input.raw_iq.pulse_count = config.mission.azimuth_pulse_count;
   input.raw_iq.samples_per_pulse = config.mission.range_sample_count;
-  input.raw_iq.i_values.assign(input.raw_iq.pulse_count * input.raw_iq.samples_per_pulse, 0.0);
-  input.raw_iq.q_values.assign(input.raw_iq.pulse_count * input.raw_iq.samples_per_pulse, 0.0);
+  input.raw_iq.i_values.assign(
+      static_cast<std::size_t>(config.mission.azimuth_pulse_count) * config.mission.range_sample_count, 0.0);
+  input.raw_iq.q_values.assign(
+      static_cast<std::size_t>(config.mission.azimuth_pulse_count) * config.mission.range_sample_count, 0.0);
 
   session::SarSession session = session::SarSession::Create(config);
   const session::SarCycleResult result = session.StepWithResult(input);

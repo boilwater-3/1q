@@ -88,7 +88,6 @@ TEST(SarCycleInputAdapterBridgeTest, TrajectoryOnlyInputRunsInternalEchoNotExter
                                                    /*dt_sec=*/0.1f, pulses, &adapted, nullptr));
 
   // 适配器确认产出的是仅轨迹输入（无 IQ 样本）。
-  ASSERT_NE(adapted.raw_iq.pulse_count, 0U);
   ASSERT_FALSE(adapted.raw_iq.pulse_states.empty());
   ASSERT_EQ(adapted.raw_iq.samples_per_pulse, 0U);
   ASSERT_TRUE(adapted.raw_iq.i_values.empty());

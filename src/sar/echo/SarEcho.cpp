@@ -156,20 +156,23 @@ bool GeneratePointTargetRawEchoWithAntenna(const RawEchoConfig& config,
         static_cast<std::size_t>(std::llround(delay_samples));
     const double fractional_delay = delay_samples - static_cast<double>(delay_sample_index);
 
-    // 天线方位调制:off_boresight = 目标方位角 − 波束指向角。
+    // 天线二维方向图调制:方位 + 俯仰离轴角。
     const double target_dx = target.position_m.x_m - platform.position_m.x_m;
     const double target_dy = target.position_m.y_m - platform.position_m.y_m;
+    const double target_dz = target.position_m.z_m - platform.position_m.z_m;
     const double target_azimuth_rad = std::atan2(target_dx, target_dy);
-    double off_boresight_rad = target_azimuth_rad - boresight_rad;
-    while (off_boresight_rad > kPi) {
-      off_boresight_rad -= 2.0 * kPi;
+    double off_boresight_az_rad = target_azimuth_rad - boresight_rad;
+    while (off_boresight_az_rad > kPi) {
+      off_boresight_az_rad -= 2.0 * kPi;
     }
-    while (off_boresight_rad < -kPi) {
-      off_boresight_rad += 2.0 * kPi;
+    while (off_boresight_az_rad < -kPi) {
+      off_boresight_az_rad += 2.0 * kPi;
     }
+    const double horizontal_range = std::sqrt(target_dx * target_dx + target_dy * target_dy);
+    const double off_boresight_el_rad = std::atan2(target_dz, horizontal_range);
     // 双程方向图:幅度乘 √(pattern)(场强 vs 功率)。
-    const double pattern =
-        geometry::AzimuthPattern(antenna_config.antenna, wavelength_m, off_boresight_rad);
+    const double pattern = geometry::AntennaPattern(
+        antenna_config.antenna, wavelength_m, off_boresight_az_rad, off_boresight_el_rad);
     const double amplitude_weight = std::sqrt(std::max(0.0, pattern));
 
     double amplitude = std::sqrt(target.rcs_m2) / (slant_range_m * slant_range_m);
@@ -418,15 +421,25 @@ bool GenerateClutterScene(const RawEchoConfig& config,
                           const geometry::PlatformPulseState& platform,
                           const SceneDescription& scene,
                           const signal::ComplexVector& transmit_waveform,
-                          RawEchoResult* result) {
+                          RawEchoResult* result,
+                          const AntennaModulationConfig* antenna_config) {
   if (result == nullptr || !IsValid(config, transmit_waveform)) {
     return false;
   }
 
+  const bool use_antenna = antenna_config != nullptr && antenna_config->enabled;
+
   // 1) 点目标回波
-  if (!GeneratePointTargetRawEcho(config, platform, scene.point_targets,
-                                   transmit_waveform, result)) {
-    return false;
+  if (use_antenna) {
+    if (!GeneratePointTargetRawEchoWithAntenna(config, *antenna_config, platform,
+                                                scene.point_targets, transmit_waveform, result)) {
+      return false;
+    }
+  } else {
+    if (!GeneratePointTargetRawEcho(config, platform, scene.point_targets,
+                                     transmit_waveform, result)) {
+      return false;
+    }
   }
 
   // 2) 杂波网格
@@ -442,6 +455,7 @@ bool GenerateClutterScene(const RawEchoConfig& config,
                                : spacing * spacing;
 
   const double wavelength_m = kSpeedOfLightMps / config.carrier_frequency_hz;
+  const double boresight_rad = use_antenna ? antenna_config->beam_state.boresight_azimuth_rad : 0.0;
   signal::ComplexVector clutter_samples(config.range_sample_count,
                                         signal::ComplexSample(0.0, 0.0));
 
@@ -493,9 +507,30 @@ bool GenerateClutterScene(const RawEchoConfig& config,
           static_cast<std::size_t>(std::llround(delay_samples));
       const double fractional_delay = delay_samples - static_cast<double>(delay_sample_index);
 
-      const double amplitude = std::sqrt(rcs) /
+      double amplitude = std::sqrt(rcs) /
                                (slant_range_m * slant_range_m) *
                                AtmosphericAmplitudeScale(config, slant_range_m);
+
+      // 天线二维方向图调制
+      if (use_antenna) {
+        const double target_dx = cell_pos.x_m - platform.position_m.x_m;
+        const double target_dy = cell_pos.y_m - platform.position_m.y_m;
+        const double target_dz = cell_pos.z_m - platform.position_m.z_m;
+        const double target_azimuth_rad = std::atan2(target_dx, target_dy);
+        double off_boresight_az_rad = target_azimuth_rad - boresight_rad;
+        while (off_boresight_az_rad > kPi) {
+          off_boresight_az_rad -= 2.0 * kPi;
+        }
+        while (off_boresight_az_rad < -kPi) {
+          off_boresight_az_rad += 2.0 * kPi;
+        }
+        const double horizontal_range = std::sqrt(target_dx * target_dx + target_dy * target_dy);
+        const double off_boresight_el_rad = std::atan2(target_dz, horizontal_range);
+        const double pattern = geometry::AntennaPattern(
+            antenna_config->antenna, wavelength_m, off_boresight_az_rad, off_boresight_el_rad);
+        amplitude *= std::sqrt(std::max(0.0, pattern));
+      }
+
       const double phase = -4.0 * kPi * slant_range_m / wavelength_m;
       const signal::ComplexSample propagation(amplitude * std::cos(phase),
                                                amplitude * std::sin(phase));

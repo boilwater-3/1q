@@ -79,7 +79,7 @@ flatbuffers::Offset<replay::SarRawIqFrame> BuildRawIqFrame(
     ideal_pulse_states.push_back(BuildRawIqPulseState(fbb, pulse));
   }
   return replay::CreateSarRawIqFrame(
-      fbb, value.pulse_count, value.samples_per_pulse, fbb.CreateVector(value.i_values),
+      fbb, value.samples_per_pulse, fbb.CreateVector(value.i_values),
       fbb.CreateVector(value.q_values), fbb.CreateVector(pulse_states),
       fbb.CreateVector(ideal_pulse_states));
 }
@@ -90,7 +90,6 @@ bool FromFbRawIqFrame(const replay::SarRawIqFrame* fb, SarRawIqFrame* out) {
     return false;
   }
   SarRawIqFrame decoded;
-  decoded.pulse_count = fb->pulse_count();
   decoded.samples_per_pulse = fb->samples_per_pulse();
   decoded.i_values.assign(fb->i_values()->begin(), fb->i_values()->end());
   decoded.q_values.assign(fb->q_values()->begin(), fb->q_values()->end());
@@ -192,7 +191,7 @@ flatbuffers::Offset<replay::SarMissionConfig> BuildMissionConfig(
   const auto waypoint_vector = fbb.CreateVector(waypoints);
   return replay::CreateSarMissionConfig(
       fbb, value.scene_center_latitude_deg, value.scene_center_longitude_deg,
-      value.scene_center_altitude_m, value.nominal_slant_range_m, value.synthetic_aperture_time_s,
+      value.scene_center_altitude_m, value.nominal_slant_range_m,
       value.platform_speed_mps, value.range_sample_count, value.azimuth_pulse_count,
       value.desired_ground_range_resolution_m, value.desired_azimuth_resolution_m,
       value.l2_velocity_error_stddev_x_mps, value.l2_velocity_error_stddev_y_mps,
@@ -207,7 +206,6 @@ void FromFbMissionConfig(const replay::SarMissionConfig* fb, config::SarMissionC
   out->scene_center_longitude_deg = fb->scene_center_longitude_deg();
   out->scene_center_altitude_m = fb->scene_center_altitude_m();
   out->nominal_slant_range_m = fb->nominal_slant_range_m();
-  out->synthetic_aperture_time_s = fb->synthetic_aperture_time_s();
   out->platform_speed_mps = fb->platform_speed_mps();
   out->range_sample_count = fb->range_sample_count();
   out->azimuth_pulse_count = fb->azimuth_pulse_count();
@@ -234,7 +232,7 @@ void FromFbMissionConfig(const replay::SarMissionConfig* fb, config::SarMissionC
 flatbuffers::Offset<replay::SarPolicyConfig> BuildPolicyConfig(
     flatbuffers::FlatBufferBuilder& fbb, const config::SarPolicyConfig& value) {
   return replay::CreateSarPolicyConfig(
-      fbb, value.enable_raw_echo_generation, value.enable_range_compression,
+      fbb, value.enable_raw_echo_generation,
       value.enable_l1_rda_imaging, value.enable_diagnostics, value.retain_raw_phase_history,
       value.retain_focused_image, value.max_allowed_squint_angle_deg, value.minimum_snr_db,
       value.enable_l2_motion_compensation, value.enable_l3_bp_imaging);
@@ -245,7 +243,6 @@ void FromFbPolicyConfig(const replay::SarPolicyConfig* fb, config::SarPolicyConf
     return;
   }
   out->enable_raw_echo_generation = fb->enable_raw_echo_generation();
-  out->enable_range_compression = fb->enable_range_compression();
   out->enable_l1_rda_imaging = fb->enable_l1_rda_imaging();
   out->enable_diagnostics = fb->enable_diagnostics();
   out->retain_raw_phase_history = fb->retain_raw_phase_history();
@@ -492,7 +489,6 @@ std::string EncodeSarRuntimeConfigPatch(const config::SarRuntimeConfigPatch& val
   flatbuffers::FlatBufferBuilder fbb(256);
   fbb.Finish(replay::CreateSarRuntimeConfigPatch(
       fbb, value.has_enable_raw_echo_generation, value.enable_raw_echo_generation,
-      value.has_enable_range_compression, value.enable_range_compression,
       value.has_enable_l1_rda_imaging, value.enable_l1_rda_imaging,
       value.has_retain_raw_phase_history, value.retain_raw_phase_history,
       value.has_retain_focused_image, value.retain_focused_image, value.has_minimum_snr_db,
@@ -511,8 +507,6 @@ bool DecodeSarRuntimeConfigPatch(const std::string& bytes, config::SarRuntimeCon
   const auto* fb = flatbuffers::GetRoot<replay::SarRuntimeConfigPatch>(bytes.data());
   out->has_enable_raw_echo_generation = fb->has_enable_raw_echo_generation();
   out->enable_raw_echo_generation = fb->enable_raw_echo_generation();
-  out->has_enable_range_compression = fb->has_enable_range_compression();
-  out->enable_range_compression = fb->enable_range_compression();
   out->has_enable_l1_rda_imaging = fb->has_enable_l1_rda_imaging();
   out->enable_l1_rda_imaging = fb->enable_l1_rda_imaging();
   out->has_retain_raw_phase_history = fb->has_retain_raw_phase_history();

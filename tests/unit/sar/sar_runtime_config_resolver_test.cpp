@@ -111,21 +111,6 @@ TEST(SarRuntimeConfigResolverTest, L1RdaBlockedEvenIfCurrentConfigEnabledRawEcho
   EXPECT_FALSE(resolved.is_valid);
 }
 
-TEST(SarRuntimeConfigResolverTest, DisablingRangeCompressionWhileL1EnabledRejectsWholePatch) {
-  config::SarSessionConfig current_config;
-  current_config.policy.enable_l1_rda_imaging = true;
-  const config::SarRuntimeConfigPatch patch =
-      sar_config::SarRuntimeConfigBuilder().WithEnableRangeCompression(false).Build();
-
-  const SarRuntimeConfigResolveResult resolved =
-      ResolveSarRuntimeConfigPatch(current_config, patch);
-
-  EXPECT_TRUE(resolved.has_requested_update);
-  EXPECT_FALSE(resolved.is_valid);
-  EXPECT_TRUE(resolved.next_config.policy.enable_range_compression);
-  EXPECT_TRUE(resolved.next_config.policy.enable_l1_rda_imaging);
-}
-
 TEST(SarRuntimeConfigResolverTest, RetainRawHistoryWithoutRawEchoRejectsWholePatch) {
   const config::SarRuntimeConfigPatch patch = sar_config::SarRuntimeConfigBuilder()
                                                    .WithEnableRawEchoGeneration(false)

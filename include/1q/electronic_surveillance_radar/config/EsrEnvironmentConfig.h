@@ -40,10 +40,15 @@ enum class ONEQ_API EsrClutterDensityLevel { kLow = 0, kMedium = 1, kHigh = 2 };
 /**
  * @brief EsrAtmosphericObservation 描述外部可观测天气事实。
  */
+/**
+ * @brief EsrAtmosphericObservation 描述外部可观测天气事实。
+ *
+ * @note 湿度统一由 EsrAtmosphericPhysicsConfig::relative_humidity 表达，
+ *       本结构仅保留降水和能见度等物理模型未覆盖的观测。
+ */
 struct ONEQ_API EsrAtmosphericObservation {
-  float relative_humidity_ratio{0.5f};
-  float precipitation_rate_mmph{0.0f};
-  float visibility_km{20.0f};
+  float precipitation_rate_mmph{0.0f}; /**< 降水率（单位：mm/h） */
+  float visibility_km{20.0f};          /**< 能见度（单位：km） */
 };
 
 /**

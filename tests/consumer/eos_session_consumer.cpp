@@ -47,7 +47,7 @@ int main() {
   // 4. CycleInput with a target
   eos::session::EosCycleInput input;
   input.cycle_index = 1U;
-  input.dt_sec = 1.0f;
+  input.dt_sec = 0.1f;
   input.platform_altitude_m = 1200.0f;
   input.platform_pose.position_m.z = 0.0f;
 
@@ -63,7 +63,7 @@ int main() {
   input.scene.push_back(target);
 
   // 5. Input validation
-  const eos::session::ValidationIssueList issues = eos::session::ValidateEosCycleInput(input);
+  const eos::session::ValidationIssueList issues = eos::session::ValidateEosCycleInput(input, 30.0f);
   if (eos::session::HasValidationError(issues)) {
     return 1;
   }

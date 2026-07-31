@@ -5,11 +5,12 @@ Authority: 非规定性记录
 
 本文登记调查中发现但尚未定论的跨模块架构议题，不构成契约约束。条目推进到有结论时，应回写为契约规则（进 contract.md）或模块设计（进对应 design.md），并从本文移除。
 
-## 当前状态（2026-07-24 实时代码复核）
+## 当前状态（2026-07-31 实时代码复核）
 
 原 OQ-1、OQ-3、OQ-8、OQ-9、OQ-10a 至 OQ-10m 均已完成、拒绝或冻结；对应结论和测试证据已迁入
-`docs/common/contract.md` 及各模块 `design.md`。ESR runtime validation 边界也已完成并迁入 ESR design。
-当前保留一项 Common/Practice 构建边界和四项 SBIRS 非阻塞仿真边界，均不构成已批准实现要求。
+`docs/common/contract.md` 各模块 `design.md`。ESR runtime validation 边界也已完成并迁入 ESR design。
+当前保留一项 Common/Practice 构建边界、一项 Common 跨模块设计边界、三项 ESR 非阻塞设计边界
+和四项 SBIRS 非阻塞仿真边界，均不构成已批准实现要求。
 
 ## Common/Practice 非阻塞构建边界
 
@@ -24,6 +25,22 @@ Authority: 非规定性记录
 - **Stage A 进入条件**：提交锁定版本/提交与下载校验矩阵，提供 shell bootstrap 原型，并在真实 Windows
   runner 上依次证明 configure、Debug/Release build、install、独立 consumer build/run；随后再决定保留、
   删除或重命名现有 presets 与 `.bat` 入口。
+
+## Common 跨模块设计边界
+
+### COMMON-OQ-2：SessionConfigBuilder Profile 静默覆盖直接赋值
+
+- **现状证据**：ESR、AR、SAR、EOS 四个模块的 `SessionConfigBuilder` 均存在 Profile 覆盖行为：
+  `Build()` 时若 Profile dirty flag 为 true，Profile 翻译函数直接覆写对应字段，覆盖用户在
+  `WithSessionConfig` 或 Editor 中的直接赋值。AR 额外在 Profile 应用前执行整域重置为语义默认值
+  （最激进），ESR/SAR/EOS 仅覆写 Profile switch-case 涉及的字段。ESR 曾存在 `WithSessionConfig()`
+  重置 dirty flag 的独有 bug（已修复），SAR/EOS 无此问题。
+- **未决问题**：是否应将 Profile 应用改为"缺省填充"模式（仅填充用户未显式设置的字段），而非
+  "强制覆写"模式；以及是否需要编译期或运行期机制防止同一字段被 Profile 和直接赋值双重设置。
+- **当前边界**：各模块保持现有"Profile 覆盖直接赋值"语义。ESR `Build()` 注释已补充覆盖说明。
+  不得在文档中暗示直接赋值优先于 Profile。
+- **Stage A 进入条件**：出现真实场景要求"Profile 填充 + 局部覆盖"模式，先比较四模块的 Profile
+  覆盖字段清单，设计统一的 dirty-field 位图或 builder 优先级规则，再评估跨模块统一方案。
 
 ## Airborne Radar 非阻塞设计边界
 
@@ -79,6 +96,68 @@ Authority: 非规定性记录
   `ar_core_controller_test.cpp::ExternalAdaptiveBeamformingRaisesNextPhysicalDetectionMargin` 与
   `ar_rf_session_test.cpp::SidelobeCancellerLeavesPublishedEmissionSidelobeUnchanged` 固化现状。
   若未来要统一为单一权威翻译点，需先证明两个物理面应使用相同常量。
+
+## Electronic Surveillance Radar 非阻塞设计边界
+
+### ESR-OQ-1：压制干扰感知与 ECCM 决策链路缺失
+
+- **现状证据**：ECM 模块（`EcmSession`）支持四种干扰技术（瞄准、阻塞、扫频、欺骗），输出
+  `EcmCycleResult.emission_frame`（`RfEmissionFrame`）。集成测试
+  `multi_model_scenario_test.cpp:1287` 将 ECM 输出直接赋值给 `EsrCycleInput.rf_emissions`，
+  ESR 通过 `EsrResolutionCellLedger` 将非最强信号功率作为 `interference_power_w` 叠加到 SNR
+  分母，物理层干扰功率计算已完成。但 ESR 存在两条未消费的配置链路：
+  (1) `InterceptSuppressionModelConfig`（`suppression_noise_scale` / `suppression_mark_threshold_w`）
+  由 `BuildPipelineConfig` 填充到 `InterceptPipelineConfig.suppression_model`，但
+  `InterceptDetectionExecutor` 从未读取；
+  (2) `EsrEnvironmentSnapshot.spectrum_occupancy_ratio` 注释声称"检测链按 1+9ρ 计算环境噪声倍率"，
+  但该计算代码不存在。对比 AR 模块，AR 拥有独立的 `interference` 输入字段、
+  `ArInterferenceObservationResolver`（结构化干扰观测输出）、`EccmEvaluator`（8 项 ECCM 措施评分
+  与提案）和 `TacticalCoordinator`（闭环决策反馈），而 ESR 无结构化干扰观测输出、无 ECCM 决策引擎、
+  无工作模式自适应切换。
+
+- **未决问题**：
+  1. 是否激活 `suppression_model` 和 `spectrum_occupancy_ratio` 的消费逻辑，将压制干扰对等效噪声底
+     的影响纳入 SNR 和检测门限计算；
+  2. 是否定义 `EsrInterferenceObservation` 结构化输出（bearing、频谱、J/N、deception_class），
+     为下游消费方提供干扰态势感知；
+  3. 是否实现 ESR 特有的 ECCM 决策措施（接收机重调谐、扫描优先级调整、检测门限自适应、工作模式降级、
+     欺骗标记与置信度降级），参考 AR 的评分-提案-执行架构但使用被动侦察机的措施集合。
+
+- **当前边界**：ECM 压制干扰在 ESR 接收端仅以通用 RF emission 身份参与分辨单元竞争和 SNR 计算，
+  不产生结构化干扰观测输出，不触发 ECCM 反制措施。`suppression_model` 和
+  `spectrum_occupancy_ratio` 为死字段，不得在文档中声称 ESR 具备压制干扰感知或自适应抗干扰能力。
+
+- **Stage A 进入条件**：
+  1. 先激活死字段消费（修改 `InterceptDetectionExecutor` 噪声计算），并提供 unit test 证明
+     `suppression_noise_scale` 和 `spectrum_occupancy_ratio` 的变化可被检测结果观测到；
+  2. 定义 `EsrInterferenceObservation` 公开类型并提供 unit test 覆盖；
+  3. 实现 ECCM 评分与提案机制，提供集成测试覆盖"ECM 发射 → ESR 感知 → ECCM 反制 → 检测效果变化"
+     全链路。
+
+### ESR-OQ-2：运行时补丁扫描中心静默关闭显式扫描边界
+
+- **现状证据**：`EsrRuntimeConfigResolver.cpp` 在应用 `has_scan_center_az_deg` 或
+  `has_scan_center_el_deg` 补丁时，会同时设置 `use_explicit_scan_bounds = false`，静默将扫描
+  模式从显式边界切换为中心驱动。用户仅调整扫描中心意图不会预期丢失之前配置的四个扫描边界角。
+  单独补丁 azimuth center 也会导致 elevation 侧跟着切模式。
+- **未决问题**：是否应将模式切换设为显式补丁字段（`has_use_explicit_scan_bounds`），而非由
+  scan center 补丁隐含触发；或是否应保留当前行为但增加返回值/日志提示。
+- **当前边界**：当前行为为 scan center 补丁隐式关闭显式边界模式。消费方必须知晓此副作用。
+- **Stage A 进入条件**：出现真实场景要求"调整扫描中心但保留显式边界模式"，先评估将模式切换
+  提取为独立补丁字段的 API 变更成本和向后兼容性。
+
+### ESR-OQ-3：扫描策略跨域耦合（mission.scan + hardware mount 偏移）
+
+- **现状证据**：`EsrScanPolicyConfig`（mission 域）中的 `scan_center_az_deg` 经
+  `ApplyScanPolicy` 解算时会减去 `EsrHardwareConfig::antenna_mount_az_deg`（hardware 域）。
+  mission 域的值被 hardware 域静默偏移，用户只看 mission 配置无法推断实际扫描方向。
+  同理，`scan_start_az_deg` / `scan_end_az_deg` 在 `use_explicit_scan_bounds` 模式下
+  也会被 mount 偏移。
+- **未决问题**：是否应在公开 API 中将扫描中心语义定义为"天线坐标系"（已含 mount 偏移）或
+  "平台坐标系"（需显式减去 mount），或是否应提供查询实际解算扫描几何的 API。
+- **当前边界**：扫描配置语义为"天线坐标系"，mount 偏移在内部解算时扣除。文档未明确说明此语义。
+- **Stage A 进入条件**：出现因 mount 偏移导致的集成问题或用户误配，先明确公开 API 的坐标系
+  语义并在 design.md 中固化，再评估是否需要查询 API。
 
 ## SBIRS 非阻塞仿真边界
 

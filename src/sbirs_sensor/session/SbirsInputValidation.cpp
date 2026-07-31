@@ -1,6 +1,8 @@
 #include "1q/sbirs_sensor/session/SbirsInputValidation.h"
 
+#include <algorithm>
 #include <cmath>
+#include <limits>
 #include <set>
 
 #include "1q/sbirs_sensor/session/SbirsCycleInput.h"
@@ -33,12 +35,22 @@ void AddError(const char* message, ValidationLocation location, ValidationIssueL
 
 }  // namespace
 
-ValidationIssueList ValidateSbirsCycleInput(const SbirsCycleInput& input) {
+ValidationIssueList ValidateSbirsCycleInput(const SbirsCycleInput& input,
+                                            float frame_rate_hz) {
   ValidationIssueList issues;
   if (input.dt_sec <= 0.0f || !std::isfinite(input.dt_sec)) {
     ValidationLocation location;
     location.kind = ValidationLocationKind::kGlobal;
     AddError("dt_sec must be positive and finite", location, &issues);
+  } else {
+    constexpr float kMaxDtFactor = 10.0f;
+    const float max_dt_sec =
+        kMaxDtFactor / std::max(frame_rate_hz, std::numeric_limits<float>::min());
+    if (input.dt_sec > max_dt_sec) {
+      ValidationLocation location;
+      location.kind = ValidationLocationKind::kGlobal;
+      AddError("dt_sec exceeds reasonable range based on frame_rate_hz", location, &issues);
+    }
   }
   if (!input.has_satellite_position || !FiniteVector(input.satellite_position_ecef_m) ||
       !NonZeroVector(input.satellite_position_ecef_m)) {

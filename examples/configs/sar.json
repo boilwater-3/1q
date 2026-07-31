@@ -17,7 +17,6 @@
     "scene_center_longitude_deg": 135.0,
     "scene_center_altitude_m": 0.0,
     "nominal_slant_range_m": 100000.0,
-    "synthetic_aperture_time_s": 10.24,
     "platform_speed_mps": 180.0,
     "range_sample_count": 1024,
     "azimuth_pulse_count": 1024,
@@ -31,7 +30,6 @@
   },
   "processing": {
     "enable_raw_echo_generation": true,
-    "enable_range_compression": true,
     "enable_l1_rda_imaging": true,
     "enable_l2_motion_compensation": false,
     "enable_l3_bp_imaging": false,

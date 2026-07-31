@@ -92,7 +92,7 @@ TEST(EosCycleOutputBuilderTest, MultiCycleMovingTargetsStayNearExternalTruth) {
   eos_session::EosSession session = eos_session::EosSession::Create(MakeConfig());
 
   const std::size_t cycle_count = 36U;
-  const float dt_sec = 0.5f;
+  const float dt_sec = 0.1f;
   std::size_t compared_detection_count = 0U;
   for (std::size_t cycle = 0; cycle < cycle_count; ++cycle) {
     eos_session::EosCycleInput input;

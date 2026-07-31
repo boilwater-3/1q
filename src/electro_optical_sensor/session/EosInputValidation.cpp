@@ -1,5 +1,8 @@
 #include "1q/electro_optical_sensor/session/EosInputValidation.h"
 
+#include <algorithm>
+#include <limits>
+
 #include "common/validation/ValidationUtils.h"
 
 namespace electro_optical_sensor {
@@ -105,7 +108,7 @@ void ValidateTarget(const EosSceneTarget& target, std::size_t target_index,
 }  // namespace
 
 ValidationIssueList ValidateEosCycleInput(
-    const ::electro_optical_sensor::session::EosCycleInput& input) {
+    const ::electro_optical_sensor::session::EosCycleInput& input, float frame_rate_hz) {
   ValidationIssueList issues;
 
   if (!IsFinite(input.dt_sec)) {
@@ -116,6 +119,17 @@ ValidationIssueList ValidateEosCycleInput(
     issues.push_back(MakeIssue(ValidationSeverity::kError, ValidationCode::kInvalidCycleDeltaTime,
                                ValidationLocationKind::kGlobal, static_cast<std::size_t>(-1),
                                "dt_sec", "cycle delta time must be positive"));
+  } else {
+    constexpr float kMaxDtFactor = 10.0f;
+    const float max_dt_sec =
+        kMaxDtFactor / std::max(frame_rate_hz, std::numeric_limits<float>::min());
+    if (input.dt_sec > max_dt_sec) {
+      issues.push_back(MakeIssue(ValidationSeverity::kError,
+                                 ValidationCode::kCycleDeltaTimeExceedsFramePeriod,
+                                 ValidationLocationKind::kGlobal, static_cast<std::size_t>(-1),
+                                 "dt_sec",
+                                 "cycle delta time exceeds reasonable range based on frame_rate_hz"));
+    }
   }
 
   ValidatePlatformPose(input.platform_pose, &issues);

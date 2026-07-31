@@ -16,6 +16,7 @@
 
 #include "1q/api.hpp"
 #include "1q/sar/config/SarMissionConfig.h"
+#include "1q/sar/config/SarSessionConfig.h"
 #include "1q/sar/session/SarCycleInput.h"
 #include "1q/sar/session/SarExternalInputAdapter.h"
 
@@ -31,7 +32,7 @@ namespace session {
  * @note external_pulses 为空时，raw_iq 保持默认空值，SarSession 走内部 raw echo
  *       生成路径（而非外部 IQ 路径）。
  * @note 仅提供外部脉冲运动学（无 IQ 样本）时，本适配器把转换后的轨迹写入
- *       `raw_iq.pulse_states`/`pulse_count`。但当前 SAR 内部回波路径会从 config +
+ *       `raw_iq.pulse_states`。但当前 SAR 内部回波路径会从 config +
  *       platform 重算轨迹（不消费 input.raw_iq.pulse_states），因此**该外部轨迹当前
  *       不进入成像**，仅为未来“外部轨迹覆盖”入口预留。该输出不会触发外部 IQ 路径
  *       （HasExternalRawIq 以 IQ 样本为充要条件）。若需提供外部完整 IQ，请直接构造
@@ -56,6 +57,19 @@ struct ONEQ_API SarCycleInputAdapter {
                     const std::vector<SarExternalPulseInput>& external_pulses,
                     SarCycleInput* output,
                     SarCoordinateStatus* status = nullptr);
+
+  /**
+   * @brief 便捷重载：从 SarSessionConfig 提取 mission 域。
+   */
+  static bool Build(const SarPlatformState& platform,
+                    const SarPointTargetList& targets,
+                    const config::SarSessionConfig& config,
+                    float dt_sec,
+                    const std::vector<SarExternalPulseInput>& external_pulses,
+                    SarCycleInput* output,
+                    SarCoordinateStatus* status = nullptr) {
+    return Build(platform, targets, config.mission, dt_sec, external_pulses, output, status);
+  }
 
  private:
   SarCycleInputAdapter() = delete;

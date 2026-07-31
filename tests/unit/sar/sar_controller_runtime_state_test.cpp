@@ -153,7 +153,6 @@ TEST(SarControllerRuntimeStateTest, PipelineAbortRestoresAllCrossCycleState) {
 TEST(SarControllerRuntimeStateTest, PlatformInputOwnsGeneratedTrajectoryKinematics) {
   config::SarSessionConfig config = MakeSmallRdaConfig();
   config.policy.enable_l1_rda_imaging = false;
-  config.policy.enable_range_compression = false;
   pipeline::SarProcessingPipeline pipeline(config);
   SarController controller(pipeline, config);
 
@@ -204,7 +203,6 @@ TEST(SarControllerRuntimeStateTest, PlatformInputOwnsGeneratedTrajectoryKinemati
 TEST(SarControllerRuntimeStateTest, ZeroPlatformVelocityMeansStationary) {
   config::SarSessionConfig config = MakeSmallRdaConfig();
   config.policy.enable_l1_rda_imaging = false;
-  config.policy.enable_range_compression = false;
   pipeline::SarProcessingPipeline pipeline(config);
   SarController controller(pipeline, config);
 

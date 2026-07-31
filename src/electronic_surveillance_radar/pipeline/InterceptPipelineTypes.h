@@ -23,7 +23,6 @@ using session::ObservationOutputFrame;
  * @brief InterceptDetectionConfig 描述截获判定配置。
  */
 struct InterceptDetectionConfig {
-  float receiver_noise_floor_w{1.0e-12f};
   float minimum_snr_db{6.0f};
   float max_detect_range_m{450000.0f};
   float min_dynamic_range_margin_db{-3.0f};
@@ -41,7 +40,7 @@ enum class InterceptIntegrationMode { kNonCoherent = 0, kCoherent };
  */
 struct InterceptStatisticalDetectionConfig {
   float pfa{1.0e-6f};
-  float min_snr_db{6.0f};
+  float minimum_snr_db{6.0f};
   std::uint32_t pulse_count{8U};
   InterceptIntegrationMode integration_mode{InterceptIntegrationMode::kNonCoherent};
   float threshold_scale{1.0f};

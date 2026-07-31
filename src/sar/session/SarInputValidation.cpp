@@ -80,15 +80,6 @@ ValidationIssueList ValidateSarCycleInput(const SarCycleInput& input) {
   // 外部脉冲状态（仅在提供时校验）
   const auto& pulses = input.raw_iq.pulse_states;
   if (!pulses.empty()) {
-    // 数量一致性（pulse_count 声明数 vs 实际 vector 长度）
-    if (input.raw_iq.pulse_count != 0U &&
-        input.raw_iq.pulse_count != static_cast<std::uint32_t>(pulses.size())) {
-      add(ValidationSeverity::kError, ValidationCode::kPulseCountMismatch,
-          ValidationLocationKind::kGlobal, static_cast<std::size_t>(-1),
-          "raw_iq.pulse_count",
-          "pulse_count does not match pulse_states size.");
-    }
-
     for (std::size_t i = 0; i < pulses.size(); ++i) {
       if (!IsFinitePulse(pulses[i])) {
         add(ValidationSeverity::kError, ValidationCode::kNonFinitePulseField,
@@ -118,6 +109,27 @@ bool HasValidationError(const ValidationIssueList& issues) {
     }
   }
   return false;
+}
+
+bool AreSarHardwareAndMissionFieldsValid(const config::SarSessionConfig& config) {
+  if (config.hardware.bandwidth_hz <= 0.0 || config.hardware.sample_rate_hz <= 0.0 ||
+      config.hardware.carrier_frequency_hz <= 0.0 ||
+      config.hardware.pulse_repetition_frequency_hz <= 0.0 ||
+      config.hardware.antenna_length_m <= 0.0 ||
+      config.mission.platform_speed_mps <= 0.0 || config.mission.nominal_slant_range_m <= 0.0 ||
+      config.mission.range_sample_count == 0U || config.mission.azimuth_pulse_count == 0U ||
+      config.mission.desired_ground_range_resolution_m <= 0.0 ||
+      config.mission.desired_azimuth_resolution_m <= 0.0) {
+    return false;
+  }
+  if (!std::isfinite(config.hardware.peak_power_w) || config.hardware.peak_power_w <= 0.0 ||
+      !std::isfinite(config.hardware.antenna_gain_db) ||
+      !std::isfinite(config.hardware.receiver_noise_figure_db) ||
+      config.hardware.receiver_noise_figure_db < 0.0 ||
+      !std::isfinite(config.hardware.system_loss_db) || config.hardware.system_loss_db < 0.0) {
+    return false;
+  }
+  return true;
 }
 
 }  // namespace session

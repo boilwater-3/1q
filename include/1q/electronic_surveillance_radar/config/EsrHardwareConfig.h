@@ -35,7 +35,8 @@ struct ONEQ_API EsrHardwareConfig {
   std::uint64_t receiver_equipment_id{1U}; /**< RF v2 接收设备身份。 */
   double receiver_band_lower_hz{0.23e9};   /**< 接收频段下限（单位：Hz） */
   double receiver_band_upper_hz{100.0e9};  /**< 接收频段上限（单位：Hz） */
-  float receiver_sensitivity_w{1.0e-12f};  /**< 接收机灵敏度（单位：W） */
+  float receiver_sensitivity_w{1.0e-12f}; /**< 接收机等效噪声基底（单位：W）；设为 0 时由
+      receiver_noise_figure_db 和 receiver_reference_temperature_k 物理计算 */
   float receiver_noise_figure_db{5.0f}; /**< 接收机噪声系数（单位：dB）。 */
   float receiver_reference_temperature_k{290.0f}; /**< 噪声参考温度（单位：K）。 */
   float integrated_receive_loss_db{0.0f};  /**< 系统综合接收损耗（单位：dB） */

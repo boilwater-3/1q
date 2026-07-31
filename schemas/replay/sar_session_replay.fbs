@@ -31,7 +31,6 @@ table SarMissionConfig {
   scene_center_longitude_deg: double;
   scene_center_altitude_m: double;
   nominal_slant_range_m: double;
-  synthetic_aperture_time_s: double;
   platform_speed_mps: double;
   range_sample_count: uint32;
   azimuth_pulse_count: uint32;
@@ -46,7 +45,6 @@ table SarMissionConfig {
 
 table SarPolicyConfig {
   enable_raw_echo_generation: bool;
-  enable_range_compression: bool;
   enable_l1_rda_imaging: bool;
   enable_diagnostics: bool;
   retain_raw_phase_history: bool;
@@ -78,8 +76,6 @@ file_identifier "SARS";
 table SarRuntimeConfigPatch {
   has_enable_raw_echo_generation: bool;
   enable_raw_echo_generation: bool;
-  has_enable_range_compression: bool;
-  enable_range_compression: bool;
   has_enable_l1_rda_imaging: bool;
   enable_l1_rda_imaging: bool;
   has_retain_raw_phase_history: bool;

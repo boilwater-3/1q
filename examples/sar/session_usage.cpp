@@ -35,7 +35,6 @@ sar::config::SarSessionConfig MakeConfig() {
   config.mission.azimuth_pulse_count = 33U;
 
   config.policy.enable_raw_echo_generation = true;
-  config.policy.enable_range_compression = true;
   config.policy.enable_l1_rda_imaging = true;
   config.policy.enable_diagnostics = true;
   return config;

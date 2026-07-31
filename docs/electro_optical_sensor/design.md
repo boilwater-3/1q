@@ -140,7 +140,7 @@ sequenceDiagram
 
   Caller->>Session: StepWithResult(input)\n提交单周期输入
   Session->>Controller: RunOnce(input)\n执行一个周期
-  Controller->>Validator: ValidateEosCycleInput(input)\n校验平台 / 环境 / 目标
+  Controller->>Validator: ValidateEosCycleInput(input, frame_rate_hz)\n校验步长 / 平台 / 环境 / 目标
   alt invalid input / 输入无效
     Validator-->>Controller: issues\n错误列表
     Controller-->>Session: EosCycleResult with reused output\n直接组装校验状态与最近有效输出
@@ -421,7 +421,10 @@ pipeline 先得到红外 SNR 和可见光 SNR，再依据工作模式生成最�
 
 ### 2.9 输入校验、失败输出和运行期状态
 
-`EosController` 在执行 pipeline 前会校验 `EosCycleInput`。无效输入不会直接污染 pipeline 状态：
+`EosController` 在执行 pipeline 前会校验 `EosCycleInput`，其中 `dt_sec` 校验链为：有限性 → 正值 →
+上界 `10 / frame_rate_hz`（默认 30 Hz → 上限 ≈ 0.333 s）。`frame_rate_hz` 从 pipeline 当前配置
+动态读取，支持 runtime patch 热更新；patch 后校验阈值自动跟随新帧率。
+无效输入不会直接污染 pipeline 状态：
 
 - 首个周期输入无效时，不合成虚假的最新输出。
 - 已有成功周期后再遇到无效输入，可以复用最近有效输出，同时在 result 中记录校验失败状态。
@@ -433,6 +436,9 @@ pipeline 先得到红外 SNR 和可见光 SNR，再依据工作模式生成最�
 - controller runtime state 支持 capture/restore，但必须拒绝不兼容的 pipeline snapshot 或其他 controller 实例的 snapshot。
 
 这些规则让 EOS 能在 replay、回归测试和集成场景中保持可解释行为。相关测试包括 `ValidationFailureReturnsEmptyFrameAndStillAdvancesCycleIndex`、`StepReusesPreviousOutputWhenValidationFailsAfterSuccessfulCycle`、`RuntimePatchIsAtomicWhenAnyFieldIsInvalid` 和 `CaptureAndRestoreRoundTripState`。
+[evidence: tests/unit/electro_optical_sensor/eos_input_validation_test.cpp::RejectsDtSecExceedingFrameRateBound]
+[evidence: tests/unit/electro_optical_sensor/eos_input_validation_test.cpp::AcceptsDtSecAtExactFrameRateBound]
+[evidence: tests/unit/electro_optical_sensor/eos_input_validation_test.cpp::HigherFrameRateAllowsTighterDtSec]
 [evidence: tests/contract/electro_optical_sensor/eos_public_api_convenience_test.cpp::EosSessionReportsPoweredOffWithoutContractViolation]
 [evidence: tests/replay/electro_optical_sensor/eos_replay_session_test.cpp::ReplayInitialPoweredOffTraceRoundtrip]
 

@@ -37,12 +37,6 @@ class ONEQ_API SarRuntimeConfigBuilder {
     return *this;
   }
 
-  SarRuntimeConfigBuilder& WithEnableRangeCompression(bool value) noexcept {
-    patch_.has_enable_range_compression = true;
-    patch_.enable_range_compression = value;
-    return *this;
-  }
-
   SarRuntimeConfigBuilder& WithEnableL1RdaImaging(bool value) noexcept {
     patch_.has_enable_l1_rda_imaging = true;
     patch_.enable_l1_rda_imaging = value;

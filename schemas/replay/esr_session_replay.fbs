@@ -80,7 +80,6 @@ table EsrAtmosphericPhysicsConfig {
 }
 
 table EsrAtmosphericObservation {
-  relative_humidity_ratio:  float;
   precipitation_rate_mmph:  float;
   visibility_km:            float;
 }

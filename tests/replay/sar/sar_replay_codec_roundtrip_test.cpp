@@ -63,7 +63,6 @@ TEST(SarReplayCodecRoundtripTest, CycleInputPreservesPlatformAndTargets) {
 TEST(SarReplayCodecRoundtripTest, CycleInputPreservesExternalRawIqAndDualTrajectories) {
   SarCycleInput input;
   input.cycle_index = 8U;
-  input.raw_iq.pulse_count = 2U;
   input.raw_iq.samples_per_pulse = 3U;
   input.raw_iq.i_values = {1.0, 2.0, 3.0, 4.0, 5.0, 6.0};
   input.raw_iq.q_values = {-1.0, -2.0, -3.0, -4.0, -5.0, -6.0};
@@ -88,7 +87,6 @@ TEST(SarReplayCodecRoundtripTest, CycleInputPreservesExternalRawIqAndDualTraject
   SarCycleInput decoded;
   ASSERT_TRUE(DecodeSarCycleInput(bytes, &decoded));
 
-  EXPECT_EQ(decoded.raw_iq.pulse_count, input.raw_iq.pulse_count);
   EXPECT_EQ(decoded.raw_iq.samples_per_pulse, input.raw_iq.samples_per_pulse);
   EXPECT_EQ(decoded.raw_iq.i_values, input.raw_iq.i_values);
   EXPECT_EQ(decoded.raw_iq.q_values, input.raw_iq.q_values);
@@ -103,12 +101,10 @@ TEST(SarReplayCodecRoundtripTest, CycleInputPreservesExternalRawIqAndDualTraject
 TEST(SarReplayCodecRoundtripTest, CycleInputDecodeFailureDoesNotModifyOutput) {
   SarCycleInput output;
   output.cycle_index = 77U;
-  output.raw_iq.pulse_count = 5U;
   output.raw_iq.i_values = {123.0};
 
   EXPECT_FALSE(DecodeSarCycleInput("not-a-flatbuffer", &output));
   EXPECT_EQ(output.cycle_index, 77U);
-  EXPECT_EQ(output.raw_iq.pulse_count, 5U);
   EXPECT_EQ(output.raw_iq.i_values, std::vector<double>({123.0}));
 }
 
@@ -308,7 +304,6 @@ TEST(SarReplayCodecRoundtripTest, SessionConfigPreservesAllDomains) {
   config.mission.scene_center_longitude_deg = 120.0;
   config.mission.scene_center_altitude_m = 5.0;
   config.mission.nominal_slant_range_m = 29.9792458;
-  config.mission.synthetic_aperture_time_s = 0.4;
   config.mission.platform_speed_mps = 2.0;
   config.mission.range_sample_count = 64U;
   config.mission.azimuth_pulse_count = 9U;
@@ -325,7 +320,6 @@ TEST(SarReplayCodecRoundtripTest, SessionConfigPreservesAllDomains) {
   waypoint.altitude_m = 1500.0;
   config.mission.l3_waypoints.push_back(waypoint);
   config.policy.enable_raw_echo_generation = true;
-  config.policy.enable_range_compression = true;
   config.policy.enable_l1_rda_imaging = true;
   config.policy.enable_l2_motion_compensation = true;
   config.policy.enable_l3_bp_imaging = true;
@@ -383,7 +377,6 @@ TEST(SarReplayCodecRoundtripTest, RuntimeConfigPatchPreservesHasBitsAndValues) {
   const config::SarRuntimeConfigPatch patch =
       config::SarRuntimeConfigBuilder()
           .WithEnableRawEchoGeneration(false)
-          .WithEnableRangeCompression(false)
           .WithEnableL1RdaImaging(true)
           .WithRetainRawPhaseHistory(true)
           .WithMinimumSnrDb(6.5)
@@ -396,8 +389,6 @@ TEST(SarReplayCodecRoundtripTest, RuntimeConfigPatchPreservesHasBitsAndValues) {
 
   EXPECT_TRUE(decoded.has_enable_raw_echo_generation);
   EXPECT_FALSE(decoded.enable_raw_echo_generation);
-  EXPECT_TRUE(decoded.has_enable_range_compression);
-  EXPECT_FALSE(decoded.enable_range_compression);
   EXPECT_TRUE(decoded.has_enable_l1_rda_imaging);
   EXPECT_TRUE(decoded.enable_l1_rda_imaging);
   EXPECT_TRUE(decoded.has_retain_raw_phase_history);

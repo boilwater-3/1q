@@ -43,7 +43,6 @@ TEST(SarCycleInputAdapterTest, EmptyPulsesProducesNoRawIq) {
   EXPECT_TRUE(output.point_targets.empty());
   // 无外部脉冲，raw_iq 保持空。
   EXPECT_TRUE(output.raw_iq.pulse_states.empty());
-  EXPECT_EQ(output.raw_iq.pulse_count, 0U);
 }
 
 TEST(SarCycleInputAdapterTest, PulsesConvertedToSceneCenterEnu) {
@@ -66,7 +65,6 @@ TEST(SarCycleInputAdapterTest, PulsesConvertedToSceneCenterEnu) {
   SarCycleInput output;
   ASSERT_TRUE(SarCycleInputAdapter::Build(platform, {}, mission, 1.0f, pulses, &output, nullptr));
 
-  EXPECT_EQ(output.raw_iq.pulse_count, 2U);
   ASSERT_EQ(output.raw_iq.pulse_states.size(), 2U);
 
   // 两个脉冲位置相同，East 分量应都为正且相等。

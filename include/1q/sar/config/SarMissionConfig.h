@@ -34,7 +34,6 @@ struct ONEQ_API SarMissionConfig {
   double scene_center_longitude_deg{0.0};
   double scene_center_altitude_m{0.0};
   double nominal_slant_range_m{15000.0};
-  double synthetic_aperture_time_s{2.0};
   double platform_speed_mps{180.0};
   std::uint32_t range_sample_count{4096U};
   std::uint32_t azimuth_pulse_count{1024U};

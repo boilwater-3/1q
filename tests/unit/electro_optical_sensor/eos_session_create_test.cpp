@@ -35,7 +35,7 @@ config::EosSessionConfig MakeSessionConfig() {
 EosCycleInput MakeValidInput(std::uint32_t cycle_index) {
   EosCycleInput input;
   input.cycle_index = cycle_index;
-  input.dt_sec = 1.0f;
+  input.dt_sec = 0.1f;
   return input;
 }
 

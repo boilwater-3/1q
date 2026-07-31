@@ -13,6 +13,7 @@
 
 #include "1q/api.hpp"
 #include "1q/foundation/validation_types.h"
+#include "1q/sar/config/SarSessionConfig.h"
 #include "1q/sar/session/SarCycleInput.h"
 
 namespace sar {
@@ -32,8 +33,7 @@ enum class ONEQ_API ValidationCode {
   kNonFinitePlatformField,        /**< 平台存在非有限数值字段 */
   kNonFiniteTargetField,          /**< 点目标存在非有限数值字段 */
   kInvalidPulseSequence,          /**< 脉冲序号不连续或时间非单调 */
-  kNonFinitePulseField,           /**< 脉冲状态存在非有限数值字段 */
-  kPulseCountMismatch             /**< pulse_count 与 pulse_states 数量不一致 */
+  kNonFinitePulseField            /**< 脉冲状态存在非有限数值字段 */
 };
 
 /**
@@ -68,6 +68,17 @@ ONEQ_API ValidationIssueList ValidateSarCycleInput(const SarCycleInput& input);
  * @return 若存在 error 级问题则返回 `true`。
  */
 ONEQ_API bool HasValidationError(const ValidationIssueList& issues);
+
+/**
+ * @brief 检查 SAR 硬件与任务字段的基本合法性（正值、有限值、采样窗口容脉冲）。
+ *
+ * 供 `ValidateSarSessionConfig` 和 `ValidateRuntimeConfigForStep` 共享，避免重复校验逻辑。
+ * 不检查策略域（policy）或环境域（environment）字段。
+ *
+ * @param[in] config 待检查的会话配置。
+ * @return 所有硬件与任务字段合法时返回 `true`。
+ */
+ONEQ_API bool AreSarHardwareAndMissionFieldsValid(const config::SarSessionConfig& config);
 
 }  // namespace session
 }  // namespace sar

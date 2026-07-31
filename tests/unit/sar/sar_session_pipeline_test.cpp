@@ -88,7 +88,6 @@ session::SarCycleInput MakeInput(std::uint32_t cycle_index = 1U) {
 
 session::SarCycleInput MakeExternalRawIqInput() {
   session::SarCycleInput input = MakeInput();
-  input.raw_iq.pulse_count = 9U;
   input.raw_iq.samples_per_pulse = 64U;
   input.raw_iq.i_values.assign(9U * 64U, 0.0);
   input.raw_iq.q_values.assign(9U * 64U, 0.0);
@@ -100,7 +99,7 @@ session::SarCycleInput MakeExternalRawIqInput() {
 
 session::SarCycleInput MakeExternalRawIqInputWithTrajectory() {
   session::SarCycleInput input = MakeExternalRawIqInput();
-  for (std::size_t index = 0U; index < input.raw_iq.pulse_count; ++index) {
+  for (std::size_t index = 0U; index < input.raw_iq.i_values.size() / input.raw_iq.samples_per_pulse; ++index) {
     session::SarRawIqFrame::PulseState state;
     state.pulse_id = static_cast<std::uint64_t>(index);
     state.time_s = static_cast<double>(index) / 20.0;
@@ -229,7 +228,6 @@ TEST(SarSessionPipelineTest, SquintGateUsesMaximumActualApertureAngle) {
 TEST(SarSessionPipelineTest, RawEchoOnlySkipsSquintImagingGate) {
   config::SarSessionConfig config = MakeSmallRdaConfig();
   config.policy.enable_l1_rda_imaging = false;
-  config.policy.enable_range_compression = false;
   config.policy.max_allowed_squint_angle_deg = 0.0;
   session::SarCycleInput input = MakeInput();
   const session::SarCycleResult result =
@@ -508,7 +506,7 @@ TEST(SarSessionPipelineTest, InvalidHardwareLinkBudgetFailsBeforeRawEcho) {
 
   EXPECT_FALSE(result.executed_this_cycle);
   EXPECT_TRUE(result.has_error);
-  EXPECT_EQ(result.abort_reason, "invalid_hardware_link_budget");
+  EXPECT_EQ(result.abort_reason, "invalid_config");
   EXPECT_FALSE(result.output_frame.has_raw_echo);
 }
 
@@ -574,7 +572,6 @@ TEST(SarSessionPipelineTest, ReplayCodecPreservesExternalRawIq) {
   ASSERT_FALSE(encoded.empty());
   session::SarCycleInput decoded;
   ASSERT_TRUE(session::DecodeSarCycleInput(encoded, &decoded));
-  EXPECT_EQ(decoded.raw_iq.pulse_count, input.raw_iq.pulse_count);
   EXPECT_EQ(decoded.raw_iq.samples_per_pulse, input.raw_iq.samples_per_pulse);
   EXPECT_EQ(decoded.raw_iq.i_values, input.raw_iq.i_values);
   EXPECT_EQ(decoded.raw_iq.q_values, input.raw_iq.q_values);
@@ -709,23 +706,17 @@ TEST(SarSessionPipelineTest, RuntimeSizeGateRejectsUnapprovedLargeRda) {
   EXPECT_FALSE(result.output_frame.has_l1_image);
 }
 
-TEST(SarSessionPipelineTest, RdaRequiresRawEchoAndRangeCompression) {
-  for (int missing_dependency = 0; missing_dependency < 2; ++missing_dependency) {
-    config::SarSessionConfig config = MakeSmallRdaConfig();
-    if (missing_dependency == 0) {
-      config.policy.enable_raw_echo_generation = false;
-    } else {
-      config.policy.enable_range_compression = false;
-    }
-    const session::SarCycleResult result =
-        session::SarSession::Create(config).StepWithResult(MakeInput());
+TEST(SarSessionPipelineTest, RdaRequiresRawEcho) {
+  config::SarSessionConfig config = MakeSmallRdaConfig();
+  config.policy.enable_raw_echo_generation = false;
+  const session::SarCycleResult result =
+      session::SarSession::Create(config).StepWithResult(MakeInput());
 
-    EXPECT_FALSE(result.executed_this_cycle);
-    EXPECT_TRUE(result.has_error);
-    EXPECT_EQ(result.abort_reason, "rda_requires_raw_echo_and_range_compression");
-    EXPECT_FALSE(result.output_frame.has_range_compressed_echo);
-    EXPECT_FALSE(result.output_frame.has_l1_image);
-  }
+  EXPECT_FALSE(result.executed_this_cycle);
+  EXPECT_TRUE(result.has_error);
+  EXPECT_EQ(result.abort_reason, "rda_requires_raw_echo");
+  EXPECT_FALSE(result.output_frame.has_range_compressed_echo);
+  EXPECT_FALSE(result.output_frame.has_l1_image);
 }
 
 TEST(SarSessionPipelineTest, RangeCompressionStatusRequiresExecutedImaging) {
@@ -895,20 +886,13 @@ TEST(SarSessionPipelineTest, L3BpRejectsMutualExclusionAndSizeViolations) {
   EXPECT_EQ(oversized_result.abort_reason, "l3_bp_size_gate");
 }
 
-TEST(SarSessionPipelineTest, L3BpRequiresRawEchoAndRangeCompression) {
+TEST(SarSessionPipelineTest, L3BpRequiresRawEcho) {
   config::SarSessionConfig no_raw = MakeSmallL3BpConfig();
   no_raw.policy.enable_raw_echo_generation = false;
   session::SarSession no_raw_session = session::SarSession::Create(no_raw);
   const session::SarCycleResult no_raw_result = no_raw_session.StepWithResult(MakeInput());
   EXPECT_FALSE(no_raw_result.executed_this_cycle);
   EXPECT_EQ(no_raw_result.abort_reason, "invalid_l3_bp_config");
-
-  config::SarSessionConfig no_range_compression = MakeSmallL3BpConfig();
-  no_range_compression.policy.enable_range_compression = false;
-  session::SarSession no_range_session = session::SarSession::Create(no_range_compression);
-  const session::SarCycleResult no_range_result = no_range_session.StepWithResult(MakeInput());
-  EXPECT_FALSE(no_range_result.executed_this_cycle);
-  EXPECT_EQ(no_range_result.abort_reason, "invalid_l3_bp_config");
 }
 
 TEST(SarSessionPipelineTest, L3BpRejectsInvalidWaypointStructure) {

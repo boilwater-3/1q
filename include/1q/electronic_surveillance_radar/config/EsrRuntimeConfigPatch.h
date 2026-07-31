@@ -67,8 +67,10 @@ struct ONEQ_API EsrRuntimeConfigPatch {
   bool has_environment{false}; /**< [补丁标志] 是否更新环境运行期配置 */
   EsrEnvironmentRuntimeConfigPatch environment{};
 
-  bool has_sensor_enabled{false}; /**< [补丁标志] 是否显式设置传感器开关状态 */
-  bool sensor_enabled{true};      /**< [可外部调整] 传感器开关状态 */
+  bool has_sensor_enabled{false}; /**< [补丁标志] 是否显式设置传感器开关状态。
+       映射至 EsrMissionConfig::power_on。 */
+  bool sensor_enabled{true};      /**< [可外部调整] 传感器开关状态。映射至
+       EsrMissionConfig::power_on；字段名沿用跨模块约定。 */
 
   bool has_work_mode{false};                                /**< [补丁标志] 是否显式设置工作模式 */
   EsrWorkMode work_mode{EsrWorkMode::kEsm}; /**< [可外部调整] 工作模式值 */

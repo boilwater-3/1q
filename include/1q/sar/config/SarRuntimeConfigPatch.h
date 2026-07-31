@@ -18,9 +18,6 @@ struct ONEQ_API SarRuntimeConfigPatch {
   bool has_enable_raw_echo_generation{false};  /**< 是否携带 enable_raw_echo_generation 变更 */
   bool enable_raw_echo_generation{true};       /**< 目标 raw echo 生成开关值 */
 
-  bool has_enable_range_compression{false};    /**< 是否携带 enable_range_compression 变更 */
-  bool enable_range_compression{true};         /**< 目标距离压缩开关值 */
-
   bool has_enable_l1_rda_imaging{false};       /**< 是否携带 enable_l1_rda_imaging 变更 */
   bool enable_l1_rda_imaging{false};           /**< 目标 L1 RDA 成像开关值 */
 

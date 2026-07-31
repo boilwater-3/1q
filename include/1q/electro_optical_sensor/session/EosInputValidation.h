@@ -43,6 +43,7 @@ enum class ONEQ_API ValidationCode {
   kNonFiniteSolarAngles,            /**< 太阳角存在非有限值 */
   kInvalidSolarAltitudeRange,       /**< 太阳高度角越界（不在 [-90, 90]） */
   kInconsistentDayNightType,        /**< 昼夜类型与太阳高度角不一致 */
+  kCycleDeltaTimeExceedsFramePeriod, /**< 周期步长超出帧率合理范围 */
   kCount                            /**< 枚举哨兵值（非实际错误码） */
 };
 
@@ -63,10 +64,11 @@ using ValidationIssueList = std::vector<ValidationIssue>;
 /**
  * @brief 校验单周期光学传感器输入。
  * @param[in] input 单周期输入。
+ * @param[in] frame_rate_hz 传感器帧率（Hz），用于 dt_sec 上界校验；必须正有限。
  * @return 校验问题列表。
  */
 ONEQ_API ValidationIssueList ValidateEosCycleInput(
-    const ::electro_optical_sensor::session::EosCycleInput& input);
+    const ::electro_optical_sensor::session::EosCycleInput& input, float frame_rate_hz);
 
 /**
  * @brief 判断校验列表中是否存在 error 级问题。

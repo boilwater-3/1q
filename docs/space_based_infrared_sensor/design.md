@@ -185,7 +185,7 @@ sequenceDiagram
 
   Caller->>Session: StepWithResult(input)\n提交单周期输入
   Session->>Controller: RunOnce(input)\n执行一个周期
-  Controller->>Validator: ValidateSbirsCycleInput(input)\n校验平台 / 环境 / 目标
+  Controller->>Validator: ValidateSbirsCycleInput(input, frame_rate_hz)\n校验步长 / 平台 / 环境 / 目标
   alt invalid input / 输入无效
     Validator-->>Controller: issues\n错误列表
     Controller->>Output: reuse latest output if available\n复用最近有效输出
@@ -250,14 +250,18 @@ resolver 按旧、新配置的字段差异生成内部 impact；相同值 patch 
 [evidence: tests/unit/sbirs_sensor/sbirs_pipeline_test.cpp::RuntimeSeedsRestartOnlyTheirOwnedRandomStream]
 [evidence: tests/unit/sbirs_sensor/sbirs_pipeline_test.cpp::ChannelShrinkKeepsLowChannelAndReleasesHighChannelState]
 
-单周期输入在任何 pipeline mutation 之前 fail-closed 校验：`dt_sec` 必须正且有限；卫星和目标 ECEF
-必须有限且非原点；`target_id` 必须非零且周期内唯一；温度、emissivity、投影面积遵守各自物理域；
-目标速度在 `has_velocity_ecef_m_per_s=true` 时必须有限，为 false 时必须是有限零向量；启用
-environment override 时，天气/海况枚举、绝对温度下限、湿度、能见度、透过率和交互权重全部校验。
+单周期输入在任何 pipeline mutation 之前 fail-closed 校验：`dt_sec` 必须正、有限、且不超过
+`10 / frame_rate_hz`（默认 10 Hz → 上限 1.0 s；`frame_rate_hz` 来自任务域配置，创建后不可变）；
+卫星和目标 ECEF 必须有限且非原点；`target_id` 必须非零且周期内唯一；温度、emissivity、投影面积
+遵守各自物理域；目标速度在 `has_velocity_ecef_m_per_s=true` 时必须有限，为 false 时必须是有限
+零向量；启用 environment override 时，天气/海况枚举、绝对温度下限、湿度、能见度、透过率和交互权重
+全部校验。
 拒绝周期不捕获也不恢复 pipeline，因为其随机源、扫描、cue、ATP、调度和跟踪状态从未推进；若已有
 成功输出只复用上一帧，随后合法周期与未经历拒绝的干净会话等价。
 
 [evidence: tests/unit/sbirs_sensor/sbirs_input_validation_test.cpp::RejectsFiniteDomainFlagIdAndEnvironmentMatrix]
+[evidence: tests/unit/sbirs_sensor/sbirs_input_validation_test.cpp::RejectsDtSecExceedingFrameRateBound]
+[evidence: tests/unit/sbirs_sensor/sbirs_input_validation_test.cpp::AcceptsDtSecAtExactFrameRateBound]
 [evidence: tests/unit/sbirs_sensor/sbirs_session_test.cpp::ValidationRejectDoesNotAdvancePipelineState]
 
 ### 1.6 主探测数据流

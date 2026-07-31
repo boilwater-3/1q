@@ -15,6 +15,11 @@ namespace config {
 
 /**
  * @brief EsrDetectionPolicyConfig 描述对外探测策略详细参数。
+ *
+ * @note 工作模式（EsrWorkMode）会在会话初始化时静默调整 pulse_count 和 threshold_scale：
+ *       kHgesm → pulse_count ×4（上限 4096），threshold_scale ×0.85（下限 0.1）；
+ *       kRwr   → pulse_count ÷2（下限 1），threshold_scale ×1.25（下限 0.1）。
+ *       本结构存储调整前的基线值。见 EsrResolutionRules::ApplyWorkModeAdjustment。
  */
 struct ONEQ_API EsrDetectionPolicyConfig {
   float minimum_snr_db{6.0f};           /**< 最小截获信噪比门限（单位：dB） */

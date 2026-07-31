@@ -39,7 +39,6 @@ table SarRawIqPulseState {
 }
 
 table SarRawIqFrame {
-  pulse_count: uint32;
   samples_per_pulse: uint32;
   i_values: [double];
   q_values: [double];

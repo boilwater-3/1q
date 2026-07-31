@@ -41,7 +41,7 @@ session::EosSceneTarget MakeTarget(std::uint64_t id, float azimuth_deg, float ra
 ::electro_optical_sensor::session::EosCycleInput MakeBaseInput() {
   ::electro_optical_sensor::session::EosCycleInput input;
   input.cycle_index = 1U;
-  input.dt_sec = 1.0f;
+  input.dt_sec = 0.1f;
   input.platform_altitude_m = 1200.0f;
   input.platform_pose.position_m.z = 0.0f;
   input.scene.push_back(MakeTarget(1U, 0.0f, 1500.0f, 4.0f));
@@ -524,8 +524,8 @@ TEST(EosSessionIntegrationTest, MultipleTargetsInFovAllDetected) {
   ::electro_optical_sensor::session::EosCycleInput input = MakeBaseInput();
   input.scene.clear();
   input.scene.push_back(MakeTarget(101U, -3.0f, 1200.0f, 3.0f));
-  input.scene.push_back(MakeTarget(102U, 0.0f, 1500.0f, 4.0f));
-  input.scene.push_back(MakeTarget(103U, 4.0f, 1800.0f, 5.0f));
+  input.scene.push_back(MakeTarget(102U, -1.0f, 1500.0f, 4.0f));
+  input.scene.push_back(MakeTarget(103U, -8.0f, 1800.0f, 5.0f));
 
   const session::EosCycleResult result = session.StepWithResult(input);
 

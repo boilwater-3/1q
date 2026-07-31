@@ -6,7 +6,7 @@ namespace sbirs_sensor {
 namespace runtime {
 
 SbirsController::SbirsController(const config::SbirsInternalExecutionConfig& config)
-    : pipeline_(config) {}
+    : pipeline_(config), frame_rate_hz_(config.session.mission.frame_rate_hz) {}
 
 void SbirsController::ApplyConfig(const config::SbirsInternalExecutionConfig& config,
                                   const SbirsRuntimeConfigImpact& impact) {
@@ -16,7 +16,7 @@ void SbirsController::ApplyConfig(const config::SbirsInternalExecutionConfig& co
 session::SbirsCycleResult SbirsController::RunOnce(const session::SbirsCycleInput& input) {
   session::SbirsCycleResult result;
   result.input_cycle_index = input.cycle_index;
-  result.validation_issues = session::ValidateSbirsCycleInput(input);
+  result.validation_issues = session::ValidateSbirsCycleInput(input, frame_rate_hz_);
   result.has_validation_error = session::HasValidationError(result.validation_issues);
   if (result.has_validation_error) {
     result.abort_reason = session::SbirsPipelineAbortReason::kValidationRejected;

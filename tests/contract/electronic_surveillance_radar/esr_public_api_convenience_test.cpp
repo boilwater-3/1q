@@ -113,7 +113,7 @@ TEST(EsrPublicApiConvenienceTest, DetailedSessionConfigBuilderSupportsDetailedDe
             config::EsrEnvironmentPreset::kLowClutter);
 }
 
-TEST(EsrPublicApiConvenienceTest, SessionConfigBuilderWithSessionConfigResetsProfiles) {
+TEST(EsrPublicApiConvenienceTest, SessionConfigBuilderProfilesOverrideWithSessionConfig) {
   config::EsrSessionConfig baseline;
   baseline.mission.work_mode = config::EsrWorkMode::kHgesm;
   baseline.mission.scan.scan_rate_hz = 0.25f;
@@ -130,9 +130,10 @@ TEST(EsrPublicApiConvenienceTest, SessionConfigBuilderWithSessionConfigResetsPro
           .WithSessionConfig(baseline)
           .Build();
 
-  EXPECT_EQ(config.mission.work_mode, config::EsrWorkMode::kHgesm);
-  EXPECT_FLOAT_EQ(config.mission.scan.scan_rate_hz, 0.25f);
-  EXPECT_FLOAT_EQ(config.policy.detection.minimum_snr_db, 12.0f);
+  // WithSessionConfig() does not reset profiles; profiles override baseline fields.
+  EXPECT_EQ(config.mission.work_mode, config::EsrWorkMode::kRwr);
+  EXPECT_FLOAT_EQ(config.mission.scan.scan_rate_hz, 5.0f);
+  EXPECT_FLOAT_EQ(config.policy.detection.minimum_snr_db, 3.0f);
 }
 
 TEST(EsrPublicApiConvenienceTest, SessionConfigValidatorReportsFinalConfigIssues) {

@@ -65,6 +65,9 @@ class EosPipeline {
   extension::EosPipelineExecuteResult RunCycle(
       const ::electro_optical_sensor::session::EosCycleInput& input);
 
+  /** @return 当前配置的帧率（Hz）。 */
+  float GetFrameRateHz() const { return config_.scan.frame_rate_hz; }
+
  private:
   void AdvanceScan(float dt_sec);
   bool IsTargetInCurrentFov(const ::electro_optical_sensor::session::EosSceneTarget& target) const;

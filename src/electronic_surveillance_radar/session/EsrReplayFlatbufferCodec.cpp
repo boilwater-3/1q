@@ -579,8 +579,7 @@ std::string EncodeEsrSessionConfig(const config::EsrSessionConfig& v) {
       fbb, es.atmospheric_physics.enable_physical_model, es.atmospheric_physics.pressure_hpa,
       es.atmospheric_physics.temperature_k, es.atmospheric_physics.relative_humidity);
   auto atm_obs = esr::replay::CreateEsrAtmosphericObservation(
-      fbb, es.atmospheric_observation.relative_humidity_ratio,
-      es.atmospheric_observation.precipitation_rate_mmph,
+      fbb, es.atmospheric_observation.precipitation_rate_mmph,
       es.atmospheric_observation.visibility_km);
   esr::replay::EsrEnvironmentConfigBuilder env_builder(fbb);
   env_builder.add_preset(static_cast<int32_t>(es.preset));
@@ -696,8 +695,6 @@ bool DecodeEsrSessionConfig(const std::string& bytes, config::EsrSessionConfig* 
     out->environment.scenario_config.spectrum_occupancy_ratio = e->spectrum_occupancy_ratio();
     if (e->atmospheric_observation()) {
       const auto* ao = e->atmospheric_observation();
-      out->environment.scenario_config.atmospheric_observation.relative_humidity_ratio =
-          ao->relative_humidity_ratio();
       out->environment.scenario_config.atmospheric_observation.precipitation_rate_mmph =
           ao->precipitation_rate_mmph();
       out->environment.scenario_config.atmospheric_observation.visibility_km = ao->visibility_km();
@@ -717,8 +714,7 @@ std::string EncodeEsrRuntimeConfigPatch(const config::EsrRuntimeConfigPatch& v) 
       fbb, ev.atmospheric_physics.enable_physical_model, ev.atmospheric_physics.pressure_hpa,
       ev.atmospheric_physics.temperature_k, ev.atmospheric_physics.relative_humidity);
   auto atm_obs = esr::replay::CreateEsrAtmosphericObservation(
-      fbb, ev.atmospheric_observation.relative_humidity_ratio,
-      ev.atmospheric_observation.precipitation_rate_mmph,
+      fbb, ev.atmospheric_observation.precipitation_rate_mmph,
       ev.atmospheric_observation.visibility_km);
   esr::replay::EsrEnvironmentRuntimeConfigPatchBuilder env_patch_builder(fbb);
   env_patch_builder.add_has_atmospheric_physics(ev.has_atmospheric_physics);
@@ -852,8 +848,6 @@ bool DecodeEsrRuntimeConfigPatch(const std::string& bytes, config::EsrRuntimeCon
     out->environment.has_atmospheric_observation = ec->has_atmospheric_observation();
     if (ec->atmospheric_observation()) {
       const auto* ao = ec->atmospheric_observation();
-      out->environment.atmospheric_observation.relative_humidity_ratio =
-          ao->relative_humidity_ratio();
       out->environment.atmospheric_observation.precipitation_rate_mmph =
           ao->precipitation_rate_mmph();
       out->environment.atmospheric_observation.visibility_km = ao->visibility_km();

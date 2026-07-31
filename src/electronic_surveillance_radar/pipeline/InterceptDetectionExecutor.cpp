@@ -64,7 +64,7 @@ oneq::common::timing::StatisticalDetectionParams ToTimingDetectionParams(
     const extension::InterceptStatisticalDetectionConfig& config) {
   oneq::common::timing::StatisticalDetectionParams params;
   params.pfa = config.pfa;
-  params.min_snr_db = config.min_snr_db;
+  params.min_snr_db = config.minimum_snr_db;
   params.pulse_count = config.pulse_count;
   params.integration_mode = ToTimingIntegrationMode(config.integration_mode);
   params.threshold_scale = config.threshold_scale;
@@ -279,11 +279,12 @@ bool InterceptDetectionExecutor::ProcessRfV2Frame(
   if (emissions.size() != front_end.channel_incident_links.size()) {
     return false;
   }
-  constexpr double kBoltzmannJPerK = 1.380649e-23;
   const config::EsrHardwareConfig& hardware = ctx.GetRuntimeConfig().receiver_hardware;
-  const double thermal_noise = kBoltzmannJPerK * hardware.receiver_reference_temperature_k *
-                               front_end.channel_receiver.bandwidth_hz *
-                               std::pow(10.0, hardware.receiver_noise_figure_db / 10.0);
+  const double thermal_noise = hardware.receiver_sensitivity_w > 0.0f
+      ? static_cast<double>(hardware.receiver_sensitivity_w)
+      : 1.380649e-23 * hardware.receiver_reference_temperature_k *
+        front_end.channel_receiver.bandwidth_hz *
+        std::pow(10.0, hardware.receiver_noise_figure_db / 10.0);
   const double ambient_noise =
       std::max(thermal_noise + static_cast<double>(ctx.GetEnvironmentSnapshot().clutter_noise_w),
                kNumericFloor);

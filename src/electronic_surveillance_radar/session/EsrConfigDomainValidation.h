@@ -76,8 +76,6 @@ inline bool IsValidEnvironment(
   return IsValidEnvironmentPreset(environment.preset) &&
          IsValidAtmosphericPhysics(environment.atmospheric_physics) &&
          oneq::common::validation::IsRatio01(environment.spectrum_occupancy_ratio) &&
-         oneq::common::validation::IsRatio01(
-             environment.atmospheric_observation.relative_humidity_ratio) &&
          oneq::common::validation::IsFinite(
              environment.atmospheric_observation.precipitation_rate_mmph) &&
          environment.atmospheric_observation.precipitation_rate_mmph >= 0.0f &&

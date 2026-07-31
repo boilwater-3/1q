@@ -62,18 +62,21 @@ void ApplyEsrSensitivitySemanticConfig(EsrSensitivityProfile profile,
       d.pulse_count = 8U;
       d.pfa = 1.0e-6f;
       d.threshold_scale = 1.0f;
+      d.enable_statistical_detection = true;
       break;
     case EsrSensitivityProfile::kHighSensitivity:
       d.minimum_snr_db = 3.0f;
       d.pulse_count = 16U;
       d.pfa = 5.0e-6f;
       d.threshold_scale = 1.0f;
+      d.enable_statistical_detection = true;
       break;
     case EsrSensitivityProfile::kRobust:
       d.minimum_snr_db = 10.0f;
       d.pulse_count = 4U;
       d.pfa = 1.0e-7f;
       d.threshold_scale = 1.0f;
+      d.enable_statistical_detection = true;
       break;
   }
 }
