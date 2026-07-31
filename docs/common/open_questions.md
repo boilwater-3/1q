@@ -9,9 +9,11 @@ Authority: 非规定性记录
 
 原 OQ-1、OQ-3、OQ-8、OQ-9、OQ-10a 至 OQ-10m 均已完成、拒绝或冻结；对应结论和测试证据已迁入
 `docs/common/contract.md` 各模块 `design.md`。ESR runtime validation 边界也已完成并迁入 ESR design。
-当前保留一项 Common/Practice 构建边界、六项 Common 跨模块设计边界（COMMON-OQ-2 原有，新增
-COMMON-OQ-3..7 源自 EOS 反设计复核中识别的跨模块通病）、三项 ESR 非阻塞设计边界
-和四项 SBIRS 非阻塞仿真边界，均不构成已批准实现要求。
+COMMON-OQ-2 已完成（2026-07-31）：AR/ESR/SAR/EOS 四模块 `SessionConfigBuilder` 已收敛为薄封装，
+Profile 枚举与 dirty flag 机制整体移除，语义档位退化为 `XxxProfileConstants.h` 预定义结构体常量；
+结论回写进 `docs/common/contract.md` §SessionConfigBuilder 与四模块 design.md。
+当前保留一项 Common/Practice 构建边界、五项 Common 跨模块设计边界（COMMON-OQ-3..7）、三项 ESR
+非阻塞设计边界和四项 SBIRS 非阻塞仿真边界，均不构成已批准实现要求。
 
 ## Common/Practice 非阻塞构建边界
 
@@ -28,20 +30,6 @@ COMMON-OQ-3..7 源自 EOS 反设计复核中识别的跨模块通病）、三项
   删除或重命名现有 presets 与 `.bat` 入口。
 
 ## Common 跨模块设计边界
-
-### COMMON-OQ-2：SessionConfigBuilder Profile 静默覆盖直接赋值
-
-- **现状证据**：ESR、AR、SAR、EOS 四个模块的 `SessionConfigBuilder` 均存在 Profile 覆盖行为：
-  `Build()` 时若 Profile dirty flag 为 true，Profile 翻译函数直接覆写对应字段，覆盖用户在
-  `WithSessionConfig` 或 Editor 中的直接赋值。AR 额外在 Profile 应用前执行整域重置为语义默认值
-  （最激进），ESR/SAR/EOS 仅覆写 Profile switch-case 涉及的字段。ESR 曾存在 `WithSessionConfig()`
-  重置 dirty flag 的独有 bug（由 `8bd28e19` 引入，`53c56e21` 已删除重置并补 `@note` 固化语义），SAR/EOS 无此问题。
-- **未决问题**：是否应将 Profile 应用改为"缺省填充"模式（仅填充用户未显式设置的字段），而非
-  "强制覆写"模式；以及是否需要编译期或运行期机制防止同一字段被 Profile 和直接赋值双重设置。
-- **当前边界**：各模块保持现有"Profile 覆盖直接赋值"语义。ESR `Build()` 注释已补充覆盖说明。
-  不得在文档中暗示直接赋值优先于 Profile。
-- **Stage A 进入条件**：出现真实场景要求"Profile 填充 + 局部覆盖"模式，先比较四模块的 Profile
-  覆盖字段清单，设计统一的 dirty-field 位图或 builder 优先级规则，再评估跨模块统一方案。
 
 ### COMMON-OQ-3：`CreateWithValidation` 非阻断语义命名一致但反直觉
 

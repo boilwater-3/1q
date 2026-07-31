@@ -1,5 +1,5 @@
 // @file SarSessionConfigBuilder.cpp
-// @brief Implementation of SarSessionConfigBuilder with profile translation.
+// @brief Implementation of SarSessionConfigBuilder (thin wrapper).
 
 #include "1q/sar/config/SarSessionConfigBuilder.h"
 
@@ -11,87 +11,7 @@
 namespace sar {
 namespace config {
 
-namespace {
-
-void ApplySarMissionSemanticConfig(SarMissionProfile profile, SarMissionConfig* mission) {
-  if (mission == nullptr) {
-    return;
-  }
-  auto& m = *mission;
-
-  switch (profile) {
-    case SarMissionProfile::kStripmapSurvey:
-      m.nominal_slant_range_m = 15000.0;
-      m.platform_speed_mps = 180.0;
-      m.azimuth_pulse_count = 1024U;
-      m.range_sample_count = 4096U;
-      m.desired_ground_range_resolution_m = 1.5;
-      m.desired_azimuth_resolution_m = 1.5;
-      break;
-    case SarMissionProfile::kHighResolutionImaging:
-      m.nominal_slant_range_m = 10000.0;
-      m.platform_speed_mps = 150.0;
-      m.azimuth_pulse_count = 2048U;
-      m.range_sample_count = 4096U;
-      m.desired_ground_range_resolution_m = 0.5;
-      m.desired_azimuth_resolution_m = 0.5;
-      break;
-    case SarMissionProfile::kLongRangeSurveillance:
-      m.nominal_slant_range_m = 50000.0;
-      m.platform_speed_mps = 200.0;
-      m.azimuth_pulse_count = 512U;
-      m.range_sample_count = 1024U;
-      m.desired_ground_range_resolution_m = 3.0;
-      m.desired_azimuth_resolution_m = 3.0;
-      break;
-  }
-}
-
-void ApplySarProcessingSemanticConfig(SarProcessingProfile profile, SarPolicyConfig* policy) {
-  if (policy == nullptr) {
-    return;
-  }
-  auto& p = *policy;
-
-  switch (profile) {
-    case SarProcessingProfile::kRawEchoOnly:
-      p.enable_raw_echo_generation = true;
-      p.enable_l1_rda_imaging = false;
-      p.enable_l2_motion_compensation = false;
-      p.enable_l3_bp_imaging = false;
-      p.retain_focused_image = false;
-      break;
-    case SarProcessingProfile::kRangeCompressedL1:
-      p.enable_raw_echo_generation = true;
-      p.enable_l1_rda_imaging = true;
-      p.enable_l2_motion_compensation = false;
-      p.enable_l3_bp_imaging = false;
-      p.retain_focused_image = true;
-      break;
-    case SarProcessingProfile::kL3Backprojection:
-      p.enable_raw_echo_generation = true;
-      p.enable_l1_rda_imaging = false;
-      p.enable_l2_motion_compensation = false;
-      p.enable_l3_bp_imaging = true;
-      p.retain_focused_image = true;
-      break;
-  }
-}
-
-}  // namespace
-
-config::SarSessionConfig SarSessionConfigBuilder::Build() const noexcept {
-  config::SarSessionConfig result = config_;
-
-  if (mission_profile_dirty_) {
-    ApplySarMissionSemanticConfig(mission_profile_, &result.mission);
-  }
-  if (processing_profile_dirty_) {
-    ApplySarProcessingSemanticConfig(processing_profile_, &result.policy);
-  }
-
-  return result;
-}
+config::SarSessionConfig SarSessionConfigBuilder::Build() const noexcept { return config_; }
 
 ValidationIssueList ValidateSarSessionConfig(const config::SarSessionConfig& config) noexcept {
   ValidationIssueList issues;

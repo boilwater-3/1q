@@ -11,6 +11,7 @@
 #include <vector>
 
 #include "1q/airborne_radar/config/ArHardwareConfig.h"
+#include "1q/airborne_radar/config/ArProfileConstants.h"
 #include "1q/airborne_radar/config/ArSessionConfig.h"
 #include "1q/airborne_radar/config/ArSessionConfigBuilder.h"
 #include "1q/airborne_radar/session/ArControlProfile.h"
@@ -34,39 +35,26 @@ namespace {
 using ExecutionConfig = config::execution::InternalExecutionConfig;
 
 config::ArSessionConfig MakeDetectionFocusedConfig() {
-  return config::ArSessionConfigBuilder()
-      .Detection()
-      .WithDetectionIntentProfile(config::profiles::DetectionIntentProfile::kDetectionPriority)
-      .End()
-      .Tracking()
-      .WithTrackingPolicyProfile(config::profiles::TrackingPolicyProfile::kFastAssociation)
-      .End()
-      .Lifecycle()
-      .WithLifecyclePolicyProfile(config::profiles::LifecyclePolicyProfile::kFastConfirm)
-      .End()
-      .Build();
+  config::ArSessionConfig session_config;
+  session_config.policy.detection = config::profiles::kDetectionPriorityDetection;
+  session_config.policy.tracking = config::profiles::kFastAssociationTracking;
+  session_config.policy.lifecycle = config::profiles::kFastConfirmLifecycle;
+  return session_config;
 }
 
 config::ArSessionConfig MakeTrackingFocusedConfig() {
-  return config::ArSessionConfigBuilder()
-      .Detection()
-      .WithDetectionIntentProfile(config::profiles::DetectionIntentProfile::kTrackStabilityPriority)
-      .End()
-      .Build();
+  config::ArSessionConfig session_config;
+  session_config.policy.detection = config::profiles::kTrackStabilityPriorityDetection;
+  return session_config;
 }
 
 config::ArSessionConfig MakeRobustTrackingConfig() {
-  return config::ArSessionConfigBuilder()
-      .Detection()
-      .WithDetectionIntentProfile(config::profiles::DetectionIntentProfile::kTrackStabilityPriority)
-      .End()
-      .Tracking()
-      .WithTrackingPolicyProfile(config::profiles::TrackingPolicyProfile::kRobustAntiJamming)
-      .End()
-      .Lifecycle()
-      .WithLifecyclePolicyProfile(config::profiles::LifecyclePolicyProfile::kHighPersistence)
-      .End()
-      .Build();
+  config::ArSessionConfig session_config;
+  session_config.policy.detection = config::profiles::kTrackStabilityPriorityDetection;
+  session_config.policy.tracking = config::profiles::kRobustAntiJammingTracking;
+  session_config.policy.association = config::profiles::kRobustAntiJammingAssociation;
+  session_config.policy.lifecycle = config::profiles::kHighPersistenceLifecycle;
+  return session_config;
 }
 
 float SpeedOf(const session::ArSceneTarget& target) {
@@ -180,136 +168,6 @@ session::SignalCycleResult RunPipelineCycle(PipelineType* pipeline,
       signal::pipeline::SignalCycleInput{ToSceneTargets(input_state)}, *environment_service);
 }
 
-void ApplyHardwareProfile(config::ArSessionConfig* config,
-                          config::profiles::ArHardwareProfile profile) {
-  if (config == nullptr) {
-    return;
-  }
-  auto& d = config->hardware;
-  switch (profile) {
-    case config::profiles::ArHardwareProfile::kLongRangeHighPower:
-      d.transmitter.peak_power_w = 5.0e6f;
-      d.transmitter.frequency_hz = 9.3e9f;
-      d.transmitter.bandwidth_hz = 3.0e6f;
-      d.transmitter.pulse_width_s = 18e-6f;
-      d.transmitter.prf_hz = 220.0f;
-      d.antenna.main_beam_gain_db = 38.0f;
-      d.receiver.noise_figure_db = 3.0f;
-      break;
-    case config::profiles::ArHardwareProfile::kLightweightLpi:
-      d.transmitter.peak_power_w = 3.5e5f;
-      d.transmitter.frequency_hz = 10.0e9f;
-      d.transmitter.bandwidth_hz = 8.0e6f;
-      d.transmitter.pulse_width_s = 8e-6f;
-      d.transmitter.prf_hz = 600.0f;
-      d.antenna.main_beam_gain_db = 31.0f;
-      d.antenna.nominal_az_beamwidth_deg = 5.0f;
-      d.antenna.nominal_el_beamwidth_deg = 5.0f;
-      d.receiver.noise_figure_db = 5.0f;
-      break;
-    case config::profiles::ArHardwareProfile::kGenericAirborneXBand:
-    default:
-      break;
-  }
-}
-
-void ApplyDetectionIntentProfile(config::ArSessionConfig* config,
-                                 config::profiles::DetectionIntentProfile profile) {
-  if (config == nullptr) {
-    return;
-  }
-  auto& d = config->policy.detection;
-  switch (profile) {
-    case config::profiles::DetectionIntentProfile::kDetectionPriority:
-      d.pulse_count = 16;
-      d.pfa = 2e-6f;
-      d.minimum_snr_db = -12.0f;
-      d.minimum_detection_margin_db = -100.0f;
-      break;
-    case config::profiles::DetectionIntentProfile::kTrackStabilityPriority:
-      d.pulse_count = 8;
-      d.pfa = 5e-7f;
-      d.minimum_snr_db = -8.0f;
-      d.minimum_detection_margin_db = -20.0f;
-      break;
-    case config::profiles::DetectionIntentProfile::kBalanced:
-    default:
-      d.minimum_detection_margin_db = -2.0f;
-      break;
-  }
-}
-
-void ApplyRcsFusionProfile(config::ArSessionConfig* config,
-                           config::profiles::RcsFusionProfile profile) {
-  if (config == nullptr) {
-    return;
-  }
-  auto& rcs = config->hardware.rcs_physics;
-  switch (profile) {
-    case config::profiles::RcsFusionProfile::kConservative:
-      rcs.enable_physical_rcs = true;
-      rcs.physics_mix_ratio = 0.25f;
-      break;
-    case config::profiles::RcsFusionProfile::kEnhanced:
-      rcs.enable_physical_rcs = true;
-      rcs.physics_mix_ratio = 0.60f;
-      rcs.cylinder_weight = 0.65f;
-      break;
-    case config::profiles::RcsFusionProfile::kDisabled:
-    default:
-      rcs.enable_physical_rcs = false;
-      rcs.physics_mix_ratio = 0.0f;
-      break;
-  }
-}
-
-void ApplyTrackingPolicyProfile(config::ArSessionConfig* config,
-                                config::profiles::TrackingPolicyProfile profile) {
-  if (config == nullptr) {
-    return;
-  }
-  auto& t = config->policy.tracking;
-  switch (profile) {
-    case config::profiles::TrackingPolicyProfile::kFastAssociation:
-      t.kalman_measurement_noise_std = 6.0f;
-      t.speed_decay_ratio_on_loss = 0.95f;
-      t.rcs_decay_ratio_on_loss = 0.92f;
-      break;
-    case config::profiles::TrackingPolicyProfile::kRobustAntiJamming:
-      t.kalman_measurement_noise_std = 12.0f;
-      t.speed_decay_ratio_on_loss = 0.95f;
-      t.rcs_decay_ratio_on_loss = 0.92f;
-      config->policy.association.distance_gate_sigma = std::sqrt(12.0f);
-      break;
-    case config::profiles::TrackingPolicyProfile::kBalanced:
-    default:
-      break;
-  }
-}
-
-void ApplyLifecyclePolicyProfile(config::ArSessionConfig* config,
-                                 config::profiles::LifecyclePolicyProfile profile) {
-  if (config == nullptr) {
-    return;
-  }
-  auto& lc = config->policy.lifecycle;
-  switch (profile) {
-    case config::profiles::LifecyclePolicyProfile::kFastConfirm:
-      lc.confirm_hits = 1U;
-      lc.max_miss_before_lost = 1U;
-      lc.max_lost_cycles = 3U;
-      break;
-    case config::profiles::LifecyclePolicyProfile::kHighPersistence:
-      lc.confirm_hits = 3U;
-      lc.max_miss_before_lost = 3U;
-      lc.max_lost_cycles = 8U;
-      break;
-    case config::profiles::LifecyclePolicyProfile::kBalanced:
-    default:
-      break;
-  }
-}
-
 }  // namespace
 
 TEST(SignalPipelineTest, KeepsTrackStableWhenDetectionMarginIsEnough) {
@@ -334,9 +192,8 @@ TEST(SignalPipelineTest, KeepsTrackStableWhenDetectionMarginIsEnough) {
 
 TEST(SignalPipelineTest, PhysicalRcsUsesTransmitterFrequency) {
   config::ArSessionConfig low_frequency_config;
-  ApplyHardwareProfile(&low_frequency_config,
-                       config::profiles::ArHardwareProfile::kLongRangeHighPower);
-  ApplyRcsFusionProfile(&low_frequency_config, config::profiles::RcsFusionProfile::kEnhanced);
+  low_frequency_config.hardware = config::profiles::kLongRangeHighPowerHardware;
+  low_frequency_config.hardware.rcs_physics = config::profiles::kEnhancedRcsPhysics;
   low_frequency_config.hardware.transmitter.frequency_hz = 1.0e9f;
   config::ArSessionConfig high_frequency_config = low_frequency_config;
   high_frequency_config.hardware.transmitter.frequency_hz = 3.0e9f;
@@ -461,8 +318,7 @@ TEST(SignalPipelineTest, AutoLifecycleManagerCreationFailsWhenImmAssemblyIsInval
 
 TEST(SignalPipelineTest, ControlProfilePowerReductionLowersPhysicalDetectionMargin) {
   config::ArSessionConfig session_config;
-  ApplyDetectionIntentProfile(&session_config,
-                              config::profiles::DetectionIntentProfile::kDetectionPriority);
+  session_config.policy.detection = config::profiles::kDetectionPriorityDetection;
 
   environment::EnvironmentService environment_service;
 
@@ -488,8 +344,7 @@ TEST(SignalPipelineTest, ControlProfilePowerReductionLowersPhysicalDetectionMarg
 
 TEST(SignalPipelineTest, AdaptiveBeamformingProfileTightensMeasurementCovariance) {
   config::ArSessionConfig session_config;
-  ApplyDetectionIntentProfile(&session_config,
-                              config::profiles::DetectionIntentProfile::kDetectionPriority);
+  session_config.policy.detection = config::profiles::kDetectionPriorityDetection;
   session_config.hardware.antenna.pattern.model_type =
       config::AntennaPatternModelType::kParabolicMainLobe;
   session_config.hardware.antenna.pattern.max_sidelobe_level_db = -18.0f;
@@ -520,8 +375,6 @@ TEST(SignalPipelineTest, AdaptiveBeamformingProfileTightensMeasurementCovariance
 
 TEST(SignalPipelineTest, AgilityFrequencyHopPhaseControlsFrequencyDirection) {
   config::ArSessionConfig phase_zero_config;
-  ApplyHardwareProfile(&phase_zero_config,
-                       config::profiles::ArHardwareProfile::kGenericAirborneXBand);
   config::ArSessionConfig phase_one_config = phase_zero_config;
   ExecutionConfig phase_zero_exec = config::mapping::MapSessionToExecution(phase_zero_config);
   ExecutionConfig phase_one_exec = config::mapping::MapSessionToExecution(phase_one_config);
@@ -541,10 +394,8 @@ TEST(SignalPipelineTest, AgilityFrequencyHopPhaseControlsFrequencyDirection) {
 
 TEST(SignalPipelineTest, AutoLifecycleAssemblyUsesControlProfileAdjustedKalmanUpdater) {
   config::ArSessionConfig session_config;
-  ApplyDetectionIntentProfile(&session_config,
-                              config::profiles::DetectionIntentProfile::kDetectionPriority);
-  ApplyLifecyclePolicyProfile(&session_config,
-                              config::profiles::LifecyclePolicyProfile::kFastConfirm);
+  session_config.policy.detection = config::profiles::kDetectionPriorityDetection;
+  session_config.policy.lifecycle = config::profiles::kFastConfirmLifecycle;
   session_config.policy.tracking.enable_kalman_filter = true;
 
   environment::EnvironmentService environment_service;
@@ -600,10 +451,8 @@ TEST(SignalPipelineTest, AutoLifecycleAssemblyUsesControlProfileAdjustedKalmanUp
 
 TEST(SignalPipelineTest, FrequencyAgilityDoesNotRetuneLifecycleTrackingParameters) {
   config::ArSessionConfig session_config;
-  ApplyDetectionIntentProfile(&session_config,
-                              config::profiles::DetectionIntentProfile::kDetectionPriority);
-  ApplyLifecyclePolicyProfile(&session_config,
-                              config::profiles::LifecyclePolicyProfile::kFastConfirm);
+  session_config.policy.detection = config::profiles::kDetectionPriorityDetection;
+  session_config.policy.lifecycle = config::profiles::kFastConfirmLifecycle;
   session_config.policy.tracking.enable_kalman_filter = true;
 
   const ExecutionConfig base_exec_config = config::mapping::MapSessionToExecution(session_config);
@@ -647,10 +496,8 @@ TEST(SignalPipelineTest, FrequencyAgilityDoesNotRetuneLifecycleTrackingParameter
 
 TEST(SignalPipelineTest, InvalidTopologyRebuildKeepsPreviousLifecycleAssemblyOperational) {
   config::ArSessionConfig session_config;
-  ApplyDetectionIntentProfile(&session_config,
-                              config::profiles::DetectionIntentProfile::kDetectionPriority);
-  ApplyLifecyclePolicyProfile(&session_config,
-                              config::profiles::LifecyclePolicyProfile::kFastConfirm);
+  session_config.policy.detection = config::profiles::kDetectionPriorityDetection;
+  session_config.policy.lifecycle = config::profiles::kFastConfirmLifecycle;
   session_config.policy.tracking.enable_kalman_filter = true;
 
   const ExecutionConfig exec_config = config::mapping::MapSessionToExecution(session_config);
@@ -718,11 +565,9 @@ TEST(SignalPipelineTest, RfV2InterferenceOnlySuppressesDetectionAndIsOneShot) {
 
 TEST(SignalPipelineTest, EccmDoesNotRetuneImmLifecycleParameters) {
   config::ArSessionConfig session_config;
-  ApplyDetectionIntentProfile(&session_config,
-                              config::profiles::DetectionIntentProfile::kDetectionPriority);
+  session_config.policy.detection = config::profiles::kDetectionPriorityDetection;
+  session_config.policy.lifecycle = config::profiles::kFastConfirmLifecycle;
   session_config.policy.lifecycle.enable_imm_lifecycle = true;
-  ApplyLifecyclePolicyProfile(&session_config,
-                              config::profiles::LifecyclePolicyProfile::kFastConfirm);
 
   environment::EnvironmentService environment_service;
 
@@ -1060,10 +905,8 @@ TEST(SignalPipelineTest, InvalidEnvironmentCycleAbortsAndClearsLastCycleCache) {
 
 TEST(SignalPipelineTest, SameInstanceControlProfileSwitchAcrossCyclesSyncsLifecycleCovariance) {
   config::ArSessionConfig session_config;
-  ApplyDetectionIntentProfile(&session_config,
-                              config::profiles::DetectionIntentProfile::kDetectionPriority);
-  ApplyLifecyclePolicyProfile(&session_config,
-                              config::profiles::LifecyclePolicyProfile::kFastConfirm);
+  session_config.policy.detection = config::profiles::kDetectionPriorityDetection;
+  session_config.policy.lifecycle = config::profiles::kFastConfirmLifecycle;
   session_config.policy.tracking.enable_kalman_filter = true;
 
   environment::EnvironmentService environment_service;
@@ -1148,7 +991,7 @@ TEST(SignalPipelineInternalConfigTest, RobustBuilderProfileMapsToRobustProfile) 
 TEST(SignalPipelineInternalConfigTest,
      NonDefaultRcsPhysicsBreaksTrackingProfileSignatureAndFallsBackToBaseline) {
   config::ArSessionConfig session_config = MakeTrackingFocusedConfig();
-  ApplyRcsFusionProfile(&session_config, config::profiles::RcsFusionProfile::kEnhanced);
+  session_config.hardware.rcs_physics = config::profiles::kEnhancedRcsPhysics;
   const ExecutionConfig exec_config = config::mapping::MapSessionToExecution(session_config);
 
   EXPECT_FLOAT_EQ(exec_config.association.policy.unassigned_cost, 9.0f);
@@ -1159,9 +1002,6 @@ TEST(SignalPipelineInternalConfigTest,
 
 TEST(SignalPipelineInternalConfigTest, CustomConfigStaysBaselineEvenWithHighLifecycleThresholds) {
   config::ArSessionConfig session_config = MakeDetectionFocusedConfig();
-  ApplyDetectionIntentProfile(&session_config, config::profiles::DetectionIntentProfile::kBalanced);
-  ApplyLifecyclePolicyProfile(&session_config, config::profiles::LifecyclePolicyProfile::kBalanced);
-  ApplyTrackingPolicyProfile(&session_config, config::profiles::TrackingPolicyProfile::kBalanced);
   const ExecutionConfig exec_config = config::mapping::MapSessionToExecution(session_config);
 
   EXPECT_FLOAT_EQ(exec_config.association.policy.unassigned_cost, 9.0f);

@@ -262,15 +262,20 @@ public API 分为两类，二者都受 public boundary、install manifest 和 co
 
 ## SessionConfigBuilder
 
-所有 `*SessionConfigBuilder` 都是 semantic builder：
+所有 `*SessionConfigBuilder` 都是**薄封装**（COMMON-OQ-2 收敛决议，2026-07-31）：
 
-1. 只表达高层 profile、intent、preset 或语义开关。
-2. `Build()` 产生完整 `*SessionConfig`，不写日志、不隐式校验、不产生副作用。
-3. 细粒度工程参数由调用方直接编辑 `*SessionConfig` 四域字段。
-4. 运行期变更走 `*RuntimeConfigPatch` / `*RuntimeConfigBuilder`。
-5. 配置合法性由独立 validator 检查最终 config。
+1. 内部只持有 `*SessionConfig` 副本；`Build()` 直接返回该副本，不做任何翻译、合并或覆写。
+2. 语义档位（profile）是各模块 `XxxProfileConstants.h` 中的预定义结构体常量
+   （如 `profiles::kLongRangeHighPowerHardware`、`profiles::kThreatWarningMission`），
+   用户直接整域赋值；常量只含该档位管理的字段，其余字段保持 struct 默认值。
+3. 配置中不存在隐式优先级："对 config 的任何赋值即最终决定"，档位在前、微调在后时微调胜出。
+   不得以任何形式复活 dirty flag / Profile 枚举 / 隐式覆写机制。
+4. 细粒度工程参数由调用方直接编辑 `*SessionConfig` 四域字段。
+5. 运行期变更走 `*RuntimeConfigPatch` / `*RuntimeConfigBuilder`。
+6. 配置合法性由独立 validator 检查最终 config。
 
 不得重新引入 leaf setter，例如 frame rate、scene center、minimum SNR、atmospheric loss 这类直接字段编辑器。
+struct 默认值即语义默认（no-op 档位不提供常量）；整域赋值会重置子域内未被常量管理的字段，调用方应先赋档位再设场景特定数据。
 
 ## Session composition ownership
 

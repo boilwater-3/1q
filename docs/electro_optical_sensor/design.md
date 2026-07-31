@@ -14,7 +14,7 @@ Authority: current electro_optical_sensor module design
 
 它不是一个通用图像处理框架。当前模块的稳定外部使用方式是：
 
-1. 使用 `EosSessionConfig` 或 semantic builder 描述硬件、任务、策略、环境四域配置。
+1. 使用 `EosSessionConfig` 描述硬件、任务、策略、环境四域配置：直接构造结构体并逐字段赋值，或从 `EosProfileConstants.h` 的语义常量整域赋值，或经 `EosSessionConfigBuilder` 薄封装整域设置。
 2. 使用 `EosCycleInput` 或 input adapter 提供平台、环境和目标场景。
 3. 调用 `EosSession::Step()` 获取真实系统输出，或调用 `EosSession::StepWithResult()` 获取结构化执行结果。
 4. 通过 runtime patch 调整工作模式、扫描、检测阈值、杂散光过滤和环境模型等有限运行期参数。
@@ -28,7 +28,7 @@ Authority: current electro_optical_sensor module design
 | 区域 | 职责 | 设计约束 |
 |---|---|---|
 | `electro_optical_sensor.hpp` | 模块聚合入口 | 只聚合稳定 public API，不暴露 foundation/pipeline/runtime 内部类型 |
-| `config/` | `EosSessionConfig`、runtime patch、semantic builder、config validation | 表达硬件、任务、策略、环境四域语义 |
+| `config/` | `EosSessionConfig`、runtime patch、语义常量表（`EosProfileConstants.h`）、薄封装 builder、config validation | 表达硬件、任务、策略、环境四域语义 |
 | `session/` | `EosSession`、cycle input/result、scene target、output types、adapter、trace/replay、debug/lifecycle | 是外部调用方的主要使用面 |
 
 内部实现位于 `src/electro_optical_sensor/`：
@@ -48,7 +48,7 @@ Authority: current electro_optical_sensor module design
 flowchart TB
   subgraph Public["Public API / 公共调用面"]
     Entry["electro_optical_sensor.hpp\n聚合稳定入口"]
-    Config["config/*\n硬件 / 任务 / 策略 / 环境配置\nRuntimePatch / Builder / Validation"]
+    Config["config/*\n硬件 / 任务 / 策略 / 环境配置\nRuntimePatch / ProfileConstants / Builder / Validation"]
     SessionApi["session/*\nEosSession / CycleInput / CycleResult\nOutputFrame / SceneTarget"]
     Tools["Trace / Replay / Debug / Lifecycle\n追踪 / 回放 / 调试 / 生命周期"]
   end
@@ -311,12 +311,11 @@ EOS replay 的 session-config payload 只记录 `preset + atmospheric_physics`�
 仍构造 session。只有 runtime patch 使用先完整校验、后一次提交的原子拒绝语义。硬件配置只保留当前
 生产链实际消费的波段、孔径、探测器和俯仰边界；焦距不再是 public/session/replay 配置。
 
-`EosSessionConfigBuilder` 提供 mission/hardware/environment/policy 四个分域 Editor。`Policy()`
-提供策略域（`policy.detection.minimum_snr_db` 等）的独立设置入口，补齐与其余模块策略域可达性的一致性
-（AR `DetectionEditor`、ESR `DetectionEditor`、SAR `ProcessingEditor`、SBIRS `WithPolicy`）。
-Mission Profile 在 `Build()` 时会**跨域覆写** `policy.detection.minimum_snr_db`；该覆写在 `config_`
-整体拷贝之后执行，故若同一次 `Build()` 同时设置了 Mission Profile，其对 snr 的取值最终胜出，与各 Editor
-的调用顺序无关。需要独立设定该门限时，请不在该次 `Build()` 中设置 Mission Profile。
+`EosSessionConfigBuilder` 是薄封装（整域赋值 + `Build()` 返回副本），语义档位是
+`EosProfileConstants.h` 中的预定义结构体常量（如 `profiles::kWideAreaSearchMission` +
+`profiles::kWideAreaSearchDetection`）。旧"Mission Profile 跨域覆写
+`policy.detection.minimum_snr_db`"语义已消除：配置不再有隐式优先级，任何字段的赋值即最终决定
+（档位在前、微调在后时微调胜出）。
 
 `target.range_m` 的权威校验在 `EosInputValidation`（`<= 0` 为 error），controller 在校验失败时不执行
 pipeline，故正常 Session 路径不会把非法 `range_m` 传入 pipeline。pipeline 内部的

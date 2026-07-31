@@ -17,8 +17,13 @@ int main() {
 
   // 第一步：执行周期，确认会话正常运转。
   airborne_radar::session::ArCycleInput input;
+  input.cycle_index = 1U;
+  input.cycle_start_time_s = 0.0;
+  input.dt_sec = 1.0;
+  input.platform.platform_entity_id = 1U;
+  input.platform.platform_position_ecef_m.x_m = 6378137.0;
   const airborne_radar::session::ArCycleResult first = session.StepWithResult(input);
-  if (!first.executed_this_cycle) {
+  if (first.status != airborne_radar::session::ArCycleStatus::kCompleted) {
     return 1;
   }
 
@@ -35,7 +40,7 @@ int main() {
   // 第三步：执行下一周期，验证覆盖已生效。
   ++input.cycle_index;
   const airborne_radar::session::ArCycleResult second = session.StepWithResult(input);
-  return second.executed_this_cycle &&
+  return second.status == airborne_radar::session::ArCycleStatus::kCompleted &&
                  second.applied_decision_source ==
                      airborne_radar::session::DecisionControlSource::kExternal
              ? 0

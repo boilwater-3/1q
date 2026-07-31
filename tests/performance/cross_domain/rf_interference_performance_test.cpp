@@ -196,12 +196,8 @@ TEST(RfInterferencePerformanceTest,
   ASSERT_EQ(initial_ar_frame.emissions.size(), kRfEmissionCount);
   ASSERT_EQ(initial_esr_frame.emissions.size(), kEsrEmitterCount);
 
-  ar_config::ArSessionConfig ar_config =
-      ar_config::ArSessionConfigBuilder()
-          .Detection()
-          .WithHardwareProfile(ar_config::profiles::ArHardwareProfile::kLongRangeHighPower)
-          .End()
-          .Build();
+  ar_config::ArSessionConfig ar_config;
+  ar_config.hardware = ar_config::profiles::kLongRangeHighPowerHardware;
   ar_config.hardware.receiver.maximum_linear_input_power_w = 1.0e9f;
   ar_session::ArSession ar = ar_session::ArSession::Create(ar_config);
 

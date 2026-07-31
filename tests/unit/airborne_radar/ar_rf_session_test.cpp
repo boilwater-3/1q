@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 
+#include "1q/airborne_radar/config/ArProfileConstants.h"
 #include "1q/airborne_radar/config/ArRuntimeConfigBuilder.h"
 #include "1q/airborne_radar/config/ArSessionConfigBuilder.h"
 #include "1q/airborne_radar/session/ArSession.h"
@@ -12,20 +13,11 @@ namespace session {
 namespace {
 
 config::ArSessionConfig MakeRfConfig() {
-  return config::ArSessionConfigBuilder()
-      .Detection()
-      .WithDetectionIntentProfile(
-          config::profiles::DetectionIntentProfile::kDetectionPriority)
-      .End()
-      .Tracking()
-      .WithTrackingPolicyProfile(
-          config::profiles::TrackingPolicyProfile::kFastAssociation)
-      .End()
-      .Lifecycle()
-      .WithLifecyclePolicyProfile(
-          config::profiles::LifecyclePolicyProfile::kFastConfirm)
-      .End()
-      .Build();
+  config::ArSessionConfig cfg;
+  cfg.policy.detection = config::profiles::kDetectionPriorityDetection;
+  cfg.policy.tracking = config::profiles::kFastAssociationTracking;
+  cfg.policy.lifecycle = config::profiles::kFastConfirmLifecycle;
+  return cfg;
 }
 
 ArCycleInput MakeInput(std::uint32_t cycle, double start_time_s) {

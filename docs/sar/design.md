@@ -25,7 +25,7 @@ SAR 模块负责合成孔径雷达的回波仿真、完整孔径 raw IQ 消费�
 | 区域 | 职责 |
 |---|---|
 | `sar.hpp` | 收窄后的稳定会话便利入口；只聚合 `sar_config.hpp`、cycle input/result、input adapter、external input adapter、input validation 和 `SarSession` |
-| `config/` | `SarSessionConfig` 四域配置、semantic builder、runtime patch、配置校验 |
+| `config/` | `SarSessionConfig` 四域配置、语义常量表（`SarProfileConstants.h`）、薄封装 builder、runtime patch、配置校验 |
 | `session/` | `SarSession`、`SarCycleInput`、`SarCycleResult`、输入适配、trace/replay、debug/lifecycle |
 
 `sar.hpp` 不是 SAR 全量 public header 汇总。trace/replay、debug view、lifecycle recorder 等工具头按需单独包含；算法部件和聚焦中间态不通过 `sar.hpp` 暴露。
@@ -54,7 +54,7 @@ SAR 模块负责合成孔径雷达的回波仿真、完整孔径 raw IQ 消费�
 flowchart TB
   subgraph Public["Public API\n公共 API：include/1q/sar"]
     Entry["sar.hpp\n稳定会话便利入口"]
-    Config["config/*\n会话配置 / 运行期补丁\n语义 Builder / 配置校验"]
+    Config["config/*\n会话配置 / 运行期补丁\nProfileConstants / Builder / 配置校验"]
     Input["session input/result\n单周期输入 / 单周期结果 / 输出帧"]
     Tools["optional tools\nTrace / Replay / 调试视图 / 生命周期"]
   end
@@ -262,7 +262,7 @@ flowchart TB
 SAR 遵守 `docs/common/contract.md`：
 
 - public API 只暴露稳定 session/config/input/output/trace/replay 门面。`SarSession` 是对外门面，只委托内部 `SarController`；Controller、ProcessingPipeline、CompositionRoot 不通过 public header 暴露。
-- `SarSessionConfigBuilder` 是 semantic builder，不承担 leaf setter 或隐式 validation。
+- `SarSessionConfigBuilder` 是薄封装（整域赋值 + `Build()` 返回副本）；语义档位是 `SarProfileConstants.h` 中的预定义结构体常量（如 `profiles::kHighResolutionImagingMission`、`profiles::kL3BackprojectionProcessing`），不承担 leaf setter 或隐式 validation。档位常量是完整子域结构体，整域赋值会重置未管理字段（如 `scene_center_*`、`l3_waypoints`），正确用法是"先赋档位、再设场景数据"。
 - SAR 输出遵守三层模型：系统输出、结构化结果、调试视图分离。
 - `SarSession::StepWithResult` 在运行期配置和成像链路前调用 `ValidateSarCycleInput`；存在 error 级问题时记录 `invalid_cycle_input` abort 并按既有语义复用上一帧（符合 contract.md §实现安全与失败语义规则 3）。
 - **dt_sec 校验边界（有意差异，勿按"四模块一致"补齐）**：`ValidateSarCycleInput` 对 `dt_sec` 仅校验有限性 + 正值，
@@ -274,7 +274,7 @@ SAR 遵守 `docs/common/contract.md`：
   trajectory、pulse ID 和 PRF 分数余量，执行 abort 时恢复这些跨周期状态并按需复用上一有效
   输出。配置不随执行失败回滚，执行状态也不得被失败周期污染。
 - historical/raw evidence 不常驻 `docs/sar/`；当前事实只由本 `design.md` 承载。
-- `SarProcessingProfile::kL3Backprojection` 只启用 raw echo、距离压缩和 L3 BP，并保持 L1/L2 关闭；L3
+- `profiles::kL3BackprojectionProcessing` 常量只启用 raw echo、距离压缩和 L3 BP，并保持 L1/L2 关闭；L3
   仍须满足有效 waypoint（或外部 IQ 实际轨迹）和 128×128 尺寸门。
 
 ### 1.8 Environment 几何、传播与地表背景契约

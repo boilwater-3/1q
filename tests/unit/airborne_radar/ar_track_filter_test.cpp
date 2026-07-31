@@ -53,55 +53,6 @@ session::SignalCycleResult RunPipelineCycle(PipelineType* pipeline,
   return pipeline->RunCycle(input_state, *environment_service);
 }
 
-void ApplyDetectionIntentProfile(config::ArSessionConfig* config,
-                                 config::profiles::DetectionIntentProfile profile) {
-  if (config == nullptr) {
-    return;
-  }
-  auto& d = config->policy.detection;
-  switch (profile) {
-    case config::profiles::DetectionIntentProfile::kDetectionPriority:
-      d.pulse_count = 16;
-      d.pfa = 2e-6f;
-      d.minimum_snr_db = -12.0f;
-      d.minimum_detection_margin_db = -100.0f;
-      break;
-    case config::profiles::DetectionIntentProfile::kTrackStabilityPriority:
-      d.pulse_count = 8;
-      d.pfa = 5e-7f;
-      d.minimum_snr_db = -8.0f;
-      d.minimum_detection_margin_db = -20.0f;
-      break;
-    case config::profiles::DetectionIntentProfile::kBalanced:
-    default:
-      d.minimum_detection_margin_db = -2.0f;
-      break;
-  }
-}
-
-void ApplyLifecyclePolicyProfile(config::ArSessionConfig* config,
-                                 config::profiles::LifecyclePolicyProfile profile) {
-  if (config == nullptr) {
-    return;
-  }
-  auto& lc = config->policy.lifecycle;
-  switch (profile) {
-    case config::profiles::LifecyclePolicyProfile::kFastConfirm:
-      lc.confirm_hits = 1U;
-      lc.max_miss_before_lost = 1U;
-      lc.max_lost_cycles = 3U;
-      break;
-    case config::profiles::LifecyclePolicyProfile::kHighPersistence:
-      lc.confirm_hits = 3U;
-      lc.max_miss_before_lost = 3U;
-      lc.max_lost_cycles = 8U;
-      break;
-    case config::profiles::LifecyclePolicyProfile::kBalanced:
-    default:
-      break;
-  }
-}
-
 }  // namespace
 
 TEST(TrackFilterTest, KeepsStateWhenDetectionIsStable) {

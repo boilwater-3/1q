@@ -23,9 +23,12 @@ AR 的决策扩展点是同进程步间 observation/response seam：
   并在周期输出的内部 `ArReplayRecord` 中固化 observation、pending/applied internal proposals、来源
   cycle/batch、reducer 计数和最终 profile；外部覆盖的 profile 值可被确定性值重放。
 
+`ArPolicyConfig::tracking.enable_kalman_filter` 的 struct 默认值为 `false`（语义默认关闭滤波，需显式开启）。
+直接构造 `ArSessionConfig{}` 的消费者若依赖 Kalman 跟踪，必须显式置 `true`——这是 2026-07-31 与 Builder 语义默认对齐时的有意行为变更。
+
 当前模块的稳定外部使用方式是：
 
-1. 用 `ArSessionConfig` 或 builder 描述硬件、任务、策略、环境四域配置。
+1. 用 `ArSessionConfig` 描述硬件、任务、策略、环境四域配置：直接构造结构体并逐字段赋值，或从 `ArProfileConstants.h` 的预定义语义常量（如 `profiles::kLongRangeHighPowerHardware`）整域赋值，或经 `ArSessionConfigBuilder` 薄封装整域设置。
 2. 用 `ArCycleInput` 提供绝对周期时间、单一世界坐标平台状态、目标和独立 interference frame；自然环境配置由 `ArSessionConfig.environment` 提供，运行期更新通过 `ArRuntimeConfigPatch` 提交。
 3. 调用 `ArSession::Step()` 获取本周期 track output，或调用 `ArSession::StepWithResult()` 获取结构化执行结果；
    拒绝周期不复用上一帧。
@@ -43,7 +46,7 @@ AR 的决策扩展点是同进程步间 observation/response seam：
 | 区域 | 职责 | 设计约束 |
 |---|---|---|
 | `airborne_radar.hpp` | 模块聚合入口 | 聚合稳定 public API，不暴露内部 signal/environment/runtime 类型 |
-| `config/` | `ArSessionConfig`、runtime patch、semantic builder、validation | 表达硬件、任务、策略和自然环境能力 |
+| `config/` | `ArSessionConfig`、runtime patch、语义常量表（`ArProfileConstants.h`）、薄封装 builder、validation | 表达硬件、任务、策略和自然环境能力 |
 | `session/` | `ArSession`、cycle input/result、scene target、output types、trace/replay、debug/lifecycle、decision DTO | observation/response 是唯一 public 决策 seam |
 
 Public 决策 DTO 只包含 `DecisionObservation`、
@@ -513,7 +516,7 @@ AR 的探测不是只按目标 range 计算。目标必须先被解析到当前�
 - `BeamControlResolver` 综合天线工程配置、扫描中心、平台姿态、目标 look angle 和波长，给出 one-way antenna gain 与有效波束宽度。
 
 `ArMissionConfig::orientation.scan_center_deg` 是基础扫描中心的 public source of truth；policy 不再
-保留默认中心或 replay-only 副本，Builder 档位也只写入 mission orientation。runtime patch 的
+保留默认中心或 replay-only 副本。runtime patch 的
 `dwell_center_deg` 是当次驻留偏移，最终运行时指向为“基础扫描中心 + 当次 dwell 偏移”。replay 分别保留
 基础中心与偏移，不把最终指向误写成只来自一个字段。
 [evidence: tests/unit/airborne_radar/ar_signal_scan_schedule_test.cpp]
@@ -555,8 +558,9 @@ schedule、接收零陷和 detection-cell 裕度的跨周期作用。
 
 AR 的探测门限属于 policy，不属于 hardware。`ArPolicyConfig::detection` 统一承载
 `minimum_snr_db`、`pfa`、`pulse_count` 和 `minimum_detection_margin_db`；hardware 只描述发射机、
-接收机、天线、波形和量测等物理能力。semantic Builder 的 detection intent 只翻译为这组 policy 参数。
-[evidence: tests/unit/airborne_radar/ar_session_config_builder_test.cpp]
+接收机、天线、波形和量测等物理能力。探测意图语义档位（如 `profiles::kDetectionPriorityDetection`）
+是 `ArProfileConstants.h` 中的预定义常量，只翻译为这组 policy 参数。
+[evidence: tests/unit/airborne_radar/ar_profile_constants_test.cpp]
 [evidence: tests/replay/airborne_radar/ar_replay_codec_roundtrip_test.cpp]
 
 AR 不再提供 heuristic detection toggle 或启发式 pass。冻结目标不是“把所有外部发射功率加到一个周期

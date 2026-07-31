@@ -1,12 +1,13 @@
 // Copyright 2026. All Rights Reserved.
 //
 // @file radar_session_config_builder_test.cpp
-// @brief 验证 ArSessionConfigBuilder 语义化配置接口。
+// @brief 验证 ArSessionConfigBuilder 薄封装与 ArProfileConstants 常量赋值路径。
 
 #include <gtest/gtest.h>
 
 #include <limits>
 
+#include "1q/airborne_radar/config/ArProfileConstants.h"
 #include "1q/airborne_radar/config/ArRuntimeConfigBuilder.h"
 #include "1q/airborne_radar/config/ArSessionConfigBuilder.h"
 #include "1q/airborne_radar/config/ArSessionConfigValidation.h"
@@ -18,22 +19,17 @@ namespace tests {
 namespace {
 
 config::ArSessionConfig MakeDetectionFocusedConfig() {
-  return config::ArSessionConfigBuilder()
-      .Detection()
-      .WithDetectionIntentProfile(config::profiles::DetectionIntentProfile::kDetectionPriority)
-      .End()
-      .Tracking()
-      .WithTrackingPolicyProfile(config::profiles::TrackingPolicyProfile::kFastAssociation)
-      .End()
-      .Lifecycle()
-      .WithLifecyclePolicyProfile(config::profiles::LifecyclePolicyProfile::kFastConfirm)
-      .End()
-      .Build();
+  config::ArSessionConfig config;
+  config.policy.detection = config::profiles::kDetectionPriorityDetection;
+  config.policy.tracking = config::profiles::kFastAssociationTracking;
+  config.policy.lifecycle = config::profiles::kFastConfirmLifecycle;
+  return config;
 }
 
 }  // namespace
 
 TEST(RadarSessionConfigBuilderTest, DefaultConstructionPreservesSemanticDefaults) {
+  // 薄封装 Build() 直接返回结构体默认值（= 语义默认）。
   const auto config = config::ArSessionConfigBuilder().Build();
 
   EXPECT_FLOAT_EQ(config.policy.detection.minimum_detection_margin_db, -2.0f);
@@ -44,7 +40,8 @@ TEST(RadarSessionConfigBuilderTest, DefaultConstructionPreservesSemanticDefaults
   EXPECT_FALSE(config.policy.lifecycle.enable_imm_lifecycle);
 }
 
-TEST(RadarSessionConfigBuilderTest, ExistingBuilderBasePreservesSemanticValues) {
+TEST(RadarSessionConfigBuilderTest, ExistingBuilderBasePreservesValues) {
+  // 薄封装按值保留基线配置，不做任何翻译或覆写。
   const auto config = config::ArSessionConfigBuilder(MakeDetectionFocusedConfig()).Build();
 
   EXPECT_EQ(config.policy.detection.pulse_count, 16);
@@ -73,17 +70,12 @@ TEST(RadarSessionConfigBuilderTest, ExistingDetailedConfigIsPreserved) {
   EXPECT_EQ(rebuilt.policy.lifecycle.confirm_hits, 2U);
 }
 
-TEST(RadarSessionConfigBuilderTest, DetectionSemanticEditorsApplyCorrectly) {
-  const auto config =
-      config::ArSessionConfigBuilder()
-          .Detection()
-          .WithHardwareProfile(config::profiles::ArHardwareProfile::kLongRangeHighPower)
-          .WithDetectionIntentProfile(
-              config::profiles::DetectionIntentProfile::kTrackStabilityPriority)
-          .WithAntennaPatternProfile(config::profiles::AntennaPatternProfile::kLowSidelobe)
-          .WithRcsFusionProfile(config::profiles::RcsFusionProfile::kEnhanced)
-          .End()
-          .Build();
+TEST(RadarSessionConfigBuilderTest, ProfileConstantsAssignToConfig) {
+  config::ArSessionConfig config;
+  config.hardware = config::profiles::kLongRangeHighPowerHardware;
+  config.policy.detection = config::profiles::kTrackStabilityPriorityDetection;
+  config.hardware.antenna.pattern = config::profiles::kLowSidelobeAntennaPattern;
+  config.hardware.rcs_physics = config::profiles::kEnhancedRcsPhysics;
 
   EXPECT_FLOAT_EQ(config.hardware.transmitter.peak_power_w, 5.0e6f);
   EXPECT_EQ(config.policy.detection.pulse_count, 8);
@@ -92,18 +84,13 @@ TEST(RadarSessionConfigBuilderTest, DetectionSemanticEditorsApplyCorrectly) {
   EXPECT_FLOAT_EQ(config.hardware.rcs_physics.physics_mix_ratio, 0.60f);
 }
 
-TEST(RadarSessionConfigBuilderTest, TrackingAndLifecycleSemanticEditorsApplyCorrectly) {
-  const auto config =
-      config::ArSessionConfigBuilder()
-          .Tracking()
-          .EnableTrackingFilter(true)
-          .WithTrackingPolicyProfile(config::profiles::TrackingPolicyProfile::kRobustAntiJamming)
-          .End()
-          .Lifecycle()
-          .EnableImmFusion(true)
-          .WithLifecyclePolicyProfile(config::profiles::LifecyclePolicyProfile::kHighPersistence)
-          .End()
-          .Build();
+TEST(RadarSessionConfigBuilderTest, TrackingAndLifecycleConstantsAssignToConfig) {
+  config::ArSessionConfig config;
+  config.policy.tracking = config::profiles::kRobustAntiJammingTracking;
+  config.policy.association = config::profiles::kRobustAntiJammingAssociation;
+  config.policy.tracking.enable_kalman_filter = true;
+  config.policy.lifecycle = config::profiles::kHighPersistenceLifecycle;
+  config.policy.lifecycle.enable_imm_lifecycle = true;
 
   EXPECT_TRUE(config.policy.tracking.enable_kalman_filter);
   EXPECT_TRUE(config.policy.lifecycle.enable_imm_lifecycle);

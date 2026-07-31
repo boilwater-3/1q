@@ -30,7 +30,7 @@ ESR 模块模拟电子侦察接收机对辐射源的观测和估计。它的核�
 | 区域 | 职责 |
 |---|---|
 | `electronic_surveillance_radar.hpp` | 模块聚合入口 |
-| `config/` | `EsrSessionConfig`、runtime patch、semantic builder、config validation |
+| `config/` | `EsrSessionConfig`、runtime patch、语义常量表（`EsrProfileConstants.h`）、薄封装 builder、config validation |
 | `session/` | `EsrSession`、cycle input/result、observation/hypothesis、trace/replay |
 
 内部实现位于 `src/electronic_surveillance_radar/`：
@@ -49,7 +49,7 @@ ESR 模块模拟电子侦察接收机对辐射源的观测和估计。它的核�
 flowchart TB
   subgraph Public["Public API\n公共 API：include/1q/electronic_surveillance_radar"]
     Entry["electronic_surveillance_radar.hpp\n模块聚合入口"]
-    Config["config/*\n四域配置 / RuntimePatch\nSemanticBuilder / Validation"]
+    Config["config/*\n四域配置 / RuntimePatch\nProfileConstants / Builder / Validation"]
     SessionApi["session/*\nEsrSession / CycleInput / CycleResult"]
     Types["EmitterObservation / EmitterHypothesis\n设备观测 / 辐射源假设"]
     Tools["Trace / Replay"]

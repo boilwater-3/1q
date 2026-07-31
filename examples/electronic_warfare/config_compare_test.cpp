@@ -3,6 +3,7 @@
 #include <string>
 
 #include "1q/coordinate/types.h"
+#include "1q/electronic_surveillance_radar/config/EsrProfileConstants.h"
 #include "1q/electronic_surveillance_radar/electronic_surveillance_radar.hpp"
 #include "config_loader.h"
 
@@ -13,18 +14,10 @@ namespace esr_session = electronic_surveillance_radar::session;
 namespace {
 
 esr_cfg::EsrSessionConfig MakeEmitterSearchConfig() {
-  esr_cfg::EsrSessionConfig config =
-      esr_cfg::EsrSessionConfigBuilder()
-          .Mission()
-          .WithMissionProfile(esr_cfg::EsrMissionProfile::kElectronicOrderOfBattle)
-          .End()
-          .Detection()
-          .WithSensitivityProfile(esr_cfg::EsrSensitivityProfile::kStandard)
-          .End()
-          .Environment()
-          .WithEnvironmentPreset(esr_cfg::EsrEnvironmentPreset::kStandard)
-          .End()
-          .Build();
+  esr_cfg::EsrSessionConfig config;
+  config.mission = esr_cfg::profiles::kElectronicOrderOfBattleMission;
+  // kStandard 灵敏度档位为 no-op（struct 默认即该档位），不再显式赋值。
+  config.environment.scenario_config.preset = esr_cfg::EsrEnvironmentPreset::kStandard;
   config.mission.power_on = true;
   config.mission.work_mode = esr_cfg::EsrWorkMode::kEsm;
   config.mission.scan.scan_rate_hz = 1.0f;

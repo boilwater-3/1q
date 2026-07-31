@@ -3,7 +3,7 @@
  * @brief 验证安装后 ESR 公共 API 路径可被外部工程编译链接。
  *
  * 覆盖要点：
- *   - EsrSessionConfigBuilder 语义 profile 构造会话配置
+ *   - EsrSessionConfigBuilder 薄封装 + 语义档位常量构造会话配置
  *   - 直接字段赋值构造详细会话配置
  *   - EsrCycleInput + RfEmissionFrame 构造周期输入
  *   - EsrInputValidation 输入校验
@@ -15,6 +15,7 @@
 #include <cstddef>
 #include <string>
 
+#include "1q/electronic_surveillance_radar/config/EsrProfileConstants.h"
 #include "1q/electronic_surveillance_radar/config/EsrRuntimeConfigBuilder.h"
 #include "1q/electronic_surveillance_radar/config/EsrSessionConfigBuilder.h"
 #include "1q/electronic_surveillance_radar/session/EsrCycleInput.h"
@@ -25,15 +26,11 @@
 namespace esr = electronic_surveillance_radar;
 
 int main() {
-  // 1. SessionConfigBuilder
+  // 1. EsrSessionConfigBuilder 薄封装：语义档位常量整域赋值
+  //    （kStandard 灵敏度为 no-op，已随 Profile 枚举删除）
   esr::config::EsrSessionConfig config =
       esr::config::EsrSessionConfigBuilder()
-          .Detection()
-          .WithSensitivityProfile(esr::config::EsrSensitivityProfile::kStandard)
-          .End()
-          .Mission()
-          .WithMissionProfile(esr::config::EsrMissionProfile::kElectronicOrderOfBattle)
-          .End()
+          .WithMission(esr::config::profiles::kElectronicOrderOfBattleMission)
           .Build();
   config.mission.scan.scan_rate_hz = 1.0f;
 
@@ -93,6 +90,7 @@ int main() {
   // 10. Step after sensor disabled — should return empty output
   esr::session::EsrCycleInput input_2 = input;
   input_2.cycle_index = 2U;
+  input_2.rf_emissions.world_cycle_index = input_2.cycle_index;
   const esr::session::EsrOutputFrame disabled_frame = session.Step(input_2);
   if (!disabled_frame.observation_output.observations.empty()) {
     return 3;
@@ -136,6 +134,7 @@ int main() {
   // 16. Final cycle
   esr::session::EsrCycleInput input_3 = input;
   input_3.cycle_index = 3U;
+  input_3.rf_emissions.world_cycle_index = input_3.cycle_index;
   const esr::session::EsrCycleResult result_3 = session.StepWithResult(input_3);
   if (result_3.has_validation_error) {
     return 4;

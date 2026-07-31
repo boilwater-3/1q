@@ -15,219 +15,72 @@ namespace airborne_radar {
 namespace config {
 
 /**
- * @brief ArSessionConfig 配置链式构造器。
+ * @brief ArSessionConfig 配置链式构造器（薄封装）。
  *
- * Builder 通过语义档位（Profile enum）控制探测 / 跟踪 / 生命周期行为，
- * `Build()` 时将语义设定翻译为四域配置中的 hardware/policy 子域。
- * 波束方向与扫描状态（mission.orientation）及环境细项由
- * ArSessionConfig 直接编辑。
- *
- * @warning 当某个编辑器（Detection/Tracking/Lifecycle）被进入时，
- *   Build() 会将该域**重置为语义默认值**后再应用 profile。
- *   这意味着 base_config_ 中该域的先前细粒度设置会丢失。
- *   如果需要在 profile 基础上进行细粒度调整，请在 Build() 后直接修改
- *   返回的 ArSessionConfig 的对应字段。
- *
- * @note 推荐路径：
- * - 会话初始化优先使用本构造器表达高层语义输入；
- * - 运行期热更新统一使用 `ArRuntimeConfigBuilder`；
- * - 仅在需要直接编辑四域细项时使用直接字段赋值。
+ * Builder 仅做整域赋值与拷贝，不执行任何翻译、合并或覆写逻辑；
+ * `Build()` 返回 `config_` 的副本。语义档位已提取为
+ * `ArProfileConstants.h` 中的预定义结构体常量，用户直接赋值即可：
  *
  * @code
+ * config::ArPolicyConfig policy;
+ * policy.detection = profiles::kDetectionPriorityDetection;
  * auto config = ArSessionConfigBuilder()
- *                   .Detection()
- *                   .WithHardwareProfile(
- *                       profiles::ArHardwareProfile::kLongRangeHighPower)
- *                   .WithDetectionIntentProfile(
- *                       profiles::DetectionIntentProfile::kDetectionPriority)
- *                   .End()
- *                   .Environment()
+ *                   .WithHardware(profiles::kLongRangeHighPowerHardware)
+ *                   .WithPolicy(policy)
  *                   .Build();
  * @endcode
+ *
+ * @note 由于不再有 Profile 翻译，配置中不存在"覆盖直接赋值"语义——
+ *   对 config 的任何赋值即最终决定，构造顺序无关。
+ *
+ * @note 推荐路径：
+ * - 会话初始化：本构造器整域赋值，或直接构造 `config::ArSessionConfig` 并逐字段赋值；
+ * - 运行期热更新统一使用 `ArRuntimeConfigBuilder`。
  */
 class ONEQ_API ArSessionConfigBuilder {
  public:
-  /** @brief 语义探测配置编辑器。 */
-  class DetectionEditor;
-  /** @brief 语义跟踪配置编辑器。 */
-  class TrackingEditor;
-  /** @brief 语义生命周期配置编辑器。 */
-  class LifecycleEditor;
-  /** @brief 环境语义配置编辑器。 */
-  class EnvironmentEditor;
-
-  /** @brief 使用语义默认值初始化 Builder。 */
+  /** @brief 使用结构体默认值（语义默认）初始化 Builder。 */
   ArSessionConfigBuilder();
 
   /**
    * @brief 使用现有会话配置初始化 Builder。
    *
-   * 输入配置中的 `hardware/mission/policy` 会作为工程参数基线保留；
-   * 仅当调用相应语义编辑器时，对应域才会被语义档位重新覆盖。
-   *
    * @param config 作为编辑基线的会话配置。
    */
   explicit ArSessionConfigBuilder(const config::ArSessionConfig& config);
 
-  /** @brief 进入探测配置编辑域。 */
-  DetectionEditor Detection();
-  /** @brief 进入跟踪配置编辑域。 */
-  TrackingEditor Tracking();
-  /** @brief 进入生命周期配置编辑域。 */
-  LifecycleEditor Lifecycle();
-  /** @brief 进入环境语义配置编辑域。 */
-  EnvironmentEditor Environment();
+  /** @brief 整域替换硬件配置。 */
+  ArSessionConfigBuilder& WithHardware(const config::ArHardwareConfig& hardware) {
+    config_.hardware = hardware;
+    return *this;
+  }
+  /** @brief 整域替换任务配置。 */
+  ArSessionConfigBuilder& WithMission(const config::ArMissionConfig& mission) {
+    config_.mission = mission;
+    return *this;
+  }
+  /** @brief 整域替换策略配置。 */
+  ArSessionConfigBuilder& WithPolicy(const config::ArPolicyConfig& policy) {
+    config_.policy = policy;
+    return *this;
+  }
+  /** @brief 整域替换环境配置。 */
+  ArSessionConfigBuilder& WithEnvironment(const config::ArEnvironmentConfig& environment) {
+    config_.environment = environment;
+    return *this;
+  }
+  /** @brief 整段替换会话配置。 */
+  ArSessionConfigBuilder& WithSessionConfig(const config::ArSessionConfig& config) {
+    config_ = config;
+    return *this;
+  }
 
-  /**
-   * @brief 将语义档位翻译为四域配置，生成最终会话配置。
-   *
-   * 仅对标记了 dirty flag 的域执行重置+重翻译；未标记的域保留 base_config_ 原值。
-   * 标记了 dirty flag 的域会被先重置为语义默认值，再应用 profile 翻译结果。
-   *
-   * @return 构建完成的 `config::ArSessionConfig`（hardware/mission/policy/environment）。
-   */
+  /** @brief 返回当前配置副本。 */
   config::ArSessionConfig Build() const;
 
  private:
-  friend class DetectionEditor;
-  friend class TrackingEditor;
-  friend class LifecycleEditor;
-  friend class EnvironmentEditor;
-
-  profiles::ArHardwareProfile hardware_profile_{profiles::ArHardwareProfile::kGenericAirborneXBand};
-  profiles::DetectionIntentProfile intent_profile_{profiles::DetectionIntentProfile::kBalanced};
-  profiles::AntennaPatternProfile antenna_profile_{profiles::AntennaPatternProfile::kStandard};
-  config::AzimuthElevationDeg antenna_boresight_offset_deg_{};
-  profiles::RcsFusionProfile rcs_fusion_profile_{profiles::RcsFusionProfile::kDisabled};
-
-  bool enable_tracking_filter_{false};
-  profiles::TrackingPolicyProfile tracking_profile_{profiles::TrackingPolicyProfile::kBalanced};
-
-  bool enable_imm_fusion_{false};
-  profiles::LifecyclePolicyProfile lifecycle_profile_{profiles::LifecyclePolicyProfile::kBalanced};
-
-  config::ArSessionConfig base_config_{};
-  bool detection_dirty_{false};
-  bool tracking_dirty_{false};
-  bool lifecycle_dirty_{false};
+  config::ArSessionConfig config_{};
 };
-
-/**
- * @brief 语义探测配置编辑器。
- */
-class ONEQ_API ArSessionConfigBuilder::DetectionEditor {
- public:
-  explicit DetectionEditor(ArSessionConfigBuilder* builder) : builder_(builder) {}
-
-  /** @brief 设置硬件语义档位。 */
-  DetectionEditor& WithHardwareProfile(profiles::ArHardwareProfile profile) {
-    builder_->hardware_profile_ = profile;
-    builder_->detection_dirty_ = true;
-    return *this;
-  }
-  /** @brief 设置探测意图语义档位。 */
-  DetectionEditor& WithDetectionIntentProfile(profiles::DetectionIntentProfile profile) {
-    builder_->intent_profile_ = profile;
-    builder_->detection_dirty_ = true;
-    return *this;
-  }
-  /** @brief 设置方向图语义档位。 */
-  DetectionEditor& WithAntennaPatternProfile(profiles::AntennaPatternProfile profile) {
-    builder_->antenna_profile_ = profile;
-    builder_->detection_dirty_ = true;
-    return *this;
-  }
-  /** @brief 设置 RCS 融合语义档位。 */
-  DetectionEditor& WithRcsFusionProfile(profiles::RcsFusionProfile profile) {
-    builder_->rcs_fusion_profile_ = profile;
-    builder_->detection_dirty_ = true;
-    return *this;
-  }
-
-  ArSessionConfigBuilder& End() { return *builder_; }
-
- private:
-  ArSessionConfigBuilder* builder_;
-};
-
-/**
- * @brief 语义跟踪配置编辑器。
- */
-class ONEQ_API ArSessionConfigBuilder::TrackingEditor {
- public:
-  explicit TrackingEditor(ArSessionConfigBuilder* builder) : builder_(builder) {}
-
-  /** @brief 开启或关闭公开跟踪滤波链路。 */
-  TrackingEditor& EnableTrackingFilter(bool enable = true) {
-    builder_->enable_tracking_filter_ = enable;
-    builder_->tracking_dirty_ = true;
-    return *this;
-  }
-  /** @brief 设置跟踪策略语义档位。 */
-  TrackingEditor& WithTrackingPolicyProfile(profiles::TrackingPolicyProfile profile) {
-    builder_->tracking_profile_ = profile;
-    builder_->tracking_dirty_ = true;
-    return *this;
-  }
-
-  ArSessionConfigBuilder& End() { return *builder_; }
-
- private:
-  ArSessionConfigBuilder* builder_;
-};
-
-/**
- * @brief 语义生命周期配置编辑器。
- */
-class ONEQ_API ArSessionConfigBuilder::LifecycleEditor {
- public:
-  explicit LifecycleEditor(ArSessionConfigBuilder* builder) : builder_(builder) {}
-
-  /** @brief 开启或关闭 IMM 融合。 */
-  LifecycleEditor& EnableImmFusion(bool enable = true) {
-    builder_->enable_imm_fusion_ = enable;
-    builder_->lifecycle_dirty_ = true;
-    return *this;
-  }
-  /** @brief 设置生命周期策略语义档位。 */
-  LifecycleEditor& WithLifecyclePolicyProfile(profiles::LifecyclePolicyProfile profile) {
-    builder_->lifecycle_profile_ = profile;
-    builder_->lifecycle_dirty_ = true;
-    return *this;
-  }
-
-  ArSessionConfigBuilder& End() { return *builder_; }
-
- private:
-  ArSessionConfigBuilder* builder_;
-};
-
-/** @brief 环境语义配置编辑器。 */
-class ONEQ_API ArSessionConfigBuilder::EnvironmentEditor {
- public:
-  explicit EnvironmentEditor(ArSessionConfigBuilder* builder) : builder_(builder) {}
-
-  ArSessionConfigBuilder& End() { return *builder_; }
-
- private:
-  ArSessionConfigBuilder* builder_;
-};
-
-inline ArSessionConfigBuilder::DetectionEditor ArSessionConfigBuilder::Detection() {
-  return DetectionEditor(this);
-}
-
-inline ArSessionConfigBuilder::TrackingEditor ArSessionConfigBuilder::Tracking() {
-  return TrackingEditor(this);
-}
-
-inline ArSessionConfigBuilder::LifecycleEditor ArSessionConfigBuilder::Lifecycle() {
-  return LifecycleEditor(this);
-}
-
-inline ArSessionConfigBuilder::EnvironmentEditor ArSessionConfigBuilder::Environment() {
-  return EnvironmentEditor(this);
-}
 
 }  // namespace config
 }  // namespace airborne_radar

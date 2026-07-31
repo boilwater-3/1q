@@ -280,22 +280,12 @@ esr_session::EsrCycleInput BuildEsrInput(const WorldState& ws, float dt, std::ui
 
 // -- 空对空通用 AR 配置 --
 ar_config::ArSessionConfig MakeArConfigAirToAir() {
-  ar_config::ArSessionConfig config =
-      ar_config::ArSessionConfigBuilder()
-          .Detection()
-          .WithHardwareProfile(ar_config::profiles::ArHardwareProfile::kLongRangeHighPower)
-          .WithDetectionIntentProfile(
-              ar_config::profiles::DetectionIntentProfile::kDetectionPriority)
-          .WithAntennaPatternProfile(ar_config::profiles::AntennaPatternProfile::kStandard)
-          .End()
-          .Tracking()
-          .EnableTrackingFilter(true)
-          .WithTrackingPolicyProfile(ar_config::profiles::TrackingPolicyProfile::kFastAssociation)
-          .End()
-          .Lifecycle()
-          .WithLifecyclePolicyProfile(ar_config::profiles::LifecyclePolicyProfile::kFastConfirm)
-          .End()
-          .Build();
+  ar_config::ArSessionConfig config;
+  config.hardware = ar_config::profiles::kLongRangeHighPowerHardware;
+  config.policy.detection = ar_config::profiles::kDetectionPriorityDetection;
+  config.policy.tracking = ar_config::profiles::kFastAssociationTracking;
+  config.policy.tracking.enable_kalman_filter = true;
+  config.policy.lifecycle = ar_config::profiles::kFastConfirmLifecycle;
   config.mission.orientation.work_mode = ar_config::ArWorkMode::kTas;
   config.mission.orientation.scan_center_deg = ar_config::AzimuthElevationDeg{};
   config.hardware.receiver.has_co_site_isolation = true;
@@ -345,22 +335,12 @@ esr_config::EsrSessionConfig MakeEsrConfigAirToAir() {
 
 // -- 空对地 AR 配置 --
 ar_config::ArSessionConfig MakeArConfigAirToGround() {
-  ar_config::ArSessionConfig config =
-      ar_config::ArSessionConfigBuilder()
-          .Detection()
-          .WithHardwareProfile(ar_config::profiles::ArHardwareProfile::kLongRangeHighPower)
-          .WithDetectionIntentProfile(
-              ar_config::profiles::DetectionIntentProfile::kDetectionPriority)
-          .WithAntennaPatternProfile(ar_config::profiles::AntennaPatternProfile::kStandard)
-          .End()
-          .Tracking()
-          .EnableTrackingFilter(true)
-          .WithTrackingPolicyProfile(ar_config::profiles::TrackingPolicyProfile::kFastAssociation)
-          .End()
-          .Lifecycle()
-          .WithLifecyclePolicyProfile(ar_config::profiles::LifecyclePolicyProfile::kFastConfirm)
-          .End()
-          .Build();
+  ar_config::ArSessionConfig config;
+  config.hardware = ar_config::profiles::kLongRangeHighPowerHardware;
+  config.policy.detection = ar_config::profiles::kDetectionPriorityDetection;
+  config.policy.tracking = ar_config::profiles::kFastAssociationTracking;
+  config.policy.tracking.enable_kalman_filter = true;
+  config.policy.lifecycle = ar_config::profiles::kFastConfirmLifecycle;
   config.mission.orientation.work_mode = ar_config::ArWorkMode::kTas;
   config.mission.orientation.scan_center_deg = ar_config::AzimuthElevationDeg{};
   return config;

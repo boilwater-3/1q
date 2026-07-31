@@ -1,10 +1,9 @@
-/**
- * @file eos_session_config_builder_test.cpp
- * @brief 验证 EOS SessionConfigBuilder 语义档位与配置校验（此前 5.6% 覆盖）。
- */
+// @file eos_session_config_builder_test.cpp
+// @brief 验证 EOS ProfileConstants 常量赋值与配置校验。
 
 #include <gtest/gtest.h>
 
+#include "1q/electro_optical_sensor/config/EosProfileConstants.h"
 #include "1q/electro_optical_sensor/config/EosSessionConfigBuilder.h"
 #include "1q/electro_optical_sensor/config/EosSessionConfigValidation.h"
 
@@ -20,74 +19,80 @@ bool ContainsCode(const ValidationIssueList& issues, ConfigValidationCode code) 
 }
 
 // =============================================================================
-// Build() 语义档位（3-way switch 全覆盖）
+// 语义档位常量赋值（等价迁移自旧 Profile 翻译）
 // =============================================================================
 
-TEST(EosSessionConfigBuilderTest, WideAreaSearchProfileSetsDefaults) {
-  EosSessionConfigBuilder builder;
-  builder.Mission().WithMissionProfile(EosMissionProfile::kWideAreaSearch).End();
-  const EosSessionConfig config = builder.Build();
+TEST(EosSessionConfigBuilderTest, WideAreaSearchConstantsAssign) {
+  EosSessionConfig config;
+  config.mission = profiles::kWideAreaSearchMission;
+  // snr=6dB 与 struct 默认一致（no-op 档位），无需赋值。
   EXPECT_GT(config.mission.scan_rate_deg_per_sec, 0.0f);
-}
-
-TEST(EosSessionConfigBuilderTest, LongRangeSurveillanceProfileSetsDefaults) {
-  EosSessionConfigBuilder builder;
-  builder.Mission().WithMissionProfile(EosMissionProfile::kLongRangeSurveillance).End();
-  const EosSessionConfig config = builder.Build();
-  EXPECT_GT(config.mission.scan_rate_deg_per_sec, 0.0f);
-}
-
-TEST(EosSessionConfigBuilderTest, HighResolutionTrackProfileSetsDefaults) {
-  EosSessionConfigBuilder builder;
-  builder.Mission().WithMissionProfile(EosMissionProfile::kHighResolutionTrack).End();
-  const EosSessionConfig config = builder.Build();
-  EXPECT_GT(config.mission.scan_rate_deg_per_sec, 0.0f);
-}
-
-TEST(EosSessionConfigBuilderTest, HardwareProfilesApplyDefaults) {
-  for (auto profile : {EosHardwareProfile::kStandardMidWaveIR,
-                       EosHardwareProfile::kLongRangeLargeAperture,
-                       EosHardwareProfile::kWideAreaCompact}) {
-    EosSessionConfigBuilder builder;
-    builder.Hardware().WithHardwareProfile(profile).End();
-    const EosSessionConfig config = builder.Build();
-    EXPECT_GT(config.mission.scan_rate_deg_per_sec, 0.0f);
-  }
-}
-
-// =============================================================================
-// PolicyEditor（策略域独立入口）+ Mission Profile 跨域覆写优先级
-// =============================================================================
-
-TEST(EosSessionConfigBuilderTest, PolicyEditorSetsMinimumSnrDbIndependently) {
-  EosSessionConfigBuilder builder;
-  builder.Policy().WithMinimumSnrDb(9.0f).End();
-  const EosSessionConfig config = builder.Build();
-  EXPECT_FLOAT_EQ(config.policy.detection.minimum_snr_db, 9.0f);
-}
-
-// Mission Profile 对 minimum_snr_db 的跨域覆写始终胜出，与调用顺序无关。
-TEST(EosSessionConfigBuilderTest, MissionProfileOverridesPolicyEditorSnrBefore) {
-  EosSessionConfigBuilder builder;
-  builder.Policy().WithMinimumSnrDb(9.0f).End();
-  builder.Mission().WithMissionProfile(EosMissionProfile::kWideAreaSearch).End();  // snr=6dB
-  const EosSessionConfig config = builder.Build();
   EXPECT_FLOAT_EQ(config.policy.detection.minimum_snr_db, 6.0f);
 }
 
-TEST(EosSessionConfigBuilderTest, MissionProfileOverridesPolicyEditorSnrAfter) {
-  EosSessionConfigBuilder builder;
-  builder.Mission().WithMissionProfile(EosMissionProfile::kLongRangeSurveillance).End();  // snr=3dB
-  builder.Policy().WithMinimumSnrDb(9.0f).End();
-  const EosSessionConfig config = builder.Build();
+TEST(EosSessionConfigBuilderTest, LongRangeSurveillanceConstantsAssign) {
+  EosSessionConfig config;
+  config.mission = profiles::kLongRangeSurveillanceMission;
+  config.policy.detection = profiles::kLongRangeSurveillanceDetection;
+  EXPECT_GT(config.mission.scan_rate_deg_per_sec, 0.0f);
   EXPECT_FLOAT_EQ(config.policy.detection.minimum_snr_db, 3.0f);
 }
 
-TEST(EosSessionConfigBuilderTest, PolicyEditorSnrSurvivesWithoutMissionProfile) {
-  EosSessionConfigBuilder builder;
-  builder.Policy().WithMinimumSnrDb(7.5f).End();
-  const EosSessionConfig config = builder.Build();
+TEST(EosSessionConfigBuilderTest, HighResolutionTrackConstantsAssign) {
+  EosSessionConfig config;
+  config.mission = profiles::kHighResolutionTrackMission;
+  config.policy.detection = profiles::kHighResolutionTrackDetection;
+  EXPECT_GT(config.mission.scan_rate_deg_per_sec, 0.0f);
+  EXPECT_FLOAT_EQ(config.policy.detection.minimum_snr_db, 2.0f);
+}
+
+TEST(EosSessionConfigBuilderTest, HardwareConstantsAssign) {
+  EosSessionConfig config;
+  config.hardware = profiles::kLongRangeLargeApertureHardware;
+  EXPECT_FLOAT_EQ(config.hardware.optical_aperture_m, 0.4f);
+  config.hardware = profiles::kWideAreaCompactHardware;
+  EXPECT_FLOAT_EQ(config.hardware.wavelength_lower_um, 8.0f);
+  // kStandardMidWaveIR 与 struct 默认逐字段一致（no-op 档位），精确锁定防漂移。
+  const EosHardwareConfig default_hardware{};
+  EXPECT_FLOAT_EQ(default_hardware.wavelength_lower_um, 3.0f);
+  EXPECT_FLOAT_EQ(default_hardware.wavelength_upper_um, 5.0f);
+  EXPECT_FLOAT_EQ(default_hardware.optical_aperture_m, 0.2f);
+  EXPECT_FLOAT_EQ(default_hardware.detector_detectivity_cm_sqrt_hz_per_w, 1.0e10f);
+}
+
+// =============================================================================
+// 直接字段赋值即最终决定（显式顺序语义，取代旧 Profile 隐式覆写）
+// =============================================================================
+
+TEST(EosSessionConfigBuilderTest, DirectSnrAssignmentIsFinal) {
+  // 档位在前、微调在后：微调胜出。
+  EosSessionConfig config;
+  config.mission = profiles::kWideAreaSearchMission;  // 档位 snr 默认 6dB
+  config.policy.detection.minimum_snr_db = 9.0f;      // 直接赋值
+  EXPECT_FLOAT_EQ(config.policy.detection.minimum_snr_db, 9.0f);
+}
+
+TEST(EosSessionConfigBuilderTest, AssignmentOrderDeterminesResult) {
+  // 微调在前、档位在后：整域赋值覆写（C++ 拷贝语义，无隐式优先级）。
+  EosSessionConfig config;
+  config.policy.detection.minimum_snr_db = 9.0f;
+  config.policy.detection = profiles::kLongRangeSurveillanceDetection;  // snr=3dB
+  EXPECT_FLOAT_EQ(config.policy.detection.minimum_snr_db, 3.0f);
+}
+
+TEST(EosSessionConfigBuilderTest, SnrSurvivesWithoutProfileAssignment) {
+  EosSessionConfig config;
+  config.policy.detection.minimum_snr_db = 7.5f;
   EXPECT_FLOAT_EQ(config.policy.detection.minimum_snr_db, 7.5f);
+}
+
+TEST(EosSessionConfigBuilderTest, MissionConstantsDoNotTouchDetectionPolicy) {
+  // Mission 档位不再跨域覆写 policy.detection（旧 Profile 隐式覆写已消除）。
+  EosSessionConfig config;
+  config.mission = profiles::kWideAreaSearchMission;
+  EXPECT_FLOAT_EQ(config.policy.detection.minimum_snr_db, 6.0f);  // struct 默认，未被触碰
+  config.mission = profiles::kLongRangeSurveillanceMission;
+  EXPECT_FLOAT_EQ(config.policy.detection.minimum_snr_db, 6.0f);
 }
 
 // =============================================================================
@@ -131,9 +136,9 @@ TEST(EosSessionConfigValidationTest, RejectsScanRangeAzSwapped) {
 }
 
 TEST(EosSessionConfigValidationTest, PassesOnHealthyBuiltConfig) {
-  EosSessionConfigBuilder builder;
-  builder.Mission().WithMissionProfile(EosMissionProfile::kWideAreaSearch).End();
-  const ValidationIssueList issues = ValidateEosSessionConfig(builder.Build());
+  EosSessionConfig config;
+  config.mission = profiles::kWideAreaSearchMission;
+  const ValidationIssueList issues = ValidateEosSessionConfig(config);
   EXPECT_TRUE(issues.empty());
 }
 

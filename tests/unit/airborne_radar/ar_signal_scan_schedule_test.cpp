@@ -10,6 +10,7 @@
 #include <memory>
 #include <vector>
 
+#include "1q/airborne_radar/config/ArProfileConstants.h"
 #include "1q/airborne_radar/config/ArSessionConfig.h"
 #include "1q/airborne_radar/config/ArSessionConfigBuilder.h"
 #include "airborne_radar/config/InternalExecutionConfig.h"
@@ -32,17 +33,11 @@ namespace {
 using ExecutionConfig = config::execution::InternalExecutionConfig;
 
 config::ArSessionConfig MakeDetectionFocusedConfig() {
-  return config::ArSessionConfigBuilder()
-      .Detection()
-      .WithDetectionIntentProfile(config::profiles::DetectionIntentProfile::kDetectionPriority)
-      .End()
-      .Tracking()
-      .WithTrackingPolicyProfile(config::profiles::TrackingPolicyProfile::kFastAssociation)
-      .End()
-      .Lifecycle()
-      .WithLifecyclePolicyProfile(config::profiles::LifecyclePolicyProfile::kFastConfirm)
-      .End()
-      .Build();
+  config::ArSessionConfig session_config;
+  session_config.policy.detection = config::profiles::kDetectionPriorityDetection;
+  session_config.policy.tracking = config::profiles::kFastAssociationTracking;
+  session_config.policy.lifecycle = config::profiles::kFastConfirmLifecycle;
+  return session_config;
 }
 
 bool AlmostSamePoint(const config::AzimuthElevationDeg& lhs,
@@ -346,14 +341,9 @@ TEST(CycleExecutorTest, PhysicalAtmosphereUsesPlatformAbsoluteAltitude) {
 }
 
 TEST(CycleExecutorTest, PhysicalDetectionTreatsClutterDbAsThermalRelativeNoise) {
-  const config::ArSessionConfig session_config =
-      config::ArSessionConfigBuilder()
-          .Detection()
-          .WithHardwareProfile(config::profiles::ArHardwareProfile::kLongRangeHighPower)
-          .WithDetectionIntentProfile(config::profiles::DetectionIntentProfile::kDetectionPriority)
-          .WithAntennaPatternProfile(config::profiles::AntennaPatternProfile::kStandard)
-          .End()
-          .Build();
+  config::ArSessionConfig session_config;
+  session_config.hardware = config::profiles::kLongRangeHighPowerHardware;
+  session_config.policy.detection = config::profiles::kDetectionPriorityDetection;
   ExecutionConfig exec_config = config::mapping::MapSessionToExecution(session_config);
   exec_config.detection.orientation.scan_center_deg.az_deg = 0.0f;
   exec_config.detection.orientation.scan_center_deg.el_deg = 0.0f;

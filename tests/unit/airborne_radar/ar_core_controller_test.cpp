@@ -12,6 +12,7 @@
 #include <utility>
 #include <vector>
 
+#include "1q/airborne_radar/config/ArProfileConstants.h"
 #include "1q/airborne_radar/config/ArSessionConfigBuilder.h"
 #include "1q/airborne_radar/session/ArCommand.h"
 #include "1q/airborne_radar/session/ArControlProfile.h"
@@ -46,17 +47,11 @@ session::ArSceneTargetList BuildSingleTarget(float speed, float rcs, bool jammin
 }
 
 config::ArSessionConfig MakeDetectionFocusedConfig() {
-  return config::ArSessionConfigBuilder()
-      .Detection()
-      .WithDetectionIntentProfile(config::profiles::DetectionIntentProfile::kDetectionPriority)
-      .End()
-      .Tracking()
-      .WithTrackingPolicyProfile(config::profiles::TrackingPolicyProfile::kFastAssociation)
-      .End()
-      .Lifecycle()
-      .WithLifecyclePolicyProfile(config::profiles::LifecyclePolicyProfile::kFastConfirm)
-      .End()
-      .Build();
+  config::ArSessionConfig cfg;
+  cfg.policy.detection = config::profiles::kDetectionPriorityDetection;
+  cfg.policy.tracking = config::profiles::kFastAssociationTracking;
+  cfg.policy.lifecycle = config::profiles::kFastConfirmLifecycle;
+  return cfg;
 }
 
 }  // namespace

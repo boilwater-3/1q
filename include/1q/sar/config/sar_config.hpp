@@ -10,6 +10,7 @@
 #include "1q/sar/config/SarHardwareConfig.h"
 #include "1q/sar/config/SarMissionConfig.h"
 #include "1q/sar/config/SarPolicyConfig.h"
+#include "1q/sar/config/SarProfileConstants.h"
 #include "1q/sar/config/SarRuntimeConfigBuilder.h"
 #include "1q/sar/config/SarRuntimeConfigPatch.h"
 #include "1q/sar/config/SarSessionConfig.h"
