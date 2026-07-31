@@ -79,13 +79,6 @@ bool SamePreparedEmission(const oneq::electromagnetics::RfSceneEmission& left,
          left_waveform.timing_epoch == right_waveform.timing_epoch;
 }
 
-session::EnvironmentSceneState BuildSceneStateFromCompleteInput(const ArCompleteCycleInput& input) {
-  session::EnvironmentSceneState scene_state;
-  scene_state.atmospheric_physics = input.atmospheric_observation;
-  scene_state.vegetation_scatter_physics = input.surface_observation;
-  return scene_state;
-}
-
 struct ArExecutionCycleResult {
   bool executed{false};
   session::SignalCycleAbortReason abort_reason{session::SignalCycleAbortReason::kNone};
@@ -273,7 +266,6 @@ struct ArSession::Impl {
       std::uint32_t cycle_index, float dt_sec, float platform_altitude_m,
       const oneq::foundation::PoseState& platform_pose,
       signal::pipeline::SignalCycleInput cycle_input,
-      const session::EnvironmentSceneState* environment_scene_state,
       bool commit_pending_runtime_config) {
     ArExecutionCycleResult result;
     ValidationIssueList issues = ValidateArCycleDeltaTime(dt_sec);
@@ -296,9 +288,6 @@ struct ArSession::Impl {
                                      controller_state);
       result.abort_reason = session::SignalCycleAbortReason::kRuntimePreparationFailed;
       return result;
-    }
-    if (environment_scene_state != nullptr) {
-      EnvironmentService().UpdateSceneState(*environment_scene_state);
     }
     RadarContext().BeginCycle(cycle_input.scene_targets, platform_pose,
                               platform_altitude_m, dt_sec, cycle_index);
@@ -443,8 +432,6 @@ struct ArSession::Impl {
     complete_input.rf_scene.window_duration_s = input.dt_sec;
     complete_input.rf_scene.emissions.push_back(prepared.emission);
     complete_input.targets = local_targets;
-    complete_input.atmospheric_observation = input.environment.atmospheric_observation;
-    complete_input.surface_observation = input.environment.surface_observation;
     const ArContextRuntimeState post_emission_radar_context_state =
         RadarContext().CaptureRuntimeState();
     const signal::SignalPipelineRuntimeState post_emission_pipeline_state =
@@ -693,13 +680,11 @@ struct ArSession::Impl {
     signal::pipeline::SignalCycleInput cycle_input{
         std::move(effective_targets), &rf_v2_detection_context,
         std::move(interference_observations), std::move(deception_candidates)};
-    const session::EnvironmentSceneState environment_scene_state =
-        BuildSceneStateFromCompleteInput(input);
     const ArExecutionCycleResult execution_result = RunExecutionCycle(
         static_cast<std::uint32_t>(prepared_input.world_cycle_index),
         static_cast<float>(prepared_input.window_duration_s),
         static_cast<float>(platform_lla.altitude_m), oneq::foundation::PoseState{},
-        std::move(cycle_input), &environment_scene_state, false);
+        std::move(cycle_input), false);
     if (!execution_result.executed) {
       PROJECT_LOG_ERROR("[ArSession] CompleteRfCycle signal execution failed with abort reason {}.",
                         static_cast<int>(execution_result.abort_reason));

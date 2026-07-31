@@ -222,20 +222,6 @@ TEST(ArCycleInputValidationTest, InvalidOrDuplicateWorldTargetsReject) {
             nullptr);
 }
 
-TEST(ArCycleInputValidationTest, NaturalEnvironmentIsValidatedIndependently) {
-  session::ArCycleInput input = MakeValidCycleInput();
-  input.environment.atmospheric_observation.temperature_k = 0.0f;
-  EXPECT_NE(FindIssue(ValidateArCycleInput(input),
-                      ValidationCode::kInvalidEnvironmentObservation),
-            nullptr);
-
-  input = MakeValidCycleInput();
-  input.environment.atmospheric_observation.relative_humidity = 1.5f;
-  EXPECT_NE(FindIssue(ValidateArCycleInput(input),
-                      ValidationCode::kInvalidEnvironmentObservation),
-            nullptr);
-}
-
 TEST(ArCycleInputValidationTest, NonEmptyInterferenceMustMatchCycleWindow) {
   session::ArCycleInput input = MakeValidCycleInput();
   AddValidInterferenceEmission(&input);

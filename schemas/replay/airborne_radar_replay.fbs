@@ -2,18 +2,6 @@ namespace oneq.replay.airborne_radar.fb;
 
 table Vector3d { x:double; y:double; z:double; }
 
-table AtmosphericObservation {
-  enable_physical_model:bool;
-  pressure_hpa:float;
-  temperature_k:float;
-  relative_humidity:float;
-}
-
-table SurfaceObservation {
-  cover_profile:int;
-  enable_physical_model:bool;
-}
-
 table TrackOutputFrame {
   cycle_index:uint;
   published_track_count:ulong;
@@ -249,17 +237,12 @@ table ArTargetInputV3 {
   rcs:float;
   swerling_type:int;
 }
-table ArEnvironmentInputV3 {
-  atmospheric_observation:AtmosphericObservation;
-  surface_observation:SurfaceObservation;
-}
 table ArCycleInputV3 {
   cycle_index:uint;
   cycle_start_time_s:double;
   dt_sec:double;
   platform:ArPlatformInputV3;
   targets:[ArTargetInputV3];
-  environment:ArEnvironmentInputV3;
   interference:RfSceneFrameV2;
 }
 table ArCommandV3 { type:int; source:int; }

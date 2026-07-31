@@ -120,17 +120,6 @@ ar_session::ArExternalTargetInput ToArTarget(const WorldTarget& t) {
   return input;
 }
 
-ar_session::ArEnvironmentInput MakeArEnvironment() {
-  ar_session::ArEnvironmentInput env;
-  env.atmospheric_observation.enable_physical_model = false;
-  env.atmospheric_observation.pressure_hpa = 1010.0f;
-  env.atmospheric_observation.temperature_k = 290.0f;
-  env.atmospheric_observation.relative_humidity = 0.45f;
-  env.surface_observation.cover_profile = ar_env::VegetationCoverProfile::kOpenGrassland;
-  env.surface_observation.enable_physical_model = false;
-  return env;
-}
-
 struct ArRfTestCycleInput {
   ar_session::ArCycleInput cycle{};
   bool valid{false};
@@ -145,8 +134,7 @@ struct ArRfTestCycleResult {
   ar_session::ArControlProfile control_profile{};
 };
 
-ArRfTestCycleInput BuildArInput(const WorldState& ws, float dt, std::uint32_t cycle_index,
-                                const ar_session::ArEnvironmentInputState& env_state) {
+ArRfTestCycleInput BuildArInput(const WorldState& ws, float dt, std::uint32_t cycle_index) {
   ar_session::ArExternalPoseInput platform = ToArPlatform(ws.platform_pos, ws.platform_vel);
   platform.platform_entity_id = 10U;
   std::vector<ar_session::ArExternalTargetInput> targets;
@@ -160,8 +148,6 @@ ArRfTestCycleInput BuildArInput(const WorldState& ws, float dt, std::uint32_t cy
   input.cycle.dt_sec = dt;
   input.cycle.platform = platform;
   input.cycle.targets = targets;
-  const ar_session::ArEnvironmentInput environment = env_state.Snapshot();
-  input.cycle.environment = environment;
   input.valid = true;
   return input;
 }
@@ -574,7 +560,7 @@ TEST(MultiModelScenarioTest, AirToAirHeadOn) {
   esr_opts.trace_config_on_construct = true;
   esr_session::EsrTraceSession esr_trace_sess(MakeEsrConfigAirToAir(), esr_opts);
 
-  ar_session::ArEnvironmentInputState ar_env_state(MakeArEnvironment());
+
   eos_session::EosEnvironmentInput eos_env;
   eos_env.solar_altitude_deg = 60.0f;
   eos_env.solar_azimuth_deg = 180.0f;
@@ -609,7 +595,7 @@ TEST(MultiModelScenarioTest, AirToAirHeadOn) {
   for (std::uint32_t i = 0; i < num_cycles; ++i) {
     const std::uint32_t cycle = i + 1;
 
-    auto ar_input = BuildArInput(ws, dt, cycle, ar_env_state);
+    auto ar_input = BuildArInput(ws, dt, cycle);
     auto ar_result = RunArCycle(&ar_session, ar_input);
     EXPECT_TRUE(ar_result.accepted) << "AR cycle rejected at cycle " << cycle;
     if (ar_result.track_output_frame.tracks.size() > ar_tracks_max) {
@@ -791,7 +777,7 @@ TEST(MultiModelScenarioTest, AirToGroundLookDown) {
   esr_opts.trace_config_on_construct = true;
   esr_session::EsrTraceSession esr_sess(MakeEsrConfigAirToGround(), esr_opts);
 
-  ar_session::ArEnvironmentInputState ar_env_st(MakeArEnvironment());
+
   eos_session::EosEnvironmentInput eos_env;
   eos_env.solar_altitude_deg = 55.0f;
   eos_env.solar_azimuth_deg = 170.0f;
@@ -825,7 +811,7 @@ TEST(MultiModelScenarioTest, AirToGroundLookDown) {
       esr_emitting_off_count++;
     }
 
-    auto ar_in = BuildArInput(ws, dt, cycle, ar_env_st);
+    auto ar_in = BuildArInput(ws, dt, cycle);
     auto ar_res = RunArCycle(&ar_sess, ar_in);
     EXPECT_TRUE(ar_res.accepted) << "AR cycle rejected at cycle " << cycle;
     for (const auto& trk : ar_res.track_output_frame.tracks) {
@@ -1004,8 +990,7 @@ TEST(MultiModelScenarioTest, DenseFormationAndJamming) {
   esr_session::EsrTraceSession esr_sess(MakeEsrConfigAirToAir(), esr_opts);
 
   // AR 自然环境与外部 RF 发射事实分离；目标 B 的伴随干扰由 RF frame 表达。
-  ar_session::ArEnvironmentInput ar_env_base = MakeArEnvironment();
-  ar_session::ArEnvironmentInputState ar_env_st(ar_env_base);
+
   eos_session::EosEnvironmentInput eos_env;
   eos_env.solar_altitude_deg = -15.0f;  // 夜间
   eos_env.solar_azimuth_deg = 0.0f;
@@ -1030,7 +1015,7 @@ TEST(MultiModelScenarioTest, DenseFormationAndJamming) {
   for (std::uint32_t i = 0; i < num_cycles; ++i) {
     const std::uint32_t cycle = i + 1;
 
-    auto ar_in = BuildArInput(ws, dt, cycle, ar_env_st);
+    auto ar_in = BuildArInput(ws, dt, cycle);
     ar_in.cycle.interference = MakeNoiseInterferenceFrame(ar_in.cycle);
     auto ar_res = RunArCycle(&ar_sess, ar_in);
     EXPECT_TRUE(ar_res.accepted) << "AR cycle rejected at cycle " << cycle;
@@ -1178,7 +1163,7 @@ TEST(MultiModelScenarioTest, ZeroDopplerCrossing) {
   esr_opts.trace_config_on_construct = true;
   esr_session::EsrTraceSession esr_sess(MakeEsrConfigAirToAir(), esr_opts);
 
-  ar_session::ArEnvironmentInputState ar_env_st(MakeArEnvironment());
+
   eos_session::EosEnvironmentInput eos_env;
   eos_env.solar_altitude_deg = 40.0f;
   eos_env.solar_azimuth_deg = 165.0f;
@@ -1206,7 +1191,7 @@ TEST(MultiModelScenarioTest, ZeroDopplerCrossing) {
   for (std::uint32_t i = 0; i < num_cycles; ++i) {
     const std::uint32_t cycle = i + 1;
 
-    auto ar_in = BuildArInput(ws, dt, cycle, ar_env_st);
+    auto ar_in = BuildArInput(ws, dt, cycle);
     auto ar_res = RunArCycle(&ar_sess, ar_in);
     EXPECT_TRUE(ar_res.accepted) << "AR cycle rejected at cycle " << cycle;
     for (const auto& trk : ar_res.track_output_frame.tracks) {
@@ -1345,9 +1330,9 @@ TEST(MultiModelScenarioTest, SensorDrivenEcmUsesPreviousSuccessfulEsrFrame) {
   ar_config.hardware.receiver.co_site_paths.push_back(
       {ecm_config.transmitter_equipment_id, ar_config.hardware.receiver.equipment_id, 100.0});
   ar_session::ArTraceSession ar(ar_config, ar_session::ArTraceSessionOptions{nullptr, false});
-  ar_session::ArEnvironmentInputState ar_environment_state(MakeArEnvironment());
+
   ArRfTestCycleInput ar_input =
-      BuildArInput(world, 1.0f, source_esr_cycle + 1U, ar_environment_state);
+      BuildArInput(world, 1.0f, source_esr_cycle + 1U);
   ar_input.cycle.platform.platform_entity_id = 7001U;
   ar_input.cycle.interference = ecm_result.emission_frame;
   ASSERT_FALSE(ar_input.cycle.interference.emissions.empty());
@@ -1449,11 +1434,11 @@ TEST(MultiModelScenarioTest, EcmDeceptionFalseTargetReachesArAndTriggersEccm) {
   ar_config.hardware.receiver.co_site_paths.push_back(
       {ecm_config.transmitter_equipment_id, ar_config.hardware.receiver.equipment_id, 100.0});
   ar_session::ArTraceSession ar(ar_config, ar_session::ArTraceSessionOptions{nullptr, false});
-  ar_session::ArEnvironmentInputState ar_environment_state(MakeArEnvironment());
+
 
   // 第 1 周期：验证 AR 产生 kLikelyFalseTarget 干扰观测。
   ArRfTestCycleInput ar_input1 =
-      BuildArInput(world, 1.0f, source_esr_cycle + 1U, ar_environment_state);
+      BuildArInput(world, 1.0f, source_esr_cycle + 1U);
   ar_input1.cycle.platform.platform_entity_id = 7001U;
   ar_input1.cycle.interference = ecm_result.emission_frame;
   const ArRfTestCycleResult ar_result1 = RunArCycle(&ar, ar_input1);
@@ -1493,7 +1478,7 @@ TEST(MultiModelScenarioTest, EcmDeceptionFalseTargetReachesArAndTriggersEccm) {
   ASSERT_FALSE(ecm_result2.emission_frame.emissions.empty());
 
   ArRfTestCycleInput ar_input2 =
-      BuildArInput(world, 1.0f, source_esr_cycle + 2U, ar_environment_state);
+      BuildArInput(world, 1.0f, source_esr_cycle + 2U);
   ar_input2.cycle.platform.platform_entity_id = 7001U;
   ar_input2.cycle.interference = ecm_result2.emission_frame;
   const ArRfTestCycleResult ar_result2 = RunArCycle(&ar, ar_input2);
@@ -1621,9 +1606,9 @@ TEST(MultiModelScenarioTest, FlightDynamicDrivesSensorEcmClosedLoop) {
   ar_config.hardware.receiver.co_site_paths.push_back(
       {ecm_config.transmitter_equipment_id, ar_config.hardware.receiver.equipment_id, 100.0});
   ar_session::ArSession ar = ar_session::ArSession::Create(ar_config);
-  ar_session::ArEnvironmentInputState ar_environment_state(MakeArEnvironment());
+
   ar_session::ArCycleInput ar_input =
-      BuildArInput(world, 1.0f, source_esr_cycle + 1U, ar_environment_state).cycle;
+      BuildArInput(world, 1.0f, source_esr_cycle + 1U).cycle;
   ar_input.platform.platform_entity_id = 7002U;
   ar_input.interference = ecm_result.emission_frame;
   const ar_session::ArCycleResult ar_result = ar.StepWithResult(ar_input);

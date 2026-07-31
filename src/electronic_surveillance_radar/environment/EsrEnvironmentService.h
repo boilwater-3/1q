@@ -24,9 +24,12 @@ class EsrEnvironmentService final : public IEsrEnvironmentService {
 
   /**
    * @brief 冻结当前周期环境输入。
-   * @param[in] cycle_context 单周期上下文。
+   * @param[in] cycle_index 当前周期号。
+   * @param[in] dt_sec 当前周期步长。
+   * @param[in] platform_altitude_m 接收平台海拔（单位：m）。
    */
-  void BeginCycle(const session::EsrEnvironmentCycleContext& cycle_context) override;
+  void BeginCycle(std::uint32_t cycle_index, float dt_sec,
+                  float platform_altitude_m) override;
 
   /**
    * @brief 采样当前冻结快照。

@@ -23,43 +23,6 @@ bool ZeroVector(const SbirsVector3M& value) {
   return value.x == 0.0 && value.y == 0.0 && value.z == 0.0;
 }
 
-bool ValidWeather(config::SbirsWeatherType value) {
-  switch (value) {
-    case config::SbirsWeatherType::kClear:
-    case config::SbirsWeatherType::kCloudy:
-    case config::SbirsWeatherType::kRain:
-    case config::SbirsWeatherType::kFog:
-      return true;
-  }
-  return false;
-}
-
-bool ValidSeaState(config::SbirsSeaState value) {
-  switch (value) {
-    case config::SbirsSeaState::kLow:
-    case config::SbirsSeaState::kMedium:
-    case config::SbirsSeaState::kHigh:
-      return true;
-  }
-  return false;
-}
-
-bool ValidEnvironment(const config::SbirsEnvironmentConfig& environment) {
-  return ValidWeather(environment.weather_type) && ValidSeaState(environment.sea_state) &&
-         std::isfinite(environment.temperature_c) && environment.temperature_c > -273.15f &&
-         std::isfinite(environment.relative_humidity_percent) &&
-         environment.relative_humidity_percent >= 0.0f &&
-         environment.relative_humidity_percent <= 100.0f &&
-         std::isfinite(environment.visibility_km) && environment.visibility_km > 0.0f &&
-         std::isfinite(environment.base_atmospheric_transmittance) &&
-         environment.base_atmospheric_transmittance >= 0.0f &&
-         environment.base_atmospheric_transmittance <= 1.0f &&
-         std::isfinite(environment.humidity_visibility_interaction_weight) &&
-         environment.humidity_visibility_interaction_weight >= 0.0f &&
-         std::isfinite(environment.rain_humidity_interaction_weight) &&
-         environment.rain_humidity_interaction_weight >= 0.0f;
-}
-
 void AddError(const char* message, ValidationLocation location, ValidationIssueList* issues) {
   ValidationIssue issue;
   issue.severity = ValidationSeverity::kError;
@@ -101,12 +64,6 @@ ValidationIssueList ValidateSbirsCycleInput(const SbirsCycleInput& input) {
       AddError("target physical inputs must be finite and positive where required", location,
                &issues);
     }
-  }
-  if (input.environment.has_environment_override &&
-      !ValidEnvironment(input.environment.environment)) {
-    ValidationLocation location;
-    location.kind = ValidationLocationKind::kGlobal;
-    AddError("environment override contains invalid enum or physical value", location, &issues);
   }
   return issues;
 }

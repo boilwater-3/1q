@@ -11,7 +11,6 @@
 #include "1q/sbirs_sensor/session/SbirsCycleInputAdapter.h"
 #include "1q/sbirs_sensor/session/SbirsCycleOutputAdapter.h"
 #include "1q/sbirs_sensor/session/SbirsCycleResult.h"
-#include "1q/sbirs_sensor/session/SbirsEnvironmentInput.h"
 #include "1q/sbirs_sensor/session/SbirsExternalInputAdapter.h"
 #include "1q/sbirs_sensor/session/SbirsExternalOutputAdapter.h"
 #include "1q/sbirs_sensor/session/SbirsInputValidation.h"

@@ -361,9 +361,7 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
   SbirsPipelineResult result;
   const config::SbirsMissionConfig& mission = config_.session.mission;
   const config::SbirsPolicyConfig& policy = config_.session.policy;
-  const config::SbirsEnvironmentConfig environment_config =
-      input.environment.has_environment_override ? input.environment.environment
-                                                 : config_.session.environment;
+  const config::SbirsEnvironmentConfig& environment_config = config_.session.environment;
 
   if (mission.work_mode == config::SbirsWorkMode::kStandby || !mission.power_on) {
     target_states_.clear();

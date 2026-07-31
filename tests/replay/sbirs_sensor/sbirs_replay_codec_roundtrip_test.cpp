@@ -95,17 +95,10 @@ TEST(SbirsReplayCodecRoundtripTest, CycleInputPreservesAllFields) {
   target.has_velocity_ecef_m_per_s = true;
   target.active = false;
 
-  SbirsEnvironmentInput environment;
-  environment.has_environment_override = true;
-  environment.environment.weather_type = SbirsWeatherType::kFog;
-  environment.environment.sea_state = SbirsSeaState::kHigh;
-  environment.environment.visibility_km = 4.0f;
-
   const SbirsCycleInput input = SbirsCycleInputBuilder()
                                     .WithCycleIndex(3U)
                                     .WithDeltaTimeSec(0.25f)
                                     .WithSatellitePosition(Vector(7000000.0, 4.0, 5.0))
-                                    .WithEnvironment(environment)
                                     .AddTarget(target)
                                     .Build();
 
@@ -118,9 +111,6 @@ TEST(SbirsReplayCodecRoundtripTest, CycleInputPreservesAllFields) {
   EXPECT_FLOAT_EQ(decoded.dt_sec, 0.25f);
   EXPECT_TRUE(decoded.has_satellite_position);
   EXPECT_DOUBLE_EQ(decoded.satellite_position_ecef_m.x, 7000000.0);
-  EXPECT_TRUE(decoded.environment.has_environment_override);
-  EXPECT_EQ(decoded.environment.environment.weather_type, SbirsWeatherType::kFog);
-  EXPECT_EQ(decoded.environment.environment.sea_state, SbirsSeaState::kHigh);
   ASSERT_EQ(decoded.scene.size(), 1U);
   EXPECT_EQ(decoded.scene[0].target_id, 9U);
   EXPECT_EQ(decoded.scene[0].target_name, "boost");

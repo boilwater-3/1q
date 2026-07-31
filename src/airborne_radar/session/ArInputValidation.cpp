@@ -22,24 +22,6 @@ ValidationIssue MakeIssue(ValidationSeverity severity, ValidationCode code,
       severity, code, location_kind, entity_index, field, message);
 }
 
-void ValidateEnvironmentInput(const ArEnvironmentInput& environment,
-                              ValidationIssueList* issues) {
-  if (issues == nullptr) {
-    return;
-  }
-  const config::AtmosphericPhysicsConfig& atmosphere = environment.atmospheric_observation;
-  if (!IsFinite(atmosphere.pressure_hpa) || !IsFinite(atmosphere.temperature_k) ||
-      !IsFinite(atmosphere.relative_humidity) || atmosphere.pressure_hpa <= 0.0f ||
-      atmosphere.temperature_k <= 0.0f ||
-      !oneq::common::validation::IsRatio01(atmosphere.relative_humidity)) {
-    issues->push_back(MakeIssue(
-        ValidationSeverity::kError, ValidationCode::kInvalidEnvironmentObservation,
-        ValidationLocationKind::kEnvironment, static_cast<std::size_t>(-1),
-        "environment.atmospheric_observation",
-        "atmospheric observation requires positive pressure/temperature and humidity in [0, 1]"));
-  }
-}
-
 bool FrameMatchesCycle(const ArCycleInput& input) {
   if (input.interference.emissions.empty()) {
     return true;
@@ -167,7 +149,6 @@ ValidationIssueList ValidateArCycleInput(const ArCycleInput& input) {
     }
   }
 
-  ValidateEnvironmentInput(input.environment, &issues);
   if (!FrameMatchesCycle(input)) {
     issues.push_back(MakeIssue(ValidationSeverity::kError,
                                ValidationCode::kInterferenceFrameMismatch,

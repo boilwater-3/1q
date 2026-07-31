@@ -9,7 +9,6 @@
 #include <cstdint>
 
 #include "1q/api.hpp"
-#include "1q/sbirs_sensor/session/SbirsEnvironmentInput.h"
 #include "1q/sbirs_sensor/session/SbirsSceneTypes.h"
 
 namespace sbirs_sensor {
@@ -25,7 +24,6 @@ struct ONEQ_API SbirsCycleInput {
   bool has_satellite_position{false};   /**< 是否提供卫星位置 */
   SbirsVector3M satellite_position_ecef_m{}; /**< 卫星 ECEF 位置，单位 m */
   SbirsSceneTargetList scene{};         /**< 目标场景列表 */
-  SbirsEnvironmentInput environment{};  /**< 周期环境输入 */
 };
 
 }  // namespace session

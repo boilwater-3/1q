@@ -27,40 +27,6 @@ std::size_t CountTracksByStatus(const session::TrackStateSnapshotList& tracks,
   return count;
 }
 
-flatbuffers::Offset<fb::AtmosphericObservation> EncodeCycleAtmosphericObservation(
-    flatbuffers::FlatBufferBuilder* builder, const config::AtmosphericPhysicsConfig& value) {
-  return fb::CreateAtmosphericObservation(*builder, value.enable_physical_model, value.pressure_hpa,
-                                          value.temperature_k, value.relative_humidity);
-}
-
-flatbuffers::Offset<fb::SurfaceObservation> EncodeCycleSurfaceObservation(
-    flatbuffers::FlatBufferBuilder* builder, const config::VegetationScatterPhysicsConfig& value) {
-  return fb::CreateSurfaceObservation(*builder, static_cast<int>(value.cover_profile),
-                                      value.enable_physical_model);
-}
-
-config::AtmosphericPhysicsConfig DecodeCycleAtmosphericObservation(
-    const fb::AtmosphericObservation* value) {
-  config::AtmosphericPhysicsConfig result;
-  if (value != nullptr) {
-    result.enable_physical_model = value->enable_physical_model();
-    result.pressure_hpa = value->pressure_hpa();
-    result.temperature_k = value->temperature_k();
-    result.relative_humidity = value->relative_humidity();
-  }
-  return result;
-}
-
-config::VegetationScatterPhysicsConfig DecodeCycleSurfaceObservation(
-    const fb::SurfaceObservation* value) {
-  config::VegetationScatterPhysicsConfig result;
-  if (value != nullptr) {
-    result.cover_profile = static_cast<config::VegetationCoverProfile>(value->cover_profile());
-    result.enable_physical_model = value->enable_physical_model();
-  }
-  return result;
-}
-
 flatbuffers::Offset<fb::DecisionTrackStateSnapshot> EncodeTrackStateSnapshot(
     flatbuffers::FlatBufferBuilder* builder, const session::TrackStateSnapshot& value) {
   return fb::CreateDecisionTrackStateSnapshot(
@@ -1175,13 +1141,9 @@ flatbuffers::Offset<fb::ArCycleInputV3> EncodeCycleInputV3(flatbuffers::FlatBuff
   for (const ArTargetInput& target : value.targets) {
     targets.push_back(EncodeTargetInputV3(builder, target));
   }
-  const ArEnvironmentInput& environment = value.environment;
   return fb::CreateArCycleInputV3(
       *builder, value.cycle_index, value.cycle_start_time_s, value.dt_sec,
       EncodePlatformInputV3(builder, value.platform), builder->CreateVector(targets),
-      fb::CreateArEnvironmentInputV3(
-          *builder, EncodeCycleAtmosphericObservation(builder, environment.atmospheric_observation),
-          EncodeCycleSurfaceObservation(builder, environment.surface_observation)),
       EncodeRfV2Scene(builder, value.interference));
 }
 
@@ -1197,12 +1159,6 @@ ArCycleInput DecodeCycleInputV3(const fb::ArCycleInputV3* value) {
       for (const fb::ArTargetInputV3* target : *value->targets()) {
         result.targets.push_back(DecodeTargetInputV3(target));
       }
-    }
-    if (value->environment() != nullptr) {
-      result.environment.atmospheric_observation =
-          DecodeCycleAtmosphericObservation(value->environment()->atmospheric_observation());
-      result.environment.surface_observation =
-          DecodeCycleSurfaceObservation(value->environment()->surface_observation());
     }
     result.interference = DecodeRfV2Scene(value->interference());
   }

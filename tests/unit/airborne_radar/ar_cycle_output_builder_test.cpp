@@ -238,7 +238,6 @@ TEST(RadarCycleOutputBuilderTest, NaturalEnvironmentIsIndependentFromInterferenc
   input.dt_sec = 1.0;
   input.platform = platform;
   input.targets.push_back(target);
-  input.environment.atmospheric_observation.temperature_k = 301.0f;
   EXPECT_TRUE(input.interference.emissions.empty());
 
   ArSession session = ArSession::Create(MakeDetectionFocusedConfig());

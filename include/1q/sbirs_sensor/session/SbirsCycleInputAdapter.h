@@ -37,12 +37,6 @@ class ONEQ_API SbirsCycleInputBuilder {
    */
   SbirsCycleInputBuilder& WithSatellitePosition(const SbirsVector3M& position_ecef_m);
   /**
-   * @brief 设置周期环境输入。
-   * @param[in] environment 周期环境输入
-   * @return 自身引用，支持链式调用
-   */
-  SbirsCycleInputBuilder& WithEnvironment(const SbirsEnvironmentInput& environment);
-  /**
    * @brief 追加一个目标到场景列表。
    * @param[in] target 场景目标
    * @return 自身引用，支持链式调用

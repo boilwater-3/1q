@@ -83,17 +83,6 @@ TEST(SbirsInputValidationTest, RejectsFiniteDomainFlagIdAndEnvironmentMatrix) {
   invalid_inputs.back().scene.front().has_velocity_ecef_m_per_s = true;
   invalid_inputs.back().scene.front().velocity_ecef_m_per_s.y =
       std::numeric_limits<double>::quiet_NaN();
-  invalid_inputs.push_back(valid);
-  invalid_inputs.back().environment.has_environment_override = true;
-  invalid_inputs.back().environment.environment.relative_humidity_percent = 101.0f;
-  invalid_inputs.push_back(valid);
-  invalid_inputs.back().environment.has_environment_override = true;
-  invalid_inputs.back().environment.environment.weather_type =
-      static_cast<sbirs_sensor::config::SbirsWeatherType>(99);
-  invalid_inputs.push_back(valid);
-  invalid_inputs.back().environment.has_environment_override = true;
-  invalid_inputs.back().environment.environment.base_atmospheric_transmittance =
-      std::numeric_limits<float>::quiet_NaN();
 
   for (std::size_t i = 0; i < invalid_inputs.size(); ++i) {
     const sbirs_sensor::session::ValidationIssueList issues =

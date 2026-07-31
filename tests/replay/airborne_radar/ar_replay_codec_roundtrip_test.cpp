@@ -233,7 +233,6 @@ TEST(ArReplayCodecRoundtripTest, SingleCycleInputPreservesWorldAndRfFacts) {
   target.rcs = 3.5f;
   target.swerling_type = 2;
   input.targets.push_back(target);
-  input.environment.atmospheric_observation.temperature_k = 284.0f;
   input.interference.world_cycle_index = 71U;
   input.interference.window_start_time_s = 12.5;
   input.interference.window_duration_s = 0.25;

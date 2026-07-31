@@ -9,22 +9,6 @@ struct Vec3d {
   z: double;
 }
 
-table SbirsCycleEnvironmentConfig {
-  weather_type: int32;
-  sea_state: int32;
-  temperature_c: float;
-  relative_humidity_percent: float;
-  visibility_km: float;
-  base_atmospheric_transmittance: float;
-  humidity_visibility_interaction_weight: float;
-  rain_humidity_interaction_weight: float;
-}
-
-table SbirsEnvironmentInput {
-  has_environment_override: bool;
-  environment: SbirsCycleEnvironmentConfig;
-}
-
 table SbirsSceneTarget {
   target_id: uint64;
   target_name: string;
@@ -42,7 +26,6 @@ table SbirsCycleInput {
   dt_sec: float;
   has_satellite_position: bool;
   satellite_position_ecef_m: Vec3d;
-  environment: SbirsEnvironmentInput;
   scene_targets: [SbirsSceneTarget];
 }
 

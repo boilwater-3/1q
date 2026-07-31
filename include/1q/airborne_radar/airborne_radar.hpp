@@ -16,7 +16,6 @@
 #include "1q/airborne_radar/session/ArCycleInput.h"
 #include "1q/airborne_radar/session/ArCycleOutputAdapter.h"
 #include "1q/airborne_radar/session/ArCycleResult.h"
-#include "1q/airborne_radar/session/ArEnvironmentInput.h"
 #include "1q/airborne_radar/session/ArExternalInputAdapter.h"
 #include "1q/airborne_radar/session/ArExternalOutputAdapter.h"
 #include "1q/airborne_radar/session/ArInputValidation.h"

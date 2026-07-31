@@ -20,12 +20,6 @@ SbirsCycleInputBuilder& SbirsCycleInputBuilder::WithSatellitePosition(
   return *this;
 }
 
-SbirsCycleInputBuilder& SbirsCycleInputBuilder::WithEnvironment(
-    const SbirsEnvironmentInput& environment) {
-  input_.environment = environment;
-  return *this;
-}
-
 SbirsCycleInputBuilder& SbirsCycleInputBuilder::AddTarget(const SbirsSceneTarget& target) {
   input_.scene.push_back(target);
   return *this;
