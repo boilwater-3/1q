@@ -1069,8 +1069,7 @@ flatbuffers::Offset<fb::ArPlatformInputV3> EncodePlatformInputV3(
   return fb::CreateArPlatformInputV3(*builder, value.platform_entity_id,
                                      EncodeRfV2Position(builder, value.platform_position_ecef_m),
                                      EncodeEcefVelocityV3(builder, value.platform_velocity_mps),
-                                     EncodeEulerAnglesV3(builder, value.platform_attitude_deg),
-                                     EncodeEulerAnglesV3(builder, value.radar_mount_angles_deg));
+                                     EncodeEulerAnglesV3(builder, value.platform_attitude_deg));
 }
 
 ArPlatformInput DecodePlatformInputV3(const fb::ArPlatformInputV3* value) {
@@ -1080,7 +1079,6 @@ ArPlatformInput DecodePlatformInputV3(const fb::ArPlatformInputV3* value) {
     result.platform_position_ecef_m = DecodeRfV2Position(value->platform_position_ecef_m());
     result.platform_velocity_mps = DecodeEcefVelocityV3(value->platform_velocity_mps());
     result.platform_attitude_deg = DecodeEulerAnglesV3(value->platform_attitude_deg());
-    result.radar_mount_angles_deg = DecodeEulerAnglesV3(value->radar_mount_angles_deg());
   }
   return result;
 }

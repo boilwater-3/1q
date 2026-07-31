@@ -221,7 +221,7 @@ table ArPlatformInputV3 {
   platform_position_ecef_m:Vector3d;
   platform_velocity_mps:EcefVelocityV3;
   platform_attitude_deg:EulerAnglesDeg64;
-  radar_mount_angles_deg:EulerAnglesDeg64;
+  radar_mount_angles_deg:EulerAnglesDeg64 (deprecated);
 }
 table ExternalKinematicsV3 {
   position_frame:int;

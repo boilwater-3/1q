@@ -16,7 +16,7 @@
 - [ArCycleResult](ArCycleResult.h) — 周期结果 + TrackOutputFrame
 
 ## 环境域
-- [ArEnvironmentInput](ArEnvironmentInput.h) — 环境运行时输入 + 补丁 + 状态（三合一）
+- 环境配置已迁移至 config 目录，见 [ArEnvironmentConfig](../config/ArEnvironmentConfig.h)（环境场景配置由 `ArSessionConfig.environment` 聚合，运行期更新通过 `ArRuntimeConfigPatch` 提交）
 
 ## 适配器
 - [ArExternalInputAdapter](ArExternalInputAdapter.h) — 外部输入适配器（平台姿态 → 雷达坐标系）

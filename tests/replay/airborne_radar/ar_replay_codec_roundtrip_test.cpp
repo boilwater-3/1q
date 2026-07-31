@@ -221,7 +221,6 @@ TEST(ArReplayCodecRoundtripTest, SingleCycleInputPreservesWorldAndRfFacts) {
   input.platform.platform_position_ecef_m.x_m = 6378137.0;
   input.platform.platform_velocity_mps.y_mps = 210.0;
   input.platform.platform_attitude_deg.yaw_deg = 17.25;
-  input.platform.radar_mount_angles_deg.pitch_deg = -2.5;
   ArTargetInput target;
   target.target_id = 123U;
   target.target_name = "replay-target";
@@ -250,7 +249,6 @@ TEST(ArReplayCodecRoundtripTest, SingleCycleInputPreservesWorldAndRfFacts) {
   EXPECT_EQ(decoded.cycle_index, 71U);
   EXPECT_DOUBLE_EQ(decoded.cycle_start_time_s, 12.5);
   EXPECT_DOUBLE_EQ(decoded.platform.platform_attitude_deg.yaw_deg, 17.25);
-  EXPECT_DOUBLE_EQ(decoded.platform.radar_mount_angles_deg.pitch_deg, -2.5);
   ASSERT_EQ(decoded.targets.size(), 1U);
   EXPECT_EQ(decoded.targets.front().target_name, "replay-target");
   EXPECT_EQ(decoded.targets.front().kinematics.position_frame,

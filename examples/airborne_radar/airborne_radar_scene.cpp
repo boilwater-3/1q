@@ -62,9 +62,6 @@ ar_session::ArExternalPoseInput MakePlatformPose(
   platform.platform_attitude_deg.yaw_deg = 0.0;
   platform.platform_attitude_deg.pitch_deg = 0.0;
   platform.platform_attitude_deg.roll_deg = 0.0;
-  platform.radar_mount_angles_deg.yaw_deg = 0.0;
-  platform.radar_mount_angles_deg.pitch_deg = 0.0;
-  platform.radar_mount_angles_deg.roll_deg = 0.0;
   return platform;
 }
 

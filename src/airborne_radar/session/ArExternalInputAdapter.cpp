@@ -26,11 +26,12 @@ bool IsFiniteVector3f(const oneq::foundation::Vector3f& value) {
 
 oneq::coordinate::EulerAnglesDeg ComposeRadarAttitudeDeg(
     const oneq::coordinate::EulerAnglesDeg& platform_attitude_deg,
-    const oneq::coordinate::EulerAnglesDeg& radar_mount_angles_deg) {
-  return oneq::coordinate::ComposeAttitudeDeg(platform_attitude_deg, radar_mount_angles_deg);
+    const oneq::coordinate::EulerAnglesDeg& mount_angles_deg) {
+  return oneq::coordinate::ComposeAttitudeDeg(platform_attitude_deg, mount_angles_deg);
 }
 
 bool TryMakeArPoseFromExternalKinematics(const ArExternalPoseInput& input,
+                                         const oneq::coordinate::EulerAnglesDeg& mount_angles_deg,
                                          oneq::coordinate::LocalFrameReference* reference,
                                          oneq::foundation::PoseState* platform_pose,
                                          ArCoordinateStatus* status) {
@@ -54,7 +55,7 @@ bool TryMakeArPoseFromExternalKinematics(const ArExternalPoseInput& input,
   }
   reference->origin_lla = radar_lla;
   reference->frame_attitude_deg =
-      ComposeRadarAttitudeDeg(input.platform_attitude_deg, input.radar_mount_angles_deg);
+      ComposeRadarAttitudeDeg(input.platform_attitude_deg, mount_angles_deg);
 
   platform_pose->position_m = oneq::foundation::Vector3f{};
 

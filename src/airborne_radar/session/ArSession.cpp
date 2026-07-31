@@ -329,7 +329,16 @@ struct ArSession::Impl {
 
     oneq::coordinate::LocalFrameReference reference;
     oneq::foundation::PoseState platform_pose;
-    if (!TryMakeArPoseFromExternalKinematics(input.platform, &reference, &platform_pose)) {
+    const config::mapping::RuntimeConfigState& next_operating_state =
+        has_pending_runtime_update ? pending_runtime_state : runtime_state;
+    const config::ArOrientationConfig& orientation_config =
+        next_operating_state.execution_config.detection.orientation;
+    const oneq::coordinate::EulerAnglesDeg mount_angles_coord{
+        orientation_config.mount_angles_deg.yaw_deg,
+        orientation_config.mount_angles_deg.pitch_deg,
+        orientation_config.mount_angles_deg.roll_deg};
+    if (!TryMakeArPoseFromExternalKinematics(input.platform, mount_angles_coord,
+                                             &reference, &platform_pose)) {
       return BuildValidationErrorResult(input, issues);
     }
     ArSceneTargetList local_targets;
@@ -381,25 +390,14 @@ struct ArSession::Impl {
     prepare_input.platform_position_ecef_m = input.platform.platform_position_ecef_m;
     prepare_input.platform_velocity_ecef_mps = input.platform.platform_velocity_mps;
     prepare_input.radar_frame_attitude_deg = ComposeRadarAttitudeDeg(
-        input.platform.platform_attitude_deg, input.platform.radar_mount_angles_deg);
-    const config::mapping::RuntimeConfigState& next_operating_state =
-        has_pending_runtime_update ? pending_runtime_state : runtime_state;
-    config::ArOrientationConfig actual_orientation =
-        next_operating_state.execution_config.detection.orientation;
-    actual_orientation.mount_angles_deg.yaw_deg =
-        static_cast<float>(input.platform.radar_mount_angles_deg.yaw_deg);
-    actual_orientation.mount_angles_deg.pitch_deg =
-        static_cast<float>(input.platform.radar_mount_angles_deg.pitch_deg);
-    actual_orientation.mount_angles_deg.roll_deg =
-        static_cast<float>(input.platform.radar_mount_angles_deg.roll_deg);
+        input.platform.platform_attitude_deg, mount_angles_coord);
     config::PlatformAttitudeDeg platform_attitude;
-    platform_attitude.yaw_deg = static_cast<float>(input.platform.platform_attitude_deg.yaw_deg);
-    platform_attitude.pitch_deg =
-        static_cast<float>(input.platform.platform_attitude_deg.pitch_deg);
-    platform_attitude.roll_deg = static_cast<float>(input.platform.platform_attitude_deg.roll_deg);
+    platform_attitude.yaw_deg = input.platform.platform_attitude_deg.yaw_deg;
+    platform_attitude.pitch_deg = input.platform.platform_attitude_deg.pitch_deg;
+    platform_attitude.roll_deg = input.platform.platform_attitude_deg.roll_deg;
     prepare_input.beam_pointing_deg =
         signal::detection::BeamControlResolver::ResolveMountFrameBeamPointing(
-            actual_orientation, platform_attitude, next_operating_state.dwell_center_deg);
+            orientation_config, platform_attitude, next_operating_state.dwell_center_deg);
 
     const ArPrepareCycleResult prepared = PrepareRfCycle(prepare_input);
     if (prepared.status == ArPrepareCycleStatus::kPoweredOff) {

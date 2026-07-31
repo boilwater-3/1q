@@ -12,7 +12,8 @@ bool ArCycleOutputAdapter::Build(const ArExternalPoseInput& platform,
 
   oneq::coordinate::LocalFrameReference reference;
   oneq::foundation::PoseState platform_pose;
-  if (!TryMakeArPoseFromExternalKinematics(platform, &reference, &platform_pose)) {
+  const oneq::coordinate::EulerAnglesDeg zero_mount{};
+  if (!TryMakeArPoseFromExternalKinematics(platform, zero_mount, &reference, &platform_pose)) {
     return false;
   }
   return Build(reference, platform_pose.velocity_mps, frame, output);

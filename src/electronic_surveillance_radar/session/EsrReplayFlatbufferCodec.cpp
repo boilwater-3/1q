@@ -578,7 +578,18 @@ std::string EncodeEsrSessionConfig(const config::EsrSessionConfig& v) {
   auto ap = esr::replay::CreateEsrAtmosphericPhysicsConfig(
       fbb, es.atmospheric_physics.enable_physical_model, es.atmospheric_physics.pressure_hpa,
       es.atmospheric_physics.temperature_k, es.atmospheric_physics.relative_humidity);
-  auto env = esr::replay::CreateEsrEnvironmentConfig(fbb, static_cast<int32_t>(es.preset), ap);
+  auto atm_obs = esr::replay::CreateEsrAtmosphericObservation(
+      fbb, es.atmospheric_observation.relative_humidity_ratio,
+      es.atmospheric_observation.precipitation_rate_mmph,
+      es.atmospheric_observation.visibility_km);
+  esr::replay::EsrEnvironmentConfigBuilder env_builder(fbb);
+  env_builder.add_preset(static_cast<int32_t>(es.preset));
+  env_builder.add_atmospheric_physics(ap);
+  env_builder.add_propagation_profile(static_cast<int32_t>(es.propagation_profile));
+  env_builder.add_clutter_density(static_cast<int32_t>(es.clutter_density));
+  env_builder.add_spectrum_occupancy_ratio(es.spectrum_occupancy_ratio);
+  env_builder.add_atmospheric_observation(atm_obs);
+  auto env = env_builder.Finish();
   fbb.Finish(esr::replay::CreateEsrSessionConfig(fbb, hw, mission, policy, env));
   return oneq::common::replay::CopyFinishedFlatbuffer(fbb);
 }

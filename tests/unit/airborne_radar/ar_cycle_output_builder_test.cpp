@@ -60,9 +60,6 @@ ArExternalPoseInput MakePlatformInput() {
   platform.platform_attitude_deg.yaw_deg = 12.0;
   platform.platform_attitude_deg.pitch_deg = -3.0;
   platform.platform_attitude_deg.roll_deg = 1.5;
-  platform.radar_mount_angles_deg.yaw_deg = 4.0;
-  platform.radar_mount_angles_deg.pitch_deg = -1.0;
-  platform.radar_mount_angles_deg.roll_deg = 0.5;
   return platform;
 }
 
@@ -136,8 +133,9 @@ TrackOutputFrame MakeFrameFromInternalTarget(const ArExternalPoseInput& platform
                                              const ArExternalTargetInput& target) {
   oneq::coordinate::LocalFrameReference reference;
   oneq::foundation::PoseState platform_pose;
+  const oneq::coordinate::EulerAnglesDeg zero_mount{};
   EXPECT_TRUE(airborne_radar::session::TryMakeArPoseFromExternalKinematics(
-      platform, &reference, &platform_pose));
+      platform, zero_mount, &reference, &platform_pose));
   airborne_radar::session::ArSceneTarget local_target;
   EXPECT_TRUE(airborne_radar::session::TryMakeArTargetFromExternalKinematics(
       target, reference, platform_pose.velocity_mps, &local_target));

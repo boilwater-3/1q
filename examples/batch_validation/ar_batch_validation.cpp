@@ -169,9 +169,6 @@ ar_session::ArExternalPoseInput MakePlatformPose(std::uint32_t cycle_index) {
   p.platform_attitude_deg.yaw_deg = 0.0;
   p.platform_attitude_deg.pitch_deg = 0.0;
   p.platform_attitude_deg.roll_deg = 0.0;
-  p.radar_mount_angles_deg.yaw_deg = 0.0;
-  p.radar_mount_angles_deg.pitch_deg = 0.0;
-  p.radar_mount_angles_deg.roll_deg = 0.0;
   return p;
 }
 

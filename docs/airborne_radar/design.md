@@ -26,13 +26,13 @@ AR 的决策扩展点是同进程步间 observation/response seam：
 当前模块的稳定外部使用方式是：
 
 1. 用 `ArSessionConfig` 或 builder 描述硬件、任务、策略、环境四域配置。
-2. 用 `ArCycleInput` 提供绝对周期时间、单一世界坐标平台状态、目标、自然环境和独立 interference frame。
+2. 用 `ArCycleInput` 提供绝对周期时间、单一世界坐标平台状态、目标和独立 interference frame；自然环境配置由 `ArSessionConfig.environment` 提供，运行期更新通过 `ArRuntimeConfigPatch` 提交。
 3. 调用 `ArSession::Step()` 获取本周期 track output，或调用 `ArSession::StepWithResult()` 获取结构化执行结果；
    拒绝周期不复用上一帧。
 4. 如需自定义 LPI/ECCM，读取结果中的 observation 得到当前活跃 profile，外部修改后调用 `SubmitExternalDecision()` 提交整包覆盖值。
 5. 如需调整运行期参数，使用 runtime patch；patch 提交失败时必须保持各子系统状态一致。
 
-`Ar*` 是 AR 模块的 public API 前缀（config/session/cycle/result/adapter/trace/replay/debug/lifecycle 等 DTO 与门面）。`RadarEquations`、`radar_cross_section`、`radar_mount_angles_deg`、`ComposeRadarAttitudeDeg` 等领域术语与领域函数不属于模块前缀范围，保留原名。
+`Ar*` 是 AR 模块的 public API 前缀（config/session/cycle/result/adapter/trace/replay/debug/lifecycle 等 DTO 与门面）。`RadarEquations`、`radar_cross_section`、`ComposeRadarAttitudeDeg` 等领域术语与领域函数不属于模块前缀范围，保留原名。
 
 历史上的 `Radar*` 模块前缀已一次性迁移到 `Ar*`，不保留 deprecated compat 层：旧 `Radar*.h` public wrapper、`using RadarX = ArX` 别名和 `ar_compat_consumer` 均已删除，`cross_domain_naming_guard` 与 `check_public_api_boundary` 守护目标已切到 `Ar*` 主头。trace/replay schema 与 payload type string 同步迁移到 `Ar*`（namespace 与 file identifier 不变）。新增 public primary 类型不得再使用 `Radar*` 作为模块所有权前缀；`Radar*` 只允许出现在领域术语白名单内。
 
@@ -187,11 +187,6 @@ sequenceDiagram
       Session->>Controller: RestoreRuntimeState\n回滚控制器
       Session-->>Caller: abort result\n返回执行中止
     else commit succeeded / 提交成功
-      alt input.has_environment / 本周期提供环境输入
-        Session->>Env: UpdateSceneState(input.environment)\n更新待生效环境
-      else no environment snapshot / 本周期未提供环境输入
-        Session->>Session: keep current pending scene\n保持当前待生效场景
-      end
       Session->>Context: BeginCycle(input)\n写入周期输入
       Session->>Controller: RunOnce()\n执行一个周期
       Controller->>Env: BeginCycle + SampleEnvironment\n冻结并采样环境
@@ -219,7 +214,7 @@ sequenceDiagram
 flowchart LR
   subgraph Input["Input / 输入"]
     Config["ArSessionConfig\n硬件 / 任务 / 策略 / 环境"]
-    Cycle["ArCycleInput\n平台姿态 / 高度 / 目标 / 环境输入"]
+    Cycle["ArCycleInput\n平台姿态 / 高度 / 目标 / 干扰"]
     Patch["ArRuntimeConfigPatch\n运行期工程参数 / 自然环境"]
     Rf["RfEmissionFrame\n外部 RF 干扰"]
     Observation["DecisionObservation\n本周期输入帧 + 实际 profile"]
@@ -255,7 +250,7 @@ flowchart LR
   Config --> Detect
   Patch --> Detect
   Patch --> Environment
-  Cycle --> Scene
+  Config --> Scene
   Rf --> Detect
   Cycle --> Detect
   Scene --> Snapshot
@@ -340,7 +335,7 @@ AR 在工程 RF 世界中同时是主动发射设备和接收设备。面向普�
 
 ```mermaid
 flowchart LR
-  Input["ArCycleInput\nplatform / targets / environment / interference"] --> Prepare["internal prepare\n解析实际频率/功率/PRF/波束/驻留"]
+  Input["ArCycleInput\nplatform / targets / interference"] --> Prepare["internal prepare\n解析实际频率/功率/PRF/波束/驻留"]
   Prior["上一成功周期的 ArControlProfile"] --> Prepare
   Prepare --> Tx["本周期实际 AR emission"]
   Tx --> World["internal RF frame\nAR emission + interference"]
@@ -468,14 +463,14 @@ pending 状态。
 > `ArCycleInput::cycle_start_time_s` 为唯一来源。未来若恢复完整 GTD7/电离层
 > 模型，再作为新能力重新引入。
 
-`ArEnvironmentInput` 与 `EnvironmentSnapshot` 只承载自然环境事实；它们不包含 jammer、J/S、J/N、
+`EnvironmentScenarioConfig`（`ArSessionConfig.environment`）与 `EnvironmentSnapshot` 只承载自然环境事实；它们不包含 jammer、J/S、J/N、
 干扰检测布尔值或预计算接收功率。AR 的外部 RF 输入是独立的
 `oneq::electromagnetics::RfEmissionFrame`，通过 `ArCycleInput::interference` 直接传入。
 空 frame 表示无外部 RF；非空 frame 必须与 AR 周期号、绝对窗口起点和时长完全一致，否则整个周期拒绝。
 
 AR 不从环境场景推导干扰。调用方只提供实际发射事实：发射 platform/equipment/emission 身份、ECEF
 运动学、天线、极化和参数化波形；接收功率、PSD、J/N、饱和和观测质量全部由 AR 当前接收机链计算。
-这使普通调用方的单周期输入保持为“平台、目标、自然环境、可选外部 RF”，而不会要求其选择干扰技术
+这使普通调用方的单周期输入保持为”平台、目标、可选外部 RF”（自然环境由配置提供），而不会要求其选择干扰技术
 或预先判断受扰结果。
 
 AR 不保留 legacy jammer DTO、技术类别、J/S 摘要或欺骗/转发适配层；也不直接获取 ECM 的 `EcmDeceptionMode` 真值。外部欺骗发射（ECM 的 RGPO/VGPO/假目标等 kPulseTrain 波形）与压制发射经同一 `RfEmissionFrame` 路径进入接收前端，统一按时频重叠和方向增益计算接收功率。
@@ -804,7 +799,7 @@ controller 在单周期开始时把 control profile 传给 signal pipeline，因
 `ArSession` 和 `ArController` 都有明确的失败语义：
 
 - cycle input 校验失败时不执行 pipeline，`ArCycleResult` 携带 validation issues，且 controller 设置显式 abort reason `SignalCycleAbortReason::kValidationRejected`（数值 4，追加于既有 `kLifecycleUnavailable=1`/`kInvalidEnvironmentCycle=2`/`kRuntimePreparationFailed=3` 之后，保留 replay/trace 数值语义）。
-- 冗余 `has_environment` 标志与数据必须一致：`has_environment=false` 且 `environment` 为默认值视为省略快照；`has_environment=false` 但 `environment` 含非默认数据时校验报 `kEnvironmentSnapshotFlagMismatch` error 并 abort，避免环境事实（杂波/干扰/大气）被静默跳过（见 contract.md §实现安全与失败语义规则 2）。
+- 环境配置由 `ArSessionConfig.environment` 提供，运行期更新通过 `ArRuntimeConfigPatch` 提交；环境事实不再通过 `ArCycleInput` 传入，无需 `has_environment` 标志。
 - 已有有效输出时，校验失败可以复用上一帧输出，并标记 `reused_previous_output`。
 - signal pipeline abort 时不会发布合成的最新输出。
 - controller 提供执行状态、失败原因、校验问题、决策来源 provenance 和 control profile 等运行期来源；

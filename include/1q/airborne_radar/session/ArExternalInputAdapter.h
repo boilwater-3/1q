@@ -22,15 +22,14 @@ namespace session {
 /**
  * @brief 外部平台运动学输入。
  * @note 速度固定为 ECEF 坐标系，姿态角采用 Body->ENU 约定。
- * @note AR 需要额外的 `radar_mount_angles_deg` 来复合平台姿态与雷达安装角；EOS/ESR
- *       外部 Pose 结构没有该字段，因为对应示例适配器按传感器视轴与机体系对齐处理。
+ * @note 雷达安装角通过 ArOrientationConfig::mount_angles_deg 配置，不在此结构中。
+ *       EOS/ESR 外部 Pose 结构同样不含安装角，因为对应适配器按传感器视轴与机体系对齐处理。
  */
 struct ONEQ_API ArExternalPoseInput {
   std::uint64_t platform_entity_id{0}; /**< 平台实体标识；用于同平台 RF 耦合路径判定 */
   oneq::coordinate::EcefPositionM platform_position_ecef_m{}; /**< 平台位置（ECEF，m） */
   oneq::coordinate::EcefVelocityMps platform_velocity_mps{};  /**< 平台速度（ECEF，单位：m/s） */
   oneq::coordinate::EulerAnglesDeg platform_attitude_deg{};   /**< 平台姿态角（Body->ENU，deg） */
-  oneq::coordinate::EulerAnglesDeg radar_mount_angles_deg{};  /**< 雷达安装角（Body->Radar，deg） */
 };
 
 /**
@@ -48,14 +47,14 @@ struct ONEQ_API ArExternalTargetInput {
 
 /**
  * @brief 严格复合平台姿态与雷达安装角，得到雷达局部姿态角。
- * @param[in] platform_attitude_deg 平台姿态角（ENU->Body，单位：deg）。
- * @param[in] radar_mount_angles_deg 雷达安装角（Body->Radar，单位：deg）。
+ * @param[in] platform_attitude_deg 平台姿态角（Body->ENU，单位：deg）。
+ * @param[in] mount_angles_deg 雷达安装角（Body->Radar，单位：deg）。
  * @return 复合后的雷达姿态角（ENU->Radar，单位：deg）。
  * @note 该接口采用旋转矩阵复合，不使用欧拉角分量直接相加。
  */
 ONEQ_API oneq::coordinate::EulerAnglesDeg ComposeRadarAttitudeDeg(
     const oneq::coordinate::EulerAnglesDeg& platform_attitude_deg,
-    const oneq::coordinate::EulerAnglesDeg& radar_mount_angles_deg);
+    const oneq::coordinate::EulerAnglesDeg& mount_angles_deg);
 
 /**
  * @brief 雷达坐标适配执行状态。
@@ -68,6 +67,7 @@ enum class ONEQ_API ArCoordinateStatus { kOk = 0, kNullOutput, kCoordinateTransf
 /**
  * @brief 两步模式——第一步：将外部平台运动学转换为雷达局部位姿。
  * @param[in] input 外部平台运动学输入。
+ * @param[in] mount_angles_deg 雷达安装角（Body->Radar，来自 ArOrientationConfig::mount_angles_deg）。
  * @param[out] reference 输出雷达局部参考系信息，用于后续目标转换。
  * @param[out] platform_pose 输出雷达局部平台位姿。
  * @param[out] status 可选输出状态，nullptr 表示不关心失败原因。
@@ -77,6 +77,7 @@ enum class ONEQ_API ArCoordinateStatus { kOk = 0, kNullOutput, kCoordinateTransf
  *       会写入 `reference.origin_lla`，用于把目标位置转换为相对雷达的局部坐标。
  */
 ONEQ_API bool TryMakeArPoseFromExternalKinematics(const ArExternalPoseInput& input,
+                                                  const oneq::coordinate::EulerAnglesDeg& mount_angles_deg,
                                                   oneq::coordinate::LocalFrameReference* reference,
                                                   oneq::foundation::PoseState* platform_pose,
                                                   ArCoordinateStatus* status = nullptr);

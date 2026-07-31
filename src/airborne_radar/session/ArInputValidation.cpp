@@ -104,12 +104,12 @@ ValidationIssueList ValidateArCycleInput(const ArCycleInput& input) {
 
   oneq::coordinate::LocalFrameReference reference;
   oneq::foundation::PoseState platform_pose;
+  const oneq::coordinate::EulerAnglesDeg zero_mount{};
   if (input.platform.platform_entity_id == 0U ||
       !oneq::coordinate::IsFinite(input.platform.platform_position_ecef_m) ||
       !oneq::coordinate::IsFinite(input.platform.platform_velocity_mps) ||
       !oneq::coordinate::IsFinite(input.platform.platform_attitude_deg) ||
-      !oneq::coordinate::IsFinite(input.platform.radar_mount_angles_deg) ||
-      !TryMakeArPoseFromExternalKinematics(input.platform, &reference, &platform_pose)) {
+      !TryMakeArPoseFromExternalKinematics(input.platform, zero_mount, &reference, &platform_pose)) {
     issues.push_back(MakeIssue(ValidationSeverity::kError,
                                ValidationCode::kInvalidPlatformInput,
                                ValidationLocationKind::kPlatform,
