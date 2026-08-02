@@ -778,6 +778,11 @@ ECCM 只消费接收机 interference observation；烧穿评分达到阈值后�
 - 外部覆盖修改 profile 后，通过 `DiffProfiles` 对差异字段生成 `ArCommand`。
 - `ControlDirective`、`ControlDirectiveType`、`ControlDirectiveSource` 和 `TacticalProposal` 已收口为
   内部实现细节（`src/airborne_radar/decision/ControlReducerTypes.h`），不再暴露于公共 API。
+- directive→profile 分类的单一权威来源：`ControlReducer::IsLpiDirective`/`IsEccmDirective`/
+  `IsValidDirectiveValue` 提升为静态方法，`ArController` 不再重复 `==` 链；新增
+  `ControlDirectiveType::kCount` 哨兵仅用于编译期/测试期穷尽性检查，不得作为真实意图传递或序列化。
+  分类权威钉死在归约层，避免消费者各自维护判定逻辑导致漂移。
+[evidence: tests/unit/airborne_radar/ar_control_directive_matrix_test.cpp::DirectiveMatrixTest]
 [evidence: tests/unit/airborne_radar/ar_core_controller_test.cpp::ExternalOverrideChangesNextProfile]
 [evidence: tests/unit/airborne_radar/ar_core_controller_test.cpp::ExternalOverrideBypassesCooldown]
 [evidence: tests/unit/airborne_radar/ar_core_controller_test.cpp::ExternalOverrideRejectsInvalidProfile]
