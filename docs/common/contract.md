@@ -29,6 +29,20 @@ RF-Interference-Architecture: frozen target; AR/ESR/ECM RF v2 implemented (per-m
 - 模块聚合入口头。
 - `*Session`，包括 `Create` / `CreateWithValidation` 等静态创建入口。
 - `*SessionConfig` 四域配置和运行期 patch。
+
+### 会话创建入口的非阻断语义
+
+`*Session::Create` 与 `*Session::CreateWithValidation` 的校验/构造语义必须遵守以下非阻断契约（五模块已实现并经契约测试覆盖）：
+
+1. `Create(config)` 是信任路径，不做配置校验。
+2. `CreateWithValidation(config, issues)` 是校验路径——**无论 @p issues 是否含有 error 都会构造并返回会话（非阻断）**；`issues` 仅为咨询性诊断输出，传入 `nullptr` 时仅构造会话、不写回。
+3. 两入口均不会因校验失败而拒绝构造；当前不存在"校验失败即不构造"语义。
+4. 调用方须据 `issues->empty()`（或 `HasValidationError`）自行决定后续处置。
+
+不得在文档或实现中宣称校验失败会阻断会话创建，也不得让任一模块私自把 `CreateWithValidation` 改为门禁语义（校验失败即不返回会话）；若未来确实需要门禁语义，应新增独立入口点承载，不得复用现有咨询性入口名。
+[evidence: tests/contract/electronic_surveillance_radar/esr_public_api_convenience_test.cpp::CreateWithValidationReportsIssuesButStillConstructsSession]
+[evidence: tests/contract/electro_optical_sensor/eos_public_api_convenience_test.cpp::CreateWithValidationReportsIssuesButStillConstructsSession]
+[evidence: tests/contract/sbirs_sensor/sbirs_public_api_convenience_test.cpp::CreateWithValidationReportsIssues]
 - `*CycleInput`、scene target/emitter/point target 等单周期输入 DTO。
 - `*OutputFrame`、`*CycleResult` 等输出和结构化执行结果 DTO。
 - trace/replay、debug view、lifecycle recorder 等已经形成外部消费合同的工具。
@@ -469,7 +483,7 @@ AR/ESR/EOS/SBIRS 四模块的电源状态必须遵守单源原则：
 
 `practice/` 存放工程实践与基础设施类设计文档（非业务模块设计）：构建、测试策略、覆盖率、示例程序、批量验证框架等跨模块工程产物。每份文档为扁平 Markdown，文件头声明 `Status: active` 与 `Authority:`（如 `build infrastructure`、`test infrastructure`、`examples`）。`practice/` 不存放业务模块设计——模块设计归各自 `design.md`；也不存放契约规则——规定性规则归 `common/contract.md`。
 
-每个业务模块只保留 `design.md` 作为设计权威文档。历史决策记录（旧版 `decisions.md`、`history.md`、`contract.md`）和模块入口（`README.md`）的内容已内聚到 `design.md` 中。
+每个业务模块以 `design.md` 为设计权威**入口**，另允许 `boundaries.md`、`data-flow.md`、`algorithms.md` 三个设计文档。`design.md` 承载模块定位与文档导航；`boundaries.md` 承载模块级边界、非目标与设计变更规则；`data-flow.md` 承载数据流、输入输出与状态所有权；`algorithms.md` 承载算法登记表与每算法的实现边界、反直觉点。切分原则：模块级边界（主语是"模块/API/输出"）归 `boundaries.md`，算法级边界（主语是"某算法/某计算路径"）归 `algorithms.md`。文档写代码读不出来的内容（定位/边界/禁令/反直觉点/否决理由），算法逐步逻辑归代码。历史决策记录（旧版 `decisions.md`、`history.md`、`contract.md`）和模块入口（`README.md`）的内容已内聚到该文档集中。
 
 `common/` 只允许保留三份文档：
 
@@ -479,7 +493,7 @@ AR/ESR/EOS/SBIRS 四模块的电源状态必须遵守单源原则：
 
 模块目录内不保留 `archive/`、`audits/`、`contracts/`、`design/`、`decisions/`、`workflow/`、`migration/` 等展开式历史目录。历史细节需要追溯时从 git 历史读取。
 
-各模块只保留 `design.md` 作为设计权威文档。限制条件与否决方向的证据引用直接嵌入 design.md 中的 `[evidence: ...]` 标注，指向对应测试文件和 git 历史。
+各模块以 `design.md` 为设计权威入口，配合 `boundaries.md`、`data-flow.md`、`algorithms.md`。限制条件与否决方向的证据引用直接嵌入对应文档的 `[evidence: ...]` 标注，指向对应测试文件和 git 历史。
 
 ## 模块间关系
 

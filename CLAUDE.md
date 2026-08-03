@@ -39,7 +39,7 @@ A static library of simulation models for external service modules — airborne 
   `CMakePresets.json` — shared presets, `CMakeUserPresets.json` — local presets,
   `conanfile.py` — dependency manifest, `cmake/` — cmake modules,
   `.clang-format` / `.clang-tidy` / `.editorconfig` — lint & style
-- **Docs** — `docs/` (`common/contract.md` — cross-module contracts; one `design.md` per module)
+- **Docs** — `docs/` (`common/contract.md` — cross-module contracts; each module keeps a design-doc set: `design.md` navigation entry + `boundaries.md` + `data-flow.md` + `algorithms.md`)
 
 ## Build and Test
 
@@ -59,12 +59,13 @@ ctest --preset "$preset" --output-on-failure -j 4
 
 ## Documentation
 
-Each `design.md` is the sole design authority for its module. It contains:
-- Architecture overview (mermaid component/sequence/data-flow diagrams)
-- Algorithm descriptions with test-backed `[evidence: ...]` inline annotations
-- Limitations and veto decisions with quantified thresholds
+Each module keeps a design-doc set with `design.md` as the navigation entry and `boundaries.md`, `data-flow.md`, `algorithms.md` as its content. Together they are the design authority for the module:
+- `design.md` — module positioning, mental model, and navigation to the other three.
+- `boundaries.md` — module-level boundaries, non-goals, veto decisions with quantified thresholds, and change rules.
+- `data-flow.md` — architecture diagrams (mermaid component/sequence/data-flow), I/O, and state ownership.
+- `algorithms.md` — algorithm registry table + per-algorithm implementation boundaries, counter-intuitive points, and `[evidence: ...]` annotations.
 
-Evidence references point to existing test files and specific test cases (not branch paths or external docs).
+Docs capture what code alone cannot convey (positioning, boundaries, non-goals, counter-intuitive behavior, veto rationale); step-by-step algorithm logic belongs in code.
 
 ## Engineering Conventions
 
@@ -103,5 +104,5 @@ Evidence references point to existing test files and specific test cases (not br
 - Relevant tests pass for the chosen preset.
 - The static library links cleanly into dependent targets.
 - New public API or significant logic changes include new or updated tests under `tests/`.
-- Documentation stays accurate: update the relevant `design.md` and its `[evidence: ...]` when thresholds, limitations, or veto decisions change.
+- Documentation stays accurate: update the relevant module design-doc set (`design.md`/`boundaries.md`/`data-flow.md`/`algorithms.md`) and its `[evidence: ...]` when thresholds, limitations, or veto decisions change.
 - When a plan was used, every plan item is implemented or explicitly marked as deferred.
