@@ -51,7 +51,8 @@ target_sources(sar_batch_validation PRIVATE ${ONEQ_EXAMPLE_COMMON_SOURCES})
 add_executable(sbirs_batch_validation sbirs_batch_validation.cpp)
 target_link_libraries(sbirs_batch_validation PRIVATE ${PROJECT_ALIAS})
 target_include_directories(sbirs_batch_validation PRIVATE
-    "${CMAKE_CURRENT_SOURCE_DIR}")
+    "${CMAKE_CURRENT_SOURCE_DIR}"
+    "${CMAKE_SOURCE_DIR}/examples/sbirs_sensor")
 
 if(BUILD_TESTING)
     function(oneq_add_batch_sequence_test domain target)

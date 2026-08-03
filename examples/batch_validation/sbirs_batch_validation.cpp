@@ -20,6 +20,7 @@
 #include "1q/sbirs_sensor/session/SbirsCycleResult.h"
 #include "1q/sbirs_sensor/session/SbirsReplaySession.h"
 #include "1q/sbirs_sensor/session/SbirsTraceSession.h"
+#include "SbirsDebugViewToJson.h"
 #include "batch_assertions.h"
 #include "batch_checks.h"
 #include "batch_cli.h"
@@ -286,6 +287,12 @@ ScenarioSummary RunScenario(const SbirsCase& scenario, const std::string& output
       }
       const sbirs_session::SbirsCycleResult result =
           session.StepWithResult(MakeInput(scenario, cycle));
+      if (cycle == 1U) {
+        // 规则 12 参考实现验证：DebugView → JSON 字符串
+        // （examples/sbirs_sensor/SbirsDebugViewToJson.h，集成方可独立 copy）。
+        (void)SbirsDebugViewToJson(
+            sbirs_session::SbirsOutputDebugViewBuilder::Build(MakeInput(scenario, cycle), result));
+      }
       if (result.executed_this_cycle) ++summary.executed_cycles;
       else ++nonexecuted_count;
       std::set<int> cycle_channels;

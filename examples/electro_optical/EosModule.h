@@ -49,6 +49,7 @@
 #include "1q/electro_optical_sensor/session/EosCycleOutputAdapter.h"
 #include "1q/electro_optical_sensor/session/EosDetectionLifecycleRecorder.h"
 #include "1q/electro_optical_sensor/session/EosOutputDebugView.h"
+#include "EosDebugViewToJson.h"
 #include "1q/electro_optical_sensor/session/EosReplaySession.h"
 #include "1q/electro_optical_sensor/session/EosTraceSession.h"
 #include "config_loader.h"
@@ -246,6 +247,16 @@ class EosModule {
    */
   eos_session::EosOutputDebugView buildLastDebugView() const {
     return eos_session::EosOutputDebugViewBuilder::Build(last_input_, last_result_);
+  }
+
+  /**
+   * @brief 把最近一次调试视图序列化为 JSON 字符串（session_contract.md 规则 12 参考实现）。
+   *
+   * 集成方把返回的字符串写入自己的日志/事件系统即可；跨周期累积由调用方日志承担。
+   * 序列化函数见 examples/electro_optical/EosDebugViewToJson.h，可独立 copy。
+   */
+  std::string buildLastDebugViewJson() const {
+    return EosDebugViewToJson(buildLastDebugView());
   }
 
   /** @brief 返回最近一次的生命周期事件列表（三视图之一）。 */
