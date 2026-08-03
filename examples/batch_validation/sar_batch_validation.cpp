@@ -405,7 +405,7 @@ ScenarioSummary RunSarScenario(const SarCase& c, const sar_config::SarSessionCon
         sar_config::SarRuntimeConfigPatch patch;
         patch.has_enable_l1_rda_imaging = true;
         patch.enable_l1_rda_imaging = cycle_index == 4U;
-        session.ApplyRuntimeConfig(patch);
+        (void)session.TryApplyRuntimeConfig(patch);
       }
       if (c.scenario_id == "sar_seq_invalid_runtime_atomic" && cycle_index == 2U) {
         sar_config::SarRuntimeConfigPatch patch;
@@ -420,7 +420,7 @@ ScenarioSummary RunSarScenario(const SarCase& c, const sar_config::SarSessionCon
         patch.enable_raw_echo_generation = true;
         patch.has_enable_l1_rda_imaging = true;
         patch.enable_l1_rda_imaging = true;
-        session.ApplyRuntimeConfig(patch);
+        (void)session.TryApplyRuntimeConfig(patch);
       }
       sar_session::SarCycleInput input = MakeCycleInput(cycle_index, config.mission, &c);
       const sar_session::SarCycleResult result = session.StepWithResult(input);

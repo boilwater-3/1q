@@ -4,7 +4,7 @@
  *
  * 覆盖要点：
  *   - EsrPipelineAbortReason 公共结果类型可达
- *   - EsrSession 构建、Step、StepWithResult、ApplyRuntimeConfig
+ *   - EsrSession 构建、Step、StepWithResult、TryApplyRuntimeConfig
  *   - GetLastValidationIssues 字段可访问
  *
  * 注：环境服务与控制器已内部化，不再支持外部注入；本 consumer 仅验证安装后公共面可达。
@@ -67,7 +67,7 @@ int main() {
   electronic_surveillance_radar::config::EsrRuntimeConfigPatch patch;
   patch.has_sensor_enabled = true;
   patch.sensor_enabled = true;
-  session.ApplyRuntimeConfig(patch);
+  (void)session.TryApplyRuntimeConfig(patch);
 
   // 5. Validation access
   const electronic_surveillance_radar::session::ValidationIssueList& issues =

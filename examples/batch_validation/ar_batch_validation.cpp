@@ -410,13 +410,13 @@ ScenarioSummary RunArScenario(const ArCase& c, const ar_config::ArSessionConfig&
         patch.has_work_mode = true;
         patch.work_mode =
             cycle_index == 9U ? ar_config::ArWorkMode::kStt : ar_config::ArWorkMode::kTws;
-        session.ApplyRuntimeConfig(patch);
+        (void)session.TryApplyRuntimeConfig(patch);
       }
       if (c.scenario_id == "ar_seq_power_cycle" && (cycle_index == 9U || cycle_index == 14U)) {
         ar_config::ArRuntimeConfigPatch patch;
         patch.has_sensor_enabled = true;
         patch.sensor_enabled = cycle_index == 14U;
-        session.ApplyRuntimeConfig(patch);
+        (void)session.TryApplyRuntimeConfig(patch);
       }
       if (c.scenario_id == "ar_seq_invalid_patch_atomic" && cycle_index == 9U) {
         ar_config::ArRuntimeConfigPatch patch;
@@ -431,7 +431,7 @@ ScenarioSummary RunArScenario(const ArCase& c, const ar_config::ArSessionConfig&
         ar_config::ArRuntimeConfigPatch patch;
         patch.has_work_mode = true;
         patch.work_mode = ar_config::ArWorkMode::kStt;
-        session.ApplyRuntimeConfig(patch);
+        (void)session.TryApplyRuntimeConfig(patch);
       }
       ar_session::ArExternalPoseInput platform = MakePlatformPose(cycle_index);
       std::vector<ar_session::ArExternalTargetInput> targets = MakeTargets(c, cycle_index);

@@ -320,7 +320,7 @@ TEST(SarReplaySessionTest, ReplaySarTraceAppliesRuntimePatchBeforeCycle) {
     config::SarRuntimeConfigPatch patch;
     patch.has_enable_l1_rda_imaging = true;
     patch.enable_l1_rda_imaging = true;
-    session.ApplyRuntimeConfig(patch);
+    (void)session.TryApplyRuntimeConfig(patch);
     const SarCycleResult result = session.StepWithResult(MakeReplayInput(2U));
     ASSERT_TRUE(result.output_frame.has_l1_image);
     replay_writer->Flush();

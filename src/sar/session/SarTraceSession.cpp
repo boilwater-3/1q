@@ -161,12 +161,13 @@ SarCycleResult SarTraceSession::StepWithResult(const SarCycleInput& input) {
   return result;
 }
 
-void SarTraceSession::ApplyRuntimeConfig(const config::SarRuntimeConfigPatch& patch) {
+bool SarTraceSession::TryApplyRuntimeConfig(const config::SarRuntimeConfigPatch& patch) {
+  const bool accepted = impl_->session.TryApplyRuntimeConfig(patch);
   if (impl_->replay_writer) {
     impl_->WriteReplayEvent("runtime_config_patch", "SarRuntimeConfigPatch",
                             EncodeSarRuntimeConfigPatch(patch));
   }
-  impl_->session.ApplyRuntimeConfig(patch);
+  return accepted;
 }
 
 SarSession& SarTraceSession::session() { return impl_->session; }

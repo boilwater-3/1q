@@ -346,7 +346,7 @@ TEST(EosSessionIntegrationTest, RuntimeConfigWorkModeSwitchTakesEffectImmediatel
   const config::EosRuntimeConfigPatch patch = eos_config::EosRuntimeConfigBuilder()
                                                   .WithWorkMode(config::EosWorkMode::kInfraredOnly)
                                                   .Build();
-  session.ApplyRuntimeConfig(patch);
+  (void)session.TryApplyRuntimeConfig(patch);
 
   ::electro_optical_sensor::session::EosCycleInput input_2 = MakeBaseInput();
   input_2.cycle_index = 2U;
@@ -364,7 +364,7 @@ TEST(EosSessionIntegrationTest, RuntimeConfigScanRateChangeUpdatesAdvance) {
 
   const config::EosRuntimeConfigPatch patch =
       eos_config::EosRuntimeConfigBuilder().WithScanRateDegPerSec(97.0f).Build();
-  session.ApplyRuntimeConfig(patch);
+  (void)session.TryApplyRuntimeConfig(patch);
 
   ::electro_optical_sensor::session::EosCycleInput input_2 = MakeBaseInput();
   input_2.cycle_index = 2U;
@@ -398,7 +398,7 @@ TEST(EosSessionIntegrationTest, RuntimeConfigSnrThresholdFiltersWeakTargets) {
                                                   .WithDetectionSensitivityW(2.0e-12f)
                                                   .WithVisibleReferenceIrradianceWM2(1000.0f)
                                                   .Build();
-  session.ApplyRuntimeConfig(patch);
+  (void)session.TryApplyRuntimeConfig(patch);
 
   ::electro_optical_sensor::session::EosCycleInput input_2 = input;
   input_2.cycle_index = 2U;
@@ -567,7 +567,7 @@ TEST(EosSessionIntegrationTest, RuntimeConfigStraylightToggleWorks) {
                                                   .WithHoodMinSuppressionRatio(0.35f)
                                                   .WithHoodMaxSuppressionRatio(0.95f)
                                                   .Build();
-  session.ApplyRuntimeConfig(patch);
+  (void)session.TryApplyRuntimeConfig(patch);
 
   ::electro_optical_sensor::session::EosCycleInput input_2 = MakeBaseInput();
   input_2.cycle_index = 2U;
@@ -600,7 +600,7 @@ TEST(EosSessionIntegrationTest, RuntimeEnvironmentPresetChangeTakesEffect) {
 
   const config::EosRuntimeConfigPatch patch =
       eos_config::EosRuntimeConfigBuilder().WithEnvironmentScenarioConfig(env_config).Build();
-  session.ApplyRuntimeConfig(patch);
+  (void)session.TryApplyRuntimeConfig(patch);
 
   ::electro_optical_sensor::session::EosCycleInput input_2 = MakeBaseInput();
   input_2.cycle_index = 2U;

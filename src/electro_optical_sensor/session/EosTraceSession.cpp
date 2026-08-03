@@ -159,13 +159,13 @@ session::EosOutputFrame EosTraceSession::Step(const EosCycleInput& input) {
   return result;
 }
 
-void EosTraceSession::ApplyRuntimeConfig(const config::EosRuntimeConfigPatch& patch) {
+bool EosTraceSession::TryApplyRuntimeConfig(const config::EosRuntimeConfigPatch& patch) {
+  const bool accepted = impl_->session.TryApplyRuntimeConfig(patch);
   if (impl_->replay_writer) {
-    // 先写后 apply，保证回放时配置变更在执行前可重放
     impl_->WriteReplayEvent("runtime_config_patch", "EosRuntimeConfigPatch",
                             EncodeEosRuntimeConfigPatch(patch));
   }
-  impl_->session.ApplyRuntimeConfig(patch);
+  return accepted;
 }
 
 EosSession& EosTraceSession::session() { return impl_->session; }

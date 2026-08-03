@@ -180,7 +180,7 @@ TEST(RadarSessionConfigBuilderTest, RuntimePatchCanBeAppliedWithoutReconstructin
           .WithEnvironmentScenarioConfig(config::EnvironmentScenarioConfig{})
           .Build();
 
-  session.ApplyRuntimeConfig(patch);
+  ASSERT_TRUE(session.TryApplyRuntimeConfig(patch));
 
   session::ArCycleInput input;
   input.cycle_index = 1U;

@@ -408,7 +408,7 @@ TEST(EosPublicApiConvenienceTest, EosSessionAppliesRuntimeConfigPatch) {
                                                   .WithHoodMinSuppressionRatio(0.35f)
                                                   .WithHoodMaxSuppressionRatio(0.95f)
                                                   .Build();
-  session.ApplyRuntimeConfig(patch);
+  (void)session.TryApplyRuntimeConfig(patch);
 
   ::electro_optical_sensor::session::EosCycleInput input;
   input.dt_sec = 0.1f;
@@ -430,7 +430,7 @@ TEST(EosPublicApiConvenienceTest, EosSessionReportsPoweredOffWithoutContractViol
       session.StepWithResult(input);
   ASSERT_TRUE(active.executed_this_cycle);
 
-  session.ApplyRuntimeConfig(config::EosRuntimeConfigBuilder().WithSensorEnabled(false).Build());
+  (void)session.TryApplyRuntimeConfig(config::EosRuntimeConfigBuilder().WithSensorEnabled(false).Build());
   ++input.cycle_index;
   const ::electro_optical_sensor::session::EosCycleResult powered_off =
       session.StepWithResult(input);

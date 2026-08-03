@@ -101,7 +101,7 @@ int main() {
       eos::config::EosRuntimeConfigBuilder()
           .WithWorkMode(eos::config::EosWorkMode::kInfraredOnly)
           .Build();
-  session.ApplyRuntimeConfig(ir_patch);
+  (void)session.TryApplyRuntimeConfig(ir_patch);
 
   // 10. Step after mode switch
   eos::session::EosCycleInput input_2 = input;
@@ -116,7 +116,7 @@ int main() {
           .WithDetectionSensitivityW(0.8e-12f)
           .WithVisibleReferenceIrradianceWM2(700.0f)
           .Build();
-  session.ApplyRuntimeConfig(tune_patch);
+  (void)session.TryApplyRuntimeConfig(tune_patch);
 
   // 12. RuntimeConfigBuilder: enable straylight filter
   const eos::config::EosRuntimeConfigPatch straylight_patch =
@@ -127,7 +127,7 @@ int main() {
           .WithHoodMinSuppressionRatio(0.35f)
           .WithHoodMaxSuppressionRatio(0.95f)
           .Build();
-  session.ApplyRuntimeConfig(straylight_patch);
+  (void)session.TryApplyRuntimeConfig(straylight_patch);
 
   // 13. RuntimeConfigBuilder: switch the public environment preset.
   eos::config::EosEnvironmentScenarioConfig scenario;
@@ -136,7 +136,7 @@ int main() {
       eos::config::EosRuntimeConfigBuilder()
           .WithEnvironmentScenarioConfig(scenario)
           .Build();
-  session.ApplyRuntimeConfig(env_patch);
+  (void)session.TryApplyRuntimeConfig(env_patch);
 
   // 14. RuntimeConfigBuilder: select another public preset.
   scenario.preset = eos::config::EosEnvironmentPreset::kDusty;
@@ -144,7 +144,7 @@ int main() {
       eos::config::EosRuntimeConfigBuilder()
           .WithEnvironmentScenarioConfig(scenario)
           .Build();
-  session.ApplyRuntimeConfig(rt_patch);
+  (void)session.TryApplyRuntimeConfig(rt_patch);
 
   // 15. RuntimeConfigBuilder: enable standard atmospheric physics.
   scenario.atmospheric_physics.enable_physical_model = true;
@@ -153,7 +153,7 @@ int main() {
       eos::config::EosRuntimeConfigBuilder()
           .WithEnvironmentScenarioConfig(scenario)
           .Build();
-  session.ApplyRuntimeConfig(vis_ref_patch);
+  (void)session.TryApplyRuntimeConfig(vis_ref_patch);
 
   // 16. Final cycle
   eos::session::EosCycleInput input_3 = input;

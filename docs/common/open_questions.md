@@ -2,7 +2,7 @@
 Status: active
 Authority: 非规定性记录（不构成契约约束）
 Lifecycle: 条目有结论后回写 contract.md 或 design.md 并从本文删除；不保留已收敛条目
-Last-reviewed: 2026-08-03
+Last-reviewed: 2026-08-04
 ---
 
 # 跨模块开放议题
@@ -21,7 +21,6 @@ Last-reviewed: 2026-08-03
 | ID | 域 | 主题 | 一句话 | Status |
 |---|---|---|---|---|
 | COMMON-OQ-1 | common | Windows/MSVC 全链验收 | presets/.bat 仅未验收脚手架，CI 只跑 macOS | needs-evidence |
-| COMMON-OQ-6 | common | `ApplyRuntimeConfig` 吞 bool | void 版丢弃 Try 的返回值 | open |
 | COMMON-OQ-7 | common | 双 cycle_index 冗余 | 非执行周期 input_cycle_index 保留输入号，output_frame.cycle_index 为0 | open |
 | COMMON-OQ-8 | common | 周期时间/窗口静默拒绝 | AR/ESR/EOS 各自为政，违反多表现为静默不生效 | open |
 | AR-OQ-1 | airborne_radar | 假目标鉴别跨域命名双轨 | 观测域枚举 vs 量测域 bool | open |
@@ -52,27 +51,6 @@ Last-reviewed: 2026-08-03
 - **再进入条件 (Stage A)**：提交锁定版本/提交与下载校验矩阵，提供 shell bootstrap 原型，并在真实
   Windows runner 上依次证明 configure、Debug/Release build、install、独立 consumer build/run；随后再决定
   保留、删除或重命名现有 presets 与 `.bat` 入口。
-
-### COMMON-OQ-6：`ApplyRuntimeConfig` 吞掉 `TryApplyRuntimeConfig` 返回值
-
-- **现状**：五模块会话均提供 `ApplyRuntimeConfig(patch)`（void）与 `TryApplyRuntimeConfig(patch)`（bool）。
-  void 版内部 `(void)TryApplyRuntimeConfig(patch)` 显式丢弃成功与否。跨模块形态不一致：
-  1. ESR 额外提供 `ApplyRuntimeConfigWithResult` 返回结构化 `EsrRuntimeConfigApplyResult`（含状态枚举）。
-  2. 其余四模块（AR/SAR/EOS/SBIRS）无此变体。
-  3. docstring 警告不一致：SAR/SBIRS 标注"不返回成功与否"，AR/EOS 无此警告。
-  与 OQ-2/OQ-8 同属"静默语义"反模式家族。[evidence: src/electronic_surveillance_radar/session/EsrSession]
-- **后果**：
-  1. void 版失败被静默吞掉，调用方无从感知补丁是否真正生效。
-  2. docstring 不一致加剧误用风险。
-  3. ESR 独有的结构化结果变体未跨模块推广，跨模块集成时返回形态不统一。
-- **待决问题**：
-  1. 是否废弃 void 版、统一强制使用 Try/WithResult。
-  2. 是否向其余四模块推广 `ApplyRuntimeConfigWithResult` 结构化结果。
-  3. 是否统一 docstring 警告。
-- **当前边界**：五模块保持 void+Try 双方法，void 版吞返回值为已知设计。ESR 的 WithResult 变体为 ESR
-  独有增强，不构成跨模块契约。
-- **再进入条件 (Stage A)**：出现真实场景要求 void 版失败必须可观测，或跨模块集成要求统一结果返回形态时，
-  先评估推广 `ApplyRuntimeConfigWithResult` 的 API 成本与四模块补丁结构差异，再决定是否统一。
 
 ### COMMON-OQ-7：CycleResult.input_cycle_index 与 OutputFrame.cycle_index 冗余
 

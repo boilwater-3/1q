@@ -80,10 +80,6 @@ session::EosOutputFrame EosSession::Step(const EosCycleInput& input) {
   return impl_->controller.BuildCycleResult(input);
 }
 
-void EosSession::ApplyRuntimeConfig(const config::EosRuntimeConfigPatch& patch) {
-  (void)TryApplyRuntimeConfig(patch);
-}
-
 bool EosSession::TryApplyRuntimeConfig(const config::EosRuntimeConfigPatch& patch) {
   // 立即提交类（见 docs/common/contract.md「运行期配置提交策略」）：调用即生效、
   // 配置单向落定、不在 session 层回滚。执行期的 pipeline 状态回滚边界在

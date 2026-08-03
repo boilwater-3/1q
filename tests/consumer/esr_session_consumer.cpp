@@ -85,7 +85,7 @@ int main() {
   // 9. RuntimeConfigBuilder: disable sensor
   const esr::config::EsrRuntimeConfigPatch disable_patch =
       esr::config::EsrRuntimeConfigBuilder().WithSensorEnabled(false).Build();
-  session.ApplyRuntimeConfig(disable_patch);
+  (void)session.TryApplyRuntimeConfig(disable_patch);
 
   // 10. Step after sensor disabled — should return empty output
   esr::session::EsrCycleInput input_2 = input;
@@ -99,7 +99,7 @@ int main() {
   // 11. RuntimeConfigBuilder: re-enable sensor
   const esr::config::EsrRuntimeConfigPatch enable_patch =
       esr::config::EsrRuntimeConfigBuilder().WithSensorEnabled(true).Build();
-  session.ApplyRuntimeConfig(enable_patch);
+  (void)session.TryApplyRuntimeConfig(enable_patch);
 
   // 12. RuntimeConfigBuilder: scan rate + work mode
   const esr::config::EsrRuntimeConfigPatch tune_patch =
@@ -107,19 +107,19 @@ int main() {
           .WithScanRateHz(2.0f)
           .WithWorkMode(esr::config::EsrWorkMode::kHgesm)
           .Build();
-  session.ApplyRuntimeConfig(tune_patch);
+  (void)session.TryApplyRuntimeConfig(tune_patch);
 
   // 13. RuntimeConfigBuilder: explicit scan bounds
   const esr::config::EsrRuntimeConfigPatch window_patch =
       esr::config::EsrRuntimeConfigBuilder()
           .WithExplicitScanBoundsDeg(-45.0f, 45.0f, -15.0f, 15.0f)
           .Build();
-  session.ApplyRuntimeConfig(window_patch);
+  (void)session.TryApplyRuntimeConfig(window_patch);
 
   // 14. RuntimeConfigBuilder: reset to center-driven scan
   const esr::config::EsrRuntimeConfigPatch clear_window_patch =
       esr::config::EsrRuntimeConfigBuilder().WithExplicitScanBoundsEnabled(false).Build();
-  session.ApplyRuntimeConfig(clear_window_patch);
+  (void)session.TryApplyRuntimeConfig(clear_window_patch);
 
   // 15. RuntimeConfigBuilder: environment atmospheric config via environment runtime config
   esr::config::EsrAtmosphericPhysicsConfig atmospheric_physics;
@@ -129,7 +129,7 @@ int main() {
       esr::config::EsrRuntimeConfigBuilder()
           .WithAtmosphericPhysicsConfig(atmospheric_physics)
           .Build();
-  session.ApplyRuntimeConfig(env_patch);
+  (void)session.TryApplyRuntimeConfig(env_patch);
 
   // 16. Final cycle
   esr::session::EsrCycleInput input_3 = input;

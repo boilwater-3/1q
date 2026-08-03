@@ -54,13 +54,6 @@ class ONEQ_API EosSession {
   EosCycleResult StepWithResult(const EosCycleInput& input);
 
   /**
-   * @brief 应用运行期可变配置补丁。
-   * @param[in] patch 运行期补丁。
-   * @note 非线程安全：会更新运行期配置并可能重置扫描相位；并发调用需外部同步。
-   */
-  void ApplyRuntimeConfig(const config::EosRuntimeConfigPatch& patch);
-
-  /**
    * @brief 尝试应用运行期可变配置补丁。
    * @param[in] patch 运行期可变配置补丁。
    * @return 补丁被接受并应用成功时返回 true；补丁无效或无变更时返回 false。

@@ -169,7 +169,7 @@ bool OnRuntimeConfigPatch(const oneq::replay::ReplayTraceReadEvent& event, void*
     *error = "SBIRS replay failed to decode runtime_config_patch";
     return false;
   }
-  state->session->ApplyRuntimeConfig(patch);
+  state->session->TryApplyRuntimeConfig(patch);
   return true;
 }
 

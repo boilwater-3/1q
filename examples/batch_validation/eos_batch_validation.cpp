@@ -369,20 +369,20 @@ ScenarioSummary RunEosScenario(const EosCase& c, const eos_config::EosSessionCon
         patch.work_mode = cycle_index == 9U ? eos_config::EosWorkMode::kInfraredOnly :
                           cycle_index == 13U ? eos_config::EosWorkMode::kVisibleOnly :
                                                 eos_config::EosWorkMode::kFused;
-        session.ApplyRuntimeConfig(patch);
+        (void)session.TryApplyRuntimeConfig(patch);
       }
       if (c.scenario_id == "eos_seq_scan_rate_retask" &&
           (cycle_index == 9U || cycle_index == 17U)) {
         eos_config::EosRuntimeConfigPatch patch;
         patch.has_scan_rate_deg_per_sec = true;
         patch.scan_rate_deg_per_sec = cycle_index == 9U ? 35.0f : 12.0f;
-        session.ApplyRuntimeConfig(patch);
+        (void)session.TryApplyRuntimeConfig(patch);
       }
       if (c.scenario_id == "eos_seq_power_cycle" && (cycle_index == 9U || cycle_index == 14U)) {
         eos_config::EosRuntimeConfigPatch patch;
         patch.has_sensor_enabled = true;
         patch.sensor_enabled = cycle_index == 14U;
-        session.ApplyRuntimeConfig(patch);
+        (void)session.TryApplyRuntimeConfig(patch);
       }
       eos_session::EosExternalPoseInput platform = MakePlatform(cycle_index);
       std::vector<eos_session::EosExternalTargetInput> targets = MakeTargets(c, cycle_index);

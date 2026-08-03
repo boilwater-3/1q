@@ -272,7 +272,7 @@ ScenarioSummary RunScenario(const SbirsCase& scenario, const std::string& output
         sbirs_config::SbirsRuntimeConfigPatch patch;
         patch.has_work_mode = true;
         patch.work_mode = sbirs_config::SbirsWorkMode::kStandby;
-        session.ApplyRuntimeConfig(patch);
+        (void)session.TryApplyRuntimeConfig(patch);
       } else if (scenario.scenario_id == "sbirs_seq_standby_mission_retask" && cycle == 9U) {
         sbirs_config::SbirsRuntimeConfigPatch patch;
         patch.has_work_mode = true;
@@ -282,7 +282,7 @@ ScenarioSummary RunScenario(const SbirsCase& scenario, const std::string& output
         patch.has_policy = true;
         patch.policy = MakeConfig(&scenario).policy;
         patch.policy.scheduler.max_concurrent_nfov_locks = 2;
-        session.ApplyRuntimeConfig(patch);
+        (void)session.TryApplyRuntimeConfig(patch);
       }
       const sbirs_session::SbirsCycleResult result =
           session.StepWithResult(MakeInput(scenario, cycle));

@@ -234,7 +234,7 @@ TEST(EsrPublicApiConvenienceTest, SessionStepAndRuntimePatchWorkTogether) {
 
   const config::EsrRuntimeConfigPatch patch =
       config::EsrRuntimeConfigBuilder().WithSensorEnabled(false).Build();
-  session.ApplyRuntimeConfig(patch);
+  (void)session.TryApplyRuntimeConfig(patch);
 
   const session::EsrCycleResult updated = session.StepWithResult(input);
   EXPECT_TRUE(updated.output_frame.observation_output.observations.empty());

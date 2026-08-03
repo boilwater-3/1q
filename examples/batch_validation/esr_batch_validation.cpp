@@ -348,7 +348,7 @@ ScenarioSummary RunEsrScenario(const EsrCase& c, const esr_config::EsrSessionCon
         patch.has_work_mode = true;
         patch.work_mode = cycle_index == 9U ? esr_config::EsrWorkMode::kRwr
                                             : esr_config::EsrWorkMode::kHgesm;
-        session.ApplyRuntimeConfig(patch);
+        (void)session.TryApplyRuntimeConfig(patch);
       }
       if (c.scenario_id == "esr_seq_scan_bounds_retask" && cycle_index == 9U) {
         esr_config::EsrRuntimeConfigPatch patch;
@@ -369,20 +369,20 @@ ScenarioSummary RunEsrScenario(const EsrCase& c, const esr_config::EsrSessionCon
         patch.explicit_scan_bounds.scan_end_az_deg = 20.0f;
         patch.explicit_scan_bounds.scan_start_el_deg = -5.0f;
         patch.explicit_scan_bounds.scan_end_el_deg = 5.0f;
-        session.ApplyRuntimeConfig(patch);
+        (void)session.TryApplyRuntimeConfig(patch);
       } else if (c.scenario_id == "esr_seq_scan_bounds_retask" && cycle_index == 17U) {
         esr_config::EsrRuntimeConfigPatch patch;
         patch.has_scan_center_az_deg = true;
         patch.scan_center_az_deg = 0.0f;
         patch.has_explicit_scan_bounds = true;
         patch.explicit_scan_bounds.enabled = false;
-        session.ApplyRuntimeConfig(patch);
+        (void)session.TryApplyRuntimeConfig(patch);
       }
       if (c.scenario_id == "esr_seq_power_cycle" && (cycle_index == 9U || cycle_index == 14U)) {
         esr_config::EsrRuntimeConfigPatch patch;
         patch.has_sensor_enabled = true;
         patch.sensor_enabled = cycle_index == 14U;
-        session.ApplyRuntimeConfig(patch);
+        (void)session.TryApplyRuntimeConfig(patch);
       }
       esr_session::EsrCycleInput input = MakeInput(c, cycle_index);
       if (c.scenario_id == "esr_seq_invalid_input_recovery" &&

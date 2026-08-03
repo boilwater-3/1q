@@ -72,12 +72,6 @@ class ONEQ_API EsrSession {
   EsrCycleResult StepWithResult(const EsrCycleInput& input);
 
   /**
-   * @brief 应用运行期可变配置补丁。
-   * @param[in] patch 运行期补丁。
-   */
-  void ApplyRuntimeConfig(const config::EsrRuntimeConfigPatch& patch);
-
-  /**
    * @brief 尝试应用运行期可变配置补丁并返回是否生效。
    * @param[in] patch 运行期补丁。
    * @return true 表示补丁被接受并已应用；false 表示未请求更新或补丁被拒绝。

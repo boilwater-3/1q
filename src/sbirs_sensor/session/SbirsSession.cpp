@@ -30,10 +30,6 @@ SbirsCycleResult SbirsSession::StepWithResult(const SbirsCycleInput& input) {
   return impl_->controller->RunOnce(input);
 }
 
-void SbirsSession::ApplyRuntimeConfig(const config::SbirsRuntimeConfigPatch& patch) {
-  TryApplyRuntimeConfig(patch);
-}
-
 bool SbirsSession::TryApplyRuntimeConfig(const config::SbirsRuntimeConfigPatch& patch) {
   const runtime::SbirsRuntimeConfigResolution resolution =
       runtime::ResolveSbirsRuntimeConfigPatch(impl_->config, patch);

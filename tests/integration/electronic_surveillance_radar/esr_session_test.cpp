@@ -95,7 +95,7 @@ TEST(EsrSessionIntegrationTest, PowerOffProducesNoHistoricalOutput) {
   EsrCycleInput input = MakeInput();
   input.rf_emissions.emissions.push_back(MakeEmission(1U, 1.0e6));
   ASSERT_EQ(session.StepWithResult(input).status, EsrCycleExecutionStatus::kCompleted);
-  session.ApplyRuntimeConfig(config::EsrRuntimeConfigBuilder().WithSensorEnabled(false).Build());
+  (void)session.TryApplyRuntimeConfig(config::EsrRuntimeConfigBuilder().WithSensorEnabled(false).Build());
   const EsrCycleResult powered_off = session.StepWithResult(input);
   EXPECT_EQ(powered_off.status, EsrCycleExecutionStatus::kPoweredOff);
   EXPECT_EQ(powered_off.output_frame.cycle_index, 0U);

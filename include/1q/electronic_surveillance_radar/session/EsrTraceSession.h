@@ -74,10 +74,11 @@ class ONEQ_API EsrTraceSession {
   EsrCycleResult StepWithResult(const EsrCycleInput& input);
 
   /**
-   * @brief 应用运行期可变配置补丁，并转发到内部 EsrSession。
+   * @brief 尝试应用运行期可变配置补丁并返回结构化结果（透传给内部 EsrSession）。
    * @param[in] patch 运行期补丁。
+   * @return 结构化应用结果（含状态码）。
    */
-  EsrRuntimeConfigApplyResult ApplyRuntimeConfig(
+  EsrRuntimeConfigApplyResult TryApplyRuntimeConfig(
       const config::EsrRuntimeConfigPatch& patch);
 
   /**
