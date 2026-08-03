@@ -98,6 +98,11 @@ AR/ESR/EOS/SBIRS 四模块的电源状态必须遵守单源原则：
 | 结构化执行结果层 | `StepWithResult()` 返回的 `*CycleResult` | 输出帧、执行状态、校验、abort reason 和诊断摘要 |
 | 开发调试视图层 | `*OutputDebugViewBuilder` / `*LifecycleRecorder` | 人读状态、生命周期事件、输入实体回填 |
 
+开发调试视图层中，`*LifecycleRecorder` 是转换检测状态机（非数据存储）：累积状态刻意最小化为每实体
+1-bit 存在标志（已确认/已检测/已有产品），事件富信息在每次 `Update()` 时从 L2 实时转发，不在内部累积。
+`*OutputDebugViewBuilder` 与 `*LifecycleRecorder` 在 L3 内并列，互不消费——前者是无状态快照构造器，
+后者是有状态跨周期状态机。
+
 规则：
 
 1. `Step()` 只返回主系统输出帧。
@@ -110,9 +115,65 @@ AR/ESR/EOS/SBIRS 四模块的电源状态必须遵守单源原则：
    validation error。若未来引入可表达负数的外部输入入口，负数 ID 必须在转换为
    public `std::uint64_t` DTO 前被拒绝。
 7. 仿真真值不得混入面向外部系统的真实输出通道。
-8. `*CycleResult` 的输出帧、指标和诊断产品仅在 `executed_this_cycle=true` 时代表
-   本周期的有效计算结果；非执行周期返回默认空帧（`cycle_index=0`、空载荷），不复用上一有效输出，
-   不得按真实零值参与统计。`reused_previous_output` 概念已废除。
+8. `*CycleResult` 的输出帧、指标和诊断产品仅在 `status == kCompleted`（或等价的
+   `executed_this_cycle=true`）时代表本周期的有效计算结果；非执行周期返回默认空帧
+   （`cycle_index=0`、空载荷），不复用上一有效输出，不得按真实零值参与统计。
+   `reused_previous_output` 概念已废除。
+9. 所有中止路径（`abort_reason` 非 `kNone`）必须执行三写：
+   a. **结构化信号**：设置 `abort_reason`（粗粒度枚举，~6 值，与模块对齐）。
+   b. **结构化诊断**：写入 `*DiagnosticIssueList`（`severity` + `code` + `message`），
+      细粒度 code 带模块前缀（如 `"sar.snr_below_minimum"`）。
+   c. **人读日志**：`PROJECT_LOG_ERROR` 或 `PROJECT_LOG_WARN`。
+   三写缺一不可。SAR 为参考实现（`SarDiagnosticUtils::WriteAbort`）。
+   `ValidationIssueList` 承载输入校验的结构化问题（severity/code/location/field/message），
+   与 `*DiagnosticIssueList` 职责不同，不得混用。
+10. `*LifecycleRecorder` 有两种驱动方式，二选一，不得混用：
+    a. **手动驱动**：调用方在每个执行周期自行调用 `Update()`；漏调会导致状态机失步
+       （例如错过产品/目标消失的周期后，内部 1-bit 标志仍为"存在"，后续不再发出 `Lost` 事件）。
+    b. **自动驱动**：调用方通过 `*Session::Attach*LifecycleRecorder()` 注册记录器，
+       Session 在 `StepWithResult()`/`Step()` 内部自动调用 `Update()`，调用方无需手动调用。
+    无论哪种方式，非执行周期都返回空事件列表且不推进内部状态。
+11. `*Session::Attach*LifecycleRecorder()` 是可选注册契约：
+    a. Session 持有 recorder 的**非拥有裸指针**，调用方须保证 recorder 生命周期长于注册期；
+       传入 `nullptr` 解除注册，解除后 Session 不再驱动。
+    b. Session 不缓存事件；本周期产生的生命周期事件通过 `recorder->GetLastEvents()` 获取
+       （recorder 记住最近一次 `Update()` 的结果）。
+    c. 注册与否不影响 `Step()`/`StepWithResult()` 的返回值和执行语义——纯观测工具，零行为改变。
+
+### 执行状态信号统一
+
+五个传感器模块的 `*CycleResult` 统一包含强类型 `*CycleStatus` 枚举，表达单周期高层执行状态：
+
+| 模块 | 枚举类型 | 典型值 |
+|---|---|---|
+| AR | `ArCycleStatus` | `kCompleted`, `kPoweredOff`, `kRejectedInvalidInput`, `kRejectedInvalidConfig`, `kRejectedExecution` |
+| ESR | `EsrCycleExecutionStatus` | `kCompleted`, `kRejected`, `kPoweredOff` |
+| EOS | `EosCycleStatus` | `kCompleted`, `kPoweredOff`, `kRejectedInvalidInput`, `kRejectedExecution` |
+| SAR | `SarCycleStatus` | `kCompleted`, `kRejectedInvalidInput`, `kRejectedExecution`（细粒度失败信息由 `SarDiagnosticIssue::code` + 日志双写） |
+| SBIRS | `SbirsCycleStatus` | `kCompleted`, `kPoweredOff`, `kRejectedInvalidInput`, `kRejectedExecution` |
+
+`executed_this_cycle` 保留为 `status == kCompleted` 的便捷访问器（向后兼容）。
+`abort_reason` 是强类型枚举（SAR 为 `SarPipelineAbortReason`，其余模块类似），提供更细粒度的终止原因。
+状态判断应优先使用 `status` 枚举，`executed_this_cycle` 仅用于简单 bool 门控。
+
+### Attribution（仿真真值归属）层级
+
+仿真真值归属（detection → simulation target 映射）在各模块的层级位置不同，这是有意设计：
+
+| 模块 | 归属位置 | 理由 |
+|---|---|---|
+| AR | L1（`TrackStateSnapshot` 内嵌 `external_target_id`/`target_name`） | track 是系统级估计，关联键是 track 语义的一部分 |
+| EOS | L2（`EosCycleResult.detection_attributions`） | detection 是原始传感器输出，归属是仿真附加信息 |
+| SBIRS | L2（`SbirsCycleResult.detection_attributions`） | 同 EOS |
+| ESR | 无归属数据 | ESR 输出是观测+假设，不含检测到目标的映射 |
+| SAR | 无归属数据 | SAR 输出是图像产品，不含检测到目标的映射 |
+
+规则：
+1. **L1 不含仿真真值归属**（EOS/SBIRS 已遵守；AR 的 track 关联键是特例，不适用于检测型传感器）。
+2. **L2 允许承载归属**——归属是结构化数据（非人读），replay/trace 需要消费。
+3. **L3（DebugView/LifecycleRecorder）通过 L2 访问归属**，不是归属的唯一载体。
+4. EOS/SBIRS 的 `*CycleOutputAdapter` 守卫（如 `SbirsOutputFrameContainsOnlyNativeFields()`）
+   确保 L1 不含归属泄漏。
 
 ## Replay 与 trace 语义
 

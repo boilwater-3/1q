@@ -12,6 +12,7 @@
 
 #include "1q/api.hpp"
 #include "1q/electro_optical_sensor/session/EosCycleResult.h"
+#include "1q/electro_optical_sensor/session/EosOutputTypes.h"
 
 namespace electro_optical_sensor {
 namespace session {
@@ -55,6 +56,7 @@ struct ONEQ_API EosOutputDebugView {
   bool has_validation_error{false};               /**< 是否存在 error 级输入问题 */
   session::EosPipelineAbortReason abort_reason{session::EosPipelineAbortReason::kNone}; /**< 当前周期终止原因 */
   std::vector<EosDebugTargetState> targets{};     /**< 各输入目标的调试状态列表 */
+  session::EosDiagnosticIssueList diagnostics{}; /**< 细粒度诊断条目 */
 };
 
 /**

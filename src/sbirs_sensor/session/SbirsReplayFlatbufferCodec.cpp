@@ -370,6 +370,14 @@ std::string EncodeSbirsCycleResult(const SbirsCycleResult& value) {
     attributions.push_back(builder.Finish());
   }
 
+  std::vector<flatbuffers::Offset<sbirs::replay::SbirsDiagnosticIssue>> fb_diagnostics;
+  fb_diagnostics.reserve(value.diagnostics.size());
+  for (const SbirsDiagnosticIssue& diag : value.diagnostics) {
+    fb_diagnostics.push_back(sbirs::replay::CreateSbirsDiagnosticIssue(
+        fbb, static_cast<std::int32_t>(diag.severity), fbb.CreateString(diag.code),
+        fbb.CreateString(diag.message)));
+  }
+
   std::vector<flatbuffers::Offset<sbirs::replay::ValidationIssue>> issues;
   issues.reserve(value.validation_issues.size());
   for (const ValidationIssue& issue : value.validation_issues) {
@@ -386,7 +394,8 @@ std::string EncodeSbirsCycleResult(const SbirsCycleResult& value) {
   fbb.Finish(sbirs::replay::CreateSbirsCycleResult(
       fbb, value.input_cycle_index, frame, fbb.CreateVector(attributions), fbb.CreateVector(issues),
       value.has_validation_error, value.executed_this_cycle,
-      static_cast<std::int32_t>(value.abort_reason)));
+      static_cast<std::int32_t>(value.abort_reason),
+      static_cast<std::uint8_t>(value.status), fbb.CreateVector(fb_diagnostics)));
   return oneq::common::replay::CopyFinishedFlatbuffer(fbb);
 }
 
@@ -400,7 +409,9 @@ bool DecodeSbirsCycleResult(const std::string& bytes, SbirsCycleResult* out) {
   const std::int32_t abort_reason = fb->abort_reason();
   if (abort_reason != static_cast<std::int32_t>(SbirsPipelineAbortReason::kNone) &&
       abort_reason !=
-          static_cast<std::int32_t>(SbirsPipelineAbortReason::kValidationRejected)) {
+          static_cast<std::int32_t>(SbirsPipelineAbortReason::kValidationRejected) &&
+      abort_reason !=
+          static_cast<std::int32_t>(SbirsPipelineAbortReason::kSensorPoweredOff)) {
     return false;
   }
   SbirsCycleResult decoded;
@@ -454,9 +465,19 @@ bool DecodeSbirsCycleResult(const std::string& bytes, SbirsCycleResult* out) {
       decoded.validation_issues.push_back(item);
     }
   }
+  if (fb->diagnostics() != nullptr) {
+    for (const sbirs::replay::SbirsDiagnosticIssue* issue : *fb->diagnostics()) {
+      SbirsDiagnosticIssue diag;
+      diag.severity = static_cast<SbirsDiagnosticSeverity>(issue->severity());
+      diag.code = issue->code() ? issue->code()->str() : std::string();
+      diag.message = issue->message() ? issue->message()->str() : std::string();
+      decoded.diagnostics.push_back(diag);
+    }
+  }
   decoded.has_validation_error = fb->has_validation_error();
   decoded.executed_this_cycle = fb->executed_this_cycle();
   decoded.abort_reason = static_cast<SbirsPipelineAbortReason>(abort_reason);
+  decoded.status = static_cast<SbirsCycleStatus>(fb->status());
   *out = decoded;
   return true;
 }

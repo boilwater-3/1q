@@ -6,6 +6,7 @@
 #include <memory>
 
 #include "1q/airborne_radar/session/ArControlProfile.h"
+#include "airborne_radar/session/ArDiagnosticUtils.h"
 #include "1q/airborne_radar/session/ArTrackOutput.h"
 #include "airborne_radar/decision/ControlReducer.h"
 #include "airborne_radar/decision/TacticalCoordinator.h"
@@ -83,7 +84,6 @@ struct ArController::Impl {
   oneq::common::runtime::RuntimeCycleState<session::TrackOutputFrame, session::ValidationIssueList>
       cycle_state{};
   bool last_cycle_executed{false};
-  bool last_cycle_reused_previous_output{false};
   session::SignalCycleAbortReason last_signal_abort_reason{session::SignalCycleAbortReason::kNone};
 
   bool has_pending_internal_decision{false};
@@ -117,7 +117,6 @@ struct ArController::Impl {
   /** @brief 重置每周期可变标志位。 */
   void ResetPerCycleFlags(bool preserve_prepared_control_attribution) {
     last_cycle_executed = false;
-    last_cycle_reused_previous_output = false;
     last_signal_abort_reason = session::SignalCycleAbortReason::kNone;
     if (!preserve_prepared_control_attribution) {
       last_applied_decision_source = session::DecisionControlSource::kNone;
@@ -250,7 +249,6 @@ void ArController::RunOnce(const signal::pipeline::SignalCycleInput& cycle_input
 
   if (session::HasValidationError(issues)) {
     impl_->last_signal_abort_reason = session::SignalCycleAbortReason::kValidationRejected;
-    impl_->last_cycle_reused_previous_output = impl_->cycle_state.has_latest_output;
     return;
   }
 
@@ -278,7 +276,6 @@ void ArController::RunOnce(const signal::pipeline::SignalCycleInput& cycle_input
   impl_->last_signal_abort_reason = signal_result.abort_reason;
 
   if (!impl_->last_cycle_executed) {
-    impl_->last_cycle_reused_previous_output = impl_->cycle_state.has_latest_output;
     return;
   }
 
@@ -320,7 +317,6 @@ void ArController::RunOnce(const signal::pipeline::SignalCycleInput& cycle_input
 
   impl_->cycle_state.latest_output = track_output_frame;
   impl_->cycle_state.has_latest_output = true;
-  impl_->last_cycle_reused_previous_output = false;
   ++impl_->cycle_state.next_batch_id;
 }
 
@@ -371,10 +367,6 @@ bool ArController::HasValidationError() const {
 
 bool ArController::ExecutedLatestCycle() const { return impl_->last_cycle_executed; }
 
-bool ArController::ReusedPreviousTrackOutputLatestCycle() const {
-  return impl_->last_cycle_reused_previous_output;
-}
-
 session::SignalCycleAbortReason ArController::GetLastSignalCycleAbortReason() const {
   return impl_->last_signal_abort_reason;
 }
@@ -423,13 +415,12 @@ const std::vector<session::TacticalProposal>& ArController::GetLastAppliedDecisi
 extension::ArControllerRuntimeState ArController::CaptureRuntimeState() const {
   extension::ArControllerRuntimeState state;
   state.owner_identity = this;
-  state.schema_version = 5U;
+  state.schema_version = 6U;
   state.latest_output = impl_->cycle_state.latest_output;
   state.has_latest_output = impl_->cycle_state.has_latest_output;
   state.last_validation_issues = impl_->cycle_state.last_validation_issues;
   state.next_batch_id = impl_->cycle_state.next_batch_id;
   state.last_cycle_executed = impl_->last_cycle_executed;
-  state.last_cycle_reused_previous_output = impl_->last_cycle_reused_previous_output;
   state.last_signal_abort_reason = impl_->last_signal_abort_reason;
   state.control_profile = impl_->control_profile;
   state.control_reducer_config = impl_->owned_decision_components.control_reducer->GetConfig();
@@ -451,7 +442,7 @@ extension::ArControllerRuntimeState ArController::CaptureRuntimeState() const {
 }
 
 bool ArController::RestoreRuntimeState(const extension::ArControllerRuntimeState& state) {
-  if (state.owner_identity != this || state.schema_version != 5U) {
+  if (state.owner_identity != this || state.schema_version != 6U) {
     PROJECT_LOG_ERROR(
         "[ArController] controller runtime state restore rejected: "
         "owner/schema mismatch.");
@@ -462,7 +453,6 @@ bool ArController::RestoreRuntimeState(const extension::ArControllerRuntimeState
   impl_->cycle_state.last_validation_issues = state.last_validation_issues;
   impl_->cycle_state.next_batch_id = state.next_batch_id;
   impl_->last_cycle_executed = state.last_cycle_executed;
-  impl_->last_cycle_reused_previous_output = state.last_cycle_reused_previous_output;
   impl_->last_signal_abort_reason = state.last_signal_abort_reason;
   impl_->control_profile = state.control_profile;
   impl_->owned_decision_components.control_reducer->UpdateConfig(state.control_reducer_config);

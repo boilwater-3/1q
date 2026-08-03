@@ -148,7 +148,8 @@ bool SarProcessingPipeline::RunCycle(const config::SarSessionConfig& config,
   signal::LfmWaveform waveform;
   signal::ComplexVector matched_filter;
   if (!session::BuildWaveformAndFilter(config, &waveform, &matched_filter)) {
-    session::RecordAbort(result, "waveform_generation_failed",
+    session::RecordAbort(result, session::SarPipelineAbortReason::kPipelineExecutionFailed,
+                         "waveform_generation_failed",
                          "SAR failed to generate LFM waveform.");
     return false;
   }
@@ -180,7 +181,8 @@ bool SarProcessingPipeline::RunCycle(const config::SarSessionConfig& config,
       }
       session::MarkRawEchoStage(&result->output_frame, estimated_snr_db);
       if (std::isfinite(estimated_snr_db) && estimated_snr_db < config.policy.minimum_snr_db) {
-        session::RecordAbort(result, "snr_below_minimum",
+        session::RecordAbort(result, session::SarPipelineAbortReason::kPipelineExecutionFailed,
+                             "snr_below_minimum",
                              "SAR estimated SNR is below the configured minimum valid SNR.");
         return false;
       }
@@ -194,7 +196,8 @@ bool SarProcessingPipeline::RunCycle(const config::SarSessionConfig& config,
     const double maximum_squint_angle_deg = ResolveMaximumSquintAngleDeg(
         config.mission, input, raw_history, impl_->actual_trajectory_buffer);
     if (maximum_squint_angle_deg > config.policy.max_allowed_squint_angle_deg) {
-      session::RecordAbort(result, "squint_angle_exceeds_limit",
+      session::RecordAbort(result, session::SarPipelineAbortReason::kPipelineExecutionFailed,
+                           "squint_angle_exceeds_limit",
                            "SAR aperture squint angle exceeds the configured imaging limit.");
       return false;
     }
@@ -217,7 +220,8 @@ bool SarProcessingPipeline::RunCycle(const config::SarSessionConfig& config,
 
   if (HasDegenerateImagePeak(*result, input)) {
     session::RecordAbort(
-        result, "degenerate_image_peak",
+        result, session::SarPipelineAbortReason::kPipelineExecutionFailed,
+        "degenerate_image_peak",
         "SAR focused image has zero peak power; the echo/focusing pipeline produced no "
         "signal. Check sar.raw_echo_clipping and sar.slant_range_mismatch diagnostics.");
     return false;
@@ -228,6 +232,7 @@ bool SarProcessingPipeline::RunCycle(const config::SarSessionConfig& config,
   }
 
   result->executed_this_cycle = true;
+  result->status = session::SarCycleStatus::kCompleted;
   return true;
 }
 

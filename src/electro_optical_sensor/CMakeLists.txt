@@ -30,6 +30,7 @@ set(EOS_CORE_SOURCES
     session/EosSession.cpp
     session/EosTraceSession.cpp
     session/EosReplaySession.cpp
+    session/EosDiagnosticUtils.cpp
     session/EosReplayFlatbufferCodec.cpp
 )
 

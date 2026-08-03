@@ -331,7 +331,9 @@ ScenarioSummary RunScenario(const SbirsCase& scenario, const std::string& output
 
     if (scenario.sequence) {
       const std::size_t expected_nonexecuted =
-          scenario.scenario_id == "sbirs_seq_invalid_input_recovery" ? 2U : 0U;
+          scenario.scenario_id == "sbirs_seq_invalid_input_recovery"
+              ? 2U
+              : scenario.scenario_id == "sbirs_seq_standby_mission_retask" ? 4U : 0U;
       summary.expected_failure_count = expected_nonexecuted;
       checks.Add(scenario.scenario_id, "recovery", cycle_count, "expected_nonexecuted_cycles",
                  std::to_string(expected_nonexecuted), std::to_string(nonexecuted_count),

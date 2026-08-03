@@ -3,6 +3,7 @@
 #include <cstdlib>
 #include <utility>
 
+#include "1q/electro_optical_sensor/session/EosDetectionLifecycleRecorder.h"
 #include "electro_optical_sensor/runtime/EosController.h"
 #include "common/logging/ProjectLog.h"
 #include "electro_optical_sensor/runtime/EosRuntimeConfigResolver.h"
@@ -44,6 +45,7 @@ struct EosSession::Impl {
   std::unique_ptr<extension::EosController> owned_controller;
   extension::EosController& controller;
   config::execution::EosInternalExecutionConfig internal_config_;
+  EosDetectionLifecycleRecorder* lifecycle_recorder{nullptr};
 };
 
 EosSession::EosSession(std::unique_ptr<Impl> impl) : impl_(std::move(impl)) {}
@@ -70,14 +72,21 @@ EosSession EosSession::CreateWithDiagnostics(const config::EosSessionConfig& con
 }
 
 session::EosOutputFrame EosSession::Step(const EosCycleInput& input) {
-  impl_->controller.RunOnce(input);
-  return impl_->controller.BuildCycleResult(input).output_frame;
+  return StepWithResult(input).output_frame;
 }
 
 ::electro_optical_sensor::session::EosCycleResult EosSession::StepWithResult(
     const EosCycleInput& input) {
   impl_->controller.RunOnce(input);
-  return impl_->controller.BuildCycleResult(input);
+  EosCycleResult result = impl_->controller.BuildCycleResult(input);
+  if (impl_->lifecycle_recorder != nullptr) {
+    impl_->lifecycle_recorder->Update(input, result);
+  }
+  return result;
+}
+
+void EosSession::AttachDetectionLifecycleRecorder(EosDetectionLifecycleRecorder* recorder) noexcept {
+  impl_->lifecycle_recorder = recorder;
 }
 
 bool EosSession::TryApplyRuntimeConfig(const config::EosRuntimeConfigPatch& patch) {

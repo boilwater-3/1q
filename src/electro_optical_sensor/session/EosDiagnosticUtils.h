@@ -1,0 +1,30 @@
+/**
+ * @file EosDiagnosticUtils.h
+ * @brief EOS 单周期诊断条目构造与中止记录工具函数。
+ */
+
+#ifndef ONEQ_SRC_ELECTRO_OPTICAL_SENSOR_SESSION_EOS_DIAGNOSTIC_UTILS_H_
+#define ONEQ_SRC_ELECTRO_OPTICAL_SENSOR_SESSION_EOS_DIAGNOSTIC_UTILS_H_
+
+#include <string>
+
+#include "1q/electro_optical_sensor/session/EosCycleResult.h"
+
+namespace electro_optical_sensor {
+namespace session {
+
+/**
+ * @brief 将 EosPipelineAbortReason 粗粒度枚举转换为诊断码字符串。
+ */
+const char* AbortReasonToDiagnosticCode(EosPipelineAbortReason reason);
+
+/**
+ * @brief 将本周期标记为中止（三写：abort_reason + diagnostics + 日志）。
+ */
+void RecordAbort(EosCycleResult* result, EosPipelineAbortReason reason,
+                 const char* detail_code, const std::string& message, bool is_validation);
+
+}  // namespace session
+}  // namespace electro_optical_sensor
+
+#endif  // ONEQ_SRC_ELECTRO_OPTICAL_SENSOR_SESSION_EOS_DIAGNOSTIC_UTILS_H_

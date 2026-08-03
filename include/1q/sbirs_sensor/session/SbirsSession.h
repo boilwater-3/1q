@@ -19,6 +19,8 @@
 namespace sbirs_sensor {
 namespace session {
 
+class SbirsDetectionLifecycleRecorder;
+
 /**
  * @brief SBIRS-inspired 会话门面，是外部调用方的主要使用面。
  * @note 该类不可拷贝但可移动，内部持有实现 (PIMPL)。实例本身非线程安全；
@@ -53,6 +55,17 @@ class ONEQ_API SbirsSession {
    * @return patch 有效且产生更新返回 true；patch 无效或无可更新项返回 false
    */
   bool TryApplyRuntimeConfig(const config::SbirsRuntimeConfigPatch& patch);
+
+  /**
+   * @brief 注册探测生命周期记录器，由 Session 在每个周期自动驱动。
+   *
+   * 注册后，`StepWithResult()` 和 `Step()` 内部在 CycleResult 构建完成后自动调用
+   * `recorder->Update()`，调用方无需手动调用。本周期产生的生命周期事件可通过
+   * `recorder->GetLastEvents()` 获取。
+   * @param[in] recorder 记录器指针；传入 `nullptr` 解除注册。
+   * @note Session 不拥有 recorder，调用方须保证 recorder 生命周期长于 Session 的注册期。
+   */
+  void AttachDetectionLifecycleRecorder(SbirsDetectionLifecycleRecorder* recorder) noexcept;
 
   /** @brief 使用四域配置创建会话（推荐入口，信任路径，不做配置校验）。 */
   static SbirsSession Create(const config::SbirsSessionConfig& config = {});

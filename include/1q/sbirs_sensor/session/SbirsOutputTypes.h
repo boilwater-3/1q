@@ -99,10 +99,45 @@ using SbirsDetectionAttributionRecordList = std::vector<SbirsDetectionAttributio
 
 namespace session {
 
-/** @brief 单周期执行的中止原因：无或输入校验拒绝。 */
+/**
+ * @brief SBIRS 诊断等级。
+ */
+enum class ONEQ_API SbirsDiagnosticSeverity : std::uint8_t {
+  kInfo = 0,    /**< 信息 */
+  kWarning = 1, /**< 警告 */
+  kError = 2    /**< 错误 */
+};
+
+/**
+ * @brief SBIRS 诊断条目。
+ * @note 承载细粒度失败信息（如 "sbirs.validation_rejected"），不用于调用方状态判断。
+ */
+struct ONEQ_API SbirsDiagnosticIssue {
+  SbirsDiagnosticSeverity severity{SbirsDiagnosticSeverity::kInfo};
+  std::string code{};
+  std::string message{};
+};
+
+/** @brief SBIRS 诊断条目列表。 */
+using SbirsDiagnosticIssueList = std::vector<SbirsDiagnosticIssue>;
+
+/** @brief 单周期执行的中止原因。 */
 enum class ONEQ_API SbirsPipelineAbortReason {
-  kNone = 0,           /**< 正常执行，无中止 */
-  kValidationRejected /**< 输入校验拒绝 */
+  kNone = 0,             /**< 正常执行，无中止 */
+  kValidationRejected,   /**< 输入校验拒绝 */
+  kSensorPoweredOff      /**< 设备关机或待机，核心 pipeline 未执行 */
+};
+
+/**
+ * @brief SbirsCycleStatus 描述单周期高层执行状态。
+ * @note 与 ArCycleStatus / EsrCycleExecutionStatus / EosCycleStatus 对齐的强类型枚举。
+ *       `executed_this_cycle` 保留为 `status == kCompleted` 的便捷访问器。
+ */
+enum class ONEQ_API SbirsCycleStatus : std::uint8_t {
+  kCompleted = 0,           /**< 周期正常完成 */
+  kPoweredOff,              /**< 设备关机或待机，核心 pipeline 未执行 */
+  kRejectedInvalidInput,    /**< 输入校验失败 */
+  kRejectedExecution        /**< 执行失败 */
 };
 
 }  // namespace session

@@ -76,7 +76,7 @@ TEST(SarSessionConfigBuilderTest, ProcessingConstantsL3HasNoL1L2Conflict) {
   session::SarCycleResult result;
   EXPECT_TRUE(session::ValidateRuntimeConfigForStep(
       config, /*has_external_raw_iq=*/true, &result))
-      << result.abort_reason;
+      << static_cast<int>(result.abort_reason);
 }
 
 TEST(SarSessionConfigBuilderTest, DirectConfigOwnsSceneCenterFields) {

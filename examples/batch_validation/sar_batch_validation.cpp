@@ -277,7 +277,7 @@ struct CycleMetrics {
   std::uint32_t cycle_index{0};
   bool executed{false};
   bool has_error{false};
-  std::string abort_reason;
+  int abort_reason{0};
   int completed_stage{0};
   bool has_raw_echo{false};
   bool has_rc_echo{false};
@@ -306,7 +306,7 @@ CycleMetrics ExtractCycleMetrics(const sar_session::SarCycleResult& r) {
   m.cycle_index = r.input_cycle_index;
   m.executed = r.executed_this_cycle;
   m.has_error = r.has_error;
-  m.abort_reason = r.abort_reason;
+  m.abort_reason = static_cast<int>(r.abort_reason);
   const auto& f = r.output_frame;
   m.completed_stage = static_cast<int>(f.completed_stage);
   m.has_raw_echo = f.has_raw_echo;
@@ -343,7 +343,7 @@ struct ScenarioSummary {
   std::uint32_t azimuth_pulses{0};
   bool executed{false};
   bool has_error{false};
-  std::string abort_reason;
+  int abort_reason{0};
   std::size_t diagnostic_warning_count{0};
   std::size_t diagnostic_error_count{0};
   bool replay_ok{false};
@@ -428,12 +428,12 @@ ScenarioSummary RunSarScenario(const SarCase& c, const sar_config::SarSessionCon
       metrics.push_back(m);
 
       std::fprintf(cycle_writer.file(),
-                 "%s,%s,%s,%s,%u,%d,%d,%s,%d,%d,%d,%d,%d,%.5f,%.3f,%u,%u,%.5f,%.5f,%.5f,"
+                 "%s,%s,%s,%s,%u,%d,%d,%d,%d,%d,%d,%d,%d,%.5f,%.3f,%u,%u,%.5f,%.5f,%.5f,"
                  "%.5f,%.5f,%.5f,%d,%d,%zu,%zu,%u,%u\n",
                  c.scenario_id.c_str(), c.sequence ? "sequence" : "sweep", c.family.c_str(),
                  phase, m.cycle_index, static_cast<int>(m.executed),
                  static_cast<int>(m.has_error),
-                 batch_validation::EscapeCsvField(m.abort_reason).c_str(), m.completed_stage,
+                 m.abort_reason, m.completed_stage,
                  static_cast<int>(m.has_raw_echo), static_cast<int>(m.has_rc_echo),
                  static_cast<int>(m.has_l1), static_cast<int>(m.has_l3), m.snr_db,
                  m.center_slant_range_m, m.range_samples, m.azimuth_pulses, m.image_entropy,
@@ -491,7 +491,7 @@ ScenarioSummary RunSarScenario(const SarCase& c, const sar_config::SarSessionCon
                std::to_string(expected_markers), std::to_string(s.failure_marker_count),
                expected_markers == s.failure_marker_count);
     checks.Add(c.scenario_id, "recovery", cycle_count, "recovery_produces_image", "executed",
-               metrics.back().executed ? "executed" : metrics.back().abort_reason,
+               metrics.back().executed ? "executed" : std::to_string(metrics.back().abort_reason),
                metrics.back().executed);
     if (c.scenario_id == "sar_seq_invalid_runtime_atomic") {
       checks.Add(c.scenario_id, "interruption", 2U, "invalid_runtime_atomic_rejection", "rejected",
@@ -638,14 +638,14 @@ int main(int argc, char** argv) {
     std::fprintf(stderr,
                  "  [scenario] module=SAR id=%s bandwidth_mhz=%.3f slant_range_km=%.3f "
                  "azimuth_pulses=%u executed=%d/%u stage=%d snr_db=%.5f range_res_m=%.5f "
-                 "az_res_m=%.5f entropy=%.5f contrast=%.5f iqm=%d has_error=%d abort_reason=%s "
+                 "az_res_m=%.5f entropy=%.5f contrast=%.5f iqm=%d has_error=%d abort_reason=%d "
                  "diag_warn=%zu diag_error=%zu replay_ok=%d compared=%llu divergence=%d "
                  "warn=%zu error=%zu\n",
                  s.scenario_id.c_str(), s.bandwidth_mhz, s.slant_range_km, s.azimuth_pulses,
                  static_cast<int>(s.executed), s.suite == "sequence" ? 5U : 1U,
                  s.completed_stage, s.snr_db, s.range_res_m,
                  s.az_res_m, s.image_entropy, s.image_contrast, static_cast<int>(s.has_iqm),
-                 static_cast<int>(s.has_error), s.abort_reason.empty() ? "none" : s.abort_reason.c_str(),
+                 static_cast<int>(s.has_error), s.abort_reason,
                  s.diagnostic_warning_count, s.diagnostic_error_count,
                  static_cast<int>(s.replay_ok),
                  static_cast<unsigned long long>(s.replay_compared),

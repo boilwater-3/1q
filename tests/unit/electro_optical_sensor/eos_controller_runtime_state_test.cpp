@@ -59,7 +59,11 @@ TEST(EosControllerRuntimeStateTest, RestoreRejectsIncompatiblePipelineSnapshot) 
   controller_b.RunOnce(MakeValidInput(30U));
 
   EosControllerRuntimeState foreign_state = controller_b.CaptureRuntimeState();
-  controller_a.RestoreRuntimeState(foreign_state);
+  EXPECT_FALSE(controller_a.RestoreRuntimeState(foreign_state));
+  // 拒绝恢复后，controller_a 状态保持不变。
+  EXPECT_TRUE(controller_a.ExecutedLatestCycle());
+  const auto result = controller_a.BuildCycleResult(MakeValidInput(20U));
+  EXPECT_EQ(result.output_frame.cycle_index, 20U);
 }
 
 TEST(EosControllerRuntimeStateTest, RestoreRejectsSnapshotFromOtherControllerInstance) {
@@ -71,7 +75,11 @@ TEST(EosControllerRuntimeStateTest, RestoreRejectsSnapshotFromOtherControllerIns
   controller_b.RunOnce(MakeValidInput(31U));
 
   const EosControllerRuntimeState foreign_state = controller_b.CaptureRuntimeState();
-  controller_a.RestoreRuntimeState(foreign_state);
+  EXPECT_FALSE(controller_a.RestoreRuntimeState(foreign_state));
+  // 拒绝恢复后，controller_a 状态保持不变。
+  EXPECT_TRUE(controller_a.ExecutedLatestCycle());
+  const auto result = controller_a.BuildCycleResult(MakeValidInput(21U));
+  EXPECT_EQ(result.output_frame.cycle_index, 21U);
 }
 
 TEST(EosControllerRuntimeStateTest, ValidationRejectSetsAbortReasonAndReturnsDefaultFrame) {

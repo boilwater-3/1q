@@ -373,6 +373,8 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
     return result;
   }
 
+  result.executed = true;
+
   const SbirsPointingDisturbanceParameters disturbance_parameters =
       DisturbanceParameters(policy.pointing_disturbance);
   if (!pointing_coordinator_.AdvanceDisturbance(static_cast<double>(input.dt_sec),

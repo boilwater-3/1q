@@ -73,6 +73,12 @@ table ValidationIssue {
   message: string;
 }
 
+table SbirsDiagnosticIssue {
+  severity: int32;
+  code: string;
+  message: string;
+}
+
 table SbirsCycleResult {
   input_cycle_index: uint32;
   output_frame: SbirsOutputFrame;
@@ -81,6 +87,8 @@ table SbirsCycleResult {
   has_validation_error: bool;
   executed_this_cycle: bool;
   abort_reason: int32;
+  status: uint8;
+  diagnostics: [SbirsDiagnosticIssue];
 }
 
 table FailureMarker {

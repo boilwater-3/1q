@@ -132,7 +132,7 @@ sequenceDiagram
   Controller->>Validator: ValidateEosCycleInput(input, frame_rate_hz)\n校验步长 / 平台 / 环境 / 目标
   alt invalid input / 输入无效
     Validator-->>Controller: issues\n错误列表
-    Controller-->>Session: EosCycleResult with reused output\n直接组装校验状态与最近有效输出
+    Controller-->>Session: EosCycleResult（默认空帧，不复用）\n组装校验状态与默认输出帧
   else valid input / 输入有效
     Controller->>Pipeline: Execute(input)\n进入探测流水线
     Pipeline->>Env: ResolveFactors(environment input)\n解析环境因子

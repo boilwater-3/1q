@@ -268,7 +268,7 @@ TEST(SarReplayCodecRoundtripTest, CycleResultDecodeFailureDoesNotModifyOutput) {
   output.focused_image.real_values.push_back(123.0);
   output.focused_image.imaginary_values.push_back(-456.0);
   output.has_error = true;
-  output.abort_reason = "sentinel";
+  output.abort_reason = SarPipelineAbortReason::kPipelineExecutionFailed;
 
   SarCycleResult malformed;
   malformed.input_cycle_index = 9U;
@@ -284,7 +284,7 @@ TEST(SarReplayCodecRoundtripTest, CycleResultDecodeFailureDoesNotModifyOutput) {
   EXPECT_EQ(output.focused_image.real_values, std::vector<double>({123.0}));
   EXPECT_EQ(output.focused_image.imaginary_values, std::vector<double>({-456.0}));
   EXPECT_TRUE(output.has_error);
-  EXPECT_EQ(output.abort_reason, "sentinel");
+  EXPECT_EQ(output.abort_reason, SarPipelineAbortReason::kPipelineExecutionFailed);
 }
 
 TEST(SarReplayCodecRoundtripTest, SessionConfigPreservesAllDomains) {

@@ -1,6 +1,7 @@
 #include "sbirs_sensor/runtime/SbirsController.h"
 
 #include "1q/sbirs_sensor/session/SbirsInputValidation.h"
+#include "sbirs_sensor/session/SbirsDiagnosticUtils.h"
 
 namespace sbirs_sensor {
 namespace runtime {
@@ -19,11 +20,25 @@ session::SbirsCycleResult SbirsController::RunOnce(const session::SbirsCycleInpu
   result.validation_issues = session::ValidateSbirsCycleInput(input, frame_rate_hz_);
   result.has_validation_error = session::HasValidationError(result.validation_issues);
   if (result.has_validation_error) {
-    result.abort_reason = session::SbirsPipelineAbortReason::kValidationRejected;
+    session::RecordAbort(&result, session::SbirsPipelineAbortReason::kValidationRejected,
+                         "input_validation", "SBIRS input validation failed.",
+                         /*is_validation=*/true);
     return result;
   }
 
   const pipeline::SbirsPipelineResult pipeline_result = pipeline_.RunCycle(input);
+
+  if (!pipeline_result.executed) {
+    session::RecordAbort(&result, session::SbirsPipelineAbortReason::kSensorPoweredOff,
+                         "sensor_powered_off", "SBIRS sensor is powered off or in standby mode.",
+                         /*is_validation=*/false);
+    result.executed_this_cycle = false;
+    result.status = session::SbirsCycleStatus::kPoweredOff;
+    result.output_frame.cycle_index = input.cycle_index;
+    result.output_frame.scan_azimuth_deg = pipeline_result.scan_azimuth_deg;
+    return result;
+  }
+
   result.output_frame.cycle_index = input.cycle_index;
   result.output_frame.scan_azimuth_deg = pipeline_result.scan_azimuth_deg;
   // raw output 仅进 detected==true 的 record；失败诊断 attribution 仍保留进 result 层。
@@ -35,6 +50,7 @@ session::SbirsCycleResult SbirsController::RunOnce(const session::SbirsCycleInpu
     result.output_frame.detections.push_back(detection.record);
   }
   result.executed_this_cycle = true;
+  result.status = session::SbirsCycleStatus::kCompleted;
   result.abort_reason = session::SbirsPipelineAbortReason::kNone;
   return result;
 }

@@ -38,7 +38,7 @@ bool ValidateRuntimeConfigForStep(const config::SarSessionConfig& config,
                                   bool has_external_raw_iq,
                                   SarCycleResult* result) {
   if (!session::AreSarHardwareAndMissionFieldsValid(config)) {
-    RecordAbort(result, "invalid_config", "SAR runtime config contains invalid hardware/mission fields.");
+    RecordValidationAbort(result, SarPipelineAbortReason::kValidationRejected, "invalid_config", "SAR runtime config contains invalid hardware/mission fields.");
     return false;
   }
 
@@ -47,7 +47,8 @@ bool ValidateRuntimeConfigForStep(const config::SarSessionConfig& config,
     const std::size_t waveform_samples = static_cast<std::size_t>(
         std::ceil(config.hardware.pulse_width_s * config.hardware.sample_rate_hz));
     if (waveform_samples > config.mission.range_sample_count) {
-      RecordAbort(result, "sample_window_too_small_for_pulse",
+      RecordValidationAbort(result, SarPipelineAbortReason::kValidationRejected,
+                  "sample_window_too_small_for_pulse",
                   "SAR range sample window (" + std::to_string(config.mission.range_sample_count) +
                       " samples) cannot hold the full LFM pulse (" +
                       std::to_string(waveform_samples) +
@@ -61,14 +62,16 @@ bool ValidateRuntimeConfigForStep(const config::SarSessionConfig& config,
       imaging::ExceedsFocusingSizeLimit(config.mission.range_sample_count,
                                         config.mission.azimuth_pulse_count,
                                         imaging::kFocusingRdaSizeLimit)) {
-    RecordAbort(result, "rda_size_gate",
+    RecordValidationAbort(result, SarPipelineAbortReason::kValidationRejected,
+                "rda_size_gate",
                 "SAR session RDA size exceeds current Phase 1 runtime gate; use smaller "
                 "validation scenes until performance approval.");
     return false;
   }
   if (config.policy.enable_l1_rda_imaging &&
       !config.policy.enable_raw_echo_generation) {
-    RecordAbort(result, "rda_requires_raw_echo",
+    RecordValidationAbort(result, SarPipelineAbortReason::kValidationRejected,
+                "rda_requires_raw_echo",
                 "SAR session RDA requires raw echo generation.");
     return false;
   }
@@ -77,7 +80,8 @@ bool ValidateRuntimeConfigForStep(const config::SarSessionConfig& config,
        config.mission.l2_velocity_error_stddev_x_mps < 0.0 ||
        config.mission.l2_velocity_error_stddev_y_mps < 0.0 ||
        config.mission.l2_velocity_error_stddev_z_mps < 0.0)) {
-    RecordAbort(result, "invalid_l2_motion_compensation_config",
+    RecordValidationAbort(result, SarPipelineAbortReason::kValidationRejected,
+                "invalid_l2_motion_compensation_config",
                 "SAR L2 motion compensation requires raw echo, RDA, and non-negative velocity "
                 "errors.");
     return false;
@@ -86,7 +90,8 @@ bool ValidateRuntimeConfigForStep(const config::SarSessionConfig& config,
       (!config.policy.enable_raw_echo_generation ||
        config.policy.enable_l1_rda_imaging || config.policy.enable_l2_motion_compensation ||
        (!has_external_raw_iq && !HasValidL3Waypoints(config.mission)))) {
-    RecordAbort(result, "invalid_l3_bp_config",
+    RecordValidationAbort(result, SarPipelineAbortReason::kValidationRejected,
+                "invalid_l3_bp_config",
                 "SAR L3 BP requires raw echo, valid waypoints, and no L1/L2 path.");
     return false;
   }
@@ -94,7 +99,8 @@ bool ValidateRuntimeConfigForStep(const config::SarSessionConfig& config,
       imaging::ExceedsFocusingSizeLimit(config.mission.range_sample_count,
                                         config.mission.azimuth_pulse_count,
                                         imaging::kFocusingBackprojectionSizeLimit)) {
-    RecordAbort(result, "l3_bp_size_gate",
+    RecordValidationAbort(result, SarPipelineAbortReason::kValidationRejected,
+                "l3_bp_size_gate",
                 "SAR L3 BP size exceeds the approved 128x128 runtime gate.");
     return false;
   }

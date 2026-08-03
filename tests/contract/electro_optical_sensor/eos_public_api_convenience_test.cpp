@@ -438,6 +438,11 @@ TEST(EosPublicApiConvenienceTest, EosSessionReportsPoweredOffWithoutContractViol
   EXPECT_FALSE(powered_off.executed_this_cycle);
   EXPECT_EQ(powered_off.abort_reason, session::EosPipelineAbortReason::kSensorPoweredOff);
   EXPECT_EQ(powered_off.output_frame.cycle_index, 0U);
+
+  // Step() 与 StepWithResult().output_frame 一致：关机路径双 API 契约。
+  const session::EosOutputFrame step_frame = session.Step(input);
+  EXPECT_EQ(step_frame.cycle_index, 0U);
+  EXPECT_EQ(step_frame.cycle_index, powered_off.output_frame.cycle_index);
 }
 
 TEST(EosPublicApiConvenienceTest, EosSessionMultiCycleProducesProgressiveCycleIndices) {

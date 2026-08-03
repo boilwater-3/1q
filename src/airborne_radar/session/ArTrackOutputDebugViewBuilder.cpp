@@ -67,6 +67,7 @@ ArTrackOutputDebugView ArTrackOutputDebugViewBuilder::Build(const ArTargetInputL
   view.output_cycle_index = result.track_output_frame.cycle_index;
   view.completed_this_cycle = result.status == ArCycleStatus::kCompleted;
   view.receiver_impairment = result.receiver_impairment;
+  view.diagnostics = result.diagnostics;
   view.tracks.reserve(targets.size());
   for (const ArTargetInput& target : targets) {
     view.tracks.push_back(BuildTrackState(target, result));

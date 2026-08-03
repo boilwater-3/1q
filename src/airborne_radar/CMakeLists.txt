@@ -62,6 +62,7 @@ set(AIRBORNE_CORE_SOURCES
     environment/SceneManager.cpp
     environment/PropagationModel.cpp
     session/ArReplayFlatbufferCodec.cpp
+    session/ArDiagnosticUtils.cpp
     session/ArTraceSession.cpp
 )
 

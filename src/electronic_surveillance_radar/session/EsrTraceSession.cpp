@@ -35,7 +35,8 @@ std::string BuildEsrOutputPayload(const EsrCycleResult& result) {
      << "\"observation_count\":" << frame.observation_output.observations.size() << ","
      << "\"cluster_count\":" << frame.observation_output.cluster_count << ","
      << "\"hypothesis_count\":" << frame.emitter_output.hypotheses.size() << ","
-     << "\"validation_error\":" << (result.has_validation_error ? "true" : "false")
+     << "\"validation_error\":" << (result.has_validation_error ? "true" : "false") << ","
+     << "\"diagnostic_count\":" << result.diagnostics.size()
      << "}";
   return os.str();
 }

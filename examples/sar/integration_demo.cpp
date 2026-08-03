@@ -214,8 +214,8 @@ const char* LifecycleEventKindName(
   switch (kind) {
     case sar::session::SarProductLifecycleEventKind::kImageProduced:
       return "ImageProduced";
-    case sar::session::SarProductLifecycleEventKind::kProductUpdated:
-      return "ProductUpdated";
+    case sar::session::SarProductLifecycleEventKind::kProductSustained:
+      return "ProductSustained";
     case sar::session::SarProductLifecycleEventKind::kProductLost:
       return "ProductLost";
     case sar::session::SarProductLifecycleEventKind::kProcessingFailed:
@@ -443,7 +443,7 @@ int main() {
     }
 
     if (result.has_error) {
-      std::cout << " abort=" << result.abort_reason;
+      std::cout << " abort=" << static_cast<int>(result.abort_reason);
     }
     std::cout << "\n";
 
@@ -527,7 +527,7 @@ int main() {
             << "  执行: " << (final_result.executed_this_cycle ? "Y" : "N")
             << " 错误: " << (final_result.has_error ? "Y" : "N") << "\n";
   if (final_result.has_error) {
-    std::cout << "  中止原因: " << final_result.abort_reason << "\n";
+    std::cout << "  中止原因: " << static_cast<int>(final_result.abort_reason) << "\n";
   }
 
   // 若有聚焦图像，打印峰值信息

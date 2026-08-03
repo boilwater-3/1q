@@ -71,7 +71,7 @@ bool HasDiagnosticWithSeverity(const session::SarCycleResult& result,
   return false;
 }
 
-bool HasAbortReason(const session::SarCycleResult& result, const std::string& reason) {
+bool HasAbortReason(const session::SarCycleResult& result, session::SarPipelineAbortReason reason) {
   return result.has_error && result.abort_reason == reason;
 }
 
@@ -88,7 +88,7 @@ TEST(SarDegenerateDiagnosticsTest, SampleWindowTooSmallForPulseAbortsAtConfigLay
                                                        &result);
 
   EXPECT_FALSE(ok);
-  EXPECT_TRUE(HasAbortReason(result, "sample_window_too_small_for_pulse"));
+  EXPECT_TRUE(HasAbortReason(result, session::SarPipelineAbortReason::kValidationRejected));
 }
 
 TEST(SarDegenerateDiagnosticsTest, SampleWindowExactlyFitsPulseDoesNotAbort) {
@@ -101,7 +101,7 @@ TEST(SarDegenerateDiagnosticsTest, SampleWindowExactlyFitsPulseDoesNotAbort) {
                                                        &result);
 
   EXPECT_TRUE(ok);
-  EXPECT_FALSE(HasAbortReason(result, "sample_window_too_small_for_pulse"));
+  EXPECT_FALSE(HasAbortReason(result, session::SarPipelineAbortReason::kValidationRejected));
 }
 
 TEST(SarDegenerateDiagnosticsTest, SampleWindowTooSmallRejectedByCreateWithDiagnostics) {
@@ -139,7 +139,7 @@ TEST(SarDegenerateDiagnosticsTest, RawEchoClippingProducesWarning) {
   const session::SarCycleResult result = session.StepWithResult(input);
 
   // clip 是 warning 不阻断，周期仍应执行。
-  EXPECT_FALSE(HasAbortReason(result, "sample_window_too_small_for_pulse"));
+  EXPECT_FALSE(HasAbortReason(result, session::SarPipelineAbortReason::kValidationRejected));
   EXPECT_TRUE(HasDiagnosticWithSeverity(result, session::SarDiagnosticSeverity::kWarning,
                                         "sar.raw_echo_clipping"));
 }
@@ -188,7 +188,7 @@ TEST(SarDegenerateDiagnosticsTest, DegenerateImagePeakAbortsCycle) {
   const session::SarCycleResult result = session.StepWithResult(input);
 
   // 全黑图应触发 degenerate_image_peak abort。
-  EXPECT_TRUE(HasAbortReason(result, "degenerate_image_peak"));
+  EXPECT_TRUE(HasAbortReason(result, session::SarPipelineAbortReason::kPipelineExecutionFailed));
   EXPECT_FALSE(result.executed_this_cycle);
 }
 
@@ -197,7 +197,7 @@ TEST(SarDegenerateDiagnosticsTest, HealthyImageDoesNotTripDegeneratePeakGate) {
   session::SarSession session = session::SarSession::Create(MakeBaselineRdaConfig());
   const session::SarCycleResult result = session.StepWithResult(MakeMatchingGeometryInput());
 
-  EXPECT_FALSE(HasAbortReason(result, "degenerate_image_peak"));
+  EXPECT_FALSE(HasAbortReason(result, session::SarPipelineAbortReason::kPipelineExecutionFailed));
   EXPECT_TRUE(result.executed_this_cycle);
   EXPECT_TRUE(result.output_frame.has_l1_image);
 }

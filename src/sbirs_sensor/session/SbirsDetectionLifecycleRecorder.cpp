@@ -132,6 +132,7 @@ void FillAttributionFields(const attribution::SbirsDetectionAttributionRecord& a
 struct SbirsDetectionLifecycleRecorder::Impl {
   SbirsDetectionLifecycleRecorderConfig config;
   std::unordered_map<std::uint64_t, TargetState> states;
+  std::vector<SbirsDetectionLifecycleEvent> last_events{};
 };
 
 SbirsDetectionLifecycleRecorder::SbirsDetectionLifecycleRecorder(
@@ -226,10 +227,19 @@ std::vector<SbirsDetectionLifecycleEvent> SbirsDetectionLifecycleRecorder::Updat
     }
   }
 
+  impl_->last_events = events;
   return events;
 }
 
-void SbirsDetectionLifecycleRecorder::Reset() { impl_->states.clear(); }
+void SbirsDetectionLifecycleRecorder::Reset() {
+  impl_->states.clear();
+  impl_->last_events.clear();
+}
+
+const std::vector<SbirsDetectionLifecycleEvent>& SbirsDetectionLifecycleRecorder::GetLastEvents()
+    const noexcept {
+  return impl_->last_events;
+}
 
 }  // namespace session
 }  // namespace sbirs_sensor

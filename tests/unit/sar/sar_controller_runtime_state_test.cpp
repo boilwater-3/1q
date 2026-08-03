@@ -96,7 +96,7 @@ TEST(SarControllerRuntimeStateTest, ValidationRejectReturnsEmptyOutputNotReused)
 
   EXPECT_FALSE(result.executed_this_cycle);
   EXPECT_TRUE(result.has_error);
-  EXPECT_EQ(result.abort_reason, "invalid_cycle_input");
+  EXPECT_EQ(result.abort_reason, session::SarPipelineAbortReason::kValidationRejected);
   EXPECT_EQ(result.output_frame.cycle_index, 0U);
 }
 
@@ -120,7 +120,7 @@ TEST(SarControllerRuntimeStateTest, PipelineAbortRestoresAllCrossCycleState) {
   const pipeline::SarProcessingPipelineRuntimeState after = pipeline.CaptureRuntimeState();
 
   ASSERT_FALSE(result.executed_this_cycle);
-  ASSERT_EQ(result.abort_reason, "snr_below_minimum");
+  ASSERT_EQ(result.abort_reason, session::SarPipelineAbortReason::kPipelineExecutionFailed);
   // Pipeline abort 后 output_frame 保留已初始化的元数据（cycle_index = input.cycle_index），
   // 区别于校验失败的默认空帧（cycle_index = 0）。
   EXPECT_EQ(result.output_frame.cycle_index, input.cycle_index);
@@ -166,7 +166,7 @@ TEST(SarControllerRuntimeStateTest, PlatformInputOwnsGeneratedTrajectoryKinemati
   first.platform.yaw_deg = 4.0;
   controller.RunOnce(first);
   const session::SarCycleResult first_result = controller.BuildCycleResult(first);
-  ASSERT_TRUE(first_result.executed_this_cycle) << first_result.abort_reason;
+  ASSERT_TRUE(first_result.executed_this_cycle) << static_cast<int>(first_result.abort_reason);
   const pipeline::SarProcessingPipelineRuntimeState first_state = pipeline.CaptureRuntimeState();
   ASSERT_FALSE(first_state.actual_trajectory_buffer.empty());
   const geometry::PlatformPulseState& first_pulse = first_state.actual_trajectory_buffer.front();
@@ -209,7 +209,7 @@ TEST(SarControllerRuntimeStateTest, ZeroPlatformVelocityMeansStationary) {
   input.platform.time_s = 12.0;
   controller.RunOnce(input);
   const session::SarCycleResult result = controller.BuildCycleResult(input);
-  ASSERT_TRUE(result.executed_this_cycle) << result.abort_reason;
+  ASSERT_TRUE(result.executed_this_cycle) << static_cast<int>(result.abort_reason);
 
   const pipeline::SarProcessingPipelineRuntimeState state = pipeline.CaptureRuntimeState();
   ASSERT_GE(state.actual_trajectory_buffer.size(), 2U);

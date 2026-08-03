@@ -29,7 +29,7 @@ namespace extension {
 struct EosControllerRuntimeState {
   const void* owner_identity{nullptr};       /**< 所有者实例身份（用于恢复时匹配原控制器） */
   std::uint32_t schema_version{0U};          /**< 快照结构版本号 */
-  session::EosOutputFrame latest_output{};   /**< 最近一帧有效输出（失败周期可能复用上一帧） */
+  session::EosOutputFrame latest_output{};   /**< 最近一帧有效输出（非执行周期返回默认空帧，不复用） */
   attribution::EosDetectionAttributionRecordList latest_detection_attributions{}; /**< 最近一帧归属映射 */
   session::ValidationIssueList last_validation_issues{}; /**< 最近一次输入校验问题列表 */
   bool has_latest_output{false};             /**< 是否已有可读取的最新输出帧 */

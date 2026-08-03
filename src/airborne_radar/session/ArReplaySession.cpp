@@ -154,6 +154,18 @@ oneq::replay::ReplayTraceOutputStatus OnCycleOutput(
     actual_output->clear();
     return oneq::replay::ReplayTraceOutputStatus::kHandledByModule;
   }
+  // Field-level diagnostics comparison for targeted error reporting.
+  if (expected.result.diagnostics.size() != actual.result.diagnostics.size()) {
+    *actual_output =
+        "{\"payload_type\":\"ArCycleReplayRecordV3\",\"actual_size\":" +
+        std::to_string(actual_payload.size()) +
+        ",\"expected_diagnostic_count\":" +
+        std::to_string(expected.result.diagnostics.size()) +
+        ",\"actual_diagnostic_count\":" +
+        std::to_string(actual.result.diagnostics.size()) + "}";
+    *error = "AR replay diagnostics divergence";
+    return oneq::replay::ReplayTraceOutputStatus::kDivergence;
+  }
   *actual_output =
       "{\"payload_type\":\"ArCycleReplayRecordV3\",\"actual_size\":" +
       std::to_string(actual_payload.size()) + "}";

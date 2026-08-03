@@ -12,6 +12,7 @@
 
 #include "1q/api.hpp"
 #include "1q/sbirs_sensor/session/SbirsCycleResult.h"
+#include "1q/sbirs_sensor/session/SbirsOutputTypes.h"
 
 namespace sbirs_sensor {
 namespace session {
@@ -68,6 +69,7 @@ struct ONEQ_API SbirsOutputDebugView {
   bool has_validation_error{false};     /**< 是否存在校验错误 */
   SbirsPipelineAbortReason abort_reason{SbirsPipelineAbortReason::kNone}; /**< 中止原因 */
   std::vector<SbirsDebugTargetState> targets{}; /**< 各目标调试快照 */
+  SbirsDiagnosticIssueList diagnostics{};      /**< 细粒度诊断条目列表 */
 };
 
 /**

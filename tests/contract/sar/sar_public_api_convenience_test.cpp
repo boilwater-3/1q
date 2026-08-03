@@ -107,7 +107,7 @@ TEST(SarPublicApiConvenienceTest, ProductDebugViewAndLifecycleRecorderAreReachab
 }
 
 TEST(SarPublicApiConvenienceTest, StepResultExposesStructuredExecutionState) {
-  // 结构化执行结果字段可达：executed/reused/has_error/abort_reason/阶段。
+  // 结构化执行结果字段可达：executed/has_error/abort_reason/阶段。
   session::SarSession session = session::SarSession::Create(MakeMinimalConfig());
   const session::SarCycleResult result = session.StepWithResult(MakeMinimalInput());
   (void)result.executed_this_cycle;

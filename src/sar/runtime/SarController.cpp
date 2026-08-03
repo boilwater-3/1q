@@ -69,7 +69,8 @@ void SarController::RunOnce(const session::SarCycleInput& input) {
 
   const session::ValidationIssueList input_issues = session::ValidateSarCycleInput(input);
   if (session::HasValidationError(input_issues)) {
-    session::RecordAbort(&result, "invalid_cycle_input",
+    session::RecordValidationAbort(&result, session::SarPipelineAbortReason::kValidationRejected,
+                         "invalid_cycle_input",
                          BuildInputValidationAbortMessage(input_issues));
     // 非执行周期：output_frame 保持默认空帧，不复用上一有效输出。
     impl_->Finish(result);
@@ -91,7 +92,8 @@ void SarController::RunOnce(const session::SarCycleInput& input) {
       impl_->pipeline.CaptureRuntimeState();
   if (!impl_->pipeline.RunCycle(impl_->runtime_config, input, &result)) {
     if (!impl_->pipeline.RestoreRuntimeState(pipeline_state)) {
-      session::RecordAbort(&result, "runtime_state_restore_rejected",
+      session::RecordAbort(&result, session::SarPipelineAbortReason::kRuntimeStateRestoreRejected,
+                           "runtime_state_restore_rejected",
                            "SAR failed to restore pipeline state after cycle abort.");
     }
     // 非执行周期：output_frame 保持默认空帧，不复用上一有效输出。

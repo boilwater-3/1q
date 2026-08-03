@@ -54,6 +54,13 @@ bool IsValidAbortReason(std::int32_t value) {
                         EsrPipelineAbortReason::kRfReceiverRejected);
 }
 
+bool IsValidDiagnosticSeverity(std::int32_t value) {
+  return value >=
+             static_cast<std::int32_t>(EsrDiagnosticSeverity::kInfo) &&
+         value <=
+             static_cast<std::int32_t>(EsrDiagnosticSeverity::kError);
+}
+
 bool IsValidValidationSeverity(std::int32_t value) {
   return value >=
              static_cast<std::int32_t>(ValidationSeverity::kInfo) &&
@@ -467,9 +474,16 @@ std::string EncodeEsrCycleResult(const EsrCycleResult& v) {
         static_cast<int32_t>(encoded_entity_index), fbb.CreateString(i.field),
         fbb.CreateString(i.message)));
   }
+  std::vector<flatbuffers::Offset<esr::replay::EsrDiagnosticIssue>> diags;
+  for (const auto& d : v.diagnostics) {
+    diags.push_back(esr::replay::CreateEsrDiagnosticIssue(
+        fbb, static_cast<int32_t>(d.severity), fbb.CreateString(d.code),
+        fbb.CreateString(d.message)));
+  }
   fbb.Finish(esr::replay::CreateEsrCycleResult(
       fbb, v.input_cycle_index, frame, fbb.CreateVector(issues), v.has_validation_error,
-      static_cast<int32_t>(v.status), static_cast<int32_t>(v.abort_reason)));
+      static_cast<int32_t>(v.status), static_cast<int32_t>(v.abort_reason),
+      fbb.CreateVector(diags)));
   return oneq::common::replay::CopyFinishedFlatbuffer(fbb);
 }
 
@@ -517,6 +531,22 @@ bool DecodeEsrCycleResult(const std::string& bytes, EsrCycleResult* out) {
         iss.field = i->field()->str();
       }
       candidate.validation_issues.push_back(iss);
+    }
+  }
+  if (fb->diagnostics()) {
+    for (const auto* d : *fb->diagnostics()) {
+      if (d == nullptr || !IsValidDiagnosticSeverity(d->severity())) {
+        return false;
+      }
+      EsrDiagnosticIssue diag{};
+      diag.severity = static_cast<EsrDiagnosticSeverity>(d->severity());
+      if (d->code()) {
+        diag.code = d->code()->str();
+      }
+      if (d->message()) {
+        diag.message = d->message()->str();
+      }
+      candidate.diagnostics.push_back(diag);
     }
   }
   *out = std::move(candidate);

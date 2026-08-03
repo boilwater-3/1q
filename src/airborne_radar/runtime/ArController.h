@@ -42,7 +42,6 @@ struct ArControllerRuntimeState {
   session::ValidationIssueList last_validation_issues{};
   std::uint64_t next_batch_id{1U};
   bool last_cycle_executed{false};
-  bool last_cycle_reused_previous_output{false};
   session::SignalCycleAbortReason last_signal_abort_reason{session::SignalCycleAbortReason::kNone};
   session::ArControlProfile control_profile{};
   extension::ControlReducerConfig control_reducer_config{};
@@ -144,12 +143,6 @@ class ArController {
    * @return 若最近一次周期完成主链路执行则返回 true。
    */
   bool ExecutedLatestCycle() const;
-
-  /**
-   * @brief 最近一次 RunOnce 是否复用了上一有效轨迹输出。
-   * @return 若最近一次周期未完成执行且复用了上一有效输出则返回 true。
-   */
-  bool ReusedPreviousTrackOutputLatestCycle() const;
 
   /**
    * @brief 最近一次 RunOnce 若未执行成功，返回 signal pipeline 的 abort 原因。

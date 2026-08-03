@@ -121,10 +121,30 @@ bool EsrValidationIssueListEqual(const ValidationIssueList& left,
   return true;
 }
 
+bool EsrDiagnosticIssueEqual(const EsrDiagnosticIssue& left,
+                             const EsrDiagnosticIssue& right) {
+  return left.severity == right.severity && left.code == right.code &&
+         left.message == right.message;
+}
+
+bool EsrDiagnosticIssueListEqual(const EsrDiagnosticIssueList& left,
+                                 const EsrDiagnosticIssueList& right) {
+  if (left.size() != right.size()) {
+    return false;
+  }
+  for (std::size_t i = 0; i < left.size(); ++i) {
+    if (!EsrDiagnosticIssueEqual(left[i], right[i])) {
+      return false;
+    }
+  }
+  return true;
+}
+
 bool EsrCycleResultEqual(const EsrCycleResult& left, const EsrCycleResult& right) {
   return left.input_cycle_index == right.input_cycle_index &&
          EsrOutputFrameEqual(left.output_frame, right.output_frame) &&
          EsrValidationIssueListEqual(left.validation_issues, right.validation_issues) &&
+         EsrDiagnosticIssueListEqual(left.diagnostics, right.diagnostics) &&
          left.has_validation_error == right.has_validation_error && left.status == right.status &&
          left.abort_reason == right.abort_reason;
 }

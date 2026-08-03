@@ -26,6 +26,7 @@ set(ESR_CORE_SOURCES
     session/EsrSession.cpp
     session/EsrTraceSession.cpp
     session/EsrReplaySession.cpp
+    session/EsrDiagnosticUtils.cpp
     session/EsrReplayFlatbufferCodec.cpp
 )
 

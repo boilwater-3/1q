@@ -94,7 +94,7 @@ int main() {
   const sar::session::SarCycleResult result = session.StepWithResult(MakeInput());
 
   if (result.has_error) {
-    std::cerr << "SAR processing failed: " << result.abort_reason << '\n';
+    std::cerr << "SAR processing failed: " << static_cast<int>(result.abort_reason) << '\n';
     for (const sar::session::SarDiagnosticIssue& issue : result.diagnostics) {
       std::cerr << '[' << SeverityName(issue.severity) << "] " << issue.code << ": "
                 << issue.message << '\n';

@@ -44,6 +44,7 @@ struct ONEQ_API EsrCycleResult {
   std::uint32_t input_cycle_index{0U}; /**< 本次调用输入周期号，用于失败结果与 trace 归属 */
   EsrOutputFrame output_frame{};       /**< 当前周期输出帧 */
   session::ValidationIssueList validation_issues{}; /**< 当前周期输入校验结果 */
+  EsrDiagnosticIssueList diagnostics{};             /**< 细粒度诊断（三写：结构化信号 + 诊断 + 日志） */
   bool has_validation_error{false};                 /**< 是否存在 error 级输入问题 */
   EsrCycleExecutionStatus status{EsrCycleExecutionStatus::kRejected}; /**< 周期执行真相。 */
   session::EsrPipelineAbortReason abort_reason{

@@ -66,6 +66,7 @@ struct SbirsPipelineDetection {
 struct SbirsPipelineResult {
   float scan_azimuth_deg{0.0f};                     /**< 本周期扫描方位角，单位 deg */
   std::vector<SbirsPipelineDetection> detections{}; /**< 检测列表 */
+  bool executed{false};                             /**< 核心 pipeline 是否实际执行（非关机/待机） */
 };
 
 /**

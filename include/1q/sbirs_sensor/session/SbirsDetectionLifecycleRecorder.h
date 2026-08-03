@@ -110,6 +110,15 @@ class ONEQ_API SbirsDetectionLifecycleRecorder {
   /** @brief 清空记录器内部累积的目标状态。 */
   void Reset();
 
+  /**
+   * @brief 获取最近一次执行周期 `Update()` 返回的生命周期事件列表。
+   *
+   * 事件在每次执行周期的 `Update()` 调用时缓存；非执行周期不刷新缓存，
+   * 保留上一次执行周期的事件。供注册到 Session 后由调用方事后读取。
+   * @return 最近一次执行周期 `Update()` 产生的事件列表的 const 引用。
+   */
+  const std::vector<SbirsDetectionLifecycleEvent>& GetLastEvents() const noexcept;
+
  private:
   struct Impl;
   std::unique_ptr<Impl> impl_;

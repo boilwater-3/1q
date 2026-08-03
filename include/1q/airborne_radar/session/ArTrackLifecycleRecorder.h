@@ -99,6 +99,15 @@ class ONEQ_API ArTrackLifecycleRecorder {
    */
   void Reset();
 
+  /**
+   * @brief 获取最近一次执行周期 `Update()` 返回的生命周期事件列表。
+   *
+   * 事件在每次执行周期的 `Update()` 调用时缓存；非执行周期不刷新缓存，
+   * 保留上一次执行周期的事件。供注册到 Session 后由调用方事后读取。
+   * @return 最近一次执行周期 `Update()` 产生的事件列表的 const 引用。
+   */
+  const std::vector<ArTrackLifecycleEvent>& GetLastEvents() const noexcept;
+
  private:
   // 不透明私有状态，定义在 .cpp 中，避免在 header 暴露 <unordered_map> 依赖。
   struct Impl;

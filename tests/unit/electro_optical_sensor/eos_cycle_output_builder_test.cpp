@@ -287,3 +287,94 @@ TEST(EosCycleOutputBuilderTest, NonExecutedCyclePreservesDetectedState) {
   ASSERT_EQ(recovered.size(), 1U);
   EXPECT_EQ(recovered.front().kind, eos_session::EosDetectionLifecycleEventKind::kUpdated);
 }
+
+TEST(EosCycleOutputBuilderTest, AttachRecorderDrivesUpdateAutomatically) {
+  const eos_session::EosExternalPoseInput platform = MakePlatformInput();
+  std::vector<eos_session::EosExternalTargetInput> targets = MakeMovingTargets(10U);
+  eos_session::EosSession attached_session = eos_session::EosSession::Create(MakeConfig());
+  eos_session::EosSession manual_session = eos_session::EosSession::Create(MakeConfig());
+
+  eos_session::EosDetectionLifecycleRecorder attached_recorder;
+  eos_session::EosDetectionLifecycleRecorder manual_recorder;
+
+  attached_session.AttachDetectionLifecycleRecorder(&attached_recorder);
+
+  // 用相同的输入分别驱动 attached 和 manual 两个 session，对比 recorder 状态。
+  const float dt_sec = 0.1f;
+  for (std::uint32_t cycle = 1U; cycle <= 5U; ++cycle) {
+    eos_session::EosCycleInput input;
+    ASSERT_TRUE(eos_session::EosCycleInputAdapter::Build(platform, targets, dt_sec, &input));
+    input.cycle_index = cycle;
+
+    const eos_session::EosCycleResult result = attached_session.StepWithResult(input);
+    // 手动驱动 manual_recorder，传入相同 input/result。
+    manual_recorder.Update(input, result);
+
+    AdvanceTargets(dt_sec, &targets);
+  }
+
+  // attached recorder 应被自动驱动，其状态与手动驱动的 manual recorder 完全一致。
+  EXPECT_EQ(attached_recorder.GetLastEvents().size(), manual_recorder.GetLastEvents().size());
+}
+
+TEST(EosCycleOutputBuilderTest, DetachRecorderStopsAutomaticDriving) {
+  const eos_session::EosExternalPoseInput platform = MakePlatformInput();
+  std::vector<eos_session::EosExternalTargetInput> targets = MakeMovingTargets(1U);
+  eos_session::EosSession session = eos_session::EosSession::Create(MakeConfig());
+  eos_session::EosDetectionLifecycleRecorder recorder;
+
+  session.AttachDetectionLifecycleRecorder(&recorder);
+
+  eos_session::EosCycleInput input;
+  ASSERT_TRUE(eos_session::EosCycleInputAdapter::Build(platform, targets, 0.1f, &input));
+  input.cycle_index = 1U;
+  session.StepWithResult(input);
+  const std::size_t first_count = recorder.GetLastEvents().size();
+
+  // 解除注册后再步进——recorder 不应被驱动。
+  session.AttachDetectionLifecycleRecorder(nullptr);
+  AdvanceTargets(0.1f, &targets);
+  ASSERT_TRUE(eos_session::EosCycleInputAdapter::Build(platform, targets, 0.1f, &input));
+  input.cycle_index = 2U;
+  session.StepWithResult(input);
+  EXPECT_EQ(recorder.GetLastEvents().size(), first_count);
+}
+
+TEST(EosCycleOutputBuilderTest, SessionWithoutRecorderIsBackwardCompatible) {
+  const eos_session::EosExternalPoseInput platform = MakePlatformInput();
+  std::vector<eos_session::EosExternalTargetInput> targets = MakeMovingTargets(1U);
+  eos_session::EosSession session = eos_session::EosSession::Create(MakeConfig());
+
+  eos_session::EosCycleInput input;
+  ASSERT_TRUE(eos_session::EosCycleInputAdapter::Build(platform, targets, 0.1f, &input));
+  input.cycle_index = 1U;
+  const eos_session::EosCycleResult result = session.StepWithResult(input);
+  EXPECT_TRUE(result.executed_this_cycle);
+}
+
+TEST(EosCycleOutputBuilderTest, NonExecutedCycleDoesNotUpdateLastEvents) {
+  const eos_session::EosExternalPoseInput platform = MakePlatformInput();
+  std::vector<eos_session::EosExternalTargetInput> targets = MakeMovingTargets(1U);
+  eos_session::EosSession session = eos_session::EosSession::Create(MakeConfig());
+  eos_session::EosDetectionLifecycleRecorder recorder;
+  session.AttachDetectionLifecycleRecorder(&recorder);
+
+  // 第一个周期执行并驱动 recorder。
+  eos_session::EosCycleInput input;
+  ASSERT_TRUE(eos_session::EosCycleInputAdapter::Build(platform, targets, 0.1f, &input));
+  input.cycle_index = 1U;
+  session.StepWithResult(input);
+  const std::size_t first_size = recorder.GetLastEvents().size();
+
+  // 非法输入（dt_sec=0）→ validation rejection → 非执行周期，缓存保持不变。
+  eos_session::EosCycleInput invalid = input;
+  invalid.dt_sec = 0.0f;
+  const eos_session::EosCycleResult rejected = session.StepWithResult(invalid);
+  EXPECT_TRUE(rejected.has_validation_error);
+  EXPECT_EQ(recorder.GetLastEvents().size(), first_size);
+}
+
+TEST(EosCycleOutputBuilderTest, GetLastEventsEmptyAfterConstruction) {
+  eos_session::EosDetectionLifecycleRecorder recorder;
+  EXPECT_TRUE(recorder.GetLastEvents().empty());
+}

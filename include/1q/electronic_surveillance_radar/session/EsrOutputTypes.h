@@ -38,6 +38,28 @@ struct ONEQ_API EmitterOutputFrame {
 };
 
 /**
+ * @brief ESR 诊断等级。
+ */
+enum class ONEQ_API EsrDiagnosticSeverity : std::uint8_t {
+  kInfo = 0,    /**< 信息 */
+  kWarning = 1, /**< 警告 */
+  kError = 2    /**< 错误 */
+};
+
+/**
+ * @brief ESR 诊断条目。
+ * @note 承载细粒度失败信息（如 "esr.rf_receiver_rejected"），不用于调用方状态判断。
+ */
+struct ONEQ_API EsrDiagnosticIssue {
+  EsrDiagnosticSeverity severity{EsrDiagnosticSeverity::kInfo};
+  std::string code{};
+  std::string message{};
+};
+
+/** @brief ESR 诊断条目列表。 */
+using EsrDiagnosticIssueList = std::vector<EsrDiagnosticIssue>;
+
+/**
  * @brief EsrPipelineAbortReason 表示单周期核心管线流产原因。
  */
 enum class EsrPipelineAbortReason {

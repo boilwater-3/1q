@@ -1216,6 +1216,13 @@ flatbuffers::Offset<fb::ArCycleResultV3> EncodeCycleResultV3(
         static_cast<std::uint64_t>(issue.location.entity_index), builder->CreateString(issue.field),
         builder->CreateString(issue.message)));
   }
+  std::vector<flatbuffers::Offset<fb::ArDiagnosticIssue>> diagnostic_offsets;
+  diagnostic_offsets.reserve(value.diagnostics.size());
+  for (const ArDiagnosticIssue& issue : value.diagnostics) {
+    diagnostic_offsets.push_back(fb::CreateArDiagnosticIssue(
+        *builder, static_cast<int>(issue.severity), builder->CreateString(issue.code),
+        builder->CreateString(issue.message)));
+  }
   return fb::CreateArCycleResultV3(
       *builder, value.input_cycle_index, static_cast<int>(value.status),
       EncodeTrackOutputFrame(builder, value.track_output_frame),
@@ -1228,7 +1235,7 @@ flatbuffers::Offset<fb::ArCycleResultV3> EncodeCycleResultV3(
       value.has_decision_observation,
       EncodeDecisionObservation(builder, value.decision_observation),
       static_cast<int>(value.applied_decision_source), value.applied_decision_cycle_index,
-      value.applied_decision_batch_id);
+      value.applied_decision_batch_id, builder->CreateVector(diagnostic_offsets));
 }
 
 bool TryDecodeCycleResultV3(const fb::ArCycleResultV3* value, ArCycleResult* result) {
@@ -1295,6 +1302,20 @@ bool TryDecodeCycleResultV3(const fb::ArCycleResultV3* value, ArCycleResult* res
   candidate.applied_decision_source = static_cast<DecisionControlSource>(applied_source_raw);
   candidate.applied_decision_cycle_index = value->applied_decision_cycle_index();
   candidate.applied_decision_batch_id = value->applied_decision_batch_id();
+  if (value->diagnostics() != nullptr) {
+    candidate.diagnostics.reserve(value->diagnostics()->size());
+    for (const fb::ArDiagnosticIssue* encoded : *value->diagnostics()) {
+      ArDiagnosticIssue issue;
+      issue.severity = static_cast<ArDiagnosticSeverity>(encoded->severity());
+      if (encoded->code() != nullptr) {
+        issue.code = encoded->code()->str();
+      }
+      if (encoded->message() != nullptr) {
+        issue.message = encoded->message()->str();
+      }
+      candidate.diagnostics.push_back(std::move(issue));
+    }
+  }
   *result = candidate;
   return true;
 }

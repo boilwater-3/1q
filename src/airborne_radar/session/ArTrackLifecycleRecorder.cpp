@@ -44,6 +44,7 @@ ArTrackLifecycleEvent MakeBaseEvent(const ArTargetInput& target,
 struct ArTrackLifecycleRecorder::Impl {
   ArTrackLifecycleRecorderConfig config;
   std::unordered_map<std::uint64_t, TargetState> states;
+  std::vector<ArTrackLifecycleEvent> last_events{};
 };
 
 ArTrackLifecycleRecorder::ArTrackLifecycleRecorder(ArTrackLifecycleRecorderConfig config)
@@ -114,10 +115,18 @@ std::vector<ArTrackLifecycleEvent> ArTrackLifecycleRecorder::Update(
     }
     state.target_name = target.target_name;
   }
+  impl_->last_events = events;
   return events;
 }
 
-void ArTrackLifecycleRecorder::Reset() { impl_->states.clear(); }
+void ArTrackLifecycleRecorder::Reset() {
+  impl_->states.clear();
+  impl_->last_events.clear();
+}
+
+const std::vector<ArTrackLifecycleEvent>& ArTrackLifecycleRecorder::GetLastEvents() const noexcept {
+  return impl_->last_events;
+}
 
 }  // namespace session
 }  // namespace airborne_radar

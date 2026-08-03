@@ -58,6 +58,7 @@ struct ONEQ_API ArTrackOutputDebugView {
   bool completed_this_cycle{false};     /**< 单周期执行是否成功 */
   ArReceiverImpairment receiver_impairment{ArReceiverImpairment::kNone}; /**< 接收机损伤 */
   std::vector<ArDebugTrackState> tracks{}; /**< 逐输入目标的调试轨迹状态 */
+  ArDiagnosticIssueList diagnostics{};    /**< 细粒度诊断条目（三写：结构化信号 + 诊断 + 日志） */
 };
 
 /**

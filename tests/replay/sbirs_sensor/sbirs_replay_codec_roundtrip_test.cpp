@@ -255,6 +255,26 @@ TEST(SbirsReplayCodecRoundtripTest, CycleResultPreservesOutputAndAttributionFiel
             std::numeric_limits<std::size_t>::max());
 }
 
+TEST(SbirsReplayCodecRoundtripTest, CycleResultPreservesPoweredOffAbortReason) {
+  SbirsCycleResult result;
+  result.input_cycle_index = 7U;
+  result.output_frame.cycle_index = 7U;
+  result.output_frame.scan_azimuth_deg = 3.0f;
+  result.executed_this_cycle = false;
+  result.has_validation_error = false;
+  result.abort_reason = SbirsPipelineAbortReason::kSensorPoweredOff;
+  result.status = SbirsCycleStatus::kPoweredOff;
+
+  const std::string bytes = EncodeSbirsCycleResult(result);
+  SbirsCycleResult decoded;
+  ASSERT_TRUE(DecodeSbirsCycleResult(bytes, &decoded));
+
+  EXPECT_EQ(decoded.input_cycle_index, 7U);
+  EXPECT_FALSE(decoded.executed_this_cycle);
+  EXPECT_EQ(decoded.abort_reason, SbirsPipelineAbortReason::kSensorPoweredOff);
+  EXPECT_EQ(decoded.status, SbirsCycleStatus::kPoweredOff);
+}
+
 // --- SessionConfig ---
 
 TEST(SbirsReplayCodecRoundtripTest, SessionConfigPreservesAllDomains) {
@@ -457,7 +477,8 @@ TEST(SbirsReplayCodecRoundtripTest, DecodeCycleResultRejectsNullAndCorrupted) {
 }
 
 TEST(SbirsReplayCodecRoundtripTest, DecodeCycleResultRejectsUnknownAbortReasonAtomically) {
-  const std::int32_t invalid_reasons[] = {2, 3, -1, std::numeric_limits<std::int32_t>::max()};
+  // 值 2 已由 kSensorPoweredOff 占用（合法），从非法集合中移除。
+  const std::int32_t invalid_reasons[] = {3, -1, std::numeric_limits<std::int32_t>::max()};
   for (const std::int32_t invalid_reason : invalid_reasons) {
     SbirsCycleResult result;
     result.input_cycle_index = 17U;

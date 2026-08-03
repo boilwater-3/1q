@@ -187,7 +187,7 @@ TEST(SarReplaySessionTest, ReplayExternalRawIqTraceRoundtrip) {
     SarTraceSession session(config, options);
 
     const SarCycleResult result = session.StepWithResult(MakeExternalRawIqReplayInput());
-    ASSERT_TRUE(result.executed_this_cycle) << result.abort_reason;
+    ASSERT_TRUE(result.executed_this_cycle) << static_cast<int>(result.abort_reason);
     ASSERT_TRUE(result.output_frame.has_l1_image);
     ASSERT_EQ(result.raw_phase_history.source, SarRawPhaseHistorySource::kExternalRawIq);
     replay_writer->Flush();
@@ -219,7 +219,7 @@ TEST(SarReplaySessionTest, ReplayExternalRawIqShapeFailureRoundtrip) {
 
     const SarCycleResult result = session.StepWithResult(malformed);
     ASSERT_TRUE(result.has_error);
-    ASSERT_EQ(result.abort_reason, "external_raw_iq_shape_mismatch");
+    ASSERT_EQ(result.abort_reason, SarPipelineAbortReason::kExternalInputRejected);
     replay_writer->Flush();
   }
 

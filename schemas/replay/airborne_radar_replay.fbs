@@ -267,6 +267,12 @@ table AssociationQualityMetricsV3 {
   p95_match_cost:float;
   association_stress:float;
 }
+table ArDiagnosticIssue {
+  severity:int;
+  code:string;
+  message:string;
+}
+
 table ArCycleResultV3 {
   input_cycle_index:uint;
   status:int;
@@ -286,6 +292,7 @@ table ArCycleResultV3 {
   applied_decision_source:int;
   applied_decision_cycle_index:uint;
   applied_decision_batch_id:ulong;
+  diagnostics:[ArDiagnosticIssue];
 }
 table ArSessionReplayStateV3 {
   has_world_chronology:bool;
