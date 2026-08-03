@@ -477,7 +477,14 @@ bool DecodeSbirsCycleResult(const std::string& bytes, SbirsCycleResult* out) {
   decoded.has_validation_error = fb->has_validation_error();
   decoded.executed_this_cycle = fb->executed_this_cycle();
   decoded.abort_reason = static_cast<SbirsPipelineAbortReason>(abort_reason);
-  decoded.status = static_cast<SbirsCycleStatus>(fb->status());
+  const std::int32_t status = fb->status();
+  if (status != static_cast<std::int32_t>(SbirsCycleStatus::kCompleted) &&
+      status != static_cast<std::int32_t>(SbirsCycleStatus::kPoweredOff) &&
+      status != static_cast<std::int32_t>(SbirsCycleStatus::kRejectedInvalidInput) &&
+      status != static_cast<std::int32_t>(SbirsCycleStatus::kRejectedExecution)) {
+    return false;
+  }
+  decoded.status = static_cast<SbirsCycleStatus>(status);
   *out = decoded;
   return true;
 }

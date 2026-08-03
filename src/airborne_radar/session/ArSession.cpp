@@ -155,10 +155,11 @@ struct ArSession::Impl {
   }
 
   ArCycleResult BuildExecutionAbortResult(const ArCycleInput& input,
-                                          session::SignalCycleAbortReason abort_reason) const {
+                                          session::SignalCycleAbortReason abort_reason,
+                                          ArCycleStatus status =
+                                              ArCycleStatus::kRejectedExecution) const {
     ArCycleResult result;
     result.input_cycle_index = input.cycle_index;
-    result.status = ArCycleStatus::kRejectedExecution;
     result.abort_reason = abort_reason;
     const bool is_validation = (abort_reason == session::SignalCycleAbortReason::kValidationRejected);
     const char* detail_code = "unknown";
@@ -171,6 +172,9 @@ struct ArSession::Impl {
       default: break;
     }
     RecordAbort(&result, abort_reason, detail_code, "AR cycle aborted.", is_validation);
+    // status 由调用点显式声明，在 RecordAbort 之后做最终赋值，
+    // 避免"RecordAbort 覆盖 status、调用方再补丁"的双重覆盖链。
+    result.status = status;
     return result;
   }
 
@@ -414,21 +418,14 @@ struct ArSession::Impl {
 
     const ArPrepareCycleResult prepared = PrepareRfCycle(prepare_input);
     if (prepared.status == ArPrepareCycleStatus::kPoweredOff) {
-      ArCycleResult result;
-      result.input_cycle_index = input.cycle_index;
-      result.validation_issues = issues;
-      result.abort_reason = session::SignalCycleAbortReason::kSensorPoweredOff;
-      RecordAbort(&result, result.abort_reason, "sensor_powered_off", "AR cycle aborted.", false);
-      result.status = ArCycleStatus::kPoweredOff;  // 覆盖 RecordAbort 设置的 kRejectedExecution
-      return result;
+      return BuildExecutionAbortResult(input, session::SignalCycleAbortReason::kSensorPoweredOff,
+                                       ArCycleStatus::kPoweredOff);
     }
     if (prepared.status != ArPrepareCycleStatus::kPrepared) {
       (void)restore_user_cycle();
-      ArCycleResult result = BuildExecutionAbortResult(
-          input, session::SignalCycleAbortReason::kRuntimePreparationFailed);
-      result.status = ArCycleStatus::kRejectedInvalidConfig;
-      result.validation_issues = issues;
-      return result;
+      return BuildExecutionAbortResult(
+          input, session::SignalCycleAbortReason::kRuntimePreparationFailed,
+          ArCycleStatus::kRejectedInvalidConfig);
     }
 
     // The complete-phase RF scene is authored from the prepared token's

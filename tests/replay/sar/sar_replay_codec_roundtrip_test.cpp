@@ -6,6 +6,7 @@
 #include <gtest/gtest.h>
 
 #include <limits>
+#include <string>
 #include <vector>
 
 #include "1q/sar/config/SarRuntimeConfigPatch.h"
@@ -13,11 +14,26 @@
 #include "1q/sar/config/SarSessionConfig.h"
 #include "1q/sar/session/SarCycleInput.h"
 #include "1q/sar/session/SarCycleResult.h"
+#include "flatbuffers/flatbuffers.h"
 #include "sar/session/SarReplayFlatbufferCodec.h"
+#include "sar/session/generated/sar_replay_generated.h"
 
 namespace sar {
 namespace session {
 namespace tests {
+
+namespace {
+
+// 绕过 EncodeSarCycleResult 的合法值限制，直接构造携带任意 abort_reason 的帧。
+std::string EncodeCycleResultWithRawAbortReason(std::int32_t abort_reason) {
+  flatbuffers::FlatBufferBuilder builder(128U);
+  builder.Finish(replay::CreateSarCycleResult(
+      builder, 1U, 0, 0, 0, 0, false, false, abort_reason));
+  return std::string(reinterpret_cast<const char*>(builder.GetBufferPointer()),
+                     builder.GetSize());
+}
+
+}  // namespace
 
 TEST(SarReplayCodecRoundtripTest, CycleInputPreservesPlatformAndTargets) {
   SarCycleInput input;
@@ -257,6 +273,22 @@ TEST(SarReplayCodecRoundtripTest, CycleResultRejectsInvalidFocusedImageStateComb
   malformed.focused_image.real_values.push_back(1.0);
   malformed.focused_image.imaginary_values.push_back(1.0);
   EXPECT_FALSE(DecodeSarCycleResult(EncodeSarCycleResult(malformed), &decoded));
+}
+
+TEST(SarReplayCodecRoundtripTest, DecodeCycleResultRejectsUnknownAbortReasonAtomically) {
+  // abort_reason 合法值 0..5（kNone..kSensorPoweredOff）；未知值必须 fail closed，
+  // 且不得修改调用方传入的输出对象（原子性）。
+  const std::int32_t invalid_reasons[] = {6, -1, std::numeric_limits<std::int32_t>::max()};
+  for (const std::int32_t invalid_reason : invalid_reasons) {
+    SarCycleResult result;
+    result.input_cycle_index = 17U;
+    result.executed_this_cycle = true;
+
+    EXPECT_FALSE(DecodeSarCycleResult(EncodeCycleResultWithRawAbortReason(invalid_reason),
+                                      &result));
+    EXPECT_EQ(result.input_cycle_index, 17U);
+    EXPECT_TRUE(result.executed_this_cycle);
+  }
 }
 
 TEST(SarReplayCodecRoundtripTest, CycleResultDecodeFailureDoesNotModifyOutput) {
