@@ -21,7 +21,6 @@ Last-reviewed: 2026-08-03
 | ID | 域 | 主题 | 一句话 | Status |
 |---|---|---|---|---|
 | COMMON-OQ-1 | common | Windows/MSVC 全链验收 | presets/.bat 仅未验收脚手架，CI 只跑 macOS | needs-evidence |
-| COMMON-OQ-3 | common | `CreateWithValidation` 非阻断命名 | 名字暗示门禁、实际只附诊断 | open |
 | COMMON-OQ-5 | common | `Step()` 失败静默复用上一帧 | 五模块分两组，`Step()` 无法区分新旧帧 | open |
 | COMMON-OQ-6 | common | `ApplyRuntimeConfig` 吞 bool | void 版丢弃 Try 的返回值 | open |
 | COMMON-OQ-7 | common | 双 cycle_index 冗余 | 与 OQ-5 绑定决策 | open |
@@ -54,28 +53,6 @@ Last-reviewed: 2026-08-03
 - **再进入条件 (Stage A)**：提交锁定版本/提交与下载校验矩阵，提供 shell bootstrap 原型，并在真实
   Windows runner 上依次证明 configure、Debug/Release build、install、独立 consumer build/run；随后再决定
   保留、删除或重命名现有 presets 与 `.bat` 入口。
-
-### COMMON-OQ-3：`CreateWithValidation` 非阻断语义命名一致但反直觉
-
-- **现状**：五模块（AR/ESR/SAR/EOS/SBIRS）会话工厂 `CreateWithValidation(config, issues)` 的实际语义是：
-  1. 无论校验是否产生 error 都会构造并返回会话。
-  2. `issues` 仅为咨询性诊断输出。
-  3. 不存在"校验失败即不构造"语义。
-  收敛子点（非阻断契约固化、SBIRS docstring 对齐）→ `docs/common/contract.md` §Public API 边界。
-  [evidence: src/electro_optical_sensor/session/EosSession]
-- **后果**：`Create` + `With` + `Validation` 的介词有二义性，名字持续制造门禁预期。
-  1. "门禁读法"：通过校验才 Create（多数 API 惯例，但非实际语义）。
-  2. "附加读法"：Create 并附带校验报告（实际语义）。
-  docstring 须反复纠正，新读者易误以为校验失败会阻断创建而漏检 `issues`。
-- **待决问题**：是否在跨模块层面消除命名误导，有两条备选路径：
-  1. 统一重命名（如 `CreateWithDiagnostics`）。
-  2. 新增独立门禁入口（如 `CreateStrict` / `TryCreate` 返回 `std::optional<Session>`）。
-- **当前边界**：五模块保持现有"非阻断 + 咨询性 issues"契约（已升入 `docs/common/contract.md`
-  §Public API 边界）。调用方据 `issues->empty()` 或 `HasValidationError` 决策。不得在文档中宣称校验失败
-  会阻断创建。
-- **再进入条件 (Stage A)**：出现真实场景需要"校验失败即不构造"语义时，先评估跨模块统一重命名/返回类型
-  变更的向后兼容成本与下游消费方影响，再决定是否推广到五模块。推荐优先新增独立第三入口点承载门禁语义，
-  而非重命名现有咨询性入口。
 
 ### COMMON-OQ-5：`Step()` 在校验失败/关机时静默复用上一帧
 

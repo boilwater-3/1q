@@ -60,8 +60,8 @@ EosSession EosSession::Create(const config::EosSessionConfig& config) {
       new EosSession::Impl(EosSessionCompositionRoot::ComposeDefault(config))));
 }
 
-EosSession EosSession::CreateWithValidation(const config::EosSessionConfig& config,
-                                            config::ValidationIssueList* issues) {
+EosSession EosSession::CreateWithDiagnostics(const config::EosSessionConfig& config,
+                                             config::ValidationIssueList* issues) {
   const config::ValidationIssueList found = config::ValidateEosSessionConfig(config);
   if (issues != nullptr) {
     *issues = found;

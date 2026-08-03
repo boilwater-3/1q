@@ -262,7 +262,7 @@ diagnostics 和 debug source。日志不作为状态判断依据。controller ru
 
 ### 会话创建入口
 
-`EosSession::Create()` 是信任构造路径，不隐式调用初始化校验。`CreateWithValidation(config, issues)`
+`EosSession::Create()` 是信任构造路径，不隐式调用初始化校验。`CreateWithDiagnostics(config, issues)`
 会报告 config 校验问题但仍构造会话（非阻断，见 contract.md §会话创建入口的非阻断语义）；真正阻断
 执行的是每周期输入 gate 和 runtime patch 的原子校验。
 

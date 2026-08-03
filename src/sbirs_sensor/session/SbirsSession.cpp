@@ -52,8 +52,8 @@ SbirsSession SbirsSession::Create(const config::SbirsSessionConfig& config) {
   return SbirsSession(std::move(impl));
 }
 
-SbirsSession SbirsSession::CreateWithValidation(const config::SbirsSessionConfig& config,
-                                                config::ValidationIssueList* issues) {
+SbirsSession SbirsSession::CreateWithDiagnostics(const config::SbirsSessionConfig& config,
+                                                 config::ValidationIssueList* issues) {
   if (issues != nullptr) {
     *issues = config::ValidateSbirsSessionConfig(config);
   }

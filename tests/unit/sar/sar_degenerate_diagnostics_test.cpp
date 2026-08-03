@@ -104,12 +104,12 @@ TEST(SarDegenerateDiagnosticsTest, SampleWindowExactlyFitsPulseDoesNotAbort) {
   EXPECT_FALSE(HasAbortReason(result, "sample_window_too_small_for_pulse"));
 }
 
-TEST(SarDegenerateDiagnosticsTest, SampleWindowTooSmallRejectedByCreateWithValidation) {
+TEST(SarDegenerateDiagnosticsTest, SampleWindowTooSmallRejectedByCreateWithDiagnostics) {
   config::SarSessionConfig config = MakeBaselineRdaConfig();
   config.hardware.pulse_width_s = 1.0e-6;  // 波形 100 样本 > 64 窗口
 
   config::ValidationIssueList issues;
-  (void)session::SarSession::CreateWithValidation(config, &issues);
+  (void)session::SarSession::CreateWithDiagnostics(config, &issues);
 
   bool found = false;
   for (const config::ConfigValidationIssue& issue : issues) {

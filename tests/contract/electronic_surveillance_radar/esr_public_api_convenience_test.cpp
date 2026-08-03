@@ -269,33 +269,33 @@ TEST(EsrPublicApiConvenienceTest, TryApplyRuntimeConfigExposesRejectFeedback) {
   EXPECT_TRUE(session.TryApplyRuntimeConfig(valid_patch));
 }
 
-TEST(EsrPublicApiConvenienceTest, CreateWithValidationBuildsSessionAndReportsNoIssuesForHealthyConfig) {
+TEST(EsrPublicApiConvenienceTest, CreateWithDiagnosticsBuildsSessionAndReportsNoIssuesForHealthyConfig) {
   config::EsrSessionConfig config;
 
   config::ValidationIssueList issues;
-  const session::EsrSession session = session::EsrSession::CreateWithValidation(config, &issues);
+  const session::EsrSession session = session::EsrSession::CreateWithDiagnostics(config, &issues);
 
   EXPECT_TRUE(issues.empty());
   (void)session;
 }
 
-TEST(EsrPublicApiConvenienceTest, CreateWithValidationReportsIssuesButStillConstructsSession) {
+TEST(EsrPublicApiConvenienceTest, CreateWithDiagnosticsReportsIssuesButStillConstructsSession) {
   config::EsrSessionConfig invalid;
   invalid.mission.scan.scan_rate_hz = 0.0f;
 
   config::ValidationIssueList issues;
-  const session::EsrSession session = session::EsrSession::CreateWithValidation(invalid, &issues);
+  const session::EsrSession session = session::EsrSession::CreateWithDiagnostics(invalid, &issues);
 
   ASSERT_EQ(issues.size(), 1U);
   EXPECT_EQ(issues.front().code, config::ConfigValidationCode::kScanRateNotPositive);
   (void)session;  // 会话仍被构造，调用方据 issues 决策
 }
 
-TEST(EsrPublicApiConvenienceTest, CreateWithValidationAcceptsNullIssuesWithoutCrash) {
+TEST(EsrPublicApiConvenienceTest, CreateWithDiagnosticsAcceptsNullIssuesWithoutCrash) {
   config::EsrSessionConfig invalid;
   invalid.mission.scan.scan_rate_hz = 0.0f;
 
-  const session::EsrSession session = session::EsrSession::CreateWithValidation(invalid, nullptr);
+  const session::EsrSession session = session::EsrSession::CreateWithDiagnostics(invalid, nullptr);
   (void)session;  // nullptr 时仅构造，不写回 issues
 }
 

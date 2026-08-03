@@ -60,20 +60,22 @@ class ONEQ_API SbirsSession {
    */
   bool TryApplyRuntimeConfig(const config::SbirsRuntimeConfigPatch& patch);
 
-  /**
-   * @brief 工厂构造一个会话实例。
-   * @param[in] config 会话初始化配置，留空使用默认配置
-   * @return 构造好的 `SbirsSession`
-   */
+  /** @brief 使用四域配置创建会话（推荐入口，信任路径，不做配置校验）。 */
   static SbirsSession Create(const config::SbirsSessionConfig& config = {});
   /**
-   * @brief 工厂构造会话实例，并输出配置校验问题。
-   * @param[in] config 会话初始化配置
-   * @param[out] issues 接收校验问题列表；可为 nullptr
-   * @return 构造好的 `SbirsSession`
+   * @brief 创建会话并报告配置校验结果（校验路径）。
+   *
+   * 与 `Create()` 唯一区别：构造前调用 `config::ValidateSbirsSessionConfig`
+   * 校验配置合法性，将发现的问题写入 @p issues。无论 @p issues 是否为空，
+   * 都会构造并返回会话（不阻断），调用方据 `issues->empty()` 决定后续。
+   *
+   * @param[in] config 四域会话配置。
+   * @param[out] issues 校验问题输出；传入 nullptr 则不写回但仍构造会话。
+   * @return 构造完成的会话。
+   * @note `ValidateSbirsSessionConfig` 由此路径被实调用，构成真实契约。
    */
-  static SbirsSession CreateWithValidation(const config::SbirsSessionConfig& config,
-                                           config::ValidationIssueList* issues);
+  static SbirsSession CreateWithDiagnostics(const config::SbirsSessionConfig& config,
+                                            config::ValidationIssueList* issues);
 
  private:
   struct Impl;

@@ -3,7 +3,7 @@
 # 守护规范性文档不残留已收口的旧入口术语(HARD 阻断)。
 #
 # 背景:公开 API 已从独立工厂类(SessionFactory)收口为静态成员
-# (Session::Create / CreateWithValidation)。AR 决策扩展已从同步注入 SPI
+# (Session::Create / CreateWithDiagnostics)。AR 决策扩展已从同步注入 SPI
 # 收口为 observation/response 步间 seam。代码与安装/白名单
 # 守护已很强,但规范性文档仍可能漂移回旧术语,误导后续维护者。
 #
@@ -64,7 +64,7 @@ if(VIOLATIONS)
     message(FATAL_ERROR
         "${_err}"
         "这些术语对应的 API 已收口:\n"
-        "  - SessionFactory 工厂类 → Session::Create / CreateWithValidation 静态成员\n"
+        "  - SessionFactory 工厂类 → Session::Create / CreateWithDiagnostics 静态成员\n"
         "  - AR 同步决策注入 SPI → DecisionObservation / SubmitExternalDecision\n"
         "  - Eos/Sar/Esr SessionFactory → 已删除(ghost 类)\n\n"
         "修复:将规范性文档中的旧入口同步为当前 API。\n"

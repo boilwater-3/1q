@@ -27,22 +27,22 @@ RF-Interference-Architecture: frozen target; AR/ESR/ECM RF v2 implemented (per-m
 默认 public API 只允许稳定门面和稳定 DTO：
 
 - 模块聚合入口头。
-- `*Session`，包括 `Create` / `CreateWithValidation` 等静态创建入口。
+- `*Session`，包括 `Create` / `CreateWithDiagnostics` 等静态创建入口。
 - `*SessionConfig` 四域配置和运行期 patch。
 
 ### 会话创建入口的非阻断语义
 
-`*Session::Create` 与 `*Session::CreateWithValidation` 的校验/构造语义必须遵守以下非阻断契约（五模块已实现并经契约测试覆盖）：
+`*Session::Create` 与 `*Session::CreateWithDiagnostics` 的校验/构造语义必须遵守以下非阻断契约（五模块已实现并经契约测试覆盖）：
 
 1. `Create(config)` 是信任路径，不做配置校验。
-2. `CreateWithValidation(config, issues)` 是校验路径——**无论 @p issues 是否含有 error 都会构造并返回会话（非阻断）**；`issues` 仅为咨询性诊断输出，传入 `nullptr` 时仅构造会话、不写回。
+2. `CreateWithDiagnostics(config, issues)` 是校验路径——**无论 @p issues 是否含有 error 都会构造并返回会话（非阻断）**；`issues` 仅为咨询性诊断输出，传入 `nullptr` 时仅构造会话、不写回。
 3. 两入口均不会因校验失败而拒绝构造；当前不存在"校验失败即不构造"语义。
 4. 调用方须据 `issues->empty()`（或 `HasValidationError`）自行决定后续处置。
 
-不得在文档或实现中宣称校验失败会阻断会话创建，也不得让任一模块私自把 `CreateWithValidation` 改为门禁语义（校验失败即不返回会话）；若未来确实需要门禁语义，应新增独立入口点承载，不得复用现有咨询性入口名。
-[evidence: tests/contract/electronic_surveillance_radar/esr_public_api_convenience_test.cpp::CreateWithValidationReportsIssuesButStillConstructsSession]
-[evidence: tests/contract/electro_optical_sensor/eos_public_api_convenience_test.cpp::CreateWithValidationReportsIssuesButStillConstructsSession]
-[evidence: tests/contract/sbirs_sensor/sbirs_public_api_convenience_test.cpp::CreateWithValidationReportsIssues]
+不得在文档或实现中宣称校验失败会阻断会话创建，也不得让任一模块私自把 `CreateWithDiagnostics` 改为门禁语义（校验失败即不返回会话）；若未来确实需要门禁语义，应新增独立入口点承载，不得复用现有咨询性入口名。
+[evidence: tests/contract/electronic_surveillance_radar/esr_public_api_convenience_test.cpp::CreateWithDiagnosticsReportsIssuesButStillConstructsSession]
+[evidence: tests/contract/electro_optical_sensor/eos_public_api_convenience_test.cpp::CreateWithDiagnosticsReportsIssuesButStillConstructsSession]
+[evidence: tests/contract/sbirs_sensor/sbirs_public_api_convenience_test.cpp::CreateWithDiagnosticsReportsIssues]
 - `*CycleInput`、scene target/emitter/point target 等单周期输入 DTO。
 - `*OutputFrame`、`*CycleResult` 等输出和结构化执行结果 DTO。
 - trace/replay、debug view、lifecycle recorder 等已经形成外部消费合同的工具。
