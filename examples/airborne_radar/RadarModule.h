@@ -224,7 +224,7 @@ class RadarModule {
 
   // ==================== 输出三视图 ====================
   //
-  // 根据 docs/airborne_radar/design.md §1.6，AR 输出分为三个层次：
+  // 根据 docs/airborne_radar/data-flow.md（输出、调试与归属边界），AR 输出分为三个层次：
   //
   //   1. TrackOutputFrame（系统输出）      — 航迹输出帧，通过 lastResult() 获取
   //   2. ArTrackOutputDebugView（调试视图） — 人读排查视图，通过 buildLastDebugView() 获取

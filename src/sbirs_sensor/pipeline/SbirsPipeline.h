@@ -23,7 +23,7 @@
 namespace sbirs_sensor {
 namespace pipeline {
 
-/** @brief 目标级状态机 6 状态枚举（design 2.2），驱动 WFOV 发现、NFOV 首次捕获与持续跟踪。 */
+/** @brief 目标级状态机 7 状态枚举（见 algorithms.md 目标状态机），驱动 WFOV 发现、NFOV 首次捕获与持续跟踪。 */
 enum class SbirsTargetState {
   kUndetected = 0,          /**< 初始或目标未被任何视场发现 */
   kWideCandidate,           /**< WFOV 已发现，等待 NFOV 资源调度 */

@@ -3,9 +3,9 @@
  * @brief SBIRS 红外滤波测量跟踪 facade：消费 common/estimation 模板化滤波框架，实例化为 SBIRS
  *        6 维 CV 状态 / 2 维角度量测场景，并提供球坐标角度量测模型与动态 R 矩阵构造。
  *
- * 设计要点（见 docs/space_based_infrared_sensor/design.md 2.2/2.5）：
+ * 设计要点（见 docs/space_based_infrared_sensor/algorithms.md 目标状态机 / EKF 滤波跟踪）：
  * - 状态：6 维 ECEF 恒速 [x, vx, y, vy, z, vz]，复用 common CV 模型。
- * - 量测：2 维球坐标角度 [az, el]（被动红外不测距，design.md:698）。h(x) 非线性，走 EKF。
+ * - 量测：2 维球坐标角度 [az, el]（被动红外不测距）。h(x) 非线性，走 EKF。
  * - 角度量测模型 SbirsAngleMeasurementModel：h(x) = 目标 ECEF 相对卫星位置的 LOS → az/el；
  *   Jacobian 解析求导。卫星位置每帧由 pipeline 通过 SetSatellitePosition 注入。
  * - R 矩阵 BuildMeasurementCovariance：从 SbirsErrorModelConfig 的 5 类误差 1-σ 合成 2×2，

@@ -1,8 +1,8 @@
 /**
  * @file SbirsErrorModel.h
- * @brief SBIRS-inspired WFOV 带误差位置模型（design 2.10）。
+ * @brief SBIRS-inspired WFOV 带误差位置模型（见 algorithms.md 误差模型条目）。
  *
- * 实现 design.md 2.10 的 5 类物理误差：
+ * 实现 5 类物理误差：
  *   1. 卫星轨道误差（orbit_sigma_deg）
  *   2. 卫星姿态误差（attitude_sigma_deg）
  *   3. 探测器视场误差（fov_sigma_deg）
