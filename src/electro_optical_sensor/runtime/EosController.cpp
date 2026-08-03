@@ -150,7 +150,6 @@ session::EosPipelineAbortReason EosController::GetLastDetectionCycleAbortReason(
   result.validation_issues = impl_->last_validation_issues;
   result.has_validation_error = impl_->has_validation_error;
   result.executed_this_cycle = impl_->last_cycle_executed;
-  result.status = DeriveCycleStatus(impl_->last_abort_reason);
   result.abort_reason = impl_->last_abort_reason;
   if (impl_->last_cycle_executed && impl_->has_latest_output) {
     result.output_frame = impl_->latest_output;
@@ -181,6 +180,10 @@ session::EosPipelineAbortReason EosController::GetLastDetectionCycleAbortReason(
     session::RecordAbort(&result, impl_->last_abort_reason, detail_code,
                          "EOS cycle aborted.", is_validation);
   }
+
+  // status 由 abort_reason 单一推导（在 RecordAbort 之后，避免其覆盖链造成
+  // powered-off 被标成 kRejectedExecution；与 ESR/AR 的 powered-off 语义对齐）。
+  result.status = DeriveCycleStatus(impl_->last_abort_reason);
 
   return result;
 }
