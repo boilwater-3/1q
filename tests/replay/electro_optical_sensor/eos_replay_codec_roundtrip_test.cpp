@@ -233,7 +233,7 @@ TEST(EosReplayCodecRoundtripTest, SessionConfigPreservesAllDomains) {
   config.mission.scan_end_az_deg = 70.0f;
   config.mission.scan_center_el_deg = 2.0f;
   config.mission.boresight_depression_deg = 50.0f;
-  config.mission.power_on = false;
+  config.sensor_enabled = false;
   // policy - detection
   config.policy.detection.minimum_snr_db = 8.0f;
   config.policy.detection.detection_sensitivity_w = 2.0e-12f;
@@ -263,6 +263,8 @@ TEST(EosReplayCodecRoundtripTest, SessionConfigPreservesAllDomains) {
   config::EosSessionConfig decoded;
   ASSERT_TRUE(DecodeEosSessionConfig(bytes, &decoded));
 
+  // sensor_enabled 顶层电源字段（COMMON-OQ-4 字段提升）往返锚点
+  EXPECT_FALSE(decoded.sensor_enabled);
   // hardware
   EXPECT_FLOAT_EQ(decoded.hardware.wavelength_lower_um, 3.0f);
   EXPECT_FLOAT_EQ(decoded.hardware.optical_aperture_m, 0.3f);
@@ -272,7 +274,6 @@ TEST(EosReplayCodecRoundtripTest, SessionConfigPreservesAllDomains) {
   EXPECT_FLOAT_EQ(decoded.mission.scan_rate_deg_per_sec, 25.0f);
   EXPECT_FLOAT_EQ(decoded.mission.frame_rate_hz, 30.0f);
   EXPECT_FLOAT_EQ(decoded.mission.scan_start_az_deg, -70.0f);
-  EXPECT_FALSE(decoded.mission.power_on);
   // policy
   EXPECT_FLOAT_EQ(decoded.policy.detection.minimum_snr_db, 8.0f);
   EXPECT_FLOAT_EQ(decoded.policy.detection.detection_sensitivity_w, 2.0e-12f);
@@ -299,7 +300,6 @@ TEST(EosReplayCodecRoundtripTest, RuntimeConfigPatchPreservesAllFields) {
   patch.has_mission = true;
   patch.mission.work_mode = config::EosWorkMode::kInfraredOnly;
   patch.mission.scan_rate_deg_per_sec = 30.0f;
-  patch.mission.power_on = false;
   patch.has_policy = true;
   patch.policy.detection.minimum_snr_db = 10.0f;
   patch.policy.stray_light.enable_straylight_filter = true;
@@ -312,6 +312,8 @@ TEST(EosReplayCodecRoundtripTest, RuntimeConfigPatchPreservesAllFields) {
   patch.scan_rate_deg_per_sec = 20.0f;
   patch.has_frame_rate_hz = true;
   patch.frame_rate_hz = 15.0f;
+  patch.has_sensor_enabled = true;
+  patch.sensor_enabled = false;
 
   const std::string bytes = EncodeEosRuntimeConfigPatch(patch);
   ASSERT_FALSE(bytes.empty());
@@ -321,7 +323,6 @@ TEST(EosReplayCodecRoundtripTest, RuntimeConfigPatchPreservesAllFields) {
 
   EXPECT_TRUE(decoded.has_mission);
   EXPECT_EQ(decoded.mission.work_mode, config::EosWorkMode::kInfraredOnly);
-  EXPECT_FALSE(decoded.mission.power_on);
   EXPECT_TRUE(decoded.has_policy);
   EXPECT_FLOAT_EQ(decoded.policy.detection.minimum_snr_db, 10.0f);
   EXPECT_TRUE(decoded.policy.stray_light.enable_straylight_filter);
@@ -332,6 +333,9 @@ TEST(EosReplayCodecRoundtripTest, RuntimeConfigPatchPreservesAllFields) {
   EXPECT_FLOAT_EQ(decoded.scan_rate_deg_per_sec, 20.0f);
   EXPECT_TRUE(decoded.has_frame_rate_hz);
   EXPECT_FLOAT_EQ(decoded.frame_rate_hz, 15.0f);
+  // sensor_enabled 叶子往返锚点（COMMON-OQ-4 字段提升）
+  EXPECT_TRUE(decoded.has_sensor_enabled);
+  EXPECT_FALSE(decoded.sensor_enabled);
 }
 
 // ---------------------------------------------------------------------------

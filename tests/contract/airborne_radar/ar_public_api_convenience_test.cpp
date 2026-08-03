@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <limits>
 
+#include "1q/airborne_radar/config/ArProfileConstants.h"
 #include "1q/airborne_radar/config/ArRuntimeConfigBuilder.h"
 #include "1q/airborne_radar/config/ArSessionConfigBuilder.h"
 #include "1q/airborne_radar/session/ArSession.h"
@@ -19,20 +20,11 @@ namespace tests {
 namespace {
 
 config::ArSessionConfig MakeSessionConfig() {
-  return config::ArSessionConfigBuilder()
-      .Detection()
-      .WithDetectionIntentProfile(
-          config::profiles::DetectionIntentProfile::kDetectionPriority)
-      .End()
-      .Tracking()
-      .WithTrackingPolicyProfile(
-          config::profiles::TrackingPolicyProfile::kFastAssociation)
-      .End()
-      .Lifecycle()
-      .WithLifecyclePolicyProfile(
-          config::profiles::LifecyclePolicyProfile::kFastConfirm)
-      .End()
-      .Build();
+  config::ArSessionConfig cfg;
+  cfg.policy.detection = config::profiles::kDetectionPriorityDetection;
+  cfg.policy.tracking = config::profiles::kFastAssociationTracking;
+  cfg.policy.lifecycle = config::profiles::kFastConfirmLifecycle;
+  return cfg;
 }
 
 session::ArCycleInput MakeInput(std::uint32_t cycle_index = 1U,

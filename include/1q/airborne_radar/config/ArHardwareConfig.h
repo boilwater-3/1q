@@ -9,6 +9,9 @@
  *       属于策略域 ArPolicyConfig::detection，不在此类型中。
  *       内部通过 MapSessionToExecution() 将 hardware + policy.detection 合并为
  *       engineering::DetectionConfig。
+ *
+ * @note 原硬件/方向图/RCS/跟踪/生命周期语义档位（ArHardwareProfile 等）已由
+ *       ArProfileConstants.h 中的预定义结构体常量取代，不再提供枚举。
  */
 
 #ifndef ONEQ_AIRBORNE_RADAR_CONFIG_AR_HARDWARE_CONFIG_H_
@@ -39,66 +42,6 @@ enum class ONEQ_API SwerlingModel {
   kSwerling2 = 2, /**< 脉冲间快起伏，每个脉冲 RCS 独立采样。 */
   kSwerling3 = 3, /**< 扫描间慢起伏，RCS 服从 2 自由度 chi-squared 分布。 */
   kSwerling4 = 4  /**< 脉冲间快起伏，RCS 服从 2 自由度 chi-squared 分布。 */
-};
-
-/**
- * @brief 预设硬件能力档位。
- *
- * 选择档位后 Builder 会自动填写发射功率、工作频率、天线增益、
- * 接收机噪声系数等探测链路物理参数，免去逐项手工配置。
- */
-enum class ONEQ_API ArHardwareProfile {
-  kGenericAirborneXBand = 0, /**< 典型机载 X 波段（~3 GHz, 1 MW），适用于通用仿真。 */
-  kLongRangeHighPower = 1,   /**< 远程高功率（5 MW, 9.3 GHz），适用于远距探测场景。 */
-  kLightweightLpi = 2        /**< 轻型低截获概率（350 kW, 10 GHz），适用于隐蔽探测场景。 */
-};
-
-/**
- * @brief 物理 RCS 估计与经验值的融合策略。
- *
- * 控制是否将基于目标几何的物理 RCS 估计值与经验值混合，
- * 以及物理模型的权重占比。
- */
-enum class ONEQ_API RcsFusionProfile {
-  kDisabled = 0,     /**< 不使用物理 RCS 估计，完全依赖经验值。 */
-  kConservative = 1, /**< 低权重物理混合（25%），对经验值做小幅修正。 */
-  kEnhanced = 2      /**< 高权重物理混合（60%），显著依赖几何散射模型。 */
-};
-
-/**
- * @brief 天线方向图预设档位。
- *
- * 控制旁瓣抑制电平、方向图近似模型和扫描损失上限，
- * 影响 off-boresight 增益衰减和抗干扰方向图特性。
- */
-enum class ONEQ_API AntennaPatternProfile {
-  kStandard = 0,    /**< 标准方向图——默认旁瓣与扫描损失参数。 */
-  kLowSidelobe = 1, /**< 低旁瓣——旁瓣 -30 dB / 后瓣 -42 dB，适合抗旁瓣干扰。 */
-  kWideCoverage = 2 /**< 宽覆盖——抛物线主瓣近似，放宽扫描损失上限至 8 dB。 */
-};
-
-/**
- * @brief 跟踪滤波策略档位。
- *
- * 控制 Kalman 滤波器量测噪声、更新后端选择和航迹衰减系数，
- * 决定跟踪在"快速响应"与"抗干扰稳定"之间的偏好。
- */
-enum class ONEQ_API TrackingPolicyProfile {
-  kBalanced = 0,         /**< 均衡——默认 Kalman 参数与衰减系数。 */
-  kFastAssociation = 1,  /**< 快速关联——低量测噪声、Joseph 形式更新，适合目标密集场景。 */
-  kRobustAntiJamming = 2 /**< 抗干扰鲁棒——高量测噪声、UD 分解更新，提升关联代价以抑制虚假量测。 */
-};
-
-/**
- * @brief 航迹生命周期管理策略档位。
- *
- * 控制从 tentative 到 confirmed 所需的检测命中数、
- * 允许的连续丢失次数以及 lost 态最大保留周期。
- */
-enum class ONEQ_API LifecyclePolicyProfile {
-  kBalanced = 0,       /**< 均衡——默认确认与丢失门限。 */
-  kFastConfirm = 1,    /**< 快速确认——1 次命中即确认，1 次丢失即标记 lost，3 周期后删除。 */
-  kHighPersistence = 2 /**< 高持久——需 3 次命中确认，容忍 3 次丢失，保留 8 周期。 */
 };
 
 }  // namespace profiles

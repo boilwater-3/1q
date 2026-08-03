@@ -43,8 +43,10 @@ struct ONEQ_API EnvironmentRuntimeConfigPatch {
  *
  * 支持两类运行期更新：
  * 1) 整域覆盖：`mission`、`policy`、`environment`；
- * 2) 叶子覆盖：传感器开关、工作子模式、扫描/驻留指向、指令态波束宽度等。
- * 当整域与叶子同时出现时，先应用整域再应用叶子，叶子具有最终优先级。
+ * 2) 叶子覆盖：工作子模式、扫描/驻留指向、指令态波束宽度、传感器开关等。
+ * 整域与叶子同时出现时，先应用整域再应用叶子，叶子具有最终优先级。
+ * 电源状态仅由叶子 `has_sensor_enabled` 控制（COMMON-OQ-4 收敛）：
+ * `has_mission` 不改变电源，mission 域在类型层面已无电源字段（字段提升）。
  */
 struct ONEQ_API ArRuntimeConfigPatch {
   bool has_mission{false};

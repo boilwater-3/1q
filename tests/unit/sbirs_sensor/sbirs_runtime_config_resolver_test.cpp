@@ -5,6 +5,42 @@
 
 namespace {
 
+TEST(SbirsRuntimeConfigResolverTest, MissionDomainPreservesExistingPowerState) {
+  // COMMON-OQ-4 字段提升：电源状态仅由 has_sensor_enabled 叶子控制；
+  // mission 域在类型层面已无电源字段，整块域全量拷贝不影响 sensor_enabled。
+  sbirs_sensor::config::SbirsSessionConfig config;
+  config.sensor_enabled = false;
+  config.mission.work_mode = sbirs_sensor::config::SbirsWorkMode::kWideSearch;
+
+  sbirs_sensor::config::SbirsMissionConfig mission_patch;
+  mission_patch.work_mode = sbirs_sensor::config::SbirsWorkMode::kSearchAndStare;
+  const sbirs_sensor::config::SbirsRuntimeConfigPatch patch =
+      sbirs_sensor::config::SbirsRuntimeConfigBuilder().WithMission(mission_patch).Build();
+
+  const auto resolved = sbirs_sensor::runtime::ResolveSbirsRuntimeConfigPatch(config, patch);
+
+  EXPECT_TRUE(resolved.is_valid);
+  EXPECT_FALSE(resolved.resolved_config.sensor_enabled)
+      << "has_mission must not change power state";
+  EXPECT_EQ(resolved.resolved_config.mission.work_mode,
+            sbirs_sensor::config::SbirsWorkMode::kSearchAndStare);
+}
+
+TEST(SbirsRuntimeConfigResolverTest, SensorEnabledLeafRemainsSolePowerControl) {
+  sbirs_sensor::config::SbirsSessionConfig config;
+  config.sensor_enabled = true;
+
+  const sbirs_sensor::config::SbirsRuntimeConfigPatch patch =
+      sbirs_sensor::config::SbirsRuntimeConfigBuilder().WithSensorEnabled(false).Build();
+
+  const auto resolved = sbirs_sensor::runtime::ResolveSbirsRuntimeConfigPatch(config, patch);
+
+  EXPECT_TRUE(resolved.is_valid);
+  EXPECT_FALSE(resolved.resolved_config.sensor_enabled);
+  EXPECT_TRUE(resolved.impact.clear_for_inactive)
+      << "power-off transition must classify as inactive";
+}
+
 TEST(SbirsRuntimeConfigResolverTest, SameValueMissionPatchIsValidWithoutMigration) {
   const sbirs_sensor::config::SbirsSessionConfig config;
   const sbirs_sensor::config::SbirsRuntimeConfigPatch patch =

@@ -24,6 +24,7 @@ struct ONEQ_API EsrSessionConfig {
   EsrMissionConfig mission{};         /**< 任务域语义输入 */
   EsrPolicyConfig policy{};           /**< 策略域语义输入 */
   EsrEnvironmentConfig environment{}; /**< 环境域语义输入 */
+  bool sensor_enabled{true};          /**< 传感器初始电源状态（COMMON-OQ-4 字段提升） */
 };
 
 }  // namespace config

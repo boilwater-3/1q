@@ -70,7 +70,7 @@ extension::InterceptPipelineResult InterceptPipeline::RunCycle(
     const session::EsrCycleInput& input_state,
     const environment::IEsrEnvironmentService& environment_service) {
   extension::InterceptPipelineResult result;
-  if (!config_.mission.power_on) {
+  if (!config_.sensor_enabled) {
     PROJECT_LOG_DEBUG("[InterceptPipeline] sensor disabled, cycle_index={} skipped.",
                       input_state.cycle_index);
     result.sensor_powered_off = true;

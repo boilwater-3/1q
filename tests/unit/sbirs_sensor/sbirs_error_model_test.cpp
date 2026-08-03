@@ -1,4 +1,4 @@
-// design.md 2.10 验证入口：sbirs_error_model_test
+// 验证 algorithms.md 误差模型条目：sbirs_error_model_test
 // 覆盖 5 类误差（轨道/姿态/视场/折射/滞后）与确定性随机源可复现性。
 #include <gtest/gtest.h>
 

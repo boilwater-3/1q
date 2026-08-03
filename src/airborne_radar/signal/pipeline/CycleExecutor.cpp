@@ -90,12 +90,12 @@ void RunAssociationPhase(const CycleExecutionContext& context, const CycleExecut
 // ---------------------------------------------------------------------------
 
 // 合成假目标量测已由 DeceptionMeasurementGenerator 注入并自带
-// classified_as_false_target=true；真实场景目标不再按方位误标为假目标。
+// classified_as_false_target=true；真实场景目标仅通过假目标鉴别逻辑标注。
 void RunMeasurementBuildPhase(const CycleExecutionContext& context,
                               CycleExecutionScratch& scratch) {
   BuildTrackMeasurementsPass(context.cycle_input.scene_targets, scratch);
   // 从欺骗干扰观测合成假目标量测，注入到 track_measurements。合成独立于反制开关，
-  // 合成量测自带 classified_as_false_target=true；真实场景目标不再被标注。
+  // 合成量测自带 classified_as_false_target=true。
   InjectDeceptionMeasurementsPass(context, scratch);
 }
 

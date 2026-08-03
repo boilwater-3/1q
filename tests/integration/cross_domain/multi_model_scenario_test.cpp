@@ -280,22 +280,12 @@ esr_session::EsrCycleInput BuildEsrInput(const WorldState& ws, float dt, std::ui
 
 // -- 空对空通用 AR 配置 --
 ar_config::ArSessionConfig MakeArConfigAirToAir() {
-  ar_config::ArSessionConfig config =
-      ar_config::ArSessionConfigBuilder()
-          .Detection()
-          .WithHardwareProfile(ar_config::profiles::ArHardwareProfile::kLongRangeHighPower)
-          .WithDetectionIntentProfile(
-              ar_config::profiles::DetectionIntentProfile::kDetectionPriority)
-          .WithAntennaPatternProfile(ar_config::profiles::AntennaPatternProfile::kStandard)
-          .End()
-          .Tracking()
-          .EnableTrackingFilter(true)
-          .WithTrackingPolicyProfile(ar_config::profiles::TrackingPolicyProfile::kFastAssociation)
-          .End()
-          .Lifecycle()
-          .WithLifecyclePolicyProfile(ar_config::profiles::LifecyclePolicyProfile::kFastConfirm)
-          .End()
-          .Build();
+  ar_config::ArSessionConfig config;
+  config.hardware = ar_config::profiles::kLongRangeHighPowerHardware;
+  config.policy.detection = ar_config::profiles::kDetectionPriorityDetection;
+  config.policy.tracking = ar_config::profiles::kFastAssociationTracking;
+  config.policy.tracking.enable_kalman_filter = true;
+  config.policy.lifecycle = ar_config::profiles::kFastConfirmLifecycle;
   config.mission.orientation.work_mode = ar_config::ArWorkMode::kTas;
   config.mission.orientation.scan_center_deg = ar_config::AzimuthElevationDeg{};
   config.hardware.receiver.has_co_site_isolation = true;
@@ -313,7 +303,10 @@ eos_config::EosSessionConfig MakeEosConfigAirToAir() {
   config.mission.horizontal_fov_deg = 20.0f;
   config.mission.vertical_fov_deg = 8.0f;
   config.mission.scan_rate_deg_per_sec = 5.0f;
-  config.mission.frame_rate_hz = 30.0f;
+  // 场景步长 1 s/帧，帧率必须与之匹配：ValidateEosCycleInput 拒绝
+  // dt_sec > 10 / frame_rate_hz（53c56e21 收紧；81f7fe6d 修复 stale fixtures
+  // 时漏掉了本跨域测试，此前每周期都被 kCycleDeltaTimeExceedsFramePeriod 拒绝）。
+  config.mission.frame_rate_hz = 1.0f;
   config.mission.scan_start_az_deg = -10.0f;
   config.mission.scan_end_az_deg = 10.0f;
   config.mission.scan_center_el_deg = 0.0f;
@@ -333,7 +326,7 @@ esr_config::EsrSessionConfig MakeEsrConfigAirToAir() {
   config.hardware.beam_el_width_deg = 40.0f;
   config.hardware.az_scan_range_deg = 120.0f;
   config.hardware.el_scan_range_deg = 20.0f;
-  config.mission.power_on = true;
+  config.sensor_enabled = true;
   config.mission.work_mode = esr::config::EsrWorkMode::kEsm;
   // 1 s 场景步长下使用 10 s 完整扫描周期，避免 1 Hz 默认值每帧恰好回到起始波束。
   config.mission.scan.scan_rate_hz = 0.1f;
@@ -345,22 +338,12 @@ esr_config::EsrSessionConfig MakeEsrConfigAirToAir() {
 
 // -- 空对地 AR 配置 --
 ar_config::ArSessionConfig MakeArConfigAirToGround() {
-  ar_config::ArSessionConfig config =
-      ar_config::ArSessionConfigBuilder()
-          .Detection()
-          .WithHardwareProfile(ar_config::profiles::ArHardwareProfile::kLongRangeHighPower)
-          .WithDetectionIntentProfile(
-              ar_config::profiles::DetectionIntentProfile::kDetectionPriority)
-          .WithAntennaPatternProfile(ar_config::profiles::AntennaPatternProfile::kStandard)
-          .End()
-          .Tracking()
-          .EnableTrackingFilter(true)
-          .WithTrackingPolicyProfile(ar_config::profiles::TrackingPolicyProfile::kFastAssociation)
-          .End()
-          .Lifecycle()
-          .WithLifecyclePolicyProfile(ar_config::profiles::LifecyclePolicyProfile::kFastConfirm)
-          .End()
-          .Build();
+  ar_config::ArSessionConfig config;
+  config.hardware = ar_config::profiles::kLongRangeHighPowerHardware;
+  config.policy.detection = ar_config::profiles::kDetectionPriorityDetection;
+  config.policy.tracking = ar_config::profiles::kFastAssociationTracking;
+  config.policy.tracking.enable_kalman_filter = true;
+  config.policy.lifecycle = ar_config::profiles::kFastConfirmLifecycle;
   config.mission.orientation.work_mode = ar_config::ArWorkMode::kTas;
   config.mission.orientation.scan_center_deg = ar_config::AzimuthElevationDeg{};
   return config;
@@ -376,7 +359,8 @@ eos_config::EosSessionConfig MakeEosConfigAirToGround() {
   config.mission.horizontal_fov_deg = 20.0f;
   config.mission.vertical_fov_deg = 8.0f;
   config.mission.scan_rate_deg_per_sec = 5.0f;
-  config.mission.frame_rate_hz = 30.0f;
+  // 帧率 1 Hz 与 1 s 场景步长匹配（dt_sec ≤ 10/frame_rate_hz 校验，见 MakeEosConfigAirToAir）。
+  config.mission.frame_rate_hz = 1.0f;
   config.mission.scan_start_az_deg = -10.0f;
   config.mission.scan_end_az_deg = 10.0f;
   config.mission.scan_center_el_deg = -45.0f;
@@ -396,7 +380,7 @@ esr_config::EsrSessionConfig MakeEsrConfigAirToGround() {
   config.hardware.beam_el_width_deg = 60.0f;
   config.hardware.az_scan_range_deg = 120.0f;
   config.hardware.el_scan_range_deg = 80.0f;
-  config.mission.power_on = true;
+  config.sensor_enabled = true;
   config.mission.work_mode = esr::config::EsrWorkMode::kEsm;
   config.mission.scan.scan_center_el_deg = -35.0f;
   config.policy.detection.minimum_snr_db = -40.0f;

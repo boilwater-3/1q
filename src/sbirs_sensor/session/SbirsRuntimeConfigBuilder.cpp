@@ -36,9 +36,9 @@ SbirsRuntimeConfigBuilder& SbirsRuntimeConfigBuilder::WithScanRateDegPerSec(
   return *this;
 }
 
-SbirsRuntimeConfigBuilder& SbirsRuntimeConfigBuilder::WithPowerOn(bool power_on) {
-  patch_.has_power_on = true;
-  patch_.power_on = power_on;
+SbirsRuntimeConfigBuilder& SbirsRuntimeConfigBuilder::WithSensorEnabled(bool sensor_enabled) {
+  patch_.has_sensor_enabled = true;
+  patch_.sensor_enabled = sensor_enabled;
   return *this;
 }
 

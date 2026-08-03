@@ -34,8 +34,8 @@ target_link_libraries(eos_extension_consumer PRIVATE 1q::1q)
 add_executable(eos_output_observability_consumer eos_output_observability_consumer.cpp)
 target_link_libraries(eos_output_observability_consumer PRIVATE 1q::1q)
 
-add_executable(esr_output_observability_consumer esr_output_observability_consumer.cpp)
-target_link_libraries(esr_output_observability_consumer PRIVATE 1q::1q)
+# 注：esr_output_observability_consumer.cpp 在仓库中从未存在（悬空引用），
+# 已从本工程移除；如需要 ESR 输出可观测性 consumer 请重新实现。
 
 add_executable(sar_output_observability_consumer sar_output_observability_consumer.cpp)
 target_link_libraries(sar_output_observability_consumer PRIVATE 1q::1q)

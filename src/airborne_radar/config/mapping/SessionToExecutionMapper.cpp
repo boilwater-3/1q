@@ -11,7 +11,7 @@ execution::InternalExecutionConfig MapSessionToExecution(
     const config::ArSessionConfig& session_config) {
   execution::InternalExecutionConfig exec;
 
-  exec.sensor_enabled = session_config.mission.power_on;
+  exec.sensor_enabled = session_config.sensor_enabled;
   exec.decision_control = session_config.policy.decision_control;
   exec.anti_vgpo_max_acceleration_mps2 =
       session_config.policy.decision_control.anti_vgpo_max_acceleration_mps2;

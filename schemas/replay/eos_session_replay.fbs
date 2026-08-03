@@ -17,7 +17,6 @@ table EosMissionConfig {
   scan_end_az_deg:          float;
   scan_center_el_deg:       float;
   boresight_depression_deg: float;
-  power_on:                 bool = true;
 }
 
 table EosPolicyDetectionConfig {
@@ -69,10 +68,11 @@ table EosHardwareConfig {
 }
 
 table EosSessionConfig {
-  hardware:    EosHardwareConfig;
-  mission:     EosMissionConfig;
-  policy:      EosPolicyConfig;
-  environment: EosEnvironmentConfig;
+  hardware:       EosHardwareConfig;
+  mission:        EosMissionConfig;
+  policy:         EosPolicyConfig;
+  environment:    EosEnvironmentConfig;
+  sensor_enabled: bool = true;
 }
 
 root_type EosSessionConfig;

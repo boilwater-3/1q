@@ -46,10 +46,10 @@ class ONEQ_API SbirsRuntimeConfigBuilder {
   SbirsRuntimeConfigBuilder& WithScanRateDegPerSec(float scan_rate_deg_per_sec);
   /**
    * @brief 覆盖传感器电源状态。
-   * @param[in] power_on 是否开启传感器
+   * @param[in] sensor_enabled 是否开启传感器
    * @return 自身引用，支持链式调用
    */
-  SbirsRuntimeConfigBuilder& WithPowerOn(bool power_on);
+  SbirsRuntimeConfigBuilder& WithSensorEnabled(bool sensor_enabled);
   /**
    * @brief 构造并返回累积的运行期配置补丁。
    * @return 已设置字段的 `SbirsRuntimeConfigPatch`

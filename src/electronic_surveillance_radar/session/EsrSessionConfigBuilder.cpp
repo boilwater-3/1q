@@ -1,5 +1,5 @@
 // @file EsrSessionConfigBuilder.cpp
-// @brief Implementation of EsrSessionConfigBuilder with profile translation.
+// @brief Implementation of EsrSessionConfigBuilder (thin wrapper).
 
 #include "1q/electronic_surveillance_radar/config/EsrSessionConfigBuilder.h"
 
@@ -10,91 +10,7 @@
 namespace electronic_surveillance_radar {
 namespace config {
 
-namespace {
-
-void ApplyEsrMissionSemanticConfig(EsrMissionProfile profile, EsrMissionConfig* mission) {
-  if (mission == nullptr) {
-    return;
-  }
-  auto& m = *mission;
-
-  switch (profile) {
-    case EsrMissionProfile::kElectronicOrderOfBattle:
-      m.work_mode = EsrWorkMode::kEsm;
-      m.scan.scan_rate_hz = 2.0f;
-      m.scan.use_explicit_scan_bounds = true;
-      m.scan.scan_start_az_deg = -60.0f;
-      m.scan.scan_end_az_deg = 60.0f;
-      m.scan.scan_start_el_deg = -10.0f;
-      m.scan.scan_end_el_deg = 10.0f;
-      break;
-    case EsrMissionProfile::kPrecisionEmitterAnalysis:
-      m.work_mode = EsrWorkMode::kHgesm;
-      m.scan.scan_rate_hz = 0.5f;
-      m.scan.use_explicit_scan_bounds = true;
-      m.scan.scan_start_az_deg = -30.0f;
-      m.scan.scan_end_az_deg = 30.0f;
-      m.scan.scan_start_el_deg = -5.0f;
-      m.scan.scan_end_el_deg = 5.0f;
-      break;
-    case EsrMissionProfile::kThreatWarning:
-      m.work_mode = EsrWorkMode::kRwr;
-      m.scan.scan_rate_hz = 5.0f;
-      m.scan.use_explicit_scan_bounds = true;
-      m.scan.scan_start_az_deg = -60.0f;
-      m.scan.scan_end_az_deg = 60.0f;
-      m.scan.scan_start_el_deg = -10.0f;
-      m.scan.scan_end_el_deg = 10.0f;
-      break;
-  }
-}
-
-void ApplyEsrSensitivitySemanticConfig(EsrSensitivityProfile profile,
-                                       EsrDetectionPolicyConfig* detection) {
-  if (detection == nullptr) {
-    return;
-  }
-  auto& d = *detection;
-
-  switch (profile) {
-    case EsrSensitivityProfile::kStandard:
-      d.minimum_snr_db = 6.0f;
-      d.pulse_count = 8U;
-      d.pfa = 1.0e-6f;
-      d.threshold_scale = 1.0f;
-      d.enable_statistical_detection = true;
-      break;
-    case EsrSensitivityProfile::kHighSensitivity:
-      d.minimum_snr_db = 3.0f;
-      d.pulse_count = 16U;
-      d.pfa = 5.0e-6f;
-      d.threshold_scale = 1.0f;
-      d.enable_statistical_detection = true;
-      break;
-    case EsrSensitivityProfile::kRobust:
-      d.minimum_snr_db = 10.0f;
-      d.pulse_count = 4U;
-      d.pfa = 1.0e-7f;
-      d.threshold_scale = 1.0f;
-      d.enable_statistical_detection = true;
-      break;
-  }
-}
-
-}  // namespace
-
-config::EsrSessionConfig EsrSessionConfigBuilder::Build() const {
-  config::EsrSessionConfig result = config_;
-
-  if (mission_profile_dirty_) {
-    ApplyEsrMissionSemanticConfig(mission_profile_, &result.mission);
-  }
-  if (sensitivity_profile_dirty_) {
-    ApplyEsrSensitivitySemanticConfig(sensitivity_profile_, &result.policy.detection);
-  }
-
-  return result;
-}
+config::EsrSessionConfig EsrSessionConfigBuilder::Build() const { return config_; }
 
 ValidationIssueList ValidateEsrSessionConfig(const config::EsrSessionConfig& config) noexcept {
   ValidationIssueList issues;

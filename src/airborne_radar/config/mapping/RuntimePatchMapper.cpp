@@ -75,7 +75,7 @@ RuntimeConfigResolveResult ApplyRuntimePatch(const RuntimeConfigState& current_s
   }
 
   if (patch.has_mission) {
-    next_execution_config.sensor_enabled = patch.mission.power_on;
+    // 电源单源：mission 域无电源字段（COMMON-OQ-4，见 contract.md §电源状态单源契约）。
     next_execution_config.detection.orientation = patch.mission.orientation;
     execution_config_changed = true;
     has_requested_update = true;
@@ -163,7 +163,7 @@ RuntimeConfigResolveResult ApplyRuntimePatch(const RuntimeConfigState& current_s
 config::ArSessionConfig MapExecutionToSession(
     const execution::InternalExecutionConfig& execution_config) {
   config::ArSessionConfig config;
-  config.mission.power_on = execution_config.sensor_enabled;
+  config.sensor_enabled = execution_config.sensor_enabled;
   config.hardware.transmitter = execution_config.detection.engineering.transmitter;
   config.hardware.antenna = execution_config.detection.engineering.antenna;
   config.hardware.receiver = execution_config.detection.engineering.receiver;

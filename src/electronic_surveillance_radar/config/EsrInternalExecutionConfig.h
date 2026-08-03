@@ -128,6 +128,7 @@ using EnvironmentConfig = config::EsrEnvironmentScenarioConfig;
  * 替换原先的 ResolvedEsrSessionConfig + 分立的 pipeline/runtime/environment config。
  */
 struct EsrInternalExecutionConfig {
+  bool sensor_enabled{true};            /**< 全局设备开关（COMMON-OQ-4 字段提升） */
   config::EsrHardwareConfig hardware{}; /**< 装备固有参数（using 别名直接赋值） */
   config::EsrMissionConfig mission{};   /**< 任务域参数（using 别名直接赋值） */
   extension::InterceptScanConfig
@@ -227,7 +228,7 @@ inline extension::InterceptPipelineConfig BuildPipelineConfig(
 inline extension::InterceptRuntimeConfig BuildRuntimeConfig(
     const EsrInternalExecutionConfig& internal) {
   extension::InterceptRuntimeConfig rt;
-  rt.sensor_enabled = internal.mission.power_on;
+  rt.sensor_enabled = internal.sensor_enabled;
   rt.antenna_mount_az_deg = internal.hardware.antenna_mount_az_deg;
   rt.antenna_mount_el_deg = internal.hardware.antenna_mount_el_deg;
   rt.integrated_receive_loss_db = internal.hardware.integrated_receive_loss_db;

@@ -1,12 +1,13 @@
 /**
  * @file esr_session_config_builder_test.cpp
- * @brief 验证 ESR SessionConfigBuilder 语义档位与配置校验（此前 0% 覆盖）。
+ * @brief 验证 ESR ProfileConstants 常量赋值与配置校验。
  */
 
 #include <gtest/gtest.h>
 
 #include <limits>
 
+#include "1q/electronic_surveillance_radar/config/EsrProfileConstants.h"
 #include "1q/electronic_surveillance_radar/config/EsrSessionConfigBuilder.h"
 #include "1q/electronic_surveillance_radar/config/EsrSessionConfigValidation.h"
 
@@ -22,39 +23,41 @@ bool ContainsCode(const ValidationIssueList& issues, ConfigValidationCode code) 
 }
 
 // =============================================================================
-// Build() 语义档位（3-way switch 全覆盖）
+// 语义档位常量赋值（等价迁移自旧 Profile 翻译）
 // =============================================================================
 
-TEST(EsrSessionConfigBuilderTest, ElectronicOrderOfBattleProfileSetsDefaults) {
-  EsrSessionConfigBuilder builder;
-  builder.Mission().WithMissionProfile(EsrMissionProfile::kElectronicOrderOfBattle).End();
-  const EsrSessionConfig config = builder.Build();
+TEST(EsrSessionConfigBuilderTest, ElectronicOrderOfBattleConstantsAssign) {
+  EsrSessionConfig config;
+  config.mission = profiles::kElectronicOrderOfBattleMission;
   EXPECT_GT(config.mission.scan.scan_rate_hz, 0.0f);
 }
 
-TEST(EsrSessionConfigBuilderTest, PrecisionEmitterAnalysisProfileSetsDefaults) {
-  EsrSessionConfigBuilder builder;
-  builder.Mission().WithMissionProfile(EsrMissionProfile::kPrecisionEmitterAnalysis).End();
-  const EsrSessionConfig config = builder.Build();
+TEST(EsrSessionConfigBuilderTest, PrecisionEmitterAnalysisConstantsAssign) {
+  EsrSessionConfig config;
+  config.mission = profiles::kPrecisionEmitterAnalysisMission;
   EXPECT_GT(config.mission.scan.scan_rate_hz, 0.0f);
 }
 
-TEST(EsrSessionConfigBuilderTest, ThreatWarningProfileSetsDefaults) {
-  EsrSessionConfigBuilder builder;
-  builder.Mission().WithMissionProfile(EsrMissionProfile::kThreatWarning).End();
-  const EsrSessionConfig config = builder.Build();
+TEST(EsrSessionConfigBuilderTest, ThreatWarningConstantsAssign) {
+  EsrSessionConfig config;
+  config.mission = profiles::kThreatWarningMission;
   EXPECT_GT(config.mission.scan.scan_rate_hz, 0.0f);
 }
 
-TEST(EsrSessionConfigBuilderTest, SensitivityProfilesApplyDetectionDefaults) {
-  for (auto profile : {EsrSensitivityProfile::kStandard,
-                       EsrSensitivityProfile::kHighSensitivity,
-                       EsrSensitivityProfile::kRobust}) {
-    EsrSessionConfigBuilder builder;
-    builder.Detection().WithSensitivityProfile(profile).End();
-    const EsrSessionConfig config = builder.Build();
-    EXPECT_GE(config.policy.detection.minimum_snr_db, 0.0f);
-  }
+TEST(EsrSessionConfigBuilderTest, SensitivityConstantsApplyDetectionDefaults) {
+  // kHighSensitivity / kRobust 有有效覆盖。
+  EsrSessionConfig config;
+  config.policy.detection = profiles::kHighSensitivityDetection;
+  EXPECT_FLOAT_EQ(config.policy.detection.minimum_snr_db, 3.0f);
+  config.policy.detection = profiles::kRobustDetection;
+  EXPECT_FLOAT_EQ(config.policy.detection.minimum_snr_db, 10.0f);
+  // kStandard 与 struct 默认逐字段一致（no-op 档位），精确锁定防漂移。
+  const EsrDetectionPolicyConfig default_detection{};
+  EXPECT_FLOAT_EQ(default_detection.minimum_snr_db, 6.0f);
+  EXPECT_EQ(default_detection.pulse_count, 8U);
+  EXPECT_FLOAT_EQ(default_detection.pfa, 1.0e-6f);
+  EXPECT_FLOAT_EQ(default_detection.threshold_scale, 1.0f);
+  EXPECT_TRUE(default_detection.enable_statistical_detection);
 }
 
 // =============================================================================
@@ -145,9 +148,9 @@ TEST(EsrSessionConfigValidationTest, IgnoresExplicitFieldsWhenCenterModeIsSelect
 }
 
 TEST(EsrSessionConfigValidationTest, PassesOnHealthyBuiltConfig) {
-  EsrSessionConfigBuilder builder;
-  builder.Mission().WithMissionProfile(EsrMissionProfile::kElectronicOrderOfBattle).End();
-  const ValidationIssueList issues = ValidateEsrSessionConfig(builder.Build());
+  EsrSessionConfig config;
+  config.mission = profiles::kElectronicOrderOfBattleMission;
+  const ValidationIssueList issues = ValidateEsrSessionConfig(config);
   EXPECT_TRUE(issues.empty());
 }
 

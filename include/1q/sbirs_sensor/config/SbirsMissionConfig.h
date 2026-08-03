@@ -21,10 +21,11 @@ enum class ONEQ_API SbirsScanDirection { kIncreasingAzimuth = 0, kDecreasingAzim
  * @brief SBIRS-inspired 任务与视场参数。
  * @note 纯数据类型 (POD)。WFOV/NFOV 视场、扫描范围与速率、距离门控和帧率共同定义
  *       pipeline 几何门控与扫描相位推进；凝视相关参数仅在 NFOV 通道生效。
+ *       电源状态由 `SbirsSessionConfig::sensor_enabled` 顶层字段唯一承载
+ *       （COMMON-OQ-4 收敛）。
  */
 struct ONEQ_API SbirsMissionConfig {
   SbirsWorkMode work_mode{SbirsWorkMode::kSearchAndStare}; /**< 传感器工作模式 */
-  bool power_on{true};                                     /**< 传感器是否开启 */
   float wide_field_fov_az_deg{20.0f};                      /**< WFOV 方位视场（FOV），单位 deg */
   float wide_field_fov_el_deg{20.0f};                      /**< WFOV 俯仰视场（FOV），单位 deg */
   float narrow_field_fov_az_deg{2.0f};                     /**< NFOV 方位视场（IFOV），单位 deg */

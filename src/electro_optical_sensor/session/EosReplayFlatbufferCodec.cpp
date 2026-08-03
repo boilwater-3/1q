@@ -298,7 +298,7 @@ std::string EncodeEosSessionConfig(const config::EosSessionConfig& v) {
       fbb, static_cast<int32_t>(v.mission.work_mode), v.mission.horizontal_fov_deg,
       v.mission.vertical_fov_deg, v.mission.scan_rate_deg_per_sec, v.mission.frame_rate_hz,
       v.mission.scan_start_az_deg, v.mission.scan_end_az_deg, v.mission.scan_center_el_deg,
-      v.mission.boresight_depression_deg, v.mission.power_on);
+      v.mission.boresight_depression_deg);
 
   // policy detection
   auto pd = eos::replay::CreateEosPolicyDetectionConfig(
@@ -324,7 +324,8 @@ std::string EncodeEosSessionConfig(const config::EosSessionConfig& v) {
       sc.cloud_coverage_ratio, sc.ambient_wind_speed_mps,
       static_cast<int32_t>(sc.day_night_type), sc.background_temperature_k);
 
-  fbb.Finish(eos::replay::CreateEosSessionConfig(fbb, hw, mission, policy, env));
+  fbb.Finish(
+      eos::replay::CreateEosSessionConfig(fbb, hw, mission, policy, env, v.sensor_enabled));
   return oneq::common::replay::CopyFinishedFlatbuffer(fbb);
 }
 
@@ -356,8 +357,8 @@ bool DecodeEosSessionConfig(const std::string& bytes, config::EosSessionConfig* 
     out->mission.scan_end_az_deg = m->scan_end_az_deg();
     out->mission.scan_center_el_deg = m->scan_center_el_deg();
     out->mission.boresight_depression_deg = m->boresight_depression_deg();
-    out->mission.power_on = m->power_on();
   }
+  out->sensor_enabled = fb->sensor_enabled();
   if (fb->policy() && fb->policy()->detection()) {
     const auto* pd = fb->policy()->detection();
     out->policy.detection.minimum_snr_db = pd->minimum_snr_db();
@@ -404,7 +405,7 @@ std::string EncodeEosRuntimeConfigPatch(const config::EosRuntimeConfigPatch& v) 
       fbb, static_cast<int32_t>(v.mission.work_mode), v.mission.horizontal_fov_deg,
       v.mission.vertical_fov_deg, v.mission.scan_rate_deg_per_sec, v.mission.frame_rate_hz,
       v.mission.scan_start_az_deg, v.mission.scan_end_az_deg, v.mission.scan_center_el_deg,
-      v.mission.boresight_depression_deg, v.mission.power_on);
+      v.mission.boresight_depression_deg);
   auto pd = eos::replay::CreateEosPolicyDetectionConfig(
       fbb, v.policy.detection.minimum_snr_db, v.policy.detection.detection_sensitivity_w,
       v.policy.detection.visible_reference_irradiance_w_m2);
@@ -516,7 +517,6 @@ bool DecodeEosRuntimeConfigPatch(const std::string& bytes, config::EosRuntimeCon
     out->mission.scan_end_az_deg = m->scan_end_az_deg();
     out->mission.scan_center_el_deg = m->scan_center_el_deg();
     out->mission.boresight_depression_deg = m->boresight_depression_deg();
-    out->mission.power_on = m->power_on();
   }
   return true;
 }

@@ -244,8 +244,7 @@ bool TryResolveArInterferenceObservations(
     const double range_rate_std_mps = range_std_m / dwell_s;
 
     session::ArInterferenceObservation observation;
-    // 去真值化：斜距叠加由 MeasurementErrorModel 标准差驱动的确定性零均值噪声，
-    // 不再是精确仿真真值（contract.md:348）。
+    // 去真值化：斜距叠加由 MeasurementErrorModel 标准差驱动的确定性零均值噪声。
     double perturbed_range_m =
         Perturb(range_m, range_std_m, perturbation_seed, kRangeDomain, emission_tag);
     // 同平台干扰源 range_m 被钳制到 kMinObservableRangeM（~1 m），而误差模型含 20 m
@@ -276,8 +275,7 @@ bool TryResolveArInterferenceObservations(
     const double direction_y = y / range_m;
     const double direction_z = z / range_m;
     // 径向速度：相对速度（发射体-接收机）与视线单位向量的点乘（正值表示远离）。
-    // 此前实现仅用发射体 ECEF 速度，未扣除接收机（平台）自身运动，对快速移动平台
-    // 系统性偏置距离变化率估计，影响反 VGPO 评分门限的准确性。
+    // 以相对速度计算保证对快速移动平台的距离变化率估计准确，满足反 VGPO 评分门限要求。
     double range_rate_mps = 0.0;
     if (oneq::coordinate::IsFinite(emission->velocity_ecef_mps) &&
         oneq::coordinate::IsFinite(receiver.velocity_ecef_mps)) {

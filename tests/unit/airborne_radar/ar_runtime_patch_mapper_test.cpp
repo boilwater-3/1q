@@ -50,6 +50,42 @@ TEST(ArRuntimePatchMapperTest, MissionDomainAppliedBeforeLeafPatch) {
                   40.0f);
 }
 
+TEST(ArRuntimePatchMapperTest, MissionDomainDoesNotAffectSensorEnabled) {
+  // COMMON-OQ-4 收敛：电源状态仅由 has_sensor_enabled 叶子控制；
+  // mission 域在类型层面已无 power_on 字段（字段提升）。
+  RuntimeConfigState current_state;
+  current_state.execution_config.sensor_enabled = true;
+
+  ArMissionConfig mission_patch;
+  mission_patch.orientation.work_mode = config::ArWorkMode::kTas;
+
+  ArRuntimeConfigPatch patch;
+  patch.has_mission = true;
+  patch.mission = mission_patch;
+
+  const RuntimeConfigResolveResult resolved = ApplyRuntimePatch(current_state, patch);
+
+  EXPECT_TRUE(resolved.is_valid);
+  EXPECT_TRUE(resolved.next_state.execution_config.sensor_enabled)
+      << "has_mission must not change power state";
+  EXPECT_EQ(resolved.next_state.execution_config.detection.orientation.work_mode,
+            config::ArWorkMode::kTas);
+}
+
+TEST(ArRuntimePatchMapperTest, SensorEnabledLeafRemainsSolePowerControl) {
+  RuntimeConfigState current_state;
+  current_state.execution_config.sensor_enabled = true;
+
+  ArRuntimeConfigPatch patch;
+  patch.has_sensor_enabled = true;
+  patch.sensor_enabled = false;
+
+  const RuntimeConfigResolveResult resolved = ApplyRuntimePatch(current_state, patch);
+
+  EXPECT_TRUE(resolved.is_valid);
+  EXPECT_FALSE(resolved.next_state.execution_config.sensor_enabled);
+}
+
 TEST(ArRuntimePatchMapperTest, DwellPatchContributesToPipelinePointing) {
   RuntimeConfigState current_state;
   current_state.execution_config.detection.orientation.scan_center_deg.az_deg = 10.0f;

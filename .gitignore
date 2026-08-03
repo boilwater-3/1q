@@ -48,8 +48,8 @@ GEMINI.md
 # CLAUDE.md 作为 prompt 单一事实源纳入版本控制；AGENTS.md 为指向它的符号链接。
 .claude/skills/debug-cpp-bug/
 # 符号链接目录：实际文件在 .claude/skills/，以下目录仅为各 agent 发现用
-skills/
-.agents/
+.agents/skills/
+.zcode/
 # 忽略 .github/ 下除 workflows/ 外的本地配置
 .github/*
 !.github/workflows/

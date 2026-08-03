@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "1q/airborne_radar/session/ArSession.h"
+#include "1q/airborne_radar/config/ArProfileConstants.h"
 #include "1q/airborne_radar/config/ArSessionConfigBuilder.h"
 #include "1q/airborne_radar/session/ArCycleOutputAdapter.h"
 #include "1q/coordinate/position_transform.h"
@@ -27,20 +28,11 @@ using airborne_radar::session::ArExternalTargetInput;
 using airborne_radar::session::TrackOutputFrame;
 
 airborne_radar::config::ArSessionConfig MakeDetectionFocusedConfig() {
-  return airborne_radar::config::ArSessionConfigBuilder()
-      .Detection()
-      .WithDetectionIntentProfile(
-          airborne_radar::config::profiles::DetectionIntentProfile::kDetectionPriority)
-      .End()
-      .Tracking()
-      .WithTrackingPolicyProfile(
-          airborne_radar::config::profiles::TrackingPolicyProfile::kFastAssociation)
-      .End()
-      .Lifecycle()
-      .WithLifecyclePolicyProfile(
-          airborne_radar::config::profiles::LifecyclePolicyProfile::kFastConfirm)
-      .End()
-      .Build();
+  airborne_radar::config::ArSessionConfig cfg;
+  cfg.policy.detection = airborne_radar::config::profiles::kDetectionPriorityDetection;
+  cfg.policy.tracking = airborne_radar::config::profiles::kFastAssociationTracking;
+  cfg.policy.lifecycle = airborne_radar::config::profiles::kFastConfirmLifecycle;
+  return cfg;
 }
 
 ArExternalPoseInput MakePlatformInput() {

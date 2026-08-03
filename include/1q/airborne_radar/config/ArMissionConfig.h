@@ -17,10 +17,10 @@ namespace config {
 /**
  * @brief ArMissionConfig 雷达任务域配置。
  *
- * 任务域承载工作子模式与波束指向运行态。
+ * 任务域承载工作子模式与波束指向运行态。电源状态由
+ * `ArSessionConfig::sensor_enabled` 顶层字段唯一承载（COMMON-OQ-4 收敛）。
  */
 struct ONEQ_API ArMissionConfig {
-  bool power_on{true};                           /**< 设备开关机状态 */
   config::ArOrientationConfig orientation{};
 };
 

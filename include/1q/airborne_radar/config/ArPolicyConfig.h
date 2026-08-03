@@ -16,21 +16,6 @@
 namespace airborne_radar {
 namespace config {
 
-namespace profiles {
-
-/**
- * @brief 探测意图档位。
- *
- * 控制脉冲积累数、虚警概率、最低信噪比和探测裕量。
- */
-enum class ONEQ_API DetectionIntentProfile {
-  kBalanced = 0,              /**< 均衡探测与航迹稳定。 */
-  kDetectionPriority = 1,     /**< 放宽门限并增加积累，优先发现目标。 */
-  kTrackStabilityPriority = 2 /**< 收紧门限并减少积累，优先抑制虚警。 */
-};
-
-}  // namespace profiles
-
 namespace detection {
 
 /**
@@ -120,7 +105,7 @@ namespace tracking {
  * @brief 跟踪参数。
  */
 struct ONEQ_API TrackingConfig {
-  bool enable_kalman_filter{true}; /**< 是否启用 Kalman 滤波。 */
+  bool enable_kalman_filter{false}; /**< 是否启用 Kalman 滤波（语义默认关闭，需显式开启）。 */
   float kalman_measurement_noise_std{10.0f}; /**< 量测噪声标准差。 */
   float speed_decay_ratio_on_loss{1.0f}; /**< 丢失周期速度衰减系数（默认无衰减）。 */
   float rcs_decay_ratio_on_loss{1.0f}; /**< 丢失周期 RCS 衰减系数（默认无衰减）。 */

@@ -15,6 +15,7 @@
 #include "1q/airborne_radar/config/ArMissionConfig.h"
 #include "1q/airborne_radar/config/ArOrientationConfig.h"
 #include "1q/airborne_radar/config/ArPolicyConfig.h"
+#include "1q/airborne_radar/config/ArProfileConstants.h"
 #include "1q/airborne_radar/config/ArRuntimeConfigBuilder.h"
 #include "1q/airborne_radar/config/ArRuntimeConfigPatch.h"
 #include "1q/airborne_radar/config/ArSessionConfig.h"
@@ -44,6 +45,7 @@
 #include "1q/electronic_countermeasure/EcmTraceSession.h"
 #include "1q/electronic_countermeasure/EcmTypes.h"
 #include "1q/electro_optical_sensor/config/EosEnvironmentConfig.h"
+#include "1q/electro_optical_sensor/config/EosProfileConstants.h"
 #include "1q/electro_optical_sensor/config/EosRuntimeConfigBuilder.h"
 #include "1q/electro_optical_sensor/config/EosRuntimeConfigPatch.h"
 #include "1q/electro_optical_sensor/config/EosSessionConfigBuilder.h"
@@ -60,6 +62,7 @@
 #include "1q/electro_optical_sensor/session/EosSession.h"
 #include "1q/electro_optical_sensor/session/EosTraceSession.h"
 #include "1q/electronic_surveillance_radar/config/EsrEnvironmentConfig.h"
+#include "1q/electronic_surveillance_radar/config/EsrProfileConstants.h"
 #include "1q/electronic_surveillance_radar/config/EsrRuntimeConfigBuilder.h"
 #include "1q/electronic_surveillance_radar/config/EsrRuntimeConfigPatch.h"
 #include "1q/electronic_surveillance_radar/config/EsrSessionConfigBuilder.h"
@@ -76,6 +79,7 @@
 #include "1q/sar/config/SarHardwareConfig.h"
 #include "1q/sar/config/SarMissionConfig.h"
 #include "1q/sar/config/SarPolicyConfig.h"
+#include "1q/sar/config/SarProfileConstants.h"
 #include "1q/sar/config/SarRuntimeConfigPatch.h"
 #include "1q/sar/config/SarSessionConfig.h"
 #include "1q/sar/config/sar_config.hpp"
@@ -265,23 +269,17 @@ TEST(PublicHeadersSmokeTest, RadarSessionBuilderCanConfigureLeafAndDomainFields)
   scan_center.az_deg = -12.0f;
   scan_center.el_deg = 6.0f;
 
-  config::ArSessionConfig config =
-      config::ArSessionConfigBuilder()
-          .Detection()
-          .WithDetectionIntentProfile(config::profiles::DetectionIntentProfile::kDetectionPriority)
-          .WithHardwareProfile(config::profiles::ArHardwareProfile::kLongRangeHighPower)
-          .WithAntennaPatternProfile(config::profiles::AntennaPatternProfile::kLowSidelobe)
-          .End()
-          .Lifecycle()
-          .WithLifecyclePolicyProfile(config::profiles::LifecyclePolicyProfile::kFastConfirm)
-          .End()
-          .Build();
-  config.mission.orientation.scan_center_deg = scan_center;
-  EXPECT_EQ(config.policy.detection.pulse_count, 16);
-  EXPECT_FLOAT_EQ(config.hardware.transmitter.peak_power_w, 5.0e6f);
-  EXPECT_FLOAT_EQ(config.hardware.antenna.pattern.max_sidelobe_level_db, -30.0f);
-  EXPECT_FLOAT_EQ(config.mission.orientation.scan_center_deg.az_deg, -12.0f);
-  EXPECT_EQ(config.policy.lifecycle.confirm_hits, 1U);
+  config::ArSessionConfig session_config;
+  session_config.policy.detection = config::profiles::kDetectionPriorityDetection;
+  session_config.hardware = config::profiles::kLongRangeHighPowerHardware;
+  session_config.hardware.antenna.pattern = config::profiles::kLowSidelobeAntennaPattern;
+  session_config.policy.lifecycle = config::profiles::kFastConfirmLifecycle;
+  session_config.mission.orientation.scan_center_deg = scan_center;
+  EXPECT_EQ(session_config.policy.detection.pulse_count, 16);
+  EXPECT_FLOAT_EQ(session_config.hardware.transmitter.peak_power_w, 5.0e6f);
+  EXPECT_FLOAT_EQ(session_config.hardware.antenna.pattern.max_sidelobe_level_db, -30.0f);
+  EXPECT_FLOAT_EQ(session_config.mission.orientation.scan_center_deg.az_deg, -12.0f);
+  EXPECT_EQ(session_config.policy.lifecycle.confirm_hits, 1U);
   config::EnvironmentScenarioConfig scenario;
   scenario.atmospheric_physics.enable_physical_model = true;
   config::ArEnvironmentConfig env;
@@ -300,15 +298,10 @@ TEST(PublicHeadersSmokeTest, EsrPublicSurfaceSupportsMinimalUsage) {
       oneq::foundation::ScanStartPosition::kLeftTop;
   EXPECT_EQ(static_cast<int>(shared_start), 0);
 
-  config::EsrSessionConfig session_config =
-      config::EsrSessionConfigBuilder()
-          .Mission()
-          .WithMissionProfile(config::EsrMissionProfile::kElectronicOrderOfBattle)
-          .End()
-          .Detection()
-          .WithSensitivityProfile(config::EsrSensitivityProfile::kStandard)
-          .End()
-          .Build();
+  config::EsrSessionConfig session_config;
+  session_config.mission = config::profiles::kElectronicOrderOfBattleMission;
+  // 演示非 no-op 灵敏度常量（kStandard 与 struct 默认一致，无需赋值）。
+  session_config.policy.detection = config::profiles::kHighSensitivityDetection;
   session_config.mission.scan.scan_rate_hz = 1.0f;
   session_config.mission.scan.use_explicit_scan_bounds = true;
   session_config.mission.scan.scan_start_az_deg = -60.0f;
@@ -351,12 +344,8 @@ namespace electro_optical_sensor {
 namespace {
 
 TEST(PublicHeadersSmokeTest, EosPublicSurfaceSupportsMinimalUsage) {
-  config::EosSessionConfig session_config =
-      config::EosSessionConfigBuilder()
-          .Mission()
-          .WithMissionProfile(config::EosMissionProfile::kWideAreaSearch)
-          .End()
-          .Build();
+  config::EosSessionConfig session_config;
+  session_config.mission = config::profiles::kWideAreaSearchMission;
   session_config.policy.detection.minimum_snr_db = 4.5f;
   session_config.policy.detection.detection_sensitivity_w = 0.8e-12f;
   session_config.policy.detection.visible_reference_irradiance_w_m2 = 700.0f;

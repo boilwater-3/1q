@@ -10,6 +10,7 @@
 #include "1q/electronic_surveillance_radar/config/EsrHardwareConfig.h"
 #include "1q/electronic_surveillance_radar/config/EsrMissionConfig.h"
 #include "1q/electronic_surveillance_radar/config/EsrPolicyConfig.h"
+#include "1q/electronic_surveillance_radar/config/EsrProfileConstants.h"
 #include "1q/electronic_surveillance_radar/config/EsrRuntimeConfigBuilder.h"
 #include "1q/electronic_surveillance_radar/config/EsrRuntimeConfigPatch.h"
 #include "1q/electronic_surveillance_radar/config/EsrSessionConfig.h"

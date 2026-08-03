@@ -3,7 +3,7 @@
  * @brief 验证安装后 EOS 公共 API 路径可被外部工程编译链接。
  *
  * 覆盖要点：
- *   - EosSessionConfigBuilder 语义 profile 配置构造
+ *   - EosSessionConfigBuilder 语义档位常量配置构造
  *   - 直接字段赋值覆盖四域详细参数（hardware/mission/policy/environment）
  *   - EosCycleInput + EosSceneTarget 构造场景输入
  *   - EosInputValidation 输入校验
@@ -15,6 +15,7 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "1q/electro_optical_sensor/config/EosProfileConstants.h"
 #include "1q/electro_optical_sensor/config/EosRuntimeConfigBuilder.h"
 #include "1q/electro_optical_sensor/config/EosSessionConfigBuilder.h"
 #include "1q/electro_optical_sensor/session/EosCycleInput.h"
@@ -25,19 +26,15 @@
 namespace eos = electro_optical_sensor;
 
 int main() {
-  // 1. 语义 Builder：mission / detection / environment
+  // 1. 语义档位常量：mission / detection / environment
   const eos::config::EosSessionConfig semantic_config =
       eos::config::EosSessionConfigBuilder()
-          .Mission()
-          .WithMissionProfile(eos::config::EosMissionProfile::kWideAreaSearch)
-          .End()
-          .Environment()
+          .WithMission(eos::config::profiles::kWideAreaSearchMission)
           .WithEnvironmentPreset(eos::config::EosEnvironmentPreset::kStandard)
-          .End()
           .Build();
   auto config = semantic_config;
   config.mission.scan_rate_deg_per_sec = 5.0f;
-  config.policy.detection.minimum_snr_db = 4.5f;
+  config.policy.detection.minimum_snr_db = 4.5f;  // 档位在前、微调在后 → 微调胜出
   config.policy.detection.detection_sensitivity_w = 0.9e-12f;
   config.policy.detection.visible_reference_irradiance_w_m2 = 720.0f;
 

@@ -1,276 +1,301 @@
+---
+Status: active
+Authority: 非规定性记录（不构成契约约束）
+Lifecycle: 条目有结论后回写 contract.md 或 design.md 并从本文删除；不保留已收敛条目
+Last-reviewed: 2026-08-03
+---
+
 # 跨模块开放议题
 
-Status: active
-Authority: 非规定性记录
+登记调查中发现但尚未定论的跨模块架构议题。每条仅记录现状、后果、待决问题、当前边界与再进入条件，
+**不构成**已批准的实现要求或契约规则。已定论条目必须迁出本文——契约规则进 `docs/common/contract.md`，
+模块设计进对应 `design.md`。
 
-本文登记调查中发现但尚未定论的跨模块架构议题，不构成契约约束。条目推进到有结论时，应回写为契约规则（进 contract.md）或模块设计（进对应 design.md），并从本文移除。
+- 何时读本文：评估某项反直觉/非阻断行为是否为已知边界、查某议题的再进入门槛、为 `harden-1q-simulation-module`
+  的 Class D 发现登记一条开放议题。
+- 何时不读本文：查必须遵守的规则（去 `contract.md`）、查模块设计细节（去对应 `design.md`）、查工程实践
+  （去 `docs/practice/`）。
 
-## 当前状态（2026-07-31 实时代码复核）
+## 议题索引
 
-原 OQ-1、OQ-3、OQ-8、OQ-9、OQ-10a 至 OQ-10m 均已完成、拒绝或冻结；对应结论和测试证据已迁入
-`docs/common/contract.md` 各模块 `design.md`。ESR runtime validation 边界也已完成并迁入 ESR design。
-当前保留一项 Common/Practice 构建边界、六项 Common 跨模块设计边界（COMMON-OQ-2 原有，新增
-COMMON-OQ-3..7 源自 EOS 反设计复核中识别的跨模块通病）、三项 ESR 非阻塞设计边界
-和四项 SBIRS 非阻塞仿真边界，均不构成已批准实现要求。
+| ID | 域 | 主题 | 一句话 | Status |
+|---|---|---|---|---|
+| COMMON-OQ-1 | common | Windows/MSVC 全链验收 | presets/.bat 仅未验收脚手架，CI 只跑 macOS | needs-evidence |
+| COMMON-OQ-3 | common | `CreateWithValidation` 非阻断命名 | 名字暗示门禁、实际只附诊断 | open |
+| COMMON-OQ-5 | common | `Step()` 失败静默复用上一帧 | 五模块分两组，`Step()` 无法区分新旧帧 | open |
+| COMMON-OQ-6 | common | `ApplyRuntimeConfig` 吞 bool | void 版丢弃 Try 的返回值 | open |
+| COMMON-OQ-7 | common | 双 cycle_index 冗余 | 与 OQ-5 绑定决策 | open |
+| COMMON-OQ-8 | common | 周期时间/窗口静默拒绝 | AR/ESR/EOS 各自为政，违反多表现为静默不生效 | open |
+| AR-OQ-1 | airborne_radar | 假目标鉴别跨域命名双轨 | 观测域枚举 vs 量测域 bool | open |
+| ESR-OQ-1 | electronic_surveillance_radar | 压制干扰感知与 ECCM 链路缺失 | 死字段 + 无结构化观测 + 无 ECCM | open |
+| ESR-OQ-2 | electronic_surveillance_radar | 运行时补丁扫描中心静默关边界 | scan center 补丁隐式切扫描模式 | open |
+| ESR-OQ-3 | electronic_surveillance_radar | 扫描策略跨域耦合 | mission 值被 hardware mount 静默偏移 | open |
+| SBIRS-OQ-1 | sbirs_sensor | 诊断距离的物理语义 | 仅 cue/诊断层，易被误读为测距输出 | open |
+| SBIRS-OQ-2 | sbirs_sensor | 分阶段误差统计共享参数 | 三用途共享一组角度/距离统计 | open |
+| SBIRS-OQ-3 | sbirs_sensor | 多目标随机样本与输入顺序 | 全局用途流，无 target 不变性 | open |
+| SBIRS-OQ-4 | sbirs_sensor | Estimated 航迹真值初始化 | 首捕用真值位置/速度初始化滤波均值 | open |
 
-## Common/Practice 非阻塞构建边界
+## Common 非阻塞边界
 
 ### COMMON-OQ-1：Windows/MSVC 全链支持验收
 
-- **现状证据**：仓库存在 Windows Conan/no-Conan presets 和 `scripts/fetch_third_party.bat`，但当前 CI
-  只在 macOS 运行；`.bat` 还包含 GitLab/archives.boost.io 来源，且没有对下载内容做 hash 校验。
-- **未决问题**：如何实现已冻结的 Windows shell/GitHub bootstrap，并在不依赖 Windows Conan 的前提下
-  形成可重复的依赖、configure、build、install 和外部 consumer 闭环。
-- **当前边界**：这些 presets 和脚本只视为未验收脚手架；文档不得据此宣称 Windows 已受支持，也不得
-  把 Conan 路径自动提升为正式 Windows 方案。
-- **Stage A 进入条件**：提交锁定版本/提交与下载校验矩阵，提供 shell bootstrap 原型，并在真实 Windows
-  runner 上依次证明 configure、Debug/Release build、install、独立 consumer build/run；随后再决定保留、
-  删除或重命名现有 presets 与 `.bat` 入口。
-
-## Common 跨模块设计边界
-
-### COMMON-OQ-2：SessionConfigBuilder Profile 静默覆盖直接赋值
-
-- **现状证据**：ESR、AR、SAR、EOS 四个模块的 `SessionConfigBuilder` 均存在 Profile 覆盖行为：
-  `Build()` 时若 Profile dirty flag 为 true，Profile 翻译函数直接覆写对应字段，覆盖用户在
-  `WithSessionConfig` 或 Editor 中的直接赋值。AR 额外在 Profile 应用前执行整域重置为语义默认值
-  （最激进），ESR/SAR/EOS 仅覆写 Profile switch-case 涉及的字段。ESR 曾存在 `WithSessionConfig()`
-  重置 dirty flag 的独有 bug（由 `8bd28e19` 引入，`53c56e21` 已删除重置并补 `@note` 固化语义），SAR/EOS 无此问题。
-- **未决问题**：是否应将 Profile 应用改为"缺省填充"模式（仅填充用户未显式设置的字段），而非
-  "强制覆写"模式；以及是否需要编译期或运行期机制防止同一字段被 Profile 和直接赋值双重设置。
-- **当前边界**：各模块保持现有"Profile 覆盖直接赋值"语义。ESR `Build()` 注释已补充覆盖说明。
-  不得在文档中暗示直接赋值优先于 Profile。
-- **Stage A 进入条件**：出现真实场景要求"Profile 填充 + 局部覆盖"模式，先比较四模块的 Profile
-  覆盖字段清单，设计统一的 dirty-field 位图或 builder 优先级规则，再评估跨模块统一方案。
+- **现状**：仓库存在 Windows Conan/no-Conan presets 和 `scripts/fetch_third_party.bat`，但当前 CI 只在
+  macOS 运行。该脚本还存在两个未验收风险点：
+  1. 下载来源含 GitLab/archives.boost.io，非锁定 GitHub。
+  2. 未对下载内容做 hash 校验。
+  [evidence: scripts/fetch_third_party.bat]
+- **后果**：
+  1. 外部读者可能据 presets 或 `.bat` 误判 Windows 已受支持。
+  2. 无校验的下载链在真实 Windows runner 上不可重复，无法证明 configure/build/install/consumer 闭环。
+- **待决问题**：如何实现已冻结的 Windows shell/GitHub bootstrap，并在不依赖 Windows Conan 的前提下形成
+  可重复的依赖、configure、build、install 和外部 consumer 闭环。
+- **当前边界**：这些 presets 和脚本只视为未验收脚手架。不得在文档中宣称 Windows 已受支持，也不得把
+  Conan 路径自动提升为正式 Windows 方案。
+- **再进入条件 (Stage A)**：提交锁定版本/提交与下载校验矩阵，提供 shell bootstrap 原型，并在真实
+  Windows runner 上依次证明 configure、Debug/Release build、install、独立 consumer build/run；随后再决定
+  保留、删除或重命名现有 presets 与 `.bat` 入口。
 
 ### COMMON-OQ-3：`CreateWithValidation` 非阻断语义命名一致但反直觉
 
-- **现状证据**：五模块（AR/ESR/SAR/EOS/SBIRS）会话工厂签名与行为完全一致——`CreateWithValidation`
-  在实现中**无论校验是否产生 error 都会 `Create(config)` 返回会话**，`issues` 仅为咨询性诊断输出
-  （AR `ArSession.cpp`、ESR `EsrSession.cpp`、SAR `SarSession.cpp`、EOS `EosSession.cpp:63-70`、
-  SBIRS `SbirsSession.cpp`）。五模块头文件甚至使用逐字相同的中文 docstring
-  （"无论 issues 是否为空，都会构造并返回会话（不阻断）"）。命名 `WithValidation` 暗示"校验通过才创建"，
-  实际只附加诊断信息，是跨模块共享的反直觉点；不存在 `CreateWithDiagnostics` 命名。
-- **未决问题**：是否在跨模块层面统一重命名（如 `CreateWithDiagnostics`）或改为返回
-  `std::optional<Session>` / 失败时不构造，以消除命名误导。
-- **当前边界**：五模块保持现有"非阻断 + 咨询性 issues"契约。docstring 已明确语义，调用方据
-  `issues->empty()` 或 `HasValidationError` 决策。不得在文档中宣称校验失败会阻断创建。
-- **Stage A 进入条件**：出现真实场景需要"校验失败即不构造"语义时，先评估跨模块统一重命名/
-  返回类型变更的向后兼容成本与下游消费方影响，再决定是否一次性推广到五模块。
-
-### COMMON-OQ-4：运行时补丁 mission.power_on 与叶子 sensor_enabled 双层冗余控制
-
-- **现状证据**：AR/ESR/EOS/SBIRS 的 `*RuntimeConfigPatch` 同时提供整块 mission 域覆盖（含
-  `mission.power_on`）与叶子级 `sensor_enabled`/`power_on` 快捷字段。解析器统一先应用 mission
-  整块（写入 `sensor_enabled = mission.power_on`），后应用叶子快捷字段（覆写 `sensor_enabled`），
-  故叶子最终胜出（AR `ArRuntimeConfigResolver`、ESR `EsrRuntimeConfigResolver`、
-  EOS `EosRuntimeConfigResolver.cpp:133-134,191-193`、SBIRS `SbirsRuntimeConfigResolver`）。
-  SAR 是例外：其补丁仅含处理开关（`enable_raw_echo_generation` 等），无 mission 块、无电源叶子。
-  另存在命名分裂：四模块用 `sensor_enabled`，SBIRS 用 `power_on`。冲突时无自动 warning。
-- **未决问题**：(1) 是否移除叶子快捷字段、统一经 mission 整块控制电源；(2) 或在两者同时存在时
-  记录 warning；(3) 是否统一 `sensor_enabled` 与 `power_on` 命名。
-- **当前边界**：四模块保持"叶子优先、mission 次之"的解析顺序，各补丁头文件 docnote 已固化
-  该顺序（如 EOS `EosRuntimeConfigPatch.h:28-29`）。不得在文档中暗示 mission.power_on 优先于叶子。
-- **Stage A 进入条件**：出现真实场景因该冲突导致电源状态误配，或要求 mission 与电源解耦时，
-  先比较四模块补丁结构，设计统一的冲突检测/告警或字段拆分（如 `has_scan_params` 与
-  `has_power_state` 分离）方案，再评估跨模块推广。
+- **现状**：五模块（AR/ESR/SAR/EOS/SBIRS）会话工厂 `CreateWithValidation(config, issues)` 的实际语义是：
+  1. 无论校验是否产生 error 都会构造并返回会话。
+  2. `issues` 仅为咨询性诊断输出。
+  3. 不存在"校验失败即不构造"语义。
+  收敛子点（非阻断契约固化、SBIRS docstring 对齐）→ `docs/common/contract.md` §Public API 边界。
+  [evidence: src/electro_optical_sensor/session/EosSession]
+- **后果**：`Create` + `With` + `Validation` 的介词有二义性，名字持续制造门禁预期。
+  1. "门禁读法"：通过校验才 Create（多数 API 惯例，但非实际语义）。
+  2. "附加读法"：Create 并附带校验报告（实际语义）。
+  docstring 须反复纠正，新读者易误以为校验失败会阻断创建而漏检 `issues`。
+- **待决问题**：是否在跨模块层面消除命名误导，有两条备选路径：
+  1. 统一重命名（如 `CreateWithDiagnostics`）。
+  2. 新增独立门禁入口（如 `CreateStrict` / `TryCreate` 返回 `std::optional<Session>`）。
+- **当前边界**：五模块保持现有"非阻断 + 咨询性 issues"契约（已升入 `docs/common/contract.md`
+  §Public API 边界）。调用方据 `issues->empty()` 或 `HasValidationError` 决策。不得在文档中宣称校验失败
+  会阻断创建。
+- **再进入条件 (Stage A)**：出现真实场景需要"校验失败即不构造"语义时，先评估跨模块统一重命名/返回类型
+  变更的向后兼容成本与下游消费方影响，再决定是否推广到五模块。推荐优先新增独立第三入口点承载门禁语义，
+  而非重命名现有咨询性入口。
 
 ### COMMON-OQ-5：`Step()` 在校验失败/关机时静默复用上一帧
 
-- **现状证据**：`Step()`（返回 output frame）与 `StepWithResult()`（返回完整 result）两入口在五模块
-  均存在。失败/关机时是否复用上一帧分两组：
-  - **复用组**（SAR/EOS/SBIRS）：校验失败或关机时将 `latest_output` 保留为上一帧，`Step()` 直接返回，
-    仅在 `StepWithResult()` 的 `executed_this_cycle`/`reused_previous_output`/`abort_reason` 中体现
-    （SAR `SarController.cpp`、EOS `EosController.cpp:77-100`、SBIRS `SbirsController.cpp:21-27`）。
-  - **不复用组**（AR/ESR）：失败周期不复用、不回传最近有效输出，状态经 `ArCycleStatus`/`EsrCycleExecutionStatus`
-    枚举表达（AR `ArController.cpp`、ESR `EsrSession.cpp:53-54`）。
-  公共 `OutputFrame`/`CycleResult` 无 `executed_this_cycle` 字段，仅在 result 层暴露。
-- **未决问题**：是否统一五模块为同一组语义（要么全部复用、要么全部不复用）；若统一为复用组，是否在
-  `OutputFrame` 增加失败标识使 `Step()` 也可区分"本轮计算"与"复用旧值"。
+- **现状**：`Step()`（返回 output frame）与 `StepWithResult()`（返回完整 result）两入口在五模块均存在。
+  失败/关机时是否复用上一帧分两组：
+  1. **复用组**（SAR/EOS/SBIRS）：将 `latest_output` 保留为上一帧，`Step()` 直接返回，仅在
+     `StepWithResult()` 的 `executed_this_cycle`/`reused_previous_output`/`abort_reason` 中体现。
+  2. **不复用组**（AR/ESR）：不复用、不回传最近有效输出，状态经 `ArCycleStatus`/`EsrCycleExecutionStatus`
+     枚举表达。
+  [evidence: src/electro_optical_sensor/controller/EosController]
+- **后果**：
+  1. 复用组的 `Step()` 静默返回旧帧，调用方无法仅凭返回值区分"本轮计算"与"复用旧值"。
+  2. 两组行为不一致，跨模块集成时易误用。
+- **待决问题**：
+  1. 是否统一五模块为同一组语义（全部复用或全部不复用）。
+  2. 若统一为复用组，是否在 `OutputFrame` 增加失败标识使 `Step()` 也可区分新旧帧。
 - **当前边界**：两组保持各自现有行为。复用组成员的 `Step()` 静默返回旧帧为已知设计，调用方须用
   `StepWithResult()` 获取失败/复用信号。不得在文档中暗示 `Step()` 返回值含本轮执行状态。
-- **Stage A 进入条件**：出现真实消费方因无法从 `Step()` 区分新旧帧而误用，或跨模块集成要求统一周期
+- **再进入条件 (Stage A)**：出现真实消费方因无法从 `Step()` 区分新旧帧而误用，或跨模块集成要求统一周期
   失败语义时，先选定目标组（复用 vs 不复用），再评估迁移五模块的下游影响与测试矩阵。
 
 ### COMMON-OQ-6：`ApplyRuntimeConfig` 吞掉 `TryApplyRuntimeConfig` 返回值
 
-- **现状证据**：五模块会话均提供 `ApplyRuntimeConfig(patch)`（void）与 `TryApplyRuntimeConfig(patch)`
-  （bool）两方法；`ApplyRuntimeConfig` 内部 `(void)TryApplyRuntimeConfig(patch)` 显式丢弃成功与否
-  （AR `ArSession.cpp`、ESR `EsrSession.cpp`、SAR `SarSession.cpp`、EOS `EosSession.cpp:83-85`、
-  SBIRS `SbirsSession.cpp`）。ESR 额外提供 `ApplyRuntimeConfigWithResult` 返回结构化
-  `EsrRuntimeConfigApplyResult`（含 `EsrRuntimeConfigApplyStatus` 枚举），其余四模块无此变体。
-  docstring 警告不一致：SAR/SBIRS 标注"不返回成功与否"，AR/EOS 无此警告。
-- **未决问题**：(1) 是否废弃 void 版、统一强制使用 Try/WithResult；(2) 是否向其余四模块推广
-  `ApplyRuntimeConfigWithResult` 结构化结果；(3) 是否统一 docstring 警告。
-- **当前边界**：五模块保持 void+Try 双方法，void 版吞返回值为已知设计。ESR 的 WithResult 变体为
-  ESR 独有增强，不构成跨模块契约。
-- **Stage A 进入条件**：出现真实场景要求 void 版失败必须可观测，或跨模块集成要求统一结果返回形态时，
+- **现状**：五模块会话均提供 `ApplyRuntimeConfig(patch)`（void）与 `TryApplyRuntimeConfig(patch)`（bool）。
+  void 版内部 `(void)TryApplyRuntimeConfig(patch)` 显式丢弃成功与否。跨模块形态不一致：
+  1. ESR 额外提供 `ApplyRuntimeConfigWithResult` 返回结构化 `EsrRuntimeConfigApplyResult`（含状态枚举）。
+  2. 其余四模块（AR/SAR/EOS/SBIRS）无此变体。
+  3. docstring 警告不一致：SAR/SBIRS 标注"不返回成功与否"，AR/EOS 无此警告。
+  与 OQ-2/OQ-8 同属"静默语义"反模式家族。[evidence: src/electronic_surveillance_radar/session/EsrSession]
+- **后果**：
+  1. void 版失败被静默吞掉，调用方无从感知补丁是否真正生效。
+  2. docstring 不一致加剧误用风险。
+  3. ESR 独有的结构化结果变体未跨模块推广，跨模块集成时返回形态不统一。
+- **待决问题**：
+  1. 是否废弃 void 版、统一强制使用 Try/WithResult。
+  2. 是否向其余四模块推广 `ApplyRuntimeConfigWithResult` 结构化结果。
+  3. 是否统一 docstring 警告。
+- **当前边界**：五模块保持 void+Try 双方法，void 版吞返回值为已知设计。ESR 的 WithResult 变体为 ESR
+  独有增强，不构成跨模块契约。
+- **再进入条件 (Stage A)**：出现真实场景要求 void 版失败必须可观测，或跨模块集成要求统一结果返回形态时，
   先评估推广 `ApplyRuntimeConfigWithResult` 的 API 成本与四模块补丁结构差异，再决定是否统一。
 
 ### COMMON-OQ-7：CycleResult.input_cycle_index 与 OutputFrame.cycle_index 冗余
 
-- **现状证据**：五模块 `CycleResult` 均同时携带 `input_cycle_index`（本次输入周期号）与内嵌
-  `OutputFrame.cycle_index`（AR `ArCycleResult.h`、ESR `EsrCycleResult.h`、SAR `SarCycleResult.h`、
-  EOS `EosCycleResult.h:30-41`、SBIRS `SbirsCycleResult.h`）。成功路径两者均取自 `input.cycle_index`，
-  数值恒等。仅在复用/失败路径（SAR/EOS/SBIRS）二者分歧：`output_frame.cycle_index` 保留上一周期号、
-  `input_cycle_index` 为本次输入号（AR/ESR 不复用，故不发生此分歧）。
-- **未决问题**：是否移除 `input_cycle_index`、统一用 `output_frame.cycle_index`（但需为复用组另寻失败
-  周期号归属），或反向统一为仅保留 `input_cycle_index`。
-- **当前边界**：五模块保留双字段。`input_cycle_index` 在复用组承载"本次失败周期的归属号"语义，
-  不可简单删除；去重须与 COMMON-OQ-5 的周期失败语义统一一并决策。
-- **Stage A 进入条件**：与 COMMON-OQ-5 一同推进——先选定统一的周期失败/复用语义，再据此评估
-  单一周期号字段的可行性及其对 trace/replay 归属的影响。
+- **现状**：五模块 `CycleResult` 均同时携带 `input_cycle_index`（本次输入周期号）与内嵌
+  `OutputFrame.cycle_index`。两者关系随周期成败而变：
+  1. 成功路径：两者均取自 `input.cycle_index`，数值恒等。
+  2. 复用/失败路径（SAR/EOS/SBIRS）：`output_frame.cycle_index` 保留上一周期号、`input_cycle_index`
+     为本次输入号，二者分歧。
+  [evidence: include/1q/electro_optical_sensor/EosCycleResult]
+- **后果**：
+  1. 双字段在成功路径冗余、在失败路径语义分裂，阅读者需判断何时相等何时分歧。
+  2. 去重与周期失败语义耦合，无法独立处理。
+- **待决问题**：
+  1. 是否移除 `input_cycle_index`、统一用 `output_frame.cycle_index`（但需为复用组另寻失败周期号归属）。
+  2. 或反向统一为仅保留 `input_cycle_index`。
+- **当前边界**：五模块保留双字段。`input_cycle_index` 在复用组承载"本次失败周期的归属号"语义，不可简单
+  删除；去重须与 COMMON-OQ-5 的周期失败语义统一一并决策。
+- **再进入条件 (Stage A)**：与 COMMON-OQ-5 一同推进——先选定统一的周期失败/复用语义，再据此评估单一
+  周期号字段的可行性及其对 trace/replay 归属的影响。
 
-## Airborne Radar 非阻塞设计边界
+### COMMON-OQ-8：周期输入时间/窗口字段无统一契约，违反时静默拒绝
+
+- **现状**：三模块各自为政的周期时间/窗口校验，外部调用方违反时多表现为"静默不生效"而非显式错误。
+  1. **AR 编年史校验**：拒绝 `window_start_time_s < 上一周期窗口结束`。
+  2. **ESR 周期输入完整性**：要求 RF 帧的 `world_cycle_index`/`window_start_time_s`/`window_duration_s`
+     与周期 input 精确相等，空帧也须填这三个窗口字段。
+  3. **EOS 帧率-步长耦合**：拒绝 `dt_sec > 10/frame_rate_hz`，1 s 步长须 1 Hz 帧率。
+  4. **配置侧不对称**：ESR 零值 `EsrSessionConfig{}` 不合法，而 AR/SBIRS 的 struct 默认即合法档位。
+  [evidence: src/electronic_surveillance_radar/validation/EsrInputValidation]
+- **后果**：调用方违反时整周期在决策消费点之前被静默拒绝，且无显式错误可供察觉。典型踩坑：
+  1. 只递增 `cycle_index` 而忘记推进时间戳 → 外部覆盖即使被接受也从未应用，
+     `applied_decision_source` 保持 `kNone`。
+  2. RF 帧窗口字段不匹配 → 整周期被拒。
+  3. 零值配置误用 → 首周期才暴露为 `kRejected`。
+  已有 ar/esr 两个 consumer 教训。
+- **待决问题**：
+  1. 是否跨模块统一周期时间/窗口契约——共享"时间戳单调前进"与"RF 帧窗口匹配周期"的校验 helper，
+     使违反在输入校验即显式可观测。
+  2. 是否统一"零值配置"语义，或为 ESR 补 `kDefaultEsrSessionConfig` 显式默认常量。
+  3. 各 `CycleInput` docstring 是否显式注明时间戳推进义务。
+- **当前边界**：各模块保持现有校验。调用方必须：
+  1. AR 推进 `cycle_start_time_s`（≥ 上一窗口结束）。
+  2. ESR 填完整平台运动学 + 与周期匹配的 RF 帧窗口字段，并使用语义档位常量而非零值配置。
+  3. EOS 保证 `dt_sec ≤ 10/frame_rate_hz`。
+  不得在文档中宣称周期时间戳可任意重复，或零值配置为合法默认。
+- **再进入条件 (Stage A)**：出现第二个真实消费方因时间戳未推进或 RF 帧窗口不匹配而静默失败（当前已有
+  ar/esr 两个 consumer 教训），或跨模块集成要求统一周期时间契约时，先盘点四模块 CycleInput 的窗口字段与
+  校验差异，设计共享校验与 docstring 警示，再评估跨模块推广。
+
+## Airborne Radar 非阻塞边界
 
 ### AR-OQ-1：假目标鉴别跨域命名双轨
 
-- **现状证据**：反假目标鉴别的判据（同方向多脉冲列）天然属于接收机观测域
-  （`ArInterferenceObservation`，含方位与波形），但其消费点在航迹生命周期域
-  （`TrackLifecycleManager::PromoteState`，抑制 tentative→confirmed）。当前实现由
-  `ArInterferenceObservationResolver` 在波束宽度与接收频率分辨单元内建立连通分量，对
-  ≥2 成员的分量逐成员设置 `deception_class=kLikelyFalseTarget` 并生成一条内部
-  `ArDeceptionMeasurementCandidate`（per-member 结构性收敛，不二次聚类）；`ArSession` 在
-  `CompleteRfCycle` 把干扰观测与候选列表作为 `SignalCycleInput` 的一部分一次性显式传入 pipeline，
-  `DeceptionMeasurementGenerator` 逐候选合成带 `classified_as_false_target` 的假目标量测注入
-  `track_measurements`（候选关联键由正常位置关联产生，不预分配）。随后由 `PromoteState` 消费
-  该标注。
+- **现状**：反假目标鉴别判据（同方向多脉冲列）跨两个域表达：
+  1. **接收机观测域**：`ArInterferenceObservation.deception_class`（枚举），判据天然归属于此。
+  2. **航迹生命周期域**：`TrackLifecycleManager::PromoteState` 消费该标注，量测域以
+     `RawTrackMeasurement.classified_as_false_target`（bool）表达。
+  `SignalCycleInput` 周期输入端口已收敛（旁路 mutable setter 已删除），不构成公开契约。
+  [evidence: include/1q/airborne_radar/ArInterferenceObservation]
+- **后果**：
+  1. 同一"疑似假目标"概念跨域用了两套命名（枚举 vs bool），跨域阅读增加认知负担。
+  2. 内部 `ArDeceptionMeasurementCandidate` 不进入 public result 或 replay，公开观测仍是唯一持久化事实。
+- **待决问题**：是否在跨域标注契约收敛时统一两套命名。
+- **当前边界**：`SignalCycleInput` 是内部 `ISignalPipeline` API，不构成公开契约；内部
+  `ArDeceptionMeasurementCandidate` 不进入 public result 或 replay。两套命名保留，待跨域标注契约收敛时统一。
+- **再进入条件 (Stage A)**：跨域标注契约进入冻结时，一并评估命名的统一成本与对 trace/replay 的影响。
 
-- **已收敛的子问题**：跨域传递曾以 `ArController::SetPreparedInterferenceObservations` 与
-  `SignalPipeline::SetNextRfV2DetectionContext` 等 mutable setter 旁路进行，存在调用顺序、
-  失败后残留与 observation/cluster 不同步风险。该子问题已收敛为 `SignalCycleInput`
-  （`CompleteRfCycle` 单点构造、`RunOnce`/`RunCycle` 显式按值传递），旁路 setter 已全部删除；
-  见 `ar_deception_measurement_generator_test`、`ar_signal_pipeline_test`、
-  `ar_core_controller_test`。
-
-- **未决问题**：同一"疑似假目标"概念跨域用了两套命名：观测域
-  `ArInterferenceObservation.deception_class`（枚举）与量测域
-  `RawTrackMeasurement.classified_as_false_target`（bool），跨域阅读增加认知负担。
-
-- **当前边界**：`SignalCycleInput` 是周期输入端口（内部 `ISignalPipeline` API），不构成公开契约；
-  内部 `ArDeceptionMeasurementCandidate` 不进入 public result 或 replay，公开观测仍是唯一持久化事实。
-  两套命名保留，待跨域标注契约收敛时统一。
-
-### AR-OQ-2：SyncRuntimeTuning 字段同步的手工列表脆弱性（已收敛）
-
-- **现状证据**：`TrackLifecycleManager::SyncRuntimeTuning` 曾用手工逐字段拷贝从 `LifecycleConfig`
-  同步阈值到内部 `config_`。该列表当前覆盖 8 个字段中的 7 个，刻意排除 `track_pool_thread_safety_mode`
-  （构造期决定、运行期不可变）。反欺骗三个字段（`enable_anti_false_target_discrimination`、
-  `enable_anti_vgpo_acceleration_bound`、`max_acceleration_mps2`）曾被遗漏，导致开关无效——本次修复
-  才补上。这种"想全量同步、但有一个例外"的手工列表没有编译期保证，每新增一个 `LifecycleConfig`
-  字段都必须记得在此加一行，否则成为静默 latent bug。
-- **收敛决议**：已把手工逐字段列表替换为整体赋值 `config_ = lifecycle_config`。整体赋值安全的两个前提：
-  (1) `track_pool_thread_safety_mode` 进入 `LifecycleConfigSignature`，其变化触发
-  `ShouldRebuildLifecycleAssembly` 的重建路径（而非同步路径），故同步路径上其值恒等于 `config_`；
-  (2) 生命周期管理器从不读取 `config_.track_pool_thread_safety_mode`，即便被覆盖也无副作用。
-  由此未来新增任何可同步 `LifecycleConfig` 字段都会随整体赋值自动覆盖，手工遗漏风险在根因上消除。
-  见 `tests/unit/airborne_radar/ar_track_lifecycle_test.cpp::SyncRuntimeTuningConfirmHitsChangesPromotionBehavior`
-  （真实生效断言，取代旧的仅 `SUCCEED()` 用例）。
-- **未决子问题（更广的控制效果传播闭包）**：本次同时收敛了 directive→profile 映射的单一权威来源
-  （`ControlReducer` 的 `IsLpiDirective`/`IsEccmDirective`/`IsValidDirectiveValue` 提升为静态方法，
-  `ArController` 不再重复 `==` 链）并新增 `ControlDirectiveType::kCount` 哨兵；但 profile→effect 仍由
-  两个消费者分别翻译：`ControlProfileEffects`（内部 detector runtime config）与 `ArSession` 的
-  RF 场景构造（对外发布的发射/接收方向图）。二者服务于两个不同物理面，常量（旁瓣 6 vs 12 dB、
-  自适应波束 0.60/+2.0dB vs 0.75/6.0dB）有意保持差异，已由
-  `ar_core_controller_test.cpp::ExternalAdaptiveBeamformingRaisesNextPhysicalDetectionMargin` 与
-  `ar_rf_session_test.cpp::SidelobeCancellerLeavesPublishedEmissionSidelobeUnchanged` 固化现状。
-  若未来要统一为单一权威翻译点，需先证明两个物理面应使用相同常量。
-
-## Electronic Surveillance Radar 非阻塞设计边界
+## Electronic Surveillance Radar 非阻塞边界
 
 ### ESR-OQ-1：压制干扰感知与 ECCM 决策链路缺失
 
-- **现状证据**：ECM 模块（`EcmSession`）支持四种干扰技术（瞄准、阻塞、扫频、欺骗），输出
-  `EcmCycleResult.emission_frame`（`RfEmissionFrame`）。集成测试
-  `multi_model_scenario_test.cpp:1287` 将 ECM 输出直接赋值给 `EsrCycleInput.rf_emissions`，
-  ESR 通过 `EsrResolutionCellLedger` 将非最强信号功率作为 `interference_power_w` 叠加到 SNR
-  分母，物理层干扰功率计算已完成。但 ESR 存在两条未消费的配置链路：
-  (1) `InterceptSuppressionModelConfig`（`suppression_noise_scale` / `suppression_mark_threshold_w`）
-  由 `BuildPipelineConfig` 填充到 `InterceptPipelineConfig.suppression_model`，但
-  `InterceptDetectionExecutor` 从未读取；
-  (2) `EsrEnvironmentSnapshot.spectrum_occupancy_ratio` 注释声称"检测链按 1+9ρ 计算环境噪声倍率"，
-  但该计算代码不存在。对比 AR 模块，AR 拥有独立的 `interference` 输入字段、
-  `ArInterferenceObservationResolver`（结构化干扰观测输出）、`EccmEvaluator`（8 项 ECCM 措施评分
-  与提案）和 `TacticalCoordinator`（闭环决策反馈），而 ESR 无结构化干扰观测输出、无 ECCM 决策引擎、
-  无工作模式自适应切换。
-
-- **未决问题**：
-  1. 是否激活 `suppression_model` 和 `spectrum_occupancy_ratio` 的消费逻辑，将压制干扰对等效噪声底
-     的影响纳入 SNR 和检测门限计算；
-  2. 是否定义 `EsrInterferenceObservation` 结构化输出（bearing、频谱、J/N、deception_class），
-     为下游消费方提供干扰态势感知；
+- **现状**：ECM 输出 `RfEmissionFrame` 经 `EsrCycleInput.rf_emissions` 进入 ESR，物理层干扰功率计算已完成
+  （`EsrResolutionCellLedger` 将非最强信号功率作为 `interference_power_w` 叠加到 SNR 分母）。但 ESR 存在
+  两条未消费的配置链路和三处能力缺口：
+  1. `InterceptSuppressionModelConfig` 填充到 `InterceptPipelineConfig.suppression_model`，但
+     `InterceptDetectionExecutor` 从未读取。
+  2. `EsrEnvironmentSnapshot.spectrum_occupancy_ratio` 注释声称参与噪声计算，但代码不存在。
+  3. 无结构化干扰观测输出（对比 AR 的 `ArInterferenceObservation`）。
+  4. 无 ECCM 决策引擎（对比 AR 的 `EccmEvaluator` 评分-提案-执行架构）。
+  5. 无工作模式自适应切换。
+  [evidence: src/electronic_surveillance_radar/intercept/InterceptDetectionExecutor]
+- **后果**：
+  1. `suppression_model` 和 `spectrum_occupancy_ratio` 为死字段，外部据配置名可能误以为 ESR 具备压制干扰
+     感知或自适应抗干扰能力。
+  2. 无结构化观测输出使下游消费方无法获得干扰态势感知。
+- **待决问题**：
+  1. 是否激活死字段消费，将压制干扰对等效噪声底的影响纳入 SNR 和检测门限计算。
+  2. 是否定义 `EsrInterferenceObservation` 结构化输出（bearing、频谱、J/N、deception_class）。
   3. 是否实现 ESR 特有的 ECCM 决策措施（接收机重调谐、扫描优先级调整、检测门限自适应、工作模式降级、
-     欺骗标记与置信度降级），参考 AR 的评分-提案-执行架构但使用被动侦察机的措施集合。
-
-- **当前边界**：ECM 压制干扰在 ESR 接收端仅以通用 RF emission 身份参与分辨单元竞争和 SNR 计算，
-  不产生结构化干扰观测输出，不触发 ECCM 反制措施。`suppression_model` 和
-  `spectrum_occupancy_ratio` 为死字段，不得在文档中声称 ESR 具备压制干扰感知或自适应抗干扰能力。
-
-- **Stage A 进入条件**：
+     欺骗标记与置信度降级）。
+- **当前边界**：ECM 压制干扰在 ESR 接收端仅以通用 RF emission 身份参与分辨单元竞争和 SNR 计算。不产生
+  结构化干扰观测输出，不触发 ECCM 反制措施。`suppression_model` 和 `spectrum_occupancy_ratio` 为死字段，
+  不得在文档中声称 ESR 具备压制干扰感知或自适应抗干扰能力。
+- **再进入条件 (Stage A)**：
   1. 先激活死字段消费（修改 `InterceptDetectionExecutor` 噪声计算），并提供 unit test 证明
-     `suppression_noise_scale` 和 `spectrum_occupancy_ratio` 的变化可被检测结果观测到；
-  2. 定义 `EsrInterferenceObservation` 公开类型并提供 unit test 覆盖；
-  3. 实现 ECCM 评分与提案机制，提供集成测试覆盖"ECM 发射 → ESR 感知 → ECCM 反制 → 检测效果变化"
-     全链路。
+     `suppression_noise_scale` 和 `spectrum_occupancy_ratio` 的变化可被检测结果观测到。
+  2. 定义 `EsrInterferenceObservation` 公开类型并提供 unit test 覆盖。
+  3. 实现 ECCM 评分与提案机制，提供集成测试覆盖"ECM 发射 → ESR 感知 → ECCM 反制 → 检测效果变化"全链路。
 
 ### ESR-OQ-2：运行时补丁扫描中心静默关闭显式扫描边界
 
-- **现状证据**：`EsrRuntimeConfigResolver.cpp` 在应用 `has_scan_center_az_deg` 或
-  `has_scan_center_el_deg` 补丁时，会同时设置 `use_explicit_scan_bounds = false`，静默将扫描
-  模式从显式边界切换为中心驱动。用户仅调整扫描中心意图不会预期丢失之前配置的四个扫描边界角。
-  单独补丁 azimuth center 也会导致 elevation 侧跟着切模式。
-- **未决问题**：是否应将模式切换设为显式补丁字段（`has_use_explicit_scan_bounds`），而非由
-  scan center 补丁隐含触发；或是否应保留当前行为但增加返回值/日志提示。
+- **现状**：`EsrRuntimeConfigResolver` 在应用 `has_scan_center_az_deg` 或 `has_scan_center_el_deg` 补丁时，
+  会同时设置 `use_explicit_scan_bounds = false`，静默将扫描模式从显式边界切换为中心驱动。两个副作用：
+  1. 用户仅调整扫描中心，不会预期丢失之前配置的四个扫描边界角。
+  2. 单独补丁 azimuth center 也会导致 elevation 侧跟着切模式（副作用跨轴传播）。
+  [evidence: src/electronic_surveillance_radar/session/EsrRuntimeConfigResolver]
+- **后果**：用户难以预判 scan center 补丁会清空显式边界配置且跨轴生效，配置结果与意图偏离。
+- **待决问题**：
+  1. 是否将模式切换设为显式补丁字段（`has_use_explicit_scan_bounds`），而非由 scan center 补丁隐含触发。
+  2. 或保留当前行为但增加返回值/日志提示。
 - **当前边界**：当前行为为 scan center 补丁隐式关闭显式边界模式。消费方必须知晓此副作用。
-- **Stage A 进入条件**：出现真实场景要求"调整扫描中心但保留显式边界模式"，先评估将模式切换
-  提取为独立补丁字段的 API 变更成本和向后兼容性。
+- **再进入条件 (Stage A)**：出现真实场景要求"调整扫描中心但保留显式边界模式"，先评估将模式切换提取为
+  独立补丁字段的 API 变更成本和向后兼容性。
 
 ### ESR-OQ-3：扫描策略跨域耦合（mission.scan + hardware mount 偏移）
 
-- **现状证据**：`EsrScanPolicyConfig`（mission 域）中的 `scan_center_az_deg` 经
-  `ApplyScanPolicy` 解算时会减去 `EsrHardwareConfig::antenna_mount_az_deg`（hardware 域）。
-  mission 域的值被 hardware 域静默偏移，用户只看 mission 配置无法推断实际扫描方向。
-  同理，`scan_start_az_deg` / `scan_end_az_deg` 在 `use_explicit_scan_bounds` 模式下
-  也会被 mount 偏移。
-- **未决问题**：是否应在公开 API 中将扫描中心语义定义为"天线坐标系"（已含 mount 偏移）或
-  "平台坐标系"（需显式减去 mount），或是否应提供查询实际解算扫描几何的 API。
+- **现状**：`EsrScanPolicyConfig`（mission 域）的扫描字段经 `ApplyScanPolicy` 解算时会被 hardware 域偏移：
+  1. `scan_center_az_deg` 减去 `EsrHardwareConfig::antenna_mount_az_deg`。
+  2. `scan_start_az_deg` / `scan_end_az_deg` 在 `use_explicit_scan_bounds` 模式下也被 mount 偏移。
+  mission 域的值被 hardware 域静默偏移。[evidence: src/electronic_surveillance_radar/session/EsrScanPolicyApplier]
+- **后果**：用户只看 mission 配置无法推断实际扫描方向；mount 偏移在内部解算时扣除但文档未明确，集成时易误配。
+- **待决问题**：是否在公开 API 中明确扫描中心的坐标系语义，有三个备选：
+  1. 定义为"天线坐标系"（已含 mount 偏移）。
+  2. 定义为"平台坐标系"（需显式减去 mount）。
+  3. 提供查询实际解算扫描几何的 API。
 - **当前边界**：扫描配置语义为"天线坐标系"，mount 偏移在内部解算时扣除。文档未明确说明此语义。
-- **Stage A 进入条件**：出现因 mount 偏移导致的集成问题或用户误配，先明确公开 API 的坐标系
-  语义并在 design.md 中固化，再评估是否需要查询 API。
+- **再进入条件 (Stage A)**：出现因 mount 偏移导致的集成问题或用户误配，先明确公开 API 的坐标系语义并在
+  design.md 中固化，再评估是否需要查询 API。
 
-## SBIRS 非阻塞仿真边界
+## SBIRS 非阻塞边界
 
 ### SBIRS-OQ-1：诊断距离的物理语义
 
-- **现状证据**：`SbirsDetectionAttributionRecord.estimated_range_m` 明确只属于 cue/诊断层，不代表被动红外
-  测距能力；Strict/Estimated 当前使用真值距离，Sensor-like 使用真值距离叠加比例误差。
-- **未决问题**：字段名称和三模式取值来源是否足以防止调用方把它误解为正式传感器测距输出。
+- **现状**：`SbirsDetectionAttributionRecord.estimated_range_m` 明确只属于 cue/诊断层，不代表被动红外测距
+  能力。三模式取值来源不同：
+  1. Strict/Estimated 使用真值距离。
+  2. Sensor-like 使用真值距离叠加比例误差。
+  [evidence: include/1q/sbirs_sensor/SbirsDetectionAttributionRecord]
+- **后果**：字段名含 `estimated_range` 易被调用方误解为正式传感器测距输出，误用于滤波或定位。
+- **待决问题**：字段名称和三模式取值来源是否足以防止调用方把它误解为正式传感器测距输出。
 - **当前边界**：不得进入 `SbirsOutputFrame` raw output；消费方只能把它当作仿真归属与诊断辅助量。
-- **Stage A 进入条件**：出现真实下游消费者需要区分 truth-derived、filter-derived 或不可用距离，先盘点消费路径，
-  再评估重命名、增加来源枚举或显式有效性字段。
+- **再进入条件 (Stage A)**：出现真实下游消费者需要区分 truth-derived、filter-derived 或不可用距离，先盘点
+  消费路径，再评估重命名、增加来源枚举或显式有效性字段。
 
 ### SBIRS-OQ-2：WFOV、Estimated 与 Sensor-like 的分阶段误差统计
 
-- **现状证据**：三条用途使用独立随机子流，但共同读取 `SbirsErrorModelConfig` 的同一组角度/距离统计参数。
-- **未决问题**：是否需要分别表达 WFOV 搜索、Estimated 校正量测和 NFOV Sensor-like 输出的精度等级。
+- **现状**：三条用途使用独立随机子流，但共同读取 `SbirsErrorModelConfig` 的同一组角度/距离统计参数。
+  [evidence: include/1q/sbirs_sensor/SbirsErrorModelConfig]
+- **后果**：共享参数掩盖了三条链路在真实载荷上的精度差异，仿真结果可能高估某条链路的精度。
+  1. WFOV 搜索。
+  2. Estimated 校正量测。
+  3. NFOV Sensor-like 输出。
+- **待决问题**：是否需要分别表达三用途的精度等级（WFOV 搜索、Estimated 校正量测、NFOV Sensor-like 输出）。
 - **当前边界**：共享参数是当前确定性简化，不得宣称代表真实 WFOV/NFOV 载荷精度差异。
-- **Stage A 进入条件**：取得可追溯的分阶段参数依据，或构造出共享参数无法满足的 SBIRS 场景验收矩阵后，
+- **再进入条件 (Stage A)**：取得可追溯的分阶段参数依据，或构造出共享参数无法满足的 SBIRS 场景验收矩阵后，
   再评估拆分配置；不得仅为形式完整扩大 public API。
 
 ### SBIRS-OQ-3：多目标随机样本与 scene 输入顺序
 
-- **现状证据**：WFOV、Estimated、Sensor-like 各自是一条全局用途随机流；同一 trace 可确定性 replay，
-  但多目标在同一周期获得哪个样本取决于 `scene` 遍历顺序。
-- **未决问题**：SBIRS 是否需要保证目标列表置换后，每个 `target_id` 仍获得相同的量测随机序列。
+- **现状**：WFOV、Estimated、Sensor-like 各自是一条全局用途随机流。两个确定性边界：
+  1. 同一 trace 可确定性 replay（相同输入字节和顺序）。
+  2. 多目标在同一周期获得哪个样本取决于 `scene` 遍历顺序。
+  [evidence: src/sbirs_sensor/SbirsSensorPipeline]
+- **后果**：目标列表置换后，同一 `target_id` 可能获得不同的量测随机序列，跨场景对比或批量验证时结果不可复现。
+- **待决问题**：SBIRS 是否需要保证目标列表置换后，每个 `target_id` 仍获得相同的量测随机序列。
 - **当前边界**：replay 只保证相同输入字节和顺序的确定性，不承诺 scene permutation invariance。
-- **Stage A 进入条件**：外部场景源无法稳定排序，或批量验证明确要求按 target 不受输入顺序影响时，比较
+- **再进入条件 (Stage A)**：外部场景源无法稳定排序，或批量验证明确要求按 target 不受输入顺序影响时，比较
   按 target/channel 派生子流与现有全局用途子流的 snapshot、热更和目标生命周期成本。
 
 ### SBIRS-OQ-4：Estimated 航迹的真值初始化
 
-- **现状证据**：Estimated 首次捕获后用输入场景真值 ECEF 位置和速度初始化滤波均值，后续才使用带误差角度量测。
-- **未决问题**：是否需要改为仅由被动角度 cue 和显式距离/运动先验初始化，以形成无真值航迹起始链。
+- **现状**：Estimated 航迹初始化分两个阶段：
+  1. 首次捕获后用输入场景真值 ECEF 位置和速度初始化滤波均值。
+  2. 后续才使用带误差角度量测。
+  [evidence: src/sbirs_sensor/SbirsSensorPipeline]
+- **后果**：`Estimated` 描述为生产仿真链，但首捕阶段含 truth-seeded 简化，若被当作完全无真值辅助的真实载荷
+  跟踪器使用，会高估其无辅助条件下的起始性能。
+- **待决问题**：是否需要改为仅由被动角度 cue 和显式距离/运动先验初始化，以形成无真值航迹起始链。
 - **当前边界**：`Estimated` 是生产仿真链，但当前仍包含 truth-seeded track initiation 简化，不得描述为完全
   无真值辅助的真实载荷跟踪器。
-- **Stage A 进入条件**：先定义被动角度不可观测距离的初始化先验、收敛时间和失败判据，并提供与当前方案的
-  捕获率、位置协方差、丢锁率及 replay 对比证据，再决定是否替换。
+- **再进入条件 (Stage A)**：先定义被动角度不可观测距离的初始化先验、收敛时间和失败判据，并提供与当前方案
+  的捕获率、位置协方差、丢锁率及 replay 对比证据，再决定是否替换。

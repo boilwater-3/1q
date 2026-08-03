@@ -79,7 +79,7 @@ config::execution::EosInternalExecutionConfig MapSessionToInternal(
   const config::execution::EnvironmentConfig environment_model_config =
       BuildModelConfigFromScenario(config.environment.scenario_config);
 
-  exec.sensor_enabled = config.mission.power_on;
+  exec.sensor_enabled = config.sensor_enabled;
   exec.optics = config.hardware;
   exec.detector.detector_detectivity_cm_sqrt_hz_per_w = config.hardware.detector_detectivity_cm_sqrt_hz_per_w;
   exec.detector.detector_area_cm2 = config.hardware.detector_area_cm2;

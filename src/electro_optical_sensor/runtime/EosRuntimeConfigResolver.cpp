@@ -130,8 +130,8 @@ EosRuntimeConfigResolveResult ResolveEosRuntimeConfigPatch(
           "[EosSession] Rejecting mission patch because mission values are invalid.");
       return RejectPatch(current_config, true);
     }
+    // 电源单源：mission 域无电源字段（COMMON-OQ-4，见 contract.md §电源状态单源契约）。
     resolved.next_config.scan = patch.mission;
-    resolved.next_config.sensor_enabled = patch.mission.power_on;
     resolved.reset_scan_phase = true;
   }
 

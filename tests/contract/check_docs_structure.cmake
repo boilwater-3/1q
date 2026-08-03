@@ -2,15 +2,19 @@
 #
 # Guard repository documentation shape:
 #   - docs/ has common, review, practice, and the module directories
-#   - each business module uses the single-file design.md model
+#   - each business module uses the design-doc set (design.md + boundaries.md +
+#     data-flow.md + algorithms.md), all declaring Status: active
 #   - common uses the approved common-document set (contract.md + open_questions.md + usage.md)
 #   - review uses draft Markdown files only, with no nested directory tree
 #   - practice holds flat active-status Markdown for engineering/infra topics
 #   - top-level loose Markdown files and legacy archive/migration folders do not reappear
 #
-# Per docs/common/contract.md §文档结构, each business module keeps only
-# design.md as its design authority; the prior README/contract/decisions/history
-# set has been collapsed into design.md, and common keeps contract.md (public
+# Per docs/common/contract.md §文档结构, each business module keeps a design-doc
+# set: design.md (navigation entry + module positioning), boundaries.md
+# (module-level boundaries, non-goals, change rules), data-flow.md (data flow,
+# I/O, state ownership) and algorithms.md (algorithm registry + per-algorithm
+# implementation boundaries). The prior README/contract/decisions/history set
+# has been collapsed into this set, and common keeps contract.md (public
 # contract), open_questions.md (non-normative cross-module open questions), and
 # usage.md (verified build/install consumer guidance).
 # docs/review is the only approved draft/review holding area; docs/practice holds
@@ -47,11 +51,16 @@ set(BUSINESS_MODULE_DIRS
     "space_based_infrared_sensor")
 
 set(MODULE_DOC_FILES
-    "design.md")
+    "design.md"
+    "boundaries.md"
+    "data-flow.md"
+    "algorithms.md")
 
 set(COMMON_DOC_FILES
     "contract.md"
+    "session_contract.md"
     "open_questions.md"
+    "rf_architecture.md"
     "usage.md")
 
 set(VIOLATIONS "")
@@ -75,16 +84,29 @@ foreach(module ${BUSINESS_MODULE_DIRS})
     continue()
   endif()
 
-  foreach(filename ${MODULE_DOC_FILES})
-    set(doc_file "${module_dir}/${filename}")
-    if(NOT EXISTS "${doc_file}")
-      list(APPEND VIOLATIONS "docs/${module}/${filename}: missing module doc")
-      continue()
-    endif()
-    file(STRINGS "${doc_file}" _head LIMIT_COUNT 6)
+  # design.md is mandatory and must be active.
+  set(design_file "${module_dir}/design.md")
+  if(NOT EXISTS "${design_file}")
+    list(APPEND VIOLATIONS "docs/${module}/design.md: missing module navigation doc")
+  else()
+    file(STRINGS "${design_file}" _head LIMIT_COUNT 6)
     list(FIND _head "Status: active" _status_idx)
     if(_status_idx EQUAL -1)
-      list(APPEND VIOLATIONS "docs/${module}/${filename}: must declare 'Status: active' near the top")
+      list(APPEND VIOLATIONS "docs/${module}/design.md: must declare 'Status: active' near the top")
+    endif()
+  endif()
+
+  # Optional design-doc siblings (boundaries.md, data-flow.md, algorithms.md):
+  # if present they must declare Status: active; absence is allowed (e.g. flight_dynamic
+  # has no data-flow.md, and modules migrate incrementally).
+  foreach(filename boundaries.md data-flow.md algorithms.md)
+    set(doc_file "${module_dir}/${filename}")
+    if(EXISTS "${doc_file}")
+      file(STRINGS "${doc_file}" _head LIMIT_COUNT 6)
+      list(FIND _head "Status: active" _status_idx)
+      if(_status_idx EQUAL -1)
+        list(APPEND VIOLATIONS "docs/${module}/${filename}: must declare 'Status: active' near the top")
+      endif()
     endif()
   endforeach()
 
@@ -92,7 +114,7 @@ foreach(module ${BUSINESS_MODULE_DIRS})
   foreach(rel_doc ${_module_docs})
     list(FIND MODULE_DOC_FILES "${rel_doc}" _allowed_doc_idx)
     if(_allowed_doc_idx EQUAL -1)
-      list(APPEND VIOLATIONS "docs/${module}/${rel_doc}: module docs must use design.md only")
+      list(APPEND VIOLATIONS "docs/${module}/${rel_doc}: module docs must use the design-doc set (design.md/boundaries.md/data-flow.md/algorithms.md)")
     endif()
   endforeach()
 endforeach()

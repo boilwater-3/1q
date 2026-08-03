@@ -103,7 +103,6 @@ TEST(EosRuntimeConfigResolverTest, ValidMissionPatchAppliesAndResetsScanPhase) {
   mission.scan_end_az_deg = 60.0f;
   mission.scan_center_el_deg = 0.0f;
   mission.boresight_depression_deg = 45.0f;
-  mission.power_on = false;
 
   const eos_config::EosRuntimeConfigPatch patch =
       eos_config::EosRuntimeConfigBuilder().WithMission(mission).Build();
@@ -115,24 +114,42 @@ TEST(EosRuntimeConfigResolverTest, ValidMissionPatchAppliesAndResetsScanPhase) {
   EXPECT_TRUE(resolved.reset_scan_phase);
   EXPECT_FLOAT_EQ(resolved.next_config.scan.scan_rate_deg_per_sec, 60.0f);
   EXPECT_EQ(resolved.next_config.scan.work_mode, eos_config::EosWorkMode::kFused);
-  EXPECT_FALSE(resolved.next_config.sensor_enabled);
+  EXPECT_TRUE(resolved.next_config.sensor_enabled)
+      << "has_mission must not change power state; sensor_enabled stays at current value";
 }
 
-TEST(EosRuntimeConfigResolverTest, SensorEnabledLeafOverridesMissionPowerState) {
+TEST(EosRuntimeConfigResolverTest, MissionDomainDoesNotAffectSensorEnabled) {
+  // COMMON-OQ-4 收敛：电源状态仅由 has_sensor_enabled 叶子控制；
+  // mission 域在类型层面已无 power_on 字段（字段提升）。
   config::execution::EosInternalExecutionConfig current_config = MakeValidCurrentConfig();
+  current_config.sensor_enabled = true;
 
   eos_config::EosMissionConfig mission;
-  mission.power_on = false;
+  mission.work_mode = eos_config::EosWorkMode::kFused;
   eos_config::EosRuntimeConfigPatch patch =
       eos_config::EosRuntimeConfigBuilder().WithMission(mission).Build();
-  patch.has_sensor_enabled = true;
-  patch.sensor_enabled = true;
 
   const EosRuntimeConfigResolveResult resolved =
       ResolveEosRuntimeConfigPatch(current_config, patch);
 
   ASSERT_TRUE(resolved.is_valid);
-  EXPECT_TRUE(resolved.next_config.sensor_enabled);
+  EXPECT_TRUE(resolved.next_config.sensor_enabled)
+      << "has_mission must not change power state";
+}
+
+TEST(EosRuntimeConfigResolverTest, SensorEnabledLeafRemainsSolePowerControl) {
+  config::execution::EosInternalExecutionConfig current_config = MakeValidCurrentConfig();
+  current_config.sensor_enabled = true;
+
+  eos_config::EosRuntimeConfigPatch patch;
+  patch.has_sensor_enabled = true;
+  patch.sensor_enabled = false;
+
+  const EosRuntimeConfigResolveResult resolved =
+      ResolveEosRuntimeConfigPatch(current_config, patch);
+
+  ASSERT_TRUE(resolved.is_valid);
+  EXPECT_FALSE(resolved.next_config.sensor_enabled);
 }
 
 TEST(EosRuntimeConfigResolverTest, MissionWithZeroScanRateIsRejected) {

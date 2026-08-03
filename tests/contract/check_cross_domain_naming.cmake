@@ -19,7 +19,10 @@
 #      不影响 ArSessionConfigBuilder::MissionEditor 等其它建造者类。
 #   6) 四域 RuntimeConfigBuilder 必须提供 WithRuntimeConfigPatch 整块覆盖入口
 #      （P3-b 对齐，四域形状一致）。
-#   7) SBIRS mission、runtime patch 与 builder 的电源名称必须统一为 power_on。
+#   7) 四域（含 SBIRS）电源状态统一由 SessionConfig 顶层 sensor_enabled 承载
+#      （COMMON-OQ-4 字段提升，2026-07-31）；mission 域禁止 power_on，
+#      SBIRS runtime patch 必须用 has_sensor_enabled（对齐 AR/ESR/EOS），
+#      builder 必须用 WithSensorEnabled。旧名 power_on/WithPowerOn 不得回流。
 #   8) EOS 探测器面积必须保留显式单位后缀；SBIRS 禁止回流未消费的面积字段。
 #   9) SBIRS lifecycle/abort public 枚举不得回流没有生产传播路径的历史 reason。
 #
@@ -179,30 +182,48 @@ foreach(HEADER IN LISTS RUNTIME_BUILDER_HEADERS)
   endif()
 endforeach()
 
-# ---- 阻断 7：SBIRS 电源命名唯一权威 ----
-set(SBIRS_MISSION_HEADER
-    "${PUBLIC_INCLUDE_ROOT}/sbirs_sensor/config/SbirsMissionConfig.h")
-file(READ "${SBIRS_MISSION_HEADER}" SBIRS_MISSION_TEXT)
-set(SBIRS_RUNTIME_PATCH_HEADER
-    "${PUBLIC_INCLUDE_ROOT}/sbirs_sensor/config/SbirsRuntimeConfigPatch.h")
-set(SBIRS_RUNTIME_BUILDER_HEADER
-    "${PUBLIC_INCLUDE_ROOT}/sbirs_sensor/config/SbirsRuntimeConfigBuilder.h")
-file(READ "${SBIRS_RUNTIME_PATCH_HEADER}" SBIRS_RUNTIME_PATCH_TEXT)
-file(READ "${SBIRS_RUNTIME_BUILDER_HEADER}" SBIRS_RUNTIME_BUILDER_TEXT)
-string(FIND "${SBIRS_MISSION_TEXT}" "bool power_on" _mission_power_pos)
-string(FIND "${SBIRS_RUNTIME_PATCH_TEXT}" "bool has_power_on" _patch_power_pos)
-string(FIND "${SBIRS_RUNTIME_BUILDER_TEXT}" "WithPowerOn" _builder_power_pos)
-if(_mission_power_pos EQUAL -1 OR _patch_power_pos EQUAL -1 OR _builder_power_pos EQUAL -1)
-  list(APPEND VIOLATIONS
-       "[SBIRS 电源命名] mission、runtime patch 与 builder 必须统一提供 power_on")
-endif()
-string(FIND "${SBIRS_MISSION_TEXT}" "sensor_enabled" _mission_legacy_pos)
-string(FIND "${SBIRS_RUNTIME_PATCH_TEXT}" "sensor_enabled" _patch_legacy_pos)
-string(FIND "${SBIRS_RUNTIME_BUILDER_TEXT}" "sensor_enabled" _builder_legacy_pos)
-if(NOT _mission_legacy_pos EQUAL -1 OR NOT _patch_legacy_pos EQUAL -1 OR
-   NOT _builder_legacy_pos EQUAL -1)
-  list(APPEND VIOLATIONS "[SBIRS 电源命名] 禁止回流旧名 sensor_enabled")
-endif()
+# ---- 阻断 7：电源状态唯一权威 = SessionConfig::sensor_enabled（COMMON-OQ-4 字段提升） ----
+# 四域统一（AR/ESR/EOS/SBIRS）：mission 域禁止 power_on；SessionConfig 顶层必须提供
+# sensor_enabled；runtime patch 必须用 has_sensor_enabled；builder 必须用 WithSensorEnabled。
+# 检查覆盖四模块全部四个头，避免单模块回归漏网。
+set(POWER_DOMAINS airborne_radar electronic_surveillance_radar electro_optical_sensor sbirs_sensor)
+foreach(DOMAIN IN LISTS POWER_DOMAINS)
+  set(_mission_header "${PUBLIC_INCLUDE_ROOT}/${DOMAIN}/config")
+  file(GLOB _mission_headers "${_mission_header}/*MissionConfig.h")
+  file(GLOB _session_headers "${_mission_header}/*SessionConfig.h")
+  file(GLOB _patch_headers "${_mission_header}/*RuntimeConfigPatch.h")
+  file(GLOB _builder_headers "${_mission_header}/*RuntimeConfigBuilder.h")
+  foreach(_h IN LISTS _mission_headers _session_headers _patch_headers _builder_headers)
+    file(READ "${_h}" _header_text)
+    if(_h MATCHES "MissionConfig")
+      string(FIND "${_header_text}" "power_on" _legacy_pos)
+      if(NOT _legacy_pos EQUAL -1)
+        list(APPEND VIOLATIONS
+             "${_h}: [电源字段提升] mission 域禁止 power_on（已提升为 SessionConfig::sensor_enabled）")
+      endif()
+    elseif(_h MATCHES "SessionConfig")
+      string(FIND "${_header_text}" "sensor_enabled" _sensor_pos)
+      if(_sensor_pos EQUAL -1)
+        list(APPEND VIOLATIONS
+             "${_h}: [电源字段提升] SessionConfig 必须提供顶层 sensor_enabled")
+      endif()
+    elseif(_h MATCHES "RuntimeConfigPatch")
+      string(FIND "${_header_text}" "has_sensor_enabled" _sensor_pos)
+      string(FIND "${_header_text}" "power_on" _legacy_pos)
+      if(_sensor_pos EQUAL -1 OR NOT _legacy_pos EQUAL -1)
+        list(APPEND VIOLATIONS
+             "${_h}: [电源命名] runtime patch 必须用 has_sensor_enabled，禁止 power_on 出现")
+      endif()
+    elseif(_h MATCHES "RuntimeConfigBuilder")
+      string(FIND "${_header_text}" "WithSensorEnabled" _sensor_pos)
+      string(FIND "${_header_text}" "WithPowerOn" _legacy_pos)
+      if(_sensor_pos EQUAL -1 OR NOT _legacy_pos EQUAL -1)
+        list(APPEND VIOLATIONS
+             "${_h}: [电源命名] RuntimeConfigBuilder 必须用 WithSensorEnabled，禁止 WithPowerOn")
+      endif()
+    endif()
+  endforeach()
+endforeach()
 
 # ---- 阻断 8：探测器面积边界 ----
 set(EOS_HARDWARE_HEADER
@@ -258,5 +279,5 @@ if(VIOLATIONS)
 endif()
 
 message(STATUS
-        "[跨域命名守护] 通过：Session 签名裸名 + work_mode + power_on + 补丁槽 + "
-        "SNR 前缀 + Builder 动词/整块入口 + 探测器面积单位后缀 + SBIRS reason 均无回退。")
+        "[跨域命名守护] 通过：Session 签名裸名 + work_mode + 电源单源 sensor_enabled + 补丁槽 + "
+        "SNR 前缀 + Builder 动词/整块入口 + 电源单源 sensor_enabled + 探测器面积单位后缀 + SBIRS reason 均无回退。")

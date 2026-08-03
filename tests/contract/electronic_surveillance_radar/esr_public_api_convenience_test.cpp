@@ -12,6 +12,7 @@
 #include <vector>
 
 #include "1q/electromagnetics/RfScene.h"
+#include "1q/electronic_surveillance_radar/config/EsrProfileConstants.h"
 #include "1q/electronic_surveillance_radar/config/EsrRuntimeConfigBuilder.h"
 #include "1q/electronic_surveillance_radar/config/EsrSessionConfigBuilder.h"
 #include "1q/electronic_surveillance_radar/config/EsrSessionConfigValidation.h"
@@ -33,18 +34,10 @@ bool ContainsEsrIssueCode(const std::vector<session::ValidationIssue>& issues,
 }
 
 config::EsrSessionConfig MakeSessionConfig() {
-  config::EsrSessionConfig config =
-      config::EsrSessionConfigBuilder()
-          .Mission()
-          .WithMissionProfile(config::EsrMissionProfile::kElectronicOrderOfBattle)
-          .End()
-          .Detection()
-          .WithSensitivityProfile(config::EsrSensitivityProfile::kStandard)
-          .End()
-          .Environment()
-          .WithEnvironmentPreset(config::EsrEnvironmentPreset::kStandard)
-          .End()
-          .Build();
+  config::EsrSessionConfig config;
+  config.mission = config::profiles::kElectronicOrderOfBattleMission;
+  // kStandard 灵敏度档位为 no-op（struct 默认即该档位），不再显式赋值。
+  config.environment.scenario_config.preset = config::EsrEnvironmentPreset::kStandard;
   config.mission.scan.use_explicit_scan_bounds = true;
   config.mission.scan.scan_start_az_deg = -60.0f;
   config.mission.scan.scan_end_az_deg = 60.0f;
@@ -65,23 +58,15 @@ TEST(EsrPublicApiConvenienceTest, SessionConfigBuilderDefaultsMatchDefaultConfig
   EXPECT_EQ(built.environment.scenario_config.preset, defaults.environment.scenario_config.preset);
 }
 
-TEST(EsrPublicApiConvenienceTest, SessionConfigBuilderAppliesSemanticProfiles) {
-  config::EsrSessionConfig cfg =
-      config::EsrSessionConfigBuilder()
-          .Mission()
-          .WithMissionProfile(config::EsrMissionProfile::kThreatWarning)
-          .End()
-          .Detection()
-          .WithSensitivityProfile(config::EsrSensitivityProfile::kHighSensitivity)
-          .End()
-          .Environment()
-          .WithEnvironmentPreset(config::EsrEnvironmentPreset::kJammed)
-          .End()
-          .Build();
-  cfg.mission.power_on = false;
+TEST(EsrPublicApiConvenienceTest, SemanticProfileConstantsProduceExpectedConfig) {
+  config::EsrSessionConfig cfg;
+  cfg.mission = config::profiles::kThreatWarningMission;
+  cfg.policy.detection = config::profiles::kHighSensitivityDetection;
+  cfg.environment.scenario_config.preset = config::EsrEnvironmentPreset::kJammed;
+  cfg.sensor_enabled = false;
 
   EXPECT_EQ(cfg.mission.work_mode, config::EsrWorkMode::kRwr);
-  EXPECT_FALSE(cfg.mission.power_on);
+  EXPECT_FALSE(cfg.sensor_enabled);
   EXPECT_FLOAT_EQ(cfg.mission.scan.scan_rate_hz, 5.0f);
   EXPECT_FLOAT_EQ(cfg.policy.detection.minimum_snr_db, 3.0f);
   EXPECT_EQ(cfg.environment.scenario_config.preset, config::EsrEnvironmentPreset::kJammed);
@@ -113,27 +98,19 @@ TEST(EsrPublicApiConvenienceTest, DetailedSessionConfigBuilderSupportsDetailedDe
             config::EsrEnvironmentPreset::kLowClutter);
 }
 
-TEST(EsrPublicApiConvenienceTest, SessionConfigBuilderProfilesOverrideWithSessionConfig) {
+TEST(EsrPublicApiConvenienceTest, SessionConfigBuilderWithSessionConfigPassesThrough) {
   config::EsrSessionConfig baseline;
   baseline.mission.work_mode = config::EsrWorkMode::kHgesm;
   baseline.mission.scan.scan_rate_hz = 0.25f;
   baseline.policy.detection.minimum_snr_db = 12.0f;
 
   const config::EsrSessionConfig config =
-      config::EsrSessionConfigBuilder()
-          .Mission()
-          .WithMissionProfile(config::EsrMissionProfile::kThreatWarning)
-          .End()
-          .Detection()
-          .WithSensitivityProfile(config::EsrSensitivityProfile::kHighSensitivity)
-          .End()
-          .WithSessionConfig(baseline)
-          .Build();
+      config::EsrSessionConfigBuilder().WithSessionConfig(baseline).Build();
 
-  // WithSessionConfig() does not reset profiles; profiles override baseline fields.
-  EXPECT_EQ(config.mission.work_mode, config::EsrWorkMode::kRwr);
-  EXPECT_FLOAT_EQ(config.mission.scan.scan_rate_hz, 5.0f);
-  EXPECT_FLOAT_EQ(config.policy.detection.minimum_snr_db, 3.0f);
+  // Profile 覆盖语义已消除：WithSessionConfig() 后 Build() 原样透传（无任何覆盖）。
+  EXPECT_EQ(config.mission.work_mode, config::EsrWorkMode::kHgesm);
+  EXPECT_FLOAT_EQ(config.mission.scan.scan_rate_hz, 0.25f);
+  EXPECT_FLOAT_EQ(config.policy.detection.minimum_snr_db, 12.0f);
 }
 
 TEST(EsrPublicApiConvenienceTest, SessionConfigValidatorReportsFinalConfigIssues) {
@@ -207,7 +184,6 @@ TEST(EsrPublicApiConvenienceTest, RuntimeConfigBuilderSetsSemanticFields) {
 
 TEST(EsrPublicApiConvenienceTest, RuntimeConfigBuilderSupportsDomainOverrides) {
   config::EsrMissionConfig mission;
-  mission.power_on = false;
   mission.work_mode = config::EsrWorkMode::kRwr;
   mission.scan.scan_rate_hz = 5.0f;
 
@@ -218,7 +194,6 @@ TEST(EsrPublicApiConvenienceTest, RuntimeConfigBuilderSupportsDomainOverrides) {
       config::EsrRuntimeConfigBuilder().WithMission(mission).WithPolicy(policy).Build();
 
   EXPECT_TRUE(patch.has_mission);
-  EXPECT_FALSE(patch.mission.power_on);
   EXPECT_EQ(patch.mission.work_mode, config::EsrWorkMode::kRwr);
   EXPECT_FLOAT_EQ(patch.mission.scan.scan_rate_hz, 5.0f);
   EXPECT_TRUE(patch.has_policy);

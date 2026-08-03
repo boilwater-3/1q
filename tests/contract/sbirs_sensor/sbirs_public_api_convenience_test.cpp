@@ -110,7 +110,7 @@ TEST(SbirsPublicApiConvenienceTest, RuntimeConfigBuilderDefaultsAreAllUnset) {
   EXPECT_FALSE(patch.has_environment);
   EXPECT_FALSE(patch.has_work_mode);
   EXPECT_FALSE(patch.has_scan_rate_deg_per_sec);
-  EXPECT_FALSE(patch.has_power_on);
+  EXPECT_FALSE(patch.has_sensor_enabled);
 }
 
 TEST(SbirsPublicApiConvenienceTest, RuntimeConfigBuilderAllFieldsPopulateFlags) {
@@ -118,14 +118,14 @@ TEST(SbirsPublicApiConvenienceTest, RuntimeConfigBuilderAllFieldsPopulateFlags) 
       sbirs_config::SbirsRuntimeConfigBuilder()
           .WithWorkMode(config::SbirsWorkMode::kWideSearch)
           .WithScanRateDegPerSec(8.0f)
-          .WithPowerOn(true)
+          .WithSensorEnabled(true)
           .Build();
   EXPECT_TRUE(patch.has_work_mode);
   EXPECT_EQ(patch.work_mode, config::SbirsWorkMode::kWideSearch);
   EXPECT_TRUE(patch.has_scan_rate_deg_per_sec);
   EXPECT_FLOAT_EQ(patch.scan_rate_deg_per_sec, 8.0f);
-  EXPECT_TRUE(patch.has_power_on);
-  EXPECT_TRUE(patch.power_on);
+  EXPECT_TRUE(patch.has_sensor_enabled);
+  EXPECT_TRUE(patch.sensor_enabled);
 }
 
 TEST(SbirsPublicApiConvenienceTest, ValidateCycleInputFlagsInvalidDeltaTime) {

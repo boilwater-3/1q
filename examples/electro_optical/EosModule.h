@@ -343,7 +343,7 @@ class EosModule {
        << "," << mission_scan_end_az_deg_ << "]"
        << " scan_el=" << mission_scan_center_el_deg_
        << " depression=" << mission_boresight_depression_deg_
-       << " power_on=" << mission_power_on_
+       << " sensor_enabled=" << sensor_enabled_
        << "\n[Policy]\n"
        << "  min_snr_db=" << policy_minimum_snr_db_
        << " sensitivity_w=" << policy_detection_sensitivity_w_
@@ -394,7 +394,8 @@ class EosModule {
     mission_scan_end_az_deg_ = static_cast<double>(mission.scan_end_az_deg);
     mission_scan_center_el_deg_ = static_cast<double>(mission.scan_center_el_deg);
     mission_boresight_depression_deg_ = static_cast<double>(mission.boresight_depression_deg);
-    mission_power_on_ = mission.power_on;
+    // 电源状态提升到 SessionConfig 顶层（COMMON-OQ-4 收敛）
+    sensor_enabled_ = config.sensor_enabled;
 
     // ---- 策略域 (Policy) ----
     const auto& policy = config.policy;
@@ -481,7 +482,7 @@ class EosModule {
   double mission_scan_end_az_deg_{0.0};
   double mission_scan_center_el_deg_{0.0};
   double mission_boresight_depression_deg_{0.0};
-  bool mission_power_on_{true};
+  bool sensor_enabled_{true};
 
   // -- 策略域 (Policy) --
   // Detection

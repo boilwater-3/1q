@@ -54,7 +54,8 @@ inline void LoadEsrScanPolicy(const examples::JsonValue& j,
 
 inline void LoadEsrMission(const examples::JsonValue& j, esr_cfg::EsrMissionConfig* v) {
   if (j.IsNull()) return;
-  v->power_on = j["power_on"].AsBool();
+  // 电源状态由 EsrSessionConfig::sensor_enabled 承载（COMMON-OQ-4 字段提升）；
+  // mission 域无电源字段。
   v->work_mode = EsrWorkModeFromString(j["work_mode"].AsString());
   LoadEsrScanPolicy(j["scan"], &v->scan);
 }

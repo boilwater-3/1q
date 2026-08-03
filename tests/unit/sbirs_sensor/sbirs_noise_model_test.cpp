@@ -1,4 +1,4 @@
-// design.md 2.8 验证入口：sbirs_noise_model_test
+// 验证 algorithms.md Foundation 物理链路条目：sbirs_noise_model_test
 // 覆盖光子/热/读出噪声三项 RMS 合成与默认 NEP 回退。
 #include <gtest/gtest.h>
 

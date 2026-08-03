@@ -13,6 +13,7 @@
 #include <vector>
 
 #include "1q/coordinate/position_transform.h"
+#include "1q/electro_optical_sensor/config/EosProfileConstants.h"
 #include "1q/electro_optical_sensor/config/EosRuntimeConfigBuilder.h"
 #include "1q/electro_optical_sensor/config/EosSessionConfigBuilder.h"
 #include "1q/electro_optical_sensor/config/EosSessionConfigValidation.h"
@@ -68,14 +69,11 @@ TEST(EosPublicApiConvenienceTest, SessionConfigBuilderDefaultsMatchEosSessionCon
 TEST(EosPublicApiConvenienceTest, SessionConfigBuilderOverridesSemanticFields) {
   config::EosSessionConfig config =
       config::EosSessionConfigBuilder()
-          .Mission()
-          .WithMissionProfile(config::EosMissionProfile::kLongRangeSurveillance)
-          .End()
-          .Environment()
+          .WithMission(config::profiles::kLongRangeSurveillanceMission)
           .WithEnvironmentPreset(config::EosEnvironmentPreset::kDusty)
-          .End()
           .Build();
-  config.policy.detection.minimum_snr_db = 60.0f;
+  config.policy.detection = config::profiles::kLongRangeSurveillanceDetection;
+  config.policy.detection.minimum_snr_db = 60.0f;  // 档位赋值在前、微调在后 → 微调胜出
   config.policy.detection.detection_sensitivity_w = 2.0e-12f;
   config.policy.detection.visible_reference_irradiance_w_m2 = 1000.0f;
   config.policy.stray_light.enable_straylight_filter = true;

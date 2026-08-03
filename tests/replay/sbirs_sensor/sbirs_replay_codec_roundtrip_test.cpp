@@ -53,7 +53,7 @@ std::string EncodeCycleResultWithRawAbortReason(std::int32_t abort_reason) {
 std::string EncodeSessionConfigWithRawScanDirection(std::int32_t scan_direction) {
   flatbuffers::FlatBufferBuilder builder(128U);
   const auto mission = sbirs::replay::CreateSbirsMissionConfig(
-      builder, 0, true, 20.0f, 20.0f, 2.0f, 2.0f, -60.0f, 120.0f, scan_direction);
+      builder, 0, 20.0f, 20.0f, 2.0f, 2.0f, -60.0f, 120.0f, scan_direction);
   builder.Finish(sbirs::replay::CreateSbirsSessionConfig(builder, 0, mission, 0, 0));
   return std::string(reinterpret_cast<const char*>(builder.GetBufferPointer()), builder.GetSize());
 }
@@ -269,7 +269,7 @@ TEST(SbirsReplayCodecRoundtripTest, SessionConfigPreservesAllDomains) {
   config.hardware.integration_time_sec = 0.04f;
   config.hardware.noise_equivalent_power_w = 2.0e-12f;
   config.mission.work_mode = SbirsWorkMode::kWideSearch;
-  config.mission.power_on = true;
+  config.sensor_enabled = false;  // 非默认值防 decode 漏读（COMMON-OQ-4 字段提升）
   config.mission.scan_start_az_deg = 170.0f;
   config.mission.scan_span_deg = 45.0f;
   config.mission.scan_direction = SbirsScanDirection::kDecreasingAzimuth;
@@ -309,7 +309,7 @@ TEST(SbirsReplayCodecRoundtripTest, SessionConfigPreservesAllDomains) {
   EXPECT_FLOAT_EQ(decoded.hardware.optical_aperture_m, 0.9f);
   EXPECT_FLOAT_EQ(decoded.hardware.noise_equivalent_power_w, 2.0e-12f);
   EXPECT_EQ(decoded.mission.work_mode, SbirsWorkMode::kWideSearch);
-  EXPECT_TRUE(decoded.mission.power_on);
+  EXPECT_FALSE(decoded.sensor_enabled);
   EXPECT_FLOAT_EQ(decoded.mission.scan_start_az_deg, 170.0f);
   EXPECT_FLOAT_EQ(decoded.mission.scan_span_deg, 45.0f);
   EXPECT_EQ(decoded.mission.scan_direction, SbirsScanDirection::kDecreasingAzimuth);
@@ -368,7 +368,7 @@ TEST(SbirsReplayCodecRoundtripTest, RuntimeConfigPatchPreservesAllFields) {
                                             .WithEnvironment(environment)
                                             .WithWorkMode(SbirsWorkMode::kWideSearch)
                                             .WithScanRateDegPerSec(4.0f)
-                                            .WithPowerOn(false)
+                                            .WithSensorEnabled(false)
                                             .Build();
   SbirsRuntimeConfigPatch decoded;
   ASSERT_TRUE(DecodeSbirsRuntimeConfigPatch(EncodeSbirsRuntimeConfigPatch(patch), &decoded));
@@ -392,8 +392,8 @@ TEST(SbirsReplayCodecRoundtripTest, RuntimeConfigPatchPreservesAllFields) {
   EXPECT_EQ(decoded.work_mode, SbirsWorkMode::kWideSearch);
   EXPECT_TRUE(decoded.has_scan_rate_deg_per_sec);
   EXPECT_FLOAT_EQ(decoded.scan_rate_deg_per_sec, 4.0f);
-  EXPECT_TRUE(decoded.has_power_on);
-  EXPECT_FALSE(decoded.power_on);
+  EXPECT_TRUE(decoded.has_sensor_enabled);
+  EXPECT_FALSE(decoded.sensor_enabled);
 }
 
 TEST(SbirsReplayCodecRoundtripTest, EmptyRuntimeConfigPatchKeepsAllFlagsFalse) {
@@ -405,7 +405,7 @@ TEST(SbirsReplayCodecRoundtripTest, EmptyRuntimeConfigPatchKeepsAllFlagsFalse) {
   EXPECT_FALSE(decoded.has_environment);
   EXPECT_FALSE(decoded.has_work_mode);
   EXPECT_FALSE(decoded.has_scan_rate_deg_per_sec);
-  EXPECT_FALSE(decoded.has_power_on);
+  EXPECT_FALSE(decoded.has_sensor_enabled);
 }
 
 // --- FailureMarker ---

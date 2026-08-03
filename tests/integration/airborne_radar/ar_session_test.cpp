@@ -14,6 +14,7 @@
 #include <utility>
 #include <vector>
 
+#include "1q/airborne_radar/config/ArProfileConstants.h"
 #include "1q/airborne_radar/config/ArSessionConfigBuilder.h"
 #include "1q/airborne_radar/session/ArCommand.h"
 #include "1q/airborne_radar/session/ArControlProfile.h"
@@ -50,18 +51,12 @@ struct SceneScriptStep {
 };
 
 config::ArSessionConfig MakeJointIntegrationSessionConfig() {
-  return config::ArSessionConfigBuilder()
-      .Detection()
-      .WithDetectionIntentProfile(config::profiles::DetectionIntentProfile::kDetectionPriority)
-      .End()
-      .Tracking()
-      .EnableTrackingFilter(true)
-      .WithTrackingPolicyProfile(config::profiles::TrackingPolicyProfile::kFastAssociation)
-      .End()
-      .Lifecycle()
-      .WithLifecyclePolicyProfile(config::profiles::LifecyclePolicyProfile::kFastConfirm)
-      .End()
-      .Build();
+  config::ArSessionConfig cfg;
+  cfg.policy.detection = config::profiles::kDetectionPriorityDetection;
+  cfg.policy.tracking = config::profiles::kFastAssociationTracking;
+  cfg.policy.tracking.enable_kalman_filter = true;
+  cfg.policy.lifecycle = config::profiles::kFastConfirmLifecycle;
+  return cfg;
 }
 
 config::ArSessionConfig MakeJointIntegrationPhysicsSessionConfig(float pulse_width_s) {

@@ -24,6 +24,7 @@ struct ONEQ_API SbirsSessionConfig {
   SbirsMissionConfig mission{};         /**< 任务与视场参数 */
   SbirsPolicyConfig policy{};           /**< 检测/误差/调度策略 */
   SbirsEnvironmentConfig environment{}; /**< 环境与气象衰减参数 */
+  bool sensor_enabled{true};            /**< 传感器初始电源状态（COMMON-OQ-4 字段提升） */
 };
 
 }  // namespace config

@@ -97,7 +97,7 @@ TEST(EsrRuntimeConfigResolverTest, MissionDomainPatchUpdatesMissionAndResolvedSc
   current_config.hardware.el_scan_range_deg = 20.0f;
   current_config.hardware.antenna_mount_az_deg = 3.0f;
   current_config.hardware.antenna_mount_el_deg = -2.0f;
-  current_config.mission.power_on = false;
+  current_config.sensor_enabled = false;
   current_config.mission.work_mode = config::EsrWorkMode::kEsm;
   current_config.mission.scan.scan_rate_hz = 1.0f;
   current_config.mission.scan.scan_start_position = config::EsrScanStartPosition::kLeftTop;
@@ -106,7 +106,6 @@ TEST(EsrRuntimeConfigResolverTest, MissionDomainPatchUpdatesMissionAndResolvedSc
   current_config.detection.threshold_scale = 1.0f;
 
   config::EsrMissionConfig mission;
-  mission.power_on = true;
   mission.work_mode = config::EsrWorkMode::kHgesm;
   mission.scan.scan_rate_hz = 6.0f;
   mission.scan.scan_start_position = config::EsrScanStartPosition::kRightBottom;
@@ -126,7 +125,8 @@ TEST(EsrRuntimeConfigResolverTest, MissionDomainPatchUpdatesMissionAndResolvedSc
   EXPECT_EQ(resolved.status, EsrRuntimeConfigApplyStatus::kApplied);
   EXPECT_TRUE(resolved.runtime_config_changed);
   EXPECT_TRUE(resolved.pipeline_config_changed);
-  EXPECT_TRUE(resolved.next_config.mission.power_on);
+  // COMMON-OQ-4 收敛：has_mission 不改变 power_on，保持 current 值 false。
+  EXPECT_FALSE(resolved.next_config.sensor_enabled);
   EXPECT_EQ(resolved.next_config.mission.work_mode, config::EsrWorkMode::kHgesm);
   EXPECT_FLOAT_EQ(resolved.next_config.mission.scan.scan_rate_hz, 6.0f);
   EXPECT_EQ(resolved.next_config.resolved_scan.scan_start_pos,
@@ -141,15 +141,56 @@ TEST(EsrRuntimeConfigResolverTest, MissionDomainPatchUpdatesMissionAndResolvedSc
   EXPECT_FLOAT_EQ(resolved.next_config.detection.threshold_scale, 0.85f);
 }
 
+TEST(EsrRuntimeConfigResolverTest, MissionDomainPreservesExistingPowerState) {
+  // COMMON-OQ-4 收敛：电源状态仅由 has_sensor_enabled 叶子控制；
+  // has_mission 整块域不影响电源（COMMON-OQ-4 字段提升）。
+  EsrInternalExecutionConfig current_config;
+  current_config.sensor_enabled = true;
+  current_config.hardware.az_scan_range_deg = 80.0f;
+  current_config.hardware.el_scan_range_deg = 20.0f;
+  current_config.mission.work_mode = config::EsrWorkMode::kEsm;
+
+  config::EsrMissionConfig mission;
+  mission.work_mode = config::EsrWorkMode::kHgesm;
+  mission.scan.scan_rate_hz = 6.0f;
+
+  config::EsrRuntimeConfigPatch patch;
+  patch.has_mission = true;
+  patch.mission = mission;
+
+  const EsrRuntimeConfigResolveResult resolved =
+      ResolveEsrRuntimeConfigPatch(current_config, patch);
+
+  EXPECT_TRUE(resolved.is_valid);
+  EXPECT_TRUE(resolved.next_config.sensor_enabled)
+      << "has_mission must not change power state";
+  EXPECT_EQ(resolved.next_config.mission.work_mode, config::EsrWorkMode::kHgesm);
+  EXPECT_FLOAT_EQ(resolved.next_config.mission.scan.scan_rate_hz, 6.0f);
+}
+
+TEST(EsrRuntimeConfigResolverTest, SensorEnabledLeafRemainsSolePowerControl) {
+  EsrInternalExecutionConfig current_config;
+  current_config.sensor_enabled = true;
+
+  config::EsrRuntimeConfigPatch patch;
+  patch.has_sensor_enabled = true;
+  patch.sensor_enabled = false;
+
+  const EsrRuntimeConfigResolveResult resolved =
+      ResolveEsrRuntimeConfigPatch(current_config, patch);
+
+  EXPECT_TRUE(resolved.is_valid);
+  EXPECT_FALSE(resolved.next_config.sensor_enabled);
+}
+
 TEST(EsrRuntimeConfigResolverTest, MissionDomainPatchRejectsInvalidScanRateAtomically) {
   EsrInternalExecutionConfig current_config;
-  current_config.mission.power_on = true;
+  current_config.sensor_enabled = true;
   current_config.mission.scan.scan_rate_hz = 2.0f;
 
   config::EsrRuntimeConfigPatch patch;
   patch.has_mission = true;
   patch.mission = current_config.mission;
-  patch.mission.power_on = false;
   patch.mission.scan.scan_rate_hz = std::numeric_limits<float>::infinity();
 
   const EsrRuntimeConfigResolveResult resolved =
@@ -158,13 +199,13 @@ TEST(EsrRuntimeConfigResolverTest, MissionDomainPatchRejectsInvalidScanRateAtomi
   EXPECT_TRUE(resolved.has_requested_update);
   EXPECT_FALSE(resolved.is_valid);
   EXPECT_EQ(resolved.status, EsrRuntimeConfigApplyStatus::kRejectedInvalidScanRate);
-  EXPECT_TRUE(resolved.next_config.mission.power_on);
+  EXPECT_TRUE(resolved.next_config.sensor_enabled);
   EXPECT_FLOAT_EQ(resolved.next_config.mission.scan.scan_rate_hz, 2.0f);
 }
 
 TEST(EsrRuntimeConfigResolverTest, MissionDomainRejectsInvalidExplicitBoundsAtomically) {
   EsrInternalExecutionConfig current_config;
-  current_config.mission.power_on = true;
+  current_config.sensor_enabled = true;
   current_config.mission.scan.use_explicit_scan_bounds = false;
   current_config.resolved_scan.scan_start_az_deg = -30.0f;
   current_config.resolved_scan.scan_end_az_deg = 30.0f;
@@ -172,7 +213,6 @@ TEST(EsrRuntimeConfigResolverTest, MissionDomainRejectsInvalidExplicitBoundsAtom
   config::EsrRuntimeConfigPatch patch;
   patch.has_mission = true;
   patch.mission = current_config.mission;
-  patch.mission.power_on = false;
   patch.mission.scan.use_explicit_scan_bounds = true;
   patch.mission.scan.scan_start_az_deg = 5.0f;
   patch.mission.scan.scan_end_az_deg = 5.0f;
@@ -182,7 +222,7 @@ TEST(EsrRuntimeConfigResolverTest, MissionDomainRejectsInvalidExplicitBoundsAtom
 
   EXPECT_FALSE(resolved.is_valid);
   EXPECT_EQ(resolved.status, EsrRuntimeConfigApplyStatus::kRejectedInvalidExplicitScanBounds);
-  EXPECT_TRUE(resolved.next_config.mission.power_on);
+  EXPECT_TRUE(resolved.next_config.sensor_enabled);
   EXPECT_FALSE(resolved.next_config.mission.scan.use_explicit_scan_bounds);
   EXPECT_FLOAT_EQ(resolved.next_config.resolved_scan.scan_start_az_deg, -30.0f);
   EXPECT_FLOAT_EQ(resolved.next_config.resolved_scan.scan_end_az_deg, 30.0f);
@@ -190,7 +230,7 @@ TEST(EsrRuntimeConfigResolverTest, MissionDomainRejectsInvalidExplicitBoundsAtom
 
 TEST(EsrRuntimeConfigResolverTest, MissionDomainRejectsInvalidCenterAtomically) {
   EsrInternalExecutionConfig current_config;
-  current_config.mission.power_on = true;
+  current_config.sensor_enabled = true;
   current_config.mission.scan.scan_center_az_deg = 2.0f;
   current_config.resolved_scan.scan_start_az_deg = -30.0f;
   current_config.resolved_scan.scan_end_az_deg = 30.0f;
@@ -198,7 +238,6 @@ TEST(EsrRuntimeConfigResolverTest, MissionDomainRejectsInvalidCenterAtomically) 
   config::EsrRuntimeConfigPatch patch;
   patch.has_mission = true;
   patch.mission = current_config.mission;
-  patch.mission.power_on = false;
   patch.mission.scan.use_explicit_scan_bounds = false;
   patch.mission.scan.scan_center_az_deg = std::numeric_limits<float>::quiet_NaN();
 
@@ -207,7 +246,7 @@ TEST(EsrRuntimeConfigResolverTest, MissionDomainRejectsInvalidCenterAtomically) 
 
   EXPECT_FALSE(resolved.is_valid);
   EXPECT_EQ(resolved.status, EsrRuntimeConfigApplyStatus::kRejectedInvalidScanCenterAz);
-  EXPECT_TRUE(resolved.next_config.mission.power_on);
+  EXPECT_TRUE(resolved.next_config.sensor_enabled);
   EXPECT_FLOAT_EQ(resolved.next_config.mission.scan.scan_center_az_deg, 2.0f);
   EXPECT_FLOAT_EQ(resolved.next_config.resolved_scan.scan_start_az_deg, -30.0f);
   EXPECT_FLOAT_EQ(resolved.next_config.resolved_scan.scan_end_az_deg, 30.0f);

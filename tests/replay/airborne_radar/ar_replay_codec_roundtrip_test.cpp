@@ -65,6 +65,8 @@ TEST(ArReplayCodecRoundtripTest, SessionConfigPreservesAllDomains) {
   config.policy.decision_control.eccm_hold_cycles_after_request = 3U;
   config.policy.decision_control.lpi_cooldown_cycles_after_release = 4U;
   config.policy.decision_control.eccm_cooldown_cycles_after_release = 5U;
+  // sensor_enabled 顶层电源字段（COMMON-OQ-4 字段提升）往返锚点：非默认值防 decode 漏读
+  config.sensor_enabled = false;
   // natural environment
   config.environment.scenario_config.atmospheric_physics.enable_physical_model = true;
   config.environment.scenario_config.atmospheric_physics.pressure_hpa = 1010.0f;
@@ -104,6 +106,8 @@ TEST(ArReplayCodecRoundtripTest, SessionConfigPreservesAllDomains) {
   // mission
   EXPECT_FLOAT_EQ(decoded.mission.orientation.scan_center_deg.az_deg, 15.0f);
   EXPECT_FLOAT_EQ(decoded.mission.orientation.scan_center_deg.el_deg, -2.0f);
+  // sensor_enabled 往返锚点（COMMON-OQ-4 字段提升）
+  EXPECT_FALSE(decoded.sensor_enabled);
   // policy
   EXPECT_EQ(decoded.policy.lifecycle.confirm_hits, 2U);
   EXPECT_FLOAT_EQ(decoded.policy.detection.minimum_detection_margin_db, -20.0f);

@@ -22,24 +22,14 @@ ar_config::AzimuthElevationDeg MakeAzEl(float az_deg, float el_deg) {
   return v;
 }
 
-/// Original hardcoded builder from git history.
+/// Wide-area search 语义配置（由旧 builder 语义档位常量组合，等价迁移）。
 ar_config::ArSessionConfig MakeWideAreaSearchConfig() {
-  ar_config::ArSessionConfig config =
-      ar_config::ArSessionConfigBuilder()
-          .Detection()
-          .WithHardwareProfile(ar_config::profiles::ArHardwareProfile::kLongRangeHighPower)
-          .WithDetectionIntentProfile(
-              ar_config::profiles::DetectionIntentProfile::kDetectionPriority)
-          .WithAntennaPatternProfile(ar_config::profiles::AntennaPatternProfile::kStandard)
-          .End()
-          .Tracking()
-          .EnableTrackingFilter(true)
-          .WithTrackingPolicyProfile(ar_config::profiles::TrackingPolicyProfile::kFastAssociation)
-          .End()
-          .Lifecycle()
-          .WithLifecyclePolicyProfile(ar_config::profiles::LifecyclePolicyProfile::kFastConfirm)
-          .End()
-          .Build();
+  ar_config::ArSessionConfig config;
+  config.hardware = ar_config::profiles::kLongRangeHighPowerHardware;
+  config.policy.detection = ar_config::profiles::kDetectionPriorityDetection;
+  config.policy.tracking = ar_config::profiles::kFastAssociationTracking;
+  config.policy.tracking.enable_kalman_filter = true;
+  config.policy.lifecycle = ar_config::profiles::kFastConfirmLifecycle;
   config.mission.orientation.work_mode = ar_config::ArWorkMode::kTas;
   config.mission.orientation.scan_center_deg = MakeAzEl(0.0f, 0.0f);
   return config;

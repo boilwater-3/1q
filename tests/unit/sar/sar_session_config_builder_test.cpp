@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <limits>
 
+#include "1q/sar/config/SarProfileConstants.h"
 #include "1q/sar/config/SarSessionConfigBuilder.h"
 #include "1q/sar/config/SarSessionConfigValidation.h"
 #include "1q/sar/session/SarSession.h"
@@ -16,17 +17,16 @@ TEST(SarSessionConfigBuilderTest, DefaultBuildKeepsConfigDefaults) {
   SarSessionConfigBuilder builder;
   const SarSessionConfig config = builder.Build();
 
-  // 未设置任何 Profile，应保持 struct 默认值。
+  // 未设置任何语义常量，应保持 struct 默认值。
   EXPECT_DOUBLE_EQ(config.mission.nominal_slant_range_m, 15000.0);
   EXPECT_EQ(config.mission.azimuth_pulse_count, 1024U);
   EXPECT_EQ(config.mission.range_sample_count, 4096U);
   EXPECT_FALSE(config.policy.enable_l1_rda_imaging);
 }
 
-TEST(SarSessionConfigBuilderTest, MissionProfileTranslatesFields) {
-  SarSessionConfigBuilder builder;
-  builder.Mission().WithMissionProfile(SarMissionProfile::kHighResolutionImaging).End();
-  const SarSessionConfig config = builder.Build();
+TEST(SarSessionConfigBuilderTest, MissionConstantsTranslateFields) {
+  SarSessionConfig config;
+  config.mission = profiles::kHighResolutionImagingMission;
 
   EXPECT_DOUBLE_EQ(config.mission.nominal_slant_range_m, 10000.0);
   EXPECT_DOUBLE_EQ(config.mission.platform_speed_mps, 150.0);
@@ -36,19 +36,17 @@ TEST(SarSessionConfigBuilderTest, MissionProfileTranslatesFields) {
   EXPECT_DOUBLE_EQ(config.mission.desired_azimuth_resolution_m, 0.5);
 }
 
-TEST(SarSessionConfigBuilderTest, LongRangeSurveillanceProfile) {
-  SarSessionConfigBuilder builder;
-  builder.Mission().WithMissionProfile(SarMissionProfile::kLongRangeSurveillance).End();
-  const SarSessionConfig config = builder.Build();
+TEST(SarSessionConfigBuilderTest, LongRangeSurveillanceConstants) {
+  SarSessionConfig config;
+  config.mission = profiles::kLongRangeSurveillanceMission;
 
   EXPECT_DOUBLE_EQ(config.mission.nominal_slant_range_m, 50000.0);
   EXPECT_EQ(config.mission.azimuth_pulse_count, 512U);
 }
 
-TEST(SarSessionConfigBuilderTest, ProcessingProfileRawEchoOnly) {
-  SarSessionConfigBuilder builder;
-  builder.Processing().WithProcessingProfile(SarProcessingProfile::kRawEchoOnly).End();
-  const SarSessionConfig config = builder.Build();
+TEST(SarSessionConfigBuilderTest, ProcessingConstantsRawEchoOnly) {
+  SarSessionConfig config;
+  config.policy = profiles::kRawEchoOnlyProcessing;
 
   EXPECT_TRUE(config.policy.enable_raw_echo_generation);
   EXPECT_FALSE(config.policy.enable_l1_rda_imaging);
@@ -56,10 +54,9 @@ TEST(SarSessionConfigBuilderTest, ProcessingProfileRawEchoOnly) {
   EXPECT_FALSE(config.policy.retain_focused_image);
 }
 
-TEST(SarSessionConfigBuilderTest, ProcessingProfileL3Backprojection) {
-  SarSessionConfigBuilder builder;
-  builder.Processing().WithProcessingProfile(SarProcessingProfile::kL3Backprojection).End();
-  const SarSessionConfig config = builder.Build();
+TEST(SarSessionConfigBuilderTest, ProcessingConstantsL3Backprojection) {
+  SarSessionConfig config;
+  config.policy = profiles::kL3BackprojectionProcessing;
 
   EXPECT_TRUE(config.policy.enable_raw_echo_generation);
   EXPECT_FALSE(config.policy.enable_l1_rda_imaging);
@@ -68,18 +65,17 @@ TEST(SarSessionConfigBuilderTest, ProcessingProfileL3Backprojection) {
   EXPECT_TRUE(config.policy.retain_focused_image);
 }
 
-TEST(SarSessionConfigBuilderTest, ProcessingProfileL3BackprojectionHasNoL1L2Conflict) {
-  SarSessionConfig baseline;
-  baseline.hardware.pulse_width_s = 0.16e-6;
-  baseline.hardware.sample_rate_hz = 100.0e6;
-  baseline.mission.range_sample_count = 64U;
-  baseline.mission.azimuth_pulse_count = 9U;
-  SarSessionConfigBuilder builder(baseline);
-  builder.Processing().WithProcessingProfile(SarProcessingProfile::kL3Backprojection).End();
+TEST(SarSessionConfigBuilderTest, ProcessingConstantsL3HasNoL1L2Conflict) {
+  SarSessionConfig config;
+  config.hardware.pulse_width_s = 0.16e-6;
+  config.hardware.sample_rate_hz = 100.0e6;
+  config.mission.range_sample_count = 64U;
+  config.mission.azimuth_pulse_count = 9U;
+  config.policy = profiles::kL3BackprojectionProcessing;
 
   session::SarCycleResult result;
   EXPECT_TRUE(session::ValidateRuntimeConfigForStep(
-      builder.Build(), /*has_external_raw_iq=*/true, &result))
+      config, /*has_external_raw_iq=*/true, &result))
       << result.abort_reason;
 }
 
@@ -95,35 +91,33 @@ TEST(SarSessionConfigBuilderTest, DirectConfigOwnsSceneCenterFields) {
 }
 
 TEST(SarSessionConfigBuilderTest, ProfileOverlayPreservesUnrelatedBaselineFields) {
-  SarSessionConfig baseline;
-  baseline.hardware.carrier_frequency_hz = 9.6e9;
-  baseline.mission.scene_center_latitude_deg = 40.0;
-  baseline.policy.minimum_snr_db = 6.5;
-  baseline.environment.atmospheric_loss_db_per_km = 0.02;
-
-  SarSessionConfigBuilder builder(baseline);
-  builder.Mission().WithMissionProfile(SarMissionProfile::kStripmapSurvey).End();
-  const SarSessionConfig config = builder.Build();
+  SarSessionConfig config;
+  config.hardware.carrier_frequency_hz = 9.6e9;
+  config.mission.scene_center_latitude_deg = 40.0;
+  config.policy.minimum_snr_db = 6.5;
+  config.environment.atmospheric_loss_db_per_km = 0.02;
+  // kStripmapSurvey 与 struct 默认一致（no-op 档位），不赋常量即保持基线。
 
   // 基线字段保留。
   EXPECT_DOUBLE_EQ(config.hardware.carrier_frequency_hz, 9.6e9);
   EXPECT_DOUBLE_EQ(config.mission.scene_center_latitude_deg, 40.0);
-  // Profile 翻译的字段应用。
+  // struct 默认即条带档位翻译值（no-op 档位，逐字段锁定防漂移）。
   EXPECT_DOUBLE_EQ(config.mission.nominal_slant_range_m, 15000.0);
+  EXPECT_DOUBLE_EQ(config.mission.platform_speed_mps, 180.0);
   EXPECT_EQ(config.mission.azimuth_pulse_count, 1024U);
   EXPECT_EQ(config.mission.range_sample_count, 4096U);
-  // 非 profile 字段仍由四域 config 直接负责。
+  EXPECT_DOUBLE_EQ(config.mission.desired_ground_range_resolution_m, 1.5);
+  EXPECT_DOUBLE_EQ(config.mission.desired_azimuth_resolution_m, 1.5);
+  // 非档位字段仍由四域 config 直接负责。
   EXPECT_DOUBLE_EQ(config.policy.minimum_snr_db, 6.5);
   EXPECT_DOUBLE_EQ(config.environment.atmospheric_loss_db_per_km, 0.02);
 }
 
-TEST(SarSessionConfigBuilderTest, ProcessingProfileDoesNotOwnMinimumSnr) {
-  SarSessionConfig baseline;
-  baseline.policy.minimum_snr_db = 7.25;
-
-  SarSessionConfigBuilder builder(baseline);
-  builder.Processing().WithProcessingProfile(SarProcessingProfile::kL3Backprojection).End();
-  const SarSessionConfig config = builder.Build();
+TEST(SarSessionConfigBuilderTest, ProcessingConstantsDoNotOwnMinimumSnr) {
+  // 档位在前、微调在后：常量只含 5 个处理开关字段，minimum_snr_db 由显式赋值决定。
+  SarSessionConfig config;
+  config.policy = profiles::kL3BackprojectionProcessing;
+  config.policy.minimum_snr_db = 7.25;
 
   EXPECT_TRUE(config.policy.enable_l3_bp_imaging);
   EXPECT_TRUE(config.policy.retain_focused_image);
@@ -153,9 +147,8 @@ TEST(SarSessionConfigValidationTest, DetectsNonPositiveFrequency) {
 }
 
 TEST(SarSessionConfigValidationTest, PassesOnHealthyBuiltConfig) {
-  SarSessionConfigBuilder builder;
-  builder.Mission().WithMissionProfile(SarMissionProfile::kStripmapSurvey).End();
-  const ValidationIssueList issues = ValidateSarSessionConfig(builder.Build());
+  // struct 默认（= 条带档位）即为合法配置。
+  const ValidationIssueList issues = ValidateSarSessionConfig(SarSessionConfig{});
   EXPECT_TRUE(issues.empty());
 }
 
@@ -224,9 +217,7 @@ TEST(SarSessionConfigValidationTest, RejectsInvalidEnvironmentScalars) {
 }  // namespace
 
 TEST(SarSessionCreateWithValidationTest, BuildsSessionAndReportsNoIssuesForHealthyConfig) {
-  SarSessionConfigBuilder builder;
-  builder.Mission().WithMissionProfile(SarMissionProfile::kStripmapSurvey).End();
-  const SarSessionConfig config = builder.Build();
+  const SarSessionConfig config;  // struct 默认即条带档位，合法。
 
   ValidationIssueList issues;
   const session::SarSession session = session::SarSession::CreateWithValidation(config, &issues);

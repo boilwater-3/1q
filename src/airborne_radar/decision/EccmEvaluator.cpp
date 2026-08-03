@@ -72,11 +72,7 @@ void EccmEvaluator::AccumulateInterferenceObservation(
         std::min(2.0, observation.jammer_to_noise_db / kStrongJammerToNoiseDb);
     selection->burnthrough_gain_score += static_cast<float>(normalized_strength);
   }
-  // 反欺骗评分：按与 ECM 物理匹配的可观测特征路由 RGPO/VGPO。
-  // ECM 的 RGPO 表达为首脉冲时延（距离门被拖远），VGPO 表达为转发载频偏移（速度波门被
-  // 拖离）。此前实现误用 leaked 几何 range-rate 冒充 VGPO、误用 coherent_count 冒充 RGPO，
-  // 致使静止干扰机的 VGPO 与单发射 RGPO 都无法触发反制，反而高速非欺骗源会误触发。现按
-  // 物理特征路由（不依赖 ECM 真值，design.md:461）：
+  // 反欺骗评分：按与 ECM 物理匹配的可观测特征路由 RGPO/VGPO（不依赖 ECM 真值）。
   //   - VGPO：estimated_carrier_offset_hz 显著偏离本振载频 → 加速度限幅；
   //   - RGPO：estimated_first_pulse_delay_s 超过几何传播期望 → 前沿跟踪；
   //   - coherent_emission_count >= 2 / kLikelyFalseTarget 仍只触发假目标鉴别（其正确语义）。

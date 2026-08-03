@@ -22,6 +22,7 @@ set(AR_PUBLIC_PRIMARY_HEADERS
     "airborne_radar/config/ArSessionConfig.h"
     "airborne_radar/config/ArRuntimeConfigPatch.h"
     "airborne_radar/config/ArRuntimeConfigBuilder.h"
+    "airborne_radar/config/ArProfileConstants.h"
     "airborne_radar/config/ArSessionConfigBuilder.h"
     "airborne_radar/config/ArSessionConfigValidation.h"
     "airborne_radar/config/ArOrientationConfig.h"
@@ -67,6 +68,7 @@ set(EOS_CONFIG_HEADERS
     "electro_optical_sensor/config/EosPolicyConfig.h"
     "electro_optical_sensor/config/EosRuntimeConfigBuilder.h"
     "electro_optical_sensor/config/EosRuntimeConfigPatch.h"
+    "electro_optical_sensor/config/EosProfileConstants.h"
     "electro_optical_sensor/config/EosSessionConfig.h"
     "electro_optical_sensor/config/EosSessionConfigBuilder.h"
     "electro_optical_sensor/config/EosSessionConfigValidation.h"
@@ -139,6 +141,7 @@ set(ESR_CONFIG_HEADERS
     "electronic_surveillance_radar/config/EsrPolicyConfig.h"
     "electronic_surveillance_radar/config/EsrRuntimeConfigBuilder.h"
     "electronic_surveillance_radar/config/EsrRuntimeConfigPatch.h"
+    "electronic_surveillance_radar/config/EsrProfileConstants.h"
     "electronic_surveillance_radar/config/EsrSessionConfig.h"
     "electronic_surveillance_radar/config/EsrSessionConfigBuilder.h"
     "electronic_surveillance_radar/config/EsrSessionConfigValidation.h"
@@ -201,6 +204,7 @@ set(SAR_CONFIG_HEADERS
     "sar/config/SarPolicyConfig.h"
     "sar/config/SarRuntimeConfigPatch.h"
     "sar/config/SarRuntimeConfigBuilder.h"
+    "sar/config/SarProfileConstants.h"
     "sar/config/SarSessionConfig.h"
     "sar/config/SarSessionConfigBuilder.h"
     "sar/config/SarSessionConfigValidation.h"
@@ -421,7 +425,7 @@ foreach(FORBIDDEN_PATTERN IN LISTS AR_FORBIDDEN_SESSION_METHOD_PATTERNS)
   if(AR_SESSION_BUILDER_CONTENT MATCHES "${FORBIDDEN_PATTERN}")
     message(FATAL_ERROR
             "Direct ArSessionConfigBuilder editor reintroduced: ${FORBIDDEN_PATTERN}\n"
-            "Use semantic profiles in ArSessionConfigBuilder and direct ArSessionConfig fields for leaf overrides.")
+            "Use ArProfileConstants and direct ArSessionConfig fields.")
   endif()
 endforeach()
 
@@ -460,7 +464,7 @@ foreach(FORBIDDEN_PATTERN IN LISTS ESR_FORBIDDEN_SESSION_METHOD_PATTERNS)
   if(ESR_SESSION_BUILDER_CONTENT MATCHES "${FORBIDDEN_PATTERN}")
     message(FATAL_ERROR
             "Direct EsrSessionConfigBuilder editor reintroduced: ${FORBIDDEN_PATTERN}\n"
-            "Use semantic profiles in EsrSessionConfigBuilder and direct EsrSessionConfig fields for leaf overrides.")
+            "Use EsrProfileConstants and direct EsrSessionConfig fields.")
   endif()
 endforeach()
 
@@ -502,7 +506,7 @@ foreach(FORBIDDEN_PATTERN IN LISTS EOS_FORBIDDEN_SESSION_METHOD_PATTERNS)
   if(EOS_SESSION_BUILDER_CONTENT MATCHES "${FORBIDDEN_PATTERN}")
     message(FATAL_ERROR
             "Direct EosSessionConfigBuilder editor reintroduced: ${FORBIDDEN_PATTERN}\n"
-            "Use semantic profiles in EosSessionConfigBuilder and direct EosSessionConfig fields for leaf overrides.")
+            "Use EosProfileConstants and direct EosSessionConfig fields.")
   endif()
 endforeach()
 
@@ -537,7 +541,7 @@ foreach(FORBIDDEN_PATTERN IN LISTS SAR_FORBIDDEN_SESSION_METHOD_PATTERNS)
   if(SAR_SESSION_BUILDER_CONTENT MATCHES "${FORBIDDEN_PATTERN}")
     message(FATAL_ERROR
             "Direct SarSessionConfigBuilder editor reintroduced: ${FORBIDDEN_PATTERN}\n"
-            "Use semantic profiles in SarSessionConfigBuilder and direct SarSessionConfig fields for leaf overrides.")
+            "Use SarProfileConstants and direct SarSessionConfig fields.")
   endif()
 endforeach()
 

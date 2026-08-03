@@ -220,17 +220,14 @@ void TrackLifecycleManager::SyncRuntimeTuning(const LifecycleConfig& lifecycle_c
                                               const std::vector<float>& imm_model_noise_diff_coeffs,
                                               const Eigen::MatrixXf& imm_transition_probability,
                                               const Eigen::VectorXf& imm_initial_weights) {
-  // 整体赋值（收敛 AR-OQ-2）：
-  // 历史实现用手工逐字段拷贝可同步字段、刻意排除 track_pool_thread_safety_mode，
-  // 该列表无编译期保证——新增 LifecycleConfig 字段时若忘记在此补一行，
-  // 即成为静默 latent bug（反欺骗三字段曾因此遗漏致开关失效）。
+  // 整体赋值（收敛 AR-OQ-2）：将 LifecycleConfig 全量覆写至 config_，
+  // 未来新增任何可同步字段都会随整体赋值自动覆盖，无需逐字段维护。
   //
   // 整体赋值安全的原因：
   //   1. track_pool_thread_safety_mode 进入 LifecycleConfigSignature，其变化触发
   //      ShouldRebuildLifecycleAssembly 的重建路径（而非本同步路径），故本路径上
   //      lifecycle_config.track_pool_thread_safety_mode 与 config_ 内的值恒等。
   //   2. 本管理器从不读取 config_.track_pool_thread_safety_mode，即便被覆盖也无副作用。
-  // 由此，未来新增任何可同步字段都会随整体赋值自动覆盖，消除手工遗漏风险。
   config_ = lifecycle_config;
 
   UpdatePredictorConfigIfSupported(kalman_predictor_, kalman_noise_diff_coeff);
@@ -569,8 +566,7 @@ void TrackLifecycleManager::ComputePhase(LifecycleUpdateScratch& scratch, const 
           }
         }
         // 限幅回写全套状态：下一周期 Predict 读 track.gaussian_state（非 track.velocity），
-        // 关联门控同样读 gaussian_state（DataAssociation::Predict）。若不回写，限幅只影响
-        // 快照镜像，下次预测会从未限幅后验跳回——这是原实现的缺陷。这里把限幅后速度写回
+        // 关联门控同样读 gaussian_state（DataAssociation::Predict）。把限幅后速度写回
         // gaussian_state.mean 的速度分量（[1,3,5]），并按同口径重算 acceleration。
         if (clamped_any) {
           track.gaussian_state.mean(1) = track.velocity(0);
