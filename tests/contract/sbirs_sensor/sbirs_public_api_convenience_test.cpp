@@ -171,6 +171,8 @@ TEST(SbirsPublicApiConvenienceTest, CreateWithDiagnosticsReportsIssues) {
 TEST(SbirsPublicApiConvenienceTest, DebugViewAndLifecycleRecorderAreReachable) {
   // 三层输出类型在 public API 可达（design 2.11 三层分离）。
   session::SbirsSession session = session::SbirsSession::Create(MakeExecutableConfig());
+  session::SbirsDetectionLifecycleRecorder recorder;
+  session.AttachDetectionLifecycleRecorder(&recorder);
   const session::SbirsCycleInput input = MakeMinimalInput();
   const session::SbirsCycleResult result = session.StepWithResult(input);
 
@@ -181,9 +183,8 @@ TEST(SbirsPublicApiConvenienceTest, DebugViewAndLifecycleRecorderAreReachable) {
   ASSERT_EQ(view.targets.size(), 1U);
   EXPECT_EQ(view.targets[0].target_name, "convenience-target");
 
-  session::SbirsDetectionLifecycleRecorder recorder;
-  std::vector<session::SbirsDetectionLifecycleEvent> events = recorder.Update(input, result);
-  EXPECT_FALSE(events.empty());
+  // recorder 由 Session 自动驱动（Attach 契约），事件经 GetLastEvents 获取。
+  EXPECT_FALSE(recorder.GetLastEvents().empty());
 }
 
 TEST(SbirsPublicApiConvenienceTest, RawOutputFrameContainsOnlyNativeFields) {
