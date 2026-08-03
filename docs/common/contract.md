@@ -97,91 +97,26 @@ EOS 的 `detector_area_cm2` 与 `detector_detectivity_cm_sqrt_hz_per_w` 共同�
 
 这不是未来共享 foundation 的禁止令：新的候选必须先证明上述语义完全相同，且不得以转换器、默认值或兼容层掩盖差异。
 
-### 工程 RF 发射事实与单程链路
+### 工程 RF 契约
 
-`oneq::electromagnetics` 是 AR、ESR 与 ECM 的公共 RF 事实域，只共享值类型、校验和链路预算纯函数，
-不共享传感器检测、受扰判决、ECCM 或资源规划算法。公共坐标统一为 ECEF 米/米每秒，频率为 Hz、
-带宽为 Hz、时间为 s、功率在线性域使用 W，损耗和增益使用 dB/dBi。
+以下为 AR/ESR/ECM 公共 RF 事实域（`oneq::electromagnetics`）的跨模块契约条款。设计描述（provenance
+四级、单周期交换时序、接收机影响分层）见 [rf_architecture.md](rf_architecture.md)。
 
-- 工程精度冻结为**检测单元/接收通道级统计模型**：高于“整个周期只有一个总接收功率”的原型，
-  但不生成复数 IQ、不模拟未标定的射频器件压缩曲线，也不实现新的欺骗/转发算法。
-- 发射事实必须区分 world cycle、platform、equipment 和 emission 四级 provenance。platform 用于同平台
-  判断，equipment 标识具体发射/接收设备，emission 标识一次实际发射。不得再用单一 `entity_id`
-  同时承担设备身份、同平台判断和待处理信号排除；co-site isolation 是“发射 equipment → 接收
-  equipment”的有向硬件路径。
-- 发射事实只描述实际运动学、发射天线、极化、波形类别和周期内时频功率活动，禁止携带
-  `received_power`、J/S、J/N、receiver impairment、`jamming_detected` 或成功概率。分段功率表示该
-  active interval 和占用带宽内的实际总发射功率；连续、参数化脉冲列和扫频必须能在不逐 IQ 采样、
-  不逐脉冲无界展开的前提下确定性计算时间/频率占用。公共 DTO 已冻结为
-  `RfEmissionFrame` / `RfSceneFrame`、`RfSceneEmission` 和参数化 `RfWaveformSchedule`；旧
-  `RfEmissionSegment` 仅为尚未迁移模块保留的 v1 兼容类型，AR 不得使用。
-- 公共单程链路只到达接收设备输入端：自由空间损耗、附加传播损耗、收发方向增益、极化损耗和
-  入射功率/功率谱密度属于公共纯函数结果。大气公共层只提供路径附加损耗。匹配滤波、脉冲压缩、
-  通道化、处理增益、热噪声账本、Pd/Pfa、receiver impairment、观测误差和 ECCM 均由具体传感器拥有。
-- AR 目标回波使用模块自有的双程雷达方程与 RCS，不得伪装成外部 `RfEmission` 后复用单程公式；
-  外部雷达、ECM 和其他 RF 源才走公共单程链路。ESR 接收面不预先区分“目标发射”和“干扰发射”，
-  所有实际发射先进入同一个冻结 RF scene，意图/阵营只允许进入仿真 truth-evaluation 或 attribution。
-- 有效带外发射或零时频重叠产生零贡献，不是错误。非有限值、非法活动区间/波形、负功率、重复
-  emission ID、缺失设备级 co-site isolation 和不支持的近场路径必须 fail closed，且不得部分写回。
-  超过已标定最大线性输入功率是合法物理结果：周期仍视为已执行并输出结构化 saturated impairment，
-  但不得伪造观测；它与输入/配置非法导致的整周期拒绝严格分离。
+1. 发射事实不得再用单一 `entity_id` 同时承担设备身份、同平台判断和待处理信号排除。
+2. 发射事实禁止携带 `received_power`、J/S、J/N、receiver impairment、`jamming_detected` 或成功概率。
+3. AR 目标回波不得伪装成外部 `RfEmission` 后复用单程公式；外部雷达、ECM 和其他 RF 源才走公共单程链路。
+4. 有效带外发射或零时频重叠产生零贡献，不是错误。非有限值、非法活动区间/波形、负功率、重复 emission
+   ID、缺失设备级 co-site isolation 和不支持的近场路径必须 fail closed，且不得部分写回。
+5. 超过已标定最大线性输入功率是合法物理结果：周期仍视为已执行并输出结构化 saturated impairment，
+   但不得伪造观测；它与输入/配置非法导致的整周期拒绝严格分离。
+6. 业务模块之间不直接调用；调用方只转交公共值类型，不需要创建 RF scene、回填 AR 自身发射、管理 token
+   或调用 prepare/complete 状态机。
+7. 非空 RF frame 必须与消费者周期窗口完全一致；空 frame 表示没有外部 RF 干扰，不要求虚构身份或 mode。
+8. 输入拒绝不消费 emission ID、hop/PRI phase、随机流、待应用控制或跟踪状态；设备关机只推进世界 chronology。
+9. 模块在返回成功结果时原子提交本周期发射、接收、检测和累积状态。
 
-#### 单周期 RF 数据交换
-
-普通调用方以各模块既有的 `Step()` / `StepWithResult()` 形状推进一个世界周期。ECM 发布的
-`RfEmissionFrame(N)` 可以直接写入 AR 周期输入的独立 `interference` 字段；调用方不需要创建
-RF scene、回填 AR 自身发射、管理 token，或调用 prepare/complete 状态机：
-
-```mermaid
-sequenceDiagram
-  participant Caller as Simulation loop
-  participant ECM as ECM
-  participant AR as AR
-  participant ESR as ESR
-  Caller->>ECM: StepWithResult ECM(N), optionally using ESR(N-1)
-  ECM-->>Caller: RfEmissionFrame(N)
-  Caller->>AR: StepWithResult AR(N, interference=frame)
-  AR-->>Caller: tracks, impairment, observations, AR emission
-  Caller->>ESR: StepWithResult ESR(N), optionally using AR emission
-  ESR-->>Caller: hypotheses for a later ECM cycle
-```
-
-规则：
-
-1. 业务模块之间不直接调用；调用方只转交公共值类型。这种顺序调用是普通仿真主循环，不是额外的
-   RF orchestrator 产品或用户可见状态机。
-2. ESR 的成功观测最早驱动下一成功 ECM 周期；ECM 当周期发布的干扰帧可以由同周期 AR 直接消费。
-   AR 的内部/外部 LPI/ECCM proposal 最早驱动下一成功 AR 周期。
-3. 每个输入显式携带绝对周期起点和时长。非空 RF frame 必须与消费者周期窗口完全一致；空 frame
-   表示没有外部 RF 干扰，不要求虚构身份或 mode。
-4. 模块在返回成功结果时原子提交本周期发射、接收、检测和累积状态。输入拒绝不消费 emission ID、
-   hop/PRI phase、随机流、待应用控制或跟踪状态；设备关机只推进世界 chronology。
-5. 同周期接收波束、调谐/预选器、通道/检测窗口、噪声参数和最大线性输入功率仍构成不可变 receiver
-   operating state，但由传感器会话内部冻结。
-6. `PrepareCycle` / `CompleteCycle` / `AbandonCycle` 和 opaque token 不属于公共传感器合同；需要的发射
-   准备与接收分层只作为模块内部事务步骤存在。
-
-#### 接收机影响分层
-
-AR/ESR 必须遵守同一物理分层，但各自拥有不同算法：
-
-1. **incident link**：公共单程链路得到每个 emission 到接收设备输入端的方向、功率/PSD 和重叠事实；
-2. **front-end ledger**：传感器按实际预选器/接收方向图聚合宽带输入并判断最大线性输入边界；
-3. **resolution-cell/channel ledger**：AR 按 range/Doppler/beam/time-frequency detection cell，ESR 按
-   tuner/channelizer/time-frequency-angle resolution cell 计算可分辨信号和未分辨干扰；
-4. **sensor decision**：AR 使用处理后 SINR/Pfa/Pd 生成量测，ESR 使用截获概率、SINR 和碰撞/掩蔽
-   结果生成脉冲或能量观测。只有这一层可以产生 receiver impairment 和测量不确定度。
-
-公共 RF v2 characterization 已覆盖自由空间、参数化 pulse/sweep 占用、传播时延、Doppler、设备级
-co-site 和 W/PSD 域聚合。它仍不替代各传感器的前端/通道账本、检测统计或资源调度验收。
-
-[evidence: tests/unit/common/common_rf_link_budget_test.cpp::RfLinkBudgetTest.DistanceDoublingLosesSixPointZeroTwoDb]
-[evidence: tests/unit/common/common_rf_scene_test.cpp::RfSceneTest.PropagationDelayDopplerAndPriorCycleArrivalAreExplicit]
-[evidence: tests/unit/common/common_rf_link_budget_test.cpp::RfLinkBudgetTest.AggregationIsOrderIndependentAndRejectsDuplicateIdsAtomically]
-[evidence: tests/unit/common/common_rf_link_budget_test.cpp::RfLinkBudgetTest.InvalidInputsAndMissingCoSiteIsolationRejectAtomically]
-[evidence: tests/unit/electronic_surveillance_radar/esr_rf_v2_front_end_test.cpp::EsrRfV2FrontEndTest.StrongHardwareBandSignalOutsideTunedChannelStillSaturates]
-[evidence: tests/unit/electronic_surveillance_radar/esr_resolution_cell_ledger_test.cpp::EsrResolutionCellLedgerTest.SameCellPublishesStrongestAndBooksOtherAsInterference]
-[evidence: tests/unit/electronic_surveillance_radar/esr_resolution_cell_ledger_test.cpp::EsrResolutionCellLedgerTest.LinearSweepUsesPartialInstantaneousChannelDwell]
+[evidence: tests/unit/common/common_rf_link_budget_test]
+[evidence: tests/unit/common/common_rf_scene_test]
 
 ### 折射率温标输入迁移
 
@@ -274,194 +209,20 @@ public API 分为两类，二者都受 public boundary、install manifest 和 co
 
 新增 floor 常量前必须先归入上述语义桶；不能把物理/几何阈值机械改为 `kNumericFloor`，也不能把通用除零保护散落成模块私有常量。
 
-## SessionConfigBuilder
+## 会话相关模块契约（指针）
 
-所有 `*SessionConfigBuilder` 都是**薄封装**（COMMON-OQ-2 收敛决议，2026-07-31）：
+以下契约只对"有 `*Session` 会话模型的传感器模块"（AR/ESR/EOS/SAR/SBIRS）有效，不是所有模块的跨模块契约。完整内容见 [session_contract.md](session_contract.md)：
 
-1. 内部只持有 `*SessionConfig` 副本；`Build()` 直接返回该副本，不做任何翻译、合并或覆写。
-2. 语义档位（profile）是各模块 `XxxProfileConstants.h` 中的预定义结构体常量
-   （如 `profiles::kLongRangeHighPowerHardware`、`profiles::kThreatWarningMission`），
-   用户直接整域赋值；常量只含该档位管理的字段，其余字段保持 struct 默认值。
-3. 配置中不存在隐式优先级："对 config 的任何赋值即最终决定"，档位在前、微调在后时微调胜出。
-   不得以任何形式复活 dirty flag / Profile 枚举 / 隐式覆写机制。
-4. 细粒度工程参数由调用方直接编辑 `*SessionConfig` 四域字段。
-5. 运行期变更走 `*RuntimeConfigPatch` / `*RuntimeConfigBuilder`。
-6. 配置合法性由独立 validator 检查最终 config。
+- SessionConfigBuilder 薄封装规则（无 dirty flag / 无隐式覆写）
+- Session composition ownership（`Impl` 所有权边界、AR 决策 seam）
+- 运行期配置提交策略（事务性提交 vs 立即提交的分类表 + 各模块归属判定规则）
+- 电源状态单源契约（`sensor_enabled` 唯一来源、`has_sensor_enabled` 唯一入口、SAR 例外）
+- 三层输出模型（OutputFrame / CycleResult / DebugView 分离 + 失败语义）
+- Replay 与 trace 语义（结构化比较状态、TraceSink vs ReplayTraceWriter、codec 边界、runtime patch trace）
 
-不得重新引入 leaf setter，例如 frame rate、scene center、minimum SNR、atmospheric loss 这类直接字段编辑器。
-struct 默认值即语义默认（no-op 档位不提供常量）；整域赋值会重置子域内未被常量管理的字段，调用方应先赋档位再设场景特定数据。
+## 工程治理规则（指针）
 
-## Session composition ownership
-
-AR/EOS/ESR/SAR/SBIRS 的 `Session::Impl` 是 session 依赖图的所有权边界。组合根可以在装配过程中使用
-raw pointer 回填组件关系，但 `Impl` 长期持有状态不得同时保存 `std::unique_ptr<X>` 与同一对象的
-`X&` 成员。`Impl` 应只保存 owning member，并在使用点通过 accessor 或局部引用派生依赖引用。
-
-规则：
-
-1. `Session` public move 语义由外层 `std::unique_ptr<Impl>` 承担；不得让 `Impl` 内部的冗余引用成为移动/所有权重构的隐藏前提。
-2. 组合根创建的默认 controller、pipeline、context、environment service 由对应 session 唯一拥有。
-3. AR 唯一 public 决策 seam 是 `ArCycleResult::decision_observation` 与
-   `ArSession::SubmitExternalDecision()` 组成的步间 observation/response seam。外部决策模块
-   与 session 同进程运行，但不注入或替换内部对象；内部 baseline 每个成功周期仍持续计算。
-   Public seam 只公开 profile 覆盖值、observation、提交状态和控制来源；默认决策器的
-   分类结果、模式与状态存储不得进入 `include/1q`。
-   [evidence: tests/contract/airborne_radar/ar_public_api_convenience_test.cpp::RadarSessionAppliesMatchingExternalDecisionOnNextSuccessfulCycle]
-4. 若未来新增非 owned 依赖，必须先在模块 design 或本契约声明其生命周期边界，不能通过 `Impl` 冗余引用隐式表达。
-
-## 运行期配置提交策略
-
-`*RuntimeConfigPatch` 的提交（commit）与周期内失败回滚（rollback）按 pipeline 的状态空间复杂度分两类。每个 `*Session` 必须显式归属其中一类，且实际行为不得与所属类的承诺冲突。五个传感器模块当前归属固定如下——这是对已实现行为的契约化，不是行为变更要求。
-
-| 类别 | 承诺 | 归属模块 |
-|---|---|---|
-| **事务性提交** | patch 经 resolver 校验并延迟到下个发射边界；实际发射发布前的 commit/执行失败完整恢复，发布后则提交配置与发射事实，只恢复接收、检测和跟踪候选状态。 | `airborne_radar` |
-| **立即提交** | patch 经 resolver 校验；`TryApplyRuntimeConfig` 调用即生效，配置单向落定、不在 session 层回滚。若 pipeline 持有累积状态且执行可能失败，回滚边界由该模块在内部层（如 controller）声明，不上升为 session 层契约。 | `electronic_surveillance_radar`、`electro_optical_sensor`、`sar`、`sbirs_sensor` |
-
-AR 仍以单周期 `StepWithResult()` 作为公共接口。其内部先提交实际发射事实，再完成接收、检测和跟踪；
-发射提交后，后续接收侧失败不得撤销 waveform/phase/ID 状态。AR replay 与 runtime patch 必须保存该
-内部提交边界；调用方不管理 prepare/complete 阶段。
-
-## 电源状态单源契约（COMMON-OQ-4 收敛，2026-07-31）
-
-AR/ESR/EOS/SBIRS 四模块的电源状态必须遵守单源原则：
-
-1. `*SessionConfig` 顶层 `sensor_enabled` 是会话初始电源状态的**唯一来源**；
-   `*MissionConfig` 不含电源字段（`mission.power_on` 已整体移除）。
-2. `*RuntimeConfigPatch::has_sensor_enabled` / `sensor_enabled` 是运行时电源变更的**唯一入口**
-   （SBIRS 已从 `has_power_on`/`WithPowerOn` 统一对齐）；`has_mission` 整块域不影响电源。
-3. 运行时补丁解析顺序（整块先、叶子后）仅约束几何/模式字段（scan_center、work_mode 等），
-   不产生电源状态的二重路径。违反本契约的字段名/映射（`power_on`、`has_power_on`、
-   `WithPowerOn` 回流）由 `tests/contract/check_cross_domain_naming.cmake` 阻断 7 硬性守护。
-4. SAR 例外保持：其补丁仅含处理开关，无电源域，不受本契约约束。
-
-规则：
-
-1. **归属由状态空间决定，不由风格偏好决定。** 仅当 pipeline 同时满足"有跨周期累积状态"且"commit/执行存在真实失败路径"时，才采用事务性提交。两者缺一即为立即提交。
-   - `airborne_radar`：4 个子系统各有独立 runtime state，`UpdateConfig`/`UpdateExecutionConfig` 可返回 false，故发射前需要事务对齐；`PrepareRfCycle` 成功后以 post-emission 快照恢复接收候选，并保留 runtime config、emission ID、时间线、跳频/PRI 相位和已消费控制。
-   - `electronic_surveillance_radar`：config 无累积（每 RunCycle 重新派生），`UpdateConfig` 走换 config 留 tracks；`InterceptPipelineResult` 只承载去真值化 observation、emitter 两个业务输出及执行 metadata，当前没有其它 pipeline 执行失败 commit 路径。
-   - `electro_optical_sensor`：执行回滚封装在 `EosController::RunOnce`（`EosController.cpp:68-111`），不上升为 session 层事务。
-   - `sar`：runtime config 立即提交，但 pipeline 持有 pulse ring、轨迹缓冲、pulse ID 与 PRF
-     分数余量。`SarController::RunOnce` 在 pipeline 执行前捕获这些状态，任一执行 abort 后完整
-     恢复并按需复用上一有效输出；配置本身不随执行失败回滚，故仍归属立即提交类。
-   - `sbirs_sensor`：pipeline 持有跨周期目标状态机，但 `RunCycle` 返回 record/attribution 原子元素，
-     controller 输出装配后没有可能失败的 commit 步骤，因此不激活周期回滚。pipeline 的
-     capture/restore 是经 mutation 前完整校验的 internal checkpoint，用于确定性 continuation 与
-     状态恢复测试，不在 session 层暴露事务语义。归属立即提交类。
-2. **所有五个传感器模块的 patch 必须经 resolver 校验**（`is_valid`/`has_requested_update`），不得盲写。
-3. **立即提交类不得声称 session 层回滚。** 若其内部存在 capture/restore 能力（如 ESR 的累积状态快照），必须在代码 doc 注明该机制的实际边界，避免阅读者误以为 session 层提供配置回滚或已激活的执行失败回滚。
-4. **事务性提交类不得在配置边界被接受前落定配置语义状态。** 配置的"逻辑当前值"
-   （如 AR 的 `runtime_state`）与"已推送到子系统的物理状态"必须在对齐点之后才一致。
-   AR 设备关机是结构化的非执行边界（`kSensorPoweredOff`），不是 pipeline 故障：session
-   必须撤销该周期对控制/环境状态的消费，保留待应用的外部决策，同时完成已验证关机配置的
-   物理对齐和 pending finalize；其余执行 abort 仍保持 staged + rollback。
-
-## 三层输出模型
-
-所有传感器/产品模块遵守三层输出模型：
-
-| 层级 | 入口 | 责任 |
-|---|---|---|
-| 原始系统输出层 | `Step()` 返回的 `*OutputFrame` | 真实传感器或产品输出 |
-| 结构化执行结果层 | `StepWithResult()` 返回的 `*CycleResult` | 输出帧、执行状态、校验、abort reason 和诊断摘要 |
-| 开发调试视图层 | `*OutputDebugViewBuilder` / `*LifecycleRecorder` | 人读状态、生命周期事件、输入实体回填 |
-
-规则：
-
-- `Step()` 只返回主系统输出帧。
-- `StepWithResult()` 是状态判断入口。
-- 日志只用于人读运行信息，状态判断不得依赖解析日志文本。
-- 调用方主动注入且被结构化结果正确拒绝的无效输入属于可预期边界，不记 error；批量验证中只有
-  “未按预期拒绝”或拒绝后状态发生污染才记 error 并使验证失败。
-- 数值 ID 是稳定关联键，名称只用于人读、trace/replay、报告和调试视图。
-- `external_target_id` 与模块实体 ID 当前都允许 `0` 作为合法值；`0` 不得触发
-  validation error。若未来引入可表达负数的外部输入入口，负数 ID 必须在转换为
-  public `std::uint64_t` DTO 前被拒绝。
-- 仿真真值不得混入面向外部系统的真实输出通道。
-- `*CycleResult` 的输出帧、指标和诊断产品仅在 `executed_this_cycle=true` 时代表
-  本周期的有效计算结果；abort/失败周期中的默认值或复用值不得按真实零值参与统计。
-
-## Replay 与 trace 语义
-
-1. 模块级 cycle-output 回调必须用 `ReplayTraceOutputStatus` 结构化表达比较结果。
-   `kDivergence` 是输出分叉；`kOtherFailure` 是解码、类型或执行失败，不能被标记为
-   分叉；不得通过解析人读 error 文本推断状态。
-2. `ReplayTracePlaybackResult.divergence_found` 是分叉的权威结构化信号。
-   `kHandledByModule` 和 `kDivergence` 均计入 `compared_output_count`，
-   `kOtherFailure` 不计入且不改变分叉状态；两条路径必须遵守同一
-   `stop_on_first_divergence` 语义。
-3. `TraceSink` 是调试/观测记录格式，不能作为 `ReplayXxxTrace()` 输入。
-   需要可回放目录时必须使用 `ReplayTraceWriter` 并经对应
-   `*TraceSessionOptions::replay_writer` 传入；两者可同时配置，但不能相互替代。
-4. `ReplayTraceWriter(overwrite=false)` 必须对既有 replay 工件 fail closed：不得重写
-   manifest、追加事件或重置 sequence/hash chain。续写已有 trace 需要独立、显式且能恢复
-   sequence、hash、chunk 与 index 状态的 resume 契约，不能复用普通创建入口隐式实现。
-5. Replay I/O 不得把错误伪装成正常结束。Reader 调用方必须可通过
-   `ReplayTraceReadStatus` 区分事件、正常 trace 末尾与读取错误；Writer 调用方必须可通过
-   `ReplayTraceWriteStatus` 和 `first_error()` 观察初始化、写入及刷新失败。扫描和回放遇到
-   缺失 manifest、缺失首 chunk 或底层读取错误时必须
-   fail closed。
-6. 模块 FlatBuffers codec 只共享无 schema 知识的机械基元：已完成 builder 的字节复制，以及
-   字段布局一致的 `FailureMarker` 空值、空 payload、verifier 和共有字段解码保护。schema、DTO
-   映射、payload identifier、模块错误文本、外部数据资格与 divergence 行为继续由模块拥有；
-   不得把公共 helper 扩张为万能 codec 或跨模块对象图。
-7. runtime patch trace 必须记录实际应用结果，不能只记录请求。replay 应重新应用 patch 并比较结构化
-   status、是否包含请求以及是否提交；合法拒绝和空补丁是可回放事件，不得被强制解释为成功。输入配置、
-   patch 和输出中以整数存储的 enum 必须逐值校验；未知值应原子拒绝且不得部分修改解码目标。
-
-[evidence: tests/replay/sbirs_sensor/sbirs_replay_codec_roundtrip_test.cpp::DecodeFailureMarkerRejectsNullAndCorrupted]
-[evidence: tests/replay/sar/sar_replay_codec_roundtrip_test.cpp::RejectsEmptyPayload]
-[evidence: tests/replay/airborne_radar/ar_replay_codec_roundtrip_test.cpp::DecodeFailureMarkerRejectsNullAndCorrupted]
-[evidence: tests/replay/electronic_surveillance_radar/esr_replay_codec_roundtrip_test.cpp::EsrReplayCodecRoundtripTest.UnknownSessionConfigEnumRejectsWithoutMutatingDestination]
-[evidence: tests/replay/electronic_surveillance_radar/esr_replay_codec_roundtrip_test.cpp::EsrReplayCodecRoundtripTest.RuntimePatchEventPreservesStructuredApplyResult]
-[evidence: tests/replay/electronic_surveillance_radar/esr_replay_session_test.cpp::EsrReplaySessionTest.RuntimePatchPowerOffAndRecoveryReplayDeterministically]
-
-## CMake 工程边界
-
-1. 顶层 `CMakeLists.txt` 只编排项目生命周期；`src/CMakeLists.txt` 只装配最终产品；
-   每个模块 CMake 文件拥有自身 component target、源文件、直接依赖和 replay schema。
-   不得恢复中心式 module link matrix 或 schema 注册表。
-2. 编译、链接、Unity、PCH、coverage 等策略必须以 target 为作用域；不得以
-   `add_compile_options()` 或 `add_link_options()` 向目录树广播项目私有选项。
-3. Unity Build 暴露的匿名命名空间重定义必须在源文件属性上显式声明
-   `SKIP_UNITY_BUILD_INCLUSION`，并说明冲突原因；不得为此把模块私有 helper 扩大为
-   `src/common` 公共设施。
-4. Windows/MSVC 支持不因 preset 或 public-header 编译通过而成立。该平台将使用
-   仓库拥有的 shell bootstrap 从 GitHub 获取锁定版本依赖；脚本必须固定版本与提交
-   标识、校验下载内容并产出 CMake 可消费的 imported targets。只有真实 Windows
-   configure、build、install 和外部 consumer job 均通过后，才可宣称 project build support。
-   当前 Windows Conan/no-Conan presets 与 `fetch_third_party.bat` 只属于未验收脚手架，不改变上述
-   支持契约，也不能单独作为“已支持 Windows”的证据。
-
-## 测试架构
-
-测试代码按“测试类型 × 业务域”组织。`*_test.cpp` 必须位于
-`tests/<type>/<domain>/`，其中 type 为 `unit`、`integration`、`replay`、
-`contract` 或 `performance`；`compatibility` 存放脚本式兼容性探针，`consumer`
-保留为安装后消费者验证，二者不混入进程内 GoogleTest 分区。
-
-规则：
-
-1. 每个 `*_test.cpp` 只能有一个类型、一个业务域、一个编译分区。`TestRegistry.cmake`
-   在 configure 时必须拒绝 orphan 和重复归属；不得用 allowlist 长期保留重复编译。
-2. 新增进程内测试必须通过 `oneq_add_test_partition()` 注册；不得重新引入按
-   GoogleTest suite/case 的 CMake filter。`1q_unit_tests` 等旧名称只可作为
-   aggregate build target，不能再被当作稳定的测试可执行文件路径。
-3. 每个 CTest 项必须携带 type 与 domain label；执行策略使用额外 label 表达。
-   `ci_required` 是 PR 的阻断关键路径，完整 `unit` 分区同样阻断；`known_limit`
-   与 `performance` 不得借重构被静默纳入该门禁。`replay_fast` 仅是 replay 的
-   执行策略 label，不是另一种测试类型。
-4. `flight_dynamic` 只在目标依赖和执行策略上是特例：稳定源属于
-   `unit::flight_dynamic`，边界/性能源属于 `known_limit::flight_dynamic`；不得
-   为它恢复独立的 suite filter 体系。
-5. 覆盖率 preset 可构建专用 mapping runner，但该 runner 必须在 CTest 中禁用；
-   profile 数据仍来自真实 type × domain 分区，避免重复执行同一测试。
-6. `test_layout_guard` 负责 type/domain 布局与 CMake filter 禁令；新增 type 或
-   domain 前，必须同批更新 guard、分区注册、README 和相关 contract 测试。
-7. `examples/batch_validation` 拥有的端到端可执行程序不是 `*_test.cpp`，不新增 `tests/`
-   源码 type，也不进入 GoogleTest 分区。其 sequence 子集可在 examples 自身 CMake 中注册为
-   `batch_validation::<domain>`，必须同时携带 `batch_validation` 与 domain label；199 个 sweep
-   只由显式 `--suite sweep|all` 运行，不得在 CTest 中重复注册。
+CMake 工程边界（target 作用域、Windows 验收）和测试架构（type×domain 组织、CTest label、partition 注册）是工程基础设施规则，见 [docs/practice/build_and_test_governance.md](../practice/build_and_test_governance.md)。
 
 ## 文档结构
 
@@ -485,90 +246,14 @@ AR/ESR/EOS/SBIRS 四模块的电源状态必须遵守单源原则：
 
 每个业务模块以 `design.md` 为设计权威**入口**，另允许 `boundaries.md`、`data-flow.md`、`algorithms.md` 三个设计文档。`design.md` 承载模块定位与文档导航；`boundaries.md` 承载模块级边界、非目标与设计变更规则；`data-flow.md` 承载数据流、输入输出与状态所有权；`algorithms.md` 承载算法登记表与每算法的实现边界、反直觉点。切分原则：模块级边界（主语是"模块/API/输出"）归 `boundaries.md`，算法级边界（主语是"某算法/某计算路径"）归 `algorithms.md`。文档写代码读不出来的内容（定位/边界/禁令/反直觉点/否决理由），算法逐步逻辑归代码。历史决策记录（旧版 `decisions.md`、`history.md`、`contract.md`）和模块入口（`README.md`）的内容已内聚到该文档集中。
 
-`common/` 只允许保留三份文档：
+`common/` 只允许保留五份文档：
 
 - `contract.md` —— 公共契约（规定性：所有模块必须遵守的规则）。
+- `session_contract.md` —— 有 Session 的传感器模块的统一会话契约（SessionConfigBuilder、Session 组合所有权、运行期配置提交、电源单源、三层输出、Replay/trace 语义）。
 - `open_questions.md` —— 跨模块架构观察与待决项（非规定性：记录调查中发现但尚未定论的议题，不构成契约约束）。条目推进到有结论时，应回写为契约规则（进 contract.md）或模块设计（进对应 design.md），并从 open_questions.md 移除。
+- `rf_architecture.md` —— AR/ESR/ECM 公共 RF 工程架构设计描述（provenance、单周期交换时序、接收机影响分层）。
 - `usage.md` —— 当前已验证的构建、安装与外部消费指南；不得承诺尚未由 consumer 验证的打包方式。
 
 模块目录内不保留 `archive/`、`audits/`、`contracts/`、`design/`、`decisions/`、`workflow/`、`migration/` 等展开式历史目录。历史细节需要追溯时从 git 历史读取。
 
 各模块以 `design.md` 为设计权威入口，配合 `boundaries.md`、`data-flow.md`、`algorithms.md`。限制条件与否决方向的证据引用直接嵌入对应文档的 `[evidence: ...]` 标注，指向对应测试文件和 git 历史。
-
-## 模块间关系
-
-下图只表示外部仿真编排概念，不表示仓库内 C++ 调用或链接依赖。调用方负责把平台状态、场景和环境
-组装为各模块 public `*CycleInput`；`flight_dynamic` 可以是平台状态来源之一，也可以完全不参与。
-
-```mermaid
-flowchart LR
-  subgraph Common["common/ · 公共基础层"]
-    CORE[坐标 · 大气 · 传播\n定时 · 数值 · 校验]
-  end
-
-  subgraph FD["flight_dynamic · 飞行动力学"]
-    direction TB
-    JSB[JSBSim 动力学引擎]
-    STATE[PlatformState\nposition_lla · velocity_ned · attitude · altitude_m]
-    JSB --> STATE
-  end
-
-  subgraph EXT["外部输入"]
-    ORCH[External orchestrator\n外部仿真编排器]
-    TGT[Targets / Scene\n目标 / 场景]
-    ENV[Environment\n大气 / 环境]
-    IQ[External Raw IQ\n外部原始 IQ]
-    EMIT[Emitter Scene\n辐射源场景]
-  end
-
-  subgraph SENSORS["传感器模块"]
-    AR[airborne_radar\n机载雷达]
-    EO[electro_optical_sensor\n光电传感器]
-    ESR[electronic_surveillance_radar\n电子侦察]
-    ECM[electronic_countermeasure\n电子对抗]
-    SAR[sar\n合成孔径雷达]
-    SBIRS[space_based_infrared_sensor\n天基红外]
-  end
-
-  subgraph OUT["模块独立输出"]
-    O1[Track / Detection\n航迹 / 探测]
-    O2[Detection / Classification\n检测 / 分类]
-    O3[Intercept / ELINT\n截获 / 情报]
-    O6[RfEmissionFrame\nAR / ECM 实际 RF 发射事实]
-    O4[SAR Image / SLC\n图像 / 复数据]
-    O5[Infrared Detection\n天基红外检测]
-  end
-
-  CORE -.->|共享类型| FD
-  CORE -.->|共享类型| SENSORS
-
-  STATE -.->|可选平台来源| ORCH
-  ENV --> ORCH
-  TGT --> ORCH
-  IQ -.->|可选输入| ORCH
-  EMIT --> ORCH
-  ORCH -->|ArCycleInput + interference frame| AR
-  ORCH -->|EosCycleInput| EO
-  ORCH -->|EsrCycleInput| ESR
-  ORCH -->|EcmCycleInput| ECM
-  ORCH -->|SarCycleInput| SAR
-  ORCH -->|SbirsCycleInput| SBIRS
-
-  AR --> O1
-  AR --> O6
-  EO --> O2
-  ESR --> O3
-  ESR -.->|上一成功周期去真值化 hypothesis| ORCH
-  ECM --> O6
-  O6 -->|周期 N engineering interference| ORCH
-  SAR --> O4
-  SBIRS --> O5
-```
-
-读图规则：
-- 箭头表示概念数据流向，虚线表示可选来源或跨模块共享类型；它们不是 include/link 关系。
-- AR、ESR、EOS、SAR、SBIRS 之间没有库内直接调用。ECM 输出公共 `RfEmissionFrame(N)`，AR 在自己的
-  单周期输入中直接消费它；AR 返回的实际发射也可按同样方式提供给 ESR。调用方负责普通周期顺序，
-  但不拥有 RF scene freeze、token 或传感器内部事务状态。
-- `common/` 层提供坐标转换、大气物理、数值方法等跨模块共享类型，不作为独立运行时层。
-- `flight_dynamic` 不被任何传感器模块直接调用；平台状态也可由其它外部仿真源提供。

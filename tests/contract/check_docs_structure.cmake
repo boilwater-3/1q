@@ -58,7 +58,9 @@ set(MODULE_DOC_FILES
 
 set(COMMON_DOC_FILES
     "contract.md"
+    "session_contract.md"
     "open_questions.md"
+    "rf_architecture.md"
     "usage.md")
 
 set(VIOLATIONS "")
