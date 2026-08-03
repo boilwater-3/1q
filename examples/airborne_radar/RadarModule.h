@@ -132,6 +132,7 @@ class RadarModule {
 
     // 3. 用完整配置重建 Session
     session_ = ar_session::ArSession::Create(config);
+    session_.AttachTrackLifecycleRecorder(&lifecycle_recorder_);
     started_ = true;
     return true;
   }
@@ -157,6 +158,7 @@ class RadarModule {
       ar_config::ArSessionConfig default_config;
       flattenConfig(default_config);
       session_ = ar_session::ArSession::Create(default_config);
+      session_.AttachTrackLifecycleRecorder(&lifecycle_recorder_);
       started_ = true;
     }
 
@@ -180,9 +182,8 @@ class RadarModule {
     last_result_ = session_.StepWithResult(mutable_input);
     ++cycle_index_;
 
-    // 4. 记录生命周期事件（三视图之一）
-    lifecycle_events_ =
-        lifecycle_recorder_.Update(last_input_.targets, last_result_);
+    // 4. 读取生命周期事件（三视图之一；Session 已通过 Attach 自动驱动记录）
+    lifecycle_events_ = lifecycle_recorder_.GetLastEvents();
   }
 
   // ==================== 订阅者模式 ====================

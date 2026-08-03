@@ -127,12 +127,11 @@ AR/ESR/EOS/SBIRS 四模块的电源状态必须遵守单源原则：
    三写缺一不可。SAR 为参考实现（`SarDiagnosticUtils::WriteAbort`）。
    `ValidationIssueList` 承载输入校验的结构化问题（severity/code/location/field/message），
    与 `*DiagnosticIssueList` 职责不同，不得混用。
-10. `*LifecycleRecorder` 有两种驱动方式，二选一，不得混用：
-    a. **手动驱动**：调用方在每个执行周期自行调用 `Update()`；漏调会导致状态机失步
-       （例如错过产品/目标消失的周期后，内部 1-bit 标志仍为"存在"，后续不再发出 `Lost` 事件）。
-    b. **自动驱动**：调用方通过 `*Session::Attach*LifecycleRecorder()` 注册记录器，
-       Session 在 `StepWithResult()`/`Step()` 内部自动调用 `Update()`，调用方无需手动调用。
-    无论哪种方式，非执行周期都返回空事件列表且不推进内部状态。
+10. `*LifecycleRecorder` 由 `*Session::Attach*LifecycleRecorder()` 注册后自动驱动：
+    Session 在 `StepWithResult()`/`Step()` 内部自动调用 `Update()`，调用方无需（也不应）手动调用
+    `Update()`——漏调会导致状态机失步（例如错过产品/目标消失的周期后，内部 1-bit 标志仍为"存在"，
+    后续不再发出 `Lost` 事件）。`Update()` 保留为 public 仅为单元测试与内部驱动可达性，
+    不属于调用方接口。非执行周期返回空事件列表且不推进内部状态。
 11. `*Session::Attach*LifecycleRecorder()` 是可选注册契约：
     a. Session 持有 recorder 的**非拥有裸指针**，调用方须保证 recorder 生命周期长于注册期；
        传入 `nullptr` 解除注册，解除后 Session 不再驱动。
