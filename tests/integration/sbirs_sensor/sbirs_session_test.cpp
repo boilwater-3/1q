@@ -414,11 +414,10 @@ TEST(SbirsSessionIntegrationTest, InvalidFirstCycleReturnsEmptyOutput) {
   const SbirsCycleResult result = session.StepWithResult(input);
   EXPECT_FALSE(result.executed_this_cycle);
   EXPECT_TRUE(result.has_validation_error);
-  EXPECT_FALSE(result.reused_previous_output);
   EXPECT_TRUE(result.output_frame.detections.empty());
 }
 
-TEST(SbirsSessionIntegrationTest, InvalidLaterCycleReusesLatestOutput) {
+TEST(SbirsSessionIntegrationTest, InvalidLaterCycleReturnsEmptyOutputNotReused) {
   SbirsSession session = SbirsSession::Create(MakeSessionConfig());
   const SbirsCycleResult valid = session.StepWithResult(MakeBaseInput(1U));
   ASSERT_FALSE(valid.output_frame.detections.empty());
@@ -428,13 +427,9 @@ TEST(SbirsSessionIntegrationTest, InvalidLaterCycleReusesLatestOutput) {
   const SbirsCycleResult result = session.StepWithResult(invalid);
   EXPECT_TRUE(result.has_validation_error);
   EXPECT_FALSE(result.executed_this_cycle);
-  EXPECT_TRUE(result.reused_previous_output);
-  // 复用上一有效输出：detection_id 与数量一致。
-  EXPECT_EQ(result.output_frame.detections.size(), valid.output_frame.detections.size());
-  if (!result.output_frame.detections.empty() && !valid.output_frame.detections.empty()) {
-    EXPECT_EQ(result.output_frame.detections.front().detection_id,
-              valid.output_frame.detections.front().detection_id);
-  }
+  // 非执行周期返回默认空帧，不复用上一有效输出（统一不复用语义）。
+  EXPECT_TRUE(result.output_frame.detections.empty());
+  EXPECT_EQ(result.output_frame.cycle_index, 0U);
 }
 
 TEST(SbirsSessionIntegrationTest, InactiveTargetProducesNoOutputThatCycle) {

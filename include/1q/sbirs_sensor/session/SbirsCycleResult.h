@@ -27,7 +27,8 @@ struct ONEQ_API SbirsOutputFrame {
 
 /**
  * @brief 单周期结构化执行结果，是外部调用方通过 `StepWithResult()` 获取的主要产物。
- * @note 输出帧、归属、校验、执行/中止状态分层携带。输入校验失败时可能复用上一有效输出。
+ * @note 输出帧、归属、校验、执行/中止状态分层携带。非执行周期（校验失败）返回默认空帧，
+ *       不复用上一有效输出（见 contract.md §实现安全与失败语义规则 3）。
  */
 struct ONEQ_API SbirsCycleResult {
   std::uint32_t input_cycle_index{0U};       /**< 对应输入周期序号 */
@@ -36,7 +37,6 @@ struct ONEQ_API SbirsCycleResult {
   ValidationIssueList validation_issues{};   /**< 校验问题列表 */
   bool has_validation_error{false};          /**< 是否存在校验级错误 */
   bool executed_this_cycle{false};           /**< 本周期是否真正执行了流水线 */
-  bool reused_previous_output{false};        /**< 是否复用了上一有效输出 */
   SbirsPipelineAbortReason abort_reason{SbirsPipelineAbortReason::kNone}; /**< 中止原因 */
 };
 

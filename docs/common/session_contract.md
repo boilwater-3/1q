@@ -65,7 +65,7 @@ AR 仍以单周期 `StepWithResult()` 作为公共接口。其内部先提交实
    - `airborne_radar`：4 个子系统各有独立 runtime state，`UpdateConfig`/`UpdateExecutionConfig` 可返回 false，故发射前需要事务对齐；`PrepareRfCycle` 成功后以 post-emission 快照恢复接收候选，并保留 runtime config、emission ID、时间线、跳频/PRI 相位和已消费控制。
    - `electronic_surveillance_radar`：config 无累积（每 RunCycle 重新派生），`UpdateConfig` 走换 config 留 tracks；`InterceptPipelineResult` 只承载去真值化 observation、emitter 两个业务输出及执行 metadata，当前没有其它 pipeline 执行失败 commit 路径。
    - `electro_optical_sensor`：执行回滚封装在 `EosController::RunOnce`，不上升为 session 层事务。
-   - `sar`：runtime config 立即提交，但 pipeline 持有 pulse ring、轨迹缓冲、pulse ID 与 PRF 分数余量。`SarController::RunOnce` 在 pipeline 执行前捕获这些状态，任一执行 abort 后完整恢复并按需复用上一有效输出；配置本身不随执行失败回滚，故仍归属立即提交类。
+   - `sar`：runtime config 立即提交，但 pipeline 持有 pulse ring、轨迹缓冲、pulse ID 与 PRF 分数余量。`SarController::RunOnce` 在 pipeline 执行前捕获这些状态，任一执行 abort 后完整恢复；配置本身不随执行失败回滚，故仍归属立即提交类。
    - `sbirs_sensor`：pipeline 持有跨周期目标状态机，但 `RunCycle` 返回 record/attribution 原子元素，controller 输出装配后没有可能失败的 commit 步骤，因此不激活周期回滚。pipeline 的 capture/restore 是经 mutation 前完整校验的 internal checkpoint，用于确定性 continuation 与状态恢复测试，不在 session 层暴露事务语义。归属立即提交类。
 2. **所有五个传感器模块的 patch 必须经 resolver 校验**（`is_valid`/`has_requested_update`），不得盲写。
 3. **立即提交类不得声称 session 层回滚。** 若其内部存在 capture/restore 能力（如 ESR 的累积状态快照），必须在代码 doc 注明该机制的实际边界，避免阅读者误以为 session 层提供配置回滚或已激活的执行失败回滚。
@@ -111,7 +111,8 @@ AR/ESR/EOS/SBIRS 四模块的电源状态必须遵守单源原则：
    public `std::uint64_t` DTO 前被拒绝。
 7. 仿真真值不得混入面向外部系统的真实输出通道。
 8. `*CycleResult` 的输出帧、指标和诊断产品仅在 `executed_this_cycle=true` 时代表
-   本周期的有效计算结果；abort/失败周期中的默认值或复用值不得按真实零值参与统计。
+   本周期的有效计算结果；非执行周期返回默认空帧（`cycle_index=0`、空载荷），不复用上一有效输出，
+   不得按真实零值参与统计。`reused_previous_output` 概念已废除。
 
 ## Replay 与 trace 语义
 

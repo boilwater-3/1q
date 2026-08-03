@@ -63,7 +63,7 @@ TEST(SbirsSessionTest, InvalidFirstCycleReturnsEmptyOutput) {
   EXPECT_TRUE(result.output_frame.detections.empty());
 }
 
-TEST(SbirsSessionTest, InvalidLaterCycleReusesLatestOutput) {
+TEST(SbirsSessionTest, InvalidLaterCycleReturnsEmptyOutputNotReused) {
   sbirs_sensor::session::SbirsSession session =
       sbirs_sensor::session::SbirsSession::Create(Config());
   const sbirs_sensor::session::SbirsCycleResult valid = session.StepWithResult(ValidInput(1U));
@@ -71,8 +71,10 @@ TEST(SbirsSessionTest, InvalidLaterCycleReusesLatestOutput) {
   sbirs_sensor::session::SbirsCycleInput invalid = ValidInput(2U);
   invalid.dt_sec = 0.0f;
   const sbirs_sensor::session::SbirsCycleResult result = session.StepWithResult(invalid);
-  EXPECT_TRUE(result.reused_previous_output);
-  EXPECT_EQ(result.output_frame.detections.size(), valid.output_frame.detections.size());
+  EXPECT_FALSE(result.executed_this_cycle);
+  // 非执行周期返回默认空帧，不复用上一有效输出（统一不复用语义）。
+  EXPECT_TRUE(result.output_frame.detections.empty());
+  EXPECT_EQ(result.output_frame.cycle_index, 0U);
 }
 
 TEST(SbirsSessionTest, ValidationRejectDoesNotAdvancePipelineState) {

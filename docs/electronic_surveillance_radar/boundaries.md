@@ -100,8 +100,18 @@ payload 中的四个边界字段，并按中心角、硬件扫描范围和天线
 truth identity、外部坐标适配输出与 debug view 不属于 ESR 公共输出合同；消费者只使用观测和 hypothesis
 的估计字段。不通过日志文本判断状态；调用方应使用 `EsrCycleResult`。
 
+### 非执行周期统一不复用（五模块统一规则）
+
+ESR 非执行周期（校验失败/设备关机）的 `Step()` 与 `EsrCycleResult.output_frame` 一律返回**默认空帧**
+（`cycle_index=0`、空 observation/emitter 输出），**永不复用**上一有效输出。调用方仅凭 `Step()` 返回值
+即可判定本轮无新观测；执行真相（rejected vs powered-off）须走 `StepWithResult().status` / `abort_reason`。
+
+注意 controller 内部在 validation reject 时确实会保留 `GetLatestInterceptOutputFrame()`（旧帧），
+但 `EsrSession::BuildCycleResult` 只在 `status == kCompleted` 时把它写入 public `EsrCycleResult.output_frame`，
+因此 controller 的旧帧缓存是内部状态机行为，不构成 public `Step()` 的输出回退路径。
+
+[evidence: tests/contract/electronic_surveillance_radar/esr_public_api_convenience_test.cpp::StepReturnsEmptyFrameOnValidationFailure]
 [evidence: tests/unit/electronic_surveillance_radar/esr_controller_runtime_state_test]
-[evidence: tests/replay/electronic_surveillance_radar/esr_replay_codec_roundtrip_test]
 
 ## 专项序列验证边界
 

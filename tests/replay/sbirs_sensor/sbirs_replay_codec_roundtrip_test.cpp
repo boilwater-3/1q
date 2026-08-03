@@ -45,7 +45,7 @@ SbirsVector3M Vector(double x, double y, double z) {
 std::string EncodeCycleResultWithRawAbortReason(std::int32_t abort_reason) {
   flatbuffers::FlatBufferBuilder builder(128U);
   builder.Finish(sbirs::replay::CreateSbirsCycleResult(
-      builder, 99U, 0, 0, 0, false, false, false, abort_reason));
+      builder, 99U, 0, 0, 0, false, false, abort_reason));
   return std::string(reinterpret_cast<const char*>(builder.GetBufferPointer()),
                      builder.GetSize());
 }
@@ -174,7 +174,6 @@ TEST(SbirsReplayCodecRoundtripTest, CycleResultPreservesOutputAndAttributionFiel
   result.output_frame.cycle_index = 5U;
   result.output_frame.scan_azimuth_deg = 12.0f;
   result.executed_this_cycle = true;
-  result.reused_previous_output = true;
   result.has_validation_error = true;
   result.abort_reason = SbirsPipelineAbortReason::kValidationRejected;
 
@@ -227,7 +226,6 @@ TEST(SbirsReplayCodecRoundtripTest, CycleResultPreservesOutputAndAttributionFiel
 
   EXPECT_EQ(decoded.input_cycle_index, 5U);
   EXPECT_TRUE(decoded.executed_this_cycle);
-  EXPECT_TRUE(decoded.reused_previous_output);
   EXPECT_TRUE(decoded.has_validation_error);
   EXPECT_EQ(decoded.abort_reason, SbirsPipelineAbortReason::kValidationRejected);
   ASSERT_EQ(decoded.output_frame.detections.size(), 1U);

@@ -127,7 +127,6 @@ TEST(SarSessionPipelineTest, StepWithResultRunsRawRangeAndRdaPipeline) {
 
   EXPECT_TRUE(result.executed_this_cycle);
   EXPECT_FALSE(result.has_error);
-  EXPECT_FALSE(result.reused_previous_output);
   EXPECT_TRUE(result.output_frame.has_raw_echo);
   EXPECT_TRUE(result.output_frame.has_range_compressed_echo);
   EXPECT_TRUE(result.output_frame.has_l1_image);
@@ -948,7 +947,7 @@ TEST(SarSessionPipelineTest, L3BpRejectsWaypointCoverageGap) {
   EXPECT_EQ(result.abort_reason, "l3_waypoint_coverage");
 }
 
-TEST(SarSessionPipelineTest, InvalidCycleReusesPreviousOutput) {
+TEST(SarSessionPipelineTest, InvalidCycleReturnsEmptyOutputNotReused) {
   session::SarSession session = session::SarSession::Create(MakeSmallRdaConfig());
 
   const session::SarCycleResult first = session.StepWithResult(MakeInput(3U));
@@ -959,9 +958,8 @@ TEST(SarSessionPipelineTest, InvalidCycleReusesPreviousOutput) {
 
   EXPECT_FALSE(second.executed_this_cycle);
   EXPECT_TRUE(second.has_error);
-  EXPECT_TRUE(second.reused_previous_output);
-  EXPECT_EQ(second.output_frame.cycle_index, first.output_frame.cycle_index);
-  EXPECT_TRUE(second.output_frame.has_l1_image);
+  EXPECT_EQ(second.output_frame.cycle_index, 0U);
+  EXPECT_FALSE(second.output_frame.has_l1_image);
   EXPECT_EQ(second.focused_image.source, session::SarFocusedImageSource::kNone);
   EXPECT_TRUE(second.focused_image.real_values.empty());
   EXPECT_TRUE(second.focused_image.imaginary_values.empty());

@@ -21,9 +21,8 @@ Last-reviewed: 2026-08-03
 | ID | 域 | 主题 | 一句话 | Status |
 |---|---|---|---|---|
 | COMMON-OQ-1 | common | Windows/MSVC 全链验收 | presets/.bat 仅未验收脚手架，CI 只跑 macOS | needs-evidence |
-| COMMON-OQ-5 | common | `Step()` 失败静默复用上一帧 | 五模块分两组，`Step()` 无法区分新旧帧 | open |
 | COMMON-OQ-6 | common | `ApplyRuntimeConfig` 吞 bool | void 版丢弃 Try 的返回值 | open |
-| COMMON-OQ-7 | common | 双 cycle_index 冗余 | 与 OQ-5 绑定决策 | open |
+| COMMON-OQ-7 | common | 双 cycle_index 冗余 | 非执行周期 input_cycle_index 保留输入号，output_frame.cycle_index 为0 | open |
 | COMMON-OQ-8 | common | 周期时间/窗口静默拒绝 | AR/ESR/EOS 各自为政，违反多表现为静默不生效 | open |
 | AR-OQ-1 | airborne_radar | 假目标鉴别跨域命名双轨 | 观测域枚举 vs 量测域 bool | open |
 | ESR-OQ-1 | electronic_surveillance_radar | 压制干扰感知与 ECCM 链路缺失 | 死字段 + 无结构化观测 + 无 ECCM | open |
@@ -54,26 +53,6 @@ Last-reviewed: 2026-08-03
   Windows runner 上依次证明 configure、Debug/Release build、install、独立 consumer build/run；随后再决定
   保留、删除或重命名现有 presets 与 `.bat` 入口。
 
-### COMMON-OQ-5：`Step()` 在校验失败/关机时静默复用上一帧
-
-- **现状**：`Step()`（返回 output frame）与 `StepWithResult()`（返回完整 result）两入口在五模块均存在。
-  失败/关机时是否复用上一帧分两组：
-  1. **复用组**（SAR/EOS/SBIRS）：将 `latest_output` 保留为上一帧，`Step()` 直接返回，仅在
-     `StepWithResult()` 的 `executed_this_cycle`/`reused_previous_output`/`abort_reason` 中体现。
-  2. **不复用组**（AR/ESR）：不复用、不回传最近有效输出，状态经 `ArCycleStatus`/`EsrCycleExecutionStatus`
-     枚举表达。
-  [evidence: src/electro_optical_sensor/controller/EosController]
-- **后果**：
-  1. 复用组的 `Step()` 静默返回旧帧，调用方无法仅凭返回值区分"本轮计算"与"复用旧值"。
-  2. 两组行为不一致，跨模块集成时易误用。
-- **待决问题**：
-  1. 是否统一五模块为同一组语义（全部复用或全部不复用）。
-  2. 若统一为复用组，是否在 `OutputFrame` 增加失败标识使 `Step()` 也可区分新旧帧。
-- **当前边界**：两组保持各自现有行为。复用组成员的 `Step()` 静默返回旧帧为已知设计，调用方须用
-  `StepWithResult()` 获取失败/复用信号。不得在文档中暗示 `Step()` 返回值含本轮执行状态。
-- **再进入条件 (Stage A)**：出现真实消费方因无法从 `Step()` 区分新旧帧而误用，或跨模块集成要求统一周期
-  失败语义时，先选定目标组（复用 vs 不复用），再评估迁移五模块的下游影响与测试矩阵。
-
 ### COMMON-OQ-6：`ApplyRuntimeConfig` 吞掉 `TryApplyRuntimeConfig` 返回值
 
 - **现状**：五模块会话均提供 `ApplyRuntimeConfig(patch)`（void）与 `TryApplyRuntimeConfig(patch)`（bool）。
@@ -100,19 +79,18 @@ Last-reviewed: 2026-08-03
 - **现状**：五模块 `CycleResult` 均同时携带 `input_cycle_index`（本次输入周期号）与内嵌
   `OutputFrame.cycle_index`。两者关系随周期成败而变：
   1. 成功路径：两者均取自 `input.cycle_index`，数值恒等。
-  2. 复用/失败路径（SAR/EOS/SBIRS）：`output_frame.cycle_index` 保留上一周期号、`input_cycle_index`
-     为本次输入号，二者分歧。
+  2. 非执行路径（COMMON-OQ-5 已统一为不复用）：`output_frame.cycle_index` 保持默认 `0`、
+     `input_cycle_index` 为本次输入号，二者分歧。
   [evidence: include/1q/electro_optical_sensor/EosCycleResult]
 - **后果**：
   1. 双字段在成功路径冗余、在失败路径语义分裂，阅读者需判断何时相等何时分歧。
   2. 去重与周期失败语义耦合，无法独立处理。
 - **待决问题**：
-  1. 是否移除 `input_cycle_index`、统一用 `output_frame.cycle_index`（但需为复用组另寻失败周期号归属）。
+  1. 是否移除 `input_cycle_index`、统一用 `output_frame.cycle_index`。
   2. 或反向统一为仅保留 `input_cycle_index`。
-- **当前边界**：五模块保留双字段。`input_cycle_index` 在复用组承载"本次失败周期的归属号"语义，不可简单
-  删除；去重须与 COMMON-OQ-5 的周期失败语义统一一并决策。
-- **再进入条件 (Stage A)**：与 COMMON-OQ-5 一同推进——先选定统一的周期失败/复用语义，再据此评估单一
-  周期号字段的可行性及其对 trace/replay 归属的影响。
+- **当前边界**：五模块保留双字段。非执行周期中 `input_cycle_index` 承载"本次失败周期的归属号"语义，
+  `output_frame.cycle_index` 为默认 `0`，不可简单删除。
+- **再进入条件 (Stage A)**：评估单一周期号字段的可行性及其对 trace/replay 归属的影响。
 
 ### COMMON-OQ-8：周期输入时间/窗口字段无统一契约，违反时静默拒绝
 

@@ -92,7 +92,6 @@ bool EosCycleResultEqual(const EosCycleResult& left, const EosCycleResult& right
          EosValidationIssueListEqual(left.validation_issues, right.validation_issues) &&
          left.has_validation_error == right.has_validation_error &&
          left.executed_this_cycle == right.executed_this_cycle &&
-         left.reused_previous_output == right.reused_previous_output &&
          left.abort_reason == right.abort_reason;
 }
 

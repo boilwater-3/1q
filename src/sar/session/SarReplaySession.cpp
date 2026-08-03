@@ -53,7 +53,6 @@ bool SarCycleResultEqual(const SarCycleResult& left, const SarCycleResult& right
       !SarOutputFrameEqual(left.output_frame, right.output_frame) ||
       left.diagnostics.size() != right.diagnostics.size() || left.has_error != right.has_error ||
       left.executed_this_cycle != right.executed_this_cycle ||
-      left.reused_previous_output != right.reused_previous_output ||
       left.abort_reason != right.abort_reason ||
       left.focused_image.source != right.focused_image.source ||
       left.focused_image.row_count != right.focused_image.row_count ||

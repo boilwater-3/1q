@@ -15,9 +15,11 @@ namespace sbirs_sensor {
 namespace runtime {
 
 /**
- * @brief 周期控制器，负责输入校验、周期执行、结果组装与失败输出复用。
+ * @brief 周期控制器，负责输入校验、周期执行与结果组装。
  * @note pipeline 结果已经把 record 与 attribution 组成原子元素，当前输出装配后不存在可能失败的
  *       commit 步骤，因此不建立虚构的 controller rollback 分支。
+ * @note 非执行周期（校验失败）返回默认空帧，不复用上一有效输出（见 contract.md
+ *       §实现安全与失败语义规则 3）。
  */
 class SbirsController {
  public:
@@ -34,7 +36,7 @@ class SbirsController {
   void ApplyConfig(const config::SbirsInternalExecutionConfig& config,
                    const SbirsRuntimeConfigImpact& impact);
   /**
-   * @brief 执行一个周期：校验输入、推进 pipeline、生成结构化结果，必要时复用上一有效输出。
+   * @brief 执行一个周期：校验输入、推进 pipeline、生成结构化结果。
    * @param[in] input 单周期输入
    * @return 单周期结构化执行结果
    */
@@ -43,8 +45,6 @@ class SbirsController {
  private:
   pipeline::SbirsPipeline pipeline_;
   float frame_rate_hz_{};
-  bool has_latest_output_{false};
-  session::SbirsOutputFrame latest_output_{};
 };
 
 }  // namespace runtime

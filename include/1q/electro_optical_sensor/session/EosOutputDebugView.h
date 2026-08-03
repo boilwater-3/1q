@@ -52,7 +52,6 @@ struct ONEQ_API EosOutputDebugView {
   std::uint32_t input_cycle_index{0U};            /**< 本次调用输入周期号 */
   std::uint32_t output_cycle_index{0U};           /**< 输出帧携带的周期号 */
   bool executed_this_cycle{false};                /**< 当前周期是否实际执行了核心 pipeline */
-  bool reused_previous_output{false};             /**< 当前周期是否复用了上一有效输出 */
   bool has_validation_error{false};               /**< 是否存在 error 级输入问题 */
   session::EosPipelineAbortReason abort_reason{session::EosPipelineAbortReason::kNone}; /**< 当前周期终止原因 */
   std::vector<EosDebugTargetState> targets{};     /**< 各输入目标的调试状态列表 */

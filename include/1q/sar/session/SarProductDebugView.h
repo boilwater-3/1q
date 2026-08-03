@@ -37,7 +37,6 @@ struct ONEQ_API SarProductDebugView {
   std::uint32_t input_cycle_index{0U};
   std::uint32_t output_cycle_index{0U};
   bool executed_this_cycle{false};
-  bool reused_previous_output{false};
   bool has_error{false};
   std::string abort_reason{};
   SarProcessingStage completed_stage{SarProcessingStage::kNone};

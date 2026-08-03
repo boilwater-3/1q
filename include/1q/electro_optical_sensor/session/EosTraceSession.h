@@ -68,7 +68,7 @@ class ONEQ_API EosTraceSession {
 
   /**
    * @brief 执行单周期并返回聚合结果。
-   * @note 返回值包含 `executed_this_cycle` / `reused_previous_output` 等状态语义。
+   * @note 返回值包含 `executed_this_cycle` / `abort_reason` 等状态语义。
    */
   EosCycleResult StepWithResult(const EosCycleInput& input);
 

@@ -478,9 +478,7 @@ int main(int argc, char** argv) {
   std::cout << "[View 2] EosOutputDebugView — human-readable debug view\n"
             << "  Input cycle: " << debug_view.input_cycle_index << "\n"
             << "  Output cycle: " << debug_view.output_cycle_index << "\n"
-            << "  Executed: " << (debug_view.executed_this_cycle ? "yes" : "no")
-            << "  Reused: "
-            << (debug_view.reused_previous_output ? "yes" : "no") << "\n"
+            << "  Executed: " << (debug_view.executed_this_cycle ? "yes" : "no") << "\n"
             << "  Target states:\n";
 
   for (std::size_t k = 0; k < debug_view.targets.size(); ++k) {

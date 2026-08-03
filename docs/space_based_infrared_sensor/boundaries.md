@@ -35,6 +35,14 @@ SBIRS 遵守三层输出模型（contract.md §三层输出模型）：
 列表并保持全部累积状态；validation rejection 不得虚构 `Lost`、`NotDetected` 或 `TargetMissingFromInput`。
 下一合法检测继续按拒绝前状态产生 `Updated`。
 
+### 非执行周期统一不复用（五模块统一规则）
+
+SBIRS 非执行周期（校验失败/执行 abort）的 `Step()` 与 `SbirsCycleResult.output_frame` 一律返回**默认空帧**
+（`cycle_index=0`、空检测），**永不复用**上一有效输出。调用方用 `StepWithResult().executed_this_cycle` /
+`abort_reason` 判断周期状态。`reused_previous_output` 字段已删除。
+
+[evidence: tests/contract/sbirs_sensor/sbirs_public_api_convenience_test.cpp::StepReturnsEmptyFrameOnValidationFailureAfterSuccess]
+
 ### 输出规则（WFOV/NFOV 状态仅决定当前周期哪些目标输出检测记录，不进 raw output 字段）
 
 1. WFOV 阶段（`WideCandidate`）：输出 WFOV 检测成功目标的检测记录，位置为带误差值。

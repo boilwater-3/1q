@@ -94,7 +94,6 @@ table EosCycleResult {
   validation_issues:      [ValidationIssue];
   has_validation_error:   bool;
   executed_this_cycle:    bool;
-  reused_previous_output: bool;
   abort_reason:           int32;
 }
 

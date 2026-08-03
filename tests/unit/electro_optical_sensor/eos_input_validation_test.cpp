@@ -250,7 +250,6 @@ TEST(EosInputValidationTest, SessionReturnsValidationErrorsForInvalidInput) {
 
   EXPECT_TRUE(result.has_validation_error);
   EXPECT_FALSE(result.executed_this_cycle);
-  EXPECT_FALSE(result.reused_previous_output);
   EXPECT_TRUE(ContainsCode(result.validation_issues, ValidationCode::kInvalidTargetRange));
   EXPECT_TRUE(result.output_frame.detections.empty());
 }

@@ -123,7 +123,7 @@ struct ONEQ_API SarOutputFrame {
 /**
  * @brief SAR 单周期聚合结果。
  * @note `output_frame`、`focused_image` 与质量指标只有在 `executed_this_cycle=true`
- *       时才代表本周期有效计算结果；失败/abort 周期会保留默认值或上一有效输出，
+ *       时才代表本周期有效计算结果；非执行周期返回默认空帧，不复用上一有效输出，
  *       不能按真实零值参与统计。
  */
 struct ONEQ_API SarCycleResult {
@@ -134,7 +134,6 @@ struct ONEQ_API SarCycleResult {
   SarDiagnosticIssueList diagnostics{};
   bool has_error{false};
   bool executed_this_cycle{false};
-  bool reused_previous_output{false};
   std::string abort_reason{};
 };
 

@@ -299,5 +299,41 @@ TEST(EsrPublicApiConvenienceTest, CreateWithDiagnosticsAcceptsNullIssuesWithoutC
   (void)session;  // nullptr 时仅构造，不写回 issues
 }
 
+// ESR 属于"不复用组"（COMMON-OQ-5）：Step() 在校验失败时返回默认空帧，不复用上一有效帧。
+// 这条 guard 锁定该边界——调用方仅凭 Step() 返回值即可判定本轮无新观测。
+TEST(EsrPublicApiConvenienceTest, StepReturnsEmptyFrameOnValidationFailure) {
+  session::EsrSession session = session::EsrSession::Create(MakeSessionConfig());
+
+  session::EsrCycleInput valid_input;
+  valid_input.cycle_index = 1U;
+  valid_input.cycle_start_time_s = 10.0;
+  valid_input.dt_sec = 1.0f;
+  valid_input.platform_entity_id = 1U;
+  valid_input.has_platform_ecef_kinematics = true;
+  valid_input.platform_position_ecef_m.x_m = 6378137.0;
+  valid_input.rf_emissions.world_cycle_index = valid_input.cycle_index;
+  valid_input.rf_emissions.window_start_time_s = valid_input.cycle_start_time_s;
+  valid_input.rf_emissions.window_duration_s = valid_input.dt_sec;
+
+  ASSERT_EQ(session.StepWithResult(valid_input).status,
+            session::EsrCycleExecutionStatus::kCompleted);
+
+  // 校验失败：dt_sec 非正。
+  session::EsrCycleInput invalid_input = valid_input;
+  invalid_input.cycle_index = 2U;
+  invalid_input.dt_sec = 0.0f;
+
+  const session::EsrCycleResult rejected_result = session.StepWithResult(invalid_input);
+  EXPECT_EQ(rejected_result.status, session::EsrCycleExecutionStatus::kRejected);
+  EXPECT_TRUE(rejected_result.has_validation_error);
+
+  // Step() 与 StepWithResult().output_frame 一致：默认空帧，cycle_index 为 0（非 2），无复用。
+  const session::EsrOutputFrame step_frame = session.Step(invalid_input);
+  EXPECT_EQ(step_frame.cycle_index, 0U);
+  EXPECT_TRUE(step_frame.observation_output.observations.empty());
+  EXPECT_TRUE(step_frame.emitter_output.hypotheses.empty());
+  EXPECT_EQ(step_frame.cycle_index, rejected_result.output_frame.cycle_index);
+}
+
 }  // namespace tests
 }  // namespace electronic_surveillance_radar

@@ -230,7 +230,7 @@ struct ScenarioSummary {
 };
 
 constexpr const char* kCycleHeader =
-    "scenario_id,suite,scenario_family,phase,cycle_index,executed,validation_error,reused,abort_reason,scan_azimuth_deg,"
+    "scenario_id,suite,scenario_family,phase,cycle_index,executed,validation_error,abort_reason,scan_azimuth_deg,"
     "detection_count,max_snr_linear,observation_stage";
 constexpr const char* kScenarioHeader =
     "scenario_id,suite,scenario_family,range_km,temperature_k,projected_area_m2,executed_cycles,detection_count,"
@@ -319,11 +319,11 @@ ScenarioSummary RunScenario(const SbirsCase& scenario, const std::string& output
       summary.max_snr_linear = std::max(summary.max_snr_linear, cycle_max_snr);
       summary.final_stage = stage;
       std::fprintf(
-          cycle_writer.file(), "%s,%s,%s,%s,%u,%d,%d,%d,%d,%.5f,%zu,%.9g,%s\n",
+          cycle_writer.file(), "%s,%s,%s,%s,%u,%d,%d,%d,%.5f,%zu,%.9g,%s\n",
           scenario.scenario_id.c_str(), scenario.sequence ? "sequence" : "sweep",
           scenario.family.c_str(), phase, cycle, static_cast<int>(result.executed_this_cycle),
           static_cast<int>(result.has_validation_error),
-          static_cast<int>(result.reused_previous_output), static_cast<int>(result.abort_reason),
+          static_cast<int>(result.abort_reason),
           result.output_frame.scan_azimuth_deg, result.output_frame.detections.size(),
           static_cast<double>(cycle_max_snr), stage);
     }

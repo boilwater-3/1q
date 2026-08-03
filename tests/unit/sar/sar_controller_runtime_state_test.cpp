@@ -64,7 +64,6 @@ TEST(SarControllerRuntimeStateTest, CaptureAndRestoreRoundTripState) {
   const session::SarCycleResult restored = controller.BuildCycleResult(MakeInput(1U));
   EXPECT_TRUE(restored.executed_this_cycle);
   EXPECT_EQ(restored.output_frame.cycle_index, 1U);
-  EXPECT_FALSE(restored.reused_previous_output);
 }
 
 TEST(SarControllerRuntimeStateTest, RestoreRejectsSnapshotFromOtherControllerInstance) {
@@ -82,7 +81,7 @@ TEST(SarControllerRuntimeStateTest, RestoreRejectsSnapshotFromOtherControllerIns
   EXPECT_EQ(controller_a.BuildCycleResult(MakeInput(20U)).output_frame.cycle_index, 20U);
 }
 
-TEST(SarControllerRuntimeStateTest, ValidationRejectReusesPreviousOutput) {
+TEST(SarControllerRuntimeStateTest, ValidationRejectReturnsEmptyOutputNotReused) {
   const config::SarSessionConfig config = MakeSmallRdaConfig();
   pipeline::SarProcessingPipeline pipeline(config);
   SarController controller(pipeline, config);
@@ -97,9 +96,8 @@ TEST(SarControllerRuntimeStateTest, ValidationRejectReusesPreviousOutput) {
 
   EXPECT_FALSE(result.executed_this_cycle);
   EXPECT_TRUE(result.has_error);
-  EXPECT_TRUE(result.reused_previous_output);
   EXPECT_EQ(result.abort_reason, "invalid_cycle_input");
-  EXPECT_EQ(result.output_frame.cycle_index, 40U);
+  EXPECT_EQ(result.output_frame.cycle_index, 0U);
 }
 
 TEST(SarControllerRuntimeStateTest, PipelineAbortRestoresAllCrossCycleState) {
@@ -123,8 +121,9 @@ TEST(SarControllerRuntimeStateTest, PipelineAbortRestoresAllCrossCycleState) {
 
   ASSERT_FALSE(result.executed_this_cycle);
   ASSERT_EQ(result.abort_reason, "snr_below_minimum");
-  EXPECT_TRUE(result.reused_previous_output);
-  EXPECT_EQ(result.output_frame.cycle_index, successful_input.cycle_index);
+  // Pipeline abort 后 output_frame 保留已初始化的元数据（cycle_index = input.cycle_index），
+  // 区别于校验失败的默认空帧（cycle_index = 0）。
+  EXPECT_EQ(result.output_frame.cycle_index, input.cycle_index);
   EXPECT_EQ(after.next_pulse_id, before.next_pulse_id);
   EXPECT_DOUBLE_EQ(after.pulse_fraction_carry, before.pulse_fraction_carry);
   EXPECT_EQ(after.raw_pulse_buffer_state.records.size(),

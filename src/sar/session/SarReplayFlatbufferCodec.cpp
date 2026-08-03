@@ -351,7 +351,7 @@ std::string EncodeSarCycleResult(const SarCycleResult& value) {
   fbb.Finish(replay::CreateSarCycleResult(fbb, value.input_cycle_index, frame, focused_image,
                                           fbb.CreateVector(diagnostic_offsets), raw_phase_history,
                                           value.has_error,
-                                          value.executed_this_cycle, value.reused_previous_output,
+                                          value.executed_this_cycle,
                                           fbb.CreateString(value.abort_reason)));
   return oneq::common::replay::CopyFinishedFlatbuffer(fbb);
 }
@@ -453,7 +453,6 @@ bool DecodeSarCycleResult(const std::string& bytes, SarCycleResult* out) {
   }
   decoded.has_error = fb->has_error();
   decoded.executed_this_cycle = fb->executed_this_cycle();
-  decoded.reused_previous_output = fb->reused_previous_output();
   decoded.abort_reason = fb->abort_reason() ? fb->abort_reason()->str() : std::string();
   *out = decoded;
   return true;

@@ -146,7 +146,6 @@ TEST(SbirsPublicApiConvenienceTest, SessionCreatesAndExecutesOneCycle) {
   // 结构化执行结果字段可达。
   EXPECT_TRUE(result.executed_this_cycle);
   EXPECT_FALSE(result.has_validation_error);
-  EXPECT_FALSE(result.reused_previous_output);
   EXPECT_EQ(result.input_cycle_index, 1U);
   EXPECT_EQ(result.abort_reason, session::SbirsPipelineAbortReason::kNone);
 }
@@ -193,6 +192,30 @@ TEST(SbirsPublicApiConvenienceTest, RawOutputFrameContainsOnlyNativeFields) {
   session::SbirsSession session = session::SbirsSession::Create(MakeExecutableConfig());
   const session::SbirsCycleResult result = session.StepWithResult(MakeMinimalInput());
   EXPECT_TRUE(session::SbirsOutputFrameContainsOnlyNativeFields(result.output_frame));
+}
+
+// SBIRS 遵守统一不复用语义：成功周期后再遇校验失败时，Step() 与 StepWithResult() 均返回
+// 默认空帧，不复用上一有效输出。这条 guard 锁定该契约（见 contract.md §实现安全与失败语义规则 3）。
+TEST(SbirsPublicApiConvenienceTest, StepReturnsEmptyFrameOnValidationFailureAfterSuccess) {
+  session::SbirsSession session = session::SbirsSession::Create(MakeExecutableConfig());
+  ASSERT_TRUE(session.StepWithResult(MakeMinimalInput(1U)).executed_this_cycle);
+
+  // 校验失败：dt_sec 非正。cycle_index 推进到 8，与上一帧的 1 形成可观测差异。
+  session::SbirsCycleInput invalid_input = MakeMinimalInput(8U);
+  invalid_input.dt_sec = 0.0f;
+
+  const session::SbirsCycleResult result = session.StepWithResult(invalid_input);
+  EXPECT_FALSE(result.executed_this_cycle);
+  EXPECT_TRUE(result.has_validation_error);
+
+  // 失败周期返回默认空帧：cycle_index==0（非本次输入 8，也非上一帧的 1），detections 为空。
+  EXPECT_EQ(result.output_frame.cycle_index, 0U);
+  EXPECT_TRUE(result.output_frame.detections.empty());
+
+  // Step() 与 StepWithResult().output_frame 一致：均为默认空帧。
+  const session::SbirsOutputFrame step_frame = session.Step(invalid_input);
+  EXPECT_EQ(step_frame.cycle_index, 0U);
+  EXPECT_TRUE(step_frame.detections.empty());
 }
 
 }  // namespace

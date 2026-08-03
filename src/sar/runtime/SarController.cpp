@@ -54,8 +54,6 @@ struct SarController::Impl {
 
   pipeline::SarProcessingPipeline& pipeline;
   config::SarSessionConfig runtime_config;
-  session::SarOutputFrame previous_output{};
-  bool has_previous_output{false};
   session::SarCycleResult latest_result{};
 };
 
@@ -68,31 +66,26 @@ SarController::~SarController() = default;
 void SarController::RunOnce(const session::SarCycleInput& input) {
   session::SarCycleResult result;
   result.input_cycle_index = input.cycle_index;
-  result.output_frame.cycle_index = input.cycle_index;
 
   const session::ValidationIssueList input_issues = session::ValidateSarCycleInput(input);
   if (session::HasValidationError(input_issues)) {
     session::RecordAbort(&result, "invalid_cycle_input",
                          BuildInputValidationAbortMessage(input_issues));
-    if (impl_->has_previous_output) {
-      result.output_frame = impl_->previous_output;
-      result.reused_previous_output = true;
-    }
+    // 非执行周期：output_frame 保持默认空帧，不复用上一有效输出。
     impl_->Finish(result);
     return;
   }
-
-  session::InitializeOutputFrameMetadata(impl_->runtime_config, &result.output_frame);
 
   const bool has_external_raw_iq = session::HasExternalRawIq(input);
   if (!session::ValidateRuntimeConfigForStep(impl_->runtime_config, has_external_raw_iq, &result)) {
-    if (impl_->has_previous_output) {
-      result.output_frame = impl_->previous_output;
-      result.reused_previous_output = true;
-    }
+    // 非执行周期：output_frame 保持默认空帧，不复用上一有效输出。
     impl_->Finish(result);
     return;
   }
+
+  // 所有前置校验通过后才写入输出帧元数据，确保失败周期输出严格为默认空帧。
+  result.output_frame.cycle_index = input.cycle_index;
+  session::InitializeOutputFrameMetadata(impl_->runtime_config, &result.output_frame);
 
   const pipeline::SarProcessingPipelineRuntimeState pipeline_state =
       impl_->pipeline.CaptureRuntimeState();
@@ -101,16 +94,11 @@ void SarController::RunOnce(const session::SarCycleInput& input) {
       session::RecordAbort(&result, "runtime_state_restore_rejected",
                            "SAR failed to restore pipeline state after cycle abort.");
     }
-    if (impl_->has_previous_output) {
-      result.output_frame = impl_->previous_output;
-      result.reused_previous_output = true;
-    }
+    // 非执行周期：output_frame 保持默认空帧，不复用上一有效输出。
     impl_->Finish(result);
     return;
   }
 
-  impl_->previous_output = result.output_frame;
-  impl_->has_previous_output = true;
   impl_->Finish(result);
 }
 
@@ -134,8 +122,6 @@ SarControllerRuntimeState SarController::CaptureRuntimeState() const {
   state.owner_identity = this;
   state.schema_version = kControllerRuntimeStateSchemaVersion;
   state.runtime_config = impl_->runtime_config;
-  state.previous_output = impl_->previous_output;
-  state.has_previous_output = impl_->has_previous_output;
   state.latest_result = impl_->latest_result;
   state.pipeline_state = impl_->pipeline.CaptureRuntimeState();
   return state;
@@ -148,8 +134,6 @@ bool SarController::RestoreRuntimeState(const SarControllerRuntimeState& state) 
     return false;
   }
   impl_->runtime_config = state.runtime_config;
-  impl_->previous_output = state.previous_output;
-  impl_->has_previous_output = state.has_previous_output;
   impl_->latest_result = state.latest_result;
   return true;
 }

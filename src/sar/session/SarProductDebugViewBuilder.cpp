@@ -11,7 +11,6 @@ SarProductDebugView SarProductDebugViewBuilder::Build(const SarCycleInput& input
   view.input_cycle_index = result.input_cycle_index;
   view.output_cycle_index = result.output_frame.cycle_index;
   view.executed_this_cycle = result.executed_this_cycle;
-  view.reused_previous_output = result.reused_previous_output;
   view.has_error = result.has_error;
   view.abort_reason = result.abort_reason;
   view.completed_stage = result.output_frame.completed_stage;

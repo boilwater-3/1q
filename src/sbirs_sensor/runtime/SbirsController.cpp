@@ -20,10 +20,6 @@ session::SbirsCycleResult SbirsController::RunOnce(const session::SbirsCycleInpu
   result.has_validation_error = session::HasValidationError(result.validation_issues);
   if (result.has_validation_error) {
     result.abort_reason = session::SbirsPipelineAbortReason::kValidationRejected;
-    if (has_latest_output_) {
-      result.output_frame = latest_output_;
-      result.reused_previous_output = true;
-    }
     return result;
   }
 
@@ -40,8 +36,6 @@ session::SbirsCycleResult SbirsController::RunOnce(const session::SbirsCycleInpu
   }
   result.executed_this_cycle = true;
   result.abort_reason = session::SbirsPipelineAbortReason::kNone;
-  latest_output_ = result.output_frame;
-  has_latest_output_ = true;
   return result;
 }
 
