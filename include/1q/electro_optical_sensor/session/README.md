@@ -1,7 +1,7 @@
 # EOS Session 公开接口
 
 ## 会话核心
-- EosSession.h — 主会话门面（PIMPL），提供 Step/StepWithResult/ApplyRuntimeConfig
+- EosSession.h — 主会话门面（PIMPL），提供 Step/StepWithResult/TryApplyRuntimeConfig
 - EosTraceSession.h — 跟踪会话（录制模式）
 - EosReplaySession.h — 回放会话（重放模式）
 

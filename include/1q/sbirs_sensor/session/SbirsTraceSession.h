@@ -75,10 +75,11 @@ class ONEQ_API SbirsTraceSession {
    */
   SbirsCycleResult StepWithResult(const SbirsCycleInput& input);
   /**
-   * @brief 提交运行期配置补丁并记录到 trace。
+   * @brief 尝试提交运行期配置补丁并记录到 trace。
    * @param[in] patch 运行期配置补丁
+   * @return patch 有效且产生更新返回 true；patch 无效或无可更新项返回 false
    */
-  void ApplyRuntimeConfig(const config::SbirsRuntimeConfigPatch& patch);
+  bool TryApplyRuntimeConfig(const config::SbirsRuntimeConfigPatch& patch);
 
   /** @brief 访问被包装的底层会话（可写）。 */
   SbirsSession& session();

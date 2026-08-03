@@ -68,16 +68,17 @@ class ONEQ_API EosTraceSession {
 
   /**
    * @brief 执行单周期并返回聚合结果。
-   * @note 返回值包含 `executed_this_cycle` / `reused_previous_output` 等状态语义。
+   * @note 返回值包含 `executed_this_cycle` / `abort_reason` 等状态语义。
    */
   EosCycleResult StepWithResult(const EosCycleInput& input);
 
   /**
-   * @brief 应用运行期可变配置补丁，并同步记录到 trace/replay 通道。
+   * @brief 尝试应用运行期可变配置补丁并同步记录到 trace/replay 通道。
    * @param[in] patch 运行期配置补丁。
-   * @note 启用 replay_writer 时先写记录后下发，保证回放时配置变更先于执行可重放。
+   * @note 启用 replay_writer 时先 apply 后写记录，保证回放时配置变更先于执行可重放。
+   * @return 补丁被接受并应用成功时返回 true；补丁无效或无变更时返回 false。
    */
-  void ApplyRuntimeConfig(const config::EosRuntimeConfigPatch& patch);
+  bool TryApplyRuntimeConfig(const config::EosRuntimeConfigPatch& patch);
 
   /** @brief 获取被包装的内部会话引用。 */
   EosSession& session();

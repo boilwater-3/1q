@@ -385,7 +385,7 @@ std::string EncodeSbirsCycleResult(const SbirsCycleResult& value) {
 
   fbb.Finish(sbirs::replay::CreateSbirsCycleResult(
       fbb, value.input_cycle_index, frame, fbb.CreateVector(attributions), fbb.CreateVector(issues),
-      value.has_validation_error, value.executed_this_cycle, value.reused_previous_output,
+      value.has_validation_error, value.executed_this_cycle,
       static_cast<std::int32_t>(value.abort_reason)));
   return oneq::common::replay::CopyFinishedFlatbuffer(fbb);
 }
@@ -456,7 +456,6 @@ bool DecodeSbirsCycleResult(const std::string& bytes, SbirsCycleResult* out) {
   }
   decoded.has_validation_error = fb->has_validation_error();
   decoded.executed_this_cycle = fb->executed_this_cycle();
-  decoded.reused_previous_output = fb->reused_previous_output();
   decoded.abort_reason = static_cast<SbirsPipelineAbortReason>(abort_reason);
   *out = decoded;
   return true;

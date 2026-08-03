@@ -48,12 +48,6 @@ class ONEQ_API SbirsSession {
    */
   SbirsCycleResult StepWithResult(const SbirsCycleInput& input);
   /**
-   * @brief 提交运行期配置补丁，立即生效；patch 无效或无可更新项时静默忽略。
-   * @param[in] patch 运行期配置补丁
-   * @note 内部委托 `TryApplyRuntimeConfig`，不返回成功与否；需要判别请使用后者。
-   */
-  void ApplyRuntimeConfig(const config::SbirsRuntimeConfigPatch& patch);
-  /**
    * @brief 尝试提交运行期配置补丁并立即生效。
    * @param[in] patch 运行期配置补丁
    * @return patch 有效且产生更新返回 true；patch 无效或无可更新项返回 false

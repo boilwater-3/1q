@@ -66,11 +66,20 @@ ISA 标准大气，这些字段全部未被消费，属未接入的死输入。�
 
 1. cycle input 校验失败时不执行 pipeline，`ArCycleResult` 携带 validation issues，controller 设置显式 abort
    reason `kValidationRejected`（保留 replay/trace 数值语义）。
-2. 已有有效输出时，校验失败可以复用上一帧输出，并标记 `reused_previous_output`；**拒绝周期不复用上一帧**。
-3. signal pipeline abort 时不会发布合成的最新输出。
-4. 电源状态单源：`ArSessionConfig::sensor_enabled` 是唯一来源（mission 域无电源字段），运行时电源唯一入口
+2. **非执行周期统一不复用（五模块统一规则）**：`Step()` 与 `ArCycleResult.track_output_frame`
+   返回默认空帧（`cycle_index==0`、空 tracks/emission），不论是否存在上一有效输出。调用方仅凭
+   `Step()` 返回值即可判定本轮无新航迹。状态判断统一走 `StepWithResult().status`
+   （`kRejectedInvalidInput`/`kPoweredOff`/`kRejectedExecution`）。
+3. controller 内部 `last_cycle_reused_previous_output` 仅是 RF 接收/检测侧跨周期状态机的簿记标志
+   （捕获/恢复 snapshot 用），不进入 public `ArCycleResult`，也不等于公开输出帧被复用；不得据此推断
+   `Step()` 会回传历史航迹。
+4. signal pipeline abort 时不会发布合成的最新输出。
+5. 电源状态单源：`ArSessionConfig::sensor_enabled` 是唯一来源（mission 域无电源字段），运行时电源唯一入口
    为 `ArRuntimeConfigPatch::has_sensor_enabled`。
-5. 设备关机是已接受的非执行配置边界：撤销周期副作用后 finalize 关机配置，并保留外部决策等待下一成功周期。
+6. 设备关机是已接受的非执行配置边界：撤销周期副作用后 finalize 关机配置，并保留外部决策等待下一成功周期。
+
+[evidence: tests/contract/airborne_radar/ar_public_api_convenience_test.cpp::RejectedCycleDoesNotReusePreviousOutput]
+[evidence: tests/contract/airborne_radar/ar_public_api_convenience_test.cpp::StepReturnsEmptyCurrentFrameOnRejectedInput]
 
 ## 输出边界要求
 

@@ -24,16 +24,13 @@ namespace extension {
 /**
  * @brief SarController 运行期可序列化状态快照。
  *
- * 包含当前运行期配置、上一周期输出、最近一次周期结果及其底层流水线状态，用于
- * replay/checkpoint 的捕获与恢复。
+ * 包含当前运行期配置、最近一次周期结果及其底层流水线状态，用于 replay/checkpoint 的捕获与恢复。
  * @note 恢复前应校验 schema_version 与当前实现一致。
  */
 struct SarControllerRuntimeState {
   const void* owner_identity{nullptr};          /**< 用于恢复时校验所有者身份的 opaque 指针 */
   std::uint32_t schema_version{0U};             /**< 状态结构 schema 版本，恢复时用于一致性校验 */
   config::SarSessionConfig runtime_config{};    /**< 当前运行期配置 */
-  session::SarOutputFrame previous_output{};    /**< 上一周期输出帧 */
-  bool has_previous_output{false};              /**< 是否存在有效的上一周期输出 */
   session::SarCycleResult latest_result{};      /**< 最近一次周期结果 */
   pipeline::SarProcessingPipelineRuntimeState pipeline_state{}; /**< 底层流水线运行期状态 */
 };
@@ -41,8 +38,8 @@ struct SarControllerRuntimeState {
 /**
  * @brief SAR 运行期控制器。
  *
- * 持有一个 pipeline 引用并维护运行期配置与最近输出，对外暴露单周期执行、结果构造、
- * 运行期配置热更新与状态捕获/恢复。不可拷贝。
+ * 持有一个 pipeline 引用并维护运行期配置，对外暴露单周期执行、结果构造、运行期配置热更新与
+ * 状态捕获/恢复。不可拷贝。
  * @note 非线程安全；调用方需保证对同一实例的访问串行化。
  */
 class SarController {
@@ -62,7 +59,8 @@ class SarController {
   /**
    * @brief 执行单周期处理并缓存结果。
    * @param[in] input 单周期输入载荷。
-   * @note pipeline 中止时恢复调用前的跨周期状态；若已有有效输出则复用上一帧。
+   * @note pipeline 中止时恢复调用前的跨周期状态；非执行周期返回默认空帧，不复用上一有效输出
+   *       （见 contract.md §实现安全与失败语义规则 3）。
    */
   void RunOnce(const session::SarCycleInput& input);
   /**

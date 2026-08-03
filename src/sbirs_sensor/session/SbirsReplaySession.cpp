@@ -97,7 +97,6 @@ bool CycleResultEqual(const SbirsCycleResult& left, const SbirsCycleResult& righ
          ValidationIssueListEqual(left.validation_issues, right.validation_issues) &&
          left.has_validation_error == right.has_validation_error &&
          left.executed_this_cycle == right.executed_this_cycle &&
-         left.reused_previous_output == right.reused_previous_output &&
          left.abort_reason == right.abort_reason;
 }
 
@@ -170,7 +169,7 @@ bool OnRuntimeConfigPatch(const oneq::replay::ReplayTraceReadEvent& event, void*
     *error = "SBIRS replay failed to decode runtime_config_patch";
     return false;
   }
-  state->session->ApplyRuntimeConfig(patch);
+  state->session->TryApplyRuntimeConfig(patch);
   return true;
 }
 

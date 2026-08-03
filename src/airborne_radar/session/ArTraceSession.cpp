@@ -127,11 +127,6 @@ ArCycleResult ArTraceSession::StepWithResult(const ArCycleInput& input) {
   return result;
 }
 
-void ArTraceSession::ApplyRuntimeConfig(
-    const config::ArRuntimeConfigPatch& patch) {
-  (void)TryApplyRuntimeConfig(patch);
-}
-
 bool ArTraceSession::TryApplyRuntimeConfig(
     const config::ArRuntimeConfigPatch& patch) {
   const bool accepted = impl_->session.TryApplyRuntimeConfig(patch);

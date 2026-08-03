@@ -35,7 +35,6 @@ struct EosControllerRuntimeState {
   bool has_latest_output{false};             /**< 是否已有可读取的最新输出帧 */
   bool has_validation_error{false};          /**< 最近一次校验是否存在 error 级问题 */
   bool last_cycle_executed{false};           /**< 最近一次 RunOnce 是否实际执行了核心 pipeline */
-  bool last_cycle_reused_previous_output{false};          /**< 最近一次是否复用了上一有效输出 */
   session::EosPipelineAbortReason last_abort_reason{session::EosPipelineAbortReason::kNone}; /**< 最近一次终止原因 */
   EosPipelineRuntimeState pipeline_state{};  /**< 内嵌的管线运行态快照 */
 };
@@ -62,18 +61,6 @@ class EosController {
   void RunOnce(const ::electro_optical_sensor::session::EosCycleInput& input);
 
   /**
-   * @brief 判断当前是否有可读取的最新输出帧。
-   * @return 若已有输出帧则返回 true。
-   */
-  bool HasLatestDetectionOutputFrame() const;
-
-  /**
-   * @brief 获取最新输出帧。
-   * @return 最新输出帧。
-   */
-  const session::EosOutputFrame& GetLatestDetectionOutputFrame() const;
-
-  /**
    * @brief 获取最近一次输入校验结果。
    * @return 最近一次输入校验问题列表。
    */
@@ -90,12 +77,6 @@ class EosController {
    * @return 若执行了核心 pipeline 则返回 true。
    */
   bool ExecutedLatestCycle() const;
-
-  /**
-   * @brief 最近一次 RunOnce 是否复用了上一有效输出。
-   * @return 若复用了上一有效输出则返回 true。
-   */
-  bool ReusedPreviousDetectionOutputLatestCycle() const;
 
   /**
    * @brief 最近一次 RunOnce 的周期终止原因。

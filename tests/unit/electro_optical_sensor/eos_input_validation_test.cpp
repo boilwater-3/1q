@@ -250,7 +250,6 @@ TEST(EosInputValidationTest, SessionReturnsValidationErrorsForInvalidInput) {
 
   EXPECT_TRUE(result.has_validation_error);
   EXPECT_FALSE(result.executed_this_cycle);
-  EXPECT_FALSE(result.reused_previous_output);
   EXPECT_TRUE(ContainsCode(result.validation_issues, ValidationCode::kInvalidTargetRange));
   EXPECT_TRUE(result.output_frame.detections.empty());
 }
@@ -304,7 +303,7 @@ TEST(EosInputValidationTest, RuntimeConfigBuilderCanTightenDetectionThresholdAtR
                                                       .WithDetectionSensitivityW(2.0e-12f)
                                                       .WithVisibleReferenceIrradianceWM2(1000.0f)
                                                       .Build();
-  eos_session.ApplyRuntimeConfig(patch);
+  (void)eos_session.TryApplyRuntimeConfig(patch);
 
   input.cycle_index += 1U;
   input.scene[0].azimuth_deg =
@@ -346,7 +345,7 @@ TEST(EosInputValidationTest, RuntimePatchPreservesScanPhaseUnlessScanRateChanges
           .WithDetectionSensitivityW(0.8e-12f)
           .WithVisibleReferenceIrradianceWM2(700.0f)
           .Build();
-  eos_session.ApplyRuntimeConfig(non_geometry_patch);
+  (void)eos_session.TryApplyRuntimeConfig(non_geometry_patch);
 
   input.cycle_index += 1U;
   const ::electro_optical_sensor::session::EosCycleResult after_non_geometry_patch =
@@ -359,7 +358,7 @@ TEST(EosInputValidationTest, RuntimePatchPreservesScanPhaseUnlessScanRateChanges
 
   const eos_config::EosRuntimeConfigPatch scan_rate_patch =
       eos_config::EosRuntimeConfigBuilder().WithScanRateDegPerSec(12.0f).Build();
-  eos_session.ApplyRuntimeConfig(scan_rate_patch);
+  (void)eos_session.TryApplyRuntimeConfig(scan_rate_patch);
 
   input.cycle_index += 1U;
   const ::electro_optical_sensor::session::EosCycleResult after_scan_rate_patch =
@@ -395,7 +394,7 @@ TEST(EosInputValidationTest, RuntimePatchRejectsInvalidFrameRateHz) {
 
   const eos_config::EosRuntimeConfigPatch patch =
       eos_config::EosRuntimeConfigBuilder().WithFrameRateHz(0.0f).Build();
-  eos_session.ApplyRuntimeConfig(patch);
+  (void)eos_session.TryApplyRuntimeConfig(patch);
 
   input.cycle_index += 1U;
   input.scene[0].azimuth_deg =
@@ -411,7 +410,7 @@ TEST(EosInputValidationTest, RuntimePatchRejectsInvalidFrameRateHz) {
           .WithDetectionSensitivityW(0.8e-12f)
           .WithVisibleReferenceIrradianceWM2(700.0f)
           .Build();
-  eos_session.ApplyRuntimeConfig(valid_patch);
+  (void)eos_session.TryApplyRuntimeConfig(valid_patch);
 
   input.cycle_index += 1U;
   const ::electro_optical_sensor::session::EosCycleResult after_mixed_patch =
@@ -442,7 +441,7 @@ TEST(EosInputValidationTest, RuntimePatchRejectsInvalidScanRate) {
 
   const eos_config::EosRuntimeConfigPatch patch =
       eos_config::EosRuntimeConfigBuilder().WithScanRateDegPerSec(-1.0f).Build();
-  eos_session.ApplyRuntimeConfig(patch);
+  (void)eos_session.TryApplyRuntimeConfig(patch);
 
   input.cycle_index += 1U;
   input.scene[0].azimuth_deg = ResolveNextScanAzimuthDeg(config, baseline_azimuth, input.dt_sec);
@@ -482,7 +481,7 @@ TEST(EosInputValidationTest, RuntimePatchIsAtomicWhenAnyFieldIsInvalid) {
                                                       .WithDetectionSensitivityW(0.8e-12f)
                                                       .WithVisibleReferenceIrradianceWM2(700.0f)
                                                       .Build();
-  eos_session.ApplyRuntimeConfig(patch);
+  (void)eos_session.TryApplyRuntimeConfig(patch);
 
   input.cycle_index += 1U;
   input.scene[0].azimuth_deg =

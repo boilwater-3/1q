@@ -215,7 +215,7 @@ std::string EncodeEosCycleResult(const ::electro_optical_sensor::session::EosCyc
 
   auto result = eos::replay::CreateEosCycleResult(
       fbb, v.input_cycle_index, frame, fbb.CreateVector(attr_vec), fbb.CreateVector(issue_vec),
-      v.has_validation_error, v.executed_this_cycle, v.reused_previous_output,
+      v.has_validation_error, v.executed_this_cycle,
       static_cast<int32_t>(v.abort_reason));
   fbb.Finish(result);
   return oneq::common::replay::CopyFinishedFlatbuffer(fbb);
@@ -255,7 +255,6 @@ bool DecodeEosCycleResult(const std::string& bytes,
   }
   out->has_validation_error = fb->has_validation_error();
   out->executed_this_cycle = fb->executed_this_cycle();
-  out->reused_previous_output = fb->reused_previous_output();
   out->abort_reason = static_cast<session::EosPipelineAbortReason>(fb->abort_reason());
   out->validation_issues.clear();
   if (fb->validation_issues()) {

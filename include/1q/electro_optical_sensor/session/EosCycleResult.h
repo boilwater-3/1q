@@ -24,7 +24,7 @@ struct ONEQ_API EosOutputFrame {
 /**
  * @brief EosCycleResult 描述光学传感器单周期聚合结果。
  * @note `output_frame` 与 `detection_attributions` 只有在 `executed_this_cycle=true`
- *       时才代表本周期有效计算结果；失败/abort 周期会保留默认值或上一有效输出，
+ *       时才代表本周期有效计算结果；非执行周期返回默认空帧，不复用上一有效输出，
  *       不能按真实零值参与统计。
  */
 struct ONEQ_API EosCycleResult {
@@ -35,7 +35,6 @@ struct ONEQ_API EosCycleResult {
   ValidationIssueList validation_issues{}; /**< 当前周期输入校验结果 */
   bool has_validation_error{false};        /**< 是否存在 error 级输入问题 */
   bool executed_this_cycle{false};         /**< 当前周期是否实际执行了核心 pipeline */
-  bool reused_previous_output{false};      /**< 当前周期是否复用了上一有效输出 */
   session::EosPipelineAbortReason abort_reason{
       session::EosPipelineAbortReason::kNone}; /**< 当前周期终止原因 */
 };

@@ -92,7 +92,7 @@ int main() {
               airborne_radar::config::EnvironmentScenarioConfig{})
           .WithCommandedBeamwidthEnabled(true)
           .Build();
-  session.ApplyRuntimeConfig(runtime_patch);
+  (void)session.TryApplyRuntimeConfig(runtime_patch);
 
   // 9. Second cycle after runtime config change
   airborne_radar::session::ArCycleInput input_2 = input;

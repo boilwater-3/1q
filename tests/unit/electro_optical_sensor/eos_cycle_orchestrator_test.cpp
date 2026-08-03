@@ -2,7 +2,7 @@
  * @file eos_cycle_orchestrator_test.cpp
  * @brief 验证 EOS 会话的周期执行、配置提交与运行期补丁契约。
  *
- * 原测试通过 EosCycleOrchestrator 直接测试 RunCycle + ApplyRuntimeConfig。
+ * 原测试通过 EosCycleOrchestrator 直接测试 RunCycle + TryApplyRuntimeConfig。
  * Orchestrator 内联到 EosSession::Impl 后，通过 EosSession::Create 测试等效行为。
  */
 
@@ -62,8 +62,8 @@ TEST(EosSessionTest, ValidRuntimePatchTakesEffectOnNextStep) {
   const float baseline_scan_azimuth = baseline.output_frame.scan_azimuth_deg;
   EXPECT_NEAR(baseline_scan_azimuth, -9.5f, 1.0e-6f);
 
-  session.ApplyRuntimeConfig(
-      eos_config::EosRuntimeConfigBuilder().WithScanRateDegPerSec(9.0f).Build());
+  ASSERT_TRUE(session.TryApplyRuntimeConfig(
+      eos_config::EosRuntimeConfigBuilder().WithScanRateDegPerSec(9.0f).Build()));
 
   // Cycle 2: rate patched to 9.0 → scan phase resets to start, advance=9*0.1=0.9,
   // scan_az = -10 + 0.9 = -9.1
@@ -79,8 +79,8 @@ TEST(EosSessionTest, InvalidRuntimePatchDoesNotChangeUpdateBehavior) {
   const eos_config::EosSessionConfig config = MakeSessionConfig();
   eos_session::EosSession session = eos_session::EosSession::Create(config);
 
-  session.ApplyRuntimeConfig(
-      eos_config::EosRuntimeConfigBuilder().WithFrameRateHz(0.0f).Build());
+  EXPECT_FALSE(session.TryApplyRuntimeConfig(
+      eos_config::EosRuntimeConfigBuilder().WithFrameRateHz(0.0f).Build()));
 
   // Invalid patch rejected; rate remains 5.0, dt=0.1 → advance=0.5, scan_az = -10 + 0.5 = -9.5
   const eos_session::EosCycleResult result =

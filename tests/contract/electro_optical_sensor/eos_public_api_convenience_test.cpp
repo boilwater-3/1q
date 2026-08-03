@@ -373,7 +373,6 @@ TEST(EosPublicApiConvenienceTest, EosSessionStepWithResultAggregatesOutputAndVal
 
   EXPECT_FALSE(result.has_validation_error);
   EXPECT_TRUE(result.executed_this_cycle);
-  EXPECT_FALSE(result.reused_previous_output);
   EXPECT_TRUE(result.validation_issues.empty());
   EXPECT_EQ(result.output_frame.cycle_index, 1U);
 }
@@ -392,7 +391,6 @@ TEST(EosPublicApiConvenienceTest, EosSessionStepWithResultSurfacesValidationErro
 
   EXPECT_TRUE(result.has_validation_error);
   EXPECT_FALSE(result.executed_this_cycle);
-  EXPECT_FALSE(result.reused_previous_output);
   EXPECT_TRUE(ContainsEosIssueCode(result.validation_issues,
                                    session::ValidationCode::kNonFiniteCycleDeltaTime));
 }
@@ -410,7 +408,7 @@ TEST(EosPublicApiConvenienceTest, EosSessionAppliesRuntimeConfigPatch) {
                                                   .WithHoodMinSuppressionRatio(0.35f)
                                                   .WithHoodMaxSuppressionRatio(0.95f)
                                                   .Build();
-  session.ApplyRuntimeConfig(patch);
+  (void)session.TryApplyRuntimeConfig(patch);
 
   ::electro_optical_sensor::session::EosCycleInput input;
   input.dt_sec = 0.1f;
@@ -418,7 +416,6 @@ TEST(EosPublicApiConvenienceTest, EosSessionAppliesRuntimeConfigPatch) {
 
   const ::electro_optical_sensor::session::EosCycleResult result = session.StepWithResult(input);
   EXPECT_TRUE(result.executed_this_cycle);
-  EXPECT_FALSE(result.reused_previous_output);
   EXPECT_EQ(result.output_frame.cycle_index, 0U);
 }
 
@@ -433,15 +430,14 @@ TEST(EosPublicApiConvenienceTest, EosSessionReportsPoweredOffWithoutContractViol
       session.StepWithResult(input);
   ASSERT_TRUE(active.executed_this_cycle);
 
-  session.ApplyRuntimeConfig(config::EosRuntimeConfigBuilder().WithSensorEnabled(false).Build());
+  (void)session.TryApplyRuntimeConfig(config::EosRuntimeConfigBuilder().WithSensorEnabled(false).Build());
   ++input.cycle_index;
   const ::electro_optical_sensor::session::EosCycleResult powered_off =
       session.StepWithResult(input);
 
   EXPECT_FALSE(powered_off.executed_this_cycle);
-  EXPECT_TRUE(powered_off.reused_previous_output);
   EXPECT_EQ(powered_off.abort_reason, session::EosPipelineAbortReason::kSensorPoweredOff);
-  EXPECT_EQ(powered_off.output_frame.cycle_index, active.output_frame.cycle_index);
+  EXPECT_EQ(powered_off.output_frame.cycle_index, 0U);
 }
 
 TEST(EosPublicApiConvenienceTest, EosSessionMultiCycleProducesProgressiveCycleIndices) {
@@ -510,6 +506,39 @@ TEST(EosPublicApiConvenienceTest, CreateWithDiagnosticsAcceptsNullIssuesWithoutC
 
   const session::EosSession session = session::EosSession::CreateWithDiagnostics(invalid, nullptr);
   (void)session;  // nullptr 时仅构造，不写回 issues
+}
+
+// EOS 非执行周期返回默认空帧（不复用上一有效输出）。guard 锁定该边界。
+TEST(EosPublicApiConvenienceTest, StepReturnsEmptyFrameOnValidationFailureAfterSuccess) {
+  config::EosSessionConfig config;
+  config.mission.scan_start_az_deg = -20.0f;
+  config.mission.scan_end_az_deg = 20.0f;
+  config.policy.detection.minimum_snr_db = 4.5f;
+  config.policy.detection.detection_sensitivity_w = 0.8e-12f;
+  config.policy.detection.visible_reference_irradiance_w_m2 = 700.0f;
+
+  session::EosSession session = session::EosSession::Create(config);
+
+  ::electro_optical_sensor::session::EosCycleInput valid_input;
+  valid_input.cycle_index = 7U;
+  valid_input.dt_sec = 0.1f;
+  valid_input.scene.push_back(MakeTarget(503U, 1500.0f, 0.0f, 0.0f, 350.0f, 0.9f, 0.1f, 3.0f));
+  ASSERT_TRUE(session.StepWithResult(valid_input).executed_this_cycle);
+
+  // 校验失败：dt_sec 非有限。
+  ::electro_optical_sensor::session::EosCycleInput invalid_input;
+  invalid_input.cycle_index = 8U;
+  invalid_input.dt_sec = std::numeric_limits<float>::quiet_NaN();
+
+  const ::electro_optical_sensor::session::EosCycleResult failed_result =
+      session.StepWithResult(invalid_input);
+  EXPECT_FALSE(failed_result.executed_this_cycle);
+  EXPECT_EQ(failed_result.output_frame.cycle_index, 0U);
+
+  // Step() 与 StepWithResult().output_frame 一致，均为空帧。
+  const session::EosOutputFrame step_frame = session.Step(invalid_input);
+  EXPECT_EQ(step_frame.cycle_index, 0U);
+  EXPECT_EQ(step_frame.cycle_index, failed_result.output_frame.cycle_index);
 }
 
 }  // namespace tests

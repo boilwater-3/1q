@@ -24,7 +24,7 @@ EOS 遵守 `docs/common/contract.md`：
    最终决定（档位在前、微调在后时微调胜出）。
 3. EOS 输出遵守三层模型：系统输出、结构化结果、调试视图分离。
 4. `EosSession::StepWithResult` 在执行 pipeline 前调用 `ValidateEosCycleInput`；存在 error 级问题时
-   不执行 pipeline、复用上一有效输出并记录校验失败状态（符合 contract.md §实现安全与失败语义规则 3）。
+   不执行 pipeline、返回默认空帧并记录校验失败状态（符合 contract.md §实现安全与失败语义规则 3）。
 5. EOS runtime config 属于先完整校验、后一次提交的原子语义；`EosRuntimeConfigResolver` 解析 patch，
    失败时不替换当前配置。
 
@@ -64,10 +64,9 @@ EOS 遵守 `docs/common/contract.md`：
 
 无效输入不会直接污染 pipeline 状态：
 
-1. 首个周期输入无效时，不合成虚假的最新输出。
-2. 已有成功周期后再遇到无效输入，可以复用最近有效输出，同时在 result 中记录校验失败状态。
-3. 设备关机返回 `kSensorPoweredOff` 合法非执行状态；controller 保留最近有效输出并设置
-   `reused_previous_output`，不得把关机映射为 `kOutputContractViolation`。
+1. 首个周期输入无效时，返回默认空帧（`cycle_index=0`、空检测）。
+2. 已有成功周期后再遇到无效输入，返回默认空帧（不复用），同时在 result 中记录校验失败状态。
+3. 设备关机返回 `kSensorPoweredOff` 合法非执行状态；返回默认空帧，不得把关机映射为 `kOutputContractViolation`。
 4. runtime patch 必须原子校验；任一字段无效时整个 patch 被拒绝。
 5. **电源状态单源（COMMON-OQ-4 字段提升）**：`EosSessionConfig::sensor_enabled` 是唯一来源，整块
    mission patch 只更新扫描任务，不触碰电源；`has_sensor_enabled` 叶子是运行期电源唯一入口。
@@ -86,6 +85,14 @@ pipeline，故正常 Session 路径不会把非法 `range_m` 传入 pipeline。p
 [evidence: tests/unit/electro_optical_sensor/eos_controller_runtime_state_test]
 [evidence: tests/contract/electro_optical_sensor/eos_public_api_convenience_test]
 [evidence: tests/replay/electro_optical_sensor/eos_replay_session_test]
+
+### 非执行周期统一不复用（五模块统一规则）
+
+EOS 非执行周期（校验失败/关机/执行 abort）的 `Step()` 与 `EosCycleResult.output_frame` 一律返回**默认空帧**
+（`cycle_index=0`、空检测），**永不复用**上一有效输出。调用方用 `StepWithResult().executed_this_cycle` /
+`abort_reason` 判断周期状态。`reused_previous_output` 字段已删除。
+
+[evidence: tests/contract/electro_optical_sensor/eos_public_api_convenience_test.cpp::StepReturnsEmptyFrameOnValidationFailureAfterSuccess]
 
 ## 专项序列验证边界
 

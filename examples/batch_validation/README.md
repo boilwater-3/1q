@@ -115,7 +115,7 @@ python3 examples/batch_validation/analyze_batch_results.py
 `batch_validation::MakeReplayWriter` 创建的 `ReplayTraceWriter`：
 
 - `TraceSession` 内部在构造时自动写 `session_config`，每次 `StepWithResult` 自动写
-  `cycle_input` + `cycle_output`，`ApplyRuntimeConfig` 时写 `runtime_config_patch`，
+  `cycle_input` + `cycle_output`，`TryApplyRuntimeConfig` 时写 `runtime_config_patch`，
   校验失败时写 `failure_marker`。无需手动 `WriteEvent`。
 - 回放前必须 `replay_writer->Flush()`，且建议 writer 先析构（文件句柄释放）。
 - 每个场景用独立 `trace_dir` + 唯一 manifest；`manifest.module` 必须精确等于模块

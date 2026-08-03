@@ -255,7 +255,7 @@ sar_session::SarCycleInput MakeCycleInput(std::uint32_t cycle_index,
 // =============================================================================
 
 constexpr const char* kCycleHeader =
-    "scenario_id,suite,scenario_family,phase,cycle_index,executed_this_cycle,has_error,reused_previous_output,abort_reason,"
+    "scenario_id,suite,scenario_family,phase,cycle_index,executed_this_cycle,has_error,abort_reason,"
     "completed_stage,has_raw_echo,has_range_compressed_echo,has_l1_image,has_l3_bp_image,"
     "estimated_snr_db,center_slant_range_m,range_sample_count,azimuth_pulse_count,"
     "image_entropy_nats,image_contrast,range_resolution_3db_m,azimuth_resolution_3db_m,"
@@ -277,7 +277,6 @@ struct CycleMetrics {
   std::uint32_t cycle_index{0};
   bool executed{false};
   bool has_error{false};
-  bool reused{false};
   std::string abort_reason;
   int completed_stage{0};
   bool has_raw_echo{false};
@@ -307,7 +306,6 @@ CycleMetrics ExtractCycleMetrics(const sar_session::SarCycleResult& r) {
   m.cycle_index = r.input_cycle_index;
   m.executed = r.executed_this_cycle;
   m.has_error = r.has_error;
-  m.reused = r.reused_previous_output;
   m.abort_reason = r.abort_reason;
   const auto& f = r.output_frame;
   m.completed_stage = static_cast<int>(f.completed_stage);
@@ -407,7 +405,7 @@ ScenarioSummary RunSarScenario(const SarCase& c, const sar_config::SarSessionCon
         sar_config::SarRuntimeConfigPatch patch;
         patch.has_enable_l1_rda_imaging = true;
         patch.enable_l1_rda_imaging = cycle_index == 4U;
-        session.ApplyRuntimeConfig(patch);
+        (void)session.TryApplyRuntimeConfig(patch);
       }
       if (c.scenario_id == "sar_seq_invalid_runtime_atomic" && cycle_index == 2U) {
         sar_config::SarRuntimeConfigPatch patch;
@@ -422,7 +420,7 @@ ScenarioSummary RunSarScenario(const SarCase& c, const sar_config::SarSessionCon
         patch.enable_raw_echo_generation = true;
         patch.has_enable_l1_rda_imaging = true;
         patch.enable_l1_rda_imaging = true;
-        session.ApplyRuntimeConfig(patch);
+        (void)session.TryApplyRuntimeConfig(patch);
       }
       sar_session::SarCycleInput input = MakeCycleInput(cycle_index, config.mission, &c);
       const sar_session::SarCycleResult result = session.StepWithResult(input);
@@ -430,11 +428,11 @@ ScenarioSummary RunSarScenario(const SarCase& c, const sar_config::SarSessionCon
       metrics.push_back(m);
 
       std::fprintf(cycle_writer.file(),
-                 "%s,%s,%s,%s,%u,%d,%d,%d,%s,%d,%d,%d,%d,%d,%.5f,%.3f,%u,%u,%.5f,%.5f,%.5f,"
+                 "%s,%s,%s,%s,%u,%d,%d,%s,%d,%d,%d,%d,%d,%.5f,%.3f,%u,%u,%.5f,%.5f,%.5f,"
                  "%.5f,%.5f,%.5f,%d,%d,%zu,%zu,%u,%u\n",
                  c.scenario_id.c_str(), c.sequence ? "sequence" : "sweep", c.family.c_str(),
                  phase, m.cycle_index, static_cast<int>(m.executed),
-                 static_cast<int>(m.has_error), static_cast<int>(m.reused),
+                 static_cast<int>(m.has_error),
                  batch_validation::EscapeCsvField(m.abort_reason).c_str(), m.completed_stage,
                  static_cast<int>(m.has_raw_echo), static_cast<int>(m.has_rc_echo),
                  static_cast<int>(m.has_l1), static_cast<int>(m.has_l3), m.snr_db,

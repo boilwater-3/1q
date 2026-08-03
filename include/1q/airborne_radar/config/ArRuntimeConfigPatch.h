@@ -38,7 +38,7 @@ struct ONEQ_API EnvironmentRuntimeConfigPatch {
  * @brief ArRuntimeConfigPatch 描述运行期可变参数补丁。
  *
  * @note "可外部调整"定义：调用方可在不重建 `ArSession` 的前提下，
- * 通过 `ArSession::ApplyRuntimeConfig(...)` 暂存修改，并在下一次成功周期
+ * 通过 `ArSession::TryApplyRuntimeConfig(...)` 暂存修改，并在下一次成功周期
  * 提交前统一生效。
  *
  * 支持两类运行期更新：

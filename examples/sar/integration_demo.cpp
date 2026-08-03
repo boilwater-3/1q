@@ -525,7 +525,6 @@ int main() {
             << final_result.output_frame.estimated_snr_db << " dB\n"
             << "  诊断数: " << final_result.diagnostics.size() << "\n"
             << "  执行: " << (final_result.executed_this_cycle ? "Y" : "N")
-            << " 复用: " << (final_result.reused_previous_output ? "Y" : "N")
             << " 错误: " << (final_result.has_error ? "Y" : "N") << "\n";
   if (final_result.has_error) {
     std::cout << "  中止原因: " << final_result.abort_reason << "\n";
@@ -567,7 +566,6 @@ int main() {
             << "  输入周期: " << debug_view.input_cycle_index << "\n"
             << "  输出周期: " << debug_view.output_cycle_index << "\n"
             << "  执行: " << (debug_view.executed_this_cycle ? "Y" : "N")
-            << " 复用: " << (debug_view.reused_previous_output ? "Y" : "N")
             << " 错误: " << (debug_view.has_error ? "Y" : "N") << "\n"
             << "  完成阶段: " << StageName(debug_view.completed_stage) << "\n"
             << "  原始回波: " << (debug_view.has_raw_echo ? "Y" : "N") << "\n"

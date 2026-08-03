@@ -28,7 +28,6 @@ struct EosController::Impl {
 
   void ResetPerCycleFlags() {
     last_cycle_executed = false;
-    last_cycle_reused_previous_output = false;
     last_abort_reason = session::EosPipelineAbortReason::kNone;
   }
 
@@ -39,7 +38,6 @@ struct EosController::Impl {
   bool has_latest_output{false};
   bool has_validation_error{false};
   bool last_cycle_executed{false};
-  bool last_cycle_reused_previous_output{false};
   session::EosPipelineAbortReason last_abort_reason{session::EosPipelineAbortReason::kNone};
 };
 
@@ -61,10 +59,6 @@ bool IsEosExecuteResultContractValid(
 }  // namespace
 
 void EosController::RunOnce(const ::electro_optical_sensor::session::EosCycleInput& input) {
-  const session::EosOutputFrame previous_output = impl_->latest_output;
-  const attribution::EosDetectionAttributionRecordList previous_attributions =
-      impl_->latest_detection_attributions;
-  const bool had_previous_output = impl_->has_latest_output;
   const extension::EosPipelineRuntimeState previous_pipeline_state =
       impl_->pipeline.CaptureRuntimeState();
   impl_->ResetPerCycleFlags();
@@ -76,13 +70,7 @@ void EosController::RunOnce(const ::electro_optical_sensor::session::EosCycleInp
 
   if (impl_->has_validation_error) {
     impl_->last_abort_reason = session::EosPipelineAbortReason::kValidationRejected;
-    impl_->last_cycle_reused_previous_output = had_previous_output;
-    impl_->latest_output = previous_output;
-    impl_->latest_detection_attributions = previous_attributions;
-    impl_->has_latest_output = had_previous_output;
     PROJECT_LOG_WARN("EOS validation rejected for cycle_index={}", input.cycle_index);
-    PROJECT_LOG_DEBUG("[EosController] cycle_index={} reused_previous={}", input.cycle_index,
-                      had_previous_output);
     return;
   }
 
@@ -90,11 +78,7 @@ void EosController::RunOnce(const ::electro_optical_sensor::session::EosCycleInp
 
   if (!execute_result.executed_this_cycle &&
       execute_result.abort_reason == session::EosPipelineAbortReason::kSensorPoweredOff) {
-    impl_->latest_output = previous_output;
-    impl_->latest_detection_attributions = previous_attributions;
-    impl_->has_latest_output = had_previous_output;
     impl_->last_cycle_executed = false;
-    impl_->last_cycle_reused_previous_output = had_previous_output;
     impl_->last_abort_reason = session::EosPipelineAbortReason::kSensorPoweredOff;
     return;
   }
@@ -106,16 +90,11 @@ void EosController::RunOnce(const ::electro_optical_sensor::session::EosCycleInp
       impl_->latest_detection_attributions.clear();
       impl_->has_latest_output = false;
       impl_->last_cycle_executed = false;
-      impl_->last_cycle_reused_previous_output = false;
       impl_->last_abort_reason = session::EosPipelineAbortReason::kRuntimeStateRestoreRejected;
       PROJECT_LOG_ERROR("EOS pipeline rollback failed for cycle_index={}", input.cycle_index);
       return;
     }
-    impl_->latest_output = previous_output;
-    impl_->latest_detection_attributions = previous_attributions;
-    impl_->has_latest_output = had_previous_output;
     impl_->last_cycle_executed = false;
-    impl_->last_cycle_reused_previous_output = had_previous_output;
     impl_->last_abort_reason =
         execute_result.abort_reason == session::EosPipelineAbortReason::kNone
             ? session::EosPipelineAbortReason::kOutputContractViolation
@@ -135,12 +114,6 @@ void EosController::RunOnce(const ::electro_optical_sensor::session::EosCycleInp
                     assembled_frame.detections.size());
 }
 
-bool EosController::HasLatestDetectionOutputFrame() const { return impl_->has_latest_output; }
-
-const session::EosOutputFrame& EosController::GetLatestDetectionOutputFrame() const {
-  return impl_->latest_output;
-}
-
 const session::ValidationIssueList& EosController::GetLastValidationIssues() const {
   return impl_->last_validation_issues;
 }
@@ -148,10 +121,6 @@ const session::ValidationIssueList& EosController::GetLastValidationIssues() con
 bool EosController::HasValidationError() const { return impl_->has_validation_error; }
 
 bool EosController::ExecutedLatestCycle() const { return impl_->last_cycle_executed; }
-
-bool EosController::ReusedPreviousDetectionOutputLatestCycle() const {
-  return impl_->last_cycle_reused_previous_output;
-}
 
 session::EosPipelineAbortReason EosController::GetLastDetectionCycleAbortReason() const {
   return impl_->last_abort_reason;
@@ -164,14 +133,10 @@ session::EosPipelineAbortReason EosController::GetLastDetectionCycleAbortReason(
   result.validation_issues = impl_->last_validation_issues;
   result.has_validation_error = impl_->has_validation_error;
   result.executed_this_cycle = impl_->last_cycle_executed;
-  result.reused_previous_output = impl_->last_cycle_reused_previous_output;
   result.abort_reason = impl_->last_abort_reason;
-  if (impl_->has_latest_output) {
+  if (impl_->last_cycle_executed && impl_->has_latest_output) {
     result.output_frame = impl_->latest_output;
     result.detection_attributions = impl_->latest_detection_attributions;
-  } else {
-    result.output_frame.cycle_index = input.cycle_index;
-    result.detection_attributions.clear();
   }
   return result;
 }
@@ -186,7 +151,6 @@ extension::EosControllerRuntimeState EosController::CaptureRuntimeState() const 
   state.has_latest_output = impl_->has_latest_output;
   state.has_validation_error = impl_->has_validation_error;
   state.last_cycle_executed = impl_->last_cycle_executed;
-  state.last_cycle_reused_previous_output = impl_->last_cycle_reused_previous_output;
   state.last_abort_reason = impl_->last_abort_reason;
   state.pipeline_state = impl_->pipeline.CaptureRuntimeState();
   return state;
@@ -205,7 +169,6 @@ bool EosController::RestoreRuntimeState(const extension::EosControllerRuntimeSta
   impl_->has_latest_output = state.has_latest_output;
   impl_->has_validation_error = state.has_validation_error;
   impl_->last_cycle_executed = state.last_cycle_executed;
-  impl_->last_cycle_reused_previous_output = state.last_cycle_reused_previous_output;
   impl_->last_abort_reason = state.last_abort_reason;
   return true;
 }

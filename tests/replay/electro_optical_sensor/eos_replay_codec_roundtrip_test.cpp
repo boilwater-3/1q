@@ -185,7 +185,6 @@ TEST(EosReplayCodecRoundtripTest, CycleResultPreservesAllFields) {
 
   result.has_validation_error = true;
   result.executed_this_cycle = true;
-  result.reused_previous_output = false;
   result.abort_reason = session::EosPipelineAbortReason::kValidationRejected;
 
   const std::string bytes = EncodeEosCycleResult(result);
@@ -209,7 +208,6 @@ TEST(EosReplayCodecRoundtripTest, CycleResultPreservesAllFields) {
   EXPECT_EQ(decoded.detection_attributions[0].target_name, "eos-result-target");
   EXPECT_TRUE(decoded.has_validation_error);
   EXPECT_TRUE(decoded.executed_this_cycle);
-  EXPECT_FALSE(decoded.reused_previous_output);
   EXPECT_EQ(decoded.abort_reason, session::EosPipelineAbortReason::kValidationRejected);
 }
 

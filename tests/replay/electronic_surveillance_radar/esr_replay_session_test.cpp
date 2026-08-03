@@ -158,13 +158,13 @@ TEST(EsrReplaySessionTest,
   invalid_policy.policy = config.policy;
   invalid_policy.policy.detection.pfa = 0.0f;
   const EsrRuntimeConfigApplyResult rejected =
-      session.ApplyRuntimeConfig(invalid_policy);
+      session.TryApplyRuntimeConfig(invalid_policy);
   ASSERT_FALSE(rejected.applied);
   ASSERT_EQ(rejected.status,
             EsrRuntimeConfigApplyStatus::kRejectedInvalidPolicy);
 
   ASSERT_TRUE(session
-                  .ApplyRuntimeConfig(
+                  .TryApplyRuntimeConfig(
                       config::EsrRuntimeConfigBuilder()
                           .WithSensorEnabled(false)
                           .Build())
@@ -174,7 +174,7 @@ TEST(EsrReplaySessionTest,
   ASSERT_EQ(powered_off.status, EsrCycleExecutionStatus::kPoweredOff);
 
   ASSERT_TRUE(session
-                  .ApplyRuntimeConfig(
+                  .TryApplyRuntimeConfig(
                       config::EsrRuntimeConfigBuilder()
                           .WithSensorEnabled(true)
                           .Build())

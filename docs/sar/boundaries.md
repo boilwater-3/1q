@@ -23,11 +23,19 @@ SAR 遵守 `docs/common/contract.md`：
    再设场景数据"。
 3. SAR 输出遵守三层模型：系统输出、结构化结果、调试视图分离。
 4. `SarSession::StepWithResult` 在运行期配置和成像链路前调用 `ValidateSarCycleInput`；存在 error 级
-   问题时记录 `invalid_cycle_input` abort 并按既有语义复用上一帧（符合 contract.md
+   问题时记录 `invalid_cycle_input` abort，返回默认空帧（不复用上一有效输出，符合 contract.md
    §实现安全与失败语义规则 3）。
 5. SAR runtime config 属于立即提交；`SarController` 在每次 pipeline 执行前捕获 raw pulse、trajectory、
-   pulse ID 和 PRF 分数余量，执行 abort 时恢复这些跨周期状态并按需复用上一有效输出。配置不随执行
-   失败回滚，执行状态也不得被失败周期污染。
+   pulse ID 和 PRF 分数余量，执行 abort 时恢复这些跨周期状态。配置不随执行失败回滚，
+   执行状态也不得被失败周期污染。
+
+### 非执行周期统一不复用（五模块统一规则）
+
+SAR 非执行周期（校验失败/执行 abort）的 `Step()` 与 `SarCycleResult.output_frame` 一律返回**默认空帧**
+（`cycle_index=0`、空载荷），**永不复用**上一有效输出。调用方用 `StepWithResult().executed_this_cycle` /
+`abort_reason` 判断周期状态。`reused_previous_output` 字段已删除。
+
+[evidence: tests/contract/sar/sar_public_api_convenience_test.cpp::StepReturnsEmptyFrameOnValidationFailureAfterSuccess]
 
 ## dt_sec 校验边界（反直觉，勿按"四模块一致"补齐）
 

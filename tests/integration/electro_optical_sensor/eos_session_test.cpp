@@ -346,7 +346,7 @@ TEST(EosSessionIntegrationTest, RuntimeConfigWorkModeSwitchTakesEffectImmediatel
   const config::EosRuntimeConfigPatch patch = eos_config::EosRuntimeConfigBuilder()
                                                   .WithWorkMode(config::EosWorkMode::kInfraredOnly)
                                                   .Build();
-  session.ApplyRuntimeConfig(patch);
+  (void)session.TryApplyRuntimeConfig(patch);
 
   ::electro_optical_sensor::session::EosCycleInput input_2 = MakeBaseInput();
   input_2.cycle_index = 2U;
@@ -364,7 +364,7 @@ TEST(EosSessionIntegrationTest, RuntimeConfigScanRateChangeUpdatesAdvance) {
 
   const config::EosRuntimeConfigPatch patch =
       eos_config::EosRuntimeConfigBuilder().WithScanRateDegPerSec(97.0f).Build();
-  session.ApplyRuntimeConfig(patch);
+  (void)session.TryApplyRuntimeConfig(patch);
 
   ::electro_optical_sensor::session::EosCycleInput input_2 = MakeBaseInput();
   input_2.cycle_index = 2U;
@@ -398,7 +398,7 @@ TEST(EosSessionIntegrationTest, RuntimeConfigSnrThresholdFiltersWeakTargets) {
                                                   .WithDetectionSensitivityW(2.0e-12f)
                                                   .WithVisibleReferenceIrradianceWM2(1000.0f)
                                                   .Build();
-  session.ApplyRuntimeConfig(patch);
+  (void)session.TryApplyRuntimeConfig(patch);
 
   ::electro_optical_sensor::session::EosCycleInput input_2 = input;
   input_2.cycle_index = 2U;
@@ -438,9 +438,8 @@ TEST(EosSessionIntegrationTest, ValidationFailureReturnsEmptyFrameAndStillAdvanc
       session.StepWithResult(invalid_input);
   EXPECT_TRUE(invalid_result.has_validation_error);
   EXPECT_FALSE(invalid_result.executed_this_cycle);
-  EXPECT_FALSE(invalid_result.reused_previous_output);
   EXPECT_TRUE(invalid_result.output_frame.detections.empty());
-  EXPECT_EQ(invalid_result.output_frame.cycle_index, invalid_input.cycle_index);
+  EXPECT_EQ(invalid_result.output_frame.cycle_index, 0U);
 
   ::electro_optical_sensor::session::EosCycleInput valid_input = MakeBaseInput();
   valid_input.cycle_index = 2U;
@@ -448,7 +447,6 @@ TEST(EosSessionIntegrationTest, ValidationFailureReturnsEmptyFrameAndStillAdvanc
       session.StepWithResult(valid_input);
   EXPECT_FALSE(valid_result.has_validation_error);
   EXPECT_TRUE(valid_result.executed_this_cycle);
-  EXPECT_FALSE(valid_result.reused_previous_output);
   EXPECT_EQ(valid_result.output_frame.cycle_index, 2U);
 
   ::electro_optical_sensor::session::EosCycleInput invalid_after_valid = MakeBaseInput();
@@ -458,35 +456,25 @@ TEST(EosSessionIntegrationTest, ValidationFailureReturnsEmptyFrameAndStillAdvanc
       session.StepWithResult(invalid_after_valid);
   EXPECT_TRUE(invalid_after_valid_result.has_validation_error);
   EXPECT_FALSE(invalid_after_valid_result.executed_this_cycle);
-  EXPECT_TRUE(invalid_after_valid_result.reused_previous_output);
-  EXPECT_EQ(invalid_after_valid_result.output_frame.cycle_index,
-            valid_result.output_frame.cycle_index);
-  EXPECT_EQ(invalid_after_valid_result.output_frame.detections.size(),
-            valid_result.output_frame.detections.size());
+  EXPECT_EQ(invalid_after_valid_result.output_frame.cycle_index, 0U);
+  EXPECT_TRUE(invalid_after_valid_result.output_frame.detections.empty());
 }
 
-TEST(EosSessionIntegrationTest, StepReusesPreviousOutputWhenValidationFailsAfterSuccessfulCycle) {
+TEST(EosSessionIntegrationTest, StepReturnsEmptyFrameWhenValidationFailsAfterSuccessfulCycle) {
   EosSession session = EosSession::Create(MakeSessionConfig());
 
   ::electro_optical_sensor::session::EosCycleInput valid_input = MakeBaseInput();
   valid_input.cycle_index = 10U;
   const session::EosOutputFrame valid_frame = session.Step(valid_input);
+  EXPECT_FALSE(valid_frame.detections.empty());
 
   ::electro_optical_sensor::session::EosCycleInput invalid_input = MakeBaseInput();
   invalid_input.cycle_index = 11U;
   invalid_input.dt_sec = 0.0f;
   const session::EosOutputFrame invalid_frame = session.Step(invalid_input);
 
-  EXPECT_EQ(invalid_frame.cycle_index, valid_frame.cycle_index);
-  EXPECT_EQ(invalid_frame.detections.size(), valid_frame.detections.size());
-  if (!valid_frame.detections.empty() && !invalid_frame.detections.empty()) {
-    // 去真值化后，detection 的稳定标识是 detection_id（传感器探测语义），
-    // target_id 已移入 attribution 层。复用帧时 front detection 的 detection_id 应一致。
-    EXPECT_EQ(invalid_frame.detections.front().detection_id,
-              valid_frame.detections.front().detection_id);
-    EXPECT_FLOAT_EQ(invalid_frame.detections.front().fused_snr_linear,
-                    valid_frame.detections.front().fused_snr_linear);
-  }
+  EXPECT_EQ(invalid_frame.cycle_index, 0U);
+  EXPECT_TRUE(invalid_frame.detections.empty());
 }
 
 TEST(EosSessionIntegrationTest, StraylightFilterReducesOffAxisTargetSnr) {
@@ -579,7 +567,7 @@ TEST(EosSessionIntegrationTest, RuntimeConfigStraylightToggleWorks) {
                                                   .WithHoodMinSuppressionRatio(0.35f)
                                                   .WithHoodMaxSuppressionRatio(0.95f)
                                                   .Build();
-  session.ApplyRuntimeConfig(patch);
+  (void)session.TryApplyRuntimeConfig(patch);
 
   ::electro_optical_sensor::session::EosCycleInput input_2 = MakeBaseInput();
   input_2.cycle_index = 2U;
@@ -612,7 +600,7 @@ TEST(EosSessionIntegrationTest, RuntimeEnvironmentPresetChangeTakesEffect) {
 
   const config::EosRuntimeConfigPatch patch =
       eos_config::EosRuntimeConfigBuilder().WithEnvironmentScenarioConfig(env_config).Build();
-  session.ApplyRuntimeConfig(patch);
+  (void)session.TryApplyRuntimeConfig(patch);
 
   ::electro_optical_sensor::session::EosCycleInput input_2 = MakeBaseInput();
   input_2.cycle_index = 2U;

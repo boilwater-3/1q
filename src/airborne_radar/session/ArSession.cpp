@@ -809,10 +809,6 @@ session::AssociationQualityMetrics ArSession::GetLastAssociationQualityMetrics()
   return impl_->SignalPipeline().GetLastAssociationQualityMetrics();
 }
 
-void ArSession::ApplyRuntimeConfig(const config::ArRuntimeConfigPatch& patch) {
-  (void)TryApplyRuntimeConfig(patch);
-}
-
 bool ArSession::TryApplyRuntimeConfig(const config::ArRuntimeConfigPatch& patch) {
   // 事务性提交类（见 docs/common/contract.md「运行期配置提交策略」）：本方法只写入
   // pending_runtime_state，不触碰 runtime_state；配置延迟到下个 StepWithResult 边界

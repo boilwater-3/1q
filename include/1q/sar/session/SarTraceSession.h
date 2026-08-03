@@ -72,10 +72,11 @@ class ONEQ_API SarTraceSession {
    */
   SarOutputFrame Step(const SarCycleInput& input);
   /**
-   * @brief 应用运行期可变配置补丁（透传至内部 SarSession）。
+   * @brief 尝试应用运行期可变配置补丁（透传至内部 SarSession）。
    * @param[in] patch 运行期配置补丁。
+   * @return 补丁成功应用时返回 true；补丁无效或被拒绝时返回 false。
    */
-  void ApplyRuntimeConfig(const config::SarRuntimeConfigPatch& patch);
+  bool TryApplyRuntimeConfig(const config::SarRuntimeConfigPatch& patch);
 
   /**
    * @brief 访问内部 SarSession 引用。

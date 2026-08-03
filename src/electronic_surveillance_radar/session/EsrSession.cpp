@@ -105,10 +105,6 @@ EsrCycleResult EsrSession::StepWithResult(const session::EsrCycleInput& input) {
   return impl_->RunCycle(input);
 }
 
-void EsrSession::ApplyRuntimeConfig(const config::EsrRuntimeConfigPatch& patch) {
-  (void)ApplyRuntimeConfigWithResult(patch);
-}
-
 bool EsrSession::TryApplyRuntimeConfig(const config::EsrRuntimeConfigPatch& patch) {
   return ApplyRuntimeConfigWithResult(patch).applied;
 }

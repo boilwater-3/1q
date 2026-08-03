@@ -159,7 +159,7 @@ EsrCycleResult EsrTraceSession::StepWithResult(const EsrCycleInput& input) {
   return result;
 }
 
-EsrRuntimeConfigApplyResult EsrTraceSession::ApplyRuntimeConfig(
+EsrRuntimeConfigApplyResult EsrTraceSession::TryApplyRuntimeConfig(
     const config::EsrRuntimeConfigPatch& patch) {
   const EsrRuntimeConfigApplyResult result =
       impl_->session.ApplyRuntimeConfigWithResult(patch);

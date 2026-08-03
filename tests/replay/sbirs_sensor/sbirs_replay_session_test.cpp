@@ -166,7 +166,7 @@ TEST(SbirsReplaySessionTest, ReplaySbirsTraceRoundtrip) {
 
     const sbirs_sensor::config::SbirsRuntimeConfigPatch patch =
         sbirs_sensor::config::SbirsRuntimeConfigBuilder().WithScanRateDegPerSec(1.0f).Build();
-    session.ApplyRuntimeConfig(patch);
+    (void)session.TryApplyRuntimeConfig(patch);
     const sbirs_sensor::session::SbirsCycleResult result = session.StepWithResult(ValidInput(1U));
     EXPECT_TRUE(result.executed_this_cycle);
     ASSERT_EQ(result.output_frame.detections.size(), 1U);
@@ -212,7 +212,7 @@ TEST(SbirsReplaySessionTest, ReplayPreservesTruthModesAndRuntimeTransitions) {
 
     config.policy.tracking.tracking_mode =
         sbirs_sensor::config::SbirsTrackingMode::kSensorLikeTruthAssisted;
-    session.ApplyRuntimeConfig(
+    (void)session.TryApplyRuntimeConfig(
         sbirs_sensor::config::SbirsRuntimeConfigBuilder().WithPolicy(config.policy).Build());
     const auto sensor_like = session.StepWithResult(ValidInput(2U));
     ASSERT_EQ(sensor_like.detection_attributions.size(), 1U);
@@ -221,7 +221,7 @@ TEST(SbirsReplaySessionTest, ReplayPreservesTruthModesAndRuntimeTransitions) {
 
     config.policy.tracking.tracking_mode =
         sbirs_sensor::config::SbirsTrackingMode::kEstimated;
-    session.ApplyRuntimeConfig(
+    (void)session.TryApplyRuntimeConfig(
         sbirs_sensor::config::SbirsRuntimeConfigBuilder().WithPolicy(config.policy).Build());
     const auto estimated = session.StepWithResult(ValidInput(3U));
     ASSERT_EQ(estimated.detection_attributions.size(), 1U);
@@ -410,7 +410,7 @@ TEST(SbirsReplaySessionTest, ReplayPreservesMultiCycleSlewAndRuntimeMissionPatch
     EXPECT_EQ(slewing.detection_attributions.front().nfov_channel_id, 0);
 
     config.mission.narrow_pointing_max_slew_rate_deg_per_sec = 20.0f;
-    session.ApplyRuntimeConfig(
+    (void)session.TryApplyRuntimeConfig(
         sbirs_sensor::config::SbirsRuntimeConfigBuilder().WithMission(config.mission).Build());
     const sbirs_sensor::session::SbirsCycleResult acquired =
         session.StepWithResult(PointingInput(2U, 0.0));
@@ -483,11 +483,11 @@ TEST(SbirsReplaySessionTest, ReplayPreservesChannelShrinkAndWideSearchRoundTrip)
     session.StepWithResult(ImmMultiTargetInput(1U));
 
     config.policy.scheduler.max_concurrent_nfov_locks = 1;
-    session.ApplyRuntimeConfig(
+    (void)session.TryApplyRuntimeConfig(
         sbirs_sensor::config::SbirsRuntimeConfigBuilder().WithPolicy(config.policy).Build());
     session.StepWithResult(ImmMultiTargetInput(2U));
 
-    session.ApplyRuntimeConfig(sbirs_sensor::config::SbirsRuntimeConfigBuilder()
+    (void)session.TryApplyRuntimeConfig(sbirs_sensor::config::SbirsRuntimeConfigBuilder()
                                    .WithWorkMode(sbirs_sensor::config::SbirsWorkMode::kWideSearch)
                                    .Build());
     const auto wide = session.StepWithResult(ImmMultiTargetInput(3U));
@@ -495,7 +495,7 @@ TEST(SbirsReplaySessionTest, ReplayPreservesChannelShrinkAndWideSearchRoundTrip)
       EXPECT_EQ(attribution.nfov_channel_id, -1);
     }
 
-    session.ApplyRuntimeConfig(
+    (void)session.TryApplyRuntimeConfig(
         sbirs_sensor::config::SbirsRuntimeConfigBuilder()
             .WithWorkMode(sbirs_sensor::config::SbirsWorkMode::kSearchAndStare)
             .Build());
@@ -574,7 +574,7 @@ TEST(SbirsReplaySessionTest, ReplayPreservesPointingDisturbanceAndRuntimePolicyP
 
     config.policy.pointing_disturbance.random_seed = 67U;
     config.policy.pointing_disturbance.channel_vibration_amplitude_deg = 0.1f;
-    session.ApplyRuntimeConfig(
+    (void)session.TryApplyRuntimeConfig(
         sbirs_sensor::config::SbirsRuntimeConfigBuilder().WithPolicy(config.policy).Build());
     session.StepWithResult(ImmMultiTargetInput(3U));
     session.StepWithResult(ImmMultiTargetInput(4U));

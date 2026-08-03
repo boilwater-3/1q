@@ -180,7 +180,7 @@ TEST(PublicHeadersSmokeTest, StablePublicSurfaceSupportsMinimalUsage) {
                                                          .WithWorkMode(config::ArWorkMode::kTas)
                                                          .WithCommandedBeamwidthEnabled(true)
                                                          .Build();
-  session.ApplyRuntimeConfig(runtime_patch);
+  (void)session.TryApplyRuntimeConfig(runtime_patch);
   const session::ArCycleResult result = session.StepWithResult(input);
   const session::ArCycleResult trace_result =
       trace_session.StepWithResult(input);
@@ -327,7 +327,7 @@ TEST(PublicHeadersSmokeTest, EsrPublicSurfaceSupportsMinimalUsage) {
   auto session = session::EsrSession::Create(session_config);
   const config::EsrRuntimeConfigPatch runtime_patch =
       config::EsrRuntimeConfigBuilder().WithWorkMode(config::EsrWorkMode::kRwr).Build();
-  session.ApplyRuntimeConfig(runtime_patch);
+  (void)session.TryApplyRuntimeConfig(runtime_patch);
   const session::EsrCycleResult result = session.StepWithResult(input);
   session::EsrTraceSession trace_session(session_config, session::EsrTraceSessionOptions{});
   const session::EsrCycleResult trace_result = trace_session.StepWithResult(input);
@@ -387,15 +387,13 @@ TEST(PublicHeadersSmokeTest, EosPublicSurfaceSupportsMinimalUsage) {
   session::EosSession session = session::EosSession::Create(session_config);
   const config::EosRuntimeConfigPatch runtime_patch =
       config::EosRuntimeConfigBuilder().WithFrameRateHz(15.0f).Build();
-  session.ApplyRuntimeConfig(runtime_patch);
+  (void)session.TryApplyRuntimeConfig(runtime_patch);
   const ::electro_optical_sensor::session::EosCycleResult result = session.StepWithResult(input);
   session::EosTraceSession trace_session(session_config, session::EosTraceSessionOptions{});
   const ::electro_optical_sensor::session::EosCycleResult trace_result =
       trace_session.StepWithResult(input);
   EXPECT_TRUE(result.executed_this_cycle);
-  EXPECT_FALSE(result.reused_previous_output);
   EXPECT_TRUE(trace_result.executed_this_cycle);
-  EXPECT_FALSE(trace_result.reused_previous_output);
   EXPECT_GE(result.output_frame.detections.size(), 0U);
   EXPECT_GE(trace_result.output_frame.detections.size(), 0U);
 }
@@ -458,7 +456,6 @@ TEST(PublicHeadersSmokeTest, SarPublicSurfaceSupportsMinimalUsage) {
 
   const session::SarCycleResult result = session.StepWithResult(input);
   EXPECT_TRUE(result.executed_this_cycle) << result.abort_reason;
-  EXPECT_FALSE(result.reused_previous_output);
   EXPECT_EQ(result.output_frame.range_sample_count, 64U);
   EXPECT_TRUE(result.output_frame.has_raw_echo);
   EXPECT_TRUE(result.output_frame.has_range_compressed_echo);

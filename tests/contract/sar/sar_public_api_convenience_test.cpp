@@ -76,7 +76,6 @@ TEST(SarPublicApiConvenienceTest, SessionCreatesFromConfig) {
   // 结构化执行结果字段可达。
   EXPECT_TRUE(result.executed_this_cycle);
   EXPECT_FALSE(result.has_error);
-  EXPECT_FALSE(result.reused_previous_output);
   EXPECT_EQ(result.input_cycle_index, 1U);
 }
 
@@ -112,10 +111,29 @@ TEST(SarPublicApiConvenienceTest, StepResultExposesStructuredExecutionState) {
   session::SarSession session = session::SarSession::Create(MakeMinimalConfig());
   const session::SarCycleResult result = session.StepWithResult(MakeMinimalInput());
   (void)result.executed_this_cycle;
-  (void)result.reused_previous_output;
   (void)result.has_error;
   (void)result.abort_reason;
   SUCCEED();
+}
+
+// SAR 非执行周期返回默认空帧（不复用上一有效输出）。guard 锁定该边界。
+TEST(SarPublicApiConvenienceTest, StepReturnsEmptyFrameOnValidationFailureAfterSuccess) {
+  session::SarSession session = session::SarSession::Create(MakeMinimalConfig());
+  ASSERT_TRUE(session.StepWithResult(MakeMinimalInput()).executed_this_cycle);
+
+  // 校验失败：dt_sec 非正。cycle_index 推进到 8，与上一帧的 1 形成可观测差异。
+  session::SarCycleInput invalid_input;
+  invalid_input.cycle_index = 8U;
+  invalid_input.dt_sec = 0.0f;
+
+  const session::SarCycleResult failed_result = session.StepWithResult(invalid_input);
+  EXPECT_FALSE(failed_result.executed_this_cycle);
+  EXPECT_EQ(failed_result.output_frame.cycle_index, 0U);
+
+  // Step() 与 StepWithResult().output_frame 一致，均为空帧。
+  const session::SarOutputFrame step_frame = session.Step(invalid_input);
+  EXPECT_EQ(step_frame.cycle_index, 0U);
+  EXPECT_EQ(step_frame.cycle_index, failed_result.output_frame.cycle_index);
 }
 
 }  // namespace tests

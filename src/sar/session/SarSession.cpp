@@ -52,10 +52,6 @@ SarCycleResult SarSession::StepWithResult(const SarCycleInput& input) {
   return impl_->controller.BuildCycleResult(input);
 }
 
-void SarSession::ApplyRuntimeConfig(const config::SarRuntimeConfigPatch& patch) {
-  (void)TryApplyRuntimeConfig(patch);
-}
-
 bool SarSession::TryApplyRuntimeConfig(const config::SarRuntimeConfigPatch& patch) {
   // 立即提交类（见 docs/common/contract.md「运行期配置提交策略」）：调用即生效、单向
   // 落定、无 session 层回滚；执行期合法性由 controller 在 Step 内 gate。

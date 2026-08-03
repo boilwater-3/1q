@@ -38,9 +38,8 @@ class ONEQ_API EosSession {
    * @brief 执行单周期并返回输出帧（输出便捷入口）。
    * @param[in] input 当前周期输入。
    * @return 当前周期输出帧。
-   * @note 该接口仅返回输出帧，不携带 `executed_this_cycle` /
-   *       `reused_previous_output` 等状态语义；若调用方需要区分
-   *       "本周期实际执行" 与 "复用上一有效输出"，请使用 `StepWithResult()`。
+   * @note 该接口仅返回输出帧，不携带 `executed_this_cycle` 等状态语义；
+   *       若调用方需要区分"本周期实际执行"与"非执行周期"，请使用 `StepWithResult()`。
    * @note 非线程安全：会读写会话内部状态；并发调用需外部同步。
    */
   EosOutputFrame Step(const EosCycleInput& input);
@@ -49,18 +48,10 @@ class ONEQ_API EosSession {
    * @brief 执行单周期并返回聚合结果。
    * @param[in] input 当前周期输入。
    * @return 当前周期聚合结果。
-   * @note 结果中的 `executed_this_cycle` / `reused_previous_output`
-   *       提供结构化周期状态语义。
+   * @note 结果中的 `executed_this_cycle` / `abort_reason` 提供结构化周期状态语义。
    * @note 非线程安全：会读写会话内部状态；并发调用需外部同步。
    */
   EosCycleResult StepWithResult(const EosCycleInput& input);
-
-  /**
-   * @brief 应用运行期可变配置补丁。
-   * @param[in] patch 运行期补丁。
-   * @note 非线程安全：会更新运行期配置并可能重置扫描相位；并发调用需外部同步。
-   */
-  void ApplyRuntimeConfig(const config::EosRuntimeConfigPatch& patch);
 
   /**
    * @brief 尝试应用运行期可变配置补丁。

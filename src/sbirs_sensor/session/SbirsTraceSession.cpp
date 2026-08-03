@@ -154,12 +154,13 @@ SbirsCycleResult SbirsTraceSession::StepWithResult(const SbirsCycleInput& input)
   return result;
 }
 
-void SbirsTraceSession::ApplyRuntimeConfig(const config::SbirsRuntimeConfigPatch& patch) {
+bool SbirsTraceSession::TryApplyRuntimeConfig(const config::SbirsRuntimeConfigPatch& patch) {
+  const bool accepted = impl_->session.TryApplyRuntimeConfig(patch);
   if (impl_->replay_writer) {
     impl_->WriteReplayEvent("runtime_config_patch", "SbirsRuntimeConfigPatch",
                             EncodeSbirsRuntimeConfigPatch(patch));
   }
-  impl_->session.ApplyRuntimeConfig(patch);
+  return accepted;
 }
 
 SbirsSession& SbirsTraceSession::session() { return impl_->session; }

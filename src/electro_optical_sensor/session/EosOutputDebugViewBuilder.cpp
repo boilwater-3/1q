@@ -65,7 +65,6 @@ EosOutputDebugView EosOutputDebugViewBuilder::Build(const EosCycleInput& input,
   view.input_cycle_index = result.input_cycle_index;
   view.output_cycle_index = result.output_frame.cycle_index;
   view.executed_this_cycle = result.executed_this_cycle;
-  view.reused_previous_output = result.reused_previous_output;
   view.has_validation_error = result.has_validation_error;
   view.abort_reason = result.abort_reason;
   view.targets.reserve(input.scene.size());

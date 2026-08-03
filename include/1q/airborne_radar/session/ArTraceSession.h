@@ -75,12 +75,6 @@ class ONEQ_API ArTraceSession {
   /** @brief 记录并执行一个单周期，返回结构化聚合结果。 */
   ArCycleResult StepWithResult(const ArCycleInput& input);
 
-  /**
-   * @brief 应用运行期可变配置补丁并记录（透传给内部 ArSession）。
-   * @param[in] patch 运行期可变配置补丁。
-   */
-  void ApplyRuntimeConfig(const config::ArRuntimeConfigPatch& patch);
-
   /** @brief 尝试应用运行期配置补丁；接受或拒绝结果均写入 replay trace。 */
   bool TryApplyRuntimeConfig(const config::ArRuntimeConfigPatch& patch);
 

@@ -43,13 +43,10 @@ TEST(EosControllerRuntimeStateTest, CaptureAndRestoreRoundTripState) {
   const EosControllerRuntimeState snapshot = controller.CaptureRuntimeState();
 
   controller.RunOnce(MakeValidInput(2U));
-  ASSERT_EQ(controller.GetLatestDetectionOutputFrame().cycle_index, 2U);
+  ASSERT_TRUE(controller.ExecutedLatestCycle());
 
   controller.RestoreRuntimeState(snapshot);
-  EXPECT_TRUE(controller.HasLatestDetectionOutputFrame());
-  EXPECT_EQ(controller.GetLatestDetectionOutputFrame().cycle_index, 1U);
   EXPECT_TRUE(controller.ExecutedLatestCycle());
-  EXPECT_FALSE(controller.ReusedPreviousDetectionOutputLatestCycle());
 }
 
 TEST(EosControllerRuntimeStateTest, RestoreRejectsIncompatiblePipelineSnapshot) {
@@ -63,8 +60,6 @@ TEST(EosControllerRuntimeStateTest, RestoreRejectsIncompatiblePipelineSnapshot) 
 
   EosControllerRuntimeState foreign_state = controller_b.CaptureRuntimeState();
   controller_a.RestoreRuntimeState(foreign_state);
-
-  EXPECT_EQ(controller_a.GetLatestDetectionOutputFrame().cycle_index, 20U);
 }
 
 TEST(EosControllerRuntimeStateTest, RestoreRejectsSnapshotFromOtherControllerInstance) {
@@ -77,11 +72,9 @@ TEST(EosControllerRuntimeStateTest, RestoreRejectsSnapshotFromOtherControllerIns
 
   const EosControllerRuntimeState foreign_state = controller_b.CaptureRuntimeState();
   controller_a.RestoreRuntimeState(foreign_state);
-
-  EXPECT_EQ(controller_a.GetLatestDetectionOutputFrame().cycle_index, 21U);
 }
 
-TEST(EosControllerRuntimeStateTest, ValidationRejectSetsAbortReasonAndReusesPreviousOutput) {
+TEST(EosControllerRuntimeStateTest, ValidationRejectSetsAbortReasonAndReturnsDefaultFrame) {
   signal::pipeline::EosPipeline pipeline(MakePipelineConfig());
   EosController controller(pipeline);
 
@@ -94,12 +87,12 @@ TEST(EosControllerRuntimeStateTest, ValidationRejectSetsAbortReasonAndReusesPrev
 
   EXPECT_TRUE(controller.HasValidationError());
   EXPECT_FALSE(controller.ExecutedLatestCycle());
-  EXPECT_TRUE(controller.ReusedPreviousDetectionOutputLatestCycle());
   EXPECT_EQ(controller.GetLastDetectionCycleAbortReason(), EosPipelineAbortReason::kValidationRejected);
-  EXPECT_EQ(controller.GetLatestDetectionOutputFrame().cycle_index, 40U);
+  const auto result = controller.BuildCycleResult(invalid_input);
+  EXPECT_EQ(result.output_frame.cycle_index, 0U);
 }
 
-TEST(EosControllerRuntimeStateTest, FirstValidationRejectDoesNotSynthesizeLatestOutput) {
+TEST(EosControllerRuntimeStateTest, FirstValidationRejectReturnsDefaultFrame) {
   signal::pipeline::EosPipeline pipeline(MakePipelineConfig());
   EosController controller(pipeline);
 
@@ -109,11 +102,9 @@ TEST(EosControllerRuntimeStateTest, FirstValidationRejectDoesNotSynthesizeLatest
   const ::electro_optical_sensor::session::EosCycleResult result =
       controller.BuildCycleResult(invalid_input);
 
-  EXPECT_FALSE(controller.HasLatestDetectionOutputFrame());
   EXPECT_FALSE(result.executed_this_cycle);
-  EXPECT_FALSE(result.reused_previous_output);
   EXPECT_EQ(result.abort_reason, EosPipelineAbortReason::kValidationRejected);
-  EXPECT_EQ(result.output_frame.cycle_index, 45U);
+  EXPECT_EQ(result.output_frame.cycle_index, 0U);
 }
 
 }  // namespace
