@@ -119,8 +119,8 @@ class ONEQ_API ArSession {
    * @return 构造完成的会话。
    * @note `ValidateArSessionConfig` 由此路径被实调用，构成真实契约。
    */
-  static ArSession CreateWithValidation(const config::ArSessionConfig& config,
-                                        config::ValidationIssueList* issues);
+  static ArSession CreateWithDiagnostics(const config::ArSessionConfig& config,
+                                         config::ValidationIssueList* issues);
 
  private:
   friend class ArSessionReplayAccess;

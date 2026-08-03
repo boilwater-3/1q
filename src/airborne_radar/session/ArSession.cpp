@@ -776,8 +776,8 @@ ArSession ArSession::Create(const config::ArSessionConfig& config) {
       new ArSession::Impl(ArSessionCompositionRoot::ComposeDefault(config))));
 }
 
-ArSession ArSession::CreateWithValidation(const config::ArSessionConfig& config,
-                                          config::ValidationIssueList* issues) {
+ArSession ArSession::CreateWithDiagnostics(const config::ArSessionConfig& config,
+                                           config::ValidationIssueList* issues) {
   const config::ValidationIssueList found = config::ValidateArSessionConfig(config);
   if (issues != nullptr) {
     *issues = found;

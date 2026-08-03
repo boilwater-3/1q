@@ -377,36 +377,36 @@ TEST(RadarSessionConfigValidationTest, ValidatesReceiverRfHardwareBoundary) {
   EXPECT_EQ(issues.back().code, config::ConfigValidationCode::kReceiverRfHardwareInvalid);
 }
 
-TEST(RadarSessionCreateWithValidationTest, BuildsSessionAndReportsNoIssuesForHealthyConfig) {
+TEST(RadarSessionCreateWithDiagnosticsTest, BuildsSessionAndReportsNoIssuesForHealthyConfig) {
   config::ArSessionConfig config;
   config.policy.lifecycle.enable_imm_lifecycle = false;
 
   config::ValidationIssueList issues;
-  const session::ArSession session = session::ArSession::CreateWithValidation(config, &issues);
+  const session::ArSession session = session::ArSession::CreateWithDiagnostics(config, &issues);
 
   EXPECT_TRUE(issues.empty());
   (void)session;
 }
 
-TEST(RadarSessionCreateWithValidationTest, ReportsIssuesButStillConstructsSession) {
+TEST(RadarSessionCreateWithDiagnosticsTest, ReportsIssuesButStillConstructsSession) {
   config::ArSessionConfig invalid;
   invalid.mission.orientation.mechanical_scan_limits_deg.az_min_deg = 10.0f;
   invalid.mission.orientation.mechanical_scan_limits_deg.az_max_deg = -10.0f;
 
   config::ValidationIssueList issues;
-  const session::ArSession session = session::ArSession::CreateWithValidation(invalid, &issues);
+  const session::ArSession session = session::ArSession::CreateWithDiagnostics(invalid, &issues);
 
   ASSERT_EQ(issues.size(), 1U);
   EXPECT_EQ(issues.front().code, config::ConfigValidationCode::kMechanicalScanLimitsSwappedAz);
   (void)session;  // 会话仍被构造，调用方据 issues 决策
 }
 
-TEST(RadarSessionCreateWithValidationTest, AcceptsNullIssuesWithoutCrash) {
+TEST(RadarSessionCreateWithDiagnosticsTest, AcceptsNullIssuesWithoutCrash) {
   config::ArSessionConfig invalid;
   invalid.mission.orientation.mechanical_scan_limits_deg.az_min_deg = 10.0f;
   invalid.mission.orientation.mechanical_scan_limits_deg.az_max_deg = -10.0f;
 
-  const session::ArSession session = session::ArSession::CreateWithValidation(invalid, nullptr);
+  const session::ArSession session = session::ArSession::CreateWithDiagnostics(invalid, nullptr);
   (void)session;  // nullptr 时仅构造，不写回 issues
 }
 

@@ -109,7 +109,7 @@ no information and makes the file read inconsistently.
 Every entry is a level-3 heading `### <ID>：<主题>` followed by exactly five bullets, in this order:
 
 ```markdown
-### COMMON-OQ-3：`CreateWithValidation` 非阻断命名
+### COMMON-OQ-5：`Step()` 在校验失败/关机时静默复用上一帧
 
 - **现状**：<一两句简要描述>。[evidence: tests/unit/electro_optical_sensor/eos_session]
 - **后果**：<当前写法或行为造成的实际后果：footgun、误用风险、跨模块不一致、为何新读者会踩坑>

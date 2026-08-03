@@ -159,7 +159,7 @@ flowchart LR
     Observability["Trace / Replay / Debug view"]
   end
 
-  Config -. "CreateWithValidation only" .-> ConfigCheck
+  Config -. "CreateWithDiagnostics only" .-> ConfigCheck
   Config --> Waveform
   Patch --> PolicyCheck
   Cycle --> StepCheck
@@ -179,7 +179,7 @@ flowchart LR
 ```
 
 `SarSession()` 与 `SarSession::Create(config)` 是信任构造路径，不隐式调用初始化校验。
-`CreateWithValidation(config, issues)` 会报告 `ValidateSarSessionConfig` 的问题，但仍构造会话（非阻断，
+`CreateWithDiagnostics(config, issues)` 会报告 `ValidateSarSessionConfig` 的问题，但仍构造会话（非阻断，
 见 contract.md §会话创建入口的非阻断语义）；真正阻断执行的是每周期输入/运行配置 gate。runtime patch
 由 resolver 先生成候选配置并整体校验，失败时不替换当前配置。
 

@@ -34,8 +34,8 @@ SarSession SarSession::Create(const config::SarSessionConfig& config) {
       new SarSession::Impl(SarSessionCompositionRoot::ComposeDefault(config))));
 }
 
-SarSession SarSession::CreateWithValidation(const config::SarSessionConfig& config,
-                                            config::ValidationIssueList* issues) {
+SarSession SarSession::CreateWithDiagnostics(const config::SarSessionConfig& config,
+                                             config::ValidationIssueList* issues) {
   const config::ValidationIssueList found = config::ValidateSarSessionConfig(config);
   if (issues != nullptr) {
     *issues = found;
