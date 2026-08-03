@@ -25,6 +25,7 @@ set(SBIRS_CORE_SOURCES
     session/SbirsCycleOutputAdapter.cpp
     session/SbirsOutputDebugViewBuilder.cpp
     session/SbirsDetectionLifecycleRecorder.cpp
+    session/SbirsDiagnosticUtils.cpp
     session/SbirsReplayFlatbufferCodec.cpp
     session/SbirsTraceSession.cpp
     session/SbirsReplaySession.cpp

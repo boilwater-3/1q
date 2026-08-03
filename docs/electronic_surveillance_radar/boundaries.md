@@ -113,6 +113,16 @@ ESR 非执行周期（校验失败/设备关机）的 `Step()` 与 `EsrCycleResu
 [evidence: tests/contract/electronic_surveillance_radar/esr_public_api_convenience_test.cpp::StepReturnsEmptyFrameOnValidationFailure]
 [evidence: tests/unit/electronic_surveillance_radar/esr_controller_runtime_state_test]
 
+### 三写约束（abort_reason + diagnostics + 日志）
+
+ESR 所有中止路径遵守 `session_contract.md` 规则 9 的三写模式：
+
+1. **结构化信号**：`EsrCycleResult.abort_reason`（粗粒度枚举）。
+2. **结构化诊断**：`EsrCycleResult.diagnostics`（`EsrDiagnosticIssueList`，细粒度 code 如 `"esr.rf_receiver_rejected"`）。
+3. **人读日志**：`PROJECT_LOG_ERROR`。
+
+三写由 `EsrDiagnosticUtils::RecordAbort` 统一执行，在 `EsrSession::BuildCycleResult` 和 `RunCycle` 中调用。
+
 ## 专项序列验证边界
 
 `batch_validation::electronic_surveillance_radar` 覆盖近同频辐射源角度交叉、密集辐射源静默、

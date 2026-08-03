@@ -107,8 +107,8 @@ sequenceDiagram
   Session->>Controller: RunOnce(input) 委托单周期调度
   Controller->>Controller: ValidateSarCycleInput 校验输入
   alt invalid input 输入无效
-    Controller-->>Session: invalid_cycle_input abort + 复用上一帧
-    Session-->>Caller: SarCycleResult (reused previous output)
+    Controller-->>Session: invalid_cycle_input abort（默认空帧，不复用）
+    Session-->>Caller: SarCycleResult (default empty output_frame)
   else valid input 输入有效
     Controller->>Pipeline: RunCycle 构造 raw history 并成像
     alt L1 RDA path (broadside stripmap)

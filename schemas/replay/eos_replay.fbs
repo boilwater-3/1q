@@ -87,14 +87,22 @@ table ValidationIssue {
   message:      string;
 }
 
+table EosDiagnosticIssue {
+  severity: int32;
+  code:     string;
+  message:  string;
+}
+
 table EosCycleResult {
   input_cycle_index:      uint32;
   output_frame:           EosOutputFrame;
   detection_attributions: [EosDetectionAttributionRecord];
   validation_issues:      [ValidationIssue];
+  diagnostics:            [EosDiagnosticIssue];
   has_validation_error:   bool;
   executed_this_cycle:    bool;
   abort_reason:           int32;
+  status:                 uint8;
 }
 
 // ---- FailureMarker (failure_marker 事件的 flatbuffer 载荷) ----

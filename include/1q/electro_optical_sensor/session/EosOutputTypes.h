@@ -55,6 +55,28 @@ using EosDetectionAttributionRecordList = std::vector<EosDetectionAttributionRec
 namespace session {
 
 /**
+ * @brief EOS 诊断等级。
+ */
+enum class ONEQ_API EosDiagnosticSeverity : std::uint8_t {
+  kInfo = 0,    /**< 信息 */
+  kWarning = 1, /**< 警告 */
+  kError = 2    /**< 错误 */
+};
+
+/**
+ * @brief EOS 诊断条目。
+ * @note 承载细粒度失败信息（如 "eos.pipeline_contract_violation"），不用于调用方状态判断。
+ */
+struct ONEQ_API EosDiagnosticIssue {
+  EosDiagnosticSeverity severity{EosDiagnosticSeverity::kInfo};
+  std::string code{};
+  std::string message{};
+};
+
+/** @brief EOS 诊断条目列表。 */
+using EosDiagnosticIssueList = std::vector<EosDiagnosticIssue>;
+
+/**
  * @brief EosPipelineAbortReason 描述核心管线周期终止原因。
  */
 enum class ONEQ_API EosPipelineAbortReason {
@@ -63,6 +85,18 @@ enum class ONEQ_API EosPipelineAbortReason {
   kOutputContractViolation,
   kRuntimeStateRestoreRejected,
   kSensorPoweredOff /**< 设备关机，核心 pipeline 未执行 */
+};
+
+/**
+ * @brief EosCycleStatus 描述单周期高层执行状态。
+ * @note 与 ArCycleStatus / EsrCycleExecutionStatus 对齐的强类型枚举。
+ *       `executed_this_cycle` 保留为 `status == kCompleted` 的便捷访问器。
+ */
+enum class ONEQ_API EosCycleStatus : std::uint8_t {
+  kCompleted = 0,           /**< 周期正常完成 */
+  kPoweredOff,              /**< 设备关机，核心 pipeline 未执行 */
+  kRejectedInvalidInput,    /**< 输入校验失败 */
+  kRejectedExecution        /**< 执行失败（含输出契约违规、运行时状态恢复失败） */
 };
 
 }  // namespace session

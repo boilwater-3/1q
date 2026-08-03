@@ -8,6 +8,7 @@
 #include "1q/replay/ReplayTrace.h"
 #include "1q/trace/TraceSink.h"
 #include "SarReplayFlatbufferCodec.h"
+#include "sar/session/SarDiagnosticUtils.h"
 #include "sar/session/SarRawHistoryBuilder.h"
 
 namespace sar {
@@ -31,6 +32,7 @@ std::string BuildSarOutputPayload(const SarCycleResult& result) {
      << "\"cycle_index\":" << frame.cycle_index << ","
      << "\"completed_stage\":" << static_cast<int>(frame.completed_stage) << ","
      << "\"executed\":" << (result.executed_this_cycle ? "true" : "false") << ","
+     << "\"status\":" << static_cast<int>(result.status) << ","
      << "\"has_error\":" << (result.has_error ? "true" : "false") << ","
      << "\"has_l1_image\":" << (frame.has_l1_image ? "true" : "false") << ","
      << "\"has_l3_bp_image\":" << (frame.has_l3_bp_image ? "true" : "false") << ","
@@ -98,7 +100,8 @@ struct SarTraceSession::Impl {
 
   void WriteFailureMarker(const SarCycleResult& result) const {
     oneq::replay::ReplayTraceFailure failure;
-    failure.error_code = result.abort_reason.empty() ? "sar_error" : result.abort_reason;
+    const char* reason_tag = AbortReasonToDiagnosticCode(result.abort_reason);
+    failure.error_code = reason_tag[0] != '\0' ? reason_tag : "sar_error";
     failure.message = "SarCycleResult has_error=true";
     failure.has_cycle_index = true;
     failure.cycle_index = result.input_cycle_index;

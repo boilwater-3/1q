@@ -18,6 +18,28 @@ namespace airborne_radar {
 namespace session {
 
 /**
+ * @brief AR 诊断等级。
+ */
+enum class ONEQ_API ArDiagnosticSeverity : std::uint8_t {
+  kInfo = 0,    /**< 信息 */
+  kWarning = 1, /**< 警告 */
+  kError = 2    /**< 错误 */
+};
+
+/**
+ * @brief AR 诊断条目。
+ * @note 承载细粒度失败信息（如 "ar.lifecycle_unavailable"），不用于调用方状态判断。
+ */
+struct ONEQ_API ArDiagnosticIssue {
+  ArDiagnosticSeverity severity{ArDiagnosticSeverity::kInfo};
+  std::string code{};
+  std::string message{};
+};
+
+/** @brief AR 诊断条目列表。 */
+using ArDiagnosticIssueList = std::vector<ArDiagnosticIssue>;
+
+/**
  * @brief SignalCycleAbortReason 描述信号流水线单周期终止原因。
  */
 enum class ONEQ_API SignalCycleAbortReason {

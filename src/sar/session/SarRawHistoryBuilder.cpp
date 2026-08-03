@@ -179,7 +179,8 @@ bool GenerateCycleTrajectory(const config::SarSessionConfig& config, const SarCy
   geometry::StraightStripmapTrackConfig track_config;
   if (!TryToLocalPoint(input.platform.latitude_deg, input.platform.longitude_deg,
                        input.platform.altitude_m, config, &track_config.start_position_m)) {
-    RecordAbort(result, "platform_geometry_failed",
+    RecordAbort(result, SarPipelineAbortReason::kPipelineExecutionFailed,
+                "platform_geometry_failed",
                 "SAR platform LLA cannot be converted to the configured local geometry.");
     return false;
   }
@@ -207,7 +208,7 @@ bool GenerateCycleTrajectory(const config::SarSessionConfig& config, const SarCy
 
   if (pulse_count_to_generate > 0U &&
       !geometry::GenerateStraightStripmapTrack(track_config, ideal_pulses)) {
-    RecordAbort(result, "track_generation_failed", "SAR failed to generate L1 stripmap track.");
+    RecordAbort(result, SarPipelineAbortReason::kPipelineExecutionFailed, "track_generation_failed", "SAR failed to generate L1 stripmap track.");
     return false;
   }
   *actual_pulses = *ideal_pulses;
@@ -220,7 +221,8 @@ bool GenerateCycleTrajectory(const config::SarSessionConfig& config, const SarCy
       local_waypoint.time_s = waypoint.time_from_session_start_s;
       if (!TryToLocalPoint(waypoint.latitude_deg, waypoint.longitude_deg, waypoint.altitude_m,
                            config, &local_waypoint.position_m)) {
-        RecordAbort(result, "l3_waypoint_geometry_failed",
+        RecordAbort(result, SarPipelineAbortReason::kPipelineExecutionFailed,
+                    "l3_waypoint_geometry_failed",
                     "SAR L3 waypoint LLA cannot be converted to the configured local geometry.");
         return false;
       }
@@ -232,7 +234,8 @@ bool GenerateCycleTrajectory(const config::SarSessionConfig& config, const SarCy
           static_cast<double>(index) / config.hardware.pulse_repetition_frequency_hz);
     }
     if (!geometry::GenerateWaypointTrack(l3_config, actual_pulses)) {
-      RecordAbort(result, "l3_waypoint_coverage",
+      RecordAbort(result, SarPipelineAbortReason::kPipelineExecutionFailed,
+                  "l3_waypoint_coverage",
                   "SAR L3 waypoints do not cover the required fixed-PRF pulse time range.");
       return false;
     }
@@ -271,7 +274,7 @@ bool GenerateCycleTrajectory(const config::SarSessionConfig& config, const SarCy
     geometry::TrajectoryErrorDiagnostics trajectory_diagnostics;
     if (!geometry::GeneratePerturbedStripmapTrack(l2_config, actual_pulses,
                                                   &trajectory_diagnostics)) {
-      RecordAbort(result, "l2_track_generation_failed", "SAR failed to generate L2 trajectory.");
+      RecordAbort(result, SarPipelineAbortReason::kPipelineExecutionFailed, "l2_track_generation_failed", "SAR failed to generate L2 trajectory.");
       return false;
     }
     result->diagnostics.push_back(MakeInfoDiagnostic(
@@ -316,7 +319,8 @@ bool BuildExternalRawIqHistory(const config::SarSessionConfig& config, const Sar
       static_cast<std::size_t>(config.mission.azimuth_pulse_count) *
       static_cast<std::size_t>(config.mission.range_sample_count);
   if (!config.policy.enable_l1_rda_imaging && !config.policy.enable_l3_bp_imaging) {
-    RecordAbort(result, "external_raw_iq_requires_l1_rda",
+    RecordAbort(result, SarPipelineAbortReason::kExternalInputRejected,
+                "external_raw_iq_requires_l1_rda",
                 "External raw IQ requires L1 RDA or L3 BP.");
     return false;
   }
@@ -325,7 +329,8 @@ bool BuildExternalRawIqHistory(const config::SarSessionConfig& config, const Sar
       input.raw_iq.samples_per_pulse != config.mission.range_sample_count ||
       input.raw_iq.i_values.size() != expected_value_count ||
       input.raw_iq.q_values.size() != expected_value_count) {
-    RecordAbort(result, "external_raw_iq_shape_mismatch",
+    RecordAbort(result, SarPipelineAbortReason::kExternalInputRejected,
+                "external_raw_iq_shape_mismatch",
                 "External raw IQ shape must exactly match the configured complete aperture.");
     return false;
   }
@@ -333,14 +338,16 @@ bool BuildExternalRawIqHistory(const config::SarSessionConfig& config, const Sar
   if ((config.policy.enable_l3_bp_imaging || config.policy.enable_l2_motion_compensation) &&
       input.raw_iq.pulse_states.size() !=
           input.raw_iq.i_values.size() / input.raw_iq.samples_per_pulse) {
-    RecordAbort(result, "external_raw_iq_trajectory_required",
+    RecordAbort(result, SarPipelineAbortReason::kExternalInputRejected,
+                "external_raw_iq_trajectory_required",
                 "External raw IQ BP/L2 requires one actual pulse state for every IQ row.");
     return false;
   }
   if (config.policy.enable_l2_motion_compensation &&
       input.raw_iq.ideal_pulse_states.size() !=
           input.raw_iq.i_values.size() / input.raw_iq.samples_per_pulse) {
-    RecordAbort(result, "external_raw_iq_ideal_trajectory_required",
+    RecordAbort(result, SarPipelineAbortReason::kExternalInputRejected,
+                "external_raw_iq_ideal_trajectory_required",
                 "External raw IQ L2 requires one ideal pulse state for every IQ row.");
     return false;
   }
@@ -361,7 +368,8 @@ bool BuildExternalRawIqHistory(const config::SarSessionConfig& config, const Sar
     const double i_value = input.raw_iq.i_values[index];
     const double q_value = input.raw_iq.q_values[index];
     if (!std::isfinite(i_value) || !std::isfinite(q_value)) {
-      RecordAbort(result, "external_raw_iq_non_finite",
+      RecordAbort(result, SarPipelineAbortReason::kExternalInputRejected,
+                  "external_raw_iq_non_finite",
                   "External raw IQ contains a non-finite sample.");
       return false;
     }
@@ -370,7 +378,8 @@ bool BuildExternalRawIqHistory(const config::SarSessionConfig& config, const Sar
   if ((config.policy.enable_l3_bp_imaging || config.policy.enable_l2_motion_compensation) &&
       !CopyExternalPulseStates(input.raw_iq.pulse_states, derived_pulse_count,
                                actual_trajectory_buffer)) {
-    RecordAbort(result, "external_raw_iq_invalid_trajectory",
+    RecordAbort(result, SarPipelineAbortReason::kExternalInputRejected,
+                "external_raw_iq_invalid_trajectory",
                 "External actual pulse states must be finite, contiguous, and strictly time "
                 "ordered.");
     return false;
@@ -379,7 +388,8 @@ bool BuildExternalRawIqHistory(const config::SarSessionConfig& config, const Sar
       !CopyExternalPulseStates(input.raw_iq.ideal_pulse_states, derived_pulse_count,
                                ideal_trajectory_buffer)) {
     actual_trajectory_buffer->clear();
-    RecordAbort(result, "external_raw_iq_invalid_ideal_trajectory",
+    RecordAbort(result, SarPipelineAbortReason::kExternalInputRejected,
+                "external_raw_iq_invalid_ideal_trajectory",
                 "External ideal pulse states must be finite, contiguous, and strictly time "
                 "ordered.");
     return false;
@@ -405,7 +415,7 @@ bool BuildRawPulseHistory(const config::SarSessionConfig& config, const SarCycle
   if (pulse_buffer == nullptr || next_pulse_id == nullptr || pulse_fraction_carry == nullptr ||
       ideal_trajectory_buffer == nullptr || actual_trajectory_buffer == nullptr ||
       estimated_snr_db == nullptr) {
-    RecordAbort(result, "pulse_buffer_unavailable", "SAR pulse ring buffer is unavailable.");
+    RecordAbort(result, SarPipelineAbortReason::kPipelineExecutionFailed, "pulse_buffer_unavailable", "SAR pulse ring buffer is unavailable.");
     return false;
   }
 
@@ -435,7 +445,8 @@ bool BuildRawPulseHistory(const config::SarSessionConfig& config, const SarCycle
 
   std::vector<echo::PointTarget> targets;
   if (!BuildLocalTargets(config, input, &targets)) {
-    RecordAbort(result, "target_geometry_failed",
+    RecordAbort(result, SarPipelineAbortReason::kPipelineExecutionFailed,
+                "target_geometry_failed",
                 "SAR point-target LLA cannot be converted to the configured local geometry.");
     return false;
   }
@@ -512,7 +523,8 @@ bool BuildRawPulseHistory(const config::SarSessionConfig& config, const SarCycle
     echo::RawEchoResult echo;
     if (!echo::GenerateClutterScene(echo_config, actual_pulses[row], scene,
                                     transmit_waveform, &echo, &antenna_mod)) {
-      RecordAbort(result, "raw_echo_failed",
+      RecordAbort(result, SarPipelineAbortReason::kPipelineExecutionFailed,
+                  "raw_echo_failed",
                   "SAR failed to generate point-target and surface-background raw echo.");
       return false;
     }
@@ -530,7 +542,8 @@ bool BuildRawPulseHistory(const config::SarSessionConfig& config, const SarCycle
     ApplyReceiverChain(1.0, receiver_noise_power_w, record.pulse_id, &echo.samples);
     record.samples = echo.samples;
     if (!pulse_buffer->Push(record)) {
-      RecordAbort(result, "pulse_buffer_push_failed",
+      RecordAbort(result, SarPipelineAbortReason::kPipelineExecutionFailed,
+                  "pulse_buffer_push_failed",
                   "SAR failed to append raw pulse to ring buffer.");
       return false;
     }
@@ -563,7 +576,8 @@ bool BuildRawPulseHistory(const config::SarSessionConfig& config, const SarCycle
 
   std::vector<runtime::PulseRecord> latest_pulses;
   if (!pulse_buffer->ReadLatest(config.mission.azimuth_pulse_count, &latest_pulses)) {
-    RecordAbort(result, "pulse_history_unavailable",
+    RecordAbort(result, SarPipelineAbortReason::kPipelineExecutionFailed,
+                "pulse_history_unavailable",
                 "SAR pulse ring buffer cannot provide a contiguous latest aperture.");
     return false;
   }
@@ -574,7 +588,8 @@ bool BuildRawPulseHistory(const config::SarSessionConfig& config, const SarCycle
   history->values.assign(history->rows * history->cols, signal::ComplexSample(0.0, 0.0));
   for (std::size_t row = 0U; row < latest_pulses.size(); ++row) {
     if (latest_pulses[row].samples.size() != history->cols) {
-      RecordAbort(result, "pulse_sample_count_mismatch",
+      RecordAbort(result, SarPipelineAbortReason::kPipelineExecutionFailed,
+                  "pulse_sample_count_mismatch",
                   "SAR pulse ring buffer returned a pulse with unexpected range sample count.");
       return false;
     }

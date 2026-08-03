@@ -1,6 +1,7 @@
 #include "1q/sar/session/SarProductDebugView.h"
 
 #include "1q/sar/session/SarCycleInput.h"
+#include "sar/session/SarDiagnosticUtils.h"
 
 namespace sar {
 namespace session {
@@ -12,7 +13,7 @@ SarProductDebugView SarProductDebugViewBuilder::Build(const SarCycleInput& input
   view.output_cycle_index = result.output_frame.cycle_index;
   view.executed_this_cycle = result.executed_this_cycle;
   view.has_error = result.has_error;
-  view.abort_reason = result.abort_reason;
+  view.abort_reason = AbortReasonToDiagnosticCode(result.abort_reason);
   view.completed_stage = result.output_frame.completed_stage;
   view.has_raw_echo = result.output_frame.has_raw_echo;
   view.has_range_compressed_echo = result.output_frame.has_range_compressed_echo;

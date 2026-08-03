@@ -43,6 +43,16 @@ SBIRS 非执行周期（校验失败/执行 abort）的 `Step()` 与 `SbirsCycle
 
 [evidence: tests/contract/sbirs_sensor/sbirs_public_api_convenience_test.cpp::StepReturnsEmptyFrameOnValidationFailureAfterSuccess]
 
+### 三写约束（abort_reason + diagnostics + 日志）
+
+SBIRS 所有中止路径遵守 `session_contract.md` 规则 9 的三写模式：
+
+1. **结构化信号**：`SbirsCycleResult.abort_reason`（粗粒度枚举：`kValidationRejected`、`kSensorPoweredOff`）。
+2. **结构化诊断**：`SbirsCycleResult.diagnostics`（`SbirsDiagnosticIssueList`，细粒度 code 如 `"sbirs.input_validation"`）。
+3. **人读日志**：`PROJECT_LOG_ERROR`。
+
+三写由 `SbirsDiagnosticUtils::RecordAbort` 统一执行。
+
 ### 输出规则（WFOV/NFOV 状态仅决定当前周期哪些目标输出检测记录，不进 raw output 字段）
 
 1. WFOV 阶段（`WideCandidate`）：输出 WFOV 检测成功目标的检测记录，位置为带误差值。

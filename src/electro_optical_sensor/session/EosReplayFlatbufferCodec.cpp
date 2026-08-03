@@ -213,10 +213,21 @@ std::string EncodeEosCycleResult(const ::electro_optical_sensor::session::EosCyc
         field_str, msg));
   }
 
+  std::vector<flatbuffers::Offset<eos::replay::EosDiagnosticIssue>> diag_vec;
+  diag_vec.reserve(v.diagnostics.size());
+  for (const auto& d : v.diagnostics) {
+    auto code_str = fbb.CreateString(d.code);
+    auto msg_str = fbb.CreateString(d.message);
+    diag_vec.push_back(eos::replay::CreateEosDiagnosticIssue(
+        fbb, static_cast<int32_t>(d.severity), code_str, msg_str));
+  }
+
   auto result = eos::replay::CreateEosCycleResult(
       fbb, v.input_cycle_index, frame, fbb.CreateVector(attr_vec), fbb.CreateVector(issue_vec),
+      fbb.CreateVector(diag_vec),
       v.has_validation_error, v.executed_this_cycle,
-      static_cast<int32_t>(v.abort_reason));
+      static_cast<int32_t>(v.abort_reason),
+      static_cast<std::uint8_t>(v.status));
   fbb.Finish(result);
   return oneq::common::replay::CopyFinishedFlatbuffer(fbb);
 }
@@ -253,9 +264,24 @@ bool DecodeEosCycleResult(const std::string& bytes,
       out->detection_attributions.push_back(record);
     }
   }
+  out->diagnostics.clear();
+  if (fb->diagnostics()) {
+    for (const auto* d : *fb->diagnostics()) {
+      session::EosDiagnosticIssue iss{};
+      iss.severity = static_cast<session::EosDiagnosticSeverity>(d->severity());
+      if (d->code()) {
+        iss.code = d->code()->str();
+      }
+      if (d->message()) {
+        iss.message = d->message()->str();
+      }
+      out->diagnostics.push_back(iss);
+    }
+  }
   out->has_validation_error = fb->has_validation_error();
   out->executed_this_cycle = fb->executed_this_cycle();
   out->abort_reason = static_cast<session::EosPipelineAbortReason>(fb->abort_reason());
+  out->status = static_cast<session::EosCycleStatus>(fb->status());
   out->validation_issues.clear();
   if (fb->validation_issues()) {
     for (const auto* i : *fb->validation_issues()) {

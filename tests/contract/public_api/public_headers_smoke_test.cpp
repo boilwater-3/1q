@@ -455,7 +455,7 @@ TEST(PublicHeadersSmokeTest, SarPublicSurfaceSupportsMinimalUsage) {
   EXPECT_TRUE(session.TryApplyRuntimeConfig(patch));
 
   const session::SarCycleResult result = session.StepWithResult(input);
-  EXPECT_TRUE(result.executed_this_cycle) << result.abort_reason;
+  EXPECT_TRUE(result.executed_this_cycle) << static_cast<int>(result.abort_reason);
   EXPECT_EQ(result.output_frame.range_sample_count, 64U);
   EXPECT_TRUE(result.output_frame.has_raw_echo);
   EXPECT_TRUE(result.output_frame.has_range_compressed_echo);

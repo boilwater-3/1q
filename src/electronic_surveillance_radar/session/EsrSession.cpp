@@ -3,6 +3,7 @@
 #include <utility>
 
 #include "electronic_surveillance_radar/config/EsrInternalExecutionConfig.h"
+#include "electronic_surveillance_radar/session/EsrDiagnosticUtils.h"
 #include "electronic_surveillance_radar/environment/IEsrEnvironmentService.h"
 #include "electronic_surveillance_radar/pipeline/InterceptPipeline.h"
 #include "electronic_surveillance_radar/runtime/EsrController.h"
@@ -35,6 +36,40 @@ struct EsrSession::Impl {
     result.has_validation_error = session::HasValidationError(result.validation_issues);
     result.status = Controller().GetLatestCycleStatus();
     result.abort_reason = Controller().GetLastInterceptCycleAbortReason();
+
+    // 三写：对所有非 kNone 的 abort_reason 写入 diagnostics + 日志
+    if (result.abort_reason != session::EsrPipelineAbortReason::kNone) {
+      const EsrCycleExecutionStatus saved_status = result.status;
+      const bool is_validation =
+          (result.abort_reason == session::EsrPipelineAbortReason::kValidationRejected);
+      const char* detail_code = "unknown";
+      switch (result.abort_reason) {
+        case session::EsrPipelineAbortReason::kValidationRejected:
+          detail_code = "input_validation";
+          break;
+        case session::EsrPipelineAbortReason::kSensorPoweredOff:
+          detail_code = "sensor_powered_off";
+          break;
+        case session::EsrPipelineAbortReason::kRfReceiverRejected:
+          detail_code = "rf_receiver_rejected";
+          break;
+        case session::EsrPipelineAbortReason::kOutputContractViolation:
+          detail_code = "output_contract_violation";
+          break;
+        case session::EsrPipelineAbortReason::kRuntimeStateRestoreRejected:
+          detail_code = "runtime_state_restore_rejected";
+          break;
+        default:
+          break;
+      }
+      session::RecordAbort(&result, result.abort_reason, detail_code,
+                           "ESR cycle aborted.", is_validation);
+      // powered-off 是合法非执行状态，不是校验错误也不是执行失败
+      if (saved_status == EsrCycleExecutionStatus::kPoweredOff) {
+        result.status = saved_status;
+      }
+    }
+
     return result;
   }
 
@@ -67,7 +102,10 @@ struct EsrSession::Impl {
         EsrCycleResult result;
         result.input_cycle_index = input.cycle_index;
         result.status = EsrCycleExecutionStatus::kRejected;
-        result.abort_reason = session::EsrPipelineAbortReason::kRuntimeStateRestoreRejected;
+        session::RecordAbort(&result, session::EsrPipelineAbortReason::kRuntimeStateRestoreRejected,
+                             "runtime_state_restore_rejected",
+                             "ESR pipeline/controller state restore failed.",
+                             /*is_validation=*/false);
         return result;
       }
     }

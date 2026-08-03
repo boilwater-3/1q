@@ -16,6 +16,31 @@ namespace sar {
 namespace session {
 
 /**
+ * @brief SAR 管线周期终止原因（强类型枚举）。
+ * @note 粗粒度结构性原因，与 AR/ESR/EOS/SBIRS 对齐（~6 值）。
+ *       细粒度失败信息由 `SarDiagnosticIssue::code`（如 "sar.snr_below_minimum"）
+ *       和 `PROJECT_LOG_ERROR` 双写承载，不进入 public abort_reason。
+ */
+enum class SarPipelineAbortReason : std::uint16_t {
+  kNone = 0,                    /**< 正常执行，无中止 */
+  kValidationRejected,          /**< 输入/配置校验失败 */
+  kPipelineExecutionFailed,     /**< 管线内部执行失败 */
+  kExternalInputRejected,       /**< 外部原始 IQ 输入校验失败 */
+  kRuntimeStateRestoreRejected, /**< 运行时状态恢复失败 */
+  kSensorPoweredOff             /**< 设备关机（SAR 当前无此场景，预留对齐） */
+};
+
+/**
+ * @brief SarCycleStatus 描述单周期高层执行状态。
+ * @note 与 ArCycleStatus / EsrCycleExecutionStatus / EosCycleStatus 对齐。
+ */
+enum class SarCycleStatus : std::uint8_t {
+  kCompleted = 0,           /**< 周期正常完成 */
+  kRejectedInvalidInput,    /**< 输入/配置校验失败 */
+  kRejectedExecution        /**< 执行失败 */
+};
+
+/**
  * @brief SAR 处理阶段状态。
  */
 enum class SarProcessingStage {
@@ -133,8 +158,9 @@ struct ONEQ_API SarCycleResult {
   SarRawPhaseHistory raw_phase_history{};
   SarDiagnosticIssueList diagnostics{};
   bool has_error{false};
+  SarCycleStatus status{SarCycleStatus::kRejectedInvalidInput};
   bool executed_this_cycle{false};
-  std::string abort_reason{};
+  SarPipelineAbortReason abort_reason{SarPipelineAbortReason::kNone};
 };
 
 }  // namespace session

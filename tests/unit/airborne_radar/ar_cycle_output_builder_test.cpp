@@ -13,6 +13,7 @@
 #include "1q/airborne_radar/config/ArProfileConstants.h"
 #include "1q/airborne_radar/config/ArSessionConfigBuilder.h"
 #include "1q/airborne_radar/session/ArCycleOutputAdapter.h"
+#include "1q/airborne_radar/session/ArTrackLifecycleRecorder.h"
 #include "1q/coordinate/position_transform.h"
 
 namespace {
@@ -26,6 +27,7 @@ using airborne_radar::session::ArExternalTrackOutputFrame;
 using airborne_radar::session::ArSession;
 using airborne_radar::session::ArExternalTargetInput;
 using airborne_radar::session::TrackOutputFrame;
+using airborne_radar::session::ArTrackLifecycleRecorder;
 
 airborne_radar::config::ArSessionConfig MakeDetectionFocusedConfig() {
   airborne_radar::config::ArSessionConfig cfg;
@@ -286,4 +288,103 @@ TEST(RadarCycleOutputBuilderTest, MultiCycleMovingTargetsStayNearExternalTruth) 
 
     AdvanceExternalTargets(dt_sec, &targets);
   }
+}
+
+TEST(RadarCycleOutputBuilderTest, AttachRecorderDrivesUpdateAutomatically) {
+  const ArExternalPoseInput platform = MakePlatformInput();
+  const ArExternalTargetInput target = MakeTargetInput();
+  ArSession session = ArSession::Create(MakeDetectionFocusedConfig());
+  ArTrackLifecycleRecorder recorder;
+  session.AttachTrackLifecycleRecorder(&recorder);
+
+  // 运行足够多周期让轨迹进入 confirmed 状态（kFastConfirmLifecycle）。
+  ArExternalTargetInput moving_target = target;
+  const float dt_sec = 0.5f;
+  bool saw_event = false;
+  for (std::uint32_t cycle = 1U; cycle <= 10U; ++cycle) {
+    ArCycleInput input;
+    input.cycle_index = cycle;
+    input.cycle_start_time_s = static_cast<double>(cycle - 1U) * dt_sec;
+    input.dt_sec = dt_sec;
+    input.platform = platform;
+    input.targets.push_back(moving_target);
+    session.StepWithResult(input);
+    if (!recorder.GetLastEvents().empty()) {
+      saw_event = true;
+    }
+    moving_target.kinematics.position_ecef_m.x_m += moving_target.kinematics.velocity_mps.x_mps * dt_sec;
+    moving_target.kinematics.position_ecef_m.y_m += moving_target.kinematics.velocity_mps.y_mps * dt_sec;
+    moving_target.kinematics.position_ecef_m.z_m += moving_target.kinematics.velocity_mps.z_mps * dt_sec;
+  }
+  EXPECT_TRUE(saw_event);
+}
+
+TEST(RadarCycleOutputBuilderTest, DetachRecorderStopsAutomaticDriving) {
+  const ArExternalPoseInput platform = MakePlatformInput();
+  ArExternalTargetInput target = MakeTargetInput();
+  ArSession session = ArSession::Create(MakeDetectionFocusedConfig());
+  ArTrackLifecycleRecorder recorder;
+  session.AttachTrackLifecycleRecorder(&recorder);
+
+  // 第一个周期驱动 recorder。
+  ArCycleInput input;
+  input.cycle_index = 1U;
+  input.dt_sec = 1.0;
+  input.platform = platform;
+  input.targets.push_back(target);
+  session.StepWithResult(input);
+  const std::size_t first_size = recorder.GetLastEvents().size();
+
+  // 解除注册后再步进——recorder 不应被驱动，GetLastEvents 不变。
+  session.AttachTrackLifecycleRecorder(nullptr);
+  target.kinematics.position_ecef_m.x_m += target.kinematics.velocity_mps.x_mps * 1.0;
+  target.kinematics.position_ecef_m.y_m += target.kinematics.velocity_mps.y_mps * 1.0;
+  input.cycle_index = 2U;
+  input.targets.clear();
+  input.targets.push_back(target);
+  session.StepWithResult(input);
+  EXPECT_EQ(recorder.GetLastEvents().size(), first_size);
+}
+
+TEST(RadarCycleOutputBuilderTest, SessionWithoutRecorderIsBackwardCompatible) {
+  const ArExternalPoseInput platform = MakePlatformInput();
+  const ArExternalTargetInput target = MakeTargetInput();
+  ArSession session = ArSession::Create(MakeDetectionFocusedConfig());
+
+  ArCycleInput input;
+  input.cycle_index = 1U;
+  input.dt_sec = 1.0;
+  input.platform = platform;
+  input.targets.push_back(target);
+  const ArCycleResult result = session.StepWithResult(input);
+  EXPECT_EQ(result.status, airborne_radar::session::ArCycleStatus::kCompleted);
+}
+
+TEST(RadarCycleOutputBuilderTest, GetLastEventsEmptyAfterConstruction) {
+  ArTrackLifecycleRecorder recorder;
+  EXPECT_TRUE(recorder.GetLastEvents().empty());
+}
+
+TEST(RadarCycleOutputBuilderTest, NonExecutedCycleDoesNotUpdateLastEvents) {
+  const ArExternalPoseInput platform = MakePlatformInput();
+  ArExternalTargetInput target = MakeTargetInput();
+  ArSession session = ArSession::Create(MakeDetectionFocusedConfig());
+  ArTrackLifecycleRecorder recorder;
+  session.AttachTrackLifecycleRecorder(&recorder);
+
+  // 第一个周期执行并驱动 recorder。
+  ArCycleInput input;
+  input.cycle_index = 1U;
+  input.dt_sec = 1.0;
+  input.platform = platform;
+  input.targets.push_back(target);
+  session.StepWithResult(input);
+  const std::size_t first_size = recorder.GetLastEvents().size();
+
+  // 非法输入（dt_sec=0）→ validation rejection → 非执行周期，缓存保持不变。
+  ArCycleInput invalid = input;
+  invalid.dt_sec = 0.0;
+  const ArCycleResult rejected = session.StepWithResult(invalid);
+  EXPECT_EQ(rejected.status, airborne_radar::session::ArCycleStatus::kRejectedInvalidInput);
+  EXPECT_EQ(recorder.GetLastEvents().size(), first_size);
 }

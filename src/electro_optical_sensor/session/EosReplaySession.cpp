@@ -84,12 +84,32 @@ bool EosValidationIssueListEqual(const ValidationIssueList& left,
   return true;
 }
 
+bool EosDiagnosticIssueEqual(const session::EosDiagnosticIssue& left,
+                             const session::EosDiagnosticIssue& right) {
+  return left.severity == right.severity && left.code == right.code &&
+         left.message == right.message;
+}
+
+bool EosDiagnosticIssueListEqual(const session::EosDiagnosticIssueList& left,
+                                 const session::EosDiagnosticIssueList& right) {
+  if (left.size() != right.size()) {
+    return false;
+  }
+  for (std::size_t i = 0; i < left.size(); ++i) {
+    if (!EosDiagnosticIssueEqual(left[i], right[i])) {
+      return false;
+    }
+  }
+  return true;
+}
+
 bool EosCycleResultEqual(const EosCycleResult& left, const EosCycleResult& right) {
   return left.input_cycle_index == right.input_cycle_index &&
          EosOutputFrameEqual(left.output_frame, right.output_frame) &&
          EosDetectionAttributionListEqual(left.detection_attributions,
                                           right.detection_attributions) &&
          EosValidationIssueListEqual(left.validation_issues, right.validation_issues) &&
+         EosDiagnosticIssueListEqual(left.diagnostics, right.diagnostics) &&
          left.has_validation_error == right.has_validation_error &&
          left.executed_this_cycle == right.executed_this_cycle &&
          left.abort_reason == right.abort_reason;

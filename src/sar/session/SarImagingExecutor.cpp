@@ -76,7 +76,8 @@ bool ExecuteL1RdaImaging(const config::SarSessionConfig& config,
   if (config.policy.enable_l2_motion_compensation) {
     if (ideal_trajectory_buffer.size() != raw_history.rows ||
         actual_trajectory_buffer.size() != raw_history.rows) {
-      RecordAbort(result, "l2_trajectory_history_mismatch",
+      RecordAbort(result, SarPipelineAbortReason::kPipelineExecutionFailed,
+                  "l2_trajectory_history_mismatch",
                   "SAR L2 trajectory history does not match the latest raw aperture.");
       return false;
     }
@@ -92,7 +93,7 @@ bool ExecuteL1RdaImaging(const config::SarSessionConfig& config,
     if (!imaging::ApplyFirstOrderMotionCompensation(compensation_config, ideal_trajectory,
                                                     actual_trajectory, raw_history, &rda_input,
                                                     &compensation_diagnostics)) {
-      RecordAbort(result, "motion_compensation_failed", "SAR L2 motion compensation failed.");
+      RecordAbort(result, SarPipelineAbortReason::kPipelineExecutionFailed, "motion_compensation_failed", "SAR L2 motion compensation failed.");
       return false;
     }
     result->diagnostics.push_back(MakeInfoDiagnostic(
@@ -113,12 +114,13 @@ bool ExecuteL1RdaImaging(const config::SarSessionConfig& config,
 
   imaging::FocusedSarImage image;
   if (!imaging::FocusStripmapRda(rda_config, rda_input, matched_filter, &image)) {
-    RecordAbort(result, "rda_failed", "SAR RDA focus failed.");
+    RecordAbort(result, SarPipelineAbortReason::kPipelineExecutionFailed, "rda_failed", "SAR RDA focus failed.");
     return false;
   }
   if (!ExportFocusedImage(config.policy, image.image, SarFocusedImageSource::kL1Rda,
                           &result->focused_image)) {
-    RecordAbort(result, "rda_public_image_export_failed",
+    RecordAbort(result, SarPipelineAbortReason::kPipelineExecutionFailed,
+                "rda_public_image_export_failed",
                 "SAR RDA image could not be converted to the public focused-image payload.");
     return false;
   }
@@ -169,7 +171,8 @@ bool ExecuteL3BpImaging(const config::SarSessionConfig& config,
                         const std::deque<geometry::PlatformPulseState>& actual_trajectory_buffer,
                         SarCycleResult* result) {
   if (actual_trajectory_buffer.size() != raw_history.rows) {
-    RecordAbort(result, "l3_trajectory_history_mismatch",
+    RecordAbort(result, SarPipelineAbortReason::kPipelineExecutionFailed,
+                "l3_trajectory_history_mismatch",
                 "SAR L3 trajectory history does not match the latest raw aperture.");
     return false;
   }
@@ -190,12 +193,13 @@ bool ExecuteL3BpImaging(const config::SarSessionConfig& config,
   imaging::FocusedGbpImage image;
   if (!imaging::FocusSmallSceneBp(bp_config, actual_trajectory, raw_history, matched_filter,
                                   &image)) {
-    RecordAbort(result, "l3_bp_failed", "SAR L3 BP focus failed.");
+    RecordAbort(result, SarPipelineAbortReason::kPipelineExecutionFailed, "l3_bp_failed", "SAR L3 BP focus failed.");
     return false;
   }
   if (!ExportFocusedImage(config.policy, image.image, SarFocusedImageSource::kL3Bp,
                           &result->focused_image)) {
-    RecordAbort(result, "bp_public_image_export_failed",
+    RecordAbort(result, SarPipelineAbortReason::kPipelineExecutionFailed,
+                "l3_bp_public_image_export_failed",
                 "SAR BP image could not be converted to the public focused-image payload.");
     return false;
   }

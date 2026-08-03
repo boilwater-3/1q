@@ -57,6 +57,7 @@ EosDetectionLifecycleEvent MakeBaseEvent(const EosSceneTarget& target, const Eos
 struct EosDetectionLifecycleRecorder::Impl {
   EosDetectionLifecycleRecorderConfig config;
   std::unordered_map<std::uint64_t, TargetState> states;
+  std::vector<EosDetectionLifecycleEvent> last_events{};
 };
 
 EosDetectionLifecycleRecorder::EosDetectionLifecycleRecorder(EosDetectionLifecycleRecorderConfig config)
@@ -120,10 +121,19 @@ std::vector<EosDetectionLifecycleEvent> EosDetectionLifecycleRecorder::Update(
     state.detected = false;
     state.target_name = target.target_name;
   }
+  impl_->last_events = events;
   return events;
 }
 
-void EosDetectionLifecycleRecorder::Reset() { impl_->states.clear(); }
+void EosDetectionLifecycleRecorder::Reset() {
+  impl_->states.clear();
+  impl_->last_events.clear();
+}
+
+const std::vector<EosDetectionLifecycleEvent>& EosDetectionLifecycleRecorder::GetLastEvents() const
+    noexcept {
+  return impl_->last_events;
+}
 
 }  // namespace session
 }  // namespace electro_optical_sensor

@@ -92,6 +92,8 @@ TEST(SarPublicApiConvenienceTest, StepWithResultProducesL1RdaImageProduct) {
 TEST(SarPublicApiConvenienceTest, ProductDebugViewAndLifecycleRecorderAreReachable) {
   // 三层输出类型在 public API 可达（阶段 9 三层模型）。
   session::SarSession session = session::SarSession::Create(MakeMinimalConfig());
+  session::SarProductLifecycleRecorder recorder;
+  session.AttachProductLifecycleRecorder(&recorder);
   const session::SarCycleInput input = MakeMinimalInput();
   const session::SarCycleResult result = session.StepWithResult(input);
 
@@ -101,13 +103,12 @@ TEST(SarPublicApiConvenienceTest, ProductDebugViewAndLifecycleRecorderAreReachab
   // 点目标 name 只在 debug view 的 point_targets 中，不进入产品输出帧。
   EXPECT_EQ(view.point_targets[0].target_name, "convenience-target");
 
-  session::SarProductLifecycleRecorder recorder;
-  std::vector<session::SarProductLifecycleEvent> events = recorder.Update(result);
-  EXPECT_FALSE(events.empty());
+  // recorder 由 Session 自动驱动（Attach 契约），事件经 GetLastEvents 获取。
+  EXPECT_FALSE(recorder.GetLastEvents().empty());
 }
 
 TEST(SarPublicApiConvenienceTest, StepResultExposesStructuredExecutionState) {
-  // 结构化执行结果字段可达：executed/reused/has_error/abort_reason/阶段。
+  // 结构化执行结果字段可达：executed/has_error/abort_reason/阶段。
   session::SarSession session = session::SarSession::Create(MakeMinimalConfig());
   const session::SarCycleResult result = session.StepWithResult(MakeMinimalInput());
   (void)result.executed_this_cycle;

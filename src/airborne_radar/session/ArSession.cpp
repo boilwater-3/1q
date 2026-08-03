@@ -5,9 +5,11 @@
 #include <limits>
 #include <utility>
 
+#include "1q/airborne_radar/session/ArTrackLifecycleRecorder.h"
 #include "1q/coordinate/attitude_transform.h"
 #include "1q/coordinate/position_transform.h"
 #include "airborne_radar/config/mapping/RuntimePatchMapper.h"
+#include "airborne_radar/session/ArDiagnosticUtils.h"
 #include "airborne_radar/config/mapping/SessionToExecutionMapper.h"
 #include "airborne_radar/environment/IEnvironmentService.h"
 #include "airborne_radar/runtime/ArController.h"
@@ -148,15 +150,31 @@ struct ArSession::Impl {
     result.abort_reason = session::SignalCycleAbortReason::kValidationRejected;
     result.validation_issues = issues;
     result.has_validation_error = HasValidationError(issues);
+    RecordAbort(&result, result.abort_reason, "input_validation", "AR cycle aborted.", true);
     return result;
   }
 
   ArCycleResult BuildExecutionAbortResult(const ArCycleInput& input,
-                                          session::SignalCycleAbortReason abort_reason) const {
+                                          session::SignalCycleAbortReason abort_reason,
+                                          ArCycleStatus status =
+                                              ArCycleStatus::kRejectedExecution) const {
     ArCycleResult result;
     result.input_cycle_index = input.cycle_index;
-    result.status = ArCycleStatus::kRejectedExecution;
     result.abort_reason = abort_reason;
+    const bool is_validation = (abort_reason == session::SignalCycleAbortReason::kValidationRejected);
+    const char* detail_code = "unknown";
+    switch (abort_reason) {
+      case session::SignalCycleAbortReason::kValidationRejected: detail_code = "input_validation"; break;
+      case session::SignalCycleAbortReason::kSensorPoweredOff: detail_code = "sensor_powered_off"; break;
+      case session::SignalCycleAbortReason::kLifecycleUnavailable: detail_code = "lifecycle_unavailable"; break;
+      case session::SignalCycleAbortReason::kInvalidEnvironmentCycle: detail_code = "invalid_environment_cycle"; break;
+      case session::SignalCycleAbortReason::kRuntimePreparationFailed: detail_code = "runtime_preparation_failed"; break;
+      default: break;
+    }
+    RecordAbort(&result, abort_reason, detail_code, "AR cycle aborted.", is_validation);
+    // status 由调用点显式声明，在 RecordAbort 之后做最终赋值，
+    // 避免"RecordAbort 覆盖 status、调用方再补丁"的双重覆盖链。
+    result.status = status;
     return result;
   }
 
@@ -400,20 +418,14 @@ struct ArSession::Impl {
 
     const ArPrepareCycleResult prepared = PrepareRfCycle(prepare_input);
     if (prepared.status == ArPrepareCycleStatus::kPoweredOff) {
-      ArCycleResult result;
-      result.input_cycle_index = input.cycle_index;
-      result.status = ArCycleStatus::kPoweredOff;
-      result.validation_issues = issues;
-      result.abort_reason = session::SignalCycleAbortReason::kSensorPoweredOff;
-      return result;
+      return BuildExecutionAbortResult(input, session::SignalCycleAbortReason::kSensorPoweredOff,
+                                       ArCycleStatus::kPoweredOff);
     }
     if (prepared.status != ArPrepareCycleStatus::kPrepared) {
       (void)restore_user_cycle();
-      ArCycleResult result = BuildExecutionAbortResult(
-          input, session::SignalCycleAbortReason::kRuntimePreparationFailed);
-      result.status = ArCycleStatus::kRejectedInvalidConfig;
-      result.validation_issues = issues;
-      return result;
+      return BuildExecutionAbortResult(
+          input, session::SignalCycleAbortReason::kRuntimePreparationFailed,
+          ArCycleStatus::kRejectedInvalidConfig);
     }
 
     // The complete-phase RF scene is authored from the prepared token's
@@ -720,6 +732,7 @@ struct ArSession::Impl {
   std::unique_ptr<environment::IEnvironmentService> owned_environment_service;
   std::unique_ptr<extension::ArController> owned_controller;
   signal::pipeline::SignalPipeline* concrete_signal_pipeline_{nullptr};
+  ArTrackLifecycleRecorder* lifecycle_recorder{nullptr};
 
   MutableArContext& RadarContext() const { return *owned_ar_context; }
   signal::ISignalPipeline& SignalPipeline() const { return *owned_signal_pipeline; }
@@ -786,11 +799,19 @@ ArSession ArSession::CreateWithDiagnostics(const config::ArSessionConfig& config
 }
 
 session::TrackOutputFrame ArSession::Step(const ArCycleInput& input) {
-  return impl_->RunCycle(input).track_output_frame;
+  return StepWithResult(input).track_output_frame;
 }
 
 ArCycleResult ArSession::StepWithResult(const ArCycleInput& input) {
-  return impl_->RunCycle(input);
+  ArCycleResult result = impl_->RunCycle(input);
+  if (impl_->lifecycle_recorder != nullptr) {
+    impl_->lifecycle_recorder->Update(input.targets, result);
+  }
+  return result;
+}
+
+void ArSession::AttachTrackLifecycleRecorder(ArTrackLifecycleRecorder* recorder) noexcept {
+  impl_->lifecycle_recorder = recorder;
 }
 
 const std::vector<session::ArCommand>& ArSession::GetSubmittedCommands() const {

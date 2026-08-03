@@ -216,7 +216,7 @@ TEST(SarSessionPipelineTest, SquintGateUsesMaximumActualApertureAngle) {
   const session::SarCycleResult rejected =
       session::SarSession::Create(config).StepWithResult(input);
   EXPECT_FALSE(rejected.executed_this_cycle);
-  EXPECT_EQ(rejected.abort_reason, "squint_angle_exceeds_limit");
+  EXPECT_EQ(rejected.abort_reason, session::SarPipelineAbortReason::kPipelineExecutionFailed);
 
   config.policy.max_allowed_squint_angle_deg = 6.1;
   const session::SarCycleResult accepted =
@@ -290,7 +290,7 @@ TEST(SarSessionPipelineTest, ProductLifecycleRecorderTracksProducedUpdatedLostAn
   updated.output_frame.cycle_index = 2U;
   events = recorder.Update(updated);
   ASSERT_EQ(events.size(), 1U);
-  EXPECT_EQ(events.front().kind, session::SarProductLifecycleEventKind::kProductUpdated);
+  EXPECT_EQ(events.front().kind, session::SarProductLifecycleEventKind::kProductSustained);
 
   session::SarCycleResult lost;
   lost.input_cycle_index = 3U;
@@ -306,7 +306,7 @@ TEST(SarSessionPipelineTest, ProductLifecycleRecorderTracksProducedUpdatedLostAn
   failed.input_cycle_index = 4U;
   failed.executed_this_cycle = false;
   failed.has_error = true;
-  failed.abort_reason = "snr_below_minimum";
+  failed.abort_reason = session::SarPipelineAbortReason::kPipelineExecutionFailed;
   events = recorder.Update(failed);
   EXPECT_TRUE(events.empty());
 
@@ -337,7 +337,7 @@ TEST(SarSessionPipelineTest, ProductLifecycleRecorderPreservesStateAcrossNonExec
   produced.input_cycle_index = 3U;
   const std::vector<session::SarProductLifecycleEvent> recovered = recorder.Update(produced);
   ASSERT_EQ(recovered.size(), 1U);
-  EXPECT_EQ(recovered.front().kind, session::SarProductLifecycleEventKind::kProductUpdated);
+  EXPECT_EQ(recovered.front().kind, session::SarProductLifecycleEventKind::kProductSustained);
 }
 
 TEST(SarSessionPipelineTest, RetainFocusedImageFalseProducesPlaceholder) {
@@ -396,7 +396,7 @@ TEST(SarSessionPipelineTest, MinValidSnrRejectsApertureBelowThreshold) {
 
   EXPECT_FALSE(result.executed_this_cycle);
   EXPECT_TRUE(result.has_error);
-  EXPECT_EQ(result.abort_reason, "snr_below_minimum");
+  EXPECT_EQ(result.abort_reason, session::SarPipelineAbortReason::kPipelineExecutionFailed);
   EXPECT_TRUE(result.output_frame.has_raw_echo);
   EXPECT_FALSE(result.output_frame.has_l1_image);
   EXPECT_LT(result.output_frame.estimated_snr_db, config.policy.minimum_snr_db);
@@ -505,7 +505,7 @@ TEST(SarSessionPipelineTest, InvalidHardwareLinkBudgetFailsBeforeRawEcho) {
 
   EXPECT_FALSE(result.executed_this_cycle);
   EXPECT_TRUE(result.has_error);
-  EXPECT_EQ(result.abort_reason, "invalid_config");
+  EXPECT_EQ(result.abort_reason, session::SarPipelineAbortReason::kValidationRejected);
   EXPECT_FALSE(result.output_frame.has_raw_echo);
 }
 
@@ -584,14 +584,14 @@ TEST(SarSessionPipelineTest, ExternalRawIqRejectsShapeMismatchAndAdvancedPaths) 
   session::SarSession malformed_session = session::SarSession::Create(MakeSmallRdaConfig());
   const session::SarCycleResult malformed_result = malformed_session.StepWithResult(malformed);
   EXPECT_FALSE(malformed_result.executed_this_cycle);
-  EXPECT_EQ(malformed_result.abort_reason, "external_raw_iq_shape_mismatch");
+  EXPECT_EQ(malformed_result.abort_reason, session::SarPipelineAbortReason::kExternalInputRejected);
 
   session::SarCycleInput non_finite = MakeExternalRawIqInput();
   non_finite.raw_iq.q_values[0] = std::numeric_limits<double>::quiet_NaN();
   session::SarSession non_finite_session = session::SarSession::Create(MakeSmallRdaConfig());
   const session::SarCycleResult non_finite_result = non_finite_session.StepWithResult(non_finite);
   EXPECT_FALSE(non_finite_result.executed_this_cycle);
-  EXPECT_EQ(non_finite_result.abort_reason, "external_raw_iq_non_finite");
+  EXPECT_EQ(non_finite_result.abort_reason, session::SarPipelineAbortReason::kExternalInputRejected);
 
   config::SarSessionConfig l2_config = MakeSmallRdaConfig();
   l2_config.policy.enable_l2_motion_compensation = true;
@@ -599,7 +599,7 @@ TEST(SarSessionPipelineTest, ExternalRawIqRejectsShapeMismatchAndAdvancedPaths) 
   session::SarSession l2_session = session::SarSession::Create(l2_config);
   const session::SarCycleResult l2_result = l2_session.StepWithResult(MakeExternalRawIqInput());
   EXPECT_FALSE(l2_result.executed_this_cycle);
-  EXPECT_EQ(l2_result.abort_reason, "external_raw_iq_trajectory_required");
+  EXPECT_EQ(l2_result.abort_reason, session::SarPipelineAbortReason::kExternalInputRejected);
 }
 
 TEST(SarSessionPipelineTest, ExternalRawIqWithPulseStatesRunsL3Bp) {
@@ -654,14 +654,14 @@ TEST(SarSessionPipelineTest, ExternalRawIqL2RejectsMissingOrInvalidIdealTrajecto
   const session::SarCycleResult missing_result =
       missing_session.StepWithResult(MakeExternalRawIqInputWithTrajectory());
   EXPECT_FALSE(missing_result.executed_this_cycle);
-  EXPECT_EQ(missing_result.abort_reason, "external_raw_iq_ideal_trajectory_required");
+  EXPECT_EQ(missing_result.abort_reason, session::SarPipelineAbortReason::kExternalInputRejected);
 
   session::SarCycleInput invalid = MakeExternalRawIqInputWithDualTrajectory();
   invalid.raw_iq.ideal_pulse_states[3].time_s = invalid.raw_iq.ideal_pulse_states[2].time_s;
   session::SarSession invalid_session = session::SarSession::Create(config);
   const session::SarCycleResult invalid_result = invalid_session.StepWithResult(invalid);
   EXPECT_FALSE(invalid_result.executed_this_cycle);
-  EXPECT_EQ(invalid_result.abort_reason, "external_raw_iq_invalid_ideal_trajectory");
+  EXPECT_EQ(invalid_result.abort_reason, session::SarPipelineAbortReason::kExternalInputRejected);
 }
 
 TEST(SarSessionPipelineTest, ExternalRawIqBpRejectsMissingOrInvalidTrajectory) {
@@ -669,14 +669,14 @@ TEST(SarSessionPipelineTest, ExternalRawIqBpRejectsMissingOrInvalidTrajectory) {
   const session::SarCycleResult missing_result =
       missing_session.StepWithResult(MakeExternalRawIqInput());
   EXPECT_FALSE(missing_result.executed_this_cycle);
-  EXPECT_EQ(missing_result.abort_reason, "external_raw_iq_trajectory_required");
+  EXPECT_EQ(missing_result.abort_reason, session::SarPipelineAbortReason::kExternalInputRejected);
 
   session::SarCycleInput invalid = MakeExternalRawIqInputWithTrajectory();
   invalid.raw_iq.pulse_states[2].pulse_id = invalid.raw_iq.pulse_states[1].pulse_id;
   session::SarSession invalid_session = session::SarSession::Create(MakeSmallL3BpConfig());
   const session::SarCycleResult invalid_result = invalid_session.StepWithResult(invalid);
   EXPECT_FALSE(invalid_result.executed_this_cycle);
-  EXPECT_EQ(invalid_result.abort_reason, "invalid_cycle_input");
+  EXPECT_EQ(invalid_result.abort_reason, session::SarPipelineAbortReason::kValidationRejected);
   EXPECT_TRUE(HasDiagnosticContaining(invalid_result, "sar.invalid_cycle_input",
                                       "raw_iq.pulse_states"));
 
@@ -686,7 +686,7 @@ TEST(SarSessionPipelineTest, ExternalRawIqBpRejectsMissingOrInvalidTrajectory) {
       session::SarSession::Create(MakeSmallL3BpConfig());
   const session::SarCycleResult non_finite_result = non_finite_session.StepWithResult(non_finite);
   EXPECT_FALSE(non_finite_result.executed_this_cycle);
-  EXPECT_EQ(non_finite_result.abort_reason, "invalid_cycle_input");
+  EXPECT_EQ(non_finite_result.abort_reason, session::SarPipelineAbortReason::kValidationRejected);
   EXPECT_TRUE(HasDiagnosticContaining(non_finite_result, "sar.invalid_cycle_input",
                                       "raw_iq.pulse_states"));
 }
@@ -701,7 +701,7 @@ TEST(SarSessionPipelineTest, RuntimeSizeGateRejectsUnapprovedLargeRda) {
 
   EXPECT_FALSE(result.executed_this_cycle);
   EXPECT_TRUE(result.has_error);
-  EXPECT_EQ(result.abort_reason, "rda_size_gate");
+  EXPECT_EQ(result.abort_reason, session::SarPipelineAbortReason::kValidationRejected);
   EXPECT_FALSE(result.output_frame.has_l1_image);
 }
 
@@ -713,7 +713,7 @@ TEST(SarSessionPipelineTest, RdaRequiresRawEcho) {
 
   EXPECT_FALSE(result.executed_this_cycle);
   EXPECT_TRUE(result.has_error);
-  EXPECT_EQ(result.abort_reason, "rda_requires_raw_echo");
+  EXPECT_EQ(result.abort_reason, session::SarPipelineAbortReason::kValidationRejected);
   EXPECT_FALSE(result.output_frame.has_range_compressed_echo);
   EXPECT_FALSE(result.output_frame.has_l1_image);
 }
@@ -832,7 +832,7 @@ TEST(SarSessionPipelineTest, L2MotionCompensationRequiresRawEchoAndRda) {
 
   EXPECT_FALSE(result.executed_this_cycle);
   EXPECT_TRUE(result.has_error);
-  EXPECT_EQ(result.abort_reason, "invalid_l2_motion_compensation_config");
+  EXPECT_EQ(result.abort_reason, session::SarPipelineAbortReason::kValidationRejected);
 }
 
 TEST(SarSessionPipelineTest, L3BpRunsOnlyWhenExplicitlyEnabled) {
@@ -875,14 +875,14 @@ TEST(SarSessionPipelineTest, L3BpRejectsMutualExclusionAndSizeViolations) {
   session::SarSession mutual_session = session::SarSession::Create(mutual_exclusion);
   const session::SarCycleResult mutual_result = mutual_session.StepWithResult(MakeInput());
   EXPECT_FALSE(mutual_result.executed_this_cycle);
-  EXPECT_EQ(mutual_result.abort_reason, "invalid_l3_bp_config");
+  EXPECT_EQ(mutual_result.abort_reason, session::SarPipelineAbortReason::kValidationRejected);
 
   config::SarSessionConfig oversized = MakeSmallL3BpConfig();
   oversized.mission.range_sample_count = 129U;
   session::SarSession oversized_session = session::SarSession::Create(oversized);
   const session::SarCycleResult oversized_result = oversized_session.StepWithResult(MakeInput());
   EXPECT_FALSE(oversized_result.executed_this_cycle);
-  EXPECT_EQ(oversized_result.abort_reason, "l3_bp_size_gate");
+  EXPECT_EQ(oversized_result.abort_reason, session::SarPipelineAbortReason::kValidationRejected);
 }
 
 TEST(SarSessionPipelineTest, L3BpRequiresRawEcho) {
@@ -891,7 +891,7 @@ TEST(SarSessionPipelineTest, L3BpRequiresRawEcho) {
   session::SarSession no_raw_session = session::SarSession::Create(no_raw);
   const session::SarCycleResult no_raw_result = no_raw_session.StepWithResult(MakeInput());
   EXPECT_FALSE(no_raw_result.executed_this_cycle);
-  EXPECT_EQ(no_raw_result.abort_reason, "invalid_l3_bp_config");
+  EXPECT_EQ(no_raw_result.abort_reason, session::SarPipelineAbortReason::kValidationRejected);
 }
 
 TEST(SarSessionPipelineTest, L3BpRejectsInvalidWaypointStructure) {
@@ -901,7 +901,7 @@ TEST(SarSessionPipelineTest, L3BpRejectsInvalidWaypointStructure) {
   const session::SarCycleResult nonzero_start_result =
       nonzero_start_session.StepWithResult(MakeInput());
   EXPECT_FALSE(nonzero_start_result.executed_this_cycle);
-  EXPECT_EQ(nonzero_start_result.abort_reason, "invalid_l3_bp_config");
+  EXPECT_EQ(nonzero_start_result.abort_reason, session::SarPipelineAbortReason::kValidationRejected);
 
   config::SarSessionConfig nonmonotonic = MakeSmallL3BpConfig();
   nonmonotonic.mission.l3_waypoints.back().time_from_session_start_s =
@@ -910,7 +910,7 @@ TEST(SarSessionPipelineTest, L3BpRejectsInvalidWaypointStructure) {
   const session::SarCycleResult nonmonotonic_result =
       nonmonotonic_session.StepWithResult(MakeInput());
   EXPECT_FALSE(nonmonotonic_result.executed_this_cycle);
-  EXPECT_EQ(nonmonotonic_result.abort_reason, "invalid_l3_bp_config");
+  EXPECT_EQ(nonmonotonic_result.abort_reason, session::SarPipelineAbortReason::kValidationRejected);
 }
 
 TEST(SarSessionPipelineTest, L3BpTrajectoryHistoryRemainsAlignedAcrossCycles) {
@@ -944,7 +944,7 @@ TEST(SarSessionPipelineTest, L3BpRejectsWaypointCoverageGap) {
 
   EXPECT_FALSE(result.executed_this_cycle);
   EXPECT_TRUE(result.has_error);
-  EXPECT_EQ(result.abort_reason, "l3_waypoint_coverage");
+  EXPECT_EQ(result.abort_reason, session::SarPipelineAbortReason::kPipelineExecutionFailed);
 }
 
 TEST(SarSessionPipelineTest, InvalidCycleReturnsEmptyOutputNotReused) {
@@ -974,7 +974,7 @@ TEST(SarSessionPipelineTest, InvalidTargetInputAbortsBeforeImaging) {
 
   EXPECT_FALSE(result.executed_this_cycle);
   EXPECT_TRUE(result.has_error);
-  EXPECT_EQ(result.abort_reason, "invalid_cycle_input");
+  EXPECT_EQ(result.abort_reason, session::SarPipelineAbortReason::kValidationRejected);
   EXPECT_FALSE(result.output_frame.has_l1_image);
   EXPECT_TRUE(HasDiagnosticContaining(result, "sar.invalid_cycle_input", "point_targets"));
   EXPECT_EQ(result.focused_image.source, session::SarFocusedImageSource::kNone);
@@ -1032,6 +1032,82 @@ TEST(SarSessionPipelineTest, RuntimePatchViolatingL1RdaDependencyRejected) {
   const session::SarCycleResult result = session.StepWithResult(MakeInput());
   EXPECT_TRUE(result.executed_this_cycle);
   EXPECT_TRUE(result.output_frame.has_l1_image);
+}
+
+TEST(SarSessionPipelineTest, AttachRecorderDrivesUpdateAutomatically) {
+  session::SarSession session = session::SarSession::Create(MakeSmallRdaConfig());
+  session::SarProductLifecycleRecorder recorder;
+
+  session.AttachProductLifecycleRecorder(&recorder);
+
+  // 第一次步进应产出图像产品——recorder 应被自动驱动，发出 kImageProduced。
+  const session::SarCycleResult first = session.StepWithResult(MakeInput(1U));
+  ASSERT_TRUE(first.executed_this_cycle);
+  ASSERT_TRUE(first.output_frame.has_l1_image);
+
+  const std::vector<session::SarProductLifecycleEvent>& first_events = recorder.GetLastEvents();
+  ASSERT_EQ(first_events.size(), 1U);
+  EXPECT_EQ(first_events.front().kind, session::SarProductLifecycleEventKind::kImageProduced);
+
+  // 第二次步进——产品持续存在，应发出 kProductSustained。
+  const session::SarCycleResult second = session.StepWithResult(MakeInput(2U));
+  ASSERT_TRUE(second.executed_this_cycle);
+  const std::vector<session::SarProductLifecycleEvent>& second_events = recorder.GetLastEvents();
+  ASSERT_EQ(second_events.size(), 1U);
+  EXPECT_EQ(second_events.front().kind, session::SarProductLifecycleEventKind::kProductSustained);
+}
+
+TEST(SarSessionPipelineTest, DetachRecorderStopsAutomaticDriving) {
+  session::SarSession session = session::SarSession::Create(MakeSmallRdaConfig());
+  session::SarProductLifecycleRecorder recorder;
+
+  session.AttachProductLifecycleRecorder(&recorder);
+  session.StepWithResult(MakeInput(1U));
+  ASSERT_EQ(recorder.GetLastEvents().size(), 1U);
+  EXPECT_EQ(recorder.GetLastEvents().front().kind,
+            session::SarProductLifecycleEventKind::kImageProduced);
+
+  // 解除注册后再步进——recorder 不应被驱动，last_events 不变。
+  session.AttachProductLifecycleRecorder(nullptr);
+  session.StepWithResult(MakeInput(2U));
+  ASSERT_EQ(recorder.GetLastEvents().size(), 1U);
+  EXPECT_EQ(recorder.GetLastEvents().front().kind,
+            session::SarProductLifecycleEventKind::kImageProduced);
+}
+
+TEST(SarSessionPipelineTest, SessionWithoutRecorderIsBackwardCompatible) {
+  session::SarSession session = session::SarSession::Create(MakeSmallRdaConfig());
+
+  // 不 Attach 任何 recorder，行为与改动前完全一致。
+  const session::SarCycleResult result = session.StepWithResult(MakeInput());
+  EXPECT_TRUE(result.executed_this_cycle);
+  EXPECT_TRUE(result.output_frame.has_l1_image);
+}
+
+TEST(SarSessionPipelineTest, GetLastEventsEmptyAfterConstruction) {
+  session::SarProductLifecycleRecorder recorder;
+  EXPECT_TRUE(recorder.GetLastEvents().empty());
+}
+
+TEST(SarSessionPipelineTest, NonExecutedCycleDoesNotUpdateLastEvents) {
+  session::SarSession session = session::SarSession::Create(MakeSmallRdaConfig());
+  session::SarProductLifecycleRecorder recorder;
+  session.AttachProductLifecycleRecorder(&recorder);
+
+  // 第一次步进产出图像。
+  session.StepWithResult(MakeInput(1U));
+  ASSERT_EQ(recorder.GetLastEvents().size(), 1U);
+
+  // 构造一个会触发 validation rejection 的输入（cycle_index=0 或其他非法值）。
+  // 非执行周期不推进 recorder 状态，last_events 保持不变。
+  session::SarCycleInput invalid;
+  invalid.cycle_index = 2U;
+  invalid.dt_sec = -1.0f;  // 非法 dt
+  session.StepWithResult(invalid);
+  // last_events 仍为上一次执行周期的事件。
+  ASSERT_EQ(recorder.GetLastEvents().size(), 1U);
+  EXPECT_EQ(recorder.GetLastEvents().front().kind,
+            session::SarProductLifecycleEventKind::kImageProduced);
 }
 
 }  // namespace

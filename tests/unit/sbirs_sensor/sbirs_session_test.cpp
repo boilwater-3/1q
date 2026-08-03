@@ -4,6 +4,7 @@
 
 #include "1q/sbirs_sensor/config/SbirsRuntimeConfigBuilder.h"
 #include "1q/sbirs_sensor/session/SbirsCycleInputAdapter.h"
+#include "1q/sbirs_sensor/session/SbirsDetectionLifecycleRecorder.h"
 #include "1q/sbirs_sensor/session/SbirsSession.h"
 
 namespace {
@@ -115,6 +116,69 @@ TEST(SbirsRuntimeConfigResolverTest, InvalidPatchDoesNotPolluteConfig) {
   EXPECT_FALSE(session.TryApplyRuntimeConfig(invalid));
   const sbirs_sensor::session::SbirsCycleResult result = session.StepWithResult(ValidInput(1U));
   EXPECT_TRUE(result.executed_this_cycle);
+}
+
+TEST(SbirsSessionTest, AttachRecorderDrivesUpdateAutomatically) {
+  sbirs_sensor::session::SbirsSession session =
+      sbirs_sensor::session::SbirsSession::Create(Config());
+  sbirs_sensor::session::SbirsDetectionLifecycleRecorder recorder;
+
+  session.AttachDetectionLifecycleRecorder(&recorder);
+
+  const sbirs_sensor::session::SbirsCycleResult result = session.StepWithResult(ValidInput(1U));
+  ASSERT_TRUE(result.executed_this_cycle);
+  ASSERT_FALSE(result.output_frame.detections.empty());
+
+  const std::vector<sbirs_sensor::session::SbirsDetectionLifecycleEvent>& events =
+      recorder.GetLastEvents();
+  ASSERT_FALSE(events.empty());
+  EXPECT_EQ(events.front().kind,
+            sbirs_sensor::session::SbirsDetectionLifecycleEventKind::kFirstDetected);
+}
+
+TEST(SbirsSessionTest, DetachRecorderStopsAutomaticDriving) {
+  sbirs_sensor::session::SbirsSession session =
+      sbirs_sensor::session::SbirsSession::Create(Config());
+  sbirs_sensor::session::SbirsDetectionLifecycleRecorder recorder;
+
+  session.AttachDetectionLifecycleRecorder(&recorder);
+  session.StepWithResult(ValidInput(1U));
+  const std::size_t first_count = recorder.GetLastEvents().size();
+  ASSERT_GT(first_count, 0U);
+
+  session.AttachDetectionLifecycleRecorder(nullptr);
+  session.StepWithResult(ValidInput(2U));
+  EXPECT_EQ(recorder.GetLastEvents().size(), first_count);
+}
+
+TEST(SbirsSessionTest, SessionWithoutRecorderIsBackwardCompatible) {
+  sbirs_sensor::session::SbirsSession session =
+      sbirs_sensor::session::SbirsSession::Create(Config());
+  const sbirs_sensor::session::SbirsCycleResult result = session.StepWithResult(ValidInput(1U));
+  EXPECT_TRUE(result.executed_this_cycle);
+}
+
+TEST(SbirsSessionTest, GetLastEventsEmptyAfterConstruction) {
+  sbirs_sensor::session::SbirsDetectionLifecycleRecorder recorder;
+  EXPECT_TRUE(recorder.GetLastEvents().empty());
+}
+
+TEST(SbirsSessionTest, NonExecutedCycleDoesNotUpdateLastEvents) {
+  sbirs_sensor::session::SbirsSession session =
+      sbirs_sensor::session::SbirsSession::Create(Config());
+  sbirs_sensor::session::SbirsDetectionLifecycleRecorder recorder;
+  session.AttachDetectionLifecycleRecorder(&recorder);
+
+  // 第一个周期执行并驱动 recorder。
+  session.StepWithResult(ValidInput(1U));
+  const std::size_t first_size = recorder.GetLastEvents().size();
+
+  // 非法输入（dt_sec=0）→ validation rejection → 非执行周期，缓存保持不变。
+  sbirs_sensor::session::SbirsCycleInput invalid = ValidInput(2U);
+  invalid.dt_sec = 0.0f;
+  const sbirs_sensor::session::SbirsCycleResult rejected = session.StepWithResult(invalid);
+  EXPECT_TRUE(rejected.has_validation_error);
+  EXPECT_EQ(recorder.GetLastEvents().size(), first_size);
 }
 
 }  // namespace

@@ -94,6 +94,16 @@ EOS 非执行周期（校验失败/关机/执行 abort）的 `Step()` 与 `EosCy
 
 [evidence: tests/contract/electro_optical_sensor/eos_public_api_convenience_test.cpp::StepReturnsEmptyFrameOnValidationFailureAfterSuccess]
 
+### 三写约束（abort_reason + diagnostics + 日志）
+
+EOS 所有中止路径遵守 `session_contract.md` 规则 9 的三写模式：
+
+1. **结构化信号**：`EosCycleResult.abort_reason`（粗粒度枚举）。
+2. **结构化诊断**：`EosCycleResult.diagnostics`（`EosDiagnosticIssueList`，细粒度 code 如 `"eos.sensor_powered_off"`）。
+3. **人读日志**：`PROJECT_LOG_ERROR`。
+
+三写由 `EosDiagnosticUtils::RecordAbort` 统一执行，在 `EosController::BuildCycleResult` 中调用。
+
 ## 专项序列验证边界
 
 `batch_validation::electro_optical_sensor` 覆盖双目标焦面交叉、昼/黄昏/夜间、融合/红外/可见光

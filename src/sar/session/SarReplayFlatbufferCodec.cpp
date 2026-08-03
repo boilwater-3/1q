@@ -352,7 +352,8 @@ std::string EncodeSarCycleResult(const SarCycleResult& value) {
                                           fbb.CreateVector(diagnostic_offsets), raw_phase_history,
                                           value.has_error,
                                           value.executed_this_cycle,
-                                          fbb.CreateString(value.abort_reason)));
+                                          static_cast<std::int32_t>(value.abort_reason),
+                                          static_cast<std::uint8_t>(value.status)));
   return oneq::common::replay::CopyFinishedFlatbuffer(fbb);
 }
 
@@ -453,7 +454,22 @@ bool DecodeSarCycleResult(const std::string& bytes, SarCycleResult* out) {
   }
   decoded.has_error = fb->has_error();
   decoded.executed_this_cycle = fb->executed_this_cycle();
-  decoded.abort_reason = fb->abort_reason() ? fb->abort_reason()->str() : std::string();
+  const std::int32_t abort_reason = fb->abort_reason();
+  if (abort_reason != static_cast<std::int32_t>(SarPipelineAbortReason::kNone) &&
+      abort_reason !=
+          static_cast<std::int32_t>(SarPipelineAbortReason::kValidationRejected) &&
+      abort_reason !=
+          static_cast<std::int32_t>(SarPipelineAbortReason::kPipelineExecutionFailed) &&
+      abort_reason !=
+          static_cast<std::int32_t>(SarPipelineAbortReason::kExternalInputRejected) &&
+      abort_reason !=
+          static_cast<std::int32_t>(SarPipelineAbortReason::kRuntimeStateRestoreRejected) &&
+      abort_reason !=
+          static_cast<std::int32_t>(SarPipelineAbortReason::kSensorPoweredOff)) {
+    return false;
+  }
+  decoded.abort_reason = static_cast<SarPipelineAbortReason>(abort_reason);
+  decoded.status = static_cast<SarCycleStatus>(fb->status());
   *out = decoded;
   return true;
 }

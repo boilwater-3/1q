@@ -91,6 +91,36 @@ ISA 标准大气，这些字段全部未被消费，属未接入的死输入。�
 3. query/debug/lifecycle/replay 是诊断辅助，不是用户扩展 signal pipeline 的入口；决策 SPI 不拥有输出结构，
    也不能绕过内部 output adapter 写系统输出。
 
+### 三写约束（abort_reason + diagnostics + 日志）
+
+AR 所有中止路径遵守 `session_contract.md` 规则 9 的三写模式：
+
+1. **结构化信号**：`ArCycleResult.abort_reason`（粗粒度枚举）。
+2. **结构化诊断**：`ArCycleResult.diagnostics`（`ArDiagnosticIssueList`，细粒度 code 如 `"ar.sensor_powered_off"`）。
+3. **人读日志**：`PROJECT_LOG_ERROR`。
+
+三写由 `ArDiagnosticUtils::RecordAbort` 统一执行，在 `ArController::BuildCycleResult` 和 `ArSession` 中调用。
+
+### TrackOutputFrame 不扩展的决策依据
+
+`TrackOutputFrame`（L1）只包含 track 快照（`cycle_index`、`batch_id`、`tracks`）。
+`ArCycleResult`（L2）承载 `emission_frame`、`receiver_impairment`、`interference_observations`、
+`submitted_commands`、`control_profile`、`decision_observation`、`association_quality_metrics` 等额外字段。
+
+**这些字段不合并入 TrackOutputFrame 的证据**：
+
+1. **消费者画像完全分离**：`ArTrackLifecycleRecorder` 和 `Step()` 只读 track；跨域测试
+   `ArRfTestCycleResult` 明确跳过 `emission_frame`；`TacticalCoordinator` 从 `DecisionInputFrame` 读
+   `interference_observations`，不从 `CycleResult` 读。
+2. **`emission_frame` 是孤立的**：唯一非基础设施消费者是 AR RF 测试自身。跨域消费者只读
+   `ecm_result.emission_frame`（ECM 的发射事实作为 AR 输入），不读 `ar_result.emission_frame`。
+3. **合并会污染 track-only 消费者**：`ArTrackLifecycleRecorder` 和 `Step()` 会被迫携带它们忽略的数据。
+
+`ArCycleResult` 的膨胀是 AR 多子系统（发射/接收/检测/跟踪/决策）耦合的自然结果，不是三层模型的缺陷。
+各字段在 L2 的位置是正确的——它们是"本周期执行结果的完整上下文"，不是"传感器原始输出"。
+
+[evidence: tests/integration/cross_domain/multi_model_scenario_test.cpp — ArRfTestCycleResult 字段选择]
+
 ## 滤波后端选型（人工配置为主，不做在线自动切换）
 
 AR 使用标准 Joseph 形式 Kalman 滤波器（KF）作为生产后端。IMM 生命周期（`enable_imm_lifecycle`）是包裹 KF

@@ -14,11 +14,17 @@ constexpr double kEarthRadiusM = 6378137.0;
 constexpr double kSpeedOfLightMps = 299792458.0;
 constexpr double kTargetLengthM = 2.0;
 constexpr double kTargetWidthM = 3.0;
-constexpr double kTargetRcsM2 = 1.0;
 constexpr double kPlatformAltitudeM = 10000.0;
+constexpr double kPlatformSpeedMps = 180.0;
+constexpr double kSceneCenterLatDeg = 40.1;
+constexpr double kSceneCenterLonDeg = -105.0;
+constexpr double kTargetRcsDbsm = 80.0;  // 强点目标标定源，确保通过真实链路预算 SNR 门限
+constexpr double kDefaultDtSec = 0.1;
 constexpr double kTargetSlantRangeM = 100000.0;
 constexpr double kTargetGroundRangeM =
     99498.7437106620;  // sqrt(100 km^2 - 10 km^2)
+constexpr double kPlatformLatOffsetDeg =
+    kTargetGroundRangeM / kEarthRadiusM * 180.0 / kPi;  // 使斜距精确等于标称值
 constexpr double kSampleRateHz = 1.0e6;
 
 sar::config::SarSessionConfig MakeConfig() {
@@ -30,7 +36,10 @@ sar::config::SarSessionConfig MakeConfig() {
   config.hardware.sample_rate_hz = kSampleRateHz;
 
   config.mission.nominal_slant_range_m = kTargetSlantRangeM;
-  config.mission.platform_speed_mps = 180.0;
+  config.mission.platform_speed_mps = kPlatformSpeedMps;
+  config.mission.scene_center_latitude_deg = kSceneCenterLatDeg;
+  config.mission.scene_center_longitude_deg = kSceneCenterLonDeg;
+  config.mission.scene_center_altitude_m = 0.0;
   config.mission.range_sample_count = 1024U;
   config.mission.azimuth_pulse_count = 33U;
 
@@ -41,20 +50,31 @@ sar::config::SarSessionConfig MakeConfig() {
 }
 
 sar::session::SarCycleInput MakeInput() {
+  // 单周期演示（cycle_index = 1）：平台沿东向匀速、静止点目标位于场景中心。
+  // 构造与 examples/sar/integration_demo.cpp 同源（已通过真实链路预算 SNR 门限）。
   sar::session::SarCycleInput input;
   input.cycle_index = 1U;
-  input.dt_sec = 0.1f;
+  input.dt_sec = static_cast<float>(kDefaultDtSec);
 
-  input.platform.latitude_deg = 0.0;
-  input.platform.longitude_deg = 0.0;
+  // 平台起始于场景中心以北 ~100km（0.9°），使斜距≈100km。
+  input.platform.time_s = 0.0;
+  input.platform.latitude_deg = kSceneCenterLatDeg - kPlatformLatOffsetDeg;
+  input.platform.longitude_deg = kSceneCenterLonDeg;
   input.platform.altitude_m = kPlatformAltitudeM;
-  input.platform.velocity_east_mps = 180.0;
+  input.platform.velocity_north_mps = 0.0;
+  input.platform.velocity_east_mps = kPlatformSpeedMps;
+  input.platform.velocity_down_mps = 0.0;
+  input.platform.roll_deg = 0.0;
+  input.platform.pitch_deg = 0.0;
+  input.platform.yaw_deg = 90.0;
 
   sar::session::SarPointTarget target;
-  target.latitude_deg = kTargetGroundRangeM / kEarthRadiusM * 180.0 / kPi;
-  target.longitude_deg = 0.0;
+  target.target_id = 101U;
+  target.target_name = "scene_center_target";
+  target.latitude_deg = kSceneCenterLatDeg;
+  target.longitude_deg = kSceneCenterLonDeg;
   target.altitude_m = 0.0;
-  target.radar_cross_section_dbsm = 10.0 * std::log10(kTargetRcsM2);
+  target.radar_cross_section_dbsm = kTargetRcsDbsm;
   input.point_targets.push_back(target);
   return input;
 }
@@ -94,7 +114,7 @@ int main() {
   const sar::session::SarCycleResult result = session.StepWithResult(MakeInput());
 
   if (result.has_error) {
-    std::cerr << "SAR processing failed: " << result.abort_reason << '\n';
+    std::cerr << "SAR processing failed: " << static_cast<int>(result.abort_reason) << '\n';
     for (const sar::session::SarDiagnosticIssue& issue : result.diagnostics) {
       std::cerr << '[' << SeverityName(issue.severity) << "] " << issue.code << ": "
                 << issue.message << '\n';
@@ -125,7 +145,7 @@ int main() {
 
   std::cout << "SAR processing succeeded\n"
             << "  target model: point target approximation, length=" << kTargetLengthM
-            << " m, width=" << kTargetWidthM << " m, RCS=" << kTargetRcsM2 << " m^2\n"
+            << " m, width=" << kTargetWidthM << " m, RCS=" << kTargetRcsDbsm << " dBsm\n"
             << "  target altitude: 0 m, platform altitude: " << kPlatformAltitudeM << " m\n"
             << "  expected ground/slant range: " << kTargetGroundRangeM << " / "
             << kTargetSlantRangeM << " m\n"

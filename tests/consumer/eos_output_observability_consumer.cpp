@@ -54,10 +54,11 @@ int main() {
     return 2;
   }
 
-  // 4. Lifecycle recorder：跨周期记录首次发现，验证类型与方法可达。
+  // 4. Lifecycle recorder：调用方经 Session::Attach*Recorder 注册后由 Session 自动驱动
+  //    （见 docs/common/session_contract.md 规则 10），不手动调用 Update()。
+  //    本测试以合成 result 验证工具链，仅验证类型与 GetLastEvents 在安装后可达。
   eos::session::EosDetectionLifecycleRecorder recorder;
-  std::vector<eos::session::EosDetectionLifecycleEvent> events = recorder.Update(input, result);
-  (void)events;
+  (void)recorder.GetLastEvents();
 
   return 0;
 }

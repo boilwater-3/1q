@@ -169,7 +169,11 @@ TEST(EsrControllerRuntimeStateTest, RestoreRejectsSnapshotFromOtherControllerIns
   EXPECT_EQ(controller_a.GetLatestInterceptOutputFrame().cycle_index, 21U);
 }
 
-TEST(EsrControllerRuntimeStateTest, ValidationRejectSetsAbortReasonAndReusesPreviousOutput) {
+// ESR controller 层在校验拒绝时保留上一有效输出帧（供内部 RF 状态机跨周期簿记），
+// 但 session 层 BuildCycleResult 对非执行周期返回默认空帧（见
+// esr_public_api_convenience_test::StepReturnsEmptyFrameOnValidationFailure）。
+// 本测试验证 controller 内部保留行为——不等于公开输出被复用。
+TEST(EsrControllerRuntimeStateTest, ValidationRejectSetsAbortReasonAndControllerRetainsPreviousOutput) {
   pipeline::InterceptPipeline pipeline(MakeDefaultConfig());
   StubEnvironmentService env;
   EsrController controller(pipeline, env);
@@ -183,6 +187,7 @@ TEST(EsrControllerRuntimeStateTest, ValidationRejectSetsAbortReasonAndReusesPrev
 
   EXPECT_EQ(controller.GetLatestCycleStatus(), session::EsrCycleExecutionStatus::kRejected);
   EXPECT_EQ(controller.GetLastInterceptCycleAbortReason(), session::EsrPipelineAbortReason::kValidationRejected);
+  // controller 内部缓存保留上一帧（非公开复用语义）。
   EXPECT_EQ(controller.GetLatestInterceptOutputFrame().cycle_index, 40U);
 }
 

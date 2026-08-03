@@ -31,8 +31,10 @@ std::string BuildEosOutputPayload(const EosCycleResult& result) {
      << "\"cycle_index\":" << frame.cycle_index << ","
      << "\"scan_azimuth_deg\":" << frame.scan_azimuth_deg << ","
      << "\"executed\":" << (result.executed_this_cycle ? "true" : "false") << ","
+     << "\"status\":" << static_cast<int>(result.status) << ","
      << "\"detection_count\":" << frame.detections.size() << ","
-     << "\"validation_error\":" << (result.has_validation_error ? "true" : "false")
+     << "\"validation_error\":" << (result.has_validation_error ? "true" : "false") << ","
+     << "\"diagnostic_count\":" << result.diagnostics.size()
      << "}";
   return os.str();
 }

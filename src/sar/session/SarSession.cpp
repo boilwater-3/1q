@@ -3,6 +3,7 @@
 #include <memory>
 #include <utility>
 
+#include "1q/sar/session/SarProductLifecycleRecorder.h"
 #include "sar/runtime/SarController.h"
 #include "sar/session/SarSessionCompositionRoot.h"
 
@@ -18,6 +19,7 @@ struct SarSession::Impl {
   std::unique_ptr<pipeline::SarProcessingPipeline> owned_pipeline;
   std::unique_ptr<extension::SarController> owned_controller;
   extension::SarController& controller;
+  SarProductLifecycleRecorder* lifecycle_recorder{nullptr};
 };
 
 SarSession::SarSession(std::unique_ptr<Impl> impl) : impl_(std::move(impl)) {}
@@ -49,7 +51,15 @@ SarOutputFrame SarSession::Step(const SarCycleInput& input) {
 
 SarCycleResult SarSession::StepWithResult(const SarCycleInput& input) {
   impl_->controller.RunOnce(input);
-  return impl_->controller.BuildCycleResult(input);
+  SarCycleResult result = impl_->controller.BuildCycleResult(input);
+  if (impl_->lifecycle_recorder != nullptr) {
+    impl_->lifecycle_recorder->Update(result);
+  }
+  return result;
+}
+
+void SarSession::AttachProductLifecycleRecorder(SarProductLifecycleRecorder* recorder) noexcept {
+  impl_->lifecycle_recorder = recorder;
 }
 
 bool SarSession::TryApplyRuntimeConfig(const config::SarRuntimeConfigPatch& patch) {

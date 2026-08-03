@@ -7,6 +7,7 @@
 #include "common/logging/ProjectLog.h"
 #include "common/runtime/RuntimeCycleExecutor.h"
 #include "electro_optical_sensor/pipeline/EosPipeline.h"
+#include "electro_optical_sensor/session/EosDiagnosticUtils.h"
 
 namespace electro_optical_sensor {
 namespace extension {
@@ -14,6 +15,19 @@ namespace extension {
 namespace {
 
 constexpr std::uint32_t kControllerRuntimeStateSchemaVersion = 1U;
+
+session::EosCycleStatus DeriveCycleStatus(session::EosPipelineAbortReason reason) {
+  switch (reason) {
+    case session::EosPipelineAbortReason::kNone:
+      return session::EosCycleStatus::kCompleted;
+    case session::EosPipelineAbortReason::kSensorPoweredOff:
+      return session::EosCycleStatus::kPoweredOff;
+    case session::EosPipelineAbortReason::kValidationRejected:
+      return session::EosCycleStatus::kRejectedInvalidInput;
+    default:
+      return session::EosCycleStatus::kRejectedExecution;
+  }
+}
 
 bool IsCompatibleControllerRuntimeState(const extension::EosControllerRuntimeState& state,
                                         const void* owner_identity) {
@@ -94,6 +108,9 @@ void EosController::RunOnce(const ::electro_optical_sensor::session::EosCycleInp
       PROJECT_LOG_ERROR("EOS pipeline rollback failed for cycle_index={}", input.cycle_index);
       return;
     }
+    impl_->latest_output = session::EosOutputFrame{};
+    impl_->latest_detection_attributions.clear();
+    impl_->has_latest_output = false;
     impl_->last_cycle_executed = false;
     impl_->last_abort_reason =
         execute_result.abort_reason == session::EosPipelineAbortReason::kNone
@@ -138,6 +155,36 @@ session::EosPipelineAbortReason EosController::GetLastDetectionCycleAbortReason(
     result.output_frame = impl_->latest_output;
     result.detection_attributions = impl_->latest_detection_attributions;
   }
+
+  // 三写：对所有非 kNone 的 abort_reason 写入 diagnostics + 日志
+  if (impl_->last_abort_reason != session::EosPipelineAbortReason::kNone) {
+    const bool is_validation =
+        (impl_->last_abort_reason == session::EosPipelineAbortReason::kValidationRejected);
+    const char* detail_code = "unknown";
+    switch (impl_->last_abort_reason) {
+      case session::EosPipelineAbortReason::kValidationRejected:
+        detail_code = "input_validation";
+        break;
+      case session::EosPipelineAbortReason::kSensorPoweredOff:
+        detail_code = "sensor_powered_off";
+        break;
+      case session::EosPipelineAbortReason::kOutputContractViolation:
+        detail_code = "pipeline_contract_violation";
+        break;
+      case session::EosPipelineAbortReason::kRuntimeStateRestoreRejected:
+        detail_code = "runtime_state_restore_rejected";
+        break;
+      default:
+        break;
+    }
+    session::RecordAbort(&result, impl_->last_abort_reason, detail_code,
+                         "EOS cycle aborted.", is_validation);
+  }
+
+  // status 由 abort_reason 单一推导（在 RecordAbort 之后，避免其覆盖链造成
+  // powered-off 被标成 kRejectedExecution；与 ESR/AR 的 powered-off 语义对齐）。
+  result.status = DeriveCycleStatus(impl_->last_abort_reason);
+
   return result;
 }
 

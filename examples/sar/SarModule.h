@@ -33,7 +33,7 @@
  * @par 与 RadarModule/EosModule/EsrModule 的差异
  * - SAR 不需要环境输入（SarCycleInput 无 environment 字段），因此无 environment_state_
  * - SAR 产品是图像而非轨迹/航迹/辐射源，因此不暴露外部坐标输出适配
- * - SarProductLifecycleRecorder::Update 仅接受结果（单参），不接收输入
+ * - SarProductLifecycleRecorder 通过 Session::AttachProductLifecycleRecorder 自动驱动，不接收输入
  *
  * @par 配置平铺（Config Flattening）
  * preStart() 将 JSON 中的四域层次配置（hardware/mission/processing/environment）
@@ -53,6 +53,7 @@
 
 #include "1q/sar/sar.hpp"
 #include "1q/sar/session/SarProductDebugView.h"
+#include "SarDebugViewToJson.h"
 #include "1q/sar/session/SarProductLifecycleRecorder.h"
 #include "1q/sar/session/SarReplaySession.h"
 #include "1q/sar/session/SarTraceSession.h"
@@ -100,6 +101,7 @@ class SarModule {
    */
   bool initialize(const sar_config::SarSessionConfig& config = {}) {
     session_ = sar_session::SarSession::Create(config);
+    session_.AttachProductLifecycleRecorder(&lifecycle_recorder_);
     initialized_ = true;
     return true;
   }
@@ -137,6 +139,7 @@ class SarModule {
 
     // 3. 用完整配置重建 Session
     session_ = sar_session::SarSession::Create(config);
+    session_.AttachProductLifecycleRecorder(&lifecycle_recorder_);
     started_ = true;
     return true;
   }
@@ -163,6 +166,7 @@ class SarModule {
       sar_config::SarSessionConfig default_config;
       flattenConfig(default_config);
       session_ = sar_session::SarSession::Create(default_config);
+      session_.AttachProductLifecycleRecorder(&lifecycle_recorder_);
       started_ = true;
     }
 
@@ -186,9 +190,8 @@ class SarModule {
     last_result_ = session_.StepWithResult(mutable_input);
     ++cycle_index_;
 
-    // 4. 记录产品生命周期事件（三视图之一）
-    // NOTE: SarProductLifecycleRecorder::Update 仅接受 SarCycleResult（单参）
-    lifecycle_events_ = lifecycle_recorder_.Update(last_result_);
+    // 4. 读取产品生命周期事件（三视图之一，由 Session 自动驱动记录器）
+    lifecycle_events_ = lifecycle_recorder_.GetLastEvents();
   }
 
   // ==================== 订阅者模式 ====================
@@ -249,6 +252,16 @@ class SarModule {
    */
   sar_session::SarProductDebugView buildLastDebugView() const {
     return sar_session::SarProductDebugViewBuilder::Build(last_input_, last_result_);
+  }
+
+  /**
+   * @brief 把最近一次调试视图序列化为 JSON 字符串（session_contract.md 规则 12 参考实现）。
+   *
+   * 集成方把返回的字符串写入自己的日志/事件系统即可；跨周期累积由调用方日志承担。
+   * 序列化函数见 examples/sar/SarDebugViewToJson.h，可独立 copy。
+   */
+  std::string buildLastDebugViewJson() const {
+    return SarDebugViewToJson(buildLastDebugView());
   }
 
   /** @brief 返回最近一次的产品生命周期事件列表（三视图之一）。 */

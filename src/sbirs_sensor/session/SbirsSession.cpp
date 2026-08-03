@@ -1,5 +1,6 @@
 #include "1q/sbirs_sensor/session/SbirsSession.h"
 
+#include "1q/sbirs_sensor/session/SbirsDetectionLifecycleRecorder.h"
 #include "sbirs_sensor/runtime/SbirsPipelineConfigMapper.h"
 #include "sbirs_sensor/runtime/SbirsRuntimeConfigResolver.h"
 #include "sbirs_sensor/session/SbirsSessionCompositionRoot.h"
@@ -10,6 +11,7 @@ namespace session {
 struct SbirsSession::Impl {
   config::SbirsSessionConfig config{};
   std::unique_ptr<runtime::SbirsController> controller{};
+  SbirsDetectionLifecycleRecorder* lifecycle_recorder{nullptr};
 };
 
 SbirsSession::SbirsSession() : impl_(new Impl) {
@@ -27,7 +29,15 @@ SbirsOutputFrame SbirsSession::Step(const SbirsCycleInput& input) {
 }
 
 SbirsCycleResult SbirsSession::StepWithResult(const SbirsCycleInput& input) {
-  return impl_->controller->RunOnce(input);
+  SbirsCycleResult result = impl_->controller->RunOnce(input);
+  if (impl_->lifecycle_recorder != nullptr) {
+    impl_->lifecycle_recorder->Update(input, result);
+  }
+  return result;
+}
+
+void SbirsSession::AttachDetectionLifecycleRecorder(SbirsDetectionLifecycleRecorder* recorder) noexcept {
+  impl_->lifecycle_recorder = recorder;
 }
 
 bool SbirsSession::TryApplyRuntimeConfig(const config::SbirsRuntimeConfigPatch& patch) {

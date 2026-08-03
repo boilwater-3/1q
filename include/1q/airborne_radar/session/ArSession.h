@@ -30,6 +30,7 @@ namespace airborne_radar {
 namespace session {
 
 class ArSessionReplayAccess;
+class ArTrackLifecycleRecorder;
 
 /**
  * @brief ArSession 提供"一步一帧"的外部接入门面。
@@ -94,6 +95,17 @@ class ONEQ_API ArSession {
    * @return 补丁被接受并暂存成功时返回 true；补丁无效或无变更时返回 false。
    */
   bool TryApplyRuntimeConfig(const config::ArRuntimeConfigPatch& patch);
+
+  /**
+   * @brief 注册轨迹生命周期记录器，由 Session 在每个周期自动驱动。
+   *
+   * 注册后，`StepWithResult()` 和 `Step()` 内部在 CycleResult 构建完成后自动调用
+   * `recorder->Update()`，调用方无需手动调用。本周期产生的生命周期事件可通过
+   * `recorder->GetLastEvents()` 获取。
+   * @param[in] recorder 记录器指针；传入 `nullptr` 解除注册。
+   * @note Session 不拥有 recorder，调用方须保证 recorder 生命周期长于 Session 的注册期。
+   */
+  void AttachTrackLifecycleRecorder(ArTrackLifecycleRecorder* recorder) noexcept;
 
   /** @brief 提交外部 profile 覆盖（整包替换值，绕过 TacticalProposal 管线与 hold/cooldown）。 */
   session::ExternalDecisionSubmitStatus SubmitExternalDecision(

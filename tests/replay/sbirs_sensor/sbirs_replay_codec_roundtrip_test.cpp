@@ -50,6 +50,14 @@ std::string EncodeCycleResultWithRawAbortReason(std::int32_t abort_reason) {
                      builder.GetSize());
 }
 
+std::string EncodeCycleResultWithRawStatus(std::int32_t status) {
+  flatbuffers::FlatBufferBuilder builder(128U);
+  builder.Finish(sbirs::replay::CreateSbirsCycleResult(
+      builder, 99U, 0, 0, 0, false, false, 0, status));
+  return std::string(reinterpret_cast<const char*>(builder.GetBufferPointer()),
+                     builder.GetSize());
+}
+
 std::string EncodeSessionConfigWithRawScanDirection(std::int32_t scan_direction) {
   flatbuffers::FlatBufferBuilder builder(128U);
   const auto mission = sbirs::replay::CreateSbirsMissionConfig(
@@ -255,6 +263,26 @@ TEST(SbirsReplayCodecRoundtripTest, CycleResultPreservesOutputAndAttributionFiel
             std::numeric_limits<std::size_t>::max());
 }
 
+TEST(SbirsReplayCodecRoundtripTest, CycleResultPreservesPoweredOffAbortReason) {
+  SbirsCycleResult result;
+  result.input_cycle_index = 7U;
+  result.output_frame.cycle_index = 7U;
+  result.output_frame.scan_azimuth_deg = 3.0f;
+  result.executed_this_cycle = false;
+  result.has_validation_error = false;
+  result.abort_reason = SbirsPipelineAbortReason::kSensorPoweredOff;
+  result.status = SbirsCycleStatus::kPoweredOff;
+
+  const std::string bytes = EncodeSbirsCycleResult(result);
+  SbirsCycleResult decoded;
+  ASSERT_TRUE(DecodeSbirsCycleResult(bytes, &decoded));
+
+  EXPECT_EQ(decoded.input_cycle_index, 7U);
+  EXPECT_FALSE(decoded.executed_this_cycle);
+  EXPECT_EQ(decoded.abort_reason, SbirsPipelineAbortReason::kSensorPoweredOff);
+  EXPECT_EQ(decoded.status, SbirsCycleStatus::kPoweredOff);
+}
+
 // --- SessionConfig ---
 
 TEST(SbirsReplayCodecRoundtripTest, SessionConfigPreservesAllDomains) {
@@ -457,7 +485,8 @@ TEST(SbirsReplayCodecRoundtripTest, DecodeCycleResultRejectsNullAndCorrupted) {
 }
 
 TEST(SbirsReplayCodecRoundtripTest, DecodeCycleResultRejectsUnknownAbortReasonAtomically) {
-  const std::int32_t invalid_reasons[] = {2, 3, -1, std::numeric_limits<std::int32_t>::max()};
+  // 值 2 已由 kSensorPoweredOff 占用（合法），从非法集合中移除。
+  const std::int32_t invalid_reasons[] = {3, -1, std::numeric_limits<std::int32_t>::max()};
   for (const std::int32_t invalid_reason : invalid_reasons) {
     SbirsCycleResult result;
     result.input_cycle_index = 17U;
@@ -471,6 +500,24 @@ TEST(SbirsReplayCodecRoundtripTest, DecodeCycleResultRejectsUnknownAbortReasonAt
     EXPECT_EQ(result.output_frame.cycle_index, 18U);
     EXPECT_TRUE(result.executed_this_cycle);
     EXPECT_EQ(result.abort_reason, SbirsPipelineAbortReason::kValidationRejected);
+  }
+}
+
+TEST(SbirsReplayCodecRoundtripTest, DecodeCycleResultRejectsUnknownStatusAtomically) {
+  // status 合法值 0..3（kCompleted..kRejectedExecution）；未知值必须 fail closed，
+  // 且不得修改调用方传入的输出对象（原子性）。
+  const std::int32_t invalid_statuses[] = {4, 255, -1};
+  for (const std::int32_t invalid_status : invalid_statuses) {
+    SbirsCycleResult result;
+    result.input_cycle_index = 17U;
+    result.output_frame.cycle_index = 18U;
+    result.executed_this_cycle = true;
+
+    EXPECT_FALSE(DecodeSbirsCycleResult(EncodeCycleResultWithRawStatus(invalid_status),
+                                        &result));
+    EXPECT_EQ(result.input_cycle_index, 17U);
+    EXPECT_EQ(result.output_frame.cycle_index, 18U);
+    EXPECT_TRUE(result.executed_this_cycle);
   }
 }
 

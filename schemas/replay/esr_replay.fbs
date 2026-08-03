@@ -163,6 +163,12 @@ table ValidationIssue {
   message:       string;
 }
 
+table EsrDiagnosticIssue {
+  severity: int32;
+  code:     string;
+  message:  string;
+}
+
 table EsrCycleResult {
   input_cycle_index:    uint32;
   output_frame:         EsrOutputFrame;
@@ -170,6 +176,7 @@ table EsrCycleResult {
   has_validation_error: bool;
   status:               int32 = 1;
   abort_reason:         int32 = 0;
+  diagnostics:          [EsrDiagnosticIssue];
 }
 
 // ---- FailureMarker (failure_marker 事件的 flatbuffer 载荷) ----

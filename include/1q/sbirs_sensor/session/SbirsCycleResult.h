@@ -35,8 +35,11 @@ struct ONEQ_API SbirsCycleResult {
   SbirsOutputFrame output_frame{};           /**< 原始系统输出帧 */
   attribution::SbirsDetectionAttributionRecordList detection_attributions{}; /**< 检测归属列表 */
   ValidationIssueList validation_issues{};   /**< 校验问题列表 */
+  SbirsDiagnosticIssueList diagnostics{};    /**< 细粒度诊断（三写：结构化信号 + 诊断 + 日志） */
   bool has_validation_error{false};          /**< 是否存在校验级错误 */
-  bool executed_this_cycle{false};           /**< 本周期是否真正执行了流水线 */
+  SbirsCycleStatus status{
+      SbirsCycleStatus::kRejectedInvalidInput}; /**< 当前周期高层执行状态 */
+  bool executed_this_cycle{false};           /**< status == kCompleted 的便捷访问器 */
   SbirsPipelineAbortReason abort_reason{SbirsPipelineAbortReason::kNone}; /**< 中止原因 */
 };
 

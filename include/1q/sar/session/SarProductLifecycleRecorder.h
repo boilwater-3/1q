@@ -21,7 +21,7 @@ namespace session {
  */
 enum class SarProductLifecycleEventKind {
   kImageProduced = 0,     /**< 首次产出图像产品 */
-  kProductUpdated = 1,    /**< 已有产品被更新 */
+  kProductSustained = 1,  /**< 产品持续存在（上一周期已有产品） */
   kProductLost = 2,       /**< 已有产品在本周期丢失 */
   kProcessingFailed = 3,  /**< 处理失败 */
   kNoProduct = 4           /**< 本周期无产品 */
@@ -42,7 +42,7 @@ enum class SarProductLifecycleReason {
  */
 struct ONEQ_API SarProductLifecycleEvent {
   std::uint32_t cycle_index{0U};                          /**< 周期序号 */
-  SarProductLifecycleEventKind kind{SarProductLifecycleEventKind::kProductUpdated}; /**< 事件类型 */
+  SarProductLifecycleEventKind kind{SarProductLifecycleEventKind::kProductSustained}; /**< 事件类型 */
   SarProductLifecycleReason reason{SarProductLifecycleReason::kNone}; /**< 事件归因 */
   SarProcessingStage completed_stage{SarProcessingStage::kNone}; /**< 本周期完成的处理阶段 */
   std::string abort_reason{};                             /**< abort 原因标签 */
@@ -81,13 +81,23 @@ class ONEQ_API SarProductLifecycleRecorder {
   std::vector<SarProductLifecycleEvent> Update(const SarCycleResult& result);
 
   /**
-   * @brief 重置内部产品状态（清空“是否已有产品”标记）。
+   * @brief 重置内部产品状态（清空”是否已有产品”标记及缓存的事件）。
    */
   void Reset();
+
+  /**
+   * @brief 获取最近一次执行周期 `Update()` 返回的生命周期事件列表。
+   *
+   * 事件在每次执行周期的 `Update()` 调用时缓存；非执行周期不刷新缓存，
+   * 保留上一次执行周期的事件。供注册到 Session 后由调用方事后读取。
+   * @return 最近一次执行周期 `Update()` 产生的事件列表的 const 引用。
+   */
+  const std::vector<SarProductLifecycleEvent>& GetLastEvents() const noexcept;
 
  private:
   SarProductLifecycleRecorderConfig config_;
   bool has_product_{false};
+  std::vector<SarProductLifecycleEvent> last_events_{};
 };
 
 }  // namespace session

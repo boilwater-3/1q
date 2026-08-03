@@ -31,9 +31,14 @@ SAR 遵守 `docs/common/contract.md`：
 
 ### 非执行周期统一不复用（五模块统一规则）
 
-SAR 非执行周期（校验失败/执行 abort）的 `Step()` 与 `SarCycleResult.output_frame` 一律返回**默认空帧**
-（`cycle_index=0`、空载荷），**永不复用**上一有效输出。调用方用 `StepWithResult().executed_this_cycle` /
-`abort_reason` 判断周期状态。`reused_previous_output` 字段已删除。
+SAR 非执行周期（校验失败/执行 abort）的 `Step()` 与 `SarCycleResult.output_frame` **永不复用**
+上一有效输出。调用方用 `StepWithResult().status` / `executed_this_cycle` / `abort_reason` 判断周期状态。
+`reused_previous_output` 字段已删除。
+
+实现细节：校验失败路径返回严格默认空帧（`cycle_index=0`、空载荷）；pipeline 中止路径
+（SNR 门限/状态恢复失败）在 `InitializeOutputFrameMetadata` 之后触发，因此
+`output_frame.cycle_index == input.cycle_index`（元数据已写入但无有效成像产物）。
+两条路径均属"非执行"，区别仅在 `cycle_index` 来源——这是有意设计，不构成合约违反。
 
 [evidence: tests/contract/sar/sar_public_api_convenience_test.cpp::StepReturnsEmptyFrameOnValidationFailureAfterSuccess]
 
@@ -97,6 +102,58 @@ SAR 非执行周期（校验失败/执行 abort）的 `Step()` 与 `SarCycleResu
 属于 warning/error 观测项（不影响退出码）：completed stage 低于 L1、图像质量缺失、SNR 非有限、
 熵非正、跨场景趋势。batch 没有直接读取 lifecycle recorder 或断言完整 ring-buffer 状态，因此不得把
 场景名扩大为这些内部状态的硬契约。场景 ID 与运行方式由 `examples/batch_validation/README.md` 维护。
+
+## 三层输出结构：L1/L1.5 分裂与诊断架构
+
+### OutputFrame 的 trivially_copyable 约束
+
+`SarOutputFrame` 是纯标量元数据（21 字段），受编译哨兵守护为 `trivially_copyable`。
+聚焦图像（`SarFocusedImage`）和原始相位历史（`SarRawPhaseHistory`）包含 `std::vector`，
+**结构性地无法放入 OutputFrame**。这不是偶然设计——它确保 OutputFrame 可零拷贝传递、序列化友好。
+
+因此 SAR 的三层模型存在结构性 L1/L1.5 分裂：
+
+| 层级 | 类型 | 内容 | trivially_copyable |
+|---|---|---|---|
+| L1 | `SarOutputFrame` | 产品元数据（处理阶段、网格尺寸、SNR、分辨率、熵、对比度、阶段标志） | ✅ |
+| L1.5 | `SarFocusedImage` + `SarRawPhaseHistory` | 产品数据（复数图像矩阵、原始 I/Q 向量） | ❌ |
+| L2 | `SarCycleResult` | L1 + L1.5 + 执行状态 + 诊断 | — |
+| L3 | `SarProductDebugView` / `SarProductLifecycleRecorder` | 人读视图、生命周期事件 | — |
+
+`Step()` 返回 L1 元数据；`StepWithResult()` 返回 L1 + L1.5 + 执行元数据。
+L1 和 L1.5 共同构成"本周期的完整产品输出"。
+
+[evidence: include/1q/sar/session/SarCycleResult.h — SarOutputFrame trivially_copyable 哨兵]
+
+### 诊断架构：diagnostics 为唯一诊断通道
+
+SAR 的 `SarDiagnosticIssueList diagnostics` 承载三级诊断（kInfo/kWarning/kError），每条包含
+severity + code + message。`SarPipelineAbortReason` 枚举通过 `AbortReasonToDiagnosticCode()` 映射到
+诊断码字符串（如 `kSnrBelowMinimum` → `"sar.snr_below_minimum"`），人读 message 由调用方提供。
+
+**不新增 `validation_issues` 字段**：其他模块的 `ValidationIssueList` 是二元校验结果，SAR 的
+`diagnostics` 已完整覆盖校验语义（kError 级）。新增平行字段只会引入冗余。
+
+### abort_reason 粗粒度枚举 + 细粒度诊断
+
+`SarPipelineAbortReason` 是 `std::uint16_t` 底层类型的强类型枚举，包含 6 个粗粒度值，
+与 AR/ESR/EOS/SBIRS 对齐：
+
+| 值 | 语义 |
+|---|---|
+| `kNone` | 正常执行 |
+| `kValidationRejected` | 输入/配置校验失败 |
+| `kPipelineExecutionFailed` | 管线内部执行失败 |
+| `kExternalInputRejected` | 外部原始 IQ 输入校验失败 |
+| `kRuntimeStateRestoreRejected` | 运行时状态恢复失败 |
+| `kSensorPoweredOff` | 设备关机（预留对齐） |
+
+细粒度失败信息由 `SarDiagnosticIssue::code`（如 `"sar.snr_below_minimum"`）和
+`PROJECT_LOG_ERROR` 双写承载，不进入 public `abort_reason`。
+`RecordAbort` / `RecordValidationAbort` 执行三写：粗粒度 `abort_reason` + 结构化诊断 + 人读日志。
+
+[evidence: include/1q/sar/session/SarCycleResult.h — SarPipelineAbortReason 枚举定义]
+[evidence: src/sar/session/SarDiagnosticUtils.cpp — WriteAbort 三写逻辑]
 
 ## 非目标
 
