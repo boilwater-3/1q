@@ -540,6 +540,13 @@ bool TryValidateRfSceneFrame(const RfSceneFrame& scene) {
   return true;
 }
 
+bool RfFrameMatchesCycleWindow(const RfSceneFrame& frame, std::uint64_t cycle_index,
+                               double cycle_start_time_s, double window_duration_s) {
+  return frame.world_cycle_index == cycle_index &&
+         frame.window_start_time_s == cycle_start_time_s &&
+         frame.window_duration_s == window_duration_s;
+}
+
 bool TryEvaluateRfIncidentLink(const RfSceneEmission& emission,
                                const RfSceneReceiverState& receiver,
                                const RfIncidentLinkConfig& config, RfIncidentLinkResult* result) {

@@ -263,6 +263,20 @@ ONEQ_API bool TryCreateRfLinearSweepWaveform(double start_time_s, double duratio
 ONEQ_API bool TryValidateRfSceneFrame(const RfSceneFrame& scene);
 
 /**
+ * @brief 判定非空 RF emission frame 的 envelope 是否与消费者周期窗口完全一致。
+ * @param[in] frame 待校验帧。调用方须先完成空帧豁免策略；本函数不解释空帧语义。
+ * @param[in] cycle_index 消费者周期号（uint32_t 输入经隐式提升参与比较）。
+ * @param[in] cycle_start_time_s 周期绝对起点（s）。
+ * @param[in] window_duration_s 周期时长（s）。
+ * @return frame 的 world_cycle_index、window_start_time_s、window_duration_s 与消费者
+ *         周期窗口三字段全部精确相等时返回 true。
+ * @note 冻结于 docs/common/contract.md §工程 RF 契约 条款 7（非空部分）。空帧 envelope
+ *       语义各模块自行裁定，本函数不承担空帧豁免判断。
+ */
+ONEQ_API bool RfFrameMatchesCycleWindow(const RfSceneFrame& frame, std::uint64_t cycle_index,
+                                        double cycle_start_time_s, double window_duration_s);
+
+/**
  * @brief 求解一个 RF v2 emission 到冻结接收状态的单程入射链路。
  * @param[in] emission 发射事实。
  * @param[in] receiver 接收设备状态。
