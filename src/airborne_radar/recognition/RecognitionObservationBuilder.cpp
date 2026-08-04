@@ -15,6 +15,9 @@ namespace recognition {
 
 namespace {
 
+/** @brief 驻留时间质量标称值（s）：识别配置默认 recognition_dwell_sec。 */
+constexpr float kNominalDwellSec = 0.05f;
+
 std::uint8_t BuildFeatureMask(const RecognitionFeatureSet& set) {
   std::uint8_t mask = 0U;
   if (set.rcs.valid && set.rcs.quality > 0.0f) {
@@ -30,6 +33,14 @@ std::uint8_t BuildFeatureMask(const RecognitionFeatureSet& set) {
     mask |= static_cast<std::uint8_t>(session::ArRecognitionFeatureDimension::kRangeProfile);
   }
   return mask;
+}
+
+/** @brief 驻留质量因子：驻留越短，观测质量越低（效能级模型）。 */
+float DwellQualityFactor(float dwell_sec) {
+  if (!std::isfinite(dwell_sec) || dwell_sec <= 0.0f) {
+    return 0.0f;
+  }
+  return std::max(0.0f, std::min(1.0f, dwell_sec / kNominalDwellSec));
 }
 
 }  // namespace
@@ -49,6 +60,11 @@ RecognitionFeatureSet RecognitionObservationBuilder::Build(
   set.range_profile = RangeProfileFeatureExtractor::Extract(
       target.range_rcs_scatterers, context.bandwidth_hz, context.snr_db,
       context.max_range_resolution_m);
+  // 驻留时间质量因子：作用于除运动外的观测维度（运动来自滤波航迹，与驻留无关）。
+  const float dwell_factor = DwellQualityFactor(context.dwell_sec);
+  set.rcs.quality *= dwell_factor;
+  set.polarization.quality *= dwell_factor;
+  set.range_profile.quality *= dwell_factor;
   set.valid_feature_mask = BuildFeatureMask(set);
   return set;
 }

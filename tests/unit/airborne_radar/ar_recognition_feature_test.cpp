@@ -6,6 +6,7 @@
 #include <gtest/gtest.h>
 
 #include <cmath>
+#include <unordered_map>
 
 #include <Eigen/Core>
 
@@ -17,6 +18,7 @@
 #include "airborne_radar/recognition/RangeProfileFeatureExtractor.h"
 #include "airborne_radar/recognition/RcsFeatureExtractor.h"
 #include "airborne_radar/recognition/RecognitionObservationBuilder.h"
+#include "airborne_radar/recognition/RecognitionTracker.h"
 #include "airborne_radar/recognition/RecognitionTypes.h"
 #include "airborne_radar/signal/tracking/BoostTrackPool.h"
 #include "airborne_radar/signal/tracking/KalmanPredictor.h"
@@ -43,6 +45,7 @@ recognition::RecognitionObservationContext MakeContext(float snr_db = 20.0f,
   context.snr_db = snr_db;
   context.bandwidth_hz = bandwidth_hz;
   context.range_m = range_m;
+  context.dwell_sec = 0.05f;  // 标称驻留
   context.look_az_deg = -30.0f;
   context.look_el_deg = 5.0f;
   return context;
@@ -264,6 +267,168 @@ TEST(TrackStateSnapshotEmitterTest, ConfirmedTrackExportsPositiveUncertaintyTrac
   ASSERT_EQ(snapshots.size(), 1U);
   EXPECT_EQ(snapshots[0].status, session::TrackStatus::kConfirmed);
   EXPECT_GT(snapshots[0].estimation_uncertainty_trace, 0.0f);
+}
+
+// -- 场景 4-7：低 SNR / 低带宽 / 强干扰 / 短驻留门控 -----------------------
+
+TEST(RecognitionScenarioGateTest, LowSnrExcludesRcsAndPolarizationButKeepsMotion) {
+  ArSceneTarget target;
+  target.aspect_rcs_samples.push_back({0.0f, 20.0f, -3.0f});
+  PolarizationRcsSample polarization;
+  polarization.aspect_az_deg = 0.0f;
+  polarization.aspect_el_deg = 20.0f;
+  polarization.channel_1_rcs_dbsm = -3.0f;
+  polarization.channel_2_rcs_dbsm = -5.0f;
+  target.polarization_rcs_samples.push_back(polarization);
+
+  TrackStateSnapshot snapshot;
+  snapshot.status = TrackStatus::kConfirmed;
+  snapshot.speed = 100.0f;
+  snapshot.velocity_x = 100.0f;
+
+  recognition::RecognitionObservationContext context = MakeContext();
+  context.snr_db = 3.0f;  // 低于 6 dB 门限
+  context.look_az_deg = 0.0f;
+  context.look_el_deg = 20.0f;
+
+  const recognition::RecognitionFeatureSet set =
+      recognition::RecognitionObservationBuilder::Build(target, snapshot, context);
+
+  EXPECT_EQ(set.valid_feature_mask & static_cast<std::uint8_t>(ArRecognitionFeatureDimension::kRcs), 0U);
+  EXPECT_EQ(set.valid_feature_mask &
+                static_cast<std::uint8_t>(ArRecognitionFeatureDimension::kPolarization),
+            0U);
+  EXPECT_EQ(set.valid_feature_mask & static_cast<std::uint8_t>(ArRecognitionFeatureDimension::kMotion),
+            static_cast<std::uint8_t>(ArRecognitionFeatureDimension::kMotion));
+}
+
+TEST(RecognitionScenarioGateTest, LowBandwidthExcludesRangeProfile) {
+  ArSceneTarget target;
+  target.range_rcs_scatterers.push_back({0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f});
+  TrackStateSnapshot snapshot;
+  snapshot.status = TrackStatus::kConfirmed;
+  snapshot.speed = 100.0f;
+  snapshot.velocity_x = 100.0f;
+
+  recognition::RecognitionObservationContext context = MakeContext();
+  context.bandwidth_hz = 1.0e6f;  // 分辨率 150 m > 上限 50 m
+  context.max_range_resolution_m = 50.0f;
+  context.look_az_deg = 0.0f;
+  context.look_el_deg = 20.0f;
+
+  const recognition::RecognitionFeatureSet set =
+      recognition::RecognitionObservationBuilder::Build(target, snapshot, context);
+
+  EXPECT_EQ(set.valid_feature_mask &
+                static_cast<std::uint8_t>(ArRecognitionFeatureDimension::kRangeProfile),
+            0U);
+}
+
+TEST(RecognitionScenarioGateTest, StrongJammingExcludesPolarization) {
+  ArSceneTarget target;
+  PolarizationRcsSample polarization;
+  polarization.aspect_az_deg = 0.0f;
+  polarization.aspect_el_deg = 20.0f;
+  polarization.channel_1_rcs_dbsm = -3.0f;
+  polarization.channel_2_rcs_dbsm = -5.0f;
+  target.polarization_rcs_samples.push_back(polarization);
+  TrackStateSnapshot snapshot;
+  snapshot.status = TrackStatus::kConfirmed;
+  snapshot.speed = 100.0f;
+  snapshot.velocity_x = 100.0f;
+
+  recognition::RecognitionObservationContext context = MakeContext();
+  // 强干扰（jnr > 20 dB）：有效 SNR 压到门限以下 → 极化维度不可用。
+  context.snr_db = 20.0f - 25.0f;
+  context.look_az_deg = 0.0f;
+  context.look_el_deg = 20.0f;
+
+  const recognition::RecognitionFeatureSet set =
+      recognition::RecognitionObservationBuilder::Build(target, snapshot, context);
+
+  EXPECT_EQ(set.valid_feature_mask &
+                static_cast<std::uint8_t>(ArRecognitionFeatureDimension::kPolarization),
+            0U);
+}
+
+TEST(RecognitionScenarioGateTest, ShortDwellLowersQualityAndSlowsObservationGrowth) {
+  ArSceneTarget target;
+  target.aspect_rcs_samples.push_back({0.0f, 20.0f, -3.0f});
+  TrackStateSnapshot snapshot;
+  snapshot.status = TrackStatus::kConfirmed;
+  snapshot.speed = 100.0f;
+  snapshot.velocity_x = 100.0f;
+
+  recognition::RecognitionObservationContext nominal = MakeContext();
+  nominal.snr_db = 6.5f;
+  nominal.dwell_sec = 0.05f;
+  nominal.look_az_deg = 0.0f;
+  nominal.look_el_deg = 20.0f;
+  const recognition::RecognitionFeatureSet set_nominal =
+      recognition::RecognitionObservationBuilder::Build(target, snapshot, nominal);
+
+  recognition::RecognitionObservationContext short_dwell = MakeContext();
+  short_dwell.snr_db = 6.5f;
+  short_dwell.dwell_sec = 0.01f;
+  short_dwell.look_az_deg = 0.0f;
+  short_dwell.look_el_deg = 20.0f;
+  const recognition::RecognitionFeatureSet set_short =
+      recognition::RecognitionObservationBuilder::Build(target, snapshot, short_dwell);
+
+  // 短驻留：质量因子下降。
+  ASSERT_TRUE(set_nominal.rcs.valid);
+  ASSERT_TRUE(set_short.rcs.valid);
+  EXPECT_LT(set_short.rcs.quality, set_nominal.rcs.quality);
+  // 短驻留 + 低 SNR：质量低于观测下限 → tracker 不计为观测（增长速率为 0）。
+  recognition::RecognitionTracker tracker;
+  recognition::RecognitionTracker::Options options;
+  options.min_confirmed_hits = 1U;
+  options.min_observation_count = 1U;
+  options.accumulation_window_sec = 10.0f;
+  options.acceptance_score = 0.6f;
+  options.minimum_margin = 0.05f;
+  options.result_hold_sec = 10.0f;
+  options.max_range_m = 1.0e6f;
+  tracker.SetOptions(options);
+
+  session::TrackStateSnapshotList track_list;
+  session::TrackStateSnapshot track;
+  track.association_key = 1U;
+  track.status = TrackStatus::kConfirmed;
+  track.hit_count = 3U;
+  track.speed = 100.0f;
+  track.velocity_x = 100.0f;
+  track.estimation_uncertainty_trace = 1.0e6f;  // 大不确定度：运动质量也低于下限
+  track_list.push_back(track);
+  recognition::RecognitionFeatureDatabase database;  // 空库：仅验证计数行为
+  std::unordered_map<std::uint64_t, recognition::RecognitionTracker::TrackObservationInput>
+      observations;
+  recognition::RecognitionTracker::TrackObservationInput input;
+  input.target = &target;
+  input.context = short_dwell;
+  observations[1U] = input;
+  for (std::uint32_t cycle = 1U; cycle <= 3U; ++cycle) {
+    tracker.UpdateCycle(track_list, observations, database, {}, static_cast<float>(cycle), cycle,
+                        1U);
+  }
+  const session::ArRecognitionResult* result = tracker.FindResult(1U);
+  ASSERT_NE(result, nullptr);
+  EXPECT_EQ(result->observation_count, 0U);  // 短驻留 + 低质量：不计为观测
+
+  // 标称驻留对照：同样低 SNR 下质量高于下限 → 观测正常积累。
+  recognition::RecognitionTracker nominal_tracker;
+  nominal_tracker.SetOptions(options);
+  input.context = nominal;
+  std::unordered_map<std::uint64_t, recognition::RecognitionTracker::TrackObservationInput>
+      nominal_observations;
+  nominal_observations[1U] = input;
+  for (std::uint32_t cycle = 1U; cycle <= 3U; ++cycle) {
+    nominal_tracker.UpdateCycle(track_list, nominal_observations, database, {},
+                                static_cast<float>(cycle), cycle, 1U);
+  }
+  const session::ArRecognitionResult* nominal_result = nominal_tracker.FindResult(1U);
+  ASSERT_NE(nominal_result, nullptr);
+  EXPECT_EQ(nominal_result->observation_count, 3U);  // 标称驻留：增长速率正常
 }
 
 }  // namespace

@@ -16,6 +16,9 @@ namespace {
 
 float Clamp01(float value) { return std::max(0.0f, std::min(1.0f, value)); }
 
+/** @brief RCS 观测最低 SNR 门限（dB）：低于则维度不可用（效能级）。 */
+constexpr float kMinimumObservationSnrDb = 6.0f;
+
 /**
  * @brief 在视角离散网格上插值 RCS。
  * @return 插值成功返回 true 并写入 out；视线角超出样本覆盖返回 false。
@@ -62,8 +65,8 @@ RcsObservation RcsFeatureExtractor::Extract(const std::vector<session::AspectRcs
                                             float look_az_deg, float look_el_deg, float snr_db,
                                             float minimum_aspect_coverage_deg) {
   RcsObservation observation;
-  if (samples.empty() || !std::isfinite(snr_db)) {
-    return observation;
+  if (samples.empty() || !std::isfinite(snr_db) || snr_db < kMinimumObservationSnrDb) {
+    return observation;  // 低 SNR：RCS 维度不可用（效能级门控）
   }
 
   float mean_dbsm = 0.0f;

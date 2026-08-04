@@ -19,6 +19,8 @@ namespace {
 constexpr float kReferenceRangeM = 100000.0f;
 /** @brief 相对差对数奇异下限（线性）。 */
 constexpr float kMinimumRelativeDifferenceFloor = 1.0e-6f;
+/** @brief 极化观测最低 SNR 门限（dB）：低于则维度不可用（效能级）。 */
+constexpr float kMinimumObservationSnrDb = 6.0f;
 
 float Clamp01(float value) { return std::max(0.0f, std::min(1.0f, value)); }
 
@@ -50,8 +52,9 @@ PolarizationObservation PolarizationFeatureExtractor::Extract(
     const std::vector<session::PolarizationRcsSample>& samples, float look_az_deg,
     float look_el_deg, float snr_db, float range_m) {
   PolarizationObservation observation;
-  if (samples.empty() || !std::isfinite(snr_db) || !std::isfinite(range_m) || range_m <= 0.0f) {
-    return observation;
+  if (samples.empty() || !std::isfinite(snr_db) || snr_db < kMinimumObservationSnrDb ||
+      !std::isfinite(range_m) || range_m <= 0.0f) {
+    return observation;  // 低 SNR 或无效距离：极化维度不可用
   }
   float rcs_1_dbsm = 0.0f;
   float rcs_2_dbsm = 0.0f;

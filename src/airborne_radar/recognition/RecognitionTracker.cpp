@@ -19,6 +19,8 @@ namespace {
 
 /** @brief 型号确认所需最小有效维度数（运动不能单独确认型号）。 */
 constexpr std::uint32_t kMinValidDimensionsForModel = 2U;
+/** @brief 有效观测质量下限：全部维度质量低于此值（如短驻留）不计为观测。 */
+constexpr float kMinimumObservationQuality = 0.05f;
 
 float Median(std::vector<float> values) {
   if (values.empty()) {
@@ -236,6 +238,14 @@ void RecognitionTracker::UpdateCycle(
     if (features.valid_feature_mask == 0U) {
       ExpireIfHeld(&state, sim_time_sec);
       continue;  // 无有效特征维度 → 本周期不积累
+    }
+    // 观测质量下限：全部维度质量低于下限（如短驻留）的周期不计为有效观测。
+    const float max_quality =
+        std::max(std::max(features.rcs.quality, features.motion.quality),
+                 std::max(features.polarization.quality, features.range_profile.quality));
+    if (max_quality < kMinimumObservationQuality) {
+      ExpireIfHeld(&state, sim_time_sec);
+      continue;
     }
 
     // 时间窗维护：按 accumulation_window_sec 裁剪。
