@@ -231,6 +231,25 @@ flowchart LR
   Result --> Debug
 ```
 
+### 远程识别链路（kLrr）
+
+识别是纯并行输出：执行点位于 `DecisionInputFrame` 生成之后（controller 内部），结果仅回填
+`TrackOutputFrame`，不进入决策帧与威胁评估。
+
+```text
+ArSceneTarget 特征真值（aspect / polarization / range_rcs 样本）
+  → RecognitionObservationBuilder（SNR / 带宽 / 驻留 / 视角覆盖约束）
+  → Rcs / Motion / Polarization / RangeProfile FeatureExtractor
+  → RecognitionTrackState 多周期积累（每 association_key 一份）
+  → RecognitionMatcher × RecognitionFeatureDatabase（只读内存基线）
+  → ArRecognitionResult 回填 TrackOutputFrame
+```
+
+状态所有权：`RecognitionFeatureDatabase` 归 `ArController`（构造加载/析构释放，加载期只读
+连接，运行期无连接）；每航迹 `RecognitionTrackState` 随航迹创建、随 `kRecycled`/键重分配
+清理；识别快照纳入 `ArControllerRuntimeState` 四类回滚矩阵；`database_version` 入
+`ArSessionReplayState`。
+
 ## 输出、调试与归属边界
 
 ```mermaid

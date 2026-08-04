@@ -257,6 +257,29 @@ TWS→STT→TWS、关机恢复、无效输入恢复和混合非法 runtime patch
 3. warning/error 观测项（不影响退出码）：距离/RCS 等物理趋势。
 4. 场景 ID 与运行方式由 `examples/batch_validation/README.md` 维护。
 
+## 远程识别链路（kLrr）
+
+实现边界与反直觉点（算法登记见"算法登记表"识别三行）：
+
+- **观测构造**：四提取器只消费效能化观测——RCS 需 SNR ≥ 6 dB 且视角覆盖跨距不足时维度
+  无效；带宽分辨率不满足 `max_range_resolution_m` 时距离像质量降零；ECCM 在下一成功周期
+  才影响质量因子；接收机饱和时不产生极化观测、不以末次有效值填充。单位纪律：RCS dBsm、
+  速度 m/s、高度 m、加速度 m/s²、转弯半径 log10(m)、极化 dB、距离 m。
+- **匹配打分**：`s = exp(-0.5·z²)`，`z = |x − mean| / std`（转弯半径用 log10 尺度）；质量 0
+  的维度不进分子也不进分母；型号得分 = 最佳适用 profile 加权相似度 × 型号先验；类别得分
+  = 成员型号未归一化分数之和；`confidence = best / Σ`。
+- **判定**（`RecognitionTracker`）：分数 ≥ `acceptance_score` 且 `best − runner_up ≥
+  minimum_margin` 且有效维度 ≥ 2（**运动维度不能单独确认型号**）→ `kModelConfirmed`；
+  否则大类确认或 `kUnknown`。profile 适用条件（`min_snr_db`/`max_range_resolution_m`/
+  `minimum_aspect_coverage_deg`/`minimum_bandwidth_hz`）不满足即不参与匹配。
+- **反直觉点**：
+  1. `feature_scores` 报告用型号的**第一个 profile**（`profiles.front()`），而非实际命中
+     得分的 profile——多 profile 型号的分项报告可能与判定所用 profile 不一致（判定路径
+     本身正确）。
+  2. 单候选时 `runner_up_score == 0`，margin 检查恒过——单候选场景天然满足型号确认门限。
+  3. 匀速场景目标加速度观测 ≈ 0，运动相似度 ≈（速度+高度）两子特征撑起——模板保留真实
+     机动量级，对机动目标仍有效；场景验证以 rcs+速度+高度证据为主。
+
 ## 非目标（刻意不实现的算法）
 
 1. **Heuristic detection toggle / 启发式 pass**：探测统一走物理链（emission→echo→...→decision），不再提供

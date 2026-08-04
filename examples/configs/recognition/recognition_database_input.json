@@ -1,5 +1,5 @@
 {
-  "_comment": "识别特征数据库输入（schema v1.1）。数值为公开渠道估算（非敏感占位参数），不作为真实目标特征数据；来源与置信度见 docs/review/recognition_us_military_db_plan_2026-08-04.md。",
+  "_comment": "识别特征数据库输入（schema v1.1）。数值为公开渠道估算（非敏感占位参数），不作为真实目标特征数据；来源：Wikipedia（含 USAF 事实表转述）、GlobalSecurity RCS 表等公开渠道，RCS 均为公开估算区间中值。",
   "meta": {
     "schema_version": "1.1",
     "database_id": "ar-target-recognition-baseline",

@@ -150,6 +150,32 @@ AR 使用标准 Joseph 形式 Kalman 滤波器（KF）作为生产后端。IMM �
 [evidence: tests/contract/airborne_radar/ar_public_api_convenience_test.cpp]
 [evidence: tests/contract/check_public_api_boundary.cmake]
 
+## 远程识别子系统边界（kLrr）
+
+- **纯并行输出**：识别仅回填 `TrackOutputFrame::tracks[i].recognition`，不进
+  `DecisionInputFrame`/`DecisionObservation`，不作 ThreatAssessment 输入；若未来需识别影响
+  威胁评估，须改 Evaluate 签名并走设计变更规则。
+- **非目标（否决项）**：ISAR/二维距离-多普勒像、微动特征、在线学习/自适应权重、实时外部
+  数据库联网、信号级 IQ/全波散射求解、非 `kLrr` 模式激活识别链路、威胁分类混入识别输出、
+  以场景真值直接产生结论、暴露内部识别类型为 public SPI、process-wide 识别全局状态。
+- **单位纪律**：`ArSceneTarget::rcs`/`TrackStateSnapshot::rcs` 为 m²（探测链），识别 RCS 特征
+  与数据库一律 dBsm；两者显式区分、不得混用（数据库 units 表 `rcs == 'dBsm'`，声明其他
+  单位即拒绝——宁拒绝不静默）。
+- **ENU 帧约定**：识别高度观测 = 平台海拔 + `snapshot.position_z`，其中 `position_z` 为平台
+  ENU 局部切平面上向分量（含平台姿态旋转，见 `TrackStateSnapshot.h`）。径向高度差在 ECEF z
+  上投影 sin(lat)，目标沿 x 运动经 cos(lat)cos(lon) 耦合进上向分量——场景构造须按此帧
+  约定补偿（`ar_recognition_us_military_scenario_test.cpp` 的 `AltitudeOffsetFor`）。
+- **失败降级**：库未加载/版本不兼容 → `kDisabled`（不影响探测/跟踪/战术决策）；分数/分差
+  不足 → `kUnknown` 或仅大类；航迹丢失保持结论至 `result_hold_sec` 后置 `kStale`；
+  `association_key` 重分配视为新目标；周期 abort/配置提交失败随四类快照回滚；
+  `kSensorPoweredOff` 保持结论至保持期后过期；`kValidationRejected` 不推进积累。
+- **接口不变式**：识别内部类型（观测构造/四提取器/积累/匹配器/数据库）不进入 public API；
+  识别配置经 `has_policy` 整域提交（无叶子级 recognition patch 字段）；公共枚举加性扩展
+  （不重排既有值，replay 字节兼容）；replay 逐周期比较识别结果（浮点容差 `1e-5f`），
+  `database_version` 入 `ArSessionReplayState`，不一致即 failure。
+- **数据性质**：示例库美方型号参数为公开渠道估算（非敏感占位数据，不作真实情报数据）；
+  来源：Wikipedia（含 USAF 事实表转述）、GlobalSecurity RCS 表等，RCS 均为公开估算区间中值。
+
 ## 识别子模型的物理保真度边界（F1/F2 定性）
 
 远程识别（`kLrr`）在效能级探测链之外引入两条**识别专用更高保真观测路径**，与探测链物理口径**不逐项对账**：
