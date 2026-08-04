@@ -1,10 +1,13 @@
 /**
  * @file RecognitionFeatureDatabase.h
- * @brief 目标特征数据库（JSON 加载 + 结构校验，库内部）。
+ * @brief 目标特征数据库（SQLite 加载 + 结构校验，库内部）。
  *
- * 每个数据库文件是完整、只读的识别基线；加载为全量原子替换：
- * 新文件通过模式、单位、数值与交叉引用校验后才生效，加载失败时
- * 保持原库不变（调用方持有旧实例）。
+ * 每个数据库文件是完整、只读、自描述的识别基线（SQLite schema v1.1）：meta 承载
+ * database_id/version/created_utc/通道约定，units 表声明量纲，display_name 与
+ * aspect 适用区间随数据入库（加载校验、当前不参与匹配）。加载为全量原子替换：
+ * 新文件通过模式、单位、数值与交叉引用校验后才生效，加载失败时保持原库不变
+ * （调用方持有旧实例）。SQLite 是加载期读取器——加载完成后连接关闭，
+ * 运行期只读内存结构。
  */
 
 #ifndef AIRBORNE_RADAR_RECOGNITION_RECOGNITION_FEATURE_DATABASE_H_
@@ -59,6 +62,11 @@ struct RecognitionModelProfile {
   std::string profile_id{};
   float min_snr_db{0.0f};
   float max_range_resolution_m{0.0f}; /**< 0 表示不限。 */
+  // 适用姿态区间（度）；缺省全范围。仅承载与校验，当前不参与匹配（D10 边界）。
+  float aspect_az_min_deg{-180.0f};
+  float aspect_az_max_deg{180.0f};
+  float aspect_el_min_deg{-90.0f};
+  float aspect_el_max_deg{90.0f};
   RecognitionRcsTemplate rcs{};
   RecognitionMotionTemplate motion{};
   RecognitionPolarizationTemplate polarization{};
@@ -69,6 +77,7 @@ struct RecognitionModelProfile {
 struct RecognitionModel {
   std::string model_id{};
   std::string category_id{};
+  std::string display_name{};
   float prior{1.0f};
   std::vector<RecognitionModelProfile> profiles{};
 };
@@ -76,6 +85,7 @@ struct RecognitionModel {
 /** @brief 标准目标大类及先验。 */
 struct RecognitionCategoryEntry {
   std::string category_id{};
+  std::string display_name{};
   float prior{1.0f};
 };
 
@@ -88,9 +98,9 @@ struct RecognitionCategoryEntry {
 class RecognitionFeatureDatabase {
  public:
   /**
-   * @brief 从 JSON 文件加载并校验数据库。
-   * @param[in] path JSON 文件路径。
-   * @param[out] error 失败原因（含路径与字段）；成功时为空。
+   * @brief 从 SQLite 文件加载并校验数据库（只读打开，加载后连接关闭）。
+   * @param[in] path SQLite 数据库文件路径。
+   * @param[out] error 失败原因（含路径与表/字段上下文）；成功时为空。
    * @return 校验通过返回 true 且 IsLoaded()==true；失败返回 false，
    *         返回对象保持未加载状态（不 fallback 到默认库）。
    */

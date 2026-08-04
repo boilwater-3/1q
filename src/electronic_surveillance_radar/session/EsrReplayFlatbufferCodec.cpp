@@ -148,9 +148,11 @@ flatbuffers::Offset<esr::replay::RfSceneFrame> BuildRfSceneFrame(
         emission.identity.emission_id, &position, &velocity, antenna,
         static_cast<int32_t>(emission.polarization), waveform_fb));
   }
+  // 向量创建前置：CreateVector 必须在父 table builder 打开之前（flatbuffers NotNested 约束）。
+  const auto emissions_fb = fbb.CreateVector(emissions);
   return esr::replay::CreateRfSceneFrame(
       fbb, frame.world_cycle_index, frame.window_start_time_s, frame.window_duration_s,
-      fbb.CreateVector(emissions));
+      emissions_fb);
 }
 
 oneq::electromagnetics::RfEmissionFrame FromRfSceneFrame(
@@ -306,12 +308,14 @@ flatbuffers::Offset<esr::replay::EsrOutputFrame> CreateEsrOutputFrameTable(
     builder.add_deception_class(static_cast<int32_t>(o.deception_class));
     obs_vec.push_back(builder.Finish());
   }
+  // 向量创建前置：CreateVector 必须在 ObservationOutputBuilder 打开之前。
+  const auto observations_fb = fbb.CreateVector(obs_vec);
   esr::replay::ObservationOutputBuilder observation_builder(fbb);
   observation_builder.add_raw_observation_count(
       static_cast<std::uint32_t>(v.observation_output.raw_observation_count));
   observation_builder.add_cluster_count(
       static_cast<std::uint32_t>(v.observation_output.cluster_count));
-  observation_builder.add_observations(fbb.CreateVector(obs_vec));
+  observation_builder.add_observations(observations_fb);
   observation_builder.add_receiver_center_frequency_hz(
       v.observation_output.receiver_center_frequency_hz);
   observation_builder.add_receiver_bandwidth_hz(v.observation_output.receiver_bandwidth_hz);
@@ -325,9 +329,11 @@ flatbuffers::Offset<esr::replay::EsrOutputFrame> CreateEsrOutputFrameTable(
     for (const auto& c : h.candidate_classes) {
       cls_vec.push_back(fbb.CreateString(c));
     }
+    // 向量创建前置：CreateVector 必须在 EmitterHypothesisBuilder 打开之前。
+    const auto cls_fb = fbb.CreateVector(cls_vec);
     esr::replay::EmitterHypothesisBuilder builder(fbb);
     builder.add_hypothesis_id(h.hypothesis_id);
-    builder.add_candidate_classes(fbb.CreateVector(cls_vec));
+    builder.add_candidate_classes(cls_fb);
     builder.add_mode(static_cast<int32_t>(h.mode));
     builder.add_threat_level(static_cast<int32_t>(h.threat_level));
     builder.add_bearing_az_deg(h.bearing_az_deg);
@@ -346,7 +352,9 @@ flatbuffers::Offset<esr::replay::EsrOutputFrame> CreateEsrOutputFrameTable(
     builder.add_waveform_class(static_cast<int32_t>(h.waveform_class));
     hyp_vec.push_back(builder.Finish());
   }
-  auto em_out = esr::replay::CreateEmitterOutput(fbb, fbb.CreateVector(hyp_vec));
+  // 向量创建前置：CreateVector 必须在 CreateEmitterOutput 打开之前。
+  const auto hyp_fb = fbb.CreateVector(hyp_vec);
+  auto em_out = esr::replay::CreateEmitterOutput(fbb, hyp_fb);
 
   return esr::replay::CreateEsrOutputFrame(fbb, v.cycle_index, v.batch_id, obs_out, em_out);
 }
@@ -480,10 +488,12 @@ std::string EncodeEsrCycleResult(const EsrCycleResult& v) {
         fbb, static_cast<int32_t>(d.severity), fbb.CreateString(d.code),
         fbb.CreateString(d.message)));
   }
+  // 向量创建前置：CreateVector 必须在 CreateEsrCycleResult 打开之前。
+  const auto issues_fb = fbb.CreateVector(issues);
+  const auto diags_fb = fbb.CreateVector(diags);
   fbb.Finish(esr::replay::CreateEsrCycleResult(
-      fbb, v.input_cycle_index, frame, fbb.CreateVector(issues), v.has_validation_error,
-      static_cast<int32_t>(v.status), static_cast<int32_t>(v.abort_reason),
-      fbb.CreateVector(diags)));
+      fbb, v.input_cycle_index, frame, issues_fb, v.has_validation_error,
+      static_cast<int32_t>(v.status), static_cast<int32_t>(v.abort_reason), diags_fb));
   return oneq::common::replay::CopyFinishedFlatbuffer(fbb);
 }
 
@@ -565,6 +575,9 @@ std::string EncodeEsrSessionConfig(const config::EsrSessionConfig& v) {
     co_site_paths.push_back(esr::replay::CreateEsrCoSiteIsolationPath(
         fbb, path.transmitter_equipment_id, path.isolation_db));
   }
+  // 向量创建前置：CreateVector 必须在 EsrHardwareConfigBuilder 打开之前。
+  const auto co_site_paths_fb = fbb.CreateVector(co_site_paths);
+  const auto tuning_plan_fb = fbb.CreateVector(tuning_plan);
   esr::replay::EsrHardwareConfigBuilder hardware_builder(fbb);
   hardware_builder.add_receiver_equipment_id(v.hardware.receiver_equipment_id);
   hardware_builder.add_receiver_band_lower_hz(v.hardware.receiver_band_lower_hz);
@@ -587,9 +600,9 @@ std::string EncodeEsrSessionConfig(const config::EsrSessionConfig& v) {
   hardware_builder.add_cross_polarization_isolation_db(
       v.hardware.cross_polarization_isolation_db);
   hardware_builder.add_minimum_far_field_range_m(v.hardware.minimum_far_field_range_m);
-  hardware_builder.add_co_site_paths(fbb.CreateVector(co_site_paths));
+  hardware_builder.add_co_site_paths(co_site_paths_fb);
   hardware_builder.add_maximum_linear_input_power_w(v.hardware.maximum_linear_input_power_w);
-  hardware_builder.add_tuning_plan(fbb.CreateVector(tuning_plan));
+  hardware_builder.add_tuning_plan(tuning_plan_fb);
   auto hw = hardware_builder.Finish();
   const auto& sc = v.mission.scan;
   auto scan = esr::replay::CreateEsrScanConfig(

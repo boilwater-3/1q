@@ -27,6 +27,10 @@ if(PROJECT_ENABLE_SPDLOG)
 endif()
 find_package(ZLIB REQUIRED)
 
+# sqlite3（airborne_radar 识别特征库加载；库内部 PRIVATE 依赖，不进 ONEQ_LINK_DEPENDENCIES）。
+# conan-center 的 sqlite3 recipe 经 CMakeDeps 生成包名 SQLite3、target SQLite::SQLite3。
+find_package(SQLite3 CONFIG REQUIRED)
+
 # HDF5 输出能力依赖 HighFive，其要求 C++17；低标准构建时静默关闭。
 if(PROJECT_CXX_STANDARD GREATER_EQUAL 17)
     find_package(HighFive CONFIG REQUIRED)

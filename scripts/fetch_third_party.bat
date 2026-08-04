@@ -21,6 +21,7 @@ REM   eigen       3.4.0    header-only    git clone  gitlab.com/libeigen/eigen
 REM   nanoflann   v1.3.2   header-only    git clone  github.com/jlblancoc/nanoflann
 REM   flatbuffers v1.12.0  header + flatc git clone  github.com/google/flatbuffers
 REM   zlib        v1.3.1   编译库         git clone  github.com/madler/zlib
+REM   sqlite3     v3.53.4  编译库         git clone  github.com/sqlite/sqlite（amalgamation）
 REM   boost       1.85.0   header-only    源码包下载 archives.boost.io（modular superproject
 REM                                       无法直接 git clone 出预合并头；airborne_radar 使用
 REM                                       boost/math/special_functions/gamma.hpp 与
@@ -129,6 +130,10 @@ if errorlevel 1 exit /b 1
 
 REM --- zlib v1.3.1（需编译库，含 gzopen 运行时 API） ---
 call :fetch_one zlib       https://github.com/madler/zlib.git           v1.3.1
+if errorlevel 1 exit /b 1
+
+REM --- sqlite3 v3.53.4（需编译库；GitHub mirror 根目录即 amalgamation） ---
+call :fetch_one sqlite3    https://github.com/sqlite/sqlite.git        v3.53.4
 if errorlevel 1 exit /b 1
 
 REM --- boost 1.85.0（header-only；airborne_radar 使用 boost/math 与 boost/pool） ---

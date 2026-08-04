@@ -60,7 +60,7 @@ struct ONEQ_API ArRecognitionConfig {
   ArRecognitionFeatureWeights feature_weights{};
 
   /** 数据库 */
-  std::string database_path{}; /**< 特征数据库 JSON 路径；空串表示未配置。 */
+  std::string database_path{}; /**< 特征数据库 SQLite 文件路径；空串表示未配置。 */
 };
 
 }  // namespace config

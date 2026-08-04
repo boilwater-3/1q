@@ -69,8 +69,10 @@ TEST(EsrReplayCodecRoundtripTest,
   const auto observation = observation_builder.Finish();
   const std::vector<flatbuffers::Offset<esr::replay::EmitterObservation>>
       observations{observation};
+  // 向量创建前置：CreateVector 必须在 ObservationOutputBuilder 打开之前（NotNested 约束）。
+  const auto observations_fb = builder.CreateVector(observations);
   esr::replay::ObservationOutputBuilder output_builder(builder);
-  output_builder.add_observations(builder.CreateVector(observations));
+  output_builder.add_observations(observations_fb);
   const auto observation_output = output_builder.Finish();
   const auto root = esr::replay::CreateEsrOutputFrame(
       builder, 1U, 2U, observation_output, 0);
@@ -232,8 +234,10 @@ TEST(EsrReplayCodecRoundtripTest,
   const auto observation = observation_builder.Finish();
   const std::vector<flatbuffers::Offset<esr::replay::EmitterObservation>>
       observations{observation};
+  // 向量创建前置：CreateVector 必须在 ObservationOutputBuilder 打开之前（NotNested 约束）。
+  const auto observations_fb = builder.CreateVector(observations);
   esr::replay::ObservationOutputBuilder output_builder(builder);
-  output_builder.add_observations(builder.CreateVector(observations));
+  output_builder.add_observations(observations_fb);
   const auto observation_output = output_builder.Finish();
   const auto root = esr::replay::CreateEsrOutputFrame(
       builder, 1U, 2U, observation_output, 0);
@@ -263,8 +267,10 @@ TEST(EsrReplayCodecRoundtripTest,
   const auto observation = observation_builder.Finish();
   const std::vector<flatbuffers::Offset<esr::replay::EmitterObservation>>
       observations{observation};
+  // 向量创建前置：CreateVector 必须在 ObservationOutputBuilder 打开之前（NotNested 约束）。
+  const auto observations_fb = builder.CreateVector(observations);
   esr::replay::ObservationOutputBuilder output_builder(builder);
-  output_builder.add_observations(builder.CreateVector(observations));
+  output_builder.add_observations(observations_fb);
   const auto observation_output = output_builder.Finish();
   const auto root = esr::replay::CreateEsrOutputFrame(
       builder, 1U, 2U, observation_output, 0);

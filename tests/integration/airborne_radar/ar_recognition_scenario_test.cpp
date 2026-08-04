@@ -9,13 +9,13 @@
 
 #include <gtest/gtest.h>
 
-#include <fstream>
 #include <string>
 #include <vector>
 
 #include "1q/airborne_radar/config/ArProfileConstants.h"
 #include "1q/airborne_radar/config/ArRuntimeConfigPatch.h"
 #include "1q/airborne_radar/session/ArSession.h"
+#include "RecognitionSqliteTestUtil.h"
 #include "airborne_radar/session/ArReplayCycleRecord.h"
 #include "airborne_radar/session/ArReplayFlatbufferCodec.h"
 #include "1q/coordinate/position_transform.h"
@@ -34,61 +34,39 @@ using session::ArSessionReplayAccess;
 using session::ArSessionReplayState;
 using session::ArTargetInput;
 
-constexpr const char* kScenarioDatabaseJson = R"json(
-{
-  "schema_version": "1.0",
-  "database_id": "ar-recognition-scenario-baseline",
-  "version": "2.0.0",
-  "categories": [
-    {"category_id": "BALLISTIC", "display_name": "弹道目标", "prior": 0.5},
-    {"category_id": "NEAR_SPACE", "display_name": "临近空间目标", "prior": 0.5}
-  ],
-  "models": [
-    {
-      "model_id": "BALLISTIC_EXAMPLE_A",
-      "category_id": "BALLISTIC",
-      "prior": 1.0,
-      "profiles": [
-        {
-          "profile_id": "nominal",
-          "applicability": {"min_snr_db": -30.0},
-          "rcs": {"mean_dbsm": -3.0, "std_db": 2.0},
-          "motion": {
-            "speed_mps": {"mean": 100.0, "std": 30.0},
-            "altitude_m": {"mean": 3000.0, "std": 500.0},
-            "acceleration_mps2": {"mean": 0.0, "std": 6.0}
-          }
-        }
-      ]
-    },
-    {
-      "model_id": "NEAR_SPACE_EXAMPLE_A",
-      "category_id": "NEAR_SPACE",
-      "prior": 1.0,
-      "profiles": [
-        {
-          "profile_id": "nominal",
-          "applicability": {"min_snr_db": -30.0},
-          "rcs": {"mean_dbsm": 2.0, "std_db": 2.5},
-          "motion": {
-            "speed_mps": {"mean": 400.0, "std": 80.0},
-            "altitude_m": {"mean": 1500.0, "std": 300.0},
-            "acceleration_mps2": {"mean": 0.0, "std": 2.0}
-          }
-        }
-      ]
-    }
-  ]
-}
-)json";
+constexpr const char* kScenarioDatabaseSql = R"sql(
+INSERT INTO meta VALUES
+  ('schema_version','1.1'),
+  ('database_id','ar-recognition-scenario-baseline'),
+  ('version','2.0.0'),
+  ('created_utc','2026-07-22T00:00:00Z'),
+  ('polarization_channels','H,V'),
+  ('polarization_energy_reference','range_propagation_antenna_compensated');
+INSERT INTO units VALUES
+  ('rcs','dBsm'),('speed','m/s'),('altitude','m'),('acceleration','m/s2'),
+  ('turn_radius','m'),('polarization','dB'),('range','m');
+INSERT INTO categories VALUES ('BALLISTIC','弹道目标',0.5), ('NEAR_SPACE','临近空间目标',0.5);
+INSERT INTO models VALUES
+  ('BALLISTIC_EXAMPLE_A','BALLISTIC','弹道目标示例 A',1.0),
+  ('NEAR_SPACE_EXAMPLE_A','NEAR_SPACE','临近空间目标示例 A',1.0);
+INSERT INTO profiles VALUES
+  ('nominal','BALLISTIC_EXAMPLE_A',-30.0,NULL,NULL,NULL,NULL,NULL),
+  ('nominal','NEAR_SPACE_EXAMPLE_A',-30.0,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO rcs_templates VALUES
+  ('nominal','BALLISTIC_EXAMPLE_A',-3.0,2.0,NULL,NULL,NULL),
+  ('nominal','NEAR_SPACE_EXAMPLE_A',2.0,2.5,NULL,NULL,NULL);
+INSERT INTO motion_templates VALUES
+  ('nominal','BALLISTIC_EXAMPLE_A',100.0,30.0,3000.0,500.0,0.0,6.0,6.0,0.5),
+  ('nominal','NEAR_SPACE_EXAMPLE_A',400.0,80.0,1500.0,300.0,0.0,2.0,4.5,0.5);
+)sql";
 
 class ArRecognitionScenarioTest : public ::testing::Test {
  protected:
   void SetUp() override {
-    database_path_ = ::testing::TempDir() + "/ar_recognition_scenario.json";
-    std::ofstream stream(database_path_, std::ios::trunc);
-    stream << kScenarioDatabaseJson;
-    stream.close();
+    database_path_ =
+        WriteTempSqlite("ar_recognition_scenario.db",
+                        std::string(kRecognitionSchemaSql) + kScenarioDatabaseSql);
+    ASSERT_FALSE(database_path_.empty());
   }
 
   config::ArSessionConfig MakeScenarioConfig() const {

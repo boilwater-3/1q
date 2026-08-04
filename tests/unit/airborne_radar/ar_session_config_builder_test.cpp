@@ -461,7 +461,7 @@ TEST(RadarSessionConfigValidationTest, RejectsInvalidRecognitionTimeAndRange) {
 TEST(RadarSessionConfigValidationTest, AcceptsExplicitlyEnabledRecognitionConfig) {
   config::ArSessionConfig session_config;
   session_config.policy.recognition.enabled = true;
-  session_config.policy.recognition.database_path = "examples/configs/recognition/test.json";
+  session_config.policy.recognition.database_path = "examples/configs/recognition/test.db";
   session_config.policy.recognition.feature_weights.rcs_weight = 0.4f;
   session_config.policy.recognition.feature_weights.motion_weight = 0.3f;
   session_config.policy.recognition.feature_weights.polarization_weight = 0.2f;

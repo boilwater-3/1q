@@ -186,7 +186,7 @@ TEST(ArRuntimePatchMapperTest, HasPolicyCarriesRecognitionConfig) {
   ArRuntimeConfigPatch patch;
   patch.has_policy = true;
   patch.policy.recognition.enabled = true;
-  patch.policy.recognition.database_path = "examples/configs/recognition/baseline.json";
+  patch.policy.recognition.database_path = "examples/configs/recognition/baseline.db";
   patch.policy.recognition.acceptance_score = 0.8f;
 
   const RuntimeConfigResolveResult resolved = ApplyRuntimePatch(current_state, patch);
@@ -196,19 +196,19 @@ TEST(ArRuntimePatchMapperTest, HasPolicyCarriesRecognitionConfig) {
   EXPECT_TRUE(resolved.execution_config_changed);
   EXPECT_TRUE(resolved.next_state.recognition.enabled);
   EXPECT_EQ(resolved.next_state.recognition.database_path,
-            "examples/configs/recognition/baseline.json");
+            "examples/configs/recognition/baseline.db");
   EXPECT_FLOAT_EQ(resolved.next_state.recognition.acceptance_score, 0.8f);
 }
 
 TEST(ArRuntimePatchMapperTest, RejectedPatchKeepsRecognitionConfigUnchanged) {
   RuntimeConfigState current_state;
   current_state.recognition.enabled = true;
-  current_state.recognition.database_path = "examples/configs/recognition/kept.json";
+  current_state.recognition.database_path = "examples/configs/recognition/kept.db";
 
   ArRuntimeConfigPatch patch;
   patch.has_policy = true;
   patch.policy.recognition.enabled = true;
-  patch.policy.recognition.database_path = "examples/configs/recognition/replaced.json";
+  patch.policy.recognition.database_path = "examples/configs/recognition/replaced.db";
   patch.has_scan_center_deg = true;
   patch.scan_center_deg.az_deg = std::numeric_limits<float>::quiet_NaN();
   patch.scan_center_deg.el_deg = 0.0f;
@@ -218,7 +218,7 @@ TEST(ArRuntimePatchMapperTest, RejectedPatchKeepsRecognitionConfigUnchanged) {
   EXPECT_TRUE(resolved.has_requested_update);
   EXPECT_FALSE(resolved.is_valid);
   EXPECT_EQ(resolved.next_state.recognition.database_path,
-            "examples/configs/recognition/kept.json");
+            "examples/configs/recognition/kept.db");
 }
 
 TEST(ArRuntimePatchMapperTest, MapExecutionToSessionRoundTripsFields) {

@@ -34,7 +34,6 @@ set(AIRBORNE_ENGINE_SOURCES
     recognition/PolarizationFeatureExtractor.cpp
     recognition/RangeProfileFeatureExtractor.cpp
     recognition/RecognitionObservationBuilder.cpp
-    recognition/RecognitionJsonParser.cpp
     recognition/RecognitionFeatureDatabase.cpp
     recognition/RecognitionMatcher.cpp
     recognition/RecognitionTracker.cpp
@@ -86,6 +85,8 @@ set_source_files_properties(session/ArTrackLifecycleRecorder.cpp
 set_source_files_properties(session/ArExternalOutputAdapter.cpp
     PROPERTIES SKIP_UNITY_BUILD_INCLUSION ON)
 target_link_libraries(airborne_engine PRIVATE ${ONEQ_LINK_DEPENDENCIES})
+# 识别特征库加载（SQLite 只读读取器）；仅 airborne_radar 内部消费，PRIVATE 不进公共链接面。
+target_link_libraries(airborne_engine PRIVATE SQLite::SQLite3)
 target_link_libraries(airborne_core PRIVATE ${ONEQ_LINK_DEPENDENCIES})
 oneq_add_flatbuffers_schemas(
     TARGET airborne_core

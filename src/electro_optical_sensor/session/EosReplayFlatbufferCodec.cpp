@@ -188,8 +188,10 @@ std::string EncodeEosCycleResult(const ::electro_optical_sensor::session::EosCyc
   for (const auto& d : v.output_frame.detections) {
     det_vec.push_back(EncodeOneDetection(fbb, d));
   }
+  // 向量创建前置：CreateVector 必须在 CreateEosOutputFrame 打开之前。
+  const auto dets_fb = fbb.CreateVector(det_vec);
   auto frame = eos::replay::CreateEosOutputFrame(
-      fbb, v.output_frame.cycle_index, v.output_frame.scan_azimuth_deg, fbb.CreateVector(det_vec));
+      fbb, v.output_frame.cycle_index, v.output_frame.scan_azimuth_deg, dets_fb);
 
   std::vector<flatbuffers::Offset<eos::replay::EosDetectionAttributionRecord>> attr_vec;
   attr_vec.reserve(v.detection_attributions.size());
@@ -222,9 +224,12 @@ std::string EncodeEosCycleResult(const ::electro_optical_sensor::session::EosCyc
         fbb, static_cast<int32_t>(d.severity), code_str, msg_str));
   }
 
+  // 向量创建前置：CreateVector 必须在 CreateEosCycleResult 打开之前。
+  const auto attr_fb = fbb.CreateVector(attr_vec);
+  const auto issue_fb = fbb.CreateVector(issue_vec);
+  const auto diag_fb = fbb.CreateVector(diag_vec);
   auto result = eos::replay::CreateEosCycleResult(
-      fbb, v.input_cycle_index, frame, fbb.CreateVector(attr_vec), fbb.CreateVector(issue_vec),
-      fbb.CreateVector(diag_vec),
+      fbb, v.input_cycle_index, frame, attr_fb, issue_fb, diag_fb,
       v.has_validation_error, v.executed_this_cycle,
       static_cast<int32_t>(v.abort_reason),
       static_cast<std::uint8_t>(v.status));
