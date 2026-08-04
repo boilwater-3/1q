@@ -56,6 +56,9 @@ endif()
 if(ONEQ_HAVE_ZLIB)
     target_link_libraries(${PROJECT_CORE_TARGET} PRIVATE ZLIB::ZLIB)
 endif()
+# SQLite（airborne_radar 识别特征库加载；组件 PRIVATE 依赖需在此显式纳入链接闭包，
+# 与 ZLIB 模式一致。两 provider（conan/vendored）均产出 SQLite::SQLite3）。
+target_link_libraries(${PROJECT_CORE_TARGET} PRIVATE SQLite::SQLite3)
 if(ONEQ_ENABLE_HDF5_OUTPUT)
     target_link_libraries(${PROJECT_CORE_TARGET} PRIVATE HighFive)
 endif()

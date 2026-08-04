@@ -1,6 +1,7 @@
 # Integration-type test partitions: one executable per owner domain.
 
 function(_oneq_add_integration_partition domain)
+    cmake_parse_arguments(_oneq_int_part "" "" "LINK_LIBS;INCLUDE_DIRS" ${ARGN})
     file(GLOB _sources CONFIGURE_DEPENDS
         "${CMAKE_CURRENT_SOURCE_DIR}/integration/${domain}/*_test.cpp")
     if(_sources)
@@ -9,11 +10,16 @@ function(_oneq_add_integration_partition domain)
             DOMAIN ${domain}
             SOURCES ${_sources}
             TIMEOUT 120
-            LABELS ci_required)
+            LABELS ci_required
+            LINK_LIBS ${_oneq_int_part_LINK_LIBS}
+            INCLUDE_DIRS ${_oneq_int_part_INCLUDE_DIRS})
     endif()
 endfunction()
 
-_oneq_add_integration_partition(airborne_radar)
+# airborne_radar：识别场景测试用 SQLite 构造特征库（helper 位于 unit/airborne_radar/）。
+_oneq_add_integration_partition(airborne_radar
+    LINK_LIBS SQLite::SQLite3
+    INCLUDE_DIRS "${CMAKE_CURRENT_SOURCE_DIR}/unit/airborne_radar")
 _oneq_add_integration_partition(electro_optical_sensor)
 _oneq_add_integration_partition(electronic_surveillance_radar)
 _oneq_add_integration_partition(sbirs_sensor)

@@ -5,12 +5,12 @@
 
 #include <gtest/gtest.h>
 
-#include <fstream>
 #include <string>
 
 #include "1q/airborne_radar/config/ArProfileConstants.h"
 #include "1q/airborne_radar/config/ArRuntimeConfigBuilder.h"
 #include "1q/airborne_radar/session/ArSession.h"
+#include "RecognitionSqliteTestUtil.h"
 #include "airborne_radar/session/ArReplayCycleRecord.h"
 #include "1q/coordinate/position_transform.h"
 
@@ -25,44 +25,34 @@ using session::ArRecognitionState;
 using session::ArSession;
 using session::ArTargetInput;
 using session::TrackStatus;
+using tests::kRecognitionSchemaSql;
+using tests::WriteTempSqlite;
 
-constexpr const char* kDatabaseJson = R"json(
-{
-  "schema_version": "1.0",
-  "database_id": "ar-target-recognition-baseline",
-  "version": "1.0.0",
-  "categories": [
-    {"category_id": "BALLISTIC", "display_name": "弹道目标", "prior": 0.5}
-  ],
-  "models": [
-    {
-      "model_id": "BALLISTIC_EXAMPLE_A",
-      "category_id": "BALLISTIC",
-      "prior": 1.0,
-      "profiles": [
-        {
-          "profile_id": "nominal",
-          "applicability": {"min_snr_db": -30.0},
-          "rcs": {"mean_dbsm": -3.0, "std_db": 2.0},
-          "motion": {
-            "speed_mps": {"mean": 100.0, "std": 30.0},
-            "altitude_m": {"mean": 3000.0, "std": 500.0},
-            "acceleration_mps2": {"mean": 0.0, "std": 6.0}
-          }
-        }
-      ]
-    }
-  ]
-}
-)json";
+constexpr const char* kDatabaseSql = R"sql(
+INSERT INTO meta VALUES
+  ('schema_version','1.0'),
+  ('database_id','ar-target-recognition-baseline'),
+  ('version','1.0.0');
+INSERT INTO categories VALUES ('BALLISTIC',0.5);
+INSERT INTO models VALUES ('BALLISTIC_EXAMPLE_A','BALLISTIC',1.0);
+INSERT INTO profiles (profile_id, model_id, min_snr_db,
+                      rcs_mean_dbsm, rcs_std_db,
+                      motion_speed_mean, motion_speed_std,
+                      motion_altitude_mean, motion_altitude_std,
+                      motion_acceleration_mean, motion_acceleration_std)
+VALUES ('nominal','BALLISTIC_EXAMPLE_A',-30.0,
+        -3.0,2.0,
+        100.0,30.0,
+        3000.0,500.0,
+        0.0,6.0);
+)sql";
 
 class ArRecognitionIntegrationTest : public ::testing::Test {
  protected:
   void SetUp() override {
-    database_path_ = ::testing::TempDir() + "/ar_recognition_integration.json";
-    std::ofstream stream(database_path_, std::ios::trunc);
-    stream << kDatabaseJson;
-    stream.close();
+    database_path_ =
+        WriteTempSqlite("ar_recognition_integration.db", std::string(kRecognitionSchemaSql) + kDatabaseSql);
+    ASSERT_FALSE(database_path_.empty());
   }
 
   config::ArSessionConfig MakeRecognitionConfig() const {

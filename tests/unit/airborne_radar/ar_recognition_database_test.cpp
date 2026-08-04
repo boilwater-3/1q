@@ -1,16 +1,15 @@
 // Copyright 2026. All Rights Reserved.
 //
 // @file ar_recognition_database_test.cpp
-// @brief 验证识别特征数据库 JSON 加载/校验与动态加权匹配行为。
+// @brief 验证识别特征数据库 SQLite 加载/校验与动态加权匹配行为。
 
 #include <gtest/gtest.h>
 
 #include <cmath>
-#include <fstream>
 #include <string>
 
+#include "RecognitionSqliteTestUtil.h"
 #include "airborne_radar/recognition/RecognitionFeatureDatabase.h"
-#include "airborne_radar/recognition/RecognitionJsonParser.h"
 #include "airborne_radar/recognition/RecognitionMatcher.h"
 #include "airborne_radar/recognition/RecognitionTypes.h"
 
@@ -24,117 +23,40 @@ using recognition::RecognitionMatchResult;
 using recognition::RecognitionMatcher;
 using recognition::RecognitionObservationContext;
 
-std::string WriteTempJson(const std::string& name, const std::string& content) {
-  const std::string path = ::testing::TempDir() + "/" + name;
-  std::ofstream stream(path, std::ios::trunc);
-  stream << content;
-  stream.close();
-  return path;
-}
-
-const char* kValidDatabaseJson = R"json(
-{
-  "schema_version": "1.0",
-  "database_id": "ar-target-recognition-baseline",
-  "version": "1.0.0",
-  "created_utc": "2026-07-22T00:00:00Z",
-  "polarization_channels": ["H", "V"],
-  "units": {"rcs": "dBsm"},
-  "categories": [
-    {"category_id": "BALLISTIC", "display_name": "弹道目标", "prior": 0.5},
-    {"category_id": "NEAR_SPACE", "display_name": "临近空间目标", "prior": 0.5}
-  ],
-  "models": [
-    {
-      "model_id": "BALLISTIC_EXAMPLE_A",
-      "category_id": "BALLISTIC",
-      "prior": 1.0,
-      "profiles": [
-        {
-          "profile_id": "nominal",
-          "applicability": {"min_snr_db": 6.0, "max_range_resolution_m": 50.0},
-          "rcs": {"mean_dbsm": -3.0, "std_db": 2.0},
-          "motion": {
-            "speed_mps": {"mean": 1800.0, "std": 300.0},
-            "altitude_m": {"mean": 50000.0, "std": 12000.0},
-            "acceleration_mps2": {"mean": 12.0, "std": 6.0},
-            "turn_radius_m": {"mean_log10": 6.0, "std_log10": 0.5}
-          },
-          "polarization": {
-            "energy_difference_db": {"mean": 2.0, "std": 1.5},
-            "relative_difference_db": {"mean": -6.0, "std": 2.0},
-            "energy_sum_db": {"mean": 5.0, "std": 4.0}
-          },
-          "range_profile": {
-            "length_m": {"mean": 8.0, "std": 2.0},
-            "peak_count": {"mean": 3.0, "std": 1.0},
-            "peak_energy_concentration": {"mean": 0.75, "std": 0.10}
-          }
-        }
-      ]
-    },
-    {
-      "model_id": "NEAR_SPACE_EXAMPLE_A",
-      "category_id": "NEAR_SPACE",
-      "prior": 0.5,
-      "profiles": [
-        {
-          "profile_id": "nominal",
-          "applicability": {"min_snr_db": 6.0},
-          "rcs": {"mean_dbsm": 2.0, "std_db": 2.5},
-          "motion": {
-            "speed_mps": {"mean": 300.0, "std": 80.0},
-            "altitude_m": {"mean": 25000.0, "std": 5000.0},
-            "acceleration_mps2": {"mean": 2.0, "std": 1.0},
-            "turn_radius_m": {"mean_log10": 4.5, "std_log10": 0.5}
-          },
-          "polarization": {
-            "energy_difference_db": {"mean": -1.0, "std": 1.5},
-            "relative_difference_db": {"mean": -8.0, "std": 3.0},
-            "energy_sum_db": {"mean": 8.0, "std": 4.0}
-          },
-          "range_profile": {
-            "length_m": {"mean": 20.0, "std": 5.0},
-            "peak_count": {"mean": 4.0, "std": 1.0},
-            "peak_energy_concentration": {"mean": 0.60, "std": 0.10}
-          }
-        }
-      ]
-    },
-    {
-      "model_id": "BALLISTIC_CLONE",
-      "category_id": "BALLISTIC",
-      "prior": 0.5,
-      "profiles": [
-        {
-          "profile_id": "nominal",
-          "applicability": {"min_snr_db": 6.0, "max_range_resolution_m": 50.0},
-          "rcs": {"mean_dbsm": -3.0, "std_db": 2.0},
-          "motion": {
-            "speed_mps": {"mean": 1800.0, "std": 300.0},
-            "altitude_m": {"mean": 50000.0, "std": 12000.0},
-            "acceleration_mps2": {"mean": 12.0, "std": 6.0},
-            "turn_radius_m": {"mean_log10": 6.0, "std_log10": 0.5}
-          },
-          "polarization": {
-            "energy_difference_db": {"mean": 2.0, "std": 1.5},
-            "relative_difference_db": {"mean": -6.0, "std": 2.0},
-            "energy_sum_db": {"mean": 5.0, "std": 4.0}
-          },
-          "range_profile": {
-            "length_m": {"mean": 8.0, "std": 2.0},
-            "peak_count": {"mean": 3.0, "std": 1.0},
-            "peak_energy_concentration": {"mean": 0.75, "std": 0.10}
-          }
-        }
-      ]
-    }
-  ]
-}
-)json";
+// 与 JSON 版等价的特征库 schema（profile 模板列拍平；可空列对应 JSON 可选字段）。
+constexpr const char* kValidDatabaseSql = R"sql(
+INSERT INTO meta VALUES
+  ('schema_version','1.0'),
+  ('database_id','ar-target-recognition-baseline'),
+  ('version','1.0.0');
+INSERT INTO categories VALUES ('BALLISTIC',0.5), ('NEAR_SPACE',0.5);
+INSERT INTO models VALUES
+  ('BALLISTIC_EXAMPLE_A','BALLISTIC',1.0),
+  ('NEAR_SPACE_EXAMPLE_A','NEAR_SPACE',0.5),
+  ('BALLISTIC_CLONE','BALLISTIC',0.5);
+INSERT INTO profiles VALUES
+  ('nominal','BALLISTIC_EXAMPLE_A',6.0,50.0,
+   -3.0,2.0,NULL,NULL,NULL,
+   1800.0,300.0,50000.0,12000.0,12.0,6.0,6.0,0.5,
+   2.0,1.5,-6.0,2.0,5.0,4.0,
+   8.0,2.0,3.0,1.0,0.75,0.10,NULL);
+INSERT INTO profiles VALUES
+  ('nominal','NEAR_SPACE_EXAMPLE_A',6.0,NULL,
+   2.0,2.5,NULL,NULL,NULL,
+   300.0,80.0,25000.0,5000.0,2.0,1.0,4.5,0.5,
+   -1.0,1.5,-8.0,3.0,8.0,4.0,
+   20.0,5.0,4.0,1.0,0.60,0.10,NULL);
+INSERT INTO profiles VALUES
+  ('nominal','BALLISTIC_CLONE',6.0,50.0,
+   -3.0,2.0,NULL,NULL,NULL,
+   1800.0,300.0,50000.0,12000.0,12.0,6.0,6.0,0.5,
+   2.0,1.5,-6.0,2.0,5.0,4.0,
+   8.0,2.0,3.0,1.0,0.75,0.10,NULL);
+)sql";
 
 RecognitionFeatureDatabase LoadValidDatabase() {
-  const std::string path = WriteTempJson("ar_recognition_valid.json", kValidDatabaseJson);
+  const std::string path =
+      WriteTempSqlite("ar_recognition_valid.db", std::string(kRecognitionSchemaSql) + kValidDatabaseSql);
   RecognitionFeatureDatabase database;
   std::string error;
   if (!RecognitionFeatureDatabase::Load(path, &database, &error)) {
@@ -174,7 +96,7 @@ RecognitionFeatureSet MakeFeaturesAtTemplate(const RecognitionFeatureDatabase& d
   return set;
 }
 
-TEST(RecognitionFeatureDatabaseTest, LoadsValidJsonAndExposesIdentity) {
+TEST(RecognitionFeatureDatabaseTest, LoadsValidSqliteDatabaseAndExposesIdentity) {
   const RecognitionFeatureDatabase database = LoadValidDatabase();
   EXPECT_TRUE(database.IsLoaded());
   EXPECT_EQ(database.database_id(), "ar-target-recognition-baseline");
@@ -184,41 +106,46 @@ TEST(RecognitionFeatureDatabaseTest, LoadsValidJsonAndExposesIdentity) {
 }
 
 TEST(RecognitionFeatureDatabaseTest, RejectsStructuralErrorsWithPathInMessage) {
-  // 缺 models
-  const std::string missing_models =
-      WriteTempJson("ar_recognition_missing_models.json",
-                    R"json({"schema_version":"1.0","database_id":"d","version":"1.0.0"})json");
+  // 缺 models 表（局部 DDL：只有 meta + categories）
+  const std::string missing_models = WriteTempSqlite(
+      "ar_recognition_missing_models.db",
+      R"sql(CREATE TABLE meta(key TEXT PRIMARY KEY, value TEXT NOT NULL);
+INSERT INTO meta VALUES ('schema_version','1.0'),('database_id','d'),('version','1.0.0');
+CREATE TABLE categories(category_id TEXT PRIMARY KEY, prior REAL);)sql");
   RecognitionFeatureDatabase database;
   std::string error;
   EXPECT_FALSE(RecognitionFeatureDatabase::Load(missing_models, &database, &error));
   EXPECT_NE(error.find("models"), std::string::npos);
 
-  // std == 0
-  const std::string zero_std = WriteTempJson(
-      "ar_recognition_zero_std.json",
-      R"json({"schema_version":"1.0","database_id":"d","version":"1.0.0","categories":[],
-      "models":[{"model_id":"m","category_id":"c","profiles":[
-        {"profile_id":"p","rcs":{"mean_dbsm":0.0,"std_db":0.0}}]}]})json");
+  // rcs std == 0
+  const std::string zero_std = WriteTempSqlite(
+      "ar_recognition_zero_std.db",
+      std::string(kRecognitionSchemaSql) +
+          R"sql(INSERT INTO meta VALUES ('schema_version','1.0'),('database_id','d'),('version','1.0.0');
+INSERT INTO categories VALUES ('c',1.0);
+INSERT INTO models VALUES ('m','c',1.0);
+INSERT INTO profiles (profile_id, model_id, rcs_mean_dbsm, rcs_std_db) VALUES ('p','m',0.0,0.0);)sql");
   error.clear();
   EXPECT_FALSE(RecognitionFeatureDatabase::Load(zero_std, &database, &error));
   EXPECT_NE(error.find("std_db"), std::string::npos);
 
-  // category_id 引用不存在
-  const std::string bad_category = WriteTempJson(
-      "ar_recognition_bad_category.json",
-      R"json({"schema_version":"1.0","database_id":"d","version":"1.0.0","categories":[],
-      "models":[{"model_id":"m","category_id":"NOPE","profiles":[
-        {"profile_id":"p"}]}]})json");
+  // category_id 引用不存在（FK 关闭以写入非法引用；Load 显式校验拒绝）
+  const std::string bad_category = WriteTempSqlite(
+      "ar_recognition_bad_category.db",
+      std::string("PRAGMA foreign_keys = OFF;\n") + kRecognitionSchemaSql +
+          R"sql(INSERT INTO meta VALUES ('schema_version','1.0'),('database_id','d'),('version','1.0.0');
+INSERT INTO models VALUES ('m','NOPE',1.0);
+INSERT INTO profiles (profile_id, model_id) VALUES ('p','m');)sql");
   error.clear();
   EXPECT_FALSE(RecognitionFeatureDatabase::Load(bad_category, &database, &error));
   EXPECT_NE(error.find("NOPE"), std::string::npos);
 }
 
 TEST(RecognitionFeatureDatabaseTest, RejectsUnsupportedSchemaVersionWithoutFallback) {
-  const std::string unsupported = WriteTempJson(
-      "ar_recognition_bad_schema.json",
-      R"json({"schema_version":"9.9","database_id":"d","version":"1.0.0","categories":[],
-      "models":[]})json");
+  const std::string unsupported = WriteTempSqlite(
+      "ar_recognition_bad_schema.db",
+      std::string(kRecognitionSchemaSql) +
+          R"sql(INSERT INTO meta VALUES ('schema_version','9.9'),('database_id','d'),('version','1.0.0');)sql");
   RecognitionFeatureDatabase database;
   std::string error;
   EXPECT_FALSE(RecognitionFeatureDatabase::Load(unsupported, &database, &error));
@@ -345,20 +272,11 @@ TEST(RecognitionMatcherTest, ZeroQualityDimensionIsExcludedFromDenominator) {
   EXPECT_NEAR(result.candidates.front().score, 1.0f, 0.01f);
 }
 
-TEST(RecognitionJsonParserTest, UnicodeEscapeDoesNotConsumeFollowingCharacter) {
-  // \uXXXX 转义按 UTF-8 输入原样透传；其后紧跟的字符必须保留（回归：off-by-one 吞字符）。
-  recognition::RecognitionJsonValue root;
-  std::string error;
-  const std::string input = "{\"name\": \"\\u0041X\"}";
-  ASSERT_TRUE(recognition::RecognitionJsonReader::Parse(input, &root, &error)) << error;
-  EXPECT_EQ(root["name"].AsString(), "\\u0041X");
-}
-
 TEST(RecognitionMatcherTest, EmptyDatabaseReturnsEmptyResultWithoutCrash) {
-  const std::string empty = WriteTempJson(
-      "ar_recognition_empty.json",
-      R"json({"schema_version":"1.0","database_id":"d","version":"1.0.0","categories":[],
-      "models":[]})json");
+  const std::string empty = WriteTempSqlite(
+      "ar_recognition_empty.db",
+      std::string(kRecognitionSchemaSql) +
+          R"sql(INSERT INTO meta VALUES ('schema_version','1.0'),('database_id','d'),('version','1.0.0');)sql");
   RecognitionFeatureDatabase database;
   std::string error;
   ASSERT_TRUE(RecognitionFeatureDatabase::Load(empty, &database, &error)) << error;

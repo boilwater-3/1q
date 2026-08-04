@@ -79,7 +79,7 @@ TEST(ArReplayCodecRoundtripTest, SessionConfigPreservesAllDomains) {
   config.policy.recognition.feature_weights.motion_weight = 0.3f;
   config.policy.recognition.feature_weights.polarization_weight = 0.2f;
   config.policy.recognition.feature_weights.range_profile_weight = 0.1f;
-  config.policy.recognition.database_path = "examples/configs/recognition/baseline.json";
+  config.policy.recognition.database_path = "examples/configs/recognition/baseline.db";
   // sensor_enabled 顶层电源字段（COMMON-OQ-4 字段提升）往返锚点：非默认值防 decode 漏读
   config.sensor_enabled = false;
   // natural environment
@@ -150,7 +150,7 @@ TEST(ArReplayCodecRoundtripTest, SessionConfigPreservesAllDomains) {
   EXPECT_FLOAT_EQ(decoded.policy.recognition.feature_weights.motion_weight, 0.3f);
   EXPECT_FLOAT_EQ(decoded.policy.recognition.feature_weights.polarization_weight, 0.2f);
   EXPECT_FLOAT_EQ(decoded.policy.recognition.feature_weights.range_profile_weight, 0.1f);
-  EXPECT_EQ(decoded.policy.recognition.database_path, "examples/configs/recognition/baseline.json");
+  EXPECT_EQ(decoded.policy.recognition.database_path, "examples/configs/recognition/baseline.db");
   // natural environment
   EXPECT_TRUE(decoded.environment.scenario_config.atmospheric_physics.enable_physical_model);
   EXPECT_FLOAT_EQ(decoded.environment.scenario_config.atmospheric_physics.pressure_hpa, 1010.0f);
