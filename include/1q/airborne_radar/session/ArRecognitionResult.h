@@ -31,12 +31,18 @@ enum class ONEQ_API ArRecognitionState : std::uint8_t {
 
 /**
  * @brief ArRecognitionCategory 识别目标大类。
+ * @note 取值加性扩展（不重排既有值），旧 trace/replay 字节兼容；新增类别在
+ *       识别特征库 v1.1（美方常见型号）后引入。
  */
 enum class ONEQ_API ArRecognitionCategory : std::uint8_t {
   kBallistic = 0, /**< 弹道目标。 */
   kNearSpace = 1, /**< 临近空间目标。 */
   kOther = 2,     /**< 其它。 */
-  kUnknown = 3    /**< 未知。 */
+  kUnknown = 3,   /**< 未知。 */
+  kFighter = 4,   /**< 战斗机。 */
+  kBomber = 5,    /**< 轰炸机。 */
+  kMissile = 6,   /**< 导弹。 */
+  kUav = 7        /**< 无人机。 */
 };
 
 /**

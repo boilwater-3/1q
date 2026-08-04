@@ -1,9 +1,10 @@
 {
+  "_comment": "识别特征数据库输入（schema v1.1）。数值为公开渠道估算（非敏感占位参数），不作为真实目标特征数据；来源：Wikipedia（含 USAF 事实表转述）、GlobalSecurity RCS 表等公开渠道，RCS 均为公开估算区间中值。",
   "meta": {
     "schema_version": "1.1",
     "database_id": "ar-target-recognition-baseline",
-    "version": "1.0.0",
-    "created_utc": "2026-08-04T00:00:00Z",
+    "version": "1.1.0",
+    "created_utc": "2026-08-04T12:00:00Z",
     "polarization_channels": ["H", "V"],
     "polarization_energy_reference": "range_propagation_antenna_compensated"
   },
@@ -18,7 +19,11 @@
   },
   "categories": [
     {"category_id": "BALLISTIC", "display_name": "弹道目标", "prior": 0.5},
-    {"category_id": "NEAR_SPACE", "display_name": "临近空间目标", "prior": 0.5}
+    {"category_id": "NEAR_SPACE", "display_name": "临近空间目标", "prior": 0.5},
+    {"category_id": "FIGHTER", "display_name": "战斗机", "prior": 1.0},
+    {"category_id": "BOMBER", "display_name": "轰炸机", "prior": 1.0},
+    {"category_id": "MISSILE", "display_name": "导弹", "prior": 1.0},
+    {"category_id": "UAV", "display_name": "无人机", "prior": 1.0}
   ],
   "models": [
     {
@@ -99,6 +104,576 @@
             "peak_count": {"mean": 4.0, "std": 1.0},
             "peak_energy_concentration": {"mean": 0.60, "std": 0.10},
             "minimum_bandwidth_hz": 3000000.0
+          }
+        }
+      ]
+    },
+    {
+      "model_id": "F-16C",
+      "category_id": "FIGHTER",
+      "display_name": "F-16C 战隼",
+      "prior": 1.0,
+      "profiles": [
+        {
+          "profile_id": "nominal",
+          "applicability": {
+            "min_snr_db": 6.0,
+            "aspect_az_deg": [-180.0, 180.0],
+            "aspect_el_deg": [-90.0, 90.0]
+          },
+          "rcs": {
+            "mean_dbsm": 0.8,
+            "std_db": 2.5,
+            "azimuth_variation_db": 6.0,
+            "elevation_variation_db": 4.5
+          },
+          "motion": {
+            "speed_mps": {"mean": 250.0, "std": 25.0},
+            "altitude_m": {"mean": 10500.0, "std": 1500.0},
+            "acceleration_mps2": {"mean": 40.0, "std": 12.0},
+            "turn_radius_m": {"mean_log10": 3.4, "std_log10": 0.15}
+          },
+          "polarization": {
+            "energy_difference_db": {"mean": 2.0, "std": 1.5},
+            "relative_difference_db": {"mean": -6.0, "std": 2.0},
+            "energy_sum_db": {"mean": 6.0, "std": 4.0}
+          },
+          "range_profile": {
+            "length_m": {"mean": 15.06, "std": 0.5},
+            "peak_count": {"mean": 4.0, "std": 1.0},
+            "peak_energy_concentration": {"mean": 0.65, "std": 0.08}
+          }
+        }
+      ]
+    },
+    {
+      "model_id": "F-15E",
+      "category_id": "FIGHTER",
+      "display_name": "F-15E 攻击鹰",
+      "prior": 1.0,
+      "profiles": [
+        {
+          "profile_id": "nominal",
+          "applicability": {
+            "min_snr_db": 6.0,
+            "aspect_az_deg": [-180.0, 180.0],
+            "aspect_el_deg": [-90.0, 90.0]
+          },
+          "rcs": {
+            "mean_dbsm": 11.8,
+            "std_db": 3.0,
+            "azimuth_variation_db": 7.0,
+            "elevation_variation_db": 5.0
+          },
+          "motion": {
+            "speed_mps": {"mean": 265.0, "std": 25.0},
+            "altitude_m": {"mean": 12000.0, "std": 1500.0},
+            "acceleration_mps2": {"mean": 40.0, "std": 12.0},
+            "turn_radius_m": {"mean_log10": 3.45, "std_log10": 0.15}
+          },
+          "polarization": {
+            "energy_difference_db": {"mean": 2.0, "std": 1.5},
+            "relative_difference_db": {"mean": -6.0, "std": 2.0},
+            "energy_sum_db": {"mean": 6.0, "std": 4.0}
+          },
+          "range_profile": {
+            "length_m": {"mean": 19.43, "std": 0.5},
+            "peak_count": {"mean": 5.0, "std": 1.0},
+            "peak_energy_concentration": {"mean": 0.70, "std": 0.08}
+          }
+        }
+      ]
+    },
+    {
+      "model_id": "F/A-18E",
+      "category_id": "FIGHTER",
+      "display_name": "F/A-18E 超级大黄蜂",
+      "prior": 1.0,
+      "profiles": [
+        {
+          "profile_id": "nominal",
+          "applicability": {
+            "min_snr_db": 6.0,
+            "aspect_az_deg": [-180.0, 180.0],
+            "aspect_el_deg": [-90.0, 90.0]
+          },
+          "rcs": {
+            "mean_dbsm": -10.0,
+            "std_db": 2.5,
+            "azimuth_variation_db": 5.0,
+            "elevation_variation_db": 4.0
+          },
+          "motion": {
+            "speed_mps": {"mean": 250.0, "std": 25.0},
+            "altitude_m": {"mean": 10500.0, "std": 1500.0},
+            "acceleration_mps2": {"mean": 35.0, "std": 12.0},
+            "turn_radius_m": {"mean_log10": 3.4, "std_log10": 0.15}
+          },
+          "polarization": {
+            "energy_difference_db": {"mean": 2.0, "std": 1.5},
+            "relative_difference_db": {"mean": -6.0, "std": 2.0},
+            "energy_sum_db": {"mean": 6.0, "std": 4.0}
+          },
+          "range_profile": {
+            "length_m": {"mean": 18.31, "std": 0.5},
+            "peak_count": {"mean": 4.0, "std": 1.0},
+            "peak_energy_concentration": {"mean": 0.65, "std": 0.08}
+          }
+        }
+      ]
+    },
+    {
+      "model_id": "F-22A",
+      "category_id": "FIGHTER",
+      "display_name": "F-22A 猛禽",
+      "prior": 1.0,
+      "profiles": [
+        {
+          "profile_id": "nominal",
+          "applicability": {
+            "min_snr_db": 6.0,
+            "aspect_az_deg": [-180.0, 180.0],
+            "aspect_el_deg": [-90.0, 90.0]
+          },
+          "rcs": {
+            "mean_dbsm": -37.0,
+            "std_db": 2.5,
+            "azimuth_variation_db": 6.0,
+            "elevation_variation_db": 4.5
+          },
+          "motion": {
+            "speed_mps": {"mean": 520.0, "std": 85.0},
+            "altitude_m": {"mean": 16000.0, "std": 2000.0},
+            "acceleration_mps2": {"mean": 45.0, "std": 12.0},
+            "turn_radius_m": {"mean_log10": 3.9, "std_log10": 0.25}
+          },
+          "polarization": {
+            "energy_difference_db": {"mean": 2.0, "std": 1.5},
+            "relative_difference_db": {"mean": -6.0, "std": 2.0},
+            "energy_sum_db": {"mean": 6.0, "std": 4.0}
+          },
+          "range_profile": {
+            "length_m": {"mean": 18.92, "std": 0.5},
+            "peak_count": {"mean": 4.0, "std": 1.0},
+            "peak_energy_concentration": {"mean": 0.60, "std": 0.08}
+          }
+        }
+      ]
+    },
+    {
+      "model_id": "F-35A",
+      "category_id": "FIGHTER",
+      "display_name": "F-35A 闪电II",
+      "prior": 1.0,
+      "profiles": [
+        {
+          "profile_id": "nominal",
+          "applicability": {
+            "min_snr_db": 6.0,
+            "aspect_az_deg": [-180.0, 180.0],
+            "aspect_el_deg": [-90.0, 90.0]
+          },
+          "rcs": {
+            "mean_dbsm": -27.0,
+            "std_db": 2.5,
+            "azimuth_variation_db": 5.5,
+            "elevation_variation_db": 4.0
+          },
+          "motion": {
+            "speed_mps": {"mean": 255.0, "std": 25.0},
+            "altitude_m": {"mean": 12000.0, "std": 1500.0},
+            "acceleration_mps2": {"mean": 40.0, "std": 12.0},
+            "turn_radius_m": {"mean_log10": 3.4, "std_log10": 0.15}
+          },
+          "polarization": {
+            "energy_difference_db": {"mean": 2.0, "std": 1.5},
+            "relative_difference_db": {"mean": -6.0, "std": 2.0},
+            "energy_sum_db": {"mean": 6.0, "std": 4.0}
+          },
+          "range_profile": {
+            "length_m": {"mean": 15.70, "std": 0.5},
+            "peak_count": {"mean": 4.0, "std": 1.0},
+            "peak_energy_concentration": {"mean": 0.60, "std": 0.08}
+          }
+        }
+      ]
+    },
+    {
+      "model_id": "B-52H",
+      "category_id": "BOMBER",
+      "display_name": "B-52H 同温层堡垒",
+      "prior": 1.0,
+      "profiles": [
+        {
+          "profile_id": "nominal",
+          "applicability": {
+            "min_snr_db": 6.0,
+            "aspect_az_deg": [-180.0, 180.0],
+            "aspect_el_deg": [-90.0, 90.0]
+          },
+          "rcs": {
+            "mean_dbsm": 20.0,
+            "std_db": 3.0,
+            "azimuth_variation_db": 6.0,
+            "elevation_variation_db": 5.0
+          },
+          "motion": {
+            "speed_mps": {"mean": 240.0, "std": 20.0},
+            "altitude_m": {"mean": 10000.0, "std": 1500.0},
+            "acceleration_mps2": {"mean": 10.0, "std": 5.0},
+            "turn_radius_m": {"mean_log10": 4.0, "std_log10": 0.15}
+          },
+          "polarization": {
+            "energy_difference_db": {"mean": 3.0, "std": 2.0},
+            "relative_difference_db": {"mean": -5.0, "std": 2.5},
+            "energy_sum_db": {"mean": 8.0, "std": 5.0}
+          },
+          "range_profile": {
+            "length_m": {"mean": 48.50, "std": 1.0},
+            "peak_count": {"mean": 6.0, "std": 1.5},
+            "peak_energy_concentration": {"mean": 0.55, "std": 0.10}
+          }
+        }
+      ]
+    },
+    {
+      "model_id": "B-1B",
+      "category_id": "BOMBER",
+      "display_name": "B-1B 枪骑兵",
+      "prior": 1.0,
+      "profiles": [
+        {
+          "profile_id": "nominal",
+          "applicability": {
+            "min_snr_db": 6.0,
+            "aspect_az_deg": [-180.0, 180.0],
+            "aspect_el_deg": [-90.0, 90.0]
+          },
+          "rcs": {
+            "mean_dbsm": 3.8,
+            "std_db": 3.0,
+            "azimuth_variation_db": 6.0,
+            "elevation_variation_db": 5.0
+          },
+          "motion": {
+            "speed_mps": {"mean": 270.0, "std": 25.0},
+            "altitude_m": {"mean": 100.0, "std": 40.0},
+            "acceleration_mps2": {"mean": 14.0, "std": 6.0},
+            "turn_radius_m": {"mean_log10": 3.95, "std_log10": 0.15}
+          },
+          "polarization": {
+            "energy_difference_db": {"mean": 3.0, "std": 2.0},
+            "relative_difference_db": {"mean": -5.0, "std": 2.5},
+            "energy_sum_db": {"mean": 8.0, "std": 5.0}
+          },
+          "range_profile": {
+            "length_m": {"mean": 44.50, "std": 1.0},
+            "peak_count": {"mean": 5.5, "std": 1.5},
+            "peak_energy_concentration": {"mean": 0.55, "std": 0.10}
+          }
+        }
+      ]
+    },
+    {
+      "model_id": "B-2A",
+      "category_id": "BOMBER",
+      "display_name": "B-2A 幽灵",
+      "prior": 1.0,
+      "profiles": [
+        {
+          "profile_id": "nominal",
+          "applicability": {
+            "min_snr_db": 6.0,
+            "aspect_az_deg": [-180.0, 180.0],
+            "aspect_el_deg": [-90.0, 90.0]
+          },
+          "rcs": {
+            "mean_dbsm": -10.0,
+            "std_db": 4.0,
+            "azimuth_variation_db": 6.0,
+            "elevation_variation_db": 4.0
+          },
+          "motion": {
+            "speed_mps": {"mean": 250.0, "std": 15.0},
+            "altitude_m": {"mean": 13000.0, "std": 1500.0},
+            "acceleration_mps2": {"mean": 12.0, "std": 6.0},
+            "turn_radius_m": {"mean_log10": 3.9, "std_log10": 0.15}
+          },
+          "polarization": {
+            "energy_difference_db": {"mean": 3.0, "std": 2.0},
+            "relative_difference_db": {"mean": -5.0, "std": 2.5},
+            "energy_sum_db": {"mean": 8.0, "std": 5.0}
+          },
+          "range_profile": {
+            "length_m": {"mean": 21.00, "std": 1.0},
+            "peak_count": {"mean": 4.0, "std": 1.5},
+            "peak_energy_concentration": {"mean": 0.60, "std": 0.10}
+          }
+        }
+      ]
+    },
+    {
+      "model_id": "BGM-109",
+      "category_id": "MISSILE",
+      "display_name": "BGM-109 战斧巡航导弹",
+      "prior": 1.0,
+      "profiles": [
+        {
+          "profile_id": "nominal",
+          "applicability": {
+            "min_snr_db": 6.0,
+            "aspect_az_deg": [-180.0, 180.0],
+            "aspect_el_deg": [-90.0, 90.0]
+          },
+          "rcs": {
+            "mean_dbsm": -10.0,
+            "std_db": 3.0,
+            "azimuth_variation_db": 4.0,
+            "elevation_variation_db": 3.0
+          },
+          "motion": {
+            "speed_mps": {"mean": 255.0, "std": 15.0},
+            "altitude_m": {"mean": 40.0, "std": 15.0},
+            "acceleration_mps2": {"mean": 20.0, "std": 8.0},
+            "turn_radius_m": {"mean_log10": 3.4, "std_log10": 0.2}
+          },
+          "polarization": {
+            "energy_difference_db": {"mean": 1.5, "std": 1.0},
+            "relative_difference_db": {"mean": -8.0, "std": 2.0},
+            "energy_sum_db": {"mean": 3.0, "std": 2.0}
+          },
+          "range_profile": {
+            "length_m": {"mean": 5.56, "std": 0.2},
+            "peak_count": {"mean": 3.0, "std": 1.0},
+            "peak_energy_concentration": {"mean": 0.65, "std": 0.10}
+          }
+        }
+      ]
+    },
+    {
+      "model_id": "AGM-158A",
+      "category_id": "MISSILE",
+      "display_name": "AGM-158A 联合空对地防区外导弹",
+      "prior": 1.0,
+      "profiles": [
+        {
+          "profile_id": "nominal",
+          "applicability": {
+            "min_snr_db": 6.0,
+            "aspect_az_deg": [-180.0, 180.0],
+            "aspect_el_deg": [-90.0, 90.0]
+          },
+          "rcs": {
+            "mean_dbsm": -25.0,
+            "std_db": 4.0,
+            "azimuth_variation_db": 5.0,
+            "elevation_variation_db": 4.0
+          },
+          "motion": {
+            "speed_mps": {"mean": 240.0, "std": 20.0},
+            "altitude_m": {"mean": 80.0, "std": 25.0},
+            "acceleration_mps2": {"mean": 18.0, "std": 8.0},
+            "turn_radius_m": {"mean_log10": 3.4, "std_log10": 0.2}
+          },
+          "polarization": {
+            "energy_difference_db": {"mean": 1.5, "std": 1.0},
+            "relative_difference_db": {"mean": -8.0, "std": 2.0},
+            "energy_sum_db": {"mean": 3.0, "std": 2.0}
+          },
+          "range_profile": {
+            "length_m": {"mean": 4.29, "std": 0.2},
+            "peak_count": {"mean": 2.5, "std": 1.0},
+            "peak_energy_concentration": {"mean": 0.70, "std": 0.10}
+          }
+        }
+      ]
+    },
+    {
+      "model_id": "AGM-86C",
+      "category_id": "MISSILE",
+      "display_name": "AGM-86C 空射巡航导弹",
+      "prior": 1.0,
+      "profiles": [
+        {
+          "profile_id": "nominal",
+          "applicability": {
+            "min_snr_db": 6.0,
+            "aspect_az_deg": [-180.0, 180.0],
+            "aspect_el_deg": [-90.0, 90.0]
+          },
+          "rcs": {
+            "mean_dbsm": -5.0,
+            "std_db": 3.0,
+            "azimuth_variation_db": 4.0,
+            "elevation_variation_db": 3.0
+          },
+          "motion": {
+            "speed_mps": {"mean": 246.0, "std": 15.0},
+            "altitude_m": {"mean": 40.0, "std": 20.0},
+            "acceleration_mps2": {"mean": 15.0, "std": 8.0},
+            "turn_radius_m": {"mean_log10": 3.4, "std_log10": 0.2}
+          },
+          "polarization": {
+            "energy_difference_db": {"mean": 1.5, "std": 1.0},
+            "relative_difference_db": {"mean": -8.0, "std": 2.0},
+            "energy_sum_db": {"mean": 3.0, "std": 2.0}
+          },
+          "range_profile": {
+            "length_m": {"mean": 6.30, "std": 0.2},
+            "peak_count": {"mean": 3.0, "std": 1.0},
+            "peak_energy_concentration": {"mean": 0.65, "std": 0.10}
+          }
+        }
+      ]
+    },
+    {
+      "model_id": "MQ-9A",
+      "category_id": "UAV",
+      "display_name": "MQ-9A 收割者",
+      "prior": 1.0,
+      "profiles": [
+        {
+          "profile_id": "nominal",
+          "applicability": {
+            "min_snr_db": 6.0,
+            "aspect_az_deg": [-180.0, 180.0],
+            "aspect_el_deg": [-90.0, 90.0]
+          },
+          "rcs": {
+            "mean_dbsm": -12.0,
+            "std_db": 3.0,
+            "azimuth_variation_db": 6.0,
+            "elevation_variation_db": 4.0
+          },
+          "motion": {
+            "speed_mps": {"mean": 78.0, "std": 12.0},
+            "altitude_m": {"mean": 7600.0, "std": 1500.0},
+            "acceleration_mps2": {"mean": 8.0, "std": 4.0},
+            "turn_radius_m": {"mean_log10": 3.18, "std_log10": 0.15}
+          },
+          "polarization": {
+            "energy_difference_db": {"mean": 1.0, "std": 1.0},
+            "relative_difference_db": {"mean": -7.0, "std": 2.0},
+            "energy_sum_db": {"mean": 2.0, "std": 1.5}
+          },
+          "range_profile": {
+            "length_m": {"mean": 11.00, "std": 0.8},
+            "peak_count": {"mean": 3.0, "std": 1.0},
+            "peak_energy_concentration": {"mean": 0.70, "std": 0.08}
+          }
+        }
+      ]
+    },
+    {
+      "model_id": "RQ-4B",
+      "category_id": "UAV",
+      "display_name": "RQ-4B 全球鹰",
+      "prior": 1.0,
+      "profiles": [
+        {
+          "profile_id": "nominal",
+          "applicability": {
+            "min_snr_db": 6.0,
+            "aspect_az_deg": [-180.0, 180.0],
+            "aspect_el_deg": [-90.0, 90.0]
+          },
+          "rcs": {
+            "mean_dbsm": -5.0,
+            "std_db": 3.0,
+            "azimuth_variation_db": 6.0,
+            "elevation_variation_db": 4.5
+          },
+          "motion": {
+            "speed_mps": {"mean": 159.0, "std": 12.0},
+            "altitude_m": {"mean": 18000.0, "std": 2000.0},
+            "acceleration_mps2": {"mean": 6.0, "std": 3.0},
+            "turn_radius_m": {"mean_log10": 3.85, "std_log10": 0.15}
+          },
+          "polarization": {
+            "energy_difference_db": {"mean": 1.0, "std": 1.0},
+            "relative_difference_db": {"mean": -7.0, "std": 2.0},
+            "energy_sum_db": {"mean": 2.0, "std": 1.5}
+          },
+          "range_profile": {
+            "length_m": {"mean": 14.50, "std": 1.0},
+            "peak_count": {"mean": 3.0, "std": 1.0},
+            "peak_energy_concentration": {"mean": 0.65, "std": 0.08}
+          }
+        }
+      ]
+    },
+    {
+      "model_id": "MQ-4C",
+      "category_id": "UAV",
+      "display_name": "MQ-4C 人鱼海神",
+      "prior": 1.0,
+      "profiles": [
+        {
+          "profile_id": "nominal",
+          "applicability": {
+            "min_snr_db": 6.0,
+            "aspect_az_deg": [-180.0, 180.0],
+            "aspect_el_deg": [-90.0, 90.0]
+          },
+          "rcs": {
+            "mean_dbsm": -6.0,
+            "std_db": 3.0,
+            "azimuth_variation_db": 6.0,
+            "elevation_variation_db": 4.0
+          },
+          "motion": {
+            "speed_mps": {"mean": 160.0, "std": 15.0},
+            "altitude_m": {"mean": 16500.0, "std": 1500.0},
+            "acceleration_mps2": {"mean": 6.0, "std": 3.0},
+            "turn_radius_m": {"mean_log10": 3.8, "std_log10": 0.15}
+          },
+          "polarization": {
+            "energy_difference_db": {"mean": 1.0, "std": 1.0},
+            "relative_difference_db": {"mean": -7.0, "std": 2.0},
+            "energy_sum_db": {"mean": 2.0, "std": 1.5}
+          },
+          "range_profile": {
+            "length_m": {"mean": 14.50, "std": 1.0},
+            "peak_count": {"mean": 3.0, "std": 1.0},
+            "peak_energy_concentration": {"mean": 0.65, "std": 0.08}
+          }
+        }
+      ]
+    },
+    {
+      "model_id": "MQ-1C",
+      "category_id": "UAV",
+      "display_name": "MQ-1C 灰鹰",
+      "prior": 1.0,
+      "profiles": [
+        {
+          "profile_id": "nominal",
+          "applicability": {
+            "min_snr_db": 6.0,
+            "aspect_az_deg": [-180.0, 180.0],
+            "aspect_el_deg": [-90.0, 90.0]
+          },
+          "rcs": {
+            "mean_dbsm": -15.0,
+            "std_db": 3.0,
+            "azimuth_variation_db": 5.0,
+            "elevation_variation_db": 3.5
+          },
+          "motion": {
+            "speed_mps": {"mean": 60.0, "std": 10.0},
+            "altitude_m": {"mean": 4800.0, "std": 1200.0},
+            "acceleration_mps2": {"mean": 8.0, "std": 4.0},
+            "turn_radius_m": {"mean_log10": 2.95, "std_log10": 0.15}
+          },
+          "polarization": {
+            "energy_difference_db": {"mean": 1.0, "std": 1.0},
+            "relative_difference_db": {"mean": -7.0, "std": 2.0},
+            "energy_sum_db": {"mean": 2.0, "std": 1.5}
+          },
+          "range_profile": {
+            "length_m": {"mean": 8.50, "std": 0.6},
+            "peak_count": {"mean": 2.5, "std": 1.0},
+            "peak_energy_concentration": {"mean": 0.75, "std": 0.08}
           }
         }
       ]

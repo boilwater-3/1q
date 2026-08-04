@@ -70,6 +70,18 @@ session::ArRecognitionCategory CategoryToPublic(const std::string& category_id) 
   if (category_id == "NEAR_SPACE") {
     return session::ArRecognitionCategory::kNearSpace;
   }
+  if (category_id == "FIGHTER") {
+    return session::ArRecognitionCategory::kFighter;
+  }
+  if (category_id == "BOMBER") {
+    return session::ArRecognitionCategory::kBomber;
+  }
+  if (category_id == "MISSILE") {
+    return session::ArRecognitionCategory::kMissile;
+  }
+  if (category_id == "UAV") {
+    return session::ArRecognitionCategory::kUav;
+  }
   if (category_id == "OTHER") {
     return session::ArRecognitionCategory::kOther;
   }
