@@ -51,7 +51,7 @@ session::ArRecognitionResult DecodeRecognitionResult(const fb::ArRecognitionResu
     }
     const int category_raw = value->target_category();
     if (category_raw >= static_cast<int>(session::ArRecognitionCategory::kBallistic) &&
-        category_raw <= static_cast<int>(session::ArRecognitionCategory::kUnknown)) {
+        category_raw <= static_cast<int>(session::ArRecognitionCategory::kUav)) {
       result.target_category = static_cast<session::ArRecognitionCategory>(category_raw);
     }
     if (value->target_model() != nullptr) {
