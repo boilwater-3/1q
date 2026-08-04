@@ -63,6 +63,9 @@ struct ArControllerRuntimeState {
   std::vector<session::TacticalProposal> last_applied_decision_proposals{};
   bool control_prepared_for_cycle{false};
   recognition::RecognitionTracker::Snapshot recognition_tracker_state{}; /**< 识别积累/结论快照。 */
+  config::ArWorkMode work_mode{config::ArWorkMode::kTws}; /**< 快照时工作模式。 */
+  config::ArRecognitionConfig recognition_config{}; /**< 快照时识别策略配置。 */
+  std::string recognition_database_path{};          /**< 快照时生效数据库路径。 */
   session::ArRecognitionCycleSummary latest_recognition_summary{}; /**< 最近周期识别摘要。 */
   bool has_latest_recognition_summary{false}; /**< 最近周期是否发布了识别摘要。 */
 };

@@ -18,8 +18,8 @@ namespace {
 constexpr float kSpeedOfLightMps = 2.99792458e8f;
 /** @brief 能量集中率前 K 峰计数。 */
 constexpr std::uint32_t kConcentrationPeakCount = 3U;
-/** @brief 最小峰间距（m）：低于该间距的相邻峰合并计数。 */
-constexpr float kMinimumPeakSeparationM = 0.0f;
+/** @brief 最小峰间距（m）：低于该间距的相邻散射中心合并计数。 */
+constexpr float kMinimumPeakSeparationM = 0.5f;
 
 float Clamp01(float value) { return std::max(0.0f, std::min(1.0f, value)); }
 

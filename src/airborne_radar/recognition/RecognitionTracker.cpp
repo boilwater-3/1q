@@ -207,6 +207,12 @@ void RecognitionTracker::UpdateCycle(
     const RecognitionFeatureDatabase& database,
     const config::ArRecognitionFeatureWeights& weights, float sim_time_sec,
     std::uint32_t cycle_index, std::uint64_t batch_id) {
+  // 捕获 model_id → category_id 映射（真值准确率统计用，与识别结论无关）。
+  if (model_categories_.empty() && database.IsLoaded()) {
+    for (std::size_t m = 0U; m < database.models().size(); ++m) {
+      model_categories_[database.models()[m].model_id] = database.models()[m].category_id;
+    }
+  }
   for (std::size_t i = 0U; i < tracks.size(); ++i) {
     const session::TrackStateSnapshot& snapshot = tracks[i];
     const std::uint64_t key = snapshot.association_key;
@@ -337,6 +343,12 @@ void RecognitionTracker::UpdateCycle(
     state.result = judgement;
     state.conclusion_time_sec = sim_time_sec;
     state.has_conclusion = true;
+    // 首次确认时刻：仅在大类/型号确认时记录一次（用于平均首次确认时间）。
+    if (state.first_conclusion_time_sec < 0.0f &&
+        (judgement.state == session::ArRecognitionState::kCategoryConfirmed ||
+         judgement.state == session::ArRecognitionState::kModelConfirmed)) {
+      state.first_conclusion_time_sec = sim_time_sec;
+    }
   }
 }
 
@@ -375,10 +387,14 @@ session::ArRecognitionCycleSummary RecognitionTracker::BuildSummary(
   std::uint32_t motion_available = 0U;
   std::uint32_t polarization_available = 0U;
   std::uint32_t range_profile_available = 0U;
+  std::uint32_t truth_count = 0U;
+  std::uint32_t category_correct = 0U;
+  std::uint32_t model_correct = 0U;
   float first_confirmation_sum = 0.0f;
   float confidence_sum = 0.0f;
   for (std::size_t i = 0U; i < tracks.size(); ++i) {
-    const session::ArRecognitionResult* result = FindResult(tracks[i].association_key);
+    const session::TrackStateSnapshot& snapshot = tracks[i];
+    const session::ArRecognitionResult* result = FindResult(snapshot.association_key);
     if (result == nullptr || result->state == session::ArRecognitionState::kDisabled) {
       ++summary.disabled_count;
       continue;
@@ -402,11 +418,23 @@ session::ArRecognitionCycleSummary RecognitionTracker::BuildSummary(
       ++confirmed_count;
       confidence_sum += result->confidence;
       const std::unordered_map<std::uint64_t, RecognitionTrackState>::const_iterator found =
-          tracks_.find(tracks[i].association_key);
-      if (found != tracks_.end() && found->second.first_observation_sec > 0.0f &&
-          found->second.conclusion_time_sec >= found->second.first_observation_sec) {
-        first_confirmation_sum +=
-            found->second.conclusion_time_sec - found->second.first_observation_sec;
+          tracks_.find(snapshot.association_key);
+      if (found != tracks_.end() && found->second.first_conclusion_time_sec > 0.0f &&
+          found->second.first_observation_sec > 0.0f) {
+        first_confirmation_sum += found->second.first_conclusion_time_sec -
+                                  found->second.first_observation_sec;
+      }
+      // 真值准确率：target_name 命中数据库 model_id 时视为有真值（仅统计，不参与识别）。
+      const std::unordered_map<std::string, std::string>::const_iterator truth =
+          model_categories_.find(snapshot.target_name);
+      if (truth != model_categories_.end()) {
+        ++truth_count;
+        if (result->target_category == CategoryToPublic(truth->second)) {
+          ++category_correct;
+        }
+        if (result->target_model == snapshot.target_name) {
+          ++model_correct;
+        }
       }
     }
     if (result->feature_scores.rcs_quality > 0.0f) {
@@ -435,6 +463,11 @@ session::ArRecognitionCycleSummary RecognitionTracker::BuildSummary(
     summary.mean_confidence = confidence_sum / static_cast<float>(confirmed_count);
     summary.mean_first_confirmation_sec =
         first_confirmation_sum / static_cast<float>(confirmed_count);
+  }
+  if (truth_count > 0U) {
+    summary.has_ground_truth = true;
+    summary.category_accuracy = static_cast<float>(category_correct) / static_cast<float>(truth_count);
+    summary.model_accuracy = static_cast<float>(model_correct) / static_cast<float>(truth_count);
   }
   return summary;
 }

@@ -213,3 +213,45 @@ Codebase: HEAD `4678ec51`（branch `main`，与本会话开始一致，已全部
 - 前文档三处真冲突降级结论复核通过；新增发现 V1-V4 已并入规划，其中 **V2 产生开放项 O1（阶段 4 门禁）**，不阻塞阶段 1。
 - 实现会话启动方式：`feature/ar-recognition-stage1` 分支，按 §4 任务分解执行；**阶段 1 必须一次性闭环 DTO+枚举审计+replay schema/codec+schema 7**（§4.5-3），随后过 `ar_public_api_convenience_test` 等契约测试门禁。
 - 文档同步动作随实现批次走：§2.5 措辞修正、boundaries.md F1/F2（阶段 2 门禁）、本规划文档 Stage C 回写。
+
+
+---
+
+## 7. Stage C 回写（五阶段实现完成，2026-08-04）
+
+### 实现范围
+
+| 阶段 | 提交 | 内容 |
+|---|---|---|
+| 1 DTO 与配置 | `b8f3fa64` | kLrr 枚举 + 识别 DTO/配置/校验 + ScanScheduleResolver kLrr case + replay schema/codec + schema 7 + RuntimeConfigState 保留识别配置 + session 配置 codec 识别子域 |
+| 2 观测与特征 | `ba707268` | 四提取器 + ObservationBuilder + emitter P 迹 + boundaries F1/F2 登记 |
+| 3 数据库与匹配 | `cfbdc663` | 库内 JSON 解析器（深度/EOF/转义守卫）+ 原子加载校验 + 动态加权匹配 |
+| 4 链路集成 | `0aa2c0e6` | RecognitionTracker 状态机 + O1a 周期扫描中心覆盖 + 回填/摘要/回滚 + replay 溯源 |
+| 5 效能验证 | `a674ddde` | SNR/带宽/驻留门控 + 七类场景 + 混合 + 模式切换 + replay 字节往返 |
+
+### 审查修正（最终完整性审查后）
+
+1. **BLOCKER 修复**：session 配置 codec `co_site_paths` 向量在 table builder 打开期间创建
+   （flatbuffers NotNested 约束；release 下静默损坏）——向量创建前置。
+2. **`\u` 转义 off-by-one**：`\uXXXX` 后紧跟字符被吞——索引修正 + 回归测试。
+3. **回滚边界补全**：`ArControllerRuntimeState` 快照补 work_mode/recognition_config/
+   recognition_database_path；Restore 时路径不一致释放数据库、下次提交重载。
+4. **首次确认时间语义**：新增 `first_conclusion_time_sec`（仅首次确认记录），
+   `mean_first_confirmation_sec` 改用它。
+5. **数据库 profile 适用条件强制**：`minimum_aspect_coverage_deg`/`minimum_bandwidth_hz`
+   在匹配器 Applicable 中生效（原为解析后未消费）。
+6. **摘要真值准确率落地**：`has_ground_truth`/`category_accuracy`/`model_accuracy`
+   由 target_name 命中数据库 model_id 时统计（仅统计，不参与识别）。
+7. **峰间距合并**：`kMinimumPeakSeparationM=0.5m`（原 0 导致同距散射中心重复计数）。
+8. **识别禁用语义**：`enabled=false` 时输出帧识别字段复位 kDisabled（原残留旧结论）。
+
+### 验收结果
+
+- 构建：`llvm-ninja-release-local` 通过；全量 ctest 通过（含 contract/replay/integration）。
+- 详版 §12 五阶段验收：阶段 1 七条 + 阶段 2 九条 + 阶段 3 十条 + 阶段 4 十条 + 阶段 5 十条
+  全部以测试落地（锚点：ar_session_config_builder/ar_signal_scan_schedule/
+  ar_replay_codec_roundtrip/ar_recognition_feature/ar_recognition_database/
+  ar_recognition_integration/ar_recognition_scenario）。
+- 遗留 NIT（有意保留，已记录）：kLrr 指向不钳制扫描限位（与 kStt 先例一致）；
+  覆盖标志不入 pipeline 快照（下次周期必被重设/清除，无泄漏路径）；
+  外部输出适配/调试视图不承载识别字段（子集设计，非回归）。

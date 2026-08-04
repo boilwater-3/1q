@@ -103,6 +103,15 @@ bool Applicable(const RecognitionModelProfile& profile, const RecognitionFeature
       features.range_profile.resolution_m > profile.max_range_resolution_m) {
     return false;
   }
+  // 数据库 profile 级适用条件：视角覆盖下限与最低带宽。
+  if (profile.rcs.minimum_aspect_coverage_deg > 0.0f && features.rcs.valid &&
+      features.rcs.aspect_coverage_deg < profile.rcs.minimum_aspect_coverage_deg) {
+    return false;
+  }
+  if (profile.range_profile.minimum_bandwidth_hz > 0.0f &&
+      context.bandwidth_hz < profile.range_profile.minimum_bandwidth_hz) {
+    return false;
+  }
   return true;
 }
 

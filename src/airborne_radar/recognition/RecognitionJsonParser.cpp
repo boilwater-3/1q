@@ -85,13 +85,13 @@ bool ParseString(ParserState* state, std::string* out) {
           result.push_back('\t');
           break;
         case 'u': {
-          // 仅接受 \uXXXX 四字符转义并原样保留（UTF-8 输入下代理对原样透传）。
+          // 接受 \uXXXX 四字符转义：原样保留（UTF-8 输入下代理对原样透传）。
           if (state->index + 4 >= state->text.size()) {
             state->error = "truncated \\u escape at offset " + std::to_string(state->index);
             return false;
           }
           result.append(state->text, state->index - 1, 6);
-          state->index += 5;
+          state->index += 4;  // 跳过 4 个十六进制位；循环末尾 ++index 跳过 'u' 后的位置
           break;
         }
         default:

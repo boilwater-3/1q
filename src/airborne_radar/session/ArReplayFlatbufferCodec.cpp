@@ -561,6 +561,8 @@ flatbuffers::Offset<session_fb::DetectionConfig> EncodeSessionDetectionConfig(
     co_site_paths.push_back(session_fb::CreateRfCoSiteIsolationPath(
         *builder, path.transmitter_equipment_id, path.receiver_equipment_id, path.isolation_db));
   }
+  // 向量必须在打开 table builder 之前创建（flatbuffers NotNested 约束）。
+  const auto co_site_paths_vec = builder->CreateVector(co_site_paths);
   session_fb::ReceiverConfigBuilder receiver_builder(*builder);
   receiver_builder.add_equipment_id(value.receiver.equipment_id);
   receiver_builder.add_noise_figure_db(value.receiver.noise_figure_db);
@@ -575,7 +577,7 @@ flatbuffers::Offset<session_fb::DetectionConfig> EncodeSessionDetectionConfig(
   receiver_builder.add_interference_observation_jn_gate_db(
       value.receiver.interference_observation_jn_gate_db);
   receiver_builder.add_scene_polarization(static_cast<int>(value.receiver.scene_polarization));
-  receiver_builder.add_co_site_paths(builder->CreateVector(co_site_paths));
+  receiver_builder.add_co_site_paths(co_site_paths_vec);
   const flatbuffers::Offset<session_fb::ReceiverConfig> receiver = receiver_builder.Finish();
   const flatbuffers::Offset<session_fb::RcsPhysicsConfig> rcs_physics =
       session_fb::CreateRcsPhysicsConfig(

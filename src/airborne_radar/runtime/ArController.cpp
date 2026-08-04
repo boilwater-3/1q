@@ -533,6 +533,11 @@ void ArController::RunOnce(const signal::pipeline::SignalCycleInput& cycle_input
   if (impl_->recognition_config.enabled) {
     impl_->RunRecognitionCycle(decision_frame, &track_output_frame,
                                impl_->radar_context.GetSceneTargets(), stamp);
+  } else {
+    // 识别未启用：输出帧识别字段复位为默认（kDisabled），不残留旧结论。
+    for (std::size_t i = 0U; i < track_output_frame.tracks.size(); ++i) {
+      track_output_frame.tracks[i].recognition = session::ArRecognitionResult{};
+    }
   }
 
   signal_result.decision_frame = decision_frame;
@@ -669,6 +674,9 @@ extension::ArControllerRuntimeState ArController::CaptureRuntimeState() const {
   state.last_applied_decision_proposals = impl_->last_applied_decision_proposals;
   state.control_prepared_for_cycle = impl_->control_prepared_for_cycle;
   state.recognition_tracker_state = impl_->recognition_tracker.Capture();
+  state.work_mode = impl_->work_mode;
+  state.recognition_config = impl_->recognition_config;
+  state.recognition_database_path = impl_->recognition_database_path;
   state.latest_recognition_summary = impl_->latest_recognition_summary;
   state.has_latest_recognition_summary = impl_->has_latest_recognition_summary;
   return state;
@@ -705,6 +713,13 @@ bool ArController::RestoreRuntimeState(const extension::ArControllerRuntimeState
   impl_->last_applied_decision_proposals = state.last_applied_decision_proposals;
   impl_->control_prepared_for_cycle = state.control_prepared_for_cycle;
   impl_->recognition_tracker.Restore(state.recognition_tracker_state);
+  impl_->work_mode = state.work_mode;
+  impl_->recognition_config = state.recognition_config;
+  // 数据库指针/路径回滚：路径与快照不一致时释放当前库，下次提交按路径重新加载。
+  if (impl_->recognition_database_path != state.recognition_database_path) {
+    impl_->recognition_database.reset();
+    impl_->recognition_database_path.clear();
+  }
   impl_->latest_recognition_summary = state.latest_recognition_summary;
   impl_->has_latest_recognition_summary = state.has_latest_recognition_summary;
   return true;

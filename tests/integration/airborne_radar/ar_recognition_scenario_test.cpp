@@ -249,6 +249,10 @@ TEST_F(ArRecognitionScenarioTest, MixedTargetsKeepConfusionBelowTenPercent) {
     const ArCycleResult result = radar.StepWithResult(input);
     ASSERT_EQ(result.status, ArCycleStatus::kCompleted);
     ASSERT_EQ(result.track_output_frame.tracks.size(), 2U);
+    EXPECT_TRUE(result.has_recognition_summary);
+    EXPECT_TRUE(result.recognition_summary.has_ground_truth);
+    EXPECT_EQ(result.recognition_summary.category_accuracy, 1.0f);
+    EXPECT_EQ(result.recognition_summary.model_accuracy, 1.0f);
     for (const auto& track : result.track_output_frame.tracks) {
       if (track.recognition.state != ArRecognitionState::kModelConfirmed) {
         continue;

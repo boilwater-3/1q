@@ -10,6 +10,7 @@
 #include <string>
 
 #include "airborne_radar/recognition/RecognitionFeatureDatabase.h"
+#include "airborne_radar/recognition/RecognitionJsonParser.h"
 #include "airborne_radar/recognition/RecognitionMatcher.h"
 #include "airborne_radar/recognition/RecognitionTypes.h"
 
@@ -342,6 +343,15 @@ TEST(RecognitionMatcherTest, ZeroQualityDimensionIsExcludedFromDenominator) {
   ASSERT_TRUE(result.has_candidates);
   // 其余三维 z=0 → 相似度 1，加权平均仍为 1。
   EXPECT_NEAR(result.candidates.front().score, 1.0f, 0.01f);
+}
+
+TEST(RecognitionJsonParserTest, UnicodeEscapeDoesNotConsumeFollowingCharacter) {
+  // \uXXXX 转义按 UTF-8 输入原样透传；其后紧跟的字符必须保留（回归：off-by-one 吞字符）。
+  recognition::RecognitionJsonValue root;
+  std::string error;
+  const std::string input = "{\"name\": \"\\u0041X\"}";
+  ASSERT_TRUE(recognition::RecognitionJsonReader::Parse(input, &root, &error)) << error;
+  EXPECT_EQ(root["name"].AsString(), "\\u0041X");
 }
 
 TEST(RecognitionMatcherTest, EmptyDatabaseReturnsEmptyResultWithoutCrash) {
