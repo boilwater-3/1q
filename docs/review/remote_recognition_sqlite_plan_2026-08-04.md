@@ -248,5 +248,13 @@ open(SQLITE_OPEN_READONLY) → PRAGMA foreign_keys → 读 meta → schema_versi
 
 ### Follow-up freeze items
 
+- ~~flatbuffers NotNested/EndTable 违规群（跨模块 codec）~~：**已处理**（2026-08-04，独立提交）。
+  Stage A 定位：ESR/EOS codec 共 8 处 `add_xxx(fbb.CreateVector(...))`（父 table builder 打开期间
+  建向量，debug 断言崩溃 / release 静默损坏 vtable 偏移）+ 测试 4 处（common 测试字段偏移 0
+  覆写 buffer 开头、ESR roundtrip 3 处同模式）。修复：向量创建全部前置到 builder 打开之前
+  （与 AR co_site_paths 先例同模式）；参数内 CreateVector（`CreateXxx(fbb, ..., CreateVector)`）
+  本就合法（参数求值先于函数体 StartTable），等价前置仅统一模式、字节不变。
+  验证：debug 3 个崩溃测试（common unit / ESR replay / cross_domain integration）全修复，
+  release 53/53 保持；项目未上线、无存量 trace，不做字节兼容（边界处理优先）。
 - 真实基线进入万级型号规模时，重新评估"加载期全量读入 vs 运行时连接/按需查询"（当前 F9 reject 的再进入条件）
 - Windows no-Conan 路径整体验收（F10 defer 状态不变）

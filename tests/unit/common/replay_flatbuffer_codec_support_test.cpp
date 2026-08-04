@@ -14,7 +14,9 @@ namespace tests {
 TEST(ReplayFlatbufferCodecSupportTest, CopiesFinishedBufferWithoutChangingBytes) {
   flatbuffers::FlatBufferBuilder builder;
   const flatbuffers::uoffset_t start = builder.StartTable();
-  builder.AddElement<std::uint32_t>(0, 42U, 0U);
+  // vtable 偏移从 4 开始（偏移 0 是 vtable 大小保留区）；字段偏移 0 会在
+  // EndTable 覆写 buffer 开头（debug 断言、release 静默损坏）。
+  builder.AddElement<std::uint32_t>(4, 42U, 0U);
   const flatbuffers::Offset<void> root = builder.EndTable(start);
   builder.Finish(root);
 
