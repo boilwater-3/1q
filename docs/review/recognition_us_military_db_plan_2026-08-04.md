@@ -84,7 +84,8 @@ Flow: 数据扩展 + 场景验证（schema/算法零改动，不走 freeze 契�
   （fbs 存 int，schema 零改动）；`CategoryToPublic` 映射 + replay codec 白名单
   `<= kUav`；既有值 0-3 字节兼容。
 - 测试：`ar_recognition_example_database_test.cpp` 更新（6/17/1.1.0 + 新条目抽查）；
-  新建 `ar_recognition_us_military_scenario_test.cpp`（7 场景，加载交付库）。
+  新建 `ar_recognition_us_military_scenario_test.cpp`（7 场景 + **15 型号全覆盖
+  参数化 sweep**，均加载交付库；15/15 通过）。
 - 文档：design §1 范围/§1b SQLite/§7.3 型号表/§11.1 枚举；boundaries 类别映射契约；
   algorithms 证据链。
 

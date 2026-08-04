@@ -186,8 +186,9 @@ AR 使用标准 Joseph 形式 Kalman 滤波器（KF）作为生产后端。IMM �
   不做旧版本兼容层。
 - **类别映射**：`category_id` 字符串 → 公共大类枚举由 `RecognitionTracker::CategoryToPublic`
   固定映射（BALLISTIC/NEAR_SPACE/FIGHTER/BOMBER/MISSILE/UAV/OTHER，未映射 → `kUnknown`）。
-  枚举值加性扩展（不重排既有值，replay 字节兼容）；新增类别必须同步该映射与
-  `docs/review/remote_recognition_design(1)(1).md` §11.1。
+  枚举值加性扩展（不重排既有值，replay 字节兼容）；枚举定义以
+  `include/1q/airborne_radar/session/ArRecognitionResult.h` 为准，新增类别必须同步
+  该映射与枚举。
 
 ## 设计变更规则
 

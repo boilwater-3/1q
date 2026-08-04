@@ -34,9 +34,9 @@ struct ONEQ_API TrackStateSnapshot {
   std::string target_name{};           /**< 可选目标名称，随 external_target_id 透传，仅用于人读、trace 与调试视图 */
   TrackStatus status{TrackStatus::kTentative}; /**< 轨迹生命周期状态 */
 
-  float position_x{0.0f}; /**< 雷达局部笛卡尔坐标 x（单位：m） */
-  float position_y{0.0f}; /**< 雷达局部笛卡尔坐标 y（单位：m） */
-  float position_z{0.0f}; /**< 雷达局部笛卡尔坐标 z（单位：m） */
+  float position_x{0.0f}; /**< 雷达局部笛卡尔坐标 x（单位：m；平台 ENU 切平面东向分量，含平台姿态旋转） */
+  float position_y{0.0f}; /**< 雷达局部笛卡尔坐标 y（单位：m；平台 ENU 切平面北向分量，含平台姿态旋转） */
+  float position_z{0.0f}; /**< 雷达局部笛卡尔坐标 z（单位：m；平台 ENU 切平面上向分量，含平台姿态旋转） */
 
   float velocity_x{0.0f}; /**< 目标速度向量 x 分量（单位：m/s） */
   float velocity_y{0.0f}; /**< 目标速度向量 y 分量（单位：m/s） */
