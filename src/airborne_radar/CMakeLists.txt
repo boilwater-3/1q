@@ -37,6 +37,7 @@ set(AIRBORNE_ENGINE_SOURCES
     recognition/RecognitionJsonParser.cpp
     recognition/RecognitionFeatureDatabase.cpp
     recognition/RecognitionMatcher.cpp
+    recognition/RecognitionTracker.cpp
 )
 
 # -- core: 会话、运行时、环境、配置、决策、输出（粘合层，依赖轻） -------------------

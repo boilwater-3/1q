@@ -59,6 +59,22 @@ class ISignalPipeline {
   virtual void UpdatePlatformAttitude(const config::PlatformAttitudeDeg& platform_attitude_deg) = 0;
 
   /**
+   * @brief 设置本周期波束扫描中心覆盖（kLrr 专用，Path A）。
+   * @param[in] scan_center_deg 覆盖的扫描中心；下一成功周期调度消费后失效。
+   * @note 仅对 kLrr 驻留指向生效（调度器对 kLrr passthrough）；其他模式由
+   *       光栅调度覆盖，此覆盖自然无效。默认实现为空操作。
+   */
+  virtual void SetCycleScanCenterOverride(const config::AzimuthElevationDeg& scan_center_deg) {
+    (void)scan_center_deg;
+  }
+
+  /**
+   * @brief 清除周期扫描中心覆盖（切出 kLrr 时由 controller 调用）。
+   * @note 默认实现为空操作。
+   */
+  virtual void ClearCycleScanCenterOverride() {}
+
+  /**
    * @brief 更新当前雷达平台 WGS84 绝对海拔。
    * @param[in] platform_altitude_m 平台绝对海拔（单位：m）。
    */

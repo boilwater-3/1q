@@ -23,7 +23,6 @@ float GaussianSimilarity(float value, float mean, float std) {
   return std::exp(-0.5f * z * z);
 }
 
-/** @brief 运动子特征均值（转弯半径仅有限正半径参与）。 */
 float MotionSimilarity(const MotionObservation& motion, const RecognitionMotionTemplate& tpl) {
   float sum = 0.0f;
   float weight_sum = 0.0f;
@@ -108,6 +107,25 @@ bool Applicable(const RecognitionModelProfile& profile, const RecognitionFeature
 }
 
 }  // namespace
+
+std::array<float, 4> RecognitionMatcher::ComputeFeatureSimilarities(
+    const RecognitionFeatureSet& features, const RecognitionModelProfile& profile) {
+  std::array<float, 4> similarities = {0.0f, 0.0f, 0.0f, 0.0f};
+  if (features.rcs.valid) {
+    similarities[0] = GaussianSimilarity(features.rcs.mean_dbsm, profile.rcs.mean_dbsm,
+                                         profile.rcs.std_db);
+  }
+  if (features.motion.valid) {
+    similarities[1] = MotionSimilarity(features.motion, profile.motion);
+  }
+  if (features.polarization.valid) {
+    similarities[2] = PolarizationSimilarity(features.polarization, profile.polarization);
+  }
+  if (features.range_profile.valid) {
+    similarities[3] = RangeProfileSimilarity(features.range_profile, profile.range_profile);
+  }
+  return similarities;
+}
 
 RecognitionMatchResult RecognitionMatcher::QueryBestMatch(
     const RecognitionFeatureSet& features, const RecognitionObservationContext& context,

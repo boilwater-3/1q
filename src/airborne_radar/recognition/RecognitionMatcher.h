@@ -6,6 +6,7 @@
 #ifndef AIRBORNE_RADAR_RECOGNITION_RECOGNITION_MATCHER_H_
 #define AIRBORNE_RADAR_RECOGNITION_RECOGNITION_MATCHER_H_
 
+#include <array>
 #include <string>
 #include <utility>
 #include <vector>
@@ -63,6 +64,15 @@ class RecognitionMatcher {
       const RecognitionFeatureSet& features, const RecognitionObservationContext& context,
       const RecognitionFeatureDatabase& database,
       const config::ArRecognitionFeatureWeights& weights = config::ArRecognitionFeatureWeights());
+
+  /**
+   * @brief 计算观测相对指定 profile 的四维分项相似度（rcs/motion/polarization/range_profile）。
+   * @param[in] features 聚合观测。
+   * @param[in] profile 型号模板。
+   * @return 四维相似度数组（不可用维度为 0）。
+   */
+  static std::array<float, 4> ComputeFeatureSimilarities(
+      const RecognitionFeatureSet& features, const RecognitionModelProfile& profile);
 };
 
 }  // namespace recognition

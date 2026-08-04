@@ -17,9 +17,10 @@ namespace {
 float Clamp01(float value) { return std::max(0.0f, std::min(1.0f, value)); }
 
 /**
- * @brief 在视角离散网格上双线性插值 RCS。
- * @return 插值成功返回 true 并写入 out；视线角超出样本网格返回 false。
- * @note 样本按方位/俯仰去重排序构成网格；单一样本视为退化网格（仅该点有效）。
+ * @brief 在视角离散网格上插值 RCS。
+ * @return 插值成功返回 true 并写入 out；视线角超出样本覆盖返回 false。
+ * @note 样本按方位/俯仰去重排序构成网格；单样本为退化网格，视线角在
+ *       1° 容差内视为命中（效能级视角近似）。
  */
 bool InterpolateAt(const std::vector<session::AspectRcsSample>& samples, float az_deg,
                    float el_deg, float* out) {
@@ -27,8 +28,8 @@ bool InterpolateAt(const std::vector<session::AspectRcsSample>& samples, float a
     return false;
   }
   if (samples.size() == 1U) {
-    if (std::fabs(samples[0].aspect_az_deg - az_deg) <= 1.0e-4f &&
-        std::fabs(samples[0].aspect_el_deg - el_deg) <= 1.0e-4f) {
+    if (std::fabs(samples[0].aspect_az_deg - az_deg) <= 1.0f &&
+        std::fabs(samples[0].aspect_el_deg - el_deg) <= 1.0f) {
       *out = samples[0].rcs_dbsm;
       return true;
     }
