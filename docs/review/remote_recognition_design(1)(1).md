@@ -272,20 +272,34 @@ score(m) = sum(w(d) * q(d) * s(m,d)) / sum(w(d) * q(d))
 
 ### 7.1 文件组织与版本控制
 
-每个数据库文件是一个完整、只读的识别基线，建议存放于 `examples/configs/recognition/`，生产场景由 `database_path` 明确引用。文件名采用 `target_feature_database_v<major>.<minor>.json`；`database_id` 和 `version` 必须写入每个识别结果和 replay 记录。
+每个数据库文件是一个完整、只读、自描述的识别基线（SQLite，schema v1.1），存放于
+`examples/configs/recognition/`，生产场景由 `database_path` 明确引用。文件名采用
+`target_feature_database_v<major>.<minor>.db`；`database_id` 和 `version` 必须写入每个识别结果和 replay
+记录。库文件由建库工具 `tools/recognition_db_builder.py` 从本节格式 JSON 生成（示例输入
+`examples/configs/recognition/recognition_database_input.json`）；权威 DDL 单源为
+`schemas/recognition/recognition_feature_database.sql`。
 
-数据库加载应为全量原子替换：新文件通过模式、单位、数值和交叉引用校验后才替换当前生效库；加载失败时保持原库不变。每个 `model_id` 在同一库中必须唯一。
+数据库加载应为全量原子替换：新文件通过模式、单位、数值和交叉引用校验后才替换当前生效库；加载失败时
+保持原库不变。每个 `model_id` 在同一库中必须唯一。
 
 ### 7.2 顶层结构
 
+schema v1.1 将以下结构映射为 SQLite 表：`meta`（键值表，六键必填，含 `created_utc`、
+`polarization_channels`、`polarization_energy_reference`）、`units`（七量纲必填，`rcs` 必须为 `dBsm`）、
+`categories`、`models`、`profiles`（适用条件 + aspect 区间）与四个模板组表
+（`rcs_templates`/`motion_templates`/`polarization_templates`/`range_profile_templates`，行存在 = 组存在）。
+建库工具输入（设计文档 JSON 格式）顶层结构如下：
+
 ```json
 {
-  "schema_version": "1.0",
-  "database_id": "ar-target-recognition-baseline",
-  "version": "1.0.0",
-  "created_utc": "2026-07-22T00:00:00Z",
-  "polarization_channels": ["H", "V"],
-  "polarization_energy_reference": "range_propagation_antenna_compensated",
+  "meta": {
+    "schema_version": "1.1",
+    "database_id": "ar-target-recognition-baseline",
+    "version": "1.0.0",
+    "created_utc": "2026-07-22T00:00:00Z",
+    "polarization_channels": ["H", "V"],
+    "polarization_energy_reference": "range_propagation_antenna_compensated"
+  },
   "units": {
     "rcs": "dBsm",
     "speed": "m/s",

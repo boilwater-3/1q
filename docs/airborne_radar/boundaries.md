@@ -157,8 +157,8 @@ AR 使用标准 Joseph 形式 Kalman 滤波器（KF）作为生产后端。IMM �
 1. **F1 双通道极化**：探测链严格单极化（`ArSceneTarget::rcs` 单标量 m²，`signal/detection/` 无极化路径；
    `RfScenePolarization` 仅用于干扰链极化失配损耗）。识别双通道极化由场景目标
    `polarization_rcs_samples`（dBsm）经同一雷达方程与 SNR 噪声底派生，通道定义（H/V）由识别特征
-   数据库固定（schema v1.0 文档性约定，加载器不消费通道枚举）。该观测是"识别专用更高保真观测"，
-   不与探测链 SNR/Pd 逐项对账。
+   数据库固定（schema v1.1 自描述元数据：meta 键 `polarization_channels` 必填校验，加载器不消费
+   通道枚举）。该观测是"识别专用更高保真观测"，不与探测链 SNR/Pd 逐项对账。
 2. **F2 距离像相干叠加**：全模块效能级（`SignalDetector` Swerling+MarcumQ；`RfScene` 不生成复数 IQ）。
    识别距离像的距离单元投影与相位相干叠加是**识别专用准信号级子模型**（仅消费场景侧
    `range_rcs_scatterers` 真值列表），不影响探测链信号级语义。散射中心级峰值判定是效能级
@@ -167,6 +167,23 @@ AR 使用标准 Joseph 形式 Kalman 滤波器（KF）作为生产后端。IMM �
 上述两条仅存在于 `src/airborne_radar/recognition/`，不进入探测/关联/跟踪路径。
 
 [evidence: tests/unit/airborne_radar/ar_recognition_feature_test.cpp]
+
+## 识别特征数据库契约（schema v1.1）
+
+- **自描述**：数据库文件是完整、只读、自描述的识别基线。meta 必填六键
+  （`schema_version`/`database_id`/`version`/`created_utc`/`polarization_channels`/
+  `polarization_energy_reference`）；units 表必填七量纲且 `rcs` 必须为 `dBsm`
+  （匹配数学是 dBsm 域，声明其他单位即拒绝——宁拒绝不静默）。
+- **权威 DDL 单源**：`schemas/recognition/recognition_feature_database.sql` 是唯一 schema 事实源，
+  C++ 加载器、C++ 测试（configure_file 生成头）、建库工具（`tools/recognition_db_builder.py`）
+  共用；禁止在别处维护第二份 DDL。加载器 SELECT 列名与 DDL 的一致性由全字段加载用例守护。
+- **加载期只读读取器**：加载时只读打开 → 读表校验 → 关闭连接，成功后全量驻留内存；
+  运行期不持有 SQLite 连接，Matcher/Tracker 只读消费内存结构。
+- **承载不消费**：`display_name` 与 aspect 适用区间随数据入库并加载校验（往返保真），
+  当前不参与匹配/识别结果（扩展需新 freeze item）。
+- **版本策略**：`schema_version` 语义为 `major.minor`——major 变更破坏性（加载器拒绝，需 freeze
+  流程）；minor 变更增量（新增可空表/列，加载器同步读取，仍精确匹配自身版本）。无存量库，
+  不做旧版本兼容层。
 
 ## 设计变更规则
 
