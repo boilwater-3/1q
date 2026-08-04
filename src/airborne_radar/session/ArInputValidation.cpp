@@ -26,9 +26,8 @@ bool FrameMatchesCycle(const ArCycleInput& input) {
   if (input.interference.emissions.empty()) {
     return true;
   }
-  return input.interference.world_cycle_index == input.cycle_index &&
-         input.interference.window_start_time_s == input.cycle_start_time_s &&
-         input.interference.window_duration_s == input.dt_sec;
+  return oneq::electromagnetics::RfFrameMatchesCycleWindow(
+      input.interference, input.cycle_index, input.cycle_start_time_s, input.dt_sec);
 }
 
 bool HasCartesianPosition(const ArSceneTarget& target) {

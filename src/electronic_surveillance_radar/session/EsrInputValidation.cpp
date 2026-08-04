@@ -78,9 +78,9 @@ ValidationIssueList ValidateEsrCycleInput(const EsrCycleInput& input) {
                                "cycle_start_time_s", "cycle start time must be finite"));
   }
   const oneq::electromagnetics::RfEmissionFrame& frame = input.rf_emissions;
-  if (frame.world_cycle_index != input.cycle_index ||
-      frame.window_start_time_s != input.cycle_start_time_s ||
-      frame.window_duration_s != static_cast<double>(input.dt_sec) ||
+  if (!oneq::electromagnetics::RfFrameMatchesCycleWindow(
+          frame, input.cycle_index, input.cycle_start_time_s,
+          static_cast<double>(input.dt_sec)) ||
       !oneq::electromagnetics::TryValidateRfSceneFrame(frame)) {
     issues.push_back(MakeIssue(ValidationSeverity::kError, ValidationCode::kInvalidRfEmissionFrame,
                                ValidationLocationKind::kGlobal, static_cast<std::size_t>(-1),

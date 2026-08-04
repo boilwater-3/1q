@@ -22,7 +22,7 @@ Last-reviewed: 2026-08-04
 |---|---|---|---|---|
 | COMMON-OQ-1 | common | Windows/MSVC 全链验收 | presets/.bat 仅未验收脚手架，CI 只跑 macOS | needs-evidence |
 | COMMON-OQ-7 | common | 双 cycle_index 冗余 | 非执行周期 input_cycle_index 保留输入号，output_frame.cycle_index 为0 | open |
-| COMMON-OQ-8 | common | 周期时间/窗口静默拒绝 | AR/ESR/EOS 各自为政，违反多表现为静默不生效 | open |
+| COMMON-OQ-8 | common | 周期时间/窗口静默拒绝 | 三类不同性质的拒绝门被并列；空帧 envelope 语义 AR/ESR 分裂 | open |
 | AR-OQ-1 | airborne_radar | 假目标鉴别跨域命名双轨 | 观测域枚举 vs 量测域 bool | open |
 | ESR-OQ-1 | electronic_surveillance_radar | 压制干扰感知与 ECCM 链路缺失 | 死字段 + 无结构化观测 + 无 ECCM | open |
 | ESR-OQ-2 | electronic_surveillance_radar | 运行时补丁扫描中心静默关边界 | scan center 补丁隐式切扫描模式 | open |
@@ -72,32 +72,17 @@ Last-reviewed: 2026-08-04
 
 ### COMMON-OQ-8：周期输入时间/窗口字段无统一契约，违反时静默拒绝
 
-- **现状**：三模块各自为政的周期时间/窗口校验，外部调用方违反时多表现为"静默不生效"而非显式错误。
-  1. **AR 编年史校验**：拒绝 `window_start_time_s < 上一周期窗口结束`。
-  2. **ESR 周期输入完整性**：要求 RF 帧的 `world_cycle_index`/`window_start_time_s`/`window_duration_s`
-     与周期 input 精确相等，空帧也须填这三个窗口字段。
-  3. **EOS 帧率-步长耦合**：拒绝 `dt_sec > 10/frame_rate_hz`，1 s 步长须 1 Hz 帧率。
-  4. **配置侧不对称**：ESR 零值 `EsrSessionConfig{}` 不合法，而 AR/SBIRS 的 struct 默认即合法档位。
-  [evidence: src/electronic_surveillance_radar/validation/EsrInputValidation]
-- **后果**：调用方违反时整周期在决策消费点之前被静默拒绝，且无显式错误可供察觉。典型踩坑：
-  1. 只递增 `cycle_index` 而忘记推进时间戳 → 外部覆盖即使被接受也从未应用，
-     `applied_decision_source` 保持 `kNone`。
-  2. RF 帧窗口字段不匹配 → 整周期被拒。
-  3. 零值配置误用 → 首周期才暴露为 `kRejected`。
-  已有 ar/esr 两个 consumer 教训。
-- **待决问题**：
-  1. 是否跨模块统一周期时间/窗口契约——共享"时间戳单调前进"与"RF 帧窗口匹配周期"的校验 helper，
-     使违反在输入校验即显式可观测。
-  2. 是否统一"零值配置"语义，或为 ESR 补 `kDefaultEsrSessionConfig` 显式默认常量。
-  3. 各 `CycleInput` docstring 是否显式注明时间戳推进义务。
-- **当前边界**：各模块保持现有校验。调用方必须：
-  1. AR 推进 `cycle_start_time_s`（≥ 上一窗口结束）。
-  2. ESR 填完整平台运动学 + 与周期匹配的 RF 帧窗口字段，并使用语义档位常量而非零值配置。
-  3. EOS 保证 `dt_sec ≤ 10/frame_rate_hz`。
-  不得在文档中宣称周期时间戳可任意重复，或零值配置为合法默认。
-- **再进入条件 (Stage A)**：出现第二个真实消费方因时间戳未推进或 RF 帧窗口不匹配而静默失败（当前已有
-  ar/esr 两个 consumer 教训），或跨模块集成要求统一周期时间契约时，先盘点四模块 CycleInput 的窗口字段与
-  校验差异，设计共享校验与 docstring 警示，再评估跨模块推广。
+- **现状**：原议题把三类不同性质的拒绝机制并列，经 Stage A 证据复核，性质不同不可统一：
+  1. **AR 编年史门**：拒绝 `cycle_start_time_s < 上一周期窗口结束`，是单调推进校验。
+  2. **AR+ESR envelope-equality 门**：非空 RF frame 的 envelope（`world_cycle_index`/`window_start_time_s`/`window_duration_s`）须与周期 input 精确相等。此判断已提取共享谓词 `RfFrameMatchesCycleWindow`（冻结于 contract.md §工程 RF 契约 条款 7 非空部分）。
+  3. **EOS dt/frame-rate 门**：拒绝 `dt_sec > 10/frame_rate_hz`，是物理采样门（NEP/积分时间依赖），与 AR/ESR 时间门不同类。
+  此外，RF 物理层 `TryResolveOverlap` 已对每条 emission 的 `activity_start_time_s + propagation_delay_s` 与 receiver 窗口做重叠判断，零重叠即零功率。
+  [evidence: src/common/electromagnetics/RfScene]
+  [evidence: src/airborne_radar/session/ArInputValidation]
+- **后果**：调用方违反时整周期在决策消费点之前被拒绝，无显式错误可供察觉。但 Stage A 证明正常装配不触发：ECM 同步返回 `RfEmissionFrame` 并用同一周期权威时间盖戳，无事件总线、无延迟。触发的真实场景是调用方 bug（只递增 `cycle_index` 忘推进时间戳、缓存复用旧帧），对此显式拒绝是正确行为——若放宽为重叠判断，旧帧会过校验却被 RF 层判零功率静默消失，反而恶化静默问题。
+- **待决问题**：空帧 envelope 语义是否统一——AR 豁免空帧（envelope 全无效也接受），ESR 不豁免（含空帧亦须填齐）。双方均有测试锁定，contract 条款 7 措辞只明确"身份或 mode"可豁免（emission 级），对 envelope（frame 级）未明确，无证据裁定优劣。
+- **当前边界**：非空 envelope-equality 已提取共享谓词，两侧非空行为一致。空帧策略各模块保持现状：AR 豁免、ESR 严格。不得放宽任何时间门为重叠判断，不得宣称周期时间戳可任意重复。
+- **再进入条件 (Stage A)**：出现真实 ESR 消费方因空帧 envelope 未填被静默拒绝的踩坑，或 contract 条款 7 envelope 含义需正式裁定时，先评估空帧豁免语义统一对 contract 条款 7 的修订成本。
 
 ## Airborne Radar 非阻塞边界
 

@@ -113,9 +113,9 @@ bool TryResolveEsrRfV2FrontEnd(const session::EsrCycleInput& input,
       hardware.receiver_band_lower_hz <= 0.0 ||
       hardware.receiver_band_upper_hz <= hardware.receiver_band_lower_hz ||
       !oneq::electromagnetics::TryValidateRfSceneFrame(input.rf_emissions) ||
-      input.rf_emissions.world_cycle_index != input.cycle_index ||
-      input.rf_emissions.window_start_time_s != input.cycle_start_time_s ||
-      input.rf_emissions.window_duration_s != static_cast<double>(input.dt_sec)) {
+      !oneq::electromagnetics::RfFrameMatchesCycleWindow(
+          input.rf_emissions, input.cycle_index, input.cycle_start_time_s,
+          static_cast<double>(input.dt_sec))) {
     return false;
   }
 

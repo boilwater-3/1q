@@ -198,6 +198,28 @@ TEST(RfSceneTest, ValidationAndAggregationFailClosedAndIgnoreInputOrder) {
   EXPECT_DOUBLE_EQ(untouched_sum, 77.0);
 }
 
+TEST(RfSceneTest, FrameMatchesCycleWindowChecksEnvelopeEquality) {
+  // 共享谓词只比较三字段精确相等，不复用 TryValidateRfSceneFrame，也不解释空帧语义。
+  RfSceneFrame frame;
+  frame.world_cycle_index = 7U;
+  frame.window_start_time_s = 100.0;
+  frame.window_duration_s = 1.0;
+
+  EXPECT_TRUE(RfFrameMatchesCycleWindow(frame, 7U, 100.0, 1.0));
+
+  // 任一 envelope 字段偏移即失配。
+  EXPECT_FALSE(RfFrameMatchesCycleWindow(frame, 8U, 100.0, 1.0));
+  EXPECT_FALSE(RfFrameMatchesCycleWindow(frame, 7U, 100.1, 1.0));
+  EXPECT_FALSE(RfFrameMatchesCycleWindow(frame, 7U, 100.0, 2.0));
+
+  // 空帧也照常比较 envelope：本谓词不豁免空帧，空帧策略由调用方负责。
+  RfSceneFrame empty;
+  empty.world_cycle_index = 0U;
+  empty.window_start_time_s = 0.0;
+  empty.window_duration_s = 0.0;
+  EXPECT_TRUE(RfFrameMatchesCycleWindow(empty, 0U, 0.0, 0.0));
+}
+
 }  // namespace
 }  // namespace electromagnetics
 }  // namespace oneq
