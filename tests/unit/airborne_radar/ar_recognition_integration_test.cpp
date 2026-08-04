@@ -30,21 +30,21 @@ using tests::WriteTempSqlite;
 
 constexpr const char* kDatabaseSql = R"sql(
 INSERT INTO meta VALUES
-  ('schema_version','1.0'),
+  ('schema_version','1.1'),
   ('database_id','ar-target-recognition-baseline'),
-  ('version','1.0.0');
-INSERT INTO categories VALUES ('BALLISTIC',0.5);
-INSERT INTO models VALUES ('BALLISTIC_EXAMPLE_A','BALLISTIC',1.0);
-INSERT INTO profiles (profile_id, model_id, min_snr_db,
-                      rcs_mean_dbsm, rcs_std_db,
-                      motion_speed_mean, motion_speed_std,
-                      motion_altitude_mean, motion_altitude_std,
-                      motion_acceleration_mean, motion_acceleration_std)
-VALUES ('nominal','BALLISTIC_EXAMPLE_A',-30.0,
-        -3.0,2.0,
-        100.0,30.0,
-        3000.0,500.0,
-        0.0,6.0);
+  ('version','1.0.0'),
+  ('created_utc','2026-07-22T00:00:00Z'),
+  ('polarization_channels','H,V'),
+  ('polarization_energy_reference','range_propagation_antenna_compensated');
+INSERT INTO units VALUES
+  ('rcs','dBsm'),('speed','m/s'),('altitude','m'),('acceleration','m/s2'),
+  ('turn_radius','m'),('polarization','dB'),('range','m');
+INSERT INTO categories VALUES ('BALLISTIC','弹道目标',0.5);
+INSERT INTO models VALUES ('BALLISTIC_EXAMPLE_A','BALLISTIC','弹道目标示例 A',1.0);
+INSERT INTO profiles VALUES ('nominal','BALLISTIC_EXAMPLE_A',-30.0,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO rcs_templates VALUES ('nominal','BALLISTIC_EXAMPLE_A',-3.0,2.0,NULL,NULL,NULL);
+INSERT INTO motion_templates VALUES
+  ('nominal','BALLISTIC_EXAMPLE_A',100.0,30.0,3000.0,500.0,0.0,6.0,6.0,0.5);
 )sql";
 
 class ArRecognitionIntegrationTest : public ::testing::Test {
