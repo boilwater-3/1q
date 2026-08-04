@@ -176,6 +176,30 @@ if(NOT TARGET Boost::boost)
     message(STATUS "boost 1.85.0: vendored header-only @ ${ONEQ_THIRD_PARTY_DIR}/boost")
 endif()
 
+# ---------------------------------------------------------------------------
+# sqlite3 3.53.4：需编译静态库（airborne_radar 识别特征库加载）。
+# GitHub mirror（github.com/sqlite/sqlite）根目录即 amalgamation（sqlite3.c/sqlite3.h），
+# 直接单文件编译，不引入官方 CMakeLists（其 target 命名/示例构建与项目约定不一致）。
+# 与 zlib 同构：对外暴露 IMPORTED INTERFACE SQLite::SQLite3（与 conan provider 的
+# CMakeDeps target 名一致），链接真实静态 target；IMPORTED 视作外部依赖，
+# 不参与 install(EXPORT) 导出闭包。
+# 本路径面向 Windows no-Conan（PACKAGE_MANAGER=none），在 macOS/Linux 开发机上不执行。
+# ---------------------------------------------------------------------------
+if(NOT TARGET SQLite::SQLite3)
+    if(NOT EXISTS "${ONEQ_THIRD_PARTY_DIR}/sqlite/sqlite3.c")
+        message(FATAL_ERROR
+            "PACKAGE_MANAGER=none 缺失 sqlite3 amalgamation：${ONEQ_THIRD_PARTY_DIR}/sqlite/sqlite3.c\n"
+            "请重跑 scripts\\fetch_third_party.bat。")
+    endif()
+    add_library(sqlite3_vendor STATIC
+        "${ONEQ_THIRD_PARTY_DIR}/sqlite/sqlite3.c")
+    target_include_directories(sqlite3_vendor PUBLIC
+        "${ONEQ_THIRD_PARTY_DIR}/sqlite")
+    add_library(SQLite::SQLite3 INTERFACE IMPORTED)
+    target_link_libraries(SQLite::SQLite3 INTERFACE sqlite3_vendor)
+    message(STATUS "sqlite3 3.53.4: vendored amalgamation @ ${ONEQ_THIRD_PARTY_DIR}/sqlite")
+endif()
+
 # HDF5 输出能力依赖 HighFive，其要求 C++17；低标准构建时静默关闭。
 # none 模式面向 VS2015（C++14），HighFive 本就不启用。
 if(PROJECT_CXX_STANDARD GREATER_EQUAL 17)

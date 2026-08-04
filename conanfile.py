@@ -7,6 +7,7 @@ _BASE_DEPS = {
     "nanoflann": "nanoflann/1.3.2",
     "flatbuffers": "flatbuffers/1.12.0",
     "zlib": "zlib/1.3.1",
+    "sqlite3": "sqlite3/3.53.4",
 }
 
 _JSBSIM_DEPS_NON_WINDOWS = {
@@ -37,6 +38,7 @@ class OneQConan(ConanFile):
         "fmt/*:shared": False,
         "gtest/*:shared": False,
         "zlib/*:shared": False,
+        "sqlite3/*:shared": False,
         "boost/*:header_only": True,
         "flatbuffers/*:header_only": True,
     }
@@ -50,6 +52,7 @@ class OneQConan(ConanFile):
         self.requires(_BASE_DEPS["nanoflann"])
         self.requires(_BASE_DEPS["flatbuffers"])
         self.requires(_BASE_DEPS["zlib"])
+        self.requires(_BASE_DEPS["sqlite3"])
 
         # macOS/Linux 保留调试日志能力，Windows 全平台关闭日志依赖。
         if not self._is_windows():
