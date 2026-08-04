@@ -3,7 +3,6 @@
 Status: draft
 Last-reviewed: 2026-07-24
 Reviewer: Architecture audit against current codebase (branch codex/esr-rf-v2-receiver)
-Review-report: docs/review/remote_recognition_design_review.md
 Base-architecture: docs/airborne_radar/design.md (last-reviewed 2026-07-22)
 Cross-module-contract: docs/common/contract.md
 Stage-B-freeze: §11 Interface contracts frozen; §12 Per-stage acceptance criteria frozen
@@ -432,7 +431,8 @@ schema v1.1 将以下结构映射为 SQLite 表：`meta`（键值表，六键必
 
 交付库 `target_feature_database_v1.1.db`（meta `version = 1.1.0`）在占位示例之外新增
 FIGHTER/BOMBER/MISSILE/UAV 四类共 15 个常见美方型号（公开渠道估算参数，**非敏感占位
-数据，不作真实情报数据使用**；来源与置信度见 `docs/review/recognition_us_military_db_plan_2026-08-04.md`）：
+数据，不作真实情报数据使用**；来源：Wikipedia（含 USAF 事实表转述）、GlobalSecurity
+RCS 表等公开渠道，RCS 均为公开估算区间中值、无官方值，速度/高度置信度中-高、RCS 低）：
 
 | 类别 | 型号 | RCS (dBsm) | 巡航速度 (m/s) | 巡航高度 (m) | 机长 (m) |
 |---|---|---|---|---|---|
