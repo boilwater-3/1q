@@ -259,6 +259,51 @@ TEST_F(ArUsMilitaryRecognitionScenarioTest, ConfidenceClearSeparationExceedsAmbi
   EXPECT_GE(clear.last_confidence - ambiguous.last_confidence, 0.08f);
 }
 
+// -- S8 全型号覆盖：交付库 15 个美方型号逐个端到端识别 ----------------------
+
+struct RecognitionTargetSpec {
+  const char* model_id;
+  float speed_mps;
+  float altitude_m;
+  float rcs_dbsm;
+  ArRecognitionCategory category;
+};
+
+class ArUsMilitaryRecognitionParamTest
+    : public ArUsMilitaryRecognitionScenarioTest,
+      public ::testing::WithParamInterface<RecognitionTargetSpec> {};
+
+TEST_P(ArUsMilitaryRecognitionParamTest, RecognizesDeliverableModel) {
+  const RecognitionTargetSpec& spec = GetParam();
+  const ScenarioOutcome outcome = RunSingleTargetScenario(
+      spec.speed_mps, AltitudeOffsetFor(spec.altitude_m), spec.rcs_dbsm, spec.model_id,
+      spec.category);
+  EXPECT_GE(outcome.confirmed_cycles, 4U);
+  EXPECT_GE(outcome.correct_cycles, outcome.confirmed_cycles * 7U / 10U);
+  EXPECT_EQ(outcome.category_correct_cycles, outcome.confirmed_cycles);
+  EXPECT_GE(outcome.last_best_score - outcome.last_runner_up_score, 0.05f);
+  EXPECT_GE(outcome.last_confidence, 0.12f);
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    DeliverableModels, ArUsMilitaryRecognitionParamTest,
+    ::testing::Values(
+        RecognitionTargetSpec{"F-16C", 250.0f, 10500.0f, 0.8f, ArRecognitionCategory::kFighter},
+        RecognitionTargetSpec{"F-15E", 265.0f, 12000.0f, 11.8f, ArRecognitionCategory::kFighter},
+        RecognitionTargetSpec{"F/A-18E", 250.0f, 10500.0f, -10.0f, ArRecognitionCategory::kFighter},
+        RecognitionTargetSpec{"F-22A", 520.0f, 16000.0f, -37.0f, ArRecognitionCategory::kFighter},
+        RecognitionTargetSpec{"F-35A", 255.0f, 12000.0f, -27.0f, ArRecognitionCategory::kFighter},
+        RecognitionTargetSpec{"B-52H", 240.0f, 10000.0f, 20.0f, ArRecognitionCategory::kBomber},
+        RecognitionTargetSpec{"B-1B", 270.0f, 100.0f, 3.8f, ArRecognitionCategory::kBomber},
+        RecognitionTargetSpec{"B-2A", 250.0f, 13000.0f, -10.0f, ArRecognitionCategory::kBomber},
+        RecognitionTargetSpec{"BGM-109", 255.0f, 40.0f, -10.0f, ArRecognitionCategory::kMissile},
+        RecognitionTargetSpec{"AGM-158A", 240.0f, 80.0f, -25.0f, ArRecognitionCategory::kMissile},
+        RecognitionTargetSpec{"AGM-86C", 246.0f, 40.0f, -5.0f, ArRecognitionCategory::kMissile},
+        RecognitionTargetSpec{"MQ-9A", 78.0f, 7600.0f, -12.0f, ArRecognitionCategory::kUav},
+        RecognitionTargetSpec{"RQ-4B", 159.0f, 18000.0f, -5.0f, ArRecognitionCategory::kUav},
+        RecognitionTargetSpec{"MQ-4C", 160.0f, 16500.0f, -6.0f, ArRecognitionCategory::kUav},
+        RecognitionTargetSpec{"MQ-1C", 60.0f, 4800.0f, -15.0f, ArRecognitionCategory::kUav}));
+
 }  // namespace
 }  // namespace tests
 }  // namespace airborne_radar
