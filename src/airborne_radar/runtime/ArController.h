@@ -32,7 +32,7 @@ namespace extension {
 /**
  * @brief ArController 运行态快照，用于失败回滚等场景的整快照捕获/恢复。
  * @note owner_identity 标识捕获方实例，RestoreRuntimeState 会拒绝跨实例恢复；
- *       schema_version 用于校验快照格式兼容性。
+ *       schema_version 用于校验快照格式兼容性（7：识别状态纳入回滚边界）。
  */
 struct ArControllerRuntimeState {
   const void* owner_identity{nullptr};

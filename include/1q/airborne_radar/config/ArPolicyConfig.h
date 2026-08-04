@@ -11,6 +11,7 @@
 #include <cstdint>
 
 #include "1q/airborne_radar/config/ArOrientationConfig.h"
+#include "1q/airborne_radar/config/ArRecognitionConfig.h"
 #include "1q/api.hpp"
 
 namespace airborne_radar {
@@ -143,7 +144,7 @@ using tracking::TrackingConfig;
 /**
  * @brief ArPolicyConfig 雷达策略域配置。
  *
- * 当前阶段策略域承载探测、调度、关联、跟踪、生命周期与决策控制策略。
+ * 当前阶段策略域承载探测、调度、关联、跟踪、生命周期、决策控制与识别策略。
  */
 struct ONEQ_API ArPolicyConfig {
   ArDetectionPolicyConfig detection{};
@@ -152,6 +153,7 @@ struct ONEQ_API ArPolicyConfig {
   TrackingConfig tracking{};
   LifecycleConfig lifecycle{};
   DecisionControlConfig decision_control{};
+  ArRecognitionConfig recognition{};
 };
 
 

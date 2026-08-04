@@ -415,7 +415,7 @@ const std::vector<session::TacticalProposal>& ArController::GetLastAppliedDecisi
 extension::ArControllerRuntimeState ArController::CaptureRuntimeState() const {
   extension::ArControllerRuntimeState state;
   state.owner_identity = this;
-  state.schema_version = 6U;
+  state.schema_version = 7U;
   state.latest_output = impl_->cycle_state.latest_output;
   state.has_latest_output = impl_->cycle_state.has_latest_output;
   state.last_validation_issues = impl_->cycle_state.last_validation_issues;
@@ -442,7 +442,7 @@ extension::ArControllerRuntimeState ArController::CaptureRuntimeState() const {
 }
 
 bool ArController::RestoreRuntimeState(const extension::ArControllerRuntimeState& state) {
-  if (state.owner_identity != this || state.schema_version != 6U) {
+  if (state.owner_identity != this || state.schema_version != 7U) {
     PROJECT_LOG_ERROR(
         "[ArController] controller runtime state restore rejected: "
         "owner/schema mismatch.");

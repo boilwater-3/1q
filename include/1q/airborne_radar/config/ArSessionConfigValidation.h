@@ -36,7 +36,12 @@ enum class ConfigValidationCode {
   kFrequencyPlanInvalid,                /**< 显式频率表为空、含非法值或不含初始载频。 */
   kTransmitterOperatingEnvelopeInvalid, /**< 发射功率、占空比或脉冲能量越界。 */
   kEquipmentIdentityInvalid,            /**< 发射与接收设备身份非法或冲突。 */
-  kReceiverRfHardwareInvalid            /**< 接收极化、隔离或线性边界非法。 */
+  kReceiverRfHardwareInvalid,           /**< 接收极化、隔离或线性边界非法。 */
+  kRecognitionWeightsInvalid,           /**< 识别特征权重分量越界或权重和不为 1。 */
+  kRecognitionDatabasePathMissing,      /**< 识别启用时数据库路径为空。 */
+  kRecognitionThresholdInvalid,         /**< 识别判定门限（acceptance_score/minimum_margin）越界。 */
+  kRecognitionAccumulationInvalid,      /**< 识别积累参数（min_confirmed_hits/min_observation_count）非法。 */
+  kRecognitionTimeRangeInvalid          /**< 识别时间/作用范围参数（hold/max_range/dwell）非法。 */
 };
 
 /**

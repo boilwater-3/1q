@@ -52,7 +52,7 @@ std::vector<config::AzimuthElevationDeg> BuildScheduledScanPattern(
  * @param[in] orientation_config 雷达方向与控制配置。
  * @param[in] effective_beamwidth_deg 有效波束宽度。
  * @param[in] cycle_index 1 基周期编号。
- * @return 当前周期波束指向；STBY 返回零位、STT 返回扫描中心。
+ * @return 当前周期波束指向；STBY 返回零位、STT/LRR 返回扫描中心。
  */
 config::AzimuthElevationDeg ResolveScheduledBeamPointing(
     const config::ArOrientationConfig& orientation_config,
@@ -77,7 +77,7 @@ config::AzimuthElevationDeg ResolveScheduledBeamPointing(
  * @param[in] orientation_config 雷达方向与控制配置。
  * @param[in] effective_beamwidth_deg 有效波束宽度。
  * @param[in] cycle_index 1 基周期编号。
- * @return 驻留偏移量（波束指向减去扫描中心）；STT 模式返回零偏。
+ * @return 驻留偏移量（波束指向减去扫描中心）；STT/LRR 模式返回零偏。
  */
 config::AzimuthElevationDeg ResolveScheduledDwellCenter(
     const config::ArOrientationConfig& orientation_config,
