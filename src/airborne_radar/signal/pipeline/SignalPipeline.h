@@ -117,6 +117,17 @@ class SignalPipeline final : public ISignalPipeline {
   bool UpdateConfig(const config::ArSessionConfig& config) override;
 
   /**
+   * @brief 设置本周期波束扫描中心覆盖（kLrr 专用）。
+   * @param scan_center_deg 覆盖的扫描中心；下一成功周期消费后失效。
+   */
+  void SetCycleScanCenterOverride(const config::AzimuthElevationDeg& scan_center_deg) override;
+
+  /**
+   * @brief 清除周期扫描中心覆盖。
+   */
+  void ClearCycleScanCenterOverride() override;
+
+  /**
    * @brief 以 execution 配置直接更新流水线运行配置。
    * @param config execution 运行配置。
    */

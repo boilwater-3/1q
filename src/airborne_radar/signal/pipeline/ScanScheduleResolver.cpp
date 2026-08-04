@@ -73,6 +73,7 @@ float ResolveScanStepScale(config::ArWorkMode mode) {
       return 1.0f;
     case config::ArWorkMode::kStby:
     case config::ArWorkMode::kStt:
+    case config::ArWorkMode::kLrr:  // 纯驻留指向，无光栅步进
     default:
       return 1.0f;
   }
@@ -191,7 +192,8 @@ config::AzimuthElevationDeg ResolveScheduledBeamPointing(
     return boresight;
   }
 
-  if (orientation_config.work_mode == config::ArWorkMode::kStt) {
+  if (orientation_config.work_mode == config::ArWorkMode::kStt ||
+      orientation_config.work_mode == config::ArWorkMode::kLrr) {
     return normalized_scan_center;
   }
 
@@ -238,7 +240,8 @@ config::AzimuthElevationDeg ResolveScheduledBeamPointing(
 config::AzimuthElevationDeg ResolveScheduledDwellCenter(
     const config::ArOrientationConfig& orientation_config,
     const detection::EffectiveBeamwidthDeg& effective_beamwidth_deg, std::uint32_t cycle_index) {
-  if (orientation_config.work_mode == config::ArWorkMode::kStt) {
+  if (orientation_config.work_mode == config::ArWorkMode::kStt ||
+      orientation_config.work_mode == config::ArWorkMode::kLrr) {
     return config::AzimuthElevationDeg();
   }
   const config::AzimuthElevationDeg pointing =

@@ -43,6 +43,7 @@ struct ArSessionReplayState {
   bool pending_execution_config_changed{false};
   bool pending_environment_scenario_config_changed{false};
   ArDecisionReplayState decision_state{};
+  std::string active_database_version{}; /**< 当前生效识别特征库版本；未加载识别库时为空串。 */
 };
 
 /** @brief 单周期用户门面一次调用的结果与调用后状态。 */

@@ -163,6 +163,27 @@ table DecisionControlConfig {
   eccm_cooldown_cycles_after_release:uint;
 }
 
+table ArRecognitionFeatureWeightsV1 {
+  rcs_weight:float;
+  motion_weight:float;
+  polarization_weight:float;
+  range_profile_weight:float;
+}
+
+table ArRecognitionConfigV1 {
+  enabled:bool;
+  min_confirmed_hits:uint;
+  accumulation_window_sec:float;
+  min_observation_count:uint;
+  acceptance_score:float;
+  minimum_margin:float;
+  result_hold_sec:float;
+  max_range_m:float;
+  recognition_dwell_sec:float;
+  feature_weights:ArRecognitionFeatureWeightsV1;
+  database_path:string;
+}
+
 table ArPolicyConfig {
   detection:ArDetectionPolicyConfig;
   beam_control:BeamControlConfig;
@@ -171,6 +192,7 @@ table ArPolicyConfig {
   lifecycle:LifecycleConfig;
   imm:ImmConfig;
   decision_control:DecisionControlConfig;
+  recognition:ArRecognitionConfigV1;
 }
 
 table AtmosphericPhysicsConfig {

@@ -58,7 +58,9 @@ AR 已提供物理探测（含 RF 干扰链）、扫描调度、数据关联（L
 
 `ArWorkMode` 定义在 `include/1q/airborne_radar/config/ArOrientationConfig.h:65-70`，当前包含 `kStby=0`、`kTas=1`、`kTws=2`、`kStt=3`。增加 `kLrr=4`（long-range recognition radar）作为与 `kTas`、`kTws`、`kStt` 并列的任务工作模式。其扫描策略为：
 
-- 默认仅对已确认的重点航迹分配识别驻留；无重点航迹时维持低占空搜索或按任务配置停泊。
+- 默认仅对已确认的重点航迹分配识别驻留（Path A：controller 从 prior-cycle 确认航迹选
+  优先目标，经 `ArRuntimeConfigPatch::has_scan_center_deg` 与 ISignalPipeline 周期扫描中心
+  覆盖设指向；调度器对 kLrr 与 kStt 一样 passthrough）；无重点航迹时维持任务配置指向。
 - 通过较长驻留时间、较窄波束和较大有效带宽提升极化与一维距离像特征质量。
 - 识别调度不得绕过现有波束、发射功率、带宽、扫描限位和 LPI/ECCM 控制链路。
 - 切出 `kLrr` 后停止新增识别积累；历史结论按 `result_hold_sec` 保持，过期后标记为 `kStale`。
@@ -79,7 +81,11 @@ ArSceneTarget 目标特征真值
     -> 威胁评估和 TrackOutputFrame 输出
 ```
 
-识别执行点位于 signal pipeline 生成 `DecisionInputFrame` 之后、战术决策（`TacticalCoordinator::Evaluate`）调用 `ThreatAssessmentEvaluator` 之前（对应 `design.md` §1.4 时序图中 `Controller->>Decision: Evaluate(frame, state_store)` 执行点）。这样可直接使用滤波后的速度、加速度和稳定的关联键；识别结论可作为后续威胁评估的附加输入，但不覆盖原有威胁类别。
+识别执行点位于 signal pipeline 生成 `DecisionInputFrame` 之后（对应 `design.md` §1.4
+时序图中 `Controller->>Decision: Evaluate(frame, state_store)` 执行点附近）。当前架构下
+识别是**纯并行输出**：照威胁分类先例仅回填 `TrackOutputFrame::tracks`，不进
+`DecisionInputFrame`/`DecisionObservation`，也不作为 ThreatAssessment 的输入（ThreatAssessment
+只读 speed/rcs/status）。若未来需识别影响威胁评估，再改 Evaluate 签名。
 
 注：`ArController` 和 `SignalPipeline` 均为内部类型（位于 `src/airborne_radar/runtime/` 和 `src/airborne_radar/signal/pipeline/`），不在 public API 中。公开可见的语义边界是 `ArSession::StepWithResult()` → `ArCycleResult`（含 `DecisionObservation`）。
 
@@ -438,7 +444,7 @@ score(m) = sum(w(d) * q(d) * s(m,d)) / sum(w(d) * q(d))
 | 驻留时间和脉冲积累 | 提升有效观测数和特征稳定性 | `ArDetectionPolicyConfig::pulse_count` + 识别专用 `recognition_dwell_sec` |
 | 有效带宽 | 决定一维距离像距离分辨率和可分辨散射点数 | `TransmitterConfig::bandwidth_hz`（只读，不修改） |
 | 视角覆盖 | 决定各向 RCS 特征是否可用 | 由 `ArOrientationConfig` + 平台姿态 + target look angle 派生 |
-| 航迹协方差 | 降低速度、加速度、转弯半径的质量因子 | KF/IMM 内部 `innovation_covariance`（内部字段，识别只读） |
+| 航迹协方差 | 降低速度、加速度、转弯半径的质量因子 | 预测协方差 P 的 position 分块迹（`TrackStateSnapshot::estimation_uncertainty_trace`，识别只读） |
 | 干扰和 ECCM | 改变接收 SNR、极化通道可用性及观测缺失率 | `ArInterferenceObservation::jammer_to_noise_db`, ECCM 激活后的 `ArControlProfile` 字段 |
 | 目标机动 | 提供运动可分性，同时可能降低距离像的跨周期一致性 | `TrackStateSnapshot::acceleration`, IMM 模式概率（内部） |
 
@@ -657,7 +663,10 @@ struct ONEQ_API TrackStateSnapshot {
 };
 ```
 
-**回填时机：** 识别结果在 `DecisionInputFrame` 构建之后、`ThreatAssessmentEvaluator` 调用之前回填到 `TrackStateSnapshot::recognition`。回填后的 `TrackStateSnapshot` 同时进入 `DecisionInputFrame::tracks` 和 `TrackOutputFrame::tracks`。`target_type`/`target_probability`（威胁分类）和 `recognition`（型号识别）独立填充，互不覆盖。
+**回填时机：** 识别结果照威胁分类先例仅回填到 `TrackOutputFrame::tracks[i].recognition`
+（`ArController` 深拷贝之后）；不进 `DecisionInputFrame::tracks`（两帧经同一 replay schema
+序列化，回放字节比对容忍该分叉）。`target_type`/`target_probability`（威胁分类）和
+`recognition`（型号识别）独立填充，互不覆盖。
 
 ### 11.5 ArRecognitionCycleSummary（嵌入 ArCycleResult）
 

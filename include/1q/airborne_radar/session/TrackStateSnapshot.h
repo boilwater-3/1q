@@ -10,6 +10,7 @@
 #include <string>
 #include <vector>
 
+#include "1q/airborne_radar/session/ArRecognitionResult.h"
 #include "1q/api.hpp"
 
 namespace airborne_radar {
@@ -58,6 +59,16 @@ struct ONEQ_API TrackStateSnapshot {
   std::string target_type{"UNKNOWN"};
   /** @brief 决策层填充的目标分类置信度，范围 [0, 1] */
   float target_probability{0.0f};
+
+  /**
+   * @brief 航迹估计不确定度（m²），预测协方差 P 的 position 分块迹。
+   * @note 由轨迹快照导出器从滤波协方差左上 3×3 分块求迹填充；
+   *       作为识别运动质量因子的本源信号（比单周期 innovation covariance 更稳定）。
+   */
+  float estimation_uncertainty_trace{0.0f};
+
+  /** @brief 决策层/识别链路填充的远程目标识别结论；识别未启用时保持默认值（kDisabled）。 */
+  ArRecognitionResult recognition{};
 };
 
 /** @brief TrackStateSnapshotList 表示供外部消费的轨迹状态快照集合 */
