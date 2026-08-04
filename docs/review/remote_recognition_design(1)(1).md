@@ -10,7 +10,7 @@ Stage-B-freeze: §11 Interface contracts frozen; §12 Per-stage acceptance crite
 
 ## 1. 目的与范围
 
-本方案在现有 `airborne_radar`（AR）探测、跟踪和战术决策能力上增加远程目标识别能力。雷达切换到远程识别模式后，以稳定航迹为对象，在效能级约束下提取目标 RCS、运动、双通道极化和宽带一维距离像特征，与预设目标特征数据库进行加权匹配，给出弹道目标、临近空间目标及其最可能型号的识别结论。
+本方案在现有 `airborne_radar`（AR）探测、跟踪和战术决策能力上增加远程目标识别能力。雷达切换到远程识别模式后，以稳定航迹为对象，在效能级约束下提取目标 RCS、运动、双通道极化和宽带一维距离像特征，与预设目标特征数据库进行加权匹配，给出弹道目标、临近空间目标、战斗机、轰炸机、导弹、无人机等常见目标类别及其最可能型号的识别结论（示例库覆盖常见美方型号，参数为公开渠道估算的非敏感占位数据，见 §7.3）。
 
 本方案不建设信号级 IQ 处理、全电磁散射求解或真实数据库联网服务。各类观测由目标真值参数经过距离、SNR、驻留时间、带宽、视角覆盖和测量误差等效能约束后生成，保证结果可解释、可配置、可回放。
 
@@ -23,7 +23,7 @@ Stage-B-freeze: §11 Interface contracts frozen; §12 Per-stage acceptance crite
 | ISAR 成像 / 二维距离-多普勒像 | 需要长时间相干积累和精确运动补偿，属于下一代能力 |
 | 微动特征（进动、章动、自旋频率） | 需要相位级建模和长时间序列分析 |
 | 在线学习 / 自适应权重更新 | 与 trace/replay 确定性回放冲突；权重调整须通过数据库版本管理 |
-| 实时外部数据库联网 | 首期为本地 JSON 文件，由仿真配置引用；联网留待后续 `ConnectDataSource` 真实实现 |
+| 实时外部数据库联网 | 首期为本地 SQLite 数据库文件，由仿真配置引用；联网留待后续 `ConnectDataSource` 真实实现 |
 | 信号级 IQ 处理 / 全波电磁散射求解 | 方案定位为效能级仿真，见 §1 |
 | 自动滤波后端切换 / 在线模型选择 | 与 `design.md` §2.10 可复现性原则冲突 |
 | 修改现有探测/关联/航迹滤波代码 | 识别是附加链路，不得改变基础探测的 SNR、Pd、量测协方差或关联逻辑 |
@@ -428,6 +428,35 @@ schema v1.1 将以下结构映射为 SQLite 表：`meta`（键值表，六键必
 }
 ```
 
+#### 美方常见型号扩展（示例库 v1.1.0，2026-08-04）
+
+交付库 `target_feature_database_v1.1.db`（meta `version = 1.1.0`）在占位示例之外新增
+FIGHTER/BOMBER/MISSILE/UAV 四类共 15 个常见美方型号（公开渠道估算参数，**非敏感占位
+数据，不作真实情报数据使用**；来源与置信度见 `docs/review/recognition_us_military_db_plan_2026-08-04.md`）：
+
+| 类别 | 型号 | RCS (dBsm) | 巡航速度 (m/s) | 巡航高度 (m) | 机长 (m) |
+|---|---|---|---|---|---|
+| FIGHTER 战斗机 | F-16C 战隼 | 0.8 | 250 | 10500 | 15.1 |
+| FIGHTER 战斗机 | F-15E 攻击鹰 | 11.8 | 265 | 12000 | 19.4 |
+| FIGHTER 战斗机 | F/A-18E 超级大黄蜂 | -10.0 | 250 | 10500 | 18.3 |
+| FIGHTER 战斗机 | F-22A 猛禽 | -37.0 | 520 | 16000 | 18.9 |
+| FIGHTER 战斗机 | F-35A 闪电II | -27.0 | 255 | 12000 | 15.7 |
+| BOMBER 轰炸机 | B-52H 同温层堡垒 | 20.0 | 240 | 10000 | 48.5 |
+| BOMBER 轰炸机 | B-1B 枪骑兵 | 3.8 | 270 | 100（低空） | 44.5 |
+| BOMBER 轰炸机 | B-2A 幽灵 | -10.0 | 250 | 13000 | 21.0 |
+| MISSILE 导弹 | BGM-109 战斧巡航导弹 | -10.0 | 255 | 40（掠海） | 5.6 |
+| MISSILE 导弹 | AGM-158A 联合空对地防区外导弹 | -25.0 | 240 | 80（低空） | 4.3 |
+| MISSILE 导弹 | AGM-86C 空射巡航导弹 | -5.0 | 246 | 40（低空） | 6.3 |
+| UAV 无人机 | MQ-9A 收割者 | -12.0 | 78 | 7600 | 11.0 |
+| UAV 无人机 | RQ-4B 全球鹰 | -5.0 | 159 | 18000 | 14.5 |
+| UAV 无人机 | MQ-4C 人鱼海神 | -6.0 | 160 | 16500 | 14.5 |
+| UAV 无人机 | MQ-1C 灰鹰 | -15.0 | 60 | 4800 | 8.5 |
+
+数据边界：model prior 统一 1.0（best_score≈相似度，≥0.6 可确认）；新条目
+`minimum_aspect_coverage_deg`/`minimum_bandwidth_hz`/`max_range_resolution_m` 置 NULL
+（不触发 gating）；`min_snr_db = 6.0`。类别映射：FIGHTER→`kFighter`、BOMBER→`kBomber`、
+MISSILE→`kMissile`、UAV→`kUav`（§11.1 枚举加性扩展，replay 字节兼容）。
+
 ### 7.4 字段规则
 
 | 区域 | 必填字段 | 规则 |
@@ -519,12 +548,16 @@ enum class ONEQ_API ArRecognitionState : std::uint8_t {
   kStale = 5             // 退出模式或特征缺失超时，结论已过期
 };
 
-// 新增：识别目标大类
+// 新增：识别目标大类（值加性扩展，不重排既有值；replay 字节兼容）
 enum class ONEQ_API ArRecognitionCategory : std::uint8_t {
-  kBallistic = 0,
-  kNearSpace = 1,
-  kOther = 2,
-  kUnknown = 3
+  kBallistic = 0,  // 弹道目标
+  kNearSpace = 1,  // 临近空间目标
+  kOther = 2,      // 其它
+  kUnknown = 3,    // 未知
+  kFighter = 4,    // 战斗机
+  kBomber = 5,     // 轰炸机
+  kMissile = 6,    // 导弹
+  kUav = 7         // 无人机
 };
 
 // 新增：特征维度位掩码
