@@ -57,7 +57,8 @@ if(_oneq_unit_airborne_radar)
         SOURCES ${_oneq_unit_airborne_radar}
         TIMEOUT 60
         LINK_LIBS SQLite::SQLite3
-        INCLUDE_DIRS "${CMAKE_CURRENT_SOURCE_DIR}/unit/airborne_radar")
+        INCLUDE_DIRS "${CMAKE_CURRENT_SOURCE_DIR}/unit/airborne_radar"
+                     "${CMAKE_CURRENT_BINARY_DIR}/generated")
 endif()
 
 # electronic_surveillance_radar (ESR).

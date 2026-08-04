@@ -1,0 +1,17 @@
+// 由 CMake configure_file 生成，勿手改。
+// 唯一事实源：schemas/recognition/recognition_feature_database.sql
+#ifndef GENERATED_RECOGNITION_FEATURE_DATABASE_SCHEMA_H_
+#define GENERATED_RECOGNITION_FEATURE_DATABASE_SCHEMA_H_
+
+namespace airborne_radar {
+namespace tests {
+
+// 识别特征数据库权威 schema（测试构造与加载器、建库工具共用同一 DDL 单源）。
+inline constexpr const char* kRecognitionSchemaSql = R"sql(
+@RECOGNITION_FEATURE_DATABASE_SCHEMA_SQL@
+)sql";
+
+}  // namespace tests
+}  // namespace airborne_radar
+
+#endif  // GENERATED_RECOGNITION_FEATURE_DATABASE_SCHEMA_H_

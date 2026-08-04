@@ -19,7 +19,8 @@ endfunction()
 # airborne_radar：识别场景测试用 SQLite 构造特征库（helper 位于 unit/airborne_radar/）。
 _oneq_add_integration_partition(airborne_radar
     LINK_LIBS SQLite::SQLite3
-    INCLUDE_DIRS "${CMAKE_CURRENT_SOURCE_DIR}/unit/airborne_radar")
+    INCLUDE_DIRS "${CMAKE_CURRENT_SOURCE_DIR}/unit/airborne_radar"
+                 "${CMAKE_CURRENT_BINARY_DIR}/generated")
 _oneq_add_integration_partition(electro_optical_sensor)
 _oneq_add_integration_partition(electronic_surveillance_radar)
 _oneq_add_integration_partition(sbirs_sensor)
