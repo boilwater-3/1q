@@ -26,7 +26,7 @@ public API 边界）见 [boundaries.md](boundaries.md)。
 | 控制归约 | proposal 冲突、保持窗口、冷却和下一周期控制配置 | session-wired | [evidence: tests/unit/airborne_radar/ar_tactical_coordinator_test.cpp] |
 | 专项序列验证 | 公开 Session 边界六类跨周期序列 | session-wired | `examples/batch_validation/ar_batch_validation.cpp` |
 | 识别观测与特征提取 | 效能化 RCS/运动/双极化/距离像观测（SNR、带宽、驻留、视角覆盖门控） | session-wired | [evidence: tests/unit/airborne_radar/ar_recognition_feature_test.cpp] |
-| 识别数据库与匹配 | JSON 原子加载校验 + 截断高斯动态加权匹配 + 先验排序 | session-wired | [evidence: tests/unit/airborne_radar/ar_recognition_database_test.cpp] |
+| 识别数据库与匹配 | SQLite 原子加载校验（schema v1.0，加载期只读读取器）+ 截断高斯动态加权匹配 + 先验排序 | session-wired | [evidence: tests/unit/airborne_radar/ar_recognition_database_test.cpp] |
 | 识别积累与判定 | 滑动窗口积累、acceptance/margin/维度判定、结论保持与过期 | session-wired | [evidence: tests/integration/airborne_radar/ar_recognition_scenario_test.cpp] |
 
 ## 配置映射、运行期提交和回滚

@@ -156,8 +156,9 @@ AR 使用标准 Joseph 形式 Kalman 滤波器（KF）作为生产后端。IMM �
 
 1. **F1 双通道极化**：探测链严格单极化（`ArSceneTarget::rcs` 单标量 m²，`signal/detection/` 无极化路径；
    `RfScenePolarization` 仅用于干扰链极化失配损耗）。识别双通道极化由场景目标
-   `polarization_rcs_samples`（dBsm）经同一雷达方程与 SNR 噪声底派生，通道定义由数据库
-   `polarization_channels` 固定。该观测是"识别专用更高保真观测"，不与探测链 SNR/Pd 逐项对账。
+   `polarization_rcs_samples`（dBsm）经同一雷达方程与 SNR 噪声底派生，通道定义（H/V）由识别特征
+   数据库固定（schema v1.0 文档性约定，加载器不消费通道枚举）。该观测是"识别专用更高保真观测"，
+   不与探测链 SNR/Pd 逐项对账。
 2. **F2 距离像相干叠加**：全模块效能级（`SignalDetector` Swerling+MarcumQ；`RfScene` 不生成复数 IQ）。
    识别距离像的距离单元投影与相位相干叠加是**识别专用准信号级子模型**（仅消费场景侧
    `range_rcs_scatterers` 真值列表），不影响探测链信号级语义。散射中心级峰值判定是效能级
