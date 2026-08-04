@@ -167,6 +167,11 @@ session::TrackStateSnapshotList TrackStateSnapshotEmitter::BuildTrackStateSnapsh
     snapshot.hit_count = track.hit_count;
     snapshot.miss_count = track.miss_count;
 
+    // D2：导出预测协方差 P 的 position 分块迹（状态序 [x,vx,y,vy,z,vz]，
+    // 位置方差位于对角 (0,0),(2,2),(4,4)），作为识别运动质量因子的本源信号。
+    const auto& covariance = track.gaussian_state.covariance;
+    snapshot.estimation_uncertainty_trace = covariance(0, 0) + covariance(2, 2) + covariance(4, 4);
+
     snapshots.push_back(snapshot);
   }
   return snapshots;

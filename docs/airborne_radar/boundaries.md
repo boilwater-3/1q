@@ -150,6 +150,23 @@ AR 使用标准 Joseph 形式 Kalman 滤波器（KF）作为生产后端。IMM �
 [evidence: tests/contract/airborne_radar/ar_public_api_convenience_test.cpp]
 [evidence: tests/contract/check_public_api_boundary.cmake]
 
+## 识别子模型的物理保真度边界（F1/F2 定性）
+
+远程识别（`kLrr`）在效能级探测链之外引入两条**识别专用更高保真观测路径**，与探测链物理口径**不逐项对账**：
+
+1. **F1 双通道极化**：探测链严格单极化（`ArSceneTarget::rcs` 单标量 m²，`signal/detection/` 无极化路径；
+   `RfScenePolarization` 仅用于干扰链极化失配损耗）。识别双通道极化由场景目标
+   `polarization_rcs_samples`（dBsm）经同一雷达方程与 SNR 噪声底派生，通道定义由数据库
+   `polarization_channels` 固定。该观测是"识别专用更高保真观测"，不与探测链 SNR/Pd 逐项对账。
+2. **F2 距离像相干叠加**：全模块效能级（`SignalDetector` Swerling+MarcumQ；`RfScene` 不生成复数 IQ）。
+   识别距离像的距离单元投影与相位相干叠加是**识别专用准信号级子模型**（仅消费场景侧
+   `range_rcs_scatterers` 真值列表），不影响探测链信号级语义。散射中心级峰值判定是效能级
+   简化（粗距离单元下不合并峰标识，仅投影能量），由 `ar_recognition_feature_test` 锁定。
+
+上述两条仅存在于 `src/airborne_radar/recognition/`，不进入探测/关联/跟踪路径。
+
+[evidence: tests/unit/airborne_radar/ar_recognition_feature_test.cpp]
+
 ## 设计变更规则
 
 1. 新增、删除或改变 public SPI 时，必须同步本文档集、consumer tests 和 `ar_public_api_convenience_test`。

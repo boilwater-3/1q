@@ -29,6 +29,11 @@ set(AIRBORNE_ENGINE_SOURCES
     signal/tracking/TrackLifecycleManager.cpp
     signal/tracking/TrackLifecycleSnapshots.cpp
     signal/tracking/TrackStateSnapshotEmitter.cpp
+    recognition/RcsFeatureExtractor.cpp
+    recognition/MotionFeatureExtractor.cpp
+    recognition/PolarizationFeatureExtractor.cpp
+    recognition/RangeProfileFeatureExtractor.cpp
+    recognition/RecognitionObservationBuilder.cpp
 )
 
 # -- core: 会话、运行时、环境、配置、决策、输出（粘合层，依赖轻） -------------------
