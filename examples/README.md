@@ -16,6 +16,7 @@ examples/
 ├── electro_optical/                EOS 域示例（session / integration / scene）
 ├── electronic_warfare/             ESR 域示例（session / integration / scene）
 ├── sar/                            SAR 域示例（session / integration）
+├── behavior_layer/                 行为层参考实现（EnTT ECS 业务层，AR 单域全链）
 ├── flight_dynamic/                 机动模块 CSV 工具与轨迹生成（依赖 JSBSim）
 └── batch_validation/               多场景批量验证（详见 batch_validation/README.md）
 ```
@@ -88,6 +89,26 @@ cmake --preset llvm-ninja-debug -DENABLE_EXAMPLES=ON -DONEQ_ENABLE_FLIGHT_DYNAMI
 
 每个工具链接 `JSBSim::JSBSim`，通过 `setup_fd_example` 宏统一注入 src 头路径、
 JSBSim 头路径与数据根目录。`orbit_visualize.py` 可将 trace CSV 可视化为 PNG + KML。
+
+## 行为层参考实现（EnTT ECS）
+
+`behavior_layer/` 是消费方业务层的参考实现：实体/组件装配由 EnTT（`entt/3.14.0`，
+header-only，**example 侧依赖，不进入库本体**）registry 承担，逻辑以纯数据组件 +
+自由函数系统表达（详见 `behavior_layer/README.md` 与 `docs/review/Bahavior.md` §5）。
+
+- **组件**：`TaskingComponent`（角色/上下级/区域任务）、`SensorObservationComponent`、
+  `FleetStatusComponent`、`RoutePlanComponent`、`FusedSituationComponent`、
+  `CommandFrameComponent`；
+- **系统**（每周期按 `recon → maneuver → jam → decision` 顺序执行，对齐 session
+  `Step` 语义）：侦察（AR 会话输出适配为泛型探测记录并更新融合）、机动规划（长机
+  调 `navigation` 面规划全员航路）、干扰（经 ECM 既有公共面构造周期输入）、决策
+  （聚合产出命令帧，消费方读取后驱动 `SubmitExternalDecision` 等执行面）；
+- **事件模型**：命令 = 写命令帧组件；事件报告 = `entt::observer` 响应组件变化，
+  不建全局事件总线。
+
+> **演进路线**：ECS 组件/系统模式覆盖了 session_usage（API 教程）与 scene（端到端
+> 场景）类目的全部职责，将逐步取代现有 per-domain 示例；旧示例在迁移完成前保留，
+> 本轮不迁移（决策记录见 `docs/review/Bahavior.md` 实施状态注记）。
 
 ## 相关文档
 

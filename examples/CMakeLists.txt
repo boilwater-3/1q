@@ -18,6 +18,10 @@ add_subdirectory(electro_optical)
 add_subdirectory(electronic_warfare)
 add_subdirectory(sar)
 
+# 行为层参考实现（EnTT ECS 业务层）：组件/系统/装配均由消费方侧承担，
+# EnTT 为 example 侧依赖（conanfile.py 基础清单），不进入库本体（见 Bahavior.md §5）。
+add_subdirectory(behavior_layer)
+
 # 机动模块示例：仅在 ONEQ_ENABLE_FLIGHT_DYNAMIC 开启时纳入。
 if(ONEQ_ENABLE_FLIGHT_DYNAMIC)
     add_subdirectory(flight_dynamic)
