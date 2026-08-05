@@ -79,7 +79,14 @@ Answers: flight_dynamic 用了哪些算法、各自实现到什么地步、边�
      `max(radius_m, 1.5×v²/(g·tan(max_bank)))`——容差按机型/速度实时推导，不同型号不可一概
      而论用定值。若不分离，航点间距小于捕获圈的航路会在起步时被整条吞掉（飞机未飞即全部
      "到达"），且用户设置的 radius_m（默认 100 m）会被转弯项完全掩盖。
-  3. 全球 waypoint 航段使用球面大圆；orbit、figure-8、racetrack 等局部机动仍以各自参考中心的局部
+  3. **完成事件记录**：每个 kFlyToWaypoint 完成时保留 `WaypointSequencingEvent`
+     决策快照（命中门 kWithinRadius/kPlaneCrossing/kFlyPastHeuristic、距离/侧距/
+     沿航迹、有效阈值、航点索引、仿真时间、中间-最终语义），经
+     `FlightManager::GetWaypointEvents()` 查询（容量 512 环形，丢最旧）。另经
+     PROJECT_LOG 发射：每步 `[FLYTO]` DEBUG 决策轨迹（距离/沿航迹/侧距/阈值，
+     供日志启用后观察收敛与门余量），完成时 `[FLYTO] waypoint complete` INFO 一行
+     （门 + 距离 + 侧距 + 沿航迹 + 阈值，默认级别可见）。
+  4. 全球 waypoint 航段使用球面大圆；orbit、figure-8、racetrack 等局部机动仍以各自参考中心的局部
      切平面构造路径。这两类几何服务于不同尺度，**不要求共享同一个纬经度投影 helper**。
 - **反直觉点（大转弯提前切航点的防护）**：横向偏差超过 `max(3000m, radius * 3)` 时，不允许仅凭
   法平面穿越判定到达——否则大转弯中会提前切航点。
@@ -89,6 +96,7 @@ Answers: flight_dynamic 用了哪些算法、各自实现到什么地步、边�
   不再使用平面 `cos(latitude)` 近似。
 - **证据**：[evidence: tests/unit/flight_dynamic/fd_aircraft_maneuver_test]
 - **证据**：[evidence: tests/unit/flight_dynamic/fd_adapter_test TightSpacedWaypointRouteFlowsSequentially]
+- **证据**：[evidence: tests/unit/flight_dynamic/fd_adapter_test WaypointSequencingEventsRecorded]
 
 ## 机动执行
 

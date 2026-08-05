@@ -172,6 +172,7 @@ set(FD_HEADERS
     "flight_dynamic/guidance/Maneuver.h"
     "flight_dynamic/guidance/Waypoint.h"
     "flight_dynamic/guidance/WaypointManager.h"
+    "flight_dynamic/guidance/WaypointSequencingEvent.h"
     "flight_dynamic/model/VehicleState.h"
 )
 

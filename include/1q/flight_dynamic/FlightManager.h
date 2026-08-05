@@ -12,6 +12,7 @@
 #include "1q/flight_dynamic/config/FlightDynamicConfig.h"
 #include "1q/flight_dynamic/guidance/Maneuver.h"
 #include "1q/flight_dynamic/guidance/Waypoint.h"
+#include "1q/flight_dynamic/guidance/WaypointSequencingEvent.h"
 #include "1q/flight_dynamic/model/VehicleState.h"
 
 namespace oneq {
@@ -167,6 +168,13 @@ class FlightManager {
   const ManeuverDiagnostics& GetDiagnostics() const { return diagnostics_; }
   /** @return 当前机动的诊断统计（可写重载，便于手动重置极值）。 */
   ManeuverDiagnostics& GetDiagnostics() { return diagnostics_; }
+  /**
+   * @brief 本会话已完成的 kFlyToWaypoint 事件记录（决策快照：门/距离/侧距/沿航迹/阈值）。
+   * @return 按完成顺序排列的事件；容量上限 512，超出时丢弃最旧。
+   */
+  const std::vector<guidance::WaypointSequencingEvent>& GetWaypointEvents() const {
+    return waypoint_events_;
+  }
 
   // Direct access for lower-level control
   adapter::JsbsimAdapter& GetAdapter() { return *adapter_; }          /**< @return JSBSim 适配器，用于低层直接控制 */
@@ -186,6 +194,7 @@ class FlightManager {
 
   model::VehicleState vehicle_state_;
   ManeuverDiagnostics diagnostics_;
+  std::vector<guidance::WaypointSequencingEvent> waypoint_events_;  // 已完成航点事件（容量 512 环形）
   std::vector<ManeuverCommand> maneuver_queue_;
   size_t current_maneuver_index_ = 0;
   FlightManagerState state_ = FlightManagerState::kIdle;

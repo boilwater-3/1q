@@ -20,6 +20,23 @@ class JsbsimAdapter;
 namespace guidance {
 
 /**
+ * @brief 单次解析的激活航点邻近快照。
+ *
+ * 一次位置读取 + 一次航迹几何解析同时给出距离、航向、侧距/沿航迹与法平面
+ * 穿越判定，供 IsAtTarget/IsAtOrPastTarget 与完成事件记录共用，避免每步
+ * 对同一帧位置重复计算。
+ */
+struct WaypointProximity {
+  bool valid = false;          /**< 航段几何解析成功（退化航段为 false，保守判定不越过） */
+  double distance_m = 0.0;     /**< 到激活航点的水平距离（m）；未启动或无航点时 0 */
+  double heading_to_rad = 0.0; /**< 指向激活航点的航向（rad）；未启动或无航点时 0 */
+  double cross_track_m = 0.0;  /**< 相对航段（leg start→航点大圆）的侧距（m） */
+  double along_track_m = 0.0;  /**< 沿航迹距离（m） */
+  double leg_length_m = 0.0;   /**< 航段长度（m） */
+  bool plane_crossed = false;  /**< 已在 corridor（max(3000, 3×radius)）内越过法平面 */
+};
+
+/**
  * @brief 航点序列管理器。
  *
  * 维护一个航点队列，按顺序激活航点并把目标航点信息下发到 JSBSim 属性树。
@@ -59,6 +76,11 @@ class WaypointManager {
    */
   bool AdvanceToNext();
   /**
+   * @brief 解析当前激活航点的邻近快照（距离 + 航迹几何 + 法平面穿越判定）。
+   * @return 单帧位置的邻近快照；未启动或无航点时返回全默认值。
+   */
+  WaypointProximity ResolveProximity() const;
+  /**
    * @brief 当前到激活航点的水平距离是否在判定半径内。
    * @param[in] threshold_m 判定半径（单位：m）；<=0 时使用航点自身的 radius_m。
    * @return 进入半径范围返回 true，否则返回 false。
@@ -93,7 +115,6 @@ class WaypointManager {
 
  private:
   void SetLegStartFromCurrentLocation();
-  bool HasPassedActiveWaypoint() const;
   void ApplyActiveWaypoint();
 
   adapter::JsbsimAdapter& adapter_;
