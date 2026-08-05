@@ -44,9 +44,9 @@ FleetStatusComponent MakePlatformFleet() {
 
 /// 演示覆盖区域多边形：平台东侧目标带（约 3 km 纵向 × 3 km 横向，
 /// 起点距平台约 4.8 km）。飞行段按 c172x 实际巡航（~65 m/s，200 周期
-/// ≈ 13 km）设计：航点间距 3 km > 机动捕获半径（v²/(g·tan(最大坡度))×1.5
-/// ≈ 1.7 km，见 FlightManager 到达判定），保证航段间有真实飞行；
-/// 原 200 m 间距/近区方案会被捕获半径整体吞掉（航点瞬间完成）。
+/// ≈ 13 km）设计：中间航点按导航语义完成（法平面穿越 / 到达半径
+/// max(半径, 100 m)），间距不再受转弯量级捕获圈约束；3 km 间距与
+/// 区域位置按飞行可见性调参（起飞巡航 → 到达区域 → 扫描推进全程可见）。
 std::vector<oneq::coordinate::LlaPositionDegM> MakeDemoPolygon() {
   std::vector<oneq::coordinate::LlaPositionDegM> vertices;
   vertices.push_back({kDemoLatDeg - 0.0135, kDemoLonDeg + 0.05, kDemoAltM});
@@ -149,7 +149,7 @@ entt::entity AssembleBehaviorLayer(entt::registry& registry,
   tasking.region.polygon.vertices = MakeDemoPolygon();
   tasking.region_config.mode = navigation::CoverageMode::kScan;
   tasking.region_config.scan_heading_deg = 0.0;
-  // 扫描线距 3 km：远大于机动捕获半径（~1.7 km），航段间有真实飞行。
+  // 扫描线距 3 km：中间航点完成不再受捕获圈约束，此间距为飞行可见性设计。
   tasking.region_config.scan_spacing_m = 3000.0;
   tasking.region_config.altitude_m = kDemoAltM;
   tasking.region_config.speed_mps = cruise_speed_mps;

@@ -105,6 +105,16 @@ bool FlightManager::Step(double dt_sec) {
       maneuver_exec_->Abort();
       return false;
     }
+    // 中间/最终航点语义按"当前队列"每步重估：kFlyToWaypoint 队列是增量 Push 的
+    // （首航点派发时后继尚未入队），派发时一次性定死会把首航点误判为最终航点，
+    // 导致整条紧间距航路在第 1 步坍缩。后继仍是 kFlyToWaypoint 的当前航点为中间航点。
+    if (maneuver_exec_ &&
+        diagnostics_.current_type == guidance::ManeuverType::kFlyToWaypoint) {
+      maneuver_exec_->SetIntermediateWaypoint(
+          current_maneuver_index_ < maneuver_queue_.size() &&
+          maneuver_queue_[current_maneuver_index_].type ==
+              guidance::ManeuverType::kFlyToWaypoint);
+    }
     if (maneuver_exec_->IsManeuverComplete()) {
       diagnostics_.outcome = ManeuverOutcome::kCompleted;
       diagnostics_.Print();

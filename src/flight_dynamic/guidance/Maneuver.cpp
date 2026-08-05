@@ -21,6 +21,10 @@ namespace guidance {
 namespace {
 
 constexpr double kEarthRadiusM = 6378137.0;
+// 中间航点（队列后继仍是 kFlyToWaypoint）的到达半径下限。与 Waypoint::radius_m 的
+// 默认值一致：到达事件是纯导航判定（飞机物理到达该点），与机型无关；转弯可行性
+// 不进入完成门，路径圆角随各机型自身转弯半径自然缩放。
+constexpr double kIntermediateWaypointArrivalFloorM = 100.0;
 constexpr double kLandingHighSpeedOrbitFactor = 1.35;
 constexpr double kLandingHighAltitudeOrbitMinSpeedMps = 120.0;
 constexpr double kLandingHighAltitudeOrbitMinRadiusM = 3000.0;
@@ -295,6 +299,10 @@ double CrossTrackDistanceM(const JSBSim::FGLocation& location,
 ManeuverExecutor::ManeuverExecutor(adapter::JsbsimAdapter& adapter, autopilot::Autopilot& ap,
                                    WaypointManager& wp_manager, propulsion::EngineManager& engines)
     : adapter_(adapter), ap_(ap), wp_manager_(wp_manager), engines_(engines) {}
+
+void ManeuverExecutor::SetIntermediateWaypoint(bool intermediate) {
+  intermediate_waypoint_ = intermediate;
+}
 
 void ManeuverExecutor::ExecuteFlyTo(const Waypoint& target) {
   // Clamp waypoint altitude to aircraft ceiling.
@@ -725,8 +733,17 @@ bool ManeuverExecutor::IsManeuverComplete() const {
       if (speed_mps < 10.0) speed_mps = 10.0;
       double max_bank_rad = ap_.GetControlProfile().max_roll_angle_deg * 0.0174533;
       double min_turn_radius_m = (speed_mps * speed_mps) / (9.81 * std::tan(max_bank_rad));
+      // 完成判定区分中间/最终航点（由 FlightManager 按队列后继设置）：
+      // - 最终航点（单航点或队列末尾）：到达 = 转弯量级捕获圈 max(radius_m, 1.5×转弯半径)。
+      //   容差按机型/速度实时推导——不同型号飞行器转弯能力差异巨大，不可一概而论用定值。
+      // - 中间航点（后继仍是 kFlyToWaypoint）：到达 = 法平面穿越（cross-track corridor 内）
+      //   或进入 max(radius_m, 100m) 到达圈（纯导航事件，与机型无关）。若沿用转弯量级
+      //   捕获圈，航点间距小于捕获圈的航路会在起步时被整条吞掉（飞机未飞即全部"到达"）；
+      //   转弯可行性交还飞行物理，路径圆角随各机型自身转弯半径自然缩放。
       double effective_radius_m =
-          std::max(current_maneuver_.target.radius_m, min_turn_radius_m * 1.5);
+          intermediate_waypoint_
+              ? std::max(current_maneuver_.target.radius_m, kIntermediateWaypointArrivalFloorM)
+              : std::max(current_maneuver_.target.radius_m, min_turn_radius_m * 1.5);
       if (wp_manager_.IsAtOrPastTarget(effective_radius_m)) return true;
 
       // Fly-past detection: if the aircraft started this maneuver already past

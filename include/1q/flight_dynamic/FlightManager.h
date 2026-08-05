@@ -65,6 +65,10 @@ enum class FlightManagerState {
  * - kFlyToWaypoint：target=目标航点(lat/lon/alt/radius_m)；
  *   heading_tolerance_rad=航向收敛容差(rad，默认 0.035≈2°)；
  *   altitude_tolerance_m=高度收敛容差(m，默认 10)。value/duration_sec 未使用。
+ *   完成语义区分中间/最终航点：队列中后继仍是 kFlyToWaypoint 的中间航点按导航语义
+ *   完成（法平面穿越 / 到达半径 max(radius_m, 100m)）；最终航点（单航点或队列末尾）
+ *   按转弯量级捕获圈 max(radius_m, 1.5×转弯半径) 完成（容差按机型/速度实时推导，
+ *   不同型号不可一概而论）。详见 docs/flight_dynamic/algorithms.md 航路点到达语义。
  * - kOrbit：target=圆心航点；value=盘旋半径(m)；
  *   duration_sec=持续时间(s，0 表示绕行一圈即完成)。其余字段未使用。
  * - kSetHeading：value=目标航向(rad)；heading_tolerance_rad=收敛容差(rad)。

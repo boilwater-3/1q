@@ -158,6 +158,15 @@ class ManeuverExecutor {
   void ExecuteLand(const Waypoint& target, double approach_speed_mps = 0.0);
 
   /**
+   * @brief 设置当前 kFlyToWaypoint 是否为"中间航点"（队列后继仍是 kFlyToWaypoint）。
+   * @param[in] intermediate true 表示中间航点，false 表示最终航点（默认）。
+   * @note 中间航点按导航语义完成（法平面穿越 / 到达半径），最终航点按转弯量级捕获圈
+   * 完成（机型相关容差）。由 FlightManager 在步进时按当前队列重估（队列增量 Push，
+   * 派发时后继可能尚未入队），用户不直接调用。
+   */
+  void SetIntermediateWaypoint(bool intermediate);
+
+  /**
    * @brief 当前机动是否已完成（含收敛、坠毁、中止等判定）。
    * @return 完成返回 true。
    */
@@ -209,6 +218,7 @@ class ManeuverExecutor {
   propulsion::EngineManager& engines_;
   Maneuver current_maneuver_;
   bool active_ = false;
+  bool intermediate_waypoint_ = false;  // kFlyToWaypoint 是否为中间航点（见 SetIntermediateWaypoint）
   double elapsed_sec_ = 0.0;
   TakeoffPhase takeoff_phase_ = TakeoffPhase::kEngineStart;
   double takeoff_target_altitude_m_ = 0.0;
