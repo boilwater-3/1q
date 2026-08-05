@@ -35,7 +35,9 @@
 #include "1q/flight_dynamic/config/FlightDynamicConfig.h"
 #include "1q/flight_dynamic/guidance/Maneuver.h"
 #include "1q/flight_dynamic/guidance/Waypoint.h"
+#include "1q/flight_dynamic/guidance/WaypointSequencingEvent.h"
 #include "1q/flight_dynamic/model/VehicleState.h"
+#include "viz_recorder.h"
 #endif
 
 namespace behavior_layer {
@@ -221,6 +223,47 @@ double FlightCruiseSpeedMps(const FlightDynamicsHolder& holder) {
 #else
   (void)holder;
   return 0.0;
+#endif
+}
+
+std::vector<WaypointEventRow> CollectWaypointEvents(entt::registry& registry) {
+#if defined(ONEQ_BL_FLIGHT_DYNAMIC_ENABLED)
+  std::vector<WaypointEventRow> rows;
+  FlightDynamicsHolder* holder = GetFlightDynamics(registry);
+  if (holder == nullptr) {
+    return rows;  // FD 不可用（运动学回退）：无航点完成事件可记
+  }
+  rows.reserve(holder->manager.GetWaypointEvents().size());
+  for (const auto& event : holder->manager.GetWaypointEvents()) {
+    WaypointEventRow row;
+    row.t_sec = event.sim_time_sec;
+    row.waypoint_index = event.waypoint_index;
+    row.intermediate = event.intermediate;
+    using oneq::flight_dynamic::guidance::WaypointCompletionGate;
+    switch (event.gate) {
+      case WaypointCompletionGate::kWithinRadius:
+        row.gate = "within_radius";
+        break;
+      case WaypointCompletionGate::kPlaneCrossing:
+        row.gate = "plane_crossing";
+        break;
+      case WaypointCompletionGate::kFlyPastHeuristic:
+        row.gate = "fly_past";
+        break;
+      default:
+        row.gate = "unknown";
+        break;
+    }
+    row.distance_m = event.distance_m;
+    row.cross_track_m = event.cross_track_m;
+    row.along_track_m = event.along_track_m;
+    row.threshold_m = event.threshold_m;
+    rows.push_back(row);
+  }
+  return rows;
+#else
+  (void)registry;
+  return {};
 #endif
 }
 

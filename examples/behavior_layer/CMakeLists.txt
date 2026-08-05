@@ -16,7 +16,8 @@ add_executable(behavior_layer_demo
     behavior_layer_demo.cpp
     systems.cpp
     assembly.cpp
-    flight_system.cpp)
+    flight_system.cpp
+    viz_recorder.cpp)
 target_link_libraries(behavior_layer_demo PRIVATE ${PROJECT_ALIAS} EnTT::EnTT)
 target_include_directories(behavior_layer_demo PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}"
@@ -45,8 +46,25 @@ if(BUILD_TESTING)
     # EnTT 依赖链冒烟：仅当 ENABLE_EXAMPLES=ON 时该 target 存在（对齐 batch_validation 先例）。
     # FD ON 时 demo 运行真实飞行仿真（2000 子步 JSBSim；nightly debug 模式吃紧，
     # 超时放宽到与 fd 测试分区一致；release 本地运行远快于此）。
-    add_test(NAME examples::behavior_layer_demo COMMAND $<TARGET_FILE:behavior_layer_demo>)
+    # 可视化 CSV 输出到构建目录，供 viewer 校验测试消费（不污染 /tmp）。
+    add_test(NAME examples::behavior_layer_demo
+        COMMAND $<TARGET_FILE:behavior_layer_demo>
+            --output-dir "${CMAKE_BINARY_DIR}/behavior_layer_viz")
     set_tests_properties(examples::behavior_layer_demo PROPERTIES
         LABELS "examples;behavior_layer"
         TIMEOUT 180)
+    # 可视化导出回归：demo 产物跑 build_viewer.py --check
+    # （CSV 结构/表头 + 统一 ENU 原点不变量）。Python3 缺失时不注册
+    # （查看器属可选工具链，不进强制测试面）。
+    find_package(Python3 COMPONENTS Interpreter QUIET)
+    if(Python3_Interpreter_FOUND)
+        add_test(NAME examples::behavior_layer_viewer_check
+            COMMAND ${Python3_EXECUTABLE}
+                ${CMAKE_CURRENT_SOURCE_DIR}/build_viewer.py --check
+                "${CMAKE_BINARY_DIR}/behavior_layer_viz")
+        set_tests_properties(examples::behavior_layer_viewer_check PROPERTIES
+            LABELS "examples;behavior_layer"
+            DEPENDS examples::behavior_layer_demo
+            TIMEOUT 60)
+    endif()
 endif()

@@ -14,6 +14,7 @@
 #include <entt/entt.hpp>
 
 #include "components.h"
+#include "viz_recorder.h"
 
 namespace behavior_layer {
 
@@ -32,6 +33,12 @@ FlightDynamicsHolder* GetFlightDynamics(entt::registry& registry);
 
 /** @brief 返回飞行器巡航速度（m/s，来自 JSBSim 性能面；未创建时为 0）。 */
 double FlightCruiseSpeedMps(const FlightDynamicsHolder& holder);
+
+/**
+ * @brief 收集本会话已完成的 kFlyToWaypoint 事件（决策快照行）。
+ * @note 供可视化导出用；FD 关闭或初始化失败时返回空（无航点完成事件可记）。
+ */
+std::vector<WaypointEventRow> CollectWaypointEvents(entt::registry& registry);
 
 }  // namespace behavior_layer
 
