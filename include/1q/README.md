@@ -15,6 +15,7 @@
   - 电子侦察雷达：`1q/electronic_surveillance_radar/electronic_surveillance_radar.hpp`
   - 光电传感器：`1q/electro_optical_sensor/electro_optical_sensor.hpp`
   - 合成孔径雷达：`1q/sar/sar.hpp`
+  - 路径规划：`1q/navigation/navigation.hpp`
   - 飞行动力学：`1q/flight_dynamic/FlightManager.h`
 
 ## Common
