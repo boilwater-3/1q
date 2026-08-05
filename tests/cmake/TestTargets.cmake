@@ -21,6 +21,7 @@ set(_oneq_unit_partition_targets
     ${PROJECT_NAME}_sbirs_sensor_unit_tests
     ${PROJECT_NAME}_sar_unit_tests
     ${PROJECT_NAME}_navigation_unit_tests
+    ${PROJECT_NAME}_fusion_unit_tests
     ${PROJECT_NAME}_flight_dynamic_unit_tests)
 foreach(_p IN LISTS _oneq_unit_partition_targets)
     if(TARGET ${_p})

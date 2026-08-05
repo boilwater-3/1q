@@ -93,6 +93,16 @@ if(_oneq_unit_navigation)
         TIMEOUT 60)
 endif()
 
+# fusion.
+file(GLOB _oneq_unit_fusion CONFIGURE_DEPENDS
+    "${CMAKE_CURRENT_SOURCE_DIR}/unit/fusion/*_test.cpp")
+if(_oneq_unit_fusion)
+    oneq_add_test_partition(
+        TYPE unit DOMAIN fusion
+        SOURCES ${_oneq_unit_fusion}
+        TIMEOUT 60)
+endif()
+
 # electro_optical_sensor (EOS).
 file(GLOB _oneq_unit_electro_optical_sensor CONFIGURE_DEPENDS
     "${CMAKE_CURRENT_SOURCE_DIR}/unit/electro_optical_sensor/*_test.cpp")
