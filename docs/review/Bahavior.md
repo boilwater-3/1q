@@ -14,6 +14,10 @@ Authority: 行为组件层（决策 / 机动 / 侦察 / 干扰）分解设计的
 > `examples/behavior_layer/`（`entt/3.14.0` 为消费方侧依赖，含依赖链冒烟测试），
 > 并已接入 **AR/ESR/EOS 三传感器单平台全链**（跨源身份直挂 + 方位相干合并、
 > ECM 观测帧由 ESR 输出填充），详见 `examples/behavior_layer/README.md`。
+> 平台动力学接线：示例侧已按"分发与驱动 FlightManager 仍是消费方职责"（§5）
+> 实现 `flight_system`（`RoutePlanComponent` → `kFlyToWaypoint` 机动队列适配；
+> `ONEQ_ENABLE_FLIGHT_DYNAMIC=ON` 时真实飞行仿真，默认 OFF 回退运动学），
+> 库内冻结决策不变（§3.1 不绑定、§5 命令帧不新增飞行指令）。
 > 演进路线：ECS 组件/系统模式将逐步取代现有 session_usage/scene 类示例，
 > 旧示例在迁移完成前保留（见 examples/README.md）。
 

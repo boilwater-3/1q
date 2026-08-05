@@ -4,6 +4,11 @@
 # 共享装配：链接主库 + 注入 src 与 jsbsim 头路径 + 运行时数据根目录。
 macro(setup_fd_example target)
     target_link_libraries(${target} PRIVATE ${PROJECT_ALIAS})
+    # 公共静态库不传播组件级 PRIVATE 依赖（src/CMakeLists.txt 链接闭包注释），
+    # FD 消费方需显式链接 JSBSim（对齐 tests/cmake/FlightDynamicPartitions.cmake
+    # 与 examples/behavior_layer 先例；此前仅在 FD ON + ENABLE_EXAMPLES=ON 的
+    # 全量构建中暴露，nightly 未开 ENABLE_EXAMPLES 故未发现）。
+    target_link_libraries(${target} PRIVATE JSBSim::JSBSim)
     target_include_directories(${target} PRIVATE "${CMAKE_SOURCE_DIR}/src")
     target_include_directories(${target} SYSTEM PRIVATE
         "${CMAKE_SOURCE_DIR}/third_party/jsbsim/src")

@@ -93,11 +93,13 @@ header-only，**example 侧依赖，不进入库本体**）registry 承担，逻
 - **组件**：`TaskingComponent`（角色/上下级/区域任务）、`SensorObservationComponent`、
   `FleetStatusComponent`、`RoutePlanComponent`、`FusedSituationComponent`、
   `CommandFrameComponent`；
-- **系统**（每周期按 `recon → maneuver → jam → decision` 顺序执行，对齐 session
-  `Step` 语义）：侦察（**三传感器 AR/ESR/EOS 会话同周期推进**，输出在边界适配为
-  泛型探测记录并经融合引擎跨源合并）、机动规划（长机调 `navigation` 面规划全员
-  航路）、干扰（经 ECM 既有公共面构造周期输入，观测帧由 ESR 输出填充）、决策
-  （聚合产出命令帧，消费方读取后驱动 `SubmitExternalDecision` 等执行面）；
+- **系统**（每周期按 `flight → recon → maneuver → jam → decision` 顺序执行，对齐
+  session `Step` 语义）：飞行（平台动力学——`ONEQ_ENABLE_FLIGHT_DYNAMIC=ON` 时经
+  `flight_dynamic::FlightManager` 真实飞行仿真，关闭/数据缺失回退运动学）、侦察
+  （**三传感器 AR/ESR/EOS 会话同周期推进**，输出在边界适配为泛型探测记录并经
+  融合引擎跨源合并）、机动规划（长机调 `navigation` 面规划全员航路）、干扰
+  （经 ECM 既有公共面构造周期输入，观测帧由 ESR 输出填充）、决策（聚合产出
+  命令帧，消费方读取后驱动 `SubmitExternalDecision` 等执行面）；
 - **事件模型**：命令 = 写命令帧组件；事件报告 = `entt::observer` 响应组件变化，
   不建全局事件总线。
 

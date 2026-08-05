@@ -42,6 +42,12 @@ Answers: flight_dynamic 用了哪些算法、各自实现到什么地步、边�
 - **实现边界**：
   1. 不把 JSBSim 属性名直接泄露给调用方。
   2. 不在状态映射层修正控制问题；控制应回到 autopilot、maneuver 或 XML/profile。
+  3. **纬度语义必须是 WGS84 大地纬度（geodetic）**：JSBSim 1.3.1 的
+     `FGLocation::GetLatitude` / `FGInitialCondition::SetLatitudeDegIC` 均为地心纬度
+     （geocentric）语义，1Q 必须走 `GetGeodLatitudeRad` / `SetGeodLatitudeDegIC`。
+     两约定在赤道重合、非赤道相差可达 ~0.19°（30°N ≈ 18.5 km）——曾导致 IC 位置与
+     `VehicleState.latitude_rad` 整体北移，行为层示例航点跟踪随之偏离（2026-08-05 修复，
+     回归测试见 fd_adapter_test 的 InitialLatitudeIsGeodeticNotGeocentric）。
 - **证据**：[evidence: tests/unit/flight_dynamic/fd_adapter_test]
 
 ## 自动驾驶 profile 与控制律

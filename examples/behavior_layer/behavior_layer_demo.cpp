@@ -8,6 +8,10 @@
  *     仅方位经方位相干并入 ESR 航迹）→ maneuver 规划航路 → jam 构造
  *     ECM 输入帧 → decision 产出命令帧 → 消费方读取并驱动执行面。
  *
+ * 平台动力学：flight_system 驱动（ONEQ_ENABLE_FLIGHT_DYNAMIC=ON 时为 JSBSim
+ * c172x 真实飞行仿真，RoutePlan → FlightManager 机动队列适配；关闭或数据
+ * 缺失时回退运动学近似），每周期同步到三传感器实体。
+ *
  * 事件报告节奏：每周期迭代 entt::observer（新目标/消失事件），
  * 命令 = 写 CommandFrameComponent（无全局事件总线，冻结契约 §5）。
  *
@@ -38,6 +42,7 @@
 #include "config_loaders/electronic_warfare/config_loader.h"
 #include "assembly.h"
 #include "components.h"
+#include "systems.h"
 
 namespace ar = airborne_radar;
 namespace ar_session = airborne_radar::session;
@@ -45,9 +50,7 @@ namespace bl = behavior_layer;
 
 namespace {
 
-constexpr std::uint32_t kNumCycles = 50U;
-constexpr double kDtSec = 1.0;
-constexpr double kEarthRadiusM = 6371000.0;
+constexpr std::uint32_t kNumCycles = 200U;
 constexpr double kPi = 3.14159265358979323846;
 
 /// 加载三份会话配置（复用各域 config_loader 与 examples/configs/ 同源 JSON）。
@@ -105,10 +108,11 @@ EnuBasis MakeEnuBasis(const oneq::coordinate::LlaPositionDegM& origin) {
   return basis;
 }
 
-/// 目标脚本：3 个空中目标（与平台同高度，斜距 12-14 km）。
-/// 方位（北偏东）落在 EOS 扫描覆盖内（平台局部系 az 0 = 东，扫描 ±40°），
-/// 斜距落在 EOS 探测距离窗内（平台 700 m + 水平视轴 → [10, 40] km），
-/// 三传感器同见同一物理目标。
+/// 目标脚本：3 个空中目标（正东前方 16-20 km，与平台同速东移）。
+/// 方位（北偏东 90° = 正东）落在 EOS 扫描覆盖内（平台局部系 az 0 = 东，
+/// 扫描 ±40°）；平台以 ~54-65 m/s 东飞 200 周期，目标 v_east 与其匹配 →
+/// 相对斜距稳定在 EOS 探测距离窗（[10, 40] km）内，三传感器全程同见
+/// 同一物理目标。
 struct ScriptedTarget {
   double azimuth_deg;       /**< 真方位（北偏东，deg） */
   double range_m;           /**< 斜距（m） */
@@ -120,9 +124,9 @@ struct ScriptedTarget {
 };
 
 const ScriptedTarget kTargetScript[] = {
-    {60.0, 12000.0, 30.0, 40.0, 520.0, 2.2f, 18.0f},
-    {90.0, 14000.0, 20.0, -30.0, 540.0, 1.4f, 15.0f},
-    {120.0, 12000.0, -40.0, 20.0, 560.0, 3.0f, 20.0f},
+    {90.0, 16000.0, 60.0, 10.0, 520.0, 2.2f, 18.0f},
+    {90.0, 18000.0, 62.0, -5.0, 540.0, 1.4f, 15.0f},
+    {90.0, 20000.0, 58.0, 0.0, 560.0, 3.0f, 20.0f},
 };
 
 /// 目标 ECEF 运动学状态（三通道共享同一物理目标）。
@@ -230,19 +234,10 @@ void AdvanceTargetStates(std::vector<TargetEcefState>& states, double dt_s) {
   }
 }
 
-/// 平台 LLA 近似推进（消费方世界模型：heading/speed → 经度/纬度变化率）。
-void AdvancePlatform(bl::FleetStatusComponent& fleet, double dt_s) {
-  const double heading_rad = fleet.heading_deg * kPi / 180.0;
-  const double vlat_rad_s = fleet.speed_mps * std::cos(heading_rad) / kEarthRadiusM;
-  const double vlon_rad_s = fleet.speed_mps * std::sin(heading_rad) /
-                            (kEarthRadiusM * std::cos(fleet.position.latitude_deg * kPi / 180.0));
-  const double rad_to_deg = 180.0 / kPi;
-  fleet.position.latitude_deg += vlat_rad_s * dt_s * rad_to_deg;
-  fleet.position.longitude_deg += vlon_rad_s * dt_s * rad_to_deg;
-}
-
-/// 打印单周期摘要：三会话状态 + 融合态势（按通道构成）+ 命令帧。
+/// 打印单周期摘要：三会话状态 + 平台飞行 + 融合态势（按通道构成）+ 命令帧。
 void PrintCycleSummary(std::uint32_t cycle, const bl::BehaviorContext& context,
+                       const bl::FleetStatusComponent& fleet, std::size_t waypoint_index,
+                       std::size_t waypoint_count,
                        const bl::FusedSituationComponent& situation,
                        const bl::CommandFrameComponent& command) {
   const auto& ar = context.last_ar_result;
@@ -252,6 +247,9 @@ void PrintCycleSummary(std::uint32_t cycle, const bl::BehaviorContext& context,
       command.ecm_inputs.empty() ? 0U
                                   : command.ecm_inputs[0].sensor_observation_frame.observations.size();
   std::cout << "cycle=" << cycle
+            << " plat[alt=" << fleet.position.altitude_m
+            << " hdg=" << fleet.heading_deg << " spd=" << fleet.speed_mps
+            << " wp=" << waypoint_index << "/" << waypoint_count << "]"
             << " ar[st=" << static_cast<int>(ar.status)
             << " tracks=" << ar.track_output_frame.tracks.size() << "]"
             << " esr[st=" << static_cast<int>(esr.status)
@@ -333,7 +331,9 @@ int main() {
       PrintRoute(route);
       route_printed = true;
     }
-    PrintCycleSummary(cycle, context, situation, command);
+    const auto& fleet = registry.get<bl::FleetStatusComponent>(lead);
+    PrintCycleSummary(cycle, context, fleet, route.next_index, route.route.size(), situation,
+                      command);
 
     // 事件触发报告（entt::observer）：新目标/消失目标（报告节奏属业务层）。
     for (const auto entity : *situation_observer) {
@@ -357,14 +357,9 @@ int main() {
       ++validation_error_count;
     }
 
-    // 消费方世界模型推进（在 Step 之后，与 session_usage 周期语义一致）。
-    AdvanceTargetStates(target_states, kDtSec);
-    AdvancePlatform(registry.get<bl::FleetStatusComponent>(lead), kDtSec);
-    // 平台状态聚合注入：三传感器实体与长机共享同一平台位姿。
-    const auto& lead_fleet = registry.get<bl::FleetStatusComponent>(lead);
-    for (const auto entity : registry.view<bl::SensorObservationComponent>()) {
-      registry.get<bl::FleetStatusComponent>(entity) = lead_fleet;
-    }
+    // 消费方世界模型推进（在 Step 之后，与 session_usage 周期语义一致）；
+    // 平台推进与传感器实体同步由 flight_system 在 StepBehaviorLayer 内完成。
+    AdvanceTargetStates(target_states, bl::kBehaviorDtSec);
   }
 
   std::cout << "\n=== Behavior Layer Summary ===\n"

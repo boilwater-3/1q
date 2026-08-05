@@ -129,6 +129,28 @@ TEST_F(FlightDynamicTest, InitialConditionsAcceptEcefPosition) {
   EXPECT_NEAR(adapter.GetProperty("velocities/v-down-fps"), -3.0 * kMToFt, 1.0e-6);
 }
 
+TEST_F(FlightDynamicTest, InitialLatitudeIsGeodeticNotGeocentric) {
+  // 回归：JSBSim 1.3.1 的 SetLatitudeDegIC/GetLatitude 均为地心纬度语义，
+  // 1Q 的 ExternalKinematics LLA 是 WGS84 大地纬度——曾导致非赤道纬度下
+  // IC 位置与 VehicleState 纬度整体北移（30°N 处 ≈ 18.5 km，见
+  // docs/flight_dynamic/algorithms.md 状态映射节）。赤道处两约定重合，
+  // 既有测试无法暴露该问题，这里在 30°N 显式断言。
+  config_.do_trim = false;
+  config_.initial_kinematics.position_lla_deg_m.latitude_deg = 30.0;
+  config_.initial_kinematics.position_lla_deg_m.longitude_deg = 120.0;
+
+  adapter::JsbsimAdapter adapter(config_);
+  const double kLat30Rad = 30.0 * M_PI / 180.0;
+  // 飞机真实位置（JSBSim ECEF 反算的大地纬度）必须等于配置的大地纬度。
+  EXPECT_NEAR(adapter.GetProperty("position/lat-geod-rad"), kLat30Rad, 1.0e-6);
+
+  FlightManager fm(config_);
+  ASSERT_EQ(fm.GetState(), FlightManagerState::kReady);
+  ASSERT_TRUE(fm.Step(kDt));
+  // VehicleState 纬度必须是大地纬度（修复前为地心纬度 30.1666°）。
+  EXPECT_NEAR(fm.GetVehicleState().latitude_rad, kLat30Rad, 1.0e-6);
+}
+
 TEST_F(FlightDynamicTest, AutopilotDetectsOwnApProfile) {
   FlightManager fm(config_);
   const auto& profile = fm.GetAutopilot().GetControlProfile();
@@ -871,8 +893,13 @@ class ProfileSnapshotTest
 #define SNAPSHOT_CHECK_STR(profile, field, expected) \
   EXPECT_EQ(profile.field, expected)
 
+// 性能面派生量来自 JSBSim 气动/大气输入，属数值派生结果：不同构建配置
+// （debug vs release+LTO）下末位浮点存在 ~1e-11 级差异（2026-08-05 在
+// release 构建实测 f16 ref_speed 差异 2.1e-11），EXPECT_DOUBLE_EQ（4 ULP）
+// 无法跨构建配置稳定；改为相对 1e-9 容差——仍能捕获真实回归（量级远大于
+// 该噪声），且 debug/release 均稳定。
 #define SNAPSHOT_CHECK_DBL(profile, field, expected) \
-  EXPECT_DOUBLE_EQ(profile.field, expected)
+  EXPECT_NEAR(profile.field, expected, std::fabs(expected) * 1.0e-9)
 
 TEST_P(ProfileSnapshotTest, MatchesExpectedProfile) {
   InitConfig();

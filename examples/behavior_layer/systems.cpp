@@ -1,6 +1,6 @@
 /**
  * @file systems.cpp
- * @brief 行为层四系统实现。
+ * @brief 行为层五系统实现。
  *
  * 每个系统为纯函数式推进：从组件/上下文读取输入，写入组件输出；
  * 会话与引擎经 BehaviorContext 访问，不直接持有会话状态。
@@ -32,9 +32,6 @@
 namespace behavior_layer {
 
 namespace {
-
-/// 单周期时长（s），与三会话周期语义一致。
-constexpr double kDtSec = 1.0;
 
 /// 决策门限：融合置信度达到该值视为高置信威胁（示例业务策略，非库内标准）。
 /// 单源单周期最高贡献 = 源权重（verdict=1 × quality=1），窗口 10。
@@ -178,7 +175,7 @@ void DriveArSession(BehaviorContext& context, const FleetStatusComponent& fleet,
   airborne_radar::session::ArCycleInput input;
   input.cycle_index = static_cast<std::uint32_t>(context.cycle);
   input.cycle_start_time_s = static_cast<double>(context.cycle);
-  input.dt_sec = kDtSec;
+  input.dt_sec = kBehaviorDtSec;
   input.platform = MakePlatformPose(fleet);
   input.targets = context.world_targets;  // 世界目标事实由消费方脚本注入
 
@@ -200,7 +197,7 @@ void DriveEsrSession(BehaviorContext& context, const FleetStatusComponent& fleet
   electronic_surveillance_radar::session::EsrCycleInput input;
   input.cycle_index = static_cast<std::uint32_t>(context.cycle);
   input.cycle_start_time_s = static_cast<double>(context.cycle);
-  input.dt_sec = static_cast<float>(kDtSec);
+  input.dt_sec = static_cast<float>(kBehaviorDtSec);
   input.platform_entity_id = fleet.platform_entity_id;
   input.has_platform_ecef_kinematics = true;
   oneq::coordinate::EcefPositionM ecef_position;
@@ -238,7 +235,7 @@ void DriveEosSession(BehaviorContext& context, const FleetStatusComponent& fleet
   electro_optical_sensor::session::EosCycleInput input;
   electro_optical_sensor::session::EosCoordinateStatus status;
   if (!electro_optical_sensor::session::EosCycleInputAdapter::Build(
-          pose, context.optical_targets, static_cast<float>(kDtSec), &input, &status)) {
+          pose, context.optical_targets, static_cast<float>(kBehaviorDtSec), &input, &status)) {
     sensor->detections.clear();  // 坐标适配失败：本周期不产生探测
     return;
   }
@@ -367,7 +364,7 @@ void jam_system(entt::registry& registry) {
     electronic_countermeasure::session::EcmCycleInput input;
     input.cycle_index = static_cast<std::uint32_t>(context.cycle);
     input.cycle_start_time_s = static_cast<double>(context.cycle);
-    input.dt_sec = kDtSec;
+    input.dt_sec = kBehaviorDtSec;
     input.input_mode = electronic_countermeasure::EcmInputMode::kSensorDriven;
     input.platform_entity_id = fleet.platform_entity_id;
     oneq::coordinate::EcefPositionM ecef_position;

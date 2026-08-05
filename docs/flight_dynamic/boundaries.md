@@ -37,8 +37,9 @@ JSBSim 属性边界和兼容期限。
 
 ## 编译开关
 
-模块由 `ONEQ_ENABLE_FLIGHT_DYNAMIC` 控制，默认 **OFF**。关闭时不编译模块目标和测试；JSBSim 仍是
-必选依赖（`src/common/environment/JsbsimAtmosphereAdapter` 需要）。启用后才提供目标、测试和示例。
+模块由 `ONEQ_ENABLE_FLIGHT_DYNAMIC` 控制，默认 **OFF**。关闭时不编译模块目标和测试；
+JSBSim 依赖（源码/预编译与 aircraft 数据）随之整体不解析（`JsbsimProvider.cmake` 短路），
+公共头 `include/1q/flight_dynamic/` 仍随整树安装。启用后才提供目标、测试和示例。
 
 ## 非目标
 

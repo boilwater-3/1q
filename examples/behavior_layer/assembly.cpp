@@ -12,6 +12,7 @@
 
 #include "1q/coordinate/types.h"
 #include "components.h"
+#include "flight_system.h"
 #include "systems.h"
 
 namespace behavior_layer {
@@ -26,8 +27,10 @@ constexpr std::uint32_t kFleetSize = 3U;
 constexpr double kDemoLatDeg = 30.0;
 constexpr double kDemoLonDeg = 120.0;
 constexpr double kDemoAltM = 700.0;
-constexpr double kDemoHeadingDeg = 90.0;  // 正东
-constexpr double kDemoSpeedMps = 100.0;
+constexpr double kDemoHeadingDeg = 90.0;  // 正东（飞向目标带/覆盖区域）
+// 标称巡航速度（业务层调参）：c172x 巡航约 65 m/s（FD 就绪时以性能面实际
+// 巡航覆盖，见第 5 步 CreateFlightDynamics）；运动学回退路径沿用本值。
+constexpr double kDemoSpeedMps = 65.0;
 
 /// 构造同一演示平台的编队状态（长机与三传感器实体共享，由消费方每周期同步）。
 FleetStatusComponent MakePlatformFleet() {
@@ -39,13 +42,17 @@ FleetStatusComponent MakePlatformFleet() {
   return fleet;
 }
 
-/// 演示覆盖区域多边形：平台东侧目标带（约 15~34 km 纵向，20 km 横向）。
+/// 演示覆盖区域多边形：平台东侧目标带（约 3 km 纵向 × 3 km 横向，
+/// 起点距平台约 4.8 km）。飞行段按 c172x 实际巡航（~65 m/s，200 周期
+/// ≈ 13 km）设计：航点间距 3 km > 机动捕获半径（v²/(g·tan(最大坡度))×1.5
+/// ≈ 1.7 km，见 FlightManager 到达判定），保证航段间有真实飞行；
+/// 原 200 m 间距/近区方案会被捕获半径整体吞掉（航点瞬间完成）。
 std::vector<oneq::coordinate::LlaPositionDegM> MakeDemoPolygon() {
   std::vector<oneq::coordinate::LlaPositionDegM> vertices;
-  vertices.push_back({kDemoLatDeg - 0.08, kDemoLonDeg + 0.15, kDemoAltM});
-  vertices.push_back({kDemoLatDeg - 0.08, kDemoLonDeg + 0.35, kDemoAltM});
-  vertices.push_back({kDemoLatDeg + 0.08, kDemoLonDeg + 0.35, kDemoAltM});
-  vertices.push_back({kDemoLatDeg + 0.08, kDemoLonDeg + 0.15, kDemoAltM});
+  vertices.push_back({kDemoLatDeg - 0.0135, kDemoLonDeg + 0.05, kDemoAltM});
+  vertices.push_back({kDemoLatDeg - 0.0135, kDemoLonDeg + 0.081, kDemoAltM});
+  vertices.push_back({kDemoLatDeg + 0.0135, kDemoLonDeg + 0.081, kDemoAltM});
+  vertices.push_back({kDemoLatDeg + 0.0135, kDemoLonDeg + 0.05, kDemoAltM});
   return vertices;
 }
 
@@ -119,10 +126,21 @@ entt::entity AssembleBehaviorLayer(entt::registry& registry,
   registry.emplace<FleetStatusComponent>(eos_sensor, MakePlatformFleet());
 
   // 5. 长机实体组件栈（任务/航路/融合/命令帧；平台位姿供 jam 取用）。
-  registry.emplace<FleetStatusComponent>(lead, MakePlatformFleet());
+  const FleetStatusComponent lead_fleet = MakePlatformFleet();
+  registry.emplace<FleetStatusComponent>(lead, lead_fleet);
   registry.emplace<RoutePlanComponent>(lead, RoutePlanComponent{});
   registry.emplace<FusedSituationComponent>(lead, FusedSituationComponent{});
   registry.emplace<CommandFrameComponent>(lead, CommandFrameComponent{});
+
+  // 飞行动力学（消费方职责）：FD 就绪时以性能面实际巡航覆盖标称速度，
+  // 规划速度与飞行器能力一致（避免油门饱和）。
+  CreateFlightDynamics(registry, lead_fleet);
+  FlightDynamicsHolder* fd_holder = GetFlightDynamics(registry);
+  const double cruise_speed_mps =
+      fd_holder != nullptr ? FlightCruiseSpeedMps(*fd_holder) : kDemoSpeedMps;
+  if (fd_holder != nullptr) {
+    registry.get<FleetStatusComponent>(lead).speed_mps = cruise_speed_mps;
+  }
 
   TaskingComponent tasking;
   tasking.role = Role::kLead;
@@ -131,9 +149,10 @@ entt::entity AssembleBehaviorLayer(entt::registry& registry,
   tasking.region.polygon.vertices = MakeDemoPolygon();
   tasking.region_config.mode = navigation::CoverageMode::kScan;
   tasking.region_config.scan_heading_deg = 0.0;
-  tasking.region_config.scan_spacing_m = 200.0;
+  // 扫描线距 3 km：远大于机动捕获半径（~1.7 km），航段间有真实飞行。
+  tasking.region_config.scan_spacing_m = 3000.0;
   tasking.region_config.altitude_m = kDemoAltM;
-  tasking.region_config.speed_mps = kDemoSpeedMps;
+  tasking.region_config.speed_mps = cruise_speed_mps;
   tasking.region_config.arrival_radius_m = 50.0;
   registry.emplace<TaskingComponent>(lead, tasking);
 
@@ -143,7 +162,9 @@ entt::entity AssembleBehaviorLayer(entt::registry& registry,
 void StepBehaviorLayer(entt::registry& registry) {
   auto& context = registry.ctx().get<BehaviorContext>();
   ++context.cycle;
-  // 周期调用序对齐 session Step 语义（冻结契约 §5）。
+  // 周期调用序对齐 session Step 语义（冻结契约 §5）；飞行系统最先执行，
+  // 传感器本周期即看到推进后的平台位姿。
+  flight_system(registry);
   recon_system(registry);
   maneuver_system(registry);
   jam_system(registry);

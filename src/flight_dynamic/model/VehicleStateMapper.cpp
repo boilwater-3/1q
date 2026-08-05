@@ -26,7 +26,11 @@ VehicleState VehicleStateMapper::Map(
 
   // Position
   const auto& loc = propagate.GetLocation();
-  s.latitude_rad = loc.GetLatitude();
+  // GetLatitude() 在 JSBSim 1.3.1 返回地心纬度；VehicleState 与 1Q coordinate
+  // 域一致使用 WGS84 大地纬度（GetGeodLatitudeRad）。地心/大地在赤道重合，
+  // 非赤道纬度相差可达 ~0.19°（30°N 处 ≈ 18.5 km）——曾导致 IC 位置与状态
+  // 输出整体北移（见 docs/flight_dynamic/algorithms.md 状态映射节）。
+  s.latitude_rad = loc.GetGeodLatitudeRad();
   s.longitude_rad = loc.GetLongitude();
   s.altitude_geod_m = loc.GetGeodAltitude() * kFtToM;
   s.altitude_agl_m = fdm_exec.GetPropertyValue(adapter::property::kHaglFt) * kFtToM;
@@ -94,7 +98,10 @@ void VehicleStateMapper::ApplyInitialConditions(
     has_initial_lla = coordinate::TryEcefToLla(kinematics.position_ecef_m, &initial_lla);
   }
   if (has_initial_lla) {
-    ic->SetLatitudeDegIC(initial_lla.latitude_deg);
+    // SetLatitudeDegIC 在 JSBSim 1.3.1 按地心纬度解释；ExternalKinematics 的
+    // LlaPositionDegM 是 WGS84 大地纬度，必须走 SetGeodLatitudeDegIC（非赤道
+    // 纬度下两者相差可达 ~0.19°，曾导致飞机起始位置整体北移）。
+    ic->SetGeodLatitudeDegIC(initial_lla.latitude_deg);
     ic->SetLongitudeDegIC(initial_lla.longitude_deg);
     // Zero altitude means "ground start": let reset00.xml's AGL value
     // (loaded earlier by JsbsimAdapter) place the gear at runway level.
