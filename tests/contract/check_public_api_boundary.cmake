@@ -175,6 +175,22 @@ set(FD_HEADERS
     "flight_dynamic/model/VehicleState.h"
 )
 
+set(NAVIGATION_HEADERS
+    "navigation/AreaCoveragePlanner.h"
+    "navigation/CoverageArea.h"
+    "navigation/CoveragePlanConfig.h"
+    "navigation/RoutePoint.h"
+    "navigation/navigation.hpp"
+)
+
+set(FUSION_HEADERS
+    "fusion/DetectionRecord.h"
+    "fusion/FusedTarget.h"
+    "fusion/FusionConfig.h"
+    "fusion/FusionEngine.h"
+    "fusion/fusion.hpp"
+)
+
 set(ENVIRONMENT_HEADERS
     "environment/AtmosphericState.h"
     "environment/AtmosphericTypes.h"
@@ -262,6 +278,8 @@ set(EXPECTED_PUBLIC_HEADERS
     ${ESR_EXTENSION_HEADERS}
     ${ESR_SESSION_HEADERS}
     ${FD_HEADERS}
+    ${NAVIGATION_HEADERS}
+    ${FUSION_HEADERS}
     ${SAR_MODULE_ENTRY_HEADERS}
     ${SAR_CONFIG_HEADERS}
     ${SAR_SESSION_HEADERS}

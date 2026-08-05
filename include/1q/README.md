@@ -15,6 +15,8 @@
   - 电子侦察雷达：`1q/electronic_surveillance_radar/electronic_surveillance_radar.hpp`
   - 光电传感器：`1q/electro_optical_sensor/electro_optical_sensor.hpp`
   - 合成孔径雷达：`1q/sar/sar.hpp`
+  - 路径规划：`1q/navigation/navigation.hpp`
+  - 多源融合：`1q/fusion/fusion.hpp`
   - 飞行动力学：`1q/flight_dynamic/FlightManager.h`
 
 ## Common
@@ -32,6 +34,10 @@
 - `replay/`：回放 trace 写入器（`ReplayTrace.h`），用于可复现仿真。
 - `flight_dynamic/`：JSBSim 动力学仿真入口（`FlightManager.h`），含 `config/`、
   `guidance/`、`model/`、`autopilot/` 子目录。
+- `navigation/`：区域覆盖路径规划算法面（`AreaCoveragePlanner.h`），独立中立
+  算法面，不绑定 flight_dynamic，输出度制中性航点（`RoutePoint`）。
+- `fusion/`：多源关联 + 置信度融合算法面（`FusionEngine.h`），泛型探测记录
+  （`DetectionRecord`），不感知传感器类型。
 
 ## Sensor Modules
 

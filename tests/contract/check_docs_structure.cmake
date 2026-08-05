@@ -36,6 +36,8 @@ set(ALLOWED_DOC_DIRS
     "electronic_countermeasure"
     "electronic_surveillance_radar"
     "flight_dynamic"
+    "fusion"
+    "navigation"
     "practice"
     "review"
     "sar"
@@ -47,6 +49,8 @@ set(BUSINESS_MODULE_DIRS
     "electronic_countermeasure"
     "electronic_surveillance_radar"
     "flight_dynamic"
+    "fusion"
+    "navigation"
     "sar"
     "space_based_infrared_sensor")
 

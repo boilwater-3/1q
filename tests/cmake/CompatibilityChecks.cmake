@@ -6,6 +6,14 @@ add_test(NAME public_header_cxx11_guard
         -P ${CMAKE_CURRENT_LIST_DIR}/../compatibility/public_api/check_public_header_cxx11.cmake)
 set_tests_properties(public_header_cxx11_guard PROPERTIES LABELS "compatibility;public_api")
 
+# 回归：CJK 注释误报 + 真实违规检出（fixture 头文件树）。
+add_test(NAME public_header_cxx11_guard_regression
+    COMMAND ${CMAKE_COMMAND}
+        -DFIXTURE_BASE_DIR=${CMAKE_CURRENT_BINARY_DIR}
+        -P ${CMAKE_CURRENT_LIST_DIR}/../compatibility/public_api/check_public_header_cxx11_regression.cmake)
+set_tests_properties(public_header_cxx11_guard_regression PROPERTIES
+    LABELS "compatibility;public_api")
+
 get_target_property(_oneq_sar_eigen_include_dirs Eigen3::Eigen INTERFACE_INCLUDE_DIRECTORIES)
 list(GET _oneq_sar_eigen_include_dirs 0 _oneq_sar_eigen_include_dir)
 if(MSVC)
