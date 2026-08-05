@@ -11,8 +11,9 @@ Authority: 行为组件层（决策 / 机动 / 侦察 / 干扰）分解设计的
 > **实施状态（2026-08-05）**：§3/§4 两个算法面骨架已落地为新模块 `navigation`、`fusion`
 > （含单元测试），以 `docs/navigation/`、`docs/fusion/` 模块文档为当前实现权威；
 > 本文仍为决策记录，不替代模块文档。§5 example（EnTT 业务层）已落地为
-> `examples/behavior_layer/`（`entt/3.14.0` 为消费方侧依赖，单域 AR 端到端参考实现，
-> 含依赖链冒烟测试），详见 `examples/behavior_layer/README.md`。
+> `examples/behavior_layer/`（`entt/3.14.0` 为消费方侧依赖，含依赖链冒烟测试），
+> 并已接入 **AR/ESR/EOS 三传感器单平台全链**（跨源身份直挂 + 方位相干合并、
+> ECM 观测帧由 ESR 输出填充），详见 `examples/behavior_layer/README.md`。
 > 演进路线：ECS 组件/系统模式将逐步取代现有 session_usage/scene 类示例，
 > 旧示例在迁移完成前保留（见 examples/README.md）。
 

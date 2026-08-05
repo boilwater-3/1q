@@ -37,6 +37,11 @@ enum class Role {
   kWingman,    /**< 僚机：有上级，被动零计算 */
 };
 
+/** @brief 演示源通道标识（与融合配置 source_weights 索引一致；索引 0 未用）。 */
+constexpr std::uint32_t kArSourceId = 1U;  /**< AR 源通道 */
+constexpr std::uint32_t kEsrSourceId = 2U; /**< ESR 源通道 */
+constexpr std::uint32_t kEosSourceId = 3U; /**< EOS 源通道 */
+
 /**
  * @brief 任务组件：角色、上下级与区域任务。
  * @note 层级来源为显式 Tasking 输入（确定性仿真无"发现"机制，冻结契约 §5）；
