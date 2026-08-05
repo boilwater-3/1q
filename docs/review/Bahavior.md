@@ -56,8 +56,10 @@ Authority: 行为组件层（决策 / 机动 / 侦察 / 干扰）分解设计的
 | 报告节奏策略、干扰任务分配策略 | 是 | example |
 | 与各 session 的接线（输出 → 输入帧 → 决策 → seam） | 是 | example |
 
-先例：`examples/electronic_warfare/`（EsrModule、integration_demo、config_loader）已是
-"跨模块业务级装配放 example、库内只留算法/模型"的现成形态。
+先例注记（2026-08-05）：`examples/electronic_warfare/`（EsrModule、integration_demo、
+config_loader）曾是"跨模块业务级装配放 example、库内只留算法/模型"的现成形态；
+该目录已随行为层落地而删除（三域 per-domain 示例功能并入 `examples/behavior_layer/`，
+config_loader 迁移至 `examples/common/config_loaders/`）。
 
 ## 3. 库内算法面一：路径规划面（新模块 `navigation`）
 
@@ -139,7 +141,8 @@ namespace navigation {
 
 ## 5. 消费方业务层（`examples/behavior_layer/` 参考实现，EnTT 驱动）
 
-与 `examples/electronic_warfare/` 平级的新示例目录，承载实体-组件模式的完整业务形态。
+承载实体-组件模式完整业务形态的新示例目录（前身为三域 per-domain 示例，已于
+2026-08-05 删除并并入本目录）。
 **ECS 选型（冻结）：引入 EnTT（header-only 轻量级 ECS，主流 C++17 实现，适配仿真项目），
 实体/组件装配由 `entt::registry` 承担，不手工搭建 ECS。**
 
@@ -190,7 +193,7 @@ examples/behavior_layer/
 
 | 冻结项 | 决策 | 关键证据 |
 |---|---|---|
-| 行为层整体定位 | **narrow**：业务面入 example；两个算法面入库 | `examples/electronic_warfare/` 先例；AGENTS.md 库定位 |
+| 行为层整体定位 | **narrow**：业务面入 example；两个算法面入库 | 三域示例先例（已并入 behavior_layer）；AGENTS.md 库定位 |
 | 路径规划面归属 | **pass**：新模块 `navigation`，不绑定 flight_dynamic | `ProjectOptions.cmake:76` 门控默认 OFF；消费方可能自有机动 |
 | 侦察关联键 | **pass**：纯库内身份 + 特征/空间关联，无外部身份通道 | ESR/EOS 输出去真值化纪律 |
 | 组件组合方式 | **修订**：EnTT 数据组件 + 系统（多态 `unique_ptr` 集合方案作废） | EnTT data-oriented 惯例；帧交换纪律更契合 |

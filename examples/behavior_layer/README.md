@@ -117,6 +117,6 @@ cmake --build --preset llvm-ninja-release-local --target behavior_layer_demo
 ## 演进路线
 
 ECS 组件/系统模式覆盖了 session_usage（API 教程）与 scene（端到端场景）类目的
-职责，将逐步取代现有 per-domain 示例；三传感器接入后，electronic_warfare 与
-electro_optical 旧示例的侦察/干扰内容已被本示例覆盖。旧示例在迁移完成前保留，
-本轮不迁移。
+职责；**三域（AR/ESR/EOS）per-domain 旧示例已于 2026-08-05 删除**，功能并入本示例；
+三域配置加载器迁移至 `examples/common/config_loaders/<域>/`（供本示例与
+batch_validation 共用）。SAR 示例与 flight_dynamic/batch_validation 保持不变。

@@ -2,9 +2,9 @@
 # EnTT 为 example 侧依赖（conanfile.py 基础清单，header-only，C++17），
 # 不进入库本体；契约见 docs/review/Bahavior.md §5 与本目录 README.md。
 #
-# 三域 config_loader（airborne_radar / electronic_warfare / electro_optical）
-# 同名文件，demo 以相对路径 include 避免歧义；配置 JSON 经 SCENE_CONFIG_DIR
-# 注入（examples/configs/，与 scene 先例一致）。
+# 三域配置加载器位于 examples/common/config_loaders/<域>/（共享便利层），
+# 经 ONEQ_EXAMPLE_COMMON_DIR 解析；配置 JSON 经 SCENE_CONFIG_DIR 注入
+# （examples/configs/，与 scene 先例一致）。
 
 find_package(EnTT CONFIG REQUIRED)
 

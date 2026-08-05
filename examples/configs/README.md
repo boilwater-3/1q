@@ -54,7 +54,9 @@ AR 始终使用物理探测链。`airborne_radar.json` 启用
 
 ## 加载方式
 
-示例程序通过轻量 JSON 解析器 `oneq::JsonReader` 加载配置文件，再通过域映射器（`examples/*_config_loader.h`）将 JSON 树转换为对应的 `*SessionConfig` 结构体。
+示例程序通过轻量 JSON 解析器 `oneq::JsonReader` 加载配置文件，再通过域映射器
+（`examples/common/config_loaders/<域>/config_loader.h`）将 JSON 树转换为对应的
+`*SessionConfig` 结构体。
 
 相关文档：
 - `docs/public_target_input_manual.md` — 单周期目标输入说明

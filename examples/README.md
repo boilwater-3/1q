@@ -10,11 +10,8 @@
 examples/
 ├── CMakeLists.txt                  编排层：定义共享变量 + add_subdirectory()
 ├── README.md                       本文件
-├── common/                         共享便利层：轻量 JSON 解析（不属于库 public surface）
+├── common/                         共享便利层：JSON 解析 + 三域 config_loaders（不属于库 public surface）
 ├── configs/                        四域会话配置 JSON（详见 configs/README.md）
-├── airborne_radar/                 AR 域示例（session / integration / scene / config_compare）
-├── electro_optical/                EOS 域示例（session / integration / scene）
-├── electronic_warfare/             ESR 域示例（session / integration / scene）
 ├── sar/                            SAR 域示例（session / integration）
 ├── behavior_layer/                 行为层参考实现（EnTT ECS 业务层，AR/ESR/EOS 三传感器全链）
 ├── flight_dynamic/                 机动模块 CSV 工具与轨迹生成（依赖 JSBSim）
@@ -23,27 +20,24 @@ examples/
 
 ## 示例分类
 
-每个传感器域（airborne_radar / electro_optical / electronic_warfare / sar）提供三类示例，
-按由浅入深的顺序排列：
+三域（AR/ESR/EOS）per-domain 示例已于 2026-08-05 删除——其 session_usage（API 教程）
+与 scene（端到端场景）类目功能并入 `behavior_layer/` 三传感器全链（见下文）。
+当前仅 SAR 保留 per-domain 示例形态：
 
 | 类别 | 程序命名 | 定位 | 配置来源 |
 | --- | --- | --- | --- |
-| **session_usage** | `<domain>_session_usage` | API 教程：Builder 构建配置 → 创建 Session → 多周期 StepWithResult | 代码内联 / config_loader |
-| **integration_demo** | `<domain>_integration_demo` | 集成示范：展示 `XxxModule` 包装类在外部引擎中的接入方式 | config_loader |
-| **scene** | `<domain>_scene` | 端到端场景：多目标对抗剧本 + 真实 session 跑多周期，模块级冒烟 | `examples/configs/*.json`（`SCENE_CONFIG_DIR`） |
+| **session_usage** | `sar_session_usage` | API 教程：Builder 构建配置 → 创建 Session → 多周期 StepWithResult | 代码内联 / config_loader |
+| **integration_demo** | `sar_integration_demo` | 集成示范：展示 `SarModule` 包装类在外部引擎中的接入方式 | config_loader |
 
-其中 airborne_radar 额外提供 `ar_config_compare_test`（多份 JSON 配置加载一致性校验）。
-SAR 当前无 scene 示例。
-
-> `integration_demo` 展示的是 `XxxModule` 包装类（内部用普通 Session）；
-> `scene` 与 `session_usage` 直接操作 Session / Adapter，二者定位不同。
+SAR 无 scene 示例；`integration_demo` 展示的是 `SarModule` 包装类（内部用普通 Session）。
 
 ## 共享便利层
 
-`common/` 提供 `json_reader`（`oneq::JsonReader`），是 example 层的 JSON 解析便利工具：
+`common/` 提供 example 层共享便利工具（**不属于 oneq 库的 public surface**——库内部不消费 JSON）：
 
-- **不属于 oneq 库的 public surface**——库内部不消费 JSON。
-- 各域示例通过 `config_loader.h` 调用它，将 JSON 树映射为 `*SessionConfig` 结构体。
+- `json_reader`（`oneq::JsonReader`）：轻量 JSON 解析；
+- `config_loaders/<域>/`：各传感器域 JSON → `*SessionConfig` 的映射器（`config_loader.h` 三件套），
+  供 `behavior_layer` 与 `batch_validation` 消费；
 - 由顶层 `CMakeLists.txt` 定义 `ONEQ_EXAMPLE_COMMON_DIR` / `ONEQ_EXAMPLE_COMMON_SOURCES`，
   各子目录通过目录作用域继承并内联到 target，无需函数传递。
 
@@ -55,7 +49,7 @@ SAR 当前无 scene 示例。
 # 1. 标准依赖引导（详见 cmake/README.md）
 bash scripts/bootstrap_conan.sh llvm-ninja-debug
 cmake --preset llvm-ninja-debug -DENABLE_EXAMPLES=ON
-cmake --build --preset llvm-ninja-debug --target airborne_radar_session_usage
+cmake --build --preset llvm-ninja-debug --target sar_session_usage
 ```
 
 飞行力动示例额外需要机动模块：
@@ -72,7 +66,7 @@ cmake --preset llvm-ninja-debug -DENABLE_EXAMPLES=ON -DONEQ_ENABLE_FLIGHT_DYNAMI
 
 | 宏 | 注入者 | 用途 |
 | --- | --- | --- |
-| `SCENE_CONFIG_DIR` | `<domain>_scene` | 指向 `examples/configs/`，供 config_loader 加载 JSON |
+| `SCENE_CONFIG_DIR` | `behavior_layer_demo` | 指向 `examples/configs/`，供 config_loader 加载 JSON |
 | `BATCH_CONFIG_DIR` | `*_batch_validation` | 同上，与 scene 同源 |
 | `FD_JSBSIM_ROOT_DIR` | flight_dynamic 全部 | JSBSim 飞机数据根目录，优先取 `ONEQ_JSBSIM_DATA_ROOT_DIR` |
 
@@ -107,10 +101,9 @@ header-only，**example 侧依赖，不进入库本体**）registry 承担，逻
 - **事件模型**：命令 = 写命令帧组件；事件报告 = `entt::observer` 响应组件变化，
   不建全局事件总线。
 
-> **演进路线**：ECS 组件/系统模式覆盖了 session_usage（API 教程）与 scene（端到端
-> 场景）类目的全部职责，将逐步取代现有 per-domain 示例；三传感器接入后，
-> electronic_warfare 与 electro_optical 旧示例内容已被覆盖。旧示例在迁移完成前
-> 保留，本轮不迁移（决策记录见 `docs/review/Bahavior.md` 实施状态注记）。
+> **演进路线（2026-08-05 已兑现）**：ECS 组件/系统模式覆盖了 session_usage 与 scene
+> 类目的全部职责；三域（AR/ESR/EOS）per-domain 旧示例已删除，功能并入本示例
+> （决策记录见 `docs/review/Bahavior.md` 实施状态注记）。
 
 ## 相关文档
 

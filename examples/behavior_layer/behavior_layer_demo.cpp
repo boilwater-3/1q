@@ -32,9 +32,10 @@
 #include "1q/electromagnetics/RfScene.h"
 #include "1q/fusion/FusedTarget.h"
 #include "1q/navigation/RoutePoint.h"
-#include "../airborne_radar/config_loader.h"
-#include "../electro_optical/config_loader.h"
-#include "../electronic_warfare/config_loader.h"
+// 三域配置加载器现位于 examples/common/config_loaders/<域>/（经 ONEQ_EXAMPLE_COMMON_DIR 解析）。
+#include "config_loaders/airborne_radar/config_loader.h"
+#include "config_loaders/electro_optical/config_loader.h"
+#include "config_loaders/electronic_warfare/config_loader.h"
 #include "assembly.h"
 #include "components.h"
 
