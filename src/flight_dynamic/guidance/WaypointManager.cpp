@@ -1,5 +1,6 @@
 #include "1q/flight_dynamic/guidance/WaypointManager.h"
 
+#include <algorithm>
 #include <cmath>
 
 #include "flight_dynamic/adapter/JsbsimAdapter.h"
@@ -55,16 +56,48 @@ bool WaypointManager::AdvanceToNext() {
   return false;
 }
 
+WaypointProximity WaypointManager::ResolveProximity() const {
+  if (!started_ || active_index_ >= waypoints_.size()) return WaypointProximity{};
+
+  const auto& wp = waypoints_[active_index_];
+  const auto& loc = adapter_.GetPropagate().GetLocation();
+
+  // 距离/航向沿用既有查询的同一计算（JSBSim 英尺→米），保证判定行为逐位不变。
+  WaypointProximity prox;
+  prox.distance_m = loc.GetDistanceTo(wp.longitude_rad, wp.latitude_rad) * 0.3048;
+  prox.heading_to_rad = loc.GetHeadingTo(wp.longitude_rad, wp.latitude_rad);
+
+  const great_circle_track::TrackMetricsM track = great_circle_track::ResolveTrackMetricsM(
+      leg_start_latitude_rad_, leg_start_longitude_rad_, wp.latitude_rad, wp.longitude_rad,
+      loc.GetGeodLatitudeRad(), loc.GetLongitude());
+  prox.valid = track.valid;
+  prox.cross_track_m = track.cross_track_m;
+  prox.along_track_m = track.along_track_m;
+  prox.leg_length_m = track.leg_length_m;
+  if (!track.valid) return prox;
+
+  // 法平面穿越 + corridor 防护（横向偏差超过 max(3000, 3×radius) 时不判越过，
+  // 防止大转弯中提前切航点）。
+  const double corridor_width_m = std::max(3000.0, wp.radius_m * 3.0);
+  prox.plane_crossed =
+      std::fabs(track.cross_track_m) <= corridor_width_m &&
+      track.along_track_m > track.leg_length_m;
+  return prox;
+}
+
 bool WaypointManager::IsAtTarget(double threshold_m) const {
   if (!started_ || waypoints_.empty()) return false;
-  double distance_m = GetDistanceToActiveM();
   const auto& wp = waypoints_[active_index_];
-  double thresh = (threshold_m > 0.0) ? threshold_m : wp.radius_m;
-  return distance_m < thresh;
+  const double thresh = (threshold_m > 0.0) ? threshold_m : wp.radius_m;
+  return ResolveProximity().distance_m < thresh;
 }
 
 bool WaypointManager::IsAtOrPastTarget(double threshold_m) const {
-  return IsAtTarget(threshold_m) || HasPassedActiveWaypoint();
+  if (!started_ || waypoints_.empty()) return false;
+  const auto& wp = waypoints_[active_index_];
+  const double thresh = (threshold_m > 0.0) ? threshold_m : wp.radius_m;
+  const WaypointProximity prox = ResolveProximity();
+  return prox.distance_m < thresh || prox.plane_crossed;
 }
 
 bool WaypointManager::IsFinished() const { return !started_ || active_index_ >= waypoints_.size(); }
@@ -91,24 +124,6 @@ void WaypointManager::SetLegStartFromCurrentLocation() {
   const auto& loc = adapter_.GetPropagate().GetLocation();
   leg_start_latitude_rad_ = loc.GetGeodLatitudeRad();
   leg_start_longitude_rad_ = loc.GetLongitude();
-}
-
-bool WaypointManager::HasPassedActiveWaypoint() const {
-  if (!started_ || active_index_ >= waypoints_.size()) return false;
-
-  const auto& wp = waypoints_[active_index_];
-  const auto& loc = adapter_.GetPropagate().GetLocation();
-  const great_circle_track::TrackMetricsM track = great_circle_track::ResolveTrackMetricsM(
-      leg_start_latitude_rad_, leg_start_longitude_rad_, wp.latitude_rad, wp.longitude_rad,
-      loc.GetGeodLatitudeRad(), loc.GetLongitude());
-  if (!track.valid) return false;
-
-  // If the aircraft is too far off-track, crossing the perpendicular plane shouldn't count as "passing".
-  // This prevents premature sequencing during large sweeping turns onto the leg.
-  double corridor_width_m = std::max(3000.0, wp.radius_m * 3.0);
-  if (std::fabs(track.cross_track_m) > corridor_width_m) return false;
-
-  return track.along_track_m > track.leg_length_m;
 }
 
 void WaypointManager::ApplyActiveWaypoint() {

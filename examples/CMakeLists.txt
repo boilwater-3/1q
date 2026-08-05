@@ -12,11 +12,13 @@ set(ONEQ_EXAMPLE_COMMON_DIR "${CMAKE_CURRENT_SOURCE_DIR}/common")
 set(ONEQ_EXAMPLE_COMMON_SOURCES
     "${ONEQ_EXAMPLE_COMMON_DIR}/json_reader.cpp")
 
-# 域示例：session_usage / config_compare / integration_demo / scene。
-add_subdirectory(airborne_radar)
-add_subdirectory(electro_optical)
-add_subdirectory(electronic_warfare)
+# SAR 域示例：session_usage / integration_demo（行为层不接 SAR，见 Bahavior.md §4.3）。
 add_subdirectory(sar)
+
+# 行为层参考实现（EnTT ECS 业务层）：组件/系统/装配均由消费方侧承担，
+# EnTT 为 example 侧依赖（conanfile.py 基础清单），不进入库本体（见 Bahavior.md §5）。
+# 三域（AR/ESR/EOS）旧示例已删除，功能并入 behavior_layer。
+add_subdirectory(behavior_layer)
 
 # 机动模块示例：仅在 ONEQ_ENABLE_FLIGHT_DYNAMIC 开启时纳入。
 if(ONEQ_ENABLE_FLIGHT_DYNAMIC)

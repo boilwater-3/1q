@@ -129,6 +129,28 @@ TEST_F(FlightDynamicTest, InitialConditionsAcceptEcefPosition) {
   EXPECT_NEAR(adapter.GetProperty("velocities/v-down-fps"), -3.0 * kMToFt, 1.0e-6);
 }
 
+TEST_F(FlightDynamicTest, InitialLatitudeIsGeodeticNotGeocentric) {
+  // 回归：JSBSim 1.3.1 的 SetLatitudeDegIC/GetLatitude 均为地心纬度语义，
+  // 1Q 的 ExternalKinematics LLA 是 WGS84 大地纬度——曾导致非赤道纬度下
+  // IC 位置与 VehicleState 纬度整体北移（30°N 处 ≈ 18.5 km，见
+  // docs/flight_dynamic/algorithms.md 状态映射节）。赤道处两约定重合，
+  // 既有测试无法暴露该问题，这里在 30°N 显式断言。
+  config_.do_trim = false;
+  config_.initial_kinematics.position_lla_deg_m.latitude_deg = 30.0;
+  config_.initial_kinematics.position_lla_deg_m.longitude_deg = 120.0;
+
+  adapter::JsbsimAdapter adapter(config_);
+  const double kLat30Rad = 30.0 * M_PI / 180.0;
+  // 飞机真实位置（JSBSim ECEF 反算的大地纬度）必须等于配置的大地纬度。
+  EXPECT_NEAR(adapter.GetProperty("position/lat-geod-rad"), kLat30Rad, 1.0e-6);
+
+  FlightManager fm(config_);
+  ASSERT_EQ(fm.GetState(), FlightManagerState::kReady);
+  ASSERT_TRUE(fm.Step(kDt));
+  // VehicleState 纬度必须是大地纬度（修复前为地心纬度 30.1666°）。
+  EXPECT_NEAR(fm.GetVehicleState().latitude_rad, kLat30Rad, 1.0e-6);
+}
+
 TEST_F(FlightDynamicTest, AutopilotDetectsOwnApProfile) {
   FlightManager fm(config_);
   const auto& profile = fm.GetAutopilot().GetControlProfile();
@@ -691,6 +713,150 @@ TEST_F(FlightDynamicTest, FlyToMultipleWaypointsThenOrbit) {
   EXPECT_GT(fm.GetVehicleState().sim_time_sec, 0.0);
 }
 
+TEST_F(FlightDynamicTest, TightSpacedWaypointRouteFlowsSequentially) {
+  // 回归：航点间距小于转弯量级捕获圈时，航路不得在起步时被整条吞掉。
+  // 旧语义下 c172x 捕获圈 = max(radius_m, 1.5×v²/(g·tan(max_bank))) ≈ 1.7-2.3 km，
+  // 间距 566/707 m 的航点会在第 1 步全部"到达"（飞机未动即整条航路完成）。
+  // 中间航点现按法平面穿越 / 到达半径（max(radius_m, 100 m)）完成，飞机必须真实
+  // 飞过每个航点；最终航点保留转弯量级到达容差（机型相关，不同型号不可一概而论）。
+  FlightManager fm(config_);
+
+  // 起点 (0,0)：wp0 (400,400) 间距 566 m、wp1 (1000,0) 间距 707 m（旧捕获圈内，
+  // 坍缩区间）；wp2 (9000,0) 末段 8 km（> 捕获圈，最终航点按捕获圈提前完成）。
+  constexpr double kDegM = 1.0 / 6.371e6;
+  struct Wp { double lat_rad; double lon_rad; };
+  const Wp wps[] = {
+      {400.0 * kDegM, 400.0 * kDegM},
+      {1000.0 * kDegM, 0.0},
+      {9000.0 * kDegM, 0.0},
+  };
+  for (const auto& wp : wps) {
+    ManeuverCommand fly;
+    fly.type = guidance::ManeuverType::kFlyToWaypoint;
+    fly.target.latitude_rad = wp.lat_rad;
+    fly.target.longitude_rad = wp.lon_rad;
+    fly.target.altitude_m = 500.0;
+    fm.PushManeuver(fly);
+  }
+
+  auto haversine_m = [](double lat1, double lon1, double lat2, double lon2) {
+    constexpr double kEarthRadiusM = 6.371e6;
+    const double dlat = lat2 - lat1;
+    const double dlon = lon2 - lon1;
+    const double a = std::sin(dlat / 2.0) * std::sin(dlat / 2.0) +
+                     std::cos(lat1) * std::cos(lat2) * std::sin(dlon / 2.0) * std::sin(dlon / 2.0);
+    return 2.0 * kEarthRadiusM * std::asin(std::sqrt(a));
+  };
+
+  // 名义航路长度（起点 → 各航点折线）。
+  double nominal_route_m = 0.0;
+  {
+    double prev_lat = 0.0;
+    double prev_lon = 0.0;
+    for (const auto& wp : wps) {
+      nominal_route_m += haversine_m(prev_lat, prev_lon, wp.lat_rad, wp.lon_rad);
+      prev_lat = wp.lat_rad;
+      prev_lon = wp.lon_rad;
+    }
+  }
+
+  // 沿轨迹累计飞行距离，通过航点完成事件记录（GetWaypointEvents，先于
+  // ExecuteNextManeuver 追加）检测每次完成的时刻，记录完成第 i 个航点时已
+  // 飞行的距离——坍缩时全部 ≈ 0（完成发生在起步瞬间），真实飞行时逐段增长。
+  double path_at_completion[3] = {0.0, 0.0, 0.0};
+  int completions = 0;
+  double path_length_m = 0.0;
+  double prev_lat = 0.0;
+  double prev_lon = 0.0;
+  bool have_prev = false;
+  for (int i = 0; i < 20000; ++i) {
+    if (!fm.Step(kDt)) break;
+    const auto& s = fm.GetVehicleState();
+    if (have_prev) {
+      path_length_m += haversine_m(prev_lat, prev_lon, s.latitude_rad, s.longitude_rad);
+    }
+    prev_lat = s.latitude_rad;
+    prev_lon = s.longitude_rad;
+    have_prev = true;
+
+    if (fm.GetWaypointEvents().size() > static_cast<std::size_t>(completions)) {
+      path_at_completion[completions] = path_length_m;
+      ++completions;
+    }
+    if (fm.GetState() == FlightManagerState::kCompleted) break;
+  }
+
+  EXPECT_EQ(completions, 3) << "三个航点应逐个完成";
+  EXPECT_EQ(fm.GetState(), FlightManagerState::kCompleted) << "紧间距航路应最终完成";
+  // 每个航点完成前必须真实飞向它：坍缩时三个"完成"都在起步瞬间（飞行距离 ≈ 0）。
+  EXPECT_GT(path_at_completion[0], 300.0) << "wp0 完成前必须飞行（566 m 航段；坍缩时为 0）";
+  EXPECT_GT(path_at_completion[1] - path_at_completion[0], 500.0)
+      << "wp1 完成前必须在 wp0 之后继续飞行";
+  EXPECT_GT(path_at_completion[2] - path_at_completion[1], 1000.0)
+      << "最终航点完成前必须沿长末段飞行（末段 8 km，捕获圈提前 ~2 km 完成）";
+  EXPECT_GT(path_length_m, 0.6 * nominal_route_m) << "总飞行距离不得低于名义航路的 60%";
+  EXPECT_GT(fm.GetVehicleState().sim_time_sec, 30.0) << "完成不应发生在起步瞬间";
+}
+
+TEST_F(FlightDynamicTest, WaypointSequencingEventsRecorded) {
+  // 航点完成事件记录：中间航点（到达半径 100 m）与最终航点（转弯量级捕获圈）
+  // 的事件应携带正确的门/阈值/索引/时间/中间语义。两个航点均取正北对头接近，
+  // 保证 kWithinRadius 门确定性命中（无 S 形收敛导致的法平面穿越）。
+  FlightManager fm(config_);
+
+  constexpr double kDegM = 1.0 / 6.371e6;
+  struct Wp { double lat_rad; double lon_rad; };
+  const Wp wps[] = {
+      {400.0 * kDegM, 0.0},   // 中间航点：400 m，到达半径 100 m
+      {9000.0 * kDegM, 0.0},  // 最终航点：8.6 km，转弯量级捕获圈
+  };
+  for (const auto& wp : wps) {
+    ManeuverCommand fly;
+    fly.type = guidance::ManeuverType::kFlyToWaypoint;
+    fly.target.latitude_rad = wp.lat_rad;
+    fly.target.longitude_rad = wp.lon_rad;
+    fly.target.altitude_m = 500.0;
+    fm.PushManeuver(fly);
+  }
+
+  RunUntilDone(fm, 20000);
+  ASSERT_EQ(fm.GetState(), FlightManagerState::kCompleted);
+
+  const auto& events = fm.GetWaypointEvents();
+  ASSERT_EQ(events.size(), 2U);
+  EXPECT_EQ(events[0].waypoint_index, 0U);
+  EXPECT_TRUE(events[0].intermediate) << "后继仍是 kFlyToWaypoint，应为中间航点语义";
+  EXPECT_EQ(events[0].gate, guidance::WaypointCompletionGate::kWithinRadius);
+  EXPECT_DOUBLE_EQ(events[0].threshold_m, 100.0) << "中间航点阈值为到达半径下限";
+  EXPECT_LE(events[0].distance_m, events[0].threshold_m + 1e-6);
+  EXPECT_GT(events[0].sim_time_sec, 0.0);
+
+  EXPECT_EQ(events[1].waypoint_index, 1U);
+  EXPECT_FALSE(events[1].intermediate) << "队列末尾应为最终航点语义";
+  EXPECT_EQ(events[1].gate, guidance::WaypointCompletionGate::kWithinRadius);
+  EXPECT_GT(events[1].threshold_m, 900.0) << "最终航点阈值应为转弯量级捕获圈";
+  EXPECT_LE(events[1].distance_m, events[1].threshold_m + 1e-6);
+  EXPECT_GT(events[1].sim_time_sec, events[0].sim_time_sec) << "事件应按完成顺序排列";
+
+  // Reset 清空事件记录。
+  fm.Reset(config_);
+  EXPECT_TRUE(fm.GetWaypointEvents().empty());
+}
+
+TEST_F(FlightDynamicTest, NonFlyToCompletionsProduceNoWaypointEvents) {
+  // 非 kFlyToWaypoint 的机动完成不应产生航点事件。
+  FlightManager fm(config_);
+
+  ManeuverCommand heading_cmd;
+  heading_cmd.type = guidance::ManeuverType::kSetHeading;
+  heading_cmd.value = 3.14;
+  fm.PushManeuver(heading_cmd);
+
+  RunUntilDone(fm, 8000);
+  EXPECT_EQ(fm.GetState(), FlightManagerState::kCompleted);
+  EXPECT_TRUE(fm.GetWaypointEvents().empty());
+}
+
 TEST_F(FlightDynamicTest, ResetAndReuse) {
   FlightManager fm(config_);
 
@@ -871,8 +1037,13 @@ class ProfileSnapshotTest
 #define SNAPSHOT_CHECK_STR(profile, field, expected) \
   EXPECT_EQ(profile.field, expected)
 
+// 性能面派生量来自 JSBSim 气动/大气输入，属数值派生结果：不同构建配置
+// （debug vs release+LTO）下末位浮点存在 ~1e-11 级差异（2026-08-05 在
+// release 构建实测 f16 ref_speed 差异 2.1e-11），EXPECT_DOUBLE_EQ（4 ULP）
+// 无法跨构建配置稳定；改为相对 1e-9 容差——仍能捕获真实回归（量级远大于
+// 该噪声），且 debug/release 均稳定。
 #define SNAPSHOT_CHECK_DBL(profile, field, expected) \
-  EXPECT_DOUBLE_EQ(profile.field, expected)
+  EXPECT_NEAR(profile.field, expected, std::fabs(expected) * 1.0e-9)
 
 TEST_P(ProfileSnapshotTest, MatchesExpectedProfile) {
   InitConfig();

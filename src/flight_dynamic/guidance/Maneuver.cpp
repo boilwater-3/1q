@@ -21,6 +21,10 @@ namespace guidance {
 namespace {
 
 constexpr double kEarthRadiusM = 6378137.0;
+// 中间航点（队列后继仍是 kFlyToWaypoint）的到达半径下限。与 Waypoint::radius_m 的
+// 默认值一致：到达事件是纯导航判定（飞机物理到达该点），与机型无关；转弯可行性
+// 不进入完成门，路径圆角随各机型自身转弯半径自然缩放。
+constexpr double kIntermediateWaypointArrivalFloorM = 100.0;
 constexpr double kLandingHighSpeedOrbitFactor = 1.35;
 constexpr double kLandingHighAltitudeOrbitMinSpeedMps = 120.0;
 constexpr double kLandingHighAltitudeOrbitMinRadiusM = 3000.0;
@@ -290,11 +294,31 @@ double CrossTrackDistanceM(const JSBSim::FGLocation& location,
   return -dn * std::sin(heading_rad) + de * std::cos(heading_rad);
 }
 
+const char* WaypointCompletionGateName(WaypointCompletionGate gate) {
+  switch (gate) {
+    case WaypointCompletionGate::kWithinRadius:
+      return "within-radius";
+    case WaypointCompletionGate::kPlaneCrossing:
+      return "plane-crossing";
+    case WaypointCompletionGate::kFlyPastHeuristic:
+      return "fly-past";
+  }
+  return "unknown";
+}
+
 }  // namespace
 
 ManeuverExecutor::ManeuverExecutor(adapter::JsbsimAdapter& adapter, autopilot::Autopilot& ap,
                                    WaypointManager& wp_manager, propulsion::EngineManager& engines)
     : adapter_(adapter), ap_(ap), wp_manager_(wp_manager), engines_(engines) {}
+
+void ManeuverExecutor::SetIntermediateWaypoint(bool intermediate) {
+  intermediate_waypoint_ = intermediate;
+}
+
+const WaypointSequencingEvent* ManeuverExecutor::GetLastSequencingEvent() const {
+  return has_last_sequencing_event_ ? &last_sequencing_event_ : nullptr;
+}
 
 void ManeuverExecutor::ExecuteFlyTo(const Waypoint& target) {
   // Clamp waypoint altitude to aircraft ceiling.
@@ -725,22 +749,62 @@ bool ManeuverExecutor::IsManeuverComplete() const {
       if (speed_mps < 10.0) speed_mps = 10.0;
       double max_bank_rad = ap_.GetControlProfile().max_roll_angle_deg * 0.0174533;
       double min_turn_radius_m = (speed_mps * speed_mps) / (9.81 * std::tan(max_bank_rad));
+      // 完成判定区分中间/最终航点（由 FlightManager 按队列后继设置）：
+      // - 最终航点（单航点或队列末尾）：到达 = 转弯量级捕获圈 max(radius_m, 1.5×转弯半径)。
+      //   容差按机型/速度实时推导——不同型号飞行器转弯能力差异巨大，不可一概而论用定值。
+      // - 中间航点（后继仍是 kFlyToWaypoint）：到达 = 法平面穿越（cross-track corridor 内）
+      //   或进入 max(radius_m, 100m) 到达圈（纯导航事件，与机型无关）。若沿用转弯量级
+      //   捕获圈，航点间距小于捕获圈的航路会在起步时被整条吞掉（飞机未飞即全部"到达"）；
+      //   转弯可行性交还飞行物理，路径圆角随各机型自身转弯半径自然缩放。
       double effective_radius_m =
-          std::max(current_maneuver_.target.radius_m, min_turn_radius_m * 1.5);
-      if (wp_manager_.IsAtOrPastTarget(effective_radius_m)) return true;
+          intermediate_waypoint_
+              ? std::max(current_maneuver_.target.radius_m, kIntermediateWaypointArrivalFloorM)
+              : std::max(current_maneuver_.target.radius_m, min_turn_radius_m * 1.5);
+
+      // 单帧邻近快照同时服务完成判定（等价于 IsAtOrPastTarget 的距离 + 法平面
+      // 两层判定）与完成事件记录，避免重复计算。
+      const WaypointProximity prox = wp_manager_.ResolveProximity();
+      // 每步决策轨迹：供日志启用后（近期工作）example 场景设计观察收敛过程与
+      // 门余量；后端关闭时为零开销，级别过滤时仅做运行时判断。
+      PROJECT_LOG_DEBUG("[FLYTO] t={:.1f}s dist={:.0f}m along={:.0f}m cross={:.0f}m "
+                        "leg={:.0f}m thresh={:.0f}m",
+                        elapsed_sec_, prox.distance_m, prox.along_track_m,
+                        prox.cross_track_m, prox.leg_length_m, effective_radius_m);
+      const bool within_radius = prox.distance_m < effective_radius_m;
+
+      auto record_completion = [&](WaypointCompletionGate gate) {
+        last_sequencing_event_.sim_time_sec = 0.0;  // 由 FlightManager 补齐
+        last_sequencing_event_.waypoint_index = 0;  // 由 FlightManager 补齐
+        last_sequencing_event_.intermediate = intermediate_waypoint_;
+        last_sequencing_event_.gate = gate;
+        last_sequencing_event_.distance_m = prox.distance_m;
+        last_sequencing_event_.cross_track_m = prox.cross_track_m;
+        last_sequencing_event_.along_track_m = prox.along_track_m;
+        last_sequencing_event_.threshold_m = effective_radius_m;
+        has_last_sequencing_event_ = true;
+        PROJECT_LOG_INFO("[FLYTO] waypoint complete: gate={} dist={:.0f}m cross={:.0f}m "
+                         "along={:.0f}m thresh={:.0f}m",
+                         WaypointCompletionGateName(gate), prox.distance_m,
+                         prox.cross_track_m, prox.along_track_m, effective_radius_m);
+      };
+
+      if (within_radius || prox.plane_crossed) {
+        record_completion(within_radius ? WaypointCompletionGate::kWithinRadius
+                                        : WaypointCompletionGate::kPlaneCrossing);
+        return true;
+      }
 
       // Fly-past detection: if the aircraft started this maneuver already past
       // the waypoint (e.g., fast fighter with long takeoff roll), the standard
-      // HasPassedActiveWaypoint check fails because the leg start coincides
-      // with the aircraft's position.  Detect this by checking if the waypoint
-      // is far behind the aircraft (> ~115° off the nose) and the distance
-      // exceeds 3× the effective capture radius.
+      // plane-crossing check (ResolveProximity) fails because the leg start
+      // coincides with the aircraft's position.  Detect this by checking if the
+      // waypoint is far behind the aircraft (> ~115° off the nose) and the
+      // distance exceeds 3× the effective capture radius.
       if (elapsed_sec_ > 10.0) {
-        double dist_m = wp_manager_.GetDistanceToActiveM();
-        double heading_to_wp = wp_manager_.GetHeadingToActiveRad();
         double current_heading = adapter_.GetPropagate().GetEuler(3);
-        double angle_off_nose = std::abs(NormalizeRad(heading_to_wp - current_heading));
-        if (angle_off_nose > 2.0 && dist_m > effective_radius_m * 3.0) {
+        double angle_off_nose = std::abs(NormalizeRad(prox.heading_to_rad - current_heading));
+        if (angle_off_nose > 2.0 && prox.distance_m > effective_radius_m * 3.0) {
+          record_completion(WaypointCompletionGate::kFlyPastHeuristic);
           return true;
         }
       }

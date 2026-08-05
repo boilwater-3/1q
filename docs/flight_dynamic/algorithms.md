@@ -42,6 +42,12 @@ Answers: flight_dynamic 用了哪些算法、各自实现到什么地步、边�
 - **实现边界**：
   1. 不把 JSBSim 属性名直接泄露给调用方。
   2. 不在状态映射层修正控制问题；控制应回到 autopilot、maneuver 或 XML/profile。
+  3. **纬度语义必须是 WGS84 大地纬度（geodetic）**：JSBSim 1.3.1 的
+     `FGLocation::GetLatitude` / `FGInitialCondition::SetLatitudeDegIC` 均为地心纬度
+     （geocentric）语义，1Q 必须走 `GetGeodLatitudeRad` / `SetGeodLatitudeDegIC`。
+     两约定在赤道重合、非赤道相差可达 ~0.19°（30°N ≈ 18.5 km）——曾导致 IC 位置与
+     `VehicleState.latitude_rad` 整体北移，行为层示例航点跟踪随之偏离（2026-08-05 修复，
+     回归测试见 fd_adapter_test 的 InitialLatitudeIsGeodeticNotGeocentric）。
 - **证据**：[evidence: tests/unit/flight_dynamic/fd_adapter_test]
 
 ## 自动驾驶 profile 与控制律
@@ -66,7 +72,21 @@ Answers: flight_dynamic 用了哪些算法、各自实现到什么地步、边�
 - **实现边界**：
   1. waypoint "到达"不是单一距离阈值，而是分两层：距离 threshold/capture radius，或法平面穿越 +
      cross-track corridor。
-  2. 全球 waypoint 航段使用球面大圆；orbit、figure-8、racetrack 等局部机动仍以各自参考中心的局部
+  2. **中间/最终航点完成语义分离**（由 `ManeuverExecutor::SetIntermediateWaypoint` 按队列后继
+     设置）：队列中后继仍是 kFlyToWaypoint 的中间航点，完成 = 法平面穿越（corridor 内）或进入
+     到达半径 `max(radius_m, 100m)`——纯导航事件，与机型无关；转弯可行性不进入完成门，路径
+     圆角随各机型自身转弯半径自然缩放。最终航点（单航点或队列末尾）保持转弯量级捕获圈
+     `max(radius_m, 1.5×v²/(g·tan(max_bank)))`——容差按机型/速度实时推导，不同型号不可一概
+     而论用定值。若不分离，航点间距小于捕获圈的航路会在起步时被整条吞掉（飞机未飞即全部
+     "到达"），且用户设置的 radius_m（默认 100 m）会被转弯项完全掩盖。
+  3. **完成事件记录**：每个 kFlyToWaypoint 完成时保留 `WaypointSequencingEvent`
+     决策快照（命中门 kWithinRadius/kPlaneCrossing/kFlyPastHeuristic、距离/侧距/
+     沿航迹、有效阈值、航点索引、仿真时间、中间-最终语义），经
+     `FlightManager::GetWaypointEvents()` 查询（容量 512 环形，丢最旧）。另经
+     PROJECT_LOG 发射：每步 `[FLYTO]` DEBUG 决策轨迹（距离/沿航迹/侧距/阈值，
+     供日志启用后观察收敛与门余量），完成时 `[FLYTO] waypoint complete` INFO 一行
+     （门 + 距离 + 侧距 + 沿航迹 + 阈值，默认级别可见）。
+  4. 全球 waypoint 航段使用球面大圆；orbit、figure-8、racetrack 等局部机动仍以各自参考中心的局部
      切平面构造路径。这两类几何服务于不同尺度，**不要求共享同一个纬经度投影 helper**。
 - **反直觉点（大转弯提前切航点的防护）**：横向偏差超过 `max(3000m, radius * 3)` 时，不允许仅凭
   法平面穿越判定到达——否则大转弯中会提前切航点。
@@ -75,6 +95,8 @@ Answers: flight_dynamic 用了哪些算法、各自实现到什么地步、边�
 - **反直觉点（经度归一化）**：经度差归一化到最短跨界弧，航段可跨越 ±180° 经度边界；高纬长航段
   不再使用平面 `cos(latitude)` 近似。
 - **证据**：[evidence: tests/unit/flight_dynamic/fd_aircraft_maneuver_test]
+- **证据**：[evidence: tests/unit/flight_dynamic/fd_adapter_test TightSpacedWaypointRouteFlowsSequentially]
+- **证据**：[evidence: tests/unit/flight_dynamic/fd_adapter_test WaypointSequencingEventsRecorded]
 
 ## 机动执行
 

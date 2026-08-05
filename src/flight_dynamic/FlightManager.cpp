@@ -13,6 +13,9 @@ namespace flight_dynamic {
 
 namespace {
 
+// 航点完成事件环形记录容量：超出时丢弃最旧，防止长时间会话无界增长。
+constexpr std::size_t kMaxWaypointEvents = 512;
+
 bool BuildFlightDynamicComponents(
     const config::FlightDynamicConfig& config,
     std::unique_ptr<adapter::JsbsimAdapter>* adapter,
@@ -105,9 +108,34 @@ bool FlightManager::Step(double dt_sec) {
       maneuver_exec_->Abort();
       return false;
     }
+    // 中间/最终航点语义按"当前队列"每步重估：kFlyToWaypoint 队列是增量 Push 的
+    // （首航点派发时后继尚未入队），派发时一次性定死会把首航点误判为最终航点，
+    // 导致整条紧间距航路在第 1 步坍缩。后继仍是 kFlyToWaypoint 的当前航点为中间航点。
+    bool intermediate_waypoint = false;
+    if (maneuver_exec_ &&
+        diagnostics_.current_type == guidance::ManeuverType::kFlyToWaypoint) {
+      intermediate_waypoint =
+          current_maneuver_index_ < maneuver_queue_.size() &&
+          maneuver_queue_[current_maneuver_index_].type ==
+              guidance::ManeuverType::kFlyToWaypoint;
+      maneuver_exec_->SetIntermediateWaypoint(intermediate_waypoint);
+    }
     if (maneuver_exec_->IsManeuverComplete()) {
       diagnostics_.outcome = ManeuverOutcome::kCompleted;
       diagnostics_.Print();
+      // 记录航点完成事件（决策快照由执行器填充，队列索引/仿真时间在此补齐；
+      // 记录必须先于 ExecuteNextManeuver，其会重置诊断并派发下一机动）。
+      if (diagnostics_.current_type == guidance::ManeuverType::kFlyToWaypoint) {
+        if (const auto* event = maneuver_exec_->GetLastSequencingEvent()) {
+          waypoint_events_.push_back(*event);
+          waypoint_events_.back().sim_time_sec = sim_time_sec_;
+          waypoint_events_.back().waypoint_index = current_maneuver_index_ - 1;
+          waypoint_events_.back().intermediate = intermediate_waypoint;
+          if (waypoint_events_.size() > kMaxWaypointEvents) {
+            waypoint_events_.erase(waypoint_events_.begin());
+          }
+        }
+      }
       ExecuteNextManeuver();
     }
   }
@@ -120,6 +148,7 @@ void FlightManager::Reset(const config::FlightDynamicConfig& config) {
   current_maneuver_index_ = 0;
   sim_time_sec_ = 0.0;
   diagnostics_ = ManeuverDiagnostics();
+  waypoint_events_.clear();
   if (BuildFlightDynamicComponents(config, &adapter_, &engines_, &ap_, &wp_manager_,
                                    &maneuver_exec_)) {
     state_ = FlightManagerState::kReady;

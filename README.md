@@ -50,12 +50,15 @@ ctest --preset llvm-ninja-debug-local --output-on-failure
 
 ## 示例
 
-每个业务模块在 `examples/` 下提供一致的接入范式：
+`examples/` 下的示例形态（三域 per-domain 示例已于 2026-08-05 删除，功能并入行为层）：
 
-- `<module>/integration_demo.cpp`: 端到端集成示例。
-- `<module>/session_usage.cpp`: 会话接口与一帧驱动示例。
-- `<module>/config_loader*.h`、`<module>/<Module>Module.h`: 配置加载与模块装配样板。
+- `examples/behavior_layer/`: 行为层参考实现（EnTT ECS 业务层）——AR/ESR/EOS 三传感器
+  单平台全链：会话输出适配 → 融合引擎跨源合并 → 航路规划 → ECM 输入帧 → 命令帧。
+- `examples/sar/`: SAR 域示例（`session_usage.cpp` 会话接口与一帧驱动、`integration_demo.cpp`
+  集成示例、`config_loader*.h` 与 `SarModule.h` 装配样板）。
+- `examples/common/`: example 层共享便利层（`json_reader` + 三域 `config_loaders/`）。
 - `examples/flight_dynamic/`: 飞行动力学轨迹生成、机动扫描与 CSV/可视化脚本。
+- `examples/batch_validation/`: 多场景批量验证（trace 录制/回放回归，ctest 注册）。
 - `examples/configs/`: 跨模块共享的配置样例。
 
 ## 文档
