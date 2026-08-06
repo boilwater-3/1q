@@ -154,8 +154,13 @@ AR/ESR/EOS/SBIRS/SAR 五模块的电源状态必须遵守单源原则：
        message 携带 `target_id` 与关键量值。这类条目**不属于三写**（三写仅约束中止路径，规则 9），
        仅承载排查信息；调用方按规则 12 落盘 DebugView 时自然携带。参考实现：SAR
        （`SarDiagnosticUtils::MakeInfoDiagnostic`/`MakeWarningDiagnostic`）+ SBIRS（本轮）。
+       message 为人类可读文本，内容与格式**不承诺解析稳定性**：机器消费只认 code；
+       量值（如 `range_m`/`snr`/方位角）如需程序化消费，应另行定义结构化字段，不得解析 message。
     c. **状态语义边界**：kInfo 排除诊断不得改变 `*CycleStatus`、生命周期事件或 DebugView 状态
        语义（如 `kNotInOutput`）；排除原因只经 diagnostics 承载，不新增状态位。
+    d. **适用范围边界（例外）**：13b 的"门控排除"仅指视场/SNR/距离/遮挡等**门限判定**；
+       目标失效（`active=false`、输入中消失等 → `kLost`）属生命周期语义，**不产生**排除诊断，
+       由生命周期事件与 DebugView（如 `present_in_input`）承载；SBIRS 参考实现同此边界。
    **现状偏离项（后续对齐，另立任务）**：AR 无周期摘要日志；AR/ESR/EOS 无 kInfo 排除诊断
    （EOS 视场外目标仅 `PROJECT_LOG_DEBUG`）；SAR 无周期摘要日志。
 
