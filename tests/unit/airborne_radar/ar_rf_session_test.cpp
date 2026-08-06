@@ -1,5 +1,7 @@
 #include <gtest/gtest.h>
 
+#include <string>
+
 #include "1q/airborne_radar/config/ArProfileConstants.h"
 #include "1q/airborne_radar/config/ArRuntimeConfigBuilder.h"
 #include "1q/airborne_radar/config/ArSessionConfigBuilder.h"
@@ -332,6 +334,28 @@ TEST(ArRfSessionTest, PrepareFailureLeavesSessionStateUnchanged) {
   // 后续合法周期可正常执行——会话未被失败路径破坏。
   const ArCycleResult recovered = radar.StepWithResult(MakeInput(2U, 0.5));
   EXPECT_EQ(recovered.status, ArCycleStatus::kCompleted);
+}
+
+TEST(ArRfSessionTest, BelowSnrTargetWritesInfoExclusionDiagnostic) {
+  ArCycleInput input = MakeInput(1U, 0.0);
+  // 极小 RCS 目标：SNR 落在检测门（min_snr_db / min_detection_margin_db）以下 → 被排除。
+  input.targets.back().rcs = 1.0e-9f;
+  ArSession radar = ArSession::Create(MakeRfConfig());
+
+  const ArCycleResult result = radar.StepWithResult(input);
+
+  // 行为中立：排除目标不产出航迹；排除原因只经 diagnostics 承载（规则 13b/13c）。
+  EXPECT_EQ(result.status, ArCycleStatus::kCompleted);
+  EXPECT_TRUE(result.track_output_frame.tracks.empty());
+  bool found = false;
+  for (const ArDiagnosticIssue& issue : result.diagnostics) {
+    if (issue.code == "ar.target_snr_below_threshold") {
+      found = true;
+      EXPECT_EQ(issue.severity, ArDiagnosticSeverity::kInfo);
+      EXPECT_NE(issue.message.find("target_id=77"), std::string::npos);
+    }
+  }
+  EXPECT_TRUE(found);
 }
 
 }  // namespace

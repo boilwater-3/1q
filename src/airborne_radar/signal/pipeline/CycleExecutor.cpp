@@ -67,6 +67,9 @@ bool RunDetectionPhase(const CycleExecutionContext& context, const CycleExecutio
   detection_buffers.detection_margin_db = &scratch.detection_margin_db;
   detection_buffers.detection_succeeded = &scratch.detection_succeeded;
   detection_buffers.measurement_covariances = &scratch.measurement_covariances;
+  // 规则 13b：检测阶段排除诊断累积到 scratch，由 SignalPipeline 转写进周期结果。
+  detection_buffers.diagnostics = &scratch.diagnostics;
+  detection_buffers.excluded_snr_below = &scratch.excluded_snr_below;
 
   return RunPhysicalDetectionPass(
       context.cycle_input.scene_targets, context.runtime_config, context.environment_snapshot,
