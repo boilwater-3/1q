@@ -93,6 +93,24 @@ struct FusionUpdatedEvent {
   std::size_t lost_targets{0U};             /**< 本周期消失目标数 */
 };
 
+/** @brief SBIRS 探测事件类型（生命周期语义，源为库内 SbirsDetectionLifecycleRecorder）。 */
+enum class SbirsDetectionEventKind {
+  kFirstDetected = 0, /**< 首次被发现 */
+  kUpdated = 1,       /**< 持续探测并刷新 */
+  kCoasting = 2,      /**< 暂无有效 NFOV 量测但仍保持锁定 */
+  kLost = 3,          /**< 此前已发现，本周期丢失 */
+};
+
+/** @brief SBIRS 探测事件：生命周期事件各发布一次（target_id 经归属映射）。 */
+struct SbirsDetectionEvent {
+  std::uint64_t cycle{0U};                     /**< 世界周期号 */
+  SbirsDetectionEventKind kind{SbirsDetectionEventKind::kUpdated}; /**< 事件类型 */
+  std::uint64_t detection_id{0U};              /**< 本输出帧内检测记录标识（kLost 时为 0） */
+  std::uint64_t target_id{0U};                 /**< 归属目标 ID（无归属时为 0） */
+  float infrared_snr_linear{0.0f};             /**< 红外通道线性 IR SNR（kLost 携带最后一次下检值） */
+  double az_deg{0.0};                          /**< 探测方位（deg，卫星局部系；kLost 时为 0） */
+};
+
 /** @brief 决策指令事件：高置信威胁判定后由决策侧（订阅者）发布。 */
 struct CommandIssuedEvent {
   std::uint64_t cycle{0U}; /**< 世界周期号 */

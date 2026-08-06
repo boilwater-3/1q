@@ -18,6 +18,7 @@
 #include "ar_sensor_component.h"
 #include "eos_sensor_component.h"
 #include "esr_sensor_component.h"
+#include "sbirs_sensor_component.h"
 #include "sensor_utils.h"
 
 namespace component_attachment {
@@ -31,7 +32,7 @@ void FusionComponent::Step(World& world, double dt_sec) {
     return;  // 未挂载或无引擎：无融合
   }
 
-  // 周期内同步数据聚合：类型化访问同实体三个传感器组件的本周期探测。
+  // 周期内同步数据聚合：类型化访问同实体四个传感器组件的本周期探测。
   std::vector<fusion::DetectionRecord> all_detections;
   if (const auto* ar = host_->Find<ArSensorComponent>()) {
     all_detections.insert(all_detections.end(), ar->detections().begin(),
@@ -44,6 +45,10 @@ void FusionComponent::Step(World& world, double dt_sec) {
   if (const auto* eos = host_->Find<EosSensorComponent>()) {
     all_detections.insert(all_detections.end(), eos->detections().begin(),
                           eos->detections().end());
+  }
+  if (const auto* sbirs = host_->Find<SbirsSensorComponent>()) {
+    all_detections.insert(all_detections.end(), sbirs->detections().begin(),
+                          sbirs->detections().end());
   }
 
   const std::uint64_t cycle = world.scene_state().cycle;

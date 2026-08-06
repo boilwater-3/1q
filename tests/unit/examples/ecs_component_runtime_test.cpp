@@ -2,12 +2,13 @@
  * @file ecs_component_runtime_test.cpp
  * @brief component_attachment 组件运行时修改接口单元测试。
  *
- * 覆盖四个组件的运行时修改入口（未来外部调用入口，薄包装库 API）：
+ * 覆盖五个组件的运行时修改入口（未来外部调用入口，薄包装库 API）：
  * - ArSensorComponent::TryApplyRuntimeConfig —— AR 事务性提交（补丁先暂存、
  *   下个周期边界生效；与现有配置冲突的非法补丁入口即原子拒绝）。
  * - EsrSensorComponent::TryApplyRuntimeConfig / ApplyRuntimeConfigWithResult
  *   —— ESR 立即提交（调用即生效）；结构化结果携带拒绝原因枚举。
  * - EosSensorComponent::TryApplyRuntimeConfig —— EOS 立即提交（原子校验）。
+ * - SbirsSensorComponent::TryApplyRuntimeConfig —— SBIRS 立即提交（原子校验）。
  * - FlightComponent::PushManeuver / ClearManeuvers / Abort —— FD 命令式
  *   入口；FD 未启用/初始化失败（运动学回退）时返回 false。
  *
@@ -25,10 +26,12 @@
 #include "1q/electro_optical_sensor/session/EosSession.h"
 #include "1q/electronic_surveillance_radar/session/EsrSession.h"
 #include "1q/flight_dynamic/FlightManager.h"
+#include "1q/sbirs_sensor/session/SbirsSession.h"
 #include "components/ar_sensor_component.h"
 #include "components/eos_sensor_component.h"
 #include "components/esr_sensor_component.h"
 #include "components/flight_component.h"
+#include "components/sbirs_sensor_component.h"
 
 namespace ca = component_attachment;
 
@@ -141,6 +144,31 @@ TEST(EosSensorComponentRuntimeTest, ZeroFrameRateRejectsWholePatch) {
   patch.scan_rate_deg_per_sec = 60.0f;
   patch.has_frame_rate_hz = true;
   patch.frame_rate_hz = 0.0f;
+
+  EXPECT_FALSE(component.TryApplyRuntimeConfig(patch));
+}
+
+// =============================================================================
+// SbirsSensorComponent：SBIRS 立即提交（校验原子拒绝）
+// =============================================================================
+
+TEST(SbirsSensorComponentRuntimeTest, ValidScanRatePatchAppliesImmediately) {
+  ca::SbirsSensorComponent component(sbirs_sensor::session::SbirsSession::Create());
+
+  sbirs_sensor::config::SbirsRuntimeConfigPatch patch;
+  patch.has_scan_rate_deg_per_sec = true;
+  patch.scan_rate_deg_per_sec = 25.0f;  // 合法扫描速率（沿用 resolver 单测取值）
+
+  EXPECT_TRUE(component.TryApplyRuntimeConfig(patch));
+}
+
+TEST(SbirsSensorComponentRuntimeTest, NegativeScanRateRejectsWholePatch) {
+  ca::SbirsSensorComponent component(sbirs_sensor::session::SbirsSession::Create());
+
+  // 负扫描速率（沿用 ValidateSbirsSessionConfig 的 scan_rate >= 0 规则）。
+  sbirs_sensor::config::SbirsRuntimeConfigPatch patch;
+  patch.has_scan_rate_deg_per_sec = true;
+  patch.scan_rate_deg_per_sec = -1.0f;
 
   EXPECT_FALSE(component.TryApplyRuntimeConfig(patch));
 }

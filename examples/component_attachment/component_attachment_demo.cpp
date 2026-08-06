@@ -4,15 +4,15 @@
  *
  * 与 behavior_layer（EnTT ECS 开源库模式）对照：本示例不依赖 EnTT，
  * 采用自定义实体-组件框架（core/）：组件基类 → 各模块组件（飞行 / AR /
- * ESR / EOS / 融合）继承并挂载到平台实体，World 按挂载序周期步进；
+ * ESR / EOS / SBIRS / 融合）继承并挂载到平台实体，World 按挂载序周期步进；
  * 组件间事件通信使用 C++ 常见开源事件库 Boost.Signals2（core/signals.h，
  * 零自定义分发层）。
  *
  * 数据流（单平台实体，挂载序 = 步进序）：
- *   Flight（推进位姿）→ AR / ESR / EOS（读 Flight 状态驱动会话，探测
- *   存自身组件）→ Fusion（聚合三传感器探测，一次 Update）→ 事件日志。
- *   事件：AR 首确认/失跟、ESR 假设、EOS 探测、融合更新、航点到达、
- *   决策指令（高置信威胁 → ECCM 反制，事件链演示）。
+ *   Flight（推进位姿）→ AR / ESR / EOS / SBIRS（读 Flight 状态驱动会话，
+ *   探测存自身组件）→ Fusion（聚合四传感器探测，一次 Update）→ 事件日志。
+ *   事件：AR 首确认/失跟、ESR 假设、EOS 探测、SBIRS 探测、融合更新、航点
+ *   到达、决策指令（高置信威胁 → ECCM 反制，事件链演示）。
  *
  * 输出：控制台事件流摘要 + platform_track.csv / events.csv（复用
  * examples/common/csv_writer.h）。
@@ -41,10 +41,12 @@
 #include "1q/fusion/FusionEngine.h"
 #include "1q/fusion/FusedTarget.h"
 #include "1q/navigation/RoutePoint.h"
-// 三域配置加载器位于 examples/common/config_loaders/<域>/（经 ONEQ_EXAMPLE_COMMON_DIR 解析）。
+#include "1q/sbirs_sensor/config/SbirsSessionConfig.h"
+// 四域配置加载器位于 examples/common/config_loaders/<域>/（经 ONEQ_EXAMPLE_COMMON_DIR 解析）。
 #include "config_loaders/airborne_radar/config_loader.h"
 #include "config_loaders/electro_optical/config_loader.h"
 #include "config_loaders/electronic_warfare/config_loader.h"
+#include "config_loaders/sbirs_sensor/config_loader.h"
 #include "csv_writer.h"
 
 #include "components/ar_sensor_component.h"
@@ -52,6 +54,7 @@
 #include "components/esr_sensor_component.h"
 #include "components/flight_component.h"
 #include "components/fusion_component.h"
+#include "components/sbirs_sensor_component.h"
 #include "components/scene_types.h"
 #include "core/events.h"
 #include "core/world.h"
@@ -76,11 +79,12 @@ constexpr double kCruiseSpeedMps = 50.0;
 /// 行为层一致；行为层每周期重发指令，本示例经事件链只下发一次）。
 constexpr double kHighThreatConfidence = 3.0;
 
-/// 三会话配置聚合（消费方装配输入）。
+/// 四会话配置聚合（消费方装配输入）。
 struct ComponentAttachmentConfigs {
   airborne_radar::config::ArSessionConfig ar{};
   electronic_surveillance_radar::config::EsrSessionConfig esr{};
   electro_optical_sensor::config::EosSessionConfig eos{};
+  sbirs_sensor::config::SbirsSessionConfig sbirs{};
 };
 
 /// 打印命令行用法。
@@ -90,7 +94,7 @@ void PrintUsage(const char* program) {
             << "  --output-dir <dir>  CSV 输出目录（默认 " << kDefaultOutputDir << "）\n";
 }
 
-/// 加载三份会话配置（复用各域 config_loader 与 examples/configs/ 同源 JSON）。
+/// 加载四份会话配置（复用各域 config_loader 与 examples/configs/ 同源 JSON）。
 ComponentAttachmentConfigs LoadConfigs() {
   ComponentAttachmentConfigs configs;
   std::string error;
@@ -107,6 +111,11 @@ ComponentAttachmentConfigs LoadConfigs() {
   if (!examples::LoadEosSessionConfigFromFile(SCENE_CONFIG_DIR "/electro_optical.json",
                                               &configs.eos, &error)) {
     std::cerr << "Failed to load EOS config: " << error << "\n";
+    std::exit(1);
+  }
+  if (!examples::LoadSbirsSessionConfigFromFile(SCENE_CONFIG_DIR "/sbirs.json",
+                                                &configs.sbirs, &error)) {
+    std::cerr << "Failed to load SBIRS config: " << error << "\n";
     std::exit(1);
   }
   // 跨会话时间对齐与视场适配（业务层调参，与 behavior_layer 同源）：
@@ -248,6 +257,31 @@ std::vector<electro_optical_sensor::session::EosExternalTargetInput> MakeOptical
   return targets;
 }
 
+/// SBIRS 红外目标真值：同一物理目标（红外外观参数与 EOS 同源）。
+std::vector<sbirs_sensor::session::SbirsSceneTarget> MakeSbirsTargetInputs(
+    const std::vector<TargetEcefState>& states) {
+  std::vector<sbirs_sensor::session::SbirsSceneTarget> targets;
+  targets.reserve(states.size());
+  for (std::size_t i = 0U; i < states.size(); ++i) {
+    sbirs_sensor::session::SbirsSceneTarget target;
+    target.target_id = 1001U + i;
+    target.target_name = "ir_target_" + std::to_string(1001U + i);
+    target.position_ecef_m.x = states[i].position.x_m;
+    target.position_ecef_m.y = states[i].position.y_m;
+    target.position_ecef_m.z = states[i].position.z_m;
+    target.temperature_k = static_cast<float>(kTargetScript[i].temperature_k);
+    target.emissivity = 0.92f;
+    target.projected_area_m2 = kTargetScript[i].projected_area_m2;
+    target.velocity_ecef_m_per_s.x = states[i].velocity.x_mps;
+    target.velocity_ecef_m_per_s.y = states[i].velocity.y_mps;
+    target.velocity_ecef_m_per_s.z = states[i].velocity.z_mps;
+    target.has_velocity_ecef_m_per_s = true;
+    target.active = true;
+    targets.push_back(target);
+  }
+  return targets;
+}
+
 /// 目标 ECEF 欧拉推进（消费方世界模型，与 behavior_layer 一致）。
 void AdvanceTargetStates(std::vector<TargetEcefState>& states, double dt_s) {
   for (auto& state : states) {
@@ -327,6 +361,17 @@ class EventLogger {
                      static_cast<unsigned long long>(e.target_id), e.snr_db, e.az_deg),
                  e.cycle, 0.0);
         }));
+    connections_.push_back(world.signals().on_sbirs_detection.connect(
+        [this](const ca::SbirsDetectionEvent& e) {
+          ++sbirs_event_count_;
+          Record("sbirs_detection",
+                 Fmt("kind=%d det=%llu target=%llu snr=%.1f az=%.1f",
+                     static_cast<int>(e.kind),
+                     static_cast<unsigned long long>(e.detection_id),
+                     static_cast<unsigned long long>(e.target_id), e.infrared_snr_linear,
+                     e.az_deg),
+                 e.cycle, 0.0);
+        }));
     connections_.push_back(world.signals().on_fusion_updated.connect(
         [this](const ca::FusionUpdatedEvent& e) {
           std::string channels;
@@ -349,6 +394,7 @@ class EventLogger {
   void Flush() { events_csv_.Flush(); }
 
   std::size_t event_count() const { return count_; }
+  std::size_t sbirs_event_count() const { return sbirs_event_count_; }
 
  private:
   void Record(const char* type, const std::string& detail, std::uint64_t cycle, double t_sec) {
@@ -362,6 +408,7 @@ class EventLogger {
   examples::CsvWriter events_csv_;
   std::vector<boost::signals2::scoped_connection> connections_{};
   std::size_t count_{0U};
+  std::size_t sbirs_event_count_{0U};
 };
 
 /// 决策监听器：订阅融合更新事件，高置信威胁首次出现时发布指令事件
@@ -453,6 +500,8 @@ int main(int argc, char* argv[]) {
       electronic_surveillance_radar::session::EsrSession::Create(configs.esr)));
   platform.Attach(std::make_unique<ca::EosSensorComponent>(
       electro_optical_sensor::session::EosSession::Create(configs.eos)));
+  platform.Attach(std::make_unique<ca::SbirsSensorComponent>(
+      sbirs_sensor::session::SbirsSession::Create(configs.sbirs)));
 
   fusion::FusionConfig fusion_config;
   fusion_config.position_radius_m = 1000.0;
@@ -462,8 +511,8 @@ int main(int argc, char* argv[]) {
   fusion_config.feature_threshold = 0.0;  // 不启用特征门
   fusion_config.window_size = 10U;
   fusion_config.max_missed_cycles = 5U;
-  // 源权重按 source_id 索引：AR=1.0、ESR=0.8、EOS=0.6（索引 0 未用）。
-  fusion_config.source_weights = {0.0, 1.0, 0.8, 0.6};
+  // 源权重按 source_id 索引：AR=1.0、ESR=0.8、EOS=0.6、SBIRS=0.5（索引 0 未用）。
+  fusion_config.source_weights = {0.0, 1.0, 0.8, 0.6, 0.5};
   platform.Attach(std::make_unique<ca::FusionComponent>(
       std::make_unique<fusion::FusionEngine>(fusion_config)));
 
@@ -479,6 +528,7 @@ int main(int argc, char* argv[]) {
     return 1;
   }
   std::vector<TargetEcefState> target_states = MakeTargetStates(platform_ecef, platform_origin);
+
   // 平台轨迹 CSV（周期级；事件流经 EventLogger 写 events.csv）。
   examples::CsvWriter platform_csv(output_dir + "/platform_track.csv",
                                    "cycle,t_sec,lat_deg,lon_deg,alt_m,heading_deg,speed_mps,wp_index");
@@ -488,14 +538,26 @@ int main(int argc, char* argv[]) {
   std::size_t platform_rows = 0U;
   std::size_t max_fused_targets = 0U;
   for (std::uint32_t cycle = 1U; cycle <= num_cycles; ++cycle) {
-    // 消费方每周期注入共享场景状态（周期号/时间/三通道世界真值）。
+    // 消费方每周期注入共享场景状态（周期号/时间/四通道世界真值）。
     scene.cycle = cycle;
     scene.t_sec = static_cast<double>(cycle) * kDtSec;
     scene.ar_targets = MakeArTargetInputs(target_states);
     scene.emitters = MakeEmitterTruths(target_states, scene.t_sec);
     scene.optical_targets = MakeOpticalTargets(target_states);
+    scene.sbirs_targets = MakeSbirsTargetInputs(target_states);
+    // 天基平台（卫星）位置：凝视模式，固定于目标群中心正上方 +500 km
+    // （ECEF z 轴），目标始终位于星下点附近（SBIRS az/el 为 ECEF 极坐标，
+    // 全向扫描 span 360° + 下视 el −90° 覆盖；消费方每周期注入世界模型）。
+    constexpr double kSbirsSatelliteAltitudeM = 500000.0;
+    scene.sbirs_satellite_position_ecef_m.x =
+        0.5 * (target_states[0].position.x_m + target_states[1].position.x_m);
+    scene.sbirs_satellite_position_ecef_m.y =
+        0.5 * (target_states[0].position.y_m + target_states[1].position.y_m);
+    scene.sbirs_satellite_position_ecef_m.z =
+        0.5 * (target_states[0].position.z_m + target_states[1].position.z_m) +
+        kSbirsSatelliteAltitudeM;
 
-    world.Step(kDtSec);  // 按挂载序步进：Flight → AR → ESR → EOS → Fusion
+    world.Step(kDtSec);  // 按挂载序步进：Flight → AR → ESR → EOS → SBIRS → Fusion
 
     // 周期摘要 + 平台轨迹落盘。
     const auto* flight = platform.Find<ca::FlightComponent>();
@@ -524,17 +586,19 @@ int main(int argc, char* argv[]) {
             << " entities=" << world.entity_count()
             << " components=" << platform.component_count()
             << " events=" << logger.event_count()
+            << " sbirs_events=" << logger.sbirs_event_count()
             << " command_issued=" << (decision.issued() ? "true" : "false") << "\n"
             << "csv output -> " << output_dir
             << " (platform_track.csv / events.csv)\n";
 
-  // 冒烟断言：端到端链路必须有产出（每周期平台状态事件、至少一个融合
-  // 目标、平台轨迹行数 = 周期数），否则视为链路断裂（ctest 失败）。
-  if (logger.event_count() < num_cycles || max_fused_targets == 0U ||
-      platform_rows != num_cycles) {
+  // 冒烟断言：端到端链路必须有产出（每周期平台状态事件、SBIRS 探测事件、
+  // 至少一个融合目标、平台轨迹行数 = 周期数），否则视为链路断裂（ctest 失败）。
+  if (logger.event_count() < num_cycles || logger.sbirs_event_count() == 0U ||
+      max_fused_targets == 0U || platform_rows != num_cycles) {
     std::cerr << "SMOKE FAILED: events=" << logger.event_count()
-              << " (>= " << num_cycles << " required), max_fused=" << max_fused_targets
-              << " (>0 required), platform_rows=" << platform_rows
+              << " (>= " << num_cycles << " required), sbirs_events="
+              << logger.sbirs_event_count() << " (>0 required), max_fused="
+              << max_fused_targets << " (>0 required), platform_rows=" << platform_rows
               << " (== " << num_cycles << " required)\n";
     return 1;
   }

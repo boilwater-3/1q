@@ -22,14 +22,16 @@
 #include "1q/electro_optical_sensor/session/EosOutputTypes.h"
 #include "1q/electronic_surveillance_radar/session/EmitterHypothesis.h"
 #include "1q/fusion/DetectionRecord.h"
+#include "1q/sbirs_sensor/session/SbirsOutputTypes.h"
 
 namespace examples {
 namespace sensor_adapt {
 
 /** @brief 演示源通道标识（与融合配置 source_weights 索引一致；索引 0 未用）。 */
-constexpr std::uint32_t kArSourceId = 1U;  /**< AR 源通道 */
-constexpr std::uint32_t kEsrSourceId = 2U; /**< ESR 源通道 */
-constexpr std::uint32_t kEosSourceId = 3U; /**< EOS 源通道 */
+constexpr std::uint32_t kArSourceId = 1U;    /**< AR 源通道 */
+constexpr std::uint32_t kEsrSourceId = 2U;   /**< ESR 源通道 */
+constexpr std::uint32_t kEosSourceId = 3U;   /**< EOS 源通道 */
+constexpr std::uint32_t kSbirsSourceId = 4U; /**< SBIRS 源通道 */
 
 /// 探测质量基准：无识别置信度（target_probability == 0）时按轨迹状态取基准值。
 inline double BaseQualityForStatus(airborne_radar::session::TrackStatus status) {
@@ -114,6 +116,31 @@ inline std::vector<fusion::DetectionRecord> AdaptEosDetectionsToDetections(
     detection.verdict = 1.0;
     detection.quality =
         std::min(1.0, std::max(0.0, static_cast<double>(record.fused_snr_db) / 10.0));
+    detections.push_back(detection);
+  }
+  return detections;
+}
+
+/// 把 SBIRS 探测记录适配为融合探测记录（key=0 无身份，仅方位通道，与 EOS 同构）。
+inline std::vector<fusion::DetectionRecord> AdaptSbirsDetectionsToDetections(
+    std::uint32_t source_id,
+    const sbirs_sensor::output::SbirsDetectionRecordList& records) {
+  std::vector<fusion::DetectionRecord> detections;
+  detections.reserve(records.size());
+  for (const auto& record : records) {
+    if (!record.detected) {
+      continue;  // 未过探测门限不产生探测
+    }
+    fusion::DetectionRecord detection;
+    detection.key = 0U;  // 无外部身份通道：走方位相干关联（去真值化纪律）
+    detection.source_id = source_id;
+    detection.has_bearing = true;
+    detection.bearing_az_deg = record.azimuth_deg;
+    detection.bearing_el_deg = record.elevation_deg;
+    // 质量 = 线性 IR SNR 相对 WFOV 检测门限（4.0 → 1.0）的归一化（业务层映射）。
+    detection.verdict = 1.0;
+    detection.quality =
+        std::min(1.0, std::max(0.0, static_cast<double>(record.infrared_snr_linear) / 4.0));
     detections.push_back(detection);
   }
   return detections;
