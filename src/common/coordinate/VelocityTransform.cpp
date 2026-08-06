@@ -160,5 +160,22 @@ bool TryEnuToEcefVelocity(const EnuVelocityMps& enu_velocity,
   return IsFinite(*ecef_velocity);
 }
 
+bool TryMakeEcefVelocityFromHeading(double heading_deg, double speed_mps,
+                                    const LlaPositionDegM& origin_lla,
+                                    EcefVelocityMps* ecef_velocity) {
+  if (ecef_velocity == nullptr || !IsValid(origin_lla) ||
+      !oneq::common::validation::IsFinite(heading_deg) ||
+      !oneq::common::validation::IsFinite(speed_mps) || speed_mps < 0.0) {
+    return false;
+  }
+  // 平台运动学约定：水平速度按航向（北偏东）分解，up=0。
+  const double heading_rad = oneq::common::numerics::DegToRad(heading_deg);
+  EnuVelocityMps enu_velocity;
+  enu_velocity.east_mps = speed_mps * std::sin(heading_rad);
+  enu_velocity.north_mps = speed_mps * std::cos(heading_rad);
+  enu_velocity.up_mps = 0.0;
+  return TryEnuToEcefVelocity(enu_velocity, origin_lla, ecef_velocity);
+}
+
 }  // namespace coordinate
 }  // namespace oneq
