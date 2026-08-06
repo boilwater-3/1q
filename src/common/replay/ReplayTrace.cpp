@@ -733,6 +733,9 @@ struct ReplayTraceWriter::Impl {
     if (!overwrite && HasExistingReplayTraceArtifacts(trace_dir)) {
       first_error = "replay trace already exists and overwrite is disabled: " + trace_dir;
       writable = false;
+      // 中译：重放 trace 已存在且未开启覆盖，写入器被禁用。
+      // 标识：fail-closed 保护——不覆盖既有回放工件（manifest/事件），
+      //       防止静默改写历史 trace。
       PROJECT_LOG_ERROR("ReplayTraceWriter disabled: {}", first_error);
       return;
     }
@@ -742,18 +745,24 @@ struct ReplayTraceWriter::Impl {
         !CreateDirectoryRecursive(JoinPath(trace_dir, "crash"), &first_error) ||
         !CreateDirectoryRecursive(JoinPath(trace_dir, "indexes"), &first_error)) {
       writable = false;
+      // 中译：创建 trace 目录失败，写入器被禁用。
+      // 标识：初始化失败——目录不可创建时记录不可写。
       PROJECT_LOG_ERROR("ReplayTraceWriter disabled: {}", first_error);
       return;
     }
 
     if (!WriteManifestFile(JoinPath(trace_dir, "manifest.json"), manifest, &first_error)) {
       writable = false;
+      // 中译：写入 manifest.json 失败，写入器被禁用。
+      // 标识：初始化失败——manifest 不可写时记录不可写。
       PROJECT_LOG_ERROR("ReplayTraceWriter disabled: {}", first_error);
       return;
     }
 
     if (!OpenEventChunk(0U, overwrite)) {
       writable = false;
+      // 中译：打开事件块失败，写入器被禁用。
+      // 标识：初始化失败——事件文件不可打开时记录不可写。
       PROJECT_LOG_ERROR("ReplayTraceWriter disabled: {}", first_error);
       return;
     }
@@ -764,6 +773,8 @@ struct ReplayTraceWriter::Impl {
     if (!cycles_index.is_open()) {
       first_error = "failed to open replay cycle index: " + cycle_index_path;
       writable = false;
+      // 中译：打开周期索引文件失败，写入器被禁用。
+      // 标识：初始化失败——索引文件不可打开时记录不可写。
       PROJECT_LOG_ERROR("ReplayTraceWriter disabled: {}", first_error);
     }
   }
@@ -796,6 +807,8 @@ struct ReplayTraceWriter::Impl {
     // Seal the current chunk before opening the next one.
     const std::uint32_t sealed_index = current_chunk_index;
     if (!OpenEventChunk(current_chunk_index + 1U, true)) {
+      // 中译：轮转事件块时打开新块失败，写入器被禁用。
+      // 标识：轮转失败——块切换异常时中止写入。
       PROJECT_LOG_ERROR("ReplayTraceWriter disabled: {}", first_error);
       return false;
     }
@@ -805,6 +818,8 @@ struct ReplayTraceWriter::Impl {
       const std::string gz_path = EventChunkGzPath(trace_dir, sealed_index);
       if (!GzipCompressFile(plain_path, gz_path, &first_error)) {
         writable = false;
+        // 中译：已关闭事件块压缩失败，写入器被禁用。
+        // 标识：压缩失败——gzip 不可用时中止写入。
         PROJECT_LOG_ERROR("ReplayTraceWriter disabled: {}", first_error);
         return false;
       }
@@ -816,6 +831,8 @@ struct ReplayTraceWriter::Impl {
   bool CheckWritable() {
     if (!writable) {
       if (!first_error.empty()) {
+        // 中译：写入器当前不可写（原因：{}）。
+        // 标识：写入前置检查失败——此前发生错误后所有写入被拒绝。
         PROJECT_LOG_ERROR("ReplayTraceWriter is not writable: {}", first_error);
       }
       return false;
@@ -823,6 +840,8 @@ struct ReplayTraceWriter::Impl {
     if (!events.is_open() || !cycles_index.is_open()) {
       first_error = "replay trace output stream is not open";
       writable = false;
+      // 中译：重放 trace 输出流未打开，写入器被禁用。
+      // 标识：写入前置检查失败——事件/索引流缺失时拒绝写入。
       PROJECT_LOG_ERROR("ReplayTraceWriter disabled: {}", first_error);
       return false;
     }
@@ -832,6 +851,8 @@ struct ReplayTraceWriter::Impl {
   bool MarkWriteFailure(const std::string& message) {
     first_error = message;
     writable = false;
+    // 中译：标记写入失败（原因：{}），写入器被禁用。
+    // 标识：失败统一出口——记录首个错误并使后续写入全部失败。
     PROJECT_LOG_ERROR("ReplayTraceWriter disabled: {}", first_error);
     return false;
   }
@@ -980,12 +1001,16 @@ ReplayTraceWriteStatus ReplayTraceWriter::WriteFailureMarker(
                         failure_marker_sequence, has_last_event_sequence, last_event_sequence,
                         &impl_->first_error)) {
     impl_->writable = false;
+    // 中译：写入失败标记文件失败，写入器被禁用。
+    // 标识：崩溃落盘失败——failure.json 不可写时返回错误状态。
     PROJECT_LOG_ERROR("ReplayTraceWriter disabled: {}", impl_->first_error);
     return ReplayTraceWriteStatus::kError;
   }
   if (!WriteLastWindowFile(JoinPath(crash_dir, "last-window.events.jsonl"), impl_->last_window,
                            &impl_->first_error)) {
     impl_->writable = false;
+    // 中译：写入最后窗口事件文件失败，写入器被禁用。
+    // 标识：崩溃落盘失败——last-window 不可写时返回错误状态。
     PROJECT_LOG_ERROR("ReplayTraceWriter disabled: {}", impl_->first_error);
     return ReplayTraceWriteStatus::kError;
   }
@@ -1008,12 +1033,16 @@ struct ReplayTraceReader::Impl {
   explicit Impl(std::string path) : trace_dir(std::move(path)) {
     if (!ReadWholeFile(JoinPath(trace_dir, "manifest.json"), &manifest_json, &first_error)) {
       readable = false;
+      // 中译：读取 manifest.json 失败，读取器被禁用。
+      // 标识：读取初始化失败——manifest 缺失/损坏时 fail-closed。
       PROJECT_LOG_ERROR("ReplayTraceReader disabled: {}", first_error);
       return;
     }
     if (!OpenEventChunk(0U)) {
       first_error = "failed to open replay event file: " + EventChunkPath(trace_dir, 0U);
       readable = false;
+      // 中译：打开重放事件文件失败，读取器被禁用。
+      // 标识：读取初始化失败——事件块缺失时 fail-closed。
       PROJECT_LOG_ERROR("ReplayTraceReader disabled: {}", first_error);
     }
   }
@@ -1060,6 +1089,8 @@ struct ReplayTraceReader::Impl {
       first_error = message;
     }
     readable = false;
+    // 中译：标记读取失败（原因：{}），读取器被禁用。
+    // 标识：失败统一出口——记录首个错误并使后续读取全部失败。
     PROJECT_LOG_ERROR("ReplayTraceReader disabled: {}", first_error);
     return ReplayTraceReadStatus::kError;
   }
@@ -1326,6 +1357,8 @@ ReplayTraceReplayReport BuildReplayTraceReport(
 void WriteReplayTraceReport(const ReplayTraceReplayReport& report, const std::string& report_path) {
   std::string error;
   if (!WriteReportFile(report_path, report, &error)) {
+    // 中译：写入重放报告失败：{}。
+    // 标识：报告落盘失败——报告文件不可写时记录错误。
     PROJECT_LOG_ERROR("failed to write replay trace report: {}", error);
   }
 }
