@@ -25,6 +25,8 @@ RuntimeConfigResolveResult RejectPatch(const RuntimeConfigState& current_state,
 bool ValidateFiniteAzEl(const AzimuthElevationDeg& v, const char* field_name) {
   if (!oneq::common::validation::IsFinite(v.az_deg) ||
       !oneq::common::validation::IsFinite(v.el_deg)) {
+    // 中译：运行期补丁的 {} 分量非有限（方位/俯仰），拒绝补丁。
+    // 标识：数值校验——角度分量必须有限，拒绝时补丁整体不生效。
     PROJECT_LOG_ERROR("[ArSession] Rejecting runtime config patch due to non-finite {} "
                       "(az_deg={}, el_deg={}).",
                       field_name, v.az_deg, v.el_deg);
@@ -37,6 +39,8 @@ bool ValidateFiniteAzEl(const AzimuthElevationDeg& v, const char* field_name) {
 bool ValidateFiniteBeamwidth(const CommandedBeamwidthDeg& v) {
   if (!oneq::common::validation::IsFinite(v.commanded_az_beamwidth_deg) ||
       !oneq::common::validation::IsFinite(v.commanded_el_beamwidth_deg)) {
+    // 中译：运行期补丁的 commanded_beamwidth_deg 分量非有限（方位/俯仰），拒绝补丁。
+    // 标识：数值校验——波束宽度分量必须有限，拒绝时补丁整体不生效。
     PROJECT_LOG_ERROR("[ArSession] Rejecting runtime config patch due to non-finite "
                       "commanded_beamwidth_deg (az_deg={}, el_deg={}).",
                       v.commanded_az_beamwidth_deg, v.commanded_el_beamwidth_deg);
@@ -136,6 +140,8 @@ RuntimeConfigResolveResult ApplyRuntimePatch(const RuntimeConfigState& current_s
   if (next_orientation.commanded_beamwidth_enabled &&
       (next_orientation.commanded_beamwidth_deg.commanded_az_beamwidth_deg <= 0.0f ||
        next_orientation.commanded_beamwidth_deg.commanded_el_beamwidth_deg <= 0.0f)) {
+    // 中译：启用的 commanded beamwidth 必须为正（方位/俯仰），拒绝运行期补丁。
+    // 标识：数值校验——启用了波束宽度控制但宽度非正时拒绝补丁。
     PROJECT_LOG_ERROR(
         "[ArSession] Rejecting runtime config patch because enabled commanded beamwidth "
         "must be positive (az_deg={}, el_deg={}).",

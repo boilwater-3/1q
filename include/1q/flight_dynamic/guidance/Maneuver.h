@@ -51,6 +51,8 @@ enum class ManeuverType {
  *
  * 字段语义与 FlightManager.h 的 ManeuverCommand 一致（随 ManeuverType 重载），
  * 由 FlightManager 在 ExecuteNextManeuver 中由 ManeuverCommand 转换而来。
+ * 注意 kTakeoff 时 target.latitude_rad 重载为"目标航向(rad)"（见 FlightManager.h
+ * 中 ManeuverCommand 的说明）。
  */
 struct Maneuver {
   ManeuverType type;          /**< 机动类型 */
@@ -196,11 +198,11 @@ class ManeuverExecutor {
 
  private:
   enum class TakeoffPhase {
-    kEngineStart,
-    kStaticRunup,
-    kTakeoffRoll,
-    kRotateAndClimb,
-    kComplete,
+    kEngineStart,    /**< 发动机启动 */
+    kStaticRunup,    /**< 静止试车（滑跑前） */
+    kTakeoffRoll,    /**< 地面滑跑加速 */
+    kRotateAndClimb, /**< 抬轮爬升 */
+    kComplete,       /**< 达到目标高度/速度 */
   };
 
   enum class LandPhase {

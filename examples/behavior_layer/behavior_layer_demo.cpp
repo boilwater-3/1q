@@ -20,7 +20,6 @@
  */
 
 #include <algorithm>
-#include <cmath>
 #include <cstdint>
 #include <cstdlib>
 #include <iostream>
@@ -32,6 +31,7 @@
 #include "1q/airborne_radar/session/ArSession.h"
 #include "1q/coordinate/position_transform.h"
 #include "1q/coordinate/types.h"
+#include "1q/coordinate/velocity_transform.h"
 #include "1q/electro_optical_sensor/session/EosExternalInputAdapter.h"
 #include "1q/electromagnetics/RfScene.h"
 #include "1q/fusion/FusedTarget.h"
@@ -42,7 +42,9 @@
 #include "config_loaders/electronic_warfare/config_loader.h"
 #include "assembly.h"
 #include "components.h"
+#include "flight_system.h"
 #include "systems.h"
+#include "viz_recorder.h"
 
 namespace ar = airborne_radar;
 namespace ar_session = airborne_radar::session;
@@ -51,7 +53,17 @@ namespace bl = behavior_layer;
 namespace {
 
 constexpr std::uint32_t kNumCycles = 200U;
-constexpr double kPi = 3.14159265358979323846;
+
+/// 可视化 CSV 默认输出目录（可用 --output-dir 覆盖）。
+constexpr char kDefaultOutputDir[] = "/tmp/behavior_layer_viz";
+
+/// 打印命令行用法。
+void PrintUsage(const char* program) {
+  std::cout << "Usage: " << program << " [--output-dir <dir>]\n"
+            << "  --output-dir <dir>  可视化 CSV 输出目录（默认 " << kDefaultOutputDir << "）\n"
+            << "  运行后用 build_viewer.py 构建交互式 HTML 查看器：\n"
+            << "    python3 examples/behavior_layer/build_viewer.py <dir>\n";
+}
 
 /// 加载三份会话配置（复用各域 config_loader 与 examples/configs/ 同源 JSON）。
 bl::BehaviorLayerConfig LoadConfigs() {
@@ -86,28 +98,6 @@ bl::BehaviorLayerConfig LoadConfigs() {
   return configs;
 }
 
-/// 平台 ENU 基（east/north 的 ECEF 分量），把目标方位/距离转为 ECEF 偏移。
-/// 方位角从北顺时针（航向角惯例）：E = R·sin(α)、N = R·cos(α)。
-struct EnuBasis {
-  double east_x, east_y, east_z;
-  double north_x, north_y, north_z;
-};
-
-EnuBasis MakeEnuBasis(const oneq::coordinate::LlaPositionDegM& origin) {
-  const double lat = origin.latitude_deg * kPi / 180.0;
-  const double lon = origin.longitude_deg * kPi / 180.0;
-  const double slat = std::sin(lat), clat = std::cos(lat);
-  const double slon = std::sin(lon), clon = std::cos(lon);
-  EnuBasis basis;
-  basis.east_x = -slon;
-  basis.east_y = clon;
-  basis.east_z = 0.0;
-  basis.north_x = -slat * clon;
-  basis.north_y = -slat * slon;
-  basis.north_z = clat;
-  return basis;
-}
-
 /// 目标脚本：3 个空中目标（正东前方 16-20 km，与平台同速东移）。
 /// 方位（北偏东 90° = 正东）落在 EOS 扫描覆盖内（平台局部系 az 0 = 东，
 /// 扫描 ±40°）；平台以 ~54-65 m/s 东飞 200 周期，目标 v_east 与其匹配 →
@@ -136,22 +126,29 @@ struct TargetEcefState {
   float rcs{0.0f};
 };
 
-/// 目标脚本 → ECEF 状态（ENU 偏移经平台 ENU 基投影到 ECEF）。
+/// 目标脚本 → ECEF 状态（方位/距离经库内 ENU 偏移函数投影到 ECEF，速度经
+/// ENU 速度函数投影；z 随 ENU 偏移投影（目标与平台同高基准，az=90° 时
+/// north=0 → z=平台基准高度）。脚本为编译期合法常量，投影调用不会失败。
 std::vector<TargetEcefState> MakeTargetStates(
-    const oneq::coordinate::EcefPositionM& platform_ecef, const EnuBasis& basis) {
+    const oneq::coordinate::EcefPositionM& platform_ecef,
+    const oneq::coordinate::LlaPositionDegM& platform_origin) {
   std::vector<TargetEcefState> states;
   states.reserve(3U);
   for (const auto& script : kTargetScript) {
-    const double az_rad = script.azimuth_deg * kPi / 180.0;
-    const double east_m = script.range_m * std::sin(az_rad);
-    const double north_m = script.range_m * std::cos(az_rad);
     TargetEcefState state;
-    state.position.x_m = platform_ecef.x_m + east_m * basis.east_x + north_m * basis.north_x;
-    state.position.y_m = platform_ecef.y_m + east_m * basis.east_y + north_m * basis.north_y;
-    state.position.z_m = platform_ecef.z_m + east_m * basis.east_z + north_m * basis.north_z;
-    state.velocity.x_mps = script.v_east_mps * basis.east_x + script.v_north_mps * basis.north_x;
-    state.velocity.y_mps = script.v_east_mps * basis.east_y + script.v_north_mps * basis.north_y;
-    state.velocity.z_mps = script.v_east_mps * basis.east_z + script.v_north_mps * basis.north_z;
+    oneq::coordinate::EnuPositionM offset;
+    oneq::coordinate::EcefPositionM target;
+    if (oneq::coordinate::TryBearingRangeToEnuOffset(script.azimuth_deg, script.range_m,
+                                                     &offset) &&
+        oneq::coordinate::TryEnuToEcef(offset, platform_origin, &target)) {
+      state.position = target;
+    }
+    oneq::coordinate::EnuVelocityMps enu_velocity;
+    enu_velocity.east_mps = script.v_east_mps;
+    enu_velocity.north_mps = script.v_north_mps;
+    enu_velocity.up_mps = 0.0;
+    // 脚本输入合法（有限/非负），投影必然成功；失败时 velocity 留默认零向量。
+    oneq::coordinate::TryEnuToEcefVelocity(enu_velocity, platform_origin, &state.velocity);
     state.rcs = script.rcs;
     states.push_back(state);
   }
@@ -295,23 +292,46 @@ void PrintRoute(const bl::RoutePlanComponent& route) {
 
 }  // namespace
 
-int main() {
+int main(int argc, char* argv[]) {
+  // 命令行参数：--output-dir <dir> 覆盖可视化 CSV 输出目录（默认 /tmp/behavior_layer_viz）。
+  std::string output_dir = kDefaultOutputDir;
+  for (int i = 1; i < argc; ++i) {
+    const std::string arg = argv[i];
+    if (arg == "--output-dir") {
+      if (i + 1 >= argc) {
+        std::cerr << "Missing value for --output-dir\n";
+        PrintUsage(argv[0]);
+        return 1;
+      }
+      output_dir = argv[++i];
+    } else if (arg == "--help" || arg == "-h") {
+      PrintUsage(argv[0]);
+      return 0;
+    } else {
+      std::cerr << "Unknown argument: " << arg << "\n";
+      PrintUsage(argv[0]);
+      return 1;
+    }
+  }
+
   entt::registry registry;
   const entt::entity lead = bl::AssembleBehaviorLayer(registry, LoadConfigs());
   auto situation_observer = bl::MakeSituationObserver(registry);
 
   auto& context = registry.ctx().get<bl::BehaviorContext>();
 
-  // 世界真值脚本：以平台初始 ECEF 为基准（消费方场景编排）。
+  // 可视化记录器：FD 初始化成功 = JSBSim 真实飞行，否则运动学回退（model 列区分）。
+  bl::VizRecorder recorder(output_dir, bl::GetFlightDynamics(registry) != nullptr);
+
+  // 世界真值脚本：以平台初始 ECEF 与 LLA 为基准（消费方场景编排）。
   oneq::coordinate::EcefPositionM platform_ecef;
   if (!oneq::coordinate::TryLlaToEcef(
           registry.get<bl::FleetStatusComponent>(lead).position, &platform_ecef)) {
     std::cerr << "Invalid platform LLA\n";
     return 1;
   }
-  const EnuBasis basis =
-      MakeEnuBasis(registry.get<bl::FleetStatusComponent>(lead).position);
-  std::vector<TargetEcefState> target_states = MakeTargetStates(platform_ecef, basis);
+  std::vector<TargetEcefState> target_states = MakeTargetStates(
+      platform_ecef, registry.get<bl::FleetStatusComponent>(lead).position);
 
   std::uint32_t validation_error_count = 0U;
   bool route_printed = false;
@@ -329,11 +349,27 @@ int main() {
 
     if (route.version > 0U && !route_printed) {
       PrintRoute(route);
+      recorder.RecordRoute(route);  // 可视化：航路计划（一次）
       route_printed = true;
     }
     const auto& fleet = registry.get<bl::FleetStatusComponent>(lead);
     PrintCycleSummary(cycle, context, fleet, route.next_index, route.route.size(), situation,
                       command);
+
+    // 可视化数据导出：本周期平台/目标真值/三传感器/融合态势 + 航点完成事件增量。
+    std::vector<bl::TruthTargetRow> truth_rows;
+    truth_rows.reserve(target_states.size());
+    for (std::size_t i = 0U; i < target_states.size(); ++i) {
+      bl::TruthTargetRow row;
+      row.target_id = 1001U + i;
+      row.position = target_states[i].position;
+      row.rcs = target_states[i].rcs;
+      truth_rows.push_back(row);
+    }
+    const double t_sec = static_cast<double>(cycle) * bl::kBehaviorDtSec;
+    recorder.RecordCycle(cycle, t_sec, fleet, route, situation, context.last_ar_result,
+                         context.esr_last_result, context.eos_last_result, truth_rows);
+    recorder.RecordWaypointEvents(bl::CollectWaypointEvents(registry));
 
     // 事件触发报告（entt::observer）：新目标/消失目标（报告节奏属业务层）。
     for (const auto entity : *situation_observer) {
@@ -362,7 +398,13 @@ int main() {
     AdvanceTargetStates(target_states, bl::kBehaviorDtSec);
   }
 
+  recorder.Flush();  // 确保全部 CSV 落盘后再打印摘要
   std::cout << "\n=== Behavior Layer Summary ===\n"
-            << "cycles=" << kNumCycles << " validation_errors=" << validation_error_count << "\n";
+            << "cycles=" << kNumCycles << " validation_errors=" << validation_error_count << "\n"
+            << "visualization data -> " << recorder.output_dir()
+            << " (platform_track/target_truth/ar_tracks/eos_detections/esr_hypotheses/"
+               "fused_tracks/route_plan/waypoint_events.csv)\n"
+            << "build interactive viewer: python3 examples/behavior_layer/build_viewer.py "
+            << recorder.output_dir() << "\n";
   return validation_error_count == 0U ? 0 : 1;
 }

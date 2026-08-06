@@ -43,7 +43,31 @@ if(_oneq_unit_examples)
         TIMEOUT 60
         INCLUDE_DIRS "${CMAKE_SOURCE_DIR}/examples/common"
                      "${CMAKE_SOURCE_DIR}/examples/batch_validation"
-        EXTRA_SOURCES "${CMAKE_SOURCE_DIR}/examples/common/json_reader.cpp")
+                     "${CMAKE_SOURCE_DIR}/examples/component_attachment"
+        EXTRA_SOURCES "${CMAKE_SOURCE_DIR}/examples/common/json_reader.cpp"
+                      # component_attachment 组件实现（ecs_component_runtime_test
+                      # 测组件运行时修改接口；sensor_adapt.h 为 header-only）。
+                      "${CMAKE_SOURCE_DIR}/examples/component_attachment/components/ar_sensor_component.cpp"
+                      "${CMAKE_SOURCE_DIR}/examples/component_attachment/components/esr_sensor_component.cpp"
+                      "${CMAKE_SOURCE_DIR}/examples/component_attachment/components/eos_sensor_component.cpp"
+                      "${CMAKE_SOURCE_DIR}/examples/component_attachment/components/sbirs_sensor_component.cpp"
+                      "${CMAKE_SOURCE_DIR}/examples/component_attachment/components/sar_sensor_component.cpp"
+                      "${CMAKE_SOURCE_DIR}/examples/component_attachment/components/flight_component.cpp")
+    if(ONEQ_ENABLE_FLIGHT_DYNAMIC)
+        # 飞行组件 FD 路径（与 examples/component_attachment/CMakeLists.txt 对称）：
+        # 静态库不传递依赖，需显式链接 JSBSim；c172x 数据根注入。
+        if(DEFINED ONEQ_JSBSIM_DATA_ROOT_DIR AND NOT ONEQ_JSBSIM_DATA_ROOT_DIR STREQUAL "")
+            set(_oneq_examples_fd_root "${ONEQ_JSBSIM_DATA_ROOT_DIR}")
+        else()
+            set(_oneq_examples_fd_root "${CMAKE_SOURCE_DIR}/third_party/jsbsim")
+        endif()
+        target_compile_definitions(${PROJECT_NAME}_examples_unit_tests PRIVATE
+            ONEQ_CA_FLIGHT_DYNAMIC_ENABLED=1
+            FD_JSBSIM_ROOT_DIR="${_oneq_examples_fd_root}")
+        if(TARGET JSBSim::JSBSim)
+            target_link_libraries(${PROJECT_NAME}_examples_unit_tests PRIVATE JSBSim::JSBSim)
+        endif()
+    endif()
 endif()
 
 # airborne_radar (AR).

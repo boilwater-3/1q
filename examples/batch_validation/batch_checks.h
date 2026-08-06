@@ -11,9 +11,13 @@
 #include <vector>
 
 #include "batch_assertions.h"
-#include "batch_csv_writer.h"
+#include "csv_writer.h"
 
 namespace batch_validation {
+
+// CSV 工具已上移至 examples/common/（命名空间 examples）。
+using examples::CsvWriter;
+using examples::EscapeCsvField;
 
 struct ContractCheck {
   std::string scenario_id;

@@ -13,7 +13,6 @@
 #include "systems.h"
 
 #include <algorithm>
-#include <cmath>
 #include <cstdint>
 #include <vector>
 
@@ -28,6 +27,7 @@
 #include "1q/electronic_surveillance_radar/session/EmitterObservation.h"
 #include "assembly.h"
 #include "components.h"
+#include "sensor_adapt.h"
 
 namespace behavior_layer {
 
@@ -36,11 +36,6 @@ namespace {
 /// 决策门限：融合置信度达到该值视为高置信威胁（示例业务策略，非库内标准）。
 /// 单源单周期最高贡献 = 源权重（verdict=1 × quality=1），窗口 10。
 constexpr double kHighThreatConfidence = 3.0;
-
-/// 探测质量基准：无识别置信度（target_probability == 0）时按轨迹状态取基准值。
-double BaseQualityForStatus(airborne_radar::session::TrackStatus status) {
-  return status == airborne_radar::session::TrackStatus::kConfirmed ? 1.0 : 0.5;
-}
 
 /// ESR 观测质量枚举 → 威胁分数（业务层映射，供 ECM 输入帧）。
 double QualityToThreatScore(electronic_surveillance_radar::session::EsrObservationQuality quality) {
@@ -55,6 +50,7 @@ double QualityToThreatScore(electronic_surveillance_radar::session::EsrObservati
 }
 
 /// 平台 LLA/航向/速度 → ECEF 位置与速度（三会话共用；零姿态保持共享局部系）。
+/// 航向分解与 ECEF 投影为库内单函数（oneq::coordinate），此处仅做薄包装。
 void ResolvePlatformEcef(const FleetStatusComponent& fleet,
                          oneq::coordinate::EcefPositionM* ecef_position,
                          oneq::coordinate::EcefVelocityMps* ecef_velocity) {
@@ -62,13 +58,9 @@ void ResolvePlatformEcef(const FleetStatusComponent& fleet,
   if (oneq::coordinate::TryLlaToEcef(fleet.position, &ecef)) {
     *ecef_position = ecef;
   }
-  const double heading_rad = fleet.heading_deg * 3.14159265358979323846 / 180.0;
-  oneq::coordinate::EnuVelocityMps enu_velocity;
-  enu_velocity.east_mps = fleet.speed_mps * std::sin(heading_rad);
-  enu_velocity.north_mps = fleet.speed_mps * std::cos(heading_rad);
-  enu_velocity.up_mps = 0.0;
   oneq::coordinate::EcefVelocityMps ecef_vel;
-  if (oneq::coordinate::TryEnuToEcefVelocity(enu_velocity, fleet.position, &ecef_vel)) {
+  if (oneq::coordinate::TryMakeEcefVelocityFromHeading(fleet.heading_deg, fleet.speed_mps,
+                                                       fleet.position, &ecef_vel)) {
     *ecef_velocity = ecef_vel;
   }
 }
@@ -84,89 +76,6 @@ airborne_radar::session::ArExternalPoseInput MakePlatformPose(
   pose.platform_position_ecef_m = ecef_position;
   pose.platform_velocity_mps = ecef_velocity;
   return pose;
-}
-
-/// 把 AR 外部轨迹帧适配为融合探测记录（key = association_key，跳过失落轨迹）。
-std::vector<fusion::DetectionRecord> AdaptTracksToDetections(
-    std::uint32_t source_id,
-    const airborne_radar::session::ArExternalTrackOutputFrame& external_frame) {
-  std::vector<fusion::DetectionRecord> detections;
-  detections.reserve(external_frame.tracks.size());
-  for (const auto& track : external_frame.tracks) {
-    if (track.status == airborne_radar::session::TrackStatus::kLost) {
-      continue;  // 失跟轨迹不入融合（避免以旧位置续命航迹）
-    }
-    fusion::DetectionRecord record;
-    record.key = track.association_key;
-    record.source_id = source_id;
-    record.has_position = true;
-    oneq::coordinate::LlaPositionDegM lla;
-    if (oneq::coordinate::TryEcefToLla(track.target_position_ecef_m, &lla)) {
-      record.position = lla;
-    } else {
-      record.has_position = false;  // 转换失败则退化为仅身份键记录
-    }
-    record.verdict = 1.0;  // 已发布的轨迹快照视为有效探测
-    record.quality = track.target_probability > 0.0f
-                         ? static_cast<double>(track.target_probability)
-                         : BaseQualityForStatus(track.status);
-    detections.push_back(record);
-  }
-  return detections;
-}
-
-/// 把 ESR 辐射源假设适配为融合探测记录（key=hypothesis_id，方位 + 归一化射频特征）。
-std::vector<fusion::DetectionRecord> AdaptHypothesesToDetections(
-    std::uint32_t source_id,
-    const electronic_surveillance_radar::session::EmitterHypothesisList& hypotheses) {
-  std::vector<fusion::DetectionRecord> detections;
-  detections.reserve(hypotheses.size());
-  for (const auto& hypothesis : hypotheses) {
-    if (hypothesis.hypothesis_id == 0U) {
-      continue;  // 库内键 0 = 无身份，不适用身份直挂
-    }
-    fusion::DetectionRecord record;
-    record.key = hypothesis.hypothesis_id;
-    record.source_id = source_id;
-    record.has_bearing = true;
-    record.bearing_az_deg = hypothesis.bearing_az_deg;
-    record.bearing_el_deg = hypothesis.bearing_el_deg;
-    // 射频特征归一化到可比尺度（GHz/MHz/ms/µs），供特征门限未来启用。
-    record.feature = {hypothesis.estimated_center_frequency_hz / 1.0e9,
-                      hypothesis.estimated_bandwidth_hz / 1.0e6,
-                      hypothesis.estimated_pri_s * 1.0e3,
-                      hypothesis.estimated_pulse_width_s * 1.0e6};
-    record.verdict = 1.0;  // 已发布的辐射源假设视为有效探测
-    record.quality = hypothesis.confidence;
-    detections.push_back(record);
-  }
-  return detections;
-}
-
-/// 把 EOS 探测记录适配为融合探测记录（key=0 无身份，首期仅方位通道）。
-std::vector<fusion::DetectionRecord> AdaptEosDetectionsToDetections(
-    std::uint32_t source_id,
-    const electro_optical_sensor::output::EosDetectionRecordList& records) {
-  std::vector<fusion::DetectionRecord> detections;
-  detections.reserve(records.size());
-  for (const auto& record : records) {
-    if (!record.detected) {
-      continue;  // 未过探测门限不产生探测
-    }
-    fusion::DetectionRecord detection;
-    detection.key = 0U;  // 无外部身份通道：走方位相干关联（去真值化纪律）
-    detection.source_id = source_id;
-    detection.has_bearing = true;
-    detection.bearing_az_deg = record.azimuth_deg;
-    detection.bearing_el_deg = record.elevation_deg;
-    // range 通道首期不使用（保留方位相干关联路径）；
-    // 质量 = 融合 SNR 归一化（10 dB → 1.0，业务层映射）。
-    detection.verdict = 1.0;
-    detection.quality =
-        std::min(1.0, std::max(0.0, static_cast<double>(record.fused_snr_db) / 10.0));
-    detections.push_back(detection);
-  }
-  return detections;
 }
 
 /// 驱动 AR 会话并适配轨迹输出为探测记录（source_id = kArSourceId）。
@@ -186,7 +95,8 @@ void DriveArSession(BehaviorContext& context, const FleetStatusComponent& fleet,
     airborne_radar::session::ArExternalTrackOutputFrame external_frame;
     if (airborne_radar::session::ArCycleOutputAdapter::Build(
             input.platform, context.last_ar_result.track_output_frame, &external_frame)) {
-      sensor->detections = AdaptTracksToDetections(sensor->source_id, external_frame);
+      sensor->detections = examples::sensor_adapt::AdaptTracksToDetections(
+          sensor->source_id, external_frame);
     }
   }
 }
@@ -216,7 +126,7 @@ void DriveEsrSession(BehaviorContext& context, const FleetStatusComponent& fleet
   sensor->detections.clear();
   if (context.esr_last_result.status ==
       electronic_surveillance_radar::session::EsrCycleExecutionStatus::kCompleted) {
-    sensor->detections = AdaptHypothesesToDetections(
+    sensor->detections = examples::sensor_adapt::AdaptHypothesesToDetections(
         sensor->source_id, context.esr_last_result.output_frame.emitter_output.hypotheses);
   }
 }
@@ -246,7 +156,7 @@ void DriveEosSession(BehaviorContext& context, const FleetStatusComponent& fleet
   sensor->detections.clear();
   if (context.eos_last_result.status ==
       electro_optical_sensor::session::EosCycleStatus::kCompleted) {
-    sensor->detections = AdaptEosDetectionsToDetections(
+    sensor->detections = examples::sensor_adapt::AdaptEosDetectionsToDetections(
         sensor->source_id, context.eos_last_result.output_frame.detections);
   }
 }

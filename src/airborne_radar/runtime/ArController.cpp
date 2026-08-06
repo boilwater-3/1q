@@ -257,6 +257,9 @@ struct ArController::Impl {
       recognition_database_path = recognition_config.database_path;
       recognition_tracker.SetActiveDatabaseVersion(recognition_database->version());
     } else {
+      // 中译：识别特征数据库加载失败：{}。
+      // 标识：外部数据加载失败——识别数据库不可用时识别功能降级，
+      //       排查数据库路径与文件格式。
       PROJECT_LOG_ERROR("[ArController] recognition database load failed: {}", error);
     }
   }
@@ -684,6 +687,8 @@ extension::ArControllerRuntimeState ArController::CaptureRuntimeState() const {
 
 bool ArController::RestoreRuntimeState(const extension::ArControllerRuntimeState& state) {
   if (state.owner_identity != this || state.schema_version != 7U) {
+    // 中译：控制器运行状态恢复被拒绝：所有者/结构不匹配。
+    // 标识：回滚保护——归属/结构校验失败时拒绝恢复，防止错误状态写入。
     PROJECT_LOG_ERROR(
         "[ArController] controller runtime state restore rejected: "
         "owner/schema mismatch.");

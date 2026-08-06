@@ -236,6 +236,8 @@ extension::InterceptPipelineResult InterceptPostProcessingExecutor::Execute(
   // Preprocess
   const std::vector<RawObservationRecord> records =
       preprocessor.Run(raw_records, config.preprocess);
+  // 中译：预处理前后记录数（原始 / 预处理后）。
+  // 标识：预处理效果核对——原始观测经去重/合并等预处理后的数量变化。
   PROJECT_LOG_DEBUG("[InterceptPostProcess] raw={} preprocessed={}", raw_records.size(),
                     records.size());
 
@@ -315,6 +317,8 @@ extension::InterceptPipelineResult InterceptPostProcessingExecutor::Execute(
   associator.UpdateConfig(config.association);
   result.emitter_output.hypotheses =
       associator.Update(ctx.GetCycleIndex(), cluster_summaries, &next_hypothesis_id);
+  // 中译：周期后处理摘要（周期号、聚类数、假设数）。
+  // 标识：截获处理概况——聚类与辐射源假设的数量，供核对关联效果。
   PROJECT_LOG_INFO("[InterceptPostProcess] cycle_index={} clusters={} hypotheses={}",
                    ctx.GetCycleIndex(), cluster_result.clusters.size(),
                    result.emitter_output.hypotheses.size());

@@ -228,6 +228,8 @@ bool RunPhysicalDetectionPass(const session::ArSceneTargetList& input,
       const Eigen::Vector3f& position = (*buffers->target_geometry)[i].position_m;
       const float position_norm = position.norm();
       if (!std::isfinite(position_norm) || position_norm <= 0.0f) {
+        // 中译：目标 {} 的本地位置范数非法（{}）。
+        // 标识：数值保护——位置非有限或非正时该目标检测失败，周期中止。
         PROJECT_LOG_ERROR("[DetectionExecution] target {} has invalid local position norm {}.", i,
                           position_norm);
         return false;
@@ -238,6 +240,8 @@ bool RunPhysicalDetectionPass(const session::ArSceneTargetList& input,
           -static_cast<double>(relative_velocity.dot(position / position_norm));
       const double two_way_propagation_loss_db = static_cast<double>(env.propagation_loss_db);
       if (!std::isfinite(two_way_propagation_loss_db) || two_way_propagation_loss_db < 0.0) {
+        // 中译：目标 {} 的双向传播损耗非法（{} dB）。
+        // 标识：数值保护——损耗非有限或为负时该目标检测失败，周期中止。
         PROJECT_LOG_ERROR(
             "[DetectionExecution] target {} has invalid two-way propagation loss {} dB.", i,
             two_way_propagation_loss_db);
@@ -271,6 +275,8 @@ bool RunPhysicalDetectionPass(const session::ArSceneTargetList& input,
               cell_config, cell_target, rf_v2_detection_context->own_emission_identity,
               rf_v2_detection_context->incident_links, static_cast<double>(clutter_w),
               &cell_result)) {
+        // 中译：目标 {} 的 RF 检测单元解析失败（距离/脉冲数/入射链路数）。
+        // 标识：检测链路失败——信噪比/杂波竞争解析异常时该目标检测失败。
         PROJECT_LOG_ERROR(
             "[DetectionExecution] target {} RF detection-cell resolution failed "
             "(range_m={}, pulse_count={}, incident_links={}).",

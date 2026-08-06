@@ -68,6 +68,7 @@ table SarSessionConfig {
   mission: SarMissionConfig;
   policy: SarPolicyConfig;
   environment: SarEnvironmentConfig;
+  sensor_enabled: bool = true;
 }
 
 root_type SarSessionConfig;
@@ -84,4 +85,6 @@ table SarRuntimeConfigPatch {
   retain_focused_image: bool;
   has_minimum_snr_db: bool;
   minimum_snr_db: double;
+  has_sensor_enabled: bool = false;
+  sensor_enabled: bool = true;
 }

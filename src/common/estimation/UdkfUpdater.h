@@ -55,6 +55,9 @@ class UdkfUpdater final : public IKalmanUpdater<kStateDim, kMeasurementDim> {
 
     const Eigen::LLT<MeasurementCovariance> llt(result.innovation_covariance);
     if (llt.info() != Eigen::Success) {
+      // 中译：创新协方差 LLT 分解失败。
+      // 标识：数值保护——协方差非正定时跳过更新（后验=预测），
+      //       防止数值发散。
       PROJECT_LOG_ERROR("[UdkfUpdater] Innovation covariance LLT decomposition failed.");
       result.posterior = predicted;
       return result;

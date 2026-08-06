@@ -24,13 +24,13 @@
 #include "batch_assertions.h"
 #include "batch_checks.h"
 #include "batch_cli.h"
-#include "batch_csv_writer.h"
+#include "csv_writer.h"
 #include "batch_replay.h"
 
 namespace sbirs_config = sbirs_sensor::config;
 namespace sbirs_output = sbirs_sensor::output;
 namespace sbirs_session = sbirs_sensor::session;
-using batch_validation::CsvWriter;
+using examples::CsvWriter;
 using batch_validation::ContractCheckCollector;
 using batch_validation::ModuleName;
 using batch_validation::ReplayCheckResult;
@@ -289,7 +289,7 @@ ScenarioSummary RunScenario(const SbirsCase& scenario, const std::string& output
           session.StepWithResult(MakeInput(scenario, cycle));
       if (cycle == 1U) {
         // 规则 12 参考实现验证：DebugView → JSON 字符串
-        // （examples/sbirs_sensor/SbirsDebugViewToJson.h，集成方可独立 copy）。
+        // （examples/common/SbirsDebugViewToJson.h + debug_view_json.h，集成方可独立 copy）。
         (void)SbirsDebugViewToJson(
             sbirs_session::SbirsOutputDebugViewBuilder::Build(MakeInput(scenario, cycle), result));
       }

@@ -104,6 +104,20 @@ ONEQ_API bool TryEnuToEcefVelocity(const EnuVelocityMps& enu_velocity,
                                    const LlaPositionDegM& origin_lla,
                                    EcefVelocityMps* ecef_velocity);
 
+/**
+ * @brief 平台水平运动学：航向（北偏东）与水平速度 → ECEF 速度向量。
+ * @param[in] heading_deg 航向角（deg，北偏东：0=北、90=东）。
+ * @param[in] speed_mps 水平速度（m/s，非负）。
+ * @param[in] origin_lla 参考点 LLA，决定 ENU 坐标轴方向。
+ * @param[out] ecef_velocity 输出 ECEF 速度；可为 nullptr。
+ * @return 成功返回 true。
+ * @note 承载"水平速度按航向分解为 east=speed*sin、north=speed*cos（up=0）"
+ *       的平台运动学约定，供多传感器场景集成共用，避免各集成侧重写公式。
+ */
+ONEQ_API bool TryMakeEcefVelocityFromHeading(double heading_deg, double speed_mps,
+                                             const LlaPositionDegM& origin_lla,
+                                             EcefVelocityMps* ecef_velocity);
+
 // =============================================================================
 // 局部坐标系互转（轴重排，无精度损失）
 // =============================================================================

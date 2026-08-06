@@ -61,6 +61,12 @@ class ONEQ_API SarRuntimeConfigBuilder {
     return *this;
   }
 
+  SarRuntimeConfigBuilder& WithSensorEnabled(bool enable) noexcept {
+    patch_.has_sensor_enabled = true;
+    patch_.sensor_enabled = enable;
+    return *this;
+  }
+
   config::SarRuntimeConfigPatch Build() const noexcept { return patch_; }
 
  private:

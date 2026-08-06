@@ -41,7 +41,9 @@ void RecordAbort(ArCycleResult* result, SignalCycleAbortReason reason,
   issue.message = message;
   result->diagnostics.push_back(std::move(issue));
 
-  // 人读日志
+  // 中译：AR 中止记录（原因码 — 细粒度码 — 消息）。
+  // 标识：三写之三（人读日志）——标识本周期中止的粗粒度原因与细粒度码，
+  //       供排查中止路径；仅用于人读，不用于状态判断（规则 3）。
   PROJECT_LOG_ERROR("AR {}: {} — {}", AbortReasonToDiagnosticCode(reason), detail_code, message);
 }
 

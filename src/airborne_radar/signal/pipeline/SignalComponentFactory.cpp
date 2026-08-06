@@ -97,6 +97,8 @@ LifecycleAssemblyArtifacts SignalComponentFactory::BuildLifecycleAssemblyArtifac
       imm_ready = false;
     }
     if (model_count > 3U) {
+      // 中译：IMM 模型数 {} 可能增加生命周期延迟；常规负载建议 2-3 个模型。
+      // 标识：性能建议——模型数过多时提示配置者权衡精度与延迟。
       PROJECT_LOG_WARN(
           "[SignalPipeline] IMM model count {} may increase lifecycle "
           "latency; 2-3 models are recommended for routine workloads",
@@ -143,12 +145,17 @@ LifecycleAssemblyArtifacts SignalComponentFactory::BuildLifecycleAssemblyArtifac
             transition_probability, initial_weights));
         return artifacts;
       }
+      // 中译：IMM 生命周期矩阵/权重校验失败，装配中止（模型数 {}）。
+      // 标识：装配校验失败——转移概率/初始权重尺寸与模型数不符，
+      //       装配中止且不创建回退管理器。
       PROJECT_LOG_ERROR(
           "[SignalPipeline] IMM lifecycle matrix/weights validation failed; lifecycle "
           "assembly aborted (model_count={})",
           model_count);
     }
 
+    // 中译：IMM 生命周期装配失败，未创建回退管理器。
+    // 标识：装配失败——IMM 路径不可用时无降级方案，调用方应检查配置。
     PROJECT_LOG_ERROR(
         "[SignalPipeline] IMM lifecycle assembly failed; no fallback manager created.");
     return artifacts;
@@ -174,12 +181,16 @@ LifecycleAssemblyArtifacts SignalComponentFactory::BuildLifecycleAssemblyArtifac
 }
 
 void SignalComponentFactory::LogLifecycleAssemblyConfigViolation(const char* message, float value) {
+  // 中译：生命周期自动装配配置违例（消息与值）。
+  // 标识：配置校验汇总——IMM 参数非法时统一记录，供定位配置错误。
   PROJECT_LOG_ERROR("[SignalPipeline] lifecycle auto-assembly config violation: {} (value={})",
                     message, value);
 }
 
 void SignalComponentFactory::LogLifecycleAssemblyConfigViolation(const char* message,
                                                                  std::size_t value) {
+  // 中译：生命周期自动装配配置违例（消息与值）。
+  // 标识：配置校验汇总——IMM 参数非法时统一记录，供定位配置错误。
   PROJECT_LOG_ERROR("[SignalPipeline] lifecycle auto-assembly config violation: {} (value={})",
                     message, value);
 }

@@ -3,6 +3,7 @@
 #include <cmath>
 #include <limits>
 #include <map>
+#include <string>
 
 #include "1q/sbirs_sensor/config/SbirsSessionConfigBuilder.h"
 #include "1q/sbirs_sensor/session/SbirsCycleInputAdapter.h"
@@ -104,6 +105,17 @@ void ExpectImmTargetStateEqual(const sbirs_sensor::pipeline::SbirsPipelineSnapsh
     EXPECT_TRUE(left_models[index].state.covariance.isApprox(right_models[index].state.covariance));
     EXPECT_FLOAT_EQ(left_models[index].weight, right_models[index].weight);
   }
+}
+
+/// 按 code 查找诊断条目（规则 13b 排除诊断断言用）。
+const sbirs_sensor::session::SbirsDiagnosticIssue* FindIssue(
+    const sbirs_sensor::pipeline::SbirsPipelineResult& result, const char* code) {
+  for (const auto& issue : result.diagnostics) {
+    if (issue.code == code) {
+      return &issue;
+    }
+  }
+  return nullptr;
 }
 
 TEST(SbirsPipelineTest, WideCandidateCapturesIntoNfov) {
@@ -1462,6 +1474,96 @@ TEST(SbirsPipelineTest, ImmSupportsCaptureRestoreRoundtrip) {
   const auto result = pipeline2.RunCycle(input);
   ASSERT_FALSE(result.detections.empty());
   EXPECT_TRUE(result.detections.front().record.detected);
+}
+
+// 规则 13b：正常执行周期的按目标门控排除必须产出 kInfo 诊断（不属于三写），
+// 且不改变探测行为（detections 仍为空、周期正常完成）。
+
+TEST(SbirsPipelineTest, OccultedTargetWritesInfoExclusionDiagnostic) {
+  sbirs_sensor::config::SbirsSessionConfig config = PipelineConfig();
+  sbirs_sensor::pipeline::SbirsPipeline pipeline(
+      sbirs_sensor::runtime::MapSessionToInternal(config));
+  // 对侧地表上方（半径 6.5e6 m > 地球半径 6.371e6 m）：LOS 穿过地球 → 遮挡排除。
+  sbirs_sensor::session::SbirsSceneTarget target = HotTarget(1U, 0.0);
+  target.position_ecef_m = Vector(-6500000.0, 0.0, 0.0);
+  const sbirs_sensor::session::SbirsCycleInput input =
+      sbirs_sensor::session::SbirsCycleInputBuilder()
+          .WithCycleIndex(1U)
+          .WithDeltaTimeSec(1.0f)
+          .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
+          .AddTarget(target)
+          .Build();
+
+  const sbirs_sensor::pipeline::SbirsPipelineResult result = pipeline.RunCycle(input);
+  EXPECT_TRUE(result.detections.empty());
+  const auto* issue = FindIssue(result, "sbirs.target_occulted");
+  ASSERT_NE(issue, nullptr);
+  EXPECT_EQ(issue->severity, sbirs_sensor::session::SbirsDiagnosticSeverity::kInfo);
+  EXPECT_NE(issue->message.find("target_id=1"), std::string::npos);
+}
+
+TEST(SbirsPipelineTest, OutOfRangeTargetWritesInfoExclusionDiagnostic) {
+  sbirs_sensor::config::SbirsSessionConfig config = PipelineConfig();
+  config.mission.max_range_m = 500000.0f;  // 收紧距离门：HotTarget（range 1e6 m）超限
+  sbirs_sensor::pipeline::SbirsPipeline pipeline(
+      sbirs_sensor::runtime::MapSessionToInternal(config));
+  const sbirs_sensor::session::SbirsCycleInput input =
+      sbirs_sensor::session::SbirsCycleInputBuilder()
+          .WithCycleIndex(1U)
+          .WithDeltaTimeSec(1.0f)
+          .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
+          .AddTarget(HotTarget(1U, 0.0))
+          .Build();
+
+  const sbirs_sensor::pipeline::SbirsPipelineResult result = pipeline.RunCycle(input);
+  EXPECT_TRUE(result.detections.empty());
+  const auto* issue = FindIssue(result, "sbirs.target_out_of_range");
+  ASSERT_NE(issue, nullptr);
+  EXPECT_EQ(issue->severity, sbirs_sensor::session::SbirsDiagnosticSeverity::kInfo);
+  EXPECT_NE(issue->message.find("target_id=1"), std::string::npos);
+}
+
+TEST(SbirsPipelineTest, TargetOutsideWfovWritesInfoExclusionDiagnostic) {
+  sbirs_sensor::config::SbirsSessionConfig config = PipelineConfig();
+  sbirs_sensor::pipeline::SbirsPipeline pipeline(
+      sbirs_sensor::runtime::MapSessionToInternal(config));
+  // 扫描中心约 0°，WFOV 20°×20°：az=100° 目标在视场外（|100-0|=100° > 10°）。
+  const sbirs_sensor::session::SbirsCycleInput input =
+      sbirs_sensor::session::SbirsCycleInputBuilder()
+          .WithCycleIndex(1U)
+          .WithDeltaTimeSec(1.0f)
+          .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
+          .AddTarget(HotTargetAtAngles(1U, 100.0, 0.0))
+          .Build();
+
+  const sbirs_sensor::pipeline::SbirsPipelineResult result = pipeline.RunCycle(input);
+  EXPECT_TRUE(result.detections.empty());
+  const auto* issue = FindIssue(result, "sbirs.target_out_of_wfov");
+  ASSERT_NE(issue, nullptr);
+  EXPECT_EQ(issue->severity, sbirs_sensor::session::SbirsDiagnosticSeverity::kInfo);
+  EXPECT_NE(issue->message.find("target_id=1"), std::string::npos);
+}
+
+TEST(SbirsPipelineTest, TargetBelowWideSnrWritesInfoExclusionDiagnostic) {
+  sbirs_sensor::config::SbirsSessionConfig config = PipelineConfig();
+  // WFOV SNR 门限抬到极大：视场内热目标必低于门限 → SNR 门排除。
+  config.policy.detection.wide_min_snr_linear = 1.0e30f;
+  sbirs_sensor::pipeline::SbirsPipeline pipeline(
+      sbirs_sensor::runtime::MapSessionToInternal(config));
+  const sbirs_sensor::session::SbirsCycleInput input =
+      sbirs_sensor::session::SbirsCycleInputBuilder()
+          .WithCycleIndex(1U)
+          .WithDeltaTimeSec(1.0f)
+          .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
+          .AddTarget(HotTarget(1U, 0.0))  // az=0°/el=0°：视场内
+          .Build();
+
+  const sbirs_sensor::pipeline::SbirsPipelineResult result = pipeline.RunCycle(input);
+  EXPECT_TRUE(result.detections.empty());
+  const auto* issue = FindIssue(result, "sbirs.target_snr_below_threshold");
+  ASSERT_NE(issue, nullptr);
+  EXPECT_EQ(issue->severity, sbirs_sensor::session::SbirsDiagnosticSeverity::kInfo);
+  EXPECT_NE(issue->message.find("target_id=1"), std::string::npos);
 }
 
 }  // namespace

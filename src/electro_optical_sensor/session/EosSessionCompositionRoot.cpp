@@ -26,6 +26,8 @@ T& RequireComposedDependency(std::unique_ptr<T>& ptr, const char* dependency_nam
   if (ptr != nullptr) {
     return *ptr;
   }
+  // 中译：组合根依赖「{}」为空指针。
+  // 标识：装配错误——依赖未被注入即被访问，属内部接线缺陷。
   PROJECT_LOG_ERROR("[EosSessionCompositionRoot] Dependency '{}' is null.", dependency_name);
   std::abort();
 }

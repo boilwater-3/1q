@@ -45,6 +45,9 @@ void EsrController::RunOnce(const session::EsrCycleInput& input) {
   if (session::HasValidationError(issues)) {
     impl_->last_cycle_status = session::EsrCycleExecutionStatus::kRejected;
     impl_->last_abort_reason = session::EsrPipelineAbortReason::kValidationRejected;
+    // 中译：ESR 周期输入校验被拒绝（周期号）。
+    // 标识：输入校验失败——本周期不执行、输出为空；
+    //       排查输入字段校验问题（详见 ValidationIssueList）。
     PROJECT_LOG_WARN("ESR validation rejected for cycle_index={}", stamp.cycle_index);
     return;
   }
@@ -67,6 +70,8 @@ void EsrController::RunOnce(const session::EsrCycleInput& input) {
   if (pipeline_result.rf_v2_rejected) {
     impl_->last_cycle_status = session::EsrCycleExecutionStatus::kRejected;
     impl_->last_abort_reason = session::EsrPipelineAbortReason::kRfReceiverRejected;
+    // 中译：ESR RF v2 接收机拒绝了本周期（周期号）。
+    // 标识：射频接收级拒绝——周期不产出观测；排查 RF 帧与接收机窗口。
     PROJECT_LOG_WARN("ESR RF v2 receiver rejected cycle_index={}", stamp.cycle_index);
     return;
   }
@@ -78,6 +83,7 @@ void EsrController::RunOnce(const session::EsrCycleInput& input) {
   session::EsrOutputFrame output_frame;
   output_frame.cycle_index = stamp.cycle_index;
   output_frame.batch_id = stamp.batch_id;
+  output_frame.scan_azimuth_deg = pipeline_result.scan_azimuth_deg;
   output_frame.observation_output = std::move(pipeline_result.observation_output);
   output_frame.emitter_output = std::move(pipeline_result.emitter_output);
 
@@ -86,6 +92,8 @@ void EsrController::RunOnce(const session::EsrCycleInput& input) {
   impl_->last_cycle_status = session::EsrCycleExecutionStatus::kCompleted;
   impl_->last_abort_reason = session::EsrPipelineAbortReason::kNone;
   ++impl_->runtime_state.next_batch_id;
+  // 中译：本周期已执行（周期号、观测数、假设数）。
+  // 标识：执行成功摘要——确认周期正常完成并产出了观测与假设。
   PROJECT_LOG_DEBUG(
       "[EsrController] cycle_index={} executed obs={} hyp={}",
       stamp.cycle_index,

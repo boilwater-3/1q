@@ -53,6 +53,13 @@ SBIRS 所有中止路径遵守 `session_contract.md` 规则 9 的三写模式：
 
 三写由 `SbirsDiagnosticUtils::RecordAbort` 统一执行。
 
+正常执行周期（`status == kCompleted`）的按目标排除诊断（kInfo，code 如
+`"sbirs.target_out_of_wfov"`）**不属于三写**（session_contract.md 规则 13b）：仅承载排查信息，
+由 pipeline 内联写入、controller 层转写进 `SbirsCycleResult.diagnostics`，调用方按规则 12
+落盘 DebugView 时自然携带；不改变周期状态与 DebugView 状态语义。周期级 `PROJECT_LOG_INFO`
+执行摘要（规则 13a，格式 `[SbirsPipeline] cycle_index=… scan_az=… detections=… excluded=…`）
+在 pipeline `RunCycle` 每次实际执行后输出，仅人读，不用于状态判断（规则 3）。
+
 ### 输出规则（WFOV/NFOV 状态仅决定当前周期哪些目标输出检测记录，不进 raw output 字段）
 
 1. WFOV 阶段（`WideCandidate`）：输出 WFOV 检测成功目标的检测记录，位置为带误差值。
@@ -66,6 +73,11 @@ SBIRS 所有中止路径遵守 `session_contract.md` 规则 9 的三写模式：
 6. NFOV 门连续失败达阈值：raw output 无记录；result attribution 携带 `kNfovTrackingGateLost` 并释放锁定。
 7. NFOV 首次捕获失败或 pointing timeout：raw output 不含失败记录；result attribution 携带
    `kNfovAcquisitionFailed` 或 `kNfovPointingTimeout`。
+8. WFOV 级几何/SNR 排除（地球遮挡、距离门、视场外、WFOV SNR 低于 `wide_min_snr_linear`）：
+   raw output 无记录、无 attribution；`SbirsCycleResult.diagnostics` 携带 kInfo 排除码
+   （`sbirs.target_occulted` / `sbirs.target_out_of_range` / `sbirs.target_out_of_wfov` /
+   `sbirs.target_snr_below_threshold`，message 含 `target_id` 与关键量值）；DebugView 状态仍为
+   `kNotInOutput`（规则 13b/c）。
 
 仿真归属（detection id → 输入 target id/name）、debug view、lifecycle（found/lost）、replay 仅进
 `SbirsCycleResult` 和调试视图层，不得混入 `SbirsOutputFrame`。状态机内部状态如需调试，通过稳定的

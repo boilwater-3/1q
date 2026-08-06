@@ -168,6 +168,9 @@ EsrRuntimeConfigResolveResult ResolveEsrRuntimeConfigPatch(
   if (scan_policy_changed) {
     const config::EsrScanPolicyConfig& scan = resolved.next_config.mission.scan;
     if (!oneq::common::validation::IsFinite(scan.scan_rate_hz) || scan.scan_rate_hz <= 0.0f) {
+      // 中译：扫描速率最终值非法（须为有限正数），拒绝运行期补丁。
+      // 标识：整域与叶子合并后的最终校验失败——拒绝时补丁不生效，
+      //       当前配置保持不变。
       PROJECT_LOG_ERROR(
           "[EsrSession] Rejecting runtime config patch due to invalid final scan_rate_hz={}; "
           "must be finite and positive.",
@@ -182,6 +185,9 @@ EsrRuntimeConfigResolveResult ResolveEsrRuntimeConfigPatch(
           !oneq::common::validation::IsFinite(scan.scan_end_el_deg) ||
           scan.scan_start_az_deg >= scan.scan_end_az_deg ||
           scan.scan_start_el_deg >= scan.scan_end_el_deg) {
+        // 中译：显式扫描边界最终值非法（须有限且起点小于终点），拒绝运行期补丁。
+        // 标识：边界扫描模式下最终校验失败——拒绝时补丁不生效，
+        //       当前配置保持不变。
         PROJECT_LOG_ERROR(
             "[EsrSession] Rejecting runtime config patch due to invalid final explicit scan "
             "bounds.");
@@ -210,6 +216,9 @@ EsrRuntimeConfigResolveResult ResolveEsrRuntimeConfigPatch(
   resolved.has_requested_update = has_requested_update;
   if (has_requested_update) {
     resolved.status = EsrRuntimeConfigApplyStatus::kApplied;
+    // 中译：运行期配置补丁已应用（随后为各字段是否被本次补丁携带）。
+    // 标识：补丁应用成功摘要——列出本次补丁实际修改了哪些域，
+    //       用于确认运行期变更已生效；无补丁时不输出。
     PROJECT_LOG_INFO(
         "[EsrSession] runtime config patch applied: mission={} policy={} env={} sensor_enabled={} "
         "work_mode={} scan_rate={} scan_bounds={}",

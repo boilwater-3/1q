@@ -141,8 +141,11 @@ class FlightManager {
 
   /**
    * @brief 推进一个仿真步长。
-   * @param[in] dt_sec 步长(s)
+   * @param[in] dt_sec 步长(s)。
    * @return 仿真是否仍在运行；处于 kCompleted/kAborted 时返回 false
+   * @note 六自由度机动（含地面滑跑/起落架等快动态）建议 dt ≤ 10-20 ms：
+   *       100 ms 量级在起飞段会发散（实测 roll 达 180° 量级后数值崩溃）。
+   *       权威示例 `examples/flight_dynamic/takeoff_land_csv.cpp` 用 10 ms。
    */
   bool Step(double dt_sec);
   /**
@@ -154,7 +157,12 @@ class FlightManager {
   void Abort();
 
   // Maneuver sequencing
-  /** @brief 将机动指令追加到队尾；若当前空闲则立即开始执行队首机动。 */
+  /**
+   * @brief 将机动指令追加到队尾；若当前空闲则立即开始执行队首机动。
+   * @note 仅 kReady 状态下追加后立即派发并转为 kExecuting；kExecuting 时
+   *       追加仅排队（不打断当前机动）。"构造后查 kReady"的模式须在
+   *       PushManeuver 之前检查，否则派发后状态已为 kExecuting。
+   */
   void PushManeuver(const ManeuverCommand& cmd);
   /** @brief 清空机动队列并复位执行索引（不影响当前载机状态）。 */
   void ClearManeuvers();

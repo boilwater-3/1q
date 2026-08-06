@@ -258,7 +258,7 @@ class SarModule {
    * @brief 把最近一次调试视图序列化为 JSON 字符串（session_contract.md 规则 12 参考实现）。
    *
    * 集成方把返回的字符串写入自己的日志/事件系统即可；跨周期累积由调用方日志承担。
-   * 序列化函数见 examples/sar/SarDebugViewToJson.h，可独立 copy。
+   * 序列化函数见 examples/common/SarDebugViewToJson.h，可独立 copy。
    */
   std::string buildLastDebugViewJson() const {
     return SarDebugViewToJson(buildLastDebugView());

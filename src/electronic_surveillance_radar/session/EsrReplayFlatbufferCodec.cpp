@@ -356,7 +356,8 @@ flatbuffers::Offset<esr::replay::EsrOutputFrame> CreateEsrOutputFrameTable(
   const auto hyp_fb = fbb.CreateVector(hyp_vec);
   auto em_out = esr::replay::CreateEmitterOutput(fbb, hyp_fb);
 
-  return esr::replay::CreateEsrOutputFrame(fbb, v.cycle_index, v.batch_id, obs_out, em_out);
+  return esr::replay::CreateEsrOutputFrame(fbb, v.cycle_index, v.batch_id, v.scan_azimuth_deg,
+                                           obs_out, em_out);
 }
 
 bool PopulateOutputFrame(const esr::replay::EsrOutputFrame* fb,
@@ -366,6 +367,7 @@ bool PopulateOutputFrame(const esr::replay::EsrOutputFrame* fb,
   }
   out->cycle_index = fb->cycle_index();
   out->batch_id = fb->batch_id();
+  out->scan_azimuth_deg = fb->scan_azimuth_deg();
   if (fb->observation_output()) {
     const auto* o = fb->observation_output();
     out->observation_output.raw_observation_count = o->raw_observation_count();

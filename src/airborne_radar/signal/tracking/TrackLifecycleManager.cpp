@@ -168,6 +168,8 @@ TrackLifecycleRuntimeState TrackLifecycleManager::CaptureRuntimeState() const {
 
 void TrackLifecycleManager::RestoreRuntimeState(const TrackLifecycleRuntimeState& state) {
   if (state.schema_version != 1U) {
+    // 中译：运行状态恢复被拒绝：快照结构与本实例不匹配。
+    // 标识：回滚保护——结构版本不符时拒绝恢复，防止错误状态写入。
     PROJECT_LOG_ERROR(
         "[TrackLifecycleManager] runtime state restore rejected because snapshot schema does not "
         "match this instance.");
@@ -197,6 +199,8 @@ void TrackLifecycleManager::RestoreRuntimeState(const TrackLifecycleRuntimeState
        it != snapshot->tracks_by_key.end(); ++it) {
     TrackState* track = pool_ != nullptr ? pool_->Acquire() : nullptr;
     if (track == nullptr) {
+      // 中译：恢复运行状态时未能为关联键 {} 获取航迹对象。
+      // 标识：对象池耗尽——恢复跳过该航迹，快照中的航迹可能丢失。
       PROJECT_LOG_ERROR(
           "[TrackLifecycleManager] runtime state restore failed to acquire track for "
           "association_key={}",
@@ -365,6 +369,8 @@ void TrackLifecycleManager::Update(const CycleContext& cycle,
                                    const std::vector<TrackMeasurement>& measurements) {
   float effective_dt_sec = 0.0f;
   if (!TryResolveEffectiveCycleDeltaTimeSec(cycle, &effective_dt_sec)) {
+    // 中译：周期时间步长非法（{}），本周期更新被跳过且状态不变。
+    // 标识：时间保护——无效 dt 时不推进航迹，防止数值污染。
     PROJECT_LOG_ERROR(
         "[TrackLifecycleManager] invalid cycle dt_sec={}, update skipped with no state changes.",
         cycle.dt_sec);
@@ -400,6 +406,8 @@ void TrackLifecycleManager::PreparePhase(LifecycleUpdateScratch& scratch,
        it != measurements.end(); ++it) {
     const std::uint64_t association_key = it->raw_measurement.association_key;
     if (scratch.measurement_by_key.find(association_key) != scratch.measurement_by_key.end()) {
+      // 中译：同一周期内关联键 {} 出现重复量测，暂存更新使用最后一条。
+      // 标识：输入去重——同键多量测时取最后一条，防止一次更新写多次。
       PROJECT_LOG_WARN(
           "[TrackLifecycleManager] duplicate measurement for association_key={} in one cycle, use "
           "last measurement for staged update",
@@ -429,6 +437,9 @@ void TrackLifecycleManager::EnsurePhase(LifecycleUpdateScratch& scratch,
     if (!track_existed_before_cycle) {
       track = pool_ != nullptr ? pool_->Acquire() : nullptr;
       if (track == nullptr) {
+        // 中译：未能从对象池获取航迹对象（关联键 {}），本周期跳过该量测。
+        // 标识：对象池耗尽——航迹数超过池容量时新航迹不建，
+        //       该量测本周期不参与更新。
         PROJECT_LOG_WARN(
             "[TrackLifecycleManager] failed to acquire track from pool for association_key={}",
             association_key);

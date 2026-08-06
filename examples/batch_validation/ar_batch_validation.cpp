@@ -37,7 +37,7 @@
 #include "batch_assertions.h"
 #include "batch_checks.h"
 #include "batch_cli.h"
-#include "batch_csv_writer.h"
+#include "csv_writer.h"
 #include "batch_replay.h"
 #include "config_loader.h"
 
@@ -45,7 +45,7 @@ namespace ar = airborne_radar;
 namespace ar_config = airborne_radar::config;
 namespace ar_session = airborne_radar::session;
 using batch_validation::ContractCheckCollector;
-using batch_validation::CsvWriter;
+using examples::CsvWriter;
 using batch_validation::ModuleName;
 using batch_validation::ReplayCheckResult;
 using batch_validation::Severity;

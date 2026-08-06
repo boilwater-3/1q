@@ -149,6 +149,7 @@ table EmitterOutput {
 table EsrOutputFrame {
   cycle_index:           uint32;
   batch_id:              uint64;
+  scan_azimuth_deg:      float;
   observation_output:    ObservationOutput;
   emitter_output:        EmitterOutput;
 }

@@ -117,9 +117,14 @@ Answers: flight_dynamic 用了哪些算法、各自实现到什么地步、边�
 - **实现边界**：
   1. 起飞逻辑按发动机类型（turboprop/turbine/piston）区分，不能用一个常数覆盖。
   2. 大量阈值可以被 XML `guidance/*` 覆盖。通用逻辑只表达阶段机理，aircraft-specific 数值应进入 XML。
+  3. **步长上限**：六自由度机动（含地面滑跑/起落架等快动态）建议 `Step(dt)` 用 10-20 ms；
+     100 ms 量级在起飞段发散（实测 roll 达 180° 量级后数值崩溃）。权威用法：
+     `examples/flight_dynamic/takeoff_land_csv.cpp`（dt=0.01）；集成契约见
+     `FlightManager.h` `Step()` 的 @note。
 - **反直觉点（CAS vs TAS 不得混用）**：起飞旋转速度与默认进近速度是 **CAS 基准**，统一使用标准
   海平面密度计算，不随机场高度改变；飞行中的 autopilot 安全包线则是**动态 TAS**。两者不得混用。
-- **证据**：[evidence: tests/unit/flight_dynamic/fd_adapter_test]
+- **证据**：[evidence: tests/unit/flight_dynamic/fd_adapter_test]、
+  [evidence: examples/flight_dynamic/takeoff_land_csv.cpp 起飞段回归]
 
 ## 推进管理
 

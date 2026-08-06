@@ -293,6 +293,20 @@ bool TryEnuToEcef(const EnuPositionM& enu,
   return IsFinite(*ecef);
 }
 
+bool TryBearingRangeToEnuOffset(double azimuth_deg, double range_m,
+                                EnuPositionM* enu_offset) {
+  if (enu_offset == nullptr || !oneq::common::validation::IsFinite(azimuth_deg) ||
+      !oneq::common::validation::IsFinite(range_m) || range_m < 0.0) {
+    return false;
+  }
+  // 纯几何约定：方位（北偏东）与水平距离 → ENU 水平偏移（up=0）。
+  const double azimuth_rad = oneq::common::numerics::DegToRad(azimuth_deg);
+  enu_offset->east_m = range_m * std::sin(azimuth_rad);
+  enu_offset->north_m = range_m * std::cos(azimuth_rad);
+  enu_offset->up_m = 0.0;
+  return true;
+}
+
 bool TryEnuToEcefDirection(const Vector3d& enu_dir,
                            const LlaPositionDegM& origin_lla,
                            Vector3d* ecef_dir) {

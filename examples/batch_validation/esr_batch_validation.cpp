@@ -38,14 +38,14 @@
 #include "batch_assertions.h"
 #include "batch_checks.h"
 #include "batch_cli.h"
-#include "batch_csv_writer.h"
+#include "csv_writer.h"
 #include "batch_replay.h"
 #include "config_loader.h"
 
 namespace esr = electronic_surveillance_radar;
 namespace esr_config = electronic_surveillance_radar::config;
 namespace esr_session = electronic_surveillance_radar::session;
-using batch_validation::CsvWriter;
+using examples::CsvWriter;
 using batch_validation::ContractCheckCollector;
 using batch_validation::ModuleName;
 using batch_validation::ReplayCheckResult;

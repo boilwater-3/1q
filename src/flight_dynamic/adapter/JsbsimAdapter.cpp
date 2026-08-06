@@ -26,6 +26,9 @@ bool MarkInitializationFailure(JsbsimAdapter::InitDiagnostics* diagnostics,
     diagnostics->initialization_failed = true;
     diagnostics->failure_reason = reason;
   }
+  // 中译：JsbsimAdapter 初始化失败：{}。
+  // 标识：初始化失败——JSBSim 飞行模型不可用时飞行仿真不可用，
+  //       排查飞机数据根目录与机型 XML。
   PROJECT_LOG_ERROR("JsbsimAdapter initialization failed: {}", reason);
   return false;
 }

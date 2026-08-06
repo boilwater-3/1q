@@ -6,65 +6,23 @@
  * 状态查询接口，"到目前为止"的累积信息由调用方将每周期 DebugView 以结构化格式
  * （如 JSON）写入自己的日志/事件系统获得。
  *
- * 集成方直接 copy 本文件：每周期调用 SbirsDebugViewToJson() 得到一条 JSON 记录，
- * 写入你们自己的日志即可；字段名与格式可按需调整。
+ * 集成方 copy 本文件 + debug_view_json.h（共享原语，可合并为一个文件）：
+ * 每周期调用 SbirsDebugViewToJson() 得到一条 JSON 记录，写入你们自己的日志即可；
+ * 字段名与格式可按需调整。
  */
 
-#ifndef EXAMPLES_SBIRS_SENSOR_DEBUG_VIEW_TO_JSON_H_
-#define EXAMPLES_SBIRS_SENSOR_DEBUG_VIEW_TO_JSON_H_
+#ifndef EXAMPLES_COMMON_SBIRS_DEBUG_VIEW_TO_JSON_H_
+#define EXAMPLES_COMMON_SBIRS_DEBUG_VIEW_TO_JSON_H_
 
-#include <cstdint>
-#include <iomanip>
+#include <cstddef>
 #include <sstream>
 #include <string>
 #include <vector>
 
 #include "1q/sbirs_sensor/session/SbirsOutputDebugView.h"
+#include "debug_view_json.h"
 
 namespace {
-
-std::string SbirsJsonEscape(const std::string& text) {
-  std::ostringstream out;
-  for (char ch : text) {
-    switch (ch) {
-      case '"':
-        out << "\\\"";
-        break;
-      case '\\':
-        out << "\\\\";
-        break;
-      case '\n':
-        out << "\\n";
-        break;
-      case '\r':
-        out << "\\r";
-        break;
-      case '\t':
-        out << "\\t";
-        break;
-      default:
-        if (static_cast<unsigned char>(ch) < 0x20U) {
-          out << "\\u" << std::hex << std::setw(4) << std::setfill('0')
-              << static_cast<unsigned int>(static_cast<unsigned char>(ch)) << std::dec;
-        } else {
-          out << ch;
-        }
-    }
-  }
-  return out.str();
-}
-
-const char* SbirsSeverityName(sbirs_sensor::session::SbirsDiagnosticSeverity severity) {
-  switch (severity) {
-    case sbirs_sensor::session::SbirsDiagnosticSeverity::kInfo:
-      return "info";
-    case sbirs_sensor::session::SbirsDiagnosticSeverity::kWarning:
-      return "warning";
-    case sbirs_sensor::session::SbirsDiagnosticSeverity::kError:
-      return "error";
-  }
-  return "unknown";
-}
 
 const char* SbirsAbortReasonName(sbirs_sensor::session::SbirsPipelineAbortReason reason) {
   switch (reason) {
@@ -141,7 +99,7 @@ inline std::string SbirsDebugViewToJson(const sbirs_sensor::session::SbirsOutput
     }
     const sbirs_sensor::session::SbirsDebugTargetState& target = view.targets[i];
     out << "{\"target_id\":" << target.target_id << ",\"target_name\":\""
-        << SbirsJsonEscape(target.target_name) << '"' << ",\"status\":\""
+        << JsonEscape(target.target_name) << '"' << ",\"status\":\""
         << SbirsTargetStatusName(target.status) << '"'
         << ",\"present_in_input\":" << (target.present_in_input ? "true" : "false")
         << ",\"has_raw_output_record\":" << (target.has_raw_output_record ? "true" : "false")
@@ -165,17 +123,8 @@ inline std::string SbirsDebugViewToJson(const sbirs_sensor::session::SbirsOutput
         << ",\"infrared_snr_linear\":" << target.infrared_snr_linear << ",\"observation_stage\":\""
         << SbirsObservationStageName(target.observation_stage) << "\"}";
   }
-  out << "],\"diagnostics\":[";
-  for (std::size_t i = 0U; i < view.diagnostics.size(); ++i) {
-    if (i > 0U) {
-      out << ',';
-    }
-    out << "{\"severity\":\"" << SbirsSeverityName(view.diagnostics[i].severity) << '"'
-        << ",\"code\":\"" << SbirsJsonEscape(view.diagnostics[i].code) << '"' << ",\"message\":\""
-        << SbirsJsonEscape(view.diagnostics[i].message) << "\"}";
-  }
-  out << "]}";
+  WriteDiagnosticsJson(out, view.diagnostics);
   return out.str();
 }
 
-#endif  // EXAMPLES_SBIRS_SENSOR_DEBUG_VIEW_TO_JSON_H_
+#endif  // EXAMPLES_COMMON_SBIRS_DEBUG_VIEW_TO_JSON_H_

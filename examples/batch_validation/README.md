@@ -29,7 +29,6 @@ flight_dynamic 不在本框架范围内。
 ```
 batch_validation/
 ├── README.md                  本文件
-├── batch_csv_writer.h         共享：流式 CSV writer（仿 flight_dynamic/orbit_quality_csv.cpp）
 ├── batch_replay.h             共享：ReplayTraceWriter 工厂 + 回放结果摘要
 ├── batch_assertions.h         共享：WarningCollector + 统计辅助（Mean/Percentile/单调性）
 ├── batch_cli.h                共享：显式 suite/scenario/output CLI

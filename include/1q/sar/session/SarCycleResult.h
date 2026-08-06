@@ -27,7 +27,7 @@ enum class SarPipelineAbortReason : std::uint16_t {
   kPipelineExecutionFailed,     /**< 管线内部执行失败 */
   kExternalInputRejected,       /**< 外部原始 IQ 输入校验失败 */
   kRuntimeStateRestoreRejected, /**< 运行时状态恢复失败 */
-  kSensorPoweredOff             /**< 设备关机（SAR 当前无此场景，预留对齐） */
+  kSensorPoweredOff             /**< 设备关机：管线短路，本周期未执行（COMMON-OQ-4 字段提升） */
 };
 
 /**
@@ -37,7 +37,8 @@ enum class SarPipelineAbortReason : std::uint16_t {
 enum class SarCycleStatus : std::uint8_t {
   kCompleted = 0,           /**< 周期正常完成 */
   kRejectedInvalidInput,    /**< 输入/配置校验失败 */
-  kRejectedExecution        /**< 执行失败 */
+  kRejectedExecution,       /**< 执行失败 */
+  kPoweredOff               /**< 设备关机：本周期未执行，输出为默认空帧 */
 };
 
 /**

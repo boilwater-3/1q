@@ -1,23 +1,24 @@
 /**
- * @file batch_csv_writer.h
- * @brief 批量场景验证共享工具：流式 CSV 写入器。
+ * @file csv_writer.h
+ * @brief 示例共享工具：流式 CSV 写入器。
  *
  * @par 设计目标
  * 仿照 examples/flight_dynamic/orbit_quality_csv.cpp 的 fprintf 风格，
  * 提供一个"打开文件 → 写表头 → 逐行追加 → 关闭"的最小工具，
- * 供四个模块的批量验证程序统一产出周期级 / 场景汇总级 CSV。
+ * 供批量验证程序（原 batch_validation/batch_csv_writer.h）与
+ * behavior_layer_demo 可视化导出统一产出周期级 / 场景汇总级 CSV。
  *
  * 不引入新依赖，仅用标准库；进度信息一律写 stderr，避免污染 CSV。
  */
 
-#ifndef EXAMPLES_BATCH_VALIDATION_BATCH_CSV_WRITER_H_
-#define EXAMPLES_BATCH_VALIDATION_BATCH_CSV_WRITER_H_
+#ifndef EXAMPLES_COMMON_CSV_WRITER_H_
+#define EXAMPLES_COMMON_CSV_WRITER_H_
 
 #include <cstdio>
 #include <cstring>
 #include <string>
 
-namespace batch_validation {
+namespace examples {
 
 /**
  * @brief 流式 CSV 写入器。
@@ -40,7 +41,7 @@ class CsvWriter {
       file_ = std::fopen(path.c_str(), "w");
     }
     if (file_ == nullptr) {
-      std::fprintf(stderr, "[batch_validation] FATAL: 无法打开 CSV 文件 %s\n", path.c_str());
+      std::fprintf(stderr, "[examples] FATAL: 无法打开 CSV 文件 %s\n", path.c_str());
       std::abort();
     }
     std::fprintf(file_, "%s\n", header.c_str());
@@ -102,6 +103,6 @@ inline std::string EscapeCsvField(const std::string& raw) {
   return out;
 }
 
-}  // namespace batch_validation
+}  // namespace examples
 
-#endif  // EXAMPLES_BATCH_VALIDATION_BATCH_CSV_WRITER_H_
+#endif  // EXAMPLES_COMMON_CSV_WRITER_H_

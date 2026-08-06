@@ -18,6 +18,9 @@ inline void LoadSarSessionConfig(
   LoadSarMission(root["mission"], &config->mission);
   LoadSarProcessing(root["processing"], &config->policy);
   LoadSarEnvironment(root["environment"], &config->environment);
+  // 电源状态单源（COMMON-OQ-4 字段提升）：session 级 sensor_enabled
+  config->sensor_enabled = root["sensor_enabled"].IsNull() ||
+                           root["sensor_enabled"].AsBool();
 }
 
 /// Load a sar::config::SarSessionConfig from a JSON file.

@@ -57,6 +57,9 @@ class SrifUpdater final : public IKalmanUpdater<kStateDim, kMeasurementDim> {
     const Eigen::LLT<StateCovariance> pred_llt(predicted.covariance);
     const Eigen::LLT<MeasurementCovariance> meas_llt(dynamic_R);
     if (pred_llt.info() != Eigen::Success || meas_llt.info() != Eigen::Success) {
+      // 中译：预测协方差或量测噪声 R 的 LLT 分解失败。
+      // 标识：数值保护——分解失败时跳过更新（后验=预测），
+      //       防止数值发散。
       PROJECT_LOG_ERROR("[SrifUpdater] LLT decomposition failed for predicted covariance or R.");
       result.posterior = predicted;
       return result;
@@ -70,6 +73,9 @@ class SrifUpdater final : public IKalmanUpdater<kStateDim, kMeasurementDim> {
         predicted_information + H_.transpose() * measurement_information * H_;
     const Eigen::LDLT<StateCovariance> information_ldlt(information);
     if (information_ldlt.info() != Eigen::Success) {
+      // 中译：信息矩阵 LDLT 分解失败。
+      // 标识：数值保护——信息矩阵非正定时跳过更新（后验=预测），
+      //       防止数值发散。
       PROJECT_LOG_ERROR("[SrifUpdater] Information matrix LDLT decomposition failed.");
       result.posterior = predicted;
       return result;

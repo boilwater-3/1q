@@ -49,5 +49,6 @@
   "work_mode": "kStripmap",
   "look_direction": "kRight",
   "imaging_algorithm": "kRangeDoppler",
-  "backoff_mode": "kNone"
+  "backoff_mode": "kNone",
+  "sensor_enabled": true
 }

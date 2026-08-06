@@ -470,6 +470,58 @@ TEST(CoordinateTest, EnuToEcefDirectionRejectsNullAndInvalidOrigin) {
   EXPECT_FALSE(TryEnuToEcefDirection(dir, bad, &out));
 }
 
+TEST(CoordinateTest, BearingNorthYieldsPureNorthOffset) {
+  EnuPositionM offset;
+  ASSERT_TRUE(TryBearingRangeToEnuOffset(0.0, 1000.0, &offset));
+  EXPECT_NEAR(offset.east_m, 0.0, kTolerance);
+  EXPECT_NEAR(offset.north_m, 1000.0, kTolerance);
+  EXPECT_NEAR(offset.up_m, 0.0, kTolerance);
+}
+
+TEST(CoordinateTest, BearingEastYieldsPureEastOffset) {
+  EnuPositionM offset;
+  ASSERT_TRUE(TryBearingRangeToEnuOffset(90.0, 1000.0, &offset));
+  EXPECT_NEAR(offset.east_m, 1000.0, kTolerance);
+  EXPECT_NEAR(offset.north_m, 0.0, kTolerance);
+  EXPECT_NEAR(offset.up_m, 0.0, kTolerance);
+}
+
+TEST(CoordinateTest, BearingSplitsOffsetAtFortyFiveDegrees) {
+  EnuPositionM offset;
+  ASSERT_TRUE(TryBearingRangeToEnuOffset(45.0, 1000.0, &offset));
+  const double expected = 1000.0 * std::sqrt(0.5);
+  EXPECT_NEAR(offset.east_m, expected, kTolerance);
+  EXPECT_NEAR(offset.north_m, expected, kTolerance);
+  EXPECT_NEAR(offset.up_m, 0.0, kTolerance);
+}
+
+TEST(CoordinateTest, BearingSouthFlipsNorthSign) {
+  EnuPositionM offset;
+  ASSERT_TRUE(TryBearingRangeToEnuOffset(180.0, 1000.0, &offset));
+  EXPECT_NEAR(offset.east_m, 0.0, kTolerance);
+  EXPECT_NEAR(offset.north_m, -1000.0, kTolerance);
+  EXPECT_NEAR(offset.up_m, 0.0, kTolerance);
+}
+
+TEST(CoordinateTest, BearingRangeZeroYieldsZeroOffset) {
+  EnuPositionM offset;
+  ASSERT_TRUE(TryBearingRangeToEnuOffset(30.0, 0.0, &offset));
+  EXPECT_NEAR(offset.east_m, 0.0, kTolerance);
+  EXPECT_NEAR(offset.north_m, 0.0, kTolerance);
+  EXPECT_NEAR(offset.up_m, 0.0, kTolerance);
+}
+
+TEST(CoordinateTest, BearingRangeRejectsInvalidInputs) {
+  EnuPositionM offset;
+
+  EXPECT_FALSE(TryBearingRangeToEnuOffset(0.0, 1000.0, nullptr));
+  EXPECT_FALSE(TryBearingRangeToEnuOffset(0.0, -1000.0, &offset));
+  EXPECT_FALSE(TryBearingRangeToEnuOffset(
+      std::numeric_limits<double>::quiet_NaN(), 1000.0, &offset));
+  EXPECT_FALSE(TryBearingRangeToEnuOffset(
+      0.0, std::numeric_limits<double>::quiet_NaN(), &offset));
+}
+
 }  // namespace
 }  // namespace coordinate
 }  // namespace oneq

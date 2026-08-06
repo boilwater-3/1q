@@ -84,6 +84,9 @@ void EosController::RunOnce(const ::electro_optical_sensor::session::EosCycleInp
 
   if (impl_->has_validation_error) {
     impl_->last_abort_reason = session::EosPipelineAbortReason::kValidationRejected;
+    // 中译：EOS 周期输入校验被拒绝（周期号）。
+    // 标识：输入校验失败——本周期不执行、输出为空帧；
+    //       排查输入场景/时间字段等校验问题（详见 ValidationIssueList）。
     PROJECT_LOG_WARN("EOS validation rejected for cycle_index={}", input.cycle_index);
     return;
   }
@@ -105,6 +108,9 @@ void EosController::RunOnce(const ::electro_optical_sensor::session::EosCycleInp
       impl_->has_latest_output = false;
       impl_->last_cycle_executed = false;
       impl_->last_abort_reason = session::EosPipelineAbortReason::kRuntimeStateRestoreRejected;
+      // 中译：EOS 流水线回滚失败（周期号）。
+      // 标识：执行中止后的状态恢复失败——输出被清空、本周期视为未执行，
+      //       防止脏状态泄漏到下一周期。
       PROJECT_LOG_ERROR("EOS pipeline rollback failed for cycle_index={}", input.cycle_index);
       return;
     }
@@ -127,6 +133,8 @@ void EosController::RunOnce(const ::electro_optical_sensor::session::EosCycleInp
   impl_->latest_detection_attributions = std::move(execute_result.detection_attributions);
   impl_->has_latest_output = true;
   impl_->last_cycle_executed = true;
+  // 中译：本周期已执行（周期号、探测数）。
+  // 标识：执行成功摘要——确认周期正常完成并产出了探测记录。
   PROJECT_LOG_DEBUG("[EosController] cycle_index={} executed detections={}", input.cycle_index,
                     assembled_frame.detections.size());
 }

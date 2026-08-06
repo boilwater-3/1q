@@ -31,16 +31,28 @@ SAR 遵守 `docs/common/contract.md`：
 
 ### 非执行周期统一不复用（五模块统一规则）
 
-SAR 非执行周期（校验失败/执行 abort）的 `Step()` 与 `SarCycleResult.output_frame` **永不复用**
+SAR 非执行周期（校验失败/执行 abort/设备关机）的 `Step()` 与 `SarCycleResult.output_frame` **永不复用**
 上一有效输出。调用方用 `StepWithResult().status` / `executed_this_cycle` / `abort_reason` 判断周期状态。
 `reused_previous_output` 字段已删除。
 
 实现细节：校验失败路径返回严格默认空帧（`cycle_index=0`、空载荷）；pipeline 中止路径
 （SNR 门限/状态恢复失败）在 `InitializeOutputFrameMetadata` 之后触发，因此
-`output_frame.cycle_index == input.cycle_index`（元数据已写入但无有效成像产物）。
-两条路径均属"非执行"，区别仅在 `cycle_index` 来源——这是有意设计，不构成合约违反。
+`output_frame.cycle_index == input.cycle_index`（元数据已写入但无有效成像产物）；
+设备关机路径（`sensor_enabled=false`）在管线入口短路，输出帧保持严格默认空帧。
+三条路径均属"非执行"，区别仅在 `cycle_index` 来源——这是有意设计，不构成合约违反。
 
 [evidence: tests/contract/sar/sar_public_api_convenience_test.cpp::StepReturnsEmptyFrameOnValidationFailureAfterSuccess]
+
+## 电源状态单源（COMMON-OQ-4 字段提升）
+
+`SarSessionConfig::sensor_enabled` 是电源唯一来源（mission 域无电源字段），
+`SarRuntimeConfigPatch::has_sensor_enabled` 叶子是运行时电源唯一入口。运行期关闭
+传感器不重建会话，只通过 patch 立即生效。关机时管线入口短路：`SarCycleStatus::kPoweredOff` +
+`abort_reason=kSensorPoweredOff`，`executed_this_cycle=false`、`has_error=false`（关机不是
+错误），输出帧严格默认空帧，跨周期状态（raw pulse 缓冲、孔径拼接、PRF 分数余量）不推进。
+
+[evidence: tests/unit/sar/sar_session_pipeline_test::PoweredOffCycleShortCircuitsWithEmptyFrame]
+[evidence: tests/unit/sar/sar_runtime_config_resolver_test::SensorEnabledLeafUpdatesConfig]
 
 ## dt_sec 校验边界（反直觉，勿按"四模块一致"补齐）
 
@@ -146,7 +158,7 @@ severity + code + message。`SarPipelineAbortReason` 枚举通过 `AbortReasonTo
 | `kPipelineExecutionFailed` | 管线内部执行失败 |
 | `kExternalInputRejected` | 外部原始 IQ 输入校验失败 |
 | `kRuntimeStateRestoreRejected` | 运行时状态恢复失败 |
-| `kSensorPoweredOff` | 设备关机（预留对齐） |
+| `kSensorPoweredOff` | 设备关机：管线入口短路（COMMON-OQ-4 字段提升，见"电源状态单源"） |
 
 细粒度失败信息由 `SarDiagnosticIssue::code`（如 `"sar.snr_below_minimum"`）和
 `PROJECT_LOG_ERROR` 双写承载，不进入 public `abort_reason`。

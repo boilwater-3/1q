@@ -77,16 +77,16 @@ AR 仍以单周期 `StepWithResult()` 作为公共接口。其内部先提交实
 
 ## 电源状态单源契约
 
-AR/ESR/EOS/SBIRS 四模块的电源状态必须遵守单源原则：
+AR/ESR/EOS/SBIRS/SAR 五模块的电源状态必须遵守单源原则：
 
 1. `*SessionConfig` 顶层 `sensor_enabled` 是会话初始电源状态的**唯一来源**；
    `*MissionConfig` 不含电源字段（`mission.power_on` 已整体移除）。
 2. `*RuntimeConfigPatch::has_sensor_enabled` / `sensor_enabled` 是运行时电源变更的**唯一入口**
-   （SBIRS 已从 `has_power_on`/`WithPowerOn` 统一对齐）；`has_mission` 整块域不影响电源。
+   （SBIRS 已从 `has_power_on`/`WithPowerOn` 统一对齐；SAR 于 COMMON-OQ-4 收敛补齐）；
+   `has_mission` 整块域不影响电源。
 3. 运行时补丁解析顺序（整块先、叶子后）仅约束几何/模式字段（scan_center、work_mode 等），
    不产生电源状态的二重路径。违反本契约的字段名/映射（`power_on`、`has_power_on`、
    `WithPowerOn` 回流）由 `tests/contract/check_cross_domain_naming.cmake` 阻断 7 硬性守护。
-4. SAR 例外保持：其补丁仅含处理开关，无电源域，不受本契约约束。
 
 ## 三层输出模型
 
@@ -142,6 +142,45 @@ AR/ESR/EOS/SBIRS 四模块的电源状态必须遵守单源原则：
     状态查询接口；"到目前为止"的累积信息由调用方将每周期 DebugView 以结构化格式（如 JSON/
     FlatBuffers）写入自己的日志/事件系统获得。规则 3 的"状态判断不得依赖日志文本"约束对象是
     模块内部代码，不限制调用方对其日志系统的使用，但调用方应结构化落盘，避免文本解析。
+    JSON 参考实现见 `examples/common/` 的 `*DebugViewToJson.h` + `debug_view_json.h`
+    （header-only、零第三方依赖，集成方可直接 copy 进自己的工程）。
+13. 正常执行周期（`status == kCompleted`）的可观测性：
+    a. **周期级执行摘要日志**：正常执行周期应输出周期级 `PROJECT_LOG_INFO` 摘要，格式基线
+       `[XxxPipeline] cycle_index={} …`（模块自定附加字段，如扫描方位、检测数/目标数、排除计数），
+       仅用于人读运行信息（规则 3）。ESR（`InterceptPipeline`/`InterceptPostProcessingExecutor`）
+       与 EOS（`EosPipeline`）为既有参考；SBIRS（`[SbirsPipeline]`）为首个按本规则对齐实现。
+    b. **按目标门控排除诊断**：正常执行周期中目标被门控排除（视场/SNR/距离/遮挡/几何等）应写
+       `kInfo` 级 `*DiagnosticIssueList` 条目，code 带模块前缀（如 `"sbirs.target_out_of_wfov"`），
+       message 携带 `target_id` 与关键量值。这类条目**不属于三写**（三写仅约束中止路径，规则 9），
+       仅承载排查信息；调用方按规则 12 落盘 DebugView 时自然携带。参考实现：SAR
+       （`SarDiagnosticUtils::MakeInfoDiagnostic`/`MakeWarningDiagnostic`）+ SBIRS（本轮）。
+    c. **状态语义边界**：kInfo 排除诊断不得改变 `*CycleStatus`、生命周期事件或 DebugView 状态
+       语义（如 `kNotInOutput`）；排除原因只经 diagnostics 承载，不新增状态位。
+   **现状偏离项（后续对齐，另立任务）**：AR 无周期摘要日志；AR/ESR/EOS 无 kInfo 排除诊断
+   （EOS 视场外目标仅 `PROJECT_LOG_DEBUG`）；SAR 无周期摘要日志。
+
+### 传感器方位坐标系约定（SBIRS）
+
+**SBIRS 输出的 `az`/`el`（检测记录 `SbirsDetectionRecord`、扫描相位
+`SbirsOutputFrame::scan_azimuth_deg`）为 ECEF 极坐标，不是卫星局部地平系**：
+
+- `az = atan2(los.y, los.x)`：相对 **ECEF x 轴**（`SbirsVector3M` 的 y/x 分量），
+  取值范围 `(-180°, 180°]`；
+- `el = asin(los.z / |los|)`：相对**赤道面**（ECEF z 轴为天顶参考），
+  星下点方向（目标在卫星正下方）`el ≈ −90°`，北天极方向 `el ≈ +90°`。
+
+实现见 `src/sbirs_sensor/foundation/SbirsGeometry.{h,cpp}` 的
+`ComputeAzimuthDeg`/`ComputeElevationDeg`；`SbirsSceneTarget` 与卫星位置均为
+ECEF 输入，检测记录直接以 ECEF 视线向量计算，无局部地平转换。
+
+**集成含义（反开发者直觉，易踩点）**：
+
+1. 场景几何编排（卫星位置、目标分布、WFOV 扫描中心/覆盖）必须按 ECEF 极坐标
+   参考设计。例如目标位于卫星正下方时扫描中心俯仰角应配置为 `−90°` 而非 `0°`
+   （`0°` 指向赤道面水平方向，星下点目标将完全落在视场外）。
+2. 该方位参考系与机载通道（AR/ESR/EOS 的平台局部系方位）**不同**；跨平台方位
+   融合/相干关联需要调用方先做坐标系对齐（本库不提供转换，业务层职责）。
+   参考实现见 `examples/component_attachment` 的 SBIRS 组件与 README 简化声明。
 
 ### 执行状态信号统一
 
@@ -152,7 +191,7 @@ AR/ESR/EOS/SBIRS 四模块的电源状态必须遵守单源原则：
 | AR | `ArCycleStatus` | `kCompleted`, `kPoweredOff`, `kRejectedInvalidInput`, `kRejectedInvalidConfig`, `kRejectedExecution` |
 | ESR | `EsrCycleExecutionStatus` | `kCompleted`, `kRejected`, `kPoweredOff` |
 | EOS | `EosCycleStatus` | `kCompleted`, `kPoweredOff`, `kRejectedInvalidInput`, `kRejectedExecution` |
-| SAR | `SarCycleStatus` | `kCompleted`, `kRejectedInvalidInput`, `kRejectedExecution`（细粒度失败信息由 `SarDiagnosticIssue::code` + 日志双写） |
+| SAR | `SarCycleStatus` | `kCompleted`, `kRejectedInvalidInput`, `kRejectedExecution`, `kPoweredOff`（细粒度失败信息由 `SarDiagnosticIssue::code` + 日志双写） |
 | SBIRS | `SbirsCycleStatus` | `kCompleted`, `kPoweredOff`, `kRejectedInvalidInput`, `kRejectedExecution` |
 
 `executed_this_cycle` 保留为 `status == kCompleted` 的便捷访问器（向后兼容）。

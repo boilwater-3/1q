@@ -44,6 +44,8 @@ bool RunEnvironmentPhase(CycleExecutionContext& context, const CycleExecutionRun
   if (!SyncAssociationAndTrackFilterConfigs(context.runtime_config, &runtime.association_engine,
                                             &runtime.track_filter,
                                             &runtime.auto_lifecycle_manager)) {
+    // 中译：环境阶段因运行配置同步失败而中止。
+    // 标识：配置同步失败——环境阶段提前退出，周期中止。
     PROJECT_LOG_ERROR(
         "[SignalPipeline] environment phase aborted because runtime config sync failed.");
     return false;
@@ -148,6 +150,8 @@ void CollectCycleOutputs(std::uint32_t cycle_index, std::uint64_t batch_id,
                          tracking::ITrackLifecycleManager* auto_lifecycle_manager,
                          CycleExecutionScratch& scratch) {
   if (auto_lifecycle_manager == nullptr) {
+    // 中译：自动生命周期管理器为空，决策帧装配中止。
+    // 标识：装配依赖缺失——无生命周期管理器时决策装配不执行。
     PROJECT_LOG_ERROR(
         "[CycleExecutor] auto_lifecycle_manager is null; decision frame assembly aborted.");
     return;

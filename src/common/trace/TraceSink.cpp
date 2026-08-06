@@ -22,6 +22,9 @@ FlatbufferFileTraceSink::FlatbufferFileTraceSink(std::string file_path, bool app
       output_(file_path_.c_str(), append ? (std::ios::out | std::ios::app | std::ios::binary)
                                          : (std::ios::out | std::ios::trunc | std::ios::binary)) {
   if (!output_.is_open()) {
+    // 中译：无法打开 flatbuffer trace 文件：{}。
+    // 标识：trace 记录初始化失败——文件路径不可写时后续记录全部无效，
+    //       排查路径与权限。
     PROJECT_LOG_ERROR("failed to open flatbuffer trace file: {}", file_path_);
   }
 }
@@ -41,6 +44,9 @@ void FlatbufferFileTraceSink::Record(const std::string& module, const std::strin
 
   const std::vector<std::uint8_t>& payload = builder.GetBuffer();
   if (payload.size() > 0xFFFFFFFFull) {
+    // 中译：flatbuffer trace 帧过大（{} 字节），本帧被丢弃。
+    // 标识：帧大小保护——超过 4GiB 长度字段上限的帧不写入，
+    //       防止头字段溢出。
     PROJECT_LOG_ERROR("flatbuffer trace frame is too large: {} bytes", payload.size());
     return;
   }
@@ -55,6 +61,8 @@ void FlatbufferFileTraceSink::Record(const std::string& module, const std::strin
 
   std::lock_guard<std::mutex> lock(mutex_);
   if (!output_.is_open()) {
+    // 中译：flatbuffer trace 文件未打开：{}。
+    // 标识：写入前置检查失败——文件不可用时放弃本帧记录。
     PROJECT_LOG_ERROR("flatbuffer trace file is not open: {}", file_path_);
     return;
   }
@@ -63,6 +71,8 @@ void FlatbufferFileTraceSink::Record(const std::string& module, const std::strin
                 static_cast<std::streamsize>(payload.size()));
   output_.flush();
   if (output_.fail() || output_.bad()) {
+    // 中译：写入 flatbuffer trace 帧失败：{}。
+    // 标识：IO 失败——写入出错时记录错误，供排查磁盘/空间问题。
     PROJECT_LOG_ERROR("failed to write flatbuffer trace frame: {}", file_path_);
   }
 }

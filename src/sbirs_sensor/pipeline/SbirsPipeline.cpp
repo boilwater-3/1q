@@ -2,8 +2,11 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdio>
 #include <set>
+#include <string>
 
+#include "common/logging/ProjectLog.h"
 #include "sbirs_sensor/environment/SbirsEnvironmentModel.h"
 #include "sbirs_sensor/foundation/SbirsErrorModel.h"
 #include "sbirs_sensor/foundation/SbirsGeometry.h"
@@ -16,6 +19,33 @@ namespace pipeline {
 namespace {
 
 const double kEarthRadiusM = 6371000.0;
+
+// 规则 13b：正常执行周期按目标门控排除的 kInfo 诊断码（message 携带 target_id 与关键量值）。
+constexpr char kExclusionOccultedCode[] = "sbirs.target_occulted";
+constexpr char kExclusionOutOfRangeCode[] = "sbirs.target_out_of_range";
+constexpr char kExclusionOutOfWfovCode[] = "sbirs.target_out_of_wfov";
+constexpr char kExclusionSnrBelowCode[] = "sbirs.target_snr_below_threshold";
+
+/// 构造 kInfo 级按目标排除诊断（不属于三写，仅承载排查信息；规则 13b）。
+session::SbirsDiagnosticIssue MakeExclusionIssue(const char* code, const std::string& message) {
+  session::SbirsDiagnosticIssue issue;
+  issue.severity = session::SbirsDiagnosticSeverity::kInfo;
+  issue.code = code;
+  issue.message = message;
+  return issue;
+}
+
+std::string FormatFloat(float value) {
+  char buffer[32];
+  std::snprintf(buffer, sizeof(buffer), "%.1f", static_cast<double>(value));
+  return buffer;
+}
+
+std::string FormatSnr(double value) {
+  char buffer[32];
+  std::snprintf(buffer, sizeof(buffer), "%.3e", value);
+  return buffer;
+}
 
 std::uint32_t DeriveMeasurementSeed(std::uint32_t base_seed, std::uint32_t domain_tag) {
   std::uint32_t value = base_seed ^ domain_tag;
@@ -375,16 +405,34 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
 
   result.executed = true;
 
+  // 规则 13a：周期执行摘要所需四类门控排除计数（按目标循环内累加）。
+  std::size_t excluded_occulted = 0U;
+  std::size_t excluded_out_of_range = 0U;
+  std::size_t excluded_out_of_wfov = 0U;
+  std::size_t excluded_snr_below = 0U;
+  const auto log_cycle_summary = [&]() {
+    // 中译：周期执行摘要（周期号、扫描方位角、检测数/目标总数、四类门控排除计数）。
+    // 标识：规则 13a 周期级执行摘要日志——每周期探测概况与几何/SNR 排除分布，
+    //       供宏观核对与"零探测"排查；仅人读，不用于状态判断（规则 3）。
+    PROJECT_LOG_INFO("[SbirsPipeline] cycle_index={} scan_az={:.2f} detections={}/{} "
+                     "excluded={{occulted={} range={} wfov={} snr={}}}",
+                     input.cycle_index, result.scan_azimuth_deg, result.detections.size(),
+                     input.scene.size(), excluded_occulted, excluded_out_of_range,
+                     excluded_out_of_wfov, excluded_snr_below);
+  };
+
   const SbirsPointingDisturbanceParameters disturbance_parameters =
       DisturbanceParameters(policy.pointing_disturbance);
   if (!pointing_coordinator_.AdvanceDisturbance(static_cast<double>(input.dt_sec),
                                                 disturbance_parameters)) {
     result.scan_azimuth_deg = ScanAzimuth(mission, scan_phase_deg_);
+    log_cycle_summary();
     return result;
   }
   SbirsPointingDisturbanceSample frame_disturbance;
   if (!pointing_coordinator_.DisturbanceSample(0, disturbance_parameters, &frame_disturbance)) {
     result.scan_azimuth_deg = ScanAzimuth(mission, scan_phase_deg_);
+    log_cycle_summary();
     return result;
   }
 
@@ -426,6 +474,11 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
 
     if (foundation::IsEarthOcculted(input.satellite_position_ecef_m, target.position_ecef_m,
                                     kEarthRadiusM)) {
+      // 规则 13b：遮挡排除 → kInfo 诊断（不属于三写，仅承载排查信息）。
+      result.diagnostics.push_back(MakeExclusionIssue(
+          kExclusionOccultedCode, "target_id=" + std::to_string(target.target_id) +
+                                      "; LOS from satellite occulted by Earth"));
+      ++excluded_occulted;
       target_states_[target.target_id] = SbirsTargetState::kUndetected;
       nfov_scheduler_.Release(target.target_id);
       pointing_coordinator_.ReleaseTarget(target.target_id);
@@ -438,6 +491,14 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
         foundation::Subtract(target.position_ecef_m, input.satellite_position_ecef_m);
     const double range_m = foundation::Norm(los);
     if (range_m < mission.min_range_m || range_m > mission.max_range_m) {
+      // 规则 13b：距离门排除 → kInfo 诊断（不属于三写，仅承载排查信息）。
+      result.diagnostics.push_back(MakeExclusionIssue(
+          kExclusionOutOfRangeCode,
+          "target_id=" + std::to_string(target.target_id) + "; range_m=" +
+              std::to_string(static_cast<std::int64_t>(range_m)) + " outside [" +
+              std::to_string(static_cast<std::int64_t>(mission.min_range_m)) + "," +
+              std::to_string(static_cast<std::int64_t>(mission.max_range_m)) + "]"));
+      ++excluded_out_of_range;
       target_states_[target.target_id] = SbirsTargetState::kUndetected;
       nfov_scheduler_.Release(target.target_id);
       pointing_coordinator_.ReleaseTarget(target.target_id);
@@ -570,7 +631,31 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
       continue;
     }
 
-    if (!in_wfov || snr < policy.detection.wide_min_snr_linear) {
+    if (!in_wfov) {
+      // 规则 13b：视场排除 → kInfo 诊断（不属于三写，仅承载排查信息）。
+      result.diagnostics.push_back(MakeExclusionIssue(
+          kExclusionOutOfWfovCode,
+          "target_id=" + std::to_string(target.target_id) + "; az/el (" +
+              FormatFloat(azimuth_deg) + "," + FormatFloat(elevation_deg) +
+              ") outside scan center (" + FormatFloat(actual_scan_azimuth_deg) + "," +
+              FormatFloat(actual_scan_elevation_deg) + ") fov " +
+              FormatFloat(mission.wide_field_fov_az_deg) + "x" +
+              FormatFloat(mission.wide_field_fov_el_deg)));
+      ++excluded_out_of_wfov;
+      target_states_[target.target_id] = SbirsTargetState::kUndetected;
+      nfov_scheduler_.Release(target.target_id);
+      pointing_coordinator_.ReleaseTarget(target.target_id);
+      cue_predictor_.Release(target.target_id);
+      tracking_coordinator_.ReleaseTarget(target.target_id);
+      continue;
+    }
+    if (snr < policy.detection.wide_min_snr_linear) {
+      // 规则 13b：WFOV SNR 门排除 → kInfo 诊断（不属于三写，仅承载排查信息）。
+      result.diagnostics.push_back(MakeExclusionIssue(
+          kExclusionSnrBelowCode, "target_id=" + std::to_string(target.target_id) +
+                                      "; snr_linear=" + FormatSnr(snr) + " below wide_min=" +
+                                      FormatSnr(policy.detection.wide_min_snr_linear)));
+      ++excluded_snr_below;
       target_states_[target.target_id] = SbirsTargetState::kUndetected;
       nfov_scheduler_.Release(target.target_id);
       pointing_coordinator_.ReleaseTarget(target.target_id);
@@ -639,6 +724,7 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
       detection.attribution.nfov_channel_id = -1;
       result.detections.push_back(detection);
     }
+    log_cycle_summary();
     return result;
   }
 
@@ -869,6 +955,7 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
     result.detections.push_back(detection);
   }
 
+  log_cycle_summary();
   return result;
 }
 

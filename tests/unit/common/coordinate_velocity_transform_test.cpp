@@ -227,6 +227,81 @@ TEST(CoordinateVelocityTransformTest, EnuToEcefVelocityRejectsInvalidInputs) {
   EXPECT_FALSE(TryEnuToEcefVelocity(nan_enu, MakeValidOrigin(0.0, 0.0), &ecef));
 }
 
+TEST(CoordinateVelocityTransformTest, HeadingNorthYieldsPureNorthVelocity) {
+  const LlaPositionDegM origin = MakeValidOrigin(0.0, 0.0);
+  EcefVelocityMps ecef;
+  ASSERT_TRUE(TryMakeEcefVelocityFromHeading(0.0, 50.0, origin, &ecef));
+
+  EnuVelocityMps enu;
+  ASSERT_TRUE(TryEcefToEnuVelocity(ecef, origin, &enu));
+  EXPECT_NEAR(enu.east_mps, 0.0, kTolerance);
+  EXPECT_NEAR(enu.north_mps, 50.0, kTolerance);
+  EXPECT_NEAR(enu.up_mps, 0.0, kTolerance);
+}
+
+TEST(CoordinateVelocityTransformTest, HeadingEastYieldsPureEastVelocity) {
+  const LlaPositionDegM origin = MakeValidOrigin(0.0, 0.0);
+  EcefVelocityMps ecef;
+  ASSERT_TRUE(TryMakeEcefVelocityFromHeading(90.0, 50.0, origin, &ecef));
+
+  EnuVelocityMps enu;
+  ASSERT_TRUE(TryEcefToEnuVelocity(ecef, origin, &enu));
+  EXPECT_NEAR(enu.east_mps, 50.0, kTolerance);
+  EXPECT_NEAR(enu.north_mps, 0.0, kTolerance);
+  EXPECT_NEAR(enu.up_mps, 0.0, kTolerance);
+}
+
+TEST(CoordinateVelocityTransformTest, HeadingSplitsVelocityAtFortyFiveDegrees) {
+  const LlaPositionDegM origin = MakeValidOrigin(45.0, 30.0);
+  EcefVelocityMps ecef;
+  ASSERT_TRUE(TryMakeEcefVelocityFromHeading(45.0, 100.0, origin, &ecef));
+
+  EnuVelocityMps enu;
+  ASSERT_TRUE(TryEcefToEnuVelocity(ecef, origin, &enu));
+  const double expected = 100.0 * std::sqrt(0.5);
+  EXPECT_NEAR(enu.east_mps, expected, 1.0e-6);
+  EXPECT_NEAR(enu.north_mps, expected, 1.0e-6);
+  EXPECT_NEAR(enu.up_mps, 0.0, kTolerance);
+}
+
+TEST(CoordinateVelocityTransformTest, HeadingSouthFlipsNorthSign) {
+  const LlaPositionDegM origin = MakeValidOrigin(0.0, 0.0);
+  EcefVelocityMps ecef;
+  ASSERT_TRUE(TryMakeEcefVelocityFromHeading(180.0, 50.0, origin, &ecef));
+
+  EnuVelocityMps enu;
+  ASSERT_TRUE(TryEcefToEnuVelocity(ecef, origin, &enu));
+  EXPECT_NEAR(enu.east_mps, 0.0, kTolerance);
+  EXPECT_NEAR(enu.north_mps, -50.0, kTolerance);
+  EXPECT_NEAR(enu.up_mps, 0.0, kTolerance);
+}
+
+TEST(CoordinateVelocityTransformTest, HeadingVelocityZeroYieldsZeroVelocity) {
+  const LlaPositionDegM origin = MakeValidOrigin(0.0, 0.0);
+  EcefVelocityMps ecef;
+  ASSERT_TRUE(TryMakeEcefVelocityFromHeading(30.0, 0.0, origin, &ecef));
+  EXPECT_NEAR(ecef.x_mps, 0.0, kTolerance);
+  EXPECT_NEAR(ecef.y_mps, 0.0, kTolerance);
+  EXPECT_NEAR(ecef.z_mps, 0.0, kTolerance);
+}
+
+TEST(CoordinateVelocityTransformTest, HeadingVelocityRejectsInvalidInputs) {
+  const LlaPositionDegM origin = MakeValidOrigin(0.0, 0.0);
+  EcefVelocityMps ecef;
+
+  EXPECT_FALSE(TryMakeEcefVelocityFromHeading(0.0, 10.0, origin, nullptr));
+  EXPECT_FALSE(TryMakeEcefVelocityFromHeading(0.0, -10.0, origin, &ecef));
+
+  LlaPositionDegM bad_origin;
+  bad_origin.latitude_deg = 200.0;
+  EXPECT_FALSE(TryMakeEcefVelocityFromHeading(0.0, 10.0, bad_origin, &ecef));
+
+  EXPECT_FALSE(TryMakeEcefVelocityFromHeading(
+      std::numeric_limits<double>::quiet_NaN(), 10.0, origin, &ecef));
+  EXPECT_FALSE(TryMakeEcefVelocityFromHeading(
+      0.0, std::numeric_limits<double>::quiet_NaN(), origin, &ecef));
+}
+
 }  // namespace
 }  // namespace coordinate
 }  // namespace oneq

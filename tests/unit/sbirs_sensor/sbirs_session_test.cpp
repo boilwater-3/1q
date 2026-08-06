@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 
 #include <limits>
+#include <string>
 
 #include "1q/sbirs_sensor/config/SbirsRuntimeConfigBuilder.h"
 #include "1q/sbirs_sensor/session/SbirsCycleInputAdapter.h"
@@ -179,6 +180,28 @@ TEST(SbirsSessionTest, NonExecutedCycleDoesNotUpdateLastEvents) {
   const sbirs_sensor::session::SbirsCycleResult rejected = session.StepWithResult(invalid);
   EXPECT_TRUE(rejected.has_validation_error);
   EXPECT_EQ(recorder.GetLastEvents().size(), first_size);
+}
+
+// 规则 13b：正常执行周期的按目标排除 kInfo 诊断须经 controller 转写进 SbirsCycleResult
+// （DebugView 序列化按规则 12 自然携带）。
+
+TEST(SbirsSessionTest, ExcludedTargetDiagnosticsPropagateToCycleResult) {
+  sbirs_sensor::config::SbirsSessionConfig config = Config();
+  config.mission.max_range_m = 500000.0f;  // 收紧距离门：ValidInput 目标（range 1e6 m）被排除
+  sbirs_sensor::session::SbirsSession session =
+      sbirs_sensor::session::SbirsSession::Create(config);
+  const sbirs_sensor::session::SbirsCycleResult result = session.StepWithResult(ValidInput(1U));
+  EXPECT_TRUE(result.executed_this_cycle);
+  EXPECT_TRUE(result.output_frame.detections.empty());
+  bool found = false;
+  for (const auto& issue : result.diagnostics) {
+    if (issue.code == "sbirs.target_out_of_range") {
+      found = true;
+      EXPECT_EQ(issue.severity, sbirs_sensor::session::SbirsDiagnosticSeverity::kInfo);
+      EXPECT_NE(issue.message.find("target_id=1"), std::string::npos);
+    }
+  }
+  EXPECT_TRUE(found);
 }
 
 }  // namespace

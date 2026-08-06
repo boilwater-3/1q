@@ -168,6 +168,18 @@ ONEQ_API bool TryEnuToEcef(const EnuPositionM& enu,
                            EcefPositionM* ecef);
 
 /**
+ * @brief 方位（北偏东）与水平距离 → ENU 水平偏移（up=0）。
+ * @param[in] azimuth_deg 方位角（deg，北偏东：0=北、90=东）。
+ * @param[in] range_m 水平距离（m，非负）。
+ * @param[out] enu_offset 输出 ENU 偏移；可为 nullptr。
+ * @return 成功返回 true。
+ * @note 纯几何单函数（east=range*sin、north=range*cos），与 TryEnuToEcef
+ *       组合即得目标 ECEF 位置；垂向偏移/高度由调用方业务层决定。
+ */
+ONEQ_API bool TryBearingRangeToEnuOffset(double azimuth_deg, double range_m,
+                                         EnuPositionM* enu_offset);
+
+/**
  * @brief 将 ENU 方向向量转换到 ECEF 方向（不含原点平移）。
  * @param[in] enu_dir ENU 方向向量（单位：m/m）。
  * @param[in] origin_lla 参考点 LLA，决定局部坐标轴方向。

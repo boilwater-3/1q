@@ -41,6 +41,8 @@ session::SbirsCycleResult SbirsController::RunOnce(const session::SbirsCycleInpu
 
   result.output_frame.cycle_index = input.cycle_index;
   result.output_frame.scan_azimuth_deg = pipeline_result.scan_azimuth_deg;
+  // 规则 13b：正常执行周期按目标排除的 kInfo 诊断转写进结构化结果（abort 路径不变）。
+  result.diagnostics = pipeline_result.diagnostics;
   // raw output 仅进 detected==true 的 record；失败诊断 attribution 仍保留进 result 层。
   for (const pipeline::SbirsPipelineDetection& detection : pipeline_result.detections) {
     result.detection_attributions.push_back(detection.attribution);

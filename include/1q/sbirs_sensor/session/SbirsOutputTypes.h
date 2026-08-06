@@ -31,8 +31,8 @@ enum class ONEQ_API SbirsObservationStage {
  */
 struct ONEQ_API SbirsDetectionRecord {
   std::uint64_t detection_id{0U};  /**< 本输出帧内的检测记录标识 */
-  float azimuth_deg{0.0f};         /**< 方位角，单位 deg */
-  float elevation_deg{0.0f};       /**< 仰角，单位 deg */
+  float azimuth_deg{0.0f};         /**< 方位角（ECEF 极坐标 az = atan2(y,x)，相对 ECEF x 轴），单位 deg；非卫星局部地平系 */
+  float elevation_deg{0.0f};       /**< 仰角（ECEF 极坐标 el = asin(z/r)，相对赤道面），单位 deg；非卫星局部地平系 */
   float infrared_snr_linear{0.0f}; /**< 红外通道线性 IR SNR */
   SbirsObservationStage observation_stage{SbirsObservationStage::kWideFieldSearch}; /**< 观测阶段 */
   bool detected{false}; /**< 是否通过探测门限判决 */

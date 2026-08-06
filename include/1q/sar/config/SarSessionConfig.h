@@ -17,12 +17,15 @@ namespace config {
 
 /**
  * @brief SAR 会话初始化高层输入。
+ * @note 电源状态由顶层 `sensor_enabled` 唯一承载（COMMON-OQ-4 字段提升）：
+ *       运行期变更经 `SarRuntimeConfigPatch::has_sensor_enabled`。
  */
 struct ONEQ_API SarSessionConfig {
   SarHardwareConfig hardware{};    /**< 传感器硬件与波形配置 */
   SarMissionConfig mission{};      /**< 平台与场景任务配置 */
   SarPolicyConfig policy{};        /**< 算法与运行策略配置 */
   SarEnvironmentConfig environment{}; /**< 环境与传播配置；字段生效范围见 SarEnvironmentConfig */
+  bool sensor_enabled{true};       /**< 传感器初始电源状态 */
 };
 
 }  // namespace config

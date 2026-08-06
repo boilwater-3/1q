@@ -325,6 +325,9 @@ void ManeuverExecutor::ExecuteFlyTo(const Waypoint& target) {
   Waypoint clamped_target = target;
   double ceiling = ap_.GetControlProfile().ceiling_m;
   if (ceiling > 0.0 && target.altitude_m > ceiling) {
+    // 中译：航点高度 {:.0f}m 超出升限，钳制到 {:.0f}m。
+    // 标识：飞行包线保护——目标高度超过飞机升限时自动降为升限值，
+    //       防止下达不可达高度导致爬升超时。
     PROJECT_LOG_INFO("[FLYTO] Clamping waypoint altitude {:.0f}m → ceiling {:.0f}m",
                  target.altitude_m, ceiling);
     clamped_target.altitude_m = ceiling;
@@ -376,6 +379,8 @@ void ManeuverExecutor::ExecuteOrbit(const Waypoint& center, double radius_m, dou
   Waypoint clamped_center = center;
   double ceiling = ap_.GetControlProfile().ceiling_m;
   if (ceiling > 0.0 && center.altitude_m > ceiling) {
+    // 中译：盘旋中心高度 {:.0f}m 超出升限，钳制到 {:.0f}m。
+    // 标识：飞行包线保护——盘旋高度超过飞机升限时自动降为升限值。
     PROJECT_LOG_INFO("[ORBIT] Clamping orbit altitude {:.0f}m → ceiling {:.0f}m",
                  center.altitude_m, ceiling);
     clamped_center.altitude_m = ceiling;
@@ -614,6 +619,8 @@ void ManeuverExecutor::ExecuteSetAltitude(double altitude_m, double tolerance_m)
   double ceiling = ap_.GetControlProfile().ceiling_m;
   double clamped_alt = altitude_m;
   if (ceiling > 0.0 && altitude_m > ceiling) {
+    // 中译：目标高度 {:.0f}m 超出升限，钳制到 {:.0f}m。
+    // 标识：飞行包线保护——定高指令超过飞机升限时自动降为升限值。
     PROJECT_LOG_INFO("[SETALT] Clamping target altitude {:.0f}m → ceiling {:.0f}m",
                  altitude_m, ceiling);
     clamped_alt = ceiling;
@@ -675,6 +682,9 @@ void ManeuverExecutor::ExecuteTakeoff(double target_altitude_m, double target_he
   double ceiling = ap_.GetControlProfile().ceiling_m;
   double clamped_alt = target_altitude_m;
   if (ceiling > 0.0 && target_altitude_m > ceiling) {
+    // 中译：起飞目标高度 {:.0f}m 超出升限，钳制到 {:.0f}m。
+    // 标识：飞行包线保护——起飞目标超过飞机升限时自动降为升限值，
+    //       防止无限爬升导致超时。
     PROJECT_LOG_INFO("[TKO] Clamping target altitude {:.0f}m → ceiling {:.0f}m",
                  target_altitude_m, ceiling);
     clamped_alt = ceiling;
@@ -764,8 +774,9 @@ bool ManeuverExecutor::IsManeuverComplete() const {
       // 单帧邻近快照同时服务完成判定（等价于 IsAtOrPastTarget 的距离 + 法平面
       // 两层判定）与完成事件记录，避免重复计算。
       const WaypointProximity prox = wp_manager_.ResolveProximity();
-      // 每步决策轨迹：供日志启用后（近期工作）example 场景设计观察收敛过程与
-      // 门余量；后端关闭时为零开销，级别过滤时仅做运行时判断。
+      // 中译：每步决策轨迹（时间/距离/沿航迹/侧偏/腿长/门限）。
+      // 标识：每步决策轨迹，供日志启用后观察收敛过程与门余量；
+      //       后端关闭时零开销，级别过滤时仅做运行时判断。
       PROJECT_LOG_DEBUG("[FLYTO] t={:.1f}s dist={:.0f}m along={:.0f}m cross={:.0f}m "
                         "leg={:.0f}m thresh={:.0f}m",
                         elapsed_sec_, prox.distance_m, prox.along_track_m,
@@ -782,6 +793,8 @@ bool ManeuverExecutor::IsManeuverComplete() const {
         last_sequencing_event_.along_track_m = prox.along_track_m;
         last_sequencing_event_.threshold_m = effective_radius_m;
         has_last_sequencing_event_ = true;
+        // 中译：航点完成（门类型、距离、侧偏、沿航迹、门限）。
+        // 标识：航点完成事件——满足到达判定时记录，供核对航路执行进度。
         PROJECT_LOG_INFO("[FLYTO] waypoint complete: gate={} dist={:.0f}m cross={:.0f}m "
                          "along={:.0f}m thresh={:.0f}m",
                          WaypointCompletionGateName(gate), prox.distance_m,
@@ -1005,6 +1018,8 @@ void ManeuverExecutor::Update(double dt_sec) {
         double capture_dist = std::max(r * 1.5, 1000.0);
 
         if (best_dist <= capture_dist) {
+          // 中译：跑道形航线进场被捕获（距离 → 进入段 {}）。
+          // 标识：进场捕获——飞机进入跑道形航线时的段选择，供核对航线切入。
           PROJECT_LOG_DEBUG("[RACETRACK] Approach captured: dist={:.0f}m → segment {}",
                         best_dist, best_seg);
           switch (best_seg) {
@@ -1216,12 +1231,16 @@ void ManeuverExecutor::Update(double dt_sec) {
           double vr_kts = engines_.GetRotationSpeedKts();
           takeoff_vr_kts_ = vr_kts;  // cache for airspeed checks during climb
           if (vc_kts >= vr_kts * 0.79 && vc_kts < vr_kts) {
+            // 中译：起飞滑跑（空速/抬轮速度/预旋转升降舵量）。
+            // 标识：起飞阶段进度——接近抬轮速度时的预旋转状态，供观察起飞时序。
             PROJECT_LOG_INFO("[TAKEOFF] vc={:.1f} kts  Vr={:.1f} kts  pre-rot el={:.3f}",
                          vc_kts, vr_kts,
                          -ap_.GetControlProfile().rotation_max_elevator * 0.8 *
                              std::clamp((vc_kts - vr_kts * 0.80) / (vr_kts * 0.20), 0.0, 1.0));
           }
           if (vc_kts >= vr_kts) {
+            // 中译：达到抬轮速度，进入旋转爬升阶段。
+            // 标识：起飞关键节点——空速达到 Vr 时开始旋转爬升。
             PROJECT_LOG_INFO("[TAKEOFF] ROTATE at vc={:.1f} kts (Vr={:.1f}), entering kRotateAndClimb",
                          vc_kts, vr_kts);
             // Seed the rotation ramp from the pre-rotation elevator level
@@ -1241,6 +1260,9 @@ void ManeuverExecutor::Update(double dt_sec) {
             // complete — the gradual pitch recovery in kRotateAndClimb will
             // gently reduce pitch toward
             // the climb target without a full-elevator step (XB-70, DHC6).
+            // 中译：未指令离地（空速 {:.1f}kt 低于 Vr {:.1f}kt），直接进入爬升。
+            // 标识：非指令离地——高升力/三角翼机型可能提前离地，
+            //       直接转入爬升阶段，属预期行为（已过滤低速初始化抖动）。
             PROJECT_LOG_INFO("[TAKEOFF] Uncommanded liftoff at vc={:.1f} kts (Vr={:.1f}), "
                          "entering climb",
                          vc_kts, vr_kts);

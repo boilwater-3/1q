@@ -42,14 +42,14 @@
 #include "batch_assertions.h"
 #include "batch_checks.h"
 #include "batch_cli.h"
-#include "batch_csv_writer.h"
+#include "csv_writer.h"
 #include "batch_replay.h"
 #include "config_loader.h"
 
 namespace eos = electro_optical_sensor;
 namespace eos_config = electro_optical_sensor::config;
 namespace eos_session = electro_optical_sensor::session;
-using batch_validation::CsvWriter;
+using examples::CsvWriter;
 using batch_validation::ContractCheckCollector;
 using batch_validation::ModuleName;
 using batch_validation::ReplayCheckResult;

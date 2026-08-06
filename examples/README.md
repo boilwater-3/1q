@@ -10,10 +10,11 @@
 examples/
 ├── CMakeLists.txt                  编排层：定义共享变量 + add_subdirectory()
 ├── README.md                       本文件
-├── common/                         共享便利层：JSON 解析 + 三域 config_loaders（不属于库 public surface）
+├── common/                         共享便利层：JSON 解析 + 三域 config_loaders + DebugView→JSON 序列化（不属于库 public surface）
 ├── configs/                        四域会话配置 JSON（详见 configs/README.md）
 ├── sar/                            SAR 域示例（session / integration）
 ├── behavior_layer/                 行为层参考实现（EnTT ECS 业务层，AR/ESR/EOS 三传感器全链）
+├── component_attachment/           自定义实体-组件模式示例（组件基类 + 挂载 + Boost.Signals2 事件）
 ├── flight_dynamic/                 机动模块 CSV 工具与轨迹生成（依赖 JSBSim）
 └── batch_validation/               多场景批量验证（详见 batch_validation/README.md）
 ```
@@ -31,13 +32,36 @@ examples/
 
 SAR 无 scene 示例；`integration_demo` 展示的是 `SarModule` 包装类（内部用普通 Session）。
 
+## 两种 ECS 开发模式
+
+业务层示例提供两种 ECS 开发模式对照（均覆盖 AR/ESR/EOS 三传感器全链 +
+融合 + 飞行动力学，共用同一份 `configs/` 共享配置）：
+
+| 模式 | 目录 | ECS 形态 | 事件机制 |
+| --- | --- | --- | --- |
+| **ECS 开源库** | `behavior_layer/` | EnTT 3.14（纯数据组件 + 自由函数系统） | EnTT 自带 observer/sigh |
+| **自定义实体-组件** | `component_attachment/` | 组件基类 + 子类（携带逻辑）+ 挂载到实体 | **Boost.Signals2**（常见开源事件库） |
+
+`component_attachment/` 的自定义 ECS 核心（`core/`）约 300 行纯头文件：组件基类
+（Name/OnAttach/OnDetach/Step 虚接口）、实体（挂载容器，挂载序 = 步进序）、
+世界（实体注册表 + 共享场景状态 + 信号集合）。FD 场景按六自由度机动设计
+（从起飞开始，`kTakeoff → 航点 → kLand`，不做空中配平），详见
+`component_attachment/README.md`。
+
 ## 共享便利层
 
 `common/` 提供 example 层共享便利工具（**不属于 oneq 库的 public surface**——库内部不消费 JSON）：
 
 - `json_reader`（`oneq::JsonReader`）：轻量 JSON 解析；
+- `csv_writer`：流式 CSV 写入（批量验证与 behavior_layer 可视化导出共用）；
+- `sensor_adapt`：传感器输出 → 融合探测记录的边界适配（`behavior_layer` 与
+  `component_attachment` 共用，消除双份维护）；
 - `config_loaders/<域>/`：各传感器域 JSON → `*SessionConfig` 的映射器（`config_loader.h` 三件套），
   供 `behavior_layer` 与 `batch_validation` 消费；
+- **DebugView → JSON 序列化器**（`debug_view_json.h` 共享原语 +
+  `Ar/Eos/Sar/SbirsDebugViewToJson.h`）：对应 `docs/common/session_contract.md` 三层输出模型
+  规则 12 的参考实现——每周期把 DebugView 以 JSON 帧快照写入调用方自己的日志/事件系统；
+  集成方直接 copy 模块序列化器 + 共享原语（可合并为一个文件），字段名与格式可按需调整；
 - 由顶层 `CMakeLists.txt` 定义 `ONEQ_EXAMPLE_COMMON_DIR` / `ONEQ_EXAMPLE_COMMON_SOURCES`，
   各子目录通过目录作用域继承并内联到 target，无需函数传递。
 

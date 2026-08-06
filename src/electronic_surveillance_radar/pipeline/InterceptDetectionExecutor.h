@@ -29,6 +29,7 @@ namespace pipeline {
 struct InterceptDetectionOutput {
   std::vector<RawObservationRecord> raw_records;        /**< 检测产出的原始观测记录 */
   std::vector<intercept::BeamPointingDeg> scan_pattern; /**< 当前扫描图 */
+  float scan_azimuth_deg{0.0f}; /**< 本周期波束中心方位角（单位：deg，平台系，含天线安装角）。 */
   double receiver_center_frequency_hz{0.0};             /**< 当前接收中心频率（单位：Hz）。 */
   double receiver_bandwidth_hz{0.0};                    /**< 当前接收带宽（单位：Hz）。 */
   bool receiver_saturated{false};                       /**< 是否发生接收机饱和。 */

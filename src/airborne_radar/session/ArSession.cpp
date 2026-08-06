@@ -286,6 +286,9 @@ struct ArSession::Impl {
     const bool controller_restored = Controller().RestoreRuntimeState(controller_state);
     const bool runtime_state_restored = radar_context_restored && controller_restored;
     if (!runtime_state_restored) {
+      // 中译：周期运行状态恢复被上下文或控制器拒绝。
+      // 标识：回滚保护——发射后接收侧失败需恢复状态时，若恢复失败则
+      //       本周期作废，防止状态不一致跨周期延续。
       PROJECT_LOG_ERROR(
           "[ArSession] cycle runtime state restore rejected by context or controller.");
     }
@@ -469,6 +472,9 @@ struct ArSession::Impl {
       const bool emission_finalized =
           AbandonRfCycle(prepared.token) == ArAbandonCycleStatus::kAbandoned;
       if (!receive_state_restored || !emission_finalized) {
+        // 中译：发射后的接收侧拒绝未能完成收尾（状态恢复或发射放弃失败）。
+        // 标识：事务性提交的失败收尾——发射事实已提交但接收侧回滚不完整，
+        //       属内部异常路径，需排查状态恢复与发射账本一致性。
         PROJECT_LOG_ERROR("[ArSession] failed to finalize post-emission receive rejection.");
       }
       return BuildPostEmissionAbortResult(
@@ -591,6 +597,10 @@ struct ArSession::Impl {
       platform_frame_resolved = true;
     }
     if (!platform_frame_resolved) {
+      // 中译：无法构建平台坐标框架，干扰方位回退到 ECEF 切平面
+      //       （跨帧鉴别能力降级）。
+      // 标识：坐标解算失败——平台位置转 LLA 失败时使用回退参考系，
+      //       干扰观测精度降级但周期继续执行。
       PROJECT_LOG_WARN(
           "[ArSession] CompleteRfCycle could not build platform frame; interference "
           "bearings fall back to ECEF tangent-plane (cross-frame discrimination degraded).");
@@ -631,6 +641,9 @@ struct ArSession::Impl {
         input.rf_scene.window_start_time_s != prepared_input.window_start_time_s ||
         input.rf_scene.window_duration_s != prepared_input.window_duration_s ||
         !oneq::electromagnetics::TryValidateRfSceneFrame(input.rf_scene)) {
+      // 中译：CompleteRfCycle 拒绝了非法或不匹配的 RF 场景。
+      // 标识：RF 场景一致性门——周期窗口/世界周期号与预备阶段不符时
+      //       整周期拒绝，防止错帧执行。
       PROJECT_LOG_ERROR("[ArSession] CompleteRfCycle rejected an invalid or mismatched RF scene.");
       result.status = ArCompleteCycleStatus::kRejected;
       return result;
@@ -639,6 +652,9 @@ struct ArSession::Impl {
     for (const auto& emission : input.rf_scene.emissions) {
       if (SameEmissionIdentity(emission.identity, prepared_emission.identity)) {
         if (!SamePreparedEmission(emission, prepared_emission)) {
+          // 中译：CompleteRfCycle 发现预备发射被修改过。
+          // 标识：发射一致性门——提交阶段的发射与预备阶段不一致时拒绝，
+          //       防止篡改后的发射参数被执行。
           PROJECT_LOG_ERROR("[ArSession] CompleteRfCycle found a modified prepared emission.");
           result.status = ArCompleteCycleStatus::kRejected;
           return result;
@@ -647,6 +663,9 @@ struct ArSession::Impl {
       }
     }
     if (!found_prepared_emission) {
+      // 中译：CompleteRfCycle 未找到预备的发射。
+      // 标识：发射一致性门——提交场景中缺少预备阶段的发射时拒绝，
+      //       防止无发射事实的周期继续。
       PROJECT_LOG_ERROR("[ArSession] CompleteRfCycle did not find the prepared emission.");
       result.status = ArCompleteCycleStatus::kRejected;
       return result;
@@ -657,6 +676,8 @@ struct ArSession::Impl {
             input.rf_scene, prepared_operating_state.rf_receiver,
             prepared_operating_state.maximum_linear_input_power_w,
             oneq::electromagnetics::RfIncidentLinkConfig{}, &front_end)) {
+      // 中译：CompleteRfCycle RF 前端解析失败。
+      // 标识：接收链路解析失败——前端饱和/链路预算异常时整周期拒绝。
       PROJECT_LOG_ERROR("[ArSession] CompleteRfCycle RF front-end resolution failed.");
       result.status = ArCompleteCycleStatus::kRejected;
       return result;
@@ -680,6 +701,8 @@ struct ArSession::Impl {
       if (!TryResolveReceiveObservations(input.rf_scene, prepared_token, prepared_input,
                                          prepared_emission, prepared_operating_state, front_end,
                                          &interference_observations, &deception_candidates)) {
+        // 中译：CompleteRfCycle 干扰观测解析失败。
+        // 标识：干扰链路失败——干扰观测/欺骗候选解析异常时整周期拒绝。
         PROJECT_LOG_ERROR(
             "[ArSession] CompleteRfCycle interference observation resolution failed.");
         result.status = ArCompleteCycleStatus::kRejected;
@@ -688,6 +711,8 @@ struct ArSession::Impl {
     }
     oneq::coordinate::LlaPositionDegM platform_lla;
     if (!oneq::coordinate::TryEcefToLla(prepared_input.platform_position_ecef_m, &platform_lla)) {
+      // 中译：CompleteRfCycle 无法将平台 ECEF 坐标转为 LLA。
+      // 标识：坐标解算失败——平台位置非法时整周期拒绝。
       PROJECT_LOG_ERROR("[ArSession] CompleteRfCycle could not resolve platform ECEF to LLA.");
       result.status = ArCompleteCycleStatus::kRejected;
       return result;
@@ -707,6 +732,9 @@ struct ArSession::Impl {
         static_cast<float>(platform_lla.altitude_m),
         std::move(cycle_input), false);
     if (!execution_result.executed) {
+      // 中译：CompleteRfCycle 信号执行失败（中止原因码）。
+      // 标识：执行级失败——探测/跟踪链路中止时整周期拒绝，
+      //       细粒度原因见 abort_reason 与诊断列表。
       PROJECT_LOG_ERROR("[ArSession] CompleteRfCycle signal execution failed with abort reason {}.",
                         static_cast<int>(execution_result.abort_reason));
       result.status = ArCompleteCycleStatus::kRejected;
