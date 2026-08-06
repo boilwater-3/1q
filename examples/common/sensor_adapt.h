@@ -2,11 +2,12 @@
  * @file sensor_adapt.h
  * @brief 示例共享工具：传感器输出 → 融合探测记录的边界适配。
  *
- * 三传感器会话输出（AR 轨迹帧 / ESR 辐射源假设 / EOS 探测记录）在业务层
- * 边界适配为去真值化的泛型融合探测记录（fusion::DetectionRecord）。本文件
- * 供 behavior_layer（EnTT 模式）与 component_attachment（自定义实体-组件
- * 模式）两个示例共用，消除同构适配逻辑的双份维护（任何一边修复须同步的
- * 问题）。源通道常量与融合配置 source_weights 索引一致（索引 0 未用）。
+ * 四传感器会话输出（AR 轨迹帧 / ESR 辐射源假设 / EOS 探测记录 / SBIRS
+ * 探测记录）在业务层边界适配为去真值化的泛型融合探测记录
+ * （fusion::DetectionRecord）。本文件供 behavior_layer（EnTT 模式）与
+ * component_attachment（自定义实体-组件模式）两个示例共用，消除同构适配
+ * 逻辑的双份维护（任何一边修复须同步的问题）。源通道常量与融合配置
+ * source_weights 索引一致（索引 0 未用）。
  */
 
 #ifndef EXAMPLES_COMMON_SENSOR_ADAPT_H_
