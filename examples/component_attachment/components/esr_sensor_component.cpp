@@ -23,6 +23,17 @@ namespace component_attachment {
 EsrSensorComponent::EsrSensorComponent(electronic_surveillance_radar::session::EsrSession session)
     : session_(std::move(session)) {}
 
+bool EsrSensorComponent::TryApplyRuntimeConfig(
+    const electronic_surveillance_radar::config::EsrRuntimeConfigPatch& patch) {
+  return session_.TryApplyRuntimeConfig(patch);
+}
+
+electronic_surveillance_radar::session::EsrRuntimeConfigApplyResult
+EsrSensorComponent::ApplyRuntimeConfigWithResult(
+    const electronic_surveillance_radar::config::EsrRuntimeConfigPatch& patch) {
+  return session_.ApplyRuntimeConfigWithResult(patch);
+}
+
 void EsrSensorComponent::Step(World& world, double dt_sec) {
   detections_.clear();
 

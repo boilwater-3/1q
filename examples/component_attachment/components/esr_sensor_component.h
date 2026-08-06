@@ -12,6 +12,7 @@
 
 #include <vector>
 
+#include "1q/electronic_surveillance_radar/config/EsrRuntimeConfigPatch.h"
 #include "1q/electronic_surveillance_radar/session/EsrSession.h"
 #include "1q/fusion/DetectionRecord.h"
 #include "core/component.h"
@@ -39,6 +40,29 @@ class EsrSensorComponent : public Component {
 
   /** @brief 本周期适配后的泛型探测记录（融合聚合读）。 */
   const std::vector<fusion::DetectionRecord>& detections() const { return detections_; }
+
+  /**
+   * @brief 运行时修改入口：包装 EsrSession::TryApplyRuntimeConfig。
+   *
+   * ESR 为立即提交：调用即生效、单向落定（session 层无回滚），扫描相位
+   * 重置语义由库内 resolver 决定。
+   * @param[in] patch 运行期可变参数补丁（has_* 位标志选择字段）。
+   * @return true 已应用；false 未请求更新或补丁被拒绝（整补丁原子拒绝）。
+   */
+  bool TryApplyRuntimeConfig(
+      const electronic_surveillance_radar::config::EsrRuntimeConfigPatch& patch);
+
+  /**
+   * @brief 运行时修改入口（结构化结果）：包装
+   *        EsrSession::ApplyRuntimeConfigWithResult。
+   *
+   * 与 TryApplyRuntimeConfig 同语义，另返回结构化状态码（含拒绝原因枚举），
+   * 供外部决策/诊断使用。
+   * @param[in] patch 运行期可变参数补丁。
+   * @return 结构化应用结果（status 枚举 + applied/has_requested_update 位）。
+   */
+  electronic_surveillance_radar::session::EsrRuntimeConfigApplyResult ApplyRuntimeConfigWithResult(
+      const electronic_surveillance_radar::config::EsrRuntimeConfigPatch& patch);
 
  private:
   electronic_surveillance_radar::session::EsrSession session_;

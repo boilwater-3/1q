@@ -26,6 +26,12 @@
 #include "1q/navigation/RoutePoint.h"
 #include "core/component.h"
 
+// 前向声明（FD 头零依赖约束）：ManeuverCommand 完整定义在
+// 1q/flight_dynamic/FlightManager.h，仅运行时机动接口按引用传递。
+namespace oneq::flight_dynamic {
+struct ManeuverCommand;
+}
+
 namespace component_attachment {
 
 /**
@@ -69,6 +75,19 @@ class FlightComponent : public Component {
   std::size_t next_waypoint_index() const { return next_index_; }
   /** @brief 航路（只读）。 */
   const std::vector<navigation::RoutePoint>& route() const { return route_; }
+
+  /**
+   * @brief 运行时机动指令入口：FD 可用时转发 FlightManager::PushManeuver
+   *        （追加机动队列；kReady 时立即派发，执行中追加的指令排队）。
+   * @param[in] cmd 机动指令（字段语义按 ManeuverCommand::type 重载）。
+   * @return FD 已就绪且指令已入队返回 true；FD 未启用/初始化失败（运动学
+   *         回退路径）返回 false（指令被丢弃）。
+   */
+  bool PushManeuver(const oneq::flight_dynamic::ManeuverCommand& cmd);
+  /** @brief 清空机动队列（FD 可用返回 true，否则 false）。 */
+  bool ClearManeuvers();
+  /** @brief 中止当前机动（FD 可用返回 true，否则 false）。 */
+  bool Abort();
 
  private:
   void CheckWaypointArrival(World& world, double t_sec);

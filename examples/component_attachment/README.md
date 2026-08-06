@@ -113,6 +113,24 @@ boost::signals2::scoped_connection conn =
 | `EosSensorComponent` | electro_optical_sensor（EosSession + EosCycleInputAdapter + EosDetectionLifecycleRecorder） | 探测 → `DetectionRecord`（key=0，仅方位）；首发现/更新/丢失事件由库内 recorder 差分产生 | on_eos_detection |
 | `FusionComponent` | fusion（FusionEngine） | 聚合三传感器探测一次 `Update`；新/消失差分 | on_fusion_updated |
 
+## 运行时修改接口
+
+每个组件把库模块的「运行时修改」设计暴露为组件公开方法（未来外部调用入口，
+薄包装库 API，不改库行为）。提交语义随模块而异（权威定义：
+`docs/common/contract.md`「运行期配置提交策略」）：
+
+| 组件 | 接口 | 提交语义 |
+| --- | --- | --- |
+| `ArSensorComponent` | `bool TryApplyRuntimeConfig(const ArRuntimeConfigPatch&)` | **事务性提交**：补丁先暂存，下次成功周期边界统一生效（失败由库内快照完整回滚）；与现有配置冲突的非法补丁入口即原子拒绝 |
+| `EsrSensorComponent` | `bool TryApplyRuntimeConfig(const EsrRuntimeConfigPatch&)`；`ApplyRuntimeConfigWithResult(...)` → 结构化结果（拒绝原因枚举） | **立即提交**：调用即生效、单向落定（session 层无回滚）；结构化结果供外部决策/诊断 |
+| `EosSensorComponent` | `bool TryApplyRuntimeConfig(const EosRuntimeConfigPatch&)` | **立即提交**：补丁经 resolver 原子校验后一次生效；frame_rate_hz 热更新经 resolver 校验（非法值整补丁拒绝） |
+| `FlightComponent` | `bool PushManeuver(const ManeuverCommand&)`；`bool ClearManeuvers()`；`bool Abort()` | **命令式**（FD 无 patch 范式）：追加机动队列/清空/中止；FD 未启用或初始化失败（运动学回退）时返回 false（指令被丢弃） |
+| `FusionComponent` | 无 | fusion 模块参数为**会话级不可变**（库内无 RuntimeConfigPatch 设计，FusionEngine 仅构造时接受 FusionConfig）；需要运行时修改须先补库 API，不在示例层包装 |
+
+补丁字段统一用 `has_*` 位标志选择（未设置的字段不覆盖现值）；传感器组件的
+生命周期 recorder 事件源与运行时修改入口互不影响（recorder 只管差分事件，
+patch 只改会话配置）。
+
 ## 周期调用序
 
 ```
@@ -208,5 +226,9 @@ FlightManager）、同一份共享配置（`examples/configs/` JSON）与同一�
 - `tests/unit/examples/ecs_core_test.cpp`：ECS 核心单测（实体挂载/卸载生命周期
   钩子与调用序、按名精确卸载、类型化访问与宿主兄弟组件通路、挂载序与创建序
   步进、共享场景状态、信号发布→订阅接线、事件类型隔离）；
+- `tests/unit/examples/ecs_component_runtime_test.cpp`：组件运行时修改接口单测
+  （AR 合法/非法 patch 的接受与原子拒绝、ESR 立即提交 + 结构化拒绝状态码、
+  EOS 立即提交 + 整补丁拒绝、FlightComponent 机动入口在 FD 可用/不可用时的
+  返回语义）；
 - ctest `examples::component_attachment_demo`：demo 冒烟（400 周期 + CSV 落盘 +
   最小产出断言：事件数 ≥ 周期数、融合目标 ≥ 1、平台轨迹行数 = 周期数）。

@@ -34,6 +34,11 @@ ArSensorComponent::ArSensorComponent(airborne_radar::session::ArSession session)
   session_.AttachTrackLifecycleRecorder(&lifecycle_);
 }
 
+bool ArSensorComponent::TryApplyRuntimeConfig(
+    const airborne_radar::config::ArRuntimeConfigPatch& patch) {
+  return session_.TryApplyRuntimeConfig(patch);
+}
+
 void ArSensorComponent::Step(World& world, double dt_sec) {
   detections_.clear();
 

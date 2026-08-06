@@ -15,6 +15,7 @@
 
 #include <vector>
 
+#include "1q/airborne_radar/config/ArRuntimeConfigPatch.h"
 #include "1q/airborne_radar/session/ArSession.h"
 #include "1q/airborne_radar/session/ArTrackLifecycleRecorder.h"
 #include "1q/fusion/DetectionRecord.h"
@@ -44,6 +45,16 @@ class ArSensorComponent : public Component {
 
   /** @brief 本周期适配后的泛型探测记录（融合聚合读）。 */
   const std::vector<fusion::DetectionRecord>& detections() const { return detections_; }
+
+  /**
+   * @brief 运行时修改入口：包装 ArSession::TryApplyRuntimeConfig。
+   *
+   * AR 为事务性提交：补丁先暂存，下次成功周期边界统一生效（提交失败
+   * 由库内快照完整回滚）；与现有配置冲突的非法补丁在入口即原子拒绝。
+   * @param[in] patch 运行期可变参数补丁（has_* 位标志选择字段）。
+   * @return true 已接受并暂存；false 补丁非法（原子拒绝，现有配置不变）。
+   */
+  bool TryApplyRuntimeConfig(const airborne_radar::config::ArRuntimeConfigPatch& patch);
 
  private:
   // lifecycle_ 声明在 session_ 之前：析构逆序时 session_ 先析构（其析构不

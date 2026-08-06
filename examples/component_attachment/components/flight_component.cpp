@@ -153,6 +153,17 @@ class FlightComponent::FlightDynamics {
   /// 子步进推进；返回是否仍在运行（kCompleted/kAborted 后 false）。
   bool Step(double dt_sec) { return manager_.Step(dt_sec); }
 
+  /// 运行时机动指令入口（追加队列；kReady 立即派发，执行中追加排队）。
+  void PushManeuver(const oneq::flight_dynamic::ManeuverCommand& cmd) {
+    manager_.PushManeuver(cmd);
+  }
+
+  /// 清空机动队列并复位执行索引（不影响当前载机状态）。
+  void ClearManeuvers() { manager_.ClearManeuvers(); }
+
+  /// 中止当前机动，释放自动驾驶保持，状态转为 kAborted。
+  void Abort() { manager_.Abort(); }
+
   /// 当前飞行状态（弧度 LLA / 真速 / psi 航向，北偏东）。
   const oneq::flight_dynamic::model::VehicleState& state() const {
     return manager_.GetVehicleState();
@@ -219,6 +230,37 @@ FlightComponent::FlightComponent(const oneq::coordinate::LlaPositionDegM& initia
 }
 
 FlightComponent::~FlightComponent() = default;
+
+bool FlightComponent::PushManeuver(const oneq::flight_dynamic::ManeuverCommand& cmd) {
+#if defined(ONEQ_CA_FLIGHT_DYNAMIC_ENABLED)
+  if (fd_ != nullptr) {
+    fd_->PushManeuver(cmd);
+    return true;
+  }
+#endif
+  (void)cmd;  // FD 不可用（未启用/初始化失败）：机动指令无效
+  return false;
+}
+
+bool FlightComponent::ClearManeuvers() {
+#if defined(ONEQ_CA_FLIGHT_DYNAMIC_ENABLED)
+  if (fd_ != nullptr) {
+    fd_->ClearManeuvers();
+    return true;
+  }
+#endif
+  return false;
+}
+
+bool FlightComponent::Abort() {
+#if defined(ONEQ_CA_FLIGHT_DYNAMIC_ENABLED)
+  if (fd_ != nullptr) {
+    fd_->Abort();
+    return true;
+  }
+#endif
+  return false;
+}
 
 void FlightComponent::Step(World& world, double dt_sec) {
 #if defined(ONEQ_CA_FLIGHT_DYNAMIC_ENABLED)

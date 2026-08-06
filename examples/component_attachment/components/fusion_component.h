@@ -25,6 +25,11 @@ namespace component_attachment {
  *
  * 引擎经 std::make_unique<FusionEngine>(config) 构造后移动进组件。
  * targets() 为当前融合目标态势（按 key 升序），供 demo 消费。
+ *
+ * @note 运行时修改：本组件不提供运行时参数修改入口——fusion 模块参数为
+ * 会话级不可变（库内无 RuntimeConfigPatch 设计，FusionEngine 仅构造时
+ * 接受 FusionConfig）；需要运行时修改须先补库 API（如
+ * FusionEngine::TryApplyRuntimeConfig），不在示例层包装。
  */
 class FusionComponent : public Component {
  public:

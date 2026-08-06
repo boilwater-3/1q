@@ -61,6 +61,11 @@ EosSensorComponent::EosSensorComponent(electro_optical_sensor::session::EosSessi
   session_.AttachDetectionLifecycleRecorder(&lifecycle_);
 }
 
+bool EosSensorComponent::TryApplyRuntimeConfig(
+    const electro_optical_sensor::config::EosRuntimeConfigPatch& patch) {
+  return session_.TryApplyRuntimeConfig(patch);
+}
+
 void EosSensorComponent::Step(World& world, double dt_sec) {
   detections_.clear();
 

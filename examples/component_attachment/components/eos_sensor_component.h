@@ -15,6 +15,7 @@
 
 #include <vector>
 
+#include "1q/electro_optical_sensor/config/EosRuntimeConfigPatch.h"
 #include "1q/electro_optical_sensor/session/EosDetectionLifecycleRecorder.h"
 #include "1q/electro_optical_sensor/session/EosSession.h"
 #include "1q/fusion/DetectionRecord.h"
@@ -43,6 +44,17 @@ class EosSensorComponent : public Component {
 
   /** @brief 本周期适配后的泛型探测记录（融合聚合读）。 */
   const std::vector<fusion::DetectionRecord>& detections() const { return detections_; }
+
+  /**
+   * @brief 运行时修改入口：包装 EosSession::TryApplyRuntimeConfig。
+   *
+   * EOS 为立即提交：补丁经 resolver 原子校验后一次生效（调用即生效，
+   * session 层无回滚）；扫描相位是否重置由 resolver 显式决定。frame_rate_hz
+   * 热更新经 resolver 校验有限且 > 0（非法值整补丁原子拒绝）。
+   * @param[in] patch 运行期可变参数补丁（has_* 位标志选择字段）。
+   * @return true 已应用；false 补丁无效或无变更（现有配置不变）。
+   */
+  bool TryApplyRuntimeConfig(const electro_optical_sensor::config::EosRuntimeConfigPatch& patch);
 
  private:
   // lifecycle_ 声明在 session_ 之前：析构逆序时 session_ 先析构（其析构不
