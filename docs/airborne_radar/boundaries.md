@@ -99,7 +99,14 @@ AR 所有中止路径遵守 `session_contract.md` 规则 9 的三写模式：
 2. **结构化诊断**：`ArCycleResult.diagnostics`（`ArDiagnosticIssueList`，细粒度 code 如 `"ar.sensor_powered_off"`）。
 3. **人读日志**：`PROJECT_LOG_ERROR`。
 
-三写由 `ArDiagnosticUtils::RecordAbort` 统一执行，在 `ArController::BuildCycleResult` 和 `ArSession` 中调用。
+三写由 `ArDiagnosticUtils::RecordAbort` 统一执行，在 `ArSession` 的周期装配路径中调用。
+
+**正常周期的按目标排除诊断（规则 13b）**：正常执行周期（`status == kCompleted`）中被 SNR 检测门
+排除的目标（`min_snr_db` / `min_detection_margin_db` 任一未过；距离/方向图衰减隐式并入 SNR）写
+`kInfo` 级 `ArDiagnosticIssue`（code `"ar.target_snr_below_threshold"`，message 携带 `target_id` 与
+`snr_db`/`range_m`/门值），**不属于三写**（三写仅约束中止路径，规则 9）。诊断不改变 `ArCycleStatus`
+与 DebugView 状态语义（排除目标仍为 `kNotInOutput`，规则 13c）；生命周期失效（miss 积累 → `kLost`）
+不产生排除诊断（规则 13d）。周期摘要日志（`[SignalPipeline] … excluded={{snr=…}}`）仅人读（规则 13a）。
 
 ### TrackOutputFrame 不扩展的决策依据
 

@@ -87,6 +87,7 @@ struct ArController::Impl {
       cycle_state{};
   bool last_cycle_executed{false};
   session::SignalCycleAbortReason last_signal_abort_reason{session::SignalCycleAbortReason::kNone};
+  session::ArDiagnosticIssueList latest_diagnostics{}; /**< 正常周期按目标排除的 kInfo 诊断（规则 13b）。 */
 
   bool has_pending_internal_decision{false};
   std::uint32_t pending_internal_cycle_index{0U};
@@ -505,6 +506,8 @@ void ArController::RunOnce(const signal::pipeline::SignalCycleInput& cycle_input
   if (!impl_->last_cycle_executed) {
     return;
   }
+  // 规则 13b：正常周期按目标排除的 kInfo 诊断转写（abort 路径不变）。
+  impl_->latest_diagnostics = std::move(signal_result.diagnostics);
 
   session::DecisionInputFrame decision_frame = signal_result.decision_frame;
   decision_frame.cycle_index = stamp.cycle_index;
@@ -593,6 +596,10 @@ bool ArController::HasLatestTrackOutputFrame() const {
 
 const session::TrackOutputFrame& ArController::GetLatestTrackOutputFrame() const {
   return impl_->cycle_state.latest_output;
+}
+
+const session::ArDiagnosticIssueList& ArController::GetLatestDiagnostics() const {
+  return impl_->latest_diagnostics;
 }
 
 const session::ValidationIssueList& ArController::GetLastValidationIssues() const {

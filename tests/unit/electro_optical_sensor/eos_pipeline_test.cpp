@@ -6,6 +6,7 @@
 #include <gtest/gtest.h>
 
 #include <cmath>
+#include <string>
 
 #include "electro_optical_sensor/pipeline/EosPipeline.h"
 
@@ -438,6 +439,27 @@ TEST(EosPipelineTest, FusedWeightShiftsTowardVisibleInDayAndInfraredAtNight) {
       std::fabs(night_fused_frame.detections[0].fused_snr_linear -
                 night_visible_frame.detections[0].fused_snr_linear);
   EXPECT_LT(night_distance_to_infrared, night_distance_to_visible);
+}
+
+TEST(EosPipelineTest, OutOfFovTargetWritesInfoExclusionDiagnostic) {
+  EosPipeline pipeline(MakePipelineConfig());
+  ::electro_optical_sensor::session::EosCycleInput input = MakeCycleInput(1.0f);
+  input.cycle_index = 4U;
+  input.scene.push_back(MakeTarget(201U, 35.0f));  // 扫描中心外 → 视场外排除
+
+  const auto frame = pipeline.RunCycle(input);
+  // 行为中立：视场外目标仍不产出检测记录；排除原因只经 diagnostics 承载（规则 13b/13c）。
+  EXPECT_TRUE(frame.detections.empty());
+  ASSERT_FALSE(frame.diagnostics.empty());
+  bool found = false;
+  for (const context::EosDiagnosticIssue& issue : frame.diagnostics) {
+    if (issue.code == "eos.target_out_of_fov") {
+      found = true;
+      EXPECT_EQ(issue.severity, context::EosDiagnosticSeverity::kInfo);
+      EXPECT_NE(issue.message.find("target_id=201"), std::string::npos);
+    }
+  }
+  EXPECT_TRUE(found);
 }
 
 }  // namespace

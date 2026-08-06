@@ -85,6 +85,13 @@ class EosController {
   session::EosPipelineAbortReason GetLastDetectionCycleAbortReason() const;
 
   /**
+   * @brief 获取最近一次正常执行周期的 kInfo 排除诊断（规则 13b）。
+   * @note 仅完成路径有内容；中止路径诊断由三写经 RecordAbort 写入。
+   * @return 最近一次周期的按目标排除诊断列表。
+   */
+  const session::EosDiagnosticIssueList& GetLatestDiagnostics() const;
+
+  /**
    * @brief 基于最近一次 RunOnce 状态构建单周期聚合结果。
    * @param[in] input 当前周期输入，仅在无可复用输出时用于回填 cycle_index。
    * @return 当前周期聚合结果。

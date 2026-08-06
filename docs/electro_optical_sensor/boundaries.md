@@ -45,8 +45,10 @@ EOS 遵守 `docs/common/contract.md`：
 `FrameContext` 是 EOS 帧级物理状态（光学孔径/FOV、波段、NEP/噪声、环境模型、工作模式、探测范围）
 的权威容器，但它的几个语义容易误读：
 
-1. **FOV 是记录成员门，不是 SNR 前置过滤器**：视场外目标不生成 detection/attribution；视场内但超出
-   `dmin_m/dmax_m` 的目标仍计算通道 SNR、保留记录，最终 `detected=false`。范围只参与最终检测资格。
+1. **FOV 是记录成员门，不是 SNR 前置过滤器**：视场外目标不生成 detection/attribution（写 `kInfo`
+   排除诊断 `eos.target_out_of_fov`，规则 13b）；视场内但超出 `dmin_m/dmax_m` 的目标仍计算通道
+   SNR、保留记录，最终 `detected=false`。范围只参与最终检测资格——视场内未过门目标产出
+   `detected=false` 记录，**不属于** 13b"被排除"（有记录、有 attribution）。
 2. **扫描相位是否重置由 resolver 显式给出**：runtime patch 中的扫描速率或工作模式变化经 resolver
    校验后更新内部配置并决定是否重置扫描相位，不能由调用方隐式假设。
 3. **环境 preset 不是 flat 参数**：`EosEnvironmentScenarioConfig` 只含一个 preset 和标准
@@ -103,6 +105,13 @@ EOS 所有中止路径遵守 `session_contract.md` 规则 9 的三写模式：
 3. **人读日志**：`PROJECT_LOG_ERROR`。
 
 三写由 `EosDiagnosticUtils::RecordAbort` 统一执行，在 `EosController::BuildCycleResult` 中调用。
+
+**正常周期的按目标排除诊断（规则 13b）**：正常执行周期（`status == kCompleted`）中视场外目标
+（无 detection/attribution）写 `kInfo` 级 `EosDiagnosticIssue`（code `"eos.target_out_of_fov"`，
+message 携带 `target_id` 与目标方位/扫描中心/FOV 尺寸），**不属于三写**（三写仅约束中止路径，
+规则 9）；不改变 `EosCycleStatus` 与 DebugView 状态语义（视场外目标仍为 `kNotInOutput`，规则 13c）。
+输入中消失的目标由生命周期 recorder 承载（`kLost` 事件），不产生排除诊断（规则 13d）。
+周期摘要日志（`[EosPipeline] … excluded={{fov=…}}`）仅人读（规则 13a）。
 
 ## 专项序列验证边界
 

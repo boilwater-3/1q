@@ -4,6 +4,8 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
+#include <cstdio>
+#include <string>
 
 #include "airborne_radar/config/SignalEngineeringConfig.h"
 #include "airborne_radar/signal/detection/ArDetectionCellResolver.h"
@@ -152,7 +154,27 @@ tracking::MeasurementCovariance BuildMeasurementCovariance(
 bool HasValidBuffers(const DetectionExecutionBuffers& buffers) {
   return buffers.target_geometry != nullptr && buffers.signal_term_db != nullptr &&
          buffers.speed_penalty_db != nullptr && buffers.detection_margin_db != nullptr &&
-         buffers.detection_succeeded != nullptr && buffers.measurement_covariances != nullptr;
+         buffers.detection_succeeded != nullptr && buffers.measurement_covariances != nullptr &&
+         buffers.diagnostics != nullptr && buffers.excluded_snr_below != nullptr;
+}
+
+// 规则 13b：正常执行周期按目标门控排除的 kInfo 诊断码（不属于三写，仅承载排查信息）。
+constexpr char kExclusionSnrBelowCode[] = "ar.target_snr_below_threshold";
+
+/// 构造 kInfo 级按目标排除诊断（不属于三写，仅承载排查信息；规则 13b）。
+session::ArDiagnosticIssue MakeExclusionIssue(const char* code, const std::string& message) {
+  session::ArDiagnosticIssue issue;
+  issue.severity = session::ArDiagnosticSeverity::kInfo;
+  issue.code = code;
+  issue.message = message;
+  return issue;
+}
+
+/// 格式化量值为两位小数（消息文本稳定，不承诺解析稳定性；规则 13b message 约定）。
+std::string FormatFloat(float value) {
+  char buffer[32];
+  std::snprintf(buffer, sizeof(buffer), "%.2f", static_cast<double>(value));
+  return buffer;
 }
 
 }  // namespace
@@ -291,12 +313,24 @@ bool RunPhysicalDetectionPass(const session::ArSceneTargetList& input,
             detection_result.snr_db, beam_state.effective_beamwidth_deg,
             config.detection.engineering.transmitter.bandwidth_hz);
 
+    const bool detected = detection_result.detected;
     (*buffers->signal_term_db)[i] = detection_result.snr_db;
     (*buffers->speed_penalty_db)[i] = 0.0f;
     (*buffers->detection_margin_db)[i] =
         detection_result.snr_db - config.detection.engineering.min_detection_margin_db;
-    (*buffers->detection_succeeded)[i] =
-        static_cast<std::uint8_t>(detection_result.detected ? 1U : 0U);
+    (*buffers->detection_succeeded)[i] = static_cast<std::uint8_t>(detected ? 1U : 0U);
+    if (!detected) {
+      // 规则 13b：SNR/检测门排除 → kInfo 诊断（不属于三写，仅承载排查信息）。
+      buffers->diagnostics->push_back(MakeExclusionIssue(
+          kExclusionSnrBelowCode,
+          "target_id=" + std::to_string(input[i].external_target_id) + "; snr_db=" +
+              FormatFloat(detection_result.snr_db) + " range_m=" +
+              FormatFloat((*buffers->target_geometry)[i].range_m) + " below min_snr_db=" +
+              FormatFloat(config.detection.engineering.detection_policy.min_snr_db) +
+              " min_detection_margin_db=" +
+              FormatFloat(config.detection.engineering.min_detection_margin_db)));
+      ++(*buffers->excluded_snr_below);
+    }
     (*buffers->measurement_covariances)[i] = BuildMeasurementCovariance(
         (*buffers->target_geometry)[i], measurement_error.range_error_std_m,
         measurement_error.angle_error_std_rad,

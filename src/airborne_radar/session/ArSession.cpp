@@ -85,6 +85,7 @@ struct ArExecutionCycleResult {
   bool executed{false};
   session::SignalCycleAbortReason abort_reason{session::SignalCycleAbortReason::kNone};
   TrackOutputFrame track_output_frame{};
+  session::ArDiagnosticIssueList diagnostics{}; /**< 正常执行周期按目标排除的 kInfo 诊断（规则 13b）。 */
 };
 
 }  // namespace
@@ -124,6 +125,8 @@ struct ArSession::Impl {
     result.input_cycle_index = input.cycle_index;
     result.status = ArCycleStatus::kCompleted;
     result.track_output_frame = completed.track_output_frame;
+    // 规则 13b：正常执行周期按目标排除的 kInfo 诊断转写进结构化结果（abort 路径不变）。
+    result.diagnostics = completed.diagnostics;
     FillEmissionFrame(result, input, prepared);
     result.receiver_impairment = completed.receiver_impairment;
     result.interference_observations = completed.interference_observations;
@@ -350,6 +353,8 @@ struct ArSession::Impl {
     }
     result.executed = true;
     result.track_output_frame = Controller().GetLatestTrackOutputFrame();
+    // 规则 13b：正常执行周期按目标排除的 kInfo 诊断转写（abort 路径不变）。
+    result.diagnostics = Controller().GetLatestDiagnostics();
     return result;
   }
 
@@ -742,6 +747,8 @@ struct ArSession::Impl {
     }
     result.status = ArCompleteCycleStatus::kCompleted;
     result.track_output_frame = execution_result.track_output_frame;
+    // 规则 13b：正常执行周期按目标排除的 kInfo 诊断转写（abort 路径不变）。
+    result.diagnostics = execution_result.diagnostics;
     result.has_decision_observation = Controller().HasLatestDecisionObservation();
     if (result.has_decision_observation) {
       result.decision_observation = Controller().GetLatestDecisionObservation();

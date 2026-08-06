@@ -25,6 +25,9 @@ void ResetCycleExecutionScratch(const session::ArSceneTargetList& input_state,
   scratch.measurement_slots.assign(target_count, -1);
   scratch.target_geometry.resize(target_count);
   scratch.association_result = association::AssociationResult();
+  // 规则 13b：逐周期清零排除诊断累积与计数（周期语义，不跨周期累计）。
+  scratch.diagnostics.clear();
+  scratch.excluded_snr_below = 0U;
 }
 
 void RefreshMeasurementCovariances(

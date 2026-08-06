@@ -105,6 +105,22 @@ TEST(EsrSessionIntegrationTest, PowerOffProducesNoHistoricalOutput) {
   EXPECT_FLOAT_EQ(powered_off.output_frame.scan_azimuth_deg, 0.0f);
 }
 
+TEST(EsrSessionIntegrationTest, BelowThresholdEmissionCarriesInfoExclusionDiagnostic) {
+  EsrCycleInput input = MakeInput();
+  input.rf_emissions.emissions.push_back(MakeEmission(3U, 1.0e-20));
+  const EsrCycleResult result = EsrSession::Create(MakeConfig()).StepWithResult(input);
+  // 正常完成周期：排除原因经 diagnostics 承载，不改变执行状态（规则 13b/13c）。
+  EXPECT_EQ(result.status, EsrCycleExecutionStatus::kCompleted);
+  bool found = false;
+  for (const EsrDiagnosticIssue& issue : result.diagnostics) {
+    if (issue.code == "esr.emission_below_threshold") {
+      found = true;
+      EXPECT_EQ(issue.severity, EsrDiagnosticSeverity::kInfo);
+    }
+  }
+  EXPECT_TRUE(found);
+}
+
 }  // namespace
 }  // namespace session
 }  // namespace electronic_surveillance_radar

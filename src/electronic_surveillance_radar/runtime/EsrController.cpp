@@ -25,6 +25,7 @@ struct EsrController::Impl {
   session::EsrCycleExecutionStatus last_cycle_status{
       session::EsrCycleExecutionStatus::kRejected};
   session::EsrPipelineAbortReason last_abort_reason{session::EsrPipelineAbortReason::kNone};
+  session::EsrDiagnosticIssueList latest_diagnostics{}; /**< 正常周期按发射源排除的 kInfo 诊断（规则 13b）。 */
 };
 
 EsrController::EsrController(pipeline::InterceptPipeline& pipeline,
@@ -86,6 +87,8 @@ void EsrController::RunOnce(const session::EsrCycleInput& input) {
   output_frame.scan_azimuth_deg = pipeline_result.scan_azimuth_deg;
   output_frame.observation_output = std::move(pipeline_result.observation_output);
   output_frame.emitter_output = std::move(pipeline_result.emitter_output);
+  // 规则 13b：正常周期按发射源排除的 kInfo 诊断转写（abort 路径不变）。
+  impl_->latest_diagnostics = std::move(pipeline_result.diagnostics);
 
   impl_->runtime_state.latest_output = std::move(output_frame);
   impl_->runtime_state.has_latest_output = true;
@@ -113,6 +116,10 @@ const session::ValidationIssueList& EsrController::GetLastValidationIssues() con
 
 session::EsrCycleExecutionStatus EsrController::GetLatestCycleStatus() const {
   return impl_->last_cycle_status;
+}
+
+const session::EsrDiagnosticIssueList& EsrController::GetLatestDiagnostics() const {
+  return impl_->latest_diagnostics;
 }
 
 session::EsrPipelineAbortReason EsrController::GetLastInterceptCycleAbortReason() const {

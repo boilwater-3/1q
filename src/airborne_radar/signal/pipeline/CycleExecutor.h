@@ -56,6 +56,10 @@ struct CycleExecutionScratch {
 
   // 量测构建阶段中间数据
   std::vector<int> measurement_slots;
+
+  // 规则 13b：正常执行周期按目标门控排除的 kInfo 诊断累积（SignalPipeline 转写进结果）。
+  session::ArDiagnosticIssueList diagnostics{};
+  std::size_t excluded_snr_below{0U}; /**< 规则 13a SNR 检测门排除计数。 */
 };
 
 /**

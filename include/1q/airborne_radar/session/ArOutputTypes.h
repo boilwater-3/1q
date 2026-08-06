@@ -82,6 +82,8 @@ struct ONEQ_API SignalCycleResult {
   ArSceneTargetList updated_scene_targets{};    /**< 当前周期更新后的场景目标列表 */
   session::DecisionInputFrame decision_frame{}; /**< 当前周期决策输入帧 */
   AssociationQualityMetrics association_quality_metrics{}; /**< 当前周期关联质量观测指标 */
+  ArDiagnosticIssueList diagnostics{}; /**< 正常执行周期按目标排除的 kInfo 诊断（规则 13b），
+                                            经 controller 转写进 ArCycleResult。 */
 };
 
 }  // namespace session

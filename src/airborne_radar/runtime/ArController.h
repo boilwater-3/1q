@@ -164,6 +164,13 @@ class ArController {
   const session::TrackOutputFrame& GetLatestTrackOutputFrame() const;
 
   /**
+   * @brief 获取最近一次正常执行周期的 kInfo 排除诊断（规则 13b）。
+   * @note 仅完成路径有内容；中止路径诊断由三写经 RecordAbort 写入。
+   * @return 最近一次周期的按目标排除诊断列表。
+   */
+  const session::ArDiagnosticIssueList& GetLatestDiagnostics() const;
+
+  /**
    * @brief 获取最近一次输入校验问题列表。
    * @return 最近一次 RunOnce 记录的校验问题。
    */

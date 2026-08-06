@@ -3,6 +3,8 @@
 #include <algorithm>
 #include <cmath>
 
+#include "common/logging/ProjectLog.h"
+
 #include "sar/session/SarDiagnosticUtils.h"
 #include "sar/session/SarFocusedImageAssembler.h"
 #include "sar/session/SarImagingExecutor.h"
@@ -239,6 +241,15 @@ bool SarProcessingPipeline::RunCycle(const config::SarSessionConfig& config,
   if (config.policy.retain_raw_phase_history) {
     ExportRawPhaseHistory(raw_history, raw_history_source, &result->raw_phase_history);
   }
+
+  // 中译：周期执行摘要（周期号、完成处理阶段、L1/L3 成像标志、估计信噪比、场景目标数）。
+  // 标识：规则 13a 周期级执行摘要日志——每周期 SAR 处理概况与成像产出，
+  //       供宏观核对"零产品"排查；仅人读，不用于状态判断（规则 3）。
+  PROJECT_LOG_INFO("[SarPipeline] cycle_index={} completed_stage={} has_l1={} has_l3={} "
+                   "estimated_snr_db={:.2f} targets={}",
+                   input.cycle_index, static_cast<int>(result->output_frame.completed_stage),
+                   result->output_frame.has_l1_image, result->output_frame.has_l3_bp_image,
+                   result->output_frame.estimated_snr_db, input.point_targets.size());
 
   result->executed_this_cycle = true;
   result->status = session::SarCycleStatus::kCompleted;

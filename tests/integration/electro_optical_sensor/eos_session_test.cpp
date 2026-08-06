@@ -222,6 +222,27 @@ TEST(EosSessionIntegrationTest, OutOfFovTargetIsFiltered) {
   EXPECT_FALSE(HasTargetId(result, 10U));
 }
 
+TEST(EosSessionIntegrationTest, OutOfFovTargetCarriesInfoExclusionDiagnostic) {
+  EosSession session = EosSession::Create(MakeSessionConfig());
+  ::electro_optical_sensor::session::EosCycleInput input = MakeBaseInput();
+  input.scene.clear();
+  input.scene.push_back(MakeTarget(10U, 50.0f, 1500.0f));
+
+  const ::electro_optical_sensor::session::EosCycleResult result = session.StepWithResult(input);
+
+  // 正常完成周期：排除原因经 diagnostics 承载，不改变执行状态（规则 13b/13c）。
+  EXPECT_EQ(result.status, session::EosCycleStatus::kCompleted);
+  EXPECT_FALSE(HasTargetId(result, 10U));
+  bool found = false;
+  for (const session::EosDiagnosticIssue& issue : result.diagnostics) {
+    if (issue.code == "eos.target_out_of_fov") {
+      found = true;
+      EXPECT_EQ(issue.severity, session::EosDiagnosticSeverity::kInfo);
+    }
+  }
+  EXPECT_TRUE(found);
+}
+
 TEST(EosSessionIntegrationTest, HigherCloudCoverageReducesVisibleSnr) {
   config::EosSessionConfig clear_config = MakeSessionConfig();
   clear_config.mission.work_mode = config::EosWorkMode::kVisibleOnly;
