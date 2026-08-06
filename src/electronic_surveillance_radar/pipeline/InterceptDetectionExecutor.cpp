@@ -4,7 +4,9 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <cstdio>
 #include <random>
+#include <string>
 #include <utility>
 
 #include "1q/coordinate/attitude_transform.h"
@@ -30,6 +32,34 @@ constexpr std::uint64_t kRfRandomDomain = 0x4553525246000000ULL;
 constexpr std::uint64_t kBandwidthRandomDomain = 0x4553524257000000ULL;
 constexpr std::uint64_t kPriRandomDomain = 0x4553525052000000ULL;
 constexpr std::uint64_t kPulseWidthRandomDomain = 0x4553525057000000ULL;
+
+// 规则 13b：正常执行周期按发射源门控排除的 kInfo 诊断码（不属于三写，仅承载排查信息）。
+constexpr char kExclusionCoSiteCode[] = "esr.emission_co_site";
+constexpr char kExclusionZeroPowerCode[] = "esr.emission_zero_power";
+constexpr char kExclusionBelowThresholdCode[] = "esr.emission_below_threshold";
+
+/// 构造 kInfo 级按发射源排除诊断（不属于三写，仅承载排查信息；规则 13b）。
+session::EsrDiagnosticIssue MakeExclusionIssue(const char* code, const std::string& message) {
+  session::EsrDiagnosticIssue issue;
+  issue.severity = session::EsrDiagnosticSeverity::kInfo;
+  issue.code = code;
+  issue.message = message;
+  return issue;
+}
+
+/// 格式化发射源标识为结构化 key=value 前缀（规则 13b message 约定，不承诺解析稳定性）。
+std::string FormatEmissionIdentity(const oneq::electromagnetics::RfEmissionIdentity& id) {
+  return "platform_id=" + std::to_string(id.platform_id) +
+         "; equipment_id=" + std::to_string(id.equipment_id) +
+         "; emission_id=" + std::to_string(id.emission_id);
+}
+
+/// 格式化量值为两位小数（消息文本稳定，不承诺解析稳定性；规则 13b message 约定）。
+std::string FormatNumber(double value) {
+  char buffer[32];
+  std::snprintf(buffer, sizeof(buffer), "%.2f", value);
+  return buffer;
+}
 
 std::uint64_t Mix64(std::uint64_t value) {
   value += 0x9e3779b97f4a7c15ULL;
@@ -296,8 +326,21 @@ bool InterceptDetectionExecutor::ProcessRfV2Frame(
                                                   static_cast<double>(hardware.beam_el_width_deg)));
   std::vector<EsrArrivalBearing> bearings(front_end.channel_incident_links.size());
   for (std::size_t index = 0U; index < front_end.channel_incident_links.size(); ++index) {
-    if (front_end.channel_incident_links[index].is_co_site ||
-        front_end.channel_incident_links[index].received_power_w <= 0.0) {
+    const oneq::electromagnetics::RfSceneEmission& emission = *emissions[index];
+    if (front_end.channel_incident_links[index].is_co_site) {
+      // 规则 13b：同址干扰发射源跳过 → kInfo 诊断（不属于三写，仅承载排查信息）。
+      output->diagnostics.push_back(MakeExclusionIssue(
+          kExclusionCoSiteCode, FormatEmissionIdentity(emission.identity) + "; co_site=true"));
+      ++output->excluded_co_site;
+      continue;
+    }
+    if (front_end.channel_incident_links[index].received_power_w <= 0.0) {
+      // 规则 13b：零功率发射源跳过 → kInfo 诊断（不属于三写，仅承载排查信息）。
+      output->diagnostics.push_back(MakeExclusionIssue(
+          kExclusionZeroPowerCode,
+          FormatEmissionIdentity(emission.identity) + "; received_power_w=" +
+              FormatNumber(front_end.channel_incident_links[index].received_power_w)));
+      ++output->excluded_zero_power;
       continue;
     }
     EsrArrivalBearing& bearing = bearings[index];
@@ -342,6 +385,12 @@ bool InterceptDetectionExecutor::ProcessRfV2Frame(
         (ctx.GetPipelineConfig().statistical_detection.enable_statistical_detection &&
          uniform_01(detection_rng) >= oneq::common::timing::ComputeStatisticalDetectionProbability(
                                           static_cast<float>(snr_db), threshold, detection))) {
+      // 规则 13b：SNR/统计检测门排除 → kInfo 诊断（不属于三写，仅承载排查信息）。
+      output->diagnostics.push_back(MakeExclusionIssue(
+          kExclusionBelowThresholdCode,
+          FormatEmissionIdentity(signal.identity) + "; snr_db=" + FormatNumber(snr_db) +
+              " below threshold=" + FormatNumber(threshold)));
+      ++output->excluded_below_threshold;
       continue;
     }
     RawObservationRecord record;

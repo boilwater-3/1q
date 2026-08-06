@@ -31,6 +31,8 @@ struct EsrSession::Impl {
     if (Controller().GetLatestCycleStatus() == EsrCycleExecutionStatus::kCompleted &&
         Controller().HasLatestInterceptOutputFrame()) {
       result.output_frame = Controller().GetLatestInterceptOutputFrame();
+      // 规则 13b：正常执行周期按发射源排除的 kInfo 诊断转写进结构化结果（abort 路径不变）。
+      result.diagnostics = Controller().GetLatestDiagnostics();
     }
     result.validation_issues = Controller().GetLastValidationIssues();
     result.has_validation_error = session::HasValidationError(result.validation_issues);

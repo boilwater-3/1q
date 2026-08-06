@@ -169,6 +169,8 @@ struct InterceptPipelineResult {
   float scan_azimuth_deg{0.0f}; /**< 本周期波束中心方位角（单位：deg，平台系，含天线安装角）。 */
   bool sensor_powered_off{false}; /**< 设备关机导致本周期未执行，而非合法空观测。 */
   bool rf_v2_rejected{false}; /**< RF v2 前端无法在不破坏物理合同的前提下求解。 */
+  session::EsrDiagnosticIssueList diagnostics{}; /**< 正常执行周期按发射源排除的 kInfo 诊断（规则 13b），
+                                                      经 controller 转写进 EsrCycleResult。 */
 };
 
 /**

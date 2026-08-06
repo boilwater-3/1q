@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
+#include <string>
 
 #include "1q/electromagnetics/RfScene.h"
 #include "electronic_surveillance_radar/pipeline/InterceptDetectionExecutor.h"
@@ -88,7 +89,9 @@ InterceptDetectionOutput RunDetection(const session::EsrCycleInput& input,
                                       std::uint64_t completed_receive_cycles = 0U,
                                       bool use_tuning_plan = false,
                                       bool enable_statistical_detection = false,
-                                      float beamwidth_deg = 120.0f) {
+                                      float beamwidth_deg = 120.0f,
+                                      const std::vector<config::EsrCoSiteIsolationPath>&
+                                          co_site_paths = {}) {
   extension::InterceptPipelineConfig pipeline_config;
   pipeline_config.detection.minimum_snr_db = -20.0f;
   pipeline_config.statistical_detection.enable_statistical_detection = enable_statistical_detection;
@@ -104,6 +107,7 @@ InterceptDetectionOutput RunDetection(const session::EsrCycleInput& input,
   runtime_config.receiver_hardware.beam_az_width_deg = beamwidth_deg;
   runtime_config.receiver_hardware.beam_el_width_deg = beamwidth_deg;
   runtime_config.receiver_hardware.maximum_linear_input_power_w = maximum_linear_input_power_w;
+  runtime_config.receiver_hardware.co_site_paths = co_site_paths;
   if (use_tuning_plan) {
     config::EsrTuningWindow first_window;
     first_window.center_frequency_hz = 9.5e9;
@@ -324,6 +328,73 @@ TEST(EsrRfV2DetectionTest, WaveformClassPropagatesToObservation) {
   EXPECT_DOUBLE_EQ(continuous_output.raw_records.front().observation.pulse_width_s, 0.0);
   EXPECT_DOUBLE_EQ(sweep_output.raw_records.front().observation.pri_s, 0.0);
   EXPECT_DOUBLE_EQ(sweep_output.raw_records.front().observation.pulse_width_s, 0.0);
+}
+
+TEST(EsrRfV2DetectionTest, BelowThresholdEmissionWritesInfoExclusionDiagnostic) {
+  session::EsrCycleInput input = MakeInput();
+  input.rf_emissions.emissions.push_back(MakeEmission(7U, 10.0e9, 1.0e-12));
+
+  const InterceptDetectionOutput output = RunDetection(input);
+  // 行为中立：低于门限的发射源仍不产出观测记录；排除原因只经 diagnostics 承载（规则 13b/13c）。
+  EXPECT_TRUE(output.raw_records.empty());
+  ASSERT_FALSE(output.diagnostics.empty());
+  bool found = false;
+  for (const session::EsrDiagnosticIssue& issue : output.diagnostics) {
+    if (issue.code == "esr.emission_below_threshold") {
+      found = true;
+      EXPECT_EQ(issue.severity, session::EsrDiagnosticSeverity::kInfo);
+      EXPECT_NE(issue.message.find("emission_id=7"), std::string::npos);
+    }
+  }
+  EXPECT_TRUE(found);
+  EXPECT_EQ(output.excluded_below_threshold, 1U);
+}
+
+TEST(EsrRfV2DetectionTest, ZeroPowerEmissionWritesInfoExclusionDiagnostic) {
+  session::EsrCycleInput input = MakeInput();
+  input.rf_emissions.emissions.push_back(MakeEmission(8U, 10.0e9, 0.0));
+
+  const InterceptDetectionOutput output = RunDetection(input);
+  // 行为中立：零功率发射源不产出观测记录；排除原因只经 diagnostics 承载（规则 13b/13c）。
+  EXPECT_TRUE(output.raw_records.empty());
+  ASSERT_FALSE(output.diagnostics.empty());
+  bool found = false;
+  for (const session::EsrDiagnosticIssue& issue : output.diagnostics) {
+    if (issue.code == "esr.emission_zero_power") {
+      found = true;
+      EXPECT_EQ(issue.severity, session::EsrDiagnosticSeverity::kInfo);
+      EXPECT_NE(issue.message.find("emission_id=8"), std::string::npos);
+    }
+  }
+  EXPECT_TRUE(found);
+  EXPECT_EQ(output.excluded_zero_power, 1U);
+}
+
+TEST(EsrRfV2DetectionTest, CoSiteEmissionWritesInfoExclusionDiagnostic) {
+  session::EsrCycleInput input = MakeInput();
+  // 低功率避免触发接收机饱和（最大线性输入 10 W）；同平台 → 同址链路。
+  oneq::electromagnetics::RfSceneEmission emission = MakeEmission(9U, 10.0e9, 1.0e-6);
+  emission.identity.platform_id = input.platform_entity_id;
+  input.rf_emissions.emissions.push_back(emission);
+
+  // 接收机配置该发射设备的同址隔离路径后，同址链路可解析并被门控跳过。
+  const config::EsrCoSiteIsolationPath co_site_path{20U + 9U, 40.0};
+  const InterceptDetectionOutput output = RunDetection(input, 10.0f, 0U, false, false, 120.0f,
+                                                       {co_site_path});
+  // 行为中立：同址发射源不产出观测记录；排除原因只经 diagnostics 承载（规则 13b/13c）。
+  EXPECT_TRUE(output.raw_records.empty());
+  ASSERT_FALSE(output.diagnostics.empty());
+  bool found = false;
+  for (const session::EsrDiagnosticIssue& issue : output.diagnostics) {
+    if (issue.code == "esr.emission_co_site") {
+      found = true;
+      EXPECT_EQ(issue.severity, session::EsrDiagnosticSeverity::kInfo);
+      EXPECT_NE(issue.message.find("emission_id=9"), std::string::npos);
+      EXPECT_NE(issue.message.find("co_site=true"), std::string::npos);
+    }
+  }
+  EXPECT_TRUE(found);
+  EXPECT_EQ(output.excluded_co_site, 1U);
 }
 
 }  // namespace

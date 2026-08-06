@@ -34,6 +34,11 @@ struct InterceptDetectionOutput {
   double receiver_bandwidth_hz{0.0};                    /**< 当前接收带宽（单位：Hz）。 */
   bool receiver_saturated{false};                       /**< 是否发生接收机饱和。 */
   bool rf_v2_rejected{false}; /**< RF v2 链路无法原子求解，调用方必须回滚周期状态。 */
+  std::size_t excluded_co_site{0U};         /**< 同址干扰发射源排除计数（规则 13b）。 */
+  std::size_t excluded_zero_power{0U};      /**< 零功率发射源排除计数（规则 13b）。 */
+  std::size_t excluded_below_threshold{0U}; /**< SNR/统计检测门排除计数（规则 13b）。 */
+  session::EsrDiagnosticIssueList diagnostics{}; /**< 正常周期按发射源排除的 kInfo 诊断（规则 13b），
+                                                      经 pipeline 并入 InterceptPipelineResult。 */
 };
 
 /**

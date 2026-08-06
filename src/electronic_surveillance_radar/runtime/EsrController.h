@@ -83,6 +83,13 @@ class EsrController {
   session::EsrCycleExecutionStatus GetLatestCycleStatus() const;
 
   /**
+   * @brief 获取最近一次正常执行周期的 kInfo 排除诊断（规则 13b）。
+   * @note 仅完成路径（kCompleted）有内容；中止路径诊断由三写经 RecordAbort 写入。
+   * @return 最近一次周期的按发射源排除诊断列表。
+   */
+  const session::EsrDiagnosticIssueList& GetLatestDiagnostics() const;
+
+  /**
    * @brief 最近一次 RunOnce 的周期终止原因。
    * @return 周期终止原因。
    */
