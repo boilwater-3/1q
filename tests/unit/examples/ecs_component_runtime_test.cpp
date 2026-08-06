@@ -38,6 +38,7 @@
 #include "1q/sar/config/SarRuntimeConfigBuilder.h"
 #include "1q/sar/session/SarSession.h"
 #include "1q/sbirs_sensor/config/SbirsRuntimeConfigBuilder.h"
+#include "1q/sbirs_sensor/session/SbirsOutputDebugView.h"
 #include "1q/sbirs_sensor/session/SbirsSceneTypes.h"
 #include "1q/sbirs_sensor/session/SbirsSession.h"
 #include "components/ar_sensor_component.h"
@@ -466,4 +467,34 @@ TEST(SensorQueryGettersTest, PowerOffFreezesSessionUntilReenabled) {
   scene.DriveCycle(4U);
   EXPECT_TRUE(scene.platform().Find<ca::SbirsSensorComponent>()->powered_on());
   EXPECT_FLOAT_EQ(scene.platform().Find<ca::SbirsSensorComponent>()->scan_azimuth_deg(), -40.0f);
+}
+
+TEST(SensorQueryGettersTest, SbirsLastDebugViewCarriesPerTargetStateAndExclusionDiagnostics) {
+  // 规则 12/13b 组件级可见性：LastDebugView() 每周期由 Step 经
+  // SbirsOutputDebugViewBuilder 回填（per-target 状态 + kInfo 排除诊断），
+  // 是 demo 写 sbirs_debug_view.jsonl 的数据源。
+  SensorQueryScene scene;
+  scene.platform().Attach(std::make_unique<ca::SbirsSensorComponent>(
+      sbirs_sensor::session::SbirsSession::Create()));
+  scene.DriveCycle(1U);
+
+  const auto& view = scene.platform().Find<ca::SbirsSensorComponent>()->LastDebugView();
+  EXPECT_EQ(view.input_cycle_index, 1U);
+  EXPECT_TRUE(view.executed_this_cycle);
+  ASSERT_EQ(view.targets.size(), 1U);
+  EXPECT_EQ(view.targets[0].target_id, 1001U);
+  // 默认配置下目标（星下点 el≈-90°、az≈0°）落在 WFOV（el 中心 0°、az 扫描
+  // 中心 -50°、20°×20°）之外 → kNotInOutput + sbirs.target_out_of_wfov
+  // kInfo 诊断（规则 13b，message 含 target_id）。
+  EXPECT_EQ(view.targets[0].status,
+            sbirs_sensor::session::SbirsDebugTargetStatus::kNotInOutput);
+  bool found_wfov = false;
+  for (const auto& issue : view.diagnostics) {
+    if (issue.code == "sbirs.target_out_of_wfov") {
+      found_wfov = true;
+      EXPECT_EQ(issue.severity, sbirs_sensor::session::SbirsDiagnosticSeverity::kInfo);
+      EXPECT_NE(issue.message.find("target_id=1001"), std::string::npos);
+    }
+  }
+  EXPECT_TRUE(found_wfov);
 }

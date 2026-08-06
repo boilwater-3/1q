@@ -158,6 +158,11 @@ patch 只改会话配置）。
 | `SbirsSensorComponent` | `bool powered_on()` | `float scan_azimuth_deg()`（deg，ECEF 极坐标参考） |
 | `SarSensorComponent` | `bool powered_on()` | —（无扫描方位概念） |
 
+`SbirsSensorComponent` 另暴露 `const SbirsOutputDebugView& LastDebugView()`——最近周期
+调试视图快照（规则 12 落盘示范：per-target 状态 + 规则 13b kInfo 排除诊断；关机周期
+清零，拒绝周期为 `kCycleNotExecuted`）。demo 每周期经 `examples/common/SbirsDebugViewToJson.h`
+序列化为一行 JSON 写入 `sbirs_debug_view.jsonl`（见「输出」表）。
+
 **组件层电源门控**：电源状态由 `sensor_enabled` 补丁唯一维护（`TryApplyRuntimeConfig`
 成功且带 `has_sensor_enabled` 时更新，拒绝的补丁不改状态）。关机时组件**不驱动
 会话**（设备不工作，会话扫描相位冻结），角度主动清零表示无有效扫描方位；重新
@@ -270,6 +275,7 @@ cmake --build --preset llvm-ninja-release-local --target component_attachment_de
 | --- | --- | --- |
 | `platform_track.csv` | cycle,t_sec,lat_deg,lon_deg,alt_m,heading_deg,speed_mps,wp_index | 平台轨迹（每周期一行；FD 模式含起飞爬升段） |
 | `events.csv` | cycle,t_sec,event_type,detail | 事件流（10 类事件；detail 为可读摘要） |
+| `sbirs_debug_view.jsonl` | 每行一条 JSON | SBIRS 每周期调试视图（规则 12 落盘示范：per-target 状态与规则 13b kInfo 排除诊断；序列化见 `examples/common/SbirsDebugViewToJson.h`） |
 
 控制台输出每周期一行摘要（平台高度/航向/速度/航点进度 + 融合目标数），事件
 逐条打印；结束打印汇总（实体数/组件数/事件数/指令是否下发）。

@@ -25,6 +25,7 @@
 #include <cstdint>
 #include <cstdlib>
 #include <filesystem>
+#include <fstream>
 #include <iostream>
 #include <memory>
 #include <string>
@@ -52,6 +53,7 @@
 #include "config_loaders/sar/config_loader.h"
 #include "config_loaders/sbirs_sensor/config_loader.h"
 #include "csv_writer.h"
+#include "SbirsDebugViewToJson.h"
 
 #include "components/ar_sensor_component.h"
 #include "components/eos_sensor_component.h"
@@ -601,10 +603,19 @@ int main(int argc, char* argv[]) {
   examples::CsvWriter platform_csv(output_dir + "/platform_track.csv",
                                    "cycle,t_sec,lat_deg,lon_deg,alt_m,heading_deg,speed_mps,wp_index");
 
+  // 规则 12 落盘示范：SBIRS 每周期调试视图 JSONL（一行一条帧快照，含按目标
+  // 状态与规则 13b kInfo 排除诊断），与平台轨迹 CSV 同级输出。
+  std::ofstream sbirs_debug_jsonl(output_dir + "/sbirs_debug_view.jsonl");
+  if (!sbirs_debug_jsonl) {
+    std::cerr << "Failed to open sbirs_debug_view.jsonl\n";
+    return 1;
+  }
+
   std::uint32_t validation_error_count = 0U;
   (void)validation_error_count;  // 冒烟断言改用事件/融合/行数指标（见下）
   std::size_t platform_rows = 0U;
   std::size_t max_fused_targets = 0U;
+  std::size_t sbirs_debug_rows = 0U;
   for (std::uint32_t cycle = 1U; cycle <= num_cycles; ++cycle) {
     // 消费方每周期注入共享场景状态（周期号/时间/四通道世界真值）。
     scene.cycle = cycle;
@@ -644,12 +655,18 @@ int main(int argc, char* argv[]) {
                               flight->next_waypoint_index()));
     ++platform_rows;
 
+    // 规则 12：把本周期 SBIRS 调试视图（含 kInfo 排除诊断）序列化为一行 JSON。
+    const auto* sbirs = platform.Find<ca::SbirsSensorComponent>();
+    sbirs_debug_jsonl << SbirsDebugViewToJson(sbirs->LastDebugView()) << '\n';
+    ++sbirs_debug_rows;
+
     // 消费方世界模型推进（在 Step 之后，与 behavior_layer 周期语义一致）。
     AdvanceTargetStates(target_states, kDtSec);
   }
 
   logger.Flush();
   platform_csv.Flush();
+  sbirs_debug_jsonl.flush();
   std::cout << "\n=== Component Attachment Summary ===\n"
             << "cycles=" << num_cycles
             << " entities=" << world.entity_count()
@@ -659,7 +676,7 @@ int main(int argc, char* argv[]) {
             << " sar_products=" << logger.sar_product_event_count()
             << " command_issued=" << (decision.issued() ? "true" : "false") << "\n"
             << "csv output -> " << output_dir
-            << " (platform_track.csv / events.csv)\n";
+            << " (platform_track.csv / events.csv / sbirs_debug_view.jsonl)\n";
 
   // 外置查询演示：按实体名/类型查找平台实体，读取各传感器开关机与当前扫描
   // 方位（查询逻辑 = 组件 const getter；外部系统选定实体后按名/ID 拉取
@@ -680,17 +697,19 @@ int main(int argc, char* argv[]) {
             << "  sar   powered=" << (sar->powered_on() ? "on" : "off") << "\n";
 
   // 冒烟断言：端到端链路必须有产出（每周期平台状态事件、SBIRS 探测事件、
-  // SAR 图像产品事件、至少一个融合目标、平台轨迹行数 = 周期数、五传感器
-  // 全程开机），否则视为链路断裂（ctest 失败）。
+  // SAR 图像产品事件、至少一个融合目标、平台轨迹行数 = 周期数、SBIRS 调试
+  // 视图 JSONL 行数 = 周期数、五传感器全程开机），否则视为链路断裂（ctest 失败）。
   if (logger.event_count() < num_cycles || logger.sbirs_event_count() == 0U ||
       logger.sar_product_event_count() == 0U || max_fused_targets == 0U ||
-      platform_rows != num_cycles || !ar->powered_on() || !esr->powered_on() ||
+      platform_rows != num_cycles || sbirs_debug_rows != num_cycles ||
+      !ar->powered_on() || !esr->powered_on() ||
       !eos->powered_on() || !sbirs->powered_on() || !sar->powered_on()) {
     std::cerr << "SMOKE FAILED: events=" << logger.event_count()
               << " (>= " << num_cycles << " required), sbirs_events="
               << logger.sbirs_event_count() << " (>0 required), sar_products="
               << logger.sar_product_event_count() << " (>0 required), max_fused="
               << max_fused_targets << " (>0 required), platform_rows=" << platform_rows
+              << " (== " << num_cycles << " required), sbirs_debug_rows=" << sbirs_debug_rows
               << " (== " << num_cycles << " required), sensor_powered="
               << (ar->powered_on() && esr->powered_on() && eos->powered_on() &&
                   sbirs->powered_on() && sar->powered_on() ? "true" : "false")

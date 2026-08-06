@@ -75,6 +75,7 @@ void SbirsSensorComponent::Step(World& world, double dt_sec) {
 
   if (!powered_on_) {
     scan_azimuth_deg_ = 0.0f;  // 关机：不驱动会话，角度无有效值（清零）
+    last_debug_view_ = sbirs_sensor::session::SbirsOutputDebugView{};  // 关机：调试视图清零（无有效周期）
     return;
   }
 
@@ -96,6 +97,9 @@ void SbirsSensorComponent::Step(World& world, double dt_sec) {
   const sbirs_sensor::session::SbirsCycleResult result = session_.StepWithResult(input);
   // 扫描方位随周期结果刷新：被拒绝周期输出帧为默认空帧 → 0。
   scan_azimuth_deg_ = result.output_frame.scan_azimuth_deg;
+  // 规则 12 落盘示范：每周期构建调试视图快照（拒绝周期为 kCycleNotExecuted），
+  // 供调用方序列化为 JSON 写进自己的日志（含规则 13b kInfo 排除诊断）。
+  last_debug_view_ = sbirs_sensor::session::SbirsOutputDebugViewBuilder::Build(input, result);
   if (result.status != sbirs_sensor::session::SbirsCycleStatus::kCompleted) {
     return;  // 周期被拒绝：本周期无探测
   }

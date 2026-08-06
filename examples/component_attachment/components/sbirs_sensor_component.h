@@ -18,6 +18,7 @@
 #include "1q/fusion/DetectionRecord.h"
 #include "1q/sbirs_sensor/config/SbirsRuntimeConfigPatch.h"
 #include "1q/sbirs_sensor/session/SbirsDetectionLifecycleRecorder.h"
+#include "1q/sbirs_sensor/session/SbirsOutputDebugView.h"
 #include "1q/sbirs_sensor/session/SbirsSession.h"
 #include "core/component.h"
 
@@ -52,6 +53,19 @@ class SbirsSensorComponent : public Component {
   float scan_azimuth_deg() const { return scan_azimuth_deg_; }
 
   /**
+   * @brief 最近周期调试视图快照（规则 12 落盘示范）。
+   *
+   * Step 每周期经 SbirsOutputDebugViewBuilder::Build 回填（含按目标状态与
+   * 规则 13b kInfo 排除诊断），调用方序列化为 JSON 写入自己的日志/事件系统
+   * （参考 examples/common/SbirsDebugViewToJson.h）。
+   * @return 最近周期调试视图；关机周期清零（无有效周期），拒绝周期为
+   *         kCycleNotExecuted 快照。
+   */
+  const sbirs_sensor::session::SbirsOutputDebugView& LastDebugView() const {
+    return last_debug_view_;
+  }
+
+  /**
    * @brief 运行时修改入口：包装 SbirsSession::TryApplyRuntimeConfig。
    *
    * SBIRS 为立即提交：补丁经校验一次生效（调用即生效，session 层无回滚）。
@@ -69,6 +83,7 @@ class SbirsSensorComponent : public Component {
   std::vector<fusion::DetectionRecord> detections_{};
   bool powered_on_{true};     /**< 电源状态（由 sensor_enabled 补丁唯一维护；关机时组件不驱动会话） */
   float scan_azimuth_deg_{0.0f}; /**< 最近周期波束中心方位角（deg，随周期结果刷新） */
+  sbirs_sensor::session::SbirsOutputDebugView last_debug_view_{}; /**< 最近周期调试视图快照（规则 12 落盘） */
 };
 
 }  // namespace component_attachment
