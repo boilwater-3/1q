@@ -145,6 +145,29 @@ AR/ESR/EOS/SBIRS 四模块的电源状态必须遵守单源原则：
     JSON 参考实现见 `examples/common/` 的 `*DebugViewToJson.h` + `debug_view_json.h`
     （header-only、零第三方依赖，集成方可直接 copy 进自己的工程）。
 
+### 传感器方位坐标系约定（SBIRS）
+
+**SBIRS 输出的 `az`/`el`（检测记录 `SbirsDetectionRecord`、扫描相位
+`SbirsOutputFrame::scan_azimuth_deg`）为 ECEF 极坐标，不是卫星局部地平系**：
+
+- `az = atan2(los.y, los.x)`：相对 **ECEF x 轴**（`SbirsVector3M` 的 y/x 分量），
+  取值范围 `(-180°, 180°]`；
+- `el = asin(los.z / |los|)`：相对**赤道面**（ECEF z 轴为天顶参考），
+  星下点方向（目标在卫星正下方）`el ≈ −90°`，北天极方向 `el ≈ +90°`。
+
+实现见 `src/sbirs_sensor/foundation/SbirsGeometry.{h,cpp}` 的
+`ComputeAzimuthDeg`/`ComputeElevationDeg`；`SbirsSceneTarget` 与卫星位置均为
+ECEF 输入，检测记录直接以 ECEF 视线向量计算，无局部地平转换。
+
+**集成含义（反开发者直觉，易踩点）**：
+
+1. 场景几何编排（卫星位置、目标分布、WFOV 扫描中心/覆盖）必须按 ECEF 极坐标
+   参考设计。例如目标位于卫星正下方时扫描中心俯仰角应配置为 `−90°` 而非 `0°`
+   （`0°` 指向赤道面水平方向，星下点目标将完全落在视场外）。
+2. 该方位参考系与机载通道（AR/ESR/EOS 的平台局部系方位）**不同**；跨平台方位
+   融合/相干关联需要调用方先做坐标系对齐（本库不提供转换，业务层职责）。
+   参考实现见 `examples/component_attachment` 的 SBIRS 组件与 README 简化声明。
+
 ### 执行状态信号统一
 
 五个传感器模块的 `*CycleResult` 统一包含强类型 `*CycleStatus` 枚举，表达单周期高层执行状态：

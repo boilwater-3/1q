@@ -94,6 +94,13 @@ Answers: SAR 用了哪些算法、各自实现到什么地步、边界在哪、�
   3. raw-echo-only 模式不执行该成像门。
   4. RDA focused image 是否完整保留由 `retain_focused_image` policy 控制；关闭时只输出占位元数据。
   5. RDA 误差用相位曲率、Doppler margin、3dB 宽度、entropy、contrast 等诊断解释，不通过放宽阈值掩盖。
+- **squint 几何定义**（`ComputeSquintAngleDeg`，`src/sar/pipeline/SarProcessingPipeline.cpp`）：
+  单脉冲平台状态下，`squint = asin(|v·LOS| / (|v|·|LOS|))`，其中 `v` 为平台速度、`LOS` 为平台指向
+  场景中心的视线（ENU 局部坐标，平台相对 `scene_center_*`）。即 **squint = 视线偏离正侧视的角度**：
+  正侧视（LOS ⊥ 航迹）为 `0°`，前视/后视（LOS ∥ 航迹）趋近 `90°`——**不是**"视线与航迹夹角"
+  本身（两者互补为 `90°`）。内部生成路径以当前周期平台状态计算；外部脉冲/轨迹路径取积累窗内
+  所有脉冲的最大 squint。**反直觉点**：多数文献把 squint 定义为视线与航迹夹角（前视 0°），
+  本库采用补角定义；场景编排（如平台相对目标区的飞行方向）须按"正侧视 = 0°"设计。
 - **反直觉点**：生产相位参考是空间变化的（随慢时间行与距离单元变化），不是全图常数旋转。只有
   `CompareImagesWithGlobalPhaseReference` 在测试/质量比较中估计并消除单个全局常相位，用于比较归一化
   后的图像形状；它不会回写生产图像，也不能掩盖空间变化相位误差。

@@ -57,6 +57,15 @@ void ExportRawPhaseHistory(const signal::ComplexMatrix& raw_history,
   }
 }
 
+/**
+ * @brief 计算单脉冲平台状态下的孔径 squint 角（deg）。
+ * @param[in] pulse 单脉冲平台状态（ENU 局部坐标，position 相对 scene_center）。
+ * @return squint = asin(|v·LOS| / (|v|·|LOS|))：视线（平台→场景中心）偏离
+ *         正侧视的角度——正侧视（LOS ⊥ 航迹）为 0°、前视/后视（LOS ∥ 航迹）
+ *         趋近 90°；速度或距离非正时返回 0（无有效几何，不参与门控）。
+ * @note 本定义是"偏离正侧视的角度"，与"视线-航迹夹角"互补为 90°（多数文献
+ *       采用后者）；门限语义与场景编排约定见 docs/sar/algorithms.md。
+ */
 double ComputeSquintAngleDeg(const geometry::PlatformPulseState& pulse) {
   const double speed = std::sqrt(pulse.velocity_x_mps * pulse.velocity_x_mps +
                                  pulse.velocity_y_mps * pulse.velocity_y_mps +
