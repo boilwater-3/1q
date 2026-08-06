@@ -25,6 +25,9 @@ using namespace oneq::flight_dynamic;
 
 namespace {
 
+// 子步进 10 ms：六自由度机动含地面滑跑/起落架等快动态，100 ms 量级在起飞段
+// 会发散（实测 roll 达 180° 量级后数值崩溃）；10 ms 为 FlightManager 集成
+// 契约的推荐取值（见 FlightManager.h Step(dt) 的 @note）。
 constexpr double kDt = 0.01;
 
 // ─── Scenario geometry (not aircraft-specific) ────────────────────────────
