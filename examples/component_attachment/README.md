@@ -93,10 +93,10 @@ boost::signals2::scoped_connection conn =
 | --- | --- | --- |
 | `on_platform_state` | `PlatformStateEvent` | FlightComponent（每周期） |
 | `on_waypoint_reached` | `WaypointReachedEvent` | FlightComponent（航点完成） |
-| `on_target_confirmed` | `TargetConfirmedEvent` | ArSensorComponent（首确认） |
-| `on_target_lost` | `TargetLostEvent` | ArSensorComponent（失跟） |
+| `on_target_confirmed` | `TargetConfirmedEvent` | ArSensorComponent（首确认，源：库内 ArTrackLifecycleRecorder） |
+| `on_target_lost` | `TargetLostEvent` | ArSensorComponent（失跟，源：库内 ArTrackLifecycleRecorder） |
 | `on_emitter_hypothesis` | `EmitterHypothesisEvent` | EsrSensorComponent（假设） |
-| `on_eos_detection` | `EosDetectionEvent` | EosSensorComponent（探测） |
+| `on_eos_detection` | `EosDetectionEvent` | EosSensorComponent（首发现/更新/丢失，源：库内 EosDetectionLifecycleRecorder） |
 | `on_fusion_updated` | `FusionUpdatedEvent` | FusionComponent（态势更新） |
 | `on_command_issued` | `CommandIssuedEvent` | DecisionListener（决策，事件链） |
 
@@ -108,9 +108,9 @@ boost::signals2::scoped_connection conn =
 | 组件 | 封装库模块 | 周期行为 | 发布信号 |
 | --- | --- | --- | --- |
 | `FlightComponent` | flight_dynamic（FD 门控 + 运动学回退） | 六自由度机动推进：起飞→航点巡航→降落；航点完成判定 | on_platform_state、on_waypoint_reached |
-| `ArSensorComponent` | airborne_radar（ArSession + ArCycleOutputAdapter） | 探测 → `DetectionRecord`（key=关联键，含位置） | on_target_confirmed / on_target_lost |
+| `ArSensorComponent` | airborne_radar（ArSession + ArCycleOutputAdapter + ArTrackLifecycleRecorder） | 探测 → `DetectionRecord`（key=关联键，含位置）；首确认/失跟事件由库内 recorder 差分产生 | on_target_confirmed / on_target_lost |
 | `EsrSensorComponent` | electronic_surveillance_radar（EsrSession） | 假设 → `DetectionRecord`（key=假设键，方位+射频特征） | on_emitter_hypothesis |
-| `EosSensorComponent` | electro_optical_sensor（EosSession + EosCycleInputAdapter） | 探测 → `DetectionRecord`（key=0，仅方位） | on_eos_detection |
+| `EosSensorComponent` | electro_optical_sensor（EosSession + EosCycleInputAdapter + EosDetectionLifecycleRecorder） | 探测 → `DetectionRecord`（key=0，仅方位）；首发现/更新/丢失事件由库内 recorder 差分产生 | on_eos_detection |
 | `FusionComponent` | fusion（FusionEngine） | 聚合三传感器探测一次 `Update`；新/消失差分 | on_fusion_updated |
 
 ## 周期调用序
@@ -150,8 +150,18 @@ boost::signals2::scoped_connection conn =
 EOS 探测距离窗 ≈ [11.5, 22.9] km（400 m 高度 × 俯仰角 2°/1°），目标斜距全程
 稳定在窗内（起飞爬升期平台高度不足、窗口窄，探测从爬升后期开始）。FD 模式
 实测：起飞 ~157 s 完成、航点 0 在演示窗口内到达（`waypoint_reached` 事件）、
-EOS 探测 ~120 次；运动学模式下 3 个航点全部到达、EOS 探测 ~177 次。事件目标
-ID 为外部原始目标标识（1001/1002），无外部标识时回退 AR 内部关联键。
+EOS 生命周期事件 ~240 条（首发现/丢失各 ~120 次）；运动学模式下 3 个
+航点全部到达、EOS 探测记录 ~177 次。事件目标 ID 为外部原始目标标识
+（1001/1002），无外部标识时回退 AR 内部关联键。
+
+> 生命周期事件语义说明：AR/EOS 传感器组件的"首确认/失跟"、"首发现/更新/丢失"
+> 事件由**库内 LifecycleRecorder**（`ArTrackLifecycleRecorder` /
+> `EosDetectionLifecycleRecorder`）承担——Attach 到会话后 `StepWithResult`
+> 内部自动驱动跨周期状态差分，集成侧不再自研状态集合判定（消除掉轨漏报/
+> 集合无界等自研 bug）。`EosDetectionEvent.kind` 标注生命周期类型；本场景
+> EOS 扫描步进（20°/周期）大于波束宽度，目标约每 4 周期被探测 1 周期，
+> 故事件流以"首发现→丢失"交替为主、`kUpdated` 稀少——这是场景物理
+> （扫描断续）在生命周期语义下的自然表现。
 
 ## 构建与运行
 

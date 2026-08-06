@@ -1,19 +1,20 @@
 /**
  * @file ar_sensor_component.cpp
- * @brief AR 传感器组件实现（会话驱动 + 事件判定）。
+ * @brief AR 传感器组件实现（会话驱动 + 生命周期事件转发）。
  *
  * 驱动模式与行为层 recon_system::DriveArSession 同构：平台位姿经
  * host_ 读取 FlightComponent 状态计算 ECEF（零姿态：共享平台局部系），
  * ArCycleOutputAdapter 把雷达局部坐标轨迹帧转到外部 ECEF，再适配为
- * 泛型探测记录（examples/common/sensor_adapt.h）。事件判定基于轨迹状态
- * 迁移：kConfirmed 首次出现 → TargetConfirmedEvent；kLost 且此前已确认
- * → TargetLostEvent。事件目标 ID 用外部原始目标标识（external_target_id），
- * 无外部标识时回退内部关联键。
+ * 泛型探测记录（examples/common/sensor_adapt.h）。轨迹生命周期事件
+ * （首确认/失跟）由库内 ArTrackLifecycleRecorder 承担（Attach 后
+ * StepWithResult 内部自动驱动，GetLastEvents 取本周期差分事件）：
+ * kFirstConfirmed → TargetConfirmedEvent；kLost → TargetLostEvent。
+ * 事件目标 ID 用外部原始目标标识（external_target_id），无外部标识时
+ * 回退内部关联键；recorder 事件不含目标位置，位置从本周期外部帧按
+ * 关联键回查。
  */
 
 #include "ar_sensor_component.h"
-
-#include <algorithm>
 
 #include "1q/airborne_radar/session/ArCycleInput.h"
 #include "1q/airborne_radar/session/ArCycleOutputAdapter.h"
@@ -28,7 +29,10 @@
 namespace component_attachment {
 
 ArSensorComponent::ArSensorComponent(airborne_radar::session::ArSession session)
-    : session_(std::move(session)) {}
+    : session_(std::move(session)) {
+  // 生命周期事件由库内 recorder 承担（StepWithResult 内部自动喂）。
+  session_.AttachTrackLifecycleRecorder(&lifecycle_);
+}
 
 void ArSensorComponent::Step(World& world, double dt_sec) {
   detections_.clear();
@@ -56,7 +60,7 @@ void ArSensorComponent::Step(World& world, double dt_sec) {
     return;  // 周期被拒绝/电源关闭：本周期无探测
   }
 
-  // 事件判定与探测适配统一用外部轨迹帧（雷达局部坐标 → ECEF 已在
+  // 事件转发与探测适配统一用外部轨迹帧（雷达局部坐标 → ECEF 已在
   // ArCycleOutputAdapter 边界转换；内部帧为 TrackStateSnapshot，无 ECEF）。
   airborne_radar::session::ArExternalTrackOutputFrame external_frame;
   if (!airborne_radar::session::ArCycleOutputAdapter::Build(input.platform,
@@ -65,59 +69,38 @@ void ArSensorComponent::Step(World& world, double dt_sec) {
     return;  // 坐标适配失败：本周期无探测
   }
 
-  // 本周期帧内见过的关联键（帧结束后用于裁剪事件判定集合）。
-  std::vector<std::uint64_t> frame_keys;
-  frame_keys.reserve(external_frame.tracks.size());
-  for (const auto& track : external_frame.tracks) {
-    frame_keys.push_back(track.association_key);
-    const bool was_confirmed =
-        std::find(confirmed_keys_.begin(), confirmed_keys_.end(), track.association_key) !=
-        confirmed_keys_.end();
-    const bool was_reported_lost =
-        std::find(lost_keys_.begin(), lost_keys_.end(), track.association_key) !=
-        lost_keys_.end();
+  // 库内 recorder 已按跨周期状态差分产出本周期事件（首确认/失跟），组件
+  // 仅做事件映射转发（kUpdated 不转发——示例 AR 信号只关心边界事件）；
+  // 掉轨后重捕自动重新产生 kFirstConfirmed。
+  for (const auto& event : lifecycle_.GetLastEvents()) {
     // 事件目标 ID：优先外部原始目标标识（1001/1002），无则回退内部关联键。
     const std::uint64_t event_target_id =
-        track.external_target_id != 0U ? track.external_target_id : track.association_key;
+        event.external_target_id != 0U ? event.external_target_id : event.association_key;
 
-    if (track.status == airborne_radar::session::TrackStatus::kConfirmed && !was_confirmed) {
-      TargetConfirmedEvent event;
-      event.cycle = scene.cycle;
-      event.target_id = event_target_id;
-      oneq::coordinate::LlaPositionDegM lla;
-      if (oneq::coordinate::TryEcefToLla(track.target_position_ecef_m, &lla)) {
-        event.position = lla;
+    if (event.kind == airborne_radar::session::ArTrackLifecycleEventKind::kFirstConfirmed) {
+      TargetConfirmedEvent confirmed;
+      confirmed.cycle = scene.cycle;
+      confirmed.target_id = event_target_id;
+      // recorder 事件无位置字段：从本周期帧内同关联键轨迹取回（事件来自
+      // 本周期帧，键必命中）。
+      for (const auto& track : external_frame.tracks) {
+        if (track.association_key == event.association_key) {
+          oneq::coordinate::LlaPositionDegM lla;
+          if (oneq::coordinate::TryEcefToLla(track.target_position_ecef_m, &lla)) {
+            confirmed.position = lla;
+          }
+          break;
+        }
       }
-      confirmed_keys_.push_back(track.association_key);
-      lost_keys_.erase(std::remove(lost_keys_.begin(), lost_keys_.end(), track.association_key),
-                       lost_keys_.end());  // 重捕后允许再次失跟报告
-      world.signals().on_target_confirmed(event);
-    } else if (track.status == airborne_radar::session::TrackStatus::kLost && was_confirmed &&
-               !was_reported_lost) {
-      TargetLostEvent event;
-      event.cycle = scene.cycle;
-      event.target_id = event_target_id;
-      event.reason = "track_lost";
-      confirmed_keys_.erase(
-          std::remove(confirmed_keys_.begin(), confirmed_keys_.end(), track.association_key),
-          confirmed_keys_.end());
-      lost_keys_.push_back(track.association_key);
-      world.signals().on_target_lost(event);
+      world.signals().on_target_confirmed(confirmed);
+    } else if (event.kind == airborne_radar::session::ArTrackLifecycleEventKind::kLost) {
+      TargetLostEvent lost;
+      lost.cycle = scene.cycle;
+      lost.target_id = event_target_id;
+      lost.reason = "track_lost";  // recorder 的 kLost 事件 reason 恒为 kNone
+      world.signals().on_target_lost(lost);
     }
   }
-
-  // 帧结束：按本周期见过的键裁剪判定集合——静默掉轨（无 kLost 输出）的键
-  // 不滞留，避免长时运行集合无界增长与掉轨后重捕的漏报。
-  const auto prune_keys = [&frame_keys](std::vector<std::uint64_t>& keys) {
-    keys.erase(std::remove_if(keys.begin(), keys.end(),
-                              [&frame_keys](std::uint64_t key) {
-                                return std::find(frame_keys.begin(), frame_keys.end(), key) ==
-                                       frame_keys.end();
-                              }),
-               keys.end());
-  };
-  prune_keys(confirmed_keys_);
-  prune_keys(lost_keys_);
 
   detections_ = examples::sensor_adapt::AdaptTracksToDetections(
       examples::sensor_adapt::kArSourceId, external_frame);

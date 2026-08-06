@@ -40,14 +40,14 @@ struct WaypointReachedEvent {
   double distance_m{0.0};         /**< 到达时刻距离（m） */
 };
 
-/** @brief AR 目标首次确认事件（kConfirmed 首次出现）。 */
+/** @brief AR 目标首确认事件（源：库内 ArTrackLifecycleRecorder 的 kFirstConfirmed）。 */
 struct TargetConfirmedEvent {
   std::uint64_t cycle{0U};                   /**< 世界周期号 */
   std::uint64_t target_id{0U};               /**< 外部目标 ID（关联键） */
   oneq::coordinate::LlaPositionDegM position{}; /**< 目标位置（度制 LLA） */
 };
 
-/** @brief AR 目标失跟事件（kLost 且此前已确认）。 */
+/** @brief AR 目标失跟事件（源：库内 ArTrackLifecycleRecorder 的 kLost）。 */
 struct TargetLostEvent {
   std::uint64_t cycle{0U};     /**< 世界周期号 */
   std::uint64_t target_id{0U}; /**< 外部目标 ID（关联键） */
@@ -66,13 +66,21 @@ struct EmitterHypothesisEvent {
       electronic_surveillance_radar::session::EsrThreatLevel::kLow};
 };
 
-/** @brief EOS 探测事件：通过探测门限的记录各发布一次（target_id 经归属映射）。 */
+/** @brief EOS 探测事件类型（生命周期语义，源为库内 EosDetectionLifecycleRecorder）。 */
+enum class EosDetectionEventKind {
+  kFirstDetected = 0, /**< 首次被发现 */
+  kUpdated = 1,       /**< 持续探测并刷新 */
+  kLost = 2,          /**< 此前已发现，本周期丢失 */
+};
+
+/** @brief EOS 探测事件：生命周期事件各发布一次（target_id 经归属映射）。 */
 struct EosDetectionEvent {
-  std::uint64_t cycle{0U};       /**< 世界周期号 */
-  std::uint64_t detection_id{0U}; /**< 本输出帧内探测记录标识 */
-  std::uint64_t target_id{0U};   /**< 归属目标 ID（无归属时为 0） */
-  double snr_db{0.0};            /**< 融合 SNR（dB） */
-  double az_deg{0.0};            /**< 探测方位（deg，平台局部系） */
+  std::uint64_t cycle{0U};                /**< 世界周期号 */
+  EosDetectionEventKind kind{EosDetectionEventKind::kUpdated}; /**< 事件类型 */
+  std::uint64_t detection_id{0U};         /**< 本输出帧内探测记录标识（kLost 时为 0） */
+  std::uint64_t target_id{0U};            /**< 归属目标 ID（无归属时为 0） */
+  double snr_db{0.0};                     /**< 融合 SNR（dB；kLost 携带最后一次下检值） */
+  double az_deg{0.0};                     /**< 探测方位（deg，平台局部系；kLost 时为 0） */
 };
 
 /** @brief 融合态势更新事件：FusionComponent 每周期更新后发布。 */

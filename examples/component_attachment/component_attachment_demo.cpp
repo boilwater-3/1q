@@ -321,7 +321,8 @@ class EventLogger {
     connections_.push_back(world.signals().on_eos_detection.connect(
         [this](const ca::EosDetectionEvent& e) {
           Record("eos_detection",
-                 Fmt("det=%llu target=%llu snr=%.1fdB az=%.1f",
+                 Fmt("kind=%d det=%llu target=%llu snr=%.1fdB az=%.1f",
+                     static_cast<int>(e.kind),
                      static_cast<unsigned long long>(e.detection_id),
                      static_cast<unsigned long long>(e.target_id), e.snr_db, e.az_deg),
                  e.cycle, 0.0);

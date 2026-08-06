@@ -70,6 +70,8 @@ class ONEQ_API EosSession {
    * `recorder->GetLastEvents()` 获取。
    * @param[in] recorder 记录器指针；传入 `nullptr` 解除注册。
    * @note Session 不拥有 recorder，调用方须保证 recorder 生命周期长于 Session 的注册期。
+   * @note 探测事件通知（首发现/更新/丢失）建议通过本机制获取：recorder 内建
+   *       跨周期状态迁移差分语义。
    */
   void AttachDetectionLifecycleRecorder(EosDetectionLifecycleRecorder* recorder) noexcept;
 

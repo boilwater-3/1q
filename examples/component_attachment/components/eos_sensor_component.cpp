@@ -1,11 +1,13 @@
 /**
  * @file eos_sensor_component.cpp
- * @brief EOS 传感器组件实现（会话驱动 + 探测事件发布）。
+ * @brief EOS 传感器组件实现（会话驱动 + 探测生命周期事件转发）。
  *
  * 驱动模式与行为层 recon_system::DriveEosSession 同构：EosCycleInputAdapter
  * 一步构建周期输入（零姿态：共享平台局部系，方位可直接相干比较），
- * 输出探测适配为泛型探测记录（sensor_utils.h）。通过门限的探测经归属
- * 映射（detection_attributions）关联目标 ID 后发布 EosDetectionEvent。
+ * 输出探测适配为泛型探测记录（sensor_utils.h）。探测生命周期事件（首发
+ * 现/更新/丢失）由库内 EosDetectionLifecycleRecorder 承担（Attach 后
+ * StepWithResult 内部自动驱动），组件把差分事件经归属映射关联目标 ID
+ * 后发布 EosDetectionEvent（kind 标注生命周期类型）。
  */
 
 #include "eos_sensor_component.h"
@@ -35,10 +37,29 @@ std::uint64_t AttributionTargetId(
   return 0U;  // 无归属（调试视图缺失）：未知目标
 }
 
+/// 生命周期事件类型 → 示例事件类型（kNotDetected 诊断事件不转发）。
+EosDetectionEventKind ToDemoKind(
+    electro_optical_sensor::session::EosDetectionLifecycleEventKind kind) {
+  switch (kind) {
+    case electro_optical_sensor::session::EosDetectionLifecycleEventKind::kFirstDetected:
+      return EosDetectionEventKind::kFirstDetected;
+    case electro_optical_sensor::session::EosDetectionLifecycleEventKind::kUpdated:
+      return EosDetectionEventKind::kUpdated;
+    case electro_optical_sensor::session::EosDetectionLifecycleEventKind::kLost:
+      return EosDetectionEventKind::kLost;
+    default:
+      break;  // kNotDetected：组件未开启诊断事件，调用方显式跳过，不会到达
+  }
+  return EosDetectionEventKind::kUpdated;
+}
+
 }  // namespace
 
 EosSensorComponent::EosSensorComponent(electro_optical_sensor::session::EosSession session)
-    : session_(std::move(session)) {}
+    : session_(std::move(session)) {
+  // 探测生命周期事件由库内 recorder 承担（StepWithResult 内部自动喂）。
+  session_.AttachDetectionLifecycleRecorder(&lifecycle_);
+}
 
 void EosSensorComponent::Step(World& world, double dt_sec) {
   detections_.clear();
@@ -68,19 +89,36 @@ void EosSensorComponent::Step(World& world, double dt_sec) {
     return;  // 周期被拒绝/电源关闭：本周期无探测
   }
 
+  // 库内 recorder 已按跨周期状态差分产出本周期事件（首发现/更新/丢失）。
+  // recorder 事件无方位/探测 ID 字段：非丢失事件从本周期输出帧按归属目标
+  // 回查；丢失事件目标不在帧内，字段留默认。kNotDetected 诊断事件未开启，
+  // 显式跳过（防御）。
   const auto& records = result.output_frame.detections;
-  for (const auto& record : records) {
-    if (!record.detected) {
-      continue;  // 未过探测门限不产生探测
+  for (const auto& event : lifecycle_.GetLastEvents()) {
+    if (event.kind == electro_optical_sensor::session::EosDetectionLifecycleEventKind::kNotDetected) {
+      continue;  // 诊断事件（未开启 emit_not_detected_events）：不发布
     }
-    EosDetectionEvent event;
-    event.cycle = scene.cycle;
-    event.detection_id = record.detection_id;
-    event.target_id = AttributionTargetId(record.detection_id, result.detection_attributions);
-    event.snr_db = record.fused_snr_db;
-    event.az_deg = record.azimuth_deg;
-    world.signals().on_eos_detection(event);
+    EosDetectionEvent eos_event;
+    eos_event.cycle = scene.cycle;
+    eos_event.kind = ToDemoKind(event.kind);
+    eos_event.target_id = event.target_id;
+    eos_event.snr_db = event.fused_snr_db;
+    if (event.kind != electro_optical_sensor::session::EosDetectionLifecycleEventKind::kLost) {
+      for (const auto& record : records) {
+        if (!record.detected) {
+          continue;  // 未过探测门限不参与回查
+        }
+        if (AttributionTargetId(record.detection_id, result.detection_attributions) ==
+            event.target_id) {
+          eos_event.detection_id = record.detection_id;
+          eos_event.az_deg = record.azimuth_deg;
+          break;
+        }
+      }
+    }
+    world.signals().on_eos_detection(eos_event);
   }
+
   detections_ = examples::sensor_adapt::AdaptEosDetectionsToDetections(
       examples::sensor_adapt::kEosSourceId, records);
 }
