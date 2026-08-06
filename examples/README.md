@@ -10,7 +10,7 @@
 examples/
 ├── CMakeLists.txt                  编排层：定义共享变量 + add_subdirectory()
 ├── README.md                       本文件
-├── common/                         共享便利层：JSON 解析 + 三域 config_loaders（不属于库 public surface）
+├── common/                         共享便利层：JSON 解析 + 三域 config_loaders + DebugView→JSON 序列化（不属于库 public surface）
 ├── configs/                        四域会话配置 JSON（详见 configs/README.md）
 ├── sar/                            SAR 域示例（session / integration）
 ├── behavior_layer/                 行为层参考实现（EnTT ECS 业务层，AR/ESR/EOS 三传感器全链）
@@ -53,8 +53,15 @@ SAR 无 scene 示例；`integration_demo` 展示的是 `SarModule` 包装类（�
 `common/` 提供 example 层共享便利工具（**不属于 oneq 库的 public surface**——库内部不消费 JSON）：
 
 - `json_reader`（`oneq::JsonReader`）：轻量 JSON 解析；
+- `csv_writer`：流式 CSV 写入（批量验证与 behavior_layer 可视化导出共用）；
+- `sensor_adapt`：传感器输出 → 融合探测记录的边界适配（`behavior_layer` 与
+  `component_attachment` 共用，消除双份维护）；
 - `config_loaders/<域>/`：各传感器域 JSON → `*SessionConfig` 的映射器（`config_loader.h` 三件套），
   供 `behavior_layer` 与 `batch_validation` 消费；
+- **DebugView → JSON 序列化器**（`debug_view_json.h` 共享原语 +
+  `Ar/Eos/Sar/SbirsDebugViewToJson.h`）：对应 `docs/common/session_contract.md` 三层输出模型
+  规则 12 的参考实现——每周期把 DebugView 以 JSON 帧快照写入调用方自己的日志/事件系统；
+  集成方直接 copy 模块序列化器 + 共享原语（可合并为一个文件），字段名与格式可按需调整；
 - 由顶层 `CMakeLists.txt` 定义 `ONEQ_EXAMPLE_COMMON_DIR` / `ONEQ_EXAMPLE_COMMON_SOURCES`，
   各子目录通过目录作用域继承并内联到 target，无需函数传递。
 

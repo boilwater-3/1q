@@ -142,6 +142,8 @@ AR/ESR/EOS/SBIRS 四模块的电源状态必须遵守单源原则：
     状态查询接口；"到目前为止"的累积信息由调用方将每周期 DebugView 以结构化格式（如 JSON/
     FlatBuffers）写入自己的日志/事件系统获得。规则 3 的"状态判断不得依赖日志文本"约束对象是
     模块内部代码，不限制调用方对其日志系统的使用，但调用方应结构化落盘，避免文本解析。
+    JSON 参考实现见 `examples/common/` 的 `*DebugViewToJson.h` + `debug_view_json.h`
+    （header-only、零第三方依赖，集成方可直接 copy 进自己的工程）。
 
 ### 执行状态信号统一
 

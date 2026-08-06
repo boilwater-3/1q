@@ -289,7 +289,7 @@ ScenarioSummary RunScenario(const SbirsCase& scenario, const std::string& output
           session.StepWithResult(MakeInput(scenario, cycle));
       if (cycle == 1U) {
         // 规则 12 参考实现验证：DebugView → JSON 字符串
-        // （examples/sbirs_sensor/SbirsDebugViewToJson.h，集成方可独立 copy）。
+        // （examples/common/SbirsDebugViewToJson.h + debug_view_json.h，集成方可独立 copy）。
         (void)SbirsDebugViewToJson(
             sbirs_session::SbirsOutputDebugViewBuilder::Build(MakeInput(scenario, cycle), result));
       }

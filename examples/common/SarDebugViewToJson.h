@@ -6,53 +6,23 @@
  * 状态查询接口，"到目前为止"的累积信息由调用方将每周期 DebugView 以结构化格式
  * （如 JSON）写入自己的日志/事件系统获得。
  *
- * 集成方直接 copy 本文件：每周期调用 SarDebugViewToJson() 得到一条 JSON 记录，
- * 写入你们自己的日志即可；字段名与格式可按需调整。
+ * 集成方 copy 本文件 + debug_view_json.h（共享原语，可合并为一个文件）：
+ * 每周期调用 SarDebugViewToJson() 得到一条 JSON 记录，写入你们自己的日志即可；
+ * 字段名与格式可按需调整。
  */
 
-#ifndef EXAMPLES_SAR_DEBUG_VIEW_TO_JSON_H_
-#define EXAMPLES_SAR_DEBUG_VIEW_TO_JSON_H_
+#ifndef EXAMPLES_COMMON_SAR_DEBUG_VIEW_TO_JSON_H_
+#define EXAMPLES_COMMON_SAR_DEBUG_VIEW_TO_JSON_H_
 
-#include <cstdint>
-#include <iomanip>
+#include <cstddef>
 #include <sstream>
 #include <string>
 #include <vector>
 
 #include "1q/sar/session/SarProductDebugView.h"
+#include "debug_view_json.h"
 
 namespace {
-
-std::string SarJsonEscape(const std::string& text) {
-  std::ostringstream out;
-  for (char ch : text) {
-    switch (ch) {
-      case '"':
-        out << "\\\"";
-        break;
-      case '\\':
-        out << "\\\\";
-        break;
-      case '\n':
-        out << "\\n";
-        break;
-      case '\r':
-        out << "\\r";
-        break;
-      case '\t':
-        out << "\\t";
-        break;
-      default:
-        if (static_cast<unsigned char>(ch) < 0x20U) {
-          out << "\\u" << std::hex << std::setw(4) << std::setfill('0')
-              << static_cast<unsigned int>(static_cast<unsigned char>(ch)) << std::dec;
-        } else {
-          out << ch;
-        }
-    }
-  }
-  return out.str();
-}
 
 const char* SarStageName(sar::session::SarProcessingStage stage) {
   switch (stage) {
@@ -64,18 +34,6 @@ const char* SarStageName(sar::session::SarProcessingStage stage) {
       return "l1_rda_image";
     case sar::session::SarProcessingStage::kL3BpImage:
       return "l3_bp_image";
-  }
-  return "unknown";
-}
-
-const char* SarSeverityName(sar::session::SarDiagnosticSeverity severity) {
-  switch (severity) {
-    case sar::session::SarDiagnosticSeverity::kInfo:
-      return "info";
-    case sar::session::SarDiagnosticSeverity::kWarning:
-      return "warning";
-    case sar::session::SarDiagnosticSeverity::kError:
-      return "error";
   }
   return "unknown";
 }
@@ -93,7 +51,7 @@ inline std::string SarDebugViewToJson(const sar::session::SarProductDebugView& v
       << ",\"output_cycle_index\":" << view.output_cycle_index
       << ",\"executed_this_cycle\":" << (view.executed_this_cycle ? "true" : "false")
       << ",\"has_error\":" << (view.has_error ? "true" : "false") << ",\"abort_reason\":\""
-      << SarJsonEscape(view.abort_reason) << '"' << ",\"completed_stage\":\""
+      << JsonEscape(view.abort_reason) << '"' << ",\"completed_stage\":\""
       << SarStageName(view.completed_stage) << '"'
       << ",\"has_raw_echo\":" << (view.has_raw_echo ? "true" : "false")
       << ",\"has_range_compressed_echo\":" << (view.has_range_compressed_echo ? "true" : "false")
@@ -108,21 +66,12 @@ inline std::string SarDebugViewToJson(const sar::session::SarProductDebugView& v
       out << ',';
     }
     out << "{\"target_id\":" << view.point_targets[i].target_id << ",\"target_name\":\""
-        << SarJsonEscape(view.point_targets[i].target_name) << '"'
+        << JsonEscape(view.point_targets[i].target_name) << '"'
         << ",\"radar_cross_section_dbsm\":" << view.point_targets[i].radar_cross_section_dbsm
         << '}';
   }
-  out << "],\"diagnostics\":[";
-  for (std::size_t i = 0U; i < view.diagnostics.size(); ++i) {
-    if (i > 0U) {
-      out << ',';
-    }
-    out << "{\"severity\":\"" << SarSeverityName(view.diagnostics[i].severity) << '"'
-        << ",\"code\":\"" << SarJsonEscape(view.diagnostics[i].code) << '"' << ",\"message\":\""
-        << SarJsonEscape(view.diagnostics[i].message) << "\"}";
-  }
-  out << "]}";
+  WriteDiagnosticsJson(out, view.diagnostics);
   return out.str();
 }
 
-#endif  // EXAMPLES_SAR_DEBUG_VIEW_TO_JSON_H_
+#endif  // EXAMPLES_COMMON_SAR_DEBUG_VIEW_TO_JSON_H_
