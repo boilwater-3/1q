@@ -661,18 +661,40 @@ int main(int argc, char* argv[]) {
             << "csv output -> " << output_dir
             << " (platform_track.csv / events.csv)\n";
 
+  // 外置查询演示：按实体名/类型查找平台实体，读取各传感器开关机与当前扫描
+  // 方位（查询逻辑 = 组件 const getter；外部系统选定实体后按名/ID 拉取
+  // 最新快照即可）。AR/SAR 无扫描方位语义，不提供角度字段。
+  const auto* ar = platform.Find<ca::ArSensorComponent>();
+  const auto* esr = platform.Find<ca::EsrSensorComponent>();
+  const auto* eos = platform.Find<ca::EosSensorComponent>();
+  const auto* sbirs = platform.Find<ca::SbirsSensorComponent>();
+  const auto* sar = platform.Find<ca::SarSensorComponent>();
+  std::cout << "\n=== Platform Sensor States (entity query) ===\n"
+            << "  ar    powered=" << (ar->powered_on() ? "on" : "off") << "\n"
+            << "  esr   powered=" << (esr->powered_on() ? "on" : "off")
+            << " scan_az=" << esr->scan_azimuth_deg() << " deg\n"
+            << "  eos   powered=" << (eos->powered_on() ? "on" : "off")
+            << " scan_az=" << eos->scan_azimuth_deg() << " deg\n"
+            << "  sbirs powered=" << (sbirs->powered_on() ? "on" : "off")
+            << " scan_az=" << sbirs->scan_azimuth_deg() << " deg\n"
+            << "  sar   powered=" << (sar->powered_on() ? "on" : "off") << "\n";
+
   // 冒烟断言：端到端链路必须有产出（每周期平台状态事件、SBIRS 探测事件、
-  // SAR 图像产品事件、至少一个融合目标、平台轨迹行数 = 周期数），否则视为
-  // 链路断裂（ctest 失败）。
+  // SAR 图像产品事件、至少一个融合目标、平台轨迹行数 = 周期数、五传感器
+  // 全程开机），否则视为链路断裂（ctest 失败）。
   if (logger.event_count() < num_cycles || logger.sbirs_event_count() == 0U ||
       logger.sar_product_event_count() == 0U || max_fused_targets == 0U ||
-      platform_rows != num_cycles) {
+      platform_rows != num_cycles || !ar->powered_on() || !esr->powered_on() ||
+      !eos->powered_on() || !sbirs->powered_on() || !sar->powered_on()) {
     std::cerr << "SMOKE FAILED: events=" << logger.event_count()
               << " (>= " << num_cycles << " required), sbirs_events="
               << logger.sbirs_event_count() << " (>0 required), sar_products="
               << logger.sar_product_event_count() << " (>0 required), max_fused="
               << max_fused_targets << " (>0 required), platform_rows=" << platform_rows
-              << " (== " << num_cycles << " required)\n";
+              << " (== " << num_cycles << " required), sensor_powered="
+              << (ar->powered_on() && esr->powered_on() && eos->powered_on() &&
+                  sbirs->powered_on() && sar->powered_on() ? "true" : "false")
+              << " (all required)\n";
     return 1;
   }
   return 0;

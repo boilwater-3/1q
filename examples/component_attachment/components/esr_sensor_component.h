@@ -41,6 +41,12 @@ class EsrSensorComponent : public Component {
   /** @brief 本周期适配后的泛型探测记录（融合聚合读）。 */
   const std::vector<fusion::DetectionRecord>& detections() const { return detections_; }
 
+  /** @brief 当前电源状态（由 sensor_enabled 补丁唯一维护；未步进前默认 true，关机时组件不驱动会话）。 */
+  bool powered_on() const { return powered_on_; }
+
+  /** @brief 最近周期波束中心方位角（单位：deg，平台系；仅开机且 kCompleted 周期有效，其余为 0）。 */
+  float scan_azimuth_deg() const { return scan_azimuth_deg_; }
+
   /**
    * @brief 运行时修改入口：包装 EsrSession::TryApplyRuntimeConfig。
    *
@@ -68,6 +74,8 @@ class EsrSensorComponent : public Component {
   electronic_surveillance_radar::session::EsrSession session_;
   Entity* host_{nullptr};
   std::vector<fusion::DetectionRecord> detections_{};
+  bool powered_on_{true};     /**< 电源状态（由 sensor_enabled 补丁唯一维护；关机时组件不驱动会话） */
+  float scan_azimuth_deg_{0.0f}; /**< 最近周期波束中心方位角（deg，随周期结果刷新） */
 };
 
 }  // namespace component_attachment

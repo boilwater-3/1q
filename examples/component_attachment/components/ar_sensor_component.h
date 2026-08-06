@@ -46,6 +46,9 @@ class ArSensorComponent : public Component {
   /** @brief 本周期适配后的泛型探测记录（融合聚合读）。 */
   const std::vector<fusion::DetectionRecord>& detections() const { return detections_; }
 
+  /** @brief 当前电源状态（由 sensor_enabled 补丁唯一维护；未步进前默认 true，关机时组件不驱动会话）。 */
+  bool powered_on() const { return powered_on_; }
+
   /**
    * @brief 运行时修改入口：包装 ArSession::TryApplyRuntimeConfig。
    *
@@ -63,6 +66,7 @@ class ArSensorComponent : public Component {
   airborne_radar::session::ArSession session_;
   Entity* host_{nullptr};
   std::vector<fusion::DetectionRecord> detections_{};
+  bool powered_on_{true}; /**< 电源状态（由 sensor_enabled 补丁唯一维护；关机时组件不驱动会话） */
 };
 
 }  // namespace component_attachment

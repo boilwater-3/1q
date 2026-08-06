@@ -36,11 +36,22 @@ ArSensorComponent::ArSensorComponent(airborne_radar::session::ArSession session)
 
 bool ArSensorComponent::TryApplyRuntimeConfig(
     const airborne_radar::config::ArRuntimeConfigPatch& patch) {
-  return session_.TryApplyRuntimeConfig(patch);
+  const bool applied = session_.TryApplyRuntimeConfig(patch);
+  if (applied && patch.has_sensor_enabled) {
+    // 电源状态由补丁唯一维护（组件层电源门控）：AR 补丁为事务性暂存
+    // （会话下个成功周期边界生效），组件在指令接受时即反映开关机。
+    // 关机期间组件不驱动 Step，暂存补丁不提交，标志与会话状态无失步。
+    powered_on_ = patch.sensor_enabled;
+  }
+  return applied;
 }
 
 void ArSensorComponent::Step(World& world, double dt_sec) {
   detections_.clear();
+
+  if (!powered_on_) {
+    return;  // 关机：组件不驱动会话（设备不工作），本周期无探测
+  }
 
   const FlightComponent* flight = host_ != nullptr ? host_->Find<FlightComponent>() : nullptr;
   if (flight == nullptr) {
@@ -62,7 +73,7 @@ void ArSensorComponent::Step(World& world, double dt_sec) {
 
   const airborne_radar::session::ArCycleResult result = session_.StepWithResult(input);
   if (result.status != airborne_radar::session::ArCycleStatus::kCompleted) {
-    return;  // 周期被拒绝/电源关闭：本周期无探测
+    return;  // 周期被拒绝：本周期无探测
   }
 
   // 事件转发与探测适配统一用外部轨迹帧（雷达局部坐标 → ECEF 已在

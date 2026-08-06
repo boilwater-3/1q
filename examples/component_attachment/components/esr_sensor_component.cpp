@@ -25,17 +25,30 @@ EsrSensorComponent::EsrSensorComponent(electronic_surveillance_radar::session::E
 
 bool EsrSensorComponent::TryApplyRuntimeConfig(
     const electronic_surveillance_radar::config::EsrRuntimeConfigPatch& patch) {
-  return session_.TryApplyRuntimeConfig(patch);
+  const bool applied = session_.TryApplyRuntimeConfig(patch);
+  if (applied && patch.has_sensor_enabled) {
+    powered_on_ = patch.sensor_enabled;  // 电源状态由补丁唯一维护（组件层电源门控）
+  }
+  return applied;
 }
 
 electronic_surveillance_radar::session::EsrRuntimeConfigApplyResult
 EsrSensorComponent::ApplyRuntimeConfigWithResult(
     const electronic_surveillance_radar::config::EsrRuntimeConfigPatch& patch) {
-  return session_.ApplyRuntimeConfigWithResult(patch);
+  const auto result = session_.ApplyRuntimeConfigWithResult(patch);
+  if (result.applied && patch.has_sensor_enabled) {
+    powered_on_ = patch.sensor_enabled;  // 电源状态由补丁唯一维护（组件层电源门控）
+  }
+  return result;
 }
 
 void EsrSensorComponent::Step(World& world, double dt_sec) {
   detections_.clear();
+
+  if (!powered_on_) {
+    scan_azimuth_deg_ = 0.0f;  // 关机：不驱动会话，角度无有效值（清零）
+    return;
+  }
 
   const FlightComponent* flight = host_ != nullptr ? host_->Find<FlightComponent>() : nullptr;
   if (flight == nullptr) {
@@ -58,9 +71,11 @@ void EsrSensorComponent::Step(World& world, double dt_sec) {
   input.rf_emissions.emissions = scene.emitters;  // 辐射源真值由消费方脚本注入
 
   const electronic_surveillance_radar::session::EsrCycleResult result = session_.StepWithResult(input);
+  // 扫描方位随周期结果刷新：被拒绝周期输出帧为默认空帧 → 0。
+  scan_azimuth_deg_ = result.output_frame.scan_azimuth_deg;
   if (result.status !=
       electronic_surveillance_radar::session::EsrCycleExecutionStatus::kCompleted) {
-    return;  // 周期被拒绝/电源关闭：本周期无假设
+    return;  // 周期被拒绝：本周期无假设
   }
 
   const auto& hypotheses = result.output_frame.emitter_output.hypotheses;

@@ -142,6 +142,30 @@ boost::signals2::scoped_connection conn =
 生命周期 recorder 事件源与运行时修改入口互不影响（recorder 只管差分事件，
 patch 只改会话配置）。
 
+## 实体状态查询接口（外置查询数据源）
+
+选定实体后按实体名/ID 拉取设备状态的查询数据源：各传感器组件把**最近周期
+执行真相**暴露为 const getter（每周期 `Step` 随会话结果刷新，外部系统读取
+即"当前状态"；未步进前默认 `powered_on=true`，与 `sensor_enabled=true` 配置
+默认一致）。有对应库语义的组件才提供函数：AR/SAR 无扫描方位概念（跟踪/
+成像雷达），不提供角度函数。
+
+| 组件 | 开关机 | 扫描方位 |
+| --- | --- | --- |
+| `ArSensorComponent` | `bool powered_on()` | —（无扫描方位概念） |
+| `EsrSensorComponent` | `bool powered_on()` | `float scan_azimuth_deg()`（deg，平台系） |
+| `EosSensorComponent` | `bool powered_on()` | `float scan_azimuth_deg()`（deg，平台系） |
+| `SbirsSensorComponent` | `bool powered_on()` | `float scan_azimuth_deg()`（deg，ECEF 极坐标参考） |
+| `SarSensorComponent` | `bool powered_on()` | —（无扫描方位概念） |
+
+**组件层电源门控**：电源状态由 `sensor_enabled` 补丁唯一维护（`TryApplyRuntimeConfig`
+成功且带 `has_sensor_enabled` 时更新，拒绝的补丁不改状态）。关机时组件**不驱动
+会话**（设备不工作，会话扫描相位冻结），角度主动清零表示无有效扫描方位；重新
+上电后组件恢复驱动，会话从冻结状态继续推进。角度字段在开机周期随会话输出帧
+刷新（被拒绝周期为空帧 → 0）。消费方一律以 `powered_on()` 守卫：仅开机且最近
+周期 `kCompleted` 时角度才代表有效扫描方位。demo 末尾
+"Platform Sensor States (entity query)" 块演示按实体查询（`Entity::Find<T>()`）。
+
 ## 周期调用序
 
 ```

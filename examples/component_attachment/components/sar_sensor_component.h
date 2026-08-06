@@ -40,6 +40,9 @@ class SarSensorComponent : public Component {
   void OnAttach(Entity& host) override { host_ = &host; }
   void Step(World& world, double dt_sec) override;
 
+  /** @brief 当前电源状态（由 sensor_enabled 补丁唯一维护；未步进前默认 true，关机时组件不驱动会话）。 */
+  bool powered_on() const { return powered_on_; }
+
   /**
    * @brief 运行时修改入口：包装 SarSession::TryApplyRuntimeConfig。
    *
@@ -55,6 +58,7 @@ class SarSensorComponent : public Component {
   sar::session::SarProductLifecycleRecorder lifecycle_{}; /**< 产品生命周期事件源 */
   sar::session::SarSession session_;
   Entity* host_{nullptr};
+  bool powered_on_{true}; /**< 电源状态（由 sensor_enabled 补丁唯一维护；关机时组件不驱动会话） */
 };
 
 }  // namespace component_attachment

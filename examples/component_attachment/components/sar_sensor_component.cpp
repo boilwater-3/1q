@@ -50,10 +50,18 @@ SarSensorComponent::SarSensorComponent(sar::session::SarSession session)
 
 bool SarSensorComponent::TryApplyRuntimeConfig(
     const sar::config::SarRuntimeConfigPatch& patch) {
-  return session_.TryApplyRuntimeConfig(patch);
+  const bool applied = session_.TryApplyRuntimeConfig(patch);
+  if (applied && patch.has_sensor_enabled) {
+    powered_on_ = patch.sensor_enabled;  // 电源状态由补丁唯一维护（组件层电源门控）
+  }
+  return applied;
 }
 
 void SarSensorComponent::Step(World& world, double dt_sec) {
+  if (!powered_on_) {
+    return;  // 关机：组件不驱动会话（设备不工作，不积累孔径）
+  }
+
   const FlightComponent* flight = host_ != nullptr ? host_->Find<FlightComponent>() : nullptr;
   if (flight == nullptr) {
     return;  // 无平台动力学（空场景）：不产生产品

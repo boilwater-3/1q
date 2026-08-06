@@ -63,11 +63,20 @@ SbirsSensorComponent::SbirsSensorComponent(sbirs_sensor::session::SbirsSession s
 
 bool SbirsSensorComponent::TryApplyRuntimeConfig(
     const sbirs_sensor::config::SbirsRuntimeConfigPatch& patch) {
-  return session_.TryApplyRuntimeConfig(patch);
+  const bool applied = session_.TryApplyRuntimeConfig(patch);
+  if (applied && patch.has_sensor_enabled) {
+    powered_on_ = patch.sensor_enabled;  // 电源状态由补丁唯一维护（组件层电源门控）
+  }
+  return applied;
 }
 
 void SbirsSensorComponent::Step(World& world, double dt_sec) {
   detections_.clear();
+
+  if (!powered_on_) {
+    scan_azimuth_deg_ = 0.0f;  // 关机：不驱动会话，角度无有效值（清零）
+    return;
+  }
 
   const FlightComponent* flight = host_ != nullptr ? host_->Find<FlightComponent>() : nullptr;
   if (flight == nullptr) {
@@ -85,8 +94,10 @@ void SbirsSensorComponent::Step(World& world, double dt_sec) {
   input.scene = scene.sbirs_targets;
 
   const sbirs_sensor::session::SbirsCycleResult result = session_.StepWithResult(input);
+  // 扫描方位随周期结果刷新：被拒绝周期输出帧为默认空帧 → 0。
+  scan_azimuth_deg_ = result.output_frame.scan_azimuth_deg;
   if (result.status != sbirs_sensor::session::SbirsCycleStatus::kCompleted) {
-    return;  // 周期被拒绝/电源关闭：本周期无探测
+    return;  // 周期被拒绝：本周期无探测
   }
 
   // 库内 recorder 已按跨周期状态差分产出本周期事件（首发现/更新/coasting/
