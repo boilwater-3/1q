@@ -12,6 +12,7 @@ add_executable(component_attachment_demo
     components/esr_sensor_component.cpp
     components/eos_sensor_component.cpp
     components/sbirs_sensor_component.cpp
+    components/sar_sensor_component.cpp
     components/fusion_component.cpp)
 
 # Boost.Signals2 事件库：与 tests 分区同源解析（tests/cmake/TestSupport.cmake）。

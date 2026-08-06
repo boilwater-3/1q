@@ -18,6 +18,7 @@
 
 #include "1q/coordinate/types.h"
 #include "1q/electronic_surveillance_radar/session/EmitterHypothesis.h"
+#include "1q/sar/session/SarCycleResult.h"
 
 namespace component_attachment {
 
@@ -109,6 +110,24 @@ struct SbirsDetectionEvent {
   std::uint64_t target_id{0U};                 /**< 归属目标 ID（无归属时为 0） */
   float infrared_snr_linear{0.0f};             /**< 红外通道线性 IR SNR（kLost 携带最后一次下检值） */
   double az_deg{0.0};                          /**< 探测方位（deg，卫星局部系；kLost 时为 0） */
+};
+
+/** @brief SAR 产品事件类型（生命周期语义，源为库内 SarProductLifecycleRecorder）。 */
+enum class SarProductEventKind {
+  kImageProduced = 0,    /**< 首次产出图像产品 */
+  kProductSustained = 1, /**< 产品持续存在 */
+  kProductLost = 2,      /**< 已有产品本周期丢失 */
+  kProcessingFailed = 3, /**< 处理失败 */
+};
+
+/** @brief SAR 产品事件：产品生命周期事件各发布一次（kNoProduct 不转发）。 */
+struct SarProductEvent {
+  std::uint64_t cycle{0U};                              /**< 世界周期号 */
+  SarProductEventKind kind{SarProductEventKind::kProductSustained}; /**< 事件类型 */
+  sar::session::SarProcessingStage stage{               /**< 本周期完成处理阶段 */
+      sar::session::SarProcessingStage::kNone};
+  double estimated_snr_db{0.0};                         /**< 估计 SNR（dB） */
+  std::string abort_reason{};                           /**< 中止原因（kProcessingFailed 时非空） */
 };
 
 /** @brief 决策指令事件：高置信威胁判定后由决策侧（订阅者）发布。 */

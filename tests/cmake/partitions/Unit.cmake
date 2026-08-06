@@ -51,6 +51,7 @@ if(_oneq_unit_examples)
                       "${CMAKE_SOURCE_DIR}/examples/component_attachment/components/esr_sensor_component.cpp"
                       "${CMAKE_SOURCE_DIR}/examples/component_attachment/components/eos_sensor_component.cpp"
                       "${CMAKE_SOURCE_DIR}/examples/component_attachment/components/sbirs_sensor_component.cpp"
+                      "${CMAKE_SOURCE_DIR}/examples/component_attachment/components/sar_sensor_component.cpp"
                       "${CMAKE_SOURCE_DIR}/examples/component_attachment/components/flight_component.cpp")
     if(ONEQ_ENABLE_FLIGHT_DYNAMIC)
         # 飞行组件 FD 路径（与 examples/component_attachment/CMakeLists.txt 对称）：

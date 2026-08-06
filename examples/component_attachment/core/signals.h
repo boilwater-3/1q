@@ -40,6 +40,8 @@ struct Signals {
   boost::signals2::signal<void(const EosDetectionEvent&)> on_eos_detection;
   /** @brief SBIRS 探测。 */
   boost::signals2::signal<void(const SbirsDetectionEvent&)> on_sbirs_detection;
+  /** @brief SAR 图像产品。 */
+  boost::signals2::signal<void(const SarProductEvent&)> on_sar_product;
   /** @brief 融合态势更新。 */
   boost::signals2::signal<void(const FusionUpdatedEvent&)> on_fusion_updated;
   /** @brief 决策指令下发（决策侧订阅融合事件后转发）。 */

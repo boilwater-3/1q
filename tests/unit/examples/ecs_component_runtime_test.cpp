@@ -2,13 +2,14 @@
  * @file ecs_component_runtime_test.cpp
  * @brief component_attachment 组件运行时修改接口单元测试。
  *
- * 覆盖五个组件的运行时修改入口（未来外部调用入口，薄包装库 API）：
+ * 覆盖六个组件的运行时修改入口（未来外部调用入口，薄包装库 API）：
  * - ArSensorComponent::TryApplyRuntimeConfig —— AR 事务性提交（补丁先暂存、
  *   下个周期边界生效；与现有配置冲突的非法补丁入口即原子拒绝）。
  * - EsrSensorComponent::TryApplyRuntimeConfig / ApplyRuntimeConfigWithResult
  *   —— ESR 立即提交（调用即生效）；结构化结果携带拒绝原因枚举。
  * - EosSensorComponent::TryApplyRuntimeConfig —— EOS 立即提交（原子校验）。
  * - SbirsSensorComponent::TryApplyRuntimeConfig —— SBIRS 立即提交（原子校验）。
+ * - SarSensorComponent::TryApplyRuntimeConfig —— SAR 立即提交（原子校验）。
  * - FlightComponent::PushManeuver / ClearManeuvers / Abort —— FD 命令式
  *   入口；FD 未启用/初始化失败（运动学回退）时返回 false。
  *
@@ -26,11 +27,13 @@
 #include "1q/electro_optical_sensor/session/EosSession.h"
 #include "1q/electronic_surveillance_radar/session/EsrSession.h"
 #include "1q/flight_dynamic/FlightManager.h"
+#include "1q/sar/session/SarSession.h"
 #include "1q/sbirs_sensor/session/SbirsSession.h"
 #include "components/ar_sensor_component.h"
 #include "components/eos_sensor_component.h"
 #include "components/esr_sensor_component.h"
 #include "components/flight_component.h"
+#include "components/sar_sensor_component.h"
 #include "components/sbirs_sensor_component.h"
 
 namespace ca = component_attachment;
@@ -171,6 +174,38 @@ TEST(SbirsSensorComponentRuntimeTest, NegativeScanRateRejectsWholePatch) {
   patch.scan_rate_deg_per_sec = -1.0f;
 
   EXPECT_FALSE(component.TryApplyRuntimeConfig(patch));
+}
+
+// =============================================================================
+// SarSensorComponent：SAR 立即提交（校验原子拒绝）
+// =============================================================================
+
+TEST(SarSensorComponentRuntimeTest, DisableRawEchoAppliesImmediately) {
+  ca::SarSensorComponent component(sar::session::SarSession::Create());
+
+  // 关闭 raw echo 生成（合法开关翻转，沿用 session 层单测取值）。
+  sar::config::SarRuntimeConfigPatch patch;
+  patch.has_enable_raw_echo_generation = true;
+  patch.enable_raw_echo_generation = false;
+
+  EXPECT_TRUE(component.TryApplyRuntimeConfig(patch));
+}
+
+TEST(SarSensorComponentRuntimeTest, RetainRawPhaseHistoryWithoutRawEchoRejected) {
+  ca::SarSensorComponent component(sar::session::SarSession::Create());
+
+  // 保留原始相位历史依赖 raw echo 生成（沿用 SarSessionRuntimeConfigTest
+  // 的 RetainRawPhaseHistoryWithoutRawEchoRejected 用例）。
+  sar::config::SarRuntimeConfigPatch patch;
+  patch.has_enable_raw_echo_generation = true;
+  patch.enable_raw_echo_generation = false;
+  ASSERT_TRUE(component.TryApplyRuntimeConfig(patch));
+
+  sar::config::SarRuntimeConfigPatch retain_patch;
+  retain_patch.has_retain_raw_phase_history = true;
+  retain_patch.retain_raw_phase_history = true;
+
+  EXPECT_FALSE(component.TryApplyRuntimeConfig(retain_patch));
 }
 
 // =============================================================================
