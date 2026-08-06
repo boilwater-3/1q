@@ -2,6 +2,8 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdio>
+#include <string>
 
 #include "common/logging/ProjectLog.h"
 #include "common/numerics/ClampUtils.h"
@@ -66,6 +68,25 @@ float ComputeApertureAreaM2(float optical_aperture_m) {
 
 float ResolvePlatformAltitudeM(const ::electro_optical_sensor::session::EosCycleInput& input) {
   return std::max(0.0f, input.platform_altitude_m);
+}
+
+// 规则 13b：正常执行周期按目标门控排除的 kInfo 诊断码（不属于三写，仅承载排查信息）。
+constexpr char kExclusionOutOfFovCode[] = "eos.target_out_of_fov";
+
+/// 构造 kInfo 级按目标排除诊断（不属于三写，仅承载排查信息；规则 13b）。
+session::EosDiagnosticIssue MakeExclusionIssue(const char* code, const std::string& message) {
+  session::EosDiagnosticIssue issue;
+  issue.severity = session::EosDiagnosticSeverity::kInfo;
+  issue.code = code;
+  issue.message = message;
+  return issue;
+}
+
+/// 格式化量值为一位小数（消息文本稳定，不承诺解析稳定性；规则 13b message 约定）。
+std::string FormatFloat(float value) {
+  char buffer[32];
+  std::snprintf(buffer, sizeof(buffer), "%.1f", static_cast<double>(value));
+  return buffer;
 }
 
 foundation::radiative_transfer::RadiativeTransferResult ComputePathRadiativeTransfer(
@@ -414,13 +435,22 @@ extension::EosPipelineExecuteResult EosPipeline::RunCycle(
 
   const FrameContext frame_ctx = BuildFrameContext(input);
 
+  // 规则 13a：周期执行摘要所需视场外排除计数（按目标循环内累加）。
+  std::size_t excluded_out_of_fov = 0U;
+
   for (std::size_t i = 0; i < input.scene.size(); ++i) {
     const ::electro_optical_sensor::session::EosSceneTarget& target = input.scene[i];
     if (!IsTargetInCurrentFov(target)) {
-      // 中译：目标在视场（FOV）之外，本周期跳过该目标。
-      // 标识：场景目标不在当前扫描视场内——跳过是正常行为而非错误，
-      //       用于核对扫描覆盖范围与场景布设。
-      PROJECT_LOG_DEBUG("[EosPipeline] target_id={} outside FOV, skipped.", target.target_id);
+      // 规则 13b：视场外目标排除 → kInfo 诊断（不属于三写，仅承载排查信息）。
+      result.diagnostics.push_back(MakeExclusionIssue(
+          kExclusionOutOfFovCode,
+          "target_id=" + std::to_string(target.target_id) + "; az/el (" +
+              FormatFloat(target.azimuth_deg) + "," + FormatFloat(target.elevation_deg) +
+              ") outside scan center (" + FormatFloat(current_scan_azimuth_deg_) + "," +
+              FormatFloat(config_.scan.scan_center_el_deg) + ") fov " +
+              FormatFloat(config_.scan.horizontal_fov_deg) + "x" +
+              FormatFloat(config_.scan.vertical_fov_deg)));
+      ++excluded_out_of_fov;
       continue;
     }
     const std::uint64_t detection_id = static_cast<std::uint64_t>(result.detections.size() + 1U);
@@ -438,11 +468,13 @@ extension::EosPipelineExecuteResult EosPipeline::RunCycle(
                       result.detections.back().fused_snr_db, target.range_m);
   }
 
-  // 中译：周期执行摘要（周期号、扫描方位角、检测数/目标总数）。
-  // 标识：每周期探测概况——检测命中率与扫描位置，供宏观核对。
-  PROJECT_LOG_INFO("[EosPipeline] cycle_index={} scan_az={:.2f} detections={}/{}",
+  // 中译：周期执行摘要（周期号、扫描方位角、检测数/目标总数、视场外排除计数）。
+  // 标识：每周期探测概况——检测命中率、扫描位置与门控排除分布，供宏观核对与
+  //       "零探测"排查；仅人读，不用于状态判断（规则 3）。
+  PROJECT_LOG_INFO("[EosPipeline] cycle_index={} scan_az={:.2f} detections={}/{} "
+                   "excluded={{fov={}}}",
                    input.cycle_index, current_scan_azimuth_deg_, result.detections.size(),
-                   input.scene.size());
+                   input.scene.size(), excluded_out_of_fov);
 
   result.executed_this_cycle = true;
   result.abort_reason = session::EosPipelineAbortReason::kNone;

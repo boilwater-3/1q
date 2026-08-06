@@ -48,6 +48,7 @@ struct EosController::Impl {
   signal::pipeline::EosPipeline& pipeline;
   session::EosOutputFrame latest_output{};
   attribution::EosDetectionAttributionRecordList latest_detection_attributions{};
+  session::EosDiagnosticIssueList latest_diagnostics{}; /**< 正常周期按目标排除的 kInfo 诊断（规则 13b）。 */
   session::ValidationIssueList last_validation_issues{};
   bool has_latest_output{false};
   bool has_validation_error{false};
@@ -131,6 +132,8 @@ void EosController::RunOnce(const ::electro_optical_sensor::session::EosCycleInp
   assembled_frame.detections = std::move(execute_result.detections);
   impl_->latest_output = assembled_frame;
   impl_->latest_detection_attributions = std::move(execute_result.detection_attributions);
+  // 规则 13b：正常周期按目标排除的 kInfo 诊断转写（abort 路径不变）。
+  impl_->latest_diagnostics = execute_result.diagnostics;
   impl_->has_latest_output = true;
   impl_->last_cycle_executed = true;
   // 中译：本周期已执行（周期号、探测数）。
@@ -151,6 +154,10 @@ session::EosPipelineAbortReason EosController::GetLastDetectionCycleAbortReason(
   return impl_->last_abort_reason;
 }
 
+const session::EosDiagnosticIssueList& EosController::GetLatestDiagnostics() const {
+  return impl_->latest_diagnostics;
+}
+
 ::electro_optical_sensor::session::EosCycleResult EosController::BuildCycleResult(
     const ::electro_optical_sensor::session::EosCycleInput& input) const {
   ::electro_optical_sensor::session::EosCycleResult result;
@@ -162,6 +169,8 @@ session::EosPipelineAbortReason EosController::GetLastDetectionCycleAbortReason(
   if (impl_->last_cycle_executed && impl_->has_latest_output) {
     result.output_frame = impl_->latest_output;
     result.detection_attributions = impl_->latest_detection_attributions;
+    // 规则 13b：正常执行周期按目标排除的 kInfo 诊断转写进结构化结果（abort 路径不变）。
+    result.diagnostics = impl_->latest_diagnostics;
   }
 
   // 三写：对所有非 kNone 的 abort_reason 写入 diagnostics + 日志
