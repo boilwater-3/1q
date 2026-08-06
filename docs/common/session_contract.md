@@ -77,16 +77,16 @@ AR 仍以单周期 `StepWithResult()` 作为公共接口。其内部先提交实
 
 ## 电源状态单源契约
 
-AR/ESR/EOS/SBIRS 四模块的电源状态必须遵守单源原则：
+AR/ESR/EOS/SBIRS/SAR 五模块的电源状态必须遵守单源原则：
 
 1. `*SessionConfig` 顶层 `sensor_enabled` 是会话初始电源状态的**唯一来源**；
    `*MissionConfig` 不含电源字段（`mission.power_on` 已整体移除）。
 2. `*RuntimeConfigPatch::has_sensor_enabled` / `sensor_enabled` 是运行时电源变更的**唯一入口**
-   （SBIRS 已从 `has_power_on`/`WithPowerOn` 统一对齐）；`has_mission` 整块域不影响电源。
+   （SBIRS 已从 `has_power_on`/`WithPowerOn` 统一对齐；SAR 于 COMMON-OQ-4 收敛补齐）；
+   `has_mission` 整块域不影响电源。
 3. 运行时补丁解析顺序（整块先、叶子后）仅约束几何/模式字段（scan_center、work_mode 等），
    不产生电源状态的二重路径。违反本契约的字段名/映射（`power_on`、`has_power_on`、
    `WithPowerOn` 回流）由 `tests/contract/check_cross_domain_naming.cmake` 阻断 7 硬性守护。
-4. SAR 例外保持：其补丁仅含处理开关，无电源域，不受本契约约束。
 
 ## 三层输出模型
 
@@ -191,7 +191,7 @@ ECEF 输入，检测记录直接以 ECEF 视线向量计算，无局部地平转
 | AR | `ArCycleStatus` | `kCompleted`, `kPoweredOff`, `kRejectedInvalidInput`, `kRejectedInvalidConfig`, `kRejectedExecution` |
 | ESR | `EsrCycleExecutionStatus` | `kCompleted`, `kRejected`, `kPoweredOff` |
 | EOS | `EosCycleStatus` | `kCompleted`, `kPoweredOff`, `kRejectedInvalidInput`, `kRejectedExecution` |
-| SAR | `SarCycleStatus` | `kCompleted`, `kRejectedInvalidInput`, `kRejectedExecution`（细粒度失败信息由 `SarDiagnosticIssue::code` + 日志双写） |
+| SAR | `SarCycleStatus` | `kCompleted`, `kRejectedInvalidInput`, `kRejectedExecution`, `kPoweredOff`（细粒度失败信息由 `SarDiagnosticIssue::code` + 日志双写） |
 | SBIRS | `SbirsCycleStatus` | `kCompleted`, `kPoweredOff`, `kRejectedInvalidInput`, `kRejectedExecution` |
 
 `executed_this_cycle` 保留为 `status == kCompleted` 的便捷访问器（向后兼容）。

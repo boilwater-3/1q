@@ -183,10 +183,10 @@ foreach(HEADER IN LISTS RUNTIME_BUILDER_HEADERS)
 endforeach()
 
 # ---- 阻断 7：电源状态唯一权威 = SessionConfig::sensor_enabled（COMMON-OQ-4 字段提升） ----
-# 四域统一（AR/ESR/EOS/SBIRS）：mission 域禁止 power_on；SessionConfig 顶层必须提供
+# 五域统一（AR/ESR/EOS/SBIRS/SAR）：mission 域禁止 power_on；SessionConfig 顶层必须提供
 # sensor_enabled；runtime patch 必须用 has_sensor_enabled；builder 必须用 WithSensorEnabled。
-# 检查覆盖四模块全部四个头，避免单模块回归漏网。
-set(POWER_DOMAINS airborne_radar electronic_surveillance_radar electro_optical_sensor sbirs_sensor)
+# 检查覆盖五模块全部四个头，避免单模块回归漏网。
+set(POWER_DOMAINS airborne_radar electronic_surveillance_radar electro_optical_sensor sbirs_sensor sar)
 foreach(DOMAIN IN LISTS POWER_DOMAINS)
   set(_mission_header "${PUBLIC_INCLUDE_ROOT}/${DOMAIN}/config")
   file(GLOB _mission_headers "${_mission_header}/*MissionConfig.h")

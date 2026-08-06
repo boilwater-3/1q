@@ -480,7 +480,8 @@ std::string EncodeSarSessionConfig(const config::SarSessionConfig& value) {
   const auto mission = BuildMissionConfig(fbb, value.mission);
   const auto policy = BuildPolicyConfig(fbb, value.policy);
   const auto environment = BuildEnvironmentConfig(fbb, value.environment);
-  fbb.Finish(replay::CreateSarSessionConfig(fbb, hardware, mission, policy, environment));
+  fbb.Finish(replay::CreateSarSessionConfig(fbb, hardware, mission, policy, environment,
+                                            value.sensor_enabled));
   return oneq::common::replay::CopyFinishedFlatbuffer(fbb);
 }
 
@@ -497,6 +498,7 @@ bool DecodeSarSessionConfig(const std::string& bytes, config::SarSessionConfig* 
   FromFbMissionConfig(fb->mission(), &out->mission);
   FromFbPolicyConfig(fb->policy(), &out->policy);
   FromFbEnvironmentConfig(fb->environment(), &out->environment);
+  out->sensor_enabled = fb->sensor_enabled();
   return true;
 }
 
@@ -507,7 +509,7 @@ std::string EncodeSarRuntimeConfigPatch(const config::SarRuntimeConfigPatch& val
       value.has_enable_l1_rda_imaging, value.enable_l1_rda_imaging,
       value.has_retain_raw_phase_history, value.retain_raw_phase_history,
       value.has_retain_focused_image, value.retain_focused_image, value.has_minimum_snr_db,
-      value.minimum_snr_db));
+      value.minimum_snr_db, value.has_sensor_enabled, value.sensor_enabled));
   return oneq::common::replay::CopyFinishedFlatbuffer(fbb);
 }
 
@@ -530,6 +532,8 @@ bool DecodeSarRuntimeConfigPatch(const std::string& bytes, config::SarRuntimeCon
   out->retain_focused_image = fb->retain_focused_image();
   out->has_minimum_snr_db = fb->has_minimum_snr_db();
   out->minimum_snr_db = fb->minimum_snr_db();
+  out->has_sensor_enabled = fb->has_sensor_enabled();
+  out->sensor_enabled = fb->sensor_enabled();
   return true;
 }
 

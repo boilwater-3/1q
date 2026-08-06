@@ -10,7 +10,8 @@ namespace {
 bool HasRequestedUpdate(const config::SarRuntimeConfigPatch& patch) {
   return patch.has_enable_raw_echo_generation ||
          patch.has_enable_l1_rda_imaging || patch.has_retain_raw_phase_history ||
-         patch.has_retain_focused_image || patch.has_minimum_snr_db;
+         patch.has_retain_focused_image || patch.has_minimum_snr_db ||
+         patch.has_sensor_enabled;
 }
 
 SarRuntimeConfigResolveResult RejectPatch(const config::SarSessionConfig& current_config,
@@ -62,6 +63,11 @@ SarRuntimeConfigResolveResult ResolveSarRuntimeConfigPatch(
     resolved.next_config.policy.retain_focused_image = patch.retain_focused_image;
     resolved.policy_changed = true;
   }
+  // 电源叶子：纯透传无校验（bool 无值域问题）；电源状态仅由该叶子控制
+  // （COMMON-OQ-4 收敛），其它域补丁不改变电源。
+  if (patch.has_sensor_enabled) {
+    resolved.next_config.sensor_enabled = patch.sensor_enabled;
+  }
 
   // L1 RDA 成像依赖 raw echo generation。基于 resolved.next_config 判定，
   // 使同一补丁内同时打开依赖项也能正确放行。
@@ -90,10 +96,11 @@ SarRuntimeConfigResolveResult ResolveSarRuntimeConfigPatch(
     //       用于确认运行期变更已生效；无补丁时不输出。
     PROJECT_LOG_INFO(
         "[SarSession] runtime config patch applied: raw_echo={} "
-        "l1_rda={} retain_raw={} retain_image={} min_snr_db={}",
+        "l1_rda={} retain_raw={} retain_image={} min_snr_db={} has_sensor_enabled={}",
         patch.has_enable_raw_echo_generation,
         patch.has_enable_l1_rda_imaging, patch.has_retain_raw_phase_history,
-        patch.has_retain_focused_image, patch.has_minimum_snr_db);
+        patch.has_retain_focused_image, patch.has_minimum_snr_db,
+        patch.has_sensor_enabled);
   }
   return resolved;
 }

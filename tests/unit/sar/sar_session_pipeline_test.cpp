@@ -173,6 +173,51 @@ TEST(SarSessionPipelineTest, StepWithResultRunsRawRangeAndRdaPipeline) {
   EXPECT_TRUE(result.raw_phase_history.q_values.empty());
 }
 
+TEST(SarSessionPipelineTest, PoweredOffCycleShortCircuitsWithEmptyFrame) {
+  // 电源关闭（COMMON-OQ-4 顶层 sensor_enabled）：管线短路，输出默认空帧，
+  // 关机不是错误（has_error=false），与执行失败/校验拒绝区分。
+  config::SarSessionConfig config = MakeSmallRdaConfig();
+  config.sensor_enabled = false;
+  session::SarSession session = session::SarSession::Create(config);
+
+  const session::SarCycleResult result = session.StepWithResult(MakeInput());
+
+  EXPECT_EQ(result.status, session::SarCycleStatus::kPoweredOff);
+  EXPECT_EQ(result.abort_reason, session::SarPipelineAbortReason::kSensorPoweredOff);
+  EXPECT_FALSE(result.executed_this_cycle);
+  EXPECT_FALSE(result.has_error);
+  // 严格默认空帧：元数据未写入（controller 在元数据写入前短路）。
+  EXPECT_EQ(result.output_frame.cycle_index, 0U);
+  EXPECT_EQ(result.output_frame.range_sample_count, 0U);
+  EXPECT_FALSE(result.output_frame.has_raw_echo);
+  EXPECT_FALSE(result.output_frame.has_l1_image);
+  EXPECT_EQ(result.output_frame.completed_stage, session::SarProcessingStage::kNone);
+  // focused_image 保持默认空图像（无来源、无像素；is_placeholder 默认 false，
+  // 仅成功聚焦路径置 true）。
+  EXPECT_EQ(result.focused_image.source, session::SarFocusedImageSource::kNone);
+  EXPECT_TRUE(result.focused_image.real_values.empty());
+  EXPECT_TRUE(result.focused_image.imaginary_values.empty());
+}
+
+TEST(SarSessionPipelineTest, PowerOffPatchThenReenabledResumesExecution) {
+  // 运行期下电补丁 → 关机周期短路；重新上电补丁 → 恢复正常执行
+  // （电源叶子唯一控制，COMMON-OQ-4）。
+  session::SarSession session = session::SarSession::Create(MakeSmallRdaConfig());
+
+  ASSERT_TRUE(session.TryApplyRuntimeConfig(
+      config::SarRuntimeConfigBuilder().WithSensorEnabled(false).Build()));
+  const session::SarCycleResult powered_off = session.StepWithResult(MakeInput());
+  EXPECT_EQ(powered_off.status, session::SarCycleStatus::kPoweredOff);
+
+  ASSERT_TRUE(session.TryApplyRuntimeConfig(
+      config::SarRuntimeConfigBuilder().WithSensorEnabled(true).Build()));
+  const session::SarCycleResult resumed = session.StepWithResult(MakeInput());
+  EXPECT_EQ(resumed.status, session::SarCycleStatus::kCompleted);
+  EXPECT_TRUE(resumed.executed_this_cycle);
+  EXPECT_FALSE(resumed.has_error);
+  EXPECT_TRUE(resumed.output_frame.has_raw_echo);
+}
+
 TEST(SarSessionPipelineTest, RetainedInternalRawPhaseHistoryReturnsCompleteAperture) {
   config::SarSessionConfig config = MakeSmallRdaConfig();
   config.policy.retain_raw_phase_history = true;

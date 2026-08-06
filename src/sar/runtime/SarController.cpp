@@ -4,6 +4,7 @@
 #include <utility>
 
 #include "1q/sar/session/SarInputValidation.h"
+#include "common/logging/ProjectLog.h"
 #include "sar/session/SarDiagnosticUtils.h"
 #include "sar/session/SarFocusedImageAssembler.h"
 #include "sar/session/SarRawHistoryBuilder.h"
@@ -80,6 +81,27 @@ void SarController::RunOnce(const session::SarCycleInput& input) {
   const bool has_external_raw_iq = session::HasExternalRawIq(input);
   if (!session::ValidateRuntimeConfigForStep(impl_->runtime_config, has_external_raw_iq, &result)) {
     // 非执行周期：output_frame 保持默认空帧，不复用上一有效输出。
+    impl_->Finish(result);
+    return;
+  }
+
+  // 电源短路（COMMON-OQ-4 字段提升）：关机周期不写输出帧元数据（严格默认
+  // 空帧，与校验失败路径同形），跨周期状态不推进。关机是合法非执行状态——
+  // 不是校验错误也不是执行失败（has_error 保持 false）。三写手动补齐：
+  // RecordAbort 强制 status=kRejectedExecution，与关机语义冲突，不走统一入口。
+  if (!impl_->runtime_config.sensor_enabled) {
+    result.abort_reason = session::SarPipelineAbortReason::kSensorPoweredOff;
+    result.status = session::SarCycleStatus::kPoweredOff;
+    session::SarDiagnosticIssue issue;
+    issue.severity = session::SarDiagnosticSeverity::kError;
+    issue.code = "sar.sensor_powered_off";
+    issue.message = "SAR cycle skipped: sensor disabled.";
+    result.diagnostics.push_back(issue);
+    // 中译：传感器已关闭，本周期短路（周期号）。
+    // 标识：电源关闭状态——周期不执行、输出为空帧；属预期行为而非执行
+    //       失败，但按规则 9c 中止路径日志级别以 WARN 记录。
+    PROJECT_LOG_WARN("[SarController] sensor disabled, cycle_index={} skipped.",
+                     input.cycle_index);
     impl_->Finish(result);
     return;
   }

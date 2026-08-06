@@ -224,7 +224,7 @@ public API 分为两类，二者都受 public boundary、install manifest 和 co
 - SessionConfigBuilder 薄封装规则（无 dirty flag / 无隐式覆写）
 - Session composition ownership（`Impl` 所有权边界、AR 决策 seam）
 - 运行期配置提交策略（事务性提交 vs 立即提交的分类表 + 各模块归属判定规则）
-- 电源状态单源契约（`sensor_enabled` 唯一来源、`has_sensor_enabled` 唯一入口、SAR 例外）
+- 电源状态单源契约（`sensor_enabled` 唯一来源、`has_sensor_enabled` 唯一入口，五模块统一）
 - 三层输出模型（OutputFrame / CycleResult / DebugView 分离 + 失败语义）
 - Replay 与 trace 语义（结构化比较状态、TraceSink vs ReplayTraceWriter、codec 边界、runtime patch trace）
 

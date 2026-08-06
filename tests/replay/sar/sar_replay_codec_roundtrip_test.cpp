@@ -321,6 +321,7 @@ TEST(SarReplayCodecRoundtripTest, CycleResultDecodeFailureDoesNotModifyOutput) {
 
 TEST(SarReplayCodecRoundtripTest, SessionConfigPreservesAllDomains) {
   config::SarSessionConfig config;
+  config.sensor_enabled = false;  // 非默认值防 decode 漏读（COMMON-OQ-4 顶层字段）
   config.hardware.carrier_frequency_hz = 1.0e9;
   config.hardware.bandwidth_hz = 25.0e6;
   config.hardware.pulse_width_s = 0.16e-6;
@@ -387,6 +388,7 @@ TEST(SarReplayCodecRoundtripTest, SessionConfigPreservesAllDomains) {
   EXPECT_DOUBLE_EQ(decoded.policy.minimum_snr_db, -5.0);
   EXPECT_FALSE(decoded.environment.use_flat_earth_geometry);
   EXPECT_TRUE(decoded.environment.enable_atmospheric_attenuation);
+  EXPECT_FALSE(decoded.sensor_enabled);
 }
 
 TEST(SarReplayCodecRoundtripTest, CycleResultRejectsMalformedRawPhaseHistory) {
@@ -412,6 +414,7 @@ TEST(SarReplayCodecRoundtripTest, RuntimeConfigPatchPreservesHasBitsAndValues) {
           .WithEnableL1RdaImaging(true)
           .WithRetainRawPhaseHistory(true)
           .WithMinimumSnrDb(6.5)
+          .WithSensorEnabled(false)
           .Build();
 
   const std::string bytes = EncodeSarRuntimeConfigPatch(patch);
@@ -427,6 +430,8 @@ TEST(SarReplayCodecRoundtripTest, RuntimeConfigPatchPreservesHasBitsAndValues) {
   EXPECT_TRUE(decoded.retain_raw_phase_history);
   EXPECT_TRUE(decoded.has_minimum_snr_db);
   EXPECT_DOUBLE_EQ(decoded.minimum_snr_db, 6.5);
+  EXPECT_TRUE(decoded.has_sensor_enabled);
+  EXPECT_FALSE(decoded.sensor_enabled);
 }
 
 TEST(SarReplayCodecRoundtripTest, RejectsEmptyPayload) {

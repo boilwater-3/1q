@@ -29,6 +29,11 @@ struct ONEQ_API SarRuntimeConfigPatch {
 
   bool has_minimum_snr_db{false};              /**< 是否携带 minimum_snr_db 变更 */
   double minimum_snr_db{-10.0};                /**< 目标最低有效 SNR 门限值（dB） */
+
+  // 电源状态仅由叶子 has_sensor_enabled 控制（COMMON-OQ-4 收敛）：
+  // 其它域补丁（如处理开关）不改变电源。
+  bool has_sensor_enabled{false};              /**< 是否携带传感器电源状态变更 */
+  bool sensor_enabled{true};                   /**< 目标传感器电源状态 */
 };
 
 }  // namespace config

@@ -18,6 +18,7 @@
 #include <cstdint>
 #include <limits>
 
+#include "1q/sar/config/SarRuntimeConfigBuilder.h"
 #include "1q/sar/config/SarSessionConfig.h"
 #include "1q/sar/session/SarCycleInput.h"
 #include "1q/sar/session/SarCycleResult.h"
@@ -98,6 +99,22 @@ TEST(SarThreeWriteGuardTest, ExecutionAbortWritesAllThree) {
   const session::SarCycleResult result = session.StepWithResult(MakeMinimalInput());
   ExpectThreeWriteAbort(result, session::SarPipelineAbortReason::kPipelineExecutionFailed,
                         session::SarCycleStatus::kRejectedExecution);
+}
+
+TEST(SarThreeWriteGuardTest, PoweredOffAbortWritesAllThree) {
+  // 电源关机（COMMON-OQ-4 字段提升）：关机是合法非执行状态（status=kPoweredOff、
+  // has_error=false），但 abort 路径同样必须三写（abort_reason + error 级诊断 + 日志）。
+  session::SarSession session = session::SarSession::Create(MakeMinimalConfig());
+  const session::SarCycleResult active = session.StepWithResult(MakeMinimalInput());
+  ASSERT_EQ(active.status, session::SarCycleStatus::kCompleted);
+
+  (void)session.TryApplyRuntimeConfig(
+      config::SarRuntimeConfigBuilder().WithSensorEnabled(false).Build());
+
+  const session::SarCycleResult powered_off = session.StepWithResult(MakeMinimalInput());
+  ExpectThreeWriteAbort(powered_off, session::SarPipelineAbortReason::kSensorPoweredOff,
+                        session::SarCycleStatus::kPoweredOff);
+  EXPECT_FALSE(powered_off.has_error);  // 关机不是错误
 }
 
 }  // namespace

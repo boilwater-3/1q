@@ -124,6 +124,36 @@ TEST(SarRuntimeConfigResolverTest, RetainRawHistoryWithoutRawEchoRejectsWholePat
   EXPECT_TRUE(resolved.next_config.policy.enable_raw_echo_generation);
 }
 
+TEST(SarRuntimeConfigResolverTest, SensorEnabledLeafUpdatesConfig) {
+  // 电源叶子（COMMON-OQ-4 字段提升）：false 值透传到 next_config。
+  const config::SarRuntimeConfigPatch patch =
+      sar_config::SarRuntimeConfigBuilder().WithSensorEnabled(false).Build();
+
+  const SarRuntimeConfigResolveResult resolved =
+      ResolveSarRuntimeConfigPatch(config::SarSessionConfig{}, patch);
+
+  EXPECT_TRUE(resolved.has_requested_update);
+  EXPECT_TRUE(resolved.is_valid);
+  EXPECT_FALSE(resolved.next_config.sensor_enabled);
+}
+
+TEST(SarRuntimeConfigResolverTest, ProcessingPatchPreservesExistingPowerState) {
+  // 电源仅由叶子 has_sensor_enabled 控制：非电源补丁不改变电源状态。
+  config::SarSessionConfig current_config;
+  current_config.sensor_enabled = false;
+
+  const config::SarRuntimeConfigPatch patch =
+      sar_config::SarRuntimeConfigBuilder().WithMinimumSnrDb(-5.0).Build();
+
+  const SarRuntimeConfigResolveResult resolved =
+      ResolveSarRuntimeConfigPatch(current_config, patch);
+
+  EXPECT_TRUE(resolved.is_valid);
+  // 关机状态下处理补丁仍可应用，但电源保持 false（叶子唯一控制）。
+  EXPECT_FALSE(resolved.next_config.sensor_enabled);
+  EXPECT_DOUBLE_EQ(resolved.next_config.policy.minimum_snr_db, -5.0);
+}
+
 }  // namespace
 }  // namespace internal
 }  // namespace session
