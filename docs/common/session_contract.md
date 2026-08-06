@@ -144,6 +144,20 @@ AR/ESR/EOS/SBIRS 四模块的电源状态必须遵守单源原则：
     模块内部代码，不限制调用方对其日志系统的使用，但调用方应结构化落盘，避免文本解析。
     JSON 参考实现见 `examples/common/` 的 `*DebugViewToJson.h` + `debug_view_json.h`
     （header-only、零第三方依赖，集成方可直接 copy 进自己的工程）。
+13. 正常执行周期（`status == kCompleted`）的可观测性：
+    a. **周期级执行摘要日志**：正常执行周期应输出周期级 `PROJECT_LOG_INFO` 摘要，格式基线
+       `[XxxPipeline] cycle_index={} …`（模块自定附加字段，如扫描方位、检测数/目标数、排除计数），
+       仅用于人读运行信息（规则 3）。ESR（`InterceptPipeline`/`InterceptPostProcessingExecutor`）
+       与 EOS（`EosPipeline`）为既有参考；SBIRS（`[SbirsPipeline]`）为首个按本规则对齐实现。
+    b. **按目标门控排除诊断**：正常执行周期中目标被门控排除（视场/SNR/距离/遮挡/几何等）应写
+       `kInfo` 级 `*DiagnosticIssueList` 条目，code 带模块前缀（如 `"sbirs.target_out_of_wfov"`），
+       message 携带 `target_id` 与关键量值。这类条目**不属于三写**（三写仅约束中止路径，规则 9），
+       仅承载排查信息；调用方按规则 12 落盘 DebugView 时自然携带。参考实现：SAR
+       （`SarDiagnosticUtils::MakeInfoDiagnostic`/`MakeWarningDiagnostic`）+ SBIRS（本轮）。
+    c. **状态语义边界**：kInfo 排除诊断不得改变 `*CycleStatus`、生命周期事件或 DebugView 状态
+       语义（如 `kNotInOutput`）；排除原因只经 diagnostics 承载，不新增状态位。
+   **现状偏离项（后续对齐，另立任务）**：AR 无周期摘要日志；AR/ESR/EOS 无 kInfo 排除诊断
+   （EOS 视场外目标仅 `PROJECT_LOG_DEBUG`）；SAR 无周期摘要日志。
 
 ### 传感器方位坐标系约定（SBIRS）
 
