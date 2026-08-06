@@ -20,7 +20,8 @@ ESR 遵守 `docs/common/contract.md`：
    leaf override 后应用，再对最终 mission 枚举、scan policy、基础 detection policy 和 environment 统一做
    一次领域校验。通过校验的 patch 立即写入 `resolved_config` 并同步到 pipeline/environment；被拒绝的 patch
    原子无污染。ESR 属立即提交类，配置单向落定，不提供 session 层回滚。
-3. 输出遵守三层模型：`EsrOutputFrame` 只发布两个去真值化通道（observation_output、emitter_output），
+3. 输出遵守三层模型：`EsrOutputFrame` 发布两个去真值化通道（observation_output、emitter_output）与一个
+   设备状态标量 `scan_azimuth_deg`（本周期波束中心方位，平台参考系，见"输出与可观测性边界"），
    `EsrCycleResult` 以 `status` 承载本周期执行真相。
 
 ## scan_rate_hz 校验边界（反直觉，勿按"波束更新率"理解）
@@ -97,14 +98,21 @@ payload 中的四个边界字段，并按中心角、硬件扫描范围和天线
 `batch_id` 在 public `EsrOutputFrame`、controller 累积状态、FlatBuffers replay schema、codec 和 comparator
 中统一为 64 位无符号值；codec 不得把它缩窄到 32 位，大于 `UINT32_MAX` 的值必须无损 roundtrip。
 
+`scan_azimuth_deg` 是输出帧的设备状态标量：pipeline 在检测阶段按当前扫描相位选中波束后，以
+"波束中心方位 + 天线安装偏置"（即 mission 域扫描角所在参考系的实际指向，与 RF 前端接收求解同算式）
+写入检测输出，经 `InterceptPipelineResult` 由 controller 装配进 `EsrOutputFrame`。该字段已纳入 FlatBuffers
+replay schema、codec 与 comparator；非执行周期（校验失败/关机）随默认空帧输出 0，消费方须以
+`status == kCompleted` 守卫读取，不能把 0 当成真实方位。
+
 truth identity、外部坐标适配输出与 debug view 不属于 ESR 公共输出合同；消费者只使用观测和 hypothesis
 的估计字段。不通过日志文本判断状态；调用方应使用 `EsrCycleResult`。
 
 ### 非执行周期统一不复用（五模块统一规则）
 
 ESR 非执行周期（校验失败/设备关机）的 `Step()` 与 `EsrCycleResult.output_frame` 一律返回**默认空帧**
-（`cycle_index=0`、空 observation/emitter 输出），**永不复用**上一有效输出。调用方仅凭 `Step()` 返回值
-即可判定本轮无新观测；执行真相（rejected vs powered-off）须走 `StepWithResult().status` / `abort_reason`。
+（`cycle_index=0`、`scan_azimuth_deg=0`、空 observation/emitter 输出），**永不复用**上一有效输出。
+调用方仅凭 `Step()` 返回值即可判定本轮无新观测；执行真相（rejected vs powered-off）须走
+`StepWithResult().status` / `abort_reason`。
 
 注意 controller 内部在 validation reject 时确实会保留 `GetLatestInterceptOutputFrame()`（旧帧），
 但 `EsrSession::BuildCycleResult` 只在 `status == kCompleted` 时把它写入 public `EsrCycleResult.output_frame`，

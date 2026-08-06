@@ -278,6 +278,59 @@ TEST(EsrControllerRuntimeStateTest, ScanGeometryResetPowerFreezeAndSnapshotResto
   EXPECT_NEAR(ReadScanPhase(pipeline), 0.1, 5.0e-8);
 }
 
+TEST(EsrControllerRuntimeStateTest, OutputFrameCarriesScanAzimuthAdvancingWithPhase) {
+  // 扫描方位角 = 当前波束中心方位 + 天线安装角（平台系），随扫描相位逐周期推进。
+  // 默认扫描图：az -60°→+60° 步进 5°（25 列）× el 10°→-10° 步进 5°（5 行），
+  // serpentine 折返；rate 0.1 Hz、dt 1 s → 每周期相位推进 0.1。
+  EsrInternalExecutionConfig config = MakeDefaultConfig();
+  config.mission.scan.scan_rate_hz = 0.1f;
+  pipeline::InterceptPipeline pipeline(config);
+  StubEnvironmentService env;
+  EsrController controller(pipeline, env);
+
+  // 相位 0 → 索引 0 → 首波束（az -60°；安装角 0°）。
+  controller.RunOnce(MakeValidInput(1U));
+  ASSERT_EQ(controller.GetLatestCycleStatus(), session::EsrCycleExecutionStatus::kCompleted);
+  EXPECT_FLOAT_EQ(controller.GetLatestInterceptOutputFrame().scan_azimuth_deg, -60.0f);
+
+  // 相位 0.1 → 索引 12 → az 0°（首行内推进）。
+  controller.RunOnce(MakeValidInput(2U));
+  ASSERT_EQ(controller.GetLatestCycleStatus(), session::EsrCycleExecutionStatus::kCompleted);
+  EXPECT_FLOAT_EQ(controller.GetLatestInterceptOutputFrame().scan_azimuth_deg, 0.0f);
+
+  // 相位 0.2 → 索引 25 → 折返行（serpentine）行首 → az +60°。
+  controller.RunOnce(MakeValidInput(3U));
+  ASSERT_EQ(controller.GetLatestCycleStatus(), session::EsrCycleExecutionStatus::kCompleted);
+  EXPECT_FLOAT_EQ(controller.GetLatestInterceptOutputFrame().scan_azimuth_deg, 60.0f);
+}
+
+TEST(EsrControllerRuntimeStateTest, OutputFrameScanAzimuthAddsMountOffset) {
+  // 扫描方位合成 = 波束中心方位 + 天线安装角。
+  // 注：RF 前端 boresight 域校验要求 az+mount ∈ [-180, 180]（TryResolveBoresight），
+  // 超界周期被拒绝，故已完成周期的合成值恒在域内，NormalizeAngle180 为恒等。
+  // 扫描图：az 130°→150° 步进 20°（2 列）× el 5 行，serpentine；安装角 20°。
+  // 首波束 az 130° + 20° = 150°；折返行行首 az 150° + 20° = 170°。
+  EsrInternalExecutionConfig config = MakeDefaultConfig();
+  config.resolved_scan.scan_start_az_deg = 130.0f;
+  config.resolved_scan.scan_end_az_deg = 150.0f;
+  config.resolved_scan.az_step_deg = 20.0f;
+  config.hardware.antenna_mount_az_deg = 20.0f;
+  config.mission.scan.scan_rate_hz = 0.5f;
+  pipeline::InterceptPipeline pipeline(config);
+  StubEnvironmentService env;
+  EsrController controller(pipeline, env);
+
+  // 相位 0 → 索引 0 → 首波束 az 130° + 安装角 20° = 150°。
+  controller.RunOnce(MakeValidInput(1U));
+  ASSERT_EQ(controller.GetLatestCycleStatus(), session::EsrCycleExecutionStatus::kCompleted);
+  EXPECT_FLOAT_EQ(controller.GetLatestInterceptOutputFrame().scan_azimuth_deg, 150.0f);
+
+  // 相位 0.5 → 索引 5 → 折返行行首 az 150° + 安装角 20° = 170°。
+  controller.RunOnce(MakeValidInput(2U));
+  ASSERT_EQ(controller.GetLatestCycleStatus(), session::EsrCycleExecutionStatus::kCompleted);
+  EXPECT_FLOAT_EQ(controller.GetLatestInterceptOutputFrame().scan_azimuth_deg, 170.0f);
+}
+
 TEST(EsrControllerRuntimeStateTest, RestoreRejectsNonFiniteScanPhase) {
   pipeline::InterceptPipeline pipeline(MakeDefaultConfig());
   extension::InterceptPipelineRuntimeState state = pipeline.CaptureRuntimeState();

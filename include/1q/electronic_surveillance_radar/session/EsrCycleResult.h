@@ -24,6 +24,7 @@ namespace session {
 struct ONEQ_API EsrOutputFrame {
   std::uint32_t cycle_index{0U};                           /**< 当前周期号 */
   std::uint64_t batch_id{0U};                              /**< 当前批次号 */
+  float scan_azimuth_deg{0.0f};                            /**< 本周期波束中心方位角（单位：deg，平台系，含天线安装角） */
   session::ObservationOutputFrame observation_output{};    /**< 传感器观测输出通道 */
   session::EmitterOutputFrame emitter_output{};            /**< 侦察假设输出通道 */
 };

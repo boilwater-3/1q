@@ -144,6 +144,7 @@ flowchart LR
   subgraph Output["输出层 Output"]
     Obs["observation_output\n设备观测"]
     Emit["emitter_output\n系统估计"]
+    Scan["scan_azimuth_deg\n波束中心方位"]
     Result["EsrCycleResult\n执行状态 / 诊断 / replay"]
   end
 
@@ -161,12 +162,14 @@ flowchart LR
   Cluster --> Assoc
   Assoc --> Hyp
   Raw --> Obs
+  Raw --> Scan
+  Scan --> Result
   Hyp --> Emit
   Obs --> Result
   Emit --> Result
 ```
 
-输出只包含两个去真值化通道：
+输出包含两个去真值化通道与一个设备状态标量：
 
 ```mermaid
 flowchart TB
@@ -174,6 +177,7 @@ flowchart TB
   Detection --> Observation["Observation output\n真实侦察观测"]
   Detection --> Association["Association\n观测到假设"]
   Association --> Emitter["Emitter output\n系统估计假设"]
+  Detection --> ScanAz["scan_azimuth_deg\n当前波束中心方位"]
 ```
 
 ## 工程 RF 接收角色与意图中立输入
@@ -212,6 +216,8 @@ pipeline/controller 的 `CaptureRuntimeState()` / `RestoreRuntimeState()` 描述
 - **pipeline** 是接收流水线累积状态的唯一 owner；其快照含 observation/hypothesis id、hypothesis associator
   tracks、归一化扫描相位和 `completed_receive_cycles` 调谐相位。随机流由 immutable seed/cycle/identity/
   domain 参数派生，不存在跨周期可变 RNG 状态。pipeline 快照不含 config、feature scales 或环境配置。
+  归一化扫描相位在本周期检测阶段映射为输出帧 `scan_azimuth_deg`：选中波束的方位 + 天线安装偏置
+  （平台参考系实际指向，与 RF 前端接收求解同算式），并折叠到 [-180, 180)；该映射随相位推进而逐周期变化。
 - **controller** 快照只含其拥有的 latest output、validation issues、batch id 和最近一次执行状态，不嵌套或
   恢复 pipeline 快照。session 在周期回滚时分别捕获和恢复两个 owner，任一恢复失败均返回
   `kRuntimeStateRestoreRejected`，不得留下半恢复状态。

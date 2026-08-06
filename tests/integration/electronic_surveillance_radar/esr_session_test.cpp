@@ -67,6 +67,8 @@ TEST(EsrSessionIntegrationTest, InvalidCoSitePathRejectsWithoutOutput) {
   EXPECT_EQ(result.status, EsrCycleExecutionStatus::kRejected);
   EXPECT_EQ(result.abort_reason, EsrPipelineAbortReason::kRfReceiverRejected);
   EXPECT_EQ(result.output_frame.cycle_index, 0U);
+  // 非执行周期默认空帧契约：scan_azimuth_deg 也必须为 0，不得携带历史方位。
+  EXPECT_FLOAT_EQ(result.output_frame.scan_azimuth_deg, 0.0f);
 }
 
 TEST(EsrSessionIntegrationTest,
@@ -99,6 +101,8 @@ TEST(EsrSessionIntegrationTest, PowerOffProducesNoHistoricalOutput) {
   const EsrCycleResult powered_off = session.StepWithResult(input);
   EXPECT_EQ(powered_off.status, EsrCycleExecutionStatus::kPoweredOff);
   EXPECT_EQ(powered_off.output_frame.cycle_index, 0U);
+  // 关机周期默认空帧契约：scan_azimuth_deg 必须为 0，不得复用上次执行方位。
+  EXPECT_FLOAT_EQ(powered_off.output_frame.scan_azimuth_deg, 0.0f);
 }
 
 }  // namespace

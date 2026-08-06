@@ -83,6 +83,7 @@ void EsrController::RunOnce(const session::EsrCycleInput& input) {
   session::EsrOutputFrame output_frame;
   output_frame.cycle_index = stamp.cycle_index;
   output_frame.batch_id = stamp.batch_id;
+  output_frame.scan_azimuth_deg = pipeline_result.scan_azimuth_deg;
   output_frame.observation_output = std::move(pipeline_result.observation_output);
   output_frame.emitter_output = std::move(pipeline_result.emitter_output);
 

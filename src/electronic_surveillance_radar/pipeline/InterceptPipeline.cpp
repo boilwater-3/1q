@@ -105,6 +105,7 @@ extension::InterceptPipelineResult InterceptPipeline::RunCycle(
       detection_output.receiver_center_frequency_hz;
   result.observation_output.receiver_bandwidth_hz = detection_output.receiver_bandwidth_hz;
   result.observation_output.receiver_saturated = detection_output.receiver_saturated;
+  result.scan_azimuth_deg = detection_output.scan_azimuth_deg;
   ++completed_receive_cycles_;
 
   // 中译：周期执行摘要（周期号、原始记录数、聚类数、假设数）。

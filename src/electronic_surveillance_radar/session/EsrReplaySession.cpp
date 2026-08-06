@@ -97,6 +97,7 @@ bool EmitterOutputFrameEqual(const session::EmitterOutputFrame& left,
 
 bool EsrOutputFrameEqual(const EsrOutputFrame& left, const EsrOutputFrame& right) {
   return left.cycle_index == right.cycle_index && left.batch_id == right.batch_id &&
+         left.scan_azimuth_deg == right.scan_azimuth_deg &&
          ObservationOutputFrameEqual(left.observation_output, right.observation_output) &&
          EmitterOutputFrameEqual(left.emitter_output, right.emitter_output);
 }

@@ -50,12 +50,14 @@ TEST(EsrReplayCodecRoundtripTest, CycleInputPreservesRfV2Frame) {
 TEST(EsrReplayCodecRoundtripTest, CycleResultPreservesExplicitStatus) {
   EsrCycleResult result;
   result.input_cycle_index = 7U;
+  result.output_frame.scan_azimuth_deg = -8.5f;
   result.status = EsrCycleExecutionStatus::kPoweredOff;
   result.abort_reason = EsrPipelineAbortReason::kSensorPoweredOff;
   EsrCycleResult decoded;
   ASSERT_TRUE(DecodeEsrCycleResult(EncodeEsrCycleResult(result), &decoded));
   EXPECT_EQ(decoded.status, EsrCycleExecutionStatus::kPoweredOff);
   EXPECT_EQ(decoded.abort_reason, EsrPipelineAbortReason::kSensorPoweredOff);
+  EXPECT_FLOAT_EQ(decoded.output_frame.scan_azimuth_deg, -8.5f);
 }
 
 TEST(EsrReplayCodecRoundtripTest,
@@ -75,7 +77,7 @@ TEST(EsrReplayCodecRoundtripTest,
   output_builder.add_observations(observations_fb);
   const auto observation_output = output_builder.Finish();
   const auto root = esr::replay::CreateEsrOutputFrame(
-      builder, 1U, 2U, observation_output, 0);
+      builder, 1U, 2U, 0.0f, observation_output, 0);
   builder.Finish(root);
   const std::string bytes(
       reinterpret_cast<const char*>(builder.GetBufferPointer()),
@@ -222,6 +224,19 @@ TEST(EsrReplayCodecRoundtripTest,
 }
 
 TEST(EsrReplayCodecRoundtripTest,
+     OutputFramePreservesScanAzimuth) {
+  EsrOutputFrame frame;
+  frame.cycle_index = 1U;
+  frame.batch_id = 2U;
+  frame.scan_azimuth_deg = -15.5f;
+  EsrOutputFrame decoded;
+  ASSERT_TRUE(DecodeEsrOutputFrame(EncodeEsrOutputFrame(frame), &decoded));
+  EXPECT_EQ(decoded.cycle_index, 1U);
+  EXPECT_EQ(decoded.batch_id, 2U);
+  EXPECT_FLOAT_EQ(decoded.scan_azimuth_deg, -15.5f);
+}
+
+TEST(EsrReplayCodecRoundtripTest,
      UnknownDeceptionClassRejectsWithoutMutatingDestination) {
   flatbuffers::FlatBufferBuilder builder;
   esr::replay::EmitterObservationBuilder observation_builder(builder);
@@ -240,7 +255,7 @@ TEST(EsrReplayCodecRoundtripTest,
   output_builder.add_observations(observations_fb);
   const auto observation_output = output_builder.Finish();
   const auto root = esr::replay::CreateEsrOutputFrame(
-      builder, 1U, 2U, observation_output, 0);
+      builder, 1U, 2U, 0.0f, observation_output, 0);
   builder.Finish(root);
   const std::string bytes(
       reinterpret_cast<const char*>(builder.GetBufferPointer()),
@@ -273,7 +288,7 @@ TEST(EsrReplayCodecRoundtripTest,
   output_builder.add_observations(observations_fb);
   const auto observation_output = output_builder.Finish();
   const auto root = esr::replay::CreateEsrOutputFrame(
-      builder, 1U, 2U, observation_output, 0);
+      builder, 1U, 2U, 0.0f, observation_output, 0);
   builder.Finish(root);
   const std::string bytes(
       reinterpret_cast<const char*>(builder.GetBufferPointer()),
