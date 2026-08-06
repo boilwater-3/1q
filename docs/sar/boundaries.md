@@ -146,6 +146,13 @@ severity + code + message。`SarPipelineAbortReason` 枚举通过 `AbortReasonTo
 **不新增 `validation_issues` 字段**：其他模块的 `ValidationIssueList` 是二元校验结果，SAR 的
 `diagnostics` 已完整覆盖校验语义（kError 级）。新增平行字段只会引入冗余。
 
+**周期级执行摘要日志（规则 13a）**：正常完成周期（`status == kCompleted`）在
+`SarProcessingPipeline::RunCycle` 尾部输出 `[SarPipeline] cycle_index={} …` 的
+`PROJECT_LOG_INFO` 摘要（周期号、完成处理阶段、L1/L3 成像标志、估计信噪比、场景目标数），
+仅用于人读运行信息（规则 3），不参与状态判断。SAR 无逐目标门控排除（集体成像模型，
+所有几何/SNR 门均为整周期中止 → 三写），故规则 13b 的按目标排除诊断对 SAR 为空洞条款
+（SAR 的 kInfo/kWarning 正常路径诊断仍按本节"唯一诊断通道"承载）。
+
 ### abort_reason 粗粒度枚举 + 细粒度诊断
 
 `SarPipelineAbortReason` 是 `std::uint16_t` 底层类型的强类型枚举，包含 6 个粗粒度值，
