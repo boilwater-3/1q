@@ -20,6 +20,10 @@ add_subdirectory(sar)
 # 三域（AR/ESR/EOS）旧示例已删除，功能并入 behavior_layer。
 add_subdirectory(behavior_layer)
 
+# 第二种示例模式：自定义实体-组件（组件基类 + 挂载 + Boost.Signals2 事件）。
+# 不依赖 EnTT；与 behavior_layer（EnTT ECS 开源库模式）形成两种开发模式对照。
+add_subdirectory(component_attachment)
+
 # 机动模块示例：仅在 ONEQ_ENABLE_FLIGHT_DYNAMIC 开启时纳入。
 if(ONEQ_ENABLE_FLIGHT_DYNAMIC)
     add_subdirectory(flight_dynamic)

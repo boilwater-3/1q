@@ -14,6 +14,7 @@ examples/
 ├── configs/                        四域会话配置 JSON（详见 configs/README.md）
 ├── sar/                            SAR 域示例（session / integration）
 ├── behavior_layer/                 行为层参考实现（EnTT ECS 业务层，AR/ESR/EOS 三传感器全链）
+├── component_attachment/           自定义实体-组件模式示例（组件基类 + 挂载 + Boost.Signals2 事件）
 ├── flight_dynamic/                 机动模块 CSV 工具与轨迹生成（依赖 JSBSim）
 └── batch_validation/               多场景批量验证（详见 batch_validation/README.md）
 ```
@@ -30,6 +31,22 @@ examples/
 | **integration_demo** | `sar_integration_demo` | 集成示范：展示 `SarModule` 包装类在外部引擎中的接入方式 | config_loader |
 
 SAR 无 scene 示例；`integration_demo` 展示的是 `SarModule` 包装类（内部用普通 Session）。
+
+## 两种 ECS 开发模式
+
+业务层示例提供两种 ECS 开发模式对照（均覆盖 AR/ESR/EOS 三传感器全链 +
+融合 + 飞行动力学，共用同一份 `configs/` 共享配置）：
+
+| 模式 | 目录 | ECS 形态 | 事件机制 |
+| --- | --- | --- | --- |
+| **ECS 开源库** | `behavior_layer/` | EnTT 3.14（纯数据组件 + 自由函数系统） | EnTT 自带 observer/sigh |
+| **自定义实体-组件** | `component_attachment/` | 组件基类 + 子类（携带逻辑）+ 挂载到实体 | **Boost.Signals2**（常见开源事件库） |
+
+`component_attachment/` 的自定义 ECS 核心（`core/`）约 300 行纯头文件：组件基类
+（Name/OnAttach/OnDetach/Step 虚接口）、实体（挂载容器，挂载序 = 步进序）、
+世界（实体注册表 + 共享场景状态 + 信号集合）。FD 场景按六自由度机动设计
+（从起飞开始，`kTakeoff → 航点 → kLand`，不做空中配平），详见
+`component_attachment/README.md`。
 
 ## 共享便利层
 
