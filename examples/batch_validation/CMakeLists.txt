@@ -37,12 +37,13 @@ target_compile_definitions(esr_batch_validation PRIVATE
     BATCH_CONFIG_DIR="${CMAKE_SOURCE_DIR}/examples/configs")
 target_sources(esr_batch_validation PRIVATE ${ONEQ_EXAMPLE_COMMON_SOURCES})
 
-# SAR 批量验证：引用本目录工具头 + sar 的 config_loader.h。
+# SAR 批量验证：引用本目录工具头 + sar 的 config_loader.h
+# （共享于 examples/common/config_loaders/sar/，与 AR/ESR/EOS 同源）。
 add_executable(sar_batch_validation sar_batch_validation.cpp)
 target_link_libraries(sar_batch_validation PRIVATE ${PROJECT_ALIAS})
 target_include_directories(sar_batch_validation PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}"
-    "${CMAKE_SOURCE_DIR}/examples/sar"
+    "${CMAKE_SOURCE_DIR}/examples/common/config_loaders/sar"
     "${ONEQ_EXAMPLE_COMMON_DIR}")
 target_compile_definitions(sar_batch_validation PRIVATE
     BATCH_CONFIG_DIR="${CMAKE_SOURCE_DIR}/examples/configs")

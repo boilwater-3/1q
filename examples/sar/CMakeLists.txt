@@ -13,5 +13,6 @@ add_executable(sar_integration_demo integration_demo.cpp)
 target_link_libraries(sar_integration_demo PRIVATE ${PROJECT_ALIAS})
 target_include_directories(sar_integration_demo PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}"
+    "${CMAKE_SOURCE_DIR}/examples/common/config_loaders/sar"
     "${ONEQ_EXAMPLE_COMMON_DIR}")
 target_sources(sar_integration_demo PRIVATE ${ONEQ_EXAMPLE_COMMON_SOURCES})

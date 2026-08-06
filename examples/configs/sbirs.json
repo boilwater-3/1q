@@ -1,0 +1,80 @@
+{
+  "hardware": {
+    "wavelength_lower_um": 3.0,
+    "wavelength_upper_um": 5.0,
+    "optical_aperture_m": 0.5,
+    "optical_transmission": 0.8,
+    "detector_quantum_efficiency": 0.7,
+    "integration_time_sec": 1.0,
+    "noise_equivalent_power_w": 1.0e-12,
+    "background_radiance_w_sr_m2": 0.0,
+    "detector_temperature_k": 80.0,
+    "readout_noise_rms_w": 0.0
+  },
+  "mission": {
+    "work_mode": "kSearchAndStare",
+    "wide_field_fov_az_deg": 20.0,
+    "wide_field_fov_el_deg": 20.0,
+    "narrow_field_fov_az_deg": 5.0,
+    "narrow_field_fov_el_deg": 5.0,
+    "scan_start_az_deg": -40.0,
+    "scan_span_deg": 80.0,
+    "scan_direction": "kIncreasingAzimuth",
+    "scan_center_el_deg": 0.0,
+    "scan_rate_deg_per_sec": 10.0,
+    "min_range_m": 1000.0,
+    "max_range_m": 5.0e7,
+    "frame_rate_hz": 10.0,
+    "narrow_cue_latency_s": 0.0,
+    "narrow_pointing_settle_error_deg": 0.0,
+    "narrow_pointing_max_slew_rate_deg_per_sec": 30.0,
+    "narrow_pointing_settle_tolerance_deg": 0.01
+  },
+  "policy": {
+    "detection": {
+      "wide_min_snr_linear": 4.0,
+      "narrow_min_snr_linear": 6.0
+    },
+    "error_model": {
+      "range_fraction_sigma": 0.0,
+      "random_seed": 1,
+      "orbit_sigma_deg": 0.0,
+      "attitude_sigma_deg": 0.0,
+      "fov_sigma_deg": 0.0,
+      "detector_bandwidth_hz": 100.0
+    },
+    "pointing_disturbance": {
+      "common_attitude_sigma_deg": 0.0,
+      "common_attitude_correlation_time_s": 1.0,
+      "channel_pointing_sigma_deg": 0.0,
+      "channel_pointing_correlation_time_s": 1.0,
+      "channel_vibration_amplitude_deg": 0.0,
+      "channel_vibration_frequency_hz": 0.0,
+      "random_seed": 1
+    },
+    "scheduler": {
+      "max_concurrent_nfov_locks": 1
+    },
+    "tracking": {
+      "tracking_mode": "kEstimated",
+      "estimated_backend": "kEkf",
+      "process_noise_diff_coeff": 1.0,
+      "initial_position_std_m": 1000.0,
+      "initial_velocity_std_m_per_s": 100.0,
+      "nis_gate_loss_cycles": 0,
+      "nfov_tracking_gate_loss_cycles": 2,
+      "imm_model_noise_diff_coeffs": []
+    }
+  },
+  "environment": {
+    "weather_type": "kClear",
+    "sea_state": "kLow",
+    "temperature_c": 15.0,
+    "relative_humidity_percent": 50.0,
+    "visibility_km": 20.0,
+    "base_atmospheric_transmittance": 0.8,
+    "humidity_visibility_interaction_weight": 0.0,
+    "rain_humidity_interaction_weight": 0.0
+  },
+  "sensor_enabled": true
+}
