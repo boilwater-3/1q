@@ -988,6 +988,63 @@ TEST_F(FlightDynamicTest, AbortManeuver) {
   EXPECT_FALSE(result);
 }
 
+TEST_F(FlightDynamicTest, ClearManeuversDoesNotInterruptCurrentManeuver) {
+  FlightManager fm(config_);
+
+  ManeuverCommand fly_cmd;
+  fly_cmd.type = guidance::ManeuverType::kFlyToWaypoint;
+  fly_cmd.target.latitude_rad = 0.5;  // 远点：当前机动，短时间内不会完成
+  fm.PushManeuver(fly_cmd);           // kReady → kExecuting 并派发（index 0 → 1）
+
+  ManeuverCommand queued_cmd;
+  queued_cmd.type = guidance::ManeuverType::kSetHeading;
+  queued_cmd.value = 3.14;
+  fm.PushManeuver(queued_cmd);  // kExecuting 下仅排队
+
+  fm.ClearManeuvers();
+
+  // 清空队列不影响当前正在执行的机动与诊断（对照 Abort 的 kAborted 语义）。
+  EXPECT_EQ(fm.GetState(), FlightManagerState::kExecuting);
+  EXPECT_EQ(fm.GetDiagnostics().outcome, ManeuverOutcome::kNone);
+
+  RunSteps(fm, 100);  // 当前机动继续推进，未被清除
+  EXPECT_EQ(fm.GetState(), FlightManagerState::kExecuting);
+}
+
+TEST_F(FlightDynamicTest, ClearManeuversDropsQueuedManeuversAndResetsExecutionIndex) {
+  FlightManager fm(config_);
+
+  // A：近距航点，首个机动，会正常完成（配置同 FlyToWaypointNearbyCompletesManeuver）。
+  constexpr double kNearbyLat = 0.0 + (100.0 / 6.371e6);
+  ManeuverCommand a_cmd;
+  a_cmd.type = guidance::ManeuverType::kFlyToWaypoint;
+  a_cmd.target.latitude_rad = kNearbyLat;
+  a_cmd.target.longitude_rad = 0.0;
+  a_cmd.target.altitude_m = 500.0;
+  fm.PushManeuver(a_cmd);  // 派发 A（index 0 → 1）
+
+  // B：远点航点——若未被清空，A 完成后将长期执行，无法到达 kCompleted。
+  ManeuverCommand b_cmd;
+  b_cmd.type = guidance::ManeuverType::kFlyToWaypoint;
+  b_cmd.target.latitude_rad = 0.5;
+  fm.PushManeuver(b_cmd);  // 仅排队
+
+  fm.ClearManeuvers();  // 清空队列并复位执行索引
+
+  // C：清空后重新入队——若索引未复位（仍为 1），C 会被跳过直接 kCompleted。
+  ManeuverCommand c_cmd;
+  c_cmd.type = guidance::ManeuverType::kSetHeading;
+  c_cmd.value = 1.57;
+  fm.PushManeuver(c_cmd);
+
+  const int steps = RunUntilDone(fm, 20000);
+
+  // A 完成后仅 C 待执行：全部完成且最后执行的是 C（B 从未执行）。
+  EXPECT_EQ(fm.GetState(), FlightManagerState::kCompleted);
+  EXPECT_EQ(fm.GetDiagnostics().current_type, guidance::ManeuverType::kSetHeading);
+  EXPECT_LT(steps, 20000);
+}
+
 // ==========================================================================
 // Profile snapshot test: captures ALL AircraftControlProfile fields for each
 // target aircraft. Any change to the profile detection logic or aircraft XML
