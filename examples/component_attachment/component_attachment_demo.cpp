@@ -19,7 +19,6 @@
  */
 
 #include <algorithm>
-#include <cmath>
 #include <cstdarg>
 #include <cstdint>
 #include <cstdlib>
@@ -34,6 +33,7 @@
 #include "1q/airborne_radar/session/ArSession.h"
 #include "1q/coordinate/position_transform.h"
 #include "1q/coordinate/types.h"
+#include "1q/coordinate/velocity_transform.h"
 #include "1q/electro_optical_sensor/config/EosSessionConfig.h"
 #include "1q/electro_optical_sensor/session/EosExternalInputAdapter.h"
 #include "1q/electronic_surveillance_radar/config/EsrSessionConfig.h"
@@ -63,7 +63,6 @@ namespace {
 
 constexpr std::uint32_t kNumCycles = 400U;
 constexpr double kDtSec = 1.0;
-constexpr double kPi = 3.14159265358979323846;
 constexpr char kDefaultOutputDir[] = "/tmp/component_attachment_viz";
 /// 平台巡航高度（m）：c172x 低空巡航量级；目标真值固定在此高度。
 /// EOS 探测距离窗 ≈ 高度 / sin(俯仰角)（min/max 2°/1°）→ 400 m 时
@@ -124,28 +123,6 @@ ComponentAttachmentConfigs LoadConfigs() {
   return configs;
 }
 
-/// 平台 ENU 基（east/north 的 ECEF 分量），把目标方位/距离转为 ECEF 偏移。
-/// 方位角从北顺时针（航向角惯例）：E = R·sin(α)、N = R·cos(α)。
-struct EnuBasis {
-  double east_x, east_y, east_z;
-  double north_x, north_y, north_z;
-};
-
-EnuBasis MakeEnuBasis(const oneq::coordinate::LlaPositionDegM& origin) {
-  const double lat = origin.latitude_deg * kPi / 180.0;
-  const double lon = origin.longitude_deg * kPi / 180.0;
-  const double slat = std::sin(lat), clat = std::cos(lat);
-  const double slon = std::sin(lon), clon = std::cos(lon);
-  EnuBasis basis;
-  basis.east_x = -slon;
-  basis.east_y = clon;
-  basis.east_z = 0.0;
-  basis.north_x = -slat * clon;
-  basis.north_y = -slat * slon;
-  basis.north_z = clat;
-  return basis;
-}
-
 /// 目标脚本：2 个空中目标（正东前方 12/14 km，东速略低于平台巡航 → 平台
 /// 逐渐追近，相对距离缓慢缩小）。方位（北偏东 90° = 正东）落在 EOS 扫描
 /// 覆盖内（平台局部系 az 0 = 东，扫描 ±40°）；巡航段平台 alt 400 m 的
@@ -174,23 +151,31 @@ struct TargetEcefState {
   float rcs{0.0f};
 };
 
-/// 目标脚本 → ECEF 状态（ENU 偏移经平台 ENU 基投影到 ECEF；z 取平台
-/// 基准高度 + 巡航高度偏移，目标恒在空中，不随平台起飞段高度变化）。
+/// 目标脚本 → ECEF 状态（方位/距离经库内 ENU 偏移函数投影到 ECEF，速度经
+/// ENU 速度函数投影；z 取平台基准高度 + 巡航高度偏移，目标恒在空中，不随
+/// 平台起飞段高度变化）。脚本为编译期合法常量，投影调用不会失败。
 std::vector<TargetEcefState> MakeTargetStates(
-    const oneq::coordinate::EcefPositionM& platform_ecef, const EnuBasis& basis) {
+    const oneq::coordinate::EcefPositionM& platform_ecef,
+    const oneq::coordinate::LlaPositionDegM& platform_origin) {
   std::vector<TargetEcefState> states;
   states.reserve(2U);
   for (const auto& script : kTargetScript) {
-    const double az_rad = script.azimuth_deg * kPi / 180.0;
-    const double east_m = script.range_m * std::sin(az_rad);
-    const double north_m = script.range_m * std::cos(az_rad);
     TargetEcefState state;
-    state.position.x_m = platform_ecef.x_m + east_m * basis.east_x + north_m * basis.north_x;
-    state.position.y_m = platform_ecef.y_m + east_m * basis.east_y + north_m * basis.north_y;
+    oneq::coordinate::EnuPositionM offset;
+    oneq::coordinate::EcefPositionM target;
+    if (oneq::coordinate::TryBearingRangeToEnuOffset(script.azimuth_deg, script.range_m,
+                                                     &offset) &&
+        oneq::coordinate::TryEnuToEcef(offset, platform_origin, &target)) {
+      state.position.x_m = target.x_m;
+      state.position.y_m = target.y_m;
+    }
     state.position.z_m = platform_ecef.z_m + kCruiseAltitudeM;
-    state.velocity.x_mps = script.v_east_mps * basis.east_x + script.v_north_mps * basis.north_x;
-    state.velocity.y_mps = script.v_east_mps * basis.east_y + script.v_north_mps * basis.north_y;
-    state.velocity.z_mps = script.v_east_mps * basis.east_z + script.v_north_mps * basis.north_z;
+    oneq::coordinate::EnuVelocityMps enu_velocity;
+    enu_velocity.east_mps = script.v_east_mps;
+    enu_velocity.north_mps = script.v_north_mps;
+    enu_velocity.up_mps = 0.0;
+    // 脚本输入合法（有限/非负），投影必然成功；失败时 velocity 留默认零向量。
+    oneq::coordinate::TryEnuToEcefVelocity(enu_velocity, platform_origin, &state.velocity);
     state.rcs = script.rcs;
     states.push_back(state);
   }
@@ -492,9 +477,7 @@ int main(int argc, char* argv[]) {
     std::cerr << "Invalid platform LLA\n";
     return 1;
   }
-  const EnuBasis basis = MakeEnuBasis(platform_origin);
-  std::vector<TargetEcefState> target_states = MakeTargetStates(platform_ecef, basis);
-
+  std::vector<TargetEcefState> target_states = MakeTargetStates(platform_ecef, platform_origin);
   // 平台轨迹 CSV（周期级；事件流经 EventLogger 写 events.csv）。
   examples::CsvWriter platform_csv(output_dir + "/platform_track.csv",
                                    "cycle,t_sec,lat_deg,lon_deg,alt_m,heading_deg,speed_mps,wp_index");

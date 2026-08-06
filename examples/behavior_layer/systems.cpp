@@ -13,7 +13,6 @@
 #include "systems.h"
 
 #include <algorithm>
-#include <cmath>
 #include <cstdint>
 #include <vector>
 
@@ -51,6 +50,7 @@ double QualityToThreatScore(electronic_surveillance_radar::session::EsrObservati
 }
 
 /// 平台 LLA/航向/速度 → ECEF 位置与速度（三会话共用；零姿态保持共享局部系）。
+/// 航向分解与 ECEF 投影为库内单函数（oneq::coordinate），此处仅做薄包装。
 void ResolvePlatformEcef(const FleetStatusComponent& fleet,
                          oneq::coordinate::EcefPositionM* ecef_position,
                          oneq::coordinate::EcefVelocityMps* ecef_velocity) {
@@ -58,13 +58,9 @@ void ResolvePlatformEcef(const FleetStatusComponent& fleet,
   if (oneq::coordinate::TryLlaToEcef(fleet.position, &ecef)) {
     *ecef_position = ecef;
   }
-  const double heading_rad = fleet.heading_deg * 3.14159265358979323846 / 180.0;
-  oneq::coordinate::EnuVelocityMps enu_velocity;
-  enu_velocity.east_mps = fleet.speed_mps * std::sin(heading_rad);
-  enu_velocity.north_mps = fleet.speed_mps * std::cos(heading_rad);
-  enu_velocity.up_mps = 0.0;
   oneq::coordinate::EcefVelocityMps ecef_vel;
-  if (oneq::coordinate::TryEnuToEcefVelocity(enu_velocity, fleet.position, &ecef_vel)) {
+  if (oneq::coordinate::TryMakeEcefVelocityFromHeading(fleet.heading_deg, fleet.speed_mps,
+                                                       fleet.position, &ecef_vel)) {
     *ecef_velocity = ecef_vel;
   }
 }
