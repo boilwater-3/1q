@@ -186,6 +186,8 @@ double EngineManager::GetRotationSpeedKts() const {
 
   // --- Input validation ---
   if (weight_lbs < 1.0 || wing_area_ft2 < 1.0 || rho < 1e-9) {
+    // 中译：抬轮速度计算输入非法（重量/机翼面积/密度），回退默认值。
+    // 标识：数值保护——输入不合法时使用回退抬轮速度，避免除零/非有限结果。
     PROJECT_LOG_WARN("[ENGINE] GetRotationSpeedKts: invalid inputs "
                  "weight={:.0f}lbs area={:.1f}ft² rho={:.6f} → fallback {:.0f} kts",
                  weight_lbs, wing_area_ft2, rho, kFallbackVrKts);
@@ -228,6 +230,8 @@ double EngineManager::GetRotationSpeedKts() const {
 
   // Diagnostic: log CLmax for unusual values (outside realistic bounds).
   if (cl_max < kClMaxLowerBound || cl_max > kClMaxUpperBound) {
+    // 中译：最大升力系数超出合理区间（{}，区间 [{}, {}]）。
+    // 标识：数值诊断——CLmax 异常时提示机型数据或气动参数可疑。
     PROJECT_LOG_WARN("[ENGINE] GetRotationSpeedKts: CLmax={:.2f} out of bounds [{:.1f}, {:.1f}]",
                  cl_max, kClMaxLowerBound, kClMaxUpperBound);
   }
@@ -267,6 +271,8 @@ double EngineManager::GetRotationSpeedKts() const {
 
   const double vr_kts = std::max(vr_factor * v_stall_kts, kMinVrKts);
 
+  // 中译：抬轮速度计算明细（Vr/失速速度/CLmax/因子/惯量/展弦比等）。
+  // 标识：性能计算追溯——记录抬轮速度的物理推导输入，供核对机型参数。
   PROJECT_LOG_DEBUG("[ENGINE] Vr={:.1f} kts  V_stall={:.1f} kts  CLmax={:.1f}  "
                 "Vr_factor={:.3f}  Iyy={:.1e}  AR={:.2f}{}  weight={:.0f} lbs  "
                 "S={:.0f} ft²  rho={:.4f}",
@@ -289,6 +295,8 @@ double EngineManager::GetDefaultApproachSpeedMps() const {
   const double wing_area_ft2 = GetProperty("metrics/Sw-sqft");
 
   if (weight_lbs < 1.0 || wing_area_ft2 < 1.0) {
+    // 中译：进近速度计算输入非法，回退默认值 {:.0f} m/s。
+    // 标识：数值保护——输入不合法时使用回退进近速度。
     PROJECT_LOG_DEBUG("[ENGINE] DefaultApproachSpeed: invalid inputs → fallback {:.0f} m/s",
                   kApproachSpeedFallbackMps);
     return kApproachSpeedFallbackMps;
@@ -309,6 +317,8 @@ double EngineManager::GetDefaultApproachSpeedMps() const {
   double v_stall_ftps = perf.v_stall_ftps;
   double approach_mps = v_stall_ftps * 0.3048 * kApproachSpeedStallFactor;
 
+  // 中译：默认进近速度 {:.0f} m/s（失速速度 × 1.3）。
+  // 标识：性能计算追溯——记录进近速度的推导结果，供核对机型参数。
   PROJECT_LOG_DEBUG("[ENGINE] DefaultApproachSpeed={:.1f} m/s (V_stall={:.1f} m/s × 1.3)",
                 approach_mps, v_stall_ftps * 0.3048);
   return approach_mps;
@@ -323,6 +333,8 @@ double EngineManager::GetClimbPitchDeg() const {
     if (node) {
       double xml_pitch = node->getDoubleValue();
       if (xml_pitch > 0.0 && xml_pitch < 45.0) {
+        // 中译：爬升俯仰角 {:.0f}°（来自 XML 覆盖）。
+        // 标识：配置覆盖生效——XML 中显式配置的爬升俯仰角优先于类型默认值。
         PROJECT_LOG_DEBUG("[ENGINE] ClimbPitch={:.0f} deg (XML override)",
                       xml_pitch);
         return xml_pitch;
@@ -345,6 +357,8 @@ double EngineManager::GetClimbPitchDeg() const {
     default:
       break;
   }
+  // 中译：爬升俯仰角 {:.0f}°（发动机类型 {}）。
+  // 标识：性能参数追溯——按发动机类型派生的默认爬升俯仰角。
   PROJECT_LOG_DEBUG("[ENGINE] ClimbPitch={:.0f} deg (type={})",
                 pitch, static_cast<int>(type_));
   return pitch;
@@ -413,6 +427,8 @@ void EngineManager::MeasureRatedThrust() {
     auto* pm = exec_.GetPropertyManager().get();
     auto* node = pm->GetNode("guidance/thrust-to-weight", true);
     if (node) node->setDoubleValue(twr);
+    // 中译：额定推力/重量/推重比。
+    // 标识：性能摘要——记录推重比计算，供核对飞机性能基线。
     PROJECT_LOG_DEBUG("[ENGINE] Rated thrust={:.0f} lbs  weight={:.0f} lbs  TWR={:.3f}",
                   rated_thrust_lbs_, weight_lbs, twr);
   }

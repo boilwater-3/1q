@@ -176,6 +176,8 @@ bool RefreshDynamicSpeedEnvelope(adapter::JsbsimAdapter& adapter,
   }
   if (!std::isfinite(rho) || rho <= 0.0) {
     if (!allow_standard_density_fallback) return false;
+    // 中译：初始大气密度非法，基线 TAS 包线改用标准海平面密度。
+    // 标识：数值回退——大气密度缺失/非法时使用标准海平面密度继续。
     PROJECT_LOG_WARN(
         "[AUTOPILOT] Invalid initial atmosphere density; using standard sea-level "
         "density for the baseline TAS envelope");
