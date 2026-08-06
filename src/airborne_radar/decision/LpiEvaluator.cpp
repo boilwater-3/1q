@@ -34,6 +34,8 @@ LpiEvaluator::Result LpiEvaluator::Evaluate(const model::LpiSourceInfo& lpi_sour
   }
 
   if (!lpi_source_info.has_recon_platform) {
+    // 中译：无侦察平台，LPI 保持不激活。
+    // 标识：低截获概率（LPI）决策前提——无威胁侦察源时不发起降发射功率。
     PROJECT_LOG_DEBUG("[LpiEvaluator] No reconnaissance platform. LPI remains inactive.");
     return result;
   }
@@ -41,6 +43,9 @@ LpiEvaluator::Result LpiEvaluator::Evaluate(const model::LpiSourceInfo& lpi_sour
   // 距离大于 100km 且无接近趋势时暂不触发 LPI
   if (lpi_source_info.threat_range_km > 100.0f &&
       lpi_source_info.threat_closure_speed_mps < 50.0f) {
+    // 中译：侦察平台距离 {:.1f}km，超出有效 LPI 距离，暂不触发。
+    // 标识：LPI 触发门限——目标过远且无接近趋势时不降功率，
+    //       避免无谓降低探测性能。
     PROJECT_LOG_DEBUG("[LpiEvaluator] Recon platform at {:.1f}km is beyond effective LPI range.",
                       lpi_source_info.threat_range_km);
     return result;
@@ -65,6 +70,9 @@ LpiEvaluator::Result LpiEvaluator::Evaluate(const model::LpiSourceInfo& lpi_sour
       BuildLpiDwellDirective(result.dwell_scale), 55,
       "reduced dwell accompanies LPI power control"});
 
+  // 中译：检测到侦察平台，追加 LPI 降功率提案
+  //       （功率缩放、距离、接近速度）。
+  // 标识：LPI 激活分支——威胁存在时建议降低发射功率与驻留时间。
   PROJECT_LOG_DEBUG(
       "[LpiEvaluator] Recon platform detected. Appending LPI power reduction proposal "
       "(power_scale={:.2f}, range={:.1f}km, closure_speed={:.1f}m/s).",

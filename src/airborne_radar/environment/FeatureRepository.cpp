@@ -54,6 +54,8 @@ FeatureRepository::FeatureRepository() : records_(BuildDefaultRecords()) {}
 
 bool FeatureRepository::ConnectDataSource(const std::string& connection_string) {
   // 数据库驱动尚未实现；连接请求始终返回 false，以防止调用方误以为连接已建立。
+  // 中译：使用「{}」调用数据源连接，但数据源尚未实现，返回 false。
+  // 标识：未实现能力的显式拒绝——防止调用方误以为外部特征库已接入。
   PROJECT_LOG_WARN(
       "[FeatureRepository] ConnectDataSource called with '{}' but data source is not yet "
       "implemented; returning false.",
@@ -106,6 +108,9 @@ bool FeatureRepository::QueryBestMatch(const FeatureVector& input, MatchResult& 
   constexpr float kScoreSumEpsilon = 1.0e-12f;
   if (!std::isfinite(score_sum) || score_sum <= kScoreSumEpsilon || !std::isfinite(best_score) ||
       !std::isfinite(best_distance)) {
+    // 中译：检测到非法分数归一化（分数和/最佳分数/最佳距离异常），返回未命中。
+    // 标识：特征匹配数值保护——归一化输入非法时放弃匹配，
+    //       防止非有限值污染分类结果。
     PROJECT_LOG_WARN(
         "[FeatureRepository] Invalid score normalization detected: score_sum={}, best_score={}, "
         "best_distance={}",

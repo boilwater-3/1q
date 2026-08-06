@@ -135,6 +135,9 @@ struct SignalPipeline::Impl {
     }
 
     if (runtime_.owned.auto_lifecycle_manager == nullptr) {
+      // 中译：自动生命周期管理器不可用，RunCycle 中止。
+      // 标识：装配依赖缺失——无生命周期管理器时周期中止
+      //       （kLifecycleUnavailable）。
       PROJECT_LOG_ERROR(
           "[SignalPipeline] RunCycle aborted because auto_lifecycle_manager is unavailable.");
       ResetCycleScratch(&cycle_.scratch);
@@ -145,6 +148,8 @@ struct SignalPipeline::Impl {
 
     const session::EnvironmentSnapshot environment_snapshot = environment.SampleEnvironment();
     if (!HasValidEnvironmentCycle(environment_snapshot)) {
+      // 中译：环境周期未以正的 dt_sec 初始化，RunCycle 中止。
+      // 标识：环境采样保护——dt 非法时周期中止（kInvalidEnvironmentCycle）。
       PROJECT_LOG_ERROR(
           "[SignalPipeline] RunCycle aborted because environment cycle is not initialized with a "
           "positive dt_sec.");
@@ -218,6 +223,8 @@ struct SignalPipeline::Impl {
 
   void RestoreRuntimeState(const SignalPipelineRuntimeState& state) {
     if (state.owner_identity != this || state.schema_version != 3U) {
+      // 中译：运行状态恢复被拒绝：快照所有者或结构与本实例不匹配。
+      // 标识：回滚保护——归属/结构校验失败时拒绝恢复。
       PROJECT_LOG_ERROR(
           "[SignalPipeline] runtime state restore rejected because snapshot owner "
           "or schema does not match this instance.");
@@ -276,6 +283,8 @@ struct SignalPipeline::Impl {
             runtime_.config.base_config, &runtime_.owned.association_engine,
             &runtime_.owned.track_filter, runtime_.owned.auto_lifecycle_manager.get())) {
       runtime_.config.base_config = previous_config;
+      // 中译：UpdateConfig 被拒绝：运行配置同步失败，保留上一配置。
+      // 标识：配置回滚——同步失败时恢复上一份流水线配置。
       PROJECT_LOG_ERROR(
           "[SignalPipeline] UpdateConfig rejected because runtime config sync failed; "
           "keeping previous pipeline config.");

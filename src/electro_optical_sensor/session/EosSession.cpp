@@ -27,6 +27,9 @@ T& RequireCompositionDependency(T* ptr, const char* dependency_name) {
   if (ptr != nullptr) {
     return *ptr;
   }
+  // 中译：会话组合依赖「{}」为空指针。
+  // 标识：组合装配错误——依赖未注入即被使用，属内部装配缺陷；
+  //       随后将终止进程以避免未定义行为（见上方 @warning）。
   PROJECT_LOG_ERROR("[EosSession] Composition dependency '{}' is null.", dependency_name);
   std::abort();
 }

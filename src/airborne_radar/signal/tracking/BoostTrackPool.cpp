@@ -12,6 +12,9 @@ BoostTrackPool::BoostTrackPool(std::size_t prewarm_count, std::size_t max_cached
   for (std::size_t i = 0; i < prewarm_count; ++i) {
     TrackState* track = pool_.construct();
     if (track == nullptr) {
+      // 中译：预充（prewarm）构造航迹对象失败（已备/目标/在用/缓存数）。
+      // 标识：内存池分配失败——预充中断但构造器继续，空闲列表少于预期，
+      //       后续 Acquire 可能需实时构造。
       PROJECT_LOG_ERROR(
           "[BoostTrackPool] prewarm construct failed: prepared={} target_prewarm={} in_use={} "
           "cached={}",
@@ -30,6 +33,8 @@ TrackState* BoostTrackPool::Acquire() {
   } else {
     track = pool_.construct();
     if (track == nullptr) {
+      // 中译：取用（Acquire）时构造航迹对象失败（在用/缓存/容量）。
+      // 标识：内存池分配失败——返回空指针，调用方应处理获取失败。
       PROJECT_LOG_ERROR(
           "[BoostTrackPool] acquire construct failed: in_use={} cached={} capacity={}",
           in_use_count_, free_list_.size(), Capacity());
@@ -40,6 +45,8 @@ TrackState* BoostTrackPool::Acquire() {
     const std::pair<std::unordered_set<TrackState*>::iterator, bool> inserted =
         in_use_tracks_.insert(track);
     if (!inserted.second) {
+      // 中译：Acquire 检测到重复的在用指针，返回空。
+      // 标识：对象池一致性保护——同一航迹对象被重复取用说明池状态损坏。
       PROJECT_LOG_ERROR("[BoostTrackPool] Acquire detected duplicate in-use pointer: {}",
                         static_cast<void*>(track));
       return nullptr;
@@ -55,12 +62,16 @@ void BoostTrackPool::Release(TrackState* track) {
   }
 
   if (in_use_tracks_.erase(track) == 0U) {
+    // 中译：Release 拒绝了未知或重复释放的指针。
+    // 标识：对象池一致性保护——释放未在用的对象说明池状态损坏。
     PROJECT_LOG_ERROR("[BoostTrackPool] Release rejected unknown or double-released pointer: {}",
                       static_cast<void*>(track));
     return;
   }
 
   if (in_use_count_ == 0) {
+    // 中译：Release 时在用计数已为 0（内部状态不一致）。
+    // 标识：对象池一致性保护——计数与集合状态失配，提示池被误用。
     PROJECT_LOG_ERROR(
         "[BoostTrackPool] Release called with in_use_count_=0: "
         "internal state mismatch");

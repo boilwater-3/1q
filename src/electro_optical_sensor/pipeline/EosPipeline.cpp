@@ -389,6 +389,9 @@ extension::EosPipelineRuntimeState EosPipeline::CaptureRuntimeState() const {
 
 bool EosPipeline::RestoreRuntimeState(const extension::EosPipelineRuntimeState& state) {
   if (!IsCompatiblePipelineRuntimeState(state, this, config_)) {
+    // 中译：流水线运行时状态恢复被拒绝：所有者/结构/配置不匹配。
+    // 标识：执行回滚保护——跨周期状态校验失败时本周期不执行，
+    //       避免在错误状态上继续成像；排查配置变更与状态不一致。
     PROJECT_LOG_ERROR(
         "[EosPipeline] runtime state restore rejected: owner/schema/config mismatch.");
     return false;
@@ -414,6 +417,9 @@ extension::EosPipelineExecuteResult EosPipeline::RunCycle(
   for (std::size_t i = 0; i < input.scene.size(); ++i) {
     const ::electro_optical_sensor::session::EosSceneTarget& target = input.scene[i];
     if (!IsTargetInCurrentFov(target)) {
+      // 中译：目标在视场（FOV）之外，本周期跳过该目标。
+      // 标识：场景目标不在当前扫描视场内——跳过是正常行为而非错误，
+      //       用于核对扫描覆盖范围与场景布设。
       PROJECT_LOG_DEBUG("[EosPipeline] target_id={} outside FOV, skipped.", target.target_id);
       continue;
     }
@@ -424,11 +430,16 @@ extension::EosPipelineExecuteResult EosPipeline::RunCycle(
     attribution_record.target_id = target.target_id;
     attribution_record.target_name = target.target_name;
     result.detection_attributions.push_back(attribution_record);
+    // 中译：目标检测结果（目标 ID、是否过门限、融合信噪比、斜距）。
+    // 标识：逐目标探测摘要——标识每个目标是否被检测到及其信噪比，
+    //       供排查门限判决与链路预算。
     PROJECT_LOG_DEBUG("[EosPipeline] target_id={} detected={} fused_snr_db={:.1f} range_m={:.0f}",
                       target.target_id, result.detections.back().detected,
                       result.detections.back().fused_snr_db, target.range_m);
   }
 
+  // 中译：周期执行摘要（周期号、扫描方位角、检测数/目标总数）。
+  // 标识：每周期探测概况——检测命中率与扫描位置，供宏观核对。
   PROJECT_LOG_INFO("[EosPipeline] cycle_index={} scan_az={:.2f} detections={}/{}",
                    input.cycle_index, current_scan_azimuth_deg_, result.detections.size(),
                    input.scene.size());

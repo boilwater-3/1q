@@ -69,11 +69,15 @@ ThreatAssessmentEvaluator::Result ThreatAssessmentEvaluator::Evaluate(
       }
     }
 
+    // 中译：目标[{}] 分类结果：{}。
+    // 标识：逐目标威胁分类摘要——每个航迹的分类标签，供核对分类器输出。
     PROJECT_LOG_DEBUG("[ThreatAssessmentEvaluator] Target[{}] -> Classification: {}", i,
                       category.target_type);
   }
 
   if (input_frame.tracks.empty()) {
+    // 中译：航迹快照列表为空，分类结果已重置。
+    // 标识：无航迹周期的正常分支——威胁评估退化为空结果。
     PROJECT_LOG_DEBUG(
         "[ThreatAssessmentEvaluator] Empty track snapshot list, classification reset.");
   }
@@ -95,6 +99,9 @@ session::TargetCategory ThreatAssessmentEvaluator::IdentifyTarget(
         result.probability = match_result.probability;
         return result;
       }
+      // 中译：特征库匹配结果被过滤（类型、概率、距离）。
+      // 标识：知识库匹配的置信度门——匹配概率/距离不达标时回退到统计分类，
+      //       防止低置信匹配直接决定目标类型。
       PROJECT_LOG_DEBUG(
           "[ThreatAssessmentEvaluator] Repository match filtered out (type: {}, "
           "probability: {:.3f}, distance: {:.3f}).",

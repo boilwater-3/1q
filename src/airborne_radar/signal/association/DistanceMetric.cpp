@@ -25,6 +25,9 @@ FullMahalanobisDistanceMetric::FullMahalanobisDistanceMetric(
     const Eigen::Matrix3f& innovation_covariance)
     : llt_(innovation_covariance), llt_valid_(llt_.info() == Eigen::Success) {
   if (!llt_valid_) {
+    // 中译：协方差矩阵 LLT 分解失败（构造时），距离计算不可用。
+    // 标识：数值保护——协方差非正定时马氏距离退化为无穷大，
+    //       该度量下的关联不会产生假设；排查协方差输入。
     PROJECT_LOG_ERROR("[FullMahalanobisDistanceMetric] LLT decomposition failed in constructor.");
   }
 }
@@ -38,6 +41,9 @@ FullMahalanobisDistanceMetric::FullMahalanobisDistanceMetric(float sigma_0, floa
   llt_.compute(S);
   llt_valid_ = llt_.info() == Eigen::Success;
   if (!llt_valid_) {
+    // 中译：协方差矩阵 LLT 分解失败（sigma 构造时），距离计算不可用。
+    // 标识：数值保护——协方差非正定时马氏距离退化为无穷大，
+    //       该度量下的关联不会产生假设；排查协方差输入。
     PROJECT_LOG_ERROR(
         "[FullMahalanobisDistanceMetric] LLT decomposition failed in sigma constructor.");
   }
@@ -47,6 +53,9 @@ void FullMahalanobisDistanceMetric::SetInnovationCovariance(const Eigen::Matrix3
   llt_.compute(S);
   llt_valid_ = llt_.info() == Eigen::Success;
   if (!llt_valid_) {
+    // 中译：协方差矩阵 LLT 分解失败（更新时），距离计算不可用。
+    // 标识：数值保护——协方差非正定时马氏距离退化为无穷大，
+    //       该度量下的关联不会产生假设；排查协方差输入。
     PROJECT_LOG_ERROR(
         "[FullMahalanobisDistanceMetric] LLT decomposition failed in SetInnovationCovariance.");
   }

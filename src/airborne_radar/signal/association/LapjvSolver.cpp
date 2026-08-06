@@ -12,6 +12,8 @@ namespace association {
 std::vector<int> LapjvSolver::Solve(const Eigen::Ref<const Eigen::MatrixXf>& cost_matrix) const {
   const Eigen::Index n = cost_matrix.rows();
   if (n <= 0 || cost_matrix.cols() != n) {
+    // 中译：拒绝非方阵或空代价矩阵（行数/列数）。
+    // 标识：输入契约校验——LAPJV 求解要求方阵，非法输入返回空解。
     PROJECT_LOG_ERROR("[LapjvSolver] rejected non-square or empty cost matrix: rows={} cols={}.",
                       cost_matrix.rows(), cost_matrix.cols());
     return std::vector<int>();

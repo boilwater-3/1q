@@ -51,6 +51,9 @@ void TacticalCoordinator::PruneInactiveTrackState(const session::TrackStateSnaps
   }
 
   if (state_store->confidence_memory.size() > kMaxStateStoreEntries) {
+    // 中译：置信度记忆条目数（{}）超过上限（{}），可能表明航迹 ID 未被正确回收。
+    // 标识：状态存储容量预警——条目持续增长说明失配航迹未清理，
+    //       长期运行可能导致内存与性能劣化。
     PROJECT_LOG_WARN(
         "[TacticalCoordinator] TacticalStateStore confidence_memory size ({}) exceeds limit ({}). "
         "This may indicate track IDs are not being properly recycled.",
@@ -135,9 +138,13 @@ session::TacticalDecisionResult TacticalCoordinator::Evaluate(
   if (has_receiver_rf_observation) {
     eccm_result =
         eccm_evaluator_.Evaluate(input_frame.interference_observations, &all_proposals);
+    // 中译：接收机射频观测通过了 J/N 门限，追加 ECCM 反制提案。
+    // 标识：干扰态势识别——存在有效干扰观测时进入抗干扰决策分支。
     PROJECT_LOG_DEBUG(
         "[TacticalCoordinator] Receiver RF observation passed J/N gate. Appending ECCM proposals.");
   } else {
+    // 中译：环境干净，继续常规作战流程。
+    // 标识：无干扰观测时的正常分支——不追加 ECCM 提案。
     PROJECT_LOG_DEBUG("[TacticalCoordinator] Environment is clear. Continuing nominal operation.");
   }
 
@@ -170,6 +177,8 @@ session::TacticalDecisionResult TacticalCoordinator::Evaluate(
   state_store.last_decision_summary =
       BuildDecisionSummary(input_frame, threat_result, lpi_result, eccm_result);
 
+  // 中译：周期决策摘要（周期号、航迹数、选中模式、提案数、关联压力）。
+  // 标识：战术决策每周期概况——模式选择与提案数量，供核对决策链路。
   PROJECT_LOG_DEBUG(
       "[TacticalCoordinator] cycle_index={} tracks={} mode={} proposals={} assoc_stress={:.3f}",
       input_frame.cycle_index, input_frame.tracks.size(), static_cast<int>(result.selected_mode),

@@ -89,6 +89,9 @@ ArContextRuntimeState MutableArContext::CaptureRuntimeState() const {
 
 bool MutableArContext::RestoreRuntimeState(const ArContextRuntimeState& state) {
   if (state.owner_identity_ != owner_identity_ || state.snapshot_ == nullptr) {
+    // 中译：上下文运行状态恢复被拒绝：所有者/快照不匹配。
+    // 标识：回滚保护——跨周期状态快照归属校验失败时恢复不生效，
+    //       防止把错误状态写回上下文。
     PROJECT_LOG_ERROR(
         "[MutableArContext] context runtime state restore rejected: "
         "owner/snapshot mismatch.");

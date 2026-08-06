@@ -26,6 +26,9 @@ constexpr std::uint64_t kUnassociatedKey = 0;
  */
 void LogContractViolation(const char* message, std::size_t index) {
   if (PROJECT_LOG_HAS_DEFAULT_LOGGER()) {
+    // 中译：数据关联引擎在目标[{}]处发生输入合约违例：{}。
+    // 标识：内部契约违例（CRITICAL）——调用方违反关联输入约定，
+    //       记录后立即刷新日志并输出到 stderr，供现场排查。
     PROJECT_LOG_CRITICAL("[DataAssociationEngine] Contract violation at target[{}]: {}", index,
                          message);
     PROJECT_LOG_FLUSH_DEFAULT();
@@ -409,6 +412,8 @@ bool DataAssociationEngine::SetAssociationSeeds(
   external_seed_tracks_.clear();
   association_seed_mode_ = AssociationSeedMode::kStateless;
   if (seeds.empty()) {
+    // 中译：已清空外部关联种子，回到无状态模式。
+    // 标识：种子模式切换——空种子列表使引擎退回无外部先验状态。
     PROJECT_LOG_DEBUG(
         "[DataAssociationEngine] cleared external association seeds and returned to stateless "
         "mode");
@@ -452,6 +457,8 @@ bool DataAssociationEngine::SetAssociationSeeds(
 
   external_seed_tracks_ = accepted_seeds;
   association_seed_mode_ = AssociationSeedMode::kExternalSeeds;
+  // 中译：已接受 {} 个外部关联种子。
+  // 标识：种子注入成功——外部先验种子生效，后续关联使用之。
   PROJECT_LOG_DEBUG("[DataAssociationEngine] accepted {} external association seeds",
                     external_seed_tracks_.size());
   return true;

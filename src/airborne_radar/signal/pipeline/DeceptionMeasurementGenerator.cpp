@@ -29,6 +29,9 @@ void InjectDeceptionMeasurementsPass(const CycleExecutionContext& context,
   const auto& keys = scratch.deception_candidate_keys;
 
   if (keys.size() != candidates.size()) {
+    // 中译：欺骗候选键数 {} 与候选数 {} 不匹配。
+    // 标识：输入契约校验——键表与候选表不对应时跳过生成，
+    //       防止错配生成欺骗量测。
     PROJECT_LOG_ERROR(
         "[DeceptionMeasurementGenerator] candidate_keys size {} mismatch candidates size {}.",
         keys.size(), candidates.size());

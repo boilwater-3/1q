@@ -91,6 +91,8 @@ Docs capture what code alone cannot convey (positioning, boundaries, non-goals, 
 
 **Logging**
 - Log critical actions and failures using the project's logging facility, when available.
+- 每个 `PROJECT_LOG_*` 调用点上方应有中文注释（`// 中译：…` + `// 标识：…` 两行式，
+  面向非专业开发人员解释日志含义、触发条件与状态语义）；日志消息文本保持英文。
 
 ## Session Workflow
 

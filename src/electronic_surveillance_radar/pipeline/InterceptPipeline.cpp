@@ -71,6 +71,8 @@ extension::InterceptPipelineResult InterceptPipeline::RunCycle(
     const environment::IEsrEnvironmentService& environment_service) {
   extension::InterceptPipelineResult result;
   if (!config_.sensor_enabled) {
+    // 中译：传感器已关闭，本周期跳过（周期号）。
+    // 标识：电源关闭状态——周期不执行探测，属预期行为而非错误。
     PROJECT_LOG_DEBUG("[InterceptPipeline] sensor disabled, cycle_index={} skipped.",
                       input_state.cycle_index);
     result.sensor_powered_off = true;
@@ -105,6 +107,8 @@ extension::InterceptPipelineResult InterceptPipeline::RunCycle(
   result.observation_output.receiver_saturated = detection_output.receiver_saturated;
   ++completed_receive_cycles_;
 
+  // 中译：周期执行摘要（周期号、原始记录数、聚类数、假设数）。
+  // 标识：截获链路每周期概况——检测→聚类→关联各级数量，供宏观核对。
   PROJECT_LOG_INFO("[InterceptPipeline] cycle_index={} raw_records={} clusters={} hypotheses={}",
                    input_state.cycle_index, detection_output.raw_records.size(),
                    result.observation_output.cluster_count,

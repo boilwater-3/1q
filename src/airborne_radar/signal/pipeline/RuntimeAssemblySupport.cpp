@@ -64,6 +64,8 @@ LifecycleAssemblyArtifacts BuildLifecycleAssemblyArtifactsOrLogFailure(
   LifecycleAssemblyArtifacts artifacts =
       SignalComponentFactory::BuildLifecycleAssemblyArtifacts(config);
   if (artifacts.lifecycle_manager == nullptr) {
+    // 中译：生命周期管理器自动装配失败（当前运行配置），未创建管理器。
+    // 标识：装配失败——生命周期管理不可用，后续周期将中止或降级。
     PROJECT_LOG_ERROR(
         "[SignalPipeline] lifecycle auto-assembly failed for current runtime config; "
         "no lifecycle manager created.");
@@ -143,12 +145,16 @@ class AutoConfiguredLifecycleManager final : public tracking::ITrackLifecycleMan
   bool SyncRuntimeConfig(const ExecutionConfig& config) {
     const LifecycleConfigSignature incoming_signature = BuildLifecycleConfigSignature(config);
     if (ShouldRebuildLifecycleAssembly(signature_, incoming_signature)) {
+      // 中译：运行期生命周期配置拓扑发生变化，正在重建装配并重置生命周期状态。
+      // 标识：运行期配置变更——拓扑签名变化触发重建，重建期间生命周期状态归零。
       PROJECT_LOG_WARN(
           "[SignalPipeline] lifecycle config topology changed during runtime; rebuilding "
           "auto-lifecycle assembly and resetting lifecycle state.");
       LifecycleAssemblyArtifacts rebuilt_assembly =
           BuildLifecycleAssemblyArtifactsOrLogFailure(config);
       if (rebuilt_assembly.lifecycle_manager == nullptr) {
+        // 中译：生命周期拓扑重建失败，保留上一次装配。
+        // 标识：重建失败回退——新配置无法装配时沿用旧配置，同步返回失败。
         PROJECT_LOG_ERROR(
             "[SignalPipeline] lifecycle topology rebuild failed; keeping previous "
             "lifecycle assembly.");
