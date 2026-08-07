@@ -77,8 +77,7 @@ using EsrIssueList = std::vector<EsrIssue>;
 
 /**
  * @brief EsrPipelineAbortReason 表示单周期核心管线流产原因。
- * @note 枚举编号 2/3 空缺为 replay 兼容保留（旧 trace 的
- *       kRuntimeStateRestoreRejected/kOutputContractViolation 已删除，
+ * @note 枚举编号 2/3 空缺为 replay 兼容保留（已删除的两个旧 abort 值，
  *       解码侧 IsValidAbortReason 按显式白名单拒绝）。
  */
 enum class EsrPipelineAbortReason {
