@@ -34,6 +34,16 @@ bool ContainsCode(const EosIssueList& issues, const std::string& code) {
   return false;
 }
 
+// 按 code 取条目（Q-2 审查修复：phase/severity 断言辅助）。
+const EosIssue* FindIssue(const EosIssueList& issues, const std::string& code) {
+  for (const EosIssue& issue : issues) {
+    if (issue.code == code) {
+      return &issue;
+    }
+  }
+  return nullptr;
+}
+
 EosSceneTarget MakeValidTarget() {
   EosSceneTarget target;
   target.target_id = 1001U;
@@ -97,7 +107,11 @@ TEST(EosInputValidationTest, InvalidCycleDeltaTimeIsReportedAsError) {
 
   const EosIssueList issues = ValidateEosCycleInput(input, 30.0f);
 
-  EXPECT_TRUE(ContainsCode(issues, "eos.validation.invalid_cycle_delta_time"));
+  // 输入校验问题统一 phase=kInputValidation（规则 14b；HasValidationError 依赖该判定）。
+  const EosIssue* issue = FindIssue(issues, "eos.validation.invalid_cycle_delta_time");
+  ASSERT_NE(issue, nullptr);
+  EXPECT_EQ(issue->severity, EosIssueSeverity::kError);
+  EXPECT_EQ(issue->phase, EosIssuePhase::kInputValidation);
   EXPECT_TRUE(HasValidationError(issues));
 }
 
@@ -138,7 +152,12 @@ TEST(EosInputValidationTest, InconsistentTargetEnergyBalanceIsReportedAsWarning)
 
   const EosIssueList issues = ValidateEosCycleInput(input, 30.0f);
 
-  EXPECT_TRUE(ContainsCode(issues, "eos.validation.inconsistent_target_energy_balance"));
+  // warning 级校验问题同样 phase=kInputValidation（来源标签与严重级别正交）。
+  const EosIssue* issue =
+      FindIssue(issues, "eos.validation.inconsistent_target_energy_balance");
+  ASSERT_NE(issue, nullptr);
+  EXPECT_EQ(issue->severity, EosIssueSeverity::kWarning);
+  EXPECT_EQ(issue->phase, EosIssuePhase::kInputValidation);
   EXPECT_FALSE(HasValidationError(issues));
 }
 

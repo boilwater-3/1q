@@ -70,6 +70,16 @@ void ExpectThreeWriteAbort(const session::EosCycleResult& result,
   // 写三：人读日志由统一 RecordAbort（PROJECT_LOG_ERROR）保证，测试不解析日志文本（规则 3）。
 }
 
+// 规则 14 断言：校验拒绝时错误条目 phase=kInputValidation；执行中止时 phase=kExecution。
+bool ContainsPhase(const session::EosIssueList& issues, session::EosIssuePhase phase) {
+  for (const auto& issue : issues) {
+    if (issue.phase == phase) {
+      return true;
+    }
+  }
+  return false;
+}
+
 TEST(EosThreeWriteGuardTest, ValidationAbortWritesAllThree) {
   session::EosSession session = session::EosSession::Create();
   session::EosCycleInput invalid_input = MakeValidInput();
@@ -78,6 +88,8 @@ TEST(EosThreeWriteGuardTest, ValidationAbortWritesAllThree) {
   const session::EosCycleResult result = session.StepWithResult(invalid_input);
   ExpectThreeWriteAbort(result, session::EosPipelineAbortReason::kValidationRejected,
                         session::EosCycleStatus::kRejectedInvalidInput);
+  // 规则 14：校验拒绝的问题条目 phase=kInputValidation（校验问题本身就是 error 级诊断）。
+  EXPECT_TRUE(ContainsPhase(result.issues, session::EosIssuePhase::kInputValidation));
 }
 
 TEST(EosThreeWriteGuardTest, PoweredOffAbortWritesAllThree) {
@@ -91,6 +103,8 @@ TEST(EosThreeWriteGuardTest, PoweredOffAbortWritesAllThree) {
   const session::EosCycleResult powered_off = session.StepWithResult(MakeValidInput(2U));
   ExpectThreeWriteAbort(powered_off, session::EosPipelineAbortReason::kSensorPoweredOff,
                         session::EosCycleStatus::kPoweredOff);
+  // 规则 14：关机属运行态条件，中止条目 phase=kExecution。
+  EXPECT_TRUE(ContainsPhase(powered_off.issues, session::EosIssuePhase::kExecution));
 }
 
 }  // namespace
