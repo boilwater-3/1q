@@ -10,7 +10,7 @@
 examples/
 ├── CMakeLists.txt                  编排层：定义共享变量 + add_subdirectory()
 ├── README.md                       本文件
-├── common/                         共享便利层：JSON 解析 + 三域 config_loaders + DebugView→JSON 序列化（不属于库 public surface）
+├── common/                         共享便利层：JSON 解析 + 三域 config_loaders（不属于库 public surface）
 ├── configs/                        四域会话配置 JSON（详见 configs/README.md）
 ├── sar/                            SAR 域示例（session / integration）
 ├── behavior_layer/                 行为层参考实现（EnTT ECS 业务层，AR/ESR/EOS 三传感器全链）
@@ -58,15 +58,17 @@ SAR 无 scene 示例；`integration_demo` 展示的是 `SarModule` 包装类（�
   `component_attachment` 共用，消除双份维护）；
 - `config_loaders/<域>/`：各传感器域 JSON → `*SessionConfig` 的映射器（`config_loader.h` 三件套），
   供 `behavior_layer` 与 `batch_validation` 消费；
-- **DebugView → JSON 序列化器**（`debug_view_json.h` 共享原语 +
-  `Ar/Eos/Sar/SbirsDebugViewToJson.h`）：对应 `docs/common/session_contract.md` 三层输出模型
-  规则 12 的参考实现——每周期把 DebugView 以 JSON 帧快照写入调用方自己的日志/事件系统；
-  集成方直接 copy 模块序列化器 + 共享原语（可合并为一个文件），字段名与格式可按需调整；
-  DebugView 只是内存帧快照，落盘多少由调用方决定，AR/EOS/SBIRS 序列化器另含三种常见
-  落盘模式参考（**只落非标称行** / **跨周期状态增量** / **降频落盘**，SAR 为阶段型视图
-  不适用）；
 - 由顶层 `CMakeLists.txt` 定义 `ONEQ_EXAMPLE_COMMON_DIR` / `ONEQ_EXAMPLE_COMMON_SOURCES`，
   各子目录通过目录作用域继承并内联到 target，无需函数传递。
+
+> DebugView → JSON 序列化器（`*DebugViewToJson.h` 等）已于 2026-08-07 从 `common/`
+> 移除：示例日志面向人读，不做结构化落盘；`session_contract.md` 规则 12 的"调用方
+> 结构化持久化 DebugView"由外部集成方接入自己的日志/事件系统实现，结构化格式与
+> 字段布局由调用方自定（参考 `*OutputDebugView` 字段集合直接转写）。组件化集成
+> 示范见 `component_attachment/`（三个日志文件：库内部日志 → `1q_library.log`、
+> 集成端事件行 → `integration_events.log`、视图行 → `integration_views.log`——
+> 中文人读行，各传感器组件每周期取 `LastDebugView()` 直写视图行，事件行同源
+> 落盘；落盘密度三模式由 `demo_log_modes.h` 模式选择区宏门控）。
 
 ## 构建与运行
 

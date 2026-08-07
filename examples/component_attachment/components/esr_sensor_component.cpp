@@ -2,16 +2,17 @@
  * @file esr_sensor_component.cpp
  * @brief ESR 传感器组件实现（会话驱动 + 假设事件发布）。
  *
- * 驱动模式与行为层 recon_system::DriveEsrSession 同构：EsrCycleInput
- * 直接构造（平台 ECEF 运动学 + 消费方注入的辐射源真值帧），输出假设
- * 适配为泛型探测记录（sensor_utils.h）。每条假设（键 ≠ 0）经 World
- * 信号发布 EmitterHypothesisEvent，供日志/决策订阅。
+ * 1. EsrCycleInput 直接构造（平台 ECEF 运动学 + 消费方注入的辐射源真值帧），
+ *    驱动 EsrSession，输出假设适配为泛型探测记录（sensor_utils.h）；
+ * 2. 每条假设（键 ≠ 0）经 World 信号发布 EmitterHypothesisEvent；
+ * 3. 事件直写集成端日志（CA_LOG_EVENT，中文人读行）。
  */
 
 #include "esr_sensor_component.h"
 
 #include "1q/electronic_surveillance_radar/session/EsrCycleInput.h"
 #include "core/events.h"
+#include "demo_log.h"
 #include "flight_component.h"
 #include "core/world.h"
 #include "scene_types.h"
@@ -71,8 +72,7 @@ void EsrSensorComponent::Step(World& world, double dt_sec) {
   input.rf_emissions.emissions = scene.emitters;  // 辐射源真值由消费方脚本注入
 
   const electronic_surveillance_radar::session::EsrCycleResult result = session_.StepWithResult(input);
-  // 扫描方位随周期结果刷新：被拒绝周期输出帧为默认空帧 → 0。
-  scan_azimuth_deg_ = result.output_frame.scan_azimuth_deg;
+  scan_azimuth_deg_ = result.output_frame.scan_azimuth_deg;  // 扫描方位随周期结果刷新（拒绝周期为空帧 → 0）
   if (result.status !=
       electronic_surveillance_radar::session::EsrCycleExecutionStatus::kCompleted) {
     return;  // 周期被拒绝：本周期无假设
@@ -90,6 +90,12 @@ void EsrSensorComponent::Step(World& world, double dt_sec) {
     event.confidence = hypothesis.confidence;
     event.mode = hypothesis.mode;
     event.threat_level = hypothesis.threat_level;
+    // 假设事件每周期重复（目标恒在时）：事件模式一下不落盘（信号照常发布）。
+    CA_LOG_EVENT_DUP(world, "emitter_hypothesis",
+                     "假设={} 方位={:.1f}° 置信={:.2f} 模式={} 威胁={}",
+                     static_cast<unsigned long long>(event.hypothesis_id),
+                     event.bearing_az_deg, event.confidence,
+                     static_cast<int>(event.mode), static_cast<int>(event.threat_level));
     world.signals().on_emitter_hypothesis(event);
   }
   detections_ = examples::sensor_adapt::AdaptHypothesesToDetections(

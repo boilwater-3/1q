@@ -2,24 +2,25 @@
  * @file eos_sensor_component.h
  * @brief 自定义实体-组件示例：EOS（光电）传感器组件。
  *
- * 组件封装 electro_optical_sensor 模块会话：每周期经 EosCycleInputAdapter
- * 一步构建周期输入（平台 ECEF 运动学 + 光学目标），驱动 EosSession，
- * 探测记录适配为融合探测记录（无身份仅方位通道）存自身状态；探测生命
- * 周期事件（首发现/更新/丢失）由库内 EosDetectionLifecycleRecorder 承担
- * （Attach 后 StepWithResult 内部自动驱动），组件转发为 World 信号
- * EosDetectionEvent（target_id 经归属映射）。
+ * 组件封装 electro_optical_sensor 模块会话：驱动 EosSession 产出探测记录（无
+ * 身份仅方位通道）；探测生命周期事件（首发现/更新/丢失）由库内 recorder 差分
+ * 产出，组件转发为 World 信号。
  */
 
 #ifndef EXAMPLES_COMPONENT_ATTACHMENT_COMPONENTS_EOS_SENSOR_COMPONENT_H_
 #define EXAMPLES_COMPONENT_ATTACHMENT_COMPONENTS_EOS_SENSOR_COMPONENT_H_
 
+#include <cstdint>
+#include <unordered_map>
 #include <vector>
 
 #include "1q/electro_optical_sensor/config/EosRuntimeConfigPatch.h"
 #include "1q/electro_optical_sensor/session/EosDetectionLifecycleRecorder.h"
+#include "1q/electro_optical_sensor/session/EosOutputDebugView.h"
 #include "1q/electro_optical_sensor/session/EosSession.h"
 #include "1q/fusion/DetectionRecord.h"
 #include "core/component.h"
+#include "demo_log_modes.h"
 
 namespace component_attachment {
 
@@ -52,6 +53,19 @@ class EosSensorComponent : public Component {
   float scan_azimuth_deg() const { return scan_azimuth_deg_; }
 
   /**
+   * @brief 最近周期调试视图快照（规则 12 落盘示范）。
+   *
+   * Step 每周期经 EosOutputDebugViewBuilder::Build 回填（含按目标状态与
+   * 规则 13b kInfo 排除诊断），供调用方结构化持久化到自己的日志/事件系统；
+   * 本示例每周期直写人读摘要行到集成端日志（components/demo_log.h 的 CA_LOG_VIEW）。
+   * @return 最近周期调试视图；关机周期清零（无有效周期），拒绝周期为
+   *         kCycleNotExecuted 快照。
+   */
+  const electro_optical_sensor::session::EosOutputDebugView& LastDebugView() const {
+    return last_debug_view_;
+  }
+
+  /**
    * @brief 运行时修改入口：包装 EosSession::TryApplyRuntimeConfig。
    *
    * EOS 为立即提交：补丁经 resolver 原子校验后一次生效（调用即生效，
@@ -71,6 +85,15 @@ class EosSensorComponent : public Component {
   std::vector<fusion::DetectionRecord> detections_{};
   bool powered_on_{true};     /**< 电源状态（由 sensor_enabled 补丁唯一维护；关机时组件不驱动会话） */
   float scan_azimuth_deg_{0.0f}; /**< 最近周期波束中心方位角（deg，随周期结果刷新） */
+  electro_optical_sensor::session::EosOutputDebugView last_debug_view_{}; /**< 最近周期调试视图快照（规则 12 落盘） */
+
+  /// 调试视图中文人读行写入（三模式分支见 .cpp；宏选择见 components/demo_log.h）。
+  void LogDebugView(const electro_optical_sensor::session::EosOutputDebugView& view);
+#if defined(CA_VIEW_LOG_MODE_DELTA)
+  /// 模式二（跨周期状态增量）用：上一周期状态表（target_id → status）。
+  std::unordered_map<std::uint64_t, electro_optical_sensor::session::EosDebugTargetStatus>
+      prev_target_status_{};
+#endif
 };
 
 }  // namespace component_attachment

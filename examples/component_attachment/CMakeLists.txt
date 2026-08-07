@@ -4,30 +4,82 @@
 # Boost.Signals2（header-only，boost 已在 conanfile 基础依赖）——零自定义分发层；
 # components/ 每个仿真模块对应一个组件（飞行 / AR / ESR / EOS / 融合），
 # 挂载到平台实体后按挂载序周期步进。
+# 集成端日志设施（components/demo_log.h）直接使用 spdlog（conanfile 非 Windows
+# 依赖，ConanPackages.cmake 的 PROJECT_ENABLE_SPDLOG）；Windows 上 spdlog 关闭，
+# 本示例整体不构建。
+
+if(NOT PROJECT_ENABLE_SPDLOG)
+    message(STATUS "component_attachment: disabled (spdlog unavailable on this platform)")
+    return()
+endif()
 
 add_executable(component_attachment_demo
     component_attachment_demo.cpp
+    demo_config.cpp
+    scene_script.cpp
+    demo_output.cpp
     components/flight_component.cpp
     components/ar_sensor_component.cpp
     components/esr_sensor_component.cpp
     components/eos_sensor_component.cpp
     components/sbirs_sensor_component.cpp
     components/sar_sensor_component.cpp
-    components/fusion_component.cpp)
+    components/fusion_component.cpp
+    components/demo_log.cpp)
 
-# Boost.Signals2 事件库：与 tests 分区同源解析（tests/cmake/TestSupport.cmake）。
+# Boost.Signals2 事件库：与 tests 分区同源解析（tests/cmake/TestSupport.cmake）；
+# spdlog：集成端日志后端（demo_log.h 的 CA_LOG_EVENT / CA_LOG_VIEW）。
 find_package(Boost CONFIG REQUIRED)
 target_link_libraries(component_attachment_demo PRIVATE
     ${PROJECT_ALIAS}
-    Boost::boost)
+    Boost::boost
+    ${PROJECT_SPDLOG_TARGET})
 
 target_include_directories(component_attachment_demo PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}"
     "${ONEQ_EXAMPLE_COMMON_DIR}")
 
-# 共享配置 JSON（与 behavior_layer 同源 examples/configs/）。
+# 共享配置 JSON（与 behavior_layer 同源 examples/configs/）+ 默认输出目录
+# （demo_config.h 的 kDefaultOutputDir：仓库内 examples/component_attachment/log/，
+# 运行时产物不入版本控制，见 .gitignore）。
 target_compile_definitions(component_attachment_demo PRIVATE
-    SCENE_CONFIG_DIR="${CMAKE_SOURCE_DIR}/examples/configs")
+    SCENE_CONFIG_DIR="${CMAKE_SOURCE_DIR}/examples/configs"
+    CA_DEFAULT_OUTPUT_DIR="${CMAKE_SOURCE_DIR}/examples/component_attachment/log")
+
+# 集成端日志模式（编译期宏，见 components/demo_log_modes.h）：
+# CA_VIEW_LOG_MODE —— summary（每周期摘要）| nonnominal（只落非标称行）|
+#                    delta（跨周期增量，默认，同 demo_log_modes.h）
+# CA_EVENT_LOG_MODE —— all（逐条全量）| key（只记关键，默认，同 demo_log_modes.h）|
+#                      aggregate（周期聚合）
+# 不传（空）时用 demo_log_modes.h 源码默认；显式传值则覆盖源码默认。
+set(CA_VIEW_LOG_MODE "" CACHE STRING
+    "component_attachment 视图日志模式: summary|nonnominal|delta (空=用 demo_log_modes.h 默认)")
+set(CA_EVENT_LOG_MODE "" CACHE STRING
+    "component_attachment 事件日志模式: all|key|aggregate (空=用 demo_log_modes.h 默认)")
+
+if(CA_VIEW_LOG_MODE)
+    if(CA_VIEW_LOG_MODE STREQUAL "summary")
+        target_compile_definitions(component_attachment_demo PRIVATE CA_VIEW_LOG_MODE_SUMMARY)
+    elseif(CA_VIEW_LOG_MODE STREQUAL "nonnominal")
+        target_compile_definitions(component_attachment_demo PRIVATE CA_VIEW_LOG_MODE_NONNOMINAL)
+    elseif(CA_VIEW_LOG_MODE STREQUAL "delta")
+        target_compile_definitions(component_attachment_demo PRIVATE CA_VIEW_LOG_MODE_DELTA)
+    else()
+        message(FATAL_ERROR "CA_VIEW_LOG_MODE 非法值 '${CA_VIEW_LOG_MODE}'（可选 summary|nonnominal|delta）")
+    endif()
+endif()
+
+if(CA_EVENT_LOG_MODE)
+    if(CA_EVENT_LOG_MODE STREQUAL "all")
+        target_compile_definitions(component_attachment_demo PRIVATE CA_EVENT_LOG_MODE_ALL)
+    elseif(CA_EVENT_LOG_MODE STREQUAL "key")
+        target_compile_definitions(component_attachment_demo PRIVATE CA_EVENT_LOG_MODE_KEY)
+    elseif(CA_EVENT_LOG_MODE STREQUAL "aggregate")
+        target_compile_definitions(component_attachment_demo PRIVATE CA_EVENT_LOG_MODE_AGGREGATE)
+    else()
+        message(FATAL_ERROR "CA_EVENT_LOG_MODE 非法值 '${CA_EVENT_LOG_MODE}'（可选 all|key|aggregate）")
+    endif()
+endif()
 
 target_sources(component_attachment_demo PRIVATE ${ONEQ_EXAMPLE_COMMON_SOURCES})
 

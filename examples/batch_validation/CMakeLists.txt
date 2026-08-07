@@ -50,7 +50,7 @@ target_compile_definitions(sar_batch_validation PRIVATE
 target_sources(sar_batch_validation PRIVATE ${ONEQ_EXAMPLE_COMMON_SOURCES})
 
 # SBIRS 批量验证：配置与输入均通过公开 POD / builder 构造，无私有 config loader。
-# 共享 CSV 工具与 DebugView JSON 序列化器位于 examples/common/（ONEQ_EXAMPLE_COMMON_DIR）。
+# 共享 CSV 工具位于 examples/common/（ONEQ_EXAMPLE_COMMON_DIR）。
 add_executable(sbirs_batch_validation sbirs_batch_validation.cpp)
 target_link_libraries(sbirs_batch_validation PRIVATE ${PROJECT_ALIAS})
 target_include_directories(sbirs_batch_validation PRIVATE

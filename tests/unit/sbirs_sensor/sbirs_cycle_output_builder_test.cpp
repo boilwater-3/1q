@@ -139,6 +139,46 @@ sbirs_sensor::session::SbirsCycleResult TrackingGateLossResultForTarget(std::uin
   return result;
 }
 
+TEST(SbirsCycleOutputBuilderTest, DebugViewBackfillsInputAnglesWhenNotInOutput) {
+  // 规则 12 输入实体回填：无归属记录（kNotInOutput）的目标回填 input 侧
+  // ECEF 极坐标量值（与检测记录同参考系），未检测也可见目标角度。
+  sbirs_sensor::session::SbirsCycleInput input = InputWithTarget(1U);  // 卫星 (7e6,0,0)
+  input.scene[0].position_ecef_m = Vector(0.0, 8000000.0, 8000000.0);
+  sbirs_sensor::session::SbirsCycleResult result;
+  result.input_cycle_index = 1U;
+  result.output_frame.cycle_index = 1U;
+  result.executed_this_cycle = true;
+
+  const sbirs_sensor::session::SbirsOutputDebugView view =
+      sbirs_sensor::session::SbirsOutputDebugViewBuilder::Build(input, result);
+
+  ASSERT_EQ(view.targets.size(), 1U);
+  EXPECT_EQ(view.targets[0].status,
+            sbirs_sensor::session::SbirsDebugTargetStatus::kNotInOutput);
+  // 视线向量 = 目标 − 卫星 = (−7e6, 8e6, 8e6)：az = atan2(8,−7) ≈ 131.2°、
+  // el = asin(8/√177) ≈ 36.96°（ECEF 极坐标，与检测记录同参考系）。
+  EXPECT_NEAR(view.targets[0].azimuth_deg, 131.19f, 0.1f);
+  EXPECT_NEAR(view.targets[0].elevation_deg, 36.96f, 0.1f);
+}
+
+TEST(SbirsCycleOutputBuilderTest, NonExecutedCycleBackfillsInputAngles) {
+  // 规则 12 输入实体回填：未执行周期同样回填视线 ECEF 极坐标量值。
+  sbirs_sensor::session::SbirsCycleInput input = InputWithTarget(1U);  // 卫星 (7e6,0,0)
+  input.scene[0].position_ecef_m = Vector(0.0, 8000000.0, 8000000.0);
+  sbirs_sensor::session::SbirsCycleResult rejected;
+  rejected.input_cycle_index = 1U;
+  rejected.executed_this_cycle = false;
+
+  const sbirs_sensor::session::SbirsOutputDebugView view =
+      sbirs_sensor::session::SbirsOutputDebugViewBuilder::Build(input, rejected);
+
+  ASSERT_EQ(view.targets.size(), 1U);
+  EXPECT_EQ(view.targets[0].status,
+            sbirs_sensor::session::SbirsDebugTargetStatus::kCycleNotExecuted);
+  EXPECT_NEAR(view.targets[0].azimuth_deg, 131.19f, 0.1f);
+  EXPECT_NEAR(view.targets[0].elevation_deg, 36.96f, 0.1f);
+}
+
 TEST(SbirsCycleOutputBuilderTest, NativeFrameHelperAcceptsSbirsDetectionShape) {
   sbirs_sensor::session::SbirsOutputFrame frame;
   sbirs_sensor::output::SbirsDetectionRecord detection;
@@ -167,6 +207,9 @@ TEST(SbirsCycleOutputBuilderTest, DebugViewMapsDetectionAttributionBackToInputTa
   EXPECT_EQ(view.targets[0].tracking_source,
             sbirs_sensor::attribution::SbirsTrackingSource::kStrictTruthAssisted);
   EXPECT_FLOAT_EQ(view.targets[0].estimated_range_m, 1000000.0f);
+  // 记录观测值覆盖 input 推导值（input 目标 (8e6,0,0) 视线 az=0/el=0，记录为 2/3）。
+  EXPECT_FLOAT_EQ(view.targets[0].azimuth_deg, 2.0f);
+  EXPECT_FLOAT_EQ(view.targets[0].elevation_deg, 3.0f);
   EXPECT_TRUE(view.targets[0].has_estimation_nis);
   EXPECT_FLOAT_EQ(view.targets[0].estimation_nis, 1.5f);
   EXPECT_FALSE(view.targets[0].estimation_nis_gate_exceeded);
@@ -185,6 +228,9 @@ TEST(SbirsCycleOutputBuilderTest, DebugViewPreservesNisLossAttributionWithoutRaw
   EXPECT_EQ(view.targets[0].tracking_source,
             sbirs_sensor::attribution::SbirsTrackingSource::kEstimated);
   EXPECT_FLOAT_EQ(view.targets[0].estimated_range_m, 1000000.0f);
+  // 记录观测值覆盖 input 推导值（input 目标 (8e6,0,0) 视线 az=0/el=0，记录为 2/3）。
+  EXPECT_FLOAT_EQ(view.targets[0].azimuth_deg, 2.0f);
+  EXPECT_FLOAT_EQ(view.targets[0].elevation_deg, 3.0f);
   EXPECT_TRUE(view.targets[0].has_estimation_nis);
   EXPECT_FLOAT_EQ(view.targets[0].estimation_nis, 12.5f);
   EXPECT_TRUE(view.targets[0].estimation_nis_gate_exceeded);

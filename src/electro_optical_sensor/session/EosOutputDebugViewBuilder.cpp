@@ -31,6 +31,11 @@ EosDebugTargetState BuildTargetState(const EosSceneTarget& target, const EosCycl
   state.target_id = target.target_id;
   state.target_name = target.target_name;
   state.present_in_input = true;
+  // 输入实体回填（规则 12）：目标角度/距离为 input 侧真值，无论是否检测均
+  // 可见（检测记录存在时下方以记录观测值覆盖）；供调用方人读/结构化落盘。
+  state.range_m = target.range_m;
+  state.azimuth_deg = target.azimuth_deg;
+  state.elevation_deg = target.elevation_deg;
   if (!result.executed_this_cycle) {
     state.status = EosDebugTargetStatus::kCycleNotExecuted;
     return state;

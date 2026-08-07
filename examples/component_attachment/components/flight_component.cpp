@@ -2,14 +2,11 @@
  * @file flight_component.cpp
  * @brief 飞行组件实现：六自由度真实飞行（JSBSim）与运动学回退两路径。
  *
- * FD 门控参照 examples/flight_dynamic/takeoff_land_csv.cpp 的权威用法：
- * ONEQ_CA_FLIGHT_DYNAMIC_ENABLED 定义时以六自由度机动仿真推进（子步进
- * 10 × 100 ms）——初始地面静止（不做空中配平，do_trim=false；空中配平
- * 虽允许但存在不稳定问题），机动队列 = kTakeoff（滑跑→抬轮→爬升到
- * 巡航高度）→ 航路点巡航 → kLand，VehicleState（弧度 LLA / 真速 / psi
- * 航向）映射回度制状态；否则回退运动学近似（模拟起飞爬升 + 巡航直线）。
- * 航点完成判定统一用几何距离（haversine ≤ max(radius, 100 m)），FD 模式
- * 下机动队列 FSM 串行执行飞行、本判定仅维护进度簿记与事件发布。
+ * 1. ONEQ_CA_FLIGHT_DYNAMIC_ENABLED 定义时以六自由度机动仿真推进（子步进
+ *    10 ms，参照 takeoff_land_csv.cpp 权威用法：初始地面静止不做空中配平，
+ *    机动队列 = 起飞 → 航路点巡航 → 降落），VehicleState 映射回度制状态；
+ * 2. 否则回退运动学近似（模拟起飞爬升 + 巡航直线）；
+ * 3. 航点完成判定统一用几何距离（haversine ≤ max(radius, 100 m)）。
  */
 
 #include "flight_component.h"
@@ -22,6 +19,7 @@
 #include "1q/coordinate/position_transform.h"
 #include "core/events.h"
 #include "core/world.h"
+#include "demo_log.h"
 
 #if defined(ONEQ_CA_FLIGHT_DYNAMIC_ENABLED)
 #include "1q/flight_dynamic/FlightManager.h"
@@ -285,11 +283,7 @@ void FlightComponent::Step(World& world, double dt_sec) {
       while (next_index_ < route_.size()) {
         const std::size_t reached_index = next_index_;
         ++next_index_;
-        WaypointReachedEvent event;
-        event.t_sec = t_sec;
-        event.waypoint_index = reached_index;
-        event.distance_m = 0.0;  // 终端补发：无几何到达距离
-        world.signals().on_waypoint_reached(event);
+        EmitWaypointReached(world, reached_index, 0.0);  // 终端补发：无几何到达距离
       }
     }
   } else {
@@ -314,6 +308,10 @@ void FlightComponent::Step(World& world, double dt_sec) {
   event.speed_mps = speed_mps_;
   event.waypoint_index = next_index_;
   event.waypoint_count = route_.size();
+  // 平台状态事件每周期重复：事件模式一下不落盘（信号照常发布）。
+  CA_LOG_EVENT_DUP(world, "platform_state", "位置=({:.4f},{:.4f},{:.1f})m 航向={:.1f}° 速度={:.1f}m/s 航点={}/{}",
+                   event.position_ecef_m.x_m, event.position_ecef_m.y_m, event.altitude_m,
+                   event.heading_deg, event.speed_mps, event.waypoint_index, event.waypoint_count);
   world.signals().on_platform_state(event);
 }
 
@@ -334,12 +332,19 @@ void FlightComponent::CheckWaypointArrival(World& world, double t_sec) {
     const double distance_m = GreatCircleDistanceM(position_, route_[next_index_]);
     const std::size_t reached_index = next_index_;
     ++next_index_;
-    WaypointReachedEvent event;
-    event.t_sec = t_sec;
-    event.waypoint_index = reached_index;
-    event.distance_m = distance_m;
-    world.signals().on_waypoint_reached(event);
+    EmitWaypointReached(world, reached_index, distance_m);
   }
+}
+
+void FlightComponent::EmitWaypointReached(World& world, std::size_t reached_index,
+                                          double distance_m) {
+  WaypointReachedEvent event;
+  event.t_sec = world.scene_state().t_sec;
+  event.waypoint_index = reached_index;
+  event.distance_m = distance_m;
+  CA_LOG_EVENT(world, "waypoint_reached", "航点={} 到达距离={:.1f}m", event.waypoint_index,
+               event.distance_m);
+  world.signals().on_waypoint_reached(event);
 }
 
 }  // namespace component_attachment

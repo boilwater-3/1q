@@ -2,19 +2,17 @@
  * @file sar_sensor_component.h
  * @brief 自定义实体-组件示例：SAR（合成孔径雷达）产品组件。
  *
- * 组件封装 sar 模块会话：每周期从 FlightComponent 读取平台 LLA/NED 状态
- * （航向分解 + 零姿态，示例简化）、从共享场景状态读取 SAR 点目标真值，
- * 构建 SarCycleInput 驱动 SarSession 逐周期积累孔径。图像产品生命周期
- * 事件（产出/持续/丢失/失败）由库内 SarProductLifecycleRecorder 承担
- * （Attach 后 StepWithResult 内部自动驱动），组件转发为 World 信号
- * SarProductEvent。SAR 无探测输出（SarOutputFrame 仅为图像质量元数据，
- * 契约见 docs/review/Bahavior.md），不作为融合输入。
+ * 组件封装 sar 模块会话：驱动 SarSession 逐周期积累孔径产出图像产品；产品
+ * 生命周期事件（产出/持续/丢失/失败）由库内 recorder 差分产出，组件转发为
+ * World 信号。SAR 无探测输出（SarOutputFrame 仅为图像质量元数据），不作为
+ * 融合输入。
  */
 
 #ifndef EXAMPLES_COMPONENT_ATTACHMENT_COMPONENTS_SAR_SENSOR_COMPONENT_H_
 #define EXAMPLES_COMPONENT_ATTACHMENT_COMPONENTS_SAR_SENSOR_COMPONENT_H_
 
 #include "1q/sar/config/SarRuntimeConfigPatch.h"
+#include "1q/sar/session/SarProductDebugView.h"
 #include "1q/sar/session/SarProductLifecycleRecorder.h"
 #include "1q/sar/session/SarSession.h"
 #include "core/component.h"
@@ -44,6 +42,18 @@ class SarSensorComponent : public Component {
   bool powered_on() const { return powered_on_; }
 
   /**
+   * @brief 最近周期产品调试视图快照（规则 12 落盘示范；阶段型视图）。
+   *
+   * Step 每周期经 SarProductDebugViewBuilder::Build 回填（执行状态、完成阶段、
+   * L1/L3 成像标志、SNR、点目标与问题列表），供调用方结构化持久化到自己的
+   * 日志/事件系统；本示例每周期直写中文人读摘要行到集成端日志。
+   * @return 最近周期调试视图；关机周期清零（无有效周期），拒绝周期为对应快照。
+   */
+  const sar::session::SarProductDebugView& LastDebugView() const {
+    return last_debug_view_;
+  }
+
+  /**
    * @brief 运行时修改入口：包装 SarSession::TryApplyRuntimeConfig。
    *
    * SAR 为立即提交：补丁经校验一次生效（调用即生效，session 层无回滚）。
@@ -59,6 +69,10 @@ class SarSensorComponent : public Component {
   sar::session::SarSession session_;
   Entity* host_{nullptr};
   bool powered_on_{true}; /**< 电源状态（由 sensor_enabled 补丁唯一维护；关机时组件不驱动会话） */
+  sar::session::SarProductDebugView last_debug_view_{}; /**< 最近周期产品调试视图快照（规则 12 落盘） */
+
+  /// 调试视图中文人读摘要行写入（阶段型视图：单行摘要，见 .cpp）。
+  void LogDebugView(const sar::session::SarProductDebugView& view);
 };
 
 }  // namespace component_attachment

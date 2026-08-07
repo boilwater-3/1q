@@ -34,9 +34,15 @@ examples/component_attachment/
 │   ├── sbirs_sensor_component.h/.cpp SbirsSensorComponent：天基红外会话（第 4 融合通道）
 │   ├── sar_sensor_component.h/.cpp  SarSensorComponent：合成孔径雷达产品（不入融合）
 │   ├── fusion_component.h/.cpp      FusionComponent：多源融合引擎
+│   ├── demo_log.h/.cpp              集成端日志设施（CA_LOG_EVENT / CA_LOG_EVENT_DUP / CA_LOG_VIEW 宏 → 事件/视图两个命名 logger → integration_events.log / integration_views.log；并装配库日志 1q_library.log）
+│   ├── demo_log_modes.h             日志模式选择区（纯宏定义：视图/事件各三模式，宏门控不参与编译；默认跨周期增量+只记关键，可由 CMake 变量覆盖）
+│   ├── demo_log_i18n.h              issue code → 中文名适配表（纯查表零依赖；不翻译/不解析 message，量值走 DebugView 结构化字段；未知 code 回退英文原文）
 │   ├── sensor_utils.h               平台坐标转换（ECEF 解析）
 │   └── scene_types.h                DemoSceneState：共享场景状态（真值注入）
-├── component_attachment_demo.cpp    主程序（装配 + 事件日志 + CSV 导出）
+├── component_attachment_demo.cpp    主程序（装配与编排：实体/会话创建 + 周期循环 + 查询演示 + 冒烟断言）
+├── demo_config.h/.cpp               演示常量 + 五会话配置加载（含 EOS/SAR 业务调参覆写）
+├── scene_script.h/.cpp              世界模型目标真值脚本（目标脚本 → ECEF 状态 → 四通道周期真值 + 推进）
+├── demo_output.h/.cpp               输出落盘与事件消费（DemoOutputs 平台轨迹 CSV / DecisionListener 事件链）
 ├── CMakeLists.txt
 └── README.md
 ```
@@ -110,6 +116,74 @@ boost::signals2::scoped_connection conn =
 两种通信形态同时演示：**周期内同步数据聚合**用组件类型化访问；**跨周期通知 /
 记录**走信号（事件）。
 
+### 事件日志与调试视图落盘（components/demo_log.h，外部集成惯用法）
+
+**两个日志模块**，输出到两个文件（与库内部 `src/common/logging/ProjectLog.h`
+区分——库日志走 spdlog 默认 logger，宿主拥有 logger 生命周期）：
+
+| 模块 | 后端 | 输出文件 |
+| --- | --- | --- |
+| **库内部日志** | 库内 `PROJECT_LOG_*` 宏 → spdlog 默认 logger（`InitIntegrationLog` 装配为文件 sink） | `1q_library.log`（时间戳 + 级别 + 消息） |
+| **集成端日志** | spdlog 命名 logger `"integration_events"` / `"integration_views"`（均带 stdout，pattern 仅为消息体） | `integration_events.log`（事件行）+ `integration_views.log`（各组件每周期调试视图行） |
+
+集成端日志的字符串**归属组件源文件**（事件产生处），通过日志宏就地填充——
+外部集成的典型形态（宏背后接消费方自己的日志/落盘设施；本示例直接使用
+conanfile 的 spdlog 依赖，fmt 风格 `{}` 格式化，编译期格式检查）。**日志内容为
+中文人读文本**（给人类看，不做结构化落盘；规则 12 的结构化持久化由外部集成方
+接入自己的日志/事件系统）：
+
+```cpp
+// 组件源文件内（发布信号前）
+CA_LOG_EVENT(world, "target_confirmed", "目标={} 位置=({:.5f},{:.5f})",
+             static_cast<unsigned long long>(confirmed.target_id),
+             confirmed.position.latitude_deg, confirmed.position.longitude_deg);
+world.signals().on_target_confirmed(confirmed);
+```
+
+`CA_LOG_EVENT(world, type, ...)` 的 cycle/t_sec 取自共享场景状态（与事件字段
+同源），背后设施把事件行（`[事件:type] 周期=... 时间=...s 中文详情`）写入
+`integration_events.log` 并打印控制台，另维护事件计数（摘要/冒烟断言用）。事件宏分两类：
+`CA_LOG_EVENT`（关键事件：确认/丢失/首发现/产出/失败/航点/指令等）与
+`CA_LOG_EVENT_DUP`（周期性重复事件：每周期平台状态、`kUpdated`/`kProductSustained`
+更新类、辐射源假设、融合更新——仅在事件模式一（KEY）下不落盘，信号照常发布）。
+集成方替换该设施即接入自己的日志系统；单元测试不初始化日志设施，宏调用静默跳过
+（no-op）。
+
+**调试视图落盘在组件内直写**（规则 12）：各传感器组件（AR/EOS/SBIRS/SAR）的
+`Step` 在构建 `LastDebugView()` 后直写中文人读行到集成端视图日志
+（`integration_views.log`）——日志给人读，示例不做结构化落盘：`session_contract.md` 规则 12 的"调用方结构化持久化
+DebugView"由外部集成方接入自己的日志/事件系统实现，结构化格式与字段布局由
+调用方自定（参考 `*OutputDebugView` 字段集合直接转写）。
+
+**日志三模式（宏门控，编译期）**：DebugView 每周期都会产生，落盘多少、怎么落
+由集成方决定——`components/demo_log_modes.h` 顶部"模式选择区"示范三种常见写入方式，
+未选中的模式**不参与编译**。模式选择有两条途径（互斥）：
+1. **CMake 构建时控制**（推荐，无需改源码）：`-DCA_VIEW_LOG_MODE=summary|nonnominal|delta`
+   `-DCA_EVENT_LOG_MODE=all|key|aggregate`（不传则用源码默认；非法值 FATAL_ERROR）；
+2. **源码调试时**：改 `demo_log_modes.h` 里的注释（每次只启用一个视图模式 +
+   一个事件模式）重新编译。
+
+默认模式：**视图模式二（跨周期增量）+ 事件模式一（只记关键事件）**：
+
+| 模式 | 宏 | 行为 |
+| --- | --- | --- |
+| 视图模式一（只落非标称行） | `CA_VIEW_LOG_MODE_NONNOMINAL` | 每周期只把非标称目标（AR 非 `kConfirmed`；EOS/SBIRS 非 `kDetected`）逐行写日志，全标称时写一行"全部正常"；日志量 ∝ 异常数 |
+| 视图模式二（跨周期状态增量，**默认**） | `CA_VIEW_LOG_MODE_DELTA` | 只写状态与上一周期不同的目标行（上一周期状态表由组件持有）；无变化时写一行"无状态变化"；日志量 ∝ 变化数 |
+| 视图模式三（每周期摘要行） | `CA_VIEW_LOG_MODE_SUMMARY` | 每周期一行中文摘要（周期/完成与否/目标状态明细带**结构化量值**——方位/俯仰/距离/RCS，库 DebugView 输入实体回填，未检测也可见；问题列表为 **code + 中文名**（`demo_log_i18n.h` 查表，未知 code 回退英文 message 原文，不翻译/不解析 message），日志量恒定） |
+| 事件模式一（只记关键事件，**默认**） | `CA_EVENT_LOG_MODE_KEY` | `CA_LOG_EVENT` 逐条落盘，`CA_LOG_EVENT_DUP`（周期性重复事件）不落盘 |
+| 事件模式二（周期聚合） | `CA_EVENT_LOG_MODE_AGGREGATE` | 每周期把全部事件聚合为一行（`[事件聚合] 周期=N 事件数=M [中文名×次数, ...]`） |
+| 事件模式三（逐条全量） | `CA_EVENT_LOG_MODE_ALL` | 事件逐条落盘 |
+
+SAR 为**阶段型视图**（无逐目标状态），不适用目标级三模式落盘，只实现每周期
+摘要行（执行状态/完成阶段/L1/L3 成像标志/SNR/点目标数/问题列表）。
+
+**Lifecycle 事件字符串化**：库内 `*LifecycleRecorder` 产出的生命周期事件
+（`GetLastEvents()`，如 AR 首确认/失跟、EOS/SBIRS 首发现/丢失、SAR 产品事件）
+为纯 struct、库内无字符串化工具——其"转字符串写日志"由各组件源文件内宏的
+手写中文格式串承担（`"类型=首发现 探测ID={} 目标={} 信噪比={:.1f}dB 方位={:.1f}°"`
+等，kind/status 枚举在组件内做中文名映射），字符串归属组件（组件自描述）；
+DebugView 同理以组件内摘要行直写，示例层不内置 JSON 序列化器。
+
 ## 模块 → 组件映射
 
 | 组件 | 封装库模块 | 周期行为 | 发布信号 |
@@ -119,7 +193,7 @@ boost::signals2::scoped_connection conn =
 | `EsrSensorComponent` | electronic_surveillance_radar（EsrSession） | 假设 → `DetectionRecord`（key=假设键，方位+射频特征） | on_emitter_hypothesis |
 | `EosSensorComponent` | electro_optical_sensor（EosSession + EosCycleInputAdapter + EosDetectionLifecycleRecorder） | 探测 → `DetectionRecord`（key=0，仅方位）；首发现/更新/丢失事件由库内 recorder 差分产生 | on_eos_detection |
 | `SbirsSensorComponent` | sbirs_sensor（SbirsSession + SbirsDetectionLifecycleRecorder） | 探测 → `DetectionRecord`（key=0，仅方位，与 EOS 同构）；首发现/更新/coasting/丢失事件由库内 recorder 差分产生 | on_sbirs_detection |
-| `SarSensorComponent` | sar（SarSession + SarProductLifecycleRecorder） | 孔径积累成像；产品生命周期事件由库内 recorder 差分产生（**无探测输出，不入融合**，契约见 docs/review/Bahavior.md） | on_sar_product |
+| `SarSensorComponent` | sar（SarSession + SarProductLifecycleRecorder） | 孔径积累成像；产品生命周期事件由库内 recorder 差分产生（**无探测输出，不入融合**，契约见 docs/review/Bahavior.md）；阶段型调试视图每周期直写摘要行 | on_sar_product |
 | `FusionComponent` | fusion（FusionEngine） | 聚合四传感器探测一次 `Update`；新/消失差分 | on_fusion_updated |
 
 ## 运行时修改接口
@@ -158,10 +232,16 @@ patch 只改会话配置）。
 | `SbirsSensorComponent` | `bool powered_on()` | `float scan_azimuth_deg()`（deg，ECEF 极坐标参考） |
 | `SarSensorComponent` | `bool powered_on()` | —（无扫描方位概念） |
 
-`SbirsSensorComponent` 另暴露 `const SbirsOutputDebugView& LastDebugView()`——最近周期
-调试视图快照（规则 12 落盘示范：per-target 状态 + 规则 13b kInfo 排除诊断；关机周期
-清零，拒绝周期为 `kCycleNotExecuted`）。demo 每周期经 `examples/common/SbirsDebugViewToJson.h`
-序列化为一行 JSON 写入 `sbirs_debug_view.jsonl`（见「输出」表）。
+有 DebugView 的四个组件（AR/EOS/SBIRS 目标列表型 + SAR 阶段型）另暴露
+`const *OutputDebugView& LastDebugView()`——最近周期调试视图快照（规则 12 落盘示范：
+per-target 状态 + 规则 13b kInfo 排除诊断；关机周期清零，拒绝周期为
+`kCycleNotCompleted`/`kCycleNotExecuted` 快照）。组件在 `Step` 内取该视图
+直写中文人读行到集成端视图日志 `integration_views.log`（每周期一行，如
+`[视图:ar] 周期=5 完成=是 目标=[1001 已确认(RCS 2.20m²)] 问题=[ar.target_snr_below_threshold 目标信噪比低于门限]`；
+SAR 为阶段型摘要行）——日志给人读，结构化持久化由外部集成方接入自己的
+日志/事件系统实现（示例不内置 JSON 序列化器）。落盘密度（三模式）由
+`components/demo_log_modes.h` 模式选择区宏控制。ESR 库内无 DebugView，不适用
+视图落盘。
 
 **组件层电源门控**：电源状态由 `sensor_enabled` 补丁唯一维护（`TryApplyRuntimeConfig`
 成功且带 `has_sensor_enabled` 时更新，拒绝的补丁不改状态）。关机时组件**不驱动
@@ -190,7 +270,7 @@ patch 只改会话配置）。
                   → 发布 FusionUpdatedEvent
   订阅者（demo 侧）：
     DecisionListener → 置信度 ≥ 3.0 → 发布 CommandIssuedEvent（事件链）
-    EventLogger      → 全部信号 → 控制台 + events.csv
+    组件宏（CA_LOG_EVENT / CA_LOG_VIEW）→ 事件与视图摘要就地记录 → integration_events.log / integration_views.log（人读行）
 ```
 
 ## 场景设计：六自由度机动从起飞开始
@@ -212,11 +292,13 @@ patch 只改会话配置）。
 ±5 m/s 提供两目标分离与 AR 径向速度）。目标方位（正北）落在 EOS 扫描覆盖内
 （平台局部系 az 0 = 东，扫描 50°~130°，覆盖正北 az 90°）。EOS 探测距离窗
 ≈ [11.5, 22.9] km（400 m 高度 × 俯仰角 2°/1°），目标斜距全程稳定在窗内
-（起飞爬升期平台高度不足、窗口窄，探测从爬升后期开始）。FD 模式实测：起飞
-~157 s 完成、航点 0 在演示窗口内到达（`waypoint_reached` 事件）、EOS 生命
-周期事件 ~240 条（首发现/丢失各 ~120 次）；运动学模式下 3 个航点全部到达、
-EOS 探测记录 ~177 次。事件目标 ID 为外部原始目标标识（1001/1002），无外部
-标识时回退 AR 内部关联键。
+（起飞爬升期平台高度不足、窗口窄，探测从爬升后期开始）。FD 模式实测（目标
+位置修复后）：起飞 ~157 s 完成、航点 0 在演示窗口内到达（`waypoint_reached`
+事件）、EOS 生命周期事件 ~300 条（首发现/丢失各 ~150 次，cycle 101 起——
+起飞段平台向西北爬升（FD 实际航迹 hdg 293°→358°），目标相对平台方位从 90°
+快速扫到 ~59°，cycle 1-100 恰好不在扫描波束窗内）；运动学模式下 3 个航点
+全部到达、EOS 探测记录 ~177 次。事件目标 ID 为外部原始目标标识（1001/1002），
+无外部标识时回退 AR 内部关联键。
 
 ### 天基通道（SBIRS / SAR）场景设计
 
@@ -237,7 +319,9 @@ EOS 探测记录 ~177 次。事件目标 ID 为外部原始目标标识（1001/1
   一条，**预期行为**：真实系统在几何不满足时同样不成像）。
 - **SAR 链路预算**：目标 RCS 仅 2.2/1.4 m²，在 sar.json 的 10 kW 峰值功率 +
   30 dBi 天线下 13 km 斜距链路 SNR ≈ −29 dB（低于 minimum_snr_db）→ demo
-  覆写峰值功率 1 MW、天线增益 40 dBi（SAR 常用量级），SNR ≈ +10 dB 过门限；
+  覆写峰值功率 1 MW、天线增益 40 dBi（SAR 常用量级）；目标位置修复后点目标
+  回到场景中心附近真实位置（正北 12/14 km、400 m 高，斜距 ≈ 13 km），实测
+  成像期 SNR ≈ 1.5~5.3 dB（高于 minimum_snr_db，L1 成像成立）；
   孔径 1024 脉冲 @ PRF 100 Hz ≈ 10.24 s 积累，逐周期滚动成像。
 - **SAR 平台状态简化**：组件从 FlightComponent 读 LLA 位置与航向/速度，航向
   分解为 NED 速度（北/东分量），**姿态零假设**（roll/pitch 0、yaw = 航向）
@@ -265,17 +349,27 @@ cmake --build --preset llvm-ninja-release-local --target component_attachment_de
 ```
 
 - `--cycles <n>`：仿真周期数（默认 400）；
-- `--output-dir <dir>`：CSV 输出目录（默认 `/tmp/component_attachment_viz`）；
+- `--output-dir <dir>`：输出目录（日志 + CSV，默认 `examples/component_attachment/log/`
+  ——CMake 注入的仓库内绝对路径，运行时产物不入版本控制，见 .gitignore）；
+- 日志模式可在 configure 时用 CMake 变量控制（不传则用默认：视图跨周期增量 +
+  事件只记关键）：
+  ```bash
+  cmake --preset llvm-ninja-release-local -DENABLE_EXAMPLES=ON \
+      -DCA_VIEW_LOG_MODE=summary -DCA_EVENT_LOG_MODE=aggregate
+  ```
 - FD 开启时输出 `FlightComponent` 的六自由度机动日志（JSBSim），关闭/失败时
   打印回退告警并走运动学路径。
+- 本示例依赖 spdlog（conanfile 非 Windows 依赖），Windows 构建不纳入
+  （examples/component_attachment/CMakeLists.txt 门控）。
 
 ## 输出
 
-| 文件 | 列 | 说明 |
+| 文件 | 内容 | 说明 |
 | --- | --- | --- |
+| `integration_events.log` | 每行一条人读记录 | **集成端事件日志**（spdlog 命名 logger `"integration_events"`）：事件行 `[事件:type] 周期=... 时间=...s 中文详情`（10 类事件，字符串归属组件源文件，`CA_LOG_EVENT` / `CA_LOG_EVENT_DUP` 宏；事件模式二为 `[事件聚合]` 行） |
+| `integration_views.log` | 每行一条人读记录 | **集成端视图日志**（spdlog 命名 logger `"integration_views"`）：AR/EOS/SBIRS/SAR 四组件每周期调试视图行 `[视图:module] 中文摘要`（`CA_LOG_VIEW` 宏；日志给人读，落盘密度三模式由宏门控，见"事件日志与调试视图落盘"节） |
+| `1q_library.log` | 人读日志行 | **库内部日志**：库内 `PROJECT_LOG_*` 宏 → spdlog 默认 logger（时间戳 + 级别 + 消息），`InitIntegrationLog` 装配 |
 | `platform_track.csv` | cycle,t_sec,lat_deg,lon_deg,alt_m,heading_deg,speed_mps,wp_index | 平台轨迹（每周期一行；FD 模式含起飞爬升段） |
-| `events.csv` | cycle,t_sec,event_type,detail | 事件流（10 类事件；detail 为可读摘要） |
-| `sbirs_debug_view.jsonl` | 每行一条 JSON | SBIRS 每周期调试视图（规则 12 落盘示范：per-target 状态与规则 13b kInfo 排除诊断；序列化见 `examples/common/SbirsDebugViewToJson.h`） |
 
 控制台输出每周期一行摘要（平台高度/航向/速度/航点进度 + 融合目标数），事件
 逐条打印；结束打印汇总（实体数/组件数/事件数/指令是否下发）。
@@ -305,7 +399,12 @@ JSON）与同一套探测适配逻辑（`sensor_adapt.h` 与行为层 `systems.c
 - `tests/unit/examples/ecs_component_runtime_test.cpp`：组件运行时修改接口单测
   （AR 合法/非法 patch 的接受与原子拒绝、ESR 立即提交 + 结构化拒绝状态码、
   EOS 立即提交 + 整补丁拒绝、SBIRS/SAR 立即提交 + 整补丁拒绝、FlightComponent
-  机动入口在 FD 可用/不可用时的返回语义）；
-- ctest `examples::component_attachment_demo`：demo 冒烟（400 周期 + CSV 落盘 +
-  最小产出断言：事件数 ≥ 周期数、SBIRS 探测事件 ≥ 1、SAR 产品事件 ≥ 1、
-  融合目标 ≥ 1、平台轨迹行数 = 周期数）。
+  机动入口在 FD 可用/不可用时的返回语义）+ 状态查询与调试视图单测（开关机/
+  扫描方位、AR/EOS/SBIRS/SAR 四通道 `LastDebugView()` 逐目标/阶段型状态与
+  13b kInfo 排除诊断、关机清零、SBIRS 关机冻结相位）；
+- ctest `examples::component_attachment_demo`：demo 冒烟（400 周期 + 日志/CSV
+  落盘 + 最小产出断言：关键事件 ≥ 1、SBIRS 关键探测事件 ≥ 1、SAR 关键产品事件
+  ≥ 1、融合目标 ≥ 1、平台轨迹行数 = 周期数、视图行数每周期 ≥ 1 行（AR/EOS/
+  SBIRS 为 ≥ 周期数——默认跨周期增量模式下状态变化周期会写多行；SAR 阶段型
+  摘要恒每周期一行 == 周期数））。**断言与日志模式无关**：任意视图/事件模式
+  组合（含 CMake `-DCA_*_LOG_MODE=...` 切换）下冒烟均成立。

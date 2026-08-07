@@ -33,6 +33,9 @@ ArDebugTrackState BuildTrackState(const ArTargetInput& target,
   state.external_target_id = target.target_id;
   state.target_name = target.target_name;
   state.present_in_input = true;
+  // 输入实体回填（规则 12）：无轨迹/未完成周期时以 input 侧 RCS 真值填充
+  // （轨迹位置为雷达局部系，input 为 ECEF，不跨参考系回填）。
+  state.rcs = target.rcs;
   if (cycle_result.status != ArCycleStatus::kCompleted) {
     state.status = ArDebugTrackStatus::kCycleNotCompleted;
     return state;

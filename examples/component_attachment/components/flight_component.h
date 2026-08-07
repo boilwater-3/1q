@@ -90,6 +90,8 @@ class FlightComponent : public Component {
   bool Abort();
 
  private:
+  /// 航点完成判定并发布 WaypointReachedEvent（含事件日志宏记录）。
+  void EmitWaypointReached(World& world, std::size_t reached_index, double distance_m);
   void CheckWaypointArrival(World& world, double t_sec);
   void AdvanceKinematicsFallback(double dt_sec);
 

@@ -198,6 +198,16 @@ TEST(EosCycleOutputBuilderTest, DebugViewMergesRawOutputWithInputTargets) {
   eos_session::EosSceneTarget outside_fov_target;
   outside_fov_target.target_id = 3U;
   outside_fov_target.target_name = "outside";
+  // input 侧量值（规则 12 输入实体回填：无检测记录的目标也应可见量值）。
+  detected_target.range_m = 1400.0f;
+  detected_target.azimuth_deg = 10.0f;
+  detected_target.elevation_deg = 2.0f;
+  below_threshold_target.range_m = 1450.0f;
+  below_threshold_target.azimuth_deg = 11.0f;
+  below_threshold_target.elevation_deg = 3.0f;
+  outside_fov_target.range_m = 9999.0f;
+  outside_fov_target.azimuth_deg = 123.0f;
+  outside_fov_target.elevation_deg = -56.0f;
   input.scene = {detected_target, below_threshold_target, outside_fov_target};
 
   eos_session::EosCycleResult result;
@@ -236,6 +246,36 @@ TEST(EosCycleOutputBuilderTest, DebugViewMergesRawOutputWithInputTargets) {
   EXPECT_TRUE(view.targets[1].has_raw_output_record);
   EXPECT_EQ(view.targets[2].status, eos_session::EosDebugTargetStatus::kNotInOutput);
   EXPECT_FALSE(view.targets[2].has_raw_output_record);
+  // 输入实体回填：有检测记录的目标量值以记录观测值为准，无记录目标回填
+  // input 侧真值（未检测也可见目标角度/距离）。
+  EXPECT_FLOAT_EQ(view.targets[0].range_m, 1500.0f);  // record 值覆盖 input 1400
+  EXPECT_FLOAT_EQ(view.targets[2].range_m, 9999.0f);  // 无记录：input 真值
+  EXPECT_FLOAT_EQ(view.targets[2].azimuth_deg, 123.0f);
+  EXPECT_FLOAT_EQ(view.targets[2].elevation_deg, -56.0f);
+}
+
+TEST(EosCycleOutputBuilderTest, NonExecutedCycleBackfillsInputQuantities) {
+  // 规则 12 输入实体回填：未执行周期（kCycleNotExecuted）同样回填 input 侧
+  // 目标量值——调用方在拒绝周期也能看到目标角度/距离。
+  eos_session::EosCycleInput input;
+  eos_session::EosSceneTarget target;
+  target.target_id = 12U;
+  target.range_m = 5000.0f;
+  target.azimuth_deg = 30.0f;
+  target.elevation_deg = -2.0f;
+  input.scene.push_back(target);
+  eos_session::EosCycleResult rejected;
+  rejected.input_cycle_index = 2U;
+  rejected.executed_this_cycle = false;
+
+  const eos_session::EosOutputDebugView view =
+      eos_session::EosOutputDebugViewBuilder::Build(input, rejected);
+
+  ASSERT_EQ(view.targets.size(), 1U);
+  EXPECT_EQ(view.targets[0].status, eos_session::EosDebugTargetStatus::kCycleNotExecuted);
+  EXPECT_FLOAT_EQ(view.targets[0].range_m, 5000.0f);
+  EXPECT_FLOAT_EQ(view.targets[0].azimuth_deg, 30.0f);
+  EXPECT_FLOAT_EQ(view.targets[0].elevation_deg, -2.0f);
 }
 
 TEST(EosCycleOutputBuilderTest, LifecycleRecorderTracksFoundLostAndOptionalNotDetected) {

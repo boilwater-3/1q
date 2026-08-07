@@ -87,3 +87,6 @@ src/airborne_radar/signal/Stone-Soup/
 
 # Local working documents (not tracked)
 Work/
+
+# component_attachment 示例运行时日志/CSV 产物（默认输出目录）
+examples/component_attachment/log/

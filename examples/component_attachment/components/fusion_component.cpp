@@ -2,10 +2,11 @@
  * @file fusion_component.cpp
  * @brief 融合组件实现（多源聚合 + 态势差分）。
  *
- * 与行为层 recon_system 的融合段同构：聚合三传感器组件本周期探测记录
- * 一次 Update（同周期同时间戳，多源时间对齐即业务层职责）；新/消失
- * 目标按 key 集合差分（N 很小，O(N²) 即可；FusedTarget 按 key 升序）。
- * 每个融合目标经 World 信号发布 FusionUpdatedEvent（含通道样本构成）。
+ * 1. 聚合四传感器组件本周期探测记录，一次 FusionEngine::Update（同周期同时间
+ *    戳，多源时间对齐即业务层职责）；
+ * 2. 新/消失目标按 key 集合差分（N 很小，O(N²) 即可）；
+ * 3. 每个融合目标经 World 信号发布 FusionUpdatedEvent（含通道样本构成），
+ *    事件直写集成端日志（中文人读行）。
  */
 
 #include "fusion_component.h"
@@ -15,6 +16,7 @@
 
 #include "core/events.h"
 #include "core/world.h"
+#include "demo_log.h"
 #include "ar_sensor_component.h"
 #include "eos_sensor_component.h"
 #include "esr_sensor_component.h"
@@ -88,6 +90,15 @@ void FusionComponent::Step(World& world, double dt_sec) {
     }
     event.new_targets = new_count;
     event.lost_targets = lost_count;
+    // 融合态势事件每周期重复（目标恒在时）：事件模式一下不落盘（信号照常发布）。
+    std::string channels;
+    for (const auto& channel : event.channels) {
+      if (!channels.empty()) channels += ",";
+      channels += spdlog::fmt_lib::format("{}:{}", channel.first, channel.second);
+    }
+    CA_LOG_EVENT_DUP(world, "fusion_updated", "键={} 置信={:.2f} 新增={} 消失={} 通道=[{}]",
+                     static_cast<unsigned long long>(event.key), event.confidence,
+                     event.new_targets, event.lost_targets, channels.c_str());
     world.signals().on_fusion_updated(event);
   }
 }

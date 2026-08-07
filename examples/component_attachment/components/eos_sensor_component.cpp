@@ -2,12 +2,11 @@
  * @file eos_sensor_component.cpp
  * @brief EOS 传感器组件实现（会话驱动 + 探测生命周期事件转发）。
  *
- * 驱动模式与行为层 recon_system::DriveEosSession 同构：EosCycleInputAdapter
- * 一步构建周期输入（零姿态：共享平台局部系，方位可直接相干比较），
- * 输出探测适配为泛型探测记录（sensor_utils.h）。探测生命周期事件（首发
- * 现/更新/丢失）由库内 EosDetectionLifecycleRecorder 承担（Attach 后
- * StepWithResult 内部自动驱动），组件把差分事件经归属映射关联目标 ID
- * 后发布 EosDetectionEvent（kind 标注生命周期类型）。
+ * 1. EosCycleInputAdapter 一步构建周期输入（零姿态共享平台局部系），驱动
+ *    EosSession，输出探测适配为泛型探测记录（sensor_utils.h）；
+ * 2. 探测事件（首发现/更新/丢失）由库内 EosDetectionLifecycleRecorder 差分
+ *    产出，组件经归属映射关联目标 ID 后发布 EosDetectionEvent；
+ * 3. 事件与调试视图直写集成端日志（CA_LOG_EVENT / CA_LOG_VIEW，中文人读行）。
  */
 
 #include "eos_sensor_component.h"
@@ -15,6 +14,8 @@
 #include "1q/electro_optical_sensor/session/EosCycleInputAdapter.h"
 #include "1q/electro_optical_sensor/session/EosCycleResult.h"
 #include "core/events.h"
+#include "demo_log.h"
+#include "demo_log_i18n.h"
 #include "flight_component.h"
 #include "core/world.h"
 #include "scene_types.h"
@@ -53,6 +54,34 @@ EosDetectionEventKind ToDemoKind(
   return EosDetectionEventKind::kUpdated;
 }
 
+/// 示例事件类型 → 中文名（人读日志）。
+const char* EosEventKindName(EosDetectionEventKind kind) {
+  switch (kind) {
+    case EosDetectionEventKind::kFirstDetected:
+      return "首发现";
+    case EosDetectionEventKind::kUpdated:
+      return "更新";
+    case EosDetectionEventKind::kLost:
+      return "丢失";
+  }
+  return "未知";
+}
+
+/// 调试目标状态 → 中文名（人读日志）。
+const char* EosTargetStatusName(electro_optical_sensor::session::EosDebugTargetStatus status) {
+  switch (status) {
+    case electro_optical_sensor::session::EosDebugTargetStatus::kDetected:
+      return "已检测";
+    case electro_optical_sensor::session::EosDebugTargetStatus::kObservedBelowThreshold:
+      return "低于门限";
+    case electro_optical_sensor::session::EosDebugTargetStatus::kNotInOutput:
+      return "不在输出";
+    case electro_optical_sensor::session::EosDebugTargetStatus::kCycleNotExecuted:
+      return "周期未执行";
+  }
+  return "未知";
+}
+
 }  // namespace
 
 EosSensorComponent::EosSensorComponent(electro_optical_sensor::session::EosSession session)
@@ -70,11 +99,71 @@ bool EosSensorComponent::TryApplyRuntimeConfig(
   return applied;
 }
 
+// 视图行写入（三模式，宏门控——未选中的模式不参与编译，见 demo_log.h 模式选择
+// 区）。DebugView 每周期都构建，落多少、怎么落由集成方按需求选择。
+void EosSensorComponent::LogDebugView(
+    const electro_optical_sensor::session::EosOutputDebugView& view) {
+#if defined(CA_VIEW_LOG_MODE_NONNOMINAL)
+  // 模式一（只落非标称行）：跳过已检测（标称）目标，日志量 ∝ 异常数。
+  std::size_t non_nominal = 0U;
+  for (const auto& target : view.targets) {
+    if (target.status == electro_optical_sensor::session::EosDebugTargetStatus::kDetected) {
+      continue;
+    }
+    ++non_nominal;
+    CA_LOG_VIEW("eos", "周期={} 目标={} 状态={} 距离={:.1f}m 方位={:.1f}°",
+                view.input_cycle_index, target.target_id,
+                EosTargetStatusName(target.status), target.range_m, target.azimuth_deg);
+  }
+  if (non_nominal == 0U) {
+    CA_LOG_VIEW("eos", "周期={} 全部正常（{} 个目标均已检测）", view.input_cycle_index,
+                view.targets.size());
+  }
+#elif defined(CA_VIEW_LOG_MODE_DELTA)
+  // 模式二（跨周期状态增量）：上一周期状态表由组件持有（target_id → status），
+  // 首次出现视为变化；表只增不减，目标集长期收缩时调用方可按需清理。
+  std::size_t changed = 0U;
+  for (const auto& target : view.targets) {
+    const auto it = prev_target_status_.find(target.target_id);
+    if (it == prev_target_status_.end() || it->second != target.status) {
+      ++changed;
+      CA_LOG_VIEW("eos", "周期={} 目标={} 状态={}",
+                  view.input_cycle_index, target.target_id,
+                  EosTargetStatusName(target.status));
+    }
+    prev_target_status_[target.target_id] = target.status;
+  }
+  if (changed == 0U) {
+    CA_LOG_VIEW("eos", "周期={} 无状态变化", view.input_cycle_index);
+  }
+#else  // CA_VIEW_LOG_MODE_SUMMARY（默认）
+  // 模式三（每周期摘要行）：目标状态明细带结构化量值（input 回填，未检测也
+  // 可见目标角度/距离）+ 问题中文名，一眼可读。
+  std::string targets_text;
+  for (const auto& target : view.targets) {
+    if (!targets_text.empty()) {
+      targets_text += ", ";
+    }
+    targets_text += spdlog::fmt_lib::format("{} {}(方位{:.1f}° 俯仰{:.1f}° 距离{:.1f}km)",
+                                            target.target_id, EosTargetStatusName(target.status),
+                                            target.azimuth_deg, target.elevation_deg,
+                                            target.range_m / 1000.0);
+  }
+  const std::string issues_text = demo::FormatIssueText(view.issues);
+  CA_LOG_VIEW("eos", "周期={} 执行={} 目标=[{}] 问题=[{}]",
+              view.input_cycle_index, view.executed_this_cycle ? "是" : "否",
+              targets_text.empty() ? "无" : targets_text.c_str(),
+              issues_text.empty() ? "无" : issues_text.c_str());
+#endif  // CA_VIEW_LOG_MODE_*
+}
+
 void EosSensorComponent::Step(World& world, double dt_sec) {
   detections_.clear();
 
   if (!powered_on_) {
     scan_azimuth_deg_ = 0.0f;  // 关机：不驱动会话，角度无有效值（清零）
+    last_debug_view_ = electro_optical_sensor::session::EosOutputDebugView{};  // 关机：调试视图清零（无有效周期）
+    LogDebugView(last_debug_view_);
     return;
   }
 
@@ -99,16 +188,19 @@ void EosSensorComponent::Step(World& world, double dt_sec) {
   input.cycle_index = static_cast<std::uint32_t>(scene.cycle);
 
   const electro_optical_sensor::session::EosCycleResult result = session_.StepWithResult(input);
-  // 扫描方位随周期结果刷新：被拒绝周期输出帧为默认空帧 → 0。
-  scan_azimuth_deg_ = result.output_frame.scan_azimuth_deg;
+  scan_azimuth_deg_ = result.output_frame.scan_azimuth_deg;  // 扫描方位随周期结果刷新（拒绝周期为空帧 → 0）
+  // 规则 12 落盘示范：每周期构建调试视图快照（拒绝周期为 kCycleNotExecuted，
+  // 含规则 13b kInfo 排除诊断），供调用方结构化持久化；本示例经 LogDebugView
+  // 直写中文人读行（三模式由集成方按需选择）。
+  last_debug_view_ = electro_optical_sensor::session::EosOutputDebugViewBuilder::Build(input, result);
+  LogDebugView(last_debug_view_);
   if (result.status != electro_optical_sensor::session::EosCycleStatus::kCompleted) {
     return;  // 周期被拒绝：本周期无探测
   }
 
-  // 库内 recorder 已按跨周期状态差分产出本周期事件（首发现/更新/丢失）。
-  // recorder 事件无方位/探测 ID 字段：非丢失事件从本周期输出帧按归属目标
-  // 回查；丢失事件目标不在帧内，字段留默认。kNotDetected 诊断事件未开启，
-  // 显式跳过（防御）。
+  // 库内 recorder 已按跨周期状态差分产出本周期事件（首发现/更新/丢失）。recorder
+  // 事件无方位/探测 ID 字段：非丢失事件从本周期输出帧按归属目标回查；丢失事件
+  // 目标不在帧内，字段留默认。kNotDetected 诊断事件未开启，显式跳过（防御）。
   const auto& records = result.output_frame.detections;
   for (const auto& event : lifecycle_.GetLastEvents()) {
     if (event.kind == electro_optical_sensor::session::EosDetectionLifecycleEventKind::kNotDetected) {
@@ -131,6 +223,20 @@ void EosSensorComponent::Step(World& world, double dt_sec) {
           break;
         }
       }
+    }
+    if (eos_event.kind == EosDetectionEventKind::kUpdated) {
+      // 更新类事件每周期重复：事件模式一下不落盘（信号照常发布）。
+      CA_LOG_EVENT_DUP(world, "eos_detection", "类型={} 探测ID={} 目标={} 信噪比={:.1f}dB 方位={:.1f}°",
+                       EosEventKindName(eos_event.kind),
+                       static_cast<unsigned long long>(eos_event.detection_id),
+                       static_cast<unsigned long long>(eos_event.target_id), eos_event.snr_db,
+                       eos_event.az_deg);
+    } else {
+      CA_LOG_EVENT(world, "eos_detection", "类型={} 探测ID={} 目标={} 信噪比={:.1f}dB 方位={:.1f}°",
+                   EosEventKindName(eos_event.kind),
+                   static_cast<unsigned long long>(eos_event.detection_id),
+                   static_cast<unsigned long long>(eos_event.target_id), eos_event.snr_db,
+                   eos_event.az_deg);
     }
     world.signals().on_eos_detection(eos_event);
   }

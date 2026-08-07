@@ -2,12 +2,12 @@
  * @file sar_sensor_component.cpp
  * @brief SAR 产品组件实现（孔径积累驱动 + 产品生命周期事件转发）。
  *
- * 每周期从 FlightComponent 读取平台 LLA 位置与航向/速度，航向分解为 NED
- * 速度（北/东分量），姿态零假设（运动学回退与 FD 模式均未暴露姿态，示例
- * 简化，见 README"场景设计"）。点目标真值取自共享场景状态（LLA + RCS）。
- * 图像产品生命周期事件（产出/持续/丢失/失败）由库内 SarProductLifecycle
- * Recorder 承担（Attach 后 StepWithResult 内部自动喂），组件把差分事件
- * 转发为 SarProductEvent（kNoProduct 诊断事件不发布）。
+ * 1. 从 FlightComponent 读平台 LLA 位置与航向/速度（航向分解为 NED 速度，
+ *    姿态零假设，示例简化），点目标真值取自共享场景状态，驱动 SarSession；
+ * 2. 产品事件（产出/持续/丢失/失败）由库内 SarProductLifecycleRecorder 差分
+ *    产出，组件转发为 SarProductEvent（kNoProduct 诊断事件不发布）；
+ * 3. 产品调试视图（阶段型，规则 12）每周期构建，直写中文人读摘要行到集成端
+ *    日志（SAR 无逐目标状态，不适用目标级三模式落盘）。
  */
 
 #include "sar_sensor_component.h"
@@ -16,6 +16,8 @@
 
 #include "core/events.h"
 #include "core/world.h"
+#include "demo_log.h"
+#include "demo_log_i18n.h"
 #include "flight_component.h"
 #include "scene_types.h"
 
@@ -40,6 +42,36 @@ SarProductEventKind ToDemoKind(sar::session::SarProductLifecycleEventKind kind) 
   return SarProductEventKind::kProductSustained;
 }
 
+/// 示例事件类型 → 中文名（人读日志）。
+const char* SarEventKindName(SarProductEventKind kind) {
+  switch (kind) {
+    case SarProductEventKind::kImageProduced:
+      return "产出";
+    case SarProductEventKind::kProductSustained:
+      return "持续";
+    case SarProductEventKind::kProductLost:
+      return "丢失";
+    case SarProductEventKind::kProcessingFailed:
+      return "失败";
+  }
+  return "未知";
+}
+
+/// 处理阶段 → 中文名（人读日志）。
+const char* SarStageName(sar::session::SarProcessingStage stage) {
+  switch (stage) {
+    case sar::session::SarProcessingStage::kNone:
+      return "无";
+    case sar::session::SarProcessingStage::kRawEcho:
+      return "原始回波";
+    case sar::session::SarProcessingStage::kL1RdaImage:
+      return "L1 RDA 图像";
+    case sar::session::SarProcessingStage::kL3BpImage:
+      return "L3 BP 图像";
+  }
+  return "未知";
+}
+
 }  // namespace
 
 SarSensorComponent::SarSensorComponent(sar::session::SarSession session)
@@ -57,8 +89,21 @@ bool SarSensorComponent::TryApplyRuntimeConfig(
   return applied;
 }
 
+// 阶段型调试视图摘要行（SAR 无逐目标状态，仅单行摘要；规则 12 落盘示范）。
+void SarSensorComponent::LogDebugView(const sar::session::SarProductDebugView& view) {
+  const std::string issues_text = demo::FormatIssueText(view.issues);
+  CA_LOG_VIEW("sar", "周期={} 执行={} 阶段={} L1图像={} L3图像={} 聚焦={} 信噪比={:.1f}dB 目标数={} 问题=[{}]",
+              view.input_cycle_index, view.executed_this_cycle ? "是" : "否",
+              SarStageName(view.completed_stage),
+              view.has_l1_image ? "有" : "无", view.has_l3_bp_image ? "有" : "无",
+              view.has_focused_pixels ? "有" : "无", view.estimated_snr_db,
+              view.point_targets.size(), issues_text.empty() ? "无" : issues_text.c_str());
+}
+
 void SarSensorComponent::Step(World& world, double dt_sec) {
   if (!powered_on_) {
+    last_debug_view_ = sar::session::SarProductDebugView{};  // 关机：调试视图清零（无有效周期）
+    LogDebugView(last_debug_view_);
     return;  // 关机：组件不驱动会话（设备不工作，不积累孔径）
   }
 
@@ -88,6 +133,11 @@ void SarSensorComponent::Step(World& world, double dt_sec) {
   input.point_targets = scene.sar_point_targets;
 
   const sar::session::SarCycleResult result = session_.StepWithResult(input);
+  // 规则 12 落盘示范：每周期构建阶段型调试视图快照（拒绝周期为对应快照，含
+  // 规则 13b kInfo/kWarning 诊断），供调用方结构化持久化；本示例直写中文人读
+  // 摘要行（SAR 为阶段型视图，不适用目标级三模式落盘）。
+  last_debug_view_ = sar::session::SarProductDebugViewBuilder::Build(input, result);
+  LogDebugView(last_debug_view_);
   if (result.status != sar::session::SarCycleStatus::kCompleted) {
     return;  // 周期被拒绝/执行失败：本周期无产品
   }
@@ -104,6 +154,20 @@ void SarSensorComponent::Step(World& world, double dt_sec) {
     product.stage = event.completed_stage;
     product.estimated_snr_db = event.estimated_snr_db;
     product.abort_reason = event.abort_reason;
+    if (product.kind == SarProductEventKind::kProductSustained) {
+      // 持续类事件每周期重复：事件模式一下不落盘（信号照常发布）。
+      CA_LOG_EVENT_DUP(world, "sar_product", "类型={} 阶段={} 信噪比={:.1f}dB{}{}",
+                       SarEventKindName(product.kind), SarStageName(product.stage),
+                       product.estimated_snr_db,
+                       product.abort_reason.empty() ? "" : " 中止原因=",
+                       product.abort_reason.c_str());
+    } else {
+      CA_LOG_EVENT(world, "sar_product", "类型={} 阶段={} 信噪比={:.1f}dB{}{}",
+                   SarEventKindName(product.kind), SarStageName(product.stage),
+                   product.estimated_snr_db,
+                   product.abort_reason.empty() ? "" : " 中止原因=",
+                   product.abort_reason.c_str());
+    }
     world.signals().on_sar_product(product);
   }
 }
