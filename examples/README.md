@@ -62,6 +62,9 @@ SAR 无 scene 示例；`integration_demo` 展示的是 `SarModule` 包装类（�
   `Ar/Eos/Sar/SbirsDebugViewToJson.h`）：对应 `docs/common/session_contract.md` 三层输出模型
   规则 12 的参考实现——每周期把 DebugView 以 JSON 帧快照写入调用方自己的日志/事件系统；
   集成方直接 copy 模块序列化器 + 共享原语（可合并为一个文件），字段名与格式可按需调整；
+  DebugView 只是内存帧快照，落盘多少由调用方决定，AR/EOS/SBIRS 序列化器另含三种常见
+  落盘模式参考（**只落非标称行** / **跨周期状态增量** / **降频落盘**，SAR 为阶段型视图
+  不适用）；
 - 由顶层 `CMakeLists.txt` 定义 `ONEQ_EXAMPLE_COMMON_DIR` / `ONEQ_EXAMPLE_COMMON_SOURCES`，
   各子目录通过目录作用域继承并内联到 target，无需函数传递。
 

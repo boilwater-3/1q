@@ -11,6 +11,10 @@
  * 转义、诊断严重性枚举映射、diagnostics 数组序列化。各模块特有的枚举映射与字段
  * 布局保留在模块序列化器内。
  *
+ * WriteIssuesArrayJson 为独立 issues 数组原语（"issues":[...]），供 AR/EOS/SBIRS
+ * 序列化器中的"降频落盘"模式使用：每 N 周期落一次全量帧，其余周期只落周期号 +
+ * 问题列表（见各模块 *WriteDownsampledView()）。
+ *
  * 集成方 copy 某个模块序列化器时，连同本文件一起 copy（或合并为一个文件）：
  * 每周期调用对应 *DebugViewToJson() 得到一条 JSON 记录，写入你们自己的日志即可；
  * 字段名与格式可按需调整。
@@ -23,6 +27,7 @@
 
 #include <cstddef>
 #include <iomanip>
+#include <ostream>
 #include <sstream>
 #include <string>
 #include <type_traits>
@@ -110,9 +115,19 @@ struct HasIssueField : std::false_type {};
 template <typename T>
 struct HasIssueField<T, std::void_t<decltype(std::declval<T>().field)>> : std::true_type {};
 
+/**
+ * @brief 把问题列表序列化为独立 JSON 数组字段（`"issues":[...]`），不闭合根对象。
+ *
+ * 供"只落问题列表"的降频记录使用：调用方先写入周期号等前置字段，再调用本函数，
+ * 最后自行闭合 `}`。与 WriteIssuesJson 的差别仅在于不带前导 `],` 与尾部 `}`。
+ *
+ * @tparam IssueList 各模块问题列表（std::vector<XxxIssue>）。
+ * @param[in,out] out 序列化输出流（可先写入周期号等前置字段）。
+ * @param[in] issues 问题条目列表。
+ */
 template <typename IssueList>
-void WriteIssuesJson(std::ostringstream& out, const IssueList& issues) {
-  out << "],\"issues\":[";
+void WriteIssuesArrayJson(std::ostream& out, const IssueList& issues) {
+  out << "\"issues\":[";
   for (std::size_t i = 0U; i < issues.size(); ++i) {
     if (i > 0U) {
       out << ',';
@@ -131,7 +146,14 @@ void WriteIssuesJson(std::ostringstream& out, const IssueList& issues) {
     }
     out << "}";
   }
-  out << "]}";
+  out << ']';
+}
+
+template <typename IssueList>
+void WriteIssuesJson(std::ostream& out, const IssueList& issues) {
+  out << "],";
+  WriteIssuesArrayJson(out, issues);
+  out << '}';
 }
 
 }  // namespace
