@@ -842,8 +842,8 @@ ArSession ArSession::Create(const config::ArSessionConfig& config) {
 }
 
 ArSession ArSession::CreateWithDiagnostics(const config::ArSessionConfig& config,
-                                           config::ValidationIssueList* issues) {
-  const config::ValidationIssueList found = config::ValidateArSessionConfig(config);
+                                           session::ArIssueList* issues) {
+  const session::ArIssueList found = config::ValidateArSessionConfig(config);
   if (issues != nullptr) {
     *issues = found;
   }
