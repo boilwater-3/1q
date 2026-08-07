@@ -28,7 +28,7 @@ struct EsrControllerRuntimeState {
   std::uint32_t schema_version{0U};
   bool has_latest_output{false};
   session::EsrOutputFrame latest_output{};
-  std::uint64_t next_batch_id{0U};
+  std::uint64_t next_batch_id{1U};
   session::EsrCycleExecutionStatus last_cycle_status{
       session::EsrCycleExecutionStatus::kRejected};
   session::EsrPipelineAbortReason last_abort_reason{

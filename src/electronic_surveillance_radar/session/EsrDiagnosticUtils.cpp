@@ -13,10 +13,6 @@ const char* AbortReasonToDiagnosticCode(EsrPipelineAbortReason reason) {
       return "";
     case EsrPipelineAbortReason::kValidationRejected:
       return "validation_rejected";
-    case EsrPipelineAbortReason::kRuntimeStateRestoreRejected:
-      return "runtime_state_restore_rejected";
-    case EsrPipelineAbortReason::kOutputContractViolation:
-      return "output_contract_violation";
     case EsrPipelineAbortReason::kSensorPoweredOff:
       return "sensor_powered_off";
     case EsrPipelineAbortReason::kRfReceiverRejected:
@@ -35,9 +31,7 @@ void RecordAbort(EsrCycleResult* result, EsrPipelineAbortReason reason,
   issue.severity = EsrIssueSeverity::kError;
   issue.phase = (reason == EsrPipelineAbortReason::kValidationRejected)
                     ? EsrIssuePhase::kInputValidation
-                    : (reason == EsrPipelineAbortReason::kOutputContractViolation)
-                          ? EsrIssuePhase::kOutputContract
-                          : EsrIssuePhase::kExecution;
+                    : EsrIssuePhase::kExecution;
   issue.code = std::string("esr.") + detail_code;
   issue.message = message;
   result->issues.push_back(std::move(issue));

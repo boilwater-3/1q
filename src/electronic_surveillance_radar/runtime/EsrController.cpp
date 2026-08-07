@@ -43,21 +43,13 @@ struct EsrController::Impl {
         last_abort_reason != session::EsrPipelineAbortReason::kValidationRejected) {
       const session::EsrCycleExecutionStatus saved_status = result.status;
       const char* detail_code = "unknown";
+      // 校验拒绝（kValidationRejected）不可达：外层 if 已排除，校验问题本身承载写二。
       switch (last_abort_reason) {
-        case session::EsrPipelineAbortReason::kValidationRejected:
-          detail_code = "input_validation";
-          break;
         case session::EsrPipelineAbortReason::kSensorPoweredOff:
           detail_code = "sensor_powered_off";
           break;
         case session::EsrPipelineAbortReason::kRfReceiverRejected:
           detail_code = "rf_receiver_rejected";
-          break;
-        case session::EsrPipelineAbortReason::kOutputContractViolation:
-          detail_code = "output_contract_violation";
-          break;
-        case session::EsrPipelineAbortReason::kRuntimeStateRestoreRejected:
-          detail_code = "runtime_state_restore_rejected";
           break;
         default:
           break;

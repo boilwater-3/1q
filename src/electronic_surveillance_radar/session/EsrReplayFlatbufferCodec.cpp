@@ -48,10 +48,17 @@ bool IsValidCycleStatus(std::int32_t value) {
 }
 
 bool IsValidAbortReason(std::int32_t value) {
-  return value >= static_cast<std::int32_t>(EsrPipelineAbortReason::kNone) &&
-         value <=
-                    static_cast<std::int32_t>(
-                        EsrPipelineAbortReason::kRfReceiverRejected);
+  // 显式白名单（fail-closed）：kRuntimeStateRestoreRejected(2)/kOutputContractViolation(3)
+  // 已删除（旧 trace 值一律拒绝），kSensorPoweredOff=4/kRfReceiverRejected=5 编号固定。
+  switch (value) {
+    case static_cast<std::int32_t>(EsrPipelineAbortReason::kNone):
+    case static_cast<std::int32_t>(EsrPipelineAbortReason::kValidationRejected):
+    case static_cast<std::int32_t>(EsrPipelineAbortReason::kSensorPoweredOff):
+    case static_cast<std::int32_t>(EsrPipelineAbortReason::kRfReceiverRejected):
+      return true;
+    default:
+      return false;
+  }
 }
 
 bool IsValidIssueSeverity(std::int32_t value) {

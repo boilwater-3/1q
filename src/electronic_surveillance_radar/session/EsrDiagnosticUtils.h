@@ -21,7 +21,7 @@ const char* AbortReasonToDiagnosticCode(EsrPipelineAbortReason reason);
 /**
  * @brief 将本周期标记为中止（三写：abort_reason + issues + 日志）。
  * @param[in] reason 粗粒度中止原因；phase 由原因推导（kValidationRejected → kInputValidation，
- *            kOutputContractViolation → kOutputContract，其余 → kExecution）。
+ *            其余 → kExecution）。
  */
 void RecordAbort(EsrCycleResult* result, EsrPipelineAbortReason reason,
                  const char* detail_code, const std::string& message);

@@ -268,6 +268,18 @@ foreach(DEAD_ABORT_REASON kOutputContractViolation kRuntimeStateRestoreRejected)
          "${SBIRS_OUTPUT_TYPES_HEADER}: [SBIRS abort 边界] 禁止回流 ${DEAD_ABORT_REASON}")
   endif()
 endforeach()
+# 阻断 9b：ESR 只保留真实可传播的中止原因（DES-2 收敛：两个死值已删除，
+# 防止从旧分支或照搬 EOS 的活值回流）。
+set(ESR_OUTPUT_TYPES_HEADER
+    "${PUBLIC_INCLUDE_ROOT}/electronic_surveillance_radar/session/EsrOutputTypes.h")
+file(READ "${ESR_OUTPUT_TYPES_HEADER}" ESR_OUTPUT_TYPES_TEXT)
+foreach(DEAD_ESR_ABORT_REASON kRuntimeStateRestoreRejected kOutputContractViolation)
+  string(FIND "${ESR_OUTPUT_TYPES_TEXT}" "${DEAD_ESR_ABORT_REASON}" _dead_esr_abort_pos)
+  if(NOT _dead_esr_abort_pos EQUAL -1)
+    list(APPEND VIOLATIONS
+         "${ESR_OUTPUT_TYPES_HEADER}: [ESR abort 边界] 禁止回流 ${DEAD_ESR_ABORT_REASON}")
+  endif()
+endforeach()
 
 if(VIOLATIONS)
   list(JOIN VIOLATIONS "\n" VIOLATION_TEXT)

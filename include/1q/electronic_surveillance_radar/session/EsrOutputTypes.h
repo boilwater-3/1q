@@ -54,7 +54,7 @@ enum class ONEQ_API EsrIssueSeverity : std::uint8_t {
 enum class ONEQ_API EsrIssuePhase : std::uint8_t {
   kInputValidation = 0, /**< 输入校验阶段（调用方输入问题） */
   kExecution = 1,       /**< 管线执行阶段（含关机等运行态条件） */
-  kOutputContract = 2   /**< 输出违反内部契约 */
+  kOutputContract = 2   /**< 输出违反内部契约（ESR 当前不产出，契约三值预留） */
 };
 
 /**
@@ -77,14 +77,15 @@ using EsrIssueList = std::vector<EsrIssue>;
 
 /**
  * @brief EsrPipelineAbortReason 表示单周期核心管线流产原因。
+ * @note 枚举编号 2/3 空缺为 replay 兼容保留（旧 trace 的
+ *       kRuntimeStateRestoreRejected/kOutputContractViolation 已删除，
+ *       解码侧 IsValidAbortReason 按显式白名单拒绝）。
  */
 enum class EsrPipelineAbortReason {
-  kNone = 0,                    /**< 正常执行完成，未中断 */
-  kValidationRejected,          /**< 因输入级严重校验问题（Error）而主动放弃计算 */
-  kRuntimeStateRestoreRejected, /**< 因运行时状态恢复失败引发阻断 */
-  kOutputContractViolation,     /**< pipeline 输出违反内部契约 */
-  kSensorPoweredOff = 4,        /**< 设备关机，pipeline 未执行 */
-  kRfReceiverRejected = 5       /**< RF v2 接收机链路前置条件不成立 */
+  kNone = 0,             /**< 正常执行完成，未中断 */
+  kValidationRejected,   /**< 因输入级严重校验问题（Error）而主动放弃计算 */
+  kSensorPoweredOff = 4, /**< 设备关机，pipeline 未执行 */
+  kRfReceiverRejected = 5 /**< RF v2 接收机链路前置条件不成立 */
 };
 
 }  // namespace session
