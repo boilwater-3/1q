@@ -154,6 +154,15 @@ severity + phase + code + message + 可选定位（location/field）。`SarPipel
 校验拒绝路径不调用 `RecordAbort` —— 校验问题本身就是 error 级诊断（规则 9 写二），
 abort_reason（写一）与日志（写三）在调用点补齐。
 
+**运行期聚合码豁免（契约 14c 例外，2026-08）**：`ValidateRuntimeConfigForStep` 对硬件/任务
+字段非法（`AreSarHardwareAndMissionFieldsValid` 失败）产出单一聚合码
+`"sar.validation.invalid_config"`，而创建时 `ValidateSarSessionConfig` 对同一批字段产细分码
+（`carrier_frequency_not_positive`、`bandwidth_not_positive` 等）。聚合是
+`AreSarHardwareAndMissionFieldsValid` 返回 `bool` 签名（无出参 issue 列表）决定的必然结果；
+运行期路径仅在 runtime config patch 后触发且 config 已在创建时校验过一次，聚合码不影响
+拒绝语义。契约 14c"同条件 code 逐字一致"在此处为文档豁免：运行期硬件/任务字段失败统一
+报告 `invalid_config`。
+
 **周期级执行摘要日志（规则 13a）**：正常完成周期（`status == kCompleted`）在
 `SarProcessingPipeline::RunCycle` 尾部输出 `[SarPipeline] cycle_index={} …` 的
 `PROJECT_LOG_INFO` 摘要（周期号、完成处理阶段、L1/L3 成像标志、估计信噪比、场景目标数），
