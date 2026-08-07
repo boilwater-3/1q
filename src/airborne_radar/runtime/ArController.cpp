@@ -7,7 +7,6 @@
 #include <unordered_map>
 
 #include "1q/airborne_radar/session/ArControlProfile.h"
-#include "airborne_radar/session/ArDiagnosticUtils.h"
 #include "1q/airborne_radar/session/ArTrackOutput.h"
 #include "airborne_radar/decision/ControlReducer.h"
 #include "airborne_radar/decision/TacticalCoordinator.h"
@@ -83,11 +82,10 @@ struct ArController::Impl {
   std::unique_ptr<extension::ControlCommandMapper> command_mapper;
 
   // -- 周期运行时状态
-  oneq::common::runtime::RuntimeCycleState<session::TrackOutputFrame, session::ValidationIssueList>
-      cycle_state{};
+  oneq::common::runtime::RuntimeCycleState<session::TrackOutputFrame> cycle_state{};
   bool last_cycle_executed{false};
   session::SignalCycleAbortReason last_signal_abort_reason{session::SignalCycleAbortReason::kNone};
-  session::ArDiagnosticIssueList latest_diagnostics{}; /**< 正常周期按目标排除的 kInfo 诊断（规则 13b）。 */
+  session::ArIssueList latest_issues{}; /**< 正常周期按目标排除的 kInfo 诊断（规则 13b）。 */
 
   bool has_pending_internal_decision{false};
   std::uint32_t pending_internal_cycle_index{0U};
@@ -450,7 +448,8 @@ std::string ArController::GetActiveRecognitionDatabaseVersion() const {
   return impl_->recognition_tracker.ActiveDatabaseVersion();
 }
 
-void ArController::RunOnce(const signal::pipeline::SignalCycleInput& cycle_input) {
+void ArController::RunOnce(const signal::pipeline::SignalCycleInput& cycle_input,
+                           session::ArIssueList* validation_issues_out) {
   const bool control_was_prepared = impl_->control_prepared_for_cycle;
   impl_->ResetPerCycleFlags(control_was_prepared);
 
@@ -463,17 +462,23 @@ void ArController::RunOnce(const signal::pipeline::SignalCycleInput& cycle_input
   const oneq::common::runtime::RuntimeCycleStamp stamp =
       oneq::common::runtime::MakeRuntimeCycleStamp(cycle_index, impl_->cycle_state.next_batch_id);
 
-  // 校验
-  session::ValidationIssueList issues = session::ValidateArCycleDeltaTime(cycle_dt_sec);
+  // 校验（COMMON-OQ-9：拒绝时明细经出参直通，无校验缓存）
+  session::ArIssueList issues = session::ValidateArCycleDeltaTime(cycle_dt_sec);
   {
-    const session::ValidationIssueList target_issues =
+    const session::ArIssueList target_issues =
         session::ValidateArSceneTargets(scene_targets);
     issues.insert(issues.end(), target_issues.begin(), target_issues.end());
   }
-  impl_->cycle_state.last_validation_issues = issues;
 
   if (session::HasValidationError(issues)) {
+    if (validation_issues_out != nullptr) {
+      *validation_issues_out = issues;
+    }
     impl_->last_signal_abort_reason = session::SignalCycleAbortReason::kValidationRejected;
+    // 中译：AR 运行期周期输入校验被拒绝（周期号）。
+    // 标识：运行期路径（RunExecutionCycle 入口）校验失败——本周期不执行、输出为空，
+    //       校验明细经出参直通；三写之三由本日志补齐（规则 9c）。
+    PROJECT_LOG_WARN("AR validation rejected for cycle_index={}", stamp.cycle_index);
     return;
   }
 
@@ -507,7 +512,7 @@ void ArController::RunOnce(const signal::pipeline::SignalCycleInput& cycle_input
     return;
   }
   // 规则 13b：正常周期按目标排除的 kInfo 诊断转写（abort 路径不变）。
-  impl_->latest_diagnostics = std::move(signal_result.diagnostics);
+  impl_->latest_issues = std::move(signal_result.issues);
 
   session::DecisionInputFrame decision_frame = signal_result.decision_frame;
   decision_frame.cycle_index = stamp.cycle_index;
@@ -598,16 +603,8 @@ const session::TrackOutputFrame& ArController::GetLatestTrackOutputFrame() const
   return impl_->cycle_state.latest_output;
 }
 
-const session::ArDiagnosticIssueList& ArController::GetLatestDiagnostics() const {
-  return impl_->latest_diagnostics;
-}
-
-const session::ValidationIssueList& ArController::GetLastValidationIssues() const {
-  return impl_->cycle_state.last_validation_issues;
-}
-
-bool ArController::HasValidationError() const {
-  return session::HasValidationError(impl_->cycle_state.last_validation_issues);
+const session::ArIssueList& ArController::GetLatestIssues() const {
+  return impl_->latest_issues;
 }
 
 bool ArController::ExecutedLatestCycle() const { return impl_->last_cycle_executed; }
@@ -663,7 +660,6 @@ extension::ArControllerRuntimeState ArController::CaptureRuntimeState() const {
   state.schema_version = 7U;
   state.latest_output = impl_->cycle_state.latest_output;
   state.has_latest_output = impl_->cycle_state.has_latest_output;
-  state.last_validation_issues = impl_->cycle_state.last_validation_issues;
   state.next_batch_id = impl_->cycle_state.next_batch_id;
   state.last_cycle_executed = impl_->last_cycle_executed;
   state.last_signal_abort_reason = impl_->last_signal_abort_reason;
@@ -703,7 +699,6 @@ bool ArController::RestoreRuntimeState(const extension::ArControllerRuntimeState
   }
   impl_->cycle_state.latest_output = state.latest_output;
   impl_->cycle_state.has_latest_output = state.has_latest_output;
-  impl_->cycle_state.last_validation_issues = state.last_validation_issues;
   impl_->cycle_state.next_batch_id = state.next_batch_id;
   impl_->last_cycle_executed = state.last_cycle_executed;
   impl_->last_signal_abort_reason = state.last_signal_abort_reason;

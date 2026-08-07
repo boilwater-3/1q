@@ -64,39 +64,19 @@ bool EosDetectionAttributionListEqual(const attribution::EosDetectionAttribution
   return true;
 }
 
-bool EosValidationIssueEqual(const ValidationIssue& left, const ValidationIssue& right) {
-  return left.severity == right.severity && left.code == right.code &&
+bool EosIssueEqual(const session::EosIssue& left, const session::EosIssue& right) {
+  return left.severity == right.severity && left.phase == right.phase &&
+         left.code == right.code && left.message == right.message &&
          left.location.kind == right.location.kind &&
-         left.location.entity_index == right.location.entity_index && left.field == right.field &&
-         left.message == right.message;
+         left.location.entity_index == right.location.entity_index && left.field == right.field;
 }
 
-bool EosValidationIssueListEqual(const ValidationIssueList& left,
-                                 const ValidationIssueList& right) {
+bool EosIssueListEqual(const session::EosIssueList& left, const session::EosIssueList& right) {
   if (left.size() != right.size()) {
     return false;
   }
   for (std::size_t i = 0; i < left.size(); ++i) {
-    if (!EosValidationIssueEqual(left[i], right[i])) {
-      return false;
-    }
-  }
-  return true;
-}
-
-bool EosDiagnosticIssueEqual(const session::EosDiagnosticIssue& left,
-                             const session::EosDiagnosticIssue& right) {
-  return left.severity == right.severity && left.code == right.code &&
-         left.message == right.message;
-}
-
-bool EosDiagnosticIssueListEqual(const session::EosDiagnosticIssueList& left,
-                                 const session::EosDiagnosticIssueList& right) {
-  if (left.size() != right.size()) {
-    return false;
-  }
-  for (std::size_t i = 0; i < left.size(); ++i) {
-    if (!EosDiagnosticIssueEqual(left[i], right[i])) {
+    if (!EosIssueEqual(left[i], right[i])) {
       return false;
     }
   }
@@ -108,9 +88,7 @@ bool EosCycleResultEqual(const EosCycleResult& left, const EosCycleResult& right
          EosOutputFrameEqual(left.output_frame, right.output_frame) &&
          EosDetectionAttributionListEqual(left.detection_attributions,
                                           right.detection_attributions) &&
-         EosValidationIssueListEqual(left.validation_issues, right.validation_issues) &&
-         EosDiagnosticIssueListEqual(left.diagnostics, right.diagnostics) &&
-         left.has_validation_error == right.has_validation_error &&
+         EosIssueListEqual(left.issues, right.issues) &&
          left.executed_this_cycle == right.executed_this_cycle &&
          left.abort_reason == right.abort_reason;
 }

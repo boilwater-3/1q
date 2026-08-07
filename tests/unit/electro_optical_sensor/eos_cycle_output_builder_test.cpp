@@ -133,7 +133,7 @@ TEST(EosCycleOutputBuilderTest, MultiCycleMovingTargetsStayNearExternalTruth) {
     input.cycle_index = static_cast<std::uint32_t>(cycle);
 
     const eos_session::EosCycleResult result = session.StepWithResult(input);
-    ASSERT_FALSE(result.has_validation_error) << "cycle=" << cycle;
+    ASSERT_FALSE(eos_session::HasValidationError(result.issues)) << "cycle=" << cycle;
 
     eos_session::EosExternalOutputFrame external_frame;
     ASSERT_TRUE(
@@ -311,7 +311,7 @@ TEST(EosCycleOutputBuilderTest, NonExecutedCyclePreservesDetectedState) {
             eos_session::EosDetectionLifecycleEventKind::kFirstDetected);
   eos_session::EosCycleResult rejected;
   rejected.input_cycle_index = 2U;
-  rejected.has_validation_error = true;
+  rejected.status = eos_session::EosCycleStatus::kRejectedInvalidInput;
   EXPECT_TRUE(recorder.Update(input, rejected).empty());
   detected_result.input_cycle_index = 3U;
   const std::vector<eos_session::EosDetectionLifecycleEvent> recovered =
@@ -413,7 +413,7 @@ TEST(EosCycleOutputBuilderTest, NonExecutedCycleDoesNotUpdateLastEvents) {
   eos_session::EosCycleInput invalid = input;
   invalid.dt_sec = 0.0f;
   const eos_session::EosCycleResult rejected = session.StepWithResult(invalid);
-  EXPECT_TRUE(rejected.has_validation_error);
+  EXPECT_TRUE(eos_session::HasValidationError(rejected.issues));
   EXPECT_EQ(recorder.GetLastEvents().size(), first_size);
   EXPECT_EQ(recorder.GetLastEvents().front().kind,
             eos_session::EosDetectionLifecycleEventKind::kFirstDetected);

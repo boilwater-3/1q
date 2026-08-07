@@ -1,4 +1,5 @@
 ---
+name: test-coverage-strategy
 description: Use when writing tests, evaluating test coverage, choosing test methods, or when GTest/GMock cannot cover certain scenarios (statistical correctness, state-space explosion, long-cycle accumulation, external boundary failures). Covers the seven-layer supplementary testing strategy for this project.
 argument-hint: "[scenario description or test gap]"
 allowed-tools:

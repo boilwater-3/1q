@@ -7,6 +7,7 @@
 
 #include <cstdint>
 
+#include "1q/sar/session/SarInputValidation.h"
 #include "sar/pipeline/SarProcessingPipeline.h"
 #include "sar/runtime/SarController.h"
 
@@ -54,14 +55,14 @@ TEST(SarControllerRuntimeStateTest, CaptureAndRestoreRoundTripState) {
   SarController controller(pipeline, config);
 
   controller.RunOnce(MakeInput(1U));
-  ASSERT_TRUE(controller.BuildCycleResult(MakeInput(1U)).executed_this_cycle);
+  ASSERT_TRUE(controller.BuildCycleResult().executed_this_cycle);
   const SarControllerRuntimeState snapshot = controller.CaptureRuntimeState();
 
   controller.RunOnce(MakeInput(2U));
-  ASSERT_EQ(controller.BuildCycleResult(MakeInput(2U)).output_frame.cycle_index, 2U);
+  ASSERT_EQ(controller.BuildCycleResult().output_frame.cycle_index, 2U);
 
   EXPECT_TRUE(controller.RestoreRuntimeState(snapshot));
-  const session::SarCycleResult restored = controller.BuildCycleResult(MakeInput(1U));
+  const session::SarCycleResult restored = controller.BuildCycleResult();
   EXPECT_TRUE(restored.executed_this_cycle);
   EXPECT_EQ(restored.output_frame.cycle_index, 1U);
 }
@@ -78,7 +79,7 @@ TEST(SarControllerRuntimeStateTest, RestoreRejectsSnapshotFromOtherControllerIns
   const SarControllerRuntimeState foreign_state = controller_b.CaptureRuntimeState();
 
   EXPECT_FALSE(controller_a.RestoreRuntimeState(foreign_state));
-  EXPECT_EQ(controller_a.BuildCycleResult(MakeInput(20U)).output_frame.cycle_index, 20U);
+  EXPECT_EQ(controller_a.BuildCycleResult().output_frame.cycle_index, 20U);
 }
 
 TEST(SarControllerRuntimeStateTest, ValidationRejectReturnsEmptyOutputNotReused) {
@@ -87,15 +88,15 @@ TEST(SarControllerRuntimeStateTest, ValidationRejectReturnsEmptyOutputNotReused)
   SarController controller(pipeline, config);
 
   controller.RunOnce(MakeInput(40U));
-  ASSERT_TRUE(controller.BuildCycleResult(MakeInput(40U)).executed_this_cycle);
+  ASSERT_TRUE(controller.BuildCycleResult().executed_this_cycle);
 
   session::SarCycleInput invalid_input = MakeInput(41U);
   invalid_input.dt_sec = 0.0f;
   controller.RunOnce(invalid_input);
-  const session::SarCycleResult result = controller.BuildCycleResult(invalid_input);
+  const session::SarCycleResult result = controller.BuildCycleResult();
 
   EXPECT_FALSE(result.executed_this_cycle);
-  EXPECT_TRUE(result.has_error);
+  EXPECT_TRUE(session::HasValidationError(result.issues));
   EXPECT_EQ(result.abort_reason, session::SarPipelineAbortReason::kValidationRejected);
   EXPECT_EQ(result.output_frame.cycle_index, 0U);
 }
@@ -106,7 +107,7 @@ TEST(SarControllerRuntimeStateTest, PipelineAbortRestoresAllCrossCycleState) {
   SarController controller(pipeline, config);
   const session::SarCycleInput successful_input = MakeInput(49U);
   controller.RunOnce(successful_input);
-  ASSERT_TRUE(controller.BuildCycleResult(successful_input).executed_this_cycle);
+  ASSERT_TRUE(controller.BuildCycleResult().executed_this_cycle);
 
   config::SarRuntimeConfigPatch reject_snr;
   reject_snr.has_minimum_snr_db = true;
@@ -116,7 +117,7 @@ TEST(SarControllerRuntimeStateTest, PipelineAbortRestoresAllCrossCycleState) {
 
   const session::SarCycleInput input = MakeInput(50U);
   controller.RunOnce(input);
-  const session::SarCycleResult result = controller.BuildCycleResult(input);
+  const session::SarCycleResult result = controller.BuildCycleResult();
   const pipeline::SarProcessingPipelineRuntimeState after = pipeline.CaptureRuntimeState();
 
   ASSERT_FALSE(result.executed_this_cycle);
@@ -165,7 +166,7 @@ TEST(SarControllerRuntimeStateTest, PlatformInputOwnsGeneratedTrajectoryKinemati
   first.platform.pitch_deg = 3.0;
   first.platform.yaw_deg = 4.0;
   controller.RunOnce(first);
-  const session::SarCycleResult first_result = controller.BuildCycleResult(first);
+  const session::SarCycleResult first_result = controller.BuildCycleResult();
   ASSERT_TRUE(first_result.executed_this_cycle) << static_cast<int>(first_result.abort_reason);
   const pipeline::SarProcessingPipelineRuntimeState first_state = pipeline.CaptureRuntimeState();
   ASSERT_FALSE(first_state.actual_trajectory_buffer.empty());
@@ -185,7 +186,7 @@ TEST(SarControllerRuntimeStateTest, PlatformInputOwnsGeneratedTrajectoryKinemati
   second.platform.time_s = 11.0;
   second.platform.latitude_deg += 5.0 / 6378137.0 * 180.0 / 3.14159265358979323846;
   controller.RunOnce(second);
-  ASSERT_TRUE(controller.BuildCycleResult(second).executed_this_cycle);
+  ASSERT_TRUE(controller.BuildCycleResult().executed_this_cycle);
   const pipeline::SarProcessingPipelineRuntimeState second_state = pipeline.CaptureRuntimeState();
   ASSERT_FALSE(second_state.actual_trajectory_buffer.empty());
   const geometry::PlatformPulseState* second_cycle_first = nullptr;
@@ -208,7 +209,7 @@ TEST(SarControllerRuntimeStateTest, ZeroPlatformVelocityMeansStationary) {
   session::SarCycleInput input = MakeInput(62U);
   input.platform.time_s = 12.0;
   controller.RunOnce(input);
-  const session::SarCycleResult result = controller.BuildCycleResult(input);
+  const session::SarCycleResult result = controller.BuildCycleResult();
   ASSERT_TRUE(result.executed_this_cycle) << static_cast<int>(result.abort_reason);
 
   const pipeline::SarProcessingPipelineRuntimeState state = pipeline.CaptureRuntimeState();

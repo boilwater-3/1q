@@ -204,7 +204,7 @@ TEST(RadarCycleOutputBuilderTest, FullSessionEstimateConvertsNearExternalTruth) 
   ArSession session =
       airborne_radar::session::ArSession::Create(MakeDetectionFocusedConfig());
   const ArCycleResult result = session.StepWithResult(input);
-  ASSERT_FALSE(result.has_validation_error);
+  ASSERT_FALSE(airborne_radar::session::HasValidationError(result.issues));
   ASSERT_FALSE(result.track_output_frame.tracks.empty());
 
   ArExternalTrackOutputFrame external_frame;
@@ -258,7 +258,7 @@ TEST(RadarCycleOutputBuilderTest, MultiCycleMovingTargetsStayNearExternalTruth) 
     input.targets = targets;
 
     const ArCycleResult result = session.StepWithResult(input);
-    ASSERT_FALSE(result.has_validation_error) << "cycle=" << cycle;
+    ASSERT_FALSE(airborne_radar::session::HasValidationError(result.issues)) << "cycle=" << cycle;
     ASSERT_FALSE(result.track_output_frame.tracks.empty()) << "cycle=" << cycle;
 
     ArExternalTrackOutputFrame external_frame;

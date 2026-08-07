@@ -102,7 +102,7 @@ extension::InterceptPipelineResult InterceptPipeline::RunCycle(
                                              clusterer_, associator_, feature_scales_,
                                              next_hypothesis_id_);
   // 规则 13b：正常周期按发射源排除的 kInfo 诊断并入周期结果（abort 路径不变）。
-  result.diagnostics = detection_output.diagnostics;
+  result.issues = detection_output.issues;
   result.observation_output.receiver_center_frequency_hz =
       detection_output.receiver_center_frequency_hz;
   result.observation_output.receiver_bandwidth_hz = detection_output.receiver_bandwidth_hz;

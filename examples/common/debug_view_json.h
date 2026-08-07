@@ -11,6 +11,10 @@
  * 转义、诊断严重性枚举映射、diagnostics 数组序列化。各模块特有的枚举映射与字段
  * 布局保留在模块序列化器内。
  *
+ * WriteIssuesArrayJson 为独立 issues 数组原语（"issues":[...]），供 AR/EOS/SBIRS
+ * 序列化器中的"降频落盘"模式使用：每 N 周期落一次全量帧，其余周期只落周期号 +
+ * 问题列表（见各模块 *WriteDownsampledView()）。
+ *
  * 集成方 copy 某个模块序列化器时，连同本文件一起 copy（或合并为一个文件）：
  * 每周期调用对应 *DebugViewToJson() 得到一条 JSON 记录，写入你们自己的日志即可；
  * 字段名与格式可按需调整。
@@ -23,8 +27,11 @@
 
 #include <cstddef>
 #include <iomanip>
+#include <ostream>
 #include <sstream>
 #include <string>
+#include <type_traits>
+#include <utility>
 
 namespace {
 // 匿名 namespace：与既有模块序列化器一致，各 TU 内部链接，避免 ODR 冲突。
@@ -85,29 +92,68 @@ const char* JsonSeverityName(Severity severity) {
 }
 
 /**
- * @brief 把 diagnostics 列表序列化为 JSON 数组并闭合根对象。
+ * @brief 把问题列表序列化为 JSON 数组并闭合根对象。
  *
- * 各模块 DebugView 的 diagnostics 均为最后一个字段，其前一个字段为数组
- * （tracks/targets/point_targets），根对象在 diagnostics 之后闭合
- * （"……],"diagnostics":[...]}"）。调用方先写完其余字段，再调用本函数。
+ * 各模块 DebugView 的 issues 均为最后一个字段，其前一个字段为数组
+ * （tracks/targets/point_targets），根对象在 issues 之后闭合
+ * （"……],"issues":[...]}"）。调用方先写完其余字段，再调用本函数。
  *
- * @tparam IssueList 各模块诊断列表（std::vector<XxxDiagnosticIssue>，元素含
- *                   severity/code/message 三字段）。
+ * 统一问题列表模型（session_contract.md 规则 14）：条目含 severity/code/message；
+ * 已迁移模块的条目还含 phase（来源标签）与 field（可选定位），通过成员探测按需输出。
+ *
+ * @tparam IssueList 各模块问题列表（std::vector<XxxIssue>）。
  * @param[in,out] out 序列化输出流（已有其余字段）。
- * @param[in] issues 诊断条目列表。
+ * @param[in] issues 问题条目列表。
+ */
+template <typename T, typename = void>
+struct HasIssuePhase : std::false_type {};
+template <typename T>
+struct HasIssuePhase<T, std::void_t<decltype(std::declval<T>().phase)>> : std::true_type {};
+
+template <typename T, typename = void>
+struct HasIssueField : std::false_type {};
+template <typename T>
+struct HasIssueField<T, std::void_t<decltype(std::declval<T>().field)>> : std::true_type {};
+
+/**
+ * @brief 把问题列表序列化为独立 JSON 数组字段（`"issues":[...]`），不闭合根对象。
+ *
+ * 供"只落问题列表"的降频记录使用：调用方先写入周期号等前置字段，再调用本函数，
+ * 最后自行闭合 `}`。与 WriteIssuesJson 的差别仅在于不带前导 `],` 与尾部 `}`。
+ *
+ * @tparam IssueList 各模块问题列表（std::vector<XxxIssue>）。
+ * @param[in,out] out 序列化输出流（可先写入周期号等前置字段）。
+ * @param[in] issues 问题条目列表。
  */
 template <typename IssueList>
-void WriteDiagnosticsJson(std::ostringstream& out, const IssueList& issues) {
-  out << "],\"diagnostics\":[";
+void WriteIssuesArrayJson(std::ostream& out, const IssueList& issues) {
+  out << "\"issues\":[";
   for (std::size_t i = 0U; i < issues.size(); ++i) {
     if (i > 0U) {
       out << ',';
     }
-    out << "{\"severity\":\"" << JsonSeverityName(issues[i].severity) << '"' << ",\"code\":\""
-        << JsonEscape(issues[i].code) << '"' << ",\"message\":\"" << JsonEscape(issues[i].message)
-        << "\"}";
+    const auto& issue = issues[i];
+    out << "{\"severity\":\"" << JsonSeverityName(issue.severity) << '"';
+    if constexpr (HasIssuePhase<typename IssueList::value_type>::value) {
+      out << ",\"phase\":" << static_cast<int>(issue.phase);
+    }
+    out << ",\"code\":\"" << JsonEscape(issue.code) << '"' << ",\"message\":\""
+        << JsonEscape(issue.message) << '"';
+    if constexpr (HasIssueField<typename IssueList::value_type>::value) {
+      if (!issue.field.empty()) {
+        out << ",\"field\":\"" << JsonEscape(issue.field) << '"';
+      }
+    }
+    out << "}";
   }
-  out << "]}";
+  out << ']';
+}
+
+template <typename IssueList>
+void WriteIssuesJson(std::ostream& out, const IssueList& issues) {
+  out << "],";
+  WriteIssuesArrayJson(out, issues);
+  out << '}';
 }
 
 }  // namespace

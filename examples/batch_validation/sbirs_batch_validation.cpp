@@ -18,6 +18,7 @@
 #include "1q/sbirs_sensor/config/SbirsRuntimeConfigPatch.h"
 #include "1q/sbirs_sensor/session/SbirsCycleInputAdapter.h"
 #include "1q/sbirs_sensor/session/SbirsCycleResult.h"
+#include "1q/sbirs_sensor/session/SbirsInputValidation.h"
 #include "1q/sbirs_sensor/session/SbirsReplaySession.h"
 #include "1q/sbirs_sensor/session/SbirsTraceSession.h"
 #include "SbirsDebugViewToJson.h"
@@ -329,7 +330,7 @@ ScenarioSummary RunScenario(const SbirsCase& scenario, const std::string& output
           cycle_writer.file(), "%s,%s,%s,%s,%u,%d,%d,%d,%.5f,%zu,%.9g,%s\n",
           scenario.scenario_id.c_str(), scenario.sequence ? "sequence" : "sweep",
           scenario.family.c_str(), phase, cycle, static_cast<int>(result.executed_this_cycle),
-          static_cast<int>(result.has_validation_error),
+          static_cast<int>(sbirs_session::HasValidationError(result.issues)),
           static_cast<int>(result.abort_reason),
           result.output_frame.scan_azimuth_deg, result.output_frame.detections.size(),
           static_cast<double>(cycle_max_snr), stage);

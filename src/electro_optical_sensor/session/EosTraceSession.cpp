@@ -33,8 +33,8 @@ std::string BuildEosOutputPayload(const EosCycleResult& result) {
      << "\"executed\":" << (result.executed_this_cycle ? "true" : "false") << ","
      << "\"status\":" << static_cast<int>(result.status) << ","
      << "\"detection_count\":" << frame.detections.size() << ","
-     << "\"validation_error\":" << (result.has_validation_error ? "true" : "false") << ","
-     << "\"diagnostic_count\":" << result.diagnostics.size()
+     << "\"validation_error\":" << (HasValidationError(result.issues) ? "true" : "false") << ","
+     << "\"issue_count\":" << result.issues.size()
      << "}";
   return os.str();
 }
@@ -81,7 +81,7 @@ struct EosTraceSession::Impl {
   void WriteValidationFailureMarker(const EosCycleResult& result) const {
     oneq::replay::ReplayTraceFailure failure;
     failure.error_code = "EOS_VALIDATION_ERROR";
-    failure.message = "EosCycleResult has_validation_error=true";
+    failure.message = "EosCycleResult input validation rejected";
     failure.location = "EosTraceSession::StepWithResult";
     failure.cycle_index = result.input_cycle_index;
     failure.has_cycle_index = true;
@@ -119,7 +119,7 @@ session::EosOutputFrame EosTraceSession::Step(const EosCycleInput& input) {
     impl_->WriteReplayEvent("cycle_output", "EosCycleResult", EncodeEosCycleResult(result),
                             result.input_cycle_index);
     impl_->pending_input_written = false;
-    if (result.has_validation_error) {
+    if (HasValidationError(result.issues)) {
       impl_->WriteValidationFailureMarker(result);
     }
   }
@@ -154,7 +154,7 @@ session::EosOutputFrame EosTraceSession::Step(const EosCycleInput& input) {
     impl_->WriteReplayEvent("cycle_output", "EosCycleResult", EncodeEosCycleResult(result),
                             result.input_cycle_index);
     impl_->pending_input_written = false;
-    if (result.has_validation_error) {
+    if (HasValidationError(result.issues)) {
       impl_->WriteValidationFailureMarker(result);
     }
   }

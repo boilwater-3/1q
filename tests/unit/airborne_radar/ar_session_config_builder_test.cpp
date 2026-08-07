@@ -189,7 +189,7 @@ TEST(RadarSessionConfigBuilderTest, RuntimePatchCanBeAppliedWithoutReconstructin
   input.platform.platform_entity_id = 42U;
   input.platform.platform_position_ecef_m.x_m = 6378137.0;
   const session::ArCycleResult result = session.StepWithResult(input);
-  EXPECT_FALSE(result.has_validation_error);
+  EXPECT_FALSE(session::HasValidationError(result.issues));
 }
 
 TEST(RadarSessionConfigBuilderTest, DetailedBuilderProducesDetailedSessionConfig) {
@@ -267,7 +267,10 @@ TEST(RadarSessionConfigValidationTest, ReportsInvalidCommandedBeamwidth) {
 
   const auto issues = config::ValidateArSessionConfig(session_config);
   ASSERT_EQ(issues.size(), 1U);
-  EXPECT_EQ(issues.front().code, config::ConfigValidationCode::kCommandedBeamwidthAzNotPositive);
+  EXPECT_EQ(issues.front().code, "ar.validation.commanded_beamwidth_az_not_positive");
+  // 创建时配置校验问题统一 phase=kInputValidation + severity=kError（规则 14 config 域）。
+  EXPECT_EQ(issues.front().phase, session::ArIssuePhase::kInputValidation);
+  EXPECT_EQ(issues.front().severity, session::ArIssueSeverity::kError);
 }
 
 TEST(RadarSessionConfigValidationTest, RejectsNonFiniteCommandedBeamwidth) {
@@ -279,7 +282,7 @@ TEST(RadarSessionConfigValidationTest, RejectsNonFiniteCommandedBeamwidth) {
 
   const auto issues = config::ValidateArSessionConfig(session_config);
   ASSERT_EQ(issues.size(), 1U);
-  EXPECT_EQ(issues.front().code, config::ConfigValidationCode::kCommandedBeamwidthElNotPositive);
+  EXPECT_EQ(issues.front().code, "ar.validation.commanded_beamwidth_el_not_positive");
 }
 
 TEST(RadarSessionConfigValidationTest, AcceptsPhysicalApertureWhenNominalBeamwidthIsZero) {
@@ -300,8 +303,12 @@ TEST(RadarSessionConfigValidationTest, RejectsMissingOrNonFiniteAntennaGeometry)
 
   const auto issues = config::ValidateArSessionConfig(session_config);
   ASSERT_EQ(issues.size(), 2U);
-  EXPECT_EQ(issues[0].code, config::ConfigValidationCode::kAntennaAzGeometryInvalid);
-  EXPECT_EQ(issues[1].code, config::ConfigValidationCode::kAntennaElGeometryInvalid);
+  EXPECT_EQ(issues[0].code, "ar.validation.antenna_az_geometry_invalid");
+  EXPECT_EQ(issues[1].code, "ar.validation.antenna_el_geometry_invalid");
+  // 多条目场景同样锁定 config 域 phase/severity 不变式（规则 14 config 域）。
+  EXPECT_EQ(issues[0].phase, session::ArIssuePhase::kInputValidation);
+  EXPECT_EQ(issues[1].phase, session::ArIssuePhase::kInputValidation);
+  EXPECT_EQ(issues[0].severity, session::ArIssueSeverity::kError);
 }
 
 TEST(RadarSessionConfigValidationTest, RejectsInvalidTransmitterFrequency) {
@@ -310,8 +317,8 @@ TEST(RadarSessionConfigValidationTest, RejectsInvalidTransmitterFrequency) {
 
   const auto issues = config::ValidateArSessionConfig(session_config);
   ASSERT_EQ(issues.size(), 2U);
-  EXPECT_EQ(issues[0].code, config::ConfigValidationCode::kTransmitterFrequencyInvalid);
-  EXPECT_EQ(issues[1].code, config::ConfigValidationCode::kFrequencyPlanInvalid);
+  EXPECT_EQ(issues[0].code, "ar.validation.transmitter_frequency_invalid");
+  EXPECT_EQ(issues[1].code, "ar.validation.frequency_plan_invalid");
 }
 
 TEST(RadarSessionConfigValidationTest, ValidatesEngineeringTransmitterEnvelopeAndIdentity) {
@@ -322,20 +329,20 @@ TEST(RadarSessionConfigValidationTest, ValidatesEngineeringTransmitterEnvelopeAn
   session_config.hardware.transmitter.frequency_plan_hz = {3.1e9};
   auto issues = config::ValidateArSessionConfig(session_config);
   ASSERT_FALSE(issues.empty());
-  EXPECT_EQ(issues.front().code, config::ConfigValidationCode::kFrequencyPlanInvalid);
+  EXPECT_EQ(issues.front().code, "ar.validation.frequency_plan_invalid");
 
   session_config.hardware.transmitter.frequency_plan_hz = {3.0e9};
   session_config.hardware.transmitter.maximum_peak_power_w = 5.0e5f;
   issues = config::ValidateArSessionConfig(session_config);
   ASSERT_FALSE(issues.empty());
   EXPECT_EQ(issues.front().code,
-            config::ConfigValidationCode::kTransmitterOperatingEnvelopeInvalid);
+            "ar.validation.transmitter_operating_envelope_invalid");
 
   session_config.hardware.transmitter.maximum_peak_power_w = 1.2e6f;
   session_config.hardware.receiver.equipment_id = session_config.hardware.transmitter.equipment_id;
   issues = config::ValidateArSessionConfig(session_config);
   ASSERT_FALSE(issues.empty());
-  EXPECT_EQ(issues.front().code, config::ConfigValidationCode::kEquipmentIdentityInvalid);
+  EXPECT_EQ(issues.front().code, "ar.validation.equipment_identity_invalid");
 }
 
 TEST(RadarSessionConfigValidationTest, ValidatesReceiverRfHardwareBoundary) {
@@ -348,14 +355,14 @@ TEST(RadarSessionConfigValidationTest, ValidatesReceiverRfHardwareBoundary) {
   session_config.hardware.receiver.maximum_linear_input_power_w = 0.0f;
   auto issues = config::ValidateArSessionConfig(session_config);
   ASSERT_FALSE(issues.empty());
-  EXPECT_EQ(issues.back().code, config::ConfigValidationCode::kReceiverRfHardwareInvalid);
+  EXPECT_EQ(issues.back().code, "ar.validation.receiver_rf_hardware_invalid");
 
   session_config.hardware.receiver.maximum_linear_input_power_w = 1.0e-3f;
   session_config.hardware.receiver.interference_observation_jn_gate_db =
       std::numeric_limits<float>::quiet_NaN();
   issues = config::ValidateArSessionConfig(session_config);
   ASSERT_FALSE(issues.empty());
-  EXPECT_EQ(issues.back().code, config::ConfigValidationCode::kReceiverRfHardwareInvalid);
+  EXPECT_EQ(issues.back().code, "ar.validation.receiver_rf_hardware_invalid");
 
   session_config.hardware.receiver.interference_observation_jn_gate_db = 6.0f;
   session_config.hardware.receiver.has_co_site_isolation = true;
@@ -368,20 +375,20 @@ TEST(RadarSessionConfigValidationTest, ValidatesReceiverRfHardwareBoundary) {
   session_config.hardware.receiver.co_site_paths.back().receiver_equipment_id = 3U;
   issues = config::ValidateArSessionConfig(session_config);
   ASSERT_FALSE(issues.empty());
-  EXPECT_EQ(issues.back().code, config::ConfigValidationCode::kReceiverRfHardwareInvalid);
+  EXPECT_EQ(issues.back().code, "ar.validation.receiver_rf_hardware_invalid");
   session_config.hardware.receiver.co_site_paths.clear();
 
   session_config.hardware.receiver.cross_polarization_isolation_db = -1.0f;
   issues = config::ValidateArSessionConfig(session_config);
   ASSERT_FALSE(issues.empty());
-  EXPECT_EQ(issues.back().code, config::ConfigValidationCode::kReceiverRfHardwareInvalid);
+  EXPECT_EQ(issues.back().code, "ar.validation.receiver_rf_hardware_invalid");
 }
 
 TEST(RadarSessionCreateWithDiagnosticsTest, BuildsSessionAndReportsNoIssuesForHealthyConfig) {
   config::ArSessionConfig config;
   config.policy.lifecycle.enable_imm_lifecycle = false;
 
-  config::ValidationIssueList issues;
+  session::ArIssueList issues;
   const session::ArSession session = session::ArSession::CreateWithDiagnostics(config, &issues);
 
   EXPECT_TRUE(issues.empty());
@@ -393,11 +400,11 @@ TEST(RadarSessionCreateWithDiagnosticsTest, ReportsIssuesButStillConstructsSessi
   invalid.mission.orientation.mechanical_scan_limits_deg.az_min_deg = 10.0f;
   invalid.mission.orientation.mechanical_scan_limits_deg.az_max_deg = -10.0f;
 
-  config::ValidationIssueList issues;
+  session::ArIssueList issues;
   const session::ArSession session = session::ArSession::CreateWithDiagnostics(invalid, &issues);
 
   ASSERT_EQ(issues.size(), 1U);
-  EXPECT_EQ(issues.front().code, config::ConfigValidationCode::kMechanicalScanLimitsSwappedAz);
+  EXPECT_EQ(issues.front().code, "ar.validation.mechanical_scan_limits_swapped_az");
   (void)session;  // 会话仍被构造，调用方据 issues 决策
 }
 
@@ -421,7 +428,7 @@ TEST(RadarSessionConfigValidationTest, RejectsInvalidRecognitionFeatureWeights) 
   session_config.policy.recognition.feature_weights.rcs_weight = 0.8f;  // 权重和 = 1.55
   const auto issues = config::ValidateArSessionConfig(session_config);
   ASSERT_EQ(issues.size(), 1U);
-  EXPECT_EQ(issues.front().code, config::ConfigValidationCode::kRecognitionWeightsInvalid);
+  EXPECT_EQ(issues.front().code, "ar.validation.recognition_weights_invalid");
   EXPECT_EQ(issues.front().field, "policy.recognition.feature_weights");
 }
 
@@ -430,7 +437,7 @@ TEST(RadarSessionConfigValidationTest, RejectsRecognitionEnabledWithoutDatabaseP
   session_config.policy.recognition.enabled = true;
   const auto issues = config::ValidateArSessionConfig(session_config);
   ASSERT_EQ(issues.size(), 1U);
-  EXPECT_EQ(issues.front().code, config::ConfigValidationCode::kRecognitionDatabasePathMissing);
+  EXPECT_EQ(issues.front().code, "ar.validation.recognition_database_path_missing");
 }
 
 TEST(RadarSessionConfigValidationTest, RejectsOutOfRangeRecognitionThresholds) {
@@ -439,7 +446,7 @@ TEST(RadarSessionConfigValidationTest, RejectsOutOfRangeRecognitionThresholds) {
   session_config.policy.recognition.minimum_margin = -0.1f;
   const auto issues = config::ValidateArSessionConfig(session_config);
   ASSERT_EQ(issues.size(), 1U);
-  EXPECT_EQ(issues.front().code, config::ConfigValidationCode::kRecognitionThresholdInvalid);
+  EXPECT_EQ(issues.front().code, "ar.validation.recognition_threshold_invalid");
 }
 
 TEST(RadarSessionConfigValidationTest, RejectsZeroRecognitionAccumulationCounts) {
@@ -447,7 +454,7 @@ TEST(RadarSessionConfigValidationTest, RejectsZeroRecognitionAccumulationCounts)
   session_config.policy.recognition.min_confirmed_hits = 0U;
   const auto issues = config::ValidateArSessionConfig(session_config);
   ASSERT_EQ(issues.size(), 1U);
-  EXPECT_EQ(issues.front().code, config::ConfigValidationCode::kRecognitionAccumulationInvalid);
+  EXPECT_EQ(issues.front().code, "ar.validation.recognition_accumulation_invalid");
 }
 
 TEST(RadarSessionConfigValidationTest, RejectsInvalidRecognitionTimeAndRange) {
@@ -455,7 +462,7 @@ TEST(RadarSessionConfigValidationTest, RejectsInvalidRecognitionTimeAndRange) {
   session_config.policy.recognition.recognition_dwell_sec = 0.0f;
   const auto issues = config::ValidateArSessionConfig(session_config);
   ASSERT_EQ(issues.size(), 1U);
-  EXPECT_EQ(issues.front().code, config::ConfigValidationCode::kRecognitionTimeRangeInvalid);
+  EXPECT_EQ(issues.front().code, "ar.validation.recognition_time_range_invalid");
 }
 
 TEST(RadarSessionConfigValidationTest, AcceptsExplicitlyEnabledRecognitionConfig) {

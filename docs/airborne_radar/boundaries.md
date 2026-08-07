@@ -1,6 +1,6 @@
 ---
 Status: active
-Last-reviewed: 2026-08-03
+Last-reviewed: 2026-08-07
 Authority: AR 模块级边界、非目标与设计变更规则
 Answers: AR 有哪些模块级禁令与边界、哪些非目标、配置/环境/校验/滤波的特殊语义、文档变更规则
 ---
@@ -64,19 +64,24 @@ ISA 标准大气，这些字段全部未被消费，属未接入的死输入。�
 
 `ArSession` 和 `ArController` 都有明确的失败语义：
 
-1. cycle input 校验失败时不执行 pipeline，`ArCycleResult` 携带 validation issues，controller 设置显式 abort
+1. **校验层归属（COMMON-OQ-9 收敛，2026-08）**：公共路径入口校验在 `ArSession`
+   （`ValidateArCycleInput` 含外部运动学坐标系转换，控制器输入面不含 platform/targets 原始
+   数据，无法下移）；运行期校验唯一化在 `ArController::RunOnce`（会话层对同一输入的二次
+   校验已删除），拒绝时明细经出参直通并装配进最终周期结果；运行期执行失败透传真实
+   `abort_reason`（校验拒绝为 `kRejectedInvalidInput` + 细粒度明细），不写死替换。
+2. cycle input 校验失败时不执行 pipeline，`ArCycleResult` 携带 validation issues 与显式 abort
    reason `kValidationRejected`（保留 replay/trace 数值语义）。
-2. **非执行周期统一不复用（五模块统一规则）**：`Step()` 与 `ArCycleResult.track_output_frame`
+3. **非执行周期统一不复用（五模块统一规则）**：`Step()` 与 `ArCycleResult.track_output_frame`
    返回默认空帧（`cycle_index==0`、空 tracks/emission），不论是否存在上一有效输出。调用方仅凭
    `Step()` 返回值即可判定本轮无新航迹。状态判断统一走 `StepWithResult().status`
    （`kRejectedInvalidInput`/`kPoweredOff`/`kRejectedExecution`）。
-3. controller 内部 `last_cycle_reused_previous_output` 仅是 RF 接收/检测侧跨周期状态机的簿记标志
+4. controller 内部 `last_cycle_reused_previous_output` 仅是 RF 接收/检测侧跨周期状态机的簿记标志
    （捕获/恢复 snapshot 用），不进入 public `ArCycleResult`，也不等于公开输出帧被复用；不得据此推断
    `Step()` 会回传历史航迹。
-4. signal pipeline abort 时不会发布合成的最新输出。
-5. 电源状态单源：`ArSessionConfig::sensor_enabled` 是唯一来源（mission 域无电源字段），运行时电源唯一入口
+5. signal pipeline abort 时不会发布合成的最新输出。
+6. 电源状态单源：`ArSessionConfig::sensor_enabled` 是唯一来源（mission 域无电源字段），运行时电源唯一入口
    为 `ArRuntimeConfigPatch::has_sensor_enabled`。
-6. 设备关机是已接受的非执行配置边界：撤销周期副作用后 finalize 关机配置，并保留外部决策等待下一成功周期。
+7. 设备关机是已接受的非执行配置边界：撤销周期副作用后 finalize 关机配置，并保留外部决策等待下一成功周期。
 
 [evidence: tests/contract/airborne_radar/ar_public_api_convenience_test.cpp::RejectedCycleDoesNotReusePreviousOutput]
 [evidence: tests/contract/airborne_radar/ar_public_api_convenience_test.cpp::StepReturnsEmptyCurrentFrameOnRejectedInput]
@@ -91,20 +96,26 @@ ISA 标准大气，这些字段全部未被消费，属未接入的死输入。�
 3. query/debug/lifecycle/replay 是诊断辅助，不是用户扩展 signal pipeline 的入口；决策 SPI 不拥有输出结构，
    也不能绕过内部 output adapter 写系统输出。
 
-### 三写约束（abort_reason + diagnostics + 日志）
+### 三写约束（abort_reason + issues + 日志）
 
-AR 所有中止路径遵守 `session_contract.md` 规则 9 的三写模式：
+AR 所有中止路径遵守 `session_contract.md` 规则 9 的三写模式与规则 14 的统一问题列表模型：
 
 1. **结构化信号**：`ArCycleResult.abort_reason`（粗粒度枚举）。
-2. **结构化诊断**：`ArCycleResult.diagnostics`（`ArDiagnosticIssueList`，细粒度 code 如 `"ar.sensor_powered_off"`）。
+2. **结构化诊断**：`ArCycleResult.issues`（`ArIssueList`，细粒度 code 如 `"ar.sensor_powered_off"`、
+   `"ar.validation.invalid_cycle_delta_time"`；条目携带 `phase` 来源标签与可选定位）。
 3. **人读日志**：`PROJECT_LOG_ERROR`。
 
-三写由 `ArDiagnosticUtils::RecordAbort` 统一执行，在 `ArSession` 的周期装配路径中调用。
+`ArCycleResult` 只承载单一问题列表 `issues`：输入校验问题（`phase=kInputValidation`）与执行诊断
+（`phase=kExecution`/`kOutputContract`）同列表承载，不设 `validation_issues`/`has_validation_error`
+平行字段。校验拒绝时校验问题本身就是 error 级诊断（规则 9 写二），不再附加粗粒度条目。
+
+三写由 `ArDiagnosticUtils::RecordAbort` 统一执行（phase 由中止原因推导），在 `ArSession` 的周期
+装配路径中调用。
 
 **正常周期的按目标排除诊断（规则 13b）**：正常执行周期（`status == kCompleted`）中被 SNR 检测门
 排除的目标（`min_snr_db` / `min_detection_margin_db` 任一未过；距离/方向图衰减隐式并入 SNR）写
-`kInfo` 级 `ArDiagnosticIssue`（code `"ar.target_snr_below_threshold"`，message 携带 `target_id` 与
-`snr_db`/`range_m`/门值），**不属于三写**（三写仅约束中止路径，规则 9）。诊断不改变 `ArCycleStatus`
+`kInfo` 级 `ArIssue`（code `"ar.target_snr_below_threshold"`，message 携带 `target_id` 与
+`snr_db`/`range_m`/门值，phase=`kExecution`），**不属于三写**（三写仅约束中止路径，规则 9）。诊断不改变 `ArCycleStatus`
 与 DebugView 状态语义（排除目标仍为 `kNotInOutput`，规则 13c）；生命周期失效（miss 积累 → `kLost`）
 不产生排除诊断（规则 13d）。周期摘要日志（`[SignalPipeline] … excluded={{snr=…}}`）仅人读（规则 13a）。
 

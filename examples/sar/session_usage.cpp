@@ -94,13 +94,13 @@ std::size_t FindPeakIndex(const sar::session::SarFocusedImage& image) {
   return peak_index;
 }
 
-const char* SeverityName(sar::session::SarDiagnosticSeverity severity) {
+const char* SeverityName(sar::session::SarIssueSeverity severity) {
   switch (severity) {
-    case sar::session::SarDiagnosticSeverity::kInfo:
+    case sar::session::SarIssueSeverity::kInfo:
       return "info";
-    case sar::session::SarDiagnosticSeverity::kWarning:
+    case sar::session::SarIssueSeverity::kWarning:
       return "warning";
-    case sar::session::SarDiagnosticSeverity::kError:
+    case sar::session::SarIssueSeverity::kError:
       return "error";
   }
   return "unknown";
@@ -113,9 +113,9 @@ int main() {
       sar::session::SarSession::Create(MakeConfig());
   const sar::session::SarCycleResult result = session.StepWithResult(MakeInput());
 
-  if (result.has_error) {
+  if (result.status != sar::session::SarCycleStatus::kCompleted) {
     std::cerr << "SAR processing failed: " << static_cast<int>(result.abort_reason) << '\n';
-    for (const sar::session::SarDiagnosticIssue& issue : result.diagnostics) {
+    for (const sar::session::SarIssue& issue : result.issues) {
       std::cerr << '[' << SeverityName(issue.severity) << "] " << issue.code << ": "
                 << issue.message << '\n';
     }
@@ -157,9 +157,9 @@ int main() {
             << "  raw echo: " << result.output_frame.has_raw_echo << '\n'
             << "  range compressed: " << result.output_frame.has_range_compressed_echo << '\n'
             << "  L1 RDA image: " << result.output_frame.has_l1_image << '\n'
-            << "  diagnostics: " << result.diagnostics.size() << '\n';
+            << "  issues: " << result.issues.size() << '\n';
 
-  for (const sar::session::SarDiagnosticIssue& issue : result.diagnostics) {
+  for (const sar::session::SarIssue& issue : result.issues) {
     std::cout << '[' << SeverityName(issue.severity) << "] " << issue.code << ": "
               << issue.message << '\n';
   }

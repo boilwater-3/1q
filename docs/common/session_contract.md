@@ -1,6 +1,6 @@
 ---
 Status: active
-Last-reviewed: 2026-08-03
+Last-reviewed: 2026-08-07
 Authority: 有 Session 的传感器模块的统一会话契约
 Answers: SessionConfigBuilder、Session 组合所有权、运行期配置提交策略、电源单源、三层输出模型、Replay/trace 语义
 ---
@@ -121,12 +121,11 @@ AR/ESR/EOS/SBIRS/SAR 五模块的电源状态必须遵守单源原则：
    `reused_previous_output` 概念已废除。
 9. 所有中止路径（`abort_reason` 非 `kNone`）必须执行三写：
    a. **结构化信号**：设置 `abort_reason`（粗粒度枚举，~6 值，与模块对齐）。
-   b. **结构化诊断**：写入 `*DiagnosticIssueList`（`severity` + `code` + `message`），
-      细粒度 code 带模块前缀（如 `"sar.snr_below_minimum"`）。
+   b. **结构化诊断**：写入唯一问题列表 `*IssueList`（统一问题列表模型，规则 14），
+      细粒度 code 带模块前缀（如 `"sar.snr_below_minimum"`、
+      `"esr.validation.invalid_emitter_frequency"`）。
    c. **人读日志**：`PROJECT_LOG_ERROR` 或 `PROJECT_LOG_WARN`。
    三写缺一不可。SAR 为参考实现（`SarDiagnosticUtils::WriteAbort`）。
-   `ValidationIssueList` 承载输入校验的结构化问题（severity/code/location/field/message），
-   与 `*DiagnosticIssueList` 职责不同，不得混用。
 10. `*LifecycleRecorder` 由 `*Session::Attach*LifecycleRecorder()` 注册后自动驱动：
     Session 在 `StepWithResult()`/`Step()` 内部自动调用 `Update()`，调用方无需（也不应）手动调用
     `Update()`——漏调会导致状态机失步（例如错过产品/目标消失的周期后，内部 1-bit 标志仍为"存在"，
@@ -140,25 +139,32 @@ AR/ESR/EOS/SBIRS/SAR 五模块的电源状态必须遵守单源原则：
     c. 注册与否不影响 `Step()`/`StepWithResult()` 的返回值和执行语义——纯观测工具，零行为改变。
 12. 跨周期观测由调用方负责：`*OutputDebugViewBuilder` 是帧作用域快照构造器，本库不提供跨周期
     状态查询接口；"到目前为止"的累积信息由调用方将每周期 DebugView 以结构化格式（如 JSON/
-    FlatBuffers）写入自己的日志/事件系统获得。规则 3 的"状态判断不得依赖日志文本"约束对象是
-    模块内部代码，不限制调用方对其日志系统的使用，但调用方应结构化落盘，避免文本解析。
-    JSON 参考实现见 `examples/common/` 的 `*DebugViewToJson.h` + `debug_view_json.h`
-    （header-only、零第三方依赖，集成方可直接 copy 进自己的工程）。
+    FlatBuffers）写入自己的日志/事件系统获得。
+    - 规则 3 的"状态判断不得依赖日志文本"约束对象是模块内部代码，不限制调用方对其日志系统的
+      使用，但调用方应结构化落盘，避免文本解析。
+    - JSON 参考实现见 `examples/common/` 的 `*DebugViewToJson.h` + `debug_view_json.h`
+      （header-only、零第三方依赖，集成方可直接 copy 进自己的工程）。
+    - AR/EOS/SBIRS 序列化器另含三种常见落盘模式参考实现：只落非标称行、跨周期状态增量
+      （状态表由调用方持有）、降频落盘（每 N 周期一次全量，其余周期只落问题列表）；
+      SAR 为阶段型视图，不适用逐目标落盘模式。
 13. 正常执行周期（`status == kCompleted`）的可观测性：
     a. **周期级执行摘要日志**：正常执行周期应输出周期级 `PROJECT_LOG_INFO` 摘要，格式基线
        `[XxxPipeline] cycle_index={} …`（模块自定附加字段，如扫描方位、检测数/目标数、排除计数），
-       仅用于人读运行信息（规则 3）。ESR（`[InterceptPipeline]`）与 EOS（`[EosPipeline]`）为既有
-       参考；SBIRS（`[SbirsPipeline]`）为首个按本规则对齐实现；AR（`[SignalPipeline]`）与 SAR
+       仅用于人读运行信息（规则 3）。
+       对齐参考实现：ESR（`[InterceptPipeline]`）与 EOS（`[EosPipeline]`）为既有参考；
+       SBIRS（`[SbirsPipeline]`）为首个按本规则对齐实现；AR（`[SignalPipeline]`）与 SAR
        （`[SarPipeline]`）于 2026-08 对齐。
     b. **按目标门控排除诊断**：正常执行周期中目标被门控排除（视场/SNR/距离/遮挡/几何等）应写
-       `kInfo` 级 `*DiagnosticIssueList` 条目，code 带模块前缀（如 `"sbirs.target_out_of_wfov"`），
+       `kInfo` 级 `*IssueList` 条目，code 带模块前缀（如 `"sbirs.target_out_of_wfov"`），
        message 携带目标标识（`target_id`；ESR 无目标概念，以发射源标识
-       platform/equipment/emission id 为载体）与关键量值。这类条目**不属于三写**（三写仅约束
-       中止路径，规则 9），仅承载排查信息；调用方按规则 12 落盘 DebugView 时自然携带。参考实现：
-       SAR（`SarDiagnosticUtils::MakeInfoDiagnostic`/`MakeWarningDiagnostic`）+ SBIRS/AR/ESR/EOS
-       （2026-08 对齐；ESR 以发射源标识为载体）。
-       message 为人类可读文本，内容与格式**不承诺解析稳定性**：机器消费只认 code；
-       量值（如 `range_m`/`snr`/方位角）如需程序化消费，应另行定义结构化字段，不得解析 message。
+       platform/equipment/emission id 为载体）与关键量值。
+       - **不属于三写**（三写仅约束中止路径，规则 9），仅承载排查信息；调用方按规则 12 落盘
+         DebugView 时自然携带。
+       - **参考实现**：SAR（`SarDiagnosticUtils::MakeInfoDiagnostic`/`MakeWarningDiagnostic`）
+         + SBIRS/AR/ESR/EOS（2026-08 对齐；ESR 以发射源标识为载体）。
+       - **message 稳定性**：message 为人类可读文本，内容与格式**不承诺解析稳定性**——
+         机器消费只认 code；量值（如 `range_m`/`snr`/方位角）如需程序化消费，应另行定义
+         结构化字段，不得解析 message。
     c. **状态语义边界**：kInfo 排除诊断不得改变 `*CycleStatus`、生命周期事件或 DebugView 状态
        语义（如 `kNotInOutput`）；排除原因只经 diagnostics 承载，不新增状态位。
     d. **适用范围边界（例外）**：13b 的"门控排除"仅指视场/SNR/距离/遮挡等**门限判定**；
@@ -167,6 +173,65 @@ AR/ESR/EOS/SBIRS/SAR 五模块的电源状态必须遵守单源原则：
    **对齐状态（2026-08）**：五传感器模块已全部按本规则对齐（SBIRS/AR/ESR/EOS/SAR）。SAR 无
    逐目标门控排除（集体成像模型，几何/SNR 门均为整周期中止 → 三写），13b 对其为空洞条款，
    以 kInfo/kWarning 正常路径诊断承载（见 `docs/sar/boundaries.md`）。
+14. **统一问题列表模型**：`*CycleResult` 只承载**单一问题列表** `*IssueList`（字段名 `issues`）；
+    输入校验问题与执行诊断问题不得以平行字段（如 `validation_issues`、`diagnostics`）分开承载。
+    每条问题条目（各模块 `*Issue` 结构）：
+    a. `severity`：`kInfo` / `kWarning` / `kError`。
+    b. `phase`（来源标签）：`kInputValidation`（输入校验阶段，调用方输入问题）/
+       `kExecution`（管线执行阶段，含关机等运行态条件）/
+       `kOutputContract`（输出违反内部契约）。phase 是结构化来源判别字段；状态判断仍以
+       `status`/`abort_reason` 为准（规则 9a），phase 不改变状态语义。
+    c. `code`：字符串，带模块前缀。输入校验问题（周期输入校验 `Validate*CycleInput` 与
+       创建时配置校验 `Validate*SessionConfig` 共用）编码为 `"<module>.validation.<snake_case>"`
+       （如 `"esr.validation.invalid_emitter_frequency"`）；执行诊断保持既有 code 字符串
+       （如 `"sar.snr_below_minimum"`）。机器消费只认 code（规则 13b）；既有执行诊断 code
+       字符串是 replay/trace 稳定语义，不得重命名。
+    d. `message`：人读文本，内容与格式不承诺解析稳定性（规则 13b）。
+    e. `location` / `field`（可选定位）：`location.kind == kGlobal` 或 `field` 为空表示无定位；
+       定位只服务人读与 replay 保真，不用于状态判断。
+    输入校验入口（`Validate*CycleInput`）返回同一问题条目列表（`phase = kInputValidation`）；
+    `HasValidationError` 按 `phase == kInputValidation && severity == kError` 判定。
+    **周期输入校验层归属与 issues 流向（COMMON-OQ-9 收敛，2026-08）**：
+    - 周期输入校验以控制器 `RunOnce` 为权威点（SAR/SBIRS/ESR/EOS）；校验 issues 直通周期
+      结果——`RunOnce` 内装配 `*CycleResult` 并缓存（`BuildCycleResult` 仅返回缓存，SAR/
+      ESR/EOS 同构；SBIRS 由 `RunOnce` 直接返回）。**禁止校验缓存与查询 API**
+      （`last_validation_issues` 缓存字段与 `GetLastValidationIssues` 查询 API 已全部删除，
+      残余为零）。
+    - 校验拒绝不附加粗粒度 abort 条目：校验问题本身就是 error 级诊断（规则 9 写二由它们
+      承载），拒绝路径显式补齐 `abort_reason` 与日志。
+    - **AR 特例**：公共路径入口校验保留在 session（`ValidateArCycleInput` 含外部运动学
+      坐标系转换，控制器输入面不含 platform/targets 原始数据，无法下移）；运行期校验
+      唯一化在控制器 `RunOnce`（会话层对同一输入的二次校验已删除），拒绝明细经出参
+      直通并装配进最终周期结果（运行期拒绝 `abort_reason` 保持真实值，不写死替换）。
+    创建时配置校验入口（`Validate*SessionConfig`）返回同一 `*IssueList`：
+    - `phase = kInputValidation`、`severity = kError`，code 按 c 条
+      `<module>.validation.<snake_case>` 规则（同条件在创建时与运行期路径 code 逐字一致），
+      `field` 定位配置字段路径。
+    - `CreateWithDiagnostics` 出参类型为 `*IssueList`（非阻断语义见
+      `docs/common/contract.md` §会话创建入口）。
+    - 各模块 config 域 `ConfigValidationCode` 枚举、`ConfigValidationIssue` /
+      `ValidationIssue` 结构与 `ValidationIssueList` 别名已删除。
+    旧符号移除声明：
+    - 各模块 `ValidationCode` 枚举、`ValidationIssue` 类型与平行列表字段不再作为输出通道。
+    - `*CycleResult` 不得保留可推导的 error 布尔缓存字段（`has_validation_error` /
+      `has_error` 已删除，调用方以 `HasValidationError(issues)` 或遍历判定）。
+    - SAR 为参考实现（无平行字段）；ESR/EOS/SBIRS/AR 于 2026-08 按模块收敛完成
+      （迁移状态见下表）。
+    [evidence: tests/contract/sar/sar_three_write_guard_test.cpp —— 参考实现 issues 唯一列表 + phase 断言]
+    [evidence: tests/contract/electronic_surveillance_radar/esr_three_write_guard_test.cpp —— 迁移后 phase 断言]
+    [evidence: tests/unit/sar/sar_input_validation_test.cpp —— 校验问题 code "sar.validation.<snake>" + phase 断言]
+    [evidence: tests/unit/sar/sar_session_config_builder_test.cpp —— config 域 code "sar.validation.<snake>" 断言]
+    [evidence: tests/unit/sbirs_sensor/sbirs_session_config_builder_test.cpp —— 无枚举 config 域 code 断言]
+
+    **对齐状态（2026-08，全部已对齐）**：
+
+    | 模块 | `validation_issues` 平行字段 | `phase` 来源标签 | 可选定位 | config 域（`Validate*SessionConfig`） | 校验层归属与 issues 流向 |
+    |---|---|---|---|---|---|
+    | SAR | 无（参考实现） | 已对齐 | 已对齐 | 已统一 | 控制器 RunOnce + 直通（参考实现） |
+    | ESR | 已迁移 | 已对齐 | 已对齐 | 已统一 | 控制器 RunOnce + 直通（2026-08 收敛） |
+    | EOS | 已迁移 | 已对齐 | 已对齐 | 已统一 | 控制器 RunOnce + 直通（2026-08 收敛） |
+    | SBIRS | 已迁移 | 已对齐 | 已对齐 | 已统一 | 控制器 RunOnce + 直通（2026-08 收敛） |
+    | AR | 已迁移 | 已对齐 | 已对齐 | 已统一 | 公共入口 session + 运行期控制器（2026-08 收敛） |
 
 ### 传感器方位坐标系约定（SBIRS）
 
@@ -200,7 +265,7 @@ ECEF 输入，检测记录直接以 ECEF 视线向量计算，无局部地平转
 | AR | `ArCycleStatus` | `kCompleted`, `kPoweredOff`, `kRejectedInvalidInput`, `kRejectedInvalidConfig`, `kRejectedExecution` |
 | ESR | `EsrCycleExecutionStatus` | `kCompleted`, `kRejected`, `kPoweredOff` |
 | EOS | `EosCycleStatus` | `kCompleted`, `kPoweredOff`, `kRejectedInvalidInput`, `kRejectedExecution` |
-| SAR | `SarCycleStatus` | `kCompleted`, `kRejectedInvalidInput`, `kRejectedExecution`, `kPoweredOff`（细粒度失败信息由 `SarDiagnosticIssue::code` + 日志双写） |
+| SAR | `SarCycleStatus` | `kCompleted`, `kRejectedInvalidInput`, `kRejectedExecution`, `kPoweredOff`（细粒度失败信息由 `SarIssue::code` + 日志双写） |
 | SBIRS | `SbirsCycleStatus` | `kCompleted`, `kPoweredOff`, `kRejectedInvalidInput`, `kRejectedExecution` |
 
 `executed_this_cycle` 保留为 `status == kCompleted` 的便捷访问器（向后兼容）。

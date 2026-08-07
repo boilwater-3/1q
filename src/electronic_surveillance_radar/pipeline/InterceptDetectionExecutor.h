@@ -37,8 +37,8 @@ struct InterceptDetectionOutput {
   std::size_t excluded_co_site{0U};         /**< 同址干扰发射源排除计数（规则 13b）。 */
   std::size_t excluded_zero_power{0U};      /**< 零功率发射源排除计数（规则 13b）。 */
   std::size_t excluded_below_threshold{0U}; /**< SNR/统计检测门排除计数（规则 13b）。 */
-  session::EsrDiagnosticIssueList diagnostics{}; /**< 正常周期按发射源排除的 kInfo 诊断（规则 13b），
-                                                      经 pipeline 并入 InterceptPipelineResult。 */
+  session::EsrIssueList issues{}; /**< 正常周期按发射源排除的 kInfo 诊断（规则 13b），
+                                      经 pipeline 并入 InterceptPipelineResult。 */
 };
 
 /**

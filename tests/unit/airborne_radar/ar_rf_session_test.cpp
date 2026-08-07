@@ -344,14 +344,16 @@ TEST(ArRfSessionTest, BelowSnrTargetWritesInfoExclusionDiagnostic) {
 
   const ArCycleResult result = radar.StepWithResult(input);
 
-  // 行为中立：排除目标不产出航迹；排除原因只经 diagnostics 承载（规则 13b/13c）。
+  // 行为中立：排除目标不产出航迹；排除原因只经 issues 承载（规则 13b/13c）。
   EXPECT_EQ(result.status, ArCycleStatus::kCompleted);
   EXPECT_TRUE(result.track_output_frame.tracks.empty());
   bool found = false;
-  for (const ArDiagnosticIssue& issue : result.diagnostics) {
+  for (const ArIssue& issue : result.issues) {
     if (issue.code == "ar.target_snr_below_threshold") {
       found = true;
-      EXPECT_EQ(issue.severity, ArDiagnosticSeverity::kInfo);
+      EXPECT_EQ(issue.severity, ArIssueSeverity::kInfo);
+      // 排除诊断属执行阶段（规则 14b phase=kExecution），不得误标为校验问题。
+      EXPECT_EQ(issue.phase, ArIssuePhase::kExecution);
       EXPECT_NE(issue.message.find("target_id=77"), std::string::npos);
     }
   }

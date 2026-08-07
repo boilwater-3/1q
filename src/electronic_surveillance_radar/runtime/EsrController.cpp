@@ -5,6 +5,7 @@
 #include "1q/coordinate/position_transform.h"
 #include "electronic_surveillance_radar/environment/IEsrEnvironmentService.h"
 #include "electronic_surveillance_radar/pipeline/InterceptPipeline.h"
+#include "electronic_surveillance_radar/session/EsrDiagnosticUtils.h"
 #include "1q/electronic_surveillance_radar/session/EsrInputValidation.h"
 #include "common/logging/ProjectLog.h"
 #include "common/runtime/RuntimeCycleExecutor.h"
@@ -12,20 +13,76 @@
 namespace electronic_surveillance_radar {
 namespace extension {
 
+namespace {
+
+session::EsrCycleExecutionStatus DeriveCycleStatus(session::EsrPipelineAbortReason reason) {
+  switch (reason) {
+    case session::EsrPipelineAbortReason::kNone:
+      return session::EsrCycleExecutionStatus::kCompleted;
+    case session::EsrPipelineAbortReason::kSensorPoweredOff:
+      return session::EsrCycleExecutionStatus::kPoweredOff;
+    default:
+      return session::EsrCycleExecutionStatus::kRejected;
+  }
+}
+
+}  // namespace
+
 struct EsrController::Impl {
   Impl(pipeline::InterceptPipeline& pipeline_ref,
        environment::IEsrEnvironmentService& environment_service_ref)
       : pipeline(pipeline_ref), environment_service(environment_service_ref) {}
 
+  /** @brief 装配单周期聚合结果（COMMON-OQ-9：issues 直通，不经校验缓存）。 */
+  session::EsrCycleResult AssembleResult(const session::EsrCycleInput& input,
+                                         const session::EsrIssueList& validation_issues) const {
+    session::EsrCycleResult result;
+    result.input_cycle_index = input.cycle_index;
+    // 统一问题列表（规则 14）：输入校验问题（phase=kInputValidation）在前，正常执行周期
+    // 按发射源排除的 kInfo 诊断（规则 13b）在后；abort 路径诊断由 RecordAbort 追加。
+    session::EsrIssueList issues = validation_issues;
+    if (last_abort_reason == session::EsrPipelineAbortReason::kNone &&
+        runtime_state.has_latest_output) {
+      result.output_frame = runtime_state.latest_output;
+      session::EsrIssueList execution_issues = latest_issues;
+      issues.insert(issues.end(), execution_issues.begin(), execution_issues.end());
+    }
+    result.issues = std::move(issues);
+    result.abort_reason = last_abort_reason;
+
+    // 三写：对所有非 kNone 且非校验拒绝的 abort_reason 写入 issues + 日志。
+    // 校验拒绝时，校验问题本身就是 error 级诊断（规则 9 写二由它们承载），
+    // 不再重复写入粗粒度条目。
+    if (last_abort_reason != session::EsrPipelineAbortReason::kNone &&
+        last_abort_reason != session::EsrPipelineAbortReason::kValidationRejected) {
+      const char* detail_code = "unknown";
+      // 校验拒绝（kValidationRejected）不可达：外层 if 已排除，校验问题本身承载写二。
+      switch (last_abort_reason) {
+        case session::EsrPipelineAbortReason::kSensorPoweredOff:
+          detail_code = "sensor_powered_off";
+          break;
+        case session::EsrPipelineAbortReason::kRfReceiverRejected:
+          detail_code = "rf_receiver_rejected";
+          break;
+        default:
+          break;
+      }
+      session::RecordAbort(&result, last_abort_reason, detail_code, "ESR cycle aborted.");
+    }
+
+    // status 由 abort_reason 单一推导（在 RecordAbort 之后，避免其覆盖链造成
+    // powered-off 被标成 kRejected；与 EOS 的 DeriveCycleStatus 形态对齐）。
+    result.status = DeriveCycleStatus(last_abort_reason);
+
+    return result;
+  }
+
   pipeline::InterceptPipeline& pipeline;
   environment::IEsrEnvironmentService& environment_service;
-  oneq::common::runtime::RuntimeCycleState<session::EsrOutputFrame,
-                                          session::ValidationIssueList>
-      runtime_state{};
-  session::EsrCycleExecutionStatus last_cycle_status{
-      session::EsrCycleExecutionStatus::kRejected};
+  oneq::common::runtime::RuntimeCycleState<session::EsrOutputFrame> runtime_state{};
   session::EsrPipelineAbortReason last_abort_reason{session::EsrPipelineAbortReason::kNone};
-  session::EsrDiagnosticIssueList latest_diagnostics{}; /**< 正常周期按发射源排除的 kInfo 诊断（规则 13b）。 */
+  session::EsrIssueList latest_issues{}; /**< 正常周期按发射源排除的 kInfo 诊断（规则 13b）。 */
+  session::EsrCycleResult latest_result{}; /**< 最近一次周期的聚合结果缓存（COMMON-OQ-9 直通装配）。 */
 };
 
 EsrController::EsrController(pipeline::InterceptPipeline& pipeline,
@@ -39,17 +96,16 @@ void EsrController::RunOnce(const session::EsrCycleInput& input) {
       oneq::common::runtime::MakeRuntimeCycleStamp(
           input.cycle_index, impl_->runtime_state.next_batch_id);
 
-  // 校验
-  session::ValidationIssueList issues = session::ValidateEsrCycleInput(input);
-  impl_->runtime_state.last_validation_issues = issues;
+  // 校验（COMMON-OQ-9：issues 直通装配，不经校验缓存）
+  session::EsrIssueList issues = session::ValidateEsrCycleInput(input);
 
   if (session::HasValidationError(issues)) {
-    impl_->last_cycle_status = session::EsrCycleExecutionStatus::kRejected;
     impl_->last_abort_reason = session::EsrPipelineAbortReason::kValidationRejected;
     // 中译：ESR 周期输入校验被拒绝（周期号）。
     // 标识：输入校验失败——本周期不执行、输出为空；
-    //       排查输入字段校验问题（详见 ValidationIssueList）。
+    //       排查输入字段校验问题（详见 EsrIssueList）。
     PROJECT_LOG_WARN("ESR validation rejected for cycle_index={}", stamp.cycle_index);
+    impl_->latest_result = impl_->AssembleResult(input, issues);
     return;
   }
 
@@ -57,8 +113,8 @@ void EsrController::RunOnce(const session::EsrCycleInput& input) {
   {
     oneq::coordinate::LlaPositionDegM platform_lla;
     if (!oneq::coordinate::TryEcefToLla(input.platform_position_ecef_m, &platform_lla)) {
-      impl_->last_cycle_status = session::EsrCycleExecutionStatus::kRejected;
       impl_->last_abort_reason = session::EsrPipelineAbortReason::kValidationRejected;
+      impl_->latest_result = impl_->AssembleResult(input, issues);
       return;
     }
     impl_->environment_service.BeginCycle(
@@ -69,16 +125,16 @@ void EsrController::RunOnce(const session::EsrCycleInput& input) {
   extension::InterceptPipelineResult pipeline_result =
       impl_->pipeline.RunCycle(input, impl_->environment_service);
   if (pipeline_result.rf_v2_rejected) {
-    impl_->last_cycle_status = session::EsrCycleExecutionStatus::kRejected;
     impl_->last_abort_reason = session::EsrPipelineAbortReason::kRfReceiverRejected;
     // 中译：ESR RF v2 接收机拒绝了本周期（周期号）。
     // 标识：射频接收级拒绝——周期不产出观测；排查 RF 帧与接收机窗口。
     PROJECT_LOG_WARN("ESR RF v2 receiver rejected cycle_index={}", stamp.cycle_index);
+    impl_->latest_result = impl_->AssembleResult(input, issues);
     return;
   }
   if (pipeline_result.sensor_powered_off) {
-    impl_->last_cycle_status = session::EsrCycleExecutionStatus::kPoweredOff;
     impl_->last_abort_reason = session::EsrPipelineAbortReason::kSensorPoweredOff;
+    impl_->latest_result = impl_->AssembleResult(input, issues);
     return;
   }
   session::EsrOutputFrame output_frame;
@@ -88,11 +144,10 @@ void EsrController::RunOnce(const session::EsrCycleInput& input) {
   output_frame.observation_output = std::move(pipeline_result.observation_output);
   output_frame.emitter_output = std::move(pipeline_result.emitter_output);
   // 规则 13b：正常周期按发射源排除的 kInfo 诊断转写（abort 路径不变）。
-  impl_->latest_diagnostics = std::move(pipeline_result.diagnostics);
+  impl_->latest_issues = std::move(pipeline_result.issues);
 
   impl_->runtime_state.latest_output = std::move(output_frame);
   impl_->runtime_state.has_latest_output = true;
-  impl_->last_cycle_status = session::EsrCycleExecutionStatus::kCompleted;
   impl_->last_abort_reason = session::EsrPipelineAbortReason::kNone;
   ++impl_->runtime_state.next_batch_id;
   // 中译：本周期已执行（周期号、观测数、假设数）。
@@ -102,6 +157,7 @@ void EsrController::RunOnce(const session::EsrCycleInput& input) {
       stamp.cycle_index,
       impl_->runtime_state.latest_output.observation_output.observations.size(),
       impl_->runtime_state.latest_output.emitter_output.hypotheses.size());
+  impl_->latest_result = impl_->AssembleResult(input, issues);
 }
 
 bool EsrController::HasLatestInterceptOutputFrame() const { return impl_->runtime_state.has_latest_output; }
@@ -110,20 +166,9 @@ const session::EsrOutputFrame& EsrController::GetLatestInterceptOutputFrame() co
   return impl_->runtime_state.latest_output;
 }
 
-const session::ValidationIssueList& EsrController::GetLastValidationIssues() const {
-  return impl_->runtime_state.last_validation_issues;
-}
-
-session::EsrCycleExecutionStatus EsrController::GetLatestCycleStatus() const {
-  return impl_->last_cycle_status;
-}
-
-const session::EsrDiagnosticIssueList& EsrController::GetLatestDiagnostics() const {
-  return impl_->latest_diagnostics;
-}
-
-session::EsrPipelineAbortReason EsrController::GetLastInterceptCycleAbortReason() const {
-  return impl_->last_abort_reason;
+session::EsrCycleResult EsrController::BuildCycleResult() const {
+  // COMMON-OQ-9：装配已在 RunOnce 内完成并缓存（issues 直通），此处仅返回缓存。
+  return impl_->latest_result;
 }
 
 environment::IEsrEnvironmentService& EsrController::GetEnvironmentService() {
@@ -133,25 +178,21 @@ environment::IEsrEnvironmentService& EsrController::GetEnvironmentService() {
 EsrControllerRuntimeState EsrController::CaptureRuntimeState() const {
   EsrControllerRuntimeState state;
   state.owner_identity = this;
-  state.schema_version = 1U;
+  state.schema_version = 2U;
   state.has_latest_output = impl_->runtime_state.has_latest_output;
   state.latest_output = impl_->runtime_state.latest_output;
-  state.last_validation_issues = impl_->runtime_state.last_validation_issues;
   state.next_batch_id = impl_->runtime_state.next_batch_id;
-  state.last_cycle_status = impl_->last_cycle_status;
   state.last_abort_reason = impl_->last_abort_reason;
   return state;
 }
 
 bool EsrController::RestoreRuntimeState(const EsrControllerRuntimeState& state) {
-  if (state.owner_identity != this || state.schema_version != 1U) {
+  if (state.owner_identity != this || state.schema_version != 2U) {
     return false;
   }
   impl_->runtime_state.has_latest_output = state.has_latest_output;
   impl_->runtime_state.latest_output = state.latest_output;
-  impl_->runtime_state.last_validation_issues = state.last_validation_issues;
   impl_->runtime_state.next_batch_id = state.next_batch_id;
-  impl_->last_cycle_status = state.last_cycle_status;
   impl_->last_abort_reason = state.last_abort_reason;
   return true;
 }

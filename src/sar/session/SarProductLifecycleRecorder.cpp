@@ -11,6 +11,16 @@ bool HasImageProduct(const SarOutputFrame& frame) {
   return frame.has_l1_image || frame.has_l3_bp_image;
 }
 
+// 统一问题列表模型（规则 14）：可推导字段 has_error 已删除，改为遍历 issues 判定。
+bool HasErrorIssue(const SarIssueList& issues) {
+  for (const SarIssue& issue : issues) {
+    if (issue.severity == SarIssueSeverity::kError) {
+      return true;
+    }
+  }
+  return false;
+}
+
 SarProductLifecycleReason InferFailureReason(const SarCycleResult& result) {
   if (result.abort_reason != SarPipelineAbortReason::kNone) {
     return SarProductLifecycleReason::kAbortReason;
@@ -39,7 +49,7 @@ std::vector<SarProductLifecycleEvent> SarProductLifecycleRecorder::Update(const 
   std::vector<SarProductLifecycleEvent> events;
   if (result.executed_this_cycle) {
     const bool has_product = HasImageProduct(result.output_frame);
-    if (result.has_error) {
+    if (HasErrorIssue(result.issues)) {
       events.push_back(
           MakeEvent(result, SarProductLifecycleEventKind::kProcessingFailed, InferFailureReason(result)));
       has_product_ = false;

@@ -1,6 +1,6 @@
 ---
 Status: active
-Last-reviewed: 2026-08-03
+Last-reviewed: 2026-08-07
 Authority: SAR 模块级边界、非目标与设计变更规则
 Answers: SAR 有哪些模块级禁令与边界、哪些非目标、配置/环境/校验的特殊语义、文档变更规则
 ---
@@ -48,8 +48,9 @@ SAR 非执行周期（校验失败/执行 abort/设备关机）的 `Step()` 与 
 `SarSessionConfig::sensor_enabled` 是电源唯一来源（mission 域无电源字段），
 `SarRuntimeConfigPatch::has_sensor_enabled` 叶子是运行时电源唯一入口。运行期关闭
 传感器不重建会话，只通过 patch 立即生效。关机时管线入口短路：`SarCycleStatus::kPoweredOff` +
-`abort_reason=kSensorPoweredOff`，`executed_this_cycle=false`、`has_error=false`（关机不是
-错误），输出帧严格默认空帧，跨周期状态（raw pulse 缓冲、孔径拼接、PRF 分数余量）不推进。
+`abort_reason=kSensorPoweredOff`，`executed_this_cycle=false`（关机是合法非执行状态，
+不是校验错误也不是执行失败），输出帧严格默认空帧，跨周期状态（raw pulse 缓冲、孔径拼接、
+PRF 分数余量）不推进。
 
 [evidence: tests/unit/sar/sar_session_pipeline_test::PoweredOffCycleShortCircuitsWithEmptyFrame]
 [evidence: tests/unit/sar/sar_runtime_config_resolver_test::SensorEnabledLeafUpdatesConfig]
@@ -137,14 +138,30 @@ L1 和 L1.5 共同构成"本周期的完整产品输出"。
 
 [evidence: include/1q/sar/session/SarCycleResult.h — SarOutputFrame trivially_copyable 哨兵]
 
-### 诊断架构：diagnostics 为唯一诊断通道
+### 诊断架构：issues 为唯一诊断通道（统一问题列表模型，规则 14）
 
-SAR 的 `SarDiagnosticIssueList diagnostics` 承载三级诊断（kInfo/kWarning/kError），每条包含
-severity + code + message。`SarPipelineAbortReason` 枚举通过 `AbortReasonToDiagnosticCode()` 映射到
-诊断码字符串（如 `kSnrBelowMinimum` → `"sar.snr_below_minimum"`），人读 message 由调用方提供。
+SAR 的 `SarIssueList issues` 承载统一问题列表（kInfo/kWarning/kError），每条包含
+severity + phase + code + message + 可选定位（location/field）。`SarPipelineAbortReason`
+枚举通过 `AbortReasonToDiagnosticCode()` 映射到诊断码字符串（如 `kSnrBelowMinimum` →
+`"sar.snr_below_minimum"`），人读 message 由调用方提供。
 
-**不新增 `validation_issues` 字段**：其他模块的 `ValidationIssueList` 是二元校验结果，SAR 的
-`diagnostics` 已完整覆盖校验语义（kError 级）。新增平行字段只会引入冗余。
+**phase 来源标签**：输入/运行期配置校验问题（`ValidateSarCycleInput`、
+`ValidateRuntimeConfigForStep`）→ `kInputValidation`，code 编码为 `"sar.validation.<snake>"`；
+创建时配置校验（`ValidateSarSessionConfig`，`CreateWithDiagnostics` 出参）返回同一
+`SarIssueList`（`phase = kInputValidation`、`severity = kError`、`field` 定位配置字段路径，
+同条件 code 与运行期路径逐字一致，如 `"sar.validation.sample_window_too_small_for_pulse"`）；
+执行诊断（pipeline 内联 kInfo/kWarning、`RecordAbort` 中止条目）→ `kExecution`。
+校验拒绝路径不调用 `RecordAbort` —— 校验问题本身就是 error 级诊断（规则 9 写二），
+abort_reason（写一）与日志（写三）在调用点补齐。
+
+**运行期聚合码豁免（契约 14c 例外，2026-08）**：`ValidateRuntimeConfigForStep` 对硬件/任务
+字段非法（`AreSarHardwareAndMissionFieldsValid` 失败）产出单一聚合码
+`"sar.validation.invalid_config"`，而创建时 `ValidateSarSessionConfig` 对同一批字段产细分码
+（`carrier_frequency_not_positive`、`bandwidth_not_positive` 等）。聚合是
+`AreSarHardwareAndMissionFieldsValid` 返回 `bool` 签名（无出参 issue 列表）决定的必然结果；
+运行期路径仅在 runtime config patch 后触发且 config 已在创建时校验过一次，聚合码不影响
+拒绝语义。契约 14c"同条件 code 逐字一致"在此处为文档豁免：运行期硬件/任务字段失败统一
+报告 `invalid_config`。
 
 **周期级执行摘要日志（规则 13a）**：正常完成周期（`status == kCompleted`）在
 `SarProcessingPipeline::RunCycle` 尾部输出 `[SarPipeline] cycle_index={} …` 的
@@ -167,9 +184,10 @@ severity + code + message。`SarPipelineAbortReason` 枚举通过 `AbortReasonTo
 | `kRuntimeStateRestoreRejected` | 运行时状态恢复失败 |
 | `kSensorPoweredOff` | 设备关机：管线入口短路（COMMON-OQ-4 字段提升，见"电源状态单源"） |
 
-细粒度失败信息由 `SarDiagnosticIssue::code`（如 `"sar.snr_below_minimum"`）和
+细粒度失败信息由 `SarIssue::code`（如 `"sar.snr_below_minimum"`）和
 `PROJECT_LOG_ERROR` 双写承载，不进入 public `abort_reason`。
-`RecordAbort` / `RecordValidationAbort` 执行三写：粗粒度 `abort_reason` + 结构化诊断 + 人读日志。
+`RecordAbort` 执行三写：粗粒度 `abort_reason` + 结构化诊断 + 人读日志；
+校验拒绝路径由校验问题本身承载 error 级诊断（规则 9/14）。
 
 [evidence: include/1q/sar/session/SarCycleResult.h — SarPipelineAbortReason 枚举定义]
 [evidence: src/sar/session/SarDiagnosticUtils.cpp — WriteAbort 三写逻辑]

@@ -6,6 +6,7 @@
 #include <gtest/gtest.h>
 
 #include <limits>
+#include <string>
 
 #include "1q/electronic_surveillance_radar/config/EsrProfileConstants.h"
 #include "1q/electronic_surveillance_radar/config/EsrSessionConfigBuilder.h"
@@ -15,7 +16,7 @@ namespace electronic_surveillance_radar {
 namespace config {
 namespace {
 
-bool ContainsCode(const ValidationIssueList& issues, ConfigValidationCode code) {
+bool ContainsCode(const session::EsrIssueList& issues, const std::string& code) {
   for (const auto& issue : issues) {
     if (issue.code == code) return true;
   }
@@ -68,17 +69,17 @@ TEST(EsrSessionConfigValidationTest, RejectsNonPositiveScanRate) {
   EsrSessionConfig config;
   config.mission.scan.scan_rate_hz = -1.0f;
   EXPECT_TRUE(ContainsCode(ValidateEsrSessionConfig(config),
-                           ConfigValidationCode::kScanRateNotPositive));
+                           "esr.validation.scan_rate_not_positive"));
 }
 
 TEST(EsrSessionConfigValidationTest, RejectsNonFiniteScanRate) {
   EsrSessionConfig config;
   config.mission.scan.scan_rate_hz = std::numeric_limits<float>::quiet_NaN();
   EXPECT_TRUE(ContainsCode(ValidateEsrSessionConfig(config),
-                           ConfigValidationCode::kScanRateNotPositive));
+                           "esr.validation.scan_rate_not_positive"));
   config.mission.scan.scan_rate_hz = std::numeric_limits<float>::infinity();
   EXPECT_TRUE(ContainsCode(ValidateEsrSessionConfig(config),
-                           ConfigValidationCode::kScanRateNotPositive));
+                           "esr.validation.scan_rate_not_positive"));
 }
 
 TEST(EsrSessionConfigValidationTest, RejectsReceiverBandLowerAboveUpper) {
@@ -87,7 +88,7 @@ TEST(EsrSessionConfigValidationTest, RejectsReceiverBandLowerAboveUpper) {
   config.hardware.receiver_band_lower_hz = 2.0e9;
   config.hardware.receiver_band_upper_hz = 1.0e9;
   EXPECT_TRUE(ContainsCode(ValidateEsrSessionConfig(config),
-                           ConfigValidationCode::kReceiverBandLowerAboveUpper));
+                           "esr.validation.receiver_band_lower_above_upper"));
 }
 
 TEST(EsrSessionConfigValidationTest, RejectsNonPositiveBeamAzWidth) {
@@ -95,7 +96,7 @@ TEST(EsrSessionConfigValidationTest, RejectsNonPositiveBeamAzWidth) {
   config.mission.scan.scan_rate_hz = 2.0f;
   config.hardware.beam_az_width_deg = 0.0f;
   EXPECT_TRUE(ContainsCode(ValidateEsrSessionConfig(config),
-                           ConfigValidationCode::kBeamAzWidthNotPositive));
+                           "esr.validation.beam_az_width_not_positive"));
 }
 
 TEST(EsrSessionConfigValidationTest, RejectsNonPositiveBeamElWidth) {
@@ -103,7 +104,7 @@ TEST(EsrSessionConfigValidationTest, RejectsNonPositiveBeamElWidth) {
   config.mission.scan.scan_rate_hz = 2.0f;
   config.hardware.beam_el_width_deg = -1.0f;
   EXPECT_TRUE(ContainsCode(ValidateEsrSessionConfig(config),
-                           ConfigValidationCode::kBeamElWidthNotPositive));
+                           "esr.validation.beam_el_width_not_positive"));
 }
 
 TEST(EsrSessionConfigValidationTest, RejectsExplicitScanBoundsAzSwapped) {
@@ -113,7 +114,7 @@ TEST(EsrSessionConfigValidationTest, RejectsExplicitScanBoundsAzSwapped) {
   config.mission.scan.scan_start_az_deg = 60.0f;
   config.mission.scan.scan_end_az_deg = -60.0f;
   EXPECT_TRUE(ContainsCode(ValidateEsrSessionConfig(config),
-                           ConfigValidationCode::kExplicitScanBoundsAzSwapped));
+                           "esr.validation.explicit_scan_bounds_az_swapped"));
 }
 
 TEST(EsrSessionConfigValidationTest, RejectsExplicitScanBoundsElSwapped) {
@@ -123,7 +124,7 @@ TEST(EsrSessionConfigValidationTest, RejectsExplicitScanBoundsElSwapped) {
   config.mission.scan.scan_start_el_deg = 10.0f;
   config.mission.scan.scan_end_el_deg = -10.0f;
   EXPECT_TRUE(ContainsCode(ValidateEsrSessionConfig(config),
-                           ConfigValidationCode::kExplicitScanBoundsElSwapped));
+                           "esr.validation.explicit_scan_bounds_el_swapped"));
 }
 
 TEST(EsrSessionConfigValidationTest, RejectsNonFiniteExplicitScanBounds) {
@@ -133,7 +134,7 @@ TEST(EsrSessionConfigValidationTest, RejectsNonFiniteExplicitScanBounds) {
       std::numeric_limits<float>::quiet_NaN();
 
   EXPECT_TRUE(ContainsCode(ValidateEsrSessionConfig(config),
-                           ConfigValidationCode::kExplicitScanBoundsNotFinite));
+                           "esr.validation.explicit_scan_bounds_not_finite"));
 }
 
 TEST(EsrSessionConfigValidationTest, IgnoresExplicitFieldsWhenCenterModeIsSelected) {
@@ -150,7 +151,7 @@ TEST(EsrSessionConfigValidationTest, IgnoresExplicitFieldsWhenCenterModeIsSelect
 TEST(EsrSessionConfigValidationTest, PassesOnHealthyBuiltConfig) {
   EsrSessionConfig config;
   config.mission = profiles::kElectronicOrderOfBattleMission;
-  const ValidationIssueList issues = ValidateEsrSessionConfig(config);
+  const session::EsrIssueList issues = ValidateEsrSessionConfig(config);
   EXPECT_TRUE(issues.empty());
 }
 
@@ -162,11 +163,11 @@ TEST(EsrSessionConfigValidationTest, RejectsUnknownEnumsAndInvalidDomains) {
   config.environment.scenario_config.preset =
       static_cast<EsrEnvironmentPreset>(99);
 
-  const ValidationIssueList issues = ValidateEsrSessionConfig(config);
-  EXPECT_TRUE(ContainsCode(issues, ConfigValidationCode::kMissionEnumInvalid));
+  const session::EsrIssueList issues = ValidateEsrSessionConfig(config);
+  EXPECT_TRUE(ContainsCode(issues, "esr.validation.mission_enum_invalid"));
   EXPECT_TRUE(
-      ContainsCode(issues, ConfigValidationCode::kDetectionPolicyInvalid));
-  EXPECT_TRUE(ContainsCode(issues, ConfigValidationCode::kEnvironmentInvalid));
+      ContainsCode(issues, "esr.validation.detection_policy_invalid"));
+  EXPECT_TRUE(ContainsCode(issues, "esr.validation.environment_invalid"));
 }
 
 TEST(EsrSessionConfigValidationTest,
@@ -180,9 +181,9 @@ TEST(EsrSessionConfigValidationTest,
   config.environment.scenario_config.atmospheric_physics.relative_humidity =
       1.5f;
 
-  const ValidationIssueList issues = ValidateEsrSessionConfig(config);
-  EXPECT_TRUE(ContainsCode(issues, ConfigValidationCode::kScanCenterNotFinite));
-  EXPECT_TRUE(ContainsCode(issues, ConfigValidationCode::kEnvironmentInvalid));
+  const session::EsrIssueList issues = ValidateEsrSessionConfig(config);
+  EXPECT_TRUE(ContainsCode(issues, "esr.validation.scan_center_not_finite"));
+  EXPECT_TRUE(ContainsCode(issues, "esr.validation.environment_invalid"));
 }
 
 }  // namespace

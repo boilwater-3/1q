@@ -1,6 +1,6 @@
 ---
 Status: active
-Last-reviewed: 2026-08-03
+Last-reviewed: 2026-08-07
 Authority: ESR 数据流、Public API 边界、时序与状态所有权
 Answers: ESR 的分层架构、数据如何流动、Public API 边界在哪、跨周期状态归谁所有
 ---
@@ -11,14 +11,23 @@ Answers: ESR 的分层架构、数据如何流动、Public API 边界在哪、�
 
 ## Public API 与内部实现边界
 
-公共头位于 `include/1q/electronic_surveillance_radar/`：`electronic_surveillance_radar.hpp`（模块聚合入口）、
-`config/`（`EsrSessionConfig` 四域配置、runtime patch、`EsrProfileConstants.h`、薄封装 builder、config validation）、
-`session/`（`EsrSession`、cycle input/result、observation/hypothesis、trace/replay）。聚合入口不是全量 public
-header 汇总：trace/replay、debug view 等工具头按需单独包含；pipeline/controller/environment service、runtime
-snapshot 不通过聚合入口暴露。内部实现位于 `src/electronic_surveillance_radar/`：`config/`（内部执行配置
-`EsrInternalExecutionConfig`）、`environment/`（`EsrEnvironmentService` 和单程传播附加损耗采样）、`pipeline/`
-（拦截 gate、检测执行、预处理、特征编码、Kd-tree 聚类、假设关联、后处理）、`runtime/`（`EsrController` 和
-执行状态、输出缓存管理）、`session/`（组合根、配置解析、runtime patch、输入校验、trace/replay）。
+**公共头**位于 `include/1q/electronic_surveillance_radar/`：
+
+- `electronic_surveillance_radar.hpp`（模块聚合入口）
+- `config/`（`EsrSessionConfig` 四域配置、runtime patch、`EsrProfileConstants.h`、薄封装 builder、
+  config validation）
+- `session/`（`EsrSession`、cycle input/result、observation/hypothesis、trace/replay）
+
+聚合入口**不是全量 public header 汇总**：trace/replay、debug view 等工具头按需单独包含；
+pipeline/controller/environment service、runtime snapshot 不通过聚合入口暴露。
+
+**内部实现**位于 `src/electronic_surveillance_radar/`：
+
+- `config/`（内部执行配置 `EsrInternalExecutionConfig`）
+- `environment/`（`EsrEnvironmentService` 和单程传播附加损耗采样）
+- `pipeline/`（拦截 gate、检测执行、预处理、特征编码、Kd-tree 聚类、假设关联、后处理）
+- `runtime/`（`EsrController` 和执行状态、输出缓存管理）
+- `session/`（组合根、配置解析、runtime patch、输入校验、trace/replay）
 
 ## 分层组件图
 
@@ -91,11 +100,9 @@ sequenceDiagram
   participant Result as EsrCycleResult 单周期结果
 
   Caller->>Session: StepWithResult(EsrCycleInput) 提交单周期输入
-  Session->>Pipeline: CaptureRuntimeState 捕获 pipeline 状态
-  Session->>Controller: CaptureRuntimeState 捕获 controller 状态
-  Session->>Controller: RunOnce 执行单周期控制
+  Session->>Controller: RunOnce 执行单周期控制\n（校验 + 装配 + 缓存，COMMON-OQ-9 收敛）
   alt validation rejected 输入校验失败
-    Controller-->>Session: not executed + validation rejection
+    Controller-->>Session: rejected + validation issues 直通
   else validation accepted 输入校验通过
   Controller->>Pipeline: RunCycle 执行拦截流水线
   Pipeline->>Env: SampleEnvironment 采样电磁环境
@@ -105,7 +112,7 @@ sequenceDiagram
   Pipeline-->>Controller: outputs + execution status 去真值化输出与执行状态
   note over Pipeline,Controller: InterceptPipelineResult 含观测和假设数据及 sensor_powered_off；普通空观测仍是已执行结果
   end
-  Session-->>Result: output frame + validation + abort reason
+  Session-->>Result: EsrCycleResult\ncontroller 装配缓存（BuildCycleResult 返回）
   Session-->>Caller: EsrCycleResult 返回结构化结果
 ```
 
@@ -218,9 +225,10 @@ pipeline/controller 的 `CaptureRuntimeState()` / `RestoreRuntimeState()` 描述
   domain 参数派生，不存在跨周期可变 RNG 状态。pipeline 快照不含 config、feature scales 或环境配置。
   归一化扫描相位在本周期检测阶段映射为输出帧 `scan_azimuth_deg`：选中波束的方位 + 天线安装偏置
   （平台参考系实际指向，与 RF 前端接收求解同算式），并折叠到 [-180, 180)；该映射随相位推进而逐周期变化。
-- **controller** 快照只含其拥有的 latest output、validation issues、batch id 和最近一次执行状态，不嵌套或
-  恢复 pipeline 快照。session 在周期回滚时分别捕获和恢复两个 owner，任一恢复失败均返回
-  `kRuntimeStateRestoreRejected`，不得留下半恢复状态。
+- **controller** 快照只含其拥有的 latest output、batch id 和最近一次执行状态，不嵌套或恢复
+  pipeline 快照。周期内无 session 层快照回滚事务（controller 各 abort 路径均不推进 pipeline
+  累积状态，原 session 回滚分支不可达，COMMON-OQ-9 收敛时移除）；`CaptureRuntimeState()` /
+  `RestoreRuntimeState()` 仅用于快照往返与跨实例恢复防护。
 
 `InterceptPipeline::RunCycle()` 返回 `InterceptPipelineResult`，显式区分设备关机导致的未执行状态
 （controller 传播为 `kPoweredOff`，不复用最近有效输出且不推进 batch；普通空观测仍是合法数据结果）。

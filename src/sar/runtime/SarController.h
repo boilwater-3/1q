@@ -64,11 +64,10 @@ class SarController {
    */
   void RunOnce(const session::SarCycleInput& input);
   /**
-   * @brief 基于当前输入构造单周期结果（不修改内部缓存状态）。
-   * @param[in] input 单周期输入载荷。
-   * @return 构造出的单周期结果。
+   * @brief 返回最近一次 RunOnce 装配并缓存的单周期结果（DES-5：装配在 RunOnce 内完成）。
+   * @return 最近一次周期的结果。
    */
-  session::SarCycleResult BuildCycleResult(const session::SarCycleInput& input) const;
+  session::SarCycleResult BuildCycleResult() const;
 
   /**
    * @brief 尝试以补丁热更新运行期配置。

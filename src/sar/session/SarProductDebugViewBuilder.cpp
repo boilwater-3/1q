@@ -12,7 +12,6 @@ SarProductDebugView SarProductDebugViewBuilder::Build(const SarCycleInput& input
   view.input_cycle_index = result.input_cycle_index;
   view.output_cycle_index = result.output_frame.cycle_index;
   view.executed_this_cycle = result.executed_this_cycle;
-  view.has_error = result.has_error;
   view.abort_reason = AbortReasonToDiagnosticCode(result.abort_reason);
   view.completed_stage = result.output_frame.completed_stage;
   view.has_raw_echo = result.output_frame.has_raw_echo;
@@ -24,7 +23,7 @@ SarProductDebugView SarProductDebugViewBuilder::Build(const SarCycleInput& input
   view.estimated_snr_db = result.output_frame.estimated_snr_db;
   view.range_sample_count = result.output_frame.range_sample_count;
   view.azimuth_pulse_count = result.output_frame.azimuth_pulse_count;
-  view.diagnostics = result.diagnostics;
+  view.issues = result.issues;
   view.point_targets.reserve(input.point_targets.size());
   for (const SarPointTarget& target : input.point_targets) {
     SarDebugPointTarget debug_target;

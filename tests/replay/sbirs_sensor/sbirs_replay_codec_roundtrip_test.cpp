@@ -45,7 +45,7 @@ SbirsVector3M Vector(double x, double y, double z) {
 std::string EncodeCycleResultWithRawAbortReason(std::int32_t abort_reason) {
   flatbuffers::FlatBufferBuilder builder(128U);
   builder.Finish(sbirs::replay::CreateSbirsCycleResult(
-      builder, 99U, 0, 0, 0, false, false, abort_reason));
+      builder, 99U, 0, 0, false, abort_reason, 0));
   return std::string(reinterpret_cast<const char*>(builder.GetBufferPointer()),
                      builder.GetSize());
 }
@@ -53,7 +53,7 @@ std::string EncodeCycleResultWithRawAbortReason(std::int32_t abort_reason) {
 std::string EncodeCycleResultWithRawStatus(std::int32_t status) {
   flatbuffers::FlatBufferBuilder builder(128U);
   builder.Finish(sbirs::replay::CreateSbirsCycleResult(
-      builder, 99U, 0, 0, 0, false, false, 0, status));
+      builder, 99U, 0, 0, false, 0, status, 0));
   return std::string(reinterpret_cast<const char*>(builder.GetBufferPointer()),
                      builder.GetSize());
 }
@@ -182,7 +182,6 @@ TEST(SbirsReplayCodecRoundtripTest, CycleResultPreservesOutputAndAttributionFiel
   result.output_frame.cycle_index = 5U;
   result.output_frame.scan_azimuth_deg = 12.0f;
   result.executed_this_cycle = true;
-  result.has_validation_error = true;
   result.abort_reason = SbirsPipelineAbortReason::kValidationRejected;
 
   SbirsDetectionRecord detection;
@@ -212,21 +211,27 @@ TEST(SbirsReplayCodecRoundtripTest, CycleResultPreservesOutputAndAttributionFiel
   attribution.nfov_tracking_coasting = true;
   result.detection_attributions.push_back(attribution);
 
-  // 带 entity_index 的 scene 级 issue
-  ValidationIssue scene_issue;
-  scene_issue.severity = ValidationSeverity::kWarning;
-  scene_issue.location.kind = ValidationLocationKind::kSceneEntity;
+  // 带 entity_index 的 scene 级校验问题
+  SbirsIssue scene_issue;
+  scene_issue.severity = SbirsIssueSeverity::kWarning;
+  scene_issue.phase = SbirsIssuePhase::kInputValidation;
+  scene_issue.code = "sbirs.validation.invalid_target_physical";
+  scene_issue.location.kind = oneq::foundation::ValidationLocationKind::kSceneEntity;
   scene_issue.location.entity_index = 1U;
+  scene_issue.field = "scene";
   scene_issue.message = "warn";
-  result.validation_issues.push_back(scene_issue);
+  result.issues.push_back(scene_issue);
 
   // kGlobal location（entity_index 哨兵值 size_t::max ↔ int64 -1）
-  ValidationIssue global_issue;
-  global_issue.severity = ValidationSeverity::kError;
-  global_issue.location.kind = ValidationLocationKind::kGlobal;
+  SbirsIssue global_issue;
+  global_issue.severity = SbirsIssueSeverity::kError;
+  global_issue.phase = SbirsIssuePhase::kInputValidation;
+  global_issue.code = "sbirs.validation.invalid_cycle_delta_time";
+  global_issue.location.kind = oneq::foundation::ValidationLocationKind::kGlobal;
   global_issue.location.entity_index = std::numeric_limits<std::size_t>::max();
+  global_issue.field = "dt_sec";
   global_issue.message = "global";
-  result.validation_issues.push_back(global_issue);
+  result.issues.push_back(global_issue);
 
   const std::string bytes = EncodeSbirsCycleResult(result);
   SbirsCycleResult decoded;
@@ -234,7 +239,6 @@ TEST(SbirsReplayCodecRoundtripTest, CycleResultPreservesOutputAndAttributionFiel
 
   EXPECT_EQ(decoded.input_cycle_index, 5U);
   EXPECT_TRUE(decoded.executed_this_cycle);
-  EXPECT_TRUE(decoded.has_validation_error);
   EXPECT_EQ(decoded.abort_reason, SbirsPipelineAbortReason::kValidationRejected);
   ASSERT_EQ(decoded.output_frame.detections.size(), 1U);
   EXPECT_EQ(decoded.output_frame.detections[0].observation_stage,
@@ -255,11 +259,14 @@ TEST(SbirsReplayCodecRoundtripTest, CycleResultPreservesOutputAndAttributionFiel
   EXPECT_TRUE(decoded.detection_attributions[0].nfov_snr_gate_passed);
   EXPECT_EQ(decoded.detection_attributions[0].nfov_tracking_gate_failure_count, 1U);
   EXPECT_TRUE(decoded.detection_attributions[0].nfov_tracking_coasting);
-  ASSERT_EQ(decoded.validation_issues.size(), 2U);
-  EXPECT_EQ(decoded.validation_issues[0].location.entity_index, 1U);
+  ASSERT_EQ(decoded.issues.size(), 2U);
+  EXPECT_EQ(decoded.issues[0].phase, SbirsIssuePhase::kInputValidation);
+  EXPECT_EQ(decoded.issues[0].code, "sbirs.validation.invalid_target_physical");
+  EXPECT_EQ(decoded.issues[0].field, "scene");
+  EXPECT_EQ(decoded.issues[0].location.entity_index, 1U);
   // 哨兵值经 size_t::max → int64(-1) → size_t::max 的往返
-  EXPECT_EQ(decoded.validation_issues[1].location.kind, ValidationLocationKind::kGlobal);
-  EXPECT_EQ(decoded.validation_issues[1].location.entity_index,
+  EXPECT_EQ(decoded.issues[1].location.kind, oneq::foundation::ValidationLocationKind::kGlobal);
+  EXPECT_EQ(decoded.issues[1].location.entity_index,
             std::numeric_limits<std::size_t>::max());
 }
 
@@ -269,7 +276,6 @@ TEST(SbirsReplayCodecRoundtripTest, CycleResultPreservesPoweredOffAbortReason) {
   result.output_frame.cycle_index = 7U;
   result.output_frame.scan_azimuth_deg = 3.0f;
   result.executed_this_cycle = false;
-  result.has_validation_error = false;
   result.abort_reason = SbirsPipelineAbortReason::kSensorPoweredOff;
   result.status = SbirsCycleStatus::kPoweredOff;
 

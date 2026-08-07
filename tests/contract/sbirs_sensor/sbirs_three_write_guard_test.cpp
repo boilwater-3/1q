@@ -77,12 +77,12 @@ void ExpectThreeWriteAbort(const session::SbirsCycleResult& result,
 
   // 写二：结构化诊断中至少一条 error 级、code 带模块前缀
   // （info/warning 级伴随诊断合法，三写要求的是 error 级主诊断）。
-  EXPECT_FALSE(result.diagnostics.empty());
+  EXPECT_FALSE(result.issues.empty());
   bool saw_error_diagnostic = false;
-  for (const auto& issue : result.diagnostics) {
+  for (const auto& issue : result.issues) {
     EXPECT_FALSE(issue.code.empty());
     EXPECT_EQ(issue.code.compare(0, 6, "sbirs."), 0);
-    if (issue.severity == session::SbirsDiagnosticSeverity::kError) {
+    if (issue.severity == session::SbirsIssueSeverity::kError) {
       saw_error_diagnostic = true;
     }
   }

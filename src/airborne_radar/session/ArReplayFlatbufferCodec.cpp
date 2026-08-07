@@ -5,6 +5,7 @@
 #include <vector>
 
 #include "1q/airborne_radar/session/TrackStateSnapshot.h"
+#include "1q/foundation/validation_types.h"
 #include "airborne_radar/session/generated/airborne_radar_replay_generated.h"
 #include "airborne_radar/session/generated/airborne_radar_session_replay_generated.h"
 #include "common/replay/ReplayFlatbufferCodecSupport.h"
@@ -303,6 +304,17 @@ bool IsKnownDecisionControlSource(int raw_value) {
   return raw_value == static_cast<int>(S::kNone) ||
          raw_value == static_cast<int>(S::kInternal) ||
          raw_value == static_cast<int>(S::kExternal);
+}
+
+// 统一问题列表（规则 14）：decode 期对 severity/phase 做范围校验（fail-closed）。
+bool IsValidIssueSeverity(std::int32_t value) {
+  return value >= static_cast<std::int32_t>(session::ArIssueSeverity::kInfo) &&
+         value <= static_cast<std::int32_t>(session::ArIssueSeverity::kError);
+}
+
+bool IsValidIssuePhase(std::int32_t value) {
+  return value >= static_cast<std::int32_t>(session::ArIssuePhase::kInputValidation) &&
+         value <= static_cast<std::int32_t>(session::ArIssuePhase::kOutputContract);
 }
 
 bool TryDecodeArInterferenceObservation(const fb::ArInterferenceObservation* value,
@@ -1333,36 +1345,36 @@ flatbuffers::Offset<fb::ArCycleResultV3> EncodeCycleResultV3(
     commands.push_back(fb::CreateArCommandV3(*builder, static_cast<int>(command.type),
                                              static_cast<int>(command.source)));
   }
-  std::vector<flatbuffers::Offset<fb::ValidationIssueV3>> issues;
-  issues.reserve(value.validation_issues.size());
-  for (const ValidationIssue& issue : value.validation_issues) {
-    issues.push_back(fb::CreateValidationIssueV3(
-        *builder, static_cast<int>(issue.severity), static_cast<int>(issue.code),
-        static_cast<int>(issue.location.kind),
-        static_cast<std::uint64_t>(issue.location.entity_index), builder->CreateString(issue.field),
-        builder->CreateString(issue.message)));
+  // 统一问题列表（规则 14）：单列表编码；entity_index 仅 kSceneEntity 定位有效，
+  // 其余定位写 -1 哨兵，decode 期据此还原为 kGlobal（无定位）。
+  std::vector<flatbuffers::Offset<fb::ArIssue>> issues;
+  issues.reserve(value.issues.size());
+  for (const ArIssue& issue : value.issues) {
+    const std::size_t encoded_entity_index =
+        issue.location.kind == oneq::foundation::ValidationLocationKind::kSceneEntity
+            ? issue.location.entity_index
+            : static_cast<std::size_t>(-1);
+    issues.push_back(fb::CreateArIssue(
+        *builder, static_cast<std::int32_t>(issue.severity),
+        static_cast<std::int32_t>(issue.phase), builder->CreateString(issue.code),
+        builder->CreateString(issue.message), static_cast<std::int32_t>(issue.location.kind),
+        static_cast<std::int64_t>(encoded_entity_index), builder->CreateString(issue.field)));
   }
-  std::vector<flatbuffers::Offset<fb::ArDiagnosticIssue>> diagnostic_offsets;
-  diagnostic_offsets.reserve(value.diagnostics.size());
-  for (const ArDiagnosticIssue& issue : value.diagnostics) {
-    diagnostic_offsets.push_back(fb::CreateArDiagnosticIssue(
-        *builder, static_cast<int>(issue.severity), builder->CreateString(issue.code),
-        builder->CreateString(issue.message)));
-  }
+  // 向量创建前置：CreateVector 必须在 CreateArCycleResultV3 打开之前。
+  const auto observations_fb = builder->CreateVector(observations);
+  const auto commands_fb = builder->CreateVector(commands);
+  const auto issues_fb = builder->CreateVector(issues);
   return fb::CreateArCycleResultV3(
       *builder, value.input_cycle_index, static_cast<int>(value.status),
       EncodeTrackOutputFrame(builder, value.track_output_frame),
       EncodeRfV2Scene(builder, value.emission_frame), static_cast<int>(value.receiver_impairment),
-      builder->CreateVector(observations), builder->CreateVector(commands),
-      builder->CreateVector(issues), value.has_validation_error,
-      static_cast<int>(value.abort_reason), value.has_control_profile,
-      EncodeArControlProfile(builder, value.control_profile),
+      observations_fb, commands_fb, static_cast<int>(value.abort_reason),
+      value.has_control_profile, EncodeArControlProfile(builder, value.control_profile),
       EncodeAssociationQualityMetricsV3(builder, value.association_quality_metrics),
       value.has_decision_observation,
       EncodeDecisionObservation(builder, value.decision_observation),
       static_cast<int>(value.applied_decision_source), value.applied_decision_cycle_index,
-      value.applied_decision_batch_id, builder->CreateVector(diagnostic_offsets),
-      value.has_recognition_summary,
+      value.applied_decision_batch_id, issues_fb, value.has_recognition_summary,
       EncodeRecognitionCycleSummary(builder, value.recognition_summary));
 }
 
@@ -1394,24 +1406,6 @@ bool TryDecodeCycleResultV3(const fb::ArCycleResultV3* value, ArCycleResult* res
                     static_cast<ArCommandSource>(command->source())));
     }
   }
-  if (value->validation_issues() != nullptr) {
-    candidate.validation_issues.reserve(value->validation_issues()->size());
-    for (const fb::ValidationIssueV3* encoded : *value->validation_issues()) {
-      ValidationIssue issue;
-      issue.severity = static_cast<ValidationSeverity>(encoded->severity());
-      issue.code = static_cast<ValidationCode>(encoded->code());
-      issue.location.kind = static_cast<ValidationLocationKind>(encoded->location_kind());
-      issue.location.entity_index = static_cast<std::size_t>(encoded->entity_index());
-      if (encoded->field() != nullptr) {
-        issue.field = encoded->field()->str();
-      }
-      if (encoded->message() != nullptr) {
-        issue.message = encoded->message()->str();
-      }
-      candidate.validation_issues.push_back(issue);
-    }
-  }
-  candidate.has_validation_error = value->has_validation_error();
   candidate.abort_reason = static_cast<SignalCycleAbortReason>(value->abort_reason());
   candidate.has_control_profile = value->has_control_profile();
   candidate.control_profile = DecodeArControlProfile(value->control_profile());
@@ -1432,18 +1426,38 @@ bool TryDecodeCycleResultV3(const fb::ArCycleResultV3* value, ArCycleResult* res
   candidate.applied_decision_batch_id = value->applied_decision_batch_id();
   candidate.has_recognition_summary = value->has_recognition_summary();
   candidate.recognition_summary = DecodeRecognitionCycleSummary(value->recognition_summary());
-  if (value->diagnostics() != nullptr) {
-    candidate.diagnostics.reserve(value->diagnostics()->size());
-    for (const fb::ArDiagnosticIssue* encoded : *value->diagnostics()) {
-      ArDiagnosticIssue issue;
-      issue.severity = static_cast<ArDiagnosticSeverity>(encoded->severity());
+  // 统一问题列表（规则 14）：decode 期校验 severity/phase（fail-closed），
+  // entity_index 仅在 location_kind==kSceneEntity 且 >=0 时有效，否则还原为 kGlobal。
+  if (value->issues() != nullptr) {
+    candidate.issues.reserve(value->issues()->size());
+    for (const fb::ArIssue* encoded : *value->issues()) {
+      if (encoded == nullptr || !IsValidIssueSeverity(encoded->severity()) ||
+          !IsValidIssuePhase(encoded->phase())) {
+        return false;
+      }
+      ArIssue issue;
+      issue.severity = static_cast<ArIssueSeverity>(encoded->severity());
+      issue.phase = static_cast<ArIssuePhase>(encoded->phase());
       if (encoded->code() != nullptr) {
         issue.code = encoded->code()->str();
       }
       if (encoded->message() != nullptr) {
         issue.message = encoded->message()->str();
       }
-      candidate.diagnostics.push_back(std::move(issue));
+      if (encoded->entity_index() >= 0 &&
+          encoded->location_kind() ==
+              static_cast<std::int32_t>(oneq::foundation::ValidationLocationKind::kSceneEntity)) {
+        issue.location.kind =
+            oneq::foundation::ValidationLocationKind::kSceneEntity;
+        issue.location.entity_index = static_cast<std::size_t>(encoded->entity_index());
+      } else {
+        issue.location.kind = oneq::foundation::ValidationLocationKind::kGlobal;
+        issue.location.entity_index = static_cast<std::size_t>(-1);
+      }
+      if (encoded->field() != nullptr) {
+        issue.field = encoded->field()->str();
+      }
+      candidate.issues.push_back(std::move(issue));
     }
   }
   *result = candidate;

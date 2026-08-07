@@ -155,29 +155,25 @@ table EsrOutputFrame {
 }
 
 // ---- EsrCycleResult (cycle_output via StepWithResult) ----
+// 统一问题列表模型（session_contract.md 规则 14）：单一 EsrIssue 列表承载
+// 输入校验问题（phase=kInputValidation）与执行诊断（phase=kExecution/kOutputContract）。
 
-table ValidationIssue {
+table EsrIssue {
   severity:      int32;
-  code:          int32;
-  emitter_index: int32;
-  field:         string;
+  phase:         int32;
+  code:          string;
   message:       string;
-}
-
-table EsrDiagnosticIssue {
-  severity: int32;
-  code:     string;
-  message:  string;
+  location_kind: int32 = 0;
+  entity_index:  int64 = -1;
+  field:         string;
 }
 
 table EsrCycleResult {
   input_cycle_index:    uint32;
   output_frame:         EsrOutputFrame;
-  validation_issues:    [ValidationIssue];
-  has_validation_error: bool;
   status:               int32 = 1;
   abort_reason:         int32 = 0;
-  diagnostics:          [EsrDiagnosticIssue];
+  issues:               [EsrIssue];
 }
 
 // ---- FailureMarker (failure_marker 事件的 flatbuffer 载荷) ----

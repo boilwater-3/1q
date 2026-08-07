@@ -17,6 +17,16 @@ namespace sar {
 namespace session {
 namespace {
 
+bool IsValidIssueSeverity(std::int32_t value) {
+  return value >= static_cast<std::int32_t>(SarIssueSeverity::kInfo) &&
+         value <= static_cast<std::int32_t>(SarIssueSeverity::kError);
+}
+
+bool IsValidIssuePhase(std::int32_t value) {
+  return value >= static_cast<std::int32_t>(SarIssuePhase::kInputValidation) &&
+         value <= static_cast<std::int32_t>(SarIssuePhase::kOutputContract);
+}
+
 flatbuffers::Offset<replay::SarPlatformState> BuildPlatformState(
     flatbuffers::FlatBufferBuilder& fbb, const SarPlatformState& value) {
   return replay::CreateSarPlatformState(fbb, value.time_s, value.latitude_deg, value.longitude_deg,
@@ -336,12 +346,18 @@ std::string EncodeSarCycleResult(const SarCycleResult& value) {
       fbb, static_cast<std::int32_t>(value.focused_image.source), value.focused_image.row_count,
       value.focused_image.column_count, fbb.CreateVector(value.focused_image.real_values),
       fbb.CreateVector(value.focused_image.imaginary_values), value.focused_image.is_placeholder);
-  std::vector<flatbuffers::Offset<replay::SarDiagnosticIssue>> diagnostic_offsets;
-  diagnostic_offsets.reserve(value.diagnostics.size());
-  for (const SarDiagnosticIssue& diagnostic : value.diagnostics) {
-    diagnostic_offsets.push_back(replay::CreateSarDiagnosticIssue(
-        fbb, static_cast<std::int32_t>(diagnostic.severity), fbb.CreateString(diagnostic.code),
-        fbb.CreateString(diagnostic.message)));
+  std::vector<flatbuffers::Offset<replay::SarIssue>> issue_offsets;
+  issue_offsets.reserve(value.issues.size());
+  for (const SarIssue& issue : value.issues) {
+    const std::size_t encoded_entity_index =
+        issue.location.kind == oneq::foundation::ValidationLocationKind::kSceneEntity
+            ? issue.location.entity_index
+            : static_cast<std::size_t>(-1);
+    issue_offsets.push_back(replay::CreateSarIssue(
+        fbb, static_cast<std::int32_t>(issue.severity), static_cast<std::int32_t>(issue.phase),
+        fbb.CreateString(issue.code), fbb.CreateString(issue.message),
+        static_cast<std::int32_t>(issue.location.kind),
+        static_cast<std::int64_t>(encoded_entity_index), fbb.CreateString(issue.field)));
   }
   const auto raw_phase_history = replay::CreateSarRawPhaseHistory(
       fbb, static_cast<std::int32_t>(value.raw_phase_history.source),
@@ -349,8 +365,7 @@ std::string EncodeSarCycleResult(const SarCycleResult& value) {
       fbb.CreateVector(value.raw_phase_history.i_values),
       fbb.CreateVector(value.raw_phase_history.q_values));
   fbb.Finish(replay::CreateSarCycleResult(fbb, value.input_cycle_index, frame, focused_image,
-                                          fbb.CreateVector(diagnostic_offsets), raw_phase_history,
-                                          value.has_error,
+                                          fbb.CreateVector(issue_offsets), raw_phase_history,
                                           value.executed_this_cycle,
                                           static_cast<std::int32_t>(value.abort_reason),
                                           static_cast<std::uint8_t>(value.status)));
@@ -417,13 +432,34 @@ bool DecodeSarCycleResult(const std::string& bytes, SarCycleResult* out) {
       return false;
     }
   }
-  if (fb->diagnostics()) {
-    for (const auto* issue : *fb->diagnostics()) {
-      SarDiagnosticIssue decoded_issue;
-      decoded_issue.severity = static_cast<SarDiagnosticSeverity>(issue->severity());
+  if (fb->issues()) {
+    for (const auto* issue : *fb->issues()) {
+      if (issue == nullptr || !IsValidIssueSeverity(issue->severity()) ||
+          !IsValidIssuePhase(issue->phase())) {
+        return false;
+      }
+      SarIssue decoded_issue;
+      decoded_issue.severity = static_cast<SarIssueSeverity>(issue->severity());
+      decoded_issue.phase = static_cast<SarIssuePhase>(issue->phase());
       decoded_issue.code = issue->code() ? issue->code()->str() : std::string();
       decoded_issue.message = issue->message() ? issue->message()->str() : std::string();
-      decoded.diagnostics.push_back(decoded_issue);
+      // location.kind 独立编码、范围校验后无条件还原（kPlatform 等非 kGlobal 定位保真）；
+      // entity_index 仅 kSceneEntity 有效，-1 哨兵还原为无效值。
+      if (issue->location_kind() <=
+          static_cast<std::int32_t>(oneq::foundation::ValidationLocationKind::kSceneEntity)) {
+        decoded_issue.location.kind =
+            static_cast<oneq::foundation::ValidationLocationKind>(issue->location_kind());
+        decoded_issue.location.entity_index = issue->entity_index() >= 0
+                                                  ? static_cast<std::size_t>(issue->entity_index())
+                                                  : static_cast<std::size_t>(-1);
+      } else {
+        decoded_issue.location.kind = oneq::foundation::ValidationLocationKind::kGlobal;
+        decoded_issue.location.entity_index = static_cast<std::size_t>(-1);
+      }
+      if (issue->field()) {
+        decoded_issue.field = issue->field()->str();
+      }
+      decoded.issues.push_back(std::move(decoded_issue));
     }
   }
   if (fb->raw_phase_history()) {
@@ -452,7 +488,6 @@ bool DecodeSarCycleResult(const std::string& bytes, SarCycleResult* out) {
       }
     }
   }
-  decoded.has_error = fb->has_error();
   decoded.executed_this_cycle = fb->executed_this_cycle();
   const std::int32_t abort_reason = fb->abort_reason();
   if (abort_reason != static_cast<std::int32_t>(SarPipelineAbortReason::kNone) &&

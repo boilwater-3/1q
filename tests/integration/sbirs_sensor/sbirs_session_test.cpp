@@ -96,7 +96,7 @@ const output::SbirsDetectionRecord* FindDetectionByTargetId(const SbirsCycleResu
 TEST(SbirsSessionIntegrationTest, StepWithResultProducesDetectionOutput) {
   SbirsSession session = SbirsSession::Create(MakeSessionConfig());
   const SbirsCycleResult result = session.StepWithResult(MakeBaseInput());
-  EXPECT_FALSE(result.has_validation_error);
+  EXPECT_FALSE(HasValidationError(result.issues));
   EXPECT_TRUE(result.executed_this_cycle);
   EXPECT_EQ(result.output_frame.cycle_index, 1U);
   EXPECT_FALSE(result.output_frame.detections.empty());
@@ -413,7 +413,7 @@ TEST(SbirsSessionIntegrationTest, InvalidFirstCycleReturnsEmptyOutput) {
   input.dt_sec = -1.0f;
   const SbirsCycleResult result = session.StepWithResult(input);
   EXPECT_FALSE(result.executed_this_cycle);
-  EXPECT_TRUE(result.has_validation_error);
+  EXPECT_TRUE(HasValidationError(result.issues));
   EXPECT_TRUE(result.output_frame.detections.empty());
 }
 
@@ -425,7 +425,7 @@ TEST(SbirsSessionIntegrationTest, InvalidLaterCycleReturnsEmptyOutputNotReused) 
   SbirsCycleInput invalid = MakeBaseInput(2U);
   invalid.dt_sec = 0.0f;
   const SbirsCycleResult result = session.StepWithResult(invalid);
-  EXPECT_TRUE(result.has_validation_error);
+  EXPECT_TRUE(HasValidationError(result.issues));
   EXPECT_FALSE(result.executed_this_cycle);
   // 非执行周期返回默认空帧，不复用上一有效输出（统一不复用语义）。
   EXPECT_TRUE(result.output_frame.detections.empty());

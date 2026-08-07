@@ -33,6 +33,7 @@
 #include "1q/electro_optical_sensor/config/EosRuntimeConfigPatch.h"
 #include "1q/electro_optical_sensor/session/EosCycleInputAdapter.h"
 #include "1q/electro_optical_sensor/session/EosCycleResult.h"
+#include "1q/electro_optical_sensor/session/EosInputValidation.h"
 #include "1q/electro_optical_sensor/session/EosExternalInputAdapter.h"
 #include "1q/electro_optical_sensor/session/EosReplaySession.h"
 #include "1q/electro_optical_sensor/session/EosSceneTypes.h"
@@ -277,7 +278,7 @@ CycleMetrics ExtractCycleMetrics(const eos_session::EosCycleResult& r) {
   CycleMetrics m;
   m.cycle_index = r.input_cycle_index;
   m.executed = r.executed_this_cycle;
-  m.has_validation_error = r.has_validation_error;
+  m.has_validation_error = eos_session::HasValidationError(r.issues);
   m.abort_reason = static_cast<int>(r.abort_reason);
   const auto& f = r.output_frame;
   m.scan_azimuth_deg = f.scan_azimuth_deg;

@@ -39,9 +39,9 @@ constexpr char kExclusionZeroPowerCode[] = "esr.emission_zero_power";
 constexpr char kExclusionBelowThresholdCode[] = "esr.emission_below_threshold";
 
 /// 构造 kInfo 级按发射源排除诊断（不属于三写，仅承载排查信息；规则 13b）。
-session::EsrDiagnosticIssue MakeExclusionIssue(const char* code, const std::string& message) {
-  session::EsrDiagnosticIssue issue;
-  issue.severity = session::EsrDiagnosticSeverity::kInfo;
+session::EsrIssue MakeExclusionIssue(const char* code, const std::string& message) {
+  session::EsrIssue issue;
+  issue.severity = session::EsrIssueSeverity::kInfo;
   issue.code = code;
   issue.message = message;
   return issue;
@@ -329,14 +329,14 @@ bool InterceptDetectionExecutor::ProcessRfV2Frame(
     const oneq::electromagnetics::RfSceneEmission& emission = *emissions[index];
     if (front_end.channel_incident_links[index].is_co_site) {
       // 规则 13b：同址干扰发射源跳过 → kInfo 诊断（不属于三写，仅承载排查信息）。
-      output->diagnostics.push_back(MakeExclusionIssue(
+      output->issues.push_back(MakeExclusionIssue(
           kExclusionCoSiteCode, FormatEmissionIdentity(emission.identity) + "; co_site=true"));
       ++output->excluded_co_site;
       continue;
     }
     if (front_end.channel_incident_links[index].received_power_w <= 0.0) {
       // 规则 13b：零功率发射源跳过 → kInfo 诊断（不属于三写，仅承载排查信息）。
-      output->diagnostics.push_back(MakeExclusionIssue(
+      output->issues.push_back(MakeExclusionIssue(
           kExclusionZeroPowerCode,
           FormatEmissionIdentity(emission.identity) + "; received_power_w=" +
               FormatNumber(front_end.channel_incident_links[index].received_power_w)));
@@ -386,7 +386,7 @@ bool InterceptDetectionExecutor::ProcessRfV2Frame(
          uniform_01(detection_rng) >= oneq::common::timing::ComputeStatisticalDetectionProbability(
                                           static_cast<float>(snr_db), threshold, detection))) {
       // 规则 13b：SNR/统计检测门排除 → kInfo 诊断（不属于三写，仅承载排查信息）。
-      output->diagnostics.push_back(MakeExclusionIssue(
+      output->issues.push_back(MakeExclusionIssue(
           kExclusionBelowThresholdCode,
           FormatEmissionIdentity(signal.identity) + "; snr_db=" + FormatNumber(snr_db) +
               " below threshold=" + FormatNumber(threshold)));

@@ -1,4 +1,5 @@
 #include "1q/electronic_surveillance_radar/session/EsrTraceSession.h"
+#include "1q/electronic_surveillance_radar/session/EsrInputValidation.h"
 #include "1q/electronic_surveillance_radar/session/EsrSession.h"
 
 #include <sstream>
@@ -35,8 +36,8 @@ std::string BuildEsrOutputPayload(const EsrCycleResult& result) {
      << "\"observation_count\":" << frame.observation_output.observations.size() << ","
      << "\"cluster_count\":" << frame.observation_output.cluster_count << ","
      << "\"hypothesis_count\":" << frame.emitter_output.hypotheses.size() << ","
-     << "\"validation_error\":" << (result.has_validation_error ? "true" : "false") << ","
-     << "\"diagnostic_count\":" << result.diagnostics.size()
+     << "\"validation_error\":" << (HasValidationError(result.issues) ? "true" : "false") << ","
+     << "\"issue_count\":" << result.issues.size()
      << "}";
   return os.str();
 }
@@ -83,7 +84,7 @@ struct EsrTraceSession::Impl {
   void WriteValidationFailureMarker(const EsrCycleResult& result) const {
     oneq::replay::ReplayTraceFailure failure;
     failure.error_code = "ESR_VALIDATION_ERROR";
-    failure.message = "EsrCycleResult has_validation_error=true";
+    failure.message = "EsrCycleResult input validation rejected";
     failure.location = "EsrTraceSession::StepWithResult";
     failure.cycle_index = result.input_cycle_index;
     failure.has_cycle_index = true;
@@ -121,7 +122,7 @@ session::EsrOutputFrame EsrTraceSession::Step(const EsrCycleInput& input) {
     impl_->WriteReplayEvent("cycle_output", "EsrCycleResult", EncodeEsrCycleResult(result),
                             result.input_cycle_index);
     impl_->pending_input_written = false;
-    if (result.has_validation_error) {
+    if (HasValidationError(result.issues)) {
       impl_->WriteValidationFailureMarker(result);
     }
   }
@@ -153,7 +154,7 @@ EsrCycleResult EsrTraceSession::StepWithResult(const EsrCycleInput& input) {
     impl_->WriteReplayEvent("cycle_output", "EsrCycleResult", EncodeEsrCycleResult(result),
                             result.input_cycle_index);
     impl_->pending_input_written = false;
-    if (result.has_validation_error) {
+    if (HasValidationError(result.issues)) {
       impl_->WriteValidationFailureMarker(result);
     }
   }

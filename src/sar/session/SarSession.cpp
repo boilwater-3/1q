@@ -37,8 +37,8 @@ SarSession SarSession::Create(const config::SarSessionConfig& config) {
 }
 
 SarSession SarSession::CreateWithDiagnostics(const config::SarSessionConfig& config,
-                                             config::ValidationIssueList* issues) {
-  const config::ValidationIssueList found = config::ValidateSarSessionConfig(config);
+                                             SarIssueList* issues) {
+  const SarIssueList found = config::ValidateSarSessionConfig(config);
   if (issues != nullptr) {
     *issues = found;
   }
@@ -51,7 +51,7 @@ SarOutputFrame SarSession::Step(const SarCycleInput& input) {
 
 SarCycleResult SarSession::StepWithResult(const SarCycleInput& input) {
   impl_->controller.RunOnce(input);
-  SarCycleResult result = impl_->controller.BuildCycleResult(input);
+  SarCycleResult result = impl_->controller.BuildCycleResult();
   if (impl_->lifecycle_recorder != nullptr) {
     impl_->lifecycle_recorder->Update(result);
   }

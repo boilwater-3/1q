@@ -44,8 +44,8 @@ struct EosPipelineExecuteResult {
   float scan_azimuth_deg{0.0f};                                         /**< 本周期扫描中心方位角（单位：deg） */
   bool executed_this_cycle{false};                                      /**< 本周期是否实际执行了核心处理 */
   EosPipelineAbortReason abort_reason{EosPipelineAbortReason::kNone};   /**< 本周期终止原因 */
-  session::EosDiagnosticIssueList diagnostics{}; /**< 正常执行周期按目标排除的 kInfo 诊断（规则 13b），
-                                                      经 controller 转写进 EosCycleResult。 */
+  session::EosIssueList issues{}; /**< 正常执行周期按目标排除的 kInfo 诊断（规则 13b），
+                                      经 controller 转写进 EosCycleResult。 */
 };
 
 }  // namespace extension

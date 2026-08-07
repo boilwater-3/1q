@@ -3,6 +3,8 @@
 
 #include <gtest/gtest.h>
 
+#include <string>
+
 #include "1q/electro_optical_sensor/config/EosProfileConstants.h"
 #include "1q/electro_optical_sensor/config/EosSessionConfigBuilder.h"
 #include "1q/electro_optical_sensor/config/EosSessionConfigValidation.h"
@@ -11,7 +13,7 @@ namespace electro_optical_sensor {
 namespace config {
 namespace {
 
-bool ContainsCode(const ValidationIssueList& issues, ConfigValidationCode code) {
+bool ContainsCode(const session::EosIssueList& issues, const std::string& code) {
   for (const auto& issue : issues) {
     if (issue.code == code) return true;
   }
@@ -103,28 +105,28 @@ TEST(EosSessionConfigValidationTest, RejectsNonPositiveHorizontalFov) {
   EosSessionConfig config;
   config.mission.horizontal_fov_deg = 0.0f;
   EXPECT_TRUE(ContainsCode(ValidateEosSessionConfig(config),
-                           ConfigValidationCode::kHorizontalFovNotPositive));
+                           "eos.validation.horizontal_fov_not_positive"));
 }
 
 TEST(EosSessionConfigValidationTest, RejectsNonPositiveVerticalFov) {
   EosSessionConfig config;
   config.mission.vertical_fov_deg = -1.0f;
   EXPECT_TRUE(ContainsCode(ValidateEosSessionConfig(config),
-                           ConfigValidationCode::kVerticalFovNotPositive));
+                           "eos.validation.vertical_fov_not_positive"));
 }
 
 TEST(EosSessionConfigValidationTest, RejectsNonPositiveScanRate) {
   EosSessionConfig config;
   config.mission.scan_rate_deg_per_sec = -1.0f;
   EXPECT_TRUE(ContainsCode(ValidateEosSessionConfig(config),
-                           ConfigValidationCode::kScanRateNotPositive));
+                           "eos.validation.scan_rate_not_positive"));
 }
 
 TEST(EosSessionConfigValidationTest, RejectsNonPositiveFrameRate) {
   EosSessionConfig config;
   config.mission.frame_rate_hz = 0.0f;
   EXPECT_TRUE(ContainsCode(ValidateEosSessionConfig(config),
-                           ConfigValidationCode::kFrameRateNotPositive));
+                           "eos.validation.frame_rate_not_positive"));
 }
 
 TEST(EosSessionConfigValidationTest, RejectsScanRangeAzSwapped) {
@@ -132,13 +134,13 @@ TEST(EosSessionConfigValidationTest, RejectsScanRangeAzSwapped) {
   config.mission.scan_start_az_deg = 60.0f;
   config.mission.scan_end_az_deg = -60.0f;
   EXPECT_TRUE(ContainsCode(ValidateEosSessionConfig(config),
-                           ConfigValidationCode::kScanRangeAzSwapped));
+                           "eos.validation.scan_range_az_swapped"));
 }
 
 TEST(EosSessionConfigValidationTest, PassesOnHealthyBuiltConfig) {
   EosSessionConfig config;
   config.mission = profiles::kWideAreaSearchMission;
-  const ValidationIssueList issues = ValidateEosSessionConfig(config);
+  const session::EosIssueList issues = ValidateEosSessionConfig(config);
   EXPECT_TRUE(issues.empty());
 }
 
@@ -146,8 +148,8 @@ TEST(EosSessionConfigValidationTest, RejectsInvalidEnvironmentEnums) {
   EosSessionConfig config;
   config.environment.scenario_config.preset = static_cast<EosEnvironmentPreset>(99);
 
-  const ValidationIssueList issues = ValidateEosSessionConfig(config);
-  EXPECT_TRUE(ContainsCode(issues, ConfigValidationCode::kEnvironmentPresetInvalid));
+  const session::EosIssueList issues = ValidateEosSessionConfig(config);
+  EXPECT_TRUE(ContainsCode(issues, "eos.validation.environment_preset_invalid"));
 }
 
 TEST(EosSessionConfigValidationTest, RejectsInvalidEnabledAtmosphericPhysics) {
@@ -155,8 +157,8 @@ TEST(EosSessionConfigValidationTest, RejectsInvalidEnabledAtmosphericPhysics) {
   config.environment.scenario_config.atmospheric_physics.enable_physical_model = true;
   config.environment.scenario_config.atmospheric_physics.temperature_k = 0.0f;
 
-  const ValidationIssueList issues = ValidateEosSessionConfig(config);
-  EXPECT_TRUE(ContainsCode(issues, ConfigValidationCode::kAtmosphericPhysicsInvalid));
+  const session::EosIssueList issues = ValidateEosSessionConfig(config);
+  EXPECT_TRUE(ContainsCode(issues, "eos.validation.atmospheric_physics_invalid"));
 }
 
 }  // namespace

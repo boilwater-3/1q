@@ -23,8 +23,7 @@ namespace electronic_surveillance_radar {
 namespace tests {
 namespace {
 
-bool ContainsEsrIssueCode(const std::vector<session::ValidationIssue>& issues,
-                          session::ValidationCode code) {
+bool ContainsEsrIssueCode(const session::EsrIssueList& issues, const std::string& code) {
   for (std::size_t i = 0; i < issues.size(); ++i) {
     if (issues[i].code == code) {
       return true;
@@ -126,15 +125,15 @@ TEST(EsrPublicApiConvenienceTest, SessionConfigValidatorReportsFinalConfigIssues
   invalid_config.mission.scan.scan_start_el_deg = 5.0f;
   invalid_config.mission.scan.scan_end_el_deg = 5.0f;
 
-  const config::ValidationIssueList issues = config::ValidateEsrSessionConfig(invalid_config);
+  const session::EsrIssueList issues = config::ValidateEsrSessionConfig(invalid_config);
 
   ASSERT_EQ(issues.size(), 6U);
-  EXPECT_EQ(issues[0].code, config::ConfigValidationCode::kScanRateNotPositive);
-  EXPECT_EQ(issues[1].code, config::ConfigValidationCode::kReceiverBandLowerAboveUpper);
-  EXPECT_EQ(issues[2].code, config::ConfigValidationCode::kBeamAzWidthNotPositive);
-  EXPECT_EQ(issues[3].code, config::ConfigValidationCode::kBeamElWidthNotPositive);
-  EXPECT_EQ(issues[4].code, config::ConfigValidationCode::kExplicitScanBoundsAzSwapped);
-  EXPECT_EQ(issues[5].code, config::ConfigValidationCode::kExplicitScanBoundsElSwapped);
+  EXPECT_EQ(issues[0].code, "esr.validation.scan_rate_not_positive");
+  EXPECT_EQ(issues[1].code, "esr.validation.receiver_band_lower_above_upper");
+  EXPECT_EQ(issues[2].code, "esr.validation.beam_az_width_not_positive");
+  EXPECT_EQ(issues[3].code, "esr.validation.beam_el_width_not_positive");
+  EXPECT_EQ(issues[4].code, "esr.validation.explicit_scan_bounds_az_swapped");
+  EXPECT_EQ(issues[5].code, "esr.validation.explicit_scan_bounds_el_swapped");
 }
 
 TEST(EsrPublicApiConvenienceTest, RuntimeConfigBuilderDefaultsAreUnset) {
@@ -207,11 +206,11 @@ TEST(EsrPublicApiConvenienceTest, InputValidationReportsErrorsForBoundaryCases) 
 
   input.platform_entity_id = 0U;
 
-  const session::ValidationIssueList issues = session::ValidateEsrCycleInput(input);
+  const session::EsrIssueList issues = session::ValidateEsrCycleInput(input);
 
-  EXPECT_TRUE(ContainsEsrIssueCode(issues, session::ValidationCode::kInvalidCycleDeltaTime));
+  EXPECT_TRUE(ContainsEsrIssueCode(issues, "esr.validation.invalid_cycle_delta_time"));
   EXPECT_TRUE(
-      ContainsEsrIssueCode(issues, session::ValidationCode::kNonFinitePlatformNumericField));
+      ContainsEsrIssueCode(issues, "esr.validation.non_finite_platform_numeric_field"));
   EXPECT_TRUE(session::HasValidationError(issues));
 }
 
@@ -272,7 +271,7 @@ TEST(EsrPublicApiConvenienceTest, TryApplyRuntimeConfigExposesRejectFeedback) {
 TEST(EsrPublicApiConvenienceTest, CreateWithDiagnosticsBuildsSessionAndReportsNoIssuesForHealthyConfig) {
   config::EsrSessionConfig config;
 
-  config::ValidationIssueList issues;
+  session::EsrIssueList issues;
   const session::EsrSession session = session::EsrSession::CreateWithDiagnostics(config, &issues);
 
   EXPECT_TRUE(issues.empty());
@@ -283,11 +282,11 @@ TEST(EsrPublicApiConvenienceTest, CreateWithDiagnosticsReportsIssuesButStillCons
   config::EsrSessionConfig invalid;
   invalid.mission.scan.scan_rate_hz = 0.0f;
 
-  config::ValidationIssueList issues;
+  session::EsrIssueList issues;
   const session::EsrSession session = session::EsrSession::CreateWithDiagnostics(invalid, &issues);
 
   ASSERT_EQ(issues.size(), 1U);
-  EXPECT_EQ(issues.front().code, config::ConfigValidationCode::kScanRateNotPositive);
+  EXPECT_EQ(issues.front().code, "esr.validation.scan_rate_not_positive");
   (void)session;  // 会话仍被构造，调用方据 issues 决策
 }
 
@@ -325,7 +324,7 @@ TEST(EsrPublicApiConvenienceTest, StepReturnsEmptyFrameOnValidationFailure) {
 
   const session::EsrCycleResult rejected_result = session.StepWithResult(invalid_input);
   EXPECT_EQ(rejected_result.status, session::EsrCycleExecutionStatus::kRejected);
-  EXPECT_TRUE(rejected_result.has_validation_error);
+  EXPECT_TRUE(session::HasValidationError(rejected_result.issues));
 
   // Step() 与 StepWithResult().output_frame 一致：默认空帧，cycle_index 为 0（非 2），无复用。
   const session::EsrOutputFrame step_frame = session.Step(invalid_input);

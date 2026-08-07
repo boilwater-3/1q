@@ -1,6 +1,5 @@
 #include "sar/runtime/SarController.h"
 
-#include <sstream>
 #include <utility>
 
 #include "1q/sar/session/SarInputValidation.h"
@@ -23,22 +22,13 @@ void ApplyDiagnosticsPolicy(const config::SarPolicyConfig& policy,
   if (policy.enable_diagnostics || result == nullptr) {
     return;
   }
-  session::SarDiagnosticIssueList errors;
-  for (const session::SarDiagnosticIssue& issue : result->diagnostics) {
-    if (issue.severity == session::SarDiagnosticSeverity::kError) {
+  session::SarIssueList errors;
+  for (const session::SarIssue& issue : result->issues) {
+    if (issue.severity == session::SarIssueSeverity::kError) {
       errors.push_back(issue);
     }
   }
-  result->diagnostics.swap(errors);
-}
-
-std::string BuildInputValidationAbortMessage(const session::ValidationIssueList& issues) {
-  std::ostringstream message;
-  message << "SAR cycle input validation failed";
-  if (!issues.empty()) {
-    message << ": " << issues.front().field << ": " << issues.front().message;
-  }
-  return message.str();
+  result->issues.swap(errors);
 }
 
 }  // namespace
@@ -68,11 +58,17 @@ void SarController::RunOnce(const session::SarCycleInput& input) {
   session::SarCycleResult result;
   result.input_cycle_index = input.cycle_index;
 
-  const session::ValidationIssueList input_issues = session::ValidateSarCycleInput(input);
+  const session::SarIssueList input_issues = session::ValidateSarCycleInput(input);
   if (session::HasValidationError(input_issues)) {
-    session::RecordValidationAbort(&result, session::SarPipelineAbortReason::kValidationRejected,
-                         "invalid_cycle_input",
-                         BuildInputValidationAbortMessage(input_issues));
+    // 校验拒绝（规则 9/14）：校验问题本身就是 error 级诊断（写二），直接进入统一
+    // 问题列表；abort_reason（写一）与日志（写三）在此补齐，不调用 RecordAbort。
+    result.issues = input_issues;
+    result.abort_reason = session::SarPipelineAbortReason::kValidationRejected;
+    result.status = session::SarCycleStatus::kRejectedInvalidInput;
+    // 中译：SAR 输入校验拒绝（周期号）。
+    // 标识：三写之三（人读日志）——调用方输入非法，本周期未执行；
+    //       仅用于人读，不用于状态判断（规则 3）。
+    PROJECT_LOG_WARN("SAR validation rejected for cycle_index={}", input.cycle_index);
     // 非执行周期：output_frame 保持默认空帧，不复用上一有效输出。
     impl_->Finish(result);
     return;
@@ -87,16 +83,17 @@ void SarController::RunOnce(const session::SarCycleInput& input) {
 
   // 电源短路（COMMON-OQ-4 字段提升）：关机周期不写输出帧元数据（严格默认
   // 空帧，与校验失败路径同形），跨周期状态不推进。关机是合法非执行状态——
-  // 不是校验错误也不是执行失败（has_error 保持 false）。三写手动补齐：
-  // RecordAbort 强制 status=kRejectedExecution，与关机语义冲突，不走统一入口。
+  // 不是校验错误也不是执行失败。三写手动补齐：RecordAbort 强制
+  // status=kRejectedExecution，与关机语义冲突，不走统一入口。
   if (!impl_->runtime_config.sensor_enabled) {
     result.abort_reason = session::SarPipelineAbortReason::kSensorPoweredOff;
     result.status = session::SarCycleStatus::kPoweredOff;
-    session::SarDiagnosticIssue issue;
-    issue.severity = session::SarDiagnosticSeverity::kError;
+    session::SarIssue issue;
+    issue.severity = session::SarIssueSeverity::kError;
+    issue.phase = session::SarIssuePhase::kExecution;
     issue.code = "sar.sensor_powered_off";
     issue.message = "SAR cycle skipped: sensor disabled.";
-    result.diagnostics.push_back(issue);
+    result.issues.push_back(issue);
     // 中译：传感器已关闭，本周期短路（周期号）。
     // 标识：电源关闭状态——周期不执行、输出为空帧；属预期行为而非执行
     //       失败，但按规则 9c 中止路径日志级别以 WARN 记录。
@@ -126,8 +123,7 @@ void SarController::RunOnce(const session::SarCycleInput& input) {
   impl_->Finish(result);
 }
 
-session::SarCycleResult SarController::BuildCycleResult(const session::SarCycleInput& input) const {
-  (void)input;
+session::SarCycleResult SarController::BuildCycleResult() const {
   return impl_->latest_result;
 }
 

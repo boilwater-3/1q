@@ -1,6 +1,7 @@
 ---
 Status: draft
 Date: 2026-08-05
+Review-Baseline: `feature/behavior-layer` 系列（行为组件层分解设计决策记录，非单分支审查）
 Authority: 行为组件层（决策 / 机动 / 侦察 / 干扰）分解设计的决策记录。非规范性审查记录；
 不得替代 `docs/common/contract.md`、`docs/common/session_contract.md` 及各模块
 `docs/<module>/design.md`。若本文与库实现冲突，以库为准。

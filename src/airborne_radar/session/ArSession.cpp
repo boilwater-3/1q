@@ -85,7 +85,8 @@ struct ArExecutionCycleResult {
   bool executed{false};
   session::SignalCycleAbortReason abort_reason{session::SignalCycleAbortReason::kNone};
   TrackOutputFrame track_output_frame{};
-  session::ArDiagnosticIssueList diagnostics{}; /**< 正常执行周期按目标排除的 kInfo 诊断（规则 13b）。 */
+  session::ArIssueList issues{}; /**< 正常执行周期按目标排除的 kInfo 诊断（规则 13b）；
+                                      校验拒绝时承载校验明细（COMMON-OQ-9）。 */
 };
 
 }  // namespace
@@ -118,21 +119,22 @@ struct ArSession::Impl {
   }
 
   ArCycleResult BuildCompletedCycleResult(const ArCycleInput& input,
-                                          const ValidationIssueList& issues,
+                                          const ArIssueList& issues,
                                           const ArPrepareCycleResult& prepared,
                                           const ArCompleteCycleResult& completed) const {
     ArCycleResult result;
     result.input_cycle_index = input.cycle_index;
     result.status = ArCycleStatus::kCompleted;
     result.track_output_frame = completed.track_output_frame;
-    // 规则 13b：正常执行周期按目标排除的 kInfo 诊断转写进结构化结果（abort 路径不变）。
-    result.diagnostics = completed.diagnostics;
+    // 统一问题列表（规则 14）：输入校验问题（phase=kInputValidation）在前，
+    // 正常执行周期按目标排除的 kInfo 诊断（phase=kExecution，规则 13b）在后。
+    result.issues = issues;
+    result.issues.insert(result.issues.end(), completed.issues.begin(),
+                         completed.issues.end());
     FillEmissionFrame(result, input, prepared);
     result.receiver_impairment = completed.receiver_impairment;
     result.interference_observations = completed.interference_observations;
     result.submitted_commands = RadarContext().GetSubmittedCommands();
-    result.validation_issues = issues;
-    result.has_validation_error = false;
     result.has_control_profile = RadarContext().HasLatestControlProfile();
     if (result.has_control_profile) {
       result.control_profile = RadarContext().GetLatestControlProfile();
@@ -150,19 +152,24 @@ struct ArSession::Impl {
     return result;
   }
 
-  ValidationIssueList ValidateInput(const ArCycleInput& input) const {
+  ArIssueList ValidateInput(const ArCycleInput& input) const {
     return ValidateArCycleInput(input);
   }
 
   ArCycleResult BuildValidationErrorResult(const ArCycleInput& input,
-                                           const ValidationIssueList& issues) const {
+                                           const ArIssueList& issues) const {
     ArCycleResult result;
     result.input_cycle_index = input.cycle_index;
     result.status = ArCycleStatus::kRejectedInvalidInput;
     result.abort_reason = session::SignalCycleAbortReason::kValidationRejected;
-    result.validation_issues = issues;
-    result.has_validation_error = HasValidationError(issues);
-    RecordAbort(&result, result.abort_reason, "input_validation", "AR cycle aborted.", true);
+    // 统一问题列表（规则 14）：校验问题本身就是 error 级诊断（phase=kInputValidation，
+    // code 形如 "ar.validation.<snake>"）。校验拒绝路径不再附加粗粒度 abort 条目，
+    // 避免 issues 列表中出现重复的 error 级主诊断。
+    result.issues = issues;
+    // 中译：AR 周期输入校验被拒绝（周期号）。
+    // 标识：公共路径入口校验失败——本周期不执行、输出为空，abort_reason 为
+    //       kValidationRejected；三写之三由本日志补齐（规则 9c），校验明细见 issues。
+    PROJECT_LOG_WARN("AR validation rejected for cycle_index={}", input.cycle_index);
     return result;
   }
 
@@ -173,17 +180,19 @@ struct ArSession::Impl {
     ArCycleResult result;
     result.input_cycle_index = input.cycle_index;
     result.abort_reason = abort_reason;
-    const bool is_validation = (abort_reason == session::SignalCycleAbortReason::kValidationRejected);
     const char* detail_code = "unknown";
     switch (abort_reason) {
-      case session::SignalCycleAbortReason::kValidationRejected: detail_code = "input_validation"; break;
+      // 校验拒绝（kValidationRejected）不可经此路径：公共路径与发射后路径均走
+      // BuildValidationErrorResult / BuildPostEmissionValidationErrorResult。
       case session::SignalCycleAbortReason::kSensorPoweredOff: detail_code = "sensor_powered_off"; break;
       case session::SignalCycleAbortReason::kLifecycleUnavailable: detail_code = "lifecycle_unavailable"; break;
       case session::SignalCycleAbortReason::kInvalidEnvironmentCycle: detail_code = "invalid_environment_cycle"; break;
       case session::SignalCycleAbortReason::kRuntimePreparationFailed: detail_code = "runtime_preparation_failed"; break;
       default: break;
     }
-    RecordAbort(&result, abort_reason, detail_code, "AR cycle aborted.", is_validation);
+    // 非校验中止路径才经 RecordAbort 写入粗粒度 abort 条目（phase=kExecution）；
+    // 校验拒绝路径的 error 级诊断由校验问题本身承载（见 BuildValidationErrorResult）。
+    RecordAbort(&result, abort_reason, detail_code, "AR cycle aborted.");
     // status 由调用点显式声明，在 RecordAbort 之后做最终赋值，
     // 避免"RecordAbort 覆盖 status、调用方再补丁"的双重覆盖链。
     result.status = status;
@@ -216,6 +225,28 @@ struct ArSession::Impl {
     result.has_control_profile = true;
     result.control_profile = Controller().GetControlProfile();
     FillAppliedDecisionMetadata(result);
+    return result;
+  }
+
+  // 发射后校验拒绝结果（COMMON-OQ-9）：与 BuildValidationErrorResult 同语义（校验问题
+  // 本身即 error 级诊断，不附加粗粒度 abort 条目），但保留已发布发射的 emission_frame
+  // 与决策元数据（发射后接收侧执行期校验拒绝路径）。
+  ArCycleResult BuildPostEmissionValidationErrorResult(const ArCycleInput& input,
+                                                       const ArPrepareCycleResult& prepared,
+                                                       const ArIssueList& issues) const {
+    ArCycleResult result;
+    result.input_cycle_index = input.cycle_index;
+    result.status = ArCycleStatus::kRejectedInvalidInput;
+    result.abort_reason = session::SignalCycleAbortReason::kValidationRejected;
+    result.issues = issues;
+    FillEmissionFrame(result, input, prepared);
+    result.has_control_profile = true;
+    result.control_profile = Controller().GetControlProfile();
+    FillAppliedDecisionMetadata(result);
+    // 中译：AR 发射后接收侧校验被拒绝（周期号）。
+    // 标识：发射后执行期校验失败——已发布发射保留在 emission_frame，abort_reason 为
+    //       kValidationRejected；三写之三由本日志补齐（规则 9c），校验明细见 issues。
+    PROJECT_LOG_WARN("AR validation rejected for cycle_index={}", input.cycle_index);
     return result;
   }
 
@@ -303,13 +334,9 @@ struct ArSession::Impl {
       signal::pipeline::SignalCycleInput cycle_input,
       bool commit_pending_runtime_config) {
     ArExecutionCycleResult result;
-    ValidationIssueList issues = ValidateArCycleDeltaTime(dt_sec);
-    const ValidationIssueList target_issues = ValidateArSceneTargets(cycle_input.scene_targets);
-    issues.insert(issues.end(), target_issues.begin(), target_issues.end());
-    if (HasValidationError(issues)) {
-      result.abort_reason = session::SignalCycleAbortReason::kValidationRejected;
-      return result;
-    }
+    // COMMON-OQ-9：周期输入校验唯一化在 ArController::RunOnce（同一输入的会话层
+    // 二次校验已删除）；运行期拒绝的校验明细经 RunOnce 出参直通，不再丢失。
+    ArIssueList validation_issues;
 
     const ArContextRuntimeState radar_context_state = RadarContext().CaptureRuntimeState();
     const signal::SignalPipelineRuntimeState pipeline_state =
@@ -326,10 +353,15 @@ struct ArSession::Impl {
     }
     RadarContext().BeginCycle(cycle_input.scene_targets,
                               platform_altitude_m, dt_sec, cycle_index);
-    Controller().RunOnce(cycle_input);
+    Controller().RunOnce(cycle_input, &validation_issues);
 
     if (!Controller().ExecutedLatestCycle()) {
       result.abort_reason = Controller().GetLastSignalCycleAbortReason();
+      if (result.abort_reason == session::SignalCycleAbortReason::kValidationRejected) {
+        // 统一问题列表（规则 14）：校验问题本身就是 error 级诊断（phase=kInputValidation），
+        // 明细随结果透传，由上层 CompleteRfCycle 装配进最终周期结果。
+        result.issues = validation_issues;
+      }
       if (!RestoreCycleRuntimeState(radar_context_state, pipeline_state, environment_state,
                                     controller_state)) {
         result.abort_reason = session::SignalCycleAbortReason::kRuntimePreparationFailed;
@@ -354,12 +386,12 @@ struct ArSession::Impl {
     result.executed = true;
     result.track_output_frame = Controller().GetLatestTrackOutputFrame();
     // 规则 13b：正常执行周期按目标排除的 kInfo 诊断转写（abort 路径不变）。
-    result.diagnostics = Controller().GetLatestDiagnostics();
+    result.issues = Controller().GetLatestIssues();
     return result;
   }
 
   ArCycleResult RunCycle(const ArCycleInput& input) {
-    const ValidationIssueList issues = ValidateInput(input);
+    const ArIssueList issues = ValidateInput(input);
     if (HasValidationError(issues)) {
       return BuildValidationErrorResult(input, issues);
     }
@@ -482,8 +514,16 @@ struct ArSession::Impl {
         //       属内部异常路径，需排查状态恢复与发射账本一致性。
         PROJECT_LOG_ERROR("[ArSession] failed to finalize post-emission receive rejection.");
       }
+      // COMMON-OQ-9：按真实 abort_reason 装配——校验拒绝带明细且不再被写死替换
+      // （kRuntimePreparationFailed 仅保留给无执行侧原因的接收拒绝）。
+      if (completed.abort_reason == session::SignalCycleAbortReason::kValidationRejected) {
+        return BuildPostEmissionValidationErrorResult(input, prepared, completed.issues);
+      }
       return BuildPostEmissionAbortResult(
-          input, prepared, session::SignalCycleAbortReason::kRuntimePreparationFailed);
+          input, prepared,
+          completed.abort_reason == session::SignalCycleAbortReason::kNone
+              ? session::SignalCycleAbortReason::kRuntimePreparationFailed
+              : completed.abort_reason);
     }
     return BuildCompletedCycleResult(input, issues, prepared, completed);
   }
@@ -743,12 +783,16 @@ struct ArSession::Impl {
       PROJECT_LOG_ERROR("[ArSession] CompleteRfCycle signal execution failed with abort reason {}.",
                         static_cast<int>(execution_result.abort_reason));
       result.status = ArCompleteCycleStatus::kRejected;
+      // COMMON-OQ-9：透传执行侧中止原因与明细（校验拒绝时 issues 为校验明细），
+      // 由上层 RunCycle 按真实 abort_reason 装配，不再丢原因或写死替换。
+      result.abort_reason = execution_result.abort_reason;
+      result.issues = execution_result.issues;
       return result;
     }
     result.status = ArCompleteCycleStatus::kCompleted;
     result.track_output_frame = execution_result.track_output_frame;
     // 规则 13b：正常执行周期按目标排除的 kInfo 诊断转写（abort 路径不变）。
-    result.diagnostics = execution_result.diagnostics;
+    result.issues = execution_result.issues;
     result.has_decision_observation = Controller().HasLatestDecisionObservation();
     if (result.has_decision_observation) {
       result.decision_observation = Controller().GetLatestDecisionObservation();
@@ -839,8 +883,8 @@ ArSession ArSession::Create(const config::ArSessionConfig& config) {
 }
 
 ArSession ArSession::CreateWithDiagnostics(const config::ArSessionConfig& config,
-                                           config::ValidationIssueList* issues) {
-  const config::ValidationIssueList found = config::ValidateArSessionConfig(config);
+                                           session::ArIssueList* issues) {
+  const session::ArIssueList found = config::ValidateArSessionConfig(config);
   if (issues != nullptr) {
     *issues = found;
   }

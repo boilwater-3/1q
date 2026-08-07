@@ -25,7 +25,7 @@
  *   while (running) {
  *     sar.stepImp(input);
  *     const auto& result = sar.lastResult();
- *     if (result.has_error) { ... }
+ *     if (result.status != sar::session::SarCycleStatus::kCompleted) { ... }
  *     if (result.focused_image.row_count > 0) { ... }
  *   }
  * @endcode

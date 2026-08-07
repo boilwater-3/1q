@@ -50,7 +50,7 @@ TEST(SbirsSessionTest, ValidCycleProducesDeterministicOutput) {
       sbirs_sensor::session::SbirsSession::Create(Config());
   const sbirs_sensor::session::SbirsCycleResult result = session.StepWithResult(ValidInput(1U));
   EXPECT_TRUE(result.executed_this_cycle);
-  EXPECT_FALSE(result.has_validation_error);
+  EXPECT_FALSE(HasValidationError(result.issues));
   EXPECT_FALSE(result.output_frame.detections.empty());
 }
 
@@ -61,7 +61,7 @@ TEST(SbirsSessionTest, InvalidFirstCycleReturnsEmptyOutput) {
   input.dt_sec = -1.0f;
   const sbirs_sensor::session::SbirsCycleResult result = session.StepWithResult(input);
   EXPECT_FALSE(result.executed_this_cycle);
-  EXPECT_TRUE(result.has_validation_error);
+  EXPECT_TRUE(HasValidationError(result.issues));
   EXPECT_TRUE(result.output_frame.detections.empty());
 }
 
@@ -84,7 +84,8 @@ TEST(SbirsSessionTest, ValidationRejectDoesNotAdvancePipelineState) {
       sbirs_sensor::session::SbirsSession::Create(Config());
   sbirs_sensor::session::SbirsCycleInput invalid = ValidInput(1U);
   invalid.scene.front().emissivity = std::numeric_limits<float>::quiet_NaN();
-  ASSERT_TRUE(rejected_then_valid.StepWithResult(invalid).has_validation_error);
+  ASSERT_TRUE(sbirs_sensor::session::HasValidationError(
+      rejected_then_valid.StepWithResult(invalid).issues));
 
   const sbirs_sensor::session::SbirsCycleResult after_reject =
       rejected_then_valid.StepWithResult(ValidInput(2U));
@@ -178,7 +179,7 @@ TEST(SbirsSessionTest, NonExecutedCycleDoesNotUpdateLastEvents) {
   sbirs_sensor::session::SbirsCycleInput invalid = ValidInput(2U);
   invalid.dt_sec = 0.0f;
   const sbirs_sensor::session::SbirsCycleResult rejected = session.StepWithResult(invalid);
-  EXPECT_TRUE(rejected.has_validation_error);
+  EXPECT_TRUE(HasValidationError(rejected.issues));
   EXPECT_EQ(recorder.GetLastEvents().size(), first_size);
 }
 
@@ -194,10 +195,10 @@ TEST(SbirsSessionTest, ExcludedTargetDiagnosticsPropagateToCycleResult) {
   EXPECT_TRUE(result.executed_this_cycle);
   EXPECT_TRUE(result.output_frame.detections.empty());
   bool found = false;
-  for (const auto& issue : result.diagnostics) {
+  for (const auto& issue : result.issues) {
     if (issue.code == "sbirs.target_out_of_range") {
       found = true;
-      EXPECT_EQ(issue.severity, sbirs_sensor::session::SbirsDiagnosticSeverity::kInfo);
+      EXPECT_EQ(issue.severity, sbirs_sensor::session::SbirsIssueSeverity::kInfo);
       EXPECT_NE(issue.message.find("target_id=1"), std::string::npos);
     }
   }

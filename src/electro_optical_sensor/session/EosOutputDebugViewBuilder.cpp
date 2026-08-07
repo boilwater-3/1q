@@ -65,9 +65,8 @@ EosOutputDebugView EosOutputDebugViewBuilder::Build(const EosCycleInput& input,
   view.input_cycle_index = result.input_cycle_index;
   view.output_cycle_index = result.output_frame.cycle_index;
   view.executed_this_cycle = result.executed_this_cycle;
-  view.has_validation_error = result.has_validation_error;
   view.abort_reason = result.abort_reason;
-  view.diagnostics = result.diagnostics;
+  view.issues = result.issues;
   view.targets.reserve(input.scene.size());
   for (const EosSceneTarget& target : input.scene) {
     view.targets.push_back(BuildTargetState(target, result));

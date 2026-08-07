@@ -41,7 +41,6 @@ struct ArControllerRuntimeState {
   std::uint32_t schema_version{0U};
   session::TrackOutputFrame latest_output{};
   bool has_latest_output{false};
-  session::ValidationIssueList last_validation_issues{};
   std::uint64_t next_batch_id{1U};
   bool last_cycle_executed{false};
   session::SignalCycleAbortReason last_signal_abort_reason{session::SignalCycleAbortReason::kNone};
@@ -130,8 +129,11 @@ class ArController {
    * @brief 执行一次 AR 处理循环。
    * @param[in] cycle_input 本周期输入结构体（捆绑 scene_targets、RF v2 detection 上下文、
    *                         干扰观测与欺骗候选量测）。
+   * @param[out] validation_issues_out 可选输出：本周期输入校验问题（phase=kInputValidation）
+   *              明细；仅校验拒绝路径写入（COMMON-OQ-9，无校验缓存），传 nullptr 不写。
    */
-  void RunOnce(const signal::pipeline::SignalCycleInput& cycle_input);
+  void RunOnce(const signal::pipeline::SignalCycleInput& cycle_input,
+               session::ArIssueList* validation_issues_out = nullptr);
 
   /**
    * @brief 在发射发布前消费上一成功周期的待决策并冻结本周期控制真值。
@@ -168,19 +170,7 @@ class ArController {
    * @note 仅完成路径有内容；中止路径诊断由三写经 RecordAbort 写入。
    * @return 最近一次周期的按目标排除诊断列表。
    */
-  const session::ArDiagnosticIssueList& GetLatestDiagnostics() const;
-
-  /**
-   * @brief 获取最近一次输入校验问题列表。
-   * @return 最近一次 RunOnce 记录的校验问题。
-   */
-  const session::ValidationIssueList& GetLastValidationIssues() const;
-
-  /**
-   * @brief 判断最近一次输入校验是否存在 error 级问题。
-   * @return 若存在 error 级问题则返回 true。
-   */
-  bool HasValidationError() const;
+  const session::ArIssueList& GetLatestIssues() const;
 
   /**
    * @brief 最近一次 RunOnce 是否真正执行了 signal/decision/control 主链路。

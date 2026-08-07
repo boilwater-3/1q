@@ -583,7 +583,7 @@ TEST(MultiModelScenarioTest, AirToAirHeadOn) {
 
     auto eos_input = BuildEosInput(ws, dt, cycle);
     auto eos_result = eos_session.StepWithResult(eos_input);
-    EXPECT_FALSE(eos_result.has_validation_error) << "EOS validation error at cycle " << cycle;
+    EXPECT_FALSE(eos_session::HasValidationError(eos_result.issues)) << "EOS validation error at cycle " << cycle;
     for (const auto& det : eos_result.output_frame.detections) {
       if (det.detected) {
         eos_detected_count++;
@@ -598,7 +598,7 @@ TEST(MultiModelScenarioTest, AirToAirHeadOn) {
 
     auto esr_input = BuildEsrInput(ws, dt, cycle);
     auto esr_result = esr_trace_sess.StepWithResult(esr_input);
-    EXPECT_FALSE(esr_result.has_validation_error) << "ESR validation error at cycle " << cycle;
+    EXPECT_FALSE(esr_session::HasValidationError(esr_result.issues)) << "ESR validation error at cycle " << cycle;
     if (esr_result.output_frame.emitter_output.hypotheses.size() > esr_hyp_max) {
       esr_hyp_max =
           static_cast<std::uint32_t>(esr_result.output_frame.emitter_output.hypotheses.size());
@@ -774,7 +774,7 @@ TEST(MultiModelScenarioTest, AirToGroundLookDown) {
 
     auto eos_in = BuildEosInput(ws, dt, cycle);
     auto eos_res = eos_sess.StepWithResult(eos_in);
-    EXPECT_FALSE(eos_res.has_validation_error) << "EOS validation error at cycle " << cycle;
+    EXPECT_FALSE(eos_session::HasValidationError(eos_res.issues)) << "EOS validation error at cycle " << cycle;
     for (const auto& det : eos_res.output_frame.detections) {
       if (det.detected) {
         eos_detected_count++;
@@ -784,7 +784,7 @@ TEST(MultiModelScenarioTest, AirToGroundLookDown) {
 
     auto esr_in = BuildEsrInput(ws, dt, cycle);
     auto esr_res = esr_sess.StepWithResult(esr_in);
-    EXPECT_FALSE(esr_res.has_validation_error) << "ESR validation error at cycle " << cycle;
+    EXPECT_FALSE(esr_session::HasValidationError(esr_res.issues)) << "ESR validation error at cycle " << cycle;
     if (!esr_res.output_frame.observation_output.observations.empty()) {
       esr_total_obs_cycles++;
     }
@@ -967,7 +967,7 @@ TEST(MultiModelScenarioTest, DenseFormationAndJamming) {
 
     auto eos_in = BuildEosInput(ws, dt, cycle);
     auto eos_res = eos_sess.StepWithResult(eos_in);
-    EXPECT_FALSE(eos_res.has_validation_error) << "EOS validation error at cycle " << cycle;
+    EXPECT_FALSE(eos_session::HasValidationError(eos_res.issues)) << "EOS validation error at cycle " << cycle;
     for (const auto& det : eos_res.output_frame.detections) {
       if (det.detected) {
         eos_ir_detected++;
@@ -978,7 +978,7 @@ TEST(MultiModelScenarioTest, DenseFormationAndJamming) {
 
     auto esr_in = BuildEsrInput(ws, dt, cycle);
     auto esr_res = esr_sess.StepWithResult(esr_in);
-    EXPECT_FALSE(esr_res.has_validation_error) << "ESR validation error at cycle " << cycle;
+    EXPECT_FALSE(esr_session::HasValidationError(esr_res.issues)) << "ESR validation error at cycle " << cycle;
     esr_obs_total += esr_res.output_frame.observation_output.observations.size();
     if (esr_res.output_frame.emitter_output.hypotheses.size() > esr_hyp_max) {
       esr_hyp_max =
@@ -1138,7 +1138,7 @@ TEST(MultiModelScenarioTest, ZeroDopplerCrossing) {
 
     auto eos_in = BuildEosInput(ws, dt, cycle);
     auto eos_res = eos_sess.StepWithResult(eos_in);
-    EXPECT_FALSE(eos_res.has_validation_error) << "EOS validation error at cycle " << cycle;
+    EXPECT_FALSE(eos_session::HasValidationError(eos_res.issues)) << "EOS validation error at cycle " << cycle;
     for (const auto& det : eos_res.output_frame.detections) {
       if (!eos_first_range_set) {
         eos_range_at_first = det.range_m;
@@ -1150,7 +1150,7 @@ TEST(MultiModelScenarioTest, ZeroDopplerCrossing) {
 
     auto esr_in = BuildEsrInput(ws, dt, cycle);
     auto esr_res = esr_sess.StepWithResult(esr_in);
-    EXPECT_FALSE(esr_res.has_validation_error) << "ESR validation error at cycle " << cycle;
+    EXPECT_FALSE(esr_session::HasValidationError(esr_res.issues)) << "ESR validation error at cycle " << cycle;
     esr_obs_total += esr_res.output_frame.observation_output.observations.size();
 
     AdvanceWorld(ws, dt);
@@ -1215,7 +1215,7 @@ TEST(MultiModelScenarioTest, SensorDrivenEcmUsesPreviousSuccessfulEsrFrame) {
     esr_session::EsrCycleInput input = BuildEsrInput(world, 1.0f, cycle);
     input.platform_entity_id = 7001U;
     const esr_session::EsrCycleResult result = esr.StepWithResult(input);
-    ASSERT_FALSE(result.has_validation_error);
+    ASSERT_FALSE(esr_session::HasValidationError(result.issues));
     if (!result.output_frame.emitter_output.hypotheses.empty()) {
       hypotheses = result.output_frame.emitter_output.hypotheses;
       source_esr_cycle = cycle;
@@ -1270,7 +1270,7 @@ TEST(MultiModelScenarioTest, SensorDrivenEcmUsesPreviousSuccessfulEsrFrame) {
   esr_input.platform_entity_id = 7001U;
   esr_input.rf_emissions = ecm_result.emission_frame;
   const esr_session::EsrCycleResult esr_result = esr.StepWithResult(esr_input);
-  EXPECT_FALSE(esr_result.has_validation_error);
+  EXPECT_FALSE(esr_session::HasValidationError(esr_result.issues));
   EXPECT_EQ(esr_result.output_frame.cycle_index, source_esr_cycle + 1U);
 }
 
@@ -1311,7 +1311,7 @@ TEST(MultiModelScenarioTest, EcmDeceptionFalseTargetReachesArAndTriggersEccm) {
     esr_session::EsrCycleInput input = BuildEsrInput(world, 1.0f, cycle);
     input.platform_entity_id = 7001U;
     const esr_session::EsrCycleResult result = esr.StepWithResult(input);
-    ASSERT_FALSE(result.has_validation_error);
+    ASSERT_FALSE(esr_session::HasValidationError(result.issues));
     if (!result.output_frame.emitter_output.hypotheses.empty()) {
       hypotheses = result.output_frame.emitter_output.hypotheses;
       source_esr_cycle = cycle;
@@ -1415,7 +1415,7 @@ TEST(MultiModelScenarioTest, EcmDeceptionFalseTargetReachesArAndTriggersEccm) {
   esr_input2.platform_entity_id = 7001U;
   esr_input2.rf_emissions = ecm_result.emission_frame;
   const esr_session::EsrCycleResult esr_result2 = esr.StepWithResult(esr_input2);
-  EXPECT_FALSE(esr_result2.has_validation_error);
+  EXPECT_FALSE(esr_session::HasValidationError(esr_result2.issues));
 }
 
 #if defined(ONEQ_TEST_FLIGHT_DYNAMIC_ENABLED)
@@ -1486,7 +1486,7 @@ TEST(MultiModelScenarioTest, FlightDynamicDrivesSensorEcmClosedLoop) {
     esr_session::EsrCycleInput input = BuildEsrInput(world, 1.0f, cycle);
     input.platform_entity_id = 7002U;
     const esr_session::EsrCycleResult result = esr.StepWithResult(input);
-    ASSERT_FALSE(result.has_validation_error);
+    ASSERT_FALSE(esr_session::HasValidationError(result.issues));
     if (!result.output_frame.emitter_output.hypotheses.empty()) {
       hypotheses = result.output_frame.emitter_output.hypotheses;
       source_esr_cycle = cycle;
@@ -1532,7 +1532,7 @@ TEST(MultiModelScenarioTest, FlightDynamicDrivesSensorEcmClosedLoop) {
   ar_input.platform.platform_entity_id = 7002U;
   ar_input.interference = ecm_result.emission_frame;
   const ar_session::ArCycleResult ar_result = ar.StepWithResult(ar_input);
-  EXPECT_FALSE(ar_result.has_validation_error);
+  EXPECT_FALSE(ar_session::HasValidationError(ar_result.issues));
   EXPECT_EQ(ar_result.status, ar_session::ArCycleStatus::kCompleted);
   EXPECT_EQ(ar_result.abort_reason, ar_session::SignalCycleAbortReason::kNone);
 
@@ -1541,7 +1541,7 @@ TEST(MultiModelScenarioTest, FlightDynamicDrivesSensorEcmClosedLoop) {
   esr_input.platform_entity_id = 7002U;
   esr_input.rf_emissions = ecm_result.emission_frame;
   const esr_session::EsrCycleResult esr_result = esr.StepWithResult(esr_input);
-  EXPECT_FALSE(esr_result.has_validation_error);
+  EXPECT_FALSE(esr_session::HasValidationError(esr_result.issues));
   EXPECT_EQ(esr_result.output_frame.cycle_index, source_esr_cycle + 1U);
 }
 #endif

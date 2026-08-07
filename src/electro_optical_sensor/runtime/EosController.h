@@ -31,9 +31,7 @@ struct EosControllerRuntimeState {
   std::uint32_t schema_version{0U};          /**< 快照结构版本号 */
   session::EosOutputFrame latest_output{};   /**< 最近一帧有效输出（非执行周期返回默认空帧，不复用） */
   attribution::EosDetectionAttributionRecordList latest_detection_attributions{}; /**< 最近一帧归属映射 */
-  session::ValidationIssueList last_validation_issues{}; /**< 最近一次输入校验问题列表 */
   bool has_latest_output{false};             /**< 是否已有可读取的最新输出帧 */
-  bool has_validation_error{false};          /**< 最近一次校验是否存在 error 级问题 */
   bool last_cycle_executed{false};           /**< 最近一次 RunOnce 是否实际执行了核心 pipeline */
   session::EosPipelineAbortReason last_abort_reason{session::EosPipelineAbortReason::kNone}; /**< 最近一次终止原因 */
   EosPipelineRuntimeState pipeline_state{};  /**< 内嵌的管线运行态快照 */
@@ -61,43 +59,16 @@ class EosController {
   void RunOnce(const ::electro_optical_sensor::session::EosCycleInput& input);
 
   /**
-   * @brief 获取最近一次输入校验结果。
-   * @return 最近一次输入校验问题列表。
-   */
-  const session::ValidationIssueList& GetLastValidationIssues() const;
-
-  /**
-   * @brief 判断最近一次输入校验是否存在 error 级问题。
-   * @return 若存在 error 级问题则返回 true。
-   */
-  bool HasValidationError() const;
-
-  /**
    * @brief 最近一次 RunOnce 是否执行了核心 pipeline。
    * @return 若执行了核心 pipeline 则返回 true。
    */
   bool ExecutedLatestCycle() const;
 
   /**
-   * @brief 最近一次 RunOnce 的周期终止原因。
-   * @return 周期终止原因。
+   * @brief 返回最近一次 RunOnce 装配并缓存的单周期聚合结果。
+   * @return 最近一次周期的聚合结果。
    */
-  session::EosPipelineAbortReason GetLastDetectionCycleAbortReason() const;
-
-  /**
-   * @brief 获取最近一次正常执行周期的 kInfo 排除诊断（规则 13b）。
-   * @note 仅完成路径有内容；中止路径诊断由三写经 RecordAbort 写入。
-   * @return 最近一次周期的按目标排除诊断列表。
-   */
-  const session::EosDiagnosticIssueList& GetLatestDiagnostics() const;
-
-  /**
-   * @brief 基于最近一次 RunOnce 状态构建单周期聚合结果。
-   * @param[in] input 当前周期输入，仅在无可复用输出时用于回填 cycle_index。
-   * @return 当前周期聚合结果。
-   */
-  ::electro_optical_sensor::session::EosCycleResult BuildCycleResult(
-      const ::electro_optical_sensor::session::EosCycleInput& input) const;
+  ::electro_optical_sensor::session::EosCycleResult BuildCycleResult() const;
 
   /**
    * @brief 捕获控制器运行态快照。

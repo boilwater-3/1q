@@ -1,6 +1,6 @@
 ---
 Status: active
-Last-reviewed: 2026-08-03
+Last-reviewed: 2026-08-07
 Authority: ESR 模块级边界、非目标与设计变更规则
 Answers: ESR 有哪些模块级禁令与边界、哪些非目标、配置/扫描/输出/校验的特殊语义、文档变更规则
 ---
@@ -115,24 +115,33 @@ ESR 非执行周期（校验失败/设备关机）的 `Step()` 与 `EsrCycleResu
 `StepWithResult().status` / `abort_reason`。
 
 注意 controller 内部在 validation reject 时确实会保留 `GetLatestInterceptOutputFrame()`（旧帧），
-但 `EsrSession::BuildCycleResult` 只在 `status == kCompleted` 时把它写入 public `EsrCycleResult.output_frame`，
+但 `EsrController::BuildCycleResult`（装配在 RunOnce 内完成并缓存，COMMON-OQ-9 收敛，issues
+直通无校验缓存）只在 `status == kCompleted` 时把它写入 public `EsrCycleResult.output_frame`，
 因此 controller 的旧帧缓存是内部状态机行为，不构成 public `Step()` 的输出回退路径。
 
 [evidence: tests/contract/electronic_surveillance_radar/esr_public_api_convenience_test.cpp::StepReturnsEmptyFrameOnValidationFailure]
 [evidence: tests/unit/electronic_surveillance_radar/esr_controller_runtime_state_test]
 
-### 三写约束（abort_reason + diagnostics + 日志）
+### 三写约束（abort_reason + issues + 日志）
 
-ESR 所有中止路径遵守 `session_contract.md` 规则 9 的三写模式：
+ESR 所有中止路径遵守 `session_contract.md` 规则 9 的三写模式与规则 14 的统一问题列表模型：
 
 1. **结构化信号**：`EsrCycleResult.abort_reason`（粗粒度枚举）。
-2. **结构化诊断**：`EsrCycleResult.diagnostics`（`EsrDiagnosticIssueList`，细粒度 code 如 `"esr.rf_receiver_rejected"`）。
+2. **结构化诊断**：`EsrCycleResult.issues`（`EsrIssueList`，细粒度 code 如 `"esr.rf_receiver_rejected"`、
+   `"esr.validation.invalid_cycle_delta_time"`；条目携带 `phase` 来源标签与可选定位）。
 3. **人读日志**：`PROJECT_LOG_ERROR`。
 
-三写由 `EsrDiagnosticUtils::RecordAbort` 统一执行，在 `EsrSession::BuildCycleResult` 和 `RunCycle` 中调用。
+`EsrCycleResult` 只承载单一问题列表 `issues`：输入校验问题（`phase=kInputValidation`）与执行诊断
+（`phase=kExecution`/`kOutputContract`）同列表承载，不设 `validation_issues`/`has_validation_error`
+平行字段。校验拒绝时校验问题本身就是 error 级诊断（规则 9 写二），不再附加粗粒度条目。
+
+三写由 `EsrDiagnosticUtils::RecordAbort` 统一执行（phase 由中止原因推导），在
+`EsrController::AssembleResult`（RunOnce 内装配路径）中调用。周期结果装配在 RunOnce 内
+完成并缓存（COMMON-OQ-9：issues 直通），`BuildCycleResult` 仅返回缓存；校验缓存字段与
+`GetLastValidationIssues` 查询 API 已删除。
 
 **正常周期的按发射源排除诊断（规则 13b）**：正常执行周期（`status == kCompleted`）中被门控排除的
-发射源（同址干扰 / 零功率 / SNR-统计检测门）写 `kInfo` 级 `EsrDiagnosticIssue`（code 如
+发射源（同址干扰 / 零功率 / SNR-统计检测门）写 `kInfo` 级 `EsrIssue`（code 如
 `"esr.emission_below_threshold"`，message 携带发射源标识 platform/equipment/emission id 与关键量值），
 **不属于三写**（三写仅约束中止路径，规则 9）。ESR 无目标概念（按发射源处理，无 target_id），
 排除诊断以发射源标识为载体（对应契约规则 13b 措辞）。诊断不改变 `EsrCycleExecutionStatus` 与

@@ -53,7 +53,7 @@ TEST(EsrSessionIntegrationTest, StepWithResultConsumesDirectRfV2Frame) {
   input.rf_emissions.emissions.push_back(MakeEmission(1U, 1.0e6));
   const EsrCycleResult result = EsrSession::Create(MakeConfig()).StepWithResult(input);
   EXPECT_EQ(result.status, EsrCycleExecutionStatus::kCompleted);
-  EXPECT_FALSE(result.has_validation_error);
+  EXPECT_FALSE(HasValidationError(result.issues));
   EXPECT_EQ(result.output_frame.cycle_index, input.cycle_index);
   EXPECT_NE(result.abort_reason, EsrPipelineAbortReason::kRfReceiverRejected);
 }
@@ -109,13 +109,13 @@ TEST(EsrSessionIntegrationTest, BelowThresholdEmissionCarriesInfoExclusionDiagno
   EsrCycleInput input = MakeInput();
   input.rf_emissions.emissions.push_back(MakeEmission(3U, 1.0e-20));
   const EsrCycleResult result = EsrSession::Create(MakeConfig()).StepWithResult(input);
-  // 正常完成周期：排除原因经 diagnostics 承载，不改变执行状态（规则 13b/13c）。
+  // 正常完成周期：排除原因经 issues 承载，不改变执行状态（规则 13b/13c）。
   EXPECT_EQ(result.status, EsrCycleExecutionStatus::kCompleted);
   bool found = false;
-  for (const EsrDiagnosticIssue& issue : result.diagnostics) {
+  for (const EsrIssue& issue : result.issues) {
     if (issue.code == "esr.emission_below_threshold") {
       found = true;
-      EXPECT_EQ(issue.severity, EsrDiagnosticSeverity::kInfo);
+      EXPECT_EQ(issue.severity, EsrIssueSeverity::kInfo);
     }
   }
   EXPECT_TRUE(found);

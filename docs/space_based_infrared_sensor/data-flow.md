@@ -1,6 +1,6 @@
 ---
 Status: active
-Last-reviewed: 2026-08-03
+Last-reviewed: 2026-08-07
 Authority: sbirs_sensor 数据流、Public API 边界、时序与状态所有权
 Answers: SBIRS 的分层架构、数据如何流动、runtime patch 如何迁移状态、Public API 边界在哪
 ---
@@ -126,7 +126,7 @@ sequenceDiagram
   Session->>Controller: RunOnce(input)
   Controller->>Controller: ValidateSbirsCycleInput
   alt invalid input
-    Controller-->>Session: reuse latest output + validation status
+    Controller-->>Session: default empty frame + validation status\n（不复用上一有效输出，规则 3）
   else valid input
     Controller->>Pipeline: RunCycle(input)
     Pipeline->>Pipeline: resolve frame factors / earth-occultation gate
@@ -255,8 +255,8 @@ flowchart LR
 4. 目标速度在 `has_velocity_ecef_m_per_s=true` 时必须有限，为 false 时必须是有限零向量。
 5. 启用 environment override 时，天气/海况枚举、绝对温度下限、湿度、能见度、透过率和交互权重全部校验。
 
-拒绝周期不捕获也不恢复 pipeline（其随机源、扫描、cue、ATP、调度和跟踪状态从未推进）；若已有成功输出
-只复用上一帧。
+拒绝周期不捕获也不恢复 pipeline（其随机源、扫描、cue、ATP、调度和跟踪状态从未推进），`Step()`
+返回默认空帧，**不复用上一有效输出**（规则 8）。
 
 [evidence: tests/unit/sbirs_sensor/sbirs_input_validation_test]
 [evidence: tests/integration/sbirs_sensor/sbirs_session_test]

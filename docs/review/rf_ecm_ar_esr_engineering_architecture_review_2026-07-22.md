@@ -1,16 +1,15 @@
+---
 Status: draft
+Date: 2026-07-22
+Review-Baseline: `b6acda1aecf895803fe2f658add4bc6a3b1da97c`
+Authority: 非规范性审查记录；不得替代 `docs/common/contract.md`、
+`docs/airborne_radar/design.md`、`docs/electronic_surveillance_radar/design.md` 或
+`docs/electronic_countermeasure/design.md`。
+---
 
 # 工程级 RF、ECM 与 AR/ESR 实现回审
 
-**Review-Date:** 2026-07-22
-
-**Review-Baseline:** `b6acda1aecf895803fe2f658add4bc6a3b1da97c`
-
 **Architecture-Reclassification:** 2026-07-22 historical freeze; AR/ESR current, ECM pending
-
-**Authority:** 非规范性审查记录；不得替代 `docs/common/contract.md`、
-`docs/airborne_radar/design.md`、`docs/electronic_surveillance_radar/design.md` 或
-`docs/electronic_countermeasure/design.md`。
 
 **AR follow-up (2026-07-23):** AR 已完成 RF v2 单周期门面、detection-cell 接收链、结构化饱和、
 J/N 门控干扰观测、实际 ECCM 状态与 legacy jammer 删除。下文的 baseline 证据矩阵保留为历史审查事实；

@@ -1,6 +1,6 @@
 ---
 Status: active
-Last-reviewed: 2026-08-03
+Last-reviewed: 2026-08-07
 Authority: flight_dynamic 模块级边界、非目标与设计变更规则
 Answers: flight_dynamic 有哪些模块级禁令、FlightManager public seam 边界、变更规则
 ---

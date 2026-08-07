@@ -37,7 +37,6 @@ struct ONEQ_API SarProductDebugView {
   std::uint32_t input_cycle_index{0U};
   std::uint32_t output_cycle_index{0U};
   bool executed_this_cycle{false};
-  bool has_error{false};
   std::string abort_reason{};
   SarProcessingStage completed_stage{SarProcessingStage::kNone};
   bool has_raw_echo{false};
@@ -49,7 +48,7 @@ struct ONEQ_API SarProductDebugView {
   std::uint32_t range_sample_count{0U};
   std::uint32_t azimuth_pulse_count{0U};
   std::vector<SarDebugPointTarget> point_targets{};
-  SarDiagnosticIssueList diagnostics{};
+  SarIssueList issues{};
 };
 
 /**

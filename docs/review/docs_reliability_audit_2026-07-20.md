@@ -1,12 +1,12 @@
-# 文档可靠性审查闭环报告
-
+---
 Status: draft
+Date: 2026-07-20
+Review-Baseline: 全库文档可靠性复核（跨分支范围，无单一基线 commit）
+Closure-Date: 2026-07-21
+Authority: 非规范性审查记录；不得替代 `docs/common/contract.md`、各模块 `design.md` 或 `docs/practice/`。
+---
 
-**Review-Date:** 2026-07-20
-
-**Closure-Date:** 2026-07-21
-
-**Authority:** 非规范性审查记录；不得替代 `docs/common/contract.md`、各模块 `design.md` 或 `docs/practice/`。
+# 文档可靠性审查闭环报告
 
 ## 1. 范围与判定方法
 

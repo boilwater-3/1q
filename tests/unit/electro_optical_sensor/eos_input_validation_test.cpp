@@ -25,13 +25,23 @@ namespace eos_session_ns = ::electro_optical_sensor::session;
 using namespace ::electro_optical_sensor::model;
 using namespace ::electro_optical_sensor::session;
 
-bool ContainsCode(const ValidationIssueList& issues, ValidationCode code) {
+bool ContainsCode(const EosIssueList& issues, const std::string& code) {
   for (std::size_t i = 0; i < issues.size(); ++i) {
     if (issues[i].code == code) {
       return true;
     }
   }
   return false;
+}
+
+// 按 code 取条目（Q-2 审查修复：phase/severity 断言辅助）。
+const EosIssue* FindIssue(const EosIssueList& issues, const std::string& code) {
+  for (const EosIssue& issue : issues) {
+    if (issue.code == code) {
+      return &issue;
+    }
+  }
+  return nullptr;
 }
 
 EosSceneTarget MakeValidTarget() {
@@ -95,9 +105,13 @@ TEST(EosInputValidationTest, InvalidCycleDeltaTimeIsReportedAsError) {
   EosCycleInput input = MakeValidInput();
   input.dt_sec = 0.0f;
 
-  const ValidationIssueList issues = ValidateEosCycleInput(input, 30.0f);
+  const EosIssueList issues = ValidateEosCycleInput(input, 30.0f);
 
-  EXPECT_TRUE(ContainsCode(issues, ValidationCode::kInvalidCycleDeltaTime));
+  // 输入校验问题统一 phase=kInputValidation（规则 14b；HasValidationError 依赖该判定）。
+  const EosIssue* issue = FindIssue(issues, "eos.validation.invalid_cycle_delta_time");
+  ASSERT_NE(issue, nullptr);
+  EXPECT_EQ(issue->severity, EosIssueSeverity::kError);
+  EXPECT_EQ(issue->phase, EosIssuePhase::kInputValidation);
   EXPECT_TRUE(HasValidationError(issues));
 }
 
@@ -105,9 +119,9 @@ TEST(EosInputValidationTest, NonFinitePlatformNumericFieldIsReportedAsError) {
   EosCycleInput input = MakeValidInput();
   input.platform_pose.attitude_deg.yaw_deg = std::numeric_limits<float>::infinity();
 
-  const ValidationIssueList issues = ValidateEosCycleInput(input, 30.0f);
+  const EosIssueList issues = ValidateEosCycleInput(input, 30.0f);
 
-  EXPECT_TRUE(ContainsCode(issues, ValidationCode::kNonFinitePlatformNumericField));
+  EXPECT_TRUE(ContainsCode(issues, "eos.validation.non_finite_platform_numeric_field"));
   EXPECT_TRUE(HasValidationError(issues));
 }
 
@@ -115,9 +129,9 @@ TEST(EosInputValidationTest, NonFinitePlatformAltitudeIsReportedAsError) {
   EosCycleInput input = MakeValidInput();
   input.platform_altitude_m = std::numeric_limits<float>::quiet_NaN();
 
-  const ValidationIssueList issues = ValidateEosCycleInput(input, 30.0f);
+  const EosIssueList issues = ValidateEosCycleInput(input, 30.0f);
 
-  EXPECT_TRUE(ContainsCode(issues, ValidationCode::kNonFinitePlatformNumericField));
+  EXPECT_TRUE(ContainsCode(issues, "eos.validation.non_finite_platform_numeric_field"));
   EXPECT_TRUE(HasValidationError(issues));
 }
 
@@ -125,9 +139,9 @@ TEST(EosInputValidationTest, InvalidTargetEmissivityIsReportedAsError) {
   EosCycleInput input = MakeValidInput();
   input.scene[0].appearance.emissivity = 1.2f;
 
-  const ValidationIssueList issues = ValidateEosCycleInput(input, 30.0f);
+  const EosIssueList issues = ValidateEosCycleInput(input, 30.0f);
 
-  EXPECT_TRUE(ContainsCode(issues, ValidationCode::kInvalidTargetEmissivity));
+  EXPECT_TRUE(ContainsCode(issues, "eos.validation.invalid_target_emissivity"));
   EXPECT_TRUE(HasValidationError(issues));
 }
 
@@ -136,9 +150,14 @@ TEST(EosInputValidationTest, InconsistentTargetEnergyBalanceIsReportedAsWarning)
   input.scene[0].appearance.emissivity = 0.8f;
   input.scene[0].appearance.reflectance = 0.4f;
 
-  const ValidationIssueList issues = ValidateEosCycleInput(input, 30.0f);
+  const EosIssueList issues = ValidateEosCycleInput(input, 30.0f);
 
-  EXPECT_TRUE(ContainsCode(issues, ValidationCode::kInconsistentTargetEnergyBalance));
+  // warning 级校验问题同样 phase=kInputValidation（来源标签与严重级别正交）。
+  const EosIssue* issue =
+      FindIssue(issues, "eos.validation.inconsistent_target_energy_balance");
+  ASSERT_NE(issue, nullptr);
+  EXPECT_EQ(issue->severity, EosIssueSeverity::kWarning);
+  EXPECT_EQ(issue->phase, EosIssuePhase::kInputValidation);
   EXPECT_FALSE(HasValidationError(issues));
 }
 
@@ -150,7 +169,7 @@ TEST(EosInputValidationTest, ZeroTargetIdDoesNotProduceValidationError) {
   EosCycleInput input = MakeValidInput();
   input.scene[0].target_id = 0U;
 
-  const ValidationIssueList issues = ValidateEosCycleInput(input, 30.0f);
+  const EosIssueList issues = ValidateEosCycleInput(input, 30.0f);
   EXPECT_FALSE(HasValidationError(issues));
 }
 
@@ -158,8 +177,8 @@ TEST(EosInputValidationTest, NonFiniteTargetFieldIsReportedAsError) {
   EosCycleInput input = MakeValidInput();
   input.scene[0].azimuth_deg = std::numeric_limits<float>::quiet_NaN();
 
-  const ValidationIssueList issues = ValidateEosCycleInput(input, 30.0f);
-  EXPECT_TRUE(ContainsCode(issues, ValidationCode::kNonFiniteTargetNumericField));
+  const EosIssueList issues = ValidateEosCycleInput(input, 30.0f);
+  EXPECT_TRUE(ContainsCode(issues, "eos.validation.non_finite_target_numeric_field"));
   EXPECT_TRUE(HasValidationError(issues));
 }
 
@@ -168,45 +187,45 @@ TEST(EosInputValidationTest, NonFiniteTargetTemperatureIsReportedAsError) {
   input.scene[0].appearance.apparent_temperature_k =
       std::numeric_limits<float>::quiet_NaN();
 
-  const ValidationIssueList issues = ValidateEosCycleInput(input, 30.0f);
-  EXPECT_TRUE(ContainsCode(issues, ValidationCode::kNonFiniteTargetNumericField));
+  const EosIssueList issues = ValidateEosCycleInput(input, 30.0f);
+  EXPECT_TRUE(ContainsCode(issues, "eos.validation.non_finite_target_numeric_field"));
 }
 
 TEST(EosInputValidationTest, NonPositiveTargetTemperatureIsReportedAsError) {
   EosCycleInput input = MakeValidInput();
   input.scene[0].appearance.apparent_temperature_k = 0.0f;
 
-  const ValidationIssueList issues = ValidateEosCycleInput(input, 30.0f);
-  EXPECT_TRUE(ContainsCode(issues, ValidationCode::kInvalidTargetTemperature));
+  const EosIssueList issues = ValidateEosCycleInput(input, 30.0f);
+  EXPECT_TRUE(ContainsCode(issues, "eos.validation.invalid_target_temperature"));
 }
 
 TEST(EosInputValidationTest, InvalidTargetReflectanceIsReportedAsError) {
   EosCycleInput input = MakeValidInput();
   input.scene[0].appearance.reflectance = 1.5f;  // 超出 [0,1]
 
-  const ValidationIssueList issues = ValidateEosCycleInput(input, 30.0f);
-  EXPECT_TRUE(ContainsCode(issues, ValidationCode::kInvalidTargetReflectance));
+  const EosIssueList issues = ValidateEosCycleInput(input, 30.0f);
+  EXPECT_TRUE(ContainsCode(issues, "eos.validation.invalid_target_reflectance"));
 }
 
 TEST(EosInputValidationTest, NonPositiveProjectedAreaIsReportedAsError) {
   EosCycleInput input = MakeValidInput();
   input.scene[0].appearance.projected_area_m2 = 0.0f;
 
-  const ValidationIssueList issues = ValidateEosCycleInput(input, 30.0f);
-  EXPECT_TRUE(ContainsCode(issues, ValidationCode::kInvalidTargetProjectedArea));
+  const EosIssueList issues = ValidateEosCycleInput(input, 30.0f);
+  EXPECT_TRUE(ContainsCode(issues, "eos.validation.invalid_target_projected_area"));
 }
 
 TEST(EosInputValidationTest, NonFiniteCycleDeltaTimeIsReportedAsError) {
   EosCycleInput input = MakeValidInput();
   input.dt_sec = std::numeric_limits<float>::quiet_NaN();
 
-  const ValidationIssueList issues = ValidateEosCycleInput(input, 30.0f);
-  EXPECT_TRUE(ContainsCode(issues, ValidationCode::kNonFiniteCycleDeltaTime));
+  const EosIssueList issues = ValidateEosCycleInput(input, 30.0f);
+  EXPECT_TRUE(ContainsCode(issues, "eos.validation.non_finite_cycle_delta_time"));
 }
 
 TEST(EosInputValidationTest, ValidInputProducesNoErrors) {
   EosCycleInput input = MakeValidInput();
-  const ValidationIssueList issues = ValidateEosCycleInput(input, 30.0f);
+  const EosIssueList issues = ValidateEosCycleInput(input, 30.0f);
   EXPECT_FALSE(HasValidationError(issues));
 }
 
@@ -233,7 +252,7 @@ TEST(EosInputValidationTest, SessionProducesInFovDetectionsOnly) {
   const ::electro_optical_sensor::session::EosCycleResult result =
       eos_session.StepWithResult(input);
 
-  EXPECT_FALSE(result.has_validation_error);
+  EXPECT_FALSE(HasValidationError(result.issues));
   ASSERT_EQ(result.output_frame.detections.size(), 1U);
   EXPECT_EQ(result.output_frame.detections[0].detection_id, 1U);
   ASSERT_EQ(result.detection_attributions.size(), 1U);
@@ -248,9 +267,9 @@ TEST(EosInputValidationTest, SessionReturnsValidationErrorsForInvalidInput) {
   const ::electro_optical_sensor::session::EosCycleResult result =
       eos_session.StepWithResult(input);
 
-  EXPECT_TRUE(result.has_validation_error);
+  EXPECT_TRUE(HasValidationError(result.issues));
   EXPECT_FALSE(result.executed_this_cycle);
-  EXPECT_TRUE(ContainsCode(result.validation_issues, ValidationCode::kInvalidTargetRange));
+  EXPECT_TRUE(ContainsCode(result.issues, "eos.validation.invalid_target_range"));
   EXPECT_TRUE(result.output_frame.detections.empty());
 }
 
@@ -294,7 +313,7 @@ TEST(EosInputValidationTest, RuntimeConfigBuilderCanTightenDetectionThresholdAtR
 
   const ::electro_optical_sensor::session::EosCycleResult baseline =
       eos_session.StepWithResult(input);
-  ASSERT_FALSE(baseline.has_validation_error);
+  ASSERT_FALSE(HasValidationError(baseline.issues));
   ASSERT_FALSE(baseline.output_frame.detections.empty());
   EXPECT_TRUE(baseline.output_frame.detections[0].detected);
 
@@ -310,7 +329,7 @@ TEST(EosInputValidationTest, RuntimeConfigBuilderCanTightenDetectionThresholdAtR
       ResolveNextScanAzimuthDeg(config, baseline.output_frame.scan_azimuth_deg, input.dt_sec);
   const ::electro_optical_sensor::session::EosCycleResult updated =
       eos_session.StepWithResult(input);
-  EXPECT_FALSE(updated.has_validation_error);
+  EXPECT_FALSE(HasValidationError(updated.issues));
   ASSERT_EQ(updated.output_frame.detections.size(), 1U);
   EXPECT_LE(updated.output_frame.detections[0].fused_snr_db,
             baseline.output_frame.detections[0].fused_snr_db);
@@ -336,7 +355,7 @@ TEST(EosInputValidationTest, RuntimePatchPreservesScanPhaseUnlessScanRateChanges
   input.scene[0].azimuth_deg = ResolveFirstCycleScanAzimuthDeg(config, input.dt_sec);
 
   const ::electro_optical_sensor::session::EosCycleResult first = eos_session.StepWithResult(input);
-  ASSERT_FALSE(first.has_validation_error);
+  ASSERT_FALSE(HasValidationError(first.issues));
   const float first_scan_azimuth_deg = first.output_frame.scan_azimuth_deg;
 
   const eos_config::EosRuntimeConfigPatch non_geometry_patch =
@@ -350,7 +369,7 @@ TEST(EosInputValidationTest, RuntimePatchPreservesScanPhaseUnlessScanRateChanges
   input.cycle_index += 1U;
   const ::electro_optical_sensor::session::EosCycleResult after_non_geometry_patch =
       eos_session.StepWithResult(input);
-  ASSERT_FALSE(after_non_geometry_patch.has_validation_error);
+  ASSERT_FALSE(HasValidationError(after_non_geometry_patch.issues));
   const float expected_after_non_geometry_patch =
       ResolveNextScanAzimuthDeg(config, first_scan_azimuth_deg, input.dt_sec);
   EXPECT_NEAR(after_non_geometry_patch.output_frame.scan_azimuth_deg,
@@ -363,7 +382,7 @@ TEST(EosInputValidationTest, RuntimePatchPreservesScanPhaseUnlessScanRateChanges
   input.cycle_index += 1U;
   const ::electro_optical_sensor::session::EosCycleResult after_scan_rate_patch =
       eos_session.StepWithResult(input);
-  ASSERT_FALSE(after_scan_rate_patch.has_validation_error);
+  ASSERT_FALSE(HasValidationError(after_scan_rate_patch.issues));
 
   config::EosSessionConfig expected_scan_rate_config = config;
   expected_scan_rate_config.mission.scan_rate_deg_per_sec = 12.0f;
@@ -390,7 +409,7 @@ TEST(EosInputValidationTest, RuntimePatchRejectsInvalidFrameRateHz) {
 
   const ::electro_optical_sensor::session::EosCycleResult baseline =
       eos_session.StepWithResult(input);
-  ASSERT_FALSE(baseline.has_validation_error);
+  ASSERT_FALSE(HasValidationError(baseline.issues));
 
   const eos_config::EosRuntimeConfigPatch patch =
       eos_config::EosRuntimeConfigBuilder().WithFrameRateHz(0.0f).Build();
@@ -401,7 +420,7 @@ TEST(EosInputValidationTest, RuntimePatchRejectsInvalidFrameRateHz) {
       ResolveNextScanAzimuthDeg(config, baseline.output_frame.scan_azimuth_deg, input.dt_sec);
   const ::electro_optical_sensor::session::EosCycleResult after_patch =
       eos_session.StepWithResult(input);
-  EXPECT_FALSE(after_patch.has_validation_error);
+  EXPECT_FALSE(HasValidationError(after_patch.issues));
 
   const eos_config::EosRuntimeConfigPatch valid_patch =
       eos_config::EosRuntimeConfigBuilder()
@@ -415,7 +434,7 @@ TEST(EosInputValidationTest, RuntimePatchRejectsInvalidFrameRateHz) {
   input.cycle_index += 1U;
   const ::electro_optical_sensor::session::EosCycleResult after_mixed_patch =
       eos_session.StepWithResult(input);
-  EXPECT_FALSE(after_mixed_patch.has_validation_error);
+  EXPECT_FALSE(HasValidationError(after_mixed_patch.issues));
 }
 
 TEST(EosInputValidationTest, RuntimePatchRejectsInvalidScanRate) {
@@ -436,7 +455,7 @@ TEST(EosInputValidationTest, RuntimePatchRejectsInvalidScanRate) {
 
   const ::electro_optical_sensor::session::EosCycleResult baseline =
       eos_session.StepWithResult(input);
-  ASSERT_FALSE(baseline.has_validation_error);
+  ASSERT_FALSE(HasValidationError(baseline.issues));
   const float baseline_azimuth = baseline.output_frame.scan_azimuth_deg;
 
   const eos_config::EosRuntimeConfigPatch patch =
@@ -447,7 +466,7 @@ TEST(EosInputValidationTest, RuntimePatchRejectsInvalidScanRate) {
   input.scene[0].azimuth_deg = ResolveNextScanAzimuthDeg(config, baseline_azimuth, input.dt_sec);
   const ::electro_optical_sensor::session::EosCycleResult after_patch =
       eos_session.StepWithResult(input);
-  EXPECT_FALSE(after_patch.has_validation_error);
+  EXPECT_FALSE(HasValidationError(after_patch.issues));
 
   const float expected_azimuth = ResolveNextScanAzimuthDeg(config, baseline_azimuth, input.dt_sec);
   EXPECT_NEAR(after_patch.output_frame.scan_azimuth_deg, expected_azimuth, 1.0e-5f);
@@ -471,7 +490,7 @@ TEST(EosInputValidationTest, RuntimePatchIsAtomicWhenAnyFieldIsInvalid) {
 
   const ::electro_optical_sensor::session::EosCycleResult baseline =
       eos_session.StepWithResult(input);
-  ASSERT_FALSE(baseline.has_validation_error);
+  ASSERT_FALSE(HasValidationError(baseline.issues));
   ASSERT_EQ(baseline.output_frame.detections.size(), 1U);
   ASSERT_TRUE(baseline.output_frame.detections[0].detected);
 
@@ -488,7 +507,7 @@ TEST(EosInputValidationTest, RuntimePatchIsAtomicWhenAnyFieldIsInvalid) {
       ResolveNextScanAzimuthDeg(config, baseline.output_frame.scan_azimuth_deg, input.dt_sec);
   const ::electro_optical_sensor::session::EosCycleResult after_patch =
       eos_session.StepWithResult(input);
-  ASSERT_FALSE(after_patch.has_validation_error);
+  ASSERT_FALSE(HasValidationError(after_patch.issues));
   ASSERT_EQ(after_patch.output_frame.detections.size(), 1U);
   EXPECT_TRUE(after_patch.output_frame.detections[0].detected);
 }
@@ -498,7 +517,7 @@ TEST(EosInputValidationTest, AcceptsDtSecWithinFrameRateBound) {
   EosCycleInput input = MakeValidInput();
   input.dt_sec = 0.1f;
 
-  const ValidationIssueList issues = ValidateEosCycleInput(input, 30.0f);
+  const EosIssueList issues = ValidateEosCycleInput(input, 30.0f);
   EXPECT_FALSE(HasValidationError(issues));
 }
 
@@ -507,8 +526,8 @@ TEST(EosInputValidationTest, RejectsDtSecExceedingFrameRateBound) {
   EosCycleInput input = MakeValidInput();
   input.dt_sec = 0.5f;
 
-  const ValidationIssueList issues = ValidateEosCycleInput(input, 30.0f);
-  EXPECT_TRUE(ContainsCode(issues, ValidationCode::kCycleDeltaTimeExceedsFramePeriod));
+  const EosIssueList issues = ValidateEosCycleInput(input, 30.0f);
+  EXPECT_TRUE(ContainsCode(issues, "eos.validation.cycle_delta_time_exceeds_frame_period"));
   EXPECT_TRUE(HasValidationError(issues));
 }
 
@@ -517,7 +536,7 @@ TEST(EosInputValidationTest, AcceptsDtSecAtExactFrameRateBound) {
   EosCycleInput input = MakeValidInput();
   input.dt_sec = 10.0f / 30.0f;
 
-  const ValidationIssueList issues = ValidateEosCycleInput(input, 30.0f);
+  const EosIssueList issues = ValidateEosCycleInput(input, 30.0f);
   EXPECT_FALSE(HasValidationError(issues));
 }
 
@@ -526,11 +545,11 @@ TEST(EosInputValidationTest, HigherFrameRateAllowsTighterDtSec) {
   EosCycleInput input = MakeValidInput();
   input.dt_sec = 0.2f;
 
-  const ValidationIssueList issues_60hz = ValidateEosCycleInput(input, 60.0f);
+  const EosIssueList issues_60hz = ValidateEosCycleInput(input, 60.0f);
   EXPECT_TRUE(HasValidationError(issues_60hz));
 
   // frame_rate_hz=30 → max_dt = 10/30 ≈ 0.333s; dt_sec=0.2 should pass.
-  const ValidationIssueList issues_30hz = ValidateEosCycleInput(input, 30.0f);
+  const EosIssueList issues_30hz = ValidateEosCycleInput(input, 30.0f);
   EXPECT_FALSE(HasValidationError(issues_30hz));
 }
 

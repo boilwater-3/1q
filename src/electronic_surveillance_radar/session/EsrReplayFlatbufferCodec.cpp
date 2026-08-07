@@ -48,31 +48,27 @@ bool IsValidCycleStatus(std::int32_t value) {
 }
 
 bool IsValidAbortReason(std::int32_t value) {
-  return value >= static_cast<std::int32_t>(EsrPipelineAbortReason::kNone) &&
-         value <=
-                    static_cast<std::int32_t>(
-                        EsrPipelineAbortReason::kRfReceiverRejected);
+  // 显式白名单（fail-closed）：kRuntimeStateRestoreRejected(2)/kOutputContractViolation(3)
+  // 已删除（旧 trace 值一律拒绝），kSensorPoweredOff=4/kRfReceiverRejected=5 编号固定。
+  switch (value) {
+    case static_cast<std::int32_t>(EsrPipelineAbortReason::kNone):
+    case static_cast<std::int32_t>(EsrPipelineAbortReason::kValidationRejected):
+    case static_cast<std::int32_t>(EsrPipelineAbortReason::kSensorPoweredOff):
+    case static_cast<std::int32_t>(EsrPipelineAbortReason::kRfReceiverRejected):
+      return true;
+    default:
+      return false;
+  }
 }
 
-bool IsValidDiagnosticSeverity(std::int32_t value) {
-  return value >=
-             static_cast<std::int32_t>(EsrDiagnosticSeverity::kInfo) &&
-         value <=
-             static_cast<std::int32_t>(EsrDiagnosticSeverity::kError);
+bool IsValidIssueSeverity(std::int32_t value) {
+  return value >= static_cast<std::int32_t>(EsrIssueSeverity::kInfo) &&
+         value <= static_cast<std::int32_t>(EsrIssueSeverity::kError);
 }
 
-bool IsValidValidationSeverity(std::int32_t value) {
-  return value >=
-             static_cast<std::int32_t>(ValidationSeverity::kInfo) &&
-         value <=
-             static_cast<std::int32_t>(ValidationSeverity::kError);
-}
-
-bool IsValidValidationCode(std::int32_t value) {
-  return value >= static_cast<std::int32_t>(ValidationCode::kNone) &&
-         value <=
-                    static_cast<std::int32_t>(
-                        ValidationCode::kUnlocatablePlatformEcef);
+bool IsValidIssuePhase(std::int32_t value) {
+  return value >= static_cast<std::int32_t>(EsrIssuePhase::kInputValidation) &&
+         value <= static_cast<std::int32_t>(EsrIssuePhase::kOutputContract);
 }
 
 bool IsValidRuntimeApplyStatus(std::int32_t value) {
@@ -474,28 +470,22 @@ bool DecodeEsrOutputFrame(const std::string& bytes, session::EsrOutputFrame* out
 std::string EncodeEsrCycleResult(const EsrCycleResult& v) {
   flatbuffers::FlatBufferBuilder fbb(512);
   auto frame = CreateEsrOutputFrameTable(fbb, v.output_frame);
-  std::vector<flatbuffers::Offset<esr::replay::ValidationIssue>> issues;
-  for (const auto& i : v.validation_issues) {
-    const std::size_t encoded_entity_index = i.location.kind == ValidationLocationKind::kSceneEntity
+  std::vector<flatbuffers::Offset<esr::replay::EsrIssue>> issues;
+  for (const auto& i : v.issues) {
+    const std::size_t encoded_entity_index = i.location.kind == oneq::foundation::ValidationLocationKind::kSceneEntity
                                                  ? i.location.entity_index
                                                  : static_cast<std::size_t>(-1);
-    issues.push_back(esr::replay::CreateValidationIssue(
-        fbb, static_cast<int32_t>(i.severity), static_cast<int32_t>(i.code),
-        static_cast<int32_t>(encoded_entity_index), fbb.CreateString(i.field),
-        fbb.CreateString(i.message)));
-  }
-  std::vector<flatbuffers::Offset<esr::replay::EsrDiagnosticIssue>> diags;
-  for (const auto& d : v.diagnostics) {
-    diags.push_back(esr::replay::CreateEsrDiagnosticIssue(
-        fbb, static_cast<int32_t>(d.severity), fbb.CreateString(d.code),
-        fbb.CreateString(d.message)));
+    issues.push_back(esr::replay::CreateEsrIssue(
+        fbb, static_cast<int32_t>(i.severity), static_cast<int32_t>(i.phase),
+        fbb.CreateString(i.code), fbb.CreateString(i.message),
+        static_cast<int32_t>(i.location.kind), static_cast<int64_t>(encoded_entity_index),
+        fbb.CreateString(i.field)));
   }
   // 向量创建前置：CreateVector 必须在 CreateEsrCycleResult 打开之前。
   const auto issues_fb = fbb.CreateVector(issues);
-  const auto diags_fb = fbb.CreateVector(diags);
   fbb.Finish(esr::replay::CreateEsrCycleResult(
-      fbb, v.input_cycle_index, frame, issues_fb, v.has_validation_error,
-      static_cast<int32_t>(v.status), static_cast<int32_t>(v.abort_reason), diags_fb));
+      fbb, v.input_cycle_index, frame, static_cast<int32_t>(v.status),
+      static_cast<int32_t>(v.abort_reason), issues_fb));
   return oneq::common::replay::CopyFinishedFlatbuffer(fbb);
 }
 
@@ -517,48 +507,40 @@ bool DecodeEsrCycleResult(const std::string& bytes, EsrCycleResult* out) {
   if (!PopulateOutputFrame(fb->output_frame(), &candidate.output_frame)) {
     return false;
   }
-  candidate.has_validation_error = fb->has_validation_error();
   candidate.status = static_cast<EsrCycleExecutionStatus>(fb->status());
   candidate.abort_reason =
       static_cast<session::EsrPipelineAbortReason>(fb->abort_reason());
-  if (fb->validation_issues()) {
-    for (const auto* i : *fb->validation_issues()) {
-      if (i == nullptr || !IsValidValidationSeverity(i->severity()) ||
-          !IsValidValidationCode(i->code())) {
+  if (fb->issues()) {
+    for (const auto* i : *fb->issues()) {
+      if (i == nullptr || !IsValidIssueSeverity(i->severity()) ||
+          !IsValidIssuePhase(i->phase())) {
         return false;
       }
-      ValidationIssue iss{};
-      iss.severity = static_cast<ValidationSeverity>(i->severity());
-      iss.code = static_cast<ValidationCode>(i->code());
-      iss.location.kind = ValidationLocationKind::kSceneEntity;
-      iss.location.entity_index = static_cast<std::size_t>(i->emitter_index());
-      if (i->emitter_index() < 0) {
-        iss.location.kind = ValidationLocationKind::kGlobal;
-        iss.location.entity_index = static_cast<std::size_t>(-1);
+      EsrIssue issue{};
+      issue.severity = static_cast<EsrIssueSeverity>(i->severity());
+      issue.phase = static_cast<EsrIssuePhase>(i->phase());
+      if (i->code()) {
+        issue.code = i->code()->str();
       }
       if (i->message()) {
-        iss.message = i->message()->str();
+        issue.message = i->message()->str();
+      }
+      // location.kind 独立编码、范围校验后无条件还原（kPlatform/kEnvironment 等
+      // 非 kGlobal 定位保真）；entity_index 仅 kSceneEntity 有效，-1 哨兵还原为无效值。
+      if (i->location_kind() <= static_cast<int32_t>(oneq::foundation::ValidationLocationKind::kSceneEntity)) {
+        issue.location.kind =
+            static_cast<oneq::foundation::ValidationLocationKind>(i->location_kind());
+        issue.location.entity_index = i->entity_index() >= 0
+                                          ? static_cast<std::size_t>(i->entity_index())
+                                          : static_cast<std::size_t>(-1);
+      } else {
+        issue.location.kind = oneq::foundation::ValidationLocationKind::kGlobal;
+        issue.location.entity_index = static_cast<std::size_t>(-1);
       }
       if (i->field()) {
-        iss.field = i->field()->str();
+        issue.field = i->field()->str();
       }
-      candidate.validation_issues.push_back(iss);
-    }
-  }
-  if (fb->diagnostics()) {
-    for (const auto* d : *fb->diagnostics()) {
-      if (d == nullptr || !IsValidDiagnosticSeverity(d->severity())) {
-        return false;
-      }
-      EsrDiagnosticIssue diag{};
-      diag.severity = static_cast<EsrDiagnosticSeverity>(d->severity());
-      if (d->code()) {
-        diag.code = d->code()->str();
-      }
-      if (d->message()) {
-        diag.message = d->message()->str();
-      }
-      candidate.diagnostics.push_back(diag);
+      candidate.issues.push_back(issue);
     }
   }
   *out = std::move(candidate);

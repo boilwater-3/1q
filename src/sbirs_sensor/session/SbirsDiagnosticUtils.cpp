@@ -20,20 +20,21 @@ const char* AbortReasonToDiagnosticCode(SbirsPipelineAbortReason reason) {
 }
 
 void RecordAbort(SbirsCycleResult* result, SbirsPipelineAbortReason reason,
-                 const char* detail_code, const std::string& message, bool is_validation) {
-  if (is_validation) {
-    result->has_validation_error = true;
-  }
+                 const char* detail_code, const std::string& message) {
   result->abort_reason = reason;
-  result->status = is_validation ? SbirsCycleStatus::kRejectedInvalidInput
-                                 : SbirsCycleStatus::kRejectedExecution;
+  result->status = reason == SbirsPipelineAbortReason::kValidationRejected
+                       ? SbirsCycleStatus::kRejectedInvalidInput
+                       : SbirsCycleStatus::kRejectedExecution;
 
-  // 结构化诊断（细粒度）
-  SbirsDiagnosticIssue issue;
-  issue.severity = SbirsDiagnosticSeverity::kError;
+  // 结构化诊断（细粒度；统一问题列表模型，规则 14：phase 由中止原因推导）
+  SbirsIssue issue;
+  issue.severity = SbirsIssueSeverity::kError;
+  issue.phase = reason == SbirsPipelineAbortReason::kValidationRejected
+                    ? SbirsIssuePhase::kInputValidation
+                    : SbirsIssuePhase::kExecution;
   issue.code = std::string("sbirs.") + detail_code;
   issue.message = message;
-  result->diagnostics.push_back(std::move(issue));
+  result->issues.push_back(std::move(issue));
 
   // 中译：SBIRS 中止记录（原因码 — 细粒度码 — 消息）。
   // 标识：三写之三（人读日志）——标识本周期中止的粗粒度原因与细粒度码，

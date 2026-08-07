@@ -59,7 +59,7 @@ SbirsSession SbirsSession::Create(const config::SbirsSessionConfig& config) {
 }
 
 SbirsSession SbirsSession::CreateWithDiagnostics(const config::SbirsSessionConfig& config,
-                                                 config::ValidationIssueList* issues) {
+                                                 SbirsIssueList* issues) {
   if (issues != nullptr) {
     *issues = config::ValidateSbirsSessionConfig(config);
   }

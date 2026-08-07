@@ -81,10 +81,14 @@ table SarOutputFrame {
   phase_reference_applied: bool;
 }
 
-table SarDiagnosticIssue {
-  severity: int32;
-  code: string;
-  message: string;
+table SarIssue {
+  severity:      int32;
+  phase:         int32;
+  code:          string;
+  message:       string;
+  location_kind: int32 = 0;
+  entity_index:  int64 = -1;
+  field:         string;
 }
 
 table SarRawPhaseHistory {
@@ -108,9 +112,8 @@ table SarCycleResult {
   input_cycle_index: uint32;
   output_frame: SarOutputFrame;
   focused_image: SarFocusedImage;
-  diagnostics: [SarDiagnosticIssue];
+  issues: [SarIssue];
   raw_phase_history: SarRawPhaseHistory;
-  has_error: bool;
   executed_this_cycle: bool;
   abort_reason: int32;
   status: uint8;

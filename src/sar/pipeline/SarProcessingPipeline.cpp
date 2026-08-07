@@ -176,7 +176,7 @@ bool SarProcessingPipeline::RunCycle(const config::SarSessionConfig& config,
                                               &impl_->actual_trajectory_buffer, result)) {
         return false;
       }
-      result->diagnostics.push_back(session::MakeInfoDiagnostic(
+      result->issues.push_back(session::MakeInfoDiagnostic(
           "sar.external_raw_iq_snr_unavailable",
           "External raw IQ is already receiver-domain data; hardware link budget and minimum "
           "SNR gating are not reapplied without signal/noise metadata."));

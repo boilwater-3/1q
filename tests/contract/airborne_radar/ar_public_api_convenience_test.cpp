@@ -11,6 +11,7 @@
 #include "1q/airborne_radar/config/ArProfileConstants.h"
 #include "1q/airborne_radar/config/ArRuntimeConfigBuilder.h"
 #include "1q/airborne_radar/config/ArSessionConfigBuilder.h"
+#include "1q/airborne_radar/session/ArInputValidation.h"
 #include "1q/airborne_radar/session/ArSession.h"
 #include "1q/coordinate/position_transform.h"
 #include "1q/electronic_countermeasure/EcmTypes.h"
@@ -94,7 +95,7 @@ TEST(ArPublicApiContractTest, StepWithResultCompletesAndPublishesActualEmission)
   const session::ArCycleResult result = radar.StepWithResult(MakeInput());
 
   ASSERT_EQ(result.status, session::ArCycleStatus::kCompleted);
-  EXPECT_FALSE(result.has_validation_error);
+  EXPECT_FALSE(session::HasValidationError(result.issues));
   EXPECT_EQ(result.input_cycle_index, 1U);
   EXPECT_EQ(result.emission_frame.world_cycle_index, 1U);
   ASSERT_EQ(result.emission_frame.emissions.size(), 1U);
@@ -125,7 +126,7 @@ TEST(ArPublicApiContractTest, RejectedCycleDoesNotReusePreviousOutput) {
   const session::ArCycleResult rejected = radar.StepWithResult(invalid);
 
   EXPECT_EQ(rejected.status, session::ArCycleStatus::kRejectedInvalidInput);
-  EXPECT_TRUE(rejected.has_validation_error);
+  EXPECT_TRUE(session::HasValidationError(rejected.issues));
   EXPECT_TRUE(rejected.track_output_frame.tracks.empty());
   EXPECT_TRUE(rejected.emission_frame.emissions.empty());
 }

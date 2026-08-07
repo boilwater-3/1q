@@ -74,9 +74,9 @@ float ResolvePlatformAltitudeM(const ::electro_optical_sensor::session::EosCycle
 constexpr char kExclusionOutOfFovCode[] = "eos.target_out_of_fov";
 
 /// 构造 kInfo 级按目标排除诊断（不属于三写，仅承载排查信息；规则 13b）。
-session::EosDiagnosticIssue MakeExclusionIssue(const char* code, const std::string& message) {
-  session::EosDiagnosticIssue issue;
-  issue.severity = session::EosDiagnosticSeverity::kInfo;
+session::EosIssue MakeExclusionIssue(const char* code, const std::string& message) {
+  session::EosIssue issue;
+  issue.severity = session::EosIssueSeverity::kInfo;
   issue.code = code;
   issue.message = message;
   return issue;
@@ -442,7 +442,7 @@ extension::EosPipelineExecuteResult EosPipeline::RunCycle(
     const ::electro_optical_sensor::session::EosSceneTarget& target = input.scene[i];
     if (!IsTargetInCurrentFov(target)) {
       // 规则 13b：视场外目标排除 → kInfo 诊断（不属于三写，仅承载排查信息）。
-      result.diagnostics.push_back(MakeExclusionIssue(
+      result.issues.push_back(MakeExclusionIssue(
           kExclusionOutOfFovCode,
           "target_id=" + std::to_string(target.target_id) + "; az/el (" +
               FormatFloat(target.azimuth_deg) + "," + FormatFloat(target.elevation_deg) +

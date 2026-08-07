@@ -12,11 +12,15 @@ namespace config {
 
 config::EsrSessionConfig EsrSessionConfigBuilder::Build() const { return config_; }
 
-ValidationIssueList ValidateEsrSessionConfig(const config::EsrSessionConfig& config) noexcept {
-  ValidationIssueList issues;
-  const auto push = [&issues](ConfigValidationCode code, const char* field, const char* msg) {
-    ConfigValidationIssue issue;
-    issue.code = code;
+session::EsrIssueList ValidateEsrSessionConfig(const config::EsrSessionConfig& config) noexcept {
+  session::EsrIssueList issues;
+  // 统一问题列表模型（规则 14）：config 域问题 severity 固定 kError、phase 固定
+  // kInputValidation，code 为 "esr.validation.<snake_case>"，location 保持默认（kGlobal）。
+  const auto push = [&issues](const char* code_snake, const char* field, const char* msg) {
+    session::EsrIssue issue;
+    issue.severity = session::EsrIssueSeverity::kError;
+    issue.phase = session::EsrIssuePhase::kInputValidation;
+    issue.code = std::string("esr.validation.") + code_snake;
     issue.field = field;
     issue.message = msg;
     issues.push_back(issue);
@@ -24,12 +28,12 @@ ValidationIssueList ValidateEsrSessionConfig(const config::EsrSessionConfig& con
 
   if (!oneq::common::validation::IsFinite(config.mission.scan.scan_rate_hz) ||
       config.mission.scan.scan_rate_hz <= 0.0f) {
-    push(ConfigValidationCode::kScanRateNotPositive, "mission.scan.scan_rate_hz",
+    push("scan_rate_not_positive", "mission.scan.scan_rate_hz",
          "Scan pattern cycle rate must be finite and positive.");
   }
 
   if (!session::config_validation::IsValidMissionEnums(config.mission)) {
-    push(ConfigValidationCode::kMissionEnumInvalid, "mission enum fields",
+    push("mission_enum_invalid", "mission enum fields",
          "Work mode, scan start position, and scan sequence must be known values.");
   }
 
@@ -37,19 +41,19 @@ ValidationIssueList ValidateEsrSessionConfig(const config::EsrSessionConfig& con
       !oneq::common::validation::IsFinite(config.hardware.receiver_band_upper_hz) ||
       config.hardware.receiver_band_lower_hz <= 0.0 ||
       config.hardware.receiver_band_lower_hz >= config.hardware.receiver_band_upper_hz) {
-    push(ConfigValidationCode::kReceiverBandLowerAboveUpper,
+    push("receiver_band_lower_above_upper",
          "hardware.receiver_band_lower_hz / receiver_band_upper_hz",
          "Receiver band lower bound must be below upper bound.");
   }
 
   if (!oneq::common::validation::IsFinite(config.hardware.beam_az_width_deg) ||
       config.hardware.beam_az_width_deg <= 0.0f) {
-    push(ConfigValidationCode::kBeamAzWidthNotPositive, "hardware.beam_az_width_deg",
+    push("beam_az_width_not_positive", "hardware.beam_az_width_deg",
          "Azimuth beamwidth must be positive.");
   }
   if (!oneq::common::validation::IsFinite(config.hardware.beam_el_width_deg) ||
       config.hardware.beam_el_width_deg <= 0.0f) {
-    push(ConfigValidationCode::kBeamElWidthNotPositive, "hardware.beam_el_width_deg",
+    push("beam_el_width_not_positive", "hardware.beam_el_width_deg",
          "Elevation beamwidth must be positive.");
   }
 
@@ -72,14 +76,14 @@ ValidationIssueList ValidateEsrSessionConfig(const config::EsrSessionConfig& con
           static_cast<int>(oneq::electromagnetics::RfScenePolarization::kHorizontal) ||
       static_cast<int>(hardware.polarization) >
           static_cast<int>(oneq::electromagnetics::RfScenePolarization::kUnpolarized)) {
-    push(ConfigValidationCode::kReceiverRfHardwareInvalid, "hardware RF receiver fields",
+    push("receiver_rf_hardware_invalid", "hardware RF receiver fields",
          "Receiver RF hardware parameters must be finite and physically valid.");
   }
   for (const config::EsrCoSiteIsolationPath& path : hardware.co_site_paths) {
     if (path.transmitter_equipment_id == 0U ||
         path.transmitter_equipment_id == hardware.receiver_equipment_id ||
         !oneq::common::validation::IsFinite(path.isolation_db) || path.isolation_db < 0.0) {
-      push(ConfigValidationCode::kReceiverRfHardwareInvalid, "hardware.co_site_paths",
+      push("receiver_rf_hardware_invalid", "hardware.co_site_paths",
            "Co-site paths require a distinct non-zero transmitter equipment ID and non-negative isolation.");
       break;
     }
@@ -93,7 +97,7 @@ ValidationIssueList ValidateEsrSessionConfig(const config::EsrSessionConfig& con
         window.center_frequency_hz <= 0.0 || window.bandwidth_hz <= 0.0 ||
         window.dwell_cycles == 0U || lower_hz < hardware.receiver_band_lower_hz ||
         upper_hz > hardware.receiver_band_upper_hz) {
-      push(ConfigValidationCode::kTuningPlanInvalid, "hardware.tuning_plan",
+      push("tuning_plan_invalid", "hardware.tuning_plan",
            "Tuning windows must be finite, non-empty, and inside the hardware band.");
       break;
     }
@@ -106,16 +110,16 @@ ValidationIssueList ValidateEsrSessionConfig(const config::EsrSessionConfig& con
         oneq::common::validation::IsFinite(config.mission.scan.scan_start_el_deg) &&
         oneq::common::validation::IsFinite(config.mission.scan.scan_end_el_deg);
     if (!bounds_finite) {
-      push(ConfigValidationCode::kExplicitScanBoundsNotFinite, "mission.scan explicit bounds",
+      push("explicit_scan_bounds_not_finite", "mission.scan explicit bounds",
            "Explicit scan bounds must all be finite.");
     } else if (config.mission.scan.scan_start_az_deg >= config.mission.scan.scan_end_az_deg) {
-      push(ConfigValidationCode::kExplicitScanBoundsAzSwapped,
+      push("explicit_scan_bounds_az_swapped",
            "mission.scan.scan_start_az_deg / scan_end_az_deg",
            "Scan start azimuth must be less than end azimuth.");
     }
     if (bounds_finite &&
         config.mission.scan.scan_start_el_deg >= config.mission.scan.scan_end_el_deg) {
-      push(ConfigValidationCode::kExplicitScanBoundsElSwapped,
+      push("explicit_scan_bounds_el_swapped",
            "mission.scan.scan_start_el_deg / scan_end_el_deg",
            "Scan start elevation must be less than end elevation.");
     }
@@ -123,20 +127,20 @@ ValidationIssueList ValidateEsrSessionConfig(const config::EsrSessionConfig& con
                  config.mission.scan.scan_center_az_deg) ||
              !oneq::common::validation::IsFinite(
                  config.mission.scan.scan_center_el_deg)) {
-    push(ConfigValidationCode::kScanCenterNotFinite,
+    push("scan_center_not_finite",
          "mission.scan center fields",
          "Center-driven scan angles must be finite.");
   }
 
   if (!session::config_validation::IsValidDetectionPolicy(
           config.policy.detection)) {
-    push(ConfigValidationCode::kDetectionPolicyInvalid, "policy.detection",
+    push("detection_policy_invalid", "policy.detection",
          "Detection policy requires finite SNR, Pfa in (0,1), positive pulse count, and positive threshold scale.");
   }
 
   if (!session::config_validation::IsValidEnvironment(
           config.environment.scenario_config)) {
-    push(ConfigValidationCode::kEnvironmentInvalid, "environment.scenario_config",
+    push("environment_invalid", "environment.scenario_config",
          "Environment preset and enabled atmospheric physics values must be valid.");
   }
 

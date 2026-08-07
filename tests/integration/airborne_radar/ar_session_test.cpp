@@ -658,7 +658,7 @@ TEST(RadarJointIntegrationTest, DuplicateExternalTargetIdsAreRejectedAndPrevious
   const session::TrackOutputFrame previous_frame =
       RunScenarioCycle(&controller, &radar_context, valid_targets);
   ASSERT_EQ(previous_frame.tracks.size(), valid_targets.size());
-  ASSERT_FALSE(controller.HasValidationError());
+  ASSERT_TRUE(controller.ExecutedLatestCycle());
 
   session::ArSceneTargetList duplicate_targets{
       BuildAirTarget(9001u, 42.0f, 0.4f, 0.0f, 0.9f, 120.0f, -6.0f, 12.0f),
@@ -668,11 +668,9 @@ TEST(RadarJointIntegrationTest, DuplicateExternalTargetIdsAreRejectedAndPrevious
   radar_context.SetSceneTargets(duplicate_targets);
   controller.RunOnce(signal::pipeline::SignalCycleInput{duplicate_targets});
 
-  EXPECT_TRUE(controller.HasValidationError());
-  const session::ValidationIssueList& issues = controller.GetLastValidationIssues();
-  EXPECT_TRUE(std::find_if(issues.begin(), issues.end(), [](const session::ValidationIssue& issue) {
-                return issue.code == session::ValidationCode::kDuplicateExternalTargetId;
-              }) != issues.end());
+  EXPECT_FALSE(controller.ExecutedLatestCycle());
+  EXPECT_EQ(controller.GetLastSignalCycleAbortReason(),
+            session::SignalCycleAbortReason::kValidationRejected);
   ASSERT_TRUE(controller.HasLatestTrackOutputFrame());
   const session::TrackOutputFrame& retained_frame = controller.GetLatestTrackOutputFrame();
   EXPECT_EQ(retained_frame.cycle_index, previous_frame.cycle_index);
@@ -1636,11 +1634,9 @@ TEST(RadarJointIntegrationTest,
 
   controller.RunOnce(signal::pipeline::SignalCycleInput{targets});
 
-  EXPECT_TRUE(controller.HasValidationError());
-  const session::ValidationIssueList& issues = controller.GetLastValidationIssues();
-  EXPECT_TRUE(std::find_if(issues.begin(), issues.end(), [](const session::ValidationIssue& issue) {
-                return issue.code == session::ValidationCode::kMissingRangeAndCartesianPosition;
-              }) != issues.end());
+  EXPECT_FALSE(controller.ExecutedLatestCycle());
+  EXPECT_EQ(controller.GetLastSignalCycleAbortReason(),
+            session::SignalCycleAbortReason::kValidationRejected);
   EXPECT_FALSE(controller.HasLatestTrackOutputFrame());
   EXPECT_TRUE(radar_context.SubmittedCommands().empty());
 }

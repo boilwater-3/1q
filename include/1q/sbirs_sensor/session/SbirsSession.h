@@ -82,7 +82,7 @@ class ONEQ_API SbirsSession {
    * @note `ValidateSbirsSessionConfig` 由此路径被实调用，构成真实契约。
    */
   static SbirsSession CreateWithDiagnostics(const config::SbirsSessionConfig& config,
-                                            config::ValidationIssueList* issues);
+                                            SbirsIssueList* issues);
 
  private:
   struct Impl;

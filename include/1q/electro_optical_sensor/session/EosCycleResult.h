@@ -32,9 +32,7 @@ struct ONEQ_API EosCycleResult {
   EosOutputFrame output_frame{};       /**< 当前周期原始系统输出帧 */
   attribution::EosDetectionAttributionRecordList
       detection_attributions{};            /**< 探测记录到仿真目标的归属映射，非真实传感器输出 */
-  ValidationIssueList validation_issues{}; /**< 当前周期输入校验结果 */
-  EosDiagnosticIssueList diagnostics{};    /**< 细粒度诊断（三写：结构化信号 + 诊断 + 日志） */
-  bool has_validation_error{false};        /**< 是否存在 error 级输入问题 */
+  EosIssueList issues{};                   /**< 统一问题列表（规则 14：校验问题 phase=kInputValidation + 执行诊断） */
   session::EosCycleStatus status{
       session::EosCycleStatus::kRejectedInvalidInput}; /**< 当前周期高层执行状态 */
   bool executed_this_cycle{false};                     /**< status == kCompleted 的便捷访问器 */

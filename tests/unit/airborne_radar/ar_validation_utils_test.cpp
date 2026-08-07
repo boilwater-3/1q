@@ -19,6 +19,8 @@ namespace {
 
 enum class TestSeverity { kInfo = 0, kWarning, kError };
 
+enum class TestPhase { kInputValidation = 0, kExecution };
+
 enum class TestCode { kNone = 0, kA, kB };
 
 enum class TestLocationKind { kScene = 0, kTarget };
@@ -30,6 +32,7 @@ struct TestLocation {
 
 struct TestIssue {
   TestSeverity severity{TestSeverity::kInfo};
+  TestPhase phase{TestPhase::kExecution};
   TestCode code{TestCode::kNone};
   TestLocation location{};
   std::string field{};
@@ -123,6 +126,42 @@ TEST(ValidationUtilsTest, HasSeverityReturnsTrueWhenExpectedSeverityExists) {
   const bool has_error = HasSeverity<std::vector<TestIssue>, TestSeverity, &TestIssue::severity>(
       issues, TestSeverity::kError);
   EXPECT_TRUE(has_error);
+}
+
+// HasValidationPhaseError（规则 14 统一判定：phase==kInputValidation && severity==kError）
+TEST(ValidationUtilsTest, HasValidationPhaseErrorReturnsFalseForEmptyList) {
+  const std::vector<TestIssue> issues;
+  EXPECT_FALSE(HasValidationPhaseError(issues, &TestIssue::phase, &TestIssue::severity));
+}
+
+TEST(ValidationUtilsTest, HasValidationPhaseErrorRequiresBothPhaseAndSeverity) {
+  std::vector<TestIssue> issues;
+  TestIssue wrong_phase;
+  wrong_phase.severity = TestSeverity::kError;  // 执行期 error 不属输入校验错误
+  wrong_phase.phase = TestPhase::kExecution;
+  issues.push_back(wrong_phase);
+
+  TestIssue wrong_severity;
+  wrong_severity.severity = TestSeverity::kWarning;  // 校验 warning 不阻断
+  wrong_severity.phase = TestPhase::kInputValidation;
+  issues.push_back(wrong_severity);
+
+  EXPECT_FALSE(HasValidationPhaseError(issues, &TestIssue::phase, &TestIssue::severity));
+}
+
+TEST(ValidationUtilsTest, HasValidationPhaseErrorReturnsTrueForInputValidationError) {
+  std::vector<TestIssue> issues;
+  TestIssue info;
+  info.severity = TestSeverity::kInfo;
+  info.phase = TestPhase::kExecution;
+  issues.push_back(info);
+
+  TestIssue validation_error;
+  validation_error.severity = TestSeverity::kError;
+  validation_error.phase = TestPhase::kInputValidation;
+  issues.push_back(validation_error);
+
+  EXPECT_TRUE(HasValidationPhaseError(issues, &TestIssue::phase, &TestIssue::severity));
 }
 
 }  // namespace

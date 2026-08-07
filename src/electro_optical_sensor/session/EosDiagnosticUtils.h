@@ -19,10 +19,12 @@ namespace session {
 const char* AbortReasonToDiagnosticCode(EosPipelineAbortReason reason);
 
 /**
- * @brief 将本周期标记为中止（三写：abort_reason + diagnostics + 日志）。
+ * @brief 将本周期标记为中止（三写：abort_reason + issues + 日志）。
+ * @param[in] reason 粗粒度中止原因；phase 由原因推导（kValidationRejected → kInputValidation，
+ *            kOutputContractViolation → kOutputContract，其余 → kExecution）。
  */
 void RecordAbort(EosCycleResult* result, EosPipelineAbortReason reason,
-                 const char* detail_code, const std::string& message, bool is_validation);
+                 const char* detail_code, const std::string& message);
 
 }  // namespace session
 }  // namespace electro_optical_sensor

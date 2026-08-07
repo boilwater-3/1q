@@ -66,8 +66,8 @@ EosSession EosSession::Create(const config::EosSessionConfig& config) {
 }
 
 EosSession EosSession::CreateWithDiagnostics(const config::EosSessionConfig& config,
-                                             config::ValidationIssueList* issues) {
-  const config::ValidationIssueList found = config::ValidateEosSessionConfig(config);
+                                             EosIssueList* issues) {
+  const EosIssueList found = config::ValidateEosSessionConfig(config);
   if (issues != nullptr) {
     *issues = found;
   }
@@ -81,7 +81,7 @@ session::EosOutputFrame EosSession::Step(const EosCycleInput& input) {
 ::electro_optical_sensor::session::EosCycleResult EosSession::StepWithResult(
     const EosCycleInput& input) {
   impl_->controller.RunOnce(input);
-  EosCycleResult result = impl_->controller.BuildCycleResult(input);
+  EosCycleResult result = impl_->controller.BuildCycleResult();
   if (impl_->lifecycle_recorder != nullptr) {
     impl_->lifecycle_recorder->Update(input, result);
   }

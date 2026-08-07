@@ -13,65 +13,25 @@
 
 #include "1q/api.hpp"
 #include "1q/electronic_surveillance_radar/session/EsrCycleInput.h"
-#include "1q/foundation/validation_types.h"
+#include "1q/electronic_surveillance_radar/session/EsrOutputTypes.h"
 
 namespace electronic_surveillance_radar {
 namespace session {
 
-using oneq::foundation::ValidationLocation;
-using oneq::foundation::ValidationLocationKind;
-using oneq::foundation::ValidationSeverity;
-
-/**
- * @brief ValidationCode 表示结构化校验编码。
- */
-enum class ONEQ_API ValidationCode {
-  kNone = 0,                      /**< 无问题占位值 */
-  kInvalidCycleDeltaTime,         /**< 周期步长非法（<= 0） */
-  kNonFiniteCycleDeltaTime,       /**< 周期步长非有限值 */
-  kInvalidCycleStartTime,         /**< 周期绝对起点非法 */
-  kNonFinitePlatformNumericField, /**< 平台存在非有限数值字段 */
-  kInvalidEmitterFrequency,       /**< 辐射源频率非法（<= 0） */
-  kInvalidEmitterBandwidth,       /**< 辐射源带宽非法（<= 0） */
-  kInvalidEmitterPower,           /**< 辐射源功率非法（<= 0） */
-  kInvalidEmitterPulseWidth,      /**< 辐射源脉宽非法（<= 0） */
-  kInvalidEmitterPri,             /**< 辐射源 PRI 非法（<= 0） */
-  kEmitterPriLessThanPulseWidth,  /**< 辐射源 PRI 小于脉宽 */
-  kInvalidEmitterBeamwidth,       /**< 辐射源波束宽度非法（<= 0） */
-  kNonFiniteEmitterNumericField,  /**< 辐射源存在非有限数值字段 */
-  kInvalidEnvironmentObservation, /**< 环境观测字段非法 */
-  kInvalidInterferenceInput,      /**< 干扰模式与载荷不一致或工程发射事实非法 */
-  kInvalidRfEmissionFrame,        /**< RF v2 发射帧非法或与周期窗口不匹配 */
-  kUnlocatablePlatformEcef        /**< 接收平台 ECEF 不可转换为合法 WGS84 LLA */
-};
-
-/**
- * @brief ValidationIssue 描述单条输入校验结果。
- */
-struct ONEQ_API ValidationIssue {
-  ValidationSeverity severity{ValidationSeverity::kInfo}; /**< 问题严重级别 */
-  ValidationCode code{ValidationCode::kNone};             /**< 结构化编码 */
-  ValidationLocation location{};                          /**< 结构化定位信息 */
-  std::string field{};   /**< 触发问题的字段名；为空表示跨字段或域级问题 */
-  std::string message{}; /**< 面向调用方的简短说明 */
-};
-
-/** @brief ValidationIssueList 表示输入校验问题列表。 */
-using ValidationIssueList = std::vector<ValidationIssue>;
-
 /**
  * @brief 校验单周期电子侦察输入。
  * @param[in] input 单周期输入。
- * @return 校验问题列表。
+ * @return 问题条目列表（统一问题列表模型，规则 14；所有条目 phase=kInputValidation，
+ *         code 形如 "esr.validation.<snake_case>"）。
  */
-ONEQ_API ValidationIssueList ValidateEsrCycleInput(const EsrCycleInput& input);
+ONEQ_API EsrIssueList ValidateEsrCycleInput(const EsrCycleInput& input);
 
 /**
- * @brief 判断校验列表中是否存在 error 级问题。
- * @param[in] issues 校验问题列表。
- * @return 若存在 error 级问题则返回 `true`。
+ * @brief 判断问题列表中是否存在输入校验 error 级问题。
+ * @param[in] issues 问题条目列表。
+ * @return 存在 phase==kInputValidation 且 severity==kError 的条目时返回 `true`。
  */
-ONEQ_API bool HasValidationError(const ValidationIssueList& issues);
+ONEQ_API bool HasValidationError(const EsrIssueList& issues);
 
 }  // namespace session
 

@@ -183,9 +183,25 @@ TEST(EosReplayCodecRoundtripTest, CycleResultPreservesAllFields) {
   attribution.target_name = "eos-result-target";
   result.detection_attributions.push_back(attribution);
 
-  result.has_validation_error = true;
+  // 统一问题列表（规则 14）：构造校验问题 + 执行诊断条目验证往返保真。
+  session::EosIssue validation_issue;
+  validation_issue.severity = session::EosIssueSeverity::kError;
+  validation_issue.phase = session::EosIssuePhase::kInputValidation;
+  validation_issue.code = "eos.validation.invalid_cycle_delta_time";
+  validation_issue.message = "cycle delta time must be positive";
+  // kPlatform 定位（校验实际使用形态）：验证非 kGlobal kind 经 codec 不丢失。
+  validation_issue.location.kind = oneq::foundation::ValidationLocationKind::kPlatform;
+  validation_issue.location.entity_index = static_cast<std::size_t>(-1);
+  validation_issue.field = "dt_sec";
+  result.issues.push_back(validation_issue);
+
+  session::EosIssue execution_issue;
+  execution_issue.severity = session::EosIssueSeverity::kInfo;
+  execution_issue.phase = session::EosIssuePhase::kExecution;
+  execution_issue.code = "eos.target_out_of_fov";
+  execution_issue.message = "target 201 out of fov";
+  result.issues.push_back(execution_issue);
   result.executed_this_cycle = true;
-  result.abort_reason = session::EosPipelineAbortReason::kValidationRejected;
 
   const std::string bytes = EncodeEosCycleResult(result);
   ASSERT_FALSE(bytes.empty());
@@ -206,9 +222,18 @@ TEST(EosReplayCodecRoundtripTest, CycleResultPreservesAllFields) {
   EXPECT_EQ(decoded.detection_attributions[0].detection_id, 10U);
   EXPECT_EQ(decoded.detection_attributions[0].target_id, 1001U);
   EXPECT_EQ(decoded.detection_attributions[0].target_name, "eos-result-target");
-  EXPECT_TRUE(decoded.has_validation_error);
+  ASSERT_EQ(decoded.issues.size(), 2U);
+  EXPECT_EQ(decoded.issues[0].severity, session::EosIssueSeverity::kError);
+  EXPECT_EQ(decoded.issues[0].phase, session::EosIssuePhase::kInputValidation);
+  EXPECT_EQ(decoded.issues[0].code, "eos.validation.invalid_cycle_delta_time");
+  EXPECT_EQ(decoded.issues[0].message, "cycle delta time must be positive");
+  EXPECT_EQ(decoded.issues[0].location.kind,
+            oneq::foundation::ValidationLocationKind::kPlatform);
+  EXPECT_EQ(decoded.issues[0].location.entity_index, static_cast<std::size_t>(-1));
+  EXPECT_EQ(decoded.issues[0].field, "dt_sec");
+  EXPECT_EQ(decoded.issues[1].phase, session::EosIssuePhase::kExecution);
+  EXPECT_EQ(decoded.issues[1].code, "eos.target_out_of_fov");
   EXPECT_TRUE(decoded.executed_this_cycle);
-  EXPECT_EQ(decoded.abort_reason, session::EosPipelineAbortReason::kValidationRejected);
 }
 
 // ---------------------------------------------------------------------------

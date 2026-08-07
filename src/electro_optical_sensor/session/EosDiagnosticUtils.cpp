@@ -24,20 +24,23 @@ const char* AbortReasonToDiagnosticCode(EosPipelineAbortReason reason) {
 }
 
 void RecordAbort(EosCycleResult* result, EosPipelineAbortReason reason,
-                 const char* detail_code, const std::string& message, bool is_validation) {
-  if (is_validation) {
-    result->has_validation_error = true;
-  }
+                 const char* detail_code, const std::string& message) {
   result->abort_reason = reason;
-  result->status = is_validation ? EosCycleStatus::kRejectedInvalidInput
-                                 : EosCycleStatus::kRejectedExecution;
+  result->status = reason == EosPipelineAbortReason::kValidationRejected
+                       ? EosCycleStatus::kRejectedInvalidInput
+                       : EosCycleStatus::kRejectedExecution;
 
-  // 结构化诊断（细粒度）
-  EosDiagnosticIssue issue;
-  issue.severity = EosDiagnosticSeverity::kError;
+  // 结构化诊断（细粒度；统一问题列表模型，规则 14：phase 由中止原因推导）
+  EosIssue issue;
+  issue.severity = EosIssueSeverity::kError;
+  issue.phase = (reason == EosPipelineAbortReason::kValidationRejected)
+                    ? EosIssuePhase::kInputValidation
+                    : (reason == EosPipelineAbortReason::kOutputContractViolation)
+                          ? EosIssuePhase::kOutputContract
+                          : EosIssuePhase::kExecution;
   issue.code = std::string("eos.") + detail_code;
   issue.message = message;
-  result->diagnostics.push_back(std::move(issue));
+  result->issues.push_back(std::move(issue));
 
   // 中译：EOS 中止记录（原因码 — 细粒度码 — 消息）。
   // 标识：三写之三（人读日志）——标识本周期中止的粗粒度原因与细粒度码，

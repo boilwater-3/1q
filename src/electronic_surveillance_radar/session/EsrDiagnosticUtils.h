@@ -19,10 +19,12 @@ namespace session {
 const char* AbortReasonToDiagnosticCode(EsrPipelineAbortReason reason);
 
 /**
- * @brief 将本周期标记为中止（三写：abort_reason + diagnostics + 日志）。
+ * @brief 将本周期标记为中止（三写：abort_reason + issues + 日志）。
+ * @param[in] reason 粗粒度中止原因；phase 由原因推导（kValidationRejected → kInputValidation，
+ *            其余 → kExecution）。
  */
 void RecordAbort(EsrCycleResult* result, EsrPipelineAbortReason reason,
-                 const char* detail_code, const std::string& message, bool is_validation);
+                 const char* detail_code, const std::string& message);
 
 }  // namespace session
 }  // namespace electronic_surveillance_radar

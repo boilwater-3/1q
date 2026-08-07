@@ -25,17 +25,19 @@ const char* AbortReasonToDiagnosticCode(SarPipelineAbortReason reason) {
   return "unknown";
 }
 
-SarDiagnosticIssue MakeInfoDiagnostic(const char* code, const std::string& message) {
-  SarDiagnosticIssue issue;
-  issue.severity = SarDiagnosticSeverity::kInfo;
+SarIssue MakeInfoDiagnostic(const char* code, const std::string& message) {
+  SarIssue issue;
+  issue.severity = SarIssueSeverity::kInfo;
+  issue.phase = SarIssuePhase::kExecution;
   issue.code = code;
   issue.message = message;
   return issue;
 }
 
-SarDiagnosticIssue MakeWarningDiagnostic(const char* code, const std::string& message) {
-  SarDiagnosticIssue issue;
-  issue.severity = SarDiagnosticSeverity::kWarning;
+SarIssue MakeWarningDiagnostic(const char* code, const std::string& message) {
+  SarIssue issue;
+  issue.severity = SarIssueSeverity::kWarning;
+  issue.phase = SarIssuePhase::kExecution;
   issue.code = code;
   issue.message = message;
   return issue;
@@ -43,19 +45,33 @@ SarDiagnosticIssue MakeWarningDiagnostic(const char* code, const std::string& me
 
 namespace {
 
-void WriteAbort(SarCycleResult* result, SarPipelineAbortReason reason,
-                const char* detail_code, const std::string& message, bool is_validation) {
-  result->has_error = true;
-  result->abort_reason = reason;
-  result->status = is_validation ? SarCycleStatus::kRejectedInvalidInput
-                                 : SarCycleStatus::kRejectedExecution;
+// 规则 14b：issue 的 phase 由中止原因推导（kValidationRejected /
+// kExternalInputRejected 属输入校验阶段，其余为执行阶段）。
+SarIssuePhase PhaseForAbortReason(SarPipelineAbortReason reason) {
+  switch (reason) {
+    case SarPipelineAbortReason::kValidationRejected:
+    case SarPipelineAbortReason::kExternalInputRejected:
+      return SarIssuePhase::kInputValidation;
+    default:
+      return SarIssuePhase::kExecution;
+  }
+}
 
-  // 结构化诊断（细粒度，供 DebugView 消费）
-  SarDiagnosticIssue issue;
-  issue.severity = SarDiagnosticSeverity::kError;
+void WriteAbort(SarCycleResult* result, SarPipelineAbortReason reason,
+                const char* detail_code, const std::string& message) {
+  result->abort_reason = reason;
+  result->status = (reason == SarPipelineAbortReason::kValidationRejected ||
+                    reason == SarPipelineAbortReason::kExternalInputRejected)
+                       ? SarCycleStatus::kRejectedInvalidInput
+                       : SarCycleStatus::kRejectedExecution;
+
+  // 结构化诊断（细粒度；统一问题列表模型，规则 14）
+  SarIssue issue;
+  issue.severity = SarIssueSeverity::kError;
+  issue.phase = PhaseForAbortReason(reason);
   issue.code = std::string("sar.") + detail_code;
   issue.message = message;
-  result->diagnostics.push_back(std::move(issue));
+  result->issues.push_back(std::move(issue));
 
   // 中译：SAR 中止记录（原因码 — 细粒度码 — 消息）。
   // 标识：三写之三（人读日志）——标识本周期中止的粗粒度原因与细粒度码，
@@ -67,12 +83,7 @@ void WriteAbort(SarCycleResult* result, SarPipelineAbortReason reason,
 
 void RecordAbort(SarCycleResult* result, SarPipelineAbortReason reason,
                  const char* detail_code, const std::string& message) {
-  WriteAbort(result, reason, detail_code, message, /*is_validation=*/false);
-}
-
-void RecordValidationAbort(SarCycleResult* result, SarPipelineAbortReason reason,
-                           const char* detail_code, const std::string& message) {
-  WriteAbort(result, reason, detail_code, message, /*is_validation=*/true);
+  WriteAbort(result, reason, detail_code, message);
 }
 
 }  // namespace session

@@ -169,7 +169,7 @@ TEST(PublicHeadersSmokeTest, StablePublicSurfaceSupportsMinimalUsage) {
   input.dt_sec = 1.0;
   input.platform.platform_entity_id = 1U;
   input.platform.platform_position_ecef_m = origin_ecef;
-  const std::vector<session::ValidationIssue> issues = session::ValidateArCycleInput(input);
+  const std::vector<session::ArIssue> issues = session::ValidateArCycleInput(input);
 
   EXPECT_FALSE(session::HasValidationError(issues));
 
@@ -218,7 +218,7 @@ TEST(PublicHeadersSmokeTest, SbirsPublicSurfaceSupportsMinimalUsage) {
                                                      .WithSatellitePosition(satellite)
                                                      .AddTarget(target)
                                                      .Build();
-  const sbirs_sensor::session::ValidationIssueList issues =
+  const sbirs_sensor::session::SbirsIssueList issues =
       sbirs_sensor::session::ValidateSbirsCycleInput(input, 10.0f);
   EXPECT_FALSE(sbirs_sensor::session::HasValidationError(issues));
 
@@ -321,7 +321,7 @@ TEST(PublicHeadersSmokeTest, EsrPublicSurfaceSupportsMinimalUsage) {
   input.rf_emissions.window_start_time_s = input.cycle_start_time_s;
   input.rf_emissions.window_duration_s = input.dt_sec;
 
-  const session::ValidationIssueList issues = session::ValidateEsrCycleInput(input);
+  const session::EsrIssueList issues = session::ValidateEsrCycleInput(input);
   EXPECT_FALSE(session::HasValidationError(issues));
 
   auto session = session::EsrSession::Create(session_config);
@@ -378,7 +378,7 @@ TEST(PublicHeadersSmokeTest, EosPublicSurfaceSupportsMinimalUsage) {
   ASSERT_TRUE(
       session::TryMakeEosPoseFromExternalKinematics(eos_pose_input, eos_reference, &eos_pose));
 
-  const session::ValidationIssueList issues = session::ValidateEosCycleInput(input, 30.0f);
+  const session::EosIssueList issues = session::ValidateEosCycleInput(input, 30.0f);
   EXPECT_FALSE(session::HasValidationError(issues));
 
   // 环境 preset 作为唯一公开模型选择入口。

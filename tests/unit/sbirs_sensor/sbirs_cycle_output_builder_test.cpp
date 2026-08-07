@@ -63,7 +63,7 @@ sbirs_sensor::session::SbirsCycleResult ResultForTarget(std::uint32_t cycle_inde
 sbirs_sensor::session::SbirsCycleResult RejectedResult(std::uint32_t cycle_index) {
   sbirs_sensor::session::SbirsCycleResult result;
   result.input_cycle_index = cycle_index;
-  result.has_validation_error = true;
+  result.status = sbirs_sensor::session::SbirsCycleStatus::kRejectedInvalidInput;
   result.abort_reason = sbirs_sensor::session::SbirsPipelineAbortReason::kValidationRejected;
   return result;
 }

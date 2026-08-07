@@ -29,11 +29,11 @@ TEST(ArPrimaryNamingContractTest, PreferredArNamesConstructAndStepSession) {
   session::ArSession session = session::ArSession::Create(config);
 
   const session::ArCycleInput input = MakeMinimalArInput();
-  const session::ValidationIssueList issues = session::ValidateArCycleInput(input);
+  const session::ArIssueList issues = session::ValidateArCycleInput(input);
   EXPECT_FALSE(session::HasValidationError(issues));
 
   const session::ArCycleResult result = session.StepWithResult(input);
-  EXPECT_FALSE(result.has_validation_error);
+  EXPECT_FALSE(session::HasValidationError(result.issues));
 }
 
 TEST(ArPrimaryNamingContractTest, PreferredArRuntimePatchAppliesThroughSession) {
@@ -44,7 +44,7 @@ TEST(ArPrimaryNamingContractTest, PreferredArRuntimePatchAppliesThroughSession) 
   EXPECT_TRUE(session.TryApplyRuntimeConfig(patch));
 
   const session::ArCycleResult result = session.StepWithResult(MakeMinimalArInput());
-  EXPECT_FALSE(result.has_validation_error);
+  EXPECT_FALSE(session::HasValidationError(result.issues));
 }
 
 }  // namespace

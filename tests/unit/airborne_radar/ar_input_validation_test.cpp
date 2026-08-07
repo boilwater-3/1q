@@ -15,11 +15,12 @@
 namespace airborne_radar {
 namespace tests {
 
+using session::ArIssue;
+using session::ArIssueList;
+using session::ArIssueSeverity;
 using session::HasValidationError;
 using session::ValidateArCycleInput;
 using session::ValidateArSceneTargets;
-using session::ValidationCode;
-using session::ValidationSeverity;
 
 namespace {
 
@@ -55,10 +56,13 @@ session::ArCycleInput MakeValidCycleInput() {
   return input;
 }
 
-const session::ValidationIssue* FindIssue(
-    const std::vector<session::ValidationIssue>& issues, ValidationCode code) {
-  for (const session::ValidationIssue& issue : issues) {
-    if (issue.code == code) {
+// 统一问题列表（规则 14）：校验 code 形如 "ar.validation.<snake_case>"。
+// 这里按 snake 后缀匹配，避免在测试里重复完整前缀。
+const session::ArIssue* FindIssue(const session::ArIssueList& issues,
+                                  const std::string& snake_code) {
+  const std::string expected = std::string("ar.validation.") + snake_code;
+  for (const session::ArIssue& issue : issues) {
+    if (issue.code == expected) {
       return &issue;
     }
   }
@@ -89,9 +93,12 @@ TEST(ArSceneTargetValidationTest, OriginRequiresPositiveRange) {
   target.external_target_id = 1U;
   target.rcs = 1.0f;
 
-  const session::ValidationIssueList issues = ValidateArSceneTargets({target});
+  const ArIssueList issues = ValidateArSceneTargets({target});
   EXPECT_TRUE(HasValidationError(issues));
-  EXPECT_NE(FindIssue(issues, ValidationCode::kMissingRangeAndCartesianPosition), nullptr);
+  const ArIssue* issue = FindIssue(issues, "missing_range_and_cartesian_position");
+  ASSERT_NE(issue, nullptr);
+  // 输入校验问题统一 phase=kInputValidation（规则 14b；HasValidationError 依赖该判定）。
+  EXPECT_EQ(issue->phase, session::ArIssuePhase::kInputValidation);
 }
 
 TEST(ArSceneTargetValidationTest, PositiveRangeAllowsOrigin) {
@@ -100,7 +107,7 @@ TEST(ArSceneTargetValidationTest, PositiveRangeAllowsOrigin) {
   target.range_m = 5000.0f;
   target.rcs = 1.0f;
 
-  const session::ValidationIssueList issues = ValidateArSceneTargets({target});
+  const ArIssueList issues = ValidateArSceneTargets({target});
   EXPECT_FALSE(HasValidationError(issues));
 }
 
@@ -110,7 +117,7 @@ TEST(ArSceneTargetValidationTest, CartesianPositionAllowsMissingRange) {
   target.position_x = 3000.0f;
   target.rcs = 1.0f;
 
-  const session::ValidationIssueList issues = ValidateArSceneTargets({target});
+  const ArIssueList issues = ValidateArSceneTargets({target});
   EXPECT_FALSE(HasValidationError(issues));
 }
 
@@ -118,9 +125,9 @@ TEST(ArSceneTargetValidationTest, NonFiniteFieldsReject) {
   session::ArSceneTarget target = MakeValidLocalTarget();
   target.velocity_y = std::numeric_limits<float>::infinity();
 
-  const session::ValidationIssueList issues = ValidateArSceneTargets({target});
+  const ArIssueList issues = ValidateArSceneTargets({target});
   EXPECT_TRUE(HasValidationError(issues));
-  EXPECT_NE(FindIssue(issues, ValidationCode::kNonFiniteTargetField), nullptr);
+  EXPECT_NE(FindIssue(issues, "non_finite_target_field"), nullptr);
 }
 
 TEST(ArSceneTargetValidationTest, DuplicateIdentityRejects) {
@@ -129,18 +136,17 @@ TEST(ArSceneTargetValidationTest, DuplicateIdentityRejects) {
   second.position_x = 2000.0f;
   second.range_m = 2000.0f;
 
-  const session::ValidationIssueList issues = ValidateArSceneTargets({first, second});
+  const ArIssueList issues = ValidateArSceneTargets({first, second});
   EXPECT_TRUE(HasValidationError(issues));
-  EXPECT_NE(FindIssue(issues, ValidationCode::kDuplicateExternalTargetId), nullptr);
+  EXPECT_NE(FindIssue(issues, "duplicate_external_target_id"), nullptr);
 }
 
 TEST(ArSceneTargetValidationTest, UnknownIdentityIsInformational) {
-  const session::ValidationIssueList issues =
-      ValidateArSceneTargets({MakeValidLocalTarget(0U)});
-  const session::ValidationIssue* issue =
-      FindIssue(issues, ValidationCode::kUnknownExternalTargetId);
+  const ArIssueList issues = ValidateArSceneTargets({MakeValidLocalTarget(0U)});
+  const ArIssue* issue = FindIssue(issues, "unknown_external_target_id");
   ASSERT_NE(issue, nullptr);
-  EXPECT_EQ(issue->severity, ValidationSeverity::kInfo);
+  EXPECT_EQ(issue->severity, ArIssueSeverity::kInfo);
+  EXPECT_EQ(issue->phase, session::ArIssuePhase::kInputValidation);
   EXPECT_FALSE(HasValidationError(issues));
 }
 
@@ -148,10 +154,11 @@ TEST(ArSceneTargetValidationTest, NegativeRcsIsWarning) {
   session::ArSceneTarget target = MakeValidLocalTarget();
   target.rcs = -0.5f;
 
-  const session::ValidationIssueList issues = ValidateArSceneTargets({target});
-  const session::ValidationIssue* issue = FindIssue(issues, ValidationCode::kNegativeRcs);
+  const ArIssueList issues = ValidateArSceneTargets({target});
+  const ArIssue* issue = FindIssue(issues, "negative_rcs");
   ASSERT_NE(issue, nullptr);
-  EXPECT_EQ(issue->severity, ValidationSeverity::kWarning);
+  EXPECT_EQ(issue->severity, ArIssueSeverity::kWarning);
+  EXPECT_EQ(issue->phase, session::ArIssuePhase::kInputValidation);
   EXPECT_FALSE(HasValidationError(issues));
 }
 
@@ -163,63 +170,52 @@ TEST(ArCycleInputValidationTest, CycleIndexMustBeNonZero) {
   session::ArCycleInput input = MakeValidCycleInput();
   input.cycle_index = 0U;
 
-  const session::ValidationIssueList issues = ValidateArCycleInput(input);
-  EXPECT_NE(FindIssue(issues, ValidationCode::kInvalidCycleIndex), nullptr);
+  const ArIssueList issues = ValidateArCycleInput(input);
+  EXPECT_NE(FindIssue(issues, "invalid_cycle_index"), nullptr);
   EXPECT_TRUE(HasValidationError(issues));
 }
 
 TEST(ArCycleInputValidationTest, CycleStartMustBeFiniteAndNonNegative) {
   session::ArCycleInput input = MakeValidCycleInput();
   input.cycle_start_time_s = std::numeric_limits<double>::quiet_NaN();
-  EXPECT_NE(FindIssue(ValidateArCycleInput(input), ValidationCode::kInvalidCycleStartTime),
-            nullptr);
+  EXPECT_NE(FindIssue(ValidateArCycleInput(input), "invalid_cycle_start_time"), nullptr);
 
   input.cycle_start_time_s = -1.0;
-  EXPECT_NE(FindIssue(ValidateArCycleInput(input), ValidationCode::kInvalidCycleStartTime),
-            nullptr);
+  EXPECT_NE(FindIssue(ValidateArCycleInput(input), "invalid_cycle_start_time"), nullptr);
 }
 
 TEST(ArCycleInputValidationTest, CycleDurationMustBeFiniteAndPositive) {
   session::ArCycleInput input = MakeValidCycleInput();
   input.dt_sec = 0.0;
-  EXPECT_NE(FindIssue(ValidateArCycleInput(input), ValidationCode::kInvalidCycleDeltaTime),
-            nullptr);
+  EXPECT_NE(FindIssue(ValidateArCycleInput(input), "invalid_cycle_delta_time"), nullptr);
 
   input.dt_sec = -1.0;
-  EXPECT_NE(FindIssue(ValidateArCycleInput(input), ValidationCode::kInvalidCycleDeltaTime),
-            nullptr);
+  EXPECT_NE(FindIssue(ValidateArCycleInput(input), "invalid_cycle_delta_time"), nullptr);
 
   input.dt_sec = std::numeric_limits<double>::infinity();
-  EXPECT_NE(FindIssue(ValidateArCycleInput(input),
-                      ValidationCode::kNonFiniteCycleDeltaTime),
-            nullptr);
+  EXPECT_NE(FindIssue(ValidateArCycleInput(input), "non_finite_cycle_delta_time"), nullptr);
 }
 
 TEST(ArCycleInputValidationTest, PlatformIdentityAndWorldKinematicsAreRequired) {
   session::ArCycleInput input = MakeValidCycleInput();
   input.platform.platform_entity_id = 0U;
-  EXPECT_NE(FindIssue(ValidateArCycleInput(input), ValidationCode::kInvalidPlatformInput),
-            nullptr);
+  EXPECT_NE(FindIssue(ValidateArCycleInput(input), "invalid_platform_input"), nullptr);
 
   input = MakeValidCycleInput();
   input.platform.platform_velocity_mps.z_mps =
       std::numeric_limits<double>::quiet_NaN();
-  EXPECT_NE(FindIssue(ValidateArCycleInput(input), ValidationCode::kInvalidPlatformInput),
-            nullptr);
+  EXPECT_NE(FindIssue(ValidateArCycleInput(input), "invalid_platform_input"), nullptr);
 }
 
 TEST(ArCycleInputValidationTest, InvalidOrDuplicateWorldTargetsReject) {
   session::ArCycleInput input = MakeValidCycleInput();
   input.targets.front().kinematics.position_ecef_m.x_m =
       std::numeric_limits<double>::quiet_NaN();
-  EXPECT_NE(FindIssue(ValidateArCycleInput(input), ValidationCode::kInvalidTargetInput),
-            nullptr);
+  EXPECT_NE(FindIssue(ValidateArCycleInput(input), "invalid_target_input"), nullptr);
 
   input = MakeValidCycleInput();
   input.targets.push_back(input.targets.front());
-  EXPECT_NE(FindIssue(ValidateArCycleInput(input),
-                      ValidationCode::kDuplicateExternalTargetId),
-            nullptr);
+  EXPECT_NE(FindIssue(ValidateArCycleInput(input), "duplicate_external_target_id"), nullptr);
 }
 
 TEST(ArCycleInputValidationTest, NonEmptyInterferenceMustMatchCycleWindow) {
@@ -227,8 +223,8 @@ TEST(ArCycleInputValidationTest, NonEmptyInterferenceMustMatchCycleWindow) {
   AddValidInterferenceEmission(&input);
   input.interference.world_cycle_index += 1U;
 
-  const session::ValidationIssueList issues = ValidateArCycleInput(input);
-  EXPECT_NE(FindIssue(issues, ValidationCode::kInterferenceFrameMismatch), nullptr);
+  const ArIssueList issues = ValidateArCycleInput(input);
+  EXPECT_NE(FindIssue(issues, "interference_frame_mismatch"), nullptr);
   EXPECT_TRUE(HasValidationError(issues));
 }
 
@@ -237,8 +233,8 @@ TEST(ArCycleInputValidationTest, InvalidRfFactsRejectAtomically) {
   AddValidInterferenceEmission(&input);
   input.interference.emissions.front().identity.emission_id = 0U;
 
-  const session::ValidationIssueList issues = ValidateArCycleInput(input);
-  EXPECT_NE(FindIssue(issues, ValidationCode::kInvalidInterferenceInput), nullptr);
+  const ArIssueList issues = ValidateArCycleInput(input);
+  EXPECT_NE(FindIssue(issues, "invalid_interference_input"), nullptr);
   EXPECT_TRUE(HasValidationError(issues));
 }
 

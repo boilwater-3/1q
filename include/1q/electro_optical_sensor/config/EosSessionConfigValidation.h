@@ -6,43 +6,20 @@
 #ifndef ONEQ_ELECTRO_OPTICAL_SENSOR_CONFIG_EOS_SESSION_CONFIG_VALIDATION_H_
 #define ONEQ_ELECTRO_OPTICAL_SENSOR_CONFIG_EOS_SESSION_CONFIG_VALIDATION_H_
 
-#include <string>
-#include <vector>
-
 #include "1q/api.hpp"
 #include "1q/electro_optical_sensor/config/EosSessionConfig.h"
+#include "1q/electro_optical_sensor/session/EosOutputTypes.h"
 
 namespace electro_optical_sensor {
 namespace config {
 
 /**
- * @brief ConfigValidationCode 表示 EOS 会话配置校验问题编码。
- */
-enum class ConfigValidationCode {
-  kNone = 0,
-  kHorizontalFovNotPositive, /**< 水平视场角 <= 0 */
-  kVerticalFovNotPositive,   /**< 垂直视场角 <= 0 */
-  kScanRateNotPositive,      /**< 扫描角速度 <= 0 */
-  kFrameRateNotPositive,     /**< 帧率 <= 0 */
-  kScanRangeAzSwapped,       /**< 扫描方位起止颠倒（起始 >= 结束） */
-  kEnvironmentPresetInvalid, /**< 环境预设枚举非法 */
-  kAtmosphericPhysicsInvalid /**< 启用的大气物理观测包含非法值 */
-};
-
-/**
- * @brief ConfigValidationIssue 描述一条 EOS 会话配置校验结果。
- */
-struct ConfigValidationIssue {
-  ConfigValidationCode code{ConfigValidationCode::kNone}; /**< 问题编码 */
-  std::string field{};                                    /**< 关联字段名 */
-  std::string message{};                                  /**< 简短说明 */
-};
-
-/** @brief ValidationIssueList 表示 EOS 会话配置校验问题列表。 */
-using ValidationIssueList = std::vector<ConfigValidationIssue>;
-
-/**
  * @brief 校验最终 EOS 会话配置的合法性。
+ *
+ * 校验问题采用统一问题列表模型（session_contract.md 规则 14）：每条问题以
+ * `session::EosIssue` 表达，severity 固定为 `kError`、phase 为
+ * `kInputValidation`，code 为带模块前缀的字符串 `"eos.validation.<snake_case>"`
+ * （如 `eos.validation.horizontal_fov_not_positive`），机器消费只认 code。
  *
  * 检查项包括：
  * - 视场角为正；
@@ -54,7 +31,7 @@ using ValidationIssueList = std::vector<ConfigValidationIssue>;
  * @param config 待校验的最终会话配置。
  * @return 按发现顺序返回的校验问题列表。
  */
-ONEQ_API ValidationIssueList
+ONEQ_API session::EosIssueList
 ValidateEosSessionConfig(const config::EosSessionConfig& config) noexcept;
 
 }  // namespace config

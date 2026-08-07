@@ -75,7 +75,7 @@ TEST(SarPublicApiConvenienceTest, SessionCreatesFromConfig) {
 
   // 结构化执行结果字段可达。
   EXPECT_TRUE(result.executed_this_cycle);
-  EXPECT_FALSE(result.has_error);
+  EXPECT_EQ(result.status, session::SarCycleStatus::kCompleted);
   EXPECT_EQ(result.input_cycle_index, 1U);
 }
 
@@ -108,11 +108,11 @@ TEST(SarPublicApiConvenienceTest, ProductDebugViewAndLifecycleRecorderAreReachab
 }
 
 TEST(SarPublicApiConvenienceTest, StepResultExposesStructuredExecutionState) {
-  // 结构化执行结果字段可达：executed/has_error/abort_reason/阶段。
+  // 结构化执行结果字段可达：executed/status/abort_reason/阶段。
   session::SarSession session = session::SarSession::Create(MakeMinimalConfig());
   const session::SarCycleResult result = session.StepWithResult(MakeMinimalInput());
   (void)result.executed_this_cycle;
-  (void)result.has_error;
+  (void)result.status;
   (void)result.abort_reason;
   SUCCEED();
 }

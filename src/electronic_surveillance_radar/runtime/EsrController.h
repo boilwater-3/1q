@@ -28,10 +28,7 @@ struct EsrControllerRuntimeState {
   std::uint32_t schema_version{0U};
   bool has_latest_output{false};
   session::EsrOutputFrame latest_output{};
-  session::ValidationIssueList last_validation_issues{};
-  std::uint64_t next_batch_id{0U};
-  session::EsrCycleExecutionStatus last_cycle_status{
-      session::EsrCycleExecutionStatus::kRejected};
+  std::uint64_t next_batch_id{1U};
   session::EsrPipelineAbortReason last_abort_reason{
       session::EsrPipelineAbortReason::kNone};
 };
@@ -74,26 +71,10 @@ class EsrController {
   const session::EsrOutputFrame& GetLatestInterceptOutputFrame() const;
 
   /**
-   * @brief 获取最近一次输入校验结果。
-   * @return 最近一次输入校验问题列表。
+   * @brief 返回最近一次 RunOnce 装配并缓存的单周期聚合结果。
+   * @return 最近一次周期的聚合结果。
    */
-  const session::ValidationIssueList& GetLastValidationIssues() const;
-
-  /** @brief 返回最近一次 RunOnce 的周期执行状态。 */
-  session::EsrCycleExecutionStatus GetLatestCycleStatus() const;
-
-  /**
-   * @brief 获取最近一次正常执行周期的 kInfo 排除诊断（规则 13b）。
-   * @note 仅完成路径（kCompleted）有内容；中止路径诊断由三写经 RecordAbort 写入。
-   * @return 最近一次周期的按发射源排除诊断列表。
-   */
-  const session::EsrDiagnosticIssueList& GetLatestDiagnostics() const;
-
-  /**
-   * @brief 最近一次 RunOnce 的周期终止原因。
-   * @return 周期终止原因。
-   */
-  session::EsrPipelineAbortReason GetLastInterceptCycleAbortReason() const;
+  session::EsrCycleResult BuildCycleResult() const;
 
   /**
    * @brief 捕获当前控制器自有运行态快照。

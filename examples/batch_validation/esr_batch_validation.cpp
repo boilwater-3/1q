@@ -31,6 +31,7 @@
 #include "1q/electronic_surveillance_radar/electronic_surveillance_radar.hpp"
 #include "1q/electronic_surveillance_radar/config/EsrRuntimeConfigPatch.h"
 #include "1q/electronic_surveillance_radar/session/EsrCycleResult.h"
+#include "1q/electronic_surveillance_radar/session/EsrInputValidation.h"
 #include "1q/electronic_surveillance_radar/session/EsrReplaySession.h"
 #include "1q/electronic_surveillance_radar/session/EsrSession.h"
 #include "1q/electronic_surveillance_radar/session/EsrTraceSession.h"
@@ -248,7 +249,7 @@ CycleMetrics ExtractCycleMetrics(const esr_session::EsrCycleResult& r) {
   CycleMetrics m;
   m.cycle_index = r.input_cycle_index;
   m.executed = r.status == esr_session::EsrCycleExecutionStatus::kCompleted;
-  m.has_validation_error = r.has_validation_error;
+  m.has_validation_error = esr_session::HasValidationError(r.issues);
   m.abort_reason = static_cast<int>(r.abort_reason);
 
   const auto& of = r.output_frame.observation_output;

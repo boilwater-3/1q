@@ -64,7 +64,7 @@ std::string BuildCyclePayload(const ArCycleInput& input,
            << result->interference_observations.size()
            << ",\"receiver_impairment\":"
            << static_cast<int>(result->receiver_impairment)
-           << ",\"diagnostic_count\":" << result->diagnostics.size();
+           << ",\"issue_count\":" << result->issues.size();
   }
   stream << "}";
   return stream.str();

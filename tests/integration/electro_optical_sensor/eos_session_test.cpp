@@ -111,7 +111,7 @@ TEST(EosSessionIntegrationTest, StepWithResultProducesDetectionOutput) {
 
   const ::electro_optical_sensor::session::EosCycleResult result = session.StepWithResult(input);
 
-  EXPECT_FALSE(result.has_validation_error);
+  EXPECT_FALSE(HasValidationError(result.issues));
   EXPECT_EQ(result.output_frame.cycle_index, input.cycle_index);
   EXPECT_FALSE(result.output_frame.detections.empty());
 }
@@ -137,7 +137,7 @@ TEST(EosSessionIntegrationTest, FusedModeDetectsInFovTarget) {
 
   const ::electro_optical_sensor::session::EosCycleResult result = session.StepWithResult(input);
 
-  EXPECT_FALSE(result.has_validation_error);
+  EXPECT_FALSE(HasValidationError(result.issues));
   EXPECT_GT(CountDetectedTargets(result.output_frame), 0U);
   EXPECT_TRUE(HasTargetId(result, 1U));
 }
@@ -207,7 +207,7 @@ TEST(EosSessionIntegrationTest, EmptyTargetSceneProducesEmptyDetections) {
 
   const ::electro_optical_sensor::session::EosCycleResult result = session.StepWithResult(input);
 
-  EXPECT_FALSE(result.has_validation_error);
+  EXPECT_FALSE(HasValidationError(result.issues));
   EXPECT_TRUE(result.output_frame.detections.empty());
 }
 
@@ -234,10 +234,10 @@ TEST(EosSessionIntegrationTest, OutOfFovTargetCarriesInfoExclusionDiagnostic) {
   EXPECT_EQ(result.status, session::EosCycleStatus::kCompleted);
   EXPECT_FALSE(HasTargetId(result, 10U));
   bool found = false;
-  for (const session::EosDiagnosticIssue& issue : result.diagnostics) {
+  for (const session::EosIssue& issue : result.issues) {
     if (issue.code == "eos.target_out_of_fov") {
       found = true;
-      EXPECT_EQ(issue.severity, session::EosDiagnosticSeverity::kInfo);
+      EXPECT_EQ(issue.severity, session::EosIssueSeverity::kInfo);
     }
   }
   EXPECT_TRUE(found);
@@ -457,7 +457,7 @@ TEST(EosSessionIntegrationTest, ValidationFailureReturnsEmptyFrameAndStillAdvanc
 
   const ::electro_optical_sensor::session::EosCycleResult invalid_result =
       session.StepWithResult(invalid_input);
-  EXPECT_TRUE(invalid_result.has_validation_error);
+  EXPECT_TRUE(HasValidationError(invalid_result.issues));
   EXPECT_FALSE(invalid_result.executed_this_cycle);
   EXPECT_TRUE(invalid_result.output_frame.detections.empty());
   EXPECT_EQ(invalid_result.output_frame.cycle_index, 0U);
@@ -466,7 +466,7 @@ TEST(EosSessionIntegrationTest, ValidationFailureReturnsEmptyFrameAndStillAdvanc
   valid_input.cycle_index = 2U;
   const ::electro_optical_sensor::session::EosCycleResult valid_result =
       session.StepWithResult(valid_input);
-  EXPECT_FALSE(valid_result.has_validation_error);
+  EXPECT_FALSE(HasValidationError(valid_result.issues));
   EXPECT_TRUE(valid_result.executed_this_cycle);
   EXPECT_EQ(valid_result.output_frame.cycle_index, 2U);
 
@@ -475,7 +475,7 @@ TEST(EosSessionIntegrationTest, ValidationFailureReturnsEmptyFrameAndStillAdvanc
   invalid_after_valid.dt_sec = 0.0f;
   const ::electro_optical_sensor::session::EosCycleResult invalid_after_valid_result =
       session.StepWithResult(invalid_after_valid);
-  EXPECT_TRUE(invalid_after_valid_result.has_validation_error);
+  EXPECT_TRUE(HasValidationError(invalid_after_valid_result.issues));
   EXPECT_FALSE(invalid_after_valid_result.executed_this_cycle);
   EXPECT_EQ(invalid_after_valid_result.output_frame.cycle_index, 0U);
   EXPECT_TRUE(invalid_after_valid_result.output_frame.detections.empty());

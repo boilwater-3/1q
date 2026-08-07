@@ -15,15 +15,22 @@ namespace {
 
 using oneq::common::validation::IsFinite;
 
-ValidationIssue MakeIssue(ValidationSeverity severity, ValidationCode code,
-                          ValidationLocationKind location_kind, std::size_t entity_index,
-                          const std::string& field, const std::string& message) {
-  return oneq::common::validation::MakeLocatedIssue<ValidationIssue, ValidationLocation>(
-      severity, code, location_kind, entity_index, field, message);
+// 统一问题列表模型（规则 14）：校验问题 code 为 "eos.validation.<snake_case>"，
+// phase 固定为 kInputValidation；location/field 为可选定位。
+EosIssue MakeIssue(EosIssueSeverity severity, const char* code,
+                   oneq::foundation::ValidationLocationKind location_kind,
+                   std::size_t entity_index, const std::string& field,
+                   const std::string& message) {
+  EosIssue issue = oneq::common::validation::MakeLocatedIssue<EosIssue,
+                                                              oneq::foundation::ValidationLocation>(
+      severity, std::string("eos.validation.") + code, location_kind, entity_index, field,
+      message);
+  issue.phase = EosIssuePhase::kInputValidation;
+  return issue;
 }
 
 void ValidatePlatformPose(const oneq::foundation::PoseState& platform_pose,
-                          ValidationIssueList* issues) {
+                          EosIssueList* issues) {
   if (issues == nullptr) {
     return;
   }
@@ -35,24 +42,25 @@ void ValidatePlatformPose(const oneq::foundation::PoseState& platform_pose,
       !IsFinite(platform_pose.attitude_deg.pitch_deg) ||
       !IsFinite(platform_pose.attitude_deg.roll_deg)) {
     issues->push_back(
-        MakeIssue(ValidationSeverity::kError, ValidationCode::kNonFinitePlatformNumericField,
-                  ValidationLocationKind::kPlatform, static_cast<std::size_t>(-1), "platform_pose",
+        MakeIssue(EosIssueSeverity::kError, "non_finite_platform_numeric_field",
+                  oneq::foundation::ValidationLocationKind::kPlatform,
+                  static_cast<std::size_t>(-1), "platform_pose",
                   "platform pose contains non-finite numeric field"));
   }
 }
 
-void ValidatePlatformAltitude(float platform_altitude_m, ValidationIssueList* issues) {
+void ValidatePlatformAltitude(float platform_altitude_m, EosIssueList* issues) {
   if (issues == nullptr || IsFinite(platform_altitude_m)) {
     return;
   }
-  issues->push_back(MakeIssue(ValidationSeverity::kError,
-                              ValidationCode::kNonFinitePlatformNumericField,
-                              ValidationLocationKind::kPlatform, static_cast<std::size_t>(-1),
-                              "platform_altitude_m", "platform altitude must be finite"));
+  issues->push_back(MakeIssue(EosIssueSeverity::kError, "non_finite_platform_numeric_field",
+                              oneq::foundation::ValidationLocationKind::kPlatform,
+                              static_cast<std::size_t>(-1), "platform_altitude_m",
+                              "platform altitude must be finite"));
 }
 
 void ValidateTarget(const EosSceneTarget& target, std::size_t target_index,
-                    ValidationIssueList* issues) {
+                    EosIssueList* issues) {
   if (issues == nullptr) {
     return;
   }
@@ -61,73 +69,75 @@ void ValidateTarget(const EosSceneTarget& target, std::size_t target_index,
       !IsFinite(target.elevation_deg) || !IsFinite(target.appearance.apparent_temperature_k) ||
       !IsFinite(target.appearance.emissivity) || !IsFinite(target.appearance.reflectance) ||
       !IsFinite(target.appearance.projected_area_m2)) {
-    issues->push_back(MakeIssue(ValidationSeverity::kError,
-                                ValidationCode::kNonFiniteTargetNumericField,
-                                ValidationLocationKind::kSceneEntity, target_index, "scene",
+    issues->push_back(MakeIssue(EosIssueSeverity::kError, "non_finite_target_numeric_field",
+                                oneq::foundation::ValidationLocationKind::kSceneEntity,
+                                target_index, "scene",
                                 "target contains non-finite numeric field"));
   }
 
   if (target.range_m <= 0.0f) {
-    issues->push_back(MakeIssue(ValidationSeverity::kError, ValidationCode::kInvalidTargetRange,
-                                ValidationLocationKind::kSceneEntity, target_index, "range_m",
-                                "target range must be positive"));
+    issues->push_back(MakeIssue(EosIssueSeverity::kError, "invalid_target_range",
+                                oneq::foundation::ValidationLocationKind::kSceneEntity,
+                                target_index, "range_m", "target range must be positive"));
   }
   if (target.appearance.apparent_temperature_k <= 0.0f) {
-    issues->push_back(MakeIssue(ValidationSeverity::kError,
-                                ValidationCode::kInvalidTargetTemperature,
-                                ValidationLocationKind::kSceneEntity, target_index,
-                                "apparent_temperature_k", "target temperature must be positive"));
+    issues->push_back(MakeIssue(EosIssueSeverity::kError, "invalid_target_temperature",
+                                oneq::foundation::ValidationLocationKind::kSceneEntity,
+                                target_index, "apparent_temperature_k",
+                                "target temperature must be positive"));
   }
   if (!oneq::common::validation::IsRatio01(target.appearance.emissivity)) {
-    issues->push_back(MakeIssue(ValidationSeverity::kError,
-                                ValidationCode::kInvalidTargetEmissivity,
-                                ValidationLocationKind::kSceneEntity, target_index, "emissivity",
-                                "target emissivity must be in [0, 1]"));
+    issues->push_back(MakeIssue(EosIssueSeverity::kError, "invalid_target_emissivity",
+                                oneq::foundation::ValidationLocationKind::kSceneEntity,
+                                target_index, "emissivity", "target emissivity must be in [0, 1]"));
   }
   if (!oneq::common::validation::IsRatio01(target.appearance.reflectance)) {
-    issues->push_back(MakeIssue(ValidationSeverity::kError,
-                                ValidationCode::kInvalidTargetReflectance,
-                                ValidationLocationKind::kSceneEntity, target_index, "reflectance",
+    issues->push_back(MakeIssue(EosIssueSeverity::kError, "invalid_target_reflectance",
+                                oneq::foundation::ValidationLocationKind::kSceneEntity,
+                                target_index, "reflectance",
                                 "target reflectance must be in [0, 1]"));
   }
   if (IsFinite(target.appearance.emissivity) && IsFinite(target.appearance.reflectance) &&
       (target.appearance.emissivity + target.appearance.reflectance > 1.0f + 1.0e-4f)) {
     issues->push_back(
-        MakeIssue(ValidationSeverity::kWarning, ValidationCode::kInconsistentTargetEnergyBalance,
-                  ValidationLocationKind::kSceneEntity, target_index, "emissivity+reflectance",
+        MakeIssue(EosIssueSeverity::kWarning, "inconsistent_target_energy_balance",
+                  oneq::foundation::ValidationLocationKind::kSceneEntity, target_index,
+                  "emissivity+reflectance",
                   "target emissivity + reflectance should not exceed 1"));
   }
   if (target.appearance.projected_area_m2 <= 0.0f) {
-    issues->push_back(MakeIssue(ValidationSeverity::kError,
-                                ValidationCode::kInvalidTargetProjectedArea,
-                                ValidationLocationKind::kSceneEntity, target_index,
-                                "projected_area_m2", "target projected area must be positive"));
+    issues->push_back(MakeIssue(EosIssueSeverity::kError, "invalid_target_projected_area",
+                                oneq::foundation::ValidationLocationKind::kSceneEntity,
+                                target_index, "projected_area_m2",
+                                "target projected area must be positive"));
   }
 }
 
 }  // namespace
 
-ValidationIssueList ValidateEosCycleInput(
+EosIssueList ValidateEosCycleInput(
     const ::electro_optical_sensor::session::EosCycleInput& input, float frame_rate_hz) {
-  ValidationIssueList issues;
+  EosIssueList issues;
 
   if (!IsFinite(input.dt_sec)) {
-    issues.push_back(MakeIssue(ValidationSeverity::kError, ValidationCode::kNonFiniteCycleDeltaTime,
-                               ValidationLocationKind::kGlobal, static_cast<std::size_t>(-1),
-                               "dt_sec", "cycle delta time must be finite"));
+    issues.push_back(MakeIssue(EosIssueSeverity::kError, "non_finite_cycle_delta_time",
+                               oneq::foundation::ValidationLocationKind::kGlobal,
+                               static_cast<std::size_t>(-1), "dt_sec",
+                               "cycle delta time must be finite"));
   } else if (input.dt_sec <= 0.0f) {
-    issues.push_back(MakeIssue(ValidationSeverity::kError, ValidationCode::kInvalidCycleDeltaTime,
-                               ValidationLocationKind::kGlobal, static_cast<std::size_t>(-1),
-                               "dt_sec", "cycle delta time must be positive"));
+    issues.push_back(MakeIssue(EosIssueSeverity::kError, "invalid_cycle_delta_time",
+                               oneq::foundation::ValidationLocationKind::kGlobal,
+                               static_cast<std::size_t>(-1), "dt_sec",
+                               "cycle delta time must be positive"));
   } else {
     constexpr float kMaxDtFactor = 10.0f;
     const float max_dt_sec =
         kMaxDtFactor / std::max(frame_rate_hz, std::numeric_limits<float>::min());
     if (input.dt_sec > max_dt_sec) {
-      issues.push_back(MakeIssue(ValidationSeverity::kError,
-                                 ValidationCode::kCycleDeltaTimeExceedsFramePeriod,
-                                 ValidationLocationKind::kGlobal, static_cast<std::size_t>(-1),
-                                 "dt_sec",
+      issues.push_back(MakeIssue(EosIssueSeverity::kError,
+                                 "cycle_delta_time_exceeds_frame_period",
+                                 oneq::foundation::ValidationLocationKind::kGlobal,
+                                 static_cast<std::size_t>(-1), "dt_sec",
                                  "cycle delta time exceeds reasonable range based on frame_rate_hz"));
     }
   }
@@ -142,10 +152,11 @@ ValidationIssueList ValidateEosCycleInput(
   return issues;
 }
 
-bool HasValidationError(const ValidationIssueList& issues) {
-  return oneq::common::validation::HasSeverity<ValidationIssueList, ValidationSeverity,
-                                                 &ValidationIssue::severity>(
-      issues, ValidationSeverity::kError);
+bool HasValidationError(const EosIssueList& issues) {
+  // RED-1 收敛：统一判定逻辑在 common::validation::HasValidationPhaseError
+  // （phase == kInputValidation && severity == kError）。
+  return oneq::common::validation::HasValidationPhaseError(
+      issues, &EosIssue::phase, &EosIssue::severity);
 }
 
 }  // namespace session

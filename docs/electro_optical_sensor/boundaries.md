@@ -1,6 +1,6 @@
 ---
 Status: active
-Last-reviewed: 2026-08-03
+Last-reviewed: 2026-08-07
 Authority: EOS 模块级边界、非目标与设计变更规则
 Answers: EOS 有哪些模块级禁令与边界、哪些非目标、frame_rate/dt 耦合与帧级 config 的特殊语义、文档变更规则
 ---
@@ -75,9 +75,11 @@ EOS 遵守 `docs/common/contract.md`：
 6. controller runtime state 支持 capture/restore，但必须拒绝不兼容的 pipeline snapshot 或其他
    controller 实例的 snapshot。
 
-`ValidationCode` 仅保留 `EosCycleInput` 实际校验路径会触发的编码。环境观测字段（太阳辐照度、云量、
-风速、背景温度、太阳角、昼夜类型）已迁入 `config::EosEnvironmentScenarioConfig`，不再属于周期输入域，
-故不声明对应校验编码，以免误导调用方以为可以在 `CycleInput` 上校验这些字段。
+周期输入校验问题编码统一为 `"eos.validation.<snake_case>"` 字符串（code 清单由
+`eos_input_validation_test` 的 code 列表断言锁定）；`ValidationCode` 枚举已随规则 14 对齐删除。
+环境观测字段（太阳辐照度、云量、风速、背景温度、太阳角、昼夜类型）已迁入
+`config::EosEnvironmentScenarioConfig`，不再属于周期输入域，故不声明对应校验编码，以免误导
+调用方以为可以在 `CycleInput` 上校验这些字段。
 
 `target.range_m` 的权威校验在 `EosInputValidation`（`<= 0` 为 error），controller 在校验失败时不执行
 pipeline，故正常 Session 路径不会把非法 `range_m` 传入 pipeline。pipeline 内部的
@@ -96,18 +98,26 @@ EOS 非执行周期（校验失败/关机/执行 abort）的 `Step()` 与 `EosCy
 
 [evidence: tests/contract/electro_optical_sensor/eos_public_api_convenience_test.cpp::StepReturnsEmptyFrameOnValidationFailureAfterSuccess]
 
-### 三写约束（abort_reason + diagnostics + 日志）
+### 三写约束（abort_reason + issues + 日志）
 
-EOS 所有中止路径遵守 `session_contract.md` 规则 9 的三写模式：
+EOS 所有中止路径遵守 `session_contract.md` 规则 9 的三写模式与规则 14 的统一问题列表模型：
 
 1. **结构化信号**：`EosCycleResult.abort_reason`（粗粒度枚举）。
-2. **结构化诊断**：`EosCycleResult.diagnostics`（`EosDiagnosticIssueList`，细粒度 code 如 `"eos.sensor_powered_off"`）。
+2. **结构化诊断**：`EosCycleResult.issues`（`EosIssueList`，细粒度 code 如 `"eos.sensor_powered_off"`、
+   `"eos.validation.invalid_target_range"`；条目携带 `phase` 来源标签与可选定位）。
 3. **人读日志**：`PROJECT_LOG_ERROR`。
 
-三写由 `EosDiagnosticUtils::RecordAbort` 统一执行，在 `EosController::BuildCycleResult` 中调用。
+`EosCycleResult` 只承载单一问题列表 `issues`：输入校验问题（`phase=kInputValidation`）与执行诊断
+（`phase=kExecution`/`kOutputContract`）同列表承载，不设 `validation_issues`/`has_validation_error`
+平行字段。校验拒绝时校验问题本身就是 error 级诊断（规则 9 写二），不再附加粗粒度条目。
+
+三写由 `EosDiagnosticUtils::RecordAbort` 统一执行（phase 由中止原因推导），在
+`EosController::AssembleResult`（RunOnce 内装配路径）中调用。周期结果装配在 RunOnce 内
+完成并缓存（COMMON-OQ-9：issues 直通），`BuildCycleResult` 仅返回缓存；校验缓存字段与
+`GetLastValidationIssues` 查询 API 已删除。
 
 **正常周期的按目标排除诊断（规则 13b）**：正常执行周期（`status == kCompleted`）中视场外目标
-（无 detection/attribution）写 `kInfo` 级 `EosDiagnosticIssue`（code `"eos.target_out_of_fov"`，
+（无 detection/attribution）写 `kInfo` 级 `EosIssue`（code `"eos.target_out_of_fov"`，
 message 携带 `target_id` 与目标方位/扫描中心/FOV 尺寸），**不属于三写**（三写仅约束中止路径，
 规则 9）；不改变 `EosCycleStatus` 与 DebugView 状态语义（视场外目标仍为 `kNotInOutput`，规则 13c）。
 输入中消失的目标由生命周期 recorder 承载（`kLost` 事件），不产生排除诊断（规则 13d）。
