@@ -4,6 +4,14 @@
 # Boost.Signals2（header-only，boost 已在 conanfile 基础依赖）——零自定义分发层；
 # components/ 每个仿真模块对应一个组件（飞行 / AR / ESR / EOS / 融合），
 # 挂载到平台实体后按挂载序周期步进。
+# 集成端日志设施（components/demo_log.h）直接使用 spdlog（conanfile 非 Windows
+# 依赖，ConanPackages.cmake 的 PROJECT_ENABLE_SPDLOG）；Windows 上 spdlog 关闭，
+# 本示例整体不构建。
+
+if(NOT PROJECT_ENABLE_SPDLOG)
+    message(STATUS "component_attachment: disabled (spdlog unavailable on this platform)")
+    return()
+endif()
 
 add_executable(component_attachment_demo
     component_attachment_demo.cpp
@@ -19,11 +27,13 @@ add_executable(component_attachment_demo
     components/fusion_component.cpp
     components/demo_log.cpp)
 
-# Boost.Signals2 事件库：与 tests 分区同源解析（tests/cmake/TestSupport.cmake）。
+# Boost.Signals2 事件库：与 tests 分区同源解析（tests/cmake/TestSupport.cmake）；
+# spdlog：集成端日志后端（demo_log.h 的 CA_LOG_EVENT / CA_LOG_VIEW）。
 find_package(Boost CONFIG REQUIRED)
 target_link_libraries(component_attachment_demo PRIVATE
     ${PROJECT_ALIAS}
-    Boost::boost)
+    Boost::boost
+    ${PROJECT_SPDLOG_TARGET})
 
 target_include_directories(component_attachment_demo PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}"

@@ -93,9 +93,9 @@ void FusionComponent::Step(World& world, double dt_sec) {
     std::string channels;
     for (const auto& channel : event.channels) {
       if (!channels.empty()) channels += ",";
-      channels += demo::Fmt("%u:%zu", channel.first, channel.second);
+      channels += spdlog::fmt_lib::format("{}:{}", channel.first, channel.second);
     }
-    CA_LOG_EVENT(world, "fusion_updated", "key=%llu conf=%.2f new=%zu lost=%zu ch[%s]",
+    CA_LOG_EVENT(world, "fusion_updated", "key={} conf={:.2f} new={} lost={} ch[{}]",
                  static_cast<unsigned long long>(event.key), event.confidence,
                  event.new_targets, event.lost_targets, channels.c_str());
     world.signals().on_fusion_updated(event);

@@ -474,7 +474,7 @@ TEST(SensorQueryGettersTest, PowerOffFreezesSessionUntilReenabled) {
 TEST(SensorQueryGettersTest, SbirsLastDebugViewCarriesPerTargetStateAndExclusionDiagnostics) {
   // 规则 12/13b 组件级可见性：LastDebugView() 每周期由 Step 经
   // SbirsOutputDebugViewBuilder 回填（per-target 状态 + kInfo 排除诊断），
-  // 是 demo 写 sbirs_debug_view.jsonl 的数据源。
+  // 供调用方结构化持久化；组件另直写人读摘要行到集成端日志。
   SensorQueryScene scene;
   scene.platform().Attach(std::make_unique<ca::SbirsSensorComponent>(
       sbirs_sensor::session::SbirsSession::Create()));
@@ -504,7 +504,7 @@ TEST(SensorQueryGettersTest, SbirsLastDebugViewCarriesPerTargetStateAndExclusion
 TEST(SensorQueryGettersTest, ArLastDebugViewCarriesPerTargetState) {
   // 规则 12 组件级可见性（AR 通道）：LastDebugView() 每周期由 Step 经
   // ArTrackOutputDebugViewBuilder 回填（input 目标逐条列出，含外部目标标识
-  // 与输入存在标志），是 demo 写 ar_track_status_deltas.jsonl 的数据源。
+  // 与输入存在标志），供调用方结构化持久化。
   SensorQueryScene scene;
   scene.platform().Attach(std::make_unique<ca::ArSensorComponent>(
       airborne_radar::session::ArSession::Create(MakeArConfig())));
@@ -521,7 +521,7 @@ TEST(SensorQueryGettersTest, ArLastDebugViewCarriesPerTargetState) {
 TEST(SensorQueryGettersTest, EosLastDebugViewCarriesPerTargetStateAndExclusionDiagnostics) {
   // 规则 12/13b 组件级可见性（EOS 通道）：LastDebugView() 每周期由 Step 经
   // EosOutputDebugViewBuilder 回填（per-target 状态 + kInfo 排除诊断），
-  // 是 demo 写 eos_debug_view.jsonl（降频）的数据源。
+  // 供调用方结构化持久化。
   SensorQueryScene scene;
   scene.platform().Attach(std::make_unique<ca::EosSensorComponent>(
       electro_optical_sensor::session::EosSession::Create(MakeEosConfig())));

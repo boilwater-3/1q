@@ -93,6 +93,11 @@ int main(int argc, char* argv[]) {
   }
   std::filesystem::create_directories(output_dir);
 
+  // 集成端日志初始化（两个日志模块的输出文件：库日志 1q_library.log + 集成
+  // 端日志 integration.log；见 components/demo_log.h）。须在会话创建之前调用：
+  // 库内 PROJECT_LOG_* 走 spdlog 默认 logger，装配后库日志即入文件而非 stdout。
+  demo::InitIntegrationLog(output_dir);
+
   // 装配：共享场景状态 → World → 平台实体 + 6 组件（挂载序 = 步进序）。
   ca::DemoSceneState scene;
   ca::World world(scene);
@@ -141,14 +146,10 @@ int main(int argc, char* argv[]) {
   platform.Attach(std::make_unique<ca::FusionComponent>(
       std::make_unique<fusion::FusionEngine>(fusion_config)));
 
-  // 事件接线：决策监听器（订阅融合信号）+ 事件日志初始化（组件宏背后写
-  // events.csv）+ 周期落盘输出。
-  demo::InitEventLog(output_dir);
+  // 事件接线：决策监听器（订阅融合信号）+ 周期落盘输出（平台轨迹 CSV；
+  // 集成端日志已由 InitIntegrationLog 装配，组件在 Step 内直写视图与事件）。
   demo::DecisionListener decision(world);
   demo::DemoOutputs outputs(output_dir);
-  if (!outputs.valid()) {
-    return 1;
-  }
 
   oneq::coordinate::EcefPositionM platform_ecef;
   if (!oneq::coordinate::TryLlaToEcef(platform_origin, &platform_ecef)) {
@@ -192,15 +193,14 @@ int main(int argc, char* argv[]) {
               << " wp=" << flight->next_waypoint_index() << "/" << flight->route().size() << "]"
               << " fused=" << fusion->targets().size() << "\n";
     outputs.RecordPlatformRow(cycle, scene.t_sec, *flight);
-    outputs.RecordDebugViews(cycle, *platform.Find<ca::ArSensorComponent>(),
-                             *platform.Find<ca::EosSensorComponent>(),
-                             *platform.Find<ca::SbirsSensorComponent>());
+    // 调试视图落盘由各传感器组件在 Step 内直写（取视图 → 人读摘要行 → 集成
+    // 端日志；见 components/demo_log.h 的 CA_LOG_VIEW），主程序不再收拢。
 
     // 消费方世界模型推进（在 Step 之后，与 behavior_layer 周期语义一致）。
     demo::AdvanceTargetStates(target_states, demo::kDtSec);
   }
 
-  demo::FlushEventLog();
+  demo::FlushIntegrationLog();
   outputs.Flush();
   std::cout << "\n=== Component Attachment Summary ===\n"
             << "cycles=" << num_cycles
@@ -210,12 +210,11 @@ int main(int argc, char* argv[]) {
             << " sbirs_events=" << demo::SbirsEventCount()
             << " sar_products=" << demo::SarProductEventCount()
             << " command_issued=" << (decision.issued() ? "true" : "false")
-            << " ar_delta_rows=" << outputs.ar_delta_rows()
-            << " eos_debug_rows=" << outputs.eos_debug_rows()
-            << " issues_rows=" << outputs.issues_rows() << "\n"
-            << "csv output -> " << output_dir
-            << " (platform_track.csv / events.csv / sbirs_debug_view.jsonl / "
-               "ar_track_status_deltas.jsonl / eos_debug_view.jsonl / issues.csv)\n";
+            << " ar_views=" << demo::ArViewCount()
+            << " eos_views=" << demo::EosViewCount()
+            << " sbirs_views=" << demo::SbirsViewCount() << "\n"
+            << "log output -> " << output_dir
+            << " (integration.log / 1q_library.log / platform_track.csv)\n";
 
   // 外置查询演示：按实体名/类型查找平台实体，读取各传感器开关机与当前扫描
   // 方位（查询逻辑 = 组件 const getter；外部系统选定实体后按名/ID 拉取
@@ -236,15 +235,15 @@ int main(int argc, char* argv[]) {
             << "  sar   powered=" << (sar->powered_on() ? "on" : "off") << "\n";
 
   // 冒烟断言：端到端链路必须有产出（每周期平台状态事件、SBIRS 探测事件、
-  // SAR 图像产品事件、至少一个融合目标、平台轨迹行数 = 周期数、SBIRS 调试
-  // 视图 JSONL 行数 = 周期数、AR 增量行 ≥ 首次出现数（2 目标）、EOS 降频
-  // 行数 = 周期数、issues.csv 非空（EOS 排除诊断）、五传感器全程开机），
+  // SAR 图像产品事件、至少一个融合目标、平台轨迹行数 = 周期数、AR/EOS/SBIRS
+  // 调试视图行数各 = 周期数（组件每周期直写集成端日志）、五传感器全程开机），
   // 否则视为链路断裂（ctest 失败）。
+  // 前置条件：视图行数由组件 Step 内计数，依赖每周期到达 CA_LOG_VIEW 调用点
+  // （本场景 Flight 恒挂载、坐标适配恒成功；场景改动需同步检查该断言）。
   if (demo::EventCount() < num_cycles || demo::SbirsEventCount() == 0U ||
       demo::SarProductEventCount() == 0U || max_fused_targets == 0U ||
-      outputs.platform_rows() != num_cycles || outputs.sbirs_debug_rows() != num_cycles ||
-      outputs.ar_delta_rows() < 2U || outputs.eos_debug_rows() != num_cycles ||
-      outputs.issues_rows() == 0U ||
+      outputs.platform_rows() != num_cycles || demo::ArViewCount() != num_cycles ||
+      demo::EosViewCount() != num_cycles || demo::SbirsViewCount() != num_cycles ||
       !ar->powered_on() || !esr->powered_on() ||
       !eos->powered_on() || !sbirs->powered_on() || !sar->powered_on()) {
     std::cerr << "SMOKE FAILED: events=" << demo::EventCount()
@@ -253,11 +252,10 @@ int main(int argc, char* argv[]) {
               << demo::SarProductEventCount() << " (>0 required), max_fused="
               << max_fused_targets << " (>0 required), platform_rows="
               << outputs.platform_rows() << " (== " << num_cycles << " required), "
-              << "sbirs_debug_rows=" << outputs.sbirs_debug_rows()
-              << " (== " << num_cycles << " required), ar_delta_rows="
-              << outputs.ar_delta_rows() << " (>= 2 required), eos_debug_rows="
-              << outputs.eos_debug_rows() << " (== " << num_cycles << " required), "
-              << "issues_rows=" << outputs.issues_rows() << " (>0 required), sensor_powered="
+              << "ar_views=" << demo::ArViewCount()
+              << " (== " << num_cycles << " required), eos_views="
+              << demo::EosViewCount() << " (== " << num_cycles << " required), sbirs_views="
+              << demo::SbirsViewCount() << " (== " << num_cycles << " required), sensor_powered="
               << (ar->powered_on() && esr->powered_on() && eos->powered_on() &&
                   sbirs->powered_on() && sar->powered_on() ? "true" : "false")
               << " (all required)\n";

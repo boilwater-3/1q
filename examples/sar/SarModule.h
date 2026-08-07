@@ -53,7 +53,6 @@
 
 #include "1q/sar/sar.hpp"
 #include "1q/sar/session/SarProductDebugView.h"
-#include "SarDebugViewToJson.h"
 #include "1q/sar/session/SarProductLifecycleRecorder.h"
 #include "1q/sar/session/SarReplaySession.h"
 #include "1q/sar/session/SarTraceSession.h"
@@ -252,16 +251,6 @@ class SarModule {
    */
   sar_session::SarProductDebugView buildLastDebugView() const {
     return sar_session::SarProductDebugViewBuilder::Build(last_input_, last_result_);
-  }
-
-  /**
-   * @brief 把最近一次调试视图序列化为 JSON 字符串（session_contract.md 规则 12 参考实现）。
-   *
-   * 集成方把返回的字符串写入自己的日志/事件系统即可；跨周期累积由调用方日志承担。
-   * 序列化函数见 examples/common/SarDebugViewToJson.h，可独立 copy。
-   */
-  std::string buildLastDebugViewJson() const {
-    return SarDebugViewToJson(buildLastDebugView());
   }
 
   /** @brief 返回最近一次的产品生命周期事件列表（三视图之一）。 */

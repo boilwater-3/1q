@@ -34,13 +34,13 @@ examples/component_attachment/
 │   ├── sbirs_sensor_component.h/.cpp SbirsSensorComponent：天基红外会话（第 4 融合通道）
 │   ├── sar_sensor_component.h/.cpp  SarSensorComponent：合成孔径雷达产品（不入融合）
 │   ├── fusion_component.h/.cpp      FusionComponent：多源融合引擎
-│   ├── demo_log.h/.cpp              事件日志宏设施（CA_LOG_EVENT：组件源文件内字符串就地填充 → 控制台 + events.csv）
+│   ├── demo_log.h/.cpp              集成端日志设施（两个日志模块之一：CA_LOG_EVENT / CA_LOG_VIEW 宏 → spdlog 命名 logger → integration.log；并装配库日志 1q_library.log）
 │   ├── sensor_utils.h               平台坐标转换（ECEF 解析）
 │   └── scene_types.h                DemoSceneState：共享场景状态（真值注入）
 ├── component_attachment_demo.cpp    主程序（装配与编排：实体/会话创建 + 周期循环 + 查询演示 + 冒烟断言）
 ├── demo_config.h/.cpp               演示常量 + 五会话配置加载（含 EOS/SAR 业务调参覆写）
 ├── scene_script.h/.cpp              世界模型目标真值脚本（目标脚本 → ECEF 状态 → 四通道周期真值 + 推进）
-├── demo_output.h/.cpp               输出落盘与事件消费（DemoOutputs 三落盘模式 + issues.csv / DecisionListener 事件链）
+├── demo_output.h/.cpp               输出落盘与事件消费（DemoOutputs 平台轨迹 CSV / DecisionListener 事件链）
 ├── CMakeLists.txt
 └── README.md
 ```
@@ -114,31 +114,49 @@ boost::signals2::scoped_connection conn =
 两种通信形态同时演示：**周期内同步数据聚合**用组件类型化访问；**跨周期通知 /
 记录**走信号（事件）。
 
-### 事件日志（components/demo_log.h，外部集成惯用法）
+### 事件日志与调试视图落盘（components/demo_log.h，外部集成惯用法）
 
-事件日志字符串**归属组件源文件**（事件产生处），通过日志宏就地填充——外部
-集成的典型形态（宏背后接消费方自己的日志/落盘设施）：
+**两个日志模块**，输出到两个文件（与库内部 `src/common/logging/ProjectLog.h`
+区分——库日志走 spdlog 默认 logger，宿主拥有 logger 生命周期）：
+
+| 模块 | 后端 | 输出文件 |
+| --- | --- | --- |
+| **库内部日志** | 库内 `PROJECT_LOG_*` 宏 → spdlog 默认 logger（`InitIntegrationLog` 装配为文件 sink） | `1q_library.log`（时间戳 + 级别 + 消息） |
+| **集成端日志** | spdlog 命名 logger `"integration"`（stdout + 文件，pattern 仅为消息体） | `integration.log`（事件行 + 各组件每周期视图摘要行） |
+
+集成端日志的字符串**归属组件源文件**（事件产生处），通过日志宏就地填充——
+外部集成的典型形态（宏背后接消费方自己的日志/落盘设施；本示例直接使用
+conanfile 的 spdlog 依赖，fmt 风格 `{}` 格式化，编译期格式检查）：
 
 ```cpp
 // 组件源文件内（发布信号前）
-CA_LOG_EVENT(world, "target_confirmed", "target=%llu pos=(%.5f,%.5f)",
+CA_LOG_EVENT(world, "target_confirmed", "target={} pos=({:.5f},{:.5f})",
              static_cast<unsigned long long>(confirmed.target_id),
              confirmed.position.latitude_deg, confirmed.position.longitude_deg);
 world.signals().on_target_confirmed(confirmed);
 ```
 
 `CA_LOG_EVENT(world, type, ...)` 的 cycle/t_sec 取自共享场景状态（与事件字段
-同源），背后设施把 detail 写入 `events.csv`（RFC 4180 转义）并打印控制台事件
-行（`  [type] detail`），另维护事件计数（摘要/冒烟断言用）。集成方替换该设施
-即接入自己的日志系统；单元测试不初始化日志设施，宏调用静默跳过（no-op）。
+同源），背后设施把事件行（`[event:type] cycle=... t_sec=... detail`）写入
+`integration.log` 并打印控制台，另维护事件计数（摘要/冒烟断言用）。集成方
+替换该设施即接入自己的日志系统；单元测试不初始化日志设施，宏调用静默跳过
+（no-op）。
+
+**调试视图落盘在组件内直写**（规则 12）：各传感器组件（AR/EOS/SBIRS）的
+`Step` 在构建 `LastDebugView()` 后调用 `CA_LOG_VIEW("ar", "cycle={} completed={}
+tracks={} issues={}", ...)`——取视图 → 提取关键计数 → 写一行**人读摘要**到
+集成端日志，每周期一行（关机周期为零值帧摘要，拒绝周期为 `kCycleNotCompleted`/
+`kCycleNotExecuted` 快照）。日志给人读，示例不做结构化落盘：`session_contract.md`
+规则 12 的"调用方结构化持久化 DebugView"由外部集成方接入自己的日志/事件系统
+实现，结构化格式与字段布局由调用方自定（参考 `*OutputDebugView` 字段集合直接
+转写）。
 
 **Lifecycle 事件字符串化**：库内 `*LifecycleRecorder` 产出的生命周期事件
 （`GetLastEvents()`，如 AR 首确认/失跟、EOS/SBIRS 首发现/丢失、SAR 产品事件）
 为纯 struct、库内无字符串化工具——其"转字符串写日志"由各组件源文件内宏的
-手写格式串承担（`"kind=%d det=%llu target=%llu snr=%.1fdB az=%.1f"` 等），
-与 DebugView 的共享 JSON 序列化器（`examples/common/*DebugViewToJson.h`）
-形成对照：DebugView 有共享工具、Lifecycle 字符串归属组件——后者即外部集成
-惯用法（组件自描述）。
+手写格式串承担（`"kind={} det={} target={} snr={:.1f}dB az={:.1f}"` 等），
+字符串归属组件（组件自描述）；DebugView 同理以组件内 `CA_LOG_VIEW` 摘要行
+直写，示例层不内置 JSON 序列化器。
 
 ## 模块 → 组件映射
 
@@ -191,12 +209,11 @@ patch 只改会话配置）。
 有 DebugView 的三个目标列表型组件（AR/EOS/SBIRS）另暴露
 `const *OutputDebugView& LastDebugView()`——最近周期调试视图快照（规则 12 落盘示范：
 per-target 状态 + 规则 13b kInfo 排除诊断；关机周期清零，拒绝周期为
-`kCycleNotCompleted`/`kCycleNotExecuted` 快照）。demo 三种落盘模式各挂一通道
-（见「输出」表）：SBIRS **全帧**（每周期一行，`SbirsDebugViewToJson.h`）、
-AR **跨周期增量**（状态变化/首次出现才落盘，状态表由调用方持有，
-`ArDebugViewToJson.h`）、EOS **降频**（每 10 周期全帧 + 其余周期只落问题列表，
-`EosDebugViewToJson.h`）；三通道问题列表另逐条写 `issues.csv`（规则 14 机器消费
-路径）。ESR 库内无 DebugView、SAR 为阶段型视图，不适用逐目标落盘模式。
+`kCycleNotCompleted`/`kCycleNotExecuted` 快照）。组件在 `Step` 内取该视图
+直写人读摘要行到集成端日志 `integration.log`（每周期一行，如
+`[view:ar] cycle=5 completed=true tracks=2 issues=0`）——日志给人读，结构化
+持久化由外部集成方接入自己的日志/事件系统实现（示例不内置 JSON 序列化器）。
+ESR 库内无 DebugView、SAR 为阶段型视图，不适用逐目标落盘模式。
 
 **组件层电源门控**：电源状态由 `sensor_enabled` 补丁唯一维护（`TryApplyRuntimeConfig`
 成功且带 `has_sensor_enabled` 时更新，拒绝的补丁不改状态）。关机时组件**不驱动
@@ -225,7 +242,7 @@ AR **跨周期增量**（状态变化/首次出现才落盘，状态表由调用
                   → 发布 FusionUpdatedEvent
   订阅者（demo 侧）：
     DecisionListener → 置信度 ≥ 3.0 → 发布 CommandIssuedEvent（事件链）
-    组件宏（CA_LOG_EVENT）→ 事件产生处就地记录 → 控制台 + events.csv
+    组件宏（CA_LOG_EVENT / CA_LOG_VIEW）→ 事件与视图摘要就地记录 → integration.log（人读行）
 ```
 
 ## 场景设计：六自由度机动从起飞开始
@@ -300,20 +317,19 @@ cmake --build --preset llvm-ninja-release-local --target component_attachment_de
 ```
 
 - `--cycles <n>`：仿真周期数（默认 400）；
-- `--output-dir <dir>`：CSV 输出目录（默认 `/tmp/component_attachment_viz`）；
+- `--output-dir <dir>`：输出目录（日志 + CSV，默认 `/tmp/component_attachment_viz`）；
 - FD 开启时输出 `FlightComponent` 的六自由度机动日志（JSBSim），关闭/失败时
   打印回退告警并走运动学路径。
+- 本示例依赖 spdlog（conanfile 非 Windows 依赖），Windows 构建不纳入
+  （examples/component_attachment/CMakeLists.txt 门控）。
 
 ## 输出
 
-| 文件 | 列 | 说明 |
+| 文件 | 内容 | 说明 |
 | --- | --- | --- |
+| `integration.log` | 每行一条人读记录 | **集成端日志**（spdlog 命名 logger `"integration"`）：事件行 `[event:type] cycle=... t_sec=... detail`（10 类事件，字符串归属组件源文件，`CA_LOG_EVENT` 宏）与 AR/EOS/SBIRS 三组件每周期视图摘要行 `[view:module] cycle=... 关键计数`（`CA_LOG_VIEW` 宏；日志给人读，不做结构化落盘） |
+| `1q_library.log` | 人读日志行 | **库内部日志**：库内 `PROJECT_LOG_*` 宏 → spdlog 默认 logger（时间戳 + 级别 + 消息），`InitIntegrationLog` 装配 |
 | `platform_track.csv` | cycle,t_sec,lat_deg,lon_deg,alt_m,heading_deg,speed_mps,wp_index | 平台轨迹（每周期一行；FD 模式含起飞爬升段） |
-| `events.csv` | cycle,t_sec,event_type,detail | 事件流（10 类事件；detail 为可读摘要；由组件源文件内 `CA_LOG_EVENT` 宏记录，字符串归属组件） |
-| `sbirs_debug_view.jsonl` | 每行一条 JSON | SBIRS 每周期调试视图（规则 12 落盘示范**全帧模式**：per-target 状态 + 规则 13b kInfo 排除诊断；序列化见 `examples/common/SbirsDebugViewToJson.h`） |
-| `ar_track_status_deltas.jsonl` | 每行一条 JSON | AR 调试视图（规则 12 落盘示范**跨周期增量模式**：仅状态变化/首次出现各一行，状态表由 demo 持有；序列化见 `examples/common/ArDebugViewToJson.h`） |
-| `eos_debug_view.jsonl` | 每行一条 JSON | EOS 调试视图（规则 12 落盘示范**降频模式**：每 10 周期一次全帧，其余周期只落周期号 + 问题列表；序列化见 `examples/common/EosDebugViewToJson.h`） |
-| `issues.csv` | cycle,module,severity,phase,code,message | 规则 14 机器消费路径：AR/EOS/SBIRS 三通道问题列表逐条落盘（与各 DebugView JSONL 同源；EOS 扫描断续的 13b kInfo 排除诊断构成主要行数） |
 
 控制台输出每周期一行摘要（平台高度/航向/速度/航点进度 + 融合目标数），事件
 逐条打印；结束打印汇总（实体数/组件数/事件数/指令是否下发）。
@@ -346,7 +362,7 @@ JSON）与同一套探测适配逻辑（`sensor_adapt.h` 与行为层 `systems.c
   机动入口在 FD 可用/不可用时的返回语义）+ 状态查询与调试视图单测（开关机/
   扫描方位、AR/EOS/SBIRS 三通道 `LastDebugView()` 逐目标状态与 13b kInfo
   排除诊断、关机清零、SBIRS 关机冻结相位）；
-- ctest `examples::component_attachment_demo`：demo 冒烟（400 周期 + CSV/JSONL
+- ctest `examples::component_attachment_demo`：demo 冒烟（400 周期 + 日志/CSV
   落盘 + 最小产出断言：事件数 ≥ 周期数、SBIRS 探测事件 ≥ 1、SAR 产品事件 ≥ 1、
-  融合目标 ≥ 1、平台轨迹行数 = 周期数、SBIRS 全帧行数 = 周期数、AR 增量行
-  ≥ 2（首周期两目标首次出现）、EOS 降频行数 = 周期数、issues.csv 非空）。
+  融合目标 ≥ 1、平台轨迹行数 = 周期数、AR/EOS/SBIRS 视图行数各 = 周期数
+  （组件每周期直写 integration.log））。

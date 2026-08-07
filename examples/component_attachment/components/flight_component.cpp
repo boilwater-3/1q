@@ -312,7 +312,7 @@ void FlightComponent::Step(World& world, double dt_sec) {
   event.waypoint_index = next_index_;
   event.waypoint_count = route_.size();
   // 事件日志：字符串就地填充（日志宏 + 组件源文件内格式化串）。
-  CA_LOG_EVENT(world, "platform_state", "pos=(%.4f,%.4f,%.1f) hdg=%.1f spd=%.1f wp=%zu/%zu",
+  CA_LOG_EVENT(world, "platform_state", "pos=({:.4f},{:.4f},{:.1f}) hdg={:.1f} spd={:.1f} wp={}/{}",
                event.position_ecef_m.x_m, event.position_ecef_m.y_m, event.altitude_m,
                event.heading_deg, event.speed_mps, event.waypoint_index, event.waypoint_count);
   world.signals().on_platform_state(event);
@@ -346,7 +346,7 @@ void FlightComponent::EmitWaypointReached(World& world, std::size_t reached_inde
   event.waypoint_index = reached_index;
   event.distance_m = distance_m;
   // 事件日志：字符串就地填充（日志宏 + 组件源文件内格式化串）。
-  CA_LOG_EVENT(world, "waypoint_reached", "index=%zu distance=%.1f", event.waypoint_index,
+  CA_LOG_EVENT(world, "waypoint_reached", "index={} distance={:.1f}", event.waypoint_index,
                event.distance_m);
   world.signals().on_waypoint_reached(event);
 }

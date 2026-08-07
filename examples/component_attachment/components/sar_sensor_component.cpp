@@ -106,7 +106,7 @@ void SarSensorComponent::Step(World& world, double dt_sec) {
     product.estimated_snr_db = event.estimated_snr_db;
     product.abort_reason = event.abort_reason;
     // 事件日志：字符串就地填充（日志宏 + 组件源文件内格式化串）。
-    CA_LOG_EVENT(world, "sar_product", "kind=%d stage=%d snr=%.1fdB%s%s",
+    CA_LOG_EVENT(world, "sar_product", "kind={} stage={} snr={:.1f}dB{}{}",
                  static_cast<int>(product.kind), static_cast<int>(product.stage),
                  product.estimated_snr_db,
                  product.abort_reason.empty() ? "" : " abort=", product.abort_reason.c_str());

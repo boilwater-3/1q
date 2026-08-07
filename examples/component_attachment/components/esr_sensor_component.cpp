@@ -92,7 +92,7 @@ void EsrSensorComponent::Step(World& world, double dt_sec) {
     event.mode = hypothesis.mode;
     event.threat_level = hypothesis.threat_level;
     // 事件日志：字符串就地填充（日志宏 + 组件源文件内格式化串）。
-    CA_LOG_EVENT(world, "emitter_hypothesis", "hyp=%llu az=%.1f conf=%.2f mode=%d threat=%d",
+    CA_LOG_EVENT(world, "emitter_hypothesis", "hyp={} az={:.1f} conf={:.2f} mode={} threat={}",
                  static_cast<unsigned long long>(event.hypothesis_id), event.bearing_az_deg,
                  event.confidence, static_cast<int>(event.mode),
                  static_cast<int>(event.threat_level));

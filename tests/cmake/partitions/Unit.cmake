@@ -37,6 +37,28 @@ endif()
 file(GLOB _oneq_unit_examples CONFIGURE_DEPENDS
     "${CMAKE_CURRENT_SOURCE_DIR}/unit/examples/*_test.cpp")
 if(_oneq_unit_examples)
+    # component_attachment 组件实现（ecs_component_runtime_test 测组件运行时
+    # 修改接口；sensor_adapt.h 为 header-only）。
+    # demo_log.cpp：组件源文件内 CA_LOG_EVENT / CA_LOG_VIEW 宏引用符号（单测
+    # 不初始化 → 未初始化静默跳过路径）。集成端日志直接使用 spdlog：仅在
+    # PROJECT_ENABLE_SPDLOG 时编译组件源并链接 spdlog；Windows 上该示例门控
+    # 关闭，组件运行时测试一并排除（JsonReader / ECS 核心测试保留，二者无
+    # spdlog 依赖）。
+    set(_oneq_examples_extra
+        "${CMAKE_SOURCE_DIR}/examples/common/json_reader.cpp")
+    if(PROJECT_ENABLE_SPDLOG)
+        list(APPEND _oneq_examples_extra
+            "${CMAKE_SOURCE_DIR}/examples/component_attachment/components/ar_sensor_component.cpp"
+            "${CMAKE_SOURCE_DIR}/examples/component_attachment/components/esr_sensor_component.cpp"
+            "${CMAKE_SOURCE_DIR}/examples/component_attachment/components/eos_sensor_component.cpp"
+            "${CMAKE_SOURCE_DIR}/examples/component_attachment/components/sbirs_sensor_component.cpp"
+            "${CMAKE_SOURCE_DIR}/examples/component_attachment/components/sar_sensor_component.cpp"
+            "${CMAKE_SOURCE_DIR}/examples/component_attachment/components/flight_component.cpp"
+            "${CMAKE_SOURCE_DIR}/examples/component_attachment/components/demo_log.cpp")
+        set(_oneq_examples_link_libs ${PROJECT_SPDLOG_TARGET})
+    else()
+        list(FILTER _oneq_unit_examples EXCLUDE REGEX "ecs_component_runtime_test\\.cpp$")
+    endif()
     oneq_add_test_partition(
         TYPE unit DOMAIN examples
         SOURCES ${_oneq_unit_examples}
@@ -44,18 +66,8 @@ if(_oneq_unit_examples)
         INCLUDE_DIRS "${CMAKE_SOURCE_DIR}/examples/common"
                      "${CMAKE_SOURCE_DIR}/examples/batch_validation"
                      "${CMAKE_SOURCE_DIR}/examples/component_attachment"
-        EXTRA_SOURCES "${CMAKE_SOURCE_DIR}/examples/common/json_reader.cpp"
-                      # component_attachment 组件实现（ecs_component_runtime_test
-                      # 测组件运行时修改接口；sensor_adapt.h 为 header-only）。
-                      # demo_log.cpp：组件源文件内 CA_LOG_EVENT 宏引用 LogEvent
-                      # 符号（单测不初始化 → 未初始化静默跳过路径）。
-                      "${CMAKE_SOURCE_DIR}/examples/component_attachment/components/ar_sensor_component.cpp"
-                      "${CMAKE_SOURCE_DIR}/examples/component_attachment/components/esr_sensor_component.cpp"
-                      "${CMAKE_SOURCE_DIR}/examples/component_attachment/components/eos_sensor_component.cpp"
-                      "${CMAKE_SOURCE_DIR}/examples/component_attachment/components/sbirs_sensor_component.cpp"
-                      "${CMAKE_SOURCE_DIR}/examples/component_attachment/components/sar_sensor_component.cpp"
-                      "${CMAKE_SOURCE_DIR}/examples/component_attachment/components/flight_component.cpp"
-                      "${CMAKE_SOURCE_DIR}/examples/component_attachment/components/demo_log.cpp")
+        EXTRA_SOURCES ${_oneq_examples_extra}
+        LINK_LIBS ${_oneq_examples_link_libs})
     if(ONEQ_ENABLE_FLIGHT_DYNAMIC)
         # 飞行组件 FD 路径（与 examples/component_attachment/CMakeLists.txt 对称）：
         # 静态库不传递依赖，需显式链接 JSBSim；c172x 数据根注入。

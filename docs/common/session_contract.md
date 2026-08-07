@@ -142,13 +142,10 @@ AR/ESR/EOS/SBIRS/SAR 五模块的电源状态必须遵守单源原则：
     FlatBuffers）写入自己的日志/事件系统获得。
     - 规则 3 的"状态判断不得依赖日志文本"约束对象是模块内部代码，不限制调用方对其日志系统的
       使用，但调用方应结构化落盘，避免文本解析。
-    - JSON 参考实现见 `examples/common/` 的 `*DebugViewToJson.h` + `debug_view_json.h`
-      （header-only、零第三方依赖，集成方可直接 copy 进自己的工程）。
-    - AR/EOS/SBIRS 序列化器另含三种常见落盘模式参考实现：只落非标称行、跨周期状态增量
-      （状态表由调用方持有）、降频落盘（每 N 周期一次全量，其余周期只落问题列表）；
-      SAR 为阶段型视图，不适用逐目标落盘模式。组件化集成示范见
-      `examples/component_attachment`（三通道 `LastDebugView()`：SBIRS 全帧 / AR 跨周期
-      增量 / EOS 降频，另以 `issues.csv` 演示规则 14 问题列表的机器消费路径）。
+    - 结构化格式与字段布局由调用方自定（可参考 `*OutputDebugView` 的字段集合直接转写）；
+      组件化集成示范见 `examples/component_attachment`（各传感器组件每周期取 `LastDebugView()`
+      直写人读摘要行到集成端日志——日志给人读；结构化持久化由外部集成方接入自己的
+      日志/事件系统，示例不再内置 JSON 序列化器）。
 13. 正常执行周期（`status == kCompleted`）的可观测性：
     a. **周期级执行摘要日志**：正常执行周期应输出周期级 `PROJECT_LOG_INFO` 摘要，格式基线
        `[XxxPipeline] cycle_index={} …`（模块自定附加字段，如扫描方位、检测数/目标数、排除计数），

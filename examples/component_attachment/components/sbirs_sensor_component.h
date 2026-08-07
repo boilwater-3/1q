@@ -56,8 +56,8 @@ class SbirsSensorComponent : public Component {
    * @brief 最近周期调试视图快照（规则 12 落盘示范）。
    *
    * Step 每周期经 SbirsOutputDebugViewBuilder::Build 回填（含按目标状态与
-   * 规则 13b kInfo 排除诊断），调用方序列化为 JSON 写入自己的日志/事件系统
-   * （参考 examples/common/SbirsDebugViewToJson.h）。
+   * 规则 13b kInfo 排除诊断），供调用方结构化持久化到自己的日志/事件系统；
+   * 本示例每周期直写人读摘要行到集成端日志（components/demo_log.h 的 CA_LOG_VIEW）。
    * @return 最近周期调试视图；关机周期清零（无有效周期），拒绝周期为
    *         kCycleNotExecuted 快照。
    */
