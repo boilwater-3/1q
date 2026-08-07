@@ -60,14 +60,14 @@ int main() {
   input.scene.push_back(target);
 
   // 5. Input validation
-  const eos::session::ValidationIssueList issues = eos::session::ValidateEosCycleInput(input, 30.0f);
+  const eos::session::EosIssueList issues = eos::session::ValidateEosCycleInput(input, 30.0f);
   if (eos::session::HasValidationError(issues)) {
     return 1;
   }
 
   // 6. StepWithResult
   const eos::session::EosCycleResult result = session.StepWithResult(input);
-  if (result.has_validation_error) {
+  if (eos::session::HasValidationError(result.issues)) {
     return 2;
   }
 
@@ -159,7 +159,7 @@ int main() {
   eos::session::EosCycleInput input_3 = input;
   input_3.cycle_index = 3U;
   const eos::session::EosCycleResult result_3 = session.StepWithResult(input_3);
-  if (result_3.has_validation_error) {
+  if (eos::session::HasValidationError(result_3.issues)) {
     return 3;
   }
 

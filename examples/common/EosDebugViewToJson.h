@@ -67,7 +67,7 @@ inline std::string EosDebugViewToJson(
   out << "{\"input_cycle_index\":" << view.input_cycle_index
       << ",\"output_cycle_index\":" << view.output_cycle_index
       << ",\"executed_this_cycle\":" << (view.executed_this_cycle ? "true" : "false")
-      << ",\"has_validation_error\":" << (view.has_validation_error ? "true" : "false")
+      
       << ",\"abort_reason\":\"" << EosAbortReasonName(view.abort_reason) << '"' << ",\"targets\":[";
   for (std::size_t i = 0U; i < view.targets.size(); ++i) {
     if (i > 0U) {
@@ -84,7 +84,7 @@ inline std::string EosDebugViewToJson(
         << ",\"elevation_deg\":" << target.elevation_deg
         << ",\"fused_snr_db\":" << target.fused_snr_db << '}';
   }
-  WriteDiagnosticsJson(out, view.diagnostics);
+  WriteIssuesJson(out, view.issues);
   return out.str();
 }
 

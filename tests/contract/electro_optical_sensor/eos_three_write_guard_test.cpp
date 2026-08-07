@@ -1,14 +1,15 @@
 // Copyright 2026. All Rights Reserved.
 //
 // @file eos_three_write_guard_test.cpp
-// @brief EOS 三写约束机制性守卫（session_contract.md 规则 9）。
+// @brief EOS 三写约束机制性守卫（session_contract.md 规则 9 + 统一问题列表模型规则 14）。
 //
 // 任何 abort 路径（abort_reason 非 kNone）必须同时写：
 //   1) abort_reason（结构化信号）
-//   2) diagnostics（结构化诊断：severity + code + message，code 带模块前缀）
+//   2) issues（结构化诊断：severity + phase + code + message，code 带模块前缀）
 //   3) PROJECT_LOG（人读日志，由统一 RecordAbort 写入；测试不解析日志文本，规则 3）
 // 并保证 status 与 abort 类别一致（validation → kRejectedInvalidInput，
 // powered-off → kPoweredOff，execution → kRejectedExecution）。
+// 校验拒绝时校验问题本身就是 error 级诊断（phase=kInputValidation），不再附加粗粒度条目。
 //
 // 守卫对所有模块统一形态；新增 abort 路径时必须通过本测试。
 
@@ -56,12 +57,12 @@ void ExpectThreeWriteAbort(const session::EosCycleResult& result,
 
   // 写二：结构化诊断中至少一条 error 级、code 带模块前缀
   // （info/warning 级伴随诊断合法，三写要求的是 error 级主诊断）。
-  EXPECT_FALSE(result.diagnostics.empty());
+  EXPECT_FALSE(result.issues.empty());
   bool saw_error_diagnostic = false;
-  for (const auto& issue : result.diagnostics) {
+  for (const auto& issue : result.issues) {
     EXPECT_FALSE(issue.code.empty());
     EXPECT_EQ(issue.code.compare(0, 4, "eos."), 0);
-    if (issue.severity == session::EosDiagnosticSeverity::kError) {
+    if (issue.severity == session::EosIssueSeverity::kError) {
       saw_error_diagnostic = true;
     }
   }

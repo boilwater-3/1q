@@ -77,32 +77,27 @@ table EosOutputFrame {
 }
 
 // ---- EosCycleResult (cycle_output via StepWithResult) ----
+// 统一问题列表模型（session_contract.md 规则 14）：单一 EosIssue 列表承载
+// 输入校验问题（phase=kInputValidation）与执行诊断（phase=kExecution/kOutputContract）。
 
-table ValidationIssue {
-  severity:     int32;
-  code:         int32;
-  location_kind: int32;
-  entity_index: int32;
-  field:        string;
-  message:      string;
-}
-
-table EosDiagnosticIssue {
-  severity: int32;
-  code:     string;
-  message:  string;
+table EosIssue {
+  severity:      int32;
+  phase:         int32;
+  code:          string;
+  message:       string;
+  location_kind: int32 = 0;
+  entity_index:  int64 = -1;
+  field:         string;
 }
 
 table EosCycleResult {
   input_cycle_index:      uint32;
   output_frame:           EosOutputFrame;
   detection_attributions: [EosDetectionAttributionRecord];
-  validation_issues:      [ValidationIssue];
-  diagnostics:            [EosDiagnosticIssue];
-  has_validation_error:   bool;
   executed_this_cycle:    bool;
   abort_reason:           int32;
   status:                 uint8;
+  issues:                 [EosIssue];
 }
 
 // ---- FailureMarker (failure_marker 事件的 flatbuffer 载荷) ----

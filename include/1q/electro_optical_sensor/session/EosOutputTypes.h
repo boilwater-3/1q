@@ -11,6 +11,7 @@
 #include <vector>
 
 #include "1q/api.hpp"
+#include "1q/foundation/validation_types.h"
 
 namespace electro_optical_sensor {
 namespace output {
@@ -55,26 +56,41 @@ using EosDetectionAttributionRecordList = std::vector<EosDetectionAttributionRec
 namespace session {
 
 /**
- * @brief EOS 诊断等级。
+ * @brief EOS 问题条目严重等级。
  */
-enum class ONEQ_API EosDiagnosticSeverity : std::uint8_t {
+enum class ONEQ_API EosIssueSeverity : std::uint8_t {
   kInfo = 0,    /**< 信息 */
   kWarning = 1, /**< 警告 */
   kError = 2    /**< 错误 */
 };
 
 /**
- * @brief EOS 诊断条目。
- * @note 承载细粒度失败信息（如 "eos.pipeline_contract_violation"），不用于调用方状态判断。
+ * @brief EOS 问题条目来源阶段（统一问题列表模型，session_contract.md 规则 14）。
+ * @note 结构化来源判别字段；状态判断仍以 `status`/`abort_reason` 为准，phase 不改变状态语义。
  */
-struct ONEQ_API EosDiagnosticIssue {
-  EosDiagnosticSeverity severity{EosDiagnosticSeverity::kInfo};
-  std::string code{};
-  std::string message{};
+enum class ONEQ_API EosIssuePhase : std::uint8_t {
+  kInputValidation = 0, /**< 输入校验阶段（调用方输入问题） */
+  kExecution = 1,       /**< 管线执行阶段（含关机等运行态条件） */
+  kOutputContract = 2   /**< 输出违反内部契约 */
 };
 
-/** @brief EOS 诊断条目列表。 */
-using EosDiagnosticIssueList = std::vector<EosDiagnosticIssue>;
+/**
+ * @brief EosIssue 描述单周期问题条目（统一问题列表模型，session_contract.md 规则 14）。
+ * @note 承载输入校验问题（phase=kInputValidation）与执行诊断（phase=kExecution/kOutputContract）；
+ *       code 带模块前缀（如 "eos.pipeline_contract_violation"、
+ *       "eos.validation.invalid_target_range"），机器消费只认 code；不用于调用方状态判断。
+ */
+struct ONEQ_API EosIssue {
+  EosIssueSeverity severity{EosIssueSeverity::kInfo};
+  EosIssuePhase phase{EosIssuePhase::kExecution};
+  std::string code{};
+  std::string message{};
+  oneq::foundation::ValidationLocation location{}; /**< 可选定位；kind==kGlobal 表示无定位 */
+  std::string field{}; /**< 可选定位；为空表示无关联字段（跨字段或域级问题） */
+};
+
+/** @brief EOS 问题条目列表。 */
+using EosIssueList = std::vector<EosIssue>;
 
 /**
  * @brief EosPipelineAbortReason 描述核心管线周期终止原因。

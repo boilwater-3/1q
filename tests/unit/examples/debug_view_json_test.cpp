@@ -59,13 +59,12 @@ ar::session::ArTrackOutputDebugView MakeArView() {
   return view;
 }
 
-// 手填一个含目标与诊断的 EOS 调试视图。
+// 手填一个含目标与问题条目的 EOS 调试视图。
 eos::session::EosOutputDebugView MakeEosView() {
   eos::session::EosOutputDebugView view;
   view.input_cycle_index = 1U;
   view.output_cycle_index = 1U;
   view.executed_this_cycle = true;
-  view.has_validation_error = false;
   view.abort_reason = eos::session::EosPipelineAbortReason::kNone;
 
   eos::session::EosDebugTargetState target;
@@ -81,11 +80,13 @@ eos::session::EosOutputDebugView MakeEosView() {
   target.fused_snr_db = 12.0F;
   view.targets.push_back(target);
 
-  eos::session::EosDiagnosticIssue issue;
-  issue.severity = eos::session::EosDiagnosticSeverity::kError;
+  eos::session::EosIssue issue;
+  issue.severity = eos::session::EosIssueSeverity::kError;
+  issue.phase = eos::session::EosIssuePhase::kInputValidation;
   issue.code = "eos.verification";
   issue.message = "synthetic";
-  view.diagnostics.push_back(issue);
+  issue.field = "dt_sec";
+  view.issues.push_back(issue);
   return view;
 }
 
@@ -159,7 +160,7 @@ TEST(DebugViewJsonTest, ArDebugViewToJsonMatchesExpectedJson) {
                   R"("target_name":"tgt-\"A\"","status":"confirmed","present_in_input":true,)"
                   R"("has_track":true,"association_key":9,"position_x":1.5,"position_y":-2.5,)"
                   R"("position_z":0,"speed":300,"rcs":2,"hit_count":4,"miss_count":1,)"
-                  R"("target_type":"threat"}],"diagnostics":[{"severity":"warning",)"
+                  R"("target_type":"threat"}],"issues":[{"severity":"warning",)"
                   R"("code":"ar.impairment","message":"saturated"}]})");
 }
 
@@ -167,11 +168,11 @@ TEST(DebugViewJsonTest, EosDebugViewToJsonMatchesExpectedJson) {
   const std::string json = EosDebugViewToJson(MakeEosView());
   EXPECT_EQ(json,
             R"({"input_cycle_index":1,"output_cycle_index":1,"executed_this_cycle":true,)"
-            R"("has_validation_error":false,"abort_reason":"none","targets":[{"target_id":42,)"
+            R"("abort_reason":"none","targets":[{"target_id":42,)"
             R"("target_name":"consumer-target","status":"detected","present_in_input":true,)"
             R"("has_raw_output_record":true,"detected":true,"range_m":1500,"azimuth_deg":45,)"
-            R"("elevation_deg":30,"fused_snr_db":12}],"diagnostics":[{"severity":"error",)"
-            R"("code":"eos.verification","message":"synthetic"}]})");
+            R"("elevation_deg":30,"fused_snr_db":12}],"issues":[{"severity":"error",)"
+            R"("phase":0,"code":"eos.verification","message":"synthetic","field":"dt_sec"}]})");
 }
 
 TEST(DebugViewJsonTest, SarDebugViewToJsonMatchesExpectedJson) {
@@ -182,7 +183,7 @@ TEST(DebugViewJsonTest, SarDebugViewToJsonMatchesExpectedJson) {
                   R"("has_l3_bp_image":true,"has_focused_pixels":true,"estimated_snr_db":12.5,)"
                   R"("range_sample_count":512,"azimuth_pulse_count":256,"point_targets":)"
                   R"([{"target_id":1,"target_name":"pt-a","radar_cross_section_dbsm":-10}],)"
-                  R"("diagnostics":[]})");
+                  R"("issues":[]})");
 }
 
 TEST(DebugViewJsonTest, SbirsDebugViewToJsonMatchesExpectedJson) {
@@ -198,7 +199,7 @@ TEST(DebugViewJsonTest, SbirsDebugViewToJsonMatchesExpectedJson) {
                   R"("nfov_geometry_gate_passed":true,"nfov_snr_gate_passed":true,)"
                   R"("nfov_tracking_gate_failure_count":3,"nfov_tracking_coasting":true,)"
                   R"("azimuth_deg":45,"elevation_deg":30,"infrared_snr_linear":2,)"
-                  R"("observation_stage":"narrow_field_track"}],"diagnostics":[]})");
+                  R"("observation_stage":"narrow_field_track"}],"issues":[]})");
 }
 
 TEST(DebugViewJsonTest, JsonEscapeHandlesQuotesBackslashesAndControlChars) {

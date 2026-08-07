@@ -33,6 +33,7 @@
 #include "1q/coordinate/types.h"
 #include "1q/coordinate/velocity_transform.h"
 #include "1q/electro_optical_sensor/session/EosExternalInputAdapter.h"
+#include "1q/electro_optical_sensor/session/EosInputValidation.h"
 #include "1q/electronic_surveillance_radar/session/EsrInputValidation.h"
 #include "1q/electromagnetics/RfScene.h"
 #include "1q/fusion/FusedTarget.h"
@@ -261,7 +262,7 @@ void PrintCycleSummary(std::uint32_t cycle, const bl::BehaviorContext& context,
             << " validation_error="
             << ((ar.has_validation_error ||
                  electronic_surveillance_radar::session::HasValidationError(esr.issues) ||
-                 eos.has_validation_error)
+                 electro_optical_sensor::session::HasValidationError(eos.issues))
                     ? "true"
                     : "false")
             << "\n";
@@ -393,7 +394,8 @@ int main(int argc, char* argv[]) {
     if (context.last_ar_result.has_validation_error ||
         electronic_surveillance_radar::session::HasValidationError(
             context.esr_last_result.issues) ||
-        context.eos_last_result.has_validation_error) {
+        electro_optical_sensor::session::HasValidationError(
+            context.eos_last_result.issues)) {
       ++validation_error_count;
     }
 

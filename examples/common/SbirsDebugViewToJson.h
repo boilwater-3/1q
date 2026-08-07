@@ -123,7 +123,7 @@ inline std::string SbirsDebugViewToJson(const sbirs_sensor::session::SbirsOutput
         << ",\"infrared_snr_linear\":" << target.infrared_snr_linear << ",\"observation_stage\":\""
         << SbirsObservationStageName(target.observation_stage) << "\"}";
   }
-  WriteDiagnosticsJson(out, view.diagnostics);
+  WriteIssuesJson(out, view.diagnostics);
   return out.str();
 }
 

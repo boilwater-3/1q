@@ -70,7 +70,7 @@ inline std::string SarDebugViewToJson(const sar::session::SarProductDebugView& v
         << ",\"radar_cross_section_dbsm\":" << view.point_targets[i].radar_cross_section_dbsm
         << '}';
   }
-  WriteDiagnosticsJson(out, view.diagnostics);
+  WriteIssuesJson(out, view.diagnostics);
   return out.str();
 }
 

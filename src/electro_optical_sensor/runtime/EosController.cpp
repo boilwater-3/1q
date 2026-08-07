@@ -48,10 +48,9 @@ struct EosController::Impl {
   signal::pipeline::EosPipeline& pipeline;
   session::EosOutputFrame latest_output{};
   attribution::EosDetectionAttributionRecordList latest_detection_attributions{};
-  session::EosDiagnosticIssueList latest_diagnostics{}; /**< 正常周期按目标排除的 kInfo 诊断（规则 13b）。 */
-  session::ValidationIssueList last_validation_issues{};
+  session::EosIssueList latest_issues{}; /**< 正常周期按目标排除的 kInfo 诊断（规则 13b）。 */
+  session::EosIssueList last_validation_issues{};
   bool has_latest_output{false};
-  bool has_validation_error{false};
   bool last_cycle_executed{false};
   session::EosPipelineAbortReason last_abort_reason{session::EosPipelineAbortReason::kNone};
 };
@@ -78,16 +77,15 @@ void EosController::RunOnce(const ::electro_optical_sensor::session::EosCycleInp
       impl_->pipeline.CaptureRuntimeState();
   impl_->ResetPerCycleFlags();
 
-  const session::ValidationIssueList issues =
+  const session::EosIssueList issues =
       session::ValidateEosCycleInput(input, impl_->pipeline.GetFrameRateHz());
   impl_->last_validation_issues = issues;
-  impl_->has_validation_error = session::HasValidationError(issues);
 
-  if (impl_->has_validation_error) {
+  if (session::HasValidationError(issues)) {
     impl_->last_abort_reason = session::EosPipelineAbortReason::kValidationRejected;
     // 中译：EOS 周期输入校验被拒绝（周期号）。
     // 标识：输入校验失败——本周期不执行、输出为空帧；
-    //       排查输入场景/时间字段等校验问题（详见 ValidationIssueList）。
+    //       排查输入场景/时间字段等校验问题（详见 EosIssueList）。
     PROJECT_LOG_WARN("EOS validation rejected for cycle_index={}", input.cycle_index);
     return;
   }
@@ -133,7 +131,7 @@ void EosController::RunOnce(const ::electro_optical_sensor::session::EosCycleInp
   impl_->latest_output = assembled_frame;
   impl_->latest_detection_attributions = std::move(execute_result.detection_attributions);
   // 规则 13b：正常周期按目标排除的 kInfo 诊断转写（abort 路径不变）。
-  impl_->latest_diagnostics = execute_result.diagnostics;
+  impl_->latest_issues = execute_result.issues;
   impl_->has_latest_output = true;
   impl_->last_cycle_executed = true;
   // 中译：本周期已执行（周期号、探测数）。
@@ -142,11 +140,9 @@ void EosController::RunOnce(const ::electro_optical_sensor::session::EosCycleInp
                     assembled_frame.detections.size());
 }
 
-const session::ValidationIssueList& EosController::GetLastValidationIssues() const {
+const session::EosIssueList& EosController::GetLastValidationIssues() const {
   return impl_->last_validation_issues;
 }
-
-bool EosController::HasValidationError() const { return impl_->has_validation_error; }
 
 bool EosController::ExecutedLatestCycle() const { return impl_->last_cycle_executed; }
 
@@ -154,29 +150,32 @@ session::EosPipelineAbortReason EosController::GetLastDetectionCycleAbortReason(
   return impl_->last_abort_reason;
 }
 
-const session::EosDiagnosticIssueList& EosController::GetLatestDiagnostics() const {
-  return impl_->latest_diagnostics;
+const session::EosIssueList& EosController::GetLatestIssues() const {
+  return impl_->latest_issues;
 }
 
 ::electro_optical_sensor::session::EosCycleResult EosController::BuildCycleResult(
     const ::electro_optical_sensor::session::EosCycleInput& input) const {
   ::electro_optical_sensor::session::EosCycleResult result;
   result.input_cycle_index = input.cycle_index;
-  result.validation_issues = impl_->last_validation_issues;
-  result.has_validation_error = impl_->has_validation_error;
-  result.executed_this_cycle = impl_->last_cycle_executed;
-  result.abort_reason = impl_->last_abort_reason;
+  // 统一问题列表（规则 14）：输入校验问题（phase=kInputValidation）在前，正常执行周期
+  // 按目标排除的 kInfo 诊断（规则 13b）在后；abort 路径诊断由 RecordAbort 追加。
+  session::EosIssueList issues = impl_->last_validation_issues;
   if (impl_->last_cycle_executed && impl_->has_latest_output) {
     result.output_frame = impl_->latest_output;
     result.detection_attributions = impl_->latest_detection_attributions;
-    // 规则 13b：正常执行周期按目标排除的 kInfo 诊断转写进结构化结果（abort 路径不变）。
-    result.diagnostics = impl_->latest_diagnostics;
+    session::EosIssueList execution_issues = impl_->latest_issues;
+    issues.insert(issues.end(), execution_issues.begin(), execution_issues.end());
   }
+  result.issues = std::move(issues);
+  result.executed_this_cycle = impl_->last_cycle_executed;
+  result.abort_reason = impl_->last_abort_reason;
 
-  // 三写：对所有非 kNone 的 abort_reason 写入 diagnostics + 日志
-  if (impl_->last_abort_reason != session::EosPipelineAbortReason::kNone) {
-    const bool is_validation =
-        (impl_->last_abort_reason == session::EosPipelineAbortReason::kValidationRejected);
+  // 三写：对所有非 kNone 且非校验拒绝的 abort_reason 写入 issues + 日志。
+  // 校验拒绝时，校验问题本身就是 error 级诊断（规则 9 写二由它们承载），
+  // 不再重复写入粗粒度条目。
+  if (impl_->last_abort_reason != session::EosPipelineAbortReason::kNone &&
+      impl_->last_abort_reason != session::EosPipelineAbortReason::kValidationRejected) {
     const char* detail_code = "unknown";
     switch (impl_->last_abort_reason) {
       case session::EosPipelineAbortReason::kValidationRejected:
@@ -194,8 +193,7 @@ const session::EosDiagnosticIssueList& EosController::GetLatestDiagnostics() con
       default:
         break;
     }
-    session::RecordAbort(&result, impl_->last_abort_reason, detail_code,
-                         "EOS cycle aborted.", is_validation);
+    session::RecordAbort(&result, impl_->last_abort_reason, detail_code, "EOS cycle aborted.");
   }
 
   // status 由 abort_reason 单一推导（在 RecordAbort 之后，避免其覆盖链造成
@@ -213,7 +211,6 @@ extension::EosControllerRuntimeState EosController::CaptureRuntimeState() const 
   state.latest_detection_attributions = impl_->latest_detection_attributions;
   state.last_validation_issues = impl_->last_validation_issues;
   state.has_latest_output = impl_->has_latest_output;
-  state.has_validation_error = impl_->has_validation_error;
   state.last_cycle_executed = impl_->last_cycle_executed;
   state.last_abort_reason = impl_->last_abort_reason;
   state.pipeline_state = impl_->pipeline.CaptureRuntimeState();
@@ -231,7 +228,6 @@ bool EosController::RestoreRuntimeState(const extension::EosControllerRuntimeSta
   impl_->latest_detection_attributions = state.latest_detection_attributions;
   impl_->last_validation_issues = state.last_validation_issues;
   impl_->has_latest_output = state.has_latest_output;
-  impl_->has_validation_error = state.has_validation_error;
   impl_->last_cycle_executed = state.last_cycle_executed;
   impl_->last_abort_reason = state.last_abort_reason;
   return true;

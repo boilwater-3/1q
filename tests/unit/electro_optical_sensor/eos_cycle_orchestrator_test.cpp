@@ -47,7 +47,7 @@ TEST(EosSessionTest, RunCycleProducesOutputAndPreservesCycleIndex) {
 
   const eos_session::EosCycleResult result = session.StepWithResult(MakeCycleInput(7U, 0.1f));
 
-  EXPECT_FALSE(result.has_validation_error);
+  EXPECT_FALSE(eos_session::HasValidationError(result.issues));
   EXPECT_TRUE(result.executed_this_cycle);
   EXPECT_EQ(result.output_frame.cycle_index, 7U);
 }
@@ -69,7 +69,7 @@ TEST(EosSessionTest, ValidRuntimePatchTakesEffectOnNextStep) {
   // scan_az = -10 + 0.9 = -9.1
   const eos_session::EosCycleResult patched =
       session.StepWithResult(MakeCycleInput(2U, 0.1f));
-  EXPECT_FALSE(patched.has_validation_error);
+  EXPECT_FALSE(eos_session::HasValidationError(patched.issues));
   EXPECT_TRUE(patched.executed_this_cycle);
   EXPECT_NEAR(patched.output_frame.scan_azimuth_deg, -9.1f, 1.0e-6f);
   EXPECT_NE(baseline_scan_azimuth, patched.output_frame.scan_azimuth_deg);
@@ -85,7 +85,7 @@ TEST(EosSessionTest, InvalidRuntimePatchDoesNotChangeUpdateBehavior) {
   // Invalid patch rejected; rate remains 5.0, dt=0.1 → advance=0.5, scan_az = -10 + 0.5 = -9.5
   const eos_session::EosCycleResult result =
       session.StepWithResult(MakeCycleInput(3U, 0.1f));
-  EXPECT_FALSE(result.has_validation_error);
+  EXPECT_FALSE(eos_session::HasValidationError(result.issues));
   EXPECT_TRUE(result.executed_this_cycle);
   EXPECT_NEAR(result.output_frame.scan_azimuth_deg, -9.5f, 1.0e-6f);
 }

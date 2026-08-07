@@ -201,38 +201,27 @@ std::string EncodeEosCycleResult(const ::electro_optical_sensor::session::EosCyc
         fbb, attribution.detection_id, attribution.target_id, target_name));
   }
 
-  std::vector<flatbuffers::Offset<eos::replay::ValidationIssue>> issue_vec;
-  for (const auto& i : v.validation_issues) {
+  std::vector<flatbuffers::Offset<eos::replay::EosIssue>> issue_vec;
+  for (const auto& i : v.issues) {
     const std::size_t encoded_entity_index =
-        i.location.kind == session::ValidationLocationKind::kSceneEntity
+        i.location.kind == oneq::foundation::ValidationLocationKind::kSceneEntity
             ? i.location.entity_index
             : static_cast<std::size_t>(-1);
-    auto field_str = fbb.CreateString(i.field);
+    auto code_str = fbb.CreateString(i.code);
     auto msg = fbb.CreateString(i.message);
-    issue_vec.push_back(eos::replay::CreateValidationIssue(
-        fbb, static_cast<int32_t>(i.severity), static_cast<int32_t>(i.code),
-        static_cast<int32_t>(i.location.kind), static_cast<int32_t>(encoded_entity_index),
-        field_str, msg));
-  }
-
-  std::vector<flatbuffers::Offset<eos::replay::EosDiagnosticIssue>> diag_vec;
-  diag_vec.reserve(v.diagnostics.size());
-  for (const auto& d : v.diagnostics) {
-    auto code_str = fbb.CreateString(d.code);
-    auto msg_str = fbb.CreateString(d.message);
-    diag_vec.push_back(eos::replay::CreateEosDiagnosticIssue(
-        fbb, static_cast<int32_t>(d.severity), code_str, msg_str));
+    auto field_str = fbb.CreateString(i.field);
+    issue_vec.push_back(eos::replay::CreateEosIssue(
+        fbb, static_cast<int32_t>(i.severity), static_cast<int32_t>(i.phase), code_str, msg,
+        static_cast<int32_t>(i.location.kind), static_cast<int64_t>(encoded_entity_index),
+        field_str));
   }
 
   // 向量创建前置：CreateVector 必须在 CreateEosCycleResult 打开之前。
   const auto attr_fb = fbb.CreateVector(attr_vec);
   const auto issue_fb = fbb.CreateVector(issue_vec);
-  const auto diag_fb = fbb.CreateVector(diag_vec);
   auto result = eos::replay::CreateEosCycleResult(
-      fbb, v.input_cycle_index, frame, attr_fb, issue_fb, diag_fb,
-      v.has_validation_error, v.executed_this_cycle,
-      static_cast<int32_t>(v.abort_reason),
-      static_cast<std::uint8_t>(v.status));
+      fbb, v.input_cycle_index, frame, attr_fb, v.executed_this_cycle,
+      static_cast<int32_t>(v.abort_reason), static_cast<std::uint8_t>(v.status), issue_fb);
   fbb.Finish(result);
   return oneq::common::replay::CopyFinishedFlatbuffer(fbb);
 }
@@ -269,45 +258,37 @@ bool DecodeEosCycleResult(const std::string& bytes,
       out->detection_attributions.push_back(record);
     }
   }
-  out->diagnostics.clear();
-  if (fb->diagnostics()) {
-    for (const auto* d : *fb->diagnostics()) {
-      session::EosDiagnosticIssue iss{};
-      iss.severity = static_cast<session::EosDiagnosticSeverity>(d->severity());
-      if (d->code()) {
-        iss.code = d->code()->str();
+  out->issues.clear();
+  if (fb->issues()) {
+    for (const auto* i : *fb->issues()) {
+      session::EosIssue iss{};
+      iss.severity = static_cast<session::EosIssueSeverity>(i->severity());
+      iss.phase = static_cast<session::EosIssuePhase>(i->phase());
+      if (i->code()) {
+        iss.code = i->code()->str();
       }
-      if (d->message()) {
-        iss.message = d->message()->str();
+      if (i->message()) {
+        iss.message = i->message()->str();
       }
-      out->diagnostics.push_back(iss);
-    }
-  }
-  out->has_validation_error = fb->has_validation_error();
-  out->executed_this_cycle = fb->executed_this_cycle();
-  out->abort_reason = static_cast<session::EosPipelineAbortReason>(fb->abort_reason());
-  out->status = static_cast<session::EosCycleStatus>(fb->status());
-  out->validation_issues.clear();
-  if (fb->validation_issues()) {
-    for (const auto* i : *fb->validation_issues()) {
-      session::ValidationIssue iss{};
-      iss.severity = static_cast<session::ValidationSeverity>(i->severity());
-      iss.code = static_cast<session::ValidationCode>(i->code());
-      iss.location.kind = static_cast<session::ValidationLocationKind>(i->location_kind());
-      iss.location.entity_index = static_cast<std::size_t>(i->entity_index());
-      if (i->entity_index() < 0) {
-        iss.location.kind = session::ValidationLocationKind::kGlobal;
+      if (i->entity_index() >= 0 &&
+          i->location_kind() <=
+              static_cast<int32_t>(oneq::foundation::ValidationLocationKind::kSceneEntity)) {
+        iss.location.kind =
+            static_cast<oneq::foundation::ValidationLocationKind>(i->location_kind());
+        iss.location.entity_index = static_cast<std::size_t>(i->entity_index());
+      } else {
+        iss.location.kind = oneq::foundation::ValidationLocationKind::kGlobal;
         iss.location.entity_index = static_cast<std::size_t>(-1);
       }
       if (i->field()) {
         iss.field = i->field()->str();
       }
-      if (i->message()) {
-        iss.message = i->message()->str();
-      }
-      out->validation_issues.push_back(iss);
+      out->issues.push_back(iss);
     }
   }
+  out->executed_this_cycle = fb->executed_this_cycle();
+  out->abort_reason = static_cast<session::EosPipelineAbortReason>(fb->abort_reason());
+  out->status = static_cast<session::EosCycleStatus>(fb->status());
   return true;
 }
 

@@ -378,7 +378,7 @@ TEST(PublicHeadersSmokeTest, EosPublicSurfaceSupportsMinimalUsage) {
   ASSERT_TRUE(
       session::TryMakeEosPoseFromExternalKinematics(eos_pose_input, eos_reference, &eos_pose));
 
-  const session::ValidationIssueList issues = session::ValidateEosCycleInput(input, 30.0f);
+  const session::EosIssueList issues = session::ValidateEosCycleInput(input, 30.0f);
   EXPECT_FALSE(session::HasValidationError(issues));
 
   // 环境 preset 作为唯一公开模型选择入口。

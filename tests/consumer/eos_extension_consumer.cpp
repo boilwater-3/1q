@@ -46,8 +46,8 @@ int main() {
   (void)session.TryApplyRuntimeConfig(patch);
 
   // 5. Validation access
-  const electro_optical_sensor::session::ValidationIssueList& issues =
-      result.validation_issues;
+  const electro_optical_sensor::session::EosIssueList& issues =
+      result.issues;
   (void)issues.size();
 
   // 6. Pipeline result types accessible

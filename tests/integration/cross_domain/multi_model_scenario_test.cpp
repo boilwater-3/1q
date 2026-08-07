@@ -583,7 +583,7 @@ TEST(MultiModelScenarioTest, AirToAirHeadOn) {
 
     auto eos_input = BuildEosInput(ws, dt, cycle);
     auto eos_result = eos_session.StepWithResult(eos_input);
-    EXPECT_FALSE(eos_result.has_validation_error) << "EOS validation error at cycle " << cycle;
+    EXPECT_FALSE(eos_session::HasValidationError(eos_result.issues)) << "EOS validation error at cycle " << cycle;
     for (const auto& det : eos_result.output_frame.detections) {
       if (det.detected) {
         eos_detected_count++;
@@ -774,7 +774,7 @@ TEST(MultiModelScenarioTest, AirToGroundLookDown) {
 
     auto eos_in = BuildEosInput(ws, dt, cycle);
     auto eos_res = eos_sess.StepWithResult(eos_in);
-    EXPECT_FALSE(eos_res.has_validation_error) << "EOS validation error at cycle " << cycle;
+    EXPECT_FALSE(eos_session::HasValidationError(eos_res.issues)) << "EOS validation error at cycle " << cycle;
     for (const auto& det : eos_res.output_frame.detections) {
       if (det.detected) {
         eos_detected_count++;
@@ -967,7 +967,7 @@ TEST(MultiModelScenarioTest, DenseFormationAndJamming) {
 
     auto eos_in = BuildEosInput(ws, dt, cycle);
     auto eos_res = eos_sess.StepWithResult(eos_in);
-    EXPECT_FALSE(eos_res.has_validation_error) << "EOS validation error at cycle " << cycle;
+    EXPECT_FALSE(eos_session::HasValidationError(eos_res.issues)) << "EOS validation error at cycle " << cycle;
     for (const auto& det : eos_res.output_frame.detections) {
       if (det.detected) {
         eos_ir_detected++;
@@ -1138,7 +1138,7 @@ TEST(MultiModelScenarioTest, ZeroDopplerCrossing) {
 
     auto eos_in = BuildEosInput(ws, dt, cycle);
     auto eos_res = eos_sess.StepWithResult(eos_in);
-    EXPECT_FALSE(eos_res.has_validation_error) << "EOS validation error at cycle " << cycle;
+    EXPECT_FALSE(eos_session::HasValidationError(eos_res.issues)) << "EOS validation error at cycle " << cycle;
     for (const auto& det : eos_res.output_frame.detections) {
       if (!eos_first_range_set) {
         eos_range_at_first = det.range_m;
