@@ -28,7 +28,6 @@ struct EsrControllerRuntimeState {
   std::uint32_t schema_version{0U};
   bool has_latest_output{false};
   session::EsrOutputFrame latest_output{};
-  session::EsrIssueList last_validation_issues{};
   std::uint64_t next_batch_id{0U};
   session::EsrCycleExecutionStatus last_cycle_status{
       session::EsrCycleExecutionStatus::kRejected};
@@ -74,10 +73,11 @@ class EsrController {
   const session::EsrOutputFrame& GetLatestInterceptOutputFrame() const;
 
   /**
-   * @brief 获取最近一次输入校验问题。
-   * @return 最近一次输入校验问题列表（phase=kInputValidation）。
+   * @brief 返回最近一次 RunOnce 装配并缓存的单周期聚合结果。
+   * @param[in] input 当前周期输入（仅用于签名一致性，装配已发生在 RunOnce 内）。
+   * @return 最近一次周期的聚合结果。
    */
-  const session::EsrIssueList& GetLastValidationIssues() const;
+  session::EsrCycleResult BuildCycleResult(const session::EsrCycleInput& input) const;
 
   /** @brief 返回最近一次 RunOnce 的周期执行状态。 */
   session::EsrCycleExecutionStatus GetLatestCycleStatus() const;
