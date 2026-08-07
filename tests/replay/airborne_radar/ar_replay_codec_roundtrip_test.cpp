@@ -342,7 +342,16 @@ TEST(ArReplayCodecRoundtripTest, SingleCycleRecordPreservesResultAndState) {
   ASSERT_EQ(decoded.result.submitted_commands.size(), 1U);
   EXPECT_EQ(decoded.result.submitted_commands.front().type, ArCommandType::SET_AGILITY_FREQ);
   ASSERT_EQ(decoded.result.issues.size(), 1U);
-  EXPECT_EQ(decoded.result.issues.front().field, "rcs");
+  // 全字段往返保真（Q-1 审查修复）：phase/severity/code/message/location/field
+  // 任一字段未同步到 schema/codec 时此处立即失败。
+  const ArIssue& decoded_issue = decoded.result.issues.front();
+  EXPECT_EQ(decoded_issue.severity, ArIssueSeverity::kWarning);
+  EXPECT_EQ(decoded_issue.phase, ArIssuePhase::kInputValidation);
+  EXPECT_EQ(decoded_issue.code, "ar.validation.negative_rcs");
+  EXPECT_EQ(decoded_issue.message, "negative rcs");
+  EXPECT_EQ(decoded_issue.location.kind, oneq::foundation::ValidationLocationKind::kSceneEntity);
+  EXPECT_EQ(decoded_issue.location.entity_index, 3U);
+  EXPECT_EQ(decoded_issue.field, "rcs");
   EXPECT_EQ(decoded.result.association_quality_metrics.matched_count, 5U);
   EXPECT_TRUE(decoded.result.has_decision_observation);
   EXPECT_EQ(decoded.result.decision_observation.input_frame.batch_id, 82U);

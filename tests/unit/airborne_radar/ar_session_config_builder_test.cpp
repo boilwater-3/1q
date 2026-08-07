@@ -268,6 +268,9 @@ TEST(RadarSessionConfigValidationTest, ReportsInvalidCommandedBeamwidth) {
   const auto issues = config::ValidateArSessionConfig(session_config);
   ASSERT_EQ(issues.size(), 1U);
   EXPECT_EQ(issues.front().code, "ar.validation.commanded_beamwidth_az_not_positive");
+  // 创建时配置校验问题统一 phase=kInputValidation + severity=kError（规则 14 config 域）。
+  EXPECT_EQ(issues.front().phase, session::ArIssuePhase::kInputValidation);
+  EXPECT_EQ(issues.front().severity, session::ArIssueSeverity::kError);
 }
 
 TEST(RadarSessionConfigValidationTest, RejectsNonFiniteCommandedBeamwidth) {
@@ -302,6 +305,10 @@ TEST(RadarSessionConfigValidationTest, RejectsMissingOrNonFiniteAntennaGeometry)
   ASSERT_EQ(issues.size(), 2U);
   EXPECT_EQ(issues[0].code, "ar.validation.antenna_az_geometry_invalid");
   EXPECT_EQ(issues[1].code, "ar.validation.antenna_el_geometry_invalid");
+  // 多条目场景同样锁定 config 域 phase/severity 不变式（规则 14 config 域）。
+  EXPECT_EQ(issues[0].phase, session::ArIssuePhase::kInputValidation);
+  EXPECT_EQ(issues[1].phase, session::ArIssuePhase::kInputValidation);
+  EXPECT_EQ(issues[0].severity, session::ArIssueSeverity::kError);
 }
 
 TEST(RadarSessionConfigValidationTest, RejectsInvalidTransmitterFrequency) {

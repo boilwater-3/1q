@@ -352,6 +352,8 @@ TEST(ArRfSessionTest, BelowSnrTargetWritesInfoExclusionDiagnostic) {
     if (issue.code == "ar.target_snr_below_threshold") {
       found = true;
       EXPECT_EQ(issue.severity, ArIssueSeverity::kInfo);
+      // 排除诊断属执行阶段（规则 14b phase=kExecution），不得误标为校验问题。
+      EXPECT_EQ(issue.phase, ArIssuePhase::kExecution);
       EXPECT_NE(issue.message.find("target_id=77"), std::string::npos);
     }
   }

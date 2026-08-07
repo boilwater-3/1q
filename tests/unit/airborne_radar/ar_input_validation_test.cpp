@@ -95,7 +95,10 @@ TEST(ArSceneTargetValidationTest, OriginRequiresPositiveRange) {
 
   const ArIssueList issues = ValidateArSceneTargets({target});
   EXPECT_TRUE(HasValidationError(issues));
-  EXPECT_NE(FindIssue(issues, "missing_range_and_cartesian_position"), nullptr);
+  const ArIssue* issue = FindIssue(issues, "missing_range_and_cartesian_position");
+  ASSERT_NE(issue, nullptr);
+  // 输入校验问题统一 phase=kInputValidation（规则 14b；HasValidationError 依赖该判定）。
+  EXPECT_EQ(issue->phase, session::ArIssuePhase::kInputValidation);
 }
 
 TEST(ArSceneTargetValidationTest, PositiveRangeAllowsOrigin) {
@@ -143,6 +146,7 @@ TEST(ArSceneTargetValidationTest, UnknownIdentityIsInformational) {
   const ArIssue* issue = FindIssue(issues, "unknown_external_target_id");
   ASSERT_NE(issue, nullptr);
   EXPECT_EQ(issue->severity, ArIssueSeverity::kInfo);
+  EXPECT_EQ(issue->phase, session::ArIssuePhase::kInputValidation);
   EXPECT_FALSE(HasValidationError(issues));
 }
 
@@ -154,6 +158,7 @@ TEST(ArSceneTargetValidationTest, NegativeRcsIsWarning) {
   const ArIssue* issue = FindIssue(issues, "negative_rcs");
   ASSERT_NE(issue, nullptr);
   EXPECT_EQ(issue->severity, ArIssueSeverity::kWarning);
+  EXPECT_EQ(issue->phase, session::ArIssuePhase::kInputValidation);
   EXPECT_FALSE(HasValidationError(issues));
 }
 
