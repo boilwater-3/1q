@@ -132,6 +132,34 @@ bool LoadSceneData(const char* path, SceneData* scene, std::string* error) {
     target.rcs = t["rcs_m2"].AsDouble();
     target.projected_area_m2 = ReadDouble(t, "projected_area_m2", 0.0);
     target.emitter_center_frequency_hz = ReadDouble(t, "emitter_center_frequency_hz", 0.0);
+    // 变速机动表（可选）：start_cycle 必填且严格递增（乱序语义混乱，直接报错）。
+    const examples::JsonValue& maneuvers = t["maneuvers"];
+    if (!maneuvers.IsNull()) {
+      if (maneuvers.type() != examples::JsonValue::kArray) {
+        *error = "targets[" + std::to_string(i) + "].maneuvers must be an array";
+        return false;
+      }
+      for (std::size_t m = 0U; m < maneuvers.Size(); ++m) {
+        const examples::JsonValue& mv = maneuvers[m];
+        if (mv["start_cycle"].IsNull()) {
+          *error = "targets[" + std::to_string(i) + "].maneuvers[" +
+                   std::to_string(m) + "] missing start_cycle";
+          return false;
+        }
+        TargetManeuver maneuver;
+        maneuver.start_cycle = static_cast<std::uint32_t>(mv["start_cycle"].AsInt());
+        if (maneuver.start_cycle == 0U ||
+            (!target.maneuvers.empty() &&
+             maneuver.start_cycle <= target.maneuvers.back().start_cycle)) {
+          *error = "targets[" + std::to_string(i) + "].maneuvers[" +
+                   std::to_string(m) + "] start_cycle must be > 0 and strictly increasing";
+          return false;
+        }
+        maneuver.v_east_mps = ReadDouble(mv, "v_east_mps", 0.0);
+        maneuver.v_north_mps = ReadDouble(mv, "v_north_mps", 0.0);
+        target.maneuvers.push_back(maneuver);
+      }
+    }
     out.targets.push_back(target);
   }
 

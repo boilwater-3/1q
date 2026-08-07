@@ -314,6 +314,62 @@ TEST(SceneDataTest, InvalidCyclesFails) {
   EXPECT_NE(error.find("cycles"), std::string::npos);
 }
 
+TEST(SceneDataTest, ParsesTargetManeuvers) {
+  const demo::SceneData scene = LoadOk(R"json({
+    "platform": {"origin_lat_deg": 30.0, "origin_lon_deg": 120.0},
+    "targets": [{
+      "id": 1001, "azimuth_deg": 0.0, "range_m": 12000.0, "altitude_m": 400.0,
+      "rcs_m2": 2.2, "v_east_mps": 47.0, "v_north_mps": 5.0,
+      "maneuvers": [
+        {"start_cycle": 200, "v_east_mps": 47.0, "v_north_mps": -30.0},
+        {"start_cycle": 260, "v_north_mps": 0.0}
+      ]
+    }]
+  })json");
+
+  ASSERT_EQ(scene.targets.size(), 1U);
+  ASSERT_EQ(scene.targets[0].maneuvers.size(), 2U);
+  EXPECT_EQ(scene.targets[0].maneuvers[0].start_cycle, 200U);
+  EXPECT_DOUBLE_EQ(scene.targets[0].maneuvers[0].v_east_mps, 47.0);
+  EXPECT_DOUBLE_EQ(scene.targets[0].maneuvers[0].v_north_mps, -30.0);
+  EXPECT_EQ(scene.targets[0].maneuvers[1].start_cycle, 260U);
+  // v_east 缺省 0（机动条目字段级缺省）。
+  EXPECT_DOUBLE_EQ(scene.targets[0].maneuvers[1].v_east_mps, 0.0);
+  EXPECT_DOUBLE_EQ(scene.targets[0].maneuvers[1].v_north_mps, 0.0);
+}
+
+TEST(SceneDataTest, ManeuverMissingStartCycleFails) {
+  ScopedSceneFile file(R"json({
+    "platform": {"origin_lat_deg": 30.0, "origin_lon_deg": 120.0},
+    "targets": [{
+      "id": 1001, "azimuth_deg": 0.0, "range_m": 12000.0, "altitude_m": 400.0,
+      "rcs_m2": 2.2, "maneuvers": [{"v_north_mps": -30.0}]
+    }]
+  })json");
+  demo::SceneData scene;
+  std::string error;
+  EXPECT_FALSE(demo::LoadSceneData(file.path().c_str(), &scene, &error));
+  EXPECT_NE(error.find("start_cycle"), std::string::npos);
+}
+
+TEST(SceneDataTest, ManeuverStartCycleMustIncrease) {
+  ScopedSceneFile file(R"json({
+    "platform": {"origin_lat_deg": 30.0, "origin_lon_deg": 120.0},
+    "targets": [{
+      "id": 1001, "azimuth_deg": 0.0, "range_m": 12000.0, "altitude_m": 400.0,
+      "rcs_m2": 2.2,
+      "maneuvers": [
+        {"start_cycle": 260, "v_north_mps": 0.0},
+        {"start_cycle": 200, "v_north_mps": -30.0}
+      ]
+    }]
+  })json");
+  demo::SceneData scene;
+  std::string error;
+  EXPECT_FALSE(demo::LoadSceneData(file.path().c_str(), &scene, &error));
+  EXPECT_NE(error.find("increasing"), std::string::npos);
+}
+
 TEST(SceneDataTest, MalformedJsonFails) {
   ScopedSceneFile file(R"json({"platform": {"origin_lat_deg": )json");
   demo::SceneData scene;

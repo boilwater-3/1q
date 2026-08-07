@@ -24,6 +24,15 @@
 namespace component_attachment {
 namespace demo {
 
+/// 目标变速机动（场景文件 targets[].maneuvers[] 条目）：分段匀速语义——
+/// 目标在 start_cycle 及之后使用新速度（绝对速度，非增量），直到下一条机动
+/// 生效。供"目标大机动/逃逸"类场景验证 AR 失跟/重捕、SAR 几何破坏等。
+struct TargetManeuver {
+  std::uint32_t start_cycle{0U}; /**< 生效周期（含；相对周期 1 起） */
+  double v_east_mps{0.0};        /**< 该周期起的新东向速度（m/s） */
+  double v_north_mps{0.0};       /**< 该周期起的新北向速度（m/s） */
+};
+
 /// 目标脚本（场景文件 targets[] 条目）：四通道共享同一物理目标
 /// （方位/距离/高度 → ECEF 位置；东/北速度 → ECEF 速度；外观/RCS/辐射源
 /// 中心频率随真值流转到各通道转换函数，转换函数不再按数组下标回查脚本）。
@@ -38,6 +47,7 @@ struct ScriptedTarget {
   double rcs{0.0};                          /**< 雷达截面积（m²；SAR dBsm 换算源） */
   double projected_area_m2{0.0};            /**< 等效投影面积（EOS/SBIRS 外观，m²） */
   double emitter_center_frequency_hz{0.0};  /**< ESR 辐射源中心频率（Hz；≤0 = 该目标不配辐射源） */
+  std::vector<TargetManeuver> maneuvers{};  /**< 变速机动表（可选；start_cycle 严格递增） */
 };
 
 /// ESR 辐射源共享波形参数（场景文件 esr 块；中心频率在目标条目内）。

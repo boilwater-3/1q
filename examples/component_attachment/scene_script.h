@@ -35,6 +35,7 @@ struct TargetEcefState {
   float temperature_k{0.0f};          /**< 等效温度（EOS/SBIRS 外观） */
   float projected_area_m2{0.0f};      /**< 等效投影面积（EOS/SBIRS 外观，m²） */
   double emitter_center_frequency_hz{0.0}; /**< ESR 辐射源中心频率（Hz；≤0 = 不配辐射源） */
+  std::vector<TargetManeuver> maneuvers{}; /**< 变速机动表（从脚本拷贝，推进时按周期查表） */
 };
 
 /// 目标脚本 → ECEF 状态（方位/距离/高度经库内 ENU 偏移函数投影到 ECEF，
@@ -67,8 +68,13 @@ std::vector<sbirs_sensor::session::SbirsSceneTarget> MakeSbirsTargetInputs(
 std::vector<sar::session::SarPointTarget> MakeSarPointTargets(
     const std::vector<TargetEcefState>& states);
 
-/// 目标 ECEF 欧拉推进（消费方世界模型，与 behavior_layer 一致）。
-void AdvanceTargetStates(std::vector<TargetEcefState>& states, double dt_s);
+/// 目标 ECEF 欧拉推进（消费方世界模型，与 behavior_layer 一致）。每周期先
+/// 应用变速机动（maneuvers 中 start_cycle == cycle 的条目生效，分段匀速；
+/// 机动速度为局部 ENU，经 platform_origin 投影回 ECEF，与初始速度投影同源），
+/// 再按当前速度推进。
+void AdvanceTargetStates(std::vector<TargetEcefState>& states, std::uint32_t cycle,
+                         double dt_s,
+                         const oneq::coordinate::LlaPositionDegM& platform_origin);
 
 }  // namespace demo
 }  // namespace component_attachment

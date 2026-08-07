@@ -360,7 +360,7 @@ ESR 波形、天基平台、EOS 扫描、SAR 任务几何/链路、融合配置�
 | --- | --- | --- |
 | `name` / `cycles` / `dt_sec` | 否 | 场景名 / 周期数（400）/ 步长 s（1.0） |
 | `platform` | **是** | `origin_lat_deg`/`origin_lon_deg`（**必填**）、`origin_alt_m`（0）、`initial_heading_deg`（90）、`cruise_altitude_m`（400）、`cruise_speed_mps`（50）、`waypoints[]`（lat/lon 必填，alt/speed 缺省回退巡航参数、radius 500） |
-| `targets[]` | **是**（可为空 = 无目标场景） | `id`/`azimuth_deg`/`range_m`/`altitude_m`/`rcs_m2`（**必填**）、`v_east_mps`/`v_north_mps`（0）、`temperature_k`（0）、`projected_area_m2`（0）、`emitter_center_frequency_hz`（0 = 不配辐射源） |
+| `targets[]` | **是**（可为空 = 无目标场景） | `id`/`azimuth_deg`/`range_m`/`altitude_m`/`rcs_m2`（**必填**）、`v_east_mps`/`v_north_mps`（0）、`temperature_k`（0）、`projected_area_m2`（0）、`emitter_center_frequency_hz`（0 = 不配辐射源）、`maneuvers[]`（可选变速机动表：`start_cycle` 必填且严格递增，`v_east_mps`/`v_north_mps` 缺省 0——**绝对速度分段匀速**，未指定分量 = 0，须写全） |
 | `esr` | 否 | 辐射源波形：`peak_gain_dbi`（30）、`bandwidth_hz`（2e6）、`peak_power_w`（5e7）、`pulse_width_s`（1e-6）、`pri_s`（1e-3）、`pulse_count`（200）、`timing_seed`（42） |
 | `sbirs_satellite` | 否 | `altitude_m`（500000，凝视目标群质心正上方） |
 | `eos_scan` | 否 | EOS 业务覆写：`frame_rate_hz`（10）、`scan_rate_deg_per_sec`（20）、`scan_start_az_deg`（50）、`scan_end_az_deg`（130）、`scan_center_el_deg`（0）、`boresight_depression_deg`（0） |

@@ -205,8 +205,9 @@ int main(int argc, char* argv[]) {
     // 调试视图落盘由各传感器组件在 Step 内直写（取视图 → 人读摘要行 → 集成
     // 端日志；见 components/demo_log.h 的 CA_LOG_VIEW），主程序不再收拢。
 
-    // 消费方世界模型推进（在 Step 之后，与 behavior_layer 周期语义一致）。
-    demo::AdvanceTargetStates(target_states, scene_data.dt_sec);
+    // 消费方世界模型推进（在 Step 之后，与 behavior_layer 周期语义一致；
+    // 周期号用于应用变速机动表）。
+    demo::AdvanceTargetStates(target_states, cycle, scene_data.dt_sec, platform_origin);
   }
 
   demo::FlushIntegrationLog();

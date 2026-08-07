@@ -28,14 +28,20 @@
   高度；
 - **JSON 要点**：改 `targets[].v_east_mps`（负值 = 迎头）、`range_m` 起点放远。
 
-### 3. 目标大机动（转弯逃逸）
+### 3. 目标大机动（逃逸/掉头）
 
-- **通道**：AR（主）+ EOS/SAR；**被测行为**：失跟/重捕生命周期（target_lost →
-  target_confirmed）、EOS 首发现→丢失→重捕、SAR squint 几何被破坏；
-- **要点**：目标在某周期窗内改变 v_north/v_east（如 cycle 200 起转向 90°）——当前
-  场景脚本为常量速度，需要给 `AdvanceTargetStates` 加变速脚本（场景数据扩展点）；
-- **边界检查**：AR 失跟语义（recorder 差分）、SAR squint 门控随视线角变化；
-- **预期亮点**：机动期应出现失跟事件、SAR 成像中断——"预期出现"而非失败。
+- **通道**：AR（主）+ EOS/SAR；**被测行为**：机动下的跟踪保持/生命周期、EOS 观测
+  条件变化、SAR 几何破坏；
+- **要点**：目标 `maneuvers[]` 变速（分段匀速，`start_cycle` + 新速度）；对照组目标
+  不动以区分机动影响；
+- **实测教训（场景 target_maneuver_evasion 归档，2026-08-07）**：**速度跳变不触发
+  AR 失跟**——35/100 m/s 转向与掉头迎头（接近率突变 ~100 m/s）均保持跟踪。AR 失跟
+  需**探测断链**（miss 积累 → kLost）：目标消失（遮蔽）/出距离窗/RCS 突变，而非
+  机动幅度本身。纯机动场景验证的是"跟踪保持 + 观测条件变化"（EOS 探测数下降、
+  方位出视场可观测；SAR 成像判定对 ≤6 km 点目标偏移不敏感）；
+- **边界检查**：AR kLost 语义（boundaries.md）、EOS 视场/扫描扇区、SAR squint 门控；
+- **JSON 要点**：`targets[].maneuvers[]`（绝对速度分段，未指定分量 = 0，须写全；
+  start_cycle 严格递增）。
 
 ### 4. 多目标饱和（N 目标）
 
@@ -52,8 +58,12 @@
   融合空集、决策不下发；
 - **要点**：`targets: []`（加载器允许空数组）；**冒烟下限必须置 0**
   （`smoke.min_* = 0`），否则 ctest 冒烟红；
-- **预期**：EOS/SBIRS/AR 无探测事件、SAR 无产品、fused=0、command 不 issued；
-  库日志不应有非预期 ERROR。
+- **实测教训（场景 no_targets_clean_airspace 归档，2026-08-07）**：空场景的判定
+  核心是"无探测/无融合/无指令"；**SAR 例外——空场景仍产出 1 条成像产品**
+  （cycle 19，SNR=-inf dB）：产品事件 = 孔径成像成功，与点目标存在性解耦，预期表
+  应写 1 而非 0；
+- **预期**：EOS/SBIRS/AR 无探测事件、SAR 视图目标数 0、fused=0、command 不 issued；
+  库日志除 squint 拒绝（按设计拒绝，预期出现）外无其他 ERROR。
 
 ### 6. 天基通道专项（SBIRS）
 

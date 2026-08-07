@@ -44,6 +44,7 @@ std::vector<TargetEcefState> MakeTargetStates(
     state.temperature_k = static_cast<float>(entry.temperature_k);
     state.projected_area_m2 = static_cast<float>(entry.projected_area_m2);
     state.emitter_center_frequency_hz = entry.emitter_center_frequency_hz;
+    state.maneuvers = entry.maneuvers;
     states.push_back(state);
   }
   return states;
@@ -160,8 +161,24 @@ std::vector<sar::session::SarPointTarget> MakeSarPointTargets(
   return targets;
 }
 
-void AdvanceTargetStates(std::vector<TargetEcefState>& states, double dt_s) {
+void AdvanceTargetStates(std::vector<TargetEcefState>& states, std::uint32_t cycle,
+                         double dt_s,
+                         const oneq::coordinate::LlaPositionDegM& platform_origin) {
   for (auto& state : states) {
+    // 变速机动：start_cycle 严格递增（加载器校验），逐条对比取生效条目。
+    for (const auto& maneuver : state.maneuvers) {
+      if (maneuver.start_cycle == cycle) {
+        // 机动速度为局部 ENU（东/北），投影回 ECEF（与 MakeTargetStates
+        // 初始速度投影一致；投影输入合法必然成功，失败时速度留零向量）。
+        oneq::coordinate::EnuVelocityMps enu_velocity;
+        enu_velocity.east_mps = maneuver.v_east_mps;
+        enu_velocity.north_mps = maneuver.v_north_mps;
+        enu_velocity.up_mps = 0.0;
+        oneq::coordinate::TryEnuToEcefVelocity(enu_velocity, platform_origin,
+                                               &state.velocity);
+        break;
+      }
+    }
     state.position.x_m += state.velocity.x_mps * dt_s;
     state.position.y_m += state.velocity.y_mps * dt_s;
     state.position.z_m += state.velocity.z_mps * dt_s;
