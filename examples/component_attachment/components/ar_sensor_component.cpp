@@ -20,6 +20,7 @@
 #include "1q/airborne_radar/session/ArCycleOutputAdapter.h"
 #include "1q/coordinate/position_transform.h"
 #include "core/events.h"
+#include "demo_log.h"
 #include "flight_component.h"
 #include "core/world.h"
 #include "scene_types.h"
@@ -50,6 +51,7 @@ void ArSensorComponent::Step(World& world, double dt_sec) {
   detections_.clear();
 
   if (!powered_on_) {
+    last_debug_view_ = airborne_radar::session::ArTrackOutputDebugView{};  // 关机：调试视图清零（无有效周期）
     return;  // 关机：组件不驱动会话（设备不工作），本周期无探测
   }
 
@@ -72,6 +74,9 @@ void ArSensorComponent::Step(World& world, double dt_sec) {
   input.targets = scene.ar_targets;
 
   const airborne_radar::session::ArCycleResult result = session_.StepWithResult(input);
+  // 规则 12 落盘示范：每周期构建调试视图快照（拒绝周期为 kCycleNotCompleted），
+  // 供调用方序列化为 JSON 写进自己的日志（含规则 13b kInfo 排除诊断）。
+  last_debug_view_ = airborne_radar::session::ArTrackOutputDebugViewBuilder::Build(input.targets, result);
   if (result.status != airborne_radar::session::ArCycleStatus::kCompleted) {
     return;  // 周期被拒绝：本周期无探测
   }
@@ -108,12 +113,19 @@ void ArSensorComponent::Step(World& world, double dt_sec) {
           break;
         }
       }
+      // 事件日志：字符串就地填充（外部集成惯用法——日志宏 + 组件源文件内
+      // 格式化串），背后写 events.csv；事件目标 ID 与事件结构一致。
+      CA_LOG_EVENT(world, "target_confirmed", "target=%llu pos=(%.5f,%.5f)",
+                   static_cast<unsigned long long>(confirmed.target_id),
+                   confirmed.position.latitude_deg, confirmed.position.longitude_deg);
       world.signals().on_target_confirmed(confirmed);
     } else if (event.kind == airborne_radar::session::ArTrackLifecycleEventKind::kLost) {
       TargetLostEvent lost;
       lost.cycle = scene.cycle;
       lost.target_id = event_target_id;
       lost.reason = "track_lost";  // recorder 的 kLost 事件 reason 恒为 kNone
+      CA_LOG_EVENT(world, "target_lost", "target=%llu reason=%s",
+                   static_cast<unsigned long long>(lost.target_id), lost.reason.c_str());
       world.signals().on_target_lost(lost);
     }
   }

@@ -47,12 +47,15 @@ if(_oneq_unit_examples)
         EXTRA_SOURCES "${CMAKE_SOURCE_DIR}/examples/common/json_reader.cpp"
                       # component_attachment 组件实现（ecs_component_runtime_test
                       # 测组件运行时修改接口；sensor_adapt.h 为 header-only）。
+                      # demo_log.cpp：组件源文件内 CA_LOG_EVENT 宏引用 LogEvent
+                      # 符号（单测不初始化 → 未初始化静默跳过路径）。
                       "${CMAKE_SOURCE_DIR}/examples/component_attachment/components/ar_sensor_component.cpp"
                       "${CMAKE_SOURCE_DIR}/examples/component_attachment/components/esr_sensor_component.cpp"
                       "${CMAKE_SOURCE_DIR}/examples/component_attachment/components/eos_sensor_component.cpp"
                       "${CMAKE_SOURCE_DIR}/examples/component_attachment/components/sbirs_sensor_component.cpp"
                       "${CMAKE_SOURCE_DIR}/examples/component_attachment/components/sar_sensor_component.cpp"
-                      "${CMAKE_SOURCE_DIR}/examples/component_attachment/components/flight_component.cpp")
+                      "${CMAKE_SOURCE_DIR}/examples/component_attachment/components/flight_component.cpp"
+                      "${CMAKE_SOURCE_DIR}/examples/component_attachment/components/demo_log.cpp")
     if(ONEQ_ENABLE_FLIGHT_DYNAMIC)
         # 飞行组件 FD 路径（与 examples/component_attachment/CMakeLists.txt 对称）：
         # 静态库不传递依赖，需显式链接 JSBSim；c172x 数据根注入。

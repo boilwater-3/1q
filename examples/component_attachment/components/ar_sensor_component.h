@@ -18,6 +18,7 @@
 #include "1q/airborne_radar/config/ArRuntimeConfigPatch.h"
 #include "1q/airborne_radar/session/ArSession.h"
 #include "1q/airborne_radar/session/ArTrackLifecycleRecorder.h"
+#include "1q/airborne_radar/session/ArTrackOutputDebugView.h"
 #include "1q/fusion/DetectionRecord.h"
 #include "core/component.h"
 
@@ -50,6 +51,19 @@ class ArSensorComponent : public Component {
   bool powered_on() const { return powered_on_; }
 
   /**
+   * @brief 最近周期调试视图快照（规则 12 落盘示范）。
+   *
+   * Step 每周期经 ArTrackOutputDebugViewBuilder::Build 回填（含按目标状态与
+   * 规则 13b kInfo 排除诊断），调用方序列化为 JSON 写入自己的日志/事件系统
+   * （参考 examples/common/ArDebugViewToJson.h）。
+   * @return 最近周期调试视图；关机周期清零（无有效周期），拒绝周期为
+   *         kCycleNotCompleted 快照。
+   */
+  const airborne_radar::session::ArTrackOutputDebugView& LastDebugView() const {
+    return last_debug_view_;
+  }
+
+  /**
    * @brief 运行时修改入口：包装 ArSession::TryApplyRuntimeConfig。
    *
    * AR 为事务性提交：补丁先暂存，下次成功周期边界统一生效（提交失败
@@ -67,6 +81,7 @@ class ArSensorComponent : public Component {
   Entity* host_{nullptr};
   std::vector<fusion::DetectionRecord> detections_{};
   bool powered_on_{true}; /**< 电源状态（由 sensor_enabled 补丁唯一维护；关机时组件不驱动会话） */
+  airborne_radar::session::ArTrackOutputDebugView last_debug_view_{}; /**< 最近周期调试视图快照（规则 12 落盘） */
 };
 
 }  // namespace component_attachment

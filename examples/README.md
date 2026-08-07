@@ -64,7 +64,8 @@ SAR 无 scene 示例；`integration_demo` 展示的是 `SarModule` 包装类（�
   集成方直接 copy 模块序列化器 + 共享原语（可合并为一个文件），字段名与格式可按需调整；
   DebugView 只是内存帧快照，落盘多少由调用方决定，AR/EOS/SBIRS 序列化器另含三种常见
   落盘模式参考（**只落非标称行** / **跨周期状态增量** / **降频落盘**，SAR 为阶段型视图
-  不适用）；
+  不适用）；组件化集成示范见 `component_attachment/`（三通道 `LastDebugView()`：SBIRS
+  全帧 / AR 跨周期增量 / EOS 降频，另以 `issues.csv` 演示规则 14 问题列表的机器消费）；
 - 由顶层 `CMakeLists.txt` 定义 `ONEQ_EXAMPLE_COMMON_DIR` / `ONEQ_EXAMPLE_COMMON_SOURCES`，
   各子目录通过目录作用域继承并内联到 target，无需函数传递。
 

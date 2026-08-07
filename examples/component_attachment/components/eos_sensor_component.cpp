@@ -15,6 +15,7 @@
 #include "1q/electro_optical_sensor/session/EosCycleInputAdapter.h"
 #include "1q/electro_optical_sensor/session/EosCycleResult.h"
 #include "core/events.h"
+#include "demo_log.h"
 #include "flight_component.h"
 #include "core/world.h"
 #include "scene_types.h"
@@ -75,6 +76,7 @@ void EosSensorComponent::Step(World& world, double dt_sec) {
 
   if (!powered_on_) {
     scan_azimuth_deg_ = 0.0f;  // 关机：不驱动会话，角度无有效值（清零）
+    last_debug_view_ = electro_optical_sensor::session::EosOutputDebugView{};  // 关机：调试视图清零（无有效周期）
     return;
   }
 
@@ -101,6 +103,9 @@ void EosSensorComponent::Step(World& world, double dt_sec) {
   const electro_optical_sensor::session::EosCycleResult result = session_.StepWithResult(input);
   // 扫描方位随周期结果刷新：被拒绝周期输出帧为默认空帧 → 0。
   scan_azimuth_deg_ = result.output_frame.scan_azimuth_deg;
+  // 规则 12 落盘示范：每周期构建调试视图快照（拒绝周期为 kCycleNotExecuted），
+  // 供调用方序列化为 JSON 写进自己的日志（含规则 13b kInfo 排除诊断）。
+  last_debug_view_ = electro_optical_sensor::session::EosOutputDebugViewBuilder::Build(input, result);
   if (result.status != electro_optical_sensor::session::EosCycleStatus::kCompleted) {
     return;  // 周期被拒绝：本周期无探测
   }
@@ -132,6 +137,12 @@ void EosSensorComponent::Step(World& world, double dt_sec) {
         }
       }
     }
+    // 事件日志：字符串就地填充（日志宏 + 组件源文件内格式化串）。
+    CA_LOG_EVENT(world, "eos_detection", "kind=%d det=%llu target=%llu snr=%.1fdB az=%.1f",
+                 static_cast<int>(eos_event.kind),
+                 static_cast<unsigned long long>(eos_event.detection_id),
+                 static_cast<unsigned long long>(eos_event.target_id), eos_event.snr_db,
+                 eos_event.az_deg);
     world.signals().on_eos_detection(eos_event);
   }
 

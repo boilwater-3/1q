@@ -146,7 +146,9 @@ AR/ESR/EOS/SBIRS/SAR 五模块的电源状态必须遵守单源原则：
       （header-only、零第三方依赖，集成方可直接 copy 进自己的工程）。
     - AR/EOS/SBIRS 序列化器另含三种常见落盘模式参考实现：只落非标称行、跨周期状态增量
       （状态表由调用方持有）、降频落盘（每 N 周期一次全量，其余周期只落问题列表）；
-      SAR 为阶段型视图，不适用逐目标落盘模式。
+      SAR 为阶段型视图，不适用逐目标落盘模式。组件化集成示范见
+      `examples/component_attachment`（三通道 `LastDebugView()`：SBIRS 全帧 / AR 跨周期
+      增量 / EOS 降频，另以 `issues.csv` 演示规则 14 问题列表的机器消费路径）。
 13. 正常执行周期（`status == kCompleted`）的可观测性：
     a. **周期级执行摘要日志**：正常执行周期应输出周期级 `PROJECT_LOG_INFO` 摘要，格式基线
        `[XxxPipeline] cycle_index={} …`（模块自定附加字段，如扫描方位、检测数/目标数、排除计数），
