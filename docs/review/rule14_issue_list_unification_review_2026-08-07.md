@@ -23,6 +23,20 @@ config 域扩展 → 校验层归属收敛（COMMON-OQ-9 登记→实施→回�
 机器验证：release 增量构建通过；全量 `ctest --preset llvm-ninja-release-local` 通过
 （exit 0）。
 
+> **后续状态（2026-08-07 修复已实施）**：§3 全部高/中优先级项与部分低优先级项已在本分支
+> 后续提交实施（11 commits，全量测试通过）：
+> - DES-1 → `9f81d721`；DES-2/BND-2/DES-7(ESR) → `401f254d`；DES-3(ESR) → `e749fa68`；
+>   DES-3(EOS)/BND-1/DES-7(EOS) → `4d3334a3`；Q-1/Q-2(AR) → `010bd5b9`；
+>   Q-1(ESR) → `989d86b9`；Q-2(EOS) → `29cf7d48`；Q-2(SBIRS) → `8d6b72d5`；
+>   Q-2(SAR) → `9fe56112`；DES-6 → `2a0bd3da`；守卫注释误报 → `fe983bef`。
+> - **实施中额外发现（未在原报告 §2 列表）：ESR/EOS/SAR 三个 replay codec 对非 kSceneEntity
+>   定位（kPlatform 等）解码时降级为 kGlobal**——编码 entity_index 写 -1 哨兵，解码条件
+>   `entity_index >= 0 && kind <= kSceneEntity` 落入 else 分支丢 kind；三个模块校验实际使用
+>   kPlatform 定位，且三个 replay session 的 issue 比较含 location.kind，会误报 divergence。
+>   已随 Q-1 修复（`989d86b9`：kind 独立还原、entity_index 哨兵单独处理；SBIRS 原为正确形态）。
+> - 暂缓项（已确认不纳入）：DES-4（ESR status 缓存 vs EOS 推导统一）、DES-5
+>   （`BuildCycleResult` 未用参数）、RED-1（`HasValidationError` 五处重复实现）。
+
 ## 1. 判定方法
 
 - 五个并行只读审查代理（AR/ESR/EOS/SAR/SBIRS），逐提交核对 `git diff main...HEAD`，
