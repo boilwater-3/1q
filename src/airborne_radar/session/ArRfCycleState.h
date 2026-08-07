@@ -86,12 +86,15 @@ enum class ArCompleteCycleStatus : std::uint8_t {
 struct ArCompleteCycleResult {
   ArCompleteCycleStatus status{ArCompleteCycleStatus::kRejected}; /**< Complete 状态。 */
   std::uint64_t world_cycle_index{0U};                            /**< 结果所属世界周期。 */
+  session::SignalCycleAbortReason abort_reason{
+      session::SignalCycleAbortReason::kNone}; /**< 执行失败时的信号流水线中止原因（透传）。 */
   TrackOutputFrame track_output_frame{};                          /**< 本周期新轨迹帧。 */
   ArInterferenceObservationList interference_observations{}; /**< 仅通过 J/N 门的本机 RF 观测。 */
   ArReceiverImpairment receiver_impairment{ArReceiverImpairment::kNone}; /**< 结构化接收机损伤。 */
   bool has_decision_observation{false};       /**< 是否发布了供外部 N+1 决策消费的观测。 */
   DecisionObservation decision_observation{}; /**< 带 source cycle/batch 的外部决策输入。 */
-  session::ArIssueList issues{}; /**< 正常执行周期按目标排除的 kInfo 诊断（规则 13b）。 */
+  session::ArIssueList issues{}; /**< 正常执行周期按目标排除的 kInfo 诊断（规则 13b）；
+                                      执行失败时承载执行侧校验/中止明细（COMMON-OQ-9）。 */
 };
 
 /** @brief Abandon 阶段状态。 */

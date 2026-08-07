@@ -224,11 +224,15 @@ TEST_F(CoreControllerTest, RuntimeValidationRejectionSkipsCommandSubmission) {
   signal::pipeline::SignalPipeline signal_pipeline;
   extension::ArController controller(radar_context, signal_pipeline, environment_service);
 
-  controller.RunOnce(signal::pipeline::SignalCycleInput{radar_context.GetSceneTargets()});
+  session::ArIssueList validation_issues;
+  controller.RunOnce(signal::pipeline::SignalCycleInput{radar_context.GetSceneTargets()},
+                     &validation_issues);
 
   EXPECT_FALSE(controller.ExecutedLatestCycle());
   EXPECT_EQ(controller.GetLastSignalCycleAbortReason(),
             session::SignalCycleAbortReason::kValidationRejected);
+  // COMMON-OQ-9：拒绝明细经出参直通（控制器独立执行边界的校验明细可观测）。
+  EXPECT_TRUE(session::HasValidationError(validation_issues));
   EXPECT_TRUE(radar_context.SubmittedCommands().empty());
   EXPECT_FALSE(controller.HasLatestTrackOutputFrame());
 }

@@ -129,8 +129,11 @@ class ArController {
    * @brief 执行一次 AR 处理循环。
    * @param[in] cycle_input 本周期输入结构体（捆绑 scene_targets、RF v2 detection 上下文、
    *                         干扰观测与欺骗候选量测）。
+   * @param[out] validation_issues_out 可选输出：本周期输入校验问题（phase=kInputValidation）
+   *              明细；仅校验拒绝路径写入（COMMON-OQ-9，无校验缓存），传 nullptr 不写。
    */
-  void RunOnce(const signal::pipeline::SignalCycleInput& cycle_input);
+  void RunOnce(const signal::pipeline::SignalCycleInput& cycle_input,
+               session::ArIssueList* validation_issues_out = nullptr);
 
   /**
    * @brief 在发射发布前消费上一成功周期的待决策并冻结本周期控制真值。

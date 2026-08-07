@@ -449,7 +449,8 @@ std::string ArController::GetActiveRecognitionDatabaseVersion() const {
   return impl_->recognition_tracker.ActiveDatabaseVersion();
 }
 
-void ArController::RunOnce(const signal::pipeline::SignalCycleInput& cycle_input) {
+void ArController::RunOnce(const signal::pipeline::SignalCycleInput& cycle_input,
+                           session::ArIssueList* validation_issues_out) {
   const bool control_was_prepared = impl_->control_prepared_for_cycle;
   impl_->ResetPerCycleFlags(control_was_prepared);
 
@@ -462,7 +463,7 @@ void ArController::RunOnce(const signal::pipeline::SignalCycleInput& cycle_input
   const oneq::common::runtime::RuntimeCycleStamp stamp =
       oneq::common::runtime::MakeRuntimeCycleStamp(cycle_index, impl_->cycle_state.next_batch_id);
 
-  // 校验
+  // 校验（COMMON-OQ-9：拒绝时明细经出参直通，无校验缓存）
   session::ArIssueList issues = session::ValidateArCycleDeltaTime(cycle_dt_sec);
   {
     const session::ArIssueList target_issues =
@@ -471,6 +472,9 @@ void ArController::RunOnce(const signal::pipeline::SignalCycleInput& cycle_input
   }
 
   if (session::HasValidationError(issues)) {
+    if (validation_issues_out != nullptr) {
+      *validation_issues_out = issues;
+    }
     impl_->last_signal_abort_reason = session::SignalCycleAbortReason::kValidationRejected;
     return;
   }
