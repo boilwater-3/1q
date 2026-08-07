@@ -79,22 +79,6 @@ class EsrController {
    */
   session::EsrCycleResult BuildCycleResult(const session::EsrCycleInput& input) const;
 
-  /** @brief 返回最近一次 RunOnce 的周期执行状态。 */
-  session::EsrCycleExecutionStatus GetLatestCycleStatus() const;
-
-  /**
-   * @brief 获取最近一次正常执行周期的 kInfo 排除诊断（规则 13b）。
-   * @note 仅完成路径（kCompleted）有内容；中止路径诊断由三写经 RecordAbort 写入。
-   * @return 最近一次周期的按发射源排除问题列表。
-   */
-  const session::EsrIssueList& GetLatestIssues() const;
-
-  /**
-   * @brief 最近一次 RunOnce 的周期终止原因。
-   * @return 周期终止原因。
-   */
-  session::EsrPipelineAbortReason GetLastInterceptCycleAbortReason() const;
-
   /**
    * @brief 捕获当前控制器自有运行态快照。
    * @note 流水线累积状态由 session 事务边界独立捕获，不属于控制器快照。

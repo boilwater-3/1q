@@ -166,18 +166,6 @@ session::EsrCycleResult EsrController::BuildCycleResult(const session::EsrCycleI
   return impl_->latest_result;
 }
 
-session::EsrCycleExecutionStatus EsrController::GetLatestCycleStatus() const {
-  return impl_->last_cycle_status;
-}
-
-const session::EsrIssueList& EsrController::GetLatestIssues() const {
-  return impl_->latest_issues;
-}
-
-session::EsrPipelineAbortReason EsrController::GetLastInterceptCycleAbortReason() const {
-  return impl_->last_abort_reason;
-}
-
 environment::IEsrEnvironmentService& EsrController::GetEnvironmentService() {
   return impl_->environment_service;
 }
