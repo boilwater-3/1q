@@ -475,6 +475,10 @@ void ArController::RunOnce(const signal::pipeline::SignalCycleInput& cycle_input
       *validation_issues_out = issues;
     }
     impl_->last_signal_abort_reason = session::SignalCycleAbortReason::kValidationRejected;
+    // 中译：AR 运行期周期输入校验被拒绝（周期号）。
+    // 标识：运行期路径（RunExecutionCycle 入口）校验失败——本周期不执行、输出为空，
+    //       校验明细经出参直通；三写之三由本日志补齐（规则 9c）。
+    PROJECT_LOG_WARN("AR validation rejected for cycle_index={}", stamp.cycle_index);
     return;
   }
 

@@ -166,6 +166,10 @@ struct ArSession::Impl {
     // code 形如 "ar.validation.<snake>"）。校验拒绝路径不再附加粗粒度 abort 条目，
     // 避免 issues 列表中出现重复的 error 级主诊断。
     result.issues = issues;
+    // 中译：AR 周期输入校验被拒绝（周期号）。
+    // 标识：公共路径入口校验失败——本周期不执行、输出为空，abort_reason 为
+    //       kValidationRejected；三写之三由本日志补齐（规则 9c），校验明细见 issues。
+    PROJECT_LOG_WARN("AR validation rejected for cycle_index={}", input.cycle_index);
     return result;
   }
 
@@ -178,7 +182,8 @@ struct ArSession::Impl {
     result.abort_reason = abort_reason;
     const char* detail_code = "unknown";
     switch (abort_reason) {
-      case session::SignalCycleAbortReason::kValidationRejected: detail_code = "input_validation"; break;
+      // 校验拒绝（kValidationRejected）不可经此路径：公共路径与发射后路径均走
+      // BuildValidationErrorResult / BuildPostEmissionValidationErrorResult。
       case session::SignalCycleAbortReason::kSensorPoweredOff: detail_code = "sensor_powered_off"; break;
       case session::SignalCycleAbortReason::kLifecycleUnavailable: detail_code = "lifecycle_unavailable"; break;
       case session::SignalCycleAbortReason::kInvalidEnvironmentCycle: detail_code = "invalid_environment_cycle"; break;
@@ -238,6 +243,10 @@ struct ArSession::Impl {
     result.has_control_profile = true;
     result.control_profile = Controller().GetControlProfile();
     FillAppliedDecisionMetadata(result);
+    // 中译：AR 发射后接收侧校验被拒绝（周期号）。
+    // 标识：发射后执行期校验失败——已发布发射保留在 emission_frame，abort_reason 为
+    //       kValidationRejected；三写之三由本日志补齐（规则 9c），校验明细见 issues。
+    PROJECT_LOG_WARN("AR validation rejected for cycle_index={}", input.cycle_index);
     return result;
   }
 
