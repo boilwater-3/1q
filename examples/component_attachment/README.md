@@ -39,9 +39,11 @@ examples/component_attachment/
 │   ├── demo_log_i18n.h              issue code → 中文名适配表（纯查表零依赖；不翻译/不解析 message，量值走 DebugView 结构化字段；未知 code 回退英文原文）
 │   ├── sensor_utils.h               平台坐标转换（ECEF 解析）
 │   └── scene_types.h                DemoSceneState：共享场景状态（真值注入）
-├── component_attachment_demo.cpp    主程序（装配与编排：实体/会话创建 + 周期循环 + 查询演示 + 冒烟断言）
-├── demo_config.h/.cpp               演示常量 + 五会话配置加载（含 EOS/SAR 业务调参覆写）
-├── scene_script.h/.cpp              世界模型目标真值脚本（目标脚本 → ECEF 状态 → 四通道周期真值 + 推进）
+├── component_attachment_demo.cpp    主程序（装配与编排：场景文件加载 + 实体/会话创建 + 周期循环 + 查询演示 + 冒烟断言）
+├── demo_config.h/.cpp               演示常量 + 五会话配置加载（JSON 基线）
+├── scene_data.h/.cpp                场景描述（scenes/*.json → SceneData + 业务覆写应用）
+├── scene_script.h/.cpp              世界模型目标真值脚本（场景目标脚本 → ECEF 状态 → 四通道周期真值 + 推进）
+├── scenes/                          场景描述文件（JSON 数据驱动；baseline_takeoff_east.json 为基线）
 ├── demo_output.h/.cpp               输出落盘与事件消费（DemoOutputs 平台轨迹 CSV / DecisionListener 事件链）
 ├── CMakeLists.txt
 └── README.md
@@ -275,6 +277,11 @@ SAR 为阶段型摘要行）——日志给人读，结构化持久化由外部�
 
 ## 场景设计：六自由度机动从起飞开始
 
+**场景由场景描述文件驱动**（`scenes/*.json`，见下节）：平台飞行脚本、目标脚本、
+ESR 波形、天基平台、EOS 扫描、SAR 任务几何/链路、融合配置与冒烟下限全部数据化——
+新场景 = 新 JSON 文件 + 重跑，无需改代码；`scene_script` 只保留"目标脚本 → ECEF 状态
+→ 各通道真值"的纯转换。下述基线行为对应 `scenes/baseline_takeoff_east.json`。
+
 `FlightComponent` 的 FD 路径遵循 `examples/flight_dynamic/takeoff_land_csv.cpp`
 的权威用法（**不做空中配平**——空中配平虽允许但存在不稳定问题）：
 
@@ -340,15 +347,44 @@ SAR 为阶段型摘要行）——日志给人读，结构化持久化由外部�
 > 生命周期语义下的自然表现。SAR 的 squint 门控失败周期（起飞/转弯段）不产生
 > 生命周期事件（recorder 对非执行周期静默），属库内契约。
 
+### 场景描述文件（数据驱动）
+
+场景 = 消费方世界模型 + 业务调参的数据化载体，加载见 `scene_data.h/.cpp`
+（`LoadSceneData` + `ApplySceneOverrides`，解析复用 `examples/common/json_reader.h`，
+遵循 config_loader 惯例：缺省字段静默默认、语法错误与必填几何字段缺失报错）。
+**场景文件即配置记录**（git 跟踪），新场景只加 JSON，不改代码。
+
+顶层结构（`scenes/baseline_takeoff_east.json` 为基线样例）：
+
+| 块 | 必填 | 字段（缺省值） |
+| --- | --- | --- |
+| `name` / `cycles` / `dt_sec` | 否 | 场景名 / 周期数（400）/ 步长 s（1.0） |
+| `platform` | **是** | `origin_lat_deg`/`origin_lon_deg`（**必填**）、`origin_alt_m`（0）、`initial_heading_deg`（90）、`cruise_altitude_m`（400）、`cruise_speed_mps`（50）、`waypoints[]`（lat/lon 必填，alt/speed 缺省回退巡航参数、radius 500） |
+| `targets[]` | **是**（可为空 = 无目标场景） | `id`/`azimuth_deg`/`range_m`/`altitude_m`/`rcs_m2`（**必填**）、`v_east_mps`/`v_north_mps`（0）、`temperature_k`（0）、`projected_area_m2`（0）、`emitter_center_frequency_hz`（0 = 不配辐射源） |
+| `esr` | 否 | 辐射源波形：`peak_gain_dbi`（30）、`bandwidth_hz`（2e6）、`peak_power_w`（5e7）、`pulse_width_s`（1e-6）、`pri_s`（1e-3）、`pulse_count`（200）、`timing_seed`（42） |
+| `sbirs_satellite` | 否 | `altitude_m`（500000，凝视目标群质心正上方） |
+| `eos_scan` | 否 | EOS 业务覆写：`frame_rate_hz`（10）、`scan_rate_deg_per_sec`（20）、`scan_start_az_deg`（50）、`scan_end_az_deg`（130）、`scan_center_el_deg`（0）、`boresight_depression_deg`（0） |
+| `sar` | 否 | SAR 任务几何/链路覆写：`peak_power_w`（1e6）、`antenna_gain_db`（40）、`max_squint_deg`（10）、`scene_center_latitude_deg`（30.117…）、`scene_center_longitude_deg`（120.06）、`scene_center_altitude_m`（400）、`slant_range_m`（13000）、`platform_speed_mps`（50） |
+| `fusion` | 否 | `position_radius_m`（1000）、`bearing_beamwidth_deg`（5）、`feature_threshold`（0）、`window_size`（10）、`max_missed_cycles`（5）、`source_weights[]`（空 = 全 1.0） |
+| `high_threat_confidence` | 否 | 决策门限（3.0） |
+| `smoke` | 否 | 冒烟下限：`min_key_events`/`min_sbirs_events`/`min_sar_products`/`min_fused_targets`（全 1；零产出场景显式置 0） |
+
+原 demo_config 内硬编码的 EOS/SAR 业务覆写已迁入场景数据（`eos_scan`/`sar` 块，
+经 `ApplySceneOverrides` 应用）；`kCruiseAltitudeM`/`kCruiseSpeedMps`/
+`kHighThreatConfidence`/`kDtSec` 常量随迁出移除，语义见 SceneData 默认值。
+场景验证工作流（预期事件表/三分类判定/原型库）见仓库 skill `scenario-verify`。
+
 ## 构建与运行
 
 ```bash
 cmake --preset llvm-ninja-release-local -DENABLE_EXAMPLES=ON [-DONEQ_ENABLE_FLIGHT_DYNAMIC=ON]
 cmake --build --preset llvm-ninja-release-local --target component_attachment_demo
-./build/llvm-ninja-release-local/bin/component_attachment_demo [--cycles <n>] [--output-dir <dir>]
+./build/llvm-ninja-release-local/bin/component_attachment_demo [--scene <path>] [--cycles <n>] [--output-dir <dir>]
 ```
 
-- `--cycles <n>`：仿真周期数（默认 400）；
+- `--scene <path>`：场景描述文件（默认 `scenes/baseline_takeoff_east.json`，路径由
+  CMake 注入 `CA_SCENE_DIR`）；场景文件即配置记录，见下节；
+- `--cycles <n>`：仿真周期数（覆盖场景文件，默认场景文件值）；
 - `--output-dir <dir>`：输出目录（日志 + CSV，默认 `examples/component_attachment/log/`
   ——CMake 注入的仓库内绝对路径，运行时产物不入版本控制，见 .gitignore）；
 - 日志模式可在 configure 时用 CMake 变量控制（不传则用默认：视图跨周期增量 +

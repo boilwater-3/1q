@@ -48,6 +48,8 @@ if(_oneq_unit_examples)
         "${CMAKE_SOURCE_DIR}/examples/common/json_reader.cpp")
     if(PROJECT_ENABLE_SPDLOG)
         list(APPEND _oneq_examples_extra
+            "${CMAKE_SOURCE_DIR}/examples/component_attachment/scene_data.cpp"
+            "${CMAKE_SOURCE_DIR}/examples/component_attachment/demo_config.cpp"
             "${CMAKE_SOURCE_DIR}/examples/component_attachment/components/ar_sensor_component.cpp"
             "${CMAKE_SOURCE_DIR}/examples/component_attachment/components/esr_sensor_component.cpp"
             "${CMAKE_SOURCE_DIR}/examples/component_attachment/components/eos_sensor_component.cpp"
@@ -57,7 +59,10 @@ if(_oneq_unit_examples)
             "${CMAKE_SOURCE_DIR}/examples/component_attachment/components/demo_log.cpp")
         set(_oneq_examples_link_libs ${PROJECT_SPDLOG_TARGET})
     else()
-        list(FILTER _oneq_unit_examples EXCLUDE REGEX "ecs_component_runtime_test\\.cpp$")
+        # 示例整体门控（spdlog 非 Windows 依赖）：组件运行时测试与场景数据
+        # 测试随示例一起排除（Windows 上不测试）。
+        list(FILTER _oneq_unit_examples
+             EXCLUDE REGEX "ecs_component_runtime_test\\.cpp$|scene_data_test\\.cpp$")
     endif()
     oneq_add_test_partition(
         TYPE unit DOMAIN examples
@@ -68,6 +73,10 @@ if(_oneq_unit_examples)
                      "${CMAKE_SOURCE_DIR}/examples/component_attachment"
         EXTRA_SOURCES ${_oneq_examples_extra}
         LINK_LIBS ${_oneq_examples_link_libs})
+    # demo_config.cpp（场景覆写应用）需要 examples/configs 路径宏，与
+    # component_attachment demo 目标同源注入。
+    target_compile_definitions(${PROJECT_NAME}_examples_unit_tests PRIVATE
+        SCENE_CONFIG_DIR="${CMAKE_SOURCE_DIR}/examples/configs")
     if(ONEQ_ENABLE_FLIGHT_DYNAMIC)
         # 飞行组件 FD 路径（与 examples/component_attachment/CMakeLists.txt 对称）：
         # 静态库不传递依赖，需显式链接 JSBSim；c172x 数据根注入。

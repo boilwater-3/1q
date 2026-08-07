@@ -16,6 +16,7 @@ endif()
 add_executable(component_attachment_demo
     component_attachment_demo.cpp
     demo_config.cpp
+    scene_data.cpp
     scene_script.cpp
     demo_output.cpp
     components/flight_component.cpp
@@ -39,11 +40,13 @@ target_include_directories(component_attachment_demo PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}"
     "${ONEQ_EXAMPLE_COMMON_DIR}")
 
-# 共享配置 JSON（与 behavior_layer 同源 examples/configs/）+ 默认输出目录
+# 共享配置 JSON（与 behavior_layer 同源 examples/configs/）+ 场景描述目录
+# （scenes/*.json，scene_data.h 的 --scene 默认值）+ 默认输出目录
 # （demo_config.h 的 kDefaultOutputDir：仓库内 examples/component_attachment/log/，
 # 运行时产物不入版本控制，见 .gitignore）。
 target_compile_definitions(component_attachment_demo PRIVATE
     SCENE_CONFIG_DIR="${CMAKE_SOURCE_DIR}/examples/configs"
+    CA_SCENE_DIR="${CMAKE_SOURCE_DIR}/examples/component_attachment/scenes"
     CA_DEFAULT_OUTPUT_DIR="${CMAKE_SOURCE_DIR}/examples/component_attachment/log")
 
 # 集成端日志模式（编译期宏，见 components/demo_log_modes.h）：
