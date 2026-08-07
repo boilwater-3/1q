@@ -18,6 +18,17 @@ bool ContainsCode(const sbirs_sensor::session::SbirsIssueList& issues, const std
   return false;
 }
 
+// 按 code 取条目（Q-2 审查修复：phase/severity 断言辅助）。
+const sbirs_sensor::session::SbirsIssue* FindIssue(
+    const sbirs_sensor::session::SbirsIssueList& issues, const std::string& code) {
+  for (const sbirs_sensor::session::SbirsIssue& issue : issues) {
+    if (issue.code == code) {
+      return &issue;
+    }
+  }
+  return nullptr;
+}
+
 TEST(SbirsSessionConfigBuilderTest, BuildsFourDomainConfiguration) {
   sbirs_sensor::config::SbirsHardwareConfig hardware;
   hardware.optical_aperture_m = 0.7f;
@@ -53,7 +64,13 @@ TEST(SbirsSessionConfigBuilderTest, RejectsInvalidScanRate) {
 
   const sbirs_sensor::session::SbirsIssueList issues =
       sbirs_sensor::config::ValidateSbirsSessionConfig(config);
-  EXPECT_TRUE(ContainsCode(issues, "sbirs.validation.invalid_scan_rate"));
+  // config 域校验问题统一 phase=kInputValidation + severity=kError（规则 14 config 域；
+  // HasValidationError 依赖 phase 判定，防误改时拒绝语义静默翻转）。
+  const sbirs_sensor::session::SbirsIssue* issue =
+      FindIssue(issues, "sbirs.validation.invalid_scan_rate");
+  ASSERT_NE(issue, nullptr);
+  EXPECT_EQ(issue->phase, sbirs_sensor::session::SbirsIssuePhase::kInputValidation);
+  EXPECT_EQ(issue->severity, sbirs_sensor::session::SbirsIssueSeverity::kError);
 }
 
 TEST(SbirsSessionConfigBuilderTest, ValidatesCircularScanContract) {

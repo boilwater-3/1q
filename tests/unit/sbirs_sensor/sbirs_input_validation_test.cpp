@@ -26,6 +26,13 @@ TEST(SbirsInputValidationTest, RejectsMissingSatellitePosition) {
   const sbirs_sensor::session::SbirsIssueList issues =
       sbirs_sensor::session::ValidateSbirsCycleInput(input, 10.0f);
   EXPECT_TRUE(sbirs_sensor::session::HasValidationError(issues));
+  // Q-2 审查修复：error 级校验问题统一 phase=kInputValidation
+  // （HasValidationError 依赖该判定，防误改时拒绝语义静默翻转）。
+  for (const auto& issue : issues) {
+    if (issue.severity == sbirs_sensor::session::SbirsIssueSeverity::kError) {
+      EXPECT_EQ(issue.phase, sbirs_sensor::session::SbirsIssuePhase::kInputValidation);
+    }
+  }
 }
 
 TEST(SbirsInputValidationTest, AcceptsMinimalValidScene) {
@@ -88,6 +95,12 @@ TEST(SbirsInputValidationTest, RejectsFiniteDomainFlagIdAndEnvironmentMatrix) {
     const sbirs_sensor::session::SbirsIssueList issues =
         sbirs_sensor::session::ValidateSbirsCycleInput(invalid_inputs[i], 10.0f);
     EXPECT_TRUE(sbirs_sensor::session::HasValidationError(issues)) << "case " << i;
+    // Q-2 审查修复：error 级校验问题统一 phase=kInputValidation（同 RejectsMissingSatellitePosition）。
+    for (const auto& issue : issues) {
+      if (issue.severity == sbirs_sensor::session::SbirsIssueSeverity::kError) {
+        EXPECT_EQ(issue.phase, sbirs_sensor::session::SbirsIssuePhase::kInputValidation);
+      }
+    }
   }
 }
 
