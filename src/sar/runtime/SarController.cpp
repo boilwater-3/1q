@@ -123,8 +123,7 @@ void SarController::RunOnce(const session::SarCycleInput& input) {
   impl_->Finish(result);
 }
 
-session::SarCycleResult SarController::BuildCycleResult(const session::SarCycleInput& input) const {
-  (void)input;
+session::SarCycleResult SarController::BuildCycleResult() const {
   return impl_->latest_result;
 }
 

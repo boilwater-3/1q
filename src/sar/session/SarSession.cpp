@@ -51,7 +51,7 @@ SarOutputFrame SarSession::Step(const SarCycleInput& input) {
 
 SarCycleResult SarSession::StepWithResult(const SarCycleInput& input) {
   impl_->controller.RunOnce(input);
-  SarCycleResult result = impl_->controller.BuildCycleResult(input);
+  SarCycleResult result = impl_->controller.BuildCycleResult();
   if (impl_->lifecycle_recorder != nullptr) {
     impl_->lifecycle_recorder->Update(result);
   }
