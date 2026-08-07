@@ -231,7 +231,7 @@ TEST(RfInterferencePerformanceTest,
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start).count();
     ASSERT_FALSE(ar_result.has_validation_error);
     ASSERT_EQ(ar_result.status, ar_session::ArCycleStatus::kCompleted);
-    ASSERT_FALSE(esr_result.has_validation_error);
+    ASSERT_FALSE(esr_session::HasValidationError(esr_result.issues));
     ASSERT_EQ(esr_result.status, esr_session::EsrCycleExecutionStatus::kCompleted);
     if (cycle > kWarmupCycles) {
       elapsed_ms.push_back(duration_ms);

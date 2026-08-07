@@ -99,7 +99,7 @@ TEST(EsrTraceSessionAdapterTest, ValidationFailureUsesInputCycleIndex) {
     }
     session::EsrCycleResult result;
     ASSERT_TRUE(session::DecodeEsrCycleResult(event.payload_bytes, &result));
-    if (result.has_validation_error) {
+    if (session::HasValidationError(result.issues)) {
       saw_rejected_output = true;
       EXPECT_TRUE(event.has_cycle_index);
       EXPECT_EQ(event.cycle_index, 77U);

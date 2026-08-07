@@ -31,9 +31,10 @@ TEST(EsrInputValidationTest, AcceptsEmptyRfV2EmissionFrame) {
 TEST(EsrInputValidationTest, RejectsFrameOutsideCycleWindow) {
   EsrCycleInput input = MakeValidInput();
   input.rf_emissions.window_start_time_s += 0.1;
-  const ValidationIssueList issues = ValidateEsrCycleInput(input);
+  const EsrIssueList issues = ValidateEsrCycleInput(input);
   ASSERT_TRUE(HasValidationError(issues));
-  EXPECT_EQ(issues.front().code, ValidationCode::kInvalidRfEmissionFrame);
+  EXPECT_EQ(issues.front().code, "esr.validation.invalid_rf_emission_frame");
+  EXPECT_EQ(issues.front().phase, EsrIssuePhase::kInputValidation);
 }
 
 TEST(EsrInputValidationTest, RejectsMissingReceiverIdentityOrEcefKinematics) {
@@ -50,13 +51,13 @@ TEST(EsrInputValidationTest, RejectsUnlocatablePlatformEcef) {
   input.platform_position_ecef_m.x_m = 0.0;
   input.platform_position_ecef_m.y_m = 0.0;
   input.platform_position_ecef_m.z_m = 0.0;
-  const ValidationIssueList issues = ValidateEsrCycleInput(input);
+  const EsrIssueList issues = ValidateEsrCycleInput(input);
   ASSERT_TRUE(HasValidationError(issues));
   const auto it = std::find_if(
       issues.begin(), issues.end(),
-      [](const ValidationIssue& issue) { return issue.code == ValidationCode::kUnlocatablePlatformEcef; });
+      [](const EsrIssue& issue) { return issue.code == "esr.validation.unlocatable_platform_ecef"; });
   ASSERT_NE(it, issues.end());
-  EXPECT_EQ(it->location.kind, ValidationLocationKind::kPlatform);
+  EXPECT_EQ(it->location.kind, oneq::foundation::ValidationLocationKind::kPlatform);
 }
 
 TEST(EsrInputValidationTest, RejectsNonFiniteWorldTime) {

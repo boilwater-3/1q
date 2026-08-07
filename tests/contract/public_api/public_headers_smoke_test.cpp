@@ -321,7 +321,7 @@ TEST(PublicHeadersSmokeTest, EsrPublicSurfaceSupportsMinimalUsage) {
   input.rf_emissions.window_start_time_s = input.cycle_start_time_s;
   input.rf_emissions.window_duration_s = input.dt_sec;
 
-  const session::ValidationIssueList issues = session::ValidateEsrCycleInput(input);
+  const session::EsrIssueList issues = session::ValidateEsrCycleInput(input);
   EXPECT_FALSE(session::HasValidationError(issues));
 
   auto session = session::EsrSession::Create(session_config);

@@ -28,22 +28,25 @@ struct EsrSession::Impl {
   EsrCycleResult BuildCycleResult(const session::EsrCycleInput& input) const {
     EsrCycleResult result;
     result.input_cycle_index = input.cycle_index;
+    // 统一问题列表（规则 14）：输入校验问题（phase=kInputValidation）在前，正常执行周期
+    // 按发射源排除的 kInfo 诊断（规则 13b）在后；abort 路径诊断由 RecordAbort 追加。
+    EsrIssueList issues = Controller().GetLastValidationIssues();
     if (Controller().GetLatestCycleStatus() == EsrCycleExecutionStatus::kCompleted &&
         Controller().HasLatestInterceptOutputFrame()) {
       result.output_frame = Controller().GetLatestInterceptOutputFrame();
-      // 规则 13b：正常执行周期按发射源排除的 kInfo 诊断转写进结构化结果（abort 路径不变）。
-      result.diagnostics = Controller().GetLatestDiagnostics();
+      EsrIssueList execution_issues = Controller().GetLatestIssues();
+      issues.insert(issues.end(), execution_issues.begin(), execution_issues.end());
     }
-    result.validation_issues = Controller().GetLastValidationIssues();
-    result.has_validation_error = session::HasValidationError(result.validation_issues);
+    result.issues = std::move(issues);
     result.status = Controller().GetLatestCycleStatus();
     result.abort_reason = Controller().GetLastInterceptCycleAbortReason();
 
-    // 三写：对所有非 kNone 的 abort_reason 写入 diagnostics + 日志
-    if (result.abort_reason != session::EsrPipelineAbortReason::kNone) {
+    // 三写：对所有非 kNone 且非校验拒绝的 abort_reason 写入 issues + 日志。
+    // 校验拒绝时，校验问题本身就是 error 级诊断（规则 9 写二由它们承载），
+    // 不再重复写入粗粒度条目。
+    if (result.abort_reason != session::EsrPipelineAbortReason::kNone &&
+        result.abort_reason != session::EsrPipelineAbortReason::kValidationRejected) {
       const EsrCycleExecutionStatus saved_status = result.status;
-      const bool is_validation =
-          (result.abort_reason == session::EsrPipelineAbortReason::kValidationRejected);
       const char* detail_code = "unknown";
       switch (result.abort_reason) {
         case session::EsrPipelineAbortReason::kValidationRejected:
@@ -64,8 +67,7 @@ struct EsrSession::Impl {
         default:
           break;
       }
-      session::RecordAbort(&result, result.abort_reason, detail_code,
-                           "ESR cycle aborted.", is_validation);
+      session::RecordAbort(&result, result.abort_reason, detail_code, "ESR cycle aborted.");
       // powered-off 是合法非执行状态，不是校验错误也不是执行失败
       if (saved_status == EsrCycleExecutionStatus::kPoweredOff) {
         result.status = saved_status;
@@ -106,8 +108,7 @@ struct EsrSession::Impl {
         result.status = EsrCycleExecutionStatus::kRejected;
         session::RecordAbort(&result, session::EsrPipelineAbortReason::kRuntimeStateRestoreRejected,
                              "runtime_state_restore_rejected",
-                             "ESR pipeline/controller state restore failed.",
-                             /*is_validation=*/false);
+                             "ESR pipeline/controller state restore failed.");
         return result;
       }
     }

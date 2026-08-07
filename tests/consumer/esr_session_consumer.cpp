@@ -60,14 +60,14 @@ int main() {
   input.rf_emissions.window_duration_s = input.dt_sec;
 
   // 5. Input validation
-  const esr::session::ValidationIssueList issues = esr::session::ValidateEsrCycleInput(input);
+  const esr::session::EsrIssueList issues = esr::session::ValidateEsrCycleInput(input);
   if (esr::session::HasValidationError(issues)) {
     return 1;
   }
 
   // 6. StepWithResult
   const esr::session::EsrCycleResult result = session.StepWithResult(input);
-  if (result.has_validation_error) {
+  if (esr::session::HasValidationError(result.issues)) {
     return 2;
   }
 
@@ -136,7 +136,7 @@ int main() {
   input_3.cycle_index = 3U;
   input_3.rf_emissions.world_cycle_index = input_3.cycle_index;
   const esr::session::EsrCycleResult result_3 = session.StepWithResult(input_3);
-  if (result_3.has_validation_error) {
+  if (esr::session::HasValidationError(result_3.issues)) {
     return 4;
   }
 

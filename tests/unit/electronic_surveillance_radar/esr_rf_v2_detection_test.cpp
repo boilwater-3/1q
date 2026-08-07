@@ -335,14 +335,14 @@ TEST(EsrRfV2DetectionTest, BelowThresholdEmissionWritesInfoExclusionDiagnostic) 
   input.rf_emissions.emissions.push_back(MakeEmission(7U, 10.0e9, 1.0e-12));
 
   const InterceptDetectionOutput output = RunDetection(input);
-  // 行为中立：低于门限的发射源仍不产出观测记录；排除原因只经 diagnostics 承载（规则 13b/13c）。
+  // 行为中立：低于门限的发射源仍不产出观测记录；排除原因只经 issues 承载（规则 13b/13c）。
   EXPECT_TRUE(output.raw_records.empty());
-  ASSERT_FALSE(output.diagnostics.empty());
+  ASSERT_FALSE(output.issues.empty());
   bool found = false;
-  for (const session::EsrDiagnosticIssue& issue : output.diagnostics) {
+  for (const session::EsrIssue& issue : output.issues) {
     if (issue.code == "esr.emission_below_threshold") {
       found = true;
-      EXPECT_EQ(issue.severity, session::EsrDiagnosticSeverity::kInfo);
+      EXPECT_EQ(issue.severity, session::EsrIssueSeverity::kInfo);
       EXPECT_NE(issue.message.find("emission_id=7"), std::string::npos);
     }
   }
@@ -355,14 +355,14 @@ TEST(EsrRfV2DetectionTest, ZeroPowerEmissionWritesInfoExclusionDiagnostic) {
   input.rf_emissions.emissions.push_back(MakeEmission(8U, 10.0e9, 0.0));
 
   const InterceptDetectionOutput output = RunDetection(input);
-  // 行为中立：零功率发射源不产出观测记录；排除原因只经 diagnostics 承载（规则 13b/13c）。
+  // 行为中立：零功率发射源不产出观测记录；排除原因只经 issues 承载（规则 13b/13c）。
   EXPECT_TRUE(output.raw_records.empty());
-  ASSERT_FALSE(output.diagnostics.empty());
+  ASSERT_FALSE(output.issues.empty());
   bool found = false;
-  for (const session::EsrDiagnosticIssue& issue : output.diagnostics) {
+  for (const session::EsrIssue& issue : output.issues) {
     if (issue.code == "esr.emission_zero_power") {
       found = true;
-      EXPECT_EQ(issue.severity, session::EsrDiagnosticSeverity::kInfo);
+      EXPECT_EQ(issue.severity, session::EsrIssueSeverity::kInfo);
       EXPECT_NE(issue.message.find("emission_id=8"), std::string::npos);
     }
   }
@@ -381,14 +381,14 @@ TEST(EsrRfV2DetectionTest, CoSiteEmissionWritesInfoExclusionDiagnostic) {
   const config::EsrCoSiteIsolationPath co_site_path{20U + 9U, 40.0};
   const InterceptDetectionOutput output = RunDetection(input, 10.0f, 0U, false, false, 120.0f,
                                                        {co_site_path});
-  // 行为中立：同址发射源不产出观测记录；排除原因只经 diagnostics 承载（规则 13b/13c）。
+  // 行为中立：同址发射源不产出观测记录；排除原因只经 issues 承载（规则 13b/13c）。
   EXPECT_TRUE(output.raw_records.empty());
-  ASSERT_FALSE(output.diagnostics.empty());
+  ASSERT_FALSE(output.issues.empty());
   bool found = false;
-  for (const session::EsrDiagnosticIssue& issue : output.diagnostics) {
+  for (const session::EsrIssue& issue : output.issues) {
     if (issue.code == "esr.emission_co_site") {
       found = true;
-      EXPECT_EQ(issue.severity, session::EsrDiagnosticSeverity::kInfo);
+      EXPECT_EQ(issue.severity, session::EsrIssueSeverity::kInfo);
       EXPECT_NE(issue.message.find("emission_id=9"), std::string::npos);
       EXPECT_NE(issue.message.find("co_site=true"), std::string::npos);
     }

@@ -238,7 +238,7 @@ TEST(EsrReplaySessionTest, ReplayEsrTraceContinuesAfterFailureMarker) {
   invalid.dt_sec = -1.0f;
   const EsrCycleResult rejected = session.StepWithResult(invalid);
   ASSERT_EQ(rejected.status, EsrCycleExecutionStatus::kRejected);
-  ASSERT_TRUE(rejected.has_validation_error);
+  ASSERT_TRUE(HasValidationError(rejected.issues));
 
   const EsrCycleResult recovered =
       session.StepWithResult(MakeContinuousInput(2U, 10.0e9, 1.0e6));

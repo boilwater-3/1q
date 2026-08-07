@@ -23,8 +23,7 @@ namespace electronic_surveillance_radar {
 namespace tests {
 namespace {
 
-bool ContainsEsrIssueCode(const std::vector<session::ValidationIssue>& issues,
-                          session::ValidationCode code) {
+bool ContainsEsrIssueCode(const session::EsrIssueList& issues, const std::string& code) {
   for (std::size_t i = 0; i < issues.size(); ++i) {
     if (issues[i].code == code) {
       return true;
@@ -207,11 +206,11 @@ TEST(EsrPublicApiConvenienceTest, InputValidationReportsErrorsForBoundaryCases) 
 
   input.platform_entity_id = 0U;
 
-  const session::ValidationIssueList issues = session::ValidateEsrCycleInput(input);
+  const session::EsrIssueList issues = session::ValidateEsrCycleInput(input);
 
-  EXPECT_TRUE(ContainsEsrIssueCode(issues, session::ValidationCode::kInvalidCycleDeltaTime));
+  EXPECT_TRUE(ContainsEsrIssueCode(issues, "esr.validation.invalid_cycle_delta_time"));
   EXPECT_TRUE(
-      ContainsEsrIssueCode(issues, session::ValidationCode::kNonFinitePlatformNumericField));
+      ContainsEsrIssueCode(issues, "esr.validation.non_finite_platform_numeric_field"));
   EXPECT_TRUE(session::HasValidationError(issues));
 }
 
@@ -325,7 +324,7 @@ TEST(EsrPublicApiConvenienceTest, StepReturnsEmptyFrameOnValidationFailure) {
 
   const session::EsrCycleResult rejected_result = session.StepWithResult(invalid_input);
   EXPECT_EQ(rejected_result.status, session::EsrCycleExecutionStatus::kRejected);
-  EXPECT_TRUE(rejected_result.has_validation_error);
+  EXPECT_TRUE(session::HasValidationError(rejected_result.issues));
 
   // Step() 与 StepWithResult().output_frame 一致：默认空帧，cycle_index 为 0（非 2），无复用。
   const session::EsrOutputFrame step_frame = session.Step(invalid_input);

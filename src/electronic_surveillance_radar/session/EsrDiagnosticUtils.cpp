@@ -26,20 +26,21 @@ const char* AbortReasonToDiagnosticCode(EsrPipelineAbortReason reason) {
 }
 
 void RecordAbort(EsrCycleResult* result, EsrPipelineAbortReason reason,
-                 const char* detail_code, const std::string& message, bool is_validation) {
-  if (is_validation) {
-    result->has_validation_error = true;
-  }
+                 const char* detail_code, const std::string& message) {
   result->abort_reason = reason;
-  result->status = is_validation ? EsrCycleExecutionStatus::kRejected
-                                 : EsrCycleExecutionStatus::kRejected;
+  result->status = EsrCycleExecutionStatus::kRejected;
 
-  // 结构化诊断（细粒度）
-  EsrDiagnosticIssue issue;
-  issue.severity = EsrDiagnosticSeverity::kError;
+  // 结构化诊断（细粒度；统一问题列表模型，规则 14：phase 由中止原因推导）
+  EsrIssue issue;
+  issue.severity = EsrIssueSeverity::kError;
+  issue.phase = (reason == EsrPipelineAbortReason::kValidationRejected)
+                    ? EsrIssuePhase::kInputValidation
+                    : (reason == EsrPipelineAbortReason::kOutputContractViolation)
+                          ? EsrIssuePhase::kOutputContract
+                          : EsrIssuePhase::kExecution;
   issue.code = std::string("esr.") + detail_code;
   issue.message = message;
-  result->diagnostics.push_back(std::move(issue));
+  result->issues.push_back(std::move(issue));
 
   // 中译：ESR 中止记录（原因码 — 细粒度码 — 消息）。
   // 标识：三写之三（人读日志）——标识本周期中止的粗粒度原因与细粒度码，

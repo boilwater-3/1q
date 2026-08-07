@@ -20,12 +20,12 @@ struct EsrController::Impl {
   pipeline::InterceptPipeline& pipeline;
   environment::IEsrEnvironmentService& environment_service;
   oneq::common::runtime::RuntimeCycleState<session::EsrOutputFrame,
-                                          session::ValidationIssueList>
+                                          session::EsrIssueList>
       runtime_state{};
   session::EsrCycleExecutionStatus last_cycle_status{
       session::EsrCycleExecutionStatus::kRejected};
   session::EsrPipelineAbortReason last_abort_reason{session::EsrPipelineAbortReason::kNone};
-  session::EsrDiagnosticIssueList latest_diagnostics{}; /**< 正常周期按发射源排除的 kInfo 诊断（规则 13b）。 */
+  session::EsrIssueList latest_issues{}; /**< 正常周期按发射源排除的 kInfo 诊断（规则 13b）。 */
 };
 
 EsrController::EsrController(pipeline::InterceptPipeline& pipeline,
@@ -40,7 +40,7 @@ void EsrController::RunOnce(const session::EsrCycleInput& input) {
           input.cycle_index, impl_->runtime_state.next_batch_id);
 
   // 校验
-  session::ValidationIssueList issues = session::ValidateEsrCycleInput(input);
+  session::EsrIssueList issues = session::ValidateEsrCycleInput(input);
   impl_->runtime_state.last_validation_issues = issues;
 
   if (session::HasValidationError(issues)) {
@@ -48,7 +48,7 @@ void EsrController::RunOnce(const session::EsrCycleInput& input) {
     impl_->last_abort_reason = session::EsrPipelineAbortReason::kValidationRejected;
     // 中译：ESR 周期输入校验被拒绝（周期号）。
     // 标识：输入校验失败——本周期不执行、输出为空；
-    //       排查输入字段校验问题（详见 ValidationIssueList）。
+    //       排查输入字段校验问题（详见 EsrIssueList）。
     PROJECT_LOG_WARN("ESR validation rejected for cycle_index={}", stamp.cycle_index);
     return;
   }
@@ -88,7 +88,7 @@ void EsrController::RunOnce(const session::EsrCycleInput& input) {
   output_frame.observation_output = std::move(pipeline_result.observation_output);
   output_frame.emitter_output = std::move(pipeline_result.emitter_output);
   // 规则 13b：正常周期按发射源排除的 kInfo 诊断转写（abort 路径不变）。
-  impl_->latest_diagnostics = std::move(pipeline_result.diagnostics);
+  impl_->latest_issues = std::move(pipeline_result.issues);
 
   impl_->runtime_state.latest_output = std::move(output_frame);
   impl_->runtime_state.has_latest_output = true;
@@ -110,7 +110,7 @@ const session::EsrOutputFrame& EsrController::GetLatestInterceptOutputFrame() co
   return impl_->runtime_state.latest_output;
 }
 
-const session::ValidationIssueList& EsrController::GetLastValidationIssues() const {
+const session::EsrIssueList& EsrController::GetLastValidationIssues() const {
   return impl_->runtime_state.last_validation_issues;
 }
 
@@ -118,8 +118,8 @@ session::EsrCycleExecutionStatus EsrController::GetLatestCycleStatus() const {
   return impl_->last_cycle_status;
 }
 
-const session::EsrDiagnosticIssueList& EsrController::GetLatestDiagnostics() const {
-  return impl_->latest_diagnostics;
+const session::EsrIssueList& EsrController::GetLatestIssues() const {
+  return impl_->latest_issues;
 }
 
 session::EsrPipelineAbortReason EsrController::GetLastInterceptCycleAbortReason() const {

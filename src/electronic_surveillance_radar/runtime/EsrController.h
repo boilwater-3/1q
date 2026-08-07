@@ -28,7 +28,7 @@ struct EsrControllerRuntimeState {
   std::uint32_t schema_version{0U};
   bool has_latest_output{false};
   session::EsrOutputFrame latest_output{};
-  session::ValidationIssueList last_validation_issues{};
+  session::EsrIssueList last_validation_issues{};
   std::uint64_t next_batch_id{0U};
   session::EsrCycleExecutionStatus last_cycle_status{
       session::EsrCycleExecutionStatus::kRejected};
@@ -74,10 +74,10 @@ class EsrController {
   const session::EsrOutputFrame& GetLatestInterceptOutputFrame() const;
 
   /**
-   * @brief 获取最近一次输入校验结果。
-   * @return 最近一次输入校验问题列表。
+   * @brief 获取最近一次输入校验问题。
+   * @return 最近一次输入校验问题列表（phase=kInputValidation）。
    */
-  const session::ValidationIssueList& GetLastValidationIssues() const;
+  const session::EsrIssueList& GetLastValidationIssues() const;
 
   /** @brief 返回最近一次 RunOnce 的周期执行状态。 */
   session::EsrCycleExecutionStatus GetLatestCycleStatus() const;
@@ -85,9 +85,9 @@ class EsrController {
   /**
    * @brief 获取最近一次正常执行周期的 kInfo 排除诊断（规则 13b）。
    * @note 仅完成路径（kCompleted）有内容；中止路径诊断由三写经 RecordAbort 写入。
-   * @return 最近一次周期的按发射源排除诊断列表。
+   * @return 最近一次周期的按发射源排除问题列表。
    */
-  const session::EsrDiagnosticIssueList& GetLatestDiagnostics() const;
+  const session::EsrIssueList& GetLatestIssues() const;
 
   /**
    * @brief 最近一次 RunOnce 的周期终止原因。
