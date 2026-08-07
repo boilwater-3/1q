@@ -3,9 +3,10 @@
  * @brief 自定义实体-组件示例：平台轨迹落盘与事件消费侧。
  *
  * DemoOutputs —— 平台轨迹 CSV 周期落盘；DecisionListener —— 高置信威胁事件链
- * 演示（Fusion → decision → command）。集成端日志（integration.log 事件行 +
- * 各组件每周期调试视图人读摘要行）与库日志（1q_library.log）由
- * components/demo_log.h 承担（组件源文件内日志宏 + 视图摘要直写，字符串归属组件）。
+ * 演示（Fusion → decision → command）。集成端日志（integration_events.log 事件行
+ * + integration_views.log 各组件每周期调试视图人读摘要行）与库日志
+ * （1q_library.log）由 components/demo_log.h 承担（组件源文件内日志宏 + 视图
+ * 摘要直写，字符串归属组件）。
  */
 
 #ifndef EXAMPLES_COMPONENT_ATTACHMENT_DEMO_OUTPUT_H_

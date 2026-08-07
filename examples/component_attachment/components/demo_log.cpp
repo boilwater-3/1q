@@ -3,7 +3,8 @@
  * @brief 集成端日志设施实现（见 demo_log.h）。
  *
  * 1. 两个日志模块装配：库内部日志（spdlog 默认 logger → 1q_library.log）与集成
- *    端日志（命名 logger "integration" → stdout + integration.log，中文人读行）；
+ *    端日志（拆两个命名 logger：事件行 → integration_events.log、视图行 →
+ *    integration_views.log，均带 stdout，中文人读行）；
  * 2. 事件模式二（AGGREGATE）：事件按周期聚合，周期边界落一行（类型+次数）；
  * 3. 背后设施为进程级单例（延迟创建；未初始化时 LogEvent / LogViewSummary 静默
  *    跳过——单元测试链接本文件但不调用 InitIntegrationLog，组件宏调用安全无副作用）。
@@ -24,7 +25,8 @@ namespace component_attachment {
 namespace demo {
 namespace {
 
-std::shared_ptr<spdlog::logger> g_integration_logger;  ///< integration.log + stdout（InitIntegrationLog 延迟创建）
+std::shared_ptr<spdlog::logger> g_event_logger;  ///< integration_events.log + stdout（InitIntegrationLog 延迟创建）
+std::shared_ptr<spdlog::logger> g_view_logger;   ///< integration_views.log + stdout（InitIntegrationLog 延迟创建）
 std::size_t g_event_count = 0U;
 std::size_t g_sbirs_count = 0U;
 std::size_t g_sar_count = 0U;
@@ -64,9 +66,9 @@ std::vector<std::pair<std::string, std::size_t>> g_aggregate;  ///< 当前周期
 std::uint64_t g_aggregate_cycle = 0U;                          ///< 聚合中的周期号
 bool g_aggregate_cycle_set = false;
 
-/// 落一行聚合记录（当前周期缓冲 → 人读行，随后清空）。
+/// 落一行聚合记录（当前周期缓冲 → 人读行，随后清空；事件文件）。
 void FlushAggregate() {
-  if (!g_aggregate_cycle_set || g_integration_logger == nullptr) {
+  if (!g_aggregate_cycle_set || g_event_logger == nullptr) {
     return;
   }
   std::string parts;
@@ -79,8 +81,8 @@ void FlushAggregate() {
                                      slot.second);
     total += slot.second;
   }
-  g_integration_logger->info("[事件聚合] 周期={} 事件数={} [{}]", g_aggregate_cycle,
-                             total, parts);
+  g_event_logger->info("[事件聚合] 周期={} 事件数={} [{}]", g_aggregate_cycle,
+                       total, parts);
   g_aggregate.clear();
   g_aggregate_cycle_set = false;
 }
@@ -89,7 +91,7 @@ void FlushAggregate() {
 }  // namespace
 
 void InitIntegrationLog(const std::string& output_dir) {
-  if (g_integration_logger != nullptr) {
+  if (g_event_logger != nullptr) {
     return;  // 幂等
   }
   // 库内部日志：库内 PROJECT_LOG_* 走 spdlog 默认 logger，装配为
@@ -99,20 +101,25 @@ void InitIntegrationLog(const std::string& output_dir) {
   spdlog::set_default_logger(
       std::make_shared<spdlog::logger>("", library_sink));
 
-  // 集成端日志：命名 logger "integration"（stdout + integration.log）。
-  // pattern 仅为消息体（%v）：事件行为 "[事件:type] ..."、视图行为
-  // "[视图:module] ..."，全部为中文人读文本（日志给人读，不做结构化落盘）。
-  auto integration_sink = std::make_shared<spdlog::sinks::basic_file_sink_mt>(
-      output_dir + "/integration.log", /*truncate=*/true);
+  // 集成端日志拆两个命名 logger（stdout + 文件，pattern 仅为消息体）：
+  // 事件行（[事件:...] / [事件聚合]）→ integration_events.log；视图行
+  // （[视图:...]）→ integration_views.log。全部为中文人读文本。
+  auto event_sink = std::make_shared<spdlog::sinks::basic_file_sink_mt>(
+      output_dir + "/integration_events.log", /*truncate=*/true);
+  auto view_sink = std::make_shared<spdlog::sinks::basic_file_sink_mt>(
+      output_dir + "/integration_views.log", /*truncate=*/true);
   auto console_sink = std::make_shared<spdlog::sinks::stdout_sink_mt>();
-  g_integration_logger = std::make_shared<spdlog::logger>(
-      "integration", spdlog::sinks_init_list{console_sink, integration_sink});
-  g_integration_logger->set_pattern("%v");
+  g_event_logger = std::make_shared<spdlog::logger>(
+      "integration_events", spdlog::sinks_init_list{console_sink, event_sink});
+  g_event_logger->set_pattern("%v");
+  g_view_logger = std::make_shared<spdlog::logger>(
+      "integration_views", spdlog::sinks_init_list{console_sink, view_sink});
+  g_view_logger->set_pattern("%v");
 }
 
 void LogEvent(std::uint64_t cycle, double t_sec, const char* type,
               const std::string& detail) {
-  if (g_integration_logger == nullptr) {
+  if (g_event_logger == nullptr) {
     return;  // 未初始化（单元测试）：静默跳过
   }
   ++g_event_count;
@@ -139,13 +146,13 @@ void LogEvent(std::uint64_t cycle, double t_sec, const char* type,
 #else
   // 事件行自含周期/时间戳（时序随行内嵌，不依赖日志文件级时间戳）；detail 为
   // 组件源文件就地的中文文本（事件字符串归属组件，此处仅做组装）。
-  g_integration_logger->info("[事件:{}] 周期={} 时间={:.2f}s {}", type, cycle,
-                             t_sec, detail);
+  g_event_logger->info("[事件:{}] 周期={} 时间={:.2f}s {}", type, cycle,
+                       t_sec, detail);
 #endif  // CA_EVENT_LOG_MODE_AGGREGATE
 }
 
 void LogViewSummary(const char* module, const std::string& text) {
-  if (g_integration_logger == nullptr) {
+  if (g_view_logger == nullptr) {
     return;  // 未初始化（单元测试）：静默跳过
   }
   if (std::strcmp(module, "ar") == 0) {
@@ -157,15 +164,18 @@ void LogViewSummary(const char* module, const std::string& text) {
   } else if (std::strcmp(module, "sar") == 0) {
     ++g_sar_view_count;
   }
-  g_integration_logger->info("[视图:{}] {}", module, text);  // 中文人读摘要行
+  g_view_logger->info("[视图:{}] {}", module, text);  // 中文人读摘要行
 }
 
 void FlushIntegrationLog() {
 #if defined(CA_EVENT_LOG_MODE_AGGREGATE)
   FlushAggregate();  // 会话结束：落最后一周期聚合行
 #endif
-  if (g_integration_logger != nullptr) {
-    g_integration_logger->flush();
+  if (g_event_logger != nullptr) {
+    g_event_logger->flush();
+  }
+  if (g_view_logger != nullptr) {
+    g_view_logger->flush();
   }
   if (spdlog::default_logger_raw() != nullptr) {
     spdlog::default_logger_raw()->flush();

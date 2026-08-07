@@ -65,10 +65,10 @@ SAR 无 scene 示例；`integration_demo` 展示的是 `SarModule` 包装类（�
 > 移除：示例日志面向人读，不做结构化落盘；`session_contract.md` 规则 12 的"调用方
 > 结构化持久化 DebugView"由外部集成方接入自己的日志/事件系统实现，结构化格式与
 > 字段布局由调用方自定（参考 `*OutputDebugView` 字段集合直接转写）。组件化集成
-> 示范见 `component_attachment/`（两个日志模块：库内部日志 → `1q_library.log`、
-> 集成端日志 → `integration.log`——中文人读行，各传感器组件每周期取
-> `LastDebugView()` 直写视图行，事件行同源落盘；落盘密度三模式由 `demo_log_modes.h`
-> 模式选择区宏门控）。
+> 示范见 `component_attachment/`（三个日志文件：库内部日志 → `1q_library.log`、
+> 集成端事件行 → `integration_events.log`、视图行 → `integration_views.log`——
+> 中文人读行，各传感器组件每周期取 `LastDebugView()` 直写视图行，事件行同源
+> 落盘；落盘密度三模式由 `demo_log_modes.h` 模式选择区宏门控）。
 
 ## 构建与运行
 

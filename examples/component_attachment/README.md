@@ -34,8 +34,8 @@ examples/component_attachment/
 │   ├── sbirs_sensor_component.h/.cpp SbirsSensorComponent：天基红外会话（第 4 融合通道）
 │   ├── sar_sensor_component.h/.cpp  SarSensorComponent：合成孔径雷达产品（不入融合）
 │   ├── fusion_component.h/.cpp      FusionComponent：多源融合引擎
-│   ├── demo_log.h/.cpp              集成端日志设施（两个日志模块之一：CA_LOG_EVENT / CA_LOG_EVENT_DUP / CA_LOG_VIEW 宏 → spdlog 命名 logger → integration.log；并装配库日志 1q_library.log）
-│   ├── demo_log_modes.h             日志模式选择区（纯宏定义：视图/事件各三模式，宏门控不参与编译）
+│   ├── demo_log.h/.cpp              集成端日志设施（CA_LOG_EVENT / CA_LOG_EVENT_DUP / CA_LOG_VIEW 宏 → 事件/视图两个命名 logger → integration_events.log / integration_views.log；并装配库日志 1q_library.log）
+│   ├── demo_log_modes.h             日志模式选择区（纯宏定义：视图/事件各三模式，宏门控不参与编译；默认跨周期增量+只记关键，可由 CMake 变量覆盖）
 │   ├── sensor_utils.h               平台坐标转换（ECEF 解析）
 │   └── scene_types.h                DemoSceneState：共享场景状态（真值注入）
 ├── component_attachment_demo.cpp    主程序（装配与编排：实体/会话创建 + 周期循环 + 查询演示 + 冒烟断言）
@@ -123,7 +123,7 @@ boost::signals2::scoped_connection conn =
 | 模块 | 后端 | 输出文件 |
 | --- | --- | --- |
 | **库内部日志** | 库内 `PROJECT_LOG_*` 宏 → spdlog 默认 logger（`InitIntegrationLog` 装配为文件 sink） | `1q_library.log`（时间戳 + 级别 + 消息） |
-| **集成端日志** | spdlog 命名 logger `"integration"`（stdout + 文件，pattern 仅为消息体） | `integration.log`（中文人读事件行 + 各组件每周期调试视图行） |
+| **集成端日志** | spdlog 命名 logger `"integration_events"` / `"integration_views"`（均带 stdout，pattern 仅为消息体） | `integration_events.log`（事件行）+ `integration_views.log`（各组件每周期调试视图行） |
 
 集成端日志的字符串**归属组件源文件**（事件产生处），通过日志宏就地填充——
 外部集成的典型形态（宏背后接消费方自己的日志/落盘设施；本示例直接使用
@@ -141,7 +141,7 @@ world.signals().on_target_confirmed(confirmed);
 
 `CA_LOG_EVENT(world, type, ...)` 的 cycle/t_sec 取自共享场景状态（与事件字段
 同源），背后设施把事件行（`[事件:type] 周期=... 时间=...s 中文详情`）写入
-`integration.log` 并打印控制台，另维护事件计数（摘要/冒烟断言用）。事件宏分两类：
+`integration_events.log` 并打印控制台，另维护事件计数（摘要/冒烟断言用）。事件宏分两类：
 `CA_LOG_EVENT`（关键事件：确认/丢失/首发现/产出/失败/航点/指令等）与
 `CA_LOG_EVENT_DUP`（周期性重复事件：每周期平台状态、`kUpdated`/`kProductSustained`
 更新类、辐射源假设、融合更新——仅在事件模式一（KEY）下不落盘，信号照常发布）。
@@ -149,25 +149,29 @@ world.signals().on_target_confirmed(confirmed);
 （no-op）。
 
 **调试视图落盘在组件内直写**（规则 12）：各传感器组件（AR/EOS/SBIRS/SAR）的
-`Step` 在构建 `LastDebugView()` 后直写中文人读行到集成端日志——日志给人读，
-示例不做结构化落盘：`session_contract.md` 规则 12 的"调用方结构化持久化
+`Step` 在构建 `LastDebugView()` 后直写中文人读行到集成端视图日志
+（`integration_views.log`）——日志给人读，示例不做结构化落盘：`session_contract.md` 规则 12 的"调用方结构化持久化
 DebugView"由外部集成方接入自己的日志/事件系统实现，结构化格式与字段布局由
 调用方自定（参考 `*OutputDebugView` 字段集合直接转写）。
 
 **日志三模式（宏门控，编译期）**：DebugView 每周期都会产生，落盘多少、怎么落
 由集成方决定——`components/demo_log_modes.h` 顶部"模式选择区"示范三种常见写入方式，
-未选中的模式**不参与编译**；调试时取消注释对应宏（每次只启用一个视图模式 +
-一个事件模式）重新编译，即可分别验证三种写入方式（冒烟断言按默认模式设计，
-切换模式后计数会变）：
+未选中的模式**不参与编译**。模式选择有两条途径（互斥）：
+1. **CMake 构建时控制**（推荐，无需改源码）：`-DCA_VIEW_LOG_MODE=summary|nonnominal|delta`
+   `-DCA_EVENT_LOG_MODE=all|key|aggregate`（不传则用源码默认；非法值 FATAL_ERROR）；
+2. **源码调试时**：改 `demo_log_modes.h` 里的注释（每次只启用一个视图模式 +
+   一个事件模式）重新编译。
 
-| 模式 | 宏（默认注释状态） | 行为 |
+默认模式：**视图模式二（跨周期增量）+ 事件模式一（只记关键事件）**：
+
+| 模式 | 宏 | 行为 |
 | --- | --- | --- |
-| 视图模式一（只落非标称行） | `CA_VIEW_LOG_MODE_NONNOMINAL`（关） | 每周期只把非标称目标（AR 非 `kConfirmed`；EOS/SBIRS 非 `kDetected`）逐行写日志，全标称时写一行"全部正常"；日志量 ∝ 异常数 |
-| 视图模式二（跨周期状态增量） | `CA_VIEW_LOG_MODE_DELTA`（关） | 只写状态与上一周期不同的目标行（上一周期状态表由组件持有）；无变化时写一行"无状态变化" |
-| 视图模式三（每周期摘要行，**默认**） | `CA_VIEW_LOG_MODE_SUMMARY`（开） | 每周期一行中文摘要（周期/完成与否/目标状态明细/问题 code 列表），日志量恒定 |
-| 事件模式一（只记关键事件） | `CA_EVENT_LOG_MODE_KEY`（关） | `CA_LOG_EVENT` 逐条落盘，`CA_LOG_EVENT_DUP`（周期性重复事件）不落盘 |
-| 事件模式二（周期聚合） | `CA_EVENT_LOG_MODE_AGGREGATE`（关） | 每周期把全部事件聚合为一行（`[事件聚合] 周期=N 事件数=M [中文名×次数, ...]`） |
-| 事件模式三（逐条全量，**默认**） | `CA_EVENT_LOG_MODE_ALL`（开） | 事件逐条落盘 |
+| 视图模式一（只落非标称行） | `CA_VIEW_LOG_MODE_NONNOMINAL` | 每周期只把非标称目标（AR 非 `kConfirmed`；EOS/SBIRS 非 `kDetected`）逐行写日志，全标称时写一行"全部正常"；日志量 ∝ 异常数 |
+| 视图模式二（跨周期状态增量，**默认**） | `CA_VIEW_LOG_MODE_DELTA` | 只写状态与上一周期不同的目标行（上一周期状态表由组件持有）；无变化时写一行"无状态变化"；日志量 ∝ 变化数 |
+| 视图模式三（每周期摘要行） | `CA_VIEW_LOG_MODE_SUMMARY` | 每周期一行中文摘要（周期/完成与否/目标状态明细/问题 code 列表），日志量恒定 |
+| 事件模式一（只记关键事件，**默认**） | `CA_EVENT_LOG_MODE_KEY` | `CA_LOG_EVENT` 逐条落盘，`CA_LOG_EVENT_DUP`（周期性重复事件）不落盘 |
+| 事件模式二（周期聚合） | `CA_EVENT_LOG_MODE_AGGREGATE` | 每周期把全部事件聚合为一行（`[事件聚合] 周期=N 事件数=M [中文名×次数, ...]`） |
+| 事件模式三（逐条全量） | `CA_EVENT_LOG_MODE_ALL` | 事件逐条落盘 |
 
 SAR 为**阶段型视图**（无逐目标状态），不适用目标级三模式落盘，只实现每周期
 摘要行（执行状态/完成阶段/L1/L3 成像标志/SNR/点目标数/问题列表）。
@@ -231,7 +235,7 @@ patch 只改会话配置）。
 `const *OutputDebugView& LastDebugView()`——最近周期调试视图快照（规则 12 落盘示范：
 per-target 状态 + 规则 13b kInfo 排除诊断；关机周期清零，拒绝周期为
 `kCycleNotCompleted`/`kCycleNotExecuted` 快照）。组件在 `Step` 内取该视图
-直写中文人读行到集成端日志 `integration.log`（每周期一行，如
+直写中文人读行到集成端视图日志 `integration_views.log`（每周期一行，如
 `[视图:ar] 周期=5 完成=是 目标=[1001 已确认] 问题=[ar.track_not_confirmed]`；
 SAR 为阶段型摘要行）——日志给人读，结构化持久化由外部集成方接入自己的
 日志/事件系统实现（示例不内置 JSON 序列化器）。落盘密度（三模式）由
@@ -265,7 +269,7 @@ SAR 为阶段型摘要行）——日志给人读，结构化持久化由外部�
                   → 发布 FusionUpdatedEvent
   订阅者（demo 侧）：
     DecisionListener → 置信度 ≥ 3.0 → 发布 CommandIssuedEvent（事件链）
-    组件宏（CA_LOG_EVENT / CA_LOG_VIEW）→ 事件与视图摘要就地记录 → integration.log（人读行）
+    组件宏（CA_LOG_EVENT / CA_LOG_VIEW）→ 事件与视图摘要就地记录 → integration_events.log / integration_views.log（人读行）
 ```
 
 ## 场景设计：六自由度机动从起飞开始
@@ -340,7 +344,14 @@ cmake --build --preset llvm-ninja-release-local --target component_attachment_de
 ```
 
 - `--cycles <n>`：仿真周期数（默认 400）；
-- `--output-dir <dir>`：输出目录（日志 + CSV，默认 `/tmp/component_attachment_viz`）；
+- `--output-dir <dir>`：输出目录（日志 + CSV，默认 `examples/component_attachment/log/`
+  ——CMake 注入的仓库内绝对路径，运行时产物不入版本控制，见 .gitignore）；
+- 日志模式可在 configure 时用 CMake 变量控制（不传则用默认：视图跨周期增量 +
+  事件只记关键）：
+  ```bash
+  cmake --preset llvm-ninja-release-local -DENABLE_EXAMPLES=ON \
+      -DCA_VIEW_LOG_MODE=summary -DCA_EVENT_LOG_MODE=aggregate
+  ```
 - FD 开启时输出 `FlightComponent` 的六自由度机动日志（JSBSim），关闭/失败时
   打印回退告警并走运动学路径。
 - 本示例依赖 spdlog（conanfile 非 Windows 依赖），Windows 构建不纳入
@@ -350,7 +361,8 @@ cmake --build --preset llvm-ninja-release-local --target component_attachment_de
 
 | 文件 | 内容 | 说明 |
 | --- | --- | --- |
-| `integration.log` | 每行一条人读记录 | **集成端日志**（spdlog 命名 logger `"integration"`）：事件行 `[事件:type] 周期=... 时间=...s 中文详情`（10 类事件，字符串归属组件源文件，`CA_LOG_EVENT` / `CA_LOG_EVENT_DUP` 宏）与 AR/EOS/SBIRS/SAR 四组件每周期调试视图行 `[视图:module] 中文摘要`（`CA_LOG_VIEW` 宏；日志给人读，落盘密度三模式由宏门控，见"事件日志与调试视图落盘"节） |
+| `integration_events.log` | 每行一条人读记录 | **集成端事件日志**（spdlog 命名 logger `"integration_events"`）：事件行 `[事件:type] 周期=... 时间=...s 中文详情`（10 类事件，字符串归属组件源文件，`CA_LOG_EVENT` / `CA_LOG_EVENT_DUP` 宏；事件模式二为 `[事件聚合]` 行） |
+| `integration_views.log` | 每行一条人读记录 | **集成端视图日志**（spdlog 命名 logger `"integration_views"`）：AR/EOS/SBIRS/SAR 四组件每周期调试视图行 `[视图:module] 中文摘要`（`CA_LOG_VIEW` 宏；日志给人读，落盘密度三模式由宏门控，见"事件日志与调试视图落盘"节） |
 | `1q_library.log` | 人读日志行 | **库内部日志**：库内 `PROJECT_LOG_*` 宏 → spdlog 默认 logger（时间戳 + 级别 + 消息），`InitIntegrationLog` 装配 |
 | `platform_track.csv` | cycle,t_sec,lat_deg,lon_deg,alt_m,heading_deg,speed_mps,wp_index | 平台轨迹（每周期一行；FD 模式含起飞爬升段） |
 
@@ -386,8 +398,8 @@ JSON）与同一套探测适配逻辑（`sensor_adapt.h` 与行为层 `systems.c
   扫描方位、AR/EOS/SBIRS/SAR 四通道 `LastDebugView()` 逐目标/阶段型状态与
   13b kInfo 排除诊断、关机清零、SBIRS 关机冻结相位）；
 - ctest `examples::component_attachment_demo`：demo 冒烟（400 周期 + 日志/CSV
-  落盘 + 最小产出断言：事件数 ≥ 周期数、SBIRS 探测事件 ≥ 1、SAR 产品事件 ≥ 1、
-  融合目标 ≥ 1、平台轨迹行数 = 周期数、AR/EOS/SBIRS/SAR 视图行数各 = 周期数
-  （组件每周期直写 integration.log））。**冒烟断言按默认日志模式（视图模式三 +
-  事件模式三逐条全量）设计**：切换 `demo_log_modes.h` 模式选择区宏调试时计数会变，
-  需同步调整断言。
+  落盘 + 最小产出断言：关键事件 ≥ 1、SBIRS 关键探测事件 ≥ 1、SAR 关键产品事件
+  ≥ 1、融合目标 ≥ 1、平台轨迹行数 = 周期数、视图行数每周期 ≥ 1 行（AR/EOS/
+  SBIRS 为 ≥ 周期数——默认跨周期增量模式下状态变化周期会写多行；SAR 阶段型
+  摘要恒每周期一行 == 周期数））。**断言与日志模式无关**：任意视图/事件模式
+  组合（含 CMake `-DCA_*_LOG_MODE=...` 切换）下冒烟均成立。

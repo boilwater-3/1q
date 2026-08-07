@@ -6,10 +6,10 @@
  * 日志模块：
  * 1. 库内部日志：库内 PROJECT_LOG_* 走 spdlog 默认 logger；本设施把默认 logger
  *    装配为文件 sink（1q_library.log，时间戳 + 级别 + 消息），宿主拥有生命周期；
- * 2. 集成端日志：命名 logger "integration"（stdout + integration.log，pattern 仅
- *    消息体），承载事件行（"[事件:type] 周期=... 时间=... 中文详情"）与各组件每
- *    周期调试视图行（"[视图:module] 中文摘要"）——中文人读，不做结构化落盘，
- *    结构化持久化由外部集成方自接（规则 12）。
+ * 2. 集成端日志：拆两个命名 logger（均带 stdout，pattern 仅消息体）——事件行
+ *    （"[事件:type] 周期=... 时间=...s 中文详情"）→ integration_events.log，
+ *    各组件每周期调试视图行（"[视图:module] 中文摘要"）→ integration_views.log，
+ *    中文人读，不做结构化落盘，结构化持久化由外部集成方自接（规则 12）。
  * 组件源文件内直接调日志宏、字符串就地填充（fmt 风格 {} 语法，经
  * spdlog::fmt_lib 格式化），字符串归属组件源文件（事件产生处）；cycle/t_sec 由
  * 宏从 world 共享场景状态取。日志三模式见 demo_log_modes.h 模式选择区。
@@ -35,17 +35,20 @@
 namespace component_attachment {
 namespace demo {
 
-/// 初始化集成端日志（装配 1q_library.log 默认 logger + integration.log 命名
-/// logger；幂等）。main 装配时在会话创建前调用一次（库日志入库文件，避免 spdlog
-/// 自动创建 stdout 默认 logger）；未初始化时 LogEvent / LogViewSummary 静默跳过
-/// （单元测试不初始化也可安全编译运行）。
+/// 初始化集成端日志（装配 1q_library.log 默认 logger + 事件/视图两个命名
+/// logger → integration_events.log / integration_views.log；幂等）。main 装配时
+/// 在会话创建前调用一次（库日志入库文件，避免 spdlog 自动创建 stdout 默认
+/// logger）；未初始化时 LogEvent / LogViewSummary 静默跳过（单元测试不初始化
+/// 也可安全编译运行）。
 void InitIntegrationLog(const std::string& output_dir);
 
-/// 记录一行事件（宏背后）：integration logger 事件行 + 计数。未初始化时静默跳过。
+/// 记录一行事件（宏背后）：integration_events logger 事件行 + 计数。未初始化时
+/// 静默跳过。
 void LogEvent(std::uint64_t cycle, double t_sec, const char* type,
               const std::string& detail);
 
-/// 记录一行调试视图摘要（宏背后；中文人读文本行）。未初始化时静默跳过。
+/// 记录一行调试视图摘要（宏背后；中文人读文本行，写 integration_views logger）。
+/// 未初始化时静默跳过。
 /// @param[in] module 模块稳定名（"ar"/"eos"/"sbirs"/"sar"，用于按模块计数）。
 /// @param[in] text   人读摘要文本（中文，如 "周期=5 完成=是 目标=2 问题=0"）。
 void LogViewSummary(const char* module, const std::string& text);

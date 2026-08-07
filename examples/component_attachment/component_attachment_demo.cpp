@@ -84,9 +84,10 @@ int main(int argc, char* argv[]) {
   }
   std::filesystem::create_directories(output_dir);
 
-  // 集成端日志初始化（两个日志模块的输出文件：库日志 1q_library.log + 集成
-  // 端日志 integration.log；见 components/demo_log.h）。须在会话创建之前调用：
-  // 库内 PROJECT_LOG_* 走 spdlog 默认 logger，装配后库日志即入文件而非 stdout。
+  // 集成端日志初始化（三个日志文件：库日志 1q_library.log + 集成端事件行
+  // integration_events.log + 视图行 integration_views.log；见 components/demo_log.h）。
+  // 须在会话创建之前调用：库内 PROJECT_LOG_* 走 spdlog 默认 logger，装配后库
+  // 日志即入文件而非 stdout。
   demo::InitIntegrationLog(output_dir);
 
   // 装配：共享场景状态 → World → 平台实体 + 7 组件（挂载序 = 步进序）。
@@ -206,7 +207,7 @@ int main(int argc, char* argv[]) {
             << " sbirs_views=" << demo::SbirsViewCount()
             << " sar_views=" << demo::SarViewCount() << "\n"
             << "log output -> " << output_dir
-            << " (integration.log / 1q_library.log / platform_track.csv)\n";
+            << " (integration_events.log / integration_views.log / 1q_library.log / platform_track.csv)\n";
 
   // 外置查询演示：按实体名/类型查找平台实体，读取各传感器开关机与当前扫描
   // 方位（查询逻辑 = 组件 const getter；外部系统选定实体后按名/ID 拉取
@@ -226,31 +227,31 @@ int main(int argc, char* argv[]) {
             << " scan_az=" << sbirs->scan_azimuth_deg() << " deg\n"
             << "  sar   powered=" << (sar->powered_on() ? "on" : "off") << "\n";
 
-  // 冒烟断言：端到端链路必须有产出（每周期平台状态事件、SBIRS 探测事件、
-  // SAR 图像产品事件、至少一个融合目标、平台轨迹行数 = 周期数、AR/EOS/SBIRS/
-  // SAR 调试视图行数各 = 周期数（组件每周期直写集成端日志）、五传感器全程
-  // 开机），否则视为链路断裂（ctest 失败）。
+  // 冒烟断言：端到端链路必须有产出（关键事件 ≥ 1、SBIRS/SAR 关键事件存在、
+  // 至少一个融合目标、平台轨迹行数 = 周期数、视图行数每周期 ≥ 1 行、五传感器
+  // 全程开机），否则视为链路断裂（ctest 失败）。
+  // 断言与日志模式无关：视图按"每周期至少一行"断言（默认跨周期增量模式下状态
+  // 变化周期会写多行，故为 ≥ 周期数；SAR 阶段型摘要恒每周期一行，== 周期数）；
+  // 事件按"关键事件存在"断言（默认只记关键模式下平台状态等重复事件不落盘）。
   // 前置条件：视图行数由组件 Step 内计数，依赖每周期到达视图日志调用点（本
-  // 场景 Flight 恒挂载、坐标适配恒成功；场景改动需同步检查该断言）。冒烟断言
-  // 按默认日志模式（模式三：每周期摘要行 + 事件逐条全量）设计，切换模式宏
-  // 调试时计数会变（见 components/demo_log.h 模式选择区）。
-  if (demo::EventCount() < num_cycles || demo::SbirsEventCount() == 0U ||
+  // 场景 Flight 恒挂载、坐标适配恒成功；场景改动需同步检查该断言）。
+  if (demo::EventCount() == 0U || demo::SbirsEventCount() == 0U ||
       demo::SarProductEventCount() == 0U || max_fused_targets == 0U ||
-      outputs.platform_rows() != num_cycles || demo::ArViewCount() != num_cycles ||
-      demo::EosViewCount() != num_cycles || demo::SbirsViewCount() != num_cycles ||
+      outputs.platform_rows() != num_cycles || demo::ArViewCount() < num_cycles ||
+      demo::EosViewCount() < num_cycles || demo::SbirsViewCount() < num_cycles ||
       demo::SarViewCount() != num_cycles ||
       !ar->powered_on() || !esr->powered_on() ||
       !eos->powered_on() || !sbirs->powered_on() || !sar->powered_on()) {
     std::cerr << "SMOKE FAILED: events=" << demo::EventCount()
-              << " (>= " << num_cycles << " required), sbirs_events="
+              << " (>0 required), sbirs_events="
               << demo::SbirsEventCount() << " (>0 required), sar_products="
               << demo::SarProductEventCount() << " (>0 required), max_fused="
               << max_fused_targets << " (>0 required), platform_rows="
               << outputs.platform_rows() << " (== " << num_cycles << " required), "
               << "ar_views=" << demo::ArViewCount()
-              << " (== " << num_cycles << " required), eos_views="
-              << demo::EosViewCount() << " (== " << num_cycles << " required), sbirs_views="
-              << demo::SbirsViewCount() << " (== " << num_cycles << " required), sar_views="
+              << " (>= " << num_cycles << " required), eos_views="
+              << demo::EosViewCount() << " (>= " << num_cycles << " required), sbirs_views="
+              << demo::SbirsViewCount() << " (>= " << num_cycles << " required), sar_views="
               << demo::SarViewCount() << " (== " << num_cycles << " required), sensor_powered="
               << (ar->powered_on() && esr->powered_on() && eos->powered_on() &&
                   sbirs->powered_on() && sar->powered_on() ? "true" : "false")

@@ -24,7 +24,14 @@ namespace demo {
 
 constexpr std::uint32_t kNumCycles = 400U;
 constexpr double kDtSec = 1.0;
-constexpr char kDefaultOutputDir[] = "/tmp/component_attachment_viz";
+// 默认输出目录（日志 + CSV）：由 CMake 注入仓库内绝对路径
+// （examples/component_attachment/log/，见 CMakeLists.txt 的 CA_DEFAULT_OUTPUT_DIR）；
+// 未注入时的回退为相对路径（随运行目录）。
+#if defined(CA_DEFAULT_OUTPUT_DIR)
+constexpr char kDefaultOutputDir[] = CA_DEFAULT_OUTPUT_DIR;
+#else
+constexpr char kDefaultOutputDir[] = "examples/component_attachment/log";
+#endif
 /// 平台巡航高度（m）：c172x 低空巡航量级；目标真值固定在此高度。
 /// EOS 探测距离窗 ≈ 高度 / sin(俯仰角)（min/max 2°/1°）→ 400 m 时
 /// [11.5, 22.9] km，目标斜距全程稳定在窗内（见 scene_script kTargetScript）。
