@@ -121,12 +121,11 @@ AR/ESR/EOS/SBIRS/SAR 五模块的电源状态必须遵守单源原则：
    `reused_previous_output` 概念已废除。
 9. 所有中止路径（`abort_reason` 非 `kNone`）必须执行三写：
    a. **结构化信号**：设置 `abort_reason`（粗粒度枚举，~6 值，与模块对齐）。
-   b. **结构化诊断**：写入 `*DiagnosticIssueList`（`severity` + `code` + `message`），
-      细粒度 code 带模块前缀（如 `"sar.snr_below_minimum"`）。
+   b. **结构化诊断**：写入唯一问题列表 `*IssueList`（统一问题列表模型，规则 14），
+      细粒度 code 带模块前缀（如 `"sar.snr_below_minimum"`、
+      `"esr.validation.invalid_emitter_frequency"`）。
    c. **人读日志**：`PROJECT_LOG_ERROR` 或 `PROJECT_LOG_WARN`。
    三写缺一不可。SAR 为参考实现（`SarDiagnosticUtils::WriteAbort`）。
-   `ValidationIssueList` 承载输入校验的结构化问题（severity/code/location/field/message），
-   与 `*DiagnosticIssueList` 职责不同，不得混用。
 10. `*LifecycleRecorder` 由 `*Session::Attach*LifecycleRecorder()` 注册后自动驱动：
     Session 在 `StepWithResult()`/`Step()` 内部自动调用 `Update()`，调用方无需（也不应）手动调用
     `Update()`——漏调会导致状态机失步（例如错过产品/目标消失的周期后，内部 1-bit 标志仍为"存在"，
@@ -167,6 +166,39 @@ AR/ESR/EOS/SBIRS/SAR 五模块的电源状态必须遵守单源原则：
    **对齐状态（2026-08）**：五传感器模块已全部按本规则对齐（SBIRS/AR/ESR/EOS/SAR）。SAR 无
    逐目标门控排除（集体成像模型，几何/SNR 门均为整周期中止 → 三写），13b 对其为空洞条款，
    以 kInfo/kWarning 正常路径诊断承载（见 `docs/sar/boundaries.md`）。
+14. **统一问题列表模型**：`*CycleResult` 只承载**单一问题列表** `*IssueList`（字段名 `issues`）；
+    输入校验问题与执行诊断问题不得以平行字段（如 `validation_issues`、`diagnostics`）分开承载。
+    每条问题条目（各模块 `*Issue` 结构）：
+    a. `severity`：`kInfo` / `kWarning` / `kError`。
+    b. `phase`（来源标签）：`kInputValidation`（输入校验阶段，调用方输入问题）/
+       `kExecution`（管线执行阶段，含关机等运行态条件）/
+       `kOutputContract`（输出违反内部契约）。phase 是结构化来源判别字段；状态判断仍以
+       `status`/`abort_reason` 为准（规则 9a），phase 不改变状态语义。
+    c. `code`：字符串，带模块前缀。输入校验问题编码为 `"<module>.validation.<snake_case>"`
+       （如 `"esr.validation.invalid_emitter_frequency"`）；执行诊断保持既有 code 字符串
+       （如 `"sar.snr_below_minimum"`）。机器消费只认 code（规则 13b）；既有执行诊断 code
+       字符串是 replay/trace 稳定语义，不得重命名。
+    d. `message`：人读文本，内容与格式不承诺解析稳定性（规则 13b）。
+    e. `location` / `field`（可选定位）：`location.kind == kGlobal` 或 `field` 为空表示无定位；
+       定位只服务人读与 replay 保真，不用于状态判断。
+    输入校验入口（`Validate*CycleInput`）返回同一问题条目列表（`phase = kInputValidation`）；
+    `HasValidationError` 按 `phase == kInputValidation && severity == kError` 判定。
+    各模块 `ValidationCode` 枚举、`ValidationIssue` 类型与平行列表字段不再作为输出通道；
+    `*CycleResult` 不得保留可推导的 error 布尔缓存字段（`has_validation_error` / `has_error`
+    已删除，调用方以 `HasValidationError(issues)` 或遍历判定）。
+    SAR 为参考实现（无平行字段）；其余模块按模块收敛，迁移状态见下表。
+    [evidence: tests/contract/sar/sar_three_write_guard_test.cpp —— issues 唯一列表 + 前缀断言]
+    [evidence: tests/contract/electronic_surveillance_radar/esr_three_write_guard_test.cpp —— 迁移后 phase 断言]
+
+    **对齐状态（2026-08）**：
+
+    | 模块 | `validation_issues` 平行字段 | `phase` 来源标签 | 可选定位 |
+    |---|---|---|---|
+    | SAR | 无（参考实现） | 待补 | 待补 |
+    | ESR | 待迁移 | 待补 | 待补 |
+    | EOS | 待迁移 | 待补 | 待补 |
+    | SBIRS | 待迁移 | 待补 | 待补 |
+    | AR | 待迁移 | 待补 | 待补 |
 
 ### 传感器方位坐标系约定（SBIRS）
 

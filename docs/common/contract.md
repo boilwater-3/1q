@@ -226,6 +226,7 @@ public API 分为两类，二者都受 public boundary、install manifest 和 co
 - 运行期配置提交策略（事务性提交 vs 立即提交的分类表 + 各模块归属判定规则）
 - 电源状态单源契约（`sensor_enabled` 唯一来源、`has_sensor_enabled` 唯一入口，五模块统一）
 - 三层输出模型（OutputFrame / CycleResult / DebugView 分离 + 失败语义）
+- 统一问题列表模型（`*IssueList` 单一列表 + `phase` 来源标签 + 可选定位；输入校验不设平行字段，见 session_contract.md 规则 14）
 - Replay 与 trace 语义（结构化比较状态、TraceSink vs ReplayTraceWriter、codec 边界、runtime patch trace）
 
 ## 工程治理规则（指针）
