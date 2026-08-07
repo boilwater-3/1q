@@ -5,7 +5,6 @@
 
 #include "1q/electro_optical_sensor/session/EosInputValidation.h"
 #include "common/logging/ProjectLog.h"
-#include "common/runtime/RuntimeCycleExecutor.h"
 #include "electro_optical_sensor/pipeline/EosPipeline.h"
 #include "electro_optical_sensor/session/EosDiagnosticUtils.h"
 
@@ -69,10 +68,8 @@ struct EosController::Impl {
     if (last_abort_reason != session::EosPipelineAbortReason::kNone &&
         last_abort_reason != session::EosPipelineAbortReason::kValidationRejected) {
       const char* detail_code = "unknown";
+      // 校验拒绝（kValidationRejected）不可达：外层 if 已排除，校验问题本身承载写二。
       switch (last_abort_reason) {
-        case session::EosPipelineAbortReason::kValidationRejected:
-          detail_code = "input_validation";
-          break;
         case session::EosPipelineAbortReason::kSensorPoweredOff:
           detail_code = "sensor_powered_off";
           break;
@@ -195,14 +192,6 @@ void EosController::RunOnce(const ::electro_optical_sensor::session::EosCycleInp
 }
 
 bool EosController::ExecutedLatestCycle() const { return impl_->last_cycle_executed; }
-
-session::EosPipelineAbortReason EosController::GetLastDetectionCycleAbortReason() const {
-  return impl_->last_abort_reason;
-}
-
-const session::EosIssueList& EosController::GetLatestIssues() const {
-  return impl_->latest_issues;
-}
 
 ::electro_optical_sensor::session::EosCycleResult EosController::BuildCycleResult(
     const ::electro_optical_sensor::session::EosCycleInput& input) const {

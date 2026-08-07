@@ -94,8 +94,8 @@ TEST(EosControllerRuntimeStateTest, ValidationRejectSetsAbortReasonAndReturnsDef
   controller.RunOnce(invalid_input);
 
   EXPECT_FALSE(controller.ExecutedLatestCycle());
-  EXPECT_EQ(controller.GetLastDetectionCycleAbortReason(), EosPipelineAbortReason::kValidationRejected);
   const auto result = controller.BuildCycleResult(invalid_input);
+  EXPECT_EQ(result.abort_reason, EosPipelineAbortReason::kValidationRejected);
   EXPECT_TRUE(::electro_optical_sensor::session::HasValidationError(result.issues));
   EXPECT_EQ(result.output_frame.cycle_index, 0U);
 }

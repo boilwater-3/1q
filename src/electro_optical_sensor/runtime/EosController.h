@@ -65,19 +65,6 @@ class EosController {
   bool ExecutedLatestCycle() const;
 
   /**
-   * @brief 最近一次 RunOnce 的周期终止原因。
-   * @return 周期终止原因。
-   */
-  session::EosPipelineAbortReason GetLastDetectionCycleAbortReason() const;
-
-  /**
-   * @brief 获取最近一次正常执行周期的 kInfo 排除诊断（规则 13b）。
-   * @note 仅完成路径有内容；中止路径诊断由三写经 RecordAbort 写入。
-   * @return 最近一次周期的按目标排除问题列表。
-   */
-  const session::EosIssueList& GetLatestIssues() const;
-
-  /**
    * @brief 返回最近一次 RunOnce 装配并缓存的单周期聚合结果。
    * @param[in] input 当前周期输入（仅用于签名一致性，装配已发生在 RunOnce 内）。
    * @return 最近一次周期的聚合结果。
