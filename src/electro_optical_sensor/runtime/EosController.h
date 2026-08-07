@@ -66,11 +66,9 @@ class EosController {
 
   /**
    * @brief 返回最近一次 RunOnce 装配并缓存的单周期聚合结果。
-   * @param[in] input 当前周期输入（仅用于签名一致性，装配已发生在 RunOnce 内）。
    * @return 最近一次周期的聚合结果。
    */
-  ::electro_optical_sensor::session::EosCycleResult BuildCycleResult(
-      const ::electro_optical_sensor::session::EosCycleInput& input) const;
+  ::electro_optical_sensor::session::EosCycleResult BuildCycleResult() const;
 
   /**
    * @brief 捕获控制器运行态快照。

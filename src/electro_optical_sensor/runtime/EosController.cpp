@@ -193,9 +193,7 @@ void EosController::RunOnce(const ::electro_optical_sensor::session::EosCycleInp
 
 bool EosController::ExecutedLatestCycle() const { return impl_->last_cycle_executed; }
 
-::electro_optical_sensor::session::EosCycleResult EosController::BuildCycleResult(
-    const ::electro_optical_sensor::session::EosCycleInput& input) const {
-  (void)input;
+::electro_optical_sensor::session::EosCycleResult EosController::BuildCycleResult() const {
   // COMMON-OQ-9：装配已在 RunOnce 内完成并缓存（issues 直通），此处仅返回缓存。
   return impl_->latest_result;
 }

@@ -81,7 +81,7 @@ session::EosOutputFrame EosSession::Step(const EosCycleInput& input) {
 ::electro_optical_sensor::session::EosCycleResult EosSession::StepWithResult(
     const EosCycleInput& input) {
   impl_->controller.RunOnce(input);
-  EosCycleResult result = impl_->controller.BuildCycleResult(input);
+  EosCycleResult result = impl_->controller.BuildCycleResult();
   if (impl_->lifecycle_recorder != nullptr) {
     impl_->lifecycle_recorder->Update(input, result);
   }

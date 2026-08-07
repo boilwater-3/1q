@@ -62,7 +62,7 @@ TEST(EosControllerRuntimeStateTest, RestoreRejectsIncompatiblePipelineSnapshot) 
   EXPECT_FALSE(controller_a.RestoreRuntimeState(foreign_state));
   // 拒绝恢复后，controller_a 状态保持不变。
   EXPECT_TRUE(controller_a.ExecutedLatestCycle());
-  const auto result = controller_a.BuildCycleResult(MakeValidInput(20U));
+  const auto result = controller_a.BuildCycleResult();
   EXPECT_EQ(result.output_frame.cycle_index, 20U);
 }
 
@@ -78,7 +78,7 @@ TEST(EosControllerRuntimeStateTest, RestoreRejectsSnapshotFromOtherControllerIns
   EXPECT_FALSE(controller_a.RestoreRuntimeState(foreign_state));
   // 拒绝恢复后，controller_a 状态保持不变。
   EXPECT_TRUE(controller_a.ExecutedLatestCycle());
-  const auto result = controller_a.BuildCycleResult(MakeValidInput(21U));
+  const auto result = controller_a.BuildCycleResult();
   EXPECT_EQ(result.output_frame.cycle_index, 21U);
 }
 
@@ -94,7 +94,7 @@ TEST(EosControllerRuntimeStateTest, ValidationRejectSetsAbortReasonAndReturnsDef
   controller.RunOnce(invalid_input);
 
   EXPECT_FALSE(controller.ExecutedLatestCycle());
-  const auto result = controller.BuildCycleResult(invalid_input);
+  const auto result = controller.BuildCycleResult();
   EXPECT_EQ(result.abort_reason, EosPipelineAbortReason::kValidationRejected);
   EXPECT_TRUE(::electro_optical_sensor::session::HasValidationError(result.issues));
   EXPECT_EQ(result.output_frame.cycle_index, 0U);
@@ -108,7 +108,7 @@ TEST(EosControllerRuntimeStateTest, FirstValidationRejectReturnsDefaultFrame) {
   invalid_input.dt_sec = 0.0f;
   controller.RunOnce(invalid_input);
   const ::electro_optical_sensor::session::EosCycleResult result =
-      controller.BuildCycleResult(invalid_input);
+      controller.BuildCycleResult();
 
   EXPECT_FALSE(result.executed_this_cycle);
   EXPECT_EQ(result.abort_reason, EosPipelineAbortReason::kValidationRejected);
