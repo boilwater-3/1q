@@ -91,11 +91,9 @@ sequenceDiagram
   participant Result as EsrCycleResult 单周期结果
 
   Caller->>Session: StepWithResult(EsrCycleInput) 提交单周期输入
-  Session->>Pipeline: CaptureRuntimeState 捕获 pipeline 状态
-  Session->>Controller: CaptureRuntimeState 捕获 controller 状态
-  Session->>Controller: RunOnce 执行单周期控制
+  Session->>Controller: RunOnce 执行单周期控制\n（校验 + 装配 + 缓存，COMMON-OQ-9 收敛）
   alt validation rejected 输入校验失败
-    Controller-->>Session: not executed + validation rejection
+    Controller-->>Session: rejected + validation issues 直通
   else validation accepted 输入校验通过
   Controller->>Pipeline: RunCycle 执行拦截流水线
   Pipeline->>Env: SampleEnvironment 采样电磁环境
@@ -105,7 +103,7 @@ sequenceDiagram
   Pipeline-->>Controller: outputs + execution status 去真值化输出与执行状态
   note over Pipeline,Controller: InterceptPipelineResult 含观测和假设数据及 sensor_powered_off；普通空观测仍是已执行结果
   end
-  Session-->>Result: output frame + validation + abort reason
+  Session-->>Result: EsrCycleResult\ncontroller 装配缓存（BuildCycleResult 返回）
   Session-->>Caller: EsrCycleResult 返回结构化结果
 ```
 
@@ -218,9 +216,10 @@ pipeline/controller 的 `CaptureRuntimeState()` / `RestoreRuntimeState()` 描述
   domain 参数派生，不存在跨周期可变 RNG 状态。pipeline 快照不含 config、feature scales 或环境配置。
   归一化扫描相位在本周期检测阶段映射为输出帧 `scan_azimuth_deg`：选中波束的方位 + 天线安装偏置
   （平台参考系实际指向，与 RF 前端接收求解同算式），并折叠到 [-180, 180)；该映射随相位推进而逐周期变化。
-- **controller** 快照只含其拥有的 latest output、validation issues、batch id 和最近一次执行状态，不嵌套或
-  恢复 pipeline 快照。session 在周期回滚时分别捕获和恢复两个 owner，任一恢复失败均返回
-  `kRuntimeStateRestoreRejected`，不得留下半恢复状态。
+- **controller** 快照只含其拥有的 latest output、batch id 和最近一次执行状态，不嵌套或恢复
+  pipeline 快照。周期内无 session 层快照回滚事务（controller 各 abort 路径均不推进 pipeline
+  累积状态，原 session 回滚分支不可达，COMMON-OQ-9 收敛时移除）；`CaptureRuntimeState()` /
+  `RestoreRuntimeState()` 仅用于快照往返与跨实例恢复防护。
 
 `InterceptPipeline::RunCycle()` 返回 `InterceptPipelineResult`，显式区分设备关机导致的未执行状态
 （controller 传播为 `kPoweredOff`，不复用最近有效输出且不推进 batch；普通空观测仍是合法数据结果）。

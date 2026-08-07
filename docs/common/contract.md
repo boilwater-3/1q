@@ -177,9 +177,11 @@ public API 分为两类，二者都受 public boundary、install manifest 和 co
    启用/关闭对照测试锁定。
 
 3. **非执行周期必须产生准确的结构化 reason，不得静默或伪造故障。** 输入校验失败时，
-   controller 必须设置显式 abort reason（如 `kValidationRejected`），不执行 pipeline，不合成
-   空输出帧，不把非法输入记作新的有效 batch/帧。设备关机等合法非执行状态必须使用独立
-   reason（如 `kSensorPoweredOff`），不得映射成 output contract violation。**五模块统一不复用：
+   校验权威层（控制器 `RunOnce`；AR 公共路径入口为 session，见 session_contract.md 规则
+   14 校验层归属条款）必须设置显式 abort reason（如 `kValidationRejected`），不执行
+   pipeline，不合成空输出帧，不把非法输入记作新的有效 batch/帧。设备关机等合法非执行
+   状态必须使用独立 reason（如 `kSensorPoweredOff`），不得映射成 output contract
+   violation。**五模块统一不复用：
    非执行周期（校验失败/关机/执行 abort）的 `Step()` 与 `*CycleResult.output_frame`
    一律返回默认空帧，永不复用上一有效输出。** `reused_previous_output` 字段、以及支撑复用的
    `latest_output`/`previous_output`/`has_latest_output`/`has_previous_output` cache 字段

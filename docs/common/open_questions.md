@@ -23,7 +23,6 @@ Last-reviewed: 2026-08-07
 | COMMON-OQ-1 | common | Windows/MSVC 全链验收 | presets/.bat 仅未验收脚手架，CI 只跑 macOS | needs-evidence |
 | COMMON-OQ-7 | common | 双 cycle_index 冗余 | 非执行周期 input_cycle_index 保留输入号，output_frame.cycle_index 为0 | open |
 | COMMON-OQ-8 | common | 周期时间/窗口静默拒绝 | 三类不同性质的拒绝门被并列；空帧 envelope 语义 AR/ESR 分裂 | open |
-| COMMON-OQ-9 | common | 周期输入校验层归属与 issues 流向 | 三形态并存：AR 双重、ESR/EOS 缓存装配、SAR/SBIRS 直通 | open |
 | AR-OQ-1 | airborne_radar | 假目标鉴别跨域命名双轨 | 观测域枚举 vs 量测域 bool | open |
 | ESR-OQ-1 | electronic_surveillance_radar | 压制干扰感知与 ECCM 链路缺失 | 死字段 + 无结构化观测 + 无 ECCM | open |
 | ESR-OQ-2 | electronic_surveillance_radar | 运行时补丁扫描中心静默关边界 | scan center 补丁隐式切扫描模式 | open |
@@ -84,22 +83,6 @@ Last-reviewed: 2026-08-07
 - **待决问题**：空帧 envelope 语义是否统一——AR 豁免空帧（envelope 全无效也接受），ESR 不豁免（含空帧亦须填齐）。双方均有测试锁定，contract 条款 7 措辞只明确"身份或 mode"可豁免（emission 级），对 envelope（frame 级）未明确，无证据裁定优劣。
 - **当前边界**：非空 envelope-equality 已提取共享谓词，两侧非空行为一致。空帧策略各模块保持现状：AR 豁免、ESR 严格。不得放宽任何时间门为重叠判断，不得宣称周期时间戳可任意重复。
 - **再进入条件 (Stage A)**：出现真实 ESR 消费方因空帧 envelope 未填被静默拒绝的踩坑，或 contract 条款 7 envelope 含义需正式裁定时，先评估空帧豁免语义统一对 contract 条款 7 的修订成本。
-
-### COMMON-OQ-9：五模块周期输入校验层归属与 issues 流向不统一
-
-- **现状**：三形态并存：
-  1. **AR 双重校验**：会话层（`RunExecutionCycle`/`RunCycle`）与控制器 `RunOnce` 各校验一次；运行期路径拒绝时只上报 `abort_reason`，校验明细不进结果（公共路径 `BuildValidationErrorResult` 带明细）。
-  2. **ESR/EOS 控制器缓存装配**：校验在控制器 `RunOnce` 内，issues 先存 `last_validation_issues` 缓存，再经 `BuildCycleResult` 装配进结果；`GetLastValidationIssues` 查询 API 是数据流中介，并随 `EsrControllerRuntimeState`/`EosControllerRuntimeState` 快照扩散。
-  3. **SAR/SBIRS 控制器直通**：校验在控制器 `RunOnce` 内，issues 直接写入 result，无校验缓存与查询 API。
-  [evidence: src/airborne_radar/session/ArSession]
-  [evidence: src/electronic_surveillance_radar/session/EsrSession]
-- **后果**：
-  1. AR 是唯一双重校验模块且运行期路径拒绝时丢明细，与其余四模块"拒绝时 issues 进结果"不一致。
-  2. 同一"校验"概念有三种数据流形态，跨模块阅读与重构无先例可循。
-  3. ESR/EOS 的校验缓存 + 查询 API 是装配点错位的产物（SAR/SBIRS 证明非必需），AR 的同类 API 已删除。
-- **待决问题**：是否统一到"控制器 `RunOnce` 入口校验 + issues 直通 result"（SAR/SBIRS 形态，删除 ESR/EOS 校验缓存与查询 API、消除 AR 双重校验）；备选为会话层校验（AR 形态，控制器信任输入、有被绕过风险）。
-- **当前边界**：各模块保持现有校验位置与 issues 流向。不得宣称控制器或会话层是校验的唯一权威位置；AR 运行期路径拒绝时明细丢失是已知边界。
-- **再进入条件 (Stage A)**：规则 14 迁移到达 ESR/EOS 时评估"issues 直通"对 `BuildCycleResult` 与快照结构的改动面；或出现第二个模块效仿 AR 删除校验查询 API 时先统一形态。
 
 ## Airborne Radar 非阻塞边界
 

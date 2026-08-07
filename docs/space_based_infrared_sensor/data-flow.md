@@ -126,7 +126,7 @@ sequenceDiagram
   Session->>Controller: RunOnce(input)
   Controller->>Controller: ValidateSbirsCycleInput
   alt invalid input
-    Controller-->>Session: reuse latest output + validation status
+    Controller-->>Session: default empty frame + validation status\n（不复用上一有效输出，规则 3）
   else valid input
     Controller->>Pipeline: RunCycle(input)
     Pipeline->>Pipeline: resolve frame factors / earth-occultation gate

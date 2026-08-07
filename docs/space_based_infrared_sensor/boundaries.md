@@ -55,9 +55,11 @@ SBIRS 所有中止路径遵守 `session_contract.md` 规则 9 的三写模式与
 
 `SbirsCycleResult` 只承载单一问题列表 `issues`：输入校验问题（`phase=kInputValidation`）与执行诊断
 （`phase=kExecution`）同列表承载，不设 `validation_issues`/`has_validation_error` 平行字段。
-校验拒绝时校验问题本身就是 error 级诊断（规则 9 写二），不再附加粗粒度条目。
+校验拒绝时校验问题本身就是 error 级诊断（规则 9 写二），不再附加粗粒度条目（COMMON-OQ-9
+收敛：校验拒绝路径不再调用 `RecordAbort`，显式补齐 `abort_reason` 与日志）。
 
-三写由 `SbirsDiagnosticUtils::RecordAbort` 统一执行（phase 由中止原因推导）。
+三写由 `SbirsDiagnosticUtils::RecordAbort` 统一执行（phase 由中止原因推导）；校验拒绝路径
+不调用 RecordAbort（校验问题本身即写二）。
 
 正常执行周期（`status == kCompleted`）的按目标排除诊断（kInfo，code 如
 `"sbirs.target_out_of_wfov"`）**不属于三写**（session_contract.md 规则 13b）：仅承载排查信息，

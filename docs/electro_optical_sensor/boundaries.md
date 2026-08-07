@@ -75,9 +75,11 @@ EOS 遵守 `docs/common/contract.md`：
 6. controller runtime state 支持 capture/restore，但必须拒绝不兼容的 pipeline snapshot 或其他
    controller 实例的 snapshot。
 
-`ValidationCode` 仅保留 `EosCycleInput` 实际校验路径会触发的编码。环境观测字段（太阳辐照度、云量、
-风速、背景温度、太阳角、昼夜类型）已迁入 `config::EosEnvironmentScenarioConfig`，不再属于周期输入域，
-故不声明对应校验编码，以免误导调用方以为可以在 `CycleInput` 上校验这些字段。
+周期输入校验问题编码统一为 `"eos.validation.<snake_case>"` 字符串（code 清单由
+`eos_input_validation_test` 的 code 列表断言锁定）；`ValidationCode` 枚举已随规则 14 对齐删除。
+环境观测字段（太阳辐照度、云量、风速、背景温度、太阳角、昼夜类型）已迁入
+`config::EosEnvironmentScenarioConfig`，不再属于周期输入域，故不声明对应校验编码，以免误导
+调用方以为可以在 `CycleInput` 上校验这些字段。
 
 `target.range_m` 的权威校验在 `EosInputValidation`（`<= 0` 为 error），controller 在校验失败时不执行
 pipeline，故正常 Session 路径不会把非法 `range_m` 传入 pipeline。pipeline 内部的
@@ -110,7 +112,9 @@ EOS 所有中止路径遵守 `session_contract.md` 规则 9 的三写模式与�
 平行字段。校验拒绝时校验问题本身就是 error 级诊断（规则 9 写二），不再附加粗粒度条目。
 
 三写由 `EosDiagnosticUtils::RecordAbort` 统一执行（phase 由中止原因推导），在
-`EosController::BuildCycleResult` 中调用。
+`EosController::AssembleResult`（RunOnce 内装配路径）中调用。周期结果装配在 RunOnce 内
+完成并缓存（COMMON-OQ-9：issues 直通），`BuildCycleResult` 仅返回缓存；校验缓存字段与
+`GetLastValidationIssues` 查询 API 已删除。
 
 **正常周期的按目标排除诊断（规则 13b）**：正常执行周期（`status == kCompleted`）中视场外目标
 （无 detection/attribution）写 `kInfo` 级 `EosIssue`（code `"eos.target_out_of_fov"`，

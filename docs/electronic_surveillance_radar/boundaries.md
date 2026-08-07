@@ -115,7 +115,8 @@ ESR 非执行周期（校验失败/设备关机）的 `Step()` 与 `EsrCycleResu
 `StepWithResult().status` / `abort_reason`。
 
 注意 controller 内部在 validation reject 时确实会保留 `GetLatestInterceptOutputFrame()`（旧帧），
-但 `EsrSession::BuildCycleResult` 只在 `status == kCompleted` 时把它写入 public `EsrCycleResult.output_frame`，
+但 `EsrController::BuildCycleResult`（装配在 RunOnce 内完成并缓存，COMMON-OQ-9 收敛，issues
+直通无校验缓存）只在 `status == kCompleted` 时把它写入 public `EsrCycleResult.output_frame`，
 因此 controller 的旧帧缓存是内部状态机行为，不构成 public `Step()` 的输出回退路径。
 
 [evidence: tests/contract/electronic_surveillance_radar/esr_public_api_convenience_test.cpp::StepReturnsEmptyFrameOnValidationFailure]
@@ -134,8 +135,10 @@ ESR 所有中止路径遵守 `session_contract.md` 规则 9 的三写模式与�
 （`phase=kExecution`/`kOutputContract`）同列表承载，不设 `validation_issues`/`has_validation_error`
 平行字段。校验拒绝时校验问题本身就是 error 级诊断（规则 9 写二），不再附加粗粒度条目。
 
-三写由 `EsrDiagnosticUtils::RecordAbort` 统一执行（phase 由中止原因推导），在 `EsrSession::BuildCycleResult`
-中调用。
+三写由 `EsrDiagnosticUtils::RecordAbort` 统一执行（phase 由中止原因推导），在
+`EsrController::AssembleResult`（RunOnce 内装配路径）中调用。周期结果装配在 RunOnce 内
+完成并缓存（COMMON-OQ-9：issues 直通），`BuildCycleResult` 仅返回缓存；校验缓存字段与
+`GetLastValidationIssues` 查询 API 已删除。
 
 **正常周期的按发射源排除诊断（规则 13b）**：正常执行周期（`status == kCompleted`）中被门控排除的
 发射源（同址干扰 / 零功率 / SNR-统计检测门）写 `kInfo` 级 `EsrIssue`（code 如

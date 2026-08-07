@@ -64,19 +64,24 @@ ISA 标准大气，这些字段全部未被消费，属未接入的死输入。�
 
 `ArSession` 和 `ArController` 都有明确的失败语义：
 
-1. cycle input 校验失败时不执行 pipeline，`ArCycleResult` 携带 validation issues，controller 设置显式 abort
+1. **校验层归属（COMMON-OQ-9 收敛，2026-08）**：公共路径入口校验在 `ArSession`
+   （`ValidateArCycleInput` 含外部运动学坐标系转换，控制器输入面不含 platform/targets 原始
+   数据，无法下移）；运行期校验唯一化在 `ArController::RunOnce`（会话层对同一输入的二次
+   校验已删除），拒绝时明细经出参直通并装配进最终周期结果；运行期执行失败透传真实
+   `abort_reason`（校验拒绝为 `kRejectedInvalidInput` + 细粒度明细），不写死替换。
+2. cycle input 校验失败时不执行 pipeline，`ArCycleResult` 携带 validation issues 与显式 abort
    reason `kValidationRejected`（保留 replay/trace 数值语义）。
-2. **非执行周期统一不复用（五模块统一规则）**：`Step()` 与 `ArCycleResult.track_output_frame`
+3. **非执行周期统一不复用（五模块统一规则）**：`Step()` 与 `ArCycleResult.track_output_frame`
    返回默认空帧（`cycle_index==0`、空 tracks/emission），不论是否存在上一有效输出。调用方仅凭
    `Step()` 返回值即可判定本轮无新航迹。状态判断统一走 `StepWithResult().status`
    （`kRejectedInvalidInput`/`kPoweredOff`/`kRejectedExecution`）。
-3. controller 内部 `last_cycle_reused_previous_output` 仅是 RF 接收/检测侧跨周期状态机的簿记标志
+4. controller 内部 `last_cycle_reused_previous_output` 仅是 RF 接收/检测侧跨周期状态机的簿记标志
    （捕获/恢复 snapshot 用），不进入 public `ArCycleResult`，也不等于公开输出帧被复用；不得据此推断
    `Step()` 会回传历史航迹。
-4. signal pipeline abort 时不会发布合成的最新输出。
-5. 电源状态单源：`ArSessionConfig::sensor_enabled` 是唯一来源（mission 域无电源字段），运行时电源唯一入口
+5. signal pipeline abort 时不会发布合成的最新输出。
+6. 电源状态单源：`ArSessionConfig::sensor_enabled` 是唯一来源（mission 域无电源字段），运行时电源唯一入口
    为 `ArRuntimeConfigPatch::has_sensor_enabled`。
-6. 设备关机是已接受的非执行配置边界：撤销周期副作用后 finalize 关机配置，并保留外部决策等待下一成功周期。
+7. 设备关机是已接受的非执行配置边界：撤销周期副作用后 finalize 关机配置，并保留外部决策等待下一成功周期。
 
 [evidence: tests/contract/airborne_radar/ar_public_api_convenience_test.cpp::RejectedCycleDoesNotReusePreviousOutput]
 [evidence: tests/contract/airborne_radar/ar_public_api_convenience_test.cpp::StepReturnsEmptyCurrentFrameOnRejectedInput]

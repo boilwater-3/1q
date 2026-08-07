@@ -187,6 +187,18 @@ AR/ESR/EOS/SBIRS/SAR 五模块的电源状态必须遵守单源原则：
        定位只服务人读与 replay 保真，不用于状态判断。
     输入校验入口（`Validate*CycleInput`）返回同一问题条目列表（`phase = kInputValidation`）；
     `HasValidationError` 按 `phase == kInputValidation && severity == kError` 判定。
+    **周期输入校验层归属与 issues 流向（COMMON-OQ-9 收敛，2026-08）**：
+    - 周期输入校验以控制器 `RunOnce` 为权威点（SAR/SBIRS/ESR/EOS）；校验 issues 直通周期
+      结果——`RunOnce` 内装配 `*CycleResult` 并缓存（`BuildCycleResult` 仅返回缓存，SAR/
+      ESR/EOS 同构；SBIRS 由 `RunOnce` 直接返回）。**禁止校验缓存与查询 API**
+      （`last_validation_issues` 缓存字段与 `GetLastValidationIssues` 查询 API 已全部删除，
+      残余为零）。
+    - 校验拒绝不附加粗粒度 abort 条目：校验问题本身就是 error 级诊断（规则 9 写二由它们
+      承载），拒绝路径显式补齐 `abort_reason` 与日志。
+    - **AR 特例**：公共路径入口校验保留在 session（`ValidateArCycleInput` 含外部运动学
+      坐标系转换，控制器输入面不含 platform/targets 原始数据，无法下移）；运行期校验
+      唯一化在控制器 `RunOnce`（会话层对同一输入的二次校验已删除），拒绝明细经出参
+      直通并装配进最终周期结果（运行期拒绝 `abort_reason` 保持真实值，不写死替换）。
     创建时配置校验入口（`Validate*SessionConfig`）返回同一 `*IssueList`：`phase =
     kInputValidation`、`severity = kError`、code 按 c 条 `<module>.validation.<snake_case>`
     规则（同条件在创建时与运行期路径 code 逐字一致），`field` 定位配置字段路径；
@@ -205,13 +217,13 @@ AR/ESR/EOS/SBIRS/SAR 五模块的电源状态必须遵守单源原则：
 
     **对齐状态（2026-08，全部已对齐）**：
 
-    | 模块 | `validation_issues` 平行字段 | `phase` 来源标签 | 可选定位 | config 域（`Validate*SessionConfig`） |
-    |---|---|---|---|---|
-    | SAR | 无（参考实现） | 已对齐 | 已对齐 | 已统一 |
-    | ESR | 已迁移 | 已对齐 | 已对齐 | 已统一 |
-    | EOS | 已迁移 | 已对齐 | 已对齐 | 已统一 |
-    | SBIRS | 已迁移 | 已对齐 | 已对齐 | 已统一 |
-    | AR | 已迁移 | 已对齐 | 已对齐 | 已统一 |
+    | 模块 | `validation_issues` 平行字段 | `phase` 来源标签 | 可选定位 | config 域（`Validate*SessionConfig`） | 校验层归属与 issues 流向 |
+    |---|---|---|---|---|---|
+    | SAR | 无（参考实现） | 已对齐 | 已对齐 | 已统一 | 控制器 RunOnce + 直通（参考实现） |
+    | ESR | 已迁移 | 已对齐 | 已对齐 | 已统一 | 控制器 RunOnce + 直通（2026-08 收敛） |
+    | EOS | 已迁移 | 已对齐 | 已对齐 | 已统一 | 控制器 RunOnce + 直通（2026-08 收敛） |
+    | SBIRS | 已迁移 | 已对齐 | 已对齐 | 已统一 | 控制器 RunOnce + 直通（2026-08 收敛） |
+    | AR | 已迁移 | 已对齐 | 已对齐 | 已统一 | 公共入口 session + 运行期控制器（2026-08 收敛） |
 
 ### 传感器方位坐标系约定（SBIRS）
 
