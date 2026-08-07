@@ -66,10 +66,9 @@ struct ONEQ_API SbirsOutputDebugView {
   std::uint32_t input_cycle_index{0U};  /**< 输入周期序号 */
   std::uint32_t output_cycle_index{0U}; /**< 输出周期序号 */
   bool executed_this_cycle{false};      /**< 本周期是否执行 */
-  bool has_validation_error{false};     /**< 是否存在校验错误 */
   SbirsPipelineAbortReason abort_reason{SbirsPipelineAbortReason::kNone}; /**< 中止原因 */
   std::vector<SbirsDebugTargetState> targets{}; /**< 各目标调试快照 */
-  SbirsDiagnosticIssueList diagnostics{};      /**< 细粒度诊断条目列表 */
+  SbirsIssueList issues{};                      /**< 统一问题列表（规则 14，与 SbirsCycleResult.issues 一致） */
 };
 
 /**

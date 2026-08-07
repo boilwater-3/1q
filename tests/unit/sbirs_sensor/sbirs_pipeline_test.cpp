@@ -108,9 +108,9 @@ void ExpectImmTargetStateEqual(const sbirs_sensor::pipeline::SbirsPipelineSnapsh
 }
 
 /// 按 code 查找诊断条目（规则 13b 排除诊断断言用）。
-const sbirs_sensor::session::SbirsDiagnosticIssue* FindIssue(
+const sbirs_sensor::session::SbirsIssue* FindIssue(
     const sbirs_sensor::pipeline::SbirsPipelineResult& result, const char* code) {
-  for (const auto& issue : result.diagnostics) {
+  for (const auto& issue : result.issues) {
     if (issue.code == code) {
       return &issue;
     }
@@ -1498,7 +1498,7 @@ TEST(SbirsPipelineTest, OccultedTargetWritesInfoExclusionDiagnostic) {
   EXPECT_TRUE(result.detections.empty());
   const auto* issue = FindIssue(result, "sbirs.target_occulted");
   ASSERT_NE(issue, nullptr);
-  EXPECT_EQ(issue->severity, sbirs_sensor::session::SbirsDiagnosticSeverity::kInfo);
+  EXPECT_EQ(issue->severity, sbirs_sensor::session::SbirsIssueSeverity::kInfo);
   EXPECT_NE(issue->message.find("target_id=1"), std::string::npos);
 }
 
@@ -1519,7 +1519,7 @@ TEST(SbirsPipelineTest, OutOfRangeTargetWritesInfoExclusionDiagnostic) {
   EXPECT_TRUE(result.detections.empty());
   const auto* issue = FindIssue(result, "sbirs.target_out_of_range");
   ASSERT_NE(issue, nullptr);
-  EXPECT_EQ(issue->severity, sbirs_sensor::session::SbirsDiagnosticSeverity::kInfo);
+  EXPECT_EQ(issue->severity, sbirs_sensor::session::SbirsIssueSeverity::kInfo);
   EXPECT_NE(issue->message.find("target_id=1"), std::string::npos);
 }
 
@@ -1540,7 +1540,7 @@ TEST(SbirsPipelineTest, TargetOutsideWfovWritesInfoExclusionDiagnostic) {
   EXPECT_TRUE(result.detections.empty());
   const auto* issue = FindIssue(result, "sbirs.target_out_of_wfov");
   ASSERT_NE(issue, nullptr);
-  EXPECT_EQ(issue->severity, sbirs_sensor::session::SbirsDiagnosticSeverity::kInfo);
+  EXPECT_EQ(issue->severity, sbirs_sensor::session::SbirsIssueSeverity::kInfo);
   EXPECT_NE(issue->message.find("target_id=1"), std::string::npos);
 }
 
@@ -1562,7 +1562,7 @@ TEST(SbirsPipelineTest, TargetBelowWideSnrWritesInfoExclusionDiagnostic) {
   EXPECT_TRUE(result.detections.empty());
   const auto* issue = FindIssue(result, "sbirs.target_snr_below_threshold");
   ASSERT_NE(issue, nullptr);
-  EXPECT_EQ(issue->severity, sbirs_sensor::session::SbirsDiagnosticSeverity::kInfo);
+  EXPECT_EQ(issue->severity, sbirs_sensor::session::SbirsIssueSeverity::kInfo);
   EXPECT_NE(issue->message.find("target_id=1"), std::string::npos);
 }
 

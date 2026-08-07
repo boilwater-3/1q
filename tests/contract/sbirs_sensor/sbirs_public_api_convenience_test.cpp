@@ -131,12 +131,12 @@ TEST(SbirsPublicApiConvenienceTest, RuntimeConfigBuilderAllFieldsPopulateFlags) 
 TEST(SbirsPublicApiConvenienceTest, ValidateCycleInputFlagsInvalidDeltaTime) {
   session::SbirsCycleInput input = MakeMinimalInput();
   input.dt_sec = -1.0f;
-  const session::ValidationIssueList issues = session::ValidateSbirsCycleInput(input, 10.0f);
+  const session::SbirsIssueList issues = session::ValidateSbirsCycleInput(input, 10.0f);
   EXPECT_TRUE(session::HasValidationError(issues));
 }
 
 TEST(SbirsPublicApiConvenienceTest, ValidateCycleInputAcceptsValidInput) {
-  const session::ValidationIssueList issues = session::ValidateSbirsCycleInput(MakeMinimalInput(), 10.0f);
+  const session::SbirsIssueList issues = session::ValidateSbirsCycleInput(MakeMinimalInput(), 10.0f);
   EXPECT_FALSE(session::HasValidationError(issues));
 }
 
@@ -145,7 +145,7 @@ TEST(SbirsPublicApiConvenienceTest, SessionCreatesAndExecutesOneCycle) {
   const session::SbirsCycleResult result = session.StepWithResult(MakeMinimalInput());
   // 结构化执行结果字段可达。
   EXPECT_TRUE(result.executed_this_cycle);
-  EXPECT_FALSE(result.has_validation_error);
+  EXPECT_FALSE(session::HasValidationError(result.issues));
   EXPECT_EQ(result.input_cycle_index, 1U);
   EXPECT_EQ(result.abort_reason, session::SbirsPipelineAbortReason::kNone);
 }
@@ -207,7 +207,7 @@ TEST(SbirsPublicApiConvenienceTest, StepReturnsEmptyFrameOnValidationFailureAfte
 
   const session::SbirsCycleResult result = session.StepWithResult(invalid_input);
   EXPECT_FALSE(result.executed_this_cycle);
-  EXPECT_TRUE(result.has_validation_error);
+  EXPECT_TRUE(session::HasValidationError(result.issues));
 
   // 失败周期返回默认空帧：cycle_index==0（非本次输入 8，也非上一帧的 1），detections 为空。
   EXPECT_EQ(result.output_frame.cycle_index, 0U);

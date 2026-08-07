@@ -218,7 +218,7 @@ TEST(PublicHeadersSmokeTest, SbirsPublicSurfaceSupportsMinimalUsage) {
                                                      .WithSatellitePosition(satellite)
                                                      .AddTarget(target)
                                                      .Build();
-  const sbirs_sensor::session::ValidationIssueList issues =
+  const sbirs_sensor::session::SbirsIssueList issues =
       sbirs_sensor::session::ValidateSbirsCycleInput(input, 10.0f);
   EXPECT_FALSE(sbirs_sensor::session::HasValidationError(issues));
 

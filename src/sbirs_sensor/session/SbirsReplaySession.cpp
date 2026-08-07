@@ -73,35 +73,19 @@ bool AttributionListEqual(const attribution::SbirsDetectionAttributionRecordList
   return true;
 }
 
-bool ValidationIssueEqual(const ValidationIssue& left, const ValidationIssue& right) {
-  return left.severity == right.severity && left.location.kind == right.location.kind &&
-         left.location.entity_index == right.location.entity_index && left.message == right.message;
+bool SbirsIssueEqual(const SbirsIssue& left, const SbirsIssue& right) {
+  return left.severity == right.severity && left.phase == right.phase &&
+         left.code == right.code && left.message == right.message &&
+         left.location.kind == right.location.kind &&
+         left.location.entity_index == right.location.entity_index && left.field == right.field;
 }
 
-bool ValidationIssueListEqual(const ValidationIssueList& left, const ValidationIssueList& right) {
+bool SbirsIssueListEqual(const SbirsIssueList& left, const SbirsIssueList& right) {
   if (left.size() != right.size()) {
     return false;
   }
   for (std::size_t i = 0; i < left.size(); ++i) {
-    if (!ValidationIssueEqual(left[i], right[i])) {
-      return false;
-    }
-  }
-  return true;
-}
-
-bool DiagnosticIssueEqual(const SbirsDiagnosticIssue& left, const SbirsDiagnosticIssue& right) {
-  return left.severity == right.severity && left.code == right.code &&
-         left.message == right.message;
-}
-
-bool DiagnosticIssueListEqual(const SbirsDiagnosticIssueList& left,
-                              const SbirsDiagnosticIssueList& right) {
-  if (left.size() != right.size()) {
-    return false;
-  }
-  for (std::size_t i = 0; i < left.size(); ++i) {
-    if (!DiagnosticIssueEqual(left[i], right[i])) {
+    if (!SbirsIssueEqual(left[i], right[i])) {
       return false;
     }
   }
@@ -112,9 +96,7 @@ bool CycleResultEqual(const SbirsCycleResult& left, const SbirsCycleResult& righ
   return left.input_cycle_index == right.input_cycle_index &&
          OutputFrameEqual(left.output_frame, right.output_frame) &&
          AttributionListEqual(left.detection_attributions, right.detection_attributions) &&
-         ValidationIssueListEqual(left.validation_issues, right.validation_issues) &&
-         DiagnosticIssueListEqual(left.diagnostics, right.diagnostics) &&
-         left.has_validation_error == right.has_validation_error &&
+         SbirsIssueListEqual(left.issues, right.issues) &&
          left.executed_this_cycle == right.executed_this_cycle &&
          left.abort_reason == right.abort_reason;
 }

@@ -370,32 +370,24 @@ std::string EncodeSbirsCycleResult(const SbirsCycleResult& value) {
     attributions.push_back(builder.Finish());
   }
 
-  std::vector<flatbuffers::Offset<sbirs::replay::SbirsDiagnosticIssue>> fb_diagnostics;
-  fb_diagnostics.reserve(value.diagnostics.size());
-  for (const SbirsDiagnosticIssue& diag : value.diagnostics) {
-    fb_diagnostics.push_back(sbirs::replay::CreateSbirsDiagnosticIssue(
-        fbb, static_cast<std::int32_t>(diag.severity), fbb.CreateString(diag.code),
-        fbb.CreateString(diag.message)));
-  }
-
-  std::vector<flatbuffers::Offset<sbirs::replay::ValidationIssue>> issues;
-  issues.reserve(value.validation_issues.size());
-  for (const ValidationIssue& issue : value.validation_issues) {
+  std::vector<flatbuffers::Offset<sbirs::replay::SbirsIssue>> fb_issues;
+  fb_issues.reserve(value.issues.size());
+  for (const SbirsIssue& issue : value.issues) {
     std::int64_t entity_index = -1;
     if (issue.location.entity_index != std::numeric_limits<std::size_t>::max()) {
       entity_index = static_cast<std::int64_t>(issue.location.entity_index);
     }
-    issues.push_back(
-        sbirs::replay::CreateValidationIssue(fbb, static_cast<std::int32_t>(issue.severity),
-                                             static_cast<std::int32_t>(issue.location.kind),
-                                             entity_index, fbb.CreateString(issue.message)));
+    fb_issues.push_back(sbirs::replay::CreateSbirsIssue(
+        fbb, static_cast<std::int32_t>(issue.severity), static_cast<std::int32_t>(issue.phase),
+        fbb.CreateString(issue.code), fbb.CreateString(issue.message),
+        static_cast<std::int32_t>(issue.location.kind), entity_index,
+        fbb.CreateString(issue.field)));
   }
 
   fbb.Finish(sbirs::replay::CreateSbirsCycleResult(
-      fbb, value.input_cycle_index, frame, fbb.CreateVector(attributions), fbb.CreateVector(issues),
-      value.has_validation_error, value.executed_this_cycle,
-      static_cast<std::int32_t>(value.abort_reason),
-      static_cast<std::uint8_t>(value.status), fbb.CreateVector(fb_diagnostics)));
+      fbb, value.input_cycle_index, frame, fbb.CreateVector(attributions),
+      value.executed_this_cycle, static_cast<std::int32_t>(value.abort_reason),
+      static_cast<std::uint8_t>(value.status), fbb.CreateVector(fb_issues)));
   return oneq::common::replay::CopyFinishedFlatbuffer(fbb);
 }
 
@@ -453,28 +445,22 @@ bool DecodeSbirsCycleResult(const std::string& bytes, SbirsCycleResult* out) {
       decoded.detection_attributions.push_back(record);
     }
   }
-  if (fb->validation_issues() != nullptr) {
-    for (const sbirs::replay::ValidationIssue* issue : *fb->validation_issues()) {
-      ValidationIssue item;
-      item.severity = static_cast<ValidationSeverity>(issue->severity());
-      item.location.kind = static_cast<ValidationLocationKind>(issue->location_kind());
+  if (fb->issues() != nullptr) {
+    for (const sbirs::replay::SbirsIssue* issue : *fb->issues()) {
+      SbirsIssue item;
+      item.severity = static_cast<SbirsIssueSeverity>(issue->severity());
+      item.phase = static_cast<SbirsIssuePhase>(issue->phase());
+      item.code = issue->code() ? issue->code()->str() : std::string();
+      item.message = issue->message() ? issue->message()->str() : std::string();
+      item.location.kind = static_cast<oneq::foundation::ValidationLocationKind>(
+          issue->location_kind());
       item.location.entity_index = issue->entity_index() < 0
                                        ? std::numeric_limits<std::size_t>::max()
                                        : static_cast<std::size_t>(issue->entity_index());
-      item.message = issue->message() ? issue->message()->str() : std::string();
-      decoded.validation_issues.push_back(item);
+      item.field = issue->field() ? issue->field()->str() : std::string();
+      decoded.issues.push_back(item);
     }
   }
-  if (fb->diagnostics() != nullptr) {
-    for (const sbirs::replay::SbirsDiagnosticIssue* issue : *fb->diagnostics()) {
-      SbirsDiagnosticIssue diag;
-      diag.severity = static_cast<SbirsDiagnosticSeverity>(issue->severity());
-      diag.code = issue->code() ? issue->code()->str() : std::string();
-      diag.message = issue->message() ? issue->message()->str() : std::string();
-      decoded.diagnostics.push_back(diag);
-    }
-  }
-  decoded.has_validation_error = fb->has_validation_error();
   decoded.executed_this_cycle = fb->executed_this_cycle();
   decoded.abort_reason = static_cast<SbirsPipelineAbortReason>(abort_reason);
   const std::int32_t status = fb->status();

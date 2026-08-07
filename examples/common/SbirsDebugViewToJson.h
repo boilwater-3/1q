@@ -90,7 +90,6 @@ inline std::string SbirsDebugViewToJson(const sbirs_sensor::session::SbirsOutput
   out << "{\"input_cycle_index\":" << view.input_cycle_index
       << ",\"output_cycle_index\":" << view.output_cycle_index
       << ",\"executed_this_cycle\":" << (view.executed_this_cycle ? "true" : "false")
-      << ",\"has_validation_error\":" << (view.has_validation_error ? "true" : "false")
       << ",\"abort_reason\":\"" << SbirsAbortReasonName(view.abort_reason) << '"'
       << ",\"targets\":[";
   for (std::size_t i = 0U; i < view.targets.size(); ++i) {
@@ -123,7 +122,7 @@ inline std::string SbirsDebugViewToJson(const sbirs_sensor::session::SbirsOutput
         << ",\"infrared_snr_linear\":" << target.infrared_snr_linear << ",\"observation_stage\":\""
         << SbirsObservationStageName(target.observation_stage) << "\"}";
   }
-  WriteIssuesJson(out, view.diagnostics);
+  WriteIssuesJson(out, view.issues);
   return out.str();
 }
 

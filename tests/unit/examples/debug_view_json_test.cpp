@@ -121,7 +121,6 @@ sbirs::session::SbirsOutputDebugView MakeSbirsView() {
   view.input_cycle_index = 5U;
   view.output_cycle_index = 5U;
   view.executed_this_cycle = true;
-  view.has_validation_error = false;
   view.abort_reason = sbirs::session::SbirsPipelineAbortReason::kNone;
 
   sbirs::session::SbirsDebugTargetState target;
@@ -189,7 +188,7 @@ TEST(DebugViewJsonTest, SarDebugViewToJsonMatchesExpectedJson) {
 TEST(DebugViewJsonTest, SbirsDebugViewToJsonMatchesExpectedJson) {
   const std::string json = SbirsDebugViewToJson(MakeSbirsView());
   EXPECT_EQ(json, R"({"input_cycle_index":5,"output_cycle_index":5,"executed_this_cycle":true,)"
-                  R"("has_validation_error":false,"abort_reason":"none","targets":)"
+                  R"("abort_reason":"none","targets":)"
                   R"([{"target_id":7,"target_name":"sat-7","status":"coasting",)"
                   R"("present_in_input":true,"has_raw_output_record":true,"detected":true,)"
                   R"("tracking_source":"estimated","estimated_range_m":1000,)"

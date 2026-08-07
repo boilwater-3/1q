@@ -34,9 +34,7 @@ struct ONEQ_API SbirsCycleResult {
   std::uint32_t input_cycle_index{0U};       /**< 对应输入周期序号 */
   SbirsOutputFrame output_frame{};           /**< 原始系统输出帧 */
   attribution::SbirsDetectionAttributionRecordList detection_attributions{}; /**< 检测归属列表 */
-  ValidationIssueList validation_issues{};   /**< 校验问题列表 */
-  SbirsDiagnosticIssueList diagnostics{};    /**< 细粒度诊断（三写：结构化信号 + 诊断 + 日志） */
-  bool has_validation_error{false};          /**< 是否存在校验级错误 */
+  SbirsIssueList issues{};                   /**< 统一问题列表（规则 14：校验问题 phase=kInputValidation + 执行诊断） */
   SbirsCycleStatus status{
       SbirsCycleStatus::kRejectedInvalidInput}; /**< 当前周期高层执行状态 */
   bool executed_this_cycle{false};           /**< status == kCompleted 的便捷访问器 */

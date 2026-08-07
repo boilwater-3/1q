@@ -23,7 +23,7 @@ TEST(SbirsInputValidationTest, RejectsMissingSatellitePosition) {
           .WithDeltaTimeSec(1.0f)
           .Build();
 
-  const sbirs_sensor::session::ValidationIssueList issues =
+  const sbirs_sensor::session::SbirsIssueList issues =
       sbirs_sensor::session::ValidateSbirsCycleInput(input, 10.0f);
   EXPECT_TRUE(sbirs_sensor::session::HasValidationError(issues));
 }
@@ -43,7 +43,7 @@ TEST(SbirsInputValidationTest, AcceptsMinimalValidScene) {
           .AddTarget(target)
           .Build();
 
-  const sbirs_sensor::session::ValidationIssueList issues =
+  const sbirs_sensor::session::SbirsIssueList issues =
       sbirs_sensor::session::ValidateSbirsCycleInput(input, 10.0f);
   EXPECT_FALSE(sbirs_sensor::session::HasValidationError(issues));
 }
@@ -85,7 +85,7 @@ TEST(SbirsInputValidationTest, RejectsFiniteDomainFlagIdAndEnvironmentMatrix) {
       std::numeric_limits<double>::quiet_NaN();
 
   for (std::size_t i = 0; i < invalid_inputs.size(); ++i) {
-    const sbirs_sensor::session::ValidationIssueList issues =
+    const sbirs_sensor::session::SbirsIssueList issues =
         sbirs_sensor::session::ValidateSbirsCycleInput(invalid_inputs[i], 10.0f);
     EXPECT_TRUE(sbirs_sensor::session::HasValidationError(issues)) << "case " << i;
   }
@@ -107,7 +107,7 @@ TEST(SbirsInputValidationTest, AcceptsDtSecWithinFrameRateBound) {
           .AddTarget(target)
           .Build();
 
-  const sbirs_sensor::session::ValidationIssueList issues =
+  const sbirs_sensor::session::SbirsIssueList issues =
       sbirs_sensor::session::ValidateSbirsCycleInput(input, 10.0f);
   EXPECT_FALSE(sbirs_sensor::session::HasValidationError(issues));
 }
@@ -128,7 +128,7 @@ TEST(SbirsInputValidationTest, RejectsDtSecExceedingFrameRateBound) {
           .AddTarget(target)
           .Build();
 
-  const sbirs_sensor::session::ValidationIssueList issues =
+  const sbirs_sensor::session::SbirsIssueList issues =
       sbirs_sensor::session::ValidateSbirsCycleInput(input, 10.0f);
   EXPECT_TRUE(sbirs_sensor::session::HasValidationError(issues));
 }
@@ -149,7 +149,7 @@ TEST(SbirsInputValidationTest, AcceptsDtSecAtExactFrameRateBound) {
           .AddTarget(target)
           .Build();
 
-  const sbirs_sensor::session::ValidationIssueList issues =
+  const sbirs_sensor::session::SbirsIssueList issues =
       sbirs_sensor::session::ValidateSbirsCycleInput(input, 10.0f);
   EXPECT_FALSE(sbirs_sensor::session::HasValidationError(issues));
 }
@@ -170,7 +170,7 @@ TEST(SbirsInputValidationTest, RejectsDtSecJustAboveFrameRateBound) {
           .AddTarget(target)
           .Build();
 
-  const sbirs_sensor::session::ValidationIssueList issues =
+  const sbirs_sensor::session::SbirsIssueList issues =
       sbirs_sensor::session::ValidateSbirsCycleInput(input, 10.0f);
   EXPECT_TRUE(sbirs_sensor::session::HasValidationError(issues));
 }
@@ -192,12 +192,12 @@ TEST(SbirsInputValidationTest, HigherFrameRateAllowsTighterDtSec) {
           .Build();
 
   // At 20Hz, max_dt=0.5s → 0.8s should fail.
-  const sbirs_sensor::session::ValidationIssueList issues_20hz =
+  const sbirs_sensor::session::SbirsIssueList issues_20hz =
       sbirs_sensor::session::ValidateSbirsCycleInput(input, 20.0f);
   EXPECT_TRUE(sbirs_sensor::session::HasValidationError(issues_20hz));
 
   // At 10Hz, max_dt=1.0s → 0.8s should pass.
-  const sbirs_sensor::session::ValidationIssueList issues_10hz =
+  const sbirs_sensor::session::SbirsIssueList issues_10hz =
       sbirs_sensor::session::ValidateSbirsCycleInput(input, 10.0f);
   EXPECT_FALSE(sbirs_sensor::session::HasValidationError(issues_10hz));
 }

@@ -19,15 +19,15 @@ namespace session {
 const char* AbortReasonToDiagnosticCode(SbirsPipelineAbortReason reason);
 
 /**
- * @brief 将本周期标记为中止（三写：abort_reason + diagnostics + 日志）。
+ * @brief 将本周期标记为中止（三写：abort_reason + issues + 日志）。
  * @param[out] result 单周期结果。
- * @param[in] reason 粗粒度中止原因枚举。
- * @param[in] detail_code 细粒度诊断码（如 "sensor_powered_off"），写入 diagnostics。
+ * @param[in] reason 粗粒度中止原因；phase 由原因推导（kValidationRejected → kInputValidation，
+ *            其余 → kExecution）。
+ * @param[in] detail_code 细粒度诊断码（如 "sensor_powered_off"），写入 issues。
  * @param[in] message 中止描述。
- * @param[in] is_validation true 时 status 设为 kRejectedInvalidInput，否则 kRejectedExecution。
  */
 void RecordAbort(SbirsCycleResult* result, SbirsPipelineAbortReason reason,
-                 const char* detail_code, const std::string& message, bool is_validation);
+                 const char* detail_code, const std::string& message);
 
 }  // namespace session
 }  // namespace sbirs_sensor

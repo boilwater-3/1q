@@ -43,19 +43,25 @@ SBIRS 非执行周期（校验失败/执行 abort）的 `Step()` 与 `SbirsCycle
 
 [evidence: tests/contract/sbirs_sensor/sbirs_public_api_convenience_test.cpp::StepReturnsEmptyFrameOnValidationFailureAfterSuccess]
 
-### 三写约束（abort_reason + diagnostics + 日志）
+### 三写约束（abort_reason + issues + 日志）
 
-SBIRS 所有中止路径遵守 `session_contract.md` 规则 9 的三写模式：
+SBIRS 所有中止路径遵守 `session_contract.md` 规则 9 的三写模式与规则 14 的统一问题列表模型：
 
 1. **结构化信号**：`SbirsCycleResult.abort_reason`（粗粒度枚举：`kValidationRejected`、`kSensorPoweredOff`）。
-2. **结构化诊断**：`SbirsCycleResult.diagnostics`（`SbirsDiagnosticIssueList`，细粒度 code 如 `"sbirs.input_validation"`）。
+2. **结构化诊断**：`SbirsCycleResult.issues`（`SbirsIssueList`，细粒度 code 如
+   `"sbirs.sensor_powered_off"`、`"sbirs.validation.invalid_satellite_position"`；
+   条目携带 `phase` 来源标签与可选定位）。
 3. **人读日志**：`PROJECT_LOG_ERROR`。
 
-三写由 `SbirsDiagnosticUtils::RecordAbort` 统一执行。
+`SbirsCycleResult` 只承载单一问题列表 `issues`：输入校验问题（`phase=kInputValidation`）与执行诊断
+（`phase=kExecution`）同列表承载，不设 `validation_issues`/`has_validation_error` 平行字段。
+校验拒绝时校验问题本身就是 error 级诊断（规则 9 写二），不再附加粗粒度条目。
+
+三写由 `SbirsDiagnosticUtils::RecordAbort` 统一执行（phase 由中止原因推导）。
 
 正常执行周期（`status == kCompleted`）的按目标排除诊断（kInfo，code 如
 `"sbirs.target_out_of_wfov"`）**不属于三写**（session_contract.md 规则 13b）：仅承载排查信息，
-由 pipeline 内联写入、controller 层转写进 `SbirsCycleResult.diagnostics`，调用方按规则 12
+由 pipeline 内联写入、controller 层并入 `SbirsCycleResult.issues`，调用方按规则 12
 落盘 DebugView 时自然携带；不改变周期状态与 DebugView 状态语义。周期级 `PROJECT_LOG_INFO`
 执行摘要（规则 13a，格式 `[SbirsPipeline] cycle_index=… scan_az=… detections=… excluded=…`）
 在 pipeline `RunCycle` 每次实际执行后输出，仅人读，不用于状态判断（规则 3）。
@@ -74,7 +80,7 @@ SBIRS 所有中止路径遵守 `session_contract.md` 规则 9 的三写模式：
 7. NFOV 首次捕获失败或 pointing timeout：raw output 不含失败记录；result attribution 携带
    `kNfovAcquisitionFailed` 或 `kNfovPointingTimeout`。
 8. WFOV 级几何/SNR 排除（地球遮挡、距离门、视场外、WFOV SNR 低于 `wide_min_snr_linear`）：
-   raw output 无记录、无 attribution；`SbirsCycleResult.diagnostics` 携带 kInfo 排除码
+   raw output 无记录、无 attribution；`SbirsCycleResult.issues` 携带 kInfo 排除码
    （`sbirs.target_occulted` / `sbirs.target_out_of_range` / `sbirs.target_out_of_wfov` /
    `sbirs.target_snr_below_threshold`，message 含 `target_id` 与关键量值）；DebugView 状态仍为
    `kNotInOutput`（规则 13b/c）。

@@ -66,29 +66,27 @@ table SbirsOutputFrame {
   detections: [SbirsDetectionRecord];
 }
 
-table ValidationIssue {
-  severity: int32;
-  location_kind: int32;
-  entity_index: int64;
-  message: string;
-}
+// 统一问题列表模型（session_contract.md 规则 14）：单一 SbirsIssue 列表承载
+// 输入校验问题（phase=kInputValidation）与执行诊断（phase=kExecution）。
 
-table SbirsDiagnosticIssue {
-  severity: int32;
-  code: string;
-  message: string;
+table SbirsIssue {
+  severity:      int32;
+  phase:         int32;
+  code:          string;
+  message:       string;
+  location_kind: int32 = 0;
+  entity_index:  int64 = -1;
+  field:         string;
 }
 
 table SbirsCycleResult {
   input_cycle_index: uint32;
   output_frame: SbirsOutputFrame;
   detection_attributions: [SbirsDetectionAttributionRecord];
-  validation_issues: [ValidationIssue];
-  has_validation_error: bool;
   executed_this_cycle: bool;
   abort_reason: int32;
   status: uint8;
-  diagnostics: [SbirsDiagnosticIssue];
+  issues: [SbirsIssue];
 }
 
 table FailureMarker {

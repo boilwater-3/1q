@@ -489,10 +489,10 @@ TEST(SensorQueryGettersTest, SbirsLastDebugViewCarriesPerTargetStateAndExclusion
   EXPECT_EQ(view.targets[0].status,
             sbirs_sensor::session::SbirsDebugTargetStatus::kNotInOutput);
   bool found_wfov = false;
-  for (const auto& issue : view.diagnostics) {
+  for (const auto& issue : view.issues) {
     if (issue.code == "sbirs.target_out_of_wfov") {
       found_wfov = true;
-      EXPECT_EQ(issue.severity, sbirs_sensor::session::SbirsDiagnosticSeverity::kInfo);
+      EXPECT_EQ(issue.severity, sbirs_sensor::session::SbirsIssueSeverity::kInfo);
       EXPECT_NE(issue.message.find("target_id=1001"), std::string::npos);
     }
   }

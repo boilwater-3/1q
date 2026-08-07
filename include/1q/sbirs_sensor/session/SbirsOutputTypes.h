@@ -11,6 +11,7 @@
 #include <vector>
 
 #include "1q/api.hpp"
+#include "1q/foundation/validation_types.h"
 
 namespace sbirs_sensor {
 namespace output {
@@ -100,26 +101,42 @@ using SbirsDetectionAttributionRecordList = std::vector<SbirsDetectionAttributio
 namespace session {
 
 /**
- * @brief SBIRS 诊断等级。
+ * @brief SBIRS 问题条目严重等级。
  */
-enum class ONEQ_API SbirsDiagnosticSeverity : std::uint8_t {
+enum class ONEQ_API SbirsIssueSeverity : std::uint8_t {
   kInfo = 0,    /**< 信息 */
   kWarning = 1, /**< 警告 */
   kError = 2    /**< 错误 */
 };
 
 /**
- * @brief SBIRS 诊断条目。
- * @note 承载细粒度失败信息（如 "sbirs.validation_rejected"），不用于调用方状态判断。
+ * @brief SBIRS 问题条目来源阶段（统一问题列表模型，session_contract.md 规则 14）。
+ * @note 结构化来源判别字段；状态判断仍以 `status`/`abort_reason` 为准，phase 不改变状态语义。
  */
-struct ONEQ_API SbirsDiagnosticIssue {
-  SbirsDiagnosticSeverity severity{SbirsDiagnosticSeverity::kInfo};
-  std::string code{};
-  std::string message{};
+enum class ONEQ_API SbirsIssuePhase : std::uint8_t {
+  kInputValidation = 0, /**< 输入校验阶段（调用方输入问题） */
+  kExecution = 1,       /**< 管线执行阶段（含关机等运行态条件） */
+  kOutputContract = 2   /**< 输出违反内部契约 */
 };
 
-/** @brief SBIRS 诊断条目列表。 */
-using SbirsDiagnosticIssueList = std::vector<SbirsDiagnosticIssue>;
+/**
+ * @brief SbirsIssue 描述单周期问题条目（统一问题列表模型，session_contract.md 规则 14）。
+ * @note 承载输入校验问题（phase=kInputValidation）与执行诊断（phase=kExecution）；
+ *       code 带模块前缀（如 "sbirs.target_out_of_wfov"、
+ *       "sbirs.validation.invalid_satellite_position"），机器消费只认 code；
+ *       不用于调用方状态判断。
+ */
+struct ONEQ_API SbirsIssue {
+  SbirsIssueSeverity severity{SbirsIssueSeverity::kInfo};
+  SbirsIssuePhase phase{SbirsIssuePhase::kExecution};
+  std::string code{};
+  std::string message{};
+  oneq::foundation::ValidationLocation location{}; /**< 可选定位；kind==kGlobal 表示无定位 */
+  std::string field{}; /**< 可选定位；为空表示无关联字段（跨字段或域级问题） */
+};
+
+/** @brief SBIRS 问题条目列表。 */
+using SbirsIssueList = std::vector<SbirsIssue>;
 
 /** @brief 单周期执行的中止原因。 */
 enum class ONEQ_API SbirsPipelineAbortReason {
