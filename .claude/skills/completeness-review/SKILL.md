@@ -1,6 +1,6 @@
 ---
 name: completeness-review
-description: Review uncommitted code changes for correctness, code quality, and test coverage, then gate the merge. Triggered by the pre-commit hook for major C++ changes (≥3 files or ≥50 lines) and by "/completeness-review". Three parallel review lanes (correctness agent + bundled code-simplifier agent + test coverage agent) produce a structured report with a quality-gated merge flow.
+description: Review uncommitted code changes for correctness, code quality, and test coverage, then gate the merge. Triggered by the pre-commit hook for major C++ changes (≥3 files or ≥50 lines) and by "/completeness-review". Three parallel review lanes (code-review subagent + code-simplifier subagent + test coverage agent) produce a structured report with a quality-gated merge flow.
 argument-hint: "[optional diff range]"
 allowed-tools:
   - Bash
@@ -64,12 +64,14 @@ Pass the plan's intent summary to all three review lanes as shared context.
 
 ## Step 3: Deep review (parallel)
 
-Run three review lanes in parallel via the Agent tool. All lanes receive: the diff range, the
+Run three review lanes in parallel via the Agent tool (subagent types `code-review` and
+`code-simplifier` are registered at `~/.zcode/agents/`). All lanes receive: the diff range, the
 plan/intent summary (from Step 0/2), and the excluded-files list (from Step 0).
 
-#### Lane 1: Correctness (Agent-based, Opus)
+#### Lane 1: Correctness (subagent: code-review)
 
-Launch an Agent with **`model: "opus"`** to review the diff for:
+Launch the `code-review` subagent (registered at `~/.zcode/agents/code-review.md`) to review the diff
+for:
 - Logic errors, boundary conditions (nullptr, empty containers, division-by-zero, out-of-range)
 - Error-handling completeness, RAII / resource leaks
 - Compliance with AGENTS.md Engineering Conventions (const correctness, no exceptions, namespace consistency)
@@ -77,16 +79,16 @@ Launch an Agent with **`model: "opus"`** to review the diff for:
 - Divergence from the plan/intent: deliberate behavior changes should be checked against the plan,
   not flagged as bugs; missing plan pieces should be flagged as incompleteness
 
-> Lane 1 uses Opus because correctness review requires deeper architecture-level reasoning that flash
-> models tend to miss (e.g., duplicate implementations drifting out of sync across files).
+> The `code-review` subagent carries the generic correctness-review prompt (severity-tagged
+> `[高/中/低] [file:line]` findings). Project conventions come from AGENTS.md, which the subagent
+> reads itself.
 
-#### Lane 2: Code quality (bundled agent: code-simplifier, Opus)
+#### Lane 2: Code quality (subagent: code-simplifier)
 
-Read `agents/code-simplifier.md` and launch an Agent with **`model: "opus"`** and that prompt against
+Launch the `code-simplifier` subagent (registered at `~/.zcode/agents/code-simplifier.md`) against
 the recently modified code. It reviews for reuse, simplification, naming, redundancy, and
-maintainability, applying project conventions (Google C++ Style, const-by-default, no exceptions,
-preserved Chinese log annotations). **It reports findings only — it must not modify code during
-review** (see agents/code-simplifier.md).
+maintainability, applying project conventions from AGENTS.md. **It reports findings only — it must
+not modify code during review** (see its prompt).
 
 #### Lane 3: Test coverage (Agent-based)
 
