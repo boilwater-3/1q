@@ -35,7 +35,7 @@ RF-Interference-Architecture: frozen target; AR/ESR/ECM RF v2 implemented (per-m
 `*Session::Create` 与 `*Session::CreateWithDiagnostics` 的校验/构造语义必须遵守以下非阻断契约（五模块已实现并经契约测试覆盖）：
 
 1. `Create(config)` 是信任路径，不做配置校验。
-2. `CreateWithDiagnostics(config, issues)` 是校验路径——**无论 @p issues 是否含有 error 都会构造并返回会话（非阻断）**；`issues` 仅为咨询性诊断输出，传入 `nullptr` 时仅构造会话、不写回。
+2. `CreateWithDiagnostics(config, issues)` 是校验路径——**无论 @p issues 是否含有 error 都会构造并返回会话（非阻断）**；`issues` 为模块 `*IssueList`（统一问题列表模型，见 `docs/common/session_contract.md` 规则 14，config 域校验问题 code 为 `"<module>.validation.<snake_case>"`），仅为咨询性诊断输出，传入 `nullptr` 时仅构造会话、不写回。
 3. 两入口均不会因校验失败而拒绝构造；当前不存在"校验失败即不构造"语义。
 4. 调用方须据 `issues->empty()`（或 `HasValidationError`）自行决定后续处置。
 

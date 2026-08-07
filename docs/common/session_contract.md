@@ -142,7 +142,10 @@ AR/ESR/EOS/SBIRS/SAR 五模块的电源状态必须遵守单源原则：
     FlatBuffers）写入自己的日志/事件系统获得。规则 3 的"状态判断不得依赖日志文本"约束对象是
     模块内部代码，不限制调用方对其日志系统的使用，但调用方应结构化落盘，避免文本解析。
     JSON 参考实现见 `examples/common/` 的 `*DebugViewToJson.h` + `debug_view_json.h`
-    （header-only、零第三方依赖，集成方可直接 copy 进自己的工程）。
+    （header-only、零第三方依赖，集成方可直接 copy 进自己的工程）。AR/EOS/SBIRS
+    序列化器另含三种常见落盘模式参考实现：只落非标称行、跨周期状态增量（状态表由
+    调用方持有）、降频落盘（每 N 周期一次全量，其余周期只落问题列表）；SAR 为阶段型
+    视图，不适用逐目标落盘模式。
 13. 正常执行周期（`status == kCompleted`）的可观测性：
     a. **周期级执行摘要日志**：正常执行周期应输出周期级 `PROJECT_LOG_INFO` 摘要，格式基线
        `[XxxPipeline] cycle_index={} …`（模块自定附加字段，如扫描方位、检测数/目标数、排除计数），
@@ -174,7 +177,8 @@ AR/ESR/EOS/SBIRS/SAR 五模块的电源状态必须遵守单源原则：
        `kExecution`（管线执行阶段，含关机等运行态条件）/
        `kOutputContract`（输出违反内部契约）。phase 是结构化来源判别字段；状态判断仍以
        `status`/`abort_reason` 为准（规则 9a），phase 不改变状态语义。
-    c. `code`：字符串，带模块前缀。输入校验问题编码为 `"<module>.validation.<snake_case>"`
+    c. `code`：字符串，带模块前缀。输入校验问题（周期输入校验 `Validate*CycleInput` 与
+       创建时配置校验 `Validate*SessionConfig` 共用）编码为 `"<module>.validation.<snake_case>"`
        （如 `"esr.validation.invalid_emitter_frequency"`）；执行诊断保持既有 code 字符串
        （如 `"sar.snr_below_minimum"`）。机器消费只认 code（规则 13b）；既有执行诊断 code
        字符串是 replay/trace 稳定语义，不得重命名。
@@ -183,6 +187,12 @@ AR/ESR/EOS/SBIRS/SAR 五模块的电源状态必须遵守单源原则：
        定位只服务人读与 replay 保真，不用于状态判断。
     输入校验入口（`Validate*CycleInput`）返回同一问题条目列表（`phase = kInputValidation`）；
     `HasValidationError` 按 `phase == kInputValidation && severity == kError` 判定。
+    创建时配置校验入口（`Validate*SessionConfig`）返回同一 `*IssueList`：`phase =
+    kInputValidation`、`severity = kError`、code 按 c 条 `<module>.validation.<snake_case>`
+    规则（同条件在创建时与运行期路径 code 逐字一致），`field` 定位配置字段路径；
+    `CreateWithDiagnostics` 出参类型为 `*IssueList`（非阻断语义见
+    `docs/common/contract.md` §会话创建入口）。各模块 config 域 `ConfigValidationCode`
+    枚举、`ConfigValidationIssue` / `ValidationIssue` 结构与 `ValidationIssueList` 别名已删除。
     各模块 `ValidationCode` 枚举、`ValidationIssue` 类型与平行列表字段不再作为输出通道；
     `*CycleResult` 不得保留可推导的 error 布尔缓存字段（`has_validation_error` / `has_error`
     已删除，调用方以 `HasValidationError(issues)` 或遍历判定）。
@@ -190,16 +200,18 @@ AR/ESR/EOS/SBIRS/SAR 五模块的电源状态必须遵守单源原则：
     [evidence: tests/contract/sar/sar_three_write_guard_test.cpp —— 参考实现 issues 唯一列表 + phase 断言]
     [evidence: tests/contract/electronic_surveillance_radar/esr_three_write_guard_test.cpp —— 迁移后 phase 断言]
     [evidence: tests/unit/sar/sar_input_validation_test.cpp —— 校验问题 code "sar.validation.<snake>" + phase 断言]
+    [evidence: tests/unit/sar/sar_session_config_builder_test.cpp —— config 域 code "sar.validation.<snake>" 断言]
+    [evidence: tests/unit/sbirs_sensor/sbirs_session_config_builder_test.cpp —— 无枚举 config 域 code 断言]
 
     **对齐状态（2026-08，全部已对齐）**：
 
-    | 模块 | `validation_issues` 平行字段 | `phase` 来源标签 | 可选定位 |
-    |---|---|---|---|
-    | SAR | 无（参考实现） | 已对齐 | 已对齐 |
-    | ESR | 已迁移 | 已对齐 | 已对齐 |
-    | EOS | 已迁移 | 已对齐 | 已对齐 |
-    | SBIRS | 已迁移 | 已对齐 | 已对齐 |
-    | AR | 已迁移 | 已对齐 | 已对齐 |
+    | 模块 | `validation_issues` 平行字段 | `phase` 来源标签 | 可选定位 | config 域（`Validate*SessionConfig`） |
+    |---|---|---|---|---|
+    | SAR | 无（参考实现） | 已对齐 | 已对齐 | 已统一 |
+    | ESR | 已迁移 | 已对齐 | 已对齐 | 已统一 |
+    | EOS | 已迁移 | 已对齐 | 已对齐 | 已统一 |
+    | SBIRS | 已迁移 | 已对齐 | 已对齐 | 已统一 |
+    | AR | 已迁移 | 已对齐 | 已对齐 | 已统一 |
 
 ### 传感器方位坐标系约定（SBIRS）
 
