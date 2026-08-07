@@ -31,7 +31,6 @@ struct EosControllerRuntimeState {
   std::uint32_t schema_version{0U};          /**< 快照结构版本号 */
   session::EosOutputFrame latest_output{};   /**< 最近一帧有效输出（非执行周期返回默认空帧，不复用） */
   attribution::EosDetectionAttributionRecordList latest_detection_attributions{}; /**< 最近一帧归属映射 */
-  session::EosIssueList last_validation_issues{}; /**< 最近一次输入校验问题列表 */
   bool has_latest_output{false};             /**< 是否已有可读取的最新输出帧 */
   bool last_cycle_executed{false};           /**< 最近一次 RunOnce 是否实际执行了核心 pipeline */
   session::EosPipelineAbortReason last_abort_reason{session::EosPipelineAbortReason::kNone}; /**< 最近一次终止原因 */
@@ -60,12 +59,6 @@ class EosController {
   void RunOnce(const ::electro_optical_sensor::session::EosCycleInput& input);
 
   /**
-   * @brief 获取最近一次输入校验问题。
-   * @return 最近一次输入校验问题列表（phase=kInputValidation）。
-   */
-  const session::EosIssueList& GetLastValidationIssues() const;
-
-  /**
    * @brief 最近一次 RunOnce 是否执行了核心 pipeline。
    * @return 若执行了核心 pipeline 则返回 true。
    */
@@ -85,9 +78,9 @@ class EosController {
   const session::EosIssueList& GetLatestIssues() const;
 
   /**
-   * @brief 基于最近一次 RunOnce 状态构建单周期聚合结果。
-   * @param[in] input 当前周期输入，仅在无可复用输出时用于回填 cycle_index。
-   * @return 当前周期聚合结果。
+   * @brief 返回最近一次 RunOnce 装配并缓存的单周期聚合结果。
+   * @param[in] input 当前周期输入（仅用于签名一致性，装配已发生在 RunOnce 内）。
+   * @return 最近一次周期的聚合结果。
    */
   ::electro_optical_sensor::session::EosCycleResult BuildCycleResult(
       const ::electro_optical_sensor::session::EosCycleInput& input) const;
