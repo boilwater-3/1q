@@ -5,7 +5,6 @@
 
 #include <gtest/gtest.h>
 
-#include <algorithm>
 #include <cmath>
 #include <limits>
 #include <memory>
@@ -215,7 +214,7 @@ TEST_F(CoreControllerTest, PublicOutputReaderApiExposesLatestTrackOutputFrame) {
   EXPECT_EQ(latest_track_output_frame.tracks[0].status, session::TrackStatus::kTentative);
 }
 
-TEST_F(CoreControllerTest, RuntimeValidationErrorsAreExposedAndSkipCommandSubmission) {
+TEST_F(CoreControllerTest, RuntimeValidationRejectionSkipsCommandSubmission) {
   const session::ArSceneTargetList input_state = BuildSingleTarget(510.0f, 1.0f, false);
   FakeRadarContext radar_context(input_state);
   radar_context.SetCycleDeltaTimeSec(std::numeric_limits<float>::quiet_NaN());
@@ -227,11 +226,9 @@ TEST_F(CoreControllerTest, RuntimeValidationErrorsAreExposedAndSkipCommandSubmis
 
   controller.RunOnce(signal::pipeline::SignalCycleInput{radar_context.GetSceneTargets()});
 
-  EXPECT_TRUE(controller.HasValidationError());
-  const session::ArIssueList& issues = controller.GetLastValidationIssues();
-  EXPECT_TRUE(std::find_if(issues.begin(), issues.end(), [](const session::ArIssue& issue) {
-                return issue.code == "ar.validation.non_finite_cycle_delta_time";
-              }) != issues.end());
+  EXPECT_FALSE(controller.ExecutedLatestCycle());
+  EXPECT_EQ(controller.GetLastSignalCycleAbortReason(),
+            session::SignalCycleAbortReason::kValidationRejected);
   EXPECT_TRUE(radar_context.SubmittedCommands().empty());
   EXPECT_FALSE(controller.HasLatestTrackOutputFrame());
 }
@@ -245,7 +242,9 @@ TEST_F(CoreControllerTest, FirstCycleSignalPipelineAbortDoesNotPublishSyntheticL
 
   controller.RunOnce(signal::pipeline::SignalCycleInput{radar_context.GetSceneTargets()});
 
-  EXPECT_FALSE(controller.HasValidationError());
+  EXPECT_FALSE(controller.ExecutedLatestCycle());
+  EXPECT_EQ(controller.GetLastSignalCycleAbortReason(),
+            session::SignalCycleAbortReason::kRuntimePreparationFailed);
   EXPECT_FALSE(controller.HasLatestTrackOutputFrame());
 }
 
@@ -268,11 +267,9 @@ TEST_F(CoreControllerTest, InvalidDeltaTimeRetainsPreviousValidOutputFrame) {
   radar_context.SetCycleDeltaTimeSec(0.0f);
   controller.RunOnce(signal::pipeline::SignalCycleInput{radar_context.GetSceneTargets()});
 
-  EXPECT_TRUE(controller.HasValidationError());
-  const session::ArIssueList& issues = controller.GetLastValidationIssues();
-  EXPECT_TRUE(std::find_if(issues.begin(), issues.end(), [](const session::ArIssue& issue) {
-                return issue.code == "ar.validation.invalid_cycle_delta_time";
-              }) != issues.end());
+  EXPECT_FALSE(controller.ExecutedLatestCycle());
+  EXPECT_EQ(controller.GetLastSignalCycleAbortReason(),
+            session::SignalCycleAbortReason::kValidationRejected);
   ASSERT_TRUE(controller.HasLatestTrackOutputFrame());
   const session::TrackOutputFrame& retained_frame = controller.GetLatestTrackOutputFrame();
   EXPECT_EQ(retained_frame.cycle_index, previous_frame.cycle_index);
@@ -312,11 +309,9 @@ TEST_F(CoreControllerTest, DuplicateExternalTargetIdRetainsPreviousValidOutputFr
 
   controller.RunOnce(signal::pipeline::SignalCycleInput{radar_context.GetSceneTargets()});
 
-  EXPECT_TRUE(controller.HasValidationError());
-  const session::ArIssueList& issues = controller.GetLastValidationIssues();
-  EXPECT_TRUE(std::find_if(issues.begin(), issues.end(), [](const session::ArIssue& issue) {
-                return issue.code == "ar.validation.duplicate_external_target_id";
-              }) != issues.end());
+  EXPECT_FALSE(controller.ExecutedLatestCycle());
+  EXPECT_EQ(controller.GetLastSignalCycleAbortReason(),
+            session::SignalCycleAbortReason::kValidationRejected);
   ASSERT_TRUE(controller.HasLatestTrackOutputFrame());
   const session::TrackOutputFrame& retained_frame = controller.GetLatestTrackOutputFrame();
   EXPECT_EQ(retained_frame.cycle_index, previous_frame.cycle_index);

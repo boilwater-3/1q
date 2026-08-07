@@ -41,7 +41,6 @@ struct ArControllerRuntimeState {
   std::uint32_t schema_version{0U};
   session::TrackOutputFrame latest_output{};
   bool has_latest_output{false};
-  session::ArIssueList last_validation_issues{};
   std::uint64_t next_batch_id{1U};
   bool last_cycle_executed{false};
   session::SignalCycleAbortReason last_signal_abort_reason{session::SignalCycleAbortReason::kNone};
@@ -169,18 +168,6 @@ class ArController {
    * @return 最近一次周期的按目标排除诊断列表。
    */
   const session::ArIssueList& GetLatestIssues() const;
-
-  /**
-   * @brief 获取最近一次输入校验问题列表。
-   * @return 最近一次 RunOnce 记录的校验问题。
-   */
-  const session::ArIssueList& GetLastValidationIssues() const;
-
-  /**
-   * @brief 判断最近一次输入校验是否存在 error 级问题。
-   * @return 若存在 error 级问题则返回 true。
-   */
-  bool HasValidationError() const;
 
   /**
    * @brief 最近一次 RunOnce 是否真正执行了 signal/decision/control 主链路。

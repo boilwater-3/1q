@@ -7,7 +7,6 @@
 #include <unordered_map>
 
 #include "1q/airborne_radar/session/ArControlProfile.h"
-#include "airborne_radar/session/ArDiagnosticUtils.h"
 #include "1q/airborne_radar/session/ArTrackOutput.h"
 #include "airborne_radar/decision/ControlReducer.h"
 #include "airborne_radar/decision/TacticalCoordinator.h"
@@ -470,7 +469,6 @@ void ArController::RunOnce(const signal::pipeline::SignalCycleInput& cycle_input
         session::ValidateArSceneTargets(scene_targets);
     issues.insert(issues.end(), target_issues.begin(), target_issues.end());
   }
-  impl_->cycle_state.last_validation_issues = issues;
 
   if (session::HasValidationError(issues)) {
     impl_->last_signal_abort_reason = session::SignalCycleAbortReason::kValidationRejected;
@@ -602,14 +600,6 @@ const session::ArIssueList& ArController::GetLatestIssues() const {
   return impl_->latest_issues;
 }
 
-const session::ArIssueList& ArController::GetLastValidationIssues() const {
-  return impl_->cycle_state.last_validation_issues;
-}
-
-bool ArController::HasValidationError() const {
-  return session::HasValidationError(impl_->cycle_state.last_validation_issues);
-}
-
 bool ArController::ExecutedLatestCycle() const { return impl_->last_cycle_executed; }
 
 session::SignalCycleAbortReason ArController::GetLastSignalCycleAbortReason() const {
@@ -663,7 +653,6 @@ extension::ArControllerRuntimeState ArController::CaptureRuntimeState() const {
   state.schema_version = 7U;
   state.latest_output = impl_->cycle_state.latest_output;
   state.has_latest_output = impl_->cycle_state.has_latest_output;
-  state.last_validation_issues = impl_->cycle_state.last_validation_issues;
   state.next_batch_id = impl_->cycle_state.next_batch_id;
   state.last_cycle_executed = impl_->last_cycle_executed;
   state.last_signal_abort_reason = impl_->last_signal_abort_reason;
@@ -703,7 +692,6 @@ bool ArController::RestoreRuntimeState(const extension::ArControllerRuntimeState
   }
   impl_->cycle_state.latest_output = state.latest_output;
   impl_->cycle_state.has_latest_output = state.has_latest_output;
-  impl_->cycle_state.last_validation_issues = state.last_validation_issues;
   impl_->cycle_state.next_batch_id = state.next_batch_id;
   impl_->last_cycle_executed = state.last_cycle_executed;
   impl_->last_signal_abort_reason = state.last_signal_abort_reason;
