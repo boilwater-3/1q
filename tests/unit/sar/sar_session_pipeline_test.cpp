@@ -32,6 +32,17 @@ bool HasErrorIssue(const session::SarCycleResult& result) {
   return false;
 }
 
+// Q-2 审查修复：断言存在指定 phase 的 error 级 issue
+// （锁定 PhaseForAbortReason 映射，防 kExternalInputRejected 等误标）。
+bool HasPhaseError(const session::SarIssueList& issues, session::SarIssuePhase phase) {
+  for (const session::SarIssue& issue : issues) {
+    if (issue.phase == phase && issue.severity == session::SarIssueSeverity::kError) {
+      return true;
+    }
+  }
+  return false;
+}
+
 bool HasNonZeroFocusedPixel(const session::SarFocusedImage& image) {
   for (std::size_t index = 0U; index < image.real_values.size(); ++index) {
     if (image.real_values[index] != 0.0 || image.imaginary_values[index] != 0.0) {
@@ -639,6 +650,8 @@ TEST(SarSessionPipelineTest, ExternalRawIqRejectsShapeMismatchAndAdvancedPaths) 
   const session::SarCycleResult malformed_result = malformed_session.StepWithResult(malformed);
   EXPECT_FALSE(malformed_result.executed_this_cycle);
   EXPECT_EQ(malformed_result.abort_reason, session::SarPipelineAbortReason::kExternalInputRejected);
+  // 外部 IQ 拒绝走 RecordAbort→PhaseForAbortReason：kExternalInputRejected→kInputValidation。
+  EXPECT_TRUE(HasPhaseError(malformed_result.issues, session::SarIssuePhase::kInputValidation));
 
   session::SarCycleInput non_finite = MakeExternalRawIqInput();
   non_finite.raw_iq.q_values[0] = std::numeric_limits<double>::quiet_NaN();
@@ -646,6 +659,7 @@ TEST(SarSessionPipelineTest, ExternalRawIqRejectsShapeMismatchAndAdvancedPaths) 
   const session::SarCycleResult non_finite_result = non_finite_session.StepWithResult(non_finite);
   EXPECT_FALSE(non_finite_result.executed_this_cycle);
   EXPECT_EQ(non_finite_result.abort_reason, session::SarPipelineAbortReason::kExternalInputRejected);
+  EXPECT_TRUE(HasPhaseError(non_finite_result.issues, session::SarIssuePhase::kInputValidation));
 
   config::SarSessionConfig l2_config = MakeSmallRdaConfig();
   l2_config.policy.enable_l2_motion_compensation = true;
@@ -654,6 +668,7 @@ TEST(SarSessionPipelineTest, ExternalRawIqRejectsShapeMismatchAndAdvancedPaths) 
   const session::SarCycleResult l2_result = l2_session.StepWithResult(MakeExternalRawIqInput());
   EXPECT_FALSE(l2_result.executed_this_cycle);
   EXPECT_EQ(l2_result.abort_reason, session::SarPipelineAbortReason::kExternalInputRejected);
+  EXPECT_TRUE(HasPhaseError(l2_result.issues, session::SarIssuePhase::kInputValidation));
 }
 
 TEST(SarSessionPipelineTest, ExternalRawIqWithPulseStatesRunsL3Bp) {
@@ -709,6 +724,7 @@ TEST(SarSessionPipelineTest, ExternalRawIqL2RejectsMissingOrInvalidIdealTrajecto
       missing_session.StepWithResult(MakeExternalRawIqInputWithTrajectory());
   EXPECT_FALSE(missing_result.executed_this_cycle);
   EXPECT_EQ(missing_result.abort_reason, session::SarPipelineAbortReason::kExternalInputRejected);
+  EXPECT_TRUE(HasPhaseError(missing_result.issues, session::SarIssuePhase::kInputValidation));
 
   session::SarCycleInput invalid = MakeExternalRawIqInputWithDualTrajectory();
   invalid.raw_iq.ideal_pulse_states[3].time_s = invalid.raw_iq.ideal_pulse_states[2].time_s;
@@ -716,6 +732,7 @@ TEST(SarSessionPipelineTest, ExternalRawIqL2RejectsMissingOrInvalidIdealTrajecto
   const session::SarCycleResult invalid_result = invalid_session.StepWithResult(invalid);
   EXPECT_FALSE(invalid_result.executed_this_cycle);
   EXPECT_EQ(invalid_result.abort_reason, session::SarPipelineAbortReason::kExternalInputRejected);
+  EXPECT_TRUE(HasPhaseError(invalid_result.issues, session::SarIssuePhase::kInputValidation));
 }
 
 TEST(SarSessionPipelineTest, ExternalRawIqBpRejectsMissingOrInvalidTrajectory) {
@@ -724,6 +741,7 @@ TEST(SarSessionPipelineTest, ExternalRawIqBpRejectsMissingOrInvalidTrajectory) {
       missing_session.StepWithResult(MakeExternalRawIqInput());
   EXPECT_FALSE(missing_result.executed_this_cycle);
   EXPECT_EQ(missing_result.abort_reason, session::SarPipelineAbortReason::kExternalInputRejected);
+  EXPECT_TRUE(HasPhaseError(missing_result.issues, session::SarIssuePhase::kInputValidation));
 
   session::SarCycleInput invalid = MakeExternalRawIqInputWithTrajectory();
   invalid.raw_iq.pulse_states[2].pulse_id = invalid.raw_iq.pulse_states[1].pulse_id;
