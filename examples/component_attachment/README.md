@@ -374,6 +374,15 @@ ESR 波形、天基平台、EOS 扫描、SAR 任务几何/链路、融合配置�
 `kHighThreatConfidence`/`kDtSec` 常量随迁出移除，语义见 SceneData 默认值。
 场景验证工作流（预期事件表/三分类判定/原型库）见仓库 skill `scenario-verify`。
 
+现有场景集（`scenes/`，每场景一份预期表归档 `*.md`）：
+
+| 场景文件 | 被测行为 | 预期表结论 |
+| --- | --- | --- |
+| `baseline_takeoff_east.json` | 基线：全通道端到端（探测→融合→决策） | 通过（含 SBIRS 穿越质心注） |
+| `no_targets_clean_airspace.json` | 空域清净：零假警（SAR 产品与点目标解耦） | 通过（1 项预期修正） |
+| `target_maneuver_evasion.json` | 目标大机动：跟踪保持（AR 失跟需探测断链） | 通过（1 项预期修正） |
+| `sbirs_altitude_snr_1000km.json` | SBIRS 高度专项：链路 1/R² 标度 + 门限边界 | 通过（1 项预期修正） |
+
 ## 构建与运行
 
 ```bash
