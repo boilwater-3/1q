@@ -2,22 +2,13 @@
  * @file component_attachment_demo.cpp
  * @brief 自定义实体-组件示例主程序（第二种示例模式）。
  *
- * 与 behavior_layer（EnTT ECS 开源库模式）对照：本示例不依赖 EnTT，
- * 采用自定义实体-组件框架（core/）：组件基类 → 各模块组件（飞行 / AR /
- * ESR / EOS / SBIRS / SAR / 融合）继承并挂载到平台实体，World 按挂载序
- * 周期步进；组件间事件通信使用 C++ 常见开源事件库 Boost.Signals2
- * （core/signals.h，零自定义分发层）。
- *
- * 数据流（单平台实体，挂载序 = 步进序）：
- *   Flight（推进位姿）→ AR / ESR / EOS / SBIRS（读 Flight 状态驱动会话，
- *   探测存自身组件）→ SAR（图像产品，不入融合）→ Fusion（聚合四传感器
- *   探测，一次 Update）→ 事件日志。
- *   事件：AR 首确认/失跟、ESR 假设、EOS 探测、SBIRS 探测、SAR 产品、
- *   融合更新、航点到达、决策指令（高置信威胁 → 指令下发，事件链演示）。
- *
- * 主程序只做装配与编排（世界/实体/会话创建、周期循环、查询演示、冒烟
- * 断言）；世界模型真值脚本见 scene_script.h，配置加载见 demo_config.h，
- * 输出落盘与事件消费见 demo_output.h。
+ * 1. 装配：共享场景状态 → World → 平台实体 + 7 组件（挂载序 = 步进序
+ *    Flight → AR → ESR → EOS → SBIRS → SAR → Fusion），组件间事件通信用
+ *    Boost.Signals2（core/，零自定义分发层）；
+ * 2. 编排：每周期注入四通道世界真值 → World::Step → 周期摘要与平台轨迹落盘；
+ * 3. 收尾：集成端日志刷盘、按实体查询传感器状态演示、冒烟断言。
+ * 世界模型真值脚本见 scene_script.h，配置加载见 demo_config.h，输出落盘与
+ * 事件消费见 demo_output.h。
  */
 
 #include <algorithm>
@@ -98,7 +89,7 @@ int main(int argc, char* argv[]) {
   // 库内 PROJECT_LOG_* 走 spdlog 默认 logger，装配后库日志即入文件而非 stdout。
   demo::InitIntegrationLog(output_dir);
 
-  // 装配：共享场景状态 → World → 平台实体 + 6 组件（挂载序 = 步进序）。
+  // 装配：共享场景状态 → World → 平台实体 + 7 组件（挂载序 = 步进序）。
   ca::DemoSceneState scene;
   ca::World world(scene);
   ca::Entity& platform = world.CreateEntity("platform");
@@ -212,7 +203,8 @@ int main(int argc, char* argv[]) {
             << " command_issued=" << (decision.issued() ? "true" : "false")
             << " ar_views=" << demo::ArViewCount()
             << " eos_views=" << demo::EosViewCount()
-            << " sbirs_views=" << demo::SbirsViewCount() << "\n"
+            << " sbirs_views=" << demo::SbirsViewCount()
+            << " sar_views=" << demo::SarViewCount() << "\n"
             << "log output -> " << output_dir
             << " (integration.log / 1q_library.log / platform_track.csv)\n";
 
@@ -235,15 +227,18 @@ int main(int argc, char* argv[]) {
             << "  sar   powered=" << (sar->powered_on() ? "on" : "off") << "\n";
 
   // 冒烟断言：端到端链路必须有产出（每周期平台状态事件、SBIRS 探测事件、
-  // SAR 图像产品事件、至少一个融合目标、平台轨迹行数 = 周期数、AR/EOS/SBIRS
-  // 调试视图行数各 = 周期数（组件每周期直写集成端日志）、五传感器全程开机），
-  // 否则视为链路断裂（ctest 失败）。
-  // 前置条件：视图行数由组件 Step 内计数，依赖每周期到达 CA_LOG_VIEW 调用点
-  // （本场景 Flight 恒挂载、坐标适配恒成功；场景改动需同步检查该断言）。
+  // SAR 图像产品事件、至少一个融合目标、平台轨迹行数 = 周期数、AR/EOS/SBIRS/
+  // SAR 调试视图行数各 = 周期数（组件每周期直写集成端日志）、五传感器全程
+  // 开机），否则视为链路断裂（ctest 失败）。
+  // 前置条件：视图行数由组件 Step 内计数，依赖每周期到达视图日志调用点（本
+  // 场景 Flight 恒挂载、坐标适配恒成功；场景改动需同步检查该断言）。冒烟断言
+  // 按默认日志模式（模式三：每周期摘要行 + 事件逐条全量）设计，切换模式宏
+  // 调试时计数会变（见 components/demo_log.h 模式选择区）。
   if (demo::EventCount() < num_cycles || demo::SbirsEventCount() == 0U ||
       demo::SarProductEventCount() == 0U || max_fused_targets == 0U ||
       outputs.platform_rows() != num_cycles || demo::ArViewCount() != num_cycles ||
       demo::EosViewCount() != num_cycles || demo::SbirsViewCount() != num_cycles ||
+      demo::SarViewCount() != num_cycles ||
       !ar->powered_on() || !esr->powered_on() ||
       !eos->powered_on() || !sbirs->powered_on() || !sar->powered_on()) {
     std::cerr << "SMOKE FAILED: events=" << demo::EventCount()
@@ -255,7 +250,8 @@ int main(int argc, char* argv[]) {
               << "ar_views=" << demo::ArViewCount()
               << " (== " << num_cycles << " required), eos_views="
               << demo::EosViewCount() << " (== " << num_cycles << " required), sbirs_views="
-              << demo::SbirsViewCount() << " (== " << num_cycles << " required), sensor_powered="
+              << demo::SbirsViewCount() << " (== " << num_cycles << " required), sar_views="
+              << demo::SarViewCount() << " (== " << num_cycles << " required), sensor_powered="
               << (ar->powered_on() && esr->powered_on() && eos->powered_on() &&
                   sbirs->powered_on() && sar->powered_on() ? "true" : "false")
               << " (all required)\n";

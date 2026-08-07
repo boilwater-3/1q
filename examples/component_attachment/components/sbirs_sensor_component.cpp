@@ -2,13 +2,11 @@
  * @file sbirs_sensor_component.cpp
  * @brief SBIRS 传感器组件实现（会话驱动 + 探测生命周期事件转发）。
  *
- * 驱动模式与 EOS 组件同构：从共享场景状态读取卫星 ECEF 位置与红外目标
- * 真值，构建 SbirsCycleInput 一步驱动 SbirsSession。探测生命周期事件（首
- * 发现/更新/coasting/丢失）由库内 SbirsDetectionLifecycleRecorder 承担
- * （Attach 后 StepWithResult 内部自动驱动），组件把差分事件经归属映射
- * 关联目标 ID 后发布 SbirsDetectionEvent（kind 标注生命周期类型）。
- * 注意：天基平台方位参考系与机载通道不同（见 README"示例简化"声明），
- * 融合方位相干关联在示例编排几何下成立。
+ * 1. 从共享场景状态读取卫星 ECEF 位置与红外目标真值，构建 SbirsCycleInput
+ *    驱动 SbirsSession（天基平台方位参考系与机载通道不同，见 README 简化声明）；
+ * 2. 探测事件（首发现/更新/coasting/丢失）由库内 SbirsDetectionLifecycleRecorder
+ *    差分产出，组件经归属映射关联目标 ID 后发布 SbirsDetectionEvent；
+ * 3. 事件与调试视图直写集成端日志（CA_LOG_EVENT / CA_LOG_VIEW，中文人读行）。
  */
 
 #include "sbirs_sensor_component.h"
@@ -42,6 +40,21 @@ SbirsDetectionEventKind ToDemoKind(
   return SbirsDetectionEventKind::kUpdated;
 }
 
+/// 示例事件类型 → 中文名（人读日志）。
+const char* SbirsEventKindName(SbirsDetectionEventKind kind) {
+  switch (kind) {
+    case SbirsDetectionEventKind::kFirstDetected:
+      return "首发现";
+    case SbirsDetectionEventKind::kUpdated:
+      return "更新";
+    case SbirsDetectionEventKind::kCoasting:
+      return "跟踪锁定";
+    case SbirsDetectionEventKind::kLost:
+      return "丢失";
+  }
+  return "未知";
+}
+
 /// 检测记录 ID → 仿真目标 ID（无归属返回 0）。
 std::uint64_t AttributionTargetId(
     std::uint64_t detection_id,
@@ -52,6 +65,23 @@ std::uint64_t AttributionTargetId(
     }
   }
   return 0U;  // 无归属（调试视图缺失）：未知目标
+}
+
+/// 调试目标状态 → 中文名（人读日志）。
+const char* SbirsTargetStatusName(sbirs_sensor::session::SbirsDebugTargetStatus status) {
+  switch (status) {
+    case sbirs_sensor::session::SbirsDebugTargetStatus::kDetected:
+      return "已检测";
+    case sbirs_sensor::session::SbirsDebugTargetStatus::kObservedBelowThreshold:
+      return "低于门限";
+    case sbirs_sensor::session::SbirsDebugTargetStatus::kCoasting:
+      return "跟踪锁定";
+    case sbirs_sensor::session::SbirsDebugTargetStatus::kNotInOutput:
+      return "不在输出";
+    case sbirs_sensor::session::SbirsDebugTargetStatus::kCycleNotExecuted:
+      return "周期未执行";
+  }
+  return "未知";
 }
 
 }  // namespace
@@ -71,16 +101,75 @@ bool SbirsSensorComponent::TryApplyRuntimeConfig(
   return applied;
 }
 
+// 视图行写入（三模式，宏门控——未选中的模式不参与编译，见 demo_log.h 模式选择
+// 区）。DebugView 每周期都构建，落多少、怎么落由集成方按需求选择。
+void SbirsSensorComponent::LogDebugView(
+    const sbirs_sensor::session::SbirsOutputDebugView& view) {
+#if defined(CA_VIEW_LOG_MODE_NONNOMINAL)
+  // 模式一（只落非标称行）：跳过已检测（标称）目标，日志量 ∝ 异常数。
+  std::size_t non_nominal = 0U;
+  for (const auto& target : view.targets) {
+    if (target.status == sbirs_sensor::session::SbirsDebugTargetStatus::kDetected) {
+      continue;
+    }
+    ++non_nominal;
+    CA_LOG_VIEW("sbirs", "周期={} 目标={} 状态={} 距离={:.1f}m 方位={:.1f}° 仰角={:.1f}°",
+                view.input_cycle_index, target.target_id,
+                SbirsTargetStatusName(target.status), target.estimated_range_m,
+                target.azimuth_deg, target.elevation_deg);
+  }
+  if (non_nominal == 0U) {
+    CA_LOG_VIEW("sbirs", "周期={} 全部正常（{} 个目标均已检测）", view.input_cycle_index,
+                view.targets.size());
+  }
+#elif defined(CA_VIEW_LOG_MODE_DELTA)
+  // 模式二（跨周期状态增量）：上一周期状态表由组件持有（target_id → status），
+  // 首次出现视为变化；表只增不减，目标集长期收缩时调用方可按需清理。
+  std::size_t changed = 0U;
+  for (const auto& target : view.targets) {
+    const auto it = prev_target_status_.find(target.target_id);
+    if (it == prev_target_status_.end() || it->second != target.status) {
+      ++changed;
+      CA_LOG_VIEW("sbirs", "周期={} 目标={} 状态={}",
+                  view.input_cycle_index, target.target_id,
+                  SbirsTargetStatusName(target.status));
+    }
+    prev_target_status_[target.target_id] = target.status;
+  }
+  if (changed == 0U) {
+    CA_LOG_VIEW("sbirs", "周期={} 无状态变化", view.input_cycle_index);
+  }
+#else  // CA_VIEW_LOG_MODE_SUMMARY（默认）
+  // 模式三（每周期摘要行）：目标状态明细 + 问题 code 列表，一眼可读。
+  std::string targets_text;
+  for (const auto& target : view.targets) {
+    if (!targets_text.empty()) {
+      targets_text += ", ";
+    }
+    targets_text += spdlog::fmt_lib::format("{} {}", target.target_id,
+                                            SbirsTargetStatusName(target.status));
+  }
+  std::string issues_text;
+  for (const auto& issue : view.issues) {
+    if (!issues_text.empty()) {
+      issues_text += ", ";
+    }
+    issues_text += issue.code;
+  }
+  CA_LOG_VIEW("sbirs", "周期={} 执行={} 目标=[{}] 问题=[{}]",
+              view.input_cycle_index, view.executed_this_cycle ? "是" : "否",
+              targets_text.empty() ? "无" : targets_text.c_str(),
+              issues_text.empty() ? "无" : issues_text.c_str());
+#endif  // CA_VIEW_LOG_MODE_*
+}
+
 void SbirsSensorComponent::Step(World& world, double dt_sec) {
   detections_.clear();
 
   if (!powered_on_) {
     scan_azimuth_deg_ = 0.0f;  // 关机：不驱动会话，角度无有效值（清零）
     last_debug_view_ = sbirs_sensor::session::SbirsOutputDebugView{};  // 关机：调试视图清零（无有效周期）
-    // 视图摘要直写（人读；集成端日志，见 components/demo_log.h）。
-    CA_LOG_VIEW("sbirs", "cycle={} executed={} targets={} issues={}",
-                last_debug_view_.input_cycle_index, last_debug_view_.executed_this_cycle,
-                last_debug_view_.targets.size(), last_debug_view_.issues.size());
+    LogDebugView(last_debug_view_);
     return;
   }
 
@@ -100,23 +189,19 @@ void SbirsSensorComponent::Step(World& world, double dt_sec) {
   input.scene = scene.sbirs_targets;
 
   const sbirs_sensor::session::SbirsCycleResult result = session_.StepWithResult(input);
-  // 扫描方位随周期结果刷新：被拒绝周期输出帧为默认空帧 → 0。
-  scan_azimuth_deg_ = result.output_frame.scan_azimuth_deg;
-  // 规则 12 落盘示范：每周期构建调试视图快照（拒绝周期为 kCycleNotExecuted），
-  // 供调用方结构化持久化到自己的日志/事件系统（含规则 13b kInfo 排除诊断）；
-  // 本示例每周期直写一行人读摘要到集成端日志（日志给人读，不做结构化落盘）。
+  scan_azimuth_deg_ = result.output_frame.scan_azimuth_deg;  // 扫描方位随周期结果刷新（拒绝周期为空帧 → 0）
+  // 规则 12 落盘示范：每周期构建调试视图快照（拒绝周期为 kCycleNotExecuted，
+  // 含规则 13b kInfo 排除诊断），供调用方结构化持久化；本示例经 LogDebugView
+  // 直写中文人读行（三模式由集成方按需选择）。
   last_debug_view_ = sbirs_sensor::session::SbirsOutputDebugViewBuilder::Build(input, result);
-  CA_LOG_VIEW("sbirs", "cycle={} executed={} targets={} issues={}",
-              last_debug_view_.input_cycle_index, last_debug_view_.executed_this_cycle,
-              last_debug_view_.targets.size(), last_debug_view_.issues.size());
+  LogDebugView(last_debug_view_);
   if (result.status != sbirs_sensor::session::SbirsCycleStatus::kCompleted) {
     return;  // 周期被拒绝：本周期无探测
   }
 
-  // 库内 recorder 已按跨周期状态差分产出本周期事件（首发现/更新/coasting/
-  // 丢失）。recorder 事件无方位/探测 ID 字段：非丢失事件从本周期输出帧按
-  // 归属目标回查；丢失事件目标不在帧内，字段留默认。kNotDetected 诊断事件
-  // 未开启，显式跳过（防御）。
+  // 库内 recorder 已按跨周期状态差分产出本周期事件（首发现/更新/coasting/丢失）。
+  // recorder 事件无方位/探测 ID 字段：非丢失事件从本周期输出帧按归属目标回查；
+  // 丢失事件目标不在帧内，字段留默认。kNotDetected 诊断事件未开启，显式跳过。
   const auto& records = result.output_frame.detections;
   for (const auto& event : lifecycle_.GetLastEvents()) {
     if (event.kind == sbirs_sensor::session::SbirsDetectionLifecycleEventKind::kNotDetected) {
@@ -140,12 +225,20 @@ void SbirsSensorComponent::Step(World& world, double dt_sec) {
         }
       }
     }
-    // 事件日志：字符串就地填充（日志宏 + 组件源文件内格式化串）。
-    CA_LOG_EVENT(world, "sbirs_detection", "kind={} det={} target={} snr={:.1f} az={:.1f}",
-                 static_cast<int>(sbirs_event.kind),
-                 static_cast<unsigned long long>(sbirs_event.detection_id),
-                 static_cast<unsigned long long>(sbirs_event.target_id),
-                 sbirs_event.infrared_snr_linear, sbirs_event.az_deg);
+    if (sbirs_event.kind == SbirsDetectionEventKind::kUpdated) {
+      // 更新类事件每周期重复：事件模式一下不落盘（信号照常发布）。
+      CA_LOG_EVENT_DUP(world, "sbirs_detection", "类型={} 探测ID={} 目标={} 信噪比={:.1f} 方位={:.1f}°",
+                       SbirsEventKindName(sbirs_event.kind),
+                       static_cast<unsigned long long>(sbirs_event.detection_id),
+                       static_cast<unsigned long long>(sbirs_event.target_id),
+                       sbirs_event.infrared_snr_linear, sbirs_event.az_deg);
+    } else {
+      CA_LOG_EVENT(world, "sbirs_detection", "类型={} 探测ID={} 目标={} 信噪比={:.1f} 方位={:.1f}°",
+                   SbirsEventKindName(sbirs_event.kind),
+                   static_cast<unsigned long long>(sbirs_event.detection_id),
+                   static_cast<unsigned long long>(sbirs_event.target_id),
+                   sbirs_event.infrared_snr_linear, sbirs_event.az_deg);
+    }
     world.signals().on_sbirs_detection(sbirs_event);
   }
 

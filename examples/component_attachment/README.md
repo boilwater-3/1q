@@ -34,7 +34,8 @@ examples/component_attachment/
 │   ├── sbirs_sensor_component.h/.cpp SbirsSensorComponent：天基红外会话（第 4 融合通道）
 │   ├── sar_sensor_component.h/.cpp  SarSensorComponent：合成孔径雷达产品（不入融合）
 │   ├── fusion_component.h/.cpp      FusionComponent：多源融合引擎
-│   ├── demo_log.h/.cpp              集成端日志设施（两个日志模块之一：CA_LOG_EVENT / CA_LOG_VIEW 宏 → spdlog 命名 logger → integration.log；并装配库日志 1q_library.log）
+│   ├── demo_log.h/.cpp              集成端日志设施（两个日志模块之一：CA_LOG_EVENT / CA_LOG_EVENT_DUP / CA_LOG_VIEW 宏 → spdlog 命名 logger → integration.log；并装配库日志 1q_library.log）
+│   ├── demo_log_modes.h             日志模式选择区（纯宏定义：视图/事件各三模式，宏门控不参与编译）
 │   ├── sensor_utils.h               平台坐标转换（ECEF 解析）
 │   └── scene_types.h                DemoSceneState：共享场景状态（真值注入）
 ├── component_attachment_demo.cpp    主程序（装配与编排：实体/会话创建 + 周期循环 + 查询演示 + 冒烟断言）
@@ -122,41 +123,61 @@ boost::signals2::scoped_connection conn =
 | 模块 | 后端 | 输出文件 |
 | --- | --- | --- |
 | **库内部日志** | 库内 `PROJECT_LOG_*` 宏 → spdlog 默认 logger（`InitIntegrationLog` 装配为文件 sink） | `1q_library.log`（时间戳 + 级别 + 消息） |
-| **集成端日志** | spdlog 命名 logger `"integration"`（stdout + 文件，pattern 仅为消息体） | `integration.log`（事件行 + 各组件每周期视图摘要行） |
+| **集成端日志** | spdlog 命名 logger `"integration"`（stdout + 文件，pattern 仅为消息体） | `integration.log`（中文人读事件行 + 各组件每周期调试视图行） |
 
 集成端日志的字符串**归属组件源文件**（事件产生处），通过日志宏就地填充——
 外部集成的典型形态（宏背后接消费方自己的日志/落盘设施；本示例直接使用
-conanfile 的 spdlog 依赖，fmt 风格 `{}` 格式化，编译期格式检查）：
+conanfile 的 spdlog 依赖，fmt 风格 `{}` 格式化，编译期格式检查）。**日志内容为
+中文人读文本**（给人类看，不做结构化落盘；规则 12 的结构化持久化由外部集成方
+接入自己的日志/事件系统）：
 
 ```cpp
 // 组件源文件内（发布信号前）
-CA_LOG_EVENT(world, "target_confirmed", "target={} pos=({:.5f},{:.5f})",
+CA_LOG_EVENT(world, "target_confirmed", "目标={} 位置=({:.5f},{:.5f})",
              static_cast<unsigned long long>(confirmed.target_id),
              confirmed.position.latitude_deg, confirmed.position.longitude_deg);
 world.signals().on_target_confirmed(confirmed);
 ```
 
 `CA_LOG_EVENT(world, type, ...)` 的 cycle/t_sec 取自共享场景状态（与事件字段
-同源），背后设施把事件行（`[event:type] cycle=... t_sec=... detail`）写入
-`integration.log` 并打印控制台，另维护事件计数（摘要/冒烟断言用）。集成方
-替换该设施即接入自己的日志系统；单元测试不初始化日志设施，宏调用静默跳过
+同源），背后设施把事件行（`[事件:type] 周期=... 时间=...s 中文详情`）写入
+`integration.log` 并打印控制台，另维护事件计数（摘要/冒烟断言用）。事件宏分两类：
+`CA_LOG_EVENT`（关键事件：确认/丢失/首发现/产出/失败/航点/指令等）与
+`CA_LOG_EVENT_DUP`（周期性重复事件：每周期平台状态、`kUpdated`/`kProductSustained`
+更新类、辐射源假设、融合更新——仅在事件模式一（KEY）下不落盘，信号照常发布）。
+集成方替换该设施即接入自己的日志系统；单元测试不初始化日志设施，宏调用静默跳过
 （no-op）。
 
-**调试视图落盘在组件内直写**（规则 12）：各传感器组件（AR/EOS/SBIRS）的
-`Step` 在构建 `LastDebugView()` 后调用 `CA_LOG_VIEW("ar", "cycle={} completed={}
-tracks={} issues={}", ...)`——取视图 → 提取关键计数 → 写一行**人读摘要**到
-集成端日志，每周期一行（关机周期为零值帧摘要，拒绝周期为 `kCycleNotCompleted`/
-`kCycleNotExecuted` 快照）。日志给人读，示例不做结构化落盘：`session_contract.md`
-规则 12 的"调用方结构化持久化 DebugView"由外部集成方接入自己的日志/事件系统
-实现，结构化格式与字段布局由调用方自定（参考 `*OutputDebugView` 字段集合直接
-转写）。
+**调试视图落盘在组件内直写**（规则 12）：各传感器组件（AR/EOS/SBIRS/SAR）的
+`Step` 在构建 `LastDebugView()` 后直写中文人读行到集成端日志——日志给人读，
+示例不做结构化落盘：`session_contract.md` 规则 12 的"调用方结构化持久化
+DebugView"由外部集成方接入自己的日志/事件系统实现，结构化格式与字段布局由
+调用方自定（参考 `*OutputDebugView` 字段集合直接转写）。
+
+**日志三模式（宏门控，编译期）**：DebugView 每周期都会产生，落盘多少、怎么落
+由集成方决定——`components/demo_log_modes.h` 顶部"模式选择区"示范三种常见写入方式，
+未选中的模式**不参与编译**；调试时取消注释对应宏（每次只启用一个视图模式 +
+一个事件模式）重新编译，即可分别验证三种写入方式（冒烟断言按默认模式设计，
+切换模式后计数会变）：
+
+| 模式 | 宏（默认注释状态） | 行为 |
+| --- | --- | --- |
+| 视图模式一（只落非标称行） | `CA_VIEW_LOG_MODE_NONNOMINAL`（关） | 每周期只把非标称目标（AR 非 `kConfirmed`；EOS/SBIRS 非 `kDetected`）逐行写日志，全标称时写一行"全部正常"；日志量 ∝ 异常数 |
+| 视图模式二（跨周期状态增量） | `CA_VIEW_LOG_MODE_DELTA`（关） | 只写状态与上一周期不同的目标行（上一周期状态表由组件持有）；无变化时写一行"无状态变化" |
+| 视图模式三（每周期摘要行，**默认**） | `CA_VIEW_LOG_MODE_SUMMARY`（开） | 每周期一行中文摘要（周期/完成与否/目标状态明细/问题 code 列表），日志量恒定 |
+| 事件模式一（只记关键事件） | `CA_EVENT_LOG_MODE_KEY`（关） | `CA_LOG_EVENT` 逐条落盘，`CA_LOG_EVENT_DUP`（周期性重复事件）不落盘 |
+| 事件模式二（周期聚合） | `CA_EVENT_LOG_MODE_AGGREGATE`（关） | 每周期把全部事件聚合为一行（`[事件聚合] 周期=N 事件数=M [中文名×次数, ...]`） |
+| 事件模式三（逐条全量，**默认**） | `CA_EVENT_LOG_MODE_ALL`（开） | 事件逐条落盘 |
+
+SAR 为**阶段型视图**（无逐目标状态），不适用目标级三模式落盘，只实现每周期
+摘要行（执行状态/完成阶段/L1/L3 成像标志/SNR/点目标数/问题列表）。
 
 **Lifecycle 事件字符串化**：库内 `*LifecycleRecorder` 产出的生命周期事件
 （`GetLastEvents()`，如 AR 首确认/失跟、EOS/SBIRS 首发现/丢失、SAR 产品事件）
 为纯 struct、库内无字符串化工具——其"转字符串写日志"由各组件源文件内宏的
-手写格式串承担（`"kind={} det={} target={} snr={:.1f}dB az={:.1f}"` 等），
-字符串归属组件（组件自描述）；DebugView 同理以组件内 `CA_LOG_VIEW` 摘要行
-直写，示例层不内置 JSON 序列化器。
+手写中文格式串承担（`"类型=首发现 探测ID={} 目标={} 信噪比={:.1f}dB 方位={:.1f}°"`
+等，kind/status 枚举在组件内做中文名映射），字符串归属组件（组件自描述）；
+DebugView 同理以组件内摘要行直写，示例层不内置 JSON 序列化器。
 
 ## 模块 → 组件映射
 
@@ -167,7 +188,7 @@ tracks={} issues={}", ...)`——取视图 → 提取关键计数 → 写一行*
 | `EsrSensorComponent` | electronic_surveillance_radar（EsrSession） | 假设 → `DetectionRecord`（key=假设键，方位+射频特征） | on_emitter_hypothesis |
 | `EosSensorComponent` | electro_optical_sensor（EosSession + EosCycleInputAdapter + EosDetectionLifecycleRecorder） | 探测 → `DetectionRecord`（key=0，仅方位）；首发现/更新/丢失事件由库内 recorder 差分产生 | on_eos_detection |
 | `SbirsSensorComponent` | sbirs_sensor（SbirsSession + SbirsDetectionLifecycleRecorder） | 探测 → `DetectionRecord`（key=0，仅方位，与 EOS 同构）；首发现/更新/coasting/丢失事件由库内 recorder 差分产生 | on_sbirs_detection |
-| `SarSensorComponent` | sar（SarSession + SarProductLifecycleRecorder） | 孔径积累成像；产品生命周期事件由库内 recorder 差分产生（**无探测输出，不入融合**，契约见 docs/review/Bahavior.md） | on_sar_product |
+| `SarSensorComponent` | sar（SarSession + SarProductLifecycleRecorder） | 孔径积累成像；产品生命周期事件由库内 recorder 差分产生（**无探测输出，不入融合**，契约见 docs/review/Bahavior.md）；阶段型调试视图每周期直写摘要行 | on_sar_product |
 | `FusionComponent` | fusion（FusionEngine） | 聚合四传感器探测一次 `Update`；新/消失差分 | on_fusion_updated |
 
 ## 运行时修改接口
@@ -206,14 +227,16 @@ patch 只改会话配置）。
 | `SbirsSensorComponent` | `bool powered_on()` | `float scan_azimuth_deg()`（deg，ECEF 极坐标参考） |
 | `SarSensorComponent` | `bool powered_on()` | —（无扫描方位概念） |
 
-有 DebugView 的三个目标列表型组件（AR/EOS/SBIRS）另暴露
+有 DebugView 的四个组件（AR/EOS/SBIRS 目标列表型 + SAR 阶段型）另暴露
 `const *OutputDebugView& LastDebugView()`——最近周期调试视图快照（规则 12 落盘示范：
 per-target 状态 + 规则 13b kInfo 排除诊断；关机周期清零，拒绝周期为
 `kCycleNotCompleted`/`kCycleNotExecuted` 快照）。组件在 `Step` 内取该视图
-直写人读摘要行到集成端日志 `integration.log`（每周期一行，如
-`[view:ar] cycle=5 completed=true tracks=2 issues=0`）——日志给人读，结构化
-持久化由外部集成方接入自己的日志/事件系统实现（示例不内置 JSON 序列化器）。
-ESR 库内无 DebugView、SAR 为阶段型视图，不适用逐目标落盘模式。
+直写中文人读行到集成端日志 `integration.log`（每周期一行，如
+`[视图:ar] 周期=5 完成=是 目标=[1001 已确认] 问题=[ar.track_not_confirmed]`；
+SAR 为阶段型摘要行）——日志给人读，结构化持久化由外部集成方接入自己的
+日志/事件系统实现（示例不内置 JSON 序列化器）。落盘密度（三模式）由
+`components/demo_log_modes.h` 模式选择区宏控制。ESR 库内无 DebugView，不适用
+视图落盘。
 
 **组件层电源门控**：电源状态由 `sensor_enabled` 补丁唯一维护（`TryApplyRuntimeConfig`
 成功且带 `has_sensor_enabled` 时更新，拒绝的补丁不改状态）。关机时组件**不驱动
@@ -327,7 +350,7 @@ cmake --build --preset llvm-ninja-release-local --target component_attachment_de
 
 | 文件 | 内容 | 说明 |
 | --- | --- | --- |
-| `integration.log` | 每行一条人读记录 | **集成端日志**（spdlog 命名 logger `"integration"`）：事件行 `[event:type] cycle=... t_sec=... detail`（10 类事件，字符串归属组件源文件，`CA_LOG_EVENT` 宏）与 AR/EOS/SBIRS 三组件每周期视图摘要行 `[view:module] cycle=... 关键计数`（`CA_LOG_VIEW` 宏；日志给人读，不做结构化落盘） |
+| `integration.log` | 每行一条人读记录 | **集成端日志**（spdlog 命名 logger `"integration"`）：事件行 `[事件:type] 周期=... 时间=...s 中文详情`（10 类事件，字符串归属组件源文件，`CA_LOG_EVENT` / `CA_LOG_EVENT_DUP` 宏）与 AR/EOS/SBIRS/SAR 四组件每周期调试视图行 `[视图:module] 中文摘要`（`CA_LOG_VIEW` 宏；日志给人读，落盘密度三模式由宏门控，见"事件日志与调试视图落盘"节） |
 | `1q_library.log` | 人读日志行 | **库内部日志**：库内 `PROJECT_LOG_*` 宏 → spdlog 默认 logger（时间戳 + 级别 + 消息），`InitIntegrationLog` 装配 |
 | `platform_track.csv` | cycle,t_sec,lat_deg,lon_deg,alt_m,heading_deg,speed_mps,wp_index | 平台轨迹（每周期一行；FD 模式含起飞爬升段） |
 
@@ -360,9 +383,11 @@ JSON）与同一套探测适配逻辑（`sensor_adapt.h` 与行为层 `systems.c
   （AR 合法/非法 patch 的接受与原子拒绝、ESR 立即提交 + 结构化拒绝状态码、
   EOS 立即提交 + 整补丁拒绝、SBIRS/SAR 立即提交 + 整补丁拒绝、FlightComponent
   机动入口在 FD 可用/不可用时的返回语义）+ 状态查询与调试视图单测（开关机/
-  扫描方位、AR/EOS/SBIRS 三通道 `LastDebugView()` 逐目标状态与 13b kInfo
-  排除诊断、关机清零、SBIRS 关机冻结相位）；
+  扫描方位、AR/EOS/SBIRS/SAR 四通道 `LastDebugView()` 逐目标/阶段型状态与
+  13b kInfo 排除诊断、关机清零、SBIRS 关机冻结相位）；
 - ctest `examples::component_attachment_demo`：demo 冒烟（400 周期 + 日志/CSV
   落盘 + 最小产出断言：事件数 ≥ 周期数、SBIRS 探测事件 ≥ 1、SAR 产品事件 ≥ 1、
-  融合目标 ≥ 1、平台轨迹行数 = 周期数、AR/EOS/SBIRS 视图行数各 = 周期数
-  （组件每周期直写 integration.log））。
+  融合目标 ≥ 1、平台轨迹行数 = 周期数、AR/EOS/SBIRS/SAR 视图行数各 = 周期数
+  （组件每周期直写 integration.log））。**冒烟断言按默认日志模式（视图模式三 +
+  事件模式三逐条全量）设计**：切换 `demo_log_modes.h` 模式选择区宏调试时计数会变，
+  需同步调整断言。

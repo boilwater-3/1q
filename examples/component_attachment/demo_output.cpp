@@ -6,7 +6,6 @@
  * 承担（组件源文件内日志宏 + 每周期视图直写）——本文件只负责平台轨迹 CSV
  * 落盘与决策事件链。
  */
-
 #include "demo_output.h"
 
 #include "components/demo_log.h"
@@ -43,8 +42,7 @@ DecisionListener::DecisionListener(World& world) : world_(world) {
       CommandIssuedEvent command;
       command.cycle = e.cycle;
       command.command = "ENABLE_ANTI_FALSE_TARGET_DISCRIMINATION";
-      // 事件日志：字符串就地填充（发布处记录，与组件宏同模式）。
-      CA_LOG_EVENT(world_, "command_issued", "cmd={}", command.command.c_str());
+      CA_LOG_EVENT(world_, "command_issued", "指令={}", command.command.c_str());
       world_.signals().on_command_issued(command);
     }
   });

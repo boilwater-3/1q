@@ -547,9 +547,31 @@ TEST(SensorQueryGettersTest, EosLastDebugViewCarriesPerTargetStateAndExclusionDi
   EXPECT_TRUE(found_fov);
 }
 
+TEST(SensorQueryGettersTest, SarLastDebugViewCarriesProductState) {
+  // 规则 12 组件级可见性（SAR 通道）：LastDebugView() 每周期由 Step 经
+  // SarProductDebugViewBuilder 回填（阶段型视图：执行状态/完成阶段/L1/L3
+  // 成像标志/SNR/点目标/问题列表），供调用方结构化持久化。单测场景未注入
+  // SAR 点目标且默认配置侧视几何不保证成立（squint 门控属执行期拒绝）：
+  // 只断言视图被回填且与周期结果一致，不断言产品产出。
+  SensorQueryScene scene;
+  scene.platform().Attach(std::make_unique<ca::SarSensorComponent>(
+      sar::session::SarSession::Create()));
+  scene.DriveCycle(1U);
+
+  const auto& view = scene.platform().Find<ca::SarSensorComponent>()->LastDebugView();
+  // 执行期门控的拒绝仍回填周期号（validation 拒绝才会留 0；本场景输入合法）。
+  EXPECT_EQ(view.input_cycle_index, 1U);
+  // 点目标列表镜像本周期输入（无论是否成像）。
+  EXPECT_TRUE(view.point_targets.empty());
+  // 执行标志与中止原因由构建器从周期结果回填：未执行周期必带中止原因码。
+  if (!view.executed_this_cycle) {
+    EXPECT_FALSE(view.abort_reason.empty());
+  }
+}
+
 TEST(SensorQueryGettersTest, LastDebugViewClearedOnPowerOff) {
   // 关机：组件不驱动会话，调试视图清零（无有效周期，与扫描方位清零同语义；
-  // 与 SBIRS 组件行为一致，AR/EOS 对齐后同样不残留上周期快照）。
+  // 与 SBIRS 组件行为一致，AR/EOS/SAR 对齐后同样不残留上周期快照）。
   SensorQueryScene scene;
   scene.platform().Attach(std::make_unique<ca::ArSensorComponent>(
       airborne_radar::session::ArSession::Create(MakeArConfig())));
@@ -557,11 +579,14 @@ TEST(SensorQueryGettersTest, LastDebugViewClearedOnPowerOff) {
       electro_optical_sensor::session::EosSession::Create(MakeEosConfig())));
   scene.platform().Attach(std::make_unique<ca::SbirsSensorComponent>(
       sbirs_sensor::session::SbirsSession::Create()));
+  scene.platform().Attach(std::make_unique<ca::SarSensorComponent>(
+      sar::session::SarSession::Create()));
 
   scene.DriveCycle(1U);  // 开机周期：视图已回填
   EXPECT_EQ(scene.platform().Find<ca::ArSensorComponent>()->LastDebugView().tracks.size(), 1U);
   EXPECT_EQ(scene.platform().Find<ca::EosSensorComponent>()->LastDebugView().targets.size(), 1U);
   EXPECT_EQ(scene.platform().Find<ca::SbirsSensorComponent>()->LastDebugView().targets.size(), 1U);
+  EXPECT_EQ(scene.platform().Find<ca::SarSensorComponent>()->LastDebugView().input_cycle_index, 1U);
 
   EXPECT_TRUE(scene.platform().Find<ca::ArSensorComponent>()->TryApplyRuntimeConfig(
       airborne_radar::config::ArRuntimeConfigBuilder().WithSensorEnabled(false).Build()));
@@ -569,13 +594,17 @@ TEST(SensorQueryGettersTest, LastDebugViewClearedOnPowerOff) {
       electro_optical_sensor::config::EosRuntimeConfigBuilder().WithSensorEnabled(false).Build()));
   EXPECT_TRUE(scene.platform().Find<ca::SbirsSensorComponent>()->TryApplyRuntimeConfig(
       sbirs_sensor::config::SbirsRuntimeConfigBuilder().WithSensorEnabled(false).Build()));
+  EXPECT_TRUE(scene.platform().Find<ca::SarSensorComponent>()->TryApplyRuntimeConfig(
+      sar::config::SarRuntimeConfigBuilder().WithSensorEnabled(false).Build()));
   scene.DriveCycle(2U);
 
-  // 关机周期：三通道调试视图均为默认清零快照（无残留目标行）。
+  // 关机周期：四通道调试视图均为默认清零快照（无残留目标行/周期号）。
   EXPECT_EQ(scene.platform().Find<ca::ArSensorComponent>()->LastDebugView().tracks.size(), 0U);
   EXPECT_EQ(scene.platform().Find<ca::EosSensorComponent>()->LastDebugView().targets.size(), 0U);
   EXPECT_EQ(scene.platform().Find<ca::SbirsSensorComponent>()->LastDebugView().targets.size(), 0U);
+  EXPECT_EQ(scene.platform().Find<ca::SarSensorComponent>()->LastDebugView().input_cycle_index, 0U);
   EXPECT_FALSE(scene.platform().Find<ca::ArSensorComponent>()->LastDebugView().completed_this_cycle);
   EXPECT_FALSE(scene.platform().Find<ca::EosSensorComponent>()->LastDebugView().executed_this_cycle);
   EXPECT_FALSE(scene.platform().Find<ca::SbirsSensorComponent>()->LastDebugView().executed_this_cycle);
+  EXPECT_FALSE(scene.platform().Find<ca::SarSensorComponent>()->LastDebugView().executed_this_cycle);
 }

@@ -2,17 +2,16 @@
  * @file sbirs_sensor_component.h
  * @brief 自定义实体-组件示例：SBIRS（天基红外）传感器组件。
  *
- * 组件封装 sbirs_sensor 模块会话：每周期从共享场景状态读取天基平台
- * （卫星）ECEF 位置与红外目标真值，构建 SbirsCycleInput 驱动 SbirsSession，
- * 探测记录适配为融合探测记录（无身份仅方位通道）存自身状态；探测生命
- * 周期事件（首发现/更新/coasting/丢失）由库内 SbirsDetectionLifecycleRecorder
- * 承担（Attach 后 StepWithResult 内部自动驱动），组件转发为 World 信号
- * SbirsDetectionEvent（target_id 经归属映射）。
+ * 组件封装 sbirs_sensor 模块会话：每周期从共享场景状态读取卫星 ECEF 位置与
+ * 红外目标真值驱动会话；探测生命周期事件（首发现/更新/coasting/丢失）由库内
+ * recorder 差分产出，组件转发为 World 信号。
  */
 
 #ifndef EXAMPLES_COMPONENT_ATTACHMENT_COMPONENTS_SBIRS_SENSOR_COMPONENT_H_
 #define EXAMPLES_COMPONENT_ATTACHMENT_COMPONENTS_SBIRS_SENSOR_COMPONENT_H_
 
+#include <cstdint>
+#include <unordered_map>
 #include <vector>
 
 #include "1q/fusion/DetectionRecord.h"
@@ -21,6 +20,7 @@
 #include "1q/sbirs_sensor/session/SbirsOutputDebugView.h"
 #include "1q/sbirs_sensor/session/SbirsSession.h"
 #include "core/component.h"
+#include "demo_log_modes.h"
 
 namespace component_attachment {
 
@@ -84,6 +84,14 @@ class SbirsSensorComponent : public Component {
   bool powered_on_{true};     /**< 电源状态（由 sensor_enabled 补丁唯一维护；关机时组件不驱动会话） */
   float scan_azimuth_deg_{0.0f}; /**< 最近周期波束中心方位角（deg，随周期结果刷新） */
   sbirs_sensor::session::SbirsOutputDebugView last_debug_view_{}; /**< 最近周期调试视图快照（规则 12 落盘） */
+
+  /// 调试视图中文人读行写入（三模式分支见 .cpp；宏选择见 components/demo_log.h）。
+  void LogDebugView(const sbirs_sensor::session::SbirsOutputDebugView& view);
+#if defined(CA_VIEW_LOG_MODE_DELTA)
+  /// 模式二（跨周期状态增量）用：上一周期状态表（target_id → status）。
+  std::unordered_map<std::uint64_t, sbirs_sensor::session::SbirsDebugTargetStatus>
+      prev_target_status_{};
+#endif
 };
 
 }  // namespace component_attachment
