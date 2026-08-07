@@ -30,7 +30,7 @@ struct EsrSession::Impl {
    */
   EsrCycleResult RunCycle(const session::EsrCycleInput& input) {
     Controller().RunOnce(input);
-    return Controller().BuildCycleResult(input);
+    return Controller().BuildCycleResult();
   }
 
   EsrInternalExecutionConfig resolved_config{};

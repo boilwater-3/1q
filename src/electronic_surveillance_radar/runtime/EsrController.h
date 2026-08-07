@@ -72,10 +72,9 @@ class EsrController {
 
   /**
    * @brief 返回最近一次 RunOnce 装配并缓存的单周期聚合结果。
-   * @param[in] input 当前周期输入（仅用于签名一致性，装配已发生在 RunOnce 内）。
    * @return 最近一次周期的聚合结果。
    */
-  session::EsrCycleResult BuildCycleResult(const session::EsrCycleInput& input) const;
+  session::EsrCycleResult BuildCycleResult() const;
 
   /**
    * @brief 捕获当前控制器自有运行态快照。

@@ -166,8 +166,7 @@ const session::EsrOutputFrame& EsrController::GetLatestInterceptOutputFrame() co
   return impl_->runtime_state.latest_output;
 }
 
-session::EsrCycleResult EsrController::BuildCycleResult(const session::EsrCycleInput& input) const {
-  (void)input;
+session::EsrCycleResult EsrController::BuildCycleResult() const {
   // COMMON-OQ-9：装配已在 RunOnce 内完成并缓存（issues 直通），此处仅返回缓存。
   return impl_->latest_result;
 }

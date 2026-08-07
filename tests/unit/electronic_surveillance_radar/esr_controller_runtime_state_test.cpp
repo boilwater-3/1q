@@ -90,7 +90,7 @@ TEST(EsrControllerRuntimeStateTest, CaptureAndRestoreRoundTripState) {
 
   const session::EsrCycleInput first_input = MakeValidInput(1U);
   controller.RunOnce(first_input);
-  ASSERT_EQ(controller.BuildCycleResult(first_input).status,
+  ASSERT_EQ(controller.BuildCycleResult().status,
             session::EsrCycleExecutionStatus::kCompleted);
   const EsrControllerRuntimeState snapshot = controller.CaptureRuntimeState();
 
@@ -101,7 +101,7 @@ TEST(EsrControllerRuntimeStateTest, CaptureAndRestoreRoundTripState) {
   controller.RestoreRuntimeState(snapshot);
   EXPECT_TRUE(controller.HasLatestInterceptOutputFrame());
   EXPECT_EQ(controller.GetLatestInterceptOutputFrame().cycle_index, 1U);
-  EXPECT_EQ(controller.BuildCycleResult(second_input).status,
+  EXPECT_EQ(controller.BuildCycleResult().status,
             session::EsrCycleExecutionStatus::kCompleted);
 }
 
@@ -113,7 +113,7 @@ TEST(EsrControllerRuntimeStateTest, SuccessfulCyclesAdvanceBatchAndRejectedCycle
 
   const session::EsrCycleInput valid_input = MakeValidInput(10U);
   controller.RunOnce(valid_input);
-  ASSERT_EQ(controller.BuildCycleResult(valid_input).status,
+  ASSERT_EQ(controller.BuildCycleResult().status,
             session::EsrCycleExecutionStatus::kCompleted);
   EXPECT_EQ(controller.GetLatestInterceptOutputFrame().cycle_index, 10U);
   EXPECT_EQ(controller.GetLatestInterceptOutputFrame().batch_id, initial_batch_id);
@@ -122,14 +122,14 @@ TEST(EsrControllerRuntimeStateTest, SuccessfulCyclesAdvanceBatchAndRejectedCycle
   session::EsrCycleInput invalid_input = MakeValidInput(11U);
   invalid_input.dt_sec = 0.0f;
   controller.RunOnce(invalid_input);
-  EXPECT_EQ(controller.BuildCycleResult(invalid_input).status,
+  EXPECT_EQ(controller.BuildCycleResult().status,
             session::EsrCycleExecutionStatus::kRejected);
   EXPECT_EQ(controller.GetLatestInterceptOutputFrame().batch_id, initial_batch_id);
   EXPECT_EQ(controller.CaptureRuntimeState().next_batch_id, initial_batch_id + 1U);
 
   const session::EsrCycleInput next_valid_input = MakeValidInput(12U);
   controller.RunOnce(next_valid_input);
-  ASSERT_EQ(controller.BuildCycleResult(next_valid_input).status,
+  ASSERT_EQ(controller.BuildCycleResult().status,
             session::EsrCycleExecutionStatus::kCompleted);
   EXPECT_EQ(controller.GetLatestInterceptOutputFrame().cycle_index, 12U);
   EXPECT_EQ(controller.GetLatestInterceptOutputFrame().batch_id, initial_batch_id + 1U);
@@ -189,16 +189,16 @@ TEST(EsrControllerRuntimeStateTest, ValidationRejectSetsAbortReasonAndController
 
   const session::EsrCycleInput first_input = MakeValidInput(40U);
   controller.RunOnce(first_input);
-  ASSERT_EQ(controller.BuildCycleResult(first_input).status,
+  ASSERT_EQ(controller.BuildCycleResult().status,
             session::EsrCycleExecutionStatus::kCompleted);
 
   session::EsrCycleInput invalid_input = MakeValidInput(41U);
   invalid_input.dt_sec = 0.0f;
   controller.RunOnce(invalid_input);
 
-  EXPECT_EQ(controller.BuildCycleResult(invalid_input).status,
+  EXPECT_EQ(controller.BuildCycleResult().status,
             session::EsrCycleExecutionStatus::kRejected);
-  EXPECT_EQ(controller.BuildCycleResult(invalid_input).abort_reason,
+  EXPECT_EQ(controller.BuildCycleResult().abort_reason,
             session::EsrPipelineAbortReason::kValidationRejected);
   // controller 内部缓存保留上一帧（非公开复用语义）。
   EXPECT_EQ(controller.GetLatestInterceptOutputFrame().cycle_index, 40U);
@@ -214,9 +214,9 @@ TEST(EsrControllerRuntimeStateTest, FirstValidationRejectDoesNotCreateOutputFram
   controller.RunOnce(invalid_input);
 
   EXPECT_FALSE(controller.HasLatestInterceptOutputFrame());
-  EXPECT_EQ(controller.BuildCycleResult(invalid_input).status,
+  EXPECT_EQ(controller.BuildCycleResult().status,
             session::EsrCycleExecutionStatus::kRejected);
-  EXPECT_EQ(controller.BuildCycleResult(invalid_input).abort_reason,
+  EXPECT_EQ(controller.BuildCycleResult().abort_reason,
             session::EsrPipelineAbortReason::kValidationRejected);
 }
 
@@ -228,16 +228,16 @@ TEST(EsrControllerRuntimeStateTest,
 
   const session::EsrCycleInput first_input = MakeValidInput(100U);
   controller.RunOnce(first_input);
-  ASSERT_EQ(controller.BuildCycleResult(first_input).status,
+  ASSERT_EQ(controller.BuildCycleResult().status,
             session::EsrCycleExecutionStatus::kCompleted);
 
   session::EsrCycleInput invalid_input = MakeValidInput(101U);
   invalid_input.dt_sec = 0.0f;
   controller.RunOnce(invalid_input);
 
-  EXPECT_EQ(controller.BuildCycleResult(invalid_input).status,
+  EXPECT_EQ(controller.BuildCycleResult().status,
             session::EsrCycleExecutionStatus::kRejected);
-  EXPECT_EQ(controller.BuildCycleResult(invalid_input).abort_reason,
+  EXPECT_EQ(controller.BuildCycleResult().abort_reason,
             session::EsrPipelineAbortReason::kValidationRejected);
   EXPECT_EQ(controller.GetLatestInterceptOutputFrame().cycle_index, 100U);
 }
@@ -310,21 +310,21 @@ TEST(EsrControllerRuntimeStateTest, OutputFrameCarriesScanAzimuthAdvancingWithPh
   // 相位 0 → 索引 0 → 首波束（az -60°；安装角 0°）。
   const session::EsrCycleInput first_input = MakeValidInput(1U);
   controller.RunOnce(first_input);
-  ASSERT_EQ(controller.BuildCycleResult(first_input).status,
+  ASSERT_EQ(controller.BuildCycleResult().status,
             session::EsrCycleExecutionStatus::kCompleted);
   EXPECT_FLOAT_EQ(controller.GetLatestInterceptOutputFrame().scan_azimuth_deg, -60.0f);
 
   // 相位 0.1 → 索引 12 → az 0°（首行内推进）。
   const session::EsrCycleInput second_input = MakeValidInput(2U);
   controller.RunOnce(second_input);
-  ASSERT_EQ(controller.BuildCycleResult(second_input).status,
+  ASSERT_EQ(controller.BuildCycleResult().status,
             session::EsrCycleExecutionStatus::kCompleted);
   EXPECT_FLOAT_EQ(controller.GetLatestInterceptOutputFrame().scan_azimuth_deg, 0.0f);
 
   // 相位 0.2 → 索引 25 → 折返行（serpentine）行首 → az +60°。
   const session::EsrCycleInput third_input = MakeValidInput(3U);
   controller.RunOnce(third_input);
-  ASSERT_EQ(controller.BuildCycleResult(third_input).status,
+  ASSERT_EQ(controller.BuildCycleResult().status,
             session::EsrCycleExecutionStatus::kCompleted);
   EXPECT_FLOAT_EQ(controller.GetLatestInterceptOutputFrame().scan_azimuth_deg, 60.0f);
 }
@@ -348,14 +348,14 @@ TEST(EsrControllerRuntimeStateTest, OutputFrameScanAzimuthAddsMountOffset) {
   // 相位 0 → 索引 0 → 首波束 az 130° + 安装角 20° = 150°。
   const session::EsrCycleInput first_input = MakeValidInput(1U);
   controller.RunOnce(first_input);
-  ASSERT_EQ(controller.BuildCycleResult(first_input).status,
+  ASSERT_EQ(controller.BuildCycleResult().status,
             session::EsrCycleExecutionStatus::kCompleted);
   EXPECT_FLOAT_EQ(controller.GetLatestInterceptOutputFrame().scan_azimuth_deg, 150.0f);
 
   // 相位 0.5 → 索引 5 → 折返行行首 az 150° + 安装角 20° = 170°。
   const session::EsrCycleInput second_input = MakeValidInput(2U);
   controller.RunOnce(second_input);
-  ASSERT_EQ(controller.BuildCycleResult(second_input).status,
+  ASSERT_EQ(controller.BuildCycleResult().status,
             session::EsrCycleExecutionStatus::kCompleted);
   EXPECT_FLOAT_EQ(controller.GetLatestInterceptOutputFrame().scan_azimuth_deg, 170.0f);
 }
