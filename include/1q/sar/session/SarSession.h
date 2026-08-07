@@ -79,7 +79,7 @@ class ONEQ_API SarSession {
    * @note `ValidateSarSessionConfig` 由此路径被实调用，构成真实契约。
    */
   static SarSession CreateWithDiagnostics(const config::SarSessionConfig& config,
-                                          config::ValidationIssueList* issues);
+                                          SarIssueList* issues);
 
  private:
 

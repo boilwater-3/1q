@@ -108,12 +108,12 @@ TEST(SarDegenerateDiagnosticsTest, SampleWindowTooSmallRejectedByCreateWithDiagn
   config::SarSessionConfig config = MakeBaselineRdaConfig();
   config.hardware.pulse_width_s = 1.0e-6;  // 波形 100 样本 > 64 窗口
 
-  config::ValidationIssueList issues;
+  session::SarIssueList issues;
   (void)session::SarSession::CreateWithDiagnostics(config, &issues);
 
   bool found = false;
-  for (const config::ConfigValidationIssue& issue : issues) {
-    if (issue.code == config::ConfigValidationCode::kSampleWindowTooSmallForPulse) {
+  for (const session::SarIssue& issue : issues) {
+    if (issue.code == "sar.validation.sample_window_too_small_for_pulse") {
       found = true;
       break;
     }

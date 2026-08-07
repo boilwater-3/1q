@@ -129,16 +129,16 @@ TEST(SarSessionConfigValidationTest, DetectsNonPositiveFrequency) {
   config.hardware.carrier_frequency_hz = 0.0;
   config.hardware.bandwidth_hz = 0.0;
 
-  const ValidationIssueList issues = ValidateSarSessionConfig(config);
+  const session::SarIssueList issues = ValidateSarSessionConfig(config);
 
   EXPECT_FALSE(issues.empty());
   bool found_frequency = false;
   bool found_bandwidth = false;
-  for (const ConfigValidationIssue& issue : issues) {
-    if (issue.code == ConfigValidationCode::kCarrierFrequencyNotPositive) {
+  for (const session::SarIssue& issue : issues) {
+    if (issue.code == "sar.validation.carrier_frequency_not_positive") {
       found_frequency = true;
     }
-    if (issue.code == ConfigValidationCode::kBandwidthNotPositive) {
+    if (issue.code == "sar.validation.bandwidth_not_positive") {
       found_bandwidth = true;
     }
   }
@@ -148,7 +148,7 @@ TEST(SarSessionConfigValidationTest, DetectsNonPositiveFrequency) {
 
 TEST(SarSessionConfigValidationTest, PassesOnHealthyBuiltConfig) {
   // struct 默认（= 条带档位）即为合法配置。
-  const ValidationIssueList issues = ValidateSarSessionConfig(SarSessionConfig{});
+  const session::SarIssueList issues = ValidateSarSessionConfig(SarSessionConfig{});
   EXPECT_TRUE(issues.empty());
 }
 
@@ -156,10 +156,10 @@ TEST(SarSessionConfigValidationTest, RejectsRawHistoryWithoutRawEcho) {
   SarSessionConfig config;
   config.policy.enable_raw_echo_generation = false;
   config.policy.retain_raw_phase_history = true;
-  const ValidationIssueList issues = ValidateSarSessionConfig(config);
+  const session::SarIssueList issues = ValidateSarSessionConfig(config);
   ASSERT_FALSE(issues.empty());
-  EXPECT_TRUE(std::any_of(issues.begin(), issues.end(), [](const ConfigValidationIssue& issue) {
-    return issue.code == ConfigValidationCode::kRetainRawHistoryRequiresRawEcho;
+  EXPECT_TRUE(std::any_of(issues.begin(), issues.end(), [](const session::SarIssue& issue) {
+    return issue.code == "sar.validation.retain_raw_history_requires_raw_echo";
   }));
 }
 
@@ -168,9 +168,9 @@ TEST(SarSessionConfigValidationTest, RejectsInvalidSquintLimit) {
                        std::numeric_limits<double>::infinity()}) {
     SarSessionConfig config;
     config.policy.max_allowed_squint_angle_deg = value;
-    const ValidationIssueList issues = ValidateSarSessionConfig(config);
-    EXPECT_TRUE(std::any_of(issues.begin(), issues.end(), [](const ConfigValidationIssue& issue) {
-      return issue.code == ConfigValidationCode::kSquintAngleInvalid;
+    const session::SarIssueList issues = ValidateSarSessionConfig(config);
+    EXPECT_TRUE(std::any_of(issues.begin(), issues.end(), [](const session::SarIssue& issue) {
+      return issue.code == "sar.validation.squint_angle_invalid";
     }));
   }
 }
@@ -179,9 +179,9 @@ TEST(SarSessionConfigValidationTest, RejectsInvalidHardwareLinkBudget) {
   SarSessionConfig config;
   config.hardware.peak_power_w = 0.0;
   config.hardware.receiver_noise_figure_db = -1.0;
-  const ValidationIssueList issues = ValidateSarSessionConfig(config);
-  EXPECT_TRUE(std::any_of(issues.begin(), issues.end(), [](const ConfigValidationIssue& issue) {
-    return issue.code == ConfigValidationCode::kHardwareLinkBudgetInvalid;
+  const session::SarIssueList issues = ValidateSarSessionConfig(config);
+  EXPECT_TRUE(std::any_of(issues.begin(), issues.end(), [](const session::SarIssue& issue) {
+    return issue.code == "sar.validation.hardware_link_budget_invalid";
   }));
 }
 
@@ -190,27 +190,27 @@ TEST(SarSessionConfigValidationTest, RejectsInvalidEnvironmentScalars) {
                        std::numeric_limits<double>::infinity()}) {
     SarSessionConfig config;
     config.environment.terrain_reference_altitude_m = value;
-    const ValidationIssueList issues = ValidateSarSessionConfig(config);
-    EXPECT_TRUE(std::any_of(issues.begin(), issues.end(), [](const ConfigValidationIssue& issue) {
-      return issue.code == ConfigValidationCode::kEnvironmentConfigInvalid;
+    const session::SarIssueList issues = ValidateSarSessionConfig(config);
+    EXPECT_TRUE(std::any_of(issues.begin(), issues.end(), [](const session::SarIssue& issue) {
+      return issue.code == "sar.validation.environment_config_invalid";
     }));
   }
 
   SarSessionConfig negative_loss;
   negative_loss.environment.atmospheric_loss_db_per_km = -0.01;
-  const ValidationIssueList negative_loss_issues = ValidateSarSessionConfig(negative_loss);
+  const session::SarIssueList negative_loss_issues = ValidateSarSessionConfig(negative_loss);
   EXPECT_TRUE(std::any_of(negative_loss_issues.begin(), negative_loss_issues.end(),
-                          [](const ConfigValidationIssue& issue) {
-                            return issue.code == ConfigValidationCode::kEnvironmentConfigInvalid;
+                          [](const session::SarIssue& issue) {
+                            return issue.code == "sar.validation.environment_config_invalid";
                           }));
 
   SarSessionConfig invalid_sigma0;
   invalid_sigma0.environment.surface_backscatter_sigma0_db =
       std::numeric_limits<double>::quiet_NaN();
-  const ValidationIssueList sigma0_issues = ValidateSarSessionConfig(invalid_sigma0);
+  const session::SarIssueList sigma0_issues = ValidateSarSessionConfig(invalid_sigma0);
   EXPECT_TRUE(std::any_of(sigma0_issues.begin(), sigma0_issues.end(),
-                          [](const ConfigValidationIssue& issue) {
-                            return issue.code == ConfigValidationCode::kEnvironmentConfigInvalid;
+                          [](const session::SarIssue& issue) {
+                            return issue.code == "sar.validation.environment_config_invalid";
                           }));
 }
 
@@ -219,7 +219,7 @@ TEST(SarSessionConfigValidationTest, RejectsInvalidEnvironmentScalars) {
 TEST(SarSessionCreateWithDiagnosticsTest, BuildsSessionAndReportsNoIssuesForHealthyConfig) {
   const SarSessionConfig config;  // struct 默认即条带档位，合法。
 
-  ValidationIssueList issues;
+  session::SarIssueList issues;
   const session::SarSession session = session::SarSession::CreateWithDiagnostics(config, &issues);
 
   EXPECT_TRUE(issues.empty());
@@ -230,11 +230,11 @@ TEST(SarSessionCreateWithDiagnosticsTest, ReportsIssuesButStillConstructsSession
   SarSessionConfig invalid;
   invalid.hardware.carrier_frequency_hz = 0.0;
 
-  ValidationIssueList issues;
+  session::SarIssueList issues;
   const session::SarSession session = session::SarSession::CreateWithDiagnostics(invalid, &issues);
 
   EXPECT_FALSE(issues.empty());
-  EXPECT_EQ(issues.front().code, ConfigValidationCode::kCarrierFrequencyNotPositive);
+  EXPECT_EQ(issues.front().code, "sar.validation.carrier_frequency_not_positive");
   (void)session;  // 会话仍被构造，调用方据 issues 决策
 }
 
