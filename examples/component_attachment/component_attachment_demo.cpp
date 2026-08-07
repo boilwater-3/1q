@@ -22,7 +22,6 @@
 #include <vector>
 
 #include "1q/airborne_radar/session/ArSession.h"
-#include "1q/coordinate/position_transform.h"
 #include "1q/coordinate/types.h"
 #include "1q/electro_optical_sensor/session/EosSession.h"
 #include "1q/electronic_surveillance_radar/session/EsrSession.h"
@@ -143,13 +142,8 @@ int main(int argc, char* argv[]) {
   demo::DecisionListener decision(world);
   demo::DemoOutputs outputs(output_dir);
 
-  oneq::coordinate::EcefPositionM platform_ecef;
-  if (!oneq::coordinate::TryLlaToEcef(platform_origin, &platform_ecef)) {
-    std::cerr << "Invalid platform LLA\n";
-    return 1;
-  }
   std::vector<demo::TargetEcefState> target_states =
-      demo::MakeTargetStates(platform_ecef, platform_origin);
+      demo::MakeTargetStates(platform_origin);
 
   std::size_t max_fused_targets = 0U;
   // 天基平台（卫星）位置：凝视模式，固定于目标群中心正上方 +500 km

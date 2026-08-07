@@ -42,21 +42,22 @@ const ScriptedTarget kTargetScript[] = {
 }  // namespace
 
 std::vector<TargetEcefState> MakeTargetStates(
-    const oneq::coordinate::EcefPositionM& platform_ecef,
     const oneq::coordinate::LlaPositionDegM& platform_origin) {
   std::vector<TargetEcefState> states;
   states.reserve(std::size(kTargetScript));
   for (const auto& script : kTargetScript) {
     TargetEcefState state;
     oneq::coordinate::EnuPositionM offset;
-    oneq::coordinate::EcefPositionM target;
+    // 目标脚本（方位/距离）→ ENU 水平偏移；高度 = 巡航高度（与平台巡航同高，
+    // 目标恒在空中）。TryBearingRangeToEnuOffset 清零 up，须在此重设。
     if (oneq::coordinate::TryBearingRangeToEnuOffset(script.azimuth_deg, script.range_m,
-                                                     &offset) &&
-        oneq::coordinate::TryEnuToEcef(offset, platform_origin, &target)) {
-      state.position.x_m = target.x_m;
-      state.position.y_m = target.y_m;
+                                                     &offset)) {
+      offset.up_m = kCruiseAltitudeM;
+      oneq::coordinate::EcefPositionM target;
+      if (oneq::coordinate::TryEnuToEcef(offset, platform_origin, &target)) {
+        state.position = target;
+      }
     }
-    state.position.z_m = platform_ecef.z_m + kCruiseAltitudeM;
     oneq::coordinate::EnuVelocityMps enu_velocity;
     enu_velocity.east_mps = script.v_east_mps;
     enu_velocity.north_mps = script.v_north_mps;

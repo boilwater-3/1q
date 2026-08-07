@@ -31,11 +31,10 @@ struct TargetEcefState {
   float rcs{0.0f};
 };
 
-/// 目标脚本 → ECEF 状态（方位/距离经库内 ENU 偏移函数投影到 ECEF，速度经
-/// ENU 速度函数投影；z 取平台基准高度 + 巡航高度偏移，目标恒在空中，不随
+/// 目标脚本 → ECEF 状态（方位/距离/高度经库内 ENU 偏移函数投影到 ECEF，速度经
+/// ENU 速度函数投影；高度 = 巡航高度，目标恒在空中且与平台巡航同高，不随
 /// 平台起飞段高度变化）。脚本为编译期合法常量，投影调用不会失败。
 std::vector<TargetEcefState> MakeTargetStates(
-    const oneq::coordinate::EcefPositionM& platform_ecef,
     const oneq::coordinate::LlaPositionDegM& platform_origin);
 
 /// AR 世界目标事实（ECEF 运动学 + RCS）。
