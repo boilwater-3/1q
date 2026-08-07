@@ -228,9 +228,10 @@ TEST(SbirsCycleOutputBuilderTest, DebugViewPreservesNisLossAttributionWithoutRaw
   EXPECT_EQ(view.targets[0].tracking_source,
             sbirs_sensor::attribution::SbirsTrackingSource::kEstimated);
   EXPECT_FLOAT_EQ(view.targets[0].estimated_range_m, 1000000.0f);
-  // 记录观测值覆盖 input 推导值（input 目标 (8e6,0,0) 视线 az=0/el=0，记录为 2/3）。
-  EXPECT_FLOAT_EQ(view.targets[0].azimuth_deg, 2.0f);
-  EXPECT_FLOAT_EQ(view.targets[0].elevation_deg, 3.0f);
+  // 无原始记录（capture failure）：az/el 保持 input 回填值（input 目标
+  // (8e6,0,0)、卫星 (7e6,0,0) → 视线 (1e6,0,0) → az=0/el=0，记录覆盖不触发）。
+  EXPECT_FLOAT_EQ(view.targets[0].azimuth_deg, 0.0f);
+  EXPECT_FLOAT_EQ(view.targets[0].elevation_deg, 0.0f);
   EXPECT_TRUE(view.targets[0].has_estimation_nis);
   EXPECT_FLOAT_EQ(view.targets[0].estimation_nis, 12.5f);
   EXPECT_TRUE(view.targets[0].estimation_nis_gate_exceeded);
