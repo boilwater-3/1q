@@ -34,8 +34,11 @@ config 域扩展 → 校验层归属收敛（COMMON-OQ-9 登记→实施→回�
 >   `entity_index >= 0 && kind <= kSceneEntity` 落入 else 分支丢 kind；三个模块校验实际使用
 >   kPlatform 定位，且三个 replay session 的 issue 比较含 location.kind，会误报 divergence。
 >   已随 Q-1 修复（`989d86b9`：kind 独立还原、entity_index 哨兵单独处理；SBIRS 原为正确形态）。
-> - 暂缓项（已确认不纳入）：DES-4（ESR status 缓存 vs EOS 推导统一）、DES-5
->   （`BuildCycleResult` 未用参数）、RED-1（`HasValidationError` 五处重复实现）。
+> - **暂缓项已全部实施（2026-08-07 后续提交，全量测试通过）**：DES-4（ESR status 由
+>   abort_reason 单一推导，删除缓存字段与快照字段，schema_version→2U）→ `4822c42c`；
+>   DES-5（SAR/ESR/EOS `BuildCycleResult` 移除未用参数，33 处调用点）→ `5bf08c4b`/`152d5274`/
+>   `69efb024`；RED-1（`HasValidationError` 五处重复统一到
+>   `common::validation::HasValidationPhaseError` 共享模板，公开符号保留为委托）→ `9bc58a26`。
 
 ## 1. 判定方法
 
