@@ -102,10 +102,30 @@ enum class SbirsDetectionEventKind {
   kLost = 3,          /**< 此前已发现，本周期丢失 */
 };
 
+/**
+ * @brief SBIRS 丢失/未检测原因（示例层枚举，源为库内
+ * SbirsDetectionLifecycleReason，组件映射）。kLost 事件携带细分原因，
+ * 区分"目标真消失"与"扫描间隙/调度跳过/门失败"——避免消费方把扫描间隙
+ * 误读为目标丢失。
+ */
+enum class SbirsDetectionLossReason {
+  kNone = 0,               /**< 无具体原因（非丢失事件） */
+  kOutOfFieldOfView,       /**< 目标在视场（FOV）外（扫描相位未覆盖） */
+  kBelowSnrThreshold,      /**< IR SNR 低于门限 */
+  kTargetMissingFromInput, /**< 目标从输入场景消失 */
+  kAcquisitionFailed,      /**< 进入 NFOV 待捕获但捕获失败 */
+  kSchedulerSkipped,       /**< WFOV 候选未被调度器选中（通道被占） */
+  kNisGateLost,            /**< EKF NIS 连续超限导致释放 NFOV 锁定 */
+  kPointingTimeout,        /**< ATP 光轴未在派生等待上限内稳定 */
+  kTrackingGateLost,       /**< NFOV 跟踪几何/SNR 门连续失败 */
+  kUnknown                 /**< 未知原因 */
+};
+
 /** @brief SBIRS 探测事件：生命周期事件各发布一次（target_id 经归属映射）。 */
 struct SbirsDetectionEvent {
   std::uint64_t cycle{0U};                     /**< 世界周期号 */
   SbirsDetectionEventKind kind{SbirsDetectionEventKind::kUpdated}; /**< 事件类型 */
+  SbirsDetectionLossReason reason{SbirsDetectionLossReason::kNone}; /**< 丢失/未检测细分原因（非丢失事件为 kNone） */
   std::uint64_t detection_id{0U};              /**< 本输出帧内检测记录标识（kLost 时为 0） */
   std::uint64_t target_id{0U};                 /**< 归属目标 ID（无归属时为 0） */
   float infrared_snr_linear{0.0f};             /**< 红外通道线性 IR SNR（kLost 携带最后一次下检值） */

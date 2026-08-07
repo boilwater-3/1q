@@ -2,13 +2,15 @@
  * @file component_attachment_demo.cpp
  * @brief 自定义实体-组件示例主程序（第二种示例模式）。
  *
- * 1. 装配：共享场景状态 → World → 平台实体 + 7 组件（挂载序 = 步进序
- *    Flight → AR → ESR → EOS → SBIRS → SAR → Fusion），组件间事件通信用
- *    Boost.Signals2（core/，零自定义分发层）；
+ * 1. 装配：场景描述文件（--scene，默认 scenes/baseline_takeoff_east.json）
+ *    → SceneData → 共享场景状态 → World → 平台实体 + 7 组件（挂载序 =
+ *    步进序 Flight → AR → ESR → EOS → SBIRS → SAR → Fusion），组件间事件
+ *    通信用 Boost.Signals2（core/，零自定义分发层）；
  * 2. 编排：每周期注入四通道世界真值 → World::Step → 周期摘要与平台轨迹落盘；
- * 3. 收尾：集成端日志刷盘、按实体查询传感器状态演示、冒烟断言。
- * 世界模型真值脚本见 scene_script.h，配置加载见 demo_config.h，输出落盘与
- * 事件消费见 demo_output.h。
+ * 3. 收尾：集成端日志刷盘、按实体查询传感器状态演示、冒烟断言（下限来自
+ *    场景文件 smoke 块）。
+ * 场景数据见 scene_data.h，世界模型真值脚本见 scene_script.h，配置加载见
+ * demo_config.h，输出落盘与事件消费见 demo_output.h。
  */
 
 #include <algorithm>
@@ -18,7 +20,6 @@
 #include <iostream>
 #include <memory>
 #include <string>
-#include <utility>
 #include <vector>
 
 #include "1q/airborne_radar/session/ArSession.h"
@@ -27,7 +28,6 @@
 #include "1q/electronic_surveillance_radar/session/EsrSession.h"
 #include "1q/fusion/FusionEngine.h"
 #include "1q/fusion/FusedTarget.h"
-#include "1q/navigation/RoutePoint.h"
 #include "1q/sar/session/SarSession.h"
 #include "1q/sbirs_sensor/session/SbirsSession.h"
 
@@ -43,24 +43,41 @@
 #include "core/world.h"
 #include "demo_config.h"
 #include "demo_output.h"
+#include "scene_data.h"
 #include "scene_script.h"
 
 namespace ca = component_attachment;
 namespace demo = component_attachment::demo;
 
+namespace {
+
+/// 默认场景文件：CMake 注入的场景目录（examples/component_attachment/scenes/）。
+constexpr char kDefaultSceneFile[] = CA_SCENE_DIR "/baseline_takeoff_east.json";
+
+}  // namespace
+
 int main(int argc, char* argv[]) {
-  // 命令行参数：--cycles / --output-dir。
-  std::uint32_t num_cycles = demo::kNumCycles;
+  // 命令行参数：--scene（场景描述文件）/ --cycles（覆盖场景周期数）/
+  // --output-dir（输出目录）。
+  std::string scene_path = kDefaultSceneFile;
+  int cycles_override = -1;  // < 0 = 未指定，用场景文件值
   std::string output_dir = demo::kDefaultOutputDir;
   for (int i = 1; i < argc; ++i) {
     const std::string arg = argv[i];
-    if (arg == "--cycles") {
+    if (arg == "--scene") {
+      if (i + 1 >= argc) {
+        std::cerr << "Missing value for --scene\n";
+        demo::PrintUsage(argv[0]);
+        return 1;
+      }
+      scene_path = argv[++i];
+    } else if (arg == "--cycles") {
       if (i + 1 >= argc) {
         std::cerr << "Missing value for --cycles\n";
         demo::PrintUsage(argv[0]);
         return 1;
       }
-      num_cycles = static_cast<std::uint32_t>(std::atoi(argv[++i]));
+      cycles_override = std::atoi(argv[++i]);
     } else if (arg == "--output-dir") {
       if (i + 1 >= argc) {
         std::cerr << "Missing value for --output-dir\n";
@@ -77,8 +94,20 @@ int main(int argc, char* argv[]) {
       return 1;
     }
   }
+
+  // 场景描述加载（平台/目标脚本/业务覆写/冒烟下限；缺省字段静默默认，
+  // 必填几何字段缺失或 JSON 语法错误 → 报错退出）。
+  demo::SceneData scene_data;
+  std::string scene_error;
+  if (!demo::LoadSceneData(scene_path.c_str(), &scene_data, &scene_error)) {
+    std::cerr << "Failed to load scene '" << scene_path << "': " << scene_error << "\n";
+    return 1;
+  }
+  const std::uint32_t num_cycles =
+      cycles_override > 0 ? static_cast<std::uint32_t>(cycles_override) : scene_data.cycles;
   if (num_cycles == 0U) {
-    std::cerr << "Invalid --cycles value: must be > 0\n";
+    std::cerr << "Invalid cycle count: must be > 0 (scene '" << scene_path
+              << "' or --cycles)\n";
     return 1;
   }
   std::filesystem::create_directories(output_dir);
@@ -94,25 +123,17 @@ int main(int argc, char* argv[]) {
   ca::World world(scene);
   ca::Entity& platform = world.CreateEntity("platform");
 
-  // 平台初始状态：机场地面（alt 0，六自由度机动从起飞开始）→ 巡航高度
-  // kCruiseAltitudeM，沿正东 3 个航点（间距约 5 km）。
-  const oneq::coordinate::LlaPositionDegM platform_origin{30.0, 120.0, 0.0};
-  std::vector<navigation::RoutePoint> route;
-  for (int i = 1; i <= 3; ++i) {
-    navigation::RoutePoint wp;
-    wp.position.latitude_deg = 30.0;
-    wp.position.longitude_deg = 120.0 + 0.05 * i;
-    wp.position.altitude_m = demo::kCruiseAltitudeM;
-    wp.speed_mps = demo::kCruiseSpeedMps;
-    wp.radius_m = 500.0;
-    route.push_back(wp);
-  }
-  platform.Attach(std::make_unique<ca::FlightComponent>(platform_origin, 90.0,
-                                                        demo::kCruiseSpeedMps,
-                                                        demo::kCruiseAltitudeM,
-                                                        std::move(route)));
+  // 平台初始状态来自场景文件：机场地面（alt 0，六自由度机动从起飞开始）→
+  // 巡航高度 → 沿场景航路巡航。
+  const oneq::coordinate::LlaPositionDegM platform_origin = scene_data.platform_origin;
+  platform.Attach(std::make_unique<ca::FlightComponent>(
+      platform_origin, scene_data.initial_heading_deg, scene_data.cruise_speed_mps,
+      scene_data.cruise_altitude_m, scene_data.waypoints));
 
-  const demo::ComponentAttachmentConfigs configs = demo::LoadConfigs();
+  // 五会话配置：JSON 基线（examples/configs/）+ 场景业务覆写（EOS 扫描/SAR
+  // 任务几何与链路，见 ApplySceneOverrides）。
+  demo::ComponentAttachmentConfigs configs = demo::LoadConfigs();
+  demo::ApplySceneOverrides(scene_data, &configs);
   platform.Attach(std::make_unique<ca::ArSensorComponent>(
       airborne_radar::session::ArSession::Create(configs.ar)));
   platform.Attach(std::make_unique<ca::EsrSensorComponent>(
@@ -124,50 +145,52 @@ int main(int argc, char* argv[]) {
   platform.Attach(std::make_unique<ca::SarSensorComponent>(
       sar::session::SarSession::Create(configs.sar)));
 
-  fusion::FusionConfig fusion_config;
-  fusion_config.position_radius_m = 1000.0;
-  // 方位相干门限放宽到 8°：ESR 假设方位含平滑滞差、EOS 探测含扫描中心
-  // 残差，同物理目标的跨源方位差实测可达 4-6°（业务层调参，非库内标准）。
-  fusion_config.bearing_beamwidth_deg = 8.0;
-  fusion_config.feature_threshold = 0.0;  // 不启用特征门
-  fusion_config.window_size = 10U;
-  fusion_config.max_missed_cycles = 5U;
-  // 源权重按 source_id 索引：AR=1.0、ESR=0.8、EOS=0.6、SBIRS=0.5（索引 0 未用）。
-  fusion_config.source_weights = {0.0, 1.0, 0.8, 0.6, 0.5};
+  // 融合配置来自场景文件（空间门限/方位相干门限/特征门/窗口/失跟周期/源权重；
+  // 基线场景放宽方位相干门限到 8°：ESR 假设方位含平滑滞差、EOS 探测含扫描
+  // 中心残差，同物理目标的跨源方位差实测可达 4-6°——业务层调参，非库内标准）。
   platform.Attach(std::make_unique<ca::FusionComponent>(
-      std::make_unique<fusion::FusionEngine>(fusion_config)));
+      std::make_unique<fusion::FusionEngine>(scene_data.fusion)));
 
-  // 事件接线：决策监听器（订阅融合信号）+ 周期落盘输出（平台轨迹 CSV；
-  // 集成端日志已由 InitIntegrationLog 装配，组件在 Step 内直写视图与事件）。
-  demo::DecisionListener decision(world);
+  // 事件接线：决策监听器（订阅融合信号，门限来自场景）+ 周期落盘输出
+  // （平台轨迹 CSV；集成端日志已由 InitIntegrationLog 装配，组件在 Step 内
+  // 直写视图与事件）。
+  demo::DecisionListener decision(world, scene_data.high_threat_confidence);
   demo::DemoOutputs outputs(output_dir);
 
   std::vector<demo::TargetEcefState> target_states =
-      demo::MakeTargetStates(platform_origin);
+      demo::MakeTargetStates(scene_data.targets, platform_origin);
 
   std::size_t max_fused_targets = 0U;
-  // 天基平台（卫星）位置：凝视模式，固定于目标群中心正上方 +500 km
-  // （ECEF z 轴），目标始终位于星下点附近（SBIRS az/el 为 ECEF 极坐标，
+  // 天基平台（卫星）位置：凝视模式，固定于目标群质心正上方 + 场景高度
+  // （ECEF z 轴），目标恒位于星下点附近（SBIRS az/el 为 ECEF 极坐标，
   // 全向扫描 span 360° + 下视 el −90° 覆盖；消费方每周期注入世界模型）。
-  constexpr double kSbirsSatelliteAltitudeM = 500000.0;
+  // 无目标时保持上一周期位置（初始零向量 = 场景占位）。
   for (std::uint32_t cycle = 1U; cycle <= num_cycles; ++cycle) {
     // 消费方每周期注入共享场景状态（周期号/时间/四通道世界真值）。
     scene.cycle = cycle;
-    scene.t_sec = static_cast<double>(cycle) * demo::kDtSec;
+    scene.t_sec = static_cast<double>(cycle) * scene_data.dt_sec;
     scene.ar_targets = demo::MakeArTargetInputs(target_states);
-    scene.emitters = demo::MakeEmitterTruths(target_states, scene.t_sec);
+    scene.emitters = demo::MakeEmitterTruths(target_states, scene_data.esr, scene.t_sec);
     scene.optical_targets = demo::MakeOpticalTargets(target_states);
     scene.sbirs_targets = demo::MakeSbirsTargetInputs(target_states);
     scene.sar_point_targets = demo::MakeSarPointTargets(target_states);
-    scene.sbirs_satellite_position_ecef_m.x =
-        0.5 * (target_states[0].position.x_m + target_states[1].position.x_m);
-    scene.sbirs_satellite_position_ecef_m.y =
-        0.5 * (target_states[0].position.y_m + target_states[1].position.y_m);
-    scene.sbirs_satellite_position_ecef_m.z =
-        0.5 * (target_states[0].position.z_m + target_states[1].position.z_m) +
-        kSbirsSatelliteAltitudeM;
+    if (!target_states.empty()) {
+      double centroid_x = 0.0;
+      double centroid_y = 0.0;
+      double centroid_z = 0.0;
+      for (const auto& target : target_states) {
+        centroid_x += target.position.x_m;
+        centroid_y += target.position.y_m;
+        centroid_z += target.position.z_m;
+      }
+      const double count = static_cast<double>(target_states.size());
+      scene.sbirs_satellite_position_ecef_m.x = centroid_x / count;
+      scene.sbirs_satellite_position_ecef_m.y = centroid_y / count;
+      scene.sbirs_satellite_position_ecef_m.z =
+          centroid_z / count + scene_data.sbirs_satellite_altitude_m;
+    }
 
-    world.Step(demo::kDtSec);  // 按挂载序步进：Flight → AR → ESR → EOS → SBIRS → SAR → Fusion
+    world.Step(scene_data.dt_sec);  // 按挂载序步进：Flight → AR → ESR → EOS → SBIRS → SAR → Fusion
 
     // 周期摘要 + 平台轨迹/调试视图落盘。
     const auto* flight = platform.Find<ca::FlightComponent>();
@@ -182,14 +205,16 @@ int main(int argc, char* argv[]) {
     // 调试视图落盘由各传感器组件在 Step 内直写（取视图 → 人读摘要行 → 集成
     // 端日志；见 components/demo_log.h 的 CA_LOG_VIEW），主程序不再收拢。
 
-    // 消费方世界模型推进（在 Step 之后，与 behavior_layer 周期语义一致）。
-    demo::AdvanceTargetStates(target_states, demo::kDtSec);
+    // 消费方世界模型推进（在 Step 之后，与 behavior_layer 周期语义一致；
+    // 周期号用于应用变速机动表）。
+    demo::AdvanceTargetStates(target_states, cycle, scene_data.dt_sec, platform_origin);
   }
 
   demo::FlushIntegrationLog();
   outputs.Flush();
   std::cout << "\n=== Component Attachment Summary ===\n"
-            << "cycles=" << num_cycles
+            << "scene=" << scene_data.name
+            << " cycles=" << num_cycles
             << " entities=" << world.entity_count()
             << " components=" << platform.component_count()
             << " events=" << demo::EventCount()
@@ -221,26 +246,31 @@ int main(int argc, char* argv[]) {
             << " scan_az=" << sbirs->scan_azimuth_deg() << " deg\n"
             << "  sar   powered=" << (sar->powered_on() ? "on" : "off") << "\n";
 
-  // 冒烟断言：端到端链路必须有产出（关键事件 ≥ 1、SBIRS/SAR 关键事件存在、
-  // 至少一个融合目标、平台轨迹行数 = 周期数、视图行数每周期 ≥ 1 行、五传感器
-  // 全程开机），否则视为链路断裂（ctest 失败）。
+  // 冒烟断言：端到端链路必须有产出（关键事件/SBIRS/SAR/融合目标下限来自
+  // 场景文件 smoke 块，无目标等零产出场景显式置 0；平台轨迹行数 = 周期数；
+  // 视图行数每周期 ≥ 1 行、五传感器全程开机），否则视为链路断裂（ctest 失败）。
   // 断言与日志模式无关：视图按"每周期至少一行"断言（默认跨周期增量模式下状态
   // 变化周期会写多行，故为 ≥ 周期数；SAR 阶段型摘要恒每周期一行，== 周期数）；
   // 事件按"关键事件存在"断言（默认只记关键模式下平台状态等重复事件不落盘）。
   // 前置条件：视图行数由组件 Step 内计数，依赖每周期到达视图日志调用点（本
   // 场景 Flight 恒挂载、坐标适配恒成功；场景改动需同步检查该断言）。
-  if (demo::EventCount() == 0U || demo::SbirsEventCount() == 0U ||
-      demo::SarProductEventCount() == 0U || max_fused_targets == 0U ||
+  const auto& smoke = scene_data.smoke;
+  if (demo::EventCount() < smoke.min_key_events ||
+      demo::SbirsEventCount() < smoke.min_sbirs_events ||
+      demo::SarProductEventCount() < smoke.min_sar_products ||
+      max_fused_targets < smoke.min_fused_targets ||
       outputs.platform_rows() != num_cycles || demo::ArViewCount() < num_cycles ||
       demo::EosViewCount() < num_cycles || demo::SbirsViewCount() < num_cycles ||
       demo::SarViewCount() != num_cycles ||
       !ar->powered_on() || !esr->powered_on() ||
       !eos->powered_on() || !sbirs->powered_on() || !sar->powered_on()) {
     std::cerr << "SMOKE FAILED: events=" << demo::EventCount()
-              << " (>0 required), sbirs_events="
-              << demo::SbirsEventCount() << " (>0 required), sar_products="
-              << demo::SarProductEventCount() << " (>0 required), max_fused="
-              << max_fused_targets << " (>0 required), platform_rows="
+              << " (>=" << smoke.min_key_events << " required), sbirs_events="
+              << demo::SbirsEventCount() << " (>=" << smoke.min_sbirs_events
+              << " required), sar_products=" << demo::SarProductEventCount()
+              << " (>=" << smoke.min_sar_products << " required), max_fused="
+              << max_fused_targets << " (>=" << smoke.min_fused_targets
+              << " required), platform_rows="
               << outputs.platform_rows() << " (== " << num_cycles << " required), "
               << "ar_views=" << demo::ArViewCount()
               << " (>= " << num_cycles << " required), eos_views="

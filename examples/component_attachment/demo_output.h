@@ -53,16 +53,18 @@ class DemoOutputs {
 
 /**
  * @brief 决策监听器：订阅融合更新事件，高置信威胁首次出现时发布指令事件
- * （事件链演示：Fusion → decision → command）。
+ * （事件链演示：Fusion → decision → command）。门限由场景数据注入
+ * （SceneData::high_threat_confidence）。
  */
 class DecisionListener {
  public:
-  explicit DecisionListener(World& world);
+  explicit DecisionListener(World& world, double high_threat_confidence);
 
   bool issued() const { return issued_; }
 
  private:
   World& world_;
+  double high_threat_confidence_{3.0};
   bool issued_{false};
 };
 

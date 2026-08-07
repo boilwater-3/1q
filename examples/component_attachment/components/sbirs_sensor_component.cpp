@@ -56,6 +56,62 @@ const char* SbirsEventKindName(SbirsDetectionEventKind kind) {
   return "未知";
 }
 
+/// 库内丢失原因 → 示例事件原因（细分透出：区分目标真消失/扫描间隙/调度跳过/
+/// 门失败，避免消费方把扫描间隙误读为目标丢失）。
+SbirsDetectionLossReason ToDemoLossReason(
+    sbirs_sensor::session::SbirsDetectionLifecycleReason reason) {
+  switch (reason) {
+    case sbirs_sensor::session::SbirsDetectionLifecycleReason::kOutOfFieldOfView:
+      return SbirsDetectionLossReason::kOutOfFieldOfView;
+    case sbirs_sensor::session::SbirsDetectionLifecycleReason::kBelowSnrThreshold:
+      return SbirsDetectionLossReason::kBelowSnrThreshold;
+    case sbirs_sensor::session::SbirsDetectionLifecycleReason::kTargetMissingFromInput:
+      return SbirsDetectionLossReason::kTargetMissingFromInput;
+    case sbirs_sensor::session::SbirsDetectionLifecycleReason::kNfovAcquisitionFailed:
+      return SbirsDetectionLossReason::kAcquisitionFailed;
+    case sbirs_sensor::session::SbirsDetectionLifecycleReason::kSchedulerSkipped:
+      return SbirsDetectionLossReason::kSchedulerSkipped;
+    case sbirs_sensor::session::SbirsDetectionLifecycleReason::kEstimationNisGateLost:
+      return SbirsDetectionLossReason::kNisGateLost;
+    case sbirs_sensor::session::SbirsDetectionLifecycleReason::kNfovPointingTimeout:
+      return SbirsDetectionLossReason::kPointingTimeout;
+    case sbirs_sensor::session::SbirsDetectionLifecycleReason::kNfovTrackingGateLost:
+      return SbirsDetectionLossReason::kTrackingGateLost;
+    case sbirs_sensor::session::SbirsDetectionLifecycleReason::kUnknown:
+      return SbirsDetectionLossReason::kUnknown;
+    case sbirs_sensor::session::SbirsDetectionLifecycleReason::kNone:
+      break;
+  }
+  return SbirsDetectionLossReason::kNone;
+}
+
+/// 丢失原因 → 中文名（人读日志）。
+const char* LossReasonName(SbirsDetectionLossReason reason) {
+  switch (reason) {
+    case SbirsDetectionLossReason::kOutOfFieldOfView:
+      return "视场外";
+    case SbirsDetectionLossReason::kBelowSnrThreshold:
+      return "低于信噪比门限";
+    case SbirsDetectionLossReason::kTargetMissingFromInput:
+      return "目标消失";
+    case SbirsDetectionLossReason::kAcquisitionFailed:
+      return "捕获失败";
+    case SbirsDetectionLossReason::kSchedulerSkipped:
+      return "调度跳过";
+    case SbirsDetectionLossReason::kNisGateLost:
+      return "NIS 超限丢锁";
+    case SbirsDetectionLossReason::kPointingTimeout:
+      return "指向超时";
+    case SbirsDetectionLossReason::kTrackingGateLost:
+      return "跟踪门连续失败";
+    case SbirsDetectionLossReason::kUnknown:
+      return "未知";
+    case SbirsDetectionLossReason::kNone:
+      break;
+  }
+  return "无";
+}
+
 /// 检测记录 ID → 仿真目标 ID（无归属返回 0）。
 std::uint64_t AttributionTargetId(
     std::uint64_t detection_id,
@@ -207,6 +263,7 @@ void SbirsSensorComponent::Step(World& world, double dt_sec) {
     SbirsDetectionEvent sbirs_event;
     sbirs_event.cycle = scene.cycle;
     sbirs_event.kind = ToDemoKind(event.kind);
+    sbirs_event.reason = ToDemoLossReason(event.reason);
     sbirs_event.target_id = event.target_id;
     sbirs_event.infrared_snr_linear = event.infrared_snr_linear;
     if (event.kind != sbirs_sensor::session::SbirsDetectionLifecycleEventKind::kLost) {
@@ -224,13 +281,23 @@ void SbirsSensorComponent::Step(World& world, double dt_sec) {
     }
     if (sbirs_event.kind == SbirsDetectionEventKind::kUpdated) {
       // 更新类事件每周期重复：事件模式一下不落盘（信号照常发布）。
-      CA_LOG_EVENT_DUP(world, "sbirs_detection", "类型={} 探测ID={} 目标={} 信噪比={:.1f} 方位={:.1f}°",
+      CA_LOG_EVENT_DUP(world, "sbirs_detection",
+                       "类型={} 探测ID={} 目标={} 信噪比(线性)={:.1f} 方位={:.1f}°",
                        SbirsEventKindName(sbirs_event.kind),
                        static_cast<unsigned long long>(sbirs_event.detection_id),
                        static_cast<unsigned long long>(sbirs_event.target_id),
                        sbirs_event.infrared_snr_linear, sbirs_event.az_deg);
+    } else if (sbirs_event.kind == SbirsDetectionEventKind::kLost) {
+      // 丢失事件携带细分原因（视场外/调度跳过/门失败…），区分扫描间隙与真丢失。
+      CA_LOG_EVENT(world, "sbirs_detection",
+                   "类型=丢失({}) 探测ID={} 目标={} 信噪比(线性)={:.1f} 方位={:.1f}°",
+                   LossReasonName(sbirs_event.reason),
+                   static_cast<unsigned long long>(sbirs_event.detection_id),
+                   static_cast<unsigned long long>(sbirs_event.target_id),
+                   sbirs_event.infrared_snr_linear, sbirs_event.az_deg);
     } else {
-      CA_LOG_EVENT(world, "sbirs_detection", "类型={} 探测ID={} 目标={} 信噪比={:.1f} 方位={:.1f}°",
+      CA_LOG_EVENT(world, "sbirs_detection",
+                   "类型={} 探测ID={} 目标={} 信噪比(线性)={:.1f} 方位={:.1f}°",
                    SbirsEventKindName(sbirs_event.kind),
                    static_cast<unsigned long long>(sbirs_event.detection_id),
                    static_cast<unsigned long long>(sbirs_event.target_id),

@@ -10,7 +10,6 @@
 
 #include "components/demo_log.h"
 #include "core/events.h"
-#include "demo_config.h"
 
 namespace component_attachment {
 namespace demo {
@@ -35,9 +34,10 @@ void DemoOutputs::Flush() {
   platform_csv_.Flush();
 }
 
-DecisionListener::DecisionListener(World& world) : world_(world) {
+DecisionListener::DecisionListener(World& world, double high_threat_confidence)
+    : world_(world), high_threat_confidence_(high_threat_confidence) {
   world_.signals().on_fusion_updated.connect([this](const FusionUpdatedEvent& e) {
-    if (e.confidence >= kHighThreatConfidence && !issued_) {
+    if (e.confidence >= high_threat_confidence_ && !issued_) {
       issued_ = true;
       CommandIssuedEvent command;
       command.cycle = e.cycle;
