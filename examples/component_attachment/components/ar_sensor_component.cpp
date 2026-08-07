@@ -116,7 +116,12 @@ void ArSensorComponent::LogDebugView(
     if (!issues_text.empty()) {
       issues_text += ", ";
     }
+    // code: message 全量透出（人读日志；message 含量值如目标 az/el，几何类
+    // 问题一眼可见——规则 13b 的"不承诺解析稳定性"约束机器消费，人读无碍）。
     issues_text += issue.code;
+    if (!issue.message.empty()) {
+      issues_text += ": " + issue.message;
+    }
   }
   CA_LOG_VIEW("ar", "周期={} 完成={} 目标=[{}] 问题=[{}]",
               view.world_cycle_index, view.completed_this_cycle ? "是" : "否",

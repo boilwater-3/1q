@@ -168,7 +168,7 @@ DebugView"由外部集成方接入自己的日志/事件系统实现，结构化
 | --- | --- | --- |
 | 视图模式一（只落非标称行） | `CA_VIEW_LOG_MODE_NONNOMINAL` | 每周期只把非标称目标（AR 非 `kConfirmed`；EOS/SBIRS 非 `kDetected`）逐行写日志，全标称时写一行"全部正常"；日志量 ∝ 异常数 |
 | 视图模式二（跨周期状态增量，**默认**） | `CA_VIEW_LOG_MODE_DELTA` | 只写状态与上一周期不同的目标行（上一周期状态表由组件持有）；无变化时写一行"无状态变化"；日志量 ∝ 变化数 |
-| 视图模式三（每周期摘要行） | `CA_VIEW_LOG_MODE_SUMMARY` | 每周期一行中文摘要（周期/完成与否/目标状态明细/问题 code 列表），日志量恒定 |
+| 视图模式三（每周期摘要行） | `CA_VIEW_LOG_MODE_SUMMARY` | 每周期一行中文摘要（周期/完成与否/目标状态明细/**问题详情 `code: message`**——message 含量值如目标 az/el、波束中心与 FOV，几何类问题一眼可见，日志量恒定） |
 | 事件模式一（只记关键事件，**默认**） | `CA_EVENT_LOG_MODE_KEY` | `CA_LOG_EVENT` 逐条落盘，`CA_LOG_EVENT_DUP`（周期性重复事件）不落盘 |
 | 事件模式二（周期聚合） | `CA_EVENT_LOG_MODE_AGGREGATE` | 每周期把全部事件聚合为一行（`[事件聚合] 周期=N 事件数=M [中文名×次数, ...]`） |
 | 事件模式三（逐条全量） | `CA_EVENT_LOG_MODE_ALL` | 事件逐条落盘 |
@@ -236,7 +236,7 @@ patch 只改会话配置）。
 per-target 状态 + 规则 13b kInfo 排除诊断；关机周期清零，拒绝周期为
 `kCycleNotCompleted`/`kCycleNotExecuted` 快照）。组件在 `Step` 内取该视图
 直写中文人读行到集成端视图日志 `integration_views.log`（每周期一行，如
-`[视图:ar] 周期=5 完成=是 目标=[1001 已确认] 问题=[ar.track_not_confirmed]`；
+`[视图:ar] 周期=5 完成=是 目标=[1001 已确认] 问题=[ar.track_not_confirmed: target_id=...]`；
 SAR 为阶段型摘要行）——日志给人读，结构化持久化由外部集成方接入自己的
 日志/事件系统实现（示例不内置 JSON 序列化器）。落盘密度（三模式）由
 `components/demo_log_modes.h` 模式选择区宏控制。ESR 库内无 DebugView，不适用
