@@ -270,12 +270,15 @@ bool DecodeEosCycleResult(const std::string& bytes,
       if (i->message()) {
         iss.message = i->message()->str();
       }
-      if (i->entity_index() >= 0 &&
-          i->location_kind() <=
-              static_cast<int32_t>(oneq::foundation::ValidationLocationKind::kSceneEntity)) {
+      // location.kind 独立编码、范围校验后无条件还原（kPlatform 等非 kGlobal 定位保真）；
+      // entity_index 仅 kSceneEntity 有效，-1 哨兵还原为无效值。
+      if (i->location_kind() <=
+          static_cast<int32_t>(oneq::foundation::ValidationLocationKind::kSceneEntity)) {
         iss.location.kind =
             static_cast<oneq::foundation::ValidationLocationKind>(i->location_kind());
-        iss.location.entity_index = static_cast<std::size_t>(i->entity_index());
+        iss.location.entity_index = i->entity_index() >= 0
+                                        ? static_cast<std::size_t>(i->entity_index())
+                                        : static_cast<std::size_t>(-1);
       } else {
         iss.location.kind = oneq::foundation::ValidationLocationKind::kGlobal;
         iss.location.entity_index = static_cast<std::size_t>(-1);

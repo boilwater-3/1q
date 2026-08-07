@@ -152,6 +152,10 @@ TEST(SarReplayCodecRoundtripTest, CycleResultPreservesOutputAndDiagnostics) {
   issue.phase = SarIssuePhase::kExecution;
   issue.code = "sar.rda_peak";
   issue.message = "peak index";
+  // kPlatform 定位（校验实际使用形态）：验证非 kGlobal kind 经 codec 不丢失。
+  issue.location.kind = oneq::foundation::ValidationLocationKind::kPlatform;
+  issue.location.entity_index = static_cast<std::size_t>(-1);
+  issue.field = "platform";
   result.issues.push_back(issue);
   result.raw_phase_history.source = SarRawPhaseHistorySource::kExternalRawIq;
   result.raw_phase_history.pulse_count = 2U;
@@ -191,6 +195,11 @@ TEST(SarReplayCodecRoundtripTest, CycleResultPreservesOutputAndDiagnostics) {
   EXPECT_EQ(decoded.issues[0].severity, SarIssueSeverity::kInfo);
   EXPECT_EQ(decoded.issues[0].phase, SarIssuePhase::kExecution);
   EXPECT_EQ(decoded.issues[0].code, "sar.rda_peak");
+  EXPECT_EQ(decoded.issues[0].message, "peak index");
+  EXPECT_EQ(decoded.issues[0].location.kind,
+            oneq::foundation::ValidationLocationKind::kPlatform);
+  EXPECT_EQ(decoded.issues[0].location.entity_index, static_cast<std::size_t>(-1));
+  EXPECT_EQ(decoded.issues[0].field, "platform");
   EXPECT_TRUE(decoded.executed_this_cycle);
   EXPECT_EQ(decoded.raw_phase_history.source, SarRawPhaseHistorySource::kExternalRawIq);
   EXPECT_EQ(decoded.raw_phase_history.pulse_count, 2U);

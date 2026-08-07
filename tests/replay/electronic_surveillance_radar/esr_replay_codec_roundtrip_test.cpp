@@ -60,6 +60,60 @@ TEST(EsrReplayCodecRoundtripTest, CycleResultPreservesExplicitStatus) {
   EXPECT_FLOAT_EQ(decoded.output_frame.scan_azimuth_deg, -8.5f);
 }
 
+TEST(EsrReplayCodecRoundtripTest, CycleResultPreservesIssueFullFields) {
+  // Q-1（审查修复）：非空 issues 全字段往返保真——severity/phase/code/message/
+  // location.kind/entity_index/field 任一未同步到 schema/codec 时立即失败；
+  // kPlatform 定位（校验实际使用形态）验证非 kGlobal kind 不丢失。
+  EsrCycleResult result;
+  result.input_cycle_index = 7U;
+  result.status = EsrCycleExecutionStatus::kRejected;
+  result.abort_reason = EsrPipelineAbortReason::kValidationRejected;
+
+  EsrIssue validation_issue;
+  validation_issue.severity = EsrIssueSeverity::kError;
+  validation_issue.phase = EsrIssuePhase::kInputValidation;
+  validation_issue.code = "esr.validation.invalid_cycle_delta_time";
+  validation_issue.message = "cycle delta time must be positive";
+  validation_issue.location.kind = oneq::foundation::ValidationLocationKind::kPlatform;
+  validation_issue.field = "dt_sec";
+  result.issues.push_back(validation_issue);
+
+  // kSceneEntity + entity_index 哨兵往返（非 kSceneEntity kind 编码为 -1）。
+  EsrIssue execution_issue;
+  execution_issue.severity = EsrIssueSeverity::kError;
+  execution_issue.phase = EsrIssuePhase::kExecution;
+  execution_issue.code = "esr.sensor_powered_off";
+  execution_issue.message = "ESR cycle aborted.";
+  execution_issue.location.kind = oneq::foundation::ValidationLocationKind::kSceneEntity;
+  execution_issue.location.entity_index = 3U;
+  execution_issue.field = "emitters";
+  result.issues.push_back(execution_issue);
+
+  EsrCycleResult decoded;
+  ASSERT_TRUE(DecodeEsrCycleResult(EncodeEsrCycleResult(result), &decoded));
+  ASSERT_EQ(decoded.issues.size(), 2U);
+
+  const EsrIssue& decoded_validation = decoded.issues[0];
+  EXPECT_EQ(decoded_validation.severity, EsrIssueSeverity::kError);
+  EXPECT_EQ(decoded_validation.phase, EsrIssuePhase::kInputValidation);
+  EXPECT_EQ(decoded_validation.code, "esr.validation.invalid_cycle_delta_time");
+  EXPECT_EQ(decoded_validation.message, "cycle delta time must be positive");
+  EXPECT_EQ(decoded_validation.location.kind,
+            oneq::foundation::ValidationLocationKind::kPlatform);
+  EXPECT_EQ(decoded_validation.location.entity_index, static_cast<std::size_t>(-1));
+  EXPECT_EQ(decoded_validation.field, "dt_sec");
+
+  const EsrIssue& decoded_execution = decoded.issues[1];
+  EXPECT_EQ(decoded_execution.severity, EsrIssueSeverity::kError);
+  EXPECT_EQ(decoded_execution.phase, EsrIssuePhase::kExecution);
+  EXPECT_EQ(decoded_execution.code, "esr.sensor_powered_off");
+  EXPECT_EQ(decoded_execution.message, "ESR cycle aborted.");
+  EXPECT_EQ(decoded_execution.location.kind,
+            oneq::foundation::ValidationLocationKind::kSceneEntity);
+  EXPECT_EQ(decoded_execution.location.entity_index, 3U);
+  EXPECT_EQ(decoded_execution.field, "emitters");
+}
+
 TEST(EsrReplayCodecRoundtripTest,
      UnknownWaveformClassRejectsWithoutMutatingDestination) {
   flatbuffers::FlatBufferBuilder builder;

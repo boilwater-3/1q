@@ -443,12 +443,15 @@ bool DecodeSarCycleResult(const std::string& bytes, SarCycleResult* out) {
       decoded_issue.phase = static_cast<SarIssuePhase>(issue->phase());
       decoded_issue.code = issue->code() ? issue->code()->str() : std::string();
       decoded_issue.message = issue->message() ? issue->message()->str() : std::string();
-      if (issue->entity_index() >= 0 &&
-          issue->location_kind() <=
-              static_cast<std::int32_t>(oneq::foundation::ValidationLocationKind::kSceneEntity)) {
+      // location.kind 独立编码、范围校验后无条件还原（kPlatform 等非 kGlobal 定位保真）；
+      // entity_index 仅 kSceneEntity 有效，-1 哨兵还原为无效值。
+      if (issue->location_kind() <=
+          static_cast<std::int32_t>(oneq::foundation::ValidationLocationKind::kSceneEntity)) {
         decoded_issue.location.kind =
             static_cast<oneq::foundation::ValidationLocationKind>(issue->location_kind());
-        decoded_issue.location.entity_index = static_cast<std::size_t>(issue->entity_index());
+        decoded_issue.location.entity_index = issue->entity_index() >= 0
+                                                  ? static_cast<std::size_t>(issue->entity_index())
+                                                  : static_cast<std::size_t>(-1);
       } else {
         decoded_issue.location.kind = oneq::foundation::ValidationLocationKind::kGlobal;
         decoded_issue.location.entity_index = static_cast<std::size_t>(-1);

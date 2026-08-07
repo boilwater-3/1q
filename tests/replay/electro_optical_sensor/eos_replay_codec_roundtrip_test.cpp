@@ -189,7 +189,8 @@ TEST(EosReplayCodecRoundtripTest, CycleResultPreservesAllFields) {
   validation_issue.phase = session::EosIssuePhase::kInputValidation;
   validation_issue.code = "eos.validation.invalid_cycle_delta_time";
   validation_issue.message = "cycle delta time must be positive";
-  validation_issue.location.kind = oneq::foundation::ValidationLocationKind::kGlobal;
+  // kPlatform 定位（校验实际使用形态）：验证非 kGlobal kind 经 codec 不丢失。
+  validation_issue.location.kind = oneq::foundation::ValidationLocationKind::kPlatform;
   validation_issue.location.entity_index = static_cast<std::size_t>(-1);
   validation_issue.field = "dt_sec";
   result.issues.push_back(validation_issue);
@@ -225,6 +226,10 @@ TEST(EosReplayCodecRoundtripTest, CycleResultPreservesAllFields) {
   EXPECT_EQ(decoded.issues[0].severity, session::EosIssueSeverity::kError);
   EXPECT_EQ(decoded.issues[0].phase, session::EosIssuePhase::kInputValidation);
   EXPECT_EQ(decoded.issues[0].code, "eos.validation.invalid_cycle_delta_time");
+  EXPECT_EQ(decoded.issues[0].message, "cycle delta time must be positive");
+  EXPECT_EQ(decoded.issues[0].location.kind,
+            oneq::foundation::ValidationLocationKind::kPlatform);
+  EXPECT_EQ(decoded.issues[0].location.entity_index, static_cast<std::size_t>(-1));
   EXPECT_EQ(decoded.issues[0].field, "dt_sec");
   EXPECT_EQ(decoded.issues[1].phase, session::EosIssuePhase::kExecution);
   EXPECT_EQ(decoded.issues[1].code, "eos.target_out_of_fov");
