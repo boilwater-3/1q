@@ -1,6 +1,7 @@
 #include "sbirs_sensor/runtime/SbirsController.h"
 
 #include "1q/sbirs_sensor/session/SbirsInputValidation.h"
+#include "common/logging/ProjectLog.h"
 #include "sbirs_sensor/session/SbirsDiagnosticUtils.h"
 
 namespace sbirs_sensor {
@@ -20,9 +21,15 @@ session::SbirsCycleResult SbirsController::RunOnce(const session::SbirsCycleInpu
   // 统一问题列表（规则 14）：输入校验问题（phase=kInputValidation）在前，执行诊断在后。
   result.issues = session::ValidateSbirsCycleInput(input, frame_rate_hz_);
   if (session::HasValidationError(result.issues)) {
-    // 校验拒绝：校验问题本身就是 error 级诊断（规则 9 写二），不附加粗粒度条目。
-    session::RecordAbort(&result, session::SbirsPipelineAbortReason::kValidationRejected,
-                         "input_validation", "SBIRS input validation failed.");
+    // 校验拒绝（规则 9/14）：校验问题本身就是 error 级诊断（写二），直接进入统一
+    // 问题列表；abort_reason（写一）与日志（写三）在此补齐，不调用 RecordAbort
+    // （避免附加与细粒度主诊断重复的粗粒度条目，与 SAR 参考形态一致）。
+    result.abort_reason = session::SbirsPipelineAbortReason::kValidationRejected;
+    result.status = session::SbirsCycleStatus::kRejectedInvalidInput;
+    // 中译：SBIRS 输入校验拒绝（周期号）。
+    // 标识：三写之三（人读日志）——调用方输入非法，本周期未执行；
+    //       仅用于人读，不用于状态判断（规则 3）。
+    PROJECT_LOG_WARN("SBIRS validation rejected for cycle_index={}", input.cycle_index);
     return result;
   }
 
