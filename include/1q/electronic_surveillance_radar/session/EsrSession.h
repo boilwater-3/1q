@@ -101,7 +101,7 @@ class ONEQ_API EsrSession {
    * @note `ValidateEsrSessionConfig` 由此路径被实调用，构成真实契约。
    */
   static EsrSession CreateWithDiagnostics(const config::EsrSessionConfig& config,
-                                          config::ValidationIssueList* issues);
+                                          EsrIssueList* issues);
 
  private:
   struct Impl;

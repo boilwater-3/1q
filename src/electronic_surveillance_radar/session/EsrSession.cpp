@@ -183,8 +183,8 @@ EsrSession EsrSession::Create(const config::EsrSessionConfig& config) {
 }
 
 EsrSession EsrSession::CreateWithDiagnostics(const config::EsrSessionConfig& config,
-                                             config::ValidationIssueList* issues) {
-  const config::ValidationIssueList found = config::ValidateEsrSessionConfig(config);
+                                             EsrIssueList* issues) {
+  const EsrIssueList found = config::ValidateEsrSessionConfig(config);
   if (issues != nullptr) {
     *issues = found;
   }
