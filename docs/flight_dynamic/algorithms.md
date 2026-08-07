@@ -1,6 +1,6 @@
 ---
 Status: active
-Last-reviewed: 2026-08-03
+Last-reviewed: 2026-08-07
 Authority: flight_dynamic 算法登记与实现边界
 Answers: flight_dynamic 用了哪些算法、各自实现到什么地步、边界在哪
 ---
@@ -95,8 +95,8 @@ Answers: flight_dynamic 用了哪些算法、各自实现到什么地步、边�
 - **反直觉点（经度归一化）**：经度差归一化到最短跨界弧，航段可跨越 ±180° 经度边界；高纬长航段
   不再使用平面 `cos(latitude)` 近似。
 - **证据**：[evidence: tests/unit/flight_dynamic/fd_aircraft_maneuver_test]
-- **证据**：[evidence: tests/unit/flight_dynamic/fd_adapter_test TightSpacedWaypointRouteFlowsSequentially]
-- **证据**：[evidence: tests/unit/flight_dynamic/fd_adapter_test WaypointSequencingEventsRecorded]
+- **证据**：[evidence: tests/unit/flight_dynamic/fd_adapter_test.cpp::FlightDynamicTest.TightSpacedWaypointRouteFlowsSequentially]
+- **证据**：[evidence: tests/unit/flight_dynamic/fd_adapter_test.cpp::FlightDynamicTest.WaypointSequencingEventsRecorded]
 
 ## 机动执行
 
@@ -123,8 +123,8 @@ Answers: flight_dynamic 用了哪些算法、各自实现到什么地步、边�
      `FlightManager.h` `Step()` 的 @note。
 - **反直觉点（CAS vs TAS 不得混用）**：起飞旋转速度与默认进近速度是 **CAS 基准**，统一使用标准
   海平面密度计算，不随机场高度改变；飞行中的 autopilot 安全包线则是**动态 TAS**。两者不得混用。
-- **证据**：[evidence: tests/unit/flight_dynamic/fd_adapter_test]、
-  [evidence: examples/flight_dynamic/takeoff_land_csv.cpp 起飞段回归]
+- **证据**：[evidence: tests/unit/flight_dynamic/fd_adapter_test.cpp]
+- **证据**：[evidence: examples/flight_dynamic/takeoff_land_csv.cpp]（起飞段回归）
 
 ## 推进管理
 

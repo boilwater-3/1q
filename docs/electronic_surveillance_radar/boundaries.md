@@ -1,6 +1,6 @@
 ---
 Status: active
-Last-reviewed: 2026-08-03
+Last-reviewed: 2026-08-07
 Authority: ESR 模块级边界、非目标与设计变更规则
 Answers: ESR 有哪些模块级禁令与边界、哪些非目标、配置/扫描/输出/校验的特殊语义、文档变更规则
 ---

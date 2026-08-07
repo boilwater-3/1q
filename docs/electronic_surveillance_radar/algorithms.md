@@ -1,6 +1,6 @@
 ---
 Status: active
-Last-reviewed: 2026-08-03
+Last-reviewed: 2026-08-07
 Authority: ESR 算法登记与实现边界
 Answers: ESR 用了哪些算法、各自实现到什么地步、边界在哪、哪些刻意不实现或预留死字段
 ---
@@ -15,11 +15,11 @@ Answers: ESR 用了哪些算法、各自实现到什么地步、边界在哪、�
 
 | 算法/部件 | 意图（一句话） | 实现状态 | 证据 |
 |---|---|---|---|
-| 环境采样 | 传播附加损耗与杂波噪声快照 | session-wired | [evidence: tests/unit/electronic_surveillance_radar/esr_environment_service_test] |
+| 环境采样 | 传播附加损耗与杂波噪声快照 | session-wired | [evidence: tests/unit/electronic_surveillance_radar/esr_controller_runtime_state_test] |
 | 扫描窗口 | 根据扫描模式和运行期配置生成接收窗口 | session-wired | [evidence: tests/unit/electronic_surveillance_radar/esr_controller_runtime_state_test] |
-| 拦截门控 | range、receiver window、dynamic range、SNR 等 joint constraints | session-wired | [evidence: tests/unit/electronic_surveillance_radar/esr_intercept_gate_test] |
-| 边界搜索 | 单调谓词边界查找 | session-wired | [evidence: tests/unit/electronic_surveillance_radar/esr_boundary_search_test] |
-| 角误差 | 基于 SNR/系数/随机种子的 AOA 扰动 | session-wired | [evidence: tests/unit/electronic_surveillance_radar/esr_angle_error_test] |
+| 拦截门控 | range、receiver window、dynamic range、SNR 等 joint constraints（内联于 `InterceptDetectionExecutor`：`BuildReceiverWindow`/`minimum_snr_db`；`InterceptGate.h` 为未消费 header-only） | session-wired | [evidence: tests/unit/electronic_surveillance_radar/esr_rf_v2_detection_test] |
+| 边界搜索 | 单调谓词边界查找 | **未接入**（`BoundarySearchSolver.h` header-only 零消费；无直接测试） | — |
+| 角误差 | 基于 SNR/系数/随机种子的 AOA 扰动 | session-wired | [evidence: tests/unit/electronic_surveillance_radar/esr_rf_v2_detection_test] |
 | RF 接收与干扰影响 | 双 receiver state、宽带入射账本、饱和、到达时频角分辨单元 SINR | session-wired | [evidence: tests/unit/electronic_surveillance_radar/esr_rf_v2_front_end_test] |
 | 分辨单元投影 | 到达活动投影到固定接收时间单元并按角单元/重叠频带归并 | session-wired | [evidence: tests/unit/electronic_surveillance_radar/esr_resolution_cell_ledger_test] |
 | 观测预处理 | 排序、有限值过滤、质量归一、窗口去重 | session-wired | [evidence: tests/unit/electronic_surveillance_radar/esr_kdtree_clusterer_test] |
@@ -47,14 +47,19 @@ ESR 当前所有登记算法均为 session-wired；不存在 characterized/exper
    未标定压缩曲线。
 3. **通道化与可分辨性。** `EsrRfV2FrontEnd` 同时冻结两个接收状态：硬件频段的 `front_end_receiver` 只服务
    blocking/饱和，当前 tuning window 的 `channel_receiver` 只服务候选检测。`EsrResolutionCellLedger` 将调谐
-   通道内的到达活动投影到固定接收时间单元；脉冲使用确定性 jitter 后的实际绝对脉冲时刻累计，线性扫频
-   在每个到达时间单元重新求瞬时频率，再按角单元和重叠频带排序归并。单元内功率最强的外部源成为候选，
-   其余功率只进入该候选的干扰账本；落入不同接收时间单元的错时脉冲、错频扫频和可分角源**不**互相降低
-   SINR。构建复杂度是固定时间单元投影加单元内排序，**不再**执行 candidate×all-emissions 全对扫描。
-   候选 signal/interference power 统一按候选实际活动时间归一化，空白接收窗口**不得**稀释短脉冲或扫频驻留
-   的 SNR；跨越多个时间单元的同一物理脉冲以 pulse index 去重，只贡献一次统计截获机会。天顶/天底入射的
-   方位角在数学上不可观测，但这**不是**非法 RF 帧：该源仍参与前端饱和和对应极区分辨单元的功率账本，
-   却**不能**成为会发布伪造 AoA 的候选；同帧其他可观测源继续正常处理。
+   通道内的到达活动投影到固定接收时间单元：
+   - **时间单元归并**：脉冲使用确定性 jitter 后的实际绝对脉冲时刻累计，线性扫频在每个到达时间单元
+     重新求瞬时频率，再按角单元和重叠频带排序归并。
+   - **候选与干扰账本**：单元内功率最强的外部源成为候选，其余功率只进入该候选的干扰账本；落入不同
+     接收时间单元的错时脉冲、错频扫频和可分角源**不**互相降低 SINR。
+   - **复杂度边界**：构建复杂度是固定时间单元投影加单元内排序，**不再**执行 candidate×all-emissions
+     全对扫描。
+   - **功率归一化**：候选 signal/interference power 统一按候选实际活动时间归一化，空白接收窗口
+     **不得**稀释短脉冲或扫频驻留的 SNR；跨越多个时间单元的同一物理脉冲以 pulse index 去重，只贡献
+     一次统计截获机会。
+   - **极区入射边界**：天顶/天底入射的方位角在数学上不可观测，但这**不是**非法 RF 帧：该源仍参与
+     前端饱和和对应极区分辨单元的功率账本，却**不能**成为会发布伪造 AoA 的候选；同帧其他可观测源
+     继续正常处理。
 4. **波形化观测。** 脉冲列填写 PRI/脉宽估计；连续、宽带噪声和扫频仅发布适用的频率/带宽估计，**不**伪造
    PRI/pulse width。
 5. **截获判决。** 每个候选使用通道输出 signal power、热噪声、未分辨 interference、有效驻留和脉冲截获机会
@@ -137,7 +142,7 @@ Replay 的 cycle-input ECEF 位置、速度和独立姿态均为 double 精度�
    `EsrEnvironmentService` 中被冻结并随 snapshot/replay 持久化，但检测链（`InterceptDetectionExecutor`）
    **尚未消费**该字段——既无 noise PSD 换算，也无环境噪声倍率项。故当前**不得**宣称 ESR 具备基于占用率的
    环境噪声建模或压制干扰感知能力；该字段为预留死字段，去留见 `docs/common/open_questions.md` ESR-OQ-1。
-   [evidence: tests/unit/electronic_surveillance_radar/esr_environment_service_test]
+   [evidence: src/electronic_surveillance_radar/environment/EsrEnvironmentService.h]
 2. **`is_jammed` 二次布尔置信度惩罚**：压制效应只通过同一分辨单元的 SINR 与检测结果影响输出，没有
    `is_jammed` 标志或二次布尔置信度惩罚（见拦截检测链 §6）。
 3. **信号级反欺骗反制**：欺骗标注（Strategy A）是纯观测层分类，不改变检测门限，不触发信号级反制

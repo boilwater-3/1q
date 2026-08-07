@@ -1,6 +1,6 @@
 ---
 Status: active
-Last-reviewed: 2026-08-03
+Last-reviewed: 2026-08-07
 Authority: sbirs_sensor 模块级边界、非目标、能力决策与变更规则
 Answers: SBIRS 有哪些模块级边界、哪些能力刻意不实现及为什么、输出归属规则、变更规则
 ---

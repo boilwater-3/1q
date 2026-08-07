@@ -1,6 +1,6 @@
 ---
 Status: active
-Last-reviewed: 2026-08-03
+Last-reviewed: 2026-08-07
 Authority: SAR 算法登记与实现边界
 Answers: SAR 用了哪些算法、各自实现到什么地步、边界在哪、哪些刻意不实现
 ---

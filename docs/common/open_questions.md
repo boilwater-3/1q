@@ -59,7 +59,7 @@ Last-reviewed: 2026-08-07
   1. 成功路径：两者均取自 `input.cycle_index`，数值恒等。
   2. 非执行路径（COMMON-OQ-5 已统一为不复用）：`output_frame.cycle_index` 保持默认 `0`、
      `input_cycle_index` 为本次输入号，二者分歧。
-  [evidence: include/1q/electro_optical_sensor/EosCycleResult]
+  [evidence: include/1q/electro_optical_sensor/session/EosCycleResult.h]
 - **后果**：
   1. 双字段在成功路径冗余、在失败路径语义分裂，阅读者需判断何时相等何时分歧。
   2. 去重与周期失败语义耦合，无法独立处理。
@@ -77,8 +77,8 @@ Last-reviewed: 2026-08-07
   2. **AR+ESR envelope-equality 门**：非空 RF frame 的 envelope（`world_cycle_index`/`window_start_time_s`/`window_duration_s`）须与周期 input 精确相等。此判断已提取共享谓词 `RfFrameMatchesCycleWindow`（冻结于 contract.md §工程 RF 契约 条款 7 非空部分）。
   3. **EOS dt/frame-rate 门**：拒绝 `dt_sec > 10/frame_rate_hz`，是物理采样门（NEP/积分时间依赖），与 AR/ESR 时间门不同类。
   此外，RF 物理层 `TryResolveOverlap` 已对每条 emission 的 `activity_start_time_s + propagation_delay_s` 与 receiver 窗口做重叠判断，零重叠即零功率。
-  [evidence: src/common/electromagnetics/RfScene]
-  [evidence: src/airborne_radar/session/ArInputValidation]
+  [evidence: include/1q/electromagnetics/RfScene.h]
+  [evidence: src/airborne_radar/session/ArInputValidation.cpp]
 - **后果**：调用方违反时整周期在决策消费点之前被拒绝，无显式错误可供察觉。但 Stage A 证明正常装配不触发：ECM 同步返回 `RfEmissionFrame` 并用同一周期权威时间盖戳，无事件总线、无延迟。触发的真实场景是调用方 bug（只递增 `cycle_index` 忘推进时间戳、缓存复用旧帧），对此显式拒绝是正确行为——若放宽为重叠判断，旧帧会过校验却被 RF 层判零功率静默消失，反而恶化静默问题。
 - **待决问题**：空帧 envelope 语义是否统一——AR 豁免空帧（envelope 全无效也接受），ESR 不豁免（含空帧亦须填齐）。双方均有测试锁定，contract 条款 7 措辞只明确"身份或 mode"可豁免（emission 级），对 envelope（frame 级）未明确，无证据裁定优劣。
 - **当前边界**：非空 envelope-equality 已提取共享谓词，两侧非空行为一致。空帧策略各模块保持现状：AR 豁免、ESR 严格。不得放宽任何时间门为重叠判断，不得宣称周期时间戳可任意重复。
@@ -93,7 +93,7 @@ Last-reviewed: 2026-08-07
   2. **航迹生命周期域**：`TrackLifecycleManager::PromoteState` 消费该标注，量测域以
      `RawTrackMeasurement.classified_as_false_target`（bool）表达。
   `SignalCycleInput` 周期输入端口已收敛（旁路 mutable setter 已删除），不构成公开契约。
-  [evidence: include/1q/airborne_radar/ArInterferenceObservation]
+  [evidence: include/1q/airborne_radar/session/ArInterferenceObservation.h]
 - **后果**：
   1. 同一"疑似假目标"概念跨域用了两套命名（枚举 vs bool），跨域阅读增加认知负担。
   2. 内部 `ArDeceptionMeasurementCandidate` 不进入 public result 或 replay，公开观测仍是唯一持久化事实。
@@ -115,7 +115,7 @@ Last-reviewed: 2026-08-07
   3. 无结构化干扰观测输出（对比 AR 的 `ArInterferenceObservation`）。
   4. 无 ECCM 决策引擎（对比 AR 的 `EccmEvaluator` 评分-提案-执行架构）。
   5. 无工作模式自适应切换。
-  [evidence: src/electronic_surveillance_radar/intercept/InterceptDetectionExecutor]
+  [evidence: src/electronic_surveillance_radar/pipeline/InterceptDetectionExecutor.cpp]
 - **后果**：
   1. `suppression_model` 和 `spectrum_occupancy_ratio` 为死字段，外部据配置名可能误以为 ESR 具备压制干扰
      感知或自适应抗干扰能力。
@@ -140,7 +140,7 @@ Last-reviewed: 2026-08-07
   会同时设置 `use_explicit_scan_bounds = false`，静默将扫描模式从显式边界切换为中心驱动。两个副作用：
   1. 用户仅调整扫描中心，不会预期丢失之前配置的四个扫描边界角。
   2. 单独补丁 azimuth center 也会导致 elevation 侧跟着切模式（副作用跨轴传播）。
-  [evidence: src/electronic_surveillance_radar/session/EsrRuntimeConfigResolver]
+  [evidence: src/electronic_surveillance_radar/session/EsrRuntimeConfigResolver.cpp]
 - **后果**：用户难以预判 scan center 补丁会清空显式边界配置且跨轴生效，配置结果与意图偏离。
 - **待决问题**：
   1. 是否将模式切换设为显式补丁字段（`has_use_explicit_scan_bounds`），而非由 scan center 补丁隐含触发。
@@ -154,7 +154,7 @@ Last-reviewed: 2026-08-07
 - **现状**：`EsrScanPolicyConfig`（mission 域）的扫描字段经 `ApplyScanPolicy` 解算时会被 hardware 域偏移：
   1. `scan_center_az_deg` 减去 `EsrHardwareConfig::antenna_mount_az_deg`。
   2. `scan_start_az_deg` / `scan_end_az_deg` 在 `use_explicit_scan_bounds` 模式下也被 mount 偏移。
-  mission 域的值被 hardware 域静默偏移。[evidence: src/electronic_surveillance_radar/session/EsrScanPolicyApplier]
+  mission 域的值被 hardware 域静默偏移。[evidence: src/electronic_surveillance_radar/session/EsrResolutionRules.cpp]
 - **后果**：用户只看 mission 配置无法推断实际扫描方向；mount 偏移在内部解算时扣除但文档未明确，集成时易误配。
 - **待决问题**：是否在公开 API 中明确扫描中心的坐标系语义，有三个备选：
   1. 定义为"天线坐标系"（已含 mount 偏移）。
@@ -172,7 +172,7 @@ Last-reviewed: 2026-08-07
   能力。三模式取值来源不同：
   1. Strict/Estimated 使用真值距离。
   2. Sensor-like 使用真值距离叠加比例误差。
-  [evidence: include/1q/sbirs_sensor/SbirsDetectionAttributionRecord]
+  [evidence: include/1q/sbirs_sensor/session/SbirsOutputTypes.h]
 - **后果**：字段名含 `estimated_range` 易被调用方误解为正式传感器测距输出，误用于滤波或定位。
 - **待决问题**：字段名称和三模式取值来源是否足以防止调用方把它误解为正式传感器测距输出。
 - **当前边界**：不得进入 `SbirsOutputFrame` raw output；消费方只能把它当作仿真归属与诊断辅助量。
@@ -182,7 +182,7 @@ Last-reviewed: 2026-08-07
 ### SBIRS-OQ-2：WFOV、Estimated 与 Sensor-like 的分阶段误差统计
 
 - **现状**：三条用途使用独立随机子流，但共同读取 `SbirsErrorModelConfig` 的同一组角度/距离统计参数。
-  [evidence: include/1q/sbirs_sensor/SbirsErrorModelConfig]
+  [evidence: include/1q/sbirs_sensor/config/SbirsPolicyConfig.h]
 - **后果**：共享参数掩盖了三条链路在真实载荷上的精度差异，仿真结果可能高估某条链路的精度。
   1. WFOV 搜索。
   2. Estimated 校正量测。
@@ -197,7 +197,7 @@ Last-reviewed: 2026-08-07
 - **现状**：WFOV、Estimated、Sensor-like 各自是一条全局用途随机流。两个确定性边界：
   1. 同一 trace 可确定性 replay（相同输入字节和顺序）。
   2. 多目标在同一周期获得哪个样本取决于 `scene` 遍历顺序。
-  [evidence: src/sbirs_sensor/SbirsSensorPipeline]
+  [evidence: src/sbirs_sensor/pipeline/SbirsPipeline.cpp]
 - **后果**：目标列表置换后，同一 `target_id` 可能获得不同的量测随机序列，跨场景对比或批量验证时结果不可复现。
 - **待决问题**：SBIRS 是否需要保证目标列表置换后，每个 `target_id` 仍获得相同的量测随机序列。
 - **当前边界**：replay 只保证相同输入字节和顺序的确定性，不承诺 scene permutation invariance。
@@ -209,7 +209,7 @@ Last-reviewed: 2026-08-07
 - **现状**：Estimated 航迹初始化分两个阶段：
   1. 首次捕获后用输入场景真值 ECEF 位置和速度初始化滤波均值。
   2. 后续才使用带误差角度量测。
-  [evidence: src/sbirs_sensor/SbirsSensorPipeline]
+  [evidence: src/sbirs_sensor/pipeline/SbirsPipeline.cpp]
 - **后果**：`Estimated` 描述为生产仿真链，但首捕阶段含 truth-seeded 简化，若被当作完全无真值辅助的真实载荷
   跟踪器使用，会高估其无辅助条件下的起始性能。
 - **待决问题**：是否需要改为仅由被动角度 cue 和显式距离/运动先验初始化，以形成无真值航迹起始链。

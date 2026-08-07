@@ -1,6 +1,6 @@
 ---
 Status: active
-Last-reviewed: 2026-08-03
+Last-reviewed: 2026-08-07
 Authority: AR 设计权威入口
 Answers: AR 模块是什么、和谁交互、设计文档怎么导航
 ---

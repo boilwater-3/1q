@@ -1,6 +1,6 @@
 ---
 Status: active
-Last-reviewed: 2026-08-03
+Last-reviewed: 2026-08-07
 Authority: ESR 数据流、Public API 边界、时序与状态所有权
 Answers: ESR 的分层架构、数据如何流动、Public API 边界在哪、跨周期状态归谁所有
 ---
@@ -11,14 +11,23 @@ Answers: ESR 的分层架构、数据如何流动、Public API 边界在哪、�
 
 ## Public API 与内部实现边界
 
-公共头位于 `include/1q/electronic_surveillance_radar/`：`electronic_surveillance_radar.hpp`（模块聚合入口）、
-`config/`（`EsrSessionConfig` 四域配置、runtime patch、`EsrProfileConstants.h`、薄封装 builder、config validation）、
-`session/`（`EsrSession`、cycle input/result、observation/hypothesis、trace/replay）。聚合入口不是全量 public
-header 汇总：trace/replay、debug view 等工具头按需单独包含；pipeline/controller/environment service、runtime
-snapshot 不通过聚合入口暴露。内部实现位于 `src/electronic_surveillance_radar/`：`config/`（内部执行配置
-`EsrInternalExecutionConfig`）、`environment/`（`EsrEnvironmentService` 和单程传播附加损耗采样）、`pipeline/`
-（拦截 gate、检测执行、预处理、特征编码、Kd-tree 聚类、假设关联、后处理）、`runtime/`（`EsrController` 和
-执行状态、输出缓存管理）、`session/`（组合根、配置解析、runtime patch、输入校验、trace/replay）。
+**公共头**位于 `include/1q/electronic_surveillance_radar/`：
+
+- `electronic_surveillance_radar.hpp`（模块聚合入口）
+- `config/`（`EsrSessionConfig` 四域配置、runtime patch、`EsrProfileConstants.h`、薄封装 builder、
+  config validation）
+- `session/`（`EsrSession`、cycle input/result、observation/hypothesis、trace/replay）
+
+聚合入口**不是全量 public header 汇总**：trace/replay、debug view 等工具头按需单独包含；
+pipeline/controller/environment service、runtime snapshot 不通过聚合入口暴露。
+
+**内部实现**位于 `src/electronic_surveillance_radar/`：
+
+- `config/`（内部执行配置 `EsrInternalExecutionConfig`）
+- `environment/`（`EsrEnvironmentService` 和单程传播附加损耗采样）
+- `pipeline/`（拦截 gate、检测执行、预处理、特征编码、Kd-tree 聚类、假设关联、后处理）
+- `runtime/`（`EsrController` 和执行状态、输出缓存管理）
+- `session/`（组合根、配置解析、runtime patch、输入校验、trace/replay）
 
 ## 分层组件图
 

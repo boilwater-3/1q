@@ -1,6 +1,6 @@
 ---
 Status: active
-Last-reviewed: 2026-08-03
+Last-reviewed: 2026-08-07
 Authority: EOS 算法登记与实现边界
 Answers: EOS 用了哪些算法、各自实现到什么地步、边界在哪、哪些刻意不实现
 ---
@@ -27,7 +27,7 @@ Answers: EOS 用了哪些算法、各自实现到什么地步、边界在哪、�
 | 杂散光过滤 | 太阳-目标夹角/云量/遮光罩 → 近太阳干扰抑制 | session-wired | [evidence: tests/unit/electro_optical_sensor/eos_straylight_test] |
 | 扫描/FOV/范围门控 | 推进扫描相位；FOV 决定记录成员，范围只决定检测资格 | session-wired | [evidence: tests/unit/electro_optical_sensor/eos_pipeline_test] |
 | 通道融合与结果组装 | 合成 IR/visible/fused SNR，由 controller 组装 raw output 与 result | session-wired | [evidence: tests/unit/electro_optical_sensor/eos_cycle_output_builder_test] |
-| 外部输出坐标转换 | caller-side helper；外部坐标检测转 EOS 输出，不承担 controller 结果组装 | session-wired | [evidence: tests/unit/electro_optical_sensor/eos_session_test] |
+| 外部输出坐标转换 | caller-side helper；外部坐标检测转 EOS 输出，不承担 controller 结果组装 | session-wired | [evidence: tests/integration/electro_optical_sensor/eos_session_test] |
 
 状态取值：所有 EOS 算法当前均为 **session-wired**——已接入 `EosPipeline`/`EosController`，覆盖 config、
 输出/abort、replay 与 session 集成。EOS 当前没有 characterized/experimental 候选算法；能力晋级必须逐级

@@ -1,7 +1,7 @@
 # Electronic Countermeasure 当前设计
 
 Status: active
-Last-reviewed: 2026-07-28
+Last-reviewed: 2026-08-07
 Authority: current electronic_countermeasure module design
 RF-Interference-Architecture: frozen target; AR/ESR/ECM RF v2 implemented (per-module status in each design.md)
 
@@ -71,40 +71,47 @@ pattern、polarization 和 pointing，scheduler 只能选择 waveform、channel�
 声称已经驱动波束指向。若未来引入定向 ECM，必须先冻结 actuator/beam state、slew/settle、资源冲突和
 replay，再把 pointing 写入实际 emission fact。
 
-随机性按 waveform scheduling、tie-break、deception 和其它实际消费者分离；每条流定义无发射/拒绝周期是否采样，
-不得由 threat 输入顺序隐式改变。实现上 session 维护三条独立 `std::mt19937` 流：scheduling 流
-专责 sweep 方向采样，tie-break 流专责等分排序，deception 流专责欺骗发射的 timing seed 生成；
-三者均从会话 `random_seed` 经 splitmix32 终结符按各自 domain tag 派生
-（与 SBIRS `DeriveMeasurementSeed` 同约定），互相不相关。无发射/拒绝/
-关机周期两条流都不采样。tie-break 流的消耗量只等于“参与排队的可行威胁唯一 ID 数”，scheduling
-流的消耗量只等于“实际生成的 sweep emission 数”，二者都与 threat 输入顺序无关；具体地，tie-break
-键在排序前按威胁稳定 ID 的规范序（而非输入序）逐 ID 派生并回填到威胁，使排序比较器保持纯函数，
-相同威胁集合在任意输入顺序下产出相同的 {ID → 键} 映射与相同的最终排序。scheduling state、next
-emission ID、最近 ESR 帧、逐威胁年龄、滑行年龄、成功 prepare sequence、热能、三条随机流、欺骗状态和活动
-配置均由 session 快照唯一拥有。快照只可恢复到捕获它的同一 session 实例，恢复前完整校验所有嵌套
-observation、重复 ID、provenance、模式组合和随机状态（含两条流的反序列化），失败不得部分修改。
+随机性按消费者分离（waveform scheduling、tie-break、deception 等），每条流定义无发射/拒绝
+周期是否采样，不得由 threat 输入顺序隐式改变。实现约束：
+
+- **三条独立 `std::mt19937` 流**：scheduling 流专责 sweep 方向采样，tie-break 流专责等分排序，
+  deception 流专责欺骗发射的 timing seed 生成；三者均从会话 `random_seed` 经 splitmix32 终结符
+  按各自 domain tag 派生（与 SBIRS `DeriveMeasurementSeed` 同约定），互相不相关。无发射/拒绝/
+  关机周期两条流都不采样。
+- **消耗量与输入顺序无关**：tie-break 流的消耗量只等于"参与排队的可行威胁唯一 ID 数"，scheduling
+  流的消耗量只等于"实际生成的 sweep emission 数"，二者都与 threat 输入顺序无关。tie-break 键在排序前
+  按威胁稳定 ID 的规范序（而非输入序）逐 ID 派生并回填到威胁，使排序比较器保持纯函数——相同威胁集合
+  在任意输入顺序下产出相同的 {ID → 键} 映射与相同的最终排序。
+- **快照所有权**：scheduling state、next emission ID、最近 ESR 帧、逐威胁年龄、滑行年龄、成功
+  prepare sequence、热能、三条随机流、欺骗状态和活动配置均由 session 快照唯一拥有。
+- **快照恢复**：只可恢复到捕获它的同一 session 实例，恢复前完整校验所有嵌套 observation、重复 ID、
+  provenance、模式组合和随机状态（含两条流的反序列化），失败不得部分修改。
 
 原型证据（不构成参数化 waveform、设备 provenance 目标验收；多随机流分离与快照嵌套校验已实现）：
-`ecm_session_test.cpp::ChannelAndPowerBudgetsAreConservedForAllTechniques`、
-`SweepSnapshotContinuationIsDeterministic`、
-`ecm_scheduler_order_invariance_test.cpp::DistinctScoresKeepSweepSequenceAcrossPermutations`、
-`ecm_scheduler_order_invariance_test.cpp::TiedScoresTieBreakIsOrderIndependent`、
-`ecm_scheduler_order_invariance_test.cpp::DifferentSeedsProduceDifferentSweepSequence`、
-`ecm_session_test.cpp::SnapshotFollowsImplAcrossFacadeMoveAndRejectsForeignSession`、
-`ecm_session_test.cpp::RestoreRejectsDirtySnapshotAndLeavesSessionUntouched`、
-	`ecm_session_test.cpp::RestoreRejectsShallowInconsistencyRegression`、
-	`ecm_session_test.cpp::SnapshotRejectsIllegalDeceptionModePhaseEnums`、
-	`ecm_session_test.cpp::SnapshotRejectsEngagedExceedingMaxActive`、
-	`ecm_session_test.cpp::SnapshotRejectsEngagedWithPhaseIdle`、
-	`ecm_session_test.cpp::SnapshotRejectsNonEngagedWithPhaseTowing`、
-	`ecm_session_test.cpp::SnapshotRejectsDelayBeyondMaximum`、
-	`ecm_session_test.cpp::SnapshotRejectsDuplicateThreatIdAmongEngaged`。
-	恢复校验现在逐项复用输入侧的 `IsValidSensorObservation` 与 hypothesis ID 唯一性,断言
-	`has_successful_cycle↔last_successful_cycle_index` 一致,并全面校验欺骗状态：已知 mode/phase
-	枚举值、状态数 ≤ `deception_max_active`、所有保留状态均 engaged 且 phase 非 kIdle、mode 必须
-	与当前默认欺骗子模式一致、threat_id 唯一。RGPO 强制 doppler=0，VGPO 强制 delay=0，组合模式
-	同时校验两者上限，false-target 强制 towing 且 delay/doppler 均为 0。脏快照在 fail-closed 下被
-	拒绝且不部分修改 session。
+
+- `ecm_session_test.cpp::ChannelAndPowerBudgetsAreConservedForAllTechniques`
+- `ecm_session_test.cpp::SweepSnapshotContinuationIsDeterministic`
+- `ecm_scheduler_order_invariance_test.cpp::DistinctScoresKeepSweepSequenceAcrossPermutations`
+- `ecm_scheduler_order_invariance_test.cpp::TiedScoresTieBreakIsOrderIndependent`
+- `ecm_scheduler_order_invariance_test.cpp::DifferentSeedsProduceDifferentSweepSequence`
+- `ecm_session_test.cpp::SnapshotFollowsImplAcrossFacadeMoveAndRejectsForeignSession`
+- `ecm_session_test.cpp::RestoreRejectsDirtySnapshotAndLeavesSessionUntouched`
+- `ecm_session_test.cpp::RestoreRejectsShallowInconsistencyRegression`
+- `ecm_session_test.cpp::SnapshotRejectsIllegalDeceptionModePhaseEnums`
+- `ecm_session_test.cpp::SnapshotRejectsEngagedExceedingMaxActive`
+- `ecm_session_test.cpp::SnapshotRejectsEngagedWithPhaseIdle`
+- `ecm_session_test.cpp::SnapshotRejectsNonEngagedWithPhaseTowing`
+- `ecm_session_test.cpp::SnapshotRejectsDelayBeyondMaximum`
+- `ecm_session_test.cpp::SnapshotRejectsDuplicateThreatIdAmongEngaged`
+
+恢复校验现在逐项复用输入侧的 `IsValidSensorObservation` 与 hypothesis ID 唯一性，断言
+`has_successful_cycle↔last_successful_cycle_index` 一致，并全面校验欺骗状态：
+
+- 已知 mode/phase 枚举值、状态数 ≤ `deception_max_active`、所有保留状态均 engaged 且 phase 非 kIdle、
+  mode 必须与当前默认欺骗子模式一致、threat_id 唯一。
+- RGPO 强制 doppler=0，VGPO 强制 delay=0，组合模式同时校验两者上限，false-target 强制 towing 且
+  delay/doppler 均为 0。
+- 脏快照在 fail-closed 下被拒绝且不部分修改 session。
 
 ## 4. Trace、replay 与联动
 
@@ -191,12 +198,12 @@ schema 端到端往返。注:快照恢复侧的嵌套 observation / 重复 ID / 
 ### 6.5 证据
 
 `ecm_deception_test.cpp`：
-`DeceptionTechniqueProducesPulseTrainWaveform`、
-`RgpoDelayAdvancesEachCycle`、`RgpoHoldAfterMaxDelay`、`RgpoStopAfterHoldTime`、
-`VgpoDopplerOffsetAdvancesEachCycle`、`VgpoHoldAndStop`、`RgpoVgpoCombinedAdvancesBoth`、
-`FalseTargetProducesMultipleEmissions`、`DeceptionPowerScaleIsRespected`、
-`DeceptionStateSnapshotRoundtrip`、`DeceptionRejectedCycleDoesNotAdvanceState`、
-`DeceptionDefaultConfigIsValid`、`DeceptionTechniqueIsKnown`、
-`ConfigRejectsInvalidDeceptionFields`、`ConfigRejectsPowerScaleAboveOne`、
-`ConfigRejectsZeroMaxActive`、`FalseTargetEmissionsHaveUniqueIdentities`、
-`TruthAssistedDeceptionUsesThreatPriAndPulseWidth`、`RuntimePatchCanSwitchToDeception`。
+
+- `DeceptionTechniqueProducesPulseTrainWaveform`、`RgpoDelayAdvancesEachCycle`、`RgpoHoldAfterMaxDelay`
+- `RgpoStopAfterHoldTime`、`VgpoDopplerOffsetAdvancesEachCycle`、`VgpoHoldAndStop`
+- `RgpoVgpoCombinedAdvancesBoth`、`FalseTargetProducesMultipleEmissions`、`DeceptionPowerScaleIsRespected`
+- `DeceptionStateSnapshotRoundtrip`、`DeceptionRejectedCycleDoesNotAdvanceState`
+- `DeceptionDefaultConfigIsValid`、`DeceptionTechniqueIsKnown`
+- `ConfigRejectsInvalidDeceptionFields`、`ConfigRejectsPowerScaleAboveOne`
+- `ConfigRejectsZeroMaxActive`、`FalseTargetEmissionsHaveUniqueIdentities`
+- `TruthAssistedDeceptionUsesThreatPriAndPulseWidth`、`RuntimePatchCanSwitchToDeception`

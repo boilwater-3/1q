@@ -1,6 +1,6 @@
 ---
 Status: active
-Last-reviewed: 2026-08-03
+Last-reviewed: 2026-08-07
 Authority: AR 数据流、Public API 边界、时序与状态所有权
 Answers: AR 的分层架构、数据如何流动、Public API 边界在哪、输出/调试/归属边界、跨周期状态归谁所有
 ---

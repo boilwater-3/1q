@@ -1,6 +1,6 @@
 ---
 Status: active
-Last-reviewed: 2026-08-03
+Last-reviewed: 2026-08-07
 Authority: 有 Session 的传感器模块的统一会话契约
 Answers: SessionConfigBuilder、Session 组合所有权、运行期配置提交策略、电源单源、三层输出模型、Replay/trace 语义
 ---
@@ -139,28 +139,32 @@ AR/ESR/EOS/SBIRS/SAR 五模块的电源状态必须遵守单源原则：
     c. 注册与否不影响 `Step()`/`StepWithResult()` 的返回值和执行语义——纯观测工具，零行为改变。
 12. 跨周期观测由调用方负责：`*OutputDebugViewBuilder` 是帧作用域快照构造器，本库不提供跨周期
     状态查询接口；"到目前为止"的累积信息由调用方将每周期 DebugView 以结构化格式（如 JSON/
-    FlatBuffers）写入自己的日志/事件系统获得。规则 3 的"状态判断不得依赖日志文本"约束对象是
-    模块内部代码，不限制调用方对其日志系统的使用，但调用方应结构化落盘，避免文本解析。
-    JSON 参考实现见 `examples/common/` 的 `*DebugViewToJson.h` + `debug_view_json.h`
-    （header-only、零第三方依赖，集成方可直接 copy 进自己的工程）。AR/EOS/SBIRS
-    序列化器另含三种常见落盘模式参考实现：只落非标称行、跨周期状态增量（状态表由
-    调用方持有）、降频落盘（每 N 周期一次全量，其余周期只落问题列表）；SAR 为阶段型
-    视图，不适用逐目标落盘模式。
+    FlatBuffers）写入自己的日志/事件系统获得。
+    - 规则 3 的"状态判断不得依赖日志文本"约束对象是模块内部代码，不限制调用方对其日志系统的
+      使用，但调用方应结构化落盘，避免文本解析。
+    - JSON 参考实现见 `examples/common/` 的 `*DebugViewToJson.h` + `debug_view_json.h`
+      （header-only、零第三方依赖，集成方可直接 copy 进自己的工程）。
+    - AR/EOS/SBIRS 序列化器另含三种常见落盘模式参考实现：只落非标称行、跨周期状态增量
+      （状态表由调用方持有）、降频落盘（每 N 周期一次全量，其余周期只落问题列表）；
+      SAR 为阶段型视图，不适用逐目标落盘模式。
 13. 正常执行周期（`status == kCompleted`）的可观测性：
     a. **周期级执行摘要日志**：正常执行周期应输出周期级 `PROJECT_LOG_INFO` 摘要，格式基线
        `[XxxPipeline] cycle_index={} …`（模块自定附加字段，如扫描方位、检测数/目标数、排除计数），
-       仅用于人读运行信息（规则 3）。ESR（`[InterceptPipeline]`）与 EOS（`[EosPipeline]`）为既有
-       参考；SBIRS（`[SbirsPipeline]`）为首个按本规则对齐实现；AR（`[SignalPipeline]`）与 SAR
+       仅用于人读运行信息（规则 3）。
+       对齐参考实现：ESR（`[InterceptPipeline]`）与 EOS（`[EosPipeline]`）为既有参考；
+       SBIRS（`[SbirsPipeline]`）为首个按本规则对齐实现；AR（`[SignalPipeline]`）与 SAR
        （`[SarPipeline]`）于 2026-08 对齐。
     b. **按目标门控排除诊断**：正常执行周期中目标被门控排除（视场/SNR/距离/遮挡/几何等）应写
        `kInfo` 级 `*IssueList` 条目，code 带模块前缀（如 `"sbirs.target_out_of_wfov"`），
        message 携带目标标识（`target_id`；ESR 无目标概念，以发射源标识
-       platform/equipment/emission id 为载体）与关键量值。这类条目**不属于三写**（三写仅约束
-       中止路径，规则 9），仅承载排查信息；调用方按规则 12 落盘 DebugView 时自然携带。参考实现：
-       SAR（`SarDiagnosticUtils::MakeInfoDiagnostic`/`MakeWarningDiagnostic`）+ SBIRS/AR/ESR/EOS
-       （2026-08 对齐；ESR 以发射源标识为载体）。
-       message 为人类可读文本，内容与格式**不承诺解析稳定性**：机器消费只认 code；
-       量值（如 `range_m`/`snr`/方位角）如需程序化消费，应另行定义结构化字段，不得解析 message。
+       platform/equipment/emission id 为载体）与关键量值。
+       - **不属于三写**（三写仅约束中止路径，规则 9），仅承载排查信息；调用方按规则 12 落盘
+         DebugView 时自然携带。
+       - **参考实现**：SAR（`SarDiagnosticUtils::MakeInfoDiagnostic`/`MakeWarningDiagnostic`）
+         + SBIRS/AR/ESR/EOS（2026-08 对齐；ESR 以发射源标识为载体）。
+       - **message 稳定性**：message 为人类可读文本，内容与格式**不承诺解析稳定性**——
+         机器消费只认 code；量值（如 `range_m`/`snr`/方位角）如需程序化消费，应另行定义
+         结构化字段，不得解析 message。
     c. **状态语义边界**：kInfo 排除诊断不得改变 `*CycleStatus`、生命周期事件或 DebugView 状态
        语义（如 `kNotInOutput`）；排除原因只经 diagnostics 承载，不新增状态位。
     d. **适用范围边界（例外）**：13b 的"门控排除"仅指视场/SNR/距离/遮挡等**门限判定**；
@@ -199,16 +203,20 @@ AR/ESR/EOS/SBIRS/SAR 五模块的电源状态必须遵守单源原则：
       坐标系转换，控制器输入面不含 platform/targets 原始数据，无法下移）；运行期校验
       唯一化在控制器 `RunOnce`（会话层对同一输入的二次校验已删除），拒绝明细经出参
       直通并装配进最终周期结果（运行期拒绝 `abort_reason` 保持真实值，不写死替换）。
-    创建时配置校验入口（`Validate*SessionConfig`）返回同一 `*IssueList`：`phase =
-    kInputValidation`、`severity = kError`、code 按 c 条 `<module>.validation.<snake_case>`
-    规则（同条件在创建时与运行期路径 code 逐字一致），`field` 定位配置字段路径；
-    `CreateWithDiagnostics` 出参类型为 `*IssueList`（非阻断语义见
-    `docs/common/contract.md` §会话创建入口）。各模块 config 域 `ConfigValidationCode`
-    枚举、`ConfigValidationIssue` / `ValidationIssue` 结构与 `ValidationIssueList` 别名已删除。
-    各模块 `ValidationCode` 枚举、`ValidationIssue` 类型与平行列表字段不再作为输出通道；
-    `*CycleResult` 不得保留可推导的 error 布尔缓存字段（`has_validation_error` / `has_error`
-    已删除，调用方以 `HasValidationError(issues)` 或遍历判定）。
-    SAR 为参考实现（无平行字段）；ESR/EOS/SBIRS/AR 于 2026-08 按模块收敛完成（迁移状态见下表）。
+    创建时配置校验入口（`Validate*SessionConfig`）返回同一 `*IssueList`：
+    - `phase = kInputValidation`、`severity = kError`，code 按 c 条
+      `<module>.validation.<snake_case>` 规则（同条件在创建时与运行期路径 code 逐字一致），
+      `field` 定位配置字段路径。
+    - `CreateWithDiagnostics` 出参类型为 `*IssueList`（非阻断语义见
+      `docs/common/contract.md` §会话创建入口）。
+    - 各模块 config 域 `ConfigValidationCode` 枚举、`ConfigValidationIssue` /
+      `ValidationIssue` 结构与 `ValidationIssueList` 别名已删除。
+    旧符号移除声明：
+    - 各模块 `ValidationCode` 枚举、`ValidationIssue` 类型与平行列表字段不再作为输出通道。
+    - `*CycleResult` 不得保留可推导的 error 布尔缓存字段（`has_validation_error` /
+      `has_error` 已删除，调用方以 `HasValidationError(issues)` 或遍历判定）。
+    - SAR 为参考实现（无平行字段）；ESR/EOS/SBIRS/AR 于 2026-08 按模块收敛完成
+      （迁移状态见下表）。
     [evidence: tests/contract/sar/sar_three_write_guard_test.cpp —— 参考实现 issues 唯一列表 + phase 断言]
     [evidence: tests/contract/electronic_surveillance_radar/esr_three_write_guard_test.cpp —— 迁移后 phase 断言]
     [evidence: tests/unit/sar/sar_input_validation_test.cpp —— 校验问题 code "sar.validation.<snake>" + phase 断言]
