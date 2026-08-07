@@ -1,6 +1,6 @@
 ---
 name: completeness-review
-description: Review uncommitted code changes for correctness, code quality, and test coverage, then gate the merge. Triggered by the pre-commit hook for major C++ changes (≥3 files or ≥50 lines) and by "/completeness-review". Three parallel review lanes (code-review subagent + code-simplifier subagent + test coverage agent) produce a structured report with a quality-gated merge flow.
+description: Review uncommitted code changes for correctness, code quality, and test coverage, then gate the merge. Triggered by the pre-commit hook for core-library C++ changes (≥3 files or ≥50 lines in src/ or include/1q/) and by "/completeness-review". Review depth follows risk: core-library changes get the full three-lane review (code-review subagent + code-simplifier subagent + static test-coverage check); example/doc/deletion-layer changes get a light single-lane review. Quality-gated merge flow.
 argument-hint: "[optional diff range]"
 allowed-tools:
   - Bash
@@ -36,6 +36,27 @@ whether the change is complete.
    belonging to this work; if so, restrict review to the stated files/modules. Do not fold unrelated
    changes into the review or the later merge flow.
 
+## Step 0.5: Classify review depth (follows risk)
+
+Run the same classifier the pre-commit hook uses:
+
+```bash
+python3 scripts/pre-commit-review.py
+```
+
+- **tier = major** — C++ changes touching the **core library** (`src/` or `include/1q/`,
+  ≥3 files or ≥50 lines): algorithm/contract changes. Run the **full three-lane review** (Step 3).
+  The pre-commit hook blocks these commits until review passes.
+- **tier = minor** — C++ changes confined to non-core layers (`examples/`, `tests/`, `docs/`,
+  `tools/`, `cmake/`): example-layer refactors, test-only edits, pure deletions. The hook does NOT
+  block these. Review depth is **light**: single code-review lane + static test-coverage check +
+  build/tests (see Step 3-Light). Compile-time checks (fmt consteval, static asserts) already cover
+  much of what a full lane would find in this layer — do not over-review example code.
+- **tier = trivial** — no C++ changes. No review lanes; build/tests only if the change affects build
+  inputs.
+
+State the tier and the chosen depth in the final report.
+
 ## Step 1: Collect changes
 
 ```bash
@@ -62,11 +83,15 @@ Output a table:
 
 Pass the plan's intent summary to all three review lanes as shared context.
 
-## Step 3: Deep review (parallel)
+## Step 3: Deep review
 
-Run three review lanes in parallel via the Agent tool (subagent types `code-review` and
-`code-simplifier` are registered at `~/.zcode/agents/`). All lanes receive: the diff range, the
-plan/intent summary (from Step 0/2), and the excluded-files list (from Step 0).
+Review depth follows the Step 0.5 tier. All lanes receive: the diff range, the plan/intent summary
+(from Step 0/2), and the excluded-files list (from Step 0).
+
+### Step 3-Full (tier = major, core library)
+
+Run three lanes in parallel via the Agent tool (subagent types `code-review` and
+`code-simplifier` are registered at `~/.zcode/agents/`):
 
 #### Lane 1: Correctness (subagent: code-review)
 
@@ -90,12 +115,27 @@ the recently modified code. It reviews for reuse, simplification, naming, redund
 maintainability, applying project conventions from AGENTS.md. **It reports findings only — it must
 not modify code during review** (see its prompt).
 
-#### Lane 3: Test coverage (Agent-based)
+#### Lane 3: Test coverage (static check)
 
-Launch an Agent to check:
+Launch an Agent to check — **statically only**:
 - Do `tests/` directories contain new/modified tests matching the changed modules?
 - Do tests cover critical paths and boundary conditions?
 - For new public API or significant logic changes: are new or updated tests present under `tests/`?
+
+**Hard constraints for Lane 3 (and the whole review): never stash, never build, never run tests
+inside a review lane.** Static verification only: read the diff, grep existing tests, read the
+relevant test files. Build/test verification happens once, in Step 7, by the main flow. A lane that
+needs a runtime measurement should flag it as a [低] observation instead of measuring it.
+
+### Step 3-Light (tier = minor, example/doc/deletion layers)
+
+Run a **single** correctness lane (Lane 1: code-review subagent) plus a **static** test-coverage
+glance (same constraints as Lane 3 above; usually a quick grep that existing tests still compile
+against the changed surface). Skip the code-simplifier lane — the example layer favors readability
+over abstraction and the change itself is the simplification. Time-box the whole light review:
+target minutes, not tens of minutes. If the change is a pure deletion with no behavior change
+(e.g., removing unused files), the code-review lane may be skipped entirely after a manual
+leftover-reference grep; build + focused tests carry the verification.
 
 ## Step 4: Verify and triage findings
 
