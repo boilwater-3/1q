@@ -82,8 +82,7 @@ struct ArController::Impl {
   std::unique_ptr<extension::ControlCommandMapper> command_mapper;
 
   // -- 周期运行时状态
-  oneq::common::runtime::RuntimeCycleState<session::TrackOutputFrame, session::ArIssueList>
-      cycle_state{};
+  oneq::common::runtime::RuntimeCycleState<session::TrackOutputFrame> cycle_state{};
   bool last_cycle_executed{false};
   session::SignalCycleAbortReason last_signal_abort_reason{session::SignalCycleAbortReason::kNone};
   session::ArIssueList latest_issues{}; /**< 正常周期按目标排除的 kInfo 诊断（规则 13b）。 */

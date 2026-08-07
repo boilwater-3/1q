@@ -74,9 +74,7 @@ struct EsrController::Impl {
 
   pipeline::InterceptPipeline& pipeline;
   environment::IEsrEnvironmentService& environment_service;
-  oneq::common::runtime::RuntimeCycleState<session::EsrOutputFrame,
-                                          session::EsrIssueList>
-      runtime_state{};
+  oneq::common::runtime::RuntimeCycleState<session::EsrOutputFrame> runtime_state{};
   session::EsrCycleExecutionStatus last_cycle_status{
       session::EsrCycleExecutionStatus::kRejected};
   session::EsrPipelineAbortReason last_abort_reason{session::EsrPipelineAbortReason::kNone};
