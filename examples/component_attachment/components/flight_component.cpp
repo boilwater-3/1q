@@ -22,6 +22,7 @@
 #include "1q/coordinate/position_transform.h"
 #include "core/events.h"
 #include "core/world.h"
+#include "demo_log.h"
 
 #if defined(ONEQ_CA_FLIGHT_DYNAMIC_ENABLED)
 #include "1q/flight_dynamic/FlightManager.h"
@@ -285,11 +286,7 @@ void FlightComponent::Step(World& world, double dt_sec) {
       while (next_index_ < route_.size()) {
         const std::size_t reached_index = next_index_;
         ++next_index_;
-        WaypointReachedEvent event;
-        event.t_sec = t_sec;
-        event.waypoint_index = reached_index;
-        event.distance_m = 0.0;  // 终端补发：无几何到达距离
-        world.signals().on_waypoint_reached(event);
+        EmitWaypointReached(world, reached_index, 0.0);  // 终端补发：无几何到达距离
       }
     }
   } else {
@@ -314,6 +311,10 @@ void FlightComponent::Step(World& world, double dt_sec) {
   event.speed_mps = speed_mps_;
   event.waypoint_index = next_index_;
   event.waypoint_count = route_.size();
+  // 事件日志：字符串就地填充（日志宏 + 组件源文件内格式化串）。
+  CA_LOG_EVENT(world, "platform_state", "pos=(%.4f,%.4f,%.1f) hdg=%.1f spd=%.1f wp=%zu/%zu",
+               event.position_ecef_m.x_m, event.position_ecef_m.y_m, event.altitude_m,
+               event.heading_deg, event.speed_mps, event.waypoint_index, event.waypoint_count);
   world.signals().on_platform_state(event);
 }
 
@@ -334,12 +335,20 @@ void FlightComponent::CheckWaypointArrival(World& world, double t_sec) {
     const double distance_m = GreatCircleDistanceM(position_, route_[next_index_]);
     const std::size_t reached_index = next_index_;
     ++next_index_;
-    WaypointReachedEvent event;
-    event.t_sec = t_sec;
-    event.waypoint_index = reached_index;
-    event.distance_m = distance_m;
-    world.signals().on_waypoint_reached(event);
+    EmitWaypointReached(world, reached_index, distance_m);
   }
+}
+
+void FlightComponent::EmitWaypointReached(World& world, std::size_t reached_index,
+                                          double distance_m) {
+  WaypointReachedEvent event;
+  event.t_sec = world.scene_state().t_sec;
+  event.waypoint_index = reached_index;
+  event.distance_m = distance_m;
+  // 事件日志：字符串就地填充（日志宏 + 组件源文件内格式化串）。
+  CA_LOG_EVENT(world, "waypoint_reached", "index=%zu distance=%.1f", event.waypoint_index,
+               event.distance_m);
+  world.signals().on_waypoint_reached(event);
 }
 
 }  // namespace component_attachment

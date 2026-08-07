@@ -12,6 +12,7 @@
 
 #include "1q/electronic_surveillance_radar/session/EsrCycleInput.h"
 #include "core/events.h"
+#include "demo_log.h"
 #include "flight_component.h"
 #include "core/world.h"
 #include "scene_types.h"
@@ -90,6 +91,11 @@ void EsrSensorComponent::Step(World& world, double dt_sec) {
     event.confidence = hypothesis.confidence;
     event.mode = hypothesis.mode;
     event.threat_level = hypothesis.threat_level;
+    // 事件日志：字符串就地填充（日志宏 + 组件源文件内格式化串）。
+    CA_LOG_EVENT(world, "emitter_hypothesis", "hyp=%llu az=%.1f conf=%.2f mode=%d threat=%d",
+                 static_cast<unsigned long long>(event.hypothesis_id), event.bearing_az_deg,
+                 event.confidence, static_cast<int>(event.mode),
+                 static_cast<int>(event.threat_level));
     world.signals().on_emitter_hypothesis(event);
   }
   detections_ = examples::sensor_adapt::AdaptHypothesesToDetections(

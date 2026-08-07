@@ -15,6 +15,7 @@
 
 #include "core/events.h"
 #include "core/world.h"
+#include "demo_log.h"
 #include "ar_sensor_component.h"
 #include "eos_sensor_component.h"
 #include "esr_sensor_component.h"
@@ -88,6 +89,15 @@ void FusionComponent::Step(World& world, double dt_sec) {
     }
     event.new_targets = new_count;
     event.lost_targets = lost_count;
+    // 事件日志：字符串就地填充（日志宏 + 组件源文件内格式化串）。
+    std::string channels;
+    for (const auto& channel : event.channels) {
+      if (!channels.empty()) channels += ",";
+      channels += demo::Fmt("%u:%zu", channel.first, channel.second);
+    }
+    CA_LOG_EVENT(world, "fusion_updated", "key=%llu conf=%.2f new=%zu lost=%zu ch[%s]",
+                 static_cast<unsigned long long>(event.key), event.confidence,
+                 event.new_targets, event.lost_targets, channels.c_str());
     world.signals().on_fusion_updated(event);
   }
 }

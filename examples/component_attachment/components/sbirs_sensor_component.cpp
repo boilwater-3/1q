@@ -15,6 +15,7 @@
 
 #include "core/events.h"
 #include "core/world.h"
+#include "demo_log.h"
 #include "flight_component.h"
 #include "scene_types.h"
 #include "sensor_adapt.h"
@@ -131,6 +132,12 @@ void SbirsSensorComponent::Step(World& world, double dt_sec) {
         }
       }
     }
+    // 事件日志：字符串就地填充（日志宏 + 组件源文件内格式化串）。
+    CA_LOG_EVENT(world, "sbirs_detection", "kind=%d det=%llu target=%llu snr=%.1f az=%.1f",
+                 static_cast<int>(sbirs_event.kind),
+                 static_cast<unsigned long long>(sbirs_event.detection_id),
+                 static_cast<unsigned long long>(sbirs_event.target_id),
+                 sbirs_event.infrared_snr_linear, sbirs_event.az_deg);
     world.signals().on_sbirs_detection(sbirs_event);
   }
 
