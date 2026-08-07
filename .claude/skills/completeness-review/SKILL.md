@@ -1,4 +1,5 @@
 ---
+name: completeness-review
 description: Review change completeness against the plan — correctness via agents, quality via simplify plugin, test coverage. Outputs a structured report with quality-gated merge flow.
 argument-hint: "[plan file path]"
 allowed-tools:
