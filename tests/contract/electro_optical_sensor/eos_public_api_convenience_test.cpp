@@ -132,14 +132,14 @@ TEST(EosPublicApiConvenienceTest, SessionConfigValidatorReportsFinalConfigIssues
   invalid_config.mission.scan_start_az_deg = 10.0f;
   invalid_config.mission.scan_end_az_deg = 10.0f;
 
-  const config::ValidationIssueList issues = config::ValidateEosSessionConfig(invalid_config);
+  const session::EosIssueList issues = config::ValidateEosSessionConfig(invalid_config);
 
   ASSERT_EQ(issues.size(), 5U);
-  EXPECT_EQ(issues[0].code, config::ConfigValidationCode::kHorizontalFovNotPositive);
-  EXPECT_EQ(issues[1].code, config::ConfigValidationCode::kVerticalFovNotPositive);
-  EXPECT_EQ(issues[2].code, config::ConfigValidationCode::kScanRateNotPositive);
-  EXPECT_EQ(issues[3].code, config::ConfigValidationCode::kFrameRateNotPositive);
-  EXPECT_EQ(issues[4].code, config::ConfigValidationCode::kScanRangeAzSwapped);
+  EXPECT_EQ(issues[0].code, "eos.validation.horizontal_fov_not_positive");
+  EXPECT_EQ(issues[1].code, "eos.validation.vertical_fov_not_positive");
+  EXPECT_EQ(issues[2].code, "eos.validation.scan_rate_not_positive");
+  EXPECT_EQ(issues[3].code, "eos.validation.frame_rate_not_positive");
+  EXPECT_EQ(issues[4].code, "eos.validation.scan_range_az_swapped");
 }
 
 TEST(EosPublicApiConvenienceTest, RuntimeConfigBuilderDefaultsAreUnset) {
@@ -488,7 +488,7 @@ TEST(EosPublicApiConvenienceTest, EosRuntimeConfigBuilderWithEnvironmentPolicies
 TEST(EosPublicApiConvenienceTest, CreateWithDiagnosticsBuildsSessionAndReportsNoIssuesForHealthyConfig) {
   config::EosSessionConfig config;
 
-  config::ValidationIssueList issues;
+  session::EosIssueList issues;
   const session::EosSession session = session::EosSession::CreateWithDiagnostics(config, &issues);
 
   EXPECT_TRUE(issues.empty());
@@ -499,11 +499,11 @@ TEST(EosPublicApiConvenienceTest, CreateWithDiagnosticsReportsIssuesButStillCons
   config::EosSessionConfig invalid;
   invalid.mission.horizontal_fov_deg = 0.0f;
 
-  config::ValidationIssueList issues;
+  session::EosIssueList issues;
   const session::EosSession session = session::EosSession::CreateWithDiagnostics(invalid, &issues);
 
   ASSERT_EQ(issues.size(), 1U);
-  EXPECT_EQ(issues.front().code, config::ConfigValidationCode::kHorizontalFovNotPositive);
+  EXPECT_EQ(issues.front().code, "eos.validation.horizontal_fov_not_positive");
   (void)session;  // 会话仍被构造，调用方据 issues 决策
 }
 

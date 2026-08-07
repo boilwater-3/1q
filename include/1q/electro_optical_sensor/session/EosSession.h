@@ -91,7 +91,7 @@ class ONEQ_API EosSession {
    * @note `ValidateEosSessionConfig` 由此路径被实调用，构成真实契约。
    */
   static EosSession CreateWithDiagnostics(const config::EosSessionConfig& config,
-                                          config::ValidationIssueList* issues);
+                                          EosIssueList* issues);
 
  private:
 

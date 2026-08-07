@@ -66,8 +66,8 @@ EosSession EosSession::Create(const config::EosSessionConfig& config) {
 }
 
 EosSession EosSession::CreateWithDiagnostics(const config::EosSessionConfig& config,
-                                             config::ValidationIssueList* issues) {
-  const config::ValidationIssueList found = config::ValidateEosSessionConfig(config);
+                                             EosIssueList* issues) {
+  const EosIssueList found = config::ValidateEosSessionConfig(config);
   if (issues != nullptr) {
     *issues = found;
   }
