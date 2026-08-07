@@ -4,7 +4,7 @@
  *
  * 覆盖要点：
  *   - EosSession 构建（EosSession::Create 默认装配）、Step、StepWithResult、TryApplyRuntimeConfig
- *   - HasValidationError、GetLastValidationIssues 字段可访问
+ *   - EosCycleResult::issues 问题列表可访问
  *   - EosPipelineAbortReason 公共结果类型可达
  *
  * 注：环境服务与管线已内部化，不再支持外部注入；本 consumer 仅验证安装后公共面可达。
