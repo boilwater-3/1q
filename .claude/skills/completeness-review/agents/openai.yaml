@@ -1,0 +1,4 @@
+interface:
+  display_name: "Completeness Review"
+  short_description: "Correctness / quality / test coverage review of uncommitted changes with merge gate"
+  default_prompt: "Use $completeness-review to review the current change set (correctness, code quality via the bundled code-simplifier agent, test coverage) and gate the merge."
