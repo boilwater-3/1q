@@ -54,9 +54,10 @@ min_key_events=1 / **min_sbirs_events=0** / min_sar_products=1 / min_fused_targe
    slewing WFOV 记录 → 直接捕获判定 → 失败 → detected=false 记录**。视图"不在输出"恒定、
    事件 0 条。**不同于基线 1001 的"首发现+丢失循环"**——那是通道被占（kSchedulerSkipped）
    的形态，本场景通道空闲，形态是捕获失败（见结论 3）；
-3. **pipeline 摘要 detections=N/M 计数含 detected=false 记录**（捕获失败也 push 进
-   `result.detections`）：1000 km 下 cycle 29-31 摘要显示 detections=1/2 但**无任何成功探测**
-   ——triage 时不能拿摘要计数当探测数，须以视图状态/事件为准；
+3. **pipeline 摘要计数语义（2026-08-08 已修复）**：旧格式 `detections=1/2` 把
+   detected=false 的捕获失败记录也算进"检测数"，1000 km 场景 cycle 29-31 摘要显示
+   detections=1/2 但实际 0 探测。现摘要改为 `detected=0/2 records=1`——detected 只
+   统计成功探测、records 为全部记录数，两数分离；
 4. **基线预期表 SBIRS 行描述修正**：基线 targets 带 `v_north_mps=±5` → 两目标以 10 m/s
    相对接近、**cycle ~200 穿越质心** → 相对卫星的 az 从 120°/-60° 翻转到 -60°/120°（星下点
    附近 az 对 1 km 级偏移敏感）→ 1002 穿越瞬间 NFOV 几何门失败 → coasting（cycle 201）

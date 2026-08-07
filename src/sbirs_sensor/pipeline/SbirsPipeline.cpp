@@ -411,14 +411,21 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
   std::size_t excluded_out_of_wfov = 0U;
   std::size_t excluded_snr_below = 0U;
   const auto log_cycle_summary = [&]() {
-    // 中译：周期执行摘要（周期号、扫描方位角、检测数/目标总数、四类门控排除计数）。
+    // 中译：周期执行摘要（周期号、扫描方位角、探测成功数/目标总数、记录总数、
+    //       四类门控排除计数）。
     // 标识：规则 13a 周期级执行摘要日志——每周期探测概况与几何/SNR 排除分布，
     //       供宏观核对与"零探测"排查；仅人读，不用于状态判断（规则 3）。
-    PROJECT_LOG_INFO("[SbirsPipeline] cycle_index={} scan_az={:.2f} detections={}/{} "
+    //       detected 只统计 record.detected == true 的成功探测；records 为本周期
+    //       全部检测记录数（含捕获失败/门失败等未过门限记录），两数分离避免把
+    //       失败记录误读为探测（2026-08-08 修正）。
+    const std::size_t detected_count = static_cast<std::size_t>(std::count_if(
+        result.detections.begin(), result.detections.end(),
+        [](const SbirsPipelineDetection& detection) { return detection.record.detected; }));
+    PROJECT_LOG_INFO("[SbirsPipeline] cycle_index={} scan_az={:.2f} detected={}/{} records={} "
                      "excluded={{occulted={} range={} wfov={} snr={}}}",
-                     input.cycle_index, result.scan_azimuth_deg, result.detections.size(),
-                     input.scene.size(), excluded_occulted, excluded_out_of_range,
-                     excluded_out_of_wfov, excluded_snr_below);
+                     input.cycle_index, result.scan_azimuth_deg, detected_count,
+                     input.scene.size(), result.detections.size(), excluded_occulted,
+                     excluded_out_of_range, excluded_out_of_wfov, excluded_snr_below);
   };
 
   const SbirsPointingDisturbanceParameters disturbance_parameters =
