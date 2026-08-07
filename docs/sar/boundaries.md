@@ -147,6 +147,9 @@ severity + phase + code + message + 可选定位（location/field）。`SarPipel
 
 **phase 来源标签**：输入/运行期配置校验问题（`ValidateSarCycleInput`、
 `ValidateRuntimeConfigForStep`）→ `kInputValidation`，code 编码为 `"sar.validation.<snake>"`；
+创建时配置校验（`ValidateSarSessionConfig`，`CreateWithDiagnostics` 出参）返回同一
+`SarIssueList`（`phase = kInputValidation`、`severity = kError`、`field` 定位配置字段路径，
+同条件 code 与运行期路径逐字一致，如 `"sar.validation.sample_window_too_small_for_pulse"`）；
 执行诊断（pipeline 内联 kInfo/kWarning、`RecordAbort` 中止条目）→ `kExecution`。
 校验拒绝路径不调用 `RecordAbort` —— 校验问题本身就是 error 级诊断（规则 9 写二），
 abort_reason（写一）与日志（写三）在调用点补齐。
