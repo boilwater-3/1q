@@ -150,7 +150,7 @@ AR/ESR/EOS/SBIRS/SAR 五模块的电源状态必须遵守单源原则：
        参考；SBIRS（`[SbirsPipeline]`）为首个按本规则对齐实现；AR（`[SignalPipeline]`）与 SAR
        （`[SarPipeline]`）于 2026-08 对齐。
     b. **按目标门控排除诊断**：正常执行周期中目标被门控排除（视场/SNR/距离/遮挡/几何等）应写
-       `kInfo` 级 `*DiagnosticIssueList` 条目，code 带模块前缀（如 `"sbirs.target_out_of_wfov"`），
+       `kInfo` 级 `*IssueList` 条目，code 带模块前缀（如 `"sbirs.target_out_of_wfov"`），
        message 携带目标标识（`target_id`；ESR 无目标概念，以发射源标识
        platform/equipment/emission id 为载体）与关键量值。这类条目**不属于三写**（三写仅约束
        中止路径，规则 9），仅承载排查信息；调用方按规则 12 落盘 DebugView 时自然携带。参考实现：
@@ -186,19 +186,20 @@ AR/ESR/EOS/SBIRS/SAR 五模块的电源状态必须遵守单源原则：
     各模块 `ValidationCode` 枚举、`ValidationIssue` 类型与平行列表字段不再作为输出通道；
     `*CycleResult` 不得保留可推导的 error 布尔缓存字段（`has_validation_error` / `has_error`
     已删除，调用方以 `HasValidationError(issues)` 或遍历判定）。
-    SAR 为参考实现（无平行字段）；其余模块按模块收敛，迁移状态见下表。
-    [evidence: tests/contract/sar/sar_three_write_guard_test.cpp —— issues 唯一列表 + 前缀断言]
+    SAR 为参考实现（无平行字段）；ESR/EOS/SBIRS/AR 于 2026-08 按模块收敛完成（迁移状态见下表）。
+    [evidence: tests/contract/sar/sar_three_write_guard_test.cpp —— 参考实现 issues 唯一列表 + phase 断言]
     [evidence: tests/contract/electronic_surveillance_radar/esr_three_write_guard_test.cpp —— 迁移后 phase 断言]
+    [evidence: tests/unit/sar/sar_input_validation_test.cpp —— 校验问题 code "sar.validation.<snake>" + phase 断言]
 
-    **对齐状态（2026-08）**：
+    **对齐状态（2026-08，全部已对齐）**：
 
     | 模块 | `validation_issues` 平行字段 | `phase` 来源标签 | 可选定位 |
     |---|---|---|---|
-    | SAR | 无（参考实现） | 待补 | 待补 |
-    | ESR | 待迁移 | 待补 | 待补 |
-    | EOS | 待迁移 | 待补 | 待补 |
-    | SBIRS | 待迁移 | 待补 | 待补 |
-    | AR | 待迁移 | 待补 | 待补 |
+    | SAR | 无（参考实现） | 已对齐 | 已对齐 |
+    | ESR | 已迁移 | 已对齐 | 已对齐 |
+    | EOS | 已迁移 | 已对齐 | 已对齐 |
+    | SBIRS | 已迁移 | 已对齐 | 已对齐 |
+    | AR | 已迁移 | 已对齐 | 已对齐 |
 
 ### 传感器方位坐标系约定（SBIRS）
 
@@ -232,7 +233,7 @@ ECEF 输入，检测记录直接以 ECEF 视线向量计算，无局部地平转
 | AR | `ArCycleStatus` | `kCompleted`, `kPoweredOff`, `kRejectedInvalidInput`, `kRejectedInvalidConfig`, `kRejectedExecution` |
 | ESR | `EsrCycleExecutionStatus` | `kCompleted`, `kRejected`, `kPoweredOff` |
 | EOS | `EosCycleStatus` | `kCompleted`, `kPoweredOff`, `kRejectedInvalidInput`, `kRejectedExecution` |
-| SAR | `SarCycleStatus` | `kCompleted`, `kRejectedInvalidInput`, `kRejectedExecution`, `kPoweredOff`（细粒度失败信息由 `SarDiagnosticIssue::code` + 日志双写） |
+| SAR | `SarCycleStatus` | `kCompleted`, `kRejectedInvalidInput`, `kRejectedExecution`, `kPoweredOff`（细粒度失败信息由 `SarIssue::code` + 日志双写） |
 | SBIRS | `SbirsCycleStatus` | `kCompleted`, `kPoweredOff`, `kRejectedInvalidInput`, `kRejectedExecution` |
 
 `executed_this_cycle` 保留为 `status == kCompleted` 的便捷访问器（向后兼容）。
