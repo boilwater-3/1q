@@ -91,20 +91,26 @@ ISA 标准大气，这些字段全部未被消费，属未接入的死输入。�
 3. query/debug/lifecycle/replay 是诊断辅助，不是用户扩展 signal pipeline 的入口；决策 SPI 不拥有输出结构，
    也不能绕过内部 output adapter 写系统输出。
 
-### 三写约束（abort_reason + diagnostics + 日志）
+### 三写约束（abort_reason + issues + 日志）
 
-AR 所有中止路径遵守 `session_contract.md` 规则 9 的三写模式：
+AR 所有中止路径遵守 `session_contract.md` 规则 9 的三写模式与规则 14 的统一问题列表模型：
 
 1. **结构化信号**：`ArCycleResult.abort_reason`（粗粒度枚举）。
-2. **结构化诊断**：`ArCycleResult.diagnostics`（`ArDiagnosticIssueList`，细粒度 code 如 `"ar.sensor_powered_off"`）。
+2. **结构化诊断**：`ArCycleResult.issues`（`ArIssueList`，细粒度 code 如 `"ar.sensor_powered_off"`、
+   `"ar.validation.invalid_cycle_delta_time"`；条目携带 `phase` 来源标签与可选定位）。
 3. **人读日志**：`PROJECT_LOG_ERROR`。
 
-三写由 `ArDiagnosticUtils::RecordAbort` 统一执行，在 `ArSession` 的周期装配路径中调用。
+`ArCycleResult` 只承载单一问题列表 `issues`：输入校验问题（`phase=kInputValidation`）与执行诊断
+（`phase=kExecution`/`kOutputContract`）同列表承载，不设 `validation_issues`/`has_validation_error`
+平行字段。校验拒绝时校验问题本身就是 error 级诊断（规则 9 写二），不再附加粗粒度条目。
+
+三写由 `ArDiagnosticUtils::RecordAbort` 统一执行（phase 由中止原因推导），在 `ArSession` 的周期
+装配路径中调用。
 
 **正常周期的按目标排除诊断（规则 13b）**：正常执行周期（`status == kCompleted`）中被 SNR 检测门
 排除的目标（`min_snr_db` / `min_detection_margin_db` 任一未过；距离/方向图衰减隐式并入 SNR）写
-`kInfo` 级 `ArDiagnosticIssue`（code `"ar.target_snr_below_threshold"`，message 携带 `target_id` 与
-`snr_db`/`range_m`/门值），**不属于三写**（三写仅约束中止路径，规则 9）。诊断不改变 `ArCycleStatus`
+`kInfo` 级 `ArIssue`（code `"ar.target_snr_below_threshold"`，message 携带 `target_id` 与
+`snr_db`/`range_m`/门值，phase=`kExecution`），**不属于三写**（三写仅约束中止路径，规则 9）。诊断不改变 `ArCycleStatus`
 与 DebugView 状态语义（排除目标仍为 `kNotInOutput`，规则 13c）；生命周期失效（miss 积累 → `kLost`）
 不产生排除诊断（规则 13d）。周期摘要日志（`[SignalPipeline] … excluded={{snr=…}}`）仅人读（规则 13a）。
 

@@ -37,7 +37,7 @@ ArCycleInput ValidInput() {
 
 TEST(ArCycleInputTest, WorldInputsConvertWithoutCallerOwnedLocalState) {
   const ArCycleInput input = ValidInput();
-  const ValidationIssueList issues = ValidateArCycleInput(input);
+  const ArIssueList issues = ValidateArCycleInput(input);
   EXPECT_FALSE(HasValidationError(issues));
   EXPECT_EQ(input.platform.platform_entity_id, 42U);
   ASSERT_EQ(input.targets.size(), 1U);
@@ -60,12 +60,12 @@ TEST(ArCycleInputTest, NonEmptyInterferenceFrameMustMatchCycleWindow) {
   input.interference.window_duration_s = 0.5;
   input.interference.emissions.push_back(emission);
 
-  const ValidationIssueList issues = ValidateArCycleInput(input);
+  const ArIssueList issues = ValidateArCycleInput(input);
   ASSERT_TRUE(HasValidationError(issues));
   bool found_mismatch = false;
-  for (const ValidationIssue& issue : issues) {
+  for (const ArIssue& issue : issues) {
     found_mismatch = found_mismatch ||
-                     issue.code == ValidationCode::kInterferenceFrameMismatch;
+                     issue.code == "ar.validation.interference_frame_mismatch";
   }
   EXPECT_TRUE(found_mismatch);
 }

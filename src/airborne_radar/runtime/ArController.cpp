@@ -83,11 +83,11 @@ struct ArController::Impl {
   std::unique_ptr<extension::ControlCommandMapper> command_mapper;
 
   // -- 周期运行时状态
-  oneq::common::runtime::RuntimeCycleState<session::TrackOutputFrame, session::ValidationIssueList>
+  oneq::common::runtime::RuntimeCycleState<session::TrackOutputFrame, session::ArIssueList>
       cycle_state{};
   bool last_cycle_executed{false};
   session::SignalCycleAbortReason last_signal_abort_reason{session::SignalCycleAbortReason::kNone};
-  session::ArDiagnosticIssueList latest_diagnostics{}; /**< 正常周期按目标排除的 kInfo 诊断（规则 13b）。 */
+  session::ArIssueList latest_issues{}; /**< 正常周期按目标排除的 kInfo 诊断（规则 13b）。 */
 
   bool has_pending_internal_decision{false};
   std::uint32_t pending_internal_cycle_index{0U};
@@ -464,9 +464,9 @@ void ArController::RunOnce(const signal::pipeline::SignalCycleInput& cycle_input
       oneq::common::runtime::MakeRuntimeCycleStamp(cycle_index, impl_->cycle_state.next_batch_id);
 
   // 校验
-  session::ValidationIssueList issues = session::ValidateArCycleDeltaTime(cycle_dt_sec);
+  session::ArIssueList issues = session::ValidateArCycleDeltaTime(cycle_dt_sec);
   {
-    const session::ValidationIssueList target_issues =
+    const session::ArIssueList target_issues =
         session::ValidateArSceneTargets(scene_targets);
     issues.insert(issues.end(), target_issues.begin(), target_issues.end());
   }
@@ -507,7 +507,7 @@ void ArController::RunOnce(const signal::pipeline::SignalCycleInput& cycle_input
     return;
   }
   // 规则 13b：正常周期按目标排除的 kInfo 诊断转写（abort 路径不变）。
-  impl_->latest_diagnostics = std::move(signal_result.diagnostics);
+  impl_->latest_issues = std::move(signal_result.issues);
 
   session::DecisionInputFrame decision_frame = signal_result.decision_frame;
   decision_frame.cycle_index = stamp.cycle_index;
@@ -598,11 +598,11 @@ const session::TrackOutputFrame& ArController::GetLatestTrackOutputFrame() const
   return impl_->cycle_state.latest_output;
 }
 
-const session::ArDiagnosticIssueList& ArController::GetLatestDiagnostics() const {
-  return impl_->latest_diagnostics;
+const session::ArIssueList& ArController::GetLatestIssues() const {
+  return impl_->latest_issues;
 }
 
-const session::ValidationIssueList& ArController::GetLastValidationIssues() const {
+const session::ArIssueList& ArController::GetLastValidationIssues() const {
   return impl_->cycle_state.last_validation_issues;
 }
 

@@ -81,7 +81,7 @@ inline std::string ArDebugViewToJson(const airborne_radar::session::ArTrackOutpu
         << ",\"miss_count\":" << track.miss_count << ",\"target_type\":\""
         << JsonEscape(track.target_type) << "\"}";
   }
-  WriteIssuesJson(out, view.diagnostics);
+  WriteIssuesJson(out, view.issues);
   return out.str();
 }
 

@@ -155,16 +155,17 @@ bool HasValidBuffers(const DetectionExecutionBuffers& buffers) {
   return buffers.target_geometry != nullptr && buffers.signal_term_db != nullptr &&
          buffers.speed_penalty_db != nullptr && buffers.detection_margin_db != nullptr &&
          buffers.detection_succeeded != nullptr && buffers.measurement_covariances != nullptr &&
-         buffers.diagnostics != nullptr && buffers.excluded_snr_below != nullptr;
+         buffers.issues != nullptr && buffers.excluded_snr_below != nullptr;
 }
 
 // 规则 13b：正常执行周期按目标门控排除的 kInfo 诊断码（不属于三写，仅承载排查信息）。
 constexpr char kExclusionSnrBelowCode[] = "ar.target_snr_below_threshold";
 
 /// 构造 kInfo 级按目标排除诊断（不属于三写，仅承载排查信息；规则 13b）。
-session::ArDiagnosticIssue MakeExclusionIssue(const char* code, const std::string& message) {
-  session::ArDiagnosticIssue issue;
-  issue.severity = session::ArDiagnosticSeverity::kInfo;
+session::ArIssue MakeExclusionIssue(const char* code, const std::string& message) {
+  session::ArIssue issue;
+  issue.severity = session::ArIssueSeverity::kInfo;
+  issue.phase = session::ArIssuePhase::kExecution;
   issue.code = code;
   issue.message = message;
   return issue;
@@ -321,7 +322,7 @@ bool RunPhysicalDetectionPass(const session::ArSceneTargetList& input,
     (*buffers->detection_succeeded)[i] = static_cast<std::uint8_t>(detected ? 1U : 0U);
     if (!detected) {
       // 规则 13b：SNR/检测门排除 → kInfo 诊断（不属于三写，仅承载排查信息）。
-      buffers->diagnostics->push_back(MakeExclusionIssue(
+      buffers->issues->push_back(MakeExclusionIssue(
           kExclusionSnrBelowCode,
           "target_id=" + std::to_string(input[i].external_target_id) + "; snr_db=" +
               FormatFloat(detection_result.snr_db) + " range_m=" +

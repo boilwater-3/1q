@@ -271,13 +271,17 @@ table ArCycleInputV3 {
   interference:RfSceneFrameV2;
 }
 table ArCommandV3 { type:int; source:int; }
-table ValidationIssueV3 {
-  severity:int;
-  code:int;
-  location_kind:int;
-  entity_index:ulong;
-  field:string;
+
+// 统一问题列表模型（session_contract.md 规则 14）：单一 ArIssue 列表承载
+// 输入校验问题（phase=kInputValidation）与执行诊断（phase=kExecution/kOutputContract）。
+table ArIssue {
+  severity:int32;
+  phase:int32;
+  code:string;
   message:string;
+  location_kind:int32 = 0;
+  entity_index:int64 = -1;
+  field:string;
 }
 table AssociationQualityMetricsV3 {
   prior_track_count:ulong;
@@ -291,11 +295,6 @@ table AssociationQualityMetricsV3 {
   mean_match_cost:float;
   p95_match_cost:float;
   association_stress:float;
-}
-table ArDiagnosticIssue {
-  severity:int;
-  code:string;
-  message:string;
 }
 
 table ArRecognitionCycleSummaryV1 {
@@ -323,8 +322,6 @@ table ArCycleResultV3 {
   receiver_impairment:int;
   interference_observations:[ArInterferenceObservation];
   submitted_commands:[ArCommandV3];
-  validation_issues:[ValidationIssueV3];
-  has_validation_error:bool;
   abort_reason:int;
   has_control_profile:bool;
   control_profile:ArControlProfile;
@@ -334,7 +331,7 @@ table ArCycleResultV3 {
   applied_decision_source:int;
   applied_decision_cycle_index:uint;
   applied_decision_batch_id:ulong;
-  diagnostics:[ArDiagnosticIssue];
+  issues:[ArIssue];
   has_recognition_summary:bool;
   recognition_summary:ArRecognitionCycleSummaryV1;
 }

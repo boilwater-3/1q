@@ -21,6 +21,7 @@
 #include "1q/airborne_radar/config/ArSessionConfig.h"
 #include "1q/airborne_radar/session/ArCycleInput.h"
 #include "1q/airborne_radar/session/ArCycleResult.h"
+#include "1q/airborne_radar/session/ArInputValidation.h"
 #include "1q/airborne_radar/session/ArOutputTypes.h"
 #include "1q/airborne_radar/session/ArSession.h"
 #include "1q/coordinate/position_transform.h"
@@ -72,17 +73,27 @@ void ExpectThreeWriteAbort(const session::ArCycleResult& result,
 
   // 写二：结构化诊断中至少一条 error 级、code 带模块前缀
   // （info/warning 级伴随诊断合法，三写要求的是 error 级主诊断）。
-  EXPECT_FALSE(result.diagnostics.empty());
+  EXPECT_FALSE(result.issues.empty());
   bool saw_error_diagnostic = false;
-  for (const auto& issue : result.diagnostics) {
+  for (const auto& issue : result.issues) {
     EXPECT_FALSE(issue.code.empty());
     EXPECT_EQ(issue.code.compare(0, 3, "ar."), 0);
-    if (issue.severity == session::ArDiagnosticSeverity::kError) {
+    if (issue.severity == session::ArIssueSeverity::kError) {
       saw_error_diagnostic = true;
     }
   }
   EXPECT_TRUE(saw_error_diagnostic);
   // 写三：人读日志由统一 RecordAbort（PROJECT_LOG_ERROR）保证，测试不解析日志文本（规则 3）。
+}
+
+// 规则 14 断言：issues 列表中存在指定 phase 的条目。
+bool ContainsPhase(const session::ArIssueList& issues, session::ArIssuePhase phase) {
+  for (const auto& issue : issues) {
+    if (issue.phase == phase) {
+      return true;
+    }
+  }
+  return false;
 }
 
 TEST(ArThreeWriteGuardTest, ValidationAbortWritesAllThree) {
@@ -93,6 +104,10 @@ TEST(ArThreeWriteGuardTest, ValidationAbortWritesAllThree) {
   const session::ArCycleResult result = radar.StepWithResult(invalid);
   ExpectThreeWriteAbort(result, session::SignalCycleAbortReason::kValidationRejected,
                         session::ArCycleStatus::kRejectedInvalidInput);
+  // 规则 14：校验拒绝的问题条目 phase=kInputValidation（校验问题本身就是 error 级诊断，
+  // code 形如 "ar.validation.<snake>" 也以 "ar." 开头）。
+  EXPECT_TRUE(ContainsPhase(result.issues, session::ArIssuePhase::kInputValidation));
+  EXPECT_TRUE(session::HasValidationError(result.issues));
 }
 
 TEST(ArThreeWriteGuardTest, PoweredOffAbortWritesAllThree) {
@@ -104,6 +119,8 @@ TEST(ArThreeWriteGuardTest, PoweredOffAbortWritesAllThree) {
   const session::ArCycleResult result = radar.StepWithResult(MakeInput());
   ExpectThreeWriteAbort(result, session::SignalCycleAbortReason::kSensorPoweredOff,
                         session::ArCycleStatus::kPoweredOff);
+  // 规则 14：关机属运行态条件，中止条目 phase=kExecution。
+  EXPECT_TRUE(ContainsPhase(result.issues, session::ArIssuePhase::kExecution));
 }
 
 }  // namespace

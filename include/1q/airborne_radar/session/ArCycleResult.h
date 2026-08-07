@@ -51,9 +51,8 @@ struct ONEQ_API ArCycleResult {
   ArInterferenceObservationList interference_observations{};
   std::vector<session::ArCommand>
       submitted_commands{};                /**< 当前周期已提交的控制指令；若未执行则为空 */
-  ValidationIssueList validation_issues{}; /**< 当前周期输入校验结果 */
-  ArDiagnosticIssueList diagnostics{};     /**< 细粒度诊断（三写：结构化信号 + 诊断 + 日志） */
-  bool has_validation_error{false};        /**< 是否存在 error 级输入问题 */
+  ArIssueList issues{}; /**< 统一问题列表（规则 14：校验问题 phase=kInputValidation 在前 +
+                              执行诊断 phase=kExecution/kOutputContract 在后） */
   session::SignalCycleAbortReason abort_reason{
       session::SignalCycleAbortReason::kNone}; /**< 若下游主链路 abort，给出结构化原因 */
   bool has_control_profile{false};    /**< 当前周期是否产出了可归属到本周期的控制真值 */

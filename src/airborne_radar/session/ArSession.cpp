@@ -85,7 +85,7 @@ struct ArExecutionCycleResult {
   bool executed{false};
   session::SignalCycleAbortReason abort_reason{session::SignalCycleAbortReason::kNone};
   TrackOutputFrame track_output_frame{};
-  session::ArDiagnosticIssueList diagnostics{}; /**< 正常执行周期按目标排除的 kInfo 诊断（规则 13b）。 */
+  session::ArIssueList issues{}; /**< 正常执行周期按目标排除的 kInfo 诊断（规则 13b）。 */
 };
 
 }  // namespace
@@ -118,21 +118,22 @@ struct ArSession::Impl {
   }
 
   ArCycleResult BuildCompletedCycleResult(const ArCycleInput& input,
-                                          const ValidationIssueList& issues,
+                                          const ArIssueList& issues,
                                           const ArPrepareCycleResult& prepared,
                                           const ArCompleteCycleResult& completed) const {
     ArCycleResult result;
     result.input_cycle_index = input.cycle_index;
     result.status = ArCycleStatus::kCompleted;
     result.track_output_frame = completed.track_output_frame;
-    // 规则 13b：正常执行周期按目标排除的 kInfo 诊断转写进结构化结果（abort 路径不变）。
-    result.diagnostics = completed.diagnostics;
+    // 统一问题列表（规则 14）：输入校验问题（phase=kInputValidation）在前，
+    // 正常执行周期按目标排除的 kInfo 诊断（phase=kExecution，规则 13b）在后。
+    result.issues = issues;
+    result.issues.insert(result.issues.end(), completed.issues.begin(),
+                         completed.issues.end());
     FillEmissionFrame(result, input, prepared);
     result.receiver_impairment = completed.receiver_impairment;
     result.interference_observations = completed.interference_observations;
     result.submitted_commands = RadarContext().GetSubmittedCommands();
-    result.validation_issues = issues;
-    result.has_validation_error = false;
     result.has_control_profile = RadarContext().HasLatestControlProfile();
     if (result.has_control_profile) {
       result.control_profile = RadarContext().GetLatestControlProfile();
@@ -150,19 +151,20 @@ struct ArSession::Impl {
     return result;
   }
 
-  ValidationIssueList ValidateInput(const ArCycleInput& input) const {
+  ArIssueList ValidateInput(const ArCycleInput& input) const {
     return ValidateArCycleInput(input);
   }
 
   ArCycleResult BuildValidationErrorResult(const ArCycleInput& input,
-                                           const ValidationIssueList& issues) const {
+                                           const ArIssueList& issues) const {
     ArCycleResult result;
     result.input_cycle_index = input.cycle_index;
     result.status = ArCycleStatus::kRejectedInvalidInput;
     result.abort_reason = session::SignalCycleAbortReason::kValidationRejected;
-    result.validation_issues = issues;
-    result.has_validation_error = HasValidationError(issues);
-    RecordAbort(&result, result.abort_reason, "input_validation", "AR cycle aborted.", true);
+    // 统一问题列表（规则 14）：校验问题本身就是 error 级诊断（phase=kInputValidation，
+    // code 形如 "ar.validation.<snake>"）。校验拒绝路径不再附加粗粒度 abort 条目，
+    // 避免 issues 列表中出现重复的 error 级主诊断。
+    result.issues = issues;
     return result;
   }
 
@@ -173,7 +175,6 @@ struct ArSession::Impl {
     ArCycleResult result;
     result.input_cycle_index = input.cycle_index;
     result.abort_reason = abort_reason;
-    const bool is_validation = (abort_reason == session::SignalCycleAbortReason::kValidationRejected);
     const char* detail_code = "unknown";
     switch (abort_reason) {
       case session::SignalCycleAbortReason::kValidationRejected: detail_code = "input_validation"; break;
@@ -183,7 +184,9 @@ struct ArSession::Impl {
       case session::SignalCycleAbortReason::kRuntimePreparationFailed: detail_code = "runtime_preparation_failed"; break;
       default: break;
     }
-    RecordAbort(&result, abort_reason, detail_code, "AR cycle aborted.", is_validation);
+    // 非校验中止路径才经 RecordAbort 写入粗粒度 abort 条目（phase=kExecution）；
+    // 校验拒绝路径的 error 级诊断由校验问题本身承载（见 BuildValidationErrorResult）。
+    RecordAbort(&result, abort_reason, detail_code, "AR cycle aborted.");
     // status 由调用点显式声明，在 RecordAbort 之后做最终赋值，
     // 避免"RecordAbort 覆盖 status、调用方再补丁"的双重覆盖链。
     result.status = status;
@@ -303,8 +306,8 @@ struct ArSession::Impl {
       signal::pipeline::SignalCycleInput cycle_input,
       bool commit_pending_runtime_config) {
     ArExecutionCycleResult result;
-    ValidationIssueList issues = ValidateArCycleDeltaTime(dt_sec);
-    const ValidationIssueList target_issues = ValidateArSceneTargets(cycle_input.scene_targets);
+    ArIssueList issues = ValidateArCycleDeltaTime(dt_sec);
+    const ArIssueList target_issues = ValidateArSceneTargets(cycle_input.scene_targets);
     issues.insert(issues.end(), target_issues.begin(), target_issues.end());
     if (HasValidationError(issues)) {
       result.abort_reason = session::SignalCycleAbortReason::kValidationRejected;
@@ -354,12 +357,12 @@ struct ArSession::Impl {
     result.executed = true;
     result.track_output_frame = Controller().GetLatestTrackOutputFrame();
     // 规则 13b：正常执行周期按目标排除的 kInfo 诊断转写（abort 路径不变）。
-    result.diagnostics = Controller().GetLatestDiagnostics();
+    result.issues = Controller().GetLatestIssues();
     return result;
   }
 
   ArCycleResult RunCycle(const ArCycleInput& input) {
-    const ValidationIssueList issues = ValidateInput(input);
+    const ArIssueList issues = ValidateInput(input);
     if (HasValidationError(issues)) {
       return BuildValidationErrorResult(input, issues);
     }
@@ -748,7 +751,7 @@ struct ArSession::Impl {
     result.status = ArCompleteCycleStatus::kCompleted;
     result.track_output_frame = execution_result.track_output_frame;
     // 规则 13b：正常执行周期按目标排除的 kInfo 诊断转写（abort 路径不变）。
-    result.diagnostics = execution_result.diagnostics;
+    result.issues = execution_result.issues;
     result.has_decision_observation = Controller().HasLatestDecisionObservation();
     if (result.has_decision_observation) {
       result.decision_observation = Controller().GetLatestDecisionObservation();

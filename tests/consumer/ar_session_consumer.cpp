@@ -50,7 +50,7 @@ int main() {
           platform_lla, &input.platform.platform_position_ecef_m)) {
     return 1;
   }
-  const std::vector<airborne_radar::session::ValidationIssue> issues =
+  const std::vector<airborne_radar::session::ArIssue> issues =
       airborne_radar::session::ValidateArCycleInput(input);
   if (airborne_radar::session::HasValidationError(issues)) {
     return 1;
@@ -58,7 +58,7 @@ int main() {
 
   // 5. StepWithResult
   const airborne_radar::session::ArCycleResult result = session.StepWithResult(input);
-  if (result.has_validation_error) {
+  if (airborne_radar::session::HasValidationError(result.issues)) {
     return 2;
   }
 
@@ -99,7 +99,7 @@ int main() {
   input_2.cycle_index = 3U;
   input_2.cycle_start_time_s = 2.0;
   const airborne_radar::session::ArCycleResult result_2 = session.StepWithResult(input_2);
-  if (result_2.has_validation_error) {
+  if (airborne_radar::session::HasValidationError(result_2.issues)) {
     return 4;
   }
 

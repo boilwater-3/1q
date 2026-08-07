@@ -91,7 +91,7 @@ struct ArCompleteCycleResult {
   ArReceiverImpairment receiver_impairment{ArReceiverImpairment::kNone}; /**< 结构化接收机损伤。 */
   bool has_decision_observation{false};       /**< 是否发布了供外部 N+1 决策消费的观测。 */
   DecisionObservation decision_observation{}; /**< 带 source cycle/batch 的外部决策输入。 */
-  session::ArDiagnosticIssueList diagnostics{}; /**< 正常执行周期按目标排除的 kInfo 诊断（规则 13b）。 */
+  session::ArIssueList issues{}; /**< 正常执行周期按目标排除的 kInfo 诊断（规则 13b）。 */
 };
 
 /** @brief Abandon 阶段状态。 */

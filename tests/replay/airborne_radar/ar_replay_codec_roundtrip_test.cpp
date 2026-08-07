@@ -306,14 +306,15 @@ TEST(ArReplayCodecRoundtripTest, SingleCycleRecordPreservesResultAndState) {
   record.result.receiver_impairment = ArReceiverImpairment::kSaturated;
   record.result.submitted_commands.push_back(
       ArCommand(ArCommandType::SET_AGILITY_FREQ, ArCommandSource::ECCM));
-  ValidationIssue issue;
-  issue.severity = ValidationSeverity::kWarning;
-  issue.code = ValidationCode::kNegativeRcs;
-  issue.location.kind = ValidationLocationKind::kSceneEntity;
+  ArIssue issue;
+  issue.severity = ArIssueSeverity::kWarning;
+  issue.phase = ArIssuePhase::kInputValidation;
+  issue.code = "ar.validation.negative_rcs";
+  issue.location.kind = oneq::foundation::ValidationLocationKind::kSceneEntity;
   issue.location.entity_index = 3U;
   issue.field = "rcs";
   issue.message = "negative rcs";
-  record.result.validation_issues.push_back(issue);
+  record.result.issues.push_back(issue);
   record.result.has_control_profile = true;
   record.result.control_profile.version = 4U;
   record.result.association_quality_metrics.matched_count = 5U;
@@ -340,8 +341,8 @@ TEST(ArReplayCodecRoundtripTest, SingleCycleRecordPreservesResultAndState) {
   EXPECT_DOUBLE_EQ(decoded.result.interference_observations.front().jammer_to_noise_db, 14.0);
   ASSERT_EQ(decoded.result.submitted_commands.size(), 1U);
   EXPECT_EQ(decoded.result.submitted_commands.front().type, ArCommandType::SET_AGILITY_FREQ);
-  ASSERT_EQ(decoded.result.validation_issues.size(), 1U);
-  EXPECT_EQ(decoded.result.validation_issues.front().field, "rcs");
+  ASSERT_EQ(decoded.result.issues.size(), 1U);
+  EXPECT_EQ(decoded.result.issues.front().field, "rcs");
   EXPECT_EQ(decoded.result.association_quality_metrics.matched_count, 5U);
   EXPECT_TRUE(decoded.result.has_decision_observation);
   EXPECT_EQ(decoded.result.decision_observation.input_frame.batch_id, 82U);

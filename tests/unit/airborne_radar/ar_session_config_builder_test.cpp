@@ -189,7 +189,7 @@ TEST(RadarSessionConfigBuilderTest, RuntimePatchCanBeAppliedWithoutReconstructin
   input.platform.platform_entity_id = 42U;
   input.platform.platform_position_ecef_m.x_m = 6378137.0;
   const session::ArCycleResult result = session.StepWithResult(input);
-  EXPECT_FALSE(result.has_validation_error);
+  EXPECT_FALSE(session::HasValidationError(result.issues));
 }
 
 TEST(RadarSessionConfigBuilderTest, DetailedBuilderProducesDetailedSessionConfig) {

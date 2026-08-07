@@ -169,7 +169,7 @@ TEST(PublicHeadersSmokeTest, StablePublicSurfaceSupportsMinimalUsage) {
   input.dt_sec = 1.0;
   input.platform.platform_entity_id = 1U;
   input.platform.platform_position_ecef_m = origin_ecef;
-  const std::vector<session::ValidationIssue> issues = session::ValidateArCycleInput(input);
+  const std::vector<session::ArIssue> issues = session::ValidateArCycleInput(input);
 
   EXPECT_FALSE(session::HasValidationError(issues));
 

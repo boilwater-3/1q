@@ -1532,7 +1532,7 @@ TEST(MultiModelScenarioTest, FlightDynamicDrivesSensorEcmClosedLoop) {
   ar_input.platform.platform_entity_id = 7002U;
   ar_input.interference = ecm_result.emission_frame;
   const ar_session::ArCycleResult ar_result = ar.StepWithResult(ar_input);
-  EXPECT_FALSE(ar_result.has_validation_error);
+  EXPECT_FALSE(ar_session::HasValidationError(ar_result.issues));
   EXPECT_EQ(ar_result.status, ar_session::ArCycleStatus::kCompleted);
   EXPECT_EQ(ar_result.abort_reason, ar_session::SignalCycleAbortReason::kNone);
 

@@ -35,7 +35,7 @@ struct DetectionExecutionBuffers {
   std::vector<std::uint8_t>* detection_succeeded{nullptr}; /**< 是否检测成功的逐目标标记。 */
   std::vector<tracking::MeasurementCovariance>* measurement_covariances{
       nullptr}; /**< 逐目标量测协方差。 */
-  session::ArDiagnosticIssueList* diagnostics{nullptr}; /**< 规则 13b 排除诊断累积。 */
+  session::ArIssueList* issues{nullptr}; /**< 规则 13b 排除诊断累积。 */
   std::size_t* excluded_snr_below{nullptr};             /**< 规则 13a SNR 门排除计数。 */
 };
 

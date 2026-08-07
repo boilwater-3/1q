@@ -28,6 +28,7 @@
 
 #include <entt/entt.hpp>
 
+#include "1q/airborne_radar/session/ArInputValidation.h"
 #include "1q/airborne_radar/session/ArSession.h"
 #include "1q/coordinate/position_transform.h"
 #include "1q/coordinate/types.h"
@@ -260,7 +261,7 @@ void PrintCycleSummary(std::uint32_t cycle, const bl::BehaviorContext& context,
             << " commands=" << command.ar_commands.size()
             << " ecm_obs=" << ecm_obs_count
             << " validation_error="
-            << ((ar.has_validation_error ||
+            << ((ar_session::HasValidationError(ar.issues) ||
                  electronic_surveillance_radar::session::HasValidationError(esr.issues) ||
                  electro_optical_sensor::session::HasValidationError(eos.issues))
                     ? "true"
@@ -391,7 +392,7 @@ int main(int argc, char* argv[]) {
                 << context.last_ar_result.decision_observation.input_frame.batch_id << "\n";
     }
 
-    if (context.last_ar_result.has_validation_error ||
+    if (ar_session::HasValidationError(context.last_ar_result.issues) ||
         electronic_surveillance_radar::session::HasValidationError(
             context.esr_last_result.issues) ||
         electro_optical_sensor::session::HasValidationError(

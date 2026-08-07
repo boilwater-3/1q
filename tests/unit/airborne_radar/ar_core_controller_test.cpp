@@ -228,9 +228,9 @@ TEST_F(CoreControllerTest, RuntimeValidationErrorsAreExposedAndSkipCommandSubmis
   controller.RunOnce(signal::pipeline::SignalCycleInput{radar_context.GetSceneTargets()});
 
   EXPECT_TRUE(controller.HasValidationError());
-  const session::ValidationIssueList& issues = controller.GetLastValidationIssues();
-  EXPECT_TRUE(std::find_if(issues.begin(), issues.end(), [](const session::ValidationIssue& issue) {
-                return issue.code == session::ValidationCode::kNonFiniteCycleDeltaTime;
+  const session::ArIssueList& issues = controller.GetLastValidationIssues();
+  EXPECT_TRUE(std::find_if(issues.begin(), issues.end(), [](const session::ArIssue& issue) {
+                return issue.code == "ar.validation.non_finite_cycle_delta_time";
               }) != issues.end());
   EXPECT_TRUE(radar_context.SubmittedCommands().empty());
   EXPECT_FALSE(controller.HasLatestTrackOutputFrame());
@@ -269,9 +269,9 @@ TEST_F(CoreControllerTest, InvalidDeltaTimeRetainsPreviousValidOutputFrame) {
   controller.RunOnce(signal::pipeline::SignalCycleInput{radar_context.GetSceneTargets()});
 
   EXPECT_TRUE(controller.HasValidationError());
-  const session::ValidationIssueList& issues = controller.GetLastValidationIssues();
-  EXPECT_TRUE(std::find_if(issues.begin(), issues.end(), [](const session::ValidationIssue& issue) {
-                return issue.code == session::ValidationCode::kInvalidCycleDeltaTime;
+  const session::ArIssueList& issues = controller.GetLastValidationIssues();
+  EXPECT_TRUE(std::find_if(issues.begin(), issues.end(), [](const session::ArIssue& issue) {
+                return issue.code == "ar.validation.invalid_cycle_delta_time";
               }) != issues.end());
   ASSERT_TRUE(controller.HasLatestTrackOutputFrame());
   const session::TrackOutputFrame& retained_frame = controller.GetLatestTrackOutputFrame();
@@ -313,9 +313,9 @@ TEST_F(CoreControllerTest, DuplicateExternalTargetIdRetainsPreviousValidOutputFr
   controller.RunOnce(signal::pipeline::SignalCycleInput{radar_context.GetSceneTargets()});
 
   EXPECT_TRUE(controller.HasValidationError());
-  const session::ValidationIssueList& issues = controller.GetLastValidationIssues();
-  EXPECT_TRUE(std::find_if(issues.begin(), issues.end(), [](const session::ValidationIssue& issue) {
-                return issue.code == session::ValidationCode::kDuplicateExternalTargetId;
+  const session::ArIssueList& issues = controller.GetLastValidationIssues();
+  EXPECT_TRUE(std::find_if(issues.begin(), issues.end(), [](const session::ArIssue& issue) {
+                return issue.code == "ar.validation.duplicate_external_target_id";
               }) != issues.end());
   ASSERT_TRUE(controller.HasLatestTrackOutputFrame());
   const session::TrackOutputFrame& retained_frame = controller.GetLatestTrackOutputFrame();

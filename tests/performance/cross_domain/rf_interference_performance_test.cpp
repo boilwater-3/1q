@@ -229,7 +229,7 @@ TEST(RfInterferencePerformanceTest,
     const esr_session::EsrCycleResult esr_result = esr.StepWithResult(esr_input);
     const double duration_ms =
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start).count();
-    ASSERT_FALSE(ar_result.has_validation_error);
+    ASSERT_FALSE(ar_session::HasValidationError(ar_result.issues));
     ASSERT_EQ(ar_result.status, ar_session::ArCycleStatus::kCompleted);
     ASSERT_FALSE(esr_session::HasValidationError(esr_result.issues));
     ASSERT_EQ(esr_result.status, esr_session::EsrCycleExecutionStatus::kCompleted);

@@ -669,9 +669,9 @@ TEST(RadarJointIntegrationTest, DuplicateExternalTargetIdsAreRejectedAndPrevious
   controller.RunOnce(signal::pipeline::SignalCycleInput{duplicate_targets});
 
   EXPECT_TRUE(controller.HasValidationError());
-  const session::ValidationIssueList& issues = controller.GetLastValidationIssues();
-  EXPECT_TRUE(std::find_if(issues.begin(), issues.end(), [](const session::ValidationIssue& issue) {
-                return issue.code == session::ValidationCode::kDuplicateExternalTargetId;
+  const session::ArIssueList& issues = controller.GetLastValidationIssues();
+  EXPECT_TRUE(std::find_if(issues.begin(), issues.end(), [](const session::ArIssue& issue) {
+                return issue.code == "ar.validation.duplicate_external_target_id";
               }) != issues.end());
   ASSERT_TRUE(controller.HasLatestTrackOutputFrame());
   const session::TrackOutputFrame& retained_frame = controller.GetLatestTrackOutputFrame();
@@ -1637,9 +1637,9 @@ TEST(RadarJointIntegrationTest,
   controller.RunOnce(signal::pipeline::SignalCycleInput{targets});
 
   EXPECT_TRUE(controller.HasValidationError());
-  const session::ValidationIssueList& issues = controller.GetLastValidationIssues();
-  EXPECT_TRUE(std::find_if(issues.begin(), issues.end(), [](const session::ValidationIssue& issue) {
-                return issue.code == session::ValidationCode::kMissingRangeAndCartesianPosition;
+  const session::ArIssueList& issues = controller.GetLastValidationIssues();
+  EXPECT_TRUE(std::find_if(issues.begin(), issues.end(), [](const session::ArIssue& issue) {
+                return issue.code == "ar.validation.missing_range_and_cartesian_position";
               }) != issues.end());
   EXPECT_FALSE(controller.HasLatestTrackOutputFrame());
   EXPECT_TRUE(radar_context.SubmittedCommands().empty());

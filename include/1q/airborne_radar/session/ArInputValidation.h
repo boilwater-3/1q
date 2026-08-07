@@ -13,84 +13,41 @@
 #include <vector>
 
 #include "1q/airborne_radar/session/ArCycleInput.h"
+#include "1q/airborne_radar/session/ArOutputTypes.h"
 #include "1q/airborne_radar/session/ArSceneTypes.h"
 #include "1q/api.hpp"
-#include "1q/foundation/validation_types.h"
 
 namespace airborne_radar {
 namespace session {
 
-using oneq::foundation::ValidationLocation;
-using oneq::foundation::ValidationLocationKind;
-using oneq::foundation::ValidationSeverity;
-
-/**
- * @brief ValidationCode 表示结构化校验问题类型。
- */
-enum class ONEQ_API ValidationCode {
-  kNone = 0,                         /**< 无问题占位值 */
-  kInvalidCycleIndex,
-  kInvalidCycleStartTime,
-  kInvalidCycleDeltaTime,            /**< 周期步长非法（<= 0） */
-  kNonFiniteCycleDeltaTime,          /**< 周期步长不是有限值 */
-  kNonFinitePlatformNumericField,    /**< 平台位姿字段存在非有限值 */
-  kNonFiniteTargetField,             /**< 目标字段存在非有限值 */
-  kMissingRangeAndCartesianPosition, /**< 目标既没有有效斜距，也没有有效笛卡尔位置 */
-  kUnknownExternalTargetId,          /**< 目标外部标识符未知 */
-  kDuplicateExternalTargetId,        /**< 外部标识符重复 */
-  kNegativeRcs,                      /**< 目标 RCS 为负值 */
-  kInvalidEnvironmentObservation,    /**< 环境观测字段非法 */
-  kEnvironmentSnapshotFlagMismatch,  /**< 环境数据非默认但 has_environment=false */
-  kInvalidInterferenceInput,         /**< 干扰 mode 与载荷不一致或 RF 发射帧非法 */
-  kInvalidPlatformEcefKinematics,    /**< 平台 ECEF 运动学存在非有限字段 */
-  kMissingEngineeringRfReceiverSite, /**< 工程 RF 干扰缺少平台 ECEF 接收位置 */
-  kPlatformEcefFlagMismatch,         /**< ECEF 数据非默认但存在性标志为 false */
-  kInvalidPlatformInput,
-  kInvalidTargetInput,
-  kInterferenceFrameMismatch
-};
-
-/**
- * @brief ValidationIssue 描述一条结构化输入校验结果。
- */
-struct ONEQ_API ValidationIssue {
-  ValidationSeverity severity{ValidationSeverity::kInfo}; /**< 严重级别 */
-  ValidationCode code{ValidationCode::kNone};             /**< 问题类型编码 */
-  ValidationLocation location{};                          /**< 结构化定位信息 */
-  std::string field{};   /**< 触发问题的字段名；为空表示跨字段或域级问题 */
-  std::string message{}; /**< 面向外部调用方的简短说明 */
-};
-
-/** @brief ValidationIssueList 表示输入校验问题列表。 */
-using ValidationIssueList = std::vector<ValidationIssue>;
-
 /**
  * @brief 校验周期步长字段。
  * @param[in] dt_sec 当前周期步长（单位：秒）。
- * @return 校验问题列表。
+ * @return 问题条目列表（统一问题列表模型，规则 14；所有条目 phase=kInputValidation，
+ *         code 形如 "ar.validation.<snake_case>"）。
  */
-ONEQ_API ValidationIssueList ValidateArCycleDeltaTime(double dt_sec);
+ONEQ_API ArIssueList ValidateArCycleDeltaTime(double dt_sec);
 
 /**
  * @brief 校验完整周期输入。
  * @param[in] input 当前周期输入。
- * @return 按发现顺序返回的校验问题列表。
+ * @return 按发现顺序返回的问题条目列表（所有条目 phase=kInputValidation）。
  */
-ONEQ_API ValidationIssueList ValidateArCycleInput(const ArCycleInput& input);
+ONEQ_API ArIssueList ValidateArCycleInput(const ArCycleInput& input);
 
 /**
  * @brief 校验场景目标列表。
  * @param[in] targets 当前周期场景目标列表。
- * @return 按发现顺序返回的校验问题列表。
+ * @return 按发现顺序返回的问题条目列表（所有条目 phase=kInputValidation）。
  */
-ONEQ_API ValidationIssueList ValidateArSceneTargets(const ArSceneTargetList& targets);
+ONEQ_API ArIssueList ValidateArSceneTargets(const ArSceneTargetList& targets);
 
 /**
- * @brief 判断是否包含 error 级别问题。
- * @param[in] issues 校验问题列表。
- * @return 至少存在一个 `kError` 时返回 true。
+ * @brief 判断问题列表中是否存在输入校验 error 级问题。
+ * @param[in] issues 问题条目列表。
+ * @return 存在 phase==kInputValidation 且 severity==kError 的条目时返回 `true`。
  */
-ONEQ_API bool HasValidationError(const ValidationIssueList& issues);
+ONEQ_API bool HasValidationError(const ArIssueList& issues);
 
 }  // namespace session
 }  // namespace airborne_radar

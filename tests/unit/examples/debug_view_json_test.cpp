@@ -51,11 +51,12 @@ ar::session::ArTrackOutputDebugView MakeArView() {
   track.target_type = "threat";
   view.tracks.push_back(track);
 
-  ar::session::ArDiagnosticIssue issue;
-  issue.severity = ar::session::ArDiagnosticSeverity::kWarning;
+  ar::session::ArIssue issue;
+  issue.severity = ar::session::ArIssueSeverity::kWarning;
+  issue.phase = ar::session::ArIssuePhase::kExecution;
   issue.code = "ar.impairment";
   issue.message = "saturated";
-  view.diagnostics.push_back(issue);
+  view.issues.push_back(issue);
   return view;
 }
 
@@ -160,7 +161,7 @@ TEST(DebugViewJsonTest, ArDebugViewToJsonMatchesExpectedJson) {
                   R"("has_track":true,"association_key":9,"position_x":1.5,"position_y":-2.5,)"
                   R"("position_z":0,"speed":300,"rcs":2,"hit_count":4,"miss_count":1,)"
                   R"("target_type":"threat"}],"issues":[{"severity":"warning",)"
-                  R"("code":"ar.impairment","message":"saturated"}]})");
+                  R"("phase":1,"code":"ar.impairment","message":"saturated"}]})");
 }
 
 TEST(DebugViewJsonTest, EosDebugViewToJsonMatchesExpectedJson) {

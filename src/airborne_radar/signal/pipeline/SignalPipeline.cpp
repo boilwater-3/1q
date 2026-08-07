@@ -199,7 +199,7 @@ struct SignalPipeline::Impl {
                      detection_count, cycle_.scratch.excluded_snr_below);
 
     // 规则 13b：正常周期按目标排除的 kInfo 诊断转写进周期结果（abort 路径不变）。
-    result.diagnostics = std::move(cycle_.scratch.diagnostics);
+    result.issues = std::move(cycle_.scratch.issues);
     cycle_.cycle_index = environment_snapshot.cycle_index + 1U;
     ++cycle_.batch_id;
     return result;

@@ -13,31 +13,47 @@
 #include "1q/airborne_radar/session/ArSceneTypes.h"
 #include "1q/airborne_radar/session/DecisionInputFrame.h"
 #include "1q/api.hpp"
+#include "1q/foundation/validation_types.h"
 
 namespace airborne_radar {
 namespace session {
 
 /**
- * @brief AR 诊断等级。
+ * @brief AR 问题条目严重等级。
  */
-enum class ONEQ_API ArDiagnosticSeverity : std::uint8_t {
+enum class ONEQ_API ArIssueSeverity : std::uint8_t {
   kInfo = 0,    /**< 信息 */
   kWarning = 1, /**< 警告 */
   kError = 2    /**< 错误 */
 };
 
 /**
- * @brief AR 诊断条目。
- * @note 承载细粒度失败信息（如 "ar.lifecycle_unavailable"），不用于调用方状态判断。
+ * @brief AR 问题条目来源阶段（统一问题列表模型，session_contract.md 规则 14）。
+ * @note 结构化来源判别字段；状态判断仍以 `status`/`abort_reason` 为准，phase 不改变状态语义。
  */
-struct ONEQ_API ArDiagnosticIssue {
-  ArDiagnosticSeverity severity{ArDiagnosticSeverity::kInfo};
-  std::string code{};
-  std::string message{};
+enum class ONEQ_API ArIssuePhase : std::uint8_t {
+  kInputValidation = 0, /**< 输入校验阶段（调用方输入问题） */
+  kExecution = 1,       /**< 信号/决策管线执行阶段（含关机等运行态条件） */
+  kOutputContract = 2   /**< 输出违反内部契约 */
 };
 
-/** @brief AR 诊断条目列表。 */
-using ArDiagnosticIssueList = std::vector<ArDiagnosticIssue>;
+/**
+ * @brief ArIssue 描述单周期问题条目（统一问题列表模型，session_contract.md 规则 14）。
+ * @note 承载输入校验问题（phase=kInputValidation）与执行诊断（phase=kExecution/kOutputContract）；
+ *       code 带模块前缀（如 "ar.lifecycle_unavailable"、"ar.validation.invalid_cycle_delta_time"），
+ *       机器消费只认 code；不用于调用方状态判断。
+ */
+struct ONEQ_API ArIssue {
+  ArIssueSeverity severity{ArIssueSeverity::kInfo};
+  ArIssuePhase phase{ArIssuePhase::kExecution};
+  std::string code{};
+  std::string message{};
+  oneq::foundation::ValidationLocation location{}; /**< 可选定位；kind==kGlobal 表示无定位 */
+  std::string field{}; /**< 可选定位；为空表示无关联字段（跨字段或域级问题） */
+};
+
+/** @brief AR 问题条目列表。 */
+using ArIssueList = std::vector<ArIssue>;
 
 /**
  * @brief SignalCycleAbortReason 描述信号流水线单周期终止原因。
@@ -82,8 +98,8 @@ struct ONEQ_API SignalCycleResult {
   ArSceneTargetList updated_scene_targets{};    /**< 当前周期更新后的场景目标列表 */
   session::DecisionInputFrame decision_frame{}; /**< 当前周期决策输入帧 */
   AssociationQualityMetrics association_quality_metrics{}; /**< 当前周期关联质量观测指标 */
-  ArDiagnosticIssueList diagnostics{}; /**< 正常执行周期按目标排除的 kInfo 诊断（规则 13b），
-                                            经 controller 转写进 ArCycleResult。 */
+  ArIssueList issues{}; /**< 统一问题列表（规则 14：正常周期按目标排除的 kInfo 诊断，
+                             phase=kExecution；abort 路径诊断由 RecordAbort 写入）。 */
 };
 
 }  // namespace session
