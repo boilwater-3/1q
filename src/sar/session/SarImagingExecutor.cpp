@@ -96,7 +96,7 @@ bool ExecuteL1RdaImaging(const config::SarSessionConfig& config,
       RecordAbort(result, SarPipelineAbortReason::kPipelineExecutionFailed, "motion_compensation_failed", "SAR L2 motion compensation failed.");
       return false;
     }
-    result->diagnostics.push_back(MakeInfoDiagnostic(
+    result->issues.push_back(MakeInfoDiagnostic(
         "sar.motion_compensation",
         "SAR first-order motion compensation max_abs_range_error_m=" +
             std::to_string(compensation_diagnostics.max_abs_range_error_m) +
@@ -136,7 +136,7 @@ bool ExecuteL1RdaImaging(const config::SarSessionConfig& config,
   result->output_frame.has_image_quality_metrics = true;
   result->output_frame.image_resolution_m_valid = image.diagnostics.resolution_m_valid;
   result->output_frame.phase_reference_applied = image.diagnostics.phase_reference_applied;
-  result->diagnostics.push_back(MakeInfoDiagnostic(
+  result->issues.push_back(MakeInfoDiagnostic(
       "sar.rda_peak",
       "SAR RDA peak index " + std::to_string(peak_index) +
           ", doppler_rate_hz_per_s=" + std::to_string(image.diagnostics.doppler_rate_hz_per_s) +
@@ -213,11 +213,11 @@ bool ExecuteL3BpImaging(const config::SarSessionConfig& config,
   result->output_frame.has_image_quality_metrics = quality.valid;
   result->output_frame.image_resolution_m_valid = false;
   result->output_frame.phase_reference_applied = false;
-  result->diagnostics.push_back(MakeInfoDiagnostic(
+  result->issues.push_back(MakeInfoDiagnostic(
       "sar.bp_peak", "SAR BP peak_row=" + std::to_string(quality.peak_row) +
                          ", peak_col=" + std::to_string(quality.peak_col) +
                          ", image_entropy_nats=" + std::to_string(quality.entropy_nats)));
-  result->diagnostics.push_back(
+  result->issues.push_back(
       MakeInfoDiagnostic("sar.bp_traversal",
                          "SAR BP traversal=" + image.diagnostics.traversal_order));
   result->output_frame.completed_stage = SarProcessingStage::kL3BpImage;

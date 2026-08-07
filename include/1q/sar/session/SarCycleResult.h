@@ -11,6 +11,7 @@
 #include <vector>
 
 #include "1q/api.hpp"
+#include "1q/foundation/validation_types.h"
 
 namespace sar {
 namespace session {
@@ -18,7 +19,7 @@ namespace session {
 /**
  * @brief SAR 管线周期终止原因（强类型枚举）。
  * @note 粗粒度结构性原因，与 AR/ESR/EOS/SBIRS 对齐（~6 值）。
- *       细粒度失败信息由 `SarDiagnosticIssue::code`（如 "sar.snr_below_minimum"）
+ *       细粒度失败信息由 `SarIssue::code`（如 "sar.snr_below_minimum"）
  *       和 `PROJECT_LOG_ERROR` 双写承载，不进入 public abort_reason。
  */
 enum class SarPipelineAbortReason : std::uint16_t {
@@ -52,9 +53,20 @@ enum class SarProcessingStage {
 };
 
 /**
- * @brief SAR 诊断等级。
+ * @brief SAR 问题严重等级。
  */
-enum class SarDiagnosticSeverity { kInfo = 0, kWarning = 1, kError = 2 };
+enum class SarIssueSeverity { kInfo = 0, kWarning = 1, kError = 2 };
+
+/**
+ * @brief SAR 问题来源阶段标签（统一问题列表模型，session_contract.md 规则 14b）。
+ * @note phase 是结构化来源判别字段；状态判断仍以 `status`/`abort_reason` 为准，
+ *       phase 不改变状态语义。
+ */
+enum class SarIssuePhase : std::uint8_t {
+  kInputValidation = 0, /**< 输入校验阶段：调用方输入/运行期配置问题 */
+  kExecution = 1,       /**< 管线执行阶段：含关机等运行态条件 */
+  kOutputContract = 2   /**< 输出违反内部契约 */
+};
 
 /**
  * @brief 公共聚焦图像的生成来源。
@@ -79,15 +91,20 @@ enum class SarPhaseReferenceMode { kNative = 0, kCenterBroadside = 1 };
 enum class SarMainlobeEstimationMethod { k3dB = 0, k20dB = 1 };
 
 /**
- * @brief SAR 诊断条目。
+ * @brief SAR 统一问题条目（规则 14）。
+ * @note `location.kind == kGlobal` 或 `field` 为空表示无定位；定位只服务人读与
+ *       replay 保真，不用于状态判断。
  */
-struct ONEQ_API SarDiagnosticIssue {
-  SarDiagnosticSeverity severity{SarDiagnosticSeverity::kInfo};
-  std::string code{};
-  std::string message{};
+struct ONEQ_API SarIssue {
+  SarIssueSeverity severity{SarIssueSeverity::kInfo}; /**< 问题严重级别 */
+  SarIssuePhase phase{SarIssuePhase::kExecution};     /**< 来源阶段标签 */
+  std::string code{};                                 /**< 结构化码（带 "sar." 前缀） */
+  std::string message{};                              /**< 面向调用方的人读说明 */
+  oneq::foundation::ValidationLocation location{};    /**< 可选定位（kGlobal=无） */
+  std::string field{};                                /**< 触发问题的字段名；为空表示无定位 */
 };
 
-using SarDiagnosticIssueList = std::vector<SarDiagnosticIssue>;
+using SarIssueList = std::vector<SarIssue>;
 
 /**
  * @brief 与内部矩阵实现解耦的行主序复数聚焦图像。
@@ -157,8 +174,7 @@ struct ONEQ_API SarCycleResult {
   SarOutputFrame output_frame{};
   SarFocusedImage focused_image{};
   SarRawPhaseHistory raw_phase_history{};
-  SarDiagnosticIssueList diagnostics{};
-  bool has_error{false};
+  SarIssueList issues{}; /**< 统一问题列表（规则 14）：校验问题（kInputValidation）与执行诊断 */
   SarCycleStatus status{SarCycleStatus::kRejectedInvalidInput};
   bool executed_this_cycle{false};
   SarPipelineAbortReason abort_reason{SarPipelineAbortReason::kNone};

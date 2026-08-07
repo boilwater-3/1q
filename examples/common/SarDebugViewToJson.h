@@ -50,7 +50,7 @@ inline std::string SarDebugViewToJson(const sar::session::SarProductDebugView& v
   out << "{\"input_cycle_index\":" << view.input_cycle_index
       << ",\"output_cycle_index\":" << view.output_cycle_index
       << ",\"executed_this_cycle\":" << (view.executed_this_cycle ? "true" : "false")
-      << ",\"has_error\":" << (view.has_error ? "true" : "false") << ",\"abort_reason\":\""
+      << ",\"abort_reason\":\""
       << JsonEscape(view.abort_reason) << '"' << ",\"completed_stage\":\""
       << SarStageName(view.completed_stage) << '"'
       << ",\"has_raw_echo\":" << (view.has_raw_echo ? "true" : "false")
@@ -70,7 +70,7 @@ inline std::string SarDebugViewToJson(const sar::session::SarProductDebugView& v
         << ",\"radar_cross_section_dbsm\":" << view.point_targets[i].radar_cross_section_dbsm
         << '}';
   }
-  WriteIssuesJson(out, view.diagnostics);
+  WriteIssuesJson(out, view.issues);
   return out.str();
 }
 

@@ -83,7 +83,7 @@ TEST(SarOutputBoundaryContractTest, NamedPointTargetDoesNotLeakIntoProductOutput
 
   const session::SarCycleResult result = session.StepWithResult(input);
   ASSERT_TRUE(result.executed_this_cycle);
-  ASSERT_FALSE(result.has_error);
+  ASSERT_EQ(result.status, session::SarCycleStatus::kCompleted);
 
   // 产品输出帧是成像产品元数据；它不含任何 target_name/target_id 字段。
   // 这里断言它确实产出了产品（证明 pipeline 真实执行），同时其字段集
@@ -100,7 +100,7 @@ TEST(SarOutputBoundaryContractTest, PointTargetNameOnlyReachableViaDebugView) {
   session::SarSession session = session::SarSession::Create(MakeSmallRdaConfig());
   const session::SarCycleInput input = MakeNamedPointTargetInput();
   const session::SarCycleResult result = session.StepWithResult(input);
-  ASSERT_FALSE(result.has_error);
+  ASSERT_EQ(result.status, session::SarCycleStatus::kCompleted);
 
   const session::SarProductDebugView view = session::SarProductDebugViewBuilder::Build(input, result);
   ASSERT_EQ(view.point_targets.size(), 1U);

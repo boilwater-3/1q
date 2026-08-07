@@ -436,13 +436,16 @@ int main() {
     std::cout << "  【周期 " << (i + 1) << "/" << kNumCycles << "】"
               << " stage=" << StageName(result.output_frame.completed_stage)
               << " exec=" << (result.executed_this_cycle ? "Y" : "N")
-              << " err=" << (result.has_error ? "Y" : "N");
+              << " err=" << (result.status == sar::session::SarCycleStatus::kRejectedInvalidInput ||
+                                result.status == sar::session::SarCycleStatus::kRejectedExecution
+                                    ? "Y"
+                                    : "N");
 
     if (result.output_frame.estimated_snr_db > -1e6) {
       std::cout << " snr_db=" << result.output_frame.estimated_snr_db;
     }
 
-    if (result.has_error) {
+    if (result.status != sar::session::SarCycleStatus::kCompleted) {
       std::cout << " abort=" << static_cast<int>(result.abort_reason);
     }
     std::cout << "\n";
@@ -473,7 +476,7 @@ int main() {
     }
 
     // 打印诊断信息
-    for (const auto& issue : result.diagnostics) {
+    for (const auto& issue : result.issues) {
       std::cout << "    [diag] " << issue.code << ": " << issue.message << "\n";
     }
   }
@@ -523,10 +526,11 @@ int main() {
   }
   std::cout << "\n  估计 SNR: "
             << final_result.output_frame.estimated_snr_db << " dB\n"
-            << "  诊断数: " << final_result.diagnostics.size() << "\n"
+            << "  问题数: " << final_result.issues.size() << "\n"
             << "  执行: " << (final_result.executed_this_cycle ? "Y" : "N")
-            << " 错误: " << (final_result.has_error ? "Y" : "N") << "\n";
-  if (final_result.has_error) {
+            << " 错误: " << (final_result.status != sar::session::SarCycleStatus::kCompleted ? "Y" : "N")
+            << "\n";
+  if (final_result.status != sar::session::SarCycleStatus::kCompleted) {
     std::cout << "  中止原因: " << static_cast<int>(final_result.abort_reason) << "\n";
   }
 
@@ -565,8 +569,7 @@ int main() {
   std::cout << "[视图二] SarProductDebugView — 人读排查视图\n"
             << "  输入周期: " << debug_view.input_cycle_index << "\n"
             << "  输出周期: " << debug_view.output_cycle_index << "\n"
-            << "  执行: " << (debug_view.executed_this_cycle ? "Y" : "N")
-            << " 错误: " << (debug_view.has_error ? "Y" : "N") << "\n"
+            << "  执行: " << (debug_view.executed_this_cycle ? "Y" : "N") << "\n"
             << "  完成阶段: " << StageName(debug_view.completed_stage) << "\n"
             << "  原始回波: " << (debug_view.has_raw_echo ? "Y" : "N") << "\n"
             << "  距离压缩: " << (debug_view.has_range_compressed_echo ? "Y" : "N")
@@ -585,7 +588,7 @@ int main() {
               << " name=" << pt.target_name
               << " rcs_dbsm=" << pt.radar_cross_section_dbsm << "\n";
   }
-  for (const auto& issue : debug_view.diagnostics) {
+  for (const auto& issue : debug_view.issues) {
     std::cout << "    [diag] " << issue.code << ": " << issue.message << "\n";
   }
   std::cout << "\n";

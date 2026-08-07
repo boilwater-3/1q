@@ -12,10 +12,20 @@
 namespace sar {
 namespace {
 
-bool HasDiagnosticContaining(const session::SarCycleResult& result, const std::string& code,
+bool HasIssueContaining(const session::SarCycleResult& result, const std::string& code,
                              const std::string& text) {
-  for (const session::SarDiagnosticIssue& diagnostic : result.diagnostics) {
+  for (const session::SarIssue& diagnostic : result.issues) {
     if (diagnostic.code == code && diagnostic.message.find(text) != std::string::npos) {
+      return true;
+    }
+  }
+  return false;
+}
+
+// 统一问题列表模型（规则 14）：可推导字段 has_error 已删除，遍历 issues 判定。
+bool HasErrorIssue(const session::SarCycleResult& result) {
+  for (const session::SarIssue& issue : result.issues) {
+    if (issue.severity == session::SarIssueSeverity::kError) {
       return true;
     }
   }
@@ -126,7 +136,7 @@ TEST(SarSessionPipelineTest, StepWithResultRunsRawRangeAndRdaPipeline) {
   const session::SarCycleResult result = session.StepWithResult(MakeInput());
 
   EXPECT_TRUE(result.executed_this_cycle);
-  EXPECT_FALSE(result.has_error);
+  EXPECT_FALSE(HasErrorIssue(result));
   EXPECT_TRUE(result.output_frame.has_raw_echo);
   EXPECT_TRUE(result.output_frame.has_range_compressed_echo);
   EXPECT_TRUE(result.output_frame.has_l1_image);
@@ -153,21 +163,21 @@ TEST(SarSessionPipelineTest, StepWithResultRunsRawRangeAndRdaPipeline) {
   EXPECT_EQ(result.focused_image.imaginary_values.size(), 9U * 64U);
   EXPECT_FALSE(result.focused_image.is_placeholder);
   EXPECT_TRUE(HasNonZeroFocusedPixel(result.focused_image));
-  EXPECT_FALSE(result.diagnostics.empty());
-  EXPECT_TRUE(HasDiagnosticContaining(result, "sar.rda_peak", "image_entropy_nats="));
-  EXPECT_TRUE(HasDiagnosticContaining(result, "sar.rda_peak", "image_contrast="));
-  EXPECT_TRUE(HasDiagnosticContaining(result, "sar.rda_peak", "phase_reference_mode="));
-  EXPECT_TRUE(HasDiagnosticContaining(result, "sar.rda_peak", "phase_reference_applied=1"));
-  EXPECT_TRUE(HasDiagnosticContaining(result, "sar.rda_peak", "range_width_3db_bins="));
-  EXPECT_TRUE(HasDiagnosticContaining(result, "sar.rda_peak", "azimuth_width_3db_bins="));
-  EXPECT_TRUE(HasDiagnosticContaining(result, "sar.rda_peak", "range_resolution_3db_m="));
-  EXPECT_TRUE(HasDiagnosticContaining(result, "sar.rda_peak", "azimuth_resolution_3db_m="));
-  EXPECT_TRUE(HasDiagnosticContaining(result, "sar.rda_peak", "azimuth_sample_spacing_m="));
+  EXPECT_FALSE(result.issues.empty());
+  EXPECT_TRUE(HasIssueContaining(result, "sar.rda_peak", "image_entropy_nats="));
+  EXPECT_TRUE(HasIssueContaining(result, "sar.rda_peak", "image_contrast="));
+  EXPECT_TRUE(HasIssueContaining(result, "sar.rda_peak", "phase_reference_mode="));
+  EXPECT_TRUE(HasIssueContaining(result, "sar.rda_peak", "phase_reference_applied=1"));
+  EXPECT_TRUE(HasIssueContaining(result, "sar.rda_peak", "range_width_3db_bins="));
+  EXPECT_TRUE(HasIssueContaining(result, "sar.rda_peak", "azimuth_width_3db_bins="));
+  EXPECT_TRUE(HasIssueContaining(result, "sar.rda_peak", "range_resolution_3db_m="));
+  EXPECT_TRUE(HasIssueContaining(result, "sar.rda_peak", "azimuth_resolution_3db_m="));
+  EXPECT_TRUE(HasIssueContaining(result, "sar.rda_peak", "azimuth_sample_spacing_m="));
   EXPECT_TRUE(
-      HasDiagnosticContaining(result, "sar.rda_peak", "azimuth_phase_curvature_rad_per_pulse2="));
-  EXPECT_TRUE(HasDiagnosticContaining(result, "sar.rda_peak", "azimuth_quadratic_phase_span_rad="));
-  EXPECT_TRUE(HasDiagnosticContaining(result, "sar.rda_peak", "max_geometric_doppler_hz="));
-  EXPECT_TRUE(HasDiagnosticContaining(result, "sar.rda_peak", "doppler_nyquist_margin="));
+      HasIssueContaining(result, "sar.rda_peak", "azimuth_phase_curvature_rad_per_pulse2="));
+  EXPECT_TRUE(HasIssueContaining(result, "sar.rda_peak", "azimuth_quadratic_phase_span_rad="));
+  EXPECT_TRUE(HasIssueContaining(result, "sar.rda_peak", "max_geometric_doppler_hz="));
+  EXPECT_TRUE(HasIssueContaining(result, "sar.rda_peak", "doppler_nyquist_margin="));
   EXPECT_EQ(result.raw_phase_history.source, session::SarRawPhaseHistorySource::kNone);
   EXPECT_TRUE(result.raw_phase_history.i_values.empty());
   EXPECT_TRUE(result.raw_phase_history.q_values.empty());
@@ -175,7 +185,7 @@ TEST(SarSessionPipelineTest, StepWithResultRunsRawRangeAndRdaPipeline) {
 
 TEST(SarSessionPipelineTest, PoweredOffCycleShortCircuitsWithEmptyFrame) {
   // 电源关闭（COMMON-OQ-4 顶层 sensor_enabled）：管线短路，输出默认空帧，
-  // 关机不是错误（has_error=false），与执行失败/校验拒绝区分。
+  // 关机是合法非执行状态（status=kPoweredOff），与执行失败/校验拒绝区分。
   config::SarSessionConfig config = MakeSmallRdaConfig();
   config.sensor_enabled = false;
   session::SarSession session = session::SarSession::Create(config);
@@ -185,7 +195,6 @@ TEST(SarSessionPipelineTest, PoweredOffCycleShortCircuitsWithEmptyFrame) {
   EXPECT_EQ(result.status, session::SarCycleStatus::kPoweredOff);
   EXPECT_EQ(result.abort_reason, session::SarPipelineAbortReason::kSensorPoweredOff);
   EXPECT_FALSE(result.executed_this_cycle);
-  EXPECT_FALSE(result.has_error);
   // 严格默认空帧：元数据未写入（controller 在元数据写入前短路）。
   EXPECT_EQ(result.output_frame.cycle_index, 0U);
   EXPECT_EQ(result.output_frame.range_sample_count, 0U);
@@ -214,7 +223,7 @@ TEST(SarSessionPipelineTest, PowerOffPatchThenReenabledResumesExecution) {
   const session::SarCycleResult resumed = session.StepWithResult(MakeInput());
   EXPECT_EQ(resumed.status, session::SarCycleStatus::kCompleted);
   EXPECT_TRUE(resumed.executed_this_cycle);
-  EXPECT_FALSE(resumed.has_error);
+  EXPECT_FALSE(HasErrorIssue(resumed));
   EXPECT_TRUE(resumed.output_frame.has_raw_echo);
 }
 
@@ -297,10 +306,10 @@ TEST(SarSessionPipelineTest, ProductDebugViewCarriesProductAndTargetLabels) {
   result.output_frame.range_sample_count = 64U;
   result.output_frame.azimuth_pulse_count = 9U;
   result.focused_image.real_values.push_back(1.0);
-  session::SarDiagnosticIssue diagnostic;
-  diagnostic.code = "sar.test";
-  diagnostic.message = "debug";
-  result.diagnostics.push_back(diagnostic);
+  session::SarIssue issue;
+  issue.code = "sar.test";
+  issue.message = "debug";
+  result.issues.push_back(issue);
 
   const session::SarProductDebugView view =
       session::SarProductDebugViewBuilder::Build(input, result);
@@ -313,8 +322,8 @@ TEST(SarSessionPipelineTest, ProductDebugViewCarriesProductAndTargetLabels) {
   ASSERT_EQ(view.point_targets.size(), 1U);
   EXPECT_EQ(view.point_targets.front().target_id, 701U);
   EXPECT_EQ(view.point_targets.front().target_name, "sar-debug-point");
-  ASSERT_EQ(view.diagnostics.size(), 1U);
-  EXPECT_EQ(view.diagnostics.front().code, "sar.test");
+  ASSERT_EQ(view.issues.size(), 1U);
+  EXPECT_EQ(view.issues.front().code, "sar.test");
 }
 
 TEST(SarSessionPipelineTest, ProductLifecycleRecorderTracksProducedUpdatedLostAndFailure) {
@@ -350,7 +359,7 @@ TEST(SarSessionPipelineTest, ProductLifecycleRecorderTracksProducedUpdatedLostAn
   session::SarCycleResult failed;
   failed.input_cycle_index = 4U;
   failed.executed_this_cycle = false;
-  failed.has_error = true;
+  failed.status = session::SarCycleStatus::kRejectedExecution;
   failed.abort_reason = session::SarPipelineAbortReason::kPipelineExecutionFailed;
   events = recorder.Update(failed);
   EXPECT_TRUE(events.empty());
@@ -377,7 +386,7 @@ TEST(SarSessionPipelineTest, ProductLifecycleRecorderPreservesStateAcrossNonExec
             session::SarProductLifecycleEventKind::kImageProduced);
   session::SarCycleResult rejected;
   rejected.input_cycle_index = 2U;
-  rejected.has_error = true;
+  rejected.status = session::SarCycleStatus::kRejectedInvalidInput;
   EXPECT_TRUE(recorder.Update(rejected).empty());
   produced.input_cycle_index = 3U;
   const std::vector<session::SarProductLifecycleEvent> recovered = recorder.Update(produced);
@@ -393,7 +402,7 @@ TEST(SarSessionPipelineTest, RetainFocusedImageFalseProducesPlaceholder) {
   const session::SarCycleResult result = session.StepWithResult(MakeInput());
 
   EXPECT_TRUE(result.executed_this_cycle);
-  EXPECT_FALSE(result.has_error);
+  EXPECT_FALSE(HasErrorIssue(result));
   EXPECT_TRUE(result.output_frame.has_l1_image);
   // 元数据仍完整，但像素数据被跳过。
   EXPECT_EQ(result.focused_image.source, session::SarFocusedImageSource::kL1Rda);
@@ -412,7 +421,7 @@ TEST(SarSessionPipelineTest, RetainFocusedImageFalseAppliesToL3Bp) {
   const session::SarCycleResult result = session.StepWithResult(MakeInput());
 
   EXPECT_TRUE(result.executed_this_cycle);
-  EXPECT_FALSE(result.has_error);
+  EXPECT_FALSE(HasErrorIssue(result));
   EXPECT_TRUE(result.output_frame.has_l3_bp_image);
   EXPECT_EQ(result.focused_image.source, session::SarFocusedImageSource::kL3Bp);
   EXPECT_TRUE(result.focused_image.is_placeholder);
@@ -427,8 +436,8 @@ TEST(SarSessionPipelineTest, DiagnosticsDisabledSuppressesNonErrorDiagnostics) {
   const session::SarCycleResult result = session.StepWithResult(MakeInput());
 
   EXPECT_TRUE(result.executed_this_cycle);
-  EXPECT_FALSE(result.has_error);
-  EXPECT_TRUE(result.diagnostics.empty());
+  EXPECT_FALSE(HasErrorIssue(result));
+  EXPECT_TRUE(result.issues.empty());
   EXPECT_TRUE(result.output_frame.has_l1_image);
 }
 
@@ -440,12 +449,12 @@ TEST(SarSessionPipelineTest, MinValidSnrRejectsApertureBelowThreshold) {
   const session::SarCycleResult result = session.StepWithResult(MakeInput());
 
   EXPECT_FALSE(result.executed_this_cycle);
-  EXPECT_TRUE(result.has_error);
+  EXPECT_TRUE(HasErrorIssue(result));
   EXPECT_EQ(result.abort_reason, session::SarPipelineAbortReason::kPipelineExecutionFailed);
   EXPECT_TRUE(result.output_frame.has_raw_echo);
   EXPECT_FALSE(result.output_frame.has_l1_image);
   EXPECT_LT(result.output_frame.estimated_snr_db, config.policy.minimum_snr_db);
-  EXPECT_TRUE(HasDiagnosticContaining(result, "sar.snr_below_minimum", "below"));
+  EXPECT_TRUE(HasIssueContaining(result, "sar.snr_below_minimum", "below"));
 }
 
 TEST(SarSessionPipelineTest, HardwareLinkBudgetControlsInternalRawEchoSnr) {
@@ -534,10 +543,10 @@ TEST(SarSessionPipelineTest, ExternalRawIqDoesNotReapplyHardwareOrSnrGate) {
   const session::SarCycleResult result = session.StepWithResult(MakeExternalRawIqInput());
 
   EXPECT_TRUE(result.executed_this_cycle);
-  EXPECT_FALSE(result.has_error);
+  EXPECT_FALSE(HasErrorIssue(result));
   EXPECT_EQ(result.output_frame.estimated_snr_db,
             -std::numeric_limits<double>::infinity());
-  EXPECT_TRUE(HasDiagnosticContaining(result, "sar.external_raw_iq_snr_unavailable",
+  EXPECT_TRUE(HasIssueContaining(result, "sar.external_raw_iq_snr_unavailable",
                                       "not reapplied"));
 }
 
@@ -549,7 +558,7 @@ TEST(SarSessionPipelineTest, InvalidHardwareLinkBudgetFailsBeforeRawEcho) {
   const session::SarCycleResult result = session.StepWithResult(MakeInput());
 
   EXPECT_FALSE(result.executed_this_cycle);
-  EXPECT_TRUE(result.has_error);
+  EXPECT_TRUE(HasErrorIssue(result));
   EXPECT_EQ(result.abort_reason, session::SarPipelineAbortReason::kValidationRejected);
   EXPECT_FALSE(result.output_frame.has_raw_echo);
 }
@@ -563,7 +572,7 @@ TEST(SarSessionPipelineTest, EmptySceneDoesNotTripMinSnrGate) {
   const session::SarCycleResult result = session.StepWithResult(input);
 
   EXPECT_TRUE(result.executed_this_cycle);
-  EXPECT_FALSE(result.has_error);
+  EXPECT_FALSE(HasErrorIssue(result));
   EXPECT_TRUE(result.output_frame.has_raw_echo);
   EXPECT_TRUE(result.output_frame.has_l1_image);
   EXPECT_EQ(result.output_frame.estimated_snr_db, -std::numeric_limits<double>::infinity());
@@ -575,13 +584,13 @@ TEST(SarSessionPipelineTest, RawPulseHistoryUsesCrossCycleRingBuffer) {
   const session::SarCycleResult first = session.StepWithResult(MakeInput(1U));
   ASSERT_TRUE(first.executed_this_cycle);
   EXPECT_TRUE(first.output_frame.has_l1_image);
-  EXPECT_TRUE(HasDiagnosticContaining(first, "sar.pulse_ring_buffer", "generated=9"));
+  EXPECT_TRUE(HasIssueContaining(first, "sar.pulse_ring_buffer", "generated=9"));
 
   const session::SarCycleResult second = session.StepWithResult(MakeInput(2U));
   EXPECT_TRUE(second.executed_this_cycle);
   EXPECT_TRUE(second.output_frame.has_l1_image);
-  EXPECT_TRUE(HasDiagnosticContaining(second, "sar.pulse_ring_buffer", "generated=2"));
-  EXPECT_TRUE(HasDiagnosticContaining(second, "sar.pulse_ring_buffer", "overflow=true"));
+  EXPECT_TRUE(HasIssueContaining(second, "sar.pulse_ring_buffer", "generated=2"));
+  EXPECT_TRUE(HasIssueContaining(second, "sar.pulse_ring_buffer", "overflow=true"));
 }
 
 TEST(SarSessionPipelineTest, ExternalRawIqRunsL1RdaAndReturnsFocusedImage) {
@@ -590,13 +599,13 @@ TEST(SarSessionPipelineTest, ExternalRawIqRunsL1RdaAndReturnsFocusedImage) {
   const session::SarCycleResult result = session.StepWithResult(MakeExternalRawIqInput());
 
   EXPECT_TRUE(result.executed_this_cycle);
-  EXPECT_FALSE(result.has_error);
+  EXPECT_FALSE(HasErrorIssue(result));
   EXPECT_TRUE(result.output_frame.has_raw_echo);
   EXPECT_TRUE(result.output_frame.has_l1_image);
   EXPECT_EQ(result.focused_image.source, session::SarFocusedImageSource::kL1Rda);
   EXPECT_TRUE(HasNonZeroFocusedPixel(result.focused_image));
-  EXPECT_TRUE(HasDiagnosticContaining(result, "sar.external_raw_iq", "pulses=9"));
-  EXPECT_FALSE(HasDiagnosticContaining(result, "sar.pulse_ring_buffer", ""));
+  EXPECT_TRUE(HasIssueContaining(result, "sar.external_raw_iq", "pulses=9"));
+  EXPECT_FALSE(HasIssueContaining(result, "sar.pulse_ring_buffer", ""));
 }
 
 TEST(SarSessionPipelineTest, TraceSessionWithoutReplayWriterAcceptsExternalRawIq) {
@@ -605,7 +614,7 @@ TEST(SarSessionPipelineTest, TraceSessionWithoutReplayWriterAcceptsExternalRawIq
   const session::SarCycleResult result = session.StepWithResult(MakeExternalRawIqInput());
 
   EXPECT_TRUE(result.executed_this_cycle);
-  EXPECT_FALSE(result.has_error);
+  EXPECT_FALSE(HasErrorIssue(result));
   EXPECT_TRUE(result.output_frame.has_l1_image);
   EXPECT_EQ(result.focused_image.source, session::SarFocusedImageSource::kL1Rda);
 }
@@ -654,12 +663,12 @@ TEST(SarSessionPipelineTest, ExternalRawIqWithPulseStatesRunsL3Bp) {
       session.StepWithResult(MakeExternalRawIqInputWithTrajectory());
 
   EXPECT_TRUE(result.executed_this_cycle);
-  EXPECT_FALSE(result.has_error);
+  EXPECT_FALSE(HasErrorIssue(result));
   EXPECT_TRUE(result.output_frame.has_l3_bp_image);
   EXPECT_EQ(result.focused_image.source, session::SarFocusedImageSource::kL3Bp);
   EXPECT_TRUE(HasNonZeroFocusedPixel(result.focused_image));
-  EXPECT_TRUE(HasDiagnosticContaining(result, "sar.external_raw_iq", "pulses=9"));
-  EXPECT_FALSE(HasDiagnosticContaining(result, "sar.l3_trajectory", ""));
+  EXPECT_TRUE(HasIssueContaining(result, "sar.external_raw_iq", "pulses=9"));
+  EXPECT_FALSE(HasIssueContaining(result, "sar.l3_trajectory", ""));
 }
 
 TEST(SarSessionPipelineTest, ExternalRawIqL1ExplicitlyIgnoresPulseStates) {
@@ -669,9 +678,9 @@ TEST(SarSessionPipelineTest, ExternalRawIqL1ExplicitlyIgnoresPulseStates) {
       session.StepWithResult(MakeExternalRawIqInputWithTrajectory());
 
   EXPECT_TRUE(result.executed_this_cycle);
-  EXPECT_FALSE(result.has_error);
+  EXPECT_FALSE(HasErrorIssue(result));
   EXPECT_TRUE(result.output_frame.has_l1_image);
-  EXPECT_TRUE(HasDiagnosticContaining(result, "sar.external_raw_iq_trajectory_ignored", ""));
+  EXPECT_TRUE(HasIssueContaining(result, "sar.external_raw_iq_trajectory_ignored", ""));
 }
 
 TEST(SarSessionPipelineTest, ExternalRawIqDualTrajectoryRunsL2MotionCompensation) {
@@ -684,11 +693,11 @@ TEST(SarSessionPipelineTest, ExternalRawIqDualTrajectoryRunsL2MotionCompensation
       session.StepWithResult(MakeExternalRawIqInputWithDualTrajectory());
 
   EXPECT_TRUE(result.executed_this_cycle);
-  EXPECT_FALSE(result.has_error);
+  EXPECT_FALSE(HasErrorIssue(result));
   EXPECT_TRUE(result.output_frame.has_l1_image);
   EXPECT_EQ(result.focused_image.source, session::SarFocusedImageSource::kL1Rda);
-  EXPECT_TRUE(HasDiagnosticContaining(result, "sar.motion_compensation", "max_abs_range_error_m="));
-  EXPECT_FALSE(HasDiagnosticContaining(result, "sar.external_raw_iq_trajectory_ignored", ""));
+  EXPECT_TRUE(HasIssueContaining(result, "sar.motion_compensation", "max_abs_range_error_m="));
+  EXPECT_FALSE(HasIssueContaining(result, "sar.external_raw_iq_trajectory_ignored", ""));
 }
 
 TEST(SarSessionPipelineTest, ExternalRawIqL2RejectsMissingOrInvalidIdealTrajectory) {
@@ -722,8 +731,8 @@ TEST(SarSessionPipelineTest, ExternalRawIqBpRejectsMissingOrInvalidTrajectory) {
   const session::SarCycleResult invalid_result = invalid_session.StepWithResult(invalid);
   EXPECT_FALSE(invalid_result.executed_this_cycle);
   EXPECT_EQ(invalid_result.abort_reason, session::SarPipelineAbortReason::kValidationRejected);
-  EXPECT_TRUE(HasDiagnosticContaining(invalid_result, "sar.invalid_cycle_input",
-                                      "raw_iq.pulse_states"));
+  EXPECT_TRUE(HasIssueContaining(invalid_result, "sar.validation.invalid_pulse_sequence",
+                                 "contiguous"));
 
   session::SarCycleInput non_finite = MakeExternalRawIqInputWithTrajectory();
   non_finite.raw_iq.pulse_states[0].position_y_m = std::numeric_limits<double>::infinity();
@@ -732,8 +741,8 @@ TEST(SarSessionPipelineTest, ExternalRawIqBpRejectsMissingOrInvalidTrajectory) {
   const session::SarCycleResult non_finite_result = non_finite_session.StepWithResult(non_finite);
   EXPECT_FALSE(non_finite_result.executed_this_cycle);
   EXPECT_EQ(non_finite_result.abort_reason, session::SarPipelineAbortReason::kValidationRejected);
-  EXPECT_TRUE(HasDiagnosticContaining(non_finite_result, "sar.invalid_cycle_input",
-                                      "raw_iq.pulse_states"));
+  EXPECT_TRUE(HasIssueContaining(non_finite_result, "sar.validation.non_finite_pulse_field",
+                                 "non-finite"));
 }
 
 TEST(SarSessionPipelineTest, RuntimeSizeGateRejectsUnapprovedLargeRda) {
@@ -745,7 +754,7 @@ TEST(SarSessionPipelineTest, RuntimeSizeGateRejectsUnapprovedLargeRda) {
   const session::SarCycleResult result = session.StepWithResult(MakeInput());
 
   EXPECT_FALSE(result.executed_this_cycle);
-  EXPECT_TRUE(result.has_error);
+  EXPECT_TRUE(HasErrorIssue(result));
   EXPECT_EQ(result.abort_reason, session::SarPipelineAbortReason::kValidationRejected);
   EXPECT_FALSE(result.output_frame.has_l1_image);
 }
@@ -757,7 +766,7 @@ TEST(SarSessionPipelineTest, RdaRequiresRawEcho) {
       session::SarSession::Create(config).StepWithResult(MakeInput());
 
   EXPECT_FALSE(result.executed_this_cycle);
-  EXPECT_TRUE(result.has_error);
+  EXPECT_TRUE(HasErrorIssue(result));
   EXPECT_EQ(result.abort_reason, session::SarPipelineAbortReason::kValidationRejected);
   EXPECT_FALSE(result.output_frame.has_range_compressed_echo);
   EXPECT_FALSE(result.output_frame.has_l1_image);
@@ -790,8 +799,8 @@ TEST(SarSessionPipelineTest, L2MotionCompensationIsDefaultOffAndRunsWhenExplicit
   session::SarSession l1_session = session::SarSession::Create(l1_config);
   const session::SarCycleResult l1_result = l1_session.StepWithResult(MakeInput());
   ASSERT_TRUE(l1_result.executed_this_cycle);
-  EXPECT_FALSE(HasDiagnosticContaining(l1_result, "sar.l2_trajectory", ""));
-  EXPECT_FALSE(HasDiagnosticContaining(l1_result, "sar.motion_compensation", ""));
+  EXPECT_FALSE(HasIssueContaining(l1_result, "sar.l2_trajectory", ""));
+  EXPECT_FALSE(HasIssueContaining(l1_result, "sar.motion_compensation", ""));
 
   config::SarSessionConfig l2_config = MakeSmallRdaConfig();
   l2_config.policy.enable_l2_motion_compensation = true;
@@ -802,11 +811,11 @@ TEST(SarSessionPipelineTest, L2MotionCompensationIsDefaultOffAndRunsWhenExplicit
   const session::SarCycleResult l2_result = l2_session.StepWithResult(MakeInput());
 
   EXPECT_TRUE(l2_result.executed_this_cycle);
-  EXPECT_FALSE(l2_result.has_error);
+  EXPECT_FALSE(HasErrorIssue(l2_result));
   EXPECT_TRUE(l2_result.output_frame.has_l1_image);
-  EXPECT_TRUE(HasDiagnosticContaining(l2_result, "sar.l2_trajectory", "max_position_error_m="));
+  EXPECT_TRUE(HasIssueContaining(l2_result, "sar.l2_trajectory", "max_position_error_m="));
   EXPECT_TRUE(
-      HasDiagnosticContaining(l2_result, "sar.motion_compensation", "max_abs_range_error_m="));
+      HasIssueContaining(l2_result, "sar.motion_compensation", "max_abs_range_error_m="));
 }
 
 TEST(SarSessionPipelineTest, ZeroPerturbationL2StrictlyDegradesToL1Trajectory) {
@@ -821,7 +830,7 @@ TEST(SarSessionPipelineTest, ZeroPerturbationL2StrictlyDegradesToL1Trajectory) {
   const session::SarCycleResult result = session.StepWithResult(MakeInput());
 
   ASSERT_TRUE(result.executed_this_cycle);
-  EXPECT_FALSE(result.has_error);
+  EXPECT_FALSE(HasErrorIssue(result));
   EXPECT_TRUE(result.output_frame.has_l1_image);
   EXPECT_EQ(result.output_frame.cycle_index, l1_result.output_frame.cycle_index);
   EXPECT_EQ(result.output_frame.completed_stage, l1_result.output_frame.completed_stage);
@@ -834,13 +843,13 @@ TEST(SarSessionPipelineTest, ZeroPerturbationL2StrictlyDegradesToL1Trajectory) {
             l1_result.output_frame.has_range_compressed_echo);
   EXPECT_EQ(result.output_frame.has_l1_image, l1_result.output_frame.has_l1_image);
   EXPECT_TRUE(
-      HasDiagnosticContaining(result, "sar.l2_trajectory", "max_position_error_m=0.000000"));
+      HasIssueContaining(result, "sar.l2_trajectory", "max_position_error_m=0.000000"));
   EXPECT_TRUE(
-      HasDiagnosticContaining(result, "sar.l2_trajectory", "rms_position_error_m=0.000000"));
+      HasIssueContaining(result, "sar.l2_trajectory", "rms_position_error_m=0.000000"));
   EXPECT_TRUE(
-      HasDiagnosticContaining(result, "sar.motion_compensation", "max_abs_range_error_m=0.000000"));
+      HasIssueContaining(result, "sar.motion_compensation", "max_abs_range_error_m=0.000000"));
   EXPECT_TRUE(
-      HasDiagnosticContaining(result, "sar.motion_compensation", "rms_range_error_m=0.000000"));
+      HasIssueContaining(result, "sar.motion_compensation", "rms_range_error_m=0.000000"));
 }
 
 TEST(SarSessionPipelineTest, L2TrajectoryHistoryRemainsAlignedAcrossCycles) {
@@ -853,18 +862,18 @@ TEST(SarSessionPipelineTest, L2TrajectoryHistoryRemainsAlignedAcrossCycles) {
 
   const session::SarCycleResult first = session.StepWithResult(MakeInput(1U));
   ASSERT_TRUE(first.executed_this_cycle);
-  EXPECT_FALSE(first.has_error);
-  EXPECT_TRUE(HasDiagnosticContaining(first, "sar.pulse_ring_buffer", "generated=9"));
-  EXPECT_TRUE(HasDiagnosticContaining(first, "sar.motion_compensation", ""));
+  EXPECT_FALSE(HasErrorIssue(first));
+  EXPECT_TRUE(HasIssueContaining(first, "sar.pulse_ring_buffer", "generated=9"));
+  EXPECT_TRUE(HasIssueContaining(first, "sar.motion_compensation", ""));
 
   const session::SarCycleResult second = session.StepWithResult(MakeInput(2U));
   EXPECT_TRUE(second.executed_this_cycle);
-  EXPECT_FALSE(second.has_error);
+  EXPECT_FALSE(HasErrorIssue(second));
   EXPECT_TRUE(second.output_frame.has_l1_image);
-  EXPECT_TRUE(HasDiagnosticContaining(second, "sar.pulse_ring_buffer", "generated=2"));
-  EXPECT_TRUE(HasDiagnosticContaining(second, "sar.pulse_ring_buffer", "overflow=true"));
-  EXPECT_TRUE(HasDiagnosticContaining(second, "sar.l2_trajectory", "max_position_error_m="));
-  EXPECT_TRUE(HasDiagnosticContaining(second, "sar.motion_compensation", "max_abs_range_error_m="));
+  EXPECT_TRUE(HasIssueContaining(second, "sar.pulse_ring_buffer", "generated=2"));
+  EXPECT_TRUE(HasIssueContaining(second, "sar.pulse_ring_buffer", "overflow=true"));
+  EXPECT_TRUE(HasIssueContaining(second, "sar.l2_trajectory", "max_position_error_m="));
+  EXPECT_TRUE(HasIssueContaining(second, "sar.motion_compensation", "max_abs_range_error_m="));
 }
 
 TEST(SarSessionPipelineTest, L2MotionCompensationRequiresRawEchoAndRda) {
@@ -876,7 +885,7 @@ TEST(SarSessionPipelineTest, L2MotionCompensationRequiresRawEchoAndRda) {
   const session::SarCycleResult result = session.StepWithResult(MakeInput());
 
   EXPECT_FALSE(result.executed_this_cycle);
-  EXPECT_TRUE(result.has_error);
+  EXPECT_TRUE(HasErrorIssue(result));
   EXPECT_EQ(result.abort_reason, session::SarPipelineAbortReason::kValidationRejected);
 }
 
@@ -886,7 +895,7 @@ TEST(SarSessionPipelineTest, L3BpRunsOnlyWhenExplicitlyEnabled) {
   const session::SarCycleResult result = session.StepWithResult(MakeInput());
 
   EXPECT_TRUE(result.executed_this_cycle);
-  EXPECT_FALSE(result.has_error);
+  EXPECT_FALSE(HasErrorIssue(result));
   EXPECT_TRUE(result.output_frame.has_raw_echo);
   EXPECT_TRUE(result.output_frame.has_range_compressed_echo);
   EXPECT_FALSE(result.output_frame.has_l1_image);
@@ -909,9 +918,9 @@ TEST(SarSessionPipelineTest, L3BpRunsOnlyWhenExplicitlyEnabled) {
   EXPECT_EQ(result.focused_image.imaginary_values.size(), 9U * 64U);
   EXPECT_FALSE(result.focused_image.is_placeholder);
   EXPECT_TRUE(HasNonZeroFocusedPixel(result.focused_image));
-  EXPECT_TRUE(HasDiagnosticContaining(result, "sar.l3_trajectory", "generated=9"));
-  EXPECT_TRUE(HasDiagnosticContaining(result, "sar.bp_peak", "peak_row="));
-  EXPECT_TRUE(HasDiagnosticContaining(result, "sar.bp_traversal", "pulse_major"));
+  EXPECT_TRUE(HasIssueContaining(result, "sar.l3_trajectory", "generated=9"));
+  EXPECT_TRUE(HasIssueContaining(result, "sar.bp_peak", "peak_row="));
+  EXPECT_TRUE(HasIssueContaining(result, "sar.bp_traversal", "pulse_major"));
 }
 
 TEST(SarSessionPipelineTest, L3BpRejectsMutualExclusionAndSizeViolations) {
@@ -963,20 +972,20 @@ TEST(SarSessionPipelineTest, L3BpTrajectoryHistoryRemainsAlignedAcrossCycles) {
 
   const session::SarCycleResult first = session.StepWithResult(MakeInput(1U));
   ASSERT_TRUE(first.executed_this_cycle);
-  ASSERT_FALSE(first.has_error);
+  ASSERT_FALSE(HasErrorIssue(first));
   EXPECT_TRUE(first.output_frame.has_l3_bp_image);
-  EXPECT_TRUE(HasDiagnosticContaining(first, "sar.l3_trajectory", "generated=9"));
-  EXPECT_TRUE(HasDiagnosticContaining(first, "sar.l3_trajectory", "last_time_s=0.400000"));
+  EXPECT_TRUE(HasIssueContaining(first, "sar.l3_trajectory", "generated=9"));
+  EXPECT_TRUE(HasIssueContaining(first, "sar.l3_trajectory", "last_time_s=0.400000"));
 
   const session::SarCycleResult second = session.StepWithResult(MakeInput(2U));
   EXPECT_TRUE(second.executed_this_cycle);
-  EXPECT_FALSE(second.has_error);
+  EXPECT_FALSE(HasErrorIssue(second));
   EXPECT_TRUE(second.output_frame.has_l3_bp_image);
-  EXPECT_TRUE(HasDiagnosticContaining(second, "sar.pulse_ring_buffer", "generated=2"));
-  EXPECT_TRUE(HasDiagnosticContaining(second, "sar.pulse_ring_buffer", "overflow=true"));
-  EXPECT_TRUE(HasDiagnosticContaining(second, "sar.l3_trajectory", "first_time_s=0.450000"));
-  EXPECT_TRUE(HasDiagnosticContaining(second, "sar.l3_trajectory", "last_time_s=0.500000"));
-  EXPECT_TRUE(HasDiagnosticContaining(second, "sar.bp_traversal", "pulse_major"));
+  EXPECT_TRUE(HasIssueContaining(second, "sar.pulse_ring_buffer", "generated=2"));
+  EXPECT_TRUE(HasIssueContaining(second, "sar.pulse_ring_buffer", "overflow=true"));
+  EXPECT_TRUE(HasIssueContaining(second, "sar.l3_trajectory", "first_time_s=0.450000"));
+  EXPECT_TRUE(HasIssueContaining(second, "sar.l3_trajectory", "last_time_s=0.500000"));
+  EXPECT_TRUE(HasIssueContaining(second, "sar.bp_traversal", "pulse_major"));
 }
 
 TEST(SarSessionPipelineTest, L3BpRejectsWaypointCoverageGap) {
@@ -988,7 +997,7 @@ TEST(SarSessionPipelineTest, L3BpRejectsWaypointCoverageGap) {
   const session::SarCycleResult result = session.StepWithResult(MakeInput());
 
   EXPECT_FALSE(result.executed_this_cycle);
-  EXPECT_TRUE(result.has_error);
+  EXPECT_TRUE(HasErrorIssue(result));
   EXPECT_EQ(result.abort_reason, session::SarPipelineAbortReason::kPipelineExecutionFailed);
 }
 
@@ -1002,7 +1011,7 @@ TEST(SarSessionPipelineTest, InvalidCycleReturnsEmptyOutputNotReused) {
   const session::SarCycleResult second = session.StepWithResult(invalid);
 
   EXPECT_FALSE(second.executed_this_cycle);
-  EXPECT_TRUE(second.has_error);
+  EXPECT_TRUE(HasErrorIssue(second));
   EXPECT_EQ(second.output_frame.cycle_index, 0U);
   EXPECT_FALSE(second.output_frame.has_l1_image);
   EXPECT_EQ(second.focused_image.source, session::SarFocusedImageSource::kNone);
@@ -1018,10 +1027,11 @@ TEST(SarSessionPipelineTest, InvalidTargetInputAbortsBeforeImaging) {
   const session::SarCycleResult result = session.StepWithResult(input);
 
   EXPECT_FALSE(result.executed_this_cycle);
-  EXPECT_TRUE(result.has_error);
+  EXPECT_TRUE(HasErrorIssue(result));
   EXPECT_EQ(result.abort_reason, session::SarPipelineAbortReason::kValidationRejected);
   EXPECT_FALSE(result.output_frame.has_l1_image);
-  EXPECT_TRUE(HasDiagnosticContaining(result, "sar.invalid_cycle_input", "point_targets"));
+  EXPECT_TRUE(HasIssueContaining(result, "sar.validation.non_finite_target_field",
+                                  "non-finite"));
   EXPECT_EQ(result.focused_image.source, session::SarFocusedImageSource::kNone);
 }
 

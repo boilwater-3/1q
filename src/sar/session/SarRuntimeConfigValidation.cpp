@@ -4,7 +4,9 @@
 #include <cstddef>
 #include <cstdint>
 #include <string>
+#include <utility>
 
+#include "common/logging/ProjectLog.h"
 #include "sar/imaging/SarFocusingSelector.h"
 #include "sar/session/SarDiagnosticUtils.h"
 
@@ -14,6 +16,27 @@ namespace sar {
 namespace session {
 
 namespace {
+
+// 统一问题列表模型（规则 14）：运行期配置校验问题属于输入校验阶段 —— 校验问题
+// 本身就是 error 级诊断（规则 9 写二），不再调用 RecordAbort；三写之三（人读日志）
+// 在此补齐（校验拒绝为调用方输入问题，级别用 WARN，与其它模块校验拒绝一致）。
+void RecordConfigValidationRejection(SarCycleResult* result, const char* detail_code,
+                                     const std::string& message) {
+  result->abort_reason = SarPipelineAbortReason::kValidationRejected;
+  result->status = SarCycleStatus::kRejectedInvalidInput;
+
+  SarIssue issue;
+  issue.severity = SarIssueSeverity::kError;
+  issue.phase = SarIssuePhase::kInputValidation;
+  issue.code = std::string("sar.validation.") + detail_code;
+  issue.message = message;
+  result->issues.push_back(std::move(issue));
+
+  // 中译：SAR 运行期配置校验拒绝（细粒度码 — 消息）。
+  // 标识：三写之三（人读日志）——标识本周期因运行期配置非法而未执行；
+  //       仅用于人读，不用于状态判断（规则 3）。
+  PROJECT_LOG_WARN("SAR runtime config validation rejected: {} — {}", detail_code, message);
+}
 
 bool HasValidL3Waypoints(const config::SarMissionConfig& mission) {
   if (mission.l3_waypoints.size() < 2U) {
@@ -38,7 +61,7 @@ bool ValidateRuntimeConfigForStep(const config::SarSessionConfig& config,
                                   bool has_external_raw_iq,
                                   SarCycleResult* result) {
   if (!session::AreSarHardwareAndMissionFieldsValid(config)) {
-    RecordValidationAbort(result, SarPipelineAbortReason::kValidationRejected, "invalid_config", "SAR runtime config contains invalid hardware/mission fields.");
+    RecordConfigValidationRejection(result, "invalid_config", "SAR runtime config contains invalid hardware/mission fields.");
     return false;
   }
 
@@ -47,7 +70,7 @@ bool ValidateRuntimeConfigForStep(const config::SarSessionConfig& config,
     const std::size_t waveform_samples = static_cast<std::size_t>(
         std::ceil(config.hardware.pulse_width_s * config.hardware.sample_rate_hz));
     if (waveform_samples > config.mission.range_sample_count) {
-      RecordValidationAbort(result, SarPipelineAbortReason::kValidationRejected,
+      RecordConfigValidationRejection(result,
                   "sample_window_too_small_for_pulse",
                   "SAR range sample window (" + std::to_string(config.mission.range_sample_count) +
                       " samples) cannot hold the full LFM pulse (" +
@@ -62,7 +85,7 @@ bool ValidateRuntimeConfigForStep(const config::SarSessionConfig& config,
       imaging::ExceedsFocusingSizeLimit(config.mission.range_sample_count,
                                         config.mission.azimuth_pulse_count,
                                         imaging::kFocusingRdaSizeLimit)) {
-    RecordValidationAbort(result, SarPipelineAbortReason::kValidationRejected,
+    RecordConfigValidationRejection(result,
                 "rda_size_gate",
                 "SAR session RDA size exceeds current Phase 1 runtime gate; use smaller "
                 "validation scenes until performance approval.");
@@ -70,7 +93,7 @@ bool ValidateRuntimeConfigForStep(const config::SarSessionConfig& config,
   }
   if (config.policy.enable_l1_rda_imaging &&
       !config.policy.enable_raw_echo_generation) {
-    RecordValidationAbort(result, SarPipelineAbortReason::kValidationRejected,
+    RecordConfigValidationRejection(result,
                 "rda_requires_raw_echo",
                 "SAR session RDA requires raw echo generation.");
     return false;
@@ -80,7 +103,7 @@ bool ValidateRuntimeConfigForStep(const config::SarSessionConfig& config,
        config.mission.l2_velocity_error_stddev_x_mps < 0.0 ||
        config.mission.l2_velocity_error_stddev_y_mps < 0.0 ||
        config.mission.l2_velocity_error_stddev_z_mps < 0.0)) {
-    RecordValidationAbort(result, SarPipelineAbortReason::kValidationRejected,
+    RecordConfigValidationRejection(result,
                 "invalid_l2_motion_compensation_config",
                 "SAR L2 motion compensation requires raw echo, RDA, and non-negative velocity "
                 "errors.");
@@ -90,7 +113,7 @@ bool ValidateRuntimeConfigForStep(const config::SarSessionConfig& config,
       (!config.policy.enable_raw_echo_generation ||
        config.policy.enable_l1_rda_imaging || config.policy.enable_l2_motion_compensation ||
        (!has_external_raw_iq && !HasValidL3Waypoints(config.mission)))) {
-    RecordValidationAbort(result, SarPipelineAbortReason::kValidationRejected,
+    RecordConfigValidationRejection(result,
                 "invalid_l3_bp_config",
                 "SAR L3 BP requires raw echo, valid waypoints, and no L1/L2 path.");
     return false;
@@ -99,7 +122,7 @@ bool ValidateRuntimeConfigForStep(const config::SarSessionConfig& config,
       imaging::ExceedsFocusingSizeLimit(config.mission.range_sample_count,
                                         config.mission.azimuth_pulse_count,
                                         imaging::kFocusingBackprojectionSizeLimit)) {
-    RecordValidationAbort(result, SarPipelineAbortReason::kValidationRejected,
+    RecordConfigValidationRejection(result,
                 "l3_bp_size_gate",
                 "SAR L3 BP size exceeds the approved 128x128 runtime gate.");
     return false;

@@ -245,7 +245,7 @@ bool GenerateCycleTrajectory(const config::SarSessionConfig& config, const SarCy
       pulse.yaw_deg = input.platform.yaw_deg;
     }
     *ideal_pulses = *actual_pulses;
-    result->diagnostics.push_back(
+    result->issues.push_back(
         MakeInfoDiagnostic(
             "sar.l3_trajectory",
             "SAR L3 waypoint trajectory generated=" + std::to_string(actual_pulses->size()) +
@@ -277,7 +277,7 @@ bool GenerateCycleTrajectory(const config::SarSessionConfig& config, const SarCy
       RecordAbort(result, SarPipelineAbortReason::kPipelineExecutionFailed, "l2_track_generation_failed", "SAR failed to generate L2 trajectory.");
       return false;
     }
-    result->diagnostics.push_back(MakeInfoDiagnostic(
+    result->issues.push_back(MakeInfoDiagnostic(
         "sar.l2_trajectory", "SAR L2 trajectory max_position_error_m=" +
                                  std::to_string(trajectory_diagnostics.max_position_error_m) +
                                  ", rms_position_error_m=" +
@@ -353,7 +353,7 @@ bool BuildExternalRawIqHistory(const config::SarSessionConfig& config, const Sar
   }
   if (config.policy.enable_l1_rda_imaging && !config.policy.enable_l2_motion_compensation &&
       (!input.raw_iq.pulse_states.empty() || !input.raw_iq.ideal_pulse_states.empty())) {
-    result->diagnostics.push_back(MakeInfoDiagnostic(
+    result->issues.push_back(MakeInfoDiagnostic(
         "sar.external_raw_iq_trajectory_ignored",
         "External pulse states are ignored by L1 RDA when L2 motion compensation is disabled."));
   }
@@ -395,7 +395,7 @@ bool BuildExternalRawIqHistory(const config::SarSessionConfig& config, const Sar
     return false;
   }
   *history = std::move(external_history);
-  result->diagnostics.push_back(
+  result->issues.push_back(
       MakeInfoDiagnostic("sar.external_raw_iq",
                          "SAR consumed external complete-aperture raw IQ pulses=" +
                              std::to_string(derived_pulse_count) +
@@ -430,7 +430,7 @@ bool BuildRawPulseHistory(const config::SarSessionConfig& config, const SarCycle
   }
 
   if (pulse_count_to_generate == 0U) {
-    result->diagnostics.push_back(
+    result->issues.push_back(
         MakeInfoDiagnostic("sar.pulse_ring_buffer", "SAR pulse ring buffer reused latest aperture."));
   }
 
@@ -492,7 +492,7 @@ bool BuildRawPulseHistory(const config::SarSessionConfig& config, const SarCycle
             " m mismatches nominal_slant_range_m=" + std::to_string(nominal) + " m (" +
             std::to_string(rel_error * 100.0) + "%); nominal is RDA reference range, not the "
             "echo receive-window gate — check scene geometry vs mission config.";
-        result->diagnostics.push_back(
+        result->issues.push_back(
             MakeWarningDiagnostic("sar.slant_range_mismatch", msg));
       }
     }
@@ -566,7 +566,7 @@ bool BuildRawPulseHistory(const config::SarSessionConfig& config, const SarCycle
                                      " (window too small for pulse width)")
                                   : (" waveform=" + std::to_string(waveform_samples) +
                                      " samples");
-    result->diagnostics.push_back(MakeWarningDiagnostic(
+    result->issues.push_back(MakeWarningDiagnostic(
         "sar.raw_echo_clipping",
         "SAR raw echo clipping observed in " + std::to_string(clipping_count) + " of " +
             std::to_string(actual_pulses.size()) + " pulses;" + ratio +
@@ -598,7 +598,7 @@ bool BuildRawPulseHistory(const config::SarSessionConfig& config, const SarCycle
     }
   }
 
-  result->diagnostics.push_back(
+  result->issues.push_back(
       MakeInfoDiagnostic("sar.pulse_ring_buffer",
                          "SAR pulse ring buffer size=" + std::to_string(pulse_buffer->size()) +
                              ", generated=" + std::to_string(actual_pulses.size()) +

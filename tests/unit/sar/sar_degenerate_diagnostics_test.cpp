@@ -4,7 +4,7 @@
 //   D3: 斜距与标称值严重错配 → 逐目标 kWarning（slant_range_mismatch）
 //   D4: 聚焦图像全零峰值 → kError abort（degenerate_image_peak）
 //
-// 历史背景：SarDiagnosticSeverity::kWarning 虽已定义但全代码库从未被产生过；
+// 历史背景：SarIssueSeverity::kWarning 虽已定义但全代码库从未被产生过；
 // clipping 只产 kInfo；peak_power<=0 时 SNR 返回 -inf 反而绕过低 SNR 门控
 // （isfinite(-inf)=false 短路）。这些测试守护退化不再静默通过。
 
@@ -60,9 +60,9 @@ session::SarCycleInput MakeMatchingGeometryInput(std::uint32_t cycle_index = 1U)
 }
 
 bool HasDiagnosticWithSeverity(const session::SarCycleResult& result,
-                               session::SarDiagnosticSeverity severity,
+                               session::SarIssueSeverity severity,
                                const std::string& code_prefix) {
-  for (const session::SarDiagnosticIssue& issue : result.diagnostics) {
+  for (const session::SarIssue& issue : result.issues) {
     if (issue.severity == severity &&
         issue.code.find(code_prefix) != std::string::npos) {
       return true;
@@ -72,7 +72,7 @@ bool HasDiagnosticWithSeverity(const session::SarCycleResult& result,
 }
 
 bool HasAbortReason(const session::SarCycleResult& result, session::SarPipelineAbortReason reason) {
-  return result.has_error && result.abort_reason == reason;
+  return result.abort_reason == reason;
 }
 
 // =========================================================================
@@ -140,7 +140,7 @@ TEST(SarDegenerateDiagnosticsTest, RawEchoClippingProducesWarning) {
 
   // clip 是 warning 不阻断，周期仍应执行。
   EXPECT_FALSE(HasAbortReason(result, session::SarPipelineAbortReason::kValidationRejected));
-  EXPECT_TRUE(HasDiagnosticWithSeverity(result, session::SarDiagnosticSeverity::kWarning,
+  EXPECT_TRUE(HasDiagnosticWithSeverity(result, session::SarIssueSeverity::kWarning,
                                         "sar.raw_echo_clipping"));
 }
 
@@ -158,7 +158,7 @@ TEST(SarDegenerateDiagnosticsTest, SlantRangeMismatchProducesPerTargetWarning) {
   session::SarSession session = session::SarSession::Create(config);
   const session::SarCycleResult result = session.StepWithResult(input);
 
-  EXPECT_TRUE(HasDiagnosticWithSeverity(result, session::SarDiagnosticSeverity::kWarning,
+  EXPECT_TRUE(HasDiagnosticWithSeverity(result, session::SarIssueSeverity::kWarning,
                                         "sar.slant_range_mismatch"));
 }
 
@@ -167,7 +167,7 @@ TEST(SarDegenerateDiagnosticsTest, MatchingSlantRangeDoesNotProduceMismatchWarni
   session::SarSession session = session::SarSession::Create(MakeBaselineRdaConfig());
   const session::SarCycleResult result = session.StepWithResult(MakeMatchingGeometryInput());
 
-  EXPECT_FALSE(HasDiagnosticWithSeverity(result, session::SarDiagnosticSeverity::kWarning,
+  EXPECT_FALSE(HasDiagnosticWithSeverity(result, session::SarIssueSeverity::kWarning,
                                          "sar.slant_range_mismatch"));
 }
 

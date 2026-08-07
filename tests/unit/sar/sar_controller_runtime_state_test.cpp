@@ -7,6 +7,7 @@
 
 #include <cstdint>
 
+#include "1q/sar/session/SarInputValidation.h"
 #include "sar/pipeline/SarProcessingPipeline.h"
 #include "sar/runtime/SarController.h"
 
@@ -95,7 +96,7 @@ TEST(SarControllerRuntimeStateTest, ValidationRejectReturnsEmptyOutputNotReused)
   const session::SarCycleResult result = controller.BuildCycleResult(invalid_input);
 
   EXPECT_FALSE(result.executed_this_cycle);
-  EXPECT_TRUE(result.has_error);
+  EXPECT_TRUE(session::HasValidationError(result.issues));
   EXPECT_EQ(result.abort_reason, session::SarPipelineAbortReason::kValidationRejected);
   EXPECT_EQ(result.output_frame.cycle_index, 0U);
 }

@@ -156,7 +156,7 @@ TEST(SarReplaySessionTest, ReplaySarTraceRoundtrip) {
     const SarCycleResult result = session.StepWithResult(MakeReplayInput());
     ASSERT_TRUE(result.executed_this_cycle);
     ASSERT_TRUE(result.output_frame.has_l1_image);
-    ASSERT_GE(result.diagnostics.size(), 3U);
+    ASSERT_GE(result.issues.size(), 3U);
     replay_writer->Flush();
   }
 
@@ -218,7 +218,7 @@ TEST(SarReplaySessionTest, ReplayExternalRawIqShapeFailureRoundtrip) {
     malformed.raw_iq.i_values.pop_back();
 
     const SarCycleResult result = session.StepWithResult(malformed);
-    ASSERT_TRUE(result.has_error);
+    ASSERT_EQ(result.status, session::SarCycleStatus::kRejectedInvalidInput);
     ASSERT_EQ(result.abort_reason, SarPipelineAbortReason::kExternalInputRejected);
     replay_writer->Flush();
   }

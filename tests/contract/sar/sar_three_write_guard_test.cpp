@@ -5,7 +5,7 @@
 //
 // 任何 abort 路径（abort_reason 非 kNone）必须同时写：
 //   1) abort_reason（结构化信号）
-//   2) diagnostics（结构化诊断：severity + code + message，code 带模块前缀）
+//   2) issues（结构化诊断：severity + phase + code + message，code 带模块前缀）
 //   3) PROJECT_LOG（人读日志，由统一 RecordAbort 写入；测试不解析日志文本，规则 3）
 // 并保证 status 与 abort 类别一致（validation → kRejectedInvalidInput，
 // execution → kRejectedExecution）。
@@ -22,6 +22,7 @@
 #include "1q/sar/config/SarSessionConfig.h"
 #include "1q/sar/session/SarCycleInput.h"
 #include "1q/sar/session/SarCycleResult.h"
+#include "1q/sar/session/SarInputValidation.h"
 #include "1q/sar/session/SarSession.h"
 
 namespace sar {
@@ -68,17 +69,27 @@ void ExpectThreeWriteAbort(const session::SarCycleResult& result,
 
   // 写二：结构化诊断中至少一条 error 级、code 带模块前缀
   // （info/warning 级伴随诊断合法，三写要求的是 error 级主诊断）。
-  EXPECT_FALSE(result.diagnostics.empty());
+  EXPECT_FALSE(result.issues.empty());
   bool saw_error_diagnostic = false;
-  for (const auto& issue : result.diagnostics) {
+  for (const auto& issue : result.issues) {
     EXPECT_FALSE(issue.code.empty());
     EXPECT_EQ(issue.code.compare(0, 4, "sar."), 0);
-    if (issue.severity == session::SarDiagnosticSeverity::kError) {
+    if (issue.severity == session::SarIssueSeverity::kError) {
       saw_error_diagnostic = true;
     }
   }
   EXPECT_TRUE(saw_error_diagnostic);
   // 写三：人读日志由统一 RecordAbort（PROJECT_LOG_ERROR）保证，测试不解析日志文本（规则 3）。
+}
+
+// 规则 14 断言：校验拒绝时错误条目 phase=kInputValidation；执行中止时 phase=kExecution。
+bool ContainsPhase(const session::SarIssueList& issues, session::SarIssuePhase phase) {
+  for (const auto& issue : issues) {
+    if (issue.phase == phase) {
+      return true;
+    }
+  }
+  return false;
 }
 
 TEST(SarThreeWriteGuardTest, ValidationAbortWritesAllThree) {
@@ -89,6 +100,17 @@ TEST(SarThreeWriteGuardTest, ValidationAbortWritesAllThree) {
   const session::SarCycleResult result = session.StepWithResult(invalid_input);
   ExpectThreeWriteAbort(result, session::SarPipelineAbortReason::kValidationRejected,
                         session::SarCycleStatus::kRejectedInvalidInput);
+  // 规则 14：校验拒绝的问题条目 phase=kInputValidation，code 为 "sar.validation.<snake>"
+  // （校验问题本身就是 error 级诊断，不再有聚合的 "sar.invalid_cycle_input" 条目）。
+  EXPECT_TRUE(ContainsPhase(result.issues, session::SarIssuePhase::kInputValidation));
+  EXPECT_TRUE(session::HasValidationError(result.issues));
+  bool saw_validation_code = false;
+  for (const auto& issue : result.issues) {
+    if (issue.code.compare(0, 15, "sar.validation.") == 0) {
+      saw_validation_code = true;
+    }
+  }
+  EXPECT_TRUE(saw_validation_code);
 }
 
 TEST(SarThreeWriteGuardTest, ExecutionAbortWritesAllThree) {
@@ -99,11 +121,13 @@ TEST(SarThreeWriteGuardTest, ExecutionAbortWritesAllThree) {
   const session::SarCycleResult result = session.StepWithResult(MakeMinimalInput());
   ExpectThreeWriteAbort(result, session::SarPipelineAbortReason::kPipelineExecutionFailed,
                         session::SarCycleStatus::kRejectedExecution);
+  // 规则 14：执行中止的问题条目 phase=kExecution。
+  EXPECT_TRUE(ContainsPhase(result.issues, session::SarIssuePhase::kExecution));
 }
 
 TEST(SarThreeWriteGuardTest, PoweredOffAbortWritesAllThree) {
-  // 电源关机（COMMON-OQ-4 字段提升）：关机是合法非执行状态（status=kPoweredOff、
-  // has_error=false），但 abort 路径同样必须三写（abort_reason + error 级诊断 + 日志）。
+  // 电源关机（COMMON-OQ-4 字段提升）：关机是合法非执行状态（status=kPoweredOff），
+  // 但 abort 路径同样必须三写（abort_reason + error 级诊断 + 日志）。
   session::SarSession session = session::SarSession::Create(MakeMinimalConfig());
   const session::SarCycleResult active = session.StepWithResult(MakeMinimalInput());
   ASSERT_EQ(active.status, session::SarCycleStatus::kCompleted);
@@ -114,7 +138,8 @@ TEST(SarThreeWriteGuardTest, PoweredOffAbortWritesAllThree) {
   const session::SarCycleResult powered_off = session.StepWithResult(MakeMinimalInput());
   ExpectThreeWriteAbort(powered_off, session::SarPipelineAbortReason::kSensorPoweredOff,
                         session::SarCycleStatus::kPoweredOff);
-  EXPECT_FALSE(powered_off.has_error);  // 关机不是错误
+  // 规则 14：关机属运行态条件，中止条目 phase=kExecution。
+  EXPECT_TRUE(ContainsPhase(powered_off.issues, session::SarIssuePhase::kExecution));
 }
 
 }  // namespace

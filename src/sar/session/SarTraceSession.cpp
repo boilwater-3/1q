@@ -8,6 +8,7 @@
 #include "1q/replay/ReplayTrace.h"
 #include "1q/trace/TraceSink.h"
 #include "SarReplayFlatbufferCodec.h"
+#include "1q/sar/session/SarInputValidation.h"
 #include "sar/session/SarDiagnosticUtils.h"
 #include "sar/session/SarRawHistoryBuilder.h"
 
@@ -33,7 +34,8 @@ std::string BuildSarOutputPayload(const SarCycleResult& result) {
      << "\"completed_stage\":" << static_cast<int>(frame.completed_stage) << ","
      << "\"executed\":" << (result.executed_this_cycle ? "true" : "false") << ","
      << "\"status\":" << static_cast<int>(result.status) << ","
-     << "\"has_error\":" << (result.has_error ? "true" : "false") << ","
+     << "\"validation_error\":" << (HasValidationError(result.issues) ? "true" : "false") << ","
+     << "\"issue_count\":" << result.issues.size() << ","
      << "\"has_l1_image\":" << (frame.has_l1_image ? "true" : "false") << ","
      << "\"has_l3_bp_image\":" << (frame.has_l3_bp_image ? "true" : "false") << ","
      << "\"phase_reference_mode\":" << static_cast<int>(frame.phase_reference_mode) << ","
@@ -102,7 +104,7 @@ struct SarTraceSession::Impl {
     oneq::replay::ReplayTraceFailure failure;
     const char* reason_tag = AbortReasonToDiagnosticCode(result.abort_reason);
     failure.error_code = reason_tag[0] != '\0' ? reason_tag : "sar_error";
-    failure.message = "SarCycleResult has_error=true";
+    failure.message = "SarCycleResult cycle rejected";
     failure.has_cycle_index = true;
     failure.cycle_index = result.input_cycle_index;
     replay_writer->WriteFailureMarker(failure);
@@ -157,7 +159,11 @@ SarCycleResult SarTraceSession::StepWithResult(const SarCycleInput& input) {
     impl_->WriteReplayEvent("cycle_output", "SarCycleResult", EncodeSarCycleResult(result),
                             result.input_cycle_index);
     impl_->pending_input_written = false;
-    if (result.has_error) {
+    // 失败周期 marker（规则 14 可推导字段 has_error 已删除）：status 为校验/执行拒绝
+    // 时写 failure marker；关机（kPoweredOff）是合法非执行状态，不写。
+    const bool cycle_rejected = result.status == session::SarCycleStatus::kRejectedInvalidInput ||
+                                result.status == session::SarCycleStatus::kRejectedExecution;
+    if (cycle_rejected) {
       impl_->WriteFailureMarker(result);
     }
   }

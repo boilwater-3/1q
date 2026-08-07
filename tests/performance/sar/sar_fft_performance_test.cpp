@@ -384,7 +384,7 @@ TEST(SarPerformanceTest, PublicSessionCompletes1024SquarePointTargetScene) {
   RecordProperty("matrix_cols", static_cast<int>(kSize));
   RecordProperty("elapsed_seconds", std::to_string(elapsed_seconds));
   EXPECT_TRUE(result.executed_this_cycle);
-  EXPECT_FALSE(result.has_error);
+  EXPECT_EQ(result.status, session::SarCycleStatus::kCompleted);
   EXPECT_TRUE(result.output_frame.has_l1_image);
   EXPECT_EQ(result.output_frame.range_sample_count, kSize);
   EXPECT_EQ(result.output_frame.azimuth_pulse_count, kSize);

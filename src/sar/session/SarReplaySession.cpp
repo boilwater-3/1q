@@ -20,9 +20,11 @@ struct SarReplayState {
   oneq::replay::ReplayTraceFailure failure_marker_data{};
 };
 
-bool SarDiagnosticEqual(const SarDiagnosticIssue& left, const SarDiagnosticIssue& right) {
-  return left.severity == right.severity && left.code == right.code &&
-         left.message == right.message;
+bool SarIssueEqual(const SarIssue& left, const SarIssue& right) {
+  return left.severity == right.severity && left.phase == right.phase &&
+         left.code == right.code && left.message == right.message &&
+         left.location.kind == right.location.kind &&
+         left.location.entity_index == right.location.entity_index && left.field == right.field;
 }
 
 bool SarOutputFrameEqual(const SarOutputFrame& left, const SarOutputFrame& right) {
@@ -51,9 +53,10 @@ bool SarOutputFrameEqual(const SarOutputFrame& left, const SarOutputFrame& right
 bool SarCycleResultEqual(const SarCycleResult& left, const SarCycleResult& right) {
   if (left.input_cycle_index != right.input_cycle_index ||
       !SarOutputFrameEqual(left.output_frame, right.output_frame) ||
-      left.diagnostics.size() != right.diagnostics.size() || left.has_error != right.has_error ||
+      left.issues.size() != right.issues.size() ||
       left.executed_this_cycle != right.executed_this_cycle ||
       left.abort_reason != right.abort_reason ||
+      left.status != right.status ||
       left.focused_image.source != right.focused_image.source ||
       left.focused_image.row_count != right.focused_image.row_count ||
       left.focused_image.column_count != right.focused_image.column_count ||
@@ -67,8 +70,8 @@ bool SarCycleResultEqual(const SarCycleResult& left, const SarCycleResult& right
       left.raw_phase_history.q_values != right.raw_phase_history.q_values) {
     return false;
   }
-  for (std::size_t i = 0U; i < left.diagnostics.size(); ++i) {
-    if (!SarDiagnosticEqual(left.diagnostics[i], right.diagnostics[i])) {
+  for (std::size_t i = 0U; i < left.issues.size(); ++i) {
+    if (!SarIssueEqual(left.issues[i], right.issues[i])) {
       return false;
     }
   }

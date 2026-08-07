@@ -276,7 +276,7 @@ constexpr const char* kScenarioHeader =
 struct CycleMetrics {
   std::uint32_t cycle_index{0};
   bool executed{false};
-  bool has_error{false};
+  bool has_error{false};  // 推导：status 为校验/执行拒绝（规则 14 可推导字段）
   int abort_reason{0};
   int completed_stage{0};
   bool has_raw_echo{false};
@@ -305,7 +305,8 @@ CycleMetrics ExtractCycleMetrics(const sar_session::SarCycleResult& r) {
   CycleMetrics m;
   m.cycle_index = r.input_cycle_index;
   m.executed = r.executed_this_cycle;
-  m.has_error = r.has_error;
+  m.has_error = r.status == sar_session::SarCycleStatus::kRejectedInvalidInput ||
+                r.status == sar_session::SarCycleStatus::kRejectedExecution;
   m.abort_reason = static_cast<int>(r.abort_reason);
   const auto& f = r.output_frame;
   m.completed_stage = static_cast<int>(f.completed_stage);
@@ -325,9 +326,9 @@ CycleMetrics ExtractCycleMetrics(const sar_session::SarCycleResult& r) {
   m.az_width_bins = f.azimuth_width_3db_bins;
   m.has_iqm = f.has_image_quality_metrics;
   m.res_valid = f.image_resolution_m_valid;
-  for (const auto& d : r.diagnostics) {
-    if (d.severity == sar_session::SarDiagnosticSeverity::kWarning) ++m.diag_warn;
-    if (d.severity == sar_session::SarDiagnosticSeverity::kError) ++m.diag_err;
+  for (const auto& d : r.issues) {
+    if (d.severity == sar_session::SarIssueSeverity::kWarning) ++m.diag_warn;
+    if (d.severity == sar_session::SarIssueSeverity::kError) ++m.diag_err;
   }
   m.img_rows = r.focused_image.row_count;
   m.img_cols = r.focused_image.column_count;

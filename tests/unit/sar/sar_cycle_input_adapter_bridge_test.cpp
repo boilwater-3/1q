@@ -67,7 +67,7 @@ std::vector<session::SarExternalPulseInput> MakeTrajectoryOnlyPulses() {
 }
 
 bool HasAbortCode(const session::SarCycleResult& result, const std::string& code) {
-  for (const session::SarDiagnosticIssue& diagnostic : result.diagnostics) {
+  for (const session::SarIssue& diagnostic : result.issues) {
     if (diagnostic.code == code) {
       return true;
     }

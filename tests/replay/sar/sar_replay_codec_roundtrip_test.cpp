@@ -147,11 +147,12 @@ TEST(SarReplayCodecRoundtripTest, CycleResultPreservesOutputAndDiagnostics) {
   result.output_frame.has_image_quality_metrics = true;
   result.output_frame.image_resolution_m_valid = true;
   result.output_frame.phase_reference_applied = true;
-  SarDiagnosticIssue diagnostic;
-  diagnostic.severity = SarDiagnosticSeverity::kInfo;
-  diagnostic.code = "sar.rda_peak";
-  diagnostic.message = "peak index";
-  result.diagnostics.push_back(diagnostic);
+  SarIssue issue;
+  issue.severity = SarIssueSeverity::kInfo;
+  issue.phase = SarIssuePhase::kExecution;
+  issue.code = "sar.rda_peak";
+  issue.message = "peak index";
+  result.issues.push_back(issue);
   result.raw_phase_history.source = SarRawPhaseHistorySource::kExternalRawIq;
   result.raw_phase_history.pulse_count = 2U;
   result.raw_phase_history.samples_per_pulse = 2U;
@@ -186,9 +187,10 @@ TEST(SarReplayCodecRoundtripTest, CycleResultPreservesOutputAndDiagnostics) {
   EXPECT_TRUE(decoded.output_frame.has_image_quality_metrics);
   EXPECT_TRUE(decoded.output_frame.image_resolution_m_valid);
   EXPECT_TRUE(decoded.output_frame.phase_reference_applied);
-  ASSERT_EQ(decoded.diagnostics.size(), 1U);
-  EXPECT_EQ(decoded.diagnostics[0].severity, SarDiagnosticSeverity::kInfo);
-  EXPECT_EQ(decoded.diagnostics[0].code, "sar.rda_peak");
+  ASSERT_EQ(decoded.issues.size(), 1U);
+  EXPECT_EQ(decoded.issues[0].severity, SarIssueSeverity::kInfo);
+  EXPECT_EQ(decoded.issues[0].phase, SarIssuePhase::kExecution);
+  EXPECT_EQ(decoded.issues[0].code, "sar.rda_peak");
   EXPECT_TRUE(decoded.executed_this_cycle);
   EXPECT_EQ(decoded.raw_phase_history.source, SarRawPhaseHistorySource::kExternalRawIq);
   EXPECT_EQ(decoded.raw_phase_history.pulse_count, 2U);
@@ -201,7 +203,6 @@ TEST(SarReplayCodecRoundtripTest, CycleResultPreservesOutputAndDiagnostics) {
   EXPECT_EQ(decoded.focused_image.real_values, result.focused_image.real_values);
   EXPECT_EQ(decoded.focused_image.imaginary_values, result.focused_image.imaginary_values);
   EXPECT_FALSE(decoded.focused_image.is_placeholder);
-  EXPECT_FALSE(decoded.has_error);
 }
 
 TEST(SarReplayCodecRoundtripTest, CycleResultPreservesFocusedImagePlaceholder) {
@@ -299,7 +300,7 @@ TEST(SarReplayCodecRoundtripTest, CycleResultDecodeFailureDoesNotModifyOutput) {
   output.focused_image.column_count = 1U;
   output.focused_image.real_values.push_back(123.0);
   output.focused_image.imaginary_values.push_back(-456.0);
-  output.has_error = true;
+  output.status = SarCycleStatus::kRejectedExecution;
   output.abort_reason = SarPipelineAbortReason::kPipelineExecutionFailed;
 
   SarCycleResult malformed;
@@ -315,7 +316,7 @@ TEST(SarReplayCodecRoundtripTest, CycleResultDecodeFailureDoesNotModifyOutput) {
   EXPECT_EQ(output.focused_image.source, SarFocusedImageSource::kL3Bp);
   EXPECT_EQ(output.focused_image.real_values, std::vector<double>({123.0}));
   EXPECT_EQ(output.focused_image.imaginary_values, std::vector<double>({-456.0}));
-  EXPECT_TRUE(output.has_error);
+  EXPECT_EQ(output.status, SarCycleStatus::kRejectedExecution);
   EXPECT_EQ(output.abort_reason, SarPipelineAbortReason::kPipelineExecutionFailed);
 }
 

@@ -16,7 +16,7 @@ TEST(SarInputValidationTest, ValidInputHasNoErrors) {
   input.platform.latitude_deg = 30.0;
   input.platform.altitude_m = 8000.0;
 
-  const ValidationIssueList issues = ValidateSarCycleInput(input);
+  const SarIssueList issues = ValidateSarCycleInput(input);
   EXPECT_FALSE(HasValidationError(issues));
 }
 
@@ -24,11 +24,11 @@ TEST(SarInputValidationTest, NonPositiveDtIsError) {
   SarCycleInput input;
   input.dt_sec = 0.0f;
 
-  const ValidationIssueList issues = ValidateSarCycleInput(input);
+  const SarIssueList issues = ValidateSarCycleInput(input);
   bool found = false;
-  for (const ValidationIssue& issue : issues) {
-    if (issue.code == ValidationCode::kInvalidCycleDeltaTime &&
-        issue.severity == ValidationSeverity::kError) {
+  for (const SarIssue& issue : issues) {
+    if (issue.code == "sar.validation.invalid_cycle_delta_time" &&
+        issue.severity == SarIssueSeverity::kError && issue.phase == SarIssuePhase::kInputValidation) {
       found = true;
     }
   }
@@ -40,10 +40,10 @@ TEST(SarInputValidationTest, NonFiniteDtIsError) {
   SarCycleInput input;
   input.dt_sec = std::numeric_limits<float>::quiet_NaN();
 
-  const ValidationIssueList issues = ValidateSarCycleInput(input);
+  const SarIssueList issues = ValidateSarCycleInput(input);
   bool found = false;
-  for (const ValidationIssue& issue : issues) {
-    if (issue.code == ValidationCode::kNonFiniteCycleDeltaTime) {
+  for (const SarIssue& issue : issues) {
+    if (issue.code == "sar.validation.non_finite_cycle_delta_time") {
       found = true;
     }
   }
@@ -55,10 +55,10 @@ TEST(SarInputValidationTest, NonFinitePlatformFieldIsError) {
   input.dt_sec = 1.0f;
   input.platform.latitude_deg = std::numeric_limits<double>::infinity();
 
-  const ValidationIssueList issues = ValidateSarCycleInput(input);
+  const SarIssueList issues = ValidateSarCycleInput(input);
   bool found = false;
-  for (const ValidationIssue& issue : issues) {
-    if (issue.code == ValidationCode::kNonFinitePlatformField) {
+  for (const SarIssue& issue : issues) {
+    if (issue.code == "sar.validation.non_finite_platform_field") {
       found = true;
     }
   }
@@ -72,10 +72,10 @@ TEST(SarInputValidationTest, NonFiniteTargetFieldIsError) {
   target.radar_cross_section_dbsm = std::numeric_limits<double>::quiet_NaN();
   input.point_targets.push_back(target);
 
-  const ValidationIssueList issues = ValidateSarCycleInput(input);
+  const SarIssueList issues = ValidateSarCycleInput(input);
   bool found = false;
-  for (const ValidationIssue& issue : issues) {
-    if (issue.code == ValidationCode::kNonFiniteTargetField &&
+  for (const SarIssue& issue : issues) {
+    if (issue.code == "sar.validation.non_finite_target_field" &&
         issue.location.entity_index == 0) {
       found = true;
     }
@@ -97,10 +97,10 @@ TEST(SarInputValidationTest, NonContiguousPulseIdIsError) {
   pulse2.time_s = 1.0;
   input.raw_iq.pulse_states.push_back(pulse2);
 
-  const ValidationIssueList issues = ValidateSarCycleInput(input);
+  const SarIssueList issues = ValidateSarCycleInput(input);
   bool found = false;
-  for (const ValidationIssue& issue : issues) {
-    if (issue.code == ValidationCode::kInvalidPulseSequence) {
+  for (const SarIssue& issue : issues) {
+    if (issue.code == "sar.validation.invalid_pulse_sequence") {
       found = true;
     }
   }
@@ -112,10 +112,10 @@ TEST(SarInputValidationTest, EmptyPulsesProduceNoPulseErrors) {
   input.dt_sec = 1.0f;
   // raw_iq 保持默认空值
 
-  const ValidationIssueList issues = ValidateSarCycleInput(input);
-  for (const ValidationIssue& issue : issues) {
-    EXPECT_NE(issue.code, ValidationCode::kNonFinitePulseField);
-    EXPECT_NE(issue.code, ValidationCode::kInvalidPulseSequence);
+  const SarIssueList issues = ValidateSarCycleInput(input);
+  for (const SarIssue& issue : issues) {
+    EXPECT_NE(issue.code, "sar.validation.non_finite_pulse_field");
+    EXPECT_NE(issue.code, "sar.validation.invalid_pulse_sequence");
   }
 }
 

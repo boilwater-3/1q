@@ -97,7 +97,6 @@ sar::session::SarProductDebugView MakeSarView() {
   view.input_cycle_index = 2U;
   view.output_cycle_index = 2U;
   view.executed_this_cycle = true;
-  view.has_error = false;
   view.completed_stage = sar::session::SarProcessingStage::kL3BpImage;
   view.has_raw_echo = true;
   view.has_range_compressed_echo = true;
@@ -178,7 +177,7 @@ TEST(DebugViewJsonTest, EosDebugViewToJsonMatchesExpectedJson) {
 TEST(DebugViewJsonTest, SarDebugViewToJsonMatchesExpectedJson) {
   const std::string json = SarDebugViewToJson(MakeSarView());
   EXPECT_EQ(json, R"({"input_cycle_index":2,"output_cycle_index":2,"executed_this_cycle":true,)"
-                  R"("has_error":false,"abort_reason":"","completed_stage":"l3_bp_image",)"
+                  R"("abort_reason":"","completed_stage":"l3_bp_image",)"
                   R"("has_raw_echo":true,"has_range_compressed_echo":true,"has_l1_image":true,)"
                   R"("has_l3_bp_image":true,"has_focused_pixels":true,"estimated_snr_db":12.5,)"
                   R"("range_sample_count":512,"azimuth_pulse_count":256,"point_targets":)"
