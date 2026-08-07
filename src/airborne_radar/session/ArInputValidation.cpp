@@ -187,13 +187,10 @@ ArIssueList ValidateArSceneTargets(const ArSceneTargetList& targets) {
 }
 
 bool HasValidationError(const ArIssueList& issues) {
-  for (const ArIssue& issue : issues) {
-    if (issue.phase == ArIssuePhase::kInputValidation &&
-        issue.severity == ArIssueSeverity::kError) {
-      return true;
-    }
-  }
-  return false;
+  // RED-1 收敛：统一判定逻辑在 common::validation::HasValidationPhaseError
+  // （phase == kInputValidation && severity == kError）。
+  return oneq::common::validation::HasValidationPhaseError(
+      issues, &ArIssue::phase, &ArIssue::severity);
 }
 
 }  // namespace session

@@ -112,13 +112,10 @@ SarIssueList ValidateSarCycleInput(const SarCycleInput& input) {
 }
 
 bool HasValidationError(const SarIssueList& issues) {
-  for (const SarIssue& issue : issues) {
-    if (issue.phase == SarIssuePhase::kInputValidation &&
-        issue.severity == SarIssueSeverity::kError) {
-      return true;
-    }
-  }
-  return false;
+  // RED-1 收敛：统一判定逻辑在 common::validation::HasValidationPhaseError
+  // （phase == kInputValidation && severity == kError）。
+  return oneq::common::validation::HasValidationPhaseError(
+      issues, &SarIssue::phase, &SarIssue::severity);
 }
 
 bool AreSarHardwareAndMissionFieldsValid(const config::SarSessionConfig& config) {

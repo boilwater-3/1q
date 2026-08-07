@@ -10,6 +10,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <string>
+#include <vector>
 
 namespace oneq {
 namespace common {
@@ -142,6 +143,34 @@ template <typename IssueListT, typename SeverityT,
 inline bool HasSeverity(const IssueListT& issues, SeverityT expected) {
   for (typename IssueListT::const_iterator it = issues.begin(); it != issues.end(); ++it) {
     if ((*it).*SeverityField == expected) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * @brief 判断问题列表中是否包含"输入校验错误"条目（统一问题列表模型，规则 14）。
+ *
+ * 各模块 `HasValidationError` 的统一实现（RED-1 收敛）：`phase == kInputValidation`
+ * 且 `severity == kError` 即判定为阻断性输入校验错误。成员指针以运行期参数传入，
+ * 枚举类型由成员指针自动推导，调用方无需显式模板实参。
+ *
+ * @tparam IssueT 问题条目类型（各模块 `XxxIssue`）。
+ * @tparam PhaseT 来源阶段枚举类型（各模块 `XxxIssuePhase`）。
+ * @tparam SeverityT 严重级别枚举类型（各模块 `XxxIssueSeverity`）。
+ * @param[in] issues 问题列表。
+ * @param[in] phase_field 问题结构中的 phase 字段成员指针。
+ * @param[in] severity_field 问题结构中的 severity 字段成员指针。
+ * @return 存在任意一条 `kInputValidation + kError` 条目时返回 `true`。
+ */
+template <typename IssueT, typename PhaseT, typename SeverityT>
+inline bool HasValidationPhaseError(const std::vector<IssueT>& issues,
+                                    PhaseT IssueT::* phase_field,
+                                    SeverityT IssueT::* severity_field) {
+  for (const IssueT& issue : issues) {
+    if ((issue.*phase_field) == PhaseT::kInputValidation &&
+        (issue.*severity_field) == SeverityT::kError) {
       return true;
     }
   }

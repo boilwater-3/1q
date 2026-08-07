@@ -6,6 +6,7 @@
 #include <set>
 
 #include "1q/sbirs_sensor/session/SbirsCycleInput.h"
+#include "common/validation/ValidationUtils.h"
 
 namespace sbirs_sensor {
 namespace session {
@@ -90,13 +91,10 @@ SbirsIssueList ValidateSbirsCycleInput(const SbirsCycleInput& input, float frame
 }
 
 bool HasValidationError(const SbirsIssueList& issues) {
-  for (const SbirsIssue& issue : issues) {
-    if (issue.phase == SbirsIssuePhase::kInputValidation &&
-        issue.severity == SbirsIssueSeverity::kError) {
-      return true;
-    }
-  }
-  return false;
+  // RED-1 收敛：统一判定逻辑在 common::validation::HasValidationPhaseError
+  // （phase == kInputValidation && severity == kError）。
+  return oneq::common::validation::HasValidationPhaseError(
+      issues, &SbirsIssue::phase, &SbirsIssue::severity);
 }
 
 }  // namespace session

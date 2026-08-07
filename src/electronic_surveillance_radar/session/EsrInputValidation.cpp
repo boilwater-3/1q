@@ -102,13 +102,10 @@ EsrIssueList ValidateEsrCycleInput(const EsrCycleInput& input) {
 }
 
 bool HasValidationError(const EsrIssueList& issues) {
-  for (const EsrIssue& issue : issues) {
-    if (issue.phase == EsrIssuePhase::kInputValidation &&
-        issue.severity == EsrIssueSeverity::kError) {
-      return true;
-    }
-  }
-  return false;
+  // RED-1 收敛：统一判定逻辑在 common::validation::HasValidationPhaseError
+  // （phase == kInputValidation && severity == kError）。
+  return oneq::common::validation::HasValidationPhaseError(
+      issues, &EsrIssue::phase, &EsrIssue::severity);
 }
 
 }  // namespace session

@@ -153,13 +153,10 @@ EosIssueList ValidateEosCycleInput(
 }
 
 bool HasValidationError(const EosIssueList& issues) {
-  for (const EosIssue& issue : issues) {
-    if (issue.phase == EosIssuePhase::kInputValidation &&
-        issue.severity == EosIssueSeverity::kError) {
-      return true;
-    }
-  }
-  return false;
+  // RED-1 收敛：统一判定逻辑在 common::validation::HasValidationPhaseError
+  // （phase == kInputValidation && severity == kError）。
+  return oneq::common::validation::HasValidationPhaseError(
+      issues, &EosIssue::phase, &EosIssue::severity);
 }
 
 }  // namespace session
