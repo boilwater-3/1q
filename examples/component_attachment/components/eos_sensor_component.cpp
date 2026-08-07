@@ -15,6 +15,7 @@
 #include "1q/electro_optical_sensor/session/EosCycleResult.h"
 #include "core/events.h"
 #include "demo_log.h"
+#include "demo_log_i18n.h"
 #include "flight_component.h"
 #include "core/world.h"
 #include "scene_types.h"
@@ -136,27 +137,19 @@ void EosSensorComponent::LogDebugView(
     CA_LOG_VIEW("eos", "周期={} 无状态变化", view.input_cycle_index);
   }
 #else  // CA_VIEW_LOG_MODE_SUMMARY（默认）
-  // 模式三（每周期摘要行）：目标状态明细 + 问题 code 列表，一眼可读。
+  // 模式三（每周期摘要行）：目标状态明细带结构化量值（input 回填，未检测也
+  // 可见目标角度/距离）+ 问题中文名，一眼可读。
   std::string targets_text;
   for (const auto& target : view.targets) {
     if (!targets_text.empty()) {
       targets_text += ", ";
     }
-    targets_text += spdlog::fmt_lib::format("{} {}", target.target_id,
-                                            EosTargetStatusName(target.status));
+    targets_text += spdlog::fmt_lib::format("{} {}(方位{:.1f}° 俯仰{:.1f}° 距离{:.1f}km)",
+                                            target.target_id, EosTargetStatusName(target.status),
+                                            target.azimuth_deg, target.elevation_deg,
+                                            target.range_m / 1000.0);
   }
-  std::string issues_text;
-  for (const auto& issue : view.issues) {
-    if (!issues_text.empty()) {
-      issues_text += ", ";
-    }
-    // code: message 全量透出（人读日志；message 含量值如目标 az/el，几何类
-    // 问题一眼可见——规则 13b 的"不承诺解析稳定性"约束机器消费，人读无碍）。
-    issues_text += issue.code;
-    if (!issue.message.empty()) {
-      issues_text += ": " + issue.message;
-    }
-  }
+  const std::string issues_text = demo::FormatIssueText(view.issues);
   CA_LOG_VIEW("eos", "周期={} 执行={} 目标=[{}] 问题=[{}]",
               view.input_cycle_index, view.executed_this_cycle ? "是" : "否",
               targets_text.empty() ? "无" : targets_text.c_str(),

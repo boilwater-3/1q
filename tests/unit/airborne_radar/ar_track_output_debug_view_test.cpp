@@ -90,6 +90,10 @@ TEST(RadarTrackOutputDebugViewTest, BuildMapsTracksBackToNamedTargets) {
   EXPECT_EQ(view.tracks[2].target_name, "no-id");
   EXPECT_EQ(view.tracks[2].status, ArDebugTrackStatus::kNotInOutput);
   EXPECT_FALSE(view.tracks[2].has_track);
+  // 输入实体回填（规则 12）：有轨迹的目标 rcs 以 track 观测值为准（2.0），
+  // 无轨迹目标回填 input 侧真值（1.0）——未跟踪也可见目标 RCS。
+  EXPECT_FLOAT_EQ(view.tracks[0].rcs, 2.0f);
+  EXPECT_FLOAT_EQ(view.tracks[2].rcs, 1.0f);
 }
 
 // debug view：未完成周期时所有目标标记为 kCycleNotCompleted。
@@ -101,6 +105,8 @@ TEST(RadarTrackOutputDebugViewTest, NonCompletedCycleMarksAllTargetsAsNonComplet
   ASSERT_EQ(view.tracks.size(), 1U);
   EXPECT_EQ(view.tracks[0].status, ArDebugTrackStatus::kCycleNotCompleted);
   EXPECT_FALSE(view.tracks[0].has_track);
+  // 未完成周期同样回填 input 侧 RCS 真值。
+  EXPECT_FLOAT_EQ(view.tracks[0].rcs, 1.0f);
 }
 
 // lifecycle recorder：首次确认 → 更新 → 丢失；未跟踪默认不产生事件。

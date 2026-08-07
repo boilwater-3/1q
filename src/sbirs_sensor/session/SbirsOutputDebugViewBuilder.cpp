@@ -1,6 +1,8 @@
 #include "1q/sbirs_sensor/session/SbirsCycleInput.h"
 #include "1q/sbirs_sensor/session/SbirsOutputDebugView.h"
 
+#include "sbirs_sensor/foundation/SbirsGeometry.h"
+
 namespace sbirs_sensor {
 namespace session {
 namespace {
@@ -45,11 +47,19 @@ output::SbirsObservationStage InferObservationStage(
 }
 
 SbirsDebugTargetState BuildTargetState(const SbirsSceneTarget& target,
+                                       const SbirsCycleInput& input,
                                        const SbirsCycleResult& result) {
   SbirsDebugTargetState state;
   state.target_id = target.target_id;
   state.target_name = target.target_name;
   state.present_in_input = true;
+  // 输入实体回填（规则 12）：az/el 用卫星→目标视线向量计算（ECEF 极坐标，
+  // 与检测记录同参考系），无论是否检测均可见（检测记录存在时下方以记录观测
+  // 值覆盖）。
+  const SbirsVector3M los =
+      foundation::Subtract(target.position_ecef_m, input.satellite_position_ecef_m);
+  state.azimuth_deg = foundation::ComputeAzimuthDeg(los);
+  state.elevation_deg = foundation::ComputeElevationDeg(los);
   if (!result.executed_this_cycle) {
     state.status = SbirsDebugTargetStatus::kCycleNotExecuted;
     return state;
@@ -111,7 +121,7 @@ SbirsOutputDebugView SbirsOutputDebugViewBuilder::Build(const SbirsCycleInput& i
   view.issues = result.issues;
   view.targets.reserve(input.scene.size());
   for (const SbirsSceneTarget& target : input.scene) {
-    view.targets.push_back(BuildTargetState(target, result));
+    view.targets.push_back(BuildTargetState(target, input, result));
   }
   return view;
 }

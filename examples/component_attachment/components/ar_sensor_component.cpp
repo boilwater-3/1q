@@ -16,6 +16,7 @@
 #include "1q/coordinate/position_transform.h"
 #include "core/events.h"
 #include "demo_log.h"
+#include "demo_log_i18n.h"
 #include "flight_component.h"
 #include "core/world.h"
 #include "scene_types.h"
@@ -102,27 +103,17 @@ void ArSensorComponent::LogDebugView(
     CA_LOG_VIEW("ar", "周期={} 无状态变化", view.world_cycle_index);
   }
 #else  // CA_VIEW_LOG_MODE_SUMMARY（默认）
-  // 模式三（每周期摘要行）：目标状态明细 + 问题 code 列表，一眼可读。
+  // 模式三（每周期摘要行）：目标状态明细带结构化量值（input 回填 RCS，未
+  // 跟踪也可见）+ 问题中文名，一眼可读。
   std::string tracks_text;
   for (const auto& track : view.tracks) {
     if (!tracks_text.empty()) {
       tracks_text += ", ";
     }
-    tracks_text += spdlog::fmt_lib::format("{} {}", track.external_target_id,
-                                           ArTrackStatusName(track.status));
+    tracks_text += spdlog::fmt_lib::format("{} {}(RCS {:.2f}m²)", track.external_target_id,
+                                           ArTrackStatusName(track.status), track.rcs);
   }
-  std::string issues_text;
-  for (const auto& issue : view.issues) {
-    if (!issues_text.empty()) {
-      issues_text += ", ";
-    }
-    // code: message 全量透出（人读日志；message 含量值如目标 az/el，几何类
-    // 问题一眼可见——规则 13b 的"不承诺解析稳定性"约束机器消费，人读无碍）。
-    issues_text += issue.code;
-    if (!issue.message.empty()) {
-      issues_text += ": " + issue.message;
-    }
-  }
+  const std::string issues_text = demo::FormatIssueText(view.issues);
   CA_LOG_VIEW("ar", "周期={} 完成={} 目标=[{}] 问题=[{}]",
               view.world_cycle_index, view.completed_this_cycle ? "是" : "否",
               tracks_text.empty() ? "无" : tracks_text.c_str(),
