@@ -6,10 +6,21 @@
 #include <limits>
 
 #include "1q/sbirs_sensor/config/SbirsSessionConfigValidation.h"
+#include "1q/sbirs_sensor/session/SbirsOutputTypes.h"
 #include "sbirs_sensor/foundation/SbirsErrorModel.h"
 #include "sbirs_sensor/tracking/SbirsTrackingTypes.h"
 
 namespace {
+
+// 统一问题列表模型（规则 14）：检查校验问题列表中是否包含指定 code（机器消费字段）。
+bool ContainsCode(const sbirs_sensor::session::SbirsIssueList& issues, const std::string& code) {
+  for (const sbirs_sensor::session::SbirsIssue& issue : issues) {
+    if (issue.code == code) {
+      return true;
+    }
+  }
+  return false;
+}
 
 TEST(SbirsErrorModelTest, SameSeedProducesReproducibleBearing) {
   sbirs_sensor::config::SbirsErrorModelConfig model;
@@ -111,19 +122,23 @@ TEST(SbirsErrorModelTest, PhysicalSigmaIsZeroMeanAndAzElSamplesAreIndependent) {
 TEST(SbirsErrorModelTest, ValidationRejectsInvalidErrorModelParameters) {
   sbirs_sensor::config::SbirsSessionConfig config;
   config.policy.error_model.attitude_sigma_deg = -0.01f;
-  EXPECT_FALSE(sbirs_sensor::config::ValidateSbirsSessionConfig(config).empty());
+  EXPECT_TRUE(ContainsCode(sbirs_sensor::config::ValidateSbirsSessionConfig(config),
+                           "sbirs.validation.invalid_error_model_sigmas"));
 
   config.policy.error_model.attitude_sigma_deg = 0.01f;
   config.policy.error_model.orbit_sigma_deg = std::numeric_limits<float>::quiet_NaN();
-  EXPECT_FALSE(sbirs_sensor::config::ValidateSbirsSessionConfig(config).empty());
+  EXPECT_TRUE(ContainsCode(sbirs_sensor::config::ValidateSbirsSessionConfig(config),
+                           "sbirs.validation.invalid_error_model_sigmas"));
 
   config.policy.error_model.orbit_sigma_deg = 0.0f;
   config.policy.error_model.range_fraction_sigma = std::numeric_limits<float>::infinity();
-  EXPECT_FALSE(sbirs_sensor::config::ValidateSbirsSessionConfig(config).empty());
+  EXPECT_TRUE(ContainsCode(sbirs_sensor::config::ValidateSbirsSessionConfig(config),
+                           "sbirs.validation.invalid_error_model_sigmas"));
 
   config.policy.error_model.range_fraction_sigma = 0.001f;
   config.policy.error_model.detector_bandwidth_hz = 0.0f;
-  EXPECT_FALSE(sbirs_sensor::config::ValidateSbirsSessionConfig(config).empty());
+  EXPECT_TRUE(ContainsCode(sbirs_sensor::config::ValidateSbirsSessionConfig(config),
+                           "sbirs.validation.invalid_detector_bandwidth"));
 }
 
 }  // namespace

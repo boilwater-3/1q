@@ -154,7 +154,7 @@ TEST(SbirsPublicApiConvenienceTest, CreateWithDiagnosticsReportsIssues) {
   // CreateWithDiagnostics 即使配置有问题也构造 session，并把 issues 回填。
   config::SbirsSessionConfig invalid;
   invalid.hardware.wavelength_lower_um = 0.0f;  // 触发波段校验错误
-  config::ValidationIssueList issues;
+  session::SbirsIssueList issues;
   session::SbirsSession session = session::SbirsSession::CreateWithDiagnostics(invalid, &issues);
   EXPECT_FALSE(issues.empty());
   // session 仍可调用（controller 不会因配置校验 issue 拒绝构造）。
