@@ -21,7 +21,8 @@ REM   eigen       3.4.0    header-only    git clone  gitlab.com/libeigen/eigen
 REM   nanoflann   v1.3.2   header-only    git clone  github.com/jlblancoc/nanoflann
 REM   flatbuffers v1.12.0  header + flatc git clone  github.com/google/flatbuffers
 REM   zlib        v1.3.1   编译库         git clone  github.com/madler/zlib
-REM   sqlite3     v3.53.4  编译库         git clone  github.com/sqlite/sqlite（amalgamation）
+REM   sqlite3     3.53.4   编译库         amalgamation zip 下载 sqlite.org/2026（GitHub 镜像
+REM                                       只含 src/*.c 拆分源，amalgamation 由 sqlite.org 发布包提供）
 REM   boost       1.85.0   header-only    源码包下载 archives.boost.io（modular superproject
 REM                                       无法直接 git clone 出预合并头；airborne_radar 使用
 REM                                       boost/math/special_functions/gamma.hpp 与
@@ -115,6 +116,53 @@ if errorlevel 1 (
 )
 exit /b 0
 
+REM --- sqlite3 amalgamation 子例程：参数 (子目录, 版本号, 发布年份) ---
+REM GitHub sqlite 镜像只含 src/*.c 拆分源，amalgamation（sqlite3.c 单文件）由 sqlite.org
+REM 发布包提供。包名形如 sqlite-amalgamation-3530400.zip，置于 sqlite.org/<year>/ 下
+REM （year 为该版本发布年份，随版本变化，故作为显式参数传入）。用 PowerShell 下载 +
+REM Expand-Archive 解压（与 fetch_boost 同构）。幂等：若 third_party\sqlite\sqlite3.c
+REM 已存在则跳过。目录名用 sqlite（与 VendorPackages.cmake 期望的 third_party/sqlite 一致）。
+:fetch_sqlite
+set "_sub=%~1"
+set "_ver=%~2"
+set "_year=%~3"
+set "_target=%TP_DIR%\%_sub%"
+REM amalgamation 包名版本号约定 XYYZZ00：3.53.4 -> 3530400（major 直取、minor/patch
+REM 各补零到 2 位、末尾固定 00）。拆分版本段。
+for /f "tokens=1,2,3 delims=." %%a in ("%_ver%") do (
+    set "_major=%%a"
+    set "_minor=%%b"
+    set "_patch=%%c"
+)
+REM minor/patch 补零到 2 位（如 5 -> 05，53 -> 53）。
+if 1%_minor% LSS 100 set "_minor=0%_minor%"
+if 1%_patch% LSS 100 set "_patch=0%_patch%"
+set "_pkgver=%_major%%_minor%%_patch%00"
+set "_pkgdir=sqlite-amalgamation-%_pkgver%"
+set "_url=https://www.sqlite.org/%_year%/sqlite-amalgamation-%_pkgver%.zip"
+
+if exist "%_target%\sqlite3.c" (
+    echo [fetch_third_party] 跳过 %_sub%（已存在）
+    exit /b 0
+)
+
+echo [fetch_third_party] 下载 sqlite3 amalgamation %_ver%（来自 sqlite.org/%_year%）
+powershell -NoProfile -ExecutionPolicy Bypass -Command ^
+  "$ErrorActionPreference='Stop';" ^
+  "$ProgressPreference='SilentlyContinue';" ^
+  "$tmp=[System.IO.Path]::GetTempFileName() + '.zip';" ^
+  "Invoke-WebRequest -Uri '%_url%' -OutFile $tmp;" ^
+  "Expand-Archive -Path $tmp -DestinationPath '%TP_DIR%\_sqlite_extract' -Force;" ^
+  "Move-Item -Path '%TP_DIR%\_sqlite_extract\%_pkgdir%' -Destination '%_target%' -Force;" ^
+  "Remove-Item -Recurse -Force '%TP_DIR%\_sqlite_extract';" ^
+  "Remove-Item $tmp"
+if errorlevel 1 (
+    echo [fetch_third_party] 错误: 下载/解压 sqlite3 amalgamation %_ver% 失败（%_url%） >&2
+    if exist "%TP_DIR%\_sqlite_extract" rmdir /s /q "%TP_DIR%\_sqlite_extract" 2>nul
+    exit /b 1
+)
+exit /b 0
+
 :main
 REM --- eigen 3.4.0（header-only） ---
 call :fetch_one eigen      https://gitlab.com/libeigen/eigen.git        3.4.0
@@ -132,8 +180,8 @@ REM --- zlib v1.3.1（需编译库，含 gzopen 运行时 API） ---
 call :fetch_one zlib       https://github.com/madler/zlib.git           v1.3.1
 if errorlevel 1 exit /b 1
 
-REM --- sqlite3 v3.53.4（需编译库；GitHub mirror 根目录即 amalgamation） ---
-call :fetch_one sqlite3    https://github.com/sqlite/sqlite.git        v3.53.4
+REM --- sqlite3 3.53.4（需编译库；amalgamation 来自 sqlite.org 发布包，2026 发布路径） ---
+call :fetch_sqlite sqlite  3.53.4  2026
 if errorlevel 1 exit /b 1
 
 REM --- boost 1.85.0（header-only；airborne_radar 使用 boost/math 与 boost/pool） ---
