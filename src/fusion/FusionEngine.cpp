@@ -56,6 +56,8 @@ struct Track {
   bool has_anchor{false};
   std::size_t missed_cycles{0U};
   std::uint64_t last_update_cycle{0U};
+  Track() = default;
+  explicit Track(std::uint64_t k) : key(k) {}
 };
 
 double EuclideanDistance(const EcefPositionM& a, const EcefPositionM& b) {

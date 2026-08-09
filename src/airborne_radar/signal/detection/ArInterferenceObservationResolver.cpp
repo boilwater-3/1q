@@ -473,8 +473,8 @@ bool TryResolveArInterferenceObservations(
       const double elevation_deg = obs.has_local_bearings
           ? obs.estimated_bearing_elevation_local_deg
           : obs.estimated_bearing_elevation_deg;
-      const double az_rad = azimuth_deg * M_PI / 180.0;
-      const double el_rad = elevation_deg * M_PI / 180.0;
+      const double az_rad = oneq::common::numerics::DegToRad(azimuth_deg);
+      const double el_rad = oneq::common::numerics::DegToRad(elevation_deg);
       const double cos_el = std::cos(el_rad);
       const double range_m = apparent_range_m;
       dc.position = Eigen::Vector3f(
@@ -487,7 +487,7 @@ bool TryResolveArInterferenceObservations(
           static_cast<float>(apparent_range_rate_mps * std::sin(el_rad)));
       // 量测噪声协方差（与 DeceptionMeasurementGenerator 同口径）。
       const double bearing_sigma_deg = std::max(obs.bearing_standard_deviation_deg, 0.1);
-      const double sigma_cross_range = range_m * (bearing_sigma_deg * M_PI / 180.0);
+      const double sigma_cross_range = range_m * oneq::common::numerics::DegToRad(bearing_sigma_deg);
       const double sigma_range = std::max(sigma_cross_range, 50.0);
       dc.measurement_covariance = Eigen::Matrix3f(
           (Eigen::DiagonalMatrix<float, 3>(

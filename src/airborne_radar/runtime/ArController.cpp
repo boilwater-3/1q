@@ -16,6 +16,7 @@
 #include "airborne_radar/signal/detection/RadarEquations.h"
 #include "airborne_radar/signal/pipeline/ISignalPipeline.h"
 #include "common/logging/ProjectLog.h"
+#include "common/numerics/Constants.h"
 #include "common/runtime/RuntimeCycleExecutor.h"
 
 namespace airborne_radar {
@@ -290,9 +291,9 @@ struct ArController::Impl {
                                         selected->position_y * selected->position_y);
     config::AzimuthElevationDeg pointing;
     pointing.az_deg =
-        std::atan2(selected->position_y, selected->position_x) * 180.0f / static_cast<float>(M_PI);
-    pointing.el_deg = std::atan2(selected->position_z, range_hypot) * 180.0f /
-                      static_cast<float>(M_PI);
+        oneq::common::numerics::RadToDeg(std::atan2(selected->position_y, selected->position_x));
+    pointing.el_deg =
+        oneq::common::numerics::RadToDeg(std::atan2(selected->position_z, range_hypot));
     signal_pipeline.SetCycleScanCenterOverride(pointing);
   }
 
@@ -345,9 +346,9 @@ struct ArController::Impl {
     const float range_hypot =
         std::sqrt(target.position_x * target.position_x + target.position_y * target.position_y);
     context.look_az_deg =
-        std::atan2(target.position_y, target.position_x) * 180.0f / static_cast<float>(M_PI);
+        oneq::common::numerics::RadToDeg(std::atan2(target.position_y, target.position_x));
     context.look_el_deg =
-        std::atan2(target.position_z, range_hypot) * 180.0f / static_cast<float>(M_PI);
+        oneq::common::numerics::RadToDeg(std::atan2(target.position_z, range_hypot));
     context.platform_altitude_m = platform_altitude_m;
     // 观测有效性不由硬编码视角覆盖下限门控：覆盖下限属数据库 profile 级
     // 适用条件，由匹配阶段按需判定。

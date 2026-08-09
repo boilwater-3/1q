@@ -133,6 +133,10 @@ struct SbirsDetectionLifecycleRecorder::Impl {
   SbirsDetectionLifecycleRecorderConfig config;
   std::unordered_map<std::uint64_t, TargetState> states;
   std::vector<SbirsDetectionLifecycleEvent> last_events{};
+  Impl() = default;
+  Impl(SbirsDetectionLifecycleRecorderConfig config_,
+       std::unordered_map<std::uint64_t, TargetState> states_ = {})
+      : config(config_), states(std::move(states_)) {}
 };
 
 SbirsDetectionLifecycleRecorder::SbirsDetectionLifecycleRecorder(

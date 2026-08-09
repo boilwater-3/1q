@@ -43,7 +43,9 @@ set(PATTERNS
     "auto ["
     "[[fallthrough]]"
     "[[nodiscard]]"
-    "[[maybe_unused]]")
+    "[[maybe_unused]]"
+    "inline constexpr"
+    "inline const ")
 
 set(DESCS
     "C++17 std::optional"
@@ -59,7 +61,9 @@ set(DESCS
     "C++17 structured bindings"
     "C++17 [[fallthrough]]"
     "C++17 [[nodiscard]]"
-    "C++17 [[maybe_unused]]")
+    "C++17 [[maybe_unused]]"
+    "C++17 inline constexpr 变量（VS2015 拒绝 inline 数据声明，改用 constexpr）"
+    "C++17 inline const 变量（VS2015 拒绝 inline 数据声明，改用 const + IIFE）")
 
 list(LENGTH PATTERNS _pattern_count)
 

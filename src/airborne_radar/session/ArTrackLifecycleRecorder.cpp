@@ -45,6 +45,10 @@ struct ArTrackLifecycleRecorder::Impl {
   ArTrackLifecycleRecorderConfig config;
   std::unordered_map<std::uint64_t, TargetState> states;
   std::vector<ArTrackLifecycleEvent> last_events{};
+  Impl() = default;
+  Impl(ArTrackLifecycleRecorderConfig config_,
+       std::unordered_map<std::uint64_t, TargetState> states_ = {})
+      : config(config_), states(std::move(states_)) {}
 };
 
 ArTrackLifecycleRecorder::ArTrackLifecycleRecorder(ArTrackLifecycleRecorderConfig config)

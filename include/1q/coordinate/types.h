@@ -18,6 +18,9 @@ struct ONEQ_API LlaPositionDegM {
   double latitude_deg{0.0};  /**< 纬度（单位：deg，范围 [-90, 90]） */
   double longitude_deg{0.0}; /**< 经度（单位：deg，范围 [-180, 180]） */
   double altitude_m{0.0};    /**< 椭球高（单位：m） */
+  LlaPositionDegM() = default;
+  LlaPositionDegM(double latitude, double longitude, double altitude)
+      : latitude_deg(latitude), longitude_deg(longitude), altitude_m(altitude) {}
 };
 
 /**
@@ -27,6 +30,8 @@ struct ONEQ_API EcefPositionM {
   double x_m{0.0}; /**< ECEF X（单位：m） */
   double y_m{0.0}; /**< ECEF Y（单位：m） */
   double z_m{0.0}; /**< ECEF Z（单位：m） */
+  EcefPositionM() = default;
+  EcefPositionM(double x, double y, double z) : x_m(x), y_m(y), z_m(z) {}
 };
 
 /**
@@ -36,6 +41,8 @@ struct ONEQ_API EnuPositionM {
   double east_m{0.0};  /**< East 方向位置（单位：m） */
   double north_m{0.0}; /**< North 方向位置（单位：m） */
   double up_m{0.0};    /**< Up 方向位置（单位：m） */
+  EnuPositionM() = default;
+  EnuPositionM(double east, double north, double up) : east_m(east), north_m(north), up_m(up) {}
 };
 
 /**
@@ -45,6 +52,8 @@ struct ONEQ_API NedPositionM {
   double north_m{0.0}; /**< North 方向位置（单位：m） */
   double east_m{0.0};  /**< East 方向位置（单位：m） */
   double down_m{0.0};  /**< Down 方向位置（单位：m） */
+  NedPositionM() = default;
+  NedPositionM(double north, double east, double down) : north_m(north), east_m(east), down_m(down) {}
 };
 
 /**
@@ -54,6 +63,8 @@ struct ONEQ_API NuePositionM {
   double north_m{0.0}; /**< North 方向位置（单位：m） */
   double up_m{0.0};    /**< Up 方向位置（单位：m） */
   double east_m{0.0};  /**< East 方向位置（单位：m） */
+  NuePositionM() = default;
+  NuePositionM(double north, double up, double east) : north_m(north), up_m(up), east_m(east) {}
 };
 
 /**
@@ -63,6 +74,8 @@ struct ONEQ_API EcefVelocityMps {
   double x_mps{0.0}; /**< ECEF X 方向速度（单位：m/s） */
   double y_mps{0.0}; /**< ECEF Y 方向速度（单位：m/s） */
   double z_mps{0.0}; /**< ECEF Z 方向速度（单位：m/s） */
+  EcefVelocityMps() = default;
+  EcefVelocityMps(double x, double y, double z) : x_mps(x), y_mps(y), z_mps(z) {}
 };
 
 /**
@@ -72,6 +85,9 @@ struct ONEQ_API EnuVelocityMps {
   double east_mps{0.0};  /**< East 方向速度（单位：m/s） */
   double north_mps{0.0}; /**< North 方向速度（单位：m/s） */
   double up_mps{0.0};    /**< Up 方向速度（单位：m/s） */
+  EnuVelocityMps() = default;
+  EnuVelocityMps(double east, double north, double up)
+      : east_mps(east), north_mps(north), up_mps(up) {}
 };
 
 /**
@@ -81,6 +97,9 @@ struct ONEQ_API NedVelocityMps {
   double north_mps{0.0}; /**< North 方向速度（单位：m/s） */
   double east_mps{0.0};  /**< East 方向速度（单位：m/s） */
   double down_mps{0.0};  /**< Down 方向速度（单位：m/s） */
+  NedVelocityMps() = default;
+  NedVelocityMps(double north, double east, double down)
+      : north_mps(north), east_mps(east), down_mps(down) {}
 };
 
 /**
@@ -90,6 +109,9 @@ struct ONEQ_API NueVelocityMps {
   double north_mps{0.0}; /**< North 方向速度（单位：m/s） */
   double up_mps{0.0};    /**< Up 方向速度（单位：m/s） */
   double east_mps{0.0};  /**< East 方向速度（单位：m/s） */
+  NueVelocityMps() = default;
+  NueVelocityMps(double north, double up, double east)
+      : north_mps(north), up_mps(up), east_mps(east) {}
 };
 
 /**
@@ -100,6 +122,9 @@ struct ONEQ_API EulerAnglesDeg {
   double yaw_deg{0.0};   /**< 偏航角（单位：deg） */
   double pitch_deg{0.0}; /**< 俯仰角（单位：deg） */
   double roll_deg{0.0};  /**< 横滚角（单位：deg） */
+  EulerAnglesDeg() = default;
+  EulerAnglesDeg(double yaw, double pitch, double roll)
+      : yaw_deg(yaw), pitch_deg(pitch), roll_deg(roll) {}
 };
 
 /**
@@ -110,6 +135,8 @@ struct ONEQ_API Vector3d {
   double x{0.0}; /**< X 分量 */
   double y{0.0}; /**< Y 分量 */
   double z{0.0}; /**< Z 分量 */
+  Vector3d() = default;
+  Vector3d(double x_, double y_, double z_) : x(x_), y(y_), z(z_) {}
 };
 
 /**
