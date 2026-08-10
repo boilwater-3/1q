@@ -1185,6 +1185,7 @@ function renderProfile() {{
   series.forEach((s, idx) => {{
     const yTop = idx * 68, yBot = yTop + 52;
     const vals = P.map(q => s.get(q)).filter(v => v !== null && v !== undefined);
+    if (!vals.length) return;  // 该指标无数据（如 FD dump 无速度列）：跳过子图
     const lo = Math.min(...vals), hi = Math.max(...vals);
     const pad = Math.max((hi - lo) * 0.12, 0.5);
     s.y0 = lo - pad; s.y1 = hi + pad;
