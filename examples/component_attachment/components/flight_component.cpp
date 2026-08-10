@@ -348,6 +348,7 @@ void FlightComponent::Step(World& world, double dt_sec) {
         fd_->RestartPatrol(route_);
         next_index_ = 0U;
         waypoint_events_consumed_ = 0U;
+        CA_LOG_EVENT(world, "patrol_loop_restart", "巡逻循环重启：FD 以当前载机状态重建续飞");
       } else if (next_index_ < route_.size()) {
         const double t_sec = world.scene_state().t_sec;
         while (next_index_ < route_.size()) {
@@ -422,6 +423,7 @@ void FlightComponent::CheckWaypointArrival(World& world, double t_sec) {
   // 段自然飞回起点；空航路由 !route_.empty() 守卫，loop 且空航路维持直飞）。
   if (loop_route_ && !route_.empty() && next_index_ >= route_.size()) {
     next_index_ = 0U;
+    CA_LOG_EVENT(world, "patrol_loop_restart", "巡逻循环重启：航路完成，回到航点 0");
   }
 }
 
