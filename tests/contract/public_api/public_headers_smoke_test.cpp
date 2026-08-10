@@ -185,7 +185,7 @@ TEST(PublicHeadersSmokeTest, StablePublicSurfaceSupportsMinimalUsage) {
   const session::ArCycleResult trace_result =
       trace_session.StepWithResult(input);
   const std::size_t confirmed_tracks =
-      session::CountTracksByStatus(result.track_output_frame, session::TrackStatus::kConfirmed);
+      session::CountTracksByStatus(result.output_frame, session::TrackStatus::kConfirmed);
 
   EXPECT_GE(confirmed_tracks, 0U);
   EXPECT_GE(result.association_quality_metrics.detection_count, 0U);
@@ -228,7 +228,7 @@ TEST(PublicHeadersSmokeTest, SbirsPublicSurfaceSupportsMinimalUsage) {
           .Build();
   EXPECT_TRUE(session.TryApplyRuntimeConfig(patch));
   const sbirs_sensor::session::SbirsCycleResult result = session.StepWithResult(input);
-  EXPECT_TRUE(result.executed_this_cycle);
+  EXPECT_EQ(result.status, sbirs_sensor::session::SbirsCycleStatus::kCompleted);
   EXPECT_TRUE(sbirs_sensor::session::SbirsOutputFrameContainsOnlyNativeFields(result.output_frame));
 }
 
@@ -392,8 +392,8 @@ TEST(PublicHeadersSmokeTest, EosPublicSurfaceSupportsMinimalUsage) {
   session::EosTraceSession trace_session(session_config, session::EosTraceSessionOptions{});
   const ::electro_optical_sensor::session::EosCycleResult trace_result =
       trace_session.StepWithResult(input);
-  EXPECT_TRUE(result.executed_this_cycle);
-  EXPECT_TRUE(trace_result.executed_this_cycle);
+  EXPECT_EQ(result.status, ::electro_optical_sensor::session::EosCycleStatus::kCompleted);
+  EXPECT_EQ(trace_result.status, ::electro_optical_sensor::session::EosCycleStatus::kCompleted);
   EXPECT_GE(result.output_frame.detections.size(), 0U);
   EXPECT_GE(trace_result.output_frame.detections.size(), 0U);
 }
@@ -455,7 +455,8 @@ TEST(PublicHeadersSmokeTest, SarPublicSurfaceSupportsMinimalUsage) {
   EXPECT_TRUE(session.TryApplyRuntimeConfig(patch));
 
   const session::SarCycleResult result = session.StepWithResult(input);
-  EXPECT_TRUE(result.executed_this_cycle) << static_cast<int>(result.abort_reason);
+  EXPECT_EQ(result.status, session::SarCycleStatus::kCompleted)
+      << static_cast<int>(result.abort_reason);
   EXPECT_EQ(result.output_frame.range_sample_count, 64U);
   EXPECT_TRUE(result.output_frame.has_raw_echo);
   EXPECT_TRUE(result.output_frame.has_range_compressed_echo);
@@ -470,7 +471,7 @@ TEST(PublicHeadersSmokeTest, SarPublicSurfaceSupportsMinimalUsage) {
 
   session::SarTraceSession trace_session(session::SarSession::Create(session_config));
   const session::SarCycleResult trace_result = trace_session.StepWithResult(input);
-  EXPECT_TRUE(trace_result.executed_this_cycle);
+  EXPECT_EQ(trace_result.status, session::SarCycleStatus::kCompleted);
 
   session::SarReplaySessionResult replay_result;
   EXPECT_FALSE(replay_result.ok);

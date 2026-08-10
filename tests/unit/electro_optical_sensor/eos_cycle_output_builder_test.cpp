@@ -212,7 +212,7 @@ TEST(EosCycleOutputBuilderTest, DebugViewMergesRawOutputWithInputTargets) {
 
   eos_session::EosCycleResult result;
   result.input_cycle_index = input.cycle_index;
-  result.executed_this_cycle = true;
+  result.status = eos_session::EosCycleStatus::kCompleted;
   result.output_frame.cycle_index = input.cycle_index;
 
   ::electro_optical_sensor::output::EosDetectionRecord detected;
@@ -266,7 +266,7 @@ TEST(EosCycleOutputBuilderTest, NonExecutedCycleBackfillsInputQuantities) {
   input.scene.push_back(target);
   eos_session::EosCycleResult rejected;
   rejected.input_cycle_index = 2U;
-  rejected.executed_this_cycle = false;
+  rejected.status = eos_session::EosCycleStatus::kRejectedInvalidInput;
 
   const eos_session::EosOutputDebugView view =
       eos_session::EosOutputDebugViewBuilder::Build(input, rejected);
@@ -291,7 +291,7 @@ TEST(EosCycleOutputBuilderTest, LifecycleRecorderTracksFoundLostAndOptionalNotDe
 
   eos_session::EosCycleResult first_result;
   first_result.input_cycle_index = input.cycle_index;
-  first_result.executed_this_cycle = true;
+  first_result.status = eos_session::EosCycleStatus::kCompleted;
   first_result.output_frame.cycle_index = input.cycle_index;
   ::electro_optical_sensor::output::EosDetectionRecord detected;
   detected.detection_id = 1U;
@@ -313,7 +313,7 @@ TEST(EosCycleOutputBuilderTest, LifecycleRecorderTracksFoundLostAndOptionalNotDe
 
   eos_session::EosCycleResult second_result;
   second_result.input_cycle_index = 21U;
-  second_result.executed_this_cycle = true;
+  second_result.status = eos_session::EosCycleStatus::kCompleted;
   second_result.output_frame.cycle_index = 21U;
   events = recorder.Update(input, second_result);
   ASSERT_EQ(events.size(), 1U);
@@ -336,7 +336,7 @@ TEST(EosCycleOutputBuilderTest, NonExecutedCyclePreservesDetectedState) {
   input.scene.push_back(target);
   eos_session::EosCycleResult detected_result;
   detected_result.input_cycle_index = 1U;
-  detected_result.executed_this_cycle = true;
+  detected_result.status = eos_session::EosCycleStatus::kCompleted;
   ::electro_optical_sensor::output::EosDetectionRecord detection;
   detection.detection_id = 7U;
   detection.detected = true;
@@ -373,7 +373,7 @@ TEST(EosCycleOutputBuilderTest, AttachRecorderDrivesUpdateAutomatically) {
   ASSERT_TRUE(eos_session::EosCycleInputAdapter::Build(platform, targets, 0.1f, &input));
   input.cycle_index = 1U;
   const eos_session::EosCycleResult result = session.StepWithResult(input);
-  ASSERT_TRUE(result.executed_this_cycle);
+  ASSERT_EQ(result.status, eos_session::EosCycleStatus::kCompleted);
 
   const std::vector<eos_session::EosDetectionLifecycleEvent>& events =
       recorder.GetLastEvents();
@@ -427,7 +427,7 @@ TEST(EosCycleOutputBuilderTest, SessionWithoutRecorderIsBackwardCompatible) {
   ASSERT_TRUE(eos_session::EosCycleInputAdapter::Build(platform, targets, 0.1f, &input));
   input.cycle_index = 1U;
   const eos_session::EosCycleResult result = session.StepWithResult(input);
-  EXPECT_TRUE(result.executed_this_cycle);
+  EXPECT_EQ(result.status, eos_session::EosCycleStatus::kCompleted);
 }
 
 TEST(EosCycleOutputBuilderTest, NonExecutedCycleDoesNotUpdateLastEvents) {

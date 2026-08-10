@@ -220,7 +220,7 @@ std::string EncodeEosCycleResult(const ::electro_optical_sensor::session::EosCyc
   const auto attr_fb = fbb.CreateVector(attr_vec);
   const auto issue_fb = fbb.CreateVector(issue_vec);
   auto result = eos::replay::CreateEosCycleResult(
-      fbb, v.input_cycle_index, frame, attr_fb, v.executed_this_cycle,
+      fbb, v.input_cycle_index, frame, attr_fb,
       static_cast<int32_t>(v.abort_reason), static_cast<std::uint8_t>(v.status), issue_fb);
   fbb.Finish(result);
   return oneq::common::replay::CopyFinishedFlatbuffer(fbb);
@@ -289,7 +289,6 @@ bool DecodeEosCycleResult(const std::string& bytes,
       out->issues.push_back(iss);
     }
   }
-  out->executed_this_cycle = fb->executed_this_cycle();
   out->abort_reason = static_cast<session::EosPipelineAbortReason>(fb->abort_reason());
   out->status = static_cast<session::EosCycleStatus>(fb->status());
   return true;

@@ -95,7 +95,7 @@ pipeline，故正常 Session 路径不会把非法 `range_m` 传入 pipeline。p
 ### 非执行周期统一不复用（五模块统一规则）
 
 EOS 非执行周期（校验失败/关机/执行 abort）的 `Step()` 与 `EosCycleResult.output_frame` 一律返回**默认空帧**
-（`cycle_index=0`、空检测），**永不复用**上一有效输出。调用方用 `StepWithResult().executed_this_cycle` /
+（`cycle_index=0`、空检测），**永不复用**上一有效输出。调用方用 `StepWithResult().status` /
 `abort_reason` 判断周期状态。`reused_previous_output` 字段已删除。
 
 [evidence: tests/contract/electro_optical_sensor/eos_public_api_convenience_test.cpp::StepReturnsEmptyFrameOnValidationFailureAfterSuccess]

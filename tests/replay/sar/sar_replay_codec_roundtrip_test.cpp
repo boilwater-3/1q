@@ -25,10 +25,16 @@ namespace tests {
 namespace {
 
 // 绕过 EncodeSarCycleResult 的合法值限制，直接构造携带任意 abort_reason 的帧。
+// 注：decode 在 abort_reason 校验前要求 focused_image 及其向量非空，须构造合法空聚焦图像，
+//     否则帧在更早的校验处被拒，abort_reason 守卫不会被真正测到。
 std::string EncodeCycleResultWithRawAbortReason(std::int32_t abort_reason) {
   flatbuffers::FlatBufferBuilder builder(128U);
+  const auto real = builder.CreateVector(std::vector<double>{});
+  const auto imaginary = builder.CreateVector(std::vector<double>{});
+  const auto focused_image =
+      replay::CreateSarFocusedImage(builder, 0, 0, 0, real, imaginary, /*is_placeholder=*/true);
   builder.Finish(replay::CreateSarCycleResult(
-      builder, 1U, 0, 0, 0, 0, false, false, abort_reason));
+      builder, 1U, 0, focused_image, 0, 0, abort_reason, 0));
   return std::string(reinterpret_cast<const char*>(builder.GetBufferPointer()),
                      builder.GetSize());
 }
@@ -167,7 +173,7 @@ TEST(SarReplayCodecRoundtripTest, CycleResultPreservesOutputAndDiagnostics) {
   result.focused_image.column_count = 2U;
   result.focused_image.real_values = {10.0, 20.0, 30.0, 40.0};
   result.focused_image.imaginary_values = {-10.0, -20.0, -30.0, -40.0};
-  result.executed_this_cycle = true;
+  result.status = SarCycleStatus::kCompleted;
 
   const std::string bytes = EncodeSarCycleResult(result);
   ASSERT_FALSE(bytes.empty());
@@ -200,7 +206,7 @@ TEST(SarReplayCodecRoundtripTest, CycleResultPreservesOutputAndDiagnostics) {
             oneq::foundation::ValidationLocationKind::kPlatform);
   EXPECT_EQ(decoded.issues[0].location.entity_index, static_cast<std::size_t>(-1));
   EXPECT_EQ(decoded.issues[0].field, "platform");
-  EXPECT_TRUE(decoded.executed_this_cycle);
+  EXPECT_EQ(decoded.status, SarCycleStatus::kCompleted);
   EXPECT_EQ(decoded.raw_phase_history.source, SarRawPhaseHistorySource::kExternalRawIq);
   EXPECT_EQ(decoded.raw_phase_history.pulse_count, 2U);
   EXPECT_EQ(decoded.raw_phase_history.samples_per_pulse, 2U);
@@ -292,12 +298,12 @@ TEST(SarReplayCodecRoundtripTest, DecodeCycleResultRejectsUnknownAbortReasonAtom
   for (const std::int32_t invalid_reason : invalid_reasons) {
     SarCycleResult result;
     result.input_cycle_index = 17U;
-    result.executed_this_cycle = true;
+    result.status = SarCycleStatus::kCompleted;
 
     EXPECT_FALSE(DecodeSarCycleResult(EncodeCycleResultWithRawAbortReason(invalid_reason),
                                       &result));
     EXPECT_EQ(result.input_cycle_index, 17U);
-    EXPECT_TRUE(result.executed_this_cycle);
+    EXPECT_EQ(result.status, SarCycleStatus::kCompleted);
   }
 }
 

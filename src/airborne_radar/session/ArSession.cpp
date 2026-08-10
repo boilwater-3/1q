@@ -85,7 +85,7 @@ bool SamePreparedEmission(const oneq::electromagnetics::RfSceneEmission& left,
 struct ArExecutionCycleResult {
   bool executed{false};
   session::SignalCycleAbortReason abort_reason{session::SignalCycleAbortReason::kNone};
-  TrackOutputFrame track_output_frame{};
+  TrackOutputFrame output_frame{};
   session::ArIssueList issues{}; /**< 正常执行周期按目标排除的 kInfo 诊断（规则 13b）；
                                       校验拒绝时承载校验明细（COMMON-OQ-9）。 */
 };
@@ -126,7 +126,7 @@ struct ArSession::Impl {
     ArCycleResult result;
     result.input_cycle_index = input.cycle_index;
     result.status = ArCycleStatus::kCompleted;
-    result.track_output_frame = completed.track_output_frame;
+    result.output_frame = completed.output_frame;
     // 统一问题列表（规则 14）：输入校验问题（phase=kInputValidation）在前，
     // 正常执行周期按目标排除的 kInfo 诊断（phase=kExecution，规则 13b）在后。
     result.issues = issues;
@@ -395,7 +395,7 @@ struct ArSession::Impl {
       FinalizePendingRuntimeConfig();
     }
     result.executed = true;
-    result.track_output_frame = Controller().GetLatestTrackOutputFrame();
+    result.output_frame = Controller().GetLatestTrackOutputFrame();
     // 规则 13b：正常执行周期按目标排除的 kInfo 诊断转写（abort 路径不变）。
     result.issues = Controller().GetLatestIssues();
     return result;
@@ -801,7 +801,7 @@ struct ArSession::Impl {
       return result;
     }
     result.status = ArCompleteCycleStatus::kCompleted;
-    result.track_output_frame = execution_result.track_output_frame;
+    result.output_frame = execution_result.output_frame;
     // 规则 13b：正常执行周期按目标排除的 kInfo 诊断转写（abort 路径不变）。
     result.issues = execution_result.issues;
     result.has_decision_observation = Controller().HasLatestDecisionObservation();
@@ -903,7 +903,7 @@ ArSession ArSession::CreateWithDiagnostics(const config::ArSessionConfig& config
 }
 
 session::TrackOutputFrame ArSession::Step(const ArCycleInput& input) {
-  return StepWithResult(input).track_output_frame;
+  return StepWithResult(input).output_frame;
 }
 
 ArCycleResult ArSession::StepWithResult(const ArCycleInput& input) {

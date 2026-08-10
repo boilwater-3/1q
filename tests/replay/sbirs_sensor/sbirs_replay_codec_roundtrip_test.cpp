@@ -45,7 +45,7 @@ SbirsVector3M Vector(double x, double y, double z) {
 std::string EncodeCycleResultWithRawAbortReason(std::int32_t abort_reason) {
   flatbuffers::FlatBufferBuilder builder(128U);
   builder.Finish(sbirs::replay::CreateSbirsCycleResult(
-      builder, 99U, 0, 0, false, abort_reason, 0));
+      builder, 99U, 0, 0, abort_reason, 0, 0));
   return std::string(reinterpret_cast<const char*>(builder.GetBufferPointer()),
                      builder.GetSize());
 }
@@ -53,7 +53,7 @@ std::string EncodeCycleResultWithRawAbortReason(std::int32_t abort_reason) {
 std::string EncodeCycleResultWithRawStatus(std::int32_t status) {
   flatbuffers::FlatBufferBuilder builder(128U);
   builder.Finish(sbirs::replay::CreateSbirsCycleResult(
-      builder, 99U, 0, 0, false, 0, status, 0));
+      builder, 99U, 0, 0, 0, status, 0));
   return std::string(reinterpret_cast<const char*>(builder.GetBufferPointer()),
                      builder.GetSize());
 }
@@ -181,7 +181,7 @@ TEST(SbirsReplayCodecRoundtripTest, CycleResultPreservesOutputAndAttributionFiel
   result.input_cycle_index = 5U;
   result.output_frame.cycle_index = 5U;
   result.output_frame.scan_azimuth_deg = 12.0f;
-  result.executed_this_cycle = true;
+  result.status = SbirsCycleStatus::kCompleted;
   result.abort_reason = SbirsPipelineAbortReason::kValidationRejected;
 
   SbirsDetectionRecord detection;
@@ -238,7 +238,7 @@ TEST(SbirsReplayCodecRoundtripTest, CycleResultPreservesOutputAndAttributionFiel
   ASSERT_TRUE(DecodeSbirsCycleResult(bytes, &decoded));
 
   EXPECT_EQ(decoded.input_cycle_index, 5U);
-  EXPECT_TRUE(decoded.executed_this_cycle);
+  EXPECT_EQ(decoded.status, SbirsCycleStatus::kCompleted);
   EXPECT_EQ(decoded.abort_reason, SbirsPipelineAbortReason::kValidationRejected);
   ASSERT_EQ(decoded.output_frame.detections.size(), 1U);
   EXPECT_EQ(decoded.output_frame.detections[0].observation_stage,
@@ -275,7 +275,6 @@ TEST(SbirsReplayCodecRoundtripTest, CycleResultPreservesPoweredOffAbortReason) {
   result.input_cycle_index = 7U;
   result.output_frame.cycle_index = 7U;
   result.output_frame.scan_azimuth_deg = 3.0f;
-  result.executed_this_cycle = false;
   result.abort_reason = SbirsPipelineAbortReason::kSensorPoweredOff;
   result.status = SbirsCycleStatus::kPoweredOff;
 
@@ -284,7 +283,6 @@ TEST(SbirsReplayCodecRoundtripTest, CycleResultPreservesPoweredOffAbortReason) {
   ASSERT_TRUE(DecodeSbirsCycleResult(bytes, &decoded));
 
   EXPECT_EQ(decoded.input_cycle_index, 7U);
-  EXPECT_FALSE(decoded.executed_this_cycle);
   EXPECT_EQ(decoded.abort_reason, SbirsPipelineAbortReason::kSensorPoweredOff);
   EXPECT_EQ(decoded.status, SbirsCycleStatus::kPoweredOff);
 }
@@ -497,14 +495,14 @@ TEST(SbirsReplayCodecRoundtripTest, DecodeCycleResultRejectsUnknownAbortReasonAt
     SbirsCycleResult result;
     result.input_cycle_index = 17U;
     result.output_frame.cycle_index = 18U;
-    result.executed_this_cycle = true;
+    result.status = SbirsCycleStatus::kCompleted;
     result.abort_reason = SbirsPipelineAbortReason::kValidationRejected;
 
     EXPECT_FALSE(DecodeSbirsCycleResult(EncodeCycleResultWithRawAbortReason(invalid_reason),
                                        &result));
     EXPECT_EQ(result.input_cycle_index, 17U);
     EXPECT_EQ(result.output_frame.cycle_index, 18U);
-    EXPECT_TRUE(result.executed_this_cycle);
+    EXPECT_EQ(result.status, SbirsCycleStatus::kCompleted);
     EXPECT_EQ(result.abort_reason, SbirsPipelineAbortReason::kValidationRejected);
   }
 }
@@ -517,13 +515,13 @@ TEST(SbirsReplayCodecRoundtripTest, DecodeCycleResultRejectsUnknownStatusAtomica
     SbirsCycleResult result;
     result.input_cycle_index = 17U;
     result.output_frame.cycle_index = 18U;
-    result.executed_this_cycle = true;
+    result.status = SbirsCycleStatus::kCompleted;
 
     EXPECT_FALSE(DecodeSbirsCycleResult(EncodeCycleResultWithRawStatus(invalid_status),
                                         &result));
     EXPECT_EQ(result.input_cycle_index, 17U);
     EXPECT_EQ(result.output_frame.cycle_index, 18U);
-    EXPECT_TRUE(result.executed_this_cycle);
+    EXPECT_EQ(result.status, SbirsCycleStatus::kCompleted);
   }
 }
 

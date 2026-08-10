@@ -63,7 +63,7 @@ TEST(SarSessionRuntimeConfigTest, EmptyPatchRejectedAndSessionStaysHealthy) {
 
   // 会话不受影响：仍可正常执行 RDA 成像。
   const session::SarCycleResult result = session.StepWithResult(MakeInput());
-  EXPECT_TRUE(result.executed_this_cycle);
+  EXPECT_EQ(result.status, session::SarCycleStatus::kCompleted);
   EXPECT_TRUE(result.output_frame.has_l1_image);
 }
 
@@ -77,7 +77,7 @@ TEST(SarSessionRuntimeConfigTest, RetainRawPhaseHistoryWithoutRawEchoRejected) {
   EXPECT_TRUE(session.TryApplyRuntimeConfig(
       config::SarRuntimeConfigBuilder().WithEnableRawEchoGeneration(false).Build()));
   const session::SarCycleResult after_close = session.StepWithResult(MakeInput());
-  EXPECT_TRUE(after_close.executed_this_cycle);
+  EXPECT_EQ(after_close.status, session::SarCycleStatus::kCompleted);
   EXPECT_FALSE(after_close.output_frame.has_raw_echo);
 
   // 第二步：retain_raw_phase_history 依赖 raw echo，应被 resolver 拒绝。
@@ -86,7 +86,7 @@ TEST(SarSessionRuntimeConfigTest, RetainRawPhaseHistoryWithoutRawEchoRejected) {
 
   // 拒绝后 runtime_config 未被污染：步进行为与"从未应用被拒补丁"一致。
   const session::SarCycleResult after_reject = session.StepWithResult(MakeInput(2U));
-  EXPECT_TRUE(after_reject.executed_this_cycle);
+  EXPECT_EQ(after_reject.status, session::SarCycleStatus::kCompleted);
   EXPECT_FALSE(after_reject.output_frame.has_raw_echo);
   EXPECT_EQ(after_reject.output_frame.completed_stage, session::SarProcessingStage::kNone);
 }

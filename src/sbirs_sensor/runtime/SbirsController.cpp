@@ -41,7 +41,6 @@ session::SbirsCycleResult SbirsController::RunOnce(const session::SbirsCycleInpu
     session::RecordAbort(&result, session::SbirsPipelineAbortReason::kSensorPoweredOff,
                          session::codes::kSensorPoweredOff,
                          "SBIRS sensor is powered off or in standby mode.");
-    result.executed_this_cycle = false;
     result.status = session::SbirsCycleStatus::kPoweredOff;
     result.output_frame.cycle_index = input.cycle_index;
     result.output_frame.scan_azimuth_deg = pipeline_result.scan_azimuth_deg;
@@ -60,7 +59,6 @@ session::SbirsCycleResult SbirsController::RunOnce(const session::SbirsCycleInpu
     }
     result.output_frame.detections.push_back(detection.record);
   }
-  result.executed_this_cycle = true;
   result.status = session::SbirsCycleStatus::kCompleted;
   result.abort_reason = session::SbirsPipelineAbortReason::kNone;
   return result;

@@ -205,10 +205,10 @@ TEST(RadarCycleOutputBuilderTest, FullSessionEstimateConvertsNearExternalTruth) 
       airborne_radar::session::ArSession::Create(MakeDetectionFocusedConfig());
   const ArCycleResult result = session.StepWithResult(input);
   ASSERT_FALSE(airborne_radar::session::HasValidationError(result.issues));
-  ASSERT_FALSE(result.track_output_frame.tracks.empty());
+  ASSERT_FALSE(result.output_frame.tracks.empty());
 
   ArExternalTrackOutputFrame external_frame;
-  ASSERT_TRUE(ArCycleOutputAdapter::Build(platform, result.track_output_frame, &external_frame));
+  ASSERT_TRUE(ArCycleOutputAdapter::Build(platform, result.output_frame, &external_frame));
   ASSERT_FALSE(external_frame.tracks.empty());
 
   const airborne_radar::session::ArExternalTrackKinematics& estimate = external_frame.tracks[0];
@@ -259,11 +259,11 @@ TEST(RadarCycleOutputBuilderTest, MultiCycleMovingTargetsStayNearExternalTruth) 
 
     const ArCycleResult result = session.StepWithResult(input);
     ASSERT_FALSE(airborne_radar::session::HasValidationError(result.issues)) << "cycle=" << cycle;
-    ASSERT_FALSE(result.track_output_frame.tracks.empty()) << "cycle=" << cycle;
+    ASSERT_FALSE(result.output_frame.tracks.empty()) << "cycle=" << cycle;
 
     ArExternalTrackOutputFrame external_frame;
     ASSERT_TRUE(
-        ArCycleOutputAdapter::Build(platform, result.track_output_frame, &external_frame))
+        ArCycleOutputAdapter::Build(platform, result.output_frame, &external_frame))
         << "cycle=" << cycle;
 
     for (std::size_t target_index = 1U; target_index < targets.size(); ++target_index) {

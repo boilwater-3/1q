@@ -168,7 +168,7 @@ TEST(SbirsReplaySessionTest, ReplaySbirsTraceRoundtrip) {
         sbirs_sensor::config::SbirsRuntimeConfigBuilder().WithScanRateDegPerSec(1.0f).Build();
     (void)session.TryApplyRuntimeConfig(patch);
     const sbirs_sensor::session::SbirsCycleResult result = session.StepWithResult(ValidInput(1U));
-    EXPECT_TRUE(result.executed_this_cycle);
+    EXPECT_EQ(result.status, sbirs_sensor::session::SbirsCycleStatus::kCompleted);
     ASSERT_EQ(result.output_frame.detections.size(), 1U);
     ASSERT_EQ(result.detection_attributions.size(), 1U);
     EXPECT_EQ(result.output_frame.detections.front().observation_stage,
@@ -248,14 +248,14 @@ TEST(SbirsReplaySessionTest, ReplayContinuesAfterFailureMarker) {
     options.replay_writer = writer;
     options.trace_config_on_construct = true;
     sbirs_sensor::session::SbirsTraceSession session(Config(), options);
-    ASSERT_TRUE(session.StepWithResult(ValidInput(1U)).executed_this_cycle);
+    ASSERT_EQ(session.StepWithResult(ValidInput(1U)).status, sbirs_sensor::session::SbirsCycleStatus::kCompleted);
     oneq::replay::ReplayTraceFailure failure;
     failure.error_code = "SBIRS_RECOVERABLE_TEST";
     failure.message = "synthetic recoverable marker";
     failure.has_cycle_index = true;
     failure.cycle_index = 1U;
     writer->WriteFailureMarker(failure, sbirs_sensor::session::EncodeSbirsFailureMarker(failure));
-    ASSERT_TRUE(session.StepWithResult(ValidInput(2U)).executed_this_cycle);
+    ASSERT_EQ(session.StepWithResult(ValidInput(2U)).status, sbirs_sensor::session::SbirsCycleStatus::kCompleted);
     writer->Flush();
   }
   const sbirs_sensor::session::SbirsReplaySessionResult replay_result =

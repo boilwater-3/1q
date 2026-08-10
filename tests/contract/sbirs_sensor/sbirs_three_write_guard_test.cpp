@@ -71,7 +71,6 @@ session::SbirsCycleInput MakeInput(std::uint32_t cycle_index = 1U, float dt_sec 
 void ExpectThreeWriteAbort(const session::SbirsCycleResult& result,
                            session::SbirsPipelineAbortReason expected_reason,
                            session::SbirsCycleStatus expected_status) {
-  EXPECT_FALSE(result.executed_this_cycle);
   EXPECT_EQ(result.abort_reason, expected_reason);
   EXPECT_EQ(result.status, expected_status);
 
@@ -101,7 +100,7 @@ TEST(SbirsThreeWriteGuardTest, ValidationAbortWritesAllThree) {
 TEST(SbirsThreeWriteGuardTest, PoweredOffAbortWritesAllThree) {
   session::SbirsSession session = session::SbirsSession::Create(MakeExecutableConfig());
   const session::SbirsCycleResult active = session.StepWithResult(MakeInput());
-  ASSERT_TRUE(active.executed_this_cycle);
+  ASSERT_EQ(active.status, session::SbirsCycleStatus::kCompleted);
 
   (void)session.TryApplyRuntimeConfig(
       config::SbirsRuntimeConfigBuilder().WithSensorEnabled(false).Build());

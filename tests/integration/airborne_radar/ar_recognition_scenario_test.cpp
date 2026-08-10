@@ -149,8 +149,8 @@ TEST_F(ArRecognitionScenarioTest, BallisticScenarioReachesConfirmationWithHighAc
     AppendTarget(&input, 77U, 100.0f, 2000.0f, -3.0f, "BALLISTIC_EXAMPLE_A");
     const ArCycleResult result = radar.StepWithResult(input);
     ASSERT_EQ(result.status, ArCycleStatus::kCompleted);
-    ASSERT_EQ(result.track_output_frame.tracks.size(), 1U);
-    const auto& track = result.track_output_frame.tracks.front();
+    ASSERT_EQ(result.output_frame.tracks.size(), 1U);
+    const auto& track = result.output_frame.tracks.front();
     if (track.recognition.state == ArRecognitionState::kCategoryConfirmed ||
         track.recognition.state == ArRecognitionState::kModelConfirmed) {
       ++confirmed_cycles;
@@ -175,8 +175,8 @@ TEST_F(ArRecognitionScenarioTest, NearSpaceScenarioReachesConfirmationWithHighAc
     AppendTarget(&input, 88U, 400.0f, 500.0f, 2.0f, "NEAR_SPACE_EXAMPLE_A");
     const ArCycleResult result = radar.StepWithResult(input);
     ASSERT_EQ(result.status, ArCycleStatus::kCompleted);
-    ASSERT_EQ(result.track_output_frame.tracks.size(), 1U);
-    const auto& track = result.track_output_frame.tracks.front();
+    ASSERT_EQ(result.output_frame.tracks.size(), 1U);
+    const auto& track = result.output_frame.tracks.front();
     if (track.recognition.state == ArRecognitionState::kCategoryConfirmed ||
         track.recognition.state == ArRecognitionState::kModelConfirmed) {
       ++confirmed_cycles;
@@ -202,8 +202,8 @@ TEST_F(ArRecognitionScenarioTest, UnknownTargetRejectsWithHighUnknownRate) {
     AppendTarget(&input, 99U, 20.0f, 0.0f, 20.0f, "UNKNOWN_TARGET");
     const ArCycleResult result = radar.StepWithResult(input);
     ASSERT_EQ(result.status, ArCycleStatus::kCompleted);
-    ASSERT_EQ(result.track_output_frame.tracks.size(), 1U);
-    const auto& track = result.track_output_frame.tracks.front();
+    ASSERT_EQ(result.output_frame.tracks.size(), 1U);
+    const auto& track = result.output_frame.tracks.front();
     if (track.recognition.state == ArRecognitionState::kUnknown) {
       ++unknown_cycles;
     }
@@ -226,12 +226,12 @@ TEST_F(ArRecognitionScenarioTest, MixedTargetsKeepConfusionBelowTenPercent) {
     AppendTarget(&input, 88U, 400.0f, 500.0f, 2.0f, "NEAR_SPACE_EXAMPLE_A");
     const ArCycleResult result = radar.StepWithResult(input);
     ASSERT_EQ(result.status, ArCycleStatus::kCompleted);
-    ASSERT_EQ(result.track_output_frame.tracks.size(), 2U);
+    ASSERT_EQ(result.output_frame.tracks.size(), 2U);
     EXPECT_TRUE(result.has_recognition_summary);
     EXPECT_TRUE(result.recognition_summary.has_ground_truth);
     EXPECT_EQ(result.recognition_summary.category_accuracy, 1.0f);
     EXPECT_EQ(result.recognition_summary.model_accuracy, 1.0f);
-    for (const auto& track : result.track_output_frame.tracks) {
+    for (const auto& track : result.output_frame.tracks) {
       if (track.recognition.state != ArRecognitionState::kModelConfirmed) {
         continue;
       }
@@ -262,7 +262,7 @@ TEST_F(ArRecognitionScenarioTest, ModeSwitchSequenceRestartsAccumulationOnReentr
     const ArCycleResult result = radar.StepWithResult(input);
     ASSERT_EQ(result.status, ArCycleStatus::kCompleted);
     first_exit_observation_count =
-        result.track_output_frame.tracks.front().recognition.observation_count;
+        result.output_frame.tracks.front().recognition.observation_count;
   }
   // 切出 kLrr：结论保持。
   config::ArRuntimeConfigPatch tws_patch;
@@ -275,7 +275,7 @@ TEST_F(ArRecognitionScenarioTest, ModeSwitchSequenceRestartsAccumulationOnReentr
     const ArCycleResult result = radar.StepWithResult(input);
     ASSERT_EQ(result.status, ArCycleStatus::kCompleted);
     first_exit_conclusion =
-        static_cast<std::uint32_t>(result.track_output_frame.tracks.front().recognition.state);
+        static_cast<std::uint32_t>(result.output_frame.tracks.front().recognition.state);
   }
   EXPECT_EQ(first_exit_conclusion, static_cast<std::uint32_t>(ArRecognitionState::kModelConfirmed));
 
@@ -285,7 +285,7 @@ TEST_F(ArRecognitionScenarioTest, ModeSwitchSequenceRestartsAccumulationOnReentr
   AppendTarget(&reentry, 77U, 100.0f, 2000.0f, -3.0f, "BALLISTIC_EXAMPLE_A");
   const ArCycleResult result = radar.StepWithResult(reentry);
   ASSERT_EQ(result.status, ArCycleStatus::kCompleted);
-  const auto& track = result.track_output_frame.tracks.front();
+  const auto& track = result.output_frame.tracks.front();
   EXPECT_LE(track.recognition.observation_count, first_exit_observation_count);
   EXPECT_EQ(track.recognition.state, ArRecognitionState::kModelConfirmed);
 }
@@ -314,8 +314,8 @@ TEST_F(ArRecognitionScenarioTest, ScenarioCyclesRoundtripByteExactThroughReplayC
     // 字节精确往返：replay 比对即字节相等；任何字段丢失都会 divergence。
     EXPECT_EQ(session::EncodeCycleReplayRecordFlatbuffer(decoded), encoded);
     // 识别字段抽查：两帧中的结论与摘要逐字段保持。
-    const auto& expected_track = result.track_output_frame.tracks.front();
-    const auto& decoded_track = decoded.result.track_output_frame.tracks.front();
+    const auto& expected_track = result.output_frame.tracks.front();
+    const auto& decoded_track = decoded.result.output_frame.tracks.front();
     EXPECT_EQ(decoded_track.recognition.state, expected_track.recognition.state);
     EXPECT_FLOAT_EQ(decoded_track.recognition.best_score, expected_track.recognition.best_score);
     EXPECT_FLOAT_EQ(decoded_track.recognition.confidence, expected_track.recognition.confidence);

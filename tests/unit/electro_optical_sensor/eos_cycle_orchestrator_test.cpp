@@ -48,7 +48,7 @@ TEST(EosSessionTest, RunCycleProducesOutputAndPreservesCycleIndex) {
   const eos_session::EosCycleResult result = session.StepWithResult(MakeCycleInput(7U, 0.1f));
 
   EXPECT_FALSE(eos_session::HasValidationError(result.issues));
-  EXPECT_TRUE(result.executed_this_cycle);
+  EXPECT_EQ(result.status, eos_session::EosCycleStatus::kCompleted);
   EXPECT_EQ(result.output_frame.cycle_index, 7U);
 }
 
@@ -70,7 +70,7 @@ TEST(EosSessionTest, ValidRuntimePatchTakesEffectOnNextStep) {
   const eos_session::EosCycleResult patched =
       session.StepWithResult(MakeCycleInput(2U, 0.1f));
   EXPECT_FALSE(eos_session::HasValidationError(patched.issues));
-  EXPECT_TRUE(patched.executed_this_cycle);
+  EXPECT_EQ(patched.status, eos_session::EosCycleStatus::kCompleted);
   EXPECT_NEAR(patched.output_frame.scan_azimuth_deg, -9.1f, 1.0e-6f);
   EXPECT_NE(baseline_scan_azimuth, patched.output_frame.scan_azimuth_deg);
 }
@@ -86,7 +86,7 @@ TEST(EosSessionTest, InvalidRuntimePatchDoesNotChangeUpdateBehavior) {
   const eos_session::EosCycleResult result =
       session.StepWithResult(MakeCycleInput(3U, 0.1f));
   EXPECT_FALSE(eos_session::HasValidationError(result.issues));
-  EXPECT_TRUE(result.executed_this_cycle);
+  EXPECT_EQ(result.status, eos_session::EosCycleStatus::kCompleted);
   EXPECT_NEAR(result.output_frame.scan_azimuth_deg, -9.5f, 1.0e-6f);
 }
 

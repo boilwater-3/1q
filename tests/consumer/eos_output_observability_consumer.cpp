@@ -36,7 +36,7 @@ int main() {
   // 2. 手填一个含 attribution 的结果，验证 detection_attributions 字段可达。
   eos::session::EosCycleResult result;
   result.input_cycle_index = input.cycle_index;
-  result.executed_this_cycle = true;
+  result.status = eos::session::EosCycleStatus::kCompleted;
   result.output_frame.cycle_index = input.cycle_index;
   eos::attribution::EosDetectionAttributionRecord attribution;
   attribution.detection_id = 1U;

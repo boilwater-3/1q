@@ -118,8 +118,8 @@ AR/ESR/EOS/SBIRS/SAR 五模块的电源状态必须遵守单源原则：
    validation error。若未来引入可表达负数的外部输入入口，负数 ID 必须在转换为
    public `std::uint64_t` DTO 前被拒绝。
 7. 仿真真值不得混入面向外部系统的真实输出通道。
-8. `*CycleResult` 的输出帧、指标和诊断产品仅在 `status == kCompleted`（或等价的
-   `executed_this_cycle=true`）时代表本周期的有效计算结果；非执行周期返回默认空帧
+8. `*CycleResult` 的输出帧、指标和诊断产品仅在 `status == kCompleted` 时代表
+   本周期有效计算结果；非执行周期返回默认空帧
    （`cycle_index=0`、空载荷），不复用上一有效输出，不得按真实零值参与统计。
    `reused_previous_output` 概念已废除。
 9. 所有中止路径（`abort_reason` 非 `kNone`）必须执行三写：
@@ -275,9 +275,8 @@ ECEF 输入，检测记录直接以 ECEF 视线向量计算，无局部地平转
 | SAR | `SarCycleStatus` | `kCompleted`, `kRejectedInvalidInput`, `kRejectedExecution`, `kPoweredOff`（细粒度失败信息由 `SarIssue::code` + 日志双写） |
 | SBIRS | `SbirsCycleStatus` | `kCompleted`, `kPoweredOff`, `kRejectedInvalidInput`, `kRejectedExecution` |
 
-`executed_this_cycle` 保留为 `status == kCompleted` 的便捷访问器（向后兼容）。
 `abort_reason` 是强类型枚举（SAR 为 `SarPipelineAbortReason`，其余模块类似），提供更细粒度的终止原因。
-状态判断应优先使用 `status` 枚举，`executed_this_cycle` 仅用于简单 bool 门控。
+状态判断以 `status` 枚举为准（`status == kCompleted` 即本周期的有效执行标志）。
 
 ### Attribution（仿真真值归属）层级
 

@@ -48,7 +48,7 @@ TEST(EosSessionCreateTest, CreateUsesDefaultPipelineAndProducesResult) {
   const ::electro_optical_sensor::session::EosCycleResult result = session.StepWithResult(input);
 
   EXPECT_FALSE(HasValidationError(result.issues));
-  EXPECT_TRUE(result.executed_this_cycle);
+  EXPECT_EQ(result.status, EosCycleStatus::kCompleted);
   EXPECT_EQ(result.output_frame.cycle_index, 10U);
   EXPECT_TRUE(result.output_frame.detections.empty());
 }

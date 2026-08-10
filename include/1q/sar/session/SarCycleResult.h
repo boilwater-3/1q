@@ -165,7 +165,7 @@ struct ONEQ_API SarOutputFrame {
 
 /**
  * @brief SAR 单周期聚合结果。
- * @note `output_frame`、`focused_image` 与质量指标只有在 `executed_this_cycle=true`
+ * @note `output_frame`、`focused_image` 与质量指标只有在 `status == kCompleted`
  *       时才代表本周期有效计算结果；非执行周期返回默认空帧，不复用上一有效输出，
  *       不能按真实零值参与统计。
  */
@@ -176,7 +176,6 @@ struct ONEQ_API SarCycleResult {
   SarRawPhaseHistory raw_phase_history{};
   SarIssueList issues{}; /**< 统一问题列表（规则 14）：校验问题（kInputValidation）与执行诊断 */
   SarCycleStatus status{SarCycleStatus::kRejectedInvalidInput};
-  bool executed_this_cycle{false};
   SarPipelineAbortReason abort_reason{SarPipelineAbortReason::kNone};
 };
 

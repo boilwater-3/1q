@@ -34,7 +34,7 @@ int main() {
   // 2. 手填一个含产品输出的结果。
   sar::session::SarCycleResult result;
   result.input_cycle_index = input.cycle_index;
-  result.executed_this_cycle = true;
+  result.status = sar::session::SarCycleStatus::kCompleted;
   result.output_frame.cycle_index = input.cycle_index;
   result.output_frame.completed_stage = sar::session::SarProcessingStage::kL1RdaImage;
   result.output_frame.has_l1_image = true;

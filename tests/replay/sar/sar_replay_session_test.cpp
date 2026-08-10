@@ -154,7 +154,7 @@ TEST(SarReplaySessionTest, ReplaySarTraceRoundtrip) {
     SarTraceSession session(config, options);
 
     const SarCycleResult result = session.StepWithResult(MakeReplayInput());
-    ASSERT_TRUE(result.executed_this_cycle);
+    ASSERT_EQ(result.status, SarCycleStatus::kCompleted);
     ASSERT_TRUE(result.output_frame.has_l1_image);
     ASSERT_GE(result.issues.size(), 3U);
     replay_writer->Flush();
@@ -187,7 +187,7 @@ TEST(SarReplaySessionTest, ReplayExternalRawIqTraceRoundtrip) {
     SarTraceSession session(config, options);
 
     const SarCycleResult result = session.StepWithResult(MakeExternalRawIqReplayInput());
-    ASSERT_TRUE(result.executed_this_cycle) << static_cast<int>(result.abort_reason);
+    ASSERT_EQ(result.status, SarCycleStatus::kCompleted) << static_cast<int>(result.abort_reason);
     ASSERT_TRUE(result.output_frame.has_l1_image);
     ASSERT_EQ(result.raw_phase_history.source, SarRawPhaseHistorySource::kExternalRawIq);
     replay_writer->Flush();
@@ -244,14 +244,14 @@ TEST(SarReplaySessionTest, ReplayContinuesAfterFailureMarker) {
     options.replay_writer = writer;
     options.trace_config_on_construct = true;
     SarTraceSession session(MakeSmallRdaConfigForReplay(), options);
-    ASSERT_TRUE(session.StepWithResult(MakeReplayInput(1U)).executed_this_cycle);
+    ASSERT_EQ(session.StepWithResult(MakeReplayInput(1U)).status, SarCycleStatus::kCompleted);
     oneq::replay::ReplayTraceFailure failure;
     failure.error_code = "SAR_RECOVERABLE_TEST";
     failure.message = "synthetic recoverable marker";
     failure.has_cycle_index = true;
     failure.cycle_index = 1U;
     writer->WriteFailureMarker(failure);
-    ASSERT_TRUE(session.StepWithResult(MakeReplayInput(2U)).executed_this_cycle);
+    ASSERT_EQ(session.StepWithResult(MakeReplayInput(2U)).status, SarCycleStatus::kCompleted);
     writer->Flush();
   }
   const SarReplaySessionResult replay_result = ReplaySarTrace(temp_dir.Path());
@@ -280,11 +280,11 @@ TEST(SarReplaySessionTest, ReplayL3BpTraceRoundtrip) {
     SarTraceSession session(MakeSmallL3BpConfigForReplay(), options);
 
     const SarCycleResult first = session.StepWithResult(MakeReplayInput(1U));
-    ASSERT_TRUE(first.executed_this_cycle);
+    ASSERT_EQ(first.status, SarCycleStatus::kCompleted);
     ASSERT_TRUE(first.output_frame.has_l3_bp_image);
     ASSERT_EQ(first.output_frame.completed_stage, SarProcessingStage::kL3BpImage);
     const SarCycleResult second = session.StepWithResult(MakeReplayInput(2U));
-    ASSERT_TRUE(second.executed_this_cycle);
+    ASSERT_EQ(second.status, SarCycleStatus::kCompleted);
     ASSERT_TRUE(second.output_frame.has_l3_bp_image);
     replay_writer->Flush();
   }
@@ -345,7 +345,7 @@ TEST(SarReplaySessionTest, ReplaySarTraceDetectsFocusedImagePixelDivergence) {
   const SarCycleInput input = MakeReplayInput();
   SarSession session = SarSession::Create(config);
   SarCycleResult expected = session.StepWithResult(input);
-  ASSERT_TRUE(expected.executed_this_cycle);
+  ASSERT_EQ(expected.status, SarCycleStatus::kCompleted);
   ASSERT_FALSE(expected.focused_image.real_values.empty());
   expected.focused_image.real_values.front() += 1.0;
 

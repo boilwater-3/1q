@@ -148,8 +148,8 @@ class ArUsMilitaryRecognitionScenarioTest : public ::testing::Test {
       AppendTarget(&input, 77U, speed_mps, altitude_offset_m, rcs_dbsm, truth_name);
       const ArCycleResult result = radar.StepWithResult(input);
       EXPECT_EQ(result.status, ArCycleStatus::kCompleted);
-      EXPECT_EQ(result.track_output_frame.tracks.size(), 1U);
-      const auto& track = result.track_output_frame.tracks.front();
+      EXPECT_EQ(result.output_frame.tracks.size(), 1U);
+      const auto& track = result.output_frame.tracks.front();
       if (track.recognition.state == ArRecognitionState::kCategoryConfirmed ||
           track.recognition.state == ArRecognitionState::kModelConfirmed) {
         ++outcome.confirmed_cycles;
@@ -233,12 +233,12 @@ TEST_F(ArUsMilitaryRecognitionScenarioTest, MixedFighterAndMissileKeepFullAccura
     AppendTarget(&input, 88U, 255.0f, AltitudeOffsetFor(40.0f), -10.0f, "BGM-109");
     const ArCycleResult result = radar.StepWithResult(input);
     ASSERT_EQ(result.status, ArCycleStatus::kCompleted);
-    ASSERT_EQ(result.track_output_frame.tracks.size(), 2U);
+    ASSERT_EQ(result.output_frame.tracks.size(), 2U);
     EXPECT_TRUE(result.has_recognition_summary);
     EXPECT_TRUE(result.recognition_summary.has_ground_truth);
     EXPECT_EQ(result.recognition_summary.category_accuracy, 1.0f);
     EXPECT_EQ(result.recognition_summary.model_accuracy, 1.0f);
-    for (const auto& track : result.track_output_frame.tracks) {
+    for (const auto& track : result.output_frame.tracks) {
       EXPECT_EQ(track.recognition.state, ArRecognitionState::kModelConfirmed);
       const bool correct = track.target_name == "F-16C"
                                ? track.recognition.target_model == "F-16C"

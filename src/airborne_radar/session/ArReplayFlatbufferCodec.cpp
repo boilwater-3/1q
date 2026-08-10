@@ -1366,7 +1366,7 @@ flatbuffers::Offset<fb::ArCycleResultV3> EncodeCycleResultV3(
   const auto issues_fb = builder->CreateVector(issues);
   return fb::CreateArCycleResultV3(
       *builder, value.input_cycle_index, static_cast<int>(value.status),
-      EncodeTrackOutputFrame(builder, value.track_output_frame),
+      EncodeTrackOutputFrame(builder, value.output_frame),
       EncodeRfV2Scene(builder, value.emission_frame), static_cast<int>(value.receiver_impairment),
       observations_fb, commands_fb, static_cast<int>(value.abort_reason),
       value.has_control_profile, EncodeArControlProfile(builder, value.control_profile),
@@ -1385,7 +1385,7 @@ bool TryDecodeCycleResultV3(const fb::ArCycleResultV3* value, ArCycleResult* res
   ArCycleResult candidate;
   candidate.input_cycle_index = value->input_cycle_index();
   candidate.status = static_cast<ArCycleStatus>(value->status());
-  candidate.track_output_frame = DecodeTrackOutputFrame(value->track_output_frame());
+  candidate.output_frame = DecodeTrackOutputFrame(value->output_frame());
   candidate.emission_frame = DecodeRfV2Scene(value->emission_frame());
   candidate.receiver_impairment = static_cast<ArReceiverImpairment>(value->receiver_impairment());
   if (value->interference_observations() != nullptr) {

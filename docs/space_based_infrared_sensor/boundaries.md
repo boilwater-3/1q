@@ -31,14 +31,14 @@ SBIRS 遵守三层输出模型（contract.md §三层输出模型）：
 | 结构化执行结果层 | `StepWithResult()` 返回的 `SbirsCycleResult` | 输出帧、执行状态、校验、abort reason、诊断摘要 |
 | 开发调试视图层 | `SbirsOutputDebugViewBuilder` / `SbirsDetectionLifecycleRecorder` | 人读状态、生命周期事件、输入实体回填 |
 
-`executed_this_cycle=false` 表示本周期没有产生新的目标观测事实。Lifecycle recorder 在该边界返回空事件
+非执行周期（`status != kCompleted`）表示本周期没有产生新的目标观测事实。Lifecycle recorder 在该边界返回空事件
 列表并保持全部累积状态；validation rejection 不得虚构 `Lost`、`NotDetected` 或 `TargetMissingFromInput`。
 下一合法检测继续按拒绝前状态产生 `Updated`。
 
 ### 非执行周期统一不复用（五模块统一规则）
 
 SBIRS 非执行周期（校验失败/执行 abort）的 `Step()` 与 `SbirsCycleResult.output_frame` 一律返回**默认空帧**
-（`cycle_index=0`、空检测），**永不复用**上一有效输出。调用方用 `StepWithResult().executed_this_cycle` /
+（`cycle_index=0`、空检测），**永不复用**上一有效输出。调用方用 `StepWithResult().status` /
 `abort_reason` 判断周期状态。`reused_previous_output` 字段已删除。
 
 [evidence: tests/contract/sbirs_sensor/sbirs_public_api_convenience_test.cpp::StepReturnsEmptyFrameOnValidationFailureAfterSuccess]

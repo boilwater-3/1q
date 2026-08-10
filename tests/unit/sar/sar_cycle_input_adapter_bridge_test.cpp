@@ -97,7 +97,7 @@ TEST(SarCycleInputAdapterBridgeTest, TrajectoryOnlyInputRunsInternalEchoNotExter
 
   // 关键断言：不再触发外部 IQ shape 中止，而是走内部回波并完成。
   EXPECT_FALSE(HasAbortCode(result, "external_raw_iq_shape_mismatch"));
-  EXPECT_TRUE(result.executed_this_cycle);
+  EXPECT_EQ(result.status, session::SarCycleStatus::kCompleted);
   EXPECT_TRUE(result.output_frame.has_raw_echo);
 }
 

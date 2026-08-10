@@ -18,6 +18,9 @@
 namespace airborne_radar {
 namespace session {
 
+// 前向声明：Build 参数为 const 引用，header 无需完整类型，避免拉入 ArCycleInput 重依赖。
+struct ArCycleInput;
+
 /**
  * @brief 调试视图下的轨迹状态分类（含周期未执行/输出中缺失等诊断态）。
  */
@@ -75,11 +78,11 @@ class ONEQ_API ArTrackOutputDebugViewBuilder {
    *
    * 只读组合，不反向影响 signal/decision pipeline；按输入目标逐项合成调试状态。
    *
-   * @param[in] targets 当前周期目标事实（用于遍历输入目标表）。
+   * @param[in] input 当前周期输入（用于遍历输入目标表）。
    * @param[in] result 当前周期结果（用于查询轨迹状态与接收机损伤）。
    * @return 合成的单周期轨迹输出调试视图。
    */
-  static ArTrackOutputDebugView Build(const ArTargetInputList& targets,
+  static ArTrackOutputDebugView Build(const ArCycleInput& input,
                                       const ArCycleResult& result);
 };
 

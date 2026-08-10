@@ -55,7 +55,7 @@ TEST(SarControllerRuntimeStateTest, CaptureAndRestoreRoundTripState) {
   SarController controller(pipeline, config);
 
   controller.RunOnce(MakeInput(1U));
-  ASSERT_TRUE(controller.BuildCycleResult().executed_this_cycle);
+  ASSERT_EQ(controller.BuildCycleResult().status, session::SarCycleStatus::kCompleted);
   const SarControllerRuntimeState snapshot = controller.CaptureRuntimeState();
 
   controller.RunOnce(MakeInput(2U));
@@ -63,7 +63,7 @@ TEST(SarControllerRuntimeStateTest, CaptureAndRestoreRoundTripState) {
 
   EXPECT_TRUE(controller.RestoreRuntimeState(snapshot));
   const session::SarCycleResult restored = controller.BuildCycleResult();
-  EXPECT_TRUE(restored.executed_this_cycle);
+  EXPECT_EQ(restored.status, session::SarCycleStatus::kCompleted);
   EXPECT_EQ(restored.output_frame.cycle_index, 1U);
 }
 
@@ -88,14 +88,14 @@ TEST(SarControllerRuntimeStateTest, ValidationRejectReturnsEmptyOutputNotReused)
   SarController controller(pipeline, config);
 
   controller.RunOnce(MakeInput(40U));
-  ASSERT_TRUE(controller.BuildCycleResult().executed_this_cycle);
+  ASSERT_EQ(controller.BuildCycleResult().status, session::SarCycleStatus::kCompleted);
 
   session::SarCycleInput invalid_input = MakeInput(41U);
   invalid_input.dt_sec = 0.0f;
   controller.RunOnce(invalid_input);
   const session::SarCycleResult result = controller.BuildCycleResult();
 
-  EXPECT_FALSE(result.executed_this_cycle);
+  EXPECT_NE(result.status, session::SarCycleStatus::kCompleted);
   EXPECT_TRUE(session::HasValidationError(result.issues));
   EXPECT_EQ(result.abort_reason, session::SarPipelineAbortReason::kValidationRejected);
   EXPECT_EQ(result.output_frame.cycle_index, 0U);
@@ -107,7 +107,7 @@ TEST(SarControllerRuntimeStateTest, PipelineAbortRestoresAllCrossCycleState) {
   SarController controller(pipeline, config);
   const session::SarCycleInput successful_input = MakeInput(49U);
   controller.RunOnce(successful_input);
-  ASSERT_TRUE(controller.BuildCycleResult().executed_this_cycle);
+  ASSERT_EQ(controller.BuildCycleResult().status, session::SarCycleStatus::kCompleted);
 
   config::SarRuntimeConfigPatch reject_snr;
   reject_snr.has_minimum_snr_db = true;
@@ -120,7 +120,7 @@ TEST(SarControllerRuntimeStateTest, PipelineAbortRestoresAllCrossCycleState) {
   const session::SarCycleResult result = controller.BuildCycleResult();
   const pipeline::SarProcessingPipelineRuntimeState after = pipeline.CaptureRuntimeState();
 
-  ASSERT_FALSE(result.executed_this_cycle);
+  ASSERT_NE(result.status, session::SarCycleStatus::kCompleted);
   ASSERT_EQ(result.abort_reason, session::SarPipelineAbortReason::kPipelineExecutionFailed);
   // Pipeline abort 后 output_frame 保留已初始化的元数据（cycle_index = input.cycle_index），
   // 区别于校验失败的默认空帧（cycle_index = 0）。
@@ -167,7 +167,8 @@ TEST(SarControllerRuntimeStateTest, PlatformInputOwnsGeneratedTrajectoryKinemati
   first.platform.yaw_deg = 4.0;
   controller.RunOnce(first);
   const session::SarCycleResult first_result = controller.BuildCycleResult();
-  ASSERT_TRUE(first_result.executed_this_cycle) << static_cast<int>(first_result.abort_reason);
+  ASSERT_EQ(first_result.status, session::SarCycleStatus::kCompleted)
+      << static_cast<int>(first_result.abort_reason);
   const pipeline::SarProcessingPipelineRuntimeState first_state = pipeline.CaptureRuntimeState();
   ASSERT_FALSE(first_state.actual_trajectory_buffer.empty());
   const geometry::PlatformPulseState& first_pulse = first_state.actual_trajectory_buffer.front();
@@ -186,7 +187,7 @@ TEST(SarControllerRuntimeStateTest, PlatformInputOwnsGeneratedTrajectoryKinemati
   second.platform.time_s = 11.0;
   second.platform.latitude_deg += 5.0 / 6378137.0 * 180.0 / 3.14159265358979323846;
   controller.RunOnce(second);
-  ASSERT_TRUE(controller.BuildCycleResult().executed_this_cycle);
+  ASSERT_EQ(controller.BuildCycleResult().status, session::SarCycleStatus::kCompleted);
   const pipeline::SarProcessingPipelineRuntimeState second_state = pipeline.CaptureRuntimeState();
   ASSERT_FALSE(second_state.actual_trajectory_buffer.empty());
   const geometry::PlatformPulseState* second_cycle_first = nullptr;
@@ -210,7 +211,8 @@ TEST(SarControllerRuntimeStateTest, ZeroPlatformVelocityMeansStationary) {
   input.platform.time_s = 12.0;
   controller.RunOnce(input);
   const session::SarCycleResult result = controller.BuildCycleResult();
-  ASSERT_TRUE(result.executed_this_cycle) << static_cast<int>(result.abort_reason);
+  ASSERT_EQ(result.status, session::SarCycleStatus::kCompleted)
+      << static_cast<int>(result.abort_reason);
 
   const pipeline::SarProcessingPipelineRuntimeState state = pipeline.CaptureRuntimeState();
   ASSERT_GE(state.actual_trajectory_buffer.size(), 2U);

@@ -189,7 +189,7 @@ TEST(SarDegenerateDiagnosticsTest, DegenerateImagePeakAbortsCycle) {
 
   // 全黑图应触发 degenerate_image_peak abort。
   EXPECT_TRUE(HasAbortReason(result, session::SarPipelineAbortReason::kPipelineExecutionFailed));
-  EXPECT_FALSE(result.executed_this_cycle);
+  EXPECT_NE(result.status, session::SarCycleStatus::kCompleted);
 }
 
 TEST(SarDegenerateDiagnosticsTest, HealthyImageDoesNotTripDegeneratePeakGate) {
@@ -198,7 +198,7 @@ TEST(SarDegenerateDiagnosticsTest, HealthyImageDoesNotTripDegeneratePeakGate) {
   const session::SarCycleResult result = session.StepWithResult(MakeMatchingGeometryInput());
 
   EXPECT_FALSE(HasAbortReason(result, session::SarPipelineAbortReason::kPipelineExecutionFailed));
-  EXPECT_TRUE(result.executed_this_cycle);
+  EXPECT_EQ(result.status, session::SarCycleStatus::kCompleted);
   EXPECT_TRUE(result.output_frame.has_l1_image);
 }
 

@@ -106,7 +106,6 @@ enum class ONEQ_API EosPipelineAbortReason {
 /**
  * @brief EosCycleStatus 描述单周期高层执行状态。
  * @note 与 ArCycleStatus / EsrCycleExecutionStatus 对齐的强类型枚举。
- *       `executed_this_cycle` 保留为 `status == kCompleted` 的便捷访问器。
  */
 enum class ONEQ_API EosCycleStatus : std::uint8_t {
   kCompleted = 0,           /**< 周期正常完成 */

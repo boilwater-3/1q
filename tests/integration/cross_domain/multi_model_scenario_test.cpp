@@ -123,7 +123,7 @@ struct ArRfTestCycleInput {
 
 struct ArRfTestCycleResult {
   bool accepted{false};
-  ar_session::TrackOutputFrame track_output_frame{};
+  ar_session::TrackOutputFrame output_frame{};
   ar_session::ArInterferenceObservationList interference_observations{};
   ar_session::ArReceiverImpairment receiver_impairment{ar_session::ArReceiverImpairment::kNone};
   bool has_control_profile{false};
@@ -181,7 +181,7 @@ ArRfTestCycleResult RunArCycle(ar_session::ArTraceSession* session,
   result.accepted = completed.status == ar_session::ArCycleStatus::kCompleted ||
                     completed.status == ar_session::ArCycleStatus::kPoweredOff;
   if (result.accepted) {
-    result.track_output_frame = completed.track_output_frame;
+    result.output_frame = completed.output_frame;
     result.interference_observations = completed.interference_observations;
     result.receiver_impairment = completed.receiver_impairment;
     result.has_control_profile = completed.has_control_profile;
@@ -563,10 +563,10 @@ TEST(MultiModelScenarioTest, AirToAirHeadOn) {
     auto ar_input = BuildArInput(ws, dt, cycle);
     auto ar_result = RunArCycle(&ar_session, ar_input);
     EXPECT_TRUE(ar_result.accepted) << "AR cycle rejected at cycle " << cycle;
-    if (ar_result.track_output_frame.tracks.size() > ar_tracks_max) {
-      ar_tracks_max = static_cast<std::uint32_t>(ar_result.track_output_frame.tracks.size());
+    if (ar_result.output_frame.tracks.size() > ar_tracks_max) {
+      ar_tracks_max = static_cast<std::uint32_t>(ar_result.output_frame.tracks.size());
     }
-    for (const auto& trk : ar_result.track_output_frame.tracks) {
+    for (const auto& trk : ar_result.output_frame.tracks) {
       if (std::isnan(trk.position_x) || std::isnan(trk.position_y) || std::isnan(trk.position_z) ||
           std::isnan(trk.speed)) {
         ar_nan_detected = true;
@@ -767,7 +767,7 @@ TEST(MultiModelScenarioTest, AirToGroundLookDown) {
     auto ar_in = BuildArInput(ws, dt, cycle);
     auto ar_res = RunArCycle(&ar_sess, ar_in);
     EXPECT_TRUE(ar_res.accepted) << "AR cycle rejected at cycle " << cycle;
-    for (const auto& trk : ar_res.track_output_frame.tracks) {
+    for (const auto& trk : ar_res.output_frame.tracks) {
       ar_has_track = true;
       if (std::isnan(trk.position_z)) ar_nan_detected = true;
     }
@@ -1123,7 +1123,7 @@ TEST(MultiModelScenarioTest, ZeroDopplerCrossing) {
     auto ar_in = BuildArInput(ws, dt, cycle);
     auto ar_res = RunArCycle(&ar_sess, ar_in);
     EXPECT_TRUE(ar_res.accepted) << "AR cycle rejected at cycle " << cycle;
-    for (const auto& trk : ar_res.track_output_frame.tracks) {
+    for (const auto& trk : ar_res.output_frame.tracks) {
       ar_track_count++;
       if (std::isnan(trk.position_x) || std::isnan(trk.position_y) || std::isnan(trk.position_z) ||
           std::isnan(trk.speed)) {

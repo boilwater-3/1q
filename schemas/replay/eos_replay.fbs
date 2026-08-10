@@ -94,7 +94,6 @@ table EosCycleResult {
   input_cycle_index:      uint32;
   output_frame:           EosOutputFrame;
   detection_attributions: [EosDetectionAttributionRecord];
-  executed_this_cycle:    bool;
   abort_reason:           int32;
   status:                 uint8;
   issues:                 [EosIssue];

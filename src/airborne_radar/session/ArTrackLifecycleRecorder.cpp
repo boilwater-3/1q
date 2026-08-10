@@ -74,7 +74,7 @@ std::vector<ArTrackLifecycleEvent> ArTrackLifecycleRecorder::Update(
     }
     TargetState& state = impl_->states[target.target_id];
     const session::TrackStateSnapshot* track =
-        FindTrackByExternalTargetId(result.track_output_frame, target.target_id);
+        FindTrackByExternalTargetId(result.output_frame, target.target_id);
     const bool confirmed_now =
         track != nullptr && track->status == session::TrackStatus::kConfirmed;
 

@@ -372,7 +372,7 @@ TEST(EosPublicApiConvenienceTest, EosSessionStepWithResultAggregatesOutputAndVal
   const ::electro_optical_sensor::session::EosCycleResult result = session.StepWithResult(input);
 
   EXPECT_FALSE(session::HasValidationError(result.issues));
-  EXPECT_TRUE(result.executed_this_cycle);
+  EXPECT_EQ(result.status, session::EosCycleStatus::kCompleted);
   // 统一问题列表（规则 14）：完成周期的问题列表只承载 kInfo 排除诊断（规则 13b），无校验问题。
   ASSERT_EQ(result.issues.size(), 1U);
   EXPECT_EQ(result.issues.front().code, "eos.target_out_of_fov");
@@ -392,7 +392,7 @@ TEST(EosPublicApiConvenienceTest, EosSessionStepWithResultSurfacesValidationErro
   const ::electro_optical_sensor::session::EosCycleResult result = session.StepWithResult(input);
 
   EXPECT_TRUE(session::HasValidationError(result.issues));
-  EXPECT_FALSE(result.executed_this_cycle);
+  EXPECT_NE(result.status, session::EosCycleStatus::kCompleted);
   EXPECT_TRUE(ContainsEosIssueCode(result.issues,
                                    "eos.validation.non_finite_cycle_delta_time"));
 }
@@ -417,7 +417,7 @@ TEST(EosPublicApiConvenienceTest, EosSessionAppliesRuntimeConfigPatch) {
   input.scene.push_back(MakeTarget(600U, 1000.0f, 0.0f, 0.0f, 310.0f, 0.9f, 0.1f, 1.5f));
 
   const ::electro_optical_sensor::session::EosCycleResult result = session.StepWithResult(input);
-  EXPECT_TRUE(result.executed_this_cycle);
+  EXPECT_EQ(result.status, session::EosCycleStatus::kCompleted);
   EXPECT_EQ(result.output_frame.cycle_index, 0U);
 }
 
@@ -430,14 +430,14 @@ TEST(EosPublicApiConvenienceTest, EosSessionReportsPoweredOffWithoutContractViol
 
   const ::electro_optical_sensor::session::EosCycleResult active =
       session.StepWithResult(input);
-  ASSERT_TRUE(active.executed_this_cycle);
+  ASSERT_EQ(active.status, session::EosCycleStatus::kCompleted);
 
   (void)session.TryApplyRuntimeConfig(config::EosRuntimeConfigBuilder().WithSensorEnabled(false).Build());
   ++input.cycle_index;
   const ::electro_optical_sensor::session::EosCycleResult powered_off =
       session.StepWithResult(input);
 
-  EXPECT_FALSE(powered_off.executed_this_cycle);
+  EXPECT_EQ(powered_off.status, session::EosCycleStatus::kPoweredOff);
   EXPECT_EQ(powered_off.abort_reason, session::EosPipelineAbortReason::kSensorPoweredOff);
   EXPECT_EQ(powered_off.output_frame.cycle_index, 0U);
 
@@ -530,7 +530,7 @@ TEST(EosPublicApiConvenienceTest, StepReturnsEmptyFrameOnValidationFailureAfterS
   valid_input.cycle_index = 7U;
   valid_input.dt_sec = 0.1f;
   valid_input.scene.push_back(MakeTarget(503U, 1500.0f, 0.0f, 0.0f, 350.0f, 0.9f, 0.1f, 3.0f));
-  ASSERT_TRUE(session.StepWithResult(valid_input).executed_this_cycle);
+  ASSERT_EQ(session.StepWithResult(valid_input).status, session::EosCycleStatus::kCompleted);
 
   // 校验失败：dt_sec 非有限。
   ::electro_optical_sensor::session::EosCycleInput invalid_input;
@@ -539,7 +539,7 @@ TEST(EosPublicApiConvenienceTest, StepReturnsEmptyFrameOnValidationFailureAfterS
 
   const ::electro_optical_sensor::session::EosCycleResult failed_result =
       session.StepWithResult(invalid_input);
-  EXPECT_FALSE(failed_result.executed_this_cycle);
+  EXPECT_NE(failed_result.status, session::EosCycleStatus::kCompleted);
   EXPECT_EQ(failed_result.output_frame.cycle_index, 0U);
 
   // Step() 与 StepWithResult().output_frame 一致，均为空帧。

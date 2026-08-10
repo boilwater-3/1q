@@ -35,7 +35,6 @@ struct ONEQ_API EosCycleResult {
   EosIssueList issues{};                   /**< 统一问题列表（规则 14：校验问题 phase=kInputValidation + 执行诊断） */
   session::EosCycleStatus status{
       session::EosCycleStatus::kRejectedInvalidInput}; /**< 当前周期高层执行状态 */
-  bool executed_this_cycle{false};                     /**< status == kCompleted 的便捷访问器 */
   session::EosPipelineAbortReason abort_reason{
       session::EosPipelineAbortReason::kNone}; /**< 当前周期终止原因 */
 };

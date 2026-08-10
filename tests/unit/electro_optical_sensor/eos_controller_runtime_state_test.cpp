@@ -110,7 +110,7 @@ TEST(EosControllerRuntimeStateTest, FirstValidationRejectReturnsDefaultFrame) {
   const ::electro_optical_sensor::session::EosCycleResult result =
       controller.BuildCycleResult();
 
-  EXPECT_FALSE(result.executed_this_cycle);
+  EXPECT_NE(result.status, session::EosCycleStatus::kCompleted);
   EXPECT_EQ(result.abort_reason, EosPipelineAbortReason::kValidationRejected);
   EXPECT_EQ(result.output_frame.cycle_index, 0U);
 }

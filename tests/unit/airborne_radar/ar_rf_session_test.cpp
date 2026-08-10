@@ -80,7 +80,7 @@ TEST(ArRfSessionTest, SaturationCompletesWithoutFalseRfObservation) {
   EXPECT_EQ(result.status, ArCycleStatus::kCompleted);
   EXPECT_EQ(result.receiver_impairment, ArReceiverImpairment::kSaturated);
   EXPECT_TRUE(result.interference_observations.empty());
-  EXPECT_TRUE(result.track_output_frame.tracks.empty());
+  EXPECT_TRUE(result.output_frame.tracks.empty());
 }
 
 TEST(ArRfSessionTest, ReceiverObservationContainsNoTruthIdentity) {
@@ -311,7 +311,7 @@ TEST(ArRfSessionTest, PrepareFailureLeavesSessionStateUnchanged) {
   // 回退的起始时间触发 PrepareRfCycle 编年史拒绝（事务快照之后的失败路径）。
   const ArCycleResult rejected = radar.StepWithResult(MakeInput(2U, 0.25));
   EXPECT_EQ(rejected.status, ArCycleStatus::kRejectedInvalidConfig);
-  EXPECT_TRUE(rejected.track_output_frame.tracks.empty());
+  EXPECT_TRUE(rejected.output_frame.tracks.empty());
   EXPECT_TRUE(rejected.emission_frame.emissions.empty());
 
   // 事务不变量：会话逐字段不变。
@@ -346,7 +346,7 @@ TEST(ArRfSessionTest, BelowSnrTargetWritesInfoExclusionDiagnostic) {
 
   // 行为中立：排除目标不产出航迹；排除原因只经 issues 承载（规则 13b/13c）。
   EXPECT_EQ(result.status, ArCycleStatus::kCompleted);
-  EXPECT_TRUE(result.track_output_frame.tracks.empty());
+  EXPECT_TRUE(result.output_frame.tracks.empty());
   bool found = false;
   for (const ArIssue& issue : result.issues) {
     if (issue.code == "ar.target_snr_below_threshold") {

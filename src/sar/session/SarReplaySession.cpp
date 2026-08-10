@@ -54,7 +54,6 @@ bool SarCycleResultEqual(const SarCycleResult& left, const SarCycleResult& right
   if (left.input_cycle_index != right.input_cycle_index ||
       !SarOutputFrameEqual(left.output_frame, right.output_frame) ||
       left.issues.size() != right.issues.size() ||
-      left.executed_this_cycle != right.executed_this_cycle ||
       left.abort_reason != right.abort_reason ||
       left.status != right.status ||
       left.focused_image.source != right.focused_image.source ||

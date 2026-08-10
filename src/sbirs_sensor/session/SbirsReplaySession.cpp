@@ -97,7 +97,7 @@ bool CycleResultEqual(const SbirsCycleResult& left, const SbirsCycleResult& righ
          OutputFrameEqual(left.output_frame, right.output_frame) &&
          AttributionListEqual(left.detection_attributions, right.detection_attributions) &&
          SbirsIssueListEqual(left.issues, right.issues) &&
-         left.executed_this_cycle == right.executed_this_cycle &&
+         left.status == right.status &&
          left.abort_reason == right.abort_reason;
 }
 

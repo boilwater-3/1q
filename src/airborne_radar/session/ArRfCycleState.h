@@ -88,7 +88,7 @@ struct ArCompleteCycleResult {
   std::uint64_t world_cycle_index{0U};                            /**< 结果所属世界周期。 */
   session::SignalCycleAbortReason abort_reason{
       session::SignalCycleAbortReason::kNone}; /**< 执行失败时的信号流水线中止原因（透传）。 */
-  TrackOutputFrame track_output_frame{};                          /**< 本周期新轨迹帧。 */
+  TrackOutputFrame output_frame{};                          /**< 本周期新轨迹帧。 */
   ArInterferenceObservationList interference_observations{}; /**< 仅通过 J/N 门的本机 RF 观测。 */
   ArReceiverImpairment receiver_impairment{ArReceiverImpairment::kNone}; /**< 结构化接收机损伤。 */
   bool has_decision_observation{false};       /**< 是否发布了供外部 N+1 决策消费的观测。 */

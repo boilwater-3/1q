@@ -60,7 +60,6 @@ struct EosController::Impl {
       issues.insert(issues.end(), execution_issues.begin(), execution_issues.end());
     }
     result.issues = std::move(issues);
-    result.executed_this_cycle = last_cycle_executed;
     result.abort_reason = last_abort_reason;
 
     // 三写：对所有非 kNone 且非校验拒绝的 abort_reason 写入 issues + 日志。

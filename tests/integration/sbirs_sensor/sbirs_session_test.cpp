@@ -97,7 +97,7 @@ TEST(SbirsSessionIntegrationTest, StepWithResultProducesDetectionOutput) {
   SbirsSession session = SbirsSession::Create(MakeSessionConfig());
   const SbirsCycleResult result = session.StepWithResult(MakeBaseInput());
   EXPECT_FALSE(HasValidationError(result.issues));
-  EXPECT_TRUE(result.executed_this_cycle);
+  EXPECT_EQ(result.status, SbirsCycleStatus::kCompleted);
   EXPECT_EQ(result.output_frame.cycle_index, 1U);
   EXPECT_FALSE(result.output_frame.detections.empty());
 }
@@ -404,7 +404,7 @@ TEST(SbirsSessionIntegrationTest, InvalidRuntimePatchDoesNotPolluteConfig) {
       sbirs_config::SbirsRuntimeConfigBuilder().WithScanRateDegPerSec(-5.0f).Build();
   EXPECT_FALSE(session.TryApplyRuntimeConfig(invalid));
   const SbirsCycleResult result = session.StepWithResult(MakeBaseInput());
-  EXPECT_TRUE(result.executed_this_cycle);
+  EXPECT_EQ(result.status, SbirsCycleStatus::kCompleted);
 }
 
 TEST(SbirsSessionIntegrationTest, InvalidFirstCycleReturnsEmptyOutput) {
@@ -412,7 +412,7 @@ TEST(SbirsSessionIntegrationTest, InvalidFirstCycleReturnsEmptyOutput) {
   SbirsCycleInput input = MakeBaseInput();
   input.dt_sec = -1.0f;
   const SbirsCycleResult result = session.StepWithResult(input);
-  EXPECT_FALSE(result.executed_this_cycle);
+  EXPECT_NE(result.status, SbirsCycleStatus::kCompleted);
   EXPECT_TRUE(HasValidationError(result.issues));
   EXPECT_TRUE(result.output_frame.detections.empty());
 }
@@ -426,7 +426,7 @@ TEST(SbirsSessionIntegrationTest, InvalidLaterCycleReturnsEmptyOutputNotReused) 
   invalid.dt_sec = 0.0f;
   const SbirsCycleResult result = session.StepWithResult(invalid);
   EXPECT_TRUE(HasValidationError(result.issues));
-  EXPECT_FALSE(result.executed_this_cycle);
+  EXPECT_NE(result.status, SbirsCycleStatus::kCompleted);
   // 非执行周期返回默认空帧，不复用上一有效输出（统一不复用语义）。
   EXPECT_TRUE(result.output_frame.detections.empty());
   EXPECT_EQ(result.output_frame.cycle_index, 0U);
@@ -514,7 +514,7 @@ TEST(SbirsSessionIntegrationTest, CueLatencyFailureAttributionStaysOutOfRawOutpu
 
   SbirsSession session = SbirsSession::Create(config);
   const SbirsCycleResult result = session.StepWithResult(input);
-  EXPECT_TRUE(result.executed_this_cycle);
+  EXPECT_EQ(result.status, SbirsCycleStatus::kCompleted);
   EXPECT_EQ(result.abort_reason, SbirsPipelineAbortReason::kNone);
 
   // 失败诊断必须出现在 attribution 层。

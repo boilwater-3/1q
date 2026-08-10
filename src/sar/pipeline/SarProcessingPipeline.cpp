@@ -252,7 +252,6 @@ bool SarProcessingPipeline::RunCycle(const config::SarSessionConfig& config,
                    result->output_frame.has_l1_image, result->output_frame.has_l3_bp_image,
                    result->output_frame.estimated_snr_db, input.point_targets.size());
 
-  result->executed_this_cycle = true;
   result->status = session::SarCycleStatus::kCompleted;
   return true;
 }

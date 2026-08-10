@@ -297,7 +297,7 @@ TEST(ArReplayCodecRoundtripTest, SingleCycleRecordPreservesResultAndState) {
   ArCycleReplayRecord record;
   record.result.input_cycle_index = 81U;
   record.result.status = ArCycleStatus::kCompleted;
-  record.result.track_output_frame.cycle_index = 81U;
+  record.result.output_frame.cycle_index = 81U;
   record.result.emission_frame.world_cycle_index = 81U;
   ArInterferenceObservation observation;
   observation.observation_id = 91U;
@@ -367,8 +367,8 @@ TEST(ArReplayCodecRoundtripTest, RecognitionFieldsRoundtripPreserved) {
   record.result.recognition_summary.participating_track_count = 2U;
   record.result.recognition_summary.model_confirmed_count = 1U;
   record.result.recognition_summary.category_accuracy = 0.9f;
-  record.result.track_output_frame.tracks.resize(1U);
-  TrackStateSnapshot& snapshot = record.result.track_output_frame.tracks.front();
+  record.result.output_frame.tracks.resize(1U);
+  TrackStateSnapshot& snapshot = record.result.output_frame.tracks.front();
   snapshot.estimation_uncertainty_trace = 1234.5f;
   snapshot.recognition.state = ArRecognitionState::kModelConfirmed;
   snapshot.recognition.target_category = ArRecognitionCategory::kBallistic;
@@ -393,8 +393,8 @@ TEST(ArReplayCodecRoundtripTest, RecognitionFieldsRoundtripPreserved) {
   ASSERT_TRUE(DecodeCycleReplayRecordFlatbuffer(EncodeCycleReplayRecordFlatbuffer(record), &decoded,
                                                 &error))
       << error;
-  ASSERT_EQ(decoded.result.track_output_frame.tracks.size(), 1U);
-  const TrackStateSnapshot& decoded_snapshot = decoded.result.track_output_frame.tracks.front();
+  ASSERT_EQ(decoded.result.output_frame.tracks.size(), 1U);
+  const TrackStateSnapshot& decoded_snapshot = decoded.result.output_frame.tracks.front();
   EXPECT_FLOAT_EQ(decoded_snapshot.estimation_uncertainty_trace, 1234.5f);
   EXPECT_EQ(decoded_snapshot.recognition.state, ArRecognitionState::kModelConfirmed);
   EXPECT_EQ(decoded_snapshot.recognition.target_category, ArRecognitionCategory::kBallistic);
@@ -423,7 +423,7 @@ TEST(ArReplayCodecRoundtripTest, RecognitionDefaultStateRoundtripsThroughBothFra
   ArCycleReplayRecord record;
   record.result.input_cycle_index = 2U;
   record.result.status = ArCycleStatus::kCompleted;
-  record.result.track_output_frame.tracks.resize(1U);
+  record.result.output_frame.tracks.resize(1U);
   record.result.has_decision_observation = true;
   record.result.decision_observation.input_frame.tracks.resize(1U);
 
@@ -432,7 +432,7 @@ TEST(ArReplayCodecRoundtripTest, RecognitionDefaultStateRoundtripsThroughBothFra
   ASSERT_TRUE(DecodeCycleReplayRecordFlatbuffer(EncodeCycleReplayRecordFlatbuffer(record), &decoded,
                                                 &error))
       << error;
-  const TrackStateSnapshot& output_snapshot = decoded.result.track_output_frame.tracks.front();
+  const TrackStateSnapshot& output_snapshot = decoded.result.output_frame.tracks.front();
   EXPECT_EQ(output_snapshot.recognition.state, ArRecognitionState::kDisabled);
   EXPECT_FLOAT_EQ(output_snapshot.estimation_uncertainty_trace, 0.0f);
   const TrackStateSnapshot& decision_snapshot =

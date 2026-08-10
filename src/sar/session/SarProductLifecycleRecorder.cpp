@@ -47,7 +47,7 @@ SarProductLifecycleRecorder::SarProductLifecycleRecorder(SarProductLifecycleReco
 
 std::vector<SarProductLifecycleEvent> SarProductLifecycleRecorder::Update(const SarCycleResult& result) {
   std::vector<SarProductLifecycleEvent> events;
-  if (result.executed_this_cycle) {
+  if (result.status == SarCycleStatus::kCompleted) {
     const bool has_product = HasImageProduct(result.output_frame);
     if (HasErrorIssue(result.issues)) {
       events.push_back(

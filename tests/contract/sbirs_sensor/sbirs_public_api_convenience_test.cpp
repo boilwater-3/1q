@@ -78,7 +78,7 @@ TEST(SbirsPublicApiConvenienceTest, SessionConfigBuilderDefaultsMatchDirectConst
   session::SbirsSession direct_session = session::SbirsSession::Create(direct);
   const session::SbirsCycleResult built_result = built_session.StepWithResult(MakeMinimalInput());
   const session::SbirsCycleResult direct_result = direct_session.StepWithResult(MakeMinimalInput());
-  EXPECT_EQ(built_result.executed_this_cycle, direct_result.executed_this_cycle);
+  EXPECT_EQ(built_result.status, direct_result.status);
 }
 
 TEST(SbirsPublicApiConvenienceTest, SessionConfigFieldsAreAssignable) {
@@ -144,7 +144,7 @@ TEST(SbirsPublicApiConvenienceTest, SessionCreatesAndExecutesOneCycle) {
   session::SbirsSession session = session::SbirsSession::Create(MakeExecutableConfig());
   const session::SbirsCycleResult result = session.StepWithResult(MakeMinimalInput());
   // 结构化执行结果字段可达。
-  EXPECT_TRUE(result.executed_this_cycle);
+  EXPECT_EQ(result.status, session::SbirsCycleStatus::kCompleted);
   EXPECT_FALSE(session::HasValidationError(result.issues));
   EXPECT_EQ(result.input_cycle_index, 1U);
   EXPECT_EQ(result.abort_reason, session::SbirsPipelineAbortReason::kNone);
@@ -159,7 +159,7 @@ TEST(SbirsPublicApiConvenienceTest, CreateWithDiagnosticsReportsIssues) {
   EXPECT_FALSE(issues.empty());
   // session 仍可调用（controller 不会因配置校验 issue 拒绝构造）。
   const session::SbirsCycleResult result = session.StepWithResult(MakeMinimalInput());
-  (void)result.executed_this_cycle;
+  (void)result.status;
 
   // nullptr issues 参数也接受。
   session::SbirsSession session_null =
@@ -199,14 +199,14 @@ TEST(SbirsPublicApiConvenienceTest, RawOutputFrameContainsOnlyNativeFields) {
 // 默认空帧，不复用上一有效输出。这条 guard 锁定该契约（见 contract.md §实现安全与失败语义规则 3）。
 TEST(SbirsPublicApiConvenienceTest, StepReturnsEmptyFrameOnValidationFailureAfterSuccess) {
   session::SbirsSession session = session::SbirsSession::Create(MakeExecutableConfig());
-  ASSERT_TRUE(session.StepWithResult(MakeMinimalInput(1U)).executed_this_cycle);
+  ASSERT_EQ(session.StepWithResult(MakeMinimalInput(1U)).status, session::SbirsCycleStatus::kCompleted);
 
   // 校验失败：dt_sec 非正。cycle_index 推进到 8，与上一帧的 1 形成可观测差异。
   session::SbirsCycleInput invalid_input = MakeMinimalInput(8U);
   invalid_input.dt_sec = 0.0f;
 
   const session::SbirsCycleResult result = session.StepWithResult(invalid_input);
-  EXPECT_FALSE(result.executed_this_cycle);
+  EXPECT_NE(result.status, session::SbirsCycleStatus::kCompleted);
   EXPECT_TRUE(session::HasValidationError(result.issues));
 
   // 失败周期返回默认空帧：cycle_index==0（非本次输入 8，也非上一帧的 1），detections 为空。

@@ -71,7 +71,7 @@ ISA 标准大气，这些字段全部未被消费，属未接入的死输入。�
    `abort_reason`（校验拒绝为 `kRejectedInvalidInput` + 细粒度明细），不写死替换。
 2. cycle input 校验失败时不执行 pipeline，`ArCycleResult` 携带 validation issues 与显式 abort
    reason `kValidationRejected`（保留 replay/trace 数值语义）。
-3. **非执行周期统一不复用（五模块统一规则）**：`Step()` 与 `ArCycleResult.track_output_frame`
+3. **非执行周期统一不复用（五模块统一规则）**：`Step()` 与 `ArCycleResult.output_frame`
    返回默认空帧（`cycle_index==0`、空 tracks/emission），不论是否存在上一有效输出。调用方仅凭
    `Step()` 返回值即可判定本轮无新航迹。状态判断统一走 `StepWithResult().status`
    （`kRejectedInvalidInput`/`kPoweredOff`/`kRejectedExecution`）。

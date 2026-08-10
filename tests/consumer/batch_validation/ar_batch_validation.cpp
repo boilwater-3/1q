@@ -262,7 +262,7 @@ struct BatchCycleResult {
   bool completed{false};
   ar_session::ArCycleStatus status{ar_session::ArCycleStatus::kRejectedInvalidInput};
   std::size_t replay_operation_count{1U};
-  ar_session::TrackOutputFrame track_output_frame{};
+  ar_session::TrackOutputFrame output_frame{};
   ar_session::ArInterferenceObservationList interference_observations{};
   ar_session::ArReceiverImpairment receiver_impairment{ar_session::ArReceiverImpairment::kNone};
 };
@@ -311,7 +311,7 @@ BatchCycleResult RunBatchCycle(ar_session::ArTraceSession* session,
     return result;
   }
   result.completed = true;
-  result.track_output_frame = completed.track_output_frame;
+  result.output_frame = completed.output_frame;
   result.interference_observations = completed.interference_observations;
   result.receiver_impairment = completed.receiver_impairment;
   return result;
@@ -324,7 +324,7 @@ CycleMetrics ExtractCycleMetrics(const BatchCycleResult& r) {
   m.status = r.status;
   m.completed = r.completed;
   m.receiver_impairment = r.receiver_impairment;
-  const auto& f = r.track_output_frame;
+  const auto& f = r.output_frame;
   m.confirmed = ar_session::CountTracksByStatus(f, ar_session::TrackStatus::kConfirmed);
   m.tentative = ar_session::CountTracksByStatus(f, ar_session::TrackStatus::kTentative);
   m.lost = ar_session::CountTracksByStatus(f, ar_session::TrackStatus::kLost);
@@ -457,7 +457,7 @@ ScenarioSummary RunArScenario(const ArCase& c, const ar_config::ArSessionConfig&
                         c.scenario_id == "ar_seq_crossing_with_pulsed_jammer");
       replay_operation_count += result.replay_operation_count;
       if (!result.completed) ++rejected_cycle_count;
-      const auto track_map = ar_session::BuildTrackMapByExternalTargetId(result.track_output_frame);
+      const auto track_map = ar_session::BuildTrackMapByExternalTargetId(result.output_frame);
       const auto track_it = track_map.find(1000U);
       if (track_it != track_map.end()) {
         if (cycle_index == 8U) established_key = track_it->second.association_key;

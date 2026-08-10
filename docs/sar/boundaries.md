@@ -32,7 +32,7 @@ SAR 遵守 `docs/common/contract.md`：
 ### 非执行周期统一不复用（五模块统一规则）
 
 SAR 非执行周期（校验失败/执行 abort/设备关机）的 `Step()` 与 `SarCycleResult.output_frame` **永不复用**
-上一有效输出。调用方用 `StepWithResult().status` / `executed_this_cycle` / `abort_reason` 判断周期状态。
+上一有效输出。调用方用 `StepWithResult().status` / `abort_reason` 判断周期状态。
 `reused_previous_output` 字段已删除。
 
 实现细节：校验失败路径返回严格默认空帧（`cycle_index=0`、空载荷）；pipeline 中止路径
@@ -48,7 +48,7 @@ SAR 非执行周期（校验失败/执行 abort/设备关机）的 `Step()` 与 
 `SarSessionConfig::sensor_enabled` 是电源唯一来源（mission 域无电源字段），
 `SarRuntimeConfigPatch::has_sensor_enabled` 叶子是运行时电源唯一入口。运行期关闭
 传感器不重建会话，只通过 patch 立即生效。关机时管线入口短路：`SarCycleStatus::kPoweredOff` +
-`abort_reason=kSensorPoweredOff`，`executed_this_cycle=false`（关机是合法非执行状态，
+`abort_reason=kSensorPoweredOff`，`status=kPoweredOff`（关机是合法非执行状态，
 不是校验错误也不是执行失败），输出帧严格默认空帧，跨周期状态（raw pulse 缓冲、孔径拼接、
 PRF 分数余量）不推进。
 
