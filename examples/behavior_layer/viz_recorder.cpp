@@ -11,6 +11,7 @@
 
 #include "viz_recorder.h"
 
+#include <algorithm>
 #include <cstdio>
 #include <filesystem>
 #include <string>
@@ -92,10 +93,10 @@ VizRecorder::VizRecorder(const std::string& output_dir, bool flight_model_jsbsim
     : output_dir_(output_dir), flight_model_jsbsim_(flight_model_jsbsim) {
   std::filesystem::create_directories(output_dir_);
   platform_track_ = OpenCsv(output_dir_, "platform_track.csv",
-                            "cycle,t_sec,lat_deg,lon_deg,alt_m,heading_deg,speed_mps,"
-                            "wp_index,wp_count,model");
+                            "cycle,t_sec,aircraft_id,lat_deg,lon_deg,alt_m,heading_deg,"
+                            "speed_mps,wp_index,wp_count,model");
   target_truth_ = OpenCsv(output_dir_, "target_truth.csv",
-                          "cycle,t_sec,target_id,lat_deg,lon_deg,alt_m,rcs");
+                          "cycle,t_sec,target_id,entity_type,lat_deg,lon_deg,alt_m,rcs");
   ar_tracks_ = OpenCsv(output_dir_, "ar_tracks.csv",
                        "cycle,t_sec,key,target_id,status,pos_x_m,pos_y_m,pos_z_m,"
                        "speed_mps,rcs,hit_count,miss_count");
@@ -122,15 +123,16 @@ void VizRecorder::RecordCycle(std::uint32_t cycle, double t_sec,
                               const electronic_surveillance_radar::session::EsrCycleResult& esr,
                               const electro_optical_sensor::session::EosCycleResult& eos,
                               const std::vector<TruthTargetRow>& truths) {
-  // 平台轨迹（模型列：jsbsim 真实飞行 / kinematic 运动学回退）。
+  // 平台轨迹（多机契约 v2：aircraft_id 列，单机示例恒为 1；模型列：
+  // jsbsim 真实飞行 / kinematic 运动学回退）。
   platform_track_->WriteRow(
-      std::to_string(cycle) + "," + Fmt(t_sec, 3) + "," +
+      std::to_string(cycle) + "," + Fmt(t_sec, 3) + ",1," +
       Fmt(fleet.position.latitude_deg, 7) + "," + Fmt(fleet.position.longitude_deg, 7) + "," +
       Fmt(fleet.position.altitude_m, 2) + "," + Fmt(fleet.heading_deg, 2) + "," +
       Fmt(fleet.speed_mps, 2) + "," + std::to_string(route.next_index) + "," +
       std::to_string(route.route.size()) + "," + (flight_model_jsbsim_ ? "jsbsim" : "kinematic"));
 
-  // 世界真值目标（ECEF → 度制 LLA）。
+  // 世界真值目标（ECEF → 度制 LLA；entity_type 透出空中/地面）。
   for (const TruthTargetRow& truth : truths) {
     oneq::coordinate::LlaPositionDegM lla;
     if (!oneq::coordinate::TryEcefToLla(truth.position, &lla)) {
@@ -138,8 +140,9 @@ void VizRecorder::RecordCycle(std::uint32_t cycle, double t_sec,
     }
     target_truth_->WriteRow(
         std::to_string(cycle) + "," + Fmt(t_sec, 3) + "," + std::to_string(truth.target_id) +
-        "," + Fmt(lla.latitude_deg, 7) + "," + Fmt(lla.longitude_deg, 7) + "," +
-        Fmt(lla.altitude_m, 2) + "," + Fmt(truth.rcs, 3));
+        "," + truth.entity_type + "," + Fmt(lla.latitude_deg, 7) + "," +
+        Fmt(lla.longitude_deg, 7) + "," + Fmt(lla.altitude_m, 2) + "," +
+        Fmt(truth.rcs, 3));
   }
 
   // AR 航迹快照（雷达局部 ENU：东/北/上，含平台姿态旋转）。
@@ -222,13 +225,38 @@ void VizRecorder::RecordRoute(const RoutePlanComponent& route) {
   }
   route_recorded_ = true;
   route_plan_ = OpenCsv(output_dir_, "route_plan.csv",
-                        "index,lat_deg,lon_deg,alt_m,speed_mps,radius_m");
+                        "aircraft_id,index,lat_deg,lon_deg,alt_m,speed_mps,radius_m");
   for (std::size_t i = 0U; i < route.route.size(); ++i) {
     const auto& wp = route.route[i];
     route_plan_->WriteRow(
-        std::to_string(i) + "," + Fmt(wp.position.latitude_deg, 7) + "," +
+        "1," + std::to_string(i) + "," + Fmt(wp.position.latitude_deg, 7) + "," +
         Fmt(wp.position.longitude_deg, 7) + "," + Fmt(wp.position.altitude_m, 2) + "," +
         Fmt(wp.speed_mps, 2) + "," + Fmt(wp.radius_m, 2));
+  }
+}
+
+void VizRecorder::RecordZones(const std::string& name,
+                              const navigation::CoverageArea& area) {
+  if (std::find(zones_recorded_.begin(), zones_recorded_.end(), name) !=
+      zones_recorded_.end()) {
+    return;  // 幂等：同名区域只写一次
+  }
+  zones_recorded_.push_back(name);
+  if (zones_ == nullptr) {
+    zones_ = OpenCsv(output_dir_, "zones.csv",
+                     "name,kind,lat_deg,lon_deg,alt_m,radius_m");
+  }
+  // 多边形：每顶点一行（viewer 按 name 聚合成闭合线）；圆形：一行 + 半径。
+  if (area.kind == navigation::CoverageAreaKind::kPolygon) {
+    for (const auto& vertex : area.polygon.vertices) {
+      zones_->WriteRow(name + ",polygon," + Fmt(vertex.latitude_deg, 7) + "," +
+                       Fmt(vertex.longitude_deg, 7) + "," + Fmt(vertex.altitude_m, 2) + ",");
+    }
+  } else {
+    const auto& center = area.circle.center;
+    zones_->WriteRow(name + ",circle," + Fmt(center.latitude_deg, 7) + "," +
+                     Fmt(center.longitude_deg, 7) + "," + Fmt(center.altitude_m, 2) + "," +
+                     Fmt(area.circle.radius_m, 2));
   }
 }
 
@@ -260,6 +288,9 @@ void VizRecorder::Flush() {
     route_plan_->Flush();
   }
   waypoint_events_->Flush();
+  if (zones_ != nullptr) {
+    zones_->Flush();
+  }
 }
 
 }  // namespace behavior_layer

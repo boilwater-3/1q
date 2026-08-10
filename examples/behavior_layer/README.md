@@ -19,8 +19,8 @@ ECM 输入帧由 ESR 观测填充、平台动力学由 `flight_system` 驱动（
 | `flight_system.h` / `flight_system.cpp` | 平台动力学（`RoutePlan` → `FlightManager` 适配 + 运动学回退；唯一含 FD 头的文件） |
 | `assembly.h` / `assembly.cpp` | 装配：registry ctx 上下文、实体创建、周期调用序、观察者工厂 |
 | `behavior_layer_demo.cpp` | 主程序：脚本化场景 + 每周期系统调用序 + 事件报告 |
-| `viz_recorder.h` / `viz_recorder.cpp` | 可视化数据记录器：逐周期把飞行/传感器/融合数据导出为 8 个 CSV |
-| `build_viewer.py` | 读取 CSV 构建单文件交互式 HTML 查看器（vanilla JS + SVG，无 CDN） |
+| `viz_recorder.h` / `viz_recorder.cpp` | 可视化数据记录器：逐周期把飞行/传感器/融合数据导出为 9 个 CSV（统一契约 v2） |
+| `build_viewer.py` | 共享查看器（`examples/common/viz/`，与 component_attachment 共用）：读取 CSV 构建单文件交互式 HTML 查看器（vanilla JS + SVG，无 CDN） |
 
 ## 组件（`components.h`）
 
@@ -133,14 +133,15 @@ EOS 探测只在其扫描经过目标时产生（每 4 周期约 1-2 次），�
 ## 可视化（飞行轨迹 + 传感器日志）
 
 示例默认把每周期可观测数据落盘为 CSV（默认 `/tmp/behavior_layer_viz`，
-可用 `--output-dir <dir>` 覆盖），再由 `build_viewer.py` 构建**单文件交互式
-HTML 查看器**（vanilla JS + SVG，无 CDN、离线可用）：
+可用 `--output-dir <dir>` 覆盖），再由共享查看器 `build_viewer.py` 构建
+**单文件交互式 HTML 查看器**（vanilla JS + SVG，无 CDN、离线可用；
+`examples/common/viz/`，与 component_attachment 共用**统一契约 v2**）：
 
 ```bash
-# 1. 运行示例（产物 8 个 CSV）
+# 1. 运行示例（产物 9 个 CSV）
 ./build/llvm-ninja-release-local/bin/behavior_layer_demo --output-dir /tmp/behavior_layer_viz
 # 2. 构建查看器（默认输出 <data_dir>/behavior_layer_viewer.html）
-python3 examples/behavior_layer/build_viewer.py /tmp/behavior_layer_viz
+python3 examples/common/viz/build_viewer.py /tmp/behavior_layer_viz
 # 3. 打开
 open /tmp/behavior_layer_viz/behavior_layer_viewer.html
 ```
@@ -149,27 +150,30 @@ open /tmp/behavior_layer_viz/behavior_layer_viewer.html
 
 | 文件 | 列 | 内容 |
 | --- | --- | --- |
-| `platform_track.csv` | `cycle,t_sec,lat_deg,lon_deg,alt_m,heading_deg,speed_mps,wp_index,wp_count,model` | 平台轨迹；`model` = `jsbsim`（真实飞行仿真）/ `kinematic`（运动学回退） |
-| `target_truth.csv` | `cycle,t_sec,target_id,lat_deg,lon_deg,alt_m,rcs` | 世界真值目标（ECEF → LLA） |
+| `platform_track.csv` | `cycle,t_sec,aircraft_id,lat_deg,lon_deg,alt_m,heading_deg,speed_mps,wp_index,wp_count,model` | 飞行器轨迹（多机契约：`aircraft_id` 区分各机，单机示例恒为 1）；`model` = `jsbsim` / `kinematic` |
+| `target_truth.csv` | `cycle,t_sec,target_id,entity_type,lat_deg,lon_deg,alt_m,rcs` | 世界真值目标（ECEF → LLA；`entity_type` = `air`/`ground`，viewer 以不同线型/标记区分） |
 | `ar_tracks.csv` | `cycle,t_sec,key,target_id,status,pos_x_m,pos_y_m,pos_z_m,speed_mps,rcs,hit_count,miss_count` | AR 航迹快照（雷达局部 ENU，status = tentative/confirmed/lost） |
 | `eos_detections.csv` | `cycle,t_sec,det_id,target_id,range_m,az_deg,el_deg,snr_db,detected` | EOS 探测（`target_id` 来自仿真归属映射，非真实传感器输出） |
 | `esr_hypotheses.csv` | `cycle,t_sec,hyp_id,bearing_az_deg,bearing_el_deg,confidence,mode,threat_level,last_seen_cycle` | ESR 辐射源假设（模式/威胁等级为可读字符串） |
 | `fused_tracks.csv` | `cycle,t_sec,key,confidence,last_update_cycle,ar_samples,esr_samples,eos_samples,lat_deg,lon_deg,alt_m,bearing_az_deg` | 融合态势（各通道采样数；位置取 AR 通道量测、方位取 ESR 通道量测，缺失为空） |
-| `route_plan.csv` | `index,lat_deg,lon_deg,alt_m,speed_mps,radius_m` | 航路计划（首次规划后写一次） |
+| `route_plan.csv` | `aircraft_id,index,lat_deg,lon_deg,alt_m,speed_mps,radius_m` | 航路计划（多机契约：`aircraft_id` 归属各机；首次规划后写一次） |
 | `waypoint_events.csv` | `t_sec,waypoint_index,intermediate,gate,distance_m,cross_track_m,along_track_m,threshold_m` | 航点完成事件（仅 `ONEQ_ENABLE_FLIGHT_DYNAMIC=ON` 时有数据；gate = within_radius/plane_crossing/fly_past） |
+| `zones.csv` | `name,kind,lat_deg,lon_deg,alt_m,radius_m` | 巡逻区域（`kind` = `polygon`（每顶点一行）/ `circle`（一行 + `radius_m`）；viewer 地图绘制区域框） |
 
 ### 查看器面板
 
-- **俯视地图**（本地 ENU，原点 = 平台初始位置）：平台轨迹（截至当前周期的高亮段 +
-  航向指示线）、编号航路点（含到达半径与完成事件标注）、目标真值轨迹（虚线）、
-  融合目标全周期点位；当前周期的 AR 航迹点（方块）、EOS 距离-方位射线、
-  ESR 方位线随滑杆/播放联动。悬停任意元素显示详情；
+- **俯视地图**（本地 ENU，原点 = 主平台初始位置）：多机轨迹（按 `aircraft_id`
+  分色，截至当前周期的高亮段 + 航向指示线）、**巡逻区域**（多边形/圆半透明
+  框 + 名称标注）、编号航路点（含到达半径与完成事件标注）、目标真值轨迹
+  （空中虚线 / 地面点线 + 方块标记）、融合目标全周期点位；当前周期的 AR
+  航迹点（方块）、EOS 距离-方位射线、ESR 方位线随滑杆/播放联动。悬停任意
+  元素显示详情；
 - **传感器日志时间线**（Gantt）：每行 = 真值目标（T1001/T1002/T1003）或融合键
   （采样数 ≥ 下限，可调），色段 = 该通道在对应周期看到目标（AR 蓝 / EOS 绿 /
   ESR 橙 / 融合红），▲ 新目标 ▼ 消失标记；采样数低于下限的短命融合键聚合为
   churn 行（逐周期活跃计数）；
 - **融合置信度**：稳定键的 confidence 演化折线 + 各通道采样量堆叠面积；
-- **飞行剖面**：平台高度 / 速度 / 航向三条子图。
+- **飞行剖面**：高度 / 速度 / 航向三条子图（多机分线，色与地图一致）。
 
 ### 数据能回答什么
 
@@ -193,7 +197,7 @@ cmake --build --preset llvm-ninja-release-local --target behavior_layer_demo
 启用 `BUILD_TESTING` 时注册冒烟测试 `examples::behavior_layer_demo`
 （LABELS：`examples;behavior_layer`），验证 EnTT 依赖链与三传感器端到端全链；
 Python3 可用时另注册 `examples::behavior_layer_viewer_check`（对 demo 产物跑
-`build_viewer.py --check`，回归 CSV 结构/表头与统一 ENU 原点不变量）。
+共享 `build_viewer.py --check`，回归 CSV 结构/表头、多机行数与统一 ENU 原点不变量）。
 
 接入真实飞行仿真（可选）：
 

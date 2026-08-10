@@ -65,7 +65,7 @@ void PrintUsage(const char* program) {
   std::cout << "Usage: " << program << " [--output-dir <dir>]\n"
             << "  --output-dir <dir>  可视化 CSV 输出目录（默认 " << kDefaultOutputDir << "）\n"
             << "  运行后用 build_viewer.py 构建交互式 HTML 查看器：\n"
-            << "    python3 examples/behavior_layer/build_viewer.py <dir>\n";
+            << "    python3 examples/common/viz/build_viewer.py <dir>\n";
 }
 
 /// 加载三份会话配置（复用各域 config_loader 与 examples/configs/ 同源 JSON）。
@@ -355,6 +355,9 @@ int main(int argc, char* argv[]) {
     if (route.version > 0U && !route_printed) {
       PrintRoute(route);
       recorder.RecordRoute(route);  // 可视化：航路计划（一次）
+      // 可视化：巡逻区域（统一契约 v2 zones.csv；任务区域在规划时已定，写一次）。
+      recorder.RecordZones("patrol_area",
+                           registry.get<bl::TaskingComponent>(lead).region);
       route_printed = true;
     }
     const auto& fleet = registry.get<bl::FleetStatusComponent>(lead);
@@ -411,7 +414,7 @@ int main(int argc, char* argv[]) {
             << "visualization data -> " << recorder.output_dir()
             << " (platform_track/target_truth/ar_tracks/eos_detections/esr_hypotheses/"
                "fused_tracks/route_plan/waypoint_events.csv)\n"
-            << "build interactive viewer: python3 examples/behavior_layer/build_viewer.py "
+            << "build interactive viewer: python3 examples/common/viz/build_viewer.py "
             << recorder.output_dir() << "\n";
   return validation_error_count == 0U ? 0 : 1;
 }

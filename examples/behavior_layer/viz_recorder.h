@@ -5,7 +5,7 @@
  * 设计目标：消除"示例是黑盒"——demo 原本只打印终端摘要，本记录器把每周期
  * 可观测数据（平台轨迹、目标真值、AR 航迹、EOS 探测、ESR 假设、融合态势、
  * 航路计划、航点完成事件）流式落盘为 8 个 CSV，供
- * examples/behavior_layer/build_viewer.py 构建交互式 HTML 查看器。
+ * examples/common/viz/build_viewer.py 构建交互式 HTML 查看器。
  *
  * 记录器是纯消费方工具（不进库）：只依赖公开会话结果类型与 components.h；
  * 飞行模型标识（jsbsim/kinematic）由调用方在构造时传入。
@@ -32,9 +32,11 @@ namespace behavior_layer {
 /**
  * @brief 世界真值目标的一行（导出 target_truth.csv 用）。
  * @note ECEF 位置由记录器转换为度制 LLA 落盘；目标 ID 与 RCS 来自消费方真值脚本。
+ *       entity_type 区分空中/地面目标（viewer 以不同线型/标记展示）。
  */
 struct TruthTargetRow {
   std::uint64_t target_id{0U};       /**< 真值目标 ID */
+  std::string entity_type{"air"};    /**< 实体类型（air / ground） */
   oneq::coordinate::EcefPositionM position{}; /**< ECEF 位置（m） */
   float rcs{0.0f};                   /**< 雷达截面积（m²） */
 };
@@ -103,6 +105,14 @@ class VizRecorder {
   void RecordRoute(const RoutePlanComponent& route);
 
   /**
+   * @brief 记录一个巡逻区域到 zones.csv（统一契约 v2：多边形每顶点一行 /
+   *         圆形一行 + 半径）。同名区域只写一次（幂等去重）。
+   * @param[in] name 区域名称（viewer 地图标注）。
+   * @param[in] area 覆盖区域（多边形 / 圆形）。
+   */
+  void RecordZones(const std::string& name, const navigation::CoverageArea& area);
+
+  /**
    * @brief 追加航点完成事件（仅追加自上次调用以来的新事件，按索引去重）。
    * @param[in] events 当前全部已完成事件（飞行系统收集，容量上限 512）。
    */
@@ -116,6 +126,7 @@ class VizRecorder {
   bool flight_model_jsbsim_{false};
   bool route_recorded_{false};
   double last_waypoint_event_t_sec_{0.0}; /**< 已写最后一条航点完成事件时刻（去重游标） */
+  std::vector<std::string> zones_recorded_{}; /**< 已写区域名（zones.csv 幂等去重） */
   std::unique_ptr<examples::CsvWriter> platform_track_;
   std::unique_ptr<examples::CsvWriter> target_truth_;
   std::unique_ptr<examples::CsvWriter> ar_tracks_;
@@ -124,6 +135,7 @@ class VizRecorder {
   std::unique_ptr<examples::CsvWriter> fused_tracks_;
   std::unique_ptr<examples::CsvWriter> route_plan_;
   std::unique_ptr<examples::CsvWriter> waypoint_events_;
+  std::unique_ptr<examples::CsvWriter> zones_; /**< 巡逻区域（首次 RecordZones 时创建） */
 };
 
 }  // namespace behavior_layer

@@ -53,14 +53,15 @@ if(BUILD_TESTING)
     set_tests_properties(examples::behavior_layer_demo PROPERTIES
         LABELS "examples;behavior_layer"
         TIMEOUT 180)
-    # 可视化导出回归：demo 产物跑 build_viewer.py --check
-    # （CSV 结构/表头 + 统一 ENU 原点不变量）。Python3 缺失时不注册
-    # （查看器属可选工具链，不进强制测试面）。
+    # 可视化导出回归：demo 产物跑共享查看器 build_viewer.py --check
+    # （examples/common/viz/，统一契约 v2：CSV 结构/表头 + 多机行数 +
+    # 统一 ENU 原点不变量）。Python3 缺失时不注册（查看器属可选工具链，
+    # 不进强制测试面）。
     find_package(Python3 COMPONENTS Interpreter QUIET)
     if(Python3_Interpreter_FOUND)
         add_test(NAME examples::behavior_layer_viewer_check
             COMMAND ${Python3_EXECUTABLE}
-                ${CMAKE_CURRENT_SOURCE_DIR}/build_viewer.py --check
+                "${CMAKE_SOURCE_DIR}/examples/common/viz/build_viewer.py" --check
                 "${CMAKE_BINARY_DIR}/behavior_layer_viz")
         set_tests_properties(examples::behavior_layer_viewer_check PROPERTIES
             LABELS "examples;behavior_layer"

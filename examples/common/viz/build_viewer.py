@@ -1,22 +1,26 @@
 #!/usr/bin/env python3
 """
-build_viewer.py — 从 behavior_layer_demo 的 CSV 导出构建交互式 HTML 查看器。
+build_viewer.py — 从示例（behavior_layer / component_attachment）的 CSV 导出
+构建交互式 HTML 查看器。
 
 用法：
   python3 build_viewer.py <data_dir> [--out viewer.html]
 
-data_dir 由 behavior_layer_demo 生成（--output-dir，默认 /tmp/behavior_layer_viz），
-包含 platform_track / target_truth / ar_tracks / eos_detections / esr_hypotheses /
-fused_tracks / route_plan / waypoint_events 共 8 个 CSV。
+data_dir 由示例生成（--output-dir），统一可视化契约 v2：
+  platform_track（多机，aircraft_id 列）/ target_truth（entity_type 列）/
+  ar_tracks / eos_detections / esr_hypotheses / fused_tracks / route_plan
+  （多机）/ waypoint_events / zones（巡逻区域多边形/圆）。
+传感器/融合/航点文件缺省可缺省——查看器自动跳过对应图层。
 
 产物为单文件自包含 HTML（vanilla JS + SVG，无 CDN、离线可用），提供：
   - 时间轴：周期滑杆 + 播放/暂停 + 速度调节 + 图层开关，跨面板联动游标
-  - 俯视地图：平台轨迹（JSBSim/运动学）、航路点、目标真值、融合目标、
+  - 俯视地图：多机轨迹（按 aircraft_id 分色）、巡逻区域（多边形/圆）、
+    航路点、目标真值（空中/地面不同线型与标记）、融合目标、
     当前周期 AR 航迹点 / EOS 距离-方位射线 / ESR 方位线，悬停详情
   - 传感器日志时间线（Gantt）：真值目标与融合键在各通道（AR/EOS/ESR/融合）
     的活跃色段 + 新目标/消失标记，短命键聚合为"churn"行
   - 融合置信度曲线 + 各通道采样量堆叠面积
-  - 飞行剖面：高度 / 速度 / 航向
+  - 飞行剖面：高度 / 速度 / 航向（多机分线）
 
 仅依赖 Python 标准库（csv/json/argparse）。
 """
@@ -44,7 +48,11 @@ COLOR_EOS = "#2ca02c"
 COLOR_ESR = "#ff7f0e"
 COLOR_FUSED = "#d62728"
 COLOR_CHURN = "#999999"
+COLOR_ZONE = "#666666"
 TRUTH_PALETTE = ["#d62728", "#2ca02c", "#9467bd"]
+# 多机飞行器配色（tab10 风格；按 aircraft_id 升序取色，与轨迹/航路/剖面一致）。
+AIRCRAFT_PALETTE = ["#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd",
+                    "#8c564b", "#e377c2", "#7f7f7f", "#bcbd22", "#17becf"]
 
 CSV_FILES = [
     "platform_track.csv",
@@ -55,6 +63,7 @@ CSV_FILES = [
     "fused_tracks.csv",
     "route_plan.csv",
     "waypoint_events.csv",
+    "zones.csv",
 ]
 
 
@@ -148,26 +157,33 @@ def build_data(data_dir):
     fused = read("fused_tracks.csv")
     route = read("route_plan.csv")
     wp_events = read("waypoint_events.csv")
+    zones = read("zones.csv")
 
     meta = {"model": platform[0]["model"] if platform else "unknown"}
     if platform:
+        # 多机契约：原点/模型取 aircraft_id 最小的机（主平台）首行。
+        ac_min = min(int(r["aircraft_id"]) for r in platform)
+        first_ac = next(r for r in platform if int(r["aircraft_id"]) == ac_min)
         meta["cycles"] = max(int(r["cycle"]) for r in platform)
-        meta["origin_lat"] = f(platform[0], "lat_deg")
-        meta["origin_lon"] = f(platform[0], "lon_deg")
+        meta["aircraft"] = len({int(r["aircraft_id"]) for r in platform})
+        meta["origin_lat"] = f(first_ac, "lat_deg")
+        meta["origin_lon"] = f(first_ac, "lon_deg")
     else:
         meta["cycles"] = 0
-    # 统一 ENU 原点 = 平台初始位置：全部图层共享同一本地系（地图坐标才可叠加）。
+        meta["aircraft"] = 0
+    # 统一 ENU 原点 = 主平台初始位置：全部图层共享同一本地系（地图坐标才可叠加）。
     origin = (meta.get("origin_lat"), meta.get("origin_lon"))
 
     data = {"meta": meta}
 
-    # 平台轨迹（含 ENU 投影）。
+    # 平台轨迹（含 ENU 投影；多机按 aircraft_id 分组着色）。
     if platform:
         enu = project_enu(platform, *origin)
         data["platform"] = [
             {
                 "c": int(r["cycle"]),
                 "t": f(r, "t_sec"),
+                "ac": int(r["aircraft_id"]),
                 "x": enu[i]["x"],
                 "y": enu[i]["y"],
                 "alt": f(r, "alt_m"),
@@ -179,13 +195,14 @@ def build_data(data_dir):
             for i, r in enumerate(platform)
         ]
 
-    # 目标真值（按 id 分组轨迹）。
+    # 目标真值（按 id 分组轨迹；entity_type 区分空中/地面）。
     if truth:
         truth_enu = project_enu(truth, *origin)
         data["truth"] = [
             {
                 "c": int(r["cycle"]),
                 "id": int(float(r["target_id"])),
+                "et": r.get("entity_type") or "air",
                 "x": truth_enu[i]["x"],
                 "y": truth_enu[i]["y"],
                 "alt": f(r, "alt_m"),
@@ -261,12 +278,13 @@ def build_data(data_dir):
             for i, r in enumerate(fused)
         ]
 
-    # 航路点与航点完成事件。
+    # 航路点（多机按 aircraft_id 分组着色）与航点完成事件。
     if route:
         route_enu = project_enu(route, *origin)
         data["waypoints"] = [
             {
                 "i": int(r["index"]),
+                "ac": to_int(r, "aircraft_id"),
                 "x": route_enu[i]["x"],
                 "y": route_enu[i]["y"],
                 "alt": f(r, "alt_m"),
@@ -289,6 +307,20 @@ def build_data(data_dir):
                 "thr": f(r, "threshold_m"),
             }
             for r in wp_events
+        ]
+
+    # 巡逻区域（zones.csv）：polygon 每顶点一行（同 name 聚合成闭合线），
+    # circle 一行（radius_m 有效）。与各图层共享统一 ENU 原点。
+    if zones:
+        zone_groups = {}
+        for r in zones:
+            name = r["name"]
+            z = zone_groups.setdefault(name, {"kind": r["kind"], "pts": [], "radius": f(r, "radius_m")})
+            enu = project_enu([r], *origin)
+            z["pts"].append({"x": enu[0]["x"], "y": enu[0]["y"]})
+        data["zones"] = [
+            {"name": name, "kind": z["kind"], "pts": z["pts"], "radius": z["radius"]}
+            for name, z in zone_groups.items()
         ]
 
     return data
@@ -341,7 +373,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 </head>
 <body>
 <h1>Behavior Layer 交互式可视化</h1>
-<div class="sub">数据目录：{data_dir}（platform/AR/EOS/ESR/融合/航路/航点事件） · 平台动力学：<b>{model}</b></div>
+<div class="sub">数据目录：{data_dir}（平台/AR/EOS/ESR/融合/航路/航点事件/巡逻区域） · 飞行器：<b>{aircraft} 架</b> · 平台动力学：<b>{model}</b></div>
 
 <div class="panel">
   <div id="controls">
@@ -409,6 +441,7 @@ const ESR = DATA.esr || [];
 const FUSED = DATA.fused || [];
 const WAYPOINTS = DATA.waypoints || [];
 const WP_EVENTS = DATA.wp_events || [];
+const ZONES = DATA.zones || [];
 const MIN_SAMPLES_DEFAULT = {min_samples};
 // 配色与常量（与 CSS 占位符同源）。
 const COLOR_PLATFORM = "{COLOR_PLATFORM}";
@@ -417,9 +450,21 @@ const COLOR_EOS = "{COLOR_EOS}";
 const COLOR_ESR = "{COLOR_ESR}";
 const COLOR_FUSED = "{COLOR_FUSED}";
 const COLOR_CHURN = "{COLOR_CHURN}";
+const COLOR_ZONE = "{COLOR_ZONE}";
+const COLOR_GROUND = "#8c564b";  // 地面目标（entity_type=ground）
 const TRUTH_PALETTE = ["#d62728", "#2ca02c", "#9467bd"];
+const AIRCRAFT_PALETTE = ["#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd",
+                          "#8c564b", "#e377c2", "#7f7f7f", "#bcbd22", "#17becf"];
 const ESR_RAY_LENGTH_M = {esr_ray_len};
+// 多机分组：aircraft_id 升序；各机颜色与航路/剖面一致。
+const AC_IDS = [...new Set(P.map(q => q.ac))].sort((a, b) => a - b);
+const acColor = ac => AIRCRAFT_PALETTE[(AC_IDS.indexOf(ac) + AIRCRAFT_PALETTE.length) % AIRCRAFT_PALETTE.length];
+const P_BY_AC = {{}};
+for (const q of P) (P_BY_AC[q.ac] = P_BY_AC[q.ac] || []).push(q);
+const WP_BY_AC = {{}};
+for (const q of WAYPOINTS) (WP_BY_AC[q.ac] = WP_BY_AC[q.ac] || []).push(q);
 const LAYERS = [
+  {{key:"zones", label:"巡逻区域", color:COLOR_ZONE, on:true}},
   {{key:"platform", label:"平台轨迹", color:"{COLOR_PLATFORM}", on:true}},
   {{key:"waypoints", label:"航路点", color:"#000", on:true}},
   {{key:"truth", label:"目标真值", color:"{COLOR_FUSED}", on:true}},
@@ -514,6 +559,7 @@ function mapBounds() {{
   for (const q of TRUTH) {{ xs.push(q.x); ys.push(q.y); }}
   for (const q of FUSED) {{ if (q.x !== null) {{ xs.push(q.x); ys.push(q.y); }} }}
   for (const q of WAYPOINTS) {{ xs.push(q.x); ys.push(q.y); }}
+  for (const z of ZONES) for (const p of z.pts) {{ xs.push(p.x); ys.push(p.y); }}
   const pad = 600;
   let x0 = Math.min(...xs) - pad, x1 = Math.max(...xs) + pad;
   let y0 = Math.min(...ys) - pad, y1 = Math.max(...ys) + pad;
@@ -554,27 +600,79 @@ function renderMap() {{
   const sy = v => MAP_H / 2 - (v - cy0) * k; // y 反向（北在上）
   mapLayers = {{}};
 
-  // 目标真值轨迹（虚线，按 id 分组着色）。
+  // 巡逻区域（底层：多边形闭合线 + 半透明填充 + 名称标注；圆形 → SVG circle）。
+  for (const z of ZONES) {{
+    const g = document.createElementNS(ns, "g");
+    if (z.kind === "circle" && z.pts.length) {{
+      const c = document.createElementNS(ns, "circle");
+      c.setAttribute("cx", sx(z.pts[0].x)); c.setAttribute("cy", sy(z.pts[0].y));
+      c.setAttribute("r", Math.max(2, z.radius * k));
+      c.setAttribute("fill", COLOR_ZONE); c.setAttribute("fill-opacity", "0.06");
+      c.setAttribute("stroke", COLOR_ZONE); c.setAttribute("stroke-width", "1.4");
+      c.setAttribute("stroke-dasharray", "5 3");
+      c.addEventListener("mousemove", ev => showTip(
+        "巡逻区域 " + z.name + "（圆形）\\n半径 " + fmt(z.radius, 0) + " m", ev));
+      c.addEventListener("mouseleave", hideTip);
+      g.appendChild(c);
+      const t = document.createElementNS(ns, "text");
+      t.setAttribute("x", sx(z.pts[0].x) + 8); t.setAttribute("y", sy(z.pts[0].y) - 8);
+      t.setAttribute("font-size", "11"); t.setAttribute("fill", COLOR_ZONE);
+      t.textContent = z.name;
+      g.appendChild(t);
+    }} else if (z.pts.length >= 2) {{
+      const closed = z.pts.concat([z.pts[0]]);
+      const el = polyEl(closed.map(p => ({{x: sx(p.x), y: sy(p.y)}})), "zone", {{
+        fill: COLOR_ZONE, "fill-opacity": 0.06, stroke: COLOR_ZONE,
+        "stroke-width": 1.4, "stroke-dasharray": "5 3",
+      }});
+      el.addEventListener("mousemove", ev => showTip(
+        "巡逻区域 " + z.name + "（多边形，顶点 " + z.pts.length + "）", ev));
+      el.addEventListener("mouseleave", hideTip);
+      g.appendChild(el);
+      // 质心名称标注（顶点均值）。
+      let cx = 0, cy = 0;
+      for (const p of z.pts) {{ cx += sx(p.x); cy += sy(p.y); }}
+      const t = document.createElementNS(ns, "text");
+      t.setAttribute("x", cx / z.pts.length + 6); t.setAttribute("y", cy / z.pts.length - 6);
+      t.setAttribute("font-size", "11"); t.setAttribute("fill", COLOR_ZONE);
+      t.textContent = z.name;
+      g.appendChild(t);
+    }}
+    mapSvg.appendChild(g);
+    mapLayers["zones"] = mapLayers["zones"] || [];
+    mapLayers["zones"].push(g);
+  }}
+
+  // 目标真值轨迹（按 id 分组着色；空中 = 虚线，地面 = 点线 + 方块终点标记）。
   const truthById = {{}};
   for (const q of TRUTH) {{ (truthById[q.id] = truthById[q.id] || []).push(q); }}
   Object.keys(truthById).forEach((id, idx) => {{
     const pts = truthById[id];
+    const isGround = pts[pts.length - 1].et === "ground";
+    const color = isGround ? COLOR_GROUND : TRUTH_PALETTE[idx % TRUTH_PALETTE.length];
     const el = polyEl(pts.map(q => ({{x: sx(q.x), y: sy(q.y)}})), "truth", {{
-      fill: "none", stroke: TRUTH_PALETTE[idx % TRUTH_PALETTE.length], "stroke-width": 1.5,
-      "stroke-dasharray": "6 4", opacity: 0.75,
+      fill: "none", stroke: color, "stroke-width": 1.5,
+      "stroke-dasharray": isGround ? "2 4" : "6 4", opacity: 0.75,
     }});
     mapSvg.appendChild(el);
     mapLayers["truth"] = mapLayers["truth"] || [];
     mapLayers["truth"].push(el);
-    // 终点标记 + 悬停
+    // 终点标记 + 悬停（地面 = 方块，空中 = 圆点）。
     const last = pts[pts.length - 1];
-    const c = document.createElementNS(ns, "circle");
-    c.setAttribute("cx", sx(last.x)); c.setAttribute("cy", sy(last.y)); c.setAttribute("r", 4);
-    c.setAttribute("fill", TRUTH_PALETTE[idx % TRUTH_PALETTE.length]);
-    c.addEventListener("mousemove", ev => showTip(
-      "目标真值 T" + id + "\\n终点 cycle " + last.c + "，alt " + fmt(last.alt, 1) + " m，rcs " + fmt(last.rcs, 2) + " m²", ev));
-    c.addEventListener("mouseleave", hideTip);
-    mapSvg.appendChild(c);
+    const kindLabel = isGround ? "地面目标" : "目标真值";
+    const mk = document.createElementNS(ns, isGround ? "rect" : "circle");
+    if (isGround) {{
+      mk.setAttribute("x", sx(last.x) - 4); mk.setAttribute("y", sy(last.y) - 4);
+      mk.setAttribute("width", 8); mk.setAttribute("height", 8);
+    }} else {{
+      mk.setAttribute("cx", sx(last.x)); mk.setAttribute("cy", sy(last.y)); mk.setAttribute("r", 4);
+    }}
+    mk.setAttribute("fill", color);
+    mk.addEventListener("mousemove", ev => showTip(
+      kindLabel + " T" + id + (isGround ? "（地面）" : "") + "\\n终点 cycle " + last.c +
+      "，alt " + fmt(last.alt, 1) + " m，rcs " + fmt(last.rcs, 2) + " m²", ev));
+    mk.addEventListener("mouseleave", hideTip);
+    mapSvg.appendChild(mk);
   }});
 
   // 融合目标位置（全周期点，低透明度）。
@@ -592,38 +690,47 @@ function renderMap() {{
     mapLayers["fused"].push(c);
   }}
 
-  // 航路点（编号圆圈 + 到达半径）。
-  WAYPOINTS.forEach((wp, idx) => {{
-    const g = document.createElementNS(ns, "g");
-    const r = document.createElementNS(ns, "circle");
-    r.setAttribute("cx", sx(wp.x)); r.setAttribute("cy", sy(wp.y)); r.setAttribute("r", 10);
-    r.setAttribute("fill", "none"); r.setAttribute("stroke", "#000"); r.setAttribute("stroke-dasharray", "2 2");
-    r.setAttribute("opacity", 0.5);
-    g.appendChild(r);
-    const c = document.createElementNS(ns, "circle");
-    c.setAttribute("cx", sx(wp.x)); c.setAttribute("cy", sy(wp.y)); c.setAttribute("r", 5);
-    c.setAttribute("fill", "#000");
-    c.addEventListener("mousemove", ev => showTip(
-      "航路点 " + idx + "\\nalt " + fmt(wp.alt, 1) + " m，speed " + fmt(wp.spd, 1) +
-      " m/s，半径 " + fmt(wp.r, 1) + " m", ev));
-    c.addEventListener("mouseleave", hideTip);
-    g.appendChild(c);
-    const t = document.createElementNS(ns, "text");
-    t.setAttribute("x", sx(wp.x) + 8); t.setAttribute("y", sy(wp.y) - 6);
-    t.setAttribute("font-size", "11"); t.setAttribute("fill", "#000");
-    t.textContent = String(idx);
-    g.appendChild(t);
-    mapSvg.appendChild(g);
-    mapLayers["waypoints"] = mapLayers["waypoints"] || [];
-    mapLayers["waypoints"].push(g);
+  // 航路点（编号圆圈 + 到达半径；按机分组着色，编号 = 机内航点索引）。
+  AC_IDS.forEach(ac => {{
+    const wps = WP_BY_AC[ac] || [];
+    const acCol = acColor(ac);
+    wps.forEach((wp, idx) => {{
+      const g = document.createElementNS(ns, "g");
+      const r = document.createElementNS(ns, "circle");
+      r.setAttribute("cx", sx(wp.x)); r.setAttribute("cy", sy(wp.y)); r.setAttribute("r", 10);
+      r.setAttribute("fill", "none"); r.setAttribute("stroke", acCol); r.setAttribute("stroke-dasharray", "2 2");
+      r.setAttribute("opacity", 0.5);
+      g.appendChild(r);
+      const c = document.createElementNS(ns, "circle");
+      c.setAttribute("cx", sx(wp.x)); c.setAttribute("cy", sy(wp.y)); c.setAttribute("r", 5);
+      c.setAttribute("fill", acCol);
+      c.addEventListener("mousemove", ev => showTip(
+        "飞行器 " + ac + " 航路点 " + idx + "\\nalt " + fmt(wp.alt, 1) + " m，speed " + fmt(wp.spd, 1) +
+        " m/s，半径 " + fmt(wp.r, 1) + " m", ev));
+      c.addEventListener("mouseleave", hideTip);
+      g.appendChild(c);
+      const t = document.createElementNS(ns, "text");
+      t.setAttribute("x", sx(wp.x) + 8); t.setAttribute("y", sy(wp.y) - 6);
+      t.setAttribute("font-size", "11"); t.setAttribute("fill", acCol);
+      t.textContent = String(idx);
+      g.appendChild(t);
+      mapSvg.appendChild(g);
+      mapLayers["waypoints"] = mapLayers["waypoints"] || [];
+      mapLayers["waypoints"].push(g);
+    }});
   }});
 
-  // 平台轨迹（先画静态全轨迹，动态段在 updateMap 中重画）。
-  const plat = polyEl(P.map(q => ({{x: sx(q.x), y: sy(q.y)}})), "platform", {{
-    fill: "none", stroke: COLOR_PLATFORM, "stroke-width": 2,
-  }});
-  mapSvg.appendChild(plat);
-  mapLayers["platform"] = [plat];
+  // 平台轨迹（按机分组多色全轨迹；动态段在 updateMap 中重画）。
+  for (const ac of AC_IDS) {{
+    const qs = P_BY_AC[ac] || [];
+    if (!qs.length) continue;
+    const plat = polyEl(qs.map(q => ({{x: sx(q.x), y: sy(q.y)}})), "platform", {{
+      fill: "none", stroke: acColor(ac), "stroke-width": 2,
+    }});
+    mapSvg.appendChild(plat);
+    mapLayers["platform"] = mapLayers["platform"] || [];
+    mapLayers["platform"].push(plat);
+  }}
 
   // 动态层（每周期更新）：平台当前位置、EOS/ESR 射线、AR 航迹点。
   mapLayers["dynamic"] = document.createElementNS(ns, "g");
@@ -655,40 +762,59 @@ function updateMap() {{
   const sx = mapLayers["sx"], sy = mapLayers["sy"], k = mapLayers["k"];
   const layersOn = LAYERS.filter(l => l.on).map(l => l.key);
 
-  // 平台位置（当前周期索引 = cycle-1）。
-  const pi = Math.min(cycle - 1, P.length - 1);
-  if (!P.length) return;
-  const plat = P[pi];
-  const platPt = {{x: sx(plat.x), y: sy(plat.y)}};
+  // 各机位置（当前周期索引 = cycle-1；传感器射线以主平台 = aircraft_id 最小者为本）。
+  const platByAc = {{}};
+  for (const ac of AC_IDS) {{
+    const qs = P_BY_AC[ac] || [];
+    if (qs.length) platByAc[ac] = qs[Math.min(cycle - 1, qs.length - 1)];
+  }}
+  if (!AC_IDS.length) return;
+  const mainAc = AC_IDS[0];
+  const platPt = {{}};
+  for (const ac of AC_IDS) {{
+    const plat = platByAc[ac];
+    if (!plat) continue;
+    platPt[ac] = {{x: sx(plat.x), y: sy(plat.y)}};
+  }}
 
   if (layersOn.includes("platform")) {{
-    // 轨迹截至当前周期。
-    const trail = P.slice(0, pi + 1).map(q => ({{x: sx(q.x), y: sy(q.y)}}));
-    const tl = polyEl(trail, "platform-trail", {{fill: "none", stroke: COLOR_PLATFORM, "stroke-width": 3}});
-    g.appendChild(tl);
-    const m = document.createElementNS(ns, "circle");
-    m.setAttribute("cx", platPt.x); m.setAttribute("cy", platPt.y); m.setAttribute("r", 6);
-    m.setAttribute("fill", COLOR_PLATFORM); m.setAttribute("stroke", "#fff"); m.setAttribute("stroke-width", 2);
-    m.addEventListener("mousemove", ev => showTip(
-      "平台 @ cycle " + cycle + "\\nalt " + fmt(plat.alt, 1) + " m，航向 " + fmt(plat.hdg, 1) +
-      "°，速度 " + fmt(plat.spd, 1) + " m/s\\n航点进度 " + plat.wp + "/" + plat.wpc, ev));
-    m.addEventListener("mouseleave", hideTip);
-    g.appendChild(m);
-    // 航向指示线
-    const hdg = plat.hdg * Math.PI / 180;
-    const hl = lineEl(platPt.x, platPt.y, platPt.x + 900 * Math.sin(hdg), platPt.y - 900 * Math.cos(hdg),
-      "", {{stroke: COLOR_PLATFORM, "stroke-width": 1.5, opacity: 0.6}});
-    g.appendChild(hl);
+    for (const ac of AC_IDS) {{
+      const plat = platByAc[ac];
+      if (!plat) continue;
+      const pt = platPt[ac];
+      const col = acColor(ac);
+      // 轨迹截至当前周期。
+      const qs = P_BY_AC[ac];
+      const trail = qs.slice(0, Math.min(cycle, qs.length)).map(q => ({{x: sx(q.x), y: sy(q.y)}}));
+      const tl = polyEl(trail, "platform-trail", {{fill: "none", stroke: col, "stroke-width": 3}});
+      g.appendChild(tl);
+      const m = document.createElementNS(ns, "circle");
+      m.setAttribute("cx", pt.x); m.setAttribute("cy", pt.y); m.setAttribute("r", 6);
+      m.setAttribute("fill", col); m.setAttribute("stroke", "#fff"); m.setAttribute("stroke-width", 2);
+      m.addEventListener("mousemove", ev => showTip(
+        "飞行器 " + ac + " @ cycle " + cycle + "\\nalt " + fmt(plat.alt, 1) + " m，航向 " + fmt(plat.hdg, 1) +
+        "°，速度 " + fmt(plat.spd, 1) + " m/s\\n航点进度 " + plat.wp + "/" + plat.wpc, ev));
+      m.addEventListener("mouseleave", hideTip);
+      g.appendChild(m);
+      // 航向指示线
+      const hdg = plat.hdg * Math.PI / 180;
+      const hl = lineEl(pt.x, pt.y, pt.x + 900 * Math.sin(hdg), pt.y - 900 * Math.cos(hdg),
+        "", {{stroke: col, "stroke-width": 1.5, opacity: 0.6}});
+      g.appendChild(hl);
+    }}
   }}
+
+  // EOS/ESR/AR 射线：单平台视角（主平台，ac = AC_IDS[0]）。
+  const mainPt = platPt[mainAc];
 
   // EOS 探测射线（az 0 = 东：east = cos, north = sin；平台局部系）。
   if (layersOn.includes("eos")) {{
     for (const d of EOS) {{
       if (d.c !== cycle || !d.detected || d.range === null) continue;
       const az = d.az * Math.PI / 180;
-      const ex = platPt.x + d.range * Math.cos(az) * k;
-      const ey = platPt.y - d.range * Math.sin(az) * k;
-      const l = lineEl(platPt.x, platPt.y, ex, ey, "", {{
+      const ex = mainPt.x + d.range * Math.cos(az) * k;
+      const ey = mainPt.y - d.range * Math.sin(az) * k;
+      const l = lineEl(mainPt.x, mainPt.y, ex, ey, "", {{
         stroke: COLOR_EOS, "stroke-width": 2, opacity: 0.85,
         "marker-end": "url(#arrowEos)",
       }});
@@ -705,9 +831,9 @@ function updateMap() {{
     for (const h of ESR) {{
       if (h.c !== cycle) continue;
       const az = h.az * Math.PI / 180;
-      const ex = platPt.x + ESR_RAY_LENGTH_M * Math.cos(az) * k;
-      const ey = platPt.y - ESR_RAY_LENGTH_M * Math.sin(az) * k;
-      const l = lineEl(platPt.x, platPt.y, ex, ey, "", {{
+      const ex = mainPt.x + ESR_RAY_LENGTH_M * Math.cos(az) * k;
+      const ey = mainPt.y - ESR_RAY_LENGTH_M * Math.sin(az) * k;
+      const l = lineEl(mainPt.x, mainPt.y, ex, ey, "", {{
         stroke: COLOR_ESR, "stroke-width": 1.5, opacity: 0.7, "stroke-dasharray": "3 3",
       }});
       l.addEventListener("mousemove", ev => showTip(
@@ -724,8 +850,8 @@ function updateMap() {{
   if (layersOn.includes("ar")) {{
     for (const t of AR) {{
       if (t.c !== cycle || t.st !== "confirmed") continue;
-      const tx = platPt.x + t.x * k;
-      const ty = platPt.y - t.y * k;
+      const tx = mainPt.x + t.x * k;
+      const ty = mainPt.y - t.y * k;
       const r = document.createElementNS(ns, "rect");
       r.setAttribute("x", tx - 5); r.setAttribute("y", ty - 5); r.setAttribute("width", 10); r.setAttribute("height", 10);
       r.setAttribute("fill", COLOR_AR); r.setAttribute("stroke", "#fff"); r.setAttribute("stroke-width", 1);
@@ -1055,7 +1181,7 @@ function renderProfile() {{
     {{name: "速度 (m/s)", color: "#1f77b4", get: q => q.spd, y0: 0, y1: 0, unit: " m/s"}},
     {{name: "航向 (°)", color: "#2ca02c", get: q => q.hdg, y0: 0, y1: 0, unit: "°"}},
   ];
-  // 每行一个子图：高度 / 速度 / 航向。
+  // 每行一个子图：高度 / 速度 / 航向（多机分线，色与地图一致）。
   series.forEach((s, idx) => {{
     const yTop = idx * 68, yBot = yTop + 52;
     const vals = P.map(q => s.get(q)).filter(v => v !== null && v !== undefined);
@@ -1064,14 +1190,38 @@ function renderProfile() {{
     s.y0 = lo - pad; s.y1 = hi + pad;
     const sy = scale(s.y0, s.y1, yBot, yTop);
     const ax = makeAxes(svg, W, H, x0, yBot, x1, yTop, ticks, [], ticks, [], null);
-    const pts = P.map(q => ({{x: sx(q.c), y: sy(s.get(q))}}));
-    const el = polyEl(pts, "", {{fill: "none", stroke: s.color, "stroke-width": 1.8}});
-    svg.appendChild(el);
+    AC_IDS.forEach(ac => {{
+      const qs = P_BY_AC[ac] || [];
+      if (!qs.length) return;
+      const pts = qs.map(q => ({{x: sx(q.c), y: sy(s.get(q))}}));
+      const el = polyEl(pts, "", {{fill: "none", stroke: acColor(ac), "stroke-width": 1.8}});
+      el.addEventListener("mousemove", ev => showTip(
+        "飞行器 " + ac + " · " + s.name.replace(" (°)", "") + "：终点 " +
+        fmt(s.get(qs[qs.length - 1]), 1) + s.unit, ev));
+      el.addEventListener("mouseleave", hideTip);
+      svg.appendChild(el);
+    }});
     const lab = document.createElementNS(ns, "text");
     lab.setAttribute("x", x0); lab.setAttribute("y", yTop + 11);
     lab.setAttribute("font-size", "11"); lab.setAttribute("fill", "#666");
     lab.textContent = s.name + "（" + fmt(lo, 1) + "–" + fmt(hi, 1) + s.unit + "）";
     svg.appendChild(lab);
+    // 多机图例（机号色标）。
+    if (idx === 0 && AC_IDS.length > 1) {{
+      let lx = x0 + 160;
+      for (const ac of AC_IDS) {{
+        const sw = document.createElementNS(ns, "rect");
+        sw.setAttribute("x", lx); sw.setAttribute("y", yTop + 3); sw.setAttribute("width", 10); sw.setAttribute("height", 10);
+        sw.setAttribute("fill", acColor(ac));
+        svg.appendChild(sw);
+        const t = document.createElementNS(ns, "text");
+        t.setAttribute("x", lx + 14); t.setAttribute("y", yTop + 12);
+        t.setAttribute("font-size", "10"); t.setAttribute("fill", "#333");
+        t.textContent = "机 " + ac;
+        svg.appendChild(t);
+        lx += 52;
+      }}
+    }}
   }});
   return {{svg, sx}};
 }}
@@ -1175,9 +1325,9 @@ init();
 # ═══════════════════════════════════════════════════════════════════
 
 EXPECTED_HEADERS = {
-    "platform_track.csv": "cycle,t_sec,lat_deg,lon_deg,alt_m,heading_deg,speed_mps,wp_index,"
-                          "wp_count,model",
-    "target_truth.csv": "cycle,t_sec,target_id,lat_deg,lon_deg,alt_m,rcs",
+    "platform_track.csv": "cycle,t_sec,aircraft_id,lat_deg,lon_deg,alt_m,heading_deg,"
+                          "speed_mps,wp_index,wp_count,model",
+    "target_truth.csv": "cycle,t_sec,target_id,entity_type,lat_deg,lon_deg,alt_m,rcs",
     "ar_tracks.csv": "cycle,t_sec,key,target_id,status,pos_x_m,pos_y_m,pos_z_m,"
                      "speed_mps,rcs,hit_count,miss_count",
     "eos_detections.csv": "cycle,t_sec,det_id,target_id,range_m,az_deg,el_deg,snr_db,detected",
@@ -1186,9 +1336,10 @@ EXPECTED_HEADERS = {
     "fused_tracks.csv": "cycle,t_sec,key,confidence,last_update_cycle,"
                         "ar_samples,esr_samples,eos_samples,lat_deg,lon_deg,alt_m,"
                         "bearing_az_deg",
-    "route_plan.csv": "index,lat_deg,lon_deg,alt_m,speed_mps,radius_m",
+    "route_plan.csv": "aircraft_id,index,lat_deg,lon_deg,alt_m,speed_mps,radius_m",
     "waypoint_events.csv": "t_sec,waypoint_index,intermediate,gate,distance_m,"
                            "cross_track_m,along_track_m,threshold_m",
+    "zones.csv": "name,kind,lat_deg,lon_deg,alt_m,radius_m",
 }
 
 
@@ -1197,7 +1348,7 @@ def validate_data(data_dir):
 
     不校验具体数值语义（场景相关），只封住三类回归：
     1. CSV 缺失/表头列名与 build_viewer 解析不一致 → 查看器静默空白；
-    2. 行数异常（platform 行数 ≠ 周期数）；
+    2. 行数异常（每机 platform 行数 ≠ 周期数）；
     3. 各数据集 ENU 投影原点不统一 → 真值/融合图层与平台轨迹重叠。
     """
     problems = []
@@ -1205,6 +1356,8 @@ def validate_data(data_dir):
         path = data_dir.rstrip("/") + "/" + name
         rows = load_csv(path)
         if rows is None:
+            if name == "zones.csv":
+                continue  # zones 可选（无区域场景缺省）
             problems.append("%s 缺失" % name)
             continue
         # 表头取文件首行（header-only 文件无数据行，如 FD OFF 时 waypoint_events）。
@@ -1220,9 +1373,15 @@ def validate_data(data_dir):
     if not meta.get("cycles"):
         problems.append("platform_track.csv 为空")
         return problems
-    plat = data["platform"]
-    if len(plat) != meta["cycles"]:
-        problems.append("platform_track.csv 行数 %d != 周期数 %d" % (len(plat), meta["cycles"]))
+    # 每机行数 == 周期数（多机契约：各机独立轨迹）。
+    per_ac = {}
+    for q in data["platform"]:
+        per_ac.setdefault(q["ac"], 0)
+        per_ac[q["ac"]] += 1
+    for ac, count in sorted(per_ac.items()):
+        if count != meta["cycles"]:
+            problems.append("platform_track.csv 飞行器 %d 行数 %d != 周期数 %d"
+                            % (ac, count, meta["cycles"]))
     # 统一原点不变量：真值/融合点必须落在平台原点之外（>1 km），
     # 否则说明投影又退回"各数据集各自原点"。
     for key, label in (("truth", "target_truth.csv"), ("fused", "fused_tracks.csv")):
@@ -1270,7 +1429,8 @@ def main():
     data_json = data_json.replace("</", "<\\/")  # 防止 </script> 提前闭合
 
     model = data["meta"].get("model", "unknown")
-    title = model + " · " + str(cycles) + " 周期"
+    aircraft = data["meta"].get("aircraft", 1)
+    title = model + " · " + str(cycles) + " 周期 · " + str(aircraft) + " 机"
     # 模板用 {{ }} 转义 JS/CSS 花括号：先解转义，再替换占位符（JSON 花括号不受影响）。
     # model/data_dir 来自 CSV/命令行，按不可信输入转义后嵌入 HTML。
     template = HTML_TEMPLATE.replace("{{", "{").replace("}}", "}")
@@ -1278,6 +1438,7 @@ def main():
         template.replace("{title}", html.escape(title))
         .replace("{data_dir}", html.escape(args.data_dir))
         .replace("{model}", html.escape(model))
+        .replace("{aircraft}", str(aircraft))
         .replace("{cycles}", str(cycles))
         .replace("{min_samples}", str(DEFAULT_MIN_SAMPLES))
         .replace("{COLOR_PLATFORM}", COLOR_PLATFORM)
@@ -1286,6 +1447,7 @@ def main():
         .replace("{COLOR_ESR}", COLOR_ESR)
         .replace("{COLOR_FUSED}", COLOR_FUSED)
         .replace("{COLOR_CHURN}", COLOR_CHURN)
+        .replace("{COLOR_ZONE}", COLOR_ZONE)
         .replace("{esr_ray_len}", str(int(ESR_RAY_LENGTH_M)))
         .replace("{data_json}", data_json)
     )
