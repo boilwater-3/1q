@@ -39,7 +39,7 @@ file(GLOB _oneq_unit_examples CONFIGURE_DEPENDS
 if(_oneq_unit_examples)
     # component_attachment 组件实现（ecs_component_runtime_test 测组件运行时
     # 修改接口；sensor_adapt.h 为 header-only）。
-    # demo_log.cpp：组件源文件内 CA_LOG_EVENT / CA_LOG_VIEW 宏引用符号（单测
+    # logger.cpp：组件源文件内 CA_LOG_EVENT / CA_LOG_VIEW 宏引用符号（单测
     # 不初始化 → 未初始化静默跳过路径）。集成端日志直接使用 spdlog：仅在
     # PROJECT_ENABLE_SPDLOG 时编译组件源并链接 spdlog；Windows 上该示例门控
     # 关闭，组件运行时测试一并排除（JsonReader / ECS 核心测试保留，二者无
@@ -57,7 +57,7 @@ if(_oneq_unit_examples)
             "${CMAKE_SOURCE_DIR}/examples/component_attachment/components/sbirs_sensor_component.cpp"
             "${CMAKE_SOURCE_DIR}/examples/component_attachment/components/sar_sensor_component.cpp"
             "${CMAKE_SOURCE_DIR}/examples/component_attachment/components/flight_component.cpp"
-            "${CMAKE_SOURCE_DIR}/examples/component_attachment/components/demo_log.cpp")
+            "${CMAKE_SOURCE_DIR}/examples/component_attachment/logger/logger.cpp")
         set(_oneq_examples_link_libs ${PROJECT_SPDLOG_TARGET})
     else()
         # 示例整体门控（spdlog 非 Windows 依赖）：组件运行时测试、场景数据与

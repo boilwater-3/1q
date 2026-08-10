@@ -18,7 +18,7 @@
 #include "1q/airborne_radar/session/ArTrackOutputDebugView.h"
 #include "core/events.h"
 #include "core/world.h"
-#include "demo_log.h"
+#include "logger/logger.h"
 #include "ar_sensor_component.h"
 #include "fusion_component.h"
 

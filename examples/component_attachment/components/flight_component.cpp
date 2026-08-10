@@ -21,7 +21,7 @@
 #include "1q/coordinate/position_transform.h"
 #include "core/events.h"
 #include "core/world.h"
-#include "demo_log.h"
+#include "logger/logger.h"
 
 #if defined(ONEQ_CA_FLIGHT_DYNAMIC_ENABLED)
 #include "1q/coordinate/velocity_transform.h"

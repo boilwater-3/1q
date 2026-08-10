@@ -16,8 +16,8 @@
 
 #include "core/events.h"
 #include "core/world.h"
-#include "demo_log.h"
-#include "demo_log_i18n.h"
+#include "logger/logger.h"
+#include "logger/logger_i18n.h"
 #include "flight_component.h"
 #include "scene_types.h"
 

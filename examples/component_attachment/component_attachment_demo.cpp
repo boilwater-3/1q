@@ -1,8 +1,8 @@
 /**
  * @file component_attachment_demo.cpp
- * @brief 自定义实体-组件示例主程序（第二种示例模式）。
+ * @brief 自定义实体-组件示例主程序。
  *
- * 1. 装配：场景描述文件（--scene，默认 scenes/baseline_takeoff_east.json）
+ * 1. 装配：场景描述文件（--scene，默认 scenes/baseline_takeoff_east/baseline_takeoff_east.json）
  *    → SceneData → 共享场景状态 → World → 平台实体 + 8 组件（挂载序 =
  *    步进序 Flight → AR → ESR → EOS → SBIRS → SAR → Fusion），组件间事件
  *    通信用 Boost.Signals2（core/，零自定义分发层）；
@@ -32,14 +32,14 @@
 #include "1q/sbirs_sensor/session/SbirsSession.h"
 
 #include "components/ar_sensor_component.h"
-#include "components/demo_log.h"
+#include "logger/logger.h"
 #include "components/eos_sensor_component.h"
 #include "components/esr_sensor_component.h"
 #include "components/flight_component.h"
 #include "components/fusion_component.h"
 #include "components/sar_sensor_component.h"
 #include "components/sbirs_sensor_component.h"
-#include "components/scene_types.h"
+#include "scene_types.h"
 #include "components/threat_component.h"
 #include "core/world.h"
 #include "demo_config.h"
@@ -53,7 +53,8 @@ namespace demo = component_attachment::demo;
 namespace {
 
 /// 默认场景文件：CMake 注入的场景目录（examples/component_attachment/scenes/）。
-constexpr char kDefaultSceneFile[] = CA_SCENE_DIR "/baseline_takeoff_east.json";
+constexpr char kDefaultSceneFile[] =
+    CA_SCENE_DIR "/baseline_takeoff_east/baseline_takeoff_east.json";
 
 }  // namespace
 
@@ -114,7 +115,7 @@ int main(int argc, char* argv[]) {
   std::filesystem::create_directories(output_dir);
 
   // 集成端日志初始化（三个日志文件：库日志 1q_library.log + 集成端事件行
-  // integration_events.log + 视图行 integration_views.log；见 components/demo_log.h）。
+  // integration_events.log + 视图行 integration_views.log；见 logger/logger.h）。
   // 须在会话创建之前调用：库内 PROJECT_LOG_* 走 spdlog 默认 logger，装配后库
   // 日志即入文件而非 stdout。
   demo::InitIntegrationLog(output_dir);
@@ -248,7 +249,7 @@ int main(int argc, char* argv[]) {
       outputs.RecordTruthRow(cycle, scene.t_sec, target);
     }
     // 调试视图落盘由各传感器组件在 Step 内直写（取视图 → 人读摘要行 → 集成
-    // 端日志；见 components/demo_log.h 的 CA_LOG_VIEW），主程序不再收拢。
+    // 端日志；见 logger/logger.h 的 CA_LOG_VIEW），主程序不再收拢。
 
     // 消费方世界模型推进（在 Step 之后；周期号用于应用变速机动表）。
     demo::AdvanceTargetStates(target_states, cycle, scene_data.dt_sec, platform_origin);

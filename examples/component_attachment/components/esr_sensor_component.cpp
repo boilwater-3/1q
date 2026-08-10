@@ -12,7 +12,7 @@
 
 #include "1q/electronic_surveillance_radar/session/EsrCycleInput.h"
 #include "core/events.h"
-#include "demo_log.h"
+#include "logger/logger.h"
 #include "flight_component.h"
 #include "core/world.h"
 #include "scene_types.h"

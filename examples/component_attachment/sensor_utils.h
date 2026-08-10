@@ -8,8 +8,8 @@
  * 本文件仅保留平台坐标薄包装（航向分解与 ECEF 投影为库内单函数）。
  */
 
-#ifndef EXAMPLES_COMPONENT_ATTACHMENT_COMPONENTS_SENSOR_UTILS_H_
-#define EXAMPLES_COMPONENT_ATTACHMENT_COMPONENTS_SENSOR_UTILS_H_
+#ifndef EXAMPLES_COMPONENT_ATTACHMENT_SENSOR_UTILS_H_
+#define EXAMPLES_COMPONENT_ATTACHMENT_SENSOR_UTILS_H_
 
 #include "1q/coordinate/position_transform.h"
 #include "1q/coordinate/velocity_transform.h"
@@ -35,4 +35,4 @@ inline void ResolvePlatformEcef(const oneq::coordinate::LlaPositionDegM& positio
 
 }  // namespace component_attachment
 
-#endif  // EXAMPLES_COMPONENT_ATTACHMENT_COMPONENTS_SENSOR_UTILS_H_
+#endif  // EXAMPLES_COMPONENT_ATTACHMENT_SENSOR_UTILS_H_

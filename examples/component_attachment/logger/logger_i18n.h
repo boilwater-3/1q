@@ -1,5 +1,5 @@
 /**
- * @file demo_log_i18n.h
+ * @file logger_i18n.h
  * @brief 集成端日志中文适配：issue code → 中文名 + 问题列表格式化（纯查表，零依赖）。
  *
  * 库内 issue message 为英文人读文本且格式不承诺稳定（规则 13b：机器消费只认
@@ -9,8 +9,8 @@
  * 同步维护。
  */
 
-#ifndef EXAMPLES_COMPONENT_ATTACHMENT_COMPONENTS_DEMO_LOG_I18N_H_
-#define EXAMPLES_COMPONENT_ATTACHMENT_COMPONENTS_DEMO_LOG_I18N_H_
+#ifndef EXAMPLES_COMPONENT_ATTACHMENT_LOGGER_LOGGER_I18N_H_
+#define EXAMPLES_COMPONENT_ATTACHMENT_LOGGER_LOGGER_I18N_H_
 
 #include <string>
 #include <vector>
@@ -67,4 +67,4 @@ inline std::string FormatIssueText(const std::vector<TIssue>& issues) {
 }  // namespace demo
 }  // namespace component_attachment
 
-#endif  // EXAMPLES_COMPONENT_ATTACHMENT_COMPONENTS_DEMO_LOG_I18N_H_
+#endif  // EXAMPLES_COMPONENT_ATTACHMENT_LOGGER_LOGGER_I18N_H_

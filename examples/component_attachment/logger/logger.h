@@ -1,5 +1,5 @@
 /**
- * @file demo_log.h
+ * @file logger.h
  * @brief 集成端日志设施（外部集成惯用法示范）。
  *
  * 与库内部日志（PROJECT_LOG_* → spdlog 默认 logger → 1q_library.log）区分成两个
@@ -12,18 +12,18 @@
  *    中文人读，不做结构化落盘，结构化持久化由外部集成方自接（规则 12）。
  * 组件源文件内直接调日志宏、字符串就地填充（fmt 风格 {} 语法，经
  * spdlog::fmt_lib 格式化），字符串归属组件源文件（事件产生处）；cycle/t_sec 由
- * 宏从 world 共享场景状态取。日志三模式见 demo_log_modes.h 模式选择区。
+ * 宏从 world 共享场景状态取。日志三模式见 logger_modes.h 模式选择区。
  */
 
-#ifndef EXAMPLES_COMPONENT_ATTACHMENT_COMPONENTS_DEMO_LOG_H_
-#define EXAMPLES_COMPONENT_ATTACHMENT_COMPONENTS_DEMO_LOG_H_
+#ifndef EXAMPLES_COMPONENT_ATTACHMENT_LOGGER_LOGGER_H_
+#define EXAMPLES_COMPONENT_ATTACHMENT_LOGGER_LOGGER_H_
 
 // ============================ 日志模式选择区（编译期） ============================
 // DebugView 每周期都会产生，落盘多少、怎么落由集成方决定——本示例示范三种常见
 // 写入方式，用宏门控（未选中的模式不参与编译）。每次只启用一个视图模式 + 一个
 // 事件模式，重新编译后运行 demo 即可分别验证对应写入方式。
-// 模式宏定义见 demo_log_modes.h（组件头文件也包含它，用于门控成员声明）。
-#include "demo_log_modes.h"
+// 模式宏定义见 logger_modes.h（组件头文件也包含它，用于门控成员声明）。
+#include "logger/logger_modes.h"
 // ============================================================================
 
 #include <cstddef>
@@ -113,4 +113,4 @@ std::size_t ThreatViewCount();
   ::component_attachment::demo::LogViewSummary(                                \
       (module), ::spdlog::fmt_lib::format(__VA_ARGS__))
 
-#endif  // EXAMPLES_COMPONENT_ATTACHMENT_COMPONENTS_DEMO_LOG_H_
+#endif  // EXAMPLES_COMPONENT_ATTACHMENT_LOGGER_LOGGER_H_

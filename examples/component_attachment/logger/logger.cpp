@@ -1,6 +1,6 @@
 /**
- * @file demo_log.cpp
- * @brief 集成端日志设施实现（见 demo_log.h）。
+ * @file logger.cpp
+ * @brief 集成端日志设施实现（见 logger.h）。
  *
  * 1. 两个日志模块装配：库内部日志（spdlog 默认 logger → 1q_library.log）与集成
  *    端日志（拆两个命名 logger：事件行 → integration_events.log、视图行 →
@@ -10,7 +10,7 @@
  *    跳过——单元测试链接本文件但不调用 InitIntegrationLog，组件宏调用安全无副作用）。
  */
 
-#include "demo_log.h"
+#include "logger/logger.h"
 
 #include <cstring>
 #include <memory>

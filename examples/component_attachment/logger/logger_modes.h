@@ -1,9 +1,9 @@
 /**
- * @file demo_log_modes.h
+ * @file logger_modes.h
  * @brief 集成端日志模式选择区（纯宏定义，零依赖）。
  *
  * 独立成头：组件头文件（ar/eos/sbirs_sensor_component.h 的模式二 prev 状态表
- * 成员按模式门控）与 demo_log.h 共享同一份模式定义，避免头文件解析顺序问题。
+ * 成员按模式门控）与 logger.h 共享同一份模式定义，避免头文件解析顺序问题。
  *
  * DebugView 每周期都会产生，落盘多少、怎么落由集成方决定——本示例示范三种
  * 常见写入方式，用宏门控（未选中的模式不参与编译）。每次只启用一个视图模式
@@ -17,8 +17,8 @@
  * 2. 调试时直接改本文件：取消注释对应宏（每次只留一个）。
  */
 
-#ifndef EXAMPLES_COMPONENT_ATTACHMENT_COMPONENTS_DEMO_LOG_MODES_H_
-#define EXAMPLES_COMPONENT_ATTACHMENT_COMPONENTS_DEMO_LOG_MODES_H_
+#ifndef EXAMPLES_COMPONENT_ATTACHMENT_LOGGER_LOGGER_MODES_H_
+#define EXAMPLES_COMPONENT_ATTACHMENT_LOGGER_LOGGER_MODES_H_
 
 // 视图模式（三选一）：未被 CMake 或本文件指定时默认模式二（跨周期增量）。
 #if !defined(CA_VIEW_LOG_MODE_SUMMARY) && !defined(CA_VIEW_LOG_MODE_NONNOMINAL) && \
@@ -40,4 +40,4 @@
 // #define CA_EVENT_LOG_MODE_KEY            // 模式一：只记关键事件
 // #define CA_EVENT_LOG_MODE_AGGREGATE      // 模式二：周期聚合
 
-#endif  // EXAMPLES_COMPONENT_ATTACHMENT_COMPONENTS_DEMO_LOG_MODES_H_
+#endif  // EXAMPLES_COMPONENT_ATTACHMENT_LOGGER_LOGGER_MODES_H_

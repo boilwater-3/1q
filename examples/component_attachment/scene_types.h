@@ -4,13 +4,13 @@
  *
  * DemoSceneState 继承 core 的 SceneState（周期号/时间）并扩展四通道世界
  * 真值（AR 目标 / ESR 辐射源 / EOS 光学目标 / SBIRS 红外目标 + 天基平台
- * 位置）——演示"共享上下文继承扩展"模式（对应 EnTT registry.ctx() 的
- * 消费方扩展）。消费方（demo）每周期更新字段，组件 Step 经
+ * 位置）——演示"共享上下文继承扩展"模式（消费方继承 SceneState 扩展自有
+ * 字段）。消费方（demo）每周期更新字段，组件 Step 经
  * world.scene_state() 类型化访问。SAR 点目标真值见 sar_point_targets。
  */
 
-#ifndef EXAMPLES_COMPONENT_ATTACHMENT_COMPONENTS_SCENE_TYPES_H_
-#define EXAMPLES_COMPONENT_ATTACHMENT_COMPONENTS_SCENE_TYPES_H_
+#ifndef EXAMPLES_COMPONENT_ATTACHMENT_SCENE_TYPES_H_
+#define EXAMPLES_COMPONENT_ATTACHMENT_SCENE_TYPES_H_
 
 #include <vector>
 
@@ -35,4 +35,4 @@ struct DemoSceneState : SceneState {
 
 }  // namespace component_attachment
 
-#endif  // EXAMPLES_COMPONENT_ATTACHMENT_COMPONENTS_SCENE_TYPES_H_
+#endif  // EXAMPLES_COMPONENT_ATTACHMENT_SCENE_TYPES_H_

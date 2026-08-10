@@ -13,8 +13,8 @@
 
 #include "core/events.h"
 #include "core/world.h"
-#include "demo_log.h"
-#include "demo_log_i18n.h"
+#include "logger/logger.h"
+#include "logger/logger_i18n.h"
 #include "flight_component.h"
 #include "scene_types.h"
 #include "sensor_adapt.h"
@@ -158,7 +158,7 @@ bool SbirsSensorComponent::TryApplyRuntimeConfig(
   return applied;
 }
 
-// 视图行写入（三模式，宏门控——未选中的模式不参与编译，见 demo_log.h 模式选择
+// 视图行写入（三模式，宏门控——未选中的模式不参与编译，见 logger/logger.h 模式选择
 // 区）。DebugView 每周期都构建，落多少、怎么落由集成方按需求选择。
 void SbirsSensorComponent::LogDebugView(
     const sbirs_sensor::session::SbirsOutputDebugView& view) {

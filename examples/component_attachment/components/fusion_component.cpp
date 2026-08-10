@@ -16,7 +16,7 @@
 
 #include "core/events.h"
 #include "core/world.h"
-#include "demo_log.h"
+#include "logger/logger.h"
 #include "ar_sensor_component.h"
 #include "eos_sensor_component.h"
 #include "esr_sensor_component.h"

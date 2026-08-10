@@ -3,7 +3,7 @@
  * @brief 输出落盘与事件消费实现（见 demo_output.h）。
  *
  * 集成端日志（integration_events.log / integration_views.log + 库日志
- * 1q_library.log）由 components/demo_log.h 承担（组件源文件内日志宏 + 每周期
+ * 1q_library.log）由 logger/logger.h 承担（组件源文件内日志宏 + 每周期
  * 视图直写）——本文件只负责统一契约 v2 可视化 CSV 落盘与决策事件链。
  */
 #include "demo_output.h"
@@ -11,7 +11,7 @@
 #include <string>
 
 #include "1q/coordinate/position_transform.h"
-#include "components/demo_log.h"
+#include "logger/logger.h"
 #include "core/events.h"
 
 namespace component_attachment {

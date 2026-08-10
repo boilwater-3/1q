@@ -49,7 +49,7 @@
 #include "components/flight_component.h"
 #include "components/sar_sensor_component.h"
 #include "components/sbirs_sensor_component.h"
-#include "components/scene_types.h"
+#include "scene_types.h"
 #include "core/world.h"
 
 namespace ca = component_attachment;

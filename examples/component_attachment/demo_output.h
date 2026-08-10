@@ -7,7 +7,7 @@
  * 列）/ route_plan（aircraft_id 列）/ zones.csv（巡逻区域）；DecisionListener
  * —— 高置信威胁事件链演示（Fusion → decision → command）。集成端日志
  * （integration_events.log 事件行 + integration_views.log 各组件每周期调试
- * 视图人读摘要行）与库日志（1q_library.log）由 components/demo_log.h 承担
+ * 视图人读摘要行）与库日志（1q_library.log）由 logger/logger.h 承担
  * （组件源文件内日志宏 + 视图摘要直写，字符串归属组件）。
  */
 
