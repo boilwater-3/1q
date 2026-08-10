@@ -5,6 +5,7 @@
 
 #include "1q/coordinate/position_transform.h"
 #include "1q/coordinate/types.h"
+#include "1q/electronic_surveillance_radar/session/EsrIssueCodes.h"
 #include "common/validation/ValidationUtils.h"
 
 namespace electronic_surveillance_radar {
@@ -13,16 +14,16 @@ namespace {
 
 using oneq::common::validation::IsFinite;
 
-// 统一问题列表模型（规则 14）：校验问题 code 为 "esr.validation.<snake_case>"，
-// phase 固定为 kInputValidation；location/field 为可选定位。
+// 统一问题列表模型（规则 14）：校验问题 code 引用 EsrIssueCodes.h 常量
+// （"esr.validation.<snake_case>" 全集单一事实来源）；phase 固定为
+// kInputValidation；location/field 为可选定位。
 EsrIssue MakeIssue(EsrIssueSeverity severity, const char* code,
                    oneq::foundation::ValidationLocationKind location_kind,
                    std::size_t entity_index, const std::string& field,
                    const std::string& message) {
   EsrIssue issue = oneq::common::validation::MakeLocatedIssue<EsrIssue,
                                                               oneq::foundation::ValidationLocation>(
-      severity, std::string("esr.validation.") + code, location_kind, entity_index, field,
-      message);
+      severity, code, location_kind, entity_index, field, message);
   issue.phase = EsrIssuePhase::kInputValidation;
   return issue;
 }
@@ -35,7 +36,7 @@ void ValidatePlatform(const EsrCycleInput& input, EsrIssueList* issues) {
       !IsFinite(input.platform_attitude_deg.pitch_deg) ||
       !IsFinite(input.platform_attitude_deg.roll_deg)) {
     issues->push_back(MakeIssue(
-        EsrIssueSeverity::kError, "non_finite_platform_numeric_field",
+        EsrIssueSeverity::kError, codes::kNonFinitePlatformNumericField,
         oneq::foundation::ValidationLocationKind::kPlatform, static_cast<std::size_t>(-1),
         "platform", "platform attitude must contain only finite values"));
   }
@@ -47,7 +48,7 @@ void ValidatePlatform(const EsrCycleInput& input, EsrIssueList* issues) {
       !IsFinite(input.platform_velocity_ecef_mps.y_mps) ||
       !IsFinite(input.platform_velocity_ecef_mps.z_mps)) {
     issues->push_back(MakeIssue(
-        EsrIssueSeverity::kError, "invalid_rf_emission_frame",
+        EsrIssueSeverity::kError, codes::kInvalidRfEmissionFrame,
         oneq::foundation::ValidationLocationKind::kPlatform, static_cast<std::size_t>(-1),
         "platform_entity_id/platform_ecef_kinematics",
         "RF reception requires a non-zero platform identity and finite ECEF kinematics"));
@@ -59,7 +60,7 @@ void ValidatePlatform(const EsrCycleInput& input, EsrIssueList* issues) {
   oneq::coordinate::LlaPositionDegM platform_lla;
   if (!oneq::coordinate::TryEcefToLla(input.platform_position_ecef_m, &platform_lla)) {
     issues->push_back(MakeIssue(
-        EsrIssueSeverity::kError, "unlocatable_platform_ecef",
+        EsrIssueSeverity::kError, codes::kUnlocatablePlatformEcef,
         oneq::foundation::ValidationLocationKind::kPlatform, static_cast<std::size_t>(-1),
         "platform_position_ecef_m",
         "platform ECEF must be geolocatable (convertible to a valid WGS84 LLA)"));
@@ -71,18 +72,18 @@ void ValidatePlatform(const EsrCycleInput& input, EsrIssueList* issues) {
 EsrIssueList ValidateEsrCycleInput(const EsrCycleInput& input) {
   EsrIssueList issues;
   if (!IsFinite(input.dt_sec)) {
-    issues.push_back(MakeIssue(EsrIssueSeverity::kError, "non_finite_cycle_delta_time",
+    issues.push_back(MakeIssue(EsrIssueSeverity::kError, codes::kNonFiniteCycleDeltaTime,
                                oneq::foundation::ValidationLocationKind::kGlobal,
                                static_cast<std::size_t>(-1), "dt_sec",
                                "cycle delta time must be finite"));
   } else if (input.dt_sec <= 0.0f) {
-    issues.push_back(MakeIssue(EsrIssueSeverity::kError, "invalid_cycle_delta_time",
+    issues.push_back(MakeIssue(EsrIssueSeverity::kError, codes::kInvalidCycleDeltaTime,
                                oneq::foundation::ValidationLocationKind::kGlobal,
                                static_cast<std::size_t>(-1), "dt_sec",
                                "cycle delta time must be positive"));
   }
   if (!IsFinite(input.cycle_start_time_s)) {
-    issues.push_back(MakeIssue(EsrIssueSeverity::kError, "invalid_cycle_start_time",
+    issues.push_back(MakeIssue(EsrIssueSeverity::kError, codes::kInvalidCycleStartTime,
                                oneq::foundation::ValidationLocationKind::kGlobal,
                                static_cast<std::size_t>(-1), "cycle_start_time_s",
                                "cycle start time must be finite"));
@@ -92,7 +93,7 @@ EsrIssueList ValidateEsrCycleInput(const EsrCycleInput& input) {
           frame, input.cycle_index, input.cycle_start_time_s,
           static_cast<double>(input.dt_sec)) ||
       !oneq::electromagnetics::TryValidateRfSceneFrame(frame)) {
-    issues.push_back(MakeIssue(EsrIssueSeverity::kError, "invalid_rf_emission_frame",
+    issues.push_back(MakeIssue(EsrIssueSeverity::kError, codes::kInvalidRfEmissionFrame,
                                oneq::foundation::ValidationLocationKind::kGlobal,
                                static_cast<std::size_t>(-1), "rf_emissions",
                                "RF emission frame must be valid and match the cycle window"));

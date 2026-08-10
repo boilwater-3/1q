@@ -11,6 +11,7 @@
 
 #include "1q/coordinate/attitude_transform.h"
 #include "1q/coordinate/position_transform.h"
+#include "1q/electronic_surveillance_radar/session/EsrIssueCodes.h"
 #include "common/geometry/BearingCluster.h"
 #include "common/numerics/ClampUtils.h"
 #include "common/numerics/NumericGuard.h"
@@ -33,10 +34,8 @@ constexpr std::uint64_t kBandwidthRandomDomain = 0x4553524257000000ULL;
 constexpr std::uint64_t kPriRandomDomain = 0x4553525052000000ULL;
 constexpr std::uint64_t kPulseWidthRandomDomain = 0x4553525057000000ULL;
 
-// 规则 13b：正常执行周期按发射源门控排除的 kInfo 诊断码（不属于三写，仅承载排查信息）。
-constexpr char kExclusionCoSiteCode[] = "esr.emission_co_site";
-constexpr char kExclusionZeroPowerCode[] = "esr.emission_zero_power";
-constexpr char kExclusionBelowThresholdCode[] = "esr.emission_below_threshold";
+// 规则 13b：正常执行周期按发射源门控排除的 kInfo 诊断码（不属于三写，仅承载
+// 排查信息）。code 引用 EsrIssueCodes.h 注册表常量（"esr.emission_*"）。
 
 /// 构造 kInfo 级按发射源排除诊断（不属于三写，仅承载排查信息；规则 13b）。
 session::EsrIssue MakeExclusionIssue(const char* code, const std::string& message) {
@@ -330,14 +329,15 @@ bool InterceptDetectionExecutor::ProcessRfV2Frame(
     if (front_end.channel_incident_links[index].is_co_site) {
       // 规则 13b：同址干扰发射源跳过 → kInfo 诊断（不属于三写，仅承载排查信息）。
       output->issues.push_back(MakeExclusionIssue(
-          kExclusionCoSiteCode, FormatEmissionIdentity(emission.identity) + "; co_site=true"));
+          ::electronic_surveillance_radar::session::codes::kEmissionCoSite,
+          FormatEmissionIdentity(emission.identity) + "; co_site=true"));
       ++output->excluded_co_site;
       continue;
     }
     if (front_end.channel_incident_links[index].received_power_w <= 0.0) {
       // 规则 13b：零功率发射源跳过 → kInfo 诊断（不属于三写，仅承载排查信息）。
       output->issues.push_back(MakeExclusionIssue(
-          kExclusionZeroPowerCode,
+          ::electronic_surveillance_radar::session::codes::kEmissionZeroPower,
           FormatEmissionIdentity(emission.identity) + "; received_power_w=" +
               FormatNumber(front_end.channel_incident_links[index].received_power_w)));
       ++output->excluded_zero_power;
@@ -387,7 +387,7 @@ bool InterceptDetectionExecutor::ProcessRfV2Frame(
                                           static_cast<float>(snr_db), threshold, detection))) {
       // 规则 13b：SNR/统计检测门排除 → kInfo 诊断（不属于三写，仅承载排查信息）。
       output->issues.push_back(MakeExclusionIssue(
-          kExclusionBelowThresholdCode,
+          ::electronic_surveillance_radar::session::codes::kEmissionBelowThreshold,
           FormatEmissionIdentity(signal.identity) + "; snr_db=" + FormatNumber(snr_db) +
               " below threshold=" + FormatNumber(threshold)));
       ++output->excluded_below_threshold;

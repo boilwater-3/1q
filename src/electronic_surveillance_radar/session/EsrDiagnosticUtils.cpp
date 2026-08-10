@@ -2,6 +2,7 @@
 
 #include <utility>
 
+#include "1q/electronic_surveillance_radar/session/EsrIssueCodes.h"
 #include "common/logging/ProjectLog.h"
 
 namespace electronic_surveillance_radar {
@@ -26,13 +27,14 @@ void RecordAbort(EsrCycleResult* result, EsrPipelineAbortReason reason,
   result->abort_reason = reason;
   result->status = EsrCycleExecutionStatus::kRejected;
 
-  // 结构化诊断（细粒度；统一问题列表模型，规则 14：phase 由中止原因推导）
+  // 结构化诊断（细粒度；统一问题列表模型，规则 14：phase 由中止原因推导；
+  // detail_code 为 EsrIssueCodes.h 完整 code 常量，调用方负责传注册表常量）
   EsrIssue issue;
   issue.severity = EsrIssueSeverity::kError;
   issue.phase = (reason == EsrPipelineAbortReason::kValidationRejected)
                     ? EsrIssuePhase::kInputValidation
                     : EsrIssuePhase::kExecution;
-  issue.code = std::string("esr.") + detail_code;
+  issue.code = detail_code;
   issue.message = message;
   result->issues.push_back(std::move(issue));
 
