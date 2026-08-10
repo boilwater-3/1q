@@ -551,8 +551,11 @@ TEST(SignalPipelineTest, RfV2InterferenceOnlySuppressesDetectionAndIsOneShot) {
   ASSERT_FALSE(baseline_pipeline.GetLastTrackMeasurements().empty());
 
   auto ctx = MakeRfV2DetectionContext(1.0e6);
-  signal::pipeline::SignalCycleInput jammed_input{
-      ToSceneTargets(session::ArSceneTargetList{target}), &ctx};
+  // be501c5d（VS2015 兼容）为 SignalCycleInput 引入显式构造函数，聚合初始化
+  // 不可用——改用单参构造 + 成员赋值。
+  signal::pipeline::SignalCycleInput jammed_input(
+      ToSceneTargets(session::ArSceneTargetList{target}));
+  jammed_input.rf_v2_detection_context = &ctx;
   jammed_environment.BeginCycle(MakeEnvironmentCycle(1U));
   ASSERT_TRUE(
       jammed_pipeline.RunCycle(jammed_input, jammed_environment).executed_this_cycle);
