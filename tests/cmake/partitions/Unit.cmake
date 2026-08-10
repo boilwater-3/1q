@@ -70,7 +70,7 @@ if(_oneq_unit_examples)
         SOURCES ${_oneq_unit_examples}
         TIMEOUT 60
         INCLUDE_DIRS "${CMAKE_SOURCE_DIR}/examples/common"
-                     "${CMAKE_SOURCE_DIR}/examples/batch_validation"
+                     "${CMAKE_SOURCE_DIR}/tests/consumer/batch_validation"
                      "${CMAKE_SOURCE_DIR}/examples/component_attachment"
         EXTRA_SOURCES ${_oneq_examples_extra}
         LINK_LIBS ${_oneq_examples_link_libs})

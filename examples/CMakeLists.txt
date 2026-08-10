@@ -22,6 +22,3 @@ add_subdirectory(component_attachment)
 if(ONEQ_ENABLE_FLIGHT_DYNAMIC)
     add_subdirectory(flight_dynamic)
 endif()
-
-# 批量场景验证：多场景参数扫描 + CSV 指标 + trace 录制/回放回归。
-add_subdirectory(batch_validation)

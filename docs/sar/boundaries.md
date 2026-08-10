@@ -114,7 +114,7 @@ PRF 分数余量）不推进。
 
 属于 warning/error 观测项（不影响退出码）：completed stage 低于 L1、图像质量缺失、SNR 非有限、
 熵非正、跨场景趋势。batch 没有直接读取 lifecycle recorder 或断言完整 ring-buffer 状态，因此不得把
-场景名扩大为这些内部状态的硬契约。场景 ID 与运行方式由 `examples/batch_validation/README.md` 维护。
+场景名扩大为这些内部状态的硬契约。场景 ID 与运行方式由 `tests/consumer/batch_validation/README.md` 维护。
 
 ## 三层输出结构：L1/L1.5 分裂与诊断架构
 

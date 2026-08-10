@@ -55,7 +55,7 @@
 
 1. 从场景提取复现参数：目标几何（方位/距离/高度/速度/RCS/频率）、会话配置
    （场景覆写后的值）、周期窗；
-2. 用 `examples/batch_validation` 模式写单会话复现（ArSession/EsrSession/... +
+2. 用 `tests/consumer/batch_validation` 模式写单会话复现（ArSession/EsrSession/... +
    LifecycleRecorder，跳过集成层）；若 batch_validation 已有同类 sweep，先查
    是否已被覆盖；
 3. 复现成功 → 判定库问题 → 修复 + 补回归（单测或 batch_validation sequence）；

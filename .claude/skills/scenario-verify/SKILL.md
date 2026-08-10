@@ -10,7 +10,7 @@ description: Scenario-driven verification of 1Q simulation library modules throu
 用**场景**（战场原型 → 可判定几何）驱动 `examples/component_attachment` 演示，验证
 1Q 库模块在**集成链路**（探测 → 融合 → 决策）上的正确性。与既有资产的分工：
 
-- `examples/batch_validation`（230 场景）验证**库级单会话**参数扫描/跨周期序列——本
+- `tests/consumer/batch_validation`（230 场景）验证**库级单会话**参数扫描/跨周期序列——本
   skill 的"库问题最小复现"复用其模式，但不重复其工作；
 - 本 skill 验证 batch_validation 够不到的**集成级**：多通道同时驱动、融合聚合、
   决策事件链、飞行/目标几何耦合。

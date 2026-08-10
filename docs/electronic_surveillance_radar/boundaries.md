@@ -159,7 +159,7 @@ ESM/RWR/HGESM 切换、显式扫描边界重定向、关机恢复和无效输入
 
 batch 不含 truth matching、legacy lifecycle recorder 或旧输入适配器；每个场景显式设置与载频匹配的窄带
 tuning window，因此 sweep 与 sequence 都必须产生真实观测——零观测不再被当作可接受的空验证。场景 ID、
-结构化 check 和运行方式由 `examples/batch_validation/README.md` 维护。
+结构化 check 和运行方式由 `tests/consumer/batch_validation/README.md` 维护。
 
 性能验收分为两个不可互相替代的 Release 场景：稀疏检测场景以 64 个外部 RF 发射、1000 个 AR 目标和
 1000 个 ESR 发射验证 RF 前端/分辨账本；密集检测场景要求每周期 1000 条 raw observation，并至少保留

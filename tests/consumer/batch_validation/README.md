@@ -4,9 +4,11 @@
 真实仿真边界下的物理趋势、身份/资源连续性、配置原子性、拒绝恢复和确定性 replay。
 flight_dynamic 不在本框架范围内。
 
-本目录中的可执行程序只使用公开 Session / Adapter / Replay 接口，并按模块使用公开
+本目录（`tests/consumer/batch_validation/`，2026-08-10 由 `examples/batch_validation/`
+迁入，examples 层收敛为单一消费方参考角色）中的可执行程序只使用公开
+Session / Adapter / Replay 接口，并按模块使用公开
 `config_loader` 或 POD / builder 构造配置。为满足这些外部可观察契约而需要的运行时语义修复
-仍由对应生产模块和回归测试拥有，不在 examples 中复制实现。
+仍由对应生产模块和回归测试拥有，不在本目录复制实现。
 
 ## 与现有测试的关系
 
@@ -68,7 +70,7 @@ cmake --build --preset llvm-ninja-release-local --target \
 ctest --preset llvm-ninja-release-local -L batch_validation --output-on-failure -j 4
 
 # 分析
-python3 examples/batch_validation/analyze_batch_results.py
+python3 tests/consumer/batch_validation/analyze_batch_results.py
 ```
 
 五个程序使用同一组显式参数：
