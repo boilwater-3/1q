@@ -189,6 +189,10 @@ AR/ESR/EOS/SBIRS/SAR 五模块的电源状态必须遵守单源原则：
        （如 `"esr.validation.invalid_emitter_frequency"`）；执行诊断保持既有 code 字符串
        （如 `"sar.snr_below_minimum"`）。机器消费只认 code（规则 13b）；既有执行诊断 code
        字符串是 replay/trace 稳定语义，不得重命名。
+       **code 全集单一事实来源**：各模块公开头文件 `include/1q/<module>/session/<Module>IssueCodes.h`
+       （如 `EosIssueCodes.h`）定义本模块全部 code 常量，库内调用点一律引用其常量、集成方以该
+       头文件为 code 目录；新增/改名 code 必须同步该头文件（常量值即 code 值，调用点随引用
+       自动更新）。各模块 boundaries 均登记该指针。
     d. `message`：人读文本，内容与格式不承诺解析稳定性（规则 13b）。
     e. `location` / `field`（可选定位）：`location.kind == kGlobal` 或 `field` 为空表示无定位；
        定位只服务人读与 replay 保真，不用于状态判断。

@@ -129,6 +129,7 @@ ESR 所有中止路径遵守 `session_contract.md` 规则 9 的三写模式与�
 1. **结构化信号**：`EsrCycleResult.abort_reason`（粗粒度枚举）。
 2. **结构化诊断**：`EsrCycleResult.issues`（`EsrIssueList`，细粒度 code 如 `"esr.rf_receiver_rejected"`、
    `"esr.validation.invalid_cycle_delta_time"`；条目携带 `phase` 来源标签与可选定位）。
+   本模块 code 全集单一事实来源：`include/1q/electronic_surveillance_radar/session/EsrIssueCodes.h`（规则 14c）。
 3. **人读日志**：`PROJECT_LOG_ERROR`。
 
 `EsrCycleResult` 只承载单一问题列表 `issues`：输入校验问题（`phase=kInputValidation`）与执行诊断

@@ -103,6 +103,7 @@ AR 所有中止路径遵守 `session_contract.md` 规则 9 的三写模式与规
 1. **结构化信号**：`ArCycleResult.abort_reason`（粗粒度枚举）。
 2. **结构化诊断**：`ArCycleResult.issues`（`ArIssueList`，细粒度 code 如 `"ar.sensor_powered_off"`、
    `"ar.validation.invalid_cycle_delta_time"`；条目携带 `phase` 来源标签与可选定位）。
+   本模块 code 全集单一事实来源：`include/1q/airborne_radar/session/ArIssueCodes.h`（规则 14c）。
 3. **人读日志**：`PROJECT_LOG_ERROR`。
 
 `ArCycleResult` 只承载单一问题列表 `issues`：输入校验问题（`phase=kInputValidation`）与执行诊断

@@ -51,6 +51,7 @@ SBIRS 所有中止路径遵守 `session_contract.md` 规则 9 的三写模式与
 2. **结构化诊断**：`SbirsCycleResult.issues`（`SbirsIssueList`，细粒度 code 如
    `"sbirs.sensor_powered_off"`、`"sbirs.validation.invalid_satellite_position"`；
    条目携带 `phase` 来源标签与可选定位）。
+   本模块 code 全集单一事实来源：`include/1q/sbirs_sensor/session/SbirsIssueCodes.h`（规则 14c）。
 3. **人读日志**：`PROJECT_LOG_ERROR`。
 
 `SbirsCycleResult` 只承载单一问题列表 `issues`：输入校验问题（`phase=kInputValidation`）与执行诊断

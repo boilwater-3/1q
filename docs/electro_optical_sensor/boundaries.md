@@ -75,8 +75,10 @@ EOS 遵守 `docs/common/contract.md`：
 6. controller runtime state 支持 capture/restore，但必须拒绝不兼容的 pipeline snapshot 或其他
    controller 实例的 snapshot。
 
-周期输入校验问题编码统一为 `"eos.validation.<snake_case>"` 字符串（code 清单由
-`eos_input_validation_test` 的 code 列表断言锁定）；`ValidationCode` 枚举已随规则 14 对齐删除。
+周期输入校验问题编码统一为 `"eos.validation.<snake_case>"` 字符串；本模块 code 全集
+单一事实来源为 `include/1q/electro_optical_sensor/session/EosIssueCodes.h`（规则 14c，库内
+调用点与集成方均引用其常量；`eos_input_validation_test` 等测试对 code 值的断言仍锁定既有
+语义）。`ValidationCode` 枚举已随规则 14 对齐删除。
 环境观测字段（太阳辐照度、云量、风速、背景温度、太阳角、昼夜类型）已迁入
 `config::EosEnvironmentScenarioConfig`，不再属于周期输入域，故不声明对应校验编码，以免误导
 调用方以为可以在 `CycleInput` 上校验这些字段。

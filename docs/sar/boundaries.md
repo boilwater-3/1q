@@ -141,7 +141,8 @@ L1 和 L1.5 共同构成"本周期的完整产品输出"。
 ### 诊断架构：issues 为唯一诊断通道（统一问题列表模型，规则 14）
 
 SAR 的 `SarIssueList issues` 承载统一问题列表（kInfo/kWarning/kError），每条包含
-severity + phase + code + message + 可选定位（location/field）。`SarPipelineAbortReason`
+severity + phase + code + message + 可选定位（location/field）。本模块 code 全集单一事实
+来源：`include/1q/sar/session/SarIssueCodes.h`（规则 14c）。`SarPipelineAbortReason`
 枚举通过 `AbortReasonToDiagnosticCode()` 映射到诊断码字符串（如 `kSnrBelowMinimum` →
 `"sar.snr_below_minimum"`），人读 message 由调用方提供。
 
