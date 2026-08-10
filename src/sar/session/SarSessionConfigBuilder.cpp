@@ -9,6 +9,7 @@
 #include <utility>
 
 #include "1q/sar/config/SarSessionConfigValidation.h"
+#include "1q/sar/session/SarIssueCodes.h"
 
 namespace sar {
 namespace config {
@@ -21,30 +22,30 @@ session::SarIssueList ValidateSarSessionConfig(const config::SarSessionConfig& c
     session::SarIssue issue;
     issue.severity = session::SarIssueSeverity::kError;
     issue.phase = session::SarIssuePhase::kInputValidation;
-    issue.code = std::string("sar.validation.") + code;
+    issue.code = code;
     issue.field = field;
     issue.message = msg;
     issues.push_back(std::move(issue));
   };
 
   if (config.hardware.carrier_frequency_hz <= 0.0) {
-    push("carrier_frequency_not_positive",
+    push(session::codes::kCarrierFrequencyNotPositive,
          "hardware.carrier_frequency_hz", "Carrier frequency must be positive.");
   }
   if (config.hardware.bandwidth_hz <= 0.0) {
-    push("bandwidth_not_positive",
+    push(session::codes::kBandwidthNotPositive,
          "hardware.bandwidth_hz", "Bandwidth must be positive.");
   }
   if (config.hardware.pulse_repetition_frequency_hz <= 0.0) {
-    push("pulse_repetition_frequency_not_positive",
+    push(session::codes::kPulseRepetitionFrequencyNotPositive,
          "hardware.pulse_repetition_frequency_hz", "Pulse repetition frequency must be positive.");
   }
   if (config.hardware.sample_rate_hz <= 0.0) {
-    push("sample_rate_not_positive",
+    push(session::codes::kSampleRateNotPositive,
          "hardware.sample_rate_hz", "Sample rate must be positive.");
   }
   if (config.hardware.antenna_length_m <= 0.0) {
-    push("antenna_length_not_positive",
+    push(session::codes::kAntennaLengthNotPositive,
          "hardware.antenna_length_m", "Antenna length must be positive.");
   }
   if (!std::isfinite(config.hardware.peak_power_w) || config.hardware.peak_power_w <= 0.0 ||
@@ -52,47 +53,47 @@ session::SarIssueList ValidateSarSessionConfig(const config::SarSessionConfig& c
       !std::isfinite(config.hardware.receiver_noise_figure_db) ||
       config.hardware.receiver_noise_figure_db < 0.0 ||
       !std::isfinite(config.hardware.system_loss_db) || config.hardware.system_loss_db < 0.0) {
-    push("hardware_link_budget_invalid",
+    push(session::codes::kHardwareLinkBudgetInvalid,
          "hardware.peak_power_w / antenna_gain_db / receiver_noise_figure_db / system_loss_db",
          "Hardware link-budget fields must be finite; power must be positive and noise figure / "
          "loss must be non-negative.");
   }
   if (config.mission.nominal_slant_range_m <= 0.0) {
-    push("nominal_slant_range_not_positive",
+    push(session::codes::kNominalSlantRangeNotPositive,
          "mission.nominal_slant_range_m", "Nominal slant range must be positive.");
   }
   if (config.mission.platform_speed_mps <= 0.0) {
-    push("platform_speed_not_positive",
+    push(session::codes::kPlatformSpeedNotPositive,
          "mission.platform_speed_mps", "Platform speed must be positive.");
   }
   if (config.mission.azimuth_pulse_count == 0U) {
-    push("azimuth_pulse_count_zero",
+    push(session::codes::kAzimuthPulseCountZero,
          "mission.azimuth_pulse_count", "Azimuth pulse count must be non-zero.");
   }
   if (config.mission.range_sample_count == 0U) {
-    push("range_sample_count_zero",
+    push(session::codes::kRangeSampleCountZero,
          "mission.range_sample_count", "Range sample count must be non-zero.");
   }
   if (config.mission.desired_ground_range_resolution_m <= 0.0) {
-    push("desired_resolution_not_positive",
+    push(session::codes::kDesiredResolutionNotPositive,
          "mission.desired_ground_range_resolution_m",
          "Desired ground range resolution must be positive.");
   }
   if (config.mission.desired_azimuth_resolution_m <= 0.0) {
-    push("desired_resolution_not_positive",
+    push(session::codes::kDesiredResolutionNotPositive,
          "mission.desired_azimuth_resolution_m",
          "Desired azimuth resolution must be positive.");
   }
   if (config.policy.retain_raw_phase_history &&
       !config.policy.enable_raw_echo_generation) {
-    push("retain_raw_history_requires_raw_echo",
+    push(session::codes::kRetainRawHistoryRequiresRawEcho,
          "policy.retain_raw_phase_history / enable_raw_echo_generation",
          "Retaining raw phase history requires raw echo generation.");
   }
   if (!std::isfinite(config.policy.max_allowed_squint_angle_deg) ||
       config.policy.max_allowed_squint_angle_deg < 0.0 ||
       config.policy.max_allowed_squint_angle_deg >= 90.0) {
-    push("squint_angle_invalid",
+    push(session::codes::kSquintAngleInvalid,
          "policy.max_allowed_squint_angle_deg",
          "Maximum allowed squint angle must be finite and in [0, 90) degrees.");
   }
@@ -100,7 +101,7 @@ session::SarIssueList ValidateSarSessionConfig(const config::SarSessionConfig& c
       !std::isfinite(config.environment.atmospheric_loss_db_per_km) ||
       config.environment.atmospheric_loss_db_per_km < 0.0 ||
       !std::isfinite(config.environment.surface_backscatter_sigma0_db)) {
-    push("environment_config_invalid",
+    push(session::codes::kEnvironmentConfigInvalid,
          "environment.terrain_reference_altitude_m / atmospheric_loss_db_per_km / "
          "surface_backscatter_sigma0_db",
          "Environment scalar fields must be finite and atmospheric loss must be non-negative.");
@@ -113,7 +114,7 @@ session::SarIssueList ValidateSarSessionConfig(const config::SarSessionConfig& c
     const std::size_t waveform_samples = static_cast<std::size_t>(
         std::ceil(config.hardware.pulse_width_s * config.hardware.sample_rate_hz));
     if (waveform_samples > config.mission.range_sample_count) {
-      push("sample_window_too_small_for_pulse",
+      push(session::codes::kSampleWindowTooSmallForPulse,
            "mission.range_sample_count",
            "Range sample window cannot hold the full LFM pulse width.");
     }

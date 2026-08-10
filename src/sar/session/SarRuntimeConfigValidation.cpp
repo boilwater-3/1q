@@ -11,6 +11,7 @@
 #include "sar/session/SarDiagnosticUtils.h"
 
 #include "1q/sar/session/SarInputValidation.h"
+#include "1q/sar/session/SarIssueCodes.h"
 
 namespace sar {
 namespace session {
@@ -20,6 +21,7 @@ namespace {
 // 统一问题列表模型（规则 14）：运行期配置校验问题属于输入校验阶段 —— 校验问题
 // 本身就是 error 级诊断（规则 9 写二），不再调用 RecordAbort；三写之三（人读日志）
 // 在此补齐（校验拒绝为调用方输入问题，级别用 WARN，与其它模块校验拒绝一致）。
+// detail_code 为 SarIssueCodes.h 完整 code 常量，调用方负责传注册表常量。
 void RecordConfigValidationRejection(SarCycleResult* result, const char* detail_code,
                                      const std::string& message) {
   result->abort_reason = SarPipelineAbortReason::kValidationRejected;
@@ -28,7 +30,7 @@ void RecordConfigValidationRejection(SarCycleResult* result, const char* detail_
   SarIssue issue;
   issue.severity = SarIssueSeverity::kError;
   issue.phase = SarIssuePhase::kInputValidation;
-  issue.code = std::string("sar.validation.") + detail_code;
+  issue.code = detail_code;
   issue.message = message;
   result->issues.push_back(std::move(issue));
 
@@ -61,7 +63,7 @@ bool ValidateRuntimeConfigForStep(const config::SarSessionConfig& config,
                                   bool has_external_raw_iq,
                                   SarCycleResult* result) {
   if (!session::AreSarHardwareAndMissionFieldsValid(config)) {
-    RecordConfigValidationRejection(result, "invalid_config", "SAR runtime config contains invalid hardware/mission fields.");
+    RecordConfigValidationRejection(result, codes::kInvalidConfig, "SAR runtime config contains invalid hardware/mission fields.");
     return false;
   }
 
@@ -71,7 +73,7 @@ bool ValidateRuntimeConfigForStep(const config::SarSessionConfig& config,
         std::ceil(config.hardware.pulse_width_s * config.hardware.sample_rate_hz));
     if (waveform_samples > config.mission.range_sample_count) {
       RecordConfigValidationRejection(result,
-                  "sample_window_too_small_for_pulse",
+                  codes::kSampleWindowTooSmallForPulse,
                   "SAR range sample window (" + std::to_string(config.mission.range_sample_count) +
                       " samples) cannot hold the full LFM pulse (" +
                       std::to_string(waveform_samples) +
@@ -86,7 +88,7 @@ bool ValidateRuntimeConfigForStep(const config::SarSessionConfig& config,
                                         config.mission.azimuth_pulse_count,
                                         imaging::kFocusingRdaSizeLimit)) {
     RecordConfigValidationRejection(result,
-                "rda_size_gate",
+                codes::kRdaSizeGate,
                 "SAR session RDA size exceeds current Phase 1 runtime gate; use smaller "
                 "validation scenes until performance approval.");
     return false;
@@ -94,7 +96,7 @@ bool ValidateRuntimeConfigForStep(const config::SarSessionConfig& config,
   if (config.policy.enable_l1_rda_imaging &&
       !config.policy.enable_raw_echo_generation) {
     RecordConfigValidationRejection(result,
-                "rda_requires_raw_echo",
+                codes::kRdaRequiresRawEcho,
                 "SAR session RDA requires raw echo generation.");
     return false;
   }
@@ -104,7 +106,7 @@ bool ValidateRuntimeConfigForStep(const config::SarSessionConfig& config,
        config.mission.l2_velocity_error_stddev_y_mps < 0.0 ||
        config.mission.l2_velocity_error_stddev_z_mps < 0.0)) {
     RecordConfigValidationRejection(result,
-                "invalid_l2_motion_compensation_config",
+                codes::kInvalidL2MotionCompensationConfig,
                 "SAR L2 motion compensation requires raw echo, RDA, and non-negative velocity "
                 "errors.");
     return false;
@@ -114,7 +116,7 @@ bool ValidateRuntimeConfigForStep(const config::SarSessionConfig& config,
        config.policy.enable_l1_rda_imaging || config.policy.enable_l2_motion_compensation ||
        (!has_external_raw_iq && !HasValidL3Waypoints(config.mission)))) {
     RecordConfigValidationRejection(result,
-                "invalid_l3_bp_config",
+                codes::kInvalidL3BpConfig,
                 "SAR L3 BP requires raw echo, valid waypoints, and no L1/L2 path.");
     return false;
   }
@@ -123,7 +125,7 @@ bool ValidateRuntimeConfigForStep(const config::SarSessionConfig& config,
                                         config.mission.azimuth_pulse_count,
                                         imaging::kFocusingBackprojectionSizeLimit)) {
     RecordConfigValidationRejection(result,
-                "l3_bp_size_gate",
+                codes::kL3BpSizeGate,
                 "SAR L3 BP size exceeds the approved 128x128 runtime gate.");
     return false;
   }

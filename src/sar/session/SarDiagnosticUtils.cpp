@@ -2,6 +2,7 @@
 
 #include <utility>
 
+#include "1q/sar/session/SarIssueCodes.h"
 #include "common/logging/ProjectLog.h"
 
 namespace sar {
@@ -65,11 +66,12 @@ void WriteAbort(SarCycleResult* result, SarPipelineAbortReason reason,
                        ? SarCycleStatus::kRejectedInvalidInput
                        : SarCycleStatus::kRejectedExecution;
 
-  // 结构化诊断（细粒度；统一问题列表模型，规则 14）
+  // 结构化诊断（细粒度；统一问题列表模型，规则 14：phase 由中止原因推导；
+  // detail_code 为 SarIssueCodes.h 完整 code 常量，调用方负责传注册表常量）
   SarIssue issue;
   issue.severity = SarIssueSeverity::kError;
   issue.phase = PhaseForAbortReason(reason);
-  issue.code = std::string("sar.") + detail_code;
+  issue.code = detail_code;
   issue.message = message;
   result->issues.push_back(std::move(issue));
 

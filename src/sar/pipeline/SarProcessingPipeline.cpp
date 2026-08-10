@@ -5,6 +5,7 @@
 
 #include "common/logging/ProjectLog.h"
 
+#include "1q/sar/session/SarIssueCodes.h"
 #include "sar/session/SarDiagnosticUtils.h"
 #include "sar/session/SarFocusedImageAssembler.h"
 #include "sar/session/SarImagingExecutor.h"
@@ -160,7 +161,7 @@ bool SarProcessingPipeline::RunCycle(const config::SarSessionConfig& config,
   signal::ComplexVector matched_filter;
   if (!session::BuildWaveformAndFilter(config, &waveform, &matched_filter)) {
     session::RecordAbort(result, session::SarPipelineAbortReason::kPipelineExecutionFailed,
-                         "waveform_generation_failed",
+                         session::codes::kWaveformGenerationFailed,
                          "SAR failed to generate LFM waveform.");
     return false;
   }
@@ -177,7 +178,7 @@ bool SarProcessingPipeline::RunCycle(const config::SarSessionConfig& config,
         return false;
       }
       result->issues.push_back(session::MakeInfoDiagnostic(
-          "sar.external_raw_iq_snr_unavailable",
+          session::codes::kExternalRawIqSnrUnavailable,
           "External raw IQ is already receiver-domain data; hardware link budget and minimum "
           "SNR gating are not reapplied without signal/noise metadata."));
     } else {
@@ -193,7 +194,7 @@ bool SarProcessingPipeline::RunCycle(const config::SarSessionConfig& config,
       session::MarkRawEchoStage(&result->output_frame, estimated_snr_db);
       if (std::isfinite(estimated_snr_db) && estimated_snr_db < config.policy.minimum_snr_db) {
         session::RecordAbort(result, session::SarPipelineAbortReason::kPipelineExecutionFailed,
-                             "snr_below_minimum",
+                             session::codes::kSnrBelowMinimum,
                              "SAR estimated SNR is below the configured minimum valid SNR.");
         return false;
       }
@@ -208,7 +209,7 @@ bool SarProcessingPipeline::RunCycle(const config::SarSessionConfig& config,
         config.mission, input, raw_history, impl_->actual_trajectory_buffer);
     if (maximum_squint_angle_deg > config.policy.max_allowed_squint_angle_deg) {
       session::RecordAbort(result, session::SarPipelineAbortReason::kPipelineExecutionFailed,
-                           "squint_angle_exceeds_limit",
+                           session::codes::kSquintAngleExceedsLimit,
                            "SAR aperture squint angle exceeds the configured imaging limit.");
       return false;
     }
@@ -232,7 +233,7 @@ bool SarProcessingPipeline::RunCycle(const config::SarSessionConfig& config,
   if (HasDegenerateImagePeak(*result, input)) {
     session::RecordAbort(
         result, session::SarPipelineAbortReason::kPipelineExecutionFailed,
-        "degenerate_image_peak",
+        session::codes::kDegenerateImagePeak,
         "SAR focused image has zero peak power; the echo/focusing pipeline produced no "
         "signal. Check sar.raw_echo_clipping and sar.slant_range_mismatch diagnostics.");
     return false;
