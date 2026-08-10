@@ -277,7 +277,8 @@ int main(int argc, char* argv[]) {
             << " sar_views=" << demo::SarViewCount()
             << " threat_views=" << demo::ThreatViewCount() << "\n"
             << "log output -> " << output_dir
-            << " (integration_events.log / integration_views.log / 1q_library.log / platform_track.csv)\n";
+            << " (integration_events.log / integration_views.log / 1q_library.log / "
+               "platform_track.csv / target_truth.csv / route_plan.csv / zones.csv)\n";
 
   // 外置查询演示：按实体名/类型查找平台实体，读取各传感器开关机与当前扫描
   // 方位（查询逻辑 = 组件 const getter；外部系统选定实体后按名/ID 拉取

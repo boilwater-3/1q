@@ -433,6 +433,7 @@ lon 120.0~120.02（约 1.93 km 东西），扫描航向 0（线沿东西）、�
 | `target_maneuver_evasion.json` | 目标大机动：跟踪保持（AR 失跟需探测断链） | 通过（1 项预期修正） |
 | `sbirs_altitude_snr_1000km.json` | SBIRS 高度专项：链路 1/R² 标度 + 门限边界 | 通过（1 项预期修正） |
 | `patrol_area_scan.json` | 区域巡逻专项：coverage 块规划航路 + 循环巡逻（巡逻中四通道探测保持） | 通过 |
+| `fleet_patrol_multi_zone.json` | 多机区域巡逻专项：3 机各自区域任务（platforms[]）+ 区域内空中/地面目标 + 契约 v2 多机可视化 | 通过（运动学冒烟 + **FD 600 周期复核**：三机 jsbsim、循环重启 5 次、SAR 起飞段 1 产品） |
 | `threat_multi_target.json` | 威胁评估专项：三目标威胁分排序 + 等级映射 + 威胁→决策指令链 | 通过 |
 
 ## 构建与运行

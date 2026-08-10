@@ -106,4 +106,27 @@ if(BUILD_TESTING)
     set_tests_properties(examples::component_attachment_demo PROPERTIES
         LABELS "examples;component_attachment"
         TIMEOUT 60)
+    # 多机区域巡逻场景冒烟（3 机各自区域任务 + 空中/地面目标）：
+    # --cycles 120 控制时长（完整 600 周期留给手动跑；FD 模式 3 机子步进开销
+    # 按 release 本机实测 120 周期 ~20 s）。
+    add_test(NAME examples::component_attachment_fleet_patrol
+        COMMAND $<TARGET_FILE:component_attachment_demo>
+            --scene "${CMAKE_SOURCE_DIR}/examples/component_attachment/scenes/fleet_patrol_multi_zone.json"
+            --cycles 120 --output-dir "${CMAKE_BINARY_DIR}/component_attachment_fleet_viz")
+    set_tests_properties(examples::component_attachment_fleet_patrol PROPERTIES
+        LABELS "examples;component_attachment"
+        TIMEOUT 60)
+    # 可视化导出回归：共享查看器 build_viewer.py --check（统一契约 v2：
+    # 多机行数 == 周期数 × 机数 + 表头 + ENU 原点不变量）。Python3 缺失时不注册。
+    find_package(Python3 COMPONENTS Interpreter QUIET)
+    if(Python3_Interpreter_FOUND)
+        add_test(NAME examples::component_attachment_viewer_check
+            COMMAND ${Python3_EXECUTABLE}
+                "${CMAKE_SOURCE_DIR}/examples/common/viz/build_viewer.py" --check
+                "${CMAKE_BINARY_DIR}/component_attachment_fleet_viz")
+        set_tests_properties(examples::component_attachment_viewer_check PROPERTIES
+            LABELS "examples;component_attachment"
+            DEPENDS examples::component_attachment_fleet_patrol
+            TIMEOUT 60)
+    endif()
 endif()
