@@ -3,6 +3,24 @@
 本目录是 **examples 层**：消费方集成参考——示范"怎么写一个接库的程序"。
 只使用 `include/` 对外公开的 Session / Adapter / Replay 接口，不修改任何库源码。
 
+## 快速开始
+
+```bash
+# 1. 依赖引导 + configure（示例默认不构建，需显式开启；FD 真实飞行仿真可选）
+bash scripts/bootstrap_conan.sh llvm-ninja-release-local
+cmake --preset llvm-ninja-release-local -DENABLE_EXAMPLES=ON [-DONEQ_ENABLE_FLIGHT_DYNAMIC=ON]
+
+# 2. 构建 demo
+cmake --build --preset llvm-ninja-release-local --target component_attachment_demo
+
+# 3. 运行基线场景（400 周期，产物落 log/）
+./build/llvm-ninja-release-local/bin/component_attachment_demo
+```
+
+想跑别的场景：`--scene examples/component_attachment/scenes/<name>/<name>.json`。
+改场景不用重编译（场景是 JSON 数据驱动）。详见
+[`component_attachment/README.md`](component_attachment/README.md)。
+
 ## 定位：单一角色
 
 examples 层只承担一个角色：**消费方集成参考**。验证框架与模块开发期工具
@@ -21,7 +39,7 @@ examples/
 ├── CMakeLists.txt                  编排层：定义共享变量 + add_subdirectory()
 ├── README.md                       本文件
 ├── common/                         共享便利层：JSON 解析 + 五域 config_loaders + viz/ 共享查看器（不属于库 public surface）
-├── configs/                        五域会话配置 JSON（详见 configs/README.md）
+├── configs/                        五域会话配置 JSON + recognition/ 识别数据库（详见 configs/README.md）
 └── component_attachment/           消费方集成参考示例：五传感器 + 融合 + 威胁评估 + 多机编队
 ```
 
@@ -32,18 +50,18 @@ examples/
 飞行（FD 六自由度机动 + 运动学回退）→ 五传感器（AR/ESR/EOS/SBIRS/SAR）
 → 融合 → 威胁评估 → 决策指令的事件链，并提供：
 
-- **场景数据驱动**：`scenes/*.json` 声明飞行脚本、目标脚本、传感器业务覆写
-  与冒烟下限（含多机区域巡逻 `fleet_patrol_multi_zone`），新场景只加 JSON
-  不改代码；场景预期表归档为 `*.md`；
+- **场景数据驱动**：`scenes/<name>/<name>.json` 声明飞行脚本、目标脚本、传感器业务覆写
+  与冒烟下限（含多机区域巡逻 `fleet_patrol_multi_zone`），新场景只加子目录
+  不改代码；场景预期表归档为同名 `.md`；
 - **集成端日志示范**：库日志（`1q_library.log`）+ 集成端事件/视图日志
   （`integration_events.log` / `integration_views.log`，中文人读行），落盘
-  密度由 `demo_log_modes.h` 三模式宏门控；
+  密度由 `logger/logger_modes.h` 三模式宏门控；
 - **外置查询数据源**：各组件暴露 `powered_on()` / 扫描方位 getter 与
   `LastDebugView()`，供选定实体后拉取设备状态；
 - **运行时修改接口**：各组件把库的 RuntimeConfigPatch 薄包装为公开方法
   （提交语义随模块而异，权威定义见 `docs/common/contract.md`）。
 
-详见 `component_attachment/README.md`。
+详见 [`component_attachment/README.md`](component_attachment/README.md)。
 
 ## 共享便利层
 
@@ -60,41 +78,6 @@ examples/
 - 由本层 `CMakeLists.txt` 定义 `ONEQ_EXAMPLE_COMMON_DIR` /
   `ONEQ_EXAMPLE_COMMON_SOURCES`，子目录通过目录作用域继承并内联到 target。
 
-## 构建与运行
-
-示例默认不构建，需显式开启：
-
-```bash
-# 1. 标准依赖引导（详见 cmake/README.md）
-bash scripts/bootstrap_conan.sh llvm-ninja-release-local
-cmake --preset llvm-ninja-release-local -DENABLE_EXAMPLES=ON
-cmake --build --preset llvm-ninja-release-local --target component_attachment_demo
-```
-
-飞行组件（FlightComponent）的 FD 路径在 `-DONEQ_ENABLE_FLIGHT_DYNAMIC=ON`
-时接入 JSBSim 真实飞行仿真；关闭/初始化失败回退运动学路径（行为语义一致）。
-
-构建产物统一输出到 `build/<preset>/bin/`。
-
-### 运行（手动，不进 ctest）
-
-示例是消费方集成参考而非测试门禁：冒烟不进 ctest（release 全量跑约 25 s，
-debug 下 FD 全链可达分钟级，与单测时间预期不匹配）。运行命令：
-
-```bash
-# 基线场景（400 周期）
-./build/llvm-ninja-release-local/bin/component_attachment_demo \
-    [--scene <path>] [--cycles <n>] [--output-dir <dir>]
-
-# 多机巡逻冒烟（3 机各区域任务，--cycles 120 控制时长）
-./build/llvm-ninja-release-local/bin/component_attachment_demo \
-    --scene examples/component_attachment/scenes/fleet_patrol_multi_zone.json \
-    --cycles 120 --output-dir <dir>
-
-# 可视化契约回归（表头/行数/ENU 原点不变量）
-python3 examples/common/viz/build_viewer.py --check <dir>
-```
-
 ## 配置注入约定
 
 | 宏 | 注入者 | 用途 |
@@ -105,9 +88,12 @@ python3 examples/common/viz/build_viewer.py --check <dir>
 
 ## 相关文档
 
-- [`configs/README.md`](configs/README.md) — 五域会话配置 JSON 字段说明
+- [`configs/README.md`](configs/README.md) — 五域会话配置 JSON 字段说明 + recognition/ 识别数据库
 - [`component_attachment/README.md`](component_attachment/README.md) — 示例详细设计
+- [`component_attachment/scenes/README.md`](component_attachment/scenes/README.md) — 场景系统（JSON schema + 场景集 + 六自由度/巡逻/多机/天基设计）
+- [`component_attachment/logger/README.md`](component_attachment/logger/README.md) — 集成端日志设施（三模式宏门控）
 - [`cmake/README.md`](../cmake/README.md) — 构建架构与目录约定
+- [`docs/common/usage.md`](../docs/common/usage.md) — 1q 库消费指南
+- [`docs/common/session_contract.md`](../docs/common/session_contract.md) — 会话相关模块契约
 - `docs/practice/batch_validation.md` — 批量验证框架（tests/consumer 分区）
 - `tests/unit/flight_dynamic/fd_tools/README.md` — FD 开发期验证工具
-- `docs/public_model_config_manual.md` — 配置字段详尽说明
