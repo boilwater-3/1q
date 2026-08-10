@@ -3,11 +3,11 @@
  * @brief 自定义实体-组件示例：场景描述（scenes 目录的 JSON 场景文件 → SceneData）。
  *
  * 场景描述文件是"消费方世界模型 + 业务调参"的数据化载体：目标脚本、
- * 平台飞行脚本（原点/航向/巡航/航点）、ESR 辐射源波形、天基平台位置、
- * EOS 扫描与 SAR 任务几何/链路覆写、融合配置与冒烟断言下限。场景文件
- * 加载（LoadSceneData）遵循 examples/common/config_loaders 惯例：缺省
- * 字段静默默认（成员初始化值 = 默认值，与历史代码覆写值一致）、JSON
- * 语法错误与缺必需块/几何字段经 error 字符串报出。
+ * 平台飞行脚本（原点/航向/巡航/航点或区域巡逻 coverage 块）、ESR 辐射源
+ * 波形、天基平台位置、EOS 扫描与 SAR 任务几何/链路覆写、融合配置与冒烟
+ * 断言下限。场景文件加载（LoadSceneData）遵循 examples/common/config_loaders
+ * 惯例：缺省字段静默默认（成员初始化值 = 默认值，与历史代码覆写值一致）、
+ * JSON 语法错误与缺必需块/几何字段经 error 字符串报出。
  */
 
 #ifndef EXAMPLES_COMPONENT_ATTACHMENT_SCENE_DATA_H_
@@ -19,6 +19,8 @@
 
 #include "1q/coordinate/types.h"
 #include "1q/fusion/FusionConfig.h"
+#include "1q/navigation/CoverageArea.h"
+#include "1q/navigation/CoveragePlanConfig.h"
 #include "1q/navigation/RoutePoint.h"
 
 namespace component_attachment {
@@ -31,6 +33,16 @@ struct TargetManeuver {
   std::uint32_t start_cycle{0U}; /**< 生效周期（含；相对周期 1 起） */
   double v_east_mps{0.0};        /**< 该周期起的新东向速度（m/s） */
   double v_north_mps{0.0};       /**< 该周期起的新北向速度（m/s） */
+};
+
+/// 区域巡逻任务（场景文件可选 coverage 块）：覆盖区域 + 规划参数。
+/// 加载时经 navigation::AreaCoveragePlanner 生成巡逻航路（填入 waypoints），
+/// 平台按航路循环巡逻（见 FlightComponent::loop_route）。与显式
+/// platform.waypoints 互斥（同时出现报错，避免航路来源歧义）。
+struct CoverageTask {
+  navigation::CoverageArea area{};                 /**< 覆盖区域（多边形 / 圆形） */
+  navigation::CoveragePlanConfig config{};         /**< 覆盖规划参数 */
+  bool planned{false};                             /**< 已由规划器生成航路（= 巡逻场景） */
 };
 
 /// 目标脚本（场景文件 targets[] 条目）：四通道共享同一物理目标
@@ -75,7 +87,10 @@ struct SceneData {
   double initial_heading_deg{90.0};         /**< 起飞航向（deg，北偏东） */
   double cruise_altitude_m{400.0};          /**< 巡航高度（m；c172x 低空巡航量级，原 kCruiseAltitudeM） */
   double cruise_speed_mps{50.0};            /**< 巡航速度参考（m/s，原 kCruiseSpeedMps） */
-  std::vector<navigation::RoutePoint> waypoints{}; /**< 巡航航路（缺省空 = 直飞） */
+  std::vector<navigation::RoutePoint> waypoints{}; /**< 巡航/巡逻航路（缺省空 = 直飞；
+                                              coverage 块存在时为规划器输出的巡逻航路） */
+  CoverageTask coverage{};                  /**< 区域巡逻任务（可选；planned=true 时
+                                              waypoints 为规划结果，平台循环巡逻） */
 
   std::vector<ScriptedTarget> targets{};    /**< 目标脚本（四通道共享；几何字段必填） */
   EsrEmitterParams esr{};                   /**< ESR 辐射源波形参数 */

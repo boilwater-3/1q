@@ -41,7 +41,8 @@ examples/component_attachment/
 │   └── scene_types.h                DemoSceneState：共享场景状态（真值注入）
 ├── component_attachment_demo.cpp    主程序（装配与编排：场景文件加载 + 实体/会话创建 + 周期循环 + 查询演示 + 冒烟断言）
 ├── demo_config.h/.cpp               演示常量 + 五会话配置加载（JSON 基线）
-├── scene_data.h/.cpp                场景描述（scenes/*.json → SceneData + 业务覆写应用）
+├── scene_data.h/.cpp                场景描述（scenes/*.json → SceneData + 业务覆写应用；
+│                                    coverage 块经 AreaCoveragePlanner 规划巡逻航路）
 ├── scene_script.h/.cpp              世界模型目标真值脚本（场景目标脚本 → ECEF 状态 → 四通道周期真值 + 推进）
 ├── scenes/                          场景描述文件（JSON 数据驱动；baseline_takeoff_east.json 为基线）
 ├── demo_output.h/.cpp               输出落盘与事件消费（DemoOutputs 平台轨迹 CSV / DecisionListener 事件链）
@@ -190,7 +191,7 @@ DebugView 同理以组件内摘要行直写，示例层不内置 JSON 序列化�
 
 | 组件 | 封装库模块 | 周期行为 | 发布信号 |
 | --- | --- | --- | --- |
-| `FlightComponent` | flight_dynamic（FD 门控 + 运动学回退） | 六自由度机动推进：起飞→航点巡航→降落；航点完成判定 | on_platform_state、on_waypoint_reached |
+| `FlightComponent` | flight_dynamic（FD 门控 + 运动学回退） | 六自由度机动推进：起飞→航点巡航→降落；航点完成判定；**循环巡逻**（coverage 场景：FD 模式航点簿记消费库完成事件、kCompleted 后以当前状态 Reset 重建续飞；运动学回退路径带航点寻的 + 索引回绕，段间瞬时转向） | on_platform_state、on_waypoint_reached |
 | `ArSensorComponent` | airborne_radar（ArSession + ArCycleOutputAdapter + ArTrackLifecycleRecorder） | 探测 → `DetectionRecord`（key=关联键，含位置）；首确认/失跟事件由库内 recorder 差分产生 | on_target_confirmed / on_target_lost |
 | `EsrSensorComponent` | electronic_surveillance_radar（EsrSession） | 假设 → `DetectionRecord`（key=假设键，方位+射频特征） | on_emitter_hypothesis |
 | `EosSensorComponent` | electro_optical_sensor（EosSession + EosCycleInputAdapter + EosDetectionLifecycleRecorder） | 探测 → `DetectionRecord`（key=0，仅方位）；首发现/更新/丢失事件由库内 recorder 差分产生 | on_eos_detection |
@@ -307,6 +308,40 @@ ESR 波形、天基平台、EOS 扫描、SAR 任务几何/链路、融合配置�
 全部到达、EOS 探测记录 ~177 次。事件目标 ID 为外部原始目标标识（1001/1002），
 无外部标识时回退 AR 内部关联键。
 
+### 区域巡逻（coverage 块）
+
+场景可选 `coverage` 块声明巡逻区域与规划参数，加载时经
+`navigation::AreaCoveragePlanner`（多边形牛耕式扫描 / 圆形盘旋，独立中立算法面）
+生成巡逻航路，平台沿航路**循环巡逻**。`coverage` 与显式 `platform.waypoints`
+互斥（航路来源歧义报错）；规划失败（几何非法/模式-区域不匹配）报错退出，
+不允许静默退化为直飞。
+
+**循环巡逻的执行语义（按 flight_dynamic 权威语义实现）**：
+
+- **运动学回退路径**：航点寻的（每周期航向指向下一航点，段间瞬时转向），航路
+  耗尽后索引回绕首个航点——几何干净，直线段序列可手算先验；
+- **FD 模式**：航点簿记**消费库完成事件**（`FlightManager::GetWaypointEvents()`，
+  每航点 1 条，含完成门/距离快照）——库的航点完成是双层语义（中间航点法平面
+  穿越或到达圈、最终航点转弯量级捕获圈），组件自研几何判定与库语义必然错位，
+  不参与 FD 模式；航路完成后 kCompleted → **以当前载机状态 Reset 重建续飞**
+  （库状态机契约：kCompleted 必须 Reset 恢复 kReady；初始运动学取自
+  VehicleState，do_trim=false 不做空中配平）——DIAG 仿真时间重置即循环证据。
+
+`patrol_area_scan.json`：巡逻区域 lat 29.9905~30.0045（约 1.56 km 南北）×
+lon 120.0~120.02（约 1.93 km 东西），扫描航向 0（线沿东西）、间距 500 m →
+3 条扫描线 = 6 航点（线纬度 29.99275/29.99725/30.00175），牛耕式交替方向；
+到达半径 200 m（小于扫描间距，运动学路径防过渡航点连续到达合并）。
+**cycles=600**（FD 模式起飞段 ~157 s 为硬开销，400 周期窗口装不下首轮+循环；
+600 内 FD 首轮 ~423 s 完成 + 第二轮 4 航点可见，运动学模式 4 轮完整循环）。
+目标相对基线**仅把 `v_east_mps` 47 归零**（保持正北 12/14 km 静止：扫描线
+东西向飞行时目标恒在侧方，SAR squint ≈ 0 成像成立、EOS 方位恒在扫描扇区内；
+`v_north_mps` ±5 保留，提供 AR 径向速度）——基线目标随平台同速东飞的设计
+与"小区域往复巡逻"不兼容，属单变量控制调整（与 sbirs 场景归零 v_north 同理）。
+南北过渡段（约 6 s/段）SAR 侧视几何不成立，被 squint 门控拒绝（**按设计
+拒绝**，预期出现）。注意：SAR 首产出在 cycle 1（跑道低速假成像，SNR −2 dB
+级，几何成立下的物理真实——基线同窗口是 squint 拒绝，因场景中心方位不同）；
+产品事件 KEY 模式只落首条（持续类门控），sar_products=1 与基线一致。
+
 ### 天基通道（SBIRS / SAR）场景设计
 
 - **SBIRS 天基平台（卫星）**：位置由消费方每周期注入共享场景状态（世界模型
@@ -359,7 +394,8 @@ ESR 波形、天基平台、EOS 扫描、SAR 任务几何/链路、融合配置�
 | 块 | 必填 | 字段（缺省值） |
 | --- | --- | --- |
 | `name` / `cycles` / `dt_sec` | 否 | 场景名 / 周期数（400）/ 步长 s（1.0） |
-| `platform` | **是** | `origin_lat_deg`/`origin_lon_deg`（**必填**）、`origin_alt_m`（0）、`initial_heading_deg`（90）、`cruise_altitude_m`（400）、`cruise_speed_mps`（50）、`waypoints[]`（lat/lon 必填，alt/speed 缺省回退巡航参数、radius 500） |
+| `platform` | **是** | `origin_lat_deg`/`origin_lon_deg`（**必填**）、`origin_alt_m`（0）、`initial_heading_deg`（90）、`cruise_altitude_m`（400）、`cruise_speed_mps`（50）、`waypoints[]`（lat/lon 必填，alt/speed 缺省回退巡航参数、radius 500；**与 `coverage` 块互斥**） |
+| `coverage` | 否 | 区域巡逻任务：`kind`（polygon/circle）、`mode`（scan/orbit，须与 kind 匹配）、polygon `vertices[]`（lat/lon 必填）或 circle `center` + `radius_m`、`scan_heading_deg`（0 = 扫描线沿正东）、`scan_spacing_m`（须 > 0）、`altitude_m`/`speed_mps`（缺省回退巡航参数）、`arrival_radius_m`（500）、`orbit_segments`（8）/`orbit_rings`（1）。加载时经 `navigation::AreaCoveragePlanner` 生成巡逻航路（填入 `waypoints`），平台**循环巡逻**（航路飞完回绕首航点）；规划失败（顶点 < 3/间距非正/模式-区域不匹配等）报错退出 |
 | `targets[]` | **是**（可为空 = 无目标场景） | `id`/`azimuth_deg`/`range_m`/`altitude_m`/`rcs_m2`（**必填**）、`v_east_mps`/`v_north_mps`（0）、`temperature_k`（0）、`projected_area_m2`（0）、`emitter_center_frequency_hz`（0 = 不配辐射源）、`maneuvers[]`（可选变速机动表：`start_cycle` 必填且严格递增，`v_east_mps`/`v_north_mps` 缺省 0——**绝对速度分段匀速**，未指定分量 = 0，须写全） |
 | `esr` | 否 | 辐射源波形：`peak_gain_dbi`（30）、`bandwidth_hz`（2e6）、`peak_power_w`（5e7）、`pulse_width_s`（1e-6）、`pri_s`（1e-3）、`pulse_count`（200）、`timing_seed`（42） |
 | `sbirs_satellite` | 否 | `altitude_m`（500000，凝视目标群质心正上方） |
@@ -382,6 +418,7 @@ ESR 波形、天基平台、EOS 扫描、SAR 任务几何/链路、融合配置�
 | `no_targets_clean_airspace.json` | 空域清净：零假警（SAR 产品与点目标解耦） | 通过（1 项预期修正） |
 | `target_maneuver_evasion.json` | 目标大机动：跟踪保持（AR 失跟需探测断链） | 通过（1 项预期修正） |
 | `sbirs_altitude_snr_1000km.json` | SBIRS 高度专项：链路 1/R² 标度 + 门限边界 | 通过（1 项预期修正） |
+| `patrol_area_scan.json` | 区域巡逻专项：coverage 块规划航路 + 循环巡逻（巡逻中四通道探测保持） | 通过 |
 
 ## 构建与运行
 
@@ -411,7 +448,7 @@ cmake --build --preset llvm-ninja-release-local --target component_attachment_de
 
 | 文件 | 内容 | 说明 |
 | --- | --- | --- |
-| `integration_events.log` | 每行一条人读记录 | **集成端事件日志**（spdlog 命名 logger `"integration_events"`）：事件行 `[事件:type] 周期=... 时间=...s 中文详情`（10 类事件，字符串归属组件源文件，`CA_LOG_EVENT` / `CA_LOG_EVENT_DUP` 宏；事件模式二为 `[事件聚合]` 行） |
+| `integration_events.log` | 每行一条人读记录 | **集成端事件日志**（spdlog 命名 logger `"integration_events"`）：事件行 `[事件:type] 周期=... 时间=...s 中文详情`（10 类信号事件 + 纯日志事件 `patrol_loop_restart`（巡逻循环重启，无信号，KEY 模式落盘），字符串归属组件源文件，`CA_LOG_EVENT` / `CA_LOG_EVENT_DUP` 宏；事件模式二为 `[事件聚合]` 行） |
 | `integration_views.log` | 每行一条人读记录 | **集成端视图日志**（spdlog 命名 logger `"integration_views"`）：AR/EOS/SBIRS/SAR 四组件每周期调试视图行 `[视图:module] 中文摘要`（`CA_LOG_VIEW` 宏；日志给人读，落盘密度三模式由宏门控，见"事件日志与调试视图落盘"节） |
 | `1q_library.log` | 人读日志行 | **库内部日志**：库内 `PROJECT_LOG_*` 宏 → spdlog 默认 logger（时间戳 + 级别 + 消息），`InitIntegrationLog` 装配 |
 | `platform_track.csv` | cycle,t_sec,lat_deg,lon_deg,alt_m,heading_deg,speed_mps,wp_index | 平台轨迹（每周期一行；FD 模式含起飞爬升段） |
