@@ -24,14 +24,8 @@ endmacro()
 add_executable(takeoff_land_csv takeoff_land_csv.cpp)
 setup_fd_example(takeoff_land_csv)
 
-add_executable(maneuver_sweep_csv maneuver_sweep_csv.cpp)
-setup_fd_example(maneuver_sweep_csv)
-
 add_executable(orbit_quality_csv orbit_quality_csv.cpp)
 setup_fd_example(orbit_quality_csv)
-
-add_executable(racetrack_quality_csv racetrack_quality_csv.cpp)
-setup_fd_example(racetrack_quality_csv)
 
 add_executable(racetrack_trace_csv racetrack_trace_csv.cpp)
 setup_fd_example(racetrack_trace_csv)
@@ -41,12 +35,6 @@ setup_fd_example(sturn_trace_csv)
 
 add_executable(orbit_trace_csv orbit_trace_csv.cpp)
 setup_fd_example(orbit_trace_csv)
-
-add_executable(orbit_long_duration orbit_long_duration.cpp)
-setup_fd_example(orbit_long_duration)
-
-add_executable(racetrack_approach_diag racetrack_approach_diag.cpp)
-setup_fd_example(racetrack_approach_diag)
 
 add_executable(racetrack_approach_trace racetrack_approach_trace.cpp)
 setup_fd_example(racetrack_approach_trace)

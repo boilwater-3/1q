@@ -102,17 +102,20 @@ cmake --preset llvm-ninja-debug -DENABLE_EXAMPLES=ON -DONEQ_ENABLE_FLIGHT_DYNAMI
 
 ## flight_dynamic 示例
 
-`flight_dynamic/` 提供 11 个独立 CSV 工具，覆盖机动模块的轨迹生成与质量分析：
+`flight_dynamic/` 提供 7 个独立 CSV 工具，覆盖机动模块的轨迹生成与质量分析
+（2026-08-10 精简：删除 4 个无引用的开发期验证工具 maneuver_sweep_csv /
+orbit_long_duration / racetrack_quality_csv / racetrack_approach_diag，
+保留文档证据链/单测参考/绘图管线依赖的工具）：
 
-- **起飞/降落**：`takeoff_land_csv`
-- **机动扫描**：`maneuver_sweep_csv`
-- **盘旋（Orbit）**：`orbit_quality_csv` / `orbit_trace_csv` / `orbit_long_duration`
-- **跑道形（Racetrack）**：`racetrack_quality_csv` / `racetrack_trace_csv` / `racetrack_approach_diag` / `racetrack_approach_trace`
+- **起飞/降落**：`takeoff_land_csv`（algorithms.md 起飞段权威用法证据锚点）
+- **盘旋（Orbit）**：`orbit_quality_csv`（fd_orbit_quality_test 参考实现）/ `orbit_trace_csv`
+- **跑道形（Racetrack）**：`racetrack_trace_csv` / `racetrack_approach_trace`
 - **8 字形**：`figure8_approach_trace`
 - **S 形转弯**：`sturn_trace_csv`
 
 每个工具链接 `JSBSim::JSBSim`，通过 `setup_fd_example` 宏统一注入 src 头路径、
-JSBSim 头路径与数据根目录。`orbit_visualize.py` 可将 trace CSV 可视化为 PNG + KML。
+JSBSim 头路径与数据根目录。`orbit_visualize.py` 可将 trace CSV 可视化为 PNG + KML；
+`tools/fd_trace_to_viz.py` 将 trace CSV 归一为统一可视化契约（共享查看器）。
 
 ## 行为层参考实现（EnTT ECS）
 
