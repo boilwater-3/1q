@@ -33,6 +33,7 @@
 | `racetrack_approach_trace` | 跑道巡逻进场航迹（8 个进场场景） | 每场景一个 CSV |
 | `figure8_approach_trace` | Figure-8 进场航迹（9 个进场场景，任意位置/方向进场质量） | 每场景一个 CSV |
 | `sturn_trace_csv` | S 型机动逐点轨迹 | CSV（逐帧 10 列） |
+| `aircraft_probe_csv` | 机型能力探针（环境变量门控导出：剖面/航点扫描/盘旋扫描，2026-08-10 自 GTest 迁出） | 3 种 CSV |
 
 各工具独立 main（`<工具名> --help` 查看参数；机型参数：c172x / DHC6 /
 737 / 747 / f16 等，`ALL` 遍历内置机型表）。构建产物在
@@ -54,4 +55,5 @@
 | --- | --- |
 | 起飞段积分子步进契约（dt=0.01 稳定 / 0.1 发散） | `fd_takeoff_substep_test`（2026-08-10 自 takeoff_land_csv 迁入，证据锚点） |
 | 轨道机动快速断言（不崩溃/无 NaN/高度漂移/滚转越界） | `fd_orbit_quality_test` |
+| 机型能力/航点/盘旋探针 CSV 导出（数据导出非断言） | 本目录 `aircraft_probe_csv`（环境变量门控，2026-08-10 自 fd_aircraft_probe_test 迁出） |
 | 重质量分析（半径精度、角速度一致性等） | 本目录 `orbit_quality_csv`（fd_orbit_quality_test 文件头注释指向） |

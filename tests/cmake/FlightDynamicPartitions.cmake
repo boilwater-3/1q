@@ -10,7 +10,6 @@ set(_oneq_fd_stable_sources
 set(_oneq_fd_known_limit_sources
     "${CMAKE_CURRENT_SOURCE_DIR}/unit/flight_dynamic/fd_aircraft_maneuver_test.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/unit/flight_dynamic/fd_orbit_quality_test.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/unit/flight_dynamic/fd_aircraft_probe_test.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/unit/flight_dynamic/fd_takeoff_substep_test.cpp")
 
 if(ONEQ_ENABLE_FLIGHT_DYNAMIC)

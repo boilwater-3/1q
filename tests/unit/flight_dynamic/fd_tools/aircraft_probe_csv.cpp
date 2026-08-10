@@ -1,7 +1,15 @@
-#include <gtest/gtest.h>
+// FD 开发期验证工具：机型能力探针 → 三种 CSV 导出。
+// 用法：aircraft_probe_csv（按环境变量门控导出）：
+//   FD_RUN_AIRCRAFT_PROBE=1 → 机型剖面/襟副翼探针（FD_AIRCRAFT_PROBE_CSV 或 /tmp/1q_aircraft_probe.csv）
+//   FD_RUN_WAYPOINT_PROBE=1 → 航点寻的扫描（FD_WAYPOINT_PROBE_CSV 或 /tmp/1q_waypoint_probe.csv）
+//   FD_RUN_ORBIT_PROBE=1    → 盘旋扫描（FD_ORBIT_PROBE_CSV 或 /tmp/1q_orbit_probe.csv）
+// 无任何开启时仅打印提示（零耗时）；CSV 供人工/脚本分析，不设断言。
+// （2026-08-10 自 GTest fd_aircraft_probe_test.cpp 迁出：本文件是数据导出
+// 而非断言，GTest 分区只保留确定性断言。）
 
 #include <algorithm>
 #include <cmath>
+#include <cstdio>
 #include <cstdlib>
 #include <exception>
 #include <fstream>
@@ -27,7 +35,6 @@ namespace {
 
 constexpr double kProbeRunSec = 10.0;
 constexpr double kDt = 0.01;
-constexpr double kMToFt = 1.0 / 0.3048;
 
 struct AircraftProbeParam {
   std::string model;
@@ -466,16 +473,20 @@ void WriteResetRow(std::ostream& out, const AircraftProbeParam& aircraft) {
       << snapshot.vt_end_mps << ",0,0,0,0," << note << "\n";
 }
 
-TEST(FdAircraftProbe, EmitsAircraftProfileCsv) {
+int EmitAircraftProfileCsv() {
   const char* enabled = std::getenv("FD_RUN_AIRCRAFT_PROBE");
   if (enabled == nullptr || std::string(enabled) != "1") {
-    GTEST_SKIP() << "set FD_RUN_AIRCRAFT_PROBE=1 to emit aircraft probe CSV";
+    std::printf("aircraft_probe_csv: FD_RUN_AIRCRAFT_PROBE 未开启，跳过机型剖面导出（设 =1 开启）\n");
+    return 0;
   }
 
   const char* csv_env = std::getenv("FD_AIRCRAFT_PROBE_CSV");
   const std::string csv_path = csv_env != nullptr ? csv_env : "/tmp/1q_aircraft_probe.csv";
   std::ofstream out(csv_path);
-  ASSERT_TRUE(out.is_open()) << csv_path;
+  if (!out.is_open()) {
+    std::fprintf(stderr, "aircraft_probe_csv: 无法打开 %s\n", csv_path.c_str());
+    return 1;
+  }
 
   out << std::fixed << std::setprecision(6);
   out << "model,scenario,trim_attempted,trim_succeeded,has_own_ap,"
@@ -490,18 +501,24 @@ TEST(FdAircraftProbe, EmitsAircraftProfileCsv) {
     WriteProjectRow(out, aircraft, false);
     WriteResetRow(out, aircraft);
   }
+  std::printf("aircraft_probe_csv: 已导出 %s\n", csv_path.c_str());
+  return 0;
 }
 
-TEST(FdAircraftProbe, EmitsWaypointSweepCsv) {
+int EmitWaypointSweepCsv() {
   const char* enabled = std::getenv("FD_RUN_WAYPOINT_PROBE");
   if (enabled == nullptr || std::string(enabled) != "1") {
-    GTEST_SKIP() << "set FD_RUN_WAYPOINT_PROBE=1 to emit waypoint sweep CSV";
+    std::printf("aircraft_probe_csv: FD_RUN_WAYPOINT_PROBE 未开启，跳过航点扫描导出（设 =1 开启）\n");
+    return 0;
   }
 
   const char* csv_env = std::getenv("FD_WAYPOINT_PROBE_CSV");
   const std::string csv_path = csv_env != nullptr ? csv_env : "/tmp/1q_waypoint_probe.csv";
   std::ofstream out(csv_path);
-  ASSERT_TRUE(out.is_open()) << csv_path;
+  if (!out.is_open()) {
+    std::fprintf(stderr, "aircraft_probe_csv: 无法打开 %s\n", csv_path.c_str());
+    return 1;
+  }
 
   out << std::fixed << std::setprecision(6);
   out << "model,target_distance_m,init_distance_m,min_distance_m,"
@@ -521,18 +538,24 @@ TEST(FdAircraftProbe, EmitsWaypointSweepCsv) {
           << result.max_abs_aileron_cmd << "\n";
     }
   }
+  std::printf("aircraft_probe_csv: 已导出 %s\n", csv_path.c_str());
+  return 0;
 }
 
-TEST(FdAircraftProbe, EmitsOrbitSweepCsv) {
+int EmitOrbitSweepCsv() {
   const char* enabled = std::getenv("FD_RUN_ORBIT_PROBE");
   if (enabled == nullptr || std::string(enabled) != "1") {
-    GTEST_SKIP() << "set FD_RUN_ORBIT_PROBE=1 to emit orbit sweep CSV";
+    std::printf("aircraft_probe_csv: FD_RUN_ORBIT_PROBE 未开启，跳过盘旋扫描导出（设 =1 开启）\n");
+    return 0;
   }
 
   const char* csv_env = std::getenv("FD_ORBIT_PROBE_CSV");
   const std::string csv_path = csv_env != nullptr ? csv_env : "/tmp/1q_orbit_probe.csv";
   std::ofstream out(csv_path);
-  ASSERT_TRUE(out.is_open()) << csv_path;
+  if (!out.is_open()) {
+    std::fprintf(stderr, "aircraft_probe_csv: 无法打开 %s\n", csv_path.c_str());
+    return 1;
+  }
 
   out << std::fixed << std::setprecision(6);
   out << "model,altitude_m,speed_mps,orbit_radius_m,center_distance_m,"
@@ -552,9 +575,27 @@ TEST(FdAircraftProbe, EmitsOrbitSweepCsv) {
           << CsvBool(result.crashed) << "," << CsvBool(result.stopped) << "\n";
     }
   }
+  std::printf("aircraft_probe_csv: 已导出 %s\n", csv_path.c_str());
+  return 0;
 }
-
 
 }  // namespace
 }  // namespace flight_dynamic
 }  // namespace oneq
+
+int main(int argc, char** argv) {
+  if (argc > 1 && std::string(argv[1]) == "--help") {
+    std::printf("aircraft_probe_csv — FD 机型能力探针 CSV 导出工具\n"
+                "用法：aircraft_probe_csv\n"
+                "环境变量门控（可同时开启多个）：\n"
+                "  FD_RUN_AIRCRAFT_PROBE=1  机型剖面/襟副翼探针 → FD_AIRCRAFT_PROBE_CSV | /tmp/1q_aircraft_probe.csv\n"
+                "  FD_RUN_WAYPOINT_PROBE=1  航点寻的扫描 → FD_WAYPOINT_PROBE_CSV | /tmp/1q_waypoint_probe.csv\n"
+                "  FD_RUN_ORBIT_PROBE=1     盘旋扫描 → FD_ORBIT_PROBE_CSV | /tmp/1q_orbit_probe.csv\n");
+    return 0;
+  }
+  int status = 0;
+  status |= oneq::flight_dynamic::EmitAircraftProfileCsv();
+  status |= oneq::flight_dynamic::EmitWaypointSweepCsv();
+  status |= oneq::flight_dynamic::EmitOrbitSweepCsv();
+  return status;
+}

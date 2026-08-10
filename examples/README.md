@@ -76,6 +76,25 @@ cmake --build --preset llvm-ninja-release-local --target component_attachment_de
 
 构建产物统一输出到 `build/<preset>/bin/`。
 
+### 运行（手动，不进 ctest）
+
+示例是消费方集成参考而非测试门禁：冒烟不进 ctest（release 全量跑约 25 s，
+debug 下 FD 全链可达分钟级，与单测时间预期不匹配）。运行命令：
+
+```bash
+# 基线场景（400 周期）
+./build/llvm-ninja-release-local/bin/component_attachment_demo \
+    [--scene <path>] [--cycles <n>] [--output-dir <dir>]
+
+# 多机巡逻冒烟（3 机各区域任务，--cycles 120 控制时长）
+./build/llvm-ninja-release-local/bin/component_attachment_demo \
+    --scene examples/component_attachment/scenes/fleet_patrol_multi_zone.json \
+    --cycles 120 --output-dir <dir>
+
+# 可视化契约回归（表头/行数/ENU 原点不变量）
+python3 examples/common/viz/build_viewer.py --check <dir>
+```
+
 ## 配置注入约定
 
 | 宏 | 注入者 | 用途 |

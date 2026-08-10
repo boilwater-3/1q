@@ -49,3 +49,8 @@ setup_fd_example(racetrack_approach_trace)
 
 add_executable(figure8_approach_trace figure8_approach_trace.cpp)
 setup_fd_example(figure8_approach_trace)
+
+# 机型能力探针 CSV 导出（2026-08-10 自 GTest fd_aircraft_probe_test 迁出：
+# 数据导出而非断言，环境变量门控，见 aircraft_probe_csv.cpp 文件头）。
+add_executable(aircraft_probe_csv aircraft_probe_csv.cpp)
+setup_fd_example(aircraft_probe_csv)

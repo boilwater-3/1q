@@ -484,9 +484,11 @@ cmake --build --preset llvm-ninja-release-local --target component_attachment_de
   机动入口在 FD 可用/不可用时的返回语义）+ 状态查询与调试视图单测（开关机/
   扫描方位、AR/EOS/SBIRS/SAR 四通道 `LastDebugView()` 逐目标/阶段型状态与
   13b kInfo 排除诊断、关机清零、SBIRS 关机冻结相位）；
-- ctest `examples::component_attachment_demo`：demo 冒烟（400 周期 + 日志/CSV
-  落盘 + 最小产出断言：关键事件 ≥ 1、SBIRS 关键探测事件 ≥ 1、SAR 关键产品事件
-  ≥ 1、融合目标 ≥ 1、平台轨迹行数 = 周期数、视图行数每周期 ≥ 1 行（AR/EOS/
-  SBIRS 为 ≥ 周期数——默认跨周期增量模式下状态变化周期会写多行；SAR 阶段型
-  摘要恒每周期一行 == 周期数））。**断言与日志模式无关**：任意视图/事件模式
+- ctest `unit::examples`：ECS 核心 + 组件运行时单测（见上两行）。
+  示例冒烟（demo / fleet_patrol / viewer_check）不进 ctest——示例是集成参考
+  而非测试门禁，release 全量跑约 25 s、debug 下 400 周期 FD 全链可达分钟级，
+  与单测时间预期不匹配（见"构建与运行"节手动运行命令）。
+  手动冒烟断言：demo 结束打印汇总（关键事件/融合目标/指令是否下发）+ 退出码 0
+  + 日志/CSV 落盘（平台轨迹行数 = 周期数）；`build_viewer.py --check` 校验
+  可视化契约（表头/行数/ENU 原点）。**断言与日志模式无关**：任意视图/事件模式
   组合（含 CMake `-DCA_*_LOG_MODE=...` 切换）下冒烟均成立。
