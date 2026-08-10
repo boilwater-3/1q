@@ -82,7 +82,6 @@ Docs capture what code alone cannot convey (positioning, boundaries, non-goals, 
 - Prefer forward declarations to reduce includes and rebuild cost.
 - Use PIMPL for critical classes when hiding implementation reduces recompilation propagation.
 - Make interfaces easy to use correctly and hard to use incorrectly.
-- Design for current requirements; avoid speculative generality (YAGNI).
 - Guard against known edge cases, not hypothetical ones — don't over-defend at boundaries.
 
 **Process**
