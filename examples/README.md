@@ -10,11 +10,10 @@
 examples/
 ├── CMakeLists.txt                  编排层：定义共享变量 + add_subdirectory()
 ├── README.md                       本文件
-├── common/                         共享便利层：JSON 解析 + 三域 config_loaders（不属于库 public surface）
+├── common/                         共享便利层：JSON 解析 + 三域 config_loaders + viz/ 共享查看器（不属于库 public surface）
 ├── configs/                        四域会话配置 JSON（详见 configs/README.md）
-├── sar/                            SAR 域示例（session / integration）
 ├── behavior_layer/                 行为层参考实现（EnTT ECS 业务层，AR/ESR/EOS 三传感器全链）
-├── component_attachment/           自定义实体-组件模式示例（组件基类 + 挂载 + Boost.Signals2 事件）
+├── component_attachment/           自定义实体-组件模式示例（组件基类 + 挂载 + Boost.Signals2 事件，五传感器 + SAR/SBIRS）
 ├── flight_dynamic/                 机动模块 CSV 工具与轨迹生成（依赖 JSBSim）
 └── batch_validation/               多场景批量验证（详见 batch_validation/README.md）
 ```
@@ -23,14 +22,8 @@ examples/
 
 三域（AR/ESR/EOS）per-domain 示例已于 2026-08-05 删除——其 session_usage（API 教程）
 与 scene（端到端场景）类目功能并入 `behavior_layer/` 三传感器全链（见下文）。
-当前仅 SAR 保留 per-domain 示例形态：
-
-| 类别 | 程序命名 | 定位 | 配置来源 |
-| --- | --- | --- | --- |
-| **session_usage** | `sar_session_usage` | API 教程：Builder 构建配置 → 创建 Session → 多周期 StepWithResult | 代码内联 / config_loader |
-| **integration_demo** | `sar_integration_demo` | 集成示范：展示 `SarModule` 包装类在外部引擎中的接入方式 | config_loader |
-
-SAR 无 scene 示例；`integration_demo` 展示的是 `SarModule` 包装类（内部用普通 Session）。
+SAR per-domain 示例（SarModule 包装类）已于 2026-08-10 删除——SAR 集成由
+`component_attachment/` 的 SarSensorComponent + 场景验证工作流覆盖。
 
 ## 两种 ECS 开发模式
 
@@ -78,7 +71,7 @@ SAR 无 scene 示例；`integration_demo` 展示的是 `SarModule` 包装类（�
 # 1. 标准依赖引导（详见 cmake/README.md）
 bash scripts/bootstrap_conan.sh llvm-ninja-debug
 cmake --preset llvm-ninja-debug -DENABLE_EXAMPLES=ON
-cmake --build --preset llvm-ninja-debug --target sar_session_usage
+cmake --build --preset llvm-ninja-debug --target behavior_layer_demo
 ```
 
 飞行力动示例额外需要机动模块：
