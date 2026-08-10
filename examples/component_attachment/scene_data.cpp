@@ -9,6 +9,7 @@
 #include <string>
 #include <utility>
 
+#include "1q/navigation/AreaCoveragePlanner.h"
 #include "json_reader.h"
 
 namespace component_attachment {
@@ -34,6 +35,84 @@ bool RequireGeometry(const examples::JsonValue& value, const std::string& block,
     *error = "missing required field \"" + std::string(key) + "\" in \"" + block + "\"";
     return false;
   }
+  return true;
+}
+
+/// 解析可选 coverage 块（区域巡逻任务）：区域（多边形/圆形）+ 规划参数。
+/// 区域形态/模式不匹配等结构性错误在此报出；几何深度校验（顶点 < 3、
+/// 间距非正、坐标非法等）由 AreaCoveragePlanner 承担（空计划 → 调用方报错）。
+bool ParseCoverageTask(const examples::JsonValue& coverage, double cruise_altitude_m,
+                       double cruise_speed_mps, CoverageTask* task, std::string* error) {
+  if (coverage["kind"].IsString()) {
+    const std::string kind = coverage["kind"].AsString();
+    if (kind == "polygon") {
+      task->area.kind = navigation::CoverageAreaKind::kPolygon;
+    } else if (kind == "circle") {
+      task->area.kind = navigation::CoverageAreaKind::kCircle;
+    } else {
+      *error = "invalid \"coverage.kind\" (must be \"polygon\" or \"circle\")";
+      return false;
+    }
+  }
+  if (coverage["mode"].IsString()) {
+    const std::string mode = coverage["mode"].AsString();
+    if (mode == "scan") {
+      task->config.mode = navigation::CoverageMode::kScan;
+    } else if (mode == "orbit") {
+      task->config.mode = navigation::CoverageMode::kOrbit;
+    } else {
+      *error = "invalid \"coverage.mode\" (must be \"scan\" or \"orbit\")";
+      return false;
+    }
+  }
+
+  if (task->area.kind == navigation::CoverageAreaKind::kPolygon) {
+    const examples::JsonValue& vertices = coverage["vertices"];
+    if (vertices.IsNull() || vertices.type() != examples::JsonValue::kArray) {
+      *error = "\"coverage.vertices\" must be an array (polygon region)";
+      return false;
+    }
+    for (std::size_t i = 0U; i < vertices.Size(); ++i) {
+      const examples::JsonValue& vertex = vertices[i];
+      const std::string block = "coverage.vertices[" + std::to_string(i) + "]";
+      if (!RequireGeometry(vertex, block, "lat_deg", error) ||
+          !RequireGeometry(vertex, block, "lon_deg", error)) {
+        return false;
+      }
+      oneq::coordinate::LlaPositionDegM point;
+      point.latitude_deg = vertex["lat_deg"].AsDouble();
+      point.longitude_deg = vertex["lon_deg"].AsDouble();
+      point.altitude_m = ReadDouble(vertex, "alt_m", 0.0);
+      task->area.polygon.vertices.push_back(point);
+    }
+  } else {
+    const examples::JsonValue& center = coverage["center"];
+    if (center.IsNull() || center.type() != examples::JsonValue::kObject) {
+      *error = "\"coverage.center\" must be an object (circle region)";
+      return false;
+    }
+    if (!RequireGeometry(center, "coverage.center", "lat_deg", error) ||
+        !RequireGeometry(center, "coverage.center", "lon_deg", error)) {
+      return false;
+    }
+    task->area.circle.center.latitude_deg = center["lat_deg"].AsDouble();
+    task->area.circle.center.longitude_deg = center["lon_deg"].AsDouble();
+    task->area.circle.center.altitude_m = ReadDouble(center, "alt_m", 0.0);
+    task->area.circle.radius_m = ReadDouble(coverage, "radius_m", 0.0);
+  }
+
+  task->config.scan_heading_deg = ReadDouble(coverage, "scan_heading_deg",
+                                             task->config.scan_heading_deg);
+  task->config.scan_spacing_m = ReadDouble(coverage, "scan_spacing_m",
+                                           task->config.scan_spacing_m);
+  // 高度/速度缺省回退巡航参数（与 platform.waypoints 条目缺省语义一致）。
+  task->config.altitude_m = ReadDouble(coverage, "altitude_m", cruise_altitude_m);
+  task->config.speed_mps = ReadDouble(coverage, "speed_mps", cruise_speed_mps);
+  task->config.arrival_radius_m = ReadDouble(coverage, "arrival_radius_m", 500.0);
+  task->config.orbit_segments = static_cast<std::size_t>(
+      ReadInt(coverage, "orbit_segments", static_cast<std::int64_t>(task->config.orbit_segments)));
+  task->config.orbit_rings = static_cast<std::size_t>(
+      ReadInt(coverage, "orbit_rings", static_cast<std::int64_t>(task->config.orbit_rings)));
   return true;
 }
 
@@ -106,6 +185,35 @@ bool LoadSceneData(const char* path, SceneData* scene, std::string* error) {
       point.radius_m = ReadDouble(wp, "radius_m", 500.0);
       out.waypoints.push_back(point);
     }
+  }
+
+  // 区域巡逻块（可选顶层块）：与显式航路互斥（航路来源歧义直接报错）。
+  // 规划成功时 waypoints 为规划器输出的巡逻航路（planned=true，平台循环巡逻）；
+  // 规划失败（顶点不足/间距非正/模式-区域不匹配等 → 空计划）报错退出，
+  // 不允许静默退化为直飞。
+  const examples::JsonValue& coverage = root["coverage"];
+  if (!coverage.IsNull()) {
+    if (coverage.type() != examples::JsonValue::kObject) {
+      *error = "\"coverage\" must be an object";
+      return false;
+    }
+    if (!waypoints.IsNull()) {
+      *error = "\"platform.waypoints\" and \"coverage\" are mutually exclusive "
+               "(explicit waypoints vs planned patrol route)";
+      return false;
+    }
+    if (!ParseCoverageTask(coverage, out.cruise_altitude_m, out.cruise_speed_mps,
+                           &out.coverage, error)) {
+      return false;
+    }
+    navigation::AreaCoveragePlanner planner;
+    out.waypoints = planner.Plan(out.coverage.area, out.coverage.config);
+    if (out.waypoints.empty()) {
+      *error = "\"coverage\" planning failed: invalid region or mode-kind mismatch "
+               "(need >= 3 vertices / positive scan_spacing_m / positive radius_m)";
+      return false;
+    }
+    out.coverage.planned = true;
   }
 
   // 目标块（必填数组；可为空 = "无目标"场景，冒烟下限由 smoke 块置 0）。

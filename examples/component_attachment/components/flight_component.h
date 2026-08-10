@@ -50,11 +50,17 @@ class FlightComponent : public Component {
    *                              profile 覆盖，运动学回退路径沿用）
    * @param[in] cruise_altitude_m 巡航高度（m；FD 起飞爬升目标高度，
    *                              运动学回退路径的爬升终点）
-   * @param[in] route 巡航航路（相邻航点直线航段，驱动属本组件职责）
+   * @param[in] route 巡航/巡逻航路（相邻航点直线航段，驱动属本组件职责）
+   * @param[in] loop_route 循环巡逻（区域巡逻场景语义）：航路飞完后从第一个
+   *                       航点重新开始。运动学回退路径索引回绕；FD 模式
+   *                       机动队列不加降落，kCompleted 后以当前载机状态
+   *                       Reset 重建续飞（库状态机契约，见
+   *                       FlightDynamics::RestartPatrol）
    */
   FlightComponent(const oneq::coordinate::LlaPositionDegM& initial_position,
                   double initial_heading_deg, double initial_speed_mps,
-                  double cruise_altitude_m, std::vector<navigation::RoutePoint> route);
+                  double cruise_altitude_m, std::vector<navigation::RoutePoint> route,
+                  bool loop_route = false);
 
   ~FlightComponent() override;
 
@@ -101,6 +107,10 @@ class FlightComponent : public Component {
   double cruise_altitude_m_{0.0};
   std::vector<navigation::RoutePoint> route_{};
   std::size_t next_index_{0U};
+  bool loop_route_{false};
+  /// FD 模式航点完成事件消费游标（GetWaypointEvents 按完成顺序追加；
+  /// Reset 重建清空事件记录后回落归零）。
+  std::size_t waypoint_events_consumed_{0U};
 
   /** @brief FD 不透明持有者（定义在 .cpp，FD 头不外泄；为空时运动学回退）。 */
   class FlightDynamics;
