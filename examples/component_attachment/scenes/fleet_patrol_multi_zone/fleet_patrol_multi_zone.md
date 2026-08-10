@@ -4,7 +4,7 @@
 
 | 项 | 值 |
 | --- | --- |
-| 场景文件 | `scenes/fleet_patrol_multi_zone.json` |
+| 场景文件 | `scenes/fleet_patrol_multi_zone/fleet_patrol_multi_zone.json` |
 | 场景意图 | 被测通道：Flight + navigation（多机，主）+ AR/ESR/EOS/SBIRS/融合（巡逻中多目标探测）；被测行为：**多机编队各自区域任务**（主平台扫描区域 A、从机 1 盘旋区域 B、从机 2 扫描区域 C = "不同指令"）+ **区域内目标**（空中 ×2 + 地面 ×1，type=ground）；验证深度：L2 预期表 + L3 几何先验核对 |
 | 构建模式 | release；运动学回退路径（ctest `--cycles 120` 冒烟）+ **FD 模式已复核**（本机 preset `ONEQ_ENABLE_FLIGHT_DYNAMIC=ON`，600 周期 16 s，见"FD 模式复核"节） |
 | 日志模式 | delta + key（默认） |

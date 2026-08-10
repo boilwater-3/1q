@@ -48,7 +48,7 @@ description: Scenario-driven verification of 1Q simulation library modules throu
 - **边界条件检查**（写预期表前必做）：被测通道的 `docs/<module>/boundaries.md` veto
   阈值——EOS 距离窗 ≈ 高度/sin(俯仰角)、SAR squint ≤ 门限、SBIRS 目标在 FOV 内、
   ESR 中心频率分离、AR 径向速度/距离门；
-- 写场景 JSON：`scenes/<name>.json`（schema 见 README「场景描述文件」节；几何字段
+- 写场景 JSON：`scenes/<name>/<name>.json`（schema 见 README「场景描述文件」节；几何字段
   必填、调参字段可省——缺省值 = 基线行为）。场景文件即**配置记录**，随预期表归档；
 - 手算**几何先验**作为独立预期（例：目标纬度 ≈ 平台纬度 + range/111 km；EOS 距离窗
   ≈ 高度/sin(min/max 俯仰)；SBIRS 星下点 el = asin(z/r)）——用于 L3 核对。
@@ -70,7 +70,7 @@ description: Scenario-driven verification of 1Q simulation library modules throu
   SAR 任务几何与链路 / 融合配置 / 决策门限 / 冒烟下限；
 - 会话基线配置（`examples/configs/*.json`）一般不动；场景级的业务调参进场景文件
   （`eos_scan`/`sar` 块经 `ApplySceneOverrides` 应用）；
-- 日志模式（编译期宏，见 `demo_log_modes.h`）：默认 `delta + key`；需要全量事件时
+- 日志模式（编译期宏，见 `logger/logger_modes.h`）：默认 `delta + key`；需要全量事件时
   `-DCA_EVENT_LOG_MODE=all`（重 configure + 编译一次）；预期表核对适合 `summary` 视图。
   模式切换记录在预期表"运行配置"栏。
 
@@ -81,7 +81,7 @@ description: Scenario-driven verification of 1Q simulation library modules throu
 cmake --build --preset llvm-ninja-release-local --target component_attachment_demo
 # 运行（每场景独立输出目录；--cycles 可缩短 triage 迭代）
 ./build/llvm-ninja-release-local/bin/component_attachment_demo \
-    --scene examples/component_attachment/scenes/<name>.json \
+    --scene examples/component_attachment/scenes/<name>/<name>.json \
     --output-dir /tmp/1q/scenes/<name>
 ```
 

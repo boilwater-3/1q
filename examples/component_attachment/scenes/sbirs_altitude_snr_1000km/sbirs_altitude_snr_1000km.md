@@ -4,7 +4,7 @@
 
 | 项 | 值 |
 | --- | --- |
-| 场景文件 | `scenes/sbirs_altitude_snr_1000km.json` |
+| 场景文件 | `scenes/sbirs_altitude_snr_1000km/sbirs_altitude_snr_1000km.json` |
 | 场景意图 | 被测通道：SBIRS（主）+ Fusion；被测行为：卫星高度对 FOV/信噪比的影响（链路 1/R² 标度 + wide/narrow 双门限边界）；验证深度：L2 |
 | 构建模式 | release（运动学回退，与 ctest 一致；SBIRS 几何与平台动力学解耦，FD 开/关行为一致） |
 | 日志模式 | delta + key（默认；本轮探针用 summary 复核） |

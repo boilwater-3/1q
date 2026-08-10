@@ -4,7 +4,7 @@
 
 | 项 | 值 |
 | --- | --- |
-| 场景文件 | `scenes/target_maneuver_evasion.json` |
+| 场景文件 | `scenes/target_maneuver_evasion/target_maneuver_evasion.json` |
 | 场景意图 | 被测通道：AR（主）+ EOS/SAR（次）；被测行为：目标机动是否触发 AR 失跟/重捕、EOS 生命周期变化、SAR 成像破坏；验证深度：L2 + L3 |
 | 构建模式 | release；FD 开 |
 | 日志模式 | 首跑 delta+key，量值核对切 summary（视图） |

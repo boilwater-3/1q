@@ -4,7 +4,7 @@
  *
  * 覆盖：基线场景解析（全字段）、缺省块回退、必填几何字段校验、畸形 JSON
  * 报错、空目标数组（"无目标"场景）、场景业务覆写应用（ApplySceneOverrides）。
- * 场景内容以原始字符串内嵌（与 scenes/baseline_takeoff_east.json 同值），
+ * 场景内容以原始字符串内嵌（与 scenes/baseline_takeoff_east/baseline_takeoff_east.json 同值），
  * 写入临时目录后加载——测试不依赖仓库路径。
  */
 
@@ -55,7 +55,7 @@ demo::SceneData LoadOk(const std::string& content) {
   return scene;
 }
 
-/// 与 scenes/baseline_takeoff_east.json 同值的基线场景内容。
+/// 与 scenes/baseline_takeoff_east/baseline_takeoff_east.json 同值的基线场景内容。
 constexpr char kBaselineSceneJson[] = R"json({
   "name": "baseline_takeoff_east",
   "cycles": 400,

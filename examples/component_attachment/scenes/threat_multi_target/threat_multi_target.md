@@ -7,7 +7,7 @@
 
 | 项 | 值 |
 | --- | --- |
-| 场景文件 | `scenes/threat_multi_target.json` |
+| 场景文件 | `scenes/threat_multi_target/threat_multi_target.json` |
 | 场景意图 | 被测通道：Fusion + Threat（+ AR/ESR/EOS/SBIRS 作融合输入）；被测行为：三目标威胁分排序与等级映射（HIGH/MEDIUM/LOW）、威胁升级事件、威胁→决策指令链；验证深度：L2 + L3（威胁分对几何先验手算） |
 | 构建模式 | release；**FD 关**（运动学回退，几何干净可手算） |
 | 日志模式 | 视图 delta（默认）+ 事件 key（默认） |

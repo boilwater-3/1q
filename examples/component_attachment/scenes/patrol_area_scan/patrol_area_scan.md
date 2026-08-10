@@ -4,7 +4,7 @@
 
 | 项 | 值 |
 | --- | --- |
-| 场景文件 | `scenes/patrol_area_scan.json` |
+| 场景文件 | `scenes/patrol_area_scan/patrol_area_scan.json` |
 | 场景意图 | 被测通道：Flight + navigation（主）+ AR/ESR/EOS/SBIRS/SAR（巡逻中探测保持）；被测行为：coverage 块规划巡逻航路（AreaCoveragePlanner 牛耕式扫描）→ 平台按规划航路**循环巡逻**（航路耗尽回绕）；验证深度：L2 预期表 + L3 几何先验核对 |
 | 构建模式 | release（本机 preset `ONEQ_ENABLE_FLIGHT_DYNAMIC=ON`，**FD 模式验证**；运动学回退路径由单元测试 `FlightComponentRuntimeTest.PatrolLoopWrapsRouteIndex` 覆盖，几何更干净） |
 | 日志模式 | delta + key（默认） |

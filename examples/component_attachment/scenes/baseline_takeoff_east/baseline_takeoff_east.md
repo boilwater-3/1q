@@ -6,7 +6,7 @@
 
 | 项 | 值 |
 | --- | --- |
-| 场景文件 | `scenes/baseline_takeoff_east.json` |
+| 场景文件 | `scenes/baseline_takeoff_east/baseline_takeoff_east.json` |
 | 场景意图 | 被测通道：全通道（AR/ESR/EOS/SBIRS/SAR/Fusion/Flight）；被测行为：端到端链路（探测→融合→决策）基线成立；验证深度：L2 + L3 |
 | 构建模式 | release；**FD 开**（`ONEQ_ENABLE_FLIGHT_DYNAMIC=ON`） |
 | 日志模式 | 视图 delta（默认）+ 事件 key（默认） |
@@ -57,4 +57,4 @@ min_key_events=1 / min_sbirs_events=1 / min_sar_products=1 / min_fused_targets=1
 翻转 → 1002 穿越瞬间 NFOV 几何门失败 → coasting（cycle 201）→ 连续失败 2 周期丢锁
 （202）→ 209 重捕获；③ 唯一 NFOV 通道被 1002 占用 → 1001 每 36 周期只走调度跳过
 （kSchedulerSkipped）形态：首发现 + 3 周期后无记录（kLost）。详见
-`scenes/sbirs_altitude_snr_1000km.md` 结论与 `scenario_archetypes.md` 原型 6。
+`scenes/sbirs_altitude_snr_1000km/sbirs_altitude_snr_1000km.md` 结论与 `scenario_archetypes.md` 原型 6。

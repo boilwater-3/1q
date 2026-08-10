@@ -4,7 +4,7 @@
 
 | 项 | 值 |
 | --- | --- |
-| 场景文件 | `scenes/no_targets_clean_airspace.json` |
+| 场景文件 | `scenes/no_targets_clean_airspace/no_targets_clean_airspace.json` |
 | 场景意图 | 被测通道：全通道；被测行为：零目标下的假警行为（无目标不应有探测/融合/决策产出）；验证深度：L2 |
 | 构建模式 | release；FD 开 |
 | 日志模式 | delta + key（默认） |
