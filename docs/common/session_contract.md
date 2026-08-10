@@ -148,7 +148,7 @@ AR/ESR/EOS/SBIRS/SAR 五模块的电源状态必须遵守单源原则：
     - 结构化格式与字段布局由调用方自定（可参考 `*OutputDebugView` 的字段集合直接转写）；
       组件化集成示范见 `examples/component_attachment`（各传感器组件每周期取 `LastDebugView()`
       直写中文人读行到集成端日志（事件行 / 视图行分两个文件）——日志给人读，落盘密度三模式（非标称行/跨周期增量/每周期
-      摘要）由 `demo_log_modes.h` 模式选择区宏门控；结构化持久化由外部集成方接入自己的
+      摘要）由 `logger/logger_modes.h` 模式选择区宏门控；结构化持久化由外部集成方接入自己的
       日志/事件系统，示例不再内置 JSON 序列化器）。
 13. 正常执行周期（`status == kCompleted`）的可观测性：
     a. **周期级执行摘要日志**：正常执行周期应输出周期级 `PROJECT_LOG_INFO` 摘要，格式基线

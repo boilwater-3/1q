@@ -1,6 +1,6 @@
 # 会话配置 JSON 文件说明
 
-本目录包含 AR、EOS、ESR、SAR 四个模块的完整会话配置 JSON 文件，供示例程序加载使用。
+本目录包含 AR、EOS、ESR、SAR、SBIRS 五个模块的完整会话配置 JSON 文件，供示例程序加载使用。
 
 ## 文件清单
 
@@ -10,6 +10,16 @@
 | `electro_optical.json` | 光电传感器 | 完整 `EosSessionConfig`，约 30 个叶子字段 |
 | `electronic_warfare.json` | 电子侦察 | 完整 `EsrSessionConfig`，约 40 个叶子字段 |
 | `sar.json` | 合成孔径雷达 | 完整 `SarSessionConfig`，使用与 SAR integration demo 同类的自洽参数 |
+| `sbirs.json` | 天基红外传感器 | 完整 `SbirsSessionConfig`，供 component_attachment demo 加载 |
+
+## recognition/ 子目录
+
+`recognition/` 存放 AR 目标识别数据库的两类资产（**非示例杂物，被工具与集成测试真实消费**）：
+
+| 文件 | 角色 |
+| --- | --- |
+| `recognition_database_input.json` | 建库输入源——`tools/recognition_db_builder.py --input` 的唯一输入 |
+| `target_feature_database_v1.1.db` | 交付库（SQLite）——由建库工具产出，被 AR 识别集成测试经 `ONEQ_RECOGNITION_EXAMPLE_DATABASE_PATH` 加载（`tests/integration/airborne_radar/`） |
 
 ## JSON 结构与配置说明
 
@@ -26,7 +36,7 @@
 }
 ```
 
-详细字段说明见 `docs/public_model_config_manual.md`。
+详细字段说明见 `docs/common/usage.md`（1q 库消费指南）与 `docs/common/session_contract.md`（会话相关模块契约）。
 
 ### 物理链路提示
 
@@ -59,5 +69,5 @@ AR 始终使用物理探测链。`airborne_radar.json` 启用
 `*SessionConfig` 结构体。
 
 相关文档：
-- `docs/public_target_input_manual.md` — 单周期目标输入说明
-- `docs/public_module_output_manual.md` — 单周期输出结构说明
+- `docs/common/usage.md` — 1q 库消费指南
+- `docs/common/session_contract.md` — 会话相关模块契约（SessionConfigBuilder、运行期配置提交策略、三层输出模型等）
