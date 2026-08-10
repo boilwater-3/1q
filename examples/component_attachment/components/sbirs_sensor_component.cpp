@@ -11,13 +11,13 @@
 
 #include "sbirs_sensor_component.h"
 
+#include "1q/fusion/SensorAdapters.h"
 #include "core/events.h"
 #include "core/world.h"
 #include "logger/logger.h"
 #include "logger/logger_i18n.h"
 #include "flight_component.h"
 #include "scene_types.h"
-#include "sensor_adapt.h"
 
 namespace component_attachment {
 
@@ -306,8 +306,8 @@ void SbirsSensorComponent::Step(World& world, double dt_sec) {
     world.signals().on_sbirs_detection(sbirs_event);
   }
 
-  detections_ = examples::sensor_adapt::AdaptSbirsDetectionsToDetections(
-      examples::sensor_adapt::kSbirsSourceId, records);
+  detections_ = fusion::AdaptSbirsDetectionsToDetectionRecords(
+      fusion::kSbirsSourceId, records);
 }
 
 }  // namespace component_attachment

@@ -72,8 +72,9 @@ examples/component_attachment/
 └── README.md
 ```
 
-> 传感器输出 → 融合探测记录的边界适配（`Adapt*` 系列）与源通道常量在
-> `examples/common/sensor_adapt.h`（示例共享边界适配）。
+> 传感器输出 → 融合探测记录的边界适配由库内官方适配器
+> `fusion/SensorAdapters.h` 承担（四个 `Adapt*ToDetectionRecords` 函数 + 源通道
+> 常量 `kArSourceId`..`kSbirsSourceId`，与 `FusionConfig::source_weights` 对齐）。
 
 ## ECS 核心设计
 

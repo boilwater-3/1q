@@ -38,7 +38,7 @@ file(GLOB _oneq_unit_examples CONFIGURE_DEPENDS
     "${CMAKE_CURRENT_SOURCE_DIR}/unit/examples/*_test.cpp")
 if(_oneq_unit_examples)
     # component_attachment 组件实现（ecs_component_runtime_test 测组件运行时
-    # 修改接口；sensor_adapt.h 为 header-only）。
+    # 修改接口；传感器→融合适配已上移库内 fusion/SensorAdapters.h）。
     # logger.cpp：组件源文件内 CA_LOG_EVENT / CA_LOG_VIEW 宏引用符号（单测
     # 不初始化 → 未初始化静默跳过路径）。集成端日志直接使用 spdlog：仅在
     # PROJECT_ENABLE_SPDLOG 时编译组件源并链接 spdlog；Windows 上该示例门控

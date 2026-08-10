@@ -3,7 +3,7 @@
  * @brief AR 传感器组件实现（会话驱动 + 轨迹生命周期事件转发）。
  *
  * 1. 平台位姿经 host_ 读 FlightComponent（零姿态共享局部系），构建 ArCycleInput
- *    驱动 ArSession，输出适配为泛型探测记录（examples/common/sensor_adapt.h）；
+ *    驱动 ArSession，输出适配为泛型探测记录（fusion::AdaptArTracksToDetectionRecords）；
  * 2. 轨迹事件（首确认/失跟）由库内 ArTrackLifecycleRecorder 差分产出，组件仅
  *    映射转发为 World 信号（事件位置从本周期外部帧按关联键回查）；
  * 3. 事件与调试视图直写集成端日志（CA_LOG_EVENT / CA_LOG_VIEW，中文人读行）。
@@ -14,13 +14,13 @@
 #include "1q/airborne_radar/session/ArCycleInput.h"
 #include "1q/airborne_radar/session/ArCycleOutputAdapter.h"
 #include "1q/coordinate/position_transform.h"
+#include "1q/fusion/SensorAdapters.h"
 #include "core/events.h"
 #include "logger/logger.h"
 #include "logger/logger_i18n.h"
 #include "flight_component.h"
 #include "core/world.h"
 #include "scene_types.h"
-#include "sensor_adapt.h"
 #include "sensor_utils.h"
 
 namespace component_attachment {
@@ -205,8 +205,8 @@ void ArSensorComponent::Step(World& world, double dt_sec) {
     }
   }
 
-  detections_ = examples::sensor_adapt::AdaptTracksToDetections(
-      examples::sensor_adapt::kArSourceId, external_frame);
+  detections_ = fusion::AdaptArTracksToDetectionRecords(
+      fusion::kArSourceId, external_frame);
 }
 
 }  // namespace component_attachment

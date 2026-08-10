@@ -70,7 +70,6 @@ examples/
 
 - `json_reader`（`oneq::JsonReader`）：轻量 JSON 解析；
 - `csv_writer`：流式 CSV 写入（批量验证框架与 component_attachment 输出共用）；
-- `sensor_adapt`：传感器输出 → 融合探测记录的边界适配（component_attachment 消费）；
 - `config_loaders/<域>/`：各传感器域 JSON → `*SessionConfig` 的映射器
   （`config_loader.h` 三件套），component_attachment 与批量验证框架消费；
 - `viz/`：共享可视化查看器 `build_viewer.py`（统一契约 v2：多机
