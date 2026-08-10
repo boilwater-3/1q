@@ -46,6 +46,7 @@ A static library of simulation models for external service modules — airborne 
 - Presets: `llvm-ninja-debug-local`, `llvm-ninja-release-local` (from `CMakeUserPresets.json`; base presets in `CMakePresets.json`). Prefer release — JSBSim runs ~6× faster.
 - Run bootstrap → configure → build → test **serially** for the same preset; parallel only across different presets.
 - Log prefix `/tmp/1q`, ctest `-j 4`.
+- **验证范围**：日常增量验证用 `ctest --preset <preset> -R <聚焦范围>` 按模块/分区聚焦（如 `-R "unit::<module>"`）；**不要跑 debug-local 完整 ctest**（全量慢且与 release 重复）；完整全量验证只在 release-local 跑（如 `/completeness-review` 阶段）。
 
 ```bash
 bash scripts/bootstrap_conan.sh "$preset" >"${log_prefix}-conan.log" 2>&1 || { tail -n 80 "${log_prefix}-conan.log"; false; }
