@@ -29,7 +29,7 @@
 #include "components.h"
 #include "sensor_adapt.h"
 
-namespace behavior_layer {
+namespace component_entt {
 
 namespace {
 
@@ -338,4 +338,4 @@ void decision_system(entt::registry& registry) {
   }
 }
 
-}  // namespace behavior_layer
+}  // namespace component_entt

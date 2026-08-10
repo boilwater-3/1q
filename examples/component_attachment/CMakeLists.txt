@@ -41,7 +41,7 @@ target_include_directories(component_attachment_demo PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}"
     "${ONEQ_EXAMPLE_COMMON_DIR}")
 
-# 共享配置 JSON（与 behavior_layer 同源 examples/configs/）+ 场景描述目录
+# 共享配置 JSON（与 component_entt 同源 examples/configs/）+ 场景描述目录
 # （scenes/*.json，scene_data.h 的 --scene 默认值）+ 默认输出目录
 # （demo_config.h 的 kDefaultOutputDir：仓库内 examples/component_attachment/log/，
 # 运行时产物不入版本控制，见 .gitignore）。
@@ -88,7 +88,7 @@ endif()
 target_sources(component_attachment_demo PRIVATE ${ONEQ_EXAMPLE_COMMON_SOURCES})
 
 # 飞行组件：ONEQ_ENABLE_FLIGHT_DYNAMIC 开启时接入 JSBSim 真实飞行仿真
-# （运动学回退路径始终可用，与 behavior_layer flight_system 同构）。
+# （运动学回退路径始终可用，与 component_entt flight_system 同构）。
 if(ONEQ_ENABLE_FLIGHT_DYNAMIC)
     if(NOT DEFINED ONEQ_JSBSIM_DATA_ROOT_DIR)
         set(ONEQ_JSBSIM_DATA_ROOT_DIR "${CMAKE_SOURCE_DIR}/third_party/jsbsim")

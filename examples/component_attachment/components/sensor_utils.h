@@ -4,7 +4,7 @@
  *
  * 平台 LLA/航向/速度 → ECEF（零姿态保持共享局部系）。三传感器会话输出
  * → 泛型融合探测记录的适配（Adapt* 系列）与源通道常量已上移
- * examples/common/sensor_adapt.h（与 behavior_layer 共用，消除双份维护）；
+ * examples/common/sensor_adapt.h（与 component_entt 共用，消除双份维护）；
  * 本文件仅保留平台坐标薄包装（航向分解与 ECEF 投影为库内单函数）。
  */
 

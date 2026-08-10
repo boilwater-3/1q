@@ -24,7 +24,7 @@
 #include "1q/electronic_surveillance_radar/session/EsrOutputTypes.h"
 #include "1q/fusion/FusedTarget.h"
 
-namespace behavior_layer {
+namespace component_entt {
 
 namespace {
 
@@ -293,4 +293,4 @@ void VizRecorder::Flush() {
   }
 }
 
-}  // namespace behavior_layer
+}  // namespace component_entt

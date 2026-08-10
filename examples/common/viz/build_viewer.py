@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-build_viewer.py — 从示例（behavior_layer / component_attachment）的 CSV 导出
+build_viewer.py — 从示例（component_entt / component_attachment）的 CSV 导出
 构建交互式 HTML 查看器。
 
 用法：
@@ -1344,7 +1344,7 @@ EXPECTED_HEADERS = {
 }
 
 # 可选文件：缺省时查看器自动跳过对应图层。传感器/融合/航点事件为
-# behavior_layer 独有；zones 仅巡逻场景产出；component_attachment 只落盘
+# component_entt 独有；zones 仅巡逻场景产出；component_attachment 只落盘
 # platform_track/target_truth/route_plan（+ 可选 zones）。
 OPTIONAL_FILES = {
     "ar_tracks.csv",
@@ -1406,12 +1406,12 @@ def validate_data(data_dir):
 
 def main():
     parser = argparse.ArgumentParser(
-        description="从 behavior_layer_demo 的 CSV 导出构建交互式 HTML 查看器",
+        description="从 component_entt_demo 的 CSV 导出构建交互式 HTML 查看器",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=__doc__)
-    parser.add_argument("data_dir", help="behavior_layer_demo 的 CSV 输出目录（--output-dir）")
+    parser.add_argument("data_dir", help="component_entt_demo 的 CSV 输出目录（--output-dir）")
     parser.add_argument("--out", default=None,
-                        help="输出 HTML 路径（默认 <data_dir>/behavior_layer_viewer.html）")
+                        help="输出 HTML 路径（默认 <data_dir>/component_entt_viewer.html）")
     parser.add_argument("--check", action="store_true",
                         help="仅校验数据与投影（不生成 HTML），供 ctest 回归")
     args = parser.parse_args()
@@ -1437,7 +1437,7 @@ def main():
         sys.stderr.write("错误：无法从 %s 读取有效数据（platform_track.csv 缺失或为空）\n" % args.data_dir)
         sys.exit(1)
 
-    out_path = args.out or args.data_dir.rstrip("/") + "/behavior_layer_viewer.html"
+    out_path = args.out or args.data_dir.rstrip("/") + "/component_entt_viewer.html"
     data_json = json.dumps(data, ensure_ascii=False, separators=(",", ":"))
     data_json = data_json.replace("</", "<\\/")  # 防止 </script> 提前闭合
 

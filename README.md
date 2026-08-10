@@ -54,8 +54,10 @@ ctest --preset llvm-ninja-debug-local --output-on-failure
 SAR per-domain 示例已于 2026-08-10 删除，SAR 集成由 component_attachment 的
 SarSensorComponent + 场景验证工作流覆盖）：
 
-- `examples/behavior_layer/`: 行为层参考实现（EnTT ECS 业务层）——AR/ESR/EOS 三传感器
+- `examples/component_entt/`: 行为层参考实现（EnTT ECS 业务层）——AR/ESR/EOS 三传感器
   单平台全链：会话输出适配 → 融合引擎跨源合并 → 航路规划 → ECM 输入帧 → 命令帧。
+  **目前未使用该模块但未来大概率启用**（2026-08-10 由 behavior_layer 改名）——
+  CMake 中注释停用，代码保留（见 examples/README.md「停用但保留」节）。
 - `examples/component_attachment/`: 自定义实体-组件模式示例——五传感器（AR/ESR/EOS/
   SBIRS/SAR）+ 融合 + 威胁评估 + 多机编队，场景 JSON 数据驱动（含多机区域巡逻
   fleet_patrol_multi_zone 场景）。

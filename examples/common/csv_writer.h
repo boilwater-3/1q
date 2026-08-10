@@ -6,7 +6,7 @@
  * 仿照 examples/flight_dynamic/orbit_quality_csv.cpp 的 fprintf 风格，
  * 提供一个"打开文件 → 写表头 → 逐行追加 → 关闭"的最小工具，
  * 供批量验证程序（原 batch_validation/batch_csv_writer.h）与
- * behavior_layer_demo 可视化导出统一产出周期级 / 场景汇总级 CSV。
+ * component_entt_demo 可视化导出统一产出周期级 / 场景汇总级 CSV。
  *
  * 不引入新依赖，仅用标准库；进度信息一律写 stderr，避免污染 CSV。
  */

@@ -115,10 +115,10 @@ jobs:
       - name: Build
         run: cmake --build --preset llvm-ninja-debug -j 4
 
-      - name: Run stable flight-dynamic partition + behavior layer smoke
+      - name: Run stable flight-dynamic partition
         run: |
           ctest --test-dir build/llvm-ninja-debug-local \
-                -R '^(unit::flight_dynamic|examples::behavior_layer_demo)$' \
+                -R '^unit::flight_dynamic$' \
                 --output-on-failure -j 4
 
   # ─────────────────────────────────────────────────────────────────────

@@ -12,7 +12,7 @@ examples/
 ├── README.md                       本文件
 ├── common/                         共享便利层：JSON 解析 + 三域 config_loaders + viz/ 共享查看器（不属于库 public surface）
 ├── configs/                        四域会话配置 JSON（详见 configs/README.md）
-├── behavior_layer/                 行为层参考实现（EnTT ECS 业务层，AR/ESR/EOS 三传感器全链）
+├── component_entt/                 行为层参考实现（EnTT ECS 业务层，AR/ESR/EOS 三传感器全链；**未启用**，见下方说明）
 ├── component_attachment/           自定义实体-组件模式示例（组件基类 + 挂载 + Boost.Signals2 事件，五传感器 + SAR/SBIRS）
 ├── flight_dynamic/                 机动模块 CSV 工具与轨迹生成（依赖 JSBSim）
 └── batch_validation/               多场景批量验证（详见 batch_validation/README.md）
@@ -21,9 +21,17 @@ examples/
 ## 示例分类
 
 三域（AR/ESR/EOS）per-domain 示例已于 2026-08-05 删除——其 session_usage（API 教程）
-与 scene（端到端场景）类目功能并入 `behavior_layer/` 三传感器全链（见下文）。
+与 scene（端到端场景）类目功能并入 `component_entt/` 三传感器全链（见下文）。
 SAR per-domain 示例（SarModule 包装类）已于 2026-08-10 删除——SAR 集成由
 `component_attachment/` 的 SarSensorComponent + 场景验证工作流覆盖。
+
+### component_entt（EnTT ECS 行为层）——停用但保留
+
+`component_entt/`（原 `behavior_layer/`，2026-08-10 改名）为 EnTT ECS 行为层参考实现
+（AR/ESR/EOS 三传感器全链 + 融合 + 可视化录制）。**目前未使用该模块**——实际集成
+走 `component_attachment/` 自定义 ECS 模式；但 EnTT ECS 模式未来大概率启用，故
+**代码保留、CMake 中注释停用**（`examples/CMakeLists.txt` 的停用声明，取消
+`add_subdirectory(component_entt)` 注释即恢复构建与测试）。
 
 ## 两种 ECS 开发模式
 
@@ -32,7 +40,7 @@ SAR per-domain 示例（SarModule 包装类）已于 2026-08-10 删除——SAR 
 
 | 模式 | 目录 | ECS 形态 | 事件机制 |
 | --- | --- | --- | --- |
-| **ECS 开源库** | `behavior_layer/` | EnTT 3.14（纯数据组件 + 自由函数系统） | EnTT 自带 observer/sigh |
+| **ECS 开源库** | `component_entt/` | EnTT 3.14（纯数据组件 + 自由函数系统） | EnTT 自带 observer/sigh |
 | **自定义实体-组件** | `component_attachment/` | 组件基类 + 子类（携带逻辑）+ 挂载到实体 | **Boost.Signals2**（常见开源事件库） |
 
 `component_attachment/` 的自定义 ECS 核心（`core/`）约 300 行纯头文件：组件基类
@@ -46,11 +54,11 @@ SAR per-domain 示例（SarModule 包装类）已于 2026-08-10 删除——SAR 
 `common/` 提供 example 层共享便利工具（**不属于 oneq 库的 public surface**——库内部不消费 JSON）：
 
 - `json_reader`（`oneq::JsonReader`）：轻量 JSON 解析；
-- `csv_writer`：流式 CSV 写入（批量验证与 behavior_layer 可视化导出共用）；
-- `sensor_adapt`：传感器输出 → 融合探测记录的边界适配（`behavior_layer` 与
+- `csv_writer`：流式 CSV 写入（批量验证与 component_entt 可视化导出共用）；
+- `sensor_adapt`：传感器输出 → 融合探测记录的边界适配（`component_entt` 与
   `component_attachment` 共用，消除双份维护）；
 - `config_loaders/<域>/`：各传感器域 JSON → `*SessionConfig` 的映射器（`config_loader.h` 三件套），
-  供 `behavior_layer` 与 `batch_validation` 消费；
+  供 `component_entt` 与 `batch_validation` 消费；
 - 由顶层 `CMakeLists.txt` 定义 `ONEQ_EXAMPLE_COMMON_DIR` / `ONEQ_EXAMPLE_COMMON_SOURCES`，
   各子目录通过目录作用域继承并内联到 target，无需函数传递。
 
@@ -71,7 +79,7 @@ SAR per-domain 示例（SarModule 包装类）已于 2026-08-10 删除——SAR 
 # 1. 标准依赖引导（详见 cmake/README.md）
 bash scripts/bootstrap_conan.sh llvm-ninja-debug
 cmake --preset llvm-ninja-debug -DENABLE_EXAMPLES=ON
-cmake --build --preset llvm-ninja-debug --target behavior_layer_demo
+cmake --build --preset llvm-ninja-debug --target component_entt_demo
 ```
 
 飞行力动示例额外需要机动模块：
@@ -88,7 +96,7 @@ cmake --preset llvm-ninja-debug -DENABLE_EXAMPLES=ON -DONEQ_ENABLE_FLIGHT_DYNAMI
 
 | 宏 | 注入者 | 用途 |
 | --- | --- | --- |
-| `SCENE_CONFIG_DIR` | `behavior_layer_demo` | 指向 `examples/configs/`，供 config_loader 加载 JSON |
+| `SCENE_CONFIG_DIR` | `component_entt_demo` | 指向 `examples/configs/`，供 config_loader 加载 JSON |
 | `BATCH_CONFIG_DIR` | `*_batch_validation` | 同上，与 scene 同源 |
 | `FD_JSBSIM_ROOT_DIR` | flight_dynamic 全部 | JSBSim 飞机数据根目录，优先取 `ONEQ_JSBSIM_DATA_ROOT_DIR` |
 
@@ -108,9 +116,9 @@ JSBSim 头路径与数据根目录。`orbit_visualize.py` 可将 trace CSV 可�
 
 ## 行为层参考实现（EnTT ECS）
 
-`behavior_layer/` 是消费方业务层的参考实现：实体/组件装配由 EnTT（`entt/3.14.0`，
+`component_entt/` 是消费方业务层的参考实现：实体/组件装配由 EnTT（`entt/3.14.0`，
 header-only，**example 侧依赖，不进入库本体**）registry 承担，逻辑以纯数据组件 +
-自由函数系统表达（详见 `behavior_layer/README.md` 与 `docs/review/Bahavior.md` §5）。
+自由函数系统表达（详见 `component_entt/README.md` 与 `docs/review/Bahavior.md` §5）。
 
 - **组件**：`TaskingComponent`（角色/上下级/区域任务）、`SensorObservationComponent`、
   `FleetStatusComponent`、`RoutePlanComponent`、`FusedSituationComponent`、

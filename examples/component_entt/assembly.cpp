@@ -15,7 +15,7 @@
 #include "flight_system.h"
 #include "systems.h"
 
-namespace behavior_layer {
+namespace component_entt {
 
 namespace {
 
@@ -176,4 +176,4 @@ std::unique_ptr<entt::observer> MakeSituationObserver(entt::registry& registry) 
       registry, entt::collector.update<FusedSituationComponent>());
 }
 
-}  // namespace behavior_layer
+}  // namespace component_entt

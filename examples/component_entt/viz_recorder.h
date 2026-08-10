@@ -27,7 +27,7 @@
 #include "csv_writer.h"
 #include "components.h"
 
-namespace behavior_layer {
+namespace component_entt {
 
 /**
  * @brief 世界真值目标的一行（导出 target_truth.csv 用）。
@@ -138,6 +138,6 @@ class VizRecorder {
   std::unique_ptr<examples::CsvWriter> zones_; /**< 巡逻区域（首次 RecordZones 时创建） */
 };
 
-}  // namespace behavior_layer
+}  // namespace component_entt
 
 #endif  // EXAMPLES_BEHAVIOR_LAYER_VIZ_RECORDER_H_

@@ -1,4 +1,4 @@
-# 行为层参考实现（`examples/behavior_layer/`）
+# 行为层参考实现（`examples/component_entt/`）
 
 消费方业务层的 EnTT ECS 参考实现（冻结契约：`docs/review/Bahavior.md` §5）。
 实体/组件装配由 `entt::registry` 承担，逻辑以纯数据组件 + 自由函数系统表达；
@@ -18,7 +18,7 @@ ECM 输入帧由 ESR 观测填充、平台动力学由 `flight_system` 驱动（
 | `systems.h` / `systems.cpp` | 五个系统（自由函数，`entt::registry&`）+ 三会话驱动与适配 |
 | `flight_system.h` / `flight_system.cpp` | 平台动力学（`RoutePlan` → `FlightManager` 适配 + 运动学回退；唯一含 FD 头的文件） |
 | `assembly.h` / `assembly.cpp` | 装配：registry ctx 上下文、实体创建、周期调用序、观察者工厂 |
-| `behavior_layer_demo.cpp` | 主程序：脚本化场景 + 每周期系统调用序 + 事件报告 |
+| `component_entt_demo.cpp` | 主程序：脚本化场景 + 每周期系统调用序 + 事件报告 |
 | `viz_recorder.h` / `viz_recorder.cpp` | 可视化数据记录器：逐周期把飞行/传感器/融合数据导出为 9 个 CSV（统一契约 v2） |
 | `build_viewer.py` | 共享查看器（`examples/common/viz/`，与 component_attachment 共用）：读取 CSV 构建单文件交互式 HTML 查看器（vanilla JS + SVG，无 CDN） |
 
@@ -132,18 +132,18 @@ EOS 探测只在其扫描经过目标时产生（每 4 周期约 1-2 次），�
 
 ## 可视化（飞行轨迹 + 传感器日志）
 
-示例默认把每周期可观测数据落盘为 CSV（默认 `/tmp/behavior_layer_viz`，
+示例默认把每周期可观测数据落盘为 CSV（默认 `/tmp/component_entt_viz`，
 可用 `--output-dir <dir>` 覆盖），再由共享查看器 `build_viewer.py` 构建
 **单文件交互式 HTML 查看器**（vanilla JS + SVG，无 CDN、离线可用；
 `examples/common/viz/`，与 component_attachment 共用**统一契约 v2**）：
 
 ```bash
 # 1. 运行示例（产物 9 个 CSV）
-./build/llvm-ninja-release-local/bin/behavior_layer_demo --output-dir /tmp/behavior_layer_viz
-# 2. 构建查看器（默认输出 <data_dir>/behavior_layer_viewer.html）
-python3 examples/common/viz/build_viewer.py /tmp/behavior_layer_viz
+./build/llvm-ninja-release-local/bin/component_entt_demo --output-dir /tmp/component_entt_viz
+# 2. 构建查看器（默认输出 <data_dir>/component_entt_viewer.html）
+python3 examples/common/viz/build_viewer.py /tmp/component_entt_viz
 # 3. 打开
-open /tmp/behavior_layer_viz/behavior_layer_viewer.html
+open /tmp/component_entt_viz/component_entt_viewer.html
 ```
 
 ### CSV schema（`viz_recorder` 导出，周期号 = 跨表对齐主键，t_sec = cycle × 1 s）
@@ -190,13 +190,13 @@ open /tmp/behavior_layer_viz/behavior_layer_viewer.html
 ```bash
 bash scripts/bootstrap_conan.sh llvm-ninja-release-local   # 拉取 entt/3.14.0
 cmake --preset llvm-ninja-release-local -DENABLE_EXAMPLES=ON
-cmake --build --preset llvm-ninja-release-local --target behavior_layer_demo
-./build/llvm-ninja-release-local/bin/behavior_layer_demo
+cmake --build --preset llvm-ninja-release-local --target component_entt_demo
+./build/llvm-ninja-release-local/bin/component_entt_demo
 ```
 
-启用 `BUILD_TESTING` 时注册冒烟测试 `examples::behavior_layer_demo`
-（LABELS：`examples;behavior_layer`），验证 EnTT 依赖链与三传感器端到端全链；
-Python3 可用时另注册 `examples::behavior_layer_viewer_check`（对 demo 产物跑
+启用 `BUILD_TESTING` 时注册冒烟测试 `examples::component_entt_demo`
+（LABELS：`examples;component_entt`），验证 EnTT 依赖链与三传感器端到端全链；
+Python3 可用时另注册 `examples::component_entt_viewer_check`（对 demo 产物跑
 共享 `build_viewer.py --check`，回归 CSV 结构/表头、多机行数与统一 ENU 原点不变量）。
 
 接入真实飞行仿真（可选）：

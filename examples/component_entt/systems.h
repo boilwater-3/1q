@@ -12,7 +12,7 @@
 
 #include <entt/entt.hpp>
 
-namespace behavior_layer {
+namespace component_entt {
 
 /** @brief 行为层周期时长（s）：三会话周期语义 + 飞行子步进的外层时钟。 */
 constexpr double kBehaviorDtSec = 1.0;
@@ -32,6 +32,6 @@ void jam_system(entt::registry& registry);
 /** @brief 决策系统：聚合融合态势/航路/决策观测产出命令帧。 */
 void decision_system(entt::registry& registry);
 
-}  // namespace behavior_layer
+}  // namespace component_entt
 
 #endif  // EXAMPLES_BEHAVIOR_LAYER_SYSTEMS_H_

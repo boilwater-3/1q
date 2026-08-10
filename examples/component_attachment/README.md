@@ -3,7 +3,7 @@
 ## 定位
 
 第二种示例模式：**自定义实体-组件**开发（不依赖 EnTT 等 ECS 开源库），与
-`behavior_layer`（EnTT ECS 开源库模式）形成两种开发模式对照。
+`component_entt`（EnTT ECS 开源库模式）形成两种开发模式对照。
 
 - **组件基类**：`core/component.h` 定义虚接口（Name / OnAttach / OnDetach / Step），
   组件**携带逻辑**（区别于 EnTT 纯数据组件）；
@@ -51,7 +51,7 @@ examples/component_attachment/
 ```
 
 > 传感器输出 → 融合探测记录的边界适配（`Adapt*` 系列）与源通道常量在
-> `examples/common/sensor_adapt.h`（与 behavior_layer 共用，消除双份维护）。
+> `examples/common/sensor_adapt.h`（与 component_entt 共用，消除双份维护）。
 
 ## ECS 核心设计
 
@@ -472,9 +472,9 @@ cmake --build --preset llvm-ninja-release-local --target component_attachment_de
 控制台输出每周期一行摘要（平台高度/航向/速度/航点进度 + 融合目标数），事件
 逐条打印；结束打印汇总（实体数/组件数/事件数/指令是否下发）。
 
-## 与 behavior_layer（EnTT 模式）对照
+## 与 component_entt（EnTT 模式）对照
 
-| 方面 | behavior_layer（EnTT） | component_attachment（自定义） |
+| 方面 | component_entt（EnTT） | component_attachment（自定义） |
 | --- | --- | --- |
 | ECS 依赖 | EnTT 3.14（header-only 开源库） | 无 ECS 依赖（core/ 自研约 300 行） |
 | 组件形态 | 纯数据 struct（无逻辑） | `Component` 基类 + 子类（携带逻辑） |

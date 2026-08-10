@@ -34,7 +34,7 @@
 #include "1q/fusion/FusionEngine.h"
 #include "1q/navigation/AreaCoveragePlanner.h"
 
-namespace behavior_layer {
+namespace component_entt {
 
 /**
  * @brief 行为层装配配置：三传感器会话配置聚合。
@@ -88,6 +88,6 @@ void StepBehaviorLayer(entt::registry& registry);
  */
 std::unique_ptr<entt::observer> MakeSituationObserver(entt::registry& registry);
 
-}  // namespace behavior_layer
+}  // namespace component_entt
 
 #endif  // EXAMPLES_BEHAVIOR_LAYER_ASSEMBLY_H_

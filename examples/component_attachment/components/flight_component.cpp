@@ -341,7 +341,7 @@ void FlightComponent::Step(World& world, double dt_sec) {
     // 终端状态（队列完成/中止）：循环巡逻 → 以当前载机状态 Reset 重建续飞
     // （库契约：kCompleted/kAborted 必须 Reset 恢复 kReady；见
     // FlightDynamics::RestartPatrol）；单次飞行 → 剩余航点按几何簿记补发
-    // 完成事件（与 behavior_layer flight_system 的终端视为航路完成语义
+    // 完成事件（与 component_entt flight_system 的终端视为航路完成语义
     // 一致，kAborted 兜底；kCompleted 时事件驱动已对齐，不触发）。
     if (fd_->terminated()) {
       if (loop_route_ && !route_.empty()) {

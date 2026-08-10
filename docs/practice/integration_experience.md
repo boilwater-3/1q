@@ -2,7 +2,7 @@
 
 Status: active
 Last-reviewed: 2026-08-05
-Authority: examples 集成实践（behavior_layer EnTT 模式 + component_attachment 自定义实体-组件模式，两次三传感器 + 融合 + 飞行动力学全链集成）
+Authority: examples 集成实践（component_entt EnTT 模式 + component_attachment 自定义实体-组件模式，两次三传感器 + 融合 + 飞行动力学全链集成）
 
 本文件是对"集成者视角"的库体验复盘：在两次全链示例集成中，哪些样板本应在库内
 （边界划分不清）、哪些是库内能力存在但外部不可见（文档缺失）、哪些是有意的外部
@@ -11,7 +11,7 @@ Authority: examples 集成实践（behavior_layer EnTT 模式 + component_attach
 
 ## 判据
 
-- **重复度**：≥2 个示例（behavior_layer / component_attachment / batch_validation）
+- **重复度**：≥2 个示例（component_entt / component_attachment / batch_validation）
   重写同一段逻辑 = 库面缺位的强信号；仅一处出现 = 示例特定，倾向维持。
 - **性质分类**：
   1. 边界划错：库内该有而未提供，集成者被迫外部重写；
@@ -27,7 +27,7 @@ Authority: examples 集成实践（behavior_layer EnTT 模式 + component_attach
   经 `ArSession::AttachTrackLifecycleRecorder` 接线）与
   `EosDetectionLifecycleRecorder`（kFirstDetected / kUpdated / kLost，语义对称）。
   两处均内置"状态迁移差分"，即事件流设施。
-- **实际**：behavior_layer 与 component_attachment **两代示例均未使用**；
+- **实际**：component_entt 与 component_attachment **两代示例均未使用**；
   component_attachment 在 ArSensorComponent 自研 `confirmed_keys_` / `lost_keys_`
   集合判定，审查发现**静默掉轨漏报 bug**（轨迹直接缺帧无 kLost 时键滞留，
   重捕不报 confirm；集合无界增长）——正是库内 recorder 已解决的状态迁移问题。
@@ -46,7 +46,7 @@ Authority: examples 集成实践（behavior_layer EnTT 模式 + component_attach
 
 ### F2 平台运动学 → ECEF 与方位/距离投影缺位（工具缺位，2 处重复）✅ 已实施 2026-08-05
 
-- `ResolvePlatformEcef`（LLA/航向/速度 → ECEF 位置+速度）：behavior_layer
+- `ResolvePlatformEcef`（LLA/航向/速度 → ECEF 位置+速度）：component_entt
   `systems.cpp` 与 component_attachment `sensor_utils.h` 各写一遍，逻辑逐字相同
   ——`TryLlaToEcef` + `TryEnuToEcefVelocity` 两段式，"航向（北偏东）→ ENU 分量"
   的业务约定藏在两处示例代码里。

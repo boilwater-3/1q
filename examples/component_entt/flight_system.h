@@ -16,7 +16,7 @@
 #include "components.h"
 #include "viz_recorder.h"
 
-namespace behavior_layer {
+namespace component_entt {
 
 /** @brief 飞行动力学持有者（不透明：定义收敛在 flight_system.cpp）。 */
 struct FlightDynamicsHolder;
@@ -40,6 +40,6 @@ double FlightCruiseSpeedMps(const FlightDynamicsHolder& holder);
  */
 std::vector<WaypointEventRow> CollectWaypointEvents(entt::registry& registry);
 
-}  // namespace behavior_layer
+}  // namespace component_entt
 
 #endif  // EXAMPLES_BEHAVIOR_LAYER_FLIGHT_SYSTEM_H_

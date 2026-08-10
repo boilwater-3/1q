@@ -40,7 +40,7 @@
 #include "viz_recorder.h"
 #endif
 
-namespace behavior_layer {
+namespace component_entt {
 
 #if defined(ONEQ_BL_FLIGHT_DYNAMIC_ENABLED)
 
@@ -306,4 +306,4 @@ void flight_system(entt::registry& registry) {
   }
 }
 
-}  // namespace behavior_layer
+}  // namespace component_entt

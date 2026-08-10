@@ -26,7 +26,7 @@
 #include "1q/navigation/CoveragePlanConfig.h"
 #include "1q/navigation/RoutePoint.h"
 
-namespace behavior_layer {
+namespace component_entt {
 
 /**
  * @brief 平台任务角色。
@@ -109,6 +109,6 @@ struct CommandFrameComponent {
   bool has_external_decision{false}; /**< 本周期是否携带外部决策覆盖 */
 };
 
-}  // namespace behavior_layer
+}  // namespace component_entt
 
 #endif  // EXAMPLES_BEHAVIOR_LAYER_COMPONENTS_H_

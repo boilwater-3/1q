@@ -4,7 +4,7 @@
  *
  * 四传感器会话输出（AR 轨迹帧 / ESR 辐射源假设 / EOS 探测记录 / SBIRS
  * 探测记录）在业务层边界适配为去真值化的泛型融合探测记录
- * （fusion::DetectionRecord）。本文件供 behavior_layer（EnTT 模式）与
+ * （fusion::DetectionRecord）。本文件供 component_entt（EnTT 模式）与
  * component_attachment（自定义实体-组件模式）两个示例共用，消除同构适配
  * 逻辑的双份维护（任何一边修复须同步的问题）。源通道常量与融合配置
  * source_weights 索引一致（索引 0 未用）。

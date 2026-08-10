@@ -1,5 +1,5 @@
 /**
- * @file behavior_layer_demo.cpp
+ * @file component_entt_demo.cpp
  * @brief 行为层参考实现主程序（EnTT registry + 每周期系统调用序）。
  *
  * 三传感器（AR / ESR / EOS）端到端全链演示：
@@ -51,14 +51,14 @@
 
 namespace ar = airborne_radar;
 namespace ar_session = airborne_radar::session;
-namespace bl = behavior_layer;
+namespace bl = component_entt;
 
 namespace {
 
 constexpr std::uint32_t kNumCycles = 200U;
 
 /// 可视化 CSV 默认输出目录（可用 --output-dir 覆盖）。
-constexpr char kDefaultOutputDir[] = "/tmp/behavior_layer_viz";
+constexpr char kDefaultOutputDir[] = "/tmp/component_entt_viz";
 
 /// 打印命令行用法。
 void PrintUsage(const char* program) {
@@ -298,7 +298,7 @@ void PrintRoute(const bl::RoutePlanComponent& route) {
 }  // namespace
 
 int main(int argc, char* argv[]) {
-  // 命令行参数：--output-dir <dir> 覆盖可视化 CSV 输出目录（默认 /tmp/behavior_layer_viz）。
+  // 命令行参数：--output-dir <dir> 覆盖可视化 CSV 输出目录（默认 /tmp/component_entt_viz）。
   std::string output_dir = kDefaultOutputDir;
   for (int i = 1; i < argc; ++i) {
     const std::string arg = argv[i];
