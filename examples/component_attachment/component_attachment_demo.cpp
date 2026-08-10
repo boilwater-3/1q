@@ -159,10 +159,39 @@ int main(int argc, char* argv[]) {
   platform.Attach(std::make_unique<ca::ThreatComponent>(scene_data.threat));
 
   // 事件接线：决策监听器（订阅融合信号，门限来自场景）+ 周期落盘输出
-  // （平台轨迹 CSV；集成端日志已由 InitIntegrationLog 装配，组件在 Step 内
-  // 直写视图与事件）。
+  // （统一契约 v2：多机平台轨迹/目标真值/航路/巡逻区域 CSV；集成端日志
+  // 已由 InitIntegrationLog 装配，组件在 Step 内直写视图与事件）。
   demo::DecisionListener decision(world, scene_data.high_threat_confidence);
   demo::DemoOutputs outputs(output_dir);
+
+  // 多机编队：主平台（platform 块，挂传感器/融合）+ 从机（platforms[] 数组，
+  // 纯飞行）。每架飞行器各自的航路/区域任务 = "不同指令"；aircraft_id =
+  // 1（主） + 2..N（按数组序）。FlightComponent 自包含（每实例一个
+  // FlightManager），多机无结构改动。
+  std::vector<ca::Entity*> wingmen;
+  for (const auto& sp : scene_data.platforms) {
+    ca::Entity& wing = world.CreateEntity(sp.name);
+    wing.Attach(std::make_unique<ca::FlightComponent>(
+        sp.origin, sp.initial_heading_deg, sp.cruise_speed_mps, sp.cruise_altitude_m,
+        sp.waypoints, /*loop_route=*/sp.coverage.planned));
+    wingmen.push_back(&wing);
+  }
+  const std::uint32_t aircraft_count =
+      1U + static_cast<std::uint32_t>(scene_data.platforms.size());
+
+  // 装配后写一次航路与巡逻区域（航路来自场景 waypoints/coverage 规划，
+  // FlightComponent 构造时已就绪；zones 仅巡逻场景有区域）。
+  outputs.RecordRoute(1U, scene_data.waypoints);
+  if (scene_data.coverage.planned) {
+    outputs.RecordZones("patrol_area", scene_data.coverage.area);
+  }
+  for (std::size_t i = 0U; i < scene_data.platforms.size(); ++i) {
+    const auto& sp = scene_data.platforms[i];
+    outputs.RecordRoute(static_cast<std::uint32_t>(i + 2U), sp.waypoints);
+    if (sp.coverage.planned) {
+      outputs.RecordZones(sp.name, sp.coverage.area);
+    }
+  }
 
   std::vector<demo::TargetEcefState> target_states =
       demo::MakeTargetStates(scene_data.targets, platform_origin);
@@ -199,7 +228,8 @@ int main(int argc, char* argv[]) {
 
     world.Step(scene_data.dt_sec);  // 按挂载序步进：Flight → AR → ESR → EOS → SBIRS → SAR → Fusion
 
-    // 周期摘要 + 平台轨迹/调试视图落盘。
+    // 周期摘要 + 平台轨迹/调试视图落盘（多机：主平台 + 每架从机一行，
+    // aircraft_id 区分；目标真值每目标一行，entity_type 透出空中/地面）。
     const auto* flight = platform.Find<ca::FlightComponent>();
     const auto* fusion = platform.Find<ca::FusionComponent>();
     max_fused_targets = std::max(max_fused_targets, fusion->targets().size());
@@ -208,7 +238,15 @@ int main(int argc, char* argv[]) {
               << " hdg=" << flight->heading_deg() << " spd=" << flight->speed_mps()
               << " wp=" << flight->next_waypoint_index() << "/" << flight->route().size() << "]"
               << " fused=" << fusion->targets().size() << "\n";
-    outputs.RecordPlatformRow(cycle, scene.t_sec, *flight);
+    outputs.RecordPlatformRow(cycle, scene.t_sec, 1U, *flight);
+    for (std::size_t i = 0U; i < wingmen.size(); ++i) {
+      const auto* wing_flight = wingmen[i]->Find<ca::FlightComponent>();
+      outputs.RecordPlatformRow(cycle, scene.t_sec,
+                                static_cast<std::uint32_t>(i + 2U), *wing_flight);
+    }
+    for (const auto& target : target_states) {
+      outputs.RecordTruthRow(cycle, scene.t_sec, target);
+    }
     // 调试视图落盘由各传感器组件在 Step 内直写（取视图 → 人读摘要行 → 集成
     // 端日志；见 components/demo_log.h 的 CA_LOG_VIEW），主程序不再收拢。
 
@@ -222,6 +260,7 @@ int main(int argc, char* argv[]) {
   std::cout << "\n=== Component Attachment Summary ===\n"
             << "scene=" << scene_data.name
             << " cycles=" << num_cycles
+            << " aircraft=" << aircraft_count
             << " entities=" << world.entity_count()
             << " components=" << platform.component_count()
             << " patrol=" << (scene_data.coverage.planned ? "planned" : "off")
@@ -271,7 +310,8 @@ int main(int argc, char* argv[]) {
       demo::SbirsEventCount() < smoke.min_sbirs_events ||
       demo::SarProductEventCount() < smoke.min_sar_products ||
       max_fused_targets < smoke.min_fused_targets ||
-      outputs.platform_rows() != num_cycles || demo::ArViewCount() < num_cycles ||
+      outputs.platform_rows() != num_cycles * aircraft_count ||
+      demo::ArViewCount() < num_cycles ||
       demo::EosViewCount() < num_cycles || demo::SbirsViewCount() < num_cycles ||
       demo::SarViewCount() != num_cycles || demo::ThreatViewCount() < num_cycles ||
       !ar->powered_on() || !esr->powered_on() ||
@@ -283,7 +323,8 @@ int main(int argc, char* argv[]) {
               << " (>=" << smoke.min_sar_products << " required), max_fused="
               << max_fused_targets << " (>=" << smoke.min_fused_targets
               << " required), platform_rows="
-              << outputs.platform_rows() << " (== " << num_cycles << " required), "
+              << outputs.platform_rows() << " (== " << num_cycles << " × " << aircraft_count
+              << " 机 required), "
               << "ar_views=" << demo::ArViewCount()
               << " (>= " << num_cycles << " required), eos_views="
               << demo::EosViewCount() << " (>= " << num_cycles << " required), sbirs_views="

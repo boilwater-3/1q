@@ -51,6 +51,8 @@ struct CoverageTask {
 /// 中心频率随真值流转到各通道转换函数，转换函数不再按数组下标回查脚本）。
 struct ScriptedTarget {
   std::uint32_t id{0U};                     /**< 外部目标标识（AR/ESR/EOS/SBIRS/SAR 共用） */
+  std::string type{"air"};                  /**< 实体类型（"air" 空中 / "ground" 地面；
+                                                 ground = 静止近地运动学点，可视化区分标注） */
   double azimuth_deg{0.0};                  /**< 真方位（北偏东，deg） */
   double range_m{0.0};                      /**< 斜距（m） */
   double altitude_m{0.0};                   /**< 目标高度（m；与平台巡航高度解耦） */
@@ -61,6 +63,19 @@ struct ScriptedTarget {
   double projected_area_m2{0.0};            /**< 等效投影面积（EOS/SBIRS 外观，m²） */
   double emitter_center_frequency_hz{0.0};  /**< ESR 辐射源中心频率（Hz；≤0 = 该目标不配辐射源） */
   std::vector<TargetManeuver> maneuvers{};  /**< 变速机动表（可选；start_cycle 严格递增） */
+};
+
+/// 平台描述（platform 块 / platforms[] 数组条目共用）：飞行器初始状态与
+/// 航路/区域任务。主平台（platform 块）额外挂载传感器与融合；platforms[]
+/// 数组条目为从机（纯飞行，各自航路/区域 = "不同指令"）。
+struct ScenePlatform {
+  std::string name{"platform"};             /**< 平台名（实体名 / aircraft_id 顺序） */
+  oneq::coordinate::LlaPositionDegM origin{}; /**< 机场位置（度制 LLA；必填） */
+  double initial_heading_deg{90.0};         /**< 起飞航向（deg，北偏东） */
+  double cruise_altitude_m{400.0};          /**< 巡航高度（m） */
+  double cruise_speed_mps{50.0};            /**< 巡航速度参考（m/s） */
+  std::vector<navigation::RoutePoint> waypoints{}; /**< 巡航/巡逻航路（缺省空 = 直飞） */
+  CoverageTask coverage{};                  /**< 区域巡逻任务（可选；与 waypoints 互斥） */
 };
 
 /// ESR 辐射源共享波形参数（场景文件 esr 块；中心频率在目标条目内）。
@@ -92,6 +107,11 @@ struct SceneData {
                                               coverage 块存在时为规划器输出的巡逻航路） */
   CoverageTask coverage{};                  /**< 区域巡逻任务（可选；planned=true 时
                                               waypoints 为规划结果，平台循环巡逻） */
+
+  /// 从机（platforms[] 数组，可选）：各自航路/区域任务，纯飞行（不挂传感器）。
+  /// 主平台（platform 块） + 从机共同构成多机编队；aircraft_id = 1（主）+
+  /// 2..N（按数组序）。
+  std::vector<ScenePlatform> platforms{};
 
   std::vector<ScriptedTarget> targets{};    /**< 目标脚本（四通道共享；几何字段必填） */
   EsrEmitterParams esr{};                   /**< ESR 辐射源波形参数 */

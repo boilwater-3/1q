@@ -116,6 +116,79 @@ bool ParseCoverageTask(const examples::JsonValue& coverage, double cruise_altitu
   return true;
 }
 
+/// 解析平台块（platform 块 / platforms[] 数组条目共用）：原点/起飞航向/
+/// 巡航参数 + 显式航路或区域巡逻 coverage 块（互斥）。coverage 规划成功时
+/// waypoints 为规划器输出的巡逻航路（planned=true，平台循环巡逻）；规划失败
+/// （顶点不足/间距非正/模式-区域不匹配等 → 空计划）报错退出，不允许静默
+/// 退化为直飞。
+bool ParsePlatformBlock(const examples::JsonValue& block, const std::string& block_name,
+                        ScenePlatform* platform, std::string* error) {
+  for (const char* key : {"origin_lat_deg", "origin_lon_deg"}) {
+    if (!RequireGeometry(block, block_name, key, error)) {
+      return false;
+    }
+  }
+  platform->origin.latitude_deg = block["origin_lat_deg"].AsDouble();
+  platform->origin.longitude_deg = block["origin_lon_deg"].AsDouble();
+  platform->origin.altitude_m = ReadDouble(block, "origin_alt_m", 0.0);
+  platform->initial_heading_deg =
+      ReadDouble(block, "initial_heading_deg", platform->initial_heading_deg);
+  platform->cruise_altitude_m =
+      ReadDouble(block, "cruise_altitude_m", platform->cruise_altitude_m);
+  platform->cruise_speed_mps =
+      ReadDouble(block, "cruise_speed_mps", platform->cruise_speed_mps);
+
+  const examples::JsonValue& waypoints = block["waypoints"];
+  if (!waypoints.IsNull()) {
+    if (waypoints.type() != examples::JsonValue::kArray) {
+      *error = "\"" + block_name + ".waypoints\" must be an array";
+      return false;
+    }
+    for (std::size_t i = 0U; i < waypoints.Size(); ++i) {
+      const examples::JsonValue& wp = waypoints[i];
+      if (wp["lat_deg"].IsNull() || wp["lon_deg"].IsNull()) {
+        *error = block_name + " waypoint[" + std::to_string(i) + "] missing lat_deg/lon_deg";
+        return false;
+      }
+      navigation::RoutePoint point;
+      point.position.latitude_deg = wp["lat_deg"].AsDouble();
+      point.position.longitude_deg = wp["lon_deg"].AsDouble();
+      point.position.altitude_m = ReadDouble(wp, "alt_m", platform->cruise_altitude_m);
+      point.speed_mps = ReadDouble(wp, "speed_mps", platform->cruise_speed_mps);
+      point.radius_m = ReadDouble(wp, "radius_m", 500.0);
+      platform->waypoints.push_back(point);
+    }
+  }
+
+  // 区域巡逻块（可选）：与显式航路互斥（航路来源歧义直接报错）。
+  const examples::JsonValue& coverage = block["coverage"];
+  if (!coverage.IsNull()) {
+    if (coverage.type() != examples::JsonValue::kObject) {
+      *error = "\"" + block_name + ".coverage\" must be an object";
+      return false;
+    }
+    if (!waypoints.IsNull()) {
+      *error = "\"" + block_name + ".waypoints\" and \"coverage\" are mutually exclusive "
+               "(explicit waypoints vs planned patrol route)";
+      return false;
+    }
+    if (!ParseCoverageTask(coverage, platform->cruise_altitude_m, platform->cruise_speed_mps,
+                           &platform->coverage, error)) {
+      return false;
+    }
+    navigation::AreaCoveragePlanner planner;
+    platform->waypoints = planner.Plan(platform->coverage.area, platform->coverage.config);
+    if (platform->waypoints.empty()) {
+      *error = "\"" + block_name + ".coverage\" planning failed: invalid region or "
+               "mode-kind mismatch (need >= 3 vertices / positive scan_spacing_m / "
+               "positive radius_m)";
+      return false;
+    }
+    platform->coverage.planned = true;
+  }
+  return true;
+}
+
 }  // namespace
 
 bool LoadSceneData(const char* path, SceneData* scene, std::string* error) {
@@ -147,73 +220,50 @@ bool LoadSceneData(const char* path, SceneData* scene, std::string* error) {
   }
   out.dt_sec = ReadDouble(root, "dt_sec", out.dt_sec);
 
-  // 平台块（必填）：原点/起飞航向/巡航参数 + 可选航路。
+  // 主平台块（必填）：原点/起飞航向/巡航参数 + 可选航路/区域巡逻。
   const examples::JsonValue& platform = root["platform"];
   if (platform.IsNull() || platform.type() != examples::JsonValue::kObject) {
     *error = "missing required block \"platform\"";
     return false;
   }
-  for (const char* key : {"origin_lat_deg", "origin_lon_deg"}) {
-    if (!RequireGeometry(platform, "platform", key, error)) {
-      return false;
-    }
+  ScenePlatform main_platform;
+  if (!ParsePlatformBlock(platform, "platform", &main_platform, error)) {
+    return false;
   }
-  out.platform_origin.latitude_deg = platform["origin_lat_deg"].AsDouble();
-  out.platform_origin.longitude_deg = platform["origin_lon_deg"].AsDouble();
-  out.platform_origin.altitude_m = ReadDouble(platform, "origin_alt_m", 0.0);
-  out.initial_heading_deg = ReadDouble(platform, "initial_heading_deg", out.initial_heading_deg);
-  out.cruise_altitude_m = ReadDouble(platform, "cruise_altitude_m", out.cruise_altitude_m);
-  out.cruise_speed_mps = ReadDouble(platform, "cruise_speed_mps", out.cruise_speed_mps);
+  out.platform_origin = main_platform.origin;
+  out.initial_heading_deg = main_platform.initial_heading_deg;
+  out.cruise_altitude_m = main_platform.cruise_altitude_m;
+  out.cruise_speed_mps = main_platform.cruise_speed_mps;
+  out.waypoints = std::move(main_platform.waypoints);
+  out.coverage = main_platform.coverage;
 
-  const examples::JsonValue& waypoints = platform["waypoints"];
-  if (!waypoints.IsNull()) {
-    if (waypoints.type() != examples::JsonValue::kArray) {
-      *error = "\"platform.waypoints\" must be an array";
+  // 从机（可选顶层 platforms[] 数组）：每条目同 platform 块（各自航路/区域 =
+  // "不同指令"；纯飞行，不挂传感器）。巡航参数缺省回退主平台值（同编队量级）。
+  const examples::JsonValue& platforms = root["platforms"];
+  if (!platforms.IsNull()) {
+    if (platforms.type() != examples::JsonValue::kArray) {
+      *error = "\"platforms\" must be an array";
       return false;
     }
-    for (std::size_t i = 0U; i < waypoints.Size(); ++i) {
-      const examples::JsonValue& wp = waypoints[i];
-      if (wp["lat_deg"].IsNull() || wp["lon_deg"].IsNull()) {
-        *error = "waypoint[" + std::to_string(i) + "] missing lat_deg/lon_deg";
+    for (std::size_t i = 0U; i < platforms.Size(); ++i) {
+      const examples::JsonValue& entry = platforms[i];
+      const std::string block_name = "platforms[" + std::to_string(i) + "]";
+      if (entry.IsNull() || entry.type() != examples::JsonValue::kObject) {
+        *error = "\"" + block_name + "\" must be an object";
         return false;
       }
-      navigation::RoutePoint point;
-      point.position.latitude_deg = wp["lat_deg"].AsDouble();
-      point.position.longitude_deg = wp["lon_deg"].AsDouble();
-      point.position.altitude_m = ReadDouble(wp, "alt_m", out.cruise_altitude_m);
-      point.speed_mps = ReadDouble(wp, "speed_mps", out.cruise_speed_mps);
-      point.radius_m = ReadDouble(wp, "radius_m", 500.0);
-      out.waypoints.push_back(point);
+      ScenePlatform wing;
+      wing.name = "wingman_" + std::to_string(i + 1U);  // 缺省名（可被 name 覆盖）
+      if (entry["name"].IsString()) {
+        wing.name = entry["name"].AsString();
+      }
+      wing.cruise_altitude_m = out.cruise_altitude_m;
+      wing.cruise_speed_mps = out.cruise_speed_mps;
+      if (!ParsePlatformBlock(entry, block_name, &wing, error)) {
+        return false;
+      }
+      out.platforms.push_back(std::move(wing));
     }
-  }
-
-  // 区域巡逻块（可选顶层块）：与显式航路互斥（航路来源歧义直接报错）。
-  // 规划成功时 waypoints 为规划器输出的巡逻航路（planned=true，平台循环巡逻）；
-  // 规划失败（顶点不足/间距非正/模式-区域不匹配等 → 空计划）报错退出，
-  // 不允许静默退化为直飞。
-  const examples::JsonValue& coverage = root["coverage"];
-  if (!coverage.IsNull()) {
-    if (coverage.type() != examples::JsonValue::kObject) {
-      *error = "\"coverage\" must be an object";
-      return false;
-    }
-    if (!waypoints.IsNull()) {
-      *error = "\"platform.waypoints\" and \"coverage\" are mutually exclusive "
-               "(explicit waypoints vs planned patrol route)";
-      return false;
-    }
-    if (!ParseCoverageTask(coverage, out.cruise_altitude_m, out.cruise_speed_mps,
-                           &out.coverage, error)) {
-      return false;
-    }
-    navigation::AreaCoveragePlanner planner;
-    out.waypoints = planner.Plan(out.coverage.area, out.coverage.config);
-    if (out.waypoints.empty()) {
-      *error = "\"coverage\" planning failed: invalid region or mode-kind mismatch "
-               "(need >= 3 vertices / positive scan_spacing_m / positive radius_m)";
-      return false;
-    }
-    out.coverage.planned = true;
   }
 
   // 目标块（必填数组；可为空 = "无目标"场景，冒烟下限由 smoke 块置 0）。
@@ -231,6 +281,15 @@ bool LoadSceneData(const char* path, SceneData* scene, std::string* error) {
     }
     ScriptedTarget target;
     target.id = static_cast<std::uint32_t>(t["id"].AsInt());
+    // 实体类型（可选）："air"（缺省）/"ground"（地面目标 = 静止近地运动学点）。
+    if (t["type"].IsString()) {
+      const std::string type = t["type"].AsString();
+      if (type != "air" && type != "ground") {
+        *error = "targets[" + std::to_string(i) + "].type must be \"air\" or \"ground\"";
+        return false;
+      }
+      target.type = type;
+    }
     target.azimuth_deg = t["azimuth_deg"].AsDouble();
     target.range_m = t["range_m"].AsDouble();
     target.altitude_m = t["altitude_m"].AsDouble();

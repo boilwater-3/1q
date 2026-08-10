@@ -29,6 +29,7 @@ namespace demo {
 /// 随真值流转，转换函数不再按数组下标回查脚本）。
 struct TargetEcefState {
   std::uint32_t id{0U};               /**< 外部目标标识 */
+  std::string type{"air"};            /**< 实体类型（air / ground；可视化落盘用） */
   oneq::coordinate::EcefPositionM position{};  /**< ECEF 位置 */
   oneq::coordinate::EcefVelocityMps velocity{}; /**< ECEF 速度 */
   float rcs{0.0f};                    /**< 雷达截面积（m²） */

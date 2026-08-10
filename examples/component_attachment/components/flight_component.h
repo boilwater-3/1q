@@ -81,6 +81,9 @@ class FlightComponent : public Component {
   std::size_t next_waypoint_index() const { return next_index_; }
   /** @brief 航路（只读）。 */
   const std::vector<navigation::RoutePoint>& route() const { return route_; }
+  /** @brief FD 真实飞行是否激活（true = JSBSim 推进；false = 运动学回退，
+   *          可视化 model 列区分用）。 */
+  bool fd_active() const { return fd_ != nullptr; }
 
   /**
    * @brief 运行时机动指令入口：FD 可用时转发 FlightManager::PushManeuver

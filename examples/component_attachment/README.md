@@ -312,13 +312,22 @@ ESR 波形、天基平台、EOS 扫描、SAR 任务几何/链路、融合配置�
 全部到达、EOS 探测记录 ~177 次。事件目标 ID 为外部原始目标标识（1001/1002），
 无外部标识时回退 AR 内部关联键。
 
-### 区域巡逻（coverage 块）
+### 区域巡逻（coverage）
 
-场景可选 `coverage` 块声明巡逻区域与规划参数，加载时经
+场景 `platform` 块可选 `coverage` 字段声明巡逻区域与规划参数，加载时经
 `navigation::AreaCoveragePlanner`（多边形牛耕式扫描 / 圆形盘旋，独立中立算法面）
 生成巡逻航路，平台沿航路**循环巡逻**。`coverage` 与显式 `platform.waypoints`
 互斥（航路来源歧义报错）；规划失败（几何非法/模式-区域不匹配）报错退出，
 不允许静默退化为直飞。
+
+### 多机编队（platforms[]）
+
+场景可选顶层 `platforms[]` 数组声明**从机**（多机编队）：每条目同 `platform`
+块字段（原点/航向/巡航 + `waypoints` 或 `coverage` 区域任务），另加可选
+`name`（实体名，缺省 `wingman_<N>`）。主平台（`platform` 块）挂载五传感器
+与融合（感知资产）；从机**纯飞行**（只挂 FlightComponent），各自航路/区域
+任务 = "不同指令"。飞行器编号（aircraft_id） = 1（主）+ 2..N（按数组序），
+落盘到共享可视化契约（platform_track/route_plan 的 aircraft_id 列）。
 
 **循环巡逻的执行语义（按 flight_dynamic 权威语义实现）**：
 
@@ -398,9 +407,10 @@ lon 120.0~120.02（约 1.93 km 东西），扫描航向 0（线沿东西）、�
 | 块 | 必填 | 字段（缺省值） |
 | --- | --- | --- |
 | `name` / `cycles` / `dt_sec` | 否 | 场景名 / 周期数（400）/ 步长 s（1.0） |
-| `platform` | **是** | `origin_lat_deg`/`origin_lon_deg`（**必填**）、`origin_alt_m`（0）、`initial_heading_deg`（90）、`cruise_altitude_m`（400）、`cruise_speed_mps`（50）、`waypoints[]`（lat/lon 必填，alt/speed 缺省回退巡航参数、radius 500；**与 `coverage` 块互斥**） |
-| `coverage` | 否 | 区域巡逻任务：`kind`（polygon/circle）、`mode`（scan/orbit，须与 kind 匹配）、polygon `vertices[]`（lat/lon 必填）或 circle `center` + `radius_m`、`scan_heading_deg`（0 = 扫描线沿正东）、`scan_spacing_m`（须 > 0）、`altitude_m`/`speed_mps`（缺省回退巡航参数）、`arrival_radius_m`（500）、`orbit_segments`（8）/`orbit_rings`（1）。加载时经 `navigation::AreaCoveragePlanner` 生成巡逻航路（填入 `waypoints`），平台**循环巡逻**（航路飞完回绕首航点）；规划失败（顶点 < 3/间距非正/模式-区域不匹配等）报错退出 |
-| `targets[]` | **是**（可为空 = 无目标场景） | `id`/`azimuth_deg`/`range_m`/`altitude_m`/`rcs_m2`（**必填**）、`v_east_mps`/`v_north_mps`（0）、`temperature_k`（0）、`projected_area_m2`（0）、`emitter_center_frequency_hz`（0 = 不配辐射源）、`maneuvers[]`（可选变速机动表：`start_cycle` 必填且严格递增，`v_east_mps`/`v_north_mps` 缺省 0——**绝对速度分段匀速**，未指定分量 = 0，须写全） |
+| `platform` | **是** | `origin_lat_deg`/`origin_lon_deg`（**必填**）、`origin_alt_m`（0）、`initial_heading_deg`（90）、`cruise_altitude_m`（400）、`cruise_speed_mps`（50）、`waypoints[]`（lat/lon 必填，alt/speed 缺省回退巡航参数、radius 500；**与块内 `coverage` 互斥**）、`coverage`（可选区域巡逻任务，字段见下） |
+| `platforms[]` | 否 | 从机数组（多机编队，纯飞行不挂传感器）：每条目同 `platform` 块字段 + `name`（缺省 `wingman_<N>`）；巡航参数缺省回退主平台值 |
+| `coverage`（platform/platforms[] 条目内） | 否 | 区域巡逻任务：`kind`（polygon/circle）、`mode`（scan/orbit，须与 kind 匹配）、polygon `vertices[]`（lat/lon 必填）或 circle `center` + `radius_m`、`scan_heading_deg`（0 = 扫描线沿正东）、`scan_spacing_m`（须 > 0）、`altitude_m`/`speed_mps`（缺省回退巡航参数）、`arrival_radius_m`（500）、`orbit_segments`（8）/`orbit_rings`（1）。加载时经 `navigation::AreaCoveragePlanner` 生成巡逻航路（填入该平台的 `waypoints`），**循环巡逻**（航路飞完回绕首航点）；规划失败（顶点 < 3/间距非正/模式-区域不匹配等）报错退出 |
+| `targets[]` | **是**（可为空 = 无目标场景） | `id`/`azimuth_deg`/`range_m`/`altitude_m`/`rcs_m2`（**必填**）、`type`（`air`/`ground`，缺省 air；ground = 地面目标，静止近地运动学点，可视化以不同线型标注）、`v_east_mps`/`v_north_mps`（0）、`temperature_k`（0）、`projected_area_m2`（0）、`emitter_center_frequency_hz`（0 = 不配辐射源）、`maneuvers[]`（可选变速机动表：`start_cycle` 必填且严格递增，`v_east_mps`/`v_north_mps` 缺省 0——**绝对速度分段匀速**，未指定分量 = 0，须写全） |
 | `esr` | 否 | 辐射源波形：`peak_gain_dbi`（30）、`bandwidth_hz`（2e6）、`peak_power_w`（5e7）、`pulse_width_s`（1e-6）、`pri_s`（1e-3）、`pulse_count`（200）、`timing_seed`（42） |
 | `sbirs_satellite` | 否 | `altitude_m`（500000，凝视目标群质心正上方） |
 | `eos_scan` | 否 | EOS 业务覆写：`frame_rate_hz`（10）、`scan_rate_deg_per_sec`（20）、`scan_start_az_deg`（50）、`scan_end_az_deg`（130）、`scan_center_el_deg`（0）、`boresight_depression_deg`（0） |

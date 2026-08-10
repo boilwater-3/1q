@@ -1342,6 +1342,18 @@ EXPECTED_HEADERS = {
     "zones.csv": "name,kind,lat_deg,lon_deg,alt_m,radius_m",
 }
 
+# 可选文件：缺省时查看器自动跳过对应图层。传感器/融合/航点事件为
+# behavior_layer 独有；zones 仅巡逻场景产出；component_attachment 只落盘
+# platform_track/target_truth/route_plan（+ 可选 zones）。
+OPTIONAL_FILES = {
+    "ar_tracks.csv",
+    "eos_detections.csv",
+    "esr_hypotheses.csv",
+    "fused_tracks.csv",
+    "waypoint_events.csv",
+    "zones.csv",
+}
+
 
 def validate_data(data_dir):
     """回归校验（--check 模式，供 ctest 调用）：CSV 结构 + 统一 ENU 原点不变量。
@@ -1356,8 +1368,8 @@ def validate_data(data_dir):
         path = data_dir.rstrip("/") + "/" + name
         rows = load_csv(path)
         if rows is None:
-            if name == "zones.csv":
-                continue  # zones 可选（无区域场景缺省）
+            if name in OPTIONAL_FILES:
+                continue  # 可选文件：查看器跳过对应图层
             problems.append("%s 缺失" % name)
             continue
         # 表头取文件首行（header-only 文件无数据行，如 FD OFF 时 waypoint_events）。
