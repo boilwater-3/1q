@@ -282,6 +282,7 @@ table ArIssue {
   location_kind:int32 = 0;
   entity_index:int64 = -1;
   field:string;
+  cause:         int32;
 }
 table AssociationQualityMetricsV3 {
   prior_track_count:ulong;

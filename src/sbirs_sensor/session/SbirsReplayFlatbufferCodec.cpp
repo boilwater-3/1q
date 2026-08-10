@@ -381,7 +381,7 @@ std::string EncodeSbirsCycleResult(const SbirsCycleResult& value) {
         fbb, static_cast<std::int32_t>(issue.severity), static_cast<std::int32_t>(issue.phase),
         fbb.CreateString(issue.code), fbb.CreateString(issue.message),
         static_cast<std::int32_t>(issue.location.kind), entity_index,
-        fbb.CreateString(issue.field)));
+        fbb.CreateString(issue.field), static_cast<std::int32_t>(issue.cause)));
   }
 
   fbb.Finish(sbirs::replay::CreateSbirsCycleResult(
@@ -458,6 +458,7 @@ bool DecodeSbirsCycleResult(const std::string& bytes, SbirsCycleResult* out) {
                                        ? std::numeric_limits<std::size_t>::max()
                                        : static_cast<std::size_t>(issue->entity_index());
       item.field = issue->field() ? issue->field()->str() : std::string();
+      item.cause = static_cast<SbirsIssueCause>(issue->cause());
       decoded.issues.push_back(item);
     }
   }

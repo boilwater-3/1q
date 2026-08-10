@@ -166,6 +166,7 @@ table EsrIssue {
   location_kind: int32 = 0;
   entity_index:  int64 = -1;
   field:         string;
+  cause:         int32;
 }
 
 table EsrCycleResult {

@@ -162,6 +162,7 @@ TEST(SarReplayCodecRoundtripTest, CycleResultPreservesOutputAndDiagnostics) {
   issue.location.kind = oneq::foundation::ValidationLocationKind::kPlatform;
   issue.location.entity_index = static_cast<std::size_t>(-1);
   issue.field = "platform";
+  issue.cause = SarIssueCause::kUnknown;
   result.issues.push_back(issue);
   result.raw_phase_history.source = SarRawPhaseHistorySource::kExternalRawIq;
   result.raw_phase_history.pulse_count = 2U;
@@ -206,6 +207,7 @@ TEST(SarReplayCodecRoundtripTest, CycleResultPreservesOutputAndDiagnostics) {
             oneq::foundation::ValidationLocationKind::kPlatform);
   EXPECT_EQ(decoded.issues[0].location.entity_index, static_cast<std::size_t>(-1));
   EXPECT_EQ(decoded.issues[0].field, "platform");
+  EXPECT_EQ(decoded.issues[0].cause, SarIssueCause::kUnknown);
   EXPECT_EQ(decoded.status, SarCycleStatus::kCompleted);
   EXPECT_EQ(decoded.raw_phase_history.source, SarRawPhaseHistorySource::kExternalRawIq);
   EXPECT_EQ(decoded.raw_phase_history.pulse_count, 2U);

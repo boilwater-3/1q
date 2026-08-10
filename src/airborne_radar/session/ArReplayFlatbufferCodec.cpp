@@ -317,6 +317,11 @@ bool IsValidIssuePhase(std::int32_t value) {
          value <= static_cast<std::int32_t>(session::ArIssuePhase::kOutputContract);
 }
 
+bool IsValidIssueCause(std::int32_t value) {
+  return value >= static_cast<std::int32_t>(session::ArIssueCause::kNone) &&
+         value <= static_cast<std::int32_t>(session::ArIssueCause::kUnknown);
+}
+
 bool TryDecodeArInterferenceObservation(const fb::ArInterferenceObservation* value,
                                         session::ArInterferenceObservation* observation) {
   if (value == nullptr || observation == nullptr ||
@@ -1358,7 +1363,8 @@ flatbuffers::Offset<fb::ArCycleResultV3> EncodeCycleResultV3(
         *builder, static_cast<std::int32_t>(issue.severity),
         static_cast<std::int32_t>(issue.phase), builder->CreateString(issue.code),
         builder->CreateString(issue.message), static_cast<std::int32_t>(issue.location.kind),
-        static_cast<std::int64_t>(encoded_entity_index), builder->CreateString(issue.field)));
+        static_cast<std::int64_t>(encoded_entity_index), builder->CreateString(issue.field),
+        static_cast<std::int32_t>(issue.cause)));
   }
   // 向量创建前置：CreateVector 必须在 CreateArCycleResultV3 打开之前。
   const auto observations_fb = builder->CreateVector(observations);
@@ -1457,6 +1463,10 @@ bool TryDecodeCycleResultV3(const fb::ArCycleResultV3* value, ArCycleResult* res
       if (encoded->field() != nullptr) {
         issue.field = encoded->field()->str();
       }
+      if (!IsValidIssueCause(encoded->cause())) {
+        return false;
+      }
+      issue.cause = static_cast<ArIssueCause>(encoded->cause());
       candidate.issues.push_back(std::move(issue));
     }
   }

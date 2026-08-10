@@ -193,6 +193,7 @@ TEST(EosReplayCodecRoundtripTest, CycleResultPreservesAllFields) {
   validation_issue.location.kind = oneq::foundation::ValidationLocationKind::kPlatform;
   validation_issue.location.entity_index = static_cast<std::size_t>(-1);
   validation_issue.field = "dt_sec";
+  validation_issue.cause = session::EosIssueCause::kAzOutside;
   result.issues.push_back(validation_issue);
 
   session::EosIssue execution_issue;
@@ -231,6 +232,7 @@ TEST(EosReplayCodecRoundtripTest, CycleResultPreservesAllFields) {
             oneq::foundation::ValidationLocationKind::kPlatform);
   EXPECT_EQ(decoded.issues[0].location.entity_index, static_cast<std::size_t>(-1));
   EXPECT_EQ(decoded.issues[0].field, "dt_sec");
+  EXPECT_EQ(decoded.issues[0].cause, session::EosIssueCause::kAzOutside);
   EXPECT_EQ(decoded.issues[1].phase, session::EosIssuePhase::kExecution);
   EXPECT_EQ(decoded.issues[1].code, "eos.target_out_of_fov");
   EXPECT_EQ(decoded.status, EosCycleStatus::kCompleted);

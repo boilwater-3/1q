@@ -220,6 +220,7 @@ TEST(SbirsReplayCodecRoundtripTest, CycleResultPreservesOutputAndAttributionFiel
   scene_issue.location.entity_index = 1U;
   scene_issue.field = "scene";
   scene_issue.message = "warn";
+  scene_issue.cause = SbirsIssueCause::kBothAxesOutside;
   result.issues.push_back(scene_issue);
 
   // kGlobal location（entity_index 哨兵值 size_t::max ↔ int64 -1）
@@ -231,6 +232,7 @@ TEST(SbirsReplayCodecRoundtripTest, CycleResultPreservesOutputAndAttributionFiel
   global_issue.location.entity_index = std::numeric_limits<std::size_t>::max();
   global_issue.field = "dt_sec";
   global_issue.message = "global";
+  global_issue.cause = SbirsIssueCause::kDistanceLimited;
   result.issues.push_back(global_issue);
 
   const std::string bytes = EncodeSbirsCycleResult(result);
@@ -264,10 +266,12 @@ TEST(SbirsReplayCodecRoundtripTest, CycleResultPreservesOutputAndAttributionFiel
   EXPECT_EQ(decoded.issues[0].code, "sbirs.validation.invalid_target_physical");
   EXPECT_EQ(decoded.issues[0].field, "scene");
   EXPECT_EQ(decoded.issues[0].location.entity_index, 1U);
+  EXPECT_EQ(decoded.issues[0].cause, SbirsIssueCause::kBothAxesOutside);
   // 哨兵值经 size_t::max → int64(-1) → size_t::max 的往返
   EXPECT_EQ(decoded.issues[1].location.kind, oneq::foundation::ValidationLocationKind::kGlobal);
   EXPECT_EQ(decoded.issues[1].location.entity_index,
             std::numeric_limits<std::size_t>::max());
+  EXPECT_EQ(decoded.issues[1].cause, SbirsIssueCause::kDistanceLimited);
 }
 
 TEST(SbirsReplayCodecRoundtripTest, CycleResultPreservesPoweredOffAbortReason) {

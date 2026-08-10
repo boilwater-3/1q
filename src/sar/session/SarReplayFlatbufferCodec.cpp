@@ -357,7 +357,8 @@ std::string EncodeSarCycleResult(const SarCycleResult& value) {
         fbb, static_cast<std::int32_t>(issue.severity), static_cast<std::int32_t>(issue.phase),
         fbb.CreateString(issue.code), fbb.CreateString(issue.message),
         static_cast<std::int32_t>(issue.location.kind),
-        static_cast<std::int64_t>(encoded_entity_index), fbb.CreateString(issue.field)));
+        static_cast<std::int64_t>(encoded_entity_index), fbb.CreateString(issue.field),
+        static_cast<std::int32_t>(issue.cause)));
   }
   const auto raw_phase_history = replay::CreateSarRawPhaseHistory(
       fbb, static_cast<std::int32_t>(value.raw_phase_history.source),
@@ -458,6 +459,7 @@ bool DecodeSarCycleResult(const std::string& bytes, SarCycleResult* out) {
       if (issue->field()) {
         decoded_issue.field = issue->field()->str();
       }
+      decoded_issue.cause = static_cast<SarIssueCause>(issue->cause());
       decoded.issues.push_back(std::move(decoded_issue));
     }
   }

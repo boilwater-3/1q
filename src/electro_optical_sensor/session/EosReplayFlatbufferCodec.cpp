@@ -213,7 +213,7 @@ std::string EncodeEosCycleResult(const ::electro_optical_sensor::session::EosCyc
     issue_vec.push_back(eos::replay::CreateEosIssue(
         fbb, static_cast<int32_t>(i.severity), static_cast<int32_t>(i.phase), code_str, msg,
         static_cast<int32_t>(i.location.kind), static_cast<int64_t>(encoded_entity_index),
-        field_str));
+        field_str, static_cast<int32_t>(i.cause)));
   }
 
   // 向量创建前置：CreateVector 必须在 CreateEosCycleResult 打开之前。
@@ -286,6 +286,7 @@ bool DecodeEosCycleResult(const std::string& bytes,
       if (i->field()) {
         iss.field = i->field()->str();
       }
+      iss.cause = static_cast<session::EosIssueCause>(i->cause());
       out->issues.push_back(iss);
     }
   }
