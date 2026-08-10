@@ -168,6 +168,15 @@ AR/ESR/EOS/SBIRS/SAR 五模块的电源状态必须遵守单源原则：
        - **message 稳定性**：message 为人类可读文本，内容与格式**不承诺解析稳定性**——
          机器消费只认 code；量值（如 `range_m`/`snr`/方位角）如需程序化消费，应另行定义
          结构化字段，不得解析 message。
+       - **门内归因（cause 字段）**：聚合门排除时必须携带机器可读主因——`cause` 结构化字段
+         （各模块 `<Module>IssueCause` 枚举，默认 `kNone`），标识导致门失败的物理链路主因。
+         "聚合门"指单一门限折入多种物理因素（如 AR 的 SNR 检测门：距离/方向图偏轴/噪声底/
+         RCS 全部折入 `snr < min_snr_db`）；主因 = 对该项取理想值后门余量增益最大者（如
+         `ArIssueCause::kDistanceLimited`）。具体门（遮挡/距离带/视场外等本身可定位的门）
+         不强制细分，`cause` 保持 `kNone`，关键量值进 message 或结构化字段。
+         `cause` 不替代 `code`（code 仍是唯一机器键，规则 13b message 稳定性），不改变状态
+         语义（规则 13c）。本条目为**所有模块共同约束**：五模块 `*Issue` 结构同构携带该字段，
+         SAR 无排除诊断（13b 空洞条款），恒 `kNone`（见 `docs/sar/boundaries.md`）。
     c. **状态语义边界**：kInfo 排除诊断不得改变 `*CycleStatus`、生命周期事件或 DebugView 状态
        语义（如 `kNotInOutput`）；排除原因只经 diagnostics 承载，不新增状态位。
     d. **适用范围边界（例外）**：13b 的"门控排除"仅指视场/SNR/距离/遮挡等**门限判定**；
@@ -196,6 +205,9 @@ AR/ESR/EOS/SBIRS/SAR 五模块的电源状态必须遵守单源原则：
     d. `message`：人读文本，内容与格式不承诺解析稳定性（规则 13b）。
     e. `location` / `field`（可选定位）：`location.kind == kGlobal` 或 `field` 为空表示无定位；
        定位只服务人读与 replay 保真，不用于状态判断。
+    f. `cause`（可选归因）：各模块 `<Module>IssueCause` 枚举，默认 `kNone`；仅排除诊断
+       （规则 13b 门内归因条款）使用，标识聚合门失败的主因物理链路；`cause` 不用于状态判断，
+       不替代 `code`（机器键仍只认 code）。
     输入校验入口（`Validate*CycleInput`）返回同一问题条目列表（`phase = kInputValidation`）；
     `HasValidationError` 按 `phase == kInputValidation && severity == kError` 判定。
     **周期输入校验层归属与 issues 流向（COMMON-OQ-9 收敛，2026-08）**：
