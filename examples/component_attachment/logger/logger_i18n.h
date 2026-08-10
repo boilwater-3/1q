@@ -1,12 +1,13 @@
 /**
  * @file logger_i18n.h
- * @brief 集成端日志中文适配：issue code → 中文名 + 问题列表格式化（纯查表，零依赖）。
+ * @brief 集成端日志中文适配：issue code → 中文名 + 问题列表格式化（查表）。
  *
  * 库内 issue message 为英文人读文本且格式不承诺稳定（规则 13b：机器消费只认
  * code，不得解析 message）——因此示例层不做 message 翻译/解析，只把**稳定
  * code** 映射为中文名；量值一律从 DebugView 结构化字段取（组件组摘要行时
- * 填充）。未知 code 返回英文 message 原文，库内 code 集合演进时适配表无需
- * 同步维护。
+ * 填充）。code 直接引用库注册表常量（各模块 <Module>IssueCodes.h，单一事实
+ * 来源），杜绝手抄字符串漂移；未知 code 返回英文 message 原文，库内新增
+ * code 自动回退英文 message。
  */
 
 #ifndef EXAMPLES_COMPONENT_ATTACHMENT_LOGGER_LOGGER_I18N_H_
@@ -14,6 +15,11 @@
 
 #include <string>
 #include <vector>
+
+#include "1q/airborne_radar/session/ArIssueCodes.h"
+#include "1q/electro_optical_sensor/session/EosIssueCodes.h"
+#include "1q/sar/session/SarIssueCodes.h"
+#include "1q/sbirs_sensor/session/SbirsIssueCodes.h"
 
 namespace component_attachment {
 namespace demo {
@@ -24,15 +30,16 @@ inline const char* IssueCodeChineseName(const std::string& code) {
     const char* code;
     const char* name;
   };
-  // 只收录实测/已知稳定 code；库内新增 code 自动回退英文 message。
+  // 只收录实测/已知稳定 code（引用库注册表常量）；库内新增 code 自动回退英文 message。
   static const Entry kNames[] = {
-      {"eos.target_out_of_fov", "视场外"},
-      {"eos.validation.inconsistent_target_energy_balance", "目标能量平衡校验"},
-      {"sbirs.target_out_of_wfov", "宽视场外"},
-      {"sar.squint_angle_exceeds_limit", "斜视角超限"},
-      {"sar.pulse_ring_buffer", "脉冲环缓冲"},
-      {"sar.slant_range_mismatch", "斜距不匹配"},
-      {"ar.target_snr_below_threshold", "目标信噪比低于门限"},
+      {electro_optical_sensor::session::codes::kTargetOutOfFov, "视场外"},
+      {electro_optical_sensor::session::codes::kInconsistentTargetEnergyBalance,
+       "目标能量平衡校验"},
+      {sbirs_sensor::session::codes::kTargetOutOfWfov, "宽视场外"},
+      {sar::session::codes::kSquintAngleExceedsLimit, "斜视角超限"},
+      {sar::session::codes::kPulseRingBuffer, "脉冲环缓冲"},
+      {sar::session::codes::kSlantRangeMismatch, "斜距不匹配"},
+      {airborne_radar::session::codes::kTargetSnrBelowThreshold, "目标信噪比低于门限"},
   };
   for (const auto& entry : kNames) {
     if (code == entry.code) {
