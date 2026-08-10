@@ -4,7 +4,7 @@
 用法：
   python3 fd_trace_to_viz.py <fd_trace.csv> [--out <dir>] [--aircraft-id N] [--sample-sec 1.0]
 
-输入：examples/flight_dynamic 各 *_trace_csv 工具导出的逐步轨迹 CSV（WGS84
+输入：tests/unit/flight_dynamic/fd_tools 各 *_trace_csv 工具导出的逐步轨迹 CSV（WGS84
 弧度制 LLA + 米制高度；0.01 s 步进），支持三种列格式：
   - 13 列（orbit/racetrack_trace_csv）：sim_time_sec,lat_rad,lon_rad,alt_m,...,
     heading_rad,...,vtrue_mps,...

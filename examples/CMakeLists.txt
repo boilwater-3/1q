@@ -17,8 +17,3 @@ set(ONEQ_EXAMPLE_COMMON_SOURCES
 
 # 消费方集成参考示例：自定义实体-组件（组件基类 + 挂载 + Boost.Signals2 事件）。
 add_subdirectory(component_attachment)
-
-# 机动模块示例：仅在 ONEQ_ENABLE_FLIGHT_DYNAMIC 开启时纳入。
-if(ONEQ_ENABLE_FLIGHT_DYNAMIC)
-    add_subdirectory(flight_dynamic)
-endif()

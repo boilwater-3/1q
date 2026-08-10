@@ -288,7 +288,7 @@ ESR 波形、天基平台、EOS 扫描、SAR 任务几何/链路、融合配置�
 → 各通道真值"的纯转换。下述基线行为对应 `scenes/baseline_takeoff_east.json`。
 
 `FlightComponent` 的 FD 路径遵循 `FlightManager.h` `Step(dt)` @note 的集成契约
-（同款用法见 `examples/flight_dynamic/takeoff_land_csv.cpp` 示例；
+（同款用法见 `tests/unit/flight_dynamic/fd_tools/takeoff_land_csv.cpp` 开发期工具；
 **不做空中配平**——空中配平虽允许但存在不稳定问题）：
 
 - **初始条件**：机场地面（alt 0）、零速度、姿态水平、`do_trim = false`；

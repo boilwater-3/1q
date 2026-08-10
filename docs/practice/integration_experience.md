@@ -4,9 +4,11 @@ Status: active
 Last-reviewed: 2026-08-05
 Authority: examples 集成实践（component_entt EnTT 模式 + component_attachment 自定义实体-组件模式，两次三传感器 + 融合 + 飞行动力学全链集成）
 
-> **注记（2026-08-10）**：文中"两代示例"之一的 `component_entt`（EnTT 模式）已删除——
-> examples 层收敛为单一消费方集成参考角色（`component_attachment/`），验证/开发期工具
-> 迁出至 `tests/`。本文记录的是当时的集成复盘结论，作为历史经验保留。
+> **注记（2026-08-10）**：文中"两代示例"之一的 `component_entt`（EnTT 模式）已删除，
+> `examples/batch_validation/` 与 `examples/flight_dynamic/`（现
+> `tests/unit/flight_dynamic/fd_tools/`）也已迁出 examples——examples 层收敛为单一
+> 消费方集成参考角色（`component_attachment/`），验证/开发期工具归位 `tests/`。
+> 本文记录的是当时的集成复盘结论，作为历史经验保留。
 
 本文件是对"集成者视角"的库体验复盘：在两次全链示例集成中，哪些样板本应在库内
 （边界划分不清）、哪些是库内能力存在但外部不可见（文档缺失）、哪些是有意的外部

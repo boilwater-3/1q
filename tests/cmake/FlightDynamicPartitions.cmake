@@ -24,6 +24,9 @@ if(ONEQ_ENABLE_FLIGHT_DYNAMIC)
         SOURCES ${_oneq_fd_known_limit_sources}
         TIMEOUT 180
         LABELS performance known_limit)
+    # FD 开发期验证工具（逐帧轨迹 CSV 导出 + 质量分析，非 GTest，不注册
+    # ctest）：随测试构建编译，供模块开发/证据分析使用，见该目录 README.md。
+    add_subdirectory(unit/flight_dynamic/fd_tools)
     foreach(_target IN ITEMS
         ${PROJECT_NAME}_flight_dynamic_unit_tests
         ${PROJECT_NAME}_flight_dynamic_known_limit_tests)
