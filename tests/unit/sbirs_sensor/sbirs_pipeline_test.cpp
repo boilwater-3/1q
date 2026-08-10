@@ -1574,6 +1574,27 @@ TEST(SbirsPipelineTest, TargetOutsideWfovElevationWritesElOutsideCause) {
   EXPECT_EQ(issue->cause, sbirs_sensor::session::SbirsIssueCause::kElOutside);
 }
 
+TEST(SbirsPipelineTest, TargetOutsideWfovBothAxesWritesBothAxesOutsideCause) {
+  sbirs_sensor::config::SbirsSessionConfig config = PipelineConfig();
+  sbirs_sensor::pipeline::SbirsPipeline pipeline(
+      sbirs_sensor::runtime::MapSessionToInternal(config));
+  // WFOV 20°×20°：az=15° 与 el=15° 均越出半视场 10° → 双轴越界。
+  const sbirs_sensor::session::SbirsCycleInput input =
+      sbirs_sensor::session::SbirsCycleInputBuilder()
+          .WithCycleIndex(1U)
+          .WithDeltaTimeSec(1.0f)
+          .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
+          .AddTarget(HotTargetAtAngles(1U, 15.0, 15.0))
+          .Build();
+
+  const sbirs_sensor::pipeline::SbirsPipelineResult result = pipeline.RunCycle(input);
+  EXPECT_TRUE(result.detections.empty());
+  const auto* issue = FindIssue(result, "sbirs.target_out_of_wfov");
+  ASSERT_NE(issue, nullptr);
+  // 门内归因（规则 13b）：方位与俯仰均越界 → kBothAxesOutside。
+  EXPECT_EQ(issue->cause, sbirs_sensor::session::SbirsIssueCause::kBothAxesOutside);
+}
+
 TEST(SbirsPipelineTest, TargetBelowWideSnrWritesInfoExclusionDiagnostic) {
   sbirs_sensor::config::SbirsSessionConfig config = PipelineConfig();
   // WFOV SNR 门限抬到极大：视场内热目标必低于门限 → SNR 门排除。

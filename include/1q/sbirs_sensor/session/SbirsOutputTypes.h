@@ -133,7 +133,7 @@ enum class ONEQ_API SbirsIssueCause : std::uint8_t {
   kDistanceLimited,     /**< 目标距离主导 SNR 门失败 */
   kAttenuationLimited,  /**< 大气透过率/路径衰减主导 SNR 门失败 */
   kSignatureLimited,    /**< 目标签名（温度/辐射率/投影面积）主导 SNR 门失败 */
-  kNoiseLimited,        /**< 噪声底（探测器/背景）主导 SNR 门失败 */
+  kNoiseLimited,        /**< 噪声底主导 SNR 门失败（当前不产生：噪声为硬件常数，保留供未来硬件噪声建模） */
   kUnknown              /**< 无法判定主因 */
 };
 
