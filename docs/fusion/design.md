@@ -1,8 +1,8 @@
 ---
 Status: active
-Last-reviewed: 2026-08-05
+Last-reviewed: 2026-08-10
 Authority: fusion 设计权威入口
-Answers: fusion 是什么、关联键策略为何冻结为纯库内身份、设计文档怎么导航
+Answers: fusion 是什么、关联键策略为何冻结为纯库内身份键、设计文档怎么导航
 ---
 
 # Fusion 设计
@@ -13,7 +13,8 @@ Answers: fusion 是什么、关联键策略为何冻结为纯库内身份、设�
 
 心智模型：**探测 → 航迹**。每周期把一批探测记录交给 `FusionEngine::Update`，
 取回当前全部航迹的融合态势；引擎保持增量航迹状态与滑窗，算法不感知 ESR/EOS/AR
-具体类型，由业务层适配。
+具体类型。库提供官方适配器 `fusion/SensorAdapters.h`（四传感器输出 → 泛型探测
+记录，可选便利层），业务层也可自行适配。
 
 ## 关键定位
 
@@ -43,6 +44,7 @@ flowchart TB
     Detection["DetectionRecord\n泛型探测记录"]
     Config["FusionConfig\n门限 / 权重 / 滑窗"]
     Target["FusedTarget\n融合态势输出"]
+    Adapters["SensorAdapters\n四传感器输出 → 泛型记录（可选便利层）"]
   end
 
   subgraph Implementation["src/fusion"]
@@ -66,7 +68,8 @@ flowchart TB
 ```
 
 读图方式：
-1. 新调用方只依赖 `FusionEngine` 与三个公共值类型（聚合入口 `fusion.hpp`）。
+1. 新调用方只依赖 `FusionEngine` 与三个公共值类型（聚合入口 `fusion.hpp`）；
+   `SensorAdapters` 不入聚合头，需要适配时按需 include。
 2. 关联是**分层**的：身份键优先，其次空间（位置/方位），特征门限作为最终约束。
 3. 航迹状态、滑窗与合成键管理在 `src/` 内部，PIMPL 隔离，公共头不暴露 nanoflann。
 
