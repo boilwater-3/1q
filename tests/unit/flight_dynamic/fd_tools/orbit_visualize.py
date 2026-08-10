@@ -93,13 +93,14 @@ def write_kml(trace_csv, out_kml):
 
     # 轨迹坐标
     coords_track = "\n".join(
-        f"      {r['lon_rad']*180/math.pi:.8f},{r['lat_rad']*180/math.pi:.8f},{r['alt_m']:.1f}"
+        f"      {float(r['lon_rad'])*180/math.pi:.8f},"
+        f"{float(r['lat_rad'])*180/math.pi:.8f},{float(r['alt_m']):.1f}"
         for r in rows[::5])  # 每5行采样一次降低 KML 大小
 
     # 期望圆
     circle_pts = generate_circle(center_lat, center_lon, radius_m, float(rows[0]["alt_m"]))
     coords_circle = "\n".join(
-        f"      {lon*180/math.pi:.8f},{lat*180/math.pi:.8f},{rows[0]['alt_m']}"
+        f"      {lon*180/math.pi:.8f},{lat*180/math.pi:.8f},{float(rows[0]['alt_m'])}"
         for lat, lon in circle_pts)
 
     # 中心点
@@ -107,7 +108,7 @@ def write_kml(trace_csv, out_kml):
         label=f"Center (r={radius_m:.0f}m)",
         lon=center_lon * 180 / math.pi,
         lat=center_lat * 180 / math.pi,
-        alt=rows[0]["alt_m"])
+        alt=float(rows[0]["alt_m"]))
 
     placemarks = (
         TRACK_TPL.format(coords=coords_track) + "\n" +
@@ -130,7 +131,7 @@ d = pd.read_csv('{trace_csv}')
 r = d.radius_m[0]
 
 fig, ((a1, a2), (a3, a4)) = plt.subplots(2, 2, figsize=(14, 8))
-fig.suptitle('Orbit Trace: r={r:.0f}m, {len(open(trace_csv).readlines())-1} samples')
+fig.suptitle('Orbit Trace: r={{r:.0f}}m, {len(open(trace_csv).readlines())-1} samples')
 
 # 距离 vs 时间
 a1.plot(d.sim_time_sec, d.dist_m, lw=0.8)
