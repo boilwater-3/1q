@@ -5,6 +5,7 @@
 #include <limits>
 #include <utility>
 
+#include "1q/airborne_radar/session/ArIssueCodes.h"
 #include "1q/airborne_radar/session/ArTrackLifecycleRecorder.h"
 #include "1q/coordinate/attitude_transform.h"
 #include "1q/coordinate/position_transform.h"
@@ -180,15 +181,25 @@ struct ArSession::Impl {
     ArCycleResult result;
     result.input_cycle_index = input.cycle_index;
     result.abort_reason = abort_reason;
+    // 不可达兜底：日志兜底串，不构成 issue code（不进注册表）。
     const char* detail_code = "unknown";
     switch (abort_reason) {
       // 校验拒绝（kValidationRejected）不可经此路径：公共路径与发射后路径均走
       // BuildValidationErrorResult / BuildPostEmissionValidationErrorResult。
-      case session::SignalCycleAbortReason::kSensorPoweredOff: detail_code = "sensor_powered_off"; break;
-      case session::SignalCycleAbortReason::kLifecycleUnavailable: detail_code = "lifecycle_unavailable"; break;
-      case session::SignalCycleAbortReason::kInvalidEnvironmentCycle: detail_code = "invalid_environment_cycle"; break;
-      case session::SignalCycleAbortReason::kRuntimePreparationFailed: detail_code = "runtime_preparation_failed"; break;
-      default: break;
+      case session::SignalCycleAbortReason::kSensorPoweredOff:
+        detail_code = session::codes::kSensorPoweredOff;
+        break;
+      case session::SignalCycleAbortReason::kLifecycleUnavailable:
+        detail_code = session::codes::kLifecycleUnavailable;
+        break;
+      case session::SignalCycleAbortReason::kInvalidEnvironmentCycle:
+        detail_code = session::codes::kInvalidEnvironmentCycle;
+        break;
+      case session::SignalCycleAbortReason::kRuntimePreparationFailed:
+        detail_code = session::codes::kRuntimePreparationFailed;
+        break;
+      default:
+        break;
     }
     // 非校验中止路径才经 RecordAbort 写入粗粒度 abort 条目（phase=kExecution）；
     // 校验拒绝路径的 error 级诊断由校验问题本身承载（见 BuildValidationErrorResult）。
