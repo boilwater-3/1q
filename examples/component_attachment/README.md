@@ -448,7 +448,7 @@ cmake --build --preset llvm-ninja-release-local --target component_attachment_de
 
 | 文件 | 内容 | 说明 |
 | --- | --- | --- |
-| `integration_events.log` | 每行一条人读记录 | **集成端事件日志**（spdlog 命名 logger `"integration_events"`）：事件行 `[事件:type] 周期=... 时间=...s 中文详情`（10 类事件，字符串归属组件源文件，`CA_LOG_EVENT` / `CA_LOG_EVENT_DUP` 宏；事件模式二为 `[事件聚合]` 行） |
+| `integration_events.log` | 每行一条人读记录 | **集成端事件日志**（spdlog 命名 logger `"integration_events"`）：事件行 `[事件:type] 周期=... 时间=...s 中文详情`（10 类信号事件 + 纯日志事件 `patrol_loop_restart`（巡逻循环重启，无信号，KEY 模式落盘），字符串归属组件源文件，`CA_LOG_EVENT` / `CA_LOG_EVENT_DUP` 宏；事件模式二为 `[事件聚合]` 行） |
 | `integration_views.log` | 每行一条人读记录 | **集成端视图日志**（spdlog 命名 logger `"integration_views"`）：AR/EOS/SBIRS/SAR 四组件每周期调试视图行 `[视图:module] 中文摘要`（`CA_LOG_VIEW` 宏；日志给人读，落盘密度三模式由宏门控，见"事件日志与调试视图落盘"节） |
 | `1q_library.log` | 人读日志行 | **库内部日志**：库内 `PROJECT_LOG_*` 宏 → spdlog 默认 logger（时间戳 + 级别 + 消息），`InitIntegrationLog` 装配 |
 | `platform_track.csv` | cycle,t_sec,lat_deg,lon_deg,alt_m,heading_deg,speed_mps,wp_index | 平台轨迹（每周期一行；FD 模式含起飞爬升段） |
