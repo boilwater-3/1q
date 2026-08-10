@@ -6,6 +6,7 @@
 #include <cmath>
 
 #include "1q/electro_optical_sensor/config/EosSessionConfigValidation.h"
+#include "1q/electro_optical_sensor/session/EosIssueCodes.h"
 
 namespace electro_optical_sensor {
 namespace config {
@@ -41,29 +42,29 @@ session::EosIssueList ValidateEosSessionConfig(const config::EosSessionConfig& c
   };
 
   if (config.mission.horizontal_fov_deg <= 0.0f) {
-    push("eos.validation.horizontal_fov_not_positive", "mission.horizontal_fov_deg",
+    push(session::codes::kHorizontalFovNotPositive, "mission.horizontal_fov_deg",
          "Horizontal FOV must be positive.");
   }
   if (config.mission.vertical_fov_deg <= 0.0f) {
-    push("eos.validation.vertical_fov_not_positive", "mission.vertical_fov_deg",
+    push(session::codes::kVerticalFovNotPositive, "mission.vertical_fov_deg",
          "Vertical FOV must be positive.");
   }
   if (config.mission.scan_rate_deg_per_sec <= 0.0f) {
-    push("eos.validation.scan_rate_not_positive", "mission.scan_rate_deg_per_sec",
+    push(session::codes::kScanRateNotPositive, "mission.scan_rate_deg_per_sec",
          "Scan rate must be positive.");
   }
   if (config.mission.frame_rate_hz <= 0.0f) {
-    push("eos.validation.frame_rate_not_positive", "mission.frame_rate_hz",
+    push(session::codes::kFrameRateNotPositive, "mission.frame_rate_hz",
          "Frame rate must be positive.");
   }
   if (config.mission.scan_start_az_deg >= config.mission.scan_end_az_deg) {
-    push("eos.validation.scan_range_az_swapped", "mission.scan_start_az_deg / scan_end_az_deg",
+    push(session::codes::kScanRangeAzSwapped, "mission.scan_start_az_deg / scan_end_az_deg",
          "Scan start azimuth must be less than end azimuth.");
   }
 
   const EosEnvironmentScenarioConfig& environment = config.environment.scenario_config;
   if (!IsValidEnvironmentPreset(environment.preset)) {
-    push("eos.validation.environment_preset_invalid",
+    push(session::codes::kEnvironmentPresetInvalid,
          "environment.scenario_config.preset", "Environment preset is invalid.");
   }
   const EosAtmosphericPhysicsConfig& atmosphere = environment.atmospheric_physics;
@@ -72,7 +73,7 @@ session::EosIssueList ValidateEosSessionConfig(const config::EosSessionConfig& c
        !std::isfinite(atmosphere.temperature_k) || atmosphere.temperature_k <= 0.0f ||
        !std::isfinite(atmosphere.relative_humidity) || atmosphere.relative_humidity < 0.0f ||
        atmosphere.relative_humidity > 1.0f)) {
-    push("eos.validation.atmospheric_physics_invalid",
+    push(session::codes::kAtmosphericPhysicsInvalid,
          "environment.scenario_config.atmospheric_physics",
          "Enabled atmospheric physics values are invalid.");
   }

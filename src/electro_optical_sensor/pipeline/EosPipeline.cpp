@@ -7,6 +7,7 @@
 
 #include "common/logging/ProjectLog.h"
 #include "common/numerics/ClampUtils.h"
+#include "1q/electro_optical_sensor/session/EosIssueCodes.h"
 #include "electro_optical_sensor/environment/EosEnvironmentModel.h"
 #include "electro_optical_sensor/foundation/EosNoiseModel.h"
 #include "electro_optical_sensor/foundation/EosOpticalCharacteristics.h"
@@ -71,7 +72,7 @@ float ResolvePlatformAltitudeM(const ::electro_optical_sensor::session::EosCycle
 }
 
 // 规则 13b：正常执行周期按目标门控排除的 kInfo 诊断码（不属于三写，仅承载排查信息）。
-constexpr char kExclusionOutOfFovCode[] = "eos.target_out_of_fov";
+// code 引用 EosIssueCodes.h 注册表常量（"eos.target_out_of_fov"）。
 
 /// 构造 kInfo 级按目标排除诊断（不属于三写，仅承载排查信息；规则 13b）。
 session::EosIssue MakeExclusionIssue(const char* code, const std::string& message) {
@@ -443,7 +444,7 @@ extension::EosPipelineExecuteResult EosPipeline::RunCycle(
     if (!IsTargetInCurrentFov(target)) {
       // 规则 13b：视场外目标排除 → kInfo 诊断（不属于三写，仅承载排查信息）。
       result.issues.push_back(MakeExclusionIssue(
-          kExclusionOutOfFovCode,
+          session::codes::kTargetOutOfFov,
           "target_id=" + std::to_string(target.target_id) + "; az/el (" +
               FormatFloat(target.azimuth_deg) + "," + FormatFloat(target.elevation_deg) +
               ") outside scan center (" + FormatFloat(current_scan_azimuth_deg_) + "," +
