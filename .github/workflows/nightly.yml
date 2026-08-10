@@ -109,7 +109,8 @@ jobs:
         run: bash scripts/bootstrap_conan.sh llvm-ninja-debug
 
       - name: Configure (with flight_dynamic)
-        # ENABLE_EXAMPLES=ON：行为层 FD 路径（flight_system）获得编译与冒烟覆盖。
+        # ENABLE_EXAMPLES=ON：component_attachment 的 FD 路径（FlightComponent）
+        # 获得编译与冒烟覆盖。
         run: cmake --preset llvm-ninja-debug -D ONEQ_ENABLE_FLIGHT_DYNAMIC=ON -D ENABLE_EXAMPLES=ON
 
       - name: Build

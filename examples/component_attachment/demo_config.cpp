@@ -60,7 +60,7 @@ void ApplySceneOverrides(const SceneData& scene, ComponentAttachmentConfigs* con
   if (configs == nullptr) {
     return;
   }
-  // 跨会话时间对齐与视场适配（业务层调参，与 component_entt 同源；数据源
+  // 跨会话时间对齐与视场适配（业务层调参；数据源
   // 为场景文件 eos_scan 块）：
   // - EOS 周期校验要求 dt ≤ 10/frame_rate_hz（帧率 30 → 上限 0.33 s），
   //   演示按 1 s/周期推进 → 帧率覆写为 10 Hz；

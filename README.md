@@ -50,22 +50,18 @@ ctest --preset llvm-ninja-debug-local --output-on-failure
 
 ## 示例
 
-`examples/` 下的示例形态（三域 per-domain 示例已于 2026-08-05 删除，功能并入行为层；
-SAR per-domain 示例已于 2026-08-10 删除，SAR 集成由 component_attachment 的
-SarSensorComponent + 场景验证工作流覆盖）：
+`examples/` 是**消费方集成参考**（怎么写一个接库的程序，只使用 `include/` 公开接口）：
 
-- `examples/component_entt/`: 行为层参考实现（EnTT ECS 业务层）——AR/ESR/EOS 三传感器
-  单平台全链：会话输出适配 → 融合引擎跨源合并 → 航路规划 → ECM 输入帧 → 命令帧。
-  **目前未使用该模块但未来大概率启用**（2026-08-10 由 behavior_layer 改名）——
-  CMake 中注释停用，代码保留（见 examples/README.md「停用但保留」节）。
-- `examples/component_attachment/`: 自定义实体-组件模式示例——五传感器（AR/ESR/EOS/
+- `examples/component_attachment/`: 消费方集成参考示例——五传感器（AR/ESR/EOS/
   SBIRS/SAR）+ 融合 + 威胁评估 + 多机编队，场景 JSON 数据驱动（含多机区域巡逻
   fleet_patrol_multi_zone 场景）。
-- `examples/common/`: example 层共享便利层（`json_reader` + 三域 `config_loaders/` +
-  `viz/` 共享可视化查看器）。
-- `examples/flight_dynamic/`: 飞行动力学轨迹生成、机动扫描与 CSV/可视化脚本。
-- `examples/batch_validation/`: 多场景批量验证（trace 录制/回放回归，ctest 注册）。
+- `examples/common/`: example 层共享便利层（`json_reader` + 五域 `config_loaders/` +
+  `viz/` 共享可视化查看器，不属于库 public surface）。
 - `examples/configs/`: 跨模块共享的配置样例。
+
+验证/开发期工具已迁出 examples（角色分离）：多场景批量验证框架在
+`tests/consumer/batch_validation/`，飞行力学开发期轨迹工具在
+`tests/unit/flight_dynamic/fd_tools/`。
 
 ## 文档
 

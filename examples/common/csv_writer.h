@@ -3,10 +3,10 @@
  * @brief 示例共享工具：流式 CSV 写入器。
  *
  * @par 设计目标
- * 仿照 examples/flight_dynamic/orbit_quality_csv.cpp 的 fprintf 风格，
+ * 仿照 FD 开发期工具的 fprintf 风格（tests/unit/flight_dynamic/fd_tools），
  * 提供一个"打开文件 → 写表头 → 逐行追加 → 关闭"的最小工具，
- * 供批量验证程序（原 batch_validation/batch_csv_writer.h）与
- * component_entt_demo 可视化导出统一产出周期级 / 场景汇总级 CSV。
+ * 供批量验证程序（tests/consumer/batch_validation）与
+ * component_attachment 输出落盘统一产出周期级 / 场景汇总级 CSV。
  *
  * 不引入新依赖，仅用标准库；进度信息一律写 stderr，避免污染 CSV。
  */

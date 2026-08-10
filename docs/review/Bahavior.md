@@ -21,6 +21,11 @@ Authority: 行为组件层（决策 / 机动 / 侦察 / 干扰）分解设计的
 > 库内冻结决策不变（§3.1 不绑定、§5 命令帧不新增飞行指令）。
 > 演进路线：ECS 组件/系统模式将逐步取代现有 session_usage/scene 类示例，
 > 旧示例在迁移完成前保留（见 examples/README.md）。
+>
+> **实施状态更新（2026-08-10）**：`examples/component_entt/` 已删除——examples 层
+> 收敛为单一"消费方集成参考"角色，EnTT 依赖随之移出 `conanfile.py`；消费方业务层
+> 参考实现现由 `examples/component_attachment/`（自定义实体-组件模式）承担。§5 的
+> EnTT 设计决策作为历史记录保留，不再有对应实现。
 
 ## 0. 定位与结论
 
@@ -146,6 +151,10 @@ namespace navigation {
 
 ## 5. 消费方业务层（`examples/component_entt/` 参考实现，EnTT 驱动）
 
+> **删除注记（2026-08-10）**：本节对应的 `examples/component_entt/` 已删除（examples
+> 层收敛为单一消费方参考角色）；EnTT 选型决策与组件/系统设计作为历史记录保留，
+> 消费方业务层现由 `examples/component_attachment/`（自定义实体-组件模式）承担。
+
 承载实体-组件模式完整业务形态的新示例目录（前身为三域 per-domain 示例，已于
 2026-08-05 删除并并入本目录）。
 **ECS 选型（冻结）：引入 EnTT（header-only 轻量级 ECS，主流 C++17 实现，适配仿真项目），
@@ -198,7 +207,7 @@ examples/component_entt/
 
 | 冻结项 | 决策 | 关键证据 |
 |---|---|---|
-| 行为层整体定位 | **narrow**：业务面入 example；两个算法面入库 | 三域示例先例（已并入 component_entt）；AGENTS.md 库定位 |
+| 行为层整体定位 | **narrow**：业务面入 example；两个算法面入库 | 三域示例先例（已并入 component_entt，2026-08-10 删除，业务面现由 component_attachment 承担）；AGENTS.md 库定位 |
 | 路径规划面归属 | **pass**：新模块 `navigation`，不绑定 flight_dynamic | `ProjectOptions.cmake:76` 门控默认 OFF；消费方可能自有机动 |
 | 侦察关联键 | **pass**：纯库内身份 + 特征/空间关联，无外部身份通道 | ESR/EOS 输出去真值化纪律 |
 | 组件组合方式 | **修订**：EnTT 数据组件 + 系统（多态 `unique_ptr` 集合方案作废） | EnTT data-oriented 惯例；帧交换纪律更契合 |
