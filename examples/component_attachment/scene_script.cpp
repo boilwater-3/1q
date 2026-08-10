@@ -22,6 +22,7 @@ std::vector<TargetEcefState> MakeTargetStates(
   for (const auto& entry : script) {
     TargetEcefState state;
     state.id = entry.id;
+    state.type = entry.type;
     oneq::coordinate::EnuPositionM offset;
     // 目标脚本（方位/距离/高度）→ ENU 水平偏移；高度由场景文件显式给出
     // （TryBearingRangeToEnuOffset 清零 up，须在此重设）。投影必然成功，

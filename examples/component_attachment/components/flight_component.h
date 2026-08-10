@@ -4,8 +4,8 @@
  *
  * 组件封装 flight_dynamic 模块：ONEQ_CA_FLIGHT_DYNAMIC_ENABLED 定义时
  * （CMake 按 ONEQ_ENABLE_FLIGHT_DYNAMIC 注入）接入 JSBSim 六自由度真实
- * 飞行仿真（c172x，子步进 100 ms）。机动逻辑从起飞开始设计（参照
- * examples/flight_dynamic/takeoff_land_csv.cpp 的权威用法）：初始地面
+ * 飞行仿真（c172x，子步进 10 ms）。机动逻辑从起飞开始设计（参照
+ * FlightManager.h Step(dt) 的 @note 集成契约）：初始地面
  * 静止（不做空中配平，do_trim=false），机动队列 = kTakeoff（滑跑→抬轮→
  * 爬升到巡航高度）→ 航路点巡航 → kLand；关闭或初始化失败（aircraft
  * 数据缺失）时回退运动学近似（模拟起飞爬升 + 巡航直线）。
@@ -81,6 +81,9 @@ class FlightComponent : public Component {
   std::size_t next_waypoint_index() const { return next_index_; }
   /** @brief 航路（只读）。 */
   const std::vector<navigation::RoutePoint>& route() const { return route_; }
+  /** @brief FD 真实飞行是否激活（true = JSBSim 推进；false = 运动学回退，
+   *          可视化 model 列区分用）。 */
+  bool fd_active() const { return fd_ != nullptr; }
 
   /**
    * @brief 运行时机动指令入口：FD 可用时转发 FlightManager::PushManeuver

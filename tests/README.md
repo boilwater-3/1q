@@ -26,9 +26,11 @@
 | `contract` | `public_api`、`airborne_radar`、`electro_optical_sensor`、`electronic_surveillance_radar`、`sar`、`sbirs_sensor` |
 | `performance` | `sar` |
 
-`compatibility/` 当前使用 `public_api` 与 `sar` domain；`consumer/` 的源码由
-consumer CMake 单独管理。新增 type/domain 必须同时更新 layout guard、分区
-CMake、本文和 `docs/common/contract.md`。
+`compatibility/` 当前使用 `public_api` 与 `sar` domain；`consumer/` 分两个子区：
+`consumer/` 根为**安装后消费者样例独立工程**（consumer CMake 单独管理，CI 在安装后
+构建），`consumer/batch_validation/` 为**树内批量场景验证框架**（独立可执行程序，
+由 `tests/CMakeLists.txt` 的 `add_subdirectory` 纳入，见下方注记）。
+新增 type/domain 必须同时更新 layout guard、分区 CMake、本文和 `docs/common/contract.md`。
 
 ## 命名规则
 - 所有测试文件统一命名：`{domain}_{descriptive_name}_test.cpp`。
@@ -60,9 +62,11 @@ CMake、本文和 `docs/common/contract.md`。
 
 新增 CTest 入口应放入其拥有的 type × domain 分区；不得重新把专项 filter 或 guard 堆回根入口。
 
-唯一的非 GoogleTest 业务场景入口是 `examples/batch_validation` 拥有的五个 sequence
-可执行套件。它们以 `batch_validation::<domain>` 注册并携带 `batch_validation` 与 domain
-label，不产生新的 `tests/` 源码 type，也不把 199 个 sweep 重复纳入 CTest。
+唯一的非 GoogleTest 业务场景入口是 `tests/consumer/batch_validation` 拥有的五个 sequence
+可执行套件（验证框架，2026-08-10 由 `examples/batch_validation` 迁入）。它们以
+`batch_validation::<domain>` 注册并携带 `batch_validation` 与 domain label，不产生新的
+`tests/` 源码 type，也不把 199 个 sweep 重复纳入 CTest。该框架单向依赖 examples 层
+共享便利层（`config_loaders` / `json_reader`）与 `examples/configs/` 配置 JSON。
 
 每个 `*_test.cpp` 必须只注册到一个分区。`TestRegistry.cmake` 会在 configure 时
 拒绝 orphan 或重复归属；不要用重复编译让同一源文件同时承担 unit、replay 或

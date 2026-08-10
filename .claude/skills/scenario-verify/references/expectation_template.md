@@ -9,7 +9,7 @@
 
 | 项 | 值 |
 | --- | --- |
-| 场景文件 | `scenes/<name>.json` |
+| 场景文件 | `scenes/<name>/<name>.json` |
 | 场景意图 | 被测通道：…；被测行为：…；验证深度：L1 冒烟 / L2 预期表 / L3 物理一致性 |
 | 构建模式 | release；FD 开 / 关（`ONEQ_ENABLE_FLIGHT_DYNAMIC`） |
 | 日志模式 | 视图 delta / summary / nonnominal；事件 key / all / aggregate |
@@ -63,5 +63,5 @@ min_key_events / min_sbirs_events / min_sar_products / min_fused_targets = …
 ---
 ---
 
-完整填好的范例见场景归档 `examples/component_attachment/scenes/baseline_takeoff_east.md`
+完整填好的范例见场景归档 `examples/component_attachment/scenes/baseline_takeoff_east/baseline_takeoff_east.md`
 （基线试跑样本，含实测数据与判定列）。

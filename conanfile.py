@@ -8,9 +8,6 @@ _BASE_DEPS = {
     "flatbuffers": "flatbuffers/1.12.0",
     "zlib": "zlib/1.3.1",
     "sqlite3": "sqlite3/3.53.4",
-    # EnTT（header-only ECS）仅服务 examples/behavior_layer/ 消费方业务层，
-    # 不进库本体（见 docs/review/Bahavior.md §5/§6 ECS 选型冻结项）。
-    "entt": "entt/3.14.0",
 }
 
 _JSBSIM_DEPS_NON_WINDOWS = {
@@ -56,7 +53,6 @@ class OneQConan(ConanFile):
         self.requires(_BASE_DEPS["flatbuffers"])
         self.requires(_BASE_DEPS["zlib"])
         self.requires(_BASE_DEPS["sqlite3"])
-        self.requires(_BASE_DEPS["entt"])
 
         # macOS/Linux 保留调试日志能力，Windows 全平台关闭日志依赖。
         if not self._is_windows():

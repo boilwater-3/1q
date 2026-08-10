@@ -51,7 +51,7 @@ Authority: 非规范性审查记录；不得替代 `docs/common/contract.md`、
 | 编号 | 发现 | 证据 |
 |---|---|---|
 | B-1 | **FD 机动指令无 builder（builder 不对称）**。5 个传感器模块（AR/ESR/EOS/SAR/SBIRS）的运行时修改均有链式 `XxxRuntimeConfigBuilder`，而 `ManeuverCommand` 为裸 struct，且字段语义**高度重载**：`value`/`duration_sec`/`heading_tolerance_rad`/`altitude_tolerance_m` 随机动类型含义完全不同（如 `kSTurn` 的 `heading_tolerance_rad` 是摆幅°，`altitude_tolerance_m` 是周期 s；`kRacetrack`/`kFigure8` 各有重载）。两次集成中所有构造均为手动逐字段赋值，须靠读注释记忆字段约定。 | `include/1q/flight_dynamic/FlightManager.h:60-97`；`include/1q/flight_dynamic/guidance/` 无 Builder；对照 `include/1q/<模块>/config/*RuntimeConfigBuilder.h` |
-| B-2 | **传感器输出 → `DetectionRecord` 的融合边界适配不在库内**。`FusionEngine` 只接受 `fusion::DetectionRecord`，各传感器 Session 只输出自有格式；"去真值化 + 质量基准 + 源通道映射"整段业务边界适配由示例层 header-only 文件 `examples/common/sensor_adapt.h`（125 行）承载，供 behavior_layer 与 component_attachment 两个示例共用。第三方集成多传感器融合时须自行编写或从 examples 复制。注：其文件头注释表明**有意**置于示例层（业务层边界适配），属边界设计决策，但对集成者效果相同。 | `examples/common/sensor_adapt.h:1-13`；`include/1q/fusion/FusionEngine.h` |
+| B-2 | **传感器输出 → `DetectionRecord` 的融合边界适配不在库内**。`FusionEngine` 只接受 `fusion::DetectionRecord`，各传感器 Session 只输出自有格式；"去真值化 + 质量基准 + 源通道映射"整段业务边界适配由示例层 header-only 文件 `examples/common/sensor_adapt.h`（125 行）承载，供 component_entt 与 component_attachment 两个示例共用（注记 2026-08-10：component_entt 已删除，现仅 component_attachment 消费）。第三方集成多传感器融合时须自行编写或从 examples 复制。注：其文件头注释表明**有意**置于示例层（业务层边界适配），属边界设计决策，但对集成者效果相同。**已解决（2026-08-10）**：适配器上移为库官方 `fusion/SensorAdapters.h`（语义逐行镜像），示例层 `sensor_adapt.h` 删除，见文档末尾"后续状态"块。 | `examples/common/sensor_adapt.h:1-13`；`include/1q/fusion/FusionEngine.h`；`include/1q/fusion/SensorAdapters.h` |
 | B-3 | **FD 消费方 CMake 接线无封装**。静态库不传递依赖：每个消费 FD 的 target 须手动复制"链接 `JSBSim::JSBSim` + 注入 `FD_JSBSIM_ROOT_DIR` + include `third_party/jsbsim/src`"。`FlightDynamicPartitions.cmake` 的 foreach 接线模式在 `Unit.cmake` examples 分区被逐行复制；库/构建系统未提供带 usage requirements 的封装 target 或 `oneq_link_flight_dynamic(target)` 函数。新增消费方（测试分区、示例、外部服务）均须手工重复。 | `tests/cmake/FlightDynamicPartitions.cmake:26-39`；`tests/cmake/partitions/Unit.cmake` examples 分区 FD 门控块 |
 | B-4 | **测试基建重复**。SAR 的 `MakeSmallRdaConfig()`/`MakeInput()` 在 5 个测试文件独立声明（session_pipeline / controller_runtime_state / cycle_input_adapter_bridge / output_boundary_contract / 本次新增 session_runtime_config）；FD 的 `FlightDynamicTest` fixture 在 fd_adapter 与 fd_robustness 重复（`fd_test_helpers.h` 仅共享 RunSteps/RunUntilDone/ExpectNoNaN）。库层无共享测试 helper 基建，新测试文件靠复制。 | `tests/unit/sar/sar_session_pipeline_test.cpp:34-87` 及上述 5 文件；`tests/unit/flight_dynamic/fd_adapter_test.cpp:25-46`、`fd_robustness_test.cpp:15-37` |
 
@@ -86,3 +86,12 @@ Authority: 非规范性审查记录；不得替代 `docs/common/contract.md`、
 （B-1）、业务适配（B-2）、构建接线（B-3）、测试基建（B-4）"四个层面存在需开发者
 手动补充的缺省，另有 Fusion 一项真实能力缺口（A-1）。按 §3 优先级另立任务，本轮
 **不修改库逻辑**。
+
+## 5. 后续状态（2026-08-10）
+
+修复落地情况（本轮审查后逐项更新）：
+
+| 发现 | 修复 commit | 状态 |
+|---|---|---|
+| B-2 sensor_adapt 升格评估 | `1bb04b1e`（feat(fusion) SensorAdapters）+ `716c27c1`（refactor(examples) 删 sensor_adapt.h） | **已解决**：适配器上移为库官方 `fusion/SensorAdapters.h`（语义逐行镜像原示例，质量归一化基准固化为库默认），示例层 `sensor_adapt.h` 删除，单一事实源；文档回写见 `docs/fusion/{design,boundaries,algorithms}.md` |
+| B-1 / A-1 / B-3 / B-4 | — | 暂缓（未列入本轮范围） |

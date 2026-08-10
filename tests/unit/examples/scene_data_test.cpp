@@ -4,7 +4,7 @@
  *
  * 覆盖：基线场景解析（全字段）、缺省块回退、必填几何字段校验、畸形 JSON
  * 报错、空目标数组（"无目标"场景）、场景业务覆写应用（ApplySceneOverrides）。
- * 场景内容以原始字符串内嵌（与 scenes/baseline_takeoff_east.json 同值），
+ * 场景内容以原始字符串内嵌（与 scenes/baseline_takeoff_east/baseline_takeoff_east.json 同值），
  * 写入临时目录后加载——测试不依赖仓库路径。
  */
 
@@ -55,7 +55,7 @@ demo::SceneData LoadOk(const std::string& content) {
   return scene;
 }
 
-/// 与 scenes/baseline_takeoff_east.json 同值的基线场景内容。
+/// 与 scenes/baseline_takeoff_east/baseline_takeoff_east.json 同值的基线场景内容。
 constexpr char kBaselineSceneJson[] = R"json({
   "name": "baseline_takeoff_east",
   "cycles": 400,
@@ -410,24 +410,40 @@ TEST(SceneDataTest, PlansPolygonScanPatrolRoute) {
   // 500 m → 扫描线 v = 250/750/1250（3 条 × 2 端点 = 6 航点），牛耕式交替
   // 方向（线 1 东向 → 线 2 西向 → 线 3 东向）。
   const demo::SceneData scene = LoadOk(R"json({
+
     "platform": {
-      "origin_lat_deg": 30.0, "origin_lon_deg": 120.0,
-      "cruise_altitude_m": 400.0, "cruise_speed_mps": 50.0
+        "origin_lat_deg": 30.0,
+        "origin_lon_deg": 120.0,
+        "cruise_altitude_m": 400.0,
+        "cruise_speed_mps": 50.0,
+        "coverage": {
+            "kind": "polygon",
+            "mode": "scan",
+            "vertices": [
+                {
+                    "lat_deg": 29.989,
+                    "lon_deg": 120.0
+                },
+                {
+                    "lat_deg": 29.989,
+                    "lon_deg": 120.03
+                },
+                {
+                    "lat_deg": 30.001,
+                    "lon_deg": 120.03
+                },
+                {
+                    "lat_deg": 30.001,
+                    "lon_deg": 120.0
+                }
+            ],
+            "scan_heading_deg": 0.0,
+            "scan_spacing_m": 500.0,
+            "arrival_radius_m": 200.0
+        }
     },
-    "targets": [],
-    "coverage": {
-      "kind": "polygon",
-      "mode": "scan",
-      "vertices": [
-        {"lat_deg": 29.989, "lon_deg": 120.0},
-        {"lat_deg": 29.989, "lon_deg": 120.03},
-        {"lat_deg": 30.001, "lon_deg": 120.03},
-        {"lat_deg": 30.001, "lon_deg": 120.0}
-      ],
-      "scan_heading_deg": 0.0,
-      "scan_spacing_m": 500.0,
-      "arrival_radius_m": 200.0
-    }
+    "targets": []
+
   })json");
 
   EXPECT_TRUE(scene.coverage.planned);
@@ -467,19 +483,27 @@ TEST(SceneDataTest, PlansCircleOrbitPatrolRoute) {
   // coverage 圆形 + 盘旋模式：8 段 × 1 环 = 8 航点，均匀分布在半径 5000 m
   // 的圆周上（逆时针，自正北起）。
   const demo::SceneData scene = LoadOk(R"json({
-    "platform": {"origin_lat_deg": 30.0, "origin_lon_deg": 120.0},
-    "targets": [],
-    "coverage": {
-      "kind": "circle",
-      "mode": "orbit",
-      "center": {"lat_deg": 30.0, "lon_deg": 120.0},
-      "radius_m": 5000.0,
-      "altitude_m": 400.0,
-      "speed_mps": 50.0,
-      "arrival_radius_m": 200.0,
-      "orbit_segments": 8,
-      "orbit_rings": 1
-    }
+
+    "platform": {
+        "origin_lat_deg": 30.0,
+        "origin_lon_deg": 120.0,
+        "coverage": {
+            "kind": "circle",
+            "mode": "orbit",
+            "center": {
+                "lat_deg": 30.0,
+                "lon_deg": 120.0
+            },
+            "radius_m": 5000.0,
+            "altitude_m": 400.0,
+            "speed_mps": 50.0,
+            "arrival_radius_m": 200.0,
+            "orbit_segments": 8,
+            "orbit_rings": 1
+        }
+    },
+    "targets": []
+
   })json");
 
   EXPECT_TRUE(scene.coverage.planned);
@@ -499,22 +523,42 @@ TEST(SceneDataTest, PlansCircleOrbitPatrolRoute) {
 
 TEST(SceneDataTest, CoverageAndExplicitWaypointsConflictFails) {
   ScopedSceneFile file(R"json({
+
     "platform": {
-      "origin_lat_deg": 30.0, "origin_lon_deg": 120.0,
-      "waypoints": [{"lat_deg": 30.0, "lon_deg": 120.05}]
+        "origin_lat_deg": 30.0,
+        "origin_lon_deg": 120.0,
+        "waypoints": [
+            {
+                "lat_deg": 30.0,
+                "lon_deg": 120.05
+            }
+        ],
+        "coverage": {
+            "kind": "polygon",
+            "mode": "scan",
+            "vertices": [
+                {
+                    "lat_deg": 29.989,
+                    "lon_deg": 120.0
+                },
+                {
+                    "lat_deg": 29.989,
+                    "lon_deg": 120.03
+                },
+                {
+                    "lat_deg": 30.001,
+                    "lon_deg": 120.03
+                },
+                {
+                    "lat_deg": 30.001,
+                    "lon_deg": 120.0
+                }
+            ],
+            "scan_spacing_m": 500.0
+        }
     },
-    "targets": [],
-    "coverage": {
-      "kind": "polygon",
-      "mode": "scan",
-      "vertices": [
-        {"lat_deg": 29.989, "lon_deg": 120.0},
-        {"lat_deg": 29.989, "lon_deg": 120.03},
-        {"lat_deg": 30.001, "lon_deg": 120.03},
-        {"lat_deg": 30.001, "lon_deg": 120.0}
-      ],
-      "scan_spacing_m": 500.0
-    }
+    "targets": []
+
   })json");
   demo::SceneData scene;
   std::string error;
@@ -525,19 +569,36 @@ TEST(SceneDataTest, CoverageAndExplicitWaypointsConflictFails) {
 TEST(SceneDataTest, InvalidCoverageGeometryFails) {
   // 扫描间距非正 → 规划失败（空计划）→ 加载报错，不允许静默直飞。
   ScopedSceneFile file(R"json({
-    "platform": {"origin_lat_deg": 30.0, "origin_lon_deg": 120.0},
-    "targets": [],
-    "coverage": {
-      "kind": "polygon",
-      "mode": "scan",
-      "vertices": [
-        {"lat_deg": 29.989, "lon_deg": 120.0},
-        {"lat_deg": 29.989, "lon_deg": 120.03},
-        {"lat_deg": 30.001, "lon_deg": 120.03},
-        {"lat_deg": 30.001, "lon_deg": 120.0}
-      ],
-      "scan_spacing_m": 0.0
-    }
+
+    "platform": {
+        "origin_lat_deg": 30.0,
+        "origin_lon_deg": 120.0,
+        "coverage": {
+            "kind": "polygon",
+            "mode": "scan",
+            "vertices": [
+                {
+                    "lat_deg": 29.989,
+                    "lon_deg": 120.0
+                },
+                {
+                    "lat_deg": 29.989,
+                    "lon_deg": 120.03
+                },
+                {
+                    "lat_deg": 30.001,
+                    "lon_deg": 120.03
+                },
+                {
+                    "lat_deg": 30.001,
+                    "lon_deg": 120.0
+                }
+            ],
+            "scan_spacing_m": 0.0
+        }
+    },
+    "targets": []
+
   })json");
   demo::SceneData scene;
   std::string error;
@@ -548,18 +609,35 @@ TEST(SceneDataTest, InvalidCoverageGeometryFails) {
 TEST(SceneDataTest, CoverageModeKindMismatchFails) {
   // 盘旋模式 + 多边形区域：模式-区域不匹配 → 规划失败。
   ScopedSceneFile file(R"json({
-    "platform": {"origin_lat_deg": 30.0, "origin_lon_deg": 120.0},
-    "targets": [],
-    "coverage": {
-      "kind": "polygon",
-      "mode": "orbit",
-      "vertices": [
-        {"lat_deg": 29.989, "lon_deg": 120.0},
-        {"lat_deg": 29.989, "lon_deg": 120.03},
-        {"lat_deg": 30.001, "lon_deg": 120.03},
-        {"lat_deg": 30.001, "lon_deg": 120.0}
-      ]
-    }
+
+    "platform": {
+        "origin_lat_deg": 30.0,
+        "origin_lon_deg": 120.0,
+        "coverage": {
+            "kind": "polygon",
+            "mode": "orbit",
+            "vertices": [
+                {
+                    "lat_deg": 29.989,
+                    "lon_deg": 120.0
+                },
+                {
+                    "lat_deg": 29.989,
+                    "lon_deg": 120.03
+                },
+                {
+                    "lat_deg": 30.001,
+                    "lon_deg": 120.03
+                },
+                {
+                    "lat_deg": 30.001,
+                    "lon_deg": 120.0
+                }
+            ]
+        }
+    },
+    "targets": []
+
   })json");
   demo::SceneData scene;
   std::string error;
@@ -569,20 +647,171 @@ TEST(SceneDataTest, CoverageModeKindMismatchFails) {
 
 TEST(SceneDataTest, MissingCoverageVertexFails) {
   ScopedSceneFile file(R"json({
-    "platform": {"origin_lat_deg": 30.0, "origin_lon_deg": 120.0},
-    "targets": [],
-    "coverage": {
-      "kind": "polygon",
-      "mode": "scan",
-      "vertices": [
-        {"lat_deg": 29.989, "lon_deg": 120.0},
-        {"lon_deg": 120.03}
-      ],
-      "scan_spacing_m": 500.0
-    }
+
+    "platform": {
+        "origin_lat_deg": 30.0,
+        "origin_lon_deg": 120.0,
+        "coverage": {
+            "kind": "polygon",
+            "mode": "scan",
+            "vertices": [
+                {
+                    "lat_deg": 29.989,
+                    "lon_deg": 120.0
+                },
+                {
+                    "lon_deg": 120.03
+                }
+            ],
+            "scan_spacing_m": 500.0
+        }
+    },
+    "targets": []
+
   })json");
   demo::SceneData scene;
   std::string error;
   EXPECT_FALSE(demo::LoadSceneData(file.path().c_str(), &scene, &error));
   EXPECT_NE(error.find("lat_deg"), std::string::npos);
+}
+
+TEST(SceneDataTest, ParsesWingmanPlatforms) {
+  // platforms[] 数组：每条目同 platform 块（原点/航向/巡航 + waypoints 或
+  // coverage 区域巡逻）；巡航参数缺省回退主平台值。
+  const demo::SceneData scene = LoadOk(R"json({
+    "platform": {
+      "origin_lat_deg": 30.0,
+      "origin_lon_deg": 120.0,
+      "cruise_altitude_m": 400.0,
+      "cruise_speed_mps": 50.0
+    },
+    "targets": [],
+    "platforms": [
+      {
+        "name": "wing_a",
+        "origin_lat_deg": 30.01,
+        "origin_lon_deg": 120.01,
+        "initial_heading_deg": 270.0,
+        "waypoints": [
+          {"lat_deg": 30.01, "lon_deg": 120.02, "speed_mps": 45.0}
+        ]
+      },
+      {
+        "name": "wing_b",
+        "origin_lat_deg": 30.02,
+        "origin_lon_deg": 120.02,
+        "coverage": {
+          "kind": "circle",
+          "mode": "orbit",
+          "center": {"lat_deg": 30.02, "lon_deg": 120.05},
+          "radius_m": 2000.0
+        }
+      }
+    ]
+  })json");
+
+  ASSERT_EQ(scene.platforms.size(), 2U);
+  // 从机 A：显式航路 + 名称/航向/巡航缺省回退主平台。
+  EXPECT_EQ(scene.platforms[0].name, "wing_a");
+  EXPECT_DOUBLE_EQ(scene.platforms[0].origin.latitude_deg, 30.01);
+  EXPECT_DOUBLE_EQ(scene.platforms[0].initial_heading_deg, 270.0);
+  ASSERT_EQ(scene.platforms[0].waypoints.size(), 1U);
+  EXPECT_DOUBLE_EQ(scene.platforms[0].waypoints[0].speed_mps, 45.0);
+  EXPECT_FALSE(scene.platforms[0].coverage.planned);
+  // 从机 B：coverage 圆形盘旋 → 规划航路（8 段 × 1 环）。
+  EXPECT_EQ(scene.platforms[1].name, "wing_b");
+  EXPECT_TRUE(scene.platforms[1].coverage.planned);
+  EXPECT_EQ(scene.platforms[1].coverage.area.kind, navigation::CoverageAreaKind::kCircle);
+  EXPECT_EQ(scene.platforms[1].coverage.config.mode, navigation::CoverageMode::kOrbit);
+  ASSERT_EQ(scene.platforms[1].waypoints.size(), 8U);
+  // 巡航缺省回退主平台（400/50），而非 ScenePlatform 默认值。
+  EXPECT_DOUBLE_EQ(scene.platforms[1].coverage.config.altitude_m, 400.0);
+  EXPECT_DOUBLE_EQ(scene.platforms[1].coverage.config.speed_mps, 50.0);
+  // 主平台不受 platforms[] 影响（单平台语义保留）。
+  EXPECT_DOUBLE_EQ(scene.platform_origin.latitude_deg, 30.0);
+}
+
+TEST(SceneDataTest, WingmanWithoutNameDefaultsToWingmanIndex) {
+  const demo::SceneData scene = LoadOk(R"json({
+    "platform": {"origin_lat_deg": 30.0, "origin_lon_deg": 120.0},
+    "targets": [],
+    "platforms": [
+      {"origin_lat_deg": 30.01, "origin_lon_deg": 120.01},
+      {"origin_lat_deg": 30.02, "origin_lon_deg": 120.02}
+    ]
+  })json");
+  ASSERT_EQ(scene.platforms.size(), 2U);
+  EXPECT_EQ(scene.platforms[0].name, "wingman_1");
+  EXPECT_EQ(scene.platforms[1].name, "wingman_2");
+}
+
+TEST(SceneDataTest, PlatformsNotArrayFails) {
+  ScopedSceneFile file(R"json({
+    "platform": {"origin_lat_deg": 30.0, "origin_lon_deg": 120.0},
+    "targets": [],
+    "platforms": {"origin_lat_deg": 30.01, "origin_lon_deg": 120.01}
+  })json");
+  demo::SceneData scene;
+  std::string error;
+  EXPECT_FALSE(demo::LoadSceneData(file.path().c_str(), &scene, &error));
+  EXPECT_NE(error.find("platforms"), std::string::npos);
+}
+
+TEST(SceneDataTest, WingmanCoverageAndWaypointsConflictFails) {
+  // 从机同主平台：waypoints 与 coverage 互斥报错（航路来源歧义）。
+  ScopedSceneFile file(R"json({
+    "platform": {"origin_lat_deg": 30.0, "origin_lon_deg": 120.0},
+    "targets": [],
+    "platforms": [
+      {
+        "origin_lat_deg": 30.01,
+        "origin_lon_deg": 120.01,
+        "waypoints": [{"lat_deg": 30.01, "lon_deg": 120.02}],
+        "coverage": {
+          "kind": "polygon",
+          "mode": "scan",
+          "vertices": [
+            {"lat_deg": 29.989, "lon_deg": 120.0},
+            {"lat_deg": 29.989, "lon_deg": 120.03},
+            {"lat_deg": 30.001, "lon_deg": 120.03}
+          ],
+          "scan_spacing_m": 500.0
+        }
+      }
+    ]
+  })json");
+  demo::SceneData scene;
+  std::string error;
+  EXPECT_FALSE(demo::LoadSceneData(file.path().c_str(), &scene, &error));
+  EXPECT_NE(error.find("mutually exclusive"), std::string::npos);
+}
+
+TEST(SceneDataTest, ParsesTargetType) {
+  // targets[].type：缺省 air；ground 显式（地面目标 = 静止近地运动学点）。
+  const demo::SceneData scene = LoadOk(R"json({
+    "platform": {"origin_lat_deg": 30.0, "origin_lon_deg": 120.0},
+    "targets": [
+      {"id": 1001, "azimuth_deg": 0.0, "range_m": 12000.0, "altitude_m": 400.0,
+       "rcs_m2": 2.2},
+      {"id": 1002, "azimuth_deg": 0.0, "range_m": 12000.0, "altitude_m": 0.0,
+       "rcs_m2": 1.0, "type": "ground"}
+    ]
+  })json");
+  ASSERT_EQ(scene.targets.size(), 2U);
+  EXPECT_EQ(scene.targets[0].type, "air");
+  EXPECT_EQ(scene.targets[1].type, "ground");
+}
+
+TEST(SceneDataTest, InvalidTargetTypeFails) {
+  ScopedSceneFile file(R"json({
+    "platform": {"origin_lat_deg": 30.0, "origin_lon_deg": 120.0},
+    "targets": [
+      {"id": 1001, "azimuth_deg": 0.0, "range_m": 12000.0, "altitude_m": 400.0,
+       "rcs_m2": 2.2, "type": "sea"}
+    ]
+  })json");
+  demo::SceneData scene;
+  std::string error;
+  EXPECT_FALSE(demo::LoadSceneData(file.path().c_str(), &scene, &error));
+  EXPECT_NE(error.find("type"), std::string::npos);
 }

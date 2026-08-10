@@ -5,7 +5,6 @@
  * 消费方世界模型：场景文件（scenes/*.json，见 scene_data.h）的目标脚本
  * （ScriptedTarget）→ ECEF 运动学状态（TargetEcefState，四通道共享同一
  * 物理目标）→ 各传感器周期输入真值（AR/ESR/EOS/SBIRS/SAR）+ 欧拉推进。
- * 与 behavior_layer 的世界模型脚本同源（同构转换函数，场景数据各自独立）。
  */
 
 #ifndef EXAMPLES_COMPONENT_ATTACHMENT_SCENE_SCRIPT_H_
@@ -29,6 +28,7 @@ namespace demo {
 /// 随真值流转，转换函数不再按数组下标回查脚本）。
 struct TargetEcefState {
   std::uint32_t id{0U};               /**< 外部目标标识 */
+  std::string type{"air"};            /**< 实体类型（air / ground；可视化落盘用） */
   oneq::coordinate::EcefPositionM position{};  /**< ECEF 位置 */
   oneq::coordinate::EcefVelocityMps velocity{}; /**< ECEF 速度 */
   float rcs{0.0f};                    /**< 雷达截面积（m²） */
@@ -68,7 +68,7 @@ std::vector<sbirs_sensor::session::SbirsSceneTarget> MakeSbirsTargetInputs(
 std::vector<sar::session::SarPointTarget> MakeSarPointTargets(
     const std::vector<TargetEcefState>& states);
 
-/// 目标 ECEF 欧拉推进（消费方世界模型，与 behavior_layer 一致）。每周期先
+/// 目标 ECEF 欧拉推进（消费方世界模型）。每周期先
 /// 应用变速机动（maneuvers 中 start_cycle == cycle 的条目生效，分段匀速；
 /// 机动速度为局部 ENU，经 platform_origin 投影回 ECEF，与初始速度投影同源），
 /// 再按当前速度推进。

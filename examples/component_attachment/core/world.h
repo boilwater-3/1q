@@ -2,8 +2,8 @@
  * @file world.h
  * @brief 自定义实体-组件示例：世界（实体注册表 + 步进 + 事件信号）。
  *
- * World 承担 EnTT registry 的职责：实体创建/查找、按序步进、共享上下文
- * （scene_state，类似 EnTT registry.ctx()）、事件信号集合（signals）。
+ * World 是实体注册表：实体创建/查找、按序步进、共享上下文
+ * （scene_state）、事件信号集合（signals）。
  * 实体按创建序步进；周期调用 World::Step(dt) 即推进整场仿真。
  */
 
@@ -21,7 +21,7 @@
 namespace component_attachment {
 
 /**
- * @brief 场景共享状态基类：消费方继承扩展（类似 EnTT registry.ctx()）。
+ * @brief 场景共享状态基类：消费方继承扩展。
  *
  * 消费方每周期更新（周期号/时间/世界真值），组件 Step 经 world.scene_state()
  * 读取——共享上下文，避免把世界模型塞进单个组件。

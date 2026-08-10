@@ -24,7 +24,7 @@ public API 边界）见 [boundaries.md](boundaries.md)。
 | 航迹过滤与生命周期 | KF/IMM(KF) 更新航迹、missed detection、确认/丢失/回收、反欺骗抑制 | session-wired | [evidence: tests/unit/airborne_radar/ar_track_filter_test.cpp] |
 | 战术协调 | 威胁评估、LPI、ECCM、关联压力补触发、状态清理 | session-wired | [evidence: tests/unit/airborne_radar/ar_decision_layer_test.cpp] |
 | 控制归约 | proposal 冲突、保持窗口、冷却和下一周期控制配置 | session-wired | [evidence: tests/unit/airborne_radar/ar_tactical_coordinator_test.cpp] |
-| 专项序列验证 | 公开 Session 边界六类跨周期序列 | session-wired | `examples/batch_validation/ar_batch_validation.cpp` |
+| 专项序列验证 | 公开 Session 边界六类跨周期序列 | session-wired | `tests/consumer/batch_validation/ar_batch_validation.cpp` |
 | 识别观测与特征提取 | 效能化 RCS/运动/双极化/距离像观测（SNR、带宽、驻留、视角覆盖门控） | session-wired | [evidence: tests/unit/airborne_radar/ar_recognition_feature_test.cpp] |
 | 识别数据库与匹配 | SQLite 原子加载校验（schema v1.1 语义分组 + 自描述元数据，加载期只读读取器；权威 DDL 单源 + 建库工具）+ 截断高斯动态加权匹配 + 先验排序 | session-wired | [evidence: tests/unit/airborne_radar/ar_recognition_database_test.cpp] + [evidence: tests/integration/airborne_radar/ar_recognition_example_database_test.cpp] + [evidence: tests/integration/airborne_radar/ar_recognition_us_military_scenario_test.cpp] |
 | 识别积累与判定 | 滑动窗口积累、acceptance/margin/维度判定、结论保持与过期 | session-wired | [evidence: tests/integration/airborne_radar/ar_recognition_scenario_test.cpp] |
@@ -255,7 +255,7 @@ TWS→STT→TWS、关机恢复、无效输入恢复和混合非法 runtime patch
 1. 场景必须显式启用物理探测、物理 RCS 与 `physics_mix_ratio=1`。
 2. 硬契约（影响退出码）：目标身份连续、patch 原子性、非执行周期 lifecycle 静默、failure marker 后完整 replay。
 3. warning/error 观测项（不影响退出码）：距离/RCS 等物理趋势。
-4. 场景 ID 与运行方式由 `examples/batch_validation/README.md` 维护。
+4. 场景 ID 与运行方式由 `tests/consumer/batch_validation/README.md` 维护。
 
 ## 远程识别链路（kLrr）
 

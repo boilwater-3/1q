@@ -2,9 +2,9 @@
 
 Status: active
 Last-reviewed: 2026-07-21
-Authority: examples/batch_validation engineering practice
+Authority: tests/consumer/batch_validation engineering practice
 
-本框架位于 `examples/batch_validation/`，只通过 public Session、Adapter、Trace/Replay 接口验证多个
+本框架位于 `tests/consumer/batch_validation/`，只通过 public Session、Adapter、Trace/Replay 接口验证多个
 周期和参数组合，不定义业务模块行为。模块设计以各自 `design.md` 为准，跨模块硬规则以
 `docs/common/contract.md` 为准。
 
@@ -22,12 +22,13 @@ Authority: examples/batch_validation engineering practice
 | **总计** |  | **199** | **31** | **230** |
 
 数量和场景 ID 的运行时 source of truth 是各可执行程序的 `--list-scenarios`；可读目录维护在
-`examples/batch_validation/README.md`。文档不得从旧 CSV 或历史运行报告反推当前清单。
+`tests/consumer/batch_validation/README.md`。文档不得从旧 CSV 或历史运行报告反推当前清单。
 
 ## 构建与运行
 
 ```bash
-cmake --preset llvm-ninja-release-local -D ENABLE_EXAMPLES=ON
+# 框架随测试构建纳入（ENABLE_TESTING=ON，不依赖 ENABLE_EXAMPLES）
+cmake --preset llvm-ninja-release-local
 cmake --build --preset llvm-ninja-release-local --target \
   ar_batch_validation eos_batch_validation esr_batch_validation \
   sar_batch_validation sbirs_batch_validation -j 4
@@ -113,13 +114,14 @@ CSV 和日志但不单独改变退出码；它不能用于降级 replay、contra
 
 ## 与 GTest 的关系
 
-Batch validation 是 examples 层端到端消费者，不是新的 `tests/` 类型，也不替代 unit、integration、
-contract 或 replay 分区。项目没有“五模块统一 `tests/unit/*_matrix_test.cpp`”契约；每个模块的硬证明
+Batch validation 是消费方侧端到端验证框架（`tests/consumer/batch_validation/`），不是新的
+`tests/` 源码 type，也不替代 unit、integration、
+contract 或 replay 分区。项目没有”五模块统一 `tests/unit/*_matrix_test.cpp`”契约；每个模块的硬证明
 来自其实际注册的测试文件和结构化 batch checks。
 
 ## 变更规则
 
-以下变化必须同步本文件、`examples/batch_validation/README.md` 和对应可执行程序测试：
+以下变化必须同步本文件、`tests/consumer/batch_validation/README.md` 和对应可执行程序测试：
 
 - 新增/删除模块、suite、场景 ID 或 CTest sequence 注册；
 - replay、退出码、warning/error 或 check ID 语义变化；

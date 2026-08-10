@@ -3,7 +3,7 @@
  * @brief EOS 传感器组件实现（会话驱动 + 探测生命周期事件转发）。
  *
  * 1. EosCycleInputAdapter 一步构建周期输入（零姿态共享平台局部系），驱动
- *    EosSession，输出探测适配为泛型探测记录（sensor_utils.h）；
+ *    EosSession，输出探测适配为泛型探测记录（fusion::AdaptEosDetectionsToDetectionRecords）；
  * 2. 探测事件（首发现/更新/丢失）由库内 EosDetectionLifecycleRecorder 差分
  *    产出，组件经归属映射关联目标 ID 后发布 EosDetectionEvent；
  * 3. 事件与调试视图直写集成端日志（CA_LOG_EVENT / CA_LOG_VIEW，中文人读行）。
@@ -13,13 +13,13 @@
 
 #include "1q/electro_optical_sensor/session/EosCycleInputAdapter.h"
 #include "1q/electro_optical_sensor/session/EosCycleResult.h"
+#include "1q/fusion/SensorAdapters.h"
 #include "core/events.h"
-#include "demo_log.h"
-#include "demo_log_i18n.h"
+#include "logger/logger.h"
+#include "logger/logger_i18n.h"
 #include "flight_component.h"
 #include "core/world.h"
 #include "scene_types.h"
-#include "sensor_adapt.h"
 #include "sensor_utils.h"
 
 namespace component_attachment {
@@ -99,7 +99,7 @@ bool EosSensorComponent::TryApplyRuntimeConfig(
   return applied;
 }
 
-// 视图行写入（三模式，宏门控——未选中的模式不参与编译，见 demo_log.h 模式选择
+// 视图行写入（三模式，宏门控——未选中的模式不参与编译，见 logger/logger.h 模式选择
 // 区）。DebugView 每周期都构建，落多少、怎么落由集成方按需求选择。
 void EosSensorComponent::LogDebugView(
     const electro_optical_sensor::session::EosOutputDebugView& view) {
@@ -241,8 +241,8 @@ void EosSensorComponent::Step(World& world, double dt_sec) {
     world.signals().on_eos_detection(eos_event);
   }
 
-  detections_ = examples::sensor_adapt::AdaptEosDetectionsToDetections(
-      examples::sensor_adapt::kEosSourceId, records);
+  detections_ = fusion::AdaptEosDetectionsToDetectionRecords(
+      fusion::kEosSourceId, records);
 }
 
 }  // namespace component_attachment

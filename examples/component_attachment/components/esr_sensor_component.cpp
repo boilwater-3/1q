@@ -3,7 +3,7 @@
  * @brief ESR 传感器组件实现（会话驱动 + 假设事件发布）。
  *
  * 1. EsrCycleInput 直接构造（平台 ECEF 运动学 + 消费方注入的辐射源真值帧），
- *    驱动 EsrSession，输出假设适配为泛型探测记录（sensor_utils.h）；
+ *    驱动 EsrSession，输出假设适配为泛型探测记录（fusion::AdaptEsrHypothesesToDetectionRecords）；
  * 2. 每条假设（键 ≠ 0）经 World 信号发布 EmitterHypothesisEvent；
  * 3. 事件直写集成端日志（CA_LOG_EVENT，中文人读行）。
  */
@@ -11,12 +11,12 @@
 #include "esr_sensor_component.h"
 
 #include "1q/electronic_surveillance_radar/session/EsrCycleInput.h"
+#include "1q/fusion/SensorAdapters.h"
 #include "core/events.h"
-#include "demo_log.h"
+#include "logger/logger.h"
 #include "flight_component.h"
 #include "core/world.h"
 #include "scene_types.h"
-#include "sensor_adapt.h"
 #include "sensor_utils.h"
 
 namespace component_attachment {
@@ -98,8 +98,8 @@ void EsrSensorComponent::Step(World& world, double dt_sec) {
                      static_cast<int>(event.mode), static_cast<int>(event.threat_level));
     world.signals().on_emitter_hypothesis(event);
   }
-  detections_ = examples::sensor_adapt::AdaptHypothesesToDetections(
-      examples::sensor_adapt::kEsrSourceId, hypotheses);
+  detections_ = fusion::AdaptEsrHypothesesToDetectionRecords(
+      fusion::kEsrSourceId, hypotheses);
 }
 
 }  // namespace component_attachment

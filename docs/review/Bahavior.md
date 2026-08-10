@@ -12,15 +12,20 @@ Authority: 行为组件层（决策 / 机动 / 侦察 / 干扰）分解设计的
 > **实施状态（2026-08-05）**：§3/§4 两个算法面骨架已落地为新模块 `navigation`、`fusion`
 > （含单元测试），以 `docs/navigation/`、`docs/fusion/` 模块文档为当前实现权威；
 > 本文仍为决策记录，不替代模块文档。§5 example（EnTT 业务层）已落地为
-> `examples/behavior_layer/`（`entt/3.14.0` 为消费方侧依赖，含依赖链冒烟测试），
+> `examples/component_entt/`（`entt/3.14.0` 为消费方侧依赖，含依赖链冒烟测试），
 > 并已接入 **AR/ESR/EOS 三传感器单平台全链**（跨源身份直挂 + 方位相干合并、
-> ECM 观测帧由 ESR 输出填充），详见 `examples/behavior_layer/README.md`。
+> ECM 观测帧由 ESR 输出填充），详见 `examples/component_entt/README.md`。
 > 平台动力学接线：示例侧已按"分发与驱动 FlightManager 仍是消费方职责"（§5）
 > 实现 `flight_system`（`RoutePlanComponent` → `kFlyToWaypoint` 机动队列适配；
 > `ONEQ_ENABLE_FLIGHT_DYNAMIC=ON` 时真实飞行仿真，默认 OFF 回退运动学），
 > 库内冻结决策不变（§3.1 不绑定、§5 命令帧不新增飞行指令）。
 > 演进路线：ECS 组件/系统模式将逐步取代现有 session_usage/scene 类示例，
 > 旧示例在迁移完成前保留（见 examples/README.md）。
+>
+> **实施状态更新（2026-08-10）**：`examples/component_entt/` 已删除——examples 层
+> 收敛为单一"消费方集成参考"角色，EnTT 依赖随之移出 `conanfile.py`；消费方业务层
+> 参考实现现由 `examples/component_attachment/`（自定义实体-组件模式）承担。§5 的
+> EnTT 设计决策作为历史记录保留，不再有对应实现。
 
 ## 0. 定位与结论
 
@@ -63,7 +68,7 @@ Authority: 行为组件层（决策 / 机动 / 侦察 / 干扰）分解设计的
 
 先例注记（2026-08-05）：`examples/electronic_warfare/`（EsrModule、integration_demo、
 config_loader）曾是"跨模块业务级装配放 example、库内只留算法/模型"的现成形态；
-该目录已随行为层落地而删除（三域 per-domain 示例功能并入 `examples/behavior_layer/`，
+该目录已随行为层落地而删除（三域 per-domain 示例功能并入 `examples/component_entt/`，
 config_loader 迁移至 `examples/common/config_loaders/`）。
 
 ## 3. 库内算法面一：路径规划面（新模块 `navigation`）
@@ -128,7 +133,9 @@ namespace navigation {
 
 - 融合置信度 = Σ 判决值(0/1) × 质量归一化 × 权重；权重/门限/窗口配置化；
 - 探测记录为**泛型**（位置/方位/特征向量/判决值/质量/库内 key），算法不感知
-  ESR/EOS/AR 具体类型，由业务层适配；
+  ESR/EOS/AR 具体类型；库提供官方适配器 `fusion/SensorAdapters.h`（可选），
+  业务层也可自行适配（注记 2026-08-10：原"由业务层适配"随 B-2 修复上移为
+  官方适配器，见 component_runtime_integration_review_2026-08-05.md 后续状态）；
 - 输出：融合目标态势记录（库内 key、各源探测状态、融合置信度、各通道量测）；
 - 报告节奏：**无普适最优周期**（原文档问题），冻结为配置化周期 + 事件触发
   （新目标出现/置信度跃迁/目标消失），与融合窗口解耦。
@@ -144,7 +151,11 @@ namespace navigation {
 新模块 `include/1q/fusion/` + `src/fusion/`，无 Session；可复用 `src/common/estimation/`
 滤波器做轨迹滤波；不引入新依赖，无构建门。
 
-## 5. 消费方业务层（`examples/behavior_layer/` 参考实现，EnTT 驱动）
+## 5. 消费方业务层（`examples/component_entt/` 参考实现，EnTT 驱动）
+
+> **删除注记（2026-08-10）**：本节对应的 `examples/component_entt/` 已删除（examples
+> 层收敛为单一消费方参考角色）；EnTT 选型决策与组件/系统设计作为历史记录保留，
+> 消费方业务层现由 `examples/component_attachment/`（自定义实体-组件模式）承担。
 
 承载实体-组件模式完整业务形态的新示例目录（前身为三域 per-domain 示例，已于
 2026-08-05 删除并并入本目录）。
@@ -157,7 +168,7 @@ EnTT 为 data-oriented 模型：组件是**纯数据**（无虚函数），逻�
 反而更契合：
 
 ```
-examples/behavior_layer/
+examples/component_entt/
   components.h              // EnTT 数据组件（纯数据）：
                             //   TaskingComponent            — own_role/superior/subordinates/区域任务
                             //   SensorObservationComponent  — 传感器输出适配后的泛型探测记录
@@ -168,7 +179,7 @@ examples/behavior_layer/
   systems.h/.cpp            // 系统（自由函数，entt::registry&）：
                             //   maneuver_system / recon_system / jam_system / decision_system
   assembly.h/.cpp           // 装配：registry 接线各 session 输出/输入
-  behavior_layer_demo.cpp   // 主程序：registry + 每周期系统调用序
+  component_entt_demo.cpp   // 主程序：registry + 每周期系统调用序
 ```
 
 - 每周期推进 = 按序调用系统（对齐 session 的 Step 语义）；决策系统聚合各组件结果，写入
@@ -198,7 +209,7 @@ examples/behavior_layer/
 
 | 冻结项 | 决策 | 关键证据 |
 |---|---|---|
-| 行为层整体定位 | **narrow**：业务面入 example；两个算法面入库 | 三域示例先例（已并入 behavior_layer）；AGENTS.md 库定位 |
+| 行为层整体定位 | **narrow**：业务面入 example；两个算法面入库 | 三域示例先例（已并入 component_entt，2026-08-10 删除，业务面现由 component_attachment 承担）；AGENTS.md 库定位 |
 | 路径规划面归属 | **pass**：新模块 `navigation`，不绑定 flight_dynamic | `ProjectOptions.cmake:76` 门控默认 OFF；消费方可能自有机动 |
 | 侦察关联键 | **pass**：纯库内身份 + 特征/空间关联，无外部身份通道 | ESR/EOS 输出去真值化纪律 |
 | 组件组合方式 | **修订**：EnTT 数据组件 + 系统（多态 `unique_ptr` 集合方案作废） | EnTT data-oriented 惯例；帧交换纪律更契合 |

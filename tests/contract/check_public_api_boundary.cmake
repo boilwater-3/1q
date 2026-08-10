@@ -189,6 +189,7 @@ set(FUSION_HEADERS
     "fusion/FusedTarget.h"
     "fusion/FusionConfig.h"
     "fusion/FusionEngine.h"
+    "fusion/SensorAdapters.h"
     "fusion/fusion.hpp"
 )
 

@@ -3,35 +3,98 @@
  * @brief 输出落盘与事件消费实现（见 demo_output.h）。
  *
  * 集成端日志（integration_events.log / integration_views.log + 库日志
- * 1q_library.log）由 components/demo_log.h 承担（组件源文件内日志宏 + 每周期
- * 视图直写）——本文件只负责平台轨迹 CSV 落盘与决策事件链。
+ * 1q_library.log）由 logger/logger.h 承担（组件源文件内日志宏 + 每周期
+ * 视图直写）——本文件只负责统一契约 v2 可视化 CSV 落盘与决策事件链。
  */
 #include "demo_output.h"
 
-#include "components/demo_log.h"
+#include <string>
+
+#include "1q/coordinate/position_transform.h"
+#include "logger/logger.h"
 #include "core/events.h"
 
 namespace component_attachment {
 namespace demo {
 
+namespace {
+
+/// 定点格式化（CSV 数值统一走 %.Nf，避免 %g 的科学计数法干扰查看器解析）。
+std::string Fmt(double value, int precision) {
+  return spdlog::fmt_lib::format("{:.{}f}", value, precision);
+}
+
+}  // namespace
+
 DemoOutputs::DemoOutputs(const std::string& output_dir)
     : platform_csv_(output_dir + "/platform_track.csv",
-                    "cycle,t_sec,lat_deg,lon_deg,alt_m,heading_deg,speed_mps,wp_index") {
+                    "cycle,t_sec,aircraft_id,lat_deg,lon_deg,alt_m,heading_deg,"
+                    "speed_mps,wp_index,wp_count,model"),
+      truth_csv_(output_dir + "/target_truth.csv",
+                 "cycle,t_sec,target_id,entity_type,lat_deg,lon_deg,alt_m,rcs"),
+      zones_csv_(output_dir + "/zones.csv",
+                 "name,kind,lat_deg,lon_deg,alt_m,radius_m"),
+      route_csv_(output_dir + "/route_plan.csv",
+                 "aircraft_id,index,lat_deg,lon_deg,alt_m,speed_mps,radius_m") {
   // CsvWriter 构造失败即 abort（与既有 CSV 语义一致）。
 }
 
 void DemoOutputs::RecordPlatformRow(std::uint32_t cycle, double t_sec,
+                                    std::uint32_t aircraft_id,
                                     const FlightComponent& flight) {
   platform_csv_.WriteRow(
-      spdlog::fmt_lib::format("{},{:.2f},{:.7f},{:.7f},{:.1f},{:.1f},{:.1f},{}", cycle, t_sec,
-                              flight.position().latitude_deg, flight.position().longitude_deg,
-                              flight.position().altitude_m, flight.heading_deg(),
-                              flight.speed_mps(), flight.next_waypoint_index()));
+      spdlog::fmt_lib::format(
+          "{},{:.2f},{},{:.7f},{:.7f},{:.1f},{:.1f},{:.1f},{},{}", cycle, t_sec, aircraft_id,
+          flight.position().latitude_deg, flight.position().longitude_deg,
+          flight.position().altitude_m, flight.heading_deg(), flight.speed_mps(),
+          flight.next_waypoint_index(), flight.route().size()) +
+      "," + (flight.fd_active() ? "jsbsim" : "kinematic"));
   ++platform_rows_;
+}
+
+void DemoOutputs::RecordTruthRow(std::uint32_t cycle, double t_sec,
+                                 const TargetEcefState& target) {
+  oneq::coordinate::LlaPositionDegM lla;
+  if (!oneq::coordinate::TryEcefToLla(target.position, &lla)) {
+    return;  // ECEF 非法：跳过该目标本周期（真值脚本不应触发）
+  }
+  truth_csv_.WriteRow(spdlog::fmt_lib::format(
+      "{},{:.2f},{},{},{:.7f},{:.7f},{:.1f},{:.2f}", cycle, t_sec, target.id, target.type,
+      lla.latitude_deg, lla.longitude_deg, lla.altitude_m, target.rcs));
+}
+
+void DemoOutputs::RecordZones(const std::string& name,
+                              const navigation::CoverageArea& area) {
+  // 多边形：每顶点一行（viewer 按 name 聚合成闭合线）；圆形：一行 + 半径。
+  if (area.kind == navigation::CoverageAreaKind::kPolygon) {
+    for (const auto& vertex : area.polygon.vertices) {
+      zones_csv_.WriteRow(name + ",polygon," + Fmt(vertex.latitude_deg, 7) + "," +
+                          Fmt(vertex.longitude_deg, 7) + "," + Fmt(vertex.altitude_m, 2) +
+                          ",");
+    }
+  } else {
+    const auto& center = area.circle.center;
+    zones_csv_.WriteRow(name + ",circle," + Fmt(center.latitude_deg, 7) + "," +
+                        Fmt(center.longitude_deg, 7) + "," + Fmt(center.altitude_m, 2) +
+                        "," + Fmt(area.circle.radius_m, 2));
+  }
+}
+
+void DemoOutputs::RecordRoute(std::uint32_t aircraft_id,
+                              const std::vector<navigation::RoutePoint>& route) {
+  for (std::size_t i = 0U; i < route.size(); ++i) {
+    const auto& wp = route[i];
+    route_csv_.WriteRow(spdlog::fmt_lib::format(
+        "{},{},{:.7f},{:.7f},{:.1f},{:.1f},{:.1f}", aircraft_id, i, wp.position.latitude_deg,
+        wp.position.longitude_deg, wp.position.altitude_m, wp.speed_mps, wp.radius_m));
+  }
 }
 
 void DemoOutputs::Flush() {
   platform_csv_.Flush();
+  truth_csv_.Flush();
+  zones_csv_.Flush();
+  route_csv_.Flush();
 }
 
 DecisionListener::DecisionListener(World& world, double high_threat_confidence)

@@ -1,6 +1,6 @@
 ---
 Status: active
-Last-reviewed: 2026-08-05
+Last-reviewed: 2026-08-10
 Authority: fusion 模块级边界、非目标与设计变更规则
 Answers: fusion 有哪些模块级禁令、关联键边界、变更规则
 ---
@@ -23,7 +23,8 @@ Answers: fusion 有哪些模块级禁令、关联键边界、变更规则
 ## 探测记录边界
 
 - `DetectionRecord` 为**泛型**记录（位置/方位/特征向量/判决值/质量/库内键），
-  算法不感知 ESR/EOS/AR 具体类型；传感器输出到泛型记录的适配属业务层职责。
+  算法不感知 ESR/EOS/AR 具体类型；库提供官方适配器 `fusion/SensorAdapters.h`
+  （四传感器输出 → 泛型记录，可选便利层），业务层也可自行适配。
 - 位置/方位/特征三通道可独立存在；特征向量维度跨源不一致时特征门不构成约束。
 
 ## SAR 输入约束（冻结）

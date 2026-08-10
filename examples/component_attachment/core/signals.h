@@ -3,9 +3,9 @@
  * @brief 自定义实体-组件示例：事件信号集合（Boost.Signals2）。
  *
  * 事件机制直接使用 C++ 常见开源事件库 Boost.Signals2（零自定义分发层），
- * 弥补"自研 ECS 无事件功能"（EnTT 的 observer/signals 由本组信号承担）：
- * 组件发布 = 调用信号（world.signals().xxx(evt)）；消费方订阅 =
- * .connect(handler)，返回 boost::signals2::scoped_connection 管理生命周期。
+ * 提供跨周期通知/记录的事件通道：组件发布 = 调用信号
+ * （world.signals().xxx(evt)）；消费方订阅 = .connect(handler)，返回
+ * boost::signals2::scoped_connection 管理生命周期。
  *
  * boost/1.85.0 已在 conanfile _BASE_DEPS（header_only），本文件仅依赖其头文件。
  */

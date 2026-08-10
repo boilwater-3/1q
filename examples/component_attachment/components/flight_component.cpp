@@ -3,7 +3,7 @@
  * @brief 飞行组件实现：六自由度真实飞行（JSBSim）与运动学回退两路径。
  *
  * 1. ONEQ_CA_FLIGHT_DYNAMIC_ENABLED 定义时以六自由度机动仿真推进（子步进
- *    10 ms，参照 takeoff_land_csv.cpp 权威用法：初始地面静止不做空中配平，
+ *    10 ms，FlightManager.h Step(dt) @note 集成契约：初始地面静止不做空中配平，
  *    机动队列 = 起飞 → 航路点巡航 → 降落），VehicleState 映射回度制状态；
  * 2. 否则回退运动学近似（模拟起飞爬升 + 巡航航点寻的，段间瞬时转向）；
  * 3. 航点完成判定统一用几何距离（haversine ≤ max(radius, 100 m)）；
@@ -21,7 +21,7 @@
 #include "1q/coordinate/position_transform.h"
 #include "core/events.h"
 #include "core/world.h"
-#include "demo_log.h"
+#include "logger/logger.h"
 
 #if defined(ONEQ_CA_FLIGHT_DYNAMIC_ENABLED)
 #include "1q/coordinate/velocity_transform.h"
@@ -76,7 +76,8 @@ double GreatCircleDistanceM(const oneq::coordinate::LlaPositionDegM& from,
 
 /// 飞行子步进（s）：行为周期 1 s / 100 步 = 10 ms。六自由度机动含地面
 /// 滑跑/起落架动力学（快动态），100 ms 步长会失控发散（起飞段 roll 可达
-/// 180° 量级后数值崩溃）；10 ms 与 takeoff_land_csv 权威用法一致。
+/// 180° 量级后数值崩溃）；10 ms 与 FlightManager.h Step(dt) @note 集成
+/// 契约一致（回归见 fd_takeoff_substep_test）。
 constexpr double kFlightSubstepDtSec = 0.01;
 constexpr int kSubstepsPerCycle = static_cast<int>(1.0 / kFlightSubstepDtSec);
 
@@ -341,8 +342,8 @@ void FlightComponent::Step(World& world, double dt_sec) {
     // 终端状态（队列完成/中止）：循环巡逻 → 以当前载机状态 Reset 重建续飞
     // （库契约：kCompleted/kAborted 必须 Reset 恢复 kReady；见
     // FlightDynamics::RestartPatrol）；单次飞行 → 剩余航点按几何簿记补发
-    // 完成事件（与 behavior_layer flight_system 的终端视为航路完成语义
-    // 一致，kAborted 兜底；kCompleted 时事件驱动已对齐，不触发）。
+    // 完成事件（终端视为航路完成语义一致，kAborted 兜底；kCompleted 时
+    // 事件驱动已对齐，不触发）。
     if (fd_->terminated()) {
       if (loop_route_ && !route_.empty()) {
         fd_->RestartPatrol(route_);

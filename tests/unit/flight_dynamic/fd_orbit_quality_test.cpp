@@ -11,7 +11,7 @@
 ///
 /// 质量分析（半径精度、角速度一致性等）请使用独立工具：
 ///   orbit_quality_csv <model|ALL> [output.csv]
-/// 位于 examples/flight_dynamic/orbit_quality_csv.cpp
+/// 位于 tests/unit/flight_dynamic/fd_tools/orbit_quality_csv.cpp
 
 #include <gtest/gtest.h>
 

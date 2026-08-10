@@ -20,7 +20,7 @@
 #include "1q/electro_optical_sensor/session/EosSession.h"
 #include "1q/fusion/DetectionRecord.h"
 #include "core/component.h"
-#include "demo_log_modes.h"
+#include "logger/logger_modes.h"
 
 namespace component_attachment {
 
@@ -57,7 +57,7 @@ class EosSensorComponent : public Component {
    *
    * Step 每周期经 EosOutputDebugViewBuilder::Build 回填（含按目标状态与
    * 规则 13b kInfo 排除诊断），供调用方结构化持久化到自己的日志/事件系统；
-   * 本示例每周期直写人读摘要行到集成端日志（components/demo_log.h 的 CA_LOG_VIEW）。
+   * 本示例每周期直写人读摘要行到集成端日志（logger/logger.h 的 CA_LOG_VIEW）。
    * @return 最近周期调试视图；关机周期清零（无有效周期），拒绝周期为
    *         kCycleNotExecuted 快照。
    */
@@ -87,7 +87,7 @@ class EosSensorComponent : public Component {
   float scan_azimuth_deg_{0.0f}; /**< 最近周期波束中心方位角（deg，随周期结果刷新） */
   electro_optical_sensor::session::EosOutputDebugView last_debug_view_{}; /**< 最近周期调试视图快照（规则 12 落盘） */
 
-  /// 调试视图中文人读行写入（三模式分支见 .cpp；宏选择见 components/demo_log.h）。
+  /// 调试视图中文人读行写入（三模式分支见 .cpp；宏选择见 logger/logger.h）。
   void LogDebugView(const electro_optical_sensor::session::EosOutputDebugView& view);
 #if defined(CA_VIEW_LOG_MODE_DELTA)
   /// 模式二（跨周期状态增量）用：上一周期状态表（target_id → status）。

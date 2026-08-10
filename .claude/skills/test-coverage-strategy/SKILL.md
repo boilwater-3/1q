@@ -52,7 +52,7 @@ allowed-tools:
 
 通过 public Session API 驱动多周期仿真，结构化 checks 验证。230 个场景 (199 sweep + 31 sequence)。
 
-- 构建: `cmake --preset llvm-ninja-release-local -D ENABLE_EXAMPLES=ON && cmake --build --preset llvm-ninja-release-local --target ar_batch_validation ...`
+- 构建: `cmake --preset llvm-ninja-release-local && cmake --build --preset llvm-ninja-release-local --target ar_batch_validation ...`（随测试构建纳入，见 `tests/consumer/batch_validation/README.md`）
 - 运行: `./build/llvm-ninja-release-local/bin/<domain>_batch_validation --suite all`
 - 详阅: `docs/practice/batch_validation.md`
 
@@ -113,8 +113,8 @@ ctest --preset llvm-ninja-debug-local -L contract --output-on-failure
 # PR 关键路径
 ctest --preset llvm-ninja-debug-local -L ci_required --output-on-failure -j 4
 
-# Batch validation
-cmake --preset llvm-ninja-release-local -D ENABLE_EXAMPLES=ON
+# Batch validation（tests/consumer/batch_validation，随测试构建纳入）
+cmake --preset llvm-ninja-release-local
 cmake --build --preset llvm-ninja-release-local --target \
   ar_batch_validation eos_batch_validation esr_batch_validation \
   sar_batch_validation sbirs_batch_validation -j 4

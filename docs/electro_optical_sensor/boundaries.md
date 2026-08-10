@@ -133,7 +133,7 @@ message 携带 `target_id` 与目标方位/扫描中心/FOV 尺寸），**不属
 
 属于 warning/error 观测项（不影响退出码）：FOV/lifecycle 行为、非法 runtime patch 原子性、真正的
 扫描扇区边界热更、通道 SNR 的昼夜物理趋势。batch 没有直接读取 lifecycle recorder，因此不得把
-场景名扩大为这些内部状态的硬契约。场景 ID 与运行方式由 `examples/batch_validation/README.md` 维护。
+场景名扩大为这些内部状态的硬契约。场景 ID 与运行方式由 `tests/consumer/batch_validation/README.md` 维护。
 
 ## 非目标
 

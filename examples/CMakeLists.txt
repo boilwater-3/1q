@@ -12,22 +12,8 @@ set(ONEQ_EXAMPLE_COMMON_DIR "${CMAKE_CURRENT_SOURCE_DIR}/common")
 set(ONEQ_EXAMPLE_COMMON_SOURCES
     "${ONEQ_EXAMPLE_COMMON_DIR}/json_reader.cpp")
 
-# SAR 域示例：session_usage / integration_demo（行为层不接 SAR，见 Bahavior.md §4.3）。
-add_subdirectory(sar)
+# SAR 域示例已删除（旧式 SarModule 包装示例；SAR 集成由
+# component_attachment 的 SarSensorComponent + 场景验证工作流覆盖）。
 
-# 行为层参考实现（EnTT ECS 业务层）：组件/系统/装配均由消费方侧承担，
-# EnTT 为 example 侧依赖（conanfile.py 基础清单），不进入库本体（见 Bahavior.md §5）。
-# 三域（AR/ESR/EOS）旧示例已删除，功能并入 behavior_layer。
-add_subdirectory(behavior_layer)
-
-# 第二种示例模式：自定义实体-组件（组件基类 + 挂载 + Boost.Signals2 事件）。
-# 不依赖 EnTT；与 behavior_layer（EnTT ECS 开源库模式）形成两种开发模式对照。
+# 消费方集成参考示例：自定义实体-组件（组件基类 + 挂载 + Boost.Signals2 事件）。
 add_subdirectory(component_attachment)
-
-# 机动模块示例：仅在 ONEQ_ENABLE_FLIGHT_DYNAMIC 开启时纳入。
-if(ONEQ_ENABLE_FLIGHT_DYNAMIC)
-    add_subdirectory(flight_dynamic)
-endif()
-
-# 批量场景验证：多场景参数扫描 + CSV 指标 + trace 录制/回放回归。
-add_subdirectory(batch_validation)

@@ -33,7 +33,7 @@
 | 症状 | 首查日志 | 常见根因（按频率排序） | 判定 |
 | --- | --- | --- | --- |
 | 某通道无探测 | **先看视图行目标状态字段**（kInfo 排除诊断：`低于门限`/`不在输出`/`超出视场`等——库直接点名原因），再查 `1q_library.log` 该通道 ERROR + 边界条件 | ① 几何不满足边界（EOS 距离窗/俯仰、SBIRS 视场外、SAR squint）② 扫描相位未扫到目标（EOS 扫描间隙）③ 链路预算不足（SAR SNR、ESR 脉冲数）④ 库 bug | 视图行状态字段是判定捷径（库自述原因）；库日志说人话时先信库 |
-| 事件缺失 | `integration_events.log` + 日志模式宏 | ① 该事件是 DUP 类，KEY 模式不落盘（ESR 假设、SAR 持续类、平台状态）② recorder 差分语义（如 EOS `kUpdated` 稀少是扫描断续的自然表现）③ 生命周期事件被模式门控 | 先核对 `demo_log_modes.h` 模式与事件宏类别，别把门控当缺失 |
+| 事件缺失 | `integration_events.log` + 日志模式宏 | ① 该事件是 DUP 类，KEY 模式不落盘（ESR 假设、SAR 持续类、平台状态）② recorder 差分语义（如 EOS `kUpdated` 稀少是扫描断续的自然表现）③ 生命周期事件被模式门控 | 先核对 `logger/logger_modes.h` 模式与事件宏类别，别把门控当缺失 |
 | 事件流"异常"（首发现/丢失交替） | 视图行（扫描方位 vs 目标方位） | 扫描断续物理（波束宽度 < 扫描步进 → 每 ~4 周期探测 1 次）→ 首发现/丢失交替是**自然表现** | 预期问题（预期写错），非库问题 |
 | 量值异常（距离/方位/信噪比离谱） | 视图行量值 + 几何先验 | ① 参考系混淆（SBIRS az/el 是 ECEF 极坐标，机载是平台局部系）② 目标与平台相对运动假设错误（如 v_east 不等于巡航地速 → 目标漂移）③ 高度耦合错位（目标高度 vs 平台高度 → EOS 窗口） | 先手算先验核对，再归因 |
 | 融合目标数不对 | 各通道视图 + fusion 视图/控制台 fused | ① 方位相干门限（8°）跨源残差超限 → 独立成目标 ② 异构参考系不跨源关联（SBIRS 通道独立成目标是已知语义）③ source_weights 配置 | 核对 README「天基通道」节与 FusionConfig 语义 |
@@ -48,14 +48,14 @@
 | SAR | squint_angle_exceeds_limit（起飞/转弯段与几何不成立期） | 库内 squint 门控；README「SAR 侧视几何」节 |
 | EOS | 首发现/丢失交替（扫描步进 > 波束宽度） | README「生命周期事件语义说明」节 |
 | SBIRS | 目标在 FOV 外无探测 | 库内 FOV 20° 门控 |
-| ESR | KEY 模式下假设事件不落盘 | 事件宏 DUP 门控（demo_log_modes.h） |
+| ESR | KEY 模式下假设事件不落盘 | 事件宏 DUP 门控（logger/logger_modes.h） |
 | 融合 | SBIRS 独立成目标（异构参考系不跨源关联） | README「天基通道（SBIRS / SAR）场景设计」节 |
 
 ## 库问题确认后的最小复现路径
 
 1. 从场景提取复现参数：目标几何（方位/距离/高度/速度/RCS/频率）、会话配置
    （场景覆写后的值）、周期窗；
-2. 用 `examples/batch_validation` 模式写单会话复现（ArSession/EsrSession/... +
+2. 用 `tests/consumer/batch_validation` 模式写单会话复现（ArSession/EsrSession/... +
    LifecycleRecorder，跳过集成层）；若 batch_validation 已有同类 sweep，先查
    是否已被覆盖；
 3. 复现成功 → 判定库问题 → 修复 + 补回归（单测或 batch_validation sequence）；

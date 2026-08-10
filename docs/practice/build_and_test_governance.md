@@ -50,7 +50,7 @@ Authority: build infrastructure, test infrastructure
    profile 数据仍来自真实 type × domain 分区，避免重复执行同一测试。
 6. `test_layout_guard` 负责 type/domain 布局与 CMake filter 禁令；新增 type 或
    domain 前，必须同批更新 guard、分区注册、README 和相关 contract 测试。
-7. `examples/batch_validation` 拥有的端到端可执行程序不是 `*_test.cpp`，不新增 `tests/`
-   源码 type，也不进入 GoogleTest 分区。其 sequence 子集可在 examples 自身 CMake 中注册为
+7. `tests/consumer/batch_validation` 拥有的端到端可执行程序不是 `*_test.cpp`，不新增 `tests/`
+   源码 type，也不进入 GoogleTest 分区。其 sequence 子集可在本框架自身 CMake 中注册为
    `batch_validation::<domain>`，必须同时携带 `batch_validation` 与 domain label；199 个 sweep
    只由显式 `--suite sweep|all` 运行，不得在 CTest 中重复注册。

@@ -1,6 +1,6 @@
 ---
 Status: active
-Last-reviewed: 2026-08-05
+Last-reviewed: 2026-08-10
 Authority: fusion 算法清单与实现边界
 Answers: 每个融合算法怎么实现、边界在哪、反直觉点是什么
 ---
@@ -13,6 +13,7 @@ Answers: 每个融合算法怎么实现、边界在哪、反直觉点是什么
 |---|---|---|---|
 | 关联分层（键直挂 / 位置 / 方位 / 特征） | 探测记录 + 既有航迹 | 探测 → 航迹归属 | `src/fusion/FusionEngine.cpp`；`tests/unit/fusion/fusion_association_test.cpp` |
 | 置信度滑窗融合 | 滑窗内量测 | 每航迹融合置信度 | 同上；`tests/unit/fusion/fusion_confidence_test.cpp` |
+| 传感器输出 → 泛型探测记录（官方适配器） | AR 轨迹帧 / ESR 假设 / EOS 探测 / SBIRS 探测 | `DetectionRecord` 列表 | `src/fusion/SensorAdapters.cpp`；`tests/unit/fusion/sensor_adapters_test.cpp` |
 
 ## 1. 关联分层
 
@@ -54,6 +55,27 @@ Answers: 每个融合算法怎么实现、边界在哪、反直觉点是什么
   这是冻结公式的字面语义（更多证据 → 更高置信），不是归一化概率。
 - 滑窗按**量测条数**而非周期数截断；同一源高频率探测会更快驱逐旧样本。
 - 输出按航迹键升序（`std::map` 迭代序），确定性可复现。
+
+## 3. 传感器输出 → 泛型探测记录（官方适配器）
+
+`fusion/SensorAdapters.h` 为四传感器输出提供默认映射（`Adapt*ToDetectionRecords`，
+跳过规则与质量归一化基准如下），集成方即开即用；业务层可自行适配（不修改
+本文件）。源通道常量 `kArSourceId=1..kSbirsSourceId=4` 与
+`FusionConfig::source_weights` 索引对齐（索引 0 未用）。
+
+| 适配函数 | 跳过规则 | 身份键 | 质量归一化基准 |
+|---|---|---|---|
+| `AdaptArTracksToDetectionRecords` | `kLost` 轨迹 | `association_key` | `target_probability`，无识别置信度时按状态（`kConfirmed`→1.0 / 其余→0.5） |
+| `AdaptEsrHypothesesToDetectionRecords` | `hypothesis_id == 0` | `hypothesis_id` | `confidence` |
+| `AdaptEosDetectionsToDetectionRecords` | `detected == false` | 0（方位相干） | `fused_snr_db / 10`（10 dB → 1.0）夹取 [0,1] |
+| `AdaptSbirsDetectionsToDetectionRecords` | `detected == false` | 0（方位相干） | `infrared_snr_linear / 4`（WFOV 门限 4.0 → 1.0）夹取 [0,1] |
+
+### 实现边界
+
+- AR 位置 ECEF→LLA（`TryEcefToLla`），转换失败退化为仅身份键记录（`has_position=false`）。
+- ESR 射频特征归一化到可比尺度（GHz/MHz/ms/µs），供特征门限启用。
+- 归一化基准固化为库默认（示例场景验证过的业务决策），不做配置参数（YAGNI）。
+  [evidence: tests/unit/fusion/sensor_adapters_test.cpp 14 用例全分支覆盖]
 
 ## 输出语义
 

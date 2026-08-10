@@ -2,9 +2,8 @@
  * @file component.h
  * @brief 自定义实体-组件示例：组件基类。
  *
- * 与 EnTT 模式的"纯数据组件 + 自由函数系统"不同，本示例的组件携带逻辑：
- * 每个仿真模块对应一个 Component 子类，挂载到实体后按挂载序周期步进。
- * 生命周期钩子 OnAttach/OnDetach 提供挂载/卸载通知（EnTT 无此内建概念）。
+ * 本示例的组件携带逻辑：每个仿真模块对应一个 Component 子类，挂载到实体
+ * 后按挂载序周期步进。生命周期钩子 OnAttach/OnDetach 提供挂载/卸载通知。
  */
 
 #ifndef EXAMPLES_COMPONENT_ATTACHMENT_CORE_COMPONENT_H_
