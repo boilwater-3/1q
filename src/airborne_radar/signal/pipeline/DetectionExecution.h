@@ -23,6 +23,28 @@ class SignalDetector;
 namespace pipeline {
 
 /**
+ * @brief 规则 13b 门内归因：SNR 检测门失败主因分类。
+ *
+ * SNR 检测门（min_snr_db/min_detection_margin_db）折入距离/波束/噪声底/RCS 多种物理
+ * 因素；按各因素相对参考状态的损失 dB 判定主因（损失最大者）：参考状态 = 1 km 距离、
+ * 主瓣中心增益、1 m² RCS、热噪声底、零传播损耗。传播损耗并入距离项（大气损耗随
+ * 距离/仰角耦合，同属链路衰减）。全部损失 <= 0 时返回 kUnknown。
+ * @param[in] range_m 目标斜距（m）。
+ * @param[in] effective_rcs_m2 目标有效 RCS（m²）。
+ * @param[in] one_way_antenna_gain_db 目标方向单程天线增益（dB）。
+ * @param[in] main_beam_gain_db 主瓣峰值增益（dB）。
+ * @param[in] propagation_loss_db 总传播损耗（dB）。
+ * @param[in] total_noise_w 综合噪声底（热噪声+杂波+干扰，W）。
+ * @param[in] thermal_noise_w 热噪声底（W）。
+ * @return 主因；无法判定为 kUnknown。
+ */
+session::ArIssueCause ClassifySnrExclusionCause(float range_m, float effective_rcs_m2,
+                                                float one_way_antenna_gain_db,
+                                                float main_beam_gain_db,
+                                                float propagation_loss_db, float total_noise_w,
+                                                float thermal_noise_w);
+
+/**
  * @brief 探测执行阶段的输出缓冲区集合（指向外部拥有并按目标索引对齐的若干向量）。
  * @note 各指针由调用方保证非空且容量不小于目标数；本结构不持有所有权。
  */

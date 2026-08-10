@@ -397,6 +397,9 @@ TEST(EsrRfV2DetectionTest, CoSiteEmissionWritesInfoExclusionDiagnostic) {
       EXPECT_EQ(issue.severity, session::EsrIssueSeverity::kInfo);
       EXPECT_NE(issue.message.find("emission_id=9"), std::string::npos);
       EXPECT_NE(issue.message.find("co_site=true"), std::string::npos);
+      // 具体门（同址判定本身可定位）：cause 恒 kNone；message 携带隔离度量值。
+      EXPECT_EQ(issue.cause, session::EsrIssueCause::kNone);
+      EXPECT_NE(issue.message.find("isolation_db="), std::string::npos);
     }
   }
   EXPECT_TRUE(found);

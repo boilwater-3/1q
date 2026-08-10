@@ -175,10 +175,20 @@ session::ArIssue MakeExclusionIssue(const char* code, const std::string& message
   return issue;
 }
 
+/// 格式化量值为两位小数（消息文本稳定，不承诺解析稳定性；规则 13b message 约定）。
+std::string FormatFloat(float value) {
+  char buffer[32];
+  std::snprintf(buffer, sizeof(buffer), "%.2f", static_cast<double>(value));
+  return buffer;
+}
+
+}  // namespace
+
 // 规则 13b 门内归因：SNR 检测门（min_snr_db/min_detection_margin_db）折入距离/波束/
 // 噪声底/RCS 多种物理因素。按各因素相对参考状态的损失 dB 判定主因（损失最大者）：
 // 参考状态 = 1 km 距离、主瓣中心增益、1 m² RCS、热噪声底、零传播损耗。
 // 传播损耗并入距离项（大气损耗随距离/仰角耦合，同属链路衰减）。
+// 声明见 DetectionExecution.h（供单元测试直接覆盖五类输出）。
 session::ArIssueCause ClassifySnrExclusionCause(float range_m, float effective_rcs_m2,
                                                 float one_way_antenna_gain_db,
                                                 float main_beam_gain_db,
@@ -219,15 +229,6 @@ session::ArIssueCause ClassifySnrExclusionCause(float range_m, float effective_r
   }
   return max_loss_db > 0.0f ? cause : session::ArIssueCause::kUnknown;
 }
-
-/// 格式化量值为两位小数（消息文本稳定，不承诺解析稳定性；规则 13b message 约定）。
-std::string FormatFloat(float value) {
-  char buffer[32];
-  std::snprintf(buffer, sizeof(buffer), "%.2f", static_cast<double>(value));
-  return buffer;
-}
-
-}  // namespace
 
 bool RunPhysicalDetectionPass(const session::ArSceneTargetList& input,
                               const ExecutionConfig& config,
@@ -352,7 +353,8 @@ bool RunPhysicalDetectionPass(const session::ArSceneTargetList& input,
       if (!detection::TryResolveArDetectionCell(
               cell_config, cell_target, rf_v2_detection_context->own_emission_identity,
               rf_v2_detection_context->incident_links, static_cast<double>(clutter_w),
-              &cell_result)) {        // 中译：目标 {} 的 RF 检测单元解析失败（距离/脉冲数/入射链路数）。
+              &cell_result)) {
+        // 中译：目标 {} 的 RF 检测单元解析失败（距离/脉冲数/入射链路数）。
         // 标识：检测链路失败——信噪比/杂波竞争解析异常时该目标检测失败。
         PROJECT_LOG_ERROR(
             "[DetectionExecution] target {} RF detection-cell resolution failed "

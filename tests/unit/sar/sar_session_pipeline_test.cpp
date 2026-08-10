@@ -175,6 +175,10 @@ TEST(SarSessionPipelineTest, StepWithResultRunsRawRangeAndRdaPipeline) {
   EXPECT_FALSE(result.focused_image.is_placeholder);
   EXPECT_TRUE(HasNonZeroFocusedPixel(result.focused_image));
   EXPECT_FALSE(result.issues.empty());
+  // 13b 空洞条款：SAR 无逐目标门控排除，cause 恒 kNone（五模块结构同构保留字段）。
+  for (const session::SarIssue& diagnostic : result.issues) {
+    EXPECT_EQ(diagnostic.cause, session::SarIssueCause::kNone);
+  }
   EXPECT_TRUE(HasIssueContaining(result, "sar.rda_peak", "image_entropy_nats="));
   EXPECT_TRUE(HasIssueContaining(result, "sar.rda_peak", "image_contrast="));
   EXPECT_TRUE(HasIssueContaining(result, "sar.rda_peak", "phase_reference_mode="));

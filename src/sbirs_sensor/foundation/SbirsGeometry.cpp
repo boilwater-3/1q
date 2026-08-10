@@ -101,8 +101,9 @@ double ComputeEarthOccultationMarginM(const session::SbirsVector3M& satellite_po
 
 bool IsEarthOcculted(const session::SbirsVector3M& satellite_position_ecef_m,
                      const session::SbirsVector3M& target_position_ecef_m, double earth_radius_m) {
+  // 相切（margin == 0）视为遮挡：与原 closest_sq <= r² 判定语义一致。
   return ComputeEarthOccultationMarginM(satellite_position_ecef_m, target_position_ecef_m,
-                                        earth_radius_m) < 0.0;
+                                        earth_radius_m) <= 0.0;
 }
 
 }  // namespace foundation

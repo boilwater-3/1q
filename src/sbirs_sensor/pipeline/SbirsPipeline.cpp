@@ -37,6 +37,41 @@ session::SbirsIssue MakeExclusionIssue(const char* code, const std::string& mess
   return issue;
 }
 
+// 规则 13b 门内归因：WFOV SNR 门失败主因分类。SNR 门为聚合门（距离²/大气透过率/
+// 目标签名折入单一门限），反事实判定主因——各因子取"达标参考值"后 SNR 提升（dB）
+// 最大者：距离参考 1000 km、大气全透过、目标签名取"使 SNR 恰达门限的签名"
+//（signature_required 仅依赖硬件/门限配置，调用方在循环外计算）；噪声为硬件常数，
+// 不参与单目标归因。全部损失 <= 0 时返回 kUnknown。
+session::SbirsIssueCause ClassifyWfovSnrExclusionCause(double range_m, float transmittance,
+                                                       double signature_actual,
+                                                       double signature_required) {
+  constexpr double kReferenceRangeM = 1.0e6;
+  const double distance_loss_db =
+      20.0 * std::log10(std::max(range_m, 1.0) / kReferenceRangeM);
+  const double attenuation_loss_db = -20.0 * std::log10(std::max(transmittance, 1.0e-6f));
+  const double signature_loss_db =
+      signature_actual > 0.0 && signature_required > 0.0
+          ? 10.0 * std::log10(signature_required / signature_actual)
+          : 0.0;
+  session::SbirsIssueCause cause = session::SbirsIssueCause::kUnknown;
+  double max_loss_db = 0.0;
+  const struct {
+    double loss_db;
+    session::SbirsIssueCause cause;
+  } kCandidates[] = {
+      {distance_loss_db, session::SbirsIssueCause::kDistanceLimited},
+      {attenuation_loss_db, session::SbirsIssueCause::kAttenuationLimited},
+      {signature_loss_db, session::SbirsIssueCause::kSignatureLimited},
+  };
+  for (const auto& candidate : kCandidates) {
+    if (candidate.loss_db > max_loss_db) {
+      max_loss_db = candidate.loss_db;
+      cause = candidate.cause;
+    }
+  }
+  return max_loss_db > 0.0 ? cause : session::SbirsIssueCause::kUnknown;
+}
+
 std::string FormatFloat(float value) {
   char buffer[32];
   std::snprintf(buffer, sizeof(buffer), "%.1f", static_cast<double>(value));
@@ -456,6 +491,13 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
       mission.scan_center_el_deg + static_cast<float>(frame_disturbance.common.elevation_deg);
 
   const float transmittance = environment::ResolveEffectiveTransmittance(environment_config);
+  // 门内归因目标无关量（仅依赖硬件/门限配置，循环外计算一次）：达标所需签名 =
+  // wide_min·噪声/积分时间（见 ClassifyWfovSnrExclusionCause）。
+  const config::SbirsHardwareConfig& hw = config_.session.hardware;
+  const double snr_signature_required =
+      policy.detection.wide_min_snr_linear *
+      foundation::ResolveEffectiveNoiseW(hw, foundation::ComputeBackgroundNoiseStatistics(hw)) /
+      std::max(0.0f, hw.integration_time_sec);
   std::vector<SbirsCandidate> candidates;
   std::set<std::uint64_t> present_target_ids;
   for (const session::SbirsSceneTarget& target : input.scene) {
@@ -684,46 +726,15 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
     }
     if (snr < policy.detection.wide_min_snr_linear) {
       // 规则 13b：WFOV SNR 门排除 → kInfo 诊断（不属于三写，仅承载排查信息）。
-      // 门内归因：SNR 门为聚合门（距离²/大气透过率/目标签名折入单一门限），
-      // 反事实判定主因——各因子取"达标参考值"后 SNR 提升（dB）最大者：
-      // 距离参考 1000 km、大气全透过、目标签名取"使 SNR 恰达门限的签名"
-      //（= wide_min·噪声/积分时间）；噪声为硬件常数，不参与单目标归因。
-      const config::SbirsHardwareConfig& hw = config_.session.hardware;
-      const double effective_noise = foundation::ResolveEffectiveNoiseW(
-          hw, foundation::ComputeBackgroundNoiseStatistics(hw));
-      const double signature_required =
-          policy.detection.wide_min_snr_linear * effective_noise /
-          std::max(0.0f, hw.integration_time_sec);
+      // 门内归因：SNR 门为聚合门，反事实判定主因（见 ClassifyWfovSnrExclusionCause；
+      // signature_required 已在循环外计算）。
       const double band_radiance = foundation::ComputeBandRadiance(
           hw.wavelength_lower_um, hw.wavelength_upper_um, target.temperature_k);
       const double signature_actual =
           band_radiance * std::max(0.0f, target.emissivity) *
           static_cast<double>(std::max(0.0f, target.projected_area_m2));
-      constexpr double kReferenceRangeM = 1.0e6;
-      const double distance_loss_db =
-          20.0 * std::log10(std::max(range_m, 1.0) / kReferenceRangeM);
-      const double attenuation_loss_db =
-          -20.0 * std::log10(std::max(transmittance, 1.0e-6f));
-      const double signature_loss_db =
-          signature_actual > 0.0 && signature_required > 0.0
-              ? 10.0 * std::log10(signature_required / signature_actual)
-              : 0.0;
-      session::SbirsIssueCause snr_cause = session::SbirsIssueCause::kUnknown;
-      double max_loss_db = 0.0;
-      const struct {
-        double loss_db;
-        session::SbirsIssueCause cause;
-      } kSnrCandidates[] = {
-          {distance_loss_db, session::SbirsIssueCause::kDistanceLimited},
-          {attenuation_loss_db, session::SbirsIssueCause::kAttenuationLimited},
-          {signature_loss_db, session::SbirsIssueCause::kSignatureLimited},
-      };
-      for (const auto& candidate : kSnrCandidates) {
-        if (candidate.loss_db > max_loss_db) {
-          max_loss_db = candidate.loss_db;
-          snr_cause = candidate.cause;
-        }
-      }
+      const session::SbirsIssueCause snr_cause = ClassifyWfovSnrExclusionCause(
+          range_m, transmittance, signature_actual, snr_signature_required);
       result.issues.push_back(MakeExclusionIssue(
           session::codes::kTargetSnrBelowThreshold,
           "target_id=" + std::to_string(target.target_id) +

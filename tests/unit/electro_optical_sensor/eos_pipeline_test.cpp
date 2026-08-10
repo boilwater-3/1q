@@ -465,6 +465,27 @@ TEST(EosPipelineTest, OutOfFovTargetWritesInfoExclusionDiagnostic) {
   EXPECT_TRUE(found);
 }
 
+TEST(EosPipelineTest, OutOfFovBothAxesWritesBothAxesOutsideCause) {
+  EosPipeline pipeline(MakePipelineConfig());
+  ::electro_optical_sensor::session::EosCycleInput input = MakeCycleInput(1.0f);
+  input.cycle_index = 5U;
+  ::electro_optical_sensor::session::EosSceneTarget target = MakeTarget(202U, 35.0f);
+  target.elevation_deg = 20.0f;  // az 与 el 均越界（半视场 az=3°/el=2°）
+  input.scene.push_back(target);
+
+  const auto frame = pipeline.RunCycle(input);
+  EXPECT_TRUE(frame.detections.empty());
+  bool found = false;
+  for (const context::EosIssue& issue : frame.issues) {
+    if (issue.code == "eos.target_out_of_fov") {
+      found = true;
+      // 门内归因（规则 13b）：双轴越界 → kBothAxesOutside。
+      EXPECT_EQ(issue.cause, context::EosIssueCause::kBothAxesOutside);
+    }
+  }
+  EXPECT_TRUE(found);
+}
+
 }  // namespace
 }  // namespace pipeline
 }  // namespace signal

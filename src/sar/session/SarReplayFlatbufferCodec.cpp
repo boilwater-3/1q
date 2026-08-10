@@ -27,6 +27,11 @@ bool IsValidIssuePhase(std::int32_t value) {
          value <= static_cast<std::int32_t>(SarIssuePhase::kOutputContract);
 }
 
+bool IsValidIssueCause(std::int32_t value) {
+  return value >= static_cast<std::int32_t>(SarIssueCause::kNone) &&
+         value <= static_cast<std::int32_t>(SarIssueCause::kUnknown);
+}
+
 flatbuffers::Offset<replay::SarPlatformState> BuildPlatformState(
     flatbuffers::FlatBufferBuilder& fbb, const SarPlatformState& value) {
   return replay::CreateSarPlatformState(fbb, value.time_s, value.latitude_deg, value.longitude_deg,
@@ -435,7 +440,7 @@ bool DecodeSarCycleResult(const std::string& bytes, SarCycleResult* out) {
   if (fb->issues()) {
     for (const auto* issue : *fb->issues()) {
       if (issue == nullptr || !IsValidIssueSeverity(issue->severity()) ||
-          !IsValidIssuePhase(issue->phase())) {
+          !IsValidIssuePhase(issue->phase()) || !IsValidIssueCause(issue->cause())) {
         return false;
       }
       SarIssue decoded_issue;
