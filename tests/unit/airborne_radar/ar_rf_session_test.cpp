@@ -355,6 +355,10 @@ TEST(ArRfSessionTest, BelowSnrTargetWritesInfoExclusionDiagnostic) {
       // 排除诊断属执行阶段（规则 14b phase=kExecution），不得误标为校验问题。
       EXPECT_EQ(issue.phase, ArIssuePhase::kExecution);
       EXPECT_NE(issue.message.find("target_id=77"), std::string::npos);
+      // 门内归因（规则 13b）：极小 RCS 主导门失败 → kRcsLimited；
+      // message 补充偏轴量值（机器消费仍只认 code/cause）。
+      EXPECT_EQ(issue.cause, ArIssueCause::kRcsLimited);
+      EXPECT_NE(issue.message.find("off_axis_deg=("), std::string::npos);
     }
   }
   EXPECT_TRUE(found);

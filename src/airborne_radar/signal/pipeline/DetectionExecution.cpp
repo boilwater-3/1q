@@ -163,13 +163,61 @@ bool HasValidBuffers(const DetectionExecutionBuffers& buffers) {
 // code 引用 ArIssueCodes.h 注册表常量。
 
 /// 构造 kInfo 级按目标排除诊断（不属于三写，仅承载排查信息；规则 13b）。
-session::ArIssue MakeExclusionIssue(const char* code, const std::string& message) {
+/// @param cause 门内归因（规则 13b 门内归因条款）；聚合门排除须给出主因，具体门可 kNone。
+session::ArIssue MakeExclusionIssue(const char* code, const std::string& message,
+                                    session::ArIssueCause cause = session::ArIssueCause::kNone) {
   session::ArIssue issue;
   issue.severity = session::ArIssueSeverity::kInfo;
   issue.phase = session::ArIssuePhase::kExecution;
   issue.code = code;
   issue.message = message;
+  issue.cause = cause;
   return issue;
+}
+
+// 规则 13b 门内归因：SNR 检测门（min_snr_db/min_detection_margin_db）折入距离/波束/
+// 噪声底/RCS 多种物理因素。按各因素相对参考状态的损失 dB 判定主因（损失最大者）：
+// 参考状态 = 1 km 距离、主瓣中心增益、1 m² RCS、热噪声底、零传播损耗。
+// 传播损耗并入距离项（大气损耗随距离/仰角耦合，同属链路衰减）。
+session::ArIssueCause ClassifySnrExclusionCause(float range_m, float effective_rcs_m2,
+                                                float one_way_antenna_gain_db,
+                                                float main_beam_gain_db,
+                                                float propagation_loss_db, float total_noise_w,
+                                                float thermal_noise_w) {
+  constexpr float kReferenceRangeM = 1000.0f;
+  constexpr float kMinRcsM2 = 1.0e-12f;
+  constexpr float kMinNoiseW = 1.0e-30f;
+
+  const float distance_loss_db =
+      4.0f * 10.0f * std::log10(std::max(range_m, 1.0e-3f) / kReferenceRangeM) +
+      std::max(propagation_loss_db, 0.0f);
+  const float beam_loss_db =
+      2.0f * std::max(main_beam_gain_db - one_way_antenna_gain_db, 0.0f);
+  const float rcs_loss_db = -10.0f * std::log10(std::max(effective_rcs_m2, kMinRcsM2));
+  const float noise_loss_db =
+      thermal_noise_w > 0.0f
+          ? 10.0f * std::log10(std::max(total_noise_w, kMinNoiseW) /
+                               std::max(thermal_noise_w, kMinNoiseW))
+          : 0.0f;
+
+  float max_loss_db = 0.0f;
+  session::ArIssueCause cause = session::ArIssueCause::kUnknown;
+  const struct {
+    float loss_db;
+    session::ArIssueCause cause;
+  } kCandidates[] = {
+      {distance_loss_db, session::ArIssueCause::kDistanceLimited},
+      {beam_loss_db, session::ArIssueCause::kBeamLimited},
+      {noise_loss_db, session::ArIssueCause::kNoiseLimited},
+      {rcs_loss_db, session::ArIssueCause::kRcsLimited},
+  };
+  for (const auto& candidate : kCandidates) {
+    if (candidate.loss_db > max_loss_db) {
+      max_loss_db = candidate.loss_db;
+      cause = candidate.cause;
+    }
+  }
+  return max_loss_db > 0.0f ? cause : session::ArIssueCause::kUnknown;
 }
 
 /// 格式化量值为两位小数（消息文本稳定，不承诺解析稳定性；规则 13b message 约定）。
@@ -199,6 +247,9 @@ bool RunPhysicalDetectionPass(const session::ArSceneTargetList& input,
 
   float clutter_w = ComputeEquivalentClutterNoiseW(config.detection.engineering,
                                                    environment_snapshot.clutter_power_db);
+  // 热噪声底（门内归因判定基准，规则 13b：噪声项损失 = 噪声底相对热噪声的抬高量）。
+  const float thermal_noise_w = detection::RadarEquations::ComputeThermalNoisePower_W(
+      config.detection.engineering.transmitter, config.detection.engineering.receiver);
   detection::EnvironmentState env;
   env.propagation_loss_db = environment_snapshot.propagation_loss_db;
   env.clutter_noise_w = clutter_w;
@@ -218,6 +269,9 @@ bool RunPhysicalDetectionPass(const session::ArSceneTargetList& input,
         environment_snapshot.propagation_loss_db +
         ComputeTargetSpecificAtmosphericLossDb(config, environment_snapshot, platform_altitude_m,
                                                (*buffers->target_geometry)[i]);
+    // 综合噪声底（门内归因判定输入）：RF v1 = 热噪声 + 杂波；RF v2 由检测单元给出
+    // 热噪声/杂波/干扰分解。
+    float noise_floor_w = thermal_noise_w + clutter_w;
     const float effective_rcs_m2 =
         ComputeEffectiveTargetRcsM2(input[i], (*buffers->target_geometry)[i], config);
     detection::TargetReturn target;
@@ -298,8 +352,7 @@ bool RunPhysicalDetectionPass(const session::ArSceneTargetList& input,
       if (!detection::TryResolveArDetectionCell(
               cell_config, cell_target, rf_v2_detection_context->own_emission_identity,
               rf_v2_detection_context->incident_links, static_cast<double>(clutter_w),
-              &cell_result)) {
-        // 中译：目标 {} 的 RF 检测单元解析失败（距离/脉冲数/入射链路数）。
+              &cell_result)) {        // 中译：目标 {} 的 RF 检测单元解析失败（距离/脉冲数/入射链路数）。
         // 标识：检测链路失败——信噪比/杂波竞争解析异常时该目标检测失败。
         PROJECT_LOG_ERROR(
             "[DetectionExecution] target {} RF detection-cell resolution failed "
@@ -308,6 +361,10 @@ bool RunPhysicalDetectionPass(const session::ArSceneTargetList& input,
             rf_v2_detection_context->incident_links.size());
         return false;
       }
+      // 综合噪声底 = 热噪声 + 杂波 + 干扰（RF v2 检测单元分解）。
+      noise_floor_w = static_cast<float>(cell_result.thermal_noise_power_w +
+                                         cell_result.clutter_power_w +
+                                         cell_result.interference_power_w);
       detection_result = signal_detector->DetectResolvedCell(target, cell_result);
     }
     const detection::MeasurementErrorState measurement_error =
@@ -323,6 +380,26 @@ bool RunPhysicalDetectionPass(const session::ArSceneTargetList& input,
     (*buffers->detection_succeeded)[i] = static_cast<std::uint8_t>(detected ? 1U : 0U);
     if (!detected) {
       // 规则 13b：SNR/检测门排除 → kInfo 诊断（不属于三写，仅承载排查信息）。
+      // 门内归因（规则 13b 门内归因条款）：SNR 门为聚合门（距离/波束/噪声底/RCS
+      // 折入单一门限），按各因素相对参考状态的损失 dB 判定主因。
+      const session::ArIssueCause cause = ClassifySnrExclusionCause(
+          (*buffers->target_geometry)[i].range_m, effective_rcs_m2,
+          beam_state.one_way_antenna_gain_db,
+          config.detection.engineering.antenna.main_beam_gain_db, env.propagation_loss_db,
+          noise_floor_w, thermal_noise_w);
+      // 中译：目标 {} 因 SNR 低于检测门限被排除（主因 {}）。
+      // 标识：规则 13b 排除诊断——周期正常完成，目标未过 SNR 门；cause 为机器可读
+      //       主因（距离/波束/噪声底/RCS），仅承载排查信息，不用于状态判断。
+      std::string off_axis_text = " off_axis_deg=(n/a)";
+      if ((*buffers->target_geometry)[i].look_angles_deg.has_look_angles) {
+        off_axis_text = " off_axis_deg=(" +
+                        FormatFloat((*buffers->target_geometry)[i].look_angles_deg.look_az_deg -
+                                    beam_state.beam_pointing_deg.az_deg) +
+                        "," +
+                        FormatFloat((*buffers->target_geometry)[i].look_angles_deg.look_el_deg -
+                                    beam_state.beam_pointing_deg.el_deg) +
+                        ")";
+      }
       buffers->issues->push_back(MakeExclusionIssue(
           session::codes::kTargetSnrBelowThreshold,
           "target_id=" + std::to_string(input[i].external_target_id) + "; snr_db=" +
@@ -330,7 +407,9 @@ bool RunPhysicalDetectionPass(const session::ArSceneTargetList& input,
               FormatFloat((*buffers->target_geometry)[i].range_m) + " below min_snr_db=" +
               FormatFloat(config.detection.engineering.detection_policy.min_snr_db) +
               " min_detection_margin_db=" +
-              FormatFloat(config.detection.engineering.min_detection_margin_db)));
+              FormatFloat(config.detection.engineering.min_detection_margin_db) +
+              off_axis_text,
+          cause));
       ++(*buffers->excluded_snr_below);
     }
     (*buffers->measurement_covariances)[i] = BuildMeasurementCovariance(
