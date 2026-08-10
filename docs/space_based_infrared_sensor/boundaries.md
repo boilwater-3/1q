@@ -87,6 +87,13 @@ SBIRS 所有中止路径遵守 `session_contract.md` 规则 9 的三写模式与
    （`sbirs.target_occulted` / `sbirs.target_out_of_range` / `sbirs.target_out_of_wfov` /
    `sbirs.target_snr_below_threshold`，message 含 `target_id` 与关键量值）；DebugView 状态仍为
    `kNotInOutput`（规则 13b/c）。
+9. **门内归因（规则 13b 归因条款）**：`SbirsIssueCause` 给出机器可读主因——视场门按越界轴细分
+   （`kAzOutside` / `kElOutside` / `kBothAxesOutside`，与 `InRectangularFov` 同基准）；
+   SNR 门为聚合门（距离²/大气透过率/目标签名折入单一门限），反事实判定主因（距离参考
+   1000 km、大气全透过、目标签名取"使 SNR 恰达门限的签名"），损失最大者为
+   `kDistanceLimited` / `kAttenuationLimited` / `kSignatureLimited`；遮挡与距离门为具体门
+   （cause 恒 `kNone`），message 分别补遮挡余量（`ComputeEarthOccultationMarginM`，负值 =
+   遮挡深度）与距带边余量。
 
 仿真归属（detection id → 输入 target id/name）、debug view、lifecycle（found/lost）、replay 仅进
 `SbirsCycleResult` 和调试视图层，不得混入 `SbirsOutputFrame`。状态机内部状态如需调试，通过稳定的

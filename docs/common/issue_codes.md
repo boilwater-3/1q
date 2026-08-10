@@ -12,6 +12,9 @@ Status: active
 ## 使用说明
 
 - **code 是机器消费的稳定契约**（规则 13b/14c）：量值与状态判断一律走结构化字段，不得解析 `message`。
+- **排除诊断门内归因**（规则 13b 归因条款）：聚合门（如 AR 的 SNR 门）排除时 `*Issue.cause`
+  （各模块 `<Module>IssueCause` 枚举）给出机器可读主因；具体门排除 `cause` 为 `kNone`，
+  关键量值进 `message`。`cause` 不替代 `code`，不用于状态判断。
 - **中文含义为人读辅助**：集成方日志/告警展示可直接使用；展示语义非库承诺，库内以 `@brief` 注释为准。
 - 各模块 issue code 常量定义与中文注释见对应 `<Module>IssueCodes.h`；日志兜底串
   （`*.validation_rejected`、`*.unknown` 等，仅用于 `AbortReasonToDiagnosticCode` 日志映射、

@@ -116,7 +116,12 @@ AR 所有中止路径遵守 `session_contract.md` 规则 9 的三写模式与规
 **正常周期的按目标排除诊断（规则 13b）**：正常执行周期（`status == kCompleted`）中被 SNR 检测门
 排除的目标（`min_snr_db` / `min_detection_margin_db` 任一未过；距离/方向图衰减隐式并入 SNR）写
 `kInfo` 级 `ArIssue`（code `"ar.target_snr_below_threshold"`，message 携带 `target_id` 与
-`snr_db`/`range_m`/门值，phase=`kExecution`），**不属于三写**（三写仅约束中止路径，规则 9）。诊断不改变 `ArCycleStatus`
+`snr_db`/`range_m`/门值/偏轴角，phase=`kExecution`），**不属于三写**（三写仅约束中止路径，规则 9）。
+**门内归因（规则 13b 归因条款）**：SNR 门为聚合门（距离/波束偏轴/噪声底/RCS 折入单一门限），
+`ArIssueCause` 给出机器可读主因——按各因素相对参考状态（1 km 距离、主瓣中心增益、1 m² RCS、
+热噪声底、零传播损耗）的损失 dB 判定，损失最大者为 `kDistanceLimited` / `kBeamLimited` /
+`kNoiseLimited` / `kRcsLimited`（传播损耗并入距离项）；无法判定为 `kUnknown`。
+诊断不改变 `ArCycleStatus`
 与 DebugView 状态语义（排除目标仍为 `kNotInOutput`，规则 13c）；生命周期失效（miss 积累 → `kLost`）
 不产生排除诊断（规则 13d）。周期摘要日志（`[SignalPipeline] … excluded={{snr=…}}`）仅人读（规则 13a）。
 

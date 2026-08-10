@@ -120,8 +120,11 @@ EOS 所有中止路径遵守 `session_contract.md` 规则 9 的三写模式与�
 
 **正常周期的按目标排除诊断（规则 13b）**：正常执行周期（`status == kCompleted`）中视场外目标
 （无 detection/attribution）写 `kInfo` 级 `EosIssue`（code `"eos.target_out_of_fov"`，
-message 携带 `target_id` 与目标方位/扫描中心/FOV 尺寸），**不属于三写**（三写仅约束中止路径，
+message 携带 `target_id` 与目标方位/扫描中心/FOV 尺寸/差值），**不属于三写**（三写仅约束中止路径，
 规则 9）；不改变 `EosCycleStatus` 与 DebugView 状态语义（视场外目标仍为 `kNotInOutput`，规则 13c）。
+**门内归因（规则 13b 归因条款）**：视场门按越界轴细分——`EosIssueCause::kAzOutside` /
+`kElOutside` / `kBothAxesOutside`（与 `IsTargetInCurrentFov` 同基准：半视场为门限），
+message 补相对扫描中心的差值。
 输入中消失的目标由生命周期 recorder 承载（`kLost` 事件），不产生排除诊断（规则 13d）。
 周期摘要日志（`[EosPipeline] … excluded={{fov=…}}`）仅人读（规则 13a）。
 

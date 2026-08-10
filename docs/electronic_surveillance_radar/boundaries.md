@@ -145,7 +145,11 @@ ESR 所有中止路径遵守 `session_contract.md` 规则 9 的三写模式与�
 发射源（同址干扰 / 零功率 / SNR-统计检测门）写 `kInfo` 级 `EsrIssue`（code 如
 `"esr.emission_below_threshold"`，message 携带发射源标识 platform/equipment/emission id 与关键量值），
 **不属于三写**（三写仅约束中止路径，规则 9）。ESR 无目标概念（按发射源处理，无 target_id），
-排除诊断以发射源标识为载体（对应契约规则 13b 措辞）。诊断不改变 `EsrCycleExecutionStatus` 与
+排除诊断以发射源标识为载体（对应契约规则 13b 措辞）。
+**门内归因（规则 13b 归因条款）**：`EsrIssueCause` 给出机器可读主因——零功率排除按成因细分
+（时频重叠窗口为零 `kOverlapWindow` / 发射静默 `kTransmitSilent` / 传播损耗 `kPropagationLoss`），
+低于门限按门型细分（硬门 `kHardGateFailed` / 统计门 `kStatisticalGateFailed`）；同址排除为
+具体门（cause 恒 `kNone`），message 补隔离度与路径量值。诊断不改变 `EsrCycleExecutionStatus` 与
 输出帧语义（规则 13c）；周期摘要日志（`[InterceptPipeline] … excluded=…`）仅人读（规则 13a）。
 
 ## 专项序列验证边界
