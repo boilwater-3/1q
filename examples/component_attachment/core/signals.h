@@ -44,6 +44,8 @@ struct Signals {
   boost::signals2::signal<void(const SarProductEvent&)> on_sar_product;
   /** @brief 融合态势更新。 */
   boost::signals2::signal<void(const FusionUpdatedEvent&)> on_fusion_updated;
+  /** @brief 威胁评估更新（ThreatComponent 每周期逐目标发布）。 */
+  boost::signals2::signal<void(const ThreatUpdatedEvent&)> on_threat_updated;
   /** @brief 决策指令下发（决策侧订阅融合事件后转发）。 */
   boost::signals2::signal<void(const CommandIssuedEvent&)> on_command_issued;
 };

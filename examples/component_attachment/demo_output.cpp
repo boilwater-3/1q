@@ -46,6 +46,24 @@ DecisionListener::DecisionListener(World& world, double high_threat_confidence)
       world_.signals().on_command_issued(command);
     }
   });
+  // 威胁链路：威胁等级 HIGH 首次出现即触发指令（门限 = 评估器 HIGH 阈值；
+  // 升级关键事件由 ThreatComponent 直写，此处消费信号补决策指令）。
+  world_.signals().on_threat_updated.connect([this](const ThreatUpdatedEvent& e) {
+    if (e.result.level == threat_assessment::ThreatLevel::kHigh && !issued_) {
+      issued_ = true;
+      CommandIssuedEvent command;
+      command.cycle = e.cycle;
+      command.command = "ENGAGE_HIGH_THREAT";
+      // 中译：高威胁目标键 {} 触发交战指令（威胁分 {:.2f}）。
+      // 标识：威胁→决策指令链——威胁等级 HIGH 首次出现即下发一次指令，
+      //       与融合置信度门限指令互斥（issued_ 共享）。
+      CA_LOG_EVENT(world_, "command_issued", "指令={} 键={} 威胁分={:.2f}",
+                   command.command.c_str(),
+                   static_cast<unsigned long long>(e.result.key),
+                   e.result.threat_score);
+      world_.signals().on_command_issued(command);
+    }
+  });
 }
 
 }  // namespace demo
