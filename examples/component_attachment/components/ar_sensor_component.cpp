@@ -152,7 +152,7 @@ void ArSensorComponent::Step(World& world, double dt_sec) {
   // 规则 12 落盘示范：每周期构建调试视图快照（拒绝周期为 kCycleNotCompleted，
   // 含规则 13b kInfo 排除诊断），供调用方结构化持久化；本示例经 LogDebugView
   // 直写中文人读行（三模式由集成方按需选择）。
-  last_debug_view_ = airborne_radar::session::ArTrackOutputDebugViewBuilder::Build(input.targets, result);
+  last_debug_view_ = airborne_radar::session::ArTrackOutputDebugViewBuilder::Build(input, result);
   LogDebugView(last_debug_view_);
   if (result.status != airborne_radar::session::ArCycleStatus::kCompleted) {
     return;  // 周期被拒绝：本周期无探测
@@ -162,7 +162,7 @@ void ArSensorComponent::Step(World& world, double dt_sec) {
   // ArCycleOutputAdapter 边界转换；内部帧为 TrackStateSnapshot，无 ECEF）。
   airborne_radar::session::ArExternalTrackOutputFrame external_frame;
   if (!airborne_radar::session::ArCycleOutputAdapter::Build(input.platform,
-                                                            result.track_output_frame,
+                                                            result.output_frame,
                                                             &external_frame)) {
     return;  // 坐标适配失败：本周期无探测
   }

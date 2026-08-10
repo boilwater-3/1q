@@ -36,7 +36,7 @@ EosDebugTargetState BuildTargetState(const EosSceneTarget& target, const EosCycl
   state.range_m = target.range_m;
   state.azimuth_deg = target.azimuth_deg;
   state.elevation_deg = target.elevation_deg;
-  if (!result.executed_this_cycle) {
+  if (result.status != EosCycleStatus::kCompleted) {
     state.status = EosDebugTargetStatus::kCycleNotExecuted;
     return state;
   }
@@ -69,7 +69,7 @@ EosOutputDebugView EosOutputDebugViewBuilder::Build(const EosCycleInput& input,
   EosOutputDebugView view;
   view.input_cycle_index = result.input_cycle_index;
   view.output_cycle_index = result.output_frame.cycle_index;
-  view.executed_this_cycle = result.executed_this_cycle;
+  view.executed_this_cycle = (result.status == EosCycleStatus::kCompleted);
   view.abort_reason = result.abort_reason;
   view.issues = result.issues;
   view.targets.reserve(input.scene.size());

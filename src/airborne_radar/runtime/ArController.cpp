@@ -520,10 +520,10 @@ void ArController::RunOnce(const signal::pipeline::SignalCycleInput& cycle_input
   decision_frame.batch_id = stamp.batch_id;
   decision_frame.interference_observations = cycle_input.interference_observations;
 
-  session::TrackOutputFrame track_output_frame;
-  track_output_frame.cycle_index = stamp.cycle_index;
-  track_output_frame.batch_id = stamp.batch_id;
-  track_output_frame.tracks = decision_frame.tracks;
+  session::TrackOutputFrame output_frame;
+  output_frame.cycle_index = stamp.cycle_index;
+  output_frame.batch_id = stamp.batch_id;
+  output_frame.tracks = decision_frame.tracks;
 
   session::TacticalDecisionResult decision_result;
   if (impl_->owned_decision_components.decision_engine != nullptr &&
@@ -533,7 +533,7 @@ void ArController::RunOnce(const signal::pipeline::SignalCycleInput& cycle_input
 
     // 将目标分类结果回填到轨迹输出帧
     const auto& classifications = decision_result.target_classification_result;
-    auto& output_tracks = track_output_frame.tracks;
+    auto& output_tracks = output_frame.tracks;
     const std::size_t count = std::min(classifications.size(), output_tracks.size());
     for (std::size_t i = 0; i < count; ++i) {
       output_tracks[i].target_type = classifications[i].target_type;
@@ -543,12 +543,12 @@ void ArController::RunOnce(const signal::pipeline::SignalCycleInput& cycle_input
 
   // 识别链路（仅识别启用时执行；回填照威胁分类先例，只进 output_frame）
   if (impl_->recognition_config.enabled) {
-    impl_->RunRecognitionCycle(decision_frame, &track_output_frame,
+    impl_->RunRecognitionCycle(decision_frame, &output_frame,
                                impl_->radar_context.GetSceneTargets(), stamp);
   } else {
     // 识别未启用：输出帧识别字段复位为默认（kDisabled），不残留旧结论。
-    for (std::size_t i = 0U; i < track_output_frame.tracks.size(); ++i) {
-      track_output_frame.tracks[i].recognition = session::ArRecognitionResult{};
+    for (std::size_t i = 0U; i < output_frame.tracks.size(); ++i) {
+      output_frame.tracks[i].recognition = session::ArRecognitionResult{};
     }
   }
 
@@ -562,7 +562,7 @@ void ArController::RunOnce(const signal::pipeline::SignalCycleInput& cycle_input
   impl_->latest_decision_observation.active_control_profile = impl_->control_profile;
   impl_->has_latest_decision_observation = true;
 
-  impl_->cycle_state.latest_output = track_output_frame;
+  impl_->cycle_state.latest_output = output_frame;
   impl_->cycle_state.has_latest_output = true;
   ++impl_->cycle_state.next_batch_id;
 }

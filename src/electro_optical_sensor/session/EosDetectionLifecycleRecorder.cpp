@@ -77,7 +77,7 @@ EosDetectionLifecycleRecorder& EosDetectionLifecycleRecorder::operator=(
 std::vector<EosDetectionLifecycleEvent> EosDetectionLifecycleRecorder::Update(
     const EosCycleInput& input, const EosCycleResult& result) {
   std::vector<EosDetectionLifecycleEvent> events;
-  if (!result.executed_this_cycle) {
+  if (result.status != EosCycleStatus::kCompleted) {
     return events;
   }
   events.reserve(input.scene.size());
@@ -88,7 +88,7 @@ std::vector<EosDetectionLifecycleEvent> EosDetectionLifecycleRecorder::Update(
     const output::EosDetectionRecord* record =
         attribution == nullptr ? nullptr
                                : FindRecord(attribution->detection_id, result.output_frame);
-    const bool detected_now = result.executed_this_cycle && record != nullptr && record->detected;
+    const bool detected_now = record != nullptr && record->detected;
     if (detected_now) {
       EosDetectionLifecycleEvent event = MakeBaseEvent(target, result);
       event.kind = state.detected ? EosDetectionLifecycleEventKind::kUpdated

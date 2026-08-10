@@ -60,7 +60,7 @@ SbirsDebugTargetState BuildTargetState(const SbirsSceneTarget& target,
       foundation::Subtract(target.position_ecef_m, input.satellite_position_ecef_m);
   state.azimuth_deg = foundation::ComputeAzimuthDeg(los);
   state.elevation_deg = foundation::ComputeElevationDeg(los);
-  if (!result.executed_this_cycle) {
+  if (result.status != SbirsCycleStatus::kCompleted) {
     state.status = SbirsDebugTargetStatus::kCycleNotExecuted;
     return state;
   }
@@ -116,7 +116,7 @@ SbirsOutputDebugView SbirsOutputDebugViewBuilder::Build(const SbirsCycleInput& i
   SbirsOutputDebugView view;
   view.input_cycle_index = result.input_cycle_index;
   view.output_cycle_index = result.output_frame.cycle_index;
-  view.executed_this_cycle = result.executed_this_cycle;
+  view.executed_this_cycle = (result.status == SbirsCycleStatus::kCompleted);
   view.abort_reason = result.abort_reason;
   view.issues = result.issues;
   view.targets.reserve(input.scene.size());

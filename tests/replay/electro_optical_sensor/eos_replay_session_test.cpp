@@ -110,7 +110,7 @@ TEST(EosReplaySessionTest, ReplayInitialPoweredOffTraceRoundtrip) {
     input.cycle_index = 1U;
     input.dt_sec = 0.1f;  // 合法步长：受 53c56e21 收紧的 dt_sec <= 10/frame_rate_hz 上界约束（30Hz → ≈0.333s）。
     const EosCycleResult result = session.StepWithResult(input);
-    EXPECT_FALSE(result.executed_this_cycle);
+    EXPECT_EQ(result.status, EosCycleStatus::kPoweredOff);
     EXPECT_EQ(result.abort_reason, EosPipelineAbortReason::kSensorPoweredOff);
     replay_writer->Flush();
   }

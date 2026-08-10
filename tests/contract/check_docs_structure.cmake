@@ -67,7 +67,8 @@ set(COMMON_DOC_FILES
     "session_contract.md"
     "open_questions.md"
     "rf_architecture.md"
-    "usage.md")
+    "usage.md"
+    "issue_codes.md")
 
 set(VIOLATIONS "")
 

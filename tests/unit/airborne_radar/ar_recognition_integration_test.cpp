@@ -132,9 +132,9 @@ TEST_F(ArRecognitionIntegrationTest, LrrAccumulatesAndConfirmsModelOnConfirmedTr
   const std::vector<ArCycleResult> results = RunBallisticCycles(&radar, 3U);
   const ArCycleResult& last = results.back();
   ASSERT_EQ(last.status, ArCycleStatus::kCompleted);
-  ASSERT_FALSE(last.track_output_frame.tracks.empty());
+  ASSERT_FALSE(last.output_frame.tracks.empty());
   // 已确认航迹参与识别并达到型号确认（特征与模板匹配）。
-  const auto& track = last.track_output_frame.tracks.front();
+  const auto& track = last.output_frame.tracks.front();
   EXPECT_EQ(track.status, TrackStatus::kConfirmed);
   EXPECT_EQ(track.recognition.state, ArRecognitionState::kModelConfirmed);
   EXPECT_EQ(track.recognition.target_model, "BALLISTIC_EXAMPLE_A");
@@ -147,8 +147,8 @@ TEST_F(ArRecognitionIntegrationTest, NonLrrModeKeepsRecognitionDisabled) {
   // 默认 kTws：识别启用但不执行。
   const ArCycleResult result = radar.StepWithResult(MakeBallisticInput(1U, 0.0));
   ASSERT_EQ(result.status, ArCycleStatus::kCompleted);
-  ASSERT_FALSE(result.track_output_frame.tracks.empty());
-  EXPECT_EQ(result.track_output_frame.tracks.front().recognition.state,
+  ASSERT_FALSE(result.output_frame.tracks.empty());
+  EXPECT_EQ(result.output_frame.tracks.front().recognition.state,
             ArRecognitionState::kDisabled);
 }
 
@@ -165,7 +165,7 @@ TEST_F(ArRecognitionIntegrationTest, SummaryCountsMatchOutputFrameStates) {
   ASSERT_TRUE(last.has_recognition_summary);
   std::uint32_t model_confirmed = 0U;
   std::uint32_t participating = 0U;
-  for (const auto& track : last.track_output_frame.tracks) {
+  for (const auto& track : last.output_frame.tracks) {
     if (track.recognition.state != ArRecognitionState::kDisabled) {
       ++participating;
     }
@@ -186,7 +186,7 @@ TEST_F(ArRecognitionIntegrationTest, ExitingLrrHoldsConclusionThenStale) {
   patch.work_mode = config::ArWorkMode::kLrr;
   ASSERT_TRUE(radar.TryApplyRuntimeConfig(patch));
   const std::vector<ArCycleResult> lrr_results = RunBallisticCycles(&radar, 3U);
-  ASSERT_EQ(lrr_results.back().track_output_frame.tracks.front().recognition.state,
+  ASSERT_EQ(lrr_results.back().output_frame.tracks.front().recognition.state,
             ArRecognitionState::kModelConfirmed);
 
   // 切出 kLrr：结论保持（hold=1.0s），随后过期为 kStale。
@@ -196,7 +196,7 @@ TEST_F(ArRecognitionIntegrationTest, ExitingLrrHoldsConclusionThenStale) {
   ASSERT_TRUE(radar.TryApplyRuntimeConfig(tws_patch));
   const ArCycleResult held = radar.StepWithResult(MakeBallisticInput(4U, 1.5));
   ASSERT_EQ(held.status, ArCycleStatus::kCompleted);
-  EXPECT_EQ(held.track_output_frame.tracks.front().recognition.state,
+  EXPECT_EQ(held.output_frame.tracks.front().recognition.state,
             ArRecognitionState::kModelConfirmed);
 
   // 结论保持 1.0s（sim 时钟累计执行周期 dt）；第 6 周期（sim=3.0）超出 → kStale。
@@ -204,7 +204,7 @@ TEST_F(ArRecognitionIntegrationTest, ExitingLrrHoldsConclusionThenStale) {
   ASSERT_EQ(_cycle5.status, ArCycleStatus::kCompleted);
   const ArCycleResult stale = radar.StepWithResult(MakeBallisticInput(6U, 3.0));
   ASSERT_EQ(stale.status, ArCycleStatus::kCompleted);
-  EXPECT_EQ(stale.track_output_frame.tracks.front().recognition.state,
+  EXPECT_EQ(stale.output_frame.tracks.front().recognition.state,
             ArRecognitionState::kStale);
 }
 
@@ -215,7 +215,7 @@ TEST_F(ArRecognitionIntegrationTest, RejectedPatchKeepsRecognitionOutput) {
   patch.work_mode = config::ArWorkMode::kLrr;
   ASSERT_TRUE(radar.TryApplyRuntimeConfig(patch));
   const std::vector<ArCycleResult> lrr_results = RunBallisticCycles(&radar, 3U);
-  ASSERT_EQ(lrr_results.back().track_output_frame.tracks.front().recognition.state,
+  ASSERT_EQ(lrr_results.back().output_frame.tracks.front().recognition.state,
             ArRecognitionState::kModelConfirmed);
 
   // 非法 patch（非有限 scan_center）被原子拒绝：识别输出不变。
@@ -227,7 +227,7 @@ TEST_F(ArRecognitionIntegrationTest, RejectedPatchKeepsRecognitionOutput) {
 
   const ArCycleResult after = radar.StepWithResult(MakeBallisticInput(4U, 1.5));
   ASSERT_EQ(after.status, ArCycleStatus::kCompleted);
-  EXPECT_EQ(after.track_output_frame.tracks.front().recognition.state,
+  EXPECT_EQ(after.output_frame.tracks.front().recognition.state,
             ArRecognitionState::kModelConfirmed);
 }
 
@@ -240,7 +240,7 @@ TEST_F(ArRecognitionIntegrationTest, PoweredOffHoldsConclusionUntilStaleOnNextSu
   patch.work_mode = config::ArWorkMode::kLrr;
   ASSERT_TRUE(radar.TryApplyRuntimeConfig(patch));
   const std::vector<ArCycleResult> lrr_results = RunBallisticCycles(&radar, 3U);
-  ASSERT_EQ(lrr_results.back().track_output_frame.tracks.front().recognition.state,
+  ASSERT_EQ(lrr_results.back().output_frame.tracks.front().recognition.state,
             ArRecognitionState::kModelConfirmed);
 
   // 关机周期不执行：结论保持。
@@ -262,8 +262,8 @@ TEST_F(ArRecognitionIntegrationTest, PoweredOffHoldsConclusionUntilStaleOnNextSu
     const ArCycleResult step = radar.StepWithResult(no_target);
     ASSERT_EQ(step.status, ArCycleStatus::kCompleted);
     if (cycle == 6U) {
-      ASSERT_FALSE(step.track_output_frame.tracks.empty());
-      EXPECT_EQ(step.track_output_frame.tracks.front().recognition.state,
+      ASSERT_FALSE(step.output_frame.tracks.empty());
+      EXPECT_EQ(step.output_frame.tracks.front().recognition.state,
                 ArRecognitionState::kStale);
     }
   }

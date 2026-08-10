@@ -188,7 +188,7 @@ public API 分为两类，二者都受 public boundary、install manifest 和 co
       `reused_previous_output` 字段、以及支撑复用的 `latest_output`/`previous_output`/
       `has_latest_output`/`has_previous_output` cache 字段已全部删除。
    d. **reason 数值向后兼容**：新增 reason 以显式数值追加，保留已有 replay/trace 中既有数值语义。
-   e. **Lifecycle recorder 边界**：不得把 `executed_this_cycle=false` 解释为目标丢失或未检测；
+   e. **Lifecycle recorder 边界**：不得把非执行周期（`status != kCompleted`）解释为目标丢失或未检测；
       非执行周期不产生 lifecycle 事件，也不推进其累积状态。
    [evidence: tests/contract/airborne_radar/ar_public_api_convenience_test.cpp::StepReturnsEmptyFrameOnValidationFailure]
    [evidence: tests/contract/electro_optical_sensor/eos_public_api_convenience_test.cpp::StepReturnsEmptyFrameOnValidationFailureAfterSuccess]

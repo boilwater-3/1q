@@ -7,6 +7,7 @@
 #include <string>
 
 #include "common/logging/ProjectLog.h"
+#include "1q/sbirs_sensor/session/SbirsIssueCodes.h"
 #include "sbirs_sensor/environment/SbirsEnvironmentModel.h"
 #include "sbirs_sensor/foundation/SbirsErrorModel.h"
 #include "sbirs_sensor/foundation/SbirsGeometry.h"
@@ -20,19 +21,55 @@ namespace {
 
 const double kEarthRadiusM = 6371000.0;
 
-// 规则 13b：正常执行周期按目标门控排除的 kInfo 诊断码（message 携带 target_id 与关键量值）。
-constexpr char kExclusionOccultedCode[] = "sbirs.target_occulted";
-constexpr char kExclusionOutOfRangeCode[] = "sbirs.target_out_of_range";
-constexpr char kExclusionOutOfWfovCode[] = "sbirs.target_out_of_wfov";
-constexpr char kExclusionSnrBelowCode[] = "sbirs.target_snr_below_threshold";
+// 规则 13b：正常执行周期按目标门控排除的 kInfo 诊断码（不属于三写，仅承载排查信息）。
+// code 引用 SbirsIssueCodes.h 注册表常量。
 
 /// 构造 kInfo 级按目标排除诊断（不属于三写，仅承载排查信息；规则 13b）。
-session::SbirsIssue MakeExclusionIssue(const char* code, const std::string& message) {
+/// @param cause 门内归因（规则 13b 门内归因条款）；聚合门排除须给出主因，具体门可 kNone。
+session::SbirsIssue MakeExclusionIssue(const char* code, const std::string& message,
+                                       session::SbirsIssueCause cause =
+                                           session::SbirsIssueCause::kNone) {
   session::SbirsIssue issue;
   issue.severity = session::SbirsIssueSeverity::kInfo;
   issue.code = code;
   issue.message = message;
+  issue.cause = cause;
   return issue;
+}
+
+// 规则 13b 门内归因：WFOV SNR 门失败主因分类。SNR 门为聚合门（距离²/大气透过率/
+// 目标签名折入单一门限），反事实判定主因——各因子取"达标参考值"后 SNR 提升（dB）
+// 最大者：距离参考 1000 km、大气全透过、目标签名取"使 SNR 恰达门限的签名"
+//（signature_required 仅依赖硬件/门限配置，调用方在循环外计算）；噪声为硬件常数，
+// 不参与单目标归因。全部损失 <= 0 时返回 kUnknown。
+session::SbirsIssueCause ClassifyWfovSnrExclusionCause(double range_m, float transmittance,
+                                                       double signature_actual,
+                                                       double signature_required) {
+  constexpr double kReferenceRangeM = 1.0e6;
+  const double distance_loss_db =
+      20.0 * std::log10(std::max(range_m, 1.0) / kReferenceRangeM);
+  const double attenuation_loss_db = -20.0 * std::log10(std::max(transmittance, 1.0e-6f));
+  const double signature_loss_db =
+      signature_actual > 0.0 && signature_required > 0.0
+          ? 10.0 * std::log10(signature_required / signature_actual)
+          : 0.0;
+  session::SbirsIssueCause cause = session::SbirsIssueCause::kUnknown;
+  double max_loss_db = 0.0;
+  const struct {
+    double loss_db;
+    session::SbirsIssueCause cause;
+  } kCandidates[] = {
+      {distance_loss_db, session::SbirsIssueCause::kDistanceLimited},
+      {attenuation_loss_db, session::SbirsIssueCause::kAttenuationLimited},
+      {signature_loss_db, session::SbirsIssueCause::kSignatureLimited},
+  };
+  for (const auto& candidate : kCandidates) {
+    if (candidate.loss_db > max_loss_db) {
+      max_loss_db = candidate.loss_db;
+      cause = candidate.cause;
+    }
+  }
+  return max_loss_db > 0.0 ? cause : session::SbirsIssueCause::kUnknown;
 }
 
 std::string FormatFloat(float value) {
@@ -454,6 +491,13 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
       mission.scan_center_el_deg + static_cast<float>(frame_disturbance.common.elevation_deg);
 
   const float transmittance = environment::ResolveEffectiveTransmittance(environment_config);
+  // 门内归因目标无关量（仅依赖硬件/门限配置，循环外计算一次）：达标所需签名 =
+  // wide_min·噪声/积分时间（见 ClassifyWfovSnrExclusionCause）。
+  const config::SbirsHardwareConfig& hw = config_.session.hardware;
+  const double snr_signature_required =
+      policy.detection.wide_min_snr_linear *
+      foundation::ResolveEffectiveNoiseW(hw, foundation::ComputeBackgroundNoiseStatistics(hw)) /
+      std::max(0.0f, hw.integration_time_sec);
   std::vector<SbirsCandidate> candidates;
   std::set<std::uint64_t> present_target_ids;
   for (const session::SbirsSceneTarget& target : input.scene) {
@@ -482,9 +526,14 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
     if (foundation::IsEarthOcculted(input.satellite_position_ecef_m, target.position_ecef_m,
                                     kEarthRadiusM)) {
       // 规则 13b：遮挡排除 → kInfo 诊断（不属于三写，仅承载排查信息）。
+      // 具体门（遮挡判定本身可定位）：cause 保持 kNone，遮挡余量（负值 = 深度）进 message。
+      const double occultation_margin_m = foundation::ComputeEarthOccultationMarginM(
+          input.satellite_position_ecef_m, target.position_ecef_m, kEarthRadiusM);
       result.issues.push_back(MakeExclusionIssue(
-          kExclusionOccultedCode, "target_id=" + std::to_string(target.target_id) +
-                                      "; LOS from satellite occulted by Earth"));
+          session::codes::kTargetOcculted,
+          "target_id=" + std::to_string(target.target_id) +
+              "; LOS from satellite occulted by Earth; occultation_margin_m=" +
+              std::to_string(static_cast<std::int64_t>(occultation_margin_m))));
       ++excluded_occulted;
       target_states_[target.target_id] = SbirsTargetState::kUndetected;
       nfov_scheduler_.Release(target.target_id);
@@ -499,12 +548,16 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
     const double range_m = foundation::Norm(los);
     if (range_m < mission.min_range_m || range_m > mission.max_range_m) {
       // 规则 13b：距离门排除 → kInfo 诊断（不属于三写，仅承载排查信息）。
+      // 具体门（距离带本身可定位）：cause 保持 kNone，距带边余量进 message。
+      const double range_margin_m =
+          range_m < mission.min_range_m ? mission.min_range_m - range_m : range_m - mission.max_range_m;
       result.issues.push_back(MakeExclusionIssue(
-          kExclusionOutOfRangeCode,
+          session::codes::kTargetOutOfRange,
           "target_id=" + std::to_string(target.target_id) + "; range_m=" +
               std::to_string(static_cast<std::int64_t>(range_m)) + " outside [" +
               std::to_string(static_cast<std::int64_t>(mission.min_range_m)) + "," +
-              std::to_string(static_cast<std::int64_t>(mission.max_range_m)) + "]"));
+              std::to_string(static_cast<std::int64_t>(mission.max_range_m)) + "] range_margin_m=" +
+              std::to_string(static_cast<std::int64_t>(range_margin_m))));
       ++excluded_out_of_range;
       target_states_[target.target_id] = SbirsTargetState::kUndetected;
       nfov_scheduler_.Release(target.target_id);
@@ -640,14 +693,29 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
 
     if (!in_wfov) {
       // 规则 13b：视场排除 → kInfo 诊断（不属于三写，仅承载排查信息）。
+      // 门内归因：视场门按越界轴细分（az/el/both），并补相对扫描中心的差值
+      //（与 InRectangularFov 同基准：半视场为门限）。
+      const float az_delta_deg = std::fabs(AzimuthDelta(azimuth_deg, actual_scan_azimuth_deg));
+      const float el_delta_deg = std::fabs(elevation_deg - actual_scan_elevation_deg);
+      const float half_wfov_az_deg = 0.5f * mission.wide_field_fov_az_deg;
+      const float half_wfov_el_deg = 0.5f * mission.wide_field_fov_el_deg;
+      const bool az_out = az_delta_deg > half_wfov_az_deg;
+      const bool el_out = el_delta_deg > half_wfov_el_deg;
+      const session::SbirsIssueCause wfov_cause =
+          az_out && el_out
+              ? session::SbirsIssueCause::kBothAxesOutside
+              : (az_out ? session::SbirsIssueCause::kAzOutside
+                        : session::SbirsIssueCause::kElOutside);
       result.issues.push_back(MakeExclusionIssue(
-          kExclusionOutOfWfovCode,
+          session::codes::kTargetOutOfWfov,
           "target_id=" + std::to_string(target.target_id) + "; az/el (" +
               FormatFloat(azimuth_deg) + "," + FormatFloat(elevation_deg) +
               ") outside scan center (" + FormatFloat(actual_scan_azimuth_deg) + "," +
               FormatFloat(actual_scan_elevation_deg) + ") fov " +
               FormatFloat(mission.wide_field_fov_az_deg) + "x" +
-              FormatFloat(mission.wide_field_fov_el_deg)));
+              FormatFloat(mission.wide_field_fov_el_deg) + " az_delta_deg=" +
+              FormatFloat(az_delta_deg) + " el_delta_deg=" + FormatFloat(el_delta_deg),
+          wfov_cause));
       ++excluded_out_of_wfov;
       target_states_[target.target_id] = SbirsTargetState::kUndetected;
       nfov_scheduler_.Release(target.target_id);
@@ -658,10 +726,23 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
     }
     if (snr < policy.detection.wide_min_snr_linear) {
       // 规则 13b：WFOV SNR 门排除 → kInfo 诊断（不属于三写，仅承载排查信息）。
+      // 门内归因：SNR 门为聚合门，反事实判定主因（见 ClassifyWfovSnrExclusionCause；
+      // signature_required 已在循环外计算）。
+      const double band_radiance = foundation::ComputeBandRadiance(
+          hw.wavelength_lower_um, hw.wavelength_upper_um, target.temperature_k);
+      const double signature_actual =
+          band_radiance * std::max(0.0f, target.emissivity) *
+          static_cast<double>(std::max(0.0f, target.projected_area_m2));
+      const session::SbirsIssueCause snr_cause = ClassifyWfovSnrExclusionCause(
+          range_m, transmittance, signature_actual, snr_signature_required);
       result.issues.push_back(MakeExclusionIssue(
-          kExclusionSnrBelowCode, "target_id=" + std::to_string(target.target_id) +
-                                      "; snr_linear=" + FormatSnr(snr) + " below wide_min=" +
-                                      FormatSnr(policy.detection.wide_min_snr_linear)));
+          session::codes::kTargetSnrBelowThreshold,
+          "target_id=" + std::to_string(target.target_id) +
+              "; snr_linear=" + FormatSnr(snr) + " below wide_min=" +
+              FormatSnr(policy.detection.wide_min_snr_linear) + " range_m=" +
+              std::to_string(static_cast<std::int64_t>(range_m)) + " transmittance=" +
+              FormatSnr(transmittance),
+          snr_cause));
       ++excluded_snr_below;
       target_states_[target.target_id] = SbirsTargetState::kUndetected;
       nfov_scheduler_.Release(target.target_id);

@@ -7,6 +7,7 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "1q/sar/session/SarIssueCodes.h"
 #include "common/validation/ValidationUtils.h"
 
 namespace sar {
@@ -35,15 +36,16 @@ bool IsFinitePulse(const SarRawIqFrame::PulseState& pulse) {
          std::isfinite(pulse.velocity_z_mps);
 }
 
-// 统一问题列表模型（规则 14）：校验问题 code 为 "sar.validation.<snake_case>"，
-// phase 固定为 kInputValidation；location/field 为可选定位。
+// 统一问题列表模型（规则 14）：校验问题 code 引用 SarIssueCodes.h 常量
+// （"sar.validation.<snake_case>" 全集单一事实来源）；phase 固定为
+// kInputValidation；location/field 为可选定位。
 SarIssue MakeIssue(SarIssueSeverity severity, const char* code,
                    oneq::foundation::ValidationLocationKind location_kind,
                    std::size_t entity_index, const std::string& field,
                    const std::string& message) {
   SarIssue issue = oneq::common::validation::MakeLocatedIssue<
-      SarIssue, oneq::foundation::ValidationLocation>(severity, std::string("sar.validation.") + code,
-                                                     location_kind, entity_index, field, message);
+      SarIssue, oneq::foundation::ValidationLocation>(severity, code, location_kind,
+                                                     entity_index, field, message);
   issue.phase = SarIssuePhase::kInputValidation;
   return issue;
 }
@@ -61,18 +63,18 @@ SarIssueList ValidateSarCycleInput(const SarCycleInput& input) {
 
   // 周期步长
   if (!std::isfinite(input.dt_sec)) {
-    add(SarIssueSeverity::kError, "non_finite_cycle_delta_time",
+    add(SarIssueSeverity::kError, codes::kNonFiniteCycleDeltaTime,
         oneq::foundation::ValidationLocationKind::kGlobal, static_cast<std::size_t>(-1), "dt_sec",
         "Cycle delta time must be finite.");
   } else if (input.dt_sec <= 0.0f) {
-    add(SarIssueSeverity::kError, "invalid_cycle_delta_time",
+    add(SarIssueSeverity::kError, codes::kInvalidCycleDeltaTime,
         oneq::foundation::ValidationLocationKind::kGlobal, static_cast<std::size_t>(-1), "dt_sec",
         "Cycle delta time must be positive.");
   }
 
   // 平台字段有限性
   if (!IsFinitePlatform(input.platform)) {
-    add(SarIssueSeverity::kError, "non_finite_platform_field",
+    add(SarIssueSeverity::kError, codes::kNonFinitePlatformField,
         oneq::foundation::ValidationLocationKind::kPlatform, static_cast<std::size_t>(-1),
         "platform", "Platform contains non-finite numeric field.");
   }
@@ -80,7 +82,7 @@ SarIssueList ValidateSarCycleInput(const SarCycleInput& input) {
   // 点目标字段有限性
   for (std::size_t i = 0; i < input.point_targets.size(); ++i) {
     if (!IsFiniteTarget(input.point_targets[i])) {
-      add(SarIssueSeverity::kError, "non_finite_target_field",
+      add(SarIssueSeverity::kError, codes::kNonFiniteTargetField,
           oneq::foundation::ValidationLocationKind::kSceneEntity, i, "point_targets",
           "Point target contains non-finite numeric field.");
     }
@@ -91,7 +93,7 @@ SarIssueList ValidateSarCycleInput(const SarCycleInput& input) {
   if (!pulses.empty()) {
     for (std::size_t i = 0; i < pulses.size(); ++i) {
       if (!IsFinitePulse(pulses[i])) {
-        add(SarIssueSeverity::kError, "non_finite_pulse_field",
+        add(SarIssueSeverity::kError, codes::kNonFinitePulseField,
             oneq::foundation::ValidationLocationKind::kSceneEntity, i, "raw_iq.pulse_states",
             "Pulse state contains non-finite numeric field.");
         continue;  // 序列连续性检查跳过非有限脉冲
@@ -100,7 +102,7 @@ SarIssueList ValidateSarCycleInput(const SarCycleInput& input) {
         const auto& prev = pulses[i - 1];
         const auto& curr = pulses[i];
         if (curr.pulse_id != prev.pulse_id + 1U || curr.time_s <= prev.time_s) {
-          add(SarIssueSeverity::kError, "invalid_pulse_sequence",
+          add(SarIssueSeverity::kError, codes::kInvalidPulseSequence,
               oneq::foundation::ValidationLocationKind::kSceneEntity, i, "raw_iq.pulse_states",
               "Pulse id must be contiguous and time must be monotonically increasing.");
         }

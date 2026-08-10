@@ -45,7 +45,7 @@ SbirsVector3M Vector(double x, double y, double z) {
 std::string EncodeCycleResultWithRawAbortReason(std::int32_t abort_reason) {
   flatbuffers::FlatBufferBuilder builder(128U);
   builder.Finish(sbirs::replay::CreateSbirsCycleResult(
-      builder, 99U, 0, 0, false, abort_reason, 0));
+      builder, 99U, 0, 0, abort_reason, 0, 0));
   return std::string(reinterpret_cast<const char*>(builder.GetBufferPointer()),
                      builder.GetSize());
 }
@@ -53,7 +53,7 @@ std::string EncodeCycleResultWithRawAbortReason(std::int32_t abort_reason) {
 std::string EncodeCycleResultWithRawStatus(std::int32_t status) {
   flatbuffers::FlatBufferBuilder builder(128U);
   builder.Finish(sbirs::replay::CreateSbirsCycleResult(
-      builder, 99U, 0, 0, false, 0, status, 0));
+      builder, 99U, 0, 0, 0, status, 0));
   return std::string(reinterpret_cast<const char*>(builder.GetBufferPointer()),
                      builder.GetSize());
 }
@@ -181,7 +181,7 @@ TEST(SbirsReplayCodecRoundtripTest, CycleResultPreservesOutputAndAttributionFiel
   result.input_cycle_index = 5U;
   result.output_frame.cycle_index = 5U;
   result.output_frame.scan_azimuth_deg = 12.0f;
-  result.executed_this_cycle = true;
+  result.status = SbirsCycleStatus::kCompleted;
   result.abort_reason = SbirsPipelineAbortReason::kValidationRejected;
 
   SbirsDetectionRecord detection;
@@ -220,6 +220,7 @@ TEST(SbirsReplayCodecRoundtripTest, CycleResultPreservesOutputAndAttributionFiel
   scene_issue.location.entity_index = 1U;
   scene_issue.field = "scene";
   scene_issue.message = "warn";
+  scene_issue.cause = SbirsIssueCause::kBothAxesOutside;
   result.issues.push_back(scene_issue);
 
   // kGlobal location（entity_index 哨兵值 size_t::max ↔ int64 -1）
@@ -231,6 +232,7 @@ TEST(SbirsReplayCodecRoundtripTest, CycleResultPreservesOutputAndAttributionFiel
   global_issue.location.entity_index = std::numeric_limits<std::size_t>::max();
   global_issue.field = "dt_sec";
   global_issue.message = "global";
+  global_issue.cause = SbirsIssueCause::kDistanceLimited;
   result.issues.push_back(global_issue);
 
   const std::string bytes = EncodeSbirsCycleResult(result);
@@ -238,7 +240,7 @@ TEST(SbirsReplayCodecRoundtripTest, CycleResultPreservesOutputAndAttributionFiel
   ASSERT_TRUE(DecodeSbirsCycleResult(bytes, &decoded));
 
   EXPECT_EQ(decoded.input_cycle_index, 5U);
-  EXPECT_TRUE(decoded.executed_this_cycle);
+  EXPECT_EQ(decoded.status, SbirsCycleStatus::kCompleted);
   EXPECT_EQ(decoded.abort_reason, SbirsPipelineAbortReason::kValidationRejected);
   ASSERT_EQ(decoded.output_frame.detections.size(), 1U);
   EXPECT_EQ(decoded.output_frame.detections[0].observation_stage,
@@ -264,10 +266,12 @@ TEST(SbirsReplayCodecRoundtripTest, CycleResultPreservesOutputAndAttributionFiel
   EXPECT_EQ(decoded.issues[0].code, "sbirs.validation.invalid_target_physical");
   EXPECT_EQ(decoded.issues[0].field, "scene");
   EXPECT_EQ(decoded.issues[0].location.entity_index, 1U);
+  EXPECT_EQ(decoded.issues[0].cause, SbirsIssueCause::kBothAxesOutside);
   // 哨兵值经 size_t::max → int64(-1) → size_t::max 的往返
   EXPECT_EQ(decoded.issues[1].location.kind, oneq::foundation::ValidationLocationKind::kGlobal);
   EXPECT_EQ(decoded.issues[1].location.entity_index,
             std::numeric_limits<std::size_t>::max());
+  EXPECT_EQ(decoded.issues[1].cause, SbirsIssueCause::kDistanceLimited);
 }
 
 TEST(SbirsReplayCodecRoundtripTest, CycleResultPreservesPoweredOffAbortReason) {
@@ -275,7 +279,6 @@ TEST(SbirsReplayCodecRoundtripTest, CycleResultPreservesPoweredOffAbortReason) {
   result.input_cycle_index = 7U;
   result.output_frame.cycle_index = 7U;
   result.output_frame.scan_azimuth_deg = 3.0f;
-  result.executed_this_cycle = false;
   result.abort_reason = SbirsPipelineAbortReason::kSensorPoweredOff;
   result.status = SbirsCycleStatus::kPoweredOff;
 
@@ -284,7 +287,6 @@ TEST(SbirsReplayCodecRoundtripTest, CycleResultPreservesPoweredOffAbortReason) {
   ASSERT_TRUE(DecodeSbirsCycleResult(bytes, &decoded));
 
   EXPECT_EQ(decoded.input_cycle_index, 7U);
-  EXPECT_FALSE(decoded.executed_this_cycle);
   EXPECT_EQ(decoded.abort_reason, SbirsPipelineAbortReason::kSensorPoweredOff);
   EXPECT_EQ(decoded.status, SbirsCycleStatus::kPoweredOff);
 }
@@ -497,14 +499,14 @@ TEST(SbirsReplayCodecRoundtripTest, DecodeCycleResultRejectsUnknownAbortReasonAt
     SbirsCycleResult result;
     result.input_cycle_index = 17U;
     result.output_frame.cycle_index = 18U;
-    result.executed_this_cycle = true;
+    result.status = SbirsCycleStatus::kCompleted;
     result.abort_reason = SbirsPipelineAbortReason::kValidationRejected;
 
     EXPECT_FALSE(DecodeSbirsCycleResult(EncodeCycleResultWithRawAbortReason(invalid_reason),
                                        &result));
     EXPECT_EQ(result.input_cycle_index, 17U);
     EXPECT_EQ(result.output_frame.cycle_index, 18U);
-    EXPECT_TRUE(result.executed_this_cycle);
+    EXPECT_EQ(result.status, SbirsCycleStatus::kCompleted);
     EXPECT_EQ(result.abort_reason, SbirsPipelineAbortReason::kValidationRejected);
   }
 }
@@ -517,13 +519,13 @@ TEST(SbirsReplayCodecRoundtripTest, DecodeCycleResultRejectsUnknownStatusAtomica
     SbirsCycleResult result;
     result.input_cycle_index = 17U;
     result.output_frame.cycle_index = 18U;
-    result.executed_this_cycle = true;
+    result.status = SbirsCycleStatus::kCompleted;
 
     EXPECT_FALSE(DecodeSbirsCycleResult(EncodeCycleResultWithRawStatus(invalid_status),
                                         &result));
     EXPECT_EQ(result.input_cycle_index, 17U);
     EXPECT_EQ(result.output_frame.cycle_index, 18U);
-    EXPECT_TRUE(result.executed_this_cycle);
+    EXPECT_EQ(result.status, SbirsCycleStatus::kCompleted);
   }
 }
 

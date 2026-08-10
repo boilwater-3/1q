@@ -45,7 +45,7 @@ enum class ArReceiverImpairment : std::uint8_t { kNone = 0, kSaturated };
 struct ONEQ_API ArCycleResult {
   std::uint32_t input_cycle_index{0U};   /**< 本次调用输入周期号，用于失败结果与 trace 归属 */
   ArCycleStatus status{ArCycleStatus::kRejectedInvalidInput}; /**< 周期执行状态。 */
-  TrackOutputFrame track_output_frame{}; /**< 当前调用返回的轨迹输出帧 */
+  TrackOutputFrame output_frame{}; /**< 当前调用返回的轨迹输出帧 */
   oneq::electromagnetics::RfEmissionFrame emission_frame{}; /**< 本周期实际 AR 发射。 */
   ArReceiverImpairment receiver_impairment{ArReceiverImpairment::kNone};
   ArInterferenceObservationList interference_observations{};

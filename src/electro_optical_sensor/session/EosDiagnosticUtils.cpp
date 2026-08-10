@@ -2,6 +2,7 @@
 
 #include <utility>
 
+#include "1q/electro_optical_sensor/session/EosIssueCodes.h"
 #include "common/logging/ProjectLog.h"
 
 namespace electro_optical_sensor {
@@ -30,7 +31,8 @@ void RecordAbort(EosCycleResult* result, EosPipelineAbortReason reason,
                        ? EosCycleStatus::kRejectedInvalidInput
                        : EosCycleStatus::kRejectedExecution;
 
-  // 结构化诊断（细粒度；统一问题列表模型，规则 14：phase 由中止原因推导）
+  // 结构化诊断（细粒度；统一问题列表模型，规则 14：phase 由中止原因推导；
+  // detail_code 为 EosIssueCodes.h 完整 code 常量，调用方负责传注册表常量）
   EosIssue issue;
   issue.severity = EosIssueSeverity::kError;
   issue.phase = (reason == EosPipelineAbortReason::kValidationRejected)
@@ -38,7 +40,7 @@ void RecordAbort(EosCycleResult* result, EosPipelineAbortReason reason,
                     : (reason == EosPipelineAbortReason::kOutputContractViolation)
                           ? EosIssuePhase::kOutputContract
                           : EosIssuePhase::kExecution;
-  issue.code = std::string("eos.") + detail_code;
+  issue.code = detail_code;
   issue.message = message;
   result->issues.push_back(std::move(issue));
 

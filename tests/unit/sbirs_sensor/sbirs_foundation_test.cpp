@@ -51,4 +51,24 @@ TEST(SbirsEarthOccultationTest, OutwardLineOfSightIsNotOcculted) {
   EXPECT_FALSE(sbirs_sensor::foundation::IsEarthOcculted(sat, target, 6371000.0));
 }
 
+TEST(SbirsEarthOccultationTest, MarginIsNegativeWhenOcculted) {
+  // 对侧地表上方（6.5e6 m < 地球半径 6.371e6 m）：LOS 穿过地球 → 余量为负（遮挡深度）。
+  sbirs_sensor::session::SbirsVector3M sat;
+  sat.x = 7000000.0;
+  sbirs_sensor::session::SbirsVector3M target;
+  target.x = -6500000.0;
+  EXPECT_LT(sbirs_sensor::foundation::ComputeEarthOccultationMarginM(sat, target, 6371000.0),
+            0.0);
+}
+
+TEST(SbirsEarthOccultationTest, MarginIsPositiveWhenClear) {
+  // 同侧视线：余量为正。
+  sbirs_sensor::session::SbirsVector3M sat;
+  sat.x = 7000000.0;
+  sbirs_sensor::session::SbirsVector3M target;
+  target.x = 8000000.0;
+  EXPECT_GT(sbirs_sensor::foundation::ComputeEarthOccultationMarginM(sat, target, 6371000.0),
+            0.0);
+}
+
 }  // namespace

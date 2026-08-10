@@ -71,6 +71,11 @@ bool IsValidIssuePhase(std::int32_t value) {
          value <= static_cast<std::int32_t>(EsrIssuePhase::kOutputContract);
 }
 
+bool IsValidIssueCause(std::int32_t value) {
+  return value >= static_cast<std::int32_t>(EsrIssueCause::kNone) &&
+         value <= static_cast<std::int32_t>(EsrIssueCause::kUnknown);
+}
+
 bool IsValidRuntimeApplyStatus(std::int32_t value) {
   return value >=
              static_cast<std::int32_t>(
@@ -479,7 +484,7 @@ std::string EncodeEsrCycleResult(const EsrCycleResult& v) {
         fbb, static_cast<int32_t>(i.severity), static_cast<int32_t>(i.phase),
         fbb.CreateString(i.code), fbb.CreateString(i.message),
         static_cast<int32_t>(i.location.kind), static_cast<int64_t>(encoded_entity_index),
-        fbb.CreateString(i.field)));
+        fbb.CreateString(i.field), static_cast<int32_t>(i.cause)));
   }
   // 向量创建前置：CreateVector 必须在 CreateEsrCycleResult 打开之前。
   const auto issues_fb = fbb.CreateVector(issues);
@@ -540,6 +545,10 @@ bool DecodeEsrCycleResult(const std::string& bytes, EsrCycleResult* out) {
       if (i->field()) {
         issue.field = i->field()->str();
       }
+      if (!IsValidIssueCause(i->cause())) {
+        return false;
+      }
+      issue.cause = static_cast<EsrIssueCause>(i->cause());
       candidate.issues.push_back(issue);
     }
   }

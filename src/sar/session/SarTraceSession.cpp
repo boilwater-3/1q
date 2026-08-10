@@ -32,7 +32,7 @@ std::string BuildSarOutputPayload(const SarCycleResult& result) {
   os << "{"
      << "\"cycle_index\":" << frame.cycle_index << ","
      << "\"completed_stage\":" << static_cast<int>(frame.completed_stage) << ","
-     << "\"executed\":" << (result.executed_this_cycle ? "true" : "false") << ","
+     << "\"executed\":" << (result.status == SarCycleStatus::kCompleted ? "true" : "false") << ","
      << "\"status\":" << static_cast<int>(result.status) << ","
      << "\"validation_error\":" << (HasValidationError(result.issues) ? "true" : "false") << ","
      << "\"issue_count\":" << result.issues.size() << ","

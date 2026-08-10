@@ -152,7 +152,7 @@ SbirsDetectionLifecycleRecorder& SbirsDetectionLifecycleRecorder::operator=(
 std::vector<SbirsDetectionLifecycleEvent> SbirsDetectionLifecycleRecorder::Update(
     const SbirsCycleInput& input, const SbirsCycleResult& result) {
   std::vector<SbirsDetectionLifecycleEvent> events;
-  if (!result.executed_this_cycle) {
+  if (result.status != SbirsCycleStatus::kCompleted) {
     return events;
   }
   std::unordered_set<std::uint64_t> present_target_ids;
@@ -176,7 +176,7 @@ std::vector<SbirsDetectionLifecycleEvent> SbirsDetectionLifecycleRecorder::Updat
       state.target_name = target.target_name;
       continue;
     }
-    const bool detected_now = result.executed_this_cycle && record != nullptr && record->detected;
+    const bool detected_now = record != nullptr && record->detected;
     if (detected_now) {
       SbirsDetectionLifecycleEvent event = MakeBaseEvent(target, result);
       event.kind = state.detected ? SbirsDetectionLifecycleEventKind::kUpdated

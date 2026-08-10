@@ -32,7 +32,7 @@ SAR 遵守 `docs/common/contract.md`：
 ### 非执行周期统一不复用（五模块统一规则）
 
 SAR 非执行周期（校验失败/执行 abort/设备关机）的 `Step()` 与 `SarCycleResult.output_frame` **永不复用**
-上一有效输出。调用方用 `StepWithResult().status` / `executed_this_cycle` / `abort_reason` 判断周期状态。
+上一有效输出。调用方用 `StepWithResult().status` / `abort_reason` 判断周期状态。
 `reused_previous_output` 字段已删除。
 
 实现细节：校验失败路径返回严格默认空帧（`cycle_index=0`、空载荷）；pipeline 中止路径
@@ -48,7 +48,7 @@ SAR 非执行周期（校验失败/执行 abort/设备关机）的 `Step()` 与 
 `SarSessionConfig::sensor_enabled` 是电源唯一来源（mission 域无电源字段），
 `SarRuntimeConfigPatch::has_sensor_enabled` 叶子是运行时电源唯一入口。运行期关闭
 传感器不重建会话，只通过 patch 立即生效。关机时管线入口短路：`SarCycleStatus::kPoweredOff` +
-`abort_reason=kSensorPoweredOff`，`executed_this_cycle=false`（关机是合法非执行状态，
+`abort_reason=kSensorPoweredOff`，`status=kPoweredOff`（关机是合法非执行状态，
 不是校验错误也不是执行失败），输出帧严格默认空帧，跨周期状态（raw pulse 缓冲、孔径拼接、
 PRF 分数余量）不推进。
 
@@ -141,7 +141,8 @@ L1 和 L1.5 共同构成"本周期的完整产品输出"。
 ### 诊断架构：issues 为唯一诊断通道（统一问题列表模型，规则 14）
 
 SAR 的 `SarIssueList issues` 承载统一问题列表（kInfo/kWarning/kError），每条包含
-severity + phase + code + message + 可选定位（location/field）。`SarPipelineAbortReason`
+severity + phase + code + message + 可选定位（location/field）。本模块 code 全集单一事实
+来源：`include/1q/sar/session/SarIssueCodes.h`（规则 14c）。`SarPipelineAbortReason`
 枚举通过 `AbortReasonToDiagnosticCode()` 映射到诊断码字符串（如 `kSnrBelowMinimum` →
 `"sar.snr_below_minimum"`），人读 message 由调用方提供。
 
@@ -168,7 +169,8 @@ abort_reason（写一）与日志（写三）在调用点补齐。
 `PROJECT_LOG_INFO` 摘要（周期号、完成处理阶段、L1/L3 成像标志、估计信噪比、场景目标数），
 仅用于人读运行信息（规则 3），不参与状态判断。SAR 无逐目标门控排除（集体成像模型，
 所有几何/SNR 门均为整周期中止 → 三写），故规则 13b 的按目标排除诊断对 SAR 为空洞条款
-（SAR 的 kInfo/kWarning 正常路径诊断仍按本节"唯一诊断通道"承载）。
+（SAR 的 kInfo/kWarning 正常路径诊断仍按本节"唯一诊断通道"承载；`SarIssueCause`
+字段仅为五模块 `*Issue` 结构逐字同构保留，恒 `kNone`）。
 
 ### abort_reason 粗粒度枚举 + 细粒度诊断
 

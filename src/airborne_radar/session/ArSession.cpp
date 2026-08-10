@@ -5,6 +5,7 @@
 #include <limits>
 #include <utility>
 
+#include "1q/airborne_radar/session/ArIssueCodes.h"
 #include "1q/airborne_radar/session/ArTrackLifecycleRecorder.h"
 #include "1q/coordinate/attitude_transform.h"
 #include "1q/coordinate/position_transform.h"
@@ -84,7 +85,7 @@ bool SamePreparedEmission(const oneq::electromagnetics::RfSceneEmission& left,
 struct ArExecutionCycleResult {
   bool executed{false};
   session::SignalCycleAbortReason abort_reason{session::SignalCycleAbortReason::kNone};
-  TrackOutputFrame track_output_frame{};
+  TrackOutputFrame output_frame{};
   session::ArIssueList issues{}; /**< 正常执行周期按目标排除的 kInfo 诊断（规则 13b）；
                                       校验拒绝时承载校验明细（COMMON-OQ-9）。 */
 };
@@ -125,7 +126,7 @@ struct ArSession::Impl {
     ArCycleResult result;
     result.input_cycle_index = input.cycle_index;
     result.status = ArCycleStatus::kCompleted;
-    result.track_output_frame = completed.track_output_frame;
+    result.output_frame = completed.output_frame;
     // 统一问题列表（规则 14）：输入校验问题（phase=kInputValidation）在前，
     // 正常执行周期按目标排除的 kInfo 诊断（phase=kExecution，规则 13b）在后。
     result.issues = issues;
@@ -180,15 +181,25 @@ struct ArSession::Impl {
     ArCycleResult result;
     result.input_cycle_index = input.cycle_index;
     result.abort_reason = abort_reason;
+    // 不可达兜底（值不属注册表；若命中会写入 issue.code）。
     const char* detail_code = "unknown";
     switch (abort_reason) {
       // 校验拒绝（kValidationRejected）不可经此路径：公共路径与发射后路径均走
       // BuildValidationErrorResult / BuildPostEmissionValidationErrorResult。
-      case session::SignalCycleAbortReason::kSensorPoweredOff: detail_code = "sensor_powered_off"; break;
-      case session::SignalCycleAbortReason::kLifecycleUnavailable: detail_code = "lifecycle_unavailable"; break;
-      case session::SignalCycleAbortReason::kInvalidEnvironmentCycle: detail_code = "invalid_environment_cycle"; break;
-      case session::SignalCycleAbortReason::kRuntimePreparationFailed: detail_code = "runtime_preparation_failed"; break;
-      default: break;
+      case session::SignalCycleAbortReason::kSensorPoweredOff:
+        detail_code = session::codes::kSensorPoweredOff;
+        break;
+      case session::SignalCycleAbortReason::kLifecycleUnavailable:
+        detail_code = session::codes::kLifecycleUnavailable;
+        break;
+      case session::SignalCycleAbortReason::kInvalidEnvironmentCycle:
+        detail_code = session::codes::kInvalidEnvironmentCycle;
+        break;
+      case session::SignalCycleAbortReason::kRuntimePreparationFailed:
+        detail_code = session::codes::kRuntimePreparationFailed;
+        break;
+      default:
+        break;
     }
     // 非校验中止路径才经 RecordAbort 写入粗粒度 abort 条目（phase=kExecution）；
     // 校验拒绝路径的 error 级诊断由校验问题本身承载（见 BuildValidationErrorResult）。
@@ -384,7 +395,7 @@ struct ArSession::Impl {
       FinalizePendingRuntimeConfig();
     }
     result.executed = true;
-    result.track_output_frame = Controller().GetLatestTrackOutputFrame();
+    result.output_frame = Controller().GetLatestTrackOutputFrame();
     // 规则 13b：正常执行周期按目标排除的 kInfo 诊断转写（abort 路径不变）。
     result.issues = Controller().GetLatestIssues();
     return result;
@@ -790,7 +801,7 @@ struct ArSession::Impl {
       return result;
     }
     result.status = ArCompleteCycleStatus::kCompleted;
-    result.track_output_frame = execution_result.track_output_frame;
+    result.output_frame = execution_result.output_frame;
     // 规则 13b：正常执行周期按目标排除的 kInfo 诊断转写（abort 路径不变）。
     result.issues = execution_result.issues;
     result.has_decision_observation = Controller().HasLatestDecisionObservation();
@@ -892,7 +903,7 @@ ArSession ArSession::CreateWithDiagnostics(const config::ArSessionConfig& config
 }
 
 session::TrackOutputFrame ArSession::Step(const ArCycleInput& input) {
-  return StepWithResult(input).track_output_frame;
+  return StepWithResult(input).output_frame;
 }
 
 ArCycleResult ArSession::StepWithResult(const ArCycleInput& input) {

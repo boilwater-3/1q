@@ -268,7 +268,7 @@ TEST(EosInputValidationTest, SessionReturnsValidationErrorsForInvalidInput) {
       eos_session.StepWithResult(input);
 
   EXPECT_TRUE(HasValidationError(result.issues));
-  EXPECT_FALSE(result.executed_this_cycle);
+  EXPECT_NE(result.status, eos_session_ns::EosCycleStatus::kCompleted);
   EXPECT_TRUE(ContainsCode(result.issues, "eos.validation.invalid_target_range"));
   EXPECT_TRUE(result.output_frame.detections.empty());
 }

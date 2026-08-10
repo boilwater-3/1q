@@ -213,14 +213,14 @@ std::string EncodeEosCycleResult(const ::electro_optical_sensor::session::EosCyc
     issue_vec.push_back(eos::replay::CreateEosIssue(
         fbb, static_cast<int32_t>(i.severity), static_cast<int32_t>(i.phase), code_str, msg,
         static_cast<int32_t>(i.location.kind), static_cast<int64_t>(encoded_entity_index),
-        field_str));
+        field_str, static_cast<int32_t>(i.cause)));
   }
 
   // 向量创建前置：CreateVector 必须在 CreateEosCycleResult 打开之前。
   const auto attr_fb = fbb.CreateVector(attr_vec);
   const auto issue_fb = fbb.CreateVector(issue_vec);
   auto result = eos::replay::CreateEosCycleResult(
-      fbb, v.input_cycle_index, frame, attr_fb, v.executed_this_cycle,
+      fbb, v.input_cycle_index, frame, attr_fb,
       static_cast<int32_t>(v.abort_reason), static_cast<std::uint8_t>(v.status), issue_fb);
   fbb.Finish(result);
   return oneq::common::replay::CopyFinishedFlatbuffer(fbb);
@@ -286,10 +286,10 @@ bool DecodeEosCycleResult(const std::string& bytes,
       if (i->field()) {
         iss.field = i->field()->str();
       }
+      iss.cause = static_cast<session::EosIssueCause>(i->cause());
       out->issues.push_back(iss);
     }
   }
-  out->executed_this_cycle = fb->executed_this_cycle();
   out->abort_reason = static_cast<session::EosPipelineAbortReason>(fb->abort_reason());
   out->status = static_cast<session::EosCycleStatus>(fb->status());
   return true;

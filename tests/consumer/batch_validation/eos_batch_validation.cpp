@@ -277,7 +277,7 @@ struct CycleMetrics {
 CycleMetrics ExtractCycleMetrics(const eos_session::EosCycleResult& r) {
   CycleMetrics m;
   m.cycle_index = r.input_cycle_index;
-  m.executed = r.executed_this_cycle;
+  m.executed = (r.status == eos_session::EosCycleStatus::kCompleted);
   m.has_validation_error = eos_session::HasValidationError(r.issues);
   m.abort_reason = static_cast<int>(r.abort_reason);
   const auto& f = r.output_frame;
@@ -410,8 +410,8 @@ ScenarioSummary RunEosScenario(const EosCase& c, const eos_config::EosSessionCon
       }
 
       const eos_session::EosCycleResult result = session.StepWithResult(input);
-      if (!result.executed_this_cycle) ++nonexecuted_count;
-      if (result.executed_this_cycle) {
+      if (result.status != eos_session::EosCycleStatus::kCompleted) ++nonexecuted_count;
+      if (result.status == eos_session::EosCycleStatus::kCompleted) {
         attribution_complete = attribution_complete &&
                                result.detection_attributions.size() == result.output_frame.detections.size();
         for (std::size_t a = 0; a < result.output_frame.detections.size(); ++a) {

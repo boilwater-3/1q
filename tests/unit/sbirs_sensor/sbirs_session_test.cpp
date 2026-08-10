@@ -49,7 +49,7 @@ TEST(SbirsSessionTest, ValidCycleProducesDeterministicOutput) {
   sbirs_sensor::session::SbirsSession session =
       sbirs_sensor::session::SbirsSession::Create(Config());
   const sbirs_sensor::session::SbirsCycleResult result = session.StepWithResult(ValidInput(1U));
-  EXPECT_TRUE(result.executed_this_cycle);
+  EXPECT_EQ(result.status, sbirs_sensor::session::SbirsCycleStatus::kCompleted);
   EXPECT_FALSE(HasValidationError(result.issues));
   EXPECT_FALSE(result.output_frame.detections.empty());
 }
@@ -60,7 +60,7 @@ TEST(SbirsSessionTest, InvalidFirstCycleReturnsEmptyOutput) {
   sbirs_sensor::session::SbirsCycleInput input = ValidInput(1U);
   input.dt_sec = -1.0f;
   const sbirs_sensor::session::SbirsCycleResult result = session.StepWithResult(input);
-  EXPECT_FALSE(result.executed_this_cycle);
+  EXPECT_NE(result.status, sbirs_sensor::session::SbirsCycleStatus::kCompleted);
   EXPECT_TRUE(HasValidationError(result.issues));
   EXPECT_TRUE(result.output_frame.detections.empty());
 }
@@ -73,7 +73,7 @@ TEST(SbirsSessionTest, InvalidLaterCycleReturnsEmptyOutputNotReused) {
   sbirs_sensor::session::SbirsCycleInput invalid = ValidInput(2U);
   invalid.dt_sec = 0.0f;
   const sbirs_sensor::session::SbirsCycleResult result = session.StepWithResult(invalid);
-  EXPECT_FALSE(result.executed_this_cycle);
+  EXPECT_NE(result.status, sbirs_sensor::session::SbirsCycleStatus::kCompleted);
   // 非执行周期返回默认空帧，不复用上一有效输出（统一不复用语义）。
   EXPECT_TRUE(result.output_frame.detections.empty());
   EXPECT_EQ(result.output_frame.cycle_index, 0U);
@@ -94,7 +94,7 @@ TEST(SbirsSessionTest, ValidationRejectDoesNotAdvancePipelineState) {
   const sbirs_sensor::session::SbirsCycleResult clean_result =
       clean.StepWithResult(ValidInput(2U));
 
-  ASSERT_TRUE(after_reject.executed_this_cycle);
+  ASSERT_EQ(after_reject.status, sbirs_sensor::session::SbirsCycleStatus::kCompleted);
   ASSERT_EQ(after_reject.output_frame.detections.size(),
             clean_result.output_frame.detections.size());
   ASSERT_FALSE(after_reject.output_frame.detections.empty());
@@ -117,7 +117,7 @@ TEST(SbirsRuntimeConfigResolverTest, InvalidPatchDoesNotPolluteConfig) {
       sbirs_sensor::config::SbirsRuntimeConfigBuilder().WithScanRateDegPerSec(-5.0f).Build();
   EXPECT_FALSE(session.TryApplyRuntimeConfig(invalid));
   const sbirs_sensor::session::SbirsCycleResult result = session.StepWithResult(ValidInput(1U));
-  EXPECT_TRUE(result.executed_this_cycle);
+  EXPECT_EQ(result.status, sbirs_sensor::session::SbirsCycleStatus::kCompleted);
 }
 
 TEST(SbirsSessionTest, AttachRecorderDrivesUpdateAutomatically) {
@@ -128,7 +128,7 @@ TEST(SbirsSessionTest, AttachRecorderDrivesUpdateAutomatically) {
   session.AttachDetectionLifecycleRecorder(&recorder);
 
   const sbirs_sensor::session::SbirsCycleResult result = session.StepWithResult(ValidInput(1U));
-  ASSERT_TRUE(result.executed_this_cycle);
+  ASSERT_EQ(result.status, sbirs_sensor::session::SbirsCycleStatus::kCompleted);
   ASSERT_FALSE(result.output_frame.detections.empty());
 
   const std::vector<sbirs_sensor::session::SbirsDetectionLifecycleEvent>& events =
@@ -157,7 +157,7 @@ TEST(SbirsSessionTest, SessionWithoutRecorderIsBackwardCompatible) {
   sbirs_sensor::session::SbirsSession session =
       sbirs_sensor::session::SbirsSession::Create(Config());
   const sbirs_sensor::session::SbirsCycleResult result = session.StepWithResult(ValidInput(1U));
-  EXPECT_TRUE(result.executed_this_cycle);
+  EXPECT_EQ(result.status, sbirs_sensor::session::SbirsCycleStatus::kCompleted);
 }
 
 TEST(SbirsSessionTest, GetLastEventsEmptyAfterConstruction) {
@@ -192,7 +192,7 @@ TEST(SbirsSessionTest, ExcludedTargetDiagnosticsPropagateToCycleResult) {
   sbirs_sensor::session::SbirsSession session =
       sbirs_sensor::session::SbirsSession::Create(config);
   const sbirs_sensor::session::SbirsCycleResult result = session.StepWithResult(ValidInput(1U));
-  EXPECT_TRUE(result.executed_this_cycle);
+  EXPECT_EQ(result.status, sbirs_sensor::session::SbirsCycleStatus::kCompleted);
   EXPECT_TRUE(result.output_frame.detections.empty());
   bool found = false;
   for (const auto& issue : result.issues) {

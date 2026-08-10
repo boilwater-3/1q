@@ -31,14 +31,14 @@ SBIRS 遵守三层输出模型（contract.md §三层输出模型）：
 | 结构化执行结果层 | `StepWithResult()` 返回的 `SbirsCycleResult` | 输出帧、执行状态、校验、abort reason、诊断摘要 |
 | 开发调试视图层 | `SbirsOutputDebugViewBuilder` / `SbirsDetectionLifecycleRecorder` | 人读状态、生命周期事件、输入实体回填 |
 
-`executed_this_cycle=false` 表示本周期没有产生新的目标观测事实。Lifecycle recorder 在该边界返回空事件
+非执行周期（`status != kCompleted`）表示本周期没有产生新的目标观测事实。Lifecycle recorder 在该边界返回空事件
 列表并保持全部累积状态；validation rejection 不得虚构 `Lost`、`NotDetected` 或 `TargetMissingFromInput`。
 下一合法检测继续按拒绝前状态产生 `Updated`。
 
 ### 非执行周期统一不复用（五模块统一规则）
 
 SBIRS 非执行周期（校验失败/执行 abort）的 `Step()` 与 `SbirsCycleResult.output_frame` 一律返回**默认空帧**
-（`cycle_index=0`、空检测），**永不复用**上一有效输出。调用方用 `StepWithResult().executed_this_cycle` /
+（`cycle_index=0`、空检测），**永不复用**上一有效输出。调用方用 `StepWithResult().status` /
 `abort_reason` 判断周期状态。`reused_previous_output` 字段已删除。
 
 [evidence: tests/contract/sbirs_sensor/sbirs_public_api_convenience_test.cpp::StepReturnsEmptyFrameOnValidationFailureAfterSuccess]
@@ -51,6 +51,7 @@ SBIRS 所有中止路径遵守 `session_contract.md` 规则 9 的三写模式与
 2. **结构化诊断**：`SbirsCycleResult.issues`（`SbirsIssueList`，细粒度 code 如
    `"sbirs.sensor_powered_off"`、`"sbirs.validation.invalid_satellite_position"`；
    条目携带 `phase` 来源标签与可选定位）。
+   本模块 code 全集单一事实来源：`include/1q/sbirs_sensor/session/SbirsIssueCodes.h`（规则 14c）。
 3. **人读日志**：`PROJECT_LOG_ERROR`。
 
 `SbirsCycleResult` 只承载单一问题列表 `issues`：输入校验问题（`phase=kInputValidation`）与执行诊断
@@ -86,6 +87,13 @@ SBIRS 所有中止路径遵守 `session_contract.md` 规则 9 的三写模式与
    （`sbirs.target_occulted` / `sbirs.target_out_of_range` / `sbirs.target_out_of_wfov` /
    `sbirs.target_snr_below_threshold`，message 含 `target_id` 与关键量值）；DebugView 状态仍为
    `kNotInOutput`（规则 13b/c）。
+9. **门内归因（规则 13b 归因条款）**：`SbirsIssueCause` 给出机器可读主因——视场门按越界轴细分
+   （`kAzOutside` / `kElOutside` / `kBothAxesOutside`，与 `InRectangularFov` 同基准）；
+   SNR 门为聚合门（距离²/大气透过率/目标签名折入单一门限），反事实判定主因（距离参考
+   1000 km、大气全透过、目标签名取"使 SNR 恰达门限的签名"），损失最大者为
+   `kDistanceLimited` / `kAttenuationLimited` / `kSignatureLimited`；遮挡与距离门为具体门
+   （cause 恒 `kNone`），message 分别补遮挡余量（`ComputeEarthOccultationMarginM`，负值 =
+   遮挡深度）与距带边余量。
 
 仿真归属（detection id → 输入 target id/name）、debug view、lifecycle（found/lost）、replay 仅进
 `SbirsCycleResult` 和调试视图层，不得混入 `SbirsOutputFrame`。状态机内部状态如需调试，通过稳定的

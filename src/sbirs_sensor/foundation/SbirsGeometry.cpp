@@ -81,21 +81,29 @@ float ComputeRelativeAngularRateDegPerSec(const session::SbirsVector3M& relative
   return static_cast<float>(perp_norm / range * kRadToDeg);
 }
 
-bool IsEarthOcculted(const session::SbirsVector3M& satellite_position_ecef_m,
-                     const session::SbirsVector3M& target_position_ecef_m, double earth_radius_m) {
+double ComputeEarthOccultationMarginM(const session::SbirsVector3M& satellite_position_ecef_m,
+                                      const session::SbirsVector3M& target_position_ecef_m,
+                                      double earth_radius_m) {
   const session::SbirsVector3M los = Subtract(target_position_ecef_m, satellite_position_ecef_m);
   const double range = Norm(los);
   if (range <= 0.0 || earth_radius_m <= 0.0) {
-    return false;
+    return earth_radius_m;
   }
   const session::SbirsVector3M u = Unit(los);
   const double s_closest = -Dot(satellite_position_ecef_m, u);
   if (s_closest <= 0.0 || s_closest >= range) {
-    return false;
+    return earth_radius_m;
   }
   const double sat_norm_sq = Dot(satellite_position_ecef_m, satellite_position_ecef_m);
   const double closest_sq = sat_norm_sq - s_closest * s_closest;
-  return closest_sq <= earth_radius_m * earth_radius_m;
+  return std::sqrt(std::max(closest_sq, 0.0)) - earth_radius_m;
+}
+
+bool IsEarthOcculted(const session::SbirsVector3M& satellite_position_ecef_m,
+                     const session::SbirsVector3M& target_position_ecef_m, double earth_radius_m) {
+  // 相切（margin == 0）视为遮挡：与原 closest_sq <= r² 判定语义一致。
+  return ComputeEarthOccultationMarginM(satellite_position_ecef_m, target_position_ecef_m,
+                                        earth_radius_m) <= 0.0;
 }
 
 }  // namespace foundation

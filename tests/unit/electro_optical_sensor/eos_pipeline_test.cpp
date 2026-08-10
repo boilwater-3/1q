@@ -457,6 +457,52 @@ TEST(EosPipelineTest, OutOfFovTargetWritesInfoExclusionDiagnostic) {
       found = true;
       EXPECT_EQ(issue.severity, context::EosIssueSeverity::kInfo);
       EXPECT_NE(issue.message.find("target_id=201"), std::string::npos);
+      // 门内归因（规则 13b）：目标 az=35° 相对扫描中心仅方位越界 → kAzOutside。
+      EXPECT_EQ(issue.cause, context::EosIssueCause::kAzOutside);
+      EXPECT_NE(issue.message.find("az_delta_deg="), std::string::npos);
+    }
+  }
+  EXPECT_TRUE(found);
+}
+
+TEST(EosPipelineTest, OutOfFovBothAxesWritesBothAxesOutsideCause) {
+  EosPipeline pipeline(MakePipelineConfig());
+  ::electro_optical_sensor::session::EosCycleInput input = MakeCycleInput(1.0f);
+  input.cycle_index = 5U;
+  ::electro_optical_sensor::session::EosSceneTarget target = MakeTarget(202U, 35.0f);
+  target.elevation_deg = 20.0f;  // az 与 el 均越界（半视场 az=3°/el=2°）
+  input.scene.push_back(target);
+
+  const auto frame = pipeline.RunCycle(input);
+  EXPECT_TRUE(frame.detections.empty());
+  bool found = false;
+  for (const context::EosIssue& issue : frame.issues) {
+    if (issue.code == "eos.target_out_of_fov") {
+      found = true;
+      // 门内归因（规则 13b）：双轴越界 → kBothAxesOutside。
+      EXPECT_EQ(issue.cause, context::EosIssueCause::kBothAxesOutside);
+    }
+  }
+  EXPECT_TRUE(found);
+}
+
+TEST(EosPipelineTest, OutOfFovElevationOnlyWritesElOutsideCause) {
+  EosPipeline pipeline(MakePipelineConfig());
+  ::electro_optical_sensor::session::EosCycleInput input = MakeCycleInput(1.0f);
+  input.cycle_index = 6U;
+  // az 在扫描中心（首周期 -5°）视场内（半视场 az=3°）、el=20° 越界（半视场 el=2°）。
+  ::electro_optical_sensor::session::EosSceneTarget target = MakeTarget(203U, -5.0f);
+  target.elevation_deg = 20.0f;
+  input.scene.push_back(target);
+
+  const auto frame = pipeline.RunCycle(input);
+  EXPECT_TRUE(frame.detections.empty());
+  bool found = false;
+  for (const context::EosIssue& issue : frame.issues) {
+    if (issue.code == "eos.target_out_of_fov") {
+      found = true;
+      // 门内归因（规则 13b）：仅俯仰越界 → kElOutside。
+      EXPECT_EQ(issue.cause, context::EosIssueCause::kElOutside);
     }
   }
   EXPECT_TRUE(found);

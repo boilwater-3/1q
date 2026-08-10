@@ -3,6 +3,7 @@
 #include <utility>
 
 #include "1q/sar/session/SarInputValidation.h"
+#include "1q/sar/session/SarIssueCodes.h"
 #include "common/logging/ProjectLog.h"
 #include "sar/session/SarDiagnosticUtils.h"
 #include "sar/session/SarFocusedImageAssembler.h"
@@ -91,7 +92,7 @@ void SarController::RunOnce(const session::SarCycleInput& input) {
     session::SarIssue issue;
     issue.severity = session::SarIssueSeverity::kError;
     issue.phase = session::SarIssuePhase::kExecution;
-    issue.code = "sar.sensor_powered_off";
+    issue.code = session::codes::kSensorPoweredOff;
     issue.message = "SAR cycle skipped: sensor disabled.";
     result.issues.push_back(issue);
     // 中译：传感器已关闭，本周期短路（周期号）。
@@ -112,7 +113,7 @@ void SarController::RunOnce(const session::SarCycleInput& input) {
   if (!impl_->pipeline.RunCycle(impl_->runtime_config, input, &result)) {
     if (!impl_->pipeline.RestoreRuntimeState(pipeline_state)) {
       session::RecordAbort(&result, session::SarPipelineAbortReason::kRuntimeStateRestoreRejected,
-                           "runtime_state_restore_rejected",
+                           session::codes::kRuntimeStateRestoreRejected,
                            "SAR failed to restore pipeline state after cycle abort.");
     }
     // 非执行周期：output_frame 保持默认空帧，不复用上一有效输出。

@@ -58,6 +58,19 @@ float ComputeRelativeAngularRateDegPerSec(const session::SbirsVector3M& relative
 bool IsEarthOcculted(const session::SbirsVector3M& satellite_position_ecef_m,
                      const session::SbirsVector3M& target_position_ecef_m, double earth_radius_m);
 
+/**
+ * @brief 计算有限 LOS 线段相对地球球体的遮挡余量（规则 13b 门内归因量值）。
+ * @param[in] satellite_position_ecef_m 卫星 ECEF 位置，单位 m
+ * @param[in] target_position_ecef_m 目标 ECEF 位置，单位 m
+ * @param[in] earth_radius_m 地球半径，单位 m
+ * @return 视线最近接近距离 − 地球半径，单位 m；负值表示遮挡深度（视线穿过球体），
+ *         正值表示余量；无有效相交几何时返回 earth_radius_m（视为无遮挡）。
+ * @note 与 IsEarthOcculted 同几何判定，仅额外返回数值余量供排除诊断携带。
+ */
+double ComputeEarthOccultationMarginM(const session::SbirsVector3M& satellite_position_ecef_m,
+                                      const session::SbirsVector3M& target_position_ecef_m,
+                                      double earth_radius_m);
+
 }  // namespace foundation
 }  // namespace sbirs_sensor
 

@@ -22,6 +22,7 @@ const char* AbortReasonToDiagnosticCode(EosPipelineAbortReason reason);
  * @brief 将本周期标记为中止（三写：abort_reason + issues + 日志）。
  * @param[in] reason 粗粒度中止原因；phase 由原因推导（kValidationRejected → kInputValidation，
  *            kOutputContractViolation → kOutputContract，其余 → kExecution）。
+ * @param[in] detail_code 细粒度 issue code（EosIssueCodes.h 注册表常量，完整字符串）。
  */
 void RecordAbort(EosCycleResult* result, EosPipelineAbortReason reason,
                  const char* detail_code, const std::string& message);

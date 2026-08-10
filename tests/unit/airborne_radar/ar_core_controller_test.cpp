@@ -175,20 +175,20 @@ TEST_F(CoreControllerTest, DefaultLifecyclePathBuildsTentativeDecisionFrameOnFir
   controller.RunOnce(signal::pipeline::SignalCycleInput{radar_context.GetSceneTargets()});
 
   EXPECT_TRUE(controller.HasLatestTrackOutputFrame());
-  const session::TrackOutputFrame& latest_track_output_frame =
+  const session::TrackOutputFrame& latest_output_frame =
       controller.GetLatestTrackOutputFrame();
-  EXPECT_EQ(latest_track_output_frame.tracks.size(), 1U);
+  EXPECT_EQ(latest_output_frame.tracks.size(), 1U);
   EXPECT_EQ(
-      session::CountTracksByStatus(latest_track_output_frame, session::TrackStatus::kConfirmed),
+      session::CountTracksByStatus(latest_output_frame, session::TrackStatus::kConfirmed),
       0U);
   EXPECT_FALSE(
-      session::CountTracksByStatus(latest_track_output_frame, session::TrackStatus::kLost) > 0U);
+      session::CountTracksByStatus(latest_output_frame, session::TrackStatus::kLost) > 0U);
   const session::DecisionInputFrame& decision_frame =
       controller.GetLatestDecisionObservation().input_frame;
   ASSERT_EQ(decision_frame.tracks.size(), 1U);
   EXPECT_EQ(decision_frame.tracks[0].status, session::TrackStatus::kTentative);
   EXPECT_EQ(decision_frame.tracks[0].association_key,
-            latest_track_output_frame.tracks[0].association_key);
+            latest_output_frame.tracks[0].association_key);
 }
 
 TEST_F(CoreControllerTest, PublicOutputReaderApiExposesLatestTrackOutputFrame) {
@@ -205,13 +205,13 @@ TEST_F(CoreControllerTest, PublicOutputReaderApiExposesLatestTrackOutputFrame) {
   controller.RunOnce(signal::pipeline::SignalCycleInput{radar_context.GetSceneTargets()});
 
   EXPECT_TRUE(controller.HasLatestTrackOutputFrame());
-  const session::TrackOutputFrame& latest_track_output_frame =
+  const session::TrackOutputFrame& latest_output_frame =
       controller.GetLatestTrackOutputFrame();
-  EXPECT_EQ(latest_track_output_frame.cycle_index, 1U);
-  EXPECT_EQ(latest_track_output_frame.batch_id, 1U);
-  EXPECT_EQ(latest_track_output_frame.tracks.size(), 1U);
-  ASSERT_EQ(latest_track_output_frame.tracks.size(), 1U);
-  EXPECT_EQ(latest_track_output_frame.tracks[0].status, session::TrackStatus::kTentative);
+  EXPECT_EQ(latest_output_frame.cycle_index, 1U);
+  EXPECT_EQ(latest_output_frame.batch_id, 1U);
+  EXPECT_EQ(latest_output_frame.tracks.size(), 1U);
+  ASSERT_EQ(latest_output_frame.tracks.size(), 1U);
+  EXPECT_EQ(latest_output_frame.tracks[0].status, session::TrackStatus::kTentative);
 }
 
 TEST_F(CoreControllerTest, RuntimeValidationRejectionSkipsCommandSubmission) {

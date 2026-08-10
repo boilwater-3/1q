@@ -2,6 +2,7 @@
 
 #include <utility>
 
+#include "1q/airborne_radar/session/ArIssueCodes.h"
 #include "common/logging/ProjectLog.h"
 
 namespace airborne_radar {
@@ -32,13 +33,13 @@ void RecordAbort(ArCycleResult* result, SignalCycleAbortReason reason,
 
   // 结构化诊断（细粒度；统一问题列表模型，规则 14：phase 由中止原因推导）。
   // SignalCycleAbortReason 无 kOutputContractViolation；kValidationRejected → kInputValidation，
-  // 其余 → kExecution。
+  // 其余 → kExecution。detail_code 为 ArIssueCodes.h 完整 code 常量，调用方负责传注册表常量。
   ArIssue issue;
   issue.severity = ArIssueSeverity::kError;
   issue.phase = (reason == SignalCycleAbortReason::kValidationRejected)
                     ? ArIssuePhase::kInputValidation
                     : ArIssuePhase::kExecution;
-  issue.code = std::string("ar.") + detail_code;
+  issue.code = detail_code;
   issue.message = message;
   result->issues.push_back(std::move(issue));
 

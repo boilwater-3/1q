@@ -41,7 +41,7 @@ ArDebugTrackState BuildTrackState(const ArTargetInput& target,
     return state;
   }
   const session::TrackStateSnapshot* track =
-      FindTrackByExternalTargetId(cycle_result.track_output_frame, target.target_id);
+      FindTrackByExternalTargetId(cycle_result.output_frame, target.target_id);
   if (track == nullptr) {
     // external_target_id 为 0（未知）的输入目标无法按 ID 关联到 track。
     state.status = ArDebugTrackStatus::kNotInOutput;
@@ -63,16 +63,16 @@ ArDebugTrackState BuildTrackState(const ArTargetInput& target,
 
 }  // namespace
 
-ArTrackOutputDebugView ArTrackOutputDebugViewBuilder::Build(const ArTargetInputList& targets,
+ArTrackOutputDebugView ArTrackOutputDebugViewBuilder::Build(const ArCycleInput& input,
                                                             const ArCycleResult& result) {
   ArTrackOutputDebugView view;
   view.world_cycle_index = result.input_cycle_index;
-  view.output_cycle_index = result.track_output_frame.cycle_index;
+  view.output_cycle_index = result.output_frame.cycle_index;
   view.completed_this_cycle = result.status == ArCycleStatus::kCompleted;
   view.receiver_impairment = result.receiver_impairment;
   view.issues = result.issues;
-  view.tracks.reserve(targets.size());
-  for (const ArTargetInput& target : targets) {
+  view.tracks.reserve(input.targets.size());
+  for (const ArTargetInput& target : input.targets) {
     view.tracks.push_back(BuildTrackState(target, result));
   }
   return view;

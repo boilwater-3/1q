@@ -58,6 +58,21 @@ enum class ONEQ_API EsrIssuePhase : std::uint8_t {
 };
 
 /**
+ * @brief ESR 问题条目门内归因（规则 13b 门内归因条款，session_contract.md）。
+ * @note 仅排除诊断（如 "esr.emission_below_threshold"）使用：发射源排除门失败时标识
+ *       门内主因（零功率成因 / 检测门型）；不替代 code（机器键仍只认 code），不用于状态判断。
+ */
+enum class ONEQ_API EsrIssueCause : std::uint8_t {
+  kNone = 0,            /**< 无归因（具体门排除或非排除诊断） */
+  kTransmitSilent,      /**< 发射端静默（发射功率为零）导致接收功率归零 */
+  kOverlapWindow,       /**< 时频重叠窗口不足导致接收功率归零 */
+  kPropagationLoss,     /**< 传播损耗（距离/自由空间损耗）主导门失败 */
+  kHardGateFailed,      /**< 硬门失败（snr < 静态 minimum_snr_db） */
+  kStatisticalGateFailed, /**< 统计检测门失败（概率抽签未过） */
+  kUnknown              /**< 无法判定主因 */
+};
+
+/**
  * @brief EsrIssue 描述单周期问题条目（统一问题列表模型，session_contract.md 规则 14）。
  * @note 承载输入校验问题（phase=kInputValidation）与执行诊断（phase=kExecution/kOutputContract）；
  *       code 带模块前缀（如 "esr.rf_receiver_rejected"、"esr.validation.invalid_cycle_delta_time"），
@@ -70,6 +85,7 @@ struct ONEQ_API EsrIssue {
   std::string message{};
   oneq::foundation::ValidationLocation location{}; /**< 可选定位；kind==kGlobal 表示无定位 */
   std::string field{}; /**< 可选定位；为空表示无关联字段（跨字段或域级问题） */
+  EsrIssueCause cause{EsrIssueCause::kNone}; /**< 可选归因；仅排除诊断使用（规则 13b） */
 };
 
 /** @brief ESR 问题条目列表。 */

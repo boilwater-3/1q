@@ -53,8 +53,8 @@ ArCycleResult MakeCycleResult(std::uint64_t cycle_index, bool completed,
   result.status = completed ? ArCycleStatus::kCompleted
                             : ArCycleStatus::kRejectedExecution;
   result.input_cycle_index = cycle_index;
-  result.track_output_frame.cycle_index = cycle_index;
-  result.track_output_frame.tracks = std::move(tracks);
+  result.output_frame.cycle_index = cycle_index;
+  result.output_frame.tracks = std::move(tracks);
   return result;
 }
 
@@ -71,7 +71,9 @@ TEST(RadarTrackOutputDebugViewTest, BuildMapsTracksBackToNamedTargets) {
                       {MakeTrackSnapshot(701U, "alpha", session::TrackStatus::kConfirmed),
                        MakeTrackSnapshot(702U, "beta", session::TrackStatus::kTentative)});
 
-  const ArTrackOutputDebugView view = ArTrackOutputDebugViewBuilder::Build(targets, result);
+  ArCycleInput input;
+  input.targets = targets;
+  const ArTrackOutputDebugView view = ArTrackOutputDebugViewBuilder::Build(input, result);
   EXPECT_EQ(view.world_cycle_index, 5U);
   EXPECT_TRUE(view.completed_this_cycle);
   ASSERT_EQ(view.tracks.size(), 3U);
@@ -101,7 +103,9 @@ TEST(RadarTrackOutputDebugViewTest, NonCompletedCycleMarksAllTargetsAsNonComplet
   const ArTargetInputList targets = {MakeNamedTarget(701U, "alpha")};
 
   ArCycleResult result = MakeCycleResult(9U, /*completed=*/false, {});
-  const ArTrackOutputDebugView view = ArTrackOutputDebugViewBuilder::Build(targets, result);
+  ArCycleInput input;
+  input.targets = targets;
+  const ArTrackOutputDebugView view = ArTrackOutputDebugViewBuilder::Build(input, result);
   ASSERT_EQ(view.tracks.size(), 1U);
   EXPECT_EQ(view.tracks[0].status, ArDebugTrackStatus::kCycleNotCompleted);
   EXPECT_FALSE(view.tracks[0].has_track);

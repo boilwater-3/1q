@@ -75,6 +75,19 @@ enum class ONEQ_API EosIssuePhase : std::uint8_t {
 };
 
 /**
+ * @brief EOS 问题条目门内归因（规则 13b 门内归因条款，session_contract.md）。
+ * @note 仅排除诊断（"eos.target_out_of_fov"）使用：视场门排除时标识越界轴；
+ *       不替代 code（机器键仍只认 code），不用于状态判断。
+ */
+enum class ONEQ_API EosIssueCause : std::uint8_t {
+  kNone = 0,        /**< 无归因（非排除诊断） */
+  kAzOutside,       /**< 仅方位越出视场 */
+  kElOutside,       /**< 仅俯仰越出视场 */
+  kBothAxesOutside, /**< 方位与俯仰均越出视场 */
+  kUnknown          /**< 无法判定主因 */
+};
+
+/**
  * @brief EosIssue 描述单周期问题条目（统一问题列表模型，session_contract.md 规则 14）。
  * @note 承载输入校验问题（phase=kInputValidation）与执行诊断（phase=kExecution/kOutputContract）；
  *       code 带模块前缀（如 "eos.pipeline_contract_violation"、
@@ -87,6 +100,7 @@ struct ONEQ_API EosIssue {
   std::string message{};
   oneq::foundation::ValidationLocation location{}; /**< 可选定位；kind==kGlobal 表示无定位 */
   std::string field{}; /**< 可选定位；为空表示无关联字段（跨字段或域级问题） */
+  EosIssueCause cause{EosIssueCause::kNone}; /**< 可选归因；仅排除诊断使用（规则 13b） */
 };
 
 /** @brief EOS 问题条目列表。 */
@@ -106,7 +120,6 @@ enum class ONEQ_API EosPipelineAbortReason {
 /**
  * @brief EosCycleStatus 描述单周期高层执行状态。
  * @note 与 ArCycleStatus / EsrCycleExecutionStatus 对齐的强类型枚举。
- *       `executed_this_cycle` 保留为 `status == kCompleted` 的便捷访问器。
  */
 enum class ONEQ_API EosCycleStatus : std::uint8_t {
   kCompleted = 0,           /**< 周期正常完成 */

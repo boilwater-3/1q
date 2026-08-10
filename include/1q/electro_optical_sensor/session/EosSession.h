@@ -40,7 +40,7 @@ class ONEQ_API EosSession {
    * @brief 执行单周期并返回输出帧（输出便捷入口）。
    * @param[in] input 当前周期输入。
    * @return 当前周期输出帧。
-   * @note 该接口仅返回输出帧，不携带 `executed_this_cycle` 等状态语义；
+   * @note 该接口仅返回输出帧，不携带 `status` 等状态语义；
    *       若调用方需要区分"本周期实际执行"与"非执行周期"，请使用 `StepWithResult()`。
    * @note 非线程安全：会读写会话内部状态；并发调用需外部同步。
    */
@@ -50,7 +50,7 @@ class ONEQ_API EosSession {
    * @brief 执行单周期并返回聚合结果。
    * @param[in] input 当前周期输入。
    * @return 当前周期聚合结果。
-   * @note 结果中的 `executed_this_cycle` / `abort_reason` 提供结构化周期状态语义。
+   * @note 结果中的 `status` / `abort_reason` 提供结构化周期状态语义。
    * @note 非线程安全：会读写会话内部状态；并发调用需外部同步。
    */
   EosCycleResult StepWithResult(const EosCycleInput& input);

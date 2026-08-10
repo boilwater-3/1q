@@ -105,10 +105,10 @@ Authority: examples 集成实践（component_entt EnTT 模式 + component_attach
 - `ArCycleInput` / `EsrCycleInput` / `EosCycleInput` 的 cycle/time/platform 字段
   逐项显式填充（batch_validation 亦同）。这是**校验友好的有意设计**，不建议加
   builder 掩盖。
-- 附带陷阱：`ArCycleResult.track_output_frame` 是**内部雷达局部帧**
+- 附带陷阱：`ArCycleResult.output_frame` 是**内部雷达局部帧**
   （TrackStateSnapshot 无 ECEF），消费必须经 `ArCycleOutputAdapter::Build` 转外部
   帧；示例集成者两次误用（编译期才发现）。建议 `ArCycleResult.h` 对
-  `track_output_frame` 字段注释"内部帧，消费请用 ArCycleOutputAdapter"。
+  `output_frame` 字段注释"内部帧，消费请用 ArCycleOutputAdapter"。
 - 状态：P2 待办（头文件注释）。
 
 ## 有意的外部职责（不上移）

@@ -11,6 +11,7 @@
 
 #include "1q/coordinate/attitude_transform.h"
 #include "1q/coordinate/position_transform.h"
+#include "1q/electronic_surveillance_radar/session/EsrIssueCodes.h"
 #include "common/geometry/BearingCluster.h"
 #include "common/numerics/ClampUtils.h"
 #include "common/numerics/NumericGuard.h"
@@ -33,17 +34,18 @@ constexpr std::uint64_t kBandwidthRandomDomain = 0x4553524257000000ULL;
 constexpr std::uint64_t kPriRandomDomain = 0x4553525052000000ULL;
 constexpr std::uint64_t kPulseWidthRandomDomain = 0x4553525057000000ULL;
 
-// 规则 13b：正常执行周期按发射源门控排除的 kInfo 诊断码（不属于三写，仅承载排查信息）。
-constexpr char kExclusionCoSiteCode[] = "esr.emission_co_site";
-constexpr char kExclusionZeroPowerCode[] = "esr.emission_zero_power";
-constexpr char kExclusionBelowThresholdCode[] = "esr.emission_below_threshold";
+// 规则 13b：正常执行周期按发射源门控排除的 kInfo 诊断码（不属于三写，仅承载
+// 排查信息）。code 引用 EsrIssueCodes.h 注册表常量。
 
 /// 构造 kInfo 级按发射源排除诊断（不属于三写，仅承载排查信息；规则 13b）。
-session::EsrIssue MakeExclusionIssue(const char* code, const std::string& message) {
+/// @param cause 门内归因（规则 13b 门内归因条款）；聚合门排除须给出主因，具体门可 kNone。
+session::EsrIssue MakeExclusionIssue(const char* code, const std::string& message,
+                                     session::EsrIssueCause cause = session::EsrIssueCause::kNone) {
   session::EsrIssue issue;
   issue.severity = session::EsrIssueSeverity::kInfo;
   issue.code = code;
   issue.message = message;
+  issue.cause = cause;
   return issue;
 }
 
@@ -329,17 +331,37 @@ bool InterceptDetectionExecutor::ProcessRfV2Frame(
     const oneq::electromagnetics::RfSceneEmission& emission = *emissions[index];
     if (front_end.channel_incident_links[index].is_co_site) {
       // 规则 13b：同址干扰发射源跳过 → kInfo 诊断（不属于三写，仅承载排查信息）。
+      // 具体门（同址判定本身可定位）：cause 保持 kNone，隔离度/路径量值进 message。
+      const auto& co_site_link = front_end.channel_incident_links[index];
       output->issues.push_back(MakeExclusionIssue(
-          kExclusionCoSiteCode, FormatEmissionIdentity(emission.identity) + "; co_site=true"));
+          session::codes::kEmissionCoSite,
+          FormatEmissionIdentity(emission.identity) + "; co_site=true; isolation_db=" +
+              FormatNumber(co_site_link.co_site_isolation_db) + " path_length_m=" +
+              FormatNumber(co_site_link.path_length_m)));
       ++output->excluded_co_site;
       continue;
     }
     if (front_end.channel_incident_links[index].received_power_w <= 0.0) {
       // 规则 13b：零功率发射源跳过 → kInfo 诊断（不属于三写，仅承载排查信息）。
+      // 门内归因：接收功率归零的成因——时频重叠窗口为零（kOverlapWindow）/
+      // 链路预算归零（发射静默 kTransmitSilent 或传播 kPropagationLoss）。
+      const auto& zero_link = front_end.channel_incident_links[index];
+      session::EsrIssueCause zero_cause = session::EsrIssueCause::kPropagationLoss;
+      if (zero_link.time_overlap_fraction <= 0.0 || zero_link.frequency_overlap_fraction <= 0.0) {
+        zero_cause = session::EsrIssueCause::kOverlapWindow;
+      } else if (zero_link.received_power_before_overlap_w <= 0.0) {
+        zero_cause = emission.waveform.transmit_power_w <= 0.0
+                         ? session::EsrIssueCause::kTransmitSilent
+                         : session::EsrIssueCause::kPropagationLoss;
+      }
       output->issues.push_back(MakeExclusionIssue(
-          kExclusionZeroPowerCode,
+          session::codes::kEmissionZeroPower,
           FormatEmissionIdentity(emission.identity) + "; received_power_w=" +
-              FormatNumber(front_end.channel_incident_links[index].received_power_w)));
+              FormatNumber(zero_link.received_power_w) + " time_overlap_fraction=" +
+              FormatNumber(zero_link.time_overlap_fraction) + " frequency_overlap_fraction=" +
+              FormatNumber(zero_link.frequency_overlap_fraction) + " path_length_m=" +
+              FormatNumber(zero_link.path_length_m),
+          zero_cause));
       ++output->excluded_zero_power;
       continue;
     }
@@ -386,10 +408,17 @@ bool InterceptDetectionExecutor::ProcessRfV2Frame(
          uniform_01(detection_rng) >= oneq::common::timing::ComputeStatisticalDetectionProbability(
                                           static_cast<float>(snr_db), threshold, detection))) {
       // 规则 13b：SNR/统计检测门排除 → kInfo 诊断（不属于三写，仅承载排查信息）。
+      // 门内归因：硬门（snr 低于静态 minimum_snr_db）vs 统计检测门（动态门/概率抽签）。
+      const double min_snr_db = ctx.GetPipelineConfig().detection.minimum_snr_db;
+      const session::EsrIssueCause below_cause =
+          snr_db < min_snr_db ? session::EsrIssueCause::kHardGateFailed
+                              : session::EsrIssueCause::kStatisticalGateFailed;
       output->issues.push_back(MakeExclusionIssue(
-          kExclusionBelowThresholdCode,
+          session::codes::kEmissionBelowThreshold,
           FormatEmissionIdentity(signal.identity) + "; snr_db=" + FormatNumber(snr_db) +
-              " below threshold=" + FormatNumber(threshold)));
+              " below threshold=" + FormatNumber(threshold) +
+              " margin_db=" + FormatNumber(snr_db - threshold),
+          below_cause));
       ++output->excluded_below_threshold;
       continue;
     }

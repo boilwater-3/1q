@@ -88,13 +88,13 @@ table EosIssue {
   location_kind: int32 = 0;
   entity_index:  int64 = -1;
   field:         string;
+  cause:         int32;
 }
 
 table EosCycleResult {
   input_cycle_index:      uint32;
   output_frame:           EosOutputFrame;
   detection_attributions: [EosDetectionAttributionRecord];
-  executed_this_cycle:    bool;
   abort_reason:           int32;
   status:                 uint8;
   issues:                 [EosIssue];

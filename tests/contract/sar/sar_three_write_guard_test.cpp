@@ -63,7 +63,6 @@ session::SarCycleInput MakeMinimalInput() {
 void ExpectThreeWriteAbort(const session::SarCycleResult& result,
                            session::SarPipelineAbortReason expected_reason,
                            session::SarCycleStatus expected_status) {
-  EXPECT_FALSE(result.executed_this_cycle);
   EXPECT_EQ(result.abort_reason, expected_reason);
   EXPECT_EQ(result.status, expected_status);
 

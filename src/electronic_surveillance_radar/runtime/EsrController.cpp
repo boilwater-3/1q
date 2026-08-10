@@ -7,6 +7,7 @@
 #include "electronic_surveillance_radar/pipeline/InterceptPipeline.h"
 #include "electronic_surveillance_radar/session/EsrDiagnosticUtils.h"
 #include "1q/electronic_surveillance_radar/session/EsrInputValidation.h"
+#include "1q/electronic_surveillance_radar/session/EsrIssueCodes.h"
 #include "common/logging/ProjectLog.h"
 #include "common/runtime/RuntimeCycleExecutor.h"
 
@@ -55,14 +56,15 @@ struct EsrController::Impl {
     // 不再重复写入粗粒度条目。
     if (last_abort_reason != session::EsrPipelineAbortReason::kNone &&
         last_abort_reason != session::EsrPipelineAbortReason::kValidationRejected) {
+      // 不可达兜底（值不属注册表；若命中会写入 issue.code）。
       const char* detail_code = "unknown";
       // 校验拒绝（kValidationRejected）不可达：外层 if 已排除，校验问题本身承载写二。
       switch (last_abort_reason) {
         case session::EsrPipelineAbortReason::kSensorPoweredOff:
-          detail_code = "sensor_powered_off";
+          detail_code = session::codes::kSensorPoweredOff;
           break;
         case session::EsrPipelineAbortReason::kRfReceiverRejected:
-          detail_code = "rf_receiver_rejected";
+          detail_code = session::codes::kRfReceiverRejected;
           break;
         default:
           break;

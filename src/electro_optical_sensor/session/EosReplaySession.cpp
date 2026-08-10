@@ -89,7 +89,7 @@ bool EosCycleResultEqual(const EosCycleResult& left, const EosCycleResult& right
          EosDetectionAttributionListEqual(left.detection_attributions,
                                           right.detection_attributions) &&
          EosIssueListEqual(left.issues, right.issues) &&
-         left.executed_this_cycle == right.executed_this_cycle &&
+         left.status == right.status &&
          left.abort_reason == right.abort_reason;
 }
 

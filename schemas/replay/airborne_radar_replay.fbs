@@ -282,6 +282,7 @@ table ArIssue {
   location_kind:int32 = 0;
   entity_index:int64 = -1;
   field:string;
+  cause:         int32;
 }
 table AssociationQualityMetricsV3 {
   prior_track_count:ulong;
@@ -317,7 +318,7 @@ table ArRecognitionCycleSummaryV1 {
 table ArCycleResultV3 {
   input_cycle_index:uint;
   status:int;
-  track_output_frame:TrackOutputFrame;
+  output_frame:TrackOutputFrame;
   emission_frame:RfSceneFrameV2;
   receiver_impairment:int;
   interference_observations:[ArInterferenceObservation];

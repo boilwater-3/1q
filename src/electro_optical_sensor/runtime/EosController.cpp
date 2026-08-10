@@ -4,6 +4,7 @@
 #include <memory>
 
 #include "1q/electro_optical_sensor/session/EosInputValidation.h"
+#include "1q/electro_optical_sensor/session/EosIssueCodes.h"
 #include "common/logging/ProjectLog.h"
 #include "electro_optical_sensor/pipeline/EosPipeline.h"
 #include "electro_optical_sensor/session/EosDiagnosticUtils.h"
@@ -59,7 +60,6 @@ struct EosController::Impl {
       issues.insert(issues.end(), execution_issues.begin(), execution_issues.end());
     }
     result.issues = std::move(issues);
-    result.executed_this_cycle = last_cycle_executed;
     result.abort_reason = last_abort_reason;
 
     // 三写：对所有非 kNone 且非校验拒绝的 abort_reason 写入 issues + 日志。
@@ -67,17 +67,18 @@ struct EosController::Impl {
     // 不再重复写入粗粒度条目。
     if (last_abort_reason != session::EosPipelineAbortReason::kNone &&
         last_abort_reason != session::EosPipelineAbortReason::kValidationRejected) {
+      // 不可达兜底（值不属注册表；若命中会写入 issue.code）。
       const char* detail_code = "unknown";
       // 校验拒绝（kValidationRejected）不可达：外层 if 已排除，校验问题本身承载写二。
       switch (last_abort_reason) {
         case session::EosPipelineAbortReason::kSensorPoweredOff:
-          detail_code = "sensor_powered_off";
+          detail_code = session::codes::kSensorPoweredOff;
           break;
         case session::EosPipelineAbortReason::kOutputContractViolation:
-          detail_code = "pipeline_contract_violation";
+          detail_code = session::codes::kPipelineContractViolation;
           break;
         case session::EosPipelineAbortReason::kRuntimeStateRestoreRejected:
-          detail_code = "runtime_state_restore_rejected";
+          detail_code = session::codes::kRuntimeStateRestoreRejected;
           break;
         default:
           break;

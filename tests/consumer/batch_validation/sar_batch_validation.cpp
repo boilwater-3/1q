@@ -304,7 +304,7 @@ struct CycleMetrics {
 CycleMetrics ExtractCycleMetrics(const sar_session::SarCycleResult& r) {
   CycleMetrics m;
   m.cycle_index = r.input_cycle_index;
-  m.executed = r.executed_this_cycle;
+  m.executed = (r.status == sar_session::SarCycleStatus::kCompleted);
   m.has_error = r.status == sar_session::SarCycleStatus::kRejectedInvalidInput ||
                 r.status == sar_session::SarCycleStatus::kRejectedExecution;
   m.abort_reason = static_cast<int>(r.abort_reason);

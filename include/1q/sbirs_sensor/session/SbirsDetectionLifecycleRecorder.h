@@ -100,7 +100,7 @@ class ONEQ_API SbirsDetectionLifecycleRecorder {
 
   /**
    * @brief 推进一个周期，对照输入与结果产生本周期生命周期事件。
-   * @note `result.executed_this_cycle=false` 时不产生事件，也不修改累积状态。
+   * @note `result.status != kCompleted` 时不产生事件，也不修改累积状态。
    * @param[in] input 单周期输入
    * @param[in] result 单周期结构化结果
    * @return 本周期产生的生命周期事件列表

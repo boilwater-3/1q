@@ -11,7 +11,7 @@ SarProductDebugView SarProductDebugViewBuilder::Build(const SarCycleInput& input
   SarProductDebugView view;
   view.input_cycle_index = result.input_cycle_index;
   view.output_cycle_index = result.output_frame.cycle_index;
-  view.executed_this_cycle = result.executed_this_cycle;
+  view.executed_this_cycle = (result.status == SarCycleStatus::kCompleted);
   view.abort_reason = AbortReasonToDiagnosticCode(result.abort_reason);
   view.completed_stage = result.output_frame.completed_stage;
   view.has_raw_echo = result.output_frame.has_raw_echo;

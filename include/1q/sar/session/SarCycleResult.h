@@ -91,6 +91,16 @@ enum class SarPhaseReferenceMode { kNative = 0, kCenterBroadside = 1 };
 enum class SarMainlobeEstimationMethod { k3dB = 0, k20dB = 1 };
 
 /**
+ * @brief SAR 问题条目门内归因（规则 13b 门内归因条款，session_contract.md）。
+ * @note SAR 无逐目标门控排除（13b 空洞条款，集体成像模型），本模块恒 kNone；
+ *       枚举仅为五模块 `*Issue` 结构逐字同构保留。
+ */
+enum class SarIssueCause : std::uint8_t {
+  kNone = 0, /**< 无归因 */
+  kUnknown   /**< 无法判定主因（本模块不使用） */
+};
+
+/**
  * @brief SAR 统一问题条目（规则 14）。
  * @note `location.kind == kGlobal` 或 `field` 为空表示无定位；定位只服务人读与
  *       replay 保真，不用于状态判断。
@@ -102,6 +112,7 @@ struct ONEQ_API SarIssue {
   std::string message{};                              /**< 面向调用方的人读说明 */
   oneq::foundation::ValidationLocation location{};    /**< 可选定位（kGlobal=无） */
   std::string field{};                                /**< 触发问题的字段名；为空表示无定位 */
+  SarIssueCause cause{SarIssueCause::kNone};          /**< 可选归因；SAR 恒 kNone（13b 空洞条款） */
 };
 
 using SarIssueList = std::vector<SarIssue>;
@@ -165,7 +176,7 @@ struct ONEQ_API SarOutputFrame {
 
 /**
  * @brief SAR 单周期聚合结果。
- * @note `output_frame`、`focused_image` 与质量指标只有在 `executed_this_cycle=true`
+ * @note `output_frame`、`focused_image` 与质量指标只有在 `status == kCompleted`
  *       时才代表本周期有效计算结果；非执行周期返回默认空帧，不复用上一有效输出，
  *       不能按真实零值参与统计。
  */
@@ -176,7 +187,6 @@ struct ONEQ_API SarCycleResult {
   SarRawPhaseHistory raw_phase_history{};
   SarIssueList issues{}; /**< 统一问题列表（规则 14）：校验问题（kInputValidation）与执行诊断 */
   SarCycleStatus status{SarCycleStatus::kRejectedInvalidInput};
-  bool executed_this_cycle{false};
   SarPipelineAbortReason abort_reason{SarPipelineAbortReason::kNone};
 };
 

@@ -120,6 +120,24 @@ enum class ONEQ_API SbirsIssuePhase : std::uint8_t {
 };
 
 /**
+ * @brief SBIRS 问题条目门内归因（规则 13b 门内归因条款，session_contract.md）。
+ * @note 仅排除诊断使用：视场门排除标识越界轴；SNR 门排除标识物理链路主因（距离/
+ *       大气透过率/目标签名/噪声底）；遮挡与距离带为具体门，cause 保持 kNone 仅量值。
+ *       不替代 code（机器键仍只认 code），不用于状态判断。
+ */
+enum class ONEQ_API SbirsIssueCause : std::uint8_t {
+  kNone = 0,            /**< 无归因（具体门排除或非排除诊断） */
+  kAzOutside,           /**< 仅方位越出视场 */
+  kElOutside,           /**< 仅俯仰越出视场 */
+  kBothAxesOutside,     /**< 方位与俯仰均越出视场 */
+  kDistanceLimited,     /**< 目标距离主导 SNR 门失败 */
+  kAttenuationLimited,  /**< 大气透过率/路径衰减主导 SNR 门失败 */
+  kSignatureLimited,    /**< 目标签名（温度/辐射率/投影面积）主导 SNR 门失败 */
+  kNoiseLimited,        /**< 噪声底主导 SNR 门失败（当前不产生：噪声为硬件常数，保留供未来硬件噪声建模） */
+  kUnknown              /**< 无法判定主因 */
+};
+
+/**
  * @brief SbirsIssue 描述单周期问题条目（统一问题列表模型，session_contract.md 规则 14）。
  * @note 承载输入校验问题（phase=kInputValidation）与执行诊断（phase=kExecution）；
  *       code 带模块前缀（如 "sbirs.target_out_of_wfov"、
@@ -133,6 +151,7 @@ struct ONEQ_API SbirsIssue {
   std::string message{};
   oneq::foundation::ValidationLocation location{}; /**< 可选定位；kind==kGlobal 表示无定位 */
   std::string field{}; /**< 可选定位；为空表示无关联字段（跨字段或域级问题） */
+  SbirsIssueCause cause{SbirsIssueCause::kNone}; /**< 可选归因；仅排除诊断使用（规则 13b） */
 };
 
 /** @brief SBIRS 问题条目列表。 */
@@ -148,7 +167,6 @@ enum class ONEQ_API SbirsPipelineAbortReason {
 /**
  * @brief SbirsCycleStatus 描述单周期高层执行状态。
  * @note 与 ArCycleStatus / EsrCycleExecutionStatus / EosCycleStatus 对齐的强类型枚举。
- *       `executed_this_cycle` 保留为 `status == kCompleted` 的便捷访问器。
  */
 enum class ONEQ_API SbirsCycleStatus : std::uint8_t {
   kCompleted = 0,           /**< 周期正常完成 */

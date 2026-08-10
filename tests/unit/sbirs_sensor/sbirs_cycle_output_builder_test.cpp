@@ -36,7 +36,7 @@ sbirs_sensor::session::SbirsCycleResult ResultForTarget(std::uint32_t cycle_inde
   sbirs_sensor::session::SbirsCycleResult result;
   result.input_cycle_index = cycle_index;
   result.output_frame.cycle_index = cycle_index;
-  result.executed_this_cycle = true;
+  result.status = sbirs_sensor::session::SbirsCycleStatus::kCompleted;
   sbirs_sensor::output::SbirsDetectionRecord detection;
   detection.detection_id = 11U;
   detection.azimuth_deg = 2.0f;
@@ -72,7 +72,7 @@ sbirs_sensor::session::SbirsCycleResult NisLossResultForTarget(std::uint32_t cyc
   sbirs_sensor::session::SbirsCycleResult result;
   result.input_cycle_index = cycle_index;
   result.output_frame.cycle_index = cycle_index;
-  result.executed_this_cycle = true;
+  result.status = sbirs_sensor::session::SbirsCycleStatus::kCompleted;
 
   sbirs_sensor::attribution::SbirsDetectionAttributionRecord attribution;
   attribution.detection_id = 12U;
@@ -93,7 +93,7 @@ sbirs_sensor::session::SbirsCycleResult PointingTimeoutResultForTarget(std::uint
   sbirs_sensor::session::SbirsCycleResult result;
   result.input_cycle_index = cycle_index;
   result.output_frame.cycle_index = cycle_index;
-  result.executed_this_cycle = true;
+  result.status = sbirs_sensor::session::SbirsCycleStatus::kCompleted;
 
   sbirs_sensor::attribution::SbirsDetectionAttributionRecord attribution;
   attribution.detection_id = 13U;
@@ -113,7 +113,7 @@ sbirs_sensor::session::SbirsCycleResult CoastingResultForTarget(std::uint32_t cy
   sbirs_sensor::session::SbirsCycleResult result;
   result.input_cycle_index = cycle_index;
   result.output_frame.cycle_index = cycle_index;
-  result.executed_this_cycle = true;
+  result.status = sbirs_sensor::session::SbirsCycleStatus::kCompleted;
   sbirs_sensor::attribution::SbirsDetectionAttributionRecord attribution;
   attribution.detection_id = 14U;
   attribution.target_id = 7U;
@@ -147,7 +147,7 @@ TEST(SbirsCycleOutputBuilderTest, DebugViewBackfillsInputAnglesWhenNotInOutput) 
   sbirs_sensor::session::SbirsCycleResult result;
   result.input_cycle_index = 1U;
   result.output_frame.cycle_index = 1U;
-  result.executed_this_cycle = true;
+  result.status = sbirs_sensor::session::SbirsCycleStatus::kCompleted;
 
   const sbirs_sensor::session::SbirsOutputDebugView view =
       sbirs_sensor::session::SbirsOutputDebugViewBuilder::Build(input, result);
@@ -167,7 +167,7 @@ TEST(SbirsCycleOutputBuilderTest, NonExecutedCycleBackfillsInputAngles) {
   input.scene[0].position_ecef_m = Vector(0.0, 8000000.0, 8000000.0);
   sbirs_sensor::session::SbirsCycleResult rejected;
   rejected.input_cycle_index = 1U;
-  rejected.executed_this_cycle = false;
+  rejected.status = sbirs_sensor::session::SbirsCycleStatus::kRejectedInvalidInput;
 
   const sbirs_sensor::session::SbirsOutputDebugView view =
       sbirs_sensor::session::SbirsOutputDebugViewBuilder::Build(input, rejected);
@@ -265,7 +265,7 @@ TEST(SbirsCycleOutputBuilderTest, LifecycleRecorderTracksFoundUpdatedLostAndOpti
   sbirs_sensor::session::SbirsCycleResult empty_result;
   empty_result.input_cycle_index = 3U;
   empty_result.output_frame.cycle_index = 3U;
-  empty_result.executed_this_cycle = true;
+  empty_result.status = sbirs_sensor::session::SbirsCycleStatus::kCompleted;
   events = recorder.Update(empty_input, empty_result);
   ASSERT_EQ(events.size(), 1U);
   EXPECT_EQ(events[0].kind, sbirs_sensor::session::SbirsDetectionLifecycleEventKind::kLost);
@@ -276,7 +276,7 @@ TEST(SbirsCycleOutputBuilderTest, LifecycleRecorderTracksFoundUpdatedLostAndOpti
       sbirs_sensor::session::SbirsDetectionLifecycleRecorderConfig{true});
   sbirs_sensor::session::SbirsCycleResult executed_without_detection;
   executed_without_detection.input_cycle_index = 4U;
-  executed_without_detection.executed_this_cycle = true;
+  executed_without_detection.status = sbirs_sensor::session::SbirsCycleStatus::kCompleted;
   events = diagnose_recorder.Update(InputWithTarget(4U), executed_without_detection);
   ASSERT_EQ(events.size(), 1U);
   EXPECT_EQ(events[0].kind, sbirs_sensor::session::SbirsDetectionLifecycleEventKind::kNotDetected);

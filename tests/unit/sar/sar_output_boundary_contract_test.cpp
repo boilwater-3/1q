@@ -82,7 +82,6 @@ TEST(SarOutputBoundaryContractTest, NamedPointTargetDoesNotLeakIntoProductOutput
   EXPECT_EQ(input.point_targets[0].target_id, 4242U);
 
   const session::SarCycleResult result = session.StepWithResult(input);
-  ASSERT_TRUE(result.executed_this_cycle);
   ASSERT_EQ(result.status, session::SarCycleStatus::kCompleted);
 
   // 产品输出帧是成像产品元数据；它不含任何 target_name/target_id 字段。

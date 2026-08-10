@@ -67,8 +67,8 @@ int main() {
 
   // 7. Access result fields
   const std::size_t confirmed_tracks = airborne_radar::session::CountTracksByStatus(
-      result.track_output_frame, airborne_radar::session::TrackStatus::kConfirmed);
-  if (confirmed_tracks > result.track_output_frame.tracks.size()) {
+      result.output_frame, airborne_radar::session::TrackStatus::kConfirmed);
+  if (confirmed_tracks > result.output_frame.tracks.size()) {
     return 3;
   }
 
@@ -104,7 +104,7 @@ int main() {
   }
 
   // 10. Step frame cycle_index should differ from first
-  if (step_frame.cycle_index == result_2.track_output_frame.cycle_index) {
+  if (step_frame.cycle_index == result_2.output_frame.cycle_index) {
     // both default 0 is fine for basic smoke
   }
 

@@ -111,9 +111,9 @@ TEST(ArPublicApiContractTest, StepReturnsSameTracksAsEquivalentStepWithResult) {
   const session::ArCycleResult result = result_radar.StepWithResult(MakeInput());
 
   ASSERT_EQ(result.status, session::ArCycleStatus::kCompleted);
-  EXPECT_EQ(step_frame.cycle_index, result.track_output_frame.cycle_index);
-  EXPECT_EQ(step_frame.batch_id, result.track_output_frame.batch_id);
-  EXPECT_EQ(step_frame.tracks.size(), result.track_output_frame.tracks.size());
+  EXPECT_EQ(step_frame.cycle_index, result.output_frame.cycle_index);
+  EXPECT_EQ(step_frame.batch_id, result.output_frame.batch_id);
+  EXPECT_EQ(step_frame.tracks.size(), result.output_frame.tracks.size());
 }
 
 TEST(ArPublicApiContractTest, RejectedCycleDoesNotReusePreviousOutput) {
@@ -127,7 +127,7 @@ TEST(ArPublicApiContractTest, RejectedCycleDoesNotReusePreviousOutput) {
 
   EXPECT_EQ(rejected.status, session::ArCycleStatus::kRejectedInvalidInput);
   EXPECT_TRUE(session::HasValidationError(rejected.issues));
-  EXPECT_TRUE(rejected.track_output_frame.tracks.empty());
+  EXPECT_TRUE(rejected.output_frame.tracks.empty());
   EXPECT_TRUE(rejected.emission_frame.emissions.empty());
 }
 
@@ -242,7 +242,7 @@ TEST(ArPublicApiContractTest, WorldTimeRegressionRejectsWithoutHistoricalOutput)
   const session::ArCycleResult rejected =
       radar.StepWithResult(MakeInput(2U, 1.25));
   EXPECT_EQ(rejected.status, session::ArCycleStatus::kRejectedInvalidConfig);
-  EXPECT_TRUE(rejected.track_output_frame.tracks.empty());
+  EXPECT_TRUE(rejected.output_frame.tracks.empty());
   EXPECT_TRUE(rejected.emission_frame.emissions.empty());
 }
 

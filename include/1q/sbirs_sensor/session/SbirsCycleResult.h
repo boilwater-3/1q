@@ -37,7 +37,6 @@ struct ONEQ_API SbirsCycleResult {
   SbirsIssueList issues{};                   /**< 统一问题列表（规则 14：校验问题 phase=kInputValidation + 执行诊断） */
   SbirsCycleStatus status{
       SbirsCycleStatus::kRejectedInvalidInput}; /**< 当前周期高层执行状态 */
-  bool executed_this_cycle{false};           /**< status == kCompleted 的便捷访问器 */
   SbirsPipelineAbortReason abort_reason{SbirsPipelineAbortReason::kNone}; /**< 中止原因 */
 };
 

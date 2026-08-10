@@ -76,6 +76,7 @@ TEST(EsrReplayCodecRoundtripTest, CycleResultPreservesIssueFullFields) {
   validation_issue.message = "cycle delta time must be positive";
   validation_issue.location.kind = oneq::foundation::ValidationLocationKind::kPlatform;
   validation_issue.field = "dt_sec";
+  validation_issue.cause = EsrIssueCause::kHardGateFailed;
   result.issues.push_back(validation_issue);
 
   // kSceneEntity + entity_index 哨兵往返（非 kSceneEntity kind 编码为 -1）。
@@ -87,6 +88,7 @@ TEST(EsrReplayCodecRoundtripTest, CycleResultPreservesIssueFullFields) {
   execution_issue.location.kind = oneq::foundation::ValidationLocationKind::kSceneEntity;
   execution_issue.location.entity_index = 3U;
   execution_issue.field = "emitters";
+  execution_issue.cause = EsrIssueCause::kStatisticalGateFailed;
   result.issues.push_back(execution_issue);
 
   EsrCycleResult decoded;
@@ -102,6 +104,7 @@ TEST(EsrReplayCodecRoundtripTest, CycleResultPreservesIssueFullFields) {
             oneq::foundation::ValidationLocationKind::kPlatform);
   EXPECT_EQ(decoded_validation.location.entity_index, static_cast<std::size_t>(-1));
   EXPECT_EQ(decoded_validation.field, "dt_sec");
+  EXPECT_EQ(decoded_validation.cause, EsrIssueCause::kHardGateFailed);
 
   const EsrIssue& decoded_execution = decoded.issues[1];
   EXPECT_EQ(decoded_execution.severity, EsrIssueSeverity::kError);
@@ -112,6 +115,7 @@ TEST(EsrReplayCodecRoundtripTest, CycleResultPreservesIssueFullFields) {
             oneq::foundation::ValidationLocationKind::kSceneEntity);
   EXPECT_EQ(decoded_execution.location.entity_index, 3U);
   EXPECT_EQ(decoded_execution.field, "emitters");
+  EXPECT_EQ(decoded_execution.cause, EsrIssueCause::kStatisticalGateFailed);
 }
 
 TEST(EsrReplayCodecRoundtripTest,

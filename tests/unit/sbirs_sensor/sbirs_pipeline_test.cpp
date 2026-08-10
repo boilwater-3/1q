@@ -1500,6 +1500,9 @@ TEST(SbirsPipelineTest, OccultedTargetWritesInfoExclusionDiagnostic) {
   ASSERT_NE(issue, nullptr);
   EXPECT_EQ(issue->severity, sbirs_sensor::session::SbirsIssueSeverity::kInfo);
   EXPECT_NE(issue->message.find("target_id=1"), std::string::npos);
+  // 具体门：cause 保持 kNone；message 携带遮挡余量（负值 = 遮挡深度）。
+  EXPECT_EQ(issue->cause, sbirs_sensor::session::SbirsIssueCause::kNone);
+  EXPECT_NE(issue->message.find("occultation_margin_m="), std::string::npos);
 }
 
 TEST(SbirsPipelineTest, OutOfRangeTargetWritesInfoExclusionDiagnostic) {
@@ -1521,6 +1524,9 @@ TEST(SbirsPipelineTest, OutOfRangeTargetWritesInfoExclusionDiagnostic) {
   ASSERT_NE(issue, nullptr);
   EXPECT_EQ(issue->severity, sbirs_sensor::session::SbirsIssueSeverity::kInfo);
   EXPECT_NE(issue->message.find("target_id=1"), std::string::npos);
+  // 具体门：cause 保持 kNone；message 携带距带边余量。
+  EXPECT_EQ(issue->cause, sbirs_sensor::session::SbirsIssueCause::kNone);
+  EXPECT_NE(issue->message.find("range_margin_m="), std::string::npos);
 }
 
 TEST(SbirsPipelineTest, TargetOutsideWfovWritesInfoExclusionDiagnostic) {
@@ -1542,6 +1548,51 @@ TEST(SbirsPipelineTest, TargetOutsideWfovWritesInfoExclusionDiagnostic) {
   ASSERT_NE(issue, nullptr);
   EXPECT_EQ(issue->severity, sbirs_sensor::session::SbirsIssueSeverity::kInfo);
   EXPECT_NE(issue->message.find("target_id=1"), std::string::npos);
+  // 门内归因（规则 13b）：az=100° 相对扫描中心仅方位越界 → kAzOutside。
+  EXPECT_EQ(issue->cause, sbirs_sensor::session::SbirsIssueCause::kAzOutside);
+  EXPECT_NE(issue->message.find("az_delta_deg="), std::string::npos);
+}
+
+TEST(SbirsPipelineTest, TargetOutsideWfovElevationWritesElOutsideCause) {
+  sbirs_sensor::config::SbirsSessionConfig config = PipelineConfig();
+  sbirs_sensor::pipeline::SbirsPipeline pipeline(
+      sbirs_sensor::runtime::MapSessionToInternal(config));
+  // WFOV 20°×20°：az=0°（视场内）、el=15°（|15-0|=15° > 10° 半视场）→ 俯仰越界。
+  const sbirs_sensor::session::SbirsCycleInput input =
+      sbirs_sensor::session::SbirsCycleInputBuilder()
+          .WithCycleIndex(1U)
+          .WithDeltaTimeSec(1.0f)
+          .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
+          .AddTarget(HotTargetAtAngles(1U, 0.0, 15.0))
+          .Build();
+
+  const sbirs_sensor::pipeline::SbirsPipelineResult result = pipeline.RunCycle(input);
+  EXPECT_TRUE(result.detections.empty());
+  const auto* issue = FindIssue(result, "sbirs.target_out_of_wfov");
+  ASSERT_NE(issue, nullptr);
+  // 门内归因（规则 13b）：仅俯仰越界 → kElOutside。
+  EXPECT_EQ(issue->cause, sbirs_sensor::session::SbirsIssueCause::kElOutside);
+}
+
+TEST(SbirsPipelineTest, TargetOutsideWfovBothAxesWritesBothAxesOutsideCause) {
+  sbirs_sensor::config::SbirsSessionConfig config = PipelineConfig();
+  sbirs_sensor::pipeline::SbirsPipeline pipeline(
+      sbirs_sensor::runtime::MapSessionToInternal(config));
+  // WFOV 20°×20°：az=15° 与 el=15° 均越出半视场 10° → 双轴越界。
+  const sbirs_sensor::session::SbirsCycleInput input =
+      sbirs_sensor::session::SbirsCycleInputBuilder()
+          .WithCycleIndex(1U)
+          .WithDeltaTimeSec(1.0f)
+          .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
+          .AddTarget(HotTargetAtAngles(1U, 15.0, 15.0))
+          .Build();
+
+  const sbirs_sensor::pipeline::SbirsPipelineResult result = pipeline.RunCycle(input);
+  EXPECT_TRUE(result.detections.empty());
+  const auto* issue = FindIssue(result, "sbirs.target_out_of_wfov");
+  ASSERT_NE(issue, nullptr);
+  // 门内归因（规则 13b）：方位与俯仰均越界 → kBothAxesOutside。
+  EXPECT_EQ(issue->cause, sbirs_sensor::session::SbirsIssueCause::kBothAxesOutside);
 }
 
 TEST(SbirsPipelineTest, TargetBelowWideSnrWritesInfoExclusionDiagnostic) {
@@ -1564,6 +1615,9 @@ TEST(SbirsPipelineTest, TargetBelowWideSnrWritesInfoExclusionDiagnostic) {
   ASSERT_NE(issue, nullptr);
   EXPECT_EQ(issue->severity, sbirs_sensor::session::SbirsIssueSeverity::kInfo);
   EXPECT_NE(issue->message.find("target_id=1"), std::string::npos);
+  // 门内归因（规则 13b）：门限抬到 1e30 后达标所需签名缺口主导 → kSignatureLimited。
+  EXPECT_EQ(issue->cause, sbirs_sensor::session::SbirsIssueCause::kSignatureLimited);
+  EXPECT_NE(issue->message.find("range_m="), std::string::npos);
 }
 
 }  // namespace

@@ -109,7 +109,7 @@ CSV 和日志但不单独改变退出码；它不能用于降级 replay、contra
 - `checks.csv`：`scenario_id,phase,cycle_index,check_id,expected,actual,passed,severity`；
 - `traces/<scenario_id>/`：manifest、事件、索引和 crash/failure 信息。
 
-周期指标必须按 `executed_this_cycle` 门控；非执行周期的默认值或复用输出不得作为真实零值进入稳态
+周期指标必须按 `status == kCompleted` 门控；非执行周期的默认值或复用输出不得作为真实零值进入稳态
 统计。当前量化结果以本次生成的 CSV 为准，不在权威文档冻结易漂移的历史数值。
 
 ## 与 GTest 的关系

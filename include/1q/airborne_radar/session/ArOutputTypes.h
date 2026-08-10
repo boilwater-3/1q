@@ -38,6 +38,21 @@ enum class ONEQ_API ArIssuePhase : std::uint8_t {
 };
 
 /**
+ * @brief AR 问题条目门内归因（规则 13b 门内归因条款，session_contract.md）。
+ * @note 仅排除诊断（如 "ar.target_snr_below_threshold"）使用：SNR 检测门折入距离/波束/
+ *       噪声底/RCS 多种物理因素，cause 标识门失败的主因物理链路；主因 = 对该项取理想值后
+ *       门余量增益最大者。不替代 code（机器键仍只认 code），不用于状态判断。
+ */
+enum class ONEQ_API ArIssueCause : std::uint8_t {
+  kNone = 0,          /**< 无归因（具体门排除或非排除诊断） */
+  kDistanceLimited,   /**< 距离衰减（4·r_db）主导门失败 */
+  kBeamLimited,       /**< 波束偏轴/方向图衰减主导门失败 */
+  kNoiseLimited,      /**< 噪声底（热噪声/杂波/干扰/大气）主导门失败 */
+  kRcsLimited,        /**< 目标 RCS 主导门失败 */
+  kUnknown            /**< 无法判定主因 */
+};
+
+/**
  * @brief ArIssue 描述单周期问题条目（统一问题列表模型，session_contract.md 规则 14）。
  * @note 承载输入校验问题（phase=kInputValidation）与执行诊断（phase=kExecution/kOutputContract）；
  *       code 带模块前缀（如 "ar.lifecycle_unavailable"、"ar.validation.invalid_cycle_delta_time"），
@@ -50,6 +65,7 @@ struct ONEQ_API ArIssue {
   std::string message{};
   oneq::foundation::ValidationLocation location{}; /**< 可选定位；kind==kGlobal 表示无定位 */
   std::string field{}; /**< 可选定位；为空表示无关联字段（跨字段或域级问题） */
+  ArIssueCause cause{ArIssueCause::kNone}; /**< 可选归因；仅排除诊断使用（规则 13b） */
 };
 
 /** @brief AR 问题条目列表。 */

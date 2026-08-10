@@ -89,6 +89,7 @@ table SarIssue {
   location_kind: int32 = 0;
   entity_index:  int64 = -1;
   field:         string;
+  cause:         int32;
 }
 
 table SarRawPhaseHistory {
@@ -114,7 +115,6 @@ table SarCycleResult {
   focused_image: SarFocusedImage;
   issues: [SarIssue];
   raw_phase_history: SarRawPhaseHistory;
-  executed_this_cycle: bool;
   abort_reason: int32;
   status: uint8;
 }

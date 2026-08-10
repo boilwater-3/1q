@@ -287,7 +287,7 @@ ScenarioSummary RunScenario(const SbirsCase& scenario, const std::string& output
       }
       const sbirs_session::SbirsCycleResult result =
           session.StepWithResult(MakeInput(scenario, cycle));
-      if (result.executed_this_cycle) ++summary.executed_cycles;
+      if (result.status == sbirs_session::SbirsCycleStatus::kCompleted) ++summary.executed_cycles;
       else ++nonexecuted_count;
       std::set<int> cycle_channels;
       for (std::size_t i = 0; i < result.detection_attributions.size(); ++i) {
@@ -322,7 +322,8 @@ ScenarioSummary RunScenario(const SbirsCase& scenario, const std::string& output
       std::fprintf(
           cycle_writer.file(), "%s,%s,%s,%s,%u,%d,%d,%d,%.5f,%zu,%.9g,%s\n",
           scenario.scenario_id.c_str(), scenario.sequence ? "sequence" : "sweep",
-          scenario.family.c_str(), phase, cycle, static_cast<int>(result.executed_this_cycle),
+          scenario.family.c_str(), phase, cycle,
+          static_cast<int>(result.status == sbirs_session::SbirsCycleStatus::kCompleted),
           static_cast<int>(sbirs_session::HasValidationError(result.issues)),
           static_cast<int>(result.abort_reason),
           result.output_frame.scan_azimuth_deg, result.output_frame.detections.size(),

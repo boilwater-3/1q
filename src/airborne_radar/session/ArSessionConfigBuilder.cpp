@@ -4,6 +4,7 @@
 #include "1q/airborne_radar/config/ArSessionConfigBuilder.h"
 
 #include "1q/airborne_radar/config/ArSessionConfigValidation.h"
+#include "1q/airborne_radar/session/ArIssueCodes.h"
 #include "common/validation/ValidationUtils.h"
 
 namespace airborne_radar {
@@ -35,7 +36,7 @@ session::ArIssueList ValidateArSessionConfig(const config::ArSessionConfig& conf
 
   if (!oneq::common::validation::IsFinite(transmitter_frequency_hz) ||
       transmitter_frequency_hz <= 0.0f) {
-    push("ar.validation.transmitter_frequency_invalid", "hardware.transmitter.frequency_hz",
+    push(session::codes::kTransmitterFrequencyInvalid, "hardware.transmitter.frequency_hz",
          "Transmitter frequency must be finite and positive.");
   }
   bool frequency_plan_valid = !transmitter.frequency_plan_hz.empty();
@@ -47,7 +48,7 @@ session::ArIssueList ValidateArSessionConfig(const config::ArSessionConfig& conf
         contains_initial_frequency || frequency_hz == static_cast<double>(transmitter_frequency_hz);
   }
   if (!frequency_plan_valid || !contains_initial_frequency) {
-    push("ar.validation.frequency_plan_invalid", "hardware.transmitter.frequency_plan_hz",
+    push(session::codes::kFrequencyPlanInvalid, "hardware.transmitter.frequency_plan_hz",
          "Frequency plan must contain finite positive values and the initial carrier.");
   }
   const double duty_cycle =
@@ -64,12 +65,12 @@ session::ArIssueList ValidateArSessionConfig(const config::ArSessionConfig& conf
       duty_cycle <= 0.0 || duty_cycle > transmitter.maximum_duty_cycle ||
       transmitter.maximum_pulse_energy_j <= 0.0f ||
       pulse_energy_j > transmitter.maximum_pulse_energy_j) {
-    push("ar.validation.transmitter_operating_envelope_invalid", "hardware.transmitter",
+    push(session::codes::kTransmitterOperatingEnvelopeInvalid, "hardware.transmitter",
          "Transmitter power, duty cycle and pulse energy must stay inside hardware limits.");
   }
   if (transmitter.equipment_id == 0U || receiver.equipment_id == 0U ||
       transmitter.equipment_id == receiver.equipment_id) {
-    push("ar.validation.equipment_identity_invalid", "hardware.*.equipment_id",
+    push(session::codes::kEquipmentIdentityInvalid, "hardware.*.equipment_id",
          "Transmitter and receiver equipment identifiers must be non-zero and distinct.");
   }
   if (!oneq::common::validation::IsFinite(receiver.cross_polarization_isolation_db) ||
@@ -84,7 +85,7 @@ session::ArIssueList ValidateArSessionConfig(const config::ArSessionConfig& conf
       !oneq::common::validation::IsFinite(receiver.preselector_bandwidth_hz) ||
       receiver.preselector_bandwidth_hz <= 0.0f ||
       !oneq::common::validation::IsFinite(receiver.interference_observation_jn_gate_db)) {
-    push("ar.validation.receiver_rf_hardware_invalid", "hardware.receiver",
+    push(session::codes::kReceiverRfHardwareInvalid, "hardware.receiver",
          "Receiver RF isolation, far-field range and linear input limit must be valid.");
   }
   for (const auto& path : receiver.co_site_paths) {
@@ -92,7 +93,7 @@ session::ArIssueList ValidateArSessionConfig(const config::ArSessionConfig& conf
         path.receiver_equipment_id != receiver.equipment_id ||
         path.transmitter_equipment_id == path.receiver_equipment_id ||
         !oneq::common::validation::IsFinite(path.isolation_db) || path.isolation_db < 0.0) {
-      push("ar.validation.receiver_rf_hardware_invalid", "hardware.receiver.co_site_paths",
+      push(session::codes::kReceiverRfHardwareInvalid, "hardware.receiver.co_site_paths",
            "Each co-site path must be a valid directed path into the receiver equipment.");
       break;
     }
@@ -116,14 +117,14 @@ session::ArIssueList ValidateArSessionConfig(const config::ArSessionConfig& conf
     if (!oneq::common::validation::IsFinite(
             orientation.commanded_beamwidth_deg.commanded_az_beamwidth_deg) ||
         orientation.commanded_beamwidth_deg.commanded_az_beamwidth_deg <= 0.0f) {
-      push("ar.validation.commanded_beamwidth_az_not_positive",
+      push(session::codes::kCommandedBeamwidthAzNotPositive,
            "mission.orientation.commanded_beamwidth_deg.commanded_az_beamwidth_deg",
            "Commanded azimuth beamwidth must be finite and positive when enabled.");
     }
     if (!oneq::common::validation::IsFinite(
             orientation.commanded_beamwidth_deg.commanded_el_beamwidth_deg) ||
         orientation.commanded_beamwidth_deg.commanded_el_beamwidth_deg <= 0.0f) {
-      push("ar.validation.commanded_beamwidth_el_not_positive",
+      push(session::codes::kCommandedBeamwidthElNotPositive,
            "mission.orientation.commanded_beamwidth_deg.commanded_el_beamwidth_deg",
            "Commanded elevation beamwidth must be finite and positive when enabled.");
     }
@@ -131,39 +132,39 @@ session::ArIssueList ValidateArSessionConfig(const config::ArSessionConfig& conf
 
   if (!axis_geometry_valid(antenna.nominal_az_beamwidth_deg, antenna.antenna_length_m,
                            orientation.commanded_beamwidth_enabled)) {
-    push("ar.validation.antenna_az_geometry_invalid",
+    push(session::codes::kAntennaAzGeometryInvalid,
          "hardware.antenna.nominal_az_beamwidth_deg / antenna_length_m",
          "Azimuth beamwidth requires a positive nominal value or a valid physical aperture.");
   }
   if (!axis_geometry_valid(antenna.nominal_el_beamwidth_deg, antenna.antenna_width_m,
                            orientation.commanded_beamwidth_enabled)) {
-    push("ar.validation.antenna_el_geometry_invalid",
+    push(session::codes::kAntennaElGeometryInvalid,
          "hardware.antenna.nominal_el_beamwidth_deg / antenna_width_m",
          "Elevation beamwidth requires a positive nominal value or a valid physical aperture.");
   }
 
   if (orientation.mechanical_scan_limits_deg.az_min_deg >
       orientation.mechanical_scan_limits_deg.az_max_deg) {
-    push("ar.validation.mechanical_scan_limits_swapped_az",
+    push(session::codes::kMechanicalScanLimitsSwappedAz,
          "mission.orientation.mechanical_scan_limits_deg",
          "Mechanical azimuth scan min exceeds max.");
   }
   if (orientation.mechanical_scan_limits_deg.el_min_deg >
       orientation.mechanical_scan_limits_deg.el_max_deg) {
-    push("ar.validation.mechanical_scan_limits_swapped_el",
+    push(session::codes::kMechanicalScanLimitsSwappedEl,
          "mission.orientation.mechanical_scan_limits_deg",
          "Mechanical elevation scan min exceeds max.");
   }
 
   if (orientation.electronic_scan_limits_deg.az_min_deg >
       orientation.electronic_scan_limits_deg.az_max_deg) {
-    push("ar.validation.electronic_scan_limits_swapped_az",
+    push(session::codes::kElectronicScanLimitsSwappedAz,
          "mission.orientation.electronic_scan_limits_deg",
          "Electronic azimuth scan min exceeds max.");
   }
   if (orientation.electronic_scan_limits_deg.el_min_deg >
       orientation.electronic_scan_limits_deg.el_max_deg) {
-    push("ar.validation.electronic_scan_limits_swapped_el",
+    push(session::codes::kElectronicScanLimitsSwappedEl,
          "mission.orientation.electronic_scan_limits_deg",
          "Electronic elevation scan min exceeds max.");
   }
@@ -183,12 +184,12 @@ session::ArIssueList ValidateArSessionConfig(const config::ArSessionConfig& conf
       weights.polarization_weight >= 0.0f && weights.polarization_weight <= 1.0f &&
       weights.range_profile_weight >= 0.0f && weights.range_profile_weight <= 1.0f;
   if (!weights_finite || !weights_in_range || weight_sum < 0.999f || weight_sum > 1.001f) {
-    push("ar.validation.recognition_weights_invalid",
+    push(session::codes::kRecognitionWeightsInvalid,
          "policy.recognition.feature_weights",
          "Recognition feature weights must be finite values in [0, 1] summing to 1.0.");
   }
   if (recognition.enabled && recognition.database_path.empty()) {
-    push("ar.validation.recognition_database_path_missing",
+    push(session::codes::kRecognitionDatabasePathMissing,
          "policy.recognition.database_path",
          "Recognition database path must be non-empty when recognition is enabled.");
   }
@@ -196,12 +197,12 @@ session::ArIssueList ValidateArSessionConfig(const config::ArSessionConfig& conf
       recognition.acceptance_score < 0.0f || recognition.acceptance_score > 1.0f ||
       !oneq::common::validation::IsFinite(recognition.minimum_margin) ||
       recognition.minimum_margin < 0.0f || recognition.minimum_margin > 1.0f) {
-    push("ar.validation.recognition_threshold_invalid",
+    push(session::codes::kRecognitionThresholdInvalid,
          "policy.recognition.acceptance_score / minimum_margin",
          "Recognition acceptance score and minimum margin must be finite values in [0, 1].");
   }
   if (recognition.min_confirmed_hits == 0U || recognition.min_observation_count == 0U) {
-    push("ar.validation.recognition_accumulation_invalid",
+    push(session::codes::kRecognitionAccumulationInvalid,
          "policy.recognition.min_confirmed_hits / min_observation_count",
          "Recognition accumulation counts must be at least 1.");
   }
@@ -213,7 +214,7 @@ session::ArIssueList ValidateArSessionConfig(const config::ArSessionConfig& conf
       recognition.recognition_dwell_sec <= 0.0f ||
       !oneq::common::validation::IsFinite(recognition.accumulation_window_sec) ||
       recognition.accumulation_window_sec <= 0.0f) {
-    push("ar.validation.recognition_time_range_invalid",
+    push(session::codes::kRecognitionTimeRangeInvalid,
          "policy.recognition.result_hold_sec / max_range_m / recognition_dwell_sec / "
          "accumulation_window_sec",
          "Recognition hold time must be non-negative; max range, dwell and accumulation window "

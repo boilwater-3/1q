@@ -48,8 +48,8 @@ ArCycleResult MakeResult(std::uint64_t cycle_index,
   ArCycleResult result;
   result.status = ArCycleStatus::kCompleted;
   result.input_cycle_index = cycle_index;
-  result.track_output_frame.cycle_index = cycle_index;
-  result.track_output_frame.tracks = std::move(tracks);
+  result.output_frame.cycle_index = cycle_index;
+  result.output_frame.tracks = std::move(tracks);
   return result;
 }
 
@@ -66,7 +66,9 @@ TEST(RarOutputBoundaryContractTest, SameNameDifferentIdDoesNotBreakAssociation) 
       MakeResult(1U, {MakeSnapshot(1001U, "shared-name", session::TrackStatus::kConfirmed),
                       MakeSnapshot(1002U, "shared-name", session::TrackStatus::kConfirmed)});
 
-  const ArTrackOutputDebugView view = ArTrackOutputDebugViewBuilder::Build(targets, result);
+  ArCycleInput input;
+  input.targets = targets;
+  const ArTrackOutputDebugView view = ArTrackOutputDebugViewBuilder::Build(input, result);
   ASSERT_EQ(view.tracks.size(), 2U);
   // 两个同名目标各自关联到不同 ID 的 track，不互相吞并。
   EXPECT_EQ(view.tracks[0].external_target_id, 1001U);
@@ -82,7 +84,9 @@ TEST(RarOutputBoundaryContractTest, EmptyNameDoesNotAffectAssociation) {
   ArCycleResult result =
       MakeResult(1U, {MakeSnapshot(2001U, "", session::TrackStatus::kConfirmed)});
 
-  const ArTrackOutputDebugView view = ArTrackOutputDebugViewBuilder::Build(targets, result);
+  ArCycleInput input;
+  input.targets = targets;
+  const ArTrackOutputDebugView view = ArTrackOutputDebugViewBuilder::Build(input, result);
   ASSERT_EQ(view.tracks.size(), 1U);
   EXPECT_TRUE(view.tracks[0].has_track);
   EXPECT_TRUE(view.tracks[0].target_name.empty());

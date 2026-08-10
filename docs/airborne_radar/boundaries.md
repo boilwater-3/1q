@@ -71,7 +71,7 @@ ISA 标准大气，这些字段全部未被消费，属未接入的死输入。�
    `abort_reason`（校验拒绝为 `kRejectedInvalidInput` + 细粒度明细），不写死替换。
 2. cycle input 校验失败时不执行 pipeline，`ArCycleResult` 携带 validation issues 与显式 abort
    reason `kValidationRejected`（保留 replay/trace 数值语义）。
-3. **非执行周期统一不复用（五模块统一规则）**：`Step()` 与 `ArCycleResult.track_output_frame`
+3. **非执行周期统一不复用（五模块统一规则）**：`Step()` 与 `ArCycleResult.output_frame`
    返回默认空帧（`cycle_index==0`、空 tracks/emission），不论是否存在上一有效输出。调用方仅凭
    `Step()` 返回值即可判定本轮无新航迹。状态判断统一走 `StepWithResult().status`
    （`kRejectedInvalidInput`/`kPoweredOff`/`kRejectedExecution`）。
@@ -103,6 +103,7 @@ AR 所有中止路径遵守 `session_contract.md` 规则 9 的三写模式与规
 1. **结构化信号**：`ArCycleResult.abort_reason`（粗粒度枚举）。
 2. **结构化诊断**：`ArCycleResult.issues`（`ArIssueList`，细粒度 code 如 `"ar.sensor_powered_off"`、
    `"ar.validation.invalid_cycle_delta_time"`；条目携带 `phase` 来源标签与可选定位）。
+   本模块 code 全集单一事实来源：`include/1q/airborne_radar/session/ArIssueCodes.h`（规则 14c）。
 3. **人读日志**：`PROJECT_LOG_ERROR`。
 
 `ArCycleResult` 只承载单一问题列表 `issues`：输入校验问题（`phase=kInputValidation`）与执行诊断
@@ -115,7 +116,12 @@ AR 所有中止路径遵守 `session_contract.md` 规则 9 的三写模式与规
 **正常周期的按目标排除诊断（规则 13b）**：正常执行周期（`status == kCompleted`）中被 SNR 检测门
 排除的目标（`min_snr_db` / `min_detection_margin_db` 任一未过；距离/方向图衰减隐式并入 SNR）写
 `kInfo` 级 `ArIssue`（code `"ar.target_snr_below_threshold"`，message 携带 `target_id` 与
-`snr_db`/`range_m`/门值，phase=`kExecution`），**不属于三写**（三写仅约束中止路径，规则 9）。诊断不改变 `ArCycleStatus`
+`snr_db`/`range_m`/门值/偏轴角，phase=`kExecution`），**不属于三写**（三写仅约束中止路径，规则 9）。
+**门内归因（规则 13b 归因条款）**：SNR 门为聚合门（距离/波束偏轴/噪声底/RCS 折入单一门限），
+`ArIssueCause` 给出机器可读主因——按各因素相对参考状态（1 km 距离、主瓣中心增益、1 m² RCS、
+热噪声底、零传播损耗）的损失 dB 判定，损失最大者为 `kDistanceLimited` / `kBeamLimited` /
+`kNoiseLimited` / `kRcsLimited`（传播损耗并入距离项）；无法判定为 `kUnknown`。
+诊断不改变 `ArCycleStatus`
 与 DebugView 状态语义（排除目标仍为 `kNotInOutput`，规则 13c）；生命周期失效（miss 积累 → `kLost`）
 不产生排除诊断（规则 13d）。周期摘要日志（`[SignalPipeline] … excluded={{snr=…}}`）仅人读（规则 13a）。
 
