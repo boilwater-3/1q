@@ -259,6 +259,58 @@ TEST(FlightComponentRuntimeTest, ManeuverInterfacesReportFlightDynamicsAvailabil
 #endif
 }
 
+TEST(FlightComponentRuntimeTest, PatrolLoopWrapsRouteIndex) {
+  // 循环巡逻（loop_route=true）：航路耗尽后回绕首个航点继续。两航点
+  // 正东约 963 m 间距（0.01° @ 30°N），运动学寻的路径下每轮循环
+  // 产生 2 条 waypoint_reached 事件、索引回绕 1 次。
+  ca::DemoSceneState scene;
+  ca::World world(scene);
+  ca::Entity& platform = world.CreateEntity("platform");
+
+  std::vector<navigation::RoutePoint> route;
+  navigation::RoutePoint wp0;
+  wp0.position.latitude_deg = 30.0;
+  wp0.position.longitude_deg = 120.01;
+  wp0.position.altitude_m = 400.0;
+  wp0.speed_mps = 50.0;
+  wp0.radius_m = 200.0;
+  navigation::RoutePoint wp1 = wp0;
+  wp1.position.longitude_deg = 120.02;
+  route.push_back(wp0);
+  route.push_back(wp1);
+
+  platform.Attach(std::make_unique<ca::FlightComponent>(
+      MakeAirfield(), /*initial_heading_deg=*/90.0, /*initial_speed_mps=*/50.0,
+      /*cruise_altitude_m=*/400.0, route, /*loop_route=*/true));
+  auto* flight = platform.Find<ca::FlightComponent>();
+
+  int reached_count = 0;
+  boost::signals2::scoped_connection conn = world.signals().on_waypoint_reached.connect(
+      [&](const ca::WaypointReachedEvent&) { ++reached_count; });
+
+  std::size_t wraps = 0U;
+  std::size_t prev_index = 0U;
+  for (std::uint64_t cycle = 1U; cycle <= 400U; ++cycle) {
+    scene.cycle = cycle;
+    scene.t_sec = static_cast<double>(cycle);
+    world.Step(1.0);
+    const std::size_t index = flight->next_waypoint_index();
+    if (index < prev_index) {
+      ++wraps;
+    }
+    prev_index = index;
+  }
+  // 运动学回退：每轮约 40 s（2 × 963 m / 50 m/s），400 周期内完成多轮循环；
+  // FD 路径含起飞段（~157 s），至少完成 1 轮回绕。
+#if defined(ONEQ_CA_FLIGHT_DYNAMIC_ENABLED)
+  EXPECT_GE(wraps, 1U);
+  EXPECT_GE(reached_count, 3);
+#else
+  EXPECT_GE(wraps, 2U);
+  EXPECT_GE(reached_count, 4);
+#endif
+}
+
 // =============================================================================
 // 传感器查询 getter：开关机 + 当前扫描方位（外置查询需求，实体选定后按名/
 // ID 拉取最新快照的数据源）

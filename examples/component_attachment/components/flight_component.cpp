@@ -5,8 +5,10 @@
  * 1. ONEQ_CA_FLIGHT_DYNAMIC_ENABLED 定义时以六自由度机动仿真推进（子步进
  *    10 ms，参照 takeoff_land_csv.cpp 权威用法：初始地面静止不做空中配平，
  *    机动队列 = 起飞 → 航路点巡航 → 降落），VehicleState 映射回度制状态；
- * 2. 否则回退运动学近似（模拟起飞爬升 + 巡航直线）；
- * 3. 航点完成判定统一用几何距离（haversine ≤ max(radius, 100 m)）。
+ * 2. 否则回退运动学近似（模拟起飞爬升 + 巡航航点寻的，段间瞬时转向）；
+ * 3. 航点完成判定统一用几何距离（haversine ≤ max(radius, 100 m)）；
+ * 4. 循环巡逻（loop_route）：航路耗尽后回绕首个航点继续（运动学索引回绕 /
+ *    FD 重建无起飞降落的航点队列）。
  */
 
 #include "flight_component.h"
@@ -22,10 +24,12 @@
 #include "demo_log.h"
 
 #if defined(ONEQ_CA_FLIGHT_DYNAMIC_ENABLED)
+#include "1q/coordinate/velocity_transform.h"
 #include "1q/flight_dynamic/FlightManager.h"
 #include "1q/flight_dynamic/autopilot/Autopilot.h"
 #include "1q/flight_dynamic/config/FlightDynamicConfig.h"
 #include "1q/flight_dynamic/guidance/Maneuver.h"
+#include "1q/flight_dynamic/guidance/WaypointSequencingEvent.h"
 #include "1q/flight_dynamic/model/VehicleState.h"
 #endif
 
@@ -83,13 +87,13 @@ class FlightComponent::FlightDynamics {
  public:
   FlightDynamics(const oneq::coordinate::LlaPositionDegM& airfield_position,
                  double heading_deg, double speed_mps, double cruise_altitude_m,
-                 const std::vector<navigation::RoutePoint>& route)
+                 const std::vector<navigation::RoutePoint>& route, bool loop)
       : manager_(MakeConfig(airfield_position, heading_deg)) {
     cruise_speed_mps_ = manager_.GetAutopilot().GetControlProfile().cruise_speed_mps;
     if (!(cruise_speed_mps_ > 0.0)) {
       cruise_speed_mps_ = speed_mps;  // 性能面不可用：沿用巡航速度参考
     }
-    PushMission(cruise_altitude_m, heading_deg, route);
+    PushMission(cruise_altitude_m, heading_deg, route, loop);
   }
 
   /// 构造成功与否：kReady（就绪）或 kExecuting（已派发首个机动）均可用；
@@ -115,17 +119,9 @@ class FlightComponent::FlightDynamics {
     return manager_.GetDiagnostics().last_failure_reason;
   }
 
-  /// 机动队列：kTakeoff（滑跑→抬轮→爬升）→ 航路点巡航 → kLand。
-  /// @param[in] takeoff_heading_deg 起飞目标航向（deg，北偏东）：kTakeoff 的
-  ///           target.latitude_rad 即目标航向（库契约，默认 0 = 正北）。
-  void PushMission(double cruise_altitude_m, double takeoff_heading_deg,
-                   const std::vector<navigation::RoutePoint>& route) {
+  /// 仅航点机动队列（无起飞/降落）：RestartPatrol 续飞用。
+  void PushWaypointsOnly(const std::vector<navigation::RoutePoint>& route) {
     manager_.ClearManeuvers();
-    oneq::flight_dynamic::ManeuverCommand takeoff;
-    takeoff.type = oneq::flight_dynamic::guidance::ManeuverType::kTakeoff;
-    takeoff.target.altitude_m = cruise_altitude_m;
-    takeoff.target.latitude_rad = takeoff_heading_deg * kDegToRad;  // 起飞目标航向
-    manager_.PushManeuver(takeoff);
     for (const auto& wp : route) {
       oneq::flight_dynamic::ManeuverCommand cmd;
       cmd.type = oneq::flight_dynamic::guidance::ManeuverType::kFlyToWaypoint;
@@ -136,7 +132,23 @@ class FlightComponent::FlightDynamics {
       cmd.target.speed_mps = wp.speed_mps > 0.0 ? wp.speed_mps : cruise_speed_mps_;
       manager_.PushManeuver(cmd);
     }
-    if (!route.empty()) {
+  }
+
+  /// 机动队列：kTakeoff（滑跑→抬轮→爬升）→ 航路点巡航 → kLand。
+  /// 循环巡逻（loop=true）时省略 kLand（巡逻不降落，队列完成后由
+  /// RestartPatrol 以当前状态 Reset 重建续飞）。
+  /// @param[in] takeoff_heading_deg 起飞目标航向（deg，北偏东）：kTakeoff 的
+  ///           target.latitude_rad 即目标航向（库契约，默认 0 = 正北）。
+  void PushMission(double cruise_altitude_m, double takeoff_heading_deg,
+                   const std::vector<navigation::RoutePoint>& route, bool loop) {
+    manager_.ClearManeuvers();
+    oneq::flight_dynamic::ManeuverCommand takeoff;
+    takeoff.type = oneq::flight_dynamic::guidance::ManeuverType::kTakeoff;
+    takeoff.target.altitude_m = cruise_altitude_m;
+    takeoff.target.latitude_rad = takeoff_heading_deg * kDegToRad;  // 起飞目标航向
+    manager_.PushManeuver(takeoff);
+    PushWaypointsOnly(route);
+    if (!loop && !route.empty()) {
       // 降落目标 = 航路终点（场景简化：着陆点取最后航点位置）。
       oneq::flight_dynamic::ManeuverCommand land;
       land.type = oneq::flight_dynamic::guidance::ManeuverType::kLand;
@@ -146,6 +158,41 @@ class FlightComponent::FlightDynamics {
       land.value = 0.0;
       manager_.PushManeuver(land);
     }
+  }
+
+  /// 循环巡逻队列重建：kCompleted/kAborted 后以**当前载机状态** Reset 重建
+  /// 会话（库状态机契约：kCompleted/kAborted 必须 Reset() 恢复 kReady，
+  /// PushManeuver 不会重启执行），随后重推航点机动队列（无起飞/降落——
+  /// 平台已在巡航）。初始运动学取自 VehicleState（大地高/psi 航向/真空速 →
+  /// ECEF 速度、姿态原样注入），do_trim=false 不做空中配平（权威用法：
+  /// 配平求解不稳定）。
+  void RestartPatrol(const std::vector<navigation::RoutePoint>& route) {
+    const auto& s = manager_.GetVehicleState();
+    oneq::flight_dynamic::config::FlightDynamicConfig cfg;
+    cfg.aircraft_model = "c172x";
+    cfg.aircraft_root_dir = FD_JSBSIM_ROOT_DIR;
+    cfg.dt_sec = kFlightSubstepDtSec;
+    cfg.do_trim = false;
+    cfg.initial_kinematics.position_frame = oneq::coordinate::PositionFrame::kLla;
+    cfg.initial_kinematics.position_lla_deg_m.latitude_deg = s.latitude_rad * kRadToDeg;
+    cfg.initial_kinematics.position_lla_deg_m.longitude_deg = s.longitude_rad * kRadToDeg;
+    cfg.initial_kinematics.position_lla_deg_m.altitude_m = s.altitude_geod_m;
+    cfg.initial_velocity_frame =
+        oneq::flight_dynamic::config::InitialVelocityFrame::kEcef;
+    oneq::coordinate::TryMakeEcefVelocityFromHeading(
+        s.psi_rad * kRadToDeg, s.vtrue_mps, cfg.initial_kinematics.position_lla_deg_m,
+        &cfg.initial_kinematics.velocity_mps);
+    cfg.initial_kinematics.attitude_deg.roll_deg = s.phi_rad * kRadToDeg;
+    cfg.initial_kinematics.attitude_deg.pitch_deg = s.theta_rad * kRadToDeg;
+    cfg.initial_kinematics.attitude_deg.yaw_deg = s.psi_rad * kRadToDeg;
+    manager_.Reset(cfg);
+    PushWaypointsOnly(route);
+  }
+
+  /// kFlyToWaypoint 完成事件记录（决策快照，见 FlightManager::GetWaypointEvents）。
+  const std::vector<oneq::flight_dynamic::guidance::WaypointSequencingEvent>&
+  waypoint_events() const {
+    return manager_.GetWaypointEvents();
   }
 
   /// 子步进推进；返回是否仍在运行（kCompleted/kAborted 后 false）。
@@ -206,15 +253,16 @@ class FlightComponent::FlightDynamics {};
 FlightComponent::FlightComponent(const oneq::coordinate::LlaPositionDegM& initial_position,
                                  double initial_heading_deg, double initial_speed_mps,
                                  double cruise_altitude_m,
-                                 std::vector<navigation::RoutePoint> route)
+                                 std::vector<navigation::RoutePoint> route, bool loop_route)
     : position_(initial_position),
       heading_deg_(initial_heading_deg),
       speed_mps_(initial_speed_mps),
       cruise_altitude_m_(cruise_altitude_m),
-      route_(std::move(route)) {
+      route_(std::move(route)),
+      loop_route_(loop_route) {
 #if defined(ONEQ_CA_FLIGHT_DYNAMIC_ENABLED)
   auto fd = std::make_unique<FlightDynamics>(position_, heading_deg_, speed_mps_,
-                                             cruise_altitude_m_, route_);
+                                             cruise_altitude_m_, route_, loop_route_);
   if (fd->ready()) {
     fd_ = std::move(fd);
   } else {
@@ -276,24 +324,47 @@ void FlightComponent::Step(World& world, double dt_sec) {
     position_.altitude_m = state.altitude_geod_m;
     heading_deg_ = state.psi_rad * kRadToDeg;
     speed_mps_ = state.vtrue_mps;
-    // 终端状态（队列完成/中止）：剩余航点按几何簿记补发完成事件（与
-    // behavior_layer flight_system 的终端视为航路完成语义一致）。
-    if (fd_->terminated() && next_index_ < route_.size()) {
-      const double t_sec = world.scene_state().t_sec;
-      while (next_index_ < route_.size()) {
-        const std::size_t reached_index = next_index_;
-        ++next_index_;
-        EmitWaypointReached(world, reached_index, 0.0);  // 终端补发：无几何到达距离
+    // 航点簿记以库完成事件为准（GetWaypointEvents：中间航点法平面穿越 /
+    // 到达圈、最终航点转弯捕获圈——组件自研几何判定与此双层语义必然错位，
+    // 不参与 FD 模式）：每条完成事件推进 next_index_ 并发组件事件。Reset
+    // 重建（循环巡逻）会清空事件记录 → 游标回落归零。
+    const auto& events = fd_->waypoint_events();
+    if (events.size() < waypoint_events_consumed_) {
+      waypoint_events_consumed_ = 0U;
+    }
+    while (waypoint_events_consumed_ < events.size()) {
+      const auto& event = events[waypoint_events_consumed_];
+      ++waypoint_events_consumed_;
+      EmitWaypointReached(world, next_index_, event.distance_m);
+      ++next_index_;
+    }
+    // 终端状态（队列完成/中止）：循环巡逻 → 以当前载机状态 Reset 重建续飞
+    // （库契约：kCompleted/kAborted 必须 Reset 恢复 kReady；见
+    // FlightDynamics::RestartPatrol）；单次飞行 → 剩余航点按几何簿记补发
+    // 完成事件（与 behavior_layer flight_system 的终端视为航路完成语义
+    // 一致，kAborted 兜底；kCompleted 时事件驱动已对齐，不触发）。
+    if (fd_->terminated()) {
+      if (loop_route_ && !route_.empty()) {
+        fd_->RestartPatrol(route_);
+        next_index_ = 0U;
+        waypoint_events_consumed_ = 0U;
+      } else if (next_index_ < route_.size()) {
+        const double t_sec = world.scene_state().t_sec;
+        while (next_index_ < route_.size()) {
+          const std::size_t reached_index = next_index_;
+          ++next_index_;
+          EmitWaypointReached(world, reached_index, 0.0);  // 终端补发：无几何到达距离
+        }
       }
     }
   } else {
     AdvanceKinematicsFallback(dt_sec);
+    CheckWaypointArrival(world, world.scene_state().t_sec);
   }
 #else
   AdvanceKinematicsFallback(dt_sec);
-#endif
-
   CheckWaypointArrival(world, world.scene_state().t_sec);
+#endif
 
   // 发布平台状态事件（传感器/日志订阅）。
   PlatformStateEvent event;
@@ -322,6 +393,19 @@ void FlightComponent::AdvanceKinematicsFallback(double dt_sec) {
     position_.altitude_m =
         std::min(cruise_altitude_m_, position_.altitude_m + kClimbRateMps * dt_sec);
   }
+  // 航点寻的：有未完成航点时航向指向下一航点（段间瞬时转向——运动学简化；
+  // 显式航路都在直线上时保持原航向，行为与历史"巡航直线"一致；无航路或
+  // 航路耗尽维持原航向直飞）。
+  if (next_index_ < route_.size()) {
+    const navigation::RoutePoint& target = route_[next_index_];
+    const double dlat = target.position.latitude_deg - position_.latitude_deg;
+    const double dlon = (target.position.longitude_deg - position_.longitude_deg) *
+                        std::cos(position_.latitude_deg * kDegToRad);
+    heading_deg_ = std::atan2(dlon, dlat) * kRadToDeg;
+    if (heading_deg_ < 0.0) {
+      heading_deg_ += 360.0;
+    }
+  }
   AdvanceKinematics(&position_, heading_deg_, speed_mps_, dt_sec);
 }
 
@@ -333,6 +417,11 @@ void FlightComponent::CheckWaypointArrival(World& world, double t_sec) {
     const std::size_t reached_index = next_index_;
     ++next_index_;
     EmitWaypointReached(world, reached_index, distance_m);
+  }
+  // 循环巡逻：航路耗尽后回绕到第一个航点（平台已在上一条扫描线末端，过渡
+  // 段自然飞回起点；空航路由 !route_.empty() 守卫，loop 且空航路维持直飞）。
+  if (loop_route_ && !route_.empty() && next_index_ >= route_.size()) {
+    next_index_ = 0U;
   }
 }
 

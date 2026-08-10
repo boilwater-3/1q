@@ -124,11 +124,13 @@ int main(int argc, char* argv[]) {
   ca::Entity& platform = world.CreateEntity("platform");
 
   // 平台初始状态来自场景文件：机场地面（alt 0，六自由度机动从起飞开始）→
-  // 巡航高度 → 沿场景航路巡航。
+  // 巡航高度 → 沿场景航路巡航；区域巡逻场景（coverage 块）航路来自
+  // AreaCoveragePlanner 规划，循环巡逻（loop_route）。
   const oneq::coordinate::LlaPositionDegM platform_origin = scene_data.platform_origin;
   platform.Attach(std::make_unique<ca::FlightComponent>(
       platform_origin, scene_data.initial_heading_deg, scene_data.cruise_speed_mps,
-      scene_data.cruise_altitude_m, scene_data.waypoints));
+      scene_data.cruise_altitude_m, scene_data.waypoints,
+      /*loop_route=*/scene_data.coverage.planned));
 
   // 五会话配置：JSON 基线（examples/configs/）+ 场景业务覆写（EOS 扫描/SAR
   // 任务几何与链路，见 ApplySceneOverrides）。
@@ -217,6 +219,10 @@ int main(int argc, char* argv[]) {
             << " cycles=" << num_cycles
             << " entities=" << world.entity_count()
             << " components=" << platform.component_count()
+            << " patrol=" << (scene_data.coverage.planned ? "planned" : "off")
+            << (scene_data.coverage.planned ? " (loop, waypoints="
+                                               + std::to_string(scene_data.waypoints.size()) + ")"
+                                            : "")
             << " events=" << demo::EventCount()
             << " sbirs_events=" << demo::SbirsEventCount()
             << " sar_products=" << demo::SarProductEventCount()
