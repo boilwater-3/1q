@@ -75,11 +75,14 @@ float ResolvePlatformAltitudeM(const ::electro_optical_sensor::session::EosCycle
 // code 引用 EosIssueCodes.h 注册表常量。
 
 /// 构造 kInfo 级按目标排除诊断（不属于三写，仅承载排查信息；规则 13b）。
-session::EosIssue MakeExclusionIssue(const char* code, const std::string& message) {
+/// @param cause 门内归因（规则 13b 门内归因条款）；聚合门排除须给出主因，具体门可 kNone。
+session::EosIssue MakeExclusionIssue(const char* code, const std::string& message,
+                                     session::EosIssueCause cause = session::EosIssueCause::kNone) {
   session::EosIssue issue;
   issue.severity = session::EosIssueSeverity::kInfo;
   issue.code = code;
   issue.message = message;
+  issue.cause = cause;
   return issue;
 }
 
@@ -443,6 +446,21 @@ extension::EosPipelineExecuteResult EosPipeline::RunCycle(
     const ::electro_optical_sensor::session::EosSceneTarget& target = input.scene[i];
     if (!IsTargetInCurrentFov(target)) {
       // 规则 13b：视场外目标排除 → kInfo 诊断（不属于三写，仅承载排查信息）。
+      // 门内归因：视场门按越界轴细分（az/el/both），并补越界量（与
+      // IsTargetInCurrentFov 同基准：半视场为门限）。
+      const float azimuth_delta_deg = std::fabs(
+          oneq::common::numerics::NormalizeAngle180(target.azimuth_deg - current_scan_azimuth_deg_));
+      const float elevation_delta_deg =
+          std::fabs(target.elevation_deg - config_.scan.scan_center_el_deg);
+      const float half_hfov_deg = 0.5f * config_.scan.horizontal_fov_deg;
+      const float half_vfov_deg = 0.5f * config_.scan.vertical_fov_deg;
+      const bool az_out = azimuth_delta_deg > half_hfov_deg;
+      const bool el_out = elevation_delta_deg > half_vfov_deg;
+      const session::EosIssueCause fov_cause =
+          az_out && el_out
+              ? session::EosIssueCause::kBothAxesOutside
+              : (az_out ? session::EosIssueCause::kAzOutside
+                        : session::EosIssueCause::kElOutside);
       result.issues.push_back(MakeExclusionIssue(
           session::codes::kTargetOutOfFov,
           "target_id=" + std::to_string(target.target_id) + "; az/el (" +
@@ -450,7 +468,10 @@ extension::EosPipelineExecuteResult EosPipeline::RunCycle(
               ") outside scan center (" + FormatFloat(current_scan_azimuth_deg_) + "," +
               FormatFloat(config_.scan.scan_center_el_deg) + ") fov " +
               FormatFloat(config_.scan.horizontal_fov_deg) + "x" +
-              FormatFloat(config_.scan.vertical_fov_deg)));
+              FormatFloat(config_.scan.vertical_fov_deg) + " az_delta_deg=" +
+              FormatFloat(azimuth_delta_deg) + " el_delta_deg=" +
+              FormatFloat(elevation_delta_deg),
+          fov_cause));
       ++excluded_out_of_fov;
       continue;
     }

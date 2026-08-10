@@ -457,6 +457,9 @@ TEST(EosPipelineTest, OutOfFovTargetWritesInfoExclusionDiagnostic) {
       found = true;
       EXPECT_EQ(issue.severity, context::EosIssueSeverity::kInfo);
       EXPECT_NE(issue.message.find("target_id=201"), std::string::npos);
+      // 门内归因（规则 13b）：目标 az=35° 相对扫描中心仅方位越界 → kAzOutside。
+      EXPECT_EQ(issue.cause, context::EosIssueCause::kAzOutside);
+      EXPECT_NE(issue.message.find("az_delta_deg="), std::string::npos);
     }
   }
   EXPECT_TRUE(found);
