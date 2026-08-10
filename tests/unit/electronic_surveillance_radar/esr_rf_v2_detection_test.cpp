@@ -344,6 +344,9 @@ TEST(EsrRfV2DetectionTest, BelowThresholdEmissionWritesInfoExclusionDiagnostic) 
       found = true;
       EXPECT_EQ(issue.severity, session::EsrIssueSeverity::kInfo);
       EXPECT_NE(issue.message.find("emission_id=7"), std::string::npos);
+      // 门内归因（规则 13b）：发射功率 1e-12 W 的弱源 → 硬门（snr < minimum_snr_db）。
+      EXPECT_EQ(issue.cause, session::EsrIssueCause::kHardGateFailed);
+      EXPECT_NE(issue.message.find("margin_db="), std::string::npos);
     }
   }
   EXPECT_TRUE(found);
@@ -364,6 +367,9 @@ TEST(EsrRfV2DetectionTest, ZeroPowerEmissionWritesInfoExclusionDiagnostic) {
       found = true;
       EXPECT_EQ(issue.severity, session::EsrIssueSeverity::kInfo);
       EXPECT_NE(issue.message.find("emission_id=8"), std::string::npos);
+      // 门内归因（规则 13b）：发射功率为 0 → 链路预算归零 → kTransmitSilent。
+      EXPECT_EQ(issue.cause, session::EsrIssueCause::kTransmitSilent);
+      EXPECT_NE(issue.message.find("time_overlap_fraction="), std::string::npos);
     }
   }
   EXPECT_TRUE(found);
