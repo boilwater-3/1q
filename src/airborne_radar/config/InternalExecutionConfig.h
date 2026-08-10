@@ -42,17 +42,17 @@ namespace execution {
 // ---------------------------------------------------------------------------
 
 /** Track pool 默认初始分块数。 */
-inline constexpr std::size_t kDefaultTrackPoolInitialChunk{64};
+constexpr std::size_t kDefaultTrackPoolInitialChunk{64};
 
 /** Track pool 默认最大分块数。 */
-inline constexpr std::size_t kDefaultTrackPoolMaxChunks{256};
+constexpr std::size_t kDefaultTrackPoolMaxChunks{256};
 
 /** IMM 默认激活策略：仅已确认航迹参与 IMM 融合。 */
-inline constexpr signal::tracking::ImmActivationPolicy kDefaultImmActivationPolicy{
+constexpr signal::tracking::ImmActivationPolicy kDefaultImmActivationPolicy{
     signal::tracking::ImmActivationPolicy::kConfirmedTracksOnly};
 
 /** Track pool 默认线程安全模式：单线程无锁。 */
-inline constexpr signal::tracking::TrackPoolThreadSafetyMode kDefaultTrackPoolThreadSafetyMode{
+constexpr signal::tracking::TrackPoolThreadSafetyMode kDefaultTrackPoolThreadSafetyMode{
     signal::tracking::TrackPoolThreadSafetyMode::kSingleThreadNoLock};
 
 // ---------------------------------------------------------------------------
@@ -74,7 +74,7 @@ struct ControlProfileEffectsConfig {
 };
 
 /** 控制策略天线/波束增益效果默认参数。 */
-inline constexpr ControlProfileEffectsConfig kDefaultControlProfileEffects{};
+constexpr ControlProfileEffectsConfig kDefaultControlProfileEffects{};
 
 /**
  * @brief 检测与波束调度相关执行配置。

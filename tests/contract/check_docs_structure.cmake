@@ -41,7 +41,8 @@ set(ALLOWED_DOC_DIRS
     "practice"
     "review"
     "sar"
-    "space_based_infrared_sensor")
+    "space_based_infrared_sensor"
+    "threat_assessment")
 
 set(BUSINESS_MODULE_DIRS
     "airborne_radar"
@@ -52,7 +53,8 @@ set(BUSINESS_MODULE_DIRS
     "fusion"
     "navigation"
     "sar"
-    "space_based_infrared_sensor")
+    "space_based_infrared_sensor"
+    "threat_assessment")
 
 set(MODULE_DOC_FILES
     "design.md"

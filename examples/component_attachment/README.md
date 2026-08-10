@@ -8,12 +8,12 @@
 - **组件基类**：`core/component.h` 定义虚接口（Name / OnAttach / OnDetach / Step），
   组件**携带逻辑**（区别于 EnTT 纯数据组件）；
 - **模块 → 组件**：每个仿真模块对应一个 `Component` 子类（飞行 / AR / ESR / EOS /
-  SBIRS / SAR / 融合），**挂载**到实体上参与仿真；
+  SBIRS / SAR / 融合 / 威胁评估），**挂载**到实体上参与仿真；
 - **事件机制**：使用 C++ 常见开源事件库 **Boost.Signals2**（零自定义分发层），
   弥补"自研 ECS 无事件功能"（对应 EnTT 的 observer/signals）。
 
-单平台精简场景：1 个 `platform` 实体挂载 7 个组件，400 周期 × 1 s。四传感器
-（AR / ESR / EOS / SBIRS）端到端：探测 → 融合 → 高置信威胁 → 决策指令（事件链）；
+单平台精简场景：1 个 `platform` 实体挂载 8 个组件，400 周期 × 1 s。四传感器
+（AR / ESR / EOS / SBIRS）端到端：探测 → 融合 → 威胁评估 → 高置信威胁 → 决策指令（事件链）；
 SAR 为图像产品通道（无探测输出，不入融合，发布产品生命周期事件）。
 
 ## 目录结构
@@ -198,6 +198,7 @@ DebugView 同理以组件内摘要行直写，示例层不内置 JSON 序列化�
 | `SbirsSensorComponent` | sbirs_sensor（SbirsSession + SbirsDetectionLifecycleRecorder） | 探测 → `DetectionRecord`（key=0，仅方位，与 EOS 同构）；首发现/更新/coasting/丢失事件由库内 recorder 差分产生 | on_sbirs_detection |
 | `SarSensorComponent` | sar（SarSession + SarProductLifecycleRecorder） | 孔径积累成像；产品生命周期事件由库内 recorder 差分产生（**无探测输出，不入融合**，契约见 docs/review/Bahavior.md）；阶段型调试视图每周期直写摘要行 | on_sar_product |
 | `FusionComponent` | fusion（FusionEngine） | 聚合四传感器探测一次 `Update`；新/消失差分 | on_fusion_updated |
+| `ThreatComponent` | threat_assessment（ThreatEvaluator） | 融合态势 + AR 调试视图按键组装输入 → 威胁分/等级；等级升级（含首见）→ 升级事件；每周期视图摘要行 | on_threat_updated |
 
 ## 运行时修改接口
 
@@ -271,8 +272,11 @@ SAR 为阶段型摘要行）——日志给人读，结构化持久化由外部�
                   → 发布产品生命周期事件（无 detections_，不入融合）
     7. Fusion    → 类型化聚合四传感器 detections_ → FusionEngine::Update
                   → 发布 FusionUpdatedEvent
+    8. Threat    → 融合输出（置信度）+ AR 调试视图（运动学/RCS）按键组装
+                  → ThreatEvaluator::Evaluate → 威胁分/等级
+                  → 等级升级 → 升级事件，逐目标发布 ThreatUpdatedEvent
   订阅者（demo 侧）：
-    DecisionListener → 置信度 ≥ 3.0 → 发布 CommandIssuedEvent（事件链）
+    DecisionListener → 置信度 ≥ 3.0 或威胁等级 HIGH → 发布 CommandIssuedEvent（事件链）
     组件宏（CA_LOG_EVENT / CA_LOG_VIEW）→ 事件与视图摘要就地记录 → integration_events.log / integration_views.log（人读行）
 ```
 
@@ -419,6 +423,7 @@ lon 120.0~120.02（约 1.93 km 东西），扫描航向 0（线沿东西）、�
 | `target_maneuver_evasion.json` | 目标大机动：跟踪保持（AR 失跟需探测断链） | 通过（1 项预期修正） |
 | `sbirs_altitude_snr_1000km.json` | SBIRS 高度专项：链路 1/R² 标度 + 门限边界 | 通过（1 项预期修正） |
 | `patrol_area_scan.json` | 区域巡逻专项：coverage 块规划航路 + 循环巡逻（巡逻中四通道探测保持） | 通过 |
+| `threat_multi_target.json` | 威胁评估专项：三目标威胁分排序 + 等级映射 + 威胁→决策指令链 | 通过 |
 
 ## 构建与运行
 

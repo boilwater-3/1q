@@ -58,6 +58,10 @@ struct EosDetectionLifecycleRecorder::Impl {
   EosDetectionLifecycleRecorderConfig config;
   std::unordered_map<std::uint64_t, TargetState> states;
   std::vector<EosDetectionLifecycleEvent> last_events{};
+  Impl() = default;
+  Impl(EosDetectionLifecycleRecorderConfig config_,
+       std::unordered_map<std::uint64_t, TargetState> states_ = {})
+      : config(config_), states(std::move(states_)) {}
 };
 
 EosDetectionLifecycleRecorder::EosDetectionLifecycleRecorder(EosDetectionLifecycleRecorderConfig config)

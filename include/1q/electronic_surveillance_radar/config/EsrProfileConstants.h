@@ -25,7 +25,7 @@ namespace profiles {
 // =============================================================================
 
 /** @brief 电子战斗序列采集：ESM 模式，2Hz 快扫，±60°×±10°。 */
-inline const config::EsrMissionConfig kElectronicOrderOfBattleMission = [] {
+const config::EsrMissionConfig kElectronicOrderOfBattleMission = [] {
   config::EsrMissionConfig m{};
   m.work_mode = config::EsrWorkMode::kEsm;
   m.scan.scan_rate_hz = 2.0f;
@@ -38,7 +38,7 @@ inline const config::EsrMissionConfig kElectronicOrderOfBattleMission = [] {
 }();
 
 /** @brief 精确辐射源分析：HGESM 模式，0.5Hz 慢扫，±30°×±5°。 */
-inline const config::EsrMissionConfig kPrecisionEmitterAnalysisMission = [] {
+const config::EsrMissionConfig kPrecisionEmitterAnalysisMission = [] {
   config::EsrMissionConfig m{};
   m.work_mode = config::EsrWorkMode::kHgesm;
   m.scan.scan_rate_hz = 0.5f;
@@ -51,7 +51,7 @@ inline const config::EsrMissionConfig kPrecisionEmitterAnalysisMission = [] {
 }();
 
 /** @brief 威胁告警：RWR 模式，5Hz 快扫，±60°×±10°。 */
-inline const config::EsrMissionConfig kThreatWarningMission = [] {
+const config::EsrMissionConfig kThreatWarningMission = [] {
   config::EsrMissionConfig m{};
   m.work_mode = config::EsrWorkMode::kRwr;
   m.scan.scan_rate_hz = 5.0f;
@@ -68,7 +68,7 @@ inline const config::EsrMissionConfig kThreatWarningMission = [] {
 // =============================================================================
 
 /** @brief 高灵敏（远距弱信号）：min_snr=3dB，脉冲积累 16，pfa=5e-6。 */
-inline const config::EsrDetectionPolicyConfig kHighSensitivityDetection = [] {
+const config::EsrDetectionPolicyConfig kHighSensitivityDetection = [] {
   config::EsrDetectionPolicyConfig c{};
   c.minimum_snr_db = 3.0f;
   c.pulse_count = 16U;
@@ -79,7 +79,7 @@ inline const config::EsrDetectionPolicyConfig kHighSensitivityDetection = [] {
 }();
 
 /** @brief 抗干扰（复杂电磁环境）：min_snr=10dB，脉冲积累 4，pfa=1e-7。 */
-inline const config::EsrDetectionPolicyConfig kRobustDetection = [] {
+const config::EsrDetectionPolicyConfig kRobustDetection = [] {
   config::EsrDetectionPolicyConfig c{};
   c.minimum_snr_db = 10.0f;
   c.pulse_count = 4U;

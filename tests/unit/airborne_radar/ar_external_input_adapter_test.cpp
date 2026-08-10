@@ -52,7 +52,9 @@ ArExternalPoseInput MakeValidPoseInput() {
   return input;
 }
 
-constexpr EulerAnglesDeg kZeroMount{0.0, 0.0, 0.0};
+// be501c5d（VS2015 兼容）为 EulerAnglesDeg 引入非 constexpr 构造函数，
+// 聚合初始化不再可 constexpr——此处按普通常量处理。
+const EulerAnglesDeg kZeroMount{0.0, 0.0, 0.0};
 
 // =============================================================================
 // TryMakeArPoseFromExternalKinematics

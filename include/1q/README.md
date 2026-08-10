@@ -17,6 +17,7 @@
   - 合成孔径雷达：`1q/sar/sar.hpp`
   - 路径规划：`1q/navigation/navigation.hpp`
   - 多源融合：`1q/fusion/fusion.hpp`
+  - 威胁评估：`1q/threat_assessment/threat_assessment.hpp`
   - 飞行动力学：`1q/flight_dynamic/FlightManager.h`
 
 ## Common
@@ -38,6 +39,8 @@
   算法面，不绑定 flight_dynamic，输出度制中性航点（`RoutePoint`）。
 - `fusion/`：多源关联 + 置信度融合算法面（`FusionEngine.h`），泛型探测记录
   （`DetectionRecord`），不感知传感器类型。
+- `threat_assessment/`：目标威胁评估算法面（`ThreatEvaluator.h`），归一化加权和
+  MADM，泛型属性帧（`ThreatEvaluationInput`），纯函数式无跨周期状态。
 
 ## Sensor Modules
 

@@ -66,6 +66,7 @@ std::size_t ArViewCount();
 std::size_t EosViewCount();
 std::size_t SbirsViewCount();
 std::size_t SarViewCount();
+std::size_t ThreatViewCount();
 
 }  // namespace demo
 }  // namespace component_attachment

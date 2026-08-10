@@ -19,6 +19,7 @@
 #include "1q/coordinate/types.h"
 #include "1q/electronic_surveillance_radar/session/EmitterHypothesis.h"
 #include "1q/sar/session/SarCycleResult.h"
+#include "1q/threat_assessment/ThreatResult.h"
 
 namespace component_attachment {
 
@@ -92,6 +93,12 @@ struct FusionUpdatedEvent {
   std::vector<std::pair<std::uint32_t, std::size_t>> channels{}; /**< (源通道, 样本数) 列表 */
   std::size_t new_targets{0U};              /**< 本周期新目标数 */
   std::size_t lost_targets{0U};             /**< 本周期消失目标数 */
+};
+
+/** @brief 威胁评估更新事件：ThreatComponent 每周期评估后逐目标发布。 */
+struct ThreatUpdatedEvent {
+  std::uint64_t cycle{0U};  /**< 世界周期号 */
+  threat_assessment::ThreatResult result{}; /**< 评估结果（键/威胁分/等级/贡献分解，组合而非复制） */
 };
 
 /** @brief SBIRS 探测事件类型（生命周期语义，源为库内 SbirsDetectionLifecycleRecorder）。 */

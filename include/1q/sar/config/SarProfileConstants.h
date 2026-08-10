@@ -25,7 +25,7 @@ namespace profiles {
 // =============================================================================
 
 /** @brief 高分辨成像：斜距 10km、0.5m 分辨率、2048 脉冲。 */
-inline const config::SarMissionConfig kHighResolutionImagingMission = [] {
+const config::SarMissionConfig kHighResolutionImagingMission = [] {
   config::SarMissionConfig m{};
   m.nominal_slant_range_m = 10000.0;
   m.platform_speed_mps = 150.0;
@@ -37,7 +37,7 @@ inline const config::SarMissionConfig kHighResolutionImagingMission = [] {
 }();
 
 /** @brief 远程监视：斜距 50km、3.0m 分辨率、512 脉冲。 */
-inline const config::SarMissionConfig kLongRangeSurveillanceMission = [] {
+const config::SarMissionConfig kLongRangeSurveillanceMission = [] {
   config::SarMissionConfig m{};
   m.nominal_slant_range_m = 50000.0;
   m.platform_speed_mps = 200.0;
@@ -53,7 +53,7 @@ inline const config::SarMissionConfig kLongRangeSurveillanceMission = [] {
 // =============================================================================
 
 /** @brief 仅生回波：只开 raw echo generation，保留原始回波图像。 */
-inline const config::SarPolicyConfig kRawEchoOnlyProcessing = [] {
+const config::SarPolicyConfig kRawEchoOnlyProcessing = [] {
   config::SarPolicyConfig p{};
   p.enable_raw_echo_generation = true;
   p.enable_l1_rda_imaging = false;
@@ -64,7 +64,7 @@ inline const config::SarPolicyConfig kRawEchoOnlyProcessing = [] {
 }();
 
 /** @brief 距离压缩+L1 RDA：开 raw echo + range compression + L1。 */
-inline const config::SarPolicyConfig kRangeCompressedL1Processing = [] {
+const config::SarPolicyConfig kRangeCompressedL1Processing = [] {
   config::SarPolicyConfig p{};
   p.enable_raw_echo_generation = true;
   p.enable_l1_rda_imaging = true;
@@ -75,7 +75,7 @@ inline const config::SarPolicyConfig kRangeCompressedL1Processing = [] {
 }();
 
 /** @brief L3 BP 路径：开 raw echo + range compression + L3 BP（航点需自行配置）。 */
-inline const config::SarPolicyConfig kL3BackprojectionProcessing = [] {
+const config::SarPolicyConfig kL3BackprojectionProcessing = [] {
   config::SarPolicyConfig p{};
   p.enable_raw_echo_generation = true;
   p.enable_l1_rda_imaging = false;

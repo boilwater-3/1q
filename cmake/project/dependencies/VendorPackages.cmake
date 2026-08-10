@@ -178,8 +178,10 @@ endif()
 
 # ---------------------------------------------------------------------------
 # sqlite3 3.53.4：需编译静态库（airborne_radar 识别特征库加载）。
-# GitHub mirror（github.com/sqlite/sqlite）根目录即 amalgamation（sqlite3.c/sqlite3.h），
-# 直接单文件编译，不引入官方 CMakeLists（其 target 命名/示例构建与项目约定不一致）。
+# amalgamation（sqlite3.c/sqlite3.h 单文件）由 scripts/fetch_third_party.bat 从
+# sqlite.org 发布包下载解压至 third_party/sqlite/（GitHub sqlite 镜像只含 src/*.c
+# 拆分源，不含 amalgamation）。直接单文件编译，不引入官方 CMakeLists（其 target
+# 命名/示例构建与项目约定不一致）。
 # 与 zlib 同构：对外暴露 IMPORTED INTERFACE SQLite::SQLite3（与 conan provider 的
 # CMakeDeps target 名一致），链接真实静态 target；IMPORTED 视作外部依赖，
 # 不参与 install(EXPORT) 导出闭包。

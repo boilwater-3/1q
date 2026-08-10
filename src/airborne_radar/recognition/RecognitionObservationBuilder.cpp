@@ -5,6 +5,9 @@
 
 #include "airborne_radar/recognition/RecognitionObservationBuilder.h"
 
+#include <algorithm>
+#include <cmath>
+
 #include "airborne_radar/recognition/MotionFeatureExtractor.h"
 #include "airborne_radar/recognition/PolarizationFeatureExtractor.h"
 #include "airborne_radar/recognition/RangeProfileFeatureExtractor.h"

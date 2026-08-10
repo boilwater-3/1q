@@ -29,7 +29,7 @@ namespace profiles {
 // =============================================================================
 
 /** @brief 远程高功率档位：5 MW、9.3 GHz，适用于远距探测场景。 */
-inline const detection::DetectionConfig kLongRangeHighPowerHardware = [] {
+const detection::DetectionConfig kLongRangeHighPowerHardware = [] {
   detection::DetectionConfig c{};
   c.transmitter.peak_power_w = 5.0e6f;
   c.transmitter.maximum_peak_power_w = 6.0e6f;
@@ -46,7 +46,7 @@ inline const detection::DetectionConfig kLongRangeHighPowerHardware = [] {
 }();
 
 /** @brief 轻型低截获概率档位：350 kW、10 GHz，适用于隐蔽探测场景。 */
-inline const detection::DetectionConfig kLightweightLpiHardware = [] {
+const detection::DetectionConfig kLightweightLpiHardware = [] {
   detection::DetectionConfig c{};
   c.transmitter.peak_power_w = 3.5e5f;
   c.transmitter.frequency_hz = 10.0e9f;
@@ -66,7 +66,7 @@ inline const detection::DetectionConfig kLightweightLpiHardware = [] {
 // =============================================================================
 
 /** @brief 探测优先：放宽门限并增加积累，优先发现目标。 */
-inline const detection::ArDetectionPolicyConfig kDetectionPriorityDetection = [] {
+const detection::ArDetectionPolicyConfig kDetectionPriorityDetection = [] {
   detection::ArDetectionPolicyConfig c{};
   c.pulse_count = 16;
   c.pfa = 2e-6f;
@@ -76,7 +76,7 @@ inline const detection::ArDetectionPolicyConfig kDetectionPriorityDetection = []
 }();
 
 /** @brief 航迹稳定优先：收紧门限并减少积累，优先抑制虚警。 */
-inline const detection::ArDetectionPolicyConfig kTrackStabilityPriorityDetection = [] {
+const detection::ArDetectionPolicyConfig kTrackStabilityPriorityDetection = [] {
   detection::ArDetectionPolicyConfig c{};
   c.pulse_count = 8;
   c.pfa = 5e-7f;
@@ -90,7 +90,7 @@ inline const detection::ArDetectionPolicyConfig kTrackStabilityPriorityDetection
 // =============================================================================
 
 /** @brief 低旁瓣方向图：压低旁瓣与后瓣电平。 */
-inline const detection::AntennaPatternConfig kLowSidelobeAntennaPattern = [] {
+const detection::AntennaPatternConfig kLowSidelobeAntennaPattern = [] {
   detection::AntennaPatternConfig c{};
   c.max_sidelobe_level_db = -30.0f;
   c.backlobe_level_db = -42.0f;
@@ -98,7 +98,7 @@ inline const detection::AntennaPatternConfig kLowSidelobeAntennaPattern = [] {
 }();
 
 /** @brief 宽覆盖方向图：抛物线主瓣、放宽旁瓣、容忍扫描损失。 */
-inline const detection::AntennaPatternConfig kWideCoverageAntennaPattern = [] {
+const detection::AntennaPatternConfig kWideCoverageAntennaPattern = [] {
   detection::AntennaPatternConfig c{};
   c.model_type = detection::AntennaPatternModelType::kParabolicMainLobe;
   c.max_sidelobe_level_db = -18.0f;
@@ -111,7 +111,7 @@ inline const detection::AntennaPatternConfig kWideCoverageAntennaPattern = [] {
 // =============================================================================
 
 /** @brief 保守融合：物理 RCS 占比 0.25。 */
-inline const detection::RcsPhysicsConfig kConservativeRcsPhysics = [] {
+const detection::RcsPhysicsConfig kConservativeRcsPhysics = [] {
   detection::RcsPhysicsConfig c{};
   c.enable_physical_rcs = true;
   c.physics_mix_ratio = 0.25f;
@@ -119,7 +119,7 @@ inline const detection::RcsPhysicsConfig kConservativeRcsPhysics = [] {
 }();
 
 /** @brief 增强融合：物理 RCS 占比 0.60，圆柱模型权重 0.65。 */
-inline const detection::RcsPhysicsConfig kEnhancedRcsPhysics = [] {
+const detection::RcsPhysicsConfig kEnhancedRcsPhysics = [] {
   detection::RcsPhysicsConfig c{};
   c.enable_physical_rcs = true;
   c.physics_mix_ratio = 0.60f;
@@ -132,7 +132,7 @@ inline const detection::RcsPhysicsConfig kEnhancedRcsPhysics = [] {
 // =============================================================================
 
 /** @brief 快速关联：低量测噪声假设、丢失周期快速衰减。 */
-inline const tracking::TrackingConfig kFastAssociationTracking = [] {
+const tracking::TrackingConfig kFastAssociationTracking = [] {
   tracking::TrackingConfig c{};
   c.kalman_measurement_noise_std = 6.0f;
   c.speed_decay_ratio_on_loss = 0.95f;
@@ -141,7 +141,7 @@ inline const tracking::TrackingConfig kFastAssociationTracking = [] {
 }();
 
 /** @brief 鲁棒抗干扰跟踪：宽量测噪声假设、丢失周期快速衰减。 */
-inline const tracking::TrackingConfig kRobustAntiJammingTracking = [] {
+const tracking::TrackingConfig kRobustAntiJammingTracking = [] {
   tracking::TrackingConfig c{};
   c.kalman_measurement_noise_std = 12.0f;
   c.speed_decay_ratio_on_loss = 0.95f;
@@ -150,7 +150,7 @@ inline const tracking::TrackingConfig kRobustAntiJammingTracking = [] {
 }();
 
 /** @brief 鲁棒抗干扰关联：放宽归一化距离关联门限。 */
-inline const tracking::AssociationConfig kRobustAntiJammingAssociation = [] {
+const tracking::AssociationConfig kRobustAntiJammingAssociation = [] {
   tracking::AssociationConfig c{};
   c.distance_gate_sigma = std::sqrt(12.0f);
   return c;
@@ -161,7 +161,7 @@ inline const tracking::AssociationConfig kRobustAntiJammingAssociation = [] {
 // =============================================================================
 
 /** @brief 快速确认：1 次命中确认、1 次丢失标记、3 周期删除。 */
-inline const lifecycle::LifecycleConfig kFastConfirmLifecycle = [] {
+const lifecycle::LifecycleConfig kFastConfirmLifecycle = [] {
   lifecycle::LifecycleConfig c{};
   c.confirm_hits = 1U;
   c.max_miss_before_lost = 1U;
@@ -170,7 +170,7 @@ inline const lifecycle::LifecycleConfig kFastConfirmLifecycle = [] {
 }();
 
 /** @brief 高持久：3 次命中确认、容忍 3 次丢失、保留 8 周期。 */
-inline const lifecycle::LifecycleConfig kHighPersistenceLifecycle = [] {
+const lifecycle::LifecycleConfig kHighPersistenceLifecycle = [] {
   lifecycle::LifecycleConfig c{};
   c.confirm_hits = 3U;
   c.max_miss_before_lost = 3U;

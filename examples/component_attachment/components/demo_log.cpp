@@ -34,6 +34,7 @@ std::size_t g_ar_view_count = 0U;
 std::size_t g_eos_view_count = 0U;
 std::size_t g_sbirs_view_count = 0U;
 std::size_t g_sar_view_count = 0U;
+std::size_t g_threat_view_count = 0U;
 
 #if defined(CA_EVENT_LOG_MODE_AGGREGATE)
 /// 事件类型 → 中文名（聚合行人读显示）。
@@ -163,6 +164,8 @@ void LogViewSummary(const char* module, const std::string& text) {
     ++g_sbirs_view_count;
   } else if (std::strcmp(module, "sar") == 0) {
     ++g_sar_view_count;
+  } else if (std::strcmp(module, "threat") == 0) {
+    ++g_threat_view_count;
   }
   g_view_logger->info("[视图:{}] {}", module, text);  // 中文人读摘要行
 }
@@ -208,6 +211,10 @@ std::size_t SbirsViewCount() {
 
 std::size_t SarViewCount() {
   return g_sar_view_count;
+}
+
+std::size_t ThreatViewCount() {
+  return g_threat_view_count;
 }
 
 }  // namespace demo

@@ -109,6 +109,11 @@ struct ONEQ_API RfCoSiteIsolationPath {
   std::uint64_t transmitter_equipment_id{0};
   std::uint64_t receiver_equipment_id{0};
   double isolation_db{0.0};
+  RfCoSiteIsolationPath() = default;
+  RfCoSiteIsolationPath(std::uint64_t transmitter, std::uint64_t receiver, double isolation)
+      : transmitter_equipment_id(transmitter),
+        receiver_equipment_id(receiver),
+        isolation_db(isolation) {}
 };
 
 /** @brief 接收设备在一个世界窗口内冻结的硬件与调谐状态。 */

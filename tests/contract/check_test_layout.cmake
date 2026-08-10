@@ -43,7 +43,7 @@ endforeach()
 
 set(_unit_domains
     common examples airborne_radar electronic_surveillance_radar electronic_countermeasure
-    electro_optical_sensor sbirs_sensor sar navigation fusion flight_dynamic)
+    electro_optical_sensor sbirs_sensor sar navigation fusion threat_assessment flight_dynamic)
 set(_integration_domains
     airborne_radar electro_optical_sensor electronic_surveillance_radar
     sbirs_sensor cross_domain)

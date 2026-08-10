@@ -14,19 +14,19 @@ namespace electronic_countermeasure {
 namespace session {
 
 /// @brief 调度 RNG 域标签（"SCHD"）：专责 sweep 方向采样。
-inline constexpr std::uint32_t kSchedulingDomain = UINT32_C(0x53434844);
+constexpr std::uint32_t kSchedulingDomain = UINT32_C(0x53434844);
 
 /// @brief 平局裁决 RNG 域标签（"TIEB"）：专责等分威胁排序。
-inline constexpr std::uint32_t kTieBreakDomain = UINT32_C(0x54494542);
+constexpr std::uint32_t kTieBreakDomain = UINT32_C(0x54494542);
 
 /// @brief 欺骗 RNG 域标签（"DEPT"）：专责欺骗发射 timing seed 生成。
-inline constexpr std::uint32_t kDeceptionDomain = UINT32_C(0x44455054);
+constexpr std::uint32_t kDeceptionDomain = UINT32_C(0x44455054);
 
 /// @brief 运行时状态快照 schema 版本号。
-inline constexpr std::uint32_t kRuntimeStateSchemaVersion = 2U;
+constexpr std::uint32_t kRuntimeStateSchemaVersion = 2U;
 
 /// @brief 传感器观测最大滑行成功周期数。
-inline constexpr std::uint32_t kMaximumGlideSuccessfulCycles = 2U;
+constexpr std::uint32_t kMaximumGlideSuccessfulCycles = 2U;
 
 /**
  * @brief 从单一配置种子按 splitmix32 终结器派生独立的 RNG 子流。

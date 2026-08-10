@@ -3,7 +3,7 @@
  * @brief 自定义实体-组件示例主程序（第二种示例模式）。
  *
  * 1. 装配：场景描述文件（--scene，默认 scenes/baseline_takeoff_east.json）
- *    → SceneData → 共享场景状态 → World → 平台实体 + 7 组件（挂载序 =
+ *    → SceneData → 共享场景状态 → World → 平台实体 + 8 组件（挂载序 =
  *    步进序 Flight → AR → ESR → EOS → SBIRS → SAR → Fusion），组件间事件
  *    通信用 Boost.Signals2（core/，零自定义分发层）；
  * 2. 编排：每周期注入四通道世界真值 → World::Step → 周期摘要与平台轨迹落盘；
@@ -40,6 +40,7 @@
 #include "components/sar_sensor_component.h"
 #include "components/sbirs_sensor_component.h"
 #include "components/scene_types.h"
+#include "components/threat_component.h"
 #include "core/world.h"
 #include "demo_config.h"
 #include "demo_output.h"
@@ -118,7 +119,7 @@ int main(int argc, char* argv[]) {
   // 日志即入文件而非 stdout。
   demo::InitIntegrationLog(output_dir);
 
-  // 装配：共享场景状态 → World → 平台实体 + 7 组件（挂载序 = 步进序）。
+  // 装配：共享场景状态 → World → 平台实体 + 8 组件（挂载序 = 步进序）。
   ca::DemoSceneState scene;
   ca::World world(scene);
   ca::Entity& platform = world.CreateEntity("platform");
@@ -152,6 +153,10 @@ int main(int argc, char* argv[]) {
   // 中心残差，同物理目标的跨源方位差实测可达 4-6°——业务层调参，非库内标准）。
   platform.Attach(std::make_unique<ca::FusionComponent>(
       std::make_unique<fusion::FusionEngine>(scene_data.fusion)));
+
+  // 威胁评估配置来自场景文件（threat 块；缺省 = 库内默认权重/断点/阈值）。
+  // 挂载序在 Fusion 之后：威胁组件每周期读融合输出与 AR 调试视图组装输入。
+  platform.Attach(std::make_unique<ca::ThreatComponent>(scene_data.threat));
 
   // 事件接线：决策监听器（订阅融合信号，门限来自场景）+ 周期落盘输出
   // （平台轨迹 CSV；集成端日志已由 InitIntegrationLog 装配，组件在 Step 内
@@ -230,7 +235,8 @@ int main(int argc, char* argv[]) {
             << " ar_views=" << demo::ArViewCount()
             << " eos_views=" << demo::EosViewCount()
             << " sbirs_views=" << demo::SbirsViewCount()
-            << " sar_views=" << demo::SarViewCount() << "\n"
+            << " sar_views=" << demo::SarViewCount()
+            << " threat_views=" << demo::ThreatViewCount() << "\n"
             << "log output -> " << output_dir
             << " (integration_events.log / integration_views.log / 1q_library.log / platform_track.csv)\n";
 
@@ -267,7 +273,7 @@ int main(int argc, char* argv[]) {
       max_fused_targets < smoke.min_fused_targets ||
       outputs.platform_rows() != num_cycles || demo::ArViewCount() < num_cycles ||
       demo::EosViewCount() < num_cycles || demo::SbirsViewCount() < num_cycles ||
-      demo::SarViewCount() != num_cycles ||
+      demo::SarViewCount() != num_cycles || demo::ThreatViewCount() < num_cycles ||
       !ar->powered_on() || !esr->powered_on() ||
       !eos->powered_on() || !sbirs->powered_on() || !sar->powered_on()) {
     std::cerr << "SMOKE FAILED: events=" << demo::EventCount()
@@ -282,7 +288,8 @@ int main(int argc, char* argv[]) {
               << " (>= " << num_cycles << " required), eos_views="
               << demo::EosViewCount() << " (>= " << num_cycles << " required), sbirs_views="
               << demo::SbirsViewCount() << " (>= " << num_cycles << " required), sar_views="
-              << demo::SarViewCount() << " (== " << num_cycles << " required), sensor_powered="
+              << demo::SarViewCount() << " (== " << num_cycles << " required), threat_views="
+              << demo::ThreatViewCount() << " (>= " << num_cycles << " required), sensor_powered="
               << (ar->powered_on() && esr->powered_on() && eos->powered_on() &&
                   sbirs->powered_on() && sar->powered_on() ? "true" : "false")
               << " (all required)\n";

@@ -192,6 +192,14 @@ set(FUSION_HEADERS
     "fusion/fusion.hpp"
 )
 
+set(THREAT_ASSESSMENT_HEADERS
+    "threat_assessment/ThreatEvaluationInput.h"
+    "threat_assessment/ThreatEvaluator.h"
+    "threat_assessment/ThreatEvaluatorConfig.h"
+    "threat_assessment/ThreatResult.h"
+    "threat_assessment/threat_assessment.hpp"
+)
+
 set(ENVIRONMENT_HEADERS
     "environment/AtmosphericState.h"
     "environment/AtmosphericTypes.h"
@@ -281,6 +289,7 @@ set(EXPECTED_PUBLIC_HEADERS
     ${FD_HEADERS}
     ${NAVIGATION_HEADERS}
     ${FUSION_HEADERS}
+    ${THREAT_ASSESSMENT_HEADERS}
     ${SAR_MODULE_ENTRY_HEADERS}
     ${SAR_CONFIG_HEADERS}
     ${SAR_SESSION_HEADERS}

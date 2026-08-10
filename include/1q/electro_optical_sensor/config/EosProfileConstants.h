@@ -29,7 +29,7 @@ namespace profiles {
 // =============================================================================
 
 /** @brief 大范围搜索：Fused，12°×8°，30°/s，15Hz，snr=6dB（与 struct 默认一致，无需赋值）。 */
-inline const config::EosMissionConfig kWideAreaSearchMission = [] {
+const config::EosMissionConfig kWideAreaSearchMission = [] {
   config::EosMissionConfig m{};
   m.work_mode = config::EosWorkMode::kFused;
   m.horizontal_fov_deg = 12.0f;
@@ -40,7 +40,7 @@ inline const config::EosMissionConfig kWideAreaSearchMission = [] {
 }();
 
 /** @brief 远程监视：InfraredOnly，3°×2°，10°/s，10Hz，snr=3dB。 */
-inline const config::EosMissionConfig kLongRangeSurveillanceMission = [] {
+const config::EosMissionConfig kLongRangeSurveillanceMission = [] {
   config::EosMissionConfig m{};
   m.work_mode = config::EosWorkMode::kInfraredOnly;
   m.horizontal_fov_deg = 3.0f;
@@ -51,14 +51,14 @@ inline const config::EosMissionConfig kLongRangeSurveillanceMission = [] {
 }();
 
 /** @brief 远程监视档位携带的探测门限：snr=3dB。 */
-inline const config::EosDetectionPolicyConfig kLongRangeSurveillanceDetection = [] {
+const config::EosDetectionPolicyConfig kLongRangeSurveillanceDetection = [] {
   config::EosDetectionPolicyConfig c{};
   c.minimum_snr_db = 3.0f;
   return c;
 }();
 
 /** @brief 高精度跟踪：Fused，1.5°×1°，5°/s，60Hz，snr=2dB。 */
-inline const config::EosMissionConfig kHighResolutionTrackMission = [] {
+const config::EosMissionConfig kHighResolutionTrackMission = [] {
   config::EosMissionConfig m{};
   m.work_mode = config::EosWorkMode::kFused;
   m.horizontal_fov_deg = 1.5f;
@@ -69,7 +69,7 @@ inline const config::EosMissionConfig kHighResolutionTrackMission = [] {
 }();
 
 /** @brief 高精度跟踪档位携带的探测门限：snr=2dB。 */
-inline const config::EosDetectionPolicyConfig kHighResolutionTrackDetection = [] {
+const config::EosDetectionPolicyConfig kHighResolutionTrackDetection = [] {
   config::EosDetectionPolicyConfig c{};
   c.minimum_snr_db = 2.0f;
   return c;
@@ -80,7 +80,7 @@ inline const config::EosDetectionPolicyConfig kHighResolutionTrackDetection = []
 // =============================================================================
 
 /** @brief 远程大口径：3-5μm、0.4m 口径、D*=2e10。 */
-inline const config::EosHardwareConfig kLongRangeLargeApertureHardware = [] {
+const config::EosHardwareConfig kLongRangeLargeApertureHardware = [] {
   config::EosHardwareConfig h{};
   h.wavelength_lower_um = 3.0f;
   h.wavelength_upper_um = 5.0f;
@@ -90,7 +90,7 @@ inline const config::EosHardwareConfig kLongRangeLargeApertureHardware = [] {
 }();
 
 /** @brief 广域紧凑：8-12μm、0.1m 口径、D*=5e9。 */
-inline const config::EosHardwareConfig kWideAreaCompactHardware = [] {
+const config::EosHardwareConfig kWideAreaCompactHardware = [] {
   config::EosHardwareConfig h{};
   h.wavelength_lower_um = 8.0f;
   h.wavelength_upper_um = 12.0f;

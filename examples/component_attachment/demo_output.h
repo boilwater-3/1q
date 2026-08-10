@@ -52,9 +52,10 @@ class DemoOutputs {
 };
 
 /**
- * @brief 决策监听器：订阅融合更新事件，高置信威胁首次出现时发布指令事件
- * （事件链演示：Fusion → decision → command）。门限由场景数据注入
- * （SceneData::high_threat_confidence）。
+ * @brief 决策监听器：订阅融合更新事件与威胁评估事件，高置信威胁/高威胁等级
+ * 首次出现时发布指令事件（事件链演示：Fusion → decision → command 与
+ * Fusion → threat → decision → command）。融合门限由场景数据注入
+ * （SceneData::high_threat_confidence）；威胁门限 = 威胁等级 HIGH。
  */
 class DecisionListener {
  public:

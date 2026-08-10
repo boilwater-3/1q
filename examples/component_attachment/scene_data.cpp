@@ -358,6 +358,44 @@ bool LoadSceneData(const char* path, SceneData* scene, std::string* error) {
   out.high_threat_confidence =
       ReadDouble(root, "high_threat_confidence", out.high_threat_confidence);
 
+  // 威胁评估块（可选，缺省 = ThreatEvaluatorConfig 默认值）。
+  const examples::JsonValue& threat = root["threat"];
+  if (!threat.IsNull() && threat.type() == examples::JsonValue::kObject) {
+    out.threat.weight_range =
+        ReadDouble(threat, "weight_range", out.threat.weight_range);
+    out.threat.weight_speed =
+        ReadDouble(threat, "weight_speed", out.threat.weight_speed);
+    out.threat.weight_acceleration =
+        ReadDouble(threat, "weight_acceleration", out.threat.weight_acceleration);
+    out.threat.weight_rcs =
+        ReadDouble(threat, "weight_rcs", out.threat.weight_rcs);
+    out.threat.weight_target_probability =
+        ReadDouble(threat, "weight_target_probability",
+                   out.threat.weight_target_probability);
+    out.threat.weight_fusion_confidence =
+        ReadDouble(threat, "weight_fusion_confidence",
+                   out.threat.weight_fusion_confidence);
+    out.threat.range_near_m =
+        ReadDouble(threat, "range_near_m", out.threat.range_near_m);
+    out.threat.range_far_m =
+        ReadDouble(threat, "range_far_m", out.threat.range_far_m);
+    out.threat.speed_min_mps =
+        ReadDouble(threat, "speed_min_mps", out.threat.speed_min_mps);
+    out.threat.speed_max_mps =
+        ReadDouble(threat, "speed_max_mps", out.threat.speed_max_mps);
+    out.threat.acceleration_max_mps2 =
+        ReadDouble(threat, "acceleration_max_mps2",
+                   out.threat.acceleration_max_mps2);
+    out.threat.rcs_min_sqm =
+        ReadDouble(threat, "rcs_min_sqm", out.threat.rcs_min_sqm);
+    out.threat.rcs_max_sqm =
+        ReadDouble(threat, "rcs_max_sqm", out.threat.rcs_max_sqm);
+    out.threat.high_threshold =
+        ReadDouble(threat, "high_threshold", out.threat.high_threshold);
+    out.threat.medium_threshold =
+        ReadDouble(threat, "medium_threshold", out.threat.medium_threshold);
+  }
+
   // 冒烟块（可选，缺省全部下限 = 1）。
   const examples::JsonValue& smoke = root["smoke"];
   if (!smoke.IsNull() && smoke.type() == examples::JsonValue::kObject) {

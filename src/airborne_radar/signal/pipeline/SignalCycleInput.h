@@ -28,6 +28,17 @@ struct SignalCycleInput {
   const RfV2DetectionContext* rf_v2_detection_context{nullptr};
   session::ArInterferenceObservationList interference_observations{};
   detection::ArDeceptionMeasurementCandidateList deception_measurement_candidates{};
+  SignalCycleInput() = default;
+  explicit SignalCycleInput(session::ArSceneTargetList scene_targets_)
+      : scene_targets(std::move(scene_targets_)) {}
+  SignalCycleInput(session::ArSceneTargetList scene_targets_,
+                   const RfV2DetectionContext* rf_v2_detection_context_,
+                   session::ArInterferenceObservationList interference_observations_,
+                   detection::ArDeceptionMeasurementCandidateList deception_measurement_candidates_)
+      : scene_targets(std::move(scene_targets_)),
+        rf_v2_detection_context(rf_v2_detection_context_),
+        interference_observations(std::move(interference_observations_)),
+        deception_measurement_candidates(std::move(deception_measurement_candidates_)) {}
 };
 
 }  // namespace pipeline

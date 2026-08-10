@@ -19,6 +19,7 @@
 
 #include "1q/coordinate/types.h"
 #include "1q/fusion/FusionConfig.h"
+#include "1q/threat_assessment/ThreatEvaluatorConfig.h"
 #include "1q/navigation/CoverageArea.h"
 #include "1q/navigation/CoveragePlanConfig.h"
 #include "1q/navigation/RoutePoint.h"
@@ -124,6 +125,7 @@ struct SceneData {
   fusion::FusionConfig fusion{};            /**< 融合配置（缺省 = FusionConfig 默认值） */
   double high_threat_confidence{3.0};       /**< 决策门限：融合置信度达到该值视为高置信威胁
                                                  （示例业务策略，原 demo_config kHighThreatConfidence） */
+  threat_assessment::ThreatEvaluatorConfig threat{}; /**< 威胁评估配置（缺省 = ThreatEvaluatorConfig 默认值） */
 
   /// 冒烟断言下限（场景文件 smoke 块；"无目标"等零产出场景显式置 0）。
   struct SmokeExpectations {

@@ -22,6 +22,9 @@ struct ONEQ_API RoutePoint {
   oneq::coordinate::LlaPositionDegM position{}; /**< 航点位置（度制 LLA，椭球高） */
   double speed_mps{0.0};                        /**< 期望速度（单位：m/s） */
   double radius_m{0.0};                         /**< 到达半径（单位：m） */
+  RoutePoint() = default;
+  RoutePoint(oneq::coordinate::LlaPositionDegM pos, double speed_mps_, double radius_m_)
+      : position(pos), speed_mps(speed_mps_), radius_m(radius_m_) {}
 };
 
 /**
