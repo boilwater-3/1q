@@ -1,6 +1,7 @@
 #include "sbirs_sensor/runtime/SbirsController.h"
 
 #include "1q/sbirs_sensor/session/SbirsInputValidation.h"
+#include "1q/sbirs_sensor/session/SbirsIssueCodes.h"
 #include "common/logging/ProjectLog.h"
 #include "sbirs_sensor/session/SbirsDiagnosticUtils.h"
 
@@ -36,8 +37,10 @@ session::SbirsCycleResult SbirsController::RunOnce(const session::SbirsCycleInpu
   const pipeline::SbirsPipelineResult pipeline_result = pipeline_.RunCycle(input);
 
   if (!pipeline_result.executed) {
+    // detail_code 为 SbirsIssueCodes.h 完整 code 常量（"sbirs.sensor_powered_off"）。
     session::RecordAbort(&result, session::SbirsPipelineAbortReason::kSensorPoweredOff,
-                         "sensor_powered_off", "SBIRS sensor is powered off or in standby mode.");
+                         session::codes::kSensorPoweredOff,
+                         "SBIRS sensor is powered off or in standby mode.");
     result.executed_this_cycle = false;
     result.status = session::SbirsCycleStatus::kPoweredOff;
     result.output_frame.cycle_index = input.cycle_index;

@@ -7,6 +7,7 @@
 #include <string>
 
 #include "common/logging/ProjectLog.h"
+#include "1q/sbirs_sensor/session/SbirsIssueCodes.h"
 #include "sbirs_sensor/environment/SbirsEnvironmentModel.h"
 #include "sbirs_sensor/foundation/SbirsErrorModel.h"
 #include "sbirs_sensor/foundation/SbirsGeometry.h"
@@ -20,11 +21,9 @@ namespace {
 
 const double kEarthRadiusM = 6371000.0;
 
-// 规则 13b：正常执行周期按目标门控排除的 kInfo 诊断码（message 携带 target_id 与关键量值）。
-constexpr char kExclusionOccultedCode[] = "sbirs.target_occulted";
-constexpr char kExclusionOutOfRangeCode[] = "sbirs.target_out_of_range";
-constexpr char kExclusionOutOfWfovCode[] = "sbirs.target_out_of_wfov";
-constexpr char kExclusionSnrBelowCode[] = "sbirs.target_snr_below_threshold";
+// 规则 13b：正常执行周期按目标门控排除的 kInfo 诊断码（不属于三写，仅承载排查信息）。
+// code 引用 SbirsIssueCodes.h 注册表常量（"sbirs.target_occulted" / "sbirs.target_out_of_range" /
+// "sbirs.target_out_of_wfov" / "sbirs.target_snr_below_threshold"）。
 
 /// 构造 kInfo 级按目标排除诊断（不属于三写，仅承载排查信息；规则 13b）。
 session::SbirsIssue MakeExclusionIssue(const char* code, const std::string& message) {
@@ -483,8 +482,9 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
                                     kEarthRadiusM)) {
       // 规则 13b：遮挡排除 → kInfo 诊断（不属于三写，仅承载排查信息）。
       result.issues.push_back(MakeExclusionIssue(
-          kExclusionOccultedCode, "target_id=" + std::to_string(target.target_id) +
-                                      "; LOS from satellite occulted by Earth"));
+          ::sbirs_sensor::session::codes::kTargetOcculted,
+          "target_id=" + std::to_string(target.target_id) +
+              "; LOS from satellite occulted by Earth"));
       ++excluded_occulted;
       target_states_[target.target_id] = SbirsTargetState::kUndetected;
       nfov_scheduler_.Release(target.target_id);
@@ -500,7 +500,7 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
     if (range_m < mission.min_range_m || range_m > mission.max_range_m) {
       // 规则 13b：距离门排除 → kInfo 诊断（不属于三写，仅承载排查信息）。
       result.issues.push_back(MakeExclusionIssue(
-          kExclusionOutOfRangeCode,
+          ::sbirs_sensor::session::codes::kTargetOutOfRange,
           "target_id=" + std::to_string(target.target_id) + "; range_m=" +
               std::to_string(static_cast<std::int64_t>(range_m)) + " outside [" +
               std::to_string(static_cast<std::int64_t>(mission.min_range_m)) + "," +
@@ -641,7 +641,7 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
     if (!in_wfov) {
       // 规则 13b：视场排除 → kInfo 诊断（不属于三写，仅承载排查信息）。
       result.issues.push_back(MakeExclusionIssue(
-          kExclusionOutOfWfovCode,
+          ::sbirs_sensor::session::codes::kTargetOutOfWfov,
           "target_id=" + std::to_string(target.target_id) + "; az/el (" +
               FormatFloat(azimuth_deg) + "," + FormatFloat(elevation_deg) +
               ") outside scan center (" + FormatFloat(actual_scan_azimuth_deg) + "," +
@@ -659,8 +659,9 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
     if (snr < policy.detection.wide_min_snr_linear) {
       // 规则 13b：WFOV SNR 门排除 → kInfo 诊断（不属于三写，仅承载排查信息）。
       result.issues.push_back(MakeExclusionIssue(
-          kExclusionSnrBelowCode, "target_id=" + std::to_string(target.target_id) +
-                                      "; snr_linear=" + FormatSnr(snr) + " below wide_min=" +
+          ::sbirs_sensor::session::codes::kTargetSnrBelowThreshold,
+          "target_id=" + std::to_string(target.target_id) +
+              "; snr_linear=" + FormatSnr(snr) + " below wide_min=" +
                                       FormatSnr(policy.detection.wide_min_snr_linear)));
       ++excluded_snr_below;
       target_states_[target.target_id] = SbirsTargetState::kUndetected;

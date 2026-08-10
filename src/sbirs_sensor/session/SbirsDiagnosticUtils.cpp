@@ -2,6 +2,7 @@
 
 #include <utility>
 
+#include "1q/sbirs_sensor/session/SbirsIssueCodes.h"
 #include "common/logging/ProjectLog.h"
 
 namespace sbirs_sensor {
@@ -16,6 +17,7 @@ const char* AbortReasonToDiagnosticCode(SbirsPipelineAbortReason reason) {
     case SbirsPipelineAbortReason::kSensorPoweredOff:
       return "sensor_powered_off";
   }
+  // 日志兜底，不进注册表（AbortReasonToDiagnosticCode 仅人读日志映射）。
   return "unknown";
 }
 
@@ -26,13 +28,14 @@ void RecordAbort(SbirsCycleResult* result, SbirsPipelineAbortReason reason,
                        ? SbirsCycleStatus::kRejectedInvalidInput
                        : SbirsCycleStatus::kRejectedExecution;
 
-  // 结构化诊断（细粒度；统一问题列表模型，规则 14：phase 由中止原因推导）
+  // 结构化诊断（细粒度；统一问题列表模型，规则 14：phase 由中止原因推导；
+  // detail_code 为 SbirsIssueCodes.h 完整 code 常量，调用方负责传注册表常量）
   SbirsIssue issue;
   issue.severity = SbirsIssueSeverity::kError;
   issue.phase = reason == SbirsPipelineAbortReason::kValidationRejected
                     ? SbirsIssuePhase::kInputValidation
                     : SbirsIssuePhase::kExecution;
-  issue.code = std::string("sbirs.") + detail_code;
+  issue.code = detail_code;
   issue.message = message;
   result->issues.push_back(std::move(issue));
 

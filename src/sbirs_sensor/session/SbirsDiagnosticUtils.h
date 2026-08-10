@@ -23,7 +23,7 @@ const char* AbortReasonToDiagnosticCode(SbirsPipelineAbortReason reason);
  * @param[out] result 单周期结果。
  * @param[in] reason 粗粒度中止原因；phase 由原因推导（kValidationRejected → kInputValidation，
  *            其余 → kExecution）。
- * @param[in] detail_code 细粒度诊断码（如 "sensor_powered_off"），写入 issues。
+ * @param[in] detail_code 细粒度 issue code（SbirsIssueCodes.h 注册表常量，完整字符串），写入 issues。
  * @param[in] message 中止描述。
  */
 void RecordAbort(SbirsCycleResult* result, SbirsPipelineAbortReason reason,
