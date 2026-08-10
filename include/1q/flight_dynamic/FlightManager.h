@@ -145,7 +145,8 @@ class FlightManager {
    * @return 仿真是否仍在运行；处于 kCompleted/kAborted 时返回 false
    * @note 六自由度机动（含地面滑跑/起落架等快动态）建议 dt ≤ 10-20 ms：
    *       100 ms 量级在起飞段会发散（实测 roll 达 180° 量级后数值崩溃）。
-   *       权威示例 `examples/flight_dynamic/takeoff_land_csv.cpp` 用 10 ms。
+   *       回归测试 `tests/unit/flight_dynamic/fd_takeoff_substep_test.cpp`：
+   *       10 ms 起飞稳定完成、100 ms 起飞段发散（11 个固定翼机型实测）。
    */
   bool Step(double dt_sec);
   /**

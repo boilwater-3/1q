@@ -107,7 +107,7 @@ cmake --preset llvm-ninja-debug -DENABLE_EXAMPLES=ON -DONEQ_ENABLE_FLIGHT_DYNAMI
 orbit_long_duration / racetrack_quality_csv / racetrack_approach_diag，
 保留文档证据链/单测参考/绘图管线依赖的工具）：
 
-- **起飞/降落**：`takeoff_land_csv`（algorithms.md 起飞段权威用法证据锚点）
+- **起飞/降落**：`takeoff_land_csv`（起飞段步长契约同款用法示例；权威证据见 fd_takeoff_substep_test）
 - **盘旋（Orbit）**：`orbit_quality_csv`（fd_orbit_quality_test 参考实现）/ `orbit_trace_csv`
 - **跑道形（Racetrack）**：`racetrack_trace_csv` / `racetrack_approach_trace`
 - **8 字形**：`figure8_approach_trace`

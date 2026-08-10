@@ -77,6 +77,12 @@ Authority: examples 集成实践（component_entt EnTT 模式 + component_attach
   补 kTakeoff 的 latitude_rad 语义交叉引用与 TakeoffPhase 相位注释；
   `takeoff_land_csv.cpp` kDt=0.01 补理由；`docs/flight_dynamic/algorithms.md`
   起飞条目补步长上限实现边界。纯注释级修复，不改 API。
+- **后续（2026-08-10）**：步长证据锚点从示例迁至库内单测
+  `tests/unit/flight_dynamic/fd_takeoff_substep_test.cpp`（10 ms 起飞稳定完成；
+  100 ms 起飞段发散在 20 个固定翼机型实测，11 个发散、roll 155°-180° 后坠毁，
+  与上述 roll 172° 记录吻合）；algorithms.md 证据与 `FlightManager.h` @note
+  改指向该回归测试，示例（takeoff_land_csv / component_attachment）只保留
+  "消费同一契约"的引用方向。
 
 ### F4 EOS 默认配置与常见周期不兼容（隐性覆写样板）
 

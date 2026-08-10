@@ -287,14 +287,15 @@ ESR 波形、天基平台、EOS 扫描、SAR 任务几何/链路、融合配置�
 新场景 = 新 JSON 文件 + 重跑，无需改代码；`scene_script` 只保留"目标脚本 → ECEF 状态
 → 各通道真值"的纯转换。下述基线行为对应 `scenes/baseline_takeoff_east.json`。
 
-`FlightComponent` 的 FD 路径遵循 `examples/flight_dynamic/takeoff_land_csv.cpp`
-的权威用法（**不做空中配平**——空中配平虽允许但存在不稳定问题）：
+`FlightComponent` 的 FD 路径遵循 `FlightManager.h` `Step(dt)` @note 的集成契约
+（同款用法见 `examples/flight_dynamic/takeoff_land_csv.cpp` 示例；
+**不做空中配平**——空中配平虽允许但存在不稳定问题）：
 
 - **初始条件**：机场地面（alt 0）、零速度、姿态水平、`do_trim = false`；
 - **机动队列**：`kTakeoff`（滑跑→抬轮→爬升到巡航高度）→ 航路点巡航
   （kFlyToWaypoint）→ `kLand`（降落目标 = 航路终点，场景简化）；
 - **子步进 10 ms**：地面滑跑/起落架为快动态，100 ms 步长会失控发散
-  （实测起飞段 roll 达 180° 量级后数值崩溃；10 ms 与权威示例一致）；
+  （实测起飞段 roll 达 180° 量级后数值崩溃；10 ms 与集成契约一致）；
 - **运动学回退**（FD 关闭/初始化失败）：模拟起飞爬升（5 m/s 到巡航高度）+
   巡航直线，行为语义一致。
 
