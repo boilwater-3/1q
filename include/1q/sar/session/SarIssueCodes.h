@@ -101,7 +101,7 @@ constexpr char kSquintAngleInvalid[] = "sar.validation.squint_angle_invalid";
 /** @brief 环境标量字段非法（须有限且大气损耗非负）。 */
 constexpr char kEnvironmentConfigInvalid[] = "sar.validation.environment_config_invalid";
 
-// ===== 执行诊断（规则 13b/14c）=====
+// ===== 执行/外部输入诊断（非 validation 前缀；含 13b 排除诊断与 abort 失败码）=====
 
 /** @brief 外部 raw IQ 无信噪比元数据，跳过链路预算与最小 SNR 门限（kInfo）。 */
 constexpr char kExternalRawIqSnrUnavailable[] = "sar.external_raw_iq_snr_unavailable";

@@ -181,7 +181,7 @@ struct ArSession::Impl {
     ArCycleResult result;
     result.input_cycle_index = input.cycle_index;
     result.abort_reason = abort_reason;
-    // 不可达兜底：日志兜底串，不构成 issue code（不进注册表）。
+    // 不可达兜底（值不属注册表；若命中会写入 issue.code）。
     const char* detail_code = "unknown";
     switch (abort_reason) {
       // 校验拒绝（kValidationRejected）不可经此路径：公共路径与发射后路径均走

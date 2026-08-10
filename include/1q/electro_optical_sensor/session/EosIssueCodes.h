@@ -11,9 +11,7 @@ namespace electro_optical_sensor {
 namespace session {
 namespace codes {
 
-// =============================================================================
-// 输入校验问题（"eos.validation.<snake_case>"）
-// =============================================================================
+// ===== 输入校验问题（"eos.validation.<snake_case>"）=====
 
 /** @brief 平台位姿含非有限数值（位置/速度/姿态角）。 */
 constexpr char kNonFinitePlatformNumericField[] =
@@ -47,7 +45,7 @@ constexpr char kNonFiniteCycleDeltaTime[] = "eos.validation.non_finite_cycle_del
 /** @brief 周期步长非法（<= 0）。 */
 constexpr char kInvalidCycleDeltaTime[] = "eos.validation.invalid_cycle_delta_time";
 
-/** @brief 周期步长超过帧周期合理范围（> 10 倍帧周期倒数）。 */
+/** @brief 周期步长超过帧周期合理范围（> 10 倍帧周期，即 10 / frame_rate_hz）。 */
 constexpr char kCycleDeltaTimeExceedsFramePeriod[] =
     "eos.validation.cycle_delta_time_exceeds_frame_period";
 
@@ -72,9 +70,7 @@ constexpr char kEnvironmentPresetInvalid[] = "eos.validation.environment_preset_
 /** @brief 启用物理模型时大气物理参数无效（压力/温度/湿度越界）。 */
 constexpr char kAtmosphericPhysicsInvalid[] = "eos.validation.atmospheric_physics_invalid";
 
-// =============================================================================
-// 执行诊断（规则 13b/14c）
-// =============================================================================
+// ===== 执行诊断（规则 13b/14c）=====
 
 /** @brief 目标视场外（正常周期按目标排除的 kInfo 诊断，规则 13b）。 */
 constexpr char kTargetOutOfFov[] = "eos.target_out_of_fov";

@@ -7,8 +7,8 @@
 #include <cstdio>
 #include <string>
 
-#include "airborne_radar/config/SignalEngineeringConfig.h"
 #include "1q/airborne_radar/session/ArIssueCodes.h"
+#include "airborne_radar/config/SignalEngineeringConfig.h"
 #include "airborne_radar/signal/detection/ArDetectionCellResolver.h"
 #include "airborne_radar/signal/detection/BeamControlResolver.h"
 #include "airborne_radar/signal/detection/MeasurementErrorModel.h"
@@ -160,7 +160,7 @@ bool HasValidBuffers(const DetectionExecutionBuffers& buffers) {
 }
 
 // 规则 13b：正常执行周期按目标门控排除的 kInfo 诊断码（不属于三写，仅承载排查信息）。
-// code 引用 ArIssueCodes.h 注册表常量（"ar.target_snr_below_threshold"）。
+// code 引用 ArIssueCodes.h 注册表常量。
 
 /// 构造 kInfo 级按目标排除诊断（不属于三写，仅承载排查信息；规则 13b）。
 session::ArIssue MakeExclusionIssue(const char* code, const std::string& message) {

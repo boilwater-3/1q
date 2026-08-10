@@ -68,7 +68,7 @@ struct EosController::Impl {
     // 不再重复写入粗粒度条目。
     if (last_abort_reason != session::EosPipelineAbortReason::kNone &&
         last_abort_reason != session::EosPipelineAbortReason::kValidationRejected) {
-      // 不可达兜底：日志映射串，不构成 issue code（不进注册表）。
+      // 不可达兜底（值不属注册表；若命中会写入 issue.code）。
       const char* detail_code = "unknown";
       // 校验拒绝（kValidationRejected）不可达：外层 if 已排除，校验问题本身承载写二。
       switch (last_abort_reason) {
