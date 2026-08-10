@@ -2,15 +2,15 @@
 
 ## 定位
 
-第二种示例模式：**自定义实体-组件**开发（不依赖 EnTT 等 ECS 开源库），与
-`component_entt`（EnTT ECS 开源库模式）形成两种开发模式对照。
+消费方业务层的集成参考示例：**自定义实体-组件**开发——不依赖 ECS 开源库，
+用组件基类 + 挂载 + 事件库实现完整的感知→决策链路。
 
 - **组件基类**：`core/component.h` 定义虚接口（Name / OnAttach / OnDetach / Step），
-  组件**携带逻辑**（区别于 EnTT 纯数据组件）；
+  组件**携带逻辑**（每周期 `Step` 驱动封装的一个库会话/引擎）；
 - **模块 → 组件**：每个仿真模块对应一个 `Component` 子类（飞行 / AR / ESR / EOS /
   SBIRS / SAR / 融合 / 威胁评估），**挂载**到实体上参与仿真；
 - **事件机制**：使用 C++ 常见开源事件库 **Boost.Signals2**（零自定义分发层），
-  弥补"自研 ECS 无事件功能"（对应 EnTT 的 observer/signals）。
+  提供跨周期通知/记录的事件通道。
 
 单平台精简场景：1 个 `platform` 实体挂载 8 个组件，400 周期 × 1 s。四传感器
 （AR / ESR / EOS / SBIRS）端到端：探测 → 融合 → 威胁评估 → 高置信威胁 → 决策指令（事件链）；
@@ -51,7 +51,7 @@ examples/component_attachment/
 ```
 
 > 传感器输出 → 融合探测记录的边界适配（`Adapt*` 系列）与源通道常量在
-> `examples/common/sensor_adapt.h`（与 component_entt 共用，消除双份维护）。
+> `examples/common/sensor_adapt.h`（示例共享边界适配）。
 
 ## ECS 核心设计
 
@@ -82,9 +82,9 @@ class Component {
 
 ### 世界与共享上下文（core/world.h）
 
-- `World` 承担 EnTT registry 的职责：`CreateEntity(name)`（创建序 = 步进序）、
+- `World` 是实体注册表：`CreateEntity(name)`（创建序 = 步进序）、
   `FindEntity(name)`、`Step(dt)` 顺序步进全部实体、`signals()` 事件通道。
-- **共享场景状态**（对应 `registry.ctx()`）：`SceneState` 基类（cycle/t_sec），
+- **共享场景状态**（跨实体上下文）：`SceneState` 基类（cycle/t_sec），
   消费方继承扩展（`DemoSceneState` 增加四通道世界真值 + 天基平台位置 + SAR
   点目标），每周期更新、组件读取。
 
@@ -472,23 +472,6 @@ cmake --build --preset llvm-ninja-release-local --target component_attachment_de
 
 控制台输出每周期一行摘要（平台高度/航向/速度/航点进度 + 融合目标数），事件
 逐条打印；结束打印汇总（实体数/组件数/事件数/指令是否下发）。
-
-## 与 component_entt（EnTT 模式）对照
-
-| 方面 | component_entt（EnTT） | component_attachment（自定义） |
-| --- | --- | --- |
-| ECS 依赖 | EnTT 3.14（header-only 开源库） | 无 ECS 依赖（core/ 自研约 300 行） |
-| 组件形态 | 纯数据 struct（无逻辑） | `Component` 基类 + 子类（携带逻辑） |
-| 逻辑归属 | 自由函数系统（5 个 system） | 组件虚接口 `Step`（挂载序执行） |
-| 注册表 | `entt::registry` + view/ctx | `World`（实体列表 + scene_state） |
-| 实体句柄 | `entt::entity` | `EntityId`（uint64）+ `Entity&` |
-| 事件机制 | `entt::observer` / sigh（库自带） | **Boost.Signals2**（常见开源事件库） |
-| 组件间数据 | 组件字段 + ctx 读写 | 同实体 `Find<T>()` + 信号发布 |
-| 生命周期钩子 | 无内建 | `OnAttach` / `OnDetach` |
-
-两种模式共用同一批库 API（ArSession/EsrSession/EosSession/SbirsSession/
-SarSession/FusionEngine/FlightManager）、同一份共享配置（`examples/configs/`
-JSON）与同一套探测适配逻辑（`sensor_adapt.h` 与行为层 `systems.cpp` 同构）。
 
 ## 测试
 

@@ -1,8 +1,18 @@
 # 示例程序（examples）
 
-本目录是 **examples 层**：只使用 `include/` 对外公开的 Session / Adapter / Replay 接口，
-不修改任何库源码。每个子目录按传感器域或工具职能切分，各自拥有独立的 `CMakeLists.txt`，
-由顶层 `examples/CMakeLists.txt` 以 `add_subdirectory()` 编排——与 `src/` 的模块拆分惯例一致。
+本目录是 **examples 层**：消费方集成参考——示范"怎么写一个接库的程序"。
+只使用 `include/` 对外公开的 Session / Adapter / Replay 接口，不修改任何库源码。
+
+## 定位：单一角色
+
+examples 层只承担一个角色：**消费方集成参考**。验证框架与模块开发期工具
+不属于"示例"，已归位 `tests/`：
+
+| 角色 | 位置 |
+| --- | --- |
+| 消费方集成参考 | `examples/`（本目录） |
+| 多场景批量验证框架 | `tests/consumer/batch_validation/`（只走公开 Session/Adapter/Replay 接口） |
+| FD 开发期验证工具（逐帧 CSV + 分析脚本） | `tests/unit/flight_dynamic/fd_tools/`（机动模块验证形态 = 帧导出 + 脚本分析，见该目录 README） |
 
 ## 目录结构
 
@@ -10,66 +20,45 @@
 examples/
 ├── CMakeLists.txt                  编排层：定义共享变量 + add_subdirectory()
 ├── README.md                       本文件
-├── common/                         共享便利层：JSON 解析 + 三域 config_loaders + viz/ 共享查看器（不属于库 public surface）
-├── configs/                        四域会话配置 JSON（详见 configs/README.md）
-├── component_entt/                 行为层参考实现（EnTT ECS 业务层，AR/ESR/EOS 三传感器全链；**未启用**，见下方说明）
-├── component_attachment/           自定义实体-组件模式示例（组件基类 + 挂载 + Boost.Signals2 事件，五传感器 + SAR/SBIRS）
-├── flight_dynamic/                 机动模块 CSV 工具与轨迹生成（依赖 JSBSim）
-└── batch_validation/               多场景批量验证（详见 batch_validation/README.md）
+├── common/                         共享便利层：JSON 解析 + 五域 config_loaders + viz/ 共享查看器（不属于库 public surface）
+├── configs/                        五域会话配置 JSON（详见 configs/README.md）
+└── component_attachment/           消费方集成参考示例：五传感器 + 融合 + 威胁评估 + 多机编队
 ```
 
-## 示例分类
+## 示例内容
 
-三域（AR/ESR/EOS）per-domain 示例已于 2026-08-05 删除——其 session_usage（API 教程）
-与 scene（端到端场景）类目功能并入 `component_entt/` 三传感器全链（见下文）。
-SAR per-domain 示例（SarModule 包装类）已于 2026-08-10 删除——SAR 集成由
-`component_attachment/` 的 SarSensorComponent + 场景验证工作流覆盖。
+`component_attachment/` 为消费方业务层参考实现：自定义实体-组件模式
+（组件基类 + 挂载 + Boost.Signals2 事件），每周期按挂载序推进，覆盖
+飞行（FD 六自由度机动 + 运动学回退）→ 五传感器（AR/ESR/EOS/SBIRS/SAR）
+→ 融合 → 威胁评估 → 决策指令的事件链，并提供：
 
-### component_entt（EnTT ECS 行为层）——停用但保留
+- **场景数据驱动**：`scenes/*.json` 声明飞行脚本、目标脚本、传感器业务覆写
+  与冒烟下限（含多机区域巡逻 `fleet_patrol_multi_zone`），新场景只加 JSON
+  不改代码；场景预期表归档为 `*.md`；
+- **集成端日志示范**：库日志（`1q_library.log`）+ 集成端事件/视图日志
+  （`integration_events.log` / `integration_views.log`，中文人读行），落盘
+  密度由 `demo_log_modes.h` 三模式宏门控；
+- **外置查询数据源**：各组件暴露 `powered_on()` / 扫描方位 getter 与
+  `LastDebugView()`，供选定实体后拉取设备状态；
+- **运行时修改接口**：各组件把库的 RuntimeConfigPatch 薄包装为公开方法
+  （提交语义随模块而异，权威定义见 `docs/common/contract.md`）。
 
-`component_entt/`（原 `behavior_layer/`，2026-08-10 改名）为 EnTT ECS 行为层参考实现
-（AR/ESR/EOS 三传感器全链 + 融合 + 可视化录制）。**目前未使用该模块**——实际集成
-走 `component_attachment/` 自定义 ECS 模式；但 EnTT ECS 模式未来大概率启用，故
-**代码保留、CMake 中注释停用**（`examples/CMakeLists.txt` 的停用声明，取消
-`add_subdirectory(component_entt)` 注释即恢复构建与测试）。
-
-## 两种 ECS 开发模式
-
-业务层示例提供两种 ECS 开发模式对照（均覆盖 AR/ESR/EOS 三传感器全链 +
-融合 + 飞行动力学，共用同一份 `configs/` 共享配置）：
-
-| 模式 | 目录 | ECS 形态 | 事件机制 |
-| --- | --- | --- | --- |
-| **ECS 开源库** | `component_entt/` | EnTT 3.14（纯数据组件 + 自由函数系统） | EnTT 自带 observer/sigh |
-| **自定义实体-组件** | `component_attachment/` | 组件基类 + 子类（携带逻辑）+ 挂载到实体 | **Boost.Signals2**（常见开源事件库） |
-
-`component_attachment/` 的自定义 ECS 核心（`core/`）约 300 行纯头文件：组件基类
-（Name/OnAttach/OnDetach/Step 虚接口）、实体（挂载容器，挂载序 = 步进序）、
-世界（实体注册表 + 共享场景状态 + 信号集合）。FD 场景按六自由度机动设计
-（从起飞开始，`kTakeoff → 航点 → kLand`，不做空中配平），详见
-`component_attachment/README.md`。
+详见 `component_attachment/README.md`。
 
 ## 共享便利层
 
-`common/` 提供 example 层共享便利工具（**不属于 oneq 库的 public surface**——库内部不消费 JSON）：
+`common/` 提供 example 层共享便利工具（**不属于 oneq 库的 public surface**
+——库内部不消费 JSON）：
 
 - `json_reader`（`oneq::JsonReader`）：轻量 JSON 解析；
-- `csv_writer`：流式 CSV 写入（批量验证与 component_entt 可视化导出共用）；
-- `sensor_adapt`：传感器输出 → 融合探测记录的边界适配（`component_entt` 与
-  `component_attachment` 共用，消除双份维护）；
-- `config_loaders/<域>/`：各传感器域 JSON → `*SessionConfig` 的映射器（`config_loader.h` 三件套），
-  供 `component_entt` 与 `batch_validation` 消费；
-- 由顶层 `CMakeLists.txt` 定义 `ONEQ_EXAMPLE_COMMON_DIR` / `ONEQ_EXAMPLE_COMMON_SOURCES`，
-  各子目录通过目录作用域继承并内联到 target，无需函数传递。
-
-> DebugView → JSON 序列化器（`*DebugViewToJson.h` 等）已于 2026-08-07 从 `common/`
-> 移除：示例日志面向人读，不做结构化落盘；`session_contract.md` 规则 12 的"调用方
-> 结构化持久化 DebugView"由外部集成方接入自己的日志/事件系统实现，结构化格式与
-> 字段布局由调用方自定（参考 `*OutputDebugView` 字段集合直接转写）。组件化集成
-> 示范见 `component_attachment/`（三个日志文件：库内部日志 → `1q_library.log`、
-> 集成端事件行 → `integration_events.log`、视图行 → `integration_views.log`——
-> 中文人读行，各传感器组件每周期取 `LastDebugView()` 直写视图行，事件行同源
-> 落盘；落盘密度三模式由 `demo_log_modes.h` 模式选择区宏门控）。
+- `csv_writer`：流式 CSV 写入（批量验证框架与 component_attachment 输出共用）；
+- `sensor_adapt`：传感器输出 → 融合探测记录的边界适配（component_attachment 消费）；
+- `config_loaders/<域>/`：各传感器域 JSON → `*SessionConfig` 的映射器
+  （`config_loader.h` 三件套），component_attachment 与批量验证框架消费；
+- `viz/`：共享可视化查看器 `build_viewer.py`（统一契约 v2：多机
+  platform_track/route_plan + zones），从 CSV 构建单文件交互 HTML；
+- 由本层 `CMakeLists.txt` 定义 `ONEQ_EXAMPLE_COMMON_DIR` /
+  `ONEQ_EXAMPLE_COMMON_SOURCES`，子目录通过目录作用域继承并内联到 target。
 
 ## 构建与运行
 
@@ -77,72 +66,29 @@ SAR per-domain 示例（SarModule 包装类）已于 2026-08-10 删除——SAR 
 
 ```bash
 # 1. 标准依赖引导（详见 cmake/README.md）
-bash scripts/bootstrap_conan.sh llvm-ninja-debug
-cmake --preset llvm-ninja-debug -DENABLE_EXAMPLES=ON
-cmake --build --preset llvm-ninja-debug --target component_entt_demo
+bash scripts/bootstrap_conan.sh llvm-ninja-release-local
+cmake --preset llvm-ninja-release-local -DENABLE_EXAMPLES=ON
+cmake --build --preset llvm-ninja-release-local --target component_attachment_demo
 ```
 
-飞行力动示例额外需要机动模块：
-
-```bash
-cmake --preset llvm-ninja-debug -DENABLE_EXAMPLES=ON -DONEQ_ENABLE_FLIGHT_DYNAMIC=ON
-```
+飞行组件（FlightComponent）的 FD 路径在 `-DONEQ_ENABLE_FLIGHT_DYNAMIC=ON`
+时接入 JSBSim 真实飞行仿真；关闭/初始化失败回退运动学路径（行为语义一致）。
 
 构建产物统一输出到 `build/<preset>/bin/`。
 
 ## 配置注入约定
 
-部分示例通过编译期宏注入运行时路径，避免硬编码：
-
 | 宏 | 注入者 | 用途 |
 | --- | --- | --- |
-| `SCENE_CONFIG_DIR` | `component_entt_demo` | 指向 `examples/configs/`，供 config_loader 加载 JSON |
-| `BATCH_CONFIG_DIR` | `*_batch_validation` | 同上，与 scene 同源 |
-| `FD_JSBSIM_ROOT_DIR` | flight_dynamic 全部 | JSBSim 飞机数据根目录，优先取 `ONEQ_JSBSIM_DATA_ROOT_DIR` |
-
-## flight_dynamic 示例
-
-`flight_dynamic/` 提供 7 个独立 CSV 工具，覆盖机动模块的轨迹生成与质量分析
-（2026-08-10 精简：删除 4 个无引用的开发期验证工具 maneuver_sweep_csv /
-orbit_long_duration / racetrack_quality_csv / racetrack_approach_diag，
-保留文档证据链/单测参考/绘图管线依赖的工具）：
-
-- **起飞/降落**：`takeoff_land_csv`（起飞段步长契约同款用法示例；权威证据见 fd_takeoff_substep_test）
-- **盘旋（Orbit）**：`orbit_quality_csv`（fd_orbit_quality_test 参考实现）/ `orbit_trace_csv`
-- **跑道形（Racetrack）**：`racetrack_trace_csv` / `racetrack_approach_trace`
-- **8 字形**：`figure8_approach_trace`
-- **S 形转弯**：`sturn_trace_csv`
-
-每个工具链接 `JSBSim::JSBSim`，通过 `setup_fd_example` 宏统一注入 src 头路径、
-JSBSim 头路径与数据根目录。`orbit_visualize.py` 可将 trace CSV 可视化为 PNG + KML；
-`tools/fd_trace_to_viz.py` 将 trace CSV 归一为统一可视化契约（共享查看器）。
-
-## 行为层参考实现（EnTT ECS）
-
-`component_entt/` 是消费方业务层的参考实现：实体/组件装配由 EnTT（`entt/3.14.0`，
-header-only，**example 侧依赖，不进入库本体**）registry 承担，逻辑以纯数据组件 +
-自由函数系统表达（详见 `component_entt/README.md` 与 `docs/review/Bahavior.md` §5）。
-
-- **组件**：`TaskingComponent`（角色/上下级/区域任务）、`SensorObservationComponent`、
-  `FleetStatusComponent`、`RoutePlanComponent`、`FusedSituationComponent`、
-  `CommandFrameComponent`；
-- **系统**（每周期按 `flight → recon → maneuver → jam → decision` 顺序执行，对齐
-  session `Step` 语义）：飞行（平台动力学——`ONEQ_ENABLE_FLIGHT_DYNAMIC=ON` 时经
-  `flight_dynamic::FlightManager` 真实飞行仿真，关闭/数据缺失回退运动学）、侦察
-  （**三传感器 AR/ESR/EOS 会话同周期推进**，输出在边界适配为泛型探测记录并经
-  融合引擎跨源合并）、机动规划（长机调 `navigation` 面规划全员航路）、干扰
-  （经 ECM 既有公共面构造周期输入，观测帧由 ESR 输出填充）、决策（聚合产出
-  命令帧，消费方读取后驱动 `SubmitExternalDecision` 等执行面）；
-- **事件模型**：命令 = 写命令帧组件；事件报告 = `entt::observer` 响应组件变化，
-  不建全局事件总线。
-
-> **演进路线（2026-08-05 已兑现）**：ECS 组件/系统模式覆盖了 session_usage 与 scene
-> 类目的全部职责；三域（AR/ESR/EOS）per-domain 旧示例已删除，功能并入本示例
-> （决策记录见 `docs/review/Bahavior.md` 实施状态注记）。
+| `SCENE_CONFIG_DIR` | component_attachment demo 与单元测试 | 指向 `examples/configs/`，供 config_loader 加载 JSON |
+| `CA_SCENE_DIR` | component_attachment demo | 指向 `examples/component_attachment/scenes/`，`--scene` 默认值 |
+| `CA_DEFAULT_OUTPUT_DIR` | component_attachment demo | 指向 `examples/component_attachment/log/`，`--output-dir` 默认值（运行时产物不入版本控制） |
 
 ## 相关文档
 
-- [`configs/README.md`](configs/README.md) — 四域会话配置 JSON 字段说明
-- [`batch_validation/README.md`](batch_validation/README.md) — 批量验证框架设计与 CSV schema
+- [`configs/README.md`](configs/README.md) — 五域会话配置 JSON 字段说明
+- [`component_attachment/README.md`](component_attachment/README.md) — 示例详细设计
 - [`cmake/README.md`](../cmake/README.md) — 构建架构与目录约定
+- `docs/practice/batch_validation.md` — 批量验证框架（tests/consumer 分区）
+- `tests/unit/flight_dynamic/fd_tools/README.md` — FD 开发期验证工具
 - `docs/public_model_config_manual.md` — 配置字段详尽说明
