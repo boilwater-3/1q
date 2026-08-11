@@ -92,7 +92,7 @@ for root, _, files in os.walk('docs'):
                 if in_code: start, n = None, 0
                 continue
             if in_code: continue
-            if (not s) or s.startswith(('#','-','*','|','>')) or re.match(r'^\d+\.\s', s):
+            if (not s) or s.startswith(('#','-','*','|','>')) or re.match(r'^(\d+|[a-z])\.\s', s):
                 if n > 8 and start: print(f"{p}:{start+1} 大段({n}行)")
                 start, n = None, 0
             else:
