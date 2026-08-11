@@ -204,7 +204,12 @@ AR/ESR/EOS/SBIRS/SAR 五模块的电源状态必须遵守单源原则：
        - **纯观测**：只读 `result.issues`（按 `location.kind == kSceneEntity` 过滤），不改变
          `*CycleStatus`、排除诊断、DebugView 状态语义（规则 13c 边界延续）。
        - **适用范围**：具有"按实体门控排除"语义的模块（AR/SBIRS/EOS/ESR）；SAR 无排除诊断
-         （13b 空洞条款），不适用。当前落地 AR + SBIRS（2026-08），EOS/ESR 按需后补。
+         （13b 空洞条款），不适用。四模块全部落地（2026-08）：AR/SBIRS 以 `target_id` 为
+         内部状态键；ESR 无 target_id 概念，以发射源标识（platform/equipment/emission id 三元组）
+         为内部状态键——`location.entity_index` 为 identity 排序后下标（与
+         `InterceptDetectionExecutor` 排序序一致），记录器 Update 时按同一序重排 emissions
+         把 entity_index 解析回 identity 三元组，**内部以 identity 为键**免疫跨周期发射源
+         集合变化时的下标移位。EOS 单一视场门，与 SBIRS 同构（target_id 键）。
    **对齐状态（2026-08）**：五传感器模块已全部按本规则对齐（SBIRS/AR/ESR/EOS/SAR）。SAR 无
    逐目标门控排除（集体成像模型，几何/SNR 门均为整周期中止 → 三写），13b 对其为空洞条款，
    以 kInfo/kWarning 正常路径诊断承载（见 `docs/sar/boundaries.md`）。

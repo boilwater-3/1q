@@ -127,6 +127,15 @@ message 携带 `target_id` 与目标方位/扫描中心/FOV 尺寸/差值），*
 message 补相对扫描中心的差值。
 输入中消失的目标由生命周期 recorder 承载（`kLost` 事件），不产生排除诊断（规则 13d）。
 周期摘要日志（`[EosPipeline] … excluded={{fov=…}}`）仅人读（规则 13a）。
+**实体机器可读关联（规则 14e/13b）**：排除诊断结构化携带 `location = {kSceneEntity, target_index}`
+（`MakeExclusionIssue` 由 pipeline 主循环索引 `i` 赋值），供 `EosExclusionCauseRecorder` 按实体
+关联消费。
+**排除原因跨周期差分（规则 13b 子项 e）**：`EosExclusionCauseRecorder` 对持续被排除目标做
+`(code, cause)` 对差分，产出 A2 进入/A3 原因变化（越界轴变化）/A4 退出事件；纯观测只读
+`result.issues`（按 `location.kind == kSceneEntity` 过滤），与 `EosDetectionLifecycleRecorder`
+并列（独立 Attach/驱动/GetLastEvents），注册与否不影响执行语义（规则 11c）。**消失目标边界**：
+recorder 只遍历当前周期 `input.scene`，目标从输入消失时其排除状态条目保留（不会被 A4 清除，
+与既有 `EosDetectionLifecycleRecorder` 行为一致）；重现为 A3 而非 A2。
 
 ## 专项序列验证边界
 

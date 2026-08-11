@@ -156,7 +156,9 @@ cause 字段落地后，本需求的收益是"呈现方式"而非"新信息"：
 - 事件结构：`*ExclusionCauseEvent`（周期号/实体标识/previous_code+cause/current_code+cause/
   kind），kind 为 `kEntered`(A2)/`kChanged`(A3)/`kExited`(A4)。
 
-落地范围：AR + SBIRS（2026-08）；EOS/ESR 按需后补。
+落地范围（2026-08）：**四模块全部落地**——AR/SBIRS（target_id 键）、EOS（target_id 键，
+单一视场门）、ESR（发射源标识 platform/equipment/emission 三元组键，免疫集合变化下标移位）。
+SAR 无排除诊断（13b 空洞条款）不适用。
 
 ## 4. 未决问题（状态更新 2026-08-11）
 
