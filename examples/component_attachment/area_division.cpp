@@ -141,7 +141,13 @@ bool DividePolygonStrips(const navigation::PolygonalArea& polygon,
   sub_areas->reserve(aircraft_count);
   for (std::size_t j = 0; j < aircraft_count; ++j) {
     const double v_lo = v_min + strip_width * static_cast<double>(j);
-    const double v_hi = v_min + strip_width * static_cast<double>(j + 1U);
+    // 末条带 v_hi 显式取 v_max：v_min + width*(j+1) 因浮点舍入可能比 v_max
+    // 小约 1 ulp，使位于 v_max 的顶点被判为"略在外侧"，Sutherland–Hodgman
+    // 在相邻两边各生成一个几乎重合的交点（子区域出现重复顶点）。取 v_max
+    // 后该顶点恰在边界上（含等号判内），无双交点，且并集仍无缝覆盖。
+    const double v_hi = (j + 1U == aircraft_count)
+                            ? v_max
+                            : v_min + strip_width * static_cast<double>(j + 1U);
     std::vector<PlanePoint> clipped = ClipHalfPlane(frame_points, v_hi, false);
     clipped = ClipHalfPlane(clipped, v_lo, true);
     // 退化检查：顶点 < 3，或 u/v 跨度任一不显著（共线多边形经 ENU 回变换

@@ -282,6 +282,126 @@ TEST(AreaDivisionTest, SingleAircraftReturnsWholeArea) {
   EXPECT_EQ(orbit_division.sub_configs[0].orbit_rings, 2U);  // 原样透传
 }
 
+TEST(AreaDivisionTest, IrregularConvexPolygonSplitsIntoSlantedStrips) {
+  // 凸不规则多边形（梯形，两腰斜率不同 → 扫描线宽度随 v 线性变化）：
+  // 顶点 ENU (−600,1000)/(1200,1000)/(2000,−1000)/(0,−1000)（中心 30N/120E）。
+  // 左腰 x_L(y) = −600 + 0.3·(1000−y)、右腰 x_R(y) = 1200 + 0.4·(1000−y)，
+  // 线宽 width(y) = 1800 + 0.1·(1000−y)。2 机 → 南北两半（各 4 顶点）：
+  // 下条带 east ∈ [0, 2000]、上条带 east ∈ [−600, 1600]（y=0 处腰交点
+  // x_L = −300、x_R = 1600）。间距 300 m → 每机 3 线 × 2 = 6 航点；
+  // 上条带首线 y=150：x_L = −345、x_R = 1540，线宽 1885 m。
+  const LlaPositionDegM center = MakeLla(30.0, 120.0, 0.0);
+  navigation::CoverageArea area;
+  area.kind = navigation::CoverageAreaKind::kPolygon;
+  area.polygon.vertices = {OffsetLla(center, -600.0, 1000.0),
+                           OffsetLla(center, 1200.0, 1000.0),
+                           OffsetLla(center, 2000.0, -1000.0),
+                           OffsetLla(center, 0.0, -1000.0)};
+  navigation::CoveragePlanConfig config = MakeScanConfig();
+  config.scan_spacing_m = 300.0;
+
+  const FormationDivisionResult division = DivideArea(area, config, 2U);
+  ASSERT_TRUE(division.ok) << division.error;
+  ASSERT_EQ(division.sub_areas.size(), 2U);
+  ASSERT_EQ(division.sub_areas[0].polygon.vertices.size(), 4U);
+  ASSERT_EQ(division.sub_areas[1].polygon.vertices.size(), 4U);
+
+  const EnuExtents lower = ExtentsOf(division.sub_areas[0], center);
+  const EnuExtents upper = ExtentsOf(division.sub_areas[1], center);
+  // 下条带为梯形（非矩形）：左腰从 (0,−1000) 斜到 (−300,0)，故 east 左界 = −300。
+  EXPECT_NEAR(lower.east_min, -300.0, 1.0);
+  EXPECT_NEAR(lower.east_max, 2000.0, 1.0);
+  EXPECT_NEAR(lower.north_min, -1000.0, 1.0);
+  EXPECT_NEAR(lower.north_max, 0.0, 1.0);
+  EXPECT_NEAR(upper.east_min, -600.0, 1.0);
+  EXPECT_NEAR(upper.east_max, 1600.0, 1.0);
+  EXPECT_NEAR(upper.north_min, 0.0, 1.0);
+  EXPECT_NEAR(upper.north_max, 1000.0, 1.0);
+
+  // 逐条带规划：各 3 线 × 2 = 6 航点；上条带首线（y=150）两航点 east
+  // 跨度 = x_R − x_L = 1885 m（斜腰几何下的线宽随条带内 v 位置变化）。
+  const navigation::AreaCoveragePlanner planner;
+  const navigation::RoutePlan upper_plan =
+      planner.Plan(division.sub_areas[1], division.sub_configs[1]);
+  ASSERT_EQ(upper_plan.size(), 6U);
+  const auto [first_east, first_north] = ToEnu(upper_plan[0].position, center);
+  const auto [second_east, second_north] = ToEnu(upper_plan[1].position, center);
+  (void)first_north;
+  (void)second_north;
+  EXPECT_NEAR(second_east - first_east, 1885.0, 1.0);
+  const navigation::RoutePlan lower_plan =
+      planner.Plan(division.sub_areas[0], division.sub_configs[0]);
+  ASSERT_EQ(lower_plan.size(), 6U);
+}
+
+TEST(AreaDivisionTest, ConcaveLSplitProducesHexagonStrip) {
+  // 凹多边形（L 形，参考 (30.0, 120.01)，用与场景同值的 LLA 顶点——
+  // 顶边两角因 ENU 曲率差 ~0.06 m，能复现末条带 v_hi 浮点边界的伪重复
+  // 顶点输入）：顶点 ENU (−1000,−1000)/(1000,−1000)/(1000,0)/(500,0)/
+  // (500,1000)/(−1000,1000)（凹口 = east (500,1000] × north (0,1000]）。
+  // 航向 0 → 3 条等宽条带（各 ≈ 666.7 m）：条带 0（南，全宽）与条带 2
+  // （北，半宽）= 矩形 4 顶点；条带 1（跨凹口底缘 y=0）= 六边形 6 顶点
+  // （east [−1000,1000] 底 + east [−1000,500] 顶）。间距 250 m → 每机
+  // 3 线 × 2 = 6 航点。
+  const LlaPositionDegM ref = MakeLla(30.0, 120.01, 0.0);
+  navigation::CoverageArea area;
+  area.kind = navigation::CoverageAreaKind::kPolygon;
+  area.polygon.vertices = {MakeLla(29.991006, 119.999628, 0.0),
+                           MakeLla(29.991006, 120.020372, 0.0),
+                           MakeLla(30.000000, 120.020372, 0.0),
+                           MakeLla(30.000000, 120.015186, 0.0),
+                           MakeLla(30.008994, 120.015186, 0.0),
+                           MakeLla(30.008994, 119.999628, 0.0)};
+  navigation::CoveragePlanConfig config = MakeScanConfig();
+  config.scan_spacing_m = 250.0;
+
+  const FormationDivisionResult division = DivideArea(area, config, 3U);
+  ASSERT_TRUE(division.ok) << division.error;
+  ASSERT_EQ(division.sub_areas.size(), 3U);
+
+  // 子区域形状：矩形 / 六边形（凹口跨条带边界）/ 矩形。
+  ASSERT_EQ(division.sub_areas[0].polygon.vertices.size(), 4U);
+  ASSERT_EQ(division.sub_areas[1].polygon.vertices.size(), 6U);
+  ASSERT_EQ(division.sub_areas[2].polygon.vertices.size(), 4U);
+  // 顶点互异（守护末条带 v_hi 浮点边界修复：v_hi 舍入 < v_max 时
+  // Sutherland–Hodgman 在相邻两边各生成一个几乎重合的交点 → 重复顶点）。
+  for (const auto& sub_area : division.sub_areas) {
+    const auto& verts = sub_area.polygon.vertices;
+    for (std::size_t i = 0U; i < verts.size(); ++i) {
+      for (std::size_t k = i + 1U; k < verts.size(); ++k) {
+        EXPECT_GT(EcefDistanceM(verts[i], verts[k]), 1e-3);
+      }
+    }
+  }
+
+  const EnuExtents strip0 = ExtentsOf(division.sub_areas[0], ref);
+  const EnuExtents strip1 = ExtentsOf(division.sub_areas[1], ref);
+  const EnuExtents strip2 = ExtentsOf(division.sub_areas[2], ref);
+  // 条带边界 = 2000/3 ≈ 666.67 m（无缝共享）。容差 ±5 m：JSON 顶点按
+  // "1° ≈ 111.19 km"（全局平均）撰写，30°N 当地子午线弧长 ≈ 110.87 km/°，
+  // 差 0.3%（1 km 处 ≈ 2.6 m）——文档手算同此惯例（"≈"量级）。
+  EXPECT_NEAR(strip0.north_min, -1000.0, 5.0);
+  EXPECT_NEAR(strip0.north_max, -333.33, 5.0);
+  EXPECT_NEAR(strip0.east_min, -1000.0, 5.0);
+  EXPECT_NEAR(strip0.east_max, 1000.0, 5.0);
+  EXPECT_NEAR(strip1.north_min, -333.33, 5.0);
+  EXPECT_NEAR(strip1.north_max, 333.33, 5.0);
+  EXPECT_NEAR(strip1.east_min, -1000.0, 5.0);
+  EXPECT_NEAR(strip1.east_max, 1000.0, 5.0);
+  EXPECT_NEAR(strip2.north_min, 333.33, 5.0);
+  EXPECT_NEAR(strip2.north_max, 1000.0, 5.0);
+  EXPECT_NEAR(strip2.east_min, -1000.0, 5.0);
+  EXPECT_NEAR(strip2.east_max, 500.0, 5.0);
+
+  // 每机 3 线 × 2 = 6 航点（条带 1 首/次线全宽、末线半宽，均 2 交点）。
+  const navigation::AreaCoveragePlanner planner;
+  for (std::size_t j = 0; j < 3U; ++j) {
+    const navigation::RoutePlan plan =
+        planner.Plan(division.sub_areas[j], division.sub_configs[j]);
+    ASSERT_EQ(plan.size(), 6U);
+  }
+}
+
 TEST(AreaDivisionTest, InvalidInputsFail) {
   const navigation::CoverageArea polygon = MakeSquareArea();
   const navigation::CoverageArea circle = MakeCircleArea(2000.0);
