@@ -49,6 +49,7 @@ if(_oneq_unit_examples)
     if(PROJECT_ENABLE_SPDLOG)
         list(APPEND _oneq_examples_extra
             "${CMAKE_SOURCE_DIR}/examples/component_attachment/scene_data.cpp"
+            "${CMAKE_SOURCE_DIR}/examples/component_attachment/area_division.cpp"
             "${CMAKE_SOURCE_DIR}/examples/component_attachment/demo_config.cpp"
             "${CMAKE_SOURCE_DIR}/examples/component_attachment/scene_script.cpp"
             "${CMAKE_SOURCE_DIR}/examples/component_attachment/components/ar_sensor_component.cpp"

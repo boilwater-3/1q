@@ -16,6 +16,7 @@ add_executable(component_attachment_demo
     component_attachment_demo.cpp
     demo_config.cpp
     scene_data.cpp
+    area_division.cpp
     scene_script.cpp
     demo_output.cpp
     components/flight_component.cpp
