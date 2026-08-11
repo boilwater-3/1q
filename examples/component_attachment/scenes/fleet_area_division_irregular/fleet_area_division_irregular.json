@@ -14,7 +14,7 @@
     {
       "name": "wingman_1",
       "origin_lat_deg": 30.0,
-      "origin_lon_deg": 120.03,
+      "origin_lon_deg": 119.98,
       "origin_alt_m": 0.0,
       "initial_heading_deg": 90.0,
       "cruise_altitude_m": 400.0,
@@ -23,7 +23,7 @@
     {
       "name": "wingman_2",
       "origin_lat_deg": 30.0,
-      "origin_lon_deg": 120.06,
+      "origin_lon_deg": 119.98,
       "origin_alt_m": 0.0,
       "initial_heading_deg": 90.0,
       "cruise_altitude_m": 400.0,
