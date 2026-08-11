@@ -53,6 +53,33 @@ SAR 任务几何/链路、融合配置与冒烟下限全部数据化——新场
 任务 = "不同指令"。飞行器编号（aircraft_id） = 1（主）+ 2..N（按数组序），
 落盘到共享可视化契约（platform_track/route_plan 的 aircraft_id 列）。
 
+### 编队区域切分（mission_area）
+
+场景可选顶层 `mission_area` 块声明**单个覆盖区域**（多边形 / 圆形）+ 规划参数
+（字段同 `coverage` 块）——"主机收到一个区域"的任务语义：加载时由 example
+业务层切分算法（`area_division.*`）自动把区域分为每架飞机一份（**分工覆盖**，
+合起来恰好覆盖整个区域，非多机重复同航路）：
+
+- **多边形**（scan）：沿扫描航向切成**等宽条带**（条带法向 = 扫描线法向），
+  逐条带经 `AreaCoveragePlanner` 牛耕扫描——条带边界共用（裁剪含等号），
+  相邻机子区域无缝无重叠；每机仍独立半间距偏移布线。**一般简单多边形通用**
+  （不规则/凹多边形无需特判）：凹口跨条带边界时该条带子区域为多顶点多边形
+  （如 L 形切 3 条带 → 矩形/六边形/矩形），扫描线按子区域自身几何生成；
+  轴对齐条带对简单连通多边形恒非空（连通像区间），仅退化（近共线/零宽接触）
+  报错；
+- **圆形**（orbit）：切成**同心环**，环半径外 → 内算术均匀
+  （r·(N−j)/N，主机最外环），每机单环盘旋（`orbit_rings` 由切分接管，
+  强制 1）——环覆盖为线覆盖近似（圆心小盘与环间空隙不扫，同 planner
+  多环语义，已知限制）。
+
+切分结果逐机填入各自 `coverage`（子区域 + 规划参数）并生成巡逻航路，与
+手工分配（各平台自带 `coverage`）在装配后完全等价（FlightComponent 不变）。
+`mission_area` 与各平台 `waypoints`/`coverage` 块**互斥**（区域来源歧义报错，
+同 waypoints/coverage 互斥先例）；编队数 = 1 + `platforms[]`.size()，无
+从机报错（切分需 ≥ 2 架）；空子区域（退化多边形）报错退出，不静默降级。
+参考场景：`fleet_area_division`（多边形 3 机条带）/ `fleet_area_division_circle`
+（圆形 2 机同心环）。
+
 **循环巡逻的执行语义（按 flight_dynamic 权威语义实现）**：
 
 - **运动学回退路径**：航点寻的（每周期航向指向下一航点，段间瞬时转向），航路
@@ -133,6 +160,7 @@ lon 120.0~120.02（约 1.93 km 东西），扫描航向 0（线沿东西）、�
 | `platform` | **是** | `origin_lat_deg`/`origin_lon_deg`（**必填**）、`origin_alt_m`（0）、`initial_heading_deg`（90）、`cruise_altitude_m`（400）、`cruise_speed_mps`（50）、`waypoints[]`（lat/lon 必填，alt/speed 缺省回退巡航参数、radius 500；**与块内 `coverage` 互斥**）、`coverage`（可选区域巡逻任务，字段见下） |
 | `platforms[]` | 否 | 从机数组（多机编队，纯飞行不挂传感器）：每条目同 `platform` 块字段 + `name`（缺省 `wingman_<N>`）；巡航参数缺省回退主平台值 |
 | `coverage`（platform/platforms[] 条目内） | 否 | 区域巡逻任务：`kind`（polygon/circle）、`mode`（scan/orbit，须与 kind 匹配）、polygon `vertices[]`（lat/lon 必填）或 circle `center` + `radius_m`、`scan_heading_deg`（0 = 扫描线沿正东）、`scan_spacing_m`（须 > 0）、`altitude_m`/`speed_mps`（缺省回退巡航参数）、`arrival_radius_m`（500）、`orbit_segments`（8）/`orbit_rings`（1）。加载时经 `navigation::AreaCoveragePlanner` 生成巡逻航路（填入该平台的 `waypoints`），**循环巡逻**（航路飞完回绕首航点）；规划失败（顶点 < 3/间距非正/模式-区域不匹配等）报错退出 |
+| `mission_area`（顶层） | 否 | 编队区域切分任务（**与各平台 `waypoints`/`coverage` 互斥**；需 `platforms[]` ≥ 1）：字段同 `coverage` 块。加载时经 example 层 `area_division` 自动切分为每机子区域（多边形 = 沿扫描航向等宽条带；圆形 = 同心环，外 → 内算术均匀，`orbit_rings` 强制 1），再逐机经 `AreaCoveragePlanner` 生成巡逻航路并循环巡逻；切分失败（退化多边形/空条带/无从机）报错退出 |
 | `targets[]` | **是**（可为空 = 无目标场景） | `id`/`azimuth_deg`/`range_m`/`altitude_m`/`rcs_m2`（**必填**）、`type`（`air`/`ground`，缺省 air；ground = 地面目标，静止近地运动学点，可视化以不同线型标注）、`v_east_mps`/`v_north_mps`（0）、`temperature_k`（0）、`projected_area_m2`（0）、`emitter_center_frequency_hz`（0 = 不配辐射源）、`maneuvers[]`（可选变速机动表：`start_cycle` 必填且严格递增，`v_east_mps`/`v_north_mps` 缺省 0——**绝对速度分段匀速**，未指定分量 = 0，须写全） |
 | `esr` | 否 | 辐射源波形：`peak_gain_dbi`（30）、`bandwidth_hz`（2e6）、`peak_power_w`（5e7）、`pulse_width_s`（1e-6）、`pri_s`（1e-3）、`pulse_count`（200）、`timing_seed`（42） |
 | `sbirs_satellite` | 否 | `altitude_m`（500000，凝视目标群质心正上方） |
@@ -159,4 +187,7 @@ lon 120.0~120.02（约 1.93 km 东西），扫描航向 0（线沿东西）、�
 | `sbirs_altitude_snr_1000km` | SBIRS 高度专项：链路 1/R² 标度 + 门限边界 | 通过（1 项预期修正） |
 | `patrol_area_scan` | 区域巡逻专项：coverage 块规划航路 + 循环巡逻（巡逻中四通道探测保持） | 通过 |
 | `fleet_patrol_multi_zone` | 多机区域巡逻专项：3 机各自区域任务（platforms[]）+ 区域内空中/地面目标 + 契约 v2 多机可视化 | 通过（运动学冒烟 + **FD 600 周期复核**：三机 jsbsim、循环重启 5 次、SAR 起飞段 1 产品） |
+| `fleet_area_division` | 编队切分专项（多边形）：顶层单个 `mission_area` 自动切 3 条等宽条带 + 逐机自动航路 + **同机场起飞**分工覆盖 | 通过（**FD 600 周期**：条带边界 29.990/29.999/30.008/30.017 无缝、扫描线纬度与手算逐点吻合、循环重启 9 次） |
+| `fleet_area_division_circle` | 编队切分专项（圆形）：单个圆形 `mission_area` 自动切同心环（主机 2000 m / 僚机 1000 m）+ **同机场起飞**逐机盘旋 | 通过（**FD 400 周期**：环半径与手算吻合、`orbit_rings` 由切分接管、SAR 起飞段 1 产品） |
+| `fleet_area_division_irregular` | 编队切分专项（不规则凹多边形）：单个 L 形 `mission_area` 自动切 3 条带（矩形/六边形/矩形）+ 逐机自动航路 + **同机场起飞** | 通过（**FD 600 周期**：六边形条带与手算逐点吻合、浮点边界伪重复顶点已修复、循环重启 7 次） |
 | `threat_multi_target` | 威胁评估专项：三目标威胁分排序 + 等级映射 + 威胁→决策指令链 | 通过 |

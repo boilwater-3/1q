@@ -9,6 +9,7 @@
  */
 
 #include <atomic>
+#include <algorithm>
 #include <chrono>
 #include <cstdint>
 #include <filesystem>
@@ -814,4 +815,171 @@ TEST(SceneDataTest, InvalidTargetTypeFails) {
   std::string error;
   EXPECT_FALSE(demo::LoadSceneData(file.path().c_str(), &scene, &error));
   EXPECT_NE(error.find("type"), std::string::npos);
+}
+
+TEST(SceneDataTest, PlansFormationDivisionPolygonRoutes) {
+  // 顶层 mission_area（多边形 + 扫描）：加载时自动切分为 3 条等宽条带
+  // （主机 = 最南条带，wingman_1/2 依次向北），逐机生成覆盖航路。
+  // 区域 lat 29.989..30.001（约 1334 m）× lon 120.0..120.03，条带宽
+  // ≈ 444.8 m；间距 250 m → 每机条带内 2 条扫描线 × 2 端点 = 4 航点。
+  const demo::SceneData scene = LoadOk(R"json({
+    "platform": {
+        "origin_lat_deg": 30.0,
+        "origin_lon_deg": 120.0,
+        "cruise_altitude_m": 400.0,
+        "cruise_speed_mps": 50.0
+    },
+    "platforms": [
+        {"name": "wingman_1", "origin_lat_deg": 30.0, "origin_lon_deg": 120.06},
+        {"name": "wingman_2", "origin_lat_deg": 30.0, "origin_lon_deg": 120.12}
+    ],
+    "mission_area": {
+        "kind": "polygon",
+        "mode": "scan",
+        "vertices": [
+            {"lat_deg": 29.989, "lon_deg": 120.0},
+            {"lat_deg": 29.989, "lon_deg": 120.03},
+            {"lat_deg": 30.001, "lon_deg": 120.03},
+            {"lat_deg": 30.001, "lon_deg": 120.0}
+        ],
+        "scan_heading_deg": 0.0,
+        "scan_spacing_m": 250.0,
+        "altitude_m": 400.0,
+        "speed_mps": 50.0,
+        "arrival_radius_m": 200.0
+    },
+    "targets": []
+  })json");
+
+  // 主机：最南条带（lat ∈ [29.989, 29.989 + 444.8/111190 ≈ 29.9930]），
+  // 4 航点；从机 2 架各 4 航点，条带依次向北且边界无缝共享。
+  ASSERT_EQ(scene.platforms.size(), 2U);
+  EXPECT_TRUE(scene.coverage.planned);
+  EXPECT_EQ(scene.coverage.area.kind, navigation::CoverageAreaKind::kPolygon);
+  ASSERT_EQ(scene.coverage.area.polygon.vertices.size(), 4U);
+  EXPECT_NEAR(scene.coverage.area.polygon.vertices[0].latitude_deg, 29.989, 1e-5);
+  double host_lat_min = 1e9, host_lat_max = -1e9;
+  for (const auto& vertex : scene.coverage.area.polygon.vertices) {
+    host_lat_min = std::min(host_lat_min, vertex.latitude_deg);
+    host_lat_max = std::max(host_lat_max, vertex.latitude_deg);
+  }
+  EXPECT_NEAR(host_lat_max - host_lat_min, 444.8 / 111190.0, 1e-4);
+  EXPECT_EQ(scene.waypoints.size(), 4U);  // 每机 2 线 × 2 端点
+  EXPECT_DOUBLE_EQ(scene.coverage.config.scan_spacing_m, 250.0);
+  EXPECT_DOUBLE_EQ(scene.coverage.config.arrival_radius_m, 200.0);
+
+  double prev_strip_max_lat = host_lat_max;
+  for (std::size_t i = 0U; i < scene.platforms.size(); ++i) {
+    const auto& platform = scene.platforms[i];
+    EXPECT_TRUE(platform.coverage.planned);
+    EXPECT_EQ(platform.coverage.area.kind, navigation::CoverageAreaKind::kPolygon);
+    ASSERT_EQ(platform.waypoints.size(), 4U);
+    double lat_min = 1e9, lat_max = -1e9;
+    for (const auto& vertex : platform.coverage.area.polygon.vertices) {
+      lat_min = std::min(lat_min, vertex.latitude_deg);
+      lat_max = std::max(lat_max, vertex.latitude_deg);
+    }
+    // 与上一条带共享边界（无缝覆盖，容差覆盖 ENU 回变换误差）。
+    EXPECT_NEAR(lat_min, prev_strip_max_lat, 1e-5);
+    EXPECT_NEAR(lat_max - lat_min, 444.8 / 111190.0, 1e-4);
+    prev_strip_max_lat = lat_max;
+  }
+}
+
+TEST(SceneDataTest, PlansFormationDivisionCircleRoutes) {
+  // 顶层 mission_area（圆形 + 盘旋）+ 1 架从机 → 2 个同心环：主机最外环
+  // （半径 2000 m）、wingman_1 内环（1000 m）；每机单环（orbit_rings 由
+  // 切分强制 1，JSON 传入的 2 被覆盖），8 段 = 8 航点。
+  const demo::SceneData scene = LoadOk(R"json({
+    "platform": {
+        "origin_lat_deg": 30.0,
+        "origin_lon_deg": 120.0
+    },
+    "platforms": [
+        {"name": "wingman_1", "origin_lat_deg": 30.0, "origin_lon_deg": 120.12}
+    ],
+    "mission_area": {
+        "kind": "circle",
+        "mode": "orbit",
+        "center": {"lat_deg": 30.0, "lon_deg": 120.0},
+        "radius_m": 2000.0,
+        "altitude_m": 400.0,
+        "speed_mps": 50.0,
+        "arrival_radius_m": 200.0,
+        "orbit_segments": 8,
+        "orbit_rings": 2
+    },
+    "targets": []
+  })json");
+
+  ASSERT_EQ(scene.platforms.size(), 1U);
+  EXPECT_TRUE(scene.coverage.planned);
+  EXPECT_EQ(scene.coverage.area.kind, navigation::CoverageAreaKind::kCircle);
+  EXPECT_NEAR(scene.coverage.area.circle.radius_m, 2000.0, 1e-6);
+  EXPECT_EQ(scene.coverage.config.orbit_rings, 1U);
+  ASSERT_EQ(scene.waypoints.size(), 8U);
+
+  EXPECT_TRUE(scene.platforms[0].coverage.planned);
+  EXPECT_EQ(scene.platforms[0].coverage.area.kind, navigation::CoverageAreaKind::kCircle);
+  EXPECT_NEAR(scene.platforms[0].coverage.area.circle.radius_m, 1000.0, 1e-6);
+  EXPECT_EQ(scene.platforms[0].coverage.config.orbit_rings, 1U);
+  ASSERT_EQ(scene.platforms[0].waypoints.size(), 8U);
+}
+
+TEST(SceneDataTest, MissionAreaConflictsWithPerPlatformCoverageFail) {
+  ScopedSceneFile file(R"json({
+    "platform": {"origin_lat_deg": 30.0, "origin_lon_deg": 120.0},
+    "platforms": [
+        {"name": "wingman_1", "origin_lat_deg": 30.0, "origin_lon_deg": 120.06,
+         "coverage": {
+             "kind": "polygon",
+             "mode": "scan",
+             "vertices": [
+                 {"lat_deg": 29.99, "lon_deg": 120.0},
+                 {"lat_deg": 29.99, "lon_deg": 120.02},
+                 {"lat_deg": 30.0, "lon_deg": 120.02},
+                 {"lat_deg": 30.0, "lon_deg": 120.0}
+             ],
+             "scan_spacing_m": 500.0
+         }}
+    ],
+    "mission_area": {
+        "kind": "polygon",
+        "mode": "scan",
+        "vertices": [
+            {"lat_deg": 29.99, "lon_deg": 120.0},
+            {"lat_deg": 29.99, "lon_deg": 120.02},
+            {"lat_deg": 30.0, "lon_deg": 120.02},
+            {"lat_deg": 30.0, "lon_deg": 120.0}
+        ],
+        "scan_spacing_m": 500.0
+    },
+    "targets": []
+  })json");
+  demo::SceneData scene;
+  std::string error;
+  EXPECT_FALSE(demo::LoadSceneData(file.path().c_str(), &scene, &error));
+  EXPECT_NE(error.find("mutually exclusive"), std::string::npos);
+}
+
+TEST(SceneDataTest, MissionAreaWithoutWingmenFails) {
+  ScopedSceneFile file(R"json({
+    "platform": {"origin_lat_deg": 30.0, "origin_lon_deg": 120.0},
+    "mission_area": {
+        "kind": "polygon",
+        "mode": "scan",
+        "vertices": [
+            {"lat_deg": 29.99, "lon_deg": 120.0},
+            {"lat_deg": 29.99, "lon_deg": 120.02},
+            {"lat_deg": 30.0, "lon_deg": 120.02},
+            {"lat_deg": 30.0, "lon_deg": 120.0}
+        ],
+        "scan_spacing_m": 500.0
+    },
+    "targets": []
+  })json");
+  demo::SceneData scene;
+  std::string error;
+  EXPECT_FALSE(demo::LoadSceneData(file.path().c_str(), &scene, &error));
+  EXPECT_NE(error.find("requires"), std::string::npos);
 }

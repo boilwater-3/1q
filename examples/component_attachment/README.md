@@ -63,7 +63,10 @@ examples/component_attachment/
 ├── component_attachment_demo.cpp    主程序（装配与编排：场景文件加载 + 实体/会话创建 + 周期循环 + 查询演示 + 冒烟断言）
 ├── demo_config.h/.cpp               演示常量 + 五会话配置加载（JSON 基线）
 ├── scene_data.h/.cpp                场景描述（scenes/*.json → SceneData + 业务覆写应用；
-│                                    coverage 块经 AreaCoveragePlanner 规划巡逻航路）
+│                                    coverage 块经 AreaCoveragePlanner 规划巡逻航路；
+│                                    mission_area 块经 area_division 切分后逐机规划）
+├── area_division.h/.cpp             编队区域切分算法（example 业务层：单个覆盖区域 →
+│                                    每机子区域，多边形 = 等宽条带、圆形 = 同心环）
 ├── scene_script.h/.cpp              世界模型目标真值脚本（场景目标脚本 → ECEF 状态 → 四通道周期真值 + 推进）
 ├── scene_types.h                    DemoSceneState：共享场景状态（真值注入）
 ├── sensor_utils.h                   平台坐标转换（ECEF 解析）

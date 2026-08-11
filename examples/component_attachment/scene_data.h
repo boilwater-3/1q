@@ -46,6 +46,16 @@ struct CoverageTask {
   bool planned{false};                             /**< 已由规划器生成航路（= 巡逻场景） */
 };
 
+/// 编队切分任务（顶层可选 mission_area 块）：主机收到的单个覆盖区域 + 规划
+/// 参数。加载时经 area_division::DivideArea 自动切分为每架飞机（主机 +
+/// platforms[] 从机）的子区域，再逐机经 AreaCoveragePlanner 生成巡逻航路
+/// （分工覆盖：多边形 = 沿扫描航向等宽条带，圆形 = 同心环）。与各平台
+/// coverage/waypoints 块互斥（区域来源歧义报错）；编队数 = 1 + platforms.size()。
+struct FormationMissionArea {
+  navigation::CoverageArea area{};                 /**< 覆盖区域（多边形 / 圆形） */
+  navigation::CoveragePlanConfig config{};         /**< 覆盖规划参数 */
+};
+
 /// 目标脚本（场景文件 targets[] 条目）：四通道共享同一物理目标
 /// （方位/距离/高度 → ECEF 位置；东/北速度 → ECEF 速度；外观/RCS/辐射源
 /// 中心频率随真值流转到各通道转换函数，转换函数不再按数组下标回查脚本）。
