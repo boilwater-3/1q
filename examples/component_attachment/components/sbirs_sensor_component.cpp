@@ -141,12 +141,39 @@ const char* SbirsTargetStatusName(sbirs_sensor::session::SbirsDebugTargetStatus 
   return "未知";
 }
 
+/// 排除原因门内归因 → 中文名（人读日志，规则 13b 门内归因条款）。
+const char* SbirsExclusionCauseName(sbirs_sensor::session::SbirsIssueCause cause) {
+  switch (cause) {
+    case sbirs_sensor::session::SbirsIssueCause::kNone:
+      return "无归因";
+    case sbirs_sensor::session::SbirsIssueCause::kAzOutside:
+      return "方位越界";
+    case sbirs_sensor::session::SbirsIssueCause::kElOutside:
+      return "俯仰越界";
+    case sbirs_sensor::session::SbirsIssueCause::kBothAxesOutside:
+      return "双轴越界";
+    case sbirs_sensor::session::SbirsIssueCause::kDistanceLimited:
+      return "距离受限";
+    case sbirs_sensor::session::SbirsIssueCause::kAttenuationLimited:
+      return "大气衰减";
+    case sbirs_sensor::session::SbirsIssueCause::kSignatureLimited:
+      return "签名受限";
+    case sbirs_sensor::session::SbirsIssueCause::kNoiseLimited:
+      return "噪声底受限";
+    case sbirs_sensor::session::SbirsIssueCause::kUnknown:
+      return "未知主因";
+  }
+  return "未知主因";
+}
+
 }  // namespace
 
 SbirsSensorComponent::SbirsSensorComponent(sbirs_sensor::session::SbirsSession session)
     : session_(std::move(session)) {
   // 探测生命周期事件由库内 recorder 承担（StepWithResult 内部自动喂）。
   session_.AttachDetectionLifecycleRecorder(&lifecycle_);
+  // 排除原因跨周期差分事件由库内 recorder 承担（与 lifecycle recorder 独立并列）。
+  session_.AttachExclusionCauseRecorder(&exclusion_);
 }
 
 bool SbirsSensorComponent::TryApplyRuntimeConfig(
@@ -304,6 +331,30 @@ void SbirsSensorComponent::Step(World& world, double dt_sec) {
                    sbirs_event.infrared_snr_linear, sbirs_event.az_deg);
     }
     world.signals().on_sbirs_detection(sbirs_event);
+  }
+
+  // 排除原因跨周期差分事件（规则 13e）：纯诊断观测，仅落事件日志（不发 World
+  // 信号——不驱动融合/威胁等下游组件）。SBIRS 排除涵盖遮挡/距离带/视场/SNR 四门，
+  // 差分键为 (code,cause) 组合对——遮挡↔距离带切换（同为 kNone、code 不同）亦产事件。
+  for (const auto& event : exclusion_.GetLastEvents()) {
+    const std::uint64_t event_target_id = event.target_id;
+    if (event.kind == sbirs_sensor::session::SbirsExclusionCauseEventKind::kEntered) {
+      CA_LOG_EVENT(world, "exclusion_cause",
+                   "目标={} 类型=进入排除 排除码={} 主因={}",
+                   static_cast<unsigned long long>(event_target_id),
+                   event.current_code, SbirsExclusionCauseName(event.current_cause));
+    } else if (event.kind == sbirs_sensor::session::SbirsExclusionCauseEventKind::kChanged) {
+      CA_LOG_EVENT(world, "exclusion_cause",
+                   "目标={} 类型=原因变化 旧码={} 旧主因={} 新码={} 新主因={}",
+                   static_cast<unsigned long long>(event_target_id),
+                   event.previous_code, SbirsExclusionCauseName(event.previous_cause),
+                   event.current_code, SbirsExclusionCauseName(event.current_cause));
+    } else if (event.kind == sbirs_sensor::session::SbirsExclusionCauseEventKind::kExited) {
+      CA_LOG_EVENT(world, "exclusion_cause",
+                   "目标={} 类型=退出排除 旧码={} 旧主因={}",
+                   static_cast<unsigned long long>(event_target_id),
+                   event.previous_code, SbirsExclusionCauseName(event.previous_cause));
+    }
   }
 
   detections_ = fusion::AdaptSbirsDetectionsToDetectionRecords(

@@ -15,6 +15,7 @@
 
 #include "1q/airborne_radar/config/ArRuntimeConfigPatch.h"
 #include "1q/airborne_radar/session/ArSession.h"
+#include "1q/airborne_radar/session/ArExclusionCauseRecorder.h"
 #include "1q/airborne_radar/session/ArTrackLifecycleRecorder.h"
 #include "1q/airborne_radar/session/ArTrackOutputDebugView.h"
 #include "1q/fusion/DetectionRecord.h"
@@ -73,9 +74,10 @@ class ArSensorComponent : public Component {
   bool TryApplyRuntimeConfig(const airborne_radar::config::ArRuntimeConfigPatch& patch);
 
  private:
-  // lifecycle_ 声明在 session_ 之前：析构逆序时 session_ 先析构（其析构不
+  // lifecycle_/exclusion_ 声明在 session_ 之前：析构逆序时 session_ 先析构（其析构不
   // 触达 recorder 指针），满足"recorder 生命周期长于 Session 注册期"约束。
   airborne_radar::session::ArTrackLifecycleRecorder lifecycle_{}; /**< 轨迹生命周期事件源 */
+  airborne_radar::session::ArExclusionCauseRecorder exclusion_{}; /**< 排除原因跨周期差分事件源 */
   airborne_radar::session::ArSession session_;
   Entity* host_{nullptr};
   std::vector<fusion::DetectionRecord> detections_{};
