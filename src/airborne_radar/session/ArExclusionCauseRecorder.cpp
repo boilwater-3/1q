@@ -25,14 +25,16 @@ struct CurrentExclusion {
   bool found{false};
 };
 
-// 按 location.entity_index 索引本周期排除诊断。仅消费 kSceneEntity 定位的排除 issue
-//（规则 13b 门内归因条目；输入校验 issues 的 location 为 kGlobal/kPlatform/kEnvironment，不在此列）。
+// 按 location.entity_index 索引本周期排除诊断。仅消费 kSceneEntity 定位且 phase=kExecution
+// 的排除 issue（规则 13b 门内归因条目）；输入校验 issues（phase=kInputValidation）虽也可能
+// 用 kSceneEntity 定位，但属调用方输入问题而非执行期排除，不在此列。
 // 一个 entity_index 命中多条时取第一条（AR 单一 SNR 门互斥，假设见 header @note）。
 std::unordered_map<std::size_t, CurrentExclusion> IndexCurrentExclusions(
     const ArCycleResult& result) {
   std::unordered_map<std::size_t, CurrentExclusion> by_entity;
   for (const ArIssue& issue : result.issues) {
-    if (issue.location.kind != oneq::foundation::ValidationLocationKind::kSceneEntity) {
+    if (issue.phase != ArIssuePhase::kExecution ||
+        issue.location.kind != oneq::foundation::ValidationLocationKind::kSceneEntity) {
       continue;
     }
     const std::size_t idx = issue.location.entity_index;

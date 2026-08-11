@@ -72,12 +72,14 @@ struct CurrentExclusion {
   bool found{false};
 };
 
-// 按 location.entity_index 索引本周期排除诊断。仅消费 kSceneEntity 定位的排除 issue。
+// 按 location.entity_index 索引本周期排除诊断。仅消费 kSceneEntity 定位且 phase=kExecution
+// 的排除 issue（规则 13b 门内归因条目）；输入校验 issues（phase=kInputValidation）不在此列。
 std::unordered_map<std::size_t, CurrentExclusion> IndexCurrentExclusions(
     const EsrCycleResult& result) {
   std::unordered_map<std::size_t, CurrentExclusion> by_entity;
   for (const EsrIssue& issue : result.issues) {
-    if (issue.location.kind != oneq::foundation::ValidationLocationKind::kSceneEntity) {
+    if (issue.phase != EsrIssuePhase::kExecution ||
+        issue.location.kind != oneq::foundation::ValidationLocationKind::kSceneEntity) {
       continue;
     }
     const std::size_t idx = issue.location.entity_index;
