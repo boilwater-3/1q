@@ -29,9 +29,10 @@ SBIRS 遵守三层输出模型（contract.md §三层输出模型）：
 |---|---|---|
 | 原始系统输出层 | `Step()` 返回的 `SbirsOutputFrame` | 1q 仿真传感器主输出 |
 | 结构化执行结果层 | `StepWithResult()` 返回的 `SbirsCycleResult` | 输出帧、执行状态、校验、abort reason、诊断摘要 |
-| 开发调试视图层 | `SbirsOutputDebugViewBuilder` / `SbirsDetectionLifecycleRecorder` | 人读状态、生命周期事件、输入实体回填 |
+| 开发调试视图层 | `SbirsOutputDebugViewBuilder` / `SbirsDetectionLifecycleRecorder` / `SbirsExclusionCauseRecorder` | 人读状态、生命周期事件、排除原因差分、输入实体回填 |
 
-非执行周期（`status != kCompleted`）表示本周期没有产生新的目标观测事实。Lifecycle recorder 在该边界返回空事件
+非执行周期（`status != kCompleted`）表示本周期没有产生新的目标观测事实。所有 recorder（
+`SbirsDetectionLifecycleRecorder` 与 `SbirsExclusionCauseRecorder`）在该边界返回空事件
 列表并保持全部累积状态；validation rejection 不得虚构 `Lost`、`NotDetected` 或 `TargetMissingFromInput`。
 下一合法检测继续按拒绝前状态产生 `Updated`。
 
@@ -68,6 +69,17 @@ SBIRS 所有中止路径遵守 `session_contract.md` 规则 9 的三写模式与
 落盘 DebugView 时自然携带；不改变周期状态与 DebugView 状态语义。周期级 `PROJECT_LOG_INFO`
 执行摘要（规则 13a，格式 `[SbirsPipeline] cycle_index=… scan_az=… detections=… excluded=…`）
 在 pipeline `RunCycle` 每次实际执行后输出，仅人读，不用于状态判断（规则 3）。
+**实体机器可读关联（规则 14e/13b）**：排除诊断结构化携带 `location = {kSceneEntity, target_index}`
+（`MakeExclusionIssue` 由 pipeline 主循环索引赋值），供 `SbirsExclusionCauseRecorder` 按实体
+关联消费。SBIRS 排除诊断涵盖 4 个 code：遮挡/距离带（具体门，cause 恒 kNone）、视场/SNR
+（聚合门，有细分 cause）。
+**排除原因跨周期差分（规则 13b 子项 e）**：`SbirsExclusionCauseRecorder` 对持续被排除目标做
+`(code, cause)` 对差分，产出 A2 进入/A3 原因变化/A4 退出事件。差分键为组合对（非纯 cause），
+正确捕获遮挡↔距离带切换（同为 kNone、code 不同）的 A3 变化。纯观测只读 `result.issues`
+（按 `location.kind == kSceneEntity` 过滤），与 `SbirsDetectionLifecycleRecorder` 并列
+（独立 Attach/驱动/GetLastEvents），注册与否不影响执行语义（规则 11c）。**消失目标边界**：
+recorder 只遍历当前周期 `input.scene`，目标从输入消失时其排除状态条目保留（不会被 A4 清除，
+与既有 `SbirsDetectionLifecycleRecorder` 的"消失目标状态保留"行为一致）；重现为 A3 而非 A2。
 
 ### 输出规则（WFOV/NFOV 状态仅决定当前周期哪些目标输出检测记录，不进 raw output 字段）
 

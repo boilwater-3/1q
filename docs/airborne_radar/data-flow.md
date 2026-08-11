@@ -269,6 +269,7 @@ flowchart TB
     Result["ArCycleResult\n执行状态 / 控制配置 / 提交命令"]
     Debug["ArTrackOutputDebugView\n人读排查视图"]
     Lifecycle["ArTrackLifecycleRecorder\nconfirmed / lost / recycled"]
+    ExclusionCause["ArExclusionCauseRecorder\n排除原因跨周期差分\n(进入/变化/退出)"]
     Replay["ArTraceSession / ArReplaySession\n回放输入输出、决策状态和失败标记"]
   end
 
@@ -281,6 +282,7 @@ flowchart TB
   DecisionFrame --> Result
   Result --> Debug
   Result --> Lifecycle
+  Result --> ExclusionCause
   Result --> Replay
 ```
 
