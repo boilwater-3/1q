@@ -129,12 +129,15 @@ AR/ESR/EOS/SBIRS/SAR 五模块的电源状态必须遵守单源原则：
       `"esr.validation.invalid_emitter_frequency"`）。
    c. **人读日志**：`PROJECT_LOG_ERROR` 或 `PROJECT_LOG_WARN`。
    三写缺一不可。SAR 为参考实现（`SarDiagnosticUtils::WriteAbort`）。
-10. `*LifecycleRecorder` 由 `*Session::Attach*LifecycleRecorder()` 注册后自动驱动：
+10. 跨周期观测记录器（`*LifecycleRecorder` 轨迹/探测生命周期、`*ExclusionCauseRecorder`
+    排除原因差分；统称 recorder）由各 `*Session::Attach*()` 注册后自动驱动：
     Session 在 `StepWithResult()`/`Step()` 内部自动调用 `Update()`，调用方无需（也不应）手动调用
     `Update()`——漏调会导致状态机失步（例如错过产品/目标消失的周期后，内部 1-bit 标志仍为"存在"，
     后续不再发出 `Lost` 事件）。`Update()` 保留为 public 仅为单元测试与内部驱动可达性，
     不属于调用方接口。非执行周期返回空事件列表且不推进内部状态。
-11. `*Session::Attach*LifecycleRecorder()` 是可选注册契约：
+    一个 Session 可同时注册多个 recorder（各自独立 `Attach*`/驱动/`GetLastEvents()` 通道），
+    注册与否互不影响、不影响执行语义。
+11. `*Session::Attach*()` recorder 注册契约（`Attach*LifecycleRecorder`/`AttachExclusionCauseRecorder`）：
     a. Session 持有 recorder 的**非拥有裸指针**，调用方须保证 recorder 生命周期长于注册期；
        传入 `nullptr` 解除注册，解除后 Session 不再驱动。
     b. Session 不缓存事件；本周期产生的生命周期事件通过 `recorder->GetLastEvents()` 获取
@@ -177,6 +180,26 @@ AR/ESR/EOS/SBIRS/SAR 五模块的电源状态必须遵守单源原则：
          `cause` 不替代 `code`（code 仍是唯一机器键，规则 13b message 稳定性），不改变状态
          语义（规则 13c）。本条目为**所有模块共同约束**：五模块 `*Issue` 结构同构携带该字段，
          SAR 无排除诊断（13b 空洞条款），恒 `kNone`（见 `docs/sar/boundaries.md`）。
+       - **实体机器可读关联（location）**：排除诊断须结构化携带场景实体索引
+         （`location.kind = kSceneEntity + entity_index`；ESR 以发射源标识为键，见各模块
+         boundaries），作为机器可读实体关联——供跨周期差分记录器（规则 13b 差分记录器条款）
+         按"该排除属于哪个实体"判定，不依赖解析 message 人读文本中的 target_id。类型层
+         （`ValidationLocation`/`kSceneEntity`/`entity_index`）与 replay 编解码（含 -1 哨兵
+         还原）为共享基础设施。
+    e. **排除原因跨周期差分记录器**：规则 13b 的 `cause`/`code` 为每周期瞬时快照（无跨周期
+       记忆）；库内提供 `*ExclusionCauseRecorder` 对持续被排除实体做跨周期差分观测，产出
+       结构化变化事件（A2 进入/A3 原因变化/A4 退出；A1 原因稳定不产事件），与既有
+       `*LifecycleRecorder` 并列（独立 recorder、独立 `GetLastEvents()` 通道、独立 Attach 注册）。
+       - **差分键**为 `(code, cause)` 组合对（非纯 cause）：避免同为 `kNone` 的具体门切换盲区
+         （如 SBIRS 遮挡↔距离带，cause 均 kNone 但 code 不同）。
+       - **原料依赖**：13b 子项 b 的"实体机器可读关联"（location）——记录器按 `entity_index`
+         关联"该排除属于哪个实体"，无 location 则无法差分。
+       - **状态最小化**：每实体仅记忆上一执行周期的 `(code,cause)` 对（无条目 = 上周未被排除），
+         非执行周期不推进状态（与 `*LifecycleRecorder` 语义一致）。
+       - **纯观测**：只读 `result.issues`（按 `location.kind == kSceneEntity` 过滤），不改变
+         `*CycleStatus`、排除诊断、DebugView 状态语义（规则 13c 边界延续）。
+       - **适用范围**：具有"按实体门控排除"语义的模块（AR/SBIRS/EOS/ESR）；SAR 无排除诊断
+         （13b 空洞条款），不适用。当前落地 AR + SBIRS（2026-08），EOS/ESR 按需后补。
     c. **状态语义边界**：kInfo 排除诊断不得改变 `*CycleStatus`、生命周期事件或 DebugView 状态
        语义（如 `kNotInOutput`）；排除原因只经 diagnostics 承载，不新增状态位。
     d. **适用范围边界（例外）**：13b 的"门控排除"仅指视场/SNR/距离/遮挡等**门限判定**；
@@ -204,7 +227,8 @@ AR/ESR/EOS/SBIRS/SAR 五模块的电源状态必须遵守单源原则：
        自动更新）。各模块 boundaries 均登记该指针。
     d. `message`：人读文本，内容与格式不承诺解析稳定性（规则 13b）。
     e. `location` / `field`（可选定位）：`location.kind == kGlobal` 或 `field` 为空表示无定位；
-       定位只服务人读与 replay 保真，不用于状态判断。
+       定位服务人读、replay 保真与机器消费（排除诊断的 `kSceneEntity + entity_index` 供差分
+       记录器按实体关联，见规则 13b 子项 b/e），不用于状态判断。
     f. `cause`（可选归因）：各模块 `<Module>IssueCause` 枚举，默认 `kNone`；仅排除诊断
        （规则 13b 门内归因条款）使用，标识聚合门失败的主因物理链路；`cause` 不用于状态判断，
        不替代 `code`（机器键仍只认 code）。
