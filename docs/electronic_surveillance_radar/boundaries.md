@@ -154,7 +154,7 @@ ESR 所有中止路径遵守 `session_contract.md` 规则 9 的三写模式与�
 **实体机器可读关联（规则 14e/13b）**：排除诊断结构化携带 `location = {kSceneEntity, emission_index}`
 （`emission_index` = 发射源在 identity 排序后数组中的下标，与 `InterceptDetectionExecutor` 排序序
 一致；三发射点分别由循环 A 的 `index` / 循环 B 的 `signal_index` 赋值）。
-**排除原因跨周期差分（规则 13b 子项 e）**：`EsrExclusionCauseRecorder` 对持续被排除发射源做
+**排除原因跨周期差分（规则 13e）**：`EsrExclusionCauseRecorder` 对持续被排除发射源做
 `(code, cause)` 对差分，产出 A2/A3/A4 事件。**实体键为发射源标识三元组**（platform/equipment/
 emission id，非 entity_index 下标）：记录器 Update 时按同一 identity 排序序重排
 `input.rf_emissions.emissions` 把 entity_index 解析回 identity 三元组，内部状态以 identity 为键

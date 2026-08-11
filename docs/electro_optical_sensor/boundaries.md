@@ -130,7 +130,7 @@ message 补相对扫描中心的差值。
 **实体机器可读关联（规则 14e/13b）**：排除诊断结构化携带 `location = {kSceneEntity, target_index}`
 （`MakeExclusionIssue` 由 pipeline 主循环索引 `i` 赋值），供 `EosExclusionCauseRecorder` 按实体
 关联消费。
-**排除原因跨周期差分（规则 13b 子项 e）**：`EosExclusionCauseRecorder` 对持续被排除目标做
+**排除原因跨周期差分（规则 13e）**：`EosExclusionCauseRecorder` 对持续被排除目标做
 `(code, cause)` 对差分，产出 A2 进入/A3 原因变化（越界轴变化）/A4 退出事件；纯观测只读
 `result.issues`（按 `location.kind == kSceneEntity` 过滤），与 `EosDetectionLifecycleRecorder`
 并列（独立 Attach/驱动/GetLastEvents），注册与否不影响执行语义（规则 11c）。**消失目标边界**：
