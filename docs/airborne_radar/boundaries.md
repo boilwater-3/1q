@@ -130,7 +130,7 @@ AR 所有中止路径遵守 `session_contract.md` 规则 9 的三写模式与规
 索引，recorder 按目标在 `ArTargetInputList` 中的位置 find；两者对齐依赖 `ArSession` 适配器
 "按序无过滤"地把 `input.targets` 映射到局部场景目标表（过滤/跳过即整周期拒绝）。若未来
 适配器改为可跳过单目标的过滤逻辑，此对齐会被无声破坏，须同步评估 recorder 实体关联。
-**排除原因跨周期差分（规则 13b 子项 e）**：`ArExclusionCauseRecorder` 对持续被排除目标做
+**排除原因跨周期差分（规则 13e）**：`ArExclusionCauseRecorder` 对持续被排除目标做
 `(code, cause)` 对差分，产出 A2 进入/A3 原因变化/A4 退出事件；纯观测只读 `result.issues`
 （按 `location.kind == kSceneEntity` 过滤），与 `ArTrackLifecycleRecorder` 并列（独立 Attach/
 驱动/GetLastEvents），注册与否不影响执行语义（规则 11c）。**消失目标边界**：recorder 只遍历

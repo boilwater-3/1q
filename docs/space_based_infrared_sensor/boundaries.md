@@ -73,7 +73,7 @@ SBIRS 所有中止路径遵守 `session_contract.md` 规则 9 的三写模式与
 （`MakeExclusionIssue` 由 pipeline 主循环索引赋值），供 `SbirsExclusionCauseRecorder` 按实体
 关联消费。SBIRS 排除诊断涵盖 4 个 code：遮挡/距离带（具体门，cause 恒 kNone）、视场/SNR
 （聚合门，有细分 cause）。
-**排除原因跨周期差分（规则 13b 子项 e）**：`SbirsExclusionCauseRecorder` 对持续被排除目标做
+**排除原因跨周期差分（规则 13e）**：`SbirsExclusionCauseRecorder` 对持续被排除目标做
 `(code, cause)` 对差分，产出 A2 进入/A3 原因变化/A4 退出事件。差分键为组合对（非纯 cause），
 正确捕获遮挡↔距离带切换（同为 kNone、code 不同）的 A3 变化。纯观测只读 `result.issues`
 （按 `location.kind == kSceneEntity` 过滤），与 `SbirsDetectionLifecycleRecorder` 并列
