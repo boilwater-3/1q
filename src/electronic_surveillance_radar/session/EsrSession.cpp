@@ -6,6 +6,7 @@
 #include "electronic_surveillance_radar/environment/IEsrEnvironmentService.h"
 #include "electronic_surveillance_radar/pipeline/InterceptPipeline.h"
 #include "electronic_surveillance_radar/runtime/EsrController.h"
+#include "1q/electronic_surveillance_radar/session/EsrExclusionCauseRecorder.h"
 #include "electronic_surveillance_radar/session/EsrRuntimeConfigResolver.h"
 #include "electronic_surveillance_radar/session/EsrSessionCompositionRoot.h"
 
@@ -30,13 +31,18 @@ struct EsrSession::Impl {
    */
   EsrCycleResult RunCycle(const session::EsrCycleInput& input) {
     Controller().RunOnce(input);
-    return Controller().BuildCycleResult();
+    EsrCycleResult result = Controller().BuildCycleResult();
+    if (exclusion_cause_recorder != nullptr) {
+      exclusion_cause_recorder->Update(input, result);
+    }
+    return result;
   }
 
   EsrInternalExecutionConfig resolved_config{};
   std::unique_ptr<pipeline::InterceptPipeline> owned_pipeline;
   std::unique_ptr<environment::IEsrEnvironmentService> owned_environment_service;
   std::unique_ptr<extension::EsrController> owned_controller;
+  EsrExclusionCauseRecorder* exclusion_cause_recorder{nullptr};
 
   pipeline::InterceptPipeline& Pipeline() const { return *owned_pipeline; }
   environment::IEsrEnvironmentService& EnvironmentService() const {
@@ -62,6 +68,10 @@ session::EsrOutputFrame EsrSession::Step(const session::EsrCycleInput& input) {
 
 EsrCycleResult EsrSession::StepWithResult(const session::EsrCycleInput& input) {
   return impl_->RunCycle(input);
+}
+
+void EsrSession::AttachExclusionCauseRecorder(EsrExclusionCauseRecorder* recorder) noexcept {
+  impl_->exclusion_cause_recorder = recorder;
 }
 
 bool EsrSession::TryApplyRuntimeConfig(const config::EsrRuntimeConfigPatch& patch) {

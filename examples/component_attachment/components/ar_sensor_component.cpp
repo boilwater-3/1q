@@ -44,12 +44,33 @@ const char* ArTrackStatusName(airborne_radar::session::ArDebugTrackStatus status
   return "未知";
 }
 
+/// 排除原因门内归因 → 中文名（人读日志，规则 13b 门内归因条款）。
+const char* ArExclusionCauseName(airborne_radar::session::ArIssueCause cause) {
+  switch (cause) {
+    case airborne_radar::session::ArIssueCause::kNone:
+      return "无归因";
+    case airborne_radar::session::ArIssueCause::kDistanceLimited:
+      return "距离受限";
+    case airborne_radar::session::ArIssueCause::kBeamLimited:
+      return "波束偏轴";
+    case airborne_radar::session::ArIssueCause::kNoiseLimited:
+      return "噪声底受限";
+    case airborne_radar::session::ArIssueCause::kRcsLimited:
+      return "RCS受限";
+    case airborne_radar::session::ArIssueCause::kUnknown:
+      return "未知主因";
+  }
+  return "未知主因";
+}
+
 }  // namespace
 
 ArSensorComponent::ArSensorComponent(airborne_radar::session::ArSession session)
     : session_(std::move(session)) {
   // 轨迹生命周期事件由库内 recorder 承担（StepWithResult 内部自动喂）。
   session_.AttachTrackLifecycleRecorder(&lifecycle_);
+  // 排除原因跨周期差分事件由库内 recorder 承担（与 lifecycle recorder 独立并列）。
+  session_.AttachExclusionCauseRecorder(&exclusion_);
 }
 
 bool ArSensorComponent::TryApplyRuntimeConfig(
@@ -202,6 +223,30 @@ void ArSensorComponent::Step(World& world, double dt_sec) {
       CA_LOG_EVENT(world, "target_lost", "目标={} 原因=失跟",
                    static_cast<unsigned long long>(lost.target_id));
       world.signals().on_target_lost(lost);
+    }
+  }
+
+  // 排除原因跨周期差分事件（规则 13e）：纯诊断观测，仅落事件日志（不发 World
+  // 信号——不驱动融合/威胁等下游组件）。A1（原因稳定）不产事件，天然适配 KEY
+  // 事件模式（边界事件 A2/A3/A4 逐条落盘，无刷屏）。
+  for (const auto& event : exclusion_.GetLastEvents()) {
+    const std::uint64_t event_target_id = event.external_target_id;
+    if (event.kind == airborne_radar::session::ArExclusionCauseEventKind::kEntered) {
+      CA_LOG_EVENT(world, "exclusion_cause",
+                   "目标={} 类型=进入排除 排除码={} 主因={}",
+                   static_cast<unsigned long long>(event_target_id),
+                   event.current_code, ArExclusionCauseName(event.current_cause));
+    } else if (event.kind == airborne_radar::session::ArExclusionCauseEventKind::kChanged) {
+      CA_LOG_EVENT(world, "exclusion_cause",
+                   "目标={} 类型=原因变化 旧码={} 旧主因={} 新码={} 新主因={}",
+                   static_cast<unsigned long long>(event_target_id),
+                   event.previous_code, ArExclusionCauseName(event.previous_cause),
+                   event.current_code, ArExclusionCauseName(event.current_cause));
+    } else if (event.kind == airborne_radar::session::ArExclusionCauseEventKind::kExited) {
+      CA_LOG_EVENT(world, "exclusion_cause",
+                   "目标={} 类型=退出排除 旧码={} 旧主因={}",
+                   static_cast<unsigned long long>(event_target_id),
+                   event.previous_code, ArExclusionCauseName(event.previous_cause));
     }
   }
 

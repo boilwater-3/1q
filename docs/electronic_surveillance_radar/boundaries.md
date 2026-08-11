@@ -151,6 +151,16 @@ ESR 所有中止路径遵守 `session_contract.md` 规则 9 的三写模式与�
 低于门限按门型细分（硬门 `kHardGateFailed` / 统计门 `kStatisticalGateFailed`）；同址排除为
 具体门（cause 恒 `kNone`），message 补隔离度与路径量值。诊断不改变 `EsrCycleExecutionStatus` 与
 输出帧语义（规则 13c）；周期摘要日志（`[InterceptPipeline] … excluded=…`）仅人读（规则 13a）。
+**实体机器可读关联（规则 14e/13b）**：排除诊断结构化携带 `location = {kSceneEntity, emission_index}`
+（`emission_index` = 发射源在 identity 排序后数组中的下标，与 `InterceptDetectionExecutor` 排序序
+一致；三发射点分别由循环 A 的 `index` / 循环 B 的 `signal_index` 赋值）。
+**排除原因跨周期差分（规则 13e）**：`EsrExclusionCauseRecorder` 对持续被排除发射源做
+`(code, cause)` 对差分，产出 A2/A3/A4 事件。**实体键为发射源标识三元组**（platform/equipment/
+emission id，非 entity_index 下标）：记录器 Update 时按同一 identity 排序序重排
+`input.rf_emissions.emissions` 把 entity_index 解析回 identity 三元组，内部状态以 identity 为键
+——免疫跨周期发射源集合变化时的下标移位（源消失后其余源下标变化不会误判为原因变化）。纯观测
+只读 `result.issues`，不改变执行语义（规则 11c/13c）。ESR 当前仅本排除原因差分记录器（无既有
+生命周期 recorder），`EsrSession::AttachExclusionCauseRecorder` 为首个 recorder 注册点。
 
 ## 专项序列验证边界
 

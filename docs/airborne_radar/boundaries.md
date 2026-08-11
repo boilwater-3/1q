@@ -124,6 +124,18 @@ AR 所有中止路径遵守 `session_contract.md` 规则 9 的三写模式与规
 诊断不改变 `ArCycleStatus`
 与 DebugView 状态语义（排除目标仍为 `kNotInOutput`，规则 13c）；生命周期失效（miss 积累 → `kLost`）
 不产生排除诊断（规则 13d）。周期摘要日志（`[SignalPipeline] … excluded={{snr=…}}`）仅人读（规则 13a）。
+**实体机器可读关联（规则 14e/13b）**：排除诊断结构化携带 `location = {kSceneEntity, target_index}`
+（`MakeExclusionIssue` 由 `RunPhysicalDetectionPass` 循环索引赋值），供 `ArExclusionCauseRecorder`
+按实体关联消费。**位置对齐**：`entity_index` 是 `RunPhysicalDetectionPass` 内 `ArSceneTargetList`
+索引，recorder 按目标在 `ArTargetInputList` 中的位置 find；两者对齐依赖 `ArSession` 适配器
+"按序无过滤"地把 `input.targets` 映射到局部场景目标表（过滤/跳过即整周期拒绝）。若未来
+适配器改为可跳过单目标的过滤逻辑，此对齐会被无声破坏，须同步评估 recorder 实体关联。
+**排除原因跨周期差分（规则 13e）**：`ArExclusionCauseRecorder` 对持续被排除目标做
+`(code, cause)` 对差分，产出 A2 进入/A3 原因变化/A4 退出事件；纯观测只读 `result.issues`
+（按 `location.kind == kSceneEntity` 过滤），与 `ArTrackLifecycleRecorder` 并列（独立 Attach/
+驱动/GetLastEvents），注册与否不影响执行语义（规则 11c）。**消失目标边界**：recorder 只遍历
+当前周期输入目标表，目标从输入消失时其排除状态条目保留（不会被 A4 清除，与既有
+`ArTrackLifecycleRecorder` 的"消失目标状态保留"行为一致）；重现为 A3 而非 A2。
 
 ### TrackOutputFrame 不扩展的决策依据
 

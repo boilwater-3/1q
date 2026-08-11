@@ -22,6 +22,7 @@ set(EOS_CORE_SOURCES
     session/EosCycleOutputAdapter.cpp
     session/EosInputValidation.cpp
     session/EosDetectionLifecycleRecorder.cpp
+    session/EosExclusionCauseRecorder.cpp
     session/EosOutputDebugViewBuilder.cpp
     runtime/EosController.cpp
     runtime/EosPipelineConfigMapper.cpp

@@ -20,6 +20,7 @@ namespace sbirs_sensor {
 namespace session {
 
 class SbirsDetectionLifecycleRecorder;
+class SbirsExclusionCauseRecorder;
 
 /**
  * @brief SBIRS-inspired 会话门面，是外部调用方的主要使用面。
@@ -66,6 +67,19 @@ class ONEQ_API SbirsSession {
    * @note Session 不拥有 recorder，调用方须保证 recorder 生命周期长于 Session 的注册期。
    */
   void AttachDetectionLifecycleRecorder(SbirsDetectionLifecycleRecorder* recorder) noexcept;
+
+  /**
+   * @brief 注册排除原因跨周期差分记录器，由 Session 在每个周期自动驱动。
+   *
+   * 与 `AttachDetectionLifecycleRecorder` 独立并列：一个 Session 可同时注册两者，
+   * 各自独立驱动、独立 `GetLastEvents()` 通道，注册与否互不影响、不影响执行语义
+   *（规则 11c）。
+   * @param[in] recorder 记录器指针；传入 `nullptr` 解除注册。
+   * @note Session 不拥有 recorder，调用方须保证 recorder 生命周期长于 Session 的注册期。
+   * @note 排除原因变化观测（进入/原因变化/退出排除）建议通过本机制获取：recorder 内建
+   *       跨周期 (code,cause) 对差分，规则 13b 排除诊断的差分观测。
+   */
+  void AttachExclusionCauseRecorder(SbirsExclusionCauseRecorder* recorder) noexcept;
 
   /** @brief 使用四域配置创建会话（推荐入口，信任路径，不做配置校验）。 */
   static SbirsSession Create(const config::SbirsSessionConfig& config = {});

@@ -17,6 +17,7 @@
 #include "1q/fusion/DetectionRecord.h"
 #include "1q/sbirs_sensor/config/SbirsRuntimeConfigPatch.h"
 #include "1q/sbirs_sensor/session/SbirsDetectionLifecycleRecorder.h"
+#include "1q/sbirs_sensor/session/SbirsExclusionCauseRecorder.h"
 #include "1q/sbirs_sensor/session/SbirsOutputDebugView.h"
 #include "1q/sbirs_sensor/session/SbirsSession.h"
 #include "core/component.h"
@@ -75,9 +76,10 @@ class SbirsSensorComponent : public Component {
   bool TryApplyRuntimeConfig(const sbirs_sensor::config::SbirsRuntimeConfigPatch& patch);
 
  private:
-  // lifecycle_ 声明在 session_ 之前：析构逆序时 session_ 先析构（其析构不
+  // lifecycle_/exclusion_ 声明在 session_ 之前：析构逆序时 session_ 先析构（其析构不
   // 触达 recorder 指针），满足"recorder 生命周期长于 Session 注册期"约束。
   sbirs_sensor::session::SbirsDetectionLifecycleRecorder lifecycle_{}; /**< 探测生命周期事件源 */
+  sbirs_sensor::session::SbirsExclusionCauseRecorder exclusion_{}; /**< 排除原因跨周期差分事件源 */
   sbirs_sensor::session::SbirsSession session_;
   Entity* host_{nullptr};
   std::vector<fusion::DetectionRecord> detections_{};

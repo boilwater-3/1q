@@ -82,12 +82,31 @@ const char* EosTargetStatusName(electro_optical_sensor::session::EosDebugTargetS
   return "未知";
 }
 
+/// 排除原因门内归因 → 中文名（人读日志，规则 13b 门内归因条款）。
+const char* EosExclusionCauseName(electro_optical_sensor::session::EosIssueCause cause) {
+  switch (cause) {
+    case electro_optical_sensor::session::EosIssueCause::kNone:
+      return "无归因";
+    case electro_optical_sensor::session::EosIssueCause::kAzOutside:
+      return "方位越界";
+    case electro_optical_sensor::session::EosIssueCause::kElOutside:
+      return "俯仰越界";
+    case electro_optical_sensor::session::EosIssueCause::kBothAxesOutside:
+      return "双轴越界";
+    case electro_optical_sensor::session::EosIssueCause::kUnknown:
+      return "未知主因";
+  }
+  return "未知主因";
+}
+
 }  // namespace
 
 EosSensorComponent::EosSensorComponent(electro_optical_sensor::session::EosSession session)
     : session_(std::move(session)) {
   // 探测生命周期事件由库内 recorder 承担（StepWithResult 内部自动喂）。
   session_.AttachDetectionLifecycleRecorder(&lifecycle_);
+  // 排除原因跨周期差分事件由库内 recorder 承担（与 lifecycle recorder 独立并列）。
+  session_.AttachExclusionCauseRecorder(&exclusion_);
 }
 
 bool EosSensorComponent::TryApplyRuntimeConfig(
@@ -239,6 +258,30 @@ void EosSensorComponent::Step(World& world, double dt_sec) {
                    eos_event.az_deg);
     }
     world.signals().on_eos_detection(eos_event);
+  }
+
+  // 排除原因跨周期差分事件（规则 13e）：纯诊断观测，仅落事件日志（不发 World
+  // 信号——不驱动融合/威胁等下游组件）。EOS 单一视场门排除（eos.target_out_of_fov），
+  // A3 由越界轴变化（az/el/both）驱动。
+  for (const auto& event : exclusion_.GetLastEvents()) {
+    const std::uint64_t event_target_id = event.target_id;
+    if (event.kind == electro_optical_sensor::session::EosExclusionCauseEventKind::kEntered) {
+      CA_LOG_EVENT(world, "exclusion_cause",
+                   "目标={} 类型=进入排除 排除码={} 主因={}",
+                   static_cast<unsigned long long>(event_target_id),
+                   event.current_code, EosExclusionCauseName(event.current_cause));
+    } else if (event.kind == electro_optical_sensor::session::EosExclusionCauseEventKind::kChanged) {
+      CA_LOG_EVENT(world, "exclusion_cause",
+                   "目标={} 类型=原因变化 旧码={} 旧主因={} 新码={} 新主因={}",
+                   static_cast<unsigned long long>(event_target_id),
+                   event.previous_code, EosExclusionCauseName(event.previous_cause),
+                   event.current_code, EosExclusionCauseName(event.current_cause));
+    } else if (event.kind == electro_optical_sensor::session::EosExclusionCauseEventKind::kExited) {
+      CA_LOG_EVENT(world, "exclusion_cause",
+                   "目标={} 类型=退出排除 旧码={} 旧主因={}",
+                   static_cast<unsigned long long>(event_target_id),
+                   event.previous_code, EosExclusionCauseName(event.previous_cause));
+    }
   }
 
   detections_ = fusion::AdaptEosDetectionsToDetectionRecords(

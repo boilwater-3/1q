@@ -21,8 +21,37 @@
 
 namespace component_attachment {
 
+namespace {
+
+/// 排除原因门内归因 → 中文名（人读日志，规则 13b 门内归因条款）。
+const char* EsrExclusionCauseName(electronic_surveillance_radar::session::EsrIssueCause cause) {
+  switch (cause) {
+    case electronic_surveillance_radar::session::EsrIssueCause::kNone:
+      return "无归因";
+    case electronic_surveillance_radar::session::EsrIssueCause::kTransmitSilent:
+      return "发射静默";
+    case electronic_surveillance_radar::session::EsrIssueCause::kOverlapWindow:
+      return "时频重叠为零";
+    case electronic_surveillance_radar::session::EsrIssueCause::kPropagationLoss:
+      return "传播损耗";
+    case electronic_surveillance_radar::session::EsrIssueCause::kHardGateFailed:
+      return "硬门失败";
+    case electronic_surveillance_radar::session::EsrIssueCause::kStatisticalGateFailed:
+      return "统计门失败";
+    case electronic_surveillance_radar::session::EsrIssueCause::kUnknown:
+      return "未知主因";
+  }
+  return "未知主因";
+}
+
+}  // namespace
+
 EsrSensorComponent::EsrSensorComponent(electronic_surveillance_radar::session::EsrSession session)
-    : session_(std::move(session)) {}
+    : session_(std::move(session)) {
+  // 排除原因跨周期差分事件由库内 recorder 承担（StepWithResult 内部自动喂）。
+  // ESR 无既有 lifecycle recorder，exclusion_ 为首个 recorder 成员。
+  session_.AttachExclusionCauseRecorder(&exclusion_);
+}
 
 bool EsrSensorComponent::TryApplyRuntimeConfig(
     const electronic_surveillance_radar::config::EsrRuntimeConfigPatch& patch) {
@@ -98,6 +127,38 @@ void EsrSensorComponent::Step(World& world, double dt_sec) {
                      static_cast<int>(event.mode), static_cast<int>(event.threat_level));
     world.signals().on_emitter_hypothesis(event);
   }
+
+  // 排除原因跨周期差分事件（规则 13e）：纯诊断观测，仅落事件日志（不发 World
+  // 信号——不驱动融合/威胁等下游组件）。ESR 无 target_id，以发射源标识
+  // （platform/equipment/emission 三元组）为实体关联键。差分键为 (code,cause)
+  // 组合对——co-site↔zero-power 切换（kNone→细分 cause）亦产事件。
+  for (const auto& event : exclusion_.GetLastEvents()) {
+    const auto& id = event.identity;
+    if (event.kind == electronic_surveillance_radar::session::EsrExclusionCauseEventKind::kEntered) {
+      CA_LOG_EVENT(world, "exclusion_cause",
+                   "辐射源=(platform={},equipment={},emission={}) 类型=进入排除 排除码={} 主因={}",
+                   static_cast<unsigned long long>(id.platform_id),
+                   static_cast<unsigned long long>(id.equipment_id),
+                   static_cast<unsigned long long>(id.emission_id),
+                   event.current_code, EsrExclusionCauseName(event.current_cause));
+    } else if (event.kind == electronic_surveillance_radar::session::EsrExclusionCauseEventKind::kChanged) {
+      CA_LOG_EVENT(world, "exclusion_cause",
+                   "辐射源=(platform={},equipment={},emission={}) 类型=原因变化 旧码={} 旧主因={} 新码={} 新主因={}",
+                   static_cast<unsigned long long>(id.platform_id),
+                   static_cast<unsigned long long>(id.equipment_id),
+                   static_cast<unsigned long long>(id.emission_id),
+                   event.previous_code, EsrExclusionCauseName(event.previous_cause),
+                   event.current_code, EsrExclusionCauseName(event.current_cause));
+    } else if (event.kind == electronic_surveillance_radar::session::EsrExclusionCauseEventKind::kExited) {
+      CA_LOG_EVENT(world, "exclusion_cause",
+                   "辐射源=(platform={},equipment={},emission={}) 类型=退出排除 旧码={} 旧主因={}",
+                   static_cast<unsigned long long>(id.platform_id),
+                   static_cast<unsigned long long>(id.equipment_id),
+                   static_cast<unsigned long long>(id.emission_id),
+                   event.previous_code, EsrExclusionCauseName(event.previous_cause));
+    }
+  }
+
   detections_ = fusion::AdaptEsrHypothesesToDetectionRecords(
       fusion::kEsrSourceId, hypotheses);
 }

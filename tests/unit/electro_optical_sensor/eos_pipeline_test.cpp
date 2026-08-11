@@ -460,6 +460,9 @@ TEST(EosPipelineTest, OutOfFovTargetWritesInfoExclusionDiagnostic) {
       // 门内归因（规则 13b）：目标 az=35° 相对扫描中心仅方位越界 → kAzOutside。
       EXPECT_EQ(issue.cause, context::EosIssueCause::kAzOutside);
       EXPECT_NE(issue.message.find("az_delta_deg="), std::string::npos);
+      // 实体机器可读关联（规则 14e）：单目标 scene[0] → entity_index=0。
+      EXPECT_EQ(issue.location.kind, oneq::foundation::ValidationLocationKind::kSceneEntity);
+      EXPECT_EQ(issue.location.entity_index, 0U);
     }
   }
   EXPECT_TRUE(found);
@@ -481,6 +484,9 @@ TEST(EosPipelineTest, OutOfFovBothAxesWritesBothAxesOutsideCause) {
       found = true;
       // 门内归因（规则 13b）：双轴越界 → kBothAxesOutside。
       EXPECT_EQ(issue.cause, context::EosIssueCause::kBothAxesOutside);
+      // 实体机器可读关联（规则 14e）：单目标 scene[0] → entity_index=0。
+      EXPECT_EQ(issue.location.kind, oneq::foundation::ValidationLocationKind::kSceneEntity);
+      EXPECT_EQ(issue.location.entity_index, 0U);
     }
   }
   EXPECT_TRUE(found);
@@ -503,6 +509,9 @@ TEST(EosPipelineTest, OutOfFovElevationOnlyWritesElOutsideCause) {
       found = true;
       // 门内归因（规则 13b）：仅俯仰越界 → kElOutside。
       EXPECT_EQ(issue.cause, context::EosIssueCause::kElOutside);
+      // 实体机器可读关联（规则 14e）：单目标 scene[0] → entity_index=0。
+      EXPECT_EQ(issue.location.kind, oneq::foundation::ValidationLocationKind::kSceneEntity);
+      EXPECT_EQ(issue.location.entity_index, 0U);
     }
   }
   EXPECT_TRUE(found);

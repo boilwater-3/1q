@@ -13,6 +13,7 @@
 #include <vector>
 
 #include "1q/electronic_surveillance_radar/config/EsrRuntimeConfigPatch.h"
+#include "1q/electronic_surveillance_radar/session/EsrExclusionCauseRecorder.h"
 #include "1q/electronic_surveillance_radar/session/EsrSession.h"
 #include "1q/fusion/DetectionRecord.h"
 #include "core/component.h"
@@ -71,6 +72,10 @@ class EsrSensorComponent : public Component {
       const electronic_surveillance_radar::config::EsrRuntimeConfigPatch& patch);
 
  private:
+  // exclusion_ 声明在 session_ 之前：析构逆序时 session_ 先析构（其析构不触达
+  // recorder 指针），满足"recorder 生命周期长于 Session 注册期"约束。
+  // ESR 无既有 lifecycle recorder，exclusion_ 为首个 recorder 成员。
+  electronic_surveillance_radar::session::EsrExclusionCauseRecorder exclusion_{}; /**< 排除原因跨周期差分事件源 */
   electronic_surveillance_radar::session::EsrSession session_;
   Entity* host_{nullptr};
   std::vector<fusion::DetectionRecord> detections_{};

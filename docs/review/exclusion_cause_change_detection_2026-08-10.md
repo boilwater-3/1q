@@ -81,15 +81,21 @@ Authority: 非规范性设计讨论记录；需求尚未实施，不构成契约
    （人读辅助）。
 4. 非执行周期不产生事件、不推进内部状态（与既有 LifecycleRecorder 语义一致）。
 5. 纯观测：不改变 `*CycleStatus`、排除诊断、DebugView 状态语义（规则 13c 边界延续）。
-6. 事件与既有生命周期事件同流输出（同一 `GetLastEvents()` 通道），集成方按事件种类分流
-   消费。
+6. 事件与既有生命周期事件**同注册驱动模式**输出：新增独立 recorder
+   （`*ExclusionCauseRecorder`，与既有 `*LifecycleRecorder` 并列），各自独立 `Attach*`/
+   `GetLastEvents()` 通道。集成方各注册一个 recorder、按各自事件种类分流消费。
+   （**修订 2026-08-11**：实施时选路线 B 独立 recorder，非路线 A 扩展既有枚举；原"同一
+   `GetLastEvents()` 通道"字面表述基于路线 A，已修订为"同注册驱动模式"。）
 
 ### 2.5 边界与约束
 
-- 原因比较基准为各模块 `<Module>IssueCause` 枚举；`kNone`（未被排除）参与转换判定
-  （A2/A4）。
-- 内部状态最小化：每实体仅需记忆上一周期原因（单个枚举值），符合 LifecycleRecorder
-  "状态最小化"设计原则。
+- **差分键**为 `(code, cause)` 组合对（**修订 2026-08-11**：原"原因比较基准为各模块
+  `<Module>IssueCause` 枚举"基于纯 cause 假设，升级为 code+cause 组合对，避免 SBIRS
+  遮挡↔距离带切换盲区——两者 cause 均 kNone、code 不同，纯 cause 键判为 A1 稳定漏报，
+  组合键正确判为 A3 变化）。AR 单一排除 code 下与纯 cause 等价。
+- `kNone`（未被排除）参与转换判定（A2/A4）：未被排除 ↔ 被排除 的进入/退出转换。
+- 内部状态最小化：每实体仅需记忆上一周期 `(code, cause)` 对（无条目 = 上周未被排除），
+  符合 LifecycleRecorder "状态最小化"设计原则。
 - 记录器注册/注销不影响执行语义（与既有 recorder 契约一致）。
 
 ### 2.6 非目标（本需求明确不做）
@@ -135,18 +141,35 @@ cause 字段落地后，本需求的收益是"呈现方式"而非"新信息"：
 原因维度最丰富、变化检测价值最大的是 AR（SNR 四因）与 SBIRS（四门多因）；EOS 仅视场外
 一维原因（az/el/both），SAR 无排除。故实施建议：**AR 试点 → SBIRS 跟进 → EOS/ESR 按需**。
 
-### 3.3 事件形态（待试点确定）
+### 3.3 事件形态（已决：路线 B 新增独立 recorder）
 
-两种候选，AR 试点时定夺：
+**决定 2026-08-11**：选路线 B（新增独立 `*ExclusionCauseRecorder`），非路线 A（扩展既有
+事件枚举）。理由：
 
-- 扩展既有事件种类（如 AR `kNotTracked` 增加原因字段/枚举值）：复用现有通道，但"原因变化"
-  与"无 track 事实"语义混叠。
-- 新增独立事件种类（如 `kExclusionCauseChanged`，携带 old_cause/new_cause）：语义清晰，
-  与既有事件并列。
+- 路线 A 扩展既有 `ArTrackLifecycleEventKind`/`SbirsDetectionLifecycleEventKind`，"原因变化"
+  与"轨迹/探测生命周期"语义混叠，且 recorder 需新增读 `result.issues`（既有 recorder 只读
+  track/detection），污染"只读 track"边界。
+- 路线 B 独立 recorder，纯观测 `result.issues`（按 `location.kind == kSceneEntity` 关联），
+  与既有 recorder 完全解耦，各自独立 Attach/驱动/GetLastEvents。代价：Session 需第二个
+  驱动点（已落地，ArSession/SbirsSession 各加 `AttachExclusionCauseRecorder` + 驱动点）。
+- "同流输出"重新定义为"同注册驱动模式、同 L3 观测层语义"，而非字面同一 vector（§2.4.6）。
+- 事件结构：`*ExclusionCauseEvent`（周期号/实体标识/previous_code+cause/current_code+cause/
+  kind），kind 为 `kEntered`(A2)/`kChanged`(A3)/`kExited`(A4)。
 
-## 4. 未决问题
+落地范围（2026-08）：**四模块全部落地**——AR/SBIRS（target_id 键）、EOS（target_id 键，
+单一视场门）、ESR（发射源标识 platform/equipment/emission 三元组键，免疫集合变化下标移位）。
+SAR 无排除诊断（13b 空洞条款）不适用。
 
-1. 事件形态：扩展既有事件 vs 新增事件种类（§3.3，AR 试点定夺）。
+## 4. 未决问题（状态更新 2026-08-11）
+
+1. ~~事件形态：扩展既有事件 vs 新增事件种类（§3.3）~~ → **已决**：路线 B 新增独立 recorder
+   （§3.3）。
 2. 进入/退出事件（A2/A4）是否与生命周期事件（`kFirstConfirmed`/`kLost`）存在重复语义——
-   需在试点时对齐边界（如"退出排除"与"kLost"的先后关系）。
-3. 契约落位：若实施，规则 13b 是否增补"排除原因变化事件"条款，或仅模块 boundaries 登记。
+   **当前边界**：两者观测不同维度——`*LifecycleRecorder` 观测"探测/跟踪状态"（有/无 track），
+   `*ExclusionCauseRecorder` 观测"门控排除原因"（是否被 SNR/视场/距离/遮挡门排除）。一个
+   目标可能"有 track 但被某个门排除"或"无 track 但未被排除门命中"（取决于模块语义），
+   两者不互为充要，不构成重复。后续若发现具体场景的先后关系歧义再单列。
+3. ~~契约落位~~ → **已决**：规则 13 增补子项 e（排除原因跨周期差分记录器条款）+ 子项 b
+   补"实体机器可读关联 location"要求 + 规则 14e 补"location 服务机器消费" + 规则 10/11
+   泛化多 recorder（均已写入 `session_contract.md`，2026-08）。（编号修订 2026-08-11：
+   条款正式落位为规则 13e（13d 之后）；草稿期"13b 子项 e"表述作废，全库引用已同步。）

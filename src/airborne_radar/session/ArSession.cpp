@@ -6,6 +6,7 @@
 #include <utility>
 
 #include "1q/airborne_radar/session/ArIssueCodes.h"
+#include "1q/airborne_radar/session/ArExclusionCauseRecorder.h"
 #include "1q/airborne_radar/session/ArTrackLifecycleRecorder.h"
 #include "1q/coordinate/attitude_transform.h"
 #include "1q/coordinate/position_transform.h"
@@ -835,6 +836,7 @@ struct ArSession::Impl {
   std::unique_ptr<extension::ArController> owned_controller;
   signal::pipeline::SignalPipeline* concrete_signal_pipeline_{nullptr};
   ArTrackLifecycleRecorder* lifecycle_recorder{nullptr};
+  ArExclusionCauseRecorder* exclusion_cause_recorder{nullptr};
 
   MutableArContext& RadarContext() const { return *owned_ar_context; }
   signal::ISignalPipeline& SignalPipeline() const { return *owned_signal_pipeline; }
@@ -911,11 +913,18 @@ ArCycleResult ArSession::StepWithResult(const ArCycleInput& input) {
   if (impl_->lifecycle_recorder != nullptr) {
     impl_->lifecycle_recorder->Update(input.targets, result);
   }
+  if (impl_->exclusion_cause_recorder != nullptr) {
+    impl_->exclusion_cause_recorder->Update(input.targets, result);
+  }
   return result;
 }
 
 void ArSession::AttachTrackLifecycleRecorder(ArTrackLifecycleRecorder* recorder) noexcept {
   impl_->lifecycle_recorder = recorder;
+}
+
+void ArSession::AttachExclusionCauseRecorder(ArExclusionCauseRecorder* recorder) noexcept {
+  impl_->exclusion_cause_recorder = recorder;
 }
 
 const std::vector<session::ArCommand>& ArSession::GetSubmittedCommands() const {

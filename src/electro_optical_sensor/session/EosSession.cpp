@@ -4,6 +4,7 @@
 #include <utility>
 
 #include "1q/electro_optical_sensor/session/EosDetectionLifecycleRecorder.h"
+#include "1q/electro_optical_sensor/session/EosExclusionCauseRecorder.h"
 #include "electro_optical_sensor/runtime/EosController.h"
 #include "common/logging/ProjectLog.h"
 #include "electro_optical_sensor/runtime/EosRuntimeConfigResolver.h"
@@ -49,6 +50,7 @@ struct EosSession::Impl {
   extension::EosController& controller;
   config::execution::EosInternalExecutionConfig internal_config_;
   EosDetectionLifecycleRecorder* lifecycle_recorder{nullptr};
+  EosExclusionCauseRecorder* exclusion_cause_recorder{nullptr};
 };
 
 EosSession::EosSession(std::unique_ptr<Impl> impl) : impl_(std::move(impl)) {}
@@ -85,11 +87,18 @@ session::EosOutputFrame EosSession::Step(const EosCycleInput& input) {
   if (impl_->lifecycle_recorder != nullptr) {
     impl_->lifecycle_recorder->Update(input, result);
   }
+  if (impl_->exclusion_cause_recorder != nullptr) {
+    impl_->exclusion_cause_recorder->Update(input, result);
+  }
   return result;
 }
 
 void EosSession::AttachDetectionLifecycleRecorder(EosDetectionLifecycleRecorder* recorder) noexcept {
   impl_->lifecycle_recorder = recorder;
+}
+
+void EosSession::AttachExclusionCauseRecorder(EosExclusionCauseRecorder* recorder) noexcept {
+  impl_->exclusion_cause_recorder = recorder;
 }
 
 bool EosSession::TryApplyRuntimeConfig(const config::EosRuntimeConfigPatch& patch) {

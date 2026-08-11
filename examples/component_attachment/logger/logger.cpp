@@ -54,6 +54,7 @@ const char* EventTypeName(const char* type) {
       {"waypoint_reached", "航点到达"},
       {"platform_state", "平台状态"},
       {"command_issued", "指令下发"},
+      {"exclusion_cause", "排除原因变化"},
   };
   for (const auto& entry : kNames) {
     if (std::strcmp(entry.type, type) == 0) {

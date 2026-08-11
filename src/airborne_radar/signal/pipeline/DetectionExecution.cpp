@@ -164,14 +164,21 @@ bool HasValidBuffers(const DetectionExecutionBuffers& buffers) {
 
 /// 构造 kInfo 级按目标排除诊断（不属于三写，仅承载排查信息；规则 13b）。
 /// @param cause 门内归因（规则 13b 门内归因条款）；聚合门排除须给出主因，具体门可 kNone。
+/// @param target_index 场景目标索引；非负时写入 `location = {kSceneEntity, target_index}`，
+///                     供跨周期差分记录器按实体关联消费（默认 -1 保持 kGlobal，向后兼容）。
 session::ArIssue MakeExclusionIssue(const char* code, const std::string& message,
-                                    session::ArIssueCause cause = session::ArIssueCause::kNone) {
+                                    session::ArIssueCause cause = session::ArIssueCause::kNone,
+                                    std::ptrdiff_t target_index = -1) {
   session::ArIssue issue;
   issue.severity = session::ArIssueSeverity::kInfo;
   issue.phase = session::ArIssuePhase::kExecution;
   issue.code = code;
   issue.message = message;
   issue.cause = cause;
+  if (target_index >= 0) {
+    issue.location.kind = oneq::foundation::ValidationLocationKind::kSceneEntity;
+    issue.location.entity_index = static_cast<std::size_t>(target_index);
+  }
   return issue;
 }
 
@@ -411,7 +418,8 @@ bool RunPhysicalDetectionPass(const session::ArSceneTargetList& input,
               " min_detection_margin_db=" +
               FormatFloat(config.detection.engineering.min_detection_margin_db) +
               off_axis_text,
-          cause));
+          cause,
+          static_cast<std::ptrdiff_t>(i)));
       ++(*buffers->excluded_snr_below);
     }
     (*buffers->measurement_covariances)[i] = BuildMeasurementCovariance(

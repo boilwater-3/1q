@@ -39,13 +39,23 @@ constexpr std::uint64_t kPulseWidthRandomDomain = 0x4553525057000000ULL;
 
 /// 构造 kInfo 级按发射源排除诊断（不属于三写，仅承载排查信息；规则 13b）。
 /// @param cause 门内归因（规则 13b 门内归因条款）；聚合门排除须给出主因，具体门可 kNone。
+/// @param emission_index 发射源在 identity 排序后数组中的下标；非负时写入
+///                     `location = {kSceneEntity, emission_index}`，供跨周期差分记录器
+///                     按实体关联消费（默认 -1 保持 kGlobal，向后兼容）。
+///                     ESR 无 target_id 概念，entity_index = 按 (platform/equipment/emission)
+///                     排序后的发射源下标（记录器按同一序重排 emissions 解析回 identity）。
 session::EsrIssue MakeExclusionIssue(const char* code, const std::string& message,
-                                     session::EsrIssueCause cause = session::EsrIssueCause::kNone) {
+                                     session::EsrIssueCause cause = session::EsrIssueCause::kNone,
+                                     std::ptrdiff_t emission_index = -1) {
   session::EsrIssue issue;
   issue.severity = session::EsrIssueSeverity::kInfo;
   issue.code = code;
   issue.message = message;
   issue.cause = cause;
+  if (emission_index >= 0) {
+    issue.location.kind = oneq::foundation::ValidationLocationKind::kSceneEntity;
+    issue.location.entity_index = static_cast<std::size_t>(emission_index);
+  }
   return issue;
 }
 
@@ -337,7 +347,9 @@ bool InterceptDetectionExecutor::ProcessRfV2Frame(
           session::codes::kEmissionCoSite,
           FormatEmissionIdentity(emission.identity) + "; co_site=true; isolation_db=" +
               FormatNumber(co_site_link.co_site_isolation_db) + " path_length_m=" +
-              FormatNumber(co_site_link.path_length_m)));
+              FormatNumber(co_site_link.path_length_m),
+          session::EsrIssueCause::kNone,
+          static_cast<std::ptrdiff_t>(index)));
       ++output->excluded_co_site;
       continue;
     }
@@ -361,7 +373,8 @@ bool InterceptDetectionExecutor::ProcessRfV2Frame(
               FormatNumber(zero_link.time_overlap_fraction) + " frequency_overlap_fraction=" +
               FormatNumber(zero_link.frequency_overlap_fraction) + " path_length_m=" +
               FormatNumber(zero_link.path_length_m),
-          zero_cause));
+          zero_cause,
+          static_cast<std::ptrdiff_t>(index)));
       ++output->excluded_zero_power;
       continue;
     }
@@ -418,7 +431,8 @@ bool InterceptDetectionExecutor::ProcessRfV2Frame(
           FormatEmissionIdentity(signal.identity) + "; snr_db=" + FormatNumber(snr_db) +
               " below threshold=" + FormatNumber(threshold) +
               " margin_db=" + FormatNumber(snr_db - threshold),
-          below_cause));
+          below_cause,
+          static_cast<std::ptrdiff_t>(signal_index)));
       ++output->excluded_below_threshold;
       continue;
     }
