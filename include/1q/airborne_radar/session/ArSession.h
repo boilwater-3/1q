@@ -31,6 +31,7 @@ namespace session {
 
 class ArSessionReplayAccess;
 class ArTrackLifecycleRecorder;
+class ArExclusionCauseRecorder;
 
 /**
  * @brief ArSession 提供"一步一帧"的外部接入门面。
@@ -108,6 +109,19 @@ class ONEQ_API ArSession {
    *       跨周期状态迁移差分与掉轨重捕语义。
    */
   void AttachTrackLifecycleRecorder(ArTrackLifecycleRecorder* recorder) noexcept;
+
+  /**
+   * @brief 注册排除原因跨周期差分记录器，由 Session 在每个周期自动驱动。
+   *
+   * 与 `AttachTrackLifecycleRecorder` 独立并列：一个 Session 可同时注册两者，
+   * 各自独立驱动、独立 `GetLastEvents()` 通道，注册与否互不影响、不影响执行语义
+   *（规则 11c）。
+   * @param[in] recorder 记录器指针；传入 `nullptr` 解除注册。
+   * @note Session 不拥有 recorder，调用方须保证 recorder 生命周期长于 Session 的注册期。
+   * @note 排除原因变化观测（进入/原因变化/退出排除）建议通过本机制获取：recorder 内建
+   *       跨周期 (code,cause) 对差分，规则 13b 排除诊断的差分观测。
+   */
+  void AttachExclusionCauseRecorder(ArExclusionCauseRecorder* recorder) noexcept;
 
   /** @brief 提交外部 profile 覆盖（整包替换值，绕过 TacticalProposal 管线与 hold/cooldown）。 */
   session::ExternalDecisionSubmitStatus SubmitExternalDecision(

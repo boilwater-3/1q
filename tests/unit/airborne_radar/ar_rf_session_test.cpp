@@ -5,6 +5,7 @@
 #include "1q/airborne_radar/config/ArProfileConstants.h"
 #include "1q/airborne_radar/config/ArRuntimeConfigBuilder.h"
 #include "1q/airborne_radar/config/ArSessionConfigBuilder.h"
+#include "1q/airborne_radar/session/ArExclusionCauseRecorder.h"
 #include "1q/airborne_radar/session/ArSession.h"
 #include "airborne_radar/session/ArReplayCycleRecord.h"
 
@@ -359,9 +360,39 @@ TEST(ArRfSessionTest, BelowSnrTargetWritesInfoExclusionDiagnostic) {
       // message 补充偏轴量值（机器消费仍只认 code/cause）。
       EXPECT_EQ(issue.cause, ArIssueCause::kRcsLimited);
       EXPECT_NE(issue.message.find("off_axis_deg=("), std::string::npos);
+      // 实体机器可读关联（规则 14e）：排除诊断结构化携带场景实体索引，
+      // 供跨周期差分记录器按实体关联消费（target_id=77 是 targets[0]）。
+      EXPECT_EQ(issue.location.kind, oneq::foundation::ValidationLocationKind::kSceneEntity);
+      EXPECT_EQ(issue.location.entity_index, 0U);
     }
   }
   EXPECT_TRUE(found);
+}
+
+// 排除原因差分记录器经 Session 自动驱动：极小 RCS 目标首周期被排除 → A2 进入事件。
+TEST(ArRfSessionTest, ExclusionCauseRecorderDrivenBySessionProducesEnteredEvent) {
+  ArCycleInput input = MakeInput(1U, 0.0);
+  input.targets.back().rcs = 1.0e-9f;  // 极小 RCS：SNR 门排除（主因 kRcsLimited）
+  ArSession radar = ArSession::Create(MakeRfConfig());
+  ArExclusionCauseRecorder recorder;
+  radar.AttachExclusionCauseRecorder(&recorder);
+
+  radar.StepWithResult(input);
+
+  // Session 自动驱动：recorder 产出 A2 进入事件（target_id=77 首次被排除）。
+  const std::vector<ArExclusionCauseEvent>& events = recorder.GetLastEvents();
+  ASSERT_EQ(events.size(), 1U);
+  EXPECT_EQ(events[0].kind, ArExclusionCauseEventKind::kEntered);
+  EXPECT_EQ(events[0].external_target_id, 77U);
+  EXPECT_EQ(events[0].current_code, "ar.target_snr_below_threshold");
+  EXPECT_EQ(events[0].current_cause, ArIssueCause::kRcsLimited);
+  EXPECT_TRUE(events[0].previous_code.empty());
+
+  // 解除注册后 Session 不再驱动：第二个周期 GetLastEvents 保持上一周期缓存。
+  radar.AttachExclusionCauseRecorder(nullptr);
+  input.cycle_index = 2U;
+  radar.StepWithResult(input);
+  EXPECT_EQ(recorder.GetLastEvents().size(), 1U);
 }
 
 }  // namespace
