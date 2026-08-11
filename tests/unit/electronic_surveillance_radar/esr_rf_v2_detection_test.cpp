@@ -347,6 +347,9 @@ TEST(EsrRfV2DetectionTest, BelowThresholdEmissionWritesInfoExclusionDiagnostic) 
       // 门内归因（规则 13b）：发射功率 1e-12 W 的弱源 → 硬门（snr < minimum_snr_db）。
       EXPECT_EQ(issue.cause, session::EsrIssueCause::kHardGateFailed);
       EXPECT_NE(issue.message.find("margin_db="), std::string::npos);
+      // 实体机器可读关联（规则 14e）：单源排序后 entity_index=0。
+      EXPECT_EQ(issue.location.kind, oneq::foundation::ValidationLocationKind::kSceneEntity);
+      EXPECT_EQ(issue.location.entity_index, 0U);
     }
   }
   EXPECT_TRUE(found);
@@ -370,6 +373,9 @@ TEST(EsrRfV2DetectionTest, ZeroPowerEmissionWritesInfoExclusionDiagnostic) {
       // 门内归因（规则 13b）：发射功率为 0 → 链路预算归零 → kTransmitSilent。
       EXPECT_EQ(issue.cause, session::EsrIssueCause::kTransmitSilent);
       EXPECT_NE(issue.message.find("time_overlap_fraction="), std::string::npos);
+      // 实体机器可读关联（规则 14e）：单源排序后 entity_index=0。
+      EXPECT_EQ(issue.location.kind, oneq::foundation::ValidationLocationKind::kSceneEntity);
+      EXPECT_EQ(issue.location.entity_index, 0U);
     }
   }
   EXPECT_TRUE(found);
@@ -400,6 +406,9 @@ TEST(EsrRfV2DetectionTest, CoSiteEmissionWritesInfoExclusionDiagnostic) {
       // 具体门（同址判定本身可定位）：cause 恒 kNone；message 携带隔离度量值。
       EXPECT_EQ(issue.cause, session::EsrIssueCause::kNone);
       EXPECT_NE(issue.message.find("isolation_db="), std::string::npos);
+      // 实体机器可读关联（规则 14e）：单源排序后 entity_index=0。
+      EXPECT_EQ(issue.location.kind, oneq::foundation::ValidationLocationKind::kSceneEntity);
+      EXPECT_EQ(issue.location.entity_index, 0U);
     }
   }
   EXPECT_TRUE(found);

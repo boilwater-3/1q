@@ -19,6 +19,8 @@
 namespace electronic_surveillance_radar {
 namespace session {
 
+class EsrExclusionCauseRecorder;
+
 /**
  * @brief ESR 运行期补丁应用状态码。
  */
@@ -70,6 +72,23 @@ class ONEQ_API EsrSession {
    * @return 当前周期聚合结果。
    */
   EsrCycleResult StepWithResult(const EsrCycleInput& input);
+
+  /**
+   * @brief 注册排除原因跨周期差分记录器，由 Session 在每个周期自动驱动。
+   *
+   * 注册后，`StepWithResult()` 和 `Step()` 内部在 CycleResult 构建完成后自动调用
+   * `recorder->Update()`，调用方无需手动调用。本周期产生的事件可通过
+   * `recorder->GetLastEvents()` 获取。
+   *
+   * ESR 当前仅本排除原因差分记录器（无既有生命周期 recorder）；与 AR/SBIRS/EOS 的
+   * 多 recorder 形态不同，但注册契约一致（规则 11）。
+   * @param[in] recorder 记录器指针；传入 `nullptr` 解除注册。
+   * @note Session 不拥有 recorder，调用方须保证 recorder 生命周期长于 Session 的注册期。
+   * @note 排除原因变化观测（进入/原因变化/退出排除）建议通过本机制获取：recorder 内建
+   *       跨周期 (code,cause) 对差分，规则 13b 排除诊断的差分观测；以发射源标识
+   *       （platform/equipment/emission id）为实体关联键。
+   */
+  void AttachExclusionCauseRecorder(EsrExclusionCauseRecorder* recorder) noexcept;
 
   /**
    * @brief 尝试应用运行期可变配置补丁并返回是否生效。
