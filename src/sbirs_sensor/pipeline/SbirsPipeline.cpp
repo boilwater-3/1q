@@ -26,14 +26,21 @@ const double kEarthRadiusM = 6371000.0;
 
 /// 构造 kInfo 级按目标排除诊断（不属于三写，仅承载排查信息；规则 13b）。
 /// @param cause 门内归因（规则 13b 门内归因条款）；聚合门排除须给出主因，具体门可 kNone。
+/// @param target_index 场景目标索引；非负时写入 `location = {kSceneEntity, target_index}`，
+///                     供跨周期差分记录器按实体关联消费（默认 -1 保持 kGlobal，向后兼容）。
 session::SbirsIssue MakeExclusionIssue(const char* code, const std::string& message,
                                        session::SbirsIssueCause cause =
-                                           session::SbirsIssueCause::kNone) {
+                                           session::SbirsIssueCause::kNone,
+                                       std::ptrdiff_t target_index = -1) {
   session::SbirsIssue issue;
   issue.severity = session::SbirsIssueSeverity::kInfo;
   issue.code = code;
   issue.message = message;
   issue.cause = cause;
+  if (target_index >= 0) {
+    issue.location.kind = oneq::foundation::ValidationLocationKind::kSceneEntity;
+    issue.location.entity_index = static_cast<std::size_t>(target_index);
+  }
   return issue;
 }
 
@@ -513,7 +520,8 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
     }
   }
 
-  for (const session::SbirsSceneTarget& target : input.scene) {
+  for (std::size_t target_idx = 0U; target_idx < input.scene.size(); ++target_idx) {
+    const session::SbirsSceneTarget& target = input.scene[target_idx];
     if (!target.active) {
       target_states_[target.target_id] = SbirsTargetState::kLost;
       nfov_scheduler_.Release(target.target_id);
@@ -533,7 +541,9 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
           session::codes::kTargetOcculted,
           "target_id=" + std::to_string(target.target_id) +
               "; LOS from satellite occulted by Earth; occultation_margin_m=" +
-              std::to_string(static_cast<std::int64_t>(occultation_margin_m))));
+              std::to_string(static_cast<std::int64_t>(occultation_margin_m)),
+          session::SbirsIssueCause::kNone,
+          static_cast<std::ptrdiff_t>(target_idx)));
       ++excluded_occulted;
       target_states_[target.target_id] = SbirsTargetState::kUndetected;
       nfov_scheduler_.Release(target.target_id);
@@ -557,7 +567,9 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
               std::to_string(static_cast<std::int64_t>(range_m)) + " outside [" +
               std::to_string(static_cast<std::int64_t>(mission.min_range_m)) + "," +
               std::to_string(static_cast<std::int64_t>(mission.max_range_m)) + "] range_margin_m=" +
-              std::to_string(static_cast<std::int64_t>(range_margin_m))));
+              std::to_string(static_cast<std::int64_t>(range_margin_m)),
+          session::SbirsIssueCause::kNone,
+          static_cast<std::ptrdiff_t>(target_idx)));
       ++excluded_out_of_range;
       target_states_[target.target_id] = SbirsTargetState::kUndetected;
       nfov_scheduler_.Release(target.target_id);
@@ -715,7 +727,8 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
               FormatFloat(mission.wide_field_fov_az_deg) + "x" +
               FormatFloat(mission.wide_field_fov_el_deg) + " az_delta_deg=" +
               FormatFloat(az_delta_deg) + " el_delta_deg=" + FormatFloat(el_delta_deg),
-          wfov_cause));
+          wfov_cause,
+          static_cast<std::ptrdiff_t>(target_idx)));
       ++excluded_out_of_wfov;
       target_states_[target.target_id] = SbirsTargetState::kUndetected;
       nfov_scheduler_.Release(target.target_id);
@@ -742,7 +755,8 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
               FormatSnr(policy.detection.wide_min_snr_linear) + " range_m=" +
               std::to_string(static_cast<std::int64_t>(range_m)) + " transmittance=" +
               FormatSnr(transmittance),
-          snr_cause));
+          snr_cause,
+          static_cast<std::ptrdiff_t>(target_idx)));
       ++excluded_snr_below;
       target_states_[target.target_id] = SbirsTargetState::kUndetected;
       nfov_scheduler_.Release(target.target_id);

@@ -1503,6 +1503,9 @@ TEST(SbirsPipelineTest, OccultedTargetWritesInfoExclusionDiagnostic) {
   // 具体门：cause 保持 kNone；message 携带遮挡余量（负值 = 遮挡深度）。
   EXPECT_EQ(issue->cause, sbirs_sensor::session::SbirsIssueCause::kNone);
   EXPECT_NE(issue->message.find("occultation_margin_m="), std::string::npos);
+  // 实体机器可读关联（规则 14e）：单目标 scene[0] → entity_index=0。
+  EXPECT_EQ(issue->location.kind, oneq::foundation::ValidationLocationKind::kSceneEntity);
+  EXPECT_EQ(issue->location.entity_index, 0U);
 }
 
 TEST(SbirsPipelineTest, OutOfRangeTargetWritesInfoExclusionDiagnostic) {
@@ -1527,6 +1530,9 @@ TEST(SbirsPipelineTest, OutOfRangeTargetWritesInfoExclusionDiagnostic) {
   // 具体门：cause 保持 kNone；message 携带距带边余量。
   EXPECT_EQ(issue->cause, sbirs_sensor::session::SbirsIssueCause::kNone);
   EXPECT_NE(issue->message.find("range_margin_m="), std::string::npos);
+  // 实体机器可读关联（规则 14e）：单目标 scene[0] → entity_index=0。
+  EXPECT_EQ(issue->location.kind, oneq::foundation::ValidationLocationKind::kSceneEntity);
+  EXPECT_EQ(issue->location.entity_index, 0U);
 }
 
 TEST(SbirsPipelineTest, TargetOutsideWfovWritesInfoExclusionDiagnostic) {
@@ -1551,6 +1557,9 @@ TEST(SbirsPipelineTest, TargetOutsideWfovWritesInfoExclusionDiagnostic) {
   // 门内归因（规则 13b）：az=100° 相对扫描中心仅方位越界 → kAzOutside。
   EXPECT_EQ(issue->cause, sbirs_sensor::session::SbirsIssueCause::kAzOutside);
   EXPECT_NE(issue->message.find("az_delta_deg="), std::string::npos);
+  // 实体机器可读关联（规则 14e）：单目标 scene[0] → entity_index=0。
+  EXPECT_EQ(issue->location.kind, oneq::foundation::ValidationLocationKind::kSceneEntity);
+  EXPECT_EQ(issue->location.entity_index, 0U);
 }
 
 TEST(SbirsPipelineTest, TargetOutsideWfovElevationWritesElOutsideCause) {
@@ -1572,6 +1581,9 @@ TEST(SbirsPipelineTest, TargetOutsideWfovElevationWritesElOutsideCause) {
   ASSERT_NE(issue, nullptr);
   // 门内归因（规则 13b）：仅俯仰越界 → kElOutside。
   EXPECT_EQ(issue->cause, sbirs_sensor::session::SbirsIssueCause::kElOutside);
+  // 实体机器可读关联（规则 14e）：单目标 scene[0] → entity_index=0。
+  EXPECT_EQ(issue->location.kind, oneq::foundation::ValidationLocationKind::kSceneEntity);
+  EXPECT_EQ(issue->location.entity_index, 0U);
 }
 
 TEST(SbirsPipelineTest, TargetOutsideWfovBothAxesWritesBothAxesOutsideCause) {
@@ -1593,6 +1605,9 @@ TEST(SbirsPipelineTest, TargetOutsideWfovBothAxesWritesBothAxesOutsideCause) {
   ASSERT_NE(issue, nullptr);
   // 门内归因（规则 13b）：方位与俯仰均越界 → kBothAxesOutside。
   EXPECT_EQ(issue->cause, sbirs_sensor::session::SbirsIssueCause::kBothAxesOutside);
+  // 实体机器可读关联（规则 14e）：单目标 scene[0] → entity_index=0。
+  EXPECT_EQ(issue->location.kind, oneq::foundation::ValidationLocationKind::kSceneEntity);
+  EXPECT_EQ(issue->location.entity_index, 0U);
 }
 
 TEST(SbirsPipelineTest, TargetBelowWideSnrWritesInfoExclusionDiagnostic) {
@@ -1618,6 +1633,9 @@ TEST(SbirsPipelineTest, TargetBelowWideSnrWritesInfoExclusionDiagnostic) {
   // 门内归因（规则 13b）：门限抬到 1e30 后达标所需签名缺口主导 → kSignatureLimited。
   EXPECT_EQ(issue->cause, sbirs_sensor::session::SbirsIssueCause::kSignatureLimited);
   EXPECT_NE(issue->message.find("range_m="), std::string::npos);
+  // 实体机器可读关联（规则 14e）：单目标 scene[0] → entity_index=0。
+  EXPECT_EQ(issue->location.kind, oneq::foundation::ValidationLocationKind::kSceneEntity);
+  EXPECT_EQ(issue->location.entity_index, 0U);
 }
 
 }  // namespace

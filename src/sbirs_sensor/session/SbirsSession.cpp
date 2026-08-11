@@ -1,6 +1,7 @@
 #include "1q/sbirs_sensor/session/SbirsSession.h"
 
 #include "1q/sbirs_sensor/session/SbirsDetectionLifecycleRecorder.h"
+#include "1q/sbirs_sensor/session/SbirsExclusionCauseRecorder.h"
 #include "sbirs_sensor/runtime/SbirsPipelineConfigMapper.h"
 #include "sbirs_sensor/runtime/SbirsRuntimeConfigResolver.h"
 #include "sbirs_sensor/session/SbirsSessionCompositionRoot.h"
@@ -12,6 +13,7 @@ struct SbirsSession::Impl {
   config::SbirsSessionConfig config{};
   std::unique_ptr<runtime::SbirsController> controller{};
   SbirsDetectionLifecycleRecorder* lifecycle_recorder{nullptr};
+  SbirsExclusionCauseRecorder* exclusion_cause_recorder{nullptr};
 };
 
 SbirsSession::SbirsSession() : impl_(new Impl) {
@@ -33,11 +35,18 @@ SbirsCycleResult SbirsSession::StepWithResult(const SbirsCycleInput& input) {
   if (impl_->lifecycle_recorder != nullptr) {
     impl_->lifecycle_recorder->Update(input, result);
   }
+  if (impl_->exclusion_cause_recorder != nullptr) {
+    impl_->exclusion_cause_recorder->Update(input, result);
+  }
   return result;
 }
 
 void SbirsSession::AttachDetectionLifecycleRecorder(SbirsDetectionLifecycleRecorder* recorder) noexcept {
   impl_->lifecycle_recorder = recorder;
+}
+
+void SbirsSession::AttachExclusionCauseRecorder(SbirsExclusionCauseRecorder* recorder) noexcept {
+  impl_->exclusion_cause_recorder = recorder;
 }
 
 bool SbirsSession::TryApplyRuntimeConfig(const config::SbirsRuntimeConfigPatch& patch) {
