@@ -82,6 +82,14 @@ bool RangeCompress(const ComplexVector& input, const ComplexVector& matched_filt
                    double sample_rate_hz, RangeCompressionResult* result);
 
 /**
+ * @brief 批量距离向脉冲压缩:对相位历史矩阵逐行压缩。
+ *        匹配滤波器与各行输入无关,其频谱只计算一次供所有行复用;
+ *        输出每行与逐行调用 RangeCompress 得到的 range_aligned_output 逐位一致。
+ */
+bool RangeCompressRows(const ComplexMatrix& input, const ComplexVector& matched_filter,
+                       double sample_rate_hz, ComplexMatrix* output);
+
+/**
  * @brief 估计压缩脉冲质量指标。
  */
 bool EstimatePulseQuality(const ComplexVector& compressed_pulse, PulseQualityMetrics* metrics);

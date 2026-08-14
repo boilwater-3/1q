@@ -161,6 +161,55 @@ bool RangeCompress(const ComplexVector& input, const ComplexVector& matched_filt
   return true;
 }
 
+bool RangeCompressRows(const ComplexMatrix& input, const ComplexVector& matched_filter,
+                       double sample_rate_hz, ComplexMatrix* output) {
+  if (output == nullptr || input.rows == 0U || input.cols == 0U ||
+      input.values.size() != input.rows * input.cols || matched_filter.empty() ||
+      !std::isfinite(sample_rate_hz) || sample_rate_hz <= 0.0) {
+    return false;
+  }
+
+  const std::size_t convolution_size = input.cols + matched_filter.size() - 1U;
+  const std::size_t fft_size = NextPowerOfTwo(convolution_size);
+
+  // 匹配滤波器频谱与行无关:计算一次,各行复用(与逐行 RangeCompress 逐位一致)。
+  ComplexVector padded_filter(fft_size, ComplexSample(0.0, 0.0));
+  std::copy(matched_filter.begin(), matched_filter.end(), padded_filter.begin());
+  ComplexVector filter_spectrum;
+  if (!Fft1D(padded_filter, false, &filter_spectrum) || filter_spectrum.size() != fft_size) {
+    return false;
+  }
+
+  output->rows = input.rows;
+  output->cols = input.cols;
+  output->values.assign(input.values.size(), ComplexSample(0.0, 0.0));
+
+  ComplexVector padded_input(fft_size, ComplexSample(0.0, 0.0));
+  ComplexVector input_spectrum;
+  input_spectrum.reserve(fft_size);
+  ComplexVector inverse;
+  inverse.reserve(fft_size);
+  const std::size_t aligned_start = matched_filter.size() - 1U;
+  for (std::size_t row = 0; row < input.rows; ++row) {
+    std::fill(padded_input.begin(), padded_input.end(), ComplexSample(0.0, 0.0));
+    const ComplexSample* source = input.values.data() + row * input.cols;
+    std::copy(source, source + input.cols, padded_input.begin());
+    if (!Fft1D(padded_input, false, &input_spectrum) || input_spectrum.size() != fft_size) {
+      return false;
+    }
+    for (std::size_t i = 0; i < fft_size; ++i) {
+      input_spectrum[i] *= filter_spectrum[i];
+    }
+    if (!Fft1D(input_spectrum, true, &inverse) || inverse.size() != fft_size) {
+      return false;
+    }
+    std::copy(inverse.begin() + static_cast<std::ptrdiff_t>(aligned_start),
+              inverse.begin() + static_cast<std::ptrdiff_t>(aligned_start + input.cols),
+              output->values.begin() + static_cast<std::ptrdiff_t>(row * input.cols));
+  }
+  return true;
+}
+
 bool EstimatePulseQuality(const ComplexVector& compressed_pulse, PulseQualityMetrics* metrics) {
   if (metrics == nullptr || compressed_pulse.empty()) {
     return false;
@@ -309,24 +358,20 @@ bool Compress2D(const ComplexMatrix& raw_pulse_history, const ComplexVector& ran
   const std::size_t cols = raw_pulse_history.cols;
 
   ComplexMatrix range_compressed;
-  range_compressed.rows = rows;
-  range_compressed.cols = cols;
-  range_compressed.values.assign(rows * cols, ComplexSample(0.0, 0.0));
-
-  for (std::size_t row = 0; row < rows; ++row) {
-    ComplexVector row_input(cols);
-    for (std::size_t col = 0; col < cols; ++col) {
-      row_input[col] = raw_pulse_history(row, col);
-    }
-    RangeCompressionResult rc;
-    if (!RangeCompress(row_input, range_matched_filter, config.sample_rate_hz,
-                       config.range_window, &rc)) {
+  ComplexVector windowed_filter;
+  const ComplexVector* effective_filter = &range_matched_filter;
+  if (config.range_window.type != WindowType::kNone) {
+    if (!GenerateWindow(config.range_window, range_matched_filter.size(), &windowed_filter)) {
       return false;
     }
-    const std::size_t out_len = std::min(rc.range_aligned_output.size(), cols);
-    for (std::size_t col = 0; col < out_len; ++col) {
-      range_compressed(row, col) = rc.range_aligned_output[col];
+    for (std::size_t i = 0; i < range_matched_filter.size(); ++i) {
+      windowed_filter[i] = range_matched_filter[i] * windowed_filter[i];
     }
+    effective_filter = &windowed_filter;
+  }
+  if (!RangeCompressRows(raw_pulse_history, *effective_filter, config.sample_rate_hz,
+                         &range_compressed)) {
+    return false;
   }
 
   const bool apply_azimuth =

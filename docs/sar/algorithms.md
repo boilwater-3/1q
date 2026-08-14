@@ -113,6 +113,17 @@ Answers: SAR 用了哪些算法、各自实现到什么地步、边界在哪、�
   后的图像形状；它不会回写生产图像，也不能掩盖空间变化相位误差。
 - **证据**：[evidence: tests/unit/sar/sar_rda_test]
 - **证据**：[evidence: tests/unit/sar/sar_image_quality_test]
+- **实现注记（2026-08-14）**：距离压缩用批量路径 `RangeCompressRows`（匹配滤波器频谱
+  跨行只算一次），FFT 侧按线程缓存 Eigen plan（避免每次 FFT 重建旋转因子与堆分配），
+  列向 FFT 用分块转置 + 逐行 FFT 实现。以上均与旧实现**逐位一致**（A/B 校验和相同、
+  批量与逐行逐元素 max-abs-diff = 0），不改动任何聚焦语义。
+  [evidence: tests/unit/sar/sar_signal_chain_test::RangeCompressRowsMatchesPerRowRangeCompressExactly]
+- **性能注记（Windows 消费工程实测，1024×1024 孔径 / 20 点滤波器）**：RDA 总耗时
+  约 0.29-0.39 s，其中距离压缩 98-127 ms、相位参考 50-73 ms、方位 FFT+IFFT 合计
+  85-120 ms、RCMC 25-38 ms、图像质量 21-36 ms。耗时分布可用 DEBUG 级
+  [SarRdaTiming] 日志观察（默认 info 级不落盘）。**注意**：Release 一档按项目策略
+  为 /Od（变量级可调试），消费方需性能时应链接 RelWithDebInfo（/O2 + 完整符号）
+  产物，见 docs/practice/build_and_test_governance.md。
 
 ## 一阶运动补偿 (L2 MoCo)
 

@@ -45,24 +45,9 @@ signal::ComplexSample InterpolateLinear(const signal::ComplexMatrix& matrix, std
 bool RangeCompressHistory(const signal::ComplexMatrix& raw_pulse_history,
                           const signal::ComplexVector& matched_filter, double sample_rate_hz,
                           signal::ComplexMatrix* range_compressed) {
-  range_compressed->rows = raw_pulse_history.rows;
-  range_compressed->cols = raw_pulse_history.cols;
-  range_compressed->values.assign(raw_pulse_history.values.size(), signal::ComplexSample(0.0, 0.0));
-  for (std::size_t row = 0U; row < raw_pulse_history.rows; ++row) {
-    signal::ComplexVector raw_row(raw_pulse_history.cols);
-    for (std::size_t col = 0U; col < raw_pulse_history.cols; ++col) {
-      raw_row[col] = raw_pulse_history(row, col);
-    }
-    signal::RangeCompressionResult compressed;
-    if (!signal::RangeCompress(raw_row, matched_filter, sample_rate_hz, &compressed) ||
-        compressed.range_aligned_output.size() != raw_pulse_history.cols) {
-      return false;
-    }
-    for (std::size_t col = 0U; col < raw_pulse_history.cols; ++col) {
-      (*range_compressed)(row, col) = compressed.range_aligned_output[col];
-    }
-  }
-  return true;
+  // 批量距离压缩:匹配滤波器频谱只算一次(与逐行 RangeCompress 逐位一致)。
+  return signal::RangeCompressRows(raw_pulse_history, matched_filter, sample_rate_hz,
+                                   range_compressed);
 }
 
 geometry::LocalPoint MakePixel(const GbpConfig& config, std::size_t row, std::size_t col) {

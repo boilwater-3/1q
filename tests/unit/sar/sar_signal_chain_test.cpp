@@ -117,6 +117,73 @@ TEST(SarSignalChainTest, RangeCompressionPlacesPeakAtDelayedPulse) {
   EXPECT_NEAR(result.range_bin_spacing_m, 299792458.0 / (2.0 * config.sample_rate_hz), 1.0e-12);
 }
 
+TEST(SarSignalChainTest, RangeCompressRowsMatchesPerRowRangeCompressExactly) {
+  LfmWaveformConfig config;
+  config.bandwidth_hz = 20.0;
+  config.time_bandwidth_product = 4.0;
+  config.sample_rate_hz = 100.0;
+  config.start_frequency_hz = 0.0;
+  LfmWaveform waveform;
+  ASSERT_TRUE(GenerateLfmWaveform(config, &waveform));
+  ComplexVector matched_filter;
+  ASSERT_TRUE(BuildMatchedFilter(waveform.samples, &matched_filter));
+
+  const std::size_t rows = 6U;
+  const std::size_t cols = 16U;
+  ComplexMatrix history;
+  history.rows = rows;
+  history.cols = cols;
+  history.values.resize(rows * cols);
+  for (std::size_t row = 0U; row < rows; ++row) {
+    for (std::size_t col = 0U; col < cols; ++col) {
+      const double angle = 0.37 * static_cast<double>(row * cols + col);
+      history(row, col) = ComplexSample(std::cos(angle), std::sin(angle)) *
+                          (0.5 + 0.01 * static_cast<double>(col));
+    }
+  }
+
+  ComplexMatrix batched;
+  ASSERT_TRUE(RangeCompressRows(history, matched_filter, config.sample_rate_hz, &batched));
+  ASSERT_EQ(batched.rows, rows);
+  ASSERT_EQ(batched.cols, cols);
+
+  for (std::size_t row = 0U; row < rows; ++row) {
+    ComplexVector one_row(cols);
+    for (std::size_t col = 0U; col < cols; ++col) {
+      one_row[col] = history(row, col);
+    }
+    RangeCompressionResult per_row;
+    ASSERT_TRUE(RangeCompress(one_row, matched_filter, config.sample_rate_hz, &per_row));
+    ASSERT_EQ(per_row.range_aligned_output.size(), cols);
+    for (std::size_t col = 0U; col < cols; ++col) {
+      // 批量路径与逐行路径使用同一卷积/对齐公式,数值逐位一致。
+      EXPECT_DOUBLE_EQ(batched(row, col).real(), per_row.range_aligned_output[col].real());
+      EXPECT_DOUBLE_EQ(batched(row, col).imag(), per_row.range_aligned_output[col].imag());
+    }
+  }
+}
+
+TEST(SarSignalChainTest, RangeCompressRowsRejectsInvalidInputs) {
+  const ComplexVector filter(3U, ComplexSample(1.0, 0.0));
+  ComplexMatrix output;
+  EXPECT_FALSE(RangeCompressRows(ComplexMatrix{}, filter, 1.0e6, &output));
+  EXPECT_FALSE(RangeCompressRows(ComplexMatrix{}, filter, 1.0e6, nullptr));
+
+  ComplexMatrix shape_mismatch;
+  shape_mismatch.rows = 2U;
+  shape_mismatch.cols = 3U;
+  shape_mismatch.values.resize(5U);
+  EXPECT_FALSE(RangeCompressRows(shape_mismatch, filter, 1.0e6, &output));
+
+  ComplexMatrix valid;
+  valid.rows = 2U;
+  valid.cols = 3U;
+  valid.values.resize(6U, ComplexSample(0.0, 0.0));
+  EXPECT_FALSE(RangeCompressRows(valid, ComplexVector{}, 1.0e6, &output));
+  EXPECT_FALSE(RangeCompressRows(valid, filter, 0.0, &output));
+  EXPECT_FALSE(RangeCompressRows(valid, filter, -1.0, &output));
+}
+
 TEST(SarSignalChainTest, PulseQualityMetricsCapturePeakWidthAndSidelobes) {
   ComplexVector pulse{{0.1, 0.0}, {0.3, 0.0}, {1.0, 0.0}, {0.25, 0.0}, {0.05, 0.0}};
 

@@ -24,6 +24,11 @@ Authority: build infrastructure, test infrastructure
    configure、build、install 和外部 consumer job 均通过后，才可宣称 project build support。
    当前 Windows Conan/no-Conan presets 与 `fetch_third_party.bat` 只属于未验收脚手架，不改变上述
    支持契约，也不能单独作为"已支持 Windows"的证据。
+5. MSVC 配置语义（`cmake/compilers/CompilerMSVC.cmake`）：**Release 一档有意保持
+   /Od /Ob0**（生产环境唯一档位、需保留变量级可调试性，配合 /Z7 + /DEBUG:FULL）；
+   **RelWithDebInfo 才是 /O2 /Ob2 /Oi + 完整符号**的性能档。集成方对耗时敏感
+   （如每周期执行 RDA 聚焦的实时消费工程）应链接 RelWithDebInfo 产物，而不是把
+   Release 的 /Od 误认为编译器问题。
 
 ## 测试架构
 

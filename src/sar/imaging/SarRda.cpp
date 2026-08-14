@@ -1,9 +1,11 @@
 #include "sar/imaging/SarRda.h"
 
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <limits>
 
+#include "common/logging/ProjectLog.h"
 #include "sar/geometry/SarGeometry.h"
 #include "sar/imaging/SarImageQuality.h"
 #include "sar/imaging/SarPhaseReference.h"
@@ -16,6 +18,14 @@ namespace {
 
 constexpr double kPi = 3.141592653589793238462643383279502884;
 constexpr double kSpeedOfLightMps = 299792458.0;
+
+/**
+ * @brief 返回自 start 起经过的毫秒数（供聚焦阶段耗时统计使用）。
+ */
+double ElapsedMsSince(const std::chrono::steady_clock::time_point& start) {
+  return std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start)
+      .count();
+}
 
 bool IsValid(const RdaConfig& config, const signal::ComplexMatrix& raw_pulse_history,
              const signal::ComplexVector& matched_filter) {
@@ -175,6 +185,9 @@ bool FocusStripmapRda(const RdaConfig& config, const signal::ComplexMatrix& raw_
     return false;
   }
 
+  const std::chrono::steady_clock::time_point t_start =
+      std::chrono::steady_clock::now();
+
   RdaDiagnostics diagnostics;
   if (!ComputeRdaSamplingDiagnostics(config, raw_pulse_history.rows, &diagnostics)) {
     return false;
@@ -183,25 +196,12 @@ bool FocusStripmapRda(const RdaConfig& config, const signal::ComplexMatrix& raw_
   diagnostics.rcmc_interpolation = InterpolationName(config.rcmc_interpolation);
 
   signal::ComplexMatrix range_compressed;
-  range_compressed.rows = raw_pulse_history.rows;
-  range_compressed.cols = raw_pulse_history.cols;
-  range_compressed.values.assign(raw_pulse_history.values.size(), signal::ComplexSample(0.0, 0.0));
-  for (std::size_t row = 0U; row < raw_pulse_history.rows; ++row) {
-    signal::ComplexVector raw_row(raw_pulse_history.cols);
-    for (std::size_t col = 0U; col < raw_pulse_history.cols; ++col) {
-      raw_row[col] = raw_pulse_history(row, col);
-    }
-
-    signal::RangeCompressionResult compression;
-    if (!signal::RangeCompress(raw_row, matched_filter, config.sample_rate_hz, &compression) ||
-        compression.range_aligned_output.size() != raw_pulse_history.cols) {
-      return false;
-    }
-    for (std::size_t col = 0U; col < raw_pulse_history.cols; ++col) {
-      range_compressed(row, col) = compression.range_aligned_output[col];
-    }
+  if (!signal::RangeCompressRows(raw_pulse_history, matched_filter, config.sample_rate_hz,
+                                 &range_compressed)) {
+    return false;
   }
   diagnostics.range_compression_applied = true;
+  const double range_compression_ms = ElapsedMsSince(t_start);
 
   PhaseReferenceConfig phase_reference_config;
   phase_reference_config.mode = PhaseReferenceMode::kCenterBroadside;
@@ -216,12 +216,14 @@ bool FocusStripmapRda(const RdaConfig& config, const signal::ComplexMatrix& raw_
   }
   diagnostics.phase_reference_applied = phase_reference_diagnostics.applied;
   diagnostics.phase_reference_mode = PhaseReferenceModeName(phase_reference_diagnostics.mode);
+  const double phase_reference_ms = ElapsedMsSince(t_start);
 
   signal::ComplexMatrix azimuth_spectrum;
   if (!signal::FftCols(range_compressed, false, &azimuth_spectrum)) {
     return false;
   }
   diagnostics.azimuth_fft_applied = true;
+  const double azimuth_fft_ms = ElapsedMsSince(t_start);
 
   std::vector<double> delta_bins_by_row(azimuth_spectrum.rows, 0.0);
   for (std::size_t row = 0U; row < azimuth_spectrum.rows; ++row) {
@@ -237,6 +239,7 @@ bool FocusStripmapRda(const RdaConfig& config, const signal::ComplexMatrix& raw_
                                      &diagnostics.out_of_bounds_samples)) {
     return false;
   }
+  const double rcmc_ms = ElapsedMsSince(t_start);
 
   const double ka_hz_per_s = diagnostics.doppler_rate_hz_per_s;
   for (std::size_t row = 0U; row < rcmc.rows; ++row) {
@@ -248,12 +251,14 @@ bool FocusStripmapRda(const RdaConfig& config, const signal::ComplexMatrix& raw_
     }
   }
   diagnostics.azimuth_matched_filter_applied = true;
+  const double azimuth_filter_ms = ElapsedMsSince(t_start);
 
   signal::ComplexMatrix azimuth_time;
   if (!signal::FftCols(rcmc, true, &azimuth_time)) {
     return false;
   }
   diagnostics.azimuth_ifft_applied = true;
+  const double azimuth_ifft_ms = ElapsedMsSince(t_start);
 
   output->image = azimuth_time;
   ImageQualityConfig quality_config;
@@ -268,6 +273,17 @@ bool FocusStripmapRda(const RdaConfig& config, const signal::ComplexMatrix& raw_
   diagnostics.image_entropy_nats = quality.entropy_nats;
   diagnostics.image_contrast = quality.image_contrast;
   output->diagnostics = diagnostics;
+
+  // 中译：SAR RDA 聚焦完成，输出总耗时与各阶段耗时（毫秒）。
+  // 标识：仅 DEBUG 级（默认文件日志级别 info 不落盘）；用于定位聚焦耗时分布。
+  const double total_ms = ElapsedMsSince(t_start);
+  PROJECT_LOG_DEBUG(
+      "[SarRdaTiming] rows={} cols={} filter={} total_ms={:.1f} range_compression_ms={:.1f} "
+      "phase_reference_ms={:.1f} azimuth_fft_ms={:.1f} rcmc_ms={:.1f} azimuth_filter_ms={:.1f} "
+      "azimuth_ifft_ms={:.1f} image_quality_ms={:.1f}",
+      raw_pulse_history.rows, raw_pulse_history.cols, matched_filter.size(), total_ms,
+      range_compression_ms, phase_reference_ms, azimuth_fft_ms, rcmc_ms, azimuth_filter_ms,
+      azimuth_ifft_ms, total_ms - azimuth_ifft_ms);
   return true;
 }
 
