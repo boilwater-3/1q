@@ -180,11 +180,15 @@ float ComputeStatisticalDetectionProbability(float snr_db, float threshold_snr_d
   if (!std::isfinite(snr_db) || !std::isfinite(threshold_snr_db)) {
     return 0.0f;
   }
+  // 积分增益只计入一次：门限（ComputeDynamicThresholdSnrDb）已按 N/√N 下调，
+  // 概率侧不得再乘 ComputeIntegrationGain，否则 snr==threshold 处
+  // Pd = 1−exp(−N) ≈ 1，门限附近检测概率虚高。指数律下
+  // Pd(threshold) = 1−exp(−1) ≈ 0.632；模式差异已体现在各模式自己的门限里。
+  (void)params;
   const double snr_linear = std::pow(10.0, static_cast<double>(snr_db) / 10.0);
   const double threshold_linear = std::pow(10.0, static_cast<double>(threshold_snr_db) / 10.0);
   const double normalized_metric =
-      (snr_linear / std::max(threshold_linear, oneq::common::numerics::kNumericFloor)) *
-      ComputeIntegrationGain(params);
+      snr_linear / std::max(threshold_linear, oneq::common::numerics::kNumericFloor);
   const double pd = -std::expm1(-std::max(normalized_metric, 0.0));
   return oneq::common::numerics::Clamp01(static_cast<float>(pd));
 }

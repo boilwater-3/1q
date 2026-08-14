@@ -132,11 +132,23 @@ TEST(TimingRegimeModelTest, DynamicThresholdAndPdKeepMonotonicBehavior) {
   coherent_params.integration_mode = IntegrationMode::kCoherent;
   StatisticalDetectionParams noncoherent_params = coherent_params;
   noncoherent_params.integration_mode = IntegrationMode::kNonCoherent;
+  // 积分增益只计入一次：门限已按 N/√N 下调，概率函数本身不再乘增益。
+  // 相干/非相干的 Pd 差异通过各自门限体现——同一 per-pulse SNR 下，相干门限
+  // 更低（10·log10 N vs 5·log10 N 收益），因此相干 Pd 更高。
+  const float coherent_threshold_db = ComputeDynamicThresholdSnrDb(1.0e-12, coherent_params);
+  const float noncoherent_threshold_db =
+      ComputeDynamicThresholdSnrDb(1.0e-12, noncoherent_params);
+  EXPECT_LT(coherent_threshold_db, noncoherent_threshold_db);
+  const float fixed_snr_db = noncoherent_threshold_db;
   const float pd_coherent = ComputeStatisticalDetectionProbability(
-      base_threshold_db + 2.0f, base_threshold_db, coherent_params);
+      fixed_snr_db, coherent_threshold_db, coherent_params);
   const float pd_noncoherent = ComputeStatisticalDetectionProbability(
-      base_threshold_db + 2.0f, base_threshold_db, noncoherent_params);
+      fixed_snr_db, noncoherent_threshold_db, noncoherent_params);
   EXPECT_GT(pd_coherent, pd_noncoherent);
+  // 门限交点处 Pd = 1−exp(−1) ≈ 0.632（指数律），不再是双重计入下的 ≈1。
+  EXPECT_NEAR(ComputeStatisticalDetectionProbability(base_threshold_db, base_threshold_db,
+                                                     params),
+              0.6321206f, 1.0e-4f);
 
   EXPECT_FLOAT_EQ(ComputeStatisticalDetectionProbability(std::numeric_limits<float>::quiet_NaN(),
                                                          base_threshold_db, params),
