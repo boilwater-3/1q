@@ -11,6 +11,15 @@ namespace electronic_countermeasure {
 namespace session {
 namespace {
 
+// session_contract 规则 7：以整数存储的 enum 必须逐值校验，未知值原子拒绝。
+bool IsKnownEcmInputMode(int32_t raw) { return raw >= 0 && raw <= 1; }
+
+bool IsKnownEcmTechnique(int32_t raw) { return raw >= 0 && raw <= 3; }
+
+bool IsKnownEcmCycleStatus(int32_t raw) { return raw >= 0 && raw <= 4; }
+
+bool IsKnownRfScenePolarization(int32_t raw) { return raw >= 0 && raw <= 4; }
+
 ecm::replay::Vec3 ToVec(const oneq::coordinate::EcefPositionM& value) {
   return {value.x_m, value.y_m, value.z_m};
 }
@@ -208,7 +217,13 @@ bool DecodeEcmSessionConfig(const std::string& bytes, config::EcmSessionConfig* 
   decoded.barrage_bandwidth_hz = value->barrage_bandwidth_hz();
   decoded.sweep_bandwidth_hz = value->sweep_bandwidth_hz();
   decoded.sweep_segment_count = value->sweep_segment_count();
-  decoded.default_technique = static_cast<EcmTechnique>(value->default_technique());
+  {
+    const int32_t raw_technique = value->default_technique();
+    if (!IsKnownEcmTechnique(raw_technique)) {
+      return false;
+    }
+    decoded.default_technique = static_cast<EcmTechnique>(raw_technique);
+  }
   {
     const int32_t raw_mode = value->default_deception_mode();
     if (raw_mode < 0 || raw_mode > 3) {
@@ -259,7 +274,13 @@ bool DecodeEcmRuntimeConfigPatch(const std::string& bytes,
   decoded.has_maximum_total_transmit_power_w = value->has_maximum_total_transmit_power_w();
   decoded.maximum_total_transmit_power_w = value->maximum_total_transmit_power_w();
   decoded.has_default_technique = value->has_default_technique();
-  decoded.default_technique = static_cast<EcmTechnique>(value->default_technique());
+  {
+    const int32_t raw_technique = value->default_technique();
+    if (!IsKnownEcmTechnique(raw_technique)) {
+      return false;
+    }
+    decoded.default_technique = static_cast<EcmTechnique>(raw_technique);
+  }
   decoded.has_default_deception_mode = value->has_default_deception_mode();
   {
     const int32_t raw_mode = value->default_deception_mode();
@@ -306,7 +327,13 @@ bool DecodeEcmCycleInput(const std::string& bytes, EcmCycleInput* output) {
   decoded.cycle_index = value->cycle_index();
   decoded.cycle_start_time_s = value->cycle_start_time_s();
   decoded.dt_sec = value->dt_sec();
-  decoded.input_mode = static_cast<EcmInputMode>(value->input_mode());
+  {
+    const int32_t raw_input_mode = value->input_mode();
+    if (!IsKnownEcmInputMode(raw_input_mode)) {
+      return false;
+    }
+    decoded.input_mode = static_cast<EcmInputMode>(raw_input_mode);
+  }
   decoded.platform_entity_id = value->platform_entity_id();
   if (value->platform_position_ecef_m()) {
     decoded.platform_position_ecef_m.x_m = value->platform_position_ecef_m()->x();
@@ -319,9 +346,14 @@ bool DecodeEcmCycleInput(const std::string& bytes, EcmCycleInput* output) {
     decoded.platform_velocity_ecef_mps.z_mps = value->platform_velocity_ecef_mps()->z();
   }
   DecodeAntenna(value->transmit_antenna(), &decoded.transmit_antenna);
-  decoded.transmit_polarization =
-      static_cast<oneq::electromagnetics::RfScenePolarization>(
-          value->transmit_polarization());
+  {
+    const int32_t raw_polarization = value->transmit_polarization();
+    if (!IsKnownRfScenePolarization(raw_polarization)) {
+      return false;
+    }
+    decoded.transmit_polarization =
+        static_cast<oneq::electromagnetics::RfScenePolarization>(raw_polarization);
+  }
   decoded.has_sensor_observation_frame = value->has_sensor_observation_frame();
   decoded.sensor_observation_frame = DecodeSensorFrame(value->sensor_observation_frame());
   if (value->truth_threats()) {
@@ -383,8 +415,20 @@ bool DecodeEcmCycleResult(const std::string& bytes, EcmCycleResult* output) {
       flatbuffers::GetRoot<ecm::replay::EcmCycleResult>(bytes.data());
   EcmCycleResult decoded;
   decoded.input_cycle_index = value->input_cycle_index();
-  decoded.status = static_cast<EcmCycleStatus>(value->status());
-  decoded.input_mode = static_cast<EcmInputMode>(value->input_mode());
+  {
+    const int32_t raw_status = value->status();
+    if (!IsKnownEcmCycleStatus(raw_status)) {
+      return false;
+    }
+    decoded.status = static_cast<EcmCycleStatus>(raw_status);
+  }
+  {
+    const int32_t raw_input_mode = value->input_mode();
+    if (!IsKnownEcmInputMode(raw_input_mode)) {
+      return false;
+    }
+    decoded.input_mode = static_cast<EcmInputMode>(raw_input_mode);
+  }
   decoded.truth_assisted = value->truth_assisted();
   decoded.executed_this_cycle = value->executed_this_cycle();
   decoded.used_glided_observation = value->used_glided_observation();
@@ -412,7 +456,13 @@ bool DecodeEcmCycleResult(const std::string& bytes, EcmCycleResult* output) {
       EcmResourceDecision decoded_decision;
       decoded_decision.source_observation_id = decision->source_observation_id();
       decoded_decision.truth_entity_id = decision->truth_entity_id();
-      decoded_decision.technique = static_cast<EcmTechnique>(decision->technique());
+      {
+        const int32_t raw_technique = decision->technique();
+        if (!IsKnownEcmTechnique(raw_technique)) {
+          return false;
+        }
+        decoded_decision.technique = static_cast<EcmTechnique>(raw_technique);
+      }
       {
         const int32_t raw_mode = decision->deception_mode();
         if (raw_mode < 0 || raw_mode > 3) {
