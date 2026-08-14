@@ -86,9 +86,11 @@ void AppendRoutePoint(RoutePlan* plan, const Eigen::Vector2d& frame_point,
   LlaPositionDegM lla{};
   if (!oneq::coordinate::TryEnuToEcef(enu, origin, &ecef) ||
       !oneq::coordinate::TryEcefToLla(ecef, &lla)) {
+    // 中译：航点坐标回变换失败，跳过该航点继续规划。
     // 标识：航点坐标回变换失败时跳过该航点继续规划；多为坐标非法或
     //       投影参考原点异常。
-    PROJECT_LOG_WARN("navigation: 航点回变换失败，跳过 (east={}, north={})", east, north);
+    PROJECT_LOG_WARN("navigation: waypoint back-transform failed, skipping (east={}, north={})",
+                     east, north);
     return;
   }
   lla.altitude_m = config.altitude_m;
@@ -97,24 +99,31 @@ void AppendRoutePoint(RoutePlan* plan, const Eigen::Vector2d& frame_point,
 
 RoutePlan PlanPolygonScan(const PolygonalArea& polygon, const CoveragePlanConfig& config) {
   if (polygon.vertices.size() < 3U) {
+    // 中译：多边形顶点数不足（{}），需要至少 3 个。
     // 标识：覆盖规划前置校验——多边形至少 3 个顶点才能生成扫描计划。
-    PROJECT_LOG_WARN("navigation: 多边形顶点数不足（{}），需要 >= 3", polygon.vertices.size());
+    PROJECT_LOG_WARN("navigation: polygon has fewer than 3 vertices ({}), need >= 3",
+                     polygon.vertices.size());
     return {};
   }
   if (!(config.scan_spacing_m > 0.0)) {
+    // 中译：扫描间距非正（{}），无法规划。
     // 标识：覆盖规划前置校验——扫描间距必须为正，否则无法布设扫描线。
-    PROJECT_LOG_WARN("navigation: 扫描间距非正（{}），无法规划", config.scan_spacing_m);
+    PROJECT_LOG_WARN("navigation: scan spacing is not positive ({}), cannot plan",
+                     config.scan_spacing_m);
     return {};
   }
   if (!std::isfinite(config.scan_heading_deg)) {
+    // 中译：扫描航向非有限值（{}），无法规划。
     // 标识：覆盖规划前置校验——扫描航向必须是有限值，否则无法规划。
-    PROJECT_LOG_WARN("navigation: 扫描航向非有限值（{}），无法规划", config.scan_heading_deg);
+    PROJECT_LOG_WARN("navigation: scan heading is not finite ({}), cannot plan",
+                     config.scan_heading_deg);
     return {};
   }
   for (const auto& vertex : polygon.vertices) {
     if (!oneq::coordinate::IsValid(vertex)) {
+      // 中译：多边形顶点经纬度坐标非法，无法规划。
       // 标识：覆盖规划前置校验——任一顶点坐标非法则无法规划。
-      PROJECT_LOG_WARN("navigation: 多边形顶点 LLA 非法，无法规划");
+      PROJECT_LOG_WARN("navigation: polygon vertex LLA is invalid, cannot plan");
       return {};
     }
   }
@@ -122,8 +131,9 @@ RoutePlan PlanPolygonScan(const PolygonalArea& polygon, const CoveragePlanConfig
   LlaPositionDegM origin{};
   std::vector<Eigen::Vector2d> plane_points;
   if (!ProjectPolygonToPlane(polygon.vertices, &origin, &plane_points)) {
+    // 中译：多边形投影到 ENU 平面失败，无法规划。
     // 标识：几何投影失败——多边形无法投影到 ENU 平面时无法规划。
-    PROJECT_LOG_WARN("navigation: 多边形投影到 ENU 平面失败，无法规划");
+    PROJECT_LOG_WARN("navigation: failed to project polygon onto ENU plane, cannot plan");
     return {};
   }
 
@@ -179,8 +189,10 @@ RoutePlan PlanPolygonScan(const PolygonalArea& polygon, const CoveragePlanConfig
   if (plan.empty()) {
     emit_scan_line(0.5 * (v_min + v_max));
     if (plan.empty()) {
+      // 中译：多边形退化为不可覆盖形状（无法生成扫描段），无法规划。
       // 标识：退化形状检测——近共线顶点导致无法生成扫描段，返回空计划。
-      PROJECT_LOG_WARN("navigation: 多边形退化为不可覆盖形状（无法生成扫描段），无法规划");
+      PROJECT_LOG_WARN("navigation: polygon degenerates to a non-coverable shape "
+                       "(no scan segments), cannot plan");
       return {};
     }
   }
@@ -189,23 +201,30 @@ RoutePlan PlanPolygonScan(const PolygonalArea& polygon, const CoveragePlanConfig
 
 RoutePlan PlanCircleOrbit(const CircularArea& circle, const CoveragePlanConfig& config) {
   if (!(circle.radius_m > 0.0)) {
+    // 中译：圆形半径非正（{}），无法规划。
     // 标识：覆盖规划前置校验——圆形半径必须为正。
-    PROJECT_LOG_WARN("navigation: 圆形半径非正（{}），无法规划", circle.radius_m);
+    PROJECT_LOG_WARN("navigation: circle radius is not positive ({}), cannot plan",
+                     circle.radius_m);
     return {};
   }
   if (!oneq::coordinate::IsValid(circle.center)) {
+    // 中译：圆心经纬度坐标非法，无法规划。
     // 标识：覆盖规划前置校验——圆心坐标非法时无法规划。
-    PROJECT_LOG_WARN("navigation: 圆心 LLA 非法，无法规划");
+    PROJECT_LOG_WARN("navigation: circle center LLA is invalid, cannot plan");
     return {};
   }
   if (config.orbit_segments < 3U) {
+    // 中译：每环取点数不足（{}），需要至少 3 个。
     // 标识：覆盖规划前置校验——每环至少 3 个取点才能构成环。
-    PROJECT_LOG_WARN("navigation: 每环取点数不足（{}），需要 >= 3", config.orbit_segments);
+    PROJECT_LOG_WARN("navigation: orbit segment count too small ({}), need >= 3",
+                     config.orbit_segments);
     return {};
   }
   if (config.orbit_rings < 1U) {
+    // 中译：同心圆环数非法（{}），需要至少 1 个。
     // 标识：覆盖规划前置校验——同心圆环数至少为 1。
-    PROJECT_LOG_WARN("navigation: 同心圆环数非法（{}），需要 >= 1", config.orbit_rings);
+    PROJECT_LOG_WARN("navigation: orbit ring count invalid ({}), need >= 1",
+                     config.orbit_rings);
     return {};
   }
 
@@ -226,8 +245,9 @@ RoutePlan PlanCircleOrbit(const CircularArea& circle, const CoveragePlanConfig& 
       LlaPositionDegM lla{};
       if (!oneq::coordinate::TryEnuToEcef(enu, circle.center, &ecef) ||
           !oneq::coordinate::TryEcefToLla(ecef, &lla)) {
+        // 中译：盘旋航点坐标回变换失败，跳过该航点继续规划。
         // 标识：盘旋航点坐标回变换失败时跳过该航点继续规划。
-        PROJECT_LOG_WARN("navigation: 盘旋航点回变换失败，跳过");
+        PROJECT_LOG_WARN("navigation: orbit waypoint back-transform failed, skipping");
         continue;
       }
       lla.altitude_m = config.altitude_m;
@@ -243,15 +263,17 @@ RoutePlan AreaCoveragePlanner::Plan(const CoverageArea& area,
                                     const CoveragePlanConfig& config) const {
   if (config.mode == CoverageMode::kScan) {
     if (area.kind != CoverageAreaKind::kPolygon) {
+      // 中译：扫描模式要求多边形区域，圆形区域被忽略。
       // 标识：模式-区域匹配校验——扫描模式忽略圆形区域。
-      PROJECT_LOG_WARN("navigation: 扫描模式要求多边形区域，忽略圆形");
+      PROJECT_LOG_WARN("navigation: scan mode requires a polygonal area, circle ignored");
       return {};
     }
     return PlanPolygonScan(area.polygon, config);
   }
   if (area.kind != CoverageAreaKind::kCircle) {
+    // 中译：盘旋模式要求圆形区域，多边形区域被忽略。
     // 标识：模式-区域匹配校验——盘旋模式忽略多边形区域。
-    PROJECT_LOG_WARN("navigation: 盘旋模式要求圆形区域，忽略多边形");
+    PROJECT_LOG_WARN("navigation: orbit mode requires a circular area, polygon ignored");
     return {};
   }
   return PlanCircleOrbit(area.circle, config);
