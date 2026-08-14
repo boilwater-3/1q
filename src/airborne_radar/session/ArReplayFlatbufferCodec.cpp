@@ -322,6 +322,68 @@ bool IsValidIssueCause(std::int32_t value) {
          value <= static_cast<std::int32_t>(session::ArIssueCause::kUnknown);
 }
 
+// session_contract 规则 7：配置域枚举同样必须逐值校验、未知值原子拒绝。
+// 以下辅助覆盖 session config / runtime patch 解码涉及的枚举范围。
+bool IsKnownScanStartPosition(int raw_value) {
+  using oneq::foundation::ScanStartPosition;
+  return raw_value >= static_cast<int>(ScanStartPosition::kLeftTop) &&
+         raw_value <= static_cast<int>(ScanStartPosition::kLeftBottom);
+}
+
+bool IsKnownScanSequence(int raw_value) {
+  using oneq::foundation::ScanSequence;
+  return raw_value >= static_cast<int>(ScanSequence::kAzimuthFirst) &&
+         raw_value <= static_cast<int>(ScanSequence::kElevationFirst);
+}
+
+bool IsKnownArWorkMode(int raw_value) {
+  return raw_value >= static_cast<int>(config::ArWorkMode::kStby) &&
+         raw_value <= static_cast<int>(config::ArWorkMode::kLrr);
+}
+
+bool IsKnownStabilizationMode(int raw_value) {
+  return raw_value >= static_cast<int>(config::StabilizationMode::kBodyStabilized) &&
+         raw_value <= static_cast<int>(config::StabilizationMode::kGroundStabilized);
+}
+
+bool IsKnownAntennaPatternModelType(int raw_value) {
+  using config::detection::AntennaPatternModelType;
+  return raw_value >= static_cast<int>(AntennaPatternModelType::kGaussianMainLobe) &&
+         raw_value <= static_cast<int>(AntennaPatternModelType::kSincPattern);
+}
+
+bool IsKnownRfScenePolarization(int raw_value) {
+  using oneq::electromagnetics::RfScenePolarization;
+  return raw_value >= static_cast<int>(RfScenePolarization::kHorizontal) &&
+         raw_value <= static_cast<int>(RfScenePolarization::kUnpolarized);
+}
+
+bool IsKnownVegetationCoverProfile(int raw_value) {
+  return raw_value >= static_cast<int>(config::VegetationCoverProfile::kDisabled) &&
+         raw_value <= static_cast<int>(config::VegetationCoverProfile::kTropicalDense);
+}
+
+// 校验解码后的 session config / runtime patch 枚举取值；调用方在提交
+// （写入输出对象）之前执行，失败时输出对象保持原状（原子拒绝）。
+bool IsValidDecodedOrientationEnums(const config::ArOrientationConfig& orientation) {
+  return IsKnownScanStartPosition(static_cast<int>(orientation.scan_start_position)) &&
+         IsKnownScanSequence(static_cast<int>(orientation.scan_sequence)) &&
+         IsKnownArWorkMode(static_cast<int>(orientation.work_mode)) &&
+         IsKnownStabilizationMode(static_cast<int>(orientation.stabilization_mode));
+}
+
+bool IsValidDecodedDetectionEnums(const config::DetectionConfig& detection) {
+  return IsKnownAntennaPatternModelType(
+             static_cast<int>(detection.antenna.pattern.model_type)) &&
+         IsKnownRfScenePolarization(
+             static_cast<int>(detection.receiver.scene_polarization));
+}
+
+bool IsValidDecodedEnvironmentEnums(const config::EnvironmentScenarioConfig& scenario) {
+  return IsKnownVegetationCoverProfile(
+      static_cast<int>(scenario.vegetation_scatter_physics.cover_profile));
+}
+
 bool TryDecodeArInterferenceObservation(const fb::ArInterferenceObservation* value,
                                         session::ArInterferenceObservation* observation) {
   if (value == nullptr || observation == nullptr ||
@@ -1690,11 +1752,23 @@ bool DecodeSessionConfigFlatbuffer(const std::string& payload_bytes,
   }
 
   const session_fb::ArSessionConfig* root = session_fb::GetArSessionConfig(data);
-  config->hardware = DecodeSessionDetectionConfig(root->hardware_detection());
-  config->mission.orientation = DecodeSessionOrientation(root->mission_orientation());
-  config->sensor_enabled = root->sensor_enabled();
-  config->policy = DecodeSessionPolicyConfig(root->policy());
-  config->environment = DecodeEnvironmentDefaultConfig(root->environment_default_config());
+  // 先解码到局部对象，枚举逐值校验通过后一次性提交（session_contract 规则 7：
+  // 未知值原子拒绝、不得部分修改解码目标）。
+  config::ArSessionConfig decoded = *config;
+  decoded.hardware = DecodeSessionDetectionConfig(root->hardware_detection());
+  decoded.mission.orientation = DecodeSessionOrientation(root->mission_orientation());
+  decoded.sensor_enabled = root->sensor_enabled();
+  decoded.policy = DecodeSessionPolicyConfig(root->policy());
+  decoded.environment = DecodeEnvironmentDefaultConfig(root->environment_default_config());
+  if (!IsValidDecodedOrientationEnums(decoded.mission.orientation) ||
+      !IsValidDecodedDetectionEnums(decoded.hardware) ||
+      !IsValidDecodedEnvironmentEnums(decoded.environment.scenario_config)) {
+    if (error != nullptr) {
+      *error = "config::ArSessionConfig payload contains unknown enum value";
+    }
+    return false;
+  }
+  *config = decoded;
   return true;
 }
 
@@ -1743,24 +1817,36 @@ bool DecodeRuntimeConfigPatchFlatbuffer(const std::string& payload_bytes,
     return false;
   }
 
-  patch->has_mission = root->has_mission();
-  patch->mission.orientation = DecodeSessionOrientation(root->mission_orientation());
-  patch->has_policy = root->has_policy();
-  patch->policy = DecodeSessionPolicyConfig(root->policy());
-  patch->has_environment = root->has_environment();
-  patch->environment = DecodeSessionEnvironmentRuntimeConfigPatch(root->environment());
-  patch->has_work_mode = root->has_work_mode();
-  patch->work_mode = static_cast<config::ArWorkMode>(root->work_mode());
-  patch->has_scan_center_deg = root->has_scan_center_deg();
-  patch->scan_center_deg = DecodeSessionAzEl(root->scan_center_deg());
-  patch->has_dwell_center_deg = root->has_dwell_center_deg();
-  patch->dwell_center_deg = DecodeSessionAzEl(root->dwell_center_deg());
-  patch->has_commanded_beamwidth_deg = root->has_commanded_beamwidth_deg();
-  patch->commanded_beamwidth_deg = DecodeSessionCommandedBeamwidth(root->commanded_beamwidth_deg());
-  patch->has_commanded_beamwidth_enabled = root->has_commanded_beamwidth_enabled();
-  patch->commanded_beamwidth_enabled = root->commanded_beamwidth_enabled();
-  patch->has_sensor_enabled = root->has_sensor_enabled();
-  patch->sensor_enabled = root->sensor_enabled();
+  // 先解码到局部对象，枚举逐值校验通过后一次性提交（session_contract 规则 7：
+  // 未知值原子拒绝、不得部分修改解码目标）。
+  config::ArRuntimeConfigPatch decoded = *patch;
+  decoded.has_mission = root->has_mission();
+  decoded.mission.orientation = DecodeSessionOrientation(root->mission_orientation());
+  decoded.has_policy = root->has_policy();
+  decoded.policy = DecodeSessionPolicyConfig(root->policy());
+  decoded.has_environment = root->has_environment();
+  decoded.environment = DecodeSessionEnvironmentRuntimeConfigPatch(root->environment());
+  decoded.has_work_mode = root->has_work_mode();
+  decoded.work_mode = static_cast<config::ArWorkMode>(root->work_mode());
+  decoded.has_scan_center_deg = root->has_scan_center_deg();
+  decoded.scan_center_deg = DecodeSessionAzEl(root->scan_center_deg());
+  decoded.has_dwell_center_deg = root->has_dwell_center_deg();
+  decoded.dwell_center_deg = DecodeSessionAzEl(root->dwell_center_deg());
+  decoded.has_commanded_beamwidth_deg = root->has_commanded_beamwidth_deg();
+  decoded.commanded_beamwidth_deg = DecodeSessionCommandedBeamwidth(root->commanded_beamwidth_deg());
+  decoded.has_commanded_beamwidth_enabled = root->has_commanded_beamwidth_enabled();
+  decoded.commanded_beamwidth_enabled = root->commanded_beamwidth_enabled();
+  decoded.has_sensor_enabled = root->has_sensor_enabled();
+  decoded.sensor_enabled = root->sensor_enabled();
+  if (!IsValidDecodedOrientationEnums(decoded.mission.orientation) ||
+      !IsKnownArWorkMode(static_cast<int>(decoded.work_mode)) ||
+      !IsValidDecodedEnvironmentEnums(decoded.environment.scenario_config)) {
+    if (error != nullptr) {
+      *error = "ArRuntimeConfigPatch payload contains unknown enum value";
+    }
+    return false;
+  }
+  *patch = decoded;
   return true;
 }
 
