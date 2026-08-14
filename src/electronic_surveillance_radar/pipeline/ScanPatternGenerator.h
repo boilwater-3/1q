@@ -15,6 +15,15 @@ namespace electronic_surveillance_radar {
 namespace intercept {
 
 /**
+ * @brief 单轴扫描采样点数上限。
+ *
+ * 步进可来自硬件波束宽度（仅校验有限且 >0，无下限）。采样点数按整数计数生成，
+ * 不会出现浮点累加增量消失导致的无限循环；此上限再约束极端小步进下的内存占用，
+ * 超出时序列截断到前 kMaxScanPointsPerAxis 个点。
+ */
+constexpr std::size_t kMaxScanPointsPerAxis = 131072U;
+
+/**
  * @brief BeamPointingDeg 描述单个波束指向。
  */
 struct BeamPointingDeg {
@@ -94,21 +103,37 @@ class ScanPatternGenerator final {
 
  private:
   /**
-   * @brief 把方位采样点追加到列表，自动去除归一化后重复点。
-   * @param[in] az_deg 输入方位（单位：deg）。
-   * @param[out] az_values 方位序列。
+   * @brief 判断原始方位是否与已有序列归一化后重合（容差 1e-4°）。
+   *
+   * 已有序列按原始方位严格递增构造，重合只可能出现在：与上一个点相邻（步进 ≤ 容差），
+   * 或与 360° 整数圈之前的点重合。后者用二分定位，整体保持与全量线性查重等价的
+   * 语义、复杂度 O(n log n)。
+   *
+   * @param[in] raw_az_deg 输入原始方位（单位：deg）。
+   * @param[in] raw_values 已接受的原始方位序列（严格递增）。
+   * @param[in] az_values 已接受的归一化方位序列。
+   * @return 重合返回 true。
    */
-  static void AppendDistinctAzimuth(float az_deg, std::vector<float>* az_values) {
-    if (az_values == nullptr) {
-      return;
+  static bool IsDuplicateAzimuth(float raw_az_deg, const std::vector<float>& raw_values,
+                                 const std::vector<float>& az_values) {
+    if (raw_values.empty()) {
+      return false;
     }
-    const float normalized = NormalizeAzimuthDeg(az_deg);
-    for (std::size_t i = 0; i < az_values->size(); ++i) {
-      if (std::fabs((*az_values)[i] - normalized) <= 1.0e-4f) {
-        return;
+    const float normalized = NormalizeAzimuthDeg(raw_az_deg);
+    if (std::fabs(az_values.back() - normalized) <= 1.0e-4f) {
+      return true;
+    }
+    const float total_span = raw_az_deg - raw_values.front();
+    const float full_circles = std::floor((total_span + 1.0e-4f) / 360.0f);
+    for (float circle = 1.0f; circle <= full_circles; ++circle) {
+      const float target = raw_az_deg - circle * 360.0f;
+      const std::vector<float>::const_iterator it =
+          std::lower_bound(raw_values.begin(), raw_values.end(), target - 1.0e-4f);
+      if (it != raw_values.end() && *it <= target + 1.0e-4f) {
+        return true;
       }
     }
-    az_values->push_back(normalized);
+    return false;
   }
 
   /**
@@ -123,8 +148,27 @@ class ScanPatternGenerator final {
     if (az_end < config.start_az_deg) {
       az_end += 360.0f;
     }
-    for (float az = config.start_az_deg; az <= az_end + 0.5f * az_step; az += az_step) {
-      AppendDistinctAzimuth(az, &az_values);
+    // 整数计数采样（contract 规则 5 精神）：浮点累加 az += step 在极小步进下增量会被
+    // 舍入吞掉导致死循环；改为按步数计数、按 start + k*step 计值，循环次数有界。
+    const float span = az_end - config.start_az_deg;
+    if (std::isfinite(span) && span >= 0.0f && std::isfinite(az_step) && az_step > 0.0f) {
+      float steps_float = std::floor(span / az_step + 0.5f);
+      if (steps_float > static_cast<float>(kMaxScanPointsPerAxis - 1U)) {
+        steps_float = static_cast<float>(kMaxScanPointsPerAxis - 1U);
+      }
+      const std::size_t steps =
+          steps_float > 0.0f ? static_cast<std::size_t>(steps_float) : 0U;
+      std::vector<float> raw_values;
+      raw_values.reserve(steps + 1U);
+      az_values.reserve(steps + 1U);
+      for (std::size_t k = 0U; k <= steps; ++k) {
+        const float raw = config.start_az_deg + static_cast<float>(k) * az_step;
+        if (IsDuplicateAzimuth(raw, raw_values, az_values)) {
+          continue;
+        }
+        raw_values.push_back(raw);
+        az_values.push_back(NormalizeAzimuthDeg(raw));
+      }
     }
     if (az_values.empty()) {
       az_values.push_back(NormalizeAzimuthDeg(config.start_az_deg));
@@ -142,8 +186,18 @@ class ScanPatternGenerator final {
     std::vector<float> el_values;
     const float el_min = std::max(-90.0f, std::min(config.start_el_deg, config.end_el_deg));
     const float el_max = std::min(90.0f, std::max(config.start_el_deg, config.end_el_deg));
-    for (float el = el_min; el <= el_max + 0.5f * el_step; el += el_step) {
-      el_values.push_back(el);
+    // 同方位轴：按整数步数计数生成，避免浮点累加增量消失导致的无限循环与 OOM。
+    const float span = el_max - el_min;
+    if (std::isfinite(span) && span >= 0.0f && std::isfinite(el_step) && el_step > 0.0f) {
+      float steps_float = std::floor(span / el_step + 0.5f);
+      if (steps_float > static_cast<float>(kMaxScanPointsPerAxis - 1U)) {
+        steps_float = static_cast<float>(kMaxScanPointsPerAxis - 1U);
+      }
+      const std::size_t steps =
+          steps_float > 0.0f ? static_cast<std::size_t>(steps_float) : 0U;
+      for (std::size_t k = 0U; k <= steps; ++k) {
+        el_values.push_back(el_min + static_cast<float>(k) * el_step);
+      }
     }
     if (el_values.empty()) {
       el_values.push_back(std::max(-90.0f, std::min(90.0f, config.start_el_deg)));
