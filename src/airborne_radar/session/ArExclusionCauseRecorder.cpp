@@ -13,9 +13,14 @@ namespace session {
 namespace {
 
 // 上一执行周期的排除原因快照（差分原料）。无条目 = 上周未被排除。
+// VS2015/MSVC19.0 未实现 DR-1467（NSDMI 聚合初始化，C2440），按项目既有
+// 惯例为含 NSDMI 的值类型补充用户声明构造函数，调用点零改动。
 struct ExclusionState {
   std::string code{};
   ArIssueCause cause{ArIssueCause::kNone};
+  ExclusionState() = default;
+  ExclusionState(std::string code_, ArIssueCause cause_)
+      : code(std::move(code_)), cause(cause_) {}
 };
 
 // 本周期按 entity_index 收集的排除诊断命中（单目标单周期取第一条，见 header @note）。
@@ -23,6 +28,9 @@ struct CurrentExclusion {
   std::string code{};
   ArIssueCause cause{ArIssueCause::kNone};
   bool found{false};
+  CurrentExclusion() = default;
+  CurrentExclusion(std::string code_, ArIssueCause cause_, bool found_)
+      : code(std::move(code_)), cause(cause_), found(found_) {}
 };
 
 // 按 location.entity_index 索引本周期排除诊断。仅消费 kSceneEntity 定位且 phase=kExecution

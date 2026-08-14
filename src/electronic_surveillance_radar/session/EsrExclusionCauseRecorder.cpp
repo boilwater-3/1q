@@ -15,10 +15,17 @@ namespace session {
 namespace {
 
 // 发射源标识三元组（用作 unordered_map 键）。identity 唯一性由帧校验保证。
+// VS2015/MSVC19.0 未实现 DR-1467（NSDMI 聚合初始化，C2440），按项目既有
+// 惯例为含 NSDMI 的值类型补充用户声明构造函数，调用点零改动。
 struct EmissionKey {
   std::uint64_t platform_id{0U};
   std::uint64_t equipment_id{0U};
   std::uint64_t emission_id{0U};
+
+  EmissionKey() = default;
+  EmissionKey(std::uint64_t platform_id_, std::uint64_t equipment_id_,
+              std::uint64_t emission_id_)
+      : platform_id(platform_id_), equipment_id(equipment_id_), emission_id(emission_id_) {}
 
   bool operator==(const EmissionKey& other) const {
     return platform_id == other.platform_id && equipment_id == other.equipment_id &&
@@ -63,6 +70,9 @@ std::vector<const oneq::electromagnetics::RfSceneEmission*> SortEmissionsByIdent
 struct ExclusionState {
   std::string code{};
   EsrIssueCause cause{EsrIssueCause::kNone};
+  ExclusionState() = default;
+  ExclusionState(std::string code_, EsrIssueCause cause_)
+      : code(std::move(code_)), cause(cause_) {}
 };
 
 // 本周期按 entity_index 收集的排除诊断命中（单源单周期取第一条，见 header @note）。
@@ -70,6 +80,9 @@ struct CurrentExclusion {
   std::string code{};
   EsrIssueCause cause{EsrIssueCause::kNone};
   bool found{false};
+  CurrentExclusion() = default;
+  CurrentExclusion(std::string code_, EsrIssueCause cause_, bool found_)
+      : code(std::move(code_)), cause(cause_), found(found_) {}
 };
 
 // 按 location.entity_index 索引本周期排除诊断。仅消费 kSceneEntity 定位且 phase=kExecution
