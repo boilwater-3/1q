@@ -30,7 +30,27 @@ namespace {
 
 constexpr std::uint64_t kMaxReplayTraceFileBytes = 0xFFFFFFFFull;
 
+// 事件 chunk 单行字节上限：流式读取（gzgets/getline）独立于文件大小上限的行级
+// 防线，防止无换行的超长单行无限累积撑爆内存（contract 规则 4）。
+constexpr std::size_t kMaxReplayTraceLineBytes = 256U * 1024U * 1024U;
+
+// JSON 字段提取的最大嵌套深度（contract 规则 4：自研解析器必须有嵌套深度上限）。
+constexpr int kMaxJsonNestingDepth = 64;
+
 bool IsPathSeparator(char value) { return value == '/' || value == '\\'; }
+
+// 读入前检查文件大小是否在上限内（与 manifest 的 kMaxReplayTraceFileBytes 对齐；
+// 打不开的文件交由后续 open 路径报错，这里不做存在性判断）。
+bool FileSizeWithinLimit(const std::string& path, std::uint64_t max_bytes) {
+  std::ifstream probe(path.c_str());
+  if (!probe.good()) {
+    return true;
+  }
+  probe.seekg(0, std::ios::end);
+  const std::ifstream::pos_type size = probe.tellg();
+  return size == std::ifstream::pos_type(-1) ||
+         static_cast<std::uint64_t>(size) <= max_bytes;
+}
 
 bool CreateDirectoryIfMissing(const std::string& path, std::string* error) {
   if (path.empty()) {
@@ -167,8 +187,13 @@ bool GzipCompressFile(const std::string& src_path, const std::string& dst_gz_pat
 }
 
 // 从 gzFile 中读取一行（不含换行符）。返回 false 表示 EOF 或错误。
-bool GzipReadLine(gzFile gz, std::string* line) {
+// line_over_limit 非空时置位表示行长超过 kMaxReplayTraceLineBytes：此时不再累积
+// （内存有界），继续消费到行尾后返回 true，由调用方 fail-closed 处理。
+bool GzipReadLine(gzFile gz, std::string* line, bool* line_over_limit) {
   line->clear();
+  if (line_over_limit != nullptr) {
+    *line_over_limit = false;
+  }
   char buf[4096];
   bool got_any = false;
   while (true) {
@@ -178,11 +203,22 @@ bool GzipReadLine(gzFile gz, std::string* line) {
     }
     got_any = true;
     const std::string chunk(result);
-    if (!chunk.empty() && chunk[chunk.size() - 1U] == '\n') {
-      line->append(chunk, 0U, chunk.size() - 1U);
+    const bool has_newline = !chunk.empty() && chunk[chunk.size() - 1U] == '\n';
+    const bool over_limit =
+        line_over_limit != nullptr && *line_over_limit;
+    if (!over_limit) {
+      if (has_newline) {
+        line->append(chunk, 0U, chunk.size() - 1U);
+      } else {
+        *line += chunk;
+      }
+      if (line->size() > kMaxReplayTraceLineBytes && line_over_limit != nullptr) {
+        *line_over_limit = true;
+      }
+    }
+    if (has_newline) {
       return true;
     }
-    *line += chunk;
   }
   return got_any && !line->empty();
 }
@@ -597,6 +633,7 @@ std::string ExtractStringField(const std::string& json, const std::string& field
 
   std::ostringstream output;
   bool escaping = false;
+  bool terminated = false;
   for (std::size_t i = value_pos; i < json.size(); ++i) {
     const char c = json[i];
     if (escaping) {
@@ -622,11 +659,36 @@ std::string ExtractStringField(const std::string& json, const std::string& field
       continue;
     }
     if (c == '"') {
+      terminated = true;
       break;
     }
     output << c;
   }
+  // 转义完整性（contract 规则 4）：字符串未闭合或结尾悬挂反斜杠属于损坏输入，
+  // 按字段缺失处理，不返回截断的部分内容。
+  if (!terminated || escaping) {
+    return "";
+  }
   return output.str();
+}
+
+// 数值字段解析的通用完整性校验（contract 规则 4）：
+// a) endptr 必须消耗至少一个数字字符；b) 数字后到下一个 JSON 分隔符（, } ]）
+//    之间只允许空白（拒绝 "12abc" 之类的尾随垃圾）；c) errno==ERANGE 溢出拒绝。
+bool ConsumedCleanNumber(const std::string& json, const char* parse_start, char* parse_end) {
+  if (parse_end == parse_start) {
+    return false;
+  }
+  for (const char* p = parse_end; p != json.c_str() + json.size(); ++p) {
+    if (*p == ',' || *p == '}' || *p == ']') {
+      return true;
+    }
+    if (*p == ' ' || *p == '\t' || *p == '\r' || *p == '\n') {
+      continue;
+    }
+    return false;
+  }
+  return true;
 }
 
 std::uint64_t ExtractUInt64Field(const std::string& json, const std::string& field_name) {
@@ -634,7 +696,14 @@ std::uint64_t ExtractUInt64Field(const std::string& json, const std::string& fie
   if (value_pos == std::string::npos) {
     return 0U;
   }
-  return static_cast<std::uint64_t>(std::strtoull(json.c_str() + value_pos, nullptr, 10));
+  const char* start = json.c_str() + value_pos;
+  char* end = nullptr;
+  errno = 0;
+  const unsigned long long parsed = std::strtoull(start, &end, 10);
+  if (errno == ERANGE || !ConsumedCleanNumber(json, start, end)) {
+    return 0U;
+  }
+  return static_cast<std::uint64_t>(parsed);
 }
 
 std::int32_t ExtractInt32Field(const std::string& json, const std::string& field_name) {
@@ -642,7 +711,14 @@ std::int32_t ExtractInt32Field(const std::string& json, const std::string& field
   if (value_pos == std::string::npos) {
     return 0;
   }
-  return static_cast<std::int32_t>(std::strtol(json.c_str() + value_pos, nullptr, 10));
+  const char* start = json.c_str() + value_pos;
+  char* end = nullptr;
+  errno = 0;
+  const long parsed = std::strtol(start, &end, 10);
+  if (errno == ERANGE || !ConsumedCleanNumber(json, start, end)) {
+    return 0;
+  }
+  return static_cast<std::int32_t>(parsed);
 }
 
 bool ExtractBoolField(const std::string& json, const std::string& field_name) {
@@ -659,7 +735,14 @@ bool ExtractNullableUInt32Field(const std::string& json, const std::string& fiel
   if (value_pos == std::string::npos || json.compare(value_pos, 4U, "null") == 0) {
     return false;
   }
-  *value = static_cast<std::uint32_t>(std::strtoul(json.c_str() + value_pos, nullptr, 10));
+  const char* start = json.c_str() + value_pos;
+  char* end = nullptr;
+  errno = 0;
+  const unsigned long parsed = std::strtoul(start, &end, 10);
+  if (errno == ERANGE || !ConsumedCleanNumber(json, start, end)) {
+    return false;
+  }
+  *value = static_cast<std::uint32_t>(parsed);
   return true;
 }
 
@@ -669,7 +752,14 @@ bool ExtractNullableDoubleField(const std::string& json, const std::string& fiel
   if (value_pos == std::string::npos || json.compare(value_pos, 4U, "null") == 0) {
     return false;
   }
-  *value = std::strtod(json.c_str() + value_pos, nullptr);
+  const char* start = json.c_str() + value_pos;
+  char* end = nullptr;
+  errno = 0;
+  const double parsed = std::strtod(start, &end);
+  if (errno == ERANGE || !ConsumedCleanNumber(json, start, end)) {
+    return false;
+  }
+  *value = parsed;
   return true;
 }
 
@@ -715,6 +805,11 @@ std::string ExtractRawJsonValue(const std::string& json, const std::string& fiel
     }
     if (c == opening) {
       ++depth;
+      // 嵌套深度上限（contract 规则 4）：超深输入按字段缺失处理，
+      // 限制病态嵌套结构的扫描成本。
+      if (depth > kMaxJsonNestingDepth) {
+        return "";
+      }
     } else if (c == closing) {
       --depth;
       if (depth == 0) {
@@ -1068,6 +1163,12 @@ struct ReplayTraceReader::Impl {
     // Prefer compressed chunk if present.
     const std::string gz_path = EventChunkGzPath(trace_dir, chunk_index);
     if (FileExists(gz_path)) {
+      // 读入前检查大小上限（contract 规则 4，与 manifest 上限对齐）；
+      // 超限走读取失败路径，不得伪装成正常 trace 结束。
+      if (!FileSizeWithinLimit(gz_path, kMaxReplayTraceFileBytes)) {
+        MarkReadFailure("replay trace event chunk exceeds maximum size: " + gz_path);
+        return false;
+      }
       gz_events = gzopen(gz_path.c_str(), "rb");
       if (gz_events != Z_NULL) {
         current_chunk_index = chunk_index;
@@ -1076,6 +1177,10 @@ struct ReplayTraceReader::Impl {
     }
 #endif
     const std::string event_path = EventChunkPath(trace_dir, chunk_index);
+    if (FileExists(event_path) && !FileSizeWithinLimit(event_path, kMaxReplayTraceFileBytes)) {
+      MarkReadFailure("replay trace event chunk exceeds maximum size: " + event_path);
+      return false;
+    }
     events.open(event_path.c_str(), std::ios::in);
     if (!events.is_open()) {
       return false;
@@ -1102,7 +1207,11 @@ struct ReplayTraceReader::Impl {
     while (true) {
 #if ONEQ_HAVE_ZLIB
       if (gz_events != Z_NULL) {
-        if (GzipReadLine(gz_events, line)) {
+        bool line_over_limit = false;
+        if (GzipReadLine(gz_events, line, &line_over_limit)) {
+          if (line_over_limit || line->size() > kMaxReplayTraceLineBytes) {
+            return MarkReadFailure("replay trace event line exceeds maximum size");
+          }
           return ReplayTraceReadStatus::kEvent;
         }
         int gzip_error = Z_OK;
@@ -1112,12 +1221,16 @@ struct ReplayTraceReader::Impl {
                                  (gzip_message == nullptr ? "unknown gzip error" : gzip_message));
         }
         if (!OpenEventChunk(current_chunk_index + 1U)) {
-          return ReplayTraceReadStatus::kEndOfTrace;
+          return readable ? ReplayTraceReadStatus::kEndOfTrace
+                          : ReplayTraceReadStatus::kError;
         }
         continue;
       }
 #endif
       if (std::getline(events, *line)) {
+        if (line->size() > kMaxReplayTraceLineBytes) {
+          return MarkReadFailure("replay trace event line exceeds maximum size");
+        }
         return ReplayTraceReadStatus::kEvent;
       }
       if (events.bad() || (events.fail() && !events.eof())) {
@@ -1125,7 +1238,8 @@ struct ReplayTraceReader::Impl {
                                EventChunkPath(trace_dir, current_chunk_index));
       }
       if (!OpenEventChunk(current_chunk_index + 1U)) {
-        return ReplayTraceReadStatus::kEndOfTrace;
+        return readable ? ReplayTraceReadStatus::kEndOfTrace
+                        : ReplayTraceReadStatus::kError;
       }
     }
   }
