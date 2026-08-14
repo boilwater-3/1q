@@ -102,7 +102,6 @@ class PulseRingBuffer {
   bool RestoreRuntimeState(const PulseRingBufferRuntimeState& state);
 
  private:
-  bool Contains(std::uint64_t pulse_id) const;
   bool IsContiguous(std::size_t first_index, std::size_t count) const;
 
   std::size_t capacity_{0U};

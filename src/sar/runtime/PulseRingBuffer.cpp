@@ -25,10 +25,12 @@ bool IsStrictlyIncreasing(const std::deque<PulseRecord>& records) {
 PulseRingBuffer::PulseRingBuffer(std::size_t capacity) : capacity_(capacity) {}
 
 bool PulseRingBuffer::Push(const PulseRecord& pulse) {
-  if (capacity_ == 0U || Contains(pulse.pulse_id)) {
+  if (capacity_ == 0U) {
     return false;
   }
-
+  // 单调性守卫同时承担重复拒绝：缓冲维护 pulse_id 严格递增不变量（Push 拒绝
+  // <= back，RestoreRuntimeState 校验 IsStrictlyIncreasing），重复或乱序 id 必然
+  // <= back，无需 O(n) 全量查重（原 Contains 线性扫描已移除）。
   if (!records_.empty() && pulse.pulse_id <= records_.back().pulse_id) {
     return false;
   }
@@ -98,15 +100,6 @@ bool PulseRingBuffer::RestoreRuntimeState(const PulseRingBufferRuntimeState& sta
   records_ = state.records;
   overflow_sticky_ = state.overflow_sticky;
   return true;
-}
-
-bool PulseRingBuffer::Contains(std::uint64_t pulse_id) const {
-  for (const PulseRecord& record : records_) {
-    if (record.pulse_id == pulse_id) {
-      return true;
-    }
-  }
-  return false;
 }
 
 bool PulseRingBuffer::IsContiguous(std::size_t first_index, std::size_t count) const {

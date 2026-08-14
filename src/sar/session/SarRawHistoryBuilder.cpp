@@ -515,8 +515,12 @@ bool BuildRawPulseHistory(const config::SarSessionConfig& config, const SarCycle
       const double nominal = config.mission.nominal_slant_range_m;
       const double rel_error = std::abs(actual_slant_range_m - nominal) / nominal;
       if (rel_error > kSlantRangeMismatchTolerance) {
+        // 用公开输入的稳定目标标识（target_id/target_name）定位错配目标，
+        // 循环下标对调用方无意义；targets 与 input.point_targets 按序一一对应。
         std::string msg =
-            "SAR target " + std::to_string(t) + " actual slant range=" +
+            "SAR target target_id=" +
+            std::to_string(input.point_targets[t].target_id) + " (name=" +
+            input.point_targets[t].target_name + ") actual slant range=" +
             std::to_string(actual_slant_range_m) +
             " m mismatches nominal_slant_range_m=" + std::to_string(nominal) + " m (" +
             std::to_string(rel_error * 100.0) + "%); nominal is RDA reference range, not the "

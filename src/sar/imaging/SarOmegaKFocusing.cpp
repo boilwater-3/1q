@@ -180,11 +180,15 @@ bool FocusOmegaKInternal(const OmegaKConfig& config,
   }
 
   // [阶段 7] 方位逆变换(方位向逆 FFT + 归一化)。
+  // 逆 FFT 已含 1/N 归一化（SarFft 直接调用 Eigen fft.inv，未设 Unscaled 标志），
+  // additional_normalization 只承载 FFT 之外的附加缩放——此处无附加项，置 1。
+  // 之前误置 1/azimuth_pulse_count 造成方位向总缩放 1/N²、与距离向（仅逆 FFT
+  // 内建 1/N）不对称，峰值绝对幅度被压低 N 倍。
   OmegaKAzimuthInverseRequest inverse_request;
   inverse_request.request_id = kRequestId;
   inverse_request.absolute_slant_ranges_m = phase_compensation.absolute_slant_ranges_m;
   inverse_request.output_azimuth_coordinates = phase_compensation.azimuth_coordinates;
-  inverse_request.additional_normalization = 1.0 / static_cast<double>(config.azimuth_pulse_count);
+  inverse_request.additional_normalization = 1.0;
   inverse_request.compensated_intermediate = phase_compensation.compensated_intermediate;
   const OmegaKAzimuthInverseResult azimuth_inverse =
       ExecuteOmegaKAzimuthInverseTransform(inverse_request);
