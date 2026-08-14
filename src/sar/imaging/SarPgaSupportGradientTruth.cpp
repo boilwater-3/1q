@@ -2,6 +2,8 @@
 
 #include <cmath>
 
+#include "sar/signal/SarAngleWrap.h"
+
 namespace sar {
 namespace imaging {
 
@@ -13,13 +15,6 @@ PgaSupportGradientTruthResult Reject(const PgaSupportGradientTruthRequest& reque
   result.request_id = request.request_id;
   result.reason = reason;
   return result;
-}
-
-double WrapPhase(double phase) {
-  const double pi = std::acos(-1.0);
-  while (phase > pi) phase -= 2.0 * pi;
-  while (phase < -pi) phase += 2.0 * pi;
-  return phase;
 }
 
 }  // namespace
@@ -80,7 +75,7 @@ PgaSupportGradientTruthResult ExecutePgaSupportGradientTruth(
   std::vector<double> gradient;
   gradient.reserve(request.injected_phase_rad.size() - 1U);
   for (std::size_t index = 0U; index + 1U < request.injected_phase_rad.size(); ++index) {
-    gradient.push_back(WrapPhase(request.injected_phase_rad[index + 1U] -
+    gradient.push_back(signal::WrapPhase(request.injected_phase_rad[index + 1U] -
                                  request.injected_phase_rad[index]));
   }
 

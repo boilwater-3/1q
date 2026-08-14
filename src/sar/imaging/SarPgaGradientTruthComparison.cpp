@@ -3,6 +3,8 @@
 #include <algorithm>
 #include <cmath>
 
+#include "sar/signal/SarAngleWrap.h"
+
 namespace sar {
 namespace imaging {
 
@@ -14,13 +16,6 @@ PgaGradientComparisonResult Reject(const PgaGradientComparisonRequest& request,
   result.request_id = request.request_id;
   result.reason = reason;
   return result;
-}
-
-double WrapPhase(double phase) {
-  const double pi = std::acos(-1.0);
-  while (phase > pi) phase -= 2.0 * pi;
-  while (phase < -pi) phase += 2.0 * pi;
-  return phase;
 }
 
 bool IsBinaryMask(const std::vector<std::uint8_t>& mask) {
@@ -72,7 +67,7 @@ PgaGradientComparisonResult ComparePgaGradientTruth(
     }
     joint_mask[index] = 1U;
     ++joint_count;
-    const double error = WrapPhase(request.estimated_wrapped_gradient_rad[index] -
+    const double error = signal::WrapPhase(request.estimated_wrapped_gradient_rad[index] -
                                    request.truth_wrapped_gradient_rad[index]);
     maximum_abs_error = std::max(maximum_abs_error, std::abs(error));
     sum_squared_error += error * error;
