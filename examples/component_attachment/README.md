@@ -145,7 +145,9 @@ boost::signals2::scoped_connection conn =
 两种通信形态同时演示：**周期内同步数据聚合**用组件类型化访问；**跨周期通知 /
 记录**走信号（事件）。
 
-> 日志体系（事件日志与调试视图落盘、三模式宏门控）见 [`logger/README.md`](logger/README.md)。
+> 日志体系（事件日志与调试视图落盘、三模式宏门控）见 [`logger/README.md`](logger/README.md)；
+> 想快速理解"输出视图 / 两种日志 / 三模式"三者关系，读
+> [`docs/practice/output_view_and_logging_guide.md`](../../docs/practice/output_view_and_logging_guide.md)（使用教程）。
 
 ## 模块 → 组件映射
 

@@ -1,8 +1,11 @@
 # 集成端日志设施（logger/）
 
-本目录是示例的**集成端日志设施**——示范"外部集成方怎么自己组织日志/落盘"，不属于
-oneq 库的 public surface。直接使用 conanfile 的 spdlog 依赖（fmt 风格 `{}` 格式化，
-编译期格式检查）。
+> 本目录是示例的**集成端日志设施**——示范"外部集成方怎么自己组织日志/落盘"，不属于
+> oneq 库的 public surface。直接使用 conanfile 的 spdlog 依赖（fmt 风格 `{}` 格式化，
+> 编译期格式检查）。
+>
+> 想先建立整体认知（三层输出模型 → 两种日志 → 三模式）再读本文件，见使用教程
+> [`docs/practice/output_view_and_logging_guide.md`](../../../../docs/practice/output_view_and_logging_guide.md)。
 
 ## 两个日志模块
 
