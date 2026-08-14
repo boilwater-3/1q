@@ -406,28 +406,27 @@ bool BuildExternalRawIqHistory(const config::SarSessionConfig& config, const Sar
   return true;
 }
 
-bool BuildRawPulseHistory(const config::SarSessionConfig& config, const SarCycleInput& input,
-                          const signal::ComplexVector& transmit_waveform,
-                          runtime::PulseRingBuffer* pulse_buffer, std::uint64_t* next_pulse_id,
-                          double* pulse_fraction_carry, signal::ComplexMatrix* history,
-                          std::deque<geometry::PlatformPulseState>* ideal_trajectory_buffer,
-                          std::deque<geometry::PlatformPulseState>* actual_trajectory_buffer,
-                          double* estimated_snr_db, SarCycleResult* result) {
-  if (pulse_buffer == nullptr || next_pulse_id == nullptr || pulse_fraction_carry == nullptr ||
-      ideal_trajectory_buffer == nullptr || actual_trajectory_buffer == nullptr ||
-      estimated_snr_db == nullptr) {
-    RecordAbort(result, SarPipelineAbortReason::kPipelineExecutionFailed, codes::kPulseBufferUnavailable, "SAR pulse ring buffer is unavailable.");
+bool PrepareCycleTrajectory(const config::SarSessionConfig& config, const SarCycleInput& input,
+                            std::uint64_t next_pulse_id, double* pulse_fraction_carry,
+                            std::size_t pulse_buffer_size,
+                            const geometry::PlatformPulseState* previous_actual,
+                            std::vector<geometry::PlatformPulseState>* ideal_pulses,
+                            std::vector<geometry::PlatformPulseState>* actual_pulses,
+                            SarCycleResult* result) {
+  if (pulse_fraction_carry == nullptr || ideal_pulses == nullptr || actual_pulses == nullptr) {
     return false;
   }
 
+  // 脉冲数计算：与重构前 BuildRawPulseHistory 内联逻辑完全同序——
+  // 先记录 PRF 分数余量，再做冷启动补齐（top-up 不影响余量）。
   const double requested_pulses =
       static_cast<double>(input.dt_sec) * config.hardware.pulse_repetition_frequency_hz +
       *pulse_fraction_carry;
   std::size_t pulse_count_to_generate = static_cast<std::size_t>(std::floor(requested_pulses));
   *pulse_fraction_carry = requested_pulses - static_cast<double>(pulse_count_to_generate);
-  if (pulse_buffer->size() < config.mission.azimuth_pulse_count) {
-    pulse_count_to_generate = std::max(pulse_count_to_generate,
-                                       config.mission.azimuth_pulse_count - pulse_buffer->size());
+  if (pulse_buffer_size < config.mission.azimuth_pulse_count) {
+    pulse_count_to_generate =
+        std::max(pulse_count_to_generate, config.mission.azimuth_pulse_count - pulse_buffer_size);
   }
 
   if (pulse_count_to_generate == 0U) {
@@ -435,13 +434,42 @@ bool BuildRawPulseHistory(const config::SarSessionConfig& config, const SarCycle
         MakeInfoDiagnostic(codes::kPulseRingBuffer, "SAR pulse ring buffer reused latest aperture."));
   }
 
+  // 轨迹生成：纯函数（局部生成、不写缓冲）；失败时已向 result 写入错误诊断。
+  return GenerateCycleTrajectory(config, input, next_pulse_id, pulse_count_to_generate,
+                                 previous_actual, ideal_pulses, actual_pulses, result);
+}
+
+bool BuildRawPulseHistory(const config::SarSessionConfig& config, const SarCycleInput& input,
+                          const signal::ComplexVector& transmit_waveform,
+                          runtime::PulseRingBuffer* pulse_buffer, std::uint64_t* next_pulse_id,
+                          double* pulse_fraction_carry, signal::ComplexMatrix* history,
+                          std::deque<geometry::PlatformPulseState>* ideal_trajectory_buffer,
+                          std::deque<geometry::PlatformPulseState>* actual_trajectory_buffer,
+                          double* estimated_snr_db, SarCycleResult* result,
+                          const std::vector<geometry::PlatformPulseState>* prebuilt_ideal,
+                          const std::vector<geometry::PlatformPulseState>* prebuilt_actual) {
+  if (pulse_buffer == nullptr || next_pulse_id == nullptr || pulse_fraction_carry == nullptr ||
+      ideal_trajectory_buffer == nullptr || actual_trajectory_buffer == nullptr ||
+      estimated_snr_db == nullptr) {
+    RecordAbort(result, SarPipelineAbortReason::kPipelineExecutionFailed, codes::kPulseBufferUnavailable, "SAR pulse ring buffer is unavailable.");
+    return false;
+  }
+
   std::vector<geometry::PlatformPulseState> ideal_pulses;
   std::vector<geometry::PlatformPulseState> actual_pulses;
-  const geometry::PlatformPulseState* previous_actual =
-      actual_trajectory_buffer->empty() ? nullptr : &actual_trajectory_buffer->back();
-  if (!GenerateCycleTrajectory(config, input, *next_pulse_id, pulse_count_to_generate,
-                               previous_actual, &ideal_pulses, &actual_pulses, result)) {
-    return false;
+  if (prebuilt_ideal != nullptr && prebuilt_actual != nullptr) {
+    // 调用方已通过 PrepareCycleTrajectory 完成脉冲数计算/分数余量更新/轨迹生成，
+    // 此处直接复用，避免二次生成（也避免 kL3Trajectory 诊断重复写入）。
+    ideal_pulses = *prebuilt_ideal;
+    actual_pulses = *prebuilt_actual;
+  } else {
+    const geometry::PlatformPulseState* previous_actual =
+        actual_trajectory_buffer->empty() ? nullptr : &actual_trajectory_buffer->back();
+    if (!PrepareCycleTrajectory(config, input, *next_pulse_id, pulse_fraction_carry,
+                                pulse_buffer->size(), previous_actual, &ideal_pulses,
+                                &actual_pulses, result)) {
+      return false;
+    }
   }
 
   std::vector<echo::PointTarget> targets;

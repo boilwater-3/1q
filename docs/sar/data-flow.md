@@ -110,7 +110,7 @@ sequenceDiagram
     Controller-->>Session: invalid_cycle_input abort（默认空帧，不复用）
     Session-->>Caller: SarCycleResult (default empty output_frame)
   else valid input 输入有效
-    Controller->>Pipeline: RunCycle 构造 raw history 并成像
+    Controller->>Pipeline: RunCycle：squint 门控（echo 生成前拒绝）→ raw history → 成像
     alt L1 RDA path (broadside stripmap)
       Pipeline->>Pipeline: Range compression / 相位参考 / Azimuth FFT / RCMC / 方位匹配滤波
     else L3 BP path (turning / small scene)

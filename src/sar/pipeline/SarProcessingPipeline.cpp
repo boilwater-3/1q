@@ -2,6 +2,8 @@
 
 #include <algorithm>
 #include <cmath>
+#include <deque>
+#include <vector>
 
 #include "common/logging/ProjectLog.h"
 
@@ -105,33 +107,6 @@ geometry::PlatformPulseState BuildCurrentPlatformPulse(
   return pulse;
 }
 
-double ResolveMaximumSquintAngleDeg(
-    const config::SarMissionConfig& mission, const session::SarCycleInput& input,
-    const signal::ComplexMatrix& raw_history,
-    const std::deque<geometry::PlatformPulseState>& actual_trajectory) {
-  double maximum_angle_deg = 0.0;
-  if (input.raw_iq.pulse_states.size() == raw_history.rows && raw_history.rows != 0U) {
-    for (const session::SarRawIqFrame::PulseState& state : input.raw_iq.pulse_states) {
-      geometry::PlatformPulseState pulse;
-      pulse.position_m.x_m = state.position_x_m;
-      pulse.position_m.y_m = state.position_y_m;
-      pulse.position_m.z_m = state.position_z_m;
-      pulse.velocity_x_mps = state.velocity_x_mps;
-      pulse.velocity_y_mps = state.velocity_y_mps;
-      pulse.velocity_z_mps = state.velocity_z_mps;
-      maximum_angle_deg = std::max(maximum_angle_deg, ComputeSquintAngleDeg(pulse));
-    }
-    return maximum_angle_deg;
-  }
-  if (!actual_trajectory.empty() && actual_trajectory.size() == raw_history.rows) {
-    for (const geometry::PlatformPulseState& pulse : actual_trajectory) {
-      maximum_angle_deg = std::max(maximum_angle_deg, ComputeSquintAngleDeg(pulse));
-    }
-    return maximum_angle_deg;
-  }
-  return ComputeSquintAngleDeg(BuildCurrentPlatformPulse(mission, input.platform));
-}
-
 }  // namespace
 
 struct SarProcessingPipeline::Impl {
@@ -166,6 +141,75 @@ bool SarProcessingPipeline::RunCycle(const config::SarSessionConfig& config,
     return false;
   }
 
+  // ---------------------------------------------------------------------------
+  // 成像 squint 门控前置：在 raw echo 生成之前执行，被拒周期不生成 echo。
+  // 计算语义与重构前完全一致（docs/sar/algorithms.md §RDA 聚焦）：
+  //  - 外部 raw IQ 路径：取输入脉冲状态的最大 squint；
+  //  - 内部生成路径：取积累窗孔径轨迹（上一周期缓冲 + 本周期新脉冲，裁剪到
+  //    azimuth_pulse_count）的最大 squint——轨迹由 PrepareCycleTrajectory 预生成
+  //    （纯函数、µs 级），echo 阶段复用同一轨迹，不二次生成；
+  //  - 退化配置（echo 关闭且无外部 IQ）：回退当前平台单脉冲状态。
+  // 被拒周期输出帧仅含元数据（cycle_index），不带 raw echo 标记，符合
+  // docs/sar/boundaries.md 非执行周期契约；跨周期状态由调用方快照恢复。
+  // ---------------------------------------------------------------------------
+  bool trajectory_prepared = false;
+  std::vector<geometry::PlatformPulseState> prebuilt_ideal_pulses;
+  std::vector<geometry::PlatformPulseState> prebuilt_actual_pulses;
+  if (config.policy.enable_l1_rda_imaging || config.policy.enable_l3_bp_imaging) {
+    double maximum_squint_angle_deg = 0.0;
+    if (session::HasExternalRawIq(input) && !input.raw_iq.pulse_states.empty()) {
+      for (const session::SarRawIqFrame::PulseState& state : input.raw_iq.pulse_states) {
+        geometry::PlatformPulseState pulse;
+        pulse.position_m.x_m = state.position_x_m;
+        pulse.position_m.y_m = state.position_y_m;
+        pulse.position_m.z_m = state.position_z_m;
+        pulse.velocity_x_mps = state.velocity_x_mps;
+        pulse.velocity_y_mps = state.velocity_y_mps;
+        pulse.velocity_z_mps = state.velocity_z_mps;
+        maximum_squint_angle_deg =
+            std::max(maximum_squint_angle_deg, ComputeSquintAngleDeg(pulse));
+      }
+    } else if (config.policy.enable_raw_echo_generation) {
+      const geometry::PlatformPulseState* previous_actual =
+          impl_->actual_trajectory_buffer.empty() ? nullptr
+                                                  : &impl_->actual_trajectory_buffer.back();
+      if (!session::PrepareCycleTrajectory(config, input, impl_->next_pulse_id,
+                                           &impl_->pulse_fraction_carry,
+                                           impl_->raw_pulse_buffer.size(), previous_actual,
+                                           &prebuilt_ideal_pulses, &prebuilt_actual_pulses,
+                                           result)) {
+        return false;
+      }
+      trajectory_prepared = true;
+      // 积累窗孔径候选 = 上一周期缓冲 + 本周期新脉冲（裁剪到孔径长度），
+      // 与重构前 BuildRawPulseHistory 之后的 actual_trajectory_buffer 逐脉冲一致。
+      std::deque<geometry::PlatformPulseState> aperture_candidate =
+          impl_->actual_trajectory_buffer;
+      for (const geometry::PlatformPulseState& pulse : prebuilt_actual_pulses) {
+        aperture_candidate.push_back(pulse);
+      }
+      while (aperture_candidate.size() > config.mission.azimuth_pulse_count) {
+        aperture_candidate.pop_front();
+      }
+      for (const geometry::PlatformPulseState& pulse : aperture_candidate) {
+        maximum_squint_angle_deg =
+            std::max(maximum_squint_angle_deg, ComputeSquintAngleDeg(pulse));
+      }
+    } else {
+      maximum_squint_angle_deg =
+          ComputeSquintAngleDeg(BuildCurrentPlatformPulse(config.mission, input.platform));
+    }
+    if (maximum_squint_angle_deg > config.policy.max_allowed_squint_angle_deg) {
+      // 中译：SAR 成像门控拒绝（周期号）：孔径 squint 超限，本周期不生成 echo 与成像。
+      // 标识：执行中止路径——输出帧仅带元数据（cycle_index），无任何成像产物；
+      //       跨周期状态（缓冲/分数余量）由调用方快照恢复，不被拒绝周期污染。
+      session::RecordAbort(result, session::SarPipelineAbortReason::kPipelineExecutionFailed,
+                           session::codes::kSquintAngleExceedsLimit,
+                           "SAR aperture squint angle exceeds the configured imaging limit.");
+      return false;
+    }
+  }
+
   signal::ComplexMatrix raw_history;
   session::SarRawPhaseHistorySource raw_history_source =
       session::SarRawPhaseHistorySource::kNone;
@@ -184,11 +228,12 @@ bool SarProcessingPipeline::RunCycle(const config::SarSessionConfig& config,
     } else {
       raw_history_source = session::SarRawPhaseHistorySource::kInternallyGenerated;
       double estimated_snr_db = -std::numeric_limits<double>::infinity();
-      if (!session::BuildRawPulseHistory(config, input, waveform.samples, &impl_->raw_pulse_buffer,
-                                         &impl_->next_pulse_id, &impl_->pulse_fraction_carry,
-                                         &raw_history, &impl_->ideal_trajectory_buffer,
-                                         &impl_->actual_trajectory_buffer, &estimated_snr_db,
-                                         result)) {
+      if (!session::BuildRawPulseHistory(
+              config, input, waveform.samples, &impl_->raw_pulse_buffer, &impl_->next_pulse_id,
+              &impl_->pulse_fraction_carry, &raw_history, &impl_->ideal_trajectory_buffer,
+              &impl_->actual_trajectory_buffer, &estimated_snr_db, result,
+              trajectory_prepared ? &prebuilt_ideal_pulses : nullptr,
+              trajectory_prepared ? &prebuilt_actual_pulses : nullptr)) {
         return false;
       }
       session::MarkRawEchoStage(&result->output_frame, estimated_snr_db);
@@ -202,16 +247,6 @@ bool SarProcessingPipeline::RunCycle(const config::SarSessionConfig& config,
     if (raw_history_source == session::SarRawPhaseHistorySource::kExternalRawIq) {
       session::MarkRawEchoStage(&result->output_frame,
                                 -std::numeric_limits<double>::infinity());
-    }
-  }
-  if (config.policy.enable_l1_rda_imaging || config.policy.enable_l3_bp_imaging) {
-    const double maximum_squint_angle_deg = ResolveMaximumSquintAngleDeg(
-        config.mission, input, raw_history, impl_->actual_trajectory_buffer);
-    if (maximum_squint_angle_deg > config.policy.max_allowed_squint_angle_deg) {
-      session::RecordAbort(result, session::SarPipelineAbortReason::kPipelineExecutionFailed,
-                           session::codes::kSquintAngleExceedsLimit,
-                           "SAR aperture squint angle exceeds the configured imaging limit.");
-      return false;
     }
   }
   if (config.policy.enable_l1_rda_imaging) {

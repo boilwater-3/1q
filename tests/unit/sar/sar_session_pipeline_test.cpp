@@ -1,8 +1,10 @@
 #include <gtest/gtest.h>
 
+#include <cmath>
 #include <limits>
 
 #include "1q/sar/config/SarRuntimeConfigBuilder.h"
+#include "1q/sar/session/SarIssueCodes.h"
 #include "1q/sar/session/SarSession.h"
 #include "1q/sar/session/SarProductDebugView.h"
 #include "1q/sar/session/SarProductLifecycleRecorder.h"
@@ -300,6 +302,62 @@ TEST(SarSessionPipelineTest, RawEchoOnlySkipsSquintImagingGate) {
   const session::SarCycleResult result =
       session::SarSession::Create(config).StepWithResult(input);
   EXPECT_EQ(result.status, session::SarCycleStatus::kCompleted);
+}
+
+// 内部生成路径：squint 门控在 raw echo 生成之前执行——被拒周期不产出 raw echo
+//（输出帧仅元数据，无 raw echo 标记），接受周期正常产出（覆盖 prebuilt 轨迹
+// 复用路径）。几何构造与外部路径测试一致：场景中心沿航迹偏移 tan(6°)×斜距，
+// 冷启动孔径（脉冲 x∈[0, 0.8]m）的最大 squint ≈ 6.0°。
+TEST(SarSessionPipelineTest, SquintGatePrecedesEchoGenerationInternalPath) {
+  config::SarSessionConfig config = MakeSmallRdaConfig();
+  const double six_degree_offset_m =
+      std::tan(6.0 * 3.14159265358979323846 / 180.0) * config.mission.nominal_slant_range_m;
+  const double meters_to_degrees = 180.0 / (3.14159265358979323846 * 6378137.0);
+  config.mission.scene_center_longitude_deg = -six_degree_offset_m * meters_to_degrees;
+
+  session::SarCycleInput input = MakeInput();
+
+  config.policy.max_allowed_squint_angle_deg = 5.9;
+  const session::SarCycleResult rejected =
+      session::SarSession::Create(config).StepWithResult(input);
+  EXPECT_NE(rejected.status, session::SarCycleStatus::kCompleted);
+  EXPECT_EQ(rejected.abort_reason, session::SarPipelineAbortReason::kPipelineExecutionFailed);
+  EXPECT_TRUE(HasIssueContaining(rejected, session::codes::kSquintAngleExceedsLimit,
+                                 "exceeds the configured imaging limit"));
+  // 门控前置的可观察契约：被拒周期不生成 raw echo（输出帧仅元数据）。
+  EXPECT_FALSE(rejected.output_frame.has_raw_echo);
+  EXPECT_EQ(rejected.output_frame.completed_stage, session::SarProcessingStage::kNone);
+
+  config.policy.max_allowed_squint_angle_deg = 6.1;
+  const session::SarCycleResult accepted =
+      session::SarSession::Create(config).StepWithResult(input);
+  EXPECT_EQ(accepted.status, session::SarCycleStatus::kCompleted);
+  EXPECT_TRUE(accepted.output_frame.has_raw_echo);
+}
+
+// 门控前置后：被拒周期不污染跨周期状态——同一会话下一周期（几何合规）
+// 正常生成 echo 并完成成像（缓冲/分数余量由调用方快照恢复）。
+TEST(SarSessionPipelineTest, SquintGateRejectionDoesNotPolluteNextCycle) {
+  config::SarSessionConfig config = MakeSmallRdaConfig();
+  const double six_degree_offset_m =
+      std::tan(6.0 * 3.14159265358979323846 / 180.0) * config.mission.nominal_slant_range_m;
+  const double meters_to_degrees = 180.0 / (3.14159265358979323846 * 6378137.0);
+  config.mission.scene_center_longitude_deg = -six_degree_offset_m * meters_to_degrees;
+  config.policy.max_allowed_squint_angle_deg = 5.9;
+
+  session::SarSession session = session::SarSession::Create(config);
+
+  // 周期 1：平台位于原点，孔径最大 squint ≈ 6.0° 超限 → 拒绝。
+  const session::SarCycleResult rejected = session.StepWithResult(MakeInput(1U));
+  EXPECT_NE(rejected.status, session::SarCycleStatus::kCompleted);
+  EXPECT_FALSE(rejected.output_frame.has_raw_echo);
+
+  // 周期 2：平台推进到与场景中心同经度（正侧视），最大 squint ≈ 1.5° → 接受。
+  session::SarCycleInput input = MakeInput(2U);
+  input.platform.longitude_deg = config.mission.scene_center_longitude_deg;
+  const session::SarCycleResult accepted = session.StepWithResult(input);
+  EXPECT_EQ(accepted.status, session::SarCycleStatus::kCompleted);
+  EXPECT_TRUE(accepted.output_frame.has_raw_echo);
 }
 
 TEST(SarSessionPipelineTest, ProductDebugViewCarriesProductAndTargetLabels) {

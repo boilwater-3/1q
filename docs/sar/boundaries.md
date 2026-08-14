@@ -36,8 +36,9 @@ SAR 非执行周期（校验失败/执行 abort/设备关机）的 `Step()` 与 
 `reused_previous_output` 字段已删除。
 
 实现细节：校验失败路径返回严格默认空帧（`cycle_index=0`、空载荷）；pipeline 中止路径
-（SNR 门限/状态恢复失败）在 `InitializeOutputFrameMetadata` 之后触发，因此
-`output_frame.cycle_index == input.cycle_index`（元数据已写入但无有效成像产物）；
+（squint 成像门/SNR 门限/状态恢复失败）在 `InitializeOutputFrameMetadata` 之后触发，因此
+`output_frame.cycle_index == input.cycle_index`（元数据已写入但无有效成像产物——squint 门
+在 raw echo 生成之前执行，拒绝帧亦无 raw echo 标记）；
 设备关机路径（`sensor_enabled=false`）在管线入口短路，输出帧保持严格默认空帧。
 三条路径均属"非执行"，区别仅在 `cycle_index` 来源——这是有意设计，不构成合约违反。
 

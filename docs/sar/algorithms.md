@@ -90,7 +90,9 @@ Answers: SAR 用了哪些算法、各自实现到什么地步、边界在哪、�
 - **实现边界**：
   1. 当前 RDA 是 broadside 基础路径；单脉冲孔径明确拒绝，不存在 fallback。
   2. `max_allowed_squint_angle_deg` 是启用成像路径的执行门，必须有限且位于 `[0°, 90°)`。超限以
-     `squint_angle_exceeds_limit` 中止，不自动切换到其它算法。
+     `squint_angle_exceeds_limit` 中止，不自动切换到其它算法。**门控执行于 raw echo 生成之前**
+     （被拒周期不生成 echo，输出帧仅带元数据、无 raw echo 标记）；被拒周期不污染跨周期缓冲
+     （调用方快照恢复，见 boundaries.md 非执行周期契约）。
   3. raw-echo-only 模式不执行该成像门。
   4. RDA focused image 是否完整保留由 `retain_focused_image` policy 控制；关闭时只输出占位元数据。
   5. RDA 误差用相位曲率、Doppler margin、3dB 宽度、entropy、contrast 等诊断解释，不通过放宽阈值掩盖。
@@ -98,9 +100,14 @@ Answers: SAR 用了哪些算法、各自实现到什么地步、边界在哪、�
   单脉冲平台状态下，`squint = asin(|v·LOS| / (|v|·|LOS|))`，其中 `v` 为平台速度、`LOS` 为平台指向
   场景中心的视线（ENU 局部坐标，平台相对 `scene_center_*`）。即 **squint = 视线偏离正侧视的角度**：
   正侧视（LOS ⊥ 航迹）为 `0°`，前视/后视（LOS ∥ 航迹）趋近 `90°`——**不是**"视线与航迹夹角"
-  本身（两者互补为 `90°`）。内部生成路径以当前周期平台状态计算；外部脉冲/轨迹路径取积累窗内
-  所有脉冲的最大 squint。**反直觉点**：多数文献把 squint 定义为视线与航迹夹角（前视 0°），
-  本库采用补角定义；场景编排（如平台相对目标区的飞行方向）须按"正侧视 = 0°"设计。
+  本身（两者互补为 `90°`）。内部生成路径与外部脉冲/轨迹路径**均取积累窗内所有脉冲的最大
+  squint**（内部路径的积累窗 = 上一周期轨迹缓冲 + 本周期新脉冲，裁剪到 `azimuth_pulse_count`；
+  门控前置时该轨迹由 `PrepareCycleTrajectory` 预生成，echo 阶段复用，不二次生成）。退化配置
+  （echo 关闭且无外部 IQ）回退当前平台单脉冲状态。**反直觉点**：多数文献把 squint 定义为
+  视线与航迹夹角（前视 0°），本库采用补角定义；场景编排（如平台相对目标区的飞行方向）须按
+  "正侧视 = 0°"设计。
+- **证据**：[evidence: tests/unit/sar/sar_session_pipeline_test::SquintGateUsesMaximumActualApertureAngle]
+- **证据**：[evidence: tests/unit/sar/sar_session_pipeline_test::SquintGatePrecedesEchoGenerationInternalPath]
 - **反直觉点**：生产相位参考是空间变化的（随慢时间行与距离单元变化），不是全图常数旋转。只有
   `CompareImagesWithGlobalPhaseReference` 在测试/质量比较中估计并消除单个全局常相位，用于比较归一化
   后的图像形状；它不会回写生产图像，也不能掩盖空间变化相位误差。
