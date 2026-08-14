@@ -29,6 +29,7 @@
 #include "airborne_radar/signal/pipeline/SignalCycleInput.h"
 #include "airborne_radar/signal/pipeline/SignalPipeline.h"
 #include "common/logging/ProjectLog.h"
+#include "common/validation/ValidationUtils.h"
 
 namespace airborne_radar {
 namespace session {
@@ -418,16 +419,42 @@ struct ArSession::Impl {
         orientation_config.mount_angles_deg.yaw_deg,
         orientation_config.mount_angles_deg.pitch_deg,
         orientation_config.mount_angles_deg.roll_deg};
+    // 复跑（真实 mount 角）运动学转换是首轮校验（零 mount 角）未覆盖的路径：
+    // 失败时必须补 error 级 issue，否则校验拒绝的三写中 issues 一写为空
+    //（status=kRejectedInvalidInput 却无任何 error 条目）。
+    const auto make_mount_issue = [&input](const char* code,
+                                           oneq::foundation::ValidationLocationKind location_kind,
+                                           std::size_t entity_index, const std::string& field,
+                                           const std::string& message) {
+      ArIssue issue = oneq::common::validation::MakeLocatedIssue<
+          ArIssue, oneq::foundation::ValidationLocation>(
+          ArIssueSeverity::kError, code, location_kind, entity_index, field, message);
+      issue.phase = ArIssuePhase::kInputValidation;
+      return issue;
+    };
     if (!TryMakeArPoseFromExternalKinematics(input.platform, mount_angles_coord,
                                              &reference, &radar_local_velocity)) {
-      return BuildValidationErrorResult(input, issues);
+      ArIssueList mount_issues = issues;
+      mount_issues.push_back(make_mount_issue(
+          codes::kInvalidPlatformInput,
+          oneq::foundation::ValidationLocationKind::kPlatform,
+          static_cast<std::size_t>(-1), "mount_angles_deg",
+          "platform pose conversion failed with configured mount angles"));
+      return BuildValidationErrorResult(input, mount_issues);
     }
     ArSceneTargetList local_targets;
-    for (const ArTargetInput& target : input.targets) {
+    for (std::size_t target_index = 0U; target_index < input.targets.size(); ++target_index) {
+      const ArTargetInput& target = input.targets[target_index];
       ArSceneTarget local_target;
       if (!TryMakeArTargetFromExternalKinematics(target, reference, radar_local_velocity,
                                                  &local_target)) {
-        return BuildValidationErrorResult(input, issues);
+        ArIssueList mount_issues = issues;
+        mount_issues.push_back(make_mount_issue(
+            codes::kInvalidTargetInput,
+            oneq::foundation::ValidationLocationKind::kSceneEntity, target_index,
+            "targets",
+            "target pose conversion failed with configured mount angles"));
+        return BuildValidationErrorResult(input, mount_issues);
       }
       local_targets.push_back(local_target);
     }
