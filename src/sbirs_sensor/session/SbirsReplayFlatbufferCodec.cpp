@@ -14,6 +14,38 @@ namespace sbirs_sensor {
 namespace session {
 namespace {
 
+// session_contract 规则 7：以整数存储的 enum 必须逐值校验，未知值原子拒绝。
+bool IsKnownSbirsWorkMode(std::int32_t raw) {
+  return raw >= static_cast<std::int32_t>(config::SbirsWorkMode::kStandby) &&
+         raw <= static_cast<std::int32_t>(config::SbirsWorkMode::kSearchAndStare);
+}
+
+bool IsKnownSbirsObservationStage(std::int32_t raw) {
+  return raw >= static_cast<std::int32_t>(output::SbirsObservationStage::kWideFieldSearch) &&
+         raw <= static_cast<std::int32_t>(output::SbirsObservationStage::kNarrowFieldTrack);
+}
+
+bool IsKnownSbirsCaptureFailureReason(std::int32_t raw) {
+  return raw >= static_cast<std::int32_t>(attribution::SbirsCaptureFailureReason::kNone) &&
+         raw <= static_cast<std::int32_t>(
+                    attribution::SbirsCaptureFailureReason::kNfovTrackingGateLost);
+}
+
+bool IsKnownSbirsIssueSeverity(std::int32_t raw) {
+  return raw >= static_cast<std::int32_t>(SbirsIssueSeverity::kInfo) &&
+         raw <= static_cast<std::int32_t>(SbirsIssueSeverity::kError);
+}
+
+bool IsKnownSbirsIssuePhase(std::int32_t raw) {
+  return raw >= static_cast<std::int32_t>(SbirsIssuePhase::kInputValidation) &&
+         raw <= static_cast<std::int32_t>(SbirsIssuePhase::kOutputContract);
+}
+
+bool IsKnownSbirsIssueCause(std::int32_t raw) {
+  return raw >= static_cast<std::int32_t>(SbirsIssueCause::kNone) &&
+         raw <= static_cast<std::int32_t>(SbirsIssueCause::kUnknown);
+}
+
 sbirs::replay::Vec3d ToFbVec3(const SbirsVector3M& v) {
   return sbirs::replay::Vec3d(v.x, v.y, v.z);
 }
@@ -60,14 +92,19 @@ flatbuffers::Offset<sbirs::replay::SbirsDetectionRecord> EncodeOneDetection(
       static_cast<std::int32_t>(value.observation_stage), value.detected);
 }
 
-void DecodeOneDetection(const sbirs::replay::SbirsDetectionRecord& fb,
+bool DecodeOneDetection(const sbirs::replay::SbirsDetectionRecord& fb,
                         output::SbirsDetectionRecord* out) {
+  const std::int32_t observation_stage = fb.observation_stage();
+  if (!IsKnownSbirsObservationStage(observation_stage)) {
+    return false;
+  }
   out->detection_id = fb.detection_id();
   out->azimuth_deg = fb.azimuth_deg();
   out->elevation_deg = fb.elevation_deg();
   out->infrared_snr_linear = fb.infrared_snr_linear();
-  out->observation_stage = static_cast<output::SbirsObservationStage>(fb.observation_stage());
+  out->observation_stage = static_cast<output::SbirsObservationStage>(observation_stage);
   out->detected = fb.detected();
+  return true;
 }
 
 flatbuffers::Offset<sbirs::replay::SbirsOutputFrame> EncodeOutputFrameTable(
@@ -81,20 +118,25 @@ flatbuffers::Offset<sbirs::replay::SbirsOutputFrame> EncodeOutputFrameTable(
                                                fbb.CreateVector(detections));
 }
 
-void DecodeOutputFrameTable(const sbirs::replay::SbirsOutputFrame* fb, SbirsOutputFrame* out) {
+bool DecodeOutputFrameTable(const sbirs::replay::SbirsOutputFrame* fb, SbirsOutputFrame* out) {
   if (fb == nullptr) {
-    return;
+    return true;
   }
-  out->cycle_index = fb->cycle_index();
-  out->scan_azimuth_deg = fb->scan_azimuth_deg();
-  out->detections.clear();
+  SbirsOutputFrame decoded;
+  decoded.cycle_index = fb->cycle_index();
+  decoded.scan_azimuth_deg = fb->scan_azimuth_deg();
   if (fb->detections() != nullptr) {
+    decoded.detections.reserve(fb->detections()->size());
     for (const sbirs::replay::SbirsDetectionRecord* detection : *fb->detections()) {
       output::SbirsDetectionRecord record;
-      DecodeOneDetection(*detection, &record);
-      out->detections.push_back(record);
+      if (!DecodeOneDetection(*detection, &record)) {
+        return false;
+      }
+      decoded.detections.push_back(record);
     }
   }
+  *out = decoded;
+  return true;
 }
 
 flatbuffers::Offset<sbirs::replay::SbirsHardwareConfig> EncodeHardwareConfig(
@@ -136,7 +178,7 @@ flatbuffers::Offset<sbirs::replay::SbirsMissionConfig> EncodeMissionConfig(
 
 bool DecodeMissionConfig(const sbirs::replay::SbirsMissionConfig* fb,
                          config::SbirsMissionConfig* out) {
-  if (fb == nullptr || out == nullptr ||
+  if (fb == nullptr || out == nullptr || !IsKnownSbirsWorkMode(fb->work_mode()) ||
       (fb->scan_direction() !=
            static_cast<std::int32_t>(config::SbirsScanDirection::kIncreasingAzimuth) &&
        fb->scan_direction() !=
@@ -335,7 +377,12 @@ bool DecodeSbirsOutputFrame(const std::string& bytes, SbirsOutputFrame* out) {
   if (out == nullptr || !verifier.VerifyBuffer<sbirs::replay::SbirsOutputFrame>()) {
     return false;
   }
-  DecodeOutputFrameTable(flatbuffers::GetRoot<sbirs::replay::SbirsOutputFrame>(bytes.data()), out);
+  SbirsOutputFrame decoded;
+  if (!DecodeOutputFrameTable(
+          flatbuffers::GetRoot<sbirs::replay::SbirsOutputFrame>(bytes.data()), &decoded)) {
+    return false;
+  }
+  *out = decoded;
   return true;
 }
 
@@ -408,7 +455,9 @@ bool DecodeSbirsCycleResult(const std::string& bytes, SbirsCycleResult* out) {
   }
   SbirsCycleResult decoded;
   decoded.input_cycle_index = fb->input_cycle_index();
-  DecodeOutputFrameTable(fb->output_frame(), &decoded.output_frame);
+  if (!DecodeOutputFrameTable(fb->output_frame(), &decoded.output_frame)) {
+    return false;
+  }
   if (fb->detection_attributions() != nullptr) {
     for (const sbirs::replay::SbirsDetectionAttributionRecord* attr :
          *fb->detection_attributions()) {
@@ -430,8 +479,12 @@ bool DecodeSbirsCycleResult(const std::string& bytes, SbirsCycleResult* out) {
       }
       record.tracking_source =
           static_cast<attribution::SbirsTrackingSource>(tracking_source);
+      const std::int32_t capture_failure_reason = attr->capture_failure_reason();
+      if (!IsKnownSbirsCaptureFailureReason(capture_failure_reason)) {
+        return false;
+      }
       record.capture_failure_reason =
-          static_cast<attribution::SbirsCaptureFailureReason>(attr->capture_failure_reason());
+          static_cast<attribution::SbirsCaptureFailureReason>(capture_failure_reason);
       record.has_estimation_nis = attr->has_estimation_nis();
       record.estimation_nis = attr->estimation_nis();
       record.estimation_nis_gate_exceeded = attr->estimation_nis_gate_exceeded();
@@ -447,9 +500,16 @@ bool DecodeSbirsCycleResult(const std::string& bytes, SbirsCycleResult* out) {
   }
   if (fb->issues() != nullptr) {
     for (const sbirs::replay::SbirsIssue* issue : *fb->issues()) {
+      const std::int32_t severity = issue->severity();
+      const std::int32_t phase = issue->phase();
+      const std::int32_t cause = issue->cause();
+      if (!IsKnownSbirsIssueSeverity(severity) || !IsKnownSbirsIssuePhase(phase) ||
+          !IsKnownSbirsIssueCause(cause)) {
+        return false;
+      }
       SbirsIssue item;
-      item.severity = static_cast<SbirsIssueSeverity>(issue->severity());
-      item.phase = static_cast<SbirsIssuePhase>(issue->phase());
+      item.severity = static_cast<SbirsIssueSeverity>(severity);
+      item.phase = static_cast<SbirsIssuePhase>(phase);
       item.code = issue->code() ? issue->code()->str() : std::string();
       item.message = issue->message() ? issue->message()->str() : std::string();
       item.location.kind = static_cast<oneq::foundation::ValidationLocationKind>(
@@ -458,7 +518,7 @@ bool DecodeSbirsCycleResult(const std::string& bytes, SbirsCycleResult* out) {
                                        ? std::numeric_limits<std::size_t>::max()
                                        : static_cast<std::size_t>(issue->entity_index());
       item.field = issue->field() ? issue->field()->str() : std::string();
-      item.cause = static_cast<SbirsIssueCause>(issue->cause());
+      item.cause = static_cast<SbirsIssueCause>(cause);
       decoded.issues.push_back(item);
     }
   }
@@ -531,7 +591,13 @@ bool DecodeSbirsRuntimeConfigPatch(const std::string& bytes, config::SbirsRuntim
   decoded.has_policy = fb->has_policy();
   decoded.has_environment = fb->has_environment();
   decoded.has_work_mode = fb->has_work_mode();
-  decoded.work_mode = static_cast<config::SbirsWorkMode>(fb->work_mode());
+  {
+    const std::int32_t raw_work_mode = fb->work_mode();
+    if (!IsKnownSbirsWorkMode(raw_work_mode)) {
+      return false;
+    }
+    decoded.work_mode = static_cast<config::SbirsWorkMode>(raw_work_mode);
+  }
   decoded.has_scan_rate_deg_per_sec = fb->has_scan_rate_deg_per_sec();
   decoded.scan_rate_deg_per_sec = fb->scan_rate_deg_per_sec();
   decoded.has_sensor_enabled = fb->has_sensor_enabled();
