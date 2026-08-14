@@ -18,6 +18,23 @@ namespace electro_optical_sensor {
 namespace session {
 namespace {
 
+// session_contract 规则 7：以整数存储的 enum 必须逐值校验，未知值原子拒绝。
+// 校验必须在任何 out-> 写入之前完成，保证失败时不部分修改解码目标。
+bool IsKnownEosWorkMode(int32_t raw) {
+  return raw >= static_cast<int32_t>(config::EosWorkMode::kInfraredOnly) &&
+         raw <= static_cast<int32_t>(config::EosWorkMode::kFused);
+}
+
+bool IsKnownEosPipelineAbortReason(int32_t raw) {
+  return raw >= static_cast<int32_t>(session::EosPipelineAbortReason::kNone) &&
+         raw <= static_cast<int32_t>(session::EosPipelineAbortReason::kSensorPoweredOff);
+}
+
+bool IsKnownEosCycleStatus(int32_t raw) {
+  return raw >= static_cast<int32_t>(session::EosCycleStatus::kCompleted) &&
+         raw <= static_cast<int32_t>(session::EosCycleStatus::kRejectedExecution);
+}
+
 // ---- 辅助构建函数 ----
 
 // 单条 detection record 的 encode/decode 单一源。
@@ -233,6 +250,10 @@ bool DecodeEosCycleResult(const std::string& bytes,
     return false;
   }
   const auto* fb = flatbuffers::GetRoot<eos::replay::EosCycleResult>(bytes.data());
+  if (!IsKnownEosPipelineAbortReason(fb->abort_reason()) ||
+      !IsKnownEosCycleStatus(fb->status())) {
+    return false;
+  }
   out->input_cycle_index = fb->input_cycle_index();
   if (fb->output_frame()) {
     // 直接从 fb 还原
@@ -349,6 +370,9 @@ bool DecodeEosSessionConfig(const std::string& bytes, config::EosSessionConfig* 
     return false;
   }
   const auto* fb = flatbuffers::GetRoot<eos::replay::EosSessionConfig>(bytes.data());
+  if (fb->mission() && !IsKnownEosWorkMode(fb->mission()->work_mode())) {
+    return false;
+  }
 
   if (fb->hardware()) {
     out->hardware.wavelength_lower_um = fb->hardware()->wavelength_lower_um();
@@ -464,6 +488,10 @@ bool DecodeEosRuntimeConfigPatch(const std::string& bytes, config::EosRuntimeCon
     return false;
   }
   const auto* fb = flatbuffers::GetRoot<eos::replay::EosRuntimeConfigPatch>(bytes.data());
+  if (!IsKnownEosWorkMode(fb->work_mode()) ||
+      (fb->mission() && !IsKnownEosWorkMode(fb->mission()->work_mode()))) {
+    return false;
+  }
   out->has_mission = fb->has_mission();
   out->has_policy = fb->has_policy();
   out->has_environment = fb->has_environment();
