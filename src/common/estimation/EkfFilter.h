@@ -170,6 +170,14 @@ class EkfPredictor final : public IKalmanPredictor<kStateDim, kMeasurementDim> {
       : model_(model), config_(config) {}
 
   GaussianStateT Predict(const GaussianStateT& prior, float dt) const override {
+    if (model_ == nullptr) {
+      // 中译：转移模型未注入，本次预测被跳过（返回先验原样）。
+      // 标识：注入校验——空模型指针属装配缺陷；fail-safe 返回先验，
+      //       不解引用空指针。
+      PROJECT_LOG_ERROR(
+          "[EkfPredictor] Transition model is null; prediction is skipped (prior passed through).");
+      return prior;
+    }
     /* 非线性均值预测 */
     const StateVector x_pred = model_->Function(prior.mean, dt);
 
@@ -236,6 +244,15 @@ class EkfUpdater final : public IKalmanUpdater<kStateDim, kMeasurementDim> {
   Result Update(const GaussianStateT& predicted, const MeasurementVector& measurement,
                 const MeasurementCovariance& dynamic_R) const override {
     Result result;
+    if (model_ == nullptr) {
+      // 中译：量测模型未注入，本次更新被跳过（后验=预测）。
+      // 标识：注入校验——空模型指针属装配缺陷；fail-safe 跳过更新，
+      //       不解引用空指针。
+      PROJECT_LOG_ERROR(
+          "[EkfUpdater] Measurement model is null; update is skipped (posterior = predicted).");
+      result.posterior = predicted;
+      return result;
+    }
 
     /* 非线性量测预测 */
     const MeasurementVector z_pred = model_->Function(predicted.mean);
