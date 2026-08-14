@@ -13,13 +13,13 @@ namespace session {
 struct SarSession::Impl {
   explicit Impl(SarSessionComposition composition)
       : owned_pipeline(std::move(composition.owned_pipeline)),
-        owned_controller(std::move(composition.owned_controller)),
-        controller(*composition.controller) {}
+        owned_controller(std::move(composition.owned_controller)) {}
 
   std::unique_ptr<pipeline::SarProcessingPipeline> owned_pipeline;
   std::unique_ptr<extension::SarController> owned_controller;
-  extension::SarController& controller;
   SarProductLifecycleRecorder* lifecycle_recorder{nullptr};
+
+  extension::SarController& controller() const { return *owned_controller; }
 };
 
 SarSession::SarSession(std::unique_ptr<Impl> impl) : impl_(std::move(impl)) {}
@@ -50,8 +50,9 @@ SarOutputFrame SarSession::Step(const SarCycleInput& input) {
 }
 
 SarCycleResult SarSession::StepWithResult(const SarCycleInput& input) {
-  impl_->controller.RunOnce(input);
-  SarCycleResult result = impl_->controller.BuildCycleResult();
+  extension::SarController& controller = impl_->controller();
+  controller.RunOnce(input);
+  SarCycleResult result = controller.BuildCycleResult();
   if (impl_->lifecycle_recorder != nullptr) {
     impl_->lifecycle_recorder->Update(result);
   }
@@ -65,7 +66,7 @@ void SarSession::AttachProductLifecycleRecorder(SarProductLifecycleRecorder* rec
 bool SarSession::TryApplyRuntimeConfig(const config::SarRuntimeConfigPatch& patch) {
   // 立即提交类（见 docs/common/contract.md「运行期配置提交策略」）：调用即生效、单向
   // 落定、无 session 层回滚；执行期合法性由 controller 在 Step 内 gate。
-  return impl_->controller.TryApplyRuntimeConfig(patch);
+  return impl_->controller().TryApplyRuntimeConfig(patch);
 }
 
 }  // namespace session

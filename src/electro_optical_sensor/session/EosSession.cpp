@@ -41,16 +41,17 @@ struct EosSession::Impl {
   explicit Impl(EosSessionComposition composition)
       : owned_pipeline(std::move(composition.owned_pipeline)),
         owned_controller(std::move(composition.owned_controller)),
-        controller(RequireCompositionDependency(owned_controller.get(), "controller")),
         internal_config_(composition.internal_config) {
+    RequireCompositionDependency(owned_controller.get(), "controller");
   }
 
   std::unique_ptr<signal::pipeline::EosPipeline> owned_pipeline;
   std::unique_ptr<extension::EosController> owned_controller;
-  extension::EosController& controller;
   config::execution::EosInternalExecutionConfig internal_config_;
   EosDetectionLifecycleRecorder* lifecycle_recorder{nullptr};
   EosExclusionCauseRecorder* exclusion_cause_recorder{nullptr};
+
+  extension::EosController& controller() const { return *owned_controller; }
 };
 
 EosSession::EosSession(std::unique_ptr<Impl> impl) : impl_(std::move(impl)) {}
@@ -82,8 +83,9 @@ session::EosOutputFrame EosSession::Step(const EosCycleInput& input) {
 
 ::electro_optical_sensor::session::EosCycleResult EosSession::StepWithResult(
     const EosCycleInput& input) {
-  impl_->controller.RunOnce(input);
-  EosCycleResult result = impl_->controller.BuildCycleResult();
+  extension::EosController& controller = impl_->controller();
+  controller.RunOnce(input);
+  EosCycleResult result = controller.BuildCycleResult();
   if (impl_->lifecycle_recorder != nullptr) {
     impl_->lifecycle_recorder->Update(input, result);
   }
