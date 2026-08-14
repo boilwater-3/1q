@@ -79,3 +79,13 @@ if(ONEQ_ENABLE_FLIGHT_DYNAMIC)
 else()
     message(STATUS "flight_dynamic module: disabled (set -DONEQ_ENABLE_FLIGHT_DYNAMIC=ON to enable)")
 endif()
+
+# 库内内置文件日志后端（ProjectFileLog）：Windows 上 spdlog 关闭时承载
+# PROJECT_LOG_* 落盘 CWD/1q_library.log；Unix 上默认休眠但可测（SPDLOG 分支优先）。
+# 总开关关闭时宏回到空操作且 sink 不编译。
+option(ONEQ_ENABLE_FILE_LOG "Enable built-in file logging backend (used when spdlog is unavailable)" ON)
+if(ONEQ_ENABLE_FILE_LOG)
+    message(STATUS "file log backend: ENABLED (ProjectFileLog)")
+else()
+    message(STATUS "file log backend: disabled (PROJECT_LOG_* are no-ops)")
+endif()

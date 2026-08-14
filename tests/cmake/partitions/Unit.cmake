@@ -27,10 +27,16 @@ endfunction()
 file(GLOB _oneq_unit_common CONFIGURE_DEPENDS
     "${CMAKE_CURRENT_SOURCE_DIR}/unit/common/*_test.cpp")
 if(_oneq_unit_common)
+    set(_oneq_common_compile_defs "")
+    if(ONEQ_ENABLE_FILE_LOG)
+        # 文件日志后端测试（file_log_test.cpp）的 #if 守卫与库编译保持一致。
+        list(APPEND _oneq_common_compile_defs PROJECT_LOG_BACKEND_FILE=1)
+    endif()
     oneq_add_test_partition(
         TYPE unit DOMAIN common
         SOURCES ${_oneq_unit_common}
-        TIMEOUT 60)
+        TIMEOUT 60
+        COMPILE_DEFS ${_oneq_common_compile_defs})
 endif()
 
 # examples: JsonReader test links examples/common/json_reader.cpp implementation.

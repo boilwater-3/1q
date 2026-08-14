@@ -17,6 +17,11 @@ set(ONEQ_COMMON_SOURCES
     timing/TimingRegimeModel.cpp
 )
 
+# 内置文件日志后端（PROJECT_LOG_* 的 Windows 落盘实现）：总开关 OFF 时不编译。
+if(ONEQ_ENABLE_FILE_LOG)
+    list(APPEND ONEQ_COMMON_SOURCES logging/ProjectFileLog.cpp)
+endif()
+
 oneq_add_component(oneq_common SOURCES ${ONEQ_COMMON_SOURCES})
 target_link_libraries(oneq_common PRIVATE
     ${ONEQ_LINK_DEPENDENCIES})

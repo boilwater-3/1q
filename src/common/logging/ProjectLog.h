@@ -1,10 +1,15 @@
 /**
  * @file ProjectLog.h
- * @brief 定义项目统一的日志宏门面，按编译期后端开关在 spdlog 实现与空操作之间切换。
+ * @brief 定义项目统一的日志宏门面，按编译期后端开关在三种实现之间切换：
  *
- * 启用 PROJECT_LOG_BACKEND_SPDLOG 时转发到 spdlog；否则全部展开为空操作，
- * 便于在不依赖 spdlog 的构建中完全消除日志开销。
- * @note 本头仅提供宏，不包含可链接符号。
+ *  - PROJECT_LOG_BACKEND_SPDLOG=1（Unix 默认）：转发到 spdlog 默认 logger；
+ *  - PROJECT_LOG_BACKEND_FILE=1（Windows 默认，spdlog 关闭时的替代）：转发到
+ *    库内内置文件日志后端 ProjectFileLog，落盘 CWD/1q_library.log
+ *    （路径可用 OpenFileLog / 环境变量 ONEQ_FILE_LOG_PATH / 宏 ONEQ_FILE_LOG_PATH 覆盖）；
+ *  - 两者皆 0：全部展开为空操作，完全消除日志开销（ONEQ_ENABLE_FILE_LOG=OFF 时）。
+ *
+ * 三个分支的宏名与签名完全一致，调用点无感知；spdlog 分支优先于文件分支。
+ * @note 本头仅提供宏，不包含可链接符号；文件后端的可链接符号在 ProjectFileLog.cpp。
  */
 
 #pragma once
@@ -26,6 +31,20 @@
       spdlog::default_logger_raw()->flush();       \
     }                                              \
   } while (false)
+
+#elif defined(PROJECT_LOG_BACKEND_FILE) && PROJECT_LOG_BACKEND_FILE
+
+// 文件后端：迷你格式化 + 单例 sink，线程安全，无异常（见 ProjectFileLog.h）。
+#include "ProjectFileLog.h"
+
+#define PROJECT_LOG_DEBUG(...) oneq::logging::LogDebug(__VA_ARGS__)
+#define PROJECT_LOG_INFO(...) oneq::logging::LogInfo(__VA_ARGS__)
+#define PROJECT_LOG_WARN(...) oneq::logging::LogWarn(__VA_ARGS__)
+#define PROJECT_LOG_ERROR(...) oneq::logging::LogError(__VA_ARGS__)
+#define PROJECT_LOG_CRITICAL(...) oneq::logging::LogCritical(__VA_ARGS__)
+#define PROJECT_LOG_SHOULD_LOG_DEBUG() oneq::logging::ShouldLog(oneq::logging::Level::kDebug)
+#define PROJECT_LOG_HAS_DEFAULT_LOGGER() oneq::logging::IsFileLogOpen()
+#define PROJECT_LOG_FLUSH_DEFAULT() oneq::logging::FlushFileLog()
 
 #else
 

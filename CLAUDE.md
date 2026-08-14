@@ -9,7 +9,7 @@ A static library of simulation models for external service modules — airborne 
 - Language: C++17 (minimum C++11)
 - Build: CMake, Conan
 - Test: GTest/GMock
-- Runtime libraries: Eigen, nanoflann, Boost, FlatBuffers, zlib, HighFive; plus spdlog/fmt and JSBSim (non-Windows only)
+- Runtime libraries: Eigen, nanoflann, Boost, FlatBuffers, zlib, HighFive; plus spdlog/fmt and JSBSim (non-Windows only; on Windows the built-in `ProjectFileLog` backend carries `PROJECT_LOG_*` to `1q_library.log`, gated by `ONEQ_ENABLE_FILE_LOG`)
 
 ## Directory Structure
 

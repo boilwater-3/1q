@@ -113,6 +113,8 @@ function(oneq_add_component target)
     endif()
     target_compile_definitions("${target}" PRIVATE
         PROJECT_LOG_BACKEND_SPDLOG=$<BOOL:${PROJECT_ENABLE_SPDLOG}>
+        PROJECT_LOG_BACKEND_FILE=$<BOOL:${ONEQ_ENABLE_FILE_LOG}>
+        ONEQ_FILE_LOG_PATH=\"1q_library.log\"
         ONEQ_HAVE_ZLIB=$<BOOL:${ONEQ_HAVE_ZLIB}>)
     if(ONEQ_HAVE_ZLIB)
         target_link_libraries("${target}" PRIVATE ZLIB::ZLIB)

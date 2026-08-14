@@ -28,7 +28,8 @@ if(NOT EXISTS "${ONEQ_THIRD_PARTY_DIR}/eigen")
         "（该脚本拉取 eigen/nanoflann/flatbuffers/zlib 并下载 boost 源码包到 third_party/）")
 endif()
 
-# spdlog 在 Windows 上存在已知的编译/链接问题，仅 UNIX 下启用。
+# spdlog 在 Windows 上存在已知的编译/链接问题，仅 UNIX 下启用；
+# Windows 上由库内内置文件日志后端（ONEQ_ENABLE_FILE_LOG 门控）替代。
 # none 模式当前面向 Windows VS2015，spdlog 本就 OFF；保留判定与 conan provider 一致。
 if(WIN32)
     set(PROJECT_ENABLE_SPDLOG OFF)

@@ -2,7 +2,8 @@
 # Conan 包发现与项目级依赖列表导出
 
 # PACKAGE_MANAGER 已在 ProjectOptions.cmake 校验为 conan，此处直接解析包。
-# spdlog 在 Windows 上存在已知的编译/链接问题，仅 UNIX 下启用。
+# spdlog 在 Windows 上存在已知的编译/链接问题，仅 UNIX 下启用；
+# Windows 上由库内内置文件日志后端（ONEQ_ENABLE_FILE_LOG 门控）替代。
 if(WIN32)
     set(PROJECT_ENABLE_SPDLOG OFF)
 else()

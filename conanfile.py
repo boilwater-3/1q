@@ -54,7 +54,8 @@ class OneQConan(ConanFile):
         self.requires(_BASE_DEPS["zlib"])
         self.requires(_BASE_DEPS["sqlite3"])
 
-        # macOS/Linux 保留调试日志能力，Windows 全平台关闭日志依赖。
+        # macOS/Linux 保留调试日志能力；Windows 关闭日志第三方依赖（库内由
+        # 内置文件日志后端 ProjectFileLog 承载，ONEQ_ENABLE_FILE_LOG 门控）。
         if not self._is_windows():
             self.requires(_LOG_DEPS_NON_WINDOWS["spdlog"])
             self.requires(_LOG_DEPS_NON_WINDOWS["fmt"], override=True)
