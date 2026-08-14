@@ -1,9 +1,9 @@
 #include <cmath>
-#include <iostream>
 
 #include "1q/flight_dynamic/FlightManager.h"
 #include "1q/flight_dynamic/autopilot/Autopilot.h"
 #include "1q/flight_dynamic/guidance/WaypointManager.h"
+#include "common/logging/ProjectLog.h"
 #include "flight_dynamic/adapter/JsbsimAdapter.h"
 #include "flight_dynamic/model/VehicleStateMapper.h"
 #include "flight_dynamic/propulsion/EngineManager.h"
@@ -277,17 +277,15 @@ void ManeuverDiagnostics::Print() const {
     case ManeuverOutcome::kNearPass: outcome_str = "near-pass"; break;
     default: break;
   }
-  std::cout << "[DIAG] type=" << static_cast<int>(current_type)
-            << " | outcome=" << outcome_str
-            << " | steps=" << steps
-            << " | time=" << total_time_sec << "s"
-            << " | alt_min=" << min_altitude_m << "m"
-            << " | spd_min=" << min_speed_mps << "m/s"
-            << " | roll_max=" << max_roll_deg << "deg"
-            << " | pitch_max=" << max_pitch_deg << "deg"
-            << " | crashed=" << (crashed ? "YES" : "no")
-            << " | reason=" << last_failure_reason
-            << std::endl;
+  // 中译：机动动作诊断摘要：动作类型、结局、步数、耗时、最低高度、最低速度、
+  //       最大横滚/俯仰角、是否坠毁与最后失败原因。
+  // 标识：机动诊断一次性转储——仅在机动动作结束时输出，供人工核对动作执行质量；
+  //       非周期性日志，不用于状态判断。
+  PROJECT_LOG_INFO("[DIAG] type={} | outcome={} | steps={} | time={}s | alt_min={}m | "
+                   "spd_min={}m/s | roll_max={}deg | pitch_max={}deg | crashed={} | reason={}",
+                   static_cast<int>(current_type), outcome_str, steps, total_time_sec,
+                   min_altitude_m, min_speed_mps, max_roll_deg, max_pitch_deg,
+                   crashed ? "YES" : "no", last_failure_reason);
 }
 
 }  // namespace flight_dynamic
