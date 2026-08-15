@@ -21,6 +21,10 @@ RIR 是与机载雷达（AR）**相互独立的另一部雷达装备**，不是 
 1. **独立装备**：自带 hardware 域（发射机/天线/接收机），自管识别驻留指向，
    独立输入输出与 replay/trace；与 AR 只存在"航迹供给"这一模块间接口——
    消费外部雷达（如 AR）公开输出的已确认航迹（`RirTrackFeedEntry`）。
+   **2026-08-15 需求方二次定案：AR 与 RIR 完全独立、无模块间协作接口，航迹
+   供给接缝在阶段 2-S 退役，RIR 自持检测 + 轻量关联**（见
+   `docs/review/rir_signal_chain_capability_boundary_2026-08-15.md` §6 与
+   `docs/review/remote_identification_radar_phase2_plan_2026-08-15.md` v2）。
 2. **输入面**：`RirCycleInput` 提供周期戳、平台海拔、场景目标（含识别特征真值
    `aspect_rcs_samples`/`polarization_rcs_samples`/`range_rcs_scatterers`）
    与航迹供给；识别只消费效能化观测，场景真值不得直接产生结论。
