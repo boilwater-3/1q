@@ -284,6 +284,14 @@ bool FocusStripmapRda(const RdaConfig& config, const signal::ComplexMatrix& raw_
       raw_pulse_history.rows, raw_pulse_history.cols, matched_filter.size(), total_ms,
       range_compression_ms, phase_reference_ms, azimuth_fft_ms, rcmc_ms, azimuth_filter_ms,
       azimuth_ifft_ms, total_ms - azimuth_ifft_ms);
+  // 无日志后端编译（如 C++11 兼容性检查）时上述计时变量仅被日志引用，显式消费以消除未使用告警。
+  (void)range_compression_ms;
+  (void)phase_reference_ms;
+  (void)azimuth_fft_ms;
+  (void)rcmc_ms;
+  (void)azimuth_filter_ms;
+  (void)azimuth_ifft_ms;
+  (void)total_ms;
   return true;
 }
 
