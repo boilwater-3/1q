@@ -121,6 +121,7 @@ TEST(RirTrackLifecycleTest, LostTrackRehitResetsFilterAndConfirms) {
 }
 
 /// @brief 航迹回收后新键获得新 track_id；键重分配语义由单调键保证。
+/// N3 池化：回收槽位被复用，generation 单调递增标识旧引用。
 TEST(RirTrackLifecycleTest, ReusedKeyAfterRecycleStartsAsNewTrack) {
   RirLifecycleConfig config;
   config.confirm_hits = 1U;
@@ -130,6 +131,7 @@ TEST(RirTrackLifecycleTest, ReusedKeyAfterRecycleStartsAsNewTrack) {
 
   lifecycle.Update(MakeCycle(1U, 2101U), {MakeMeasurement(11U, 100.0f, 5.0f)});
   ASSERT_EQ(lifecycle.BuildTrackSnapshots()[0].track_id, 1U);
+  EXPECT_EQ(lifecycle.BuildTrackSnapshots()[0].generation, 0U);
   lifecycle.Update(MakeCycle(2U, 2102U), {});
   lifecycle.Update(MakeCycle(3U, 2103U), {});
   EXPECT_TRUE(lifecycle.BuildTrackSnapshots().empty());
@@ -140,6 +142,8 @@ TEST(RirTrackLifecycleTest, ReusedKeyAfterRecycleStartsAsNewTrack) {
   EXPECT_EQ(snapshots[0].association_key, 12U);
   EXPECT_EQ(snapshots[0].track_id, 2U);
   EXPECT_EQ(snapshots[0].hit_count, 1U);
+  // 复用槽位携带代次：新航迹的 generation = 槽位被回收次数（LIFO 复用刚回收的槽位）。
+  EXPECT_EQ(snapshots[0].generation, 1U);
 }
 
 /// @brief 关联种子导出包含位置与高斯状态，供下一周期门控。

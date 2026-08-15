@@ -1,11 +1,13 @@
 /**
  * @file RirTrackLifecycle.h
- * @brief RIR 轻量跟踪子集的航迹生命周期管理器（阶段 2-T T3）。
+ * @brief RIR 轻量跟踪子集的航迹生命周期管理器（阶段 2-T T3，N3 升级池化）。
  *
  * 副本来源：`src/airborne_radar/signal/tracking/TrackLifecycleManager.*` 子集
  * （审计基线 96de367c）。
- * 刻意不迁：对象池、IMM、假目标鉴别、反 VGPO 加速度限幅、快照事件发射器。
- * 内部航迹表用有序映射保存，快照按关联键升序导出（确定性，便于 replay）。
+ * 刻意不迁：IMM（N4/N5 接入）、假目标鉴别、反 VGPO 加速度限幅、快照事件发射器。
+ * 内部航迹表为有序键→池化对象指针映射：航迹对象经 `RirTrackPool` 申请/归还，
+ * 回收即出表并归还池（无 `kRecycled` 中间态），槽位复用经 `generation`
+ * 单调递增标识；快照仍按关联键升序导出（确定性，便于 replay）。
  */
 
 #ifndef REMOTE_IDENTIFICATION_RADAR_TRACKING_RIR_TRACK_LIFECYCLE_H_
@@ -16,6 +18,7 @@
 #include <vector>
 
 #include "remote_identification_radar/tracking/RirTrackFilter.h"
+#include "remote_identification_radar/tracking/RirTrackPool.h"
 #include "remote_identification_radar/tracking/RirTrackTypes.h"
 
 namespace remote_identification_radar {
@@ -55,15 +58,24 @@ struct RirLifecycleRuntimeState {
  * - hit：`hit_count += 1`、`miss_count = 0`；tentative 达到 `confirm_hits`
  *   后转 confirmed；lost 再次命中立即恢复 confirmed；
  * - miss：tentative/confirmed 连续失配超过 `max_miss_before_lost` 转 lost；
- *   lost 保持 `max_lost_cycles` 个周期后回收（从内部表删除）；
+ *   lost 保持 `max_lost_cycles` 个周期后回收（出表、`generation += 1`、
+ *   归还对象池）；
  * - 航迹回收不回收关联键：`RirTrackAssociator` 继续单调分配新键，
  *   因此键重分配在识别积累侧天然是新目标，无需 `hit_count` 回落检测。
+ * - 对象池复用代次：新航迹复用已归还槽位时保留槽位 `generation`
+ *   （业务字段由 ResetForReuse 清零），供外部识别已回收对象的旧引用。
+ *
+ * @note 持有池化裸指针，不可拷贝；运行态经 Capture/RestoreRuntimeState
+ *       以值快照迁移（replay 兼容）。
  */
 class RirTrackLifecycle {
  public:
   /** @brief 构造生命周期管理器。 */
   explicit RirTrackLifecycle(RirLifecycleConfig config = {},
                              RirTrackFilterConfig filter_config = {});
+
+  RirTrackLifecycle(const RirTrackLifecycle&) = delete;
+  RirTrackLifecycle& operator=(const RirTrackLifecycle&) = delete;
 
   /**
    * @brief 以本周期关联量测推进航迹状态机与 KF。
@@ -120,9 +132,16 @@ class RirTrackLifecycle {
   void ApplyHitFilter(RirTrackState* track, const RirTrackMeasurement& measurement,
                       RirTrackStatus status_before, float dt_sec) const;
 
+  /** @brief 复用槽位业务字段清零；`generation` 保持单调不清零。 */
+  static void ResetForReuse(RirTrackState& track);
+
+  /** @brief 回收航迹：代次 +1、业务字段清零、归还对象池。 */
+  void RecycleTrack(RirTrackState* track);
+
   RirLifecycleConfig lifecycle_config_{};
   RirTrackFilter filter_;
-  std::map<std::uint64_t, RirTrackState> tracks_;
+  RirTrackPool pool_{};
+  std::map<std::uint64_t, RirTrackState*> tracks_;
   std::uint64_t next_track_id_{1U};
   std::uint32_t last_cycle_index_{0U};
 };

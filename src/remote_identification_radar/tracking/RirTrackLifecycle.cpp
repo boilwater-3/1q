@@ -1,6 +1,6 @@
 /**
  * @file RirTrackLifecycle.cpp
- * @brief RIR 轻量跟踪子集的航迹生命周期管理器实现（阶段 2-T T3）。
+ * @brief RIR 轻量跟踪子集的航迹生命周期管理器实现（阶段 2-T T3，N3 池化）。
  */
 
 #include "remote_identification_radar/tracking/RirTrackLifecycle.h"
@@ -72,7 +72,11 @@ void RirTrackLifecycle::Update(const RirCycleContext& cycle,
     hit_keys.insert(measurement.association_key);
   }
 
-  std::map<std::uint64_t, RirTrackState> snapshots = tracks_;
+  // 值快照工作集（工作单元按值流转，回写阶段经池化指针落盘）。
+  std::map<std::uint64_t, RirTrackState> snapshots;
+  for (const auto& entry : tracks_) {
+    snapshots[entry.first] = *entry.second;
+  }
   std::vector<WorkItem> work_items;
   work_items.reserve(snapshots.size() + unique_measurements.size());
 
@@ -155,12 +159,39 @@ void RirTrackLifecycle::Update(const RirCycleContext& cycle,
     results.push_back(result);
   }
 
-  tracks_.clear();
+  // 回写（N3）：回收键出表并归还池；既有航迹经原槽位整值回写；
+  // 新航迹从池申请槽位（ResetForReuse 清业务字段、保留槽位代次）。
   for (const WorkResult& result : results) {
+    const std::map<std::uint64_t, RirTrackState*>::iterator found =
+        tracks_.find(result.association_key);
+    const bool existed = found != tracks_.end();
     if (result.should_recycle) {
+      if (existed) {
+        RecycleTrack(found->second);
+        tracks_.erase(found);
+      }
       continue;
     }
-    tracks_[result.association_key] = result.track_after;
+    if (existed) {
+      // 既有槽位：整值回写（快照内 generation 未被修改，随值原样落盘）。
+      *found->second = result.track_after;
+      continue;
+    }
+    RirTrackState* slot = pool_.Acquire();
+    if (slot == nullptr) {
+      // 中译：对象池申请失败，本周期放弃新建航迹（关联键）。
+      // 标识：内存池耗尽——新航迹被丢弃，既有航迹不受影响；
+      //       调用方可经池容量配置或内存排查恢复。
+      PROJECT_LOG_ERROR(
+          "[RirTrackLifecycle] pool acquire failed, new track dropped for association_key={}",
+          result.association_key);
+      continue;
+    }
+    ResetForReuse(*slot);
+    const std::uint32_t slot_generation = slot->generation;
+    *slot = result.track_after;
+    slot->generation = slot_generation;
+    tracks_[result.association_key] = slot;
   }
   last_cycle_index_ = cycle.cycle_index;
 }
@@ -169,7 +200,7 @@ RirTrackSnapshotList RirTrackLifecycle::BuildTrackSnapshots() const {
   RirTrackSnapshotList snapshots;
   snapshots.reserve(tracks_.size());
   for (const auto& entry : tracks_) {
-    RirTrackState snapshot = entry.second;
+    RirTrackState snapshot = *entry.second;
     snapshot.association_key = entry.first;
     snapshots.push_back(snapshot);
   }
@@ -180,7 +211,7 @@ std::vector<RirTrackSeed> RirTrackLifecycle::BuildAssociationSeeds() const {
   std::vector<RirTrackSeed> seeds;
   seeds.reserve(tracks_.size());
   for (const auto& entry : tracks_) {
-    const RirTrackState& track = entry.second;
+    const RirTrackState& track = *entry.second;
     RirTrackSeed seed;
     seed.association_key = entry.first;
     seed.has_position = true;
@@ -193,15 +224,19 @@ std::vector<RirTrackSeed> RirTrackLifecycle::BuildAssociationSeeds() const {
 }
 
 const RirTrackState* RirTrackLifecycle::FindTrack(std::uint64_t association_key) const {
-  const std::map<std::uint64_t, RirTrackState>::const_iterator found =
+  const std::map<std::uint64_t, RirTrackState*>::const_iterator found =
       tracks_.find(association_key);
   if (found == tracks_.end()) {
     return nullptr;
   }
-  return &found->second;
+  return found->second;
 }
 
 void RirTrackLifecycle::Reset() {
+  for (auto& entry : tracks_) {
+    ResetForReuse(*entry.second);
+    pool_.Release(entry.second);
+  }
   tracks_.clear();
   next_track_id_ = 1U;
   last_cycle_index_ = 0U;
@@ -222,9 +257,26 @@ RirLifecycleRuntimeState RirTrackLifecycle::CaptureRuntimeState() const {
 }
 
 void RirTrackLifecycle::RestoreRuntimeState(const RirLifecycleRuntimeState& state) {
+  for (auto& entry : tracks_) {
+    ResetForReuse(*entry.second);
+    pool_.Release(entry.second);
+  }
   tracks_.clear();
   for (const RirTrackState& track : state.tracks) {
-    tracks_[track.association_key] = track;
+    RirTrackState* slot = pool_.Acquire();
+    if (slot == nullptr) {
+      // 中译：恢复运行态时对象池申请失败，该航迹未被恢复（关联键）。
+      // 标识：内存池耗尽——恢复不完整，后续周期可经日志定位缺失航迹。
+      PROJECT_LOG_ERROR(
+          "[RirTrackLifecycle] pool acquire failed during restore, track skipped for "
+          "association_key={}",
+          track.association_key);
+      continue;
+    }
+    ResetForReuse(*slot);
+    // replay 以快照为权威：整值回写（含 generation）。
+    *slot = track;
+    tracks_[track.association_key] = slot;
   }
   next_track_id_ = state.next_track_id;
   last_cycle_index_ = state.last_cycle_index;
@@ -286,6 +338,33 @@ void RirTrackLifecycle::ApplyHitFilter(RirTrackState* track, const RirTrackMeasu
   const RirGaussianState predicted = filter_.Predict(track->gaussian_state, dt_sec);
   const RirKalmanUpdateResult update_result = filter_.Update(predicted, measurement);
   ApplyGaussianState(track, update_result.posterior, velocity_before_filter, dt_sec);
+}
+
+void RirTrackLifecycle::ResetForReuse(RirTrackState& track) {
+  track.association_key = 0U;
+  track.track_id = 0U;
+  track.batch_id = 0U;
+  track.external_target_id = 0U;
+  track.target_name.clear();
+  track.status = RirTrackStatus::kTentative;
+  track.first_cycle = 0U;
+  track.last_update_cycle = 0U;
+  track.miss_count = 0U;
+  track.hit_count = 0U;
+  track.position.setZero();
+  track.velocity.setZero();
+  track.acceleration.setZero();
+  track.speed = 0.0f;
+  track.acceleration_mps2 = 0.0f;
+  track.rcs = 0.0f;
+  track.gaussian_state = RirGaussianState();
+  // generation 保持不清零：对象复用代次单调递增（与 AR ResetForReuse 一致）。
+}
+
+void RirTrackLifecycle::RecycleTrack(RirTrackState* track) {
+  track->generation += 1U;
+  ResetForReuse(*track);
+  pool_.Release(track);
 }
 
 }  // namespace tracking

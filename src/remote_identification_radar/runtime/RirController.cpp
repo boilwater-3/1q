@@ -124,7 +124,7 @@ void RirController::UpdateRuntime(config::RirWorkMode work_mode,
   tracking::RirTrackFilterConfig filter_config;
   filter_config.process_noise_diff_coeff = policy_.tracking.kalman_noise_diff_coeff;
   filter_config.default_measurement_noise_std = policy_.tracking.kalman_measurement_noise_std;
-  lifecycle_.UpdateConfig(lifecycle_config, filter_config);
+  lifecycle_->UpdateConfig(lifecycle_config, filter_config);
 
   tracking::RirAssociationConfig association_config;
   const float sigma = std::max(0.0f, policy_.association.distance_gate_sigma);
@@ -394,7 +394,7 @@ void RirController::RunCycle(const session::RirCycleInput& input,
       candidate_indices.push_back(i);
     }
 
-    const std::vector<tracking::RirTrackState> prior_tracks = lifecycle_.BuildTrackSnapshots();
+    const std::vector<tracking::RirTrackState> prior_tracks = lifecycle_->BuildTrackSnapshots();
     std::unordered_map<std::uint64_t, std::uint32_t> recognition_rank_by_target_id;
     for (const tracking::RirTrackState& track : prior_tracks) {
       const session::RirRecognitionResult* result = tracker_.FindResult(track.association_key);
@@ -436,14 +436,14 @@ void RirController::RunCycle(const session::RirCycleInput& input,
     }
 
     const tracking::RirAssociationResult association = associator_.Associate(
-        measurements, lifecycle_.BuildAssociationSeeds(), static_cast<float>(input.dt_sec));
+        measurements, lifecycle_->BuildAssociationSeeds(), static_cast<float>(input.dt_sec));
     tracking::RirCycleContext cycle_context;
     cycle_context.cycle_index = input.input_cycle_index;
     cycle_context.batch_id = input.batch_id;
     cycle_context.dt_sec = static_cast<float>(input.dt_sec);
-    lifecycle_.Update(cycle_context, association.measurements);
+    lifecycle_->Update(cycle_context, association.measurements);
 
-    track_snapshots = lifecycle_.BuildTrackSnapshots();
+    track_snapshots = lifecycle_->BuildTrackSnapshots();
 
     std::unordered_map<std::uint64_t, recognition::RirTracker::TrackObservationInput>
         observations_by_key;
@@ -480,7 +480,7 @@ void RirController::RunCycle(const session::RirCycleInput& input,
         static_cast<float>(executed_count) * dwell_sec;
     has_latest_summary_ = true;
   } else {
-    track_snapshots = lifecycle_.BuildTrackSnapshots();
+    track_snapshots = lifecycle_->BuildTrackSnapshots();
     tracker_.HoldCycle(track_snapshots, sim_time_sec_);
     latest_summary_ = tracker_.BuildSummary(track_snapshots);
     has_latest_summary_ = true;

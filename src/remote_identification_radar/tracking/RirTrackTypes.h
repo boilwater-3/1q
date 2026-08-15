@@ -10,9 +10,10 @@
  *
  * 副本来源：`src/airborne_radar/signal/tracking/TrackState.h` 与
  * `TrackLifecycleTypes.h` 子集（审计基线 96de367c，阶段 2-T）。
- * 刻意差异：无对象池复用语义（`TrackStatus::kRecycled`/`generation`），
- * 航迹回收即从内部表删除；关联键由 `RirTrackAssociator` 单调分配，
- * 键重分配天然等于新目标，无需 `hit_count` 回落检测。
+ * 刻意差异：无 `TrackStatus::kRecycled` 中间态（航迹回收即从内部表删除并
+ * 归还对象池，池化与 `generation` 复用代次语义自 N3 起与 AR 对齐）；
+ * 关联键由 `RirTrackAssociator` 单调分配，键重分配天然等于新目标，
+ * 无需 `hit_count` 回落检测。
  */
 
 #ifndef REMOTE_IDENTIFICATION_RADAR_TRACKING_RIR_TRACK_TYPES_H_
@@ -85,6 +86,7 @@ struct RirTrackState {
   std::uint64_t external_target_id{0U};                  /**< 最近已知场景目标标识；0 表示未知。 */
   std::string target_name{};                             /**< 最近已知目标名称。 */
   RirTrackStatus status{RirTrackStatus::kTentative};     /**< 生命周期状态。 */
+  std::uint32_t generation{0U};                          /**< 对象池复用代次，识别已回收槽位的旧引用。 */
   std::uint32_t first_cycle{0U};                         /**< 首次建轨周期号。 */
   std::uint32_t last_update_cycle{0U};                   /**< 最近命中周期号。 */
   std::uint32_t miss_count{0U};                          /**< 连续失配计数。 */

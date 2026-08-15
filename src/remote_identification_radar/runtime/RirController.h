@@ -104,7 +104,8 @@ class RirController {
 
   std::unique_ptr<dwell::RirSignalDetector> detector_{};
   tracking::RirTrackAssociator associator_{};
-  tracking::RirTrackLifecycle lifecycle_{};
+  // 池化生命周期管理器不可拷贝，经 unique_ptr 持有以保持控制器可移动。
+  std::unique_ptr<tracking::RirTrackLifecycle> lifecycle_{new tracking::RirTrackLifecycle()};
   internal::RirPropagationModel propagation_model_{};
   std::mt19937 measurement_rng_{42U};
 

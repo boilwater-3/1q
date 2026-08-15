@@ -9,6 +9,7 @@ set(RIR_ENGINE_SOURCES
     dwell/RirSignalDetector.cpp
     tracking/RirTrackFilter.cpp
     tracking/RirLapjvSolver.cpp
+    tracking/RirTrackPool.cpp
     tracking/RirTrackAssociator.cpp
     tracking/RirTrackLifecycle.cpp
     recognition/RcsFeatureExtractor.cpp
