@@ -58,6 +58,9 @@ class RirController {
     return latest_summary_;
   }
 
+  /** @brief 当前生效识别特征数据库版本（供 replay 溯源）。 */
+  const std::string& ActiveDatabaseVersion() const { return tracker_.ActiveDatabaseVersion(); }
+
  private:
   config::RirHardwareConfig hardware_{};
   config::RirRecognitionPolicy recognition_config_{};

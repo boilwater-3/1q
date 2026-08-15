@@ -14,6 +14,7 @@
 #include "1q/remote_identification_radar/config/RirRuntimeConfigPatch.h"
 #include "1q/remote_identification_radar/session/RirInputValidation.h"
 #include "remote_identification_radar/runtime/RirController.h"
+#include "remote_identification_radar/session/RirReplayCycleRecord.h"
 
 namespace remote_identification_radar {
 namespace session {
@@ -113,6 +114,12 @@ RirSession RirSession::CreateWithDiagnostics(const config::RirSessionConfig& con
     *issues = config::ValidateRirSessionConfig(config);
   }
   return RirSession(std::unique_ptr<Impl>(new Impl(config)));
+}
+
+RirSessionReplayState RirSessionReplayAccess::CaptureSessionState(const RirSession& session) {
+  RirSessionReplayState replay_state;
+  replay_state.active_database_version = session.impl_->controller.ActiveDatabaseVersion();
+  return replay_state;
 }
 
 }  // namespace session

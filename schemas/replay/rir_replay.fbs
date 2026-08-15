@@ -1,0 +1,76 @@
+// RIR 单周期 replay 记录 schema（阶段 1 步骤 5）。
+// 表结构镜像 AR airborne_radar_replay.fbs 的识别相关表（审计基线 96de367c），
+// 保证等价性对比与后续迁移验证的字段级直映射。
+
+namespace oneq.replay.remote_identification_radar.fb;
+
+table RirRecognitionResultV1 {
+  state:int;
+  target_category:int;
+  target_model:string;
+  confidence:float;
+  best_score:float;
+  runner_up_score:float;
+  rcs_similarity:float;
+  rcs_quality:float;
+  motion_similarity:float;
+  motion_quality:float;
+  polarization_similarity:float;
+  polarization_quality:float;
+  range_profile_similarity:float;
+  range_profile_quality:float;
+  valid_feature_mask:ubyte;
+  observation_count:uint;
+  accumulation_sec:float;
+  database_version:string;
+  source_cycle_index:uint;
+  source_batch_id:ulong;
+}
+
+table RirTrackRecognitionOutputV1 {
+  association_key:ulong;
+  result:RirRecognitionResultV1;
+}
+
+table RirOutputFrameV1 {
+  input_cycle_index:uint;
+  batch_id:ulong;
+  recognition_outputs:[RirTrackRecognitionOutputV1];
+}
+
+table RirRecognitionCycleSummaryV1 {
+  participating_track_count:uint;
+  category_confirmed_count:uint;
+  model_confirmed_count:uint;
+  unknown_count:uint;
+  disabled_count:uint;
+  rcs_availability_rate:float;
+  motion_availability_rate:float;
+  polarization_availability_rate:float;
+  range_profile_availability_rate:float;
+  mean_confidence:float;
+  mean_first_confirmation_sec:float;
+  has_ground_truth:bool;
+  category_accuracy:float;
+  model_accuracy:float;
+}
+
+table RirCycleResultV1 {
+  input_cycle_index:uint;
+  status:int;
+  abort_reason:int;
+  output_frame:RirOutputFrameV1;
+  has_recognition_summary:bool;
+  recognition_summary:RirRecognitionCycleSummaryV1;
+}
+
+table RirSessionReplayStateV1 {
+  active_database_version:string;
+}
+
+table RirCycleReplayRecordV1 {
+  result:RirCycleResultV1;
+  session_state:RirSessionReplayStateV1;
+}
+
+root_type RirCycleReplayRecordV1;

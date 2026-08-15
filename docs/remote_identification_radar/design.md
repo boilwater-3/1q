@@ -41,10 +41,9 @@ RIR 是与机载雷达（AR）**相互独立的另一部雷达装备**，不是 
 
 - 模块边界、非目标、单位纪律、失败降级、接口不变式、F1/F2 物理保真度边界、
   设计变更规则 → [boundaries.md](boundaries.md)
-- 数据流图、状态所有权（数据库/积累/回滚） → [data-flow.md](data-flow.md)
-- 算法登记表（观测构造/四提取器/积累/匹配/判定） → [algorithms.md](algorithms.md)
-
-> 注：boundaries/data-flow/algorithms 三篇随识别实现迁移落地
-> （阶段 1 步骤 8），当前以审计文档与解耦计划为设计底稿。
+- 数据流图、状态所有权（数据库/积累/回滚）、与 AR 的航迹供给关系 →
+  [data-flow.md](data-flow.md)
+- 算法登记表（观测构造/四提取器/积累/匹配/判定）、反直觉点、刻意不实现清单 →
+  [algorithms.md](algorithms.md)
 
 跨模块公共规则见 `docs/common/contract.md`。
