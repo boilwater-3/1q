@@ -5,6 +5,7 @@
 set(RIR_ENGINE_SOURCES
     internal/RirRadarEquations.cpp
     dwell/RirDetectionCellResolver.cpp
+    dwell/RirSignalDetector.cpp
     recognition/RcsFeatureExtractor.cpp
     recognition/MotionFeatureExtractor.cpp
     recognition/PolarizationFeatureExtractor.cpp
