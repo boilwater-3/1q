@@ -112,8 +112,16 @@ Authority: 第二阶段实施计划；AR 侧删除归属与验收以
   （`dwell/RirSignalDetector` 统计级 CFAR + Pfa 闭环/统计验证）、M5 `950625ed`
   （`internal/RirPropagationModel` 植被散射杂波 + 环境域激活）、M6 `e66d5293`
   （`dwell/RirMeasurementErrorModel`）。
-- 段验证门通过：unit 74/74（阶段 1 既有 26 例零修改通过）、integration 28/28、
-  replay 3/3、cross_domain 7/7（含等价性测试）——旁路增量零回归。
+- **段 2-T（轻量跟踪迁移）已完成**：T4 内部航迹类型前置交付 `6fa38268`
+  （`tracking/RirTrackTypes.h`，识别消费闭包内部化身）；T1 `0b3e8d70`
+  （`tracking/RirTrackFilter.*`：common 6/3 KF 包装，初始化/CV 预测/动态 R
+  更新）；T2 `79bef1d6`（`tracking/RirTrackAssociator.*`：马氏门限 +
+  全局最近邻唯一分配，LAPJV/假设分支不迁）；T3 `ce995bda`
+  （`tracking/RirTrackLifecycle.*`：hit 计数、confirm/lost/回收、KF 接线、
+  运行态捕获恢复；对象池/IMM/反欺骗分支不迁）。
+- 段验证门通过：unit 97/97（阶段 2-T 随迁新增 23 例；阶段 1 既有 26 例零修改
+  通过）、integration 28/28、replay 3/3、cross_domain 7/7（含等价性测试）——
+  旁路增量零回归。
 - 构建注记：本机 64 位 MSBuild 需 `UCRTContentRoot` 环境变量（预设已内置，
   见 `VisualStudio.15.0-amd64` preset 描述）；直连 `cmake --build` 须显式导出。
 
