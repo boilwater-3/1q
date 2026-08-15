@@ -201,6 +201,14 @@ DDL 单源不变式全程保持：**移动而非复制**，三条消费方（加
 > （`coordinate/inertial_transform.h` 缺失，SBIRS 提交 ff8e6b6e 引入）。
 > 构建环境注记：本机 msbuild+v141 需 `vcvarsall x64 -vcvars_ver=14.16` +
 > `/p:UseEnv=true` 才能解析 Windows SDK 路径（预存环境问题，与本次改动无关）。
+>
+> 执行进度（同日续）：步骤 3-6 已完成：识别内部实现 17 文件平移改写（Rir 命名空间/
+> 类型，零 AR 依赖）、内部雷达方程副本（`RirRadarEquations`，来源 commit 注明）、
+> `RirController`/`RirSession`/`RirInputValidation` 落地、单元 26 例 + 集成 28 例
+> （场景/交付库/美方 15 型号）全绿、资产三件随迁（DDL/建库工具/示例库）且 DDL
+> 单源保持、AR 聚焦回归全绿、契约守卫 25/25（补 test_layout_guard 域白名单）。
+> 提交：`066a5fe2`。剩余：步骤 5（replay/trace + fbs + roundtrip）、步骤 7
+> （等价性对比）、步骤 8（模块文档三件 + examples 指针收尾）。
 
 | 步 | 内容 | 验证门（release-local） |
 |---|---|---|
