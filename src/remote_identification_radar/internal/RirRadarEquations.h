@@ -1,14 +1,18 @@
 /**
  * @file RirRadarEquations.h
- * @brief 远程识别雷达内部链路预算纯函数。
+ * @brief 远程识别雷达内部链路预算与检测物理纯函数。
  *
  * 副本来源：`src/airborne_radar/signal/detection/RadarEquations.*`（审计基线
- * 96de367c）中识别链路消费的最小函数集（回波功率 + 热噪声底），类型换用
- * `RirHardwareConfig` 的 hardware 域结构；阶段 3 评估 common 化。
+ * 96de367c）。阶段 1 随迁识别链路消费的最小函数集（回波功率 + 热噪声底）；
+ * 阶段 2-M M1 扩充检测子集（积累增益、测距/测角误差、Swerling 检测概率、
+ * Marcum Q 门限、蒙特卡洛判决），类型换用 `RirHardwareConfig` 的 hardware 域
+ * 结构；阶段 3 评估 common 化。
  */
 
 #ifndef REMOTE_IDENTIFICATION_RADAR_INTERNAL_RIR_RADAR_EQUATIONS_H_
 #define REMOTE_IDENTIFICATION_RADAR_INTERNAL_RIR_RADAR_EQUATIONS_H_
+
+#include <random>
 
 #include "1q/remote_identification_radar/config/RirHardwareConfig.h"
 
@@ -16,7 +20,20 @@ namespace remote_identification_radar {
 namespace internal {
 
 /**
- * @brief 无状态的雷达物理计算函数集合（识别链路子集）。
+ * @brief 目标起伏模型（副本：airborne_radar::config::profiles::SwerlingModel）。
+ * @note 阶段 2-M 为内部枚举；阶段 2-S 场景目标补 `target_swerling_type` 时
+ *       评估升 public（值域保持 0-4 加性扩展）。
+ */
+enum class RirSwerlingModel {
+  kSwerling0 = 0, /**< 非起伏（Marcum 平稳目标）。 */
+  kSwerling1 = 1, /**< 慢起伏（扫描间 Rayleigh，Chi-2）。 */
+  kSwerling2 = 2, /**< 快起伏（脉冲间 Rayleigh，Chi-2）。 */
+  kSwerling3 = 3, /**< 慢起伏（一个主加 Rayleigh，Chi-4）。 */
+  kSwerling4 = 4  /**< 快起伏（脉冲间 Chi-4）。 */
+};
+
+/**
+ * @brief 无状态的雷达物理计算函数集合（识别链路 + 检测子集）。
  */
 struct RirRadarEquations {
   /**
@@ -56,6 +73,69 @@ struct RirRadarEquations {
    */
   static float ComputeThermalNoisePower_W(const config::hardware::RirTransmitterConfig& tx,
                                           const config::hardware::RirReceiverConfig& rx);
+
+  /**
+   * @brief 脉冲积累增益因子。
+   * 当前统一采用线性脉冲积累语义: G = N。
+   * @param pulse_count 积累脉冲数
+   * @return 积累增益因子（线性值）
+   */
+  static float ComputeIntegrationGain(int pulse_count);
+
+  /**
+   * @brief 测距标准差 σ_R (m)。
+   * 工程近似: σ_R ≈ 0.5·δ_R / √(SNR_linear) + bias，
+   * 其中 δ_R = c/(2B) 为距离分辨力。
+   * @param snr_db    信噪比 (dB)
+   * @param bandwidth_hz 信号带宽 (Hz)
+   * @return 距离测量标准差 (m)
+   */
+  static float ComputeRangeErrorStdDev(float snr_db, float bandwidth_hz);
+
+  /**
+   * @brief 测角标准差 σ_θ (rad)。
+   * 工程近似: σ_θ ≈ 0.317·θ_bw / √(SNR_linear) + θ_bw/30。
+   * @param snr_db         信噪比 (dB)
+   * @param beamwidth_rad  波束宽度 (rad)
+   * @return 角度测量标准差 (rad)
+   */
+  static float ComputeAngleErrorStdDev(float snr_db, float beamwidth_rad);
+
+  /**
+   * @brief 支持 Swerling 0~4 全模型的多脉冲检测概率计算。
+   * @param snr_db      每脉冲信噪比 (dB)
+   * @param pfa         虚警概率
+   * @param model       Swerling 起伏模型
+   * @param num_pulses  检测脉冲数 N (N ≥ 1)
+   * @return 检测概率 Pd ∈ [0, 1]
+   */
+  static float ComputeDetectionProbability(float snr_db, float pfa, RirSwerlingModel model,
+                                           int num_pulses);
+
+  /**
+   * @brief 计算方波检测器的检测门限 T。
+   * @param pfa         虚警概率
+   * @param num_pulses  积累脉冲数 (N ≥ 1)
+   * @return 检测门限 T
+   */
+  static double ComputeThreshold(double pfa, int num_pulses);
+
+  /**
+   * @brief 广义 Marcum Q 函数 Q_M(a, b)。
+   * @param order  阶数 M (= 积累脉冲数 N)
+   * @param a      √(2·N·SNR_linear)
+   * @param b      √(2·T)
+   * @return Q_M(a, b) ∈ [0, 1]
+   */
+  static double MarcumQ(int order, double a, double b);
+
+  /**
+   * @brief 蒙特卡洛探测判决。
+   * @param detection_prob 检测概率 Pd
+   * @param rng            随机数引擎（外部注入保证确定性）
+   * @return 是否探测成功
+   */
+  static bool ThresholdDecision(float detection_prob, std::mt19937& rng);
 };
 
 }  // namespace internal
