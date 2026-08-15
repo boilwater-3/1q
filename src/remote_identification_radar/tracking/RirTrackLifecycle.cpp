@@ -265,9 +265,11 @@ void RirTrackLifecycle::ApplyGaussianState(RirTrackState* track, const RirGaussi
   track->gaussian_state = state;
   track->position = Eigen::Vector3f(state.mean(0), state.mean(2), state.mean(4));
   track->velocity = Eigen::Vector3f(state.mean(1), state.mean(3), state.mean(5));
+  track->speed = track->velocity.norm();
   if (dt_sec > kMinimumAccelerationDtSec) {
     track->acceleration = (track->velocity - previous_velocity) / dt_sec;
   }
+  track->acceleration_mps2 = track->acceleration.norm();
 }
 
 void RirTrackLifecycle::ApplyHitFilter(RirTrackState* track, const RirTrackMeasurement& measurement,

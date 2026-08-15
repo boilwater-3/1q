@@ -72,6 +72,8 @@ TEST(RirTrackLifecycleTest, ConfirmsTrackAfterConfiguredHits) {
   EXPECT_EQ(snapshots[0].hit_count, 2U);
   // 量测仅更新位置；速度经 KF 交叉协方差从先验 3 m/s 向后验约 1.5025 m/s 修正。
   EXPECT_NEAR(snapshots[0].velocity.x(), 1.50248f, 0.01f);
+  EXPECT_NEAR(snapshots[0].speed, 1.50248f, 0.01f);
+  EXPECT_NEAR(snapshots[0].acceleration_mps2, 2.49752f, 0.01f);
   EXPECT_EQ(snapshots[0].external_target_id, 7001U);
   EXPECT_EQ(snapshots[0].target_name, "target-a");
   EXPECT_LT(snapshots[0].EstimationUncertaintyTrace(), 300.0f);

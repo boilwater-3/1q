@@ -93,8 +93,10 @@ struct RirTrackState {
   Eigen::Vector3f position{Eigen::Vector3f::Zero()};     /**< 滤波位置（m）。 */
   Eigen::Vector3f velocity{Eigen::Vector3f::Zero()};     /**< 滤波速度（m/s）。 */
   Eigen::Vector3f acceleration{Eigen::Vector3f::Zero()}; /**< 滤波加速度（m/s²）。 */
-  float rcs{0.0f};                                       /**< 最近已知 RCS（m²）。 */
-  RirGaussianState gaussian_state;                       /**< KF 状态与协方差。 */
+  float speed{0.0f};               /**< 速度模长（m/s），识别运动特征直接消费。 */
+  float acceleration_mps2{0.0f};   /**< 加速度模长（m/s²），识别运动特征直接消费。 */
+  float rcs{0.0f};                 /**< 最近已知 RCS（m²）。 */
+  RirGaussianState gaussian_state; /**< KF 状态与协方差。 */
 
   /**
    * @brief 识别运动质量因子的本源信号：协方差 P 的 position 分块迹（m²）。
