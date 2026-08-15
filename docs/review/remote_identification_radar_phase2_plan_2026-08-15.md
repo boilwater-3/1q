@@ -120,9 +120,15 @@ Authority: 第二阶段实施计划；AR 侧删除归属与验收以
   全局最近邻唯一分配，LAPJV/假设分支不迁）；T3 `ce995bda`
   （`tracking/RirTrackLifecycle.*`：hit 计数、confirm/lost/回收、KF 接线、
   运行态捕获恢复；对象池/IMM/反欺骗分支不迁）。
-- 段验证门通过：unit 97/97（阶段 2-T 随迁新增 23 例；阶段 1 既有 26 例零修改
-  通过）、integration 28/28、replay 3/3、cross_domain 7/7（含等价性测试）——
-  旁路增量零回归。
+- **段 2-S（自持化重构）已完成**：核心提交 `c09dd870`（S1 输入面重构 +
+  `RirTrackFeed` 删除；S2 检测→量测误差→关联/滤波/生命周期→识别接线、
+  未识别优先+斜距次近驻留排序；S3 replay V2 + 驻留预算摘要 + 检测种子；
+  S4 场景重锚定与自持链路/输入面新测试；S6 等价性测试删除 + cross_domain
+  清理）。文档四件套改写提交 `7809e5d6`（S5）。
+- 段验证门通过：unit 102/102（阶段 2-S 新增自持管线/输入面校验 5 例；
+  阶段 1/2-T 既有 97 例零修改通过）、integration 28/28、replay 3/3、
+  cross_domain 6/6（等价性测试已删除，余多模型场景）——破坏性切换后
+  聚焦分区全绿。
 - 构建注记：本机 64 位 MSBuild 需 `UCRTContentRoot` 环境变量（预设已内置，
   见 `VisualStudio.15.0-amd64` preset 描述）；直连 `cmake --build` 须显式导出。
 
