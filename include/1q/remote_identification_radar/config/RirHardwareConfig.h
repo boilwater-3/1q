@@ -110,6 +110,23 @@ struct ONEQ_API RirTransmitterConfig {
   std::vector<double> frequency_plan_hz{3.0e9}; /**< 允许周期执行选择的离散载频表。 */
 };
 
+/**
+ * @brief 信号处理增益偏置（阶段 2-M M3，《能力边界界定》§3.2 方案 A）。
+ *
+ * 四个 dB 偏置叠加在分项 SINR 账本上；**缺省 0 dB 时与保守账本逐位一致**
+ * （脉压/积累增益自动派生、分母不加处理增益的口径不变）。符号约定跟随各物理量
+ * 规格书惯例：改善因子正 dB 为优（target/clutter/jamming），噪声代价正 dB 为劣
+ * （noise，与 `noise_figure_db` 同向）。值域 [0, 40] dB（配置校验拒绝越界）。
+ * @note 脉压（B·τ）与积累（N）增益永远自动应用，禁止把派生量手填进偏置（防双算）；
+ *       额外链路损耗继续走 `transmit_loss_db`/`receive_loss_db`，不与增益混用。
+ */
+struct ONEQ_API RirSignalProcessingConfig {
+  float target_processing_gain_db{0.0f}; /**< 目标信号额外处理增益；正 = 提升 SINR（账本分子）。 */
+  float noise_processing_gain_db{0.0f}; /**< 噪声代价；正 = 抬高噪声底（账本分母）。 */
+  float clutter_suppression_gain_db{0.0f}; /**< 杂波抑制（MTI 改善因子）；正 = 抑制杂波（分母）。 */
+  float jamming_suppression_gain_db{0.0f}; /**< 干扰抑制（旁瓣对消改善因子）；正 = 抑制干扰（分母）。 */
+};
+
 }  // namespace hardware
 
 /**
@@ -119,9 +136,10 @@ struct ONEQ_API RirTransmitterConfig {
  * `RirPolicyConfig::recognition` 中。
  */
 struct ONEQ_API RirHardwareConfig {
-  hardware::RirTransmitterConfig transmitter{}; /**< 发射机参数。 */
-  hardware::RirAntennaConfig antenna{};         /**< 天线参数。 */
-  hardware::RirReceiverConfig receiver{};       /**< 接收机参数。 */
+  hardware::RirTransmitterConfig transmitter{};      /**< 发射机参数。 */
+  hardware::RirAntennaConfig antenna{};              /**< 天线参数。 */
+  hardware::RirReceiverConfig receiver{};            /**< 接收机参数。 */
+  hardware::RirSignalProcessingConfig signal_processing{}; /**< 信号处理增益偏置（默认全 0 dB）。 */
 };
 
 }  // namespace config

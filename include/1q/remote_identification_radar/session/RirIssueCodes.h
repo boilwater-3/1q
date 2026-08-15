@@ -56,6 +56,10 @@ constexpr char kRecognitionAccumulationInvalid[] =
 constexpr char kRecognitionTimeRangeInvalid[] =
     "rir.validation.recognition_time_range_invalid";
 
+/** @brief 信号处理增益偏置非法（四偏置须有限且在 [0, 40] dB；阶段 2-M M3）。 */
+constexpr char kSignalProcessingGainsInvalid[] =
+    "rir.validation.signal_processing_gains_invalid";
+
 }  // namespace codes
 }  // namespace session
 }  // namespace remote_identification_radar

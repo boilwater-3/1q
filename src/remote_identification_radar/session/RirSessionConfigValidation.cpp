@@ -89,6 +89,26 @@ session::RirIssueList ValidateRirSessionConfig(const RirSessionConfig& config) {
               "window must be finite and positive.");
   }
 
+  // 信号处理增益偏置（阶段 2-M M3）：有限且 [0, 40] dB。
+  {
+    const RirHardwareConfig& hardware = config.hardware;
+    const hardware::RirSignalProcessingConfig& gains = hardware.signal_processing;
+    if (!IsFinite(gains.target_processing_gain_db) ||
+        !IsFinite(gains.noise_processing_gain_db) ||
+        !IsFinite(gains.clutter_suppression_gain_db) ||
+        !IsFinite(gains.jamming_suppression_gain_db) ||
+        gains.target_processing_gain_db < 0.0f || gains.target_processing_gain_db > 40.0f ||
+        gains.noise_processing_gain_db < 0.0f || gains.noise_processing_gain_db > 40.0f ||
+        gains.clutter_suppression_gain_db < 0.0f ||
+        gains.clutter_suppression_gain_db > 40.0f ||
+        gains.jamming_suppression_gain_db < 0.0f ||
+        gains.jamming_suppression_gain_db > 40.0f) {
+      PushIssue(&issues, session::codes::kSignalProcessingGainsInvalid,
+                "hardware.signal_processing",
+                "Signal processing gain offsets must be finite values in [0, 40] dB.");
+    }
+  }
+
   return issues;
 }
 
