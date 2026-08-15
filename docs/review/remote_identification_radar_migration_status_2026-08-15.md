@@ -109,9 +109,11 @@ Related-Authority:
 
 - **2-C AR 侧收尾**：已完成（见 §1；AR 全域识别 grep 零命中、AR/RIR/cross_domain 分区与
   全部 guards 绿为验收证据）。
-- **阶段 3 common 化**：雷达方程、方向图、检测单元、干扰聚合、跟踪子集 common
-  收敛；`max_range_m`/`recognition_dwell_sec` 四域归位。评估准则：**物理恒等式优先收敛、
-  装备私有账本/判决链不动**。
+- **阶段 3 common 化**：逐项评估已完成
+  （`docs/review/common_consolidation_assessment_2026-08-15.md`）——结论：
+  不立项全量迁移；LAPJV/雷达方程/方向图按"接触即收敛"落 common，
+  检测单元/CFAR 判决/传播环境/航迹池不动或缓；
+  `max_range_m`/`recognition_dwell_sec` 四域归位为 RIR 内部小项另立执行。
 - **暂缓议题**：跟踪波束/成波、再入目标专项物理模型（气动/等离子/RCS 剖面）、
   全天候天气物理模型。
 
