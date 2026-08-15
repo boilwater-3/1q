@@ -193,6 +193,15 @@ DDL 单源不变式全程保持：**移动而非复制**，三条消费方（加
 
 ## 7. 实施顺序（步骤与验证门）
 
+> 执行进度（2026-08-15）：步骤 1（骨架）与步骤 2（public 类型 + 四域配置 +
+> 校验）已完成：21 个 public 头、`rir_core` 组件（`RirSessionConfigValidation.cpp`）、
+> 守卫接线（public 白名单 / cross-domain naming / docs structure / 四类测试分区）、
+> `docs/remote_identification_radar/design.md`；验证：契约守卫 24/24 全绿、
+> 全库 Release 构建通过。另修复基线预存白名单漂移
+> （`coordinate/inertial_transform.h` 缺失，SBIRS 提交 ff8e6b6e 引入）。
+> 构建环境注记：本机 msbuild+v141 需 `vcvarsall x64 -vcvars_ver=14.16` +
+> `/p:UseEnv=true` 才能解析 Windows SDK 路径（预存环境问题，与本次改动无关）。
+
 | 步 | 内容 | 验证门（release-local） |
 |---|---|---|
 | 1 | 骨架：目录 + CMake 组件 + 空模块编译 + 白名单 + 分区注册 | build 通过；`ctest -R "contract"` 守卫全绿（白名单/naming/layout） |

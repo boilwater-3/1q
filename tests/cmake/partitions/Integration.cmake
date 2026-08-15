@@ -31,6 +31,13 @@ _oneq_add_integration_partition(electronic_surveillance_radar)
 _oneq_add_integration_partition(sbirs_sensor)
 _oneq_add_integration_partition(cross_domain)
 
+# remote_identification_radar：识别场景测试用 SQLite 构造特征库（helper 位于
+# unit/remote_identification_radar/，DDL 生成头经 tests 层 configure_file 注入）。
+_oneq_add_integration_partition(remote_identification_radar
+    LINK_LIBS SQLite::SQLite3
+    INCLUDE_DIRS "${CMAKE_CURRENT_SOURCE_DIR}/unit/remote_identification_radar"
+                 "${CMAKE_CURRENT_BINARY_DIR}/generated")
+
 if(ONEQ_ENABLE_FLIGHT_DYNAMIC AND TARGET ${PROJECT_NAME}_cross_domain_integration_tests)
     target_compile_definitions(${PROJECT_NAME}_cross_domain_integration_tests PRIVATE
         ONEQ_TEST_FLIGHT_DYNAMIC_ENABLED=1)

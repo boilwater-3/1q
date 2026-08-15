@@ -38,7 +38,8 @@ set(SESSION_DIRS
     "${PUBLIC_INCLUDE_ROOT}/airborne_radar/session"
     "${PUBLIC_INCLUDE_ROOT}/electro_optical_sensor/session"
     "${PUBLIC_INCLUDE_ROOT}/electronic_surveillance_radar/session"
-    "${PUBLIC_INCLUDE_ROOT}/sar/session")
+    "${PUBLIC_INCLUDE_ROOT}/sar/session"
+    "${PUBLIC_INCLUDE_ROOT}/remote_identification_radar/session")
 
 set(VIOLATIONS)
 
@@ -185,8 +186,8 @@ endforeach()
 # ---- 阻断 7：电源状态唯一权威 = SessionConfig::sensor_enabled（COMMON-OQ-4 字段提升） ----
 # 五域统一（AR/ESR/EOS/SBIRS/SAR）：mission 域禁止 power_on；SessionConfig 顶层必须提供
 # sensor_enabled；runtime patch 必须用 has_sensor_enabled；builder 必须用 WithSensorEnabled。
-# 检查覆盖五模块全部四个头，避免单模块回归漏网。
-set(POWER_DOMAINS airborne_radar electronic_surveillance_radar electro_optical_sensor sbirs_sensor sar)
+# 检查覆盖全部模块（含新模块 remote_identification_radar），避免单模块回归漏网。
+set(POWER_DOMAINS airborne_radar electronic_surveillance_radar electro_optical_sensor sbirs_sensor sar remote_identification_radar)
 foreach(DOMAIN IN LISTS POWER_DOMAINS)
   set(_mission_header "${PUBLIC_INCLUDE_ROOT}/${DOMAIN}/config")
   file(GLOB _mission_headers "${_mission_header}/*MissionConfig.h")

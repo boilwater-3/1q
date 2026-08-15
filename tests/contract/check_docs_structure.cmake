@@ -39,6 +39,7 @@ set(ALLOWED_DOC_DIRS
     "fusion"
     "navigation"
     "practice"
+    "remote_identification_radar"
     "review"
     "sar"
     "space_based_infrared_sensor"
@@ -52,6 +53,7 @@ set(BUSINESS_MODULE_DIRS
     "flight_dynamic"
     "fusion"
     "navigation"
+    "remote_identification_radar"
     "sar"
     "space_based_infrared_sensor"
     "threat_assessment")
