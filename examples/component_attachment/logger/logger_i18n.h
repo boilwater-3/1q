@@ -19,6 +19,7 @@
 #include "1q/airborne_radar/session/ArIssueCodes.h"
 #include "1q/electro_optical_sensor/session/EosIssueCodes.h"
 #include "1q/electronic_surveillance_radar/session/EsrIssueCodes.h"
+#include "1q/remote_identification_radar/session/RirIssueCodes.h"
 #include "1q/sar/session/SarIssueCodes.h"
 #include "1q/sbirs_sensor/session/SbirsIssueCodes.h"
 
@@ -195,6 +196,19 @@ inline const char* IssueCodeChineseName(const std::string& code) {
       {airborne_radar::session::codes::kTransmitterFrequencyInvalid, "发射机频率非法（须有限且为正）。"},
       {airborne_radar::session::codes::kTransmitterOperatingEnvelopeInvalid, "发射机工作包络非法（功率/占空比/脉冲能量超出硬件限制）。"},
       {airborne_radar::session::codes::kUnknownExternalTargetId, "目标外部 ID 未知（为 0，kInfo 级）。"},
+      // remote_identification_radar (12)
+      {remote_identification_radar::session::codes::kNonFiniteCycleDeltaTime, "周期步长非有限值。"},
+      {remote_identification_radar::session::codes::kInvalidCycleDeltaTime, "周期步长非法（<= 0）。"},
+      {remote_identification_radar::session::codes::kInvalidCycleIndex, "周期序号非法（为 0）。"},
+      {remote_identification_radar::session::codes::kNonFiniteTargetField, "目标含非有限数值字段（位置/RCS/斜距/真值样本）。"},
+      {remote_identification_radar::session::codes::kMissingRangeAndCartesianPosition, "目标斜距 <= 0 且无笛卡尔位置（二者须至少一为正）。"},
+      {remote_identification_radar::session::codes::kDuplicateExternalTargetId, "场景中外部目标 ID 重复。"},
+      {remote_identification_radar::session::codes::kNonFiniteTrackFeedField, "航迹供给含非有限数值字段（位置/速度/加速度/不确定度）。"},
+      {remote_identification_radar::session::codes::kRecognitionAccumulationInvalid, "识别累积计数非法（须至少为 1）。"},
+      {remote_identification_radar::session::codes::kRecognitionDatabasePathMissing, "识别数据库路径缺失（启用识别时须非空）。"},
+      {remote_identification_radar::session::codes::kRecognitionThresholdInvalid, "识别门限非法（接受分数/最小裕度须在 [0, 1]）。"},
+      {remote_identification_radar::session::codes::kRecognitionTimeRangeInvalid, "识别时间范围非法（保持时间须非负；最大距离/驻留/累积窗口须有限且为正）。"},
+      {remote_identification_radar::session::codes::kRecognitionWeightsInvalid, "识别特征权重非法（须有限、在 [0, 1] 且总和为 1）。"},
       // electronic_surveillance_radar (24)
       {electronic_surveillance_radar::session::codes::kEmissionBelowThreshold, "发射源低于检测门限（正常周期按发射源排除的 kInfo 诊断）。"},
       {electronic_surveillance_radar::session::codes::kEmissionCoSite, "发射源同址干扰（正常周期按发射源排除的 kInfo 诊断，规则 13b）。"},

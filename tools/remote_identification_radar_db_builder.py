@@ -2,13 +2,13 @@
 """识别特征数据库建库工具（schema v1.1，JSON → SQLite）。
 
 用法：
-  python3 tools/recognition_db_builder.py \\
-      --input examples/configs/recognition/recognition_database_input.json \\
-      --output examples/configs/recognition/target_feature_database_v1.1.db
+  python3 tools/remote_identification_radar_db_builder.py \\
+      --input examples/configs/remote_identification_radar/recognition_database_input.json \\
+      --output examples/configs/remote_identification_radar/target_feature_database_v1.1.db
 
 输入为设计文档 §7.3 格式 JSON（含 units/display_name/created_utc/aspect 区间）；
 输出为通过加载器同级校验的 SQLite 库文件。DDL 读取唯一事实源
-schemas/recognition/recognition_feature_database.sql（与 C++ 加载器/测试共用，
+schemas/remote_identification_radar/recognition_feature_database.sql（与 C++ 加载器/测试共用，
 禁止在本工具内维护第二份 DDL）。
 
 校验规则与 RecognitionFeatureDatabase::Load 一致：meta 六键必填、units 七量纲

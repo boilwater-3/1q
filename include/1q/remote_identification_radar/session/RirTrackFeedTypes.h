@@ -35,7 +35,10 @@ enum class ONEQ_API RirTrackFeedStatus {
 struct ONEQ_API RirTrackFeedEntry {
   std::uint64_t association_key{0};    /**< 关联键（跨周期稳定标识） */
   std::uint64_t external_target_id{0}; /**< 外部输入原始目标标识符（0 表示未知/未提供） */
+  std::string target_name{};           /**< 可选目标名称，仅用于人读与识别真值准确率统计 */
   RirTrackFeedStatus status{RirTrackFeedStatus::kTentative}; /**< 航迹生命周期状态 */
+
+  std::uint32_t hit_count{0U}; /**< 命中累计计数；下降视为键重分配（新目标） */
 
   float position_x{0.0f}; /**< 雷达局部笛卡尔坐标 x（m；平台 ENU 切平面东向分量，含平台姿态旋转） */
   float position_y{0.0f}; /**< 雷达局部笛卡尔坐标 y（m；平台 ENU 切平面北向分量，含平台姿态旋转） */

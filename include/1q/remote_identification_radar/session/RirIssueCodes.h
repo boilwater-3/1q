@@ -12,6 +12,30 @@ namespace remote_identification_radar {
 namespace session {
 namespace codes {
 
+// ===== 周期输入校验问题（"rir.validation.<snake_case>"）=====
+
+/** @brief 周期步长非有限值。 */
+constexpr char kNonFiniteCycleDeltaTime[] = "rir.validation.non_finite_cycle_delta_time";
+
+/** @brief 周期步长非法（<= 0）。 */
+constexpr char kInvalidCycleDeltaTime[] = "rir.validation.invalid_cycle_delta_time";
+
+/** @brief 周期序号非法（为 0）。 */
+constexpr char kInvalidCycleIndex[] = "rir.validation.invalid_cycle_index";
+
+/** @brief 目标含非有限数值字段（位置/RCS/斜距/真值样本）。 */
+constexpr char kNonFiniteTargetField[] = "rir.validation.non_finite_target_field";
+
+/** @brief 目标斜距 <= 0 且无笛卡尔位置（二者须至少一为正）。 */
+constexpr char kMissingRangeAndCartesianPosition[] =
+    "rir.validation.missing_range_and_cartesian_position";
+
+/** @brief 场景中外部目标 ID 重复。 */
+constexpr char kDuplicateExternalTargetId[] = "rir.validation.duplicate_external_target_id";
+
+/** @brief 航迹供给含非有限数值字段（位置/速度/加速度/不确定度）。 */
+constexpr char kNonFiniteTrackFeedField[] = "rir.validation.non_finite_track_feed_field";
+
 // ===== 配置校验问题（"rir.validation.<snake_case>"）=====
 
 /** @brief 识别特征权重非法（须有限、在 [0, 1] 且总和为 1）。 */
