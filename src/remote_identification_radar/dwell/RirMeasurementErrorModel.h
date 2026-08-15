@@ -1,10 +1,6 @@
 /**
  * @file RirMeasurementErrorModel.h
- * @brief 定义 RIR 基于有效信噪比与波束宽度的测量误差模型（私有实现头）。
- *
- * 副本来源：`src/airborne_radar/signal/detection/MeasurementErrorModel.h`
- * （审计基线 96de367c，阶段 2-M M6），波束宽度类型走 `RirEffectiveBeamwidthDeg`、
- * 物理函数走 `RirRadarEquations`，数值语义逐行一致。
+ * @brief RIR 测量误差模型薄适配层（common 单源）。
  * @note 本文件仅供 RIR 模块内部使用，不作为公开 API；检测量测误差供
  *       阶段 2-T 轻量关联的波门定标消费（不出 public 面）。
  */
@@ -12,10 +8,8 @@
 #ifndef REMOTE_IDENTIFICATION_RADAR_DWELL_RIR_MEASUREMENT_ERROR_MODEL_H_
 #define REMOTE_IDENTIFICATION_RADAR_DWELL_RIR_MEASUREMENT_ERROR_MODEL_H_
 
-#include <cmath>
-
+#include "common/radar/MeasurementErrorModel.h"
 #include "remote_identification_radar/dwell/RirBeamControl.h"
-#include "remote_identification_radar/internal/RirRadarEquations.h"
 
 namespace remote_identification_radar {
 namespace dwell {
@@ -43,11 +37,15 @@ class RirMeasurementErrorModel {
   static RirMeasurementErrorState Compute(float effective_snr_db,
                                           const RirEffectiveBeamwidthDeg& effective_beamwidth_deg,
                                           float bandwidth_hz) {
+    const float kDeg2Rad = 3.14159265358979f / 180.0f;
+    const oneq::common::radar::MeasurementErrorState common_state =
+        oneq::common::radar::ComputeMeasurementError(
+            effective_snr_db, bandwidth_hz,
+            effective_beamwidth_deg.az_beamwidth_deg * kDeg2Rad,
+            effective_beamwidth_deg.el_beamwidth_deg * kDeg2Rad);
     RirMeasurementErrorState state;
-    state.range_error_std_m =
-        internal::RirRadarEquations::ComputeRangeErrorStdDev(effective_snr_db, bandwidth_hz);
-    state.angle_error_std_rad =
-        ComputeEquivalentAngleErrorStdDev(effective_snr_db, effective_beamwidth_deg);
+    state.range_error_std_m = common_state.range_error_std_m;
+    state.angle_error_std_rad = common_state.angle_error_std_rad;
     return state;
   }
 
@@ -61,13 +59,9 @@ class RirMeasurementErrorModel {
   static float ComputeEquivalentAngleErrorStdDev(
       float snr_db, const RirEffectiveBeamwidthDeg& beamwidth_deg) {
     const float kDeg2Rad = 3.14159265358979f / 180.0f;
-    const float az_beamwidth_rad = beamwidth_deg.az_beamwidth_deg * kDeg2Rad;
-    const float el_beamwidth_rad = beamwidth_deg.el_beamwidth_deg * kDeg2Rad;
-    const float az_std_rad =
-        internal::RirRadarEquations::ComputeAngleErrorStdDev(snr_db, az_beamwidth_rad);
-    const float el_std_rad =
-        internal::RirRadarEquations::ComputeAngleErrorStdDev(snr_db, el_beamwidth_rad);
-    return std::sqrt(0.5f * (az_std_rad * az_std_rad + el_std_rad * el_std_rad));
+    return oneq::common::radar::ComputeEquivalentAngleErrorStdDev(
+        snr_db, beamwidth_deg.az_beamwidth_deg * kDeg2Rad,
+        beamwidth_deg.el_beamwidth_deg * kDeg2Rad);
   }
 };
 
