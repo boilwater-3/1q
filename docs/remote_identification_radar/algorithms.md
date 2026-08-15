@@ -18,7 +18,7 @@ RIR 自持链路生产的内部航迹，不再消费外部航迹供给。
 | 统计级 CFAR | `dwell/RirSignalDetector.cpp` | SNR + Swerling + Pfa → Pd → 蒙特卡洛判决 | 不是 CA-CFAR；`min_snr_db` 硬截断、`min_detection_margin_db` 可靠性门；同种子同判决 |
 | 量测误差 | `dwell/RirMeasurementErrorModel.h` | SNR + 波束宽度 + 带宽 → 距离/角度标准差 | 距离偏置 20 m；角度两轴 RMS 合成；只供内部关联/滤波 |
 | 门限最近邻关联 | `tracking/RirTrackAssociator.cpp` | 检测量测 + 航迹种子 → 关联键/命中/新键 | 马氏平方波门（缺省 9）；全局最小代价边唯一分配；键单调不回收复用 |
-| 单目标 KF | `tracking/RirTrackFilter.cpp` | 量测 + 先验状态 → 预测/更新后验 | 6 维 CV 状态；动态 R 更新；LLT 失败跳过更新；IMM 不迁 |
+| 单目标 KF | `tracking/RirTrackFilter.cpp` | 量测 + 先验状态 → 预测/更新后验 | 6 维 CV 状态；动态 R 更新；LLT 失败跳过更新；IMM 下一步迁入 |
 | 航迹生命周期 | `tracking/RirTrackLifecycle.cpp` | 关联量测 + 周期上下文 → 内部航迹 | hit/miss 计数、confirm/lost/回收；lost 重捕获重置 KF；回收不回收关联键 |
 | 驻留排序 | `runtime/RirController.cpp` | 上一周期内部航迹结论 + 场景目标 → 驻留候选顺序 | 未识别优先 + 斜距次近；威胁等级输入不参与 |
 | 观测构造 | `recognition/RecognitionObservationBuilder.cpp` | 场景目标真值 + 内部航迹 + `RirObservationContext` → `RirFeatureSet` | 驻留质量因子作用于 RCS/极化/距离像（运动除外）；场景真值不得直接产生结论 |
@@ -53,9 +53,10 @@ RIR 自持链路生产的内部航迹，不再消费外部航迹供给。
 
 1. 在线残差驱动的自动后端切换/在线学习/自适应权重。
 2. 信号级 IQ / 全波散射求解、ISAR 二维成像、微动特征。
-3. CA-CFAR（参考单元滑窗/杂波图/OS-GO-SO）、IMM、LAPJV 全局关联、航迹池。
-4. 对外点迹/量测输出、战斗级关联决策与战术决策。
-5. 外部雷达波束控制接口；驻留指向不驱动任何 AR 波束。
+3. CA-CFAR（参考单元滑窗/杂波图/OS-GO-SO）。
+4. 战术决策、ECCM 决策与反欺骗（IMM/LAPJV/航迹池已列入下一步迁移，见
+   `docs/review/remote_identification_radar_migration_status_2026-08-15.md`）。
+5. 对外点迹/量测输出、外部雷达波束控制接口；驻留指向不驱动任何 AR 波束。
 
 ## 证据
 

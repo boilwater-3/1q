@@ -277,7 +277,7 @@ public 前缀 `Rir*`（如 `RirSession`/`RirRecognitionConfig`），issue code �
 `rir.*`；`ArRecognition*` 前缀废弃，不保留 deprecated compat 层
 （对齐 `Radar*`→`Ar*` 一次性迁移先例）；`check_public_api_boundary.cmake` 白名单
 同步收敛。第一阶段计划见
-[ar_remote_identification_decoupling_phase1_plan_2026-08-15.md](ar_remote_identification_decoupling_phase1_plan_2026-08-15.md)。
+[remote_identification_radar_migration_status_2026-08-15.md](remote_identification_radar_migration_status_2026-08-15.md)。
 
 ## 7. 关键风险与兼容性说明
 

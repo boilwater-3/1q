@@ -14,12 +14,13 @@ Answers: 远程识别雷达模块是什么、和谁交互、设计文档怎么�
 RIR 是与机载雷达（AR）**相互独立的另一部雷达装备**，不是 AR 的工作模式或子能力。
 本模块由 AR 内被耦合的远程识别子系统（kLrr）解耦而来（2026-08-15 审计：
 `docs/review/ar_remote_identification_radar_coupling_audit_2026-08-15.md`；
-第一阶段解耦计划：`docs/review/ar_remote_identification_decoupling_phase1_plan_2026-08-15.md`）。
+迁移状态与下一步计算：`docs/review/remote_identification_radar_migration_status_2026-08-15.md`）。
 
 ## 模块定位要点
 
 1. **独立装备**：自带 hardware 域（发射机/天线/接收机），自持检测
-   （方向图/分项 SINR 账本/统计级 CFAR）、轻量关联/滤波/生命周期与识别积累；
+   （方向图/分项 SINR 账本/统计级 CFAR）、关联/滤波/生命周期与识别积累
+   （LAPJV/航迹池/IMM 已列入下一步迁移）；
    独立输入输出与 replay/trace。与 AR 无任何模块间协作接口，不 include
    任何 AR 头，不消费任何 AR 输出（阶段 2-S 已删除 RirTrackFeed 供给面）。
 2. **输入面**：`RirCycleInput` 提供周期戳、平台海拔、场景目标（含识别特征真值

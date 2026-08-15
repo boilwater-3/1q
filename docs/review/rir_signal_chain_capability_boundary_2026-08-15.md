@@ -140,10 +140,10 @@ Authority: 能力边界界定报告。对远程识别雷达需求文档所列九
    不得引用 AR internal（`RirRadarEquations` 副本模式延续至阶段 3 common 化）。
 2. **单源不复制**：物理求解单源已存在于 common（RF incident link 功率）的，
    RIR 只消费不复制；仅"单元聚合/账本/判决"这类装备私有口径做 RIR 副本。
-3. **语义定位（2026-08-15 二次定案修订）**：九项能力构成 RIR 的**自持检测链**，
-   产出内部目标图像（检测 → 轻量关联/滤波/生命周期 → 内部航迹 → 识别积累）。
-   轻量边界：单目标 KF + 门限关联 + 计数生命周期；战斗级跟踪（IMM/LAPJV/航迹池）
-   与战术决策仍为非目标。
+3. **语义定位（2026-08-15 二次定案，同日三次修订）**：九项能力构成 RIR 的
+   **自持检测链**，产出内部目标图像（检测 → 关联/滤波/生命周期 → 内部航迹 →
+   识别积累）。跟踪边界已突破 2-T 轻量子集：LAPJV 全局最优关联、航迹池、IMM
+   列入下一步迁移；战术决策、ECCM 与对外点迹/航迹输出仍为非目标。
 4. **AR 冻结**：本文档及后续阶段 2a/2b 实施不触碰 AR 树（阶段 2 删除 AR 识别
    耦合的计划另行执行，见《阶段 1 计划》§9）。
 
@@ -162,12 +162,12 @@ Authority: 能力边界界定报告。对远程识别雷达需求文档所列九
 | 9 | 恒虚警检测 | **迁（自持检测判决）** | RIR 落地 `RirSignalDetector`：Pfa 门限 + Swerling Pd + 确定性种子判决（副本改写 `RadarEquations` 检测子集 + `SignalDetector` 判决链）。**2026-08-15 二次定案修订**：检测判决驱动 RIR 自持目标图像（检测 → 轻量关联 → 内部航迹），特征维度门控升级为其下游消费；**不产点迹输出、不做战斗级跟踪/关联决策**；CA-CFAR 口径按 §3.1 澄清后再议 |
 | 10 | 驻留指向（前置） | **阶段 2 先行**（审计 §5.1 既定评估项转正式） | 优先航迹选择逻辑迁入 RIR 自管波束调度，消费**内部航迹**；**排序语义变更**：威胁等级输入（AR 威胁分类 `target_type`）随独立性消失，改为"未识别优先 + 斜距次近"（原 `IsBetterLrrCandidate` 威胁排序不迁移）。RIR 不驱动任何外部雷达波束 |
 | 11 | 环境输入面（前置） | **阶段 2 迁移改造** | `RirPropagationModel` 子集（传播损耗 + 杂波，副本改写 AR `PropagationModel` 语义）：植被场景事实入 `RirEnvironmentConfig`（激活空占位域；基线系数按 AR 环境域合约保留在实现内部），植被场景数据经 `RirCycleInput` 周期输入；RF 入射链路（common incident links）入 `RirCycleInput`。校验/issue codes/replay 兼容性随迁扩展 |
-| 12 | 轻量跟踪子集（二次定案新增） | **迁（识别消费闭包）** | 单目标 KF（位置-速度-加速度 + 不确定度）、门限/最近邻关联、计数生命周期（confirm/lost、键重分配=新目标语义内化）；AR 来源 `KalmanPredictor/Updater`、`DataAssociation`/`DistanceMetric`、`TrackLifecycleManager` 子集。**IMM/LAPJV/航迹池不迁**（非目标） |
+| 12 | 跟踪子集（三次修订） | **迁（识别消费闭包 → 多目标多模型跟踪）** | 已迁：单目标 KF、门限/最近邻关联、计数生命周期；**下一步迁入：LAPJV 全局最优关联、航迹池、IMM**。AR 来源 `KalmanPredictor/Updater`、`DataAssociation`/`DistanceMetric`/`LapjvSolver`、`TrackLifecycleManager`/`ITrackPool`/`BoostTrackPool`，IMM 数值源取 common `ImmFilter`。战术决策与 ECCM 不迁 |
 | 13 | 外部航迹供给退役（二次定案新增） | **废除** | `RirTrackFeed` 公开输入与 `RirTrackFeedEntry`/`RirTrackFeedStatus` 出 public 面（破坏性变更）；识别积累的 `association_key`/`hit_count`/confirm 语义改由决策 12 内部航迹自产；`RirSceneTarget` 增 velocity/`target_name`/`target_swerling_type` |
 
 **判定为"不做"的相邻能力**（显式否决，防蔓延；2026-08-15 二次定案修订）：
 对外**点迹/量测输出**（检测量测仅内部消费，供关联滤波；`echo_delay_s`/
-`two_way_doppler_shift_hz` 不出 public 面）、战斗级跟踪（IMM/LAPJV/航迹池）、
+`two_way_doppler_shift_hz` 不出 public 面）、战术决策与 ECCM、
 抗 RGPO 前沿跟踪减半（ECCM 语义属 AR）、J/N 门干扰观测输出、战术决策。
 若后续需求要求，须重开边界评审。
 
@@ -177,9 +177,9 @@ Authority: 能力边界界定报告。对远程识别雷达需求文档所列九
 RIR 自持检测 + 轻量关联。boundaries.md 非目标 #4（"不实现探测、关联、跟踪；
 航迹由外部雷达供给"）按以下条款改写（2-S 落地时同步）：
 
-1. **"探测/关联/跟踪"的语义精化**：RIR 具备自持检测链与轻量跟踪（单目标 KF +
-   门限关联 + 计数生命周期，识别消费闭包内）；**否决的是战斗级跟踪**
-   （IMM/LAPJV/航迹池）、关联决策与战术决策。
+1. **"探测/关联/跟踪"的语义精化**：RIR 具备自持检测链与跟踪（已迁单目标 KF +
+   门限关联 + 计数生命周期；LAPJV/航迹池/IMM 列入下一步迁移）；**否决的是
+   战术决策、ECCM 与对外点迹/航迹输出**。
 2. **"航迹由外部雷达供给"条款删除**：`RirTrackFeed` 公开输入退役（决策 13），
    识别积累挂内部航迹；与 AR 的唯一关系是同库共存、互不引用。
 3. boundaries.md F1/F2 节"本模块无探测链"表述改为：**RIR 具备自持检测链**
@@ -187,7 +187,7 @@ RIR 自持检测 + 轻量关联。boundaries.md 非目标 #4（"不实现探测�
 4. 检测判决不得解释为对外"目标发现"事件（输出面只有识别结论与效能摘要）。
 
 ## 7. 分阶段落地（已展开为
-`docs/review/remote_identification_radar_phase2_plan_2026-08-15.md` v2 §2-§5）
+`docs/review/remote_identification_radar_migration_status_2026-08-15.md`）
 
 > 时序约束（v2 修订）：等价性测试在迁移期（2-M/2-T 纯增量旁路）保持可跑并
 > 持续绿；2-S 输入面重构时**直接删除**（AR↔RIR 配对关系不存在，无转生测试）。
@@ -196,7 +196,8 @@ RIR 自持检测 + 轻量关联。boundaries.md 非目标 #4（"不实现探测�
 - **阶段 2-M（迁移改造）**：决策 1-8、11——检测链与环境子集副本改写进 RIR
   （旁路新增不接线）：雷达方程全集、方向图 + 波束控制、检测单元 + 干扰聚合、
   统计级 CFAR 判决器、传播模型子集、量测误差子集 + 四增益偏置参数。
-- **阶段 2-T（轻量跟踪）**：决策 12——KF/关联/生命周期子集（识别消费闭包）。
+- **阶段 2-T（跟踪迁移）**：决策 12——KF/最近邻关联/生命周期子集已迁；
+  LAPJV/航迹池/IMM 按唯一迁移文档下一步迁入。
 - **阶段 2-S（自持化重构）**：决策 9/10/13——输入面重构（`RirTrackFeed` 退役、
   场景目标补速度/真值字段）、流水线接线（检测→关联→内部航迹→识别）、
   驻留排序语义变更、replay 破坏性版本、场景测试重锚定、文档四件套改写、
