@@ -113,7 +113,8 @@ Authority: 第二阶段实施计划；AR 侧删除归属与验收以
   （`internal/RirPropagationModel` 植被散射杂波 + 环境域激活）、M6 `e66d5293`
   （`dwell/RirMeasurementErrorModel`）。
 - **段 2-T（轻量跟踪迁移）已完成**：T4 内部航迹类型前置交付 `6fa38268`
-  （`tracking/RirTrackTypes.h`，识别消费闭包内部化身）；T1 `0b3e8d70`
+  （`tracking/RirTrackTypes.h`，识别消费闭包内部化身；`2020f739` 补
+  `speed`/`acceleration_mps2` 派生模长字段）；T1 `0b3e8d70`
   （`tracking/RirTrackFilter.*`：common 6/3 KF 包装，初始化/CV 预测/动态 R
   更新）；T2 `79bef1d6`（`tracking/RirTrackAssociator.*`：马氏门限 +
   全局最近邻唯一分配，LAPJV/假设分支不迁）；T3 `ce995bda`
