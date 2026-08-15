@@ -1,0 +1,221 @@
+/**
+ * @file RirAntennaPatternRuntime.h
+ * @brief 定义 RIR 方向图运行期中间量与评估函数（私有实现头，header-only）。
+ *
+ * 副本来源：`src/airborne_radar/signal/detection/AntennaPatternRuntime.h`
+ * （审计基线 96de367c，阶段 2-M M2），类型换用 `RirAntennaPatternConfig`，
+ * 数值语义逐行一致；`utils::ClampFloat` 以本文件局部助手替代（免 AR utils 依赖）。
+ * @note 本文件仅供 RIR 模块内部使用，不作为公开 API。
+ */
+
+#ifndef REMOTE_IDENTIFICATION_RADAR_DWELL_RIR_ANTENNA_PATTERN_RUNTIME_H_
+#define REMOTE_IDENTIFICATION_RADAR_DWELL_RIR_ANTENNA_PATTERN_RUNTIME_H_
+
+#include <cmath>
+
+#include "1q/remote_identification_radar/config/RirHardwareConfig.h"
+
+namespace remote_identification_radar {
+namespace dwell {
+
+/**
+ * @brief RirAntennaPatternBeamwidthDeg 表示方向图评估使用的有效波束宽度。
+ * @note 该类型用于向方向图评估函数传递运行期派生波束宽度。
+ */
+struct RirAntennaPatternBeamwidthDeg {
+  float az_beamwidth_deg{3.0f}; /**< 有效方位波束宽度（单位：deg） */
+  float el_beamwidth_deg{3.0f}; /**< 有效俯仰波束宽度（单位：deg） */
+};
+
+/**
+ * @brief RirAntennaLookOffsetDeg 表示目标相对当前波束中心的离轴角。
+ * @note 该类型用于方向图评估阶段的运行期中间量，不表示顶层配置项。
+ */
+struct RirAntennaLookOffsetDeg {
+  float delta_az_deg{0.0f}; /**< 方位离轴角（单位：deg） */
+  float delta_el_deg{0.0f}; /**< 俯仰离轴角（单位：deg） */
+};
+
+/**
+ * @brief RirAntennaPatternSample 表示方向图采样结果。
+ * @note 该类型用于返回方向图评估的中间结果，不应由外部直接构造参与配置。
+ */
+struct RirAntennaPatternSample {
+  float gain_dbi{0.0f};                 /**< 方向图总增益（单位：dBi） */
+  float main_lobe_attenuation_db{0.0f}; /**< 主瓣离轴衰减（单位：dB） */
+  float scan_loss_db{0.0f};             /**< 扫描损失（单位：dB） */
+  bool inside_main_lobe{false};         /**< 是否位于主瓣 */
+  bool inside_back_lobe{false};         /**< 是否位于后瓣 */
+};
+
+namespace rir_antenna_pattern_internal {
+
+inline float ClampLowerBound(float value, float min_value) {
+  return value < min_value ? min_value : value;
+}
+
+/** @brief 数值钳位（副本替代 AR utils::ClampFloat，免跨模块依赖）。 */
+inline float ClampFloat(float value, float min_value, float max_value) {
+  return value < min_value ? min_value : (value > max_value ? max_value : value);
+}
+
+/**
+ * @brief 判断离轴角是否进入后瓣区域。
+ * @param[in] offset_deg 目标相对当前波束中心的离轴角。
+ * @return 任一轴绝对离轴角超过 90 度时返回 true。
+ */
+inline bool IsInsideBackLobe(const RirAntennaLookOffsetDeg& offset_deg) {
+  return std::fabs(offset_deg.delta_az_deg) > 90.0f || std::fabs(offset_deg.delta_el_deg) > 90.0f;
+}
+
+}  // namespace rir_antenna_pattern_internal
+
+/**
+ * @brief 判断目标是否落入主瓣范围。
+ * @param[in] beamwidth_deg 用于评估的有效波束宽度。
+ * @param[in] offset_deg 目标相对当前波束中心的离轴角。
+ * @return 方位和俯仰离轴角均不超过半功率波束半宽时返回 true。
+ */
+inline bool RirIsInsideMainLobe(const RirAntennaPatternBeamwidthDeg& beamwidth_deg,
+                                const RirAntennaLookOffsetDeg& offset_deg) {
+  const float half_az_beamwidth_deg =
+      0.5f * rir_antenna_pattern_internal::ClampLowerBound(beamwidth_deg.az_beamwidth_deg, 1e-3f);
+  const float half_el_beamwidth_deg =
+      0.5f * rir_antenna_pattern_internal::ClampLowerBound(beamwidth_deg.el_beamwidth_deg, 1e-3f);
+  return std::fabs(offset_deg.delta_az_deg) <= half_az_beamwidth_deg &&
+         std::fabs(offset_deg.delta_el_deg) <= half_el_beamwidth_deg;
+}
+
+/**
+ * @brief 计算主瓣离轴衰减。
+ * @param[in] config 天线方向图配置。
+ * @param[in] beamwidth_deg 用于评估的有效波束宽度。
+ * @param[in] offset_deg 目标相对当前波束中心的离轴角。
+ * @return 主瓣离轴衰减（单位：dB）。
+ */
+inline float RirComputeMainLobeAttenuationDb(
+    const config::hardware::RirAntennaPatternConfig& config, const RirAntennaPatternBeamwidthDeg& beamwidth_deg,
+    const RirAntennaLookOffsetDeg& offset_deg, float antenna_az_length_m = 0.0f,
+    float antenna_el_width_m = 0.0f, float wavelength_m = 0.0f) {
+  const float half_az_beamwidth_deg =
+      0.5f * rir_antenna_pattern_internal::ClampLowerBound(beamwidth_deg.az_beamwidth_deg, 1e-3f);
+  const float half_el_beamwidth_deg =
+      0.5f * rir_antenna_pattern_internal::ClampLowerBound(beamwidth_deg.el_beamwidth_deg, 1e-3f);
+  const float normalized_az = std::fabs(offset_deg.delta_az_deg) / half_az_beamwidth_deg;
+  const float normalized_el = std::fabs(offset_deg.delta_el_deg) / half_el_beamwidth_deg;
+
+  switch (config.model_type) {
+    case config::hardware::RirAntennaPatternModelType::kParabolicMainLobe:
+      return 3.0f * (normalized_az * normalized_az + normalized_el * normalized_el);
+
+    case config::hardware::RirAntennaPatternModelType::kCosinePower: {
+      const float kDeg2Rad = 3.14159265358979f / 180.0f;
+      const float az_offset_rad =
+          rir_antenna_pattern_internal::ClampFloat(offset_deg.delta_az_deg, -89.9f, 89.9f) * kDeg2Rad;
+      const float el_offset_rad =
+          rir_antenna_pattern_internal::ClampFloat(offset_deg.delta_el_deg, -89.9f, 89.9f) * kDeg2Rad;
+      const float az_half_bw_rad = half_az_beamwidth_deg * kDeg2Rad;
+      const float el_half_bw_rad = half_el_beamwidth_deg * kDeg2Rad;
+      const float az_denominator =
+          std::log(rir_antenna_pattern_internal::ClampLowerBound(std::cos(az_half_bw_rad), 1e-6f));
+      const float el_denominator =
+          std::log(rir_antenna_pattern_internal::ClampLowerBound(std::cos(el_half_bw_rad), 1e-6f));
+      const float az_power = -0.69314718055995f / az_denominator;
+      const float el_power = -0.69314718055995f / el_denominator;
+      const float az_gain = std::pow(
+          rir_antenna_pattern_internal::ClampLowerBound(std::cos(az_offset_rad), 1e-6f), az_power);
+      const float el_gain = std::pow(
+          rir_antenna_pattern_internal::ClampLowerBound(std::cos(el_offset_rad), 1e-6f), el_power);
+      return -10.0f *
+             std::log10(rir_antenna_pattern_internal::ClampLowerBound(az_gain * el_gain, 1e-6f));
+    }
+
+    case config::hardware::RirAntennaPatternModelType::kSincPattern: {
+      float attenuation_db = 0.0f;
+      if (antenna_az_length_m > 0.0f && wavelength_m > 0.0f) {
+        const float kDeg2Rad = 3.14159265358979f / 180.0f;
+        const float az_offset_rad = offset_deg.delta_az_deg * kDeg2Rad;
+        const float arg =
+            3.14159265358979f * antenna_az_length_m * std::sin(az_offset_rad) / wavelength_m;
+        const float sinc_val = (std::fabs(arg) < 1e-6f) ? 1.0f : std::sin(arg) / arg;
+        const float safe_val =
+            rir_antenna_pattern_internal::ClampLowerBound(std::fabs(sinc_val), 1e-6f);
+        attenuation_db += -20.0f * std::log10(safe_val);
+      }
+      if (antenna_el_width_m > 0.0f && wavelength_m > 0.0f) {
+        const float kDeg2Rad = 3.14159265358979f / 180.0f;
+        const float el_offset_rad = offset_deg.delta_el_deg * kDeg2Rad;
+        const float arg =
+            3.14159265358979f * antenna_el_width_m * std::sin(el_offset_rad) / wavelength_m;
+        const float sinc_val = (std::fabs(arg) < 1e-6f) ? 1.0f : std::sin(arg) / arg;
+        const float safe_val =
+            rir_antenna_pattern_internal::ClampLowerBound(std::fabs(sinc_val), 1e-6f);
+        attenuation_db += -20.0f * std::log10(safe_val);
+      }
+      return attenuation_db;
+    }
+
+    case config::hardware::RirAntennaPatternModelType::kGaussianMainLobe:
+    default:
+      return 3.0f * (normalized_az * normalized_az + normalized_el * normalized_el);
+  }
+}
+
+/**
+ * @brief 计算扫描损失。
+ * @param[in] config 天线方向图配置。
+ * @param[in] beam_pointing_deg 当前波束指向方向。
+ * @return 扫描损失（单位：dB）。
+ */
+inline float RirComputeScanLossDb(const config::hardware::RirAntennaPatternConfig& config,
+                                  const config::RirAzimuthElevationDeg& beam_pointing_deg) {
+  const float delta_scan_az_deg = beam_pointing_deg.az_deg - config.boresight_offset_deg.az_deg;
+  const float delta_scan_el_deg = beam_pointing_deg.el_deg - config.boresight_offset_deg.el_deg;
+  const float raw_scan_loss_db =
+      config.scan_loss_coeff_db_per_deg2 *
+      (delta_scan_az_deg * delta_scan_az_deg + delta_scan_el_deg * delta_scan_el_deg);
+  return rir_antenna_pattern_internal::ClampFloat(
+      raw_scan_loss_db, 0.0f,
+      rir_antenna_pattern_internal::ClampLowerBound(config.max_scan_loss_db, 0.0f));
+}
+
+/**
+ * @brief 评估指定方向上的天线方向图结果。
+ * @param[in] peak_gain_dbi 波束中心峰值增益（单位：dBi）。
+ * @param[in] config 天线方向图配置。
+ * @param[in] beamwidth_deg 用于评估的有效波束宽度。
+ * @param[in] offset_deg 目标相对当前波束中心的离轴角。
+ * @param[in] beam_pointing_deg 当前波束指向方向。
+ * @return 方向图采样结果。
+ */
+inline RirAntennaPatternSample RirEvaluateAntennaPattern(
+    float peak_gain_dbi, const config::hardware::RirAntennaPatternConfig& config,
+    const RirAntennaPatternBeamwidthDeg& beamwidth_deg, const RirAntennaLookOffsetDeg& offset_deg,
+    const config::RirAzimuthElevationDeg& beam_pointing_deg, float antenna_az_length_m = 0.0f,
+    float antenna_el_width_m = 0.0f, float wavelength_m = 0.0f) {
+  RirAntennaPatternSample sample;
+  sample.scan_loss_db = RirComputeScanLossDb(config, beam_pointing_deg);
+  sample.inside_back_lobe = rir_antenna_pattern_internal::IsInsideBackLobe(offset_deg);
+  sample.inside_main_lobe =
+      !sample.inside_back_lobe && RirIsInsideMainLobe(beamwidth_deg, offset_deg);
+  if (sample.inside_back_lobe) {
+    sample.gain_dbi = peak_gain_dbi + config.backlobe_level_db - sample.scan_loss_db;
+    return sample;
+  }
+
+  sample.main_lobe_attenuation_db =
+      RirComputeMainLobeAttenuationDb(config, beamwidth_deg, offset_deg, antenna_az_length_m,
+                                      antenna_el_width_m, wavelength_m);
+  if (sample.inside_main_lobe) {
+    sample.gain_dbi = peak_gain_dbi - sample.main_lobe_attenuation_db - sample.scan_loss_db;
+    return sample;
+  }
+
+  sample.gain_dbi = peak_gain_dbi + config.max_sidelobe_level_db - sample.scan_loss_db;
+  return sample;
+}
+
+}  // namespace dwell
+}  // namespace remote_identification_radar
+
+#endif  // REMOTE_IDENTIFICATION_RADAR_DWELL_RIR_ANTENNA_PATTERN_RUNTIME_H_
