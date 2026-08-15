@@ -17,17 +17,13 @@ RIR 是与机载雷达（AR）**相互独立的另一部雷达装备**，不是 
 
 - **独立硬件**：自带 hardware 域（`RirHardwareConfig`：发射机/天线/接收机），
   效能级 SNR 由模块内 `RirRadarEquations` 自算，不引用 AR 内部实现。
-- **航迹供给（现状，待退役）**：与 AR 只存在"航迹供给"这一模块间接口——消费
-  外部雷达公开输出的已确认航迹（`RirTrackFeedEntry`），由调用方编排（如
-  "AR `Step()` → 供给航迹 → RIR `Step()`"）。**2026-08-15 需求方二次定案：AR 与
-  RIR 完全独立、无模块间协作接口，本接缝与 `RirTrackFeed` 公开输入在阶段 2-S
-  退役**（识别积累改挂内部航迹，见
-  `docs/review/rir_signal_chain_capability_boundary_2026-08-15.md` §6 与
-  `docs/review/remote_identification_radar_phase2_plan_2026-08-15.md` v2）。
-- **驻留指向（现状，待迁移）**：识别驻留波束调度不迁移（阶段 1 不消费，阶段 2
-  后评估项）；本模块当前只消费航迹供给，不驱动任何外部波束。阶段 2 改为消费
-  内部航迹、排序语义"未识别优先 + 斜距次近"（威胁等级输入随独立性消失）。
-- **自持检测链（阶段 2 落地中）**：需求所列九项信号链能力（天线方向图仿真、
+- **独立输入面（阶段 2-S 已落地）**：与 AR 无任何模块间接口。输入为场景目标
+  （含速度/名称/Swerling 起伏/识别特征真值）+ RF 入射链路 + 环境快照；内部
+  航迹由 RIR 自持检测与轻量跟踪生产。`RirTrackFeed` 公开供给已删除。
+- **驻留指向（阶段 2-S）**：波束指向由 RIR 自管；驻留候选排序消费内部航迹，
+  语义为"未识别优先 + 斜距次近"（威胁等级输入随独立性消失）。RIR 不驱动任何
+  外部雷达波束。
+- **自持检测链（阶段 2-S 已接线）**：需求所列九项信号链能力（天线方向图仿真、
   回波/干扰/噪声功率计算、四项处理增益、恒虚警检测）界定为 **RIR 自持检测链**
   （检测 → 轻量关联/滤波/生命周期 → 内部航迹 → 识别积累）；检测量测仅内部
   消费，不对外发布点迹；战斗级跟踪（IMM/LAPJV/航迹池）为非目标。逐项归属与
@@ -59,11 +55,10 @@ RIR 遵守 `docs/common/contract.md` 与 `docs/common/session_contract.md`：
    信号级 IQ/全波散射求解。
 2. 非 `kIdentify` 模式激活识别链路；威胁分类混入识别输出；以场景真值直接产生结论。
 3. 暴露内部识别类型为 public SPI；process-wide 识别全局状态。
-4. 航迹滤波/关联/决策（**待阶段 2-S 改写**，见《能力边界》§6）：现行——航迹由
-   外部雷达供给，本模块不实现探测、关联、跟踪或战术决策；也不把供给航迹解释为
-   自身探测结果。阶段 2-S 后——自持轻量跟踪（单目标 KF + 门限关联 + 计数生命
-   周期），战斗级跟踪（IMM/LAPJV/航迹池）、关联决策与战术决策仍否决；检测判决
-   不解释为对外"目标发现"事件。
+4. 战斗级跟踪/关联决策/战术决策：RIR 只实现识别消费闭包内的自持轻量跟踪
+   （单目标 KF + 门限最近邻关联 + 计数生命周期）；IMM/LAPJV/航迹池、关联
+   决策与战术决策仍否决；检测判决不解释为对外"目标发现"事件，检测量测不出
+   public 面。
 5. 波束控制：不通过本模块 API 控制外部雷达波束（驻留指向调度未落地前不虚构接口）。
 
 ## 单位纪律
@@ -74,19 +69,18 @@ RIR 遵守 `docs/common/contract.md` 与 `docs/common/session_contract.md`：
 
 ## ENU 帧约定
 
-- 识别高度观测 = 平台海拔 + `RirTrackFeedEntry::position_z`；`position_z` 为雷达
-  局部 ENU 切平面上向分量（含平台姿态旋转），由供给方按帧约定构造
-  （等价性测试以 `TryEcefToEnu` 复算 AR 内部帧对齐）。
+- 识别高度观测 = 平台海拔 + 内部航迹 `position_z`；`position_z` 为雷达局部
+  ENU 切平面上向分量，由场景目标位置经自持滤波后回写。
 - 场景目标 `position_x/y/z` 同帧；`range_m` 为斜距（>0 或带非零位置）。
 - 视角样本网格（`aspect_az_deg`/`aspect_el_deg`）为雷达局部视线角；RCS 插值为
   最近邻（不强制覆盖），覆盖下限属数据库 profile 级适用条件，由匹配阶段判定。
 
 ## 失败降级与状态机
 
-1. 库未加载/版本不兼容 → `kDisabled`（不影响航迹供给与其余能力）。
+1. 库未加载/版本不兼容 → `kDisabled`（不影响自持检测跟踪与其余能力）。
 2. 分数/分差不足 → `kUnknown` 或仅大类；运动维度不能单独确认型号。
-3. 航迹丢失供给（保持期无观测）→ 结论按 `result_hold_sec` 后置 `kStale`；
-   `association_key` 重分配（`hit_count` 回落）视为新目标。
+3. 内部航迹 lost 回收/无观测保持期 → 结论按 `result_hold_sec` 后置 `kStale`；
+   关联键单调分配且不回收复用，键重分配天然等于新目标。
 4. 退出 `kIdentify` → 清空积累，结论进入保持期；再次进入从零积累。
 5. 关机 → 不触碰识别状态，结论在恢复后按保持期过期；校验拒绝不推进积累。
 6. 数据库加载失败保持原库（路径变更时按需加载，失败仅降级并记录日志）。
@@ -97,16 +91,16 @@ RIR 遵守 `docs/common/contract.md` 与 `docs/common/session_contract.md`：
   patch 字段）。
 - 公共枚举加性扩展（不重排既有值，replay 字节兼容）；新增类别须同步
   `RirTracker::CategoryToPublic` 映射与 `RirRecognitionCategory`。
-- replay 逐周期比较识别结果（浮点容差 `1e-5f`），`database_version` 入
-  `RirSessionReplayState`，不一致即 failure。
+- replay 逐周期比较识别结果（浮点容差 `1e-5f`），`database_version` 与检测随机
+  种子入 `RirSessionReplayState`，不一致即 failure；replay schema 为 V2 破坏性
+  版本，旧 V1 记录显式拒绝。
 - 识别配置校验：`rir.validation.recognition_*` 五码（权重/路径/门限/计数/时间范围）。
 
 ## 识别子模型的物理保真度边界（F1/F2）
 
-识别链路在效能级观测之上引入两条**识别专用更高保真观测路径**，与任何探测链
-物理口径**不逐项对账**（本模块现行无探测链，该约定随迁自 AR 边界文档；阶段 2-S
-落地自持检测链后本条口径按
-`docs/review/rir_signal_chain_capability_boundary_2026-08-15.md` §6 复核改写）：
+识别链路在效能级观测之上引入两条**识别专用更高保真观测路径**，与自持检测链
+物理口径**不逐项对账**（阶段 2-S 后本模块已有探测链，F1/F2 仍只服务于识别
+维度有效性与质量）：
 
 1. **F1 双通道极化**：场景目标 `polarization_rcs_samples`（dBsm）经同一雷达方程
    与 SNR 噪声底派生；通道定义（H/V）由数据库固定（meta `polarization_channels`）。
@@ -132,10 +126,10 @@ RIR 遵守 `docs/common/contract.md` 与 `docs/common/session_contract.md`：
 3. 观测构造/提取/匹配/判定语义变化，必须同步 algorithms.md 与
    `tests/unit|integration/remote_identification_radar/` 对应测试。
 4. 输出字段变化保持三层分离；replay 表变更评估字节兼容。
-5. 与 AR 的航迹供给契约变化（字段增删/帧约定）须同步等价性测试
-   （`tests/integration/cross_domain/ar_rir_recognition_equivalence_test.cpp`）。
+5. 输入面/RF/环境字段变化须同步 `RirInputValidation` 新 issue code、契约白名单
+   与场景测试；不再存在 AR 航迹供给契约。
 6. 验证范围：`unit::remote_identification_radar`、`integration::remote_identification_radar`、
-   `replay::remote_identification_radar`、`integration::cross_domain`（等价性）。
+   `replay::remote_identification_radar`、`integration::cross_domain`。
 
 [evidence: tests/unit/remote_identification_radar/]
 [evidence: tests/integration/remote_identification_radar/]
