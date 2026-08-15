@@ -161,7 +161,7 @@ Authority: 能力边界界定报告。对远程识别雷达需求文档所列九
 | 8 | 干扰信号处理增益 | **账本分母项 + 偏置参数** | 决策 3 聚合后的干扰功率进分母，`jamming_suppression_gain_db` 偏置（§3.2） |
 | 9 | 恒虚警检测 | **迁（自持检测判决）** | RIR 落地 `RirSignalDetector`：Pfa 门限 + Swerling Pd + 确定性种子判决（副本改写 `RadarEquations` 检测子集 + `SignalDetector` 判决链）。**2026-08-15 二次定案修订**：检测判决驱动 RIR 自持目标图像（检测 → 轻量关联 → 内部航迹），特征维度门控升级为其下游消费；**不产点迹输出、不做战斗级跟踪/关联决策**；CA-CFAR 口径按 §3.1 澄清后再议 |
 | 10 | 驻留指向（前置） | **阶段 2 先行**（审计 §5.1 既定评估项转正式） | 优先航迹选择逻辑迁入 RIR 自管波束调度，消费**内部航迹**；**排序语义变更**：威胁等级输入（AR 威胁分类 `target_type`）随独立性消失，改为"未识别优先 + 斜距次近"（原 `IsBetterLrrCandidate` 威胁排序不迁移）。RIR 不驱动任何外部雷达波束 |
-| 11 | 环境输入面（前置） | **阶段 2 迁移改造** | `RirPropagationModel` 子集（传播损耗 + 杂波，副本改写 AR `PropagationModel` 语义）：系数入 `RirEnvironmentConfig`（激活空占位域），天气数据经 `RirCycleInput` 周期输入；RF 入射链路（common incident links）入 `RirCycleInput`。校验/issue codes/replay 兼容性随迁扩展 |
+| 11 | 环境输入面（前置） | **阶段 2 迁移改造** | `RirPropagationModel` 子集（传播损耗 + 杂波，副本改写 AR `PropagationModel` 语义）：植被场景事实入 `RirEnvironmentConfig`（激活空占位域；基线系数按 AR 环境域合约保留在实现内部），植被场景数据经 `RirCycleInput` 周期输入；RF 入射链路（common incident links）入 `RirCycleInput`。校验/issue codes/replay 兼容性随迁扩展 |
 | 12 | 轻量跟踪子集（二次定案新增） | **迁（识别消费闭包）** | 单目标 KF（位置-速度-加速度 + 不确定度）、门限/最近邻关联、计数生命周期（confirm/lost、键重分配=新目标语义内化）；AR 来源 `KalmanPredictor/Updater`、`DataAssociation`/`DistanceMetric`、`TrackLifecycleManager` 子集。**IMM/LAPJV/航迹池不迁**（非目标） |
 | 13 | 外部航迹供给退役（二次定案新增） | **废除** | `RirTrackFeed` 公开输入与 `RirTrackFeedEntry`/`RirTrackFeedStatus` 出 public 面（破坏性变更）；识别积累的 `association_key`/`hit_count`/confirm 语义改由决策 12 内部航迹自产；`RirSceneTarget` 增 velocity/`target_name`/`target_swerling_type` |
 

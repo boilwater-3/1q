@@ -61,7 +61,7 @@ Authority: 第二阶段实施计划；AR 侧删除归属与验收以
 | M2 | `dwell/RirAntennaPatternRuntime`（4 主瓣模型 + 扫描损失 + 主/旁/后瓣）+ `RirBeamControl` 子集（有效波束宽度推导、安装系指向、离轴角→增益） | `AntennaPatternRuntime.h`、`BeamControlResolver.h` |
 | M3 | `dwell/RirDetectionCellResolver`：线性域雷达方程 + 时延/多普勒 + 接收窗脉冲计数 + **干扰时频重叠聚合**（`TryResolveCellInterference` 语义副本；抗 RGPO 减半不带，ECCM 属 AR） | `ArDetectionCellResolver.*` |
 | M4 | `dwell/RirSignalDetector`：统计级 CFAR 判决链（Pfa 门限 → Swerling Pd → 种子判决；`min_snr_db`/`min_detection_margin_db` 门）；种子 `SetRandomSeed` 语义 | `SignalDetector.*` |
-| M5 | `internal/RirPropagationModel` 子集：传播损耗 + 杂波功率（基线+降雨混合口径）；系数入 `RirEnvironmentConfig`（**激活空占位域**，满足其"先有真实消费路径"头注）、天气数据入周期输入 | `environment/PropagationModel.*` 语义 |
+| M5 | `internal/RirPropagationModel` 子集：传播损耗 + 杂波功率（基线+植被散射物理混合口径）；植被场景事实入 `RirEnvironmentConfig`（**激活空占位域**，满足其"先有真实消费路径"头注；基线系数按 AR 环境域"不含内部调参项"合约保留在实现内部），植被场景数据入周期输入（阶段 2-S） | `environment/PropagationModel.*` 语义 |
 | M6 | `dwell/RirMeasurementErrorModel` 子集：检测量测位置误差（SNR/带宽驱动）→ 关联与滤波输入 | `MeasurementErrorModel.h` |
 
 四增益偏置参数（《边界》§3.2 方案 A）随 M3/M4 落地：`RirSignalProcessingConfig`
@@ -102,6 +102,20 @@ Authority: 第二阶段实施计划；AR 侧删除归属与验收以
 | C5 | 嵌入识别断言测试段删除 | §3.5 |
 | C6 | 文档与示例（AR 四篇 kLrr 章节、§1.2 冲突声明、examples README、`logger_i18n.h`） | §3.6 |
 | C7 | 段验收：《审计》§9 七条逐条核对 | §9 |
+
+## 5.5 执行进度（2026-08-15）
+
+- **段 2-M（迁移改造）已完成**：M1 `e6e073b9`（雷达方程检测子集全函数集 +
+  `RirSwerlingModel`）、M2 `87bd2ae1`（`dwell/RirAntennaPatternRuntime` +
+  `RirBeamControl`）、M3 `99b53792`（`dwell/RirDetectionCellResolver` 干扰聚合 +
+  四增益偏置入 `RirHardwareConfig`/校验/issue code）、M4 `f28cb874`
+  （`dwell/RirSignalDetector` 统计级 CFAR + Pfa 闭环/统计验证）、M5 `950625ed`
+  （`internal/RirPropagationModel` 植被散射杂波 + 环境域激活）、M6 `e66d5293`
+  （`dwell/RirMeasurementErrorModel`）。
+- 段验证门通过：unit 74/74（阶段 1 既有 26 例零修改通过）、integration 28/28、
+  replay 3/3、cross_domain 7/7（含等价性测试）——旁路增量零回归。
+- 构建注记：本机 64 位 MSBuild 需 `UCRTContentRoot` 环境变量（预设已内置，
+  见 `VisualStudio.15.0-amd64` preset 描述）；直连 `cmake --build` 须显式导出。
 
 ## 6. 文件级映射（RIR 侧增量；AR 侧见《审计》§3）
 
