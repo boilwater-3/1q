@@ -1,6 +1,7 @@
 /**
  * @file RirTrackAssociator.cpp
- * @brief RIR 轻量跟踪子集的门限 + 最近邻关联器实现（阶段 2-T T2）。
+ * @brief RIR 轻量跟踪子集的门限 + LAPJV 全局最优关联器实现
+ *        （阶段 2-T T2，N1/N2 升级为全局最优指派）。
  */
 
 #include "remote_identification_radar/tracking/RirTrackAssociator.h"
@@ -136,46 +137,59 @@ RirAssociationResult RirTrackAssociator::Associate(
     seed_priors.push_back(prior);
   }
 
-  std::vector<Candidate> candidates;
-  candidates.reserve(seed_priors.size() * viable_measurement_indices.size());
-  for (std::size_t s = 0U; s < seed_priors.size(); ++s) {
-    for (std::size_t m = 0U; m < viable_measurement_indices.size(); ++m) {
-      const RirMeasurementCovariance innovation_covariance =
-          seed_priors[s].projected_covariance + resolved_covariances[m];
-      const RirTrackMeasurement& measurement = measurements[viable_measurement_indices[m]];
-      const float cost = ComputeSquaredMahalanobisDistance(
-          seed_priors[s].predicted_position, measurement.position, innovation_covariance);
-      if (cost <= config_.gate_threshold) {
-        candidates.push_back(Candidate{s, m, cost});
-      }
-    }
-  }
-
-  std::sort(candidates.begin(), candidates.end(), [](const Candidate& lhs, const Candidate& rhs) {
-    if (lhs.cost != rhs.cost) {
-      return lhs.cost < rhs.cost;
-    }
-    if (lhs.seed_index != rhs.seed_index) {
-      return lhs.seed_index < rhs.seed_index;
-    }
-    return lhs.measurement_index < rhs.measurement_index;
-  });
-
+  // 代价矩阵 + LAPJV 全局最优指派（N2，对齐 AR DataAssociation 方阵增广模式）：
+  // 波门内代价入矩阵；门外对填拒绝代价（未分配代价的 nextafter，保证严格更劣）；
+  // 增广出的哑行/哑列填未分配代价，承担"该航迹/量测本周期不分配"的出口。
   std::vector<std::uint8_t> seed_matched(seed_priors.size(), 0U);
-  std::vector<std::uint8_t> measurement_matched(viable_measurement_indices.size(), 0U);
   std::vector<std::uint64_t> matched_key_by_measurement(viable_measurement_indices.size(),
                                                         kUnassociatedKey);
   std::vector<float> matched_cost_by_measurement(viable_measurement_indices.size(), 0.0f);
 
-  for (const Candidate& candidate : candidates) {
-    if (seed_matched[candidate.seed_index] != 0U ||
-        measurement_matched[candidate.measurement_index] != 0U) {
-      continue;
+  if (!seed_priors.empty() && !viable_measurement_indices.empty()) {
+    const std::size_t rows = seed_priors.size();
+    const std::size_t cols = viable_measurement_indices.size();
+    const std::size_t dim = std::max(rows, cols);
+    const float unassigned_cost = config_.gate_threshold;
+    const float rejected_cost =
+        std::nextafter(unassigned_cost, std::numeric_limits<float>::infinity());
+
+    Eigen::MatrixXf cost_matrix(static_cast<Eigen::Index>(dim), static_cast<Eigen::Index>(dim));
+    cost_matrix.setConstant(rejected_cost);
+    if (dim > cols) {
+      cost_matrix.rightCols(static_cast<Eigen::Index>(dim - cols)).setConstant(unassigned_cost);
     }
-    seed_matched[candidate.seed_index] = 1U;
-    measurement_matched[candidate.measurement_index] = 1U;
-    matched_key_by_measurement[candidate.measurement_index] = seed_priors[candidate.seed_index].key;
-    matched_cost_by_measurement[candidate.measurement_index] = candidate.cost;
+    if (dim > rows) {
+      cost_matrix.bottomRows(static_cast<Eigen::Index>(dim - rows)).setConstant(unassigned_cost);
+    }
+
+    for (std::size_t s = 0U; s < seed_priors.size(); ++s) {
+      for (std::size_t m = 0U; m < viable_measurement_indices.size(); ++m) {
+        const RirMeasurementCovariance innovation_covariance =
+            seed_priors[s].projected_covariance + resolved_covariances[m];
+        const RirTrackMeasurement& measurement = measurements[viable_measurement_indices[m]];
+        const float cost = ComputeSquaredMahalanobisDistance(
+            seed_priors[s].predicted_position, measurement.position, innovation_covariance);
+        if (cost <= config_.gate_threshold) {
+          cost_matrix(static_cast<Eigen::Index>(s), static_cast<Eigen::Index>(m)) = cost;
+        }
+      }
+    }
+
+    const std::vector<int> assignment = assignment_solver_.Solve(cost_matrix);
+
+    for (std::size_t r = 0U; r < rows; ++r) {
+      const int assigned_col = assignment[r];
+      if (assigned_col < 0 || static_cast<std::size_t>(assigned_col) >= cols) {
+        continue;
+      }
+      const float matched_cost =
+          cost_matrix(static_cast<Eigen::Index>(r), static_cast<Eigen::Index>(assigned_col));
+      if (matched_cost <= unassigned_cost) {
+        matched_key_by_measurement[static_cast<std::size_t>(assigned_col)] = seed_priors[r].key;
+        matched_cost_by_measurement[static_cast<std::size_t>(assigned_col)] = matched_cost;
+        seed_matched[r] = 1U;
+      }
+    }
   }
 
   for (std::size_t m = 0U; m < viable_measurement_indices.size(); ++m) {

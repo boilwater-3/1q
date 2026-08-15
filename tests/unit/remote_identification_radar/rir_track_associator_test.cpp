@@ -1,13 +1,15 @@
 // Copyright 2026. All Rights Reserved.
 //
 // @file rir_track_associator_test.cpp
-// @brief 验证 RIR 轻量跟踪子集门限 + 最近邻关联（阶段 2-T T2）。
+// @brief 验证 RIR 轻量跟踪子集门限 + LAPJV 全局最优关联（阶段 2-T T2，N1/N2）。
 
 #include <gtest/gtest.h>
 
 #include <Eigen/Core>
 #include <limits>
+#include <vector>
 
+#include "remote_identification_radar/tracking/RirLapjvSolver.h"
 #include "remote_identification_radar/tracking/RirTrackAssociator.h"
 #include "remote_identification_radar/tracking/RirTrackTypes.h"
 
@@ -133,6 +135,80 @@ TEST(RirTrackAssociatorTest, UniqueAssignmentUsesGlobalNearestNeighbour) {
   EXPECT_EQ(result.measurements[0].association_key, 10U);
   EXPECT_EQ(result.measurements[1].association_key, 11U);
   EXPECT_TRUE(result.missed_track_keys.empty());
+}
+
+/// @brief 全局最优指派（N2）：贪心最近邻会被全局最小边带偏的冲突场景，
+///        LAPJV 必须选择总代价更小的换位配对。
+/// 场景（零过程噪声 + R=I，代价 = 欧氏距离平方，门 9）：
+///   seed A(0) - 量测 a(0.3)：0.09（全局最小边）；seed A - 量测 b(-1.5)：2.25；
+///   seed B(2.0) - 量测 a：2.89；seed B - 量测 b：12.25（门外）。
+/// 贪心取 A-a 后 B 失配、b 新键（总代价 0.09+9+9）；全局最优为 A-b + B-a（5.14）。
+TEST(RirTrackAssociatorTest, GlobalOptimumBeatsGreedyNearestNeighbour) {
+  RirTrackAssociator associator;
+  RirStateCovariance covariance = RirStateCovariance::Zero();
+  std::vector<RirTrackSeed> seeds;
+  seeds.push_back(MakeSeed(100U, 0.0f, 0.0f, 0.0f, covariance));   // A
+  seeds.push_back(MakeSeed(200U, 2.0f, 0.0f, 0.0f, covariance));   // B
+
+  std::vector<RirTrackMeasurement> measurements;
+  measurements.push_back(MakeMeasurement(0U, 0.3f, 0.0f, 0.0f));   // a
+  measurements.push_back(MakeMeasurement(1U, -1.5f, 0.0f, 0.0f));  // b
+
+  const auto result = associator.Associate(measurements, seeds, 0.0f);
+
+  ASSERT_EQ(result.measurements.size(), 2U);
+  // 全局最优换位：a→B、b→A，两条既有航迹全部命中。
+  EXPECT_EQ(result.measurements[0].association_key, 200U);
+  EXPECT_TRUE(result.measurements[0].matched_existing_track);
+  EXPECT_EQ(result.measurements[1].association_key, 100U);
+  EXPECT_TRUE(result.measurements[1].matched_existing_track);
+  ASSERT_EQ(result.matches.size(), 2U);
+  EXPECT_NEAR(result.matches[0].cost, 2.89f, 1.0e-4f);
+  EXPECT_NEAR(result.matches[1].cost, 2.25f, 1.0e-4f);
+  EXPECT_TRUE(result.missed_track_keys.empty());
+}
+
+/// @brief 量测多于航迹：增广哑行吸收多余量测，多余量测分配新键。
+TEST(RirTrackAssociatorTest, MoreMeasurementsThanSeedsAssignsSurplusToNewKeys) {
+  RirTrackAssociator associator;
+  RirStateCovariance covariance = RirStateCovariance::Zero();
+  std::vector<RirTrackSeed> seeds;
+  seeds.push_back(MakeSeed(5U, 0.0f, 0.0f, 0.0f, covariance));
+
+  std::vector<RirTrackMeasurement> measurements;
+  measurements.push_back(MakeMeasurement(0U, 0.1f, 0.0f, 0.0f));
+  measurements.push_back(MakeMeasurement(1U, 0.2f, 0.0f, 0.0f));
+  measurements.push_back(MakeMeasurement(2U, 50.0f, 0.0f, 0.0f));
+
+  const auto result = associator.Associate(measurements, seeds, 0.0f);
+
+  ASSERT_EQ(result.measurements.size(), 3U);
+  ASSERT_EQ(result.matches.size(), 1U);
+  EXPECT_EQ(result.matches[0].association_key, 5U);
+  // 哑行吸收的两个量测按输入顺序分配单调新键。
+  EXPECT_EQ(result.measurements[1].association_key, 1U);
+  EXPECT_FALSE(result.measurements[1].matched_existing_track);
+  EXPECT_EQ(result.measurements[2].association_key, 2U);
+  EXPECT_FALSE(result.measurements[2].matched_existing_track);
+  EXPECT_TRUE(result.missed_track_keys.empty());
+}
+
+/// @brief LAPJV 求解器（N1）直接契约：非方阵拒绝；2×2 方阵给出全局最优行→列映射。
+TEST(RirLapjvSolverTest, SolvesSquareMatrixAndRejectsNonSquare) {
+  tracking::RirLapjvSolver solver;
+
+  Eigen::MatrixXf non_square(2, 3);
+  non_square.setZero();
+  EXPECT_TRUE(solver.Solve(non_square).empty());
+
+  Eigen::MatrixXf cost(2, 2);
+  // 贪心取全局最小边 (0,0)=1.0 会把行 1 逼到 100.0（总 101.0）；
+  // 全局最优是 (0,1)=1.1 + (1,0)=1.05（总 2.15）。
+  cost << 1.0f, 1.1f, 1.05f, 100.0f;
+  const std::vector<int> assignment = solver.Solve(cost);
+  ASSERT_EQ(assignment.size(), 2U);
+  EXPECT_EQ(assignment[0], 1);
+  EXPECT_EQ(assignment[1], 0);
 }
 
 /// @brief 非有限量测被剔除，不消耗新键。

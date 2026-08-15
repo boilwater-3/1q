@@ -1,12 +1,14 @@
 /**
  * @file RirTrackAssociator.h
- * @brief RIR 轻量跟踪子集的门限 + 最近邻检测-航迹关联器（阶段 2-T T2）。
+ * @brief RIR 轻量跟踪子集的门限 + LAPJV 全局最优检测-航迹关联器（阶段 2-T T2，
+ *        N1/N2 升级为全局最优指派）。
  *
  * 副本来源：`src/airborne_radar/signal/association/DataAssociation.*` /
- * `DistanceMetric.*` 子集（审计基线 96de367c）。
- * 刻意不迁：LAPJV 全局指派、欺骗候选关联、假设生成器可注入度量、
- * 逐航迹外部 seed 模式切换。低密度驻留假设下以全局最小马氏距离边做
- * 唯一分配（最近邻），波门按每对"预测协方差投影 + 动态量测 R"定标。
+ * `DistanceMetric.*` / `LapjvSolver.*` 子集（审计基线 96de367c）。
+ * 刻意不迁：欺骗候选关联、假设生成器可注入度量、逐航迹外部 seed 模式切换。
+ * 关联采用方阵代价矩阵 + LAPJV 全局最优指派（D-A4 边界突破）：波门内代价
+ * 入矩阵，门外对填拒绝代价，未分配行/列填未分配代价；波门按每对"预测协方差
+ * 投影 + 动态量测 R"定标。
  */
 
 #ifndef REMOTE_IDENTIFICATION_RADAR_TRACKING_RIR_TRACK_ASSOCIATOR_H_
@@ -16,16 +18,21 @@
 #include <vector>
 
 #include "common/estimation/KalmanPredictor.h"
+#include "remote_identification_radar/tracking/RirLapjvSolver.h"
 #include "remote_identification_radar/tracking/RirTrackTypes.h"
 
 namespace remote_identification_radar {
 namespace tracking {
 
 /**
- * @brief RirAssociationConfig 最近邻关联配置。
+ * @brief RirAssociationConfig 全局最优关联配置。
  */
 struct RirAssociationConfig {
-  /** @brief 波门阈值：归一化新息平方（马氏距离平方）上限；缺省 9 对应 3σ 门。 */
+  /**
+   * @brief 波门阈值：归一化新息平方（马氏距离平方）上限；缺省 9 对应 3σ 门。
+   * @note 同时作为 LAPJV 未分配代价（policy `distance_gate_sigma` 的 σ→σ² 映射，
+   *       与 AR `AssociationConfig` 的 `unassigned_cost = sigma²` 口径一致）。
+   */
   float gate_threshold{9.0f};
   /** @brief 门控先验预测的过程噪声扩散系数 q（m/s²）。 */
   float kalman_noise_diff_coeff{1.0f};
@@ -61,7 +68,7 @@ struct RirAssociationRuntimeState {
 };
 
 /**
- * @brief RirTrackAssociator 门限 + 最近邻关联器。
+ * @brief RirTrackAssociator 门限 + LAPJV 全局最优关联器。
  *
  * 关联键由本类单调分配且不回收复用：生命周期回收只删除内部航迹，不会把
  * 旧键放回分配池。因此"键重分配 = 新目标"语义在自持链路内天然成立，
@@ -73,7 +80,7 @@ class RirTrackAssociator {
   explicit RirTrackAssociator(RirAssociationConfig config = {});
 
   /**
-   * @brief 对检测量测与既有航迹种子执行门限 + 最近邻关联。
+   * @brief 对检测量测与既有航迹种子执行门限 + 全局最优关联。
    * @param[in] measurements 本周期检测量测（association_key 初始为 0）。
    * @param[in] seeds 既有航迹种子（由 RirTrackLifecycle 导出）。
    * @param[in] dt_sec 周期步长（s）；非正或非有限时按 0 处理（只门控不外推）。
@@ -95,12 +102,6 @@ class RirTrackAssociator {
   void RestoreRuntimeState(const RirAssociationRuntimeState& state);
 
  private:
-  struct Candidate {
-    std::size_t seed_index{0U};
-    std::size_t measurement_index{0U};
-    float cost{0.0f};
-  };
-
   bool IsUsableMeasurement(const RirTrackMeasurement& measurement) const;
   RirMeasurementCovariance ResolveMeasurementCovariance(
       const RirMeasurementCovariance& covariance) const;
@@ -108,6 +109,7 @@ class RirTrackAssociator {
 
   RirAssociationConfig config_{};
   ::oneq::common::estimation::KalmanPredictor<6, 3> predictor_;
+  RirLapjvSolver assignment_solver_{};
   std::uint64_t next_key_{1U};
 };
 
