@@ -121,6 +121,8 @@ void RirController::UpdateRuntime(config::RirWorkMode work_mode,
   lifecycle_config.confirm_hits = policy_.lifecycle.confirm_hits;
   lifecycle_config.max_miss_before_lost = policy_.lifecycle.max_miss_before_lost;
   lifecycle_config.max_lost_cycles = policy_.lifecycle.max_lost_cycles;
+  lifecycle_config.enable_imm_lifecycle = policy_.lifecycle.enable_imm_lifecycle;
+  lifecycle_config.model_count_hint = policy_.lifecycle.model_count_hint;
   tracking::RirTrackFilterConfig filter_config;
   filter_config.process_noise_diff_coeff = policy_.tracking.kalman_noise_diff_coeff;
   filter_config.default_measurement_noise_std = policy_.tracking.kalman_measurement_noise_std;

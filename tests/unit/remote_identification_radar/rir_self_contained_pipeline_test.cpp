@@ -5,6 +5,7 @@
 
 #include <gtest/gtest.h>
 
+#include <cmath>
 #include <cstdint>
 
 #include "1q/remote_identification_radar/session/RirCycleInput.h"
@@ -106,6 +107,38 @@ TEST(RirSelfContainedPipelineTest, StandbyDoesNotAdvanceSelfContainedChain) {
   ASSERT_EQ(standby_frame.recognition_outputs.size(), 1U);
   EXPECT_EQ(standby_frame.recognition_outputs[0].association_key, 1U);
   EXPECT_EQ(controller.GetLatestSummary().dwell_budget.scheduled_dwell_count, 0U);
+}
+
+/// @brief IMM policy 接线（N6）：enable_imm_lifecycle 经 public policy 抵达
+///        生命周期双路径——confirmed 命中后链路保持稳定，键不变、逐周期产出结论。
+/// @note 内部航迹不出 public 面（边界不变式）；运动学连续性由
+///        rir_imm_tracking_test 在生命周期层锁定。
+TEST(RirSelfContainedPipelineTest, ImmPolicyReachesLifecycleAndKeepsTrackStable) {
+  config::RirPolicyConfig policy;
+  policy.detection.gate_mode = config::RirDetectionGateMode::kSnrFallback;
+  policy.lifecycle.confirm_hits = 1U;
+  policy.lifecycle.enable_imm_lifecycle = true;  // N6：public policy IMM 开关
+  policy.lifecycle.model_count_hint = 2U;
+  RirController controller;
+  controller.SetHardware(config::RirHardwareConfig{});
+  controller.UpdateRuntime(config::RirWorkMode::kIdentify, policy);
+
+  std::uint64_t key = 0U;
+  for (std::uint32_t cycle = 1U; cycle <= 4U; ++cycle) {
+    RirOutputFrame frame;
+    // 位移与速度种子一致（100 m/s × dt 0.5 s = 50 m/周期），保证门内持续命中。
+    controller.RunCycle(MakeInput(cycle, 5000.0f + 50.0f * static_cast<float>(cycle - 1U), 5.0f),
+                        &frame);
+    // 周期 3 起 confirmed 命中走 IMM 路径：链路不因 IMM 挂载而中断。
+    ASSERT_EQ(frame.recognition_outputs.size(), 1U);
+    if (key == 0U) {
+      key = frame.recognition_outputs[0].association_key;
+    } else {
+      EXPECT_EQ(frame.recognition_outputs[0].association_key, key);
+    }
+    EXPECT_EQ(controller.GetLatestSummary().dwell_budget.executed_dwell_count, 1U);
+  }
+  EXPECT_NE(key, 0U);
 }
 
 }  // namespace

@@ -21,8 +21,9 @@ Related-Authority:
 1. RIR 已完成从“消费 AR 航迹供给的识别后处理模块”到“自持检测 → 跟踪 →
    识别的独立雷达模块”的切换；`RirTrackFeed` 公共供给面与 AR↔RIR 等价性
    测试已删除。
-2. 下一步迁移计算发生一次边界调整：**突破 2-T 轻量跟踪边界**，从 AR 补
-   LAPJV、航迹池、IMM，使 RIR 达到全局最优多目标关联与多模型跟踪规格。
+2. 跟踪能力升级（突破 2-T 轻量边界，N1-N7）**已完成**：LAPJV 全局最优
+   关联、航迹池 + 复用代次、IMM 双路径（confirmed 命中激活）全部落地；
+   public policy `enable_imm_lifecycle`/`model_count_hint` 已接线。
 3. “全天候”不做内部天气模型迁移；天气衰减继续由调用方以
    `RirEnvironmentSnapshot.weather_attenuation_db` 输入字段提供。
 4. 跟踪波束/成波作为独立议题暂缓，不在当前迁移计算内展开。
@@ -35,7 +36,8 @@ Related-Authority:
 | 2-M | 检测链与环境子集迁移 | 完成 | M1 `e6e073b9`、M2 `87bd2ae1`、M3 `99b53792`、M4 `f28cb874`、M5 `950625ed`、M6 `e66d5293` |
 | 2-T | 轻量跟踪子集 | 完成 | T4 `6fa38268`/`2020f739`、T1 `0b3e8d70`、T2 `79bef1d6`、T3 `ce995bda` |
 | 2-S | 自持化重构 | 完成 | 核心 `c09dd870`、四件套文档 `7809e5d6`、进度登记 `c38d59f9`、注释清理 `1d7f6eb5` |
-| 2-C | AR 侧识别耦合收尾删除 | 完成 | 按耦合审计 §3/§9 全清单执行：识别实现目录/public 头/Controller-Session-Pipeline 胶合/replay fbs 表与 codec/测试 SQLite 接线/文档四件套与 i18n 收敛；`ArWorkMode` 值域收紧为 kStby/kTas/kTws/kStt，replay 工作模式上界 kStt，`airborne_engine` 解除 SQLite 链接（replay 字节兼容断裂按审计 §7.1 接受，一次性无兼容层） |
+| 2-C | AR 侧识别耦合收尾删除 | 完成 | `1ac346ca`（按耦合审计 §3/§9 全清单：识别实现目录/public 头/Controller-Session-Pipeline 胶合/replay fbs 表与 codec/测试 SQLite 接线/文档四件套与 i18n 收敛；`ArWorkMode` 值域收紧为 kStby/kTas/kTws/kStt，replay 工作模式上界 kStt，`airborne_engine` 解除 SQLite 链接；replay 字节兼容断裂按审计 §7.1 接受，一次性无兼容层） |
+| 跟踪升级 N1-N7 | LAPJV/航迹池/IMM（突破 2-T 轻量边界） | 完成 | N1+N2 `46e495dd`（RirLapjvSolver + 方阵代价矩阵全局最优指派）；N3 `93bd3a4f`（RirTrackPool + generation 复用代次）；N4+N5 `6bfca646`（RirImmFilter 包装 common ImmFilter + 生命周期双路径）；N6+N7 public policy IMM 开关接线 + 四件套文档改写 |
 | 阶段 3 | common 化收敛与四域归位 | 未开始 | 见 §5 |
 
 当前验证基线：

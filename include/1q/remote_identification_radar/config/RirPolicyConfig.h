@@ -63,11 +63,13 @@ struct ONEQ_API RirTrackingPolicyConfig {
 
 namespace lifecycle {
 
-/** @brief 轻量航迹生命周期策略（阶段 2-S S2）。 */
+/** @brief 轻量航迹生命周期策略（阶段 2-S S2；IMM 开关为跟踪升级 N6）。 */
 struct ONEQ_API RirLifecyclePolicyConfig {
   std::uint32_t confirm_hits{3U};         /**< tentative 转 confirmed 所需累计命中数。 */
   std::uint32_t max_miss_before_lost{2U}; /**< tentative/confirmed 转 lost 连续失配阈值。 */
   std::uint32_t max_lost_cycles{5U};      /**< lost 保留周期数，超出即回收。 */
+  bool enable_imm_lifecycle{false};       /**< 是否启用 IMM 生命周期路径（confirmed 命中激活）。 */
+  std::uint32_t model_count_hint{2U};     /**< IMM 模型数提示值；< 2 按双模型处理。 */
 };
 
 }  // namespace lifecycle
