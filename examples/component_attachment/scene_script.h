@@ -32,8 +32,9 @@ struct TargetEcefState {
   oneq::coordinate::EcefPositionM position{};  /**< ECEF 位置 */
   oneq::coordinate::EcefVelocityMps velocity{}; /**< ECEF 速度 */
   float rcs{0.0f};                    /**< 雷达截面积（m²） */
-  float temperature_k{0.0f};          /**< 等效温度（EOS/SBIRS 外观） */
-  float projected_area_m2{0.0f};      /**< 等效投影面积（EOS/SBIRS 外观，m²） */
+  float temperature_k{0.0f};          /**< 等效温度（EOS 外观） */
+  float projected_area_m2{0.0f};      /**< 等效投影面积（EOS 外观，m²） */
+  double radiant_intensity_w_per_sr{0.0}; /**< 目标辐射强度（SBIRS 外观，W/sr） */
   double emitter_center_frequency_hz{0.0}; /**< ESR 辐射源中心频率（Hz；≤0 = 不配辐射源） */
   std::vector<TargetManeuver> maneuvers{}; /**< 变速机动表（从脚本拷贝，推进时按周期查表） */
 };
@@ -60,7 +61,7 @@ std::vector<oneq::electromagnetics::RfSceneEmission> MakeEmitterTruths(
 std::vector<electro_optical_sensor::session::EosExternalTargetInput> MakeOpticalTargets(
     const std::vector<TargetEcefState>& states);
 
-/// SBIRS 红外目标真值：同一物理目标（红外外观参数与 EOS 同源）。
+/// SBIRS 红外目标真值：同一物理目标（红外签名以辐射强度 W/sr 提供，与 EOS 温度型外观不同源）。
 std::vector<sbirs_sensor::session::SbirsSceneTarget> MakeSbirsTargetInputs(
     const std::vector<TargetEcefState>& states);
 

@@ -50,7 +50,7 @@ class SbirsSensorComponent : public Component {
   /** @brief 当前电源状态（由 sensor_enabled 补丁唯一维护；未步进前默认 true，关机时组件不驱动会话）。 */
   bool powered_on() const { return powered_on_; }
 
-  /** @brief 最近周期波束中心方位角（deg，ECEF 极坐标参考，同 SbirsDetectionRecord::azimuth_deg；仅开机且最近周期 kCompleted 为有效扫描方位，关机时组件清零）。 */
+  /** @brief 最近周期波束中心方位角（deg，ECI 极坐标参考——库内为弧度，组件转度显示；仅开机且最近周期 kCompleted 为有效扫描方位，关机时组件清零）。 */
   float scan_azimuth_deg() const { return scan_azimuth_deg_; }
 
   /**

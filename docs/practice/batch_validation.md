@@ -18,8 +18,8 @@ Authority: tests/consumer/batch_validation engineering practice
 | EOS | `eos_batch_validation` | 36 | 6 | 42 |
 | ESR | `esr_batch_validation` | 48 | 6 | 54 |
 | SAR | `sar_batch_validation` | 36 | 6 | 42 |
-| SBIRS | `sbirs_batch_validation` | 27 | 7 | 34 |
-| **总计** |  | **199** | **31** | **230** |
+| SBIRS | `sbirs_batch_validation` | 9 | 7 | 16 |
+| **总计** |  | **181** | **31** | **212** |
 
 数量和场景 ID 的运行时 source of truth 是各可执行程序的 `--list-scenarios`；可读目录维护在
 `tests/consumer/batch_validation/README.md`。文档不得从旧 CSV 或历史运行报告反推当前清单。

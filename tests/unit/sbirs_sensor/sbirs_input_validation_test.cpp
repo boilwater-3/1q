@@ -5,6 +5,7 @@
 
 #include "1q/sbirs_sensor/session/SbirsCycleInputAdapter.h"
 #include "1q/sbirs_sensor/session/SbirsInputValidation.h"
+#include "1q/sbirs_sensor/session/SbirsIssueCodes.h"
 
 namespace {
 
@@ -39,13 +40,13 @@ TEST(SbirsInputValidationTest, AcceptsMinimalValidScene) {
   sbirs_sensor::session::SbirsSceneTarget target;
   target.target_id = 10U;
   target.position_ecef_m = Vector(8000000.0, 0.0, 0.0);
-  target.temperature_k = 1200.0f;
-  target.projected_area_m2 = 10.0f;
+  target.radiant_intensity_w_per_sr = 1.0e4;
 
   const sbirs_sensor::session::SbirsCycleInput input =
       sbirs_sensor::session::SbirsCycleInputBuilder()
           .WithCycleIndex(1U)
           .WithDeltaTimeSec(1.0f)
+          .WithUtcJulianDay(2451544.2230698913)  // GMST≈0：ECI≡ECEF
           .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
           .AddTarget(target)
           .Build();
@@ -59,12 +60,12 @@ TEST(SbirsInputValidationTest, RejectsFiniteDomainFlagIdAndEnvironmentMatrix) {
   sbirs_sensor::session::SbirsSceneTarget target;
   target.target_id = 10U;
   target.position_ecef_m = Vector(8000000.0, 0.0, 0.0);
-  target.temperature_k = 1200.0f;
-  target.projected_area_m2 = 10.0f;
+  target.radiant_intensity_w_per_sr = 1.0e4;
   const sbirs_sensor::session::SbirsCycleInput valid =
       sbirs_sensor::session::SbirsCycleInputBuilder()
           .WithCycleIndex(1U)
           .WithDeltaTimeSec(1.0f)
+          .WithUtcJulianDay(2451544.2230698913)  // GMST≈0：ECI≡ECEF
           .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
           .AddTarget(target)
           .Build();
@@ -73,13 +74,13 @@ TEST(SbirsInputValidationTest, RejectsFiniteDomainFlagIdAndEnvironmentMatrix) {
   invalid_inputs.push_back(valid);
   invalid_inputs.back().satellite_position_ecef_m = Vector(0.0, 0.0, 0.0);
   invalid_inputs.push_back(valid);
-  invalid_inputs.back().scene.front().temperature_k =
-      std::numeric_limits<float>::quiet_NaN();
+  invalid_inputs.back().scene.front().radiant_intensity_w_per_sr =
+      std::numeric_limits<double>::quiet_NaN();
   invalid_inputs.push_back(valid);
-  invalid_inputs.back().scene.front().emissivity = 1.1f;
+  invalid_inputs.back().scene.front().radiant_intensity_w_per_sr =
+      std::numeric_limits<double>::infinity();
   invalid_inputs.push_back(valid);
-  invalid_inputs.back().scene.front().projected_area_m2 =
-      std::numeric_limits<float>::infinity();
+  invalid_inputs.back().scene.front().radiant_intensity_w_per_sr = -1.0;
   invalid_inputs.push_back(valid);
   invalid_inputs.back().scene.front().target_id = 0U;
   invalid_inputs.push_back(valid);
@@ -109,13 +110,13 @@ TEST(SbirsInputValidationTest, AcceptsDtSecWithinFrameRateBound) {
   sbirs_sensor::session::SbirsSceneTarget target;
   target.target_id = 1U;
   target.position_ecef_m = Vector(8000000.0, 0.0, 0.0);
-  target.temperature_k = 1200.0f;
-  target.projected_area_m2 = 10.0f;
+  target.radiant_intensity_w_per_sr = 1.0e4;
 
   const sbirs_sensor::session::SbirsCycleInput input =
       sbirs_sensor::session::SbirsCycleInputBuilder()
           .WithCycleIndex(1U)
           .WithDeltaTimeSec(0.5f)
+          .WithUtcJulianDay(2451544.2230698913)  // GMST≈0：ECI≡ECEF
           .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
           .AddTarget(target)
           .Build();
@@ -125,18 +126,59 @@ TEST(SbirsInputValidationTest, AcceptsDtSecWithinFrameRateBound) {
   EXPECT_FALSE(sbirs_sensor::session::HasValidationError(issues));
 }
 
+
+TEST(SbirsInputValidationTest, RejectsMissingOrInvalidUtcJulianDay) {
+  // 2026-08 正式变更：ECI 输出参考系要求每周期携带 UTC 儒略日（缺失=0/非有限/
+  // 非正 → 校验拒绝，code sbirs.validation.invalid_utc_julian_day）。
+  sbirs_sensor::session::SbirsSceneTarget target;
+  target.target_id = 10U;
+  target.position_ecef_m = Vector(8000000.0, 0.0, 0.0);
+  target.radiant_intensity_w_per_sr = 1.0e4;
+
+  const sbirs_sensor::session::SbirsCycleInput valid =
+      sbirs_sensor::session::SbirsCycleInputBuilder()
+          .WithCycleIndex(1U)
+          .WithDeltaTimeSec(1.0f)
+          .WithUtcJulianDay(2451544.2230698913)  // GMST≈0：ECI≡ECEF
+          .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
+          .AddTarget(target)
+          .Build();
+
+  std::vector<sbirs_sensor::session::SbirsCycleInput> invalid_inputs;
+  invalid_inputs.push_back(valid);
+  invalid_inputs.back().utc_julian_day = 0.0;  // 缺失（默认值）
+  invalid_inputs.push_back(valid);
+  invalid_inputs.back().utc_julian_day = -1.0;
+  invalid_inputs.push_back(valid);
+  invalid_inputs.back().utc_julian_day = std::numeric_limits<double>::quiet_NaN();
+
+  for (std::size_t i = 0; i < invalid_inputs.size(); ++i) {
+    const sbirs_sensor::session::SbirsIssueList issues =
+        sbirs_sensor::session::ValidateSbirsCycleInput(invalid_inputs[i], 10.0f);
+    EXPECT_TRUE(sbirs_sensor::session::HasValidationError(issues)) << "case " << i;
+    bool found_code = false;
+    for (const auto& issue : issues) {
+      EXPECT_EQ(issue.phase, sbirs_sensor::session::SbirsIssuePhase::kInputValidation);
+      if (issue.code == sbirs_sensor::session::codes::kInvalidUtcJulianDay) {
+        found_code = true;
+      }
+    }
+    EXPECT_TRUE(found_code) << "case " << i << " missing invalid_utc_julian_day code";
+  }
+}
+
 TEST(SbirsInputValidationTest, RejectsDtSecExceedingFrameRateBound) {
   // frame_rate_hz=10 → max_dt = 10/10 = 1.0s; dt_sec=2.0 exceeds the bound.
   sbirs_sensor::session::SbirsSceneTarget target;
   target.target_id = 1U;
   target.position_ecef_m = Vector(8000000.0, 0.0, 0.0);
-  target.temperature_k = 1200.0f;
-  target.projected_area_m2 = 10.0f;
+  target.radiant_intensity_w_per_sr = 1.0e4;
 
   const sbirs_sensor::session::SbirsCycleInput input =
       sbirs_sensor::session::SbirsCycleInputBuilder()
           .WithCycleIndex(1U)
           .WithDeltaTimeSec(2.0f)
+          .WithUtcJulianDay(2451544.2230698913)  // GMST≈0：ECI≡ECEF
           .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
           .AddTarget(target)
           .Build();
@@ -151,13 +193,13 @@ TEST(SbirsInputValidationTest, AcceptsDtSecAtExactFrameRateBound) {
   sbirs_sensor::session::SbirsSceneTarget target;
   target.target_id = 1U;
   target.position_ecef_m = Vector(8000000.0, 0.0, 0.0);
-  target.temperature_k = 1200.0f;
-  target.projected_area_m2 = 10.0f;
+  target.radiant_intensity_w_per_sr = 1.0e4;
 
   const sbirs_sensor::session::SbirsCycleInput input =
       sbirs_sensor::session::SbirsCycleInputBuilder()
           .WithCycleIndex(1U)
           .WithDeltaTimeSec(1.0f)
+          .WithUtcJulianDay(2451544.2230698913)  // GMST≈0：ECI≡ECEF
           .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
           .AddTarget(target)
           .Build();
@@ -172,13 +214,13 @@ TEST(SbirsInputValidationTest, RejectsDtSecJustAboveFrameRateBound) {
   sbirs_sensor::session::SbirsSceneTarget target;
   target.target_id = 1U;
   target.position_ecef_m = Vector(8000000.0, 0.0, 0.0);
-  target.temperature_k = 1200.0f;
-  target.projected_area_m2 = 10.0f;
+  target.radiant_intensity_w_per_sr = 1.0e4;
 
   const sbirs_sensor::session::SbirsCycleInput input =
       sbirs_sensor::session::SbirsCycleInputBuilder()
           .WithCycleIndex(1U)
           .WithDeltaTimeSec(1.001f)
+          .WithUtcJulianDay(2451544.2230698913)  // GMST≈0：ECI≡ECEF
           .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
           .AddTarget(target)
           .Build();
@@ -193,13 +235,13 @@ TEST(SbirsInputValidationTest, HigherFrameRateAllowsTighterDtSec) {
   sbirs_sensor::session::SbirsSceneTarget target;
   target.target_id = 1U;
   target.position_ecef_m = Vector(8000000.0, 0.0, 0.0);
-  target.temperature_k = 1200.0f;
-  target.projected_area_m2 = 10.0f;
+  target.radiant_intensity_w_per_sr = 1.0e4;
 
   const sbirs_sensor::session::SbirsCycleInput input =
       sbirs_sensor::session::SbirsCycleInputBuilder()
           .WithCycleIndex(1U)
           .WithDeltaTimeSec(0.8f)
+          .WithUtcJulianDay(2451544.2230698913)  // GMST≈0：ECI≡ECEF
           .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
           .AddTarget(target)
           .Build();

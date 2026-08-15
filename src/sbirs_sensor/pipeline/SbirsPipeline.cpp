@@ -7,6 +7,7 @@
 #include <string>
 
 #include "common/logging/ProjectLog.h"
+#include "1q/coordinate/inertial_transform.h"
 #include "1q/sbirs_sensor/session/SbirsIssueCodes.h"
 #include "sbirs_sensor/environment/SbirsEnvironmentModel.h"
 #include "sbirs_sensor/foundation/SbirsErrorModel.h"
@@ -47,8 +48,9 @@ session::SbirsIssue MakeExclusionIssue(const char* code, const std::string& mess
 // 规则 13b 门内归因：WFOV SNR 门失败主因分类。SNR 门为聚合门（距离²/大气透过率/
 // 目标签名折入单一门限），反事实判定主因——各因子取"达标参考值"后 SNR 提升（dB）
 // 最大者：距离参考 1000 km、大气全透过、目标签名取"使 SNR 恰达门限的签名"
-//（signature_required 仅依赖硬件/门限配置，调用方在循环外计算）；噪声为硬件常数，
-// 不参与单目标归因。全部损失 <= 0 时返回 kUnknown。
+//（signature_required 仅依赖硬件/门限配置，调用方在循环外计算）；目标签名即
+// 输入辐射强度 I_t（W/sr）。噪声为硬件常数，不参与单目标归因。全部损失 <= 0 时
+// 返回 kUnknown。
 session::SbirsIssueCause ClassifyWfovSnrExclusionCause(double range_m, float transmittance,
                                                        double signature_actual,
                                                        double signature_required) {
@@ -152,6 +154,21 @@ float PositiveModulo(float value, float period) {
     result += period;
   }
   return result;
+}
+
+// 2026-08 正式变更（ECI 输出）：内部角度量纲保持 deg、方位约定为对称
+// (-180, 180]（AzimuthDelta 最短角差语义）；输出边界统一转换为 ECI 极坐标
+// 弧度——az ∈ [0, 2π)、el ∈ [-π/2, π/2]（客户契约，见 session_contract.md
+// §传感器方位坐标系约定）。el 越界由误差注入引起时钳制到有效域。
+float WrapAzimuthPositive(float azimuth_deg) { return PositiveModulo(azimuth_deg, 360.0f); }
+
+float ToEciAzimuthRad(float azimuth_deg) {
+  return WrapAzimuthPositive(azimuth_deg) * 0.017453292519943295f;
+}
+
+float ToEciElevationRad(float elevation_deg) {
+  const float clamped = std::max(-90.0f, std::min(90.0f, elevation_deg));
+  return clamped * 0.017453292519943295f;
 }
 
 float ScanAzimuth(const config::SbirsMissionConfig& mission, float phase_deg) {
@@ -300,12 +317,9 @@ bool IsValidTrackingSnapshot(const SbirsPipelineSnapshot& snapshot,
 double ComputeSnr(const config::SbirsInternalExecutionConfig& config,
                   const session::SbirsSceneTarget& target, double range_m, float transmittance) {
   const config::SbirsHardwareConfig& hardware = config.session.hardware;
-  const double band_radiance = foundation::ComputeBandRadiance(
-      hardware.wavelength_lower_um, hardware.wavelength_upper_um, target.temperature_k);
   const double received_power = foundation::ComputeReceivedPowerW(
-      band_radiance * std::max(0.0f, target.emissivity), target.projected_area_m2, range_m,
-      hardware.optical_aperture_m, hardware.optical_transmission, transmittance,
-      hardware.detector_quantum_efficiency);
+      target.radiant_intensity_w_per_sr, range_m, hardware.optical_aperture_m,
+      hardware.optical_transmission, transmittance, hardware.detector_quantum_efficiency);
   // 2.8 噪声分解：背景/热/读出三项 RMS 合成；默认全 0 时回退到 NEP 标量。
   const foundation::SbirsNoiseStatistics noise =
       foundation::ComputeBackgroundNoiseStatistics(hardware);
@@ -443,11 +457,57 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
     nfov_scheduler_.Clear();
     pointing_coordinator_.Clear();
     cue_predictor_.Clear();
-    result.scan_azimuth_deg = ScanAzimuth(mission, scan_phase_deg_);
+    result.scan_azimuth_rad = ToEciAzimuthRad(ScanAzimuth(mission, scan_phase_deg_));
     return result;
   }
 
   result.executed = true;
+
+  // ECI 输出参考系（2026-08 正式变更）：本周期时刻的 GMST 把卫星与目标位置/速度
+  // 从 ECEF 旋转到 ECI（J2000 平赤道面），下游 LOS/az/el/遮挡/SNR/EKF 全部在 ECI
+  // 中执行；速度含 ω×r 输运项（见 1q/coordinate/inertial_transform.h）。
+  // 输入校验已保证 utc_julian_day 正有限；防御性回退 GMST=0 仅防不可达路径。
+  double gmst_rad = 0.0;
+  if (!oneq::coordinate::TryComputeGmstRad(input.utc_julian_day, &gmst_rad)) {
+    gmst_rad = 0.0;
+  }
+  std::vector<session::SbirsSceneTarget> eci_scene;
+  eci_scene.reserve(input.scene.size());
+  for (const session::SbirsSceneTarget& target : input.scene) {
+    session::SbirsSceneTarget eci_target = target;
+    const oneq::coordinate::EcefPositionM ecef_position(
+        target.position_ecef_m.x, target.position_ecef_m.y, target.position_ecef_m.z);
+    oneq::coordinate::EciPositionM eci_position;
+    if (oneq::coordinate::TryEcefToEci(ecef_position, gmst_rad, &eci_position)) {
+      // 旋转后分量写回 ECI 场景副本（字段名保持输入帧命名，见 RunCycle 注释）。
+      eci_target.position_ecef_m.x = eci_position.x_m;
+      eci_target.position_ecef_m.y = eci_position.y_m;
+      eci_target.position_ecef_m.z = eci_position.z_m;
+    }
+    if (target.has_velocity_ecef_m_per_s) {
+      const oneq::coordinate::EcefVelocityMps ecef_velocity(
+          target.velocity_ecef_m_per_s.x, target.velocity_ecef_m_per_s.y,
+          target.velocity_ecef_m_per_s.z);
+      oneq::coordinate::EciVelocityMps eci_velocity;
+      if (oneq::coordinate::TryEcefVelocityToEci(ecef_position, ecef_velocity, gmst_rad,
+                                                 &eci_velocity)) {
+        eci_target.velocity_ecef_m_per_s.x = eci_velocity.x_mps;
+        eci_target.velocity_ecef_m_per_s.y = eci_velocity.y_mps;
+        eci_target.velocity_ecef_m_per_s.z = eci_velocity.z_mps;
+      }
+    }
+    eci_scene.push_back(eci_target);
+  }
+  const oneq::coordinate::EcefPositionM satellite_ecef(
+      input.satellite_position_ecef_m.x, input.satellite_position_ecef_m.y,
+      input.satellite_position_ecef_m.z);
+  oneq::coordinate::EciPositionM satellite_eci;
+  if (!oneq::coordinate::TryEcefToEci(satellite_ecef, gmst_rad, &satellite_eci)) {
+    satellite_eci = oneq::coordinate::EciPositionM(satellite_ecef.x_m, satellite_ecef.y_m,
+                                                   satellite_ecef.z_m);
+  }
+  const session::SbirsVector3M satellite_position_eci_m{
+      satellite_eci.x_m, satellite_eci.y_m, satellite_eci.z_m};
 
   // 规则 13a：周期执行摘要所需四类门控排除计数（按目标循环内累加）。
   std::size_t excluded_occulted = 0U;
@@ -467,7 +527,7 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
         [](const SbirsPipelineDetection& detection) { return detection.record.detected; }));
     PROJECT_LOG_INFO("[SbirsPipeline] cycle_index={} scan_az={:.2f} detected={}/{} records={} "
                      "excluded={{occulted={} range={} wfov={} snr={}}}",
-                     input.cycle_index, result.scan_azimuth_deg, detected_count,
+                     input.cycle_index, result.scan_azimuth_rad, detected_count,
                      input.scene.size(), result.detections.size(), excluded_occulted,
                      excluded_out_of_range, excluded_out_of_wfov, excluded_snr_below);
   };
@@ -476,13 +536,13 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
       DisturbanceParameters(policy.pointing_disturbance);
   if (!pointing_coordinator_.AdvanceDisturbance(static_cast<double>(input.dt_sec),
                                                 disturbance_parameters)) {
-    result.scan_azimuth_deg = ScanAzimuth(mission, scan_phase_deg_);
+    result.scan_azimuth_rad = ToEciAzimuthRad(ScanAzimuth(mission, scan_phase_deg_));
     log_cycle_summary();
     return result;
   }
   SbirsPointingDisturbanceSample frame_disturbance;
   if (!pointing_coordinator_.DisturbanceSample(0, disturbance_parameters, &frame_disturbance)) {
-    result.scan_azimuth_deg = ScanAzimuth(mission, scan_phase_deg_);
+    result.scan_azimuth_rad = ToEciAzimuthRad(ScanAzimuth(mission, scan_phase_deg_));
     log_cycle_summary();
     return result;
   }
@@ -491,7 +551,7 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
       PositiveModulo(scan_phase_deg_ + mission.scan_rate_deg_per_sec * std::max(0.0f, input.dt_sec),
                      mission.scan_span_deg);
   const float scan_azimuth_deg = ScanAzimuth(mission, scan_phase_deg_);
-  result.scan_azimuth_deg = scan_azimuth_deg;
+  result.scan_azimuth_rad = ToEciAzimuthRad(scan_azimuth_deg);
   const float actual_scan_azimuth_deg =
       NormalizeAzimuth(scan_azimuth_deg + static_cast<float>(frame_disturbance.common.azimuth_deg));
   const float actual_scan_elevation_deg =
@@ -520,8 +580,9 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
     }
   }
 
-  for (std::size_t target_idx = 0U; target_idx < input.scene.size(); ++target_idx) {
-    const session::SbirsSceneTarget& target = input.scene[target_idx];
+  for (std::size_t target_idx = 0U; target_idx < eci_scene.size(); ++target_idx) {
+    // ECI 场景副本（真值已在周期入口旋转到 ECI；字段名沿用输入帧命名）。
+    const session::SbirsSceneTarget& target = eci_scene[target_idx];
     if (!target.active) {
       target_states_[target.target_id] = SbirsTargetState::kLost;
       nfov_scheduler_.Release(target.target_id);
@@ -531,12 +592,12 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
       continue;
     }
 
-    if (foundation::IsEarthOcculted(input.satellite_position_ecef_m, target.position_ecef_m,
+    if (foundation::IsEarthOcculted(satellite_position_eci_m, target.position_ecef_m,
                                     kEarthRadiusM)) {
       // 规则 13b：遮挡排除 → kInfo 诊断（不属于三写，仅承载排查信息）。
       // 具体门（遮挡判定本身可定位）：cause 保持 kNone，遮挡余量（负值 = 深度）进 message。
       const double occultation_margin_m = foundation::ComputeEarthOccultationMarginM(
-          input.satellite_position_ecef_m, target.position_ecef_m, kEarthRadiusM);
+          satellite_position_eci_m, target.position_ecef_m, kEarthRadiusM);
       result.issues.push_back(MakeExclusionIssue(
           session::codes::kTargetOcculted,
           "target_id=" + std::to_string(target.target_id) +
@@ -554,7 +615,7 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
     }
 
     const session::SbirsVector3M los =
-        foundation::Subtract(target.position_ecef_m, input.satellite_position_ecef_m);
+        foundation::Subtract(target.position_ecef_m, satellite_position_eci_m);
     const double range_m = foundation::Norm(los);
     if (range_m < mission.min_range_m || range_m > mission.max_range_m) {
       // 规则 13b：距离门排除 → kInfo 诊断（不属于三写，仅承载排查信息）。
@@ -606,7 +667,7 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
       float command_elevation_deg = elevation_deg;
       if (estimated_tracking) {
         const SbirsTrackingPredictionResult prediction = tracking_coordinator_.PredictTarget(
-            target.target_id, policy, input.dt_sec, input.satellite_position_ecef_m);
+            target.target_id, policy, input.dt_sec, satellite_position_eci_m);
         command_azimuth_deg = prediction.output_azimuth_deg;
         command_elevation_deg = prediction.output_elevation_deg;
       }
@@ -638,8 +699,8 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
 
       SbirsPipelineDetection detection;
       detection.record.detection_id = next_detection_id_++;
-      detection.record.azimuth_deg = command_azimuth_deg;
-      detection.record.elevation_deg = command_elevation_deg;
+      detection.record.azimuth_rad = ToEciAzimuthRad(command_azimuth_deg);
+      detection.record.elevation_rad = ToEciElevationRad(command_elevation_deg);
       detection.record.infrared_snr_linear = static_cast<float>(snr);
       detection.record.observation_stage = output::SbirsObservationStage::kNarrowFieldTrack;
       detection.record.detected = tracking_gate_passed;
@@ -664,9 +725,9 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
         const SbirsTrackingUpdateResult tracking_result = tracking_coordinator_.CorrectTarget(
             target.target_id, policy, &estimated_measurement_random_source_, azimuth_deg,
             elevation_deg, range_m,
-            omega_deg_per_sec_cached, input.satellite_position_ecef_m);
-        detection.record.azimuth_deg = tracking_result.output_azimuth_deg;
-        detection.record.elevation_deg = tracking_result.output_elevation_deg;
+            omega_deg_per_sec_cached, satellite_position_eci_m);
+        detection.record.azimuth_rad = ToEciAzimuthRad(tracking_result.output_azimuth_deg);
+        detection.record.elevation_rad = ToEciElevationRad(tracking_result.output_elevation_deg);
         detection.attribution.has_estimation_nis = tracking_result.has_estimation_nis;
         detection.attribution.estimation_nis = tracking_result.estimation_nis;
         detection.attribution.estimation_nis_gate_exceeded =
@@ -678,8 +739,8 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
         const foundation::SbirsErrorBearing bearing = foundation::ApplyAngularErrorModel(
             policy.error_model, &sensor_like_output_random_source_, azimuth_deg, elevation_deg,
             range_m, omega_deg_per_sec_cached);
-        detection.record.azimuth_deg = bearing.azimuth_deg;
-        detection.record.elevation_deg = bearing.elevation_deg;
+        detection.record.azimuth_rad = ToEciAzimuthRad(bearing.azimuth_deg);
+        detection.record.elevation_rad = ToEciElevationRad(bearing.elevation_deg);
         detection.attribution.estimated_range_m = static_cast<float>(bearing.range_m);
       } else if (!tracking_gate_passed && estimated_tracking) {
         tracking_coordinator_.MarkMeasurementUnavailable(target.target_id);
@@ -741,11 +802,7 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
       // 规则 13b：WFOV SNR 门排除 → kInfo 诊断（不属于三写，仅承载排查信息）。
       // 门内归因：SNR 门为聚合门，反事实判定主因（见 ClassifyWfovSnrExclusionCause；
       // signature_required 已在循环外计算）。
-      const double band_radiance = foundation::ComputeBandRadiance(
-          hw.wavelength_lower_um, hw.wavelength_upper_um, target.temperature_k);
-      const double signature_actual =
-          band_radiance * std::max(0.0f, target.emissivity) *
-          static_cast<double>(std::max(0.0f, target.projected_area_m2));
+      const double signature_actual = std::max(0.0, target.radiant_intensity_w_per_sr);
       const session::SbirsIssueCause snr_cause = ClassifyWfovSnrExclusionCause(
           range_m, transmittance, signature_actual, snr_signature_required);
       result.issues.push_back(MakeExclusionIssue(
@@ -796,7 +853,7 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
       predicted_position.z =
           target.position_ecef_m.z + target.velocity_ecef_m_per_s.z * cue_latency_s;
       const session::SbirsVector3M predicted_los =
-          foundation::Subtract(predicted_position, input.satellite_position_ecef_m);
+          foundation::Subtract(predicted_position, satellite_position_eci_m);
       candidate.delayed_truth_azimuth_deg = foundation::ComputeAzimuthDeg(predicted_los);
       candidate.delayed_truth_elevation_deg = foundation::ComputeElevationDeg(predicted_los);
     } else {
@@ -814,8 +871,8 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
     for (const SbirsCandidate& candidate : candidates) {
       SbirsPipelineDetection detection;
       detection.record.detection_id = next_detection_id_++;
-      detection.record.azimuth_deg = candidate.measured_azimuth_deg;
-      detection.record.elevation_deg = candidate.measured_elevation_deg;
+      detection.record.azimuth_rad = ToEciAzimuthRad(candidate.measured_azimuth_deg);
+      detection.record.elevation_rad = ToEciElevationRad(candidate.measured_elevation_deg);
       detection.record.infrared_snr_linear = static_cast<float>(candidate.snr);
       detection.record.observation_stage = output::SbirsObservationStage::kWideFieldSearch;
       detection.record.detected = true;
@@ -839,8 +896,8 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
   const auto append_wfov_detection = [&](const SbirsCandidate& candidate, int channel_id) {
     SbirsPipelineDetection detection;
     detection.record.detection_id = next_detection_id_++;
-    detection.record.azimuth_deg = candidate.measured_azimuth_deg;
-    detection.record.elevation_deg = candidate.measured_elevation_deg;
+    detection.record.azimuth_rad = ToEciAzimuthRad(candidate.measured_azimuth_deg);
+    detection.record.elevation_rad = ToEciElevationRad(candidate.measured_elevation_deg);
     detection.record.infrared_snr_linear = static_cast<float>(candidate.snr);
     detection.record.observation_stage = output::SbirsObservationStage::kWideFieldSearch;
     detection.record.detected = true;
@@ -855,8 +912,8 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
                                               attribution::SbirsCaptureFailureReason reason) {
     SbirsPipelineDetection detection;
     detection.record.detection_id = next_detection_id_++;
-    detection.record.azimuth_deg = candidate.measured_azimuth_deg;
-    detection.record.elevation_deg = candidate.measured_elevation_deg;
+    detection.record.azimuth_rad = ToEciAzimuthRad(candidate.measured_azimuth_deg);
+    detection.record.elevation_rad = ToEciElevationRad(candidate.measured_elevation_deg);
     detection.record.infrared_snr_linear = static_cast<float>(candidate.snr);
     detection.record.observation_stage = output::SbirsObservationStage::kNarrowFieldAcquisition;
     detection.record.detected = false;
@@ -945,8 +1002,8 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
       }
       SbirsPipelineDetection detection;
       detection.record.detection_id = next_detection_id_++;
-      detection.record.azimuth_deg = selected.measured_azimuth_deg;
-      detection.record.elevation_deg = selected.measured_elevation_deg;
+      detection.record.azimuth_rad = ToEciAzimuthRad(selected.measured_azimuth_deg);
+      detection.record.elevation_rad = ToEciElevationRad(selected.measured_elevation_deg);
       detection.record.infrared_snr_linear = static_cast<float>(selected.snr);
       detection.record.observation_stage = output::SbirsObservationStage::kNarrowFieldAcquisition;
       detection.record.detected = true;
@@ -955,16 +1012,16 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
       detection.attribution.target_name = selected.target->target_name;
       detection.attribution.tracking_source = TrackingSourceForMode(policy.tracking.tracking_mode);
       if (policy.tracking.tracking_mode == config::SbirsTrackingMode::kStrictTruthAssisted) {
-        detection.record.azimuth_deg = selected.azimuth_deg;
-        detection.record.elevation_deg = selected.elevation_deg;
+        detection.record.azimuth_rad = ToEciAzimuthRad(selected.azimuth_deg);
+        detection.record.elevation_rad = ToEciElevationRad(selected.elevation_deg);
         detection.attribution.estimated_range_m = static_cast<float>(selected.range_m);
       } else if (policy.tracking.tracking_mode ==
                  config::SbirsTrackingMode::kSensorLikeTruthAssisted) {
         const foundation::SbirsErrorBearing bearing = foundation::ApplyAngularErrorModel(
             policy.error_model, &sensor_like_output_random_source_, selected.azimuth_deg,
             selected.elevation_deg, selected.range_m, selected.angular_rate_deg_per_sec);
-        detection.record.azimuth_deg = bearing.azimuth_deg;
-        detection.record.elevation_deg = bearing.elevation_deg;
+        detection.record.azimuth_rad = ToEciAzimuthRad(bearing.azimuth_deg);
+        detection.record.elevation_rad = ToEciElevationRad(bearing.elevation_deg);
         detection.attribution.estimated_range_m = static_cast<float>(bearing.range_m);
       } else {
         detection.attribution.estimated_range_m = static_cast<float>(selected.range_m);
@@ -1040,8 +1097,8 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
     }
     SbirsPipelineDetection detection;
     detection.record.detection_id = next_detection_id_++;
-    detection.record.azimuth_deg = candidate.measured_azimuth_deg;
-    detection.record.elevation_deg = candidate.measured_elevation_deg;
+    detection.record.azimuth_rad = ToEciAzimuthRad(candidate.measured_azimuth_deg);
+    detection.record.elevation_rad = ToEciElevationRad(candidate.measured_elevation_deg);
     detection.record.infrared_snr_linear = static_cast<float>(candidate.snr);
     detection.record.observation_stage = output::SbirsObservationStage::kWideFieldSearch;
     detection.record.detected = true;

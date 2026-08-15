@@ -4,10 +4,12 @@
  *        6 维 CV 状态 / 2 维角度量测场景，并提供球坐标角度量测模型与动态 R 矩阵构造。
  *
  * 设计要点（见 docs/space_based_infrared_sensor/algorithms.md 目标状态机 / EKF 滤波跟踪）：
- * - 状态：6 维 ECEF 恒速 [x, vx, y, vy, z, vz]，复用 common CV 模型。
+ * - 状态：6 维 ECI 恒速 [x, vx, y, vy, z, vz]，复用 common CV 模型（2026-08 正式变更：
+ *   ECI 输出参考系——pipeline 周期入口已把真值旋转到 ECI，滤波状态随之在 ECI 中演化；
+ *   CV 模型对 ECI 恒速目标更贴合，且不含 ECEF 的科氏耦合）。
  * - 量测：2 维球坐标角度 [az, el]（被动红外不测距）。h(x) 非线性，走 EKF。
- * - 角度量测模型 SbirsAngleMeasurementModel：h(x) = 目标 ECEF 相对卫星位置的 LOS → az/el；
- *   Jacobian 解析求导。卫星位置每帧由 pipeline 通过 SetSatellitePosition 注入。
+ * - 角度量测模型 SbirsAngleMeasurementModel：h(x) = 目标 ECI 相对卫星位置的 LOS → az/el；
+ *   Jacobian 解析求导。卫星 ECI 位置每帧由 pipeline 通过 SetSatellitePosition 注入。
  * - R 矩阵 BuildMeasurementCovariance：从 SbirsErrorModelConfig 的 5 类误差 1-σ 合成 2×2，
  *   随距离/俯仰/角速度动态变化。
  */
@@ -30,7 +32,7 @@
 namespace sbirs_sensor {
 namespace tracking {
 
-/** @brief SBIRS 红外滤波状态维度（3D 恒速 ECEF）。 */
+/** @brief SBIRS 红外滤波状态维度（3D 恒速 ECI）。 */
 static constexpr int kSbirsStateDim = 6;
 /** @brief SBIRS 红外量测维度（方位 + 俯仰角度）。 */
 static constexpr int kSbirsMeasurementDim = 2;
@@ -71,14 +73,14 @@ class SbirsAngleMeasurementModel final
   SbirsAngleMeasurementModel() = default;
 
   /**
-   * @brief 设置当前帧卫星 ECEF 位置（每帧 update 前调用）。
-   * @param[in] satellite_position_ecef_m 卫星 ECEF 位置（米）。
+   * @brief 设置当前帧卫星 ECI 位置（每帧 update 前调用；与状态同一参考系）。
+   * @param[in] satellite_position_eci_m 卫星 ECI 位置（米）。
    */
-  void SetSatellitePosition(const session::SbirsVector3M& satellite_position_ecef_m) {
-    satellite_position_ = satellite_position_ecef_m;
+  void SetSatellitePosition(const session::SbirsVector3M& satellite_position_eci_m) {
+    satellite_position_ = satellite_position_eci_m;
   }
 
-  /** @brief h(x) = 目标 ECEF 相对卫星的 LOS → [az, el]（弧度）。 */
+  /** @brief h(x) = 目标 ECI 相对卫星的 LOS → [az, el]（弧度，ECI 极坐标）。 */
   SbirsMeasurementVector Function(const SbirsStateVector& state) const override {
     // 状态布局 CV 交错 [x,vx,y,vy,z,vz]：位置在偶数索引 0/2/4。
     const double dx = static_cast<double>(state(0)) - satellite_position_.x;

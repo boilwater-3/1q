@@ -16,12 +16,11 @@ sbirs_sensor::session::SbirsVector3M Vector(double x, double y, double z) {
 }
 
 sbirs_sensor::session::SbirsSceneTarget Target(std::uint64_t id, double range_m,
-                                               float temperature_k) {
+                                               double radiant_intensity_w_per_sr) {
   sbirs_sensor::session::SbirsSceneTarget target;
   target.target_id = id;
   target.position_ecef_m = Vector(7000000.0 + range_m, 0.0, 0.0);
-  target.temperature_k = temperature_k;
-  target.projected_area_m2 = 5000.0f;
+  target.radiant_intensity_w_per_sr = radiant_intensity_w_per_sr;
   return target;
 }
 
@@ -54,9 +53,10 @@ TEST(SbirsSchedulerTest, TargetIdBreaksOtherwiseEqualCandidateTie) {
       sbirs_sensor::session::SbirsCycleInputBuilder()
           .WithCycleIndex(1U)
           .WithDeltaTimeSec(1.0f)
+          .WithUtcJulianDay(2451544.2230698913)  // GMST≈0：ECI≡ECEF
           .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
-          .AddTarget(Target(8U, 1000000.0, 2200.0f))
-          .AddTarget(Target(3U, 1000000.0, 2200.0f))
+          .AddTarget(Target(8U, 1000000.0, 1.0e8))
+          .AddTarget(Target(3U, 1000000.0, 1.0e8))
           .Build();
 
   const sbirs_sensor::pipeline::SbirsPipelineResult result = pipeline.RunCycle(input);

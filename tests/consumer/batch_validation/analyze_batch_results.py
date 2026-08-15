@@ -225,11 +225,10 @@ def print_module_trend(module_dir, display_name, rows):
                       f"entropy={fmt(to_float(r.get('image_entropy_nats', 0)))}")
 
     elif "sbirs_sensor" in module_dir:
-        # SBIRS: 距离 → 红外 SNR / 检出（固定 800K, 10m2）
-        print("    距离 → 红外SNR/检出 (temperature=800K, area=10m2):")
+        # SBIRS: 距离 → 红外 SNR / 检出（固定辐射强度 1e5 W/sr）
+        print("    距离 → 红外SNR/检出 (radiant_intensity=1e5 W/sr):")
         for r in sorted(rows, key=lambda x: to_float(x.get("range_km", 0))):
-            if (abs(to_float(r.get("temperature_k", 0)) - 800.0) < 1e-6
-                    and abs(to_float(r.get("projected_area_m2", 0)) - 10.0) < 1e-6):
+            if abs(to_float(r.get("radiant_intensity_w_per_sr", 0)) - 1.0e5) < 1e-2:
                 print(f"      range={fmt(to_float(r['range_km']), 7, 0)}km  "
                       f"snr={fmt(to_float(r.get('max_snr_linear', 0)), 12, 4)}  "
                       f"detections={to_int(r.get('detection_count', 0))}")

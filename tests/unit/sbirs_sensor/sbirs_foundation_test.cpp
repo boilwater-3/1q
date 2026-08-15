@@ -6,23 +6,30 @@
 
 namespace {
 
-TEST(SbirsFoundationTest, PlanckRadianceIncreasesWithTemperature) {
-  const double cool = sbirs_sensor::foundation::ComputePlanckRadiance(4.0, 900.0);
-  const double hot = sbirs_sensor::foundation::ComputePlanckRadiance(4.0, 1800.0);
-  EXPECT_GT(hot, cool);
+TEST(SbirsFoundationTest, ReceivedPowerScalesLinearlyWithRadiantIntensity) {
+  // P = I_t · A_ap · τ_opt · τ_atm · η / d²：辐射强度加倍 → 接收功率加倍。
+  const double dim_power = sbirs_sensor::foundation::ComputeReceivedPowerW(
+      1.0e4, 1.0e6, 0.5, 0.8, 0.8, 0.7);
+  const double bright_power = sbirs_sensor::foundation::ComputeReceivedPowerW(
+      2.0e4, 1.0e6, 0.5, 0.8, 0.8, 0.7);
+  EXPECT_NEAR(bright_power, 2.0 * dim_power, 1.0e-12);
 }
 
 TEST(SbirsFoundationTest, ReceivedPowerAndSnrDecreaseWithRange) {
   sbirs_sensor::config::SbirsHardwareConfig hardware;
   hardware.noise_equivalent_power_w = 1.0e-15f;
-  const double radiance = sbirs_sensor::foundation::ComputeBandRadiance(3.0, 5.0, 1800.0);
-  const double near_power =
-      sbirs_sensor::foundation::ComputeReceivedPowerW(radiance, 100.0, 1.0e6, 0.5, 0.8, 0.8, 0.7);
-  const double far_power =
-      sbirs_sensor::foundation::ComputeReceivedPowerW(radiance, 100.0, 2.0e6, 0.5, 0.8, 0.8, 0.7);
+  const double near_power = sbirs_sensor::foundation::ComputeReceivedPowerW(
+      1.0e4, 1.0e6, 0.5, 0.8, 0.8, 0.7);
+  const double far_power = sbirs_sensor::foundation::ComputeReceivedPowerW(
+      1.0e4, 2.0e6, 0.5, 0.8, 0.8, 0.7);
   EXPECT_GT(near_power, far_power);
   EXPECT_GT(sbirs_sensor::foundation::ComputeInfraredSnrLinear(near_power, hardware),
             sbirs_sensor::foundation::ComputeInfraredSnrLinear(far_power, hardware));
+}
+
+TEST(SbirsFoundationTest, NegativeRadiantIntensityYieldsZeroPower) {
+  EXPECT_DOUBLE_EQ(sbirs_sensor::foundation::ComputeReceivedPowerW(-1.0, 1.0e6, 0.5, 0.8, 0.8, 0.7),
+                   0.0);
 }
 
 TEST(SbirsEnvironmentModelTest, WorseWeatherReducesEffectiveTransmittance) {

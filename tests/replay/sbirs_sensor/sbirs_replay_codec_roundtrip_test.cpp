@@ -96,9 +96,7 @@ TEST(SbirsReplayCodecRoundtripTest, CycleInputPreservesAllFields) {
   target.target_id = 9U;
   target.target_name = "boost";
   target.position_ecef_m = Vector(8000000.0, 2.0, 3.0);
-  target.temperature_k = 2300.0f;
-  target.emissivity = 0.91f;
-  target.projected_area_m2 = 42.0f;
+  target.radiant_intensity_w_per_sr = 12345.678;
   target.velocity_ecef_m_per_s = Vector(1000.0, -500.0, 250.0);
   target.has_velocity_ecef_m_per_s = true;
   target.active = false;
@@ -106,6 +104,7 @@ TEST(SbirsReplayCodecRoundtripTest, CycleInputPreservesAllFields) {
   const SbirsCycleInput input = SbirsCycleInputBuilder()
                                     .WithCycleIndex(3U)
                                     .WithDeltaTimeSec(0.25f)
+                                    .WithUtcJulianDay(2451544.2230698913)  // GMST≈0：ECI≡ECEF
                                     .WithSatellitePosition(Vector(7000000.0, 4.0, 5.0))
                                     .AddTarget(target)
                                     .Build();
@@ -117,15 +116,14 @@ TEST(SbirsReplayCodecRoundtripTest, CycleInputPreservesAllFields) {
 
   EXPECT_EQ(decoded.cycle_index, 3U);
   EXPECT_FLOAT_EQ(decoded.dt_sec, 0.25f);
+  EXPECT_DOUBLE_EQ(decoded.utc_julian_day, 2451544.2230698913);  // ECI 输出参考系（UTC 儒略日）
   EXPECT_TRUE(decoded.has_satellite_position);
   EXPECT_DOUBLE_EQ(decoded.satellite_position_ecef_m.x, 7000000.0);
   ASSERT_EQ(decoded.scene.size(), 1U);
   EXPECT_EQ(decoded.scene[0].target_id, 9U);
   EXPECT_EQ(decoded.scene[0].target_name, "boost");
   EXPECT_DOUBLE_EQ(decoded.scene[0].position_ecef_m.y, 2.0);
-  EXPECT_FLOAT_EQ(decoded.scene[0].temperature_k, 2300.0f);
-  EXPECT_FLOAT_EQ(decoded.scene[0].emissivity, 0.91f);
-  EXPECT_FLOAT_EQ(decoded.scene[0].projected_area_m2, 42.0f);
+  EXPECT_DOUBLE_EQ(decoded.scene[0].radiant_intensity_w_per_sr, 12345.678);
   EXPECT_DOUBLE_EQ(decoded.scene[0].velocity_ecef_m_per_s.x, 1000.0);
   EXPECT_DOUBLE_EQ(decoded.scene[0].velocity_ecef_m_per_s.y, -500.0);
   EXPECT_DOUBLE_EQ(decoded.scene[0].velocity_ecef_m_per_s.z, 250.0);
@@ -147,12 +145,12 @@ TEST(SbirsReplayCodecRoundtripTest, CycleInputDecodesEmptyScene) {
 TEST(SbirsReplayCodecRoundtripTest, OutputFramePreservesAllFields) {
   SbirsOutputFrame frame;
   frame.cycle_index = 7U;
-  frame.scan_azimuth_deg = -15.5f;
+  frame.scan_azimuth_rad = -15.5f;
 
   SbirsDetectionRecord detection;
   detection.detection_id = 33U;
-  detection.azimuth_deg = 1.5f;
-  detection.elevation_deg = -2.5f;
+  detection.azimuth_rad = 1.5f;
+  detection.elevation_rad = -2.5f;
   detection.infrared_snr_linear = 9.0f;
   detection.observation_stage = SbirsObservationStage::kNarrowFieldTrack;
   detection.detected = true;
@@ -164,11 +162,11 @@ TEST(SbirsReplayCodecRoundtripTest, OutputFramePreservesAllFields) {
   ASSERT_TRUE(DecodeSbirsOutputFrame(bytes, &decoded));
 
   EXPECT_EQ(decoded.cycle_index, 7U);
-  EXPECT_FLOAT_EQ(decoded.scan_azimuth_deg, -15.5f);
+  EXPECT_FLOAT_EQ(decoded.scan_azimuth_rad, -15.5f);
   ASSERT_EQ(decoded.detections.size(), 1U);
   EXPECT_EQ(decoded.detections[0].detection_id, 33U);
-  EXPECT_FLOAT_EQ(decoded.detections[0].azimuth_deg, 1.5f);
-  EXPECT_FLOAT_EQ(decoded.detections[0].elevation_deg, -2.5f);
+  EXPECT_FLOAT_EQ(decoded.detections[0].azimuth_rad, 1.5f);
+  EXPECT_FLOAT_EQ(decoded.detections[0].elevation_rad, -2.5f);
   EXPECT_FLOAT_EQ(decoded.detections[0].infrared_snr_linear, 9.0f);
   EXPECT_EQ(decoded.detections[0].observation_stage, SbirsObservationStage::kNarrowFieldTrack);
   EXPECT_TRUE(decoded.detections[0].detected);
@@ -180,7 +178,7 @@ TEST(SbirsReplayCodecRoundtripTest, CycleResultPreservesOutputAndAttributionFiel
   SbirsCycleResult result;
   result.input_cycle_index = 5U;
   result.output_frame.cycle_index = 5U;
-  result.output_frame.scan_azimuth_deg = 12.0f;
+  result.output_frame.scan_azimuth_rad = 12.0f;
   result.status = SbirsCycleStatus::kCompleted;
   result.abort_reason = SbirsPipelineAbortReason::kValidationRejected;
 
@@ -278,7 +276,7 @@ TEST(SbirsReplayCodecRoundtripTest, CycleResultPreservesPoweredOffAbortReason) {
   SbirsCycleResult result;
   result.input_cycle_index = 7U;
   result.output_frame.cycle_index = 7U;
-  result.output_frame.scan_azimuth_deg = 3.0f;
+  result.output_frame.scan_azimuth_rad = 3.0f;
   result.abort_reason = SbirsPipelineAbortReason::kSensorPoweredOff;
   result.status = SbirsCycleStatus::kPoweredOff;
 

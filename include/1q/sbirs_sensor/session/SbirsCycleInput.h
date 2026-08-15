@@ -21,6 +21,8 @@ namespace session {
 struct ONEQ_API SbirsCycleInput {
   std::uint32_t cycle_index{0U};        /**< 周期序号 */
   float dt_sec{1.0f};                   /**< 本周期步长，单位 s */
+  double utc_julian_day{0.0};           /**< UTC 儒略日（JD_UTC，必填且须为有限正数；0 表示未提供）。
+                                             ECI 输出参考系需要该时刻的 GMST 完成 ECEF→ECI 旋转 */
   bool has_satellite_position{false};   /**< 是否提供卫星位置 */
   SbirsVector3M satellite_position_ecef_m{}; /**< 卫星 ECEF 位置，单位 m */
   SbirsSceneTargetList scene{};         /**< 目标场景列表 */

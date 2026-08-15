@@ -68,9 +68,10 @@ struct ScriptedTarget {
   double altitude_m{0.0};                   /**< 目标高度（m；与平台巡航高度解耦） */
   double v_east_mps{0.0};                   /**< 局部东向速度（m/s） */
   double v_north_mps{0.0};                  /**< 局部北向速度（m/s） */
-  double temperature_k{0.0};                /**< 等效温度（EOS/SBIRS 外观） */
+  double temperature_k{0.0};                /**< 等效温度（EOS 外观） */
   double rcs{0.0};                          /**< 雷达截面积（m²；SAR dBsm 换算源） */
-  double projected_area_m2{0.0};            /**< 等效投影面积（EOS/SBIRS 外观，m²） */
+  double projected_area_m2{0.0};            /**< 等效投影面积（EOS 外观，m²） */
+  double radiant_intensity_w_per_sr{0.0};   /**< 目标辐射强度（SBIRS 外观，W/sr；已折算温度/发射率/投影面积） */
   double emitter_center_frequency_hz{0.0};  /**< ESR 辐射源中心频率（Hz；≤0 = 该目标不配辐射源） */
   std::vector<TargetManeuver> maneuvers{};  /**< 变速机动表（可选；start_cycle 严格递增） */
 };
@@ -127,6 +128,10 @@ struct SceneData {
   EsrEmitterParams esr{};                   /**< ESR 辐射源波形参数 */
 
   double sbirs_satellite_altitude_m{500000.0}; /**< 天基平台高度（m；凝视目标群质心正上方） */
+  // SBIRS 输出参考系为 ECI（2026-08 正式变更），本字段提供 UTC 儒略日（JD_UTC，
+  // 缺省 = 2024-01-01 00:00 UTC）。SBIRS 全向扫描（span 360°）+ 下视覆盖，
+  // GMST 引起的 az 平移不影响探测；示例日志中的方位角随之显示为 ECI 参考。
+  double sbirs_utc_julian_day{2460310.5}; /**< 天基通道 UTC 儒略日（JD_UTC，必填给库） */
 
   // EOS 业务覆写（原 demo_config 内硬编码，迁入场景数据）：跨会话时间对齐
   // 与视场适配——周期校验要求 dt ≤ 10/frame_rate_hz（10 Hz 对应 1 s 步长

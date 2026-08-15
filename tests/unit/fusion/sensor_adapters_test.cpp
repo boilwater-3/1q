@@ -84,8 +84,9 @@ electro_optical_sensor::output::EosDetectionRecord MakeEosRecord(bool detected,
 sbirs_sensor::output::SbirsDetectionRecord MakeSbirsRecord(bool detected,
                                                            float ir_snr_linear) {
   sbirs_sensor::output::SbirsDetectionRecord record;
-  record.azimuth_deg = 120.0f;
-  record.elevation_deg = -30.0f;
+  // SBIRS 输出为 ECI 弧度（2026-08）：120° ≈ 2.0944 rad、−30° ≈ −0.5236 rad。
+  record.azimuth_rad = 2.0943951023931953f;
+  record.elevation_rad = -0.5235987755982988f;
   record.infrared_snr_linear = ir_snr_linear;
   record.detected = detected;
   return record;
@@ -255,8 +256,9 @@ TEST(SensorAdaptersTest, SbirsDetectionsAdaptToDetectionRecords) {
   EXPECT_EQ(record.key, 0U);  // 无身份 → 走方位相干关联
   EXPECT_EQ(record.source_id, kSbirsSourceId);
   EXPECT_TRUE(record.has_bearing);
-  EXPECT_DOUBLE_EQ(record.bearing_az_deg, 120.0);
-  EXPECT_DOUBLE_EQ(record.bearing_el_deg, -30.0);
+  // 2.0943951f rad × rad2deg（float 运算）≈ 120.000008°。
+  EXPECT_NEAR(record.bearing_az_deg, 120.0, 1.0e-4);
+  EXPECT_NEAR(record.bearing_el_deg, -30.0, 1.0e-4);
   EXPECT_DOUBLE_EQ(record.verdict, 1.0);
   EXPECT_DOUBLE_EQ(record.quality, 1.0);  // 8.0 / 4 → 2.0 夹取到 1.0
 }

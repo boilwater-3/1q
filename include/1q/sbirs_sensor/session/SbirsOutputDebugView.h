@@ -52,8 +52,8 @@ struct ONEQ_API SbirsDebugTargetState {
   bool nfov_snr_gate_passed{false};
   unsigned int nfov_tracking_gate_failure_count{0U};
   bool nfov_tracking_coasting{false};
-  float azimuth_deg{0.0f};           /**< 方位角，单位 deg */
-  float elevation_deg{0.0f};         /**< 仰角，单位 deg */
+  float azimuth_rad{0.0f};           /**< 方位角（ECI 极坐标），单位 rad，[0, 2π) */
+  float elevation_rad{0.0f};         /**< 仰角（ECI 极坐标），单位 rad，[-π/2, π/2] */
   float infrared_snr_linear{0.0f};   /**< 红外通道线性 IR SNR */
   output::SbirsObservationStage observation_stage{output::SbirsObservationStage::kWideFieldSearch}; /**< 观测阶段 */
 };

@@ -30,7 +30,8 @@ struct ONEQ_API SbirsMissionConfig {
   float wide_field_fov_el_deg{20.0f};                      /**< WFOV 俯仰视场（FOV），单位 deg */
   float narrow_field_fov_az_deg{2.0f};                     /**< NFOV 方位视场（IFOV），单位 deg */
   float narrow_field_fov_el_deg{2.0f};                     /**< NFOV 俯仰视场（IFOV），单位 deg */
-  float scan_start_az_deg{-60.0f};                         /**< WFOV 扫描方位起点，单位 deg */
+  // ECI 方位约定（2026-08 正式变更）：合法域 [0, 360)；-60° 等价折入 300°。
+  float scan_start_az_deg{300.0f};                        /**< WFOV 扫描方位起点（ECI 方位，单位 deg，[0, 360)） */
   float scan_span_deg{120.0f}; /**< WFOV 有向扫描跨度，范围 (0, 360] deg */
   SbirsScanDirection scan_direction{SbirsScanDirection::kIncreasingAzimuth}; /**< WFOV 扫描方向 */
   float scan_center_el_deg{0.0f};                          /**< WFOV 扫描中心俯仰角，单位 deg */

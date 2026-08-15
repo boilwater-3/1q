@@ -75,6 +75,8 @@ ONEQ_API std::vector<DetectionRecord> AdaptEosDetectionsToDetectionRecords(
  * @param[in] records SBIRS 周期探测记录列表。
  * @return 探测记录列表；跳过未过探测门限记录；质量 = 线性 IR SNR 相对
  *         WFOV 检测门限归一化（4.0 → 1.0，库默认基准）。
+ * @note SBIRS 记录为 ECI 极坐标弧度（2026-08 正式变更）；适配器做 rad→deg
+ *       单位换算后填入方位通道（参考系语义由调用方对齐，库内不跨系转换）。
  */
 ONEQ_API std::vector<DetectionRecord> AdaptSbirsDetectionsToDetectionRecords(
     std::uint32_t source_id,

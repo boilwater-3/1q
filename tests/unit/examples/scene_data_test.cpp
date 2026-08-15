@@ -77,10 +77,10 @@ constexpr char kBaselineSceneJson[] = R"json({
   "targets": [
     {"id": 1001, "azimuth_deg": 0.0, "range_m": 12000.0, "altitude_m": 400.0,
      "v_east_mps": 47.0, "v_north_mps": 5.0, "temperature_k": 520.0,
-     "rcs_m2": 2.2, "projected_area_m2": 18.0, "emitter_center_frequency_hz": 9.5e9},
+     "rcs_m2": 2.2, "projected_area_m2": 18.0, "radiant_intensity_w_per_sr": 3819.864, "emitter_center_frequency_hz": 9.5e9},
     {"id": 1002, "azimuth_deg": 0.0, "range_m": 14000.0, "altitude_m": 400.0,
      "v_east_mps": 47.0, "v_north_mps": -5.0, "temperature_k": 540.0,
-     "rcs_m2": 1.4, "projected_area_m2": 15.0, "emitter_center_frequency_hz": 10.0e9}
+     "rcs_m2": 1.4, "projected_area_m2": 15.0, "radiant_intensity_w_per_sr": 4113.916, "emitter_center_frequency_hz": 10.0e9}
   ],
   "esr": {
     "peak_gain_dbi": 30.0,
@@ -165,6 +165,7 @@ TEST(SceneDataTest, LoadsBaselineScene) {
   EXPECT_DOUBLE_EQ(scene.targets[0].temperature_k, 520.0);
   EXPECT_DOUBLE_EQ(scene.targets[0].rcs, 2.2);
   EXPECT_DOUBLE_EQ(scene.targets[0].projected_area_m2, 18.0);
+  EXPECT_DOUBLE_EQ(scene.targets[0].radiant_intensity_w_per_sr, 3819.864);
   EXPECT_DOUBLE_EQ(scene.targets[0].emitter_center_frequency_hz, 9.5e9);
   EXPECT_EQ(scene.targets[1].id, 1002U);
   EXPECT_DOUBLE_EQ(scene.targets[1].v_north_mps, -5.0);

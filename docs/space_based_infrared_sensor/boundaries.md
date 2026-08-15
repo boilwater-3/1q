@@ -1,6 +1,6 @@
 ---
 Status: active
-Last-reviewed: 2026-08-07
+Last-reviewed: 2026-08-15
 Authority: sbirs_sensor 模块级边界、非目标、能力决策与变更规则
 Answers: SBIRS 有哪些模块级边界、哪些能力刻意不实现及为什么、输出归属规则、变更规则
 ---
@@ -102,7 +102,8 @@ recorder 只遍历当前周期 `input.scene`，目标从输入消失时其排除
 9. **门内归因（规则 13b 归因条款）**：`SbirsIssueCause` 给出机器可读主因——视场门按越界轴细分
    （`kAzOutside` / `kElOutside` / `kBothAxesOutside`，与 `InRectangularFov` 同基准）；
    SNR 门为聚合门（距离²/大气透过率/目标签名折入单一门限），反事实判定主因（距离参考
-   1000 km、大气全透过、目标签名取"使 SNR 恰达门限的签名"），损失最大者为
+   1000 km、大气全透过、目标签名取"使 SNR 恰达门限的签名"；目标签名即输入辐射强度
+   `radiant_intensity_w_per_sr`，W/sr），损失最大者为
    `kDistanceLimited` / `kAttenuationLimited` / `kSignatureLimited`；遮挡与距离门为具体门
    （cause 恒 `kNone`），message 分别补遮挡余量（`ComputeEarthOccultationMarginM`，负值 =
    遮挡深度）与距带边余量。

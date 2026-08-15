@@ -88,7 +88,7 @@ config::SbirsEnvironmentConfig DecodeSessionEnvironmentConfig(
 flatbuffers::Offset<sbirs::replay::SbirsDetectionRecord> EncodeOneDetection(
     flatbuffers::FlatBufferBuilder& fbb, const output::SbirsDetectionRecord& value) {
   return sbirs::replay::CreateSbirsDetectionRecord(
-      fbb, value.detection_id, value.azimuth_deg, value.elevation_deg, value.infrared_snr_linear,
+      fbb, value.detection_id, value.azimuth_rad, value.elevation_rad, value.infrared_snr_linear,
       static_cast<std::int32_t>(value.observation_stage), value.detected);
 }
 
@@ -99,8 +99,8 @@ bool DecodeOneDetection(const sbirs::replay::SbirsDetectionRecord& fb,
     return false;
   }
   out->detection_id = fb.detection_id();
-  out->azimuth_deg = fb.azimuth_deg();
-  out->elevation_deg = fb.elevation_deg();
+  out->azimuth_rad = fb.azimuth_rad();
+  out->elevation_rad = fb.elevation_rad();
   out->infrared_snr_linear = fb.infrared_snr_linear();
   out->observation_stage = static_cast<output::SbirsObservationStage>(observation_stage);
   out->detected = fb.detected();
@@ -114,7 +114,7 @@ flatbuffers::Offset<sbirs::replay::SbirsOutputFrame> EncodeOutputFrameTable(
   for (const output::SbirsDetectionRecord& detection : value.detections) {
     detections.push_back(EncodeOneDetection(fbb, detection));
   }
-  return sbirs::replay::CreateSbirsOutputFrame(fbb, value.cycle_index, value.scan_azimuth_deg,
+  return sbirs::replay::CreateSbirsOutputFrame(fbb, value.cycle_index, value.scan_azimuth_rad,
                                                fbb.CreateVector(detections));
 }
 
@@ -124,7 +124,7 @@ bool DecodeOutputFrameTable(const sbirs::replay::SbirsOutputFrame* fb, SbirsOutp
   }
   SbirsOutputFrame decoded;
   decoded.cycle_index = fb->cycle_index();
-  decoded.scan_azimuth_deg = fb->scan_azimuth_deg();
+  decoded.scan_azimuth_rad = fb->scan_azimuth_rad();
   if (fb->detections() != nullptr) {
     decoded.detections.reserve(fb->detections()->size());
     for (const sbirs::replay::SbirsDetectionRecord* detection : *fb->detections()) {
@@ -325,14 +325,14 @@ std::string EncodeSbirsCycleInput(const SbirsCycleInput& value) {
     const sbirs::replay::Vec3d position = ToFbVec3(target.position_ecef_m);
     const sbirs::replay::Vec3d velocity = ToFbVec3(target.velocity_ecef_m_per_s);
     targets.push_back(sbirs::replay::CreateSbirsSceneTarget(
-        fbb, target.target_id, name, &position, target.temperature_k, target.emissivity,
-        target.projected_area_m2, &velocity, target.has_velocity_ecef_m_per_s, target.active));
+        fbb, target.target_id, name, &position, target.radiant_intensity_w_per_sr, &velocity,
+        target.has_velocity_ecef_m_per_s, target.active));
   }
 
   const sbirs::replay::Vec3d satellite = ToFbVec3(value.satellite_position_ecef_m);
   fbb.Finish(sbirs::replay::CreateSbirsCycleInput(fbb, value.cycle_index, value.dt_sec,
-                                                  value.has_satellite_position, &satellite,
-                                                  fbb.CreateVector(targets)));
+                                                  value.utc_julian_day, value.has_satellite_position,
+                                                  &satellite, fbb.CreateVector(targets)));
   return oneq::common::replay::CopyFinishedFlatbuffer(fbb);
 }
 
@@ -345,6 +345,7 @@ bool DecodeSbirsCycleInput(const std::string& bytes, SbirsCycleInput* out) {
       flatbuffers::GetRoot<sbirs::replay::SbirsCycleInput>(bytes.data());
   out->cycle_index = fb->cycle_index();
   out->dt_sec = fb->dt_sec();
+  out->utc_julian_day = fb->utc_julian_day();
   out->has_satellite_position = fb->has_satellite_position();
   out->satellite_position_ecef_m = FromFbVec3(fb->satellite_position_ecef_m());
   out->scene.clear();
@@ -354,9 +355,7 @@ bool DecodeSbirsCycleInput(const std::string& bytes, SbirsCycleInput* out) {
       item.target_id = target->target_id();
       item.target_name = target->target_name() ? target->target_name()->str() : std::string();
       item.position_ecef_m = FromFbVec3(target->position_ecef_m());
-      item.temperature_k = target->temperature_k();
-      item.emissivity = target->emissivity();
-      item.projected_area_m2 = target->projected_area_m2();
+      item.radiant_intensity_w_per_sr = target->radiant_intensity_w_per_sr();
       item.velocity_ecef_m_per_s = FromFbVec3(target->velocity_ecef_m_per_s());
       item.has_velocity_ecef_m_per_s = target->has_velocity_ecef_m_per_s();
       item.active = target->active();

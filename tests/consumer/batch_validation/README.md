@@ -22,8 +22,9 @@ Session / Adapter / Replay 接口，并按模块使用公开
 
 两者互补：matrix_test 是 CI 门控，本框架是"用大量场景证明模块泛用性"的数据采集与分析工具。
 
-当前共有 230 个场景：保留 199 个 sweep（AR 52、EOS 36、ESR 48、SAR 36、SBIRS 27），
-并新增 31 个 sequence（AR 6、EOS 6、ESR 6、SAR 6、SBIRS 7）。AR 已统一使用物理探测链；验证器在
+当前共有 212 个场景：保留 181 个 sweep（AR 52、EOS 36、ESR 48、SAR 36、SBIRS 9），
+并新增 31 个 sequence（AR 6、EOS 6、ESR 6、SAR 6、SBIRS 7）。SBIRS sweep 维度为距离×辐射强度
+（目标签名由调用方以 W/sr 提供）。AR 已统一使用物理探测链；验证器在
 构造每个会话前显式设置 `enable_physical_rcs=true` 和 `physics_mix_ratio=1.0`，不依赖 JSON 默认值。
 
 ## 目录结构
@@ -141,7 +142,7 @@ failure marker 数不符、身份/通道/产品连续性错误、配置部分污
 | EOS | 高对比度检出率 ≥ 低对比度；夜间可见光 SNR 显著低于红外 |
 | ESR | 假设置信度 ∈ [0,1]；占用率↑ 时接收机饱和↑ |
 | SAR | 聚焦阶段达 `kL1RdaImage`；图像质量指标有效；带宽↑ → 距离分辨率↓ |
-| SBIRS | 两周期均执行；温度↑ 时红外 SNR 不下降；覆盖可检出与门限下不可检出场景 |
+| SBIRS | 两周期均执行；辐射强度↑ 时红外 SNR 不下降；覆盖可检出与门限下不可检出场景 |
 
 Release 模式下五模块 `--suite all` 的总运行时间目标不超过 120 秒。不得通过放宽 replay
 比较、阈值、skip 或 unstable 标记消除失败。

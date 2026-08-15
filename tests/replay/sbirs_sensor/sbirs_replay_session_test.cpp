@@ -14,25 +14,16 @@
 #include "1q/sbirs_sensor/session/SbirsSession.h"
 #include "1q/sbirs_sensor/session/SbirsTraceSession.h"
 #include "sbirs_sensor/session/SbirsReplayFlatbufferCodec.h"
+#include "support/oneq_test_temp_dir.h"
 
 namespace {
 
 std::string MakeTempTracePath(const char* prefix) {
   static unsigned int unique_counter = 0U;
-  const char* temp_dir = std::getenv("TMPDIR");
-  if (temp_dir == nullptr || temp_dir[0] == '\0') {
-    temp_dir = "/tmp";
-  }
   std::ostringstream stream;
-  stream << temp_dir;
-  const std::string path = stream.str();
-  if (!path.empty() && path[path.size() - 1] != '/') {
-    stream << "/";
-  }
-  const long long ticks =
-      static_cast<long long>(std::chrono::high_resolution_clock::now().time_since_epoch().count());
-  stream << prefix << "-" << std::time(nullptr) << "-" << ticks << "-" << std::rand() << "-"
-         << unique_counter++ << ".trace";
+  stream << oneq_test::TempDir() << prefix << "-" << std::time(nullptr) << "-"
+         << std::chrono::high_resolution_clock::now().time_since_epoch().count() << "-"
+         << std::rand() << "-" << unique_counter++ << ".trace";
   return stream.str();
 }
 
@@ -47,7 +38,7 @@ sbirs_sensor::session::SbirsVector3M Vector(double x, double y, double z) {
 sbirs_sensor::config::SbirsSessionConfig Config() {
   sbirs_sensor::config::SbirsSessionConfig config;
   config.hardware.noise_equivalent_power_w = 1.0e-18f;
-  config.mission.scan_start_az_deg = -1.0f;
+  config.mission.scan_start_az_deg = 359.0f;  // ECI 方位 [0,360)：-1° 等价折入 359°
   config.mission.scan_span_deg = 11.0f;
   config.mission.scan_rate_deg_per_sec = 1.0f;
   config.policy.detection.wide_min_snr_linear = 0.001f;
@@ -61,11 +52,11 @@ sbirs_sensor::session::SbirsCycleInput ValidInput(std::uint32_t cycle_index,
   target.target_id = 1U;
   target.target_name = "hot";
   target.position_ecef_m = Vector(8000000.0, target_offset_y_m, 0.0);
-  target.temperature_k = 2200.0f;
-  target.projected_area_m2 = 5000.0f;
+  target.radiant_intensity_w_per_sr = 1.0e8;
   return sbirs_sensor::session::SbirsCycleInputBuilder()
       .WithCycleIndex(cycle_index)
       .WithDeltaTimeSec(1.0f)
+      .WithUtcJulianDay(2451544.2230698913)  // GMST≈0：ECI≡ECEF
       .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
       .AddTarget(target)
       .Build();
@@ -76,8 +67,7 @@ sbirs_sensor::session::SbirsCycleInput ImmMultiTargetInput(std::uint32_t cycle_i
   first.target_id = 1U;
   first.target_name = "first";
   first.position_ecef_m = Vector(8000000.0, 0.0, 0.0);
-  first.temperature_k = 2200.0f;
-  first.projected_area_m2 = 5000.0f;
+  first.radiant_intensity_w_per_sr = 1.0e8;
   sbirs_sensor::session::SbirsSceneTarget second = first;
   second.target_id = 2U;
   second.target_name = "second";
@@ -85,6 +75,7 @@ sbirs_sensor::session::SbirsCycleInput ImmMultiTargetInput(std::uint32_t cycle_i
   return sbirs_sensor::session::SbirsCycleInputBuilder()
       .WithCycleIndex(cycle_index)
       .WithDeltaTimeSec(1.0f)
+      .WithUtcJulianDay(2451544.2230698913)  // GMST≈0：ECI≡ECEF
       .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
       .AddTarget(first)
       .AddTarget(second)
@@ -99,11 +90,11 @@ sbirs_sensor::session::SbirsCycleInput MovingCueInput(std::uint32_t cycle_index,
   target.position_ecef_m = Vector(8000000.0, target_offset_y_m, 0.0);
   target.velocity_ecef_m_per_s = Vector(0.0, 20000.0, 0.0);
   target.has_velocity_ecef_m_per_s = true;
-  target.temperature_k = 2200.0f;
-  target.projected_area_m2 = 5000.0f;
+  target.radiant_intensity_w_per_sr = 1.0e8;
   return sbirs_sensor::session::SbirsCycleInputBuilder()
       .WithCycleIndex(cycle_index)
       .WithDeltaTimeSec(1.0f)
+      .WithUtcJulianDay(2451544.2230698913)  // GMST≈0：ECI≡ECEF
       .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
       .AddTarget(target)
       .Build();
@@ -116,11 +107,11 @@ sbirs_sensor::session::SbirsCycleInput PointingInput(std::uint32_t cycle_index,
   first.target_id = 1U;
   first.target_name = "first-pointing";
   first.position_ecef_m = Vector(8000000.0, first_offset_y_m, 0.0);
-  first.temperature_k = 2200.0f;
-  first.projected_area_m2 = 5000.0f;
+  first.radiant_intensity_w_per_sr = 1.0e8;
   sbirs_sensor::session::SbirsCycleInputBuilder builder;
   builder.WithCycleIndex(cycle_index)
       .WithDeltaTimeSec(1.0f)
+      .WithUtcJulianDay(2451544.2230698913)  // GMST≈0：ECI≡ECEF
       .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
       .AddTarget(first);
   if (include_second) {
@@ -173,7 +164,7 @@ TEST(SbirsReplaySessionTest, ReplaySbirsTraceRoundtrip) {
     ASSERT_EQ(result.detection_attributions.size(), 1U);
     EXPECT_EQ(result.output_frame.detections.front().observation_stage,
               sbirs_sensor::output::SbirsObservationStage::kNarrowFieldAcquisition);
-    EXPECT_NE(result.output_frame.detections.front().azimuth_deg, 0.0f);
+    EXPECT_NE(result.output_frame.detections.front().azimuth_rad, 0.0f);
     EXPECT_EQ(result.detection_attributions.front().target_id, 1U);
     EXPECT_EQ(result.detection_attributions.front().tracking_source,
               sbirs_sensor::attribution::SbirsTrackingSource::kEstimated);
@@ -389,7 +380,7 @@ TEST(SbirsReplaySessionTest, ReplayPreservesMeasurementDerivedCvCue) {
 
 TEST(SbirsReplaySessionTest, ReplayPreservesMultiCycleSlewAndRuntimeMissionPatch) {
   sbirs_sensor::config::SbirsSessionConfig config = Config();
-  config.mission.scan_start_az_deg = -10.0f;
+  config.mission.scan_start_az_deg = 350.0f;  // ECI 方位 [0,360)：-10° 等价折入 350°
   config.mission.scan_span_deg = 20.0f;
   config.mission.scan_rate_deg_per_sec = 0.0f;
   config.mission.wide_field_fov_az_deg = 30.0f;

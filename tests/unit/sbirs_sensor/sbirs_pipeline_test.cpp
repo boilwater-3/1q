@@ -25,8 +25,7 @@ sbirs_sensor::session::SbirsSceneTarget HotTarget(std::uint64_t id, double y) {
   target.target_id = id;
   target.target_name = "target";
   target.position_ecef_m = Vector(8000000.0, y, 0.0);
-  target.temperature_k = 2200.0f;
-  target.projected_area_m2 = 5000.0f;
+  target.radiant_intensity_w_per_sr = 1.0e8;
   return target;
 }
 
@@ -77,6 +76,7 @@ sbirs_sensor::session::SbirsCycleInput TwoTargetInput(std::uint32_t cycle_index,
   sbirs_sensor::session::SbirsCycleInputBuilder builder;
   builder.WithCycleIndex(cycle_index)
       .WithDeltaTimeSec(1.0f)
+      .WithUtcJulianDay(2451544.2230698913)  // GMST≈0：ECI≡ECEF
       .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0));
   if (reverse_order) {
     builder.AddTarget(HotTarget(2U, 5000.0)).AddTarget(HotTarget(1U, 0.0));
@@ -126,6 +126,7 @@ TEST(SbirsPipelineTest, WideCandidateCapturesIntoNfov) {
       sbirs_sensor::session::SbirsCycleInputBuilder()
           .WithCycleIndex(1U)
           .WithDeltaTimeSec(1.0f)
+          .WithUtcJulianDay(2451544.2230698913)  // GMST≈0：ECI≡ECEF
           .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
           .AddTarget(HotTarget(7U, 0.0))
           .Build();
@@ -164,10 +165,11 @@ TEST(SbirsPipelineTest, TruthModesShareGatesButExposeDistinctSuccessfulMeasureme
             sbirs_sensor::attribution::SbirsTrackingSource::kStrictTruthAssisted);
   EXPECT_EQ(sensor_detection.attribution.tracking_source,
             sbirs_sensor::attribution::SbirsTrackingSource::kSensorLikeTruthAssisted);
-  EXPECT_FLOAT_EQ(strict_detection.record.azimuth_deg, 0.0f);
-  EXPECT_FLOAT_EQ(strict_detection.record.elevation_deg, 0.0f);
+  // GMST≈0 测试时刻下 ECI az 残余 2.35e-9 rad（≈1.3e-7°），用近等断言。
+  EXPECT_NEAR(strict_detection.record.azimuth_rad, 0.0f, 1.0e-6f);
+  EXPECT_NEAR(strict_detection.record.elevation_rad, 0.0f, 1.0e-6f);
   EXPECT_FLOAT_EQ(strict_detection.attribution.estimated_range_m, 1000000.0f);
-  EXPECT_NE(sensor_detection.record.azimuth_deg, strict_detection.record.azimuth_deg);
+  EXPECT_NE(sensor_detection.record.azimuth_rad, strict_detection.record.azimuth_rad);
   EXPECT_NE(sensor_detection.attribution.estimated_range_m,
             strict_detection.attribution.estimated_range_m);
   EXPECT_FLOAT_EQ(sensor_detection.record.infrared_snr_linear,
@@ -211,6 +213,7 @@ TEST(SbirsPipelineTest, TruthModesHaveIdenticalCoastingLossAndChannelRelease) {
   auto input = sbirs_sensor::session::SbirsCycleInputBuilder()
                    .WithCycleIndex(1U)
                    .WithDeltaTimeSec(1.0f)
+                   .WithUtcJulianDay(2451544.2230698913)  // GMST≈0：ECI≡ECEF
                    .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
                    .AddTarget(HotTarget(91U, 0.0))
                    .Build();
@@ -219,7 +222,7 @@ TEST(SbirsPipelineTest, TruthModesHaveIdenticalCoastingLossAndChannelRelease) {
   const std::uint32_t sensor_random_state =
       sensor.CaptureRuntimeState().sensor_like_output_random_state;
 
-  input.scene.front().projected_area_m2 = 0.0f;
+  input.scene.front().radiant_intensity_w_per_sr = 0.0;
   for (std::uint32_t cycle_index = 2U; cycle_index <= 3U; ++cycle_index) {
     input.cycle_index = cycle_index;
     const auto strict_result = strict.RunCycle(input);
@@ -263,6 +266,7 @@ TEST(SbirsPipelineTest, SensorLikeSnapshotRestoreContinuesOutputRandomStream) {
   auto input = sbirs_sensor::session::SbirsCycleInputBuilder()
                    .WithCycleIndex(1U)
                    .WithDeltaTimeSec(1.0f)
+                   .WithUtcJulianDay(2451544.2230698913)  // GMST≈0：ECI≡ECEF
                    .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
                    .AddTarget(HotTarget(92U, 0.0))
                    .Build();
@@ -277,10 +281,10 @@ TEST(SbirsPipelineTest, SensorLikeSnapshotRestoreContinuesOutputRandomStream) {
   const auto actual = restored.RunCycle(input);
   ASSERT_EQ(expected.detections.size(), 1U);
   ASSERT_EQ(actual.detections.size(), 1U);
-  EXPECT_FLOAT_EQ(actual.detections.front().record.azimuth_deg,
-                  expected.detections.front().record.azimuth_deg);
-  EXPECT_FLOAT_EQ(actual.detections.front().record.elevation_deg,
-                  expected.detections.front().record.elevation_deg);
+  EXPECT_FLOAT_EQ(actual.detections.front().record.azimuth_rad,
+                  expected.detections.front().record.azimuth_rad);
+  EXPECT_FLOAT_EQ(actual.detections.front().record.elevation_rad,
+                  expected.detections.front().record.elevation_rad);
   EXPECT_FLOAT_EQ(actual.detections.front().record.infrared_snr_linear,
                   expected.detections.front().record.infrared_snr_linear);
   EXPECT_FLOAT_EQ(actual.detections.front().attribution.estimated_range_m,
@@ -349,6 +353,7 @@ TEST(SbirsPipelineTest, CommonAttitudeDisturbanceMovesWfovAndNfovTogether) {
   const auto input = sbirs_sensor::session::SbirsCycleInputBuilder()
                          .WithCycleIndex(1U)
                          .WithDeltaTimeSec(1.0f)
+                         .WithUtcJulianDay(2451544.2230698913)  // GMST≈0：ECI≡ECEF
                          .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
                          .AddTarget(HotTargetAtAngles(71U, expected.common.azimuth_deg,
                                                       expected.common.elevation_deg))
@@ -378,6 +383,7 @@ TEST(SbirsPipelineTest, ChannelDisturbanceContributesToTrackingPointingError) {
   auto input = sbirs_sensor::session::SbirsCycleInputBuilder()
                    .WithCycleIndex(1U)
                    .WithDeltaTimeSec(1.0f)
+                   .WithUtcJulianDay(2451544.2230698913)  // GMST≈0：ECI≡ECEF
                    .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
                    .AddTarget(HotTarget(72U, 0.0))
                    .Build();
@@ -397,6 +403,7 @@ TEST(SbirsPipelineTest, LockedTargetProducesEstimatedTrack) {
       sbirs_sensor::session::SbirsCycleInputBuilder()
           .WithCycleIndex(1U)
           .WithDeltaTimeSec(1.0f)
+          .WithUtcJulianDay(2451544.2230698913)  // GMST≈0：ECI≡ECEF
           .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
           .AddTarget(HotTarget(7U, 0.0))
           .Build();
@@ -407,8 +414,8 @@ TEST(SbirsPipelineTest, LockedTargetProducesEstimatedTrack) {
   EXPECT_EQ(result.detections.front().record.observation_stage,
             sbirs_sensor::output::SbirsObservationStage::kNarrowFieldTrack);
   // 持续跟踪走 EKF 估计，输出角度应有限（滤波未发散）
-  EXPECT_TRUE(std::isfinite(result.detections.front().record.azimuth_deg));
-  EXPECT_TRUE(std::isfinite(result.detections.front().record.elevation_deg));
+  EXPECT_TRUE(std::isfinite(result.detections.front().record.azimuth_rad));
+  EXPECT_TRUE(std::isfinite(result.detections.front().record.elevation_rad));
   EXPECT_EQ(result.detections.front().attribution.tracking_source,
             sbirs_sensor::attribution::SbirsTrackingSource::kEstimated);
   EXPECT_TRUE(result.detections.front().attribution.has_estimation_nis);
@@ -429,6 +436,7 @@ TEST(SbirsPipelineTest, TrackingGateCoastsOnceThenRecoversWithoutRawMeasurement)
       sbirs_sensor::session::SbirsCycleInputBuilder()
           .WithCycleIndex(1U)
           .WithDeltaTimeSec(1.0f)
+          .WithUtcJulianDay(2451544.2230698913)  // GMST≈0：ECI≡ECEF
           .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
           .AddTarget(HotTarget(77U, 0.0))
           .Build();
@@ -463,6 +471,7 @@ TEST(SbirsPipelineTest, ConsecutiveTrackingGateFailuresReleaseLock) {
       sbirs_sensor::session::SbirsCycleInputBuilder()
           .WithCycleIndex(1U)
           .WithDeltaTimeSec(1.0f)
+          .WithUtcJulianDay(2451544.2230698913)  // GMST≈0：ECI≡ECEF
           .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
           .AddTarget(HotTarget(78U, 0.0))
           .Build();
@@ -490,6 +499,7 @@ TEST(SbirsPipelineTest, TrackingCoastSnapshotRestoreMatchesUninterrupted) {
   auto input = sbirs_sensor::session::SbirsCycleInputBuilder()
                    .WithCycleIndex(1U)
                    .WithDeltaTimeSec(1.0f)
+                   .WithUtcJulianDay(2451544.2230698913)  // GMST≈0：ECI≡ECEF
                    .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
                    .AddTarget(HotTarget(79U, 0.0))
                    .Build();
@@ -510,8 +520,8 @@ TEST(SbirsPipelineTest, TrackingCoastSnapshotRestoreMatchesUninterrupted) {
   ASSERT_EQ(expected.detections.size(), 1U);
   ASSERT_EQ(actual.detections.size(), 1U);
   EXPECT_EQ(actual.detections[0].record.detected, expected.detections[0].record.detected);
-  EXPECT_FLOAT_EQ(actual.detections[0].record.azimuth_deg,
-                  expected.detections[0].record.azimuth_deg);
+  EXPECT_FLOAT_EQ(actual.detections[0].record.azimuth_rad,
+                  expected.detections[0].record.azimuth_rad);
   EXPECT_EQ(actual.detections[0].attribution.nfov_tracking_gate_failure_count, 0U);
 }
 
@@ -526,6 +536,7 @@ TEST(SbirsPipelineTest, StrictTruthAssistedStillUsesActualPointingGate) {
   auto input = sbirs_sensor::session::SbirsCycleInputBuilder()
                    .WithCycleIndex(1U)
                    .WithDeltaTimeSec(1.0f)
+                   .WithUtcJulianDay(2451544.2230698913)  // GMST≈0：ECI≡ECEF
                    .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
                    .AddTarget(HotTarget(80U, 0.0))
                    .Build();
@@ -548,12 +559,13 @@ TEST(SbirsPipelineTest, TrackingSnrGateCanCoastWhileGeometryPasses) {
   auto input = sbirs_sensor::session::SbirsCycleInputBuilder()
                    .WithCycleIndex(1U)
                    .WithDeltaTimeSec(1.0f)
+                   .WithUtcJulianDay(2451544.2230698913)  // GMST≈0：ECI≡ECEF
                    .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
                    .AddTarget(HotTarget(81U, 0.0))
                    .Build();
   pipeline.RunCycle(input);
   input.cycle_index = 2U;
-  input.scene[0].projected_area_m2 = 0.0f;
+  input.scene[0].radiant_intensity_w_per_sr = 0.0;
   const auto coast = pipeline.RunCycle(input);
   ASSERT_EQ(coast.detections.size(), 1U);
   EXPECT_TRUE(coast.detections[0].attribution.nfov_geometry_gate_passed);
@@ -570,6 +582,7 @@ TEST(SbirsPipelineTest, StaticSettleErrorOffsetsEffectiveTrackingCenter) {
   auto input = sbirs_sensor::session::SbirsCycleInputBuilder()
                    .WithCycleIndex(1U)
                    .WithDeltaTimeSec(1.0f)
+                   .WithUtcJulianDay(2451544.2230698913)  // GMST≈0：ECI≡ECEF
                    .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
                    .AddTarget(HotTarget(82U, 0.0))
                    .Build();
@@ -591,6 +604,7 @@ TEST(SbirsPipelineTest, ConsecutiveNisGateExceededReleasesEstimatedTrackLock) {
       sbirs_sensor::session::SbirsCycleInputBuilder()
           .WithCycleIndex(1U)
           .WithDeltaTimeSec(1.0f)
+          .WithUtcJulianDay(2451544.2230698913)  // GMST≈0：ECI≡ECEF
           .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
           .AddTarget(HotTarget(7U, 0.0))
           .Build();
@@ -623,13 +637,14 @@ TEST(SbirsSchedulerTest, HigherSnrCandidateWinsBeforeDistanceTieBreak) {
   sbirs_sensor::pipeline::SbirsPipeline pipeline(
       sbirs_sensor::runtime::MapSessionToInternal(config));
   sbirs_sensor::session::SbirsSceneTarget weak = HotTarget(1U, 0.0);
-  weak.temperature_k = 1200.0f;
+  weak.radiant_intensity_w_per_sr = 1.0e7;
   sbirs_sensor::session::SbirsSceneTarget strong = HotTarget(2U, 1000.0);
-  strong.temperature_k = 2400.0f;
+  strong.radiant_intensity_w_per_sr = 5.0e7;
   sbirs_sensor::session::SbirsCycleInput input =
       sbirs_sensor::session::SbirsCycleInputBuilder()
           .WithCycleIndex(1U)
           .WithDeltaTimeSec(1.0f)
+          .WithUtcJulianDay(2451544.2230698913)  // GMST≈0：ECI≡ECEF
           .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
           .AddTarget(weak)
           .AddTarget(strong)
@@ -652,6 +667,7 @@ TEST(SbirsPipelineTest, NfovAcquisitionRawUsesNoisyMeasurementAndIsReproducible)
       sbirs_sensor::session::SbirsCycleInputBuilder()
           .WithCycleIndex(1U)
           .WithDeltaTimeSec(1.0f)
+          .WithUtcJulianDay(2451544.2230698913)  // GMST≈0：ECI≡ECEF
           .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
           .AddTarget(HotTarget(7U, 0.0))
           .Build();
@@ -664,13 +680,13 @@ TEST(SbirsPipelineTest, NfovAcquisitionRawUsesNoisyMeasurementAndIsReproducible)
   ASSERT_EQ(r1.detections.size(), 1U);
   ASSERT_EQ(r1.detections.front().record.observation_stage,
             sbirs_sensor::output::SbirsObservationStage::kNarrowFieldAcquisition);
-  EXPECT_NE(r1.detections.front().record.azimuth_deg, 0.0f);
+  EXPECT_NE(r1.detections.front().record.azimuth_rad, 0.0f);
   EXPECT_EQ(r1.detections.front().attribution.target_id, 7U);
   EXPECT_EQ(r1.detections.front().attribution.tracking_source,
             sbirs_sensor::attribution::SbirsTrackingSource::kEstimated);
   // 相同 seed → 相同输出。
-  EXPECT_FLOAT_EQ(r1.detections.front().record.azimuth_deg,
-                  r2.detections.front().record.azimuth_deg);
+  EXPECT_FLOAT_EQ(r1.detections.front().record.azimuth_rad,
+                  r2.detections.front().record.azimuth_rad);
 }
 
 // design cue 延迟外推：横向高速目标在 narrow_cue_latency_s 期间移出 NFOV，
@@ -690,6 +706,7 @@ TEST(SbirsPipelineTest, CueLatencyWithCrossVelocityCausesAcquisitionFailure) {
       sbirs_sensor::session::SbirsCycleInputBuilder()
           .WithCycleIndex(1U)
           .WithDeltaTimeSec(1.0f)
+          .WithUtcJulianDay(2451544.2230698913)  // GMST≈0：ECI≡ECEF
           .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
           .AddTarget(target)
           .Build();
@@ -724,6 +741,7 @@ TEST(SbirsPipelineTest, CueLatencyWithoutVelocityKeepsBaselineCapture) {
       sbirs_sensor::session::SbirsCycleInputBuilder()
           .WithCycleIndex(1U)
           .WithDeltaTimeSec(1.0f)
+          .WithUtcJulianDay(2451544.2230698913)  // GMST≈0：ECI≡ECEF
           .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
           .AddTarget(HotTarget(7U, 0.0))  // 默认 has_velocity=false
           .Build();
@@ -752,6 +770,7 @@ TEST(SbirsPipelineTest, MeasurementCvCueCapturesOnSecondObservationAndRestores) 
       sbirs_sensor::session::SbirsCycleInputBuilder()
           .WithCycleIndex(1U)
           .WithDeltaTimeSec(1.0f)
+          .WithUtcJulianDay(2451544.2230698913)  // GMST≈0：ECI≡ECEF
           .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
           .AddTarget(target)
           .Build();
@@ -766,6 +785,7 @@ TEST(SbirsPipelineTest, MeasurementCvCueCapturesOnSecondObservationAndRestores) 
       sbirs_sensor::session::SbirsCycleInputBuilder()
           .WithCycleIndex(2U)
           .WithDeltaTimeSec(1.0f)
+          .WithUtcJulianDay(2451544.2230698913)  // GMST≈0：ECI≡ECEF
           .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
           .AddTarget(target)
           .Build();
@@ -799,12 +819,14 @@ TEST(SbirsPipelineTest, SchedulerSkippedCandidateAccumulatesCueHistoryUntilChann
   pipeline.RunCycle(sbirs_sensor::session::SbirsCycleInputBuilder()
                         .WithCycleIndex(1U)
                         .WithDeltaTimeSec(1.0f)
+                        .WithUtcJulianDay(2451544.2230698913)  // GMST≈0：ECI≡ECEF
                         .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
                         .AddTarget(locked)
                         .Build());
   pipeline.RunCycle(sbirs_sensor::session::SbirsCycleInputBuilder()
                         .WithCycleIndex(2U)
                         .WithDeltaTimeSec(1.0f)
+                        .WithUtcJulianDay(2451544.2230698913)  // GMST≈0：ECI≡ECEF
                         .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
                         .AddTarget(locked)
                         .AddTarget(moving)
@@ -813,6 +835,7 @@ TEST(SbirsPipelineTest, SchedulerSkippedCandidateAccumulatesCueHistoryUntilChann
   pipeline.RunCycle(sbirs_sensor::session::SbirsCycleInputBuilder()
                         .WithCycleIndex(3U)
                         .WithDeltaTimeSec(1.0f)
+                        .WithUtcJulianDay(2451544.2230698913)  // GMST≈0：ECI≡ECEF
                         .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
                         .AddTarget(locked)
                         .AddTarget(moving)
@@ -824,6 +847,7 @@ TEST(SbirsPipelineTest, SchedulerSkippedCandidateAccumulatesCueHistoryUntilChann
   const auto acquired = pipeline.RunCycle(sbirs_sensor::session::SbirsCycleInputBuilder()
                                               .WithCycleIndex(4U)
                                               .WithDeltaTimeSec(1.0f)
+                                              .WithUtcJulianDay(2451544.2230698913)  // GMST≈0：ECI≡ECEF
                                               .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
                                               .AddTarget(locked)
                                               .AddTarget(moving)
@@ -849,12 +873,14 @@ TEST(SbirsPipelineTest, MissingUnboundCandidateClearsCueHistory) {
   pipeline.RunCycle(sbirs_sensor::session::SbirsCycleInputBuilder()
                         .WithCycleIndex(1U)
                         .WithDeltaTimeSec(1.0f)
+                        .WithUtcJulianDay(2451544.2230698913)  // GMST≈0：ECI≡ECEF
                         .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
                         .AddTarget(locked)
                         .Build());
   pipeline.RunCycle(sbirs_sensor::session::SbirsCycleInputBuilder()
                         .WithCycleIndex(2U)
                         .WithDeltaTimeSec(1.0f)
+                        .WithUtcJulianDay(2451544.2230698913)  // GMST≈0：ECI≡ECEF
                         .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
                         .AddTarget(locked)
                         .AddTarget(waiting)
@@ -864,6 +890,7 @@ TEST(SbirsPipelineTest, MissingUnboundCandidateClearsCueHistory) {
   pipeline.RunCycle(sbirs_sensor::session::SbirsCycleInputBuilder()
                         .WithCycleIndex(3U)
                         .WithDeltaTimeSec(1.0f)
+                        .WithUtcJulianDay(2451544.2230698913)  // GMST≈0：ECI≡ECEF
                         .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
                         .AddTarget(locked)
                         .Build());
@@ -884,6 +911,7 @@ TEST(SbirsPipelineTest, ApplyingSameConfigPreservesAccumulatedState) {
   pipeline.RunCycle(sbirs_sensor::session::SbirsCycleInputBuilder()
                         .WithCycleIndex(1U)
                         .WithDeltaTimeSec(1.0f)
+                        .WithUtcJulianDay(2451544.2230698913)  // GMST≈0：ECI≡ECEF
                         .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
                         .AddTarget(target)
                         .Build());
@@ -904,13 +932,15 @@ TEST(SbirsPipelineTest, CircularScanSupportsDirectionBoundaryAndMultipleWraps) {
   config.mission.scan_rate_deg_per_sec = 15.0f;
   sbirs_sensor::pipeline::SbirsPipeline increasing(
       sbirs_sensor::runtime::MapSessionToInternal(config));
-  EXPECT_FLOAT_EQ(increasing.RunCycle(TwoTargetInput(1U)).scan_azimuth_deg, -175.0f);
+  // 输出为 ECI 弧度 [0, 2π)：185°（对称 -175° 折入 [0,360)）→ 3.2289 rad。
+  EXPECT_FLOAT_EQ(increasing.RunCycle(TwoTargetInput(1U)).scan_azimuth_rad, 3.2288592f);
 
   config.mission.scan_start_az_deg = -170.0f;
   config.mission.scan_direction = sbirs_sensor::config::SbirsScanDirection::kDecreasingAzimuth;
   sbirs_sensor::pipeline::SbirsPipeline decreasing(
       sbirs_sensor::runtime::MapSessionToInternal(config));
-  EXPECT_FLOAT_EQ(decreasing.RunCycle(TwoTargetInput(1U)).scan_azimuth_deg, 175.0f);
+  // 175° → 3.0543 rad。
+  EXPECT_FLOAT_EQ(decreasing.RunCycle(TwoTargetInput(1U)).scan_azimuth_rad, 3.0543262f);
 
   config.mission.scan_start_az_deg = -180.0f;
   config.mission.scan_span_deg = 360.0f;
@@ -920,7 +950,8 @@ TEST(SbirsPipelineTest, CircularScanSupportsDirectionBoundaryAndMultipleWraps) {
       sbirs_sensor::runtime::MapSessionToInternal(config));
   auto input = TwoTargetInput(1U);
   input.dt_sec = 10.0f;
-  EXPECT_FLOAT_EQ(full_circle.RunCycle(input).scan_azimuth_deg, 100.0f);
+  // 100° → 1.7453 rad。
+  EXPECT_FLOAT_EQ(full_circle.RunCycle(input).scan_azimuth_rad, 1.7453293f);
   EXPECT_FLOAT_EQ(full_circle.CaptureRuntimeState().scan_phase_deg, 280.0f);
 }
 
@@ -1045,6 +1076,7 @@ TEST(SbirsPipelineTest, RateLimitedPointingSpansCyclesAndRestores) {
     return sbirs_sensor::session::SbirsCycleInputBuilder()
         .WithCycleIndex(cycle)
         .WithDeltaTimeSec(1.0f)
+        .WithUtcJulianDay(2451544.2230698913)  // GMST≈0：ECI≡ECEF
         .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
         .AddTarget(HotTarget(41U, 0.0))
         .Build();
@@ -1097,6 +1129,7 @@ TEST(SbirsPipelineTest, PointingTimeoutReleasesWithoutSameCycleReschedule) {
     return sbirs_sensor::session::SbirsCycleInputBuilder()
         .WithCycleIndex(cycle)
         .WithDeltaTimeSec(0.01f)
+        .WithUtcJulianDay(2451544.2230698913)  // GMST≈0：ECI≡ECEF
         .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
         .AddTarget(HotTarget(42U, 0.0))
         .Build();
@@ -1128,6 +1161,7 @@ TEST(SbirsPipelineTest, InvalidPointingSnapshotRestoreIsAtomic) {
   pipeline.RunCycle(sbirs_sensor::session::SbirsCycleInputBuilder()
                         .WithCycleIndex(1U)
                         .WithDeltaTimeSec(1.0f)
+                        .WithUtcJulianDay(2451544.2230698913)  // GMST≈0：ECI≡ECEF
                         .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
                         .AddTarget(HotTarget(43U, 0.0))
                         .Build());
@@ -1153,6 +1187,7 @@ TEST(SbirsPipelineTest, InvalidTrackingSnapshotRestoreIsAtomic) {
   pipeline.RunCycle(sbirs_sensor::session::SbirsCycleInputBuilder()
                         .WithCycleIndex(1U)
                         .WithDeltaTimeSec(1.0f)
+                        .WithUtcJulianDay(2451544.2230698913)  // GMST≈0：ECI≡ECEF
                         .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
                         .AddTarget(HotTarget(44U, 0.0))
                         .Build());
@@ -1218,6 +1253,7 @@ TEST(SbirsPipelineTest, LockedTargetCausesSchedulerSkipOnOtherCandidate) {
       sbirs_sensor::session::SbirsCycleInputBuilder()
           .WithCycleIndex(1U)
           .WithDeltaTimeSec(1.0f)
+          .WithUtcJulianDay(2451544.2230698913)  // GMST≈0：ECI≡ECEF
           .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
           .AddTarget(HotTarget(1U, 0.0))
           .Build();
@@ -1228,6 +1264,7 @@ TEST(SbirsPipelineTest, LockedTargetCausesSchedulerSkipOnOtherCandidate) {
       sbirs_sensor::session::SbirsCycleInputBuilder()
           .WithCycleIndex(2U)
           .WithDeltaTimeSec(1.0f)
+          .WithUtcJulianDay(2451544.2230698913)  // GMST≈0：ECI≡ECEF
           .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
           .AddTarget(HotTarget(1U, 0.0))
           .AddTarget(HotTarget(2U, 5.0))
@@ -1268,6 +1305,7 @@ TEST(SbirsPipelineTest, MultipleChannelsSimultaneouslyAcquireAndTrack) {
       sbirs_sensor::session::SbirsCycleInputBuilder()
           .WithCycleIndex(1U)
           .WithDeltaTimeSec(1.0f)
+          .WithUtcJulianDay(2451544.2230698913)  // GMST≈0：ECI≡ECEF
           .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
           .AddTarget(HotTarget(1U, 0.0))
           .AddTarget(HotTarget(2U, 5.0))
@@ -1298,6 +1336,7 @@ TEST(SbirsPipelineTest, MultipleChannelsSimultaneouslyAcquireAndTrack) {
       sbirs_sensor::session::SbirsCycleInputBuilder()
           .WithCycleIndex(2U)
           .WithDeltaTimeSec(1.0f)
+          .WithUtcJulianDay(2451544.2230698913)  // GMST≈0：ECI≡ECEF
           .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
           .AddTarget(HotTarget(1U, 0.0))
           .AddTarget(HotTarget(2U, 5.0))
@@ -1328,6 +1367,7 @@ TEST(SbirsPipelineTest, ImmTrackingProducesFiniteState) {
       sbirs_sensor::session::SbirsCycleInputBuilder()
           .WithCycleIndex(1U)
           .WithDeltaTimeSec(1.0f)
+          .WithUtcJulianDay(2451544.2230698913)  // GMST≈0：ECI≡ECEF
           .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
           .AddTarget(HotTarget(7U, 0.0))
           .Build();
@@ -1361,8 +1401,10 @@ TEST(SbirsPipelineTest, ImmKeepsIndependentStateForEachCapturedTarget) {
   for (const auto& entry : first_snapshot.imm_snapshots) {
     ASSERT_EQ(entry.second.model_states.size(), 2U);
   }
-  EXPECT_FLOAT_EQ(first_snapshot.imm_snapshots.at(1U).model_states[0].state.mean(2), 0.0f);
-  EXPECT_FLOAT_EQ(first_snapshot.imm_snapshots.at(2U).model_states[0].state.mean(2), 5000.0f);
+  // ECI 旋转（GMST≈0 残余 2.35e-9 rad）把 ECEF y=0/5000 折入 ECI y≈0.019/5000.019，
+  // 用近等断言保持"独立状态"语义。
+  EXPECT_NEAR(first_snapshot.imm_snapshots.at(1U).model_states[0].state.mean(2), 0.0f, 0.05f);
+  EXPECT_NEAR(first_snapshot.imm_snapshots.at(2U).model_states[0].state.mean(2), 5000.0f, 0.05f);
 }
 
 TEST(SbirsPipelineTest, ImmMultiTargetUpdatesMatchIndependentRunsAndInputOrder) {
@@ -1434,6 +1476,7 @@ TEST(SbirsPipelineTest, ImmDisabledFallsBackToSingleEkf) {
       sbirs_sensor::session::SbirsCycleInputBuilder()
           .WithCycleIndex(1U)
           .WithDeltaTimeSec(1.0f)
+          .WithUtcJulianDay(2451544.2230698913)  // GMST≈0：ECI≡ECEF
           .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
           .AddTarget(HotTarget(7U, 0.0))
           .Build();
@@ -1458,6 +1501,7 @@ TEST(SbirsPipelineTest, ImmSupportsCaptureRestoreRoundtrip) {
       sbirs_sensor::session::SbirsCycleInputBuilder()
           .WithCycleIndex(1U)
           .WithDeltaTimeSec(1.0f)
+          .WithUtcJulianDay(2451544.2230698913)  // GMST≈0：ECI≡ECEF
           .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
           .AddTarget(HotTarget(7U, 0.0))
           .Build();
@@ -1490,6 +1534,7 @@ TEST(SbirsPipelineTest, OccultedTargetWritesInfoExclusionDiagnostic) {
       sbirs_sensor::session::SbirsCycleInputBuilder()
           .WithCycleIndex(1U)
           .WithDeltaTimeSec(1.0f)
+          .WithUtcJulianDay(2451544.2230698913)  // GMST≈0：ECI≡ECEF
           .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
           .AddTarget(target)
           .Build();
@@ -1517,6 +1562,7 @@ TEST(SbirsPipelineTest, OutOfRangeTargetWritesInfoExclusionDiagnostic) {
       sbirs_sensor::session::SbirsCycleInputBuilder()
           .WithCycleIndex(1U)
           .WithDeltaTimeSec(1.0f)
+          .WithUtcJulianDay(2451544.2230698913)  // GMST≈0：ECI≡ECEF
           .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
           .AddTarget(HotTarget(1U, 0.0))
           .Build();
@@ -1544,6 +1590,7 @@ TEST(SbirsPipelineTest, TargetOutsideWfovWritesInfoExclusionDiagnostic) {
       sbirs_sensor::session::SbirsCycleInputBuilder()
           .WithCycleIndex(1U)
           .WithDeltaTimeSec(1.0f)
+          .WithUtcJulianDay(2451544.2230698913)  // GMST≈0：ECI≡ECEF
           .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
           .AddTarget(HotTargetAtAngles(1U, 100.0, 0.0))
           .Build();
@@ -1571,6 +1618,7 @@ TEST(SbirsPipelineTest, TargetOutsideWfovElevationWritesElOutsideCause) {
       sbirs_sensor::session::SbirsCycleInputBuilder()
           .WithCycleIndex(1U)
           .WithDeltaTimeSec(1.0f)
+          .WithUtcJulianDay(2451544.2230698913)  // GMST≈0：ECI≡ECEF
           .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
           .AddTarget(HotTargetAtAngles(1U, 0.0, 15.0))
           .Build();
@@ -1595,6 +1643,7 @@ TEST(SbirsPipelineTest, TargetOutsideWfovBothAxesWritesBothAxesOutsideCause) {
       sbirs_sensor::session::SbirsCycleInputBuilder()
           .WithCycleIndex(1U)
           .WithDeltaTimeSec(1.0f)
+          .WithUtcJulianDay(2451544.2230698913)  // GMST≈0：ECI≡ECEF
           .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
           .AddTarget(HotTargetAtAngles(1U, 15.0, 15.0))
           .Build();
@@ -1620,6 +1669,7 @@ TEST(SbirsPipelineTest, TargetBelowWideSnrWritesInfoExclusionDiagnostic) {
       sbirs_sensor::session::SbirsCycleInputBuilder()
           .WithCycleIndex(1U)
           .WithDeltaTimeSec(1.0f)
+          .WithUtcJulianDay(2451544.2230698913)  // GMST≈0：ECI≡ECEF
           .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
           .AddTarget(HotTarget(1U, 0.0))  // az=0°/el=0°：视场内
           .Build();

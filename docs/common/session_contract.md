@@ -102,7 +102,7 @@ AR/ESR/EOS/SBIRS/SAR 五模块的电源状态必须遵守单源原则：
 1-bit 存在标志（已确认/已检测/已有产品），事件富信息在每次 `Update()` 时从 L2 实时转发，不在内部累积。
 `*OutputDebugViewBuilder` 与 `*LifecycleRecorder` 在 L3 内并列，互不消费——前者是无状态快照构造器，
 后者是有状态跨周期状态机。`*OutputDebugViewBuilder` 对无探测/无轨迹目标回填**输入实体量值**
-（EOS 的方位/俯仰/距离、SBIRS 的方位/俯仰（卫星→目标视线 ECEF 极坐标）、AR 的 RCS，
+（EOS 的方位/俯仰/距离、SBIRS 的方位/俯仰（卫星→目标视线 ECI 极坐标，弧度）、AR 的 RCS，
 与检测记录同参考系；检测记录存在时以记录观测值覆盖）——
 未检测也可见目标量值，供调用方人读/结构化落盘（规则 12）。
 
@@ -284,23 +284,30 @@ AR/ESR/EOS/SBIRS/SAR 五模块的电源状态必须遵守单源原则：
 ### 传感器方位坐标系约定（SBIRS）
 
 **SBIRS 输出的 `az`/`el`（检测记录 `SbirsDetectionRecord`、扫描相位
-`SbirsOutputFrame::scan_azimuth_deg`）为 ECEF 极坐标，不是卫星局部地平系**：
+`SbirsOutputFrame::scan_azimuth_rad`）为 ECI 极坐标（2026-08 正式变更），
+不是卫星局部地平系**：
 
-- `az = atan2(los.y, los.x)`：相对 **ECEF x 轴**（`SbirsVector3M` 的 y/x 分量），
-  取值范围 `(-180°, 180°]`；
-- `el = asin(los.z / |los|)`：相对**赤道面**（ECEF z 轴为天顶参考），
-  星下点方向（目标在卫星正下方）`el ≈ −90°`，北天极方向 `el ≈ +90°`。
+- `az = atan2(los.y, los.x)`：相对 **ECI x 轴**（J2000 平赤道面，`SbirsVector3M`
+  的 y/x 分量），单位 **rad**，取值范围 `[0, 2π)`；
+- `el = asin(los.z / |los|)`：相对**赤道面**（ECI z 轴为天顶参考），单位 **rad**，
+  取值范围 `[-π/2, π/2]`；星下点方向（目标在卫星正下方）`el ≈ −π/2`，
+  北天极方向 `el ≈ +π/2`。
 
-实现见 `src/sbirs_sensor/foundation/SbirsGeometry.{h,cpp}` 的
-`ComputeAzimuthDeg`/`ComputeElevationDeg`；`SbirsSceneTarget` 与卫星位置均为
-ECEF 输入，检测记录直接以 ECEF 视线向量计算，无局部地平转换。
+输入仍为 **ECEF**（`SbirsCycleInput::satellite_position_ecef_m`、`SbirsSceneTarget::position_ecef_m`），
+且必须携带 **UTC 儒略日**（`utc_julian_day`，缺失即校验拒绝）：管线在周期入口按 GMST
+把卫星/目标位置与速度旋转到 ECI 后统一计算（实现见
+`include/1q/coordinate/inertial_transform.h` 与 `src/sbirs_sensor/foundation/SbirsGeometry.{h,cpp}`），
+检测记录以 ECI 视线向量计算，无局部地平转换。内部角度量纲保持 deg、方位对称约定
+`(-180°, 180°]`；输出边界统一换算为弧度并折入 `[0, 2π)`/`[-π/2, π/2]`。
 
 **集成含义（反开发者直觉，易踩点）**：
 
-1. 场景几何编排（卫星位置、目标分布、WFOV 扫描中心/覆盖）必须按 ECEF 极坐标
-   参考设计。例如目标位于卫星正下方时扫描中心俯仰角应配置为 `−90°` 而非 `0°`
+1. 场景几何编排（卫星位置、目标分布、WFOV 扫描中心/覆盖）须按 ECI 极坐标参考设计：
+   给定 UTC 时刻的 GMST 决定 ECEF 场景在 ECI 中的方位（az 平移 GMST、el 不变）。
+   例如目标位于卫星正下方时扫描中心俯仰角应配置为 `−90°` 而非 `0°`
    （`0°` 指向赤道面水平方向，星下点目标将完全落在视场外）。
-2. 该方位参考系与机载通道（AR/ESR/EOS 的平台局部系方位）**不同**；跨平台方位
+2. `scan_start_az_deg` 为 ECI 方位（deg），合法域 `[0, 360)`。
+3. 该方位参考系与机载通道（AR/ESR/EOS 的平台局部系方位）**不同**；跨平台方位
    融合/相干关联需要调用方先做坐标系对齐（本库不提供转换，业务层职责）。
    参考实现见 `examples/component_attachment` 的 SBIRS 组件与 README 简化声明。
 

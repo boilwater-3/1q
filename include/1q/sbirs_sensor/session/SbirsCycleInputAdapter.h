@@ -37,6 +37,12 @@ class ONEQ_API SbirsCycleInputBuilder {
    */
   SbirsCycleInputBuilder& WithSatellitePosition(const SbirsVector3M& position_ecef_m);
   /**
+   * @brief 设置 UTC 儒略日（ECI 输出参考系必需；未设置时校验拒绝）。
+   * @param[in] utc_julian_day UTC 儒略日（JD_UTC）
+   * @return 自身引用，支持链式调用
+   */
+  SbirsCycleInputBuilder& WithUtcJulianDay(double utc_julian_day);
+  /**
    * @brief 追加一个目标到场景列表。
    * @param[in] target 场景目标
    * @return 自身引用，支持链式调用

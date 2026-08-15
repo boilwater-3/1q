@@ -17,7 +17,7 @@
     "wide_field_fov_el_deg": 20.0,
     "narrow_field_fov_az_deg": 5.0,
     "narrow_field_fov_el_deg": 5.0,
-    "scan_start_az_deg": -180.0,
+    "scan_start_az_deg": 180.0,
     "scan_span_deg": 360.0,
     "scan_direction": "kIncreasingAzimuth",
     "scan_center_el_deg": -90.0,

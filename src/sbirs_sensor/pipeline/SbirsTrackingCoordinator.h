@@ -53,19 +53,19 @@ class SbirsTrackingCoordinator {
                         const config::SbirsTrackingConfig& tracking);
   SbirsTrackingPredictionResult PredictTarget(
       std::uint64_t target_id, const config::SbirsPolicyConfig& policy, float dt_sec,
-      const session::SbirsVector3M& satellite_position_ecef_m);
+      const session::SbirsVector3M& satellite_position_eci_m);
   SbirsTrackingUpdateResult CorrectTarget(
       std::uint64_t target_id, const config::SbirsPolicyConfig& policy,
       foundation::SbirsRandomSource* random_source, float azimuth_deg, float elevation_deg,
       double range_m, float angular_rate_deg_per_sec,
-      const session::SbirsVector3M& satellite_position_ecef_m);
+      const session::SbirsVector3M& satellite_position_eci_m);
   void MarkMeasurementUnavailable(std::uint64_t target_id);
   SbirsTrackingUpdateResult Update(std::uint64_t target_id,
                                    const config::SbirsPolicyConfig& policy,
                                    foundation::SbirsRandomSource* random_source,
                                    float azimuth_deg, float elevation_deg, double range_m,
                                    float angular_rate_deg_per_sec, float dt_sec,
-                                   const session::SbirsVector3M& satellite_position_ecef_m);
+                                   const session::SbirsVector3M& satellite_position_eci_m);
   void ReleaseTarget(std::uint64_t target_id);
   void ResetNisGateCounts();
   void ClearForStandby();
@@ -78,7 +78,7 @@ class SbirsTrackingCoordinator {
       std::uint64_t target_id, const tracking::SbirsGaussianState& initial_state);
   static SbirsTrackingPredictionResult BuildPredictionResult(
       const tracking::SbirsGaussianState& state,
-      const session::SbirsVector3M& satellite_position_ecef_m);
+      const session::SbirsVector3M& satellite_position_eci_m);
 
   tracking::SbirsCvTransitionModel cv_transition_model_{};
   tracking::SbirsAngleMeasurementModel angle_measurement_model_{};

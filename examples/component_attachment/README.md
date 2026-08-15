@@ -195,7 +195,7 @@ patch 只改会话配置）。
 | `ArSensorComponent` | `bool powered_on()` | —（无扫描方位概念） |
 | `EsrSensorComponent` | `bool powered_on()` | `float scan_azimuth_deg()`（deg，平台系） |
 | `EosSensorComponent` | `bool powered_on()` | `float scan_azimuth_deg()`（deg，平台系） |
-| `SbirsSensorComponent` | `bool powered_on()` | `float scan_azimuth_deg()`（deg，ECEF 极坐标参考） |
+| `SbirsSensorComponent` | `bool powered_on()` | `float scan_azimuth_deg()`（deg，ECI 极坐标参考——库内为弧度，组件转度） |
 | `SarSensorComponent` | `bool powered_on()` | —（无扫描方位概念） |
 
 有 DebugView 的四个组件（AR/EOS/SBIRS 目标列表型 + SAR 阶段型）另暴露

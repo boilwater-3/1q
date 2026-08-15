@@ -74,16 +74,21 @@ TEST(SbirsSessionConfigBuilderTest, RejectsInvalidScanRate) {
 }
 
 TEST(SbirsSessionConfigBuilderTest, ValidatesCircularScanContract) {
+  // ECI 方位约定（2026-08 正式变更）：scan_start ∈ [0, 360)；180 合法、
+  // −180 与 360 非法（旧对称约定 [-180,180) 已废除）。
   sbirs_sensor::config::SbirsSessionConfig config;
-  config.mission.scan_start_az_deg = -180.0f;
+  config.mission.scan_start_az_deg = 180.0f;
   config.mission.scan_span_deg = 360.0f;
   config.mission.scan_direction = sbirs_sensor::config::SbirsScanDirection::kDecreasingAzimuth;
   EXPECT_TRUE(sbirs_sensor::config::ValidateSbirsSessionConfig(config).empty());
 
-  config.mission.scan_start_az_deg = 180.0f;
+  config.mission.scan_start_az_deg = -180.0f;
   EXPECT_TRUE(ContainsCode(sbirs_sensor::config::ValidateSbirsSessionConfig(config),
                            "sbirs.validation.invalid_scan_start_azimuth"));
-  config.mission.scan_start_az_deg = -180.0f;
+  config.mission.scan_start_az_deg = 360.0f;
+  EXPECT_TRUE(ContainsCode(sbirs_sensor::config::ValidateSbirsSessionConfig(config),
+                           "sbirs.validation.invalid_scan_start_azimuth"));
+  config.mission.scan_start_az_deg = 180.0f;
   config.mission.scan_span_deg = 0.0f;
   EXPECT_TRUE(ContainsCode(sbirs_sensor::config::ValidateSbirsSessionConfig(config),
                            "sbirs.validation.invalid_scan_span"));

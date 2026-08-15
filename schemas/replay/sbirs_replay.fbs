@@ -13,9 +13,7 @@ table SbirsSceneTarget {
   target_id: uint64;
   target_name: string;
   position_ecef_m: Vec3d;
-  temperature_k: float;
-  emissivity: float;
-  projected_area_m2: float;
+  radiant_intensity_w_per_sr: double;
   velocity_ecef_m_per_s: Vec3d;
   has_velocity_ecef_m_per_s: bool;
   active: bool;
@@ -24,6 +22,7 @@ table SbirsSceneTarget {
 table SbirsCycleInput {
   cycle_index: uint32;
   dt_sec: float;
+  utc_julian_day: double;
   has_satellite_position: bool;
   satellite_position_ecef_m: Vec3d;
   scene_targets: [SbirsSceneTarget];
@@ -34,8 +33,8 @@ file_identifier "SBIC";
 
 table SbirsDetectionRecord {
   detection_id: uint64;
-  azimuth_deg: float;
-  elevation_deg: float;
+  azimuth_rad: float;
+  elevation_rad: float;
   infrared_snr_linear: float;
   observation_stage: int32;
   detected: bool;
@@ -62,7 +61,7 @@ table SbirsDetectionAttributionRecord {
 
 table SbirsOutputFrame {
   cycle_index: uint32;
-  scan_azimuth_deg: float;
+  scan_azimuth_rad: float;
   detections: [SbirsDetectionRecord];
 }
 
