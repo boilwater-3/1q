@@ -48,21 +48,21 @@ float DwellQualityFactor(float dwell_sec) {
 
 }  // namespace
 
-RirFeatureSet RirObservationBuilder::Build(
-    const session::RirSceneTarget& target, const session::RirTrackFeedEntry& snapshot,
-    const RirObservationContext& context) {
+RirFeatureSet RirObservationBuilder::Build(const session::RirSceneTarget& target,
+                                           const tracking::RirTrackState& snapshot,
+                                           const RirObservationContext& context) {
   RirFeatureSet set;
   set.rcs = RirRcsFeatureExtractor::Extract(target.aspect_rcs_samples, context.look_az_deg,
-                                         context.look_el_deg, context.snr_db,
-                                         context.minimum_aspect_coverage_deg);
+                                            context.look_el_deg, context.snr_db,
+                                            context.minimum_aspect_coverage_deg);
   set.motion = RirMotionFeatureExtractor::Extract(snapshot, context.platform_altitude_m,
-                                               snapshot.estimation_uncertainty_trace);
-  set.polarization =
-      RirPolarizationFeatureExtractor::Extract(target.polarization_rcs_samples, context.look_az_deg,
-                                            context.look_el_deg, context.snr_db, context.range_m);
-  set.range_profile = RirRangeProfileFeatureExtractor::Extract(
-      target.range_rcs_scatterers, context.bandwidth_hz, context.snr_db,
-      context.max_range_resolution_m);
+                                                  snapshot.EstimationUncertaintyTrace());
+  set.polarization = RirPolarizationFeatureExtractor::Extract(
+      target.polarization_rcs_samples, context.look_az_deg, context.look_el_deg, context.snr_db,
+      context.range_m);
+  set.range_profile =
+      RirRangeProfileFeatureExtractor::Extract(target.range_rcs_scatterers, context.bandwidth_hz,
+                                               context.snr_db, context.max_range_resolution_m);
   // 驻留时间质量因子：作用于除运动外的观测维度（运动来自滤波航迹，与驻留无关）。
   const float dwell_factor = DwellQualityFactor(context.dwell_sec);
   set.rcs.quality *= dwell_factor;

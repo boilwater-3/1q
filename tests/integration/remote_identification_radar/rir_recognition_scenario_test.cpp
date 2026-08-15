@@ -29,8 +29,6 @@ using session::RirRecognitionCategory;
 using session::RirRecognitionState;
 using session::RirSceneTarget;
 using session::RirSession;
-using session::RirTrackFeedEntry;
-using session::RirTrackFeedStatus;
 
 constexpr const char* kScenarioDatabaseSql = R"sql(
 INSERT INTO meta VALUES
@@ -61,15 +59,16 @@ INSERT INTO motion_templates VALUES
 class RirRecognitionScenarioTest : public ::testing::Test {
  protected:
   void SetUp() override {
-    database_path_ =
-        WriteTempSqlite("rir_recognition_scenario.db",
-                        std::string(kRecognitionSchemaSql) + kScenarioDatabaseSql);
+    database_path_ = WriteTempSqlite("rir_recognition_scenario.db",
+                                     std::string(kRecognitionSchemaSql) + kScenarioDatabaseSql);
     ASSERT_FALSE(database_path_.empty());
   }
 
   config::RirSessionConfig MakeScenarioConfig() const {
     config::RirSessionConfig cfg;
     cfg.mission.work_mode = config::RirWorkMode::kIdentify;
+    cfg.policy.lifecycle.confirm_hits = 1U;
+    cfg.policy.detection.gate_mode = config::RirDetectionGateMode::kSnrFallback;
     cfg.policy.recognition.enabled = true;
     cfg.policy.recognition.database_path = database_path_;
     cfg.policy.recognition.min_confirmed_hits = 1U;
@@ -86,7 +85,7 @@ class RirRecognitionScenarioTest : public ::testing::Test {
     RirSceneTarget target;
     target.external_target_id = target_id;
     target.position_x = 5000.0f + speed_mps * static_cast<float>(input->input_cycle_index - 1U) *
-                                     static_cast<float>(input->dt_sec);
+                                      static_cast<float>(input->dt_sec);
     target.position_z = altitude_offset_m;
     target.range_m = 5000.0f + speed_mps * static_cast<float>(input->input_cycle_index - 1U) *
                                    static_cast<float>(input->dt_sec);
@@ -101,21 +100,10 @@ class RirRecognitionScenarioTest : public ::testing::Test {
         target.aspect_rcs_samples.push_back(aspect);
       }
     }
+    target.target_name = truth_name;
+    target.velocity_x = speed_mps;
+    target.target_swerling_type = session::RirSwerlingType::kSwerling0;
     input->scene_targets.push_back(target);
-
-    // 已确认航迹供给（运动特征直接来源于航迹）。
-    RirTrackFeedEntry track;
-    track.association_key = target_id;
-    track.external_target_id = target_id;
-    track.target_name = truth_name;
-    track.status = RirTrackFeedStatus::kConfirmed;
-    track.hit_count = 1U;
-    track.speed = speed_mps;
-    track.velocity_x = speed_mps;
-    track.acceleration = 0.0f;
-    track.position_z = altitude_offset_m;
-    track.estimation_uncertainty_trace = 1000.0f;
-    input->track_feed.push_back(track);
   }
 
   RirCycleInput MakeInput(std::uint32_t cycle) {

@@ -27,7 +27,7 @@ struct RirSession::Impl {
 
   explicit Impl(const config::RirSessionConfig& session_config) : config(session_config) {
     controller.SetHardware(config.hardware);
-    controller.UpdateRuntime(config.mission.work_mode, config.policy.recognition);
+    controller.UpdateRuntime(config.mission.work_mode, config.policy);
   }
 };
 
@@ -75,8 +75,7 @@ RirCycleResult RirSession::StepWithResult(const RirCycleInput& input) {
     if (patch.has_sensor_enabled) {
       impl_->config.sensor_enabled = patch.sensor_enabled;
     }
-    impl_->controller.UpdateRuntime(impl_->config.mission.work_mode,
-                                    impl_->config.policy.recognition);
+    impl_->controller.UpdateRuntime(impl_->config.mission.work_mode, impl_->config.policy);
     impl_->has_pending_patch = false;
   }
 
@@ -119,6 +118,7 @@ RirSession RirSession::CreateWithDiagnostics(const config::RirSessionConfig& con
 RirSessionReplayState RirSessionReplayAccess::CaptureSessionState(const RirSession& session) {
   RirSessionReplayState replay_state;
   replay_state.active_database_version = session.impl_->controller.ActiveDatabaseVersion();
+  replay_state.detection_random_seed = session.impl_->controller.DetectionRandomSeed();
   return replay_state;
 }
 

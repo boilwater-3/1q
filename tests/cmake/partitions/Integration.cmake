@@ -30,11 +30,9 @@ endif()
 _oneq_add_integration_partition(electro_optical_sensor)
 _oneq_add_integration_partition(electronic_surveillance_radar)
 _oneq_add_integration_partition(sbirs_sensor)
-# cross_domain：AR↔RIR 识别等价性测试需要 SQLite 临时库与两侧测试工具/DDL 生成头。
+# cross_domain：多模型场景集成（AR/EOS/ESR 等）；RIR 等价性测试已于阶段 2-S 删除。
 _oneq_add_integration_partition(cross_domain
-    LINK_LIBS SQLite::SQLite3
     INCLUDE_DIRS "${CMAKE_CURRENT_SOURCE_DIR}/unit/airborne_radar"
-                 "${CMAKE_CURRENT_SOURCE_DIR}/unit/remote_identification_radar"
                  "${CMAKE_CURRENT_BINARY_DIR}/generated")
 
 # remote_identification_radar：识别场景测试用 SQLite 构造特征库（helper 位于

@@ -78,17 +78,29 @@ struct ONEQ_API RirRecognitionFeatureScores {
 struct ONEQ_API RirRecognitionResult {
   RirRecognitionState state{RirRecognitionState::kDisabled};
   RirRecognitionCategory target_category{RirRecognitionCategory::kUnknown};
-  std::string target_model{};   /**< 最可能型号；未确认时为空字符串。 */
-  float confidence{0.0f};       /**< 第一候选归一化综合置信度，[0, 1]。 */
-  float best_score{0.0f};       /**< 第一候选得分，[0, 1]。 */
-  float runner_up_score{0.0f};  /**< 第二候选得分，[0, 1]。 */
+  std::string target_model{};  /**< 最可能型号；未确认时为空字符串。 */
+  float confidence{0.0f};      /**< 第一候选归一化综合置信度，[0, 1]。 */
+  float best_score{0.0f};      /**< 第一候选得分，[0, 1]。 */
+  float runner_up_score{0.0f}; /**< 第二候选得分，[0, 1]。 */
   RirRecognitionFeatureScores feature_scores{};
-  std::uint8_t valid_feature_mask{0U}; /**< 本周期参与融合的特征维度位掩码。 */
-  std::uint32_t observation_count{0U}; /**< 证据积累量（有效观测数）。 */
-  float accumulation_sec{0.0f};        /**< 证据积累时长（s）。 */
-  std::string database_version{};      /**< 输出所使用的特征库版本。 */
+  std::uint8_t valid_feature_mask{0U};  /**< 本周期参与融合的特征维度位掩码。 */
+  std::uint32_t observation_count{0U};  /**< 证据积累量（有效观测数）。 */
+  float accumulation_sec{0.0f};         /**< 证据积累时长（s）。 */
+  std::string database_version{};       /**< 输出所使用的特征库版本。 */
   std::uint32_t source_cycle_index{0U}; /**< 产生此结论的 cycle_index。 */
   std::uint64_t source_batch_id{0U};    /**< 产生此结论的 batch_id。 */
+};
+
+/**
+ * @brief RirDwellBudgetSummary 单周期识别驻留预算摘要（阶段 2-S S3）。
+ * @note 识别驻留预算由自持链路按内部确认航迹数申请；实际执行数以检测通过
+ *       且成功积累的目标数为准（未识别优先 + 斜距次近，D-A5）。
+ */
+struct ONEQ_API RirDwellBudgetSummary {
+  std::uint32_t scheduled_dwell_count{0U}; /**< 本周期计划驻留目标数。 */
+  std::uint32_t executed_dwell_count{0U};  /**< 本周期实际执行驻留目标数。 */
+  float dwell_budget_sec{0.0f};            /**< 本周期驻留时间预算（s）。 */
+  float dwell_consumed_sec{0.0f};          /**< 本周期实际消耗驻留时间（s）。 */
 };
 
 /**
@@ -109,6 +121,8 @@ struct ONEQ_API RirRecognitionCycleSummary {
   bool has_ground_truth{false};                /**< 本周期是否有真值可用于正确率统计。 */
   float category_accuracy{0.0f};               /**< 大类正确率，仅 has_ground_truth 时有效。 */
   float model_accuracy{0.0f};                  /**< 型号正确率，仅 has_ground_truth 时有效。 */
+
+  RirDwellBudgetSummary dwell_budget{}; /**< 本周期驻留预算摘要（自持链路）。 */
 };
 
 }  // namespace session

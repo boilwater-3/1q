@@ -2,8 +2,8 @@
  * @file RirReplayFlatbufferCodec.cpp
  * @brief 远程识别雷达 replay FlatBuffers 编解码实现。
  *
- * 表结构镜像 AR airborne_radar_replay.fbs 识别相关表；编码为字节精确往返
- * （无浮点近似），Decode* 失败返回 false 并回填 error。
+ * 阶段 2-S 起编码 V2 表；旧 V1 记录显式拒绝（破坏性版本，不静默误读）。
+ * 编码为字节精确往返（无浮点近似），Decode* 失败返回 false 并回填 error。
  */
 
 #include "remote_identification_radar/session/RirReplayFlatbufferCodec.h"
@@ -74,18 +74,23 @@ bool DecodeRecognitionResult(const fb::RirRecognitionResultV1* value, RirRecogni
   return true;
 }
 
-flatbuffers::Offset<fb::RirRecognitionCycleSummaryV1> EncodeSummary(
+flatbuffers::Offset<fb::RirRecognitionCycleSummaryV2> EncodeSummary(
     flatbuffers::FlatBufferBuilder* builder, const RirRecognitionCycleSummary& value) {
-  return fb::CreateRirRecognitionCycleSummaryV1(
+  const flatbuffers::Offset<fb::RirDwellBudgetSummaryV2> dwell_budget =
+      fb::CreateRirDwellBudgetSummaryV2(*builder, value.dwell_budget.scheduled_dwell_count,
+                                        value.dwell_budget.executed_dwell_count,
+                                        value.dwell_budget.dwell_budget_sec,
+                                        value.dwell_budget.dwell_consumed_sec);
+  return fb::CreateRirRecognitionCycleSummaryV2(
       *builder, value.participating_track_count, value.category_confirmed_count,
       value.model_confirmed_count, value.unknown_count, value.disabled_count,
       value.rcs_availability_rate, value.motion_availability_rate,
       value.polarization_availability_rate, value.range_profile_availability_rate,
       value.mean_confidence, value.mean_first_confirmation_sec, value.has_ground_truth,
-      value.category_accuracy, value.model_accuracy);
+      value.category_accuracy, value.model_accuracy, dwell_budget);
 }
 
-void DecodeSummary(const fb::RirRecognitionCycleSummaryV1* value, RirRecognitionCycleSummary* out) {
+void DecodeSummary(const fb::RirRecognitionCycleSummaryV2* value, RirRecognitionCycleSummary* out) {
   if (value == nullptr) {
     return;
   }
@@ -103,6 +108,12 @@ void DecodeSummary(const fb::RirRecognitionCycleSummaryV1* value, RirRecognition
   out->has_ground_truth = value->has_ground_truth();
   out->category_accuracy = value->category_accuracy();
   out->model_accuracy = value->model_accuracy();
+  if (value->dwell_budget() != nullptr) {
+    out->dwell_budget.scheduled_dwell_count = value->dwell_budget()->scheduled_dwell_count();
+    out->dwell_budget.executed_dwell_count = value->dwell_budget()->executed_dwell_count();
+    out->dwell_budget.dwell_budget_sec = value->dwell_budget()->dwell_budget_sec();
+    out->dwell_budget.dwell_consumed_sec = value->dwell_budget()->dwell_consumed_sec();
+  }
 }
 
 }  // namespace
@@ -117,30 +128,29 @@ std::string EncodeCycleReplayRecordFlatbuffer(const RirCycleReplayRecord& record
     outputs.push_back(fb::CreateRirTrackRecognitionOutputV1(
         builder, output.association_key, EncodeRecognitionResult(&builder, output.result)));
   }
-  const flatbuffers::Offset<fb::RirOutputFrameV1> output_frame =
-      fb::CreateRirOutputFrameV1(builder, record.result.output_frame.input_cycle_index,
-                                 record.result.output_frame.batch_id,
-                                 builder.CreateVector(outputs));
+  const flatbuffers::Offset<fb::RirOutputFrameV1> output_frame = fb::CreateRirOutputFrameV1(
+      builder, record.result.output_frame.input_cycle_index, record.result.output_frame.batch_id,
+      builder.CreateVector(outputs));
 
-  flatbuffers::Offset<fb::RirRecognitionCycleSummaryV1> summary_offset;
+  flatbuffers::Offset<fb::RirRecognitionCycleSummaryV2> summary_offset;
   if (record.result.has_recognition_summary) {
     summary_offset = EncodeSummary(&builder, record.result.recognition_summary);
   }
 
-  const flatbuffers::Offset<fb::RirCycleResultV1> result = fb::CreateRirCycleResultV1(
+  const flatbuffers::Offset<fb::RirCycleResultV2> result = fb::CreateRirCycleResultV2(
       builder, record.result.input_cycle_index, static_cast<int>(record.result.status),
       static_cast<int>(record.result.abort_reason), output_frame,
       record.result.has_recognition_summary, summary_offset);
 
-  const flatbuffers::Offset<fb::RirSessionReplayStateV1> session_state =
-      fb::CreateRirSessionReplayStateV1(
-          builder, builder.CreateString(record.session_state.active_database_version));
+  const flatbuffers::Offset<fb::RirSessionReplayStateV2> session_state =
+      fb::CreateRirSessionReplayStateV2(
+          builder, builder.CreateString(record.session_state.active_database_version),
+          record.session_state.detection_random_seed);
 
-  const flatbuffers::Offset<fb::RirCycleReplayRecordV1> root =
-      fb::CreateRirCycleReplayRecordV1(builder, result, session_state);
-  builder.Finish(root);
-  return std::string(reinterpret_cast<const char*>(builder.GetBufferPointer()),
-                     builder.GetSize());
+  const flatbuffers::Offset<fb::RirCycleReplayRecordV2> root =
+      fb::CreateRirCycleReplayRecordV2(builder, result, session_state);
+  builder.Finish(root, fb::RirCycleReplayRecordV2Identifier());
+  return std::string(reinterpret_cast<const char*>(builder.GetBufferPointer()), builder.GetSize());
 }
 
 bool DecodeCycleReplayRecordFlatbuffer(const std::string& payload_bytes,
@@ -151,15 +161,21 @@ bool DecodeCycleReplayRecordFlatbuffer(const std::string& payload_bytes,
     }
     return false;
   }
-  flatbuffers::Verifier verifier(reinterpret_cast<const std::uint8_t*>(payload_bytes.data()),
-                                 payload_bytes.size());
-  if (!fb::VerifyRirCycleReplayRecordV1Buffer(verifier)) {
+  const std::uint8_t* payload = reinterpret_cast<const std::uint8_t*>(payload_bytes.data());
+  if (!flatbuffers::BufferHasIdentifier(payload, fb::RirCycleReplayRecordV2Identifier())) {
+    if (error != nullptr) {
+      *error = "rir_replay v1 record is not supported: phase 2-S uses the destructive v2 schema";
+    }
+    return false;
+  }
+  flatbuffers::Verifier verifier(payload, payload_bytes.size());
+  if (!fb::VerifyRirCycleReplayRecordV2Buffer(verifier)) {
     if (error != nullptr) {
       *error = "flatbuffer verification failed";
     }
     return false;
   }
-  const fb::RirCycleReplayRecordV1* root = fb::GetRirCycleReplayRecordV1(payload_bytes.data());
+  const fb::RirCycleReplayRecordV2* root = fb::GetRirCycleReplayRecordV2(payload_bytes.data());
   if (root == nullptr) {
     if (error != nullptr) {
       *error = "root table missing";
@@ -167,7 +183,7 @@ bool DecodeCycleReplayRecordFlatbuffer(const std::string& payload_bytes,
     return false;
   }
   RirCycleReplayRecord candidate;
-  const fb::RirCycleResultV1* result = root->result();
+  const fb::RirCycleResultV2* result = root->result();
   if (result == nullptr) {
     if (error != nullptr) {
       *error = "result table missing";
@@ -212,9 +228,13 @@ bool DecodeCycleReplayRecordFlatbuffer(const std::string& payload_bytes,
     }
   }
 
-  const fb::RirSessionReplayStateV1* session_state = root->session_state();
-  if (session_state != nullptr && session_state->active_database_version() != nullptr) {
-    candidate.session_state.active_database_version = session_state->active_database_version()->str();
+  const fb::RirSessionReplayStateV2* session_state = root->session_state();
+  if (session_state != nullptr) {
+    if (session_state->active_database_version() != nullptr) {
+      candidate.session_state.active_database_version =
+          session_state->active_database_version()->str();
+    }
+    candidate.session_state.detection_random_seed = session_state->detection_random_seed();
   }
 
   *record = std::move(candidate);

@@ -6,6 +6,7 @@
 #ifndef REMOTE_IDENTIFICATION_RADAR_SESSION_RIR_REPLAY_CYCLE_RECORD_H_
 #define REMOTE_IDENTIFICATION_RADAR_SESSION_RIR_REPLAY_CYCLE_RECORD_H_
 
+#include <cstdint>
 #include <string>
 
 #include "1q/remote_identification_radar/session/RirCycleResult.h"
@@ -16,6 +17,8 @@ namespace session {
 /** @brief replay 比对所需的会话拥有状态。 */
 struct RirSessionReplayState {
   std::string active_database_version{}; /**< 当前生效识别特征库版本；未加载识别库时为空串。 */
+  std::uint32_t detection_random_seed{
+      42U}; /**< 检测/量测误差随机种子（阶段 2-S 起入 replay 状态）。 */
 };
 
 /** @brief 单周期用户门面一次调用的结果与调用后状态。 */

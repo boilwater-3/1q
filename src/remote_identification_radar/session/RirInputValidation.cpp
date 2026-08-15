@@ -50,9 +50,17 @@ RirIssueList ValidateRirSceneTargets(const RirSceneTargetList& targets) {
     const RirSceneTarget& target = targets[i];
     const std::string location = "scene_targets[" + std::to_string(i) + "]";
     if (!IsFinite(target.position_x) || !IsFinite(target.position_y) ||
-        !IsFinite(target.position_z) || !IsFinite(target.rcs) || !IsFinite(target.range_m)) {
+        !IsFinite(target.position_z) || !IsFinite(target.velocity_x) ||
+        !IsFinite(target.velocity_y) || !IsFinite(target.velocity_z) || !IsFinite(target.rcs) ||
+        !IsFinite(target.range_m)) {
       PushIssue(&issues, RirIssueSeverity::kError, codes::kNonFiniteTargetField, location,
-                "Scene target position/RCS/range must be finite.");
+                "Scene target position/velocity/RCS/range must be finite.");
+    }
+    if (target.target_swerling_type < RirSwerlingType::kSwerling0 ||
+        target.target_swerling_type > RirSwerlingType::kSwerling4) {
+      PushIssue(&issues, RirIssueSeverity::kError, codes::kInvalidTargetMotionField,
+                location + ".target_swerling_type",
+                "Scene target Swerling type must be in [0, 4].");
     }
     const bool has_position =
         target.position_x != 0.0f || target.position_y != 0.0f || target.position_z != 0.0f;
@@ -81,8 +89,7 @@ RirIssueList ValidateRirSceneTargets(const RirSceneTargetList& targets) {
           !IsFinite(scatterer.channel_1_rcs_dbsm) || !IsFinite(scatterer.channel_2_rcs_dbsm) ||
           !IsFinite(scatterer.phase_deg) || !IsFinite(scatterer.fluctuation_std_db)) {
         PushIssue(&issues, RirIssueSeverity::kError, codes::kNonFiniteTargetField,
-                  location + ".range_rcs_scatterers",
-                  "Range scatterer fields must be finite.");
+                  location + ".range_rcs_scatterers", "Range scatterer fields must be finite.");
       }
     }
   }
@@ -105,26 +112,42 @@ RirIssueList ValidateRirSceneTargets(const RirSceneTargetList& targets) {
 RirIssueList ValidateRirCycleInput(const RirCycleInput& input) {
   RirIssueList issues = ValidateRirCycleDeltaTime(input.dt_sec);
   if (input.input_cycle_index == 0U) {
-    PushIssue(&issues, RirIssueSeverity::kError, codes::kInvalidCycleIndex,
-              "input_cycle_index", "Cycle index must be non-zero.");
+    PushIssue(&issues, RirIssueSeverity::kError, codes::kInvalidCycleIndex, "input_cycle_index",
+              "Cycle index must be non-zero.");
   }
-  if (!IsFinite(input.platform_altitude_m)) {
+  if (!IsFinite(input.platform_altitude_m) || !IsFinite(input.sim_time_sec)) {
     PushIssue(&issues, RirIssueSeverity::kError, codes::kNonFiniteTargetField,
-              "platform_altitude_m", "Platform altitude must be finite.");
+              "platform_altitude_m / sim_time_sec",
+              "Platform altitude and simulation time must be finite.");
   }
   const RirIssueList target_issues = ValidateRirSceneTargets(input.scene_targets);
   issues.insert(issues.end(), target_issues.begin(), target_issues.end());
-  for (std::size_t i = 0U; i < input.track_feed.size(); ++i) {
-    const RirTrackFeedEntry& track = input.track_feed[i];
-    if (!IsFinite(track.position_x) || !IsFinite(track.position_y) ||
-        !IsFinite(track.position_z) || !IsFinite(track.velocity_x) ||
-        !IsFinite(track.velocity_y) || !IsFinite(track.velocity_z) ||
-        !IsFinite(track.speed) || !IsFinite(track.acceleration_x) ||
-        !IsFinite(track.acceleration_y) || !IsFinite(track.acceleration_z) ||
-        !IsFinite(track.acceleration) || !IsFinite(track.estimation_uncertainty_trace)) {
-      PushIssue(&issues, RirIssueSeverity::kError, codes::kNonFiniteTrackFeedField,
-                "track_feed[" + std::to_string(i) + "]",
-                "Track feed kinematics fields must be finite.");
+
+  // 环境快照：天气衰减必须有限且非负；植被字段由公共类型承载，不逐叶校验。
+  if (!IsFinite(input.environment_snapshot.weather_attenuation_db) ||
+      input.environment_snapshot.weather_attenuation_db < 0.0f) {
+    PushIssue(&issues, RirIssueSeverity::kError, codes::kInvalidEnvironmentSnapshot,
+              "environment_snapshot.weather_attenuation_db",
+              "Weather attenuation must be finite and non-negative.");
+  }
+
+  // RF 输入：自身发射身份用于排除自发自收链路；携带入射链路时身份必须完整。
+  const oneq::electromagnetics::RfEmissionIdentity& own_identity = input.own_emission_identity;
+  const bool has_incident_links = !input.incident_links.empty();
+  if (has_incident_links && (own_identity.platform_id == 0U || own_identity.equipment_id == 0U ||
+                             own_identity.emission_id == 0U)) {
+    PushIssue(&issues, RirIssueSeverity::kError, codes::kInvalidOwnEmissionIdentity,
+              "own_emission_identity",
+              "Own emission identity must be complete when incident links are provided.");
+  }
+  for (std::size_t i = 0U; i < input.incident_links.size(); ++i) {
+    const oneq::electromagnetics::RfIncidentLinkResult& link = input.incident_links[i];
+    if (link.identity.platform_id == 0U || link.identity.equipment_id == 0U ||
+        link.identity.emission_id == 0U || !std::isfinite(link.received_power_before_overlap_w) ||
+        link.received_power_before_overlap_w < 0.0) {
+      PushIssue(&issues, RirIssueSeverity::kError, codes::kInvalidRfIncidentLink,
+                "incident_links[" + std::to_string(i) + "]",
+                "RF incident link identity and received power must be valid.");
     }
   }
   return issues;

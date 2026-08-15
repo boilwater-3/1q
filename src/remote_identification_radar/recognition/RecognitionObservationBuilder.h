@@ -7,8 +7,8 @@
 #define REMOTE_IDENTIFICATION_RADAR_RECOGNITION_RECOGNITION_OBSERVATION_BUILDER_H_
 
 #include "1q/remote_identification_radar/session/RirSceneTypes.h"
-#include "1q/remote_identification_radar/session/RirTrackFeedTypes.h"
 #include "remote_identification_radar/recognition/RecognitionTypes.h"
+#include "remote_identification_radar/tracking/RirTrackTypes.h"
 
 namespace remote_identification_radar {
 namespace recognition {
@@ -26,13 +26,13 @@ class RirObservationBuilder {
   /**
    * @brief 构造单周期识别观测。
    * @param[in] target 场景目标（含可选识别特征真值列表）。
-   * @param[in] snapshot 航迹快照（运动特征来源）。
+   * @param[in] snapshot 内部航迹状态（运动特征来源）。
    * @param[in] context 周期效能约束。
    * @return 四维特征观测集合与有效维度掩码。
    */
   static RirFeatureSet Build(const session::RirSceneTarget& target,
-                                     const session::RirTrackFeedEntry& snapshot,
-                                     const RirObservationContext& context);
+                             const tracking::RirTrackState& snapshot,
+                             const RirObservationContext& context);
 };
 
 }  // namespace recognition

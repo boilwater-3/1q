@@ -43,11 +43,10 @@ session::RirIssueList ValidateRirSessionConfig(const RirSessionConfig& config) {
                            weights.polarization_weight + weights.range_profile_weight;
   if (!IsFinite(weights.rcs_weight) || !IsFinite(weights.motion_weight) ||
       !IsFinite(weights.polarization_weight) || !IsFinite(weights.range_profile_weight) ||
-      weights.rcs_weight < 0.0f || weights.rcs_weight > 1.0f ||
-      weights.motion_weight < 0.0f || weights.motion_weight > 1.0f ||
-      weights.polarization_weight < 0.0f || weights.polarization_weight > 1.0f ||
-      weights.range_profile_weight < 0.0f || weights.range_profile_weight > 1.0f ||
-      std::fabs(weight_sum - 1.0f) > 1.0e-5f) {
+      weights.rcs_weight < 0.0f || weights.rcs_weight > 1.0f || weights.motion_weight < 0.0f ||
+      weights.motion_weight > 1.0f || weights.polarization_weight < 0.0f ||
+      weights.polarization_weight > 1.0f || weights.range_profile_weight < 0.0f ||
+      weights.range_profile_weight > 1.0f || std::fabs(weight_sum - 1.0f) > 1.0e-5f) {
     PushIssue(&issues, session::codes::kRecognitionWeightsInvalid,
               "policy.recognition.feature_weights",
               "Recognition feature weights must be finite values in [0, 1] summing to 1.0.");
@@ -89,19 +88,56 @@ session::RirIssueList ValidateRirSessionConfig(const RirSessionConfig& config) {
               "window must be finite and positive.");
   }
 
+  // 自持检测策略（阶段 2-S）：Pfa/SNR 门限有限且范围合理，脉冲数/种子为正。
+  {
+    const RirDetectionPolicyConfig& detection = config.policy.detection;
+    if (!IsFinite(detection.cfar_pfa) || detection.cfar_pfa <= 0.0f || detection.cfar_pfa > 1.0f ||
+        !IsFinite(detection.min_snr_db) || !IsFinite(detection.min_detection_margin_db) ||
+        detection.pulse_count <= 0 || detection.random_seed == 0U) {
+      PushIssue(&issues, session::codes::kDetectionPolicyInvalid, "policy.detection",
+                "Detection policy Pfa/SNR gates must be finite, pulse count and seed positive.");
+    }
+  }
+
+  // 关联策略：波门 sigma 有限且 > 0。
+  {
+    const RirAssociationPolicyConfig& association = config.policy.association;
+    if (!IsFinite(association.distance_gate_sigma) || association.distance_gate_sigma <= 0.0f) {
+      PushIssue(&issues, session::codes::kAssociationPolicyInvalid, "policy.association",
+                "Association distance gate sigma must be finite and positive.");
+    }
+  }
+
+  // 跟踪策略：KF 噪声参数有限且 > 0。
+  {
+    const RirTrackingPolicyConfig& tracking = config.policy.tracking;
+    if (!IsFinite(tracking.kalman_noise_diff_coeff) || tracking.kalman_noise_diff_coeff <= 0.0f ||
+        !IsFinite(tracking.kalman_measurement_noise_std) ||
+        tracking.kalman_measurement_noise_std <= 0.0f) {
+      PushIssue(&issues, session::codes::kTrackingPolicyInvalid, "policy.tracking",
+                "Kalman process/measurement noise parameters must be finite and positive.");
+    }
+  }
+
+  // 生命周期策略：confirm_hits/max_lost_cycles 至少为 1。
+  {
+    const RirLifecyclePolicyConfig& lifecycle = config.policy.lifecycle;
+    if (lifecycle.confirm_hits == 0U || lifecycle.max_lost_cycles == 0U) {
+      PushIssue(&issues, session::codes::kLifecyclePolicyInvalid, "policy.lifecycle",
+                "Lifecycle confirm hits and max lost cycles must be at least 1.");
+    }
+  }
+
   // 信号处理增益偏置（阶段 2-M M3）：有限且 [0, 40] dB。
   {
     const RirHardwareConfig& hardware = config.hardware;
     const hardware::RirSignalProcessingConfig& gains = hardware.signal_processing;
-    if (!IsFinite(gains.target_processing_gain_db) ||
-        !IsFinite(gains.noise_processing_gain_db) ||
+    if (!IsFinite(gains.target_processing_gain_db) || !IsFinite(gains.noise_processing_gain_db) ||
         !IsFinite(gains.clutter_suppression_gain_db) ||
-        !IsFinite(gains.jamming_suppression_gain_db) ||
-        gains.target_processing_gain_db < 0.0f || gains.target_processing_gain_db > 40.0f ||
-        gains.noise_processing_gain_db < 0.0f || gains.noise_processing_gain_db > 40.0f ||
-        gains.clutter_suppression_gain_db < 0.0f ||
-        gains.clutter_suppression_gain_db > 40.0f ||
-        gains.jamming_suppression_gain_db < 0.0f ||
+        !IsFinite(gains.jamming_suppression_gain_db) || gains.target_processing_gain_db < 0.0f ||
+        gains.target_processing_gain_db > 40.0f || gains.noise_processing_gain_db < 0.0f ||
+        gains.noise_processing_gain_db > 40.0f || gains.clutter_suppression_gain_db < 0.0f ||
+        gains.clutter_suppression_gain_db > 40.0f || gains.jamming_suppression_gain_db < 0.0f ||
         gains.jamming_suppression_gain_db > 40.0f) {
       PushIssue(&issues, session::codes::kSignalProcessingGainsInvalid,
                 "hardware.signal_processing",

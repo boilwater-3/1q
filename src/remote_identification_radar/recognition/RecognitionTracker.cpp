@@ -8,9 +8,9 @@
 #include <algorithm>
 #include <cmath>
 
+#include "common/logging/ProjectLog.h"
 #include "remote_identification_radar/recognition/RecognitionMatcher.h"
 #include "remote_identification_radar/recognition/RecognitionObservationBuilder.h"
-#include "common/logging/ProjectLog.h"
 
 namespace remote_identification_radar {
 namespace recognition {
@@ -214,11 +214,10 @@ void RirTracker::ExitRecognitionMode() {
 }
 
 void RirTracker::UpdateCycle(
-    const session::RirTrackFeed& tracks,
+    const std::vector<tracking::RirTrackState>& tracks,
     const std::unordered_map<std::uint64_t, TrackObservationInput>& observations_by_key,
-    const RirFeatureDatabase& database,
-    const config::RirRecognitionFeatureWeights& weights, float sim_time_sec,
-    std::uint32_t cycle_index, std::uint64_t batch_id) {
+    const RirFeatureDatabase& database, const config::RirRecognitionFeatureWeights& weights,
+    float sim_time_sec, std::uint32_t cycle_index, std::uint64_t batch_id) {
   // 捕获 model_id → category_id 映射（真值准确率统计用，与识别结论无关）。
   if (model_categories_.empty() && database.IsLoaded()) {
     for (std::size_t m = 0U; m < database.models().size(); ++m) {
@@ -226,7 +225,7 @@ void RirTracker::UpdateCycle(
     }
   }
   for (std::size_t i = 0U; i < tracks.size(); ++i) {
-    const session::RirTrackFeedEntry& snapshot = tracks[i];
+    const tracking::RirTrackState& snapshot = tracks[i];
     const std::uint64_t key = snapshot.association_key;
     RirTrackState& state = tracks_[key];
     state.association_key = key;
@@ -278,7 +277,7 @@ void RirTracker::UpdateCycle(
       state.window_timestamps_sec.erase(state.window_timestamps_sec.begin());
     }
     ++state.observation_count;
-    if (snapshot.status == session::RirTrackFeedStatus::kConfirmed) {
+    if (snapshot.status == tracking::RirTrackStatus::kConfirmed) {
       ++state.confirmed_hit_count;
     }
 
@@ -327,8 +326,8 @@ void RirTracker::UpdateCycle(
         }
       }
       if (best_model != nullptr && !best_model->profiles.empty()) {
-        const std::array<float, 4> similarities = RirMatcher::ComputeFeatureSimilarities(
-            aggregate, best_model->profiles.front());
+        const std::array<float, 4> similarities =
+            RirMatcher::ComputeFeatureSimilarities(aggregate, best_model->profiles.front());
         judgement.feature_scores.rcs_similarity = similarities[0];
         judgement.feature_scores.motion_similarity = similarities[1];
         judgement.feature_scores.polarization_similarity = similarities[2];
@@ -364,13 +363,11 @@ void RirTracker::UpdateCycle(
   }
 }
 
-void RirTracker::HoldCycle(const session::RirTrackFeed& tracks,
-                                   float sim_time_sec) {
+void RirTracker::HoldCycle(const std::vector<tracking::RirTrackState>& tracks, float sim_time_sec) {
   for (std::size_t i = 0U; i < tracks.size(); ++i) {
-    const session::RirTrackFeedEntry& snapshot = tracks[i];
+    const tracking::RirTrackState& snapshot = tracks[i];
     const std::uint64_t key = snapshot.association_key;
-    const std::unordered_map<std::uint64_t, RirTrackState>::iterator found =
-        tracks_.find(key);
+    const std::unordered_map<std::uint64_t, RirTrackState>::iterator found = tracks_.find(key);
     if (found == tracks_.end()) {
       continue;
     }
@@ -384,15 +381,14 @@ void RirTracker::HoldCycle(const session::RirTrackFeed& tracks,
   }
 }
 
-const session::RirRecognitionResult* RirTracker::FindResult(
-    std::uint64_t association_key) const {
+const session::RirRecognitionResult* RirTracker::FindResult(std::uint64_t association_key) const {
   const std::unordered_map<std::uint64_t, RirTrackState>::const_iterator found =
       tracks_.find(association_key);
   return found == tracks_.end() ? nullptr : &found->second.result;
 }
 
 session::RirRecognitionCycleSummary RirTracker::BuildSummary(
-    const session::RirTrackFeed& tracks) const {
+    const std::vector<tracking::RirTrackState>& tracks) const {
   session::RirRecognitionCycleSummary summary;
   std::uint32_t confirmed_count = 0U;
   std::uint32_t rcs_available = 0U;
@@ -405,7 +401,7 @@ session::RirRecognitionCycleSummary RirTracker::BuildSummary(
   float first_confirmation_sum = 0.0f;
   float confidence_sum = 0.0f;
   for (std::size_t i = 0U; i < tracks.size(); ++i) {
-    const session::RirTrackFeedEntry& snapshot = tracks[i];
+    const tracking::RirTrackState& snapshot = tracks[i];
     const session::RirRecognitionResult* result = FindResult(snapshot.association_key);
     if (result == nullptr || result->state == session::RirRecognitionState::kDisabled) {
       ++summary.disabled_count;
@@ -433,8 +429,8 @@ session::RirRecognitionCycleSummary RirTracker::BuildSummary(
           tracks_.find(snapshot.association_key);
       if (found != tracks_.end() && found->second.first_conclusion_time_sec > 0.0f &&
           found->second.first_observation_sec > 0.0f) {
-        first_confirmation_sum += found->second.first_conclusion_time_sec -
-                                  found->second.first_observation_sec;
+        first_confirmation_sum +=
+            found->second.first_conclusion_time_sec - found->second.first_observation_sec;
       }
       // 真值准确率：target_name 命中数据库 model_id 时视为有真值（仅统计，不参与识别）。
       const std::unordered_map<std::string, std::string>::const_iterator truth =
@@ -478,7 +474,8 @@ session::RirRecognitionCycleSummary RirTracker::BuildSummary(
   }
   if (truth_count > 0U) {
     summary.has_ground_truth = true;
-    summary.category_accuracy = static_cast<float>(category_correct) / static_cast<float>(truth_count);
+    summary.category_accuracy =
+        static_cast<float>(category_correct) / static_cast<float>(truth_count);
     summary.model_accuracy = static_cast<float>(model_correct) / static_cast<float>(truth_count);
   }
   return summary;

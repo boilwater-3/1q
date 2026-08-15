@@ -16,6 +16,5 @@
 #include "1q/remote_identification_radar/session/RirRecognitionResult.h"
 #include "1q/remote_identification_radar/session/RirSceneTypes.h"
 #include "1q/remote_identification_radar/session/RirSession.h"
-#include "1q/remote_identification_radar/session/RirTrackFeedTypes.h"
 
 #endif  // ONEQ_REMOTE_IDENTIFICATION_RADAR_REMOTE_IDENTIFICATION_RADAR_HPP_

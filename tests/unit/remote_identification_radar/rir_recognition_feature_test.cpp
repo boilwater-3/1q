@@ -8,10 +8,8 @@
 #include <cmath>
 #include <unordered_map>
 
-
 #include "1q/remote_identification_radar/session/RirRecognitionResult.h"
 #include "1q/remote_identification_radar/session/RirSceneTypes.h"
-#include "1q/remote_identification_radar/session/RirTrackFeedTypes.h"
 #include "remote_identification_radar/recognition/MotionFeatureExtractor.h"
 #include "remote_identification_radar/recognition/PolarizationFeatureExtractor.h"
 #include "remote_identification_radar/recognition/RangeProfileFeatureExtractor.h"
@@ -19,22 +17,22 @@
 #include "remote_identification_radar/recognition/RecognitionObservationBuilder.h"
 #include "remote_identification_radar/recognition/RecognitionTracker.h"
 #include "remote_identification_radar/recognition/RecognitionTypes.h"
+#include "remote_identification_radar/tracking/RirTrackTypes.h"
 
 namespace remote_identification_radar {
 namespace tests {
 namespace {
 
-using session::RirRecognitionFeatureDimension;
-using session::RirSceneTarget;
 using session::RirAspectRcsSample;
 using session::RirPolarizationRcsSample;
 using session::RirRangeRcsScatterer;
-using session::RirTrackFeedEntry;
-using session::RirTrackFeedStatus;
+using session::RirRecognitionFeatureDimension;
+using session::RirSceneTarget;
+using tracking::RirTrackState;
+using tracking::RirTrackStatus;
 
-recognition::RirObservationContext MakeContext(float snr_db = 20.0f,
-                                                       float bandwidth_hz = 3.0e6f,
-                                                       float range_m = 100000.0f) {
+recognition::RirObservationContext MakeContext(float snr_db = 20.0f, float bandwidth_hz = 3.0e6f,
+                                               float range_m = 100000.0f) {
   recognition::RirObservationContext context;
   context.snr_db = snr_db;
   context.bandwidth_hz = bandwidth_hz;
@@ -47,7 +45,7 @@ recognition::RirObservationContext MakeContext(float snr_db = 20.0f,
 
 TEST(RirObservationBuilderTest, EmptyFeatureListsProduceZeroMask) {
   RirSceneTarget target;
-  RirTrackFeedEntry snapshot;  // 默认快照（kTentative）
+  RirTrackState snapshot;  // 默认快照（kTentative）
   const recognition::RirFeatureSet set =
       recognition::RirObservationBuilder::Build(target, snapshot, MakeContext());
   EXPECT_EQ(set.valid_feature_mask, 0U);
@@ -86,17 +84,17 @@ TEST(RirRcsFeatureExtractorTest, InsufficientAspectCoverageInvalidatesDimension)
 }
 
 TEST(RirMotionFeatureExtractorTest, ExtractsSpeedAndStraightFlightFromConfirmedTrack) {
-  RirTrackFeedEntry snapshot;
-  snapshot.status = RirTrackFeedStatus::kConfirmed;
+  RirTrackState snapshot;
+  snapshot.status = RirTrackStatus::kConfirmed;
   snapshot.speed = 1800.0f;
-  snapshot.acceleration = 12.0f;
-  snapshot.velocity_x = 1800.0f;
-  snapshot.velocity_y = 0.0f;
-  snapshot.velocity_z = 0.0f;
-  snapshot.acceleration_x = 12.0f;
-  snapshot.acceleration_y = 0.0f;
-  snapshot.acceleration_z = 0.0f;
-  snapshot.position_z = 20000.0f;
+  snapshot.acceleration_mps2 = 12.0f;
+  snapshot.velocity.x() = 1800.0f;
+  snapshot.velocity.y() = 0.0f;
+  snapshot.velocity.z() = 0.0f;
+  snapshot.acceleration.x() = 12.0f;
+  snapshot.acceleration.y() = 0.0f;
+  snapshot.acceleration.z() = 0.0f;
+  snapshot.position.z() = 20000.0f;
 
   const recognition::RirMotionObservation observation =
       recognition::RirMotionFeatureExtractor::Extract(snapshot, 30000.0f, 2500.0f);
@@ -110,7 +108,7 @@ TEST(RirMotionFeatureExtractorTest, ExtractsSpeedAndStraightFlightFromConfirmedT
 }
 
 TEST(RirMotionFeatureExtractorTest, UnconfirmedTrackIsInvalid) {
-  RirTrackFeedEntry snapshot;  // kTentative
+  RirTrackState snapshot;  // kTentative
   const recognition::RirMotionObservation observation =
       recognition::RirMotionFeatureExtractor::Extract(snapshot, 0.0f, 0.0f);
   EXPECT_FALSE(observation.valid);
@@ -120,7 +118,8 @@ TEST(RirPolarizationFeatureExtractorTest, MissingChannelInvalidatesDimension) {
   // 任一通道 RCS 缺失（样本列表为空）→ 维度无效。
   std::vector<RirPolarizationRcsSample> samples;
   const recognition::RirPolarizationObservation observation =
-      recognition::RirPolarizationFeatureExtractor::Extract(samples, -30.0f, 5.0f, 20.0f, 100000.0f);
+      recognition::RirPolarizationFeatureExtractor::Extract(samples, -30.0f, 5.0f, 20.0f,
+                                                            100000.0f);
   EXPECT_FALSE(observation.valid);
 }
 
@@ -134,7 +133,7 @@ TEST(RirPolarizationFeatureExtractorTest, ChannelEnergyDifferenceMatchesRcsRatio
 
   const recognition::RirPolarizationObservation observation =
       recognition::RirPolarizationFeatureExtractor::Extract(samples, -30.0f, 5.0f, 20.0f,
-                                                         100000.0f);
+                                                            100000.0f);
 
   ASSERT_TRUE(observation.valid);
   EXPECT_NEAR(observation.energy_difference_db, 3.0f, 1.5f);
@@ -156,7 +155,7 @@ TEST(RirRangeProfileFeatureExtractorTest, ScatterersProduceLengthAndPeakCount) {
 
   ASSERT_TRUE(observation.valid);
   EXPECT_NEAR(observation.resolution_m, 50.0f, 0.1f);  // c/(2B) = 2.9979e8/(2·3e6) ≈ 49.97
-  EXPECT_NEAR(observation.length_m, 9.0f, 50.0f);  // 容差等于距离分辨率
+  EXPECT_NEAR(observation.length_m, 9.0f, 50.0f);      // 容差等于距离分辨率
   EXPECT_EQ(observation.peak_count, 5U);
 }
 
@@ -176,12 +175,12 @@ TEST(RirRangeProfileFeatureExtractorTest, ResolutionCoarserThanLimitInvalidatesD
 
 TEST(RecognitionFeatureExtractorTest, InvalidInputsReturnZeroQualityWithoutThrowing) {
   // 各提取器对无效输入返回 quality=0、valid=false，不抛异常。
-  const recognition::RirRcsObservation rcs = recognition::RirRcsFeatureExtractor::Extract(
-      {}, -30.0f, 5.0f, 20.0f, 15.0f);
+  const recognition::RirRcsObservation rcs =
+      recognition::RirRcsFeatureExtractor::Extract({}, -30.0f, 5.0f, 20.0f, 15.0f);
   EXPECT_EQ(rcs.quality, 0.0f);
   EXPECT_FALSE(rcs.valid);
 
-  RirTrackFeedEntry snapshot;
+  RirTrackState snapshot;
   const recognition::RirMotionObservation motion =
       recognition::RirMotionFeatureExtractor::Extract(snapshot, 0.0f, 0.0f);
   EXPECT_EQ(motion.quality, 0.0f);
@@ -209,19 +208,20 @@ TEST(RirObservationBuilderTest, ConfirmedTrackWithAllFeaturesProducesFullMask) {
   target.polarization_rcs_samples.push_back(polarization);
   target.range_rcs_scatterers.push_back({0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f});
 
-  RirTrackFeedEntry snapshot;
-  snapshot.status = RirTrackFeedStatus::kConfirmed;
+  RirTrackState snapshot;
+  snapshot.status = RirTrackStatus::kConfirmed;
   snapshot.speed = 1800.0f;
-  snapshot.velocity_x = 1800.0f;
+  snapshot.velocity.x() = 1800.0f;
 
   const recognition::RirFeatureSet set =
       recognition::RirObservationBuilder::Build(target, snapshot, MakeContext());
 
-  EXPECT_EQ(set.valid_feature_mask & static_cast<std::uint8_t>(RirRecognitionFeatureDimension::kRcs),
-            static_cast<std::uint8_t>(RirRecognitionFeatureDimension::kRcs));
-  EXPECT_EQ(set.valid_feature_mask &
-                static_cast<std::uint8_t>(RirRecognitionFeatureDimension::kMotion),
-            static_cast<std::uint8_t>(RirRecognitionFeatureDimension::kMotion));
+  EXPECT_EQ(
+      set.valid_feature_mask & static_cast<std::uint8_t>(RirRecognitionFeatureDimension::kRcs),
+      static_cast<std::uint8_t>(RirRecognitionFeatureDimension::kRcs));
+  EXPECT_EQ(
+      set.valid_feature_mask & static_cast<std::uint8_t>(RirRecognitionFeatureDimension::kMotion),
+      static_cast<std::uint8_t>(RirRecognitionFeatureDimension::kMotion));
   EXPECT_EQ(set.valid_feature_mask &
                 static_cast<std::uint8_t>(RirRecognitionFeatureDimension::kPolarization),
             static_cast<std::uint8_t>(RirRecognitionFeatureDimension::kPolarization));
@@ -244,10 +244,10 @@ TEST(RecognitionScenarioGateTest, LowSnrExcludesRcsAndPolarizationButKeepsMotion
   polarization.channel_2_rcs_dbsm = -5.0f;
   target.polarization_rcs_samples.push_back(polarization);
 
-  RirTrackFeedEntry snapshot;
-  snapshot.status = RirTrackFeedStatus::kConfirmed;
+  RirTrackState snapshot;
+  snapshot.status = RirTrackStatus::kConfirmed;
   snapshot.speed = 100.0f;
-  snapshot.velocity_x = 100.0f;
+  snapshot.velocity.x() = 100.0f;
 
   recognition::RirObservationContext context = MakeContext();
   context.snr_db = 3.0f;  // 低于 6 dB 门限
@@ -257,21 +257,23 @@ TEST(RecognitionScenarioGateTest, LowSnrExcludesRcsAndPolarizationButKeepsMotion
   const recognition::RirFeatureSet set =
       recognition::RirObservationBuilder::Build(target, snapshot, context);
 
-  EXPECT_EQ(set.valid_feature_mask & static_cast<std::uint8_t>(RirRecognitionFeatureDimension::kRcs), 0U);
+  EXPECT_EQ(
+      set.valid_feature_mask & static_cast<std::uint8_t>(RirRecognitionFeatureDimension::kRcs), 0U);
   EXPECT_EQ(set.valid_feature_mask &
                 static_cast<std::uint8_t>(RirRecognitionFeatureDimension::kPolarization),
             0U);
-  EXPECT_EQ(set.valid_feature_mask & static_cast<std::uint8_t>(RirRecognitionFeatureDimension::kMotion),
-            static_cast<std::uint8_t>(RirRecognitionFeatureDimension::kMotion));
+  EXPECT_EQ(
+      set.valid_feature_mask & static_cast<std::uint8_t>(RirRecognitionFeatureDimension::kMotion),
+      static_cast<std::uint8_t>(RirRecognitionFeatureDimension::kMotion));
 }
 
 TEST(RecognitionScenarioGateTest, LowBandwidthExcludesRangeProfile) {
   RirSceneTarget target;
   target.range_rcs_scatterers.push_back({0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f});
-  RirTrackFeedEntry snapshot;
-  snapshot.status = RirTrackFeedStatus::kConfirmed;
+  RirTrackState snapshot;
+  snapshot.status = RirTrackStatus::kConfirmed;
   snapshot.speed = 100.0f;
-  snapshot.velocity_x = 100.0f;
+  snapshot.velocity.x() = 100.0f;
 
   recognition::RirObservationContext context = MakeContext();
   context.bandwidth_hz = 1.0e6f;  // 分辨率 150 m > 上限 50 m
@@ -295,10 +297,10 @@ TEST(RecognitionScenarioGateTest, StrongJammingExcludesPolarization) {
   polarization.channel_1_rcs_dbsm = -3.0f;
   polarization.channel_2_rcs_dbsm = -5.0f;
   target.polarization_rcs_samples.push_back(polarization);
-  RirTrackFeedEntry snapshot;
-  snapshot.status = RirTrackFeedStatus::kConfirmed;
+  RirTrackState snapshot;
+  snapshot.status = RirTrackStatus::kConfirmed;
   snapshot.speed = 100.0f;
-  snapshot.velocity_x = 100.0f;
+  snapshot.velocity.x() = 100.0f;
 
   recognition::RirObservationContext context = MakeContext();
   // 强干扰（jnr > 20 dB）：有效 SNR 压到门限以下 → 极化维度不可用。
@@ -317,10 +319,10 @@ TEST(RecognitionScenarioGateTest, StrongJammingExcludesPolarization) {
 TEST(RecognitionScenarioGateTest, ShortDwellLowersQualityAndSlowsObservationGrowth) {
   RirSceneTarget target;
   target.aspect_rcs_samples.push_back({0.0f, 20.0f, -3.0f});
-  RirTrackFeedEntry snapshot;
-  snapshot.status = RirTrackFeedStatus::kConfirmed;
+  RirTrackState snapshot;
+  snapshot.status = RirTrackStatus::kConfirmed;
   snapshot.speed = 100.0f;
-  snapshot.velocity_x = 100.0f;
+  snapshot.velocity.x() = 100.0f;
 
   recognition::RirObservationContext nominal = MakeContext();
   nominal.snr_db = 6.5f;
@@ -354,18 +356,18 @@ TEST(RecognitionScenarioGateTest, ShortDwellLowersQualityAndSlowsObservationGrow
   options.max_range_m = 1.0e6f;
   tracker.SetOptions(options);
 
-  session::RirTrackFeed track_list;
-  session::RirTrackFeedEntry track;
+  tracking::RirTrackSnapshotList track_list;
+  tracking::RirTrackState track;
   track.association_key = 1U;
-  track.status = RirTrackFeedStatus::kConfirmed;
+  track.status = RirTrackStatus::kConfirmed;
   track.hit_count = 3U;
   track.speed = 100.0f;
-  track.velocity_x = 100.0f;
-  track.estimation_uncertainty_trace = 1.0e6f;  // 大不确定度：运动质量也低于下限
+  track.velocity.x() = 100.0f;
+  track.gaussian_state.covariance =
+      tracking::RirStateCovariance::Identity() * (1.0e6f / 3.0f);  // 大不确定度：运动质量也低于下限
   track_list.push_back(track);
   recognition::RirFeatureDatabase database;  // 空库：仅验证计数行为
-  std::unordered_map<std::uint64_t, recognition::RirTracker::TrackObservationInput>
-      observations;
+  std::unordered_map<std::uint64_t, recognition::RirTracker::TrackObservationInput> observations;
   recognition::RirTracker::TrackObservationInput input;
   input.target = &target;
   input.context = short_dwell;

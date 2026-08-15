@@ -15,6 +15,7 @@
 #include "1q/remote_identification_radar/session/RirRecognitionResult.h"
 #include "remote_identification_radar/session/RirReplayCycleRecord.h"
 #include "remote_identification_radar/session/RirReplayFlatbufferCodec.h"
+#include "remote_identification_radar/session/generated/rir_replay_generated.h"
 
 namespace remote_identification_radar {
 namespace tests {
@@ -68,6 +69,11 @@ TEST(RirReplayCodecRoundtripTest, RecognitionFieldsRoundtripPreserved) {
   record.result.recognition_summary.category_accuracy = 1.0f;
   record.result.recognition_summary.model_accuracy = 1.0f;
   record.session_state.active_database_version = "1.0.0";
+  record.session_state.detection_random_seed = 123U;
+  record.result.recognition_summary.dwell_budget.scheduled_dwell_count = 2U;
+  record.result.recognition_summary.dwell_budget.executed_dwell_count = 1U;
+  record.result.recognition_summary.dwell_budget.dwell_budget_sec = 0.1f;
+  record.result.recognition_summary.dwell_budget.dwell_consumed_sec = 0.05f;
 
   const std::string encoded = session::EncodeCycleReplayRecordFlatbuffer(record);
   ASSERT_FALSE(encoded.empty());
@@ -113,6 +119,11 @@ TEST(RirReplayCodecRoundtripTest, RecognitionFieldsRoundtripPreserved) {
   EXPECT_EQ(decoded_output.result.source_cycle_index, 12U);
   EXPECT_EQ(decoded_output.result.source_batch_id, 34U);
   EXPECT_EQ(decoded.session_state.active_database_version, "1.0.0");
+  EXPECT_EQ(decoded.session_state.detection_random_seed, 123U);
+  EXPECT_EQ(decoded.result.recognition_summary.dwell_budget.scheduled_dwell_count, 2U);
+  EXPECT_EQ(decoded.result.recognition_summary.dwell_budget.executed_dwell_count, 1U);
+  EXPECT_FLOAT_EQ(decoded.result.recognition_summary.dwell_budget.dwell_budget_sec, 0.1f);
+  EXPECT_FLOAT_EQ(decoded.result.recognition_summary.dwell_budget.dwell_consumed_sec, 0.05f);
 }
 
 TEST(RirReplayCodecRoundtripTest, DefaultStateRoundtripsByteExact) {
@@ -129,15 +140,20 @@ TEST(RirReplayCodecRoundtripTest, DefaultStateRoundtripsByteExact) {
   EXPECT_TRUE(decoded.session_state.active_database_version.empty());
 }
 
-TEST(RirReplayCodecRoundtripTest, RejectsTruncatedPayload) {
+TEST(RirReplayCodecRoundtripTest, RejectsPayloadWithoutV2Identifier) {
   RirCycleReplayRecord record;
-  record.session_state.active_database_version = "1.0.0";
-  const std::string encoded = session::EncodeCycleReplayRecordFlatbuffer(record);
-  ASSERT_FALSE(encoded.empty());
+  record.session_state.detection_random_seed = 7U;
+  std::string encoded = session::EncodeCycleReplayRecordFlatbuffer(record);
+  ASSERT_GE(encoded.size(), 8U);
+  // 抹掉 file_identifier "RIR2"，模拟阶段 1 V1/旧记录：必须显式拒绝而非静默误读。
+  const char* identifier = flatbuffers::GetBufferIdentifier(encoded.data());
+  encoded[static_cast<std::size_t>(identifier - encoded.data())] = 'X';
+  encoded[static_cast<std::size_t>(identifier - encoded.data()) + 1U] = 'X';
+  encoded[static_cast<std::size_t>(identifier - encoded.data()) + 2U] = 'X';
+  encoded[static_cast<std::size_t>(identifier - encoded.data()) + 3U] = 'X';
   RirCycleReplayRecord decoded;
   std::string error;
-  const std::string truncated = encoded.substr(0, encoded.size() / 2U);
-  EXPECT_FALSE(session::DecodeCycleReplayRecordFlatbuffer(truncated, &decoded, &error));
+  EXPECT_FALSE(session::DecodeCycleReplayRecordFlatbuffer(encoded, &decoded, &error));
   EXPECT_FALSE(error.empty());
 }
 

@@ -29,8 +29,6 @@ using session::RirRecognitionCategory;
 using session::RirRecognitionState;
 using session::RirSceneTarget;
 using session::RirSession;
-using session::RirTrackFeedEntry;
-using session::RirTrackFeedStatus;
 
 #ifndef ONEQ_RIR_EXAMPLE_DATABASE_PATH
 #error "ONEQ_RIR_EXAMPLE_DATABASE_PATH 未定义（Integration.cmake 注入）"
@@ -58,6 +56,8 @@ class RirUsMilitaryRecognitionScenarioTest : public ::testing::Test {
   config::RirSessionConfig MakeScenarioConfig() const {
     config::RirSessionConfig cfg;
     cfg.mission.work_mode = config::RirWorkMode::kIdentify;
+    cfg.policy.lifecycle.confirm_hits = 1U;
+    cfg.policy.detection.gate_mode = config::RirDetectionGateMode::kSnrFallback;
     cfg.policy.recognition.enabled = true;
     cfg.policy.recognition.database_path = ONEQ_RIR_EXAMPLE_DATABASE_PATH;
     cfg.policy.recognition.min_confirmed_hits = 1U;
@@ -74,7 +74,7 @@ class RirUsMilitaryRecognitionScenarioTest : public ::testing::Test {
     RirSceneTarget target;
     target.external_target_id = target_id;
     target.position_x = 5000.0f + speed_mps * static_cast<float>(input->input_cycle_index - 1U) *
-                                     static_cast<float>(input->dt_sec);
+                                      static_cast<float>(input->dt_sec);
     target.position_z = altitude_offset_m;
     target.range_m = 5000.0f + speed_mps * static_cast<float>(input->input_cycle_index - 1U) *
                                    static_cast<float>(input->dt_sec);
@@ -89,20 +89,10 @@ class RirUsMilitaryRecognitionScenarioTest : public ::testing::Test {
         target.aspect_rcs_samples.push_back(aspect);
       }
     }
+    target.target_name = truth_name;
+    target.velocity_x = speed_mps;
+    target.target_swerling_type = session::RirSwerlingType::kSwerling0;
     input->scene_targets.push_back(target);
-
-    RirTrackFeedEntry track;
-    track.association_key = target_id;
-    track.external_target_id = target_id;
-    track.target_name = truth_name;
-    track.status = RirTrackFeedStatus::kConfirmed;
-    track.hit_count = 1U;
-    track.speed = speed_mps;
-    track.velocity_x = speed_mps;
-    track.acceleration = 0.0f;
-    track.position_z = altitude_offset_m;
-    track.estimation_uncertainty_trace = 1000.0f;
-    input->track_feed.push_back(track);
   }
 
   RirCycleInput MakeInput(std::uint32_t cycle) {
@@ -116,13 +106,11 @@ class RirUsMilitaryRecognitionScenarioTest : public ::testing::Test {
   }
 
   /** @brief 模板绝对高度 → 雷达局部 ENU 上向分量（平台海拔 1000 m）。 */
-  float AltitudeOffsetFor(float template_altitude_m) const {
-    return template_altitude_m - 1000.0f;
-  }
+  float AltitudeOffsetFor(float template_altitude_m) const { return template_altitude_m - 1000.0f; }
 
   /** @brief 跑单目标 5 周期场景并汇总确认率/正确率/末周期分数。 */
-  ScenarioOutcome RunSingleTargetScenario(float speed_mps, float altitude_offset_m,
-                                          float rcs_dbsm, const char* truth_name,
+  ScenarioOutcome RunSingleTargetScenario(float speed_mps, float altitude_offset_m, float rcs_dbsm,
+                                          const char* truth_name,
                                           RirRecognitionCategory expected_category) {
     RirSession radar = RirSession::Create(MakeScenarioConfig());
     ScenarioOutcome outcome;
@@ -185,8 +173,8 @@ TEST_F(RirUsMilitaryRecognitionScenarioTest, CruiseMissileScenarioRecognizesBgm1
 // S4 无人机识别：MQ-9A 剖面（78 m/s、7600 m、-12 dBsm）。
 // 实测（2026-08-04 校准）：best≈0.82、margin≈0.46、conf≈0.33。
 TEST_F(RirUsMilitaryRecognitionScenarioTest, UavScenarioRecognizesMq9A) {
-  const ScenarioOutcome outcome = RunSingleTargetScenario(
-      78.0f, AltitudeOffsetFor(7600.0f), -12.0f, "MQ-9A", RirRecognitionCategory::kUav);
+  const ScenarioOutcome outcome = RunSingleTargetScenario(78.0f, AltitudeOffsetFor(7600.0f), -12.0f,
+                                                          "MQ-9A", RirRecognitionCategory::kUav);
   EXPECT_GE(outcome.confirmed_cycles, 4U);
   EXPECT_GE(outcome.correct_cycles, outcome.confirmed_cycles * 7U / 10U);
   EXPECT_EQ(outcome.category_correct_cycles, outcome.confirmed_cycles);
@@ -222,8 +210,8 @@ TEST_F(RirUsMilitaryRecognitionScenarioTest, MixedFighterAndMissileKeepFullAccur
     EXPECT_EQ(result.recognition_summary.model_accuracy, 1.0f);
     for (const auto& output : result.output_frame.recognition_outputs) {
       EXPECT_EQ(output.result.state, RirRecognitionState::kModelConfirmed);
-      const bool correct = output.result.target_model == "F-16C" ||
-                           output.result.target_model == "BGM-109";
+      const bool correct =
+          output.result.target_model == "F-16C" || output.result.target_model == "BGM-109";
       EXPECT_TRUE(correct);
     }
   }
@@ -232,8 +220,8 @@ TEST_F(RirUsMilitaryRecognitionScenarioTest, MixedFighterAndMissileKeepFullAccur
 // S7 置信度排序：清晰分离（MQ-9A）> 同类歧义（AGM-86C），相对断言不依赖绝对值。
 // 实测（2026-08-04 校准）：conf(MQ-9A)≈0.33、conf(AGM-86C)≈0.20。
 TEST_F(RirUsMilitaryRecognitionScenarioTest, ConfidenceClearSeparationExceedsAmbiguity) {
-  const ScenarioOutcome clear = RunSingleTargetScenario(
-      78.0f, AltitudeOffsetFor(7600.0f), -12.0f, "MQ-9A", RirRecognitionCategory::kUav);
+  const ScenarioOutcome clear = RunSingleTargetScenario(78.0f, AltitudeOffsetFor(7600.0f), -12.0f,
+                                                        "MQ-9A", RirRecognitionCategory::kUav);
   const ScenarioOutcome ambiguous = RunSingleTargetScenario(
       246.0f, AltitudeOffsetFor(40.0f), -5.0f, "AGM-86C", RirRecognitionCategory::kMissile);
   EXPECT_GT(clear.last_confidence, ambiguous.last_confidence);
@@ -256,9 +244,9 @@ class RirUsMilitaryRecognitionParamTest
 
 TEST_P(RirUsMilitaryRecognitionParamTest, RecognizesDeliverableModel) {
   const RecognitionTargetSpec& spec = GetParam();
-  const ScenarioOutcome outcome = RunSingleTargetScenario(
-      spec.speed_mps, AltitudeOffsetFor(spec.altitude_m), spec.rcs_dbsm, spec.model_id,
-      spec.category);
+  const ScenarioOutcome outcome =
+      RunSingleTargetScenario(spec.speed_mps, AltitudeOffsetFor(spec.altitude_m), spec.rcs_dbsm,
+                              spec.model_id, spec.category);
   EXPECT_GE(outcome.confirmed_cycles, 4U);
   EXPECT_GE(outcome.correct_cycles, outcome.confirmed_cycles * 7U / 10U);
   EXPECT_EQ(outcome.category_correct_cycles, outcome.confirmed_cycles);
@@ -271,7 +259,8 @@ INSTANTIATE_TEST_SUITE_P(
     ::testing::Values(
         RecognitionTargetSpec{"F-16C", 250.0f, 10500.0f, 0.8f, RirRecognitionCategory::kFighter},
         RecognitionTargetSpec{"F-15E", 265.0f, 12000.0f, 11.8f, RirRecognitionCategory::kFighter},
-        RecognitionTargetSpec{"F/A-18E", 250.0f, 10500.0f, -10.0f, RirRecognitionCategory::kFighter},
+        RecognitionTargetSpec{"F/A-18E", 250.0f, 10500.0f, -10.0f,
+                              RirRecognitionCategory::kFighter},
         RecognitionTargetSpec{"F-22A", 520.0f, 16000.0f, -37.0f, RirRecognitionCategory::kFighter},
         RecognitionTargetSpec{"F-35A", 255.0f, 12000.0f, -27.0f, RirRecognitionCategory::kFighter},
         RecognitionTargetSpec{"B-52H", 240.0f, 10000.0f, 20.0f, RirRecognitionCategory::kBomber},

@@ -1,6 +1,9 @@
-// RIR 单周期 replay 记录 schema（阶段 1 步骤 5）。
-// 表结构镜像 AR airborne_radar_replay.fbs 的识别相关表（审计基线 96de367c），
-// 保证等价性对比与后续迁移验证的字段级直映射。
+// RIR 单周期 replay 记录 schema。
+// 阶段 1 V1 镜像 AR 识别表；阶段 2-S 破坏性版本 V2：
+//   - 航迹语义内化（自持跟踪，不再回放外部供给字段）；
+//   - 识别效能摘要增加驻留预算；
+//   - 会话状态增加检测随机种子。
+// V2 为唯一支持 root_type；V1 保留仅用于旧记录识别与显式拒绝。
 
 namespace oneq.replay.remote_identification_radar.fb;
 
@@ -73,4 +76,54 @@ table RirCycleReplayRecordV1 {
   session_state:RirSessionReplayStateV1;
 }
 
-root_type RirCycleReplayRecordV1;
+// root_type 见文末 V2；V1 表保留供旧记录显式拒绝路径校验。
+
+
+// ===== 阶段 2-S V2（破坏性版本）=====
+
+table RirDwellBudgetSummaryV2 {
+  scheduled_dwell_count:uint;
+  executed_dwell_count:uint;
+  dwell_budget_sec:float;
+  dwell_consumed_sec:float;
+}
+
+table RirRecognitionCycleSummaryV2 {
+  participating_track_count:uint;
+  category_confirmed_count:uint;
+  model_confirmed_count:uint;
+  unknown_count:uint;
+  disabled_count:uint;
+  rcs_availability_rate:float;
+  motion_availability_rate:float;
+  polarization_availability_rate:float;
+  range_profile_availability_rate:float;
+  mean_confidence:float;
+  mean_first_confirmation_sec:float;
+  has_ground_truth:bool;
+  category_accuracy:float;
+  model_accuracy:float;
+  dwell_budget:RirDwellBudgetSummaryV2;
+}
+
+table RirCycleResultV2 {
+  input_cycle_index:uint;
+  status:int;
+  abort_reason:int;
+  output_frame:RirOutputFrameV1;
+  has_recognition_summary:bool;
+  recognition_summary:RirRecognitionCycleSummaryV2;
+}
+
+table RirSessionReplayStateV2 {
+  active_database_version:string;
+  detection_random_seed:uint;
+}
+
+table RirCycleReplayRecordV2 {
+  result:RirCycleResultV2;
+  session_state:RirSessionReplayStateV2;
+}
+
+root_type RirCycleReplayRecordV2;
+file_identifier "RIR2";

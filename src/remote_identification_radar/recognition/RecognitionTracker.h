@@ -2,9 +2,9 @@
  * @file RecognitionTracker.h
  * @brief 单航迹识别积累、判定与结论保持（库内部）。
  *
- * 每个活跃 association_key 对应一个 RirTrackState：保存滑动窗口
+ * 每个活跃 association_key 对应一个识别积累状态：保存滑动窗口
  * 特征样本、确认命中数、最近结论与结论时间。状态随航迹创建，随航迹
- * 回收或 association_key 重分配重置。
+ * 回收时清理。关联键由自持跟踪单调分配，键重分配天然等于新目标。
  */
 
 #ifndef REMOTE_IDENTIFICATION_RADAR_RECOGNITION_RECOGNITION_TRACKER_H_
@@ -17,11 +17,10 @@
 
 #include "1q/remote_identification_radar/config/RirPolicyConfig.h"
 #include "1q/remote_identification_radar/session/RirRecognitionResult.h"
-#include "1q/remote_identification_radar/session/RirRecognitionResult.h"
 #include "1q/remote_identification_radar/session/RirSceneTypes.h"
-#include "1q/remote_identification_radar/session/RirTrackFeedTypes.h"
 #include "remote_identification_radar/recognition/RecognitionFeatureDatabase.h"
 #include "remote_identification_radar/recognition/RecognitionTypes.h"
+#include "remote_identification_radar/tracking/RirTrackTypes.h"
 
 namespace remote_identification_radar {
 namespace recognition {
@@ -42,7 +41,7 @@ struct RirTrackState {
 
   /** 结论 */
   session::RirRecognitionResult result{};
-  float conclusion_time_sec{-1.0f}; /**< 最近一次结论时刻；-1 表示尚无结论。 */
+  float conclusion_time_sec{-1.0f};       /**< 最近一次结论时刻；-1 表示尚无结论。 */
   float first_conclusion_time_sec{-1.0f}; /**< 首次确认（大类/型号）时刻；-1 表示尚未确认。 */
   bool has_conclusion{false};
 };
@@ -54,7 +53,7 @@ struct RirTrackState {
  * - kLrr 已执行周期 → UpdateCycle：积累 + 判定；
  * - 非 kLrr 已执行周期 → HoldCycle：不积累，结论按 result_hold_sec 过期为 kStale；
  * - 退出 kLrr（ExitRecognitionMode）→ 清空积累（保留结论，进入保持期）；
- * - 航迹键重分配（hit_count 回落）→ 清空该键全部状态；
+ * - 航迹键重分配（内部关联键单调不回收，不回落）→ 新键天然新目标；
  * - 非执行周期不触碰任何状态（校验拒绝/关机由调用方保证不调用）。
  */
 class RirTracker {
@@ -86,7 +85,9 @@ class RirTracker {
   const Options& options() const { return options_; }
 
   /** @brief 设置当前生效数据库版本（供 replay 溯源）。 */
-  void SetActiveDatabaseVersion(std::string version) { active_database_version_ = std::move(version); }
+  void SetActiveDatabaseVersion(std::string version) {
+    active_database_version_ = std::move(version);
+  }
   const std::string& ActiveDatabaseVersion() const { return active_database_version_; }
 
   /** @brief 退出识别模式：清空全部积累，保留结论进入保持期。 */
@@ -102,25 +103,25 @@ class RirTracker {
    * @param[in] cycle_index 当前周期号。
    * @param[in] batch_id 当前批号。
    */
-  void UpdateCycle(const session::RirTrackFeed& tracks,
-                   const std::unordered_map<std::uint64_t, TrackObservationInput>& observations_by_key,
-                   const RirFeatureDatabase& database,
-                   const config::RirRecognitionFeatureWeights& weights, float sim_time_sec,
-                   std::uint32_t cycle_index, std::uint64_t batch_id);
+  void UpdateCycle(
+      const std::vector<tracking::RirTrackState>& tracks,
+      const std::unordered_map<std::uint64_t, TrackObservationInput>& observations_by_key,
+      const RirFeatureDatabase& database, const config::RirRecognitionFeatureWeights& weights,
+      float sim_time_sec, std::uint32_t cycle_index, std::uint64_t batch_id);
 
   /**
    * @brief 非 kLrr 已执行周期：结论按 result_hold_sec 过期为 kStale，不积累。
    * @param[in] tracks 本周期决策帧轨迹快照（仅用于键重分配检测）。
    * @param[in] sim_time_sec 当前仿真时刻（s）。
    */
-  void HoldCycle(const session::RirTrackFeed& tracks, float sim_time_sec);
+  void HoldCycle(const std::vector<tracking::RirTrackState>& tracks, float sim_time_sec);
 
   /** @brief 查询航迹识别结果；无状态时返回 nullptr。 */
   const session::RirRecognitionResult* FindResult(std::uint64_t association_key) const;
 
   /** @brief 构建本周期识别效能摘要。 */
   session::RirRecognitionCycleSummary BuildSummary(
-      const session::RirTrackFeed& tracks) const;
+      const std::vector<tracking::RirTrackState>& tracks) const;
 
   Snapshot Capture() const;
   void Restore(const Snapshot& snapshot);

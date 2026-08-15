@@ -33,8 +33,17 @@ constexpr char kMissingRangeAndCartesianPosition[] =
 /** @brief 场景中外部目标 ID 重复。 */
 constexpr char kDuplicateExternalTargetId[] = "rir.validation.duplicate_external_target_id";
 
-/** @brief 航迹供给含非有限数值字段（位置/速度/加速度/不确定度）。 */
-constexpr char kNonFiniteTrackFeedField[] = "rir.validation.non_finite_track_feed_field";
+/** @brief 目标速度/起伏模型含非有限或非法字段。 */
+constexpr char kInvalidTargetMotionField[] = "rir.validation.invalid_target_motion_field";
+
+/** @brief 环境快照字段非法（天气衰减非有限/负值）。 */
+constexpr char kInvalidEnvironmentSnapshot[] = "rir.validation.invalid_environment_snapshot";
+
+/** @brief 自身发射身份非法（任一 ID 为 0）。 */
+constexpr char kInvalidOwnEmissionIdentity[] = "rir.validation.invalid_own_emission_identity";
+
+/** @brief RF 入射链路含非法字段。 */
+constexpr char kInvalidRfIncidentLink[] = "rir.validation.invalid_rf_incident_link";
 
 // ===== 配置校验问题（"rir.validation.<snake_case>"）=====
 
@@ -53,12 +62,22 @@ constexpr char kRecognitionAccumulationInvalid[] =
     "rir.validation.recognition_accumulation_invalid";
 
 /** @brief 识别时间范围非法（保持时间须非负；最大距离/驻留/累积窗口须有限且为正）。 */
-constexpr char kRecognitionTimeRangeInvalid[] =
-    "rir.validation.recognition_time_range_invalid";
+constexpr char kRecognitionTimeRangeInvalid[] = "rir.validation.recognition_time_range_invalid";
 
 /** @brief 信号处理增益偏置非法（四偏置须有限且在 [0, 40] dB；阶段 2-M M3）。 */
-constexpr char kSignalProcessingGainsInvalid[] =
-    "rir.validation.signal_processing_gains_invalid";
+constexpr char kSignalProcessingGainsInvalid[] = "rir.validation.signal_processing_gains_invalid";
+
+/** @brief 检测策略非法（Pfa/门限/脉冲数/种子）。 */
+constexpr char kDetectionPolicyInvalid[] = "rir.validation.detection_policy_invalid";
+
+/** @brief 关联策略非法（波门 sigma 非正）。 */
+constexpr char kAssociationPolicyInvalid[] = "rir.validation.association_policy_invalid";
+
+/** @brief 跟踪策略非法（KF 噪声参数非正）。 */
+constexpr char kTrackingPolicyInvalid[] = "rir.validation.tracking_policy_invalid";
+
+/** @brief 生命周期策略非法（confirm/lost 阈值）。 */
+constexpr char kLifecyclePolicyInvalid[] = "rir.validation.lifecycle_policy_invalid";
 
 }  // namespace codes
 }  // namespace session
