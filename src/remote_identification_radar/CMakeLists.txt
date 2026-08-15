@@ -1,12 +1,15 @@
 # remote_identification_radar 模块源文件与安装清单
 
 # -- engine: 识别算法（特征提取/积累/匹配/数据库加载；依赖 SQLite） --------------
-# dwell/ 检测链（阶段 2-M 迁移改造）。
+# dwell/ 检测链（阶段 2-M）、tracking/ 轻量跟踪子集（阶段 2-T，旁路新增）。
 set(RIR_ENGINE_SOURCES
     internal/RirRadarEquations.cpp
     internal/RirPropagationModel.cpp
     dwell/RirDetectionCellResolver.cpp
     dwell/RirSignalDetector.cpp
+    tracking/RirTrackFilter.cpp
+    tracking/RirTrackAssociator.cpp
+    tracking/RirTrackLifecycle.cpp
     recognition/RcsFeatureExtractor.cpp
     recognition/MotionFeatureExtractor.cpp
     recognition/PolarizationFeatureExtractor.cpp
