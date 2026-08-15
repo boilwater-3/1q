@@ -17,6 +17,7 @@
 #include "1q/replay/ReplayTrace.h"
 #include "1q/trace/TraceSink.h"
 #include "electro_optical_sensor/session/EosReplayFlatbufferCodec.h"
+#include "support/oneq_test_temp_dir.h"
 
 namespace electro_optical_sensor {
 namespace tests {
@@ -24,7 +25,7 @@ namespace {
 
 std::string MakeTempDir(const char* prefix) {
   std::ostringstream stream;
-  stream << "/tmp/" << prefix << "-" << std::time(nullptr) << "-"
+  stream << oneq_test::TempDir() << prefix << "-" << std::time(nullptr) << "-"
          << std::chrono::high_resolution_clock::now().time_since_epoch().count() << "-"
          << std::rand();
   return stream.str();

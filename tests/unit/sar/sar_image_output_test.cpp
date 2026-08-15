@@ -4,6 +4,7 @@
  */
 
 #include "sar/output/ImageFormatter.h"
+#include "support/oneq_test_temp_dir.h"
 
 #include <gtest/gtest.h>
 
@@ -76,7 +77,7 @@ float ReadFloat32Le(std::istream& in) {
 
 TEST(SarImageOutputTest, BinaryWritesMagicAndHeader) {
   const sar::session::SarFocusedImage img = MakeTestImage(2U, 3U);
-  const std::string path = "/tmp/1q_sar_test_binary_header.bin";
+  const std::string path = oneq_test::TempDir() + "1q_sar_test_binary_header.bin";
   ASSERT_TRUE(WriteBinaryImage(img, MakeMeta(), path));
 
   std::ifstream in(path, std::ios::binary);
@@ -104,7 +105,7 @@ TEST(SarImageOutputTest, BinaryRoundTripDataValues) {
   const std::uint32_t rows = 4U;
   const std::uint32_t cols = 5U;
   const sar::session::SarFocusedImage img = MakeTestImage(rows, cols);
-  const std::string path = "/tmp/1q_sar_test_binary_roundtrip.bin";
+  const std::string path = oneq_test::TempDir() + "1q_sar_test_binary_roundtrip.bin";
   ASSERT_TRUE(WriteBinaryImage(img, MakeMeta(), path));
 
   std::ifstream in(path, std::ios::binary);
@@ -130,7 +131,7 @@ TEST(SarImageOutputTest, BinaryRoundTripDataValues) {
 TEST(SarImageOutputTest, BinarySkipsPlaceholder) {
   sar::session::SarFocusedImage img = MakeTestImage(2U, 2U);
   img.is_placeholder = true;
-  const std::string path = "/tmp/1q_sar_test_binary_placeholder.bin";
+  const std::string path = oneq_test::TempDir() + "1q_sar_test_binary_placeholder.bin";
   EXPECT_TRUE(WriteBinaryImage(img, MakeMeta(), path));
 
   // Placeholder 不应写盘
@@ -143,7 +144,7 @@ TEST(SarImageOutputTest, BinarySkipsZeroSize) {
   img.is_placeholder = false;
   img.row_count = 0U;
   img.column_count = 0U;
-  const std::string path = "/tmp/1q_sar_test_binary_zero.bin";
+  const std::string path = oneq_test::TempDir() + "1q_sar_test_binary_zero.bin";
   EXPECT_TRUE(WriteBinaryImage(img, MakeMeta(), path));
 
   std::ifstream in(path, std::ios::binary);
@@ -154,7 +155,7 @@ TEST(SarImageOutputTest, BinarySkipsZeroSize) {
 
 TEST(SarImageOutputTest, SidecarWritesRawAndJson) {
   const sar::session::SarFocusedImage img = MakeTestImage(3U, 4U);
-  const std::string base = "/tmp/1q_sar_test_sidecar";
+  const std::string base = oneq_test::TempDir() + "1q_sar_test_sidecar";
   ASSERT_TRUE(WriteGeoTiffSidecar(img, MakeMeta(), base));
 
   // .raw 文件应存在且大小正确: 3*4*2*4 = 96 bytes
@@ -186,7 +187,7 @@ TEST(SarImageOutputTest, SidecarWritesRawAndJson) {
 TEST(SarImageOutputTest, SidecarSkipsPlaceholder) {
   sar::session::SarFocusedImage img = MakeTestImage(2U, 2U);
   img.is_placeholder = true;
-  const std::string base = "/tmp/1q_sar_test_sidecar_placeholder";
+  const std::string base = oneq_test::TempDir() + "1q_sar_test_sidecar_placeholder";
   EXPECT_TRUE(WriteGeoTiffSidecar(img, MakeMeta(), base));
 
   std::ifstream raw(base + ".raw", std::ios::binary);

@@ -13,6 +13,7 @@
 #include <vector>
 
 #include "1q/replay/ReplayTrace.h"
+#include "support/oneq_test_temp_dir.h"
 
 #if ONEQ_HAVE_ZLIB
 #include <zlib.h>
@@ -26,9 +27,7 @@ namespace {
 
 // 创建带指定选项的临时 trace 目录（用 mkdtemp 风格的唯一路径）。
 std::string MakeTempTraceDir(const std::string& suffix) {
-  const std::string base =
-      std::string(std::getenv("TMPDIR") != nullptr ? std::getenv("TMPDIR") : "/tmp") + "/oneq_zlib_test_" + suffix;
-  return base;
+  return oneq_test::TempDir() + "oneq_zlib_test_" + suffix;
 }
 
 ReplayTraceManifest MakeTestManifest(bool compress, std::uint32_t chunk_size = 3U) {

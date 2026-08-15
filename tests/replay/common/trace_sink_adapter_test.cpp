@@ -12,6 +12,7 @@
 #include <vector>
 
 #include "1q/trace/TraceSink.h"
+#include "support/oneq_test_temp_dir.h"
 
 namespace oneq {
 namespace trace {
@@ -20,7 +21,7 @@ namespace {
 
 std::string MakeTempPath(const char* prefix) {
   std::ostringstream stream;
-  stream << "/tmp/" << prefix << "-" << std::time(nullptr) << "-"
+  stream << oneq_test::TempDir() << prefix << "-" << std::time(nullptr) << "-"
          << std::chrono::high_resolution_clock::now().time_since_epoch().count() << "-"
          << std::rand();
   return stream.str();

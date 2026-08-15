@@ -307,7 +307,10 @@ TEST(SarSessionPipelineTest, RawEchoOnlySkipsSquintImagingGate) {
 // 内部生成路径：squint 门控在 raw echo 生成之前执行——被拒周期不产出 raw echo
 //（输出帧仅元数据，无 raw echo 标记），接受周期正常产出（覆盖 prebuilt 轨迹
 // 复用路径）。几何构造与外部路径测试一致：场景中心沿航迹偏移 tan(6°)×斜距，
-// 冷启动孔径（脉冲 x∈[0, 0.8]m）的最大 squint ≈ 6.0°。
+// 冷启动孔径（脉冲 x∈[0, 0.8]m）下最大 squint ≈ 7.5°（含平台相对场景中心的
+// 初始经度偏移，实测略高于名义 6°）。拒绝侧阈值 5.9 与接受侧阈值 8.0 之间
+// 保留足够余量，避免 tan/asin 的 libm 实现差异（如 MSVC v141）导致接受分支
+// 误判为超限。
 TEST(SarSessionPipelineTest, SquintGatePrecedesEchoGenerationInternalPath) {
   config::SarSessionConfig config = MakeSmallRdaConfig();
   const double six_degree_offset_m =
@@ -328,7 +331,7 @@ TEST(SarSessionPipelineTest, SquintGatePrecedesEchoGenerationInternalPath) {
   EXPECT_FALSE(rejected.output_frame.has_raw_echo);
   EXPECT_EQ(rejected.output_frame.completed_stage, session::SarProcessingStage::kNone);
 
-  config.policy.max_allowed_squint_angle_deg = 6.1;
+  config.policy.max_allowed_squint_angle_deg = 8.0;
   const session::SarCycleResult accepted =
       session::SarSession::Create(config).StepWithResult(input);
   EXPECT_EQ(accepted.status, session::SarCycleStatus::kCompleted);

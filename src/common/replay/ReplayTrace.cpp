@@ -212,6 +212,12 @@ bool GzipReadLine(gzFile gz, std::string* line, bool* line_over_limit) {
       } else {
         *line += chunk;
       }
+      // 跨平台行尾一致性：Windows 文本模式写入的 \r\n 在 gzgets 二进制读取下
+      // 保留 \r，与 std::getline（MSVC 文本模式自动归一化）结果不一致，会破坏
+      // 事件 hash 链（hash 在无 \r 的 serialized 上计算）。剥掉行尾 \r 对齐。
+      if (!line->empty() && (*line)[line->size() - 1U] == '\r') {
+        line->pop_back();
+      }
       if (line->size() > kMaxReplayTraceLineBytes && line_over_limit != nullptr) {
         *line_over_limit = true;
       }
