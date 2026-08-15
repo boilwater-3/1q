@@ -5,9 +5,8 @@
  * 字段集合对齐识别消费闭包（`association_key`/`status`/`hit_count`/
  * 位置/速度/加速度/`estimation_uncertainty_trace`），并保留
  * `external_target_id`/`target_name` 供场景目标回联与真值准确率统计。
- * 该类型是阶段 1 `RirTrackFeedEntry` 供给语义的内部化身：阶段 2-T 只新增
- * 旁路，不接线现有链路；阶段 2-S 由 `RirTrackLifecycle`/`RirTrackFilter`
- * 生产后直接消费。
+ * 该类型是阶段 1 供给航迹语义的内部化身：阶段 2-T 旁路新增，阶段 2-S
+ * 起由 `RirTrackLifecycle`/`RirTrackFilter` 生产并被识别链路直接消费。
  *
  * 副本来源：`src/airborne_radar/signal/tracking/TrackState.h` 与
  * `TrackLifecycleTypes.h` 子集（审计基线 96de367c，阶段 2-T）。

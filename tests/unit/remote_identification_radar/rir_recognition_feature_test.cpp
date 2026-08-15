@@ -232,7 +232,7 @@ TEST(RirObservationBuilderTest, ConfirmedTrackWithAllFeaturesProducesFullMask) {
 
 // -- 场景 4-7：低 SNR / 低带宽 / 强干扰 / 短驻留门控 -----------------------
 // （原 TrackStateSnapshotEmitterTest 属 AR 航迹快照发射器行为，随解耦回归 AR，
-//   不由本模块承担；RIR 侧运动特征不确定性由 RirTrackFeedEntry 供给。）
+//   不由本模块承担；RIR 侧运动特征不确定性由内部航迹协方差供给。）
 
 TEST(RecognitionScenarioGateTest, LowSnrExcludesRcsAndPolarizationButKeepsMotion) {
   RirSceneTarget target;
