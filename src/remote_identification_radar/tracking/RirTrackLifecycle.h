@@ -1,13 +1,18 @@
 /**
  * @file RirTrackLifecycle.h
- * @brief RIR 轻量跟踪子集的航迹生命周期管理器（阶段 2-T T3，N3 升级池化）。
+ * @brief RIR 轻量跟踪子集的航迹生命周期管理器（阶段 2-T T3，N3 池化、
+ *        N5 IMM 双路径）。
  *
  * 副本来源：`src/airborne_radar/signal/tracking/TrackLifecycleManager.*` 子集
  * （审计基线 96de367c）。
- * 刻意不迁：IMM（N4/N5 接入）、假目标鉴别、反 VGPO 加速度限幅、快照事件发射器。
+ * 刻意不迁：假目标鉴别、反 VGPO 加速度限幅、快照事件发射器、
+ * IMM 全航迹激活策略（kAllTracks；RIR 仅 confirmed 命中激活）。
  * 内部航迹表为有序键→池化对象指针映射：航迹对象经 `RirTrackPool` 申请/归还，
  * 回收即出表并归还池（无 `kRecycled` 中间态），槽位复用经 `generation`
  * 单调递增标识；快照仍按关联键升序导出（确定性，便于 replay）。
+ * IMM 路径：confirmed 且命中既有航迹时启用（`enable_imm_lifecycle`），
+ * 失配周期对已有 IMM 态的 confirmed 航迹执行仅预测；lost 重捕获仍走
+ * CV KF 重置（与 AR confirmed-only 激活策略一致）。
  */
 
 #ifndef REMOTE_IDENTIFICATION_RADAR_TRACKING_RIR_TRACK_LIFECYCLE_H_
@@ -15,8 +20,11 @@
 
 #include <cstdint>
 #include <map>
+#include <memory>
+#include <unordered_map>
 #include <vector>
 
+#include "remote_identification_radar/tracking/RirImmFilter.h"
 #include "remote_identification_radar/tracking/RirTrackFilter.h"
 #include "remote_identification_radar/tracking/RirTrackPool.h"
 #include "remote_identification_radar/tracking/RirTrackTypes.h"
@@ -31,6 +39,8 @@ struct RirLifecycleConfig {
   std::uint32_t confirm_hits{3U};         /**< tentative 转 confirmed 所需累计命中数。 */
   std::uint32_t max_miss_before_lost{2U}; /**< tentative/confirmed 转 lost 的连续失配阈值。 */
   std::uint32_t max_lost_cycles{5U};      /**< lost 保留周期数，超出即回收。 */
+  bool enable_imm_lifecycle{false};       /**< 是否启用 IMM 生命周期路径（confirmed 命中激活）。 */
+  std::uint32_t model_count_hint{2U};     /**< IMM 模型数提示值（对数等距 CV 模型集）。 */
 };
 
 /**
@@ -96,6 +106,12 @@ class RirTrackLifecycle {
   /** @brief 当前未回收航迹数量。 */
   std::size_t ActiveTrackCount() const { return tracks_.size(); }
 
+  /** @brief IMM 是否启用（enable_imm_lifecycle 且模型集可构建）。 */
+  bool IsImmEnabled() const { return imm_enabled_; }
+
+  /** @brief 查关联键的 IMM 运行态（诊断/测试消费）；不存在或未启用返回 nullptr。 */
+  RirImmFilter* FindImmFilter(std::uint64_t association_key) const;
+
   /** @brief 清空全部航迹并重置内部航迹编号。 */
   void Reset();
 
@@ -118,6 +134,7 @@ class RirTrackLifecycle {
     const RirTrackMeasurement* measurement{nullptr};
     RirTrackStatus status_before{RirTrackStatus::kTentative};
     bool track_existed_before_cycle{false};
+    RirImmFilter* imm_filter{nullptr}; /**< IMM 运行态；空表示本周期走 CV KF 路径。 */
   };
 
   struct WorkResult {
@@ -130,7 +147,19 @@ class RirTrackLifecycle {
   void ApplyGaussianState(RirTrackState* track, const RirGaussianState& state,
                           const Eigen::Vector3f& previous_velocity, float dt_sec) const;
   void ApplyHitFilter(RirTrackState* track, const RirTrackMeasurement& measurement,
-                      RirTrackStatus status_before, float dt_sec) const;
+                      RirTrackStatus status_before, float dt_sec,
+                      RirImmFilter* imm_filter) const;
+  void ApplyMissPredict(RirTrackState* track, const Eigen::Vector3f& previous_velocity,
+                        float dt_sec, RirImmFilter* imm_filter) const;
+
+  /** @brief IMM 是否启用且注入契约成立（模型集已构建）。 */
+  bool ShouldUseImmForMeasurement(bool track_existed_before_cycle,
+                                  RirTrackStatus status_before, bool matched_existing_track) const;
+  /** @brief 失配路径是否走 IMM：confirmed 航迹且已有 IMM 运行态。 */
+  bool ShouldUseImmForMiss(RirTrackStatus status_before) const;
+  /** @brief 取或建关联键对应的 IMM 运行态（以 initial_state 播种各模型分支）。 */
+  RirImmFilter* GetOrCreateImmFilter(std::uint64_t association_key,
+                                     const RirGaussianState& initial_state);
 
   /** @brief 复用槽位业务字段清零；`generation` 保持单调不清零。 */
   static void ResetForReuse(RirTrackState& track);
@@ -142,6 +171,8 @@ class RirTrackLifecycle {
   RirTrackFilter filter_;
   RirTrackPool pool_{};
   std::map<std::uint64_t, RirTrackState*> tracks_;
+  std::unordered_map<std::uint64_t, std::unique_ptr<RirImmFilter>> imm_filters_by_key_{};
+  bool imm_enabled_{false};
   std::uint64_t next_track_id_{1U};
   std::uint32_t last_cycle_index_{0U};
 };

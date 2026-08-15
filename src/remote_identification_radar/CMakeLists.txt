@@ -10,6 +10,7 @@ set(RIR_ENGINE_SOURCES
     tracking/RirTrackFilter.cpp
     tracking/RirLapjvSolver.cpp
     tracking/RirTrackPool.cpp
+    tracking/RirImmFilter.cpp
     tracking/RirTrackAssociator.cpp
     tracking/RirTrackLifecycle.cpp
     recognition/RcsFeatureExtractor.cpp

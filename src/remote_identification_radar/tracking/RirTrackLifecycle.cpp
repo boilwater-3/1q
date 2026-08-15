@@ -23,10 +23,27 @@ constexpr std::uint64_t kUnassociatedKey = 0U;
 /** @brief 加速度估计的最小有效步长（s）。 */
 constexpr float kMinimumAccelerationDtSec = 1.0e-6f;
 
+/**
+ * @brief 对数等距 IMM 模型噪声差异系数（与 RirImmFilter 缺省口径同源：
+ *        10^(i/(N-1))，低噪声到高噪声排列）。
+ */
+std::vector<float> BuildDefaultImmNoiseDiffCoeffs(std::uint32_t model_count_hint) {
+  const std::size_t model_count =
+      static_cast<std::size_t>(model_count_hint < 2U ? 2U : model_count_hint);
+  std::vector<float> coeffs;
+  coeffs.reserve(model_count);
+  for (std::size_t i = 0U; i < model_count; ++i) {
+    coeffs.push_back(std::pow(10.0f, static_cast<float>(i) /
+                                         static_cast<float>(model_count - 1U)));
+  }
+  return coeffs;
+}
+
 }  // namespace
 
 RirTrackLifecycle::RirTrackLifecycle(RirLifecycleConfig config, RirTrackFilterConfig filter_config)
-    : lifecycle_config_(config), filter_(filter_config) {}
+    : lifecycle_config_(config), filter_(filter_config),
+      imm_enabled_(config.enable_imm_lifecycle) {}
 
 void RirTrackLifecycle::Update(const RirCycleContext& cycle,
                                const std::vector<RirTrackMeasurement>& measurements) {
@@ -103,6 +120,12 @@ void RirTrackLifecycle::Update(const RirCycleContext& cycle,
       work_item.status_before = found->second.status;
       work_item.track_existed_before_cycle = true;
     }
+    // IMM 双路径（N5）：confirmed 命中既有航迹时挂 IMM 运行态（以周期前状态播种）。
+    if (ShouldUseImmForMeasurement(work_item.track_existed_before_cycle,
+                                   work_item.status_before,
+                                   measurement->matched_existing_track)) {
+      work_item.imm_filter = GetOrCreateImmFilter(key, work_item.track_before.gaussian_state);
+    }
     work_items.push_back(work_item);
   }
 
@@ -116,6 +139,10 @@ void RirTrackLifecycle::Update(const RirCycleContext& cycle,
     work_item.track_before = entry.second;
     work_item.status_before = entry.second.status;
     work_item.track_existed_before_cycle = true;
+    // 失配周期：confirmed 航迹已有 IMM 态则仅预测推进（AR confirmed-only 策略）。
+    if (ShouldUseImmForMiss(work_item.status_before)) {
+      work_item.imm_filter = FindImmFilter(entry.first);
+    }
     work_items.push_back(work_item);
   }
 
@@ -145,15 +172,14 @@ void RirTrackLifecycle::Update(const RirCycleContext& cycle,
       track.rcs = measurement.rcs;
 
       PromoteState(&track, cycle.cycle_index, true);
-      ApplyHitFilter(&track, measurement, work_item.status_before, cycle.dt_sec);
+      ApplyHitFilter(&track, measurement, work_item.status_before, cycle.dt_sec,
+                     work_item.imm_filter);
     } else {
       const bool should_recycle = PromoteState(&track, cycle.cycle_index, false);
       if (should_recycle) {
         result.should_recycle = true;
       } else {
-        const Eigen::Vector3f previous_velocity = track.velocity;
-        const RirGaussianState predicted = filter_.Predict(track.gaussian_state, cycle.dt_sec);
-        ApplyGaussianState(&track, predicted, previous_velocity, cycle.dt_sec);
+        ApplyMissPredict(&track, track.velocity, cycle.dt_sec, work_item.imm_filter);
       }
     }
     results.push_back(result);
@@ -169,6 +195,8 @@ void RirTrackLifecycle::Update(const RirCycleContext& cycle,
       if (existed) {
         RecycleTrack(found->second);
         tracks_.erase(found);
+        // IMM 运行态随航迹回收销毁（键不复用，无残留引用）。
+        imm_filters_by_key_.erase(result.association_key);
       }
       continue;
     }
@@ -238,6 +266,7 @@ void RirTrackLifecycle::Reset() {
     pool_.Release(entry.second);
   }
   tracks_.clear();
+  imm_filters_by_key_.clear();
   next_track_id_ = 1U;
   last_cycle_index_ = 0U;
 }
@@ -245,6 +274,7 @@ void RirTrackLifecycle::Reset() {
 void RirTrackLifecycle::UpdateConfig(RirLifecycleConfig lifecycle_config,
                                      RirTrackFilterConfig filter_config) {
   lifecycle_config_ = lifecycle_config;
+  imm_enabled_ = lifecycle_config.enable_imm_lifecycle;
   filter_.UpdateConfig(filter_config);
 }
 
@@ -262,6 +292,9 @@ void RirTrackLifecycle::RestoreRuntimeState(const RirLifecycleRuntimeState& stat
     pool_.Release(entry.second);
   }
   tracks_.clear();
+  // IMM 运行态不在 replay 快照内（AR 同口径）：清空后由下次 confirmed 命中
+  // 按航迹当前高斯状态惰性重建。
+  imm_filters_by_key_.clear();
   for (const RirTrackState& track : state.tracks) {
     RirTrackState* slot = pool_.Acquire();
     if (slot == nullptr) {
@@ -325,11 +358,23 @@ void RirTrackLifecycle::ApplyGaussianState(RirTrackState* track, const RirGaussi
 }
 
 void RirTrackLifecycle::ApplyHitFilter(RirTrackState* track, const RirTrackMeasurement& measurement,
-                                       RirTrackStatus status_before, float dt_sec) const {
+                                       RirTrackStatus status_before, float dt_sec,
+                                       RirImmFilter* imm_filter) const {
   // 与 AR 子集一致：加速度 = KF 后验速度与本周期速度种子的差/dt。
   const Eigen::Vector3f velocity_before_filter = track->velocity;
   const bool reset_filter_on_hit =
       !measurement.matched_existing_track || status_before == RirTrackStatus::kLost;
+  if (imm_filter != nullptr && imm_filter->IsValid()) {
+    if (reset_filter_on_hit) {
+      // 防御分支（confirmed-only 激活策略下不可达）：IMM 命中重置退化为 CV 初始化，
+      // 与 AR ApplyKalmanHitUpdate 同构。
+      ApplyGaussianState(track, filter_.Initialize(measurement), velocity_before_filter, dt_sec);
+      return;
+    }
+    imm_filter->Process(measurement.position, dt_sec, measurement.measurement_covariance);
+    ApplyGaussianState(track, imm_filter->GetCombinedState(), velocity_before_filter, dt_sec);
+    return;
+  }
   if (reset_filter_on_hit) {
     ApplyGaussianState(track, filter_.Initialize(measurement), velocity_before_filter, dt_sec);
     return;
@@ -338,6 +383,65 @@ void RirTrackLifecycle::ApplyHitFilter(RirTrackState* track, const RirTrackMeasu
   const RirGaussianState predicted = filter_.Predict(track->gaussian_state, dt_sec);
   const RirKalmanUpdateResult update_result = filter_.Update(predicted, measurement);
   ApplyGaussianState(track, update_result.posterior, velocity_before_filter, dt_sec);
+}
+
+void RirTrackLifecycle::ApplyMissPredict(RirTrackState* track,
+                                         const Eigen::Vector3f& previous_velocity, float dt_sec,
+                                         RirImmFilter* imm_filter) const {
+  if (imm_filter != nullptr && imm_filter->IsValid()) {
+    imm_filter->Predict(dt_sec);
+    ApplyGaussianState(track, imm_filter->GetCombinedState(), previous_velocity, dt_sec);
+    return;
+  }
+  ApplyGaussianState(track, filter_.Predict(track->gaussian_state, dt_sec), previous_velocity,
+                     dt_sec);
+}
+
+bool RirTrackLifecycle::ShouldUseImmForMeasurement(bool track_existed_before_cycle,
+                                                   RirTrackStatus status_before,
+                                                   bool matched_existing_track) const {
+  if (!imm_enabled_) {
+    return false;
+  }
+  // RIR 仅实现 confirmed-only 激活（AR kAllTracks 策略不迁）。
+  return track_existed_before_cycle && status_before == RirTrackStatus::kConfirmed &&
+         matched_existing_track;
+}
+
+bool RirTrackLifecycle::ShouldUseImmForMiss(RirTrackStatus status_before) const {
+  if (!imm_enabled_) {
+    return false;
+  }
+  return status_before == RirTrackStatus::kConfirmed;
+}
+
+RirImmFilter* RirTrackLifecycle::GetOrCreateImmFilter(std::uint64_t association_key,
+                                                      const RirGaussianState& initial_state) {
+  const std::unordered_map<std::uint64_t, std::unique_ptr<RirImmFilter>>::iterator found =
+      imm_filters_by_key_.find(association_key);
+  if (found != imm_filters_by_key_.end()) {
+    return found->second.get();
+  }
+
+  RirImmFilter::Config imm_config;
+  const std::uint32_t model_count_hint =
+      lifecycle_config_.model_count_hint < 2U ? 2U : lifecycle_config_.model_count_hint;
+  imm_config.model_noise_diff_coeffs = BuildDefaultImmNoiseDiffCoeffs(model_count_hint);
+  imm_config.transition_diagonal_probability = 0.95f;
+  std::unique_ptr<RirImmFilter> filter(new RirImmFilter(imm_config));
+  filter->Initialize(initial_state);
+  RirImmFilter* filter_ptr = filter.get();
+  imm_filters_by_key_[association_key] = std::move(filter);
+  return filter_ptr;
+}
+
+RirImmFilter* RirTrackLifecycle::FindImmFilter(std::uint64_t association_key) const {
+  const std::unordered_map<std::uint64_t, std::unique_ptr<RirImmFilter>>::const_iterator found =
+      imm_filters_by_key_.find(association_key);
+  if (found == imm_filters_by_key_.end()) {
+    return nullptr;
+  }
+  return found->second.get();
 }
 
 void RirTrackLifecycle::ResetForReuse(RirTrackState& track) {
