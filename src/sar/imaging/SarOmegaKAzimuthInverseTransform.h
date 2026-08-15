@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @file SarOmegaKAzimuthInverseTransform.h
  * @brief Omega-K 数值方位逆变换执行器。
  */

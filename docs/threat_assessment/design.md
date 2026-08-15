@@ -9,7 +9,7 @@ Answers: threat_assessment 是什么、为什么选归一化加权和、与其�
 
 `threat_assessment` 是**目标威胁评估算法面**（多属性决策：归一化加权和 MADM），
 是行为组件层第三个跨业务可复用算法面（先例：`navigation`、`fusion`，
-决策记录见 `docs/review/Bahavior.md` §4 与
+决策记录见 `docs/review/Behavior.md` §4 与
 `docs/review/threat_assessment_decision_2026-08-10.md`）。它把目标属性帧
 （运动学 + 识别 + 融合证据）聚合为威胁分与威胁等级，供战术决策层消费。
 

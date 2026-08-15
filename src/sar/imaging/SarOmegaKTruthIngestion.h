@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @file SarOmegaKTruthIngestion.h
  * @brief Omega-K 真值清单与载荷的原子摄入门。
  */

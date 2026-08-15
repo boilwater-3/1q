@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @file SarOmegaKGridReduction.h
  * @brief Omega-K 显式共同支持目标网格收缩请求执行器。
  */

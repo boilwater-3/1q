@@ -1,6 +1,6 @@
 # 1q
 
-`1q` 是一个面向外部服务模块的仿真模型库，当前覆盖机载雷达（AR）、电子侦察雷达（ESR）、合成孔径雷达（SAR）、光电传感器（EOS）、飞行动力学（Flight Dynamic）以及天基红外传感器（SBIRS）六套主模块。项目重点在于稳定的公共 API、可替换的内部组件，以及可测试的仿真链路编排。
+`1q` 是一个面向外部服务模块的仿真模型库，当前覆盖机载雷达（AR）、电子侦察雷达（ESR）、合成孔径雷达（SAR）、光电传感器（EOS）、飞行动力学（Flight Dynamic）、天基红外传感器（SBIRS）与远程识别雷达（RIR）七套主模块，并包含电子对抗（ECM）、区域覆盖规划（navigation）、多源融合（fusion）与威胁评估（threat_assessment）算法模块。项目重点在于稳定的公共 API、可替换的内部组件，以及可测试的仿真链路编排。
 
 ## 模块概览
 
@@ -10,7 +10,10 @@
 - `include/1q/electro_optical_sensor/`、`src/electro_optical_sensor/`: 光电传感器公共 API 与实现。
 - `include/1q/flight_dynamic/`、`src/flight_dynamic/`: 飞行动力学、制导与机动模型。
 - `include/1q/sbirs_sensor/`、`src/sbirs_sensor/`: 天基红外传感器（SBIRS）公共 API 与实现，覆盖环境、错误模型、NFOV 调度与处理流水线。
-- `include/1q/{coordinate,environment,foundation,replay,trace}/`: 跨模块共享的坐标、环境、基础类型、回放与追踪接口。
+- `include/1q/remote_identification_radar/`、`src/remote_identification_radar/`: 远程识别雷达公共 API 与实现，覆盖检测、跟踪、特征识别与会话编排。
+- `include/1q/electronic_countermeasure/`、`src/electronic_countermeasure/`: 电子对抗公共 API 与实现。
+- `include/1q/{navigation,fusion,threat_assessment}/`、`src/{navigation,fusion,threat_assessment}/`: 区域覆盖规划、多源融合与威胁评估算法模块。
+- `include/1q/{coordinate,electromagnetics,environment,foundation,replay,trace}/`: 跨模块共享的坐标、电磁、环境、基础类型、回放与追踪接口。
 - `tests/`: 单元测试、集成测试、契约测试、性能测试与安装消费测试。
 - `examples/`: 各模块的快速上手、会话用法与集成示例。
 
@@ -52,9 +55,9 @@ ctest --preset llvm-ninja-debug-local --output-on-failure
 
 `examples/` 是**消费方集成参考**（怎么写一个接库的程序，只使用 `include/` 公开接口）：
 
-- `examples/component_attachment/`: 消费方集成参考示例——五传感器（AR/ESR/EOS/
-  SBIRS/SAR）+ 融合 + 威胁评估 + 多机编队，场景 JSON 数据驱动（含多机区域巡逻
-  fleet_patrol_multi_zone 场景）。
+- `examples/component_attachment/`: 消费方集成参考示例——当前挂载 AR/ESR/EOS/
+  SBIRS/SAR 五类传感器组件 + 融合 + 威胁评估 + 多机编队，场景 JSON 数据驱动
+  （含多机区域巡逻 fleet_patrol_multi_zone 场景）。
 - `examples/common/`: example 层共享便利层（`json_reader` + 五域 `config_loaders/` +
   `viz/` 共享可视化查看器，不属于库 public surface）。
 - `examples/configs/`: 跨模块共享的配置样例。
@@ -66,7 +69,7 @@ ctest --preset llvm-ninja-debug-local --output-on-failure
 ## 文档
 
 - `CLAUDE.md`: 工程约束、构建测试规则与重构策略。
-- `docs/<module>/design.md`: 各模块当前设计（AR / ESR / SAR / EOS / Flight Dynamic / SBIRS）。
+- `docs/<module>/design.md`: 各模块当前设计（AR / ESR / SAR / EOS / Flight Dynamic / SBIRS / RIR / ECM / navigation / fusion / threat_assessment）。
 - `docs/common/`: 跨模块契约与开放问题（`contract.md`、`open_questions.md`）。
 - `docs/practice/`: 工程实践与基础设施类设计文档（覆盖率、批量场景验证框架等）。
 - `docs/review/`: 模块评审与迁移计划。

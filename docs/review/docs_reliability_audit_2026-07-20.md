@@ -30,7 +30,7 @@ Authority: 非规范性审查记录；不得替代 `docs/common/contract.md`、�
 | ESR | 已关闭；剩余非阻塞问题继续开放 | `docs/electronic_surveillance_radar/design.md`、`docs/common/open_questions.md` |
 | SAR | 已关闭 | `docs/sar/design.md` |
 | EOS | 已关闭 | `docs/electro_optical_sensor/design.md` |
-| SBIRS | 已关闭；剩余非阻塞仿真边界继续开放 | `docs/space_based_infrared_sensor/design.md`、`docs/common/open_questions.md` |
+| SBIRS | 已关闭；剩余非阻塞仿真边界继续开放 | `docs/sbirs_sensor/design.md`、`docs/common/open_questions.md` |
 | Common | 本批已关闭；Windows/MSVC 全链证明继续开放 | `docs/common/contract.md`、`docs/common/usage.md`、`docs/common/open_questions.md` |
 | Practice | 本批已关闭 | `docs/practice/batch_validation.md`、`docs/practice/ci.md` |
 

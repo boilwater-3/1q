@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-A static library of simulation models for external service modules — airborne radar (AR), electronic surveillance radar (ESR), synthetic aperture radar (SAR), electro-optical sensor (EOS), flight dynamics, and space-based infrared sensor (SBIRS) — delivered as a single linkable artifact.
+A static library of simulation models for external service modules — airborne radar (AR), electronic surveillance radar (ESR), synthetic aperture radar (SAR), electro-optical sensor (EOS), flight dynamics, space-based infrared sensor (SBIRS), and remote identification radar (RIR) — plus electronic countermeasure (ECM), navigation, fusion, and threat assessment algorithm modules, delivered as a single linkable artifact.
 
 ## Tech Stack
 
@@ -19,11 +19,16 @@ A static library of simulation models for external service modules — airborne 
   `sar` (SAR) — synthetic aperture radar,
   `electro_optical_sensor` (EOS) — electro-optical sensor,
   `flight_dynamic` — flight dynamics,
-  `sbirs_sensor` (SBIRS) — space-based infrared sensor
+  `sbirs_sensor` (SBIRS) — space-based infrared sensor,
+  `remote_identification_radar` (RIR) — remote identification radar,
+  `electronic_countermeasure` (ECM) — electronic countermeasure,
+  `navigation` — area coverage planning,
+  `fusion` — multi-source fusion,
+  `threat_assessment` — target threat evaluation
 - **Shared headers** — `include/1q/<domain>/` cross-module public types:
-  `coordinate` — coordinate transforms, `environment` — environment models,
-  `foundation` — base types & utilities, `replay` — replay framework,
-  `trace` — telemetry trace
+  `coordinate` — coordinate transforms, `electromagnetics` — RF scene & link budget,
+  `environment` — environment models, `foundation` — base types & utilities,
+  `replay` — replay framework, `trace` — telemetry trace
 - **Shared impl** — `src/common/`:
   `estimation` — estimators, `geometry` — geometric ops, `logging` — log setup,
   `numerics` — numerical utils, `output` — output serialization, `rcs` — radar cross section,

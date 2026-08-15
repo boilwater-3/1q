@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @file SarOmegaKTruthManifest.h
  * @brief 版本化 Omega-K 点目标真值清单的严格解析器。
  */

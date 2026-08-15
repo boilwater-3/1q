@@ -3,7 +3,7 @@
  * @brief SBIRS 红外滤波测量跟踪 facade：消费 common/estimation 模板化滤波框架，实例化为 SBIRS
  *        6 维 CV 状态 / 2 维角度量测场景，并提供球坐标角度量测模型与动态 R 矩阵构造。
  *
- * 设计要点（见 docs/space_based_infrared_sensor/algorithms.md 目标状态机 / EKF 滤波跟踪）：
+ * 设计要点（见 docs/sbirs_sensor/algorithms.md 目标状态机 / EKF 滤波跟踪）：
  * - 状态：6 维 ECI 恒速 [x, vx, y, vy, z, vz]，复用 common CV 模型（2026-08 正式变更：
  *   ECI 输出参考系——pipeline 周期入口已把真值旋转到 ECI，滤波状态随之在 ECI 中演化；
  *   CV 模型对 ECI 恒速目标更贴合，且不含 ECEF 的科氏耦合）。

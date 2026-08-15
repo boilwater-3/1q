@@ -1,4 +1,4 @@
-﻿#include "sar/imaging/SarPgaGradientTruthComparison.h"
+#include "sar/imaging/SarPgaGradientTruthComparison.h"
 
 #include <algorithm>
 #include <cmath>

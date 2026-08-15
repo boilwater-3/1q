@@ -1,4 +1,4 @@
-﻿#include "sar/imaging/SarOmegaKPointTargetAcceptance.h"
+#include "sar/imaging/SarOmegaKPointTargetAcceptance.h"
 
 #include <algorithm>
 #include <cmath>

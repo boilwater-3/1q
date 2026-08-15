@@ -15,6 +15,9 @@
   - 电子侦察雷达：`1q/electronic_surveillance_radar/electronic_surveillance_radar.hpp`
   - 光电传感器：`1q/electro_optical_sensor/electro_optical_sensor.hpp`
   - 合成孔径雷达：`1q/sar/sar.hpp`
+  - 天基红外传感器：`1q/sbirs_sensor/sbirs_sensor.hpp`
+  - 远程识别雷达：`1q/remote_identification_radar/remote_identification_radar.hpp`
+  - 电子对抗：`1q/electronic_countermeasure/EcmSession.h`
   - 路径规划：`1q/navigation/navigation.hpp`
   - 多源融合：`1q/fusion/fusion.hpp`
   - 威胁评估：`1q/threat_assessment/threat_assessment.hpp`
@@ -26,8 +29,9 @@
 
 - `foundation/`：跨模块复用的基础类型与契约。
   - 位姿原语（`pose_types.h`）、扫描调度（`scan_schedule_types.h`）、
-    输入校验基础类型（`validation_types.h`）、轻量 JSON 值树（`json_reader.h`）、
-    跨域会话形状契约（`SensorContract.h`）。
+    输入校验基础类型（`validation_types.h`）、跨域会话形状契约（`SensorContract.h`）。
+  轻量 JSON 解析器 `json_reader` 属于 example 共享便利层
+  （`examples/common/json_reader.h`），不属于库 public surface。
 - `coordinate/`：WGS-84 坐标系下位置/速度/姿态的帧间转换（LLA/ECEF/ENU/NED/NUE 互转）。
 - `environment/`：大气模型抽象接口与传播物理算法（`IAtmosphereProvider`、
   `AtmosphericState`、`PropagationPhysics`、JSBSim 适配器）。作为大气类型的唯一公开来源。
@@ -44,7 +48,7 @@
 
 ## Sensor Modules
 
-四个传感器域采用统一的 `config/` + `session/` 两域布局：
+各传感器域采用统一的 `config/` + `session/` 两域布局：
 
 - `<module>/config/`：初始化与运行期配置入口（四域 Config、RuntimeBuilder、
   RuntimePatch、SessionConfig、SessionConfigBuilder）。聚合头 `<module>_config.hpp`。
@@ -87,6 +91,19 @@
   SAR 的 `SarPlatformState`/`SarPointTarget` 内部直接存 LLA，调用方填 LLA 即可；
   唯独外部 IQ 的 `pulse_states` 要求 scene-center ENU，故适配器聚焦于此。
 
+### Space-Based Infrared Sensor (SBIRS)
+
+- `sbirs_sensor/config/`：含 `SbirsSessionConfigBuilder`（Mission/Hardware 语义档位）。
+- `sbirs_sensor/session/`：会话门面、周期 IO、外部适配器、场景/输出类型、
+  检测生命周期记录、排除原因差分记录。
+
+### Remote Identification Radar (RIR)
+
+- `remote_identification_radar/config/`：四域配置、RuntimePatch/Builder、
+  SessionConfig/Builder 与 Profile 常量。
+- `remote_identification_radar/session/`：会话门面、周期 IO、输入校验、
+  场景/输出/识别结果类型。
+
 ## Recommended Include Strategy
 
 - 业务代码优先依赖：
@@ -110,3 +127,9 @@
 - 合成孔径雷达最小接入：
   - `#include "1q/sar/sar.hpp"`
   - `#include "1q/sar/config/sar_config.hpp"`
+- 天基红外传感器最小接入：
+  - `#include "1q/sbirs_sensor/sbirs_sensor.hpp"`
+  - `#include "1q/sbirs_sensor/config/sbirs_sensor_config.hpp"`
+- 远程识别雷达最小接入：
+  - `#include "1q/remote_identification_radar/remote_identification_radar.hpp"`
+  - `#include "1q/remote_identification_radar/config/remote_identification_radar_config.hpp"`

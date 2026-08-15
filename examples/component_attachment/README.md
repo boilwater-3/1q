@@ -158,7 +158,7 @@ boost::signals2::scoped_connection conn =
 | `EsrSensorComponent` | electronic_surveillance_radar（EsrSession） | 假设 → `DetectionRecord`（key=假设键，方位+射频特征） | on_emitter_hypothesis |
 | `EosSensorComponent` | electro_optical_sensor（EosSession + EosCycleInputAdapter + EosDetectionLifecycleRecorder） | 探测 → `DetectionRecord`（key=0，仅方位）；首发现/更新/丢失事件由库内 recorder 差分产生 | on_eos_detection |
 | `SbirsSensorComponent` | sbirs_sensor（SbirsSession + SbirsDetectionLifecycleRecorder） | 探测 → `DetectionRecord`（key=0，仅方位，与 EOS 同构）；首发现/更新/coasting/丢失事件由库内 recorder 差分产生 | on_sbirs_detection |
-| `SarSensorComponent` | sar（SarSession + SarProductLifecycleRecorder） | 孔径积累成像；产品生命周期事件由库内 recorder 差分产生（**无探测输出，不入融合**，契约见 docs/review/Bahavior.md）；阶段型调试视图每周期直写摘要行 | on_sar_product |
+| `SarSensorComponent` | sar（SarSession + SarProductLifecycleRecorder） | 孔径积累成像；产品生命周期事件由库内 recorder 差分产生（**无探测输出，不入融合**，契约见 docs/review/Behavior.md）；阶段型调试视图每周期直写摘要行 | on_sar_product |
 | `FusionComponent` | fusion（FusionEngine） | 聚合四传感器探测一次 `Update`；新/消失差分 | on_fusion_updated |
 | `ThreatComponent` | threat_assessment（ThreatEvaluator） | 融合态势 + AR 调试视图按键组装输入 → 威胁分/等级；等级升级（含首见）→ 升级事件；每周期视图摘要行 | on_threat_updated |
 

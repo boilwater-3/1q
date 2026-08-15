@@ -251,7 +251,7 @@ CMake 工程边界（target 作用域、Windows 验收）和测试架构（type�
 - `electronic_surveillance_radar`
 - `flight_dynamic`
 - `sar`
-- `space_based_infrared_sensor`
+- `sbirs_sensor`
 
 `docs/` 顶层不保留散落的 Markdown 文件。所有文档必须落在上述某个一级目录内。
 

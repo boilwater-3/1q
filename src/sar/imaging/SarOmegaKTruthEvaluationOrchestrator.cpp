@@ -1,4 +1,4 @@
-﻿#include "sar/imaging/SarOmegaKTruthEvaluationOrchestrator.h"
+#include "sar/imaging/SarOmegaKTruthEvaluationOrchestrator.h"
 
 namespace sar {
 namespace imaging {

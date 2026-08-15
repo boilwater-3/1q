@@ -1,4 +1,4 @@
-﻿#include "sar/imaging/SarOmegaKReferenceMapping.h"
+#include "sar/imaging/SarOmegaKReferenceMapping.h"
 
 #include <cmath>
 

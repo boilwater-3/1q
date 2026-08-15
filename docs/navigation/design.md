@@ -8,7 +8,7 @@ Answers: navigation 是什么、为什么独立于 flight_dynamic、设计文档
 # Navigation 设计
 
 `navigation` 是**区域覆盖路径规划算法面**（行为组件层的两个跨业务可复用算法面之一，
-决策记录见 `docs/review/Bahavior.md` §3）。它把覆盖区域（多边形/圆形 LLA）与覆盖参数
+决策记录见 `docs/review/Behavior.md` §3）。它把覆盖区域（多边形/圆形 LLA）与覆盖参数
 （扫描航向/间距/高度/速度/模式）转换为**中性航点序列**，不绑定任何执行模块。
 
 心智模型：**区域 → 航路**。调用方传入已解析的区域数据，取回按访问顺序排列的

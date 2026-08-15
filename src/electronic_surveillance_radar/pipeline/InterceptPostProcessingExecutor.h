@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @file InterceptPostProcessingExecutor.h
  * @brief 定义电子侦察后处理执行器。
  *

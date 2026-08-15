@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @file SarOmegaKCommonSupport.h
  * @brief Omega-K 全方位共同有效 Stolt 支持窗口诊断。
  */
