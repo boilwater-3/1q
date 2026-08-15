@@ -1,4 +1,4 @@
-﻿# CMakeLists.txt
+# CMakeLists.txt
 # 项目顶层 CMakeLists.txt：项目主入口，定义基础配置并协调各模块加载顺序
 # 仅负责编排生命周期调用顺序，所有选项/工具链/编译器策略/项目 API 均由 cmake/project 统一封装
 
@@ -29,17 +29,13 @@ endif()
 # 安装阶段：受 ENABLE_INSTALL 门控，须在产物 target 创建之后调用。
 oneq_install_project()
 
-# tests / examples / tools 为可选子目录，按开关与存在性按需纳入。
+# tests / examples 为可选子目录，按开关与存在性按需纳入。
 if(ENABLE_TESTING AND EXISTS "${CMAKE_SOURCE_DIR}/tests/CMakeLists.txt")
     add_subdirectory(tests)
 endif()
 
 if(ENABLE_EXAMPLES AND EXISTS "${CMAKE_SOURCE_DIR}/examples/CMakeLists.txt")
     add_subdirectory(examples)
-endif()
-
-if(EXISTS "${CMAKE_SOURCE_DIR}/tools/CMakeLists.txt")
-    add_subdirectory(tools)
 endif()
 
 # 汇总阶段：所有产物目录添加完毕后打印最终配置状态。
