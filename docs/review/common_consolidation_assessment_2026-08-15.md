@@ -51,7 +51,7 @@ AR 与 RIR 之间存在一批"同形副本"。本文件逐项判定每份副本�
 | 3 | 天线方向图 4 模型（高斯/抛物线/余弦幂/sinc² + 扫描损失/旁瓣/后瓣） | `signal/detection/AntennaPatternRuntime.h` | `dwell/RirAntennaPatternRuntime.h` | 物理恒等式 + 配置类型适配 | **收敛** |
 | 4 | 检测单元求解 + 干扰时频聚合 | `signal/detection/ArDetectionCellResolver.*` | `dwell/RirDetectionCellResolver.*` | **装备账本** | **不动** |
 | 5 | 统计级 CFAR 判决器 | `signal/detection/SignalDetector.*` | `dwell/RirSignalDetector.*` | **装备判决链** | **不动** |
-| 6 | 传播/杂波模型子集 | `environment/PropagationModel.*` | `internal/RirPropagationModel.*` | 装备环境域 vs 输入面子集 | **暂不动** |
+| 6 | 传播/杂波模型子集 | `environment/PropagationModel.*` | `internal/RirPropagationModel.*` | 物理恒等式 + 场景配置适配 | **已执行（第二阶段）** |
 | 7 | 航迹对象池 | `signal/tracking/BoostTrackPool.*` | `tracking/RirTrackPool.*` | 通用内存件（无装备语义） | 收敛候选，**暂缓** |
 | 8 | KF/IMM 数值核 | common 已单源 | `RirTrackFilter`/`RirImmFilter` 包装 | 已收敛 | 无动作 |
 
@@ -85,7 +85,7 @@ AR 与 RIR 之间存在一批"同形副本"。本文件逐项判定每份副本�
    - `ComputeEchoPowerWithGain_dBW` 在两版的增益叠加语义；
    - 方向图主瓣判定边界（旁瓣/后瓣电平闭合条件）。
 
-### 2.2 不动清单细则（#4-#6）
+### 2.2 不动清单细则（#4-#5）
 
 - **检测单元/干扰聚合（#4）**：RIR 有四增益 dB 偏置（缺省 0 dB 等保守
   账本）且无 AR 的抗 RGPO 前沿减半（AR ECCM 语义）；账本结构
@@ -94,9 +94,9 @@ AR 与 RIR 之间存在一批"同形副本"。本文件逐项判定每份副本�
 - **CFAR 判决器（#5）**：同为统计级 CFAR（Pfa 门限 + Swerling Pd + 种子
   判决），但判决门限、硬截断、裕量门与种子管理是装备策略；收敛只会让
   两侧共享一个谁都不完全想要的判决链。
-- **传播/杂波子集（#6）**：RIR 是输入面子集副本（能力边界决策 11 的刻意
-  解耦）；真正收敛需连 EnvironmentService 快照契约一起动，牵涉面大、
-  双源当前无同步压力，暂不动；待任一侧修改杂波物理时按接触即收敛重评。
+- **传播/杂波子集（#6）**：第二阶段已执行。数值内核收敛到
+  `common/radar/VegetationClutterModel`；AR/RIR 只保留公开枚举到 common
+  枚举的映射适配层，两侧公开配置与结果类型不变。
 
 ### 2.3 航迹池（#7）
 
@@ -108,7 +108,9 @@ AR 与 RIR 之间存在一批"同形副本"。本文件逐项判定每份副本�
 
 - **本次直接执行 #1-#3 的 common 化**，落点与步骤见
   `common_consolidation_execution_plan_2026-08-15.md`；不再等待“接触即收敛”。
-- 后续修改 #1-#3 范围内的物理恒等式时，直接修改 `src/common/` 单源；
+- **第二阶段扩展收敛 #6**：传播/杂波模型落点 `common/radar/VegetationClutterModel`，
+  量测误差与波束宽度解析同步收敛到 `common/radar`；AR/RIR 均保留薄适配层。
+- 后续修改已收敛范围内的物理恒等式时，直接修改 `src/common/` 单源；
   两侧适配层保持薄封装，不再维护副本。
 - 阶段 3 其余既有条目不变：`max_range_m`/`recognition_dwell_sec` 四域
   归位是 RIR 内部配置语义小项（识别 policy → mission 域），与 common 化

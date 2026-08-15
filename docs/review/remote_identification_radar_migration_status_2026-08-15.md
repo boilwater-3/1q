@@ -109,7 +109,7 @@ Related-Authority:
 
 - **2-C AR 侧收尾**：已完成（见 §1；AR 全域识别 grep 零命中、AR/RIR/cross_domain 分区与
   全部 guards 绿为验收证据）。
-- **阶段 3 common 化**：已完成。
+- **阶段 3 common 化**：已完成（含第二阶段 #6 传播/杂波模型收敛）。
   - **LAPJV / 雷达方程 / 天线方向图**已收敛到 `src/common/`：
     - `src/common/optimization/LapjvSolver.{h,cpp}`
     - `src/common/radar/RadarEquations.{h,cpp}`

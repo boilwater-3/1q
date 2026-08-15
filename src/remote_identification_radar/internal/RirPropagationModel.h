@@ -2,10 +2,9 @@
  * @file RirPropagationModel.h
  * @brief 定义 RIR 环境层最小传播与杂波组合模型（私有实现头）。
  *
- * 副本来源：`src/airborne_radar/environment/PropagationModel.*`（审计基线
- * 96de367c，阶段 2-M M5），植被散射物理路径依赖 common（`oneq::common::rcs`/
- * `oneq::common::numerics`），零 AR 依赖；场景事实类型换 `Rir*`。
- * 传播/杂波基线系数与 AR 一致保留在实现内部（环境域"不含内部调参项"合约）。
+ * 数值内核为 common 单源（`oneq::common::radar::VegetationClutterModel`），
+ * 场景事实类型换 `Rir*`，零 AR 依赖；传播/杂波基线系数与 AR 一致保留在
+ * common 实现内部（环境域"不含内部调参项"合约）。
  * @note 本文件仅供 RIR 模块内部使用，不作为公开 API；周期输入面接线随阶段 2-S。
  */
 
