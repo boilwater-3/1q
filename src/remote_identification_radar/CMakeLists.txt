@@ -4,6 +4,7 @@
 # dwell/ 检测链（阶段 2-M 迁移改造）。
 set(RIR_ENGINE_SOURCES
     internal/RirRadarEquations.cpp
+    internal/RirPropagationModel.cpp
     dwell/RirDetectionCellResolver.cpp
     dwell/RirSignalDetector.cpp
     recognition/RcsFeatureExtractor.cpp

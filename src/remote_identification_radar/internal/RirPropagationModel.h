@@ -1,0 +1,53 @@
+/**
+ * @file RirPropagationModel.h
+ * @brief 定义 RIR 环境层最小传播与杂波组合模型（私有实现头）。
+ *
+ * 副本来源：`src/airborne_radar/environment/PropagationModel.*`（审计基线
+ * 96de367c，阶段 2-M M5），植被散射物理路径依赖 common（`oneq::common::rcs`/
+ * `oneq::common::numerics`），零 AR 依赖；场景事实类型换 `Rir*`。
+ * 传播/杂波基线系数与 AR 一致保留在实现内部（环境域"不含内部调参项"合约）。
+ * @note 本文件仅供 RIR 模块内部使用，不作为公开 API；周期输入面接线随阶段 2-S。
+ */
+
+#ifndef REMOTE_IDENTIFICATION_RADAR_INTERNAL_RIR_PROPAGATION_MODEL_H_
+#define REMOTE_IDENTIFICATION_RADAR_INTERNAL_RIR_PROPAGATION_MODEL_H_
+
+#include "1q/remote_identification_radar/config/RirEnvironmentConfig.h"
+
+namespace remote_identification_radar {
+namespace internal {
+
+/**
+ * @brief RirPropagationResult 表示传播与杂波组合输出。
+ */
+struct RirPropagationResult {
+  float propagation_loss_db{0.0f}; /**< 传播损耗（单位：dB）。 */
+  float clutter_power_db{0.0f};    /**< 杂波功率（单位：dB）。 */
+};
+
+/**
+ * @brief RirEnvironmentSceneState 当前周期环境场景事实（植被散射输入）。
+ */
+struct RirEnvironmentSceneState {
+  config::RirVegetationScatterPhysicsConfig vegetation_scatter_physics{};
+};
+
+/**
+ * @brief RirPropagationModel 提供组合式传播/杂波建模。
+ */
+class RirPropagationModel {
+ public:
+  /**
+   * @brief 根据场景状态计算传播与杂波输出。
+   * @param[in] scene_state 当前周期场景状态（含植被覆盖物理量）。
+   * @return 包含传播损耗与杂波功率的 RirPropagationResult。
+   * @note 逐目标大气物理损耗由驻留链路预算按真实目标几何计算，
+   *       环境层不重复计算（避免硬编码几何的死计算）。
+   */
+  RirPropagationResult Evaluate(const RirEnvironmentSceneState& scene_state) const;
+};
+
+}  // namespace internal
+}  // namespace remote_identification_radar
+
+#endif  // REMOTE_IDENTIFICATION_RADAR_INTERNAL_RIR_PROPAGATION_MODEL_H_
