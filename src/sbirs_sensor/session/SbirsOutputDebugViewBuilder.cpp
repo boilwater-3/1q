@@ -5,24 +5,25 @@
 #include <cmath>
 
 #include "1q/coordinate/inertial_transform.h"
+#include "common/numerics/Constants.h"
 #include "sbirs_sensor/foundation/SbirsGeometry.h"
 
 namespace sbirs_sensor {
 namespace session {
 namespace {
 
-float DegToRad(float value) { return value * 0.017453292519943295f; }
-
 float WrapAzimuthPositive(float azimuth_deg) {
   const float wrapped = std::fmod(azimuth_deg, 360.0f);
   return wrapped < 0.0f ? wrapped + 360.0f : wrapped;
 }
 
-float ToEciAzimuthRad(float azimuth_deg) { return DegToRad(WrapAzimuthPositive(azimuth_deg)); }
+float ToEciAzimuthRad(float azimuth_deg) {
+  return oneq::common::numerics::DegToRad(WrapAzimuthPositive(azimuth_deg));
+}
 
 float ToEciElevationRad(float elevation_deg) {
   const float clamped = std::max(-90.0f, std::min(90.0f, elevation_deg));
-  return DegToRad(clamped);
+  return oneq::common::numerics::DegToRad(clamped);
 }
 
 // 由输入实体回填 ECI 极坐标角度（rad）：与检测记录同参考系（2026-08 正式变更）。

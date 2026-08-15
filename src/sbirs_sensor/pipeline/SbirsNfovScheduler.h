@@ -12,16 +12,18 @@
 #include <vector>
 
 #include "1q/sbirs_sensor/session/SbirsSceneTypes.h"
+#include "sbirs_sensor/pipeline/SbirsEciScene.h"
 
 namespace sbirs_sensor {
 namespace pipeline {
 
 /**
  * @brief 单个 WFOV 候选的调度中间结构。
- * @note 由 pipeline 在 WFOV 发现阶段填充，交由调度器排序与选取（design 2.6）。
+ * @note 由 pipeline 在 WFOV 发现阶段填充（target 指向周期入口旋转后的 ECI 场景
+ *       副本），交由调度器排序与选取（design 2.6）。
  */
 struct SbirsCandidate {
-  const session::SbirsSceneTarget* target{nullptr};
+  const SbirsEciSceneTarget* target{nullptr};
   float azimuth_deg{0.0f};
   float elevation_deg{0.0f};
   float delayed_truth_azimuth_deg{0.0f};   ///< cue 延迟后的仿真真值方位角，仅用于捕获判定

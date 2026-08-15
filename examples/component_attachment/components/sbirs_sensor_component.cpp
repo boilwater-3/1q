@@ -23,6 +23,10 @@ namespace component_attachment {
 
 namespace {
 
+// 库内角度换算工具（common/numerics/Constants.h）随 src/ PRIVATE 包含，示例层不可达；
+// 以本地命名常量替代内联魔法数（库内 rad 输出 → 示例 deg 显示的唯一换算点）。
+constexpr float kRadToDeg = 57.29577951308232f;
+
 /// 生命周期事件类型 → 示例事件类型（kNotDetected 诊断事件不转发）。
 SbirsDetectionEventKind ToDemoKind(
     sbirs_sensor::session::SbirsDetectionLifecycleEventKind kind) {
@@ -202,8 +206,8 @@ void SbirsSensorComponent::LogDebugView(
     // 非标称行不再展示距离（被动红外测距无物理依据，见 docs/common/contract.md）。
     CA_LOG_VIEW("sbirs", "周期={} 目标={} 状态={} 方位(ECI)={:.1f}° 仰角(ECI)={:.1f}°",
                 view.input_cycle_index, target.target_id,
-                SbirsTargetStatusName(target.status), target.azimuth_rad * 57.29577951308232f,
-                target.elevation_rad * 57.29577951308232f);
+                SbirsTargetStatusName(target.status), target.azimuth_rad * kRadToDeg,
+                target.elevation_rad * kRadToDeg);
   }
   if (non_nominal == 0U) {
     CA_LOG_VIEW("sbirs", "周期={} 全部正常（{} 个目标均已检测）", view.input_cycle_index,
@@ -236,8 +240,8 @@ void SbirsSensorComponent::LogDebugView(
     }
     targets_text += spdlog::fmt_lib::format("{} {}(方位{:.1f}° 俯仰{:.1f}°)",
                                             target.target_id, SbirsTargetStatusName(target.status),
-                                            target.azimuth_rad * 57.29577951308232f,
-                                            target.elevation_rad * 57.29577951308232f);
+                                            target.azimuth_rad * kRadToDeg,
+                                            target.elevation_rad * kRadToDeg);
   }
   const std::string issues_text = demo::FormatIssueText(view.issues);
   CA_LOG_VIEW("sbirs", "周期={} 执行={} 目标=[{}] 问题=[{}]",
@@ -275,7 +279,7 @@ void SbirsSensorComponent::Step(World& world, double dt_sec) {
 
   const sbirs_sensor::session::SbirsCycleResult result = session_.StepWithResult(input);
   // 扫描方位随周期结果刷新（拒绝周期为空帧 → 0）；库内为 ECI 弧度，组件转度显示。
-  scan_azimuth_deg_ = result.output_frame.scan_azimuth_rad * 57.29577951308232f;
+  scan_azimuth_deg_ = result.output_frame.scan_azimuth_rad * kRadToDeg;
   // 规则 12 落盘示范：每周期构建调试视图快照（拒绝周期为 kCycleNotExecuted，
   // 含规则 13b kInfo 排除诊断），供调用方结构化持久化；本示例经 LogDebugView
   // 直写中文人读行（三模式由集成方按需选择）。
@@ -307,7 +311,7 @@ void SbirsSensorComponent::Step(World& world, double dt_sec) {
         if (AttributionTargetId(record.detection_id, result.detection_attributions) ==
             event.target_id) {
           sbirs_event.detection_id = record.detection_id;
-          sbirs_event.az_deg = record.azimuth_rad * 57.29577951308232f;  // ECI rad → 度（显示用）
+          sbirs_event.az_deg = record.azimuth_rad * kRadToDeg;  // ECI rad → 度（显示用）
           break;
         }
       }

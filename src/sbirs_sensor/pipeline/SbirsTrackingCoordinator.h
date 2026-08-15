@@ -14,6 +14,7 @@
 #include "1q/sbirs_sensor/config/SbirsPolicyConfig.h"
 #include "1q/sbirs_sensor/session/SbirsSceneTypes.h"
 #include "sbirs_sensor/foundation/SbirsErrorModel.h"
+#include "sbirs_sensor/pipeline/SbirsEciScene.h"
 #include "sbirs_sensor/tracking/SbirsTrackingTypes.h"
 
 namespace sbirs_sensor {
@@ -49,7 +50,8 @@ struct SbirsTrackingUpdateResult {
  */
 class SbirsTrackingCoordinator {
  public:
-  void InitializeTarget(std::uint64_t target_id, const session::SbirsSceneTarget& target,
+  /** @brief 以 ECI 场景目标（周期入口旋转后的真值）初始化滤波状态（方案 A 真值初始化）。 */
+  void InitializeTarget(std::uint64_t target_id, const SbirsEciSceneTarget& target,
                         const config::SbirsTrackingConfig& tracking);
   SbirsTrackingPredictionResult PredictTarget(
       std::uint64_t target_id, const config::SbirsPolicyConfig& policy, float dt_sec,

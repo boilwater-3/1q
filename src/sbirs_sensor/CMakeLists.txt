@@ -7,6 +7,7 @@ set(SBIRS_ENGINE_SOURCES
     foundation/SbirsNoiseModel.cpp
     environment/SbirsEnvironmentModel.cpp
     pipeline/SbirsCuePredictor.cpp
+    pipeline/SbirsEciScene.cpp
     pipeline/SbirsPipeline.cpp
     pipeline/SbirsNfovAcquisition.cpp
     pipeline/SbirsNfovScheduler.cpp

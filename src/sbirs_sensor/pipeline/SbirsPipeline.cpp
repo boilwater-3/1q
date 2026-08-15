@@ -7,6 +7,7 @@
 #include <string>
 
 #include "common/logging/ProjectLog.h"
+#include "common/numerics/Constants.h"
 #include "1q/coordinate/inertial_transform.h"
 #include "1q/sbirs_sensor/session/SbirsIssueCodes.h"
 #include "sbirs_sensor/environment/SbirsEnvironmentModel.h"
@@ -14,6 +15,7 @@
 #include "sbirs_sensor/foundation/SbirsGeometry.h"
 #include "sbirs_sensor/foundation/SbirsNoiseModel.h"
 #include "sbirs_sensor/foundation/SbirsRadiometry.h"
+#include "sbirs_sensor/pipeline/SbirsEciScene.h"
 #include "sbirs_sensor/pipeline/SbirsNfovAcquisition.h"
 
 namespace sbirs_sensor {
@@ -163,12 +165,12 @@ float PositiveModulo(float value, float period) {
 float WrapAzimuthPositive(float azimuth_deg) { return PositiveModulo(azimuth_deg, 360.0f); }
 
 float ToEciAzimuthRad(float azimuth_deg) {
-  return WrapAzimuthPositive(azimuth_deg) * 0.017453292519943295f;
+  return oneq::common::numerics::DegToRad(WrapAzimuthPositive(azimuth_deg));
 }
 
 float ToEciElevationRad(float elevation_deg) {
   const float clamped = std::max(-90.0f, std::min(90.0f, elevation_deg));
-  return clamped * 0.017453292519943295f;
+  return oneq::common::numerics::DegToRad(clamped);
 }
 
 float ScanAzimuth(const config::SbirsMissionConfig& mission, float phase_deg) {
@@ -185,9 +187,10 @@ float ScanPhaseForAzimuth(const config::SbirsMissionConfig& mission, float azimu
 }
 
 session::SbirsVector3M LosFromAzimuthElevation(float azimuth_deg, float elevation_deg) {
-  const double kDegreesToRadians = 0.017453292519943295;
-  const double azimuth_rad = static_cast<double>(azimuth_deg) * kDegreesToRadians;
-  const double elevation_rad = static_cast<double>(elevation_deg) * kDegreesToRadians;
+  const double azimuth_rad =
+      oneq::common::numerics::DegToRad(static_cast<double>(azimuth_deg));
+  const double elevation_rad =
+      oneq::common::numerics::DegToRad(static_cast<double>(elevation_deg));
   const double horizontal = std::cos(elevation_rad);
   session::SbirsVector3M los;
   los.x = horizontal * std::cos(azimuth_rad);
@@ -315,7 +318,7 @@ bool IsValidTrackingSnapshot(const SbirsPipelineSnapshot& snapshot,
 }
 
 double ComputeSnr(const config::SbirsInternalExecutionConfig& config,
-                  const session::SbirsSceneTarget& target, double range_m, float transmittance) {
+                  const SbirsEciSceneTarget& target, double range_m, float transmittance) {
   const config::SbirsHardwareConfig& hardware = config.session.hardware;
   const double received_power = foundation::ComputeReceivedPowerW(
       target.radiant_intensity_w_per_sr, range_m, hardware.optical_aperture_m,
@@ -465,38 +468,17 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
 
   // ECI 输出参考系（2026-08 正式变更）：本周期时刻的 GMST 把卫星与目标位置/速度
   // 从 ECEF 旋转到 ECI（J2000 平赤道面），下游 LOS/az/el/遮挡/SNR/EKF 全部在 ECI
-  // 中执行；速度含 ω×r 输运项（见 1q/coordinate/inertial_transform.h）。
+  // 中执行；速度含 ω×r 输运项（见 1q/coordinate/inertial_transform.h）。目标侧
+  // 旋转结果存入诚实命名的 SbirsEciSceneTarget（position_eci_m 等）。
   // 输入校验已保证 utc_julian_day 正有限；防御性回退 GMST=0 仅防不可达路径。
   double gmst_rad = 0.0;
   if (!oneq::coordinate::TryComputeGmstRad(input.utc_julian_day, &gmst_rad)) {
     gmst_rad = 0.0;
   }
-  std::vector<session::SbirsSceneTarget> eci_scene;
+  std::vector<SbirsEciSceneTarget> eci_scene;
   eci_scene.reserve(input.scene.size());
   for (const session::SbirsSceneTarget& target : input.scene) {
-    session::SbirsSceneTarget eci_target = target;
-    const oneq::coordinate::EcefPositionM ecef_position(
-        target.position_ecef_m.x, target.position_ecef_m.y, target.position_ecef_m.z);
-    oneq::coordinate::EciPositionM eci_position;
-    if (oneq::coordinate::TryEcefToEci(ecef_position, gmst_rad, &eci_position)) {
-      // 旋转后分量写回 ECI 场景副本（字段名保持输入帧命名，见 RunCycle 注释）。
-      eci_target.position_ecef_m.x = eci_position.x_m;
-      eci_target.position_ecef_m.y = eci_position.y_m;
-      eci_target.position_ecef_m.z = eci_position.z_m;
-    }
-    if (target.has_velocity_ecef_m_per_s) {
-      const oneq::coordinate::EcefVelocityMps ecef_velocity(
-          target.velocity_ecef_m_per_s.x, target.velocity_ecef_m_per_s.y,
-          target.velocity_ecef_m_per_s.z);
-      oneq::coordinate::EciVelocityMps eci_velocity;
-      if (oneq::coordinate::TryEcefVelocityToEci(ecef_position, ecef_velocity, gmst_rad,
-                                                 &eci_velocity)) {
-        eci_target.velocity_ecef_m_per_s.x = eci_velocity.x_mps;
-        eci_target.velocity_ecef_m_per_s.y = eci_velocity.y_mps;
-        eci_target.velocity_ecef_m_per_s.z = eci_velocity.z_mps;
-      }
-    }
-    eci_scene.push_back(eci_target);
+    eci_scene.push_back(RotateSceneTargetToEci(target, gmst_rad));
   }
   const oneq::coordinate::EcefPositionM satellite_ecef(
       input.satellite_position_ecef_m.x, input.satellite_position_ecef_m.y,
@@ -525,7 +507,7 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
     const std::size_t detected_count = static_cast<std::size_t>(std::count_if(
         result.detections.begin(), result.detections.end(),
         [](const SbirsPipelineDetection& detection) { return detection.record.detected; }));
-    PROJECT_LOG_INFO("[SbirsPipeline] cycle_index={} scan_az={:.2f} detected={}/{} records={} "
+    PROJECT_LOG_INFO("[SbirsPipeline] cycle_index={} scan_az_rad={:.4f} detected={}/{} records={} "
                      "excluded={{occulted={} range={} wfov={} snr={}}}",
                      input.cycle_index, result.scan_azimuth_rad, detected_count,
                      input.scene.size(), result.detections.size(), excluded_occulted,
@@ -581,8 +563,8 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
   }
 
   for (std::size_t target_idx = 0U; target_idx < eci_scene.size(); ++target_idx) {
-    // ECI 场景副本（真值已在周期入口旋转到 ECI；字段名沿用输入帧命名）。
-    const session::SbirsSceneTarget& target = eci_scene[target_idx];
+    // ECI 场景副本（真值已在周期入口旋转到 ECI，字段名即 ECI 语义）。
+    const SbirsEciSceneTarget& target = eci_scene[target_idx];
     if (!target.active) {
       target_states_[target.target_id] = SbirsTargetState::kLost;
       nfov_scheduler_.Release(target.target_id);
@@ -592,12 +574,12 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
       continue;
     }
 
-    if (foundation::IsEarthOcculted(satellite_position_eci_m, target.position_ecef_m,
+    if (foundation::IsEarthOcculted(satellite_position_eci_m, target.position_eci_m,
                                     kEarthRadiusM)) {
       // 规则 13b：遮挡排除 → kInfo 诊断（不属于三写，仅承载排查信息）。
       // 具体门（遮挡判定本身可定位）：cause 保持 kNone，遮挡余量（负值 = 深度）进 message。
       const double occultation_margin_m = foundation::ComputeEarthOccultationMarginM(
-          satellite_position_eci_m, target.position_ecef_m, kEarthRadiusM);
+          satellite_position_eci_m, target.position_eci_m, kEarthRadiusM);
       result.issues.push_back(MakeExclusionIssue(
           session::codes::kTargetOcculted,
           "target_id=" + std::to_string(target.target_id) +
@@ -615,7 +597,7 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
     }
 
     const session::SbirsVector3M los =
-        foundation::Subtract(target.position_ecef_m, satellite_position_eci_m);
+        foundation::Subtract(target.position_eci_m, satellite_position_eci_m);
     const double range_m = foundation::Norm(los);
     if (range_m < mission.min_range_m || range_m > mission.max_range_m) {
       // 规则 13b：距离门排除 → kInfo 诊断（不属于三写，仅承载排查信息）。
@@ -646,9 +628,9 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
 
     // 目标角速度：用于动态滞后误差与 R 矩阵（design 2.10）。未提供速度时按 0 处理。
     float omega_deg_per_sec_cached = 0.0f;
-    if (target.has_velocity_ecef_m_per_s) {
+    if (target.has_velocity_eci_m_per_s) {
       omega_deg_per_sec_cached =
-          foundation::ComputeRelativeAngularRateDegPerSec(los, target.velocity_ecef_m_per_s);
+          foundation::ComputeRelativeAngularRateDegPerSec(los, target.velocity_eci_m_per_s);
     }
 
     const bool in_wfov = InRectangularFov(azimuth_deg, elevation_deg, actual_scan_azimuth_deg,
@@ -844,14 +826,14 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
     candidate.command_elevation_deg = cue_prediction.command_elevation_deg;
     // cue 延迟外推：narrow_cue_latency_s 期间目标继续运动，真值 az/el 需按延迟后位置重算。
     const float cue_latency_s = mission.narrow_cue_latency_s;
-    if (cue_latency_s > 0.0f && target.has_velocity_ecef_m_per_s) {
+    if (cue_latency_s > 0.0f && target.has_velocity_eci_m_per_s) {
       session::SbirsVector3M predicted_position;
       predicted_position.x =
-          target.position_ecef_m.x + target.velocity_ecef_m_per_s.x * cue_latency_s;
+          target.position_eci_m.x + target.velocity_eci_m_per_s.x * cue_latency_s;
       predicted_position.y =
-          target.position_ecef_m.y + target.velocity_ecef_m_per_s.y * cue_latency_s;
+          target.position_eci_m.y + target.velocity_eci_m_per_s.y * cue_latency_s;
       predicted_position.z =
-          target.position_ecef_m.z + target.velocity_ecef_m_per_s.z * cue_latency_s;
+          target.position_eci_m.z + target.velocity_eci_m_per_s.z * cue_latency_s;
       const session::SbirsVector3M predicted_los =
           foundation::Subtract(predicted_position, satellite_position_eci_m);
       candidate.delayed_truth_azimuth_deg = foundation::ComputeAzimuthDeg(predicted_los);

@@ -1410,8 +1410,11 @@ TEST(SbirsPipelineTest, ImmKeepsIndependentStateForEachCapturedTarget) {
 TEST(SbirsPipelineTest, ImmMultiTargetUpdatesMatchIndependentRunsAndInputOrder) {
   const sbirs_sensor::config::SbirsSessionConfig config = ImmMultiTargetConfig();
   const sbirs_sensor::session::SbirsVector3M satellite = Vector(7000000.0, 0.0, 0.0);
-  const sbirs_sensor::session::SbirsSceneTarget first = HotTarget(1U, 0.0);
-  const sbirs_sensor::session::SbirsSceneTarget second = HotTarget(2U, 5000.0);
+  // 滤波初始化吃管线内部 ECI 场景目标；GMST=0 时 ECI≡ECEF，几何期望不变。
+  const sbirs_sensor::pipeline::SbirsEciSceneTarget first =
+      sbirs_sensor::pipeline::RotateSceneTargetToEci(HotTarget(1U, 0.0), 0.0);
+  const sbirs_sensor::pipeline::SbirsEciSceneTarget second =
+      sbirs_sensor::pipeline::RotateSceneTargetToEci(HotTarget(2U, 5000.0), 0.0);
   sbirs_sensor::pipeline::SbirsTrackingCoordinator joint;
   sbirs_sensor::pipeline::SbirsTrackingCoordinator only_first;
   sbirs_sensor::pipeline::SbirsTrackingCoordinator only_second;

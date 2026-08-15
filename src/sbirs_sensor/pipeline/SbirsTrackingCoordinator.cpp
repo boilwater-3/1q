@@ -23,16 +23,16 @@ float ComputeNormalizedInnovationSquared(const tracking::SbirsKalmanUpdateResult
 }  // namespace
 
 void SbirsTrackingCoordinator::InitializeTarget(std::uint64_t target_id,
-                                                const session::SbirsSceneTarget& target,
+                                                const SbirsEciSceneTarget& target,
                                                 const config::SbirsTrackingConfig& tracking) {
   tracking::SbirsGaussianState initial_state;
-  initial_state.mean(0) = static_cast<float>(target.position_ecef_m.x);
-  initial_state.mean(2) = static_cast<float>(target.position_ecef_m.y);
-  initial_state.mean(4) = static_cast<float>(target.position_ecef_m.z);
-  if (target.has_velocity_ecef_m_per_s) {
-    initial_state.mean(1) = static_cast<float>(target.velocity_ecef_m_per_s.x);
-    initial_state.mean(3) = static_cast<float>(target.velocity_ecef_m_per_s.y);
-    initial_state.mean(5) = static_cast<float>(target.velocity_ecef_m_per_s.z);
+  initial_state.mean(0) = static_cast<float>(target.position_eci_m.x);
+  initial_state.mean(2) = static_cast<float>(target.position_eci_m.y);
+  initial_state.mean(4) = static_cast<float>(target.position_eci_m.z);
+  if (target.has_velocity_eci_m_per_s) {
+    initial_state.mean(1) = static_cast<float>(target.velocity_eci_m_per_s.x);
+    initial_state.mean(3) = static_cast<float>(target.velocity_eci_m_per_s.y);
+    initial_state.mean(5) = static_cast<float>(target.velocity_eci_m_per_s.z);
   }
   const float pos_var = tracking.initial_position_std_m * tracking.initial_position_std_m;
   const float vel_var =

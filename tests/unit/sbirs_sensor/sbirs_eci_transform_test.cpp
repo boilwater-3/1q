@@ -154,7 +154,7 @@ TEST(SbirsEciTransformTest, EcefVelocityToEciIncludesTransportTerm) {
 
 TEST(SbirsEciTransformTest, PipelineRotatesSceneIntoEciAtCycleEntry) {
   // 同一 ECEF 场景（目标在卫星正东，ECEF az=0）在两个时刻各以新 pipeline 运行：
-  // GMST≈0 时刻输出 az≈0；GMST≈77.7° 时刻输出 az≈GMST（绕 z 旋转仅平移方位）。
+  // GMST≈0 时刻输出 az≈0；GMST≈358.16° 时刻输出 az≈GMST（绕 z 旋转仅平移方位）。
   sbirs_sensor::pipeline::SbirsPipeline base_pipeline(
       sbirs_sensor::runtime::MapSessionToInternal(PipelineConfig()));
   const sbirs_sensor::pipeline::SbirsPipelineResult base =
@@ -162,7 +162,8 @@ TEST(SbirsEciTransformTest, PipelineRotatesSceneIntoEciAtCycleEntry) {
   ASSERT_EQ(base.detections.size(), 1U);
   EXPECT_NEAR(base.detections.front().record.azimuth_rad, 0.0, 1.0e-5);
 
-  // GMST ≈ 77.7° 的 JD（d = 77.7/360.98564736629）。
+  // 该 JD 的 GMST = 280.46061837 + 77.7 ≡ 358.16°（模 360；d = 77.7/360.98564736629
+  // 只抵消 A1 线性项，A0 常数项仍在）。断言与 TryComputeGmstRad 实际值比较。
   const double jd_shift = 2451545.0 + 77.7 / 360.98564736629;
   double gmst_rad = 0.0;
   ASSERT_TRUE(oneq::coordinate::TryComputeGmstRad(jd_shift, &gmst_rad));

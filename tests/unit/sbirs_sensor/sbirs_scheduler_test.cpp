@@ -24,12 +24,13 @@ sbirs_sensor::session::SbirsSceneTarget Target(std::uint64_t id, double range_m,
   return target;
 }
 
-// 构造一个指向给定 target_id 的候选（调度器排序只需 snr/range/target_id）。
+// 构造一个指向给定 target_id 的候选（调度器排序只需 snr/range/target_id；
+// target 指针类型为管线内部 ECI 场景目标）。
 sbirs_sensor::pipeline::SbirsCandidate MakeCandidate(std::uint64_t target_id, double snr,
                                                      double range_m) {
-  static sbirs_sensor::session::SbirsSceneTarget backing[8];
+  static sbirs_sensor::pipeline::SbirsEciSceneTarget backing[8];
   static int slot = 0;
-  sbirs_sensor::session::SbirsSceneTarget& tgt = backing[slot++ % 8];
+  sbirs_sensor::pipeline::SbirsEciSceneTarget& tgt = backing[slot++ % 8];
   tgt.target_id = target_id;
   sbirs_sensor::pipeline::SbirsCandidate c;
   c.target = &tgt;

@@ -332,13 +332,15 @@ std::string EncodeSbirsCycleInput(const SbirsCycleInput& value) {
   const sbirs::replay::Vec3d satellite = ToFbVec3(value.satellite_position_ecef_m);
   fbb.Finish(sbirs::replay::CreateSbirsCycleInput(fbb, value.cycle_index, value.dt_sec,
                                                   value.utc_julian_day, value.has_satellite_position,
-                                                  &satellite, fbb.CreateVector(targets)));
+                                                  &satellite, fbb.CreateVector(targets)),
+             kSbirsReplayFileIdentifier);
   return oneq::common::replay::CopyFinishedFlatbuffer(fbb);
 }
 
 bool DecodeSbirsCycleInput(const std::string& bytes, SbirsCycleInput* out) {
   flatbuffers::Verifier verifier(reinterpret_cast<const std::uint8_t*>(bytes.data()), bytes.size());
-  if (out == nullptr || !verifier.VerifyBuffer<sbirs::replay::SbirsCycleInput>()) {
+  if (out == nullptr ||
+      !verifier.VerifyBuffer<sbirs::replay::SbirsCycleInput>(kSbirsReplayFileIdentifier)) {
     return false;
   }
   const sbirs::replay::SbirsCycleInput* fb =
@@ -367,13 +369,14 @@ bool DecodeSbirsCycleInput(const std::string& bytes, SbirsCycleInput* out) {
 
 std::string EncodeSbirsOutputFrame(const SbirsOutputFrame& value) {
   flatbuffers::FlatBufferBuilder fbb(256);
-  fbb.Finish(EncodeOutputFrameTable(fbb, value));
+  fbb.Finish(EncodeOutputFrameTable(fbb, value), kSbirsReplayFileIdentifier);
   return oneq::common::replay::CopyFinishedFlatbuffer(fbb);
 }
 
 bool DecodeSbirsOutputFrame(const std::string& bytes, SbirsOutputFrame* out) {
   flatbuffers::Verifier verifier(reinterpret_cast<const std::uint8_t*>(bytes.data()), bytes.size());
-  if (out == nullptr || !verifier.VerifyBuffer<sbirs::replay::SbirsOutputFrame>()) {
+  if (out == nullptr ||
+      !verifier.VerifyBuffer<sbirs::replay::SbirsOutputFrame>(kSbirsReplayFileIdentifier)) {
     return false;
   }
   SbirsOutputFrame decoded;
@@ -431,15 +434,17 @@ std::string EncodeSbirsCycleResult(const SbirsCycleResult& value) {
   }
 
   fbb.Finish(sbirs::replay::CreateSbirsCycleResult(
-      fbb, value.input_cycle_index, frame, fbb.CreateVector(attributions),
-      static_cast<std::int32_t>(value.abort_reason),
-      static_cast<std::uint8_t>(value.status), fbb.CreateVector(fb_issues)));
+                  fbb, value.input_cycle_index, frame, fbb.CreateVector(attributions),
+                  static_cast<std::int32_t>(value.abort_reason),
+                  static_cast<std::uint8_t>(value.status), fbb.CreateVector(fb_issues)),
+             kSbirsReplayFileIdentifier);
   return oneq::common::replay::CopyFinishedFlatbuffer(fbb);
 }
 
 bool DecodeSbirsCycleResult(const std::string& bytes, SbirsCycleResult* out) {
   flatbuffers::Verifier verifier(reinterpret_cast<const std::uint8_t*>(bytes.data()), bytes.size());
-  if (out == nullptr || !verifier.VerifyBuffer<sbirs::replay::SbirsCycleResult>()) {
+  if (out == nullptr ||
+      !verifier.VerifyBuffer<sbirs::replay::SbirsCycleResult>(kSbirsReplayFileIdentifier)) {
     return false;
   }
   const sbirs::replay::SbirsCycleResult* fb =
@@ -537,15 +542,17 @@ bool DecodeSbirsCycleResult(const std::string& bytes, SbirsCycleResult* out) {
 std::string EncodeSbirsSessionConfig(const config::SbirsSessionConfig& value) {
   flatbuffers::FlatBufferBuilder fbb(512);
   fbb.Finish(sbirs::replay::CreateSbirsSessionConfig(
-      fbb, EncodeHardwareConfig(fbb, value.hardware), EncodeMissionConfig(fbb, value.mission),
-      EncodePolicyConfig(fbb, value.policy), EncodeSessionEnvironmentConfig(fbb, value.environment),
-      value.sensor_enabled));
+                  fbb, EncodeHardwareConfig(fbb, value.hardware), EncodeMissionConfig(fbb, value.mission),
+                  EncodePolicyConfig(fbb, value.policy), EncodeSessionEnvironmentConfig(fbb, value.environment),
+                  value.sensor_enabled),
+             kSbirsReplayFileIdentifier);
   return oneq::common::replay::CopyFinishedFlatbuffer(fbb);
 }
 
 bool DecodeSbirsSessionConfig(const std::string& bytes, config::SbirsSessionConfig* out) {
   flatbuffers::Verifier verifier(reinterpret_cast<const std::uint8_t*>(bytes.data()), bytes.size());
-  if (out == nullptr || !verifier.VerifyBuffer<sbirs::replay::SbirsSessionConfig>()) {
+  if (out == nullptr ||
+      !verifier.VerifyBuffer<sbirs::replay::SbirsSessionConfig>(kSbirsReplayFileIdentifier)) {
     return false;
   }
   const sbirs::replay::SbirsSessionConfig* fb =
@@ -567,17 +574,19 @@ bool DecodeSbirsSessionConfig(const std::string& bytes, config::SbirsSessionConf
 std::string EncodeSbirsRuntimeConfigPatch(const config::SbirsRuntimeConfigPatch& value) {
   flatbuffers::FlatBufferBuilder fbb(512);
   fbb.Finish(sbirs::replay::CreateSbirsRuntimeConfigPatch(
-      fbb, value.has_mission, EncodeMissionConfig(fbb, value.mission), value.has_policy,
-      EncodePolicyConfig(fbb, value.policy), value.has_environment,
-      EncodeSessionEnvironmentConfig(fbb, value.environment), value.has_work_mode,
-      static_cast<std::int32_t>(value.work_mode), value.has_scan_rate_deg_per_sec,
-      value.scan_rate_deg_per_sec, value.has_sensor_enabled, value.sensor_enabled));
+                  fbb, value.has_mission, EncodeMissionConfig(fbb, value.mission), value.has_policy,
+                  EncodePolicyConfig(fbb, value.policy), value.has_environment,
+                  EncodeSessionEnvironmentConfig(fbb, value.environment), value.has_work_mode,
+                  static_cast<std::int32_t>(value.work_mode), value.has_scan_rate_deg_per_sec,
+                  value.scan_rate_deg_per_sec, value.has_sensor_enabled, value.sensor_enabled),
+             kSbirsReplayFileIdentifier);
   return oneq::common::replay::CopyFinishedFlatbuffer(fbb);
 }
 
 bool DecodeSbirsRuntimeConfigPatch(const std::string& bytes, config::SbirsRuntimeConfigPatch* out) {
   flatbuffers::Verifier verifier(reinterpret_cast<const std::uint8_t*>(bytes.data()), bytes.size());
-  if (out == nullptr || !verifier.VerifyBuffer<sbirs::replay::SbirsRuntimeConfigPatch>()) {
+  if (out == nullptr ||
+      !verifier.VerifyBuffer<sbirs::replay::SbirsRuntimeConfigPatch>(kSbirsReplayFileIdentifier)) {
     return false;
   }
   const sbirs::replay::SbirsRuntimeConfigPatch* fb =
