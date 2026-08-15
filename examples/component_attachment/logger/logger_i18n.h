@@ -81,7 +81,7 @@ inline const char* IssueCodeChineseName(const std::string& code) {
       {sbirs_sensor::session::codes::kInvalidScanSpan, "扫描跨度非法（须为有限值且在 (0, 360]）。"},
       {sbirs_sensor::session::codes::kInvalidScanStartAzimuth, "扫描起始方位角非法（须为有限值且在 [-180, 180)）。"},
       {sbirs_sensor::session::codes::kInvalidSchedulerNfovLocks, "调度器最大并发 NFOV 锁定数非法（须 >= 1）。"},
-      {sbirs_sensor::session::codes::kInvalidTargetPhysical, "目标物理输入非法（ID/位置/温度/辐射率/投影面积/速度等未满足有限与正数要求）。"},
+      {sbirs_sensor::session::codes::kInvalidTargetPhysical, "目标物理输入非法（ID/位置/辐射强度/速度等未满足有限与非负要求）。"},
       {sbirs_sensor::session::codes::kInvalidTrackingGateLossCycles, "跟踪门丢失周期数非法（须 >= 1）。"},
       {sbirs_sensor::session::codes::kInvalidTrackingMode, "跟踪模式非法。"},
       {sbirs_sensor::session::codes::kMissionFovNotPositive, "任务视场角非正。"},

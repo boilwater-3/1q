@@ -27,7 +27,7 @@ std::string BuildSbirsOutputPayload(const SbirsCycleResult& result) {
   std::ostringstream os;
   os << "{"
      << "\"cycle_index\":" << frame.cycle_index << ","
-     << "\"scan_azimuth_deg\":" << frame.scan_azimuth_deg << ","
+     << "\"scan_azimuth_rad\":" << frame.scan_azimuth_rad << ","
      << "\"executed\":" << (result.status == SbirsCycleStatus::kCompleted ? "true" : "false") << ","
      << "\"status\":" << static_cast<int>(result.status) << ","
      << "\"detection_count\":" << frame.detections.size() << ","

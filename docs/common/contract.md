@@ -91,9 +91,11 @@ EOS 的 `detector_area_cm2` 与 `detector_detectivity_cm_sqrt_hz_per_w` 共同�
 
 | 函数族 | 结论 | 原因 |
 |---|---|---|
-| Planck 光谱辐亮度 | 仅共同 characterization，不抽 common | 有效域数值接近；EOS 为 `float` 且对非法输入回退，SBIRS 为 `double` 且返回零 |
-| 接收功率 | 不合并 | EOS 接收孔径面积并除以 `4πr²`；SBIRS 接收孔径直径、使用不同几何因子和量子效率 |
+| Planck 光谱辐亮度 | 仅 EOS 保留，SBIRS 已删除 | SBIRS 目标签名改为调用方提供辐射强度（W/sr），无温度输入、不做 Planck 换算 |
+| 接收功率 | 不合并 | EOS 接收孔径面积并除以 `4πr²`；SBIRS 接收孔径直径、使用 `P = I_t·A_ap·τ/d²` 口径和量子效率 |
 | 噪声/NEP | 不合并 | EOS 是背景抑制与 NEP 链；SBIRS 是 photon/thermal/readout RMS 与兼容 NEP 回退 |
+| 输出方位参考系 | 不合并 | SBIRS 输出 ECI 极坐标弧度（2026-08 正式变更：输入 ECEF + UTC 儒略日，周期入口按 GMST 旋转到 ECI；az∈[0, 2π)、el∈[-π/2, π/2]）；EOS/AR/ESR 保持各自平台局部系约定 |
+| 距离输出 | 不输出 | SBIRS 被动红外不测距：raw output 无距离字段；`estimated_range_m` 仅为内部诊断且仅对归属目标回填；示例层不展示距离 |
 
 这不是未来共享 foundation 的禁止令：新的候选必须先证明上述语义完全相同，且不得以转换器、默认值或兼容层掩盖差异。
 

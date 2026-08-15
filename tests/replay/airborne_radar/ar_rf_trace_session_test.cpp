@@ -14,6 +14,7 @@
 #include "1q/replay/ReplayTrace.h"
 #include "airborne_radar/session/ArReplayCycleRecord.h"
 #include "airborne_radar/session/ArReplayFlatbufferCodec.h"
+#include "support/oneq_test_temp_dir.h"
 
 namespace airborne_radar {
 namespace session {
@@ -21,7 +22,7 @@ namespace {
 
 std::string MakeTraceDir(const char* prefix) {
   std::ostringstream stream;
-  stream << "/tmp/" << prefix << "-" << std::time(nullptr) << "-"
+  stream << oneq_test::TempDir() << prefix << "-" << std::time(nullptr) << "-"
          << std::chrono::high_resolution_clock::now().time_since_epoch().count()
          << "-" << std::rand() << ".trace";
   return stream.str();

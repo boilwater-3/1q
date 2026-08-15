@@ -16,21 +16,21 @@ sbirs_sensor::session::SbirsVector3M Vector(double x, double y, double z) {
 }
 
 sbirs_sensor::session::SbirsSceneTarget Target(std::uint64_t id, double range_m,
-                                               float temperature_k) {
+                                               double radiant_intensity_w_per_sr) {
   sbirs_sensor::session::SbirsSceneTarget target;
   target.target_id = id;
   target.position_ecef_m = Vector(7000000.0 + range_m, 0.0, 0.0);
-  target.temperature_k = temperature_k;
-  target.projected_area_m2 = 5000.0f;
+  target.radiant_intensity_w_per_sr = radiant_intensity_w_per_sr;
   return target;
 }
 
-// 构造一个指向给定 target_id 的候选（调度器排序只需 snr/range/target_id）。
+// 构造一个指向给定 target_id 的候选（调度器排序只需 snr/range/target_id；
+// target 指针类型为管线内部 ECI 场景目标）。
 sbirs_sensor::pipeline::SbirsCandidate MakeCandidate(std::uint64_t target_id, double snr,
                                                      double range_m) {
-  static sbirs_sensor::session::SbirsSceneTarget backing[8];
+  static sbirs_sensor::pipeline::SbirsEciSceneTarget backing[8];
   static int slot = 0;
-  sbirs_sensor::session::SbirsSceneTarget& tgt = backing[slot++ % 8];
+  sbirs_sensor::pipeline::SbirsEciSceneTarget& tgt = backing[slot++ % 8];
   tgt.target_id = target_id;
   sbirs_sensor::pipeline::SbirsCandidate c;
   c.target = &tgt;
@@ -54,9 +54,10 @@ TEST(SbirsSchedulerTest, TargetIdBreaksOtherwiseEqualCandidateTie) {
       sbirs_sensor::session::SbirsCycleInputBuilder()
           .WithCycleIndex(1U)
           .WithDeltaTimeSec(1.0f)
+          .WithUtcJulianDay(2451544.2230698913)  // GMST≈0：ECI≡ECEF
           .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
-          .AddTarget(Target(8U, 1000000.0, 2200.0f))
-          .AddTarget(Target(3U, 1000000.0, 2200.0f))
+          .AddTarget(Target(8U, 1000000.0, 1.0e8))
+          .AddTarget(Target(3U, 1000000.0, 1.0e8))
           .Build();
 
   const sbirs_sensor::pipeline::SbirsPipelineResult result = pipeline.RunCycle(input);

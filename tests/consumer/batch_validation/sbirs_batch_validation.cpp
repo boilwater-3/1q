@@ -1,6 +1,6 @@
 /**
  * @file sbirs_batch_validation.cpp
- * @brief SBIRS 距离、温度与投影面积的批量物理场景验证。
+ * @brief SBIRS 距离与辐射强度的批量物理场景验证。
  */
 
 #include <algorithm>
@@ -46,25 +46,20 @@ constexpr double kSatelliteXM = 7000000.0;
 struct SbirsCase {
   std::string scenario_id;
   double range_km{0.0};
-  float temperature_k{0.0f};
-  float projected_area_m2{0.0f};
+  double radiant_intensity_w_per_sr{0.0};
   bool sequence{false};
   std::string family{"parameter_sweep"};
 };
 
 std::vector<SbirsCase> BuildCases() {
   const double ranges_km[] = {1000.0, 2000.0, 4000.0};
-  const float temperatures_k[] = {800.0f, 1400.0f, 2200.0f};
-  const float areas_m2[] = {10.0f, 500.0f, 5000.0f};
+  const double intensities[] = {1.0e5, 1.0e7, 1.0e9};
   std::vector<SbirsCase> cases;
   char id[128];
   for (double range_km : ranges_km) {
-    for (float temperature_k : temperatures_k) {
-      for (float area_m2 : areas_m2) {
-        std::snprintf(id, sizeof(id), "sbirs_r%.0fkm_t%.0f_a%.0f", range_km,
-                      static_cast<double>(temperature_k), static_cast<double>(area_m2));
-        cases.push_back({id, range_km, temperature_k, area_m2});
-      }
+    for (double intensity : intensities) {
+      std::snprintf(id, sizeof(id), "sbirs_r%.0fkm_i%.0e", range_km, intensity);
+      cases.push_back({id, range_km, intensity});
     }
   }
   return cases;
@@ -83,8 +78,7 @@ std::vector<SbirsCase> BuildSequenceCases() {
     SbirsCase c;
     c.scenario_id = id;
     c.range_km = 1000.0;
-    c.temperature_k = 2200.0f;
-    c.projected_area_m2 = 5000.0f;
+    c.radiant_intensity_w_per_sr = 2.5e8;
     c.sequence = true;
     c.family = std::strstr(id, "target") != nullptr ? "multi_target_resource" :
                std::strstr(id, "maneuver") != nullptr ? "tracking_reacquisition" :
@@ -116,7 +110,9 @@ sbirs_session::SbirsVector3M Vector(double x, double y, double z) {
 sbirs_config::SbirsSessionConfig MakeConfig(const SbirsCase* scenario = nullptr) {
   sbirs_config::SbirsSessionConfig config;
   config.hardware.integration_time_sec = 1.0f;
-  config.mission.scan_start_az_deg = -1.0f;
+  // ECI 方位约定（2026-08）：scan_start_az ∈ [0, 360)；测试几何在 GMST≈0 时刻
+  // （utc_julian_day = 2451544.2230698913）下 ECI≡ECEF，az=0 目标仍被扫描覆盖。
+  config.mission.scan_start_az_deg = 0.0f;
   config.mission.scan_span_deg = 11.0f;
   config.mission.scan_rate_deg_per_sec = 1.0f;
   config.mission.wide_field_fov_az_deg = 20.0f;
@@ -145,9 +141,7 @@ sbirs_session::SbirsCycleInput MakeInput(const SbirsCase& scenario, std::uint32_
   target.target_id = 101U;
   target.target_name = "batch_ir_target";
   target.position_ecef_m = Vector(kSatelliteXM + scenario.range_km * 1000.0, 0.0, 0.0);
-  target.temperature_k = scenario.temperature_k;
-  target.emissivity = 0.9f;
-  target.projected_area_m2 = scenario.projected_area_m2;
+  target.radiant_intensity_w_per_sr = scenario.radiant_intensity_w_per_sr;
   if (scenario.sequence && scenario.scenario_id == "sbirs_seq_boost_maneuver_nis_reacquire" &&
       cycle_index >= 5U && cycle_index <= 8U) {
     target.position_ecef_m.y = static_cast<double>(cycle_index - 4U) * 10000.0;
@@ -168,6 +162,7 @@ sbirs_session::SbirsCycleInput MakeInput(const SbirsCase& scenario, std::uint32_
   sbirs_session::SbirsCycleInputBuilder builder = sbirs_session::SbirsCycleInputBuilder()
       .WithCycleIndex(cycle_index)
       .WithDeltaTimeSec(1.0f)
+      .WithUtcJulianDay(2451544.2230698913)  // GMST≈0：ECI≡ECEF，测试期望几何不变
       .WithSatellitePosition(Vector(kSatelliteXM, 0.0, 0.0))
       .AddTarget(target);
   if (scenario.sequence && (scenario.scenario_id == "sbirs_seq_two_target_crossing_two_locks" ||
@@ -231,10 +226,10 @@ struct ScenarioSummary {
 };
 
 constexpr const char* kCycleHeader =
-    "scenario_id,suite,scenario_family,phase,cycle_index,executed,validation_error,abort_reason,scan_azimuth_deg,"
+    "scenario_id,suite,scenario_family,phase,cycle_index,executed,validation_error,abort_reason,scan_azimuth_rad,"
     "detection_count,max_snr_linear,observation_stage";
 constexpr const char* kScenarioHeader =
-    "scenario_id,suite,scenario_family,range_km,temperature_k,projected_area_m2,executed_cycles,detection_count,"
+    "scenario_id,suite,scenario_family,range_km,radiant_intensity_w_per_sr,executed_cycles,detection_count,"
     "max_snr_linear,final_stage,replay_ok,replay_compared,replay_divergence,warning_count,"
     "error_count,expected_failure_count,contract_check_count,contract_failure_count,"
     "failure_marker_count,warnings";
@@ -326,7 +321,7 @@ ScenarioSummary RunScenario(const SbirsCase& scenario, const std::string& output
           static_cast<int>(result.status == sbirs_session::SbirsCycleStatus::kCompleted),
           static_cast<int>(sbirs_session::HasValidationError(result.issues)),
           static_cast<int>(result.abort_reason),
-          result.output_frame.scan_azimuth_deg, result.output_frame.detections.size(),
+          result.output_frame.scan_azimuth_rad, result.output_frame.detections.size(),
           static_cast<double>(cycle_max_snr), stage);
     }
     replay_writer->Flush();
@@ -407,28 +402,25 @@ ScenarioSummary RunScenario(const SbirsCase& scenario, const std::string& output
   return summary;
 }
 
-void CheckTemperatureTrend(std::vector<ScenarioSummary>& summaries) {
+void CheckIntensityTrend(std::vector<ScenarioSummary>& summaries) {
   for (double range_km : {1000.0, 2000.0, 4000.0}) {
-    for (float area_m2 : {10.0f, 500.0f, 5000.0f}) {
-      std::vector<std::pair<float, float>> samples;
-      for (const auto& summary : summaries) {
-        if (summary.scenario.range_km == range_km &&
-            summary.scenario.projected_area_m2 == area_m2) {
-          samples.emplace_back(summary.scenario.temperature_k, summary.max_snr_linear);
-        }
+    std::vector<std::pair<double, float>> samples;
+    for (const auto& summary : summaries) {
+      if (summary.scenario.range_km == range_km) {
+        samples.emplace_back(summary.scenario.radiant_intensity_w_per_sr,
+                             summary.max_snr_linear);
       }
-      std::sort(samples.begin(), samples.end());
-      for (std::size_t i = 1U; i < samples.size(); ++i) {
-        if (samples[i].second < samples[i - 1U].second) {
-          for (auto& summary : summaries) {
-            if (summary.scenario.range_km == range_km &&
-                summary.scenario.projected_area_m2 == area_m2) {
-              summary.warnings.Warn("SNR decreased as target temperature increased");
-              break;
-            }
+    }
+    std::sort(samples.begin(), samples.end());
+    for (std::size_t i = 1U; i < samples.size(); ++i) {
+      if (samples[i].second < samples[i - 1U].second) {
+        for (auto& summary : summaries) {
+          if (summary.scenario.range_km == range_km) {
+            summary.warnings.Warn("SNR decreased as radiant intensity increased");
+            break;
           }
-          break;
         }
+        break;
       }
     }
   }
@@ -489,15 +481,14 @@ int main(int argc, char** argv) {
       }
     }
   }
-  CheckTemperatureTrend(summaries);
+  CheckIntensityTrend(summaries);
   for (const auto& summary : summaries) {
     std::fprintf(stderr,
-                 "  [scenario] module=SBIRS id=%s range_km=%.0f temperature_k=%.0f area_m2=%.0f "
+                 "  [scenario] module=SBIRS id=%s range_km=%.0f intensity_w_per_sr=%.3g "
                  "executed=%zu/%u detections=%zu max_snr_linear=%.9g final_stage=%s replay_ok=%d "
                  "compared=%llu divergence=%d warn=%zu error=%zu\n",
                  summary.scenario.scenario_id.c_str(), summary.scenario.range_km,
-                 static_cast<double>(summary.scenario.temperature_k),
-                 static_cast<double>(summary.scenario.projected_area_m2), summary.executed_cycles,
+                 summary.scenario.radiant_intensity_w_per_sr, summary.executed_cycles,
                  CycleCount(summary.scenario),
                  summary.detection_count, static_cast<double>(summary.max_snr_linear),
                  summary.final_stage.c_str(), static_cast<int>(summary.replay_ok),
@@ -506,11 +497,10 @@ int main(int argc, char** argv) {
                  summary.warnings.Count(Severity::kWarning),
                  summary.warnings.Count(Severity::kError));
     std::fprintf(
-        scenario_writer.file(), "%s,%s,%s,%.0f,%.0f,%.0f,%zu,%zu,%.9g,%s,%d,%llu,%d,%zu,%zu,%zu,%zu,%zu,%llu,%s\n",
+        scenario_writer.file(), "%s,%s,%s,%.0f,%.9g,%zu,%zu,%.9g,%s,%d,%llu,%d,%zu,%zu,%zu,%zu,%zu,%llu,%s\n",
         summary.scenario.scenario_id.c_str(), summary.suite.c_str(),
         summary.scenario_family.c_str(), summary.scenario.range_km,
-        static_cast<double>(summary.scenario.temperature_k),
-        static_cast<double>(summary.scenario.projected_area_m2), summary.executed_cycles,
+        summary.scenario.radiant_intensity_w_per_sr, summary.executed_cycles,
         summary.detection_count, static_cast<double>(summary.max_snr_linear),
         summary.final_stage.c_str(), static_cast<int>(summary.replay_ok),
         static_cast<unsigned long long>(summary.replay_compared),

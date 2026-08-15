@@ -1,6 +1,6 @@
 ---
 Status: active
-Last-reviewed: 2026-08-07
+Last-reviewed: 2026-08-15
 Authority: sbirs_sensor 数据流、Public API 边界、时序与状态所有权
 Answers: SBIRS 的分层架构、数据如何流动、runtime patch 如何迁移状态、Public API 边界在哪
 ---
@@ -36,8 +36,9 @@ foundation 物理算法的迁移参考，不构成 SBIRS 的对外集成依赖�
 
 ## 与 EOS 的关系：派生 + 独立
 
-1. foundation 物理算法（Planck 辐射、标量路径透过率、光子/热/读出噪声、SNR 合成）参照 EOS foundation
-   层复制并改为 `sbirs_sensor` 命名空间和 `Sbirs*` 类型。这些算法是内部可测试实现，不是 public 契约。
+1. foundation 物理算法（辐射强度接收功率、标量路径透过率、光子/热/读出噪声、SNR 合成）参照 EOS
+   foundation 层复制并改为 `sbirs_sensor` 命名空间和 `Sbirs*` 类型；目标签名由调用方以辐射强度
+   （W/sr）提供，SBIRS 侧不再包含 Planck 换算。这些算法是内部可测试实现，不是 public 契约。
 2. pipeline、controller、session 三层**全部独立实现**，不复用 EOS 代码。EOS 是单视场扫描 + 单次 SNR
    判定；SBIRS 是双视场 + 状态机调度。
 3. 复制来的算法允许按天基场景修正常数和几何输入，但必须保持调用面由 `SbirsPipeline` 统一编排。
@@ -80,7 +81,7 @@ flowchart TB
   subgraph Foundation["Foundation algorithms（参照 EOS）"]
     Env["environment / 气象"]
     Transfer["radiative transfer"]
-    Radiometry["radiometry / Planck"]
+    Radiometry["radiometry / 辐射强度"]
     Noise["noise / NEP"]
   end
 
@@ -251,7 +252,8 @@ flowchart LR
 1. `dt_sec` 必须正、有限、且不超过 `10 / frame_rate_hz`（默认 10 Hz → 上限 1.0 s；`frame_rate_hz` 来自
    任务域配置，创建后不可变）。
 2. 该上界仅适用于 SBIRS 与 EOS（凝视/成像传感器有 frame_rate_hz 概念）；SAR/ESR/AR **故意不含**此上界。
-3. 卫星和目标 ECEF 必须有限且非原点；`target_id` 必须非零且周期内唯一。
+3. 卫星和目标 ECEF 必须有限且非原点；`target_id` 必须非零且周期内唯一；
+    UTC 儒略日（`utc_julian_day`）必须正有限（缺失 = 0 即校验拒绝；ECI 输出参考系必需）。
 4. 目标速度在 `has_velocity_ecef_m_per_s=true` 时必须有限，为 false 时必须是有限零向量。
 5. 启用 environment override 时，天气/海况枚举、绝对温度下限、湿度、能见度、透过率和交互权重全部校验。
 

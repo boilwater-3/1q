@@ -35,6 +35,30 @@ struct ONEQ_API EcefPositionM {
 };
 
 /**
+ * @brief 地心惯性位置（ECI，J2000 平赤道面，地球自转轴为 z 轴）。
+ * @note 与 ECEF 的差异仅在于绕 z 轴旋转（旋转角 = GMST），赤道面与 z 轴方向一致；
+ *       单位 m。用于需要惯性参考系的场景（如天基红外传感器输出方位/俯仰）。
+ */
+struct ONEQ_API EciPositionM {
+  double x_m{0.0}; /**< ECI X（单位：m） */
+  double y_m{0.0}; /**< ECI Y（单位：m） */
+  double z_m{0.0}; /**< ECI Z（单位：m） */
+  EciPositionM() = default;
+  EciPositionM(double x, double y, double z) : x_m(x), y_m(y), z_m(z) {}
+};
+
+/**
+ * @brief 地心惯性速度（ECI），单位 m/s。
+ */
+struct ONEQ_API EciVelocityMps {
+  double x_mps{0.0}; /**< ECI X 方向速度（单位：m/s） */
+  double y_mps{0.0}; /**< ECI Y 方向速度（单位：m/s） */
+  double z_mps{0.0}; /**< ECI Z 方向速度（单位：m/s） */
+  EciVelocityMps() = default;
+  EciVelocityMps(double x, double y, double z) : x_mps(x), y_mps(y), z_mps(z) {}
+};
+
+/**
  * @brief 局部东-北-天位置。
  */
 struct ONEQ_API EnuPositionM {

@@ -18,13 +18,13 @@
   "targets": [
     {"id": 1001, "azimuth_deg": 0.0, "range_m": 20000.0, "altitude_m": 400.0,
      "v_east_mps": 0.0, "v_north_mps": 450.0, "temperature_k": 600.0,
-     "rcs_m2": 10.0, "projected_area_m2": 30.0, "emitter_center_frequency_hz": 9.5e9},
+     "rcs_m2": 10.0, "projected_area_m2": 30.0, "radiant_intensity_w_per_sr": 16036.011, "emitter_center_frequency_hz": 9.5e9},
     {"id": 1002, "azimuth_deg": 0.0, "range_m": 40000.0, "altitude_m": 400.0,
      "v_east_mps": 0.0, "v_north_mps": 120.0, "temperature_k": 540.0,
-     "rcs_m2": 2.0, "projected_area_m2": 18.0, "emitter_center_frequency_hz": 10.0e9},
+     "rcs_m2": 2.0, "projected_area_m2": 18.0, "radiant_intensity_w_per_sr": 4936.699, "emitter_center_frequency_hz": 10.0e9},
     {"id": 1003, "azimuth_deg": 0.0, "range_m": 60000.0, "altitude_m": 400.0,
      "v_east_mps": 0.0, "v_north_mps": 60.0, "temperature_k": 520.0,
-     "rcs_m2": 1.0, "projected_area_m2": 15.0, "emitter_center_frequency_hz": 10.5e9}
+     "rcs_m2": 1.0, "projected_area_m2": 15.0, "radiant_intensity_w_per_sr": 3183.22, "emitter_center_frequency_hz": 10.5e9}
   ],
   "esr": {
     "peak_gain_dbi": 30.0,

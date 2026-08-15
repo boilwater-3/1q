@@ -8,6 +8,7 @@
 #include "1q/electronic_surveillance_radar/session/EsrReplaySession.h"
 #include "1q/electronic_surveillance_radar/session/EsrTraceSession.h"
 #include "electronic_surveillance_radar/session/EsrReplayFlatbufferCodec.h"
+#include "support/oneq_test_temp_dir.h"
 
 namespace electronic_surveillance_radar {
 namespace session {
@@ -76,7 +77,7 @@ std::shared_ptr<oneq::replay::ReplayTraceWriter> MakeWriter(
 }
 
 TEST(EsrReplaySessionTest, ReplaysDirectRfV2Input) {
-  const std::string trace_dir = "/tmp/1q-esr-rf-v2-replay";
+  const std::string trace_dir = oneq_test::TempDir() + "1q-esr-rf-v2-replay";
   oneq::replay::ReplayTraceManifest manifest;
   manifest.module = "electronic_surveillance_radar";
   std::shared_ptr<oneq::replay::ReplayTraceWriter> writer(
@@ -105,7 +106,7 @@ TEST(EsrReplaySessionTest, ReplaysDirectRfV2Input) {
 }
 
 TEST(EsrReplaySessionTest, WaveformClassGateContinuesDeterministicallyInReplay) {
-  const std::string trace_dir = "/tmp/1q-esr-waveform-class-replay";
+  const std::string trace_dir = oneq_test::TempDir() + "1q-esr-waveform-class-replay";
   oneq::replay::ReplayTraceManifest manifest;
   manifest.module = "electronic_surveillance_radar";
   std::shared_ptr<oneq::replay::ReplayTraceWriter> writer(
@@ -143,7 +144,7 @@ TEST(EsrReplaySessionTest, WaveformClassGateContinuesDeterministicallyInReplay) 
 
 TEST(EsrReplaySessionTest,
      RuntimePatchPowerOffAndRecoveryReplayDeterministically) {
-  const std::string trace_dir = "/tmp/1q-esr-runtime-patch-replay";
+  const std::string trace_dir = oneq_test::TempDir() + "1q-esr-runtime-patch-replay";
   const auto writer = MakeWriter(trace_dir);
   config::EsrSessionConfig config;
   config.hardware.beam_az_width_deg = 120.0f;
@@ -191,7 +192,7 @@ TEST(EsrReplaySessionTest,
 }
 
 TEST(EsrReplaySessionTest, RuntimePatchApplyResultDivergenceFailsReplay) {
-  const std::string trace_dir = "/tmp/1q-esr-runtime-patch-divergence";
+  const std::string trace_dir = oneq_test::TempDir() + "1q-esr-runtime-patch-divergence";
   const auto writer = MakeWriter(trace_dir);
   oneq::replay::ReplayTraceEvent config_event;
   config_event.module = "electronic_surveillance_radar";
@@ -228,7 +229,7 @@ TEST(EsrReplaySessionTest, RuntimePatchApplyResultDivergenceFailsReplay) {
 }
 
 TEST(EsrReplaySessionTest, ReplayEsrTraceContinuesAfterFailureMarker) {
-  const std::string trace_dir = "/tmp/1q-esr-failure-marker-replay";
+  const std::string trace_dir = oneq_test::TempDir() + "1q-esr-failure-marker-replay";
   const auto writer = MakeWriter(trace_dir);
   EsrTraceSessionOptions options;
   options.replay_writer = writer;
@@ -254,7 +255,7 @@ TEST(EsrReplaySessionTest, ReplayEsrTraceContinuesAfterFailureMarker) {
 
 TEST(EsrReplaySessionTest,
      SaturationAdvancesTuningPhaseAndReplaysDeterministically) {
-  const std::string trace_dir = "/tmp/1q-esr-saturation-tuning-replay";
+  const std::string trace_dir = oneq_test::TempDir() + "1q-esr-saturation-tuning-replay";
   const auto writer = MakeWriter(trace_dir);
   config::EsrSessionConfig config;
   config.hardware.receiver_band_lower_hz = 9.0e9;
@@ -294,7 +295,7 @@ TEST(EsrReplaySessionTest,
 
 TEST(EsrReplaySessionTest,
      DeceptionClassificationReplaysDeterministically) {
-  const std::string trace_dir = "/tmp/1q-esr-deception-replay";
+  const std::string trace_dir = oneq_test::TempDir() + "1q-esr-deception-replay";
   const auto writer = MakeWriter(trace_dir);
   config::EsrSessionConfig config;
   config.hardware.beam_az_width_deg = 120.0f;
@@ -351,7 +352,7 @@ TEST(EsrReplaySessionTest,
 TEST(EsrReplaySessionTest,
      TamperedDeceptionClassCausesReplayDivergence) {
   // 第一步：录制包含 kLikelyFalseTarget 的 trace（与 DeceptionClassificationReplaysDeterministically 相同配置）。
-  const std::string src_dir = "/tmp/1q-esr-deception-tamper-src";
+  const std::string src_dir = oneq_test::TempDir() + "1q-esr-deception-tamper-src";
   {
     const auto writer = MakeWriter(src_dir);
     config::EsrSessionConfig config;
@@ -396,7 +397,7 @@ TEST(EsrReplaySessionTest,
   }
 
   // 第二步：读取 trace，篡改 cycle_output 中的 deception_class，写入新 trace。
-  const std::string tampered_dir = "/tmp/1q-esr-deception-tamper-modified";
+  const std::string tampered_dir = oneq_test::TempDir() + "1q-esr-deception-tamper-modified";
   {
     oneq::replay::ReplayTraceReader reader(src_dir);
     oneq::replay::ReplayTraceManifest manifest;
@@ -454,7 +455,7 @@ TEST(EsrReplaySessionTest,
 TEST(EsrReplaySessionTest,
      TamperedScanAzimuthCausesReplayDivergence) {
   // 第一步：录制含非零扫描方位的 trace（扫描中心 30° → 首个波束方位 -30°）。
-  const std::string src_dir = "/tmp/1q-esr-scan-az-tamper-src";
+  const std::string src_dir = oneq_test::TempDir() + "1q-esr-scan-az-tamper-src";
   {
     const auto writer = MakeWriter(src_dir);
     config::EsrSessionConfig config;
@@ -500,7 +501,7 @@ TEST(EsrReplaySessionTest,
   }
 
   // 第二步：读取 trace，篡改 cycle_output 中的 scan_azimuth_deg，写入新 trace。
-  const std::string tampered_dir = "/tmp/1q-esr-scan-az-tamper-modified";
+  const std::string tampered_dir = oneq_test::TempDir() + "1q-esr-scan-az-tamper-modified";
   {
     oneq::replay::ReplayTraceReader reader(src_dir);
     oneq::replay::ReplayTraceManifest manifest;

@@ -1,6 +1,9 @@
 # macOS
 .DS_Store
 
+# Windows 内置文件日志后端（ProjectFileLog，ONEQ_ENABLE_FILE_LOG）运行产物
+1q_library.log
+
 # Build outputs
 build/
 out/

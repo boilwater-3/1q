@@ -45,7 +45,8 @@ SbirsVector3M Vector(double x, double y, double z) {
 std::string EncodeCycleResultWithRawAbortReason(std::int32_t abort_reason) {
   flatbuffers::FlatBufferBuilder builder(128U);
   builder.Finish(sbirs::replay::CreateSbirsCycleResult(
-      builder, 99U, 0, 0, abort_reason, 0, 0));
+                    builder, 99U, 0, 0, abort_reason, 0, 0),
+                  kSbirsReplayFileIdentifier);
   return std::string(reinterpret_cast<const char*>(builder.GetBufferPointer()),
                      builder.GetSize());
 }
@@ -53,7 +54,8 @@ std::string EncodeCycleResultWithRawAbortReason(std::int32_t abort_reason) {
 std::string EncodeCycleResultWithRawStatus(std::int32_t status) {
   flatbuffers::FlatBufferBuilder builder(128U);
   builder.Finish(sbirs::replay::CreateSbirsCycleResult(
-      builder, 99U, 0, 0, 0, status, 0));
+                    builder, 99U, 0, 0, 0, status, 0),
+                  kSbirsReplayFileIdentifier);
   return std::string(reinterpret_cast<const char*>(builder.GetBufferPointer()),
                      builder.GetSize());
 }
@@ -62,7 +64,8 @@ std::string EncodeSessionConfigWithRawScanDirection(std::int32_t scan_direction)
   flatbuffers::FlatBufferBuilder builder(128U);
   const auto mission = sbirs::replay::CreateSbirsMissionConfig(
       builder, 0, 20.0f, 20.0f, 2.0f, 2.0f, -60.0f, 120.0f, scan_direction);
-  builder.Finish(sbirs::replay::CreateSbirsSessionConfig(builder, 0, mission, 0, 0));
+  builder.Finish(sbirs::replay::CreateSbirsSessionConfig(builder, 0, mission, 0, 0),
+                  kSbirsReplayFileIdentifier);
   return std::string(reinterpret_cast<const char*>(builder.GetBufferPointer()), builder.GetSize());
 }
 
@@ -72,7 +75,8 @@ std::string EncodeSessionConfigWithRawTrackingEnums(std::int32_t tracking_mode,
   const auto tracking = sbirs::replay::CreateSbirsTrackingConfig(
       builder, tracking_mode, estimated_backend);
   const auto policy = sbirs::replay::CreateSbirsPolicyConfig(builder, 0, 0, 0, 0, tracking);
-  builder.Finish(sbirs::replay::CreateSbirsSessionConfig(builder, 0, 0, policy, 0));
+  builder.Finish(sbirs::replay::CreateSbirsSessionConfig(builder, 0, 0, policy, 0),
+                  kSbirsReplayFileIdentifier);
   return std::string(reinterpret_cast<const char*>(builder.GetBufferPointer()), builder.GetSize());
 }
 
@@ -83,7 +87,8 @@ std::string EncodeCycleResultWithRawTrackingSource(std::int32_t tracking_source)
   std::vector<flatbuffers::Offset<sbirs::replay::SbirsDetectionAttributionRecord>> records;
   records.push_back(attribution);
   builder.Finish(sbirs::replay::CreateSbirsCycleResult(
-      builder, 4U, 0, builder.CreateVector(records)));
+                    builder, 4U, 0, builder.CreateVector(records)),
+                  kSbirsReplayFileIdentifier);
   return std::string(reinterpret_cast<const char*>(builder.GetBufferPointer()), builder.GetSize());
 }
 
@@ -96,9 +101,7 @@ TEST(SbirsReplayCodecRoundtripTest, CycleInputPreservesAllFields) {
   target.target_id = 9U;
   target.target_name = "boost";
   target.position_ecef_m = Vector(8000000.0, 2.0, 3.0);
-  target.temperature_k = 2300.0f;
-  target.emissivity = 0.91f;
-  target.projected_area_m2 = 42.0f;
+  target.radiant_intensity_w_per_sr = 12345.678;
   target.velocity_ecef_m_per_s = Vector(1000.0, -500.0, 250.0);
   target.has_velocity_ecef_m_per_s = true;
   target.active = false;
@@ -106,6 +109,7 @@ TEST(SbirsReplayCodecRoundtripTest, CycleInputPreservesAllFields) {
   const SbirsCycleInput input = SbirsCycleInputBuilder()
                                     .WithCycleIndex(3U)
                                     .WithDeltaTimeSec(0.25f)
+                                    .WithUtcJulianDay(2451544.2230698913)  // GMST≈0：ECI≡ECEF
                                     .WithSatellitePosition(Vector(7000000.0, 4.0, 5.0))
                                     .AddTarget(target)
                                     .Build();
@@ -117,15 +121,14 @@ TEST(SbirsReplayCodecRoundtripTest, CycleInputPreservesAllFields) {
 
   EXPECT_EQ(decoded.cycle_index, 3U);
   EXPECT_FLOAT_EQ(decoded.dt_sec, 0.25f);
+  EXPECT_DOUBLE_EQ(decoded.utc_julian_day, 2451544.2230698913);  // ECI 输出参考系（UTC 儒略日）
   EXPECT_TRUE(decoded.has_satellite_position);
   EXPECT_DOUBLE_EQ(decoded.satellite_position_ecef_m.x, 7000000.0);
   ASSERT_EQ(decoded.scene.size(), 1U);
   EXPECT_EQ(decoded.scene[0].target_id, 9U);
   EXPECT_EQ(decoded.scene[0].target_name, "boost");
   EXPECT_DOUBLE_EQ(decoded.scene[0].position_ecef_m.y, 2.0);
-  EXPECT_FLOAT_EQ(decoded.scene[0].temperature_k, 2300.0f);
-  EXPECT_FLOAT_EQ(decoded.scene[0].emissivity, 0.91f);
-  EXPECT_FLOAT_EQ(decoded.scene[0].projected_area_m2, 42.0f);
+  EXPECT_DOUBLE_EQ(decoded.scene[0].radiant_intensity_w_per_sr, 12345.678);
   EXPECT_DOUBLE_EQ(decoded.scene[0].velocity_ecef_m_per_s.x, 1000.0);
   EXPECT_DOUBLE_EQ(decoded.scene[0].velocity_ecef_m_per_s.y, -500.0);
   EXPECT_DOUBLE_EQ(decoded.scene[0].velocity_ecef_m_per_s.z, 250.0);
@@ -147,12 +150,12 @@ TEST(SbirsReplayCodecRoundtripTest, CycleInputDecodesEmptyScene) {
 TEST(SbirsReplayCodecRoundtripTest, OutputFramePreservesAllFields) {
   SbirsOutputFrame frame;
   frame.cycle_index = 7U;
-  frame.scan_azimuth_deg = -15.5f;
+  frame.scan_azimuth_rad = -15.5f;
 
   SbirsDetectionRecord detection;
   detection.detection_id = 33U;
-  detection.azimuth_deg = 1.5f;
-  detection.elevation_deg = -2.5f;
+  detection.azimuth_rad = 1.5f;
+  detection.elevation_rad = -2.5f;
   detection.infrared_snr_linear = 9.0f;
   detection.observation_stage = SbirsObservationStage::kNarrowFieldTrack;
   detection.detected = true;
@@ -164,11 +167,11 @@ TEST(SbirsReplayCodecRoundtripTest, OutputFramePreservesAllFields) {
   ASSERT_TRUE(DecodeSbirsOutputFrame(bytes, &decoded));
 
   EXPECT_EQ(decoded.cycle_index, 7U);
-  EXPECT_FLOAT_EQ(decoded.scan_azimuth_deg, -15.5f);
+  EXPECT_FLOAT_EQ(decoded.scan_azimuth_rad, -15.5f);
   ASSERT_EQ(decoded.detections.size(), 1U);
   EXPECT_EQ(decoded.detections[0].detection_id, 33U);
-  EXPECT_FLOAT_EQ(decoded.detections[0].azimuth_deg, 1.5f);
-  EXPECT_FLOAT_EQ(decoded.detections[0].elevation_deg, -2.5f);
+  EXPECT_FLOAT_EQ(decoded.detections[0].azimuth_rad, 1.5f);
+  EXPECT_FLOAT_EQ(decoded.detections[0].elevation_rad, -2.5f);
   EXPECT_FLOAT_EQ(decoded.detections[0].infrared_snr_linear, 9.0f);
   EXPECT_EQ(decoded.detections[0].observation_stage, SbirsObservationStage::kNarrowFieldTrack);
   EXPECT_TRUE(decoded.detections[0].detected);
@@ -180,7 +183,7 @@ TEST(SbirsReplayCodecRoundtripTest, CycleResultPreservesOutputAndAttributionFiel
   SbirsCycleResult result;
   result.input_cycle_index = 5U;
   result.output_frame.cycle_index = 5U;
-  result.output_frame.scan_azimuth_deg = 12.0f;
+  result.output_frame.scan_azimuth_rad = 12.0f;
   result.status = SbirsCycleStatus::kCompleted;
   result.abort_reason = SbirsPipelineAbortReason::kValidationRejected;
 
@@ -278,7 +281,7 @@ TEST(SbirsReplayCodecRoundtripTest, CycleResultPreservesPoweredOffAbortReason) {
   SbirsCycleResult result;
   result.input_cycle_index = 7U;
   result.output_frame.cycle_index = 7U;
-  result.output_frame.scan_azimuth_deg = 3.0f;
+  result.output_frame.scan_azimuth_rad = 3.0f;
   result.abort_reason = SbirsPipelineAbortReason::kSensorPoweredOff;
   result.status = SbirsCycleStatus::kPoweredOff;
 
@@ -567,6 +570,57 @@ TEST(SbirsReplayCodecRoundtripTest, DecodeRuntimeConfigPatchRejectsNullAndCorrup
   EXPECT_FALSE(DecodeSbirsRuntimeConfigPatch("", nullptr));
   SbirsRuntimeConfigPatch patch;
   EXPECT_FALSE(DecodeSbirsRuntimeConfigPatch("bad", &patch));
+}
+
+// --- 版本护栏：v1/异源标识符负载显式拒绝（2026-08 ECI 变更后防静默误解码） ---
+
+TEST(SbirsReplayCodecRoundtripTest, DecodeRejectsLegacyOrForeignIdentifierBuffers) {
+  // v1 时代录制从未写入 file_identifier（deg/ECEF 语义）；v2 codec 写入并校验
+  // "SBI2"，标识符不符必须显式拒绝。标识符位于字节 [4,8)（root uoffset 之后）。
+  SbirsCycleInput input;
+  input.cycle_index = 3U;
+  input.dt_sec = 1.0f;
+  input.utc_julian_day = 2460310.5;
+  input.has_satellite_position = true;
+  const std::string encoded = EncodeSbirsCycleInput(input);
+  ASSERT_GE(encoded.size(), 8U);
+  EXPECT_TRUE(DecodeSbirsCycleInput(encoded, &input));
+
+  std::string legacy = encoded;
+  legacy.erase(4U, 4U);  // 抹掉标识符 = v1 时代录制形态
+  SbirsCycleInput legacy_decoded;
+  EXPECT_FALSE(DecodeSbirsCycleInput(legacy, &legacy_decoded));
+
+  std::string v1_identifier = encoded;
+  v1_identifier.replace(4U, 4U, "SBIC");  // v1 声明过的标识符
+  EXPECT_FALSE(DecodeSbirsCycleInput(v1_identifier, &legacy_decoded));
+
+  // 其余 sbirs replay 负载同样受护栏保护：篡改标识符后拒绝。
+  SbirsOutputFrame frame;
+  frame.cycle_index = 3U;
+  std::string frame_bytes = EncodeSbirsOutputFrame(frame);
+  frame_bytes.replace(4U, 4U, "XXXX");
+  SbirsOutputFrame frame_decoded;
+  EXPECT_FALSE(DecodeSbirsOutputFrame(frame_bytes, &frame_decoded));
+
+  SbirsCycleResult result;
+  result.status = SbirsCycleStatus::kCompleted;
+  std::string result_bytes = EncodeSbirsCycleResult(result);
+  result_bytes.replace(4U, 4U, "XXXX");
+  SbirsCycleResult result_decoded;
+  EXPECT_FALSE(DecodeSbirsCycleResult(result_bytes, &result_decoded));
+
+  config::SbirsSessionConfig config;
+  std::string config_bytes = EncodeSbirsSessionConfig(config);
+  config_bytes.replace(4U, 4U, "XXXX");
+  config::SbirsSessionConfig config_decoded;
+  EXPECT_FALSE(DecodeSbirsSessionConfig(config_bytes, &config_decoded));
+
+  config::SbirsRuntimeConfigPatch patch;
+  std::string patch_bytes = EncodeSbirsRuntimeConfigPatch(patch);
+  patch_bytes.replace(4U, 4U, "XXXX");
+  config::SbirsRuntimeConfigPatch patch_decoded;
+  EXPECT_FALSE(DecodeSbirsRuntimeConfigPatch(patch_bytes, &patch_decoded));
 }
 
 TEST(SbirsReplayCodecRoundtripTest, DecodeFailureMarkerRejectsNullAndCorrupted) {

@@ -16,6 +16,7 @@
 #include "1q/electronic_countermeasure/EcmTraceSession.h"
 #include "1q/replay/ReplayTrace.h"
 #include "electronic_countermeasure/EcmReplayFlatbufferCodec.h"
+#include "support/oneq_test_temp_dir.h"
 
 namespace electronic_countermeasure {
 namespace session {
@@ -23,16 +24,8 @@ namespace {
 
 std::string MakeTempTracePath() {
   static unsigned int counter = 0U;
-  const char* temp_dir = std::getenv("TMPDIR");
-  if (temp_dir == nullptr || temp_dir[0] == '\0') {
-    temp_dir = "/tmp";
-  }
   std::ostringstream stream;
-  stream << temp_dir;
-  if (stream.str()[stream.str().size() - 1U] != '/') {
-    stream << "/";
-  }
-  stream << "oneq-ecm-replay-" << std::time(nullptr) << "-"
+  stream << oneq_test::TempDir() << "oneq-ecm-replay-" << std::time(nullptr) << "-"
          << std::chrono::high_resolution_clock::now().time_since_epoch().count() << "-"
          << counter++ << ".trace";
   return stream.str();

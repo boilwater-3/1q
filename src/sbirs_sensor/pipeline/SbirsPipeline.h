@@ -64,7 +64,7 @@ struct SbirsPipelineDetection {
 
 /** @brief 单周期 pipeline 执行结果，含扫描相位与本周期检测列表。 */
 struct SbirsPipelineResult {
-  float scan_azimuth_deg{0.0f};                     /**< 本周期扫描方位角，单位 deg */
+  float scan_azimuth_rad{0.0f};                     /**< 本周期扫描方位角（ECI 极坐标，单位 rad，[0, 2π)） */
   std::vector<SbirsPipelineDetection> detections{}; /**< 检测列表 */
   bool executed{false};                             /**< 核心 pipeline 是否实际执行（非关机/待机） */
   session::SbirsIssueList issues{};  /**< 正常执行周期按目标排除的 kInfo 诊断（规则 13b），经 controller 转写进 SbirsCycleResult */

@@ -199,8 +199,9 @@ int main(int argc, char* argv[]) {
 
   std::size_t max_fused_targets = 0U;
   // 天基平台（卫星）位置：凝视模式，固定于目标群质心正上方 + 场景高度
-  // （ECEF z 轴），目标恒位于星下点附近（SBIRS az/el 为 ECEF 极坐标，
-  // 全向扫描 span 360° + 下视 el −90° 覆盖；消费方每周期注入世界模型）。
+  // （ECEF z 轴），目标恒位于星下点附近（SBIRS az/el 为 ECI 极坐标——
+  // 输入仍为 ECEF，库内按 GMST 旋转到 ECI，全向扫描 span 360° + 下视
+  // el −90° 覆盖，GMST 平移不影响探测；消费方每周期注入世界模型）。
   // 无目标时保持上一周期位置（初始零向量 = 场景占位）。
   for (std::uint32_t cycle = 1U; cycle <= num_cycles; ++cycle) {
     // 消费方每周期注入共享场景状态（周期号/时间/四通道世界真值）。
@@ -210,6 +211,7 @@ int main(int argc, char* argv[]) {
     scene.emitters = demo::MakeEmitterTruths(target_states, scene_data.esr, scene.t_sec);
     scene.optical_targets = demo::MakeOpticalTargets(target_states);
     scene.sbirs_targets = demo::MakeSbirsTargetInputs(target_states);
+    scene.sbirs_utc_julian_day = scene_data.sbirs_utc_julian_day;  // SBIRS ECI 输出参考系（UTC 儒略日）
     scene.sar_point_targets = demo::MakeSarPointTargets(target_states);
     if (!target_states.empty()) {
       double centroid_x = 0.0;

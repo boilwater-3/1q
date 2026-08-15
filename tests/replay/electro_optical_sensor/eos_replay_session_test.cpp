@@ -21,25 +21,16 @@
 #include "1q/electro_optical_sensor/session/EosTraceSession.h"
 #include "1q/replay/ReplayTrace.h"
 #include "electro_optical_sensor/session/EosReplayFlatbufferCodec.h"
+#include "support/oneq_test_temp_dir.h"
 
 namespace {
 
 std::string MakeTempTracePath(const char* prefix) {
   static unsigned int unique_counter = 0U;
-  const char* temp_dir = std::getenv("TMPDIR");
-  if (temp_dir == nullptr || temp_dir[0] == '\0') {
-    temp_dir = "/tmp";
-  }
   std::ostringstream stream;
-  stream << temp_dir;
-  const std::string path = stream.str();
-  if (!path.empty() && path[path.size() - 1] != '/') {
-    stream << "/";
-  }
-  const long long ticks =
-      static_cast<long long>(std::chrono::high_resolution_clock::now().time_since_epoch().count());
-  stream << prefix << "-" << std::time(nullptr) << "-" << ticks << "-" << std::rand() << "-"
-         << unique_counter++ << ".trace";
+  stream << oneq_test::TempDir() << prefix << "-" << std::time(nullptr) << "-"
+         << std::chrono::high_resolution_clock::now().time_since_epoch().count() << "-"
+         << std::rand() << "-" << unique_counter++ << ".trace";
   return stream.str();
 }
 

@@ -18,6 +18,7 @@
 #include "common/estimation/GaussianState.h"
 #include "common/estimation/IKalmanPredictor.h"
 #include "common/estimation/IKalmanUpdater.h"
+#include "common/logging/ProjectLog.h"
 
 namespace oneq {
 namespace common {
@@ -83,6 +84,9 @@ class ImmFilter {
    * @param[in] config IMM 配置（转移概率矩阵、初始权重）。
    * @param[in] predictors 各模型的预测器（非拥有指针）。
    * @param[in] updaters 各模型的更新器（非拥有指针）。
+   * @note 注入校验（fail-safe，不抛异常）：predictors/updaters 须等长且非空、
+   *       元素非空、转移矩阵 N×N、初始权重长度 N。不满足时滤波器进入 0 模型
+   *       惰性状态（IsValid() 为 false），Process/Correct 不更新任何状态。
    */
   ImmFilter(ImmConfig config, std::vector<Predictor*> predictors, std::vector<Updater*> updaters)
       : num_models_(static_cast<int>(predictors.size())),
@@ -96,10 +100,45 @@ class ImmFilter {
         log_likelihoods_(Eigen::VectorXf::Zero(num_models_)),
         c_bar_(Eigen::VectorXf::Zero(num_models_)),
         new_weights_(Eigen::VectorXf::Zero(num_models_)) {
+    const Eigen::Index model_count = static_cast<Eigen::Index>(num_models_);
+    const bool shapes_valid =
+        num_models_ > 0 && static_cast<std::size_t>(num_models_) == updaters_.size() &&
+        config_.transition_probability.rows() == model_count &&
+        config_.transition_probability.cols() == model_count &&
+        config_.initial_weights.size() == model_count;
+    const bool pointers_valid =
+        std::all_of(predictors_.begin(), predictors_.end(),
+                    [](const Predictor* predictor) { return predictor != nullptr; }) &&
+        std::all_of(updaters_.begin(), updaters_.end(),
+                    [](const Updater* updater) { return updater != nullptr; });
+    if (!shapes_valid || !pointers_valid) {
+      // 中译：IMM 注入不合法（模型数/矩阵尺寸/权重长度不匹配或指针为空），
+      //       滤波器进入惰性状态。
+      // 标识：注入校验 fail-safe——不满足契约时清空模型集，
+      //       IsValid() 返回 false，后续 Process/Correct 为空操作；
+      //       避免越界访问与空指针解引用。
+      PROJECT_LOG_ERROR(
+          "[ImmFilter] Invalid injection (model count/matrix shapes/weights mismatch or null "
+          "model pointers); filter enters inert state.");
+      num_models_ = 0;
+      predictors_.clear();
+      updaters_.clear();
+      model_states_.clear();
+      mixed_states_.clear();
+      predicted_states_.clear();
+      update_results_.clear();
+      log_likelihoods_.resize(0);
+      c_bar_.resize(0);
+      new_weights_.resize(0);
+      return;
+    }
     for (int j = 0; j < num_models_; ++j) {
       model_states_[static_cast<std::size_t>(j)].weight = config_.initial_weights(j);
     }
   }
+
+  /** @return 注入校验是否通过（模型集非空且形状/指针契约成立）。 */
+  bool IsValid() const { return num_models_ > 0; }
 
   /**
    * @brief 执行完整的 IMM 循环：混合 → 预测 → 更新 → 组合。
@@ -197,8 +236,13 @@ class ImmFilter {
   /**
    * @brief 设置模型状态（用于初始化）。
    * @param[in] states 各模型初始状态。
+   * @note 长度与模型数不一致时忽略（防止后续循环越界访问）。
    */
-  void SetModelStates(const std::vector<ModelState>& states) { model_states_ = states; }
+  void SetModelStates(const std::vector<ModelState>& states) {
+    if (states.size() == static_cast<std::size_t>(num_models_)) {
+      model_states_ = states;
+    }
+  }
   /**
    * @brief 在线同步 IMM 运行参数与模型滤波器指针。
    * @return 同步成功返回 true；模型维度不一致时返回 false。
@@ -212,6 +256,17 @@ class ImmFilter {
         config.transition_probability.cols() != static_cast<Eigen::Index>(predictors.size()) ||
         config.initial_weights.size() != static_cast<Eigen::Index>(predictors.size())) {
       return false;
+    }
+    // 与构造函数同一注入契约：元素级空指针同样拒绝，防止运行期换入空模型。
+    for (const Predictor* predictor : predictors) {
+      if (predictor == nullptr) {
+        return false;
+      }
+    }
+    for (const Updater* updater : updaters) {
+      if (updater == nullptr) {
+        return false;
+      }
     }
 
     num_models_ = static_cast<int>(predictors.size());

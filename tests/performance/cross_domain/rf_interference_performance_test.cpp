@@ -14,6 +14,14 @@
 #elif defined(__linux__)
 #include <malloc.h>
 #include <unistd.h>
+#elif defined(_WIN32)
+// NOMINMAX：windows.h 的 min/max 宏会污染 std::min/std::max 及库头中的使用。
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
+#include <psapi.h>
+#pragma comment(lib, "psapi.lib")
 #endif
 
 #include "1q/airborne_radar/airborne_radar.hpp"
@@ -68,6 +76,14 @@ std::size_t ReadResidentBytes() {
     return 0U;
   }
   return resident_pages * static_cast<std::size_t>(page_size);
+#elif defined(_WIN32)
+  // WorkingSetSize 对两处读取一致使用：PrivateUsage 需 _WIN32_WINNT>=0x0501 版本宏，
+  // 且本测试关注的是工作集增长趋势而非精确堆统计。
+  PROCESS_MEMORY_COUNTERS counters{};
+  if (GetProcessMemoryInfo(GetCurrentProcess(), &counters, sizeof(counters)) != 0) {
+    return static_cast<std::size_t>(counters.WorkingSetSize);
+  }
+  return 0U;
 #else
   return 0U;
 #endif
@@ -81,6 +97,12 @@ std::size_t ReadAllocatedHeapBytes() {
 #elif defined(__linux__)
   const struct mallinfo2 statistics = mallinfo2();
   return static_cast<std::size_t>(statistics.uordblks);
+#elif defined(_WIN32)
+  PROCESS_MEMORY_COUNTERS counters{};
+  if (GetProcessMemoryInfo(GetCurrentProcess(), &counters, sizeof(counters)) != 0) {
+    return static_cast<std::size_t>(counters.WorkingSetSize);
+  }
+  return 0U;
 #else
   return 0U;
 #endif

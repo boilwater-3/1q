@@ -23,7 +23,10 @@ constexpr char kCycleDeltaTimeExceedsFramePeriod[] =
 /** @brief 卫星位置缺失、非有限或为零向量。 */
 constexpr char kInvalidSatellitePosition[] = "sbirs.validation.invalid_satellite_position";
 
-/** @brief 目标物理输入非法（ID/位置/温度/辐射率/投影面积/速度等未满足有限与正数要求）。 */
+/** @brief UTC 儒略日缺失、非有限或非正（ECI 输出参考系必需）。 */
+constexpr char kInvalidUtcJulianDay[] = "sbirs.validation.invalid_utc_julian_day";
+
+/** @brief 目标物理输入非法（ID/位置/辐射强度/速度等未满足有限与正数要求）。 */
 constexpr char kInvalidTargetPhysical[] = "sbirs.validation.invalid_target_physical";
 
 /** @brief 硬件波长带非法（须为正且有下界小于上界）。 */

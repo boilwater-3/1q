@@ -398,9 +398,7 @@ class SensorQueryScene {
     ir.position_ecef_m.x = target_ecef.x_m;
     ir.position_ecef_m.y = target_ecef.y_m;
     ir.position_ecef_m.z = target_ecef.z_m;
-    ir.temperature_k = 520.0f;
-    ir.emissivity = 0.92f;
-    ir.projected_area_m2 = 18.0f;
+    ir.radiant_intensity_w_per_sr = 3819.864;
     ir.active = true;
     scene_.sbirs_targets.push_back(ir);
     scene_.sbirs_satellite_position_ecef_m.x = target_ecef.x_m;
@@ -439,10 +437,11 @@ TEST(SensorQueryGettersTest, CompletedCyclesReportPoweredOnAndScanAzimuth) {
 
   // 扫描方位：首周期波束中心方位（各库"先推进相位再填充"或"先索引再推进"
   // 的既有语义，期望值按默认配置推导：ESR 相位 0 → 首波束 -60°；EOS
-  // start -60° + 速率 20°/s×1s = -40°；SBIRS start -60° + 速率 10°/s×1s = -50°）。
+  // start -60° + 速率 20°/s×1s = -40°；SBIRS start 300°（-60° 等价折入
+  // [0,360)，ECI 约定）+ 速率 10°/s×1s = 310°——组件把库内弧度转度显示）。
   EXPECT_FLOAT_EQ(scene.platform().Find<ca::EsrSensorComponent>()->scan_azimuth_deg(), -60.0f);
   EXPECT_FLOAT_EQ(scene.platform().Find<ca::EosSensorComponent>()->scan_azimuth_deg(), -40.0f);
-  EXPECT_FLOAT_EQ(scene.platform().Find<ca::SbirsSensorComponent>()->scan_azimuth_deg(), -50.0f);
+  EXPECT_FLOAT_EQ(scene.platform().Find<ca::SbirsSensorComponent>()->scan_azimuth_deg(), 310.0f);
 }
 
 TEST(SensorQueryGettersTest, PowerOffPatchFlipsPoweredStateAndClearsAzimuth) {
@@ -501,10 +500,10 @@ TEST(SensorQueryGettersTest, PowerOffFreezesSessionUntilReenabled) {
   scene.platform().Attach(std::make_unique<ca::SbirsSensorComponent>(
       sbirs_sensor::session::SbirsSession::Create()));
 
-  // 开机首周期：start -60° + 推进 10° = -50°。
+  // 开机首周期：start 300°（-60° 等价）+ 推进 10° = 310°。
   scene.DriveCycle(1U);
   EXPECT_TRUE(scene.platform().Find<ca::SbirsSensorComponent>()->powered_on());
-  EXPECT_FLOAT_EQ(scene.platform().Find<ca::SbirsSensorComponent>()->scan_azimuth_deg(), -50.0f);
+  EXPECT_FLOAT_EQ(scene.platform().Find<ca::SbirsSensorComponent>()->scan_azimuth_deg(), 310.0f);
 
   // 下电：关机两个周期，组件短路（不驱动会话），角度清零。
   EXPECT_TRUE(scene.platform().Find<ca::SbirsSensorComponent>()->TryApplyRuntimeConfig(
@@ -514,13 +513,14 @@ TEST(SensorQueryGettersTest, PowerOffFreezesSessionUntilReenabled) {
   EXPECT_FALSE(scene.platform().Find<ca::SbirsSensorComponent>()->powered_on());
   EXPECT_FLOAT_EQ(scene.platform().Find<ca::SbirsSensorComponent>()->scan_azimuth_deg(), 0.0f);
 
-  // 重新上电：相位从关机前冻结处继续（-50° 基础上仅推进一个周期 → -40°）；
-  // 若关机期间被驱动，相位会多推进两个周期（→ -20°），断言即失败。
+  // 重新上电：相位从关机前冻结处继续（310° 基础上仅推进一个周期 → 320°）；
+  // 若关机期间被驱动，相位会多推进两个周期（→ 340°），断言即失败。
   EXPECT_TRUE(scene.platform().Find<ca::SbirsSensorComponent>()->TryApplyRuntimeConfig(
       sbirs_sensor::config::SbirsRuntimeConfigBuilder().WithSensorEnabled(true).Build()));
   scene.DriveCycle(4U);
   EXPECT_TRUE(scene.platform().Find<ca::SbirsSensorComponent>()->powered_on());
-  EXPECT_FLOAT_EQ(scene.platform().Find<ca::SbirsSensorComponent>()->scan_azimuth_deg(), -40.0f);
+  // 310° + 10° = 320°。
+  EXPECT_FLOAT_EQ(scene.platform().Find<ca::SbirsSensorComponent>()->scan_azimuth_deg(), 320.0f);
 }
 
 TEST(SensorQueryGettersTest, SbirsLastDebugViewCarriesPerTargetStateAndExclusionDiagnostics) {

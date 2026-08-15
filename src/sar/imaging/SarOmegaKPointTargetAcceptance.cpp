@@ -4,6 +4,8 @@
 #include <cmath>
 #include <limits>
 
+#include "sar/signal/SarAngleWrap.h"
+
 namespace sar {
 namespace imaging {
 
@@ -59,13 +61,6 @@ bool IsValidCandidate(const signal::ComplexMatrix& matrix, std::size_t rows,
     }
   }
   return true;
-}
-
-double WrapPhase(double phase) {
-  const double pi = std::acos(-1.0);
-  while (phase > pi) phase -= 2.0 * pi;
-  while (phase < -pi) phase += 2.0 * pi;
-  return phase;
 }
 
 double RatioDb(double numerator, double denominator) {
@@ -153,7 +148,7 @@ OmegaKPointTargetAcceptanceResult EvaluateOmegaKPointTargetCandidate(
   result.azimuth_error = std::abs(request.azimuth_coordinates[peak_row] -
                                   request.truth.azimuth_coordinate);
   result.wrapped_phase_error_rad =
-      std::abs(WrapPhase(std::arg(peak) - request.truth.peak_phase_rad));
+      std::abs(signal::WrapPhase(std::arg(peak) - request.truth.peak_phase_rad));
   result.relative_magnitude_error =
       std::abs(std::abs(peak) - request.truth.peak_magnitude) /
       request.truth.peak_magnitude;

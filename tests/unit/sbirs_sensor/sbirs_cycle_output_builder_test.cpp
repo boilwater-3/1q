@@ -27,6 +27,7 @@ sbirs_sensor::session::SbirsCycleInput InputWithTarget(std::uint32_t cycle_index
   return sbirs_sensor::session::SbirsCycleInputBuilder()
       .WithCycleIndex(cycle_index)
       .WithDeltaTimeSec(1.0f)
+      .WithUtcJulianDay(2451544.2230698913)  // GMST≈0：ECI≡ECEF
       .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
       .AddTarget(Target(7U, "boost"))
       .Build();
@@ -39,8 +40,8 @@ sbirs_sensor::session::SbirsCycleResult ResultForTarget(std::uint32_t cycle_inde
   result.status = sbirs_sensor::session::SbirsCycleStatus::kCompleted;
   sbirs_sensor::output::SbirsDetectionRecord detection;
   detection.detection_id = 11U;
-  detection.azimuth_deg = 2.0f;
-  detection.elevation_deg = 3.0f;
+  detection.azimuth_rad = 2.0f;
+  detection.elevation_rad = 3.0f;
   detection.infrared_snr_linear = 4.0f;
   detection.observation_stage = sbirs_sensor::output::SbirsObservationStage::kNarrowFieldTrack;
   detection.detected = detected;
@@ -156,13 +157,14 @@ TEST(SbirsCycleOutputBuilderTest, DebugViewBackfillsInputAnglesWhenNotInOutput) 
   EXPECT_EQ(view.targets[0].status,
             sbirs_sensor::session::SbirsDebugTargetStatus::kNotInOutput);
   // 视线向量 = 目标 − 卫星 = (−7e6, 8e6, 8e6)：az = atan2(8,−7) ≈ 131.2°、
-  // el = asin(8/√177) ≈ 36.96°（ECEF 极坐标，与检测记录同参考系）。
-  EXPECT_NEAR(view.targets[0].azimuth_deg, 131.19f, 0.1f);
-  EXPECT_NEAR(view.targets[0].elevation_deg, 36.96f, 0.1f);
+  // el = asin(8/√177) ≈ 36.96°（GMST≈0 时刻 ECI≡ECEF，输出为 ECI 弧度；
+  // 131.19° ≈ 2.2897 rad、36.96° ≈ 0.6451 rad，容差 0.1° 折算 0.00175 rad）。
+  EXPECT_NEAR(view.targets[0].azimuth_rad, 2.2897f, 0.00175f);
+  EXPECT_NEAR(view.targets[0].elevation_rad, 0.6451f, 0.00175f);
 }
 
 TEST(SbirsCycleOutputBuilderTest, NonExecutedCycleBackfillsInputAngles) {
-  // 规则 12 输入实体回填：未执行周期同样回填视线 ECEF 极坐标量值。
+  // 规则 12 输入实体回填：未执行周期同样回填视线 ECI 极坐标量值。
   sbirs_sensor::session::SbirsCycleInput input = InputWithTarget(1U);  // 卫星 (7e6,0,0)
   input.scene[0].position_ecef_m = Vector(0.0, 8000000.0, 8000000.0);
   sbirs_sensor::session::SbirsCycleResult rejected;
@@ -175,16 +177,16 @@ TEST(SbirsCycleOutputBuilderTest, NonExecutedCycleBackfillsInputAngles) {
   ASSERT_EQ(view.targets.size(), 1U);
   EXPECT_EQ(view.targets[0].status,
             sbirs_sensor::session::SbirsDebugTargetStatus::kCycleNotExecuted);
-  EXPECT_NEAR(view.targets[0].azimuth_deg, 131.19f, 0.1f);
-  EXPECT_NEAR(view.targets[0].elevation_deg, 36.96f, 0.1f);
+  EXPECT_NEAR(view.targets[0].azimuth_rad, 2.2897f, 0.00175f);
+  EXPECT_NEAR(view.targets[0].elevation_rad, 0.6451f, 0.00175f);
 }
 
 TEST(SbirsCycleOutputBuilderTest, NativeFrameHelperAcceptsSbirsDetectionShape) {
   sbirs_sensor::session::SbirsOutputFrame frame;
   sbirs_sensor::output::SbirsDetectionRecord detection;
   detection.detection_id = 1U;
-  detection.azimuth_deg = 2.0f;
-  detection.elevation_deg = 3.0f;
+  detection.azimuth_rad = 2.0f;
+  detection.elevation_rad = 3.0f;
   detection.infrared_snr_linear = 4.0f;
   detection.observation_stage = sbirs_sensor::output::SbirsObservationStage::kWideFieldSearch;
   detection.detected = true;
@@ -208,8 +210,8 @@ TEST(SbirsCycleOutputBuilderTest, DebugViewMapsDetectionAttributionBackToInputTa
             sbirs_sensor::attribution::SbirsTrackingSource::kStrictTruthAssisted);
   EXPECT_FLOAT_EQ(view.targets[0].estimated_range_m, 1000000.0f);
   // 记录观测值覆盖 input 推导值（input 目标 (8e6,0,0) 视线 az=0/el=0，记录为 2/3）。
-  EXPECT_FLOAT_EQ(view.targets[0].azimuth_deg, 2.0f);
-  EXPECT_FLOAT_EQ(view.targets[0].elevation_deg, 3.0f);
+  EXPECT_FLOAT_EQ(view.targets[0].azimuth_rad, 2.0f);
+  EXPECT_FLOAT_EQ(view.targets[0].elevation_rad, 3.0f);
   EXPECT_TRUE(view.targets[0].has_estimation_nis);
   EXPECT_FLOAT_EQ(view.targets[0].estimation_nis, 1.5f);
   EXPECT_FALSE(view.targets[0].estimation_nis_gate_exceeded);
@@ -229,9 +231,10 @@ TEST(SbirsCycleOutputBuilderTest, DebugViewPreservesNisLossAttributionWithoutRaw
             sbirs_sensor::attribution::SbirsTrackingSource::kEstimated);
   EXPECT_FLOAT_EQ(view.targets[0].estimated_range_m, 1000000.0f);
   // 无原始记录（capture failure）：az/el 保持 input 回填值（input 目标
-  // (8e6,0,0)、卫星 (7e6,0,0) → 视线 (1e6,0,0) → az=0/el=0，记录覆盖不触发）。
-  EXPECT_FLOAT_EQ(view.targets[0].azimuth_deg, 0.0f);
-  EXPECT_FLOAT_EQ(view.targets[0].elevation_deg, 0.0f);
+  // (8e6,0,0)、卫星 (7e6,0,0) → 视线 (1e6,0,0) → az≈0/el=0，记录覆盖不触发；
+  // GMST≈0 残余 2.35e-9 rad，用近等断言）。
+  EXPECT_NEAR(view.targets[0].azimuth_rad, 0.0f, 1.0e-6f);
+  EXPECT_NEAR(view.targets[0].elevation_rad, 0.0f, 1.0e-6f);
   EXPECT_TRUE(view.targets[0].has_estimation_nis);
   EXPECT_FLOAT_EQ(view.targets[0].estimation_nis, 12.5f);
   EXPECT_TRUE(view.targets[0].estimation_nis_gate_exceeded);
@@ -260,6 +263,7 @@ TEST(SbirsCycleOutputBuilderTest, LifecycleRecorderTracksFoundUpdatedLostAndOpti
       sbirs_sensor::session::SbirsCycleInputBuilder()
           .WithCycleIndex(3U)
           .WithDeltaTimeSec(1.0f)
+          .WithUtcJulianDay(2451544.2230698913)  // GMST≈0：ECI≡ECEF
           .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
           .Build();
   sbirs_sensor::session::SbirsCycleResult empty_result;
@@ -302,6 +306,7 @@ TEST(SbirsCycleOutputBuilderTest, ValidationRejectedEmptyInputDoesNotInventTarge
       sbirs_sensor::session::SbirsCycleInputBuilder()
           .WithCycleIndex(2U)
           .WithDeltaTimeSec(1.0f)
+          .WithUtcJulianDay(2451544.2230698913)  // GMST≈0：ECI≡ECEF
           .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
           .Build();
 

@@ -8,6 +8,8 @@
 
 #include <cmath>
 
+#include "sar/signal/SarAngleWrap.h"
+
 namespace sar {
 namespace geometry {
 
@@ -50,13 +52,8 @@ double SpotlightSyntheticApertureTime(const std::vector<SpotlightBeamState>& bea
   // 波束跟踪角 = 首尾指向角差(取绝对值,处理跨越 ±π)。
   double total_angle = beam_states.back().boresight_azimuth_rad -
                        beam_states.front().boresight_azimuth_rad;
-  // 归一化到 [-π, π] 区间以处理跨越。
-  while (total_angle > M_PI) {
-    total_angle -= 2.0 * M_PI;
-  }
-  while (total_angle < -M_PI) {
-    total_angle += 2.0 * M_PI;
-  }
+  // 归一化到 [-π, π] 区间以处理跨越（常数时间，contract 规则 5）。
+  total_angle = signal::WrapPhase(total_angle);
   const double abs_angle = std::fabs(total_angle);
   // T_synth = θ_synth · R_center / v
   return abs_angle * slant_range_m / platform_velocity_mps;

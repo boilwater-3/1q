@@ -6,6 +6,8 @@
  * 候选量测由 resolver 生成（带物理 provenance），关联键由关联引擎分配。
  */
 
+// MSVC 需在首次包含 <cmath> 前定义 _USE_MATH_DEFINES 才有 M_PI（gtest.h 内部已含 <cmath>）。
+#define _USE_MATH_DEFINES
 #include <gtest/gtest.h>
 
 #include <cstddef>

@@ -12,33 +12,18 @@ namespace sbirs_sensor {
 namespace foundation {
 
 /**
- * @brief 计算指定波长下的普朗克谱辐射亮度。
- * @param[in] wavelength_um 波长，单位 μm
- * @param[in] temperature_k 目标温度，单位 K
- * @return 谱辐射亮度；波长或温度非正时返回 0
- */
-double ComputePlanckRadiance(double wavelength_um, double temperature_k);
-/**
- * @brief 计算波段积分辐射亮度（取波段中心 Planck 值 × 带宽近似）。
- * @param[in] wavelength_lower_um 波段下限，单位 μm
- * @param[in] wavelength_upper_um 波段上限，单位 μm
- * @param[in] temperature_k 目标温度，单位 K
- * @return 波段辐射亮度
- */
-double ComputeBandRadiance(double wavelength_lower_um, double wavelength_upper_um,
-                           double temperature_k);
-/**
- * @brief 计算探测器接收功率 P_sig = Φ_atm · A_det · η / d²。
- * @param[in] band_radiance 入射波段辐射亮度
- * @param[in] projected_area_m2 目标投影面积，单位 m²
+ * @brief 计算探测器接收功率 P_sig = I_t · A_ap · τ_opt · τ_atm · η / d²。
+ * @details 目标红外签名由调用方以辐射强度（W/sr）直接提供；温度/发射率/投影面积
+ *          已由调用方折算进 I_t，本模块不做 Planck 换算。
+ * @param[in] radiant_intensity_w_per_sr 目标辐射强度（朝向传感器方向），单位 W/sr
  * @param[in] range_m 目标距离，单位 m
  * @param[in] aperture_m 光学孔径，单位 m
  * @param[in] optical_transmission 光学透过率
  * @param[in] path_transmittance 路径透过率（含气象修正）
  * @param[in] detector_quantum_efficiency 探测器量子效率
- * @return 接收功率，单位 W；距离或孔径非正时返回 0
+ * @return 接收功率，单位 W；辐射强度为负、距离或孔径非正时返回 0
  */
-double ComputeReceivedPowerW(double band_radiance, double projected_area_m2, double range_m,
+double ComputeReceivedPowerW(double radiant_intensity_w_per_sr, double range_m,
                              double aperture_m, double optical_transmission,
                              double path_transmittance, double detector_quantum_efficiency);
 /**

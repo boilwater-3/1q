@@ -20,6 +20,11 @@ SbirsCycleInputBuilder& SbirsCycleInputBuilder::WithSatellitePosition(
   return *this;
 }
 
+SbirsCycleInputBuilder& SbirsCycleInputBuilder::WithUtcJulianDay(double utc_julian_day) {
+  input_.utc_julian_day = utc_julian_day;
+  return *this;
+}
+
 SbirsCycleInputBuilder& SbirsCycleInputBuilder::AddTarget(const SbirsSceneTarget& target) {
   input_.scene.push_back(target);
   return *this;

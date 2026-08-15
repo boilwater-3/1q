@@ -23,11 +23,11 @@ sbirs_sensor::session::SbirsCycleInput ValidInput(std::uint32_t cycle_index) {
   target.target_id = 1U;
   target.target_name = "hot";
   target.position_ecef_m = Vector(8000000.0, 0.0, 0.0);
-  target.temperature_k = 2200.0f;
-  target.projected_area_m2 = 5000.0f;
+  target.radiant_intensity_w_per_sr = 1.0e8;
   return sbirs_sensor::session::SbirsCycleInputBuilder()
       .WithCycleIndex(cycle_index)
       .WithDeltaTimeSec(1.0f)
+      .WithUtcJulianDay(2451544.2230698913)  // GMST≈0：ECI≡ECEF
       .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
       .AddTarget(target)
       .Build();
@@ -83,7 +83,8 @@ TEST(SbirsSessionTest, ValidationRejectDoesNotAdvancePipelineState) {
   sbirs_sensor::session::SbirsSession rejected_then_valid =
       sbirs_sensor::session::SbirsSession::Create(Config());
   sbirs_sensor::session::SbirsCycleInput invalid = ValidInput(1U);
-  invalid.scene.front().emissivity = std::numeric_limits<float>::quiet_NaN();
+  invalid.scene.front().radiant_intensity_w_per_sr =
+      std::numeric_limits<double>::quiet_NaN();
   ASSERT_TRUE(sbirs_sensor::session::HasValidationError(
       rejected_then_valid.StepWithResult(invalid).issues));
 
@@ -98,14 +99,14 @@ TEST(SbirsSessionTest, ValidationRejectDoesNotAdvancePipelineState) {
   ASSERT_EQ(after_reject.output_frame.detections.size(),
             clean_result.output_frame.detections.size());
   ASSERT_FALSE(after_reject.output_frame.detections.empty());
-  EXPECT_FLOAT_EQ(after_reject.output_frame.scan_azimuth_deg,
-                  clean_result.output_frame.scan_azimuth_deg);
+  EXPECT_FLOAT_EQ(after_reject.output_frame.scan_azimuth_rad,
+                  clean_result.output_frame.scan_azimuth_rad);
   EXPECT_EQ(after_reject.output_frame.detections.front().detection_id,
             clean_result.output_frame.detections.front().detection_id);
-  EXPECT_FLOAT_EQ(after_reject.output_frame.detections.front().azimuth_deg,
-                  clean_result.output_frame.detections.front().azimuth_deg);
-  EXPECT_FLOAT_EQ(after_reject.output_frame.detections.front().elevation_deg,
-                  clean_result.output_frame.detections.front().elevation_deg);
+  EXPECT_FLOAT_EQ(after_reject.output_frame.detections.front().azimuth_rad,
+                  clean_result.output_frame.detections.front().azimuth_rad);
+  EXPECT_FLOAT_EQ(after_reject.output_frame.detections.front().elevation_rad,
+                  clean_result.output_frame.detections.front().elevation_rad);
   EXPECT_FLOAT_EQ(after_reject.output_frame.detections.front().infrared_snr_linear,
                   clean_result.output_frame.detections.front().infrared_snr_linear);
 }

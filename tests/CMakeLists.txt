@@ -8,6 +8,20 @@ if(NOT ENABLE_TESTING)
     return()
 endif()
 
+# 测试临时目录（跨平台）：Windows 取 %TEMP%（可能为空，回退当前目录），
+# macOS/Linux 取 /tmp。经 add_1q_gtest / oneq_add_test_partition 注入为
+# ONEQ_TEST_TEMP_DIR 宏，测试统一使用 tests/support/oneq_test_temp_dir.h。
+if(WIN32)
+    set(ONEQ_TEST_TEMP_DIR "$ENV{TEMP}")
+    if(ONEQ_TEST_TEMP_DIR STREQUAL "" OR ONEQ_TEST_TEMP_DIR MATCHES "^/tmp")
+        set(ONEQ_TEST_TEMP_DIR ".")
+    endif()
+    # 反斜杠替换为正斜杠：注入 C++ 宏后避免 \U/\L 等转义歧义（Windows API 接受正斜杠）。
+    string(REPLACE "\\" "/" ONEQ_TEST_TEMP_DIR "${ONEQ_TEST_TEMP_DIR}")
+else()
+    set(ONEQ_TEST_TEMP_DIR "/tmp")
+endif()
+
 # 识别特征数据库权威 DDL 单源：schemas/recognition/recognition_feature_database.sql。
 # 生成测试用头（R"sql(...)" 内嵌字符串），保证测试构造与加载器/建库工具共用同一 schema。
 # .sql 变更自动触发 reconfigure（否则生成头陈旧会静默用旧 schema）。

@@ -29,11 +29,11 @@ sbirs_sensor::session::SbirsCycleInput InputWithTarget(std::uint32_t cycle_index
   sbirs_sensor::session::SbirsSceneTarget target;
   target.target_id = 42U;
   target.position_ecef_m = Vector(8000000.0, 0.0, 0.0);
-  target.temperature_k = 2200.0f;
-  target.projected_area_m2 = 5000.0f;
+  target.radiant_intensity_w_per_sr = 1.0e8;
   return sbirs_sensor::session::SbirsCycleInputBuilder()
       .WithCycleIndex(cycle_index)
       .WithDeltaTimeSec(1.0f)
+      .WithUtcJulianDay(2451544.2230698913)  // GMST≈0：ECI≡ECEF
       .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
       .AddTarget(target)
       .Build();

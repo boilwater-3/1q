@@ -44,8 +44,7 @@ session::SbirsSceneTarget MakeTarget(std::uint64_t id) {
   target.target_id = id;
   target.target_name = "convenience-target";
   target.position_ecef_m = Vector(8000000.0, 0.0, 0.0);
-  target.temperature_k = 1800.0f;
-  target.projected_area_m2 = 100.0f;
+  target.radiant_intensity_w_per_sr = 1.0e8;
   return target;
 }
 
@@ -53,6 +52,7 @@ session::SbirsCycleInput MakeMinimalInput(std::uint32_t cycle_index = 1U) {
   return session::SbirsCycleInputBuilder()
       .WithCycleIndex(cycle_index)
       .WithDeltaTimeSec(1.0f)
+      .WithUtcJulianDay(2451544.2230698913)  // GMST≈0：ECI≡ECEF
       .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
       .AddTarget(MakeTarget(1U))
       .Build();
@@ -62,7 +62,7 @@ config::SbirsSessionConfig MakeExecutableConfig() {
   config::SbirsSessionConfig config;
   config.hardware.noise_equivalent_power_w = 1.0e-18f;
   config.hardware.integration_time_sec = 1.0f;
-  config.mission.scan_start_az_deg = -1.0f;
+  config.mission.scan_start_az_deg = 359.0f;  // ECI 方位 [0,360)：-1° 等价折入 359°
   config.mission.scan_span_deg = 11.0f;
   config.policy.detection.wide_min_snr_linear = 0.001f;
   config.policy.detection.narrow_min_snr_linear = 0.001f;

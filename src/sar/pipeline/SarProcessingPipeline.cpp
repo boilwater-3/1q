@@ -31,6 +31,11 @@ bool HasDegenerateImagePeak(const session::SarCycleResult& result,
   if (input.point_targets.empty()) {
     return false;
   }
+  // focused_image 是两个独立 vector 的公共 DTO；长度不一致时无法判定峰值退化，
+  // 保守跳过检测而不是越界读取 imaginary_values。
+  if (result.focused_image.real_values.size() != result.focused_image.imaginary_values.size()) {
+    return false;
+  }
   if (result.output_frame.has_l1_image || result.output_frame.has_l3_bp_image) {
     for (std::size_t i = 0U; i < result.focused_image.real_values.size(); ++i) {
       const double power =
@@ -64,20 +69,26 @@ void ExportRawPhaseHistory(const signal::ComplexMatrix& raw_history,
 
 /**
  * @brief 计算单脉冲平台状态下的孔径 squint 角（deg）。
- * @param[in] pulse 单脉冲平台状态（ENU 局部坐标，position 相对 scene_center）。
+ * @param[in] pulse 单脉冲平台状态（ENU 局部坐标，position 相对局部原点）。
+ * @param[in] scene_center_local_z_m 场景中心在当前局部坐标系中的高度。默认 0
+ *            （局部原点即场景中心，如外部输入/回退脉冲路径）。内部生成路径使用
+ *            terrain_reference 高度基准，场景中心位于
+ *            scene_center_altitude_m - terrain_reference_altitude_m，须显式传入，
+ *            否则 LOS 的 z 分量被基准面差偏斜（squint 门限失真）。
  * @return squint = asin(|v·LOS| / (|v|·|LOS|))：视线（平台→场景中心）偏离
  *         正侧视的角度——正侧视（LOS ⊥ 航迹）为 0°、前视/后视（LOS ∥ 航迹）
  *         趋近 90°；速度或距离非正时返回 0（无有效几何，不参与门控）。
  * @note 本定义是"偏离正侧视的角度"，与"视线-航迹夹角"互补为 90°（多数文献
  *       采用后者）；门限语义与场景编排约定见 docs/sar/algorithms.md。
  */
-double ComputeSquintAngleDeg(const geometry::PlatformPulseState& pulse) {
+double ComputeSquintAngleDeg(const geometry::PlatformPulseState& pulse,
+                             double scene_center_local_z_m = 0.0) {
   const double speed = std::sqrt(pulse.velocity_x_mps * pulse.velocity_x_mps +
                                  pulse.velocity_y_mps * pulse.velocity_y_mps +
                                  pulse.velocity_z_mps * pulse.velocity_z_mps);
   const double los_x = -pulse.position_m.x_m;
   const double los_y = -pulse.position_m.y_m;
-  const double los_z = -pulse.position_m.z_m;
+  const double los_z = scene_center_local_z_m - pulse.position_m.z_m;
   const double range = std::sqrt(los_x * los_x + los_y * los_y + los_z * los_z);
   if (speed <= 0.0 || range <= 0.0) {
     return 0.0;
@@ -181,6 +192,12 @@ bool SarProcessingPipeline::RunCycle(const config::SarSessionConfig& config,
         return false;
       }
       trajectory_prepared = true;
+      // 内部生成路径的脉冲高度以 terrain_reference 为基准；场景中心在该坐标系
+      // 中位于 scene_center - terrain_reference 高度处，squint 视线须相对真实
+      // 场景中心计算（其余分支的局部原点即场景中心，保持默认 0）。
+      const double scene_center_local_z_m =
+          config.mission.scene_center_altitude_m -
+          config.environment.terrain_reference_altitude_m;
       // 积累窗孔径候选 = 上一周期缓冲 + 本周期新脉冲（裁剪到孔径长度），
       // 与重构前 BuildRawPulseHistory 之后的 actual_trajectory_buffer 逐脉冲一致。
       std::deque<geometry::PlatformPulseState> aperture_candidate =
@@ -193,7 +210,8 @@ bool SarProcessingPipeline::RunCycle(const config::SarSessionConfig& config,
       }
       for (const geometry::PlatformPulseState& pulse : aperture_candidate) {
         maximum_squint_angle_deg =
-            std::max(maximum_squint_angle_deg, ComputeSquintAngleDeg(pulse));
+            std::max(maximum_squint_angle_deg,
+                     ComputeSquintAngleDeg(pulse, scene_center_local_z_m));
       }
     } else {
       maximum_squint_angle_deg =

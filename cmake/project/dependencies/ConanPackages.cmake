@@ -33,13 +33,15 @@ find_package(ZLIB REQUIRED)
 find_package(SQLite3 CONFIG REQUIRED)
 
 # HDF5 输出能力依赖 HighFive，其要求 C++17；低标准构建时静默关闭。
-if(PROJECT_CXX_STANDARD GREATER_EQUAL 17)
+# Windows 始终关闭：conanfile.py 仅对非 Windows 安装 highfive（Windows 的 hdf5/highfive
+# 需源码构建且对老 MSVC 工具链兼容性差），此分支仅 macOS/Linux 启用。
+if(PROJECT_CXX_STANDARD GREATER_EQUAL 17 AND NOT WIN32)
     find_package(HighFive CONFIG REQUIRED)
     set(ONEQ_ENABLE_HDF5_OUTPUT ON)
     message(STATUS "SAR HDF5 output: ENABLED (HighFive found)")
 else()
     set(ONEQ_ENABLE_HDF5_OUTPUT OFF)
-    message(STATUS "SAR HDF5 output: disabled (requires C++17, current: C++${PROJECT_CXX_STANDARD})")
+    message(STATUS "SAR HDF5 output: disabled (requires C++17 on non-Windows, current: C++${PROJECT_CXX_STANDARD})")
 endif()
 
 # 标记 zlib 可用；导出公共库 target 需链接的依赖列表。

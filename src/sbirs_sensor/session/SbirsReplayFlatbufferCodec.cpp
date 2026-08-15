@@ -14,6 +14,38 @@ namespace sbirs_sensor {
 namespace session {
 namespace {
 
+// session_contract 规则 7：以整数存储的 enum 必须逐值校验，未知值原子拒绝。
+bool IsKnownSbirsWorkMode(std::int32_t raw) {
+  return raw >= static_cast<std::int32_t>(config::SbirsWorkMode::kStandby) &&
+         raw <= static_cast<std::int32_t>(config::SbirsWorkMode::kSearchAndStare);
+}
+
+bool IsKnownSbirsObservationStage(std::int32_t raw) {
+  return raw >= static_cast<std::int32_t>(output::SbirsObservationStage::kWideFieldSearch) &&
+         raw <= static_cast<std::int32_t>(output::SbirsObservationStage::kNarrowFieldTrack);
+}
+
+bool IsKnownSbirsCaptureFailureReason(std::int32_t raw) {
+  return raw >= static_cast<std::int32_t>(attribution::SbirsCaptureFailureReason::kNone) &&
+         raw <= static_cast<std::int32_t>(
+                    attribution::SbirsCaptureFailureReason::kNfovTrackingGateLost);
+}
+
+bool IsKnownSbirsIssueSeverity(std::int32_t raw) {
+  return raw >= static_cast<std::int32_t>(SbirsIssueSeverity::kInfo) &&
+         raw <= static_cast<std::int32_t>(SbirsIssueSeverity::kError);
+}
+
+bool IsKnownSbirsIssuePhase(std::int32_t raw) {
+  return raw >= static_cast<std::int32_t>(SbirsIssuePhase::kInputValidation) &&
+         raw <= static_cast<std::int32_t>(SbirsIssuePhase::kOutputContract);
+}
+
+bool IsKnownSbirsIssueCause(std::int32_t raw) {
+  return raw >= static_cast<std::int32_t>(SbirsIssueCause::kNone) &&
+         raw <= static_cast<std::int32_t>(SbirsIssueCause::kUnknown);
+}
+
 sbirs::replay::Vec3d ToFbVec3(const SbirsVector3M& v) {
   return sbirs::replay::Vec3d(v.x, v.y, v.z);
 }
@@ -56,18 +88,23 @@ config::SbirsEnvironmentConfig DecodeSessionEnvironmentConfig(
 flatbuffers::Offset<sbirs::replay::SbirsDetectionRecord> EncodeOneDetection(
     flatbuffers::FlatBufferBuilder& fbb, const output::SbirsDetectionRecord& value) {
   return sbirs::replay::CreateSbirsDetectionRecord(
-      fbb, value.detection_id, value.azimuth_deg, value.elevation_deg, value.infrared_snr_linear,
+      fbb, value.detection_id, value.azimuth_rad, value.elevation_rad, value.infrared_snr_linear,
       static_cast<std::int32_t>(value.observation_stage), value.detected);
 }
 
-void DecodeOneDetection(const sbirs::replay::SbirsDetectionRecord& fb,
+bool DecodeOneDetection(const sbirs::replay::SbirsDetectionRecord& fb,
                         output::SbirsDetectionRecord* out) {
+  const std::int32_t observation_stage = fb.observation_stage();
+  if (!IsKnownSbirsObservationStage(observation_stage)) {
+    return false;
+  }
   out->detection_id = fb.detection_id();
-  out->azimuth_deg = fb.azimuth_deg();
-  out->elevation_deg = fb.elevation_deg();
+  out->azimuth_rad = fb.azimuth_rad();
+  out->elevation_rad = fb.elevation_rad();
   out->infrared_snr_linear = fb.infrared_snr_linear();
-  out->observation_stage = static_cast<output::SbirsObservationStage>(fb.observation_stage());
+  out->observation_stage = static_cast<output::SbirsObservationStage>(observation_stage);
   out->detected = fb.detected();
+  return true;
 }
 
 flatbuffers::Offset<sbirs::replay::SbirsOutputFrame> EncodeOutputFrameTable(
@@ -77,24 +114,29 @@ flatbuffers::Offset<sbirs::replay::SbirsOutputFrame> EncodeOutputFrameTable(
   for (const output::SbirsDetectionRecord& detection : value.detections) {
     detections.push_back(EncodeOneDetection(fbb, detection));
   }
-  return sbirs::replay::CreateSbirsOutputFrame(fbb, value.cycle_index, value.scan_azimuth_deg,
+  return sbirs::replay::CreateSbirsOutputFrame(fbb, value.cycle_index, value.scan_azimuth_rad,
                                                fbb.CreateVector(detections));
 }
 
-void DecodeOutputFrameTable(const sbirs::replay::SbirsOutputFrame* fb, SbirsOutputFrame* out) {
+bool DecodeOutputFrameTable(const sbirs::replay::SbirsOutputFrame* fb, SbirsOutputFrame* out) {
   if (fb == nullptr) {
-    return;
+    return true;
   }
-  out->cycle_index = fb->cycle_index();
-  out->scan_azimuth_deg = fb->scan_azimuth_deg();
-  out->detections.clear();
+  SbirsOutputFrame decoded;
+  decoded.cycle_index = fb->cycle_index();
+  decoded.scan_azimuth_rad = fb->scan_azimuth_rad();
   if (fb->detections() != nullptr) {
+    decoded.detections.reserve(fb->detections()->size());
     for (const sbirs::replay::SbirsDetectionRecord* detection : *fb->detections()) {
       output::SbirsDetectionRecord record;
-      DecodeOneDetection(*detection, &record);
-      out->detections.push_back(record);
+      if (!DecodeOneDetection(*detection, &record)) {
+        return false;
+      }
+      decoded.detections.push_back(record);
     }
   }
+  *out = decoded;
+  return true;
 }
 
 flatbuffers::Offset<sbirs::replay::SbirsHardwareConfig> EncodeHardwareConfig(
@@ -136,7 +178,7 @@ flatbuffers::Offset<sbirs::replay::SbirsMissionConfig> EncodeMissionConfig(
 
 bool DecodeMissionConfig(const sbirs::replay::SbirsMissionConfig* fb,
                          config::SbirsMissionConfig* out) {
-  if (fb == nullptr || out == nullptr ||
+  if (fb == nullptr || out == nullptr || !IsKnownSbirsWorkMode(fb->work_mode()) ||
       (fb->scan_direction() !=
            static_cast<std::int32_t>(config::SbirsScanDirection::kIncreasingAzimuth) &&
        fb->scan_direction() !=
@@ -283,26 +325,29 @@ std::string EncodeSbirsCycleInput(const SbirsCycleInput& value) {
     const sbirs::replay::Vec3d position = ToFbVec3(target.position_ecef_m);
     const sbirs::replay::Vec3d velocity = ToFbVec3(target.velocity_ecef_m_per_s);
     targets.push_back(sbirs::replay::CreateSbirsSceneTarget(
-        fbb, target.target_id, name, &position, target.temperature_k, target.emissivity,
-        target.projected_area_m2, &velocity, target.has_velocity_ecef_m_per_s, target.active));
+        fbb, target.target_id, name, &position, target.radiant_intensity_w_per_sr, &velocity,
+        target.has_velocity_ecef_m_per_s, target.active));
   }
 
   const sbirs::replay::Vec3d satellite = ToFbVec3(value.satellite_position_ecef_m);
   fbb.Finish(sbirs::replay::CreateSbirsCycleInput(fbb, value.cycle_index, value.dt_sec,
-                                                  value.has_satellite_position, &satellite,
-                                                  fbb.CreateVector(targets)));
+                                                  value.utc_julian_day, value.has_satellite_position,
+                                                  &satellite, fbb.CreateVector(targets)),
+             kSbirsReplayFileIdentifier);
   return oneq::common::replay::CopyFinishedFlatbuffer(fbb);
 }
 
 bool DecodeSbirsCycleInput(const std::string& bytes, SbirsCycleInput* out) {
   flatbuffers::Verifier verifier(reinterpret_cast<const std::uint8_t*>(bytes.data()), bytes.size());
-  if (out == nullptr || !verifier.VerifyBuffer<sbirs::replay::SbirsCycleInput>()) {
+  if (out == nullptr ||
+      !verifier.VerifyBuffer<sbirs::replay::SbirsCycleInput>(kSbirsReplayFileIdentifier)) {
     return false;
   }
   const sbirs::replay::SbirsCycleInput* fb =
       flatbuffers::GetRoot<sbirs::replay::SbirsCycleInput>(bytes.data());
   out->cycle_index = fb->cycle_index();
   out->dt_sec = fb->dt_sec();
+  out->utc_julian_day = fb->utc_julian_day();
   out->has_satellite_position = fb->has_satellite_position();
   out->satellite_position_ecef_m = FromFbVec3(fb->satellite_position_ecef_m());
   out->scene.clear();
@@ -312,9 +357,7 @@ bool DecodeSbirsCycleInput(const std::string& bytes, SbirsCycleInput* out) {
       item.target_id = target->target_id();
       item.target_name = target->target_name() ? target->target_name()->str() : std::string();
       item.position_ecef_m = FromFbVec3(target->position_ecef_m());
-      item.temperature_k = target->temperature_k();
-      item.emissivity = target->emissivity();
-      item.projected_area_m2 = target->projected_area_m2();
+      item.radiant_intensity_w_per_sr = target->radiant_intensity_w_per_sr();
       item.velocity_ecef_m_per_s = FromFbVec3(target->velocity_ecef_m_per_s());
       item.has_velocity_ecef_m_per_s = target->has_velocity_ecef_m_per_s();
       item.active = target->active();
@@ -326,16 +369,22 @@ bool DecodeSbirsCycleInput(const std::string& bytes, SbirsCycleInput* out) {
 
 std::string EncodeSbirsOutputFrame(const SbirsOutputFrame& value) {
   flatbuffers::FlatBufferBuilder fbb(256);
-  fbb.Finish(EncodeOutputFrameTable(fbb, value));
+  fbb.Finish(EncodeOutputFrameTable(fbb, value), kSbirsReplayFileIdentifier);
   return oneq::common::replay::CopyFinishedFlatbuffer(fbb);
 }
 
 bool DecodeSbirsOutputFrame(const std::string& bytes, SbirsOutputFrame* out) {
   flatbuffers::Verifier verifier(reinterpret_cast<const std::uint8_t*>(bytes.data()), bytes.size());
-  if (out == nullptr || !verifier.VerifyBuffer<sbirs::replay::SbirsOutputFrame>()) {
+  if (out == nullptr ||
+      !verifier.VerifyBuffer<sbirs::replay::SbirsOutputFrame>(kSbirsReplayFileIdentifier)) {
     return false;
   }
-  DecodeOutputFrameTable(flatbuffers::GetRoot<sbirs::replay::SbirsOutputFrame>(bytes.data()), out);
+  SbirsOutputFrame decoded;
+  if (!DecodeOutputFrameTable(
+          flatbuffers::GetRoot<sbirs::replay::SbirsOutputFrame>(bytes.data()), &decoded)) {
+    return false;
+  }
+  *out = decoded;
   return true;
 }
 
@@ -385,15 +434,17 @@ std::string EncodeSbirsCycleResult(const SbirsCycleResult& value) {
   }
 
   fbb.Finish(sbirs::replay::CreateSbirsCycleResult(
-      fbb, value.input_cycle_index, frame, fbb.CreateVector(attributions),
-      static_cast<std::int32_t>(value.abort_reason),
-      static_cast<std::uint8_t>(value.status), fbb.CreateVector(fb_issues)));
+                  fbb, value.input_cycle_index, frame, fbb.CreateVector(attributions),
+                  static_cast<std::int32_t>(value.abort_reason),
+                  static_cast<std::uint8_t>(value.status), fbb.CreateVector(fb_issues)),
+             kSbirsReplayFileIdentifier);
   return oneq::common::replay::CopyFinishedFlatbuffer(fbb);
 }
 
 bool DecodeSbirsCycleResult(const std::string& bytes, SbirsCycleResult* out) {
   flatbuffers::Verifier verifier(reinterpret_cast<const std::uint8_t*>(bytes.data()), bytes.size());
-  if (out == nullptr || !verifier.VerifyBuffer<sbirs::replay::SbirsCycleResult>()) {
+  if (out == nullptr ||
+      !verifier.VerifyBuffer<sbirs::replay::SbirsCycleResult>(kSbirsReplayFileIdentifier)) {
     return false;
   }
   const sbirs::replay::SbirsCycleResult* fb =
@@ -408,7 +459,9 @@ bool DecodeSbirsCycleResult(const std::string& bytes, SbirsCycleResult* out) {
   }
   SbirsCycleResult decoded;
   decoded.input_cycle_index = fb->input_cycle_index();
-  DecodeOutputFrameTable(fb->output_frame(), &decoded.output_frame);
+  if (!DecodeOutputFrameTable(fb->output_frame(), &decoded.output_frame)) {
+    return false;
+  }
   if (fb->detection_attributions() != nullptr) {
     for (const sbirs::replay::SbirsDetectionAttributionRecord* attr :
          *fb->detection_attributions()) {
@@ -430,8 +483,12 @@ bool DecodeSbirsCycleResult(const std::string& bytes, SbirsCycleResult* out) {
       }
       record.tracking_source =
           static_cast<attribution::SbirsTrackingSource>(tracking_source);
+      const std::int32_t capture_failure_reason = attr->capture_failure_reason();
+      if (!IsKnownSbirsCaptureFailureReason(capture_failure_reason)) {
+        return false;
+      }
       record.capture_failure_reason =
-          static_cast<attribution::SbirsCaptureFailureReason>(attr->capture_failure_reason());
+          static_cast<attribution::SbirsCaptureFailureReason>(capture_failure_reason);
       record.has_estimation_nis = attr->has_estimation_nis();
       record.estimation_nis = attr->estimation_nis();
       record.estimation_nis_gate_exceeded = attr->estimation_nis_gate_exceeded();
@@ -447,9 +504,16 @@ bool DecodeSbirsCycleResult(const std::string& bytes, SbirsCycleResult* out) {
   }
   if (fb->issues() != nullptr) {
     for (const sbirs::replay::SbirsIssue* issue : *fb->issues()) {
+      const std::int32_t severity = issue->severity();
+      const std::int32_t phase = issue->phase();
+      const std::int32_t cause = issue->cause();
+      if (!IsKnownSbirsIssueSeverity(severity) || !IsKnownSbirsIssuePhase(phase) ||
+          !IsKnownSbirsIssueCause(cause)) {
+        return false;
+      }
       SbirsIssue item;
-      item.severity = static_cast<SbirsIssueSeverity>(issue->severity());
-      item.phase = static_cast<SbirsIssuePhase>(issue->phase());
+      item.severity = static_cast<SbirsIssueSeverity>(severity);
+      item.phase = static_cast<SbirsIssuePhase>(phase);
       item.code = issue->code() ? issue->code()->str() : std::string();
       item.message = issue->message() ? issue->message()->str() : std::string();
       item.location.kind = static_cast<oneq::foundation::ValidationLocationKind>(
@@ -458,7 +522,7 @@ bool DecodeSbirsCycleResult(const std::string& bytes, SbirsCycleResult* out) {
                                        ? std::numeric_limits<std::size_t>::max()
                                        : static_cast<std::size_t>(issue->entity_index());
       item.field = issue->field() ? issue->field()->str() : std::string();
-      item.cause = static_cast<SbirsIssueCause>(issue->cause());
+      item.cause = static_cast<SbirsIssueCause>(cause);
       decoded.issues.push_back(item);
     }
   }
@@ -478,15 +542,17 @@ bool DecodeSbirsCycleResult(const std::string& bytes, SbirsCycleResult* out) {
 std::string EncodeSbirsSessionConfig(const config::SbirsSessionConfig& value) {
   flatbuffers::FlatBufferBuilder fbb(512);
   fbb.Finish(sbirs::replay::CreateSbirsSessionConfig(
-      fbb, EncodeHardwareConfig(fbb, value.hardware), EncodeMissionConfig(fbb, value.mission),
-      EncodePolicyConfig(fbb, value.policy), EncodeSessionEnvironmentConfig(fbb, value.environment),
-      value.sensor_enabled));
+                  fbb, EncodeHardwareConfig(fbb, value.hardware), EncodeMissionConfig(fbb, value.mission),
+                  EncodePolicyConfig(fbb, value.policy), EncodeSessionEnvironmentConfig(fbb, value.environment),
+                  value.sensor_enabled),
+             kSbirsReplayFileIdentifier);
   return oneq::common::replay::CopyFinishedFlatbuffer(fbb);
 }
 
 bool DecodeSbirsSessionConfig(const std::string& bytes, config::SbirsSessionConfig* out) {
   flatbuffers::Verifier verifier(reinterpret_cast<const std::uint8_t*>(bytes.data()), bytes.size());
-  if (out == nullptr || !verifier.VerifyBuffer<sbirs::replay::SbirsSessionConfig>()) {
+  if (out == nullptr ||
+      !verifier.VerifyBuffer<sbirs::replay::SbirsSessionConfig>(kSbirsReplayFileIdentifier)) {
     return false;
   }
   const sbirs::replay::SbirsSessionConfig* fb =
@@ -508,17 +574,19 @@ bool DecodeSbirsSessionConfig(const std::string& bytes, config::SbirsSessionConf
 std::string EncodeSbirsRuntimeConfigPatch(const config::SbirsRuntimeConfigPatch& value) {
   flatbuffers::FlatBufferBuilder fbb(512);
   fbb.Finish(sbirs::replay::CreateSbirsRuntimeConfigPatch(
-      fbb, value.has_mission, EncodeMissionConfig(fbb, value.mission), value.has_policy,
-      EncodePolicyConfig(fbb, value.policy), value.has_environment,
-      EncodeSessionEnvironmentConfig(fbb, value.environment), value.has_work_mode,
-      static_cast<std::int32_t>(value.work_mode), value.has_scan_rate_deg_per_sec,
-      value.scan_rate_deg_per_sec, value.has_sensor_enabled, value.sensor_enabled));
+                  fbb, value.has_mission, EncodeMissionConfig(fbb, value.mission), value.has_policy,
+                  EncodePolicyConfig(fbb, value.policy), value.has_environment,
+                  EncodeSessionEnvironmentConfig(fbb, value.environment), value.has_work_mode,
+                  static_cast<std::int32_t>(value.work_mode), value.has_scan_rate_deg_per_sec,
+                  value.scan_rate_deg_per_sec, value.has_sensor_enabled, value.sensor_enabled),
+             kSbirsReplayFileIdentifier);
   return oneq::common::replay::CopyFinishedFlatbuffer(fbb);
 }
 
 bool DecodeSbirsRuntimeConfigPatch(const std::string& bytes, config::SbirsRuntimeConfigPatch* out) {
   flatbuffers::Verifier verifier(reinterpret_cast<const std::uint8_t*>(bytes.data()), bytes.size());
-  if (out == nullptr || !verifier.VerifyBuffer<sbirs::replay::SbirsRuntimeConfigPatch>()) {
+  if (out == nullptr ||
+      !verifier.VerifyBuffer<sbirs::replay::SbirsRuntimeConfigPatch>(kSbirsReplayFileIdentifier)) {
     return false;
   }
   const sbirs::replay::SbirsRuntimeConfigPatch* fb =
@@ -531,7 +599,13 @@ bool DecodeSbirsRuntimeConfigPatch(const std::string& bytes, config::SbirsRuntim
   decoded.has_policy = fb->has_policy();
   decoded.has_environment = fb->has_environment();
   decoded.has_work_mode = fb->has_work_mode();
-  decoded.work_mode = static_cast<config::SbirsWorkMode>(fb->work_mode());
+  {
+    const std::int32_t raw_work_mode = fb->work_mode();
+    if (!IsKnownSbirsWorkMode(raw_work_mode)) {
+      return false;
+    }
+    decoded.work_mode = static_cast<config::SbirsWorkMode>(raw_work_mode);
+  }
   decoded.has_scan_rate_deg_per_sec = fb->has_scan_rate_deg_per_sec();
   decoded.scan_rate_deg_per_sec = fb->scan_rate_deg_per_sec();
   decoded.has_sensor_enabled = fb->has_sensor_enabled();

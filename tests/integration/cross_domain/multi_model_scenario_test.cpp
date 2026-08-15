@@ -25,6 +25,7 @@
 #include "1q/electronic_surveillance_radar/session/EsrReplaySession.h"
 #include "1q/electronic_surveillance_radar/session/EsrTraceSession.h"
 #include "1q/replay/ReplayTrace.h"
+#include "support/oneq_test_temp_dir.h"
 
 #if defined(ONEQ_TEST_FLIGHT_DYNAMIC_ENABLED)
 #include "1q/flight_dynamic/FlightManager.h"
@@ -53,14 +54,10 @@ constexpr double kPi = 3.14159265358979323846;
 
 std::string MakeTempTraceDir(const char* prefix) {
   static unsigned int counter = 0U;
-  const char* tmp = std::getenv("TMPDIR");
-  if (tmp == nullptr || tmp[0] == '\0') tmp = "/tmp";
   std::ostringstream s;
-  s << tmp;
-  if (tmp[0] != '\0' && tmp[std::string(tmp).size() - 1] != '/') s << "/";
-  auto ticks = std::chrono::high_resolution_clock::now().time_since_epoch().count();
-  s << prefix << "-" << std::time(nullptr) << "-" << ticks << "-" << std::rand() << "-" << counter++
-    << ".trace";
+  s << oneq_test::TempDir() << prefix << "-" << std::time(nullptr) << "-"
+    << std::chrono::high_resolution_clock::now().time_since_epoch().count() << "-"
+    << std::rand() << "-" << counter++ << ".trace";
   return s.str();
 }
 

@@ -11,6 +11,7 @@
 
 #include "1q/coordinate/position_transform.h"
 #include "common/numerics/ClampUtils.h"
+#include "common/numerics/Constants.h"
 
 namespace fusion {
 
@@ -116,8 +117,10 @@ std::vector<DetectionRecord> AdaptSbirsDetectionsToDetectionRecords(
     detection.key = 0U;  // 无外部身份通道：走方位相干关联（去真值化纪律）
     detection.source_id = source_id;
     detection.has_bearing = true;
-    detection.bearing_az_deg = record.azimuth_deg;
-    detection.bearing_el_deg = record.elevation_deg;
+    // SBIRS 输出为 ECI 极坐标弧度（2026-08 正式变更），融合方位通道为 deg（北偏东
+    // 平台系语义由调用方对齐）；此处仅做 rad→deg 单位换算，不改变参考系语义。
+    detection.bearing_az_deg = oneq::common::numerics::RadToDeg(record.azimuth_rad);
+    detection.bearing_el_deg = oneq::common::numerics::RadToDeg(record.elevation_rad);
     // 质量 = 线性 IR SNR 相对 WFOV 检测门限（4.0 → 1.0）的归一化（库默认基准）。
     detection.verdict = 1.0;
     detection.quality = oneq::common::numerics::Clamp01(

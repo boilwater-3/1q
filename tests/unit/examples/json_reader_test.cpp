@@ -9,23 +9,14 @@
 #include <string>
 
 #include "json_reader.h"
+#include "support/oneq_test_temp_dir.h"
 
 namespace examples {
 namespace {
 
 std::string MakeTempJsonPath(const char* prefix) {
-  const char* temp_dir = std::getenv("TMPDIR");
-  if (temp_dir == nullptr || temp_dir[0] == '\0') {
-    temp_dir = "/tmp";
-  }
-
   std::ostringstream stream;
-  stream << temp_dir;
-  const std::string dir = stream.str();
-  if (!dir.empty() && dir[dir.size() - 1] != '/') {
-    stream << "/";
-  }
-  stream << prefix << "-" << std::time(nullptr) << "-"
+  stream << oneq_test::TempDir() << prefix << "-" << std::time(nullptr) << "-"
          << std::chrono::high_resolution_clock::now().time_since_epoch().count() << ".json";
   return stream.str();
 }

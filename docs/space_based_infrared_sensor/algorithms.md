@@ -1,6 +1,6 @@
 ---
 Status: active
-Last-reviewed: 2026-08-03
+Last-reviewed: 2026-08-15
 Authority: sbirs_sensor 算法登记与实现边界
 Answers: SBIRS 用了哪些算法、各自实现到什么地步、边界在哪、哪些刻意不实现
 ---
@@ -25,10 +25,11 @@ Answers: SBIRS 用了哪些算法、各自实现到什么地步、边界在哪�
 | Cue 预测 | 角度域两点 CV 提前量补偿 cue 延迟 | 生产可用 | [evidence: tests/unit/sbirs_sensor/sbirs_cue_predictor_test] |
 | NFOV 资源调度 | 多通道并发锁定，按 SNR/距离/target_id 排序 | 生产可用 | [evidence: tests/unit/sbirs_sensor/sbirs_scheduler_test] |
 | 地球遮挡门控 | 有限线段射线-地球球体判别穿地视线 | 生产可用 | [evidence: tests/unit/sbirs_sensor/sbirs_foundation_test] |
-| Foundation 物理链路 | Planck/透过率/接收功率/噪声/SNR 标量链 | 生产可用 | [evidence: tests/unit/sbirs_sensor/sbirs_foundation_test] |
+| Foundation 物理链路 | 辐射强度/透过率/接收功率/噪声/SNR 标量链 | 生产可用 | [evidence: tests/unit/sbirs_sensor/sbirs_foundation_test] |
 | 气象衰减 | 查表+加权叠加得透过率衰减因子 | 生产可用 | [evidence: tests/unit/sbirs_sensor/sbirs_environment_model_test] |
 | 误差模型 | 5 类误差（轨道/姿态/视场高斯 + 折射/滞后确定性） | 生产可用 | [evidence: tests/unit/sbirs_sensor/sbirs_error_model_test] |
 | 时间相关指向扰动 | 整星共模 + 逐通道 GM + 振动的 Gauss-Markov | 生产可用 | [evidence: tests/unit/sbirs_sensor/sbirs_pointing_disturbance_test] |
+| ECEF→ECI 旋转（GMST） | 周期入口按 UTC 儒略日算 GMST，把卫星/目标位置与速度（含 ω×r）旋到 ECI | 生产可用（共享域 1q/coordinate/inertial_transform.h，仅 SBIRS 消费） | [evidence: tests/unit/sbirs_sensor/sbirs_eci_transform_test] |
 
 ## 目标状态机（7 状态）
 
@@ -153,12 +154,16 @@ Answers: SBIRS 用了哪些算法、各自实现到什么地步、边界在哪�
 
 - **意图**：对 `EstimatedTracking` 状态的目标（默认），用扩展卡尔曼滤波做测量跟踪。
 - **实现边界**：
-  1. 状态空间：6 维 ECEF 恒速 `[x,vx,y,vy,z,vz]`（CV 交错布局），复用 common 的转移模型。
-  2. 量测模型：2 维 `[az,el]`（弧度），被动红外不测距。选纯 2 维角度而非 3 维 + 大 R 屏蔽 range。
-  3. 初始化（方案 A）：状态均值用输入场景真值 ECEF 位置 + 速度；初始协方差由
+  1. 状态空间：6 维 ECI 恒速 `[x,vx,y,vy,z,vz]`（CV 交错布局），复用 common 的转移模型
+     （2026-08 正式变更：输出参考系改为 ECI——pipeline 周期入口按 GMST 把真值从 ECEF
+     旋转到 ECI，滤波状态随之在 ECI 中演化；CV 对惯性系恒速目标更贴合，不含 ECEF 科氏耦合）。
+  2. 量测模型：2 维 `[az,el]`（弧度，ECI 极坐标），被动红外不测距。选纯 2 维角度而非 3 维 + 大 R 屏蔽 range。
+  3. 初始化（方案 A）：状态均值用输入场景真值经 ECEF→ECI 旋转后的位置 + 速度（速度含
+     ω×r 输运项，见 `include/1q/coordinate/inertial_transform.h`）；初始协方差由
      `initial_position_std_m`/`initial_velocity_std_m_per_s` 构造。
-  4. 每周期因果闭环：SetSatellitePosition → predict → actuator advance → geometry/SNR gate → correct（动态 R）。
-  5. 输出角度用滤波估计的 ECEF 位置 → 相对卫星 LOS → az/el；SNR/range 仍用真值物理链。
+  4. 每周期因果闭环：SetSatellitePosition（ECI）→ predict → actuator advance → geometry/SNR gate → correct（动态 R）。
+  5. 输出角度用滤波估计的 ECI 位置 → 相对卫星 LOS → az/el（弧度，az∈[0,2π)、el∈[-π/2,π/2]）；
+     SNR/range 仍用真值物理链。
   6. runtime patch 对已存在滤波器只让后续周期读取新 R/Q，**不重置**协方差和状态向量。
 - **反直觉点（真值初始化简化）**：EKF 首次捕获用真值位置初始化均值，后续 update 才用带误差测量——
   这是仿真的 track initiation 简化，不得描述为完全无真值辅助的真实载荷跟踪器（见 SBIRS-OQ-4）。
@@ -210,6 +215,23 @@ Answers: SBIRS 用了哪些算法、各自实现到什么地步、边界在哪�
   4. 仍相同按 `target_id` 从小到大。
 - **证据**：[evidence: tests/unit/sbirs_sensor/sbirs_scheduler_test]
 
+## ECEF→ECI 惯性旋转（GMST）
+
+- **意图**：SBIRS 输出参考系为 ECI（2026-08 正式变更）。周期入口由输入 `utc_julian_day`
+  （UTC 儒略日，缺失即校验拒绝）计算 GMST，把卫星位置与每个目标的位置/速度旋转到
+  ECI；下游 LOS/az/el/遮挡/SNR/EKF 全链使用同一 ECI 几何。
+- **实现边界**：
+  1. GMST 用 IAU 1982 近似（Vallado 式 3-47），UT1 ≈ UTC、无章动/极移；对应方位误差
+     < 0.004°，符合仿真精度档（实现与边界见 `include/1q/coordinate/inertial_transform.h`）。
+  2. 速度含地球自转输运项 v_ECI = R3(θ)·v_ECEF + ω_e × r_ECI（地面静止目标在 ECI 中
+     仍有 ~0.46 km/s 速度，不可忽略）。
+  3. 旋转保模长与球体相交语义：遮挡/距离门与帧无关；az 平移 GMST、el 不变（绕 z 旋转）。
+  4. 输出角度为 ECI 极坐标弧度：az∈[0, 2π)、el∈[-π/2, π/2]；内部角度量纲保持 deg、
+     方位对称约定 (-180, 180]，输出边界统一换算。
+  5. 共享坐标域提供 `TryComputeGmstRad`/`TryEcefToEci`/`TryEcefVelocityToEci`，
+     当前仅 SBIRS 消费（EOS/AR/ESR 不受影响）。
+- **证据**：[evidence: tests/unit/sbirs_sensor/sbirs_eci_transform_test]
+
 ## 地球遮挡门控
 
 - **意图**：天基传感器视线穿过地球时目标不可观测；WFOV 搜索前的必要几何门控。
@@ -219,20 +241,25 @@ Answers: SBIRS 用了哪些算法、各自实现到什么地步、边界在哪�
   3. 该门控是帧级（遮挡角只依赖卫星位置）与目标级（夹角依赖目标视线方向）的混合。
   4. 只回答 LOS 是否穿过地球球体，不负责地形、云图、临边散射或三维大气廓线。
   5. 不存在"目标位于大气层以下且距离过远"硬 gate；低空/地面目标的路径损耗只通过标量透过率进入 SNR。
-  6. 必须使用一致的 ECEF/ECI 坐标输入，不能混用局部 FOV 坐标做地球相交判定。
+  6. 必须使用一致的坐标输入，不能混用局部 FOV 坐标做地球相交判定。SBIRS 管线在
+     周期入口把 ECEF 输入统一旋转到 ECI（GMST），遮挡/距离/视场/SNR 全链使用同一
+     ECI 几何；旋转保模长与球体相交语义，门控结果与帧无关。
 - **证据**：[evidence: tests/unit/sbirs_sensor/sbirs_foundation_test]
 
 ## Foundation 物理链路
 
-- **意图**：Planck 辐射、路径透过率、接收功率、背景/探测器噪声和 SNR 门限的标量顺序计算。
+- **意图**：目标辐射强度（W/sr）→ 接收功率、路径透过率、背景/探测器噪声和 SNR 门限的标量顺序计算。
 - **实现边界**：
   1. foundation 算法可被单元测试直接覆盖，但不作为 public header、SPI 或 runtime plugin 暴露。
-  2. 第一版只实现标量链路，不实现图像帧、像元级背景图或多色分类器。
-  3. 当前标量 SNR 链缺少把像元面积映射为视场立体角所需的焦距与成像几何，因此 public hardware 和
+  2. 目标红外签名由调用方以辐射强度 `radiant_intensity_w_per_sr` 直接提供（已折算温度/发射率/投影
+     面积），接收功率 `P_sig = I_t · A_ap · τ_opt · τ_atm · η / d²`；模块不再做 Planck 换算
+     （无温度输入）。
+  3. 第一版只实现标量链路，不实现图像帧、像元级背景图或多色分类器。
+  4. 当前标量 SNR 链缺少把像元面积映射为视场立体角所需的焦距与成像几何，因此 public hardware 和
      replay schema 都不暴露无消费者的 detector-area 字段。
-  4. WFOV/NFOV 当前共享同一套波段、孔径、透过率、积分时间和噪声参数；两个通道差异由 FOV、调度/指向
+  5. WFOV/NFOV 当前共享同一套波段、孔径、透过率、积分时间和噪声参数；两个通道差异由 FOV、调度/指向
      和各自检测门限表达。
-  5. 复制自 EOS 的算法允许按天基场景修正常数和几何输入，但必须保持调用面由 `SbirsPipeline` 统一编排。
+  6. 复制自 EOS 的算法允许按天基场景修正常数和几何输入，但必须保持调用面由 `SbirsPipeline` 统一编排。
 - **反直觉点**：只有独立成像模型同时具备 PSF/MTF、焦距与像元几何时，才可冻结其物理效应并增加结果
   测试；不得先加占位字段再用任意归一化系数伪装生效。
 - **证据**：[evidence: tests/unit/sbirs_sensor/sbirs_foundation_test]

@@ -103,7 +103,8 @@ table SbirsSessionConfig {
 }
 
 root_type SbirsSessionConfig;
-file_identifier "SBIS";
+// v2：与 sbirs_replay.fbs 同步版本化（scan_start_az 语义改 ECI 方位 [0,360)）。
+file_identifier "SBI2";
 
 table SbirsRuntimeConfigPatch {
   has_mission: bool;

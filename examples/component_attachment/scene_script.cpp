@@ -44,6 +44,7 @@ std::vector<TargetEcefState> MakeTargetStates(
     state.rcs = static_cast<float>(entry.rcs);
     state.temperature_k = static_cast<float>(entry.temperature_k);
     state.projected_area_m2 = static_cast<float>(entry.projected_area_m2);
+    state.radiant_intensity_w_per_sr = entry.radiant_intensity_w_per_sr;
     state.emitter_center_frequency_hz = entry.emitter_center_frequency_hz;
     state.maneuvers = entry.maneuvers;
     states.push_back(state);
@@ -127,9 +128,7 @@ std::vector<sbirs_sensor::session::SbirsSceneTarget> MakeSbirsTargetInputs(
     target.position_ecef_m.x = state.position.x_m;
     target.position_ecef_m.y = state.position.y_m;
     target.position_ecef_m.z = state.position.z_m;
-    target.temperature_k = state.temperature_k;
-    target.emissivity = 0.92f;
-    target.projected_area_m2 = state.projected_area_m2;
+    target.radiant_intensity_w_per_sr = state.radiant_intensity_w_per_sr;
     target.velocity_ecef_m_per_s.x = state.velocity.x_mps;
     target.velocity_ecef_m_per_s.y = state.velocity.y_mps;
     target.velocity_ecef_m_per_s.z = state.velocity.z_mps;

@@ -4,6 +4,7 @@
 #include <cmath>
 
 #include "sar/geometry/SarAntenna.h"
+#include "sar/signal/SarAngleWrap.h"
 
 namespace sar {
 namespace echo {
@@ -161,13 +162,7 @@ bool GeneratePointTargetRawEchoWithAntenna(const RawEchoConfig& config,
     const double target_dy = target.position_m.y_m - platform.position_m.y_m;
     const double target_dz = target.position_m.z_m - platform.position_m.z_m;
     const double target_azimuth_rad = std::atan2(target_dx, target_dy);
-    double off_boresight_az_rad = target_azimuth_rad - boresight_rad;
-    while (off_boresight_az_rad > kPi) {
-      off_boresight_az_rad -= 2.0 * kPi;
-    }
-    while (off_boresight_az_rad < -kPi) {
-      off_boresight_az_rad += 2.0 * kPi;
-    }
+    double off_boresight_az_rad = signal::WrapPhase(target_azimuth_rad - boresight_rad);
     const double horizontal_range = std::sqrt(target_dx * target_dx + target_dy * target_dy);
     const double off_boresight_el_rad = std::atan2(target_dz, horizontal_range);
     // 双程方向图:幅度乘 √(pattern)(场强 vs 功率)。
@@ -517,13 +512,7 @@ bool GenerateClutterScene(const RawEchoConfig& config,
         const double target_dy = cell_pos.y_m - platform.position_m.y_m;
         const double target_dz = cell_pos.z_m - platform.position_m.z_m;
         const double target_azimuth_rad = std::atan2(target_dx, target_dy);
-        double off_boresight_az_rad = target_azimuth_rad - boresight_rad;
-        while (off_boresight_az_rad > kPi) {
-          off_boresight_az_rad -= 2.0 * kPi;
-        }
-        while (off_boresight_az_rad < -kPi) {
-          off_boresight_az_rad += 2.0 * kPi;
-        }
+        double off_boresight_az_rad = signal::WrapPhase(target_azimuth_rad - boresight_rad);
         const double horizontal_range = std::sqrt(target_dx * target_dx + target_dy * target_dy);
         const double off_boresight_el_rad = std::atan2(target_dz, horizontal_range);
         const double pattern = geometry::AntennaPattern(

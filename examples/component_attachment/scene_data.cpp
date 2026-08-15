@@ -377,6 +377,7 @@ bool LoadSceneData(const char* path, SceneData* scene, std::string* error) {
     target.temperature_k = ReadDouble(t, "temperature_k", 0.0);
     target.rcs = t["rcs_m2"].AsDouble();
     target.projected_area_m2 = ReadDouble(t, "projected_area_m2", 0.0);
+    target.radiant_intensity_w_per_sr = ReadDouble(t, "radiant_intensity_w_per_sr", 0.0);
     target.emitter_center_frequency_hz = ReadDouble(t, "emitter_center_frequency_hz", 0.0);
     // 变速机动表（可选）：start_cycle 必填且严格递增（乱序语义混乱，直接报错）。
     const examples::JsonValue& maneuvers = t["maneuvers"];
@@ -423,11 +424,14 @@ bool LoadSceneData(const char* path, SceneData* scene, std::string* error) {
         static_cast<std::uint32_t>(ReadInt(esr, "timing_seed", out.esr.timing_seed));
   }
 
-  // 天基平台块（可选）：凝视目标群质心正上方，高度由场景控制。
+  // 天基平台块（可选）：凝视目标群质心正上方，高度由场景控制；UTC 儒略日
+  // 可选覆写（缺省 = 2024-01-01 00:00 UTC，SBIRS ECI 输出参考系必需）。
   const examples::JsonValue& satellite = root["sbirs_satellite"];
   if (!satellite.IsNull() && satellite.type() == examples::JsonValue::kObject) {
     out.sbirs_satellite_altitude_m =
         ReadDouble(satellite, "altitude_m", out.sbirs_satellite_altitude_m);
+    out.sbirs_utc_julian_day =
+        ReadDouble(satellite, "utc_julian_day", out.sbirs_utc_julian_day);
   }
 
   // EOS 扫描块（可选）：覆写 LoadConfigs 的 JSON 原值（下视地面监视 → 水平扫描）。

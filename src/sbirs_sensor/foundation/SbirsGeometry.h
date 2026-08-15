@@ -22,18 +22,24 @@ session::SbirsVector3M Subtract(const session::SbirsVector3M& lhs,
 session::SbirsVector3M Unit(const session::SbirsVector3M& value);
 /**
  * @brief 由视线向量计算方位角 Az = atan2(y, x)，单位 deg。
- * @param[in] los 视线向量（卫星→目标，ECEF 分量）。
- * @return ECEF 极坐标方位角：相对 ECEF x 轴（y/x 分量），取值范围 (-180°, 180°]。
- * @note 该参考系是 ECEF 极坐标，**非卫星局部地平系**；场景几何编排（扫描中心/
- *       覆盖）须按此参考系配置，约定见 docs/common/session_contract.md。
+ * @param[in] los 视线向量（卫星→目标，ECI 或 ECEF 分量均可）。
+ * @return 输入分量所在参考系的极坐标方位角：相对该系 x 轴（y/x 分量），
+ *         取值范围 (-180°, 180°]。SBIRS 输出链路传入 ECI 分量（2026-08 正式
+ *         变更），得到 ECI 方位角；内部对称约定由输出边界统一转换为 [0, 2π) rad。
+ * @note 该参考系是极坐标（ECI/ECEF 由调用方决定），**非卫星局部地平系**；
+ *       场景几何编排（扫描中心/覆盖）须按此参考系配置，约定见
+ *       docs/common/session_contract.md。
  */
 float ComputeAzimuthDeg(const session::SbirsVector3M& los);
 /**
  * @brief 由视线向量计算俯仰角 El = asin(z / |los|)，单位 deg；零向量返回 0。
- * @param[in] los 视线向量（卫星→目标，ECEF 分量）。
- * @return ECEF 极坐标俯仰角：相对赤道面（z 为 ECEF z 轴），星下点方向 ≈ −90°。
- * @note 该参考系是 ECEF 极坐标，**非卫星局部地平系**；场景几何编排（扫描中心/
- *       覆盖）须按此参考系配置，约定见 docs/common/session_contract.md。
+ * @param[in] los 视线向量（卫星→目标，ECI 或 ECEF 分量均可）。
+ * @return 输入分量所在参考系的极坐标俯仰角：相对赤道面（z 为该系 z 轴），
+ *         星下点方向 ≈ −90°。SBIRS 输出链路传入 ECI 分量（2026-08 正式变更）；
+ *         绕 z 旋转（ECEF↔ECI）不改变该值。
+ * @note 该参考系是极坐标（ECI/ECEF 由调用方决定），**非卫星局部地平系**；
+ *       场景几何编排（扫描中心/覆盖）须按此参考系配置，约定见
+ *       docs/common/session_contract.md。
  */
 float ComputeElevationDeg(const session::SbirsVector3M& los);
 /** @brief 计算两个 (az, el) 角度对之间的角距离，单位 deg。 */

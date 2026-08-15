@@ -1,11 +1,65 @@
 #include "1q/sbirs_sensor/session/SbirsCycleInput.h"
 #include "1q/sbirs_sensor/session/SbirsOutputDebugView.h"
 
+#include <algorithm>
+#include <cmath>
+
+#include "1q/coordinate/inertial_transform.h"
+#include "common/numerics/Constants.h"
 #include "sbirs_sensor/foundation/SbirsGeometry.h"
 
 namespace sbirs_sensor {
 namespace session {
 namespace {
+
+float WrapAzimuthPositive(float azimuth_deg) {
+  const float wrapped = std::fmod(azimuth_deg, 360.0f);
+  return wrapped < 0.0f ? wrapped + 360.0f : wrapped;
+}
+
+float ToEciAzimuthRad(float azimuth_deg) {
+  return oneq::common::numerics::DegToRad(WrapAzimuthPositive(azimuth_deg));
+}
+
+float ToEciElevationRad(float elevation_deg) {
+  const float clamped = std::max(-90.0f, std::min(90.0f, elevation_deg));
+  return oneq::common::numerics::DegToRad(clamped);
+}
+
+// 由输入实体回填 ECI 极坐标角度（rad）：与检测记录同参考系（2026-08 正式变更）。
+// 输入仍为 ECEF（位置/速度），需按本周期 GMST 旋转到 ECI 后计算 az/el。
+bool TryComputeEciAnglesRad(const session::SbirsCycleInput& input,
+                            const session::SbirsSceneTarget& target, float* azimuth_rad,
+                            float* elevation_rad) {
+  if (azimuth_rad == nullptr || elevation_rad == nullptr) {
+    return false;
+  }
+  double gmst_rad = 0.0;
+  if (!oneq::coordinate::TryComputeGmstRad(input.utc_julian_day, &gmst_rad)) {
+    return false;
+  }
+  const oneq::coordinate::EcefPositionM sat_ecef(input.satellite_position_ecef_m.x,
+                                                 input.satellite_position_ecef_m.y,
+                                                 input.satellite_position_ecef_m.z);
+  oneq::coordinate::EciPositionM sat_eci;
+  if (!oneq::coordinate::TryEcefToEci(sat_ecef, gmst_rad, &sat_eci)) {
+    return false;
+  }
+  const oneq::coordinate::EcefPositionM tgt_ecef(target.position_ecef_m.x,
+                                                 target.position_ecef_m.y,
+                                                 target.position_ecef_m.z);
+  oneq::coordinate::EciPositionM tgt_eci;
+  if (!oneq::coordinate::TryEcefToEci(tgt_ecef, gmst_rad, &tgt_eci)) {
+    return false;
+  }
+  session::SbirsVector3M los;
+  los.x = tgt_eci.x_m - sat_eci.x_m;
+  los.y = tgt_eci.y_m - sat_eci.y_m;
+  los.z = tgt_eci.z_m - sat_eci.z_m;
+  *azimuth_rad = ToEciAzimuthRad(foundation::ComputeAzimuthDeg(los));
+  *elevation_rad = ToEciElevationRad(foundation::ComputeElevationDeg(los));
+  return true;
+}
 
 const output::SbirsDetectionRecord* FindRecord(std::uint64_t detection_id,
                                                const SbirsOutputFrame& frame) {
@@ -53,13 +107,10 @@ SbirsDebugTargetState BuildTargetState(const SbirsSceneTarget& target,
   state.target_id = target.target_id;
   state.target_name = target.target_name;
   state.present_in_input = true;
-  // 输入实体回填（规则 12）：az/el 用卫星→目标视线向量计算（ECEF 极坐标，
-  // 与检测记录同参考系），无论是否检测均可见（检测记录存在时下方以记录观测
-  // 值覆盖）。
-  const SbirsVector3M los =
-      foundation::Subtract(target.position_ecef_m, input.satellite_position_ecef_m);
-  state.azimuth_deg = foundation::ComputeAzimuthDeg(los);
-  state.elevation_deg = foundation::ComputeElevationDeg(los);
+  // 输入实体回填（规则 12）：az/el 用卫星→目标视线向量按本周期 GMST 旋转到
+  // ECI 后计算（ECI 极坐标，rad，与检测记录同参考系），无论是否检测均可见
+  // （检测记录存在时下方以记录观测值覆盖）。JD 缺失时回填失败，保持默认 0。
+  (void)TryComputeEciAnglesRad(input, target, &state.azimuth_rad, &state.elevation_rad);
   if (result.status != SbirsCycleStatus::kCompleted) {
     state.status = SbirsDebugTargetStatus::kCycleNotExecuted;
     return state;
@@ -100,8 +151,8 @@ SbirsDebugTargetState BuildTargetState(const SbirsSceneTarget& target,
 
   state.has_raw_output_record = true;
   state.detected = record->detected;
-  state.azimuth_deg = record->azimuth_deg;
-  state.elevation_deg = record->elevation_deg;
+  state.azimuth_rad = record->azimuth_rad;
+  state.elevation_rad = record->elevation_rad;
   state.infrared_snr_linear = record->infrared_snr_linear;
   state.observation_stage = record->observation_stage;
   state.status = record->detected ? SbirsDebugTargetStatus::kDetected

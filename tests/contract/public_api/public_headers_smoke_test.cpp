@@ -209,12 +209,12 @@ TEST(PublicHeadersSmokeTest, SbirsPublicSurfaceSupportsMinimalUsage) {
   target.position_ecef_m.x = 8000000.0;
   target.position_ecef_m.y = 0.0;
   target.position_ecef_m.z = 0.0;
-  target.temperature_k = 1800.0f;
-  target.projected_area_m2 = 100.0f;
+  target.radiant_intensity_w_per_sr = 1.0e8;
 
   sbirs_sensor::session::SbirsCycleInput input = sbirs_sensor::session::SbirsCycleInputBuilder()
                                                      .WithCycleIndex(1U)
                                                      .WithDeltaTimeSec(1.0f)
+                                                     .WithUtcJulianDay(2451544.2230698913)  // GMST≈0：ECI≡ECEF
                                                      .WithSatellitePosition(satellite)
                                                      .AddTarget(target)
                                                      .Build();

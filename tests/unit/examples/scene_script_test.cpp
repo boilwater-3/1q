@@ -35,6 +35,7 @@ demo::ScriptedTarget MakeManeuverTarget() {
   target.temperature_k = 520.0;
   target.rcs = 2.2;
   target.projected_area_m2 = 18.0;
+  target.radiant_intensity_w_per_sr = 3819.864;
   target.emitter_center_frequency_hz = 9.5e9;
   demo::TargetManeuver turn;
   turn.start_cycle = 200U;
@@ -60,6 +61,7 @@ TEST(SceneScriptTest, StateCarriesIdentityAndAppearance) {
   EXPECT_EQ(states[0].id, 1001U);
   EXPECT_FLOAT_EQ(states[0].temperature_k, 520.0f);
   EXPECT_FLOAT_EQ(states[0].projected_area_m2, 18.0f);
+  EXPECT_DOUBLE_EQ(states[0].radiant_intensity_w_per_sr, 3819.864);
   EXPECT_FLOAT_EQ(states[0].rcs, 2.2f);
   EXPECT_DOUBLE_EQ(states[0].emitter_center_frequency_hz, 9.5e9);
   // 初始速度投影到 ECEF 非零（东/北分量）。

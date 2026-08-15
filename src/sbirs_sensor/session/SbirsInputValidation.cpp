@@ -62,6 +62,13 @@ SbirsIssueList ValidateSbirsCycleInput(const SbirsCycleInput& input, float frame
                "dt_sec exceeds reasonable range based on frame_rate_hz", location, &issues);
     }
   }
+  // ECI 输出参考系必需：UTC 儒略日缺失（默认 0）/非有限/非正 → 校验拒绝。
+  if (!std::isfinite(input.utc_julian_day) || input.utc_julian_day <= 0.0) {
+    oneq::foundation::ValidationLocation location;
+    location.kind = oneq::foundation::ValidationLocationKind::kGlobal;
+    AddError(codes::kInvalidUtcJulianDay, "utc_julian_day",
+             "utc_julian_day must be provided, finite, and positive", location, &issues);
+  }
   if (!input.has_satellite_position || !FiniteVector(input.satellite_position_ecef_m) ||
       !NonZeroVector(input.satellite_position_ecef_m)) {
     oneq::foundation::ValidationLocation location;
@@ -77,16 +84,14 @@ SbirsIssueList ValidateSbirsCycleInput(const SbirsCycleInput& input, float frame
         (target.has_velocity_ecef_m_per_s || ZeroVector(target.velocity_ecef_m_per_s));
     if (target.target_id == 0U || !target_ids.insert(target.target_id).second ||
         !FiniteVector(target.position_ecef_m) || !NonZeroVector(target.position_ecef_m) ||
-        !std::isfinite(target.temperature_k) || target.temperature_k <= 0.0f ||
-        !std::isfinite(target.emissivity) || target.emissivity < 0.0f ||
-        target.emissivity > 1.0f || !std::isfinite(target.projected_area_m2) ||
-        target.projected_area_m2 < 0.0f || !valid_velocity) {
+        !std::isfinite(target.radiant_intensity_w_per_sr) ||
+        target.radiant_intensity_w_per_sr < 0.0 || !valid_velocity) {
       oneq::foundation::ValidationLocation location;
       location.kind = oneq::foundation::ValidationLocationKind::kSceneEntity;
       location.entity_index = i;
       AddError(codes::kInvalidTargetPhysical, "scene",
-               "target physical inputs must be finite and positive where required", location,
-               &issues);
+               "target physical inputs must be finite; radiant intensity must be non-negative",
+               location, &issues);
     }
   }
   return issues;

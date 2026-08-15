@@ -220,7 +220,7 @@ Status: active
 | `sbirs.validation.invalid_scan_span` | 输入校验 | 扫描跨度非法（须为有限值且在 (0, 360]）。 |
 | `sbirs.validation.invalid_scan_start_azimuth` | 输入校验 | 扫描起始方位角非法（须为有限值且在 [-180, 180)）。 |
 | `sbirs.validation.invalid_scheduler_nfov_locks` | 输入校验 | 调度器最大并发 NFOV 锁定数非法（须 >= 1）。 |
-| `sbirs.validation.invalid_target_physical` | 输入校验 | 目标物理输入非法（ID/位置/温度/辐射率/投影面积/速度等未满足有限与正数要求）。 |
+| `sbirs.validation.invalid_target_physical` | 输入校验 | 目标物理输入非法（ID/位置/辐射强度/速度等未满足有限与非负要求）。 |
 | `sbirs.validation.invalid_tracking_gate_loss_cycles` | 输入校验 | 跟踪门丢失周期数非法（须 >= 1）。 |
 | `sbirs.validation.invalid_tracking_mode` | 输入校验 | 跟踪模式非法。 |
 | `sbirs.validation.mission_fov_not_positive` | 输入校验 | 任务视场角非正。 |

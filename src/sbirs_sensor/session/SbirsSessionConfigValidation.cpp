@@ -41,10 +41,12 @@ session::SbirsIssueList ValidateSbirsSessionConfig(const SbirsSessionConfig& con
     AddError(session::codes::kMissionFovNotPositive, "mission FOV values must be positive",
              &issues);
   }
+  // ECI 方位角约定（2026-08 正式变更）：扫描起始方位为 ECI 极坐标 az，
+  // 取值范围 [0, 360)。
   if (!std::isfinite(config.mission.scan_start_az_deg) ||
-      config.mission.scan_start_az_deg < -180.0f || config.mission.scan_start_az_deg >= 180.0f) {
+      config.mission.scan_start_az_deg < 0.0f || config.mission.scan_start_az_deg >= 360.0f) {
     AddError(session::codes::kInvalidScanStartAzimuth,
-             "mission scan start azimuth must be finite and in [-180, 180)", &issues);
+             "mission scan start azimuth must be finite and in [0, 360)", &issues);
   }
   if (!std::isfinite(config.mission.scan_span_deg) || config.mission.scan_span_deg <= 0.0f ||
       config.mission.scan_span_deg > 360.0f) {

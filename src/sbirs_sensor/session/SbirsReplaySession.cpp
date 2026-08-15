@@ -22,14 +22,14 @@ struct SbirsReplayState {
 
 bool DetectionEqual(const output::SbirsDetectionRecord& left,
                     const output::SbirsDetectionRecord& right) {
-  return left.detection_id == right.detection_id && left.azimuth_deg == right.azimuth_deg &&
-         left.elevation_deg == right.elevation_deg &&
+  return left.detection_id == right.detection_id && left.azimuth_rad == right.azimuth_rad &&
+         left.elevation_rad == right.elevation_rad &&
          left.infrared_snr_linear == right.infrared_snr_linear &&
          left.observation_stage == right.observation_stage && left.detected == right.detected;
 }
 
 bool OutputFrameEqual(const SbirsOutputFrame& left, const SbirsOutputFrame& right) {
-  if (left.cycle_index != right.cycle_index || left.scan_azimuth_deg != right.scan_azimuth_deg ||
+  if (left.cycle_index != right.cycle_index || left.scan_azimuth_rad != right.scan_azimuth_rad ||
       left.detections.size() != right.detections.size()) {
     return false;
   }

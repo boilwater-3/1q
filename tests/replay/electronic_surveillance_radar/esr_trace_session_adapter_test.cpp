@@ -16,6 +16,7 @@
 #include "1q/replay/ReplayTrace.h"
 #include "1q/trace/TraceSink.h"
 #include "electronic_surveillance_radar/session/EsrReplayFlatbufferCodec.h"
+#include "support/oneq_test_temp_dir.h"
 
 namespace electronic_surveillance_radar {
 namespace tests {
@@ -23,7 +24,7 @@ namespace {
 
 std::string MakeTempPath(const char* prefix) {
   std::ostringstream stream;
-  stream << "/tmp/" << prefix << "-" << std::time(nullptr) << "-"
+  stream << oneq_test::TempDir() << prefix << "-" << std::time(nullptr) << "-"
          << std::chrono::high_resolution_clock::now().time_since_epoch().count() << "-"
          << std::rand();
   return stream.str();

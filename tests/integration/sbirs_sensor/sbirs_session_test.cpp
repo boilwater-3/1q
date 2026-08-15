@@ -15,6 +15,7 @@
 #include "1q/sbirs_sensor/config/SbirsSessionConfig.h"
 #include "1q/sbirs_sensor/session/SbirsCycleInputAdapter.h"
 #include "1q/sbirs_sensor/session/SbirsCycleResult.h"
+#include "1q/sbirs_sensor/session/SbirsOutputDebugView.h"
 #include "1q/sbirs_sensor/session/SbirsSession.h"
 
 namespace sbirs_sensor {
@@ -39,9 +40,7 @@ SbirsSceneTarget MakeTarget(std::uint64_t id, double offset_y = 0.0) {
   target.target_id = id;
   target.target_name = "booster";
   target.position_ecef_m = Vector(8000000.0, offset_y, 0.0);
-  target.temperature_k = 2200.0f;
-  target.emissivity = 0.9f;
-  target.projected_area_m2 = 5000.0f;
+  target.radiant_intensity_w_per_sr = 1.0e8;
   return target;
 }
 
@@ -49,7 +48,7 @@ config::SbirsSessionConfig MakeSessionConfig() {
   config::SbirsSessionConfig config;
   config.hardware.noise_equivalent_power_w = 1.0e-18f;
   config.hardware.integration_time_sec = 1.0f;
-  config.mission.scan_start_az_deg = -1.0f;
+  config.mission.scan_start_az_deg = 359.0f;  // ECI 方位 [0,360)：-1° 等价折入 359°
   config.mission.scan_span_deg = 11.0f;
   config.mission.scan_rate_deg_per_sec = 1.0f;
   config.mission.wide_field_fov_az_deg = 20.0f;
@@ -67,6 +66,7 @@ SbirsCycleInput MakeBaseInput(std::uint32_t cycle_index = 1U) {
   return SbirsCycleInputBuilder()
       .WithCycleIndex(cycle_index)
       .WithDeltaTimeSec(1.0f)
+      .WithUtcJulianDay(2451544.2230698913)  // GMST≈0：ECI≡ECEF
       .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
       .AddTarget(MakeTarget(1U))
       .Build();
@@ -140,7 +140,8 @@ TEST(SbirsSessionIntegrationTest, TruthModesRetagInPlaceAndEstimatedTransitionRe
             output::SbirsObservationStage::kNarrowFieldAcquisition);
   EXPECT_EQ(strict.detection_attributions.front().tracking_source,
             attribution::SbirsTrackingSource::kStrictTruthAssisted);
-  EXPECT_FLOAT_EQ(strict.output_frame.detections.front().azimuth_deg, 0.0f);
+  // GMST≈0 残余 2.35e-9 rad。
+  EXPECT_NEAR(strict.output_frame.detections.front().azimuth_rad, 0.0f, 1.0e-6f);
 
   config.policy.tracking.tracking_mode =
       config::SbirsTrackingMode::kSensorLikeTruthAssisted;
@@ -152,7 +153,7 @@ TEST(SbirsSessionIntegrationTest, TruthModesRetagInPlaceAndEstimatedTransitionRe
             output::SbirsObservationStage::kNarrowFieldTrack);
   EXPECT_EQ(sensor_like.detection_attributions.front().tracking_source,
             attribution::SbirsTrackingSource::kSensorLikeTruthAssisted);
-  EXPECT_NE(sensor_like.output_frame.detections.front().azimuth_deg, 0.0f);
+  EXPECT_NE(sensor_like.output_frame.detections.front().azimuth_rad, 0.0f);
 
   config.policy.tracking.tracking_mode = config::SbirsTrackingMode::kEstimated;
   ASSERT_TRUE(session.TryApplyRuntimeConfig(
@@ -169,7 +170,7 @@ TEST(SbirsSessionIntegrationTest, MultiCycleScanAdvancesAzimuth) {
   SbirsSession session = SbirsSession::Create(MakeSessionConfig());
   const SbirsOutputFrame frame_1 = session.Step(MakeBaseInput(1U));
   const SbirsOutputFrame frame_2 = session.Step(MakeBaseInput(2U));
-  EXPECT_NE(frame_1.scan_azimuth_deg, frame_2.scan_azimuth_deg);
+  EXPECT_NE(frame_1.scan_azimuth_rad, frame_2.scan_azimuth_rad);
 }
 
 TEST(SbirsSessionIntegrationTest, StandbyModeProducesNoDetections) {
@@ -237,53 +238,58 @@ TEST(SbirsSessionIntegrationTest, WideSearchIsWfovOnlyAndRoundTripResumesSchedul
 }
 
 TEST(SbirsSessionIntegrationTest, RuntimeScanSectorKeepsPointingInsideAndResetsOutside) {
+  // ECI 方位约定（2026-08）：scan_start ∈ [0, 360)；输出弧度 [0, 2π)。
   config::SbirsSessionConfig config = MakeSessionConfig();
-  config.mission.scan_start_az_deg = -10.0f;
+  config.mission.scan_start_az_deg = 350.0f;
   config.mission.scan_span_deg = 20.0f;
   config.mission.scan_rate_deg_per_sec = 5.0f;
   SbirsSession session = SbirsSession::Create(config);
   const SbirsOutputFrame initial = session.Step(MakeBaseInput(1U));
-  ASSERT_FLOAT_EQ(initial.scan_azimuth_deg, -5.0f);
+  // 350°+5° = 355° → 6.1959 rad。
+  ASSERT_FLOAT_EQ(initial.scan_azimuth_rad, 6.1959188f);
 
-  config.mission.scan_start_az_deg = -20.0f;
+  config.mission.scan_start_az_deg = 340.0f;
   config.mission.scan_span_deg = 30.0f;
   config.mission.scan_rate_deg_per_sec = 0.0f;
   ASSERT_TRUE(session.TryApplyRuntimeConfig(
       sbirs_config::SbirsRuntimeConfigBuilder().WithMission(config.mission).Build()));
-  EXPECT_FLOAT_EQ(session.Step(MakeBaseInput(2U)).scan_azimuth_deg, -5.0f);
+  EXPECT_FLOAT_EQ(session.Step(MakeBaseInput(2U)).scan_azimuth_rad, 6.1959188f);
 
   config.mission.scan_start_az_deg = 30.0f;
   config.mission.scan_span_deg = 20.0f;
   ASSERT_TRUE(session.TryApplyRuntimeConfig(
       sbirs_config::SbirsRuntimeConfigBuilder().WithMission(config.mission).Build()));
-  EXPECT_FLOAT_EQ(session.Step(MakeBaseInput(3U)).scan_azimuth_deg, 30.0f);
+  // 30° → 0.5236 rad。
+  EXPECT_FLOAT_EQ(session.Step(MakeBaseInput(3U)).scan_azimuth_rad, 0.5235988f);
 }
 
 TEST(SbirsSessionIntegrationTest, StandbyFreezesScanPhaseUntilSearchResumes) {
   config::SbirsSessionConfig config = MakeSessionConfig();
-  config.mission.scan_start_az_deg = -10.0f;
+  config.mission.scan_start_az_deg = 350.0f;
   config.mission.scan_span_deg = 20.0f;
   config.mission.scan_rate_deg_per_sec = 5.0f;
   SbirsSession session = SbirsSession::Create(config);
-  EXPECT_FLOAT_EQ(session.Step(MakeBaseInput(1U)).scan_azimuth_deg, -5.0f);
+  // 355° → 6.1959 rad。
+  EXPECT_FLOAT_EQ(session.Step(MakeBaseInput(1U)).scan_azimuth_rad, 6.1959188f);
 
   ASSERT_TRUE(session.TryApplyRuntimeConfig(sbirs_config::SbirsRuntimeConfigBuilder()
                                                 .WithWorkMode(config::SbirsWorkMode::kStandby)
                                                 .Build()));
-  EXPECT_FLOAT_EQ(session.Step(MakeBaseInput(2U)).scan_azimuth_deg, -5.0f);
-  EXPECT_FLOAT_EQ(session.Step(MakeBaseInput(3U)).scan_azimuth_deg, -5.0f);
+  EXPECT_FLOAT_EQ(session.Step(MakeBaseInput(2U)).scan_azimuth_rad, 6.1959188f);
+  EXPECT_FLOAT_EQ(session.Step(MakeBaseInput(3U)).scan_azimuth_rad, 6.1959188f);
 
   ASSERT_TRUE(
       session.TryApplyRuntimeConfig(sbirs_config::SbirsRuntimeConfigBuilder()
                                         .WithWorkMode(config::SbirsWorkMode::kSearchAndStare)
                                         .Build()));
-  EXPECT_FLOAT_EQ(session.Step(MakeBaseInput(4U)).scan_azimuth_deg, 0.0f);
+  // 350°+10° = 360° → 0 rad。
+  EXPECT_FLOAT_EQ(session.Step(MakeBaseInput(4U)).scan_azimuth_rad, 0.0f);
 }
 
 TEST(SbirsSessionIntegrationTest, RuntimeScanRateChangeUpdatesAdvance) {
   // 用足够大的扫描范围，避免推进后回绕到 scan_start，掩盖速率差异。
   config::SbirsSessionConfig config = MakeSessionConfig();
-  config.mission.scan_start_az_deg = -180.0f;
+  config.mission.scan_start_az_deg = 180.0f;
   config.mission.scan_span_deg = 360.0f;
 
   SbirsSession fast_session = SbirsSession::Create(config);
@@ -292,12 +298,12 @@ TEST(SbirsSessionIntegrationTest, RuntimeScanRateChangeUpdatesAdvance) {
       sbirs_config::SbirsRuntimeConfigBuilder().WithScanRateDegPerSec(97.0f).Build();
   fast_session.TryApplyRuntimeConfig(patch);
   const SbirsOutputFrame fast_2 = fast_session.Step(MakeBaseInput(2U));
-  const float delta_fast = std::fabs(fast_2.scan_azimuth_deg - fast_1.scan_azimuth_deg);
+  const float delta_fast = std::fabs(fast_2.scan_azimuth_rad - fast_1.scan_azimuth_rad);
 
   SbirsSession slow_session = SbirsSession::Create(config);
   const SbirsOutputFrame slow_1 = slow_session.Step(MakeBaseInput(1U));
   const SbirsOutputFrame slow_2 = slow_session.Step(MakeBaseInput(2U));
-  const float delta_slow = std::fabs(slow_2.scan_azimuth_deg - slow_1.scan_azimuth_deg);
+  const float delta_slow = std::fabs(slow_2.scan_azimuth_rad - slow_1.scan_azimuth_rad);
 
   EXPECT_GT(delta_fast, delta_slow);
 }
@@ -335,7 +341,7 @@ TEST(SbirsSessionIntegrationTest, RateLimitedPointingReservesChannelUntilSettled
 
 TEST(SbirsSessionIntegrationTest, RuntimeMissionPatchClearsSlewAndUsesNewRate) {
   config::SbirsSessionConfig config = MakeSessionConfig();
-  config.mission.scan_start_az_deg = -10.0f;
+  config.mission.scan_start_az_deg = 350.0f;  // ECI 方位 [0,360)：-10° 等价折入 350°
   config.mission.scan_span_deg = 20.0f;
   config.mission.scan_rate_deg_per_sec = 0.0f;
   config.mission.wide_field_fov_az_deg = 30.0f;
@@ -358,7 +364,7 @@ TEST(SbirsSessionIntegrationTest, RuntimeMissionPatchClearsSlewAndUsesNewRate) {
 
 TEST(SbirsSessionIntegrationTest, DualChannelAssignmentIsIndependentOfInputOrder) {
   config::SbirsSessionConfig config = MakeSessionConfig();
-  config.mission.scan_start_az_deg = -10.0f;
+  config.mission.scan_start_az_deg = 350.0f;  // ECI 方位 [0,360)：-10° 等价折入 350°
   config.mission.scan_span_deg = 20.0f;
   config.mission.scan_rate_deg_per_sec = 0.0f;
   config.mission.wide_field_fov_az_deg = 30.0f;
@@ -367,8 +373,10 @@ TEST(SbirsSessionIntegrationTest, DualChannelAssignmentIsIndependentOfInputOrder
 
   const auto run = [&config](bool reverse) {
     SbirsCycleInputBuilder builder;
-    builder.WithCycleIndex(1U).WithDeltaTimeSec(1.0f).WithSatellitePosition(
-        Vector(7000000.0, 0.0, 0.0));
+    builder.WithCycleIndex(1U)
+        .WithDeltaTimeSec(1.0f)
+        .WithUtcJulianDay(2451544.2230698913)  // GMST≈0：ECI≡ECEF
+        .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0));
     if (reverse) {
       builder.AddTarget(MakeTarget(2U, -1000.0)).AddTarget(MakeTarget(1U, 1000.0));
     } else {
@@ -508,6 +516,7 @@ TEST(SbirsSessionIntegrationTest, CueLatencyFailureAttributionStaysOutOfRawOutpu
   SbirsCycleInput input = SbirsCycleInputBuilder()
                               .WithCycleIndex(1U)
                               .WithDeltaTimeSec(1.0f)
+                              .WithUtcJulianDay(2451544.2230698913)  // GMST≈0：ECI≡ECEF
                               .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
                               .AddTarget(target)
                               .Build();
@@ -549,6 +558,7 @@ TEST(SbirsSessionIntegrationTest, MeasurementCvCueCapturesAfterSecondWfovObserva
       session.StepWithResult(SbirsCycleInputBuilder()
                                  .WithCycleIndex(1U)
                                  .WithDeltaTimeSec(1.0f)
+                                 .WithUtcJulianDay(2451544.2230698913)  // GMST≈0：ECI≡ECEF
                                  .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
                                  .AddTarget(target)
                                  .Build());
@@ -559,6 +569,7 @@ TEST(SbirsSessionIntegrationTest, MeasurementCvCueCapturesAfterSecondWfovObserva
       session.StepWithResult(SbirsCycleInputBuilder()
                                  .WithCycleIndex(2U)
                                  .WithDeltaTimeSec(1.0f)
+                                 .WithUtcJulianDay(2451544.2230698913)  // GMST≈0：ECI≡ECEF
                                  .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
                                  .AddTarget(target)
                                  .Build());
@@ -566,6 +577,39 @@ TEST(SbirsSessionIntegrationTest, MeasurementCvCueCapturesAfterSecondWfovObserva
   ASSERT_NE(acquired, nullptr);
   EXPECT_TRUE(acquired->detected);
   EXPECT_EQ(acquired->observation_stage, output::SbirsObservationStage::kNarrowFieldAcquisition);
+}
+
+
+TEST(SbirsSessionIntegrationTest, DebugViewRangeBackfillReflectsAttributionOnly) {
+  // 2026-08 距离处理结论：被动红外不测距，estimated_range_m 仅为内部诊断字段，
+  // 且只在目标获得归属记录（通过全部几何/SNR 门）时回填真值距离；被排除目标
+  // （遮挡/距离带/视场/SNR）无归属记录 → 调试行恒为 0。示例层不再展示距离。
+  SbirsSession session = SbirsSession::Create(MakeSessionConfig());
+  SbirsCycleInput input = MakeBaseInput(1U);
+  SbirsSceneTarget occulted = MakeTarget(2U, 0.0);
+  occulted.position_ecef_m = Vector(-8000000.0, 0.0, 0.0);  // 卫星另一侧 → 地球遮挡
+  input.scene.push_back(occulted);
+
+  const SbirsCycleResult result = session.StepWithResult(input);
+  ASSERT_EQ(result.status, SbirsCycleStatus::kCompleted);
+  const SbirsOutputDebugView view = SbirsOutputDebugViewBuilder::Build(input, result);
+
+  ASSERT_EQ(view.targets.size(), 2U);
+  const SbirsDebugTargetState* detected_row = nullptr;
+  const SbirsDebugTargetState* excluded_row = nullptr;
+  for (const SbirsDebugTargetState& state : view.targets) {
+    if (state.target_id == 1U) detected_row = &state;
+    if (state.target_id == 2U) excluded_row = &state;
+  }
+  ASSERT_NE(detected_row, nullptr);
+  ASSERT_NE(excluded_row, nullptr);
+
+  // 检测目标：归属回填真值距离（卫星 (7e6,0,0) → 目标 (8e6,0,0)，range=1e6 m）。
+  EXPECT_EQ(detected_row->status, SbirsDebugTargetStatus::kDetected);
+  EXPECT_FLOAT_EQ(detected_row->estimated_range_m, 1000000.0f);
+  // 遮挡排除目标：无归属 → kNotInOutput，距离恒 0。
+  EXPECT_EQ(excluded_row->status, SbirsDebugTargetStatus::kNotInOutput);
+  EXPECT_FLOAT_EQ(excluded_row->estimated_range_m, 0.0f);
 }
 
 }  // namespace

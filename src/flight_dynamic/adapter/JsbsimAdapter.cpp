@@ -1,7 +1,6 @@
 #include "flight_dynamic/adapter/JsbsimAdapter.h"
 
 #include <filesystem>
-#include <iostream>
 
 #include "1q/coordinate/position_transform.h"
 #include "common/logging/ProjectLog.h"
@@ -74,8 +73,14 @@ void ResetThrottleState(JSBSim::FGFDMExec& fdm_exec, double value) {
       propulsion->in.ThrottlePos[i] = value;
     }
   }
-  fdm_exec.GetPropertyManager()->GetNode(property::kThrottleCmd, true)->setDoubleValue(value);
-  fdm_exec.GetPropertyManager()->GetNode(property::kThrottlePosNorm, true)->setDoubleValue(value);
+  auto* throttle_cmd_node = fdm_exec.GetPropertyManager()->GetNode(property::kThrottleCmd, true);
+  if (throttle_cmd_node != nullptr) {
+    throttle_cmd_node->setDoubleValue(value);
+  }
+  auto* throttle_pos_node = fdm_exec.GetPropertyManager()->GetNode(property::kThrottlePosNorm, true);
+  if (throttle_pos_node != nullptr) {
+    throttle_pos_node->setDoubleValue(value);
+  }
 }
 
 void SetPropellerAdvanceState(JSBSim::FGFDMExec& fdm_exec, double value) {
@@ -260,7 +265,10 @@ JsbsimAdapter::JsbsimAdapter(const config::FlightDynamicConfig& config) {
       init_diag_.trim_succeeded = true;
     } catch (...) {
       init_diag_.trim_succeeded = false;
-      std::cerr << "JsbsimAdapter: DoTrim(0) threw an exception, proceeding anyway." << std::endl;
+      // 中译：JSBSim 配平（DoTrim）抛出异常，配平未成功；适配器将继续以未配平状态运行。
+      // 标识：初始化降级路径——JSBSim 库边界异常已在最窄处捕获并转换为本标志位，
+      //       trim_succeeded=false 供上层诊断读取；随后将复位 FCS 内部状态。
+      PROJECT_LOG_WARN("JsbsimAdapter: DoTrim(0) threw an exception, proceeding anyway.");
 
       // Reset FCS component internal state (integrator accumulators, filter
       // past values, actuator positions). SetProperty() alone is insufficient

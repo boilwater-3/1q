@@ -10,6 +10,7 @@ set(ONEQ_COMMON_SOURCES
     coordinate/PositionTransform.cpp
     coordinate/VelocityTransform.cpp
     coordinate/AttitudeTransform.cpp
+    coordinate/InertialTransform.cpp
     numerics/SpectralNumerics.cpp
     rcs/RcsPhysics.cpp
     replay/ReplayTrace.cpp
