@@ -248,7 +248,8 @@ DDL 单源不变式全程保持：**移动而非复制**，三条消费方（加
 | R7 | `check_cross_domain_naming` 对新前缀的约束 | 命名定稿（§1）先行；Rir 与既有域无同名概念冲突预期 |
 | R8 | 示例库 `.db` 二进制移动 | git rename 追踪，无内容变更 |
 
-## 9. 阶段 2 预告（本计划不展开）
+## 9. 阶段 2 预告（已展开为
+`docs/review/remote_identification_radar_phase2_plan_2026-08-15.md`）
 
 按《审计》§3 文件级清单删除 AR 侧识别耦合（public 字段/枚举、执行链、replay 表、
 issue code、SQLite 链接注释、嵌入测试段、文档章节），同步执行《审计》§9 七条验收
