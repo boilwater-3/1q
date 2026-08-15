@@ -62,7 +62,8 @@ class OneQConan(ConanFile):
             # macOS 开发使用 conan 预编译的 JSBSim（Windows/VS2015 从 third_party 源码构建）
             self.requires(_JSBSIM_DEPS_NON_WINDOWS["jsbsim"])
 
-            # SAR HDF5 输出（始终开启）
+            # SAR HDF5 输出（始终开启；仅 C++17+ 构建实际启用，见 ConanPackages.cmake）。
+            # Windows C++11/14 构建（v141 老工具集）不安装：HighFive/HDF5 要求 C++17。
             self.requires("highfive/2.10.0")
 
     def build_requirements(self):

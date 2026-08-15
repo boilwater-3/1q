@@ -51,11 +51,13 @@ if(_oneq_unit_examples)
     # 关闭，组件运行时测试一并排除（JsonReader / ECS 核心测试保留，二者无
     # spdlog 依赖）。
     set(_oneq_examples_extra
-        "${CMAKE_SOURCE_DIR}/examples/common/json_reader.cpp")
+        "${CMAKE_SOURCE_DIR}/examples/common/json_reader.cpp"
+        # area_division.cpp 为纯几何算法（无 spdlog 依赖），随测试无条件编译；
+        # 其余组件源文件依赖 spdlog，见下方门控。
+        "${CMAKE_SOURCE_DIR}/examples/component_attachment/area_division.cpp")
     if(PROJECT_ENABLE_SPDLOG)
         list(APPEND _oneq_examples_extra
             "${CMAKE_SOURCE_DIR}/examples/component_attachment/scene_data.cpp"
-            "${CMAKE_SOURCE_DIR}/examples/component_attachment/area_division.cpp"
             "${CMAKE_SOURCE_DIR}/examples/component_attachment/demo_config.cpp"
             "${CMAKE_SOURCE_DIR}/examples/component_attachment/scene_script.cpp"
             "${CMAKE_SOURCE_DIR}/examples/component_attachment/components/ar_sensor_component.cpp"
@@ -69,8 +71,17 @@ if(_oneq_unit_examples)
     else()
         # 示例整体门控（spdlog 非 Windows 依赖）：组件运行时测试、场景数据与
         # 场景脚本测试随示例一起排除（Windows 上不测试）。
+        # TestRegistry 孤儿检查要求磁盘上的 _test.cpp 全部登记：被平台门控排除的
+        # 文件登记到 unit.examples.platform_excluded 分区（不参与编译，仅满足登记完整性）。
+        set(_oneq_examples_platform_excluded "")
+        foreach(_src IN LISTS _oneq_unit_examples)
+            if(_src MATCHES "ecs_component_runtime_test\\.cpp$|scene_data_test\\.cpp$|scene_script_test\\.cpp$")
+                list(APPEND _oneq_examples_platform_excluded "${_src}")
+            endif()
+        endforeach()
         list(FILTER _oneq_unit_examples
              EXCLUDE REGEX "ecs_component_runtime_test\\.cpp$|scene_data_test\\.cpp$|scene_script_test\\.cpp$")
+        oneq_register_test_sources("unit.examples.platform_excluded" ${_oneq_examples_platform_excluded})
     endif()
     oneq_add_test_partition(
         TYPE unit DOMAIN examples

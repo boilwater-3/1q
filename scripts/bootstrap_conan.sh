@@ -16,12 +16,17 @@
 #   cmake --preset VisualStudio.14.0-amd64
 #   cmake --build --preset VisualStudio.14.0-amd64-debug
 #
+# Windows (v141 老工具集)：
+#   scripts/bootstrap_conan.sh VisualStudio.15.0-amd64
+#   cmake --preset VisualStudio.15.0-amd64
+#   cmake --build --preset VisualStudio.15.0-amd64-debug
+#
 set -euo pipefail
 
 # --- 参数校验 ---
 if [[ $# -ne 1 ]]; then
     echo "用法: $0 <preset>" >&2
-    echo "支持的 preset: llvm-ninja-debug | llvm-ninja-coverage | llvm-ninja-release | VisualStudio.14.0-amd64" >&2
+    echo "支持的 preset: llvm-ninja-debug | llvm-ninja-coverage | llvm-ninja-release | VisualStudio.14.0-amd64 | VisualStudio.15.0-amd64" >&2
     exit 2
 fi
 
@@ -92,9 +97,27 @@ case "${PRESET}" in
         GENERATOR="Visual Studio 14 2015"
         CPPSTD=14                # msvc 190 在 Conan 仅支持 14（覆盖 11/14）
         ;;
+    VisualStudio.15.0-amd64)
+        # v141 老工具集（14.16.27023，VS2017 时代）。CMake 4.3.1 的 "Visual Studio 15 2017"
+        # 生成器按版本范围找实例（找不到 VS2026），因此生成器用 "Visual Studio 18 2026"，
+        # 工具集显式 v141。编译器检测与链接均由 64 位 MSBuild(amd64) 执行。
+        #
+        # 已知环境缺陷：64 位注册表 HKLM\SOFTWARE\Microsoft\Windows Kits\Installed Roots
+        # 的 KitsRoot10 被写成不存在的 C:\Program Files\Windows Kits\10\（32 位 WOW64 项
+        # 才是正确的 (x86) 路径）。v141 的 ucrt.props 从该注册表读 UCRTContentRoot，64 位
+        # MSBuild 拼出死库路径导致 LNK1104(ucrtd.lib)。ucrt.props 优先采用环境变量
+        # UCRTContentRoot，因此配置/构建/conan 源码构建（gtest 等 --build=missing）都须
+        # 注入该变量；CMakePresets.json 的 configure/build preset 已带 environment。
+        BINARY_DIR="${SOURCE_DIR}/build/VisualStudio.15.0-amd64"
+        BUILD_TYPE=""            # 多配置生成器，不固定 build_type
+        ENABLE_TESTING="True"
+        GENERATOR="Visual Studio 18 2026"
+        CPPSTD=17
+        export UCRTContentRoot='C:\Program Files (x86)\Windows Kits\10\'
+        ;;
     *)
         echo "错误: 不支持的 preset '${PRESET}'" >&2
-        echo "支持: llvm-ninja-debug | llvm-ninja-coverage | llvm-ninja-release | VisualStudio.14.0-amd64" >&2
+        echo "支持: llvm-ninja-debug | llvm-ninja-coverage | llvm-ninja-release | VisualStudio.14.0-amd64 | VisualStudio.15.0-amd64" >&2
         exit 2
         ;;
 esac
@@ -122,13 +145,25 @@ CONAN_COMMON_ARGS=(
 if [[ -n "${GENERATOR}" ]]; then
     CONAN_COMMON_ARGS+=(
         -c "tools.cmake.cmaketoolchain:generator=${GENERATOR}"
-        -c "tools.microsoft.msbuild:vs_version=14"
         -s "os=Windows"
         -s "arch=x86_64"
         -s "compiler=msvc"
-        -s "compiler.version=190"
         -s "compiler.runtime=dynamic"
     )
+    case "${PRESET}" in
+        VisualStudio.14.0-amd64)
+            CONAN_COMMON_ARGS+=(
+                -c "tools.microsoft.msbuild:vs_version=14"
+                -s "compiler.version=190"
+            )
+            ;;
+        VisualStudio.15.0-amd64)
+            CONAN_COMMON_ARGS+=(
+                -c "tools.microsoft.msbuild:vs_version=18"
+                -s "compiler.version=191"
+            )
+            ;;
+    esac
 fi
 
 # --- 执行（按配置列表循环）---------------------------------------------------
