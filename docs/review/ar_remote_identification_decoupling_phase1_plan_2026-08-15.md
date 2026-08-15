@@ -216,7 +216,7 @@ DDL 单源不变式全程保持：**移动而非复制**，三条消费方（加
 > 20 字段逐字段一致，容差 1e-5f；仅 `source_batch_id` 需按 AR 递增批号供给）、
 > 模块文档四件套（design/boundaries/data-flow/algorithms 全 active）。
 > 终验：RIR 三分区 + AR 三分区回归 + cross_domain 7/7 全绿，契约守卫 25/25，
-> AR 树（include/src/docs/schemas/tests）逐字节未动。提交：`?`（本轮）。
+> AR 树（include/src/docs/schemas/tests）逐字节未动。提交：`82057626`。
 
 | 步 | 内容 | 验证门（release-local） |
 |---|---|---|
