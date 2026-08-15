@@ -108,10 +108,8 @@ SbirsDebugTargetState BuildTargetState(const SbirsSceneTarget& target,
   state.present_in_input = true;
   // 输入实体回填（规则 12）：az/el 用卫星→目标视线向量按本周期 GMST 旋转到
   // ECI 后计算（ECI 极坐标，rad，与检测记录同参考系），无论是否检测均可见
-  // （检测记录存在时下方以记录观测值覆盖）。
-  if (TryComputeEciAnglesRad(input, target, &state.azimuth_rad, &state.elevation_rad)) {
-    // 已回填 ECI 角度。
-  }
+  // （检测记录存在时下方以记录观测值覆盖）。JD 缺失时回填失败，保持默认 0。
+  (void)TryComputeEciAnglesRad(input, target, &state.azimuth_rad, &state.elevation_rad);
   if (result.status != SbirsCycleStatus::kCompleted) {
     state.status = SbirsDebugTargetStatus::kCycleNotExecuted;
     return state;

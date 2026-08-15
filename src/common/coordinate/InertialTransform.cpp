@@ -16,7 +16,9 @@ constexpr double kGmstCoeffA3 = 1.0 / 38710000.0;   // deg / century³
 constexpr double kJ2000JulianDay = 2451545.0;
 constexpr double kJulianCenturyDays = 36525.0;
 
-bool IsFiniteVec(double x, double y, double z) { return std::isfinite(x) && std::isfinite(y) && std::isfinite(z); }
+bool IsFiniteVec(double x, double y, double z) {
+  return std::isfinite(x) && std::isfinite(y) && std::isfinite(z);
+}
 
 // 绕 z 轴旋转矩阵 R3(θ)（列主序手写应用）：r' = R3(θ)·r。
 // R3(θ) = [[cosθ, −sinθ, 0], [sinθ, cosθ, 0], [0, 0, 1]]。
