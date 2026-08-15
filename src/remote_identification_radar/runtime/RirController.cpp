@@ -101,9 +101,10 @@ dwell::RirDetectorConfig RirController::MakeDetectorConfig() const {
   return config;
 }
 
-void RirController::UpdateRuntime(config::RirWorkMode work_mode,
+void RirController::UpdateRuntime(const config::RirMissionConfig& mission,
                                   const config::RirPolicyConfig& policy) {
-  work_mode_ = work_mode;
+  mission_ = mission;
+  work_mode_ = mission.work_mode;
   policy_ = policy;
   detection_random_seed_ = policy_.detection.random_seed;
 
@@ -114,7 +115,7 @@ void RirController::UpdateRuntime(config::RirWorkMode work_mode,
   options.acceptance_score = policy_.recognition.acceptance_score;
   options.minimum_margin = policy_.recognition.minimum_margin;
   options.result_hold_sec = policy_.recognition.result_hold_sec;
-  options.max_range_m = policy_.recognition.max_range_m;
+  options.max_range_m = mission_.max_range_m;
   tracker_.SetOptions(options);
 
   tracking::RirLifecycleConfig lifecycle_config;
@@ -270,12 +271,12 @@ bool RirController::TryBuildMeasurement(const session::RirSceneTarget& target,
   bool resolved_cell = false;
   if ((has_environment || has_interference) && IsValidIdentity(input.own_emission_identity)) {
     oneq::electromagnetics::RfWaveformSchedule own_waveform;
-    if (TryBuildOwnWaveform(input, hardware_.transmitter, policy_.recognition.recognition_dwell_sec,
+    if (TryBuildOwnWaveform(input, hardware_.transmitter, mission_.recognition_dwell_sec,
                             detection_random_seed_, &own_waveform)) {
       dwell::RirDetectionCellConfig cell_config;
       cell_config.own_transmit_waveform = own_waveform;
       cell_config.receive_window_start_time_s = input.sim_time_sec;
-      cell_config.receive_window_duration_s = policy_.recognition.recognition_dwell_sec;
+      cell_config.receive_window_duration_s = mission_.recognition_dwell_sec;
       cell_config.matched_filter_bandwidth_hz = hardware_.transmitter.bandwidth_hz;
       cell_config.one_way_antenna_gain_dbi = beam_state.one_way_antenna_gain_db;
       cell_config.receiver_loss_db = hardware_.receiver.receive_loss_db;
@@ -354,7 +355,7 @@ recognition::RirObservationContext RirController::MakeObservationContext(
   recognition::RirObservationContext context;
   context.snr_db = snr_db;
   context.bandwidth_hz = hardware_.transmitter.bandwidth_hz;
-  context.dwell_sec = policy_.recognition.recognition_dwell_sec;
+  context.dwell_sec = mission_.recognition_dwell_sec;
   float look_az_deg = 0.0f;
   float look_el_deg = 0.0f;
   float slant_range_m = 0.0f;
@@ -422,7 +423,7 @@ void RirController::RunCycle(const session::RirCycleInput& input,
 
     std::vector<tracking::RirTrackMeasurement> measurements;
     std::unordered_map<std::uint64_t, float> snr_by_target_id;
-    const float dwell_sec = policy_.recognition.recognition_dwell_sec;
+    const float dwell_sec = mission_.recognition_dwell_sec;
     const std::uint32_t scheduled_count = static_cast<std::uint32_t>(candidate_indices.size());
     std::uint32_t executed_count = 0U;
     for (const std::size_t target_index : candidate_indices) {

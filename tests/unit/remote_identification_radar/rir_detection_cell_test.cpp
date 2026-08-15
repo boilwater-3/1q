@@ -215,6 +215,34 @@ TEST(RirDetectionCellTest, GainOffsetsOutOfRangeRejectedByConfigValidation) {
   EXPECT_TRUE(issues.empty());
 }
 
+/// @brief 四域归位后：任务域识别最大距离/驻留非法被配置校验拒绝。
+TEST(RirDetectionCellTest, MissionRangeAndDwellRejectedByConfigValidation) {
+  config::RirSessionConfig session_config;
+  session_config.mission.max_range_m = 0.0f;
+  session::RirIssueList issues = config::ValidateRirSessionConfig(session_config);
+  ASSERT_FALSE(issues.empty());
+  bool found = false;
+  for (const auto& issue : issues) {
+    if (issue.code == "rir.validation.recognition_time_range_invalid" &&
+        issue.field.find("mission.max_range_m") != std::string::npos) {
+      found = true;
+    }
+  }
+  EXPECT_TRUE(found);
+
+  session_config.mission.max_range_m = 300000.0f;
+  session_config.mission.recognition_dwell_sec = -1.0f;
+  issues = config::ValidateRirSessionConfig(session_config);
+  found = false;
+  for (const auto& issue : issues) {
+    if (issue.code == "rir.validation.recognition_time_range_invalid" &&
+        issue.field.find("recognition_dwell_sec") != std::string::npos) {
+      found = true;
+    }
+  }
+  EXPECT_TRUE(found);
+}
+
 }  // namespace
 }  // namespace tests
 }  // namespace remote_identification_radar

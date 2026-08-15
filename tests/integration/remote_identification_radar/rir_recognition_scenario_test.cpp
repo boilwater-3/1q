@@ -271,6 +271,28 @@ TEST_F(RirRecognitionScenarioTest, ModeSwitchSequenceRestartsAccumulationOnReent
   EXPECT_EQ(output.result.state, RirRecognitionState::kModelConfirmed);
 }
 
+// -- 四域归位：has_mission 整域补丁更新任务域距离/驻留并抵达控制器 --------
+
+TEST_F(RirRecognitionScenarioTest, MissionPatchUpdatesRangeAndDwell) {
+  RirSession radar = RirSession::Create(MakeScenarioConfig());
+
+  config::RirMissionConfig mission;
+  mission.work_mode = config::RirWorkMode::kIdentify;
+  mission.max_range_m = 100000.0f;
+  mission.recognition_dwell_sec = 0.1f;
+  config::RirRuntimeConfigPatch patch;
+  patch.has_mission = true;
+  patch.mission = mission;
+  ASSERT_TRUE(radar.TryApplyRuntimeConfig(patch));
+
+  RirCycleInput input = MakeInput(1U);
+  AppendTarget(&input, 77U, 100.0f, 2000.0f, -3.0f, "BALLISTIC_EXAMPLE_A");
+  const RirCycleResult result = radar.StepWithResult(input);
+  ASSERT_EQ(result.status, RirCycleStatus::kCompleted);
+  ASSERT_TRUE(result.has_recognition_summary);
+  EXPECT_FLOAT_EQ(result.recognition_summary.dwell_budget.dwell_consumed_sec, 0.1f);
+}
+
 }  // namespace
 }  // namespace tests
 }  // namespace remote_identification_radar

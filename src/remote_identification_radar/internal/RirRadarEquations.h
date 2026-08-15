@@ -1,12 +1,9 @@
 /**
  * @file RirRadarEquations.h
- * @brief 远程识别雷达内部链路预算与检测物理纯函数。
+ * @brief RIR 内部链路预算与检测物理函数薄适配层（common 单源）。
  *
- * 副本来源：`src/airborne_radar/signal/detection/RadarEquations.*`（审计基线
- * 96de367c）。阶段 1 随迁识别链路消费的最小函数集（回波功率 + 热噪声底）；
- * 阶段 2-M M1 扩充检测子集（积累增益、测距/测角误差、Swerling 检测概率、
- * Marcum Q 门限、蒙特卡洛判决），类型换用 `RirHardwareConfig` 的 hardware 域
- * 结构；阶段 3 评估 common 化。
+ * 数值实现位于 `oneq::common::radar::RadarEquations`；本层仅负责把
+ * `RirHardwareConfig` 与 `RirSwerlingModel` 映射到 common 参数。
  */
 
 #ifndef REMOTE_IDENTIFICATION_RADAR_INTERNAL_RIR_RADAR_EQUATIONS_H_
@@ -20,7 +17,7 @@ namespace remote_identification_radar {
 namespace internal {
 
 /**
- * @brief 目标起伏模型（副本：airborne_radar::config::profiles::SwerlingModel）。
+ * @brief 目标起伏模型（值域对齐 `oneq::common::radar::SwerlingModel`）。
  * @note 阶段 2-M 为内部枚举；阶段 2-S 场景目标补 `target_swerling_type` 时
  *       评估升 public（值域保持 0-4 加性扩展）。
  */

@@ -23,11 +23,16 @@ namespace config {
  * 提交前统一生效。
  *
  * 支持两类运行期更新：
- * 1) 整域覆盖：`policy`（识别策略整域，无叶子级 recognition patch 字段）；
+ * 1) 整域覆盖：`mission`、`policy`（识别策略整域，无叶子级 recognition patch 字段）；
  * 2) 叶子覆盖：工作模式、传感器开关。
- * 电源状态仅由叶子 `has_sensor_enabled` 控制（COMMON-OQ-4 收敛）。
+ * 整域与叶子同时出现时，先应用整域再应用叶子，叶子具有最终优先级。
+ * 电源状态仅由叶子 `has_sensor_enabled` 控制（COMMON-OQ-4 收敛）：
+ * `has_mission` 不改变电源，mission 域在类型层面已无电源字段。
  */
 struct ONEQ_API RirRuntimeConfigPatch {
+  bool has_mission{false};
+  RirMissionConfig mission{};
+
   bool has_work_mode{false};
   RirWorkMode work_mode{RirWorkMode::kStby};
 

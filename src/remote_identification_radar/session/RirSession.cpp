@@ -27,7 +27,7 @@ struct RirSession::Impl {
 
   explicit Impl(const config::RirSessionConfig& session_config) : config(session_config) {
     controller.SetHardware(config.hardware);
-    controller.UpdateRuntime(config.mission.work_mode, config.policy);
+    controller.UpdateRuntime(config.mission, config.policy);
   }
 };
 
@@ -63,9 +63,12 @@ RirCycleResult RirSession::StepWithResult(const RirCycleInput& input) {
     return result;
   }
 
-  // 补丁提交（下一个成功周期边界）：电源/工作模式/识别策略整域。
+  // 补丁提交（下一个成功周期边界）：任务域/电源/识别策略整域；叶子 work_mode 覆盖整域。
   if (impl_->has_pending_patch) {
     const config::RirRuntimeConfigPatch& patch = impl_->pending_patch;
+    if (patch.has_mission) {
+      impl_->config.mission = patch.mission;
+    }
     if (patch.has_work_mode) {
       impl_->config.mission.work_mode = patch.work_mode;
     }
@@ -75,7 +78,7 @@ RirCycleResult RirSession::StepWithResult(const RirCycleInput& input) {
     if (patch.has_sensor_enabled) {
       impl_->config.sensor_enabled = patch.sensor_enabled;
     }
-    impl_->controller.UpdateRuntime(impl_->config.mission.work_mode, impl_->config.policy);
+    impl_->controller.UpdateRuntime(impl_->config.mission, impl_->config.policy);
     impl_->has_pending_patch = false;
   }
 

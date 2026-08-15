@@ -38,11 +38,11 @@ Related-Authority:
 | 2-S | 自持化重构 | 完成 | 核心 `c09dd870`、四件套文档 `7809e5d6`、进度登记 `c38d59f9`、注释清理 `1d7f6eb5` |
 | 2-C | AR 侧识别耦合收尾删除 | 完成 | `1ac346ca`（按耦合审计 §3/§9 全清单：识别实现目录/public 头/Controller-Session-Pipeline 胶合/replay fbs 表与 codec/测试 SQLite 接线/文档四件套与 i18n 收敛；`ArWorkMode` 值域收紧为 kStby/kTas/kTws/kStt，replay 工作模式上界 kStt，`airborne_engine` 解除 SQLite 链接；replay 字节兼容断裂按审计 §7.1 接受，一次性无兼容层） |
 | 跟踪升级 N1-N7 | LAPJV/航迹池/IMM（突破 2-T 轻量边界） | 完成 | N1+N2 `46e495dd`（RirLapjvSolver + 方阵代价矩阵全局最优指派）；N3 `93bd3a4f`（RirTrackPool + generation 复用代次）；N4+N5 `6bfca646`（RirImmFilter 包装 common ImmFilter + 生命周期双路径）；N6+N7 public policy IMM 开关接线 + 四件套文档改写 |
-| 阶段 3 | common 化收敛与四域归位 | 未开始 | 见 §5 |
+| 阶段 3 | common 化收敛与四域归位 | 完成 | 四域归位见 §5；common 化（LAPJV/雷达方程/方向图）已完成并落 `src/common/`，评估见 `common_consolidation_assessment_2026-08-15.md`，执行计划见 `common_consolidation_execution_plan_2026-08-15.md` |
 
 当前验证基线：
-- `unit::remote_identification_radar` 102/102
-- `integration::remote_identification_radar` 28/28
+- `unit::remote_identification_radar` 115/115
+- `integration::remote_identification_radar` 29/29
 - `replay::remote_identification_radar` 3/3
 - `integration::cross_domain` 6/6（等价性测试已删除）
 
@@ -109,11 +109,17 @@ Related-Authority:
 
 - **2-C AR 侧收尾**：已完成（见 §1；AR 全域识别 grep 零命中、AR/RIR/cross_domain 分区与
   全部 guards 绿为验收证据）。
-- **阶段 3 common 化**：逐项评估已完成
-  （`docs/review/common_consolidation_assessment_2026-08-15.md`）——结论：
-  不立项全量迁移；LAPJV/雷达方程/方向图按"接触即收敛"落 common，
-  检测单元/CFAR 判决/传播环境/航迹池不动或缓；
-  `max_range_m`/`recognition_dwell_sec` 四域归位为 RIR 内部小项另立执行。
+- **阶段 3 common 化**：已完成。
+  - **LAPJV / 雷达方程 / 天线方向图**已收敛到 `src/common/`：
+    - `src/common/optimization/LapjvSolver.{h,cpp}`
+    - `src/common/radar/RadarEquations.{h,cpp}`
+    - `src/common/radar/AntennaPatternRuntime.h`
+  - AR/RIR 保留薄适配层，模块内类名/函数名不变。
+  - 检测单元/CFAR 判决/传播环境/航迹池不动或缓。
+  - 执行步骤见 `docs/review/common_consolidation_execution_plan_2026-08-15.md`。
+  - `max_range_m`/`recognition_dwell_sec` 四域归位已执行：字段从
+    `policy.recognition` 移至 `mission` 域（`RirMissionConfig::max_range_m` /
+    `recognition_dwell_sec`），控制器消费与配置校验同步更新。
 - **暂缓议题**：跟踪波束/成波、再入目标专项物理模型（气动/等离子/RCS 剖面）、
   全天候天气物理模型。
 

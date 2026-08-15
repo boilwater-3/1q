@@ -3,7 +3,8 @@
  * @brief 远程识别雷达会话配置校验实现。
  *
  * 校验逻辑为 `ArSessionConfigBuilder.cpp` 识别校验段（审计基线 96de367c）
- * 的平移改写：字段路径改为 `policy.recognition.*` 域内、issue code 改为
+ * 的平移改写：识别策略字段路径改为 `policy.recognition.*` 域内、识别任务
+ * 作用距离/驻留字段四域归位至 `mission.*` 域内；issue code 改为
  * `rir.validation.recognition_*`（RirIssueCodes.h），语义与门限值不变。
  */
 
@@ -35,6 +36,7 @@ void PushIssue(session::RirIssueList* issues, const char* code, const char* fiel
 
 session::RirIssueList ValidateRirSessionConfig(const RirSessionConfig& config) {
   session::RirIssueList issues;
+  const RirMissionConfig& mission = config.mission;
   const RirRecognitionPolicy& recognition = config.policy.recognition;
   const RirRecognitionFeatureWeights& weights = recognition.feature_weights;
 
@@ -75,17 +77,22 @@ session::RirIssueList ValidateRirSessionConfig(const RirSessionConfig& config) {
               "Recognition accumulation counts must be at least 1.");
   }
 
-  // 时间范围：保持时间非负；最大距离/驻留/累积窗口有限且为正。
+  // 识别策略时间范围：保持时间非负；累积窗口有限且为正。
   if (!IsFinite(recognition.result_hold_sec) || recognition.result_hold_sec < 0.0f ||
-      !IsFinite(recognition.max_range_m) || recognition.max_range_m <= 0.0f ||
-      !IsFinite(recognition.recognition_dwell_sec) || recognition.recognition_dwell_sec <= 0.0f ||
       !IsFinite(recognition.accumulation_window_sec) ||
       recognition.accumulation_window_sec <= 0.0f) {
     PushIssue(&issues, session::codes::kRecognitionTimeRangeInvalid,
-              "policy.recognition.result_hold_sec / max_range_m / recognition_dwell_sec / "
-              "accumulation_window_sec",
-              "Recognition hold time must be non-negative; max range, dwell and accumulation "
-              "window must be finite and positive.");
+              "policy.recognition.result_hold_sec / accumulation_window_sec",
+              "Recognition hold time must be non-negative and accumulation window must be "
+              "finite and positive.");
+  }
+
+  // 任务域识别作用范围/驻留：最大距离与驻留时间有限且为正（四域归位后）。
+  if (!IsFinite(mission.max_range_m) || mission.max_range_m <= 0.0f ||
+      !IsFinite(mission.recognition_dwell_sec) || mission.recognition_dwell_sec <= 0.0f) {
+    PushIssue(&issues, session::codes::kRecognitionTimeRangeInvalid,
+              "mission.max_range_m / recognition_dwell_sec",
+              "Recognition max range and dwell must be finite and positive.");
   }
 
   // 自持检测策略（阶段 2-S）：Pfa/SNR 门限有限且范围合理，脉冲数/种子为正。

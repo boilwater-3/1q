@@ -2,9 +2,9 @@
  * @file RirMissionConfig.h
  * @brief 远程识别雷达任务域主配置类型。
  *
- * 任务态与工作模式的主头文件。识别任务的作用距离与驻留参数暂由策略域
- * `RirPolicyConfig::recognition` 承载（与 AR 侧字段平移一致，四域归位为
- * 阶段 2 后评估项）。
+ * 任务态、工作模式与识别任务作用范围/驻留参数的主头文件。
+ * 识别任务作用距离与驻留参数原由策略域 `RirPolicyConfig::recognition` 平移
+ * 承载，现已四域归位至 mission 域。
  */
 
 #ifndef ONEQ_REMOTE_IDENTIFICATION_RADAR_CONFIG_RIR_MISSION_CONFIG_H_
@@ -33,6 +33,8 @@ enum class ONEQ_API RirWorkMode {
  */
 struct ONEQ_API RirMissionConfig {
   RirWorkMode work_mode{RirWorkMode::kStby}; /**< [可外部调整] 当前工作模式。 */
+  float max_range_m{300000.0f};              /**< 识别任务最大作用距离（m），>0。 */
+  float recognition_dwell_sec{0.05f};        /**< 单次识别驻留时间（s），>0。 */
 };
 
 }  // namespace config

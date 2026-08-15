@@ -39,8 +39,9 @@ class RirController {
  public:
   RirController() = default;
 
-  /** @brief 更新运行期上下文（工作模式 + 完整策略域）；数据库路径变化时按需加载。 */
-  void UpdateRuntime(config::RirWorkMode work_mode, const config::RirPolicyConfig& policy);
+  /** @brief 更新运行期上下文（任务域 + 完整策略域）；数据库路径变化时按需加载。 */
+  void UpdateRuntime(const config::RirMissionConfig& mission,
+                     const config::RirPolicyConfig& policy);
 
   /** @brief 设置静态硬件上下文并重建检测器。 */
   void SetHardware(const config::RirHardwareConfig& hardware);
@@ -96,6 +97,7 @@ class RirController {
                                                             float snr_db) const;
 
   config::RirHardwareConfig hardware_{};
+  config::RirMissionConfig mission_{};
   config::RirPolicyConfig policy_{};
   config::RirWorkMode work_mode_{config::RirWorkMode::kStby};
   bool recognition_mode_active_{false};

@@ -22,6 +22,13 @@ class ONEQ_API RirRuntimeConfigBuilder {
  public:
   RirRuntimeConfigBuilder() = default;
 
+  /** @brief 整域覆盖：任务域（识别任务作用距离/驻留与工作模式整块覆盖）。 */
+  RirRuntimeConfigBuilder& WithMission(const RirMissionConfig& mission) {
+    patch_.has_mission = true;
+    patch_.mission = mission;
+    return *this;
+  }
+
   /** @brief 叶子覆盖：工作模式。 */
   RirRuntimeConfigBuilder& WithWorkMode(RirWorkMode work_mode) {
     patch_.has_work_mode = true;

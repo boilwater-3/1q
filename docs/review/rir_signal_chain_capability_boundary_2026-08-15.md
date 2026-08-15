@@ -202,9 +202,11 @@ RIR 自持检测 + 轻量关联。boundaries.md 非目标 #4（"不实现探测�
   场景目标补速度/真值字段）、流水线接线（检测→关联→内部航迹→识别）、
   驻留排序语义变更、replay 破坏性版本、场景测试重锚定、文档四件套改写、
   等价性测试删除。
-- **阶段 3（common 化，计划 R2 既定扩展）**：`RirRadarEquations` 副本与 AR
-  `RadarEquations` 本体收敛至 `src/common/`；方向图/检测单元/干扰聚合/跟踪子集
-  的 common 化同批评估；`max_range_m`/`recognition_dwell_sec` 四域归位。
+- **阶段 3（common 化，计划 R2 既定扩展）**：已完成。LAPJV / `RirRadarEquations`
+  与 AR `RadarEquations` / 天线方向图已收敛至 `src/common/`；检测单元/干扰聚合/跟踪子集
+  维持不动或缓；`max_range_m`/`recognition_dwell_sec` 四域归位已完成
+  （识别 policy → mission 域）。执行记录见
+  `common_consolidation_execution_plan_2026-08-15.md`。
 
 ## 8. 验收标准（阶段 2 各段完成时）
 

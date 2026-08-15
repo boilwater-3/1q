@@ -48,6 +48,8 @@ RIR 遵守 `docs/common/contract.md` 与 `docs/common/session_contract.md`：
    `RirRuntimeConfigPatch::has_sensor_enabled`（COMMON-OQ-4 对齐）。
 6. 跨域形状契约：`ONEQ_SENSOR_SESSION_CONTRACT` 锚定
    `RirSession::Step/StepWithResult` 签名。
+7. 阶段 3 common 化已完成：LAPJV / 雷达方程 / 天线方向图已收敛到 `src/common/`，
+   RIR 保留薄适配层，不引入 AR 头。
 
 ## 非目标（否决项）
 
@@ -89,13 +91,15 @@ RIR 遵守 `docs/common/contract.md` 与 `docs/common/session_contract.md`：
 ## 接口不变式
 
 - 识别配置经 `RirRuntimeConfigPatch::has_policy` 整域提交（无叶子级 recognition
-  patch 字段）。
+  patch 字段）；任务域经 `has_mission` 整域提交，`has_work_mode` 叶子可覆盖
+  mission 内工作模式。
 - 公共枚举加性扩展（不重排既有值，replay 字节兼容）；新增类别须同步
   `RirTracker::CategoryToPublic` 映射与 `RirRecognitionCategory`。
 - replay 逐周期比较识别结果（浮点容差 `1e-5f`），`database_version` 与检测随机
   种子入 `RirSessionReplayState`，不一致即 failure；replay schema 为 V2 破坏性
   版本，旧 V1 记录显式拒绝。
-- 识别配置校验：`rir.validation.recognition_*` 五码（权重/路径/门限/计数/时间范围）。
+- 识别配置校验：`rir.validation.recognition_*` 五码（权重/路径/门限/计数/时间范围）；
+  其中任务域作用距离/驻留字段为 `mission.max_range_m`/`recognition_dwell_sec`（四域归位后）。
 
 ## 识别子模型的物理保真度边界（F1/F2）
 

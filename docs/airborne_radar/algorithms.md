@@ -163,7 +163,7 @@ AR 在接收链的三个层次主动反制欺骗干扰（kPulseTrain），均不
 - **意图**：探测成功后 `DataAssociationEngine` 把量测和已有 track seeds 关联；public `distance_gate_sigma`
   以标准差倍数表达，内部 assignment 门限统一派生为 `distance_gate_sigma²`。
 - **实现边界**：
-  1. 生产链路只有一条默认路径：`FullMahalanobisDistanceMetric` + `DenseCostHypothesiser` + `LapjvSolver`，
+  1. 生产链路只有一条默认路径：`FullMahalanobisDistanceMetric` + `DenseCostHypothesiser` + `LapjvSolver`（common 单源 `src/common/optimization/LapjvSolver` 适配），
      没有 factory、runtime config 选择或用户可替换接口。`MahalanobisDistanceMetric` 等保留类仅用于局部测试
      和算法对比，不代表第二条生产实现。
   2. association public 配置不再暴露 `unassigned_cost`、启用 hint 或第二套 sigma hint；策略档位如需保持
@@ -259,7 +259,7 @@ TWS→STT→TWS、关机恢复、无效输入恢复和混合非法 runtime patch
 1. **Heuristic detection toggle / 启发式 pass**：探测统一走物理链（emission→echo→...→decision），不再提供
    启发式旁路。
 2. **多个 association 生产路径**：当前只有 `FullMahalanobisDistanceMetric` + `DenseCostHypothesiser` +
-   `LapjvSolver` 一条；只有未来出现至少两个已接入、有测试覆盖且语义稳定的实现时，才允许新增用户可见配置
+   `LapjvSolver`（common 单源适配）一条；只有未来出现至少两个已接入、有测试覆盖且语义稳定的实现时，才允许新增用户可见配置
    选择算法。
 3. **EKF/UDKF/SRIF 接入 AR 生产链**：见上方评估表，AR 笛卡尔位置量测为线性模型，EKF 退化为 KF，UDKF/SRIF
    未证明收益。

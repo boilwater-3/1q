@@ -20,13 +20,19 @@ using session::RirCycleInput;
 using session::RirOutputFrame;
 using session::RirSceneTarget;
 
+config::RirMissionConfig MakeMission(config::RirWorkMode work_mode) {
+  config::RirMissionConfig mission;
+  mission.work_mode = work_mode;
+  return mission;
+}
+
 RirController MakeFallbackController() {
   config::RirPolicyConfig policy;
   policy.detection.gate_mode = config::RirDetectionGateMode::kSnrFallback;
   policy.lifecycle.confirm_hits = 1U;
   RirController controller;
   controller.SetHardware(config::RirHardwareConfig{});
-  controller.UpdateRuntime(config::RirWorkMode::kIdentify, policy);
+  controller.UpdateRuntime(MakeMission(config::RirWorkMode::kIdentify), policy);
   return controller;
 }
 
@@ -78,7 +84,7 @@ TEST(RirSelfContainedPipelineTest, DetectorGateRejectsUndetectableTarget) {
   policy.lifecycle.confirm_hits = 1U;
   RirController controller;
   controller.SetHardware(config::RirHardwareConfig{});
-  controller.UpdateRuntime(config::RirWorkMode::kIdentify, policy);
+  controller.UpdateRuntime(MakeMission(config::RirWorkMode::kIdentify), policy);
 
   RirOutputFrame frame;
   controller.RunCycle(MakeInput(1U, 300000.0f, 0.1f), &frame);
@@ -98,7 +104,7 @@ TEST(RirSelfContainedPipelineTest, StandbyDoesNotAdvanceSelfContainedChain) {
   config::RirPolicyConfig stby_policy;
   stby_policy.detection.gate_mode = config::RirDetectionGateMode::kSnrFallback;
   stby_policy.lifecycle.confirm_hits = 1U;
-  controller.UpdateRuntime(config::RirWorkMode::kStby, stby_policy);
+  controller.UpdateRuntime(MakeMission(config::RirWorkMode::kStby), stby_policy);
 
   RirCycleInput standby_input = MakeInput(2U, 6000.0f, 5.0f);
   standby_input.scene_targets[0].external_target_id = 8U;  // 新目标也不应触发检测建轨。
@@ -121,7 +127,7 @@ TEST(RirSelfContainedPipelineTest, ImmPolicyReachesLifecycleAndKeepsTrackStable)
   policy.lifecycle.model_count_hint = 2U;
   RirController controller;
   controller.SetHardware(config::RirHardwareConfig{});
-  controller.UpdateRuntime(config::RirWorkMode::kIdentify, policy);
+  controller.UpdateRuntime(MakeMission(config::RirWorkMode::kIdentify), policy);
 
   std::uint64_t key = 0U;
   for (std::uint32_t cycle = 1U; cycle <= 4U; ++cycle) {

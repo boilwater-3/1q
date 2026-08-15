@@ -1,22 +1,31 @@
 /**
  * @file RadarEquations.h
- * @brief AR 雷达探测通用物理方程薄适配层（common 单源）。
+ * @brief 定义雷达探测通用物理方程纯函数接口（common 单源，标量参数）。
  */
 
-#ifndef AIRBORNE_RADAR_SIGNAL_DETECTION_RADAR_EQUATIONS_H_
-#define AIRBORNE_RADAR_SIGNAL_DETECTION_RADAR_EQUATIONS_H_
+#ifndef COMMON_RADAR_RADAR_EQUATIONS_H_
+#define COMMON_RADAR_RADAR_EQUATIONS_H_
 
 #include <random>
 
-#include "1q/airborne_radar/config/ArHardwareConfig.h"
-#include "airborne_radar/config/SignalEngineeringConfig.h"
+namespace oneq {
+namespace common {
+namespace radar {
 
-namespace airborne_radar {
-namespace signal {
-namespace detection {
+/**
+ * @brief 目标雷达散射截面起伏统计模型（通用枚举）。
+ */
+enum class SwerlingModel {
+  kSwerling0 = 0, /**< 不起伏——目标 RCS 在各次观测中恒定。 */
+  kSwerling1 = 1, /**< 扫描间慢起伏，单次扫描内 RCS 恒定。 */
+  kSwerling2 = 2, /**< 脉冲间快起伏，每个脉冲 RCS 独立采样。 */
+  kSwerling3 = 3, /**< 扫描间慢起伏，RCS 服从 2 自由度 chi-squared 分布。 */
+  kSwerling4 = 4  /**< 脉冲间快起伏，RCS 服从 2 自由度 chi-squared 分布。 */
+};
+
 /**
  * @brief 无状态的雷达物理计算函数集合。
- * 所有方法为 static，不持有任何内部状态。
+ * 所有方法为 static，不持有任何内部状态；参数全部使用标量，不依赖模块 config。
  */
 struct RadarEquations {
   /**
@@ -24,40 +33,47 @@ struct RadarEquations {
    * 公式: Pr_dBW = Pt_dB + 2*G_one_way_dB + 2*λ_dB + σ_dB
    *                - 30*log10(4π) - 4*R_dB - L_sys
    * 其中 Pt 项按峰值功率与脉宽的单脉冲能量语义进行缩放。
-   * @param tx 发射机参数
-   * @param one_way_gain_db 当前波束指向下的单程天线增益
+   * @param peak_power_w 发射峰值功率 (W)
+   * @param transmit_loss_db 发射系统损耗 (dB)
+   * @param pulse_width_s 发射脉宽 (s)
+   * @param frequency_hz 发射频率 (Hz)
+   * @param one_way_gain_db 当前波束指向下的单程天线增益 (dB)
    * @param rcs_m2 目标雷达散射截面 (m²)
    * @param range_m 目标斜距 (m)
    * @param propagation_loss_db 大气传播往返损耗 (dB)
    * @return 接收回波功率 (dBW)
    */
-  static float ComputeEchoPowerWithGain_dBW(const config::engineering::TransmitterConfig& tx,
+  static float ComputeEchoPowerWithGain_dBW(float peak_power_w, float transmit_loss_db,
+                                            float pulse_width_s, float frequency_hz,
                                             float one_way_gain_db, float rcs_m2, float range_m,
                                             float propagation_loss_db);
+
   /**
-   * @brief 单站雷达方程（对数域），计算接收回波功率。
-   * 公式: Pr_dBW = Pt_dB + 2*Gt_dB + 2*λ_dB + σ_dB
-   *                - 30*log10(4π) - 4*R_dB - L_sys
-   * Skolnik eq.1.6 对数展开形式。
-   * @param tx       发射机参数
-   * @param ant      天线参数
-   * @param rcs_m2   目标雷达散射截面 (m²)
-   * @param range_m  目标斜距 (m)
+   * @brief 单站雷达方程（对数域），以天线主瓣峰值增益计算接收回波功率。
+   * @param peak_power_w 发射峰值功率 (W)
+   * @param transmit_loss_db 发射系统损耗 (dB)
+   * @param pulse_width_s 发射脉宽 (s)
+   * @param frequency_hz 发射频率 (Hz)
+   * @param main_beam_gain_db 天线主瓣峰值增益 (dB)
+   * @param rcs_m2 目标雷达散射截面 (m²)
+   * @param range_m 目标斜距 (m)
    * @param propagation_loss_db 大气传播往返损耗 (dB)
    * @return 接收回波功率 (dBW)
    */
-  static float ComputeEchoPower_dBW(const config::engineering::TransmitterConfig& tx,
-                                    const config::engineering::AntennaConfig& ant, float rcs_m2,
-                                    float range_m, float propagation_loss_db);
+  static float ComputeEchoPower_dBW(float peak_power_w, float transmit_loss_db,
+                                    float pulse_width_s, float frequency_hz,
+                                    float main_beam_gain_db, float rcs_m2, float range_m,
+                                    float propagation_loss_db);
+
   /**
    * @brief 接收机热噪声功率底: N₀ = k·T₀·B·F。
    * T₀ = 290K (IEEE 标准参考温度)。
-   * @param tx 发射机参数（取带宽）
-   * @param rx 接收机参数（取噪声系数）
+   * @param bandwidth_hz 接收带宽 (Hz)
+   * @param noise_figure_db 接收机噪声系数 (dB)
    * @return 热噪声功率 (W)
    */
-  static float ComputeThermalNoisePower_W(const config::engineering::TransmitterConfig& tx,
-                                          const config::engineering::ReceiverConfig& rx);
+  static float ComputeThermalNoisePower_W(float bandwidth_hz, float noise_figure_db);
+
   /**
    * @brief 脉冲积累增益因子。
    * 当前统一采用线性脉冲积累语义: G = N。
@@ -65,6 +81,7 @@ struct RadarEquations {
    * @return 积累增益因子（线性值）
    */
   static float ComputeIntegrationGain(int pulse_count);
+
   /**
    * @brief 测距标准差 σ_R (m)。
    * 工程近似: σ_R ≈ 0.5·δ_R / √(SNR_linear) + bias，
@@ -74,6 +91,7 @@ struct RadarEquations {
    * @return 距离测量标准差 (m)
    */
   static float ComputeRangeErrorStdDev(float snr_db, float bandwidth_hz);
+
   /**
    * @brief 测角标准差 σ_θ (rad)。
    * 工程近似: σ_θ ≈ 0.317·θ_bw / √(SNR_linear) + θ_bw/30。
@@ -82,6 +100,7 @@ struct RadarEquations {
    * @return 角度测量标准差 (rad)
    */
   static float ComputeAngleErrorStdDev(float snr_db, float beamwidth_rad);
+
   /**
    * @brief 支持 Swerling 0~4 全模型的多脉冲检测概率计算。
    * @param snr_db      每脉冲信噪比 (dB)
@@ -90,8 +109,9 @@ struct RadarEquations {
    * @param num_pulses  检测脉冲数 N (N ≥ 1)
    * @return 检测概率 Pd ∈ [0, 1]
    */
-  static float ComputeDetectionProbability(float snr_db, float pfa,
-                                           config::profiles::SwerlingModel model, int num_pulses);
+  static float ComputeDetectionProbability(float snr_db, float pfa, SwerlingModel model,
+                                           int num_pulses);
+
   /**
    * @brief 计算方波检测器的检测门限 T。
    * @param pfa         虚警概率
@@ -99,6 +119,7 @@ struct RadarEquations {
    * @return 检测门限 T
    */
   static double ComputeThreshold(double pfa, int num_pulses);
+
   /**
    * @brief 广义 Marcum Q 函数 Q_M(a, b)。
    * @param order  阶数 M (= 积累脉冲数 N)
@@ -107,6 +128,7 @@ struct RadarEquations {
    * @return Q_M(a, b) ∈ [0, 1]
    */
   static double MarcumQ(int order, double a, double b);
+
   /**
    * @brief 蒙特卡洛探测判决。
    * @param detection_prob 检测概率 Pd
@@ -116,8 +138,8 @@ struct RadarEquations {
   static bool ThresholdDecision(float detection_prob, std::mt19937& rng);
 };
 
-}  // namespace detection
-}  // namespace signal
-}  // namespace airborne_radar
+}  // namespace radar
+}  // namespace common
+}  // namespace oneq
 
-#endif  // AIRBORNE_RADAR_SIGNAL_DETECTION_RADAR_EQUATIONS_H_
+#endif  // COMMON_RADAR_RADAR_EQUATIONS_H_

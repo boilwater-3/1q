@@ -4,8 +4,8 @@
  *
  * 自持检测/关联/跟踪/生命周期与识别策略的主头文件。
  * 识别字段集合自阶段 1 平移；阶段 2-S 增加检测门控、最近邻关联、单目标 KF
- * 与计数生命周期策略。max_range_m / recognition_dwell_sec 四域归位（任务域）
- * 列为阶段 3 评估项。
+ * 与计数生命周期策略。识别任务作用距离与驻留参数已归位 mission 域
+ * （RirMissionConfig::max_range_m / recognition_dwell_sec）。
  */
 
 #ifndef ONEQ_REMOTE_IDENTIFICATION_RADAR_CONFIG_RIR_POLICY_CONFIG_H_
@@ -112,12 +112,6 @@ struct ONEQ_API RirRecognitionPolicy {
 
   /** 时间约束 */
   float result_hold_sec{30.0f}; /**< 退出模式或短时特征缺失后的结论保持时间（s），≥0。 */
-
-  /** 作用范围 */
-  float max_range_m{300000.0f}; /**< 识别任务最大作用距离（m），>0。 */
-
-  /** 驻留 */
-  float recognition_dwell_sec{0.05f}; /**< 单次识别驻留时间（s），>0。 */
 
   /** 权重 */
   RirRecognitionFeatureWeights feature_weights{};
