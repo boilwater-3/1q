@@ -156,9 +156,6 @@ bool TryMakeArTargetFromExternalKinematics(const ArExternalTargetInput& target_i
   target->position_y = target_position_local.y;
   target->position_z = target_position_local.z;
   target->target_swerling_type = target_input.swerling_type;
-  target->aspect_rcs_samples = target_input.aspect_rcs_samples;
-  target->polarization_rcs_samples = target_input.polarization_rcs_samples;
-  target->range_rcs_scatterers = target_input.range_rcs_scatterers;
   return true;
 }
 

@@ -22,7 +22,6 @@ struct RuntimeConfigState {
   execution::InternalExecutionConfig execution_config{};
   config::EnvironmentScenarioConfig environment_scenario_config{};
   config::AzimuthElevationDeg dwell_center_deg{};
-  config::ArRecognitionConfig recognition{}; /**< 识别策略配置（has_policy 整域覆盖保留，供控制器消费）。 */
 };
 
 /**

@@ -99,23 +99,6 @@ constexpr char kElectronicScanLimitsSwappedAz[] =
 constexpr char kElectronicScanLimitsSwappedEl[] =
     "ar.validation.electronic_scan_limits_swapped_el";
 
-/** @brief 识别特征权重非法（须有限、在 [0, 1] 且总和为 1）。 */
-constexpr char kRecognitionWeightsInvalid[] = "ar.validation.recognition_weights_invalid";
-
-/** @brief 识别数据库路径缺失（启用识别时须非空）。 */
-constexpr char kRecognitionDatabasePathMissing[] =
-    "ar.validation.recognition_database_path_missing";
-
-/** @brief 识别门限非法（接受分数/最小裕度须在 [0, 1]）。 */
-constexpr char kRecognitionThresholdInvalid[] = "ar.validation.recognition_threshold_invalid";
-
-/** @brief 识别累积计数非法（须至少为 1）。 */
-constexpr char kRecognitionAccumulationInvalid[] =
-    "ar.validation.recognition_accumulation_invalid";
-
-/** @brief 识别时间范围非法（保持时间须非负；最大距离/驻留/累积窗口须有限且为正）。 */
-constexpr char kRecognitionTimeRangeInvalid[] = "ar.validation.recognition_time_range_invalid";
-
 // ===== 执行诊断（规则 13b/14c）=====
 
 /** @brief 生命周期不可用（自动生命周期管理器缺失，非执行周期中止）。 */

@@ -13,7 +13,6 @@
 
 #include "1q/airborne_radar/session/ArCommand.h"
 #include "1q/airborne_radar/session/ArControlProfile.h"
-#include "1q/airborne_radar/session/ArRecognitionResult.h"
 #include "1q/airborne_radar/session/DecisionControlTypes.h"
 #include "1q/airborne_radar/session/ArInputValidation.h"
 #include "1q/airborne_radar/session/ArInterferenceObservation.h"
@@ -65,9 +64,6 @@ struct ONEQ_API ArCycleResult {
       session::DecisionControlSource::kNone}; /**< 本周期控制采用的决策来源 */
   std::uint32_t applied_decision_cycle_index{0U}; /**< 本周期控制对应的源周期 */
   std::uint64_t applied_decision_batch_id{0U};    /**< 本周期控制对应的源批号 */
-  bool has_recognition_summary{false};            /**< 本周期是否发布了识别效能摘要 */
-  session::ArRecognitionCycleSummary
-      recognition_summary{}; /**< 本周期识别效能摘要；未执行识别时保持默认值 */
 };
 
 }  // namespace session

@@ -35,7 +35,7 @@ Related-Authority:
 | 2-M | 检测链与环境子集迁移 | 完成 | M1 `e6e073b9`、M2 `87bd2ae1`、M3 `99b53792`、M4 `f28cb874`、M5 `950625ed`、M6 `e66d5293` |
 | 2-T | 轻量跟踪子集 | 完成 | T4 `6fa38268`/`2020f739`、T1 `0b3e8d70`、T2 `79bef1d6`、T3 `ce995bda` |
 | 2-S | 自持化重构 | 完成 | 核心 `c09dd870`、四件套文档 `7809e5d6`、进度登记 `c38d59f9`、注释清理 `1d7f6eb5` |
-| 2-C | AR 侧识别耦合收尾删除 | 未开始 | 执行清单仍以 AR 耦合审计 §3/§9 为准 |
+| 2-C | AR 侧识别耦合收尾删除 | 完成 | 按耦合审计 §3/§9 全清单执行：识别实现目录/public 头/Controller-Session-Pipeline 胶合/replay fbs 表与 codec/测试 SQLite 接线/文档四件套与 i18n 收敛；`ArWorkMode` 值域收紧为 kStby/kTas/kTws/kStt，replay 工作模式上界 kStt，`airborne_engine` 解除 SQLite 链接（replay 字节兼容断裂按审计 §7.1 接受，一次性无兼容层） |
 | 阶段 3 | common 化收敛与四域归位 | 未开始 | 见 §5 |
 
 当前验证基线：
@@ -105,10 +105,11 @@ Related-Authority:
 
 ## 5. 后续段（不在本次跟踪能力升级内展开）
 
-- **2-C AR 侧收尾**：按 `ar_remote_identification_radar_coupling_audit_2026-08-15.md`
-  §3 清单执行（public 面/执行链/replay schema/构建依赖/测试/文档）。
+- **2-C AR 侧收尾**：已完成（见 §1；AR 全域识别 grep 零命中、AR/RIR/cross_domain 分区与
+  全部 guards 绿为验收证据）。
 - **阶段 3 common 化**：雷达方程、方向图、检测单元、干扰聚合、跟踪子集 common
-  收敛；`max_range_m`/`recognition_dwell_sec` 四域归位。
+  收敛；`max_range_m`/`recognition_dwell_sec` 四域归位。评估准则：**物理恒等式优先收敛、
+  装备私有账本/判决链不动**。
 - **暂缓议题**：跟踪波束/成波、再入目标专项物理模型（气动/等离子/RCS 剖面）、
   全天候天气物理模型。
 

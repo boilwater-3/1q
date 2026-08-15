@@ -101,7 +101,6 @@ RuntimeConfigResolveResult ApplyRuntimePatch(const RuntimeConfigState& current_s
         SigmaToSquaredCost(patch.policy.association.distance_gate_sigma);
     next_execution_config.tracking.policy = patch.policy.tracking;
     next_execution_config.lifecycle.policy = patch.policy.lifecycle;
-    resolved.next_state.recognition = patch.policy.recognition;
     policy_changed = true;
     execution_config_changed = true;
     has_requested_update = true;

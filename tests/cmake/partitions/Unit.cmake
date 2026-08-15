@@ -123,9 +123,7 @@ if(_oneq_unit_airborne_radar)
         TYPE unit DOMAIN airborne_radar
         SOURCES ${_oneq_unit_airborne_radar}
         TIMEOUT 60
-        LINK_LIBS SQLite::SQLite3
-        INCLUDE_DIRS "${CMAKE_CURRENT_SOURCE_DIR}/unit/airborne_radar"
-                     "${CMAKE_CURRENT_BINARY_DIR}/generated")
+        INCLUDE_DIRS "${CMAKE_CURRENT_SOURCE_DIR}/unit/airborne_radar")
 endif()
 
 # remote_identification_radar (RIR).

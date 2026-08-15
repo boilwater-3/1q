@@ -42,14 +42,9 @@ ArSessionComposition ArSessionCompositionRoot::ComposeDefault(
       new signal::pipeline::SignalPipeline(runtime_execution_config));
   composition.owned_environment_service.reset(new environment::EnvironmentService(
       composition.runtime_environment_scenario_config));
-  extension::ArRecognitionStaticContext recognition_static_context;
-  recognition_static_context.transmitter = composition.runtime_hardware.transmitter;
-  recognition_static_context.receiver = composition.runtime_hardware.receiver;
-  recognition_static_context.antenna = composition.runtime_hardware.antenna;
   composition.owned_controller.reset(new extension::ArController(
       *composition.owned_ar_context, *composition.owned_signal_pipeline,
-      *composition.owned_environment_service, composition.runtime_policy.decision_control,
-      recognition_static_context));
+      *composition.owned_environment_service, composition.runtime_policy.decision_control));
   composition.ar_context = composition.owned_ar_context.get();
   composition.signal_pipeline = composition.owned_signal_pipeline.get();
   composition.environment_service = composition.owned_environment_service.get();

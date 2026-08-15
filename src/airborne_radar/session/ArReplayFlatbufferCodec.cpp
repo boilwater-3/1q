@@ -28,59 +28,6 @@ std::size_t CountTracksByStatus(const session::TrackStateSnapshotList& tracks,
   return count;
 }
 
-flatbuffers::Offset<fb::ArRecognitionResultV1> EncodeRecognitionResult(
-    flatbuffers::FlatBufferBuilder* builder, const session::ArRecognitionResult& value) {
-  return fb::CreateArRecognitionResultV1(
-      *builder, static_cast<int>(value.state), static_cast<int>(value.target_category),
-      builder->CreateString(value.target_model), value.confidence, value.best_score,
-      value.runner_up_score, value.feature_scores.rcs_similarity, value.feature_scores.rcs_quality,
-      value.feature_scores.motion_similarity, value.feature_scores.motion_quality,
-      value.feature_scores.polarization_similarity, value.feature_scores.polarization_quality,
-      value.feature_scores.range_profile_similarity, value.feature_scores.range_profile_quality,
-      value.valid_feature_mask, value.observation_count, value.accumulation_sec,
-      builder->CreateString(value.database_version), value.source_cycle_index,
-      value.source_batch_id);
-}
-
-session::ArRecognitionResult DecodeRecognitionResult(const fb::ArRecognitionResultV1* value) {
-  session::ArRecognitionResult result;
-  if (value != nullptr) {
-    const int state_raw = value->state();
-    if (state_raw >= static_cast<int>(session::ArRecognitionState::kDisabled) &&
-        state_raw <= static_cast<int>(session::ArRecognitionState::kStale)) {
-      result.state = static_cast<session::ArRecognitionState>(state_raw);
-    }
-    const int category_raw = value->target_category();
-    if (category_raw >= static_cast<int>(session::ArRecognitionCategory::kBallistic) &&
-        category_raw <= static_cast<int>(session::ArRecognitionCategory::kUav)) {
-      result.target_category = static_cast<session::ArRecognitionCategory>(category_raw);
-    }
-    if (value->target_model() != nullptr) {
-      result.target_model = value->target_model()->str();
-    }
-    result.confidence = value->confidence();
-    result.best_score = value->best_score();
-    result.runner_up_score = value->runner_up_score();
-    result.feature_scores.rcs_similarity = value->rcs_similarity();
-    result.feature_scores.rcs_quality = value->rcs_quality();
-    result.feature_scores.motion_similarity = value->motion_similarity();
-    result.feature_scores.motion_quality = value->motion_quality();
-    result.feature_scores.polarization_similarity = value->polarization_similarity();
-    result.feature_scores.polarization_quality = value->polarization_quality();
-    result.feature_scores.range_profile_similarity = value->range_profile_similarity();
-    result.feature_scores.range_profile_quality = value->range_profile_quality();
-    result.valid_feature_mask = value->valid_feature_mask();
-    result.observation_count = value->observation_count();
-    result.accumulation_sec = value->accumulation_sec();
-    if (value->database_version() != nullptr) {
-      result.database_version = value->database_version()->str();
-    }
-    result.source_cycle_index = value->source_cycle_index();
-    result.source_batch_id = value->source_batch_id();
-  }
-  return result;
-}
-
 flatbuffers::Offset<fb::DecisionTrackStateSnapshot> EncodeTrackStateSnapshot(
     flatbuffers::FlatBufferBuilder* builder, const session::TrackStateSnapshot& value) {
   return fb::CreateDecisionTrackStateSnapshot(
@@ -89,8 +36,7 @@ flatbuffers::Offset<fb::DecisionTrackStateSnapshot> EncodeTrackStateSnapshot(
       value.velocity_z, value.speed, value.acceleration_x, value.acceleration_y,
       value.acceleration_z, value.acceleration, value.rcs, value.hit_count, value.miss_count,
       builder->CreateString(value.target_type), value.target_probability,
-      builder->CreateString(value.target_name), value.estimation_uncertainty_trace,
-      EncodeRecognitionResult(builder, value.recognition));
+      builder->CreateString(value.target_name), value.estimation_uncertainty_trace);
 }
 
 flatbuffers::Offset<fb::TrackStateSnapshot> EncodeTrackSnapshot(
@@ -126,7 +72,6 @@ session::TrackStateSnapshot DecodeTrackStateSnapshot(const fb::DecisionTrackStat
       result.target_name = value->target_name()->str();
     }
     result.estimation_uncertainty_trace = value->estimation_uncertainty_trace();
-    result.recognition = DecodeRecognitionResult(value->recognition());
   }
   return result;
 }
@@ -338,7 +283,7 @@ bool IsKnownScanSequence(int raw_value) {
 
 bool IsKnownArWorkMode(int raw_value) {
   return raw_value >= static_cast<int>(config::ArWorkMode::kStby) &&
-         raw_value <= static_cast<int>(config::ArWorkMode::kLrr);
+         raw_value <= static_cast<int>(config::ArWorkMode::kStt);
 }
 
 bool IsKnownStabilizationMode(int raw_value) {
@@ -703,21 +648,8 @@ flatbuffers::Offset<session_fb::ArPolicyConfig> EncodeSessionPolicyConfig(
           value.decision_control.eccm_hold_cycles_after_request,
           value.decision_control.lpi_cooldown_cycles_after_release,
           value.decision_control.eccm_cooldown_cycles_after_release);
-  const config::ArRecognitionConfig& recognition = value.recognition;
-  const config::ArRecognitionFeatureWeights& weights = recognition.feature_weights;
-  const flatbuffers::Offset<session_fb::ArRecognitionFeatureWeightsV1> feature_weights =
-      session_fb::CreateArRecognitionFeatureWeightsV1(
-          *builder, weights.rcs_weight, weights.motion_weight, weights.polarization_weight,
-          weights.range_profile_weight);
-  const flatbuffers::Offset<session_fb::ArRecognitionConfigV1> recognition_config =
-      session_fb::CreateArRecognitionConfigV1(
-          *builder, recognition.enabled, recognition.min_confirmed_hits,
-          recognition.accumulation_window_sec, recognition.min_observation_count,
-          recognition.acceptance_score, recognition.minimum_margin, recognition.result_hold_sec,
-          recognition.max_range_m, recognition.recognition_dwell_sec, feature_weights,
-          builder->CreateString(recognition.database_path));
   return session_fb::CreateArPolicyConfig(*builder, detection, beam_control, association, tracking,
-                                          lifecycle, imm, decision_control, recognition_config);
+                                          lifecycle, imm, decision_control);
 }
 
 flatbuffers::Offset<session_fb::AtmosphericPhysicsConfig> EncodeSessionAtmosphericPhysicsConfig(
@@ -953,28 +885,6 @@ config::ArPolicyConfig DecodeSessionPolicyConfig(const session_fb::ArPolicyConfi
           decision_control->lpi_cooldown_cycles_after_release();
       result.decision_control.eccm_cooldown_cycles_after_release =
           decision_control->eccm_cooldown_cycles_after_release();
-    }
-    const session_fb::ArRecognitionConfigV1* recognition = value->recognition();
-    if (recognition != nullptr) {
-      result.recognition.enabled = recognition->enabled();
-      result.recognition.min_confirmed_hits = recognition->min_confirmed_hits();
-      result.recognition.accumulation_window_sec = recognition->accumulation_window_sec();
-      result.recognition.min_observation_count = recognition->min_observation_count();
-      result.recognition.acceptance_score = recognition->acceptance_score();
-      result.recognition.minimum_margin = recognition->minimum_margin();
-      result.recognition.result_hold_sec = recognition->result_hold_sec();
-      result.recognition.max_range_m = recognition->max_range_m();
-      result.recognition.recognition_dwell_sec = recognition->recognition_dwell_sec();
-      const session_fb::ArRecognitionFeatureWeightsV1* weights = recognition->feature_weights();
-      if (weights != nullptr) {
-        result.recognition.feature_weights.rcs_weight = weights->rcs_weight();
-        result.recognition.feature_weights.motion_weight = weights->motion_weight();
-        result.recognition.feature_weights.polarization_weight = weights->polarization_weight();
-        result.recognition.feature_weights.range_profile_weight = weights->range_profile_weight();
-      }
-      if (recognition->database_path() != nullptr) {
-        result.recognition.database_path = recognition->database_path()->str();
-      }
     }
   }
   return result;
@@ -1366,39 +1276,6 @@ AssociationQualityMetrics DecodeAssociationQualityMetricsV3(
   return result;
 }
 
-flatbuffers::Offset<fb::ArRecognitionCycleSummaryV1> EncodeRecognitionCycleSummary(
-    flatbuffers::FlatBufferBuilder* builder, const session::ArRecognitionCycleSummary& value) {
-  return fb::CreateArRecognitionCycleSummaryV1(
-      *builder, value.participating_track_count, value.category_confirmed_count,
-      value.model_confirmed_count, value.unknown_count, value.disabled_count,
-      value.rcs_availability_rate, value.motion_availability_rate,
-      value.polarization_availability_rate, value.range_profile_availability_rate,
-      value.mean_confidence, value.mean_first_confirmation_sec, value.has_ground_truth,
-      value.category_accuracy, value.model_accuracy);
-}
-
-session::ArRecognitionCycleSummary DecodeRecognitionCycleSummary(
-    const fb::ArRecognitionCycleSummaryV1* value) {
-  session::ArRecognitionCycleSummary result;
-  if (value != nullptr) {
-    result.participating_track_count = value->participating_track_count();
-    result.category_confirmed_count = value->category_confirmed_count();
-    result.model_confirmed_count = value->model_confirmed_count();
-    result.unknown_count = value->unknown_count();
-    result.disabled_count = value->disabled_count();
-    result.rcs_availability_rate = value->rcs_availability_rate();
-    result.motion_availability_rate = value->motion_availability_rate();
-    result.polarization_availability_rate = value->polarization_availability_rate();
-    result.range_profile_availability_rate = value->range_profile_availability_rate();
-    result.mean_confidence = value->mean_confidence();
-    result.mean_first_confirmation_sec = value->mean_first_confirmation_sec();
-    result.has_ground_truth = value->has_ground_truth();
-    result.category_accuracy = value->category_accuracy();
-    result.model_accuracy = value->model_accuracy();
-  }
-  return result;
-}
-
 flatbuffers::Offset<fb::ArCycleResultV3> EncodeCycleResultV3(
     flatbuffers::FlatBufferBuilder* builder, const ArCycleResult& value) {
   std::vector<flatbuffers::Offset<fb::ArInterferenceObservation>> observations;
@@ -1442,8 +1319,7 @@ flatbuffers::Offset<fb::ArCycleResultV3> EncodeCycleResultV3(
       value.has_decision_observation,
       EncodeDecisionObservation(builder, value.decision_observation),
       static_cast<int>(value.applied_decision_source), value.applied_decision_cycle_index,
-      value.applied_decision_batch_id, issues_fb, value.has_recognition_summary,
-      EncodeRecognitionCycleSummary(builder, value.recognition_summary));
+      value.applied_decision_batch_id, issues_fb);
 }
 
 bool TryDecodeCycleResultV3(const fb::ArCycleResultV3* value, ArCycleResult* result) {
@@ -1492,8 +1368,6 @@ bool TryDecodeCycleResultV3(const fb::ArCycleResultV3* value, ArCycleResult* res
   candidate.applied_decision_source = static_cast<DecisionControlSource>(applied_source_raw);
   candidate.applied_decision_cycle_index = value->applied_decision_cycle_index();
   candidate.applied_decision_batch_id = value->applied_decision_batch_id();
-  candidate.has_recognition_summary = value->has_recognition_summary();
-  candidate.recognition_summary = DecodeRecognitionCycleSummary(value->recognition_summary());
   // 统一问题列表（规则 14）：decode 期校验 severity/phase（fail-closed），
   // entity_index 仅在 location_kind==kSceneEntity 且 >=0 时有效，否则还原为 kGlobal。
   if (value->issues() != nullptr) {
@@ -1543,8 +1417,7 @@ flatbuffers::Offset<fb::ArSessionReplayStateV3> EncodeSessionReplayStateV3(
       value.successful_prepare_count, value.timing_seed, value.frequency_hop_index,
       value.has_pending_runtime_update, value.pending_execution_config_changed,
       value.pending_environment_scenario_config_changed,
-      EncodeDecisionReplayState(builder, value.decision_state),
-      builder->CreateString(value.active_database_version));
+      EncodeDecisionReplayState(builder, value.decision_state));
 }
 
 bool TryDecodeSessionReplayStateV3(const fb::ArSessionReplayStateV3* value,
@@ -1562,9 +1435,6 @@ bool TryDecodeSessionReplayStateV3(const fb::ArSessionReplayStateV3* value,
   result->pending_execution_config_changed = value->pending_execution_config_changed();
   result->pending_environment_scenario_config_changed =
       value->pending_environment_scenario_config_changed();
-  if (value->active_database_version() != nullptr) {
-    result->active_database_version = value->active_database_version()->str();
-  }
   return TryDecodeDecisionReplayState(value->decision_state(), &result->decision_state);
 }
 

@@ -42,23 +42,6 @@ AR 的决策扩展点是同进程步间 observation/response seam：
    等领域术语保留原名。历史上的 `Radar*` 模块前缀已一次性迁移到 `Ar*`，不保留 deprecated compat 层；
    新增 public primary 类型不得再使用 `Radar*` 作为模块所有权前缀。
 
-## 远程识别子系统（kLrr）
-
-远程识别是 AR 的并行输出子能力：`kLrr` 模式下以已确认航迹为对象，经效能化观测
-（RCS/运动/双通道极化/宽带一维距离像）与预设特征数据库加权匹配，输出目标类别与最可能
-型号。识别结论与威胁分类（`target_type`/`target_probability`）相互独立，仅回填
-`TrackOutputFrame`，不进 `DecisionInputFrame`/`ThreatAssessment`（纯并行输出）。
-
-心智模型：**特征真值 → 效能观测 → 多周期积累 → 模板匹配 → 结论**。场景侧
-`aspect_rcs_samples`/`polarization_rcs_samples`/`range_rcs_scatterers` 是目标特征真值，
-由 `RecognitionObservationBuilder` 在 SNR/距离/带宽/驻留约束下转换为可识别观测；识别只
-消费效能化观测，不得由场景真值直接产生结论。数据库为只读 SQLite 基线（schema v1.1，
-权威 DDL 单源），运行期不持有连接。
-
-导航：子系统边界与不变式（非目标/单位纪律/ENU 帧/降级契约/接口不变式）→
-[boundaries.md](boundaries.md)；识别算法实现边界与反直觉点 → [algorithms.md](algorithms.md)；
-识别链路数据流与状态所有权 → [data-flow.md](data-flow.md)。
-
 ## 文档导航
 
 - 模块边界、非目标、dt_sec 反直觉差异、环境/RF 事实边界、输出/输入/失败语义、滤波后端选型、

@@ -110,15 +110,10 @@ struct ArSession::Impl {
         composition.runtime_environment_scenario_config;
     runtime_state.execution_config = config::mapping::MapSessionToExecution(initial_session_config);
     runtime_state.environment_scenario_config = composition.runtime_environment_scenario_config;
-    runtime_state.recognition = composition.runtime_policy.recognition;
     pending_runtime_state = runtime_state;
 
     concrete_signal_pipeline_ =
         static_cast<signal::pipeline::SignalPipeline*>(owned_signal_pipeline.get());
-    // 初始识别运行期上下文（工作模式 + 识别策略配置 + 数据库加载）。
-    Controller().UpdateRecognitionRuntime(
-        runtime_state.execution_config.detection.orientation.work_mode,
-        composition.runtime_policy.recognition);
   }
 
   ArCycleResult BuildCompletedCycleResult(const ArCycleInput& input,
@@ -146,10 +141,6 @@ struct ArSession::Impl {
     result.has_decision_observation = completed.has_decision_observation;
     if (result.has_decision_observation) {
       result.decision_observation = completed.decision_observation;
-    }
-    result.has_recognition_summary = Controller().HasLatestRecognitionSummary();
-    if (result.has_recognition_summary) {
-      result.recognition_summary = Controller().GetLatestRecognitionSummary();
     }
     FillAppliedDecisionMetadata(result);
     return result;
@@ -300,9 +291,6 @@ struct ArSession::Impl {
         }
       }
       Controller().UpdateDecisionControlConfig(state_to_commit.execution_config.decision_control);
-      Controller().UpdateRecognitionRuntime(
-          state_to_commit.execution_config.detection.orientation.work_mode,
-          state_to_commit.recognition);
       pipeline_config_synced = true;
     }
 
@@ -903,8 +891,6 @@ ArSessionReplayState ArSessionReplayAccess::CaptureSessionState(const ArSession&
   replay_state.pending_environment_scenario_config_changed =
       session.impl_->pending_environment_scenario_config_changed;
   replay_state.decision_state = CaptureDecisionState(session);
-  replay_state.active_database_version =
-      session.impl_->Controller().GetActiveRecognitionDatabaseVersion();
   return replay_state;
 }
 

@@ -17,7 +17,6 @@
 #include "airborne_radar/decision/ControlReducerTypes.h"
 #include "airborne_radar/config/SignalEngineeringConfig.h"
 #include "airborne_radar/environment/IEnvironmentService.h"
-#include "airborne_radar/recognition/RecognitionTracker.h"
 #include "airborne_radar/signal/detection/ArDeceptionMeasurementCandidate.h"
 #include "airborne_radar/signal/pipeline/ISignalPipeline.h"
 #include "airborne_radar/signal/pipeline/SignalCycleInput.h"
@@ -34,7 +33,7 @@ namespace extension {
 /**
  * @brief ArController 运行态快照，用于失败回滚等场景的整快照捕获/恢复。
  * @note owner_identity 标识捕获方实例，RestoreRuntimeState 会拒绝跨实例恢复；
- *       schema_version 用于校验快照格式兼容性（7：识别状态纳入回滚边界）。
+ *       schema_version 用于校验快照格式兼容性（8：识别状态随远程识别雷达拆分迁出）。
  */
 struct ArControllerRuntimeState {
   const void* owner_identity{nullptr};
@@ -61,27 +60,12 @@ struct ArControllerRuntimeState {
   std::uint64_t last_applied_decision_batch_id{0U};
   std::vector<session::TacticalProposal> last_applied_decision_proposals{};
   bool control_prepared_for_cycle{false};
-  recognition::RecognitionTracker::Snapshot recognition_tracker_state{}; /**< 识别积累/结论快照。 */
-  config::ArWorkMode work_mode{config::ArWorkMode::kTws}; /**< 快照时工作模式。 */
-  config::ArRecognitionConfig recognition_config{}; /**< 快照时识别策略配置。 */
-  std::string recognition_database_path{};          /**< 快照时生效数据库路径。 */
-  session::ArRecognitionCycleSummary latest_recognition_summary{}; /**< 最近周期识别摘要。 */
-  bool has_latest_recognition_summary{false}; /**< 最近周期是否发布了识别摘要。 */
 };
 }  // namespace extension
 }  // namespace airborne_radar
 
 namespace airborne_radar {
 namespace extension {
-
-/**
- * @brief ArRecognitionStaticContext 识别链路的静态物理上下文（来自会话 hardware 域）。
- */
-struct ArRecognitionStaticContext {
-  config::engineering::TransmitterConfig transmitter{};
-  config::engineering::ReceiverConfig receiver{};
-  config::engineering::AntennaConfig antenna{};
-};
 
 /**
  * @brief ArController 负责调度信号处理、行为决策与指令下发。
@@ -98,32 +82,13 @@ class ArController {
    * @param[in] signal_pipeline 信号处理流水线引用。
    * @param[in] environment_service 环境服务引用。
    * @param[in] decision_control_config 决策控制配置。
-   * @param[in] recognition_static_context 识别链路静态物理上下文（可为空默认）。
    */
   ArController(session::MutableArContext& ar_context, signal::ISignalPipeline& signal_pipeline,
                environment::IEnvironmentService& environment_service,
-               config::DecisionControlConfig decision_control_config = {},
-               ArRecognitionStaticContext recognition_static_context = {});
+               config::DecisionControlConfig decision_control_config = {});
 
   /** @brief 原子更新后续成功周期使用的控制保持/冷却配置。 */
   void UpdateDecisionControlConfig(const config::DecisionControlConfig& decision_control_config);
-
-  /**
-   * @brief 原子更新识别运行期上下文（工作模式 + 识别策略配置）。
-   * @note 由会话在运行期配置提交边界调用；识别数据库在路径变化时按需加载，
-   *       加载失败保持原库并记录日志（识别降级为 kDisabled）。
-   */
-  void UpdateRecognitionRuntime(config::ArWorkMode work_mode,
-                                const config::ArRecognitionConfig& recognition_config);
-
-  /** @brief 最近周期是否发布了识别效能摘要。 */
-  bool HasLatestRecognitionSummary() const;
-
-  /** @brief 获取最近周期识别效能摘要。 */
-  const session::ArRecognitionCycleSummary& GetLatestRecognitionSummary() const;
-
-  /** @brief 当前生效识别特征数据库版本（供 replay 溯源）。 */
-  std::string GetActiveRecognitionDatabaseVersion() const;
 
   /**
    * @brief 执行一次 AR 处理循环。

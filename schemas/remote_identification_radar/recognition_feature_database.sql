@@ -1,11 +1,11 @@
--- 机载雷达识别特征数据库权威 schema（airborne_radar 识别特征库，v1.1）。
+-- 远程识别雷达识别特征数据库权威 schema（remote_identification_radar 识别特征库，v1.1）。
 --
--- 唯一事实源：C++ 加载器（src/airborne_radar/recognition/RecognitionFeatureDatabase.cpp）、
+-- 唯一事实源：C++ 加载器（src/remote_identification_radar/recognition/RecognitionFeatureDatabase.cpp）、
 -- C++ 测试（tests/CMakeLists.txt configure_file 生成头）、建库工具
--- （tools/recognition_db_builder.py）均以本文件为准，禁止在别处维护第二份 DDL。
+-- （tools/remote_identification_radar_db_builder.py）均以本文件为准，禁止在别处维护第二份 DDL。
 --
 -- schema_version 由库内 meta 表声明（本文件对应 "1.1"）；版本策略与变更流程见
--- docs/airborne_radar/boundaries.md「识别特征数据库契约」（major 破坏 / minor 增量）。
+-- docs/remote_identification_radar/boundaries.md「识别特征数据库契约」（major 破坏 / minor 增量）。
 
 -- 自描述元数据：键值表承载字符串元数据。v1.1 必填键：schema_version（'1.1'）、
 -- database_id、version、created_utc、polarization_channels（逗号分隔，如 'H,V'）、

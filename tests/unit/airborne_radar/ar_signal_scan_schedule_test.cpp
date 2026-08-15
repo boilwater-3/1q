@@ -551,41 +551,11 @@ TEST(ScanScheduleResolverTest, SttFixesAtScanCenterAndKeepsZeroDwell) {
   EXPECT_FLOAT_EQ(dwell.el_deg, 0.0f);
 }
 
-TEST(ScanScheduleResolverTest, LrrFixesAtScanCenterAndKeepsZeroDwell) {
-  config::ArOrientationConfig orientation;
-  orientation.work_mode = config::ArWorkMode::kLrr;
-  orientation.scan_center_deg.az_deg = -8.0f;
-  orientation.scan_center_deg.el_deg = 6.5f;
-  orientation.mechanical_scan_limits_deg.az_min_deg = -60.0f;
-  orientation.mechanical_scan_limits_deg.az_max_deg = 60.0f;
-  orientation.mechanical_scan_limits_deg.el_min_deg = -30.0f;
-  orientation.mechanical_scan_limits_deg.el_max_deg = 30.0f;
-  orientation.electronic_scan_limits_deg = orientation.mechanical_scan_limits_deg;
-
-  signal::detection::EffectiveBeamwidthDeg beamwidth;
-  beamwidth.az_beamwidth_deg = 10.0f;
-  beamwidth.el_beamwidth_deg = 10.0f;
-
-  const config::AzimuthElevationDeg cycle_1 =
-      signal::pipeline::ResolveScheduledBeamPointing(orientation, beamwidth, 1U);
-  const config::AzimuthElevationDeg cycle_9 =
-      signal::pipeline::ResolveScheduledBeamPointing(orientation, beamwidth, 9U);
-  EXPECT_TRUE(AlmostSamePoint(cycle_1, cycle_9));
-  EXPECT_FLOAT_EQ(cycle_1.az_deg, orientation.scan_center_deg.az_deg);
-  EXPECT_FLOAT_EQ(cycle_1.el_deg, orientation.scan_center_deg.el_deg);
-
-  const config::AzimuthElevationDeg dwell =
-      signal::pipeline::ResolveScheduledDwellCenter(orientation, beamwidth, 9U);
-  EXPECT_FLOAT_EQ(dwell.az_deg, 0.0f);
-  EXPECT_FLOAT_EQ(dwell.el_deg, 0.0f);
-}
-
 TEST(ScanScheduleResolverTest, ResolveScanStepScaleDefinesDirectCallFallbacks) {
   EXPECT_FLOAT_EQ(signal::pipeline::ResolveScanStepScale(config::ArWorkMode::kTas), 0.5f);
   EXPECT_FLOAT_EQ(signal::pipeline::ResolveScanStepScale(config::ArWorkMode::kTws), 1.0f);
   EXPECT_FLOAT_EQ(signal::pipeline::ResolveScanStepScale(config::ArWorkMode::kStby), 1.0f);
   EXPECT_FLOAT_EQ(signal::pipeline::ResolveScanStepScale(config::ArWorkMode::kStt), 1.0f);
-  EXPECT_FLOAT_EQ(signal::pipeline::ResolveScanStepScale(config::ArWorkMode::kLrr), 1.0f);
   EXPECT_FLOAT_EQ(signal::pipeline::ResolveScanStepScale(static_cast<config::ArWorkMode>(999)),
                   1.0f);
 }

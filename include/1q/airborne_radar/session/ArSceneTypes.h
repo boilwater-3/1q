@@ -18,41 +18,6 @@ namespace airborne_radar {
 namespace session {
 
 /**
- * @brief AspectRcsSample 按入射方位/俯仰角离散的 RCS 真值样本。
- * @note 识别专用特征输入（仅 kLrr 模式消费）；RCS 以 dBsm 表达，区别于
- *       `ArSceneTarget::rcs`（m²，服务于基础探测链路）。
- */
-struct ONEQ_API AspectRcsSample {
-  float aspect_az_deg{0.0f}; /**< 入射方位角（deg），任意有限值。 */
-  float aspect_el_deg{0.0f}; /**< 入射俯仰角（deg），任意有限值。 */
-  float rcs_dbsm{0.0f};      /**< 该视角下 RCS（dBsm），有限值。 */
-};
-
-/**
- * @brief PolarizationRcsSample 同一观测几何下两正交极化通道的 RCS 样本。
- */
-struct ONEQ_API PolarizationRcsSample {
-  float aspect_az_deg{0.0f};      /**< 入射方位角（deg），任意有限值。 */
-  float aspect_el_deg{0.0f};      /**< 入射俯仰角（deg），任意有限值。 */
-  float channel_1_rcs_dbsm{0.0f}; /**< 第一极化通道 RCS（dBsm）。 */
-  float channel_2_rcs_dbsm{0.0f}; /**< 第二极化通道 RCS（dBsm）。 */
-};
-
-/**
- * @brief RangeRcsScatterer 距离向散射中心样本。
- * @note 一维距离像只使用 `ArSceneTarget::range_rcs_scatterers`，
- *       不允许以单个总体 RCS 代替；`phase_deg == 0` 表示非相干叠加。
- */
-struct ONEQ_API RangeRcsScatterer {
-  float range_offset_m{0.0f};       /**< 相对目标参考点的距离向位置（m）。 */
-  float rcs_dbsm{0.0f};             /**< 该散射中心 RCS（dBsm）。 */
-  float channel_1_rcs_dbsm{0.0f};   /**< 可选：第一极化通道散射 RCS（dBsm）。 */
-  float channel_2_rcs_dbsm{0.0f};   /**< 可选：第二极化通道散射 RCS（dBsm）。 */
-  float phase_deg{0.0f};            /**< 可选：相位（deg），0 表示非相干叠加。 */
-  float fluctuation_std_db{0.0f};   /**< 可选：周期起伏标准差（dB），0 表示无起伏。 */
-};
-
-/**
  * @brief ArSceneTarget 描述雷达单周期场景目标输入。
  */
 struct ONEQ_API ArSceneTarget {
@@ -80,11 +45,6 @@ struct ONEQ_API ArSceneTarget {
         rcs(rcs_m2_in),
         range_m(range_m_in),
         target_swerling_type(swerling_type_in) {}
-
-  /** 识别专用特征真值输入（默认空，仅 kLrr 模式消费；空向量表示该维度不可用） */
-  std::vector<AspectRcsSample> aspect_rcs_samples{};
-  std::vector<PolarizationRcsSample> polarization_rcs_samples{};
-  std::vector<RangeRcsScatterer> range_rcs_scatterers{};
 };
 
 /** @brief ArSceneTargetList 表示雷达场景目标输入列表。 */

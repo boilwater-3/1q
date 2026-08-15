@@ -20,7 +20,7 @@
 | 文件 | 角色 |
 | --- | --- |
 | `recognition_database_input.json` | 建库输入源——`tools/remote_identification_radar_db_builder.py --input` 的唯一输入 |
-| `target_feature_database_v1.1.db` | 交付库（SQLite）——由建库工具产出，被 RIR 识别集成测试经 `ONEQ_RIR_EXAMPLE_DATABASE_PATH` 加载（`tests/integration/remote_identification_radar/`）与 AR 识别测试经 `ONEQ_RECOGNITION_EXAMPLE_DATABASE_PATH` 加载（阶段 2 前过渡共用） |
+| `target_feature_database_v1.1.db` | 交付库（SQLite）——由建库工具产出，被 RIR 识别集成测试经 `ONEQ_RIR_EXAMPLE_DATABASE_PATH` 加载（`tests/integration/remote_identification_radar/`） |
 
 ## JSON 结构与配置说明
 
