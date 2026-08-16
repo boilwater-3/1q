@@ -15,10 +15,11 @@ flowchart TB
     Scene["场景目标\n（位置/速度/名称/Swerling + 特征真值）"]
     Rf["RF 入射链路 + 自身发射身份"]
     Env["环境快照\n（天气/植被）"]
+    Dwell["驻留调度\n（显式波束指向 az/el，deg）"]
   end
 
   subgraph Rir["remote_identification_radar 模块"]
-    Input["RirCycleInput\n（周期戳 + 平台海拔 + 场景 + RF + 环境）"]
+    Input["RirCycleInput\n（周期戳 + 平台海拔 + 场景 + RF + 环境 + 驻留指向）"]
     Session["RirSession\n（校验/补丁提交/周期装配）"]
     Controller["RirController\n（检测 → 量测误差 → 关联/滤波/生命周期）"]
     Detector["RirSignalDetector / RirDetectionCellResolver"]
@@ -35,6 +36,7 @@ flowchart TB
   Scene --> Input
   Rf --> Input
   Env --> Input
+  Dwell --> Input
   Input --> Session
   Session --> Controller
   Controller --> Detector
@@ -60,7 +62,11 @@ flowchart TB
 3. **补丁提交**（staged）：`RirRuntimeConfigPatch` 在下一个成功周期边界应用
    （电源/工作模式/完整 policy 域）→ `RirController::UpdateRuntime`。
 4. **自持链路执行**：`kIdentify` 门控整链：
-   - 驻留候选排序：未识别优先 + 斜距次近（消费上一周期内部航迹结论）；
+   - 驻留候选排序：未识别优先 + 斜距次近（消费上一周期内部航迹结论；
+     只决定候选顺序，不生成波束指向）；
+   - 波束状态：消费驻留调度显式给定的波束中心（雷达局部 ENU 系，
+     `az ∈ [-180, 180]`、`el ∈ [-90, 90]`），与同帧目标视线角相减求离轴增益；
+     方向图关闭或无有效视线角时回退主瓣峰值（契约见 boundaries.md）；
    - 检测：无环境/干扰输入时退化为阶段 1 旧 SNR 口径；有环境或 RF 输入时走
      `TryResolveRirDetectionCell` 分项 SINR 账本，再经统计级 CFAR 判决；
      6 dB 回退模式以 SNR ≥ 6 dB 替代 CFAR 判决（旧识别门控口径）；
@@ -94,5 +100,6 @@ flowchart TB
 
 ## 与 AR 的关系
 
-RIR **不 include 任何 AR 头**，不消费任何 AR 输出，也不向 AR 提供航迹或识别
-结论。AR 与 RIR 仅为同库共存的两部独立装备，由调用方分别编排。
+RIR **不 include 任何 AR 头**，不消费任何 AR 输出，也不向 AR 提供航迹、识别
+结论或波束控制。AR 与 RIR 仅为同库共存的两部独立装备，由调用方分别编排；
+RIR 波束中心只来自调用方驻留调度的显式输入。

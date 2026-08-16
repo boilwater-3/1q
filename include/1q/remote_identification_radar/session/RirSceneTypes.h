@@ -71,13 +71,16 @@ struct ONEQ_API RirRangeRcsScatterer {
  * @note 阶段 2-S 起场景目标补齐自持检测与滤波所需事实：速度（量测种子与
  *       多普勒/径向速度）、`target_name`（人读与识别真值准确率统计）与
  *       `target_swerling_type`（CFAR 起伏模型）。
+ * @note `position_x/y/z` 为雷达局部 ENU 右手坐标系（x=东、y=北、z=天）；
+ *       该坐标系也是波束指向角 `config::RirAzimuthElevationDeg` 与目标视线角
+ *       的参考系。
  */
 struct ONEQ_API RirSceneTarget {
   std::uint64_t external_target_id{0}; /**< 外部输入原始目标标识符（0 表示未知/未提供） */
   std::string target_name{};           /**< 可选目标名称，仅用于人读与真值准确率统计。 */
-  float position_x{0.0f};              /**< 雷达局部笛卡尔坐标 x（单位：m） */
-  float position_y{0.0f};              /**< 雷达局部笛卡尔坐标 y（单位：m） */
-  float position_z{0.0f};              /**< 雷达局部笛卡尔坐标 z（单位：m） */
+  float position_x{0.0f};              /**< 雷达局部 ENU 坐标 x（东向，单位：m） */
+  float position_y{0.0f};              /**< 雷达局部 ENU 坐标 y（北向，单位：m） */
+  float position_z{0.0f};              /**< 雷达局部 ENU 坐标 z（天向，单位：m） */
   float velocity_x{0.0f};              /**< 目标速度向量 x 分量（单位：m/s）。 */
   float velocity_y{0.0f};              /**< 目标速度向量 y 分量（单位：m/s）。 */
   float velocity_z{0.0f};              /**< 目标速度向量 z 分量（单位：m/s）。 */

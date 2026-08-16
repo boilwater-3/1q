@@ -26,7 +26,9 @@ RIR 是与机载雷达（AR）**相互独立的另一部雷达装备**，不是 
 2. **输入面**：`RirCycleInput` 提供周期戳、平台海拔、场景目标（含识别特征真值
    `aspect_rcs_samples`/`polarization_rcs_samples`/`range_rcs_scatterers`）
    与 RF 入射链路、环境快照；场景目标速度/名称/Swerling 起伏为自持链路事实；
-   识别只消费效能化观测，场景真值不得直接产生结论。
+   识别只消费效能化观测，场景真值不得直接产生结论。每周期实际波束中心由
+   调用方驻留调度显式给定，RIR 只消费并信任给定指向，不按目标位置自行生成
+   （指向范围与坐标语义见 boundaries.md 驻留指向契约）。
 3. **输出面**：识别结论（`RirRecognitionResult`）与效能摘要
    （`RirRecognitionCycleSummary`）为独立输出模型，与 AR 威胁分类相互独立，
    不进任何决策帧。

@@ -14,6 +14,7 @@ RIR 自持链路生产的内部航迹，不再消费外部航迹供给。
 
 | 算法 | 位置 | 输入 → 输出 | 边界与反直觉点 |
 |---|---|---|---|
+| 波束状态解析 | `dwell/RirBeamControl.h` | 驻留调度给定波束中心 + 目标视线角 + 天线配置 → 有效宽度/指向/单程增益 | 调度器给指向、RIR 信指向：不重算、不吸附；指向与视线角同为雷达局部 ENU 系（`az∈[-180,180]`、`el∈[-90,90]`），差值即离轴角 |
 | 检测单元求解 | `dwell/RirDetectionCellResolver.cpp` | 目标回波事实 + RF 入射链路 + 增益偏置 → 分项 SINR 账本 | 干扰按目标单元时频重叠聚合；四增益偏置缺省 0 dB 等于保守账本；自身发射身份不计干扰 |
 | 统计级 CFAR | `dwell/RirSignalDetector.cpp` | SNR + Swerling + Pfa → Pd → 蒙特卡洛判决 | 不是 CA-CFAR；`min_snr_db` 硬截断、`min_detection_margin_db` 可靠性门；同种子同判决 |
 | 量测误差 | `dwell/RirMeasurementErrorModel.h` | SNR + 波束宽度 + 带宽 → 距离/角度标准差 | 距离偏置 20 m；角度两轴 RMS 合成；只供内部关联/滤波 |
@@ -21,7 +22,7 @@ RIR 自持链路生产的内部航迹，不再消费外部航迹供给。
 | 单目标 KF | `tracking/RirTrackFilter.cpp` | 量测 + 先验状态 → 预测/更新后验 | 6 维 CV 状态；动态 R 更新；LLT 失败跳过更新 |
 | IMM 双路径 | `tracking/RirImmFilter.cpp` | 量测/失配 + 先验状态 → 组合后验 | 数值核 common `ImmFilter<6,3>`；缺省双模型 CV {1.0, 10.0} 对数等距；对角 0.95 转移；confirmed 命中激活、失配仅预测；缺省关闭 |
 | 航迹池与生命周期 | `tracking/RirTrackPool.cpp` + `tracking/RirTrackLifecycle.cpp` | 关联量测 + 周期上下文 → 内部航迹 | hit/miss 计数、confirm/lost/回收；lost 重捕获重置 KF；回收不回收关联键；槽位复用经 `generation` 单调递增标识；双重释放拒绝 |
-| 驻留排序 | `runtime/RirController.cpp` | 上一周期内部航迹结论 + 场景目标 → 驻留候选顺序 | 未识别优先 + 斜距次近；威胁等级输入不参与 |
+| 驻留排序 | `runtime/RirController.cpp` | 上一周期内部航迹结论 + 场景目标 → 驻留候选顺序 | 未识别优先 + 斜距次近；威胁等级输入不参与；只决定候选顺序，不生成波束指向 |
 | 观测构造 | `recognition/RecognitionObservationBuilder.cpp` | 场景目标真值 + 内部航迹 + `RirObservationContext` → `RirFeatureSet` | 驻留质量因子作用于 RCS/极化/距离像（运动除外）；场景真值不得直接产生结论 |
 | RCS 特征 | `recognition/RcsFeatureExtractor.cpp` | 视角样本 + 视线角 + SNR → `RirRcsObservation` | **最近邻插值不强制覆盖**；SNR < 6 dB 维度无效；覆盖下限由匹配阶段判定 |
 | 运动特征 | `recognition/MotionFeatureExtractor.cpp` | 内部航迹 + 平台海拔 + 不确定度 → `RirMotionObservation` | 仅已确认航迹；横向加速度分解判直线/转弯半径；质量因子 = 10000/(10000+不确定度) |
@@ -49,6 +50,9 @@ RIR 自持链路生产的内部航迹，不再消费外部航迹供给。
    `minimum_aspect_coverage_deg` 承担——样本网格仅需非空即产生 RCS 观测。
 7. **关联键不回收**：航迹回收只删除内部航迹，`next_key` 继续单调递增；因此
    识别积累不需要检测 `hit_count` 回落，新键天然等于新目标。
+8. **波束指向不追目标**：RIR 不会把给定波束中心重算或吸附到目标位置。方向图
+   开启时，调度器指向与目标视线角的差值直接决定天线增益；指向偏离目标即按
+   实际离轴角衰减，这是“RIR 信指向”的可见后果。
 
 ## 非目标（刻意不实现的算法）
 
@@ -57,7 +61,8 @@ RIR 自持链路生产的内部航迹，不再消费外部航迹供给。
 3. CA-CFAR（参考单元滑窗/杂波图/OS-GO-SO）。
 4. 战术决策、ECCM 决策与反欺骗（跟踪升级 N1-N7 已落地 LAPJV/池化/IMM，见
    `docs/review/remote_identification_radar_migration_status_2026-08-15.md`）。
-5. 对外点迹/量测输出、外部雷达波束控制接口；驻留指向不驱动任何 AR 波束。
+5. 对外点迹/量测输出、外部雷达波束控制接口；RIR 不生成波束指向、不把驻留
+   指向反馈给任何 AR 波束。
 
 ## 证据
 

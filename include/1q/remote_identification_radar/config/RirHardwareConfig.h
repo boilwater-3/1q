@@ -23,10 +23,25 @@
 namespace remote_identification_radar {
 namespace config {
 
-/** @brief RirAzimuthElevationDeg 方位-俯仰二维角度（单位：度）。 */
+/**
+ * @brief RirAzimuthElevationDeg 雷达局部坐标系的方位-俯仰二维角度（单位：度）。
+ *
+ * 角度约定（雷达局部 ENU 右手坐标系，与
+ * `remote_identification_radar::session::RirSceneTarget::position_x/y/z` 同帧）：
+ * - `az_deg`：从 +x（东）向 +y（北）旋转的方位角，合法域 [-180, 180]；
+ *   调用方必须预先折算到该区间，消费侧不做跨 ±180° 归一化。
+ * - `el_deg`：相对 x-y 水平面的俯仰角，合法域 [-90, 90]；正值指向 +z（天）。
+ * - `(az_deg, el_deg)` 对应的单位指向向量为
+ *   `(cos(el)·cos(az), cos(el)·sin(az), sin(el))`；
+ *   因此 (0°, 0°) 指向 +x（东向水平），az 正向转向 +y（北），el 正向转向 +z（天）。
+ *
+ * 本类型既用于方向图安装偏置，也用于驻留波束中心。驻留波束中心由驻留调度
+ * 显式给定，RIR 只消费并信任给定值（调度器给指向、RIR 信指向），不按目标
+ * 位置重算波束指向。
+ */
 struct ONEQ_API RirAzimuthElevationDeg {
-  float az_deg{0.0f}; /**< 方位角（单位：度） */
-  float el_deg{0.0f}; /**< 俯仰角（单位：度） */
+  float az_deg{0.0f}; /**< 方位角（deg）：从 +x 向 +y，[-180, 180]。 */
+  float el_deg{0.0f}; /**< 俯仰角（deg）：相对水平面，[-90, 90]，正值向上。 */
 };
 
 namespace hardware {
@@ -51,7 +66,7 @@ struct ONEQ_API RirAntennaPatternConfig {
   float backlobe_level_db{-35.0f};                    /**< 后瓣电平。 */
   float scan_loss_coeff_db_per_deg2{0.0f};            /**< 扫描损失系数。 */
   float max_scan_loss_db{6.0f};                       /**< 扫描损失上限。 */
-  config::RirAzimuthElevationDeg boresight_offset_deg{}; /**< 方向图相对安装轴偏置。 */
+  config::RirAzimuthElevationDeg boresight_offset_deg{}; /**< 方向图相对安装轴偏置（角度约定同 RirAzimuthElevationDeg）。 */
 };
 
 /**

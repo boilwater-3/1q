@@ -5,10 +5,21 @@
  * 波束宽度解析数值内核为 common 单源；方向图增益求解保留在本文件。
  * 与 AR 版的刻意差异：
  *   - 无 commanded 波束宽度覆盖分支（AR orientation 域机制，RIR 不随迁）；
- *   - 无平台姿态/稳定模式安装系指向解算（RIR 驻留指向由驻留调度显式给定，
- *     阶段 2-S 接线，见《阶段 2 计划》D-A5）；
+ *   - 无平台姿态/稳定模式安装系指向解算：RIR 驻留指向由驻留调度显式给定，
+ *     本文件只消费给定值（调度器给指向、RIR 信指向），见下方指向契约；
  *   - 保留：有效波束宽度两级回退（nominal → λ/L 物理推导）、
  *     离轴角 → 方向图增益链路、enable_directional_pattern=false 回退主瓣峰值。
+ *
+ * 驻留指向契约（冻结）：
+ *   - 来源：调用方驻留调度器显式给定波束中心；RIR 不生成指向、不按目标位置
+ *     重算或吸附指向。
+ *   - 角度：`RirAzimuthElevationDeg`（deg），雷达局部 ENU 右手系；
+ *     az ∈ [-180, 180]，el ∈ [-90, 90]，方位角须由调用方预先折算到该区间。
+ *   - 含义：az=0/el=0 指向 +x（东向水平），az 正向转向 +y（北），
+ *     el 正向指向 +z（天）；单位向量
+ *     (cos(el)·cos(az), cos(el)·sin(az), sin(el))。
+ *   - 离轴：目标视线角以同一坐标系公式计算，直接相减得到离轴角；
+ *     本函数不做跨 ±180° 归一化。
  * @note 本文件仅供 RIR 模块内部使用，不作为公开 API。
  */
 
@@ -56,7 +67,7 @@ inline RirEffectiveBeamwidthDeg RirResolveEffectiveBeamwidth(
  */
 struct RirResolvedBeamState {
   RirEffectiveBeamwidthDeg effective_beamwidth_deg{}; /**< 生效方位/俯仰波束宽度。 */
-  config::RirAzimuthElevationDeg beam_pointing_deg{}; /**< 当前波束中心指向。 */
+  config::RirAzimuthElevationDeg beam_pointing_deg{}; /**< 当前波束中心指向（驻留调度显式给定，雷达局部 ENU 系，deg）。 */
   float one_way_antenna_gain_db{0.0f}; /**< 当前目标方向上的单程天线增益（dB）。 */
 };
 
@@ -64,12 +75,18 @@ struct RirResolvedBeamState {
  * @brief 解析给定驻留指向下的目标方向波束状态。
  *
  * 对齐 AR `BeamControlResolver::ResolveFrozen`（冻结指向变体）：波束指向由
- * 驻留调度显式给定；`enable_directional_pattern=false` 或无有效视线角时
- * 回退主瓣峰值增益（阶段 1 旧行为，缺省兼容）。
+ * 驻留调度显式给定，RIR 原样信任并消费（调度器给指向、RIR 信指向）。
+ * `enable_directional_pattern=false` 或无有效视线角时回退主瓣峰值增益
+ * （阶段 1 旧行为，缺省兼容）。
+ *
+ * @note 给定指向与目标视线角必须同属雷达局部 ENU 右手系：
+ *       az ∈ [-180, 180]、el ∈ [-90, 90]；az=0/el=0 指向 +x，
+ *       az 正向转向 +y，el 正向指向 +z。调用方负责方位角预先折算，
+ *       本函数不做跨 ±180° 归一化；指向不朝向目标时按实际离轴角衰减。
  * @param antenna_config 天线配置。
- * @param beam_pointing_deg 驻留波束指向（雷达局部方位/俯仰，单位：度）。
- * @param target_look_az_deg 目标视线方位角（单位：度）。
- * @param target_look_el_deg 目标视线俯仰角（单位：度）。
+ * @param beam_pointing_deg 驻留波束指向（调度器显式给定，雷达局部 ENU 系，单位：度）。
+ * @param target_look_az_deg 目标视线方位角（同一雷达局部 ENU 系，单位：度）。
+ * @param target_look_el_deg 目标视线俯仰角（同一雷达局部 ENU 系，单位：度）。
  * @param has_look_angles 目标视线角是否有效。
  * @param wavelength_m 载波波长（单位：m），用于波束宽度物理推导与 sinc² 模式。
  * @return 波束状态（有效波束宽度 + 指向 + 单程增益）。
