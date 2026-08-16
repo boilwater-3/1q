@@ -1336,7 +1336,10 @@ flatbuffers::Offset<fb::ArCycleResultV3> EncodeCycleResultV3(
       value.has_decision_observation,
       EncodeDecisionObservation(builder, value.decision_observation),
       static_cast<int>(value.applied_decision_source), value.applied_decision_cycle_index,
-      value.applied_decision_batch_id, issues_fb);
+      value.applied_decision_batch_id, issues_fb,
+      static_cast<int>(value.effective_work_mode), value.designation_active,
+      value.designated_target_id, value.designation_reverted_to_tws,
+      static_cast<int>(value.designation_revert_reason));
 }
 
 bool TryDecodeCycleResultV3(const fb::ArCycleResultV3* value, ArCycleResult* result) {
@@ -1385,6 +1388,21 @@ bool TryDecodeCycleResultV3(const fb::ArCycleResultV3* value, ArCycleResult* res
   candidate.applied_decision_source = static_cast<DecisionControlSource>(applied_source_raw);
   candidate.applied_decision_cycle_index = value->applied_decision_cycle_index();
   candidate.applied_decision_batch_id = value->applied_decision_batch_id();
+  const int effective_mode_raw = value->effective_work_mode();
+  if (!IsKnownArWorkMode(effective_mode_raw)) {
+    return false;
+  }
+  candidate.effective_work_mode = static_cast<config::ArWorkMode>(effective_mode_raw);
+  candidate.designation_active = value->designation_active();
+  candidate.designated_target_id = value->designated_target_id();
+  candidate.designation_reverted_to_tws = value->designation_reverted_to_tws();
+  const int revert_reason_raw = value->revert_reason();
+  if (revert_reason_raw < 0 ||
+      revert_reason_raw > static_cast<int>(session::ArDesignationRevertReason::kTrackLost)) {
+    return false;
+  }
+  candidate.designation_revert_reason =
+      static_cast<session::ArDesignationRevertReason>(revert_reason_raw);
   // 统一问题列表（规则 14）：decode 期校验 severity/phase（fail-closed），
   // entity_index 仅在 location_kind==kSceneEntity 且 >=0 时有效，否则还原为 kGlobal。
   if (value->issues() != nullptr) {
@@ -1669,7 +1687,8 @@ std::string EncodeRuntimeConfigPatchFlatbuffer(const config::ArRuntimeConfigPatc
           EncodeSessionEnvironmentRuntimeConfigPatch(&builder, patch.environment),
           patch.has_work_mode, static_cast<int>(patch.work_mode), patch.has_scan_center_deg,
           EncodeSessionAzEl(&builder, patch.scan_center_deg), patch.has_dwell_center_deg,
-          EncodeSessionAzEl(&builder, patch.dwell_center_deg), patch.has_commanded_beamwidth_deg,
+          EncodeSessionAzEl(&builder, patch.dwell_center_deg), patch.has_designated_target_id,
+          patch.designated_external_target_id, patch.has_commanded_beamwidth_deg,
           EncodeSessionCommandedBeamwidth(&builder, patch.commanded_beamwidth_deg),
           patch.has_commanded_beamwidth_enabled, patch.commanded_beamwidth_enabled,
           patch.has_sensor_enabled, patch.sensor_enabled);
@@ -1719,6 +1738,8 @@ bool DecodeRuntimeConfigPatchFlatbuffer(const std::string& payload_bytes,
   decoded.scan_center_deg = DecodeSessionAzEl(root->scan_center_deg());
   decoded.has_dwell_center_deg = root->has_dwell_center_deg();
   decoded.dwell_center_deg = DecodeSessionAzEl(root->dwell_center_deg());
+  decoded.has_designated_target_id = root->has_designated_target_id();
+  decoded.designated_external_target_id = root->designated_target_id();
   decoded.has_commanded_beamwidth_deg = root->has_commanded_beamwidth_deg();
   decoded.commanded_beamwidth_deg = DecodeSessionCommandedBeamwidth(root->commanded_beamwidth_deg());
   decoded.has_commanded_beamwidth_enabled = root->has_commanded_beamwidth_enabled();

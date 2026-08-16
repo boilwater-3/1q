@@ -26,7 +26,8 @@ enum class ONEQ_API ArTrackLifecycleEventKind {
   kFirstConfirmed = 0, /**< 目标首次进入已确认状态。 */
   kUpdated = 1,        /**< 已确认轨迹本周期再次更新。 */
   kLost = 2,           /**< 轨迹进入丢失状态。 */
-  kNotTracked = 3      /**< 输入目标无对应 track（需显式开启诊断）。 */
+  kNotTracked = 3,     /**< 输入目标无对应 track（需显式开启诊断）。 */
+  kDesignationDropped = 4 /**< 指定跟踪目标被自动放弃（STT 航迹跟随回退 TWS）。 */
 };
 
 /**
@@ -50,6 +51,8 @@ struct ONEQ_API ArTrackLifecycleEvent {
   std::uint64_t association_key{0U};                                  /**< 关联轨迹的关联键（无 track 时为 0） */
   session::TrackStatus track_status{session::TrackStatus::kTentative}; /**< 关联轨迹的生命周期状态 */
   float speed{0.0f};                                                  /**< 关联轨迹的速度（无 track 时为 0） */
+  ArDesignationRevertReason designation_revert_reason{
+      ArDesignationRevertReason::kNone}; /**< 指定跟踪回退成因（仅 kDesignationDropped 填充） */
 };
 
 /**

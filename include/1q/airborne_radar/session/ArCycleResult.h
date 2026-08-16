@@ -11,6 +11,7 @@
 #include <cstdint>
 #include <vector>
 
+#include "1q/airborne_radar/config/ArOrientationConfig.h"
 #include "1q/airborne_radar/session/ArCommand.h"
 #include "1q/airborne_radar/session/ArControlProfile.h"
 #include "1q/airborne_radar/session/DecisionControlTypes.h"
@@ -34,6 +35,15 @@ enum class ArCycleStatus : std::uint8_t {
 
 /** @brief 接收机结构化损伤状态。 */
 enum class ArReceiverImpairment : std::uint8_t { kNone = 0, kSaturated };
+
+/**
+ * @brief 指定航迹跟踪回退成因（STT 未生效时的结构化原因）。
+ */
+enum class ArDesignationRevertReason : std::uint8_t {
+  kNone = 0,              /**< 无回退（指定跟踪正常生效）。 */
+  kTrackNotConfirmed = 1, /**< 指定目标无航迹或航迹未确认（候选/不存在）。 */
+  kTrackLost = 2          /**< 指定目标航迹已丢失（kLost）。 */
+};
 
 /**
  * @brief ArCycleResult 描述单周期执行后的聚合观测结果。
@@ -64,6 +74,32 @@ struct ONEQ_API ArCycleResult {
       session::DecisionControlSource::kNone}; /**< 本周期控制采用的决策来源 */
   std::uint32_t applied_decision_cycle_index{0U}; /**< 本周期控制对应的源周期 */
   std::uint64_t applied_decision_batch_id{0U};    /**< 本周期控制对应的源批号 */
+
+  /**
+   * @brief 本周期生效工作模式（可能因指定航迹回退与已提交配置不同）。
+   * @note 派生规则（冻结）：已提交 work_mode == kStt 且指定目标存在且其航迹
+   *       confirmed 时为 kStt；指定航迹未确认/丢失时回退为 kTws；未指定目标的
+   *       STT 保持现状 scan_center 驻留语义（仍为 kStt）。仅 completed 周期填充。
+   */
+  config::ArWorkMode effective_work_mode{config::ArWorkMode::kTws};
+  /**
+   * @brief 本周期是否存在对指定目标的生效航迹跟随驻留（STT 指向跟随指定航迹）。
+   * @note 派生规则（冻结）：已提交 STT && 已指定 && 指定航迹 confirmed
+   *       && 无显式 dwell 覆盖（显式 dwell 时指向按现状语义，不跟随航迹，
+   *       本字段为 false 且不构成回退）。
+   */
+  bool designation_active{false};
+  /** @brief 当前指定跟踪目标外部 ID（未指定时为 0）。 */
+  std::uint64_t designated_target_id{0U};
+  /**
+   * @brief 本周期 STT 已被请求（work_mode 提交为 kStt 且已指定目标）但未生效
+   *        （指定航迹未确认/丢失），生效模式回退到 TWS。
+   * @note 每周期派生状态指示（非转换边沿）；跨周期差分由调用方或生命周期
+   *       记录器承担。
+   */
+  bool designation_reverted_to_tws{false};
+  /** @brief 回退成因（仅 designation_reverted_to_tws == true 时有意义）。 */
+  ArDesignationRevertReason designation_revert_reason{ArDesignationRevertReason::kNone};
 };
 
 }  // namespace session

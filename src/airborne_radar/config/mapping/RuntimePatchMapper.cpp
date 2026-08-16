@@ -70,6 +70,12 @@ RuntimeConfigResolveResult ApplyRuntimePatch(const RuntimeConfigState& current_s
     execution_config_changed = true;
   }
 
+  // 指定跟踪目标：会话级状态，不进执行配置（不触发 pipeline 同步）。
+  if (patch.has_designated_target_id) {
+    has_requested_update = true;
+    resolved.next_state.designated_external_target_id = patch.designated_external_target_id;
+  }
+
   if (patch.has_environment) {
     has_requested_update = true;
     if (patch.environment.has_scenario_config) {

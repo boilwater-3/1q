@@ -292,6 +292,11 @@ table ArCycleResultV3 {
   applied_decision_cycle_index:uint;
   applied_decision_batch_id:ulong;
   issues:[ArIssue];
+  effective_work_mode:int;
+  designation_active:bool;
+  designated_target_id:ulong;
+  designation_reverted_to_tws:bool;
+  revert_reason:int;
 }
 table ArSessionReplayStateV3 {
   has_world_chronology:bool;

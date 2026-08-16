@@ -10,6 +10,7 @@ namespace {
 
 struct TargetState {
   bool confirmed{false};
+  bool designation_active{false}; /**< 上一周期该目标是否为生效的指定跟踪目标。 */
   std::string target_name{};
 };
 
@@ -75,6 +76,30 @@ std::vector<ArTrackLifecycleEvent> ArTrackLifecycleRecorder::Update(
     TargetState& state = impl_->states[target.target_id];
     const session::TrackStateSnapshot* track =
         FindTrackByExternalTargetId(result.output_frame, target.target_id);
+
+    // 指定跟踪回退事件（自动丢跟踪，回 TWS）：仅当该目标为本周期指定的目标、
+    // 上一周期跟踪生效且本周期已回退时，在转换沿产生 kDesignationDropped。
+    // 成因直接转写 L2 结果字段（ArCycleResult::designation_revert_reason）。
+    // 注意：本块必须在 confirmed 分支的 continue 之前执行——confirmed 目标
+    // 同样需要推进 designation_active 状态，否则回退沿永远无法触发。
+    const bool designation_active_now =
+        result.designated_target_id == target.target_id && result.designation_active;
+    if (state.designation_active && !designation_active_now &&
+        result.designated_target_id == target.target_id &&
+        result.designation_reverted_to_tws) {
+      ArTrackLifecycleEvent event = MakeBaseEvent(target, result);
+      event.kind = ArTrackLifecycleEventKind::kDesignationDropped;
+      event.reason = ArTrackLifecycleReason::kNone;
+      if (track != nullptr) {
+        event.association_key = track->association_key;
+        event.track_status = track->status;
+        event.speed = track->speed;
+      }
+      event.designation_revert_reason = result.designation_revert_reason;
+      events.push_back(event);
+    }
+    state.designation_active = designation_active_now;
+
     const bool confirmed_now =
         track != nullptr && track->status == session::TrackStatus::kConfirmed;
 

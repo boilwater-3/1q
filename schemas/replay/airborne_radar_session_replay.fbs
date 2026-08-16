@@ -220,6 +220,8 @@ table ArRuntimeConfigPatch {
   scan_center_deg:AzimuthElevationDeg;
   has_dwell_center_deg:bool;
   dwell_center_deg:AzimuthElevationDeg;
+  has_designated_target_id:bool;
+  designated_target_id:ulong;
   has_commanded_beamwidth_deg:bool;
   commanded_beamwidth_deg:CommandedBeamwidthDeg;
   has_commanded_beamwidth_enabled:bool;

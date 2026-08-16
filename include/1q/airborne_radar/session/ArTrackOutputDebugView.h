@@ -62,6 +62,17 @@ struct ONEQ_API ArTrackOutputDebugView {
   ArReceiverImpairment receiver_impairment{ArReceiverImpairment::kNone}; /**< 接收机损伤 */
   std::vector<ArDebugTrackState> tracks{}; /**< 逐输入目标的调试轨迹状态 */
   ArIssueList issues{}; /**< 统一问题列表（规则 14；周期 issue 条目转写） */
+
+  /** @brief 本周期生效工作模式（可能因指定航迹回退与已提交配置不同，见 ArCycleResult）。 */
+  config::ArWorkMode effective_work_mode{config::ArWorkMode::kTws};
+  /** @brief 本周期是否存在对指定目标的生效跟踪（STT 航迹跟随驻留）。 */
+  bool designation_active{false};
+  /** @brief 当前指定跟踪目标外部 ID（未指定时为 0）。 */
+  std::uint64_t designated_target_id{0U};
+  /** @brief 本周期 STT 已请求但未生效（指定航迹未确认/丢失），生效模式回退 TWS。 */
+  bool designation_reverted_to_tws{false};
+  /** @brief 回退成因（仅 designation_reverted_to_tws == true 时有意义）。 */
+  ArDesignationRevertReason designation_revert_reason{ArDesignationRevertReason::kNone};
 };
 
 /**
@@ -85,7 +96,6 @@ class ONEQ_API ArTrackOutputDebugViewBuilder {
   static ArTrackOutputDebugView Build(const ArCycleInput& input,
                                       const ArCycleResult& result);
 };
-
 
 }  // namespace session
 }  // namespace airborne_radar

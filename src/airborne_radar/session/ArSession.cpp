@@ -26,6 +26,8 @@
 #include "airborne_radar/signal/detection/ArRfFrontEndResolver.h"
 #include "airborne_radar/signal/detection/BeamControlResolver.h"
 #include "airborne_radar/signal/pipeline/ISignalPipeline.h"
+#include "airborne_radar/signal/pipeline/ScanScheduleResolver.h"
+#include "airborne_radar/signal/pipeline/SignalCycleInput.h"
 #include "airborne_radar/signal/pipeline/SignalCycleInput.h"
 #include "airborne_radar/signal/pipeline/SignalPipeline.h"
 #include "common/logging/ProjectLog.h"
@@ -92,6 +94,61 @@ struct ArExecutionCycleResult {
                                       校验拒绝时承载校验明细（COMMON-OQ-9）。 */
 };
 
+/**
+ * @brief 指定跟踪目标的周期派生状态（无跨周期记忆）。
+ *
+ * 由已提交 work_mode + 指定目标 ID + 最新航迹帧派生，供 prepare 指向解析与
+ * completed 结果回填共用。派生规则（冻结，与 ArCycleResult::effective_work_mode
+ * 注释一致）：
+ *   - stt_active（航迹跟随生效）= 已提交 STT && 已指定 && 指定航迹 confirmed
+ *     && 无显式 dwell 覆盖（显式 dwell 时指向按现状语义，不跟随航迹）；
+ *   - reverted_to_tws（回退） = 已提交 STT && 已指定 && 指定航迹未确认/丢失；
+ *   - 未指定目标的 STT 保持现状 scan_center 驻留语义（不视为回退）。
+ */
+struct SttDesignationCycleState {
+  bool stt_requested{false};           /**< 已提交 work_mode == kStt。 */
+  bool designation_set{false};         /**< 已配置指定目标（ID != 0）。 */
+  std::uint64_t designated_target_id{0U}; /**< 指定目标外部 ID。 */
+  bool has_track{false};               /**< 指定目标是否存在航迹。 */
+  bool track_confirmed{false};         /**< 指定目标存在 confirmed 航迹。 */
+  bool track_lost{false};              /**< 指定目标存在 lost 航迹。 */
+  config::AzimuthElevationDeg track_pointing_deg{}; /**< confirmed 航迹位置换算的雷达局部指向。 */
+  bool stt_active{false};              /**< 本周期 STT 航迹跟随驻留是否生效。 */
+  bool reverted_to_tws{false};         /**< 本周期 STT 已请求但回退到 TWS。 */
+};
+
+SttDesignationCycleState BuildSttDesignationCycleState(
+    config::ArWorkMode committed_work_mode, std::uint64_t designated_target_id,
+    bool explicit_dwell_override, const session::TrackOutputFrame& latest_track_frame) {
+  SttDesignationCycleState state;
+  state.stt_requested = committed_work_mode == config::ArWorkMode::kStt;
+  state.designation_set = designated_target_id != 0U;
+  state.designated_target_id = designated_target_id;
+  if (state.designation_set) {
+    const session::TrackStateSnapshotList tracks =
+        session::CollectTracksByExternalTargetId(latest_track_frame, designated_target_id);
+    for (const session::TrackStateSnapshot& track : tracks) {
+      state.has_track = true;
+      state.track_lost = state.track_lost || track.status == session::TrackStatus::kLost;
+      if (track.status == session::TrackStatus::kConfirmed && !state.track_confirmed) {
+        // 多航迹同 ID 时取帧内第一条 confirmed（文档化边界，见 data-flow.md）。
+        state.track_confirmed = true;
+        config::AzimuthElevationDeg pointing;
+        if (signal::pipeline::TryTrackPositionToLookAnglesDeg(
+                track.position_x, track.position_y, track.position_z, &pointing)) {
+          state.track_pointing_deg = pointing;
+        }
+      }
+    }
+  }
+  // stt_active 排除显式 dwell 覆盖（此时指向按现状语义，不跟随航迹）；
+  // reverted_to_tws 只看航迹状态（显式 dwell 覆盖不构成回退）。
+  state.stt_active = state.stt_requested && state.designation_set && state.track_confirmed &&
+                     !explicit_dwell_override;
+  state.reverted_to_tws = state.stt_requested && state.designation_set && !state.track_confirmed;
+  return state;
+}
+
 }  // namespace
 
 struct ArSession::Impl {
@@ -143,6 +200,30 @@ struct ArSession::Impl {
       result.decision_observation = completed.decision_observation;
     }
     FillAppliedDecisionMetadata(result);
+    // STT 指定航迹状态回填（派生规则见 BuildSttDesignationCycleState，无跨周期记忆）：
+    // effective_work_mode 反映本周期生效模式（回退时与已提交配置不同）；
+    // designation_* 供外部经 L2 结果 / L3 视图 / 生命周期事件观测
+    // "自动丢跟踪（回 TWS）"（designation_reverted_to_tws 为每周期状态指示，
+    // 跨周期差分由调用方或 ArTrackLifecycleRecorder 承担）。
+    const SttDesignationCycleState designation_state = BuildSttDesignationCycleState(
+        runtime_state.execution_config.detection.orientation.work_mode,
+        runtime_state.designated_external_target_id,
+        runtime_state.dwell_center_deg.az_deg != 0.0f ||
+            runtime_state.dwell_center_deg.el_deg != 0.0f,
+        completed.output_frame);
+    result.effective_work_mode =
+        designation_state.reverted_to_tws
+            ? config::ArWorkMode::kTws
+            : runtime_state.execution_config.detection.orientation.work_mode;
+    result.designated_target_id = designation_state.designated_target_id;
+    result.designation_active = designation_state.stt_active;
+    result.designation_reverted_to_tws = designation_state.reverted_to_tws;
+    result.designation_revert_reason =
+        designation_state.reverted_to_tws
+            ? (designation_state.track_lost
+                   ? session::ArDesignationRevertReason::kTrackLost
+                   : session::ArDesignationRevertReason::kTrackNotConfirmed)
+            : session::ArDesignationRevertReason::kNone;
     return result;
   }
 
@@ -491,9 +572,39 @@ struct ArSession::Impl {
     platform_attitude.yaw_deg = input.platform.platform_attitude_deg.yaw_deg;
     platform_attitude.pitch_deg = input.platform.platform_attitude_deg.pitch_deg;
     platform_attitude.roll_deg = input.platform.platform_attitude_deg.roll_deg;
+    // STT 指定航迹跟随（方案 A）：指向来源优先级（冻结，见
+    // ResolveSttTrackFollowingPointing 与 ArRuntimeConfigPatch 注释）——
+    //   1) 显式 dwell_center_deg 非零：scan_center + dwell（现状语义，最高优先）；
+    //   2) STT + 指定目标 confirmed：指向 = 指定航迹位置换算的 az/el（雷达局部系，
+    //      外部无需提供目标角度）；
+    //   3) 其余（未指定/航迹未确认/丢失）：scan_center（现状行为）。
+    // 生效模式派生（无跨周期记忆）：已提交 STT 且指定航迹未确认时回退 TWS；
+    // 本周期指向仍按回退分支（scan_center + dwell）解析，与 session 级 TWS 一致。
+    const SttDesignationCycleState designation_state = BuildSttDesignationCycleState(
+        orientation_config.work_mode, next_operating_state.designated_external_target_id,
+        next_operating_state.dwell_center_deg.az_deg != 0.0f ||
+            next_operating_state.dwell_center_deg.el_deg != 0.0f,
+        Controller().GetLatestTrackOutputFrame());
+    const signal::pipeline::SttTrackFollowingResolution stt_pointing =
+        signal::pipeline::ResolveSttTrackFollowingPointing(
+            orientation_config, next_operating_state.dwell_center_deg,
+            designation_state.designation_set, designation_state.track_confirmed,
+            designation_state.track_pointing_deg);
+    config::ArOrientationConfig effective_orientation = orientation_config;
+    effective_orientation.scan_center_deg = stt_pointing.scan_center_deg;
     prepare_input.beam_pointing_deg =
         signal::detection::BeamControlResolver::ResolveMountFrameBeamPointing(
-            orientation_config, platform_attitude, next_operating_state.dwell_center_deg);
+            effective_orientation, platform_attitude, stt_pointing.dwell_center_deg);
+    if (stt_pointing.track_following_active) {
+      // 中译：STT 波束已跟随指定航迹（目标外部 ID），本周期指向由该航迹位置换算。
+      // 标识：指向来源事件——指定航迹 confirmed 且无显式驻留偏移时自动跟随；
+      //       仅人读诊断，不用于状态判断。
+      PROJECT_LOG_INFO(
+          "[ArSession] STT beam follows designated track (external_target_id={}, "
+          "az_deg={}, el_deg={}).",
+          designation_state.designated_target_id, stt_pointing.scan_center_deg.az_deg,
+          stt_pointing.scan_center_deg.el_deg);
+    }
 
     const ArPrepareCycleResult prepared = PrepareRfCycle(prepare_input);
     if (prepared.status == ArPrepareCycleStatus::kPoweredOff) {

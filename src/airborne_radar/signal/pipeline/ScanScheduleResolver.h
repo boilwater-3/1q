@@ -92,6 +92,51 @@ config::AzimuthElevationDeg ResolveScheduledDwellCenter(
 void ApplyScanScheduleToRuntimeConfig(std::uint32_t cycle_index,
                                       ExecutionConfig* runtime_config);
 
+/**
+ * @brief 由雷达局部笛卡尔位置换算方位/俯仰指向。
+ * @param[in] position_x 雷达局部 x（m；平台 ENU 切平面东向，含平台姿态旋转）。
+ * @param[in] position_y 雷达局部 y（m；北向，含平台姿态旋转）。
+ * @param[in] position_z 雷达局部 z（m；上向，含平台姿态旋转）。
+ * @param[out] pointing 换算出的方位/俯仰指向（单位：deg）。
+ * @return 位置有效（分量有限且范数 > 0）时返回 true；否则返回 false 且不写指向。
+ * @note 口径与 RIR ComputeLookAngles 一致：az = atan2(y, x)、el = atan2(z, hypot(x, y))。
+ */
+bool TryTrackPositionToLookAnglesDeg(float position_x, float position_y, float position_z,
+                                     config::AzimuthElevationDeg* pointing);
+
+/**
+ * @brief STT 指定航迹跟随指向的解析结果。
+ */
+struct SttTrackFollowingResolution {
+  bool track_following_active{
+      false}; /**< 本次指向是否跟随指定航迹（true 时 scan_center_deg 为航迹指向）。 */
+  config::AzimuthElevationDeg scan_center_deg{}; /**< 传给挂架指向解算的扫描中心。 */
+  config::AzimuthElevationDeg
+      dwell_center_deg{}; /**< 传给挂架指向解算的驻留偏移（非显式时为零偏）。 */
+};
+
+/**
+ * @brief 解析 STT 指定航迹跟随的指向来源。
+ *
+ * 指向来源优先级（冻结语义，不得改序；外部见 ArRuntimeConfigPatch 同款注释）：
+ *   1) 显式 dwell_center_deg 非零：最终指向 = scan_center + dwell（现状语义，最高优先，
+ *      老行为不回归）；
+ *   2) work_mode == kStt 且已指定目标且其航迹 confirmed：最终指向 = 指定航迹位置换算的
+ *      az/el（雷达局部系），dwell 视为零偏移（雷达自动跟随自身航迹）；
+ *   3) 其余（未指定/航迹未确认/丢失/不存在/非 STT）：最终指向 = scan_center（现状行为，
+ *      dwell 非显式时为零偏）。
+ * @param[in] orientation_config 雷达方向与控制配置（仅读取 work_mode 与 scan_center_deg）。
+ * @param[in] dwell_center_deg 显式驻留偏移（运行期 patch 给定，零值视为未显式设置）。
+ * @param[in] has_designated_target 是否已指定跟踪目标。
+ * @param[in] designated_track_confirmed 指定目标航迹是否 confirmed。
+ * @param[in] track_pointing_deg 指定航迹位置换算的雷达局部指向（未确认时忽略）。
+ * @return 指向来源解析结果（track_following_active 供结果/日志标记本次自动跟随）。
+ */
+SttTrackFollowingResolution ResolveSttTrackFollowingPointing(
+    const config::ArOrientationConfig& orientation_config,
+    const config::AzimuthElevationDeg& dwell_center_deg, bool has_designated_target,
+    bool designated_track_confirmed, const config::AzimuthElevationDeg& track_pointing_deg);
+
 }  // namespace pipeline
 }  // namespace signal
 }  // namespace airborne_radar

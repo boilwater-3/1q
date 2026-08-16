@@ -114,6 +114,58 @@ TEST(ArRuntimePatchMapperTest, DwellPatchContributesToPipelinePointing) {
                   2.0f);
 }
 
+TEST(ArRuntimePatchMapperTest, DesignationPatchUpdatesSessionStateOnly) {
+  RuntimeConfigState current_state;
+  current_state.designated_external_target_id = 0U;
+
+  ArRuntimeConfigPatch patch;
+  patch.has_designated_target_id = true;
+  patch.designated_external_target_id = 9001U;
+
+  const RuntimeConfigResolveResult resolved = ApplyRuntimePatch(current_state, patch);
+
+  EXPECT_TRUE(resolved.has_requested_update);
+  EXPECT_TRUE(resolved.is_valid);
+  // 指定目标是会话级状态：不触发 pipeline 执行配置同步。
+  EXPECT_FALSE(resolved.execution_config_changed);
+  EXPECT_FALSE(resolved.environment_scenario_config_changed);
+  EXPECT_EQ(resolved.next_state.designated_external_target_id, 9001U);
+}
+
+TEST(ArRuntimePatchMapperTest, DesignationPatchZeroClearsDesignation) {
+  RuntimeConfigState current_state;
+  current_state.designated_external_target_id = 9001U;
+
+  ArRuntimeConfigPatch patch;
+  patch.has_designated_target_id = true;
+  patch.designated_external_target_id = 0U;
+
+  const RuntimeConfigResolveResult resolved = ApplyRuntimePatch(current_state, patch);
+
+  EXPECT_TRUE(resolved.is_valid);
+  EXPECT_EQ(resolved.next_state.designated_external_target_id, 0U);
+}
+
+TEST(ArRuntimePatchMapperTest, DesignationCombinesAtomicallyWithInvalidAnglePatch) {
+  // 指定目标与非法角度字段同包：整包原子拒绝，指定不残留。
+  RuntimeConfigState current_state;
+  current_state.designated_external_target_id = 0U;
+
+  ArRuntimeConfigPatch patch;
+  patch.has_designated_target_id = true;
+  patch.designated_external_target_id = 9001U;
+  patch.has_scan_center_deg = true;
+  patch.scan_center_deg.az_deg = std::numeric_limits<float>::quiet_NaN();
+  patch.scan_center_deg.el_deg = 0.0f;
+
+  const RuntimeConfigResolveResult resolved = ApplyRuntimePatch(current_state, patch);
+
+  EXPECT_TRUE(resolved.has_requested_update);
+  EXPECT_FALSE(resolved.is_valid);
+  EXPECT_EQ(resolved.next_state.designated_external_target_id, 0U)
+      << "原子拒绝不得残留指定目标状态";
+}
+
 TEST(ArRuntimePatchMapperTest, EnvironmentPatchUpdatesNaturalModel) {
   RuntimeConfigState current_state;
   current_state.environment_scenario_config.atmospheric_physics.enable_physical_model = false;

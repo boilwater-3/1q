@@ -159,6 +159,8 @@ TEST(ArReplayCodecRoundtripTest, RuntimeConfigPatchPreservesAllFields) {
   patch.has_dwell_center_deg = true;
   patch.dwell_center_deg.az_deg = 31.0f;
   patch.dwell_center_deg.el_deg = -3.5f;
+  patch.has_designated_target_id = true;
+  patch.designated_external_target_id = 9001U;
   patch.has_commanded_beamwidth_enabled = true;
   patch.commanded_beamwidth_enabled = true;
   patch.has_environment = true;
@@ -185,6 +187,8 @@ TEST(ArReplayCodecRoundtripTest, RuntimeConfigPatchPreservesAllFields) {
   EXPECT_FLOAT_EQ(decoded.scan_center_deg.el_deg, -3.0f);
   EXPECT_TRUE(decoded.has_dwell_center_deg);
   EXPECT_FLOAT_EQ(decoded.dwell_center_deg.az_deg, 31.0f);
+  EXPECT_TRUE(decoded.has_designated_target_id);
+  EXPECT_EQ(decoded.designated_external_target_id, 9001U);
   EXPECT_TRUE(decoded.has_commanded_beamwidth_enabled);
   EXPECT_TRUE(decoded.commanded_beamwidth_enabled);
   EXPECT_TRUE(decoded.has_environment);
@@ -306,6 +310,12 @@ TEST(ArReplayCodecRoundtripTest, SingleCycleRecordPreservesResultAndState) {
   record.result.decision_observation.input_frame.cycle_index = 81U;
   record.result.decision_observation.input_frame.batch_id = 82U;
   record.result.applied_decision_source = DecisionControlSource::kExternal;
+  // STT 指定航迹状态字段往返锚点（防 decode 漏读）。
+  record.result.effective_work_mode = config::ArWorkMode::kStt;
+  record.result.designation_active = true;
+  record.result.designated_target_id = 9001U;
+  record.result.designation_reverted_to_tws = false;
+  record.result.designation_revert_reason = session::ArDesignationRevertReason::kNone;
   record.session_state.has_world_chronology = true;
   record.session_state.last_world_window_end_s = 21.5;
   record.session_state.next_emission_id = 34U;
@@ -343,8 +353,36 @@ TEST(ArReplayCodecRoundtripTest, SingleCycleRecordPreservesResultAndState) {
   EXPECT_EQ(decoded.result.association_quality_metrics.matched_count, 5U);
   EXPECT_TRUE(decoded.result.has_decision_observation);
   EXPECT_EQ(decoded.result.decision_observation.input_frame.batch_id, 82U);
+  EXPECT_EQ(decoded.result.effective_work_mode, config::ArWorkMode::kStt);
+  EXPECT_TRUE(decoded.result.designation_active);
+  EXPECT_EQ(decoded.result.designated_target_id, 9001U);
+  EXPECT_FALSE(decoded.result.designation_reverted_to_tws);
+  EXPECT_EQ(decoded.result.designation_revert_reason, session::ArDesignationRevertReason::kNone);
   EXPECT_EQ(decoded.session_state.next_emission_id, 34U);
   EXPECT_TRUE(decoded.session_state.has_pending_runtime_update);
+}
+
+TEST(ArReplayCodecRoundtripTest, CycleRecordDesignationRevertStateRoundtripPreserved) {
+  ArCycleReplayRecord record;
+  record.result.input_cycle_index = 82U;
+  record.result.status = ArCycleStatus::kCompleted;
+  record.result.effective_work_mode = config::ArWorkMode::kTws;
+  record.result.designation_active = false;
+  record.result.designated_target_id = 9002U;
+  record.result.designation_reverted_to_tws = true;
+  record.result.designation_revert_reason = session::ArDesignationRevertReason::kTrackLost;
+
+  ArCycleReplayRecord decoded;
+  std::string error;
+  ASSERT_TRUE(DecodeCycleReplayRecordFlatbuffer(EncodeCycleReplayRecordFlatbuffer(record), &decoded,
+                                                &error))
+      << error;
+  EXPECT_EQ(decoded.result.effective_work_mode, config::ArWorkMode::kTws);
+  EXPECT_FALSE(decoded.result.designation_active);
+  EXPECT_EQ(decoded.result.designated_target_id, 9002U);
+  EXPECT_TRUE(decoded.result.designation_reverted_to_tws);
+  EXPECT_EQ(decoded.result.designation_revert_reason,
+            session::ArDesignationRevertReason::kTrackLost);
 }
 
 TEST(ArReplayCodecRoundtripTest, AttemptsPreserveRejectedRuntimeConfigResult) {

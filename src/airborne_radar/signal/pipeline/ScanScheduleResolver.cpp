@@ -5,6 +5,8 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "common/numerics/Constants.h"
+
 namespace airborne_radar {
 namespace signal {
 namespace pipeline {
@@ -262,7 +264,47 @@ void ApplyScanScheduleToRuntimeConfig(std::uint32_t cycle_index,
       runtime_config->detection.beam_control.scheduler, cycle_index);
 }
 
+bool TryTrackPositionToLookAnglesDeg(float position_x, float position_y, float position_z,
+                                     config::AzimuthElevationDeg* pointing) {
+  if (pointing == nullptr || !std::isfinite(position_x) || !std::isfinite(position_y) ||
+      !std::isfinite(position_z)) {
+    return false;
+  }
+  const float range_hypot = std::sqrt(position_x * position_x + position_y * position_y);
+  const float range = std::sqrt(range_hypot * range_hypot + position_z * position_z);
+  if (range <= 0.0f) {
+    return false;
+  }
+  pointing->az_deg =
+      static_cast<float>(oneq::common::numerics::RadToDeg(std::atan2(position_y, position_x)));
+  pointing->el_deg =
+      static_cast<float>(oneq::common::numerics::RadToDeg(std::atan2(position_z, range_hypot)));
+  return true;
+}
 
+SttTrackFollowingResolution ResolveSttTrackFollowingPointing(
+    const config::ArOrientationConfig& orientation_config,
+    const config::AzimuthElevationDeg& dwell_center_deg, bool has_designated_target,
+    bool designated_track_confirmed, const config::AzimuthElevationDeg& track_pointing_deg) {
+  SttTrackFollowingResolution resolved;
+  const bool explicit_dwell = dwell_center_deg.az_deg != 0.0f || dwell_center_deg.el_deg != 0.0f;
+  const bool track_following =
+      orientation_config.work_mode == config::ArWorkMode::kStt && !explicit_dwell &&
+      has_designated_target && designated_track_confirmed &&
+      std::isfinite(track_pointing_deg.az_deg) && std::isfinite(track_pointing_deg.el_deg);
+  if (track_following) {
+    // 优先级 2：指定航迹 confirmed → 指向跟随航迹，dwell 视为零偏移。
+    resolved.track_following_active = true;
+    resolved.scan_center_deg = track_pointing_deg;
+    resolved.dwell_center_deg = config::AzimuthElevationDeg();
+    return resolved;
+  }
+  // 优先级 1（显式 dwell）与 3（回退 scan_center）共用：扫描中心保持配置值，
+  // dwell 仅显式非零时透传（现状语义 scan_center + dwell）。
+  resolved.scan_center_deg = orientation_config.scan_center_deg;
+  resolved.dwell_center_deg = explicit_dwell ? dwell_center_deg : config::AzimuthElevationDeg();
+  return resolved;
+}
 
 }  // namespace pipeline
 }  // namespace signal

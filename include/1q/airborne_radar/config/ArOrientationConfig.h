@@ -66,7 +66,10 @@ enum class ONEQ_API ArWorkMode {
   kStby = 0, /**< 待机：波束停泊并停止扫描 */
   kTas = 1,  /**< 目标捕获扫描：更高空间采样密度的二维扫描（步进更小） */
   kTws = 2,  /**< 边扫边跟踪：常规二维扫描 */
-  kStt = 3   /**< 单目标跟踪：固定于 scan_center 的驻留指向 */
+  kStt = 3   /**< 单目标跟踪：固定于 scan_center 的驻留指向；
+                若通过 ArRuntimeConfigPatch 指定了跟踪目标且其航迹 confirmed，
+                指向自动跟随该航迹（优先级：显式 dwell 覆盖 > 指定航迹 > scan_center）；
+                指定航迹未确认/丢失时自动回退 TWS（见 ArCycleResult::effective_work_mode） */
 };
 
 /**

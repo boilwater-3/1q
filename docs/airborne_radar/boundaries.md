@@ -157,6 +157,40 @@ AR 所有中止路径遵守 `session_contract.md` 规则 9 的三写模式与规
 
 [evidence: tests/integration/cross_domain/multi_model_scenario_test.cpp — ArRfTestCycleResult 字段选择]
 
+## STT 指定航迹跟随与自动回退（方案 A，冻结）
+
+STT 模式不再要求外部提供目标角度：外部通过
+`ArRuntimeConfigPatch::has_designated_target_id` 只指定目标（`external_target_id`，
+`0` = 清除），波束指向由 AR 用自身航迹推导。
+
+1. **指向来源优先级（冻结，不得改序）**：
+   1. 显式 `dwell_center_deg` 非零 → 最终指向 = `scan_center + dwell`（现状语义，最高优先）；
+   2. `work_mode == kStt` 且指定目标航迹 confirmed → 最终指向 = 指定航迹位置换算的
+      az/el（雷达局部系，`TryTrackPositionToLookAnglesDeg` 口径），dwell 视为零偏移；
+   3. 其余（未指定/航迹未确认/丢失/非 STT）→ 最终指向 = `scan_center`（现状行为）。
+2. **指定状态是会话级状态**：挂在 `RuntimeConfigState::designated_external_target_id`，
+   随 patch 原子暂存/提交/回滚；不进 pipeline 执行配置（pipeline 不消费指向来源）。
+3. **生效模式派生（latch-free，无跨周期记忆）**：`effective_work_mode` = 已提交 STT 且
+   指定航迹 confirmed 时为 `kStt`；指定航迹未确认/丢失时回退 `kTws`；未指定目标的 STT
+   保持现状 `scan_center` 驻留语义（仍为 `kStt`，不视为回退）。回退不修改已提交配置。
+4. **自动丢跟踪暴露（三层）**：`ArCycleResult`（L2）新增 `effective_work_mode`、
+   `designation_active`、`designated_target_id`、`designation_reverted_to_tws`（每周期状态
+   指示，非转换沿，跨周期差分由调用方承担）、`designation_revert_reason`；L3
+   `ArTrackOutputDebugView` 转写同名字段；`ArTrackLifecycleRecorder` 在回退转换沿为指定
+   目标产生 `kDesignationDropped` 事件。replay 周期记录与 patch 记录均保留新字段。
+5. **显式 dwell 覆盖不构成回退**：`designation_active == false` 但
+   `designation_reverted_to_tws == false` 表示指向被显式覆盖，不是丢跟踪。
+6. **已知限制（记录，非本次范围）**：session 主链路（RF v2）中 pipeline 内
+   `ApplyScanScheduleToRuntimeConfig` 只改写 pipeline 本地 config 副本，冻结指向
+   （`RfV2DetectionContext::beam_pointing_deg`）不消费它——TWS/TAS 的扫描表目前不驱动
+   session 级波束动画（波束静止于 base `scan_center + dwell`；扫描动画只存在于 resolver
+   单测与 RF v1 回退路径）。"回 TWS"在 session 级即回到该静态指向。修复扫描动画属独立
+   变更，另行评估。
+
+[evidence: tests/unit/airborne_radar/ar_stt_track_follow_test.cpp]
+[evidence: tests/unit/airborne_radar/ar_track_output_debug_view_test.cpp]
+[evidence: tests/replay/airborne_radar/ar_replay_codec_roundtrip_test.cpp]
+
 ## 滤波后端选型（人工配置为主，不做在线自动切换）
 
 AR 使用标准 Joseph 形式 Kalman 滤波器（KF）作为生产后端。IMM 生命周期（`enable_imm_lifecycle`）是包裹 KF

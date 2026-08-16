@@ -19,6 +19,8 @@ public API 边界）见 [boundaries.md](boundaries.md)。
 | 环境冻结与传播 | pending/active scene 管理，冻结周期环境，传播损失/杂波/大气物理 | session-wired | [evidence: tests/unit/airborne_radar/ar_environment_service_test.cpp] |
 | 外部 RF 接入 | 以实际时频发射事实构建前端与 detection-cell 干扰账本，J/N 门控后去真值化观测 | session-wired | [evidence: tests/unit/airborne_radar/ar_rf_front_end_resolver_test.cpp] |
 | 扫描和波束控制 | 解析扫描中心、坐标组合、波束增益和波束宽度 | session-wired | [evidence: tests/unit/airborne_radar/ar_signal_scan_schedule_test.cpp] |
+| STT 指定航迹跟随指向 | 外部只指定目标，STT 波束指向由指定航迹位置换算（优先级：显式 dwell > 航迹 > scan_center） | session-wired | [evidence: tests/unit/airborne_radar/ar_stt_track_follow_test.cpp] |
+| 指定目标生命周期回退 | 指定航迹未确认/丢失时 STT 自动回退 TWS，经 L2 结果/L3 视图/生命周期事件暴露 | session-wired | [evidence: tests/unit/airborne_radar/ar_stt_track_follow_test.cpp] |
 | 统一物理探测与工程 RF 干扰链 | 实际发射→echo→incident RF→前端账本→检测单元→判决的单一物理链 | session-wired | [evidence: tests/unit/airborne_radar/ar_signal_pipeline_test.cpp] |
 | 数据关联 | 位置量测、协方差和 track seeds 的 LAPJV assignment | session-wired | [evidence: tests/unit/airborne_radar/ar_signal_association_test.cpp] |
 | 航迹过滤与生命周期 | KF/IMM(KF) 更新航迹、missed detection、确认/丢失/回收、反欺骗抑制 | session-wired | [evidence: tests/unit/airborne_radar/ar_track_filter_test.cpp] |
@@ -76,6 +78,34 @@ public API 边界）见 [boundaries.md](boundaries.md)。
 - **证据**：[evidence: tests/unit/airborne_radar/ar_beamwidth_resolution_test.cpp]
 - **证据**：[evidence: tests/unit/airborne_radar/ar_orientation_utils_test.cpp]
 - **证据**：[evidence: tests/unit/airborne_radar/ar_rf_session_test.cpp]
+
+### STT 指定航迹跟随与自动回退（方案 A）
+
+- **意图**：STT 模式下外部只指定目标（`ArRuntimeConfigPatch::designated_external_target_id`），
+  波束指向由 AR 自身航迹推导（上一周期 `TrackOutputFrame` 的雷达局部位置 →
+  `TryTrackPositionToLookAnglesDeg`），不再要求外部提供角度。
+- **实现边界**：
+  1. 指向来源优先级（冻结）：显式 dwell 非零 > 指定航迹 confirmed > scan_center 回退，
+     由 `ResolveSttTrackFollowingPointing` 单一权威解析（纯函数，单测覆盖优先级矩阵）。
+  2. 注入点唯一：`ArSession` prepare（`ResolveMountFrameBeamPointing` 的 scan_center 输入），
+     经冻结指向链路（`RfV2DetectionContext::beam_pointing_deg`）同时驱动发射/接收/增益/检测单元。
+  3. 指定状态是会话级状态（`RuntimeConfigState`），不进 pipeline 执行配置；随 patch
+     原子暂存/提交/回滚。
+  4. 生效模式为每周期派生（latch-free）：指定航迹非 confirmed → 回退 `kTws`（报告），
+     指向按回退分支（scan_center + dwell，与 session 级 TWS 一致）。
+  5. 回退事件暴露：L2 `ArCycleResult` 新字段（`effective_work_mode`/`designation_active`/
+     `designated_target_id`/`designation_reverted_to_tws`/`designation_revert_reason`，
+     每周期状态指示）；L3 debug view 转写；`ArTrackLifecycleRecorder::kDesignationDropped`
+     在转换沿产生；replay 周期记录与 patch 记录同步。
+- **反直觉点**：
+  1. 指向用上一周期航迹后验位置（一周期滞后近似），目标机动时指向滞后一拍；
+  2. 显式 dwell 覆盖时 `designation_active == false` 但不构成回退（`reverted == false`）；
+  3. 目标在扫描限位外时指向被 clamp 到边界（`ComputeMountFrameBeamPointing`），离轴增益
+     损失可致连续失配 → lost → 自动回退（期望连锁行为）。
+- **证据**：[evidence: tests/unit/airborne_radar/ar_stt_track_follow_test.cpp]
+- **证据**：[evidence: tests/unit/airborne_radar/ar_runtime_patch_mapper_test.cpp]
+- **证据**：[evidence: tests/replay/airborne_radar/ar_replay_codec_roundtrip_test.cpp]
+- **证据**：[evidence: tests/consumer/batch_validation/ar_batch_validation.cpp]
 
 ## 统一物理探测与工程 RF 干扰链
 

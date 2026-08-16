@@ -8,6 +8,8 @@
 #ifndef ONEQ_AIRBORNE_RADAR_CONFIG_AR_RUNTIME_CONFIG_PATCH_H_
 #define ONEQ_AIRBORNE_RADAR_CONFIG_AR_RUNTIME_CONFIG_PATCH_H_
 
+#include <cstdint>
+
 #include "1q/airborne_radar/config/ArEnvironmentConfig.h"
 #include "1q/airborne_radar/config/ArMissionConfig.h"
 #include "1q/airborne_radar/config/ArPolicyConfig.h"
@@ -67,6 +69,21 @@ struct ONEQ_API ArRuntimeConfigPatch {
   bool has_dwell_center_deg{false};
   AzimuthElevationDeg dwell_center_deg{};
 
+  /**
+   * @brief 指定跟踪目标（STT 航迹跟随指向的目标句柄）。
+   * @note STT 指向来源优先级（冻结语义，不得改序）：
+   *   1) 显式 dwell_center_deg 非零：最终指向 = scan_center + dwell（现状语义，最高优先）；
+   *   2) 指定目标存在且其航迹 confirmed：最终指向 = 航迹位置换算的 az/el（雷达局部系），
+   *      dwell 视为零偏移（雷达自动跟随自身航迹，外部无需提供目标角度）；
+   *   3) 其余（未指定/航迹未确认/丢失/不存在）：最终指向 = scan_center（现状 STT 行为）。
+   * @note 指定仅在 work_mode == kStt 时被消费；TWS/TAS 下忽略。
+   * @note 指定航迹非 confirmed 时，STT 自动回退 TWS（生效模式为每周期派生，见
+   *       ArCycleResult::effective_work_mode / designation_reverted_to_tws）。
+   * @note designated_external_target_id == 0 表示清除指定。
+   */
+  bool has_designated_target_id{false};
+  std::uint64_t designated_external_target_id{0U};
+
   bool has_commanded_beamwidth_deg{false};
   CommandedBeamwidthDeg commanded_beamwidth_deg{};
 
@@ -76,7 +93,6 @@ struct ONEQ_API ArRuntimeConfigPatch {
   bool has_sensor_enabled{false};
   bool sensor_enabled{true};
 };
-
 
 }  // namespace config
 }  // namespace airborne_radar

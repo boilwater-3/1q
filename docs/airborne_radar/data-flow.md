@@ -270,6 +270,42 @@ flowchart TB
 归属边界（图传达分层，以下传达归属禁令）：`TrackOutputFrame` 是唯一系统输出，debug/lifecycle/replay 是
 仿真辅助视图，output query 不改变输出语义；决策 SPI 不拥有输出结构，不能绕过内部 output adapter 写系统输出。
 
+### STT 指定航迹状态流（方案 A）
+
+```mermaid
+flowchart LR
+  Patch["ArRuntimeConfigPatch\ndesignated_external_target_id\n（外部只指定目标，不给角度）"]
+  State["RuntimeConfigState\ndesignated_external_target_id\n（会话级状态，随 patch 原子提交/回滚）"]
+  Tracks["ArController::GetLatestTrackOutputFrame\n上一周期航迹（雷达局部笛卡尔）"]
+  Resolve["ResolveSttTrackFollowingPointing\n优先级：显式 dwell > 指定航迹 > scan_center"]
+  Prepare["ArSession prepare\nResolveMountFrameBeamPointing"]
+  Rf["RfV2DetectionContext.beam_pointing_deg\n发射 / 接收 / 增益 / 检测单元"]
+  Derive["BuildSttDesignationCycleState\n生效模式派生（latch-free）"]
+  Result["ArCycleResult\neffective_work_mode / designation_*\n（每周期状态指示）"]
+  View["ArTrackOutputDebugView\n转写同名字段"]
+  Recorder["ArTrackLifecycleRecorder\nkDesignationDropped（回退转换沿）"]
+  Replay["ArTraceSession / ArReplaySession\npatch 与周期结果新字段"]
+
+  Patch --> State
+  State --> Resolve
+  Tracks --> Resolve
+  Resolve --> Prepare
+  Prepare --> Rf
+  State --> Derive
+  Tracks --> Derive
+  Derive --> Result
+  Result --> View
+  Result --> Recorder
+  Result --> Replay
+```
+
+- 指向注入点唯一：`ArSession` prepare（`ResolveMountFrameBeamPointing` 的 scan_center 输入），
+  经冻结指向链路同时驱动发射 boresight、接收状态、逐目标增益与检测单元；
+- 指定状态属会话层（`RuntimeConfigState`），不进 pipeline 执行配置；
+- 生效模式每周期派生（无跨周期记忆）：指定航迹非 confirmed → 回退 `kTws`；
+  `designation_reverted_to_tws` 是每周期状态指示，跨周期差分由调用方/recorder 承担；
+- 显式 dwell 覆盖时 `designation_active == false` 但不构成回退。
+
 **反直觉点（emission_frame 是 base 发射身份）**：公开发布的 `emission_frame`（`RfSceneEmission.antenna`）的
 发射功率、载波频率捷变、rejitter 等效果直接由控制 profile 作用到发射，但天线方向图字段读取自未经
 `ControlProfileEffects` 处理的 base detection 工程配置。旁瓣对消/自适应波束的效果**只**作用于

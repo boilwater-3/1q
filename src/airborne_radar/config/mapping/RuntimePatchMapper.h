@@ -6,6 +6,8 @@
 #ifndef AIRBORNE_RADAR_SRC_CONFIG_MAPPING_RUNTIME_PATCH_MAPPER_H_
 #define AIRBORNE_RADAR_SRC_CONFIG_MAPPING_RUNTIME_PATCH_MAPPER_H_
 
+#include <cstdint>
+
 #include "1q/airborne_radar/config/ArRuntimeConfigBuilder.h"
 #include "1q/airborne_radar/config/ArSessionConfig.h"
 #include "1q/airborne_radar/config/ArEnvironmentConfig.h"
@@ -22,6 +24,12 @@ struct RuntimeConfigState {
   execution::InternalExecutionConfig execution_config{};
   config::EnvironmentScenarioConfig environment_scenario_config{};
   config::AzimuthElevationDeg dwell_center_deg{};
+  /**
+   * @brief 指定跟踪目标外部 ID（STT 航迹跟随指向；0 = 未指定/已清除）。
+   * @note 会话级状态：不进 pipeline 执行配置（pipeline 不消费指向来源），
+   *       仅由 ArSession prepare 阶段消费；随 patch 原子暂存/提交/回滚。
+   */
+  std::uint64_t designated_external_target_id{0U};
 };
 
 /**
