@@ -161,6 +161,8 @@ TEST(ArReplayCodecRoundtripTest, RuntimeConfigPatchPreservesAllFields) {
   patch.dwell_center_deg.el_deg = -3.5f;
   patch.has_designated_target_id = true;
   patch.designated_external_target_id = 9001U;
+  patch.has_designation_duration_cycles = true;
+  patch.designation_duration_cycles = 6U;
   patch.has_commanded_beamwidth_enabled = true;
   patch.commanded_beamwidth_enabled = true;
   patch.has_environment = true;
@@ -189,6 +191,8 @@ TEST(ArReplayCodecRoundtripTest, RuntimeConfigPatchPreservesAllFields) {
   EXPECT_FLOAT_EQ(decoded.dwell_center_deg.az_deg, 31.0f);
   EXPECT_TRUE(decoded.has_designated_target_id);
   EXPECT_EQ(decoded.designated_external_target_id, 9001U);
+  EXPECT_TRUE(decoded.has_designation_duration_cycles);
+  EXPECT_EQ(decoded.designation_duration_cycles, 6U);
   EXPECT_TRUE(decoded.has_commanded_beamwidth_enabled);
   EXPECT_TRUE(decoded.commanded_beamwidth_enabled);
   EXPECT_TRUE(decoded.has_environment);

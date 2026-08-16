@@ -146,6 +146,54 @@ TEST(ArRuntimePatchMapperTest, DesignationPatchZeroClearsDesignation) {
   EXPECT_EQ(resolved.next_state.designated_external_target_id, 0U);
 }
 
+// 限时指定指令：时长字段入会话状态（不触发 pipeline 同步）；任一指定相关
+// 字段变更（含仅改时长）都视为新指令——生命周期阶段重置为 kNone、窗口截止
+// 清零，捕获窗口在指令生效后首个周期重新起算。
+TEST(ArRuntimePatchMapperTest, DesignationDurationStoredAndResetsLifecyclePhase) {
+  RuntimeConfigState current_state;
+  current_state.designated_external_target_id = 9001U;
+  current_state.designation_duration_cycles = 5U;
+  current_state.designation_phase = DesignationPhase::kAcquired;
+  current_state.designation_deadline_cycle_index = 42U;
+
+  // 仅改时长 → 阶段/截止重置，ID 与执行配置不受影响。
+  ArRuntimeConfigPatch duration_patch;
+  duration_patch.has_designation_duration_cycles = true;
+  duration_patch.designation_duration_cycles = 7U;
+  const RuntimeConfigResolveResult duration_resolved =
+      ApplyRuntimePatch(current_state, duration_patch);
+  ASSERT_TRUE(duration_resolved.is_valid);
+  EXPECT_TRUE(duration_resolved.has_requested_update);
+  EXPECT_FALSE(duration_resolved.execution_config_changed)
+      << "指定/时长是会话级状态，不触发 pipeline 同步";
+  EXPECT_EQ(duration_resolved.next_state.designation_duration_cycles, 7U);
+  EXPECT_EQ(duration_resolved.next_state.designated_external_target_id, 9001U);
+  EXPECT_EQ(duration_resolved.next_state.designation_phase, DesignationPhase::kNone);
+  EXPECT_EQ(duration_resolved.next_state.designation_deadline_cycle_index, 0U);
+
+  // 新指定（换 ID）→ 阶段重置，时长保持（未在 patch 中变更）。
+  ArRuntimeConfigPatch target_patch;
+  target_patch.has_designated_target_id = true;
+  target_patch.designated_external_target_id = 9002U;
+  const RuntimeConfigResolveResult target_resolved =
+      ApplyRuntimePatch(current_state, target_patch);
+  ASSERT_TRUE(target_resolved.is_valid);
+  EXPECT_EQ(target_resolved.next_state.designated_external_target_id, 9002U);
+  EXPECT_EQ(target_resolved.next_state.designation_duration_cycles, 5U);
+  EXPECT_EQ(target_resolved.next_state.designation_phase, DesignationPhase::kNone);
+  EXPECT_EQ(target_resolved.next_state.designation_deadline_cycle_index, 0U);
+
+  // 清除指定 → 阶段重置。
+  ArRuntimeConfigPatch clear_patch;
+  clear_patch.has_designated_target_id = true;
+  clear_patch.designated_external_target_id = 0U;
+  const RuntimeConfigResolveResult clear_resolved =
+      ApplyRuntimePatch(current_state, clear_patch);
+  ASSERT_TRUE(clear_resolved.is_valid);
+  EXPECT_EQ(clear_resolved.next_state.designated_external_target_id, 0U);
+  EXPECT_EQ(clear_resolved.next_state.designation_phase, DesignationPhase::kNone);
+}
+
 TEST(ArRuntimePatchMapperTest, DesignationCombinesAtomicallyWithInvalidAnglePatch) {
   // 指定目标与非法角度字段同包：整包原子拒绝，指定不残留。
   RuntimeConfigState current_state;

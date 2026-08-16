@@ -105,6 +105,19 @@ config::AzimuthElevationDeg ResolveScheduledBeamPointingFromExecutionConfig(
     const ExecutionConfig& runtime_config, std::uint32_t cycle_index);
 
 /**
+ * @brief 从执行配置只读解析当前周期调度的波束指向（生效模式覆盖）。
+ * @param[in] runtime_config 运行时执行配置（不修改）。
+ * @param[in] cycle_index 1 基周期编号。
+ * @param[in] effective_work_mode 生效工作模式（可与会话已提交配置不同，如
+ *            STT 回退/指令作废后的 kTws）；resolver 按该模式选择波位语义
+ *            （STT 返回扫描中心、TWS/TAS 返回波位序列）。
+ * @return 当前周期调度波束指向。
+ */
+config::AzimuthElevationDeg ResolveScheduledBeamPointingFromExecutionConfig(
+    const ExecutionConfig& runtime_config, std::uint32_t cycle_index,
+    config::ArWorkMode effective_work_mode);
+
+/**
  * @brief 由雷达局部笛卡尔位置换算方位/俯仰指向。
  * @param[in] position_x 雷达局部 x（m；平台 ENU 切平面东向，含平台姿态旋转）。
  * @param[in] position_y 雷达局部 y（m；北向，含平台姿态旋转）。

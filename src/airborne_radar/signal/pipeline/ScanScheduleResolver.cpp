@@ -255,8 +255,17 @@ config::AzimuthElevationDeg ResolveScheduledDwellCenter(
 
 config::AzimuthElevationDeg ResolveScheduledBeamPointingFromExecutionConfig(
     const ExecutionConfig& runtime_config, std::uint32_t cycle_index) {
+  return ResolveScheduledBeamPointingFromExecutionConfig(
+      runtime_config, cycle_index, runtime_config.detection.orientation.work_mode);
+}
+
+config::AzimuthElevationDeg ResolveScheduledBeamPointingFromExecutionConfig(
+    const ExecutionConfig& runtime_config, std::uint32_t cycle_index,
+    config::ArWorkMode effective_work_mode) {
+  config::ArOrientationConfig orientation = runtime_config.detection.orientation;
+  orientation.work_mode = effective_work_mode;
   return ResolveScheduledBeamPointing(
-      runtime_config.detection.orientation, ResolveSchedulingBeamwidth(runtime_config),
+      orientation, ResolveSchedulingBeamwidth(runtime_config),
       runtime_config.detection.beam_control.scheduler, cycle_index);
 }
 

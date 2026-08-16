@@ -11,7 +11,10 @@
  *      清除指定/显式 dwell 不跟随 → 航迹丢失自动回退 TWS +
  *      L2 结果 / L3 调试视图 / 生命周期事件暴露；
  *   5) TWS 生效模式（含 STT 回退）下 session 级扫描动画：发射 boresight
- *      逐周期按扫描表推进（boundaries.md 已知限制修复）。
+ *      逐周期按扫描表推进（boundaries.md 已知限制修复）；
+ *   6) 限时指定指令（designation_duration_cycles）：窗口内捕获 confirmed 航迹
+ *      后持续跟随（不受窗口限制）；窗口耗尽仍未捕获 → 指令作废（回到扫描，
+ *      kAcquisitionTimeout 经结果/事件暴露）。
  */
 
 #include <gtest/gtest.h>
@@ -506,6 +509,145 @@ TEST(ArSttTrackFollowTest, SessionTwsScanAnimatesBeamAcrossCycles) {
   }
   EXPECT_EQ(animated_pairs, boresights.size() - 1U)
       << "TWS 模式下每周期发射 boresight 都应按扫描表逐周期推进";
+}
+
+// 限时指定指令（捕获超时作废）：窗口内始终未捕获 confirmed 航迹 → 窗口期
+// 每周期回退报告（kTrackNotConfirmed）且波束继续扫描；窗口耗尽周期成因变为
+// kAcquisitionTimeout（kDesignationDropped 事件）；作废后指定清零、生效模式
+// 按扫描（kTws）处理且波束继续逐周期推进。
+TEST(ArSttTrackFollowTest, SessionDesignationExpiresOnAcquisitionTimeout) {
+  const ArExternalPoseInput platform = MakePlatformInput();
+  // 静默目标：位移 20km 且 RCS 远低于检测门（与回退测试的静默口径一致）——
+  // 任何周期都不会被检测/建航迹 → 窗口内无法捕获（近距离目标即使 RCS 极小
+  // 仍可被检测确认，不能用于本测试）。
+  ArExternalTargetInput silent = MakeStationaryTargetInput();
+  silent.kinematics.position_ecef_m.x_m += 20000.0;
+  silent.rcs = 1.0e-9f;
+  const std::vector<ArExternalTargetInput> targets{silent};
+  ArSession session = ArSession::Create(MakeDetectionFocusedConfig());
+  ArTrackLifecycleRecorder recorder;
+  session.AttachTrackLifecycleRecorder(&recorder);
+
+  // 指令：STT + 指定 9001 + 3 周期捕获窗口（生效于周期 1 → 窗口 1..3，周期 4 作废）。
+  config::ArRuntimeConfigPatch patch;
+  patch.has_work_mode = true;
+  patch.work_mode = config::ArWorkMode::kStt;
+  patch.has_designated_target_id = true;
+  patch.designated_external_target_id = silent.target_id;
+  patch.has_designation_duration_cycles = true;
+  patch.designation_duration_cycles = 3U;
+  ASSERT_TRUE(session.TryApplyRuntimeConfig(patch));
+
+  // 窗口内（周期 1-3）：每周期回退报告（kTrackNotConfirmed），波束继续扫描
+  // （相邻周期 boresight 不同），指定目标 ID 保持。
+  oneq::electromagnetics::RfSceneDirection prev_boresight{};
+  bool has_prev_boresight = false;
+  for (std::uint32_t cycle = 1U; cycle <= 3U; ++cycle) {
+    const ArCycleResult r = session.StepWithResult(MakeCycleInput(cycle, platform, targets));
+    ASSERT_EQ(r.status, airborne_radar::session::ArCycleStatus::kCompleted);
+    EXPECT_EQ(r.effective_work_mode, config::ArWorkMode::kTws) << "窗口内未捕获 → 扫描";
+    EXPECT_TRUE(r.designation_reverted_to_tws);
+    EXPECT_EQ(r.designation_revert_reason, ArDesignationRevertReason::kTrackNotConfirmed);
+    EXPECT_EQ(r.designated_target_id, silent.target_id);
+    EXPECT_FALSE(r.designation_active);
+    ASSERT_FALSE(r.emission_frame.emissions.empty());
+    const oneq::electromagnetics::RfSceneDirection boresight =
+        Normalize(r.emission_frame.emissions.front().antenna.boresight_ecef);
+    if (has_prev_boresight) {
+      EXPECT_LT(Dot(prev_boresight, boresight), 0.999f) << "窗口内未捕获期间继续扫描";
+    }
+    prev_boresight = boresight;
+    has_prev_boresight = true;
+  }
+
+  // 周期 4（作废沿）：成因变为 kAcquisitionTimeout，ID 保留供事件关联。
+  const ArCycleResult expiry = session.StepWithResult(MakeCycleInput(4U, platform, targets));
+  ASSERT_EQ(expiry.status, airborne_radar::session::ArCycleStatus::kCompleted);
+  EXPECT_TRUE(expiry.designation_reverted_to_tws);
+  EXPECT_EQ(expiry.designation_revert_reason, ArDesignationRevertReason::kAcquisitionTimeout);
+  EXPECT_EQ(expiry.designated_target_id, silent.target_id);
+  EXPECT_EQ(expiry.effective_work_mode, config::ArWorkMode::kTws);
+  // 记录器：作废沿产生 kDesignationDropped（成因 kAcquisitionTimeout）。
+  const std::vector<ArTrackLifecycleEvent>& events = recorder.GetLastEvents();
+  const auto dropped = std::find_if(
+      events.begin(), events.end(), [](const ArTrackLifecycleEvent& event) {
+        return event.kind == ArTrackLifecycleEventKind::kDesignationDropped;
+      });
+  ASSERT_NE(dropped, events.end());
+  EXPECT_EQ(dropped->external_target_id, silent.target_id);
+  EXPECT_EQ(dropped->designation_revert_reason, ArDesignationRevertReason::kAcquisitionTimeout);
+
+  // 作废后（周期 5-6）：指定清零、无回退报告、生效模式仍按扫描（kTws）。
+  for (std::uint32_t cycle = 5U; cycle <= 6U; ++cycle) {
+    const ArCycleResult r = session.StepWithResult(MakeCycleInput(cycle, platform, targets));
+    ASSERT_EQ(r.status, airborne_radar::session::ArCycleStatus::kCompleted);
+    EXPECT_EQ(r.designated_target_id, 0U) << "作废后指定清零";
+    EXPECT_FALSE(r.designation_reverted_to_tws);
+    EXPECT_EQ(r.designation_revert_reason, ArDesignationRevertReason::kNone);
+    EXPECT_EQ(r.effective_work_mode, config::ArWorkMode::kTws) << "作废后回到扫描";
+  }
+}
+
+// 限时指定指令（窗口内捕获成功）：窗口内 confirmed 航迹出现 → 跟随航迹；
+// 超过窗口截止周期后仍持续跟随（窗口只约束首次捕获，捕获后不受窗口限制、
+// 不作废），记录器无 kAcquisitionTimeout 事件。
+TEST(ArSttTrackFollowTest, SessionDesignationAcquiresWithinWindowKeepsFollowingPastDeadline) {
+  const ArExternalPoseInput platform = MakePlatformInput();
+  const ArExternalTargetInput target = MakeStationaryTargetInput();
+  const std::vector<ArExternalTargetInput> targets{target};
+  ArSession session = ArSession::Create(MakeDetectionFocusedConfig());
+  ArTrackLifecycleRecorder recorder;
+  session.AttachTrackLifecycleRecorder(&recorder);
+  const oneq::electromagnetics::RfSceneDirection target_direction =
+      TargetDirectionFromPlatform(platform, target);
+
+  // 指令：STT + 指定 + 4 周期窗口（生效于周期 1 → 窗口 1..4，周期 5 截止）。
+  config::ArRuntimeConfigPatch patch;
+  patch.has_work_mode = true;
+  patch.work_mode = config::ArWorkMode::kStt;
+  patch.has_designated_target_id = true;
+  patch.designated_external_target_id = target.target_id;
+  patch.has_designation_duration_cycles = true;
+  patch.designation_duration_cycles = 4U;
+  ASSERT_TRUE(session.TryApplyRuntimeConfig(patch));
+
+  // 窗口内（周期 1-4）捕获并跟随。
+  std::uint32_t last_cycle = 0U;
+  ArCycleResult result = RunUntil(
+      &session, platform, targets, 1U, 4U,
+      [](const ArCycleResult& r) { return r.designation_active; }, &last_cycle);
+  ASSERT_EQ(result.status, airborne_radar::session::ArCycleStatus::kCompleted);
+  ASSERT_TRUE(result.designation_active) << "窗口内应捕获并跟随";
+  EXPECT_EQ(result.effective_work_mode, config::ArWorkMode::kStt);
+  EXPECT_EQ(result.designation_revert_reason, ArDesignationRevertReason::kNone);
+  // 指向使用上一周期航迹帧（滞后一周期）：再跑一个周期后 boresight 才跟随航迹。
+  result = session.StepWithResult(MakeCycleInput(last_cycle + 1U, platform, targets));
+  ASSERT_EQ(result.status, airborne_radar::session::ArCycleStatus::kCompleted);
+  ASSERT_TRUE(result.designation_active);
+  ASSERT_FALSE(result.emission_frame.emissions.empty());
+  const oneq::electromagnetics::RfSceneDirection follow_boresight =
+      Normalize(result.emission_frame.emissions.front().antenna.boresight_ecef);
+  EXPECT_GT(Dot(follow_boresight, target_direction), 0.99) << "跟随指定航迹";
+  const std::uint32_t follow_cycle = last_cycle + 1U;  // 消费掉的周期号
+
+  // 超过窗口截止周期（duration=4 → deadline=5）后仍持续跟随，无作废报告。
+  std::uint32_t past_deadline_start = follow_cycle + 1U;
+  if (past_deadline_start < 5U) {
+    past_deadline_start = 5U;
+  }
+  for (std::uint32_t cycle = past_deadline_start; cycle <= past_deadline_start + 1U; ++cycle) {
+    result = session.StepWithResult(MakeCycleInput(cycle, platform, targets));
+    ASSERT_EQ(result.status, airborne_radar::session::ArCycleStatus::kCompleted);
+    EXPECT_TRUE(result.designation_active) << "窗口只约束首次捕获，捕获后不受窗口限制";
+    EXPECT_EQ(result.effective_work_mode, config::ArWorkMode::kStt);
+    EXPECT_EQ(result.designation_revert_reason, ArDesignationRevertReason::kNone);
+    EXPECT_EQ(result.designated_target_id, target.target_id);
+  }
+  // 记录器：窗口内已捕获，无 kAcquisitionTimeout 事件。
+  const std::vector<ArTrackLifecycleEvent>& events = recorder.GetLastEvents();
+  EXPECT_TRUE(std::none_of(events.begin(), events.end(), [](const ArTrackLifecycleEvent& event) {
+    return event.designation_revert_reason == ArDesignationRevertReason::kAcquisitionTimeout;
+  }));
 }
 
 }  // namespace

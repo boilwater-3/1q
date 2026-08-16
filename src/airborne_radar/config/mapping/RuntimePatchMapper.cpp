@@ -70,10 +70,19 @@ RuntimeConfigResolveResult ApplyRuntimePatch(const RuntimeConfigState& current_s
     execution_config_changed = true;
   }
 
-  // 指定跟踪目标：会话级状态，不进执行配置（不触发 pipeline 同步）。
-  if (patch.has_designated_target_id) {
+  // 指定跟踪目标 + 限时窗口：会话级状态，不进执行配置（不触发 pipeline 同步）。
+  // 任一指定相关字段变更（含仅改时长）都视为新指令：生命周期阶段重置为
+  // kNone，捕获窗口在指令生效后首个周期重新起算（见 RuntimeConfigState 注释）。
+  if (patch.has_designated_target_id || patch.has_designation_duration_cycles) {
     has_requested_update = true;
-    resolved.next_state.designated_external_target_id = patch.designated_external_target_id;
+    if (patch.has_designated_target_id) {
+      resolved.next_state.designated_external_target_id = patch.designated_external_target_id;
+    }
+    if (patch.has_designation_duration_cycles) {
+      resolved.next_state.designation_duration_cycles = patch.designation_duration_cycles;
+    }
+    resolved.next_state.designation_phase = DesignationPhase::kNone;
+    resolved.next_state.designation_deadline_cycle_index = 0U;
   }
 
   if (patch.has_environment) {

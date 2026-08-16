@@ -192,6 +192,25 @@ STT 模式不再要求外部提供目标角度：外部通过
    `scan_center` 仅作非法限位时的回退中心（patch 移动 scan_center 不移动扫描范围）；
    pipeline 本地 `ApplyScanScheduleToRuntimeConfig` 保留，供 RF v1 回退路径
    （`rf_v2_detection_context == nullptr`）使用。
+7. **限时锁定指令（`designation_duration_cycles`）**：指定指令可带捕获窗口
+   （周期数；`0` = 无限期，旧行为）。生命周期阶段（`RuntimeConfigState`：
+   `kPending` → `kAcquired` | `kExpired`，终态）由 `AdvanceDesignationPhase`
+   每周期推进：
+   - 窗口自指令生效后首个处理周期起算（deadline = 首周期 + duration）；窗口内
+     每周期等待指定目标 confirmed 航迹，未捕获则继续扫描（回退报告
+     `kTrackNotConfirmed`）；
+   - 窗口内捕获 → `kAcquired`：跟随航迹且**不再受窗口限制**（后续丢失按既有
+     回退语义 `kTrackLost`/`kTrackNotConfirmed`，不重新开窗口）；
+   - 窗口耗尽仍未捕获 → `kExpired`：**指令作废**。作废沿周期（cycle ==
+     deadline）保留目标 ID 并报告 `designation_revert_reason =
+     kAcquisitionTimeout`（L2 结果 + L3 视图 + `kDesignationDropped` 事件）；
+     其后指定清零（`designated_target_id == 0`）、无回退报告、生效模式按扫描
+     处理（已提交 `kStt` 时生效为 `kTws`，回到扫描），直到外部重新下达指定。
+   - 捕获判定与指向同源（上一周期航迹帧，滞后一周期）；窗口独立于指向优先级
+     运行（显式 dwell 覆盖不暂停窗口）；任一指定相关 patch 变更（含仅改时长）
+     视为新指令，窗口重新起算；`kExpired` 不修改已提交配置（作废后生效模式
+     持续按扫描派生）。replay 的 patch 记录保留时长字段，作废行为由
+     cycle_index 驱动可复现。
 
 [evidence: tests/unit/airborne_radar/ar_stt_track_follow_test.cpp]
 [evidence: tests/unit/airborne_radar/ar_track_output_debug_view_test.cpp]

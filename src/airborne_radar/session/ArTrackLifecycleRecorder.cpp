@@ -11,6 +11,7 @@ namespace {
 struct TargetState {
   bool confirmed{false};
   bool designation_active{false}; /**< 上一周期该目标是否为生效的指定跟踪目标。 */
+  bool designation_pending{false}; /**< 上一周期该目标是否处于"指定但未生效（回退）"状态。 */
   std::string target_name{};
 };
 
@@ -77,13 +78,16 @@ std::vector<ArTrackLifecycleEvent> ArTrackLifecycleRecorder::Update(
     const session::TrackStateSnapshot* track =
         FindTrackByExternalTargetId(result.output_frame, target.target_id);
 
+    const bool designation_active_now =
+        result.designated_target_id == target.target_id && result.designation_active;
+    const bool designation_pending_now =
+        result.designated_target_id == target.target_id && !result.designation_active &&
+        result.designation_reverted_to_tws;
     // 指定跟踪回退事件（自动丢跟踪，回 TWS）：仅当该目标为本周期指定的目标、
     // 上一周期跟踪生效且本周期已回退时，在转换沿产生 kDesignationDropped。
     // 成因直接转写 L2 结果字段（ArCycleResult::designation_revert_reason）。
     // 注意：本块必须在 confirmed 分支的 continue 之前执行——confirmed 目标
     // 同样需要推进 designation_active 状态，否则回退沿永远无法触发。
-    const bool designation_active_now =
-        result.designated_target_id == target.target_id && result.designation_active;
     if (state.designation_active && !designation_active_now &&
         result.designated_target_id == target.target_id &&
         result.designation_reverted_to_tws) {
@@ -98,7 +102,25 @@ std::vector<ArTrackLifecycleEvent> ArTrackLifecycleRecorder::Update(
       event.designation_revert_reason = result.designation_revert_reason;
       events.push_back(event);
     }
+    // 限时指令捕获超时事件（窗口耗尽指令作废）：上一周期与本周期的指定目标
+    // 均处于"指定但未生效（回退）"状态，且本周期成因变为 kAcquisitionTimeout
+    // 时，在作废沿产生 kDesignationDropped（成因 kAcquisitionTimeout）。
+    // 跟随后丢失的既有回退沿不重复触发（该路径成因非 kAcquisitionTimeout）。
+    if (state.designation_pending && designation_pending_now &&
+        result.designation_revert_reason == ArDesignationRevertReason::kAcquisitionTimeout) {
+      ArTrackLifecycleEvent event = MakeBaseEvent(target, result);
+      event.kind = ArTrackLifecycleEventKind::kDesignationDropped;
+      event.reason = ArTrackLifecycleReason::kNone;
+      if (track != nullptr) {
+        event.association_key = track->association_key;
+        event.track_status = track->status;
+        event.speed = track->speed;
+      }
+      event.designation_revert_reason = result.designation_revert_reason;
+      events.push_back(event);
+    }
     state.designation_active = designation_active_now;
+    state.designation_pending = designation_pending_now;
 
     const bool confirmed_now =
         track != nullptr && track->status == session::TrackStatus::kConfirmed;

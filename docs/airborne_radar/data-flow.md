@@ -303,7 +303,11 @@ flowchart LR
   经冻结指向链路同时驱动发射 boresight、接收状态、逐目标增益与检测单元；
   TWS/TAS 生效模式（含 STT 回退）下该输入按扫描表逐周期推进（扫描动画，
   见 boundaries.md 扫描动画接线），显式 dwell / 航迹跟随 / STT 驻留保持静态语义；
-- 指定状态属会话层（`RuntimeConfigState`），不进 pipeline 执行配置；
+- 指定状态属会话层（`RuntimeConfigState`），不进 pipeline 执行配置；限时指令
+  （`designation_duration_cycles`）的生命周期阶段（kPending/kAcquired/kExpired）
+  同为会话级跨周期状态，由 `AdvanceDesignationPhase` 每周期推进（窗口内捕获 →
+  持续跟随；窗口耗尽未捕获 → 作废，作废沿报告 kAcquisitionTimeout 后指定清零、
+  回到扫描）；失败周期经事务快照回滚，阶段不跨失败周期消耗；
 - 生效模式每周期派生（无跨周期记忆）：指定航迹非 confirmed → 回退 `kTws`；
   `designation_reverted_to_tws` 是每周期状态指示，跨周期差分由调用方/recorder 承担；
 - 显式 dwell 覆盖时 `designation_active == false` 但不构成回退。

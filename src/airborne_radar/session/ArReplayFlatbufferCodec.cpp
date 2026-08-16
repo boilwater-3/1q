@@ -1398,7 +1398,8 @@ bool TryDecodeCycleResultV3(const fb::ArCycleResultV3* value, ArCycleResult* res
   candidate.designation_reverted_to_tws = value->designation_reverted_to_tws();
   const int revert_reason_raw = value->revert_reason();
   if (revert_reason_raw < 0 ||
-      revert_reason_raw > static_cast<int>(session::ArDesignationRevertReason::kTrackLost)) {
+      revert_reason_raw >
+          static_cast<int>(session::ArDesignationRevertReason::kAcquisitionTimeout)) {
     return false;
   }
   candidate.designation_revert_reason =
@@ -1688,7 +1689,8 @@ std::string EncodeRuntimeConfigPatchFlatbuffer(const config::ArRuntimeConfigPatc
           patch.has_work_mode, static_cast<int>(patch.work_mode), patch.has_scan_center_deg,
           EncodeSessionAzEl(&builder, patch.scan_center_deg), patch.has_dwell_center_deg,
           EncodeSessionAzEl(&builder, patch.dwell_center_deg), patch.has_designated_target_id,
-          patch.designated_external_target_id, patch.has_commanded_beamwidth_deg,
+          patch.designated_external_target_id, patch.has_designation_duration_cycles,
+          patch.designation_duration_cycles, patch.has_commanded_beamwidth_deg,
           EncodeSessionCommandedBeamwidth(&builder, patch.commanded_beamwidth_deg),
           patch.has_commanded_beamwidth_enabled, patch.commanded_beamwidth_enabled,
           patch.has_sensor_enabled, patch.sensor_enabled);
@@ -1740,6 +1742,8 @@ bool DecodeRuntimeConfigPatchFlatbuffer(const std::string& payload_bytes,
   decoded.dwell_center_deg = DecodeSessionAzEl(root->dwell_center_deg());
   decoded.has_designated_target_id = root->has_designated_target_id();
   decoded.designated_external_target_id = root->designated_target_id();
+  decoded.has_designation_duration_cycles = root->has_designation_duration_cycles();
+  decoded.designation_duration_cycles = root->designation_duration_cycles();
   decoded.has_commanded_beamwidth_deg = root->has_commanded_beamwidth_deg();
   decoded.commanded_beamwidth_deg = DecodeSessionCommandedBeamwidth(root->commanded_beamwidth_deg());
   decoded.has_commanded_beamwidth_enabled = root->has_commanded_beamwidth_enabled();

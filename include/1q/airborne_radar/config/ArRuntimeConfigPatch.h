@@ -84,6 +84,22 @@ struct ONEQ_API ArRuntimeConfigPatch {
   bool has_designated_target_id{false};
   std::uint64_t designated_external_target_id{0U};
 
+  /**
+   * @brief 指定跟踪限时窗口（周期数；0 = 无限期，旧行为）。
+   * @note 限时锁定指令生命周期（见 boundaries.md「STT 指定航迹跟随与自动回退」）：
+   *   - duration == 0：指令无限期有效（既有行为），直到外部清除指定；
+   *   - duration > 0：自指令生效后第一个周期起算，共 duration 个周期的捕获
+   *     窗口。窗口内指定目标出现 confirmed 航迹 → 锁定成功，波束跟随航迹且
+   *     不再受窗口限制（后续丢失按既有回退语义，不重新开窗口）；窗口耗尽
+   *     仍未捕获 → 指令作废（回到扫描），并在作废周期经
+   *     `ArCycleResult::designation_revert_reason = kAcquisitionTimeout` 与
+   *     `ArTrackLifecycleRecorder` 的 `kDesignationDropped` 事件暴露成因。
+   * @note 与 `designated_external_target_id` 的任一变更（含仅改时长）都视为
+   *       新指令：捕获窗口重新起算。
+   */
+  bool has_designation_duration_cycles{false};
+  std::uint32_t designation_duration_cycles{0U};
+
   bool has_commanded_beamwidth_deg{false};
   CommandedBeamwidthDeg commanded_beamwidth_deg{};
 
