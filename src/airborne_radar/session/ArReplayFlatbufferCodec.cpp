@@ -609,9 +609,15 @@ flatbuffers::Offset<session_fb::DetectionConfig> EncodeSessionDetectionConfig(
           value.rcs_physics.cylinder_weight, value.rcs_physics.min_equivalent_radius_m,
           value.rcs_physics.max_equivalent_radius_m, value.rcs_physics.min_rcs_m2,
           value.rcs_physics.max_rcs_m2, value.rcs_physics.bistatic_psi_offset_deg);
+  const flatbuffers::Offset<session_fb::SignalProcessingConfig> signal_processing =
+      session_fb::CreateSignalProcessingConfig(
+          *builder, value.signal_processing.target_processing_gain_db,
+          value.signal_processing.noise_processing_gain_db,
+          value.signal_processing.clutter_suppression_gain_db,
+          value.signal_processing.jamming_suppression_gain_db);
   return session_fb::CreateDetectionConfig(
       *builder, static_cast<int>(config::profiles::SwerlingModel::kSwerling0), transmitter, antenna,
-      receiver, rcs_physics);
+      receiver, rcs_physics, signal_processing);
 }
 
 flatbuffers::Offset<session_fb::ArPolicyConfig> EncodeSessionPolicyConfig(
@@ -820,6 +826,17 @@ config::DetectionConfig DecodeSessionDetectionConfig(const session_fb::Detection
       result.rcs_physics.min_rcs_m2 = rcs_physics->min_rcs_m2();
       result.rcs_physics.max_rcs_m2 = rcs_physics->max_rcs_m2();
       result.rcs_physics.bistatic_psi_offset_deg = rcs_physics->bistatic_psi_offset_deg();
+    }
+    const session_fb::SignalProcessingConfig* signal_processing = value->signal_processing();
+    if (signal_processing != nullptr) {
+      result.signal_processing.target_processing_gain_db =
+          signal_processing->target_processing_gain_db();
+      result.signal_processing.noise_processing_gain_db =
+          signal_processing->noise_processing_gain_db();
+      result.signal_processing.clutter_suppression_gain_db =
+          signal_processing->clutter_suppression_gain_db();
+      result.signal_processing.jamming_suppression_gain_db =
+          signal_processing->jamming_suppression_gain_db();
     }
   }
   return result;

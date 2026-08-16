@@ -384,6 +384,30 @@ TEST(RadarSessionConfigValidationTest, ValidatesReceiverRfHardwareBoundary) {
   EXPECT_EQ(issues.back().code, "ar.validation.receiver_rf_hardware_invalid");
 }
 
+TEST(RadarSessionConfigValidationTest, RejectsSignalProcessingGainsOutsideRange) {
+  config::ArSessionConfig session_config;
+  session_config.hardware.signal_processing.clutter_suppression_gain_db = 41.0f;
+  auto issues = config::ValidateArSessionConfig(session_config);
+  ASSERT_FALSE(issues.empty());
+  EXPECT_EQ(issues.front().code, "ar.validation.signal_processing_gains_invalid");
+
+  session_config.hardware.signal_processing.clutter_suppression_gain_db = -1.0f;
+  issues = config::ValidateArSessionConfig(session_config);
+  ASSERT_FALSE(issues.empty());
+  EXPECT_EQ(issues.front().code, "ar.validation.signal_processing_gains_invalid");
+
+  session_config.hardware.signal_processing.noise_processing_gain_db = 40.0f;
+  session_config.hardware.signal_processing.clutter_suppression_gain_db = 0.0f;
+  issues = config::ValidateArSessionConfig(session_config);
+  EXPECT_TRUE(issues.empty());
+
+  session_config.hardware.signal_processing.jamming_suppression_gain_db =
+      std::numeric_limits<float>::quiet_NaN();
+  issues = config::ValidateArSessionConfig(session_config);
+  ASSERT_FALSE(issues.empty());
+  EXPECT_EQ(issues.front().code, "ar.validation.signal_processing_gains_invalid");
+}
+
 TEST(RadarSessionCreateWithDiagnosticsTest, BuildsSessionAndReportsNoIssuesForHealthyConfig) {
   config::ArSessionConfig config;
   config.policy.lifecycle.enable_imm_lifecycle = false;

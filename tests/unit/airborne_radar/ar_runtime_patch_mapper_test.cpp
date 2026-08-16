@@ -187,6 +187,10 @@ TEST(ArRuntimePatchMapperTest, MapExecutionToSessionRoundTripsFields) {
   original.mission.orientation.scan_center_deg.el_deg = 10.0f;
   original.policy.tracking.speed_decay_ratio_on_loss = 0.9f;
   original.policy.association.distance_gate_sigma = std::sqrt(12.0f);
+  original.hardware.signal_processing.target_processing_gain_db = 4.0f;
+  original.hardware.signal_processing.noise_processing_gain_db = 1.5f;
+  original.hardware.signal_processing.clutter_suppression_gain_db = 12.0f;
+  original.hardware.signal_processing.jamming_suppression_gain_db = 8.0f;
 
   const execution::InternalExecutionConfig mapped = mapping::MapSessionToExecution(original);
   const config::ArSessionConfig round_tripped = mapping::MapExecutionToSession(mapped);
@@ -197,6 +201,10 @@ TEST(ArRuntimePatchMapperTest, MapExecutionToSessionRoundTripsFields) {
   EXPECT_FLOAT_EQ(round_tripped.mission.orientation.scan_center_deg.el_deg, 10.0f);
   EXPECT_FLOAT_EQ(round_tripped.policy.tracking.speed_decay_ratio_on_loss, 0.9f);
   EXPECT_FLOAT_EQ(round_tripped.policy.association.distance_gate_sigma, std::sqrt(12.0f));
+  EXPECT_FLOAT_EQ(round_tripped.hardware.signal_processing.target_processing_gain_db, 4.0f);
+  EXPECT_FLOAT_EQ(round_tripped.hardware.signal_processing.noise_processing_gain_db, 1.5f);
+  EXPECT_FLOAT_EQ(round_tripped.hardware.signal_processing.clutter_suppression_gain_db, 12.0f);
+  EXPECT_FLOAT_EQ(round_tripped.hardware.signal_processing.jamming_suppression_gain_db, 8.0f);
 }
 
 }  // namespace

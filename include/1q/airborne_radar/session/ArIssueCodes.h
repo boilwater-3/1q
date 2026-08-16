@@ -69,6 +69,9 @@ constexpr char kEquipmentIdentityInvalid[] = "ar.validation.equipment_identity_i
 /** @brief 接收机 RF 硬件非法（隔离度/远场距离/线性输入限/共址路径无效）。 */
 constexpr char kReceiverRfHardwareInvalid[] = "ar.validation.receiver_rf_hardware_invalid";
 
+/** @brief 信号处理增益偏置非法（四偏置须有限且在 [0, 40] dB）。 */
+constexpr char kSignalProcessingGainsInvalid[] = "ar.validation.signal_processing_gains_invalid";
+
 /** @brief 指令方位波束宽度非正（启用指令波束时须有限且为正）。 */
 constexpr char kCommandedBeamwidthAzNotPositive[] =
     "ar.validation.commanded_beamwidth_az_not_positive";

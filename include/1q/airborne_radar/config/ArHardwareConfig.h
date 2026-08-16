@@ -2,11 +2,12 @@
  * @file ArHardwareConfig.h
  * @brief 机载雷达硬件域主配置类型集合。
  *
- * 硬件域配置（探测链路物理参数、天线方向图、RCS 物理建模等）的主头文件。
+ * 硬件域配置（探测链路物理参数、天线方向图、RCS 物理建模、信号处理增益偏置等）
+ * 的主头文件。
  *
- * @note 硬件域仅包含物理硬件能力参数（发射机、天线、接收机、RCS 物理）。
- *       检测判决门限（minimum_snr_db、pfa、pulse_count、minimum_detection_margin_db）
- *       属于策略域 ArPolicyConfig::detection，不在此类型中。
+ * @note 硬件域包含硬件能力参数（发射机、天线、接收机、RCS 物理）与装备级
+ *       信号处理增益偏置。检测判决门限（minimum_snr_db、pfa、pulse_count、
+ *       minimum_detection_margin_db）属于策略域 ArPolicyConfig::detection，不在此类型中。
  *       内部通过 MapSessionToExecution() 将 hardware + policy.detection 合并为
  *       engineering::DetectionConfig。
  *
@@ -140,16 +141,33 @@ struct ONEQ_API RcsPhysicsConfig {
 };
 
 /**
+ * @brief 信号处理增益偏置（四增益分项账本，缺省 0 dB 等于保守账本）。
+ *
+ * 四个 dB 偏置叠加在检测单元分项 SINR 账本上；**缺省 0 dB 时与保守账本
+ * 逐位一致**。脉压（B·τ）与积累（N）增益永远自动派生，禁止把派生量手填进
+ * 偏置（防双算）；额外链路损耗继续走 `transmit_loss_db`/`receive_loss_db`。
+ * 符号约定：改善因子正 dB 为优（target/clutter/jamming），噪声代价正 dB 为劣
+ * （noise，与 `noise_figure_db` 同向）。值域 [0, 40] dB（配置校验拒绝越界）。
+ */
+struct ONEQ_API SignalProcessingConfig {
+  float target_processing_gain_db{0.0f}; /**< 目标信号额外处理增益；正 = 提升 SINR（账本分子）。 */
+  float noise_processing_gain_db{0.0f}; /**< 噪声代价；正 = 抬高噪声底（账本分母）。 */
+  float clutter_suppression_gain_db{0.0f}; /**< 杂波抑制（MTI 改善因子）；正 = 抑制杂波（分母）。 */
+  float jamming_suppression_gain_db{0.0f}; /**< 干扰抑制（旁瓣对消改善因子）；正 = 抑制干扰（分母）。 */
+};
+
+/**
  * @brief 探测硬件能力聚合配置。
  *
- * 仅包含物理硬件能力参数（发射机、天线、接收机、RCS 物理建模）。
- * 检测判决门限不在此结构中，参见 ArPolicyConfig::detection。
+ * 包含硬件能力参数（发射机、天线、接收机、RCS 物理建模）与装备级信号处理
+ * 增益偏置。检测判决门限不在此结构中，参见 ArPolicyConfig::detection。
  */
 struct ONEQ_API DetectionConfig {
   TransmitterConfig transmitter{}; /**< 发射机参数。 */
   AntennaConfig antenna{};         /**< 天线参数。 */
   ReceiverConfig receiver{};       /**< 接收机参数。 */
   RcsPhysicsConfig rcs_physics{};  /**< RCS 物理建模参数。 */
+  SignalProcessingConfig signal_processing{}; /**< 信号处理增益偏置（默认全 0 dB）。 */
 };
 
 }  // namespace detection
@@ -160,7 +178,8 @@ using detection::DetectionConfig;
 /**
  * @brief 雷达硬件域配置——DetectionConfig 别名。
  *
- * 仅包含物理硬件能力。检测门限（minimum_snr_db 等）在 ArPolicyConfig::detection 中。
+ * 包含硬件能力与装备级信号处理增益偏置。检测门限（minimum_snr_db 等）在
+ * ArPolicyConfig::detection 中。
  */
 using ArHardwareConfig = detection::DetectionConfig;
 

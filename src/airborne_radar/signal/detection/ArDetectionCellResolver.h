@@ -8,6 +8,7 @@
 
 #include <vector>
 
+#include "1q/airborne_radar/config/ArHardwareConfig.h"
 #include "1q/electromagnetics/RfScene.h"
 
 namespace airborne_radar {
@@ -25,6 +26,7 @@ struct ArDetectionCellConfig {
   double receiver_noise_figure_db{0.0};
   double reference_temperature_k{290.0};
   bool enable_anti_rgpo_leading_edge{false}; /**< 前沿跟踪：kPulseTrain 外部发射有效干扰功率减半 */
+  config::detection::SignalProcessingConfig signal_processing{}; /**< 四增益偏置（默认全 0 dB）。 */
 };
 
 /** @brief 一个目标在本周期 detection cell 中的物理事实。 */
@@ -36,7 +38,7 @@ struct ArDetectionCellTarget {
   std::uint32_t effective_pulse_count{1U};
 };
 
-/** @brief 单目标 detection cell 的统计级求解结果。 */
+/** @brief 单目标 detection cell 的统计级求解结果（分项功率为施加偏置前的物理量）。 */
 struct ArDetectionCellResult {
   double echo_delay_s{0.0};
   double two_way_doppler_shift_hz{0.0};
@@ -52,8 +54,11 @@ struct ArDetectionCellResult {
 
 /**
  * @brief 求解一个目标 detection cell；外部 incident link 仅按目标单元内的时频重叠聚合。
+ *
+ * 分项 SINR 账本施加 `SignalProcessingConfig` 四增益偏置（分子 target、
+ * 分母 noise/clutter/jamming）；缺省 0 dB 逐位等于 AR 保守账本。
  * @param[in] own_emission_identity 当前 AR 发射身份；该链路不会计入干扰。
- * @param[in] clutter_power_w 当前 cell 的杂波功率（W）。
+ * @param[in] clutter_power_w 当前 cell 的杂波功率（W，施加杂波抑制偏置前）。
  * @return 成功返回 true；非法输入原子拒绝且不修改 @p result。
  */
 bool TryResolveArDetectionCell(

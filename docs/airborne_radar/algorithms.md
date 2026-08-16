@@ -80,9 +80,10 @@ public API 边界）见 [boundaries.md](boundaries.md)。
 ## 统一物理探测与工程 RF 干扰链
 
 AR 的核心算法。探测门限属于 **policy，不属于 hardware**：`ArPolicyConfig::detection` 统一承载
-`minimum_snr_db`、`pfa`、`pulse_count` 和 `minimum_detection_margin_db`；hardware 只描述发射机、接收机、
-天线、波形和量测等物理能力。探测意图语义档位（如 `profiles::kDetectionPriorityDetection`）只翻译为这组
-policy 参数。AR **不再提供** heuristic detection toggle 或启发式 pass。
+`minimum_snr_db`、`pfa`、`pulse_count` 和 `minimum_detection_margin_db`；hardware 描述发射机、接收机、
+天线、波形、量测等物理能力与装备级信号处理增益偏置（四偏置缺省 0 dB）。探测意图语义档位
+（如 `profiles::kDetectionPriorityDetection`）只翻译为这组 policy 参数。AR **不再提供** heuristic
+detection toggle 或启发式 pass。
 
 - **意图**：单一物理链——emission → echo → incident RF → front-end ledger → detection cell → decision——
   而非"把所有外部发射功率加到一个周期总噪声"。
@@ -102,8 +103,11 @@ policy 参数。AR **不再提供** heuristic detection toggle 或启发式 pass
      或被零陷抑制的贡献为零。**首期不把压制噪声解释成虚假目标**。欺骗发射（kPulseTrain）经同一时频重叠
      机制进入，PRI 间隙内 activity 为零；`enable_anti_rgpo_leading_edge=true` 时其有效干扰功率乘 0.5。
   5. **处理后判决**：匹配滤波、脉冲压缩、相参/非相参积累等 processing gain 只属于 AR；统一计算
-     `SINR = echo / (thermal + clutter + interference)`，由 policy 的 Pfa/Swerling/积累模型/最小 margin 得到
-     Pd；Monte Carlo 只采样检测事件。
+     `SINR = echo × pulse_compression_gain × 10^(target_processing_gain_db/10) /
+     (thermal × 10^(noise_processing_gain_db/10) + clutter / 10^(clutter_suppression_gain_db/10) +
+     interference / 10^(jamming_suppression_gain_db/10))`，由 policy 的 Pfa/Swerling/积累模型/最小 margin
+     得到 Pd；Monte Carlo 只采样检测事件。四增益偏置缺省全 0 dB，逐位等于保守账本；
+     脉压与积累增益永远自动派生，不得手填进偏置。
   6. **可靠性裕量门限**：Monte Carlo 判决后若 `snr_db < min_detection_margin_db` 则强制 `detected = false`；
      该门限作为后验安全网独立于 Pd/Monte Carlo 路径。`detection_margin_db` 输出语义为相对裕量而非原始 SNR。
 - **反直觉点（两个噪声基准，不得混用）**：
@@ -112,7 +116,8 @@ policy 参数。AR **不再提供** heuristic detection toggle 或启发式 pass
     `transmitter.bandwidth_hz`（发射带宽，默认 4.5 MHz），**不是** `preselector_bandwidth_hz`（宽带前端
     预选器带宽，默认 20 MHz，仅用于 `receiver_state.bandwidth_hz`，不进入 J/N 门热噪声）。
   - **检测单元 SINR 基准**：`k·T·matched_filter_bandwidth_hz·noise_figure`（单 range-Doppler-beam-time-frequency
-    cell），进入分母 `thermal + clutter + interference`。
+    cell），分项进入分母 `thermal × noise_bias + clutter / clutter_suppression +
+    interference / jamming_suppression`（偏置缺省 0 dB 时即 `thermal + clutter + interference`）。
   - 二者带宽口径不同是有意的：前者回答"前端能否察觉这个干扰源"，后者回答"这个 cell 的信干噪比是多少"。
     不得合并或互相替换。
 - **反直觉点（饱和与 ECCM 是降级而非触发）**：前端饱和时本周期输出 `receiver_saturated` impairment 并

@@ -174,6 +174,7 @@ config::ArSessionConfig MapExecutionToSession(
   config.hardware.antenna = execution_config.detection.engineering.antenna;
   config.hardware.receiver = execution_config.detection.engineering.receiver;
   config.hardware.rcs_physics = execution_config.detection.engineering.rcs_physics;
+  config.hardware.signal_processing = execution_config.detection.engineering.signal_processing;
   config.mission.orientation = execution_config.detection.orientation;
   config.policy.decision_control = execution_config.decision_control;
   config.policy.decision_control.anti_vgpo_max_acceleration_mps2 =

@@ -49,6 +49,10 @@ TEST(ArReplayCodecRoundtripTest, SessionConfigPreservesAllDomains) {
   config.hardware.transmitter.frequency_hz = 9.5e9f;
   config.hardware.antenna.antenna_length_m = 1.75f;
   config.hardware.antenna.antenna_width_m = 0.85f;
+  config.hardware.signal_processing.target_processing_gain_db = 4.0f;
+  config.hardware.signal_processing.noise_processing_gain_db = 1.5f;
+  config.hardware.signal_processing.clutter_suppression_gain_db = 12.0f;
+  config.hardware.signal_processing.jamming_suppression_gain_db = 8.0f;
   // mission
   config.mission.orientation.scan_center_deg.az_deg = 15.0f;
   config.mission.orientation.scan_center_deg.el_deg = -2.0f;
@@ -103,6 +107,10 @@ TEST(ArReplayCodecRoundtripTest, SessionConfigPreservesAllDomains) {
   EXPECT_FLOAT_EQ(decoded.hardware.transmitter.frequency_hz, 9.5e9f);
   EXPECT_FLOAT_EQ(decoded.hardware.antenna.antenna_length_m, 1.75f);
   EXPECT_FLOAT_EQ(decoded.hardware.antenna.antenna_width_m, 0.85f);
+  EXPECT_FLOAT_EQ(decoded.hardware.signal_processing.target_processing_gain_db, 4.0f);
+  EXPECT_FLOAT_EQ(decoded.hardware.signal_processing.noise_processing_gain_db, 1.5f);
+  EXPECT_FLOAT_EQ(decoded.hardware.signal_processing.clutter_suppression_gain_db, 12.0f);
+  EXPECT_FLOAT_EQ(decoded.hardware.signal_processing.jamming_suppression_gain_db, 8.0f);
   // mission
   EXPECT_FLOAT_EQ(decoded.mission.orientation.scan_center_deg.az_deg, 15.0f);
   EXPECT_FLOAT_EQ(decoded.mission.orientation.scan_center_deg.el_deg, -2.0f);

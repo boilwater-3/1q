@@ -16,8 +16,16 @@ constexpr double kPi = 3.14159265358979323846;
 constexpr double kLinearFloor = 1.0e-300;
 constexpr std::uint32_t kRepresentativePulseLimit = 8U;
 constexpr std::uint32_t kSamplesPerEchoGate = 5U;
+/** @brief 增益偏置值域（与配置校验一致；求解器内钳位兜底防越界指数）。 */
+constexpr double kMaxGainOffsetDb = 40.0;
 
 bool IsFinitePositive(double value) { return std::isfinite(value) && value > 0.0; }
+
+/** @brief dB 偏置 → 线性因子，[0, 40] dB 钳位。 */
+double GainFactorFromDb(double gain_db) {
+  const double clamped = std::min(std::max(gain_db, 0.0), kMaxGainOffsetDb);
+  return std::pow(10.0, clamped / 10.0);
+}
 
 bool SameIdentity(const oneq::electromagnetics::RfEmissionIdentity& left,
                   const oneq::electromagnetics::RfEmissionIdentity& right) {
@@ -168,6 +176,13 @@ bool TryResolveCellInterference(
   return true;
 }
 
+bool AreGainsUsable(const config::detection::SignalProcessingConfig& gains) {
+  return std::isfinite(gains.target_processing_gain_db) &&
+         std::isfinite(gains.noise_processing_gain_db) &&
+         std::isfinite(gains.clutter_suppression_gain_db) &&
+         std::isfinite(gains.jamming_suppression_gain_db);
+}
+
 }  // namespace
 
 bool TryResolveArDetectionCell(
@@ -184,6 +199,7 @@ bool TryResolveArDetectionCell(
       !std::isfinite(config.one_way_antenna_gain_dbi) || !std::isfinite(config.receiver_loss_db) ||
       config.receiver_loss_db < 0.0 || !std::isfinite(config.receiver_noise_figure_db) ||
       config.receiver_noise_figure_db < 0.0 || !IsFinitePositive(config.reference_temperature_k) ||
+      !AreGainsUsable(config.signal_processing) ||
       !IsFinitePositive(target.range_m) || !std::isfinite(target.closing_radial_velocity_mps) ||
       !IsFinitePositive(target.rcs_m2) ||
       !std::isfinite(target.two_way_additional_propagation_loss_db) ||
@@ -233,11 +249,25 @@ bool TryResolveArDetectionCell(
     return false;
   }
   candidate.clutter_power_w = clutter_power_w;
+  // 分项 SINR 账本 + 四增益偏置：
+  // 分子 = 回波 × 脉压 × target 偏置；分母 = 热噪声 × noise 偏置
+  //        + 干扰 ÷ jamming 抑制 + 杂波 ÷ clutter 抑制（保守口径不加脉压）。
+  const double target_gain_linear = GainFactorFromDb(
+      static_cast<double>(config.signal_processing.target_processing_gain_db));
+  const double noise_gain_linear = GainFactorFromDb(
+      static_cast<double>(config.signal_processing.noise_processing_gain_db));
+  const double jamming_suppression_linear = GainFactorFromDb(
+      static_cast<double>(config.signal_processing.jamming_suppression_gain_db));
+  const double clutter_suppression_linear = GainFactorFromDb(
+      static_cast<double>(config.signal_processing.clutter_suppression_gain_db));
   const double denominator = std::max(
-      candidate.thermal_noise_power_w + candidate.interference_power_w + candidate.clutter_power_w,
+      candidate.thermal_noise_power_w * noise_gain_linear +
+          candidate.interference_power_w / jamming_suppression_linear +
+          candidate.clutter_power_w / clutter_suppression_linear,
       kLinearFloor);
   candidate.processed_single_pulse_sinr_linear =
-      candidate.echo_power_w * candidate.pulse_compression_gain / denominator;
+      candidate.echo_power_w * candidate.pulse_compression_gain * target_gain_linear /
+      denominator;
   candidate.processed_single_pulse_sinr_db =
       10.0 * std::log10(std::max(candidate.processed_single_pulse_sinr_linear, kLinearFloor));
   if (!std::isfinite(candidate.echo_power_w) || candidate.echo_power_w < 0.0 ||

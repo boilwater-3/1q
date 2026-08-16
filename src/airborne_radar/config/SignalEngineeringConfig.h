@@ -24,6 +24,7 @@ using AntennaPatternConfig = detection::AntennaPatternConfig;
 using AntennaConfig = detection::AntennaConfig;
 using ReceiverConfig = detection::ReceiverConfig;
 using RcsPhysicsConfig = detection::RcsPhysicsConfig;
+using SignalProcessingConfig = detection::SignalProcessingConfig;
 
 struct DetectionPolicy {
   float cfar_pfa{1e-6f};
@@ -38,6 +39,7 @@ struct DetectionConfig {
   RcsPhysicsConfig rcs_physics{};
   float min_detection_margin_db{-2.0f};
   int pulse_count{10};
+  SignalProcessingConfig signal_processing{}; /**< 四增益偏置（默认全 0 dB）。 */
 };
 
 // Tracking domain type — 1:1 alias to public tracking:: type (extends P9+P10 pattern).

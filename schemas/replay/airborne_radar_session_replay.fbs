@@ -108,6 +108,13 @@ table RcsPhysicsConfig {
   bistatic_psi_offset_deg:float;
 }
 
+table SignalProcessingConfig {
+  target_processing_gain_db:float;
+  noise_processing_gain_db:float;
+  clutter_suppression_gain_db:float;
+  jamming_suppression_gain_db:float;
+}
+
 table DetectionConfig {
   // Deprecated binary slot. Physical detection is unconditional in current runtimes.
   enable_physics_detection:bool (deprecated);
@@ -116,6 +123,7 @@ table DetectionConfig {
   antenna:AntennaConfig;
   receiver:ReceiverConfig;
   rcs_physics:RcsPhysicsConfig;
+  signal_processing:SignalProcessingConfig;
 }
 
 table BeamPointingConfig {
