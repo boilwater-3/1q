@@ -6,6 +6,7 @@
 #include <cstdint>
 
 #include "common/numerics/Constants.h"
+#include "common/radar/ScanScheduleRuntime.h"
 
 namespace airborne_radar {
 namespace signal {
@@ -43,16 +44,6 @@ detection::EffectiveBeamwidthDeg ResolveSchedulingBeamwidth(const ExecutionConfi
   return beamwidth;
 }
 
-float ResolveAxisStepDeg(float min_deg, float max_deg, float default_step_deg,
-                         std::uint32_t step_count_hint) {
-  if (step_count_hint <= 1U) {
-    return default_step_deg;
-  }
-  const float span_deg = std::max(0.0f, max_deg - min_deg);
-  const float hint_step_deg = span_deg / static_cast<float>(step_count_hint - 1U);
-  return IsFinitePositive(hint_step_deg) ? hint_step_deg : default_step_deg;
-}
-
 }  // namespace
 
 config::AzimuthElevationDeg ResolveFiniteScanCenter(
@@ -83,85 +74,15 @@ float ResolveScanStepScale(config::ArWorkMode mode) {
 std::vector<config::AzimuthElevationDeg> BuildScheduledScanPattern(
     const config::AzimuthElevationLimitsDeg& limits, float az_step_deg, float el_step_deg,
     oneq::foundation::ScanStartPosition start_position, oneq::foundation::ScanSequence sequence) {
-  const bool finite_limits = std::isfinite(limits.az_min_deg) && std::isfinite(limits.az_max_deg) &&
-                             std::isfinite(limits.el_min_deg) && std::isfinite(limits.el_max_deg);
-  if (!finite_limits || limits.az_min_deg > limits.az_max_deg ||
-      limits.el_min_deg > limits.el_max_deg || !std::isfinite(az_step_deg) ||
-      !std::isfinite(el_step_deg) || az_step_deg <= 0.0f || el_step_deg <= 0.0f) {
-    return std::vector<config::AzimuthElevationDeg>();
-  }
-
-  const std::size_t kMaxAxisSamples = 4096U;
-  std::vector<float> az_values;
-  std::vector<float> el_values;
-  for (float az = limits.az_min_deg;
-       az <= limits.az_max_deg + 0.5f * az_step_deg && az_values.size() < kMaxAxisSamples;
-       az += az_step_deg) {
-    const float clamped = az > limits.az_max_deg ? limits.az_max_deg : az;
-    if (az_values.empty() || std::fabs(az_values.back() - clamped) > 1.0e-4f) {
-      az_values.push_back(clamped);
-    }
-  }
-  for (float el = limits.el_min_deg;
-       el <= limits.el_max_deg + 0.5f * el_step_deg && el_values.size() < kMaxAxisSamples;
-       el += el_step_deg) {
-    const float clamped = el > limits.el_max_deg ? limits.el_max_deg : el;
-    if (el_values.empty() || std::fabs(el_values.back() - clamped) > 1.0e-4f) {
-      el_values.push_back(clamped);
-    }
-  }
-  if (az_values.empty()) {
-    az_values.push_back(limits.az_min_deg);
-  }
-  if (el_values.empty()) {
-    el_values.push_back(limits.el_min_deg);
-  }
-  if (std::fabs(az_values.back() - limits.az_max_deg) > 1.0e-4f &&
-      az_values.size() < kMaxAxisSamples) {
-    az_values.push_back(limits.az_max_deg);
-  }
-  if (std::fabs(el_values.back() - limits.el_max_deg) > 1.0e-4f &&
-      el_values.size() < kMaxAxisSamples) {
-    el_values.push_back(limits.el_max_deg);
-  }
-
-  const bool start_from_right = start_position == oneq::foundation::ScanStartPosition::kRightTop ||
-                                start_position == oneq::foundation::ScanStartPosition::kRightBottom;
-  const bool start_from_bottom =
-      start_position == oneq::foundation::ScanStartPosition::kRightBottom ||
-      start_position == oneq::foundation::ScanStartPosition::kLeftBottom;
-  if (start_from_right) {
-    std::reverse(az_values.begin(), az_values.end());
-  }
-  if (!start_from_bottom) {
-    std::reverse(el_values.begin(), el_values.end());
-  }
-
+  // 模式构建为 common 单源（ScanScheduleRuntime.h，AR/RIR 共用同一扫描策略）。
+  const std::vector<oneq::common::radar::AzimuthElevationDeg> common_pattern =
+      oneq::common::radar::BuildScanPattern(limits.az_min_deg, limits.az_max_deg,
+                                            limits.el_min_deg, limits.el_max_deg, az_step_deg,
+                                            el_step_deg, start_position, sequence);
   std::vector<config::AzimuthElevationDeg> pattern;
-  pattern.reserve(az_values.size() * el_values.size());
-  if (sequence == oneq::foundation::ScanSequence::kAzimuthFirst) {
-    for (std::size_t el_index = 0; el_index < el_values.size(); ++el_index) {
-      const bool reverse_row = (el_index % 2U) == 1U;
-      for (std::size_t az_order = 0; az_order < az_values.size(); ++az_order) {
-        const std::size_t az_index = reverse_row ? (az_values.size() - 1U - az_order) : az_order;
-        config::AzimuthElevationDeg pointing;
-        pointing.az_deg = az_values[az_index];
-        pointing.el_deg = el_values[el_index];
-        pattern.push_back(pointing);
-      }
-    }
-    return pattern;
-  }
-
-  for (std::size_t az_index = 0; az_index < az_values.size(); ++az_index) {
-    const bool reverse_column = (az_index % 2U) == 1U;
-    for (std::size_t el_order = 0; el_order < el_values.size(); ++el_order) {
-      const std::size_t el_index = reverse_column ? (el_values.size() - 1U - el_order) : el_order;
-      config::AzimuthElevationDeg pointing;
-      pointing.az_deg = az_values[az_index];
-      pointing.el_deg = el_values[el_index];
-      pattern.push_back(pointing);
-    }
+  pattern.reserve(common_pattern.size());
+  for (const oneq::common::radar::AzimuthElevationDeg& wave_position : common_pattern) {
+    pattern.push_back(config::AzimuthElevationDeg{wave_position.az_deg, wave_position.el_deg});
   }
   return pattern;
 }
@@ -212,11 +133,13 @@ config::AzimuthElevationDeg ResolveScheduledBeamPointing(
   const float default_az_step_deg = effective_beamwidth_deg.az_beamwidth_deg * step_scale;
   const float default_el_step_deg = effective_beamwidth_deg.el_beamwidth_deg * step_scale;
   const float az_step_deg =
-      ResolveAxisStepDeg(effective_limits.az_min_deg, effective_limits.az_max_deg,
-                         default_az_step_deg, scheduler_config.azimuth_step_count_hint);
+      oneq::common::radar::ResolveAxisStepDeg(effective_limits.az_min_deg,
+                                              effective_limits.az_max_deg, default_az_step_deg,
+                                              scheduler_config.azimuth_step_count_hint);
   const float el_step_deg =
-      ResolveAxisStepDeg(effective_limits.el_min_deg, effective_limits.el_max_deg,
-                         default_el_step_deg, scheduler_config.elevation_step_count_hint);
+      oneq::common::radar::ResolveAxisStepDeg(effective_limits.el_min_deg,
+                                              effective_limits.el_max_deg, default_el_step_deg,
+                                              scheduler_config.elevation_step_count_hint);
   const std::vector<config::AzimuthElevationDeg> pattern = BuildScheduledScanPattern(
       effective_limits, az_step_deg, el_step_deg, orientation_config.scan_start_position,
       orientation_config.scan_sequence);
