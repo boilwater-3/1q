@@ -76,7 +76,9 @@ public API 边界）见 [boundaries.md](boundaries.md)。
   4. 扫描范围由 `mechanical/electronic_scan_limits_deg` 交集决定，`scan_center_deg` 仅作限位非法时的
      回退中心；扫描表按 `cycle_index % pattern.size()` 取波位，STBY 返回零位、STT 返回扫描中心、
      TWS/TAS 返回波位序列（TAS 步长减半，`prefer_dense_tas_sampling` 再减半）。
-  5. ECCM 措施只改变下一次成功发射/接收的实际硬件状态（频率捷变改 carrier/tuning、rejitter 改脉冲时序、
+  5. **扫描内核为 common 单源**（`common/radar/ScanScheduleRuntime.h`）：波位序列构建与轴步长解析由
+     AR/RIR 共用，模块侧只保留模式语义与指向消费接线；RIR 驻留调度器（空闲扫描策略）与 AR 同一口径。
+  6. ECCM 措施只改变下一次成功发射/接收的实际硬件状态（频率捷变改 carrier/tuning、rejitter 改脉冲时序、
      旁瓣对消/自适应波束改方向增益/零陷、烧穿改发射功率/脉冲能量），不直接改写关联、滤波或生命周期参数。
 - **反直觉点**：公开发布的 `emission_frame` 是 base 发射身份，旁瓣对消/自适应波束只作用于接收态
   `receiver_state.antenna`，不进公开发射方向图（见 data-flow.md 输出归属边界）。

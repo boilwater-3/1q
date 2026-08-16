@@ -44,6 +44,18 @@ struct ONEQ_API RirAzimuthElevationDeg {
   float el_deg{0.0f}; /**< 俯仰角（deg）：相对水平面，[-90, 90]，正值向上。 */
 };
 
+/**
+ * @brief RirAzimuthElevationLimitsDeg 方位-俯仰扫描限位（单位：度）。
+ * @note 与 AR `AzimuthElevationLimitsDeg` 同口径；扫描策略消费侧为
+ *       common 扫描内核（ScanScheduleRuntime.h）。
+ */
+struct ONEQ_API RirAzimuthElevationLimitsDeg {
+  float az_min_deg{-60.0f}; /**< 方位最小扫描角（单位：度）。 */
+  float az_max_deg{60.0f};  /**< 方位最大扫描角（单位：度）。 */
+  float el_min_deg{-30.0f}; /**< 俯仰最小扫描角（单位：度）。 */
+  float el_max_deg{30.0f};  /**< 俯仰最大扫描角（单位：度）。 */
+};
+
 namespace hardware {
 
 /**

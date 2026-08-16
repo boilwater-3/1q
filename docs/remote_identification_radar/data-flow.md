@@ -15,12 +15,13 @@ flowchart TB
     Scene["场景目标\n（位置/速度/名称/Swerling + 特征真值）"]
     Rf["RF 入射链路 + 自身发射身份"]
     Env["环境快照\n（天气/植被）"]
-    Dwell["驻留调度\n（显式波束指向 az/el，deg）"]
+    Task["指定识别任务\n（目标 ID + 限时窗口）"]
   end
 
   subgraph Rir["remote_identification_radar 模块"]
-    Input["RirCycleInput\n（周期戳 + 平台海拔 + 场景 + RF + 环境 + 驻留指向）"]
-    Session["RirSession\n（校验/补丁提交/周期装配）"]
+    Input["RirCycleInput\n（周期戳 + 平台海拔 + 场景 + RF + 环境）"]
+    Session["RirSession\n（校验/补丁提交/任务生命周期/驻留调度）"]
+    ScanKernel["common ScanScheduleRuntime\n（扫描波位序列，与 AR 同口径）"]
     Controller["RirController\n（检测 → 量测误差 → 关联/滤波/生命周期）"]
     Detector["RirSignalDetector / RirDetectionCellResolver"]
     Measurement["RirMeasurementErrorModel"]
@@ -29,15 +30,16 @@ flowchart TB
     Extract["四特征提取器\n（RCS/运动/极化/距离像）"]
     Tracker["RirTracker\n（多周期积累 + 判定）"]
     Matcher["RirMatcher × RirFeatureDatabase\n（只读内存基线）"]
-    Result["RirCycleResult\n（输出帧 + 摘要 + issues）"]
+    Result["RirCycleResult\n（输出帧 + 摘要 + designation_* + dwell_center）"]
     Replay["rir_replay.fbs V2\n（周期记录编解码）"]
   end
 
   Scene --> Input
   Rf --> Input
   Env --> Input
-  Dwell --> Input
-  Input --> Session
+  Task --> Session
+  Session --> ScanKernel
+  ScanKernel --> Session
   Session --> Controller
   Controller --> Detector
   Detector --> Measurement
@@ -50,6 +52,7 @@ flowchart TB
   Track --> Result
   Tracker --> Result
   Controller --> Result
+  Session --> Result
   Result --> Replay
 ```
 
@@ -60,8 +63,11 @@ flowchart TB
    有限非负、RF 入射链路与自身发射身份合法）；失败 → `kRejectedInvalidInput`。
 2. **关机检查**：`sensor_enabled == false` → `kPoweredOff`，不触碰检测/跟踪/识别状态。
 3. **补丁提交**（staged）：`RirRuntimeConfigPatch` 在下一个成功周期边界应用
-   （电源/工作模式/完整 policy 域）→ `RirController::UpdateRuntime`。
-4. **自持链路执行**：`kIdentify` 门控整链：
+   （电源/工作模式/完整 policy 域/指定识别任务字段）→ `RirController::UpdateRuntime`。
+4. **指定识别任务推进 + 驻留调度**（`RirSession`）：任务生命周期逐周期推进
+   （kNone → kPending → kAcquired | kExpired，镜像 AR 骨架）；驻留中心 =
+   任务窗口内指定目标视线角，否则扫描策略波位（common 扫描内核）。
+5. **自持链路执行**：`kIdentify` 门控整链：
    - 驻留候选排序：未识别优先 + 斜距次近（消费上一周期内部航迹结论；
      只决定候选顺序，不生成波束指向）；
    - 波束状态：消费驻留调度显式给定的波束中心（雷达局部 ENU 系，

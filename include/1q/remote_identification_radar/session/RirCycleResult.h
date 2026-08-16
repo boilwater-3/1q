@@ -9,6 +9,7 @@
 #include <cstdint>
 
 #include "1q/api.hpp"
+#include "1q/remote_identification_radar/config/RirHardwareConfig.h"
 #include "1q/remote_identification_radar/session/RirOutputTypes.h"
 #include "1q/remote_identification_radar/session/RirRecognitionResult.h"
 
@@ -25,6 +26,15 @@ enum class RirCycleStatus : std::uint8_t {
 };
 
 /**
+ * @brief 指定识别任务回退成因（镜像 AR `ArDesignationRevertReason` 形状）。
+ */
+enum class RirDesignationRevertReason : std::uint8_t {
+  kNone = 0,          /**< 无回退（指定识别驻留正常/任务完成）。 */
+  kNotRecognized = 1, /**< 指定目标不在场景（驻留期间回扫描等待）。 */
+  kAcquisitionTimeout = 2 /**< 限时窗口耗尽仍未识别：任务作废（回到扫描，终态）。 */
+};
+
+/**
  * @brief RirCycleResult 描述单周期执行后的聚合结果。
  * @note 只有 `status == kCompleted` 携带识别输出；拒绝周期不复用上一帧。
  */
@@ -38,6 +48,18 @@ struct ONEQ_API RirCycleResult {
       RirCycleAbortReason::kNone}; /**< 若周期 abort，给出结构化原因 */
   bool has_recognition_summary{false}; /**< 本周期是否发布了识别效能摘要 */
   RirRecognitionCycleSummary recognition_summary{}; /**< 本周期识别效能摘要；未执行时保持默认值 */
+
+  /** @brief 当前指定识别目标外部 ID（未指定/任务完成/作废后为 0）。 */
+  std::uint64_t designated_target_id{0U};
+  /** @brief 本周期是否对指定目标执行识别驻留（任务窗口内且目标在场景）。 */
+  bool designation_active{false};
+  /** @brief 本周期指定任务未达成（目标缺席）回扫描；作废沿亦为 true
+   *         （成因 kAcquisitionTimeout，其后指定清零）。 */
+  bool designation_reverted_to_scan{false};
+  /** @brief 回退成因（仅 designation_reverted_to_scan == true 时有意义）。 */
+  RirDesignationRevertReason designation_revert_reason{RirDesignationRevertReason::kNone};
+  /** @brief 本周期驻留波束中心（扫描波位或指定目标指向；雷达局部 az/el，deg）。 */
+  config::RirAzimuthElevationDeg dwell_center_deg{};
 };
 
 }  // namespace session

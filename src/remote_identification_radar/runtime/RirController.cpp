@@ -239,6 +239,7 @@ tracking::RirTrackMeasurement RirController::SampleMeasurementPosition(
 bool RirController::TryBuildMeasurement(const session::RirSceneTarget& target,
                                         std::size_t source_index, float propagation_loss_db,
                                         float clutter_power_w, const session::RirCycleInput& input,
+                                        const config::RirAzimuthElevationDeg& dwell_center_deg,
                                         tracking::RirTrackMeasurement* measurement, float* snr_db) {
   if (measurement == nullptr || snr_db == nullptr) {
     return false;
@@ -255,9 +256,11 @@ bool RirController::TryBuildMeasurement(const session::RirSceneTarget& target,
   if (hardware_.antenna.enable_directional_pattern && has_look_angles) {
     const float wavelength_m = static_cast<float>(oneq::common::numerics::kLightSpeed) /
                                hardware_.transmitter.frequency_hz;
-    const config::RirAzimuthElevationDeg pointing{look_az_deg, look_el_deg};
-    beam_state = dwell::RirResolveBeamStateForPointing(hardware_.antenna, pointing, look_az_deg,
-                                                       look_el_deg, true, wavelength_m);
+    // 库内驻留调度器给定波束中心：目标离轴增益按（目标视线角 - 驻留中心）衰减
+    // （与 AR 冻结指向链路同口径；enable_directional_pattern=false 时回退主瓣峰值）。
+    beam_state = dwell::RirResolveBeamStateForPointing(hardware_.antenna, dwell_center_deg,
+                                                       look_az_deg, look_el_deg, true,
+                                                       wavelength_m);
   }
 
   dwell::RirTargetReturn target_return;
@@ -369,7 +372,8 @@ recognition::RirObservationContext RirController::MakeObservationContext(
 }
 
 void RirController::RunCycle(const session::RirCycleInput& input,
-                             session::RirOutputFrame* output_frame) {
+                             session::RirOutputFrame* output_frame,
+                             const config::RirAzimuthElevationDeg& dwell_center_deg) {
   const bool in_identify = work_mode_ == config::RirWorkMode::kIdentify;
   if (recognition_mode_active_ && !in_identify) {
     tracker_.ExitRecognitionMode();
@@ -430,7 +434,7 @@ void RirController::RunCycle(const session::RirCycleInput& input,
       tracking::RirTrackMeasurement measurement;
       float snr_db = 0.0f;
       if (!TryBuildMeasurement(input.scene_targets[target_index], target_index, propagation_loss_db,
-                               clutter_power_w, input, &measurement, &snr_db)) {
+                               clutter_power_w, input, dwell_center_deg, &measurement, &snr_db)) {
         continue;
       }
       snr_by_target_id[measurement.external_target_id] = snr_db;
@@ -489,6 +493,7 @@ void RirController::RunCycle(const session::RirCycleInput& input,
     has_latest_summary_ = true;
   }
 
+  last_track_snapshots_ = track_snapshots;
   output_frame->recognition_outputs.clear();
   output_frame->recognition_outputs.reserve(track_snapshots.size());
   for (const tracking::RirTrackState& track : track_snapshots) {
@@ -500,6 +505,24 @@ void RirController::RunCycle(const session::RirCycleInput& input,
     }
     output_frame->recognition_outputs.push_back(output);
   }
+}
+
+bool RirController::IsTargetRecognized(std::uint64_t external_target_id) const {
+  if (external_target_id == 0U) {
+    return false;
+  }
+  for (const tracking::RirTrackState& track : last_track_snapshots_) {
+    if (track.external_target_id != external_target_id) {
+      continue;
+    }
+    const session::RirRecognitionResult* result = tracker_.FindResult(track.association_key);
+    if (result != nullptr &&
+        (result->state == session::RirRecognitionState::kCategoryConfirmed ||
+         result->state == session::RirRecognitionState::kModelConfirmed)) {
+      return true;
+    }
+  }
+  return false;
 }
 
 }  // namespace runtime

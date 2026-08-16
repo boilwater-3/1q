@@ -23,6 +23,8 @@ RIR 自持链路生产的内部航迹，不再消费外部航迹供给。
 | IMM 双路径 | `tracking/RirImmFilter.cpp` | 量测/失配 + 先验状态 → 组合后验 | 数值核 common `ImmFilter<6,3>`；缺省双模型 CV {1.0, 10.0} 对数等距；对角 0.95 转移；confirmed 命中激活、失配仅预测；缺省关闭 |
 | 航迹池与生命周期 | `tracking/RirTrackPool.cpp` + `tracking/RirTrackLifecycle.cpp` | 关联量测 + 周期上下文 → 内部航迹 | hit/miss 计数、confirm/lost/回收；lost 重捕获重置 KF；回收不回收关联键；槽位复用经 `generation` 单调递增标识；双重释放拒绝 |
 | 驻留排序 | `runtime/RirController.cpp` | 上一周期内部航迹结论 + 场景目标 → 驻留候选顺序 | 未识别优先 + 斜距次近；威胁等级输入不参与；只决定候选顺序，不生成波束指向 |
+| 驻留调度（库内） | `session/RirSession.cpp` + `common/radar/ScanScheduleRuntime.h` | 指定任务状态 + 扫描策略配置 + 场景目标 → 本周期驻留波束中心 | 无任务按扫描策略逐周期推进（common 扫描内核，与 AR 同口径）；指定识别任务窗口内对准指定目标；非法限位回退零位 |
+| 指定识别任务（限时锁定） | `session/RirSession.cpp` | 指定（目标 ID + 窗口周期数）→ 任务生命周期（kPending/kAcquired/kExpired） | 镜像 AR designation 骨架；识别达成即任务完成回扫描（识别是离散结论，不持续跟随）；窗口耗尽作废（kAcquisitionTimeout） |
 | 观测构造 | `recognition/RecognitionObservationBuilder.cpp` | 场景目标真值 + 内部航迹 + `RirObservationContext` → `RirFeatureSet` | 驻留质量因子作用于 RCS/极化/距离像（运动除外）；场景真值不得直接产生结论 |
 | RCS 特征 | `recognition/RcsFeatureExtractor.cpp` | 视角样本 + 视线角 + SNR → `RirRcsObservation` | **最近邻插值不强制覆盖**；SNR < 6 dB 维度无效；覆盖下限由匹配阶段判定 |
 | 运动特征 | `recognition/MotionFeatureExtractor.cpp` | 内部航迹 + 平台海拔 + 不确定度 → `RirMotionObservation` | 仅已确认航迹；横向加速度分解判直线/转弯半径；质量因子 = 10000/(10000+不确定度) |
@@ -52,7 +54,14 @@ RIR 自持链路生产的内部航迹，不再消费外部航迹供给。
    识别积累不需要检测 `hit_count` 回落，新键天然等于新目标。
 8. **波束指向不追目标**：RIR 不会把给定波束中心重算或吸附到目标位置。方向图
    开启时，调度器指向与目标视线角的差值直接决定天线增益；指向偏离目标即按
-   实际离轴角衰减，这是“RIR 信指向”的可见后果。
+   实际离轴角衰减，这是“调度器给指向、RIR 信指向”的可见后果。
+9. **扫描策略与 AR 同口径**：空闲驻留波位序列由 common 扫描内核构建（限位/步长
+   （波束宽度 × step_scale）/起点/顺序），第 N 周期取第 `(N-1) % size` 个波位——
+   与 AR 同一扫描策略；`enable_directional_pattern=false` 时驻留中心不影响增益
+   （阶段 1 缺省兼容），仅经 `RirCycleResult::dwell_center_deg` 暴露。
+10. **识别达成即任务完成**：指定识别任务在识别状态达 `kCategoryConfirmed`/
+    `kModelConfirmed` 后即完成（下一周期指定清零、回到扫描），不做持续跟随——
+    与 AR（捕获后持续跟随航迹）的差异源于识别是离散结论而非连续跟踪。
 
 ## 非目标（刻意不实现的算法）
 

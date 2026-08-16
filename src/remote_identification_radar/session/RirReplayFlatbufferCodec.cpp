@@ -140,7 +140,10 @@ std::string EncodeCycleReplayRecordFlatbuffer(const RirCycleReplayRecord& record
   const flatbuffers::Offset<fb::RirCycleResultV2> result = fb::CreateRirCycleResultV2(
       builder, record.result.input_cycle_index, static_cast<int>(record.result.status),
       static_cast<int>(record.result.abort_reason), output_frame,
-      record.result.has_recognition_summary, summary_offset);
+      record.result.has_recognition_summary, summary_offset, record.result.designated_target_id,
+      record.result.designation_active, record.result.designation_reverted_to_scan,
+      static_cast<int>(record.result.designation_revert_reason),
+      record.result.dwell_center_deg.az_deg, record.result.dwell_center_deg.el_deg);
 
   const flatbuffers::Offset<fb::RirSessionReplayStateV2> session_state =
       fb::CreateRirSessionReplayStateV2(
@@ -203,6 +206,22 @@ bool DecodeCycleReplayRecordFlatbuffer(const std::string& payload_bytes,
   candidate.result.abort_reason = static_cast<RirCycleAbortReason>(result->abort_reason());
   candidate.result.has_recognition_summary = result->has_recognition_summary();
   DecodeSummary(result->recognition_summary(), &candidate.result.recognition_summary);
+  candidate.result.designated_target_id = result->designated_target_id();
+  candidate.result.designation_active = result->designation_active();
+  candidate.result.designation_reverted_to_scan = result->designation_reverted_to_scan();
+  const int revert_reason_raw = result->designation_revert_reason();
+  if (revert_reason_raw <
+          static_cast<int>(RirDesignationRevertReason::kNone) ||
+      revert_reason_raw > static_cast<int>(RirDesignationRevertReason::kAcquisitionTimeout)) {
+    if (error != nullptr) {
+      *error = "invalid designation revert reason";
+    }
+    return false;
+  }
+  candidate.result.designation_revert_reason =
+      static_cast<RirDesignationRevertReason>(revert_reason_raw);
+  candidate.result.dwell_center_deg.az_deg = result->dwell_center_az_deg();
+  candidate.result.dwell_center_deg.el_deg = result->dwell_center_el_deg();
 
   const fb::RirOutputFrameV1* output_frame = result->output_frame();
   if (output_frame != nullptr) {

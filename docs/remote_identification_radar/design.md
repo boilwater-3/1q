@@ -26,15 +26,17 @@ RIR 是与机载雷达（AR）**相互独立的另一部雷达装备**，不是 
 2. **输入面**：`RirCycleInput` 提供周期戳、平台海拔、场景目标（含识别特征真值
    `aspect_rcs_samples`/`polarization_rcs_samples`/`range_rcs_scatterers`）
    与 RF 入射链路、环境快照；场景目标速度/名称/Swerling 起伏为自持链路事实；
-   识别只消费效能化观测，场景真值不得直接产生结论。每周期实际波束中心由
-   调用方驻留调度显式给定，RIR 只消费并信任给定指向，不按目标位置自行生成
-   （指向范围与坐标语义见 boundaries.md 驻留指向契约）。
+   识别只消费效能化观测，场景真值不得直接产生结论。每周期波束中心由**库内
+   驻留调度器**派生（扫描策略或指定识别任务，见 boundaries.md 驻留指向契约），
+   RIR 消费侧只信任并消费给定指向。
 3. **输出面**：识别结论（`RirRecognitionResult`）与效能摘要
    （`RirRecognitionCycleSummary`）为独立输出模型，与 AR 威胁分类相互独立，
-   不进任何决策帧。
+   不进任何决策帧；指定识别任务状态（`designated_target_id`/`designation_*`/
+   `dwell_center_deg`）经 `RirCycleResult` 逐周期暴露。
 4. **配置**：四域（hardware/mission/policy/environment）；policy 域承载
    检测/关联/跟踪/生命周期/识别策略，运行期补丁整域提交；识别作用距离/驻留
-   四域归位（任务域）列为阶段 3 评估项。
+   四域归位（任务域）；扫描策略（限位/起点/顺序/步长系数）与指定识别任务
+   （目标 ID + 限时窗口）随 mission/patch 配置，库内驻留调度器消费。
 5. **数据**：特征数据库为只读 SQLite 基线（schema v1.1，权威 DDL 单源随迁），
    运行期不持有连接；单位纪律：场景 `rcs` 为 m²（SNR 门控），识别 RCS 特征与
    数据库一律 dBsm。

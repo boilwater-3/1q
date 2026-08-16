@@ -50,14 +50,26 @@ class RirController {
    * @brief 执行一个自持识别周期。
    * @param[in] input 周期输入（场景目标 + RF 链路 + 环境快照）。
    * @param[out] output_frame 识别输出帧（逐内部航迹结论回填）。
+   * @param[in] dwell_center_deg 本周期驻留波束中心（库内驻留调度器给定：
+   *            扫描波位或指定识别目标指向；雷达局部 ENU 系，deg）。
    */
-  void RunCycle(const session::RirCycleInput& input, session::RirOutputFrame* output_frame);
+  void RunCycle(const session::RirCycleInput& input, session::RirOutputFrame* output_frame,
+                const config::RirAzimuthElevationDeg& dwell_center_deg =
+                    config::RirAzimuthElevationDeg());
 
   /** @brief 最近周期是否发布了识别效能摘要。 */
   bool HasLatestSummary() const { return has_latest_summary_; }
 
   /** @brief 最近周期识别效能摘要。 */
   const session::RirRecognitionCycleSummary& GetLatestSummary() const { return latest_summary_; }
+
+  /**
+   * @brief 指定外部目标是否已达识别结论（上一周期口径，供任务生命周期推进）。
+   * @param[in] external_target_id 外部目标 ID。
+   * @return 该目标任一航迹的识别状态达 kCategoryConfirmed/kModelConfirmed 时为 true。
+   * @note 读取上一周期航迹快照（与指向同源滞后一周期，镜像 AR designation 口径）。
+   */
+  bool IsTargetRecognized(std::uint64_t external_target_id) const;
 
   /** @brief 当前生效识别特征数据库版本（供 replay 溯源）。 */
   const std::string& ActiveDatabaseVersion() const { return tracker_.ActiveDatabaseVersion(); }
@@ -77,6 +89,7 @@ class RirController {
   bool TryBuildMeasurement(const session::RirSceneTarget& target, std::size_t source_index,
                            float propagation_loss_db, float clutter_power_w,
                            const session::RirCycleInput& input,
+                           const config::RirAzimuthElevationDeg& dwell_center_deg,
                            tracking::RirTrackMeasurement* measurement, float* snr_db);
 
   /** @brief 计算目标视线角。 */
@@ -117,6 +130,7 @@ class RirController {
 
   session::RirRecognitionCycleSummary latest_summary_{};
   bool has_latest_summary_{false};
+  std::vector<tracking::RirTrackState> last_track_snapshots_{}; /**< 上一周期航迹快照（任务判定用）。 */
 };
 
 }  // namespace runtime

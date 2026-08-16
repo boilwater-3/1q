@@ -113,6 +113,12 @@ table RirCycleResultV2 {
   output_frame:RirOutputFrameV1;
   has_recognition_summary:bool;
   recognition_summary:RirRecognitionCycleSummaryV2;
+  designated_target_id:ulong = 0;
+  designation_active:bool = false;
+  designation_reverted_to_scan:bool = false;
+  designation_revert_reason:int = 0;
+  dwell_center_az_deg:float = 0.0;
+  dwell_center_el_deg:float = 0.0;
 }
 
 table RirSessionReplayStateV2 {

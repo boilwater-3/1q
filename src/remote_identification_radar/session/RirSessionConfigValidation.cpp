@@ -95,6 +95,22 @@ session::RirIssueList ValidateRirSessionConfig(const RirSessionConfig& config) {
               "Recognition max range and dwell must be finite and positive.");
   }
 
+  // 扫描策略（库内驻留调度器）：限位有限且有序，步长系数有限且为正。
+  {
+    const RirScanConfig& scan = mission.scan;
+    if (!IsFinite(scan.scan_limits_deg.az_min_deg) ||
+        !IsFinite(scan.scan_limits_deg.az_max_deg) ||
+        !IsFinite(scan.scan_limits_deg.el_min_deg) ||
+        !IsFinite(scan.scan_limits_deg.el_max_deg) ||
+        scan.scan_limits_deg.az_min_deg > scan.scan_limits_deg.az_max_deg ||
+        scan.scan_limits_deg.el_min_deg > scan.scan_limits_deg.el_max_deg ||
+        !IsFinite(scan.step_scale) || scan.step_scale <= 0.0f) {
+      PushIssue(&issues, session::codes::kRecognitionTimeRangeInvalid,
+                "mission.scan",
+                "Scan limits must be finite and ordered; step scale must be finite and positive.");
+    }
+  }
+
   // 自持检测策略（阶段 2-S）：Pfa/SNR 门限有限且范围合理，脉冲数/种子为正。
   {
     const RirDetectionPolicyConfig& detection = config.policy.detection;

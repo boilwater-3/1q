@@ -9,21 +9,167 @@
 
 #include "1q/remote_identification_radar/session/RirSession.h"
 
+#include <cmath>
+#include <cstdint>
 #include <utility>
+#include <vector>
 
 #include "1q/remote_identification_radar/config/RirRuntimeConfigPatch.h"
 #include "1q/remote_identification_radar/session/RirInputValidation.h"
+#include "common/numerics/Constants.h"
+#include "common/radar/ScanScheduleRuntime.h"
+#include "remote_identification_radar/dwell/RirBeamControl.h"
 #include "remote_identification_radar/runtime/RirController.h"
 #include "remote_identification_radar/session/RirReplayCycleRecord.h"
 
 namespace remote_identification_radar {
 namespace session {
 
+namespace {
+
+/**
+ * @brief 指定识别任务生命周期阶段（镜像 AR designation 生命周期骨架；
+ *        会话级跨周期状态，随 patch 原子提交）。
+ */
+enum class RirDesignationPhase : std::uint8_t {
+  kNone = 0,     /**< 未指定/未初始化（新指令待首个处理周期开窗）。 */
+  kPending = 1,  /**< 限时窗口内：驻留对准指定目标等待识别达成。 */
+  kAcquired = 2, /**< 识别已达成：任务完成，回到扫描（终态，直到外部重新指定）。 */
+  kExpired = 3   /**< 窗口耗尽仍未识别：任务作废，回到扫描（终态，直到外部重新指定）。 */
+};
+
+struct RirDesignationPhaseAdvance {
+  RirDesignationPhase phase{RirDesignationPhase::kNone};
+  std::uint32_t deadline_cycle_index{0U}; /**< 窗口截止周期（0 = 无限期）。 */
+};
+
+struct RirDesignationExpiry {
+  bool expired{false};      /**< 任务已作废（kExpired 终态）。 */
+  bool expiry_cycle{false}; /**< 本周期是作废沿（报告 kAcquisitionTimeout）。 */
+};
+
+/**
+ * @brief 推进指定识别任务生命周期（镜像 AR AdvanceDesignationPhase）。
+ *
+ * 状态机：kNone → kPending → kAcquired | kExpired（kAcquired/kExpired 为终态）：
+ *   - 指令未消费（未指定 / work_mode 非 kIdentify）：阶段恒为 kNone，窗口不运行；
+ *   - kNone：开窗——deadline = cycle + duration（duration == 0 表示无限期）；
+ *   - kPending：上一周期识别达成（kCategoryConfirmed/kModelConfirmed）→ kAcquired
+ *     （任务完成回扫描）；否则 cycle >= deadline 时 → kExpired（任务作废回扫描）；
+ *   - kAcquired / kExpired：不再转移。
+ * @note 识别判定与驻留同源，使用"上一周期航迹快照"口径（滞后一周期）。
+ */
+RirDesignationPhaseAdvance AdvanceDesignationPhase(
+    RirDesignationPhase phase, std::uint32_t deadline_cycle_index,
+    std::uint32_t designation_duration_cycles, std::uint32_t cycle_index,
+    bool designation_consumed, bool recognized) {
+  RirDesignationPhaseAdvance advance;
+  advance.phase = phase;
+  advance.deadline_cycle_index = deadline_cycle_index;
+  if (!designation_consumed) {
+    advance.phase = RirDesignationPhase::kNone;
+    advance.deadline_cycle_index = 0U;
+    return advance;
+  }
+  if (phase == RirDesignationPhase::kNone) {
+    advance.phase = RirDesignationPhase::kPending;
+    advance.deadline_cycle_index = designation_duration_cycles > 0U
+                                       ? cycle_index + designation_duration_cycles
+                                       : 0U;
+    return advance;
+  }
+  if (phase == RirDesignationPhase::kPending) {
+    if (recognized) {
+      advance.phase = RirDesignationPhase::kAcquired;
+    } else if (advance.deadline_cycle_index != 0U &&
+               cycle_index >= advance.deadline_cycle_index) {
+      advance.phase = RirDesignationPhase::kExpired;
+    }
+  }
+  return advance;
+}
+
+RirDesignationExpiry ResolveDesignationExpiry(RirDesignationPhase phase,
+                                              std::uint32_t deadline_cycle_index,
+                                              std::uint32_t cycle_index) {
+  RirDesignationExpiry expiry;
+  expiry.expired = phase == RirDesignationPhase::kExpired;
+  expiry.expiry_cycle =
+      expiry.expired && deadline_cycle_index != 0U && cycle_index == deadline_cycle_index;
+  return expiry;
+}
+
+const session::RirSceneTarget* FindSceneTarget(const session::RirSceneTargetList& targets,
+                                               std::uint64_t external_target_id) {
+  if (external_target_id == 0U) {
+    return nullptr;
+  }
+  for (const session::RirSceneTarget& target : targets) {
+    if (target.external_target_id == external_target_id) {
+      return &target;
+    }
+  }
+  return nullptr;
+}
+
+/** @brief 目标视线角（与 RirController::ComputeLookAngles 同口径；位置退化用 range_m）。 */
+config::RirAzimuthElevationDeg TargetLookAngles(const session::RirSceneTarget& target) {
+  float px = target.position_x;
+  float py = target.position_y;
+  float pz = target.position_z;
+  if (std::sqrt(px * px + py * py + pz * pz) <= 0.0f) {
+    px = target.range_m;
+    py = 0.0f;
+    pz = 0.0f;
+  }
+  const float range_hypot = std::sqrt(px * px + py * py);
+  config::RirAzimuthElevationDeg look;
+  look.az_deg = oneq::common::numerics::RadToDeg(std::atan2(py, px));
+  look.el_deg = oneq::common::numerics::RadToDeg(std::atan2(pz, range_hypot));
+  return look;
+}
+
+/**
+ * @brief 扫描策略波位（common 扫描内核；非法限位/步长回退零位）。
+ * @note 与 AR 同一扫描策略口径：限位/步长（波束宽度 × 系数）/起点/顺序 → 波位序列，
+ *       第 N 周期取第 (N-1) % size 个波位。
+ */
+config::RirAzimuthElevationDeg ResolveScanWavePosition(const config::RirSessionConfig& config,
+                                                       std::uint32_t cycle_index) {
+  const dwell::RirEffectiveBeamwidthDeg beamwidth =
+      dwell::RirResolveEffectiveBeamwidth(config.hardware.antenna);
+  const config::RirScanConfig& scan = config.mission.scan;
+  const float az_step = beamwidth.az_beamwidth_deg * scan.step_scale;
+  const float el_step = beamwidth.el_beamwidth_deg * scan.step_scale;
+  const std::vector<oneq::common::radar::AzimuthElevationDeg> pattern =
+      oneq::common::radar::BuildScanPattern(
+          scan.scan_limits_deg.az_min_deg, scan.scan_limits_deg.az_max_deg,
+          scan.scan_limits_deg.el_min_deg, scan.scan_limits_deg.el_max_deg, az_step, el_step,
+          scan.scan_start_position, scan.scan_sequence);
+  if (pattern.empty()) {
+    return config::RirAzimuthElevationDeg{};
+  }
+  const std::uint64_t zero_based_cycle =
+      cycle_index > 0U ? static_cast<std::uint64_t>(cycle_index - 1U) : 0U;
+  const oneq::common::radar::AzimuthElevationDeg& wave =
+      pattern[static_cast<std::size_t>(zero_based_cycle %
+                                       static_cast<std::uint64_t>(pattern.size()))];
+  return config::RirAzimuthElevationDeg{wave.az_deg, wave.el_deg};
+}
+
+}  // namespace
+
 struct RirSession::Impl {
   config::RirSessionConfig config{};
   runtime::RirController controller{};
   config::RirRuntimeConfigPatch pending_patch{};
   bool has_pending_patch{false};
+  // 指定识别任务状态（会话级，镜像 AR designation；随 patch 原子提交；
+  // 任一指定相关字段变更视为新指令，窗口重新起算）。
+  std::uint64_t designated_external_target_id{0U};
+  std::uint32_t designation_duration_cycles{0U};
+  RirDesignationPhase designation_phase{RirDesignationPhase::kNone};
+  std::uint32_t designation_deadline_cycle_index{0U};
 
   explicit Impl(const config::RirSessionConfig& session_config) : config(session_config) {
     controller.SetHardware(config.hardware);
@@ -78,17 +224,74 @@ RirCycleResult RirSession::StepWithResult(const RirCycleInput& input) {
     if (patch.has_sensor_enabled) {
       impl_->config.sensor_enabled = patch.sensor_enabled;
     }
+    // 指定识别任务：任一指定相关字段变更（含仅改时长）都视为新指令，
+    // 生命周期阶段重置，窗口在指令生效后首个周期重新起算。
+    if (patch.has_designated_target_id || patch.has_designation_duration_cycles) {
+      if (patch.has_designated_target_id) {
+        impl_->designated_external_target_id = patch.designated_external_target_id;
+      }
+      if (patch.has_designation_duration_cycles) {
+        impl_->designation_duration_cycles = patch.designation_duration_cycles;
+      }
+      impl_->designation_phase = RirDesignationPhase::kNone;
+      impl_->designation_deadline_cycle_index = 0U;
+    }
     impl_->controller.UpdateRuntime(impl_->config.mission, impl_->config.policy);
     impl_->has_pending_patch = false;
   }
 
-  impl_->controller.RunCycle(input, &result.output_frame);
+  // 指定识别任务生命周期推进（镜像 AR 限时锁定语义）：
+  //   识别达成（上一周期口径）→ 任务完成回到扫描；窗口耗尽仍未识别 →
+  //   任务作废（作废沿报告 kAcquisitionTimeout）→ 回到扫描。
+  const bool designation_consumed =
+      impl_->config.mission.work_mode == config::RirWorkMode::kIdentify &&
+      impl_->designated_external_target_id != 0U;
+  const RirDesignationPhaseAdvance advance = AdvanceDesignationPhase(
+      impl_->designation_phase, impl_->designation_deadline_cycle_index,
+      impl_->designation_duration_cycles, input.input_cycle_index, designation_consumed,
+      designation_consumed &&
+          impl_->controller.IsTargetRecognized(impl_->designated_external_target_id));
+  impl_->designation_phase = advance.phase;
+  impl_->designation_deadline_cycle_index = advance.deadline_cycle_index;
+  const RirDesignationExpiry expiry = ResolveDesignationExpiry(
+      advance.phase, advance.deadline_cycle_index, input.input_cycle_index);
+
+  // 驻留中心（库内驻留调度器）：任务窗口内对准指定目标（目标在场景时）；
+  // 其余情况按扫描策略逐周期推进（common 扫描内核，与 AR 同口径）。
+  const session::RirSceneTarget* designated_target = FindSceneTarget(
+      input.scene_targets, impl_->designated_external_target_id);
+  const bool dwelling_on_target =
+      advance.phase == RirDesignationPhase::kPending && designated_target != nullptr;
+  const config::RirAzimuthElevationDeg dwell_center =
+      dwelling_on_target ? TargetLookAngles(*designated_target)
+                         : ResolveScanWavePosition(impl_->config, input.input_cycle_index);
+
+  impl_->controller.RunCycle(input, &result.output_frame, dwell_center);
   result.status = RirCycleStatus::kCompleted;
   result.abort_reason = RirCycleAbortReason::kNone;
   if (impl_->controller.HasLatestSummary()) {
     result.has_recognition_summary = true;
     result.recognition_summary = impl_->controller.GetLatestSummary();
   }
+
+  // 指定识别任务结果回填（镜像 AR designation_* 形状）：
+  //   kPending + 目标在场景 → active（驻留中）；kPending + 目标缺席 → reverted
+  //   （kNotRecognized，驻留回扫描等待）；作废沿 → reverted + kAcquisitionTimeout
+  //   （ID 保留供事件关联）；任务完成（kAcquired）/作废后 → 指定清零、无回退报告；
+  //   驻留波束中心随本周期调度暴露。
+  const bool pending = advance.phase == RirDesignationPhase::kPending;
+  result.designated_target_id =
+      (pending || expiry.expiry_cycle) ? impl_->designated_external_target_id : 0U;
+  result.designation_active = pending && designated_target != nullptr;
+  result.designation_reverted_to_scan =
+      expiry.expired ? expiry.expiry_cycle : (pending && designated_target == nullptr);
+  result.designation_revert_reason =
+      expiry.expiry_cycle
+          ? session::RirDesignationRevertReason::kAcquisitionTimeout
+          : (result.designation_reverted_to_scan
+                 ? session::RirDesignationRevertReason::kNotRecognized
+                 : session::RirDesignationRevertReason::kNone);
+  result.dwell_center_deg = dwell_center;
   return result;
 }
 

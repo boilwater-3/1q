@@ -80,13 +80,21 @@ RIR 遵守 `docs/common/contract.md` 与 `docs/common/session_contract.md`：
 - 视角样本网格（`aspect_az_deg`/`aspect_el_deg`）为雷达局部视线角；RCS 插值为
   最近邻（不强制覆盖），覆盖下限属数据库 profile 级适用条件，由匹配阶段判定。
 
-## 驻留指向跨模块契约（调度器给指向、RIR 信指向）
+## 驻留指向跨模块契约（库内驻留调度器：扫描策略 + 指定识别任务）
 
-波束指向的来源是**驻留调度显式给定**，不是 RIR 内部状态、不是场景目标位置
-反推，也不是“目标在哪就照哪”。调度器负责指向决策，RIR 只消费波束中心值。
+波束指向的来源是**库内驻留调度器**（`RirSession` 每周期派生）：无指定任务时按
+扫描策略逐周期推进（common 扫描内核，与 AR 同一口径）；指定识别任务窗口内
+对准指定目标（目标在场景时）。RIR 消费侧（`RirController`）只信任并消费给定
+的波束中心值，不自行生成指向。
 
-1. **来源与所有权**：驻留调度器（调用方）在每个执行周期显式给定波束中心；
-   RIR 不生成指向、不按目标位置重算或吸附指向。RIR 自管的仅是候选排序。
+1. **来源与所有权**：`RirSession::StepWithResult` 每周期解析驻留中心
+   （`RirCycleResult::dwell_center_deg`）：
+   - 无任务 / 任务间隙：扫描波位 = common `ScanScheduleRuntime::BuildScanPattern`
+     （限位/步长（波束宽度 × `RirScanConfig::step_scale`）/起点/顺序），第 N 周期
+     取第 `(N-1) % size` 个波位——与 AR 同一扫描策略口径；
+   - 指定识别任务窗口内（`kPending`）且目标在场景：驻留中心 = 指定目标视线角
+     （`atan2` 口径同 ENU 帧约定）；
+   - 非法限位/步长：扫描波位回退零位。
 2. **信任边界**：RIR 不判断给定指向是否朝向目标。`enable_directional_pattern=true`
    且有有效目标视线角时，按 `目标视线角 - 给定指向` 计算离轴角与方向图增益；
    指向偏离目标就按实际离轴衰减执行，不静默修正。方向图关闭或无有效视线角时
@@ -98,10 +106,33 @@ RIR 遵守 `docs/common/contract.md` 与 `docs/common/session_contract.md`：
    (az, el) 对应的单位指向向量为
    `(cos(el)·cos(az), cos(el)·sin(az), sin(el))`。
    因此 `(0°, 0°)` 指向 +x（东向水平）；az 正向转向 +y（北），el 正向指向 +z（天）。
-4. **方位角折算**：调度器必须把方位角预先折算到 [-180, 180]；RIR 消费侧不做
-   跨 ±180° 归一化。±180° 是同一物理方向，同一场景/同一次编排不得混用两种表达。
+4. **方位角折算**：扫描波位来自限位（[-180, 180] 内合法配置），目标指向由
+   `atan2` 产生——调度器保证落在合法域；RIR 消费侧不做跨 ±180° 归一化。
 5. **目标视线角同帧**：RIR 计算目标视线角必须使用与指向角完全相同的坐标系和
    公式；只有两者同帧，`目标视线角 - 指向角` 才是有效离轴角。
+
+## 指定识别任务（限时锁定，镜像 AR designation 语义）
+
+外部经 `RirRuntimeConfigPatch` 下达"识别目标 X"指令（`designated_external_target_id`
++ `designation_duration_cycles`，0 = 无限期），仅在 `work_mode == kIdentify` 时被
+消费；`kStby` 下忽略。
+
+1. **生命周期（会话级跨周期状态，镜像 AR 骨架）**：`kNone → kPending → kAcquired |
+   kExpired`（kAcquired/kExpired 为终态）。窗口自指令生效后首个处理周期起算
+   （deadline = 首周期 + duration）；任一指定相关 patch 变更（含仅改时长）视为
+   新指令，窗口重新起算。
+2. **任务窗口内（kPending）**：驻留中心对准指定目标（目标在场景时），识别积累
+   照常进行；目标缺席时驻留回扫描波位并报告 `designation_reverted_to_scan =
+   kNotRecognized`。
+3. **识别达成（kAcquired）**：指定目标识别状态达 `kCategoryConfirmed`/`kModelConfirmed`
+   （上一周期航迹快照口径，滞后一周期）→ **任务完成**：指定清零、回到扫描。
+   与 AR 不同（AR 捕获后持续跟随），识别是离散结论，确认即任务结束。
+4. **窗口耗尽未识别（kExpired）**：作废沿周期（cycle == deadline）报告
+   `designation_revert_reason = kAcquisitionTimeout`（ID 保留）；其后指定清零、
+   回到扫描，直到外部重新指定。
+5. **结果暴露**：`RirCycleResult` 新增 `designated_target_id` / `designation_active` /
+   `designation_reverted_to_scan` / `designation_revert_reason` / `dwell_center_deg`；
+   replay 周期记录保留同名字段。
 
 ## 失败降级与状态机
 

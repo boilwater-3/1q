@@ -122,7 +122,7 @@ EOS 的 `detector_area_cm2` 与 `detector_detectivity_cm_sqrt_hz_per_w` 共同�
 
 ### RIR 驻留指向输入契约
 
-RIR 的波束中心由**调用方驻留调度显式给定**，RIR 只消费并信任给定值（调度器给指向、RIR 信指向），不按场景目标位置自行生成、重算或吸附波束指向。指向角类型为 `RirAzimuthElevationDeg`（deg），定义在雷达局部 ENU 右手系（与 `RirSceneTarget::position_x/y/z` 同帧）：`az_deg ∈ [-180, 180]`、`el_deg ∈ [-90, 90]`，单位指向向量为 `(cos(el)·cos(az), cos(el)·sin(az), sin(el))`。方位角须由调度器预先折算到该区间，RIR 消费侧不做跨 ±180° 归一化。RIR 方向图开启时以“目标视线角 - 给定指向”作为离轴角；指向偏离目标即按实际离轴衰减执行。模块级细节见 `docs/remote_identification_radar/boundaries.md`。
+RIR 的波束中心由**库内驻留调度器**（`RirSession`）每周期派生：无指定任务时按扫描策略逐周期推进（common 扫描内核 `ScanScheduleRuntime`，与 AR 同一口径）；指定识别任务窗口内对准指定目标。RIR 消费侧只信任并消费给定值，不自行生成指向。指向角类型为 `RirAzimuthElevationDeg`（deg），定义在雷达局部 ENU 右手系（与 `RirSceneTarget::position_x/y/z` 同帧）：`az_deg ∈ [-180, 180]`、`el_deg ∈ [-90, 90]`，单位指向向量为 `(cos(el)·cos(az), cos(el)·sin(az), sin(el))`。RIR 方向图开启时以“目标视线角 - 给定指向”作为离轴角；指向偏离目标即按实际离轴衰减执行。指定识别任务（限时锁定，镜像 AR designation 语义）见 `docs/remote_identification_radar/boundaries.md`。
 
 ### 折射率温标输入迁移
 

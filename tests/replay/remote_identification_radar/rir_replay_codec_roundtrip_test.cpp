@@ -25,6 +25,7 @@ using session::RirCycleAbortReason;
 using session::RirCycleReplayRecord;
 using session::RirCycleResult;
 using session::RirCycleStatus;
+using session::RirDesignationRevertReason;
 using session::RirRecognitionCategory;
 using session::RirRecognitionState;
 using session::RirSessionReplayState;
@@ -74,6 +75,12 @@ TEST(RirReplayCodecRoundtripTest, RecognitionFieldsRoundtripPreserved) {
   record.result.recognition_summary.dwell_budget.executed_dwell_count = 1U;
   record.result.recognition_summary.dwell_budget.dwell_budget_sec = 0.1f;
   record.result.recognition_summary.dwell_budget.dwell_consumed_sec = 0.05f;
+  record.result.designated_target_id = 9100U;
+  record.result.designation_active = true;
+  record.result.designation_reverted_to_scan = false;
+  record.result.designation_revert_reason = RirDesignationRevertReason::kNone;
+  record.result.dwell_center_deg.az_deg = -56.0f;
+  record.result.dwell_center_deg.el_deg = 30.0f;
 
   const std::string encoded = session::EncodeCycleReplayRecordFlatbuffer(record);
   ASSERT_FALSE(encoded.empty());
@@ -124,6 +131,12 @@ TEST(RirReplayCodecRoundtripTest, RecognitionFieldsRoundtripPreserved) {
   EXPECT_EQ(decoded.result.recognition_summary.dwell_budget.executed_dwell_count, 1U);
   EXPECT_FLOAT_EQ(decoded.result.recognition_summary.dwell_budget.dwell_budget_sec, 0.1f);
   EXPECT_FLOAT_EQ(decoded.result.recognition_summary.dwell_budget.dwell_consumed_sec, 0.05f);
+  EXPECT_EQ(decoded.result.designated_target_id, 9100U);
+  EXPECT_TRUE(decoded.result.designation_active);
+  EXPECT_FALSE(decoded.result.designation_reverted_to_scan);
+  EXPECT_EQ(decoded.result.designation_revert_reason, RirDesignationRevertReason::kNone);
+  EXPECT_FLOAT_EQ(decoded.result.dwell_center_deg.az_deg, -56.0f);
+  EXPECT_FLOAT_EQ(decoded.result.dwell_center_deg.el_deg, 30.0f);
 }
 
 TEST(RirReplayCodecRoundtripTest, DefaultStateRoundtripsByteExact) {
