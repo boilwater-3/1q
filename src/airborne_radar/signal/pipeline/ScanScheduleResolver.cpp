@@ -253,15 +253,20 @@ config::AzimuthElevationDeg ResolveScheduledDwellCenter(
   return dwell;
 }
 
+config::AzimuthElevationDeg ResolveScheduledBeamPointingFromExecutionConfig(
+    const ExecutionConfig& runtime_config, std::uint32_t cycle_index) {
+  return ResolveScheduledBeamPointing(
+      runtime_config.detection.orientation, ResolveSchedulingBeamwidth(runtime_config),
+      runtime_config.detection.beam_control.scheduler, cycle_index);
+}
+
 void ApplyScanScheduleToRuntimeConfig(std::uint32_t cycle_index,
                                       ExecutionConfig* runtime_config) {
   if (runtime_config == nullptr) {
     return;
   }
-
-  runtime_config->detection.orientation.scan_center_deg = ResolveScheduledBeamPointing(
-      runtime_config->detection.orientation, ResolveSchedulingBeamwidth(*runtime_config),
-      runtime_config->detection.beam_control.scheduler, cycle_index);
+  runtime_config->detection.orientation.scan_center_deg =
+      ResolveScheduledBeamPointingFromExecutionConfig(*runtime_config, cycle_index);
 }
 
 bool TryTrackPositionToLookAnglesDeg(float position_x, float position_y, float position_z,

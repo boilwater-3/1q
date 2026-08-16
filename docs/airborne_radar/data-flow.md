@@ -301,6 +301,8 @@ flowchart LR
 
 - 指向注入点唯一：`ArSession` prepare（`ResolveMountFrameBeamPointing` 的 scan_center 输入），
   经冻结指向链路同时驱动发射 boresight、接收状态、逐目标增益与检测单元；
+  TWS/TAS 生效模式（含 STT 回退）下该输入按扫描表逐周期推进（扫描动画，
+  见 boundaries.md 扫描动画接线），显式 dwell / 航迹跟随 / STT 驻留保持静态语义；
 - 指定状态属会话层（`RuntimeConfigState`），不进 pipeline 执行配置；
 - 生效模式每周期派生（无跨周期记忆）：指定航迹非 confirmed → 回退 `kTws`；
   `designation_reverted_to_tws` 是每周期状态指示，跨周期差分由调用方/recorder 承担；

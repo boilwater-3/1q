@@ -180,12 +180,18 @@ STT 模式不再要求外部提供目标角度：外部通过
    目标产生 `kDesignationDropped` 事件。replay 周期记录与 patch 记录均保留新字段。
 5. **显式 dwell 覆盖不构成回退**：`designation_active == false` 但
    `designation_reverted_to_tws == false` 表示指向被显式覆盖，不是丢跟踪。
-6. **已知限制（记录，非本次范围）**：session 主链路（RF v2）中 pipeline 内
-   `ApplyScanScheduleToRuntimeConfig` 只改写 pipeline 本地 config 副本，冻结指向
-   （`RfV2DetectionContext::beam_pointing_deg`）不消费它——TWS/TAS 的扫描表目前不驱动
-   session 级波束动画（波束静止于 base `scan_center + dwell`；扫描动画只存在于 resolver
-   单测与 RF v1 回退路径）。"回 TWS"在 session 级即回到该静态指向。修复扫描动画属独立
-   变更，另行评估。
+6. **扫描动画接线（session 级，修复原已知限制）**：生效模式为 TWS/TAS 且无显式
+   dwell 覆盖、无 STT 航迹跟随时，`ArSession` prepare 指向 = 扫描表当前周期波位
+   （`ResolveScheduledBeamPointingFromExecutionConfig`，与 pipeline 内
+   `ApplyScanScheduleToRuntimeConfig` 同一扫描相位），经
+   `RfV2DetectionContext::beam_pointing_deg` 逐周期推进发射 boresight / 接收状态 /
+   增益 / 检测单元——"回 TWS"（STT 指定航迹丢失/未确认回退）恢复扫描动画，不再
+   回到静态指向。静态语义保留：显式 dwell（优先级 1）钉住 `scan_center + dwell`；
+   STT 航迹跟随（优先级 2）跟随航迹；未指定目标的 STT 驻留（生效模式仍为 `kStt`）
+   保持 `scan_center`。扫描范围由 `mechanical/electronic_scan_limits_deg` 交集决定，
+   `scan_center` 仅作非法限位时的回退中心（patch 移动 scan_center 不移动扫描范围）；
+   pipeline 本地 `ApplyScanScheduleToRuntimeConfig` 保留，供 RF v1 回退路径
+   （`rf_v2_detection_context == nullptr`）使用。
 
 [evidence: tests/unit/airborne_radar/ar_stt_track_follow_test.cpp]
 [evidence: tests/unit/airborne_radar/ar_track_output_debug_view_test.cpp]

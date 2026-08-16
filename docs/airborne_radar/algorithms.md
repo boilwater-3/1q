@@ -18,7 +18,7 @@ public API 边界）见 [boundaries.md](boundaries.md)。
 | 配置映射与 runtime patch | 四域配置转内部工程配置；运行期变更可回滚提交 | session-wired | [evidence: tests/unit/airborne_radar/ar_session_config_builder_test.cpp] |
 | 环境冻结与传播 | pending/active scene 管理，冻结周期环境，传播损失/杂波/大气物理 | session-wired | [evidence: tests/unit/airborne_radar/ar_environment_service_test.cpp] |
 | 外部 RF 接入 | 以实际时频发射事实构建前端与 detection-cell 干扰账本，J/N 门控后去真值化观测 | session-wired | [evidence: tests/unit/airborne_radar/ar_rf_front_end_resolver_test.cpp] |
-| 扫描和波束控制 | 解析扫描中心、坐标组合、波束增益和波束宽度 | session-wired | [evidence: tests/unit/airborne_radar/ar_signal_scan_schedule_test.cpp] |
+| 扫描和波束控制 | 解析扫描中心、坐标组合、波束增益和波束宽度；TWS/TAS 生效模式下 session 级指向逐周期按扫描表推进 | session-wired | [evidence: tests/unit/airborne_radar/ar_signal_scan_schedule_test.cpp] |
 | STT 指定航迹跟随指向 | 外部只指定目标，STT 波束指向由指定航迹位置换算（优先级：显式 dwell > 航迹 > scan_center） | session-wired | [evidence: tests/unit/airborne_radar/ar_stt_track_follow_test.cpp] |
 | 指定目标生命周期回退 | 指定航迹未确认/丢失时 STT 自动回退 TWS，经 L2 结果/L3 视图/生命周期事件暴露 | session-wired | [evidence: tests/unit/airborne_radar/ar_stt_track_follow_test.cpp] |
 | 统一物理探测与工程 RF 干扰链 | 实际发射→echo→incident RF→前端账本→检测单元→判决的单一物理链 | session-wired | [evidence: tests/unit/airborne_radar/ar_signal_pipeline_test.cpp] |
@@ -61,7 +61,9 @@ public API 边界）见 [boundaries.md](boundaries.md)。
 ## 扫描调度、坐标和波束控制
 
 - **意图**：目标先解析到当前雷达参考框架，再计算 range；`ScanScheduleResolver` 将周期/扫描范围/dwell
-  center 转成扫描指向，`BeamControlResolver` 给出 one-way gain 与有效波束宽度。
+  center 转成扫描指向，`BeamControlResolver` 给出 one-way gain 与有效波束宽度。TWS/TAS 生效模式下
+  session 级指向逐周期按扫描表推进（波束动画，见 boundaries.md 扫描动画接线），pipeline RF v1 回退
+  路径经 `ApplyScanScheduleToRuntimeConfig` 使用同一扫描相位。
 - **实现边界**：
   1. `ArMissionConfig::orientation.scan_center_deg` 是基础扫描中心 public source of truth；policy 不再保留
      默认中心或 replay-only 副本。runtime patch 的 `dwell_center_deg` 是当次驻留偏移，最终指向为"基础中心 +
@@ -71,7 +73,10 @@ public API 边界）见 [boundaries.md](boundaries.md)。
   3. 天线波束宽度按轴独立解析（commanded > nominal > 由波长/孔径推导）；三级均无有效值时返回 0（不
      抛异常、不拒绝），调用方须保证 commanded 或 nominal 至少其一有效。孔径字段属于可回放硬件配置，
      replay 必须保留 `antenna_length_m`/`antenna_width_m`。
-  4. ECCM 措施只改变下一次成功发射/接收的实际硬件状态（频率捷变改 carrier/tuning、rejitter 改脉冲时序、
+  4. 扫描范围由 `mechanical/electronic_scan_limits_deg` 交集决定，`scan_center_deg` 仅作限位非法时的
+     回退中心；扫描表按 `cycle_index % pattern.size()` 取波位，STBY 返回零位、STT 返回扫描中心、
+     TWS/TAS 返回波位序列（TAS 步长减半，`prefer_dense_tas_sampling` 再减半）。
+  5. ECCM 措施只改变下一次成功发射/接收的实际硬件状态（频率捷变改 carrier/tuning、rejitter 改脉冲时序、
      旁瓣对消/自适应波束改方向增益/零陷、烧穿改发射功率/脉冲能量），不直接改写关联、滤波或生命周期参数。
 - **反直觉点**：公开发布的 `emission_frame` 是 base 发射身份，旁瓣对消/自适应波束只作用于接收态
   `receiver_state.antenna`，不进公开发射方向图（见 data-flow.md 输出归属边界）。
@@ -88,11 +93,12 @@ public API 边界）见 [boundaries.md](boundaries.md)。
   1. 指向来源优先级（冻结）：显式 dwell 非零 > 指定航迹 confirmed > scan_center 回退，
      由 `ResolveSttTrackFollowingPointing` 单一权威解析（纯函数，单测覆盖优先级矩阵）。
   2. 注入点唯一：`ArSession` prepare（`ResolveMountFrameBeamPointing` 的 scan_center 输入），
-     经冻结指向链路（`RfV2DetectionContext::beam_pointing_deg`）同时驱动发射/接收/增益/检测单元。
+     经冻结指向链路（`RfV2DetectionContext::beam_pointing_deg`）同时驱动发射/接收/增益/检测单元；
+     TWS/TAS 生效模式（含 STT 回退）下该注入点另按扫描表逐周期推进（见扫描调度节）。
   3. 指定状态是会话级状态（`RuntimeConfigState`），不进 pipeline 执行配置；随 patch
      原子暂存/提交/回滚。
   4. 生效模式为每周期派生（latch-free）：指定航迹非 confirmed → 回退 `kTws`（报告），
-     指向按回退分支（scan_center + dwell，与 session 级 TWS 一致）。
+     指向按回退分支推进（TWS 扫描表逐周期推进，与 session 级 TWS 一致）。
   5. 回退事件暴露：L2 `ArCycleResult` 新字段（`effective_work_mode`/`designation_active`/
      `designated_target_id`/`designation_reverted_to_tws`/`designation_revert_reason`，
      每周期状态指示）；L3 debug view 转写；`ArTrackLifecycleRecorder::kDesignationDropped`

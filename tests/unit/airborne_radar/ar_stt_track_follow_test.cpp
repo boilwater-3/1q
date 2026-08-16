@@ -9,7 +9,9 @@
  *   3) 挂架指向解算链（含限位 clamp）；
  *   4) Session 端到端：指定目标 → 航迹确认 → 发射 boresight 跟随航迹 →
  *      清除指定/显式 dwell 不跟随 → 航迹丢失自动回退 TWS +
- *      L2 结果 / L3 调试视图 / 生命周期事件暴露。
+ *      L2 结果 / L3 调试视图 / 生命周期事件暴露；
+ *   5) TWS 生效模式（含 STT 回退）下 session 级扫描动画：发射 boresight
+ *      逐周期按扫描表推进（boundaries.md 已知限制修复）。
  */
 
 #include <gtest/gtest.h>
@@ -312,13 +314,22 @@ TEST(ArSttTrackFollowTest, SessionFollowsDesignatedTrackThenRevertsOnLoss) {
   EXPECT_EQ(result.effective_work_mode, config::ArWorkMode::kTws);
   EXPECT_FALSE(result.designation_active);
   EXPECT_FALSE(result.designation_reverted_to_tws);
-  // TWS 基线发射指向 = scan_center (0,0)（不指向目标）。
+  // TWS 基线：session 级波束按扫描表逐周期推进（boundaries.md 已知限制修复），
+  // 发射 boresight 随周期移动而非静止于 scan_center；连续两周期指向不同。
   ASSERT_FALSE(result.emission_frame.emissions.empty());
   const oneq::electromagnetics::RfSceneDirection baseline_boresight =
       Normalize(result.emission_frame.emissions.front().antenna.boresight_ecef);
-  EXPECT_LT(Dot(baseline_boresight, target_direction), 0.9);
+  const ArCycleResult baseline_next =
+      session.StepWithResult(MakeCycleInput(last_cycle + 1U, platform, targets));
+  ASSERT_EQ(baseline_next.status, airborne_radar::session::ArCycleStatus::kCompleted);
+  ASSERT_FALSE(baseline_next.emission_frame.emissions.empty());
+  const oneq::electromagnetics::RfSceneDirection baseline_next_boresight =
+      Normalize(baseline_next.emission_frame.emissions.front().antenna.boresight_ecef);
+  EXPECT_LT(Dot(baseline_boresight, baseline_next_boresight), 0.999f)
+      << "TWS 基线发射 boresight 应随扫描表逐周期推进";
+  ++last_cycle;  // 消费掉动画断言周期，保证后续周期号连续。
 
-  // 阶段 1（周期 9-16）：patch STT + 指定目标 → 确认后航迹跟随，boresight 指向目标。
+  // 阶段 1（后续周期）：patch STT + 指定目标 → 确认后航迹跟随，boresight 指向目标。
   config::ArRuntimeConfigPatch stt_patch;
   stt_patch.has_work_mode = true;
   stt_patch.work_mode = config::ArWorkMode::kStt;
@@ -327,7 +338,7 @@ TEST(ArSttTrackFollowTest, SessionFollowsDesignatedTrackThenRevertsOnLoss) {
   ASSERT_TRUE(session.TryApplyRuntimeConfig(stt_patch));
 
   result = RunUntil(
-      &session, platform, targets, 9U, 16U,
+      &session, platform, targets, last_cycle + 1U, 16U,
       [](const ArCycleResult& r) { return r.designation_active; }, &last_cycle);
   ASSERT_EQ(result.status, airborne_radar::session::ArCycleStatus::kCompleted);
   EXPECT_TRUE(result.designation_active);
@@ -365,6 +376,7 @@ TEST(ArSttTrackFollowTest, SessionFollowsDesignatedTrackThenRevertsOnLoss) {
   EXPECT_EQ(result.designated_target_id, target.target_id);
 
   // 生命周期记录器：回退转换沿产生 kDesignationDropped（成因 kTrackLost）。
+  // 注意：事件窗口只在回退周期（revert_cycle）有效，必须在跑下一周期前断言。
   const std::vector<ArTrackLifecycleEvent>& events = recorder.GetLastEvents();
   const auto dropped =
       std::find_if(events.begin(), events.end(), [](const ArTrackLifecycleEvent& event) {
@@ -374,7 +386,22 @@ TEST(ArSttTrackFollowTest, SessionFollowsDesignatedTrackThenRevertsOnLoss) {
   EXPECT_EQ(dropped->external_target_id, target.target_id);
   EXPECT_EQ(dropped->designation_revert_reason, ArDesignationRevertReason::kTrackLost);
 
-  // L3 调试视图：回退状态与成因可见。
+  // 回退后生效模式 TWS：session 级波束恢复扫描表逐周期推进（"回 TWS"不再
+  // 回到静态指向）；回退周期与下一周期发射 boresight 不同。
+  ASSERT_FALSE(result.emission_frame.emissions.empty());
+  const oneq::electromagnetics::RfSceneDirection revert_boresight =
+      Normalize(result.emission_frame.emissions.front().antenna.boresight_ecef);
+  const ArCycleResult revert_next =
+      session.StepWithResult(MakeCycleInput(revert_cycle + 1U, platform, silent_targets));
+  ASSERT_EQ(revert_next.status, airborne_radar::session::ArCycleStatus::kCompleted);
+  ASSERT_FALSE(revert_next.emission_frame.emissions.empty());
+  const oneq::electromagnetics::RfSceneDirection revert_next_boresight =
+      Normalize(revert_next.emission_frame.emissions.front().antenna.boresight_ecef);
+  EXPECT_LT(Dot(revert_boresight, revert_next_boresight), 0.999f)
+      << "STT 回退 TWS 后发射 boresight 应恢复扫描表逐周期推进";
+  const std::uint32_t revert_animation_cycle = revert_cycle + 1U;
+
+  // L3 调试视图：回退状态与成因可见（使用回退周期 result）。
   const ArTrackOutputDebugView debug_view = ArTrackOutputDebugViewBuilder::Build(
       MakeCycleInput(revert_cycle, platform, silent_targets), result);
   EXPECT_EQ(debug_view.effective_work_mode, config::ArWorkMode::kTws);
@@ -387,7 +414,8 @@ TEST(ArSttTrackFollowTest, SessionFollowsDesignatedTrackThenRevertsOnLoss) {
   clear_patch.has_designated_target_id = true;
   clear_patch.designated_external_target_id = 0U;
   ASSERT_TRUE(session.TryApplyRuntimeConfig(clear_patch));
-  result = session.StepWithResult(MakeCycleInput(revert_cycle + 1U, platform, silent_targets));
+  result = session.StepWithResult(MakeCycleInput(revert_animation_cycle + 1U, platform,
+                                                 silent_targets));
   ASSERT_EQ(result.status, airborne_radar::session::ArCycleStatus::kCompleted);
   EXPECT_EQ(result.designated_target_id, 0U);
   EXPECT_FALSE(result.designation_reverted_to_tws);
@@ -451,6 +479,33 @@ TEST(ArSttTrackFollowTest, SessionExplicitDwellOverridesTrackFollowing) {
   const oneq::electromagnetics::RfSceneDirection follow_boresight =
       Normalize(result.emission_frame.emissions.front().antenna.boresight_ecef);
   EXPECT_GT(Dot(follow_boresight, target_direction), 0.99) << "清除 dwell 后发射指向应跟随指定航迹";
+}
+
+// TWS 生效模式（含 STT 回退）下 session 级波束动画：发射 boresight 逐周期
+// 按扫描表推进（boundaries.md 已知限制修复），不再静止于 base scan_center + dwell。
+TEST(ArSttTrackFollowTest, SessionTwsScanAnimatesBeamAcrossCycles) {
+  const ArExternalPoseInput platform = MakePlatformInput();
+  const ArExternalTargetInput target = MakeStationaryTargetInput();
+  const std::vector<ArExternalTargetInput> targets{target};
+  ArSession session = ArSession::Create(MakeDetectionFocusedConfig());
+
+  // 连续 4 个 TWS 周期：每相邻两周期发射 boresight 都应不同（扫描推进）。
+  std::vector<oneq::electromagnetics::RfSceneDirection> boresights;
+  for (std::uint32_t cycle = 1U; cycle <= 4U; ++cycle) {
+    const ArCycleResult result = session.StepWithResult(MakeCycleInput(cycle, platform, targets));
+    ASSERT_EQ(result.status, airborne_radar::session::ArCycleStatus::kCompleted);
+    ASSERT_FALSE(result.emission_frame.emissions.empty());
+    boresights.push_back(
+        Normalize(result.emission_frame.emissions.front().antenna.boresight_ecef));
+  }
+  std::size_t animated_pairs = 0U;
+  for (std::size_t i = 0U; i + 1U < boresights.size(); ++i) {
+    if (Dot(boresights[i], boresights[i + 1U]) < 0.999f) {
+      ++animated_pairs;
+    }
+  }
+  EXPECT_EQ(animated_pairs, boresights.size() - 1U)
+      << "TWS 模式下每周期发射 boresight 都应按扫描表逐周期推进";
 }
 
 }  // namespace

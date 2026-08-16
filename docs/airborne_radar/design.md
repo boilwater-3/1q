@@ -41,7 +41,8 @@ AR 的决策扩展点是同进程步间 observation/response seam：
 5. STT 模式支持**指定航迹跟随指向**（方案 A）：外部通过 runtime patch 只指定目标
    （`designated_external_target_id`），波束指向由 AR 用自身航迹推导；指定航迹丢失/未确认时
    自动回退 TWS，回退状态经 L2 结果 / L3 调试视图 / 生命周期事件暴露。指向来源优先级与冻结
-   契约见 boundaries.md「STT 指定航迹跟随与自动回退」。
+   契约见 boundaries.md「STT 指定航迹跟随与自动回退」；TWS/TAS 生效模式下 session 级波束
+   按扫描表逐周期推进（扫描动画，见 boundaries.md「扫描动画接线」）。
 6. `Ar*` 是 AR 模块的 public API 前缀。`RadarEquations`、`radar_cross_section`、`ComposeRadarAttitudeDeg`
    等领域术语保留原名。历史上的 `Radar*` 模块前缀已一次性迁移到 `Ar*`，不保留 deprecated compat 层；
    新增 public primary 类型不得再使用 `Radar*` 作为模块所有权前缀。

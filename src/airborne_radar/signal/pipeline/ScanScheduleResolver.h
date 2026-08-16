@@ -93,6 +93,18 @@ void ApplyScanScheduleToRuntimeConfig(std::uint32_t cycle_index,
                                       ExecutionConfig* runtime_config);
 
 /**
+ * @brief 从执行配置只读解析当前周期调度的波束指向。
+ * @param[in] runtime_config 运行时执行配置（读取 orientation、beam_control
+ *            scheduler 与天线名义波束宽度，不修改）。
+ * @param[in] cycle_index 1 基周期编号。
+ * @return 当前周期调度波束指向；与 ApplyScanScheduleToRuntimeConfig 写入
+ *         scan_center_deg 的值一致，供 session 级指向（发射/接收/增益/检测）
+ *         与 pipeline 本地副本共用同一扫描相位。
+ */
+config::AzimuthElevationDeg ResolveScheduledBeamPointingFromExecutionConfig(
+    const ExecutionConfig& runtime_config, std::uint32_t cycle_index);
+
+/**
  * @brief 由雷达局部笛卡尔位置换算方位/俯仰指向。
  * @param[in] position_x 雷达局部 x（m；平台 ENU 切平面东向，含平台姿态旋转）。
  * @param[in] position_y 雷达局部 y（m；北向，含平台姿态旋转）。

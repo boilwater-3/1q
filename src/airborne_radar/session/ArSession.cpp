@@ -580,18 +580,35 @@ struct ArSession::Impl {
     //   3) 其余（未指定/航迹未确认/丢失）：scan_center（现状行为）。
     // 生效模式派生（无跨周期记忆）：已提交 STT 且指定航迹未确认时回退 TWS；
     // 本周期指向仍按回退分支（scan_center + dwell）解析，与 session 级 TWS 一致。
+    const bool explicit_dwell_override =
+        next_operating_state.dwell_center_deg.az_deg != 0.0f ||
+        next_operating_state.dwell_center_deg.el_deg != 0.0f;
     const SttDesignationCycleState designation_state = BuildSttDesignationCycleState(
         orientation_config.work_mode, next_operating_state.designated_external_target_id,
-        next_operating_state.dwell_center_deg.az_deg != 0.0f ||
-            next_operating_state.dwell_center_deg.el_deg != 0.0f,
-        Controller().GetLatestTrackOutputFrame());
+        explicit_dwell_override, Controller().GetLatestTrackOutputFrame());
     const signal::pipeline::SttTrackFollowingResolution stt_pointing =
         signal::pipeline::ResolveSttTrackFollowingPointing(
             orientation_config, next_operating_state.dwell_center_deg,
             designation_state.designation_set, designation_state.track_confirmed,
             designation_state.track_pointing_deg);
+    // 扫描动画（boundaries.md 已知限制修复）：生效模式为 TWS/TAS 且无显式
+    // dwell 覆盖、无航迹跟随时，session 级指向按扫描表逐周期推进，使发射
+    // boresight 与 RfV2DetectionContext::beam_pointing_deg 随周期移动；
+    // 显式 dwell（优先级 1）与 STT 航迹跟随（优先级 2）保持静态语义，
+    // 未指定目标的 STT 驻留（生效模式仍为 kStt）同样保持 scan_center 静态。
+    const config::ArWorkMode effective_work_mode =
+        designation_state.reverted_to_tws ? config::ArWorkMode::kTws
+                                          : orientation_config.work_mode;
     config::ArOrientationConfig effective_orientation = orientation_config;
     effective_orientation.scan_center_deg = stt_pointing.scan_center_deg;
+    if (!explicit_dwell_override && !stt_pointing.track_following_active &&
+        (effective_work_mode == config::ArWorkMode::kTws ||
+         effective_work_mode == config::ArWorkMode::kTas)) {
+      effective_orientation.work_mode = effective_work_mode;
+      effective_orientation.scan_center_deg =
+          signal::pipeline::ResolveScheduledBeamPointingFromExecutionConfig(
+              next_operating_state.execution_config, input.cycle_index);
+    }
     prepare_input.beam_pointing_deg =
         signal::detection::BeamControlResolver::ResolveMountFrameBeamPointing(
             effective_orientation, platform_attitude, stt_pointing.dwell_center_deg);
