@@ -279,6 +279,19 @@ schema/codec 直接演进，无版本化回退设计。各阶段涉及 replay �
 
 ### 阶段 4：大幅面扫描（俯仰向二维扫描）
 
+> **实施状态（2026-08-17）**：已落地于分支
+> `feature/sbirs-sensor-contract-alignment-phase4`。决策：**不引入区域扫描**
+> （与 AR 一致——扫描 = 卫星自身位置 + 配置定义扫描策略，LOS 几何以卫星为原点，
+> 天然覆盖卫星位置下方对应角域，无"区域输入/位置偏差"问题）；栅格表达 =
+> el 起止 + 步进角（`scan_el_start/span/step_deg`，span=0 默认单行，既有行为逐位不变）；
+> 行间方向 = 锯齿单向（每行从 az 起点同向扫，行末 el 步进、az 相位归零）；帧率预算 =
+> 纯几何推进（覆盖无隙校验 `step ≤ FOV_el` + 文档化完成时间，无运行期预算状态）。
+> 扫描相位状态 1-D → 2-D（`scan_row_index` 进运行期快照），输出新增
+> `scan_elevation_rad`（ECI 参考）；replay schema/codec 直接扩展。
+> 验证：sbirs 单测 235/235（226 既有回归 + 新增 9）、integration/contract/replay/
+> batch 全过、全库 ctest 57/58（仅剩既有 integration::airborne_radar 0xc0000409
+> 环境基线）。
+
 1. `SbirsMissionConfig` 扩展：俯仰扫描范围/步进行数/行驻留（或大画幅视场
    配置），与既有方位环扫参数正交组合；扫描相位状态从 1-D 扩到 2-D
    （replay 快照字段同步扩展）。

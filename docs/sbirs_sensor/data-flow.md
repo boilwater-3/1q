@@ -165,6 +165,7 @@ resolver 按旧、新配置的字段差异生成内部 impact；相同值 patch 
 | 变化 | 保留 | 定向迁移 |
 |------|------|----------|
 | environment、WFOV 门限、普通 FOV/range/cue/pointing 数值、scan rate | scan、lock、cue、filter、actuator、全部随机流 | 无 |
+| 扫描扇区/俯仰栅格（scan_start/span/direction、el start/span/step） | 行内 scan phase 按旧绝对方位重算 | scan row 索引重锚到新栅格最近行（旧 el 不在新栅格内则归零） |
 | R/Q、NIS 周期或误差统计 | filter 均值与协方差 | NIS 连续计数归零 |
 | NFOV 门限/FOV、指向扰动参数、NFOV gate-loss 周期 | lock 与 actuator | NFOV 连续门失败计数归零 |
 | 初始化协方差 | 所有既有航迹 | 只影响后续新航迹 |

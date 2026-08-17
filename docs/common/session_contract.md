@@ -284,8 +284,8 @@ AR/ESR/EOS/SBIRS/SAR 五模块的电源状态必须遵守单源原则：
 ### 传感器方位坐标系约定（SBIRS）
 
 **SBIRS 输出的 `az`/`el`（检测记录 `SbirsDetectionRecord`、扫描相位
-`SbirsOutputFrame::scan_azimuth_rad`）为 ECI 极坐标（2026-08 正式变更），
-不是卫星局部地平系**：
+`SbirsOutputFrame::scan_azimuth_rad` / `scan_elevation_rad`（阶段 4 起））为 ECI 极坐标
+（2026-08 正式变更），不是卫星局部地平系**：
 
 - `az = atan2(los.y, los.x)`：相对 **ECI x 轴**（J2000 平赤道面，`SbirsVector3M`
   的 y/x 分量），单位 **rad**，取值范围 `[0, 2π)`；

@@ -32,6 +32,7 @@ Answers: SBIRS 用了哪些算法、各自实现到什么地步、边界在哪�
 | 时间相关指向扰动 | 整星共模 + 逐通道 GM + 振动的 Gauss-Markov | 生产可用 | [evidence: tests/unit/sbirs_sensor/sbirs_pointing_disturbance_test] |
 | 安装指向与稳定链 | 卫星姿态(Body→ECI)∘安装角(Body→Sensor)∘扫描指向合成实际光轴；体/惯性双稳定；传感器系限位 | 生产可用（阶段 2，2026-08-17） | [evidence: tests/unit/sbirs_sensor/sbirs_boresight_chain_test] |
 | 安装失准误差模型 | 安装失准（常值偏置 + 运行期一次随机抽取的常值微扰）合成进 boresight 链影响实际光轴与门控；与量测域误差及时变扰动谱正交 | 生产可用（阶段 3，2026-08-17） | [evidence: tests/unit/sbirs_sensor/sbirs_boresight_chain_test]、[evidence: tests/unit/sbirs_sensor/sbirs_pipeline_test] |
+| 2-D 俯仰栅格扫描 | 俯仰栅格（el 起止+步进角）与方位环扫正交组合；锯齿单向推进、行内相位与既有一致、行末回绕；输出行中心 ECI 俯仰 | 生产可用（阶段 4，2026-08-17） | [evidence: tests/unit/sbirs_sensor/sbirs_pipeline_test] |
 | ECEF→ECI 旋转（GMST） | 周期入口按 UTC 儒略日算 GMST，把卫星/目标位置与卫星/目标速度（含 ω×r 输运项）旋到 ECI | 生产可用（共享域 1q/coordinate/inertial_transform.h，仅 SBIRS 消费） | [evidence: tests/unit/sbirs_sensor/sbirs_eci_transform_test] |
 
 ## 安装指向与稳定链（阶段 2）
@@ -157,8 +158,16 @@ Answers: SBIRS 用了哪些算法、各自实现到什么地步、边界在哪�
   6. 扫描参数参考系（阶段 2 起）：体稳定下 `scan_start_az/scan_center_el` 为**传感器系**角度
      （零姿态 + 零安装角下与 ECI 一致）；惯性稳定下为 ECI 参考方向，经链路反解到传感器系。
      共模扰动与扫描限位在传感器系叠加/钳制后形成实际扫描中心。
+  7. 2-D 俯仰栅格（阶段 4 起）：`scan_el_start_deg/scan_el_span_deg/scan_el_step_deg` 与既有
+     方位环扫正交组合；`scan_el_span_deg=0` 默认单行模式（行中心恒为 `scan_center_el_deg`，
+     既有行为逐位不变）。行数 = `1 + floor(span/step)`，行中心 = `el_start + row·step`；
+     锯齿单向推进——每行从方位起点同向扫描，行内相位跨过 `scan_span` 时行索引步进、方位
+     相位归零，行末回绕。校验强制 `step ≤ wide_field_fov_el_deg`（无隙覆盖预算）；全幅面
+     完成时间 ≈ `row_count × span/scan_rate` 秒。输出 `scan_elevation_rad` 为当前行中心
+     合成光轴的 ECI 俯仰（与 `scan_azimuth_rad` 同参考系）。
 - **反直觉点（扇区 patch 的相位处理）**：扇区 patch 后，当前绝对方位仍位于新有向半开区间时重算 phase
-  并保持指向，否则 phase 归零转到新起点；rate-only patch 保持 phase。从 SearchAndStare 切入时释放
+  并保持指向，否则 phase 归零转到新起点；2-D 栅格 patch 下旧行中心 el 映射到新栅格最近行
+  （不在新栅格内则归零行）；rate-only patch 保持 phase。从 SearchAndStare 切入时释放
   NFOV/pointing/filter 绑定但**保留** scan phase、测量随机流和已有 WFOV cue 历史。
 - **证据**：[evidence: tests/unit/sbirs_sensor/sbirs_pipeline_test]
 
