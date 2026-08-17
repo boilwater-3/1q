@@ -80,6 +80,83 @@ session::SbirsIssueList ValidateSbirsSessionConfig(const SbirsSessionConfig& con
     AddError(session::codes::kInvalidNarrowPointingSettleTolerance,
              "mission narrow pointing settle tolerance must be non-negative and finite", &issues);
   }
+  // 安装指向域（对齐 ArOrientationConfig）：mount 欧拉有限、限位有限且有序并在合法域内、
+  // 稳定方式合法；WFOV 方位扫掠弧与中心俯仰须落在传感器系限位窗口内（弧段提升到
+  // [az_min, az_min+360) 后判界，跨 ±180° 缝的合法情形由全开窗口特例覆盖；
+  // 默认全开限位下本规则恒通过，保证既有配置零行为变化）。
+  const SbirsOrientationConfig& orientation = config.orientation;
+  if (!std::isfinite(orientation.mount_angles_deg.yaw_deg) ||
+      !std::isfinite(orientation.mount_angles_deg.pitch_deg) ||
+      !std::isfinite(orientation.mount_angles_deg.roll_deg)) {
+    AddError(session::codes::kInvalidMountAngles, "orientation mount angles must be finite",
+             &issues);
+  }
+  const SbirsScanLimitsDeg& sensor_limits = orientation.sensor_scan_limits_deg;
+  if (!std::isfinite(sensor_limits.az_min_deg) || !std::isfinite(sensor_limits.az_max_deg) ||
+      sensor_limits.az_min_deg > sensor_limits.az_max_deg) {
+    AddError(session::codes::kSensorScanLimitsSwappedAzimuth,
+             "orientation sensor scan azimuth limits must be finite and ordered", &issues);
+  }
+  if (!std::isfinite(sensor_limits.el_min_deg) || !std::isfinite(sensor_limits.el_max_deg) ||
+      sensor_limits.el_min_deg > sensor_limits.el_max_deg) {
+    AddError(session::codes::kSensorScanLimitsSwappedElevation,
+             "orientation sensor scan elevation limits must be finite and ordered", &issues);
+  }
+  if (sensor_limits.az_min_deg < -180.0f || sensor_limits.az_max_deg > 180.0f ||
+      sensor_limits.el_min_deg < -90.0f || sensor_limits.el_max_deg > 90.0f) {
+    AddError(session::codes::kSensorScanLimitsOutOfRange,
+             "orientation sensor scan limits must stay within az [-180, 180] and el [-90, 90]",
+             &issues);
+  }
+  if (orientation.stabilization_mode != SbirsStabilizationMode::kBodyStabilized &&
+      orientation.stabilization_mode != SbirsStabilizationMode::kInertialStabilized) {
+    AddError(session::codes::kInvalidStabilizationMode,
+             "orientation stabilization mode is invalid", &issues);
+  }
+  const bool sensor_limits_valid =
+      std::isfinite(sensor_limits.az_min_deg) && std::isfinite(sensor_limits.az_max_deg) &&
+      std::isfinite(sensor_limits.el_min_deg) && std::isfinite(sensor_limits.el_max_deg) &&
+      sensor_limits.az_min_deg <= sensor_limits.az_max_deg &&
+      sensor_limits.el_min_deg <= sensor_limits.el_max_deg &&
+      sensor_limits.az_min_deg >= -180.0f && sensor_limits.az_max_deg <= 180.0f &&
+      sensor_limits.el_min_deg >= -90.0f && sensor_limits.el_max_deg <= 90.0f;
+  const bool scan_params_valid = std::isfinite(config.mission.scan_start_az_deg) &&
+                                 config.mission.scan_start_az_deg >= 0.0f &&
+                                 config.mission.scan_start_az_deg < 360.0f &&
+                                 std::isfinite(config.mission.scan_span_deg) &&
+                                 config.mission.scan_span_deg > 0.0f &&
+                                 config.mission.scan_span_deg <= 360.0f &&
+                                 std::isfinite(config.mission.scan_center_el_deg);
+  if (sensor_limits_valid && scan_params_valid) {
+    const float kEps = 1.0e-4f;
+    const float az_window_deg = sensor_limits.az_max_deg - sensor_limits.az_min_deg;
+    float start_symmetric_deg =
+        std::fmod(config.mission.scan_start_az_deg + 180.0f, 360.0f);
+    if (start_symmetric_deg < 0.0f) {
+      start_symmetric_deg += 360.0f;
+    }
+    start_symmetric_deg -= 180.0f;
+    bool az_path_ok = az_window_deg >= 360.0f - kEps;
+    if (!az_path_ok) {
+      float lifted_start_deg = start_symmetric_deg;
+      if (lifted_start_deg < sensor_limits.az_min_deg) {
+        lifted_start_deg += 360.0f;
+      }
+      const bool increasing =
+          config.mission.scan_direction == SbirsScanDirection::kIncreasingAzimuth;
+      az_path_ok = lifted_start_deg <= sensor_limits.az_max_deg + kEps &&
+                   (increasing
+                        ? lifted_start_deg + config.mission.scan_span_deg <=
+                              sensor_limits.az_max_deg + kEps
+                        : lifted_start_deg - config.mission.scan_span_deg >=
+                              sensor_limits.az_min_deg - kEps);
+    }
+    if (!az_path_ok || config.mission.scan_center_el_deg < sensor_limits.el_min_deg - kEps ||
+        config.mission.scan_center_el_deg > sensor_limits.el_max_deg + kEps) {
+      AddError(session::codes::kScanPathOutsideSensorLimits,
+               "mission scan sweep or center elevation exceeds sensor scan limits", &issues);
+    }
+  }
   if (config.policy.detection.wide_min_snr_linear < 0.0f ||
       config.policy.detection.narrow_min_snr_linear < 0.0f) {
     AddError(session::codes::kInvalidDetectionThresholds,

@@ -26,6 +26,9 @@ constexpr char kInvalidSatellitePosition[] = "sbirs.validation.invalid_satellite
 /** @brief 卫星速度缺失或非有限（必填；ECEF 零向量合法，如 GEO 卫星）。 */
 constexpr char kInvalidSatelliteVelocity[] = "sbirs.validation.invalid_satellite_velocity";
 
+/** @brief 卫星姿态缺失或非有限（必填；零欧拉合法 = 体轴对齐 ECI）。 */
+constexpr char kInvalidSatelliteAttitude[] = "sbirs.validation.invalid_satellite_attitude";
+
 /** @brief UTC 儒略日缺失、非有限或非正（ECI 输出参考系必需）。 */
 constexpr char kInvalidUtcJulianDay[] = "sbirs.validation.invalid_utc_julian_day";
 
@@ -66,6 +69,27 @@ constexpr char kInvalidNarrowPointingSlewRate[] =
 /** @brief 窄视场指向沉降容差非法（须为非负有限值）。 */
 constexpr char kInvalidNarrowPointingSettleTolerance[] =
     "sbirs.validation.invalid_narrow_pointing_settle_tolerance";
+
+/** @brief 传感器安装欧拉角非法（须为有限值）。 */
+constexpr char kInvalidMountAngles[] = "sbirs.validation.invalid_mount_angles";
+
+/** @brief 传感器系扫描限位方位倒置（az_min > az_max）。 */
+constexpr char kSensorScanLimitsSwappedAzimuth[] =
+    "sbirs.validation.sensor_scan_limits_swapped_azimuth";
+
+/** @brief 传感器系扫描限位俯仰倒置（el_min > el_max）。 */
+constexpr char kSensorScanLimitsSwappedElevation[] =
+    "sbirs.validation.sensor_scan_limits_swapped_elevation";
+
+/** @brief 传感器系扫描限位超域（az 须在 [-180, 180]、el 须在 [-90, 90]）。 */
+constexpr char kSensorScanLimitsOutOfRange[] = "sbirs.validation.sensor_scan_limits_out_of_range";
+
+/** @brief 扫描稳定方式非法。 */
+constexpr char kInvalidStabilizationMode[] = "sbirs.validation.invalid_stabilization_mode";
+
+/** @brief 扫描路径超出传感器系扫描限位（方位扫掠区间或中心俯仰不在限位内）。 */
+constexpr char kScanPathOutsideSensorLimits[] =
+    "sbirs.validation.scan_path_outside_sensor_limits";
 
 /** @brief 检测门限非法（须非负）。 */
 constexpr char kInvalidDetectionThresholds[] = "sbirs.validation.invalid_detection_thresholds";

@@ -43,6 +43,13 @@ class ONEQ_API SbirsCycleInputBuilder {
    */
   SbirsCycleInputBuilder& WithSatelliteVelocity(const SbirsVector3M& velocity_ecef_m_per_s);
   /**
+   * @brief 设置卫星姿态欧拉角并标记为已提供（必填；未设置时校验拒绝）。
+   * @param[in] attitude_eci_body_deg 卫星姿态（Z-Y-X，Body->ECI，单位 deg；零欧拉合法）
+   * @return 自身引用，支持链式调用
+   */
+  SbirsCycleInputBuilder& WithSatelliteAttitude(
+      const SbirsEulerAnglesDeg& attitude_eci_body_deg);
+  /**
    * @brief 设置 UTC 儒略日（ECI 输出参考系必需；未设置时校验拒绝）。
    * @param[in] utc_julian_day UTC 儒略日（JD_UTC）
    * @return 自身引用，支持链式调用

@@ -86,6 +86,18 @@ SbirsIssueList ValidateSbirsCycleInput(const SbirsCycleInput& input, float frame
              "satellite velocity must be provided and finite (zero vector is valid)", location,
              &issues);
   }
+  // 卫星姿态必填（阶段 2 指向合成链）：缺失或非有限即拒绝；零欧拉合法（体轴对齐 ECI）。
+  // 缺失会把卫星隐含为无姿态质点，安装角/姿态无法驱动内部光轴几何。
+  if (!input.has_satellite_attitude ||
+      !Finite(input.satellite_attitude_eci_body_deg.yaw_deg) ||
+      !Finite(input.satellite_attitude_eci_body_deg.pitch_deg) ||
+      !Finite(input.satellite_attitude_eci_body_deg.roll_deg)) {
+    oneq::foundation::ValidationLocation location;
+    location.kind = oneq::foundation::ValidationLocationKind::kPlatform;
+    AddError(codes::kInvalidSatelliteAttitude, "satellite_attitude_eci_body_deg",
+             "satellite attitude must be provided and finite (zero euler is valid)", location,
+             &issues);
+  }
   std::set<std::uint64_t> target_ids;
   for (std::size_t i = 0; i < input.scene.size(); ++i) {
     const SbirsSceneTarget& target = input.scene[i];

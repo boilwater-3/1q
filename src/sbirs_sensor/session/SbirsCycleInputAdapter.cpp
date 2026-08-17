@@ -27,6 +27,13 @@ SbirsCycleInputBuilder& SbirsCycleInputBuilder::WithSatelliteVelocity(
   return *this;
 }
 
+SbirsCycleInputBuilder& SbirsCycleInputBuilder::WithSatelliteAttitude(
+    const SbirsEulerAnglesDeg& attitude_eci_body_deg) {
+  input_.has_satellite_attitude = true;
+  input_.satellite_attitude_eci_body_deg = attitude_eci_body_deg;
+  return *this;
+}
+
 SbirsCycleInputBuilder& SbirsCycleInputBuilder::WithUtcJulianDay(double utc_julian_day) {
   input_.utc_julian_day = utc_julian_day;
   return *this;

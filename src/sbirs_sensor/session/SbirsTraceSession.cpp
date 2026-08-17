@@ -20,6 +20,7 @@ std::string BuildSbirsInputPayload(const SbirsCycleInput& input) {
      << "\"has_satellite_position\":" << (input.has_satellite_position ? "true" : "false") << ","
      << "\"has_satellite_velocity\":"
      << (input.has_satellite_velocity_ecef_m_per_s ? "true" : "false") << ","
+     << "\"has_satellite_attitude\":" << (input.has_satellite_attitude ? "true" : "false") << ","
      << "\"scene_target_count\":" << input.scene.size() << "}";
   return os.str();
 }
