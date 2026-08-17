@@ -62,6 +62,19 @@ ctest --preset "$preset" --output-on-failure -j 4
 
 - `ONEQ_ENABLE_FLIGHT_DYNAMIC` (default **OFF**) gates `src/flight_dynamic/` and its tests. JSBSim remains required regardless (`src/common/environment/JsbsimAtmosphereAdapter`).
 - Code coverage: `llvm-ninja-coverage` preset + `tools/coverage_report.sh`. **Never run ctest by hand** — the script owns `.profraw` placement. Branch coverage is the primary metric; see `docs/practice/coverage.md`.
+- **Windows/VS 构建环境备注（本机）**：conan 构建目录 `build/VisualStudio.15.0-amd64`
+  （VS 生成器 + v141 工具集）直接 `cmake --build` 会报 `corecrt.h` 找不到——v141 工具集的
+  MSBuild Cpp targets 解析 UCRT 路径失败（SDK 10.0.26100.0 实际已安装）。需先用匹配
+  工具集版本初始化环境并让 MSBuild 消费环境变量路径（`/p:UseEnv=true`）：
+
+  ```bat
+  call "C:\Program Files\Microsoft Visual Studio\18\Community\VC\Auxiliary\Build\vcvarsall.bat" x64 -vcvars_ver=14.16
+  cmake --build build/VisualStudio.15.0-amd64 --target <target> --config Debug -- -p:UseEnv=true -m -v:m -nologo
+  ```
+
+  另注：该环境（MSVC v141 Debug CRT）存在两处**既有**测试失败，与代码改动无关——
+  `SbirsExclusionCauseRecorderTest` 全套 bad_alloc、`integration::airborne_radar`
+  0xc0000409 崩溃（两者在未改动基线上复现一致）。
 
 ## Documentation
 
