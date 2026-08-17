@@ -26,6 +26,9 @@ table SbirsMissionConfig {
   scan_span_deg: float;
   scan_direction: int32;
   scan_center_el_deg: float;
+  scan_el_start_deg: float = 0.0;
+  scan_el_span_deg: float = 0.0;
+  scan_el_step_deg: float = 1.0;
   scan_rate_deg_per_sec: float;
   min_range_m: float;
   max_range_m: float;

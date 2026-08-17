@@ -77,6 +77,7 @@ table SbirsDetectionAttributionRecord {
 table SbirsOutputFrame {
   cycle_index: uint32;
   scan_azimuth_rad: float;
+  scan_elevation_rad: float = 0.0;
   detections: [SbirsDetectionRecord];
 }
 

@@ -30,6 +30,7 @@ bool DetectionEqual(const output::SbirsDetectionRecord& left,
 
 bool OutputFrameEqual(const SbirsOutputFrame& left, const SbirsOutputFrame& right) {
   if (left.cycle_index != right.cycle_index || left.scan_azimuth_rad != right.scan_azimuth_rad ||
+      left.scan_elevation_rad != right.scan_elevation_rad ||
       left.detections.size() != right.detections.size()) {
     return false;
   }

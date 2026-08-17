@@ -115,6 +115,7 @@ flatbuffers::Offset<sbirs::replay::SbirsOutputFrame> EncodeOutputFrameTable(
     detections.push_back(EncodeOneDetection(fbb, detection));
   }
   return sbirs::replay::CreateSbirsOutputFrame(fbb, value.cycle_index, value.scan_azimuth_rad,
+                                               value.scan_elevation_rad,
                                                fbb.CreateVector(detections));
 }
 
@@ -125,6 +126,7 @@ bool DecodeOutputFrameTable(const sbirs::replay::SbirsOutputFrame* fb, SbirsOutp
   SbirsOutputFrame decoded;
   decoded.cycle_index = fb->cycle_index();
   decoded.scan_azimuth_rad = fb->scan_azimuth_rad();
+  decoded.scan_elevation_rad = fb->scan_elevation_rad();
   if (fb->detections() != nullptr) {
     decoded.detections.reserve(fb->detections()->size());
     for (const sbirs::replay::SbirsDetectionRecord* detection : *fb->detections()) {
@@ -171,7 +173,8 @@ flatbuffers::Offset<sbirs::replay::SbirsMissionConfig> EncodeMissionConfig(
       fbb, static_cast<std::int32_t>(value.work_mode), value.wide_field_fov_az_deg,
       value.wide_field_fov_el_deg, value.narrow_field_fov_az_deg, value.narrow_field_fov_el_deg,
       value.scan_start_az_deg, value.scan_span_deg, static_cast<std::int32_t>(value.scan_direction),
-      value.scan_center_el_deg, value.scan_rate_deg_per_sec, value.min_range_m, value.max_range_m,
+      value.scan_center_el_deg, value.scan_el_start_deg, value.scan_el_span_deg,
+      value.scan_el_step_deg, value.scan_rate_deg_per_sec, value.min_range_m, value.max_range_m,
       value.frame_rate_hz, value.narrow_cue_latency_s, value.narrow_pointing_settle_error_deg,
       value.narrow_pointing_max_slew_rate_deg_per_sec, value.narrow_pointing_settle_tolerance_deg);
 }
@@ -195,6 +198,9 @@ bool DecodeMissionConfig(const sbirs::replay::SbirsMissionConfig* fb,
   decoded.scan_span_deg = fb->scan_span_deg();
   decoded.scan_direction = static_cast<config::SbirsScanDirection>(fb->scan_direction());
   decoded.scan_center_el_deg = fb->scan_center_el_deg();
+  decoded.scan_el_start_deg = fb->scan_el_start_deg();
+  decoded.scan_el_span_deg = fb->scan_el_span_deg();
+  decoded.scan_el_step_deg = fb->scan_el_step_deg();
   decoded.scan_rate_deg_per_sec = fb->scan_rate_deg_per_sec();
   decoded.min_range_m = fb->min_range_m();
   decoded.max_range_m = fb->max_range_m();

@@ -35,7 +35,10 @@ SbirsRuntimeConfigImpact ClassifyImpact(const config::SbirsSessionConfig& previo
   impact.scan_sector_changed =
       previous.mission.scan_start_az_deg != next.mission.scan_start_az_deg ||
       previous.mission.scan_span_deg != next.mission.scan_span_deg ||
-      previous.mission.scan_direction != next.mission.scan_direction;
+      previous.mission.scan_direction != next.mission.scan_direction ||
+      previous.mission.scan_el_start_deg != next.mission.scan_el_start_deg ||
+      previous.mission.scan_el_span_deg != next.mission.scan_el_span_deg ||
+      previous.mission.scan_el_step_deg != next.mission.scan_el_step_deg;
   impact.reset_measurement_random_stream =
       previous.policy.error_model.random_seed != next.policy.error_model.random_seed;
   impact.reset_nis_gate_counts =
