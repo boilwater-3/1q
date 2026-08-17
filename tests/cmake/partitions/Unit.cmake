@@ -191,6 +191,16 @@ if(_oneq_unit_threat_assessment)
         TIMEOUT 60)
 endif()
 
+# target_inference.
+file(GLOB _oneq_unit_target_inference CONFIGURE_DEPENDS
+    "${CMAKE_CURRENT_SOURCE_DIR}/unit/target_inference/*_test.cpp")
+if(_oneq_unit_target_inference)
+    oneq_add_test_partition(
+        TYPE unit DOMAIN target_inference
+        SOURCES ${_oneq_unit_target_inference}
+        TIMEOUT 60)
+endif()
+
 # electro_optical_sensor (EOS).
 file(GLOB _oneq_unit_electro_optical_sensor CONFIGURE_DEPENDS
     "${CMAKE_CURRENT_SOURCE_DIR}/unit/electro_optical_sensor/*_test.cpp")

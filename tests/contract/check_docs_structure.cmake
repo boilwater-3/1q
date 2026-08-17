@@ -43,7 +43,8 @@ set(ALLOWED_DOC_DIRS
     "review"
     "sar"
     "sbirs_sensor"
-    "threat_assessment")
+    "threat_assessment"
+    "target_inference")
 
 set(BUSINESS_MODULE_DIRS
     "airborne_radar"
@@ -56,7 +57,8 @@ set(BUSINESS_MODULE_DIRS
     "remote_identification_radar"
     "sar"
     "sbirs_sensor"
-    "threat_assessment")
+    "threat_assessment"
+    "target_inference")
 
 set(MODULE_DOC_FILES
     "design.md"

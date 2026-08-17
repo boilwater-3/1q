@@ -208,6 +208,14 @@ set(THREAT_ASSESSMENT_HEADERS
     "threat_assessment/threat_assessment.hpp"
 )
 
+set(TARGET_INFERENCE_HEADERS
+    "target_inference/InferenceResult.h"
+    "target_inference/InferenceTrackState.h"
+    "target_inference/TargetInferenceConfig.h"
+    "target_inference/TargetInferenceEngine.h"
+    "target_inference/target_inference.hpp"
+)
+
 set(ENVIRONMENT_HEADERS
     "environment/AtmosphericState.h"
     "environment/AtmosphericTypes.h"
@@ -327,6 +335,7 @@ set(EXPECTED_PUBLIC_HEADERS
     ${NAVIGATION_HEADERS}
     ${FUSION_HEADERS}
     ${THREAT_ASSESSMENT_HEADERS}
+    ${TARGET_INFERENCE_HEADERS}
     ${SAR_MODULE_ENTRY_HEADERS}
     ${SAR_CONFIG_HEADERS}
     ${SAR_SESSION_HEADERS}
