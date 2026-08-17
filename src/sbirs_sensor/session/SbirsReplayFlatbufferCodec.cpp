@@ -216,7 +216,11 @@ flatbuffers::Offset<sbirs::replay::SbirsOrientationConfig> EncodeOrientationConf
       static_cast<float>(value.mount_angles_deg.roll_deg),
       value.sensor_scan_limits_deg.az_min_deg, value.sensor_scan_limits_deg.az_max_deg,
       value.sensor_scan_limits_deg.el_min_deg, value.sensor_scan_limits_deg.el_max_deg,
-      static_cast<std::int32_t>(value.stabilization_mode));
+      static_cast<std::int32_t>(value.stabilization_mode),
+      static_cast<float>(value.misalignment.bias_deg.yaw_deg),
+      static_cast<float>(value.misalignment.bias_deg.pitch_deg),
+      static_cast<float>(value.misalignment.bias_deg.roll_deg),
+      value.misalignment.random_sigma_deg, value.misalignment.random_seed);
 }
 
 bool DecodeOrientationConfig(const sbirs::replay::SbirsOrientationConfig* fb,
@@ -240,6 +244,11 @@ bool DecodeOrientationConfig(const sbirs::replay::SbirsOrientationConfig* fb,
   decoded.sensor_scan_limits_deg.el_max_deg = fb->sensor_scan_limits_el_max_deg();
   decoded.stabilization_mode =
       static_cast<config::SbirsStabilizationMode>(fb->stabilization_mode());
+  decoded.misalignment.bias_deg.yaw_deg = fb->misalignment_yaw_deg();
+  decoded.misalignment.bias_deg.pitch_deg = fb->misalignment_pitch_deg();
+  decoded.misalignment.bias_deg.roll_deg = fb->misalignment_roll_deg();
+  decoded.misalignment.random_sigma_deg = fb->misalignment_random_sigma_deg();
+  decoded.misalignment.random_seed = fb->misalignment_random_seed();
   *out = decoded;
   return true;
 }

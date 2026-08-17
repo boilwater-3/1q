@@ -6,6 +6,8 @@
 #ifndef ONEQ_SBIRS_SENSOR_CONFIG_SBIRS_ORIENTATION_CONFIG_H_
 #define ONEQ_SBIRS_SENSOR_CONFIG_SBIRS_ORIENTATION_CONFIG_H_
 
+#include <cstdint>
+
 #include "1q/api.hpp"
 #include "1q/foundation/pose_types.h"
 
@@ -37,9 +39,29 @@ enum class ONEQ_API SbirsStabilizationMode {
 };
 
 /**
+ * @brief SbirsMisalignmentModel 表示安装失准角误差模型（阶段 3）：常值偏置 +
+ *        运行期一次抽取的常值随机微扰。
+ * @note 语义边界（与量测域 `attitude_sigma_deg` 及扰动共模的谱正交）：
+ *       - 安装失准 = 静态误差（运行内常值；bias + 一次 N(0,σ) 抽取合成，运行期不重抽）；
+ *       - 扰动共模 = 时变 GM（tau>0）——静态 vs 时变谱不重叠，无双重计模；
+ *       - 量测域 `attitude_sigma_deg` = 时刻输出误差（污染量测，不进链）。
+ *       失准误差合成进 boresight 链（R_sensor_to_eci = R_att · R_mount⁻¹ ·
+ *       R_misalign⁻¹），影响实际光轴足迹与门控；不污染量测输出、不进
+ *       BuildMeasurementCovariance。
+ * @note 本结构为初始化静态配置，不进入运行期 RuntimeConfigPatch；random_seed
+ *       驱动运行期一次高斯抽取（pipeline 构造/ApplyConfig 时），保证 replay 可复现。
+ */
+struct ONEQ_API SbirsMisalignmentModel {
+  oneq::foundation::EulerAnglesDeg bias_deg{}; /**< 常值失准偏置（单位：deg，Z-Y-X，Body->Sensor） */
+  float random_sigma_deg{0.0f};                /**< 随机微扰 1-σ（单位：deg；0 时不抽取随机流） */
+  std::uint32_t random_seed{1U};               /**< 微扰流 32 位种子（固定，保证 replay 可复现） */
+};
+
+/**
  * @brief SbirsOrientationConfig 表示 SBIRS-inspired 传感器安装指向配置。
  * @note 静态基准组合关系（对齐 ArOrientationConfig 头注释）：
- *       actual_boresight = attitude(Body->ECI) ∘ mount(Body->Sensor) ∘ scan(传感器系)。
+ *       actual_boresight = attitude(Body->ECI) ∘ mount(Body->Sensor)
+ *                          ∘ misalignment⁻¹ ∘ scan(传感器系)。
  * @note 本结构为初始化静态配置，不进入运行期 RuntimeConfigPatch；
  *       扫描参数（scan_start_az/span/el）的参考系由 stabilization_mode 决定
  *       （体稳定=传感器系；惯性稳定=ECI 参考定义）。
@@ -54,6 +76,7 @@ struct ONEQ_API SbirsOrientationConfig {
   SbirsScanLimitsDeg sensor_scan_limits_deg; /**< 传感器系扫描限位 */
   SbirsStabilizationMode stabilization_mode{
       SbirsStabilizationMode::kBodyStabilized}; /**< 扫描稳定方式 */
+  SbirsMisalignmentModel misalignment{}; /**< 安装失准角误差模型（常值偏置 + 运行期一次随机抽取） */
 };
 
 }  // namespace config

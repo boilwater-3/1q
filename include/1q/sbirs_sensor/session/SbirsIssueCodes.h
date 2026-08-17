@@ -87,6 +87,9 @@ constexpr char kSensorScanLimitsOutOfRange[] = "sbirs.validation.sensor_scan_lim
 /** @brief 扫描稳定方式非法。 */
 constexpr char kInvalidStabilizationMode[] = "sbirs.validation.invalid_stabilization_mode";
 
+/** @brief 安装失准非法（bias 须有限、random sigma 须非负有限）。 */
+constexpr char kInvalidMisalignment[] = "sbirs.validation.invalid_misalignment";
+
 /** @brief 扫描路径超出传感器系扫描限位（方位扫掠区间或中心俯仰不在限位内）。 */
 constexpr char kScanPathOutsideSensorLimits[] =
     "sbirs.validation.scan_path_outside_sensor_limits";

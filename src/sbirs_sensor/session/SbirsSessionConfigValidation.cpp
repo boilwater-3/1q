@@ -91,6 +91,17 @@ session::SbirsIssueList ValidateSbirsSessionConfig(const SbirsSessionConfig& con
     AddError(session::codes::kInvalidMountAngles, "orientation mount angles must be finite",
              &issues);
   }
+  // 安装失准（阶段 3）：bias 三分量有限、random sigma 非负且有限；random_seed 不校验
+  // （0 归一化到 1，沿既有种子惯例）。默认全零下本规则恒通过。
+  const SbirsMisalignmentModel& misalignment = orientation.misalignment;
+  if (!std::isfinite(misalignment.bias_deg.yaw_deg) ||
+      !std::isfinite(misalignment.bias_deg.pitch_deg) ||
+      !std::isfinite(misalignment.bias_deg.roll_deg) ||
+      !std::isfinite(misalignment.random_sigma_deg) || misalignment.random_sigma_deg < 0.0f) {
+    AddError(session::codes::kInvalidMisalignment,
+             "misalignment bias must be finite and random sigma must be non-negative and finite",
+             &issues);
+  }
   const SbirsScanLimitsDeg& sensor_limits = orientation.sensor_scan_limits_deg;
   if (!std::isfinite(sensor_limits.az_min_deg) || !std::isfinite(sensor_limits.az_max_deg) ||
       sensor_limits.az_min_deg > sensor_limits.az_max_deg) {

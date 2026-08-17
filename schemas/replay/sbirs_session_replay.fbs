@@ -84,6 +84,11 @@ table SbirsOrientationConfig {
   sensor_scan_limits_el_min_deg: float = -90.0;
   sensor_scan_limits_el_max_deg: float = 90.0;
   stabilization_mode: int32 = 0;
+  misalignment_yaw_deg: float = 0.0;
+  misalignment_pitch_deg: float = 0.0;
+  misalignment_roll_deg: float = 0.0;
+  misalignment_random_sigma_deg: float = 0.0;
+  misalignment_random_seed: uint32 = 1;
 }
 
 table SbirsPolicyConfig {
