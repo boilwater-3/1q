@@ -1,6 +1,6 @@
 # 1q
 
-`1q` 是一个面向外部服务模块的仿真模型库，当前覆盖机载雷达（AR）、电子侦察雷达（ESR）、合成孔径雷达（SAR）、光电传感器（EOS）、飞行动力学（Flight Dynamic）、天基红外传感器（SBIRS）与远程识别雷达（RIR）七套主模块，并包含电子对抗（ECM）、区域覆盖规划（navigation）、多源融合（fusion）与威胁评估（threat_assessment）算法模块。项目重点在于稳定的公共 API、可替换的内部组件，以及可测试的仿真链路编排。
+`1q` 是一个面向外部服务模块的仿真模型库，当前覆盖机载雷达（AR）、电子侦察雷达（ESR）、合成孔径雷达（SAR）、光电传感器（EOS）、飞行动力学（Flight Dynamic）、天基红外传感器（SBIRS）与远程识别雷达（RIR）七套主模块，并包含电子对抗（ECM）、区域覆盖规划（navigation）、多源融合（fusion）、威胁评估（threat_assessment）与目标推演（target_inference）算法模块。项目重点在于稳定的公共 API、可替换的内部组件，以及可测试的仿真链路编排。
 
 ## 模块概览
 
@@ -12,7 +12,7 @@
 - `include/1q/sbirs_sensor/`、`src/sbirs_sensor/`: 天基红外传感器（SBIRS）公共 API 与实现，覆盖环境、错误模型、NFOV 调度与处理流水线。
 - `include/1q/remote_identification_radar/`、`src/remote_identification_radar/`: 远程识别雷达公共 API 与实现，覆盖检测、跟踪、特征识别与会话编排。
 - `include/1q/electronic_countermeasure/`、`src/electronic_countermeasure/`: 电子对抗公共 API 与实现。
-- `include/1q/{navigation,fusion,threat_assessment}/`、`src/{navigation,fusion,threat_assessment}/`: 区域覆盖规划、多源融合与威胁评估算法模块。
+- `include/1q/{navigation,fusion,threat_assessment,target_inference}/`、`src/{navigation,fusion,threat_assessment,target_inference}/`: 区域覆盖规划、多源融合、威胁评估与目标推演算法模块。
 - `include/1q/{coordinate,electromagnetics,environment,foundation,replay,trace}/`: 跨模块共享的坐标、电磁、环境、基础类型、回放与追踪接口。
 - `tests/`: 单元测试、集成测试、契约测试、性能测试与安装消费测试。
 - `examples/`: 各模块的快速上手、会话用法与集成示例。
@@ -69,7 +69,7 @@ ctest --preset llvm-ninja-debug-local --output-on-failure
 ## 文档
 
 - `CLAUDE.md`: 工程约束、构建测试规则与重构策略。
-- `docs/<module>/design.md`: 各模块当前设计（AR / ESR / SAR / EOS / Flight Dynamic / SBIRS / RIR / ECM / navigation / fusion / threat_assessment）。
+- `docs/<module>/design.md`: 各模块当前设计（AR / ESR / SAR / EOS / Flight Dynamic / SBIRS / RIR / ECM / navigation / fusion / threat_assessment / target_inference）。
 - `docs/common/`: 跨模块契约与开放问题（`contract.md`、`open_questions.md`）。
 - `docs/practice/`: 工程实践与基础设施类设计文档（覆盖率、批量场景验证框架等）。
 - `docs/review/`: 模块评审与迁移计划。

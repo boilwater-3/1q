@@ -189,7 +189,7 @@ P0 与 P1 可部分并行（P1 不依赖指标数字，只依赖"UKF=无迹"裁�
 |---|---|---|
 | P0 | 证据已落地（待需求方指标签认） | 决策记录 target_domain_p0_p1_decision_2026-08-17.md §4/§5：OQ-3 语义差实测 + 可达性矩阵实测（地板公里级；σ=5 µrad 触 float 精度边缘）；签认表已填数字。OQ-4 建议方案 a（文档裁定）。残留：需求方签认 + 双裁定正式冻结 |
 | P1 | 完成 | 无迹原语三头 + 9 用例（线性极限一致性硬门过）；`e6b0aad1`；`unit::common` 全绿 |
-| P2 | 未开始 | — |
-| P3 | 未开始 | — |
-| P4 | 未开始 | — |
-| P5 | 未开始 | — |
+| P2 | 完成 | 逐航迹无迹滤波 + 航迹管理落地（默认关零回退；量测原点 ENU 契约 + FusedTarget 运动学/生命周期扩展）；`51c87d70`（边界冻结）+ `0b1a1d6a`；`unit::fusion` 全绿 |
+| P3 | 完成 | target_inference 算法面（弹道 RK4 前向/回推 + 敏度误差预算 + 类型融合），四处守护注册齐；`9d402196`；`unit::target_inference` 全绿；RIR 接入按方案 a（调用方键映射，零库内改动） |
+| P4 | 完成 | 方向纯净度守护 `check_target_layer_purity.cmake`（契约规则 1 可执行化）+ component_attachment 推演组件扩链（Windows 无 spdlog，v141 语法级验证）；`3a798c29`。batch 级场景验证以单测 characterization 承载（track_filtering/inference 测试），batch_validation 场景扩展列为后续项 |
+| P5 | 完成 | 本行即回写：README 模块清单、决策记录 Stage C 终态、全量验证（见决策记录 §6 验证命令） |

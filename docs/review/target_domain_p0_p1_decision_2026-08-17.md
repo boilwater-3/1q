@@ -193,3 +193,7 @@ float 管线精度包络，如需求方坚持该档须先立 P2 数值精度冻�
 | 验证命令与结果 | `cmake --build ... --target 1q_common_unit_tests / 1q_sbirs_sensor_unit_tests`（Windows v141+UseEnv 流程）通过；`ctest -C Debug -R "unit::common"` Passed；`ctest -C Debug -R "unit::sbirs_sensor"` Passed（含新证据测试）；无迹 9/9、证据 2/2 |
 | 残留风险 | ①无迹原语 float 精度在 σ≲10 µrad 角度场景不足（§4.2 结论 2，P2 冻结项候选）；②Sensor-like 共模偏差项的 R 建模尚未落（P2 噪声通道设计输入）；③OQ-3/OQ-4 正式裁定待需求方指标签认一并冻结 |
 | 后续冻结项 | P2：DetectionRecord 噪声通道（含共模偏差）、FusedTarget 运动学扩展、航迹管理；数值精度（double 中间量/状态缩放）评估 |
+| P2 终态（2026-08-17） | 噪声通道落地为记录级 `bearing_noise_sigma_rad` + 配置默认（共模偏差项登记为后续：Sensor-like 偏置建模需 TARGET-OQ-3 签认口径）；FusedTarget 运动学/生命周期扩展、逐航迹无迹滤波、M/N 确认、coasting 均落地（`0b1a1d6a`，`unit::fusion` 6 新用例全绿；`enable_track_filtering` 默认关闭零回退） |
+| P3 终态（2026-08-17） | target_inference 算法面落地（`9d402196`，`unit::target_inference` 6 用例全绿）：弹道 RK4（含回推）、地表交点发射/落点、敏度误差预算（J·P·Jᵀ + has_uncertainty 诚实标记）、类型先验×证据融合。RIR 接入 = 方案 a（调用方键映射 → type_evidence，零库内改动，TARGET-OQ-4 建议结论可执行） |
+| P4 终态（2026-08-17） | 方向纯净度守护 `target_layer_purity_guard`（contract 分区）+ 示例扩链 TargetInferenceComponent（`3a798c29`；Windows 无 spdlog，示例经 v141 语法级验证 `build/vcvars_cl.bat`，完整构建由非 Windows CI 承载） |
+| P5 终态（2026-08-17） | 全量验证与回写：ctest 全分区 Debug 跑通（既有基线失败 integration::airborne_radar 0xc0000409 之外全绿，见 CLAUDE.md 勘误记录）；README/开发计划/本文档回写完成 |
