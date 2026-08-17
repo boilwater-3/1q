@@ -107,12 +107,17 @@ TEST(SbirsReplayCodecRoundtripTest, CycleInputPreservesAllFields) {
   target.has_velocity_ecef_m_per_s = true;
   target.active = false;
 
+  sbirs_sensor::session::SbirsEulerAnglesDeg attitude;
+  attitude.yaw_deg = 12.0;
+  attitude.pitch_deg = -3.0;
+  attitude.roll_deg = 4.0;
   const SbirsCycleInput input = SbirsCycleInputBuilder()
                                     .WithCycleIndex(3U)
                                     .WithDeltaTimeSec(0.25f)
                                     .WithUtcJulianDay(2451544.2230698913)  // GMST≈0：ECI≡ECEF
                                     .WithSatellitePosition(Vector(7000000.0, 4.0, 5.0))
                                     .WithSatelliteVelocity(Vector(7500.0, -300.0, 120.0))
+                                    .WithSatelliteAttitude(attitude)
                                     .AddTarget(target)
                                     .Build();
 
@@ -130,6 +135,10 @@ TEST(SbirsReplayCodecRoundtripTest, CycleInputPreservesAllFields) {
   EXPECT_DOUBLE_EQ(decoded.satellite_velocity_ecef_m_per_s.x, 7500.0);
   EXPECT_DOUBLE_EQ(decoded.satellite_velocity_ecef_m_per_s.y, -300.0);
   EXPECT_DOUBLE_EQ(decoded.satellite_velocity_ecef_m_per_s.z, 120.0);
+  EXPECT_TRUE(decoded.has_satellite_attitude);
+  EXPECT_DOUBLE_EQ(decoded.satellite_attitude_eci_body_deg.yaw_deg, 12.0);
+  EXPECT_DOUBLE_EQ(decoded.satellite_attitude_eci_body_deg.pitch_deg, -3.0);
+  EXPECT_DOUBLE_EQ(decoded.satellite_attitude_eci_body_deg.roll_deg, 4.0);
   ASSERT_EQ(decoded.scene.size(), 1U);
   EXPECT_EQ(decoded.scene[0].target_id, 9U);
   EXPECT_EQ(decoded.scene[0].target_name, "boost");
@@ -348,6 +357,15 @@ TEST(SbirsReplayCodecRoundtripTest, SessionConfigPreservesAllDomains) {
   config.environment.sea_state = SbirsSeaState::kMedium;
   config.environment.temperature_c = 25.0f;
   config.environment.base_atmospheric_transmittance = 0.7f;
+  // 阶段 2 安装指向域：非默认值防 decode 漏读。
+  config.orientation.mount_angles_deg.yaw_deg = 11.0;
+  config.orientation.mount_angles_deg.pitch_deg = -7.0;
+  config.orientation.mount_angles_deg.roll_deg = 3.0;
+  config.orientation.sensor_scan_limits_deg.az_min_deg = -45.0f;
+  config.orientation.sensor_scan_limits_deg.az_max_deg = 60.0f;
+  config.orientation.sensor_scan_limits_deg.el_min_deg = -20.0f;
+  config.orientation.sensor_scan_limits_deg.el_max_deg = 25.0f;
+  config.orientation.stabilization_mode = config::SbirsStabilizationMode::kInertialStabilized;
 
   SbirsSessionConfig decoded;
   ASSERT_TRUE(DecodeSbirsSessionConfig(EncodeSbirsSessionConfig(config), &decoded));
@@ -386,6 +404,15 @@ TEST(SbirsReplayCodecRoundtripTest, SessionConfigPreservesAllDomains) {
   EXPECT_EQ(decoded.environment.weather_type, SbirsWeatherType::kRain);
   EXPECT_EQ(decoded.environment.sea_state, SbirsSeaState::kMedium);
   EXPECT_FLOAT_EQ(decoded.environment.base_atmospheric_transmittance, 0.7f);
+  EXPECT_DOUBLE_EQ(decoded.orientation.mount_angles_deg.yaw_deg, 11.0);
+  EXPECT_DOUBLE_EQ(decoded.orientation.mount_angles_deg.pitch_deg, -7.0);
+  EXPECT_DOUBLE_EQ(decoded.orientation.mount_angles_deg.roll_deg, 3.0);
+  EXPECT_FLOAT_EQ(decoded.orientation.sensor_scan_limits_deg.az_min_deg, -45.0f);
+  EXPECT_FLOAT_EQ(decoded.orientation.sensor_scan_limits_deg.az_max_deg, 60.0f);
+  EXPECT_FLOAT_EQ(decoded.orientation.sensor_scan_limits_deg.el_min_deg, -20.0f);
+  EXPECT_FLOAT_EQ(decoded.orientation.sensor_scan_limits_deg.el_max_deg, 25.0f);
+  EXPECT_EQ(decoded.orientation.stabilization_mode,
+            config::SbirsStabilizationMode::kInertialStabilized);
 }
 
 // --- RuntimeConfigPatch ---

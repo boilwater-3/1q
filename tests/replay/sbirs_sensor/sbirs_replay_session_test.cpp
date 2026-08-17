@@ -58,7 +58,7 @@ sbirs_sensor::session::SbirsCycleInput ValidInput(std::uint32_t cycle_index,
       .WithDeltaTimeSec(1.0f)
       .WithUtcJulianDay(2451544.2230698913)  // GMST≈0：ECI≡ECEF
       .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
-      .WithSatelliteVelocity(sbirs_sensor::session::SbirsVector3M{})
+      .WithSatelliteVelocity(sbirs_sensor::session::SbirsVector3M{}).WithSatelliteAttitude(sbirs_sensor::session::SbirsEulerAnglesDeg{})
       .AddTarget(target)
       .Build();
 }
@@ -78,7 +78,7 @@ sbirs_sensor::session::SbirsCycleInput ImmMultiTargetInput(std::uint32_t cycle_i
       .WithDeltaTimeSec(1.0f)
       .WithUtcJulianDay(2451544.2230698913)  // GMST≈0：ECI≡ECEF
       .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
-      .WithSatelliteVelocity(sbirs_sensor::session::SbirsVector3M{})
+      .WithSatelliteVelocity(sbirs_sensor::session::SbirsVector3M{}).WithSatelliteAttitude(sbirs_sensor::session::SbirsEulerAnglesDeg{})
       .AddTarget(first)
       .AddTarget(second)
       .Build();
@@ -98,7 +98,7 @@ sbirs_sensor::session::SbirsCycleInput MovingCueInput(std::uint32_t cycle_index,
       .WithDeltaTimeSec(1.0f)
       .WithUtcJulianDay(2451544.2230698913)  // GMST≈0：ECI≡ECEF
       .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
-      .WithSatelliteVelocity(sbirs_sensor::session::SbirsVector3M{})
+      .WithSatelliteVelocity(sbirs_sensor::session::SbirsVector3M{}).WithSatelliteAttitude(sbirs_sensor::session::SbirsEulerAnglesDeg{})
       .AddTarget(target)
       .Build();
 }
@@ -116,7 +116,7 @@ sbirs_sensor::session::SbirsCycleInput PointingInput(std::uint32_t cycle_index,
       .WithDeltaTimeSec(1.0f)
       .WithUtcJulianDay(2451544.2230698913)  // GMST≈0：ECI≡ECEF
       .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
-      .WithSatelliteVelocity(sbirs_sensor::session::SbirsVector3M{})
+      .WithSatelliteVelocity(sbirs_sensor::session::SbirsVector3M{}).WithSatelliteAttitude(sbirs_sensor::session::SbirsEulerAnglesDeg{})
       .AddTarget(first);
   if (include_second) {
     sbirs_sensor::session::SbirsSceneTarget second = first;

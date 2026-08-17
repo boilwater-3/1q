@@ -69,7 +69,7 @@ sbirs_sensor::session::SbirsCycleInput InputAt(double utc_julian_day, std::uint3
       .WithDeltaTimeSec(1.0f)
       .WithUtcJulianDay(utc_julian_day)
       .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
-      .WithSatelliteVelocity(sbirs_sensor::session::SbirsVector3M{})
+      .WithSatelliteVelocity(sbirs_sensor::session::SbirsVector3M{}).WithSatelliteAttitude(sbirs_sensor::session::SbirsEulerAnglesDeg{})
       .AddTarget(HotTarget(1U, 0.0))
       .Build();
 }
@@ -198,7 +198,7 @@ TEST(SbirsEciTransformTest, OutputAnglesFollowEciRadConvention) {
           .WithDeltaTimeSec(1.0f)
           .WithUtcJulianDay(kGmstZeroJulianDay)
           .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
-          .WithSatelliteVelocity(sbirs_sensor::session::SbirsVector3M{})
+          .WithSatelliteVelocity(sbirs_sensor::session::SbirsVector3M{}).WithSatelliteAttitude(sbirs_sensor::session::SbirsEulerAnglesDeg{})
           .AddTarget(west)
           .Build();
   const sbirs_sensor::pipeline::SbirsPipelineResult result = pipeline.RunCycle(input);

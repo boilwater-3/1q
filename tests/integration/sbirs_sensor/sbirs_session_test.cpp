@@ -69,7 +69,7 @@ SbirsCycleInput MakeBaseInput(std::uint32_t cycle_index = 1U) {
       .WithDeltaTimeSec(1.0f)
       .WithUtcJulianDay(2451544.2230698913)  // GMST≈0：ECI≡ECEF
       .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
-      .WithSatelliteVelocity(sbirs_sensor::session::SbirsVector3M{})
+      .WithSatelliteVelocity(sbirs_sensor::session::SbirsVector3M{}).WithSatelliteAttitude(sbirs_sensor::session::SbirsEulerAnglesDeg{})
       .AddTarget(MakeTarget(1U))
       .Build();
 }
@@ -379,7 +379,7 @@ TEST(SbirsSessionIntegrationTest, DualChannelAssignmentIsIndependentOfInputOrder
         .WithDeltaTimeSec(1.0f)
         .WithUtcJulianDay(2451544.2230698913)  // GMST≈0：ECI≡ECEF
         .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
-        .WithSatelliteVelocity(sbirs_sensor::session::SbirsVector3M{});
+        .WithSatelliteVelocity(sbirs_sensor::session::SbirsVector3M{}).WithSatelliteAttitude(sbirs_sensor::session::SbirsEulerAnglesDeg{});
     if (reverse) {
       builder.AddTarget(MakeTarget(2U, -1000.0)).AddTarget(MakeTarget(1U, 1000.0));
     } else {
@@ -521,7 +521,7 @@ TEST(SbirsSessionIntegrationTest, CueLatencyFailureAttributionStaysOutOfRawOutpu
                               .WithDeltaTimeSec(1.0f)
                               .WithUtcJulianDay(2451544.2230698913)  // GMST≈0：ECI≡ECEF
                               .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
-                              .WithSatelliteVelocity(sbirs_sensor::session::SbirsVector3M{})
+                              .WithSatelliteVelocity(sbirs_sensor::session::SbirsVector3M{}).WithSatelliteAttitude(sbirs_sensor::session::SbirsEulerAnglesDeg{})
                               .AddTarget(target)
                               .Build();
 
@@ -564,7 +564,7 @@ TEST(SbirsSessionIntegrationTest, MeasurementCvCueCapturesAfterSecondWfovObserva
                                  .WithDeltaTimeSec(1.0f)
                                  .WithUtcJulianDay(2451544.2230698913)  // GMST≈0：ECI≡ECEF
                                  .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
-                                 .WithSatelliteVelocity(sbirs_sensor::session::SbirsVector3M{})
+                                 .WithSatelliteVelocity(sbirs_sensor::session::SbirsVector3M{}).WithSatelliteAttitude(sbirs_sensor::session::SbirsEulerAnglesDeg{})
                                  .AddTarget(target)
                                  .Build());
   EXPECT_EQ(FindDetectionByTargetId(first, 77U), nullptr);
@@ -576,7 +576,7 @@ TEST(SbirsSessionIntegrationTest, MeasurementCvCueCapturesAfterSecondWfovObserva
                                  .WithDeltaTimeSec(1.0f)
                                  .WithUtcJulianDay(2451544.2230698913)  // GMST≈0：ECI≡ECEF
                                  .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
-                                 .WithSatelliteVelocity(sbirs_sensor::session::SbirsVector3M{})
+                                 .WithSatelliteVelocity(sbirs_sensor::session::SbirsVector3M{}).WithSatelliteAttitude(sbirs_sensor::session::SbirsEulerAnglesDeg{})
                                  .AddTarget(target)
                                  .Build());
   const output::SbirsDetectionRecord* acquired = FindDetectionByTargetId(second, 77U);
@@ -633,7 +633,7 @@ TEST(SbirsSessionIntegrationTest, CueLatencyAccountsForSatelliteDisplacementDuri
                                 .WithDeltaTimeSec(1.0f)
                                 .WithUtcJulianDay(2451544.2230698913)  // GMST≈0：ECI≡ECEF
                                 .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
-                                .WithSatelliteVelocity(satellite_velocity)
+                                .WithSatelliteVelocity(satellite_velocity).WithSatelliteAttitude(sbirs_sensor::session::SbirsEulerAnglesDeg{})
                                 .AddTarget(MakeTarget(1U))  // 目标静止（无速度）
                                 .Build();
     SbirsSession session = SbirsSession::Create(config);
@@ -674,6 +674,44 @@ TEST(SbirsSessionIntegrationTest, MissingSatelliteVelocityRejectsCycle) {
     }
   }
   EXPECT_TRUE(found_code);
+}
+
+// 卫星姿态必填（阶段 2 指向合成链）：缺失即整周期校验拒绝，空帧 + error 级 issue。
+TEST(SbirsSessionIntegrationTest, MissingSatelliteAttitudeRejectsCycle) {
+  SbirsSession session = SbirsSession::Create(MakeSessionConfig());
+  SbirsCycleInput input = MakeBaseInput();
+  input.has_satellite_attitude = false;  // 故意缺失必填姿态
+
+  const SbirsCycleResult result = session.StepWithResult(input);
+  EXPECT_EQ(result.status, SbirsCycleStatus::kRejectedInvalidInput);
+  EXPECT_EQ(result.abort_reason, SbirsPipelineAbortReason::kValidationRejected);
+  EXPECT_TRUE(result.output_frame.detections.empty());
+  bool found_code = false;
+  for (const SbirsIssue& issue : result.issues) {
+    if (issue.code == codes::kInvalidSatelliteAttitude) {
+      found_code = true;
+      EXPECT_EQ(issue.severity, SbirsIssueSeverity::kError);
+    }
+  }
+  EXPECT_TRUE(found_code);
+}
+
+// 非零姿态端到端：yaw=30° 体稳定下 WFOV 探测输出 az 保持 ECI 参考（≈0 rad）。
+TEST(SbirsSessionIntegrationTest, BodyYawKeepsEciOutputReference) {
+  SbirsSession session = SbirsSession::Create(MakeSessionConfig());
+  SbirsCycleInput input = MakeBaseInput();
+  input.satellite_attitude_eci_body_deg.yaw_deg = 30.0;
+  // 目标方位 30° 与传感器系扫描中心（yaw30 平移后 = 30°）对齐，WFOV 内可见。
+  input.scene[0] = MakeTarget(1U, 0.0);
+  input.scene[0].position_ecef_m =
+      Vector(7000000.0 + 1000000.0 * std::cos(30.0 * 3.14159265358979323846 / 180.0),
+             1000000.0 * std::sin(30.0 * 3.14159265358979323846 / 180.0), 0.0);
+
+  const SbirsCycleResult result = session.StepWithResult(input);
+  EXPECT_EQ(result.status, SbirsCycleStatus::kCompleted);
+  const output::SbirsDetectionRecord* record = FindDetectionByTargetId(result, 1U);
+  ASSERT_NE(record, nullptr);
+  EXPECT_NEAR(record->azimuth_rad, 30.0 * 3.14159265358979323846 / 180.0, 1.0e-3);
 }
 
 }  // namespace

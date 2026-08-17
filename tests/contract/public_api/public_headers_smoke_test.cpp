@@ -216,7 +216,7 @@ TEST(PublicHeadersSmokeTest, SbirsPublicSurfaceSupportsMinimalUsage) {
                                                      .WithDeltaTimeSec(1.0f)
                                                      .WithUtcJulianDay(2451544.2230698913)  // GMST≈0：ECI≡ECEF
                                                      .WithSatellitePosition(satellite)
-                                                     .WithSatelliteVelocity(sbirs_sensor::session::SbirsVector3M{})
+                                                     .WithSatelliteVelocity(sbirs_sensor::session::SbirsVector3M{}).WithSatelliteAttitude(sbirs_sensor::session::SbirsEulerAnglesDeg{})
                                                      .AddTarget(target)
                                                      .Build();
   const sbirs_sensor::session::SbirsIssueList issues =

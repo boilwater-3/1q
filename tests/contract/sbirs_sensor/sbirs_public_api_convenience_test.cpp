@@ -54,7 +54,7 @@ session::SbirsCycleInput MakeMinimalInput(std::uint32_t cycle_index = 1U) {
       .WithDeltaTimeSec(1.0f)
       .WithUtcJulianDay(2451544.2230698913)  // GMST≈0：ECI≡ECEF
       .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
-      .WithSatelliteVelocity(sbirs_sensor::session::SbirsVector3M{})
+      .WithSatelliteVelocity(sbirs_sensor::session::SbirsVector3M{}).WithSatelliteAttitude(sbirs_sensor::session::SbirsEulerAnglesDeg{})
       .AddTarget(MakeTarget(1U))
       .Build();
 }
@@ -83,7 +83,7 @@ TEST(SbirsPublicApiConvenienceTest, SessionConfigBuilderDefaultsMatchDirectConst
 }
 
 TEST(SbirsPublicApiConvenienceTest, SessionConfigFieldsAreAssignable) {
-  // 硬件 / 任务 / 策略 / 环境四域字段可读可写（API 可达性）。
+  // 硬件 / 任务 / 安装指向 / 策略 / 环境五域字段可读可写（API 可达性）。
   config::SbirsSessionConfig config;
   config.hardware.optical_aperture_m = 0.8f;
   config.mission.scan_span_deg = 90.0f;
@@ -93,6 +93,11 @@ TEST(SbirsPublicApiConvenienceTest, SessionConfigFieldsAreAssignable) {
   config.mission.narrow_pointing_settle_tolerance_deg = 0.02f;
   config.policy.detection.wide_min_snr_linear = 5.0f;
   config.environment.weather_type = config::SbirsWeatherType::kRain;
+  config.orientation.mount_angles_deg.yaw_deg = 15.0;
+  config.orientation.sensor_scan_limits_deg.az_min_deg = -30.0f;
+  config.orientation.sensor_scan_limits_deg.az_max_deg = 30.0f;
+  config.orientation.stabilization_mode =
+      config::SbirsStabilizationMode::kInertialStabilized;
   EXPECT_FLOAT_EQ(config.hardware.optical_aperture_m, 0.8f);
   EXPECT_FLOAT_EQ(config.mission.scan_span_deg, 90.0f);
   EXPECT_EQ(config.mission.scan_direction, config::SbirsScanDirection::kDecreasingAzimuth);
@@ -101,6 +106,22 @@ TEST(SbirsPublicApiConvenienceTest, SessionConfigFieldsAreAssignable) {
   EXPECT_FLOAT_EQ(config.mission.narrow_pointing_settle_tolerance_deg, 0.02f);
   EXPECT_FLOAT_EQ(config.policy.detection.wide_min_snr_linear, 5.0f);
   EXPECT_EQ(config.environment.weather_type, config::SbirsWeatherType::kRain);
+  EXPECT_DOUBLE_EQ(config.orientation.mount_angles_deg.yaw_deg, 15.0);
+  EXPECT_FLOAT_EQ(config.orientation.sensor_scan_limits_deg.az_min_deg, -30.0f);
+  EXPECT_FLOAT_EQ(config.orientation.sensor_scan_limits_deg.az_max_deg, 30.0f);
+  EXPECT_EQ(config.orientation.stabilization_mode,
+            config::SbirsStabilizationMode::kInertialStabilized);
+}
+
+TEST(SbirsPublicApiConvenienceTest, MinimalInputSetsSatelliteAttitudeFlag) {
+  // 存在性标志必须与数据一致（docs/common/contract.md 规则 2）：便捷工厂置位
+  // has_satellite_attitude，否则输入会被 kInvalidSatelliteAttitude 拒绝。
+  const session::SbirsCycleInput input = MakeMinimalInput();
+  EXPECT_TRUE(input.has_satellite_attitude);
+  EXPECT_TRUE(input.has_satellite_velocity_ecef_m_per_s);
+  EXPECT_TRUE(input.has_satellite_position);
+  session::SbirsSession session = session::SbirsSession::Create(MakeExecutableConfig());
+  EXPECT_EQ(session.StepWithResult(input).status, session::SbirsCycleStatus::kCompleted);
 }
 
 TEST(SbirsPublicApiConvenienceTest, RuntimeConfigBuilderDefaultsAreAllUnset) {
