@@ -37,6 +37,7 @@
 #include "components/esr_sensor_component.h"
 #include "components/flight_component.h"
 #include "components/fusion_component.h"
+#include "components/inference_component.h"
 #include "components/sar_sensor_component.h"
 #include "components/sbirs_sensor_component.h"
 #include "scene_types.h"
@@ -152,8 +153,15 @@ int main(int argc, char* argv[]) {
   // 融合配置来自场景文件（空间门限/方位相干门限/特征门/窗口/失跟周期/源权重；
   // 基线场景放宽方位相干门限到 8°：ESR 假设方位含平滑滞差、EOS 探测含扫描
   // 中心残差，同物理目标的跨源方位差实测可达 4-6°——业务层调参，非库内标准）。
+  // 示例层显式开启逐航迹滤波（库内默认关闭保零回退）：AR 位置通道航迹获得
+  // 运动学估计（SBIRS 角度-only 无量测原点，走关联通道——估计层接入门示例）。
+  scene_data.fusion.enable_track_filtering = true;
   platform.Attach(std::make_unique<ca::FusionComponent>(
       std::make_unique<fusion::FusionEngine>(scene_data.fusion)));
+
+  // 目标推演组件（P3 链路）：读融合运动学估计，输出轨迹/发射点/落点/类型概率
+  // （含误差预算）。挂载序在 Fusion 之后、Threat 之前。
+  platform.Attach(std::make_unique<ca::InferenceComponent>());
 
   // 威胁评估配置来自场景文件（threat 块；缺省 = 库内默认权重/断点/阈值）。
   // 挂载序在 Fusion 之后：威胁组件每周期读融合输出与 AR 调试视图组装输入。

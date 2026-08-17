@@ -26,6 +26,7 @@ add_executable(component_attachment_demo
     components/sbirs_sensor_component.cpp
     components/sar_sensor_component.cpp
     components/fusion_component.cpp
+    components/inference_component.cpp
     components/threat_component.cpp
     logger/logger.cpp)
 
