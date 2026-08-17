@@ -37,6 +37,12 @@ class ONEQ_API SbirsCycleInputBuilder {
    */
   SbirsCycleInputBuilder& WithSatellitePosition(const SbirsVector3M& position_ecef_m);
   /**
+   * @brief 设置卫星 ECEF 速度并标记为已提供（必填；未设置时校验拒绝）。
+   * @param[in] velocity_ecef_m_per_s 卫星速度，单位 m/s（零向量合法，如 GEO 卫星）
+   * @return 自身引用，支持链式调用
+   */
+  SbirsCycleInputBuilder& WithSatelliteVelocity(const SbirsVector3M& velocity_ecef_m_per_s);
+  /**
    * @brief 设置 UTC 儒略日（ECI 输出参考系必需；未设置时校验拒绝）。
    * @param[in] utc_julian_day UTC 儒略日（JD_UTC）
    * @return 自身引用，支持链式调用

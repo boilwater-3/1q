@@ -255,7 +255,10 @@ flowchart LR
 3. 卫星和目标 ECEF 必须有限且非原点；`target_id` 必须非零且周期内唯一；
     UTC 儒略日（`utc_julian_day`）必须正有限（缺失 = 0 即校验拒绝；ECI 输出参考系必需）。
 4. 目标速度在 `has_velocity_ecef_m_per_s=true` 时必须有限，为 false 时必须是有限零向量。
-5. 启用 environment override 时，天气/海况枚举、绝对温度下限、湿度、能见度、透过率和交互权重全部校验。
+5. 卫星速度（`satellite_velocity_ecef_m_per_s`）必填（2026-08-17 起，合同指标 2）：缺失或非有限即
+    校验拒绝（code `sbirs.validation.invalid_satellite_velocity`）；ECEF 零向量合法（如 GEO 卫星）。
+    速度旋入 ECI 后与目标速度合成相对视线角速度，驱动动态滞后误差、cue 延迟外推与 EKF R 阵。
+6. 启用 environment override 时，天气/海况枚举、绝对温度下限、湿度、能见度、透过率和交互权重全部校验。
 
 拒绝周期不捕获也不恢复 pipeline（其随机源、扫描、cue、ATP、调度和跟踪状态从未推进），`Step()`
 返回默认空帧，**不复用上一有效输出**（规则 8）。

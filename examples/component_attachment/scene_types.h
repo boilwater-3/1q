@@ -30,6 +30,7 @@ struct DemoSceneState : SceneState {
   std::vector<electro_optical_sensor::session::EosExternalTargetInput> optical_targets{}; /**< EOS 光学目标 */
   std::vector<sbirs_sensor::session::SbirsSceneTarget> sbirs_targets{}; /**< SBIRS 红外目标真值 */
   sbirs_sensor::session::SbirsVector3M sbirs_satellite_position_ecef_m{}; /**< 天基平台（卫星）ECEF 位置 */
+  sbirs_sensor::session::SbirsVector3M sbirs_satellite_velocity_ecef_m_per_s{}; /**< 天基平台（卫星）ECEF 速度（必填；演示合成静止卫星，缺省零向量合法） */
   // 缺省与 SceneData 一致（2024-01-01 00:00 UTC）；0 = 未提供会被库校验拒绝。
   double sbirs_utc_julian_day{2460310.5}; /**< 天基通道 UTC 儒略日（JD_UTC；SBIRS ECI 输出参考系必需） */
   std::vector<sar::session::SarPointTarget> sar_point_targets{}; /**< SAR 点目标真值（LLA + RCS） */

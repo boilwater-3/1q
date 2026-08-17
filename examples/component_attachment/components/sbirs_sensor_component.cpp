@@ -268,12 +268,14 @@ void SbirsSensorComponent::Step(World& world, double dt_sec) {
 
   const auto& scene = static_cast<const DemoSceneState&>(world.scene_state());
 
-  // 天基平台（卫星）位置由消费方每周期注入共享场景状态（世界模型驱动）。
+  // 天基平台（卫星）位置/速度由消费方每周期注入共享场景状态（世界模型驱动）。
   sbirs_sensor::session::SbirsCycleInput input;
   input.cycle_index = static_cast<std::uint32_t>(scene.cycle);
   input.dt_sec = static_cast<float>(dt_sec);
   input.has_satellite_position = true;
   input.satellite_position_ecef_m = scene.sbirs_satellite_position_ecef_m;
+  input.has_satellite_velocity_ecef_m_per_s = true;
+  input.satellite_velocity_ecef_m_per_s = scene.sbirs_satellite_velocity_ecef_m_per_s;
   input.utc_julian_day = scene.sbirs_utc_julian_day;  // ECI 输出参考系（UTC 儒略日）
   input.scene = scene.sbirs_targets;
 

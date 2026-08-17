@@ -330,9 +330,12 @@ std::string EncodeSbirsCycleInput(const SbirsCycleInput& value) {
   }
 
   const sbirs::replay::Vec3d satellite = ToFbVec3(value.satellite_position_ecef_m);
-  fbb.Finish(sbirs::replay::CreateSbirsCycleInput(fbb, value.cycle_index, value.dt_sec,
-                                                  value.utc_julian_day, value.has_satellite_position,
-                                                  &satellite, fbb.CreateVector(targets)),
+  const sbirs::replay::Vec3d satellite_velocity = ToFbVec3(value.satellite_velocity_ecef_m_per_s);
+  fbb.Finish(sbirs::replay::CreateSbirsCycleInput(
+                 fbb, value.cycle_index, value.dt_sec, value.utc_julian_day,
+                 value.has_satellite_position, &satellite,
+                 value.has_satellite_velocity_ecef_m_per_s, &satellite_velocity,
+                 fbb.CreateVector(targets)),
              kSbirsReplayFileIdentifier);
   return oneq::common::replay::CopyFinishedFlatbuffer(fbb);
 }
@@ -350,6 +353,8 @@ bool DecodeSbirsCycleInput(const std::string& bytes, SbirsCycleInput* out) {
   out->utc_julian_day = fb->utc_julian_day();
   out->has_satellite_position = fb->has_satellite_position();
   out->satellite_position_ecef_m = FromFbVec3(fb->satellite_position_ecef_m());
+  out->has_satellite_velocity_ecef_m_per_s = fb->has_satellite_velocity();
+  out->satellite_velocity_ecef_m_per_s = FromFbVec3(fb->satellite_velocity_ecef_m_per_s());
   out->scene.clear();
   if (fb->scene_targets() != nullptr) {
     for (const sbirs::replay::SbirsSceneTarget* target : *fb->scene_targets()) {
@@ -403,6 +408,7 @@ std::string EncodeSbirsCycleResult(const SbirsCycleResult& value) {
     builder.add_target_id(attribution.target_id);
     builder.add_target_name(target_name);
     builder.add_estimated_range_m(attribution.estimated_range_m);
+    builder.add_max_detection_range_m(attribution.max_detection_range_m);
     builder.add_tracking_source(static_cast<std::int32_t>(attribution.tracking_source));
     builder.add_capture_failure_reason(
         static_cast<std::int32_t>(attribution.capture_failure_reason));
@@ -470,6 +476,7 @@ bool DecodeSbirsCycleResult(const std::string& bytes, SbirsCycleResult* out) {
       record.target_id = attr->target_id();
       record.target_name = attr->target_name() ? attr->target_name()->str() : std::string();
       record.estimated_range_m = attr->estimated_range_m();
+      record.max_detection_range_m = attr->max_detection_range_m();
       const std::int32_t tracking_source = attr->tracking_source();
       if (tracking_source !=
               static_cast<std::int32_t>(attribution::SbirsTrackingSource::kNotApplicable) &&

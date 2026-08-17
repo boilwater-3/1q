@@ -76,6 +76,16 @@ SbirsIssueList ValidateSbirsCycleInput(const SbirsCycleInput& input, float frame
     AddError(codes::kInvalidSatellitePosition, "satellite_position_ecef_m",
              "satellite position must be provided, finite, and non-zero", location, &issues);
   }
+  // 卫星速度必填（与位置同等待遇）：缺失或非有限即拒绝；零向量合法（如 GEO 卫星）。
+  // 速度旋入 ECI 后与目标速度合成相对速度，缺失会把卫星隐含为静止、低估动态滞后。
+  if (!input.has_satellite_velocity_ecef_m_per_s ||
+      !FiniteVector(input.satellite_velocity_ecef_m_per_s)) {
+    oneq::foundation::ValidationLocation location;
+    location.kind = oneq::foundation::ValidationLocationKind::kPlatform;
+    AddError(codes::kInvalidSatelliteVelocity, "satellite_velocity_ecef_m_per_s",
+             "satellite velocity must be provided and finite (zero vector is valid)", location,
+             &issues);
+  }
   std::set<std::uint64_t> target_ids;
   for (std::size_t i = 0; i < input.scene.size(); ++i) {
     const SbirsSceneTarget& target = input.scene[i];

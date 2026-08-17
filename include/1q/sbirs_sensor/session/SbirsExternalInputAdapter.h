@@ -18,12 +18,14 @@ namespace session {
  * @param[in] dt_sec 步长，单位 s
  * @param[in] utc_julian_day UTC 儒略日（JD_UTC；ECI 输出参考系必需，缺失即校验拒绝）
  * @param[in] satellite_position_ecef_m 卫星 ECEF 位置，单位 m
+ * @param[in] satellite_velocity_ecef_m_per_s 卫星 ECEF 速度，单位 m/s（必填；零向量合法）
  * @param[in] scene 目标场景列表
  * @return 已设置平台几何、UTC 时刻与场景的 `SbirsCycleInput`
  */
 ONEQ_API SbirsCycleInput MakeSbirsCycleInput(std::uint32_t cycle_index, float dt_sec,
                                              double utc_julian_day,
                                              const SbirsVector3M& satellite_position_ecef_m,
+                                             const SbirsVector3M& satellite_velocity_ecef_m_per_s,
                                              const SbirsSceneTargetList& scene);
 
 }  // namespace session

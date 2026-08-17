@@ -49,11 +49,11 @@ double RefractionErrorDeg(double range_m, float elevation_deg) {
   return 1.5e-6 / denominator;
 }
 
-double DynamicLagErrorDeg(float target_angular_rate_deg_per_sec, float detector_bandwidth_hz) {
+double DynamicLagErrorDeg(float relative_angular_rate_deg_per_sec, float detector_bandwidth_hz) {
   if (detector_bandwidth_hz <= 0.0f) {
     return 0.0;
   }
-  return static_cast<double>(target_angular_rate_deg_per_sec) / (2.0 * kPi * detector_bandwidth_hz);
+  return static_cast<double>(relative_angular_rate_deg_per_sec) / (2.0 * kPi * detector_bandwidth_hz);
 }
 
 double ResolveEffectiveAngularSigmaDeg(const config::SbirsErrorModelConfig& model) {
@@ -66,7 +66,7 @@ double ResolveEffectiveAngularSigmaDeg(const config::SbirsErrorModelConfig& mode
 SbirsErrorBearing ApplyAngularErrorModel(const config::SbirsErrorModelConfig& model,
                                          SbirsRandomSource* random, float true_azimuth_deg,
                                          float true_elevation_deg, double true_range_m,
-                                         float target_angular_rate_deg_per_sec) {
+                                         float relative_angular_rate_deg_per_sec) {
   SbirsErrorBearing bearing;
   // 物理分项按 RSS 合成为单一 1-σ；az/el 独立采样，与对角量测协方差一致。
   const double angular_sigma_deg = ResolveEffectiveAngularSigmaDeg(model);
@@ -81,7 +81,7 @@ SbirsErrorBearing ApplyAngularErrorModel(const config::SbirsErrorModelConfig& mo
 
   const double refraction = RefractionErrorDeg(true_range_m, true_elevation_deg);
   const double lag =
-      DynamicLagErrorDeg(target_angular_rate_deg_per_sec, model.detector_bandwidth_hz);
+      DynamicLagErrorDeg(relative_angular_rate_deg_per_sec, model.detector_bandwidth_hz);
 
   // 加法合成（design 2.10 式 1111-1113）。
   bearing.azimuth_deg =

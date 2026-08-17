@@ -23,6 +23,9 @@ constexpr char kCycleDeltaTimeExceedsFramePeriod[] =
 /** @brief 卫星位置缺失、非有限或为零向量。 */
 constexpr char kInvalidSatellitePosition[] = "sbirs.validation.invalid_satellite_position";
 
+/** @brief 卫星速度缺失或非有限（必填；ECEF 零向量合法，如 GEO 卫星）。 */
+constexpr char kInvalidSatelliteVelocity[] = "sbirs.validation.invalid_satellite_velocity";
+
 /** @brief UTC 儒略日缺失、非有限或非正（ECI 输出参考系必需）。 */
 constexpr char kInvalidUtcJulianDay[] = "sbirs.validation.invalid_utc_julian_day";
 

@@ -82,8 +82,9 @@ std::string EncodeSessionConfigWithRawTrackingEnums(std::int32_t tracking_mode,
 
 std::string EncodeCycleResultWithRawTrackingSource(std::int32_t tracking_source) {
   flatbuffers::FlatBufferBuilder builder(128U);
+  // 位置参数须与 schema 字段序一致（max_detection_range_m 在 estimated_range_m 之后）。
   const auto attribution = sbirs::replay::CreateSbirsDetectionAttributionRecord(
-      builder, 1U, 2U, 0, 3.0f, tracking_source);
+      builder, 1U, 2U, 0, 3.0f, 4.0f, tracking_source);
   std::vector<flatbuffers::Offset<sbirs::replay::SbirsDetectionAttributionRecord>> records;
   records.push_back(attribution);
   builder.Finish(sbirs::replay::CreateSbirsCycleResult(
@@ -111,6 +112,7 @@ TEST(SbirsReplayCodecRoundtripTest, CycleInputPreservesAllFields) {
                                     .WithDeltaTimeSec(0.25f)
                                     .WithUtcJulianDay(2451544.2230698913)  // GMST≈0：ECI≡ECEF
                                     .WithSatellitePosition(Vector(7000000.0, 4.0, 5.0))
+                                    .WithSatelliteVelocity(Vector(7500.0, -300.0, 120.0))
                                     .AddTarget(target)
                                     .Build();
 
@@ -124,6 +126,10 @@ TEST(SbirsReplayCodecRoundtripTest, CycleInputPreservesAllFields) {
   EXPECT_DOUBLE_EQ(decoded.utc_julian_day, 2451544.2230698913);  // ECI 输出参考系（UTC 儒略日）
   EXPECT_TRUE(decoded.has_satellite_position);
   EXPECT_DOUBLE_EQ(decoded.satellite_position_ecef_m.x, 7000000.0);
+  EXPECT_TRUE(decoded.has_satellite_velocity_ecef_m_per_s);
+  EXPECT_DOUBLE_EQ(decoded.satellite_velocity_ecef_m_per_s.x, 7500.0);
+  EXPECT_DOUBLE_EQ(decoded.satellite_velocity_ecef_m_per_s.y, -300.0);
+  EXPECT_DOUBLE_EQ(decoded.satellite_velocity_ecef_m_per_s.z, 120.0);
   ASSERT_EQ(decoded.scene.size(), 1U);
   EXPECT_EQ(decoded.scene[0].target_id, 9U);
   EXPECT_EQ(decoded.scene[0].target_name, "boost");
@@ -198,6 +204,7 @@ TEST(SbirsReplayCodecRoundtripTest, CycleResultPreservesOutputAndAttributionFiel
   attribution.target_id = 44U;
   attribution.target_name = "truth";
   attribution.estimated_range_m = 1234.0f;
+  attribution.max_detection_range_m = 2.5e6f;
   attribution.tracking_source =
       attribution::SbirsTrackingSource::kSensorLikeTruthAssisted;
   attribution.capture_failure_reason =
@@ -250,6 +257,7 @@ TEST(SbirsReplayCodecRoundtripTest, CycleResultPreservesOutputAndAttributionFiel
             SbirsObservationStage::kNarrowFieldTrack);
   ASSERT_EQ(decoded.detection_attributions.size(), 1U);
   EXPECT_FLOAT_EQ(decoded.detection_attributions[0].estimated_range_m, 1234.0f);
+  EXPECT_FLOAT_EQ(decoded.detection_attributions[0].max_detection_range_m, 2.5e6f);
   EXPECT_EQ(decoded.detection_attributions[0].tracking_source,
             attribution::SbirsTrackingSource::kSensorLikeTruthAssisted);
   EXPECT_EQ(decoded.detection_attributions[0].capture_failure_reason,

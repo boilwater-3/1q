@@ -20,6 +20,13 @@ SbirsCycleInputBuilder& SbirsCycleInputBuilder::WithSatellitePosition(
   return *this;
 }
 
+SbirsCycleInputBuilder& SbirsCycleInputBuilder::WithSatelliteVelocity(
+    const SbirsVector3M& velocity_ecef_m_per_s) {
+  input_.has_satellite_velocity_ecef_m_per_s = true;
+  input_.satellite_velocity_ecef_m_per_s = velocity_ecef_m_per_s;
+  return *this;
+}
+
 SbirsCycleInputBuilder& SbirsCycleInputBuilder::WithUtcJulianDay(double utc_julian_day) {
   input_.utc_julian_day = utc_julian_day;
   return *this;

@@ -26,10 +26,11 @@ Answers: SBIRS 用了哪些算法、各自实现到什么地步、边界在哪�
 | NFOV 资源调度 | 多通道并发锁定，按 SNR/距离/target_id 排序 | 生产可用 | [evidence: tests/unit/sbirs_sensor/sbirs_scheduler_test] |
 | 地球遮挡门控 | 有限线段射线-地球球体判别穿地视线 | 生产可用 | [evidence: tests/unit/sbirs_sensor/sbirs_foundation_test] |
 | Foundation 物理链路 | 辐射强度/透过率/接收功率/噪声/SNR 标量链 | 生产可用 | [evidence: tests/unit/sbirs_sensor/sbirs_foundation_test] |
+| 当前时刻最大探测距离 | WFOV 检测门限反解 d_max(t)=sqrt(I·A·τ_opt·τ_eff·η·t/(N·SNR_th))，逐目标进归属层 | 生产可用 | [evidence: tests/unit/sbirs_sensor/sbirs_radiative_transfer_test] |
 | 气象衰减 | 查表+加权叠加得透过率衰减因子 | 生产可用 | [evidence: tests/unit/sbirs_sensor/sbirs_environment_model_test] |
-| 误差模型 | 5 类误差（轨道/姿态/视场高斯 + 折射/滞后确定性） | 生产可用 | [evidence: tests/unit/sbirs_sensor/sbirs_error_model_test] |
+| 误差模型 | 5 类误差（轨道/姿态/视场高斯 + 折射/滞后确定性；滞后随相对视线角速度 v_t−v_sat） | 生产可用 | [evidence: tests/unit/sbirs_sensor/sbirs_error_model_test] |
 | 时间相关指向扰动 | 整星共模 + 逐通道 GM + 振动的 Gauss-Markov | 生产可用 | [evidence: tests/unit/sbirs_sensor/sbirs_pointing_disturbance_test] |
-| ECEF→ECI 旋转（GMST） | 周期入口按 UTC 儒略日算 GMST，把卫星/目标位置与速度（含 ω×r）旋到 ECI | 生产可用（共享域 1q/coordinate/inertial_transform.h，仅 SBIRS 消费） | [evidence: tests/unit/sbirs_sensor/sbirs_eci_transform_test] |
+| ECEF→ECI 旋转（GMST） | 周期入口按 UTC 儒略日算 GMST，把卫星/目标位置与卫星/目标速度（含 ω×r 输运项）旋到 ECI | 生产可用（共享域 1q/coordinate/inertial_transform.h，仅 SBIRS 消费） | [evidence: tests/unit/sbirs_sensor/sbirs_eci_transform_test] |
 
 ## 目标状态机（7 状态）
 
@@ -95,10 +96,13 @@ Answers: SBIRS 用了哪些算法、各自实现到什么地步、边界在哪�
   1. 指向生成用 `SbirsCuePredictor`：角度域两点有限差分估计角速度，生成
      `u_cmd = u_measured + angular_rate × narrow_cue_latency_s`。命令**不消费目标真值速度**。
   2. 窗口判定以 actuator 当前 LOS 为中心，叠加静态 `narrow_pointing_settle_error_deg`。
-  3. cue 延迟对真实 LOS 的评估用目标速度做线性平移，不做积分轨道传播。
+  3. cue 延迟对真实 LOS 的评估按延迟后相对几何线性平移：
+     `(p_target + v_target·τ) − (p_satellite + v_satellite·τ)`，卫星位移同样计入
+     （卫星速度必填，2026-08-17 起），不做积分轨道传播。
   4. 失败/超时清除交接并回退 `WideCandidate`，产出 `capture_failure_reason` 诊断归属（不进 raw output）。
 - **反直觉点（cue 命令和 eligibility truth 都在 latency horizon 上评估）**：目标真实 LOS 在
-  `narrow_cue_latency_s > 0` 且有速度时按延迟时间线性外推后重算。因此捕获判定仍受 WFOV 误差、目标运动、
+  `narrow_cue_latency_s > 0` 时按延迟时间线性外推后重算（目标与卫星位移都计入；目标无速度时
+  仅卫星位移生效）。因此捕获判定仍受 WFOV 误差、目标运动、卫星运动、
   cue 延迟和 NFOV 视场大小影响，**不会因为窗口中心直接取测量值而恒成立**。
 - **证据**：[evidence: tests/unit/sbirs_sensor/sbirs_pipeline_test]
 - **证据**：[evidence: tests/unit/sbirs_sensor/sbirs_cue_predictor_test]
@@ -218,8 +222,8 @@ Answers: SBIRS 用了哪些算法、各自实现到什么地步、边界在哪�
 ## ECEF→ECI 惯性旋转（GMST）
 
 - **意图**：SBIRS 输出参考系为 ECI（2026-08 正式变更）。周期入口由输入 `utc_julian_day`
-  （UTC 儒略日，缺失即校验拒绝）计算 GMST，把卫星位置与每个目标的位置/速度旋转到
-  ECI；下游 LOS/az/el/遮挡/SNR/EKF 全链使用同一 ECI 几何。
+  （UTC 儒略日，缺失即校验拒绝）计算 GMST，把卫星位置/速度（必填）与每个目标的
+  位置/速度旋转到 ECI；下游 LOS/az/el/遮挡/SNR/EKF 全链使用同一 ECI 几何。
 - **实现边界**：
   1. GMST 用 IAU 1982 近似（Vallado 式 3-47），UT1 ≈ UTC、无章动/极移；对应方位误差
      < 0.004°，符合仿真精度档（实现与边界见 `include/1q/coordinate/inertial_transform.h`）。
@@ -260,6 +264,12 @@ Answers: SBIRS 用了哪些算法、各自实现到什么地步、边界在哪�
   5. WFOV/NFOV 当前共享同一套波段、孔径、透过率、积分时间和噪声参数；两个通道差异由 FOV、调度/指向
      和各自检测门限表达。
   6. 复制自 EOS 的算法允许按天基场景修正常数和几何输入，但必须保持调用面由 `SbirsPipeline` 统一编排。
+  7. 当前时刻最大探测距离（合同指标 4，2026-08-17 起）：信号 ∝ 1/d² 且噪声不含距离项，
+     由 WFOV 检测门限闭式反解 `d_max = sqrt(I·A_ap·τ_opt·τ_eff·η·t_int/(N_eff·SNR_th))`；
+     τ_eff 与 N_eff 取当前周期快照，故逐目标、逐周期变化。输出进归属/诊断层
+     （`SbirsDetectionAttributionRecord::max_detection_range_m`），不进 raw output；
+     NFOV 门限版可由消费方按 `d_max·sqrt(wide_min/narrow_min)` 推导；SNR 门失败目标的
+     issue 消息附带 d_max 数值（人读）。
 - **反直觉点**：只有独立成像模型同时具备 PSF/MTF、焦距与像元几何时，才可冻结其物理效应并增加结果
   测试；不得先加占位字段再用任意归一化系数伪装生效。
 - **证据**：[evidence: tests/unit/sbirs_sensor/sbirs_foundation_test]
@@ -285,7 +295,9 @@ Answers: SBIRS 用了哪些算法、各自实现到什么地步、边界在哪�
   2. 轨道/姿态/视场三项始终按 RSS 合成为唯一有效角度 1-σ；三项均为 0 表示不施加随机角误差。
   3. 随机源 `SbirsRandomSource`（xorshift32 + Box-Muller）由固定 seed 经固定 domain 派生为 WFOV、Estimated、
      Sensor-like 三个子流，状态分别随 snapshot 持久化。
-  4. 折射与动态滞后为确定性公式，目标角速度由 `velocity_ecef_m_per_s` 推导；未提供速度时滞后项为 0。
+  4. 折射与动态滞后为确定性公式，滞后输入为相对视线角速度（v_target−v_satellite 推导，
+     目标速度未提供时取 0、卫星速度必填）；卫星运动本身扫过视场也产生滞后
+     （2026-08-17 起，此前卫星隐含静止）。
   5. 距离误差只用于内部 cue/诊断链路，不进入 raw output。
 - **反直觉点**：误差模型生成的是观测/cue 误差，不改变输入目标真值。随机源必须可注入、可 snapshot
   或可由 replay 固定，避免同一 trace 回放产生不同捕获结果。

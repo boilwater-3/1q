@@ -117,6 +117,11 @@ status/stage/reason/coasting/gate 语义派生，不直接公开 internal `Sbirs
 ### 归属字段边界（不进 raw output）
 
 1. `SbirsSceneTarget.velocity_ecef_m_per_s`：目标速度真值，驱动 cue 延迟外推与动态滞后误差；进 replay。
+1b. `SbirsDetectionAttributionRecord.max_detection_range_m`：当前时刻最大探测距离
+    d_max(t)（WFOV 门限反解，依赖该目标辐射强度与本周期透过率/噪声快照，逐周期变化；合同指标 4，
+    2026-08-17 起）；进 attribution/debug/lifecycle，进 replay；不进 raw output。
+    SNR 门失败目标不产生归属记录，其 d_max 数值写入 `sbirs.target_snr_below_threshold`
+    issue 消息（人读诊断）。
 2. `SbirsCaptureFailureReason` + `capture_failure_reason`：捕获失败/调度跳过/NIS 丢锁诊断；进 attribution
    与 lifecycle reason，进 replay。
 3. 闭环跟踪诊断（实际光轴误差、几何/SNR 门状态、连续失败计数、coasting 标志）：进 attribution/debug/

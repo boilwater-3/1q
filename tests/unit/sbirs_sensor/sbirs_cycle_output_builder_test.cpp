@@ -29,6 +29,7 @@ sbirs_sensor::session::SbirsCycleInput InputWithTarget(std::uint32_t cycle_index
       .WithDeltaTimeSec(1.0f)
       .WithUtcJulianDay(2451544.2230698913)  // GMST≈0：ECI≡ECEF
       .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
+      .WithSatelliteVelocity(sbirs_sensor::session::SbirsVector3M{})
       .AddTarget(Target(7U, "boost"))
       .Build();
 }
@@ -265,6 +266,7 @@ TEST(SbirsCycleOutputBuilderTest, LifecycleRecorderTracksFoundUpdatedLostAndOpti
           .WithDeltaTimeSec(1.0f)
           .WithUtcJulianDay(2451544.2230698913)  // GMST≈0：ECI≡ECEF
           .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
+          .WithSatelliteVelocity(sbirs_sensor::session::SbirsVector3M{})
           .Build();
   sbirs_sensor::session::SbirsCycleResult empty_result;
   empty_result.input_cycle_index = 3U;
@@ -308,6 +310,7 @@ TEST(SbirsCycleOutputBuilderTest, ValidationRejectedEmptyInputDoesNotInventTarge
           .WithDeltaTimeSec(1.0f)
           .WithUtcJulianDay(2451544.2230698913)  // GMST≈0：ECI≡ECEF
           .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
+          .WithSatelliteVelocity(sbirs_sensor::session::SbirsVector3M{})
           .Build();
 
   const auto rejected_events = recorder.Update(empty_input, RejectedResult(2U));

@@ -63,6 +63,7 @@ session::SbirsCycleInput MakeInput(std::uint32_t cycle_index = 1U, float dt_sec 
       .WithDeltaTimeSec(dt_sec)
       .WithUtcJulianDay(2451544.2230698913)  // GMST≈0：ECI≡ECEF
       .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
+      .WithSatelliteVelocity(sbirs_sensor::session::SbirsVector3M{})
       .AddTarget(MakeTarget(1U))
       .Build();
 }

@@ -180,7 +180,11 @@ std::array<Metrics, 2> Evaluate(const Scenario& scenario) {
   CharacterizationCuePredictor cv;
   CharacterizationCuePredictor ca;
   std::mt19937 random_engine(scenario.random_seed);
-  std::normal_distribution<double> noise(0.0, scenario.measurement_sigma_deg);
+  // sigma=0（无噪声场景）下 MSVC Debug CRT 断言 normal_distribution 构造非法；
+  // 无噪声时退化为恒零采样器，保持数值行为不变。
+  const bool has_noise = scenario.measurement_sigma_deg > 0.0;
+  std::normal_distribution<double> noise(0.0,
+                                         has_noise ? scenario.measurement_sigma_deg : 1.0);
   std::array<std::vector<double>, 2> errors;
   std::array<std::size_t, 2> captures{{0U, 0U}};
   std::array<bool, 2> all_finite{{true, true}};
@@ -194,7 +198,8 @@ std::array<Metrics, 2> Evaluate(const Scenario& scenario) {
       time_sec += current_dt;
     }
     const double measured =
-        NormalizeAzimuth(TruthAzimuth(scenario, time_sec) + noise(random_engine));
+        NormalizeAzimuth(TruthAzimuth(scenario, time_sec) +
+                         (has_noise ? noise(random_engine) : 0.0));
     const std::array<double, 2> commands{{
         cv.UpdateCv(measured, current_dt, scenario.latency_sec),
         ca.UpdateCa(measured, current_dt, scenario.latency_sec),

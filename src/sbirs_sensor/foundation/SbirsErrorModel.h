@@ -7,7 +7,7 @@
  *   2. 卫星姿态误差（attitude_sigma_deg）
  *   3. 探测器视场误差（fov_sigma_deg）
  *   4. 大气折射误差（deterministic，随俯仰角与距离）
- *   5. 动态滞后误差（deterministic，随目标角速度与探测器带宽）
+ *   5. 动态滞后误差（deterministic，随相对视线角速度与探测器带宽）
  * 角度类误差用确定性、可注入种子的 Box-Muller 高斯采样源；折射与滞后为确定性公式。
  * 随机源状态可 Capture/Restore，保证同一 trace 回放产生相同带误差位置与捕获结果。
  */
@@ -74,13 +74,13 @@ double ResolveEffectiveAngularSigmaDeg(const config::SbirsErrorModelConfig& mode
  * @param[in] true_azimuth_deg 真值方位角，单位 deg
  * @param[in] true_elevation_deg 真值俯仰角，单位 deg
  * @param[in] true_range_m 真值距离，单位 m
- * @param[in] target_angular_rate_deg_per_sec 目标角速度（动态滞后用），单位 deg/s
+ * @param[in] relative_angular_rate_deg_per_sec 相对视线角速度（v_target−v_satellite 推导，动态滞后用），单位 deg/s
  * @return 带误差 cue 位置
  * @note 角度类高斯误差采用可注入种子的 Box-Muller 采样；折射与滞后为确定性公式。
  */
 SbirsErrorBearing ApplyAngularErrorModel(
     const config::SbirsErrorModelConfig& model, SbirsRandomSource* random, float true_azimuth_deg,
-    float true_elevation_deg, double true_range_m, float target_angular_rate_deg_per_sec);
+    float true_elevation_deg, double true_range_m, float relative_angular_rate_deg_per_sec);
 
 /**
  * @brief 2.10 大气折射误差（红外波段近似）：Δθ_refr = 1.5e-6 / (d·cosβ)，单位 deg。
@@ -92,11 +92,11 @@ double RefractionErrorDeg(double range_m, float elevation_deg);
 
 /**
  * @brief 2.10 动态滞后误差：Δθ_lag = ω_tar / (2π·f_det)，单位 deg。
- * @param[in] target_angular_rate_deg_per_sec 目标角速度 ω_tar，单位 deg/s
+ * @param[in] relative_angular_rate_deg_per_sec 相对视线角速度 ω，单位 deg/s
  * @param[in] detector_bandwidth_hz 探测器带宽 f_det，单位 Hz
  * @return 动态滞后角误差，单位 deg
  */
-double DynamicLagErrorDeg(float target_angular_rate_deg_per_sec, float detector_bandwidth_hz);
+double DynamicLagErrorDeg(float relative_angular_rate_deg_per_sec, float detector_bandwidth_hz);
 
 }  // namespace foundation
 }  // namespace sbirs_sensor

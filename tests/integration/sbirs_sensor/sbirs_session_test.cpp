@@ -14,6 +14,7 @@
 #include "1q/sbirs_sensor/config/SbirsRuntimeConfigBuilder.h"
 #include "1q/sbirs_sensor/config/SbirsSessionConfig.h"
 #include "1q/sbirs_sensor/session/SbirsCycleInputAdapter.h"
+#include "1q/sbirs_sensor/session/SbirsIssueCodes.h"
 #include "1q/sbirs_sensor/session/SbirsCycleResult.h"
 #include "1q/sbirs_sensor/session/SbirsOutputDebugView.h"
 #include "1q/sbirs_sensor/session/SbirsSession.h"
@@ -68,6 +69,7 @@ SbirsCycleInput MakeBaseInput(std::uint32_t cycle_index = 1U) {
       .WithDeltaTimeSec(1.0f)
       .WithUtcJulianDay(2451544.2230698913)  // GMST≈0：ECI≡ECEF
       .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
+      .WithSatelliteVelocity(sbirs_sensor::session::SbirsVector3M{})
       .AddTarget(MakeTarget(1U))
       .Build();
 }
@@ -376,7 +378,8 @@ TEST(SbirsSessionIntegrationTest, DualChannelAssignmentIsIndependentOfInputOrder
     builder.WithCycleIndex(1U)
         .WithDeltaTimeSec(1.0f)
         .WithUtcJulianDay(2451544.2230698913)  // GMST≈0：ECI≡ECEF
-        .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0));
+        .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
+        .WithSatelliteVelocity(sbirs_sensor::session::SbirsVector3M{});
     if (reverse) {
       builder.AddTarget(MakeTarget(2U, -1000.0)).AddTarget(MakeTarget(1U, 1000.0));
     } else {
@@ -518,6 +521,7 @@ TEST(SbirsSessionIntegrationTest, CueLatencyFailureAttributionStaysOutOfRawOutpu
                               .WithDeltaTimeSec(1.0f)
                               .WithUtcJulianDay(2451544.2230698913)  // GMST≈0：ECI≡ECEF
                               .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
+                              .WithSatelliteVelocity(sbirs_sensor::session::SbirsVector3M{})
                               .AddTarget(target)
                               .Build();
 
@@ -560,6 +564,7 @@ TEST(SbirsSessionIntegrationTest, MeasurementCvCueCapturesAfterSecondWfovObserva
                                  .WithDeltaTimeSec(1.0f)
                                  .WithUtcJulianDay(2451544.2230698913)  // GMST≈0：ECI≡ECEF
                                  .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
+                                 .WithSatelliteVelocity(sbirs_sensor::session::SbirsVector3M{})
                                  .AddTarget(target)
                                  .Build());
   EXPECT_EQ(FindDetectionByTargetId(first, 77U), nullptr);
@@ -571,6 +576,7 @@ TEST(SbirsSessionIntegrationTest, MeasurementCvCueCapturesAfterSecondWfovObserva
                                  .WithDeltaTimeSec(1.0f)
                                  .WithUtcJulianDay(2451544.2230698913)  // GMST≈0：ECI≡ECEF
                                  .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
+                                 .WithSatelliteVelocity(sbirs_sensor::session::SbirsVector3M{})
                                  .AddTarget(target)
                                  .Build());
   const output::SbirsDetectionRecord* acquired = FindDetectionByTargetId(second, 77U);
@@ -610,6 +616,64 @@ TEST(SbirsSessionIntegrationTest, DebugViewRangeBackfillReflectsAttributionOnly)
   // 遮挡排除目标：无归属 → kNotInOutput，距离恒 0。
   EXPECT_EQ(excluded_row->status, SbirsDebugTargetStatus::kNotInOutput);
   EXPECT_FLOAT_EQ(excluded_row->estimated_range_m, 0.0f);
+}
+
+// ===== 合同指标 2：cue 延迟期间卫星位移计入延迟真值 LOS =====
+// 镜像 CueLatencyFailureAttributionStaysOutOfRawOutput：目标静止、卫星横向运动，
+// 延迟 20s 后真值 LOS 方位 ≈ −9°（卫星 ECI 速度含 ω×r 输运项 ≈8010 m/s），
+// 移出 ±1° NFOV → 首次捕获失败；对照组（卫星零速度）捕获成功。
+TEST(SbirsSessionIntegrationTest, CueLatencyAccountsForSatelliteDisplacementDuringLatency) {
+  const auto run_capture_failure_count = [](const SbirsVector3M& satellite_velocity) {
+    config::SbirsSessionConfig config = MakeSessionConfig();
+    config.mission.narrow_cue_latency_s = 20.0f;
+    config.mission.narrow_field_fov_az_deg = 2.0f;  // 收窄 NFOV 使延迟后出界
+
+    SbirsCycleInput input = SbirsCycleInputBuilder()
+                                .WithCycleIndex(1U)
+                                .WithDeltaTimeSec(1.0f)
+                                .WithUtcJulianDay(2451544.2230698913)  // GMST≈0：ECI≡ECEF
+                                .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
+                                .WithSatelliteVelocity(satellite_velocity)
+                                .AddTarget(MakeTarget(1U))  // 目标静止（无速度）
+                                .Build();
+    SbirsSession session = SbirsSession::Create(config);
+    const SbirsCycleResult result = session.StepWithResult(input);
+    EXPECT_EQ(result.status, SbirsCycleStatus::kCompleted);
+    std::size_t failures = 0U;
+    for (const attribution::SbirsDetectionAttributionRecord& attr :
+         result.detection_attributions) {
+      if (attr.capture_failure_reason ==
+          attribution::SbirsCaptureFailureReason::kNfovAcquisitionFailed) {
+        ++failures;
+      }
+    }
+    return failures;
+  };
+
+  // 对照组：卫星零速度 → 延迟真值不变 → 捕获成功。
+  EXPECT_EQ(run_capture_failure_count(Vector(0.0, 0.0, 0.0)), 0U);
+  // 卫星横向运动 → 延迟期间卫星位移使真值 LOS 移出 NFOV → 捕获失败。
+  EXPECT_EQ(run_capture_failure_count(Vector(0.0, 7500.0, 0.0)), 1U);
+}
+
+// 卫星速度必填（合同指标 2）：缺失即整周期校验拒绝，空帧 + error 级 issue。
+TEST(SbirsSessionIntegrationTest, MissingSatelliteVelocityRejectsCycle) {
+  SbirsSession session = SbirsSession::Create(MakeSessionConfig());
+  SbirsCycleInput input = MakeBaseInput();
+  input.has_satellite_velocity_ecef_m_per_s = false;  // 故意缺失必填速度
+
+  const SbirsCycleResult result = session.StepWithResult(input);
+  EXPECT_EQ(result.status, SbirsCycleStatus::kRejectedInvalidInput);
+  EXPECT_EQ(result.abort_reason, SbirsPipelineAbortReason::kValidationRejected);
+  EXPECT_TRUE(result.output_frame.detections.empty());
+  bool found_code = false;
+  for (const SbirsIssue& issue : result.issues) {
+    if (issue.code == codes::kInvalidSatelliteVelocity) {
+      found_code = true;
+      EXPECT_EQ(issue.severity, SbirsIssueSeverity::kError);
+    }
+  }
+  EXPECT_TRUE(found_code);
 }
 
 }  // namespace

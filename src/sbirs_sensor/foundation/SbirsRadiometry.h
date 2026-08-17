@@ -34,6 +34,28 @@ double ComputeReceivedPowerW(double radiant_intensity_w_per_sr, double range_m,
  */
 double ComputeInfraredSnrLinear(double received_power_w,
                                 const config::SbirsHardwareConfig& hardware);
+/**
+ * @brief 由检测门限反解当前时刻最大探测距离
+ *        d_max = sqrt(I·A_ap·τ_opt·τ_eff·η·t_int / (N_eff·SNR_th))。
+ * @details SNR 链路信号 ∝ 1/d² 且噪声（背景光子/热/读出分解或 NEP 标量回退）不含
+ *          距离项，故闭式反解成立；τ_eff 与 N_eff 取当前周期快照，d_max 随周期变化。
+ *          NFOV 门限版可由消费方按 d_max_narrow = d_max · sqrt(SNR_th_wide/SNR_th_narrow)
+ *          推导（同一链路仅门限不同）。
+ * @param[in] radiant_intensity_w_per_sr 目标辐射强度，单位 W/sr
+ * @param[in] aperture_m 光学孔径，单位 m
+ * @param[in] optical_transmission 光学透过率
+ * @param[in] path_transmittance 当前周期路径透过率（含气象修正）
+ * @param[in] detector_quantum_efficiency 探测器量子效率
+ * @param[in] integration_time_sec 积分时间，单位 s
+ * @param[in] effective_noise_w 当前周期有效噪声功率 N_eff，单位 W（噪声模型在调用方解析）
+ * @param[in] min_snr_linear 检测门限（线性 SNR）
+ * @return 当前时刻最大探测距离，单位 m；任一输入非正时返回 0
+ */
+double ComputeMaxDetectionRangeM(double radiant_intensity_w_per_sr, double aperture_m,
+                                 double optical_transmission, double path_transmittance,
+                                 double detector_quantum_efficiency,
+                                 double integration_time_sec, double effective_noise_w,
+                                 double min_snr_linear);
 
 }  // namespace foundation
 }  // namespace sbirs_sensor

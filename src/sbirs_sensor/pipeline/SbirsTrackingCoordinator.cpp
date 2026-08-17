@@ -59,11 +59,11 @@ void SbirsTrackingCoordinator::InitializeTarget(std::uint64_t target_id,
 SbirsTrackingUpdateResult SbirsTrackingCoordinator::Update(
     std::uint64_t target_id, const config::SbirsPolicyConfig& policy,
     foundation::SbirsRandomSource* random_source, float azimuth_deg, float elevation_deg,
-    double range_m, float angular_rate_deg_per_sec, float dt_sec,
+    double range_m, float relative_angular_rate_deg_per_sec, float dt_sec,
     const session::SbirsVector3M& satellite_position_eci_m) {
   PredictTarget(target_id, policy, dt_sec, satellite_position_eci_m);
   return CorrectTarget(target_id, policy, random_source, azimuth_deg, elevation_deg, range_m,
-                       angular_rate_deg_per_sec, satellite_position_eci_m);
+                       relative_angular_rate_deg_per_sec, satellite_position_eci_m);
 }
 
 SbirsTrackingPredictionResult SbirsTrackingCoordinator::PredictTarget(
@@ -101,18 +101,19 @@ SbirsTrackingPredictionResult SbirsTrackingCoordinator::PredictTarget(
 SbirsTrackingUpdateResult SbirsTrackingCoordinator::CorrectTarget(
     std::uint64_t target_id, const config::SbirsPolicyConfig& policy,
     foundation::SbirsRandomSource* random_source, float azimuth_deg, float elevation_deg,
-    double range_m, float angular_rate_deg_per_sec,
+    double range_m, float relative_angular_rate_deg_per_sec,
     const session::SbirsVector3M& satellite_position_eci_m) {
   SbirsTrackingUpdateResult result;
   const foundation::SbirsErrorBearing bearing =
       foundation::ApplyAngularErrorModel(policy.error_model, random_source, azimuth_deg,
-                                         elevation_deg, range_m, angular_rate_deg_per_sec);
+                                         elevation_deg, range_m,
+                                         relative_angular_rate_deg_per_sec);
   tracking::SbirsMeasurementVector measurement_rad;
   const float deg2rad = 0.0174532925f;
   measurement_rad << bearing.azimuth_deg * deg2rad, bearing.elevation_deg * deg2rad;
   const tracking::SbirsMeasurementCovariance measurement_covariance =
       tracking::BuildMeasurementCovariance(policy.error_model, range_m, elevation_deg,
-                                           angular_rate_deg_per_sec);
+                                           relative_angular_rate_deg_per_sec);
 
   tracking::SbirsGaussianState combined;
   if (policy.tracking.estimated_backend == config::SbirsEstimatedTrackingBackend::kImm) {

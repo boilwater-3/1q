@@ -490,6 +490,21 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
   }
   const session::SbirsVector3M satellite_position_eci_m{
       satellite_eci.x_m, satellite_eci.y_m, satellite_eci.z_m};
+  // 卫星速度旋入 ECI（与目标侧 RotateSceneTargetToEci 同法，含 ω×r 输运项）；
+  // 旋换失败走与位置相同的防御性回退（保留原分量）。
+  const oneq::coordinate::EcefVelocityMps satellite_velocity_ecef(
+      input.satellite_velocity_ecef_m_per_s.x, input.satellite_velocity_ecef_m_per_s.y,
+      input.satellite_velocity_ecef_m_per_s.z);
+  oneq::coordinate::EciVelocityMps satellite_velocity_eci;
+  if (!oneq::coordinate::TryEcefVelocityToEci(satellite_ecef, satellite_velocity_ecef, gmst_rad,
+                                              &satellite_velocity_eci)) {
+    satellite_velocity_eci = oneq::coordinate::EciVelocityMps(
+        satellite_velocity_ecef.x_mps, satellite_velocity_ecef.y_mps,
+        satellite_velocity_ecef.z_mps);
+  }
+  const session::SbirsVector3M satellite_velocity_eci_m{
+      satellite_velocity_eci.x_mps, satellite_velocity_eci.y_mps,
+      satellite_velocity_eci.z_mps};
 
   // 规则 13a：周期执行摘要所需四类门控排除计数（按目标循环内累加）。
   std::size_t excluded_occulted = 0U;
@@ -540,12 +555,13 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
       mission.scan_center_el_deg + static_cast<float>(frame_disturbance.common.elevation_deg);
 
   const float transmittance = environment::ResolveEffectiveTransmittance(environment_config);
-  // 门内归因目标无关量（仅依赖硬件/门限配置，循环外计算一次）：达标所需签名 =
+  // 门内归因目标无关量（仅依赖硬件/门限配置，循环外计算一次）：有效噪声与达标所需签名 =
   // wide_min·噪声/积分时间（见 ClassifyWfovSnrExclusionCause）。
   const config::SbirsHardwareConfig& hw = config_.session.hardware;
+  const double effective_noise_w =
+      foundation::ResolveEffectiveNoiseW(hw, foundation::ComputeBackgroundNoiseStatistics(hw));
   const double snr_signature_required =
-      policy.detection.wide_min_snr_linear *
-      foundation::ResolveEffectiveNoiseW(hw, foundation::ComputeBackgroundNoiseStatistics(hw)) /
+      policy.detection.wide_min_snr_linear * effective_noise_w /
       std::max(0.0f, hw.integration_time_sec);
   std::vector<SbirsCandidate> candidates;
   std::set<std::uint64_t> present_target_ids;
@@ -625,13 +641,25 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
     const float azimuth_deg = foundation::ComputeAzimuthDeg(los);
     const float elevation_deg = foundation::ComputeElevationDeg(los);
     const double snr = ComputeSnr(config_, target, range_m, transmittance);
+    // 当前时刻最大探测距离（WFOV 门限反解）：随本周期 τ_eff/噪声快照与目标辐射强度
+    // 变化，进归属层诊断（不进 raw output）；SNR 门失败目标写入 issue 消息。
+    const double max_detection_range_m = foundation::ComputeMaxDetectionRangeM(
+        target.radiant_intensity_w_per_sr, hw.optical_aperture_m, hw.optical_transmission,
+        transmittance, hw.detector_quantum_efficiency, hw.integration_time_sec,
+        effective_noise_w, policy.detection.wide_min_snr_linear);
 
-    // 目标角速度：用于动态滞后误差与 R 矩阵（design 2.10）。未提供速度时按 0 处理。
-    float omega_deg_per_sec_cached = 0.0f;
+    // 相对视线角速度：用于动态滞后误差与 R 矩阵（design 2.10）。相对速度 =
+    // v_target（未提供时取 0）− v_satellite；卫星速度必填，因此目标静止时 ω 不为 0
+    // （卫星运动本身扫过视场）。
+    session::SbirsVector3M relative_velocity_eci_m_per_s{
+        -satellite_velocity_eci_m.x, -satellite_velocity_eci_m.y, -satellite_velocity_eci_m.z};
     if (target.has_velocity_eci_m_per_s) {
-      omega_deg_per_sec_cached =
-          foundation::ComputeRelativeAngularRateDegPerSec(los, target.velocity_eci_m_per_s);
+      relative_velocity_eci_m_per_s.x += target.velocity_eci_m_per_s.x;
+      relative_velocity_eci_m_per_s.y += target.velocity_eci_m_per_s.y;
+      relative_velocity_eci_m_per_s.z += target.velocity_eci_m_per_s.z;
     }
+    const float omega_deg_per_sec_cached = foundation::ComputeRelativeAngularRateDegPerSec(
+        los, relative_velocity_eci_m_per_s);
 
     const bool in_wfov = InRectangularFov(azimuth_deg, elevation_deg, actual_scan_azimuth_deg,
                                           actual_scan_elevation_deg, mission.wide_field_fov_az_deg,
@@ -690,6 +718,7 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
       detection.attribution.target_id = target.target_id;
       detection.attribution.target_name = target.target_name;
       detection.attribution.estimated_range_m = static_cast<float>(range_m);
+      detection.attribution.max_detection_range_m = static_cast<float>(max_detection_range_m);
       detection.attribution.tracking_source = TrackingSourceForState(state);
       detection.attribution.nfov_channel_id = channel_id;
       detection.attribution.has_nfov_tracking_diagnostics = true;
@@ -793,7 +822,8 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
               "; snr_linear=" + FormatSnr(snr) + " below wide_min=" +
               FormatSnr(policy.detection.wide_min_snr_linear) + " range_m=" +
               std::to_string(static_cast<std::int64_t>(range_m)) + " transmittance=" +
-              FormatSnr(transmittance),
+              FormatSnr(transmittance) + " d_max_m=" +
+              std::to_string(static_cast<std::int64_t>(max_detection_range_m)),
           snr_cause,
           static_cast<std::ptrdiff_t>(target_idx)));
       ++excluded_snr_below;
@@ -810,32 +840,43 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
     candidate.azimuth_deg = azimuth_deg;
     candidate.elevation_deg = elevation_deg;
     candidate.range_m = range_m;  // 真值距离：调度优先级用（design 2.6）
+    candidate.max_detection_range_m = max_detection_range_m;
     // 2.10 WFOV 带误差位置：施加 5 类物理误差（高斯随机 + 折射 + 滞后）。
     // 复用上方已算的目标角速度 omega_deg_per_sec_cached。
     const foundation::SbirsErrorBearing bearing = foundation::ApplyAngularErrorModel(
         policy.error_model, &wfov_measurement_random_source_, azimuth_deg, elevation_deg, range_m,
-        /*target_angular_rate_deg_per_sec=*/omega_deg_per_sec_cached);
+        /*relative_angular_rate_deg_per_sec=*/omega_deg_per_sec_cached);
     candidate.measured_azimuth_deg = bearing.azimuth_deg;
     candidate.measured_elevation_deg = bearing.elevation_deg;
     candidate.measured_range_m = bearing.range_m;
-    candidate.angular_rate_deg_per_sec = omega_deg_per_sec_cached;
+    candidate.relative_angular_rate_deg_per_sec = omega_deg_per_sec_cached;
     const SbirsCuePrediction cue_prediction =
         cue_predictor_.Update(target.target_id, bearing.azimuth_deg, bearing.elevation_deg,
                               input.dt_sec, mission.narrow_cue_latency_s);
     candidate.command_azimuth_deg = cue_prediction.command_azimuth_deg;
     candidate.command_elevation_deg = cue_prediction.command_elevation_deg;
-    // cue 延迟外推：narrow_cue_latency_s 期间目标继续运动，真值 az/el 需按延迟后位置重算。
+    // cue 延迟外推：narrow_cue_latency_s 期间目标与卫星都继续运动，真值 az/el 需按
+    // 延迟后相对几何重算：(p_target + v_target·τ) − (p_satellite + v_satellite·τ)。
     const float cue_latency_s = mission.narrow_cue_latency_s;
-    if (cue_latency_s > 0.0f && target.has_velocity_eci_m_per_s) {
+    if (cue_latency_s > 0.0f) {
       session::SbirsVector3M predicted_position;
-      predicted_position.x =
-          target.position_eci_m.x + target.velocity_eci_m_per_s.x * cue_latency_s;
-      predicted_position.y =
-          target.position_eci_m.y + target.velocity_eci_m_per_s.y * cue_latency_s;
-      predicted_position.z =
-          target.position_eci_m.z + target.velocity_eci_m_per_s.z * cue_latency_s;
+      predicted_position.x = target.position_eci_m.x;
+      predicted_position.y = target.position_eci_m.y;
+      predicted_position.z = target.position_eci_m.z;
+      if (target.has_velocity_eci_m_per_s) {
+        predicted_position.x += target.velocity_eci_m_per_s.x * cue_latency_s;
+        predicted_position.y += target.velocity_eci_m_per_s.y * cue_latency_s;
+        predicted_position.z += target.velocity_eci_m_per_s.z * cue_latency_s;
+      }
+      session::SbirsVector3M predicted_satellite_position;
+      predicted_satellite_position.x =
+          satellite_position_eci_m.x + satellite_velocity_eci_m.x * cue_latency_s;
+      predicted_satellite_position.y =
+          satellite_position_eci_m.y + satellite_velocity_eci_m.y * cue_latency_s;
+      predicted_satellite_position.z =
+          satellite_position_eci_m.z + satellite_velocity_eci_m.z * cue_latency_s;
       const session::SbirsVector3M predicted_los =
-          foundation::Subtract(predicted_position, satellite_position_eci_m);
+          foundation::Subtract(predicted_position, predicted_satellite_position);
       candidate.delayed_truth_azimuth_deg = foundation::ComputeAzimuthDeg(predicted_los);
       candidate.delayed_truth_elevation_deg = foundation::ComputeElevationDeg(predicted_los);
     } else {
@@ -862,6 +903,8 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
       detection.attribution.target_id = candidate.target->target_id;
       detection.attribution.target_name = candidate.target->target_name;
       detection.attribution.estimated_range_m = static_cast<float>(candidate.range_m);
+      detection.attribution.max_detection_range_m =
+          static_cast<float>(candidate.max_detection_range_m);
       detection.attribution.nfov_channel_id = -1;
       result.detections.push_back(detection);
     }
@@ -993,6 +1036,8 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
       detection.attribution.target_id = selected.target->target_id;
       detection.attribution.target_name = selected.target->target_name;
       detection.attribution.tracking_source = TrackingSourceForMode(policy.tracking.tracking_mode);
+      detection.attribution.max_detection_range_m =
+          static_cast<float>(selected.max_detection_range_m);
       if (policy.tracking.tracking_mode == config::SbirsTrackingMode::kStrictTruthAssisted) {
         detection.record.azimuth_rad = ToEciAzimuthRad(selected.azimuth_deg);
         detection.record.elevation_rad = ToEciElevationRad(selected.elevation_deg);
@@ -1001,7 +1046,7 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
                  config::SbirsTrackingMode::kSensorLikeTruthAssisted) {
         const foundation::SbirsErrorBearing bearing = foundation::ApplyAngularErrorModel(
             policy.error_model, &sensor_like_output_random_source_, selected.azimuth_deg,
-            selected.elevation_deg, selected.range_m, selected.angular_rate_deg_per_sec);
+            selected.elevation_deg, selected.range_m, selected.relative_angular_rate_deg_per_sec);
         detection.record.azimuth_rad = ToEciAzimuthRad(bearing.azimuth_deg);
         detection.record.elevation_rad = ToEciElevationRad(bearing.elevation_deg);
         detection.attribution.estimated_range_m = static_cast<float>(bearing.range_m);
