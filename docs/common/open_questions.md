@@ -2,7 +2,7 @@
 Status: active
 Authority: 非规定性记录（不构成契约约束）
 Lifecycle: 条目有结论后回写 contract.md 或 design.md 并从本文删除；不保留已收敛条目
-Last-reviewed: 2026-08-07
+Last-reviewed: 2026-08-17
 ---
 
 # 跨模块开放议题
@@ -31,6 +31,10 @@ Last-reviewed: 2026-08-07
 | SBIRS-OQ-2 | sbirs_sensor | 分阶段误差统计共享参数 | 三用途共享一组角度/距离统计 | open |
 | SBIRS-OQ-3 | sbirs_sensor | 多目标随机样本与输入顺序 | 全局用途流，无 target 不变性 | open |
 | SBIRS-OQ-4 | sbirs_sensor | Estimated 航迹真值初始化 | 首捕用真值位置/速度初始化滤波均值 | open |
+| TARGET-OQ-1 | target-layer | AR 估计/推演职责前置 | 消费级航迹产品 + 识别结论回填 public 输出 | open |
+| TARGET-OQ-2 | target-layer | ESR 威胁等级进 public 输出 | threat_level 由传感器生产并被 ECM 下游消费 | open |
+| TARGET-OQ-3 | target-layer | SBIRS Estimated 后验外发 | 滤波后验角度作为 raw output 检测记录 | open |
+| TARGET-OQ-4 | target-layer | RIR 识别产品形态 | 识别即装备使命，与分层契约规则 2 张力 | open |
 
 ## Common 非阻塞边界
 
@@ -217,3 +221,88 @@ Last-reviewed: 2026-08-07
   无真值辅助的真实载荷跟踪器。
 - **再进入条件 (Stage A)**：先定义被动角度不可观测距离的初始化先验、收敛时间和失败判据，并提供与当前方案
   的捕获率、位置协方差、丢锁率及 replay 对比证据，再决定是否替换。
+
+## Target Layer 非阻塞边界
+
+登记目标处理分层契约（contract.md §目标处理分层契约）生效前的存量偏离。处置完成前不要求
+追溯回改，但不得新增同类偏离。
+
+### TARGET-OQ-1：AR 估计/推演职责前置（航迹产品 + 识别结论回填）
+
+- **现状**：AR 在传感器内持有完整估计层三件套——LAPJV 关联（`signal/association`）、KF/IMM 滤波
+  （common/estimation 的向后兼容外观）、`TrackLifecycleManager` 生命周期——并以
+  `TrackOutputFrame` / `ArExternalTrackOutputFrame` 对 fusion 发布消费级航迹产品（滤波后 ECEF
+  运动学 + 协方差迹）；同时保留决策层启发式识别 `ThreatAssessmentEvaluator::IdentifyTarget`
+  （速度/RCS 最近邻 + `FeatureRepository`），其结论经 `ArController` 回填 public
+  `TrackStateSnapshot.target_type/target_probability`，内部威胁分驱动 LPI/ECCM。注意：kLrr
+  识别子系统已按 2026-08-15 耦合审计全量迁出（迁移 2-C `1ac346ca`），本条指的是**保留的决策层
+  启发式**，与 kLrr 迁移无关。
+  [evidence: include/1q/airborne_radar/session/TrackStateSnapshot.h]
+  [evidence: src/airborne_radar/signal/association/DataAssociation.h]
+  [evidence: src/airborne_radar/signal/tracking/TrackLifecycleManager.h]
+  [evidence: src/airborne_radar/decision/ThreatAssessmentEvaluator.cpp]
+  [evidence: docs/review/ar_remote_identification_radar_coupling_audit_2026-08-15.md]
+- **后果**：同一目标在 AR 内（LAPJV）与 fusion 内（按 association_key 再关联）被关联两次；
+  传感器 public 输出同时承载估计产品（滤波航迹）与推演结论（识别标签），下游
+  threat_assessment 的类型概率输入实际消费传感器回填的识别结论；估计层轨迹滤波立项时存在
+  职责重叠。
+- **待决问题**：估计层轨迹滤波立项时 AR 航迹帧的语义定位（AR 内部信号处理产品，还是估计层
+  在传感器内的前置实现）；识别结论回填 public 输出是否退出，改由推演层识别面供给。
+- **当前边界**：AR 航迹输出是冻结公共 API（fusion SensorAdapters 消费），不因分层契约追溯
+  回改；AR 内部威胁分仅驱动 LPI/ECCM 资源管理，不外发威胁产品；`target_type`/
+  `target_probability` 维持现状直至推演层识别面立项。
+- **再进入条件 (Stage A)**：估计层轨迹滤波（fusion 演进）立项时，按证据优先模式提交 AR↔估计层
+  职责划分方案（关联单源化、滤波原语单源化、识别结论出口迁移）与 replay/公共 API 迁移契约；
+  不得零碎单独修改。
+
+### TARGET-OQ-2：ESR 威胁等级进 public 输出（ECM 下游消费）
+
+- **现状**：`EmitterHypothesis.threat_level`（public DTO 字段）由
+  `HypothesisAssociator::InferThreatFromCluster`（模式+SNR 启发式）计算并对外发布；ECM 侧
+  `EcmEsrAdapter` 消费该字段二次计分为调度排序输入。同一关联器内的 `InferModeFromCluster`
+  （PRI/脉宽→工作模式）与假设关联/生命周期（最小费用流指派 + 指数混合平滑）也在传感器内。
+  [evidence: include/1q/electronic_surveillance_radar/session/EmitterHypothesis.h]
+  [evidence: src/electronic_surveillance_radar/pipeline/HypothesisAssociator.cpp]
+  [evidence: src/electronic_countermeasure/EcmEsrAdapter.cpp]
+- **后果**：决策层产品（威胁等级）由传感器生产并进入 public 输出，违反分层契约规则 2；ECM
+  调度输入依赖传感器的越层字段，形成越层消费链。模式推断与假设平滑的归属存在语义争议（可
+  辩护为 ESM 量测语义标注 / ESM 产品形态）。
+- **待决问题**：`threat_level` 是否从 public DTO 退出（破坏性公共 API 变更，需冻结迁移契约；
+  ECM 调度输入改由 threat_assessment 或调用方供给）；ESM 假设管理（关联/生命周期/平滑）是否
+  作为合法 ESM 产品形态保留。
+- **当前边界**：`threat_level` 为冻结公共 API，不追溯回改；处置前 ESM 假设管理保留现状，
+  不得新增同类威胁语义字段。
+- **再进入条件 (Stage A)**：ESR 公共 API 修订立项时，提交 `threat_level` 迁移契约（含 ECM
+  消费路径改造与 replay 兼容性裁定）。
+
+### TARGET-OQ-3：SBIRS Estimated 模式滤波后验作为 raw output
+
+- **现状**：Estimated 模式下滤波后验投影角度直接作为 `SbirsOutputFrame` raw 检测记录输出
+  （boundaries.md 输出规则 4 冻结）；6 维后验状态与协方差不外发，attribution 仅诊断。与
+  SBIRS-OQ-4（真值初始化）相关但独立。
+  [evidence: src/sbirs_sensor/pipeline/SbirsPipeline.cpp]
+  [evidence: docs/sbirs_sensor/boundaries.md 输出规则 4]
+- **后果**：消费方在 raw output 拿到的是跨周期滤波平滑后的角度（信息聚合估计）而非单周期量测
+  事实；fusion 直接消费该角度时被动消费平滑估计，其量测噪声模型假设与实际内容不一致。
+- **待决问题**：Estimated 输出语义是否改为"带噪量测 + 后验仅内部门控"，或维持"滤波后验即
+  传感器报告值"的装备语义并在适配层标注来源。
+- **当前边界**：维持 boundaries.md 规则 4；不外发协方差/速度/航迹族；Sensor-like 模式已是
+  带误差量测形态。
+- **再进入条件 (Stage A)**：估计层轨迹滤波立项、需要以 SBIRS 量测噪声模型构造 R 矩阵时，
+  先盘点 Estimated 输出的消费路径并给出噪声语义失配证据。
+
+### TARGET-OQ-4：RIR 识别产品形态与推演层关系
+
+- **现状**：RIR 把类型/型号识别作为装备使命整体内置（特征库 + 模板匹配 + 逐航迹证据积累），
+  public 输出即识别结论（`RirRecognitionResult`）；内部航迹链严格闭环、不发布点迹/航迹，
+  无威胁逻辑混入。2026-08-15 已完成从 AR 的自持化迁移。
+  [evidence: src/remote_identification_radar/recognition/]
+  [evidence: docs/review/remote_identification_radar_migration_status_2026-08-15.md]
+- **后果**：推演层"目标识别"能力以装备形态存在于传感器层，与分层契约规则 2（识别结论不得
+  作为传感器 public 输出）存在张力；未来推演层识别算法面立项时存在两套识别实现的风险。
+- **待决问题**："识别类传感器"（识别即装备使命、public 输出即识别结论）是否作为分层契约的
+  显式豁免装备形态；若是，推演层识别面与 RIR 的复用边界（知识库共享/原语共享/各管各）如何
+  裁定。
+- **当前边界**：RIR 识别输出维持现状（装备使命），不新增威胁评分等决策语义。
+- **再进入条件 (Stage A)**：推演层识别算法面立项时，先裁定 RIR 豁免形态与复用边界，再冻结
+  实现契约。

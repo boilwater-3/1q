@@ -1,7 +1,7 @@
 # 跨模块契约
 
 Status: active
-Last-reviewed: 2026-08-07
+Last-reviewed: 2026-08-17
 Authority: common contract for all modules
 RF-Interference-Architecture: frozen target; AR/ESR/ECM RF v2 implemented (per-module status in each design.md)
 
@@ -142,6 +142,50 @@ public API 分为两类，二者都受 public boundary、install manifest 和 co
 2. **观测工具面**：trace/replay、debug view、lifecycle recorder 及其结果 DTO。它用于诊断、复现和人读归属，不能反向改变核心运行面、raw output 或控制行为。
 
 观测工具面的新增字段或事件必须保持三层输出分离，并同步 schema/codec、对应 replay/trace 测试和 consumer 测试；删除或重命名已公开工具仍属于 public API 变更，必须先冻结兼容迁移契约。
+
+## 目标处理分层契约
+
+传感器量测生产与目标域处理（估计/推演/决策）是两条职责线："探测到目标"（量测事实生产）与
+"目标是什么/在哪/要去哪"（估计、推演、决策）分属不同层，禁止互相寄生。库内目标域能力按五层归属：
+
+| 层 | 当前归属 | 职责 | 产品 |
+|---|---|---|---|
+| 传感器层 | AR / ESR / EOS / SAR / SBIRS / RIR | 量测事实生产；传感器自身行为的内部建模（指向闭环、检测门控、驻留调度） | `*OutputFrame` 量测记录 |
+| 适配层 | `fusion::SensorAdapters` | 传感器输出 → 泛型 `fusion::DetectionRecord` | `DetectionRecord` |
+| 估计层 | `fusion` + `src/common/estimation` | 多目标关联、航迹滤波、航迹管理（轨迹滤波为 fusion 冻结的预留演进项） | `FusedTarget` |
+| 推演层 | 尚未建立 | 轨迹预测、发射点/落点回推、目标类型识别分类 | 带误差预算的推演产品 |
+| 决策层 | `threat_assessment` | 威胁评分与等级 | `ThreatResult` |
+
+规则：
+
+1. **依赖方向单向**：传感器层不得引用估计/推演/决策层类型；算法面（fusion、
+   threat_assessment、未来推演面）不得引用传感器具体类型，唯一允许依赖传感器具体类型的
+   公共触点是 `SensorAdapters`。跨源/跨平台坐标对齐归调用方（session_contract.md 既有立场），
+   适配层只做字段映射与单位换算，不做跨系转换。
+2. **传感器产品边界**：威胁评分、目标类型识别结论、轨迹/发射点预测不得作为传感器 public
+   输出字段（raw output、`*CycleResult`、public DTO 一致适用）。量测质量（SNR、quality）与
+   量测特征（辐射强度、RCS 量测值、频段标注）不属此列。
+3. **传感器内部目标处理的豁免**：为驱动自身闭环（波束/光轴指向、驻留调度、检测门控、丢锁
+   判定）而维护的内部滤波、关联与生命周期状态是合法的传感器行为建模，须同时满足：不外发
+   航迹/状态族估计产品（协方差、速度、生命周期语义的状态族），raw output 记录保持量测形态。
+   SBIRS ATP 闭环、RIR 内部航迹链、AR STT 指向属此类。
+4. **滤波原语单源**：航迹/状态滤波数值原语单源在 `src/common/estimation`；消费模块以
+   facade / using 别名实例化，不得另写滤波原语。
+5. **去真值化**（并入分层纪律）：目标域跨层记录只携带调用方关联键或引擎合成键，不携带场景
+   真值标识；真值只允许进入仿真归属/调试层。
+6. **误差预算出口**：估计层运动学产品与推演层产品必须携带不确定度（协方差/误差椭圆），只
+   出口点估计不出口误差的产品不得进入 public API。被动体制（角度-only）的可观测性限制必须
+   由产品如实承载，不得以真值辅助字段掩盖。
+7. **存量偏离登记**：本契约生效前已冻结的公共 API 偏离登记于 `docs/common/open_questions.md`
+   （TARGET-OQ-*），按证据优先模式逐项处置；处置完成前不要求追溯回改，但任何新能力不得新增
+   同类偏离。
+8. **变更规则**：估计层引入轨迹滤波或新关联度量按 fusion boundaries 变更规则 2 冻结实现边界；
+   本分层规则变化必须同步本文与受影响模块 design 文档集，并评估是否需要 include 方向纯净度
+   守护（当前 `tests/contract/` 无该守护，为已知空白）。
+
+新增目标域需求的归属裁定与需求术语对齐背景见
+[../review/target_domain_requirements_alignment_2026-08-17.md](../review/target_domain_requirements_alignment_2026-08-17.md)
+（非权威草案，不得替代本文）。
 
 ## 内部共享命名空间
 
