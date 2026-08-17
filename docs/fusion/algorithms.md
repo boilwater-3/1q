@@ -14,6 +14,7 @@ Answers: 每个融合算法怎么实现、边界在哪、反直觉点是什么
 | 关联分层（键直挂 / 位置 / 方位 / 特征） | 探测记录 + 既有航迹 | 探测 → 航迹归属 | `src/fusion/FusionEngine.cpp`；`tests/unit/fusion/fusion_association_test.cpp` |
 | 置信度滑窗融合 | 滑窗内量测 | 每航迹融合置信度 | 同上；`tests/unit/fusion/fusion_confidence_test.cpp` |
 | 传感器输出 → 泛型探测记录（官方适配器） | AR 轨迹帧 / ESR 假设 / EOS 探测 / SBIRS 探测 | `DetectionRecord` 列表 | `src/fusion/SensorAdapters.cpp`；`tests/unit/fusion/sensor_adapters_test.cpp` |
+| 逐航迹无迹滤波 + 航迹管理（P2，默认关） | 关联后量测（位置 / 方位+原点） | 运动学估计（ECEF 状态 + 6×6 协方差）+ 生命周期 | `src/fusion/FusionEngine.cpp`；`tests/unit/fusion/track_filtering_test.cpp` |
 
 ## 1. 关联分层
 
@@ -80,5 +81,47 @@ Answers: 每个融合算法怎么实现、边界在哪、反直觉点是什么
 ## 输出语义
 
 `FusedTarget`：库内键、各源通道状态（量测数、最近判决/质量/位置/方位）、
-融合置信度、最近更新周期。报告节奏（配置化周期 + 事件触发）属 example 业务层，
-引擎不感知周期语义，`cycle` 仅用于失跟统计与时间戳。
+融合置信度、最近更新周期、航迹生命周期（tentative/confirmed/coasting）、
+可选运动学估计（LLA 位置 + ECEF 速度 + 6×6 ECEF 协方差，行主序 [x,vx,y,vy,z,vz]）。
+报告节奏（配置化周期 + 事件触发）属 example 业务层，
+引擎不感知周期语义，`cycle` 用于失跟统计、时间戳与滤波 dt 推导（×
+`track_cycle_period_sec`）。
+
+## 4. 逐航迹无迹滤波 + 航迹管理（P2，2026-08-17 冻结）
+
+### 实现边界
+
+- **开关与零回退**：`enable_track_filtering` 默认 false——关闭时引擎行为与 P2 前
+  完全一致（关联/置信度/删除语义不变，仅输出追加 lifecycle 字段）。
+- **状态**：每航迹 6 维 ECEF CV [x,vx,y,vy,z,vz]；预测 = 无迹 + `LinearCvTransitionModel`
+  （`track_process_noise`），dt = (cycle − 上次滤波周期) × `track_cycle_period_sec`。
+- **位置通道更新**：z = LLA→ECEF 位置，`UnscentedUpdater<6,3>` +
+  `LinearPositionMeasurementModel`；R = `default_position_noise_std_m`²（记录级
+  位置噪声通道为后续冻结项，当前仅配置默认）。
+- **方位通道更新**：记录携带 `has_sensor_origin` 时经 `UnscentedUpdater<6,2>` +
+  库内 ENU 方位模型（h(x) = 目标 ECEF 相对原点的 ENU az/el，deg）；R 取记录
+  `bearing_noise_sigma_rad`（换 deg），缺省 `default_bearing_noise_sigma_rad`。
+  无原点的方位记录只关联不滤波。
+- **起始**：位置记录 → ECEF 位置 + 零速 + 配置先验；方位+原点记录 → 沿 LOS 配置
+  距离先验（`track_bearing_init_range_m`）+ 各向同性
+  `track_bearing_init_range_std_m`。
+- **失跟外推（coasting）**：已起始航迹无本周期量测时按周期外推一次，生命周期置
+  kCoasting；`missed_cycles > max_missed_cycles` 删除（既有语义不变）。
+- **确认门**：累计命中数 ≥ `confirm_hits`（默认 3）转 kConfirmed。
+- **数值**：float 滤波态（同 common/estimation 家族）；P0 证据表明 σ≲10 µrad
+  角度场景触及 float 精度边缘（target_domain_p0_p1_decision §4.2 结论 2），
+  double 中间量为后续冻结项。
+- **AR 关联复用评估**（变更规则 2 要求）：`airborne_radar::signal::association` 的
+  LAPJV 关联与 fusion 关联单源化延后到 TARGET-OQ-1 债务处置立项（本交付范围外），
+  结论登记，不在 P2 内动 AR。
+
+### 反直觉点
+
+- **角度-only 距离弱可观测是产品语义不是缺陷**：单原点方位航迹的距离方差收敛远慢
+  于横向方差（可达性证据：地板公里级）；消费方必须读协方差而非点估计（契约规则 6）。
+- **方位+原点记录与无原点方位记录语义不同**：前者参与三维滤波（ENU 契约），后者
+  只参与方位相干关联——同一传感器若要进估计层必须由调用方补原点（库不做跨系转换）。
+- 滤波不改变关联：关联仍用锚点量测（原始 LLA/方位），不用滤波后验——避免关联与
+  滤波互馈发散。
+
+[evidence: tests/unit/fusion/track_filtering_test.cpp]
