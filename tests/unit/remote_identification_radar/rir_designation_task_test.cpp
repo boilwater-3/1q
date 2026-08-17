@@ -26,6 +26,7 @@
 #include "RirSqliteTestUtil.h"
 #include "common/radar/ScanScheduleRuntime.h"
 #include "remote_identification_radar/dwell/RirBeamControl.h"
+#include "remote_identification_radar/runtime/RirController.h"
 
 namespace remote_identification_radar {
 namespace tests {
@@ -196,6 +197,55 @@ TEST(RirDesignationTaskTest, DesignationIgnoredInStandby) {
   EXPECT_FALSE(result.designation_active);
   EXPECT_FALSE(result.designation_reverted_to_scan);
   EXPECT_EQ(result.designation_revert_reason, RirDesignationRevertReason::kNone);
+}
+
+// 任务窗口内目标缺席：驻留回扫描波位，报告 kNotRecognized（识别未达成）。
+TEST(RirDesignationTaskTest, AbsentTargetReportsNotRecognizedAndDwellsOnScan) {
+  RirSession session = RirSession::Create(MakeIdentifyConfig());
+  const RirSceneTarget target = MakeTarget(9300U);
+  ASSERT_TRUE(session.TryApplyRuntimeConfig(MakeDesignationPatch(target.external_target_id, 5U)));
+
+  const RirCycleResult result = session.StepWithResult(MakeInput(1U, {}));
+  ASSERT_EQ(result.status, session::RirCycleStatus::kCompleted);
+  EXPECT_EQ(result.designated_target_id, target.external_target_id);
+  EXPECT_FALSE(result.designation_active) << "目标缺席时无驻留对准";
+  EXPECT_TRUE(result.designation_reverted_to_scan);
+  EXPECT_EQ(result.designation_revert_reason, RirDesignationRevertReason::kNotRecognized);
+}
+
+// 驻留中心 → 量测增益接线：方向图开启时，驻留中心对准目标则准入，
+// 偏离目标（离轴衰减压低 SNR）则门控拒绝——验证调度器指向真正驱动增益。
+TEST(RirDesignationTaskTest, DwellCenterDrivesOffAxisGainWhenDirectionalPatternEnabled) {
+  config::RirHardwareConfig hardware;
+  hardware.antenna.enable_directional_pattern = true;
+  config::RirPolicyConfig policy;
+  policy.detection.gate_mode = config::RirDetectionGateMode::kSnrFallback;
+  policy.lifecycle.confirm_hits = 1U;
+  config::RirMissionConfig mission;
+  mission.work_mode = config::RirWorkMode::kIdentify;
+
+  const RirSceneTarget target = MakeTarget(9200U);
+  const config::RirAzimuthElevationDeg on_axis = ExpectedTargetLookAngles(target);
+  config::RirAzimuthElevationDeg off_axis = on_axis;
+  off_axis.az_deg += 60.0f;
+
+  // 对准目标：准入（形成内部航迹 → 识别输出非空、驻留执行 1）。
+  runtime::RirController on_controller;
+  on_controller.SetHardware(hardware);
+  on_controller.UpdateRuntime(mission, policy);
+  session::RirOutputFrame on_frame;
+  on_controller.RunCycle(MakeInput(1U, {target}), &on_frame, on_axis);
+  EXPECT_FALSE(on_frame.recognition_outputs.empty());
+  EXPECT_EQ(on_controller.GetLatestSummary().dwell_budget.executed_dwell_count, 1U);
+
+  // 偏离目标 60°：离轴衰减压低 SNR → 门控拒绝（驻留执行 0、无航迹输出）。
+  runtime::RirController off_controller;
+  off_controller.SetHardware(hardware);
+  off_controller.UpdateRuntime(mission, policy);
+  session::RirOutputFrame off_frame;
+  off_controller.RunCycle(MakeInput(1U, {target}), &off_frame, off_axis);
+  EXPECT_TRUE(off_frame.recognition_outputs.empty());
+  EXPECT_EQ(off_controller.GetLatestSummary().dwell_budget.executed_dwell_count, 0U);
 }
 
 // ---------------------------------------------------------------------------

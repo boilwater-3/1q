@@ -155,6 +155,7 @@ SttDesignationCycleState BuildSttDesignationCycleState(
 struct DesignationPhaseAdvance {
   config::mapping::DesignationPhase phase{config::mapping::DesignationPhase::kNone};
   std::uint32_t deadline_cycle_index{0U}; /**< 捕获窗口截止周期（0 = 无限期）。 */
+  bool expired_edge{false}; /**< 本周期由 kPending 转移至 kExpired（作废沿）。 */
 };
 
 /**
@@ -184,9 +185,15 @@ DesignationPhaseAdvance AdvanceDesignationPhase(
   }
   if (phase == config::mapping::DesignationPhase::kNone) {
     advance.phase = config::mapping::DesignationPhase::kPending;
-    advance.deadline_cycle_index = designation_duration_cycles > 0U
-                                       ? cycle_index + designation_duration_cycles
-                                       : 0U;
+    if (designation_duration_cycles > 0U) {
+      // 饱和加法：周期号接近 2³² 时不回绕为 0（0 = 无限期语义）。
+      const std::uint64_t deadline =
+          static_cast<std::uint64_t>(cycle_index) + designation_duration_cycles;
+      advance.deadline_cycle_index = static_cast<std::uint32_t>(
+          std::min<std::uint64_t>(deadline, std::numeric_limits<std::uint32_t>::max()));
+    } else {
+      advance.deadline_cycle_index = 0U;
+    }
     return advance;
   }
   if (phase == config::mapping::DesignationPhase::kPending) {
@@ -195,26 +202,27 @@ DesignationPhaseAdvance AdvanceDesignationPhase(
     } else if (advance.deadline_cycle_index != 0U &&
                cycle_index >= advance.deadline_cycle_index) {
       advance.phase = config::mapping::DesignationPhase::kExpired;
+      // 作废沿 = 转移发生的周期；阶段仅成功周期持久化，故沿恒为
+      // "截止后首个成功周期"（失败/关机周期不消耗窗口，不吞掉超时报告）。
+      advance.expired_edge = true;
     }
   }
   return advance;
 }
 
 /**
- * @brief 指定指令作废状态解析（由已推进的阶段与截止周期派生）。
+ * @brief 指定指令作废状态解析（由已推进的阶段与作废沿派生）。
  */
 struct DesignationExpiryState {
   bool expired{false};      /**< 本周期指定指令已作废（kExpired 终态）。 */
-  bool expiry_cycle{false}; /**< 本周期是捕获超时沿（报告 kAcquisitionTimeout）。 */
+  bool expiry_cycle{false}; /**< 本周期是作废沿（报告 kAcquisitionTimeout）。 */
 };
 
 DesignationExpiryState ResolveDesignationExpiry(
-    config::mapping::DesignationPhase phase, std::uint32_t deadline_cycle_index,
-    std::uint32_t cycle_index) {
+    config::mapping::DesignationPhase phase, bool expired_edge) {
   DesignationExpiryState expiry;
   expiry.expired = phase == config::mapping::DesignationPhase::kExpired;
-  expiry.expiry_cycle =
-      expiry.expired && deadline_cycle_index != 0U && cycle_index == deadline_cycle_index;
+  expiry.expiry_cycle = expired_edge;
   return expiry;
 }
 
@@ -245,7 +253,9 @@ struct ArSession::Impl {
   ArCycleResult BuildCompletedCycleResult(const ArCycleInput& input,
                                           const ArIssueList& issues,
                                           const ArPrepareCycleResult& prepared,
-                                          const ArCompleteCycleResult& completed) const {
+                                          const ArCompleteCycleResult& completed,
+                                          config::mapping::DesignationPhase designation_phase,
+                                          bool designation_expired_edge) const {
     ArCycleResult result;
     result.input_cycle_index = input.cycle_index;
     result.status = ArCycleStatus::kCompleted;
@@ -284,9 +294,8 @@ struct ArSession::Impl {
         runtime_state.dwell_center_deg.az_deg != 0.0f ||
             runtime_state.dwell_center_deg.el_deg != 0.0f,
         completed.output_frame);
-    const DesignationExpiryState designation_expiry = ResolveDesignationExpiry(
-        runtime_state.designation_phase, runtime_state.designation_deadline_cycle_index,
-        result.input_cycle_index);
+    const DesignationExpiryState designation_expiry =
+        ResolveDesignationExpiry(designation_phase, designation_expired_edge);
     result.effective_work_mode =
         designation_expiry.expired
             ? (committed_work_mode == config::ArWorkMode::kStt ? config::ArWorkMode::kTws
@@ -674,21 +683,21 @@ struct ArSession::Impl {
     const SttDesignationCycleState designation_state = BuildSttDesignationCycleState(
         orientation_config.work_mode, next_operating_state.designated_external_target_id,
         explicit_dwell_override, Controller().GetLatestTrackOutputFrame());
-    // 指定指令生命周期推进（限时锁定，跨周期状态；写回 next_operating_state
-    // 所属状态，失败路径由事务快照整体回滚）：窗口 [start, start+N-1] 内捕获
-    // confirmed 航迹 → kAcquired（此后不再受窗口约束，丢失按既有回退语义）；
+    // 指定指令生命周期推进（限时锁定，跨周期状态）：窗口 [start, start+N-1] 内
+    // 捕获 confirmed 航迹 → kAcquired（此后不再受窗口约束，丢失按既有回退语义）；
     // 窗口耗尽仍未捕获 → kExpired（指令作废，回到扫描，终态直到外部重新指定）。
-    config::mapping::RuntimeConfigState& designation_owner =
+    // 推进结果先留在局部，仅在本周期成功完成后落定（见成功路径的写回）——
+    // 失败/关机周期不消耗窗口（与 boundaries.md 的"失败周期由事务快照回滚"一致）。
+    const config::mapping::RuntimeConfigState& designation_owner =
         has_pending_runtime_update ? pending_runtime_state : runtime_state;
-    const DesignationPhaseAdvance phase_advance = AdvanceDesignationPhase(        designation_owner.designation_phase, designation_owner.designation_deadline_cycle_index,
+    const DesignationPhaseAdvance phase_advance = AdvanceDesignationPhase(
+        designation_owner.designation_phase, designation_owner.designation_deadline_cycle_index,
         designation_owner.designation_duration_cycles, input.cycle_index,
         orientation_config.work_mode == config::ArWorkMode::kStt &&
             designation_owner.designated_external_target_id != 0U,
         designation_state.track_confirmed);
-    designation_owner.designation_phase = phase_advance.phase;
-    designation_owner.designation_deadline_cycle_index = phase_advance.deadline_cycle_index;
     const DesignationExpiryState designation_expiry = ResolveDesignationExpiry(
-        phase_advance.phase, phase_advance.deadline_cycle_index, input.cycle_index);
+        phase_advance.phase, phase_advance.expired_edge);
     // 指令作废后不再消费指定（指向回退分支按扫描推进，不跟随任何目标）。
     const bool designation_consumed =
         designation_state.designation_set && !designation_expiry.expired;
@@ -793,7 +802,12 @@ struct ArSession::Impl {
               ? session::SignalCycleAbortReason::kRuntimePreparationFailed
               : completed.abort_reason);
     }
-    return BuildCompletedCycleResult(input, issues, prepared, completed);
+    // 成功完成才落定指定指令生命周期阶段（失败/关机周期不消耗窗口；
+    // pending 已在 PrepareRfCycle 中 finalize，runtime_state 即生效状态）。
+    runtime_state.designation_phase = phase_advance.phase;
+    runtime_state.designation_deadline_cycle_index = phase_advance.deadline_cycle_index;
+    return BuildCompletedCycleResult(input, issues, prepared, completed, phase_advance.phase,
+                                     phase_advance.expired_edge);
   }
 
   bool TokenMatches(const ArPreparedCycleToken& token) const {

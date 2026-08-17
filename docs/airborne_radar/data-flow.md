@@ -365,6 +365,9 @@ trace 因果顺序 `cycle_output(N) → decision_input(override profile) → cyc
 `cycle_output` 使用内部 `ArReplayCycleRecord`（public result + `ArDecisionReplayState`）；内部决策按 live 路径
 重新计算并逐字段比较 pending internal baseline、实际采用 proposal、来源 cycle/batch、reducer 计数、
 observation 和最终 profile，不支持旧 `ArCycleResult` replay 输出格式。
+指定指令生命周期阶段（designation_phase/deadline）为派生跨周期状态，不进 replay session state
+快照：全量重放（patch 流 + 周期输入）由 cycle_index 驱动可复现；若未来引入"从第 N 周期恢复"，
+需同步纳入会话状态。
 
 [evidence: tests/unit/airborne_radar/ar_rf_session_test.cpp]
 [evidence: tests/replay/airborne_radar/ar_replay_codec_roundtrip_test.cpp]

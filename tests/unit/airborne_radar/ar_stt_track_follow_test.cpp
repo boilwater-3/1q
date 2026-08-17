@@ -143,6 +143,25 @@ double Dot(const oneq::electromagnetics::RfSceneDirection& lhs,
   return lhs.x * rhs.x + lhs.y * rhs.y + lhs.z * rhs.z;
 }
 
+// 未配置的同址干扰：发射身份平台 == 本机 → 接收侧校验拒绝（kRejectedExecution）。
+void AddUnconfiguredCoSiteInterference(ArCycleInput* input) {
+  ASSERT_NE(input, nullptr);
+  oneq::electromagnetics::RfSceneEmission emission;
+  emission.identity = {99U, 3U, 1U};
+  emission.position_ecef_m = input->platform.platform_position_ecef_m;
+  emission.position_ecef_m.x_m += 10000.0;
+  const double radar_frequency_hz =
+      static_cast<double>(MakeDetectionFocusedConfig().hardware.transmitter.frequency_hz);
+  ASSERT_TRUE(oneq::electromagnetics::TryCreateRfNoiseWaveform(
+      input->cycle_start_time_s, input->dt_sec, radar_frequency_hz, 20.0e6, 1.0,
+      &emission.waveform));
+  emission.identity.platform_id = input->platform.platform_entity_id;
+  input->interference.world_cycle_index = input->cycle_index;
+  input->interference.window_start_time_s = input->cycle_start_time_s;
+  input->interference.window_duration_s = input->dt_sec;
+  input->interference.emissions.push_back(emission);
+}
+
 // ---------------------------------------------------------------------------
 // 1) 雷达局部位置 → az/el 换算
 // ---------------------------------------------------------------------------
@@ -648,6 +667,47 @@ TEST(ArSttTrackFollowTest, SessionDesignationAcquiresWithinWindowKeepsFollowingP
   EXPECT_TRUE(std::none_of(events.begin(), events.end(), [](const ArTrackLifecycleEvent& event) {
     return event.designation_revert_reason == ArDesignationRevertReason::kAcquisitionTimeout;
   }));
+}
+
+// 失败周期不消耗指定窗口（审核修复）：post-emission 拒绝周期后，作废沿
+// 在后续首个成功周期才可见（kAcquisitionTimeout 报告不被失败周期吞掉）。
+TEST(ArSttTrackFollowTest, RejectedCycleDoesNotConsumeDesignationWindow) {
+  const ArExternalPoseInput platform = MakePlatformInput();
+  // 静默目标（移远 + 极小 RCS）：窗口内无法捕获 → 到期作废。
+  ArExternalTargetInput silent = MakeStationaryTargetInput();
+  silent.kinematics.position_ecef_m.x_m += 20000.0;
+  silent.rcs = 1.0e-9f;
+  const std::vector<ArExternalTargetInput> targets{silent};
+  ArSession session = ArSession::Create(MakeDetectionFocusedConfig());
+
+  // 指令：STT + 指定 + 1 周期窗口（生效于周期 1 → deadline = 2）。
+  config::ArRuntimeConfigPatch patch;
+  patch.has_work_mode = true;
+  patch.work_mode = config::ArWorkMode::kStt;
+  patch.has_designated_target_id = true;
+  patch.designated_external_target_id = silent.target_id;
+  patch.has_designation_duration_cycles = true;
+  patch.designation_duration_cycles = 1U;
+  ASSERT_TRUE(session.TryApplyRuntimeConfig(patch));
+
+  // 周期 1：窗口内（pending，未捕获回退报告）。
+  ArCycleResult result = session.StepWithResult(MakeCycleInput(1U, platform, targets));
+  ASSERT_EQ(result.status, airborne_radar::session::ArCycleStatus::kCompleted);
+  EXPECT_TRUE(result.designation_reverted_to_tws);
+  EXPECT_EQ(result.designation_revert_reason, ArDesignationRevertReason::kTrackNotConfirmed);
+
+  // 周期 2（截止周期）：post-emission 拒绝——本周期不消耗窗口。
+  ArCycleInput rejected_input = MakeCycleInput(2U, platform, targets);
+  AddUnconfiguredCoSiteInterference(&rejected_input);
+  result = session.StepWithResult(rejected_input);
+  ASSERT_EQ(result.status, airborne_radar::session::ArCycleStatus::kRejectedExecution);
+
+  // 周期 3：作废沿在首个成功周期可见（kAcquisitionTimeout + ID 保留）。
+  result = session.StepWithResult(MakeCycleInput(3U, platform, targets));
+  ASSERT_EQ(result.status, airborne_radar::session::ArCycleStatus::kCompleted);
+  EXPECT_TRUE(result.designation_reverted_to_tws);
+  EXPECT_EQ(result.designation_revert_reason, ArDesignationRevertReason::kAcquisitionTimeout);
+  EXPECT_EQ(result.designated_target_id, silent.target_id);
 }
 
 }  // namespace

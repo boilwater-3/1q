@@ -89,7 +89,9 @@ flowchart TB
    预算摘要。
 6. **replay**：`RirSessionReplayAccess::CaptureSessionState` 采集
    `active_database_version` + 检测随机种子；周期记录经 `RirReplayFlatbufferCodec`
-   V2 编解码，旧 V1 显式拒绝。
+   V2 编解码，旧 V1 显式拒绝。指定任务生命周期阶段（designation_phase/deadline）
+   为派生跨周期状态，不进 replay session state：全量重放由 patch 流 + cycle_index
+   驱动可复现；若未来引入"从第 N 周期恢复"，需同步纳入会话状态。
 
 ## 状态所有权
 
@@ -102,6 +104,7 @@ flowchart TB
 | 每航迹识别积累窗口/结论 | `RirTracker` | 随内部航迹键创建；回收/退出识别模式清理 |
 | 检测 RNG 与量测误差 RNG | `RirController` | 随 `policy.detection.random_seed` 重置，种子入 replay |
 | `latest_summary` | `RirController` | 每成功周期刷新 |
+| 指定任务状态（ID/时长/阶段/截止） | `RirSession` | 随 patch 原子提交；识别达成/作废/清除后归零 |
 | `active_database_version` / `detection_random_seed` | `RirController` → `RirSessionReplayState` | 随运行期更新，入 replay |
 
 ## 与 AR 的关系

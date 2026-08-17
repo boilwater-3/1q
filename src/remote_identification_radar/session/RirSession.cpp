@@ -41,6 +41,7 @@ enum class RirDesignationPhase : std::uint8_t {
 struct RirDesignationPhaseAdvance {
   RirDesignationPhase phase{RirDesignationPhase::kNone};
   std::uint32_t deadline_cycle_index{0U}; /**< 窗口截止周期（0 = 无限期）。 */
+  bool expired_edge{false}; /**< 本周期由 kPending 转移至 kExpired（作废沿）。 */
 };
 
 struct RirDesignationExpiry {
@@ -73,9 +74,15 @@ RirDesignationPhaseAdvance AdvanceDesignationPhase(
   }
   if (phase == RirDesignationPhase::kNone) {
     advance.phase = RirDesignationPhase::kPending;
-    advance.deadline_cycle_index = designation_duration_cycles > 0U
-                                       ? cycle_index + designation_duration_cycles
-                                       : 0U;
+    if (designation_duration_cycles > 0U) {
+      // 饱和加法：周期号接近 2³² 时不回绕为 0（0 = 无限期语义）。
+      const std::uint64_t deadline =
+          static_cast<std::uint64_t>(cycle_index) + designation_duration_cycles;
+      advance.deadline_cycle_index = static_cast<std::uint32_t>(
+          std::min<std::uint64_t>(deadline, std::numeric_limits<std::uint32_t>::max()));
+    } else {
+      advance.deadline_cycle_index = 0U;
+    }
     return advance;
   }
   if (phase == RirDesignationPhase::kPending) {
@@ -84,18 +91,16 @@ RirDesignationPhaseAdvance AdvanceDesignationPhase(
     } else if (advance.deadline_cycle_index != 0U &&
                cycle_index >= advance.deadline_cycle_index) {
       advance.phase = RirDesignationPhase::kExpired;
+      advance.expired_edge = true;  // 作废沿 = 转移发生的周期。
     }
   }
   return advance;
 }
 
-RirDesignationExpiry ResolveDesignationExpiry(RirDesignationPhase phase,
-                                              std::uint32_t deadline_cycle_index,
-                                              std::uint32_t cycle_index) {
+RirDesignationExpiry ResolveDesignationExpiry(RirDesignationPhase phase, bool expired_edge) {
   RirDesignationExpiry expiry;
   expiry.expired = phase == RirDesignationPhase::kExpired;
-  expiry.expiry_cycle =
-      expiry.expired && deadline_cycle_index != 0U && cycle_index == deadline_cycle_index;
+  expiry.expiry_cycle = expired_edge;
   return expiry;
 }
 
@@ -253,8 +258,8 @@ RirCycleResult RirSession::StepWithResult(const RirCycleInput& input) {
           impl_->controller.IsTargetRecognized(impl_->designated_external_target_id));
   impl_->designation_phase = advance.phase;
   impl_->designation_deadline_cycle_index = advance.deadline_cycle_index;
-  const RirDesignationExpiry expiry = ResolveDesignationExpiry(
-      advance.phase, advance.deadline_cycle_index, input.input_cycle_index);
+  const RirDesignationExpiry expiry =
+      ResolveDesignationExpiry(advance.phase, advance.expired_edge);
 
   // 驻留中心（库内驻留调度器）：任务窗口内对准指定目标（目标在场景时）；
   // 其余情况按扫描策略逐周期推进（common 扫描内核，与 AR 同口径）。

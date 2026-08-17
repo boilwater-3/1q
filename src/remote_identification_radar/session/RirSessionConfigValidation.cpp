@@ -95,7 +95,8 @@ session::RirIssueList ValidateRirSessionConfig(const RirSessionConfig& config) {
               "Recognition max range and dwell must be finite and positive.");
   }
 
-  // 扫描策略（库内驻留调度器）：限位有限且有序，步长系数有限且为正。
+  // 扫描策略（库内驻留调度器）：限位有限有序且在合法域（驻留中心契约
+  // az∈[-180,180]、el∈[-90,90]），步长系数有限且为正。
   {
     const RirScanConfig& scan = mission.scan;
     if (!IsFinite(scan.scan_limits_deg.az_min_deg) ||
@@ -104,10 +105,12 @@ session::RirIssueList ValidateRirSessionConfig(const RirSessionConfig& config) {
         !IsFinite(scan.scan_limits_deg.el_max_deg) ||
         scan.scan_limits_deg.az_min_deg > scan.scan_limits_deg.az_max_deg ||
         scan.scan_limits_deg.el_min_deg > scan.scan_limits_deg.el_max_deg ||
+        scan.scan_limits_deg.az_min_deg < -180.0f || scan.scan_limits_deg.az_max_deg > 180.0f ||
+        scan.scan_limits_deg.el_min_deg < -90.0f || scan.scan_limits_deg.el_max_deg > 90.0f ||
         !IsFinite(scan.step_scale) || scan.step_scale <= 0.0f) {
-      PushIssue(&issues, session::codes::kRecognitionTimeRangeInvalid,
-                "mission.scan",
-                "Scan limits must be finite and ordered; step scale must be finite and positive.");
+      PushIssue(&issues, session::codes::kScanStrategyInvalid, "mission.scan",
+                "Scan limits must be finite, ordered and within az[-180,180]/el[-90,90]; step "
+                "scale must be finite and positive.");
     }
   }
 
