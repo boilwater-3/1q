@@ -39,7 +39,8 @@ enum class SbirsTargetState {
  * @note 包含扫描相位、目标状态表、NFOV 多通道调度状态、随机源状态与 EKF 滤波状态表。
  */
 struct SbirsPipelineSnapshot {
-  float scan_phase_deg{0.0f};          /**< 当前 WFOV 有向扫描相位，范围 [0, span) deg */
+  float scan_phase_deg{0.0f};          /**< 当前 WFOV 有向扫描相位（行内方位相位），范围 [0, span) deg */
+  int scan_row_index{0};               /**< 当前 WFOV 俯仰栅格行索引，范围 [0, row_count) */
   float misalignment_yaw_deg{0.0f};    /**< 运行期安装失准角总量（常值偏置 + 一次随机抽取），deg */
   float misalignment_pitch_deg{0.0f};  /**< 运行期安装失准角总量 pitch，deg */
   float misalignment_roll_deg{0.0f};   /**< 运行期安装失准角总量 roll，deg */
@@ -67,7 +68,8 @@ struct SbirsPipelineDetection {
 
 /** @brief 单周期 pipeline 执行结果，含扫描相位与本周期检测列表。 */
 struct SbirsPipelineResult {
-  float scan_azimuth_rad{0.0f};                     /**< 本周期扫描方位角（ECI 极坐标，单位 rad，[0, 2π)） */
+  float scan_azimuth_rad{0.0f};        /**< 本周期扫描方位角（ECI 极坐标，单位 rad，[0, 2π)） */
+  float scan_elevation_rad{0.0f};      /**< 本周期扫描中心俯仰角（ECI 极坐标，单位 rad，[-π/2, π/2]；2-D 栅格下为当前行中心） */
   std::vector<SbirsPipelineDetection> detections{}; /**< 检测列表 */
   bool executed{false};                             /**< 核心 pipeline 是否实际执行（非关机/待机） */
   session::SbirsIssueList issues{};  /**< 正常执行周期按目标排除的 kInfo 诊断（规则 13b），经 controller 转写进 SbirsCycleResult */
@@ -112,6 +114,7 @@ class SbirsPipeline {
  private:
   config::SbirsInternalExecutionConfig config_{};
   float scan_phase_deg_{0.0f};
+  int scan_row_index_{0}; /**< 当前 WFOV 俯仰栅格行索引，范围 [0, row_count) */
   session::SbirsEulerAnglesDeg misalignment_total_deg_{}; /**< 运行期安装失准角总量（构造/ApplyConfig 一次抽取） */
   std::uint64_t next_detection_id_{1U};
   std::map<std::uint64_t, SbirsTargetState> target_states_{};
