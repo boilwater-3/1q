@@ -16,6 +16,8 @@
 
 namespace {
 
+constexpr double kPi = 3.141592653589793238462643383279502884;
+
 sbirs_sensor::session::SbirsVector3M Vector(double x, double y, double z) {
   sbirs_sensor::session::SbirsVector3M value;
   value.x = x;
@@ -35,7 +37,6 @@ sbirs_sensor::session::SbirsSceneTarget HotTarget(std::uint64_t id, double y) {
 
 sbirs_sensor::session::SbirsSceneTarget HotTargetAtAngles(std::uint64_t id, double azimuth_deg,
                                                           double elevation_deg) {
-  constexpr double kPi = 3.141592653589793238462643383279502884;
   const double azimuth_rad = azimuth_deg * kPi / 180.0;
   const double elevation_rad = elevation_deg * kPi / 180.0;
   const double horizontal = std::cos(elevation_rad);
@@ -2128,6 +2129,217 @@ TEST(SbirsPipelineTest, MisalignmentSnapshotRoundTripPreservesDeterminism) {
   const sbirs_sensor::pipeline::SbirsPipelineResult tampered_result = tampered.RunCycle(second);
   // 行为差异：非 identity 链下 ECI 扫描方位由失准驱动，快照回填生效（pitch 不同 → 方位不同）。
   EXPECT_NE(untouched_result.scan_azimuth_rad, tampered_result.scan_azimuth_rad);
+}
+
+TEST(SbirsPipelineTest, RasterDefaultSpanZeroKeepsLegacySingleRow) {
+  // 阶段 4 不变量：span_el=0（默认）→ 行数=1、行索引恒 0、scan_elevation_rad 恒等于
+  // scan_center_el_deg；方位输出与既有 CircularScan 金值逐位一致。
+  sbirs_sensor::config::SbirsSessionConfig config = PipelineConfig();
+  config.mission.scan_start_az_deg = 170.0f;
+  config.mission.scan_span_deg = 40.0f;
+  config.mission.scan_rate_deg_per_sec = 15.0f;
+  config.mission.scan_center_el_deg = 8.0f;
+  sbirs_sensor::pipeline::SbirsPipeline pipeline(
+      sbirs_sensor::runtime::MapSessionToInternal(config));
+  const sbirs_sensor::pipeline::SbirsPipelineResult result = pipeline.RunCycle(TwoTargetInput(1U));
+  EXPECT_FLOAT_EQ(result.scan_azimuth_rad, 3.2288592f);  // 185°（既有金值）
+  EXPECT_FLOAT_EQ(result.scan_elevation_rad,
+                  kPi * 8.0f / 180.0f);  // 8°
+  EXPECT_EQ(pipeline.CaptureRuntimeState().scan_row_index, 0);
+  EXPECT_FLOAT_EQ(pipeline.CaptureRuntimeState().scan_phase_deg, 15.0f);
+}
+
+TEST(SbirsPipelineTest, TwoDimensionalRasterAdvancesRowsAndWraps) {
+  // 2-D 栅格：span_el=20、step=10 → 3 行（el 中心 0/10/20）。锯齿单向：每行从 az 起点
+  // 同向扫描，行内相位跨过 span 时行步进、az 相位归零；行末回绕。
+  sbirs_sensor::config::SbirsSessionConfig config = PipelineConfig();
+  config.mission.scan_start_az_deg = 0.0f;
+  config.mission.scan_span_deg = 10.0f;
+  config.mission.scan_rate_deg_per_sec = 5.0f;
+  config.mission.scan_el_start_deg = 0.0f;
+  config.mission.scan_el_span_deg = 20.0f;
+  config.mission.scan_el_step_deg = 10.0f;
+  sbirs_sensor::pipeline::SbirsPipeline pipeline(
+      sbirs_sensor::runtime::MapSessionToInternal(config));
+  const auto run_cycle = [&](std::uint32_t index, float dt_sec) {
+    sbirs_sensor::session::SbirsCycleInput input =
+        sbirs_sensor::session::SbirsCycleInputBuilder()
+            .WithCycleIndex(index)
+            .WithDeltaTimeSec(dt_sec)
+            .WithUtcJulianDay(2451544.2230698913)  // GMST≈0：ECI≡ECEF
+            .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
+            .WithSatelliteVelocity(sbirs_sensor::session::SbirsVector3M{})
+            .WithSatelliteAttitude(sbirs_sensor::session::SbirsEulerAnglesDeg{})
+            .AddTarget(HotTargetAtAngles(1U, 0.0, 0.0))
+            .Build();
+    return pipeline.RunCycle(input);
+  };
+  // 周期 1：dt=1 → phase 5°，row 0，行中心 el 0°。
+  {
+    const sbirs_sensor::pipeline::SbirsPipelineResult result = run_cycle(1U, 1.0f);
+    const auto snapshot = pipeline.CaptureRuntimeState();
+    EXPECT_EQ(snapshot.scan_row_index, 0);
+    EXPECT_FLOAT_EQ(snapshot.scan_phase_deg, 5.0f);
+    EXPECT_FLOAT_EQ(result.scan_elevation_rad, 0.0f);
+  }
+  // 周期 2：dt=2 → phase 15° 跨过 span → 归零为 5°，row 1，行中心 el 10°。
+  {
+    const sbirs_sensor::pipeline::SbirsPipelineResult result = run_cycle(2U, 2.0f);
+    const auto snapshot = pipeline.CaptureRuntimeState();
+    EXPECT_EQ(snapshot.scan_row_index, 1);
+    EXPECT_FLOAT_EQ(snapshot.scan_phase_deg, 5.0f);
+    EXPECT_FLOAT_EQ(result.scan_elevation_rad,
+                    kPi * 10.0f / 180.0f);
+  }
+  // 周期 3：dt=2 → 再跨一行 → row 2，行中心 el 20°。
+  {
+    const sbirs_sensor::pipeline::SbirsPipelineResult result = run_cycle(3U, 2.0f);
+    const auto snapshot = pipeline.CaptureRuntimeState();
+    EXPECT_EQ(snapshot.scan_row_index, 2);
+    EXPECT_FLOAT_EQ(result.scan_elevation_rad,
+                    kPi * 20.0f / 180.0f);
+  }
+  // 周期 4：dt=2 → 跨两行：row2→row0（回绕），行中心 el 0°。
+  {
+    const sbirs_sensor::pipeline::SbirsPipelineResult result = run_cycle(4U, 2.0f);
+    const auto snapshot = pipeline.CaptureRuntimeState();
+    EXPECT_EQ(snapshot.scan_row_index, 0);
+    EXPECT_FLOAT_EQ(result.scan_elevation_rad, 0.0f);
+  }
+}
+
+TEST(SbirsPipelineTest, ElevationRasterGatesTargetByRow) {
+  // 逐行矩形 FOV 门：kWideSearch 模式（只输出 WFOV 观测、不分配 NFOV）隔离状态累积。
+  // 目标 el 5°，FOV_el=20（半门 10）：row 0（中心 0°）与 row 1（中心 10°）在门内探测，
+  // row 2（中心 20°）目标落出 WFOV 俯仰门。
+  sbirs_sensor::config::SbirsSessionConfig config = PipelineConfig();
+  config.mission.work_mode = sbirs_sensor::config::SbirsWorkMode::kWideSearch;
+  config.mission.scan_start_az_deg = 0.0f;
+  config.mission.scan_span_deg = 10.0f;
+  config.mission.scan_rate_deg_per_sec = 1.0f;
+  config.mission.wide_field_fov_az_deg = 30.0f;
+  config.mission.wide_field_fov_el_deg = 20.0f;
+  config.mission.scan_el_start_deg = 0.0f;
+  config.mission.scan_el_span_deg = 20.0f;
+  config.mission.scan_el_step_deg = 10.0f;
+  sbirs_sensor::pipeline::SbirsPipeline pipeline(
+      sbirs_sensor::runtime::MapSessionToInternal(config));
+  const auto run_cycle = [&](std::uint32_t index, float dt_sec) {
+    sbirs_sensor::session::SbirsCycleInput input =
+        sbirs_sensor::session::SbirsCycleInputBuilder()
+            .WithCycleIndex(index)
+            .WithDeltaTimeSec(dt_sec)
+            .WithUtcJulianDay(2451544.2230698913)  // GMST≈0：ECI≡ECEF
+            .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
+            .WithSatelliteVelocity(sbirs_sensor::session::SbirsVector3M{})
+            .WithSatelliteAttitude(sbirs_sensor::session::SbirsEulerAnglesDeg{})
+            .AddTarget(HotTargetAtAngles(1U, 0.0, 5.0))
+            .Build();
+    return pipeline.RunCycle(input);
+  };
+  EXPECT_EQ(run_cycle(1U, 1.0f).detections.size(), 1U);   // row 0（中心 0°），目标 5° 在门内
+  EXPECT_EQ(run_cycle(2U, 11.0f).detections.size(), 1U);  // row 1（中心 10°），目标 5° 仍在内
+  // row 2（中心 20°）：目标 5° 距行中心 15° > 半门 10° → 门失败。
+  const sbirs_sensor::pipeline::SbirsPipelineResult third = run_cycle(3U, 11.0f);
+  EXPECT_TRUE(third.detections.empty());
+  EXPECT_NE(FindIssue(third, sbirs_sensor::session::codes::kTargetOutOfWfov), nullptr);
+  EXPECT_EQ(pipeline.CaptureRuntimeState().scan_row_index, 2);
+}
+
+TEST(SbirsPipelineTest, CrossRowTargetRevisitPeriod) {
+  // 跨行重访：目标 el 0°（位于行 0 中心），行 0 探测后行推进到行 1（中心 20°，
+  // FOV_el=16 半门 8 → 目标落出栅格），一个完整行内扫描周期（span/rate = 10s）
+  // 后回到行 0 重访。kWideSearch 隔离 NFOV 状态累积。
+  sbirs_sensor::config::SbirsSessionConfig config = PipelineConfig();
+  config.mission.work_mode = sbirs_sensor::config::SbirsWorkMode::kWideSearch;
+  config.mission.scan_start_az_deg = 0.0f;
+  config.mission.scan_span_deg = 10.0f;
+  config.mission.scan_rate_deg_per_sec = 1.0f;
+  config.mission.wide_field_fov_az_deg = 30.0f;
+  config.mission.wide_field_fov_el_deg = 16.0f;
+  config.mission.scan_el_start_deg = 0.0f;
+  config.mission.scan_el_span_deg = 20.0f;
+  config.mission.scan_el_step_deg = 20.0f;  // 2 行：中心 0°/20°
+  sbirs_sensor::pipeline::SbirsPipeline pipeline(
+      sbirs_sensor::runtime::MapSessionToInternal(config));
+  const auto run_cycle = [&](std::uint32_t index, float dt_sec) {
+    sbirs_sensor::session::SbirsCycleInput input =
+        sbirs_sensor::session::SbirsCycleInputBuilder()
+            .WithCycleIndex(index)
+            .WithDeltaTimeSec(dt_sec)
+            .WithUtcJulianDay(2451544.2230698913)  // GMST≈0：ECI≡ECEF
+            .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
+            .WithSatelliteVelocity(sbirs_sensor::session::SbirsVector3M{})
+            .WithSatelliteAttitude(sbirs_sensor::session::SbirsEulerAnglesDeg{})
+            .AddTarget(HotTargetAtAngles(1U, 0.0, 0.0))
+            .Build();
+    return pipeline.RunCycle(input);
+  };
+  EXPECT_EQ(run_cycle(1U, 1.0f).detections.size(), 1U);   // row 0：探测
+  EXPECT_EQ(run_cycle(2U, 11.0f).detections.size(), 0U);  // row 1（el 20°）：出栅格
+  // 每行行内周期 10s（span/rate），两行后回到 row 0 → 重访。
+  EXPECT_EQ(run_cycle(3U, 11.0f).detections.size(), 1U);  // row 0：重访
+  EXPECT_EQ(pipeline.CaptureRuntimeState().scan_row_index, 0);
+}
+
+TEST(SbirsPipelineTest, ElevationRasterSnapshotRestoreRoundTrip) {
+  // 快照契约：row+phase 往返逐位一致；Restore 拒绝越界 row（快照损坏路径）。
+  sbirs_sensor::config::SbirsSessionConfig config = PipelineConfig();
+  config.mission.scan_el_start_deg = 0.0f;
+  config.mission.scan_el_span_deg = 20.0f;
+  config.mission.scan_el_step_deg = 10.0f;
+  const sbirs_sensor::session::SbirsCycleInput input = TwoTargetInput(1U);
+  sbirs_sensor::pipeline::SbirsPipeline pipeline(
+      sbirs_sensor::runtime::MapSessionToInternal(config));
+  pipeline.RunCycle(input);
+  const sbirs_sensor::pipeline::SbirsPipelineSnapshot snapshot = pipeline.CaptureRuntimeState();
+  EXPECT_EQ(snapshot.scan_row_index, 0);
+  ASSERT_TRUE(pipeline.RestoreRuntimeState(snapshot));
+  EXPECT_EQ(pipeline.CaptureRuntimeState().scan_row_index, 0);
+  EXPECT_FLOAT_EQ(pipeline.CaptureRuntimeState().scan_phase_deg, snapshot.scan_phase_deg);
+
+  // 越界 row（3 ≥ row_count=3）→ 拒绝；负 row → 拒绝。
+  sbirs_sensor::pipeline::SbirsPipelineSnapshot out_of_range = snapshot;
+  out_of_range.scan_row_index = 3;
+  EXPECT_FALSE(pipeline.RestoreRuntimeState(out_of_range));
+  out_of_range.scan_row_index = -1;
+  EXPECT_FALSE(pipeline.RestoreRuntimeState(out_of_range));
+}
+
+TEST(SbirsPipelineTest, ElevationRasterSectorPatchReanchorsRow) {
+  // 扇区 patch：改 el 栅格且 impact.scan_sector_changed 置位 → 旧行中心 el 映射到
+  // 新栅格最近行；行内 az 相位按旧绝对方位保持（同 apply 语义）。
+  sbirs_sensor::config::SbirsSessionConfig config = PipelineConfig();
+  config.mission.scan_start_az_deg = 0.0f;
+  config.mission.scan_span_deg = 10.0f;
+  config.mission.scan_rate_deg_per_sec = 1.0f;
+  config.mission.scan_el_start_deg = 0.0f;
+  config.mission.scan_el_span_deg = 20.0f;
+  config.mission.scan_el_step_deg = 10.0f;
+  sbirs_sensor::pipeline::SbirsPipeline pipeline(
+      sbirs_sensor::runtime::MapSessionToInternal(config));
+  pipeline.RunCycle(TwoTargetInput(1U));  // row 0（el 0°），phase 1°
+  EXPECT_EQ(pipeline.CaptureRuntimeState().scan_row_index, 0);
+  const float previous_phase = pipeline.CaptureRuntimeState().scan_phase_deg;
+
+  // 新栅格 [-10, 10] step 10（行中心 -10/0/10）：旧行中心 el 0° → 最近行索引 1（el 0°）。
+  sbirs_sensor::config::SbirsSessionConfig next = config;
+  next.mission.scan_el_start_deg = -10.0f;
+  next.mission.scan_el_span_deg = 20.0f;
+  next.mission.scan_el_step_deg = 10.0f;
+  sbirs_sensor::runtime::SbirsRuntimeConfigImpact impact;
+  impact.scan_sector_changed = true;
+  pipeline.ApplyConfig(sbirs_sensor::runtime::MapSessionToInternal(next), impact);
+  EXPECT_EQ(pipeline.CaptureRuntimeState().scan_row_index, 1);
+  EXPECT_FLOAT_EQ(pipeline.CaptureRuntimeState().scan_phase_deg, previous_phase);
+
+  // 新栅格不含旧 el：[-40, -20] step 10（行中心 -40/-30/-20），旧 el 0° 不在内 → 行归零。
+  sbirs_sensor::config::SbirsSessionConfig outside = next;
+  outside.mission.scan_el_start_deg = -40.0f;
+  outside.mission.scan_el_span_deg = 20.0f;
+  outside.mission.scan_el_step_deg = 10.0f;
+  pipeline.ApplyConfig(sbirs_sensor::runtime::MapSessionToInternal(outside), impact);
+  EXPECT_EQ(pipeline.CaptureRuntimeState().scan_row_index, 0);
 }
 
 }  // namespace

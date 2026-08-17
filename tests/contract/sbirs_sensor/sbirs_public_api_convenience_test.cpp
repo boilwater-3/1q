@@ -88,6 +88,9 @@ TEST(SbirsPublicApiConvenienceTest, SessionConfigFieldsAreAssignable) {
   config.hardware.optical_aperture_m = 0.8f;
   config.mission.scan_span_deg = 90.0f;
   config.mission.scan_direction = config::SbirsScanDirection::kDecreasingAzimuth;
+  config.mission.scan_el_start_deg = -5.0f;  // 阶段 4 俯仰栅格字段可赋值
+  config.mission.scan_el_span_deg = 30.0f;
+  config.mission.scan_el_step_deg = 10.0f;
   config.mission.scan_rate_deg_per_sec = 12.0f;
   config.mission.narrow_pointing_max_slew_rate_deg_per_sec = 45.0f;
   config.mission.narrow_pointing_settle_tolerance_deg = 0.02f;
@@ -104,6 +107,9 @@ TEST(SbirsPublicApiConvenienceTest, SessionConfigFieldsAreAssignable) {
   EXPECT_FLOAT_EQ(config.hardware.optical_aperture_m, 0.8f);
   EXPECT_FLOAT_EQ(config.mission.scan_span_deg, 90.0f);
   EXPECT_EQ(config.mission.scan_direction, config::SbirsScanDirection::kDecreasingAzimuth);
+  EXPECT_FLOAT_EQ(config.mission.scan_el_start_deg, -5.0f);
+  EXPECT_FLOAT_EQ(config.mission.scan_el_span_deg, 30.0f);
+  EXPECT_FLOAT_EQ(config.mission.scan_el_step_deg, 10.0f);
   EXPECT_FLOAT_EQ(config.mission.scan_rate_deg_per_sec, 12.0f);
   EXPECT_FLOAT_EQ(config.mission.narrow_pointing_max_slew_rate_deg_per_sec, 45.0f);
   EXPECT_FLOAT_EQ(config.mission.narrow_pointing_settle_tolerance_deg, 0.02f);

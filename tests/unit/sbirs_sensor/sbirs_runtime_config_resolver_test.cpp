@@ -149,6 +149,41 @@ TEST(SbirsRuntimeConfigResolverTest, EnvironmentAndScanRatePreserveAccumulatedSt
   EXPECT_FALSE(resolved.impact.nfov_channel_count_changed);
 }
 
+TEST(SbirsRuntimeConfigResolverTest, ElevationRasterChangeClassifiesAsScanSector) {
+  // 阶段 4：任一 el 栅格字段变化须触发 scan_sector_changed（ApplyConfig 据此重锚行）。
+  sbirs_sensor::config::SbirsSessionConfig current;
+  sbirs_sensor::config::SbirsSessionConfig next = current;
+  next.mission.scan_el_start_deg = -5.0f;
+  next.mission.scan_el_span_deg = 30.0f;
+  next.mission.scan_el_step_deg = 10.0f;
+
+  const auto patch = sbirs_sensor::config::SbirsRuntimeConfigBuilder()
+                         .WithMission(next.mission)
+                         .Build();
+  const auto resolved = sbirs_sensor::runtime::ResolveSbirsRuntimeConfigPatch(current, patch);
+  ASSERT_TRUE(resolved.is_valid);
+  EXPECT_TRUE(resolved.impact.scan_sector_changed);
+
+  // 单独改 step 同样触发。
+  sbirs_sensor::config::SbirsSessionConfig step_only = current;
+  step_only.mission.scan_el_step_deg = 4.0f;
+  const auto step_patch = sbirs_sensor::config::SbirsRuntimeConfigBuilder()
+                              .WithMission(step_only.mission)
+                              .Build();
+  const auto step_resolved =
+      sbirs_sensor::runtime::ResolveSbirsRuntimeConfigPatch(current, step_patch);
+  ASSERT_TRUE(step_resolved.is_valid);
+  EXPECT_TRUE(step_resolved.impact.scan_sector_changed);
+
+  // 未变栅格 → 不触发。
+  const auto no_change = sbirs_sensor::runtime::ResolveSbirsRuntimeConfigPatch(
+      current, sbirs_sensor::config::SbirsRuntimeConfigBuilder()
+                   .WithMission(current.mission)
+                   .Build());
+  ASSERT_TRUE(no_change.is_valid);
+  EXPECT_FALSE(no_change.impact.scan_sector_changed);
+}
+
 TEST(SbirsRuntimeConfigResolverTest, WorkModeTransitionsClassifyOnlyEntryCleanup) {
   const sbirs_sensor::config::SbirsSessionConfig current;
   const auto wide_patch = sbirs_sensor::config::SbirsRuntimeConfigBuilder()

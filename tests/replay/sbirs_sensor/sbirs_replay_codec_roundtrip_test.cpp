@@ -166,6 +166,7 @@ TEST(SbirsReplayCodecRoundtripTest, OutputFramePreservesAllFields) {
   SbirsOutputFrame frame;
   frame.cycle_index = 7U;
   frame.scan_azimuth_rad = -15.5f;
+  frame.scan_elevation_rad = 0.25f;  // 阶段 4：2-D 栅格当前行中心俯仰（非默认防漏读）
 
   SbirsDetectionRecord detection;
   detection.detection_id = 33U;
@@ -183,6 +184,7 @@ TEST(SbirsReplayCodecRoundtripTest, OutputFramePreservesAllFields) {
 
   EXPECT_EQ(decoded.cycle_index, 7U);
   EXPECT_FLOAT_EQ(decoded.scan_azimuth_rad, -15.5f);
+  EXPECT_FLOAT_EQ(decoded.scan_elevation_rad, 0.25f);
   ASSERT_EQ(decoded.detections.size(), 1U);
   EXPECT_EQ(decoded.detections[0].detection_id, 33U);
   EXPECT_FLOAT_EQ(decoded.detections[0].azimuth_rad, 1.5f);
@@ -327,6 +329,10 @@ TEST(SbirsReplayCodecRoundtripTest, SessionConfigPreservesAllDomains) {
   config.mission.scan_start_az_deg = 170.0f;
   config.mission.scan_span_deg = 45.0f;
   config.mission.scan_direction = SbirsScanDirection::kDecreasingAzimuth;
+  config.mission.scan_center_el_deg = 6.0f;
+  config.mission.scan_el_start_deg = -10.0f;  // 阶段 4 俯仰栅格：非默认值防 decode 漏读
+  config.mission.scan_el_span_deg = 20.0f;
+  config.mission.scan_el_step_deg = 5.0f;
   config.mission.scan_rate_deg_per_sec = 3.0f;
   config.mission.narrow_cue_latency_s = 0.05f;
   config.mission.narrow_pointing_max_slew_rate_deg_per_sec = 17.5f;
@@ -382,6 +388,10 @@ TEST(SbirsReplayCodecRoundtripTest, SessionConfigPreservesAllDomains) {
   EXPECT_FLOAT_EQ(decoded.mission.scan_start_az_deg, 170.0f);
   EXPECT_FLOAT_EQ(decoded.mission.scan_span_deg, 45.0f);
   EXPECT_EQ(decoded.mission.scan_direction, SbirsScanDirection::kDecreasingAzimuth);
+  EXPECT_FLOAT_EQ(decoded.mission.scan_center_el_deg, 6.0f);
+  EXPECT_FLOAT_EQ(decoded.mission.scan_el_start_deg, -10.0f);
+  EXPECT_FLOAT_EQ(decoded.mission.scan_el_span_deg, 20.0f);
+  EXPECT_FLOAT_EQ(decoded.mission.scan_el_step_deg, 5.0f);
   EXPECT_FLOAT_EQ(decoded.mission.scan_rate_deg_per_sec, 3.0f);
   EXPECT_FLOAT_EQ(decoded.mission.narrow_pointing_max_slew_rate_deg_per_sec, 17.5f);
   EXPECT_FLOAT_EQ(decoded.mission.narrow_pointing_settle_tolerance_deg, 0.025f);
