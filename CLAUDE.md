@@ -72,9 +72,12 @@ ctest --preset "$preset" --output-on-failure -j 4
   cmake --build build/VisualStudio.15.0-amd64 --target <target> --config Debug -- -p:UseEnv=true -m -v:m -nologo
   ```
 
-  另注：该环境（MSVC v141 Debug CRT）存在两处**既有**测试失败，与代码改动无关——
-  `SbirsExclusionCauseRecorderTest` 全套 bad_alloc、`integration::airborne_radar`
-  0xc0000409 崩溃（两者在未改动基线上复现一致）。
+  另注（2026-08-17 勘误）：该环境（MSVC v141 Debug CRT）曾记录
+  `SbirsExclusionCauseRecorderTest` 全套 bad_alloc 为"既有基线失败"——已证实为
+  **陈旧构建产物**：头文件布局变更后增量 Unity 构建未重建全部 TU，Debug 强检查下出现
+  SEH 崩溃；删除 `build/.../src/sbirs_sensor` 产物强制全量重建后 203 例 sbirs unit 全绿。
+  若 Debug 测试出现无代码逻辑相关的 SEH 0xc0000005/bad_alloc，先做全量重建再定位。
+  `integration::airborne_radar` 0xc0000409 仍为独立既有问题。
 
 ## Documentation
 

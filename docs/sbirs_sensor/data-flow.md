@@ -258,7 +258,10 @@ flowchart LR
 5. 卫星速度（`satellite_velocity_ecef_m_per_s`）必填（2026-08-17 起，合同指标 2）：缺失或非有限即
     校验拒绝（code `sbirs.validation.invalid_satellite_velocity`）；ECEF 零向量合法（如 GEO 卫星）。
     速度旋入 ECI 后与目标速度合成相对视线角速度，驱动动态滞后误差、cue 延迟外推与 EKF R 阵。
-6. 启用 environment override 时，天气/海况枚举、绝对温度下限、湿度、能见度、透过率和交互权重全部校验。
+6. 卫星姿态（`satellite_attitude_eci_body_deg`）必填（2026-08-17 起，阶段 2 指向合成链）：缺失或
+    非有限即校验拒绝（code `sbirs.validation.invalid_satellite_attitude`）；零欧拉合法（体轴对齐
+    ECI）。姿态与安装角复合为指向合成链，驱动 WFOV/NFOV 内部光轴几何。
+7. 启用 environment override 时，天气/海况枚举、绝对温度下限、湿度、能见度、透过率和交互权重全部校验。
 
 拒绝周期不捕获也不恢复 pipeline（其随机源、扫描、cue、ATP、调度和跟踪状态从未推进），`Step()`
 返回默认空帧，**不复用上一有效输出**（规则 8）。

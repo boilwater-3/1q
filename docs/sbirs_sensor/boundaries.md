@@ -122,6 +122,12 @@ status/stage/reason/coasting/gate 语义派生，不直接公开 internal `Sbirs
     2026-08-17 起）；进 attribution/debug/lifecycle，进 replay；不进 raw output。
     SNR 门失败目标不产生归属记录，其 d_max 数值写入 `sbirs.target_snr_below_threshold`
     issue 消息（人读诊断）。
+1c. `SbirsCycleInput.satellite_attitude_eci_body_deg`：卫星姿态（Body→ECI，Z-Y-X 欧拉，
+    必填，零欧拉合法 = 体轴对齐 ECI；2026-08-17 阶段 2 起）；与 `SbirsOrientationConfig` 安装角
+    合成指向链，只影响内部光轴几何，不进输出；进 replay。
+1d. `SbirsOrientationConfig`（安装指向域，静态初始化配置，不进 RuntimeConfigPatch）：
+    `mount_angles_deg`（Body→Sensor）、`sensor_scan_limits_deg`（传感器系扫描限位）、
+    `stabilization_mode`（体/惯性稳定）；进 session replay。
 2. `SbirsCaptureFailureReason` + `capture_failure_reason`：捕获失败/调度跳过/NIS 丢锁诊断；进 attribution
    与 lifecycle reason，进 replay。
 3. 闭环跟踪诊断（实际光轴误差、几何/SNR 门状态、连续失败计数、coasting 标志）：进 attribution/debug/

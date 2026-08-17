@@ -30,7 +30,41 @@ Answers: SBIRS 用了哪些算法、各自实现到什么地步、边界在哪�
 | 气象衰减 | 查表+加权叠加得透过率衰减因子 | 生产可用 | [evidence: tests/unit/sbirs_sensor/sbirs_environment_model_test] |
 | 误差模型 | 5 类误差（轨道/姿态/视场高斯 + 折射/滞后确定性；滞后随相对视线角速度 v_t−v_sat） | 生产可用 | [evidence: tests/unit/sbirs_sensor/sbirs_error_model_test] |
 | 时间相关指向扰动 | 整星共模 + 逐通道 GM + 振动的 Gauss-Markov | 生产可用 | [evidence: tests/unit/sbirs_sensor/sbirs_pointing_disturbance_test] |
+| 安装指向与稳定链 | 卫星姿态(Body→ECI)∘安装角(Body→Sensor)∘扫描指向合成实际光轴；体/惯性双稳定；传感器系限位 | 生产可用（阶段 2，2026-08-17） | [evidence: tests/unit/sbirs_sensor/sbirs_boresight_chain_test] |
 | ECEF→ECI 旋转（GMST） | 周期入口按 UTC 儒略日算 GMST，把卫星/目标位置与卫星/目标速度（含 ω×r 输运项）旋到 ECI | 生产可用（共享域 1q/coordinate/inertial_transform.h，仅 SBIRS 消费） | [evidence: tests/unit/sbirs_sensor/sbirs_eci_transform_test] |
+
+## 安装指向与稳定链（阶段 2）
+
+- **意图**：对齐 AR 的 `platform_attitude + mount_angles + scan_center` 链路，把卫星姿态与
+  传感器安装角引入 SBIRS 内部光轴几何；输出 az/el **保持 ECI 极坐标参考不变**（安装矩阵只
+  影响内部光轴，消费方兼容）。
+- **实现边界**：
+  1. 组合关系：`actual_boresight = attitude(Body→ECI) ∘ mount(Body→Sensor) ∘ scan(传感器系)`；
+     旋转矩阵由公共库 `oneq::coordinate::{BuildRotationMatrix, Compose, Inverse}` 合成
+     （Z-Y-X 欧拉，正 pitch = 正仰角），传感器系 az/el 与 ECI 采用同一
+     `(cos(el)cos(az), cos(el)sin(az), sin(el))` 约定。
+  2. 姿态为周期输入（Body→ECI，必填，零欧拉合法 = 体轴对齐 ECI）；安装角为初始化静态配置
+     （`SbirsOrientationConfig::mount_angles_deg`），不进 RuntimeConfigPatch。
+  3. 稳定方式两种：`kBodyStabilized`（默认）——扫描参数（`scan_start_az/span/el`）为传感器系
+     角度，姿态/安装直接旋转光轴足迹；`kInertialStabilized`——扫描参数为 ECI 参考方向，先得
+     期望 ECI 单位向量再经链路反解到传感器系（`Rᵀ` 旋转），物理上保持惯性方向稳定。
+  4. 传感器系扫描限位（默认 az [-180,180]、el [-90,90] 全开）约束 WFOV 扫描中心与 NFOV 命令；
+     WFOV 扫描弧段与中心俯仰须在限位窗口内（配置校验拒绝超窗配置）。
+  5. 共模/通道扰动与 NFOV settle 误差在**传感器系**叠加后形成实际指向；identity 链（零姿态 +
+     零安装角）下全部数值与历史逐位一致（203 例既有单测回归网）。
+  6. 门控作用点迁移：WFOV 门/越界诊断、NFOV 跟踪窗口与首捕窗口、NFOV 命令/初始 LOS 全部改在
+     传感器系执行；限位够不到时 actuator 停在限位边缘（AR 同款静默钳制语义），失败走既有
+     `kNfovAcquisitionFailed`/跟踪丢门路径。
+  7. EKF/cue/5 类量测误差/d_max 保持 ECI 参考不动（量测噪声不随安装链走；安装失准角误差是
+     阶段 3 范畴）。
+- **反直觉点（参考系分化）**：门控在传感器系、输出在 ECI——非零姿态下目标 ECI az/el 与传感器系
+  az/el 不同，但 raw output 仍报 ECI 参考（客户契约）；"探测与否"由传感器系几何决定，"报哪里"
+  由 ECI 惯性参考决定。
+- **COMMON 收敛决策**：本链复用公共姿态原语（`oneq::coordinate`），未为 SBIRS 引入 Eigen 内核；
+  惯性稳定反解仅 3 行矩阵运算，暂不抽 `src/common/` 内核——待第三模块需要同语义时再按
+  `src/common/radar/ScanScheduleRuntime.h` 先例收敛（决策登记，避免过早抽象）。
+- **证据**：[evidence: tests/unit/sbirs_sensor/sbirs_boresight_chain_test]
+- **证据**：[evidence: tests/unit/sbirs_sensor/sbirs_pipeline_test]
 
 ## 目标状态机（7 状态）
 
@@ -84,6 +118,9 @@ Answers: SBIRS 用了哪些算法、各自实现到什么地步、边界在哪�
   3. WFOV 搜索只处理输入场景中显式给出的目标列表，不从图像像素生成新目标。
   4. WFOV 带误差位置是仿真观测/cue，不是目标真值，也不是外部 target identity。
   5. `kWideSearch` 只产生 channel=`-1` 的 WFOV 观测，不分配 NFOV。
+  6. 扫描参数参考系（阶段 2 起）：体稳定下 `scan_start_az/scan_center_el` 为**传感器系**角度
+     （零姿态 + 零安装角下与 ECI 一致）；惯性稳定下为 ECI 参考方向，经链路反解到传感器系。
+     共模扰动与扫描限位在传感器系叠加/钳制后形成实际扫描中心。
 - **反直觉点（扇区 patch 的相位处理）**：扇区 patch 后，当前绝对方位仍位于新有向半开区间时重算 phase
   并保持指向，否则 phase 归零转到新起点；rate-only patch 保持 phase。从 SearchAndStare 切入时释放
   NFOV/pointing/filter 绑定但**保留** scan phase、测量随机流和已有 WFOV cue 历史。
@@ -95,7 +132,9 @@ Answers: SBIRS 用了哪些算法、各自实现到什么地步、边界在哪�
 - **实现边界**：
   1. 指向生成用 `SbirsCuePredictor`：角度域两点有限差分估计角速度，生成
      `u_cmd = u_measured + angular_rate × narrow_cue_latency_s`。命令**不消费目标真值速度**。
-  2. 窗口判定以 actuator 当前 LOS 为中心，叠加静态 `narrow_pointing_settle_error_deg`。
+  2. 窗口判定以 actuator 当前 LOS 为中心，叠加静态 `narrow_pointing_settle_error_deg`；
+     阶段 2 起窗口判定在**传感器系**执行（命令 = 实际指向经链转换的传感器系 az/el，
+     delayed truth = 延迟真值 ECI los 经链转换；identity 链下与历史逐位一致）。
   3. cue 延迟对真实 LOS 的评估按延迟后相对几何线性平移：
      `(p_target + v_target·τ) − (p_satellite + v_satellite·τ)`，卫星位移同样计入
      （卫星速度必填，2026-08-17 起），不做积分轨道传播。
@@ -140,6 +179,9 @@ Answers: SBIRS 用了哪些算法、各自实现到什么地步、边界在哪�
   2. 连续失败达 `nfov_tracking_gate_loss_cycles`（默认 2，必须 ≥1）才正式丢锁。
   3. 三个 tracking 状态→`WideCandidate` 时输出 `kNfovTrackingGateLost` 并释放 scheduler/ATP/滤波状态。
   4. runtime Strict↔Sensor-like 原地转换并保留 NFOV 锁；任一 Truth↔Estimated 释放不兼容跟踪状态。
+  5. 阶段 2 起命令链：ECI 命令 az/el（真值或 EKF 预测）→ 传感器系 + 限位钳制 → 链合成 ECI 单位
+     向量驱动 actuator（actuator 限速转向在 ECI 单位向量域，参考系无关，快照不变）；跟踪窗口在
+     传感器系比较。
 - **反直觉点（Estimated 的严格因果顺序）**：predict → actuator advance → geometry/SNR gate → correct。
   门失败时滤波器只预测、不采样量测、不产生 NIS，并清零连续 NIS 超限计数。
 - **证据**：[evidence: tests/unit/sbirs_sensor/sbirs_pipeline_test]
@@ -312,6 +354,7 @@ Answers: SBIRS 用了哪些算法、各自实现到什么地步、边界在哪�
   2. 共模状态每个 pipeline 一份；通道状态按物理 `channel_id` 持有，不按目标持有。
   3. 空闲通道仍随仿真时间推进；普通 release/rebind 和无关字段 patch 不重置。
   4. 全部幅值默认 0；没有可追溯设备参数时不提供仓库级非零"真实 SBIRS"常数。
-  5. 当前是传感器角度坐标系的小角度扰动，不含刚体姿态、角速度控制、反作用轮、饱和或机械耦合。
+  5. 当前是**传感器系角度坐标系**的小角度扰动（阶段 2 起：WFOV 共模叠加在传感器系扫描中心、
+     NFOV 经链转换后叠加在传感器系指向），不含刚体姿态、角速度控制、反作用轮、饱和或机械耦合。
   6. raw output 和滤波 R 不增加扰动字段；`nfov_pointing_error_deg` 表示合成后的总实际误差。
 - **证据**：[evidence: tests/unit/sbirs_sensor/sbirs_pointing_disturbance_test]

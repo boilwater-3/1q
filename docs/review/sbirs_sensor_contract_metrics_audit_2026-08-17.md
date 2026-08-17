@@ -236,6 +236,15 @@ schema/codec 直接演进，无版本化回退设计。各阶段涉及 replay �
 
 ### 阶段 2：安装矩阵与指向参数逻辑对齐 AR（架构级，最大工程）
 
+> **实施状态（2026-08-17）**：已落地于分支
+> `feature/sbirs-sensor-contract-alignment-phase2`。决策：姿态 = **欧拉角 Z-Y-X**
+> （Body→ECI，全库首个天基姿态输入；AR/EOS 的 Body→ENU 不适用）；卫星姿态**必填**
+> （has 标志 + 校验拒绝，与阶段 1 卫星速度同待遇）；默认 `kBodyStabilized`（AR 同款），
+> 扫描参数语义改**传感器系**（零姿态 + 零安装角下与 ECI 一致，既有配置零行为变化）；
+> 输出 az/el **保持 ECI 极坐标参考**。COMMON 收敛决策：复用 `oneq::coordinate` 姿态
+> 原语，未引入 Eigen 内核，惯性稳定反解仅矩阵运算、暂不抽公共内核（待第三模块需要时
+> 再收敛）。链路文件 `SbirsBoresightChain`；201 例既有单测 + 219 例全绿验证恒等回归。
+
 1. 新增 SBIRS 安装指向配置（对齐 `ArOrientationConfig` 语义）：安装欧拉角
    （Body→Sensor）、扫描限位、稳定方式；决定是否复用
    `oneq/foundation/pose_types.h` 与 AR 的姿态合成工具
