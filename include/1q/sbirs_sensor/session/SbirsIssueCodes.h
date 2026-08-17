@@ -62,6 +62,14 @@ constexpr char kFrameRateNotPositive[] = "sbirs.validation.frame_rate_not_positi
 /** @brief 扫描速率非法（须为非负有限值）。 */
 constexpr char kInvalidScanRate[] = "sbirs.validation.invalid_scan_rate";
 
+/** @brief 俯仰栅格非法（span 须非负有限、step 须正有限）。 */
+constexpr char kInvalidScanElevationRaster[] =
+    "sbirs.validation.invalid_scan_elevation_raster";
+
+/** @brief 俯仰栅格行间距超过 WFOV 俯仰视场（无隙覆盖预算违反）。 */
+constexpr char kScanElevationStepExceedsFov[] =
+    "sbirs.validation.scan_elevation_step_exceeds_fov";
+
 /** @brief 窄视场指向最大转动速率非法（须为正且有限）。 */
 constexpr char kInvalidNarrowPointingSlewRate[] =
     "sbirs.validation.invalid_narrow_pointing_slew_rate";

@@ -70,6 +70,22 @@ session::SbirsIssueList ValidateSbirsSessionConfig(const SbirsSessionConfig& con
     AddError(session::codes::kInvalidScanRate,
              "mission scan rate must be non-negative and finite", &issues);
   }
+  // 俯仰栅格（阶段 4）：span 非负有限、step 正有限；span>0 时行间距不得超 WFOV 俯仰
+  // 视场（无隙覆盖预算）。默认 span=0（单行模式）下本规则恒通过。
+  if (!std::isfinite(config.mission.scan_el_start_deg) ||
+      !std::isfinite(config.mission.scan_el_span_deg) || config.mission.scan_el_span_deg < 0.0f ||
+      !std::isfinite(config.mission.scan_el_step_deg) || config.mission.scan_el_step_deg <= 0.0f) {
+    AddError(session::codes::kInvalidScanElevationRaster,
+             "mission elevation raster requires finite el start, non-negative finite span and "
+             "positive finite step",
+             &issues);
+  } else if (config.mission.scan_el_span_deg > 0.0f &&
+             config.mission.scan_el_step_deg > config.mission.wide_field_fov_el_deg) {
+    AddError(session::codes::kScanElevationStepExceedsFov,
+             "mission elevation raster step must not exceed WFOV elevation field of view "
+             "(gap-free coverage budget)",
+             &issues);
+  }
   if (!std::isfinite(config.mission.narrow_pointing_max_slew_rate_deg_per_sec) ||
       config.mission.narrow_pointing_max_slew_rate_deg_per_sec <= 0.0f) {
     AddError(session::codes::kInvalidNarrowPointingSlewRate,
@@ -137,7 +153,12 @@ session::SbirsIssueList ValidateSbirsSessionConfig(const SbirsSessionConfig& con
                                  std::isfinite(config.mission.scan_span_deg) &&
                                  config.mission.scan_span_deg > 0.0f &&
                                  config.mission.scan_span_deg <= 360.0f &&
-                                 std::isfinite(config.mission.scan_center_el_deg);
+                                 std::isfinite(config.mission.scan_center_el_deg) &&
+                                 std::isfinite(config.mission.scan_el_start_deg) &&
+                                 std::isfinite(config.mission.scan_el_span_deg) &&
+                                 config.mission.scan_el_span_deg >= 0.0f &&
+                                 std::isfinite(config.mission.scan_el_step_deg) &&
+                                 config.mission.scan_el_step_deg > 0.0f;
   if (sensor_limits_valid && scan_params_valid) {
     const float kEps = 1.0e-4f;
     const float az_window_deg = sensor_limits.az_max_deg - sensor_limits.az_min_deg;
@@ -162,10 +183,18 @@ session::SbirsIssueList ValidateSbirsSessionConfig(const SbirsSessionConfig& con
                         : lifted_start_deg - config.mission.scan_span_deg >=
                               sensor_limits.az_min_deg - kEps);
     }
-    if (!az_path_ok || config.mission.scan_center_el_deg < sensor_limits.el_min_deg - kEps ||
-        config.mission.scan_center_el_deg > sensor_limits.el_max_deg + kEps) {
+    // 俯仰限位适配（阶段 4）：span=0 单行模式沿用既有 scan_center_el_deg 检查；
+    // span>0 栅格模式首末行中心 el（el_start 与 el_start+span）须落在限位窗口内。
+    float scan_el_first_deg = config.mission.scan_center_el_deg;
+    float scan_el_last_deg = config.mission.scan_center_el_deg;
+    if (config.mission.scan_el_span_deg > 0.0f) {
+      scan_el_first_deg = config.mission.scan_el_start_deg;
+      scan_el_last_deg = config.mission.scan_el_start_deg + config.mission.scan_el_span_deg;
+    }
+    if (!az_path_ok || scan_el_first_deg < sensor_limits.el_min_deg - kEps ||
+        scan_el_last_deg > sensor_limits.el_max_deg + kEps) {
       AddError(session::codes::kScanPathOutsideSensorLimits,
-               "mission scan sweep or center elevation exceeds sensor scan limits", &issues);
+               "mission scan sweep or elevation raster exceeds sensor scan limits", &issues);
     }
   }
   if (config.policy.detection.wide_min_snr_linear < 0.0f ||
