@@ -21,11 +21,17 @@
 #include <nanoflann.hpp>
 
 #include "1q/coordinate/position_transform.h"
+#include "common/estimation/EkfFilter.h"
+#include "common/estimation/GaussianState.h"
+#include "common/estimation/UnscentedPredictor.h"
+#include "common/estimation/UnscentedUpdater.h"
 #include "common/geometry/BearingCluster.h"
 
 namespace fusion {
 
 namespace {
+
+namespace estimation = ::oneq::common::estimation;
 
 using oneq::coordinate::EcefPositionM;
 using oneq::coordinate::LlaPositionDegM;
@@ -33,6 +39,113 @@ using oneq::coordinate::LlaPositionDegM;
 constexpr std::uint64_t kUnidentifiedKey = 0U;
 // 无身份航迹的合成键起点：与调用方身份键（约定 < 2^63）不冲突。
 constexpr std::uint64_t kSyntheticKeyBase = (1ULL << 63);
+constexpr double kRadToDeg = 57.29577951308232;
+
+// 传感器局部 ENU 基（由原点大地法向导出；极点退化时 invalid）。
+struct EnuBasis {
+  double east[3]{0.0, 0.0, 0.0};
+  double north[3]{0.0, 0.0, 0.0};
+  double up[3]{0.0, 0.0, 0.0};
+  bool valid{false};
+};
+
+EnuBasis MakeEnuBasis(const EcefPositionM& origin) {
+  EnuBasis basis;
+  const double norm = std::sqrt(origin.x_m * origin.x_m + origin.y_m * origin.y_m +
+                                origin.z_m * origin.z_m);
+  if (norm < 1.0e-6) {
+    return basis;
+  }
+  basis.up[0] = origin.x_m / norm;
+  basis.up[1] = origin.y_m / norm;
+  basis.up[2] = origin.z_m / norm;
+  // east = normalize(z_world × up) = normalize(-up_y, up_x, 0)；极点处退化。
+  const double east_norm = std::sqrt(basis.up[0] * basis.up[0] + basis.up[1] * basis.up[1]);
+  if (east_norm < 1.0e-9) {
+    return basis;
+  }
+  basis.east[0] = -basis.up[1] / east_norm;
+  basis.east[1] = basis.up[0] / east_norm;
+  basis.east[2] = 0.0;
+  // north = up × east。
+  basis.north[0] = basis.up[1] * basis.east[2] - basis.up[2] * basis.east[1];
+  basis.north[1] = basis.up[2] * basis.east[0] - basis.up[0] * basis.east[2];
+  basis.north[2] = basis.up[0] * basis.east[1] - basis.up[1] * basis.east[0];
+  basis.valid = true;
+  return basis;
+}
+
+double Dot3(const double* a, const double* b) {
+  return a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+}
+
+/**
+ * @brief ENU 方位量测模型（P2）：h(x) = 目标 ECEF 相对原点的传感器局部 ENU az/el（deg）。
+ * @note az 自北向东 [-180,180]、el 出地平 [-90,90]（DetectionRecord 量测原点契约）。
+ *       仅被无迹更新器消费（Function）；Jacobian 为解析实现供接口完备。
+ */
+class EnuBearingMeasurementModel final : public estimation::IMeasurementModel<6, 2> {
+ public:
+  void SetGeometry(const EcefPositionM& origin) {
+    origin_ = origin;
+    basis_ = MakeEnuBasis(origin);
+  }
+  bool HasValidGeometry() const { return basis_.valid; }
+
+  MeasurementVector Function(const StateVector& state) const override {
+    MeasurementVector z;
+    const double d[3] = {static_cast<double>(state(0)) - origin_.x_m,
+                         static_cast<double>(state(2)) - origin_.y_m,
+                         static_cast<double>(state(4)) - origin_.z_m};
+    const double e = Dot3(d, basis_.east);
+    const double n = Dot3(d, basis_.north);
+    const double u = Dot3(d, basis_.up);
+    const double range = std::sqrt(Dot3(d, d));
+    const double sin_el = (range > 1.0e-9) ? std::max(-1.0, std::min(1.0, u / range)) : 0.0;
+    z(0) = static_cast<float>(std::atan2(e, n) * kRadToDeg);
+    z(1) = static_cast<float>(std::asin(sin_el) * kRadToDeg);
+    return z;
+  }
+
+  MeasurementMatrix Jacobian(const StateVector& state) const override {
+    MeasurementMatrix h = MeasurementMatrix::Zero();
+    if (!basis_.valid) {
+      return h;
+    }
+    const double d[3] = {static_cast<double>(state(0)) - origin_.x_m,
+                         static_cast<double>(state(2)) - origin_.y_m,
+                         static_cast<double>(state(4)) - origin_.z_m};
+    const double e = Dot3(d, basis_.east);
+    const double n = Dot3(d, basis_.north);
+    const double u = Dot3(d, basis_.up);
+    const double range = std::sqrt(Dot3(d, d));
+    const double horizontal_sq = e * e + n * n;
+    if (range < 1.0e-9 || horizontal_sq < 1.0e-9) {
+      return h;
+    }
+    const double sin_el = std::max(-1.0, std::min(1.0, u / range));
+    const double cos_el = std::sqrt(std::max(0.0, 1.0 - sin_el * sin_el));
+    if (cos_el < 1.0e-9) {
+      return h;
+    }
+    // ∂az/∂d = (n·east − e·north)/(e²+n²)（rad/m）；×kRadToDeg 转 deg/m。
+    for (int i = 0; i < 3; ++i) {
+      h(0, 2 * i) = static_cast<float>((n * basis_.east[i] - e * basis_.north[i]) /
+                                       horizontal_sq * kRadToDeg);
+    }
+    // ∂el/∂d = (r²·up − u·d)/(r³·cos_el)（rad/m）。
+    const double scale = 1.0 / (range * range * range * cos_el);
+    for (int i = 0; i < 3; ++i) {
+      h(1, 2 * i) = static_cast<float>((range * range * basis_.up[i] - u * d[i]) * scale *
+                                       kRadToDeg);
+    }
+    return h;
+  }
+
+ private:
+  EcefPositionM origin_{};
+  EnuBasis basis_{};
+};
 
 // 单次量测样本（滑窗元素）。
 struct MeasurementSample {
@@ -56,6 +169,11 @@ struct Track {
   bool has_anchor{false};
   std::size_t missed_cycles{0U};
   std::uint64_t last_update_cycle{0U};
+  std::size_t hits{0U};            /**< 累计命中数（确认门输入） */
+  bool filter_initialized{false};  /**< 航迹滤波器是否已起始（P2） */
+  std::uint64_t filter_cycle{0U};  /**< 滤波器最近推进周期 */
+  Eigen::Matrix<float, 6, 1> filter_mean{Eigen::Matrix<float, 6, 1>::Zero()};
+  Eigen::Matrix<float, 6, 6> filter_cov{Eigen::Matrix<float, 6, 6>::Identity()};
   Track() = default;
   explicit Track(std::uint64_t k) : key(k) {}
 };
@@ -182,6 +300,9 @@ class FusionEngine::Impl {
     // ③ 滑窗裁剪 + 失跟删除。
     PruneWindowsAndAging();
 
+    // ④ 失跟航迹的滤波外推（coasting；本周期已更新的航迹 dt=0 自然跳过）。
+    AdvanceFilters(cycle);
+
     return BuildOutput();
   }
 
@@ -208,6 +329,10 @@ class FusionEngine::Impl {
     track->has_anchor = true;
     track->missed_cycles = 0U;
     track->last_update_cycle = cycle;
+    ++track->hits;
+    if (config_.enable_track_filtering) {
+      ApplyFilterSample(track, detection, cycle);
+    }
   }
 
   // 特征门限：未启用（threshold <= 0）或任一侧无特征/维度不一致时不构成约束。
@@ -361,6 +486,170 @@ class FusionEngine::Impl {
     return 1.0;
   }
 
+  // ---- 逐航迹无迹滤波（P2，实现边界见 docs/fusion/algorithms.md §4） ----
+
+  void SetIsotropicCovariance(Track* track, double position_std, double velocity_std) const {
+    track->filter_cov = Eigen::Matrix<float, 6, 6>::Zero();
+    for (int i = 0; i < 6; i += 2) {
+      track->filter_cov(i, i) = static_cast<float>(position_std * position_std);
+      track->filter_cov(i + 1, i + 1) = static_cast<float>(velocity_std * velocity_std);
+    }
+  }
+
+  bool InitFilter(Track* track, const DetectionRecord& detection) const {
+    if (detection.has_position) {
+      EcefPositionM ecef{};
+      if (!oneq::coordinate::TryLlaToEcef(detection.position, &ecef)) {
+        return false;
+      }
+      track->filter_mean(0) = static_cast<float>(ecef.x_m);
+      track->filter_mean(1) = 0.0f;
+      track->filter_mean(2) = static_cast<float>(ecef.y_m);
+      track->filter_mean(3) = 0.0f;
+      track->filter_mean(4) = static_cast<float>(ecef.z_m);
+      track->filter_mean(5) = 0.0f;
+      SetIsotropicCovariance(track, config_.track_initial_position_std_m,
+                             config_.track_initial_velocity_std_m_per_s);
+      track->filter_initialized = true;
+      return true;
+    }
+    if (detection.has_bearing && detection.has_sensor_origin) {
+      EcefPositionM origin{};
+      if (!oneq::coordinate::TryLlaToEcef(detection.sensor_origin, &origin)) {
+        return false;
+      }
+      const EnuBasis basis = MakeEnuBasis(origin);
+      if (!basis.valid) {
+        return false;
+      }
+      // LOS 单位向量（ENU az 自北向东、el 出地平）→ ECEF。
+      const double az_rad = detection.bearing_az_deg / kRadToDeg;
+      const double el_rad = detection.bearing_el_deg / kRadToDeg;
+      const double e = std::sin(az_rad) * std::cos(el_rad);
+      const double n = std::cos(az_rad) * std::cos(el_rad);
+      const double u = std::sin(el_rad);
+      track->filter_mean(0) =
+          static_cast<float>(origin.x_m + config_.track_bearing_init_range_m *
+                                                      (e * basis.east[0] + n * basis.north[0] +
+                                                       u * basis.up[0]));
+      track->filter_mean(1) = 0.0f;
+      track->filter_mean(2) =
+          static_cast<float>(origin.y_m + config_.track_bearing_init_range_m *
+                                                      (e * basis.east[1] + n * basis.north[1] +
+                                                       u * basis.up[1]));
+      track->filter_mean(3) = 0.0f;
+      track->filter_mean(4) =
+          static_cast<float>(origin.z_m + config_.track_bearing_init_range_m *
+                                                      (e * basis.east[2] + n * basis.north[2] +
+                                                       u * basis.up[2]));
+      track->filter_mean(5) = 0.0f;
+      SetIsotropicCovariance(track, config_.track_bearing_init_range_std_m,
+                             config_.track_initial_velocity_std_m_per_s);
+      track->filter_initialized = true;
+      return true;
+    }
+    return false;  // 无位置且无（方位+原点）：不起始滤波器。
+  }
+
+  void PredictTrack(Track* track, float dt) const {
+    estimation::UnscentedPredictorConfig predictor_config;
+    predictor_config.noise_diff_coeff = config_.track_process_noise;
+    const estimation::LinearCvTransitionModel<6> cv_model;
+    const estimation::UnscentedPredictor<6, 2> predictor(&cv_model, predictor_config);
+    estimation::GaussianState<6, 2> state;
+    state.mean = track->filter_mean;
+    state.covariance = track->filter_cov;
+    const estimation::GaussianState<6, 2> predicted = predictor.Predict(state, dt);
+    track->filter_mean = predicted.mean;
+    track->filter_cov = predicted.covariance;
+  }
+
+  void ApplyFilterSample(Track* track, const DetectionRecord& detection, std::uint64_t cycle) {
+    if (!track->filter_initialized) {
+      if (!InitFilter(track, detection)) {
+        return;
+      }
+      track->filter_cycle = cycle;
+    }
+    const double dt =
+        static_cast<double>(cycle - track->filter_cycle) * config_.track_cycle_period_sec;
+    if (dt > 0.0) {
+      PredictTrack(track, static_cast<float>(dt));
+      track->filter_cycle = cycle;
+    }
+
+    if (detection.has_position) {
+      EcefPositionM z_ecef{};
+      if (!oneq::coordinate::TryLlaToEcef(detection.position, &z_ecef)) {
+        return;
+      }
+      const estimation::LinearPositionMeasurementModel<6, 3> position_model;
+      estimation::UnscentedUpdaterConfig updater_config;
+      updater_config.measurement_noise_std = config_.default_position_noise_std_m;
+      const estimation::UnscentedUpdater<6, 3> updater(&position_model, updater_config);
+      estimation::GaussianState<6, 3> state;
+      state.mean = track->filter_mean;
+      state.covariance = track->filter_cov;
+      estimation::GaussianState<6, 3>::MeasurementVector z;
+      z(0) = static_cast<float>(z_ecef.x_m);
+      z(1) = static_cast<float>(z_ecef.y_m);
+      z(2) = static_cast<float>(z_ecef.z_m);
+      const auto posterior = updater.Update(state, z).posterior;
+      track->filter_mean = posterior.mean;
+      track->filter_cov = posterior.covariance;
+      return;
+    }
+
+    if (detection.has_bearing && detection.has_sensor_origin) {
+      const double sigma_rad = detection.has_bearing_noise
+                                   ? detection.bearing_noise_sigma_rad
+                                   : config_.default_bearing_noise_sigma_rad;
+      if (!(sigma_rad > 0.0)) {
+        return;
+      }
+      EnuBearingMeasurementModel bearing_model;
+      EcefPositionM origin{};
+      if (!oneq::coordinate::TryLlaToEcef(detection.sensor_origin, &origin)) {
+        return;
+      }
+      bearing_model.SetGeometry(origin);
+      if (!bearing_model.HasValidGeometry()) {
+        return;
+      }
+      estimation::UnscentedUpdaterConfig updater_config;
+      const double sigma_deg = sigma_rad * kRadToDeg;
+      updater_config.measurement_noise_std = static_cast<float>(sigma_deg);
+      const estimation::UnscentedUpdater<6, 2> updater(&bearing_model, updater_config);
+      estimation::GaussianState<6, 2> state;
+      state.mean = track->filter_mean;
+      state.covariance = track->filter_cov;
+      estimation::GaussianState<6, 2>::MeasurementVector z;
+      z(0) = static_cast<float>(detection.bearing_az_deg);
+      z(1) = static_cast<float>(detection.bearing_el_deg);
+      const auto posterior = updater.Update(state, z).posterior;
+      track->filter_mean = posterior.mean;
+      track->filter_cov = posterior.covariance;
+    }
+  }
+
+  void AdvanceFilters(std::uint64_t cycle) {
+    if (!config_.enable_track_filtering) {
+      return;
+    }
+    for (auto& entry : tracks_) {
+      Track& track = entry.second;
+      if (!track.filter_initialized) {
+        continue;
+      }
+      const double dt =
+          static_cast<double>(cycle - track.filter_cycle) * config_.track_cycle_period_sec;
+      if (dt > 0.0) {
+        PredictTrack(&track, static_cast<float>(dt));
+        track.filter_cycle = cycle;
+      }
+    }
+  }
+
   std::vector<FusedTarget> BuildOutput() const {
     std::vector<FusedTarget> output;
     output.reserve(tracks_.size());
@@ -386,6 +675,32 @@ class FusionEngine::Impl {
       }
       target.confidence = ComputeConfidence(entry.second);
       target.last_update_cycle = entry.second.last_update_cycle;
+      const bool confirmed = entry.second.hits >= config_.confirm_hits;
+      target.lifecycle =
+          confirmed ? (entry.second.missed_cycles > 0U ? FusedTrackLifecycle::kCoasting
+                                                        : FusedTrackLifecycle::kConfirmed)
+                    : FusedTrackLifecycle::kTentative;
+      if (config_.enable_track_filtering && entry.second.filter_initialized) {
+        const Track& track = entry.second;
+        EcefPositionM ecef{};
+        ecef.x_m = track.filter_mean(0);
+        ecef.y_m = track.filter_mean(2);
+        ecef.z_m = track.filter_mean(4);
+        if (oneq::coordinate::TryEcefToLla(ecef, &target.kinematic_estimate.position)) {
+          target.has_kinematic_estimate = true;
+          target.kinematic_estimate.velocity_ecef_m_per_s = {
+              static_cast<double>(track.filter_mean(1)),
+              static_cast<double>(track.filter_mean(3)),
+              static_cast<double>(track.filter_mean(5))};
+          for (int row = 0; row < 6; ++row) {
+            for (int col = 0; col < 6; ++col) {
+              target.kinematic_estimate.covariance_ecef[static_cast<std::size_t>(row) * 6U +
+                                                        static_cast<std::size_t>(col)] =
+                  static_cast<double>(track.filter_cov(row, col));
+            }
+          }
+        }
+      }
       output.push_back(std::move(target));
     }
     return output;
