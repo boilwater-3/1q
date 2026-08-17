@@ -10,6 +10,7 @@
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <cstdint>
 #include <vector>
 
@@ -184,6 +185,142 @@ TEST(RadarTrackLifecycleRecorderTest, ZeroIdTargetsAreSkipped) {
   ArCycleResult result = MakeCycleResult(1U, /*completed=*/true, {});
   std::vector<ArTrackLifecycleEvent> events = diagnose_recorder.Update(targets, result);
   EXPECT_TRUE(events.empty());
+}
+
+// lifecycle recorder：指定航迹回退（自动丢跟踪，回 TWS）在转换沿产生 kDesignationDropped。
+TEST(RadarTrackLifecycleRecorderTest, DesignationDropEmitsEventOnRevertEdge) {
+  const ArTargetInputList targets = {MakeNamedTarget(910U, "designated")};
+
+  ArTrackLifecycleRecorder recorder;
+  // 周期 1：指定跟踪生效（confirmed 航迹 + designation_active）。
+  ArCycleResult active = MakeCycleResult(
+      1U, /*completed=*/true, {MakeTrackSnapshot(910U, "designated", session::TrackStatus::kConfirmed)});
+  active.designation_active = true;
+  active.designated_target_id = 910U;
+  active.effective_work_mode = config::ArWorkMode::kStt;
+  std::vector<ArTrackLifecycleEvent> events = recorder.Update(targets, active);
+  // 首次确认事件照常产生；回退尚未发生。
+  EXPECT_EQ(events.front().kind, ArTrackLifecycleEventKind::kFirstConfirmed);
+
+  // 周期 2：指定航迹丢失 → 回退状态（designation_active=false、reverted=true、
+  // reason=kTrackLost）→ 产生 kDesignationDropped。
+  ArCycleResult reverted = MakeCycleResult(
+      2U, /*completed=*/true, {MakeTrackSnapshot(910U, "designated", session::TrackStatus::kLost)});
+  reverted.designation_active = false;
+  reverted.designated_target_id = 910U;
+  reverted.designation_reverted_to_tws = true;
+  reverted.designation_revert_reason = ArDesignationRevertReason::kTrackLost;
+  reverted.effective_work_mode = config::ArWorkMode::kTws;
+  events = recorder.Update(targets, reverted);
+  const auto dropped = std::find_if(
+      events.begin(), events.end(), [](const ArTrackLifecycleEvent& event) {
+        return event.kind == ArTrackLifecycleEventKind::kDesignationDropped;
+      });
+  ASSERT_NE(dropped, events.end());
+  EXPECT_EQ(dropped->external_target_id, 910U);
+  EXPECT_EQ(dropped->designation_revert_reason, ArDesignationRevertReason::kTrackLost);
+
+  // 周期 3：持续回退状态不重复产生事件（转换沿语义）。
+  ArCycleResult still_reverted = reverted;
+  still_reverted.input_cycle_index = 3U;
+  events = recorder.Update(targets, still_reverted);
+  EXPECT_TRUE(std::none_of(events.begin(), events.end(), [](const ArTrackLifecycleEvent& event) {
+    return event.kind == ArTrackLifecycleEventKind::kDesignationDropped;
+  }));
+}
+
+// lifecycle recorder：限时指令捕获超时（窗口耗尽指令作废）在作废沿产生
+// kDesignationDropped（成因 kAcquisitionTimeout）；作废后指定清零不再触发。
+TEST(RadarTrackLifecycleRecorderTest, DesignationTimeoutEmitsDropEventOnExpiryEdge) {
+  const ArTargetInputList targets = {MakeNamedTarget(912U, "timeout")};
+
+  ArTrackLifecycleRecorder recorder;
+  // 周期 1-2：指定但未生效（未捕获，成因 kTrackNotConfirmed）——不产生事件。
+  for (std::uint32_t cycle = 1U; cycle <= 2U; ++cycle) {
+    ArCycleResult pending = MakeCycleResult(cycle, /*completed=*/true, {});
+    pending.designation_active = false;
+    pending.designated_target_id = 912U;
+    pending.designation_reverted_to_tws = true;
+    pending.designation_revert_reason = ArDesignationRevertReason::kTrackNotConfirmed;
+    pending.effective_work_mode = config::ArWorkMode::kTws;
+    const std::vector<ArTrackLifecycleEvent> events = recorder.Update(targets, pending);
+    EXPECT_TRUE(std::none_of(events.begin(), events.end(), [](const ArTrackLifecycleEvent& event) {
+      return event.kind == ArTrackLifecycleEventKind::kDesignationDropped;
+    }));
+  }
+
+  // 周期 3：作废沿（成因 kAcquisitionTimeout，ID 保留）→ 产生 kDesignationDropped。
+  ArCycleResult expiry = MakeCycleResult(3U, /*completed=*/true, {});
+  expiry.designation_active = false;
+  expiry.designated_target_id = 912U;
+  expiry.designation_reverted_to_tws = true;
+  expiry.designation_revert_reason = ArDesignationRevertReason::kAcquisitionTimeout;
+  expiry.effective_work_mode = config::ArWorkMode::kTws;
+  std::vector<ArTrackLifecycleEvent> events = recorder.Update(targets, expiry);
+  const auto dropped = std::find_if(
+      events.begin(), events.end(), [](const ArTrackLifecycleEvent& event) {
+        return event.kind == ArTrackLifecycleEventKind::kDesignationDropped;
+      });
+  ASSERT_NE(dropped, events.end());
+  EXPECT_EQ(dropped->external_target_id, 912U);
+  EXPECT_EQ(dropped->designation_revert_reason, ArDesignationRevertReason::kAcquisitionTimeout);
+
+  // 周期 4：作废后指定清零（无回退报告）→ 不再产生事件（转换沿语义）。
+  ArCycleResult settled = expiry;
+  settled.input_cycle_index = 4U;
+  settled.designated_target_id = 0U;
+  settled.designation_reverted_to_tws = false;
+  settled.designation_revert_reason = ArDesignationRevertReason::kNone;
+  events = recorder.Update(targets, settled);
+  EXPECT_TRUE(std::none_of(events.begin(), events.end(), [](const ArTrackLifecycleEvent& event) {
+    return event.kind == ArTrackLifecycleEventKind::kDesignationDropped;
+  }));
+}
+
+// lifecycle recorder：显式 dwell 覆盖（designation_active=false 但非回退）不产生丢跟踪事件。
+TEST(RadarTrackLifecycleRecorderTest, ExplicitDwellOverrideDoesNotEmitDropEvent) {
+  const ArTargetInputList targets = {MakeNamedTarget(911U, "dwell-override")};
+
+  ArTrackLifecycleRecorder recorder;
+  // 周期 1：指定目标航迹 confirmed，但显式 dwell 覆盖使 designation_active=false、
+  // reverted=false（指向按现状语义）。
+  ArCycleResult overridden = MakeCycleResult(
+      1U, /*completed=*/true,
+      {MakeTrackSnapshot(911U, "dwell-override", session::TrackStatus::kConfirmed)});
+  overridden.designation_active = false;
+  overridden.designated_target_id = 911U;
+  overridden.designation_reverted_to_tws = false;
+  overridden.effective_work_mode = config::ArWorkMode::kStt;
+  std::vector<ArTrackLifecycleEvent> events = recorder.Update(targets, overridden);
+  EXPECT_TRUE(std::none_of(events.begin(), events.end(), [](const ArTrackLifecycleEvent& event) {
+    return event.kind == ArTrackLifecycleEventKind::kDesignationDropped;
+  }));
+}
+
+// debug view：STT 指定/回退状态字段从 L2 结果转写。
+TEST(RadarTrackOutputDebugViewTest, BuildTranscribesDesignationState) {
+  const ArTargetInputList targets = {MakeNamedTarget(920U, "designated")};
+  ArCycleResult result = MakeCycleResult(
+      7U, /*completed=*/true, {MakeTrackSnapshot(920U, "designated", session::TrackStatus::kLost)});
+  result.designation_active = false;
+  result.designated_target_id = 920U;
+  result.designation_reverted_to_tws = true;
+  result.designation_revert_reason = ArDesignationRevertReason::kTrackLost;
+  result.effective_work_mode = config::ArWorkMode::kTws;
+
+  const ArTrackOutputDebugView view = ArTrackOutputDebugViewBuilder::Build(ArCycleInput{}, result);
+  EXPECT_EQ(view.effective_work_mode, config::ArWorkMode::kTws);
+  EXPECT_FALSE(view.designation_active);
+  EXPECT_EQ(view.designated_target_id, 920U);
+  EXPECT_TRUE(view.designation_reverted_to_tws);
+  EXPECT_EQ(view.designation_revert_reason, ArDesignationRevertReason::kTrackLost);
+
+  // 限时指令捕获超时：作废沿成因 kAcquisitionTimeout 同样逐字段转写。
+  result.designation_revert_reason = ArDesignationRevertReason::kAcquisitionTimeout;
+  const ArTrackOutputDebugView timeout_view =
+      ArTrackOutputDebugViewBuilder::Build(ArCycleInput{}, result);
+  EXPECT_TRUE(timeout_view.designation_reverted_to_tws);
+  EXPECT_EQ(timeout_view.designation_revert_reason, ArDesignationRevertReason::kAcquisitionTimeout);
 }
 
 }  // namespace session

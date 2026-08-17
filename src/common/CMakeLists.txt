@@ -12,6 +12,9 @@ set(ONEQ_COMMON_SOURCES
     coordinate/AttitudeTransform.cpp
     coordinate/InertialTransform.cpp
     numerics/SpectralNumerics.cpp
+    optimization/LapjvSolver.cpp
+    radar/RadarEquations.cpp
+    radar/VegetationClutterModel.cpp
     rcs/RcsPhysics.cpp
     replay/ReplayTrace.cpp
     trace/TraceSink.cpp

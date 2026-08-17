@@ -93,6 +93,12 @@ python3 tests/consumer/batch_validation/analyze_batch_results.py
 | SAR | `sar_seq_multi_scatterer_resolution`、`sar_seq_squint_gate_recovery`、`sar_seq_raw_to_image`、`sar_seq_invalid_runtime_atomic`、`sar_seq_invalid_input_recovery`、`sar_seq_low_snr_recovery` |
 | SBIRS | `sbirs_seq_two_target_crossing_two_locks`、`sbirs_seq_three_target_one_lock_handoff`、`sbirs_seq_boost_maneuver_nis_reacquire`、`sbirs_seq_cue_latency_cross_velocity`、`sbirs_seq_occultation_reappearance`、`sbirs_seq_standby_mission_retask`、`sbirs_seq_invalid_input_recovery` |
 
+AR 的 `ar_seq_tws_stt_tws` 使用 STT 指定航迹跟随语义（方案 A）：周期 9 patch
+`work_mode=kStt` + `designated_external_target_id=1000`（外部只指定目标，不提供角度），
+周期 17 回 `kTws` 并清除指定；契约检查要求中断阶段出现
+`designation_active`（指向跟随指定航迹）且不出现 `designation_reverted_to_tws`
+（目标全程在场无丢失）。
+
 ## 输出布局
 
 ```

@@ -164,6 +164,7 @@ sbirs_session::SbirsCycleInput MakeInput(const SbirsCase& scenario, std::uint32_
       .WithDeltaTimeSec(1.0f)
       .WithUtcJulianDay(2451544.2230698913)  // GMST≈0：ECI≡ECEF，测试期望几何不变
       .WithSatellitePosition(Vector(kSatelliteXM, 0.0, 0.0))
+      .WithSatelliteVelocity(sbirs_sensor::session::SbirsVector3M{}).WithSatelliteAttitude(sbirs_sensor::session::SbirsEulerAnglesDeg{})
       .AddTarget(target);
   if (scenario.sequence && (scenario.scenario_id == "sbirs_seq_two_target_crossing_two_locks" ||
                             scenario.scenario_id == "sbirs_seq_three_target_one_lock_handoff" ||

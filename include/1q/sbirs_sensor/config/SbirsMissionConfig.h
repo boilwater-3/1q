@@ -35,6 +35,12 @@ struct ONEQ_API SbirsMissionConfig {
   float scan_span_deg{120.0f}; /**< WFOV 有向扫描跨度，范围 (0, 360] deg */
   SbirsScanDirection scan_direction{SbirsScanDirection::kIncreasingAzimuth}; /**< WFOV 扫描方向 */
   float scan_center_el_deg{0.0f};                          /**< WFOV 扫描中心俯仰角，单位 deg */
+  // 2-D 俯仰栅格（阶段 4）：与既有方位环扫正交组合；span=0 默认 = 既有单行模式
+  // （行中心恒为 scan_center_el_deg，历史行为逐位不变）。行中心 el 与 scan_center_el
+  // 同参考系语义（体稳定=传感器系、惯性稳定=ECI）。
+  float scan_el_start_deg{0.0f}; /**< WFOV 俯仰栅格起始行中心俯仰角，单位 deg */
+  float scan_el_span_deg{0.0f};  /**< WFOV 俯仰栅格跨度，单位 deg；0 = 单行模式（行数=1） */
+  float scan_el_step_deg{1.0f};  /**< WFOV 俯仰栅格行间距，单位 deg；span>0 时须 (0, wide_field_fov_el_deg]（无隙覆盖预算） */
   float scan_rate_deg_per_sec{10.0f};                      /**< WFOV 扫描速率，单位 deg/s */
   float min_range_m{1.0e3f};                               /**< 距离门控下限 Dmin，单位 m */
   float max_range_m{5.0e7f};                               /**< 距离门控上限 Dmax，单位 m */

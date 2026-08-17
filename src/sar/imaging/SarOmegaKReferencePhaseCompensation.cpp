@@ -1,4 +1,4 @@
-﻿#include "sar/imaging/SarOmegaKReferencePhaseCompensation.h"
+#include "sar/imaging/SarOmegaKReferencePhaseCompensation.h"
 
 #include <cmath>
 #include <complex>

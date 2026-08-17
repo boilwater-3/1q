@@ -8,7 +8,7 @@ Answers: fusion 是什么、关联键策略为何冻结为纯库内身份键、�
 # Fusion 设计
 
 `fusion` 是**多源关联 + 置信度融合算法面**（行为组件层的两个跨业务可复用算法面之一，
-决策记录见 `docs/review/Bahavior.md` §4）。它把异构探测记录（泛型：位置/方位/特征向量/
+决策记录见 `docs/review/Behavior.md` §4）。它把异构探测记录（泛型：位置/方位/特征向量/
 判决值/质量/库内身份键）聚合为融合目标态势（各源探测状态、融合置信度、各通道量测）。
 
 心智模型：**探测 → 航迹**。每周期把一批探测记录交给 `FusionEngine::Update`，
@@ -18,7 +18,7 @@ Answers: fusion 是什么、关联键策略为何冻结为纯库内身份键、�
 
 ## 关键定位
 
-- **关联键策略冻结**（`docs/review/Bahavior.md` §4.1）：无外部身份通道，纯库内身份键
+- **关联键策略冻结**（`docs/review/Behavior.md` §4.1）：无外部身份通道，纯库内身份键
   + 特征相似度门限 + 空间门限，守去真值化纪律。
 - 空间门限分层：带位置记录 → nanoflann KD-tree 半径搜索（先例：ESR
   `KdTreeClusterer` 内部 nanoflann 用法）；仅方位记录 → `src/common/geometry/

@@ -1,24 +1,23 @@
 /**
  * @file BeamwidthResolution.h
- * @brief 定义雷达名义波束宽度与指令态波束宽度的统一解析规则。
+ * @brief AR 波束宽度解析薄适配层（common 单源）。
  */
 
 #ifndef AIRBORNE_RADAR_SIGNAL_DETECTION_BEAMWIDTH_RESOLUTION_H_
 #define AIRBORNE_RADAR_SIGNAL_DETECTION_BEAMWIDTH_RESOLUTION_H_
 
-#include "airborne_radar/config/SignalEngineeringConfig.h"
 #include "1q/airborne_radar/config/ArOrientationConfig.h"
+#include "airborne_radar/config/SignalEngineeringConfig.h"
+#include "common/radar/BeamwidthResolution.h"
 
 namespace airborne_radar {
 namespace signal {
 namespace detection {
+
 /**
  * @brief EffectiveBeamwidthDeg 表示解析后的有效波束宽度（单位：度）。
  */
-struct EffectiveBeamwidthDeg {
-  float az_beamwidth_deg{0.0f}; /**< 有效方位波束宽度（单位：度）。 */
-  float el_beamwidth_deg{0.0f}; /**< 有效俯仰波束宽度（单位：度）。 */
-};
+using EffectiveBeamwidthDeg = ::oneq::common::radar::EffectiveBeamwidthDeg;
 
 /**
  * @brief 从物理孔径尺寸推导半功率波束宽度（单位：rad）。
@@ -28,11 +27,9 @@ struct EffectiveBeamwidthDeg {
  * @note 均匀孔径近似：θ_bw ≈ λ / L。
  */
 inline float DeriveBeamwidthFromApertureRad(float aperture_length_m, float wavelength_m) {
-  if (aperture_length_m <= 0.0f || wavelength_m <= 0.0f) {
-    return 0.0f;
-  }
-  return wavelength_m / aperture_length_m;
+  return ::oneq::common::radar::DeriveBeamwidthFromApertureRad(aperture_length_m, wavelength_m);
 }
+
 /**
  * @brief 解析有效波束宽度。
  * @param antenna_config 雷达体制名义天线配置。
@@ -49,31 +46,17 @@ inline EffectiveBeamwidthDeg ResolveEffectiveBeamwidth(
     const config::engineering::AntennaConfig& antenna_config,
     const config::ArOrientationConfig& orientation_config,
     float wavelength_m = 0.0f) {
-  EffectiveBeamwidthDeg beamwidth;
+  ::oneq::common::radar::CommandedBeamwidthOverride override;
   if (orientation_config.commanded_beamwidth_enabled) {
-    beamwidth.az_beamwidth_deg =
+    override.enabled = true;
+    override.az_beamwidth_deg =
         orientation_config.commanded_beamwidth_deg.commanded_az_beamwidth_deg;
-    beamwidth.el_beamwidth_deg =
+    override.el_beamwidth_deg =
         orientation_config.commanded_beamwidth_deg.commanded_el_beamwidth_deg;
-    return beamwidth;
   }
-
-  beamwidth.az_beamwidth_deg = antenna_config.nominal_az_beamwidth_deg;
-  beamwidth.el_beamwidth_deg = antenna_config.nominal_el_beamwidth_deg;
-
-  constexpr float kRad2Deg = 180.0f / 3.14159265358979f;
-  if (beamwidth.az_beamwidth_deg <= 0.0f && antenna_config.antenna_length_m > 0.0f &&
-      wavelength_m > 0.0f) {
-    beamwidth.az_beamwidth_deg =
-        DeriveBeamwidthFromApertureRad(antenna_config.antenna_length_m, wavelength_m) * kRad2Deg;
-  }
-  if (beamwidth.el_beamwidth_deg <= 0.0f && antenna_config.antenna_width_m > 0.0f &&
-      wavelength_m > 0.0f) {
-    beamwidth.el_beamwidth_deg =
-        DeriveBeamwidthFromApertureRad(antenna_config.antenna_width_m, wavelength_m) * kRad2Deg;
-  }
-
-  return beamwidth;
+  return ::oneq::common::radar::ResolveEffectiveBeamwidth(
+      antenna_config.nominal_az_beamwidth_deg, antenna_config.nominal_el_beamwidth_deg,
+      antenna_config.antenna_length_m, antenna_config.antenna_width_m, wavelength_m, override);
 }
 
 }  // namespace detection

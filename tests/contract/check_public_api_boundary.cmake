@@ -23,7 +23,6 @@ set(AR_PUBLIC_PRIMARY_HEADERS
     "airborne_radar/config/ArRuntimeConfigPatch.h"
     "airborne_radar/config/ArRuntimeConfigBuilder.h"
     "airborne_radar/config/ArProfileConstants.h"
-    "airborne_radar/config/ArRecognitionConfig.h"
     "airborne_radar/config/ArSessionConfigBuilder.h"
     "airborne_radar/config/ArSessionConfigValidation.h"
     "airborne_radar/config/ArOrientationConfig.h"
@@ -51,7 +50,6 @@ set(AR_SESSION_HEADERS
     "airborne_radar/session/ArTraceSession.h"
     "airborne_radar/session/ArCommand.h"
     "airborne_radar/session/ArControlProfile.h"
-    "airborne_radar/session/ArRecognitionResult.h"
     "airborne_radar/session/DecisionControlTypes.h"
     "airborne_radar/session/DecisionInputFrame.h"
     "airborne_radar/session/TrackStateSnapshot.h"
@@ -110,6 +108,7 @@ set(SBIRS_CONFIG_HEADERS
     "sbirs_sensor/config/SbirsEnvironmentConfig.h"
     "sbirs_sensor/config/SbirsHardwareConfig.h"
     "sbirs_sensor/config/SbirsMissionConfig.h"
+    "sbirs_sensor/config/SbirsOrientationConfig.h"
     "sbirs_sensor/config/SbirsPolicyConfig.h"
     "sbirs_sensor/config/SbirsRuntimeConfigBuilder.h"
     "sbirs_sensor/config/SbirsRuntimeConfigPatch.h"
@@ -261,8 +260,37 @@ set(SAR_SESSION_HEADERS
     "sar/session/SarTraceSession.h"
 )
 
+# ── 远程识别雷达（RIR）推荐公开主路径（四域 + 会话 + Builder + 统一入口） ──
+set(RIR_PUBLIC_PRIMARY_HEADERS
+    "remote_identification_radar/remote_identification_radar.hpp"
+    "remote_identification_radar/config/RirEnvironmentConfig.h"
+    "remote_identification_radar/config/RirHardwareConfig.h"
+    "remote_identification_radar/config/RirMissionConfig.h"
+    "remote_identification_radar/config/RirPolicyConfig.h"
+    "remote_identification_radar/config/RirProfileConstants.h"
+    "remote_identification_radar/config/RirRuntimeConfigBuilder.h"
+    "remote_identification_radar/config/RirRuntimeConfigPatch.h"
+    "remote_identification_radar/config/RirSessionConfig.h"
+    "remote_identification_radar/config/RirSessionConfigBuilder.h"
+    "remote_identification_radar/config/RirSessionConfigValidation.h"
+    "remote_identification_radar/config/remote_identification_radar_config.hpp"
+)
+
+# ── RIR 会话域
+set(RIR_SESSION_HEADERS
+    "remote_identification_radar/session/RirCycleInput.h"
+    "remote_identification_radar/session/RirCycleResult.h"
+    "remote_identification_radar/session/RirInputValidation.h"
+    "remote_identification_radar/session/RirIssueCodes.h"
+    "remote_identification_radar/session/RirOutputTypes.h"
+    "remote_identification_radar/session/RirRecognitionResult.h"
+    "remote_identification_radar/session/RirSceneTypes.h"
+    "remote_identification_radar/session/RirSession.h"
+)
+
 set(COORDINATE_HEADERS
     "coordinate/attitude_transform.h"
+    "coordinate/inertial_transform.h"
     "coordinate/position_transform.h"
     "coordinate/types.h"
     "coordinate/velocity_transform.h"
@@ -279,7 +307,6 @@ set(FOUNDATION_HEADERS
 
 set(EXPECTED_PUBLIC_HEADERS
     ${AR_PUBLIC_PRIMARY_HEADERS}
-    ${AR_OUTPUT_HEADERS}
     ${AR_SESSION_HEADERS}
     ${ROOT_HEADER}
     ${EOS_MODULE_ENTRY_HEADERS}
@@ -303,6 +330,8 @@ set(EXPECTED_PUBLIC_HEADERS
     ${SAR_MODULE_ENTRY_HEADERS}
     ${SAR_CONFIG_HEADERS}
     ${SAR_SESSION_HEADERS}
+    ${RIR_PUBLIC_PRIMARY_HEADERS}
+    ${RIR_SESSION_HEADERS}
     ${COORDINATE_HEADERS}
     ${ELECTROMAGNETICS_HEADERS}
     ${ECM_HEADERS}
@@ -363,7 +392,8 @@ set(MODULE_ENTRY_HEADERS_WITH_EXPLICIT_TOOLING
     "airborne_radar/airborne_radar.hpp"
     "electro_optical_sensor/electro_optical_sensor.hpp"
     "electronic_surveillance_radar/electronic_surveillance_radar.hpp"
-    "sar/sar.hpp")
+    "sar/sar.hpp"
+    "remote_identification_radar/remote_identification_radar.hpp")
 
 foreach(HEADER IN LISTS MODULE_ENTRY_HEADERS_WITH_EXPLICIT_TOOLING)
   file(READ "${PUBLIC_INCLUDE_DIR}/${HEADER}" MODULE_ENTRY_HEADER_CONTENT)

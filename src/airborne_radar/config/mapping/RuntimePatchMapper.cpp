@@ -70,6 +70,21 @@ RuntimeConfigResolveResult ApplyRuntimePatch(const RuntimeConfigState& current_s
     execution_config_changed = true;
   }
 
+  // 指定跟踪目标 + 限时窗口：会话级状态，不进执行配置（不触发 pipeline 同步）。
+  // 任一指定相关字段变更（含仅改时长）都视为新指令：生命周期阶段重置为
+  // kNone，捕获窗口在指令生效后首个周期重新起算（见 RuntimeConfigState 注释）。
+  if (patch.has_designated_target_id || patch.has_designation_duration_cycles) {
+    has_requested_update = true;
+    if (patch.has_designated_target_id) {
+      resolved.next_state.designated_external_target_id = patch.designated_external_target_id;
+    }
+    if (patch.has_designation_duration_cycles) {
+      resolved.next_state.designation_duration_cycles = patch.designation_duration_cycles;
+    }
+    resolved.next_state.designation_phase = DesignationPhase::kNone;
+    resolved.next_state.designation_deadline_cycle_index = 0U;
+  }
+
   if (patch.has_environment) {
     has_requested_update = true;
     if (patch.environment.has_scenario_config) {
@@ -101,7 +116,6 @@ RuntimeConfigResolveResult ApplyRuntimePatch(const RuntimeConfigState& current_s
         SigmaToSquaredCost(patch.policy.association.distance_gate_sigma);
     next_execution_config.tracking.policy = patch.policy.tracking;
     next_execution_config.lifecycle.policy = patch.policy.lifecycle;
-    resolved.next_state.recognition = patch.policy.recognition;
     policy_changed = true;
     execution_config_changed = true;
     has_requested_update = true;
@@ -175,6 +189,7 @@ config::ArSessionConfig MapExecutionToSession(
   config.hardware.antenna = execution_config.detection.engineering.antenna;
   config.hardware.receiver = execution_config.detection.engineering.receiver;
   config.hardware.rcs_physics = execution_config.detection.engineering.rcs_physics;
+  config.hardware.signal_processing = execution_config.detection.engineering.signal_processing;
   config.mission.orientation = execution_config.detection.orientation;
   config.policy.decision_control = execution_config.decision_control;
   config.policy.decision_control.anti_vgpo_max_acceleration_mps2 =

@@ -384,6 +384,30 @@ TEST(RadarSessionConfigValidationTest, ValidatesReceiverRfHardwareBoundary) {
   EXPECT_EQ(issues.back().code, "ar.validation.receiver_rf_hardware_invalid");
 }
 
+TEST(RadarSessionConfigValidationTest, RejectsSignalProcessingGainsOutsideRange) {
+  config::ArSessionConfig session_config;
+  session_config.hardware.signal_processing.clutter_suppression_gain_db = 41.0f;
+  auto issues = config::ValidateArSessionConfig(session_config);
+  ASSERT_FALSE(issues.empty());
+  EXPECT_EQ(issues.front().code, "ar.validation.signal_processing_gains_invalid");
+
+  session_config.hardware.signal_processing.clutter_suppression_gain_db = -1.0f;
+  issues = config::ValidateArSessionConfig(session_config);
+  ASSERT_FALSE(issues.empty());
+  EXPECT_EQ(issues.front().code, "ar.validation.signal_processing_gains_invalid");
+
+  session_config.hardware.signal_processing.noise_processing_gain_db = 40.0f;
+  session_config.hardware.signal_processing.clutter_suppression_gain_db = 0.0f;
+  issues = config::ValidateArSessionConfig(session_config);
+  EXPECT_TRUE(issues.empty());
+
+  session_config.hardware.signal_processing.jamming_suppression_gain_db =
+      std::numeric_limits<float>::quiet_NaN();
+  issues = config::ValidateArSessionConfig(session_config);
+  ASSERT_FALSE(issues.empty());
+  EXPECT_EQ(issues.front().code, "ar.validation.signal_processing_gains_invalid");
+}
+
 TEST(RadarSessionCreateWithDiagnosticsTest, BuildsSessionAndReportsNoIssuesForHealthyConfig) {
   config::ArSessionConfig config;
   config.policy.lifecycle.enable_imm_lifecycle = false;
@@ -415,85 +439,6 @@ TEST(RadarSessionCreateWithDiagnosticsTest, AcceptsNullIssuesWithoutCrash) {
 
   const session::ArSession session = session::ArSession::CreateWithDiagnostics(invalid, nullptr);
   (void)session;  // nullptr 时仅构造，不写回 issues
-}
-
-TEST(RadarSessionConfigValidationTest, AcceptsDefaultRecognitionConfig) {
-  config::ArSessionConfig session_config;
-  EXPECT_TRUE(config::ValidateArSessionConfig(session_config).empty());
-  EXPECT_FALSE(session_config.policy.recognition.enabled);
-}
-
-TEST(RadarSessionConfigValidationTest, RejectsInvalidRecognitionFeatureWeights) {
-  config::ArSessionConfig session_config;
-  session_config.policy.recognition.feature_weights.rcs_weight = 0.8f;  // 权重和 = 1.55
-  const auto issues = config::ValidateArSessionConfig(session_config);
-  ASSERT_EQ(issues.size(), 1U);
-  EXPECT_EQ(issues.front().code, "ar.validation.recognition_weights_invalid");
-  EXPECT_EQ(issues.front().field, "policy.recognition.feature_weights");
-}
-
-TEST(RadarSessionConfigValidationTest, RejectsRecognitionEnabledWithoutDatabasePath) {
-  config::ArSessionConfig session_config;
-  session_config.policy.recognition.enabled = true;
-  const auto issues = config::ValidateArSessionConfig(session_config);
-  ASSERT_EQ(issues.size(), 1U);
-  EXPECT_EQ(issues.front().code, "ar.validation.recognition_database_path_missing");
-}
-
-TEST(RadarSessionConfigValidationTest, RejectsOutOfRangeRecognitionThresholds) {
-  config::ArSessionConfig session_config;
-  session_config.policy.recognition.acceptance_score = 1.5f;
-  session_config.policy.recognition.minimum_margin = -0.1f;
-  const auto issues = config::ValidateArSessionConfig(session_config);
-  ASSERT_EQ(issues.size(), 1U);
-  EXPECT_EQ(issues.front().code, "ar.validation.recognition_threshold_invalid");
-}
-
-TEST(RadarSessionConfigValidationTest, RejectsZeroRecognitionAccumulationCounts) {
-  config::ArSessionConfig session_config;
-  session_config.policy.recognition.min_confirmed_hits = 0U;
-  const auto issues = config::ValidateArSessionConfig(session_config);
-  ASSERT_EQ(issues.size(), 1U);
-  EXPECT_EQ(issues.front().code, "ar.validation.recognition_accumulation_invalid");
-}
-
-TEST(RadarSessionConfigValidationTest, RejectsInvalidRecognitionTimeAndRange) {
-  config::ArSessionConfig session_config;
-  session_config.policy.recognition.recognition_dwell_sec = 0.0f;
-  const auto issues = config::ValidateArSessionConfig(session_config);
-  ASSERT_EQ(issues.size(), 1U);
-  EXPECT_EQ(issues.front().code, "ar.validation.recognition_time_range_invalid");
-}
-
-TEST(RadarSessionConfigValidationTest, AcceptsExplicitlyEnabledRecognitionConfig) {
-  config::ArSessionConfig session_config;
-  session_config.policy.recognition.enabled = true;
-  session_config.policy.recognition.database_path = "examples/configs/recognition/test.db";
-  session_config.policy.recognition.feature_weights.rcs_weight = 0.4f;
-  session_config.policy.recognition.feature_weights.motion_weight = 0.3f;
-  session_config.policy.recognition.feature_weights.polarization_weight = 0.2f;
-  session_config.policy.recognition.feature_weights.range_profile_weight = 0.1f;
-  EXPECT_TRUE(config::ValidateArSessionConfig(session_config).empty());
-}
-
-TEST(RadarSessionConfigBuilderTest, DefaultTrackStateSnapshotRecognitionIsDisabled) {
-  session::TrackStateSnapshot snapshot;
-  EXPECT_EQ(snapshot.recognition.state, session::ArRecognitionState::kDisabled);
-  EXPECT_EQ(snapshot.recognition.target_category, session::ArRecognitionCategory::kUnknown);
-  EXPECT_TRUE(snapshot.recognition.target_model.empty());
-  EXPECT_FLOAT_EQ(snapshot.estimation_uncertainty_trace, 0.0f);
-}
-
-TEST(RadarSessionConfigBuilderTest, DefaultCycleResultHasNoRecognitionSummary) {
-  session::ArCycleResult result;
-  EXPECT_FALSE(result.has_recognition_summary);
-}
-
-TEST(RadarSessionConfigBuilderTest, WorkModeEnumExposesLrrAsFourthTaskMode) {
-  config::ArSessionConfig session_config;
-  session_config.mission.orientation.work_mode = config::ArWorkMode::kLrr;
-  EXPECT_EQ(session_config.mission.orientation.work_mode, config::ArWorkMode::kLrr);
-  EXPECT_TRUE(config::ValidateArSessionConfig(session_config).empty());
 }
 
 }  // namespace tests

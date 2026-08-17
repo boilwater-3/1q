@@ -3,7 +3,7 @@
  * @brief SBIRS 红外滤波测量跟踪 facade：消费 common/estimation 模板化滤波框架，实例化为 SBIRS
  *        6 维 CV 状态 / 2 维角度量测场景，并提供球坐标角度量测模型与动态 R 矩阵构造。
  *
- * 设计要点（见 docs/space_based_infrared_sensor/algorithms.md 目标状态机 / EKF 滤波跟踪）：
+ * 设计要点（见 docs/sbirs_sensor/algorithms.md 目标状态机 / EKF 滤波跟踪）：
  * - 状态：6 维 ECI 恒速 [x, vx, y, vy, z, vz]，复用 common CV 模型（2026-08 正式变更：
  *   ECI 输出参考系——pipeline 周期入口已把真值旋转到 ECI，滤波状态随之在 ECI 中演化；
  *   CV 模型对 ECI 恒速目标更贴合，且不含 ECEF 的科氏耦合）。
@@ -139,12 +139,13 @@ class SbirsAngleMeasurementModel final
  * @param[in] error_model 误差模型配置（sigma 单位 deg）。
  * @param[in] range_m 目标距离（米，用于折射项）。
  * @param[in] elevation_deg 目标俯仰角（deg，用于折射项）。
- * @param[in] angular_rate_deg_per_sec 目标角速度（deg/s，用于动态滞后项）。
+ * @param[in] relative_angular_rate_deg_per_sec 相对视线角速度（v_target−v_satellite 推导，
+ *                deg/s，用于动态滞后项）。
  * @return 2×2 对角协方差矩阵（rad²）。
  */
 inline SbirsMeasurementCovariance BuildMeasurementCovariance(
     const config::SbirsErrorModelConfig& error_model, double range_m, float elevation_deg,
-    float angular_rate_deg_per_sec) {
+    float relative_angular_rate_deg_per_sec) {
   const double angular_sigma_deg =
       foundation::ResolveEffectiveAngularSigmaDeg(error_model);
   const double gauss_sq = angular_sigma_deg * angular_sigma_deg;
@@ -157,7 +158,7 @@ inline SbirsMeasurementCovariance BuildMeasurementCovariance(
     return denom <= 0.0 ? 0.0 : 1.5e-6 / denom;
   }();
   const double lag_deg = error_model.detector_bandwidth_hz > 0.0f
-                             ? static_cast<double>(angular_rate_deg_per_sec) /
+                             ? static_cast<double>(relative_angular_rate_deg_per_sec) /
                                    (2.0 * 3.14159265358979323846 *
                                     static_cast<double>(error_model.detector_bandwidth_hz))
                              : 0.0;

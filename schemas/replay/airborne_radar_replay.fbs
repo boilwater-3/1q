@@ -11,29 +11,6 @@ table TrackOutputFrame {
   tracks:[TrackStateSnapshot];
 }
 
-table ArRecognitionResultV1 {
-  state:int;
-  target_category:int;
-  target_model:string;
-  confidence:float;
-  best_score:float;
-  runner_up_score:float;
-  rcs_similarity:float;
-  rcs_quality:float;
-  motion_similarity:float;
-  motion_quality:float;
-  polarization_similarity:float;
-  polarization_quality:float;
-  range_profile_similarity:float;
-  range_profile_quality:float;
-  valid_feature_mask:ubyte;
-  observation_count:uint;
-  accumulation_sec:float;
-  database_version:string;
-  source_cycle_index:uint;
-  source_batch_id:ulong;
-}
-
 table DecisionTrackStateSnapshot {
   association_key:ulong;
   external_target_id:ulong;
@@ -56,7 +33,6 @@ table DecisionTrackStateSnapshot {
   target_probability:float;
   target_name:string;
   estimation_uncertainty_trace:float;
-  recognition:ArRecognitionResultV1;
 }
 
 table TrackStateSnapshot {
@@ -298,23 +274,6 @@ table AssociationQualityMetricsV3 {
   association_stress:float;
 }
 
-table ArRecognitionCycleSummaryV1 {
-  participating_track_count:uint;
-  category_confirmed_count:uint;
-  model_confirmed_count:uint;
-  unknown_count:uint;
-  disabled_count:uint;
-  rcs_availability_rate:float;
-  motion_availability_rate:float;
-  polarization_availability_rate:float;
-  range_profile_availability_rate:float;
-  mean_confidence:float;
-  mean_first_confirmation_sec:float;
-  has_ground_truth:bool;
-  category_accuracy:float;
-  model_accuracy:float;
-}
-
 table ArCycleResultV3 {
   input_cycle_index:uint;
   status:int;
@@ -333,8 +292,11 @@ table ArCycleResultV3 {
   applied_decision_cycle_index:uint;
   applied_decision_batch_id:ulong;
   issues:[ArIssue];
-  has_recognition_summary:bool;
-  recognition_summary:ArRecognitionCycleSummaryV1;
+  effective_work_mode:int;
+  designation_active:bool;
+  designated_target_id:ulong;
+  designation_reverted_to_tws:bool;
+  revert_reason:int;
 }
 table ArSessionReplayStateV3 {
   has_world_chronology:bool;
@@ -347,7 +309,6 @@ table ArSessionReplayStateV3 {
   pending_execution_config_changed:bool;
   pending_environment_scenario_config_changed:bool;
   decision_state:ArDecisionReplayState;
-  active_database_version:string;
 }
 table ArCycleReplayRecordV3 {
   result:ArCycleResultV3;

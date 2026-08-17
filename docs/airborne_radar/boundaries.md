@@ -157,6 +157,65 @@ AR 所有中止路径遵守 `session_contract.md` 规则 9 的三写模式与规
 
 [evidence: tests/integration/cross_domain/multi_model_scenario_test.cpp — ArRfTestCycleResult 字段选择]
 
+## STT 指定航迹跟随与自动回退（方案 A，冻结）
+
+STT 模式不再要求外部提供目标角度：外部通过
+`ArRuntimeConfigPatch::has_designated_target_id` 只指定目标（`external_target_id`，
+`0` = 清除），波束指向由 AR 用自身航迹推导。
+
+1. **指向来源优先级（冻结，不得改序）**：
+   1. 显式 `dwell_center_deg` 非零 → 最终指向 = `scan_center + dwell`（现状语义，最高优先）；
+   2. `work_mode == kStt` 且指定目标航迹 confirmed → 最终指向 = 指定航迹位置换算的
+      az/el（雷达局部系，`TryTrackPositionToLookAnglesDeg` 口径），dwell 视为零偏移；
+   3. 其余（未指定/航迹未确认/丢失/非 STT）→ 最终指向 = `scan_center`（现状行为）。
+2. **指定状态是会话级状态**：挂在 `RuntimeConfigState::designated_external_target_id`，
+   随 patch 原子暂存/提交/回滚；不进 pipeline 执行配置（pipeline 不消费指向来源）。
+3. **生效模式派生（latch-free，无跨周期记忆）**：`effective_work_mode` = 已提交 STT 且
+   指定航迹 confirmed 时为 `kStt`；指定航迹未确认/丢失时回退 `kTws`；未指定目标的 STT
+   保持现状 `scan_center` 驻留语义（仍为 `kStt`，不视为回退）。回退不修改已提交配置。
+4. **自动丢跟踪暴露（三层）**：`ArCycleResult`（L2）新增 `effective_work_mode`、
+   `designation_active`、`designated_target_id`、`designation_reverted_to_tws`（每周期状态
+   指示，非转换沿，跨周期差分由调用方承担）、`designation_revert_reason`；L3
+   `ArTrackOutputDebugView` 转写同名字段；`ArTrackLifecycleRecorder` 在回退转换沿为指定
+   目标产生 `kDesignationDropped` 事件。replay 周期记录与 patch 记录均保留新字段。
+5. **显式 dwell 覆盖不构成回退**：`designation_active == false` 但
+   `designation_reverted_to_tws == false` 表示指向被显式覆盖，不是丢跟踪。
+6. **扫描动画接线（session 级，修复原已知限制）**：生效模式为 TWS/TAS 且无显式
+   dwell 覆盖、无 STT 航迹跟随时，`ArSession` prepare 指向 = 扫描表当前周期波位
+   （`ResolveScheduledBeamPointingFromExecutionConfig`，与 pipeline 内
+   `ApplyScanScheduleToRuntimeConfig` 同一扫描相位），经
+   `RfV2DetectionContext::beam_pointing_deg` 逐周期推进发射 boresight / 接收状态 /
+   增益 / 检测单元——"回 TWS"（STT 指定航迹丢失/未确认回退）恢复扫描动画，不再
+   回到静态指向。静态语义保留：显式 dwell（优先级 1）钉住 `scan_center + dwell`；
+   STT 航迹跟随（优先级 2）跟随航迹；未指定目标的 STT 驻留（生效模式仍为 `kStt`）
+   保持 `scan_center`。扫描范围由 `mechanical/electronic_scan_limits_deg` 交集决定，
+   `scan_center` 仅作非法限位时的回退中心（patch 移动 scan_center 不移动扫描范围）；
+   pipeline 本地 `ApplyScanScheduleToRuntimeConfig` 保留，供 RF v1 回退路径
+   （`rf_v2_detection_context == nullptr`）使用。
+7. **限时锁定指令（`designation_duration_cycles`）**：指定指令可带捕获窗口
+   （周期数；`0` = 无限期，旧行为）。生命周期阶段（`RuntimeConfigState`：
+   `kPending` → `kAcquired` | `kExpired`，终态）由 `AdvanceDesignationPhase`
+   每周期推进：
+   - 窗口自指令生效后首个处理周期起算（deadline = 首周期 + duration）；窗口内
+     每周期等待指定目标 confirmed 航迹，未捕获则继续扫描（回退报告
+     `kTrackNotConfirmed`）；
+   - 窗口内捕获 → `kAcquired`：跟随航迹且**不再受窗口限制**（后续丢失按既有
+     回退语义 `kTrackLost`/`kTrackNotConfirmed`，不重新开窗口）；
+   - 窗口耗尽仍未捕获 → `kExpired`：**指令作废**。作废沿周期（cycle ==
+     deadline）保留目标 ID 并报告 `designation_revert_reason =
+     kAcquisitionTimeout`（L2 结果 + L3 视图 + `kDesignationDropped` 事件）；
+     其后指定清零（`designated_target_id == 0`）、无回退报告、生效模式按扫描
+     处理（已提交 `kStt` 时生效为 `kTws`，回到扫描），直到外部重新下达指定。
+   - 捕获判定与指向同源（上一周期航迹帧，滞后一周期）；窗口独立于指向优先级
+     运行（显式 dwell 覆盖不暂停窗口）；任一指定相关 patch 变更（含仅改时长）
+     视为新指令，窗口重新起算；`kExpired` 不修改已提交配置（作废后生效模式
+     持续按扫描派生）。replay 的 patch 记录保留时长字段，作废行为由
+     cycle_index 驱动可复现。
+
+[evidence: tests/unit/airborne_radar/ar_stt_track_follow_test.cpp]
+[evidence: tests/unit/airborne_radar/ar_track_output_debug_view_test.cpp]
+[evidence: tests/replay/airborne_radar/ar_replay_codec_roundtrip_test.cpp]
+
 ## 滤波后端选型（人工配置为主，不做在线自动切换）
 
 AR 使用标准 Joseph 形式 Kalman 滤波器（KF）作为生产后端。IMM 生命周期（`enable_imm_lifecycle`）是包裹 KF
@@ -185,72 +244,6 @@ AR 使用标准 Joseph 形式 Kalman 滤波器（KF）作为生产后端。IMM �
 
 [evidence: tests/contract/airborne_radar/ar_public_api_convenience_test.cpp]
 [evidence: tests/contract/check_public_api_boundary.cmake]
-
-## 远程识别子系统边界（kLrr）
-
-- **纯并行输出**：识别仅回填 `TrackOutputFrame::tracks[i].recognition`，不进
-  `DecisionInputFrame`/`DecisionObservation`，不作 ThreatAssessment 输入；若未来需识别影响
-  威胁评估，须改 Evaluate 签名并走设计变更规则。
-- **非目标（否决项）**：ISAR/二维距离-多普勒像、微动特征、在线学习/自适应权重、实时外部
-  数据库联网、信号级 IQ/全波散射求解、非 `kLrr` 模式激活识别链路、威胁分类混入识别输出、
-  以场景真值直接产生结论、暴露内部识别类型为 public SPI、process-wide 识别全局状态。
-- **单位纪律**：`ArSceneTarget::rcs`/`TrackStateSnapshot::rcs` 为 m²（探测链），识别 RCS 特征
-  与数据库一律 dBsm；两者显式区分、不得混用（数据库 units 表 `rcs == 'dBsm'`，声明其他
-  单位即拒绝——宁拒绝不静默）。
-- **ENU 帧约定**：识别高度观测 = 平台海拔 + `snapshot.position_z`，其中 `position_z` 为平台
-  ENU 局部切平面上向分量（含平台姿态旋转，见 `TrackStateSnapshot.h`）。径向高度差在 ECEF z
-  上投影 sin(lat)，目标沿 x 运动经 cos(lat)cos(lon) 耦合进上向分量——场景构造须按此帧
-  约定补偿（`ar_recognition_us_military_scenario_test.cpp` 的 `AltitudeOffsetFor`）。
-- **失败降级**：库未加载/版本不兼容 → `kDisabled`（不影响探测/跟踪/战术决策）；分数/分差
-  不足 → `kUnknown` 或仅大类；航迹丢失保持结论至 `result_hold_sec` 后置 `kStale`；
-  `association_key` 重分配视为新目标；周期 abort/配置提交失败随四类快照回滚；
-  `kSensorPoweredOff` 保持结论至保持期后过期；`kValidationRejected` 不推进积累。
-- **接口不变式**：识别内部类型（观测构造/四提取器/积累/匹配器/数据库）不进入 public API；
-  识别配置经 `has_policy` 整域提交（无叶子级 recognition patch 字段）；公共枚举加性扩展
-  （不重排既有值，replay 字节兼容）；replay 逐周期比较识别结果（浮点容差 `1e-5f`），
-  `database_version` 入 `ArSessionReplayState`，不一致即 failure。
-- **数据性质**：示例库美方型号参数为公开渠道估算（非敏感占位数据，不作真实情报数据）；
-  来源：Wikipedia（含 USAF 事实表转述）、GlobalSecurity RCS 表等，RCS 均为公开估算区间中值。
-
-## 识别子模型的物理保真度边界（F1/F2 定性）
-
-远程识别（`kLrr`）在效能级探测链之外引入两条**识别专用更高保真观测路径**，与探测链物理口径**不逐项对账**：
-
-1. **F1 双通道极化**：探测链严格单极化（`ArSceneTarget::rcs` 单标量 m²，`signal/detection/` 无极化路径；
-   `RfScenePolarization` 仅用于干扰链极化失配损耗）。识别双通道极化由场景目标
-   `polarization_rcs_samples`（dBsm）经同一雷达方程与 SNR 噪声底派生，通道定义（H/V）由识别特征
-   数据库固定（schema v1.1 自描述元数据：meta 键 `polarization_channels` 必填校验，加载器不消费
-   通道枚举）。该观测是"识别专用更高保真观测"，不与探测链 SNR/Pd 逐项对账。
-2. **F2 距离像相干叠加**：全模块效能级（`SignalDetector` Swerling+MarcumQ；`RfScene` 不生成复数 IQ）。
-   识别距离像的距离单元投影与相位相干叠加是**识别专用准信号级子模型**（仅消费场景侧
-   `range_rcs_scatterers` 真值列表），不影响探测链信号级语义。散射中心级峰值判定是效能级
-   简化（粗距离单元下不合并峰标识，仅投影能量），由 `ar_recognition_feature_test` 锁定。
-
-上述两条仅存在于 `src/airborne_radar/recognition/`，不进入探测/关联/跟踪路径。
-
-[evidence: tests/unit/airborne_radar/ar_recognition_feature_test.cpp]
-
-## 识别特征数据库契约（schema v1.1）
-
-- **自描述**：数据库文件是完整、只读、自描述的识别基线。meta 必填六键
-  （`schema_version`/`database_id`/`version`/`created_utc`/`polarization_channels`/
-  `polarization_energy_reference`）；units 表必填七量纲且 `rcs` 必须为 `dBsm`
-  （匹配数学是 dBsm 域，声明其他单位即拒绝——宁拒绝不静默）。
-- **权威 DDL 单源**：`schemas/recognition/recognition_feature_database.sql` 是唯一 schema 事实源，
-  C++ 加载器、C++ 测试（configure_file 生成头）、建库工具（`tools/recognition_db_builder.py`）
-  共用；禁止在别处维护第二份 DDL。加载器 SELECT 列名与 DDL 的一致性由全字段加载用例守护。
-- **加载期只读读取器**：加载时只读打开 → 读表校验 → 关闭连接，成功后全量驻留内存；
-  运行期不持有 SQLite 连接，Matcher/Tracker 只读消费内存结构。
-- **承载不消费**：`display_name` 与 aspect 适用区间随数据入库并加载校验（往返保真），
-  当前不参与匹配/识别结果（扩展需新 freeze item）。
-- **版本策略**：`schema_version` 语义为 `major.minor`——major 变更破坏性（加载器拒绝，需 freeze
-  流程）；minor 变更增量（新增可空表/列，加载器同步读取，仍精确匹配自身版本）。无存量库，
-  不做旧版本兼容层。
-- **类别映射**：`category_id` 字符串 → 公共大类枚举由 `RecognitionTracker::CategoryToPublic`
-  固定映射（BALLISTIC/NEAR_SPACE/FIGHTER/BOMBER/MISSILE/UAV/OTHER，未映射 → `kUnknown`）。
-  枚举值加性扩展（不重排既有值，replay 字节兼容）；枚举定义以
-  `include/1q/airborne_radar/session/ArRecognitionResult.h` 为准，新增类别必须同步
-  该映射与枚举。
 
 ## 设计变更规则
 

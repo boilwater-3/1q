@@ -18,16 +18,15 @@ public API 边界）见 [boundaries.md](boundaries.md)。
 | 配置映射与 runtime patch | 四域配置转内部工程配置；运行期变更可回滚提交 | session-wired | [evidence: tests/unit/airborne_radar/ar_session_config_builder_test.cpp] |
 | 环境冻结与传播 | pending/active scene 管理，冻结周期环境，传播损失/杂波/大气物理 | session-wired | [evidence: tests/unit/airborne_radar/ar_environment_service_test.cpp] |
 | 外部 RF 接入 | 以实际时频发射事实构建前端与 detection-cell 干扰账本，J/N 门控后去真值化观测 | session-wired | [evidence: tests/unit/airborne_radar/ar_rf_front_end_resolver_test.cpp] |
-| 扫描和波束控制 | 解析扫描中心、坐标组合、波束增益和波束宽度 | session-wired | [evidence: tests/unit/airborne_radar/ar_signal_scan_schedule_test.cpp] |
+| 扫描和波束控制 | 解析扫描中心、坐标组合、波束增益和波束宽度；TWS/TAS 生效模式下 session 级指向逐周期按扫描表推进 | session-wired | [evidence: tests/unit/airborne_radar/ar_signal_scan_schedule_test.cpp] |
+| STT 指定航迹跟随指向 | 外部只指定目标，STT 波束指向由指定航迹位置换算（优先级：显式 dwell > 航迹 > scan_center） | session-wired | [evidence: tests/unit/airborne_radar/ar_stt_track_follow_test.cpp] |
+| 指定目标生命周期回退 | 指定航迹未确认/丢失时 STT 自动回退 TWS；限时指令窗口耗尽未捕获时作废（kAcquisitionTimeout），经 L2 结果/L3 视图/生命周期事件暴露 | session-wired | [evidence: tests/unit/airborne_radar/ar_stt_track_follow_test.cpp] |
 | 统一物理探测与工程 RF 干扰链 | 实际发射→echo→incident RF→前端账本→检测单元→判决的单一物理链 | session-wired | [evidence: tests/unit/airborne_radar/ar_signal_pipeline_test.cpp] |
 | 数据关联 | 位置量测、协方差和 track seeds 的 LAPJV assignment | session-wired | [evidence: tests/unit/airborne_radar/ar_signal_association_test.cpp] |
 | 航迹过滤与生命周期 | KF/IMM(KF) 更新航迹、missed detection、确认/丢失/回收、反欺骗抑制 | session-wired | [evidence: tests/unit/airborne_radar/ar_track_filter_test.cpp] |
 | 战术协调 | 威胁评估、LPI、ECCM、关联压力补触发、状态清理 | session-wired | [evidence: tests/unit/airborne_radar/ar_decision_layer_test.cpp] |
 | 控制归约 | proposal 冲突、保持窗口、冷却和下一周期控制配置 | session-wired | [evidence: tests/unit/airborne_radar/ar_tactical_coordinator_test.cpp] |
 | 专项序列验证 | 公开 Session 边界六类跨周期序列 | session-wired | `tests/consumer/batch_validation/ar_batch_validation.cpp` |
-| 识别观测与特征提取 | 效能化 RCS/运动/双极化/距离像观测（SNR、带宽、驻留、视角覆盖门控） | session-wired | [evidence: tests/unit/airborne_radar/ar_recognition_feature_test.cpp] |
-| 识别数据库与匹配 | SQLite 原子加载校验（schema v1.1 语义分组 + 自描述元数据，加载期只读读取器；权威 DDL 单源 + 建库工具）+ 截断高斯动态加权匹配 + 先验排序 | session-wired | [evidence: tests/unit/airborne_radar/ar_recognition_database_test.cpp] + [evidence: tests/integration/airborne_radar/ar_recognition_example_database_test.cpp] + [evidence: tests/integration/airborne_radar/ar_recognition_us_military_scenario_test.cpp] |
-| 识别积累与判定 | 滑动窗口积累、acceptance/margin/维度判定、结论保持与过期 | session-wired | [evidence: tests/integration/airborne_radar/ar_recognition_scenario_test.cpp] |
 
 ## 配置映射、运行期提交和回滚
 
@@ -62,7 +61,9 @@ public API 边界）见 [boundaries.md](boundaries.md)。
 ## 扫描调度、坐标和波束控制
 
 - **意图**：目标先解析到当前雷达参考框架，再计算 range；`ScanScheduleResolver` 将周期/扫描范围/dwell
-  center 转成扫描指向，`BeamControlResolver` 给出 one-way gain 与有效波束宽度。
+  center 转成扫描指向，`BeamControlResolver` 给出 one-way gain 与有效波束宽度。TWS/TAS 生效模式下
+  session 级指向逐周期按扫描表推进（波束动画，见 boundaries.md 扫描动画接线），pipeline RF v1 回退
+  路径经 `ApplyScanScheduleToRuntimeConfig` 使用同一扫描相位。
 - **实现边界**：
   1. `ArMissionConfig::orientation.scan_center_deg` 是基础扫描中心 public source of truth；policy 不再保留
      默认中心或 replay-only 副本。runtime patch 的 `dwell_center_deg` 是当次驻留偏移，最终指向为"基础中心 +
@@ -72,7 +73,12 @@ public API 边界）见 [boundaries.md](boundaries.md)。
   3. 天线波束宽度按轴独立解析（commanded > nominal > 由波长/孔径推导）；三级均无有效值时返回 0（不
      抛异常、不拒绝），调用方须保证 commanded 或 nominal 至少其一有效。孔径字段属于可回放硬件配置，
      replay 必须保留 `antenna_length_m`/`antenna_width_m`。
-  4. ECCM 措施只改变下一次成功发射/接收的实际硬件状态（频率捷变改 carrier/tuning、rejitter 改脉冲时序、
+  4. 扫描范围由 `mechanical/electronic_scan_limits_deg` 交集决定，`scan_center_deg` 仅作限位非法时的
+     回退中心；扫描表按 `cycle_index % pattern.size()` 取波位，STBY 返回零位、STT 返回扫描中心、
+     TWS/TAS 返回波位序列（TAS 步长减半，`prefer_dense_tas_sampling` 再减半）。
+  5. **扫描内核为 common 单源**（`common/radar/ScanScheduleRuntime.h`）：波位序列构建与轴步长解析由
+     AR/RIR 共用，模块侧只保留模式语义与指向消费接线；RIR 驻留调度器（空闲扫描策略）与 AR 同一口径。
+  6. ECCM 措施只改变下一次成功发射/接收的实际硬件状态（频率捷变改 carrier/tuning、rejitter 改脉冲时序、
      旁瓣对消/自适应波束改方向增益/零陷、烧穿改发射功率/脉冲能量），不直接改写关联、滤波或生命周期参数。
 - **反直觉点**：公开发布的 `emission_frame` 是 base 发射身份，旁瓣对消/自适应波束只作用于接收态
   `receiver_state.antenna`，不进公开发射方向图（见 data-flow.md 输出归属边界）。
@@ -80,12 +86,49 @@ public API 边界）见 [boundaries.md](boundaries.md)。
 - **证据**：[evidence: tests/unit/airborne_radar/ar_orientation_utils_test.cpp]
 - **证据**：[evidence: tests/unit/airborne_radar/ar_rf_session_test.cpp]
 
+### STT 指定航迹跟随与自动回退（方案 A）
+
+- **意图**：STT 模式下外部只指定目标（`ArRuntimeConfigPatch::designated_external_target_id`），
+  波束指向由 AR 自身航迹推导（上一周期 `TrackOutputFrame` 的雷达局部位置 →
+  `TryTrackPositionToLookAnglesDeg`），不再要求外部提供角度。
+- **实现边界**：
+  1. 指向来源优先级（冻结）：显式 dwell 非零 > 指定航迹 confirmed > scan_center 回退，
+     由 `ResolveSttTrackFollowingPointing` 单一权威解析（纯函数，单测覆盖优先级矩阵）。
+  2. 注入点唯一：`ArSession` prepare（`ResolveMountFrameBeamPointing` 的 scan_center 输入），
+     经冻结指向链路（`RfV2DetectionContext::beam_pointing_deg`）同时驱动发射/接收/增益/检测单元；
+     TWS/TAS 生效模式（含 STT 回退）下该注入点另按扫描表逐周期推进（见扫描调度节）。
+  3. 指定状态是会话级状态（`RuntimeConfigState`），不进 pipeline 执行配置；随 patch
+     原子暂存/提交/回滚。
+  4. 生效模式为每周期派生（latch-free）：指定航迹非 confirmed → 回退 `kTws`（报告），
+     指向按回退分支推进（TWS 扫描表逐周期推进，与 session 级 TWS 一致）。
+  5. 回退事件暴露：L2 `ArCycleResult` 新字段（`effective_work_mode`/`designation_active`/
+     `designated_target_id`/`designation_reverted_to_tws`/`designation_revert_reason`，
+     每周期状态指示）；L3 debug view 转写；`ArTrackLifecycleRecorder::kDesignationDropped`
+     在转换沿产生；replay 周期记录与 patch 记录同步。
+  6. 限时锁定指令（`designation_duration_cycles`，见 boundaries.md 第 7 条）：指定指令
+     可带捕获窗口。窗口自指令生效后首个周期起算，窗口内捕获 confirmed 航迹 →
+     `kAcquired`（此后不再受窗口约束，丢失按既有回退语义）；窗口耗尽仍未捕获 →
+     `kExpired`（指令作废，作废沿报告 `kAcquisitionTimeout`，其后指定清零、回到扫描）。
+     生命周期阶段是**会话级跨周期状态**（`RuntimeConfigState`，随 patch 原子暂存/提交/
+     回滚，失败周期由事务快照回滚），与"生效模式 latch-free 派生"正交：后者仍逐周期
+     从"已提交配置 + 最新航迹帧"派生，前者只回答"窗口是否已关闭/作废"。
+- **反直觉点**：
+  1. 指向用上一周期航迹后验位置（一周期滞后近似），目标机动时指向滞后一拍；
+  2. 显式 dwell 覆盖时 `designation_active == false` 但不构成回退（`reverted == false`）；
+  3. 目标在扫描限位外时指向被 clamp 到边界（`ComputeMountFrameBeamPointing`），离轴增益
+     损失可致连续失配 → lost → 自动回退（期望连锁行为）。
+- **证据**：[evidence: tests/unit/airborne_radar/ar_stt_track_follow_test.cpp]
+- **证据**：[evidence: tests/unit/airborne_radar/ar_runtime_patch_mapper_test.cpp]
+- **证据**：[evidence: tests/replay/airborne_radar/ar_replay_codec_roundtrip_test.cpp]
+- **证据**：[evidence: tests/consumer/batch_validation/ar_batch_validation.cpp]
+
 ## 统一物理探测与工程 RF 干扰链
 
 AR 的核心算法。探测门限属于 **policy，不属于 hardware**：`ArPolicyConfig::detection` 统一承载
-`minimum_snr_db`、`pfa`、`pulse_count` 和 `minimum_detection_margin_db`；hardware 只描述发射机、接收机、
-天线、波形和量测等物理能力。探测意图语义档位（如 `profiles::kDetectionPriorityDetection`）只翻译为这组
-policy 参数。AR **不再提供** heuristic detection toggle 或启发式 pass。
+`minimum_snr_db`、`pfa`、`pulse_count` 和 `minimum_detection_margin_db`；hardware 描述发射机、接收机、
+天线、波形、量测等物理能力与装备级信号处理增益偏置（四偏置缺省 0 dB）。探测意图语义档位
+（如 `profiles::kDetectionPriorityDetection`）只翻译为这组 policy 参数。AR **不再提供** heuristic
+detection toggle 或启发式 pass。
 
 - **意图**：单一物理链——emission → echo → incident RF → front-end ledger → detection cell → decision——
   而非"把所有外部发射功率加到一个周期总噪声"。
@@ -105,8 +148,11 @@ policy 参数。AR **不再提供** heuristic detection toggle 或启发式 pass
      或被零陷抑制的贡献为零。**首期不把压制噪声解释成虚假目标**。欺骗发射（kPulseTrain）经同一时频重叠
      机制进入，PRI 间隙内 activity 为零；`enable_anti_rgpo_leading_edge=true` 时其有效干扰功率乘 0.5。
   5. **处理后判决**：匹配滤波、脉冲压缩、相参/非相参积累等 processing gain 只属于 AR；统一计算
-     `SINR = echo / (thermal + clutter + interference)`，由 policy 的 Pfa/Swerling/积累模型/最小 margin 得到
-     Pd；Monte Carlo 只采样检测事件。
+     `SINR = echo × pulse_compression_gain × 10^(target_processing_gain_db/10) /
+     (thermal × 10^(noise_processing_gain_db/10) + clutter / 10^(clutter_suppression_gain_db/10) +
+     interference / 10^(jamming_suppression_gain_db/10))`，由 policy 的 Pfa/Swerling/积累模型/最小 margin
+     得到 Pd；Monte Carlo 只采样检测事件。四增益偏置缺省全 0 dB，逐位等于保守账本；
+     脉压与积累增益永远自动派生，不得手填进偏置。
   6. **可靠性裕量门限**：Monte Carlo 判决后若 `snr_db < min_detection_margin_db` 则强制 `detected = false`；
      该门限作为后验安全网独立于 Pd/Monte Carlo 路径。`detection_margin_db` 输出语义为相对裕量而非原始 SNR。
 - **反直觉点（两个噪声基准，不得混用）**：
@@ -115,7 +161,8 @@ policy 参数。AR **不再提供** heuristic detection toggle 或启发式 pass
     `transmitter.bandwidth_hz`（发射带宽，默认 4.5 MHz），**不是** `preselector_bandwidth_hz`（宽带前端
     预选器带宽，默认 20 MHz，仅用于 `receiver_state.bandwidth_hz`，不进入 J/N 门热噪声）。
   - **检测单元 SINR 基准**：`k·T·matched_filter_bandwidth_hz·noise_figure`（单 range-Doppler-beam-time-frequency
-    cell），进入分母 `thermal + clutter + interference`。
+    cell），分项进入分母 `thermal × noise_bias + clutter / clutter_suppression +
+    interference / jamming_suppression`（偏置缺省 0 dB 时即 `thermal + clutter + interference`）。
   - 二者带宽口径不同是有意的：前者回答"前端能否察觉这个干扰源"，后者回答"这个 cell 的信干噪比是多少"。
     不得合并或互相替换。
 - **反直觉点（饱和与 ECCM 是降级而非触发）**：前端饱和时本周期输出 `receiver_saturated` impairment 并
@@ -166,7 +213,7 @@ AR 在接收链的三个层次主动反制欺骗干扰（kPulseTrain），均不
 - **意图**：探测成功后 `DataAssociationEngine` 把量测和已有 track seeds 关联；public `distance_gate_sigma`
   以标准差倍数表达，内部 assignment 门限统一派生为 `distance_gate_sigma²`。
 - **实现边界**：
-  1. 生产链路只有一条默认路径：`FullMahalanobisDistanceMetric` + `DenseCostHypothesiser` + `LapjvSolver`，
+  1. 生产链路只有一条默认路径：`FullMahalanobisDistanceMetric` + `DenseCostHypothesiser` + `LapjvSolver`（common 单源 `src/common/optimization/LapjvSolver` 适配），
      没有 factory、runtime config 选择或用户可替换接口。`MahalanobisDistanceMetric` 等保留类仅用于局部测试
      和算法对比，不代表第二条生产实现。
   2. association public 配置不再暴露 `unassigned_cost`、启用 hint 或第二套 sigma hint；策略档位如需保持
@@ -257,35 +304,12 @@ TWS→STT→TWS、关机恢复、无效输入恢复和混合非法 runtime patch
 3. warning/error 观测项（不影响退出码）：距离/RCS 等物理趋势。
 4. 场景 ID 与运行方式由 `tests/consumer/batch_validation/README.md` 维护。
 
-## 远程识别链路（kLrr）
-
-实现边界与反直觉点（算法登记见"算法登记表"识别三行）：
-
-- **观测构造**：四提取器只消费效能化观测——RCS 需 SNR ≥ 6 dB 且视角覆盖跨距不足时维度
-  无效；带宽分辨率不满足 `max_range_resolution_m` 时距离像质量降零；ECCM 在下一成功周期
-  才影响质量因子；接收机饱和时不产生极化观测、不以末次有效值填充。单位纪律：RCS dBsm、
-  速度 m/s、高度 m、加速度 m/s²、转弯半径 log10(m)、极化 dB、距离 m。
-- **匹配打分**：`s = exp(-0.5·z²)`，`z = |x − mean| / std`（转弯半径用 log10 尺度）；质量 0
-  的维度不进分子也不进分母；型号得分 = 最佳适用 profile 加权相似度 × 型号先验；类别得分
-  = 成员型号未归一化分数之和；`confidence = best / Σ`。
-- **判定**（`RecognitionTracker`）：分数 ≥ `acceptance_score` 且 `best − runner_up ≥
-  minimum_margin` 且有效维度 ≥ 2（**运动维度不能单独确认型号**）→ `kModelConfirmed`；
-  否则大类确认或 `kUnknown`。profile 适用条件（`min_snr_db`/`max_range_resolution_m`/
-  `minimum_aspect_coverage_deg`/`minimum_bandwidth_hz`）不满足即不参与匹配。
-- **反直觉点**：
-  1. `feature_scores` 报告用型号的**第一个 profile**（`profiles.front()`），而非实际命中
-     得分的 profile——多 profile 型号的分项报告可能与判定所用 profile 不一致（判定路径
-     本身正确）。
-  2. 单候选时 `runner_up_score == 0`，margin 检查恒过——单候选场景天然满足型号确认门限。
-  3. 匀速场景目标加速度观测 ≈ 0，运动相似度 ≈（速度+高度）两子特征撑起——模板保留真实
-     机动量级，对机动目标仍有效；场景验证以 rcs+速度+高度证据为主。
-
 ## 非目标（刻意不实现的算法）
 
 1. **Heuristic detection toggle / 启发式 pass**：探测统一走物理链（emission→echo→...→decision），不再提供
    启发式旁路。
 2. **多个 association 生产路径**：当前只有 `FullMahalanobisDistanceMetric` + `DenseCostHypothesiser` +
-   `LapjvSolver` 一条；只有未来出现至少两个已接入、有测试覆盖且语义稳定的实现时，才允许新增用户可见配置
+   `LapjvSolver`（common 单源适配）一条；只有未来出现至少两个已接入、有测试覆盖且语义稳定的实现时，才允许新增用户可见配置
    选择算法。
 3. **EKF/UDKF/SRIF 接入 AR 生产链**：见上方评估表，AR 笛卡尔位置量测为线性模型，EKF 退化为 KF，UDKF/SRIF
    未证明收益。

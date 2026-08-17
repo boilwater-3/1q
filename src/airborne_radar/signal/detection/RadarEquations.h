@@ -1,6 +1,6 @@
 /**
  * @file RadarEquations.h
- * @brief 定义雷达探测通用物理方程纯函数接口。
+ * @brief AR 雷达探测通用物理方程薄适配层（common 单源）。
  */
 
 #ifndef AIRBORNE_RADAR_SIGNAL_DETECTION_RADAR_EQUATIONS_H_

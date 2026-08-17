@@ -15,6 +15,7 @@ set(_oneq_unit_partition_targets
     ${PROJECT_NAME}_common_unit_tests
     ${PROJECT_NAME}_examples_unit_tests
     ${PROJECT_NAME}_airborne_radar_unit_tests
+    ${PROJECT_NAME}_remote_identification_radar_unit_tests
     ${PROJECT_NAME}_electronic_surveillance_radar_unit_tests
     ${PROJECT_NAME}_electronic_countermeasure_unit_tests
     ${PROJECT_NAME}_electro_optical_sensor_unit_tests
@@ -22,6 +23,7 @@ set(_oneq_unit_partition_targets
     ${PROJECT_NAME}_sar_unit_tests
     ${PROJECT_NAME}_navigation_unit_tests
     ${PROJECT_NAME}_fusion_unit_tests
+    ${PROJECT_NAME}_threat_assessment_unit_tests
     ${PROJECT_NAME}_flight_dynamic_unit_tests)
 foreach(_p IN LISTS _oneq_unit_partition_targets)
     if(TARGET ${_p})
@@ -56,6 +58,7 @@ include(${CMAKE_CURRENT_LIST_DIR}/partitions/Integration.cmake)
 add_custom_target(${PROJECT_NAME}_integration_tests)
 set(_oneq_integration_partition_targets
     ${PROJECT_NAME}_airborne_radar_integration_tests
+    ${PROJECT_NAME}_remote_identification_radar_integration_tests
     ${PROJECT_NAME}_electro_optical_sensor_integration_tests
     ${PROJECT_NAME}_electronic_surveillance_radar_integration_tests
     ${PROJECT_NAME}_sbirs_sensor_integration_tests
@@ -74,6 +77,7 @@ add_custom_target(${PROJECT_NAME}_contract_tests)
 set(_oneq_contract_partition_targets
     ${PROJECT_NAME}_public_api_contract_tests
     ${PROJECT_NAME}_airborne_radar_contract_tests
+    ${PROJECT_NAME}_remote_identification_radar_contract_tests
     ${PROJECT_NAME}_electro_optical_sensor_contract_tests
     ${PROJECT_NAME}_electronic_surveillance_radar_contract_tests
     ${PROJECT_NAME}_sar_contract_tests
@@ -94,6 +98,7 @@ add_custom_target(${PROJECT_NAME}_replay_fast_tests)
 set(_oneq_replay_partition_targets
     ${PROJECT_NAME}_common_replay_tests
     ${PROJECT_NAME}_airborne_radar_replay_tests
+    ${PROJECT_NAME}_remote_identification_radar_replay_tests
     ${PROJECT_NAME}_electro_optical_sensor_replay_tests
     ${PROJECT_NAME}_electronic_surveillance_radar_replay_tests
     ${PROJECT_NAME}_electronic_countermeasure_replay_tests

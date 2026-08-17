@@ -71,6 +71,12 @@ ArTrackOutputDebugView ArTrackOutputDebugViewBuilder::Build(const ArCycleInput& 
   view.completed_this_cycle = result.status == ArCycleStatus::kCompleted;
   view.receiver_impairment = result.receiver_impairment;
   view.issues = result.issues;
+  // STT 指定航迹状态直接转写 L2 结果字段（只读组合，不反向影响 pipeline）。
+  view.effective_work_mode = result.effective_work_mode;
+  view.designation_active = result.designation_active;
+  view.designated_target_id = result.designated_target_id;
+  view.designation_reverted_to_tws = result.designation_reverted_to_tws;
+  view.designation_revert_reason = result.designation_revert_reason;
   view.tracks.reserve(input.targets.size());
   for (const ArTargetInput& target : input.targets) {
     view.tracks.push_back(BuildTrackState(target, result));

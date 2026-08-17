@@ -38,26 +38,16 @@ AR 的决策扩展点是同进程步间 observation/response seam：
 4. `ArPolicyConfig::tracking.enable_kalman_filter` 的 struct 默认值为 `false`（语义默认关闭滤波，需显式
    开启）。直接构造 `ArSessionConfig{}` 的消费者若依赖 Kalman 跟踪，必须显式置 `true`——这是
    2026-07-31 与 Builder 语义默认对齐时的有意行为变更。
-5. `Ar*` 是 AR 模块的 public API 前缀。`RadarEquations`、`radar_cross_section`、`ComposeRadarAttitudeDeg`
+5. STT 模式支持**指定航迹跟随指向**（方案 A）：外部通过 runtime patch 只指定目标
+   （`designated_external_target_id`），波束指向由 AR 用自身航迹推导；指定航迹丢失/未确认时
+   自动回退 TWS，回退状态经 L2 结果 / L3 调试视图 / 生命周期事件暴露。指向来源优先级与冻结
+   契约见 boundaries.md「STT 指定航迹跟随与自动回退」；TWS/TAS 生效模式下 session 级波束
+   按扫描表逐周期推进（扫描动画，见 boundaries.md「扫描动画接线」）；指定指令可带限时
+   捕获窗口（`designation_duration_cycles`），窗口耗尽未捕获即作废（回到扫描，成因
+   `kAcquisitionTimeout`，见 boundaries.md「限时锁定指令」）。
+6. `Ar*` 是 AR 模块的 public API 前缀。`RadarEquations`、`radar_cross_section`、`ComposeRadarAttitudeDeg`
    等领域术语保留原名。历史上的 `Radar*` 模块前缀已一次性迁移到 `Ar*`，不保留 deprecated compat 层；
    新增 public primary 类型不得再使用 `Radar*` 作为模块所有权前缀。
-
-## 远程识别子系统（kLrr）
-
-远程识别是 AR 的并行输出子能力：`kLrr` 模式下以已确认航迹为对象，经效能化观测
-（RCS/运动/双通道极化/宽带一维距离像）与预设特征数据库加权匹配，输出目标类别与最可能
-型号。识别结论与威胁分类（`target_type`/`target_probability`）相互独立，仅回填
-`TrackOutputFrame`，不进 `DecisionInputFrame`/`ThreatAssessment`（纯并行输出）。
-
-心智模型：**特征真值 → 效能观测 → 多周期积累 → 模板匹配 → 结论**。场景侧
-`aspect_rcs_samples`/`polarization_rcs_samples`/`range_rcs_scatterers` 是目标特征真值，
-由 `RecognitionObservationBuilder` 在 SNR/距离/带宽/驻留约束下转换为可识别观测；识别只
-消费效能化观测，不得由场景真值直接产生结论。数据库为只读 SQLite 基线（schema v1.1，
-权威 DDL 单源），运行期不持有连接。
-
-导航：子系统边界与不变式（非目标/单位纪律/ENU 帧/降级契约/接口不变式）→
-[boundaries.md](boundaries.md)；识别算法实现边界与反直觉点 → [algorithms.md](algorithms.md)；
-识别链路数据流与状态所有权 → [data-flow.md](data-flow.md)。
 
 ## 文档导航
 

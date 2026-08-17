@@ -49,6 +49,10 @@ TEST(ArReplayCodecRoundtripTest, SessionConfigPreservesAllDomains) {
   config.hardware.transmitter.frequency_hz = 9.5e9f;
   config.hardware.antenna.antenna_length_m = 1.75f;
   config.hardware.antenna.antenna_width_m = 0.85f;
+  config.hardware.signal_processing.target_processing_gain_db = 4.0f;
+  config.hardware.signal_processing.noise_processing_gain_db = 1.5f;
+  config.hardware.signal_processing.clutter_suppression_gain_db = 12.0f;
+  config.hardware.signal_processing.jamming_suppression_gain_db = 8.0f;
   // mission
   config.mission.orientation.scan_center_deg.az_deg = 15.0f;
   config.mission.orientation.scan_center_deg.el_deg = -2.0f;
@@ -65,21 +69,6 @@ TEST(ArReplayCodecRoundtripTest, SessionConfigPreservesAllDomains) {
   config.policy.decision_control.eccm_hold_cycles_after_request = 3U;
   config.policy.decision_control.lpi_cooldown_cycles_after_release = 4U;
   config.policy.decision_control.eccm_cooldown_cycles_after_release = 5U;
-  // recognition（第七 policy 子域）
-  config.policy.recognition.enabled = true;
-  config.policy.recognition.min_confirmed_hits = 6U;
-  config.policy.recognition.accumulation_window_sec = 12.0f;
-  config.policy.recognition.min_observation_count = 4U;
-  config.policy.recognition.acceptance_score = 0.8f;
-  config.policy.recognition.minimum_margin = 0.15f;
-  config.policy.recognition.result_hold_sec = 25.0f;
-  config.policy.recognition.max_range_m = 250000.0f;
-  config.policy.recognition.recognition_dwell_sec = 0.08f;
-  config.policy.recognition.feature_weights.rcs_weight = 0.4f;
-  config.policy.recognition.feature_weights.motion_weight = 0.3f;
-  config.policy.recognition.feature_weights.polarization_weight = 0.2f;
-  config.policy.recognition.feature_weights.range_profile_weight = 0.1f;
-  config.policy.recognition.database_path = "examples/configs/recognition/baseline.db";
   // sensor_enabled 顶层电源字段（COMMON-OQ-4 字段提升）往返锚点：非默认值防 decode 漏读
   config.sensor_enabled = false;
   // natural environment
@@ -118,6 +107,10 @@ TEST(ArReplayCodecRoundtripTest, SessionConfigPreservesAllDomains) {
   EXPECT_FLOAT_EQ(decoded.hardware.transmitter.frequency_hz, 9.5e9f);
   EXPECT_FLOAT_EQ(decoded.hardware.antenna.antenna_length_m, 1.75f);
   EXPECT_FLOAT_EQ(decoded.hardware.antenna.antenna_width_m, 0.85f);
+  EXPECT_FLOAT_EQ(decoded.hardware.signal_processing.target_processing_gain_db, 4.0f);
+  EXPECT_FLOAT_EQ(decoded.hardware.signal_processing.noise_processing_gain_db, 1.5f);
+  EXPECT_FLOAT_EQ(decoded.hardware.signal_processing.clutter_suppression_gain_db, 12.0f);
+  EXPECT_FLOAT_EQ(decoded.hardware.signal_processing.jamming_suppression_gain_db, 8.0f);
   // mission
   EXPECT_FLOAT_EQ(decoded.mission.orientation.scan_center_deg.az_deg, 15.0f);
   EXPECT_FLOAT_EQ(decoded.mission.orientation.scan_center_deg.el_deg, -2.0f);
@@ -136,21 +129,6 @@ TEST(ArReplayCodecRoundtripTest, SessionConfigPreservesAllDomains) {
   EXPECT_EQ(decoded.policy.decision_control.eccm_hold_cycles_after_request, 3U);
   EXPECT_EQ(decoded.policy.decision_control.lpi_cooldown_cycles_after_release, 4U);
   EXPECT_EQ(decoded.policy.decision_control.eccm_cooldown_cycles_after_release, 5U);
-  // recognition 子域
-  EXPECT_TRUE(decoded.policy.recognition.enabled);
-  EXPECT_EQ(decoded.policy.recognition.min_confirmed_hits, 6U);
-  EXPECT_FLOAT_EQ(decoded.policy.recognition.accumulation_window_sec, 12.0f);
-  EXPECT_EQ(decoded.policy.recognition.min_observation_count, 4U);
-  EXPECT_FLOAT_EQ(decoded.policy.recognition.acceptance_score, 0.8f);
-  EXPECT_FLOAT_EQ(decoded.policy.recognition.minimum_margin, 0.15f);
-  EXPECT_FLOAT_EQ(decoded.policy.recognition.result_hold_sec, 25.0f);
-  EXPECT_FLOAT_EQ(decoded.policy.recognition.max_range_m, 250000.0f);
-  EXPECT_FLOAT_EQ(decoded.policy.recognition.recognition_dwell_sec, 0.08f);
-  EXPECT_FLOAT_EQ(decoded.policy.recognition.feature_weights.rcs_weight, 0.4f);
-  EXPECT_FLOAT_EQ(decoded.policy.recognition.feature_weights.motion_weight, 0.3f);
-  EXPECT_FLOAT_EQ(decoded.policy.recognition.feature_weights.polarization_weight, 0.2f);
-  EXPECT_FLOAT_EQ(decoded.policy.recognition.feature_weights.range_profile_weight, 0.1f);
-  EXPECT_EQ(decoded.policy.recognition.database_path, "examples/configs/recognition/baseline.db");
   // natural environment
   EXPECT_TRUE(decoded.environment.scenario_config.atmospheric_physics.enable_physical_model);
   EXPECT_FLOAT_EQ(decoded.environment.scenario_config.atmospheric_physics.pressure_hpa, 1010.0f);
@@ -181,6 +159,10 @@ TEST(ArReplayCodecRoundtripTest, RuntimeConfigPatchPreservesAllFields) {
   patch.has_dwell_center_deg = true;
   patch.dwell_center_deg.az_deg = 31.0f;
   patch.dwell_center_deg.el_deg = -3.5f;
+  patch.has_designated_target_id = true;
+  patch.designated_external_target_id = 9001U;
+  patch.has_designation_duration_cycles = true;
+  patch.designation_duration_cycles = 6U;
   patch.has_commanded_beamwidth_enabled = true;
   patch.commanded_beamwidth_enabled = true;
   patch.has_environment = true;
@@ -207,6 +189,10 @@ TEST(ArReplayCodecRoundtripTest, RuntimeConfigPatchPreservesAllFields) {
   EXPECT_FLOAT_EQ(decoded.scan_center_deg.el_deg, -3.0f);
   EXPECT_TRUE(decoded.has_dwell_center_deg);
   EXPECT_FLOAT_EQ(decoded.dwell_center_deg.az_deg, 31.0f);
+  EXPECT_TRUE(decoded.has_designated_target_id);
+  EXPECT_EQ(decoded.designated_external_target_id, 9001U);
+  EXPECT_TRUE(decoded.has_designation_duration_cycles);
+  EXPECT_EQ(decoded.designation_duration_cycles, 6U);
   EXPECT_TRUE(decoded.has_commanded_beamwidth_enabled);
   EXPECT_TRUE(decoded.commanded_beamwidth_enabled);
   EXPECT_TRUE(decoded.has_environment);
@@ -298,6 +284,10 @@ TEST(ArReplayCodecRoundtripTest, SingleCycleRecordPreservesResultAndState) {
   record.result.input_cycle_index = 81U;
   record.result.status = ArCycleStatus::kCompleted;
   record.result.output_frame.cycle_index = 81U;
+  // 航迹快照字段往返锚点（识别迁出后保留的非默认字段）：uncertainty trace 与决策分类。
+  record.result.output_frame.tracks.resize(1U);
+  record.result.output_frame.tracks.front().estimation_uncertainty_trace = 1234.5f;
+  record.result.output_frame.tracks.front().target_type = "HIGH_THREAT_FIGHTER";
   record.result.emission_frame.world_cycle_index = 81U;
   ArInterferenceObservation observation;
   observation.observation_id = 91U;
@@ -324,6 +314,12 @@ TEST(ArReplayCodecRoundtripTest, SingleCycleRecordPreservesResultAndState) {
   record.result.decision_observation.input_frame.cycle_index = 81U;
   record.result.decision_observation.input_frame.batch_id = 82U;
   record.result.applied_decision_source = DecisionControlSource::kExternal;
+  // STT 指定航迹状态字段往返锚点（防 decode 漏读）。
+  record.result.effective_work_mode = config::ArWorkMode::kStt;
+  record.result.designation_active = true;
+  record.result.designated_target_id = 9001U;
+  record.result.designation_reverted_to_tws = false;
+  record.result.designation_revert_reason = session::ArDesignationRevertReason::kNone;
   record.session_state.has_world_chronology = true;
   record.session_state.last_world_window_end_s = 21.5;
   record.session_state.next_emission_id = 34U;
@@ -338,6 +334,10 @@ TEST(ArReplayCodecRoundtripTest, SingleCycleRecordPreservesResultAndState) {
       << error;
   EXPECT_EQ(decoded.result.status, ArCycleStatus::kCompleted);
   EXPECT_EQ(decoded.result.receiver_impairment, ArReceiverImpairment::kSaturated);
+  ASSERT_EQ(decoded.result.output_frame.tracks.size(), 1U);
+  EXPECT_FLOAT_EQ(decoded.result.output_frame.tracks.front().estimation_uncertainty_trace,
+                  1234.5f);
+  EXPECT_EQ(decoded.result.output_frame.tracks.front().target_type, "HIGH_THREAT_FIGHTER");
   ASSERT_EQ(decoded.result.interference_observations.size(), 1U);
   EXPECT_DOUBLE_EQ(decoded.result.interference_observations.front().jammer_to_noise_db, 14.0);
   ASSERT_EQ(decoded.result.submitted_commands.size(), 1U);
@@ -357,89 +357,36 @@ TEST(ArReplayCodecRoundtripTest, SingleCycleRecordPreservesResultAndState) {
   EXPECT_EQ(decoded.result.association_quality_metrics.matched_count, 5U);
   EXPECT_TRUE(decoded.result.has_decision_observation);
   EXPECT_EQ(decoded.result.decision_observation.input_frame.batch_id, 82U);
+  EXPECT_EQ(decoded.result.effective_work_mode, config::ArWorkMode::kStt);
+  EXPECT_TRUE(decoded.result.designation_active);
+  EXPECT_EQ(decoded.result.designated_target_id, 9001U);
+  EXPECT_FALSE(decoded.result.designation_reverted_to_tws);
+  EXPECT_EQ(decoded.result.designation_revert_reason, session::ArDesignationRevertReason::kNone);
   EXPECT_EQ(decoded.session_state.next_emission_id, 34U);
   EXPECT_TRUE(decoded.session_state.has_pending_runtime_update);
 }
 
-TEST(ArReplayCodecRoundtripTest, RecognitionFieldsRoundtripPreserved) {
+TEST(ArReplayCodecRoundtripTest, CycleRecordDesignationRevertStateRoundtripPreserved) {
   ArCycleReplayRecord record;
-  record.result.input_cycle_index = 1U;
+  record.result.input_cycle_index = 82U;
   record.result.status = ArCycleStatus::kCompleted;
-  record.result.has_recognition_summary = true;
-  record.result.recognition_summary.participating_track_count = 2U;
-  record.result.recognition_summary.model_confirmed_count = 1U;
-  record.result.recognition_summary.category_accuracy = 0.9f;
-  record.result.output_frame.tracks.resize(1U);
-  TrackStateSnapshot& snapshot = record.result.output_frame.tracks.front();
-  snapshot.estimation_uncertainty_trace = 1234.5f;
-  snapshot.recognition.state = ArRecognitionState::kModelConfirmed;
-  snapshot.recognition.target_category = ArRecognitionCategory::kBallistic;
-  snapshot.recognition.target_model = "BALLISTIC_EXAMPLE_A";
-  snapshot.recognition.confidence = 0.91f;
-  snapshot.recognition.best_score = 0.92f;
-  snapshot.recognition.runner_up_score = 0.81f;
-  snapshot.recognition.feature_scores.rcs_similarity = 0.9f;
-  snapshot.recognition.feature_scores.motion_quality = 0.7f;
-  snapshot.recognition.feature_scores.polarization_similarity = 0.4f;
-  snapshot.recognition.feature_scores.range_profile_quality = 0.6f;
-  snapshot.recognition.valid_feature_mask = 0x0BU;
-  snapshot.recognition.observation_count = 6U;
-  snapshot.recognition.accumulation_sec = 4.5f;
-  snapshot.recognition.database_version = "1.0.0";
-  snapshot.recognition.source_cycle_index = 12U;
-  snapshot.recognition.source_batch_id = 34U;
-  record.session_state.active_database_version = "1.0.0";
+  record.result.effective_work_mode = config::ArWorkMode::kTws;
+  record.result.designation_active = false;
+  record.result.designated_target_id = 9002U;
+  record.result.designation_reverted_to_tws = true;
+  record.result.designation_revert_reason = session::ArDesignationRevertReason::kTrackLost;
 
   ArCycleReplayRecord decoded;
   std::string error;
   ASSERT_TRUE(DecodeCycleReplayRecordFlatbuffer(EncodeCycleReplayRecordFlatbuffer(record), &decoded,
                                                 &error))
       << error;
-  ASSERT_EQ(decoded.result.output_frame.tracks.size(), 1U);
-  const TrackStateSnapshot& decoded_snapshot = decoded.result.output_frame.tracks.front();
-  EXPECT_FLOAT_EQ(decoded_snapshot.estimation_uncertainty_trace, 1234.5f);
-  EXPECT_EQ(decoded_snapshot.recognition.state, ArRecognitionState::kModelConfirmed);
-  EXPECT_EQ(decoded_snapshot.recognition.target_category, ArRecognitionCategory::kBallistic);
-  EXPECT_EQ(decoded_snapshot.recognition.target_model, "BALLISTIC_EXAMPLE_A");
-  EXPECT_FLOAT_EQ(decoded_snapshot.recognition.confidence, 0.91f);
-  EXPECT_FLOAT_EQ(decoded_snapshot.recognition.best_score, 0.92f);
-  EXPECT_FLOAT_EQ(decoded_snapshot.recognition.runner_up_score, 0.81f);
-  EXPECT_FLOAT_EQ(decoded_snapshot.recognition.feature_scores.rcs_similarity, 0.9f);
-  EXPECT_FLOAT_EQ(decoded_snapshot.recognition.feature_scores.motion_quality, 0.7f);
-  EXPECT_FLOAT_EQ(decoded_snapshot.recognition.feature_scores.polarization_similarity, 0.4f);
-  EXPECT_FLOAT_EQ(decoded_snapshot.recognition.feature_scores.range_profile_quality, 0.6f);
-  EXPECT_EQ(decoded_snapshot.recognition.valid_feature_mask, 0x0BU);
-  EXPECT_EQ(decoded_snapshot.recognition.observation_count, 6U);
-  EXPECT_FLOAT_EQ(decoded_snapshot.recognition.accumulation_sec, 4.5f);
-  EXPECT_EQ(decoded_snapshot.recognition.database_version, "1.0.0");
-  EXPECT_EQ(decoded_snapshot.recognition.source_cycle_index, 12U);
-  EXPECT_EQ(decoded_snapshot.recognition.source_batch_id, 34U);
-  EXPECT_TRUE(decoded.result.has_recognition_summary);
-  EXPECT_EQ(decoded.result.recognition_summary.participating_track_count, 2U);
-  EXPECT_EQ(decoded.result.recognition_summary.model_confirmed_count, 1U);
-  EXPECT_FLOAT_EQ(decoded.result.recognition_summary.category_accuracy, 0.9f);
-  EXPECT_EQ(decoded.session_state.active_database_version, "1.0.0");
-}
-
-TEST(ArReplayCodecRoundtripTest, RecognitionDefaultStateRoundtripsThroughBothFrames) {
-  ArCycleReplayRecord record;
-  record.result.input_cycle_index = 2U;
-  record.result.status = ArCycleStatus::kCompleted;
-  record.result.output_frame.tracks.resize(1U);
-  record.result.has_decision_observation = true;
-  record.result.decision_observation.input_frame.tracks.resize(1U);
-
-  ArCycleReplayRecord decoded;
-  std::string error;
-  ASSERT_TRUE(DecodeCycleReplayRecordFlatbuffer(EncodeCycleReplayRecordFlatbuffer(record), &decoded,
-                                                &error))
-      << error;
-  const TrackStateSnapshot& output_snapshot = decoded.result.output_frame.tracks.front();
-  EXPECT_EQ(output_snapshot.recognition.state, ArRecognitionState::kDisabled);
-  EXPECT_FLOAT_EQ(output_snapshot.estimation_uncertainty_trace, 0.0f);
-  const TrackStateSnapshot& decision_snapshot =
-      decoded.result.decision_observation.input_frame.tracks.front();
-  EXPECT_EQ(decision_snapshot.recognition.state, ArRecognitionState::kDisabled);
+  EXPECT_EQ(decoded.result.effective_work_mode, config::ArWorkMode::kTws);
+  EXPECT_FALSE(decoded.result.designation_active);
+  EXPECT_EQ(decoded.result.designated_target_id, 9002U);
+  EXPECT_TRUE(decoded.result.designation_reverted_to_tws);
+  EXPECT_EQ(decoded.result.designation_revert_reason,
+            session::ArDesignationRevertReason::kTrackLost);
 }
 
 TEST(ArReplayCodecRoundtripTest, AttemptsPreserveRejectedRuntimeConfigResult) {

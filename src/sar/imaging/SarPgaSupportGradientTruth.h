@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @file SarPgaSupportGradientTruth.h
  * @brief 确定性 PGA 支撑选择与相位梯度真值。
  */

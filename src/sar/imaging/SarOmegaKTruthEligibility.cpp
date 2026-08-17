@@ -1,4 +1,4 @@
-﻿#include "sar/imaging/SarOmegaKTruthEligibility.h"
+#include "sar/imaging/SarOmegaKTruthEligibility.h"
 
 #include <cctype>
 

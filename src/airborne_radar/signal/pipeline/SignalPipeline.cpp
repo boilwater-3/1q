@@ -102,16 +102,6 @@ struct SignalPipeline::Impl {
     RebuildOwnedComponents();
   }
 
-  config::AzimuthElevationDeg cycle_scan_center_override_{}; /**< kLrr 周期扫描中心覆盖。 */
-  bool has_cycle_scan_center_override_{false};               /**< 覆盖待消费标志。 */
-
-  void SetCycleScanCenterOverride(const config::AzimuthElevationDeg& scan_center_deg) {
-    cycle_scan_center_override_ = scan_center_deg;
-    has_cycle_scan_center_override_ = true;
-  }
-
-  void ClearCycleScanCenterOverride() { has_cycle_scan_center_override_ = false; }
-
   CycleExecutionRuntime BuildExecutionRuntimeView() {
     return CycleExecutionRuntime(runtime_.config.base_config, runtime_.config.control_profile_,
                                  runtime_.owned.association_engine, runtime_.owned.track_filter,
@@ -164,11 +154,6 @@ struct SignalPipeline::Impl {
     const ResolvedRuntimePipelineConfig resolved = ResolveRuntimePipelineConfig(
         runtime_execution.base_config, runtime_execution.control_profile);
     ExecutionConfig runtime_config = resolved.config;
-    // kLrr 周期扫描中心覆盖（Path A）：单周期消费，调度对 kLrr passthrough。
-    if (has_cycle_scan_center_override_) {
-      runtime_config.detection.orientation.scan_center_deg = cycle_scan_center_override_;
-    }
-    has_cycle_scan_center_override_ = false;
     ApplyScanScheduleToRuntimeConfig(environment_snapshot.cycle_index, &runtime_config);
     CycleExecutionContext context(cycle_input, environment_snapshot,
                                    environment_snapshot.cycle_index, cycle_.batch_id,
@@ -395,13 +380,6 @@ void SignalPipeline::UpdatePlatformAttitude(
 void SignalPipeline::UpdatePlatformAltitudeM(float platform_altitude_m) {
   impl_->UpdatePlatformAltitudeM(platform_altitude_m);
 }
-
-void SignalPipeline::SetCycleScanCenterOverride(
-    const config::AzimuthElevationDeg& scan_center_deg) {
-  impl_->SetCycleScanCenterOverride(scan_center_deg);
-}
-
-void SignalPipeline::ClearCycleScanCenterOverride() { impl_->ClearCycleScanCenterOverride(); }
 
 config::PlatformAttitudeDeg SignalPipeline::GetPlatformAttitude() const {
   return impl_->GetPlatformAttitude();

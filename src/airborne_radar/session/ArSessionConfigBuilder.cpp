@@ -98,6 +98,24 @@ session::ArIssueList ValidateArSessionConfig(const config::ArSessionConfig& conf
       break;
     }
   }
+  // 信号处理增益偏置：有限且 [0, 40] dB。
+  {
+    const config::detection::SignalProcessingConfig& gains = config.hardware.signal_processing;
+    if (!oneq::common::validation::IsFinite(gains.target_processing_gain_db) ||
+        !oneq::common::validation::IsFinite(gains.noise_processing_gain_db) ||
+        !oneq::common::validation::IsFinite(gains.clutter_suppression_gain_db) ||
+        !oneq::common::validation::IsFinite(gains.jamming_suppression_gain_db) ||
+        gains.target_processing_gain_db < 0.0f ||
+        gains.target_processing_gain_db > 40.0f ||
+        gains.noise_processing_gain_db < 0.0f || gains.noise_processing_gain_db > 40.0f ||
+        gains.clutter_suppression_gain_db < 0.0f ||
+        gains.clutter_suppression_gain_db > 40.0f ||
+        gains.jamming_suppression_gain_db < 0.0f ||
+        gains.jamming_suppression_gain_db > 40.0f) {
+      push(session::codes::kSignalProcessingGainsInvalid, "hardware.signal_processing",
+           "Signal processing gain offsets must be finite values in [0, 40] dB.");
+    }
+  }
   const auto axis_geometry_valid = [transmitter_frequency_hz](float nominal_beamwidth_deg,
                                                               float aperture_m,
                                                               bool commanded_override_enabled) {
@@ -167,58 +185,6 @@ session::ArIssueList ValidateArSessionConfig(const config::ArSessionConfig& conf
     push(session::codes::kElectronicScanLimitsSwappedEl,
          "mission.orientation.electronic_scan_limits_deg",
          "Electronic elevation scan min exceeds max.");
-  }
-
-  const config::ArRecognitionConfig& recognition = config.policy.recognition;
-  const config::ArRecognitionFeatureWeights& weights = recognition.feature_weights;
-  const bool weights_finite =
-      oneq::common::validation::IsFinite(weights.rcs_weight) &&
-      oneq::common::validation::IsFinite(weights.motion_weight) &&
-      oneq::common::validation::IsFinite(weights.polarization_weight) &&
-      oneq::common::validation::IsFinite(weights.range_profile_weight);
-  const float weight_sum = weights.rcs_weight + weights.motion_weight +
-                           weights.polarization_weight + weights.range_profile_weight;
-  const bool weights_in_range =
-      weights.rcs_weight >= 0.0f && weights.rcs_weight <= 1.0f &&
-      weights.motion_weight >= 0.0f && weights.motion_weight <= 1.0f &&
-      weights.polarization_weight >= 0.0f && weights.polarization_weight <= 1.0f &&
-      weights.range_profile_weight >= 0.0f && weights.range_profile_weight <= 1.0f;
-  if (!weights_finite || !weights_in_range || weight_sum < 0.999f || weight_sum > 1.001f) {
-    push(session::codes::kRecognitionWeightsInvalid,
-         "policy.recognition.feature_weights",
-         "Recognition feature weights must be finite values in [0, 1] summing to 1.0.");
-  }
-  if (recognition.enabled && recognition.database_path.empty()) {
-    push(session::codes::kRecognitionDatabasePathMissing,
-         "policy.recognition.database_path",
-         "Recognition database path must be non-empty when recognition is enabled.");
-  }
-  if (!oneq::common::validation::IsFinite(recognition.acceptance_score) ||
-      recognition.acceptance_score < 0.0f || recognition.acceptance_score > 1.0f ||
-      !oneq::common::validation::IsFinite(recognition.minimum_margin) ||
-      recognition.minimum_margin < 0.0f || recognition.minimum_margin > 1.0f) {
-    push(session::codes::kRecognitionThresholdInvalid,
-         "policy.recognition.acceptance_score / minimum_margin",
-         "Recognition acceptance score and minimum margin must be finite values in [0, 1].");
-  }
-  if (recognition.min_confirmed_hits == 0U || recognition.min_observation_count == 0U) {
-    push(session::codes::kRecognitionAccumulationInvalid,
-         "policy.recognition.min_confirmed_hits / min_observation_count",
-         "Recognition accumulation counts must be at least 1.");
-  }
-  if (!oneq::common::validation::IsFinite(recognition.result_hold_sec) ||
-      recognition.result_hold_sec < 0.0f ||
-      !oneq::common::validation::IsFinite(recognition.max_range_m) ||
-      recognition.max_range_m <= 0.0f ||
-      !oneq::common::validation::IsFinite(recognition.recognition_dwell_sec) ||
-      recognition.recognition_dwell_sec <= 0.0f ||
-      !oneq::common::validation::IsFinite(recognition.accumulation_window_sec) ||
-      recognition.accumulation_window_sec <= 0.0f) {
-    push(session::codes::kRecognitionTimeRangeInvalid,
-         "policy.recognition.result_hold_sec / max_range_m / recognition_dwell_sec / "
-         "accumulation_window_sec",
-         "Recognition hold time must be non-negative; max range, dwell and accumulation window "
-         "must be finite and positive.");
   }
 
   return issues;

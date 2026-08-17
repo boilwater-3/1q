@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @file TargetGeometryResolver.h
  * @brief 定义目标几何（位置、斜距、look angle）的统一解析器。
  */

@@ -231,25 +231,6 @@ flowchart LR
   Result --> Debug
 ```
 
-### 远程识别链路（kLrr）
-
-识别是纯并行输出：执行点位于 `DecisionInputFrame` 生成之后（controller 内部），结果仅回填
-`TrackOutputFrame`，不进入决策帧与威胁评估。
-
-```text
-ArSceneTarget 特征真值（aspect / polarization / range_rcs 样本）
-  → RecognitionObservationBuilder（SNR / 带宽 / 驻留 / 视角覆盖约束）
-  → Rcs / Motion / Polarization / RangeProfile FeatureExtractor
-  → RecognitionTrackState 多周期积累（每 association_key 一份）
-  → RecognitionMatcher × RecognitionFeatureDatabase（只读内存基线）
-  → ArRecognitionResult 回填 TrackOutputFrame
-```
-
-状态所有权：`RecognitionFeatureDatabase` 归 `ArController`（构造加载/析构释放，加载期只读
-连接，运行期无连接）；每航迹 `RecognitionTrackState` 随航迹创建、随 `kRecycled`/键重分配
-清理；识别快照纳入 `ArControllerRuntimeState` 四类回滚矩阵；`database_version` 入
-`ArSessionReplayState`。
-
 ## 输出、调试与归属边界
 
 ```mermaid
@@ -288,6 +269,48 @@ flowchart TB
 
 归属边界（图传达分层，以下传达归属禁令）：`TrackOutputFrame` 是唯一系统输出，debug/lifecycle/replay 是
 仿真辅助视图，output query 不改变输出语义；决策 SPI 不拥有输出结构，不能绕过内部 output adapter 写系统输出。
+
+### STT 指定航迹状态流（方案 A）
+
+```mermaid
+flowchart LR
+  Patch["ArRuntimeConfigPatch\ndesignated_external_target_id\n（外部只指定目标，不给角度）"]
+  State["RuntimeConfigState\ndesignated_external_target_id\n（会话级状态，随 patch 原子提交/回滚）"]
+  Tracks["ArController::GetLatestTrackOutputFrame\n上一周期航迹（雷达局部笛卡尔）"]
+  Resolve["ResolveSttTrackFollowingPointing\n优先级：显式 dwell > 指定航迹 > scan_center"]
+  Prepare["ArSession prepare\nResolveMountFrameBeamPointing"]
+  Rf["RfV2DetectionContext.beam_pointing_deg\n发射 / 接收 / 增益 / 检测单元"]
+  Derive["BuildSttDesignationCycleState\n生效模式派生（latch-free）"]
+  Result["ArCycleResult\neffective_work_mode / designation_*\n（每周期状态指示）"]
+  View["ArTrackOutputDebugView\n转写同名字段"]
+  Recorder["ArTrackLifecycleRecorder\nkDesignationDropped（回退转换沿）"]
+  Replay["ArTraceSession / ArReplaySession\npatch 与周期结果新字段"]
+
+  Patch --> State
+  State --> Resolve
+  Tracks --> Resolve
+  Resolve --> Prepare
+  Prepare --> Rf
+  State --> Derive
+  Tracks --> Derive
+  Derive --> Result
+  Result --> View
+  Result --> Recorder
+  Result --> Replay
+```
+
+- 指向注入点唯一：`ArSession` prepare（`ResolveMountFrameBeamPointing` 的 scan_center 输入），
+  经冻结指向链路同时驱动发射 boresight、接收状态、逐目标增益与检测单元；
+  TWS/TAS 生效模式（含 STT 回退）下该输入按扫描表逐周期推进（扫描动画，
+  见 boundaries.md 扫描动画接线），显式 dwell / 航迹跟随 / STT 驻留保持静态语义；
+- 指定状态属会话层（`RuntimeConfigState`），不进 pipeline 执行配置；限时指令
+  （`designation_duration_cycles`）的生命周期阶段（kPending/kAcquired/kExpired）
+  同为会话级跨周期状态，由 `AdvanceDesignationPhase` 每周期推进（窗口内捕获 →
+  持续跟随；窗口耗尽未捕获 → 作废，作废沿报告 kAcquisitionTimeout 后指定清零、
+  回到扫描）；失败周期经事务快照回滚，阶段不跨失败周期消耗；
+- 生效模式每周期派生（无跨周期记忆）：指定航迹非 confirmed → 回退 `kTws`；
+  `designation_reverted_to_tws` 是每周期状态指示，跨周期差分由调用方/recorder 承担；
+- 显式 dwell 覆盖时 `designation_active == false` 但不构成回退。
 
 **反直觉点（emission_frame 是 base 发射身份）**：公开发布的 `emission_frame`（`RfSceneEmission.antenna`）的
 发射功率、载波频率捷变、rejitter 等效果直接由控制 profile 作用到发射，但天线方向图字段读取自未经
@@ -342,6 +365,9 @@ trace 因果顺序 `cycle_output(N) → decision_input(override profile) → cyc
 `cycle_output` 使用内部 `ArReplayCycleRecord`（public result + `ArDecisionReplayState`）；内部决策按 live 路径
 重新计算并逐字段比较 pending internal baseline、实际采用 proposal、来源 cycle/batch、reducer 计数、
 observation 和最终 profile，不支持旧 `ArCycleResult` replay 输出格式。
+指定指令生命周期阶段（designation_phase/deadline）为派生跨周期状态，不进 replay session state
+快照：全量重放（patch 流 + 周期输入）由 cycle_index 驱动可复现；若未来引入"从第 N 周期恢复"，
+需同步纳入会话状态。
 
 [evidence: tests/unit/airborne_radar/ar_rf_session_test.cpp]
 [evidence: tests/replay/airborne_radar/ar_replay_codec_roundtrip_test.cpp]

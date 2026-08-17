@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 
 #include <cmath>
+#include <limits>
 
 #include "airborne_radar/signal/detection/ArDetectionCellResolver.h"
 
@@ -80,6 +81,111 @@ TEST(ArDetectionCellResolverTest, SuppressionOnlyChangesSinrAndPulseCountDoesNot
   EXPECT_DOUBLE_EQ(more_pulses.processed_single_pulse_sinr_linear,
                    jammed.processed_single_pulse_sinr_linear);
   EXPECT_EQ(more_pulses.effective_pulse_count, 64U);
+}
+
+TEST(ArDetectionCellResolverTest, DefaultGainsMatchConservativeLedger) {
+  const oneq::electromagnetics::RfEmissionIdentity own{1U, 2U, 3U};
+  const ArDetectionCellConfig config = MakeConfig();
+  const ArDetectionCellTarget target = MakeTarget(10000.0);
+  ArDetectionCellResult result;
+  ASSERT_TRUE(TryResolveArDetectionCell(config, target, own, {}, 1.0e-15, &result));
+  const double expected_sinr_db =
+      10.0 * std::log10(result.echo_power_w * result.pulse_compression_gain /
+                        (result.thermal_noise_power_w + result.interference_power_w +
+                         result.clutter_power_w));
+  EXPECT_NEAR(result.processed_single_pulse_sinr_db, expected_sinr_db, 1.0e-9);
+}
+
+TEST(ArDetectionCellResolverTest, TargetGainOffsetRaisesSinrByOffset) {
+  const oneq::electromagnetics::RfEmissionIdentity own{1U, 2U, 3U};
+  const ArDetectionCellTarget target = MakeTarget(10000.0);
+  ArDetectionCellConfig config = MakeConfig();
+  ArDetectionCellResult baseline;
+  ArDetectionCellResult boosted;
+  ASSERT_TRUE(TryResolveArDetectionCell(config, target, own, {}, 0.0, &baseline));
+  config.signal_processing.target_processing_gain_db = 3.0f;
+  ASSERT_TRUE(TryResolveArDetectionCell(config, target, own, {}, 0.0, &boosted));
+  EXPECT_NEAR(boosted.processed_single_pulse_sinr_db - baseline.processed_single_pulse_sinr_db,
+              3.0, 1.0e-6);
+}
+
+TEST(ArDetectionCellResolverTest, GainOffsetIsClampedToValidRangeInSolver) {
+  const oneq::electromagnetics::RfEmissionIdentity own{1U, 2U, 3U};
+  const ArDetectionCellTarget target = MakeTarget(10000.0);
+  ArDetectionCellConfig config = MakeConfig();
+  ArDetectionCellResult baseline;
+  ArDetectionCellResult clamped_high;
+  ArDetectionCellResult clamped_low;
+  ASSERT_TRUE(TryResolveArDetectionCell(config, target, own, {}, 0.0, &baseline));
+  config.signal_processing.target_processing_gain_db = 50.0f;
+  ASSERT_TRUE(TryResolveArDetectionCell(config, target, own, {}, 0.0, &clamped_high));
+  EXPECT_NEAR(clamped_high.processed_single_pulse_sinr_db - baseline.processed_single_pulse_sinr_db,
+              40.0, 1.0e-6);
+  config.signal_processing.target_processing_gain_db = -5.0f;
+  ASSERT_TRUE(TryResolveArDetectionCell(config, target, own, {}, 0.0, &clamped_low));
+  EXPECT_DOUBLE_EQ(clamped_low.processed_single_pulse_sinr_db,
+                   baseline.processed_single_pulse_sinr_db);
+}
+
+TEST(ArDetectionCellResolverTest, NoiseGainOffsetLowersSinrWhenNoiseDominant) {
+  const oneq::electromagnetics::RfEmissionIdentity own{1U, 2U, 3U};
+  const ArDetectionCellTarget target = MakeTarget(10000.0);
+  ArDetectionCellConfig config = MakeConfig();
+  ArDetectionCellResult baseline;
+  ArDetectionCellResult penalized;
+  ASSERT_TRUE(TryResolveArDetectionCell(config, target, own, {}, 0.0, &baseline));
+  config.signal_processing.noise_processing_gain_db = 3.0f;
+  ASSERT_TRUE(TryResolveArDetectionCell(config, target, own, {}, 0.0, &penalized));
+  EXPECT_NEAR(baseline.processed_single_pulse_sinr_db - penalized.processed_single_pulse_sinr_db,
+              3.0, 1.0e-6);
+}
+
+TEST(ArDetectionCellResolverTest, ClutterSuppressionOffsetRaisesSinrWhenClutterDominant) {
+  const oneq::electromagnetics::RfEmissionIdentity own{1U, 2U, 3U};
+  const ArDetectionCellTarget target = MakeTarget(10000.0);
+  ArDetectionCellConfig config = MakeConfig();
+  const double dominant_clutter_w = 1.0e-8;
+  ArDetectionCellResult baseline;
+  ArDetectionCellResult suppressed;
+  ASSERT_TRUE(
+      TryResolveArDetectionCell(config, target, own, {}, dominant_clutter_w, &baseline));
+  config.signal_processing.clutter_suppression_gain_db = 10.0f;
+  ASSERT_TRUE(
+      TryResolveArDetectionCell(config, target, own, {}, dominant_clutter_w, &suppressed));
+  EXPECT_NEAR(suppressed.processed_single_pulse_sinr_db - baseline.processed_single_pulse_sinr_db,
+              10.0, 1.0e-3);
+  EXPECT_DOUBLE_EQ(suppressed.clutter_power_w, baseline.clutter_power_w);
+}
+
+TEST(ArDetectionCellResolverTest, JammingSuppressionOffsetRaisesSinrWhenJammingDominant) {
+  const oneq::electromagnetics::RfEmissionIdentity own{1U, 2U, 3U};
+  const ArDetectionCellTarget target = MakeTarget(10000.0);
+  ArDetectionCellConfig config = MakeConfig();
+  ArDetectionCellResult probe;
+  ASSERT_TRUE(TryResolveArDetectionCell(config, target, own, {}, 0.0, &probe));
+
+  oneq::electromagnetics::RfWaveformSchedule jammer_waveform;
+  ASSERT_TRUE(oneq::electromagnetics::TryCreateRfNoiseWaveform(
+      0.0, 1.0, 10.0e9, 10.0e6, 1.0, &jammer_waveform));
+  const auto jammer = MakeIncidentLink(jammer_waveform, probe.thermal_noise_power_w * 1000.0);
+  ArDetectionCellResult baseline;
+  ArDetectionCellResult suppressed;
+  ASSERT_TRUE(TryResolveArDetectionCell(config, target, own, {jammer}, 0.0, &baseline));
+  config.signal_processing.jamming_suppression_gain_db = 10.0f;
+  ASSERT_TRUE(
+      TryResolveArDetectionCell(config, target, own, {jammer}, 0.0, &suppressed));
+  EXPECT_NEAR(suppressed.processed_single_pulse_sinr_db - baseline.processed_single_pulse_sinr_db,
+              10.0, 0.05);
+}
+
+TEST(ArDetectionCellResolverTest, NonFiniteGainOffsetIsRejectedAtomically) {
+  const oneq::electromagnetics::RfEmissionIdentity own{1U, 2U, 3U};
+  ArDetectionCellConfig config = MakeConfig();
+  config.signal_processing.noise_processing_gain_db = std::numeric_limits<float>::quiet_NaN();
+  ArDetectionCellResult untouched;
+  untouched.echo_power_w = 77.0;
+  EXPECT_FALSE(TryResolveArDetectionCell(config, MakeTarget(10000.0), own, {}, 0.0, &untouched));
+  EXPECT_DOUBLE_EQ(untouched.echo_power_w, 77.0);
 }
 
 TEST(ArDetectionCellResolverTest, FrequencyAndPulseCellsRejectNonOverlappingEnergy) {

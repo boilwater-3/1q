@@ -9,6 +9,12 @@ struct Vec3d {
   z: double;
 }
 
+struct EulerDeg3d {
+  yaw_deg: double;
+  pitch_deg: double;
+  roll_deg: double;
+}
+
 table SbirsSceneTarget {
   target_id: uint64;
   target_name: string;
@@ -25,12 +31,18 @@ table SbirsCycleInput {
   utc_julian_day: double;
   has_satellite_position: bool;
   satellite_position_ecef_m: Vec3d;
+  has_satellite_velocity: bool;
+  satellite_velocity_ecef_m_per_s: Vec3d;
+  has_satellite_attitude: bool;
+  satellite_attitude_eci_body_deg: EulerDeg3d;
   scene_targets: [SbirsSceneTarget];
 }
 
 root_type SbirsCycleInput;
 // v2（2026-08 正式变更）：ECI 弧度输出 / 辐射强度签名 / UTC 儒略日；
 // codec 写入并校验该标识符，v1（"SBIC"，deg/ECEF 语义或无标识符）录制被显式拒绝。
+// 2026-08-17 起周期输入新增必填卫星速度（ECEF）；同日起阶段 2 新增必填卫星姿态
+// （Z-Y-X 欧拉角，Body->ECI）；项目未上线，直接演进、无兼容分支。
 file_identifier "SBI2";
 
 table SbirsDetectionRecord {
@@ -47,6 +59,7 @@ table SbirsDetectionAttributionRecord {
   target_id: uint64;
   target_name: string;
   estimated_range_m: float;
+  max_detection_range_m: float;
   tracking_source: int32;
   capture_failure_reason: int32;
   has_estimation_nis: bool;
@@ -64,6 +77,7 @@ table SbirsDetectionAttributionRecord {
 table SbirsOutputFrame {
   cycle_index: uint32;
   scan_azimuth_rad: float;
+  scan_elevation_rad: float = 0.0;
   detections: [SbirsDetectionRecord];
 }
 

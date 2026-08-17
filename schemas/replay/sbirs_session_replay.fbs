@@ -26,6 +26,9 @@ table SbirsMissionConfig {
   scan_span_deg: float;
   scan_direction: int32;
   scan_center_el_deg: float;
+  scan_el_start_deg: float = 0.0;
+  scan_el_span_deg: float = 0.0;
+  scan_el_step_deg: float = 1.0;
   scan_rate_deg_per_sec: float;
   min_range_m: float;
   max_range_m: float;
@@ -75,6 +78,22 @@ table SbirsTrackingConfig {
   imm_model_noise_diff_coeffs: [float];
 }
 
+table SbirsOrientationConfig {
+  mount_yaw_deg: float;
+  mount_pitch_deg: float;
+  mount_roll_deg: float;
+  sensor_scan_limits_az_min_deg: float = -180.0;
+  sensor_scan_limits_az_max_deg: float = 180.0;
+  sensor_scan_limits_el_min_deg: float = -90.0;
+  sensor_scan_limits_el_max_deg: float = 90.0;
+  stabilization_mode: int32 = 0;
+  misalignment_yaw_deg: float = 0.0;
+  misalignment_pitch_deg: float = 0.0;
+  misalignment_roll_deg: float = 0.0;
+  misalignment_random_sigma_deg: float = 0.0;
+  misalignment_random_seed: uint32 = 1;
+}
+
 table SbirsPolicyConfig {
   detection: SbirsDetectionPolicyConfig;
   error_model: SbirsErrorModelConfig;
@@ -97,6 +116,7 @@ table SbirsEnvironmentConfig {
 table SbirsSessionConfig {
   hardware:       SbirsHardwareConfig;
   mission:        SbirsMissionConfig;
+  orientation:    SbirsOrientationConfig;
   policy:         SbirsPolicyConfig;
   environment:    SbirsEnvironmentConfig;
   sensor_enabled: bool = true;

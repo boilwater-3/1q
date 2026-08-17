@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @file SarOmegaKTruthEligibility.h
  * @brief 物理证据 Omega-K 真值评估的准入门。
  */

@@ -44,11 +44,13 @@ session::SbirsCycleResult SbirsController::RunOnce(const session::SbirsCycleInpu
     result.status = session::SbirsCycleStatus::kPoweredOff;
     result.output_frame.cycle_index = input.cycle_index;
     result.output_frame.scan_azimuth_rad = pipeline_result.scan_azimuth_rad;
+    result.output_frame.scan_elevation_rad = pipeline_result.scan_elevation_rad;
     return result;
   }
 
   result.output_frame.cycle_index = input.cycle_index;
   result.output_frame.scan_azimuth_rad = pipeline_result.scan_azimuth_rad;
+  result.output_frame.scan_elevation_rad = pipeline_result.scan_elevation_rad;
   // 规则 13b：正常执行周期按目标排除的 kInfo 诊断并入统一问题列表（abort 路径不变）。
   result.issues = pipeline_result.issues;
   // raw output 仅进 detected==true 的 record；失败诊断 attribution 仍保留进 result 层。

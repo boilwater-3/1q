@@ -59,14 +59,14 @@ class SbirsTrackingCoordinator {
   SbirsTrackingUpdateResult CorrectTarget(
       std::uint64_t target_id, const config::SbirsPolicyConfig& policy,
       foundation::SbirsRandomSource* random_source, float azimuth_deg, float elevation_deg,
-      double range_m, float angular_rate_deg_per_sec,
+      double range_m, float relative_angular_rate_deg_per_sec,
       const session::SbirsVector3M& satellite_position_eci_m);
   void MarkMeasurementUnavailable(std::uint64_t target_id);
   SbirsTrackingUpdateResult Update(std::uint64_t target_id,
                                    const config::SbirsPolicyConfig& policy,
                                    foundation::SbirsRandomSource* random_source,
                                    float azimuth_deg, float elevation_deg, double range_m,
-                                   float angular_rate_deg_per_sec, float dt_sec,
+                                   float relative_angular_rate_deg_per_sec, float dt_sec,
                                    const session::SbirsVector3M& satellite_position_eci_m);
   void ReleaseTarget(std::uint64_t target_id);
   void ResetNisGateCounts();

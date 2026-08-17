@@ -61,7 +61,7 @@ Authority: 非规范性审查记录；不得替代 `docs/common/contract.md`、
 |---|---|---|
 | C-1 | **组件层 bool 返回是自创信号**。库的 `FlightManager::ClearManeuvers`/`Abort` 返回 void；`FlightComponent` 包装自创"FD 可用性"语义（FD 未启用/初始化失败返回 false）。库侧无直接可用性查询（须由 `GetState()==kAborted` 推导）。 | `include/1q/flight_dynamic/FlightManager.h:168`；`examples/component_attachment/components/flight_component.cpp:245-248` |
 | C-2 | **ESR 独有结构化拒绝结果**。仅 ESR 提供 `ApplyRuntimeConfigWithResult`（拒绝原因枚举 `kRejectedInvalidScanRate` 等）；AR/EOS/SAR/SBIRS 只返回 bool，拒绝原因仅在库日志。外部做"按原因分支"决策在非 ESR 模块无结构化入口。 | `include/1q/electronic_surveillance_radar/session/EsrSession.h`（`EsrRuntimeConfigApplyResult` 定义处；经 `esr_sensor_component.h` 暴露） |
-| C-3 | **SAR/SBIRS 无组件类（已解决）**。审查时组件集成范围仅覆盖 AR/ESR/EOS/FD/Fusion 五组件。2026-08-06 后续集成补齐：`SbirsSensorComponent`（复刻 EOS 形态——`SbirsSession` + `SbirsDetectionLifecycleRecorder` + `TryApplyRuntimeConfig`，探测适配为融合第 4 源通道）与 `SarSensorComponent`（`SarSession` + `SarProductLifecycleRecorder`，产品生命周期事件经信号发布，无探测输出不入融合，符合 Bahavior.md 契约）。 | `examples/component_attachment/components/{sbirs_sensor,sar_sensor}_component.{h,cpp}` |
+| C-3 | **SAR/SBIRS 无组件类（已解决）**。审查时组件集成范围仅覆盖 AR/ESR/EOS/FD/Fusion 五组件。2026-08-06 后续集成补齐：`SbirsSensorComponent`（复刻 EOS 形态——`SbirsSession` + `SbirsDetectionLifecycleRecorder` + `TryApplyRuntimeConfig`，探测适配为融合第 4 源通道）与 `SarSensorComponent`（`SarSession` + `SarProductLifecycleRecorder`，产品生命周期事件经信号发布，无探测输出不入融合，符合 Behavior.md 契约）。 | `examples/component_attachment/components/{sbirs_sensor,sar_sensor}_component.{h,cpp}` |
 
 ### 2.4 D 类：怀疑不成立（1 项）
 

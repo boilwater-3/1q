@@ -52,11 +52,6 @@ Status: active
 | `ar.validation.non_finite_cycle_delta_time` | 输入校验 | 周期步长非有限值。 |
 | `ar.validation.non_finite_target_field` | 输入校验 | 目标含非有限数值字段（位置/速度/RCS/斜距）。 |
 | `ar.validation.receiver_rf_hardware_invalid` | 输入校验 | 接收机 RF 硬件非法（隔离度/远场距离/线性输入限/共址路径无效）。 |
-| `ar.validation.recognition_accumulation_invalid` | 输入校验 | 识别累积计数非法（须至少为 1）。 |
-| `ar.validation.recognition_database_path_missing` | 输入校验 | 识别数据库路径缺失（启用识别时须非空）。 |
-| `ar.validation.recognition_threshold_invalid` | 输入校验 | 识别门限非法（接受分数/最小裕度须在 [0, 1]）。 |
-| `ar.validation.recognition_time_range_invalid` | 输入校验 | 识别时间范围非法（保持时间须非负；最大距离/驻留/累积窗口须有限且为正）。 |
-| `ar.validation.recognition_weights_invalid` | 输入校验 | 识别特征权重非法（须有限、在 [0, 1] 且总和为 1）。 |
 | `ar.validation.transmitter_frequency_invalid` | 输入校验 | 发射机频率非法（须有限且为正）。 |
 | `ar.validation.transmitter_operating_envelope_invalid` | 输入校验 | 发射机工作包络非法（功率/占空比/脉冲能量超出硬件限制）。 |
 | `ar.validation.unknown_external_target_id` | 输入校验 | 目标外部 ID 未知（为 0，kInfo 级）。 |

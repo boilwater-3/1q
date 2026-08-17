@@ -31,7 +31,7 @@ Answers: fusion 有哪些模块级禁令、关联键边界、变更规则
 
 库内 SAR 无探测/spot-report 输出（`SarOutputFrame` 仅为图像质量元数据），
 首期 SAR 不作为融合输入，可作为使命状态旁路信息；SAR 探测能力属未来扩展
-（见 `docs/review/Bahavior.md` §4.3）。
+（见 `docs/review/Behavior.md` §4.3）。
 
 ## 非目标
 
@@ -44,7 +44,7 @@ Answers: fusion 有哪些模块级禁令、关联键边界、变更规则
 ## 设计变更规则
 
 1. 关联键策略、置信度公式或滑窗语义变化必须同步本文档集与
-   `docs/review/Bahavior.md` §4 冻结项。
+   `docs/review/Behavior.md` §4 冻结项。
 2. 若引入轨迹滤波或新的关联度量（如 Mahalanobis 门限），必须先在
    algorithms.md 冻结实现边界，并评估 `airborne_radar::signal::association`
    既有实现的复用/提升路径。

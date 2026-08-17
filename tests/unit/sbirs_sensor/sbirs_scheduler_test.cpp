@@ -56,6 +56,7 @@ TEST(SbirsSchedulerTest, TargetIdBreaksOtherwiseEqualCandidateTie) {
           .WithDeltaTimeSec(1.0f)
           .WithUtcJulianDay(2451544.2230698913)  // GMST≈0：ECI≡ECEF
           .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
+          .WithSatelliteVelocity(sbirs_sensor::session::SbirsVector3M{}).WithSatelliteAttitude(sbirs_sensor::session::SbirsEulerAnglesDeg{})
           .AddTarget(Target(8U, 1000000.0, 1.0e8))
           .AddTarget(Target(3U, 1000000.0, 1.0e8))
           .Build();

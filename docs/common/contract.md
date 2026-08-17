@@ -120,6 +120,10 @@ EOS 的 `detector_area_cm2` 与 `detector_detectivity_cm_sqrt_hz_per_w` 共同�
 [evidence: tests/unit/common/common_rf_link_budget_test]
 [evidence: tests/unit/common/common_rf_scene_test]
 
+### RIR 驻留指向输入契约
+
+RIR 的波束中心由**库内驻留调度器**（`RirSession`）每周期派生：无指定任务时按扫描策略逐周期推进（common 扫描内核 `ScanScheduleRuntime`，与 AR 同一口径）；指定识别任务窗口内对准指定目标。RIR 消费侧只信任并消费给定值，不自行生成指向。指向角类型为 `RirAzimuthElevationDeg`（deg），定义在雷达局部 ENU 右手系（与 `RirSceneTarget::position_x/y/z` 同帧）：`az_deg ∈ [-180, 180]`、`el_deg ∈ [-90, 90]`，单位指向向量为 `(cos(el)·cos(az), cos(el)·sin(az), sin(el))`。RIR 方向图开启时以“目标视线角 - 给定指向”作为离轴角；指向偏离目标即按实际离轴衰减执行。指定识别任务（限时锁定，镜像 AR designation 语义）见 `docs/remote_identification_radar/boundaries.md`。
+
 ### 折射率温标输入迁移
 
 公开折射率入口只提供 `RefractivityInputs` + `RefractivityTemperaturePair` +
@@ -251,7 +255,7 @@ CMake 工程边界（target 作用域、Windows 验收）和测试架构（type�
 - `electronic_surveillance_radar`
 - `flight_dynamic`
 - `sar`
-- `space_based_infrared_sensor`
+- `sbirs_sensor`
 
 `docs/` 顶层不保留散落的 Markdown 文件。所有文档必须落在上述某个一级目录内。
 

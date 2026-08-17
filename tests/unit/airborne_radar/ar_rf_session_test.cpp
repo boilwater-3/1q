@@ -255,7 +255,11 @@ TEST(ArRfSessionTest, InertialStabilizationKeepsActualEcefBoresightFixed) {
 }
 
 TEST(ArRfSessionTest, RuntimePointingPatchChangesNextActualBoresight) {
-  ArSession radar = ArSession::Create();
+  // STT 模式隔离扫描动画（TWS 下波束已逐周期推进，scan_center patch 不再
+  // 单独决定指向）：STT 下指向 = scan_center，patch 语义可独立验证。
+  config::ArSessionConfig config;
+  config.mission.orientation.work_mode = config::ArWorkMode::kStt;
+  ArSession radar = ArSession::Create(config);
   const ArCycleResult first = radar.StepWithResult(MakeInput(1U, 0.0));
   ASSERT_EQ(first.status, ArCycleStatus::kCompleted);
   ASSERT_EQ(first.emission_frame.emissions.size(), 1U);

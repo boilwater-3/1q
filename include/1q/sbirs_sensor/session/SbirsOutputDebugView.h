@@ -42,6 +42,7 @@ struct ONEQ_API SbirsDebugTargetState {
   attribution::SbirsTrackingSource tracking_source{
       attribution::SbirsTrackingSource::kNotApplicable}; /**< 正式跟踪来源 */
   float estimated_range_m{0.0f};     /**< 估计距离，单位 m */
+  float max_detection_range_m{0.0f}; /**< 当前时刻最大探测距离 d_max(t)，单位 m（WFOV 门限反解） */
   bool has_estimation_nis{false};    /**< 是否包含 EKF 估计跟踪 NIS */
   float estimation_nis{0.0f};        /**< EKF 归一化新息平方 */
   bool estimation_nis_gate_exceeded{false}; /**< EKF NIS 是否超过 2 维 95% 门限 */

@@ -123,8 +123,19 @@ if(_oneq_unit_airborne_radar)
         TYPE unit DOMAIN airborne_radar
         SOURCES ${_oneq_unit_airborne_radar}
         TIMEOUT 60
+        INCLUDE_DIRS "${CMAKE_CURRENT_SOURCE_DIR}/unit/airborne_radar")
+endif()
+
+# remote_identification_radar (RIR).
+file(GLOB _oneq_unit_remote_identification_radar CONFIGURE_DEPENDS
+    "${CMAKE_CURRENT_SOURCE_DIR}/unit/remote_identification_radar/*_test.cpp")
+if(_oneq_unit_remote_identification_radar)
+    oneq_add_test_partition(
+        TYPE unit DOMAIN remote_identification_radar
+        SOURCES ${_oneq_unit_remote_identification_radar}
+        TIMEOUT 60
         LINK_LIBS SQLite::SQLite3
-        INCLUDE_DIRS "${CMAKE_CURRENT_SOURCE_DIR}/unit/airborne_radar"
+        INCLUDE_DIRS "${CMAKE_CURRENT_SOURCE_DIR}/unit/remote_identification_radar"
                      "${CMAKE_CURRENT_BINARY_DIR}/generated")
 endif()
 

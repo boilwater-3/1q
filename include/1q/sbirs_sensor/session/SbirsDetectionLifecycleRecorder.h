@@ -57,6 +57,7 @@ struct ONEQ_API SbirsDetectionLifecycleEvent {
       output::SbirsObservationStage::kWideFieldSearch}; /**< 观测阶段 */
   float infrared_snr_linear{0.0f};                      /**< 红外通道线性 IR SNR */
   float estimated_range_m{0.0f};                        /**< 估计距离，单位 m */
+  float max_detection_range_m{0.0f};                    /**< 当前时刻最大探测距离 d_max(t)，单位 m */
   attribution::SbirsTrackingSource tracking_source{
       attribution::SbirsTrackingSource::kNotApplicable}; /**< 正式跟踪来源 */
   bool has_estimation_nis{false};                       /**< 是否包含 EKF 估计跟踪 NIS */

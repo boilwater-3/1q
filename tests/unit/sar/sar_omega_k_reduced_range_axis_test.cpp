@@ -1,4 +1,4 @@
-﻿#include <gtest/gtest.h>
+#include <gtest/gtest.h>
 
 #include "sar/imaging/SarOmegaKReducedRangeAxis.h"
 #include "sar/signal/SarFft.h"

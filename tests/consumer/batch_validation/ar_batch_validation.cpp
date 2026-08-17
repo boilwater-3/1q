@@ -265,6 +265,9 @@ struct BatchCycleResult {
   ar_session::TrackOutputFrame output_frame{};
   ar_session::ArInterferenceObservationList interference_observations{};
   ar_session::ArReceiverImpairment receiver_impairment{ar_session::ArReceiverImpairment::kNone};
+  // STT 指定航迹状态（契约观测，仅 completed 周期有效）。
+  bool designation_active{false};
+  bool designation_reverted_to_tws{false};
 };
 
 BatchCycleResult RunBatchCycle(ar_session::ArTraceSession* session,
@@ -312,6 +315,8 @@ BatchCycleResult RunBatchCycle(ar_session::ArTraceSession* session,
   }
   result.completed = true;
   result.output_frame = completed.output_frame;
+  result.designation_active = completed.designation_active;
+  result.designation_reverted_to_tws = completed.designation_reverted_to_tws;
   result.interference_observations = completed.interference_observations;
   result.receiver_impairment = completed.receiver_impairment;
   return result;
@@ -386,6 +391,8 @@ ScenarioSummary RunArScenario(const ArCase& c, const ar_config::ArSessionConfig&
   std::uint64_t established_key = 0U;
   std::uint64_t recovered_key = 0U;
   bool invalid_patch_rejected = false;
+  bool saw_stt_designation_active = false;
+  bool saw_stt_designation_revert = false;
   std::size_t replay_operation_count = 0U;
 
   // 录制 scope：TraceSession + 所有 Prepare/Complete/Abandon 操作包在内，结尾 Flush。
@@ -406,10 +413,14 @@ ScenarioSummary RunArScenario(const ArCase& c, const ar_config::ArSessionConfig&
       }
 
       if (c.scenario_id == "ar_seq_tws_stt_tws" && (cycle_index == 9U || cycle_index == 17U)) {
+        // STT 指定航迹跟随（方案 A）：外部只指定目标，不提供角度；
+        // 周期 17 回 TWS 并清除指定。
         ar_config::ArRuntimeConfigPatch patch;
         patch.has_work_mode = true;
         patch.work_mode =
             cycle_index == 9U ? ar_config::ArWorkMode::kStt : ar_config::ArWorkMode::kTws;
+        patch.has_designated_target_id = true;
+        patch.designated_external_target_id = cycle_index == 9U ? 1000U : 0U;
         (void)session.TryApplyRuntimeConfig(patch);
       }
       if (c.scenario_id == "ar_seq_power_cycle" && (cycle_index == 9U || cycle_index == 14U)) {
@@ -457,6 +468,12 @@ ScenarioSummary RunArScenario(const ArCase& c, const ar_config::ArSessionConfig&
                         c.scenario_id == "ar_seq_crossing_with_pulsed_jammer");
       replay_operation_count += result.replay_operation_count;
       if (!result.completed) ++rejected_cycle_count;
+      if (c.scenario_id == "ar_seq_tws_stt_tws" && cycle_index >= 9U && cycle_index <= 16U) {
+        // STT 指定航迹跟随契约观测：中断阶段应出现 designation_active
+        // （指向跟随指定航迹），且不得出现回退（目标全程在场，无丢失）。
+        if (result.designation_active) saw_stt_designation_active = true;
+        if (result.designation_reverted_to_tws) saw_stt_designation_revert = true;
+      }
       const auto track_map = ar_session::BuildTrackMapByExternalTargetId(result.output_frame);
       const auto track_it = track_map.find(1000U);
       if (track_it != track_map.end()) {
@@ -526,6 +543,12 @@ ScenarioSummary RunArScenario(const ArCase& c, const ar_config::ArSessionConfig&
     if (c.scenario_id == "ar_seq_invalid_patch_atomic") {
       checks.Add(c.scenario_id, "interruption", 9U, "invalid_patch_atomic_rejection", "rejected",
                  invalid_patch_rejected ? "rejected" : "accepted", invalid_patch_rejected);
+    }
+    if (c.scenario_id == "ar_seq_tws_stt_tws") {
+      checks.Add(c.scenario_id, "interruption", 9U, "stt_designation_active", "true",
+                 saw_stt_designation_active ? "true" : "false", saw_stt_designation_active);
+      checks.Add(c.scenario_id, "interruption", 16U, "stt_designation_revert_absent", "true",
+                 saw_stt_designation_revert ? "false" : "true", !saw_stt_designation_revert);
     }
     if (c.scenario_id.find("crossing") != std::string::npos ||
         c.scenario_id.find("recovery") != std::string::npos ||

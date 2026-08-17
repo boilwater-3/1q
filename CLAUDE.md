@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-A static library of simulation models for external service modules — airborne radar (AR), electronic surveillance radar (ESR), synthetic aperture radar (SAR), electro-optical sensor (EOS), flight dynamics, and space-based infrared sensor (SBIRS) — delivered as a single linkable artifact.
+A static library of simulation models for external service modules — airborne radar (AR), electronic surveillance radar (ESR), synthetic aperture radar (SAR), electro-optical sensor (EOS), flight dynamics, space-based infrared sensor (SBIRS), and remote identification radar (RIR) — plus electronic countermeasure (ECM), navigation, fusion, and threat assessment algorithm modules, delivered as a single linkable artifact.
 
 ## Tech Stack
 
@@ -19,11 +19,16 @@ A static library of simulation models for external service modules — airborne 
   `sar` (SAR) — synthetic aperture radar,
   `electro_optical_sensor` (EOS) — electro-optical sensor,
   `flight_dynamic` — flight dynamics,
-  `sbirs_sensor` (SBIRS) — space-based infrared sensor
+  `sbirs_sensor` (SBIRS) — space-based infrared sensor,
+  `remote_identification_radar` (RIR) — remote identification radar,
+  `electronic_countermeasure` (ECM) — electronic countermeasure,
+  `navigation` — area coverage planning,
+  `fusion` — multi-source fusion,
+  `threat_assessment` — target threat evaluation
 - **Shared headers** — `include/1q/<domain>/` cross-module public types:
-  `coordinate` — coordinate transforms, `environment` — environment models,
-  `foundation` — base types & utilities, `replay` — replay framework,
-  `trace` — telemetry trace
+  `coordinate` — coordinate transforms, `electromagnetics` — RF scene & link budget,
+  `environment` — environment models, `foundation` — base types & utilities,
+  `replay` — replay framework, `trace` — telemetry trace
 - **Shared impl** — `src/common/`:
   `estimation` — estimators, `geometry` — geometric ops, `logging` — log setup,
   `numerics` — numerical utils, `output` — output serialization, `rcs` — radar cross section,
@@ -57,6 +62,22 @@ ctest --preset "$preset" --output-on-failure -j 4
 
 - `ONEQ_ENABLE_FLIGHT_DYNAMIC` (default **OFF**) gates `src/flight_dynamic/` and its tests. JSBSim remains required regardless (`src/common/environment/JsbsimAtmosphereAdapter`).
 - Code coverage: `llvm-ninja-coverage` preset + `tools/coverage_report.sh`. **Never run ctest by hand** — the script owns `.profraw` placement. Branch coverage is the primary metric; see `docs/practice/coverage.md`.
+- **Windows/VS 构建环境备注（本机）**：conan 构建目录 `build/VisualStudio.15.0-amd64`
+  （VS 生成器 + v141 工具集）直接 `cmake --build` 会报 `corecrt.h` 找不到——v141 工具集的
+  MSBuild Cpp targets 解析 UCRT 路径失败（SDK 10.0.26100.0 实际已安装）。需先用匹配
+  工具集版本初始化环境并让 MSBuild 消费环境变量路径（`/p:UseEnv=true`）：
+
+  ```bat
+  call "C:\Program Files\Microsoft Visual Studio\18\Community\VC\Auxiliary\Build\vcvarsall.bat" x64 -vcvars_ver=14.16
+  cmake --build build/VisualStudio.15.0-amd64 --target <target> --config Debug -- -p:UseEnv=true -m -v:m -nologo
+  ```
+
+  另注（2026-08-17 勘误）：该环境（MSVC v141 Debug CRT）曾记录
+  `SbirsExclusionCauseRecorderTest` 全套 bad_alloc 为"既有基线失败"——已证实为
+  **陈旧构建产物**：头文件布局变更后增量 Unity 构建未重建全部 TU，Debug 强检查下出现
+  SEH 崩溃；删除 `build/.../src/sbirs_sensor` 产物强制全量重建后 203 例 sbirs unit 全绿。
+  若 Debug 测试出现无代码逻辑相关的 SEH 0xc0000005/bad_alloc，先做全量重建再定位。
+  `integration::airborne_radar` 0xc0000409 仍为独立既有问题。
 
 ## Documentation
 

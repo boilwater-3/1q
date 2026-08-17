@@ -1,6 +1,6 @@
 /**
  * @file LapjvSolver.h
- * @brief 定义基于 LAPJV 最短增广路算法的指派求解器。
+ * @brief AR LAPJV 指派求解器薄适配层（common 单源）。
  */
 
 #ifndef AIRBORNE_RADAR_SIGNAL_ASSOCIATION_LAPJV_SOLVER_H_
@@ -14,7 +14,7 @@ namespace signal {
 namespace association {
 /**
  * @brief LAPJV 指派求解器。
- * @details 使用 LAPJV 风格的最短增广路算法求解稠密代价矩阵上的线性指派问题。
+ * @details 转发 `oneq::common::optimization::LapjvSolver`，供既有 AR 内部引用。
  */
 class LapjvSolver final {
  public:

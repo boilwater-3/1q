@@ -22,6 +22,7 @@ namespace session {
 struct ONEQ_API SbirsOutputFrame {
   std::uint32_t cycle_index{0U};              /**< 周期序号 */
   float scan_azimuth_rad{0.0f};               /**< 本周期 WFOV 扫描方位角，单位 rad（ECI 极坐标参考，同 SbirsDetectionRecord::azimuth_rad，[0, 2π)） */
+  float scan_elevation_rad{0.0f};             /**< 本周期 WFOV 扫描中心俯仰角，单位 rad（ECI 极坐标参考，[-π/2, π/2]；2-D 栅格下为当前行中心） */
   output::SbirsDetectionRecordList detections{}; /**< 检测记录列表 */
 };
 

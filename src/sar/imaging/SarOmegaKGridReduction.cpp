@@ -1,4 +1,4 @@
-﻿#include "sar/imaging/SarOmegaKGridReduction.h"
+#include "sar/imaging/SarOmegaKGridReduction.h"
 
 #include <cmath>
 

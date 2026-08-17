@@ -24,6 +24,7 @@ inline engineering::DetectionConfig ResolveDetectionEngineering(
   resolved.antenna = hardware.antenna;
   resolved.receiver = hardware.receiver;
   resolved.rcs_physics = hardware.rcs_physics;
+  resolved.signal_processing = hardware.signal_processing;
   resolved.detection_policy.cfar_pfa = policy.pfa;
   resolved.detection_policy.min_snr_db = policy.minimum_snr_db;
   resolved.pulse_count = policy.pulse_count;

@@ -194,4 +194,157 @@ TEST(SbirsSessionConfigBuilderTest, ValidatesPointingDisturbanceParameters) {
   EXPECT_TRUE(sbirs_sensor::config::ValidateSbirsSessionConfig(config).empty());
 }
 
+TEST(SbirsSessionConfigBuilderTest, OrientationDomainValidation) {
+  // 阶段 2 安装指向域：默认配置（零安装角、全开限位、体稳定）必须通过校验。
+  sbirs_sensor::config::SbirsSessionConfig config;
+  EXPECT_TRUE(sbirs_sensor::config::ValidateSbirsSessionConfig(config).empty());
+
+  // 安装欧拉角非有限 → 拒绝。
+  config.orientation.mount_angles_deg.yaw_deg = std::numeric_limits<double>::quiet_NaN();
+  EXPECT_TRUE(ContainsCode(sbirs_sensor::config::ValidateSbirsSessionConfig(config),
+                           "sbirs.validation.invalid_mount_angles"));
+  config.orientation.mount_angles_deg.yaw_deg = 0.0;
+
+  // 限位倒置/超域 → 拒绝。
+  config.orientation.sensor_scan_limits_deg.az_min_deg = 10.0f;
+  config.orientation.sensor_scan_limits_deg.az_max_deg = -10.0f;
+  EXPECT_TRUE(ContainsCode(sbirs_sensor::config::ValidateSbirsSessionConfig(config),
+                           "sbirs.validation.sensor_scan_limits_swapped_azimuth"));
+  config.orientation.sensor_scan_limits_deg.az_min_deg = -180.0f;
+  config.orientation.sensor_scan_limits_deg.az_max_deg = 180.0f;
+
+  config.orientation.sensor_scan_limits_deg.el_min_deg = 20.0f;
+  config.orientation.sensor_scan_limits_deg.el_max_deg = -20.0f;
+  EXPECT_TRUE(ContainsCode(sbirs_sensor::config::ValidateSbirsSessionConfig(config),
+                           "sbirs.validation.sensor_scan_limits_swapped_elevation"));
+  config.orientation.sensor_scan_limits_deg.el_min_deg = -90.0f;
+  config.orientation.sensor_scan_limits_deg.el_max_deg = 90.0f;
+
+  config.orientation.sensor_scan_limits_deg.az_min_deg = -200.0f;
+  EXPECT_TRUE(ContainsCode(sbirs_sensor::config::ValidateSbirsSessionConfig(config),
+                           "sbirs.validation.sensor_scan_limits_out_of_range"));
+  config.orientation.sensor_scan_limits_deg.az_min_deg = -180.0f;
+
+  // 稳定方式枚举非法 → 拒绝。
+  config.orientation.stabilization_mode =
+      static_cast<sbirs_sensor::config::SbirsStabilizationMode>(99);
+  EXPECT_TRUE(ContainsCode(sbirs_sensor::config::ValidateSbirsSessionConfig(config),
+                           "sbirs.validation.invalid_stabilization_mode"));
+  config.orientation.stabilization_mode =
+      sbirs_sensor::config::SbirsStabilizationMode::kBodyStabilized;
+
+  // 安装失准（阶段 3）：bias 非有限 / random sigma 负或非有限 → 拒绝；默认全零合法。
+  config.orientation.misalignment.bias_deg.yaw_deg = std::numeric_limits<double>::quiet_NaN();
+  EXPECT_TRUE(ContainsCode(sbirs_sensor::config::ValidateSbirsSessionConfig(config),
+                           "sbirs.validation.invalid_misalignment"));
+  config.orientation.misalignment.bias_deg.yaw_deg = 0.0;
+
+  config.orientation.misalignment.bias_deg.pitch_deg =
+      std::numeric_limits<double>::infinity();
+  EXPECT_TRUE(ContainsCode(sbirs_sensor::config::ValidateSbirsSessionConfig(config),
+                           "sbirs.validation.invalid_misalignment"));
+  config.orientation.misalignment.bias_deg.pitch_deg = 0.0;
+
+  config.orientation.misalignment.random_sigma_deg = -1.0f;
+  EXPECT_TRUE(ContainsCode(sbirs_sensor::config::ValidateSbirsSessionConfig(config),
+                           "sbirs.validation.invalid_misalignment"));
+  config.orientation.misalignment.random_sigma_deg = 0.0f;
+
+  config.orientation.misalignment.random_sigma_deg = std::numeric_limits<float>::quiet_NaN();
+  EXPECT_TRUE(ContainsCode(sbirs_sensor::config::ValidateSbirsSessionConfig(config),
+                           "sbirs.validation.invalid_misalignment"));
+  config.orientation.misalignment.random_sigma_deg = 0.0f;
+
+  EXPECT_TRUE(sbirs_sensor::config::ValidateSbirsSessionConfig(config).empty());
+}
+
+TEST(SbirsSessionConfigBuilderTest, ScanPathMustFitSensorScanLimits) {
+  // 扫描路径适配限位：方位扫掠弧（起点 + 有向跨度）与中心俯仰必须落在限位窗口内。
+  sbirs_sensor::config::SbirsSessionConfig config;
+  config.mission.scan_start_az_deg = 300.0f;
+  config.mission.scan_span_deg = 120.0f;
+  config.mission.scan_center_el_deg = 0.0f;
+  config.orientation.sensor_scan_limits_deg.az_min_deg = 0.0f;
+  config.orientation.sensor_scan_limits_deg.az_max_deg = 90.0f;
+  // 300°→420° 弧段（对称域 [-60,60]）超 [0,90] 限位 → 拒绝。
+  EXPECT_TRUE(ContainsCode(sbirs_sensor::config::ValidateSbirsSessionConfig(config),
+                           "sbirs.validation.scan_path_outside_sensor_limits"));
+
+  // 弧段适配限位（对称域内 [0,60] ⊂ [0,90]）→ 通过。
+  config.mission.scan_start_az_deg = 0.0f;
+  config.mission.scan_span_deg = 60.0f;
+  EXPECT_TRUE(sbirs_sensor::config::ValidateSbirsSessionConfig(config).empty());
+
+  // 中心俯仰超限位 → 拒绝。
+  config.orientation.sensor_scan_limits_deg.el_min_deg = -10.0f;
+  config.orientation.sensor_scan_limits_deg.el_max_deg = 10.0f;
+  config.mission.scan_center_el_deg = 20.0f;
+  EXPECT_TRUE(ContainsCode(sbirs_sensor::config::ValidateSbirsSessionConfig(config),
+                           "sbirs.validation.scan_path_outside_sensor_limits"));
+
+  // 惯性稳定同样受限位约束（扫描参数仍须在传感器系窗口内）。
+  config.mission.scan_center_el_deg = 5.0f;
+  config.orientation.stabilization_mode =
+      sbirs_sensor::config::SbirsStabilizationMode::kInertialStabilized;
+  EXPECT_TRUE(sbirs_sensor::config::ValidateSbirsSessionConfig(config).empty());
+}
+
+TEST(SbirsSessionConfigBuilderTest, RejectsInvalidElevationRaster) {
+  // 阶段 4 俯仰栅格：span 非负有限、step 正有限；span>0 时 step 不得超 WFOV 俯仰视场。
+  sbirs_sensor::config::SbirsSessionConfig config;
+  EXPECT_TRUE(sbirs_sensor::config::ValidateSbirsSessionConfig(config).empty());
+
+  config.mission.scan_el_span_deg = -1.0f;
+  EXPECT_TRUE(ContainsCode(sbirs_sensor::config::ValidateSbirsSessionConfig(config),
+                           "sbirs.validation.invalid_scan_elevation_raster"));
+  config.mission.scan_el_span_deg = std::numeric_limits<float>::quiet_NaN();
+  EXPECT_TRUE(ContainsCode(sbirs_sensor::config::ValidateSbirsSessionConfig(config),
+                           "sbirs.validation.invalid_scan_elevation_raster"));
+  config.mission.scan_el_span_deg = 0.0f;
+
+  config.mission.scan_el_step_deg = 0.0f;
+  EXPECT_TRUE(ContainsCode(sbirs_sensor::config::ValidateSbirsSessionConfig(config),
+                           "sbirs.validation.invalid_scan_elevation_raster"));
+  config.mission.scan_el_step_deg = -2.0f;
+  EXPECT_TRUE(ContainsCode(sbirs_sensor::config::ValidateSbirsSessionConfig(config),
+                           "sbirs.validation.invalid_scan_elevation_raster"));
+  config.mission.scan_el_step_deg = std::numeric_limits<float>::quiet_NaN();
+  EXPECT_TRUE(ContainsCode(sbirs_sensor::config::ValidateSbirsSessionConfig(config),
+                           "sbirs.validation.invalid_scan_elevation_raster"));
+  config.mission.scan_el_step_deg = 1.0f;
+
+  // span>0 且 step 超 WFOV 俯仰视场（默认 20°）→ 无隙覆盖预算违反。
+  config.mission.scan_el_span_deg = 40.0f;
+  config.mission.scan_el_step_deg = 25.0f;
+  EXPECT_TRUE(ContainsCode(sbirs_sensor::config::ValidateSbirsSessionConfig(config),
+                           "sbirs.validation.scan_elevation_step_exceeds_fov"));
+  config.mission.scan_el_step_deg = 20.0f;
+  EXPECT_TRUE(sbirs_sensor::config::ValidateSbirsSessionConfig(config).empty());
+  config.mission.scan_el_span_deg = 0.0f;
+}
+
+TEST(SbirsSessionConfigBuilderTest, ElevationRasterMustFitSensorScanLimits) {
+  // 栅格模式首末行中心 el 须落在传感器系限位窗口内（span>0 走 el_start 与 el_start+span）。
+  sbirs_sensor::config::SbirsSessionConfig config;
+  config.mission.scan_el_span_deg = 20.0f;
+  config.mission.scan_el_start_deg = 0.0f;
+  config.mission.scan_el_step_deg = 10.0f;
+  config.orientation.sensor_scan_limits_deg.el_min_deg = -5.0f;
+  config.orientation.sensor_scan_limits_deg.el_max_deg = 15.0f;
+  // 末行中心 20° 超 [−5, 15] 限位 → 拒绝。
+  EXPECT_TRUE(ContainsCode(sbirs_sensor::config::ValidateSbirsSessionConfig(config),
+                           "sbirs.validation.scan_path_outside_sensor_limits"));
+
+  config.orientation.sensor_scan_limits_deg.el_max_deg = 20.0f;
+  EXPECT_TRUE(sbirs_sensor::config::ValidateSbirsSessionConfig(config).empty());
+
+  // span=0 单行模式沿用既有 scan_center_el_deg 检查（栅格字段不参与）。
+  config.mission.scan_el_span_deg = 0.0f;
+  config.mission.scan_center_el_deg = 30.0f;
+  EXPECT_TRUE(ContainsCode(sbirs_sensor::config::ValidateSbirsSessionConfig(config),
+                           "sbirs.validation.scan_path_outside_sensor_limits"));
+  config.mission.scan_center_el_deg = 0.0f;
+  EXPECT_TRUE(sbirs_sensor::config::ValidateSbirsSessionConfig(config).empty());
+}
+
 }  // namespace

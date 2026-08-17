@@ -1,4 +1,4 @@
-﻿#include "sar/imaging/SarOmegaKCommonSupport.h"
+#include "sar/imaging/SarOmegaKCommonSupport.h"
 
 #include <algorithm>
 #include <cmath>

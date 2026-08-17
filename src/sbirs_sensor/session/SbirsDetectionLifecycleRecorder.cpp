@@ -97,6 +97,7 @@ void FillObservationFields(const output::SbirsDetectionRecord& record,
   event->observation_stage = record.observation_stage;
   event->infrared_snr_linear = record.infrared_snr_linear;
   event->estimated_range_m = attribution.estimated_range_m;
+  event->max_detection_range_m = attribution.max_detection_range_m;
   event->tracking_source = attribution.tracking_source;
   event->has_estimation_nis = attribution.has_estimation_nis;
   event->estimation_nis = attribution.estimation_nis;
@@ -114,6 +115,7 @@ void FillAttributionFields(const attribution::SbirsDetectionAttributionRecord& a
                            SbirsDetectionLifecycleEvent* event) {
   event->observation_stage = InferObservationStage(attribution);
   event->estimated_range_m = attribution.estimated_range_m;
+  event->max_detection_range_m = attribution.max_detection_range_m;
   event->tracking_source = attribution.tracking_source;
   event->has_estimation_nis = attribution.has_estimation_nis;
   event->estimation_nis = attribution.estimation_nis;

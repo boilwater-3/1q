@@ -225,6 +225,46 @@ TEST(ScanScheduleResolverTest, ApplyScanScheduleUsesPolicyBeamControlInputs) {
   EXPECT_FLOAT_EQ(runtime_config.detection.orientation.scan_center_deg.el_deg, 4.0f);
 }
 
+// 只读入口 ResolveScheduledBeamPointingFromExecutionConfig 与
+// ApplyScanScheduleToRuntimeConfig 写入值逐周期等价（session 级指向与
+// pipeline 本地副本共用同一扫描相位），且不同周期给出不同指向（扫描推进）。
+TEST(ScanScheduleResolverTest, ResolveFromExecutionConfigMatchesApplyAndAdvancesPhase) {
+  config::ArSessionConfig session_config = MakeDetectionFocusedConfig();
+  session_config.mission.orientation.work_mode = config::ArWorkMode::kTas;
+  session_config.mission.orientation.scan_center_deg.az_deg = 3.0f;
+  session_config.mission.orientation.scan_center_deg.el_deg = -1.0f;
+  session_config.mission.orientation.mechanical_scan_limits_deg.az_min_deg = -10.0f;
+  session_config.mission.orientation.mechanical_scan_limits_deg.az_max_deg = 10.0f;
+  session_config.mission.orientation.mechanical_scan_limits_deg.el_min_deg = -4.0f;
+  session_config.mission.orientation.mechanical_scan_limits_deg.el_max_deg = 4.0f;
+  session_config.mission.orientation.electronic_scan_limits_deg =
+      session_config.mission.orientation.mechanical_scan_limits_deg;
+  session_config.policy.beam_control.pointing.nominal_beamwidth_deg.commanded_az_beamwidth_deg =
+      4.0f;
+  session_config.policy.beam_control.pointing.nominal_beamwidth_deg.commanded_el_beamwidth_deg =
+      2.0f;
+  session_config.policy.beam_control.scheduler.azimuth_step_count_hint = 6U;
+  session_config.policy.beam_control.scheduler.elevation_step_count_hint = 5U;
+  const ExecutionConfig base = config::mapping::MapSessionToExecution(session_config);
+
+  // 等价性：只读入口返回值 == Apply 写入 scan_center_deg 的值（含回绕周期）。
+  for (std::uint32_t cycle : {1U, 5U, 31U}) {
+    ExecutionConfig applied = base;
+    signal::pipeline::ApplyScanScheduleToRuntimeConfig(cycle, &applied);
+    const config::AzimuthElevationDeg resolved =
+        signal::pipeline::ResolveScheduledBeamPointingFromExecutionConfig(base, cycle);
+    EXPECT_FLOAT_EQ(resolved.az_deg, applied.detection.orientation.scan_center_deg.az_deg);
+    EXPECT_FLOAT_EQ(resolved.el_deg, applied.detection.orientation.scan_center_deg.el_deg);
+  }
+
+  // 相位推进：同一配置下相邻周期给出不同指向（扫描动画的解析端）。
+  const config::AzimuthElevationDeg first =
+      signal::pipeline::ResolveScheduledBeamPointingFromExecutionConfig(base, 1U);
+  const config::AzimuthElevationDeg second =
+      signal::pipeline::ResolveScheduledBeamPointingFromExecutionConfig(base, 2U);
+  EXPECT_TRUE(first.az_deg != second.az_deg || first.el_deg != second.el_deg);
+}
+
 TEST(CycleExecutorTest, ValidRuntimeProducesInputAlignedStageBuffers) {
   const ExecutionConfig exec_config =
       config::mapping::MapSessionToExecution(MakeDetectionFocusedConfig());
@@ -551,41 +591,11 @@ TEST(ScanScheduleResolverTest, SttFixesAtScanCenterAndKeepsZeroDwell) {
   EXPECT_FLOAT_EQ(dwell.el_deg, 0.0f);
 }
 
-TEST(ScanScheduleResolverTest, LrrFixesAtScanCenterAndKeepsZeroDwell) {
-  config::ArOrientationConfig orientation;
-  orientation.work_mode = config::ArWorkMode::kLrr;
-  orientation.scan_center_deg.az_deg = -8.0f;
-  orientation.scan_center_deg.el_deg = 6.5f;
-  orientation.mechanical_scan_limits_deg.az_min_deg = -60.0f;
-  orientation.mechanical_scan_limits_deg.az_max_deg = 60.0f;
-  orientation.mechanical_scan_limits_deg.el_min_deg = -30.0f;
-  orientation.mechanical_scan_limits_deg.el_max_deg = 30.0f;
-  orientation.electronic_scan_limits_deg = orientation.mechanical_scan_limits_deg;
-
-  signal::detection::EffectiveBeamwidthDeg beamwidth;
-  beamwidth.az_beamwidth_deg = 10.0f;
-  beamwidth.el_beamwidth_deg = 10.0f;
-
-  const config::AzimuthElevationDeg cycle_1 =
-      signal::pipeline::ResolveScheduledBeamPointing(orientation, beamwidth, 1U);
-  const config::AzimuthElevationDeg cycle_9 =
-      signal::pipeline::ResolveScheduledBeamPointing(orientation, beamwidth, 9U);
-  EXPECT_TRUE(AlmostSamePoint(cycle_1, cycle_9));
-  EXPECT_FLOAT_EQ(cycle_1.az_deg, orientation.scan_center_deg.az_deg);
-  EXPECT_FLOAT_EQ(cycle_1.el_deg, orientation.scan_center_deg.el_deg);
-
-  const config::AzimuthElevationDeg dwell =
-      signal::pipeline::ResolveScheduledDwellCenter(orientation, beamwidth, 9U);
-  EXPECT_FLOAT_EQ(dwell.az_deg, 0.0f);
-  EXPECT_FLOAT_EQ(dwell.el_deg, 0.0f);
-}
-
 TEST(ScanScheduleResolverTest, ResolveScanStepScaleDefinesDirectCallFallbacks) {
   EXPECT_FLOAT_EQ(signal::pipeline::ResolveScanStepScale(config::ArWorkMode::kTas), 0.5f);
   EXPECT_FLOAT_EQ(signal::pipeline::ResolveScanStepScale(config::ArWorkMode::kTws), 1.0f);
   EXPECT_FLOAT_EQ(signal::pipeline::ResolveScanStepScale(config::ArWorkMode::kStby), 1.0f);
   EXPECT_FLOAT_EQ(signal::pipeline::ResolveScanStepScale(config::ArWorkMode::kStt), 1.0f);
-  EXPECT_FLOAT_EQ(signal::pipeline::ResolveScanStepScale(config::ArWorkMode::kLrr), 1.0f);
   EXPECT_FLOAT_EQ(signal::pipeline::ResolveScanStepScale(static_cast<config::ArWorkMode>(999)),
                   1.0f);
 }

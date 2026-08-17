@@ -39,7 +39,7 @@ Answers: navigation 有哪些模块级禁令、单位契约、变更规则
 ## 设计变更规则
 
 1. 任何输出单位或语义变化（如改为弧度制、改变扫描线起始偏移）必须同步本文档集
-   与 `docs/review/Bahavior.md` §3 冻结项。
+   与 `docs/review/Behavior.md` §3 冻结项。
 2. 新增规划模式（8 字/S 型）必须先冻结模式语义与执行侧适配契约。
 3. 若引入对 `flight_dynamic` 或新第三方库的依赖，必须重走证据矩阵并修订
-   `docs/review/Bahavior.md` §3.1 冻结决策。
+   `docs/review/Behavior.md` §3.1 冻结决策。

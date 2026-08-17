@@ -9,7 +9,6 @@
 #define ONEQ_AIRBORNE_RADAR_SESSION_AR_EXTERNAL_INPUT_ADAPTER_H_
 
 #include <cstdint>
-#include <vector>
 
 #include "1q/airborne_radar/config/ArOrientationConfig.h"
 #include "1q/airborne_radar/session/ArSceneTypes.h"
@@ -44,11 +43,6 @@ struct ONEQ_API ArExternalTargetInput {
   oneq::coordinate::ExternalKinematics kinematics{}; /**< 外部运动学输入 */
   float rcs{1.0f};                                   /**< 目标 RCS（m^2） */
   int swerling_type{0};                              /**< 目标起伏模型 */
-
-  /** 识别专用特征真值输入（默认空，仅 kLrr 模式消费；空向量表示该维度不可用） */
-  std::vector<AspectRcsSample> aspect_rcs_samples{};
-  std::vector<PolarizationRcsSample> polarization_rcs_samples{};
-  std::vector<RangeRcsScatterer> range_rcs_scatterers{};
 };
 
 /**

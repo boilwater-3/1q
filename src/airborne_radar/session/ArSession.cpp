@@ -26,6 +26,8 @@
 #include "airborne_radar/signal/detection/ArRfFrontEndResolver.h"
 #include "airborne_radar/signal/detection/BeamControlResolver.h"
 #include "airborne_radar/signal/pipeline/ISignalPipeline.h"
+#include "airborne_radar/signal/pipeline/ScanScheduleResolver.h"
+#include "airborne_radar/signal/pipeline/SignalCycleInput.h"
 #include "airborne_radar/signal/pipeline/SignalCycleInput.h"
 #include "airborne_radar/signal/pipeline/SignalPipeline.h"
 #include "common/logging/ProjectLog.h"
@@ -92,6 +94,138 @@ struct ArExecutionCycleResult {
                                       校验拒绝时承载校验明细（COMMON-OQ-9）。 */
 };
 
+/**
+ * @brief 指定跟踪目标的周期派生状态（无跨周期记忆）。
+ *
+ * 由已提交 work_mode + 指定目标 ID + 最新航迹帧派生，供 prepare 指向解析与
+ * completed 结果回填共用。派生规则（冻结，与 ArCycleResult::effective_work_mode
+ * 注释一致）：
+ *   - stt_active（航迹跟随生效）= 已提交 STT && 已指定 && 指定航迹 confirmed
+ *     && 无显式 dwell 覆盖（显式 dwell 时指向按现状语义，不跟随航迹）；
+ *   - reverted_to_tws（回退） = 已提交 STT && 已指定 && 指定航迹未确认/丢失；
+ *   - 未指定目标的 STT 保持现状 scan_center 驻留语义（不视为回退）。
+ */
+struct SttDesignationCycleState {
+  bool stt_requested{false};           /**< 已提交 work_mode == kStt。 */
+  bool designation_set{false};         /**< 已配置指定目标（ID != 0）。 */
+  std::uint64_t designated_target_id{0U}; /**< 指定目标外部 ID。 */
+  bool has_track{false};               /**< 指定目标是否存在航迹。 */
+  bool track_confirmed{false};         /**< 指定目标存在 confirmed 航迹。 */
+  bool track_lost{false};              /**< 指定目标存在 lost 航迹。 */
+  config::AzimuthElevationDeg track_pointing_deg{}; /**< confirmed 航迹位置换算的雷达局部指向。 */
+  bool stt_active{false};              /**< 本周期 STT 航迹跟随驻留是否生效。 */
+  bool reverted_to_tws{false};         /**< 本周期 STT 已请求但回退到 TWS。 */
+};
+
+SttDesignationCycleState BuildSttDesignationCycleState(
+    config::ArWorkMode committed_work_mode, std::uint64_t designated_target_id,
+    bool explicit_dwell_override, const session::TrackOutputFrame& latest_track_frame) {
+  SttDesignationCycleState state;
+  state.stt_requested = committed_work_mode == config::ArWorkMode::kStt;
+  state.designation_set = designated_target_id != 0U;
+  state.designated_target_id = designated_target_id;
+  if (state.designation_set) {
+    const session::TrackStateSnapshotList tracks =
+        session::CollectTracksByExternalTargetId(latest_track_frame, designated_target_id);
+    for (const session::TrackStateSnapshot& track : tracks) {
+      state.has_track = true;
+      state.track_lost = state.track_lost || track.status == session::TrackStatus::kLost;
+      if (track.status == session::TrackStatus::kConfirmed && !state.track_confirmed) {
+        // 多航迹同 ID 时取帧内第一条 confirmed（文档化边界，见 data-flow.md）。
+        state.track_confirmed = true;
+        config::AzimuthElevationDeg pointing;
+        if (signal::pipeline::TryTrackPositionToLookAnglesDeg(
+                track.position_x, track.position_y, track.position_z, &pointing)) {
+          state.track_pointing_deg = pointing;
+        }
+      }
+    }
+  }
+  // stt_active 排除显式 dwell 覆盖（此时指向按现状语义，不跟随航迹）；
+  // reverted_to_tws 只看航迹状态（显式 dwell 覆盖不构成回退）。
+  state.stt_active = state.stt_requested && state.designation_set && state.track_confirmed &&
+                     !explicit_dwell_override;
+  state.reverted_to_tws = state.stt_requested && state.designation_set && !state.track_confirmed;
+  return state;
+}
+
+/**
+ * @brief 指定指令生命周期推进结果（写回 RuntimeConfigState 的跨周期状态）。
+ */
+struct DesignationPhaseAdvance {
+  config::mapping::DesignationPhase phase{config::mapping::DesignationPhase::kNone};
+  std::uint32_t deadline_cycle_index{0U}; /**< 捕获窗口截止周期（0 = 无限期）。 */
+  bool expired_edge{false}; /**< 本周期由 kPending 转移至 kExpired（作废沿）。 */
+};
+
+/**
+ * @brief 推进指定指令生命周期（限时锁定；跨周期状态，见 RuntimeConfigState）。
+ *
+ * 状态机：kNone → kPending → kAcquired | kExpired（kAcquired/kExpired 为终态）：
+ *   - 指令未消费（未指定 / work_mode 非 kStt）：阶段恒为 kNone，窗口不运行；
+ *   - kNone（指令生效后首个处理周期）：开窗——deadline = cycle + duration
+ *     （duration == 0 表示无限期，deadline 置 0）；
+ *   - kPending：上一周期航迹帧 confirmed → kAcquired（此后不再受窗口约束，
+ *     后续丢失按既有回退语义，不重新开窗口）；否则 cycle >= deadline 时 →
+ *     kExpired（指令作废，回到扫描）；
+ *   - kAcquired / kExpired：不再转移。
+ * @note 捕获判定与指向同源，使用"上一周期航迹帧"口径（滞后一周期）。
+ */
+DesignationPhaseAdvance AdvanceDesignationPhase(
+    config::mapping::DesignationPhase phase, std::uint32_t deadline_cycle_index,
+    std::uint32_t designation_duration_cycles, std::uint32_t cycle_index,
+    bool designation_consumed, bool track_confirmed) {
+  DesignationPhaseAdvance advance;
+  advance.phase = phase;
+  advance.deadline_cycle_index = deadline_cycle_index;
+  if (!designation_consumed) {
+    advance.phase = config::mapping::DesignationPhase::kNone;
+    advance.deadline_cycle_index = 0U;
+    return advance;
+  }
+  if (phase == config::mapping::DesignationPhase::kNone) {
+    advance.phase = config::mapping::DesignationPhase::kPending;
+    if (designation_duration_cycles > 0U) {
+      // 饱和加法：周期号接近 2³² 时不回绕为 0（0 = 无限期语义）。
+      const std::uint64_t deadline =
+          static_cast<std::uint64_t>(cycle_index) + designation_duration_cycles;
+      advance.deadline_cycle_index = static_cast<std::uint32_t>(
+          std::min<std::uint64_t>(deadline, std::numeric_limits<std::uint32_t>::max()));
+    } else {
+      advance.deadline_cycle_index = 0U;
+    }
+    return advance;
+  }
+  if (phase == config::mapping::DesignationPhase::kPending) {
+    if (track_confirmed) {
+      advance.phase = config::mapping::DesignationPhase::kAcquired;
+    } else if (advance.deadline_cycle_index != 0U &&
+               cycle_index >= advance.deadline_cycle_index) {
+      advance.phase = config::mapping::DesignationPhase::kExpired;
+      // 作废沿 = 转移发生的周期；阶段仅成功周期持久化，故沿恒为
+      // "截止后首个成功周期"（失败/关机周期不消耗窗口，不吞掉超时报告）。
+      advance.expired_edge = true;
+    }
+  }
+  return advance;
+}
+
+/**
+ * @brief 指定指令作废状态解析（由已推进的阶段与作废沿派生）。
+ */
+struct DesignationExpiryState {
+  bool expired{false};      /**< 本周期指定指令已作废（kExpired 终态）。 */
+  bool expiry_cycle{false}; /**< 本周期是作废沿（报告 kAcquisitionTimeout）。 */
+};
+
+DesignationExpiryState ResolveDesignationExpiry(
+    config::mapping::DesignationPhase phase, bool expired_edge) {
+  DesignationExpiryState expiry;
+  expiry.expired = phase == config::mapping::DesignationPhase::kExpired;
+  expiry.expiry_cycle = expired_edge;
+  return expiry;
+}
+
 }  // namespace
 
 struct ArSession::Impl {
@@ -110,21 +244,18 @@ struct ArSession::Impl {
         composition.runtime_environment_scenario_config;
     runtime_state.execution_config = config::mapping::MapSessionToExecution(initial_session_config);
     runtime_state.environment_scenario_config = composition.runtime_environment_scenario_config;
-    runtime_state.recognition = composition.runtime_policy.recognition;
     pending_runtime_state = runtime_state;
 
     concrete_signal_pipeline_ =
         static_cast<signal::pipeline::SignalPipeline*>(owned_signal_pipeline.get());
-    // 初始识别运行期上下文（工作模式 + 识别策略配置 + 数据库加载）。
-    Controller().UpdateRecognitionRuntime(
-        runtime_state.execution_config.detection.orientation.work_mode,
-        composition.runtime_policy.recognition);
   }
 
   ArCycleResult BuildCompletedCycleResult(const ArCycleInput& input,
                                           const ArIssueList& issues,
                                           const ArPrepareCycleResult& prepared,
-                                          const ArCompleteCycleResult& completed) const {
+                                          const ArCompleteCycleResult& completed,
+                                          config::mapping::DesignationPhase designation_phase,
+                                          bool designation_expired_edge) const {
     ArCycleResult result;
     result.input_cycle_index = input.cycle_index;
     result.status = ArCycleStatus::kCompleted;
@@ -147,11 +278,49 @@ struct ArSession::Impl {
     if (result.has_decision_observation) {
       result.decision_observation = completed.decision_observation;
     }
-    result.has_recognition_summary = Controller().HasLatestRecognitionSummary();
-    if (result.has_recognition_summary) {
-      result.recognition_summary = Controller().GetLatestRecognitionSummary();
-    }
     FillAppliedDecisionMetadata(result);
+    // STT 指定航迹状态回填（派生规则见 BuildSttDesignationCycleState；指令
+    // 生命周期阶段为会话级状态，由 RunCycle prepare 推进，见 AdvanceDesignationPhase）：
+    // effective_work_mode 反映本周期生效模式（回退/作废时与已提交配置不同）；
+    // designation_* 供外部经 L2 结果 / L3 视图 / 生命周期事件观测
+    // "自动丢跟踪（回 TWS）"与"限时指令捕获超时（作废）"——
+    // designation_reverted_to_tws 为每周期状态指示，跨周期差分由调用方承担；
+    // 作废沿周期（cycle == deadline）保留目标 ID 并报告 kAcquisitionTimeout，
+    // 其后指定清零、按扫描处理（回到扫描，见边界文档）。
+    const config::ArWorkMode committed_work_mode =
+        runtime_state.execution_config.detection.orientation.work_mode;
+    const SttDesignationCycleState designation_state = BuildSttDesignationCycleState(
+        committed_work_mode, runtime_state.designated_external_target_id,
+        runtime_state.dwell_center_deg.az_deg != 0.0f ||
+            runtime_state.dwell_center_deg.el_deg != 0.0f,
+        completed.output_frame);
+    const DesignationExpiryState designation_expiry =
+        ResolveDesignationExpiry(designation_phase, designation_expired_edge);
+    result.effective_work_mode =
+        designation_expiry.expired
+            ? (committed_work_mode == config::ArWorkMode::kStt ? config::ArWorkMode::kTws
+                                                               : committed_work_mode)
+            : (designation_state.reverted_to_tws ? config::ArWorkMode::kTws
+                                                 : committed_work_mode);
+    result.designated_target_id =
+        designation_expiry.expired
+            ? (designation_expiry.expiry_cycle ? designation_state.designated_target_id : 0U)
+            : designation_state.designated_target_id;
+    result.designation_active =
+        designation_expiry.expired ? false : designation_state.stt_active;
+    result.designation_reverted_to_tws =
+        designation_expiry.expired ? designation_expiry.expiry_cycle
+                                   : designation_state.reverted_to_tws;
+    result.designation_revert_reason =
+        designation_expiry.expired
+            ? (designation_expiry.expiry_cycle
+                   ? session::ArDesignationRevertReason::kAcquisitionTimeout
+                   : session::ArDesignationRevertReason::kNone)
+            : (designation_state.reverted_to_tws
+                   ? (designation_state.track_lost
+                          ? session::ArDesignationRevertReason::kTrackLost
+                          : session::ArDesignationRevertReason::kTrackNotConfirmed)
+                   : session::ArDesignationRevertReason::kNone);
     return result;
   }
 
@@ -300,9 +469,6 @@ struct ArSession::Impl {
         }
       }
       Controller().UpdateDecisionControlConfig(state_to_commit.execution_config.decision_control);
-      Controller().UpdateRecognitionRuntime(
-          state_to_commit.execution_config.detection.orientation.work_mode,
-          state_to_commit.recognition);
       pipeline_config_synced = true;
     }
 
@@ -503,9 +669,81 @@ struct ArSession::Impl {
     platform_attitude.yaw_deg = input.platform.platform_attitude_deg.yaw_deg;
     platform_attitude.pitch_deg = input.platform.platform_attitude_deg.pitch_deg;
     platform_attitude.roll_deg = input.platform.platform_attitude_deg.roll_deg;
+    // STT 指定航迹跟随（方案 A）：指向来源优先级（冻结，见
+    // ResolveSttTrackFollowingPointing 与 ArRuntimeConfigPatch 注释）——
+    //   1) 显式 dwell_center_deg 非零：scan_center + dwell（现状语义，最高优先）；
+    //   2) STT + 指定目标 confirmed：指向 = 指定航迹位置换算的 az/el（雷达局部系，
+    //      外部无需提供目标角度）；
+    //   3) 其余（未指定/航迹未确认/丢失）：scan_center（现状行为）。
+    // 生效模式派生（无跨周期记忆）：已提交 STT 且指定航迹未确认时回退 TWS；
+    // 本周期指向仍按回退分支（scan_center + dwell）解析，与 session 级 TWS 一致。
+    const bool explicit_dwell_override =
+        next_operating_state.dwell_center_deg.az_deg != 0.0f ||
+        next_operating_state.dwell_center_deg.el_deg != 0.0f;
+    const SttDesignationCycleState designation_state = BuildSttDesignationCycleState(
+        orientation_config.work_mode, next_operating_state.designated_external_target_id,
+        explicit_dwell_override, Controller().GetLatestTrackOutputFrame());
+    // 指定指令生命周期推进（限时锁定，跨周期状态）：窗口 [start, start+N-1] 内
+    // 捕获 confirmed 航迹 → kAcquired（此后不再受窗口约束，丢失按既有回退语义）；
+    // 窗口耗尽仍未捕获 → kExpired（指令作废，回到扫描，终态直到外部重新指定）。
+    // 推进结果先留在局部，仅在本周期成功完成后落定（见成功路径的写回）——
+    // 失败/关机周期不消耗窗口（与 boundaries.md 的"失败周期由事务快照回滚"一致）。
+    const config::mapping::RuntimeConfigState& designation_owner =
+        has_pending_runtime_update ? pending_runtime_state : runtime_state;
+    const DesignationPhaseAdvance phase_advance = AdvanceDesignationPhase(
+        designation_owner.designation_phase, designation_owner.designation_deadline_cycle_index,
+        designation_owner.designation_duration_cycles, input.cycle_index,
+        orientation_config.work_mode == config::ArWorkMode::kStt &&
+            designation_owner.designated_external_target_id != 0U,
+        designation_state.track_confirmed);
+    const DesignationExpiryState designation_expiry = ResolveDesignationExpiry(
+        phase_advance.phase, phase_advance.expired_edge);
+    // 指令作废后不再消费指定（指向回退分支按扫描推进，不跟随任何目标）。
+    const bool designation_consumed =
+        designation_state.designation_set && !designation_expiry.expired;
+    const signal::pipeline::SttTrackFollowingResolution stt_pointing =
+        signal::pipeline::ResolveSttTrackFollowingPointing(
+            orientation_config, next_operating_state.dwell_center_deg,
+            designation_consumed, designation_state.track_confirmed,
+            designation_state.track_pointing_deg);
+    // 扫描动画（boundaries.md 已知限制修复）：生效模式为 TWS/TAS 且无显式
+    // dwell 覆盖、无航迹跟随时，session 级指向按扫描表逐周期推进，使发射
+    // boresight 与 RfV2DetectionContext::beam_pointing_deg 随周期移动；
+    // 显式 dwell（优先级 1）与 STT 航迹跟随（优先级 2）保持静态语义，
+    // 未指定目标的 STT 驻留（生效模式仍为 kStt）同样保持 scan_center 静态；
+    // 指令作废（kExpired）后生效模式按扫描处理（回到扫描）。
+    const config::ArWorkMode effective_work_mode =
+        designation_expiry.expired
+            ? (orientation_config.work_mode == config::ArWorkMode::kStt
+                   ? config::ArWorkMode::kTws
+                   : orientation_config.work_mode)
+            : (designation_state.reverted_to_tws ? config::ArWorkMode::kTws
+                                                 : orientation_config.work_mode);
+    config::ArOrientationConfig effective_orientation = orientation_config;
+    effective_orientation.scan_center_deg = stt_pointing.scan_center_deg;
+    if (!explicit_dwell_override && !stt_pointing.track_following_active &&
+        (effective_work_mode == config::ArWorkMode::kTws ||
+         effective_work_mode == config::ArWorkMode::kTas)) {
+      effective_orientation.work_mode = effective_work_mode;
+      // 生效模式覆盖：已提交配置可能为 kStt（回退/指令作废后按扫描处理），
+      // resolver 须按生效模式选波位语义（STT 返回静态扫描中心）。
+      effective_orientation.scan_center_deg =
+          signal::pipeline::ResolveScheduledBeamPointingFromExecutionConfig(
+              next_operating_state.execution_config, input.cycle_index, effective_work_mode);
+    }
     prepare_input.beam_pointing_deg =
         signal::detection::BeamControlResolver::ResolveMountFrameBeamPointing(
-            orientation_config, platform_attitude, next_operating_state.dwell_center_deg);
+            effective_orientation, platform_attitude, stt_pointing.dwell_center_deg);
+    if (stt_pointing.track_following_active) {
+      // 中译：STT 波束已跟随指定航迹（目标外部 ID），本周期指向由该航迹位置换算。
+      // 标识：指向来源事件——指定航迹 confirmed 且无显式驻留偏移时自动跟随；
+      //       仅人读诊断，不用于状态判断。
+      PROJECT_LOG_INFO(
+          "[ArSession] STT beam follows designated track (external_target_id={}, "
+          "az_deg={}, el_deg={}).",
+          designation_state.designated_target_id, stt_pointing.scan_center_deg.az_deg,
+          stt_pointing.scan_center_deg.el_deg);
+    }
 
     const ArPrepareCycleResult prepared = PrepareRfCycle(prepare_input);
     if (prepared.status == ArPrepareCycleStatus::kPoweredOff) {
@@ -564,7 +802,12 @@ struct ArSession::Impl {
               ? session::SignalCycleAbortReason::kRuntimePreparationFailed
               : completed.abort_reason);
     }
-    return BuildCompletedCycleResult(input, issues, prepared, completed);
+    // 成功完成才落定指定指令生命周期阶段（失败/关机周期不消耗窗口；
+    // pending 已在 PrepareRfCycle 中 finalize，runtime_state 即生效状态）。
+    runtime_state.designation_phase = phase_advance.phase;
+    runtime_state.designation_deadline_cycle_index = phase_advance.deadline_cycle_index;
+    return BuildCompletedCycleResult(input, issues, prepared, completed, phase_advance.phase,
+                                     phase_advance.expired_edge);
   }
 
   bool TokenMatches(const ArPreparedCycleToken& token) const {
@@ -903,8 +1146,6 @@ ArSessionReplayState ArSessionReplayAccess::CaptureSessionState(const ArSession&
   replay_state.pending_environment_scenario_config_changed =
       session.impl_->pending_environment_scenario_config_changed;
   replay_state.decision_state = CaptureDecisionState(session);
-  replay_state.active_database_version =
-      session.impl_->Controller().GetActiveRecognitionDatabaseVersion();
   return replay_state;
 }
 

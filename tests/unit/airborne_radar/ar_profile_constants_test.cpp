@@ -126,6 +126,10 @@ TEST(ArProfileConstantsTest, GenericAirborneXBandHardwareIsStructDefault) {
                    static_cast<double>(default_hardware.transmitter.frequency_hz));
   EXPECT_FLOAT_EQ(default_hardware.antenna.main_beam_gain_db, 35.0f);
   EXPECT_FLOAT_EQ(default_hardware.receiver.noise_figure_db, 4.0f);
+  EXPECT_FLOAT_EQ(default_hardware.signal_processing.target_processing_gain_db, 0.0f);
+  EXPECT_FLOAT_EQ(default_hardware.signal_processing.noise_processing_gain_db, 0.0f);
+  EXPECT_FLOAT_EQ(default_hardware.signal_processing.clutter_suppression_gain_db, 0.0f);
+  EXPECT_FLOAT_EQ(default_hardware.signal_processing.jamming_suppression_gain_db, 0.0f);
 }
 
 TEST(ArProfileConstantsTest, FastConfirmLifecycle) {

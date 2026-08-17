@@ -171,14 +171,14 @@ double ComputeClockwiseOrbitHeadingRad(const JSBSim::FGLocation& location, const
 
   double radial_angle = std::atan2(east_m, north_m);
   double lookahead_m = std::max(2000.0, speed_mps * 10.0);
-  
+
   double d = distance_m;
   double r = radius_m;
   double l = lookahead_m;
-  
+
   // By law of cosines: L^2 = d^2 + R^2 - 2 d R cos(theta)
   double cos_theta = (d * d + r * r - l * l) / (2.0 * d * r);
-  
+
   double carrot_n, carrot_e;
   if (cos_theta > -1.0 && cos_theta < 1.0) {
     double theta = std::acos(cos_theta);
@@ -214,13 +214,13 @@ double ComputeFigure8HeadingRad(const JSBSim::FGLocation& location, const Waypoi
 
   double radial_angle = std::atan2(east_m, north_m);
   double lookahead_m = std::max(2000.0, speed_mps * 10.0);
-  
+
   double d = distance_m;
   double r = radius_m;
   double l = lookahead_m;
-  
+
   double cos_theta = (d * d + r * r - l * l) / (2.0 * d * r);
-  
+
   double carrot_n, carrot_e;
   if (cos_theta > -1.0 && cos_theta < 1.0) {
     double theta = std::acos(cos_theta);

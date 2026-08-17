@@ -69,6 +69,7 @@ sbirs_sensor::session::SbirsCycleInput InputAt(double utc_julian_day, std::uint3
       .WithDeltaTimeSec(1.0f)
       .WithUtcJulianDay(utc_julian_day)
       .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
+      .WithSatelliteVelocity(sbirs_sensor::session::SbirsVector3M{}).WithSatelliteAttitude(sbirs_sensor::session::SbirsEulerAnglesDeg{})
       .AddTarget(HotTarget(1U, 0.0))
       .Build();
 }
@@ -127,9 +128,11 @@ TEST(SbirsEciTransformTest, EciToEcefIsInverseOfEcefToEci) {
   oneq::coordinate::EcefPositionM round_trip;
   ASSERT_TRUE(oneq::coordinate::TryEcefToEci(ecef, gmst_rad, &eci));
   ASSERT_TRUE(oneq::coordinate::TryEciToEcef(eci, gmst_rad, &round_trip));
-  EXPECT_DOUBLE_EQ(round_trip.x_m, ecef.x_m);
-  EXPECT_DOUBLE_EQ(round_trip.y_m, ecef.y_m);
-  EXPECT_DOUBLE_EQ(round_trip.z_m, ecef.z_m);
+  // 非零 GMST 下双精度旋转往返在 7e6 m 量级存在 ~1e-10 m 舍入（实测约 6 ULP），
+  // 以微米级容差断言往返一致性；数量级错误（符号/轴向/角度错误）仍会被捕获。
+  EXPECT_NEAR(round_trip.x_m, ecef.x_m, 1e-6);
+  EXPECT_NEAR(round_trip.y_m, ecef.y_m, 1e-6);
+  EXPECT_NEAR(round_trip.z_m, ecef.z_m, 1e-6);
 }
 
 TEST(SbirsEciTransformTest, EcefVelocityToEciIncludesTransportTerm) {
@@ -195,6 +198,7 @@ TEST(SbirsEciTransformTest, OutputAnglesFollowEciRadConvention) {
           .WithDeltaTimeSec(1.0f)
           .WithUtcJulianDay(kGmstZeroJulianDay)
           .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
+          .WithSatelliteVelocity(sbirs_sensor::session::SbirsVector3M{}).WithSatelliteAttitude(sbirs_sensor::session::SbirsEulerAnglesDeg{})
           .AddTarget(west)
           .Build();
   const sbirs_sensor::pipeline::SbirsPipelineResult result = pipeline.RunCycle(input);

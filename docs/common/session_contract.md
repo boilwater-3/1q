@@ -284,8 +284,8 @@ AR/ESR/EOS/SBIRS/SAR 五模块的电源状态必须遵守单源原则：
 ### 传感器方位坐标系约定（SBIRS）
 
 **SBIRS 输出的 `az`/`el`（检测记录 `SbirsDetectionRecord`、扫描相位
-`SbirsOutputFrame::scan_azimuth_rad`）为 ECI 极坐标（2026-08 正式变更），
-不是卫星局部地平系**：
+`SbirsOutputFrame::scan_azimuth_rad` / `scan_elevation_rad`（阶段 4 起））为 ECI 极坐标
+（2026-08 正式变更），不是卫星局部地平系**：
 
 - `az = atan2(los.y, los.x)`：相对 **ECI x 轴**（J2000 平赤道面，`SbirsVector3M`
   的 y/x 分量），单位 **rad**，取值范围 `[0, 2π)`；
@@ -310,6 +310,21 @@ AR/ESR/EOS/SBIRS/SAR 五模块的电源状态必须遵守单源原则：
 3. 该方位参考系与机载通道（AR/ESR/EOS 的平台局部系方位）**不同**；跨平台方位
    融合/相干关联需要调用方先做坐标系对齐（本库不提供转换，业务层职责）。
    参考实现见 `examples/component_attachment` 的 SBIRS 组件与 README 简化声明。
+
+**扫描参数参考系（2026-08-17 阶段 2 起，安装指向链）**：
+
+- 卫星姿态（`SbirsCycleInput::satellite_attitude_eci_body_deg`，**必填**，Z-Y-X 欧拉，
+  Body→ECI；零欧拉合法 = 体轴对齐 ECI）与安装角（`SbirsOrientationConfig::mount_angles_deg`，
+  Body→Sensor，静态配置）复合为指向合成链；**输出 az/el 仍为上述 ECI 极坐标参考**，安装矩阵
+  只影响内部光轴几何（消费方兼容）。
+- 扫描参数参考系由 `SbirsOrientationConfig::stabilization_mode` 决定：
+  - `kBodyStabilized`（默认）：`scan_start_az_deg`/`scan_center_el_deg` 为**传感器系**角度；
+    零姿态 + 零安装角下与 ECI 一致（既有配置零行为变化）。星下点编排注意同样适用：传感器系
+    `el = −90°` 指向传感器 z 负向（星下点）。
+  - `kInertialStabilized`：扫描参数保持上述 **ECI 参考定义**（扫描弧为惯性固定方向），经链路
+    反解到传感器系实现。
+- 传感器系扫描限位（`sensor_scan_limits_deg`，默认 az [-180,180]、el [-90,90] 全开）约束
+  WFOV 扫描弧与 NFOV 命令；配置校验拒绝扫描弧超限位的配置。
 
 ### 执行状态信号统一
 

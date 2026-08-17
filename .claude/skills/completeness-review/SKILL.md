@@ -1,6 +1,6 @@
 ---
 name: completeness-review
-description: Review uncommitted code changes for correctness, code quality, and test coverage, then gate the merge. Triggered by the pre-commit hook for core-library C++ changes (≥3 files or ≥50 lines in src/ or include/1q/) and by "/completeness-review". Review depth follows risk: core-library changes get the full three-lane review (code-review subagent + code-simplifier subagent + static test-coverage check); example/doc/deletion-layer changes get a light single-lane review. Quality-gated merge flow.
+description: Review uncommitted code changes for correctness, code quality, and test coverage, then gate the merge. Triggered by the pre-commit hook for core-library C++ changes (≥3 files or ≥50 lines in src/ or include/1q/) and by "/completeness-review". Review depth follows risk: core-library changes always run the code-review lane; the code-simplifier lane runs only when the review gates a branch merge; the static test-coverage lane runs only when the change adds a new module (refactors and deletions skip both). Example/doc/deletion-layer changes get a light single-lane review. Quality-gated merge flow.
 argument-hint: "[optional diff range]"
 allowed-tools:
   - Bash
@@ -45,8 +45,10 @@ python3 scripts/pre-commit-review.py
 ```
 
 - **tier = major** — C++ changes touching the **core library** (`src/` or `include/1q/`,
-  ≥3 files or ≥50 lines): algorithm/contract changes. Run the **full three-lane review** (Step 3).
-  The pre-commit hook blocks these commits until review passes.
+  ≥3 files or ≥50 lines): algorithm/contract changes. Run the **full review** (Step 3): the
+  code-review lane always; the code-simplifier lane only when this review gates a branch merge;
+  the test-coverage lane only when the change adds a new module. The pre-commit hook blocks these
+  commits until review passes.
 - **tier = minor** — C++ changes confined to non-core layers (`examples/`, `tests/`, `docs/`,
   `tools/`, `cmake/`): example-layer refactors, test-only edits, pure deletions. The hook does NOT
   block these. Review depth is **light**: single code-review lane + static test-coverage check +
@@ -81,7 +83,7 @@ Output a table:
 | Update SAR design.md | ❌ | - | No changes found |
 ```
 
-Pass the plan's intent summary to all three review lanes as shared context.
+Pass the plan's intent summary to all triggered review lanes as shared context.
 
 ## Step 3: Deep review
 
@@ -90,10 +92,12 @@ Review depth follows the Step 0.5 tier. All lanes receive: the diff range, the p
 
 ### Step 3-Full (tier = major, core library)
 
-Run three lanes in parallel via the Agent tool (subagent types `code-review` and
-`code-simplifier` are registered at `~/.zcode/agents/`):
+Lanes are **condition-triggered**; only Lane 1 runs on every full review. Check each trigger
+against the diff (Step 1) and the review context (Step 0), state in the final report which lanes
+ran and which were skipped as not triggered. Triggered lanes run in parallel via the Agent tool
+(subagent types `code-review` and `code-simplifier` are registered at `~/.zcode/agents/`):
 
-#### Lane 1: Correctness (subagent: code-review)
+#### Lane 1: Correctness (subagent: code-review) — 必跑
 
 Launch the `code-review` subagent (registered at `~/.zcode/agents/code-review.md`) to review the diff
 for:
@@ -108,19 +112,30 @@ for:
 > `[高/中/低] [file:line]` findings). Project conventions come from AGENTS.md, which the subagent
 > reads itself.
 
-#### Lane 2: Code quality (subagent: code-simplifier)
+#### Lane 2: Code quality (subagent: code-simplifier) — 仅合并门触发
 
-Launch the `code-simplifier` subagent (registered at `~/.zcode/agents/code-simplifier.md`) against
-the recently modified code. It reviews for reuse, simplification, naming, redundancy, and
-maintainability, applying project conventions from AGENTS.md. **It reports findings only — it must
-not modify code during review** (see its prompt).
+**Trigger**: this review is gating a branch merge — the final review before Step 9's
+`merge --no-ff`, or invoked as the merge-gate by the hook/user. **Skip** for routine feature
+commits, refactors, and deletions: the quality sweep pays off once per branch, at merge time,
+not on every intermediate review.
 
-#### Lane 3: Test coverage (static check)
+When triggered, launch the `code-simplifier` subagent (registered at
+`~/.zcode/agents/code-simplifier.md`) against the recently modified code. It reviews for reuse,
+simplification, naming, redundancy, and maintainability, applying project conventions from
+AGENTS.md. **It reports findings only — it must not modify code during review** (see its prompt).
 
-Launch an Agent to check — **statically only**:
+#### Lane 3: Test coverage (static check) — 仅新增模块触发
+
+**Trigger**: the change set adds a **new module** — a new top-level directory under `src/`, a new
+`include/1q/<module>/` public directory, or a new test partition in `tests/cmake/partitions/`.
+**Skip** for refactors, deletions, and in-module changes: existing-partition tests already pin
+those surfaces, and Step 7's build+ctest run carries the runtime verification. New public API
+**inside an existing module** also skips this lane (its partition's tests are the coverage point).
+
+When triggered, launch an Agent to check — **statically only**:
 - Do `tests/` directories contain new/modified tests matching the changed modules?
 - Do tests cover critical paths and boundary conditions?
-- For new public API or significant logic changes: are new or updated tests present under `tests/`?
+- For the new module: does it register a full test partition and cover its public API?
 
 **Hard constraints for Lane 3 (and the whole review): never stash, never build, never run tests
 inside a review lane.** Static verification only: read the diff, grep existing tests, read the
@@ -129,13 +144,13 @@ needs a runtime measurement should flag it as a [低] observation instead of mea
 
 ### Step 3-Light (tier = minor, example/doc/deletion layers)
 
-Run a **single** correctness lane (Lane 1: code-review subagent) plus a **static** test-coverage
-glance (same constraints as Lane 3 above; usually a quick grep that existing tests still compile
-against the changed surface). Skip the code-simplifier lane — the example layer favors readability
-over abstraction and the change itself is the simplification. Time-box the whole light review:
-target minutes, not tens of minutes. If the change is a pure deletion with no behavior change
-(e.g., removing unused files), the code-review lane may be skipped entirely after a manual
-leftover-reference grep; build + focused tests carry the verification.
+Run a **single** correctness lane (Lane 1: code-review subagent). Skip the code-simplifier lane —
+the example layer favors readability over abstraction and the change itself is the
+simplification. Skip the test-coverage lane unless the change adds a new module (same trigger as
+Step 3-Full Lane 3). Time-box the whole light review: target minutes, not tens of minutes. If the
+change is a pure deletion with no behavior change (e.g., removing unused files), the code-review
+lane may be skipped entirely after a manual leftover-reference grep; build + focused tests carry
+the verification.
 
 ## Step 4: Verify and triage findings
 
@@ -167,10 +182,12 @@ finding is disputed, mark it with the counter-evidence rather than silently drop
 
 ### Code Quality (code-simplifier)
 - [severity] [file:line] Issues found (reported only, no code changes)
+- （未触发：非合并门审查）when this review is not gating a merge
 
 ### Test Coverage
 - Existing tests covering changes
 - Missing test coverage
+- （未触发：未新增模块，由 Step 7 构建与聚焦测试承载）when no new module was added
 
 ### Gate Status
 - Plan gate: PASSED / BLOCKED
@@ -194,6 +211,8 @@ Evaluate three gates. **Blocking criteria are severity-gated**: only 高 (blocki
 
 #### Gate C: Test coverage
 - PASS: no missing tests on critical paths (new public API, significant logic changes).
+- PASS (lane not triggered): refactors/deletions without a new module — coverage is carried by
+  Step 7's build + focused tests on the touched partitions; no static lane required.
 - BLOCKED: critical paths lack tests. Gaps on non-critical paths are 中/低 recommendations.
 
 #### If BLOCKED → fix loop

@@ -23,6 +23,12 @@ constexpr char kCycleDeltaTimeExceedsFramePeriod[] =
 /** @brief 卫星位置缺失、非有限或为零向量。 */
 constexpr char kInvalidSatellitePosition[] = "sbirs.validation.invalid_satellite_position";
 
+/** @brief 卫星速度缺失或非有限（必填；ECEF 零向量合法，如 GEO 卫星）。 */
+constexpr char kInvalidSatelliteVelocity[] = "sbirs.validation.invalid_satellite_velocity";
+
+/** @brief 卫星姿态缺失或非有限（必填；零欧拉合法 = 体轴对齐 ECI）。 */
+constexpr char kInvalidSatelliteAttitude[] = "sbirs.validation.invalid_satellite_attitude";
+
 /** @brief UTC 儒略日缺失、非有限或非正（ECI 输出参考系必需）。 */
 constexpr char kInvalidUtcJulianDay[] = "sbirs.validation.invalid_utc_julian_day";
 
@@ -56,6 +62,14 @@ constexpr char kFrameRateNotPositive[] = "sbirs.validation.frame_rate_not_positi
 /** @brief 扫描速率非法（须为非负有限值）。 */
 constexpr char kInvalidScanRate[] = "sbirs.validation.invalid_scan_rate";
 
+/** @brief 俯仰栅格非法（span 须非负有限、step 须正有限）。 */
+constexpr char kInvalidScanElevationRaster[] =
+    "sbirs.validation.invalid_scan_elevation_raster";
+
+/** @brief 俯仰栅格行间距超过 WFOV 俯仰视场（无隙覆盖预算违反）。 */
+constexpr char kScanElevationStepExceedsFov[] =
+    "sbirs.validation.scan_elevation_step_exceeds_fov";
+
 /** @brief 窄视场指向最大转动速率非法（须为正且有限）。 */
 constexpr char kInvalidNarrowPointingSlewRate[] =
     "sbirs.validation.invalid_narrow_pointing_slew_rate";
@@ -63,6 +77,30 @@ constexpr char kInvalidNarrowPointingSlewRate[] =
 /** @brief 窄视场指向沉降容差非法（须为非负有限值）。 */
 constexpr char kInvalidNarrowPointingSettleTolerance[] =
     "sbirs.validation.invalid_narrow_pointing_settle_tolerance";
+
+/** @brief 传感器安装欧拉角非法（须为有限值）。 */
+constexpr char kInvalidMountAngles[] = "sbirs.validation.invalid_mount_angles";
+
+/** @brief 传感器系扫描限位方位倒置（az_min > az_max）。 */
+constexpr char kSensorScanLimitsSwappedAzimuth[] =
+    "sbirs.validation.sensor_scan_limits_swapped_azimuth";
+
+/** @brief 传感器系扫描限位俯仰倒置（el_min > el_max）。 */
+constexpr char kSensorScanLimitsSwappedElevation[] =
+    "sbirs.validation.sensor_scan_limits_swapped_elevation";
+
+/** @brief 传感器系扫描限位超域（az 须在 [-180, 180]、el 须在 [-90, 90]）。 */
+constexpr char kSensorScanLimitsOutOfRange[] = "sbirs.validation.sensor_scan_limits_out_of_range";
+
+/** @brief 扫描稳定方式非法。 */
+constexpr char kInvalidStabilizationMode[] = "sbirs.validation.invalid_stabilization_mode";
+
+/** @brief 安装失准非法（bias 须有限、random sigma 须非负有限）。 */
+constexpr char kInvalidMisalignment[] = "sbirs.validation.invalid_misalignment";
+
+/** @brief 扫描路径超出传感器系扫描限位（方位扫掠区间或中心俯仰不在限位内）。 */
+constexpr char kScanPathOutsideSensorLimits[] =
+    "sbirs.validation.scan_path_outside_sensor_limits";
 
 /** @brief 检测门限非法（须非负）。 */
 constexpr char kInvalidDetectionThresholds[] = "sbirs.validation.invalid_detection_thresholds";

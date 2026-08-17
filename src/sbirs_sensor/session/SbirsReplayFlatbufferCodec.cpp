@@ -115,6 +115,7 @@ flatbuffers::Offset<sbirs::replay::SbirsOutputFrame> EncodeOutputFrameTable(
     detections.push_back(EncodeOneDetection(fbb, detection));
   }
   return sbirs::replay::CreateSbirsOutputFrame(fbb, value.cycle_index, value.scan_azimuth_rad,
+                                               value.scan_elevation_rad,
                                                fbb.CreateVector(detections));
 }
 
@@ -125,6 +126,7 @@ bool DecodeOutputFrameTable(const sbirs::replay::SbirsOutputFrame* fb, SbirsOutp
   SbirsOutputFrame decoded;
   decoded.cycle_index = fb->cycle_index();
   decoded.scan_azimuth_rad = fb->scan_azimuth_rad();
+  decoded.scan_elevation_rad = fb->scan_elevation_rad();
   if (fb->detections() != nullptr) {
     decoded.detections.reserve(fb->detections()->size());
     for (const sbirs::replay::SbirsDetectionRecord* detection : *fb->detections()) {
@@ -171,7 +173,8 @@ flatbuffers::Offset<sbirs::replay::SbirsMissionConfig> EncodeMissionConfig(
       fbb, static_cast<std::int32_t>(value.work_mode), value.wide_field_fov_az_deg,
       value.wide_field_fov_el_deg, value.narrow_field_fov_az_deg, value.narrow_field_fov_el_deg,
       value.scan_start_az_deg, value.scan_span_deg, static_cast<std::int32_t>(value.scan_direction),
-      value.scan_center_el_deg, value.scan_rate_deg_per_sec, value.min_range_m, value.max_range_m,
+      value.scan_center_el_deg, value.scan_el_start_deg, value.scan_el_span_deg,
+      value.scan_el_step_deg, value.scan_rate_deg_per_sec, value.min_range_m, value.max_range_m,
       value.frame_rate_hz, value.narrow_cue_latency_s, value.narrow_pointing_settle_error_deg,
       value.narrow_pointing_max_slew_rate_deg_per_sec, value.narrow_pointing_settle_tolerance_deg);
 }
@@ -195,6 +198,9 @@ bool DecodeMissionConfig(const sbirs::replay::SbirsMissionConfig* fb,
   decoded.scan_span_deg = fb->scan_span_deg();
   decoded.scan_direction = static_cast<config::SbirsScanDirection>(fb->scan_direction());
   decoded.scan_center_el_deg = fb->scan_center_el_deg();
+  decoded.scan_el_start_deg = fb->scan_el_start_deg();
+  decoded.scan_el_span_deg = fb->scan_el_span_deg();
+  decoded.scan_el_step_deg = fb->scan_el_step_deg();
   decoded.scan_rate_deg_per_sec = fb->scan_rate_deg_per_sec();
   decoded.min_range_m = fb->min_range_m();
   decoded.max_range_m = fb->max_range_m();
@@ -204,6 +210,51 @@ bool DecodeMissionConfig(const sbirs::replay::SbirsMissionConfig* fb,
   decoded.narrow_pointing_max_slew_rate_deg_per_sec =
       fb->narrow_pointing_max_slew_rate_deg_per_sec();
   decoded.narrow_pointing_settle_tolerance_deg = fb->narrow_pointing_settle_tolerance_deg();
+  *out = decoded;
+  return true;
+}
+
+flatbuffers::Offset<sbirs::replay::SbirsOrientationConfig> EncodeOrientationConfig(
+    flatbuffers::FlatBufferBuilder& fbb, const config::SbirsOrientationConfig& value) {
+  return sbirs::replay::CreateSbirsOrientationConfig(
+      fbb, static_cast<float>(value.mount_angles_deg.yaw_deg),
+      static_cast<float>(value.mount_angles_deg.pitch_deg),
+      static_cast<float>(value.mount_angles_deg.roll_deg),
+      value.sensor_scan_limits_deg.az_min_deg, value.sensor_scan_limits_deg.az_max_deg,
+      value.sensor_scan_limits_deg.el_min_deg, value.sensor_scan_limits_deg.el_max_deg,
+      static_cast<std::int32_t>(value.stabilization_mode),
+      static_cast<float>(value.misalignment.bias_deg.yaw_deg),
+      static_cast<float>(value.misalignment.bias_deg.pitch_deg),
+      static_cast<float>(value.misalignment.bias_deg.roll_deg),
+      value.misalignment.random_sigma_deg, value.misalignment.random_seed);
+}
+
+bool DecodeOrientationConfig(const sbirs::replay::SbirsOrientationConfig* fb,
+                             config::SbirsOrientationConfig* out) {
+  if (fb == nullptr) {
+    return true;
+  }
+  if (fb->stabilization_mode() !=
+          static_cast<std::int32_t>(config::SbirsStabilizationMode::kBodyStabilized) &&
+      fb->stabilization_mode() !=
+          static_cast<std::int32_t>(config::SbirsStabilizationMode::kInertialStabilized)) {
+    return false;
+  }
+  config::SbirsOrientationConfig decoded;
+  decoded.mount_angles_deg.yaw_deg = fb->mount_yaw_deg();
+  decoded.mount_angles_deg.pitch_deg = fb->mount_pitch_deg();
+  decoded.mount_angles_deg.roll_deg = fb->mount_roll_deg();
+  decoded.sensor_scan_limits_deg.az_min_deg = fb->sensor_scan_limits_az_min_deg();
+  decoded.sensor_scan_limits_deg.az_max_deg = fb->sensor_scan_limits_az_max_deg();
+  decoded.sensor_scan_limits_deg.el_min_deg = fb->sensor_scan_limits_el_min_deg();
+  decoded.sensor_scan_limits_deg.el_max_deg = fb->sensor_scan_limits_el_max_deg();
+  decoded.stabilization_mode =
+      static_cast<config::SbirsStabilizationMode>(fb->stabilization_mode());
+  decoded.misalignment.bias_deg.yaw_deg = fb->misalignment_yaw_deg();
+  decoded.misalignment.bias_deg.pitch_deg = fb->misalignment_pitch_deg();
+  decoded.misalignment.bias_deg.roll_deg = fb->misalignment_roll_deg();
+  decoded.misalignment.random_sigma_deg = fb->misalignment_random_sigma_deg();
+  decoded.misalignment.random_seed = fb->misalignment_random_seed();
   *out = decoded;
   return true;
 }
@@ -330,9 +381,17 @@ std::string EncodeSbirsCycleInput(const SbirsCycleInput& value) {
   }
 
   const sbirs::replay::Vec3d satellite = ToFbVec3(value.satellite_position_ecef_m);
-  fbb.Finish(sbirs::replay::CreateSbirsCycleInput(fbb, value.cycle_index, value.dt_sec,
-                                                  value.utc_julian_day, value.has_satellite_position,
-                                                  &satellite, fbb.CreateVector(targets)),
+  const sbirs::replay::Vec3d satellite_velocity = ToFbVec3(value.satellite_velocity_ecef_m_per_s);
+  const sbirs::replay::EulerDeg3d satellite_attitude(
+      value.satellite_attitude_eci_body_deg.yaw_deg,
+      value.satellite_attitude_eci_body_deg.pitch_deg,
+      value.satellite_attitude_eci_body_deg.roll_deg);
+  fbb.Finish(sbirs::replay::CreateSbirsCycleInput(
+                 fbb, value.cycle_index, value.dt_sec, value.utc_julian_day,
+                 value.has_satellite_position, &satellite,
+                 value.has_satellite_velocity_ecef_m_per_s, &satellite_velocity,
+                 value.has_satellite_attitude, &satellite_attitude,
+                 fbb.CreateVector(targets)),
              kSbirsReplayFileIdentifier);
   return oneq::common::replay::CopyFinishedFlatbuffer(fbb);
 }
@@ -350,6 +409,17 @@ bool DecodeSbirsCycleInput(const std::string& bytes, SbirsCycleInput* out) {
   out->utc_julian_day = fb->utc_julian_day();
   out->has_satellite_position = fb->has_satellite_position();
   out->satellite_position_ecef_m = FromFbVec3(fb->satellite_position_ecef_m());
+  out->has_satellite_velocity_ecef_m_per_s = fb->has_satellite_velocity();
+  out->satellite_velocity_ecef_m_per_s = FromFbVec3(fb->satellite_velocity_ecef_m_per_s());
+  out->has_satellite_attitude = fb->has_satellite_attitude();
+  if (fb->satellite_attitude_eci_body_deg() != nullptr) {
+    out->satellite_attitude_eci_body_deg.yaw_deg =
+        fb->satellite_attitude_eci_body_deg()->yaw_deg();
+    out->satellite_attitude_eci_body_deg.pitch_deg =
+        fb->satellite_attitude_eci_body_deg()->pitch_deg();
+    out->satellite_attitude_eci_body_deg.roll_deg =
+        fb->satellite_attitude_eci_body_deg()->roll_deg();
+  }
   out->scene.clear();
   if (fb->scene_targets() != nullptr) {
     for (const sbirs::replay::SbirsSceneTarget* target : *fb->scene_targets()) {
@@ -403,6 +473,7 @@ std::string EncodeSbirsCycleResult(const SbirsCycleResult& value) {
     builder.add_target_id(attribution.target_id);
     builder.add_target_name(target_name);
     builder.add_estimated_range_m(attribution.estimated_range_m);
+    builder.add_max_detection_range_m(attribution.max_detection_range_m);
     builder.add_tracking_source(static_cast<std::int32_t>(attribution.tracking_source));
     builder.add_capture_failure_reason(
         static_cast<std::int32_t>(attribution.capture_failure_reason));
@@ -470,6 +541,7 @@ bool DecodeSbirsCycleResult(const std::string& bytes, SbirsCycleResult* out) {
       record.target_id = attr->target_id();
       record.target_name = attr->target_name() ? attr->target_name()->str() : std::string();
       record.estimated_range_m = attr->estimated_range_m();
+      record.max_detection_range_m = attr->max_detection_range_m();
       const std::int32_t tracking_source = attr->tracking_source();
       if (tracking_source !=
               static_cast<std::int32_t>(attribution::SbirsTrackingSource::kNotApplicable) &&
@@ -543,8 +615,8 @@ std::string EncodeSbirsSessionConfig(const config::SbirsSessionConfig& value) {
   flatbuffers::FlatBufferBuilder fbb(512);
   fbb.Finish(sbirs::replay::CreateSbirsSessionConfig(
                   fbb, EncodeHardwareConfig(fbb, value.hardware), EncodeMissionConfig(fbb, value.mission),
-                  EncodePolicyConfig(fbb, value.policy), EncodeSessionEnvironmentConfig(fbb, value.environment),
-                  value.sensor_enabled),
+                  EncodeOrientationConfig(fbb, value.orientation), EncodePolicyConfig(fbb, value.policy),
+                  EncodeSessionEnvironmentConfig(fbb, value.environment), value.sensor_enabled),
              kSbirsReplayFileIdentifier);
   return oneq::common::replay::CopyFinishedFlatbuffer(fbb);
 }
@@ -559,6 +631,9 @@ bool DecodeSbirsSessionConfig(const std::string& bytes, config::SbirsSessionConf
       flatbuffers::GetRoot<sbirs::replay::SbirsSessionConfig>(bytes.data());
   config::SbirsSessionConfig decoded = *out;
   if (!DecodeMissionConfig(fb->mission(), &decoded.mission)) {
+    return false;
+  }
+  if (!DecodeOrientationConfig(fb->orientation(), &decoded.orientation)) {
     return false;
   }
   DecodeHardwareConfig(fb->hardware(), &decoded.hardware);

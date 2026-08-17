@@ -75,15 +75,16 @@ std::string EncodeSessionConfigWithRawTrackingEnums(std::int32_t tracking_mode,
   const auto tracking = sbirs::replay::CreateSbirsTrackingConfig(
       builder, tracking_mode, estimated_backend);
   const auto policy = sbirs::replay::CreateSbirsPolicyConfig(builder, 0, 0, 0, 0, tracking);
-  builder.Finish(sbirs::replay::CreateSbirsSessionConfig(builder, 0, 0, policy, 0),
-                  kSbirsReplayFileIdentifier);
+  builder.Finish(sbirs::replay::CreateSbirsSessionConfig(builder, 0, 0, 0, policy),
+                 kSbirsReplayFileIdentifier);
   return std::string(reinterpret_cast<const char*>(builder.GetBufferPointer()), builder.GetSize());
 }
 
 std::string EncodeCycleResultWithRawTrackingSource(std::int32_t tracking_source) {
   flatbuffers::FlatBufferBuilder builder(128U);
+  // 位置参数须与 schema 字段序一致（max_detection_range_m 在 estimated_range_m 之后）。
   const auto attribution = sbirs::replay::CreateSbirsDetectionAttributionRecord(
-      builder, 1U, 2U, 0, 3.0f, tracking_source);
+      builder, 1U, 2U, 0, 3.0f, 4.0f, tracking_source);
   std::vector<flatbuffers::Offset<sbirs::replay::SbirsDetectionAttributionRecord>> records;
   records.push_back(attribution);
   builder.Finish(sbirs::replay::CreateSbirsCycleResult(
@@ -106,11 +107,17 @@ TEST(SbirsReplayCodecRoundtripTest, CycleInputPreservesAllFields) {
   target.has_velocity_ecef_m_per_s = true;
   target.active = false;
 
+  sbirs_sensor::session::SbirsEulerAnglesDeg attitude;
+  attitude.yaw_deg = 12.0;
+  attitude.pitch_deg = -3.0;
+  attitude.roll_deg = 4.0;
   const SbirsCycleInput input = SbirsCycleInputBuilder()
                                     .WithCycleIndex(3U)
                                     .WithDeltaTimeSec(0.25f)
                                     .WithUtcJulianDay(2451544.2230698913)  // GMST≈0：ECI≡ECEF
                                     .WithSatellitePosition(Vector(7000000.0, 4.0, 5.0))
+                                    .WithSatelliteVelocity(Vector(7500.0, -300.0, 120.0))
+                                    .WithSatelliteAttitude(attitude)
                                     .AddTarget(target)
                                     .Build();
 
@@ -124,6 +131,14 @@ TEST(SbirsReplayCodecRoundtripTest, CycleInputPreservesAllFields) {
   EXPECT_DOUBLE_EQ(decoded.utc_julian_day, 2451544.2230698913);  // ECI 输出参考系（UTC 儒略日）
   EXPECT_TRUE(decoded.has_satellite_position);
   EXPECT_DOUBLE_EQ(decoded.satellite_position_ecef_m.x, 7000000.0);
+  EXPECT_TRUE(decoded.has_satellite_velocity_ecef_m_per_s);
+  EXPECT_DOUBLE_EQ(decoded.satellite_velocity_ecef_m_per_s.x, 7500.0);
+  EXPECT_DOUBLE_EQ(decoded.satellite_velocity_ecef_m_per_s.y, -300.0);
+  EXPECT_DOUBLE_EQ(decoded.satellite_velocity_ecef_m_per_s.z, 120.0);
+  EXPECT_TRUE(decoded.has_satellite_attitude);
+  EXPECT_DOUBLE_EQ(decoded.satellite_attitude_eci_body_deg.yaw_deg, 12.0);
+  EXPECT_DOUBLE_EQ(decoded.satellite_attitude_eci_body_deg.pitch_deg, -3.0);
+  EXPECT_DOUBLE_EQ(decoded.satellite_attitude_eci_body_deg.roll_deg, 4.0);
   ASSERT_EQ(decoded.scene.size(), 1U);
   EXPECT_EQ(decoded.scene[0].target_id, 9U);
   EXPECT_EQ(decoded.scene[0].target_name, "boost");
@@ -151,6 +166,7 @@ TEST(SbirsReplayCodecRoundtripTest, OutputFramePreservesAllFields) {
   SbirsOutputFrame frame;
   frame.cycle_index = 7U;
   frame.scan_azimuth_rad = -15.5f;
+  frame.scan_elevation_rad = 0.25f;  // 阶段 4：2-D 栅格当前行中心俯仰（非默认防漏读）
 
   SbirsDetectionRecord detection;
   detection.detection_id = 33U;
@@ -168,6 +184,7 @@ TEST(SbirsReplayCodecRoundtripTest, OutputFramePreservesAllFields) {
 
   EXPECT_EQ(decoded.cycle_index, 7U);
   EXPECT_FLOAT_EQ(decoded.scan_azimuth_rad, -15.5f);
+  EXPECT_FLOAT_EQ(decoded.scan_elevation_rad, 0.25f);
   ASSERT_EQ(decoded.detections.size(), 1U);
   EXPECT_EQ(decoded.detections[0].detection_id, 33U);
   EXPECT_FLOAT_EQ(decoded.detections[0].azimuth_rad, 1.5f);
@@ -198,6 +215,7 @@ TEST(SbirsReplayCodecRoundtripTest, CycleResultPreservesOutputAndAttributionFiel
   attribution.target_id = 44U;
   attribution.target_name = "truth";
   attribution.estimated_range_m = 1234.0f;
+  attribution.max_detection_range_m = 2.5e6f;
   attribution.tracking_source =
       attribution::SbirsTrackingSource::kSensorLikeTruthAssisted;
   attribution.capture_failure_reason =
@@ -250,6 +268,7 @@ TEST(SbirsReplayCodecRoundtripTest, CycleResultPreservesOutputAndAttributionFiel
             SbirsObservationStage::kNarrowFieldTrack);
   ASSERT_EQ(decoded.detection_attributions.size(), 1U);
   EXPECT_FLOAT_EQ(decoded.detection_attributions[0].estimated_range_m, 1234.0f);
+  EXPECT_FLOAT_EQ(decoded.detection_attributions[0].max_detection_range_m, 2.5e6f);
   EXPECT_EQ(decoded.detection_attributions[0].tracking_source,
             attribution::SbirsTrackingSource::kSensorLikeTruthAssisted);
   EXPECT_EQ(decoded.detection_attributions[0].capture_failure_reason,
@@ -310,6 +329,10 @@ TEST(SbirsReplayCodecRoundtripTest, SessionConfigPreservesAllDomains) {
   config.mission.scan_start_az_deg = 170.0f;
   config.mission.scan_span_deg = 45.0f;
   config.mission.scan_direction = SbirsScanDirection::kDecreasingAzimuth;
+  config.mission.scan_center_el_deg = 6.0f;
+  config.mission.scan_el_start_deg = -10.0f;  // 阶段 4 俯仰栅格：非默认值防 decode 漏读
+  config.mission.scan_el_span_deg = 20.0f;
+  config.mission.scan_el_step_deg = 5.0f;
   config.mission.scan_rate_deg_per_sec = 3.0f;
   config.mission.narrow_cue_latency_s = 0.05f;
   config.mission.narrow_pointing_max_slew_rate_deg_per_sec = 17.5f;
@@ -340,6 +363,21 @@ TEST(SbirsReplayCodecRoundtripTest, SessionConfigPreservesAllDomains) {
   config.environment.sea_state = SbirsSeaState::kMedium;
   config.environment.temperature_c = 25.0f;
   config.environment.base_atmospheric_transmittance = 0.7f;
+  // 阶段 2 安装指向域：非默认值防 decode 漏读。
+  config.orientation.mount_angles_deg.yaw_deg = 11.0;
+  config.orientation.mount_angles_deg.pitch_deg = -7.0;
+  config.orientation.mount_angles_deg.roll_deg = 3.0;
+  config.orientation.sensor_scan_limits_deg.az_min_deg = -45.0f;
+  config.orientation.sensor_scan_limits_deg.az_max_deg = 60.0f;
+  config.orientation.sensor_scan_limits_deg.el_min_deg = -20.0f;
+  config.orientation.sensor_scan_limits_deg.el_max_deg = 25.0f;
+  config.orientation.stabilization_mode = config::SbirsStabilizationMode::kInertialStabilized;
+  // 阶段 3 安装失准域：非默认值防 decode 漏读。
+  config.orientation.misalignment.bias_deg.yaw_deg = 4.0;
+  config.orientation.misalignment.bias_deg.pitch_deg = -2.0;
+  config.orientation.misalignment.bias_deg.roll_deg = 1.0;
+  config.orientation.misalignment.random_sigma_deg = 0.5f;
+  config.orientation.misalignment.random_seed = 44U;
 
   SbirsSessionConfig decoded;
   ASSERT_TRUE(DecodeSbirsSessionConfig(EncodeSbirsSessionConfig(config), &decoded));
@@ -350,6 +388,10 @@ TEST(SbirsReplayCodecRoundtripTest, SessionConfigPreservesAllDomains) {
   EXPECT_FLOAT_EQ(decoded.mission.scan_start_az_deg, 170.0f);
   EXPECT_FLOAT_EQ(decoded.mission.scan_span_deg, 45.0f);
   EXPECT_EQ(decoded.mission.scan_direction, SbirsScanDirection::kDecreasingAzimuth);
+  EXPECT_FLOAT_EQ(decoded.mission.scan_center_el_deg, 6.0f);
+  EXPECT_FLOAT_EQ(decoded.mission.scan_el_start_deg, -10.0f);
+  EXPECT_FLOAT_EQ(decoded.mission.scan_el_span_deg, 20.0f);
+  EXPECT_FLOAT_EQ(decoded.mission.scan_el_step_deg, 5.0f);
   EXPECT_FLOAT_EQ(decoded.mission.scan_rate_deg_per_sec, 3.0f);
   EXPECT_FLOAT_EQ(decoded.mission.narrow_pointing_max_slew_rate_deg_per_sec, 17.5f);
   EXPECT_FLOAT_EQ(decoded.mission.narrow_pointing_settle_tolerance_deg, 0.025f);
@@ -378,6 +420,20 @@ TEST(SbirsReplayCodecRoundtripTest, SessionConfigPreservesAllDomains) {
   EXPECT_EQ(decoded.environment.weather_type, SbirsWeatherType::kRain);
   EXPECT_EQ(decoded.environment.sea_state, SbirsSeaState::kMedium);
   EXPECT_FLOAT_EQ(decoded.environment.base_atmospheric_transmittance, 0.7f);
+  EXPECT_DOUBLE_EQ(decoded.orientation.mount_angles_deg.yaw_deg, 11.0);
+  EXPECT_DOUBLE_EQ(decoded.orientation.mount_angles_deg.pitch_deg, -7.0);
+  EXPECT_DOUBLE_EQ(decoded.orientation.mount_angles_deg.roll_deg, 3.0);
+  EXPECT_FLOAT_EQ(decoded.orientation.sensor_scan_limits_deg.az_min_deg, -45.0f);
+  EXPECT_FLOAT_EQ(decoded.orientation.sensor_scan_limits_deg.az_max_deg, 60.0f);
+  EXPECT_FLOAT_EQ(decoded.orientation.sensor_scan_limits_deg.el_min_deg, -20.0f);
+  EXPECT_FLOAT_EQ(decoded.orientation.sensor_scan_limits_deg.el_max_deg, 25.0f);
+  EXPECT_EQ(decoded.orientation.stabilization_mode,
+            config::SbirsStabilizationMode::kInertialStabilized);
+  EXPECT_DOUBLE_EQ(decoded.orientation.misalignment.bias_deg.yaw_deg, 4.0);
+  EXPECT_DOUBLE_EQ(decoded.orientation.misalignment.bias_deg.pitch_deg, -2.0);
+  EXPECT_DOUBLE_EQ(decoded.orientation.misalignment.bias_deg.roll_deg, 1.0);
+  EXPECT_FLOAT_EQ(decoded.orientation.misalignment.random_sigma_deg, 0.5f);
+  EXPECT_EQ(decoded.orientation.misalignment.random_seed, 44U);
 }
 
 // --- RuntimeConfigPatch ---
