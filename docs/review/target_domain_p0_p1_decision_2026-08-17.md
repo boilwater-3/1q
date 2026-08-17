@@ -45,8 +45,8 @@ Authority: 目标域交付 P0（证据）+ P1（无迹原语）的 Stage A 证�
 |---|---|---|---|---|---|---|
 | F1 无迹原语接口容纳性 | sigma point 预测/更新可在不修改任何既有头的前提下实现 IKalman 双接口 | EkfFilter.h 接口事实（§1） | 头文件编译 + `unit::common` 新测试 | 双接口全部 override、Ekf/Udkf/ImmFilter 零改动 | 需要改基类或既有原语才能编译 | pass |
 | F2 线性极限正确性 | 线性模型（LinearCv + LinearPosition）下无迹与标准 KF 数值一致 | sigma point 数学性质（线性函数精确传播均值/协方差） | `estimation_unscented_test` LinearModelsMatchStandardKalman | mean/covariance isApprox（容差 1e-4 量级） | 任一分量超容差 | pass |
-| F3 Estimated 输出语义 | SBIRS Estimated 模式 raw output 为跨周期平滑估计而非单周期量测 | boundaries.md 输出规则 4 + pipeline 代码路径 | `sbirs_estimated_semantics_characterization_test`（OQ-3） | Estimated 误差序列的离散度/自相关结构显著区别于 Sensor-like（相对关系断言） | 两模式统计结构不可区分（则"平滑估计"论断不成立，OQ-3 改写） | narrow（待测试数字） |
-| F4 角度-only 弱可观测地板 | 单星角度-only 短弧段下距离/发射点误差存在数量级放大的物理地板 | 可观测性理论 + 滤波直连实验 | `sbirs_angle_only_reachability_characterization_test`（可达性矩阵） | 短弧距离 RMSE 显著大于长弧（≥5×）、发射点误差 ≥ 同时刻位置误差 | 各弧长档误差同量级（则弱可观测论断在本几何下不成立，需重审指标口径） | narrow（待矩阵数字） |
+| F3 Estimated 输出语义 | SBIRS Estimated 模式 raw output 为跨周期平滑估计而非单周期量测 | boundaries.md 输出规则 4 + pipeline 代码路径 | `sbirs_estimated_semantics_characterization_test`（OQ-3） | Estimated 误差序列的离散度/自相关结构显著区别于 Sensor-like（相对关系断言） | 两模式统计结构不可区分（则"平滑估计"论断不成立，OQ-3 改写） | narrow（证据已落地待签认，实测见 §4.1） |
+| F4 角度-only 弱可观测地板 | 单星角度-only 短弧段下距离/发射点误差存在数量级放大的物理地板 | 可观测性理论 + 滤波直连实验 | `sbirs_angle_only_reachability_characterization_test`（可达性矩阵） | 短弧距离 RMSE 显著大于长弧（≥5×）、发射点误差 ≥ 同时刻位置误差 | 各弧长档误差同量级（则弱可观测论断在本几何下不成立，需重审指标口径） | narrow（矩阵已实测，实测修正两项原设门，见 §4.2） |
 | F5 RIR 识别接入方式 | 三方案中"调用方键映射"（方案 a）为零库内改动且满足本交付 | fusion 关联键契约（调用方保证跨源一致）+ RIR 输出契约（§1） | 文档级能力矩阵（本文 §5.2） | 方案 a 覆盖交付需求且不新增 public seam | 方案 a 无法覆盖（识别结论无法与航迹对应）则升级 b/c | narrow（建议 a，待 P3 立项复核） |
 
 ## 3. P1 冻结契约（Frozen Contract）
@@ -114,30 +114,49 @@ GMST≈0），单目标近匀速 + GEO 卫星，error_model 角 σ 非零；双�
 `policy.tracking.tracking_mode` 不同（kEstimated / kSensorLikeTruthAssisted）；每周期从
 raw output 取 az/el，对 ECEF≈ECI 解析真值角（atan2/asin）。
 
-证据门：
-1. Estimated 输出误差的样本 std < Sensor-like（平滑降方差）；
-2. Estimated 相邻周期误差差分的 std 显著小于 Sensor-like（时间自相关结构差异）；
-3. 以配置 σ 构造 R 时，Estimated 标准化新息的 |均值| 偏离显著大于 Sensor-like
-   （R 语义失配——估计层不得把 Estimated 当独立量测消费的定量证据）。
+证据门（实测通过，2026-08-17，`unit::sbirs_sensor`）：
+1. Estimated 输出误差 std 0.317° < Sensor-like 0.379°（平滑降方差）；
+2. Estimated 逐周期差分 std 0.0097° ≪ Sensor-like 0.117°（后验惯性，>10× 平滑度差）；
+3. Estimated lag-1 自相关 0.942 > 0.8。
+**附带发现**：Sensor-like 误差亦非白噪声——其 std（0.379°）远大于配置角 σ（RSS≈0.087°），
+逐周期差分远小于自身 std，自相关 0.909：来自共模姿态/轨道偏差（慢变偏置）。含义：
+估计层即使默认消费 Sensor-like，其 R 建模也须包含共模偏差项（P2 噪声通道设计输入）。
 
 建议结论（待签认冻结）：Estimated 维持"滤波后验即传感器报告值"的装备语义（boundaries
-规则 4 不变）；估计层默认消费 Sensor-like 模式输出（量测语义成立）；Estimated 的来源
-标注增强留给 P2 适配器（随噪声通道设计一并落地）。
+规则 4 不变）；估计层默认消费 Sensor-like 模式输出（量测语义成立，R 含共模偏差项）；
+Estimated 的来源标注增强留给 P2 适配器（随噪声通道设计一并落地）。
+[evidence: tests/unit/sbirs_sensor/sbirs_estimated_semantics_characterization_test]
 
 ### 4.2 实验 B：角度-only 可达性矩阵（指标签认依据）
 
 载体：`tests/unit/sbirs_sensor/sbirs_angle_only_reachability_characterization_test.cpp`
 （`sbirs_imm_evaluation_test.cpp` 滤波直连模板 + 本地 mt19937 固定 seed 噪声）。
 
-设计：自造简化弹道（短弧匀速 + 常重力数值解；库内无弹道构件，证据用途足够）+ 静止单星；
-量测 = 真值角 + 高斯噪声；扫描弧长 {10,30,60,120} 周期（dt=1s）× 角 σ {5,50,200} µrad ×
-Monte-Carlo ≥20 次；滤波 = 现有 SbirsEkf 6D CV ECI（无迹对照留 TODO，P1 落地后可加）。
+设计（已执行）：静止单星 + 常重力解析弹道，量测 = 真值角 + 固定种子高斯噪声；滤波 =
+无迹（P1 原语）+ 匹配弹道转移模型（误差源隔离为纯可观测性）；先验位置 10 km / 速度
+1.5 km/s（代表搜索域，均值=真值不构成信息泄漏）。扫描弧长 {10,30,60,120} s × 角 σ
+{5,50,200} µrad × Monte-Carlo 20。
 
-指标（RecordProperty + stdout 矩阵）：横向位置 RMSE、沿 LOS 距离 RMSE、简化发射点回推
-（x₀ = x − v·t）RMSE 与相对同时刻位置误差的放大系数。
+实测矩阵（2026-08-17，`unit::sbirs_sensor`，确定性可复现）：
 
-物理地板断言（弱断言防回归）：短弧（10 周期）距离 RMSE ≥ 5× 长弧（120 周期）；
-发射点回推误差 ≥ 同时刻位置误差。
+| 弧长 \ σ | 5 µrad 径向 RMSE | 50 µrad 径向 RMSE | 200 µrad 径向 RMSE |
+|---|---|---|---|
+| 10 s | 2.68 km | 6.50 km | 5.25 km |
+| 30 s | 8.77 km | 1.72 km | 8.42 km |
+| 60 s | 18.17 km | 1.26 km | 2.55 km |
+| 120 s | 38.73 km | 1.57 km | 1.97 km |
+
+三条实测结论（已编码为测试门）：
+1. **σ=50 µrad 列**弧长单调改善（6.5 km → 1.6 km），地板 ~1.2–1.7 km——单静止单星
+   角度-only 的距离可达性地板为公里级，百米级指标在 120 s 弧内不可达。
+2. **σ=5 µrad 列随弧长发散**：R≈2.5e-11 rad² 与 1e6 m 位置量级组合触及 float 精度
+   边缘，距离信息在中间量中丢失——估计层（P2）若要支持 σ≲10 µrad 需 double 中间量
+   或状态缩放（工程注记）。
+3. **发射点回推无剧放大**（0.07–1.06× 末周期位置误差）：匹配模型下距离误差与速度
+   误差相关，回推部分抵消；"回推放大"仅在模型失配场景出现（推演层产品须携带协方差
+   的另一理由）。
+
+[evidence: tests/unit/sbirs_sensor/sbirs_angle_only_reachability_characterization_test]
 
 ### 4.3 OQ-4：RIR 识别接入能力矩阵（文档级裁定）
 
@@ -150,25 +169,27 @@ Monte-Carlo ≥20 次；滤波 = 现有 SbirsEkf 6D CV ECI（无迹对照留 TOD
 建议：本交付采用方案 a；b/c 不立项。登记 open_questions TARGET-OQ-4 建议结论，正式裁定
 随 P3 立项复核（若推演层识别面改变前提再重开）。
 
-## 5. 指标签认表（骨架——数字由实验 B RecordProperty 填入后交付需求方）
+## 5. 指标签认表（实测数字已填，2026-08-17；单静止单星 + 匹配模型无迹滤波）
 
-| 观测条件 | 距离误差（RMSE，km） | 发射点回推（RMSE，km） | 放大系数 | 备注 |
-|---|---|---|---|---|
-| 单星，弧长 10 s，σ=5 µrad | 待填 | 待填 | 待填 | |
-| 单星，弧长 30 s，σ=5 µrad | 待填 | 待填 | 待填 | |
-| 单星，弧长 60 s，σ=5 µrad | 待填 | 待填 | 待填 | |
-| 单星，弧长 120 s，σ=5 µrad | 待填 | 待填 | 待填 | |
-| 单星，弧长 {10..120} s，σ=50/200 µrad | 待填（矩阵） | 待填 | 待填 | |
-| 多源融合（SBIRS+AR 位置 / 双星） | P0 不含（P2 起补） | — | — | 收敛路径预留 |
+| 观测条件 | 距离误差（径向 RMSE） | 发射点回推（RMSE） | 备注 |
+|---|---|---|---|
+| 单星，弧长 10 s，σ=50 µrad | 6.50 km | 0.46 km | 位置误差 6.50 km（径向主导） |
+| 单星，弧长 30 s，σ=50 µrad | 1.72 km | 0.62 km | 位置误差 1.72 km |
+| 单星，弧长 60 s，σ=50 µrad | 1.26 km | 0.84 km | 位置误差 1.26 km |
+| 单星，弧长 120 s，σ=50 µrad | 1.57 km | 1.31 km | 地板 ~1.2–1.7 km |
+| 单星，弧长 10–120 s，σ=200 µrad | 5.25 → 1.97 km | 0.45–0.95 km | |
+| 单星，弧长 10–120 s，σ=5 µrad | 2.68 → 38.73 km（发散） | 同量级 | float 精度地板（§4.2 结论 2），当前管线不支持 σ≲10 µrad |
+| 多源融合（SBIRS+AR 位置 / 双星） | P0 不含（P2 起补） | — | 收敛路径预留 |
 
-签认口径：指标必须以本表观测条件为前提签署；"单源短弧段发射点误差 < 1 km"类指标按 §4.2
-物理地板判定为不可达，不得入契约。
+签认口径：指标必须以本表观测条件为前提签署；单源短弧段百米级发射点/距离指标在
+120 s 弧内**不可达**（地板公里级），不得入契约。传感器角 σ=5 µrad 档当前超出
+float 管线精度包络，如需求方坚持该档须先立 P2 数值精度冻结项。
 
-## 6. Stage C 回写（占位，实现后填）
+## 6. Stage C 回写
 
 | 项 | 实际结果 |
 |---|---|
-| 实现范围 | 待填 |
-| 验证命令与结果 | 待填 |
-| 残留风险 | 待填 |
-| 后续冻结项 | 待填 |
+| 实现范围 | P1：UnscentedTransform/UnscentedPredictor/UnscentedUpdater（结构体静态辅助形态——MSVC v141 无法从 Eigen 依赖默认参数推导维度，契约允许范围内的实现形态调整）+ estimation_unscented_test（9 用例）。P0：2 个 characterization 证据测试 |
+| 验证命令与结果 | `cmake --build ... --target 1q_common_unit_tests / 1q_sbirs_sensor_unit_tests`（Windows v141+UseEnv 流程）通过；`ctest -C Debug -R "unit::common"` Passed；`ctest -C Debug -R "unit::sbirs_sensor"` Passed（含新证据测试）；无迹 9/9、证据 2/2 |
+| 残留风险 | ①无迹原语 float 精度在 σ≲10 µrad 角度场景不足（§4.2 结论 2，P2 冻结项候选）；②Sensor-like 共模偏差项的 R 建模尚未落（P2 噪声通道设计输入）；③OQ-3/OQ-4 正式裁定待需求方指标签认一并冻结 |
+| 后续冻结项 | P2：DetectionRecord 噪声通道（含共模偏差）、FusedTarget 运动学扩展、航迹管理；数值精度（double 中间量/状态缩放）评估 |

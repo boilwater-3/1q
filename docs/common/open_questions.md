@@ -290,6 +290,12 @@ Last-reviewed: 2026-08-17
   带误差量测形态。
 - **再进入条件 (Stage A)**：估计层轨迹滤波立项、需要以 SBIRS 量测噪声模型构造 R 矩阵时，
   先盘点 Estimated 输出的消费路径并给出噪声语义失配证据。
+- **证据（2026-08-17，P0 落地）**：characterization 实测确认 Estimated raw output 为滤波
+  后验（std 0.317° vs Sensor-like 0.379°，逐周期差分 >10× 更平滑，lag-1 自相关 0.942）；
+  附带发现 Sensor-like 亦携带共模姿态/轨道偏差（自相关 0.909，std 远大于配置 σ）。建议
+  裁定：维持规则 4 装备语义；估计层默认消费 Sensor-like 且 R 含共模偏差项；正式裁定随
+  指标签认冻结。见 target_domain_p0_p1_decision_2026-08-17.md §4.1。
+  [evidence: tests/unit/sbirs_sensor/sbirs_estimated_semantics_characterization_test]
 
 ### TARGET-OQ-4：RIR 识别产品形态与推演层关系
 
@@ -306,3 +312,8 @@ Last-reviewed: 2026-08-17
 - **当前边界**：RIR 识别输出维持现状（装备使命），不新增威胁评分等决策语义。
 - **再进入条件 (Stage A)**：推演层识别算法面立项时，先裁定 RIR 豁免形态与复用边界，再冻结
   实现契约。
+- **证据与建议（2026-08-17，P0 落地）**：能力矩阵裁定建议方案 a——调用方维护 RIR
+  `association_key` ↔ 融合航迹键映射（零库内改动，fusion 关联键契约本就要求调用方保证
+  跨源一致）；方案 b（feature-only DetectionRecord）特征语义错位、方案 c（RIR 扩公开
+  方位输出）破坏性公共 API 变更，均不立项。正式裁定随 P3 立项复核。见
+  target_domain_p0_p1_decision_2026-08-17.md §4.3。
