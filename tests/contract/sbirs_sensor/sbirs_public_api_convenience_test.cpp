@@ -98,6 +98,9 @@ TEST(SbirsPublicApiConvenienceTest, SessionConfigFieldsAreAssignable) {
   config.orientation.sensor_scan_limits_deg.az_max_deg = 30.0f;
   config.orientation.stabilization_mode =
       config::SbirsStabilizationMode::kInertialStabilized;
+  config.orientation.misalignment.bias_deg.pitch_deg = 2.0;
+  config.orientation.misalignment.random_sigma_deg = 0.25f;
+  config.orientation.misalignment.random_seed = 9U;
   EXPECT_FLOAT_EQ(config.hardware.optical_aperture_m, 0.8f);
   EXPECT_FLOAT_EQ(config.mission.scan_span_deg, 90.0f);
   EXPECT_EQ(config.mission.scan_direction, config::SbirsScanDirection::kDecreasingAzimuth);
@@ -111,6 +114,9 @@ TEST(SbirsPublicApiConvenienceTest, SessionConfigFieldsAreAssignable) {
   EXPECT_FLOAT_EQ(config.orientation.sensor_scan_limits_deg.az_max_deg, 30.0f);
   EXPECT_EQ(config.orientation.stabilization_mode,
             config::SbirsStabilizationMode::kInertialStabilized);
+  EXPECT_DOUBLE_EQ(config.orientation.misalignment.bias_deg.pitch_deg, 2.0);
+  EXPECT_FLOAT_EQ(config.orientation.misalignment.random_sigma_deg, 0.25f);
+  EXPECT_EQ(config.orientation.misalignment.random_seed, 9U);
 }
 
 TEST(SbirsPublicApiConvenienceTest, MinimalInputSetsSatelliteAttitudeFlag) {

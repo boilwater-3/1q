@@ -1987,4 +1987,147 @@ TEST(SbirsPipelineTest, NarrowSensorAzimuthLimitClampsTrackCommandCausingGeometr
   EXPECT_TRUE(unlimited_result.detections.front().attribution.nfov_geometry_gate_passed);
 }
 
+TEST(SbirsPipelineTest, BiasMisalignmentSteersWfovFootprint) {
+  // 阶段 3：静态失准偏置独立于周期姿态生效（与 mount 同语义、方向相反）：
+  // bias yaw=30° 把传感器系视场足迹相对 ECI 平移 -30°，固定目标（ECI az=0）在
+  // 传感器系落入 +30°，出 10° 半宽扫描窗口。
+  sbirs_sensor::config::SbirsSessionConfig config = PipelineConfig();
+  config.orientation.misalignment.bias_deg.yaw_deg = 30.0;
+  sbirs_sensor::pipeline::SbirsPipeline pipeline(
+      sbirs_sensor::runtime::MapSessionToInternal(config));
+  sbirs_sensor::session::SbirsCycleInput input =
+      sbirs_sensor::session::SbirsCycleInputBuilder()
+          .WithCycleIndex(1U)
+          .WithDeltaTimeSec(1.0f)
+          .WithUtcJulianDay(2451544.2230698913)  // GMST≈0：ECI≡ECEF
+          .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
+          .WithSatelliteVelocity(sbirs_sensor::session::SbirsVector3M{})
+          .WithSatelliteAttitude(sbirs_sensor::session::SbirsEulerAnglesDeg{})
+          .AddTarget(HotTargetAtAngles(1U, 0.0, 0.0))
+          .Build();
+  const sbirs_sensor::pipeline::SbirsPipelineResult result = pipeline.RunCycle(input);
+  EXPECT_TRUE(result.detections.empty());
+  EXPECT_NE(FindIssue(result, sbirs_sensor::session::codes::kTargetOutOfWfov), nullptr);
+}
+
+TEST(SbirsPipelineTest, RandomMisalignmentIsDrawnOncePerRun) {
+  // 阶段 3 常值契约：随机微扰每次运行抽取一次——同种子确定性（两 pipeline 逐位一致）、
+  // 种子驱动（不同种子输出不同）、运行内不重抽（dt=0 同输入再跑一周期逐位一致）。
+  // 扫描中心 ECI 方位 = 失准驱动的合成光轴（非 identity 链），作为确定性可观测信号。
+  sbirs_sensor::config::SbirsSessionConfig config = PipelineConfig();
+  config.orientation.misalignment.bias_deg.yaw_deg = 5.0;
+  config.orientation.misalignment.random_sigma_deg = 2.0f;
+  config.orientation.misalignment.random_seed = 7U;
+
+  const sbirs_sensor::session::SbirsCycleInput input =
+      sbirs_sensor::session::SbirsCycleInputBuilder()
+          .WithCycleIndex(1U)
+          .WithDeltaTimeSec(1.0f)
+          .WithUtcJulianDay(2451544.2230698913)  // GMST≈0：ECI≡ECEF
+          .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
+          .WithSatelliteVelocity(sbirs_sensor::session::SbirsVector3M{})
+          .WithSatelliteAttitude(sbirs_sensor::session::SbirsEulerAnglesDeg{})
+          .AddTarget(HotTargetAtAngles(1U, 0.0, 0.0))
+          .Build();
+
+  sbirs_sensor::pipeline::SbirsPipeline pipeline_a(
+      sbirs_sensor::runtime::MapSessionToInternal(config));
+  sbirs_sensor::pipeline::SbirsPipeline pipeline_b(
+      sbirs_sensor::runtime::MapSessionToInternal(config));
+  const sbirs_sensor::pipeline::SbirsPipelineResult result_a = pipeline_a.RunCycle(input);
+  const sbirs_sensor::pipeline::SbirsPipelineResult result_b = pipeline_b.RunCycle(input);
+  EXPECT_FALSE(result_a.detections.empty());
+  EXPECT_FLOAT_EQ(result_a.scan_azimuth_rad, result_b.scan_azimuth_rad);
+
+  // 与 bias-only（sigma=0）配置输出不同 → 随机偏置确实生效（连续分布相等概率 0）。
+  sbirs_sensor::config::SbirsSessionConfig bias_only = PipelineConfig();
+  bias_only.orientation.misalignment.bias_deg.yaw_deg = 5.0;
+  sbirs_sensor::pipeline::SbirsPipeline bias_only_pipeline(
+      sbirs_sensor::runtime::MapSessionToInternal(bias_only));
+  const sbirs_sensor::pipeline::SbirsPipelineResult bias_only_result =
+      bias_only_pipeline.RunCycle(input);
+  EXPECT_NE(result_a.scan_azimuth_rad, bias_only_result.scan_azimuth_rad);
+
+  // 运行内不重抽：dt=0 同输入再跑一周期（扫描相位不推进），输出逐位一致；若实现
+  // 为每周期重抽则失准改变导致扫描中心方位变化。
+  sbirs_sensor::session::SbirsCycleInput input_zero_dt =
+      sbirs_sensor::session::SbirsCycleInputBuilder()
+          .WithCycleIndex(1U)
+          .WithDeltaTimeSec(0.0f)
+          .WithUtcJulianDay(2451544.2230698913)  // GMST≈0：ECI≡ECEF
+          .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
+          .WithSatelliteVelocity(sbirs_sensor::session::SbirsVector3M{})
+          .WithSatelliteAttitude(sbirs_sensor::session::SbirsEulerAnglesDeg{})
+          .AddTarget(HotTargetAtAngles(1U, 0.0, 0.0))
+          .Build();
+  const sbirs_sensor::pipeline::SbirsPipelineResult result_a_repeat =
+      pipeline_a.RunCycle(input_zero_dt);
+  EXPECT_FLOAT_EQ(result_a.scan_azimuth_rad, result_a_repeat.scan_azimuth_rad);
+}
+
+TEST(SbirsPipelineTest, MisalignmentSnapshotRoundTripPreservesDeterminism) {
+  // 快照契约：运行期失准进 Capture/Restore 往返——Restore 后回读快照字段确认回填，
+  // 修改快照失准值改变后续行为（ECI 输出参考 scan_azimuth_rad 由链驱动，非 identity
+  // 链下随失准变化），未修改则确定性 continuation 逐位一致。
+  sbirs_sensor::config::SbirsSessionConfig config = PipelineConfig();
+  config.orientation.misalignment.bias_deg.yaw_deg = 5.0;
+  config.orientation.misalignment.random_sigma_deg = 2.0f;
+  config.orientation.misalignment.random_seed = 7U;
+
+  const sbirs_sensor::session::SbirsCycleInput first =
+      sbirs_sensor::session::SbirsCycleInputBuilder()
+          .WithCycleIndex(1U)
+          .WithDeltaTimeSec(1.0f)
+          .WithUtcJulianDay(2451544.2230698913)  // GMST≈0：ECI≡ECEF
+          .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
+          .WithSatelliteVelocity(sbirs_sensor::session::SbirsVector3M{})
+          .WithSatelliteAttitude(sbirs_sensor::session::SbirsEulerAnglesDeg{})
+          .AddTarget(HotTargetAtAngles(1U, 0.0, 0.0))
+          .Build();
+  const sbirs_sensor::session::SbirsCycleInput second =
+      sbirs_sensor::session::SbirsCycleInputBuilder()
+          .WithCycleIndex(2U)
+          .WithDeltaTimeSec(1.0f)
+          .WithUtcJulianDay(2451544.2230698913)  // GMST≈0：ECI≡ECEF
+          .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
+          .WithSatelliteVelocity(sbirs_sensor::session::SbirsVector3M{})
+          .WithSatelliteAttitude(sbirs_sensor::session::SbirsEulerAnglesDeg{})
+          .AddTarget(HotTargetAtAngles(1U, 0.0, 0.0))
+          .Build();
+
+  sbirs_sensor::pipeline::SbirsPipeline untouched(
+      sbirs_sensor::runtime::MapSessionToInternal(config));
+  sbirs_sensor::pipeline::SbirsPipeline tampered(
+      sbirs_sensor::runtime::MapSessionToInternal(config));
+  untouched.RunCycle(first);
+  tampered.RunCycle(first);
+
+  sbirs_sensor::pipeline::SbirsPipelineSnapshot untouched_snapshot =
+      untouched.CaptureRuntimeState();
+  EXPECT_TRUE(std::isfinite(untouched_snapshot.misalignment_yaw_deg));
+  EXPECT_TRUE(std::isfinite(untouched_snapshot.misalignment_pitch_deg));
+  EXPECT_TRUE(std::isfinite(untouched_snapshot.misalignment_roll_deg));
+  ASSERT_TRUE(untouched.RestoreRuntimeState(untouched_snapshot));
+
+  sbirs_sensor::pipeline::SbirsPipelineSnapshot tampered_snapshot =
+      tampered.CaptureRuntimeState();
+  tampered_snapshot.misalignment_pitch_deg += 20.0f;
+  ASSERT_TRUE(tampered.RestoreRuntimeState(tampered_snapshot));
+  // 回填验证：restore 后回读快照字段等于改后的值（失准确实进成员并随快照往返）。
+  const sbirs_sensor::pipeline::SbirsPipelineSnapshot tampered_verified =
+      tampered.CaptureRuntimeState();
+  EXPECT_FLOAT_EQ(tampered_verified.misalignment_pitch_deg,
+                  tampered_snapshot.misalignment_pitch_deg);
+  EXPECT_FLOAT_EQ(tampered_verified.misalignment_yaw_deg,
+                  untouched_snapshot.misalignment_yaw_deg);
+  EXPECT_FLOAT_EQ(tampered_verified.misalignment_roll_deg,
+                  untouched_snapshot.misalignment_roll_deg);
+
+  const sbirs_sensor::pipeline::SbirsPipelineResult untouched_result =
+      untouched.RunCycle(second);
+  const sbirs_sensor::pipeline::SbirsPipelineResult tampered_result = tampered.RunCycle(second);
+  // 行为差异：非 identity 链下 ECI 扫描方位由失准驱动，快照回填生效（pitch 不同 → 方位不同）。
+  EXPECT_NE(untouched_result.scan_azimuth_rad, tampered_result.scan_azimuth_rad);
+}
+
 }  // namespace

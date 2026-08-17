@@ -233,6 +233,28 @@ TEST(SbirsSessionConfigBuilderTest, OrientationDomainValidation) {
   config.orientation.stabilization_mode =
       sbirs_sensor::config::SbirsStabilizationMode::kBodyStabilized;
 
+  // 安装失准（阶段 3）：bias 非有限 / random sigma 负或非有限 → 拒绝；默认全零合法。
+  config.orientation.misalignment.bias_deg.yaw_deg = std::numeric_limits<double>::quiet_NaN();
+  EXPECT_TRUE(ContainsCode(sbirs_sensor::config::ValidateSbirsSessionConfig(config),
+                           "sbirs.validation.invalid_misalignment"));
+  config.orientation.misalignment.bias_deg.yaw_deg = 0.0;
+
+  config.orientation.misalignment.bias_deg.pitch_deg =
+      std::numeric_limits<double>::infinity();
+  EXPECT_TRUE(ContainsCode(sbirs_sensor::config::ValidateSbirsSessionConfig(config),
+                           "sbirs.validation.invalid_misalignment"));
+  config.orientation.misalignment.bias_deg.pitch_deg = 0.0;
+
+  config.orientation.misalignment.random_sigma_deg = -1.0f;
+  EXPECT_TRUE(ContainsCode(sbirs_sensor::config::ValidateSbirsSessionConfig(config),
+                           "sbirs.validation.invalid_misalignment"));
+  config.orientation.misalignment.random_sigma_deg = 0.0f;
+
+  config.orientation.misalignment.random_sigma_deg = std::numeric_limits<float>::quiet_NaN();
+  EXPECT_TRUE(ContainsCode(sbirs_sensor::config::ValidateSbirsSessionConfig(config),
+                           "sbirs.validation.invalid_misalignment"));
+  config.orientation.misalignment.random_sigma_deg = 0.0f;
+
   EXPECT_TRUE(sbirs_sensor::config::ValidateSbirsSessionConfig(config).empty());
 }
 

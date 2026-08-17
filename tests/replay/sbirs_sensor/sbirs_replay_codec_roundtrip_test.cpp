@@ -75,8 +75,8 @@ std::string EncodeSessionConfigWithRawTrackingEnums(std::int32_t tracking_mode,
   const auto tracking = sbirs::replay::CreateSbirsTrackingConfig(
       builder, tracking_mode, estimated_backend);
   const auto policy = sbirs::replay::CreateSbirsPolicyConfig(builder, 0, 0, 0, 0, tracking);
-  builder.Finish(sbirs::replay::CreateSbirsSessionConfig(builder, 0, 0, policy, 0),
-                  kSbirsReplayFileIdentifier);
+  builder.Finish(sbirs::replay::CreateSbirsSessionConfig(builder, 0, 0, 0, policy),
+                 kSbirsReplayFileIdentifier);
   return std::string(reinterpret_cast<const char*>(builder.GetBufferPointer()), builder.GetSize());
 }
 
@@ -366,6 +366,12 @@ TEST(SbirsReplayCodecRoundtripTest, SessionConfigPreservesAllDomains) {
   config.orientation.sensor_scan_limits_deg.el_min_deg = -20.0f;
   config.orientation.sensor_scan_limits_deg.el_max_deg = 25.0f;
   config.orientation.stabilization_mode = config::SbirsStabilizationMode::kInertialStabilized;
+  // 阶段 3 安装失准域：非默认值防 decode 漏读。
+  config.orientation.misalignment.bias_deg.yaw_deg = 4.0;
+  config.orientation.misalignment.bias_deg.pitch_deg = -2.0;
+  config.orientation.misalignment.bias_deg.roll_deg = 1.0;
+  config.orientation.misalignment.random_sigma_deg = 0.5f;
+  config.orientation.misalignment.random_seed = 44U;
 
   SbirsSessionConfig decoded;
   ASSERT_TRUE(DecodeSbirsSessionConfig(EncodeSbirsSessionConfig(config), &decoded));
@@ -413,6 +419,11 @@ TEST(SbirsReplayCodecRoundtripTest, SessionConfigPreservesAllDomains) {
   EXPECT_FLOAT_EQ(decoded.orientation.sensor_scan_limits_deg.el_max_deg, 25.0f);
   EXPECT_EQ(decoded.orientation.stabilization_mode,
             config::SbirsStabilizationMode::kInertialStabilized);
+  EXPECT_DOUBLE_EQ(decoded.orientation.misalignment.bias_deg.yaw_deg, 4.0);
+  EXPECT_DOUBLE_EQ(decoded.orientation.misalignment.bias_deg.pitch_deg, -2.0);
+  EXPECT_DOUBLE_EQ(decoded.orientation.misalignment.bias_deg.roll_deg, 1.0);
+  EXPECT_FLOAT_EQ(decoded.orientation.misalignment.random_sigma_deg, 0.5f);
+  EXPECT_EQ(decoded.orientation.misalignment.random_seed, 44U);
 }
 
 // --- RuntimeConfigPatch ---
