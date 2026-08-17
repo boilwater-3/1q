@@ -33,22 +33,36 @@ session::SbirsVector3M Multiply(const oneq::coordinate::RotationMatrix3d& rotati
 }  // namespace
 
 SbirsBoresightChain::SbirsBoresightChain(const session::SbirsEulerAnglesDeg& attitude_eci_body_deg,
-                                         const oneq::foundation::EulerAnglesDeg& mount_angles_deg) {
+                                         const oneq::foundation::EulerAnglesDeg& mount_angles_deg)
+    : SbirsBoresightChain(attitude_eci_body_deg, mount_angles_deg,
+                          oneq::foundation::EulerAnglesDeg()) {}
+
+SbirsBoresightChain::SbirsBoresightChain(const session::SbirsEulerAnglesDeg& attitude_eci_body_deg,
+                                         const oneq::foundation::EulerAnglesDeg& mount_angles_deg,
+                                         const oneq::foundation::EulerAnglesDeg& misalignment_deg) {
   const oneq::coordinate::EulerAnglesDeg attitude(attitude_eci_body_deg.yaw_deg,
                                                   attitude_eci_body_deg.pitch_deg,
                                                   attitude_eci_body_deg.roll_deg);
   const oneq::coordinate::EulerAnglesDeg mount(mount_angles_deg.yaw_deg,
                                                mount_angles_deg.pitch_deg,
                                                mount_angles_deg.roll_deg);
-  // 姿态（Body->ECI）与安装角（Body->Sensor）复合：R_sensor_to_eci = R_body_to_eci *
-  // R_sensor_to_body。行主序约定：v_out = R · v。
-  sensor_to_eci_ =
+  const oneq::coordinate::EulerAnglesDeg misalignment(misalignment_deg.yaw_deg,
+                                                      misalignment_deg.pitch_deg,
+                                                      misalignment_deg.roll_deg);
+  // 姿态（Body->ECI）与安装角（Body->Sensor）及安装失准复合：R_sensor_to_eci =
+  // R_body_to_eci · R_sensor_to_body · R_sensor_misalign⁻¹（失准作用于传感器系内，
+  // 等效安装偏置微扰；阶段 3）。行主序约定：v_out = R · v。
+  sensor_to_eci_ = oneq::coordinate::Compose(
       oneq::coordinate::Compose(oneq::coordinate::BuildRotationMatrix(attitude),
-                                oneq::coordinate::Inverse(oneq::coordinate::BuildRotationMatrix(mount)));
+                                oneq::coordinate::Inverse(
+                                    oneq::coordinate::BuildRotationMatrix(mount))),
+      oneq::coordinate::Inverse(oneq::coordinate::BuildRotationMatrix(misalignment)));
   eci_to_sensor_ = oneq::coordinate::Inverse(sensor_to_eci_);
   identity_ = attitude_eci_body_deg.yaw_deg == 0.0 && attitude_eci_body_deg.pitch_deg == 0.0 &&
               attitude_eci_body_deg.roll_deg == 0.0 && mount_angles_deg.yaw_deg == 0.0 &&
-              mount_angles_deg.pitch_deg == 0.0 && mount_angles_deg.roll_deg == 0.0;
+              mount_angles_deg.pitch_deg == 0.0 && mount_angles_deg.roll_deg == 0.0 &&
+              misalignment_deg.yaw_deg == 0.0 && misalignment_deg.pitch_deg == 0.0 &&
+              misalignment_deg.roll_deg == 0.0;
 }
 
 bool SbirsBoresightChain::IsIdentity() const { return identity_; }

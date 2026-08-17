@@ -40,6 +40,9 @@ enum class SbirsTargetState {
  */
 struct SbirsPipelineSnapshot {
   float scan_phase_deg{0.0f};          /**< 当前 WFOV 有向扫描相位，范围 [0, span) deg */
+  float misalignment_yaw_deg{0.0f};    /**< 运行期安装失准角总量（常值偏置 + 一次随机抽取），deg */
+  float misalignment_pitch_deg{0.0f};  /**< 运行期安装失准角总量 pitch，deg */
+  float misalignment_roll_deg{0.0f};   /**< 运行期安装失准角总量 roll，deg */
   std::uint64_t next_detection_id{1U}; /**< 下一个检测记录 ID */
   std::map<std::uint64_t, SbirsTargetState>
       target_states{};                         /**< 各目标状态表（按 target_id 索引） */
@@ -109,6 +112,7 @@ class SbirsPipeline {
  private:
   config::SbirsInternalExecutionConfig config_{};
   float scan_phase_deg_{0.0f};
+  session::SbirsEulerAnglesDeg misalignment_total_deg_{}; /**< 运行期安装失准角总量（构造/ApplyConfig 一次抽取） */
   std::uint64_t next_detection_id_{1U};
   std::map<std::uint64_t, SbirsTargetState> target_states_{};
   SbirsNfovScheduler nfov_scheduler_;              // NFOV 多通道资源调度器

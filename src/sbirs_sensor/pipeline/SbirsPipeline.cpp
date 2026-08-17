@@ -256,7 +256,10 @@ bool IsValidTrackingSnapshot(const SbirsPipelineSnapshot& snapshot,
   if (!std::isfinite(snapshot.scan_phase_deg) || snapshot.next_detection_id == 0U ||
       snapshot.wfov_measurement_random_state == 0U ||
       snapshot.estimated_measurement_random_state == 0U ||
-      snapshot.sensor_like_output_random_state == 0U) {
+      snapshot.sensor_like_output_random_state == 0U ||
+      !std::isfinite(snapshot.misalignment_yaw_deg) ||
+      !std::isfinite(snapshot.misalignment_pitch_deg) ||
+      !std::isfinite(snapshot.misalignment_roll_deg)) {
     return false;
   }
   for (const auto& entry : snapshot.cue_predictor.targets) {
@@ -337,10 +340,33 @@ double ComputeSnr(const config::SbirsInternalExecutionConfig& config,
   return signal_energy / effective_noise;
 }
 
+// 阶段 3：由安装失准配置抽取运行期一次常值失准角总量（常值偏置 + 随机微扰）。
+// sigma==0 时直接返回 bias（不消耗随机流）；否则用配置种子构造独立流、每轴一次
+// N(0,σ) 抽取（3 次 Box-Muller 采样，弃样语义与量测域 SbirsRandomSource 一致）。
+// 每次调用用同种子确定性重抽产生同值——pipeline 构造与 ApplyConfig 均调用，
+// 配置不变时运行内不变化，保证 replay 可复现与确定性 continuation。
+session::SbirsEulerAnglesDeg DrawMisalignmentTotal(
+    const config::SbirsMisalignmentModel& misalignment) {
+  session::SbirsEulerAnglesDeg total;
+  total.yaw_deg = misalignment.bias_deg.yaw_deg;
+  total.pitch_deg = misalignment.bias_deg.pitch_deg;
+  total.roll_deg = misalignment.bias_deg.roll_deg;
+  if (misalignment.random_sigma_deg <= 0.0f) {
+    return total;
+  }
+  foundation::SbirsRandomSource random(misalignment.random_seed);
+  const double sigma = static_cast<double>(misalignment.random_sigma_deg);
+  total.yaw_deg += sigma * random.NextStandardNormal();
+  total.pitch_deg += sigma * random.NextStandardNormal();
+  total.roll_deg += sigma * random.NextStandardNormal();
+  return total;
+}
+
 }  // namespace
 
 SbirsPipeline::SbirsPipeline(const config::SbirsInternalExecutionConfig& config)
     : config_(config),
+      misalignment_total_deg_(DrawMisalignmentTotal(config.session.orientation.misalignment)),
       nfov_scheduler_(config.session.policy.scheduler.max_concurrent_nfov_locks),
       pointing_coordinator_(config.session.policy.scheduler.max_concurrent_nfov_locks,
                             config.session.policy.pointing_disturbance.random_seed),
@@ -355,6 +381,9 @@ void SbirsPipeline::ApplyConfig(const config::SbirsInternalExecutionConfig& conf
                                 const runtime::SbirsRuntimeConfigImpact& impact) {
   const float previous_scan_azimuth_deg = ScanAzimuth(config_.session.mission, scan_phase_deg_);
   config_ = config;
+  // 阶段 3：安装失准为静态配置（不进运行期 patch），每次应用配置时确定性重抽
+  // 运行期失准角总量——配置不变时同种子重抽产生同值（行为不变），配置变时即刻生效。
+  misalignment_total_deg_ = DrawMisalignmentTotal(config_.session.orientation.misalignment);
   if (impact.scan_sector_changed) {
     const float candidate_phase =
         ScanPhaseForAzimuth(config_.session.mission, previous_scan_azimuth_deg);
@@ -459,10 +488,15 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
   const config::SbirsPolicyConfig& policy = config_.session.policy;
   const config::SbirsEnvironmentConfig& environment_config = config_.session.environment;
 
-  // 指向合成链（阶段 2）：每周期由卫星姿态（Body->ECI）与安装角（Body->Sensor）构建。
-  // 默认零姿态 + 零安装角下为恒等变换（IsIdentity），全部门控与输出与历史逐位一致。
+  // 指向合成链（阶段 2/3）：每周期由卫星姿态（Body->ECI）与安装角（Body->Sensor）
+  // 及运行期安装失准角总量构建。默认零姿态 + 零安装角 + 零失准下为恒等变换
+  // （IsIdentity），全部门控与输出与历史逐位一致。
+  const oneq::foundation::EulerAnglesDeg misalignment_angles_deg{
+      misalignment_total_deg_.yaw_deg, misalignment_total_deg_.pitch_deg,
+      misalignment_total_deg_.roll_deg};
   const SbirsBoresightChain boresight_chain(input.satellite_attitude_eci_body_deg,
-                                            config_.session.orientation.mount_angles_deg);
+                                            config_.session.orientation.mount_angles_deg,
+                                            misalignment_angles_deg);
   // 名义扫描中心（扰动前）合成光轴的 ECI 方位：输出参考保持 ECI 极坐标，不随姿态/安装变化。
   const auto nominal_scan_azimuth_rad = [&]() -> float {
     if (boresight_chain.IsIdentity()) {
@@ -1225,6 +1259,9 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
 SbirsPipelineSnapshot SbirsPipeline::CaptureRuntimeState() const {
   SbirsPipelineSnapshot snapshot;
   snapshot.scan_phase_deg = scan_phase_deg_;
+  snapshot.misalignment_yaw_deg = static_cast<float>(misalignment_total_deg_.yaw_deg);
+  snapshot.misalignment_pitch_deg = static_cast<float>(misalignment_total_deg_.pitch_deg);
+  snapshot.misalignment_roll_deg = static_cast<float>(misalignment_total_deg_.roll_deg);
   snapshot.next_detection_id = next_detection_id_;
   snapshot.target_states = target_states_;
   snapshot.nfov_scheduler = nfov_scheduler_.Capture();
@@ -1320,6 +1357,9 @@ bool SbirsPipeline::RestoreRuntimeState(const SbirsPipelineSnapshot& snapshot) {
   tracking_state.imm_active = snapshot.imm_active;
   tracking_state.imm_snapshots = snapshot.imm_snapshots;
   scan_phase_deg_ = snapshot.scan_phase_deg;
+  misalignment_total_deg_.yaw_deg = snapshot.misalignment_yaw_deg;
+  misalignment_total_deg_.pitch_deg = snapshot.misalignment_pitch_deg;
+  misalignment_total_deg_.roll_deg = snapshot.misalignment_roll_deg;
   next_detection_id_ = snapshot.next_detection_id;
   target_states_ = snapshot.target_states;
   nfov_scheduler_.Restore(snapshot.nfov_scheduler);

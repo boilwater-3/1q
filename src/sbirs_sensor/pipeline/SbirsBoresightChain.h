@@ -18,29 +18,44 @@ namespace pipeline {
 /**
  * @brief 传感器指向合成链（对齐 AR 的 platform_attitude + mount_angles + scan_center 链路）。
  * @details 基准组合关系：actual_boresight = attitude(Body->ECI) ∘ mount(Body->Sensor)
- *          ∘ scan(传感器系)。传感器系方位/俯仰定义：单位指向向量 v（传感器系）由
- *          az/el 按 v = (cos(el)·cos(az), cos(el)·sin(az), sin(el)) 构造（与
- *          SbirsGeometry 的 ECI 约定相同，仅参考系不同）。零姿态 + 零安装角下链路为
- *          恒等变换（历史行为逐位不变）。
+ *          ∘ misalignment⁻¹ ∘ scan(传感器系)。传感器系方位/俯仰定义：单位指向向量 v
+ *          （传感器系）由 az/el 按 v = (cos(el)·cos(az), cos(el)·sin(az), sin(el)) 构造
+ *          （与 SbirsGeometry 的 ECI 约定相同，仅参考系不同）。零姿态 + 零安装角 +
+ *          零失准下链路为恒等变换（历史行为逐位不变）。
  * @note 稳定方式语义（SbirsStabilizationMode）：
  *       - kBodyStabilized：扫描参数（scan_start_az/span/el）为传感器系角度，直接合成；
  *       - kInertialStabilized：扫描参数为 ECI 参考方向（期望光轴），先得期望 ECI 单位
  *         向量再经链路反解到传感器系（R^T 旋转），物理上保持惯性方向稳定。
+ *       安装失准（阶段 3）：misalignment 为安装失准角误差（常值偏置 + 运行期一次抽取的
+ *       常值随机微扰），作用于传感器系内（等效安装偏置微扰），合成进链路影响实际光轴
+ *       足迹与门控；不污染量测输出、不进 BuildMeasurementCovariance。
  *       本工具只承载纯几何（ECI<->传感器系旋转、传感器系 az/el 提取、限位钳制与
  *       扫掠区间判定），不含任何随机源/时间演化状态。
  */
 class SbirsBoresightChain {
  public:
-  /** @brief 空链：单位矩阵（零姿态、零安装角），供默认构造。 */
+  /** @brief 空链：单位矩阵（零姿态、零安装角、零失准），供默认构造。 */
   SbirsBoresightChain() = default;
 
   /**
-   * @brief 由卫星姿态（Body->ECI）与安装角（Body->Sensor）构造合成链。
+   * @brief 由卫星姿态（Body->ECI）与安装角（Body->Sensor）构造合成链（失准为零）。
    * @param[in] attitude_eci_body_deg 卫星姿态欧拉角（Z-Y-X，deg）
    * @param[in] mount_angles_deg 传感器安装偏置角（Body->Sensor，deg）
    */
   SbirsBoresightChain(const session::SbirsEulerAnglesDeg& attitude_eci_body_deg,
                       const oneq::foundation::EulerAnglesDeg& mount_angles_deg);
+
+  /**
+   * @brief 由卫星姿态（Body->ECI）、安装角（Body->Sensor）与安装失准角构造合成链。
+   * @details 合成关系：R_sensor_to_eci = R_body_to_eci · R_sensor_to_body ·
+   *          R_sensor_misalign⁻¹（失准作用于传感器系内，等效安装偏置微扰）。
+   * @param[in] attitude_eci_body_deg 卫星姿态欧拉角（Z-Y-X，deg）
+   * @param[in] mount_angles_deg 传感器安装偏置角（Body->Sensor，deg）
+   * @param[in] misalignment_deg 安装失准角误差（常值偏置 + 运行期一次随机抽取，deg）
+   */
+  SbirsBoresightChain(const session::SbirsEulerAnglesDeg& attitude_eci_body_deg,
+                      const oneq::foundation::EulerAnglesDeg& mount_angles_deg,
+                      const oneq::foundation::EulerAnglesDeg& misalignment_deg);
 
   /** @brief 是否为恒等链（零姿态 + 零安装角）。 */
   bool IsIdentity() const;
