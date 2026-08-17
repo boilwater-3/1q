@@ -201,9 +201,22 @@ TEST(RirDesignationTaskTest, DesignationIgnoredInStandby) {
 
 // 任务窗口内目标缺席：驻留回扫描波位，报告 kNotRecognized（识别未达成）。
 TEST(RirDesignationTaskTest, AbsentTargetReportsNotRecognizedAndDwellsOnScan) {
-  RirSession session = RirSession::Create(MakeIdentifyConfig());
+  const config::RirSessionConfig session_config = MakeIdentifyConfig();
+  RirSession session = RirSession::Create(session_config);
   const RirSceneTarget target = MakeTarget(9300U);
   ASSERT_TRUE(session.TryApplyRuntimeConfig(MakeDesignationPatch(target.external_target_id, 5U)));
+
+  // 期望扫描波位 = common 内核第 1 周期波位（与 IdleDwellCenterFollowsScanStrategy 同口径）。
+  const dwell::RirEffectiveBeamwidthDeg beamwidth =
+      dwell::RirResolveEffectiveBeamwidth(session_config.hardware.antenna);
+  const config::RirScanConfig& scan = session_config.mission.scan;
+  const std::vector<oneq::common::radar::AzimuthElevationDeg> pattern =
+      oneq::common::radar::BuildScanPattern(
+          scan.scan_limits_deg.az_min_deg, scan.scan_limits_deg.az_max_deg,
+          scan.scan_limits_deg.el_min_deg, scan.scan_limits_deg.el_max_deg,
+          beamwidth.az_beamwidth_deg * scan.step_scale, beamwidth.el_beamwidth_deg * scan.step_scale,
+          scan.scan_start_position, scan.scan_sequence);
+  ASSERT_FALSE(pattern.empty());
 
   const RirCycleResult result = session.StepWithResult(MakeInput(1U, {}));
   ASSERT_EQ(result.status, session::RirCycleStatus::kCompleted);
@@ -211,6 +224,9 @@ TEST(RirDesignationTaskTest, AbsentTargetReportsNotRecognizedAndDwellsOnScan) {
   EXPECT_FALSE(result.designation_active) << "目标缺席时无驻留对准";
   EXPECT_TRUE(result.designation_reverted_to_scan);
   EXPECT_EQ(result.designation_revert_reason, RirDesignationRevertReason::kNotRecognized);
+  EXPECT_NEAR(result.dwell_center_deg.az_deg, pattern.front().az_deg, 1.0e-4f)
+      << "目标缺席时驻留中心回到扫描波位";
+  EXPECT_NEAR(result.dwell_center_deg.el_deg, pattern.front().el_deg, 1.0e-4f);
 }
 
 // 驻留中心 → 量测增益接线：方向图开启时，驻留中心对准目标则准入，
