@@ -15,6 +15,7 @@
 #include "sbirs_sensor/foundation/SbirsGeometry.h"
 #include "sbirs_sensor/foundation/SbirsNoiseModel.h"
 #include "sbirs_sensor/foundation/SbirsRadiometry.h"
+#include "sbirs_sensor/pipeline/SbirsBoresightChain.h"
 #include "sbirs_sensor/pipeline/SbirsEciScene.h"
 #include "sbirs_sensor/pipeline/SbirsNfovAcquisition.h"
 
@@ -223,7 +224,8 @@ SbirsPointingDisturbanceParameters DisturbanceParameters(
 
 bool EffectiveNfovPointing(const SbirsPointingCoordinator& coordinator, int channel_id,
                            const SbirsPointingDisturbanceParameters& parameters,
-                           const session::SbirsVector3M& nominal_los, float static_error_deg,
+                           const session::SbirsVector3M& nominal_los,
+                           const SbirsBoresightChain& boresight_chain, float static_error_deg,
                            float* azimuth_deg, float* elevation_deg) {
   if (azimuth_deg == nullptr || elevation_deg == nullptr) {
     return false;
@@ -232,13 +234,16 @@ bool EffectiveNfovPointing(const SbirsPointingCoordinator& coordinator, int chan
   if (!coordinator.DisturbanceSample(channel_id, parameters, &disturbance)) {
     return false;
   }
-  *azimuth_deg =
-      foundation::ComputeAzimuthDeg(nominal_los) +
-      static_cast<float>(disturbance.common.azimuth_deg + disturbance.channel.azimuth_deg) +
-      static_error_deg;
-  *elevation_deg =
-      foundation::ComputeElevationDeg(nominal_los) +
-      static_cast<float>(disturbance.common.elevation_deg + disturbance.channel.elevation_deg);
+  // 阶段 2：实际指向 = 名义 LOS（传感器系 az/el）+ 共模/通道扰动 + 静态 settle 误差，
+  // 全部在传感器系叠加（identity 链下与历史逐位一致）；输出为传感器系 az/el。
+  float sensor_azimuth_deg = 0.0f;
+  float sensor_elevation_deg = 0.0f;
+  boresight_chain.SensorAzElOfEciVector(nominal_los, &sensor_azimuth_deg, &sensor_elevation_deg);
+  *azimuth_deg = sensor_azimuth_deg +
+                 static_cast<float>(disturbance.common.azimuth_deg + disturbance.channel.azimuth_deg) +
+                 static_error_deg;
+  *elevation_deg = sensor_elevation_deg +
+                   static_cast<float>(disturbance.common.elevation_deg + disturbance.channel.elevation_deg);
   return true;
 }
 
@@ -454,13 +459,27 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
   const config::SbirsPolicyConfig& policy = config_.session.policy;
   const config::SbirsEnvironmentConfig& environment_config = config_.session.environment;
 
+  // 指向合成链（阶段 2）：每周期由卫星姿态（Body->ECI）与安装角（Body->Sensor）构建。
+  // 默认零姿态 + 零安装角下为恒等变换（IsIdentity），全部门控与输出与历史逐位一致。
+  const SbirsBoresightChain boresight_chain(input.satellite_attitude_eci_body_deg,
+                                            config_.session.orientation.mount_angles_deg);
+  // 名义扫描中心（扰动前）合成光轴的 ECI 方位：输出参考保持 ECI 极坐标，不随姿态/安装变化。
+  const auto nominal_scan_azimuth_rad = [&]() -> float {
+    if (boresight_chain.IsIdentity()) {
+      return ToEciAzimuthRad(ScanAzimuth(mission, scan_phase_deg_));
+    }
+    return ToEciAzimuthRad(foundation::ComputeAzimuthDeg(
+        boresight_chain.EciLosOfSensorPointing(ScanAzimuth(mission, scan_phase_deg_),
+                                               mission.scan_center_el_deg)));
+  };
+
   if (mission.work_mode == config::SbirsWorkMode::kStandby || !config_.session.sensor_enabled) {
     target_states_.clear();
     tracking_coordinator_.ClearForStandby();
     nfov_scheduler_.Clear();
     pointing_coordinator_.Clear();
     cue_predictor_.Clear();
-    result.scan_azimuth_rad = ToEciAzimuthRad(ScanAzimuth(mission, scan_phase_deg_));
+    result.scan_azimuth_rad = nominal_scan_azimuth_rad();
     return result;
   }
 
@@ -533,13 +552,13 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
       DisturbanceParameters(policy.pointing_disturbance);
   if (!pointing_coordinator_.AdvanceDisturbance(static_cast<double>(input.dt_sec),
                                                 disturbance_parameters)) {
-    result.scan_azimuth_rad = ToEciAzimuthRad(ScanAzimuth(mission, scan_phase_deg_));
+    result.scan_azimuth_rad = nominal_scan_azimuth_rad();
     log_cycle_summary();
     return result;
   }
   SbirsPointingDisturbanceSample frame_disturbance;
   if (!pointing_coordinator_.DisturbanceSample(0, disturbance_parameters, &frame_disturbance)) {
-    result.scan_azimuth_rad = ToEciAzimuthRad(ScanAzimuth(mission, scan_phase_deg_));
+    result.scan_azimuth_rad = nominal_scan_azimuth_rad();
     log_cycle_summary();
     return result;
   }
@@ -548,11 +567,34 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
       PositiveModulo(scan_phase_deg_ + mission.scan_rate_deg_per_sec * std::max(0.0f, input.dt_sec),
                      mission.scan_span_deg);
   const float scan_azimuth_deg = ScanAzimuth(mission, scan_phase_deg_);
-  result.scan_azimuth_rad = ToEciAzimuthRad(scan_azimuth_deg);
-  const float actual_scan_azimuth_deg =
-      NormalizeAzimuth(scan_azimuth_deg + static_cast<float>(frame_disturbance.common.azimuth_deg));
-  const float actual_scan_elevation_deg =
-      mission.scan_center_el_deg + static_cast<float>(frame_disturbance.common.elevation_deg);
+  result.scan_azimuth_rad = nominal_scan_azimuth_rad();
+  // 实际扫描中心（传感器系，扰动前相位扫描角 + 共模扰动，随后按扫描限位钳制）：
+  // 体稳定 = 扫描参数直接为传感器系角度；惯性稳定 = 扫描参数为 ECI 参考方向，经链
+  // 反解到传感器系（物理上保持惯性方向稳定）。实际光轴足迹 = 链旋转该传感器系指向。
+  float scan_azimuth_sensor_deg = scan_azimuth_deg;
+  float scan_elevation_sensor_deg = mission.scan_center_el_deg;
+  if (config_.session.orientation.stabilization_mode ==
+      config::SbirsStabilizationMode::kInertialStabilized) {
+    const session::SbirsVector3M desired_eci_los =
+        LosFromAzimuthElevation(scan_azimuth_deg, mission.scan_center_el_deg);
+    const double desired_norm = foundation::Norm(desired_eci_los);
+    session::SbirsVector3M desired_unit;
+    desired_unit.x = desired_norm > 0.0 ? desired_eci_los.x / desired_norm : desired_eci_los.x;
+    desired_unit.y = desired_norm > 0.0 ? desired_eci_los.y / desired_norm : desired_eci_los.y;
+    desired_unit.z = desired_norm > 0.0 ? desired_eci_los.z / desired_norm : desired_eci_los.z;
+    boresight_chain.SensorPointingForDesiredEciLos(desired_unit, &scan_azimuth_sensor_deg,
+                                                   &scan_elevation_sensor_deg);
+  }
+  // 名义（扰动前）扫描中心传感器系角度：NFOV 通道初始 LOS 用（历史语义：Reserve 初值
+  // 取扰动前扫描指向，不携带本周期共模扰动）。
+  const float nominal_scan_azimuth_sensor_deg = scan_azimuth_sensor_deg;
+  const float nominal_scan_elevation_sensor_deg = scan_elevation_sensor_deg;
+  scan_azimuth_sensor_deg += static_cast<float>(frame_disturbance.common.azimuth_deg);
+  scan_elevation_sensor_deg += static_cast<float>(frame_disturbance.common.elevation_deg);
+  SbirsBoresightChain::ClampToScanLimits(config_.session.orientation.sensor_scan_limits_deg,
+                                         &scan_azimuth_sensor_deg, &scan_elevation_sensor_deg);
+  const float actual_scan_azimuth_sensor_deg = scan_azimuth_sensor_deg;
+  const float actual_scan_elevation_sensor_deg = scan_elevation_sensor_deg;
 
   const float transmittance = environment::ResolveEffectiveTransmittance(environment_config);
   // 门内归因目标无关量（仅依赖硬件/门限配置，循环外计算一次）：有效噪声与达标所需签名 =
@@ -640,6 +682,11 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
 
     const float azimuth_deg = foundation::ComputeAzimuthDeg(los);
     const float elevation_deg = foundation::ComputeElevationDeg(los);
+    // 目标 ECI 视线旋入传感器系（指向合成链）：WFOV 门与越界诊断改在传感器系执行
+    //（输出 az/el 仍保持 ECI 参考）。identity 链下与传感器系差值逐位一致。
+    float sensor_azimuth_deg = 0.0f;
+    float sensor_elevation_deg = 0.0f;
+    boresight_chain.SensorAzElOfEciVector(los, &sensor_azimuth_deg, &sensor_elevation_deg);
     const double snr = ComputeSnr(config_, target, range_m, transmittance);
     // 当前时刻最大探测距离（WFOV 门限反解）：随本周期 τ_eff/噪声快照与目标辐射强度
     // 变化，进归属层诊断（不进 raw output）；SNR 门失败目标写入 issue 消息。
@@ -661,8 +708,9 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
     const float omega_deg_per_sec_cached = foundation::ComputeRelativeAngularRateDegPerSec(
         los, relative_velocity_eci_m_per_s);
 
-    const bool in_wfov = InRectangularFov(azimuth_deg, elevation_deg, actual_scan_azimuth_deg,
-                                          actual_scan_elevation_deg, mission.wide_field_fov_az_deg,
+    const bool in_wfov = InRectangularFov(sensor_azimuth_deg, sensor_elevation_deg,
+                                          actual_scan_azimuth_sensor_deg,
+                                          actual_scan_elevation_sensor_deg, mission.wide_field_fov_az_deg,
                                           mission.wide_field_fov_el_deg);
 
     const SbirsTargetState state = target_states_[target.target_id];
@@ -684,19 +732,30 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
       SbirsPointingActuatorConfig tracking_pointing_config;
       tracking_pointing_config.max_slew_rate_deg_per_sec = mission.narrow_pointing_max_slew_rate_deg_per_sec;
       tracking_pointing_config.settle_tolerance_deg = mission.narrow_pointing_settle_tolerance_deg;
+      // NFOV 命令（ECI az/el）旋入传感器系并限位钳制，再经链合成 ECI 单位向量驱动
+      // actuator（actuator 限速转向在 ECI 单位向量域，参考系无关，快照不变）。
+      float sensor_command_azimuth_deg = 0.0f;
+      float sensor_command_elevation_deg = 0.0f;
+      boresight_chain.SensorAzElOfEciVector(
+          LosFromAzimuthElevation(command_azimuth_deg, command_elevation_deg),
+          &sensor_command_azimuth_deg, &sensor_command_elevation_deg);
+      SbirsBoresightChain::ClampToScanLimits(config_.session.orientation.sensor_scan_limits_deg,
+                                             &sensor_command_azimuth_deg,
+                                             &sensor_command_elevation_deg);
       const SbirsPointingAdvanceResult pointing_result = pointing_coordinator_.AdvanceTracking(
           channel_id, target.target_id,
-          LosFromAzimuthElevation(command_azimuth_deg, command_elevation_deg), input.dt_sec,
-          tracking_pointing_config);
+          boresight_chain.EciLosOfSensorPointing(sensor_command_azimuth_deg,
+                                                 sensor_command_elevation_deg),
+          input.dt_sec, tracking_pointing_config);
       float actual_pointing_azimuth_deg = 0.0f;
       float actual_pointing_elevation_deg = 0.0f;
       const bool pointing_available = EffectiveNfovPointing(
           pointing_coordinator_, channel_id, disturbance_parameters, pointing_result.current_los,
-          mission.narrow_pointing_settle_error_deg, &actual_pointing_azimuth_deg,
+          boresight_chain, mission.narrow_pointing_settle_error_deg, &actual_pointing_azimuth_deg,
           &actual_pointing_elevation_deg);
       const bool geometry_gate_passed =
           pointing_result.status != SbirsPointingAdvanceStatus::kRejected && pointing_available &&
-          InRectangularFov(azimuth_deg, elevation_deg, actual_pointing_azimuth_deg,
+          InRectangularFov(sensor_azimuth_deg, sensor_elevation_deg, actual_pointing_azimuth_deg,
                            actual_pointing_elevation_deg, mission.narrow_field_fov_az_deg,
                            mission.narrow_field_fov_el_deg);
       const bool snr_gate_passed = snr >= policy.detection.narrow_min_snr_linear;
@@ -778,9 +837,10 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
     if (!in_wfov) {
       // 规则 13b：视场排除 → kInfo 诊断（不属于三写，仅承载排查信息）。
       // 门内归因：视场门按越界轴细分（az/el/both），并补相对扫描中心的差值
-      //（与 InRectangularFov 同基准：半视场为门限）。
-      const float az_delta_deg = std::fabs(AzimuthDelta(azimuth_deg, actual_scan_azimuth_deg));
-      const float el_delta_deg = std::fabs(elevation_deg - actual_scan_elevation_deg);
+      //（与 InRectangularFov 同基准、同参考系：传感器系；半视场为门限）。
+      const float az_delta_deg =
+          std::fabs(AzimuthDelta(sensor_azimuth_deg, actual_scan_azimuth_sensor_deg));
+      const float el_delta_deg = std::fabs(sensor_elevation_deg - actual_scan_elevation_sensor_deg);
       const float half_wfov_az_deg = 0.5f * mission.wide_field_fov_az_deg;
       const float half_wfov_el_deg = 0.5f * mission.wide_field_fov_el_deg;
       const bool az_out = az_delta_deg > half_wfov_az_deg;
@@ -792,10 +852,10 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
                         : session::SbirsIssueCause::kElOutside);
       result.issues.push_back(MakeExclusionIssue(
           session::codes::kTargetOutOfWfov,
-          "target_id=" + std::to_string(target.target_id) + "; az/el (" +
-              FormatFloat(azimuth_deg) + "," + FormatFloat(elevation_deg) +
-              ") outside scan center (" + FormatFloat(actual_scan_azimuth_deg) + "," +
-              FormatFloat(actual_scan_elevation_deg) + ") fov " +
+          "target_id=" + std::to_string(target.target_id) + "; sensor_az/el (" +
+              FormatFloat(sensor_azimuth_deg) + "," + FormatFloat(sensor_elevation_deg) +
+              ") outside scan center (" + FormatFloat(actual_scan_azimuth_sensor_deg) + "," +
+              FormatFloat(actual_scan_elevation_sensor_deg) + ") fov " +
               FormatFloat(mission.wide_field_fov_az_deg) + "x" +
               FormatFloat(mission.wide_field_fov_el_deg) + " az_delta_deg=" +
               FormatFloat(az_delta_deg) + " el_delta_deg=" + FormatFloat(el_delta_deg),
@@ -952,9 +1012,20 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
   };
   const auto advance_pointing = [&](const SbirsCandidate& selected, int channel_id) {
     const std::uint64_t target_id = selected.target->target_id;
+    // NFOV 命令（cue 预测 ECI az/el）旋入传感器系并限位钳制，再经链合成 ECI 单位向量
+    // 驱动 actuator；限位够不到时 actuator 停在限位边缘（AR 同款静默钳制语义）。
+    float sensor_command_azimuth_deg = 0.0f;
+    float sensor_command_elevation_deg = 0.0f;
+    boresight_chain.SensorAzElOfEciVector(
+        LosFromAzimuthElevation(selected.command_azimuth_deg, selected.command_elevation_deg),
+        &sensor_command_azimuth_deg, &sensor_command_elevation_deg);
+    SbirsBoresightChain::ClampToScanLimits(config_.session.orientation.sensor_scan_limits_deg,
+                                           &sensor_command_azimuth_deg,
+                                           &sensor_command_elevation_deg);
     const SbirsPointingAdvanceResult pointing_result = pointing_coordinator_.Advance(
         channel_id, target_id,
-        LosFromAzimuthElevation(selected.command_azimuth_deg, selected.command_elevation_deg),
+        boresight_chain.EciLosOfSensorPointing(sensor_command_azimuth_deg,
+                                               sensor_command_elevation_deg),
         input.dt_sec, pointing_config);
     processed_target_ids.insert(target_id);
     if (pointing_result.status == SbirsPointingAdvanceStatus::kSlewing) {
@@ -980,10 +1051,15 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
     }
 
     SbirsNfovAcquisitionRequest acquisition_request;
-    acquisition_request.delayed_truth_azimuth_deg = selected.delayed_truth_azimuth_deg;
-    acquisition_request.delayed_truth_elevation_deg = selected.delayed_truth_elevation_deg;
+    // 首捕窗口判定改在传感器系：delayed truth（延迟真值 ECI los）经链转换；
+    // 命令 = 实际指向（名义 LOS 传感器系 + 扰动）的传感器系 az/el。
+    boresight_chain.SensorAzElOfEciVector(
+        LosFromAzimuthElevation(selected.delayed_truth_azimuth_deg,
+                                selected.delayed_truth_elevation_deg),
+        &acquisition_request.delayed_truth_azimuth_deg,
+        &acquisition_request.delayed_truth_elevation_deg);
     if (!EffectiveNfovPointing(pointing_coordinator_, channel_id, disturbance_parameters,
-                               pointing_result.current_los, 0.0f,
+                               pointing_result.current_los, boresight_chain, 0.0f,
                                &acquisition_request.command_azimuth_deg,
                                &acquisition_request.command_elevation_deg)) {
       nfov_scheduler_.Release(target_id);
@@ -1100,7 +1176,8 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
     if (channel_id < 0 ||
         !pointing_coordinator_.Reserve(
             channel_id, target_id,
-            LosFromAzimuthElevation(scan_azimuth_deg, mission.scan_center_el_deg))) {
+            boresight_chain.EciLosOfSensorPointing(nominal_scan_azimuth_sensor_deg,
+                                                   nominal_scan_elevation_sensor_deg))) {
       nfov_scheduler_.Release(target_id);
       pointing_coordinator_.ReleaseTarget(target_id);
       target_states_[target_id] = SbirsTargetState::kWideCandidate;
