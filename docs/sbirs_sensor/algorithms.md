@@ -31,6 +31,7 @@ Answers: SBIRS 用了哪些算法、各自实现到什么地步、边界在哪�
 | 误差模型 | 5 类误差（轨道/姿态/视场高斯 + 折射/滞后确定性；滞后随相对视线角速度 v_t−v_sat） | 生产可用 | [evidence: tests/unit/sbirs_sensor/sbirs_error_model_test] |
 | 时间相关指向扰动 | 整星共模 + 逐通道 GM + 振动的 Gauss-Markov | 生产可用 | [evidence: tests/unit/sbirs_sensor/sbirs_pointing_disturbance_test] |
 | 安装指向与稳定链 | 卫星姿态(Body→ECI)∘安装角(Body→Sensor)∘扫描指向合成实际光轴；体/惯性双稳定；传感器系限位 | 生产可用（阶段 2，2026-08-17） | [evidence: tests/unit/sbirs_sensor/sbirs_boresight_chain_test] |
+| 安装失准误差模型 | 安装失准（常值偏置 + 运行期一次随机抽取的常值微扰）合成进 boresight 链影响实际光轴与门控；与量测域误差及时变扰动谱正交 | 生产可用（阶段 3，2026-08-17） | [evidence: tests/unit/sbirs_sensor/sbirs_boresight_chain_test]、[evidence: tests/unit/sbirs_sensor/sbirs_pipeline_test] |
 | ECEF→ECI 旋转（GMST） | 周期入口按 UTC 儒略日算 GMST，把卫星/目标位置与卫星/目标速度（含 ω×r 输运项）旋到 ECI | 生产可用（共享域 1q/coordinate/inertial_transform.h，仅 SBIRS 消费） | [evidence: tests/unit/sbirs_sensor/sbirs_eci_transform_test] |
 
 ## 安装指向与稳定链（阶段 2）
@@ -63,6 +64,41 @@ Answers: SBIRS 用了哪些算法、各自实现到什么地步、边界在哪�
 - **COMMON 收敛决策**：本链复用公共姿态原语（`oneq::coordinate`），未为 SBIRS 引入 Eigen 内核；
   惯性稳定反解仅 3 行矩阵运算，暂不抽 `src/common/` 内核——待第三模块需要同语义时再按
   `src/common/radar/ScanScheduleRuntime.h` 先例收敛（决策登记，避免过早抽象）。
+- **证据**：[evidence: tests/unit/sbirs_sensor/sbirs_boresight_chain_test]
+- **证据**：[evidence: tests/unit/sbirs_sensor/sbirs_pipeline_test]
+
+## 安装失准误差模型（阶段 3）
+
+- **意图**：在阶段 2 合成链上叠加安装失准角误差，使实际光轴足迹与门控携带静态安装误差；
+  与量测域 `attitude_sigma_deg`（时刻输出误差）和指向扰动共模（时变 GM）**谱正交**，
+  "避免双重计模"的落点即此三域边界。
+- **实现边界**：
+  1. 组合关系扩展：`actual_boresight = attitude(Body→ECI) ∘ mount(Body→Sensor)
+     ∘ misalignment⁻¹ ∘ scan(传感器系)`——失准作用于传感器系内，等效安装偏置微扰
+     （与 mount 同语义不同来源）；旋转矩阵合成复用 `oneq::coordinate`，链保持纯几何
+     （`SbirsBoresightChain` 无随机源/时间演化状态，失准总量由 pipeline 抽好传入）。
+  2. 配置域：`SbirsOrientationConfig::misalignment`（`SbirsMisalignmentModel`，静态
+     会话配置，不进 RuntimeConfigPatch）——常值偏置 `bias_deg`（Z-Y-X，deg）+
+     随机微扰 1-σ `random_sigma_deg` + 独立种子 `random_seed`；默认全零 = 既有行为
+     逐位不变（226 例单测回归网）。
+  3. **时间结构（关键设计）**：随机微扰每次运行抽取一次（pipeline 构造/ApplyConfig 时，
+     `DrawMisalignmentTotal` 用配置种子做每轴一次 N(0,σ) 抽取），运行内为常值——
+     静态 vs 扰动共模的时变 GM（tau>0）谱不重叠，天然无双重计模；同种子确定性重抽
+     保证 replay 可复现与确定性 continuation（运行期失准进 pipeline 快照，
+     `Capture/RestoreRuntimeState` 往返）。
+  4. 作用域：只影响内部光轴几何（WFOV 门/NFOV ATP/限位钳制/输出扫描方位随链）；**不污染
+     量测输出、不进 `BuildMeasurementCovariance`**（量测 RSS 仍只含 orbit/attitude/fov +
+     折射 + 滞后）。
+  5. 校验：bias 三分量有限、`random_sigma_deg` 非负有限（`kInvalidMisalignment`）；
+     `random_seed` 不校验（0 归一化到 1，沿既有种子惯例）。
+- **与既有误差域的边界（避免双重计模）**：
+
+| 误差域 | 时间结构 | 作用点 | 流/种子 |
+|---|---|---|---|
+| 量测域（orbit/attitude/fov/range sigma） | 每周期白噪声重抽 | 量测输出（`ApplyAngularErrorModel`） | `error_model.random_seed` 派生 3 流 |
+| 指向扰动共模/通道 | 时变 GM（tau>0）+ 确定性振动 | 传感器系实际指向（加法叠加） | `pointing_disturbance.random_seed` 派生 |
+| 安装失准（阶段 3） | 运行内常值（一次抽取） | boresight 链合成（旋转合成） | `orientation.misalignment.random_seed` |
+
 - **证据**：[evidence: tests/unit/sbirs_sensor/sbirs_boresight_chain_test]
 - **证据**：[evidence: tests/unit/sbirs_sensor/sbirs_pipeline_test]
 

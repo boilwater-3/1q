@@ -261,6 +261,16 @@ schema/codec 直接演进，无版本化回退设计。各阶段涉及 replay �
 
 ### 阶段 3：安装矩阵误差模型（依赖阶段 2）
 
+> **实施状态（2026-08-17）**：已落地于分支
+> `feature/sbirs-sensor-contract-alignment-phase3`。决策：配置放
+> `SbirsOrientationConfig::misalignment`（`SbirsMisalignmentModel`，静态会话配置，
+> 不进 RuntimeConfigPatch）；随机微扰每次运行抽一次、运行内常值（与扰动共模 GM
+> 时变谱正交，天然杜绝双重计模）；失准合成进 boresight 链（`R_sensor_to_eci =
+> R_att · R_mount⁻¹ · R_misalign⁻¹`），不污染量测输出、不进 BuildMeasurementCovariance。
+> 验证：sbirs 单测 226/226（219 既有回归 + 新增 7）、integration/contract/replay/
+> batch 全过、全库 ctest 57/58（仅剩既有 integration::airborne_radar 0xc0000409
+> 环境基线）。
+
 1. `SbirsErrorModelConfig` 增加安装失准角误差系数（与 `attitude_sigma_deg`
    的语义边界要写清：安装误差是常值失准 vs 姿态误差是时刻误差；建议支持
    常值偏置 + 随机微扰两部分）。

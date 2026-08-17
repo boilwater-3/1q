@@ -127,7 +127,9 @@ status/stage/reason/coasting/gate 语义派生，不直接公开 internal `Sbirs
     合成指向链，只影响内部光轴几何，不进输出；进 replay。
 1d. `SbirsOrientationConfig`（安装指向域，静态初始化配置，不进 RuntimeConfigPatch）：
     `mount_angles_deg`（Body→Sensor）、`sensor_scan_limits_deg`（传感器系扫描限位）、
-    `stabilization_mode`（体/惯性稳定）；进 session replay。
+    `stabilization_mode`（体/惯性稳定）、`misalignment`（安装失准误差模型，阶段 3：
+    常值偏置 `bias_deg` + 随机微扰 1-σ `random_sigma_deg` + 种子 `random_seed`，默认全零）；
+    进 session replay。
 2. `SbirsCaptureFailureReason` + `capture_failure_reason`：捕获失败/调度跳过/NIS 丢锁诊断；进 attribution
    与 lifecycle reason，进 replay。
 3. 闭环跟踪诊断（实际光轴误差、几何/SNR 门状态、连续失败计数、coasting 标志）：进 attribution/debug/

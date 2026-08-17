@@ -260,7 +260,8 @@ flowchart LR
     速度旋入 ECI 后与目标速度合成相对视线角速度，驱动动态滞后误差、cue 延迟外推与 EKF R 阵。
 6. 卫星姿态（`satellite_attitude_eci_body_deg`）必填（2026-08-17 起，阶段 2 指向合成链）：缺失或
     非有限即校验拒绝（code `sbirs.validation.invalid_satellite_attitude`）；零欧拉合法（体轴对齐
-    ECI）。姿态与安装角复合为指向合成链，驱动 WFOV/NFOV 内部光轴几何。
+    ECI）。姿态与安装角（及阶段 3 安装失准，静态配置）复合为指向合成链，驱动 WFOV/NFOV 内部光轴
+    几何；安装失准 bias/sigma 由会话配置校验（code `sbirs.validation.invalid_misalignment`）。
 7. 启用 environment override 时，天气/海况枚举、绝对温度下限、湿度、能见度、透过率和交互权重全部校验。
 
 拒绝周期不捕获也不恢复 pipeline（其随机源、扫描、cue、ATP、调度和跟踪状态从未推进），`Step()`
