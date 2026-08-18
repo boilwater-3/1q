@@ -31,6 +31,7 @@ Last-reviewed: 2026-08-17
 | SBIRS-OQ-2 | sbirs_sensor | 分阶段误差统计共享参数 | 三用途共享一组角度/距离统计 | open |
 | SBIRS-OQ-3 | sbirs_sensor | 多目标随机样本与输入顺序 | 全局用途流，无 target 不变性 | open |
 | SBIRS-OQ-4 | sbirs_sensor | Estimated 航迹真值初始化 | 首捕用真值位置/速度初始化滤波均值 | open |
+| RIR-OQ-1 | remote_identification_radar | 特征量测保真度边界 | 真值×效能约束转换，非加噪量测 | open |
 | TARGET-OQ-1 | target-layer | AR 估计/推演职责前置 | 消费级航迹产品 + 识别结论回填 public 输出 | open |
 | TARGET-OQ-2 | target-layer | ESR 威胁等级进 public 输出 | threat_level 由传感器生产并被 ECM 下游消费 | open |
 | TARGET-OQ-3 | target-layer | SBIRS Estimated 后验外发 | 滤波后验角度作为 raw output 检测记录 | open |
@@ -221,6 +222,30 @@ Last-reviewed: 2026-08-17
   无真值辅助的真实载荷跟踪器。
 - **再进入条件 (Stage A)**：先定义被动角度不可观测距离的初始化先验、收敛时间和失败判据，并提供与当前方案
   的捕获率、位置协方差、丢锁率及 replay 对比证据，再决定是否替换。
+
+## Remote Identification Radar 非阻塞边界
+
+### RIR-OQ-1：特征量测的保真度边界（真值×效能约束，非加噪量测）
+
+- **现状**：RIR 四维特征（RCS/运动/极化/距离像）由场景真值特征经效能约束转换产生：
+  视线角无噪声；RCS 均值无偏、仅以 SNR 推定 `std_db = 3/√snr`；极化加 SNR 决定的
+  确定性噪声底；距离像按噪声门删峰；笛卡尔位置是唯一被采样扰动的量测。2026-08-18
+  双产品 Stage A 已裁定：出口①按此语义如实标注（公共字段注释明示"仿真保真度：真值×
+  效能约束转换，非加噪量测"），物理化列为独立后续冻结项。
+  [evidence: src/remote_identification_radar/recognition/RcsFeatureExtractor.cpp]
+  [evidence: src/remote_identification_radar/recognition/PolarizationFeatureExtractor.cpp]
+  [evidence: docs/review/rir_dual_product_stage_a_2026-08-18.md §0 裁定点 2/§3.1]
+- **后果**：
+  1. 统计类评估（蒙特卡洛识别率、融合收益）中特征不含测量随机性，结果不能代表真实
+     量测分布下的性能。
+  2. 下游若未读语义注释，会把特征当加噪量测使用（噪声/协方差口径错误）。
+  3. 特征级多源融合的噪声建模无基础。
+- **待决问题**：是否以及何时立"特征物理化"冻结项——各维噪声模型（RCS 幅度起伏与
+  Swerling 模型的关系、极化通道噪声、距离像加噪/失真）与验收门。
+- **当前边界**：出口①按"真值×效能约束"语义出口并在公共字段注释明示；不得宣称特征为
+  统计真实量测；识别真值输入侧（角度-RCS 网格等）不变。
+- **再进入条件 (Stage A)**：出现依赖特征统计分布的下游需求（识别率蒙特卡洛评估、特征级
+  多源融合噪声建模）时，先冻结各维噪声模型与验收门，再实施。
 
 ## Target Layer 非阻塞边界
 

@@ -15,6 +15,8 @@ Authority: RIR 双产品架构（识别结论 + 特征量测帧）Stage A 证据
 - 采纳评估结论（2026-08-18 架构评估）：RIR 应输出**双产品**——出口②识别结论（装备
   使命，形态不变）+ 出口①特征量测帧（新增，合法传感器量测产品）。"只输出结论"是
   从 AR 拆分时的过渡形态，不是终态。
+- **修订 1（2026-08-18，用户指令）**：平台位置输入字段**现在补齐**（原"延后"裁定
+  推翻），冻结规格见 §7；出口①/适配器联动携带 sensor_origin。
 - Stage A 判定：F1/F2/F3/F5/F6/F7 **pass**、F4 **narrow**（fusion 特征门对无效维掩码
   的 mask-aware 升级登记为后续冻结项；11 维固定布局 + 0 填近似先行）。
 - 两个关键裁定随字段冻结落死：
@@ -74,13 +76,15 @@ Allowed scope（Stage B 实施范围）
     - fusion 适配器（§3.2/§3.3）
 
 Explicitly out of scope
-  Public headers:   external_target_id/target_name 不出口（F2）；sensor_origin 不提供
-                    （平台位置输入缺失，延后为独立冻结项）
+  Public headers:   external_target_id/target_name 不出口（F2）
+                    （平台位置输入已按修订 1 纳入，见 §7）
   Cross-module:     不改 target_inference/threat_assessment 代码；不动识别链内部结构
-                    （解耦为后续演进项）；不做特征物理化（加噪/电磁链）
-  Schema/trace:     replay 仅加性扩展；不新增独立 V3 root（V1 表加可选字段）
+                    （解耦为后续演进项）；不做特征物理化（RIR-OQ-1）
+  Schema/trace:     replay 仅输出侧加性扩展（RIR replay 无输入表，输入字段零 schema
+                    变更）；不新增独立 V3 root（V1 表加可选字段）
   Test thresholds:  既有测试与阈值零修改
-  Compatibility:    出口②（RirTrackRecognitionOutput/RirRecognitionResult）零变更
+  Compatibility:    出口②（RirTrackRecognitionOutput/RirRecognitionResult）零变更；
+                    平台位置输入可选（缺省 has=false），既有调用方零影响
 
 Behavior boundary
   Outputs: 出口①逐周期逐 association_key 一条；全维无效的记录不产生（帧内为空）
@@ -141,11 +145,12 @@ Non-goals
 - `AdaptRirFeatureMeasurementsToDetectionRecords(source_id, frame)`：
   跳过全维无效记录；key=association_key（ESR 先例，跨源一致性归调用方）；
   has_bearing=true，bearing_az_deg = wrap(90° − look_az_deg)（east→north 参考换算，
-  el 原值）；**has_sensor_origin=false**（平台位置输入缺失，F6 外延后不虚构）；
-  verdict=1；quality = 有效维 quality 的加权均值（feature_weights 配置口径，
+  el 原值）；verdict=1；quality = 有效维 quality 的加权均值（feature_weights 配置口径，
   缺省等权）。
-- 不提供 origin ⇒ RIR 特征记录参与关联与特征门、**不参与三维方位滤波**（与当前
-  SBIRS 记录同状态；origin 输入字段为独立后续冻结项）。
+- **sensor_origin（修订 1 后）**：输入周期携带平台位置时，出口①记录携带该位置，
+  适配器填 has_sensor_origin=true + origin（同为度制 LLA 语义，零换算）→ 该记录
+  **参与三维方位滤波**（P2 通道）；未携带时维持仅关联+特征门（与当前 SBIRS 记录
+  同状态）。
 
 ## 4. TARGET-OQ-4 裁定修订（豁免 → 双产品）
 
@@ -180,5 +185,32 @@ public 输出字段（raw output、`*CycleResult`、public DTO 一致适用）�
 |---|---|
 | 实现范围 / 验证命令与结果 / 残留风险 | 待 Stage B 填 |
 
-后续冻结项（各自独立立项，本文只登记）：①平台位置输入字段（origin 通道）；
-②fusion 特征门 mask-aware 升级；③识别链模块内解耦；④特征物理化（加噪/电磁散射链）。
+后续冻结项（各自独立立项，本文只登记）：①~~平台位置输入字段（origin 通道）~~
+（修订 1 已纳入本次范围，见 §7）；②fusion 特征门 mask-aware 升级；③识别链模块内
+解耦；④特征物理化（加噪/电磁散射链，RIR-OQ-1）。
+
+## 7. 修订记录
+
+### 修订 1（2026-08-18，用户指令）：平台位置输入现在补齐
+
+原裁定"不提供观测原点（延后为独立冻结项）"被用户推翻——输入接口变更现在走冻结
+流程。冻结规格：
+
+- **字段**：`RirCycleInput` 追加 `bool has_platform_position{false}` +
+  `RirGeodeticPositionDegM platform_position{}`（新公共值类型：latitude_deg /
+  longitude_deg / altitude_m，double，度制 + 米——模块前缀规则 + 物理量单位命名
+  契约；度制经纬度需 double 精度）。放置于 `platform_altitude_m` 旁。
+- **语义**：平台（雷达）大地位置；同时作为场景 radar-local ENU 的绝对锚点——
+  **不改变**场景目标 ENU 语义，只为出口①提供 sensor_origin 与地理参考。
+- **坐标系与单位**：度制 LLA（与 fusion `DetectionRecord.sensor_origin` 同语义，
+  适配器零换算透传）；场景目标保持 radar-local ENU 不变。
+- **校验（fail-closed）**：has=true 时 lat ∈ [-90,90]、lon ∈ [-180,180]、altitude
+  有限，违反 → RirInputValidation error 级问题、整周期拒绝（既有输入校验口径）；
+  has=false 时字段须为默认值（存在性标志与数据一致性规则，contract.md §实现安全
+  规则 2）。
+- **replay 同步**：RIR replay 为输出侧记录（schemas/replay/rir_replay.fbs 无输入
+  表），输入字段**零 schema 变更**；出口①的输出帧扩展照旧（V1 表加可选字段）。
+- **出口①联动**：携带平台位置的周期，`RirFeatureMeasurementRecord` 追加 origin
+  字段；适配器填 has_sensor_origin → 记录参与三维方位滤波。
+- **Stage B 验收追加**：输入校验单测（含 fail-closed 与 has/数据一致性）、出口①
+  单测（带/不带平台位置双路径）、fusion 适配器单测（origin 填充与三维滤波路径）。
