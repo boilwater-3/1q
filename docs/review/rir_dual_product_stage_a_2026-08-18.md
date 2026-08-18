@@ -17,6 +17,10 @@ Authority: RIR 双产品架构（识别结论 + 特征量测帧）Stage A 证据
   从 AR 拆分时的过渡形态，不是终态。
 - **修订 1（2026-08-18，用户指令）**：平台位置输入字段**现在补齐**（原"延后"裁定
   推翻），冻结规格见 §7；出口①/适配器联动携带 sensor_origin。
+- **修订 1a（2026-08-18，用户修正）**：平台位置坐标系由 LLA 改为 **ECEF**——与库内
+  传感器输入坐标约定对齐（SBIRS 卫星位置即 ECEF）；LLA 换算归适配器（AR 先例）。
+- **修订 2（2026-08-18，用户指令）**：RIR 新增**公开对照表**（航迹归属视图，
+  association_key ↔ 真值目标，与 SBIRS 三层纪律对齐），冻结规格见 §7。
 - Stage A 判定：F1/F2/F3/F5/F6/F7 **pass**、F4 **narrow**（fusion 特征门对无效维掩码
   的 mask-aware 升级登记为后续冻结项；11 维固定布局 + 0 填近似先行）。
 - 两个关键裁定随字段冻结落死：
@@ -147,10 +151,10 @@ Non-goals
   has_bearing=true，bearing_az_deg = wrap(90° − look_az_deg)（east→north 参考换算，
   el 原值）；verdict=1；quality = 有效维 quality 的加权均值（feature_weights 配置口径，
   缺省等权）。
-- **sensor_origin（修订 1 后）**：输入周期携带平台位置时，出口①记录携带该位置，
-  适配器填 has_sensor_origin=true + origin（同为度制 LLA 语义，零换算）→ 该记录
-  **参与三维方位滤波**（P2 通道）；未携带时维持仅关联+特征门（与当前 SBIRS 记录
-  同状态）。
+- **sensor_origin（修订 1/1a 后）**：输入周期携带平台位置（ECEF）时，出口①记录携带
+  该位置，适配器经 `TryEcefToLla` 换算填 has_sensor_origin=true + origin（AR 适配器
+  先例；换算失败退化为无原点记录）→ 该记录**参与三维方位滤波**（P2 通道）；未携带时
+  维持仅关联+特征门（与当前 SBIRS 记录同状态）。
 
 ## 4. TARGET-OQ-4 裁定修订（豁免 → 双产品）
 
@@ -191,26 +195,49 @@ public 输出字段（raw output、`*CycleResult`、public DTO 一致适用）�
 
 ## 7. 修订记录
 
-### 修订 1（2026-08-18，用户指令）：平台位置输入现在补齐
+### 修订 1（2026-08-18，用户指令 + 1a 用户修正）：平台位置输入现在补齐
 
 原裁定"不提供观测原点（延后为独立冻结项）"被用户推翻——输入接口变更现在走冻结
-流程。冻结规格：
+流程。冻结规格（1a 修正：坐标系 LLA → **ECEF**，与库内传感器输入坐标约定对齐——
+SBIRS 卫星位置即 ECEF 输入）：
 
 - **字段**：`RirCycleInput` 追加 `bool has_platform_position{false}` +
-  `RirGeodeticPositionDegM platform_position{}`（新公共值类型：latitude_deg /
-  longitude_deg / altitude_m，double，度制 + 米——模块前缀规则 + 物理量单位命名
-  契约；度制经纬度需 double 精度）。放置于 `platform_altitude_m` 旁。
-- **语义**：平台（雷达）大地位置；同时作为场景 radar-local ENU 的绝对锚点——
+  `RirEcefPositionM platform_position{}`（新公共值类型：x_m / y_m / z_m，double，
+  米——模块前缀规则 + 物理量单位命名契约）。放置于 `platform_altitude_m` 旁。
+- **语义**：平台（雷达）ECEF 位置；同时作为场景 radar-local ENU 的绝对锚点——
   **不改变**场景目标 ENU 语义，只为出口①提供 sensor_origin 与地理参考。
-- **坐标系与单位**：度制 LLA（与 fusion `DetectionRecord.sensor_origin` 同语义，
-  适配器零换算透传）；场景目标保持 radar-local ENU 不变。
-- **校验（fail-closed）**：has=true 时 lat ∈ [-90,90]、lon ∈ [-180,180]、altitude
-  有限，违反 → RirInputValidation error 级问题、整周期拒绝（既有输入校验口径）；
-  has=false 时字段须为默认值（存在性标志与数据一致性规则，contract.md §实现安全
-  规则 2）。
+- **坐标系与单位**：ECEF 米制（传感器输入域通用约定）；fusion `sensor_origin` 的
+  LLA 换算归适配器（`TryEcefToLla`，失败退化——AR 适配器先例）。
+- **校验（fail-closed）**：has=true 时三分量有限且位置模长 > 0（地心非法），违反 →
+  RirInputValidation error 级问题、整周期拒绝（既有输入校验口径）；has=false 时字段
+  须为默认值（存在性标志与数据一致性规则，contract.md §实现安全 规则 2）。
 - **replay 同步**：RIR replay 为输出侧记录（schemas/replay/rir_replay.fbs 无输入
   表），输入字段**零 schema 变更**；出口①的输出帧扩展照旧（V1 表加可选字段）。
 - **出口①联动**：携带平台位置的周期，`RirFeatureMeasurementRecord` 追加 origin
-  字段；适配器填 has_sensor_origin → 记录参与三维方位滤波。
+  字段（ECEF）；适配器换算填 has_sensor_origin → 记录参与三维方位滤波。
 - **Stage B 验收追加**：输入校验单测（含 fail-closed 与 has/数据一致性）、出口①
-  单测（带/不带平台位置双路径）、fusion 适配器单测（origin 填充与三维滤波路径）。
+  单测（带/不带平台位置双路径）、fusion 适配器单测（origin 换算、失败退化与三维
+  滤波路径）。
+
+### 修订 2（2026-08-18，用户指令）：RIR 公开对照表（航迹归属视图）
+
+目的：RIR 与 SBIRS 对齐——集成开发者可用公开的"库内键 ↔ 真值目标"对照做集成核对，
+真值仍被三层纪律隔离在归属/调试层。冻结规格：
+
+- **类型**：`RirTrackAttributionRecord`（公共头，建议入 `RirOutputTypes.h`）：
+  - `association_key`（uint64）——RIR 库内航迹键；
+  - `external_target_id`（uint64）+ `target_name`（string）——场景真值标识，
+    **仅归属层**（去真值化纪律：不进 `RirOutputFrame` 产品层）；
+  - `hit_count`（uint32）、`position_enu_m`（x/y/z double，滤波位置）、
+    `speed_m_per_s`（double）——最小航迹诊断（对齐 SBIRS 归属记录携带诊断量的
+    形态；识别结论本体不重复出口②）。
+- **挂载位置**：`RirCycleResult.track_attributions`（vector，加性字段）——**结构化
+  结果层**，不进 `RirOutputFrame`（与 SBIRS `detection_attributions` 同层同纪律）。
+- **非执行周期边界**：校验失败/中止周期返回空列表且不推进状态（五模块统一规则，
+  recorder 语义）。
+- **replay**：归属随 `RirCycleResult` 进 replay——V2 结果表加可选向量字段（加性），
+  codec 与 roundtrip 测试同步（SBIRS 先例：归属进 replay）。
+- **Stage B 验收追加**：归属视图单测（键↔真值映射正确性、非执行周期空列表）、
+  replay roundtrip 新字段往返一致。
+- **明确非目标**：不做逐检测级归属（RIR 产品是航迹级识别结论，归属到航迹级即可，
+  与 SBIRS 检测级归属的差异源自两者产品粒度不同）；不携带威胁/分类语义。
