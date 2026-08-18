@@ -47,6 +47,7 @@ struct SbirsPipelineSnapshot {
   std::uint64_t next_detection_id{1U}; /**< 下一个检测记录 ID */
   std::map<std::uint64_t, SbirsTargetState>
       target_states{};                         /**< 各目标状态表（按 target_id 索引） */
+  std::map<std::uint64_t, unsigned int> wfov_consecutive_hits{}; /**< WFOV 连续命中计数表（宽窄切换前置条件） */
   SbirsNfovSchedulerSnapshot nfov_scheduler{}; /**< NFOV 多通道调度状态（目标→通道分配） */
   std::uint32_t wfov_measurement_random_state{1U}; /**< WFOV/cue 量测随机状态 */
   std::uint32_t estimated_measurement_random_state{1U}; /**< Estimated 校正量测随机状态 */
@@ -118,6 +119,11 @@ class SbirsPipeline {
   session::SbirsEulerAnglesDeg misalignment_total_deg_{}; /**< 运行期安装失准角总量（构造/ApplyConfig 一次抽取） */
   std::uint64_t next_detection_id_{1U};
   std::map<std::uint64_t, SbirsTargetState> target_states_{};
+  // WFOV 连续命中计数（3.2.1.3.2.1 宽窄切换前置条件）：目标连续通过 WFOV 门
+  //（遮挡+距离+视场+SNR）的周期数；任一门失败或目标消失清零，进入跟踪时清零。
+  // 阈值 policy.scheduler.wide_to_narrow_required_consecutive_hits（默认 1 = 单次命中
+  // 即可调度，与既有行为逐位一致）。
+  std::map<std::uint64_t, unsigned int> wfov_consecutive_hits_{};
   SbirsNfovScheduler nfov_scheduler_;              // NFOV 多通道资源调度器
   SbirsPointingCoordinator pointing_coordinator_;  // NFOV 逐通道 ATP 执行状态
   foundation::SbirsRandomSource wfov_measurement_random_source_;

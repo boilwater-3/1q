@@ -43,6 +43,10 @@ set(SBIRS_CORE_SOURCES
 
 oneq_add_component(sbirs_engine SOURCES ${SBIRS_ENGINE_SOURCES})
 oneq_add_component(sbirs_core SOURCES ${SBIRS_CORE_SOURCES})
+# SBIRS 验收信息日志（[SbirsAccept] 事件流）：仅 sbirs_engine 内部消费（SbirsAcceptanceLog.h）。
+if(ONEQ_ENABLE_SBIRS_ACCEPTANCE_LOG)
+    target_compile_definitions(sbirs_engine PRIVATE ONEQ_ENABLE_SBIRS_ACCEPTANCE_LOG=1)
+endif()
 # Keep file-local detection lookup helpers in separate translation units under
 # Unity Build; the recorder and debug-view builder use identical local names.
 set_source_files_properties(session/SbirsDetectionLifecycleRecorder.cpp

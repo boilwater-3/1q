@@ -89,3 +89,15 @@ if(ONEQ_ENABLE_FILE_LOG)
 else()
     message(STATUS "file log backend: disabled (PROJECT_LOG_* are no-ops)")
 endif()
+
+# SBIRS 验收信息日志（[SbirsAccept] 事件流）：开启后 sbirs_sensor 按周期输出
+# WFOV 地面覆盖区/驻留时间、疑似目标与信号能量、宽窄切换连续命中、NFOV 捕获/跟踪、
+# 焦平面脱靶量与通道协同事件（需求映射 3.2.1.3 章节验收量）。默认关闭：
+# 宏与派生计算一并剪除，零开销。
+option(ONEQ_ENABLE_SBIRS_ACCEPTANCE_LOG
+    "Emit SBIRS acceptance information logs (ground footprint, dwell time, signal energy, focal-plane offsets, handover counters)" OFF)
+if(ONEQ_ENABLE_SBIRS_ACCEPTANCE_LOG)
+    message(STATUS "sbirs acceptance log: ENABLED ([SbirsAccept] events via PROJECT_LOG_INFO)")
+else()
+    message(STATUS "sbirs acceptance log: disabled (set -DONEQ_ENABLE_SBIRS_ACCEPTANCE_LOG=ON to enable)")
+endif()

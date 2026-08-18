@@ -504,6 +504,105 @@ TEST(SbirsPipelineTest, ConsecutiveTrackingGateFailuresReleaseLock) {
   EXPECT_EQ(pipeline.CaptureRuntimeState().nfov_scheduler.target_to_channel.count(78U), 0U);
 }
 
+// --- 宽窄切换连续命中计数器（3.2.1.3.2.1 前置条件） ---
+
+TEST(SbirsPipelineTest, ConsecutiveHitGateDelaysHandoverUntilThresholdReached) {
+  // required=2：首周期仅输出宽场检测（命中 1 次，被切换门挡下），第二周期命中达标
+  // 才进入 NFOV 首捕。
+  sbirs_sensor::config::SbirsSessionConfig config = PipelineConfig();
+  config.policy.scheduler.wide_to_narrow_required_consecutive_hits = 2;
+  sbirs_sensor::pipeline::SbirsPipeline pipeline(
+      sbirs_sensor::runtime::MapSessionToInternal(config));
+  sbirs_sensor::session::SbirsCycleInput input =
+      sbirs_sensor::session::SbirsCycleInputBuilder()
+          .WithCycleIndex(1U)
+          .WithDeltaTimeSec(1.0f)
+          .WithUtcJulianDay(2451544.2230698913)  // GMST≈0：ECI≡ECEF
+          .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
+          .WithSatelliteVelocity(sbirs_sensor::session::SbirsVector3M{}).WithSatelliteAttitude(sbirs_sensor::session::SbirsEulerAnglesDeg{})
+          .AddTarget(HotTarget(81U, 0.0))
+          .Build();
+
+  const auto first = pipeline.RunCycle(input);
+  ASSERT_EQ(first.detections.size(), 1U);
+  EXPECT_EQ(first.detections[0].record.observation_stage,
+            sbirs_sensor::output::SbirsObservationStage::kWideFieldSearch);
+  EXPECT_TRUE(first.detections[0].record.detected);
+  EXPECT_EQ(pipeline.CaptureRuntimeState().wfov_consecutive_hits.count(81U), 1U);
+  EXPECT_EQ(pipeline.CaptureRuntimeState().wfov_consecutive_hits.at(81U), 1U);
+  EXPECT_EQ(pipeline.CaptureRuntimeState().nfov_scheduler.target_to_channel.count(81U), 0U);
+
+  input.cycle_index = 2U;
+  const auto second = pipeline.RunCycle(input);
+  ASSERT_EQ(second.detections.size(), 1U);
+  EXPECT_EQ(second.detections[0].record.observation_stage,
+            sbirs_sensor::output::SbirsObservationStage::kNarrowFieldAcquisition);
+  // 捕获成功后计数清零（丢锁需重新积累）。
+  EXPECT_EQ(pipeline.CaptureRuntimeState().wfov_consecutive_hits.count(81U), 0U);
+}
+
+TEST(SbirsPipelineTest, ConsecutiveHitCounterResetsOnWfovGateFailure) {
+  // required=2：首周期命中 1 次；第二周期目标移出宽场视场 → 计数清零；第三周期回到
+  // 视场仅命中 1 次，仍不调度；第四周期命中 2 次才完成 NFOV 首捕。
+  sbirs_sensor::config::SbirsSessionConfig config = PipelineConfig();
+  config.policy.scheduler.wide_to_narrow_required_consecutive_hits = 2;
+  sbirs_sensor::pipeline::SbirsPipeline pipeline(
+      sbirs_sensor::runtime::MapSessionToInternal(config));
+  sbirs_sensor::session::SbirsCycleInput input =
+      sbirs_sensor::session::SbirsCycleInputBuilder()
+          .WithCycleIndex(1U)
+          .WithDeltaTimeSec(1.0f)
+          .WithUtcJulianDay(2451544.2230698913)  // GMST≈0：ECI≡ECEF
+          .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
+          .WithSatelliteVelocity(sbirs_sensor::session::SbirsVector3M{}).WithSatelliteAttitude(sbirs_sensor::session::SbirsEulerAnglesDeg{})
+          .AddTarget(HotTargetAtAngles(82U, 0.0, 0.0))
+          .Build();
+
+  pipeline.RunCycle(input);
+  EXPECT_EQ(pipeline.CaptureRuntimeState().wfov_consecutive_hits.at(82U), 1U);
+
+  input.cycle_index = 2U;
+  input.scene[0] = HotTargetAtAngles(82U, 40.0, 0.0);  // 宽场视场外 → wfov 门失败
+  const auto excluded = pipeline.RunCycle(input);
+  ASSERT_TRUE(excluded.detections.empty());
+  EXPECT_EQ(pipeline.CaptureRuntimeState().wfov_consecutive_hits.count(82U), 0U);
+
+  input.cycle_index = 3U;
+  input.scene[0] = HotTargetAtAngles(82U, 0.0, 0.0);
+  const auto third = pipeline.RunCycle(input);
+  EXPECT_EQ(third.detections[0].record.observation_stage,
+            sbirs_sensor::output::SbirsObservationStage::kWideFieldSearch);
+  EXPECT_EQ(pipeline.CaptureRuntimeState().wfov_consecutive_hits.at(82U), 1U);
+
+  input.cycle_index = 4U;
+  const auto fourth = pipeline.RunCycle(input);
+  EXPECT_EQ(fourth.detections[0].record.observation_stage,
+            sbirs_sensor::output::SbirsObservationStage::kNarrowFieldAcquisition);
+}
+
+TEST(SbirsPipelineTest, DefaultRequiredHitsKeepsSingleCycleCapture) {
+  // 默认 required=1：单周期命中即调度捕获，与既有行为一致（计数进快照）。
+  sbirs_sensor::config::SbirsSessionConfig config = PipelineConfig();
+  sbirs_sensor::pipeline::SbirsPipeline pipeline(
+      sbirs_sensor::runtime::MapSessionToInternal(config));
+  sbirs_sensor::session::SbirsCycleInput input =
+      sbirs_sensor::session::SbirsCycleInputBuilder()
+          .WithCycleIndex(1U)
+          .WithDeltaTimeSec(1.0f)
+          .WithUtcJulianDay(2451544.2230698913)  // GMST≈0：ECI≡ECEF
+          .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
+          .WithSatelliteVelocity(sbirs_sensor::session::SbirsVector3M{}).WithSatelliteAttitude(sbirs_sensor::session::SbirsEulerAnglesDeg{})
+          .AddTarget(HotTarget(83U, 0.0))
+          .Build();
+
+  const auto result = pipeline.RunCycle(input);
+  ASSERT_EQ(result.detections.size(), 1U);
+  EXPECT_EQ(result.detections[0].record.observation_stage,
+            sbirs_sensor::output::SbirsObservationStage::kNarrowFieldAcquisition);
+  // 捕获即清零：快照无残留计数。
+  EXPECT_EQ(pipeline.CaptureRuntimeState().wfov_consecutive_hits.count(83U), 0U);
+}
+
 TEST(SbirsPipelineTest, TrackingCoastSnapshotRestoreMatchesUninterrupted) {
   sbirs_sensor::config::SbirsSessionConfig config = PipelineConfig();
   config.mission.narrow_field_fov_az_deg = 1.0f;
