@@ -11,7 +11,7 @@
 
 #include "1q/airborne_radar/config/ArPolicyConfig.h"
 #include "1q/airborne_radar/session/ArInputValidation.h"
-#include "1q/airborne_radar/session/ArOutputTypes.h"
+#include "1q/airborne_radar/session/ArTrackOutput.h"
 #include "1q/airborne_radar/session/DecisionControlTypes.h"
 #include "airborne_radar/decision/ControlReducer.h"
 #include "airborne_radar/decision/ControlReducerTypes.h"
@@ -38,8 +38,7 @@ namespace extension {
 struct ArControllerRuntimeState {
   const void* owner_identity{nullptr};
   std::uint32_t schema_version{0U};
-  session::ArDetectionOutputFrame latest_detection{};
-  session::TrackStateSnapshotList latest_track_snapshots{};
+  session::TrackOutputFrame latest_output{};
   bool has_latest_output{false};
   std::uint64_t next_batch_id{1U};
   bool last_cycle_executed{false};
@@ -120,22 +119,16 @@ class ArController {
   void RunCycles(std::size_t cycles);
 
   /**
-   * @brief 判断当前是否已有可读取的最新量测输出帧。
+   * @brief 判断当前是否已有可读取的最新轨迹输出帧。
    * @return 若已完成至少一次输出帧装配则返回 true。
    */
-  bool HasLatestDetectionFrame() const;
+  bool HasLatestTrackOutputFrame() const;
 
   /**
-   * @brief 获取最近一次已缓存的量测输出帧。
-   * @return 最近一次运行周期产生的量测输出帧引用。
+   * @brief 获取最近一次已缓存的轨迹输出帧。
+   * @return 最近一次运行周期产生的轨迹输出帧引用。
    */
-  const session::ArDetectionOutputFrame& GetLatestDetectionFrame() const;
-
-  /**
-   * @brief 获取最近一次周期的内部航迹快照（决策 SPI 输入形状，内部行为建模状态）。
-   * @note 供 STT 指定派生与生命周期记录器等内部/观测工具面消费，不作为发布产品。
-   */
-  const session::TrackStateSnapshotList& GetLatestTrackSnapshots() const;
+  const session::TrackOutputFrame& GetLatestTrackOutputFrame() const;
 
   /**
    * @brief 获取最近一次正常执行周期的 kInfo 排除诊断（规则 13b）。

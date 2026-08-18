@@ -28,12 +28,11 @@ Authority: AR/ESR 历史越层债务处置立项——本次处置范围锁定 T
     含类型概率融合；`InferenceTrackState.type_evidence` 为外部类型证据预留输入位）。
   - OQ-2 条件"ESR 公共 API 修订立项时"：本文立项即构成该立项。
 - **终态裁定方向（Stage A 判定，正式裁定随 D1 迁移契约签认冻结）**：
-  1. **AR 走量测级输出改造**：新增公开量测/检测输出通道（现仅存在于模块内部），fusion 改
-     消费量测；航迹帧退出核心运行面；AR 内部关联/滤波/生命周期降格为分层契约规则 3 行为
-     建模，不再外发。
-  2. **识别结论出口迁移**：`target_type`/`target_probability` 退出 AR public 输出，类型证据
-     改由推演层识别面（target_inference）供给链承载。
-  3. **ESR `threat_level` 退出 public DTO**，威胁启发式整体退出传感器；ECM 调度威胁分改由
+  1. **AR 走航迹+量测双输出改造**：航迹帧保留为 AR 核心公开输出（机载雷达的主职是探测与
+     跟踪，航迹是传感器本位产品）；新增公开量测/检测输出通道作为补充（fusion 可消费量测级
+     数据做特征融合）；识别结论（`target_type`/`target_probability`）退出航迹公开面，类型
+     证据改由推演层识别面（target_inference）供给链承载。
+  2. **ESR `threat_level` 退出 public DTO**，威胁启发式整体退出传感器；ECM 调度威胁分改由
      决策层（threat_assessment）供给。
 - **阶段总览**：
 
@@ -51,9 +50,9 @@ Authority: AR/ESR 历史越层债务处置立项——本次处置范围锁定 T
 
 | 面 | 内容 |
 |---|---|
-| AR 公开输出 | 新增量测/检测输出通道（public DTO + 接入 `ArCycleResult`）；识别结论字段退出；航迹帧（`TrackOutputFrame`/`ArExternalTrackOutputFrame`/`TrackStateSnapshot` 公开面）退出核心运行面——退出路径与时序由 D1 契约冻结 |
-| AR 内部 | 关联（LAPJV）/滤波（KF/IMM）/生命周期保留为规则 3 行为建模（驱动 STT 指向、驻留、丢锁判定），不再作为对外产品；滤波原语单源合规登记；内部威胁分维持"仅驱动 LPI/ECCM"既有边界 |
-| fusion | AR 适配器从航迹帧消费切换为量测消费；`DetectionRecord.quality` 语义来源调整（识别置信度 → 量测质量） |
+| AR 公开输出 | 航迹帧保留为 AR 核心公开输出（航迹是机载雷达本位产品，下游火控/武器分配依赖）；新增量测/检测输出通道作为补充（public DTO + 接入 `ArCycleResult`）；识别结论字段（`target_type`/`target_probability`）退出航迹公开面——识别不是 AR 本职，改由推演层供给 |
+| AR 内部 | 关联（LAPJV）/滤波（KF/IMM）/生命周期为传感器本位信号处理链，航迹是其对外产品；滤波原语单源合规登记；内部威胁分维持"仅驱动 LPI/ECCM"既有边界 |
+| fusion | AR 适配器继续消费航迹帧（核心路径不变）；新增量测消费适配器（`AdaptArDetectionsToDetectionRecords`）供 fusion 特征融合路径使用；航迹帧中识别字段退出后 `DetectionRecord.quality` 来源调整 |
 | ESR | `threat_level` 退出 `EmitterHypothesis` public DTO；`InferThreatFromCluster` 启发式整体退出；ESM 假设管理（关联/生命周期/平滑）与模式推断确认为合法 ESM 产品形态（仅文档冻结，无代码语义变更） |
 | ECM | 调度威胁分（`threat_score`）改由 threat_assessment 供给；接线设计（含决策层输入面子裁定）在 D1 冻结 |
 | replay | `airborne_radar_replay.fbs` / `esr_replay.fbs` 的兼容性裁定与 codec 处置 |
@@ -63,8 +62,8 @@ Authority: AR/ESR 历史越层债务处置立项——本次处置范围锁定 T
 
 1. TARGET-OQ-3（SBIRS Estimated 后验外发）：P0 已裁"维持装备语义"，随指标签认冻结，
    与本处置无关。
-2. TARGET-OQ-4（RIR 识别产品形态）：方案 a 已裁（调用方键映射，零库内改动）；RIR 豁免
-   形态与推演层复用边界不在本处置重开。
+2. TARGET-OQ-4（RIR 识别产品形态）：已由 `rir_dual_product_stage_a_2026-08-18.md` 修订为
+   双产品形态（识别结论 + 特征量测帧）；方案 a 降级为兼容选项。本处置不涉及 RIR 模块。
 3. threat_assessment 评分算法/权重/输出语义改动：本处置只涉及其**输入面接线**（ESM 特征
    入口子裁定），评分模型本身不动。
 4. ESM 假设管理与模式推断的代码语义变更：FI-E3 为确认性裁定（合法 ESM 产品形态），只
@@ -78,11 +77,11 @@ Authority: AR/ESR 历史越层债务处置立项——本次处置范围锁定 T
 | 裁定 | 阻塞 | 内容 |
 |---|---|---|
 | AR 量测输出契约 | D3 | 量测记录字段集（单位后缀、量测质量、协方差、键位语义）、坐标系对齐、`ArCycleResult` 接入方式、内部检测链字段充分性核验 |
-| AR 航迹通道退出路径 | D3 | 一步切换 vs 弃用过渡窗口；观测工具面（DebugView/replay 旧记录）保留形态 |
-| fusion AR 通道切换语义 | D3 | 量测键语义（key=0 走空间/方位门 vs 调用方键承载）、切换前后关联质量 characterization |
+| AR 识别字段退出路径 | D3 | `target_type`/`target_probability` 从航迹公开面退出的时序与消费方迁移（推演层 target_inference 已有 `type_evidence` 预留位） |
+| fusion AR 量测适配器 | D3 | 新增 `AdaptArDetectionsToDetectionRecords`（key=0 走空间/方位门 vs 调用方键承载）、质量归一化口径 |
 | threat_assessment ESM 输入面 | D2 | `ThreatEvaluationInput`（运动学特征）与 ESM 辐射源特征（RF/PRI/脉宽）失配：输入面扩展（决策层公共 API 变更，独立冻结）vs 调用方特征映射 |
 | ESR replay 兼容裁定 | D2 | `threat_level` 字段弃用语义（保留可读、写默认值）vs schema 版本升级 |
-| AR replay 版本化裁定 | D3 | 量测记录新版本 vs 旧 V3 航迹记录（含 `target_type`/`target_probability`/`estimation_uncertainty_trace`）的共存与弃用 |
+| AR replay 版本化裁定 | D3 | 量测记录新增 vs 既有航迹记录的共存；识别字段（`target_type`/`target_probability`）从航迹记录退出 |
 
 ## 2. Stage A 证据矩阵
 
@@ -94,8 +93,8 @@ Authority: AR/ESR 历史越层债务处置立项——本次处置范围锁定 T
 | 冻结项 | 假设 | 证据来源 | 探查/测试 | 通过判据 | 拒绝判据（回退路径） | 判定 |
 |---|---|---|---|---|---|---|
 | FI-A1 识别结论出口迁移（`target_type`/`target_probability` 退出公开面） | 识别结论可退出 AR public 输出且不丢失必需能力——推演层识别面已能承载供给 | contract.md:165-167 规则 2 明文禁止；TrackStateSnapshot.h:57-60 字段定义；ArController.cpp:307-315 回填点；InferenceTrackState.h:46-47 `type_evidence` 预留位；SensorAdapters.cpp:21-23/47-49 fusion 已有状态基准回退（`ArBaseQualityForStatus`）；threat_component.cpp:86-87 威胁示例显式传 NaN 不消费 | 全库消费点盘点（已完成）：库内唯一跨模块消费 = fusion SensorAdapters；其余为 ArExternalOutputAdapter.cpp:91、ArTrackOutputDebugViewBuilder.cpp:60、replay codec/fbs、roundtrip 测试 | 消费链闭合可迁移：fusion 回退存在 + 推演层输入位存在 + 威胁链不依赖 | 若发现库外/关键消费方硬依赖该字段且无替代输入位 → 降级为"字段标注弃用 + 供给迁移过渡期" | pass |
-| FI-A2 AR 公开输出量测级重构 | AR 公开输出可重构为量测形态，规则 3 的"raw output 记录保持量测形态"可达 | contract.md:168-171 规则 3 明文"不外发航迹/状态族估计产品……raw output 记录保持量测形态"；`TrackStateSnapshot` 现状 100% 航迹产品（运动学/协方差迹/生命周期状态/关联键，无单周期量测语义字段）；内部检测链止步模块内（SignalDetector.h:18-23 `DetectionResult` → TrackMeasurementProcessing.cpp:49-60 `RawTrackMeasurement`：位置 + 3×3 量测协方差 R + detection margin，量测形态雏形已存在）；fusion 消费滤波后运动学存在 R 矩阵噪声语义失配（与 TARGET-OQ-3 P0 实测同类：平滑估计 vs 量测的噪声语义差异不可忽略） | D1 前补 fusion AR 通道切换前后关联/滤波质量 characterization（量测门 vs 键直挂）；内部 `RawTrackMeasurement` 字段对公开量测 DTO 的充分性核验 | 内部量测链字段足以支撑公开量测 DTO（单位/协方差/质量），EOS/SBIRS 适配范式（SensorAdapters.cpp:82-131）可复制 | 若库外消费方硬依赖航迹帧不可迁移 → 降级装备语义正名方案（镜像 OQ-3 裁定：适配层标注来源 + boundaries 冻结装备语义为契约豁免） | pass（方向：量测级改造） |
-| FI-A3 AR 关联单源化 | 传感器内关联降格为纯行为建模后，对外关联可唯一化到估计层 | FusionEngine.cpp:277 身份键直挂现状（AR `association_key` 现即直挂，不做空间再关联——"关联两次"的实际形态是两套并行生命周期/滤波）；docs/fusion/boundaries.md:13-21 关联键边界（键 0 = 无身份走空间/方位/特征门，跨源一致归调用方）；EOS/SBIRS key=0 门关联既有范式 | 切换后 AR 量测（key=0 或调用方键）在 fusion 关联四层的行为 characterization | 量测输出不带航迹键后，空间/方位门关联范式已存在且可验收 | 若密集场景 characterization 显示误关联率超 fusion 既有验收 → 契约改用键承载备选（量测携带调用方键——规则 5 允许调用方关联键，非传感器航迹键） | pass |
+| FI-A2 AR 新增量测输出通道 | AR 可在保留航迹帧的同时新增公开量测通道，内部 `RawTrackMeasurement` 字段足以支撑公开量测 DTO | 内部检测链已存在量测形态雏形（SignalDetector.h:18-23 `DetectionResult` → TrackMeasurementProcessing.cpp:49-60 `RawTrackMeasurement`：位置 + 3×3 量测协方差 R + detection margin）；EOS/SBIRS 适配范式（SensorAdapters.cpp:82-131）可复制；航迹帧保留为 fusion 核心消费路径不变，量测通道为可选补充 | 内部 `RawTrackMeasurement` 字段对公开量测 DTO 的充分性核验 | 内部量测链字段足以支撑公开量测 DTO（单位/协方差/质量），量测通道与航迹帧可并行不悖 | 若内部量测字段不足以支撑公开 DTO → 降级为仅内部使用，不新增公开通道 | pass（方向：航迹+量测双输出） |
+| FI-A3 AR 双输出共存 | 航迹帧（含 `association_key`）与量测帧（key=0 无身份）可共存于同一周期输出，下游按需消费 | FusionEngine.cpp:277 身份键直挂现状（AR `association_key` 直挂）；docs/fusion/boundaries.md:13-21 关联键边界（键 0 = 无身份走空间/方位/特征门）；航迹帧继续走键直挂路径，量测帧走空间/方位门路径——两条路径独立、不互相干扰 | D1 前补双输出场景下 fusion 消费路径 characterization（航迹键直挂 + 量测门并行） | 两条消费路径可并行运行，关联质量不互相退化 | 若双输出导致下游混淆（航迹键 vs 量测键冲突）→ 契约明确消费路径选择规则 | pass |
 | FI-A4 滤波原语单源化核验 | AR 滤波原语已单源合规，无需代码变更 | src/airborne_radar/signal/tracking/ 六个头（IKalmanPredictor/IKalmanUpdater/KalmanPredictor/KalmanUpdater/ImmFilter/GaussianTrackState）均为 common/estimation 模板的 documented 重导出外观（头注释自证"向后兼容外观"）；common/estimation 目录含全部原语（含 P1 新增 Unscented*）；AR 与 fusion 消费不同原语（KF/IMM vs UKF）但同源单源，合规 | grep 证实 src/airborne_radar 无第二处滤波原语实现（已核验） | 合规结论登记即可 | 若 D1 发现外观头被库外以 public 依赖消费 → 外观弃用计划进迁移契约 | pass（已合规，零代码；D3 可选外观弃用登记） |
 
 ### 2.2 ESR 轨道（TARGET-OQ-2）
@@ -127,20 +126,19 @@ Authority: AR/ESR 历史越层债务处置立项——本次处置范围锁定 T
 **目标**：按 OQ-1/2 再进入条件的要求，一次性冻结全部迁移契约（不得零碎单独修改）。
 
 工作项：
-1. **AR 公共 API 量测化迁移契约**：
-   - 量测输出 DTO 字段冻结：物理量单位后缀契约（contract.md §物理量单位命名）、规则 5
-     去真值化（只允许调用方关联键，不带场景真值）、量测质量字段（SNR/detection margin
+1. **AR 航迹+量测双输出迁移契约**：
+   - 航迹帧保留，识别字段退出：`target_type`/`target_probability` 从 `TrackStateSnapshot`
+     退出（推演层 target_inference `type_evidence` 预留位已就绪）；航迹帧其余字段
+     （运动学/协方差迹/生命周期/关联键）保持不变；
+   - 新增量测输出 DTO 字段冻结：物理量单位后缀契约（contract.md §物理量单位命名）、规则 5
+     去真值化（量测帧只允许调用方关联键，不带场景真值）、量测质量字段（SNR/detection margin
      类，规则 2 豁免范围）、量测协方差（规则 6 误差预算精神在量测侧的对应）、坐标系与
      既有 ECEF/ENU 契约对齐；
-   - `ArCycleResult` 接入方式与内部 `RawTrackMeasurement` 字段充分性核验结论；
-   - 航迹通道退出路径（一步切换 vs 弃用过渡窗口）与观测工具面保留形态（DebugView 为
-     观测工具面，不得反向改变核心运行面）；
-   - fusion 适配器切换语义（`AdaptArTracksToDetectionRecords` → 量测适配）与 quality
-     来源调整；
-   - 消费方迁移清单：examples（ar_sensor_component 等 4 组件）、tests（sensor_adapters、
-     ar replay roundtrip、ar_decision_layer、ar_track_output_debug_view、
-     ar_public_api_convenience、ar_session、multi_model_scenario、batch_validation、
-     ar_session_consumer）、check_public_api_boundary.cmake 白名单；
+   - `ArCycleResult` 接入方式：航迹帧 + 量测帧并行接入；
+   - fusion 新增量测适配器（`AdaptArDetectionsToDetectionRecords`）语义与 quality 来源
+     调整；航迹适配器保持不变；
+   - 消费方迁移清单：识别字段退出影响的消费方（ArController 回填点、DebugView、replay
+     codec、tests）；新增量测通道的消费方（examples/tests/白名单按需新增）；
    - replay 版本化裁定与验收门（unit/replay/contract/consumer 四层）。
 2. **ESR `threat_level` 迁移契约**：字段退出时序；`InferThreatFromCluster` 与内部
    TrackState 威胁字段整体退出（ESR 无内部威胁分消费闭环，区别于 AR 的 LPI/ECCM 边界）；
@@ -165,22 +163,23 @@ replay/contract 测试全绿。
 
 ### D3：AR 轨道实施（Stage B）
 
-1. 公开量测输出通道落地（DTO + 输出装配 + `ArCycleResult` 接入 + 契约测试）。
-2. fusion AR 适配器切换 + quality 语义调整。
-3. 识别字段退出（TrackStateSnapshot、ArExternalTrackKinematics、DebugView、
+1. 识别字段退出（`target_type`/`target_probability` 从 TrackStateSnapshot、DebugView、
    ArController 回填点删除）；`ThreatAssessmentEvaluator::IdentifyTarget` 按契约处置
    （内部威胁分/资源管理边界维持，识别结论不再回填公开面）。
-4. 航迹通道退出（按 D1 裁定路径与时序）。
-5. replay 版本化 + codec + roundtrip 测试。
-6. 消费方迁移（examples/tests/白名单）。
-7. fusion AR 通道切换 characterization 证据归档（关联质量不回退超出契约阈值）。
+2. 公开量测输出通道落地（新增 `ArDetectionOutput` DTO + CycleExecutor 量测装配 +
+   `ArCycleResult` 接入航迹帧+量测帧 + 契约测试）。
+3. fusion 新增 AR 量测适配器（`AdaptArDetectionsToDetectionRecords`）+ quality 语义
+   调整；航迹适配器保持不变。
+4. replay 版本化 + codec + roundtrip 测试（航迹记录保留，量测记录新增，识别字段删除）。
+5. 消费方迁移（识别字段退出影响的消费方 + 新增量测通道消费方）。
+6. 双输出场景下 fusion 消费路径 characterization 证据归档。
 
 退出门：`unit::airborne_radar` + `unit::fusion` + 相关 replay/contract/consumer 测试全绿。
 
 ### D4：回写关闭（Stage C）
 
 1. TARGET-OQ-1/2 关闭：结论迁出 open_questions（条目删除），规则性结论回写
-   contract.md（AR 量测输出边界、ESM 产品形态条款按需）与受影响模块 design.md
+   contract.md（AR 航迹+量测双输出边界、ESM 产品形态条款按需）与受影响模块 design.md
    （airborne_radar、electronic_surveillance_radar、electronic_countermeasure、fusion、
    threat_assessment 按需）。
 2. contract.md 两处过时表述真化：分层表推演层"尚未建立"（contract.md:156，
@@ -202,7 +201,7 @@ replay/contract 测试全绿。
 |---|---|
 | threat_assessment ESM 输入面 | **输入面扩展（泛型证据属性槽）**：`ThreatEvaluationInput` 新增 `emitter_threat_evidence`（float [0,1]，调用方组装），MADM 六属性扩为七属性；模式→证据映射表归调用方（镜像"距离由调用方计算"既有模式；决策层不得引用传感器类型，规则 1） |
 | ESR replay | **字段直接删除**：`esr_replay.fbs` 删除 `threat_level` 字段；codec 不再编解码；旧 trace 作废（无兼容负担） |
-| AR replay | **schema 自由重构**：航迹表族（TrackOutputFrame/DecisionTrackStateSnapshot/TrackStateSnapshot 包装）从 `airborne_radar_replay.fbs` 删除；`ArCycleResultV3.output_frame` 字段类型替换为量测帧表；旧 V3 trace 一律作废 |
+| AR replay | **航迹表族保留 + 量测帧新增**：航迹表族（TrackOutputFrame/TrackStateSnapshot 包装）保留在 `airborne_radar_replay.fbs`；新增量测帧表（`ArDetectionOutputFrame`）；`ArCycleResultV3` 同时记录航迹帧和量测帧；识别字段（`target_type`/`target_probability`）从航迹记录删除；旧 V3 trace 一律作废（项目未上线，无兼容负担） |
 
 ### 4.1 契约 A：ESR threat_level 迁移契约
 
@@ -226,39 +225,37 @@ replay/contract 测试全绿。
 
 **非目标**：ESR 公开 API 其他修订；威胁评分算法演进（权重寻优/新归一化）；ESM 假设管理重构。
 
-### 4.2 契约 B：AR 公开输出量测化迁移契约
+### 4.2 契约 B：AR 航迹+量测双输出迁移契约
 
-**已证实需求**（FI-A1/A2/A3 = pass）：规则 3"raw output 记录保持量测形态、不外发航迹/状态族估计产品"；`TrackStateSnapshot` 现状 100% 航迹产品；fusion 消费滤波运动学存在 R 矩阵噪声语义失配；内部 `RawTrackMeasurement`（位置 + 3×3 量测协方差 R + detection margin）已是量测形态雏形。
+**已证实需求**（FI-A1/A2/A3 = pass）：AR 航迹是机载雷达本位产品（探测与跟踪），下游火控/武器分配依赖；内部 `RawTrackMeasurement`（位置 + 3×3 量测协方差 R + detection margin）已是量测形态雏形，可新增公开量测通道供 fusion 特征融合路径使用；识别结论（`target_type`/`target_probability`）不是 AR 本职，应退出航迹公开面由推演层供给。
 
 **终态架构**：
-1. **新公开量测帧** `ArDetectionOutput.h`：`ArDetectionRecord{position_x/y/z_m（雷达局部 ENU，与量测协方差同帧）、measurement_covariance 3×3（行主序 9 元素，雷达方程基于 SNR 推算的 R）、snr_db、detection_margin_db、echo_power_dbw}` + `ArDetectionOutputFrame{cycle_index, batch_id, detections}`。**不携带**场景真值标识/目标名（对齐 SBIRS boundaries 非目标 7 先例）、航迹/生命周期/识别语义、协方差以外的估计量。
-2. **Step 返回类型切换**：`ArSession::Step` 返回 `ArDetectionOutputFrame`；`ArCycleResult.output_frame` 类型切换为量测帧（字段名保留）；`ONEQ_SENSOR_SESSION_CONTRACT` 锚定切换；`ArTraceSession` 同步。
-3. **航迹公开面退出**（一步切换，无过渡窗口）：`ArTrackOutput.h`（帧 + 7 查询函数）删除、`output/TrackOutputQueries.cpp` 删除；`ArExternalOutputAdapter`/`ArCycleOutputAdapter`（ECEF 航迹帧）删除；`ArTrackOutputDebugView` 与其 Builder 退役（观测源为航迹帧；内部行为调试由 trace/replay 观测面承载）；STT 指定派生（`ArSession.cpp` BuildSttDesignationCycleState）改走内部航迹快照链（不再经公开帧查询）。
-4. **TrackStateSnapshot 保留为决策 SPI 输入形状**：`DecisionInputFrame`（公开，决策引擎是唯一许可 SPI）继续持有 `TrackStateSnapshotList`；该结构语义收窄为"传感器行为建模状态向决策扩展点的输入"，不再是发布产品。删除 `target_type`/`target_probability`（回填产物；输入方向恒为默认值，仅输出方向被回填——纯输出侧产物）；`estimation_uncertainty_trace` 保留（SPI 输入方向的内部识别运动质量因子，规则 3 合法）。识别结论不再回填任何公开面；内部启发式识别继续驱动 LPI/ECCM（既有边界）。
-5. **fusion 适配切换**：删除 `AdaptArTracksToDetectionRecords`；新增 `AdaptArDetectionsToDetectionRecords(source_id, platform, frame)`——局部 ENU 位置 + 平台位姿 → LLA（复用既有坐标换算原语），key=0（无身份，走空间/方位门），quality 口径对齐 EOS/SBIRS 适配器。
-6. **replay**：`airborne_radar_replay.fbs` 自由重构——删除航迹表族（TrackOutputFrame/DecisionTrackStateSnapshot/TrackStateSnapshot 包装表）；`ArCycleResultV3.output_frame` 字段类型替换为量测帧表（`ArDetectionOutputFrame`）；旧 V3 trace 一律作废（项目未上线，无兼容负担）。
-7. **内部量测出线**：`SignalCycleResult` 增量测帧字段；`CycleExecutor::CollectCycleOutputs` 从 scratch 量测组装；`ArController` cycle_state 与 `ArSession`/`ArRfCycleState` 装配链同步。
+1. **航迹帧保留**（核心输出）：`ArTrackOutput.h`（`TrackOutputFrame` + 查询函数）保留；`ArExternalOutputAdapter`/`ArCycleOutputAdapter`（ECEF 航迹帧）保留；`TrackStateSnapshot` 继续作为航迹公开产品。删除 `target_type`/`target_probability`（识别结论退出航迹公开面；输入方向恒为默认值，仅输出方向被回填——纯输出侧产物）；`estimation_uncertainty_trace` 保留。识别结论不再回填任何公开面；内部启发式识别继续驱动 LPI/ECCM（既有边界）。
+2. **新公开量测帧**（补充输出）`ArDetectionOutput.h`：`ArDetectionRecord{position_x/y/z_m（雷达局部 ENU，与量测协方差同帧）、measurement_covariance 3×3（行主序 9 元素，雷达方程基于 SNR 推算的 R）、detection_margin_db}` + `ArDetectionOutputFrame{cycle_index, batch_id, detections}`。**不携带**场景真值标识/目标名（对齐 SBIRS boundaries 非目标 7 先例）、航迹/生命周期/识别语义、协方差以外的估计量。
+3. **ArCycleResult 双输出接入**：`ArCycleResult` 同时携带航迹帧（`output_frame`，既有字段不变）和量测帧（新增 `detection_frame` 字段）；`ArSession::Step` 返回类型同步；`ONEQ_SENSOR_SESSION_CONTRACT` 锚定双输出；`ArTraceSession` 同步。
+4. **fusion 双路径适配**：航迹适配器 `AdaptArTracksToDetectionRecords` 保持不变（核心消费路径，key=关联键直挂）；新增量测适配器 `AdaptArDetectionsToDetectionRecords(source_id, platform, frame)`——局部 ENU 位置 + 平台位姿 → LLA（复用既有坐标换算原语），key=0（无身份，走空间/方位门），quality 口径对齐 EOS/SBIRS 适配器。
+5. **replay**：航迹表族保留（`TrackOutputFrame`/`TrackStateSnapshot` 包装表不变）；新增量测帧表（`ArDetectionOutputFrame`）；`ArCycleResultV3` 同时记录航迹帧和量测帧；识别字段（`target_type`/`target_probability`）从航迹记录中删除。
+6. **内部量测出线**：`SignalCycleResult` 增量测帧字段；`CycleExecutor::CollectCycleOutputs` 从 scratch 量测组装；`ArController` cycle_state 与 `ArSession`/`ArRfCycleState` 装配链同步。
+7. **ArTrackOutputDebugView 保留**：观测工具面不变（航迹帧仍为公开产品，DebugView 继续有意义）；删除识别字段相关视图列。
 
-**允许范围**：公开头（新增 ArDetectionOutput.h；改 ArCycleResult/ArSession/ArTraceSession/ArOutputTypes/DecisionInputFrame/TrackStateSnapshot/airborne_radar.hpp；删 ArTrackOutput/ArExternalOutputAdapter/ArCycleOutputAdapter/ArTrackOutputDebugView）；src/airborne_radar（Controller/Session/TraceSession/ReplayCodec/查询与视图删除/STT 派生/CycleExecutor）；`include/1q/fusion/SensorAdapters.h` + `src/fusion/SensorAdapters.cpp`；`schemas/replay/airborne_radar_replay.fbs`；`tests/contract/check_public_api_boundary.cmake` 白名单；消费方迁移清单：`tests/unit/fusion/sensor_adapters_test.cpp`、`tests/unit/airborne_radar/`（ar_track_output_debug_view/ar_output_boundary/ar_core_controller/ar_cycle_output_builder 等）、`tests/integration/airborne_radar/ar_session_test.cpp`、`tests/integration/cross_domain/multi_model_scenario_test.cpp`、`tests/replay/airborne_radar/ar_replay_codec_roundtrip_test.cpp`、`tests/contract/airborne_radar/ar_public_api_convenience_test.cpp`、`tests/contract/public_api/public_headers_smoke_test.cpp`、`tests/consumer/ar_session_consumer.cpp`、`tests/consumer/batch_validation/ar_batch_validation.cpp`、examples（ar_sensor_component/threat_component/fusion_component 及 events/core）。
+**允许范围**：公开头（新增 ArDetectionOutput.h；改 ArCycleResult/ArSession/ArTraceSession/ArOutputTypes/TrackStateSnapshot（删识别字段）/airborne_radar.hpp）；src/airborne_radar（Controller/Session/TraceSession/ReplayCodec/CycleExecutor/ArController 回填点删除）；`include/1q/fusion/SensorAdapters.h` + `src/fusion/SensorAdapters.cpp`（新增量测适配器）；`schemas/replay/airborne_radar_replay.fbs`；`tests/contract/check_public_api_boundary.cmake` 白名单；消费方迁移清单：识别字段退出影响的消费方（ArController 回填点、DebugView 识别列、replay codec 识别字段、tests 断言）；新增量测通道消费方（`tests/unit/fusion/sensor_adapters_test.cpp` 新用例、`tests/unit/airborne_radar/` 量测输出测试、replay roundtrip 新字段）。
 
-**明确禁止**：不动 AR 内部信号链算法（检测/关联/滤波/生命周期语义原样，仅新增量测导出与删除公开航迹封装）；不动 SBIRS/RIR/EOS/ESR 适配器；不动 fusion 引擎与关联键边界（AR 量测 key=0 属既有"无身份探测"语义，无键空间变更）；不扩展 `DetectionRecord` 结构。
+**明确禁止**：不动 AR 内部信号链算法（检测/关联/滤波/生命周期语义原样，仅新增量测导出与删除识别字段回填）；不动航迹公开面结构（`ArTrackOutput`/`ArExternalOutputAdapter`/`ArCycleOutputAdapter` 保留）；不动 SBIRS/RIR/EOS/ESR 适配器；不动 fusion 引擎与关联键边界（航迹键直挂路径不变，量测 key=0 属既有"无身份探测"语义）；不扩展 `DetectionRecord` 结构。
 
-**行为边界**：拒绝周期 `output_frame` 为空量测帧（与既有"拒绝周期不复用上一帧"一致）；量测帧仅含本周期检测成功目标（检测失败目标不产生记录）；STT/designation 派生字段语义不变（改内部数据源，不改冻结的派生规则）。
+**行为边界**：拒绝周期航迹帧/量测帧各自独立——航迹帧为空不阻塞量测帧输出，反之亦然；量测帧仅含本周期检测成功目标（检测失败目标不产生记录）；STT/designation 派生字段语义不变。
 
 **验收门**：`unit::airborne_radar`、`unit::fusion`、`integration::airborne_radar`、`integration::cross_domain`、AR replay 测试、AR contract/consumer 测试、`check_public_api_boundary`、docs 守护全绿；examples 经 v141 语法级验证（Windows 无 spdlog，沿既有口径）。
 
-**非目标**：AR 检测链物理算法演进；量测帧字段扩展（RCS 等——待证据需求再立项）；fusion 引擎改造；内部航迹栈重构。
+**非目标**：AR 检测链物理算法演进；量测帧字段扩展（RCS 等——待证据需求再立项）；fusion 引擎改造；航迹公开面重构。
 
 ## 5. 风险与未决项
 
 | 风险 | 影响 | 缓解 |
 |---|---|---|
-| 破坏性公共 API 变更影响库外使用方（AR 航迹帧/识别字段、ESR threat_level） | 编译断链 | D1 契约给弃用窗口/版本化路径；consumer 测试先迁；FI-A1/FI-A2/FI-E1 均登记回退路径 |
-| fusion AR 通道由键直挂改量测门后关联质量回退 | 融合产品质量下降 | D3 强制 characterization 前后对比；不达标走 FI-A3 拒绝路径（调用方键承载） |
+| 识别字段退出影响库外消费方（AR `target_type`/`target_probability`） | 编译断链或逻辑缺失 | D1 契约给消费方迁移清单；推演层 target_inference 已有 `type_evidence` 预留位；FI-A1 登记回退路径 |
 | threat_assessment ESM 输入面失配需决策层公共 API 扩展 | 变更面扩大到决策层 | D1 子裁定独立冻结；回退方案 ECM 内部计分（FI-E2 拒绝路径） |
-| replay 旧文件兼容 | 历史回放不可读 | FI-E4 方向：字段保留弃用语义；roundtrip 测试锁定；必要时版本升级 |
-| AR 内部航迹栈保留但不再外发，公开面测试语义漂移 | 行为回归不可见 | 内部栈测试（unit 树内含内部头）不受影响；公开面断言随迁移清单同步改写，不得删除覆盖 |
-| 航迹帧退出后 examples 展示/调试价值损失 | 演示能力下降 | DebugView 观测工具面按契约裁定保留形态；示例可改消费 fusion 产品 |
+| replay 旧文件兼容 | 历史回放不可读 | 项目未上线无兼容负担；roundtrip 测试锁定 |
+| 双输出（航迹+量测）增加维护面 | 公开 API 复杂度上升 | 航迹帧为核心路径、量测帧为可选补充；契约明确消费路径选择规则；不强制消费方同时消费两者 |
 | 判定方向未签认即实施 | 违反证据优先门禁 | D0 退出门强制签认；D1 契约零生产代码 |
 
 ## 6. 进度登记
@@ -268,5 +265,5 @@ replay/contract 测试全绿。
 | D0 | 完成（本文档即回写） | Stage A 证据矩阵 8 项判定登记（6 pass + 1 pass-已合规 + 1 pass-确认保留）；open_questions OQ-1/2 证据与建议裁定段追加；零生产代码 |
 | D1 | 完成 | 两份迁移契约冻结（§4.1/§4.2）+ 三个子裁定（§4 表）；需求方 2026-08-18 指令确认全程执行（视同签认） |
 | D2 | pending | ESR 轨道实施 |
-| D3 | pending | AR 轨道实施 |
+| D3 | pending（方向修正：纯量测→航迹+量测双输出） | AR 轨道实施 |
 | D4 | pending | 回写关闭（OQ-1/2 迁出 + contract.md 真化） |

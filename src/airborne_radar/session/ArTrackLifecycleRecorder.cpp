@@ -16,8 +16,8 @@ struct TargetState {
 };
 
 const session::TrackStateSnapshot* FindTrackByExternalTargetId(
-    const TrackStateSnapshotList& snapshots, std::uint64_t external_target_id) {
-  for (const session::TrackStateSnapshot& track : snapshots) {
+    const TrackOutputFrame& frame, std::uint64_t external_target_id) {
+  for (const session::TrackStateSnapshot& track : frame.tracks) {
     if (track.external_target_id == external_target_id && external_target_id != 0U) {
       return &track;
     }
@@ -63,8 +63,7 @@ ArTrackLifecycleRecorder& ArTrackLifecycleRecorder::operator=(ArTrackLifecycleRe
     default;
 
 std::vector<ArTrackLifecycleEvent> ArTrackLifecycleRecorder::Update(
-    const ArTargetInputList& targets, const ArCycleResult& result,
-    const TrackStateSnapshotList& track_snapshots) {
+    const ArTargetInputList& targets, const ArCycleResult& result) {
   std::vector<ArTrackLifecycleEvent> events;
   if (result.status != ArCycleStatus::kCompleted) {
     return events;
@@ -77,7 +76,7 @@ std::vector<ArTrackLifecycleEvent> ArTrackLifecycleRecorder::Update(
     }
     TargetState& state = impl_->states[target.target_id];
     const session::TrackStateSnapshot* track =
-        FindTrackByExternalTargetId(track_snapshots, target.target_id);
+        FindTrackByExternalTargetId(result.output_frame, target.target_id);
 
     const bool designation_active_now =
         result.designated_target_id == target.target_id && result.designation_active;

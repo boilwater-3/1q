@@ -33,6 +33,7 @@ set(AIRBORNE_ENGINE_SOURCES
 
 # -- core: 会话、运行时、环境、配置、决策、输出（粘合层，依赖轻） -------------------
 set(AIRBORNE_CORE_SOURCES
+    output/TrackOutputQueries.cpp
     decision/ThreatAssessmentEvaluator.cpp
     decision/LpiEvaluator.cpp
     decision/EccmEvaluator.cpp
@@ -47,6 +48,9 @@ set(AIRBORNE_CORE_SOURCES
     runtime/ArController.cpp
     session/ArSessionCompositionRoot.cpp
     session/ArExternalInputAdapter.cpp
+    session/ArExternalOutputAdapter.cpp
+    session/ArCycleOutputAdapter.cpp
+    session/ArTrackOutputDebugViewBuilder.cpp
     session/ArTrackLifecycleRecorder.cpp
     session/ArExclusionCauseRecorder.cpp
     session/ArSessionConfigBuilder.cpp
@@ -68,6 +72,10 @@ oneq_add_component(airborne_core SOURCES ${AIRBORNE_CORE_SOURCES})
 # These two sources intentionally retain file-local lookup helpers with the same
 # name. Keep the lifecycle recorder standalone when Unity Build is enabled.
 set_source_files_properties(session/ArTrackLifecycleRecorder.cpp
+    PROPERTIES SKIP_UNITY_BUILD_INCLUSION ON)
+# Both external adapters use an identically named file-local finite-vector
+# predicate. Keep one translation unit standalone for every Unity batch size.
+set_source_files_properties(session/ArExternalOutputAdapter.cpp
     PROPERTIES SKIP_UNITY_BUILD_INCLUSION ON)
 target_link_libraries(airborne_engine PRIVATE ${ONEQ_LINK_DEPENDENCIES})
 target_link_libraries(airborne_core PRIVATE ${ONEQ_LINK_DEPENDENCIES})

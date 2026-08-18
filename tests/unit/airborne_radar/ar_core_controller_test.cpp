@@ -16,7 +16,6 @@
 #include "1q/airborne_radar/session/ArCommand.h"
 #include "1q/airborne_radar/session/ArControlProfile.h"
 #include "1q/airborne_radar/session/ArCycleResult.h"
-#include "1q/airborne_radar/session/ArDetectionOutput.h"
 #include "1q/airborne_radar/session/ArSceneTypes.h"
 #include "1q/airborne_radar/session/ArSession.h"
 #include "1q/airborne_radar/session/DecisionInputFrame.h"
@@ -175,22 +174,24 @@ TEST_F(CoreControllerTest, DefaultLifecyclePathBuildsTentativeDecisionFrameOnFir
 
   controller.RunOnce(signal::pipeline::SignalCycleInput{radar_context.GetSceneTargets()});
 
-  EXPECT_TRUE(controller.HasLatestDetectionFrame());
-  const session::ArDetectionOutputFrame& latest_detection_frame =
-      controller.GetLatestDetectionFrame();
-  // 量测帧只携带量测形态记录（TARGET-OQ-1 处置）；生命周期状态经内部快照观测。
-  EXPECT_EQ(latest_detection_frame.detections.size(), 1U);
-  const session::TrackStateSnapshotList& snapshots = controller.GetLatestTrackSnapshots();
-  ASSERT_EQ(snapshots.size(), 1U);
-  EXPECT_EQ(snapshots[0].status, session::TrackStatus::kTentative);
+  EXPECT_TRUE(controller.HasLatestTrackOutputFrame());
+  const session::TrackOutputFrame& latest_output_frame =
+      controller.GetLatestTrackOutputFrame();
+  EXPECT_EQ(latest_output_frame.tracks.size(), 1U);
+  EXPECT_EQ(
+      session::CountTracksByStatus(latest_output_frame, session::TrackStatus::kConfirmed),
+      0U);
+  EXPECT_FALSE(
+      session::CountTracksByStatus(latest_output_frame, session::TrackStatus::kLost) > 0U);
   const session::DecisionInputFrame& decision_frame =
       controller.GetLatestDecisionObservation().input_frame;
   ASSERT_EQ(decision_frame.tracks.size(), 1U);
   EXPECT_EQ(decision_frame.tracks[0].status, session::TrackStatus::kTentative);
-  EXPECT_EQ(decision_frame.tracks[0].association_key, snapshots[0].association_key);
+  EXPECT_EQ(decision_frame.tracks[0].association_key,
+            latest_output_frame.tracks[0].association_key);
 }
 
-TEST_F(CoreControllerTest, PublicOutputReaderApiExposesLatestDetectionFrame) {
+TEST_F(CoreControllerTest, PublicOutputReaderApiExposesLatestTrackOutputFrame) {
   const session::ArSceneTargetList input_state = BuildSingleTarget(510.0f, 1.0f, false);
   FakeRadarContext radar_context(input_state);
 
@@ -199,18 +200,18 @@ TEST_F(CoreControllerTest, PublicOutputReaderApiExposesLatestDetectionFrame) {
   signal::pipeline::SignalPipeline signal_pipeline;
   extension::ArController controller(radar_context, signal_pipeline, environment_service);
 
-  EXPECT_FALSE(controller.HasLatestDetectionFrame());
+  EXPECT_FALSE(controller.HasLatestTrackOutputFrame());
 
   controller.RunOnce(signal::pipeline::SignalCycleInput{radar_context.GetSceneTargets()});
 
-  EXPECT_TRUE(controller.HasLatestDetectionFrame());
-  const session::ArDetectionOutputFrame& latest_detection_frame =
-      controller.GetLatestDetectionFrame();
-  EXPECT_EQ(latest_detection_frame.cycle_index, 1U);
-  EXPECT_EQ(latest_detection_frame.batch_id, 1U);
-  ASSERT_EQ(latest_detection_frame.detections.size(), 1U);
-  EXPECT_EQ(controller.GetLatestTrackSnapshots().size(), 1U);
-  EXPECT_EQ(controller.GetLatestTrackSnapshots()[0].status, session::TrackStatus::kTentative);
+  EXPECT_TRUE(controller.HasLatestTrackOutputFrame());
+  const session::TrackOutputFrame& latest_output_frame =
+      controller.GetLatestTrackOutputFrame();
+  EXPECT_EQ(latest_output_frame.cycle_index, 1U);
+  EXPECT_EQ(latest_output_frame.batch_id, 1U);
+  EXPECT_EQ(latest_output_frame.tracks.size(), 1U);
+  ASSERT_EQ(latest_output_frame.tracks.size(), 1U);
+  EXPECT_EQ(latest_output_frame.tracks[0].status, session::TrackStatus::kTentative);
 }
 
 TEST_F(CoreControllerTest, RuntimeValidationRejectionSkipsCommandSubmission) {
@@ -233,7 +234,7 @@ TEST_F(CoreControllerTest, RuntimeValidationRejectionSkipsCommandSubmission) {
   // COMMON-OQ-9：拒绝明细经出参直通（控制器独立执行边界的校验明细可观测）。
   EXPECT_TRUE(session::HasValidationError(validation_issues));
   EXPECT_TRUE(radar_context.SubmittedCommands().empty());
-  EXPECT_FALSE(controller.HasLatestDetectionFrame());
+  EXPECT_FALSE(controller.HasLatestTrackOutputFrame());
 }
 
 TEST_F(CoreControllerTest, FirstCycleSignalPipelineAbortDoesNotPublishSyntheticLatestFrame) {
@@ -248,7 +249,7 @@ TEST_F(CoreControllerTest, FirstCycleSignalPipelineAbortDoesNotPublishSyntheticL
   EXPECT_FALSE(controller.ExecutedLatestCycle());
   EXPECT_EQ(controller.GetLastSignalCycleAbortReason(),
             session::SignalCycleAbortReason::kRuntimePreparationFailed);
-  EXPECT_FALSE(controller.HasLatestDetectionFrame());
+  EXPECT_FALSE(controller.HasLatestTrackOutputFrame());
 }
 
 TEST_F(CoreControllerTest, InvalidDeltaTimeRetainsPreviousValidOutputFrame) {
@@ -262,10 +263,9 @@ TEST_F(CoreControllerTest, InvalidDeltaTimeRetainsPreviousValidOutputFrame) {
   extension::ArController controller(radar_context, signal_pipeline, environment_service);
 
   controller.RunOnce(signal::pipeline::SignalCycleInput{radar_context.GetSceneTargets()});
-  ASSERT_TRUE(controller.HasLatestDetectionFrame());
-  const session::ArDetectionOutputFrame previous_frame = controller.GetLatestDetectionFrame();
-  const session::TrackStateSnapshotList previous_snapshots = controller.GetLatestTrackSnapshots();
-  ASSERT_GT(previous_frame.detections.size(), 0U);
+  ASSERT_TRUE(controller.HasLatestTrackOutputFrame());
+  const session::TrackOutputFrame previous_frame = controller.GetLatestTrackOutputFrame();
+  ASSERT_GT(previous_frame.tracks.size(), 0U);
   const std::vector<session::ArCommand> previous_commands = radar_context.SubmittedCommands();
 
   radar_context.SetCycleDeltaTimeSec(0.0f);
@@ -274,12 +274,13 @@ TEST_F(CoreControllerTest, InvalidDeltaTimeRetainsPreviousValidOutputFrame) {
   EXPECT_FALSE(controller.ExecutedLatestCycle());
   EXPECT_EQ(controller.GetLastSignalCycleAbortReason(),
             session::SignalCycleAbortReason::kValidationRejected);
-  ASSERT_TRUE(controller.HasLatestDetectionFrame());
-  const session::ArDetectionOutputFrame& retained_frame = controller.GetLatestDetectionFrame();
+  ASSERT_TRUE(controller.HasLatestTrackOutputFrame());
+  const session::TrackOutputFrame& retained_frame = controller.GetLatestTrackOutputFrame();
   EXPECT_EQ(retained_frame.cycle_index, previous_frame.cycle_index);
   EXPECT_EQ(retained_frame.batch_id, previous_frame.batch_id);
-  EXPECT_EQ(retained_frame.detections.size(), previous_frame.detections.size());
-  EXPECT_EQ(controller.GetLatestTrackSnapshots().size(), previous_snapshots.size());
+  EXPECT_EQ(retained_frame.tracks.size(), previous_frame.tracks.size());
+  EXPECT_EQ(session::CountTracksByStatus(retained_frame, session::TrackStatus::kConfirmed),
+            session::CountTracksByStatus(previous_frame, session::TrackStatus::kConfirmed));
   ASSERT_EQ(radar_context.SubmittedCommands().size(), previous_commands.size());
   for (std::size_t i = 0; i < previous_commands.size(); ++i) {
     EXPECT_EQ(radar_context.SubmittedCommands()[i].type, previous_commands[i].type);
@@ -298,9 +299,9 @@ TEST_F(CoreControllerTest, DuplicateExternalTargetIdRetainsPreviousValidOutputFr
   extension::ArController controller(radar_context, signal_pipeline, environment_service);
 
   controller.RunOnce(signal::pipeline::SignalCycleInput{radar_context.GetSceneTargets()});
-  ASSERT_TRUE(controller.HasLatestDetectionFrame());
-  const session::ArDetectionOutputFrame previous_frame = controller.GetLatestDetectionFrame();
-  ASSERT_GT(previous_frame.detections.size(), 0U);
+  ASSERT_TRUE(controller.HasLatestTrackOutputFrame());
+  const session::TrackOutputFrame previous_frame = controller.GetLatestTrackOutputFrame();
+  ASSERT_GT(previous_frame.tracks.size(), 0U);
   const std::vector<session::ArCommand> previous_commands = radar_context.SubmittedCommands();
 
   session::ArSceneTarget duplicate_a = input_state.front();
@@ -315,11 +316,13 @@ TEST_F(CoreControllerTest, DuplicateExternalTargetIdRetainsPreviousValidOutputFr
   EXPECT_FALSE(controller.ExecutedLatestCycle());
   EXPECT_EQ(controller.GetLastSignalCycleAbortReason(),
             session::SignalCycleAbortReason::kValidationRejected);
-  ASSERT_TRUE(controller.HasLatestDetectionFrame());
-  const session::ArDetectionOutputFrame& retained_frame = controller.GetLatestDetectionFrame();
+  ASSERT_TRUE(controller.HasLatestTrackOutputFrame());
+  const session::TrackOutputFrame& retained_frame = controller.GetLatestTrackOutputFrame();
   EXPECT_EQ(retained_frame.cycle_index, previous_frame.cycle_index);
   EXPECT_EQ(retained_frame.batch_id, previous_frame.batch_id);
-  EXPECT_EQ(retained_frame.detections.size(), previous_frame.detections.size());
+  EXPECT_EQ(retained_frame.tracks.size(), previous_frame.tracks.size());
+  EXPECT_EQ(session::CountTracksByStatus(retained_frame, session::TrackStatus::kConfirmed),
+            session::CountTracksByStatus(previous_frame, session::TrackStatus::kConfirmed));
   ASSERT_EQ(radar_context.SubmittedCommands().size(), previous_commands.size());
   for (std::size_t i = 0; i < previous_commands.size(); ++i) {
     EXPECT_EQ(radar_context.SubmittedCommands()[i].type, previous_commands[i].type);

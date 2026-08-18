@@ -256,10 +256,12 @@ Last-reviewed: 2026-08-17
   不得零碎单独修改。
 - **证据与建议裁定（2026-08-17，处置立项 Stage A）**：再进入条件已满足——估计层轨迹滤波
   （fusion P2，`51c87d70`/`0b1a1d6a`）与推演层识别面（target_inference，`9d402196`，
-  `InferenceTrackState.type_evidence` 外部证据输入位）均已落地。Stage A 判定方向：AR 公开输出
-  量测级重构（新增公开量测通道，航迹帧退出核心运行面，内部关联/滤波/生命周期降格为规则 3
-  行为建模不外发）；识别结论回填退出，类型证据改由推演层识别面供给；滤波原语单源核验已合规
-  （tracking 头为 common/estimation 重导出外观，零代码）。正式裁定随处置迁移契约签认冻结。
+  `InferenceTrackState.type_evidence` 外部证据输入位）均已落地。Stage A 判定方向：AR 走
+  航迹+量测双输出改造——航迹帧保留为 AR 核心公开输出（机载雷达的主职是探测与跟踪，航迹
+  是传感器本位产品，下游火控/武器分配依赖）；新增公开量测/检测输出通道作为补充（fusion
+  可消费量测级数据做特征融合）；识别结论（`target_type`/`target_probability`）退出航迹
+  公开面，类型证据改由推演层识别面供给；滤波原语单源核验已合规（tracking 头为
+  common/estimation 重导出外观，零代码）。正式裁定随处置迁移契约签认冻结。
   见 ar_esr_legacy_layering_debt_disposition_plan_2026-08-17.md。
   [evidence: docs/review/ar_esr_legacy_layering_debt_disposition_plan_2026-08-17.md]
   [evidence: include/1q/target_inference/InferenceTrackState.h]
@@ -335,3 +337,14 @@ Last-reviewed: 2026-08-17
   跨源一致）；方案 b（feature-only DetectionRecord）特征语义错位、方案 c（RIR 扩公开
   方位输出）破坏性公共 API 变更，均不立项。正式裁定随 P3 立项复核。见
   target_domain_p0_p1_decision_2026-08-17.md §4.3。
+- **裁定修订（2026-08-18 采纳，Stage A pass）**：RIR 转为**双产品形态**——识别结论
+  （装备使命产品，保留，形态不变）+ 特征量测帧（新增合法传感器量测产品：四维特征 +
+  逐维质量 + 有效掩码 + 库内键 + 视线角/效能上下文；**不含** external_target_id/
+  target_name 真值标识——去真值化纪律；特征语义=真值×效能约束转换，公共字段注释
+  明示）。豁免条款将转为契约正式条款（"识别类传感器双产品条款"文案已冻结，Stage B
+  随实施写入 contract.md 规则 2）。方案 a 键映射**降级为兼容选项**：特征记录带库内键
+  + 方位后融合层可自动关联，双源识别证据融合成为可组合能力。字段级冻结契约与证据
+  矩阵见 rir_dual_product_stage_a_2026-08-18.md。
+  [evidence: docs/review/rir_dual_product_stage_a_2026-08-18.md]
+- **当前边界（修订后）**：裁定生效前（Stage B 落地前）维持现状——RIR 输出仅识别结论，
+  接入走方案 a；RIR 不新增威胁评分等决策语义。落地后本条目迁出本文。

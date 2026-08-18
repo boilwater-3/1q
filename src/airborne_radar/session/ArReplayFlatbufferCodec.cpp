@@ -17,6 +17,17 @@ namespace {
 namespace fb = oneq::replay::airborne_radar::fb;
 namespace session_fb = oneq::replay::airborne_radar::session::fb;
 
+std::size_t CountTracksByStatus(const session::TrackStateSnapshotList& tracks,
+                                session::TrackStatus status) {
+  std::size_t count = 0U;
+  for (std::size_t i = 0; i < tracks.size(); ++i) {
+    if (tracks[i].status == status) {
+      ++count;
+    }
+  }
+  return count;
+}
+
 flatbuffers::Offset<fb::DecisionTrackStateSnapshot> EncodeTrackStateSnapshot(
     flatbuffers::FlatBufferBuilder* builder, const session::TrackStateSnapshot& value) {
   return fb::CreateDecisionTrackStateSnapshot(
@@ -24,6 +35,7 @@ flatbuffers::Offset<fb::DecisionTrackStateSnapshot> EncodeTrackStateSnapshot(
       value.position_x, value.position_y, value.position_z, value.velocity_x, value.velocity_y,
       value.velocity_z, value.speed, value.acceleration_x, value.acceleration_y,
       value.acceleration_z, value.acceleration, value.rcs, value.hit_count, value.miss_count,
+      builder->CreateString(value.target_type), value.target_probability,
       builder->CreateString(value.target_name), value.estimation_uncertainty_trace);
 }
 
@@ -52,6 +64,10 @@ session::TrackStateSnapshot DecodeTrackStateSnapshot(const fb::DecisionTrackStat
     result.rcs = value->rcs();
     result.hit_count = value->hit_count();
     result.miss_count = value->miss_count();
+    if (value->target_type() != nullptr) {
+      result.target_type = value->target_type()->str();
+    }
+    result.target_probability = value->target_probability();
     if (value->target_name() != nullptr) {
       result.target_name = value->target_name()->str();
     }
@@ -68,58 +84,33 @@ session::TrackStateSnapshot DecodeTrackSnapshot(const fb::TrackStateSnapshot* va
   return result;
 }
 
-flatbuffers::Offset<fb::ArDetectionRecord> EncodeDetectionRecord(
-    flatbuffers::FlatBufferBuilder* builder, const session::ArDetectionRecord& value) {
-  const flatbuffers::Offset<flatbuffers::Vector<float>> covariance_vec =
-      builder->CreateVector(value.measurement_covariance.data(),
-                            value.measurement_covariance.size());
-  return fb::CreateArDetectionRecord(*builder, value.position_x_m, value.position_y_m,
-                                     value.position_z_m, covariance_vec,
-                                     value.detection_margin_db);
-}
-
-session::ArDetectionRecord DecodeDetectionRecord(const fb::ArDetectionRecord* value) {
-  session::ArDetectionRecord result;
-  if (value != nullptr) {
-    result.position_x_m = value->position_x_m();
-    result.position_y_m = value->position_y_m();
-    result.position_z_m = value->position_z_m();
-    const flatbuffers::Vector<float>* covariance = value->measurement_covariance();
-    if (covariance != nullptr && covariance->size() == result.measurement_covariance.size()) {
-      for (flatbuffers::uoffset_t i = 0; i < covariance->size(); ++i) {
-        result.measurement_covariance[i] = covariance->Get(i);
-      }
-    }
-    result.detection_margin_db = value->detection_margin_db();
+flatbuffers::Offset<fb::TrackOutputFrame> EncodeTrackOutputFrame(
+    flatbuffers::FlatBufferBuilder* builder, const session::TrackOutputFrame& value) {
+  std::vector<flatbuffers::Offset<fb::TrackStateSnapshot>> track_offsets;
+  track_offsets.reserve(value.tracks.size());
+  for (std::size_t i = 0; i < value.tracks.size(); ++i) {
+    track_offsets.push_back(EncodeTrackSnapshot(builder, value.tracks[i]));
   }
-  return result;
+  const flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<fb::TrackStateSnapshot>>>
+      tracks_vec = builder->CreateVector(track_offsets);
+  return fb::CreateTrackOutputFrame(
+      *builder, value.cycle_index, static_cast<std::uint64_t>(value.tracks.size()), value.batch_id,
+      static_cast<std::uint64_t>(
+          CountTracksByStatus(value.tracks, session::TrackStatus::kConfirmed)),
+      CountTracksByStatus(value.tracks, session::TrackStatus::kLost) > 0U, tracks_vec);
 }
 
-flatbuffers::Offset<fb::ArDetectionOutputFrame> EncodeDetectionOutputFrame(
-    flatbuffers::FlatBufferBuilder* builder, const session::ArDetectionOutputFrame& value) {
-  std::vector<flatbuffers::Offset<fb::ArDetectionRecord>> detection_offsets;
-  detection_offsets.reserve(value.detections.size());
-  for (std::size_t i = 0; i < value.detections.size(); ++i) {
-    detection_offsets.push_back(EncodeDetectionRecord(builder, value.detections[i]));
-  }
-  const flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<fb::ArDetectionRecord>>>
-      detections_vec = builder->CreateVector(detection_offsets);
-  return fb::CreateArDetectionOutputFrame(*builder, value.cycle_index, value.batch_id,
-                                          detections_vec);
-}
-
-session::ArDetectionOutputFrame DecodeDetectionOutputFrame(
-    const fb::ArDetectionOutputFrame* value) {
-  session::ArDetectionOutputFrame result;
+session::TrackOutputFrame DecodeTrackOutputFrame(const fb::TrackOutputFrame* value) {
+  session::TrackOutputFrame result;
   if (value != nullptr) {
     result.cycle_index = value->cycle_index();
     result.batch_id = value->batch_id();
-    const flatbuffers::Vector<flatbuffers::Offset<fb::ArDetectionRecord>>* detections =
-        value->detections();
-    if (detections != nullptr) {
-      result.detections.reserve(detections->size());
-      for (flatbuffers::uoffset_t i = 0; i < detections->size(); ++i) {
-        result.detections.push_back(DecodeDetectionRecord(detections->Get(i)));
+    const flatbuffers::Vector<flatbuffers::Offset<fb::TrackStateSnapshot>>* tracks =
+        value->tracks();
+    if (tracks != nullptr) {
+      result.tracks.reserve(tracks->size());
+      for (flatbuffers::uoffset_t i = 0; i < tracks->size(); ++i) {
+        result.tracks.push_back(DecodeTrackSnapshot(tracks->Get(i)));
       }
     }
   }
@@ -1337,7 +1328,7 @@ flatbuffers::Offset<fb::ArCycleResultV3> EncodeCycleResultV3(
   const auto issues_fb = builder->CreateVector(issues);
   return fb::CreateArCycleResultV3(
       *builder, value.input_cycle_index, static_cast<int>(value.status),
-      EncodeDetectionOutputFrame(builder, value.output_frame),
+      EncodeTrackOutputFrame(builder, value.output_frame),
       EncodeRfV2Scene(builder, value.emission_frame), static_cast<int>(value.receiver_impairment),
       observations_fb, commands_fb, static_cast<int>(value.abort_reason),
       value.has_control_profile, EncodeArControlProfile(builder, value.control_profile),
@@ -1358,7 +1349,7 @@ bool TryDecodeCycleResultV3(const fb::ArCycleResultV3* value, ArCycleResult* res
   ArCycleResult candidate;
   candidate.input_cycle_index = value->input_cycle_index();
   candidate.status = static_cast<ArCycleStatus>(value->status());
-  candidate.output_frame = DecodeDetectionOutputFrame(value->output_frame());
+  candidate.output_frame = DecodeTrackOutputFrame(value->output_frame());
   candidate.emission_frame = DecodeRfV2Scene(value->emission_frame());
   candidate.receiver_impairment = static_cast<ArReceiverImpairment>(value->receiver_impairment());
   if (value->interference_observations() != nullptr) {

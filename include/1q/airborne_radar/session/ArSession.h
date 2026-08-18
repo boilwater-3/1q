@@ -49,10 +49,10 @@ class ONEQ_API ArSession {
   /**
    * @brief 执行一个不显式切场景的处理周期。
    * @param[in] input 当前周期输入。
-   * @return 当前周期生成的量测输出帧拷贝。
+   * @return 当前周期生成的轨迹输出帧拷贝。
    * @note 非法或被拒绝的周期返回默认的当前帧，不复用历史输出。
    */
-  ArDetectionOutputFrame Step(const ArCycleInput& input);
+  TrackOutputFrame Step(const ArCycleInput& input);
 
   /**
    * @brief 执行一个不显式切场景的处理周期，并返回聚合结果。
@@ -155,9 +155,9 @@ class ONEQ_API ArSession {
 }  // namespace session
 
 // 跨域传感器会话形状契约：锚定 Step/StepWithResult 签名，防止伪对称漂移。
-// AR 主输出帧类型为量测输出帧（TARGET-OQ-1 处置：传感器 raw output 保持量测形态）。
-ONEQ_SENSOR_SESSION_CONTRACT(session::ArSession, session::ArCycleInput,
-                             session::ArDetectionOutputFrame, session::ArCycleResult);
+// 注意：AR 主输出帧类型为 TrackOutputFrame（领域历史命名，非 ArOutputFrame）。
+ONEQ_SENSOR_SESSION_CONTRACT(session::ArSession, session::ArCycleInput, session::TrackOutputFrame,
+                             session::ArCycleResult);
 
 }  // namespace airborne_radar
 

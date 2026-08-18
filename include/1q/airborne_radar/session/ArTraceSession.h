@@ -69,8 +69,8 @@ class ONEQ_API ArTraceSession {
 
   ~ArTraceSession();
 
-  /** @brief 记录并执行一个单周期，返回当前周期量测输出帧。 */
-  ArDetectionOutputFrame Step(const ArCycleInput& input);
+  /** @brief 记录并执行一个单周期，返回当前周期轨迹帧。 */
+  TrackOutputFrame Step(const ArCycleInput& input);
 
   /** @brief 记录并执行一个单周期，返回结构化聚合结果。 */
   ArCycleResult StepWithResult(const ArCycleInput& input);
