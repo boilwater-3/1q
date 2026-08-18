@@ -147,7 +147,8 @@ flatbuffers::Offset<sbirs::replay::SbirsHardwareConfig> EncodeHardwareConfig(
       fbb, value.wavelength_lower_um, value.wavelength_upper_um, value.optical_aperture_m,
       value.optical_transmission, value.detector_quantum_efficiency,
       value.integration_time_sec, value.noise_equivalent_power_w, value.background_radiance_w_sr_m2,
-      value.detector_temperature_k, value.readout_noise_rms_w);
+      value.detector_temperature_k, value.readout_noise_rms_w, value.focal_length_m,
+      value.detector_pixel_pitch_m);
 }
 
 void DecodeHardwareConfig(const sbirs::replay::SbirsHardwareConfig* fb,
@@ -165,6 +166,8 @@ void DecodeHardwareConfig(const sbirs::replay::SbirsHardwareConfig* fb,
   out->background_radiance_w_sr_m2 = fb->background_radiance_w_sr_m2();
   out->detector_temperature_k = fb->detector_temperature_k();
   out->readout_noise_rms_w = fb->readout_noise_rms_w();
+  out->focal_length_m = fb->focal_length_m();
+  out->detector_pixel_pitch_m = fb->detector_pixel_pitch_m();
 }
 
 flatbuffers::Offset<sbirs::replay::SbirsMissionConfig> EncodeMissionConfig(
@@ -280,7 +283,9 @@ flatbuffers::Offset<sbirs::replay::SbirsPolicyConfig> EncodePolicyConfig(
           value.pointing_disturbance.channel_vibration_frequency_hz,
           value.pointing_disturbance.random_seed);
   const flatbuffers::Offset<sbirs::replay::SbirsSchedulerConfig> scheduler =
-      sbirs::replay::CreateSbirsSchedulerConfig(fbb, value.scheduler.max_concurrent_nfov_locks);
+      sbirs::replay::CreateSbirsSchedulerConfig(
+          fbb, value.scheduler.max_concurrent_nfov_locks,
+          value.scheduler.wide_to_narrow_required_consecutive_hits);
   const auto imm_coeffs = fbb.CreateVector(value.tracking.imm_model_noise_diff_coeffs);
   sbirs::replay::SbirsTrackingConfigBuilder tracking_builder(fbb);
   tracking_builder.add_tracking_mode(static_cast<std::int32_t>(value.tracking.tracking_mode));
@@ -333,6 +338,8 @@ bool DecodePolicyConfig(const sbirs::replay::SbirsPolicyConfig* fb,
   }
   if (fb->scheduler() != nullptr) {
     out->scheduler.max_concurrent_nfov_locks = fb->scheduler()->max_concurrent_nfov_locks();
+    out->scheduler.wide_to_narrow_required_consecutive_hits =
+        fb->scheduler()->wide_to_narrow_required_consecutive_hits();
   }
   if (fb->tracking() != nullptr) {
     const std::int32_t tracking_mode = fb->tracking()->tracking_mode();

@@ -60,6 +60,13 @@ struct ONEQ_API SbirsPointingDisturbanceConfig {
  */
 struct ONEQ_API SbirsSchedulerConfig {
   int max_concurrent_nfov_locks{1}; /**< 最大并发 NFOV 锁定通道数（>=1） */
+  /**
+   * @brief WFOV→NFOV 切换所需的连续 WFOV 检测命中次数（>=1）。
+   * @note 宽窄切换前置条件：目标连续 N 个周期通过 WFOV 几何+SNR 门后才允许进入
+   *       NFOV 调度。默认 1 与既有单次命中即调度行为逐位一致；计数在进入跟踪时清零，
+   *       丢锁回宽场后需重新积累。连续命中计数随验收日志输出（3.2.1.3.2.1）。
+   */
+  int wide_to_narrow_required_consecutive_hits{1};
 };
 
 /** @brief 首次 NFOV 捕获成功后采用的互斥跟踪模式。 */

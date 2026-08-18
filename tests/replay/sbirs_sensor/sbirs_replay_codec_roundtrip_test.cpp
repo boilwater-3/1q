@@ -324,6 +324,8 @@ TEST(SbirsReplayCodecRoundtripTest, SessionConfigPreservesAllDomains) {
   config.hardware.detector_quantum_efficiency = 0.65f;
   config.hardware.integration_time_sec = 0.04f;
   config.hardware.noise_equivalent_power_w = 2.0e-12f;
+  config.hardware.focal_length_m = 1.8f;              // 焦平面几何：非默认值防 decode 漏读
+  config.hardware.detector_pixel_pitch_m = 25.0e-6f;  // 焦平面几何：非默认值防 decode 漏读
   config.mission.work_mode = SbirsWorkMode::kWideSearch;
   config.sensor_enabled = false;  // 非默认值防 decode 漏读（COMMON-OQ-4 字段提升）
   config.mission.scan_start_az_deg = 170.0f;
@@ -352,6 +354,7 @@ TEST(SbirsReplayCodecRoundtripTest, SessionConfigPreservesAllDomains) {
   config.policy.pointing_disturbance.channel_vibration_frequency_hz = 4.0f;
   config.policy.pointing_disturbance.random_seed = 43U;
   config.policy.scheduler.max_concurrent_nfov_locks = 3;
+  config.policy.scheduler.wide_to_narrow_required_consecutive_hits = 2;  // 宽窄切换前置条件
   config.policy.tracking.tracking_mode = config::SbirsTrackingMode::kStrictTruthAssisted;
   config.policy.tracking.estimated_backend = config::SbirsEstimatedTrackingBackend::kEkf;
   config.policy.tracking.process_noise_diff_coeff = 2.5f;
@@ -408,6 +411,9 @@ TEST(SbirsReplayCodecRoundtripTest, SessionConfigPreservesAllDomains) {
   EXPECT_FLOAT_EQ(decoded.policy.pointing_disturbance.channel_vibration_frequency_hz, 4.0f);
   EXPECT_EQ(decoded.policy.pointing_disturbance.random_seed, 43U);
   EXPECT_EQ(decoded.policy.scheduler.max_concurrent_nfov_locks, 3);
+  EXPECT_EQ(decoded.policy.scheduler.wide_to_narrow_required_consecutive_hits, 2);
+  EXPECT_FLOAT_EQ(decoded.hardware.focal_length_m, 1.8f);
+  EXPECT_FLOAT_EQ(decoded.hardware.detector_pixel_pitch_m, 25.0e-6f);
   EXPECT_EQ(decoded.policy.tracking.tracking_mode,
             config::SbirsTrackingMode::kStrictTruthAssisted);
   EXPECT_EQ(decoded.policy.tracking.estimated_backend,

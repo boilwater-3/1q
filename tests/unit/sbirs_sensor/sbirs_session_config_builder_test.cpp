@@ -162,6 +162,35 @@ TEST(SbirsSessionConfigBuilderTest, RejectsZeroTrackingGateLossCycles) {
                            "sbirs.validation.invalid_tracking_gate_loss_cycles"));
 }
 
+TEST(SbirsSessionConfigBuilderTest, RejectsNonPositiveFocalPlaneConfig) {
+  // 焦平面几何（3.2.1.3.2.3）：焦距/像元间距非正须拒绝；默认值恒通过。
+  sbirs_sensor::config::SbirsSessionConfig config;
+  config.hardware.focal_length_m = 0.0f;
+  EXPECT_TRUE(ContainsCode(sbirs_sensor::config::ValidateSbirsSessionConfig(config),
+                           "sbirs.validation.focal_plane_config_not_positive"));
+
+  config.hardware.focal_length_m = 2.0f;
+  config.hardware.detector_pixel_pitch_m = -1.0e-6f;
+  EXPECT_TRUE(ContainsCode(sbirs_sensor::config::ValidateSbirsSessionConfig(config),
+                           "sbirs.validation.focal_plane_config_not_positive"));
+
+  config.hardware.detector_pixel_pitch_m = std::numeric_limits<float>::quiet_NaN();
+  EXPECT_TRUE(ContainsCode(sbirs_sensor::config::ValidateSbirsSessionConfig(config),
+                           "sbirs.validation.focal_plane_config_not_positive"));
+}
+
+TEST(SbirsSessionConfigBuilderTest, RejectsInvalidWideToNarrowRequiredHits) {
+  // 宽窄切换前置条件（3.2.1.3.2.1）：连续命中阈值须 >=1；默认 1 恒通过。
+  sbirs_sensor::config::SbirsSessionConfig config;
+  config.policy.scheduler.wide_to_narrow_required_consecutive_hits = 0;
+  EXPECT_TRUE(ContainsCode(sbirs_sensor::config::ValidateSbirsSessionConfig(config),
+                           "sbirs.validation.invalid_wide_to_narrow_required_hits"));
+
+  config.policy.scheduler.wide_to_narrow_required_consecutive_hits = 1;
+  EXPECT_FALSE(ContainsCode(sbirs_sensor::config::ValidateSbirsSessionConfig(config),
+                            "sbirs.validation.invalid_wide_to_narrow_required_hits"));
+}
+
 TEST(SbirsSessionConfigBuilderTest, ValidatesPointingDisturbanceParameters) {
   sbirs_sensor::config::SbirsSessionConfig config;
   config.policy.pointing_disturbance.common_attitude_sigma_deg = -0.1f;

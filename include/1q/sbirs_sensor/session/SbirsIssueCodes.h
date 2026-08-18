@@ -41,6 +41,14 @@ constexpr char kWavelengthBandInvalid[] = "sbirs.validation.wavelength_band_inva
 /** @brief 硬件光学孔径非正。 */
 constexpr char kOpticalApertureNotPositive[] = "sbirs.validation.optical_aperture_not_positive";
 
+/** @brief 焦平面配置非法（焦距/像元间距须为正有限值；3.2.1.3.2.3 焦平面脱靶量映射）。 */
+constexpr char kFocalPlaneConfigNotPositive[] =
+    "sbirs.validation.focal_plane_config_not_positive";
+
+/** @brief 宽窄切换连续命中阈值非法（须 >=1；3.2.1.3.2.1 宽窄切换前置条件）。 */
+constexpr char kInvalidWideToNarrowRequiredHits[] =
+    "sbirs.validation.invalid_wide_to_narrow_required_hits";
+
 /** @brief 任务视场角非正。 */
 constexpr char kMissionFovNotPositive[] = "sbirs.validation.mission_fov_not_positive";
 

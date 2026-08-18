@@ -20,7 +20,6 @@ struct ONEQ_API SbirsHardwareConfig {
   float wavelength_lower_um{3.0f};   /**< 工作波段下限，单位 μm（默认 MWIR 下沿 3.0） */
   float wavelength_upper_um{5.0f};   /**< 工作波段上限，单位 μm（默认 MWIR 上沿 5.0） */
   float optical_aperture_m{0.5f};    /**< 光学孔径，单位 m */
-  /** 探测器像元面积（m²）；当前标量链路不消费，保留 replay 兼容。 */
   float optical_transmission{0.8f};  /**< 光学透过率，无量纲 */
   float detector_quantum_efficiency{0.7f}; /**< 探测器量子效率，无量纲 */
   float integration_time_sec{0.02f};       /**< 积分时间，单位 s */
@@ -29,6 +28,9 @@ struct ONEQ_API SbirsHardwareConfig {
   float background_radiance_w_sr_m2{0.0f};   /**< 背景辐射亮度，用于光子噪声（W/(sr·m²)） */
   float detector_temperature_k{80.0f};        /**< 探测器工作温度，用于热噪声，单位 K */
   float readout_noise_rms_w{0.0f};            /**< 读出噪声 RMS，单位 W 等效 */
+  // 焦平面几何（3.2.1.3.2.3 焦平面脱靶量映射）：仅验收日志消费，不进标量探测链路。
+  float focal_length_m{2.0f};       /**< 光学焦距，单位 m（>0；NFOV 脱靶量 x = f·tan(Δaz)） */
+  float detector_pixel_pitch_m{30.0e-6f}; /**< 探测器像元间距，单位 m（>0；脱靶量像素数 = 米/间距） */
 };
 
 }  // namespace config

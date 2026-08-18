@@ -34,6 +34,14 @@ session::SbirsIssueList ValidateSbirsSessionConfig(const SbirsSessionConfig& con
     AddError(session::codes::kOpticalApertureNotPositive,
              "hardware optical aperture must be positive", &issues);
   }
+  // 焦平面几何（3.2.1.3.2.3）：焦距/像元间距须为正有限值；仅验收日志消费，默认值恒通过。
+  if (!std::isfinite(config.hardware.focal_length_m) ||
+      config.hardware.focal_length_m <= 0.0f ||
+      !std::isfinite(config.hardware.detector_pixel_pitch_m) ||
+      config.hardware.detector_pixel_pitch_m <= 0.0f) {
+    AddError(session::codes::kFocalPlaneConfigNotPositive,
+             "hardware focal length and detector pixel pitch must be positive and finite", &issues);
+  }
   if (config.mission.wide_field_fov_az_deg <= 0.0f ||
       config.mission.wide_field_fov_el_deg <= 0.0f ||
       config.mission.narrow_field_fov_az_deg <= 0.0f ||
@@ -245,6 +253,10 @@ session::SbirsIssueList ValidateSbirsSessionConfig(const SbirsSessionConfig& con
   if (config.policy.scheduler.max_concurrent_nfov_locks < 1) {
     AddError(session::codes::kInvalidSchedulerNfovLocks,
              "scheduler max_concurrent_nfov_locks must be at least 1", &issues);
+  }
+  if (config.policy.scheduler.wide_to_narrow_required_consecutive_hits < 1) {
+    AddError(session::codes::kInvalidWideToNarrowRequiredHits,
+             "scheduler wide_to_narrow_required_consecutive_hits must be at least 1", &issues);
   }
   const SbirsTrackingConfig& tracking = config.policy.tracking;
   if (tracking.tracking_mode != SbirsTrackingMode::kEstimated &&
