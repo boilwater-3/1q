@@ -166,15 +166,15 @@ void DecodeFeatureMeasurement(const fb::RirFeatureMeasurementRecordV1* value,
   out->batch_id = value->batch_id();
 }
 
-flatbuffers::Offset<fb::RirTrackAttributionRecord> EncodeTrackAttribution(
+flatbuffers::Offset<fb::RirTrackAttributionRecordV2> EncodeTrackAttribution(
     flatbuffers::FlatBufferBuilder* builder, const RirTrackAttributionRecord& value) {
-  return fb::CreateRirTrackAttributionRecord(
+  return fb::CreateRirTrackAttributionRecordV2(
       *builder, value.association_key, value.external_target_id,
       builder->CreateString(value.target_name), value.hit_count, value.position_enu_x_m,
       value.position_enu_y_m, value.position_enu_z_m, value.speed_m_per_s);
 }
 
-void DecodeTrackAttribution(const fb::RirTrackAttributionRecord* value,
+void DecodeTrackAttribution(const fb::RirTrackAttributionRecordV2* value,
                             RirTrackAttributionRecord* out) {
   if (value == nullptr) {
     return;
@@ -262,7 +262,7 @@ std::string EncodeCycleReplayRecordFlatbuffer(const RirCycleReplayRecord& record
   }
 
   // 航迹归属视图（结果层加性向量，总是写入）。
-  std::vector<flatbuffers::Offset<fb::RirTrackAttributionRecord>> attributions;
+  std::vector<flatbuffers::Offset<fb::RirTrackAttributionRecordV2>> attributions;
   attributions.reserve(record.result.track_attributions.size());
   for (std::size_t i = 0U; i < record.result.track_attributions.size(); ++i) {
     attributions.push_back(
@@ -397,7 +397,7 @@ bool DecodeCycleReplayRecordFlatbuffer(const std::string& payload_bytes,
   const auto* attributions = result->track_attributions();
   if (attributions != nullptr) {
     candidate.result.track_attributions.reserve(attributions->size());
-    for (const fb::RirTrackAttributionRecord* attribution : *attributions) {
+    for (const fb::RirTrackAttributionRecordV2* attribution : *attributions) {
       if (attribution == nullptr) {
         continue;
       }

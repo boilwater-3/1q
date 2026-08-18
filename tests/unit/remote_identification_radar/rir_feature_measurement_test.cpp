@@ -9,6 +9,7 @@
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <string>
@@ -273,6 +274,66 @@ TEST(RirFeatureMeasurementTest, SessionEmitsFeatureMeasurementsAndRejectsCleanly
   EXPECT_EQ(rejected_result.status, RirCycleStatus::kRejectedInvalidInput);
   EXPECT_TRUE(rejected_result.output_frame.feature_measurements.empty());
   EXPECT_TRUE(rejected_result.track_attributions.empty());
+}
+
+/// @brief 质量门只挡积累不挡量测出口（冻结语义）：短驻留观测质量低于积累门限
+///        （kMinimumObservationQuality=0.05）仍照常出口——透出点在质量门之前。
+TEST(RirFeatureMeasurementTest, ShortDwellObservationStillEmitted) {
+  const std::string database_path = WriteFeatureDatabase();
+  ASSERT_FALSE(database_path.empty());
+
+  config::RirMissionConfig mission = MakeIdentifyMission();
+  mission.recognition_dwell_sec = 0.001f;  // 驻留质量因子 0.02 → 观测质量低于门限。
+  config::RirPolicyConfig policy = MakeFallbackPolicy();
+  policy.lifecycle.confirm_hits = 5U;  // 单周期 tentative → 运动维无效（驻留不缩放运动维）。
+  policy.recognition.enabled = true;
+  policy.recognition.database_path = database_path;
+  runtime::RirController controller;
+  controller.SetHardware(config::RirHardwareConfig{});
+  controller.UpdateRuntime(mission, policy);
+
+  // 提高检测 RCS 保证短驻留下 SNR 仍过 6 dB 特征门（检测 SNR 与特征提取共用）。
+  RirSceneTarget target = MakeFeaturedTarget();
+  target.rcs = 100.0f;
+
+  session::RirOutputFrame frame;
+  controller.RunCycle(MakeInput(1U, target), &frame);
+
+  // 航迹与出口②照常；特征量测不受积累质量门影响，照常出口。
+  ASSERT_EQ(frame.recognition_outputs.size(), 1U);
+  ASSERT_EQ(frame.feature_measurements.size(), 1U);
+  const session::RirFeatureMeasurementRecord& record = frame.feature_measurements[0];
+  EXPECT_NE(record.valid_feature_mask, 0U);
+  EXPECT_FLOAT_EQ(record.dwell_sec, 0.001f);
+  // 自证前提：四维最大质量确实低于积累门限（否则本用例未覆盖该语义）。
+  const float max_quality =
+      std::max(std::max(record.features.rcs.quality, record.features.motion.quality),
+               std::max(record.features.polarization.quality,
+                        record.features.range_profile.quality));
+  EXPECT_LT(max_quality, 0.05f);
+}
+
+/// @brief 超识别最大距离的键不产生特征记录（透出原则：观测在构建前即被距离门
+///        跳过）；检测/关联/出口②/归属不受识别距离门影响。
+TEST(RirFeatureMeasurementTest, RangeGatedTargetProducesNoFeatureRecord) {
+  const std::string database_path = WriteFeatureDatabase();
+  ASSERT_FALSE(database_path.empty());
+
+  config::RirMissionConfig mission = MakeIdentifyMission();
+  mission.max_range_m = 3000.0f;  // 目标斜距 ≈5385 m > 识别最大距离。
+  config::RirPolicyConfig policy = MakeFallbackPolicy();
+  policy.recognition.enabled = true;
+  policy.recognition.database_path = database_path;
+  runtime::RirController controller;
+  controller.SetHardware(config::RirHardwareConfig{});
+  controller.UpdateRuntime(mission, policy);
+
+  session::RirOutputFrame frame;
+  controller.RunCycle(MakeInput(1U, MakeFeaturedTarget()), &frame);
+
+  ASSERT_EQ(frame.recognition_outputs.size(), 1U);
+  EXPECT_EQ(controller.LatestTrackAttributions().size(), 1U);
+  EXPECT_TRUE(frame.feature_measurements.empty());
 }
 
 }  // namespace

@@ -25,16 +25,11 @@ double ArBaseQualityForStatus(airborne_radar::session::TrackStatus status) {
   return status == airborne_radar::session::TrackStatus::kConfirmed ? 1.0 : 0.5;
 }
 
-/// east 起量方位 → north 起量方位（90° − az，wrap 到 [-180, 180]）。
+/// east 起量方位 → north 起量方位（90° − az，wrap 到 [-180, 180]；
+/// 非有限输入由 NormalizeAngle180 归 0）。
 double EastToNorthAzimuthDeg(float look_az_deg) {
-  double az_deg = 90.0 - static_cast<double>(look_az_deg);
-  while (az_deg > 180.0) {
-    az_deg -= 360.0;
-  }
-  while (az_deg <= -180.0) {
-    az_deg += 360.0;
-  }
-  return az_deg;
+  return static_cast<double>(
+      oneq::common::numerics::NormalizeAngle180(90.0f - look_az_deg));
 }
 
 /// 11 维固定布局（冻结契约 §3.2）；无效维显式填 0（NaN 禁止——毒化欧氏门），
@@ -51,10 +46,10 @@ std::vector<double> BuildRirFeatureVector(
     feature[1] = measurement.features.motion.speed_m_per_s / 1.0e3;
     feature[2] = measurement.features.motion.altitude_m / 1.0e3;
     feature[3] = measurement.features.motion.acceleration_m_per_s2;
-    // log10 仅对正半径定义；非正半径按无效处理填 0（防 -inf 毒化欧氏门）。
-    feature[4] = measurement.features.motion.turn_radius_m > 0.0f
-                     ? std::log10(static_cast<double>(measurement.features.motion.turn_radius_m))
-                     : 0.0;
+    // log10 仅对正有限半径定义；非正/非有限半径回退 1.0（log10=0，与无效维 0 填
+    // 同值，防 ±inf 毒化欧氏门）。
+    feature[4] = std::log10(oneq::common::numerics::SafePositive(
+        static_cast<double>(measurement.features.motion.turn_radius_m), 1.0));
   }
   if ((mask & static_cast<std::uint8_t>(rir::RirRecognitionFeatureDimension::kPolarization)) !=
       0U) {

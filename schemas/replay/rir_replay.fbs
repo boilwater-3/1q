@@ -171,7 +171,7 @@ table RirRecognitionCycleSummaryV2 {
   dwell_budget:RirDwellBudgetSummaryV2;
 }
 
-table RirTrackAttributionRecord {
+table RirTrackAttributionRecordV2 {
   association_key:ulong;
   external_target_id:ulong;
   target_name:string;
@@ -195,7 +195,7 @@ table RirCycleResultV2 {
   designation_revert_reason:int = 0;
   dwell_center_az_deg:float = 0.0;
   dwell_center_el_deg:float = 0.0;
-  track_attributions:[RirTrackAttributionRecord];
+  track_attributions:[RirTrackAttributionRecordV2];
 }
 
 table RirSessionReplayStateV2 {
