@@ -288,6 +288,7 @@ set(RIR_PUBLIC_PRIMARY_HEADERS
 set(RIR_SESSION_HEADERS
     "remote_identification_radar/session/RirCycleInput.h"
     "remote_identification_radar/session/RirCycleResult.h"
+    "remote_identification_radar/session/RirFeatureMeasurementTypes.h"
     "remote_identification_radar/session/RirInputValidation.h"
     "remote_identification_radar/session/RirIssueCodes.h"
     "remote_identification_radar/session/RirOutputTypes.h"

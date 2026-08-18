@@ -189,7 +189,7 @@ public 输出字段（raw output、`*CycleResult`、public DTO 一致适用）�
 | 项 | 实际结果 |
 |---|---|
 | 实现范围 | 三提交全量落地冻结契约：①出口①公开类型（`RirFeatureMeasurementTypes.h`）+ 平台位置输入（`RirEcefPositionM`，fail-closed 双 code）+ 透出路径（`RirTracker::UpdateCycle` 采集出参 → `RirController` 组装）+ 归属视图（`RirTrackAttributionRecord` 挂 `RirCycleResult`，全快照同循环）；②replay 加性扩展（V1 输出帧特征向量 + V2 结果表归属向量，`RIR2` 不变）；③fusion 适配器（`kRirSourceId=5`，11 维布局/east→north/等权质量/sensor_origin 换算退化）。四项规划期裁定（stage-b 分支、平铺向量+独立帧类型、全快照归属、透出原则）随实施落死。 |
-| 验证命令与结果 | Windows v141+UseEnv 流程（`build/vcbuild.bat <target> Release`）+ ctest（Release）：`unit::remote_identification_radar` 135/135、`replay::remote_identification_radar` 5/5、`unit::fusion` 51/51、`integration::remote_identification_radar` 29/29、`integration::cross_domain` 与 `target_layer_purity_guard` 全绿；既有测试与阈值零修改。合并前按 completeness-review 流程跑 release 全量（见残留风险）。 |
+| 验证命令与结果 | Windows v141+UseEnv 流程（`build/vcbuild.bat <target> Release`）+ ctest（Release）：聚焦分区 `unit::remote_identification_radar` 135/135、`replay::remote_identification_radar` 5/5、`unit::fusion` 51/51、`integration::remote_identification_radar` 29/29；completeness-review 全量 **60/60 全绿**（含 `public_api_boundary_guard`/`install_manifest_guard`——新公开头已登记 RIR_SESSION_HEADERS 白名单）；既有测试与阈值零修改。 |
 | 残留风险 | ①F4 narrow 已知近似（无效维 0 填向欧氏门贡献失真）——mask-aware 门升级为后续冻结项；②旧 RIR2 回放记录"缺字段解码为空"的兼容路径无存量回放夹具回归（null 守卫为机制保证）；③出口①在无库/超距/非识别模式周期为空帧（透出原则裁定）——下游若假设逐周期连续特征流，需以 valid 周期集合对齐；④特征物理化（RIR-OQ-1）未做，特征非统计真实量测。 |
 
 后续冻结项（各自独立立项，本文只登记）：①~~平台位置输入字段（origin 通道）~~
