@@ -24,7 +24,9 @@ threat_assessment 先例：泛型输入帧、无状态纯函数、算法不感�
   无协方差输入的产品显式 `has_uncertainty=false`，消费方不得把 σ=0 读作零误差。
 - **输入对接**：调用方从 `fusion::FusedTarget` 组装 `InferenceTrackState`（值级传递，
   不引用 fusion 类型——分层契约规则 1）；RIR 识别结论经调用方键映射转成类型证据
-  （TARGET-OQ-4 方案 a，零库内改动）。
+  （TARGET-OQ-4 方案 a，零库内改动）。**多源证据预留**（2026-08-18 OQ-4 修订）：
+  RIR 双产品出口①（特征量测帧）落地后，类型证据可由多源特征证据组合——本模块仅
+  预留证据通道语义（输入帧的 type_evidence 向量），不在模块内实现特征级识别算法。
 - 弹道模型私有于本模块（中心引力 + 可选指数大气阻力 RK4），不依赖
   JSBSim/flight_dynamic。
 

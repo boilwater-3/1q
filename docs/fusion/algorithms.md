@@ -70,6 +70,15 @@ Answers: 每个融合算法怎么实现、边界在哪、反直觉点是什么
 | `AdaptEsrHypothesesToDetectionRecords` | `hypothesis_id == 0` | `hypothesis_id` | `confidence` |
 | `AdaptEosDetectionsToDetectionRecords` | `detected == false` | 0（方位相干） | `fused_snr_db / 10`（10 dB → 1.0）夹取 [0,1] |
 | `AdaptSbirsDetectionsToDetectionRecords` | `detected == false` | 0（方位相干） | `infrared_snr_linear / 4`（WFOV 门限 4.0 → 1.0）夹取 [0,1] |
+| `AdaptRirFeatureMeasurementsToDetectionRecords`（**规划中**，Stage B 落地，冻结契约见 `docs/review/rir_dual_product_stage_a_2026-08-18.md` §3.2/§3.3） | 全维无效记录 | `association_key`（库内键透传，ESR 先例） | 有效维质量加权均值 |
+
+**RIR 特征量测映射（规划冻结要点）**：11 维固定布局（RCS dBsm / 速度 km/s / 高度 km /
+加速度 m/s² / log10 转弯半径 / 极化三量 dB / 距离像长度 m / 峰数 / 峰能集中度），
+**无效维填 0**（NaN 禁止——毒化欧氏门）、有效性以帧内 valid_feature_mask 为权威；
+方位通道做 east→north 参考换算（az = wrap(90° − look_az)）；不带 sensor_origin
+（平台位置输入缺失，独立后续冻结项）→ 参与关联与特征门、不参与三维方位滤波。
+已知近似：0 填对欧氏特征门引入失真，mask-aware 门升级为后续冻结项；跨源维度不一致
+（ESR 4 维 vs RIR 11 维）维持"门不约束"既有语义。
 
 ### 实现边界
 

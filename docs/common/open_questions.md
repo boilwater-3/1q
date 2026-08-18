@@ -34,7 +34,7 @@ Last-reviewed: 2026-08-17
 | TARGET-OQ-1 | target-layer | AR 估计/推演职责前置 | 消费级航迹产品 + 识别结论回填 public 输出 | open |
 | TARGET-OQ-2 | target-layer | ESR 威胁等级进 public 输出 | threat_level 由传感器生产并被 ECM 下游消费 | open |
 | TARGET-OQ-3 | target-layer | SBIRS Estimated 后验外发 | 滤波后验角度作为 raw output 检测记录 | open |
-| TARGET-OQ-4 | target-layer | RIR 识别产品形态 | 识别即装备使命，与分层契约规则 2 张力 | open |
+| TARGET-OQ-4 | target-layer | RIR 识别产品形态 | 双产品裁定已采纳（2026-08-18），待 Stage B 落地迁出 | adopted（待 Stage B） |
 
 ## Common 非阻塞边界
 
@@ -317,3 +317,14 @@ Last-reviewed: 2026-08-17
   跨源一致）；方案 b（feature-only DetectionRecord）特征语义错位、方案 c（RIR 扩公开
   方位输出）破坏性公共 API 变更，均不立项。正式裁定随 P3 立项复核。见
   target_domain_p0_p1_decision_2026-08-17.md §4.3。
+- **裁定修订（2026-08-18 采纳，Stage A pass）**：RIR 转为**双产品形态**——识别结论
+  （装备使命产品，保留，形态不变）+ 特征量测帧（新增合法传感器量测产品：四维特征 +
+  逐维质量 + 有效掩码 + 库内键 + 视线角/效能上下文；**不含** external_target_id/
+  target_name 真值标识——去真值化纪律；特征语义=真值×效能约束转换，公共字段注释
+  明示）。豁免条款将转为契约正式条款（"识别类传感器双产品条款"文案已冻结，Stage B
+  随实施写入 contract.md 规则 2）。方案 a 键映射**降级为兼容选项**：特征记录带库内键
+  + 方位后融合层可自动关联，双源识别证据融合成为可组合能力。字段级冻结契约与证据
+  矩阵见 rir_dual_product_stage_a_2026-08-18.md。
+  [evidence: docs/review/rir_dual_product_stage_a_2026-08-18.md]
+- **当前边界（修订后）**：裁定生效前（Stage B 落地前）维持现状——RIR 输出仅识别结论，
+  接入走方案 a；RIR 不新增威胁评分等决策语义。落地后本条目迁出本文。
