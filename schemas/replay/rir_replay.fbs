@@ -3,6 +3,9 @@
 //   - 航迹语义内化（自持跟踪，不再回放外部供给字段）；
 //   - 识别效能摘要增加驻留预算；
 //   - 会话状态增加检测随机种子。
+// Stage B 双产品加性扩展（2026-08-18）：输出帧加特征量测向量（出口①）、
+//   结果表加航迹归属向量——V2 表加可选字段，root_type 与 "RIR2" 标识不变，
+//   旧记录缺新字段时解码为空值（flatbuffers 加性规则）。
 // V2 为唯一支持 root_type；V1 保留仅用于旧记录识别与显式拒绝。
 
 namespace oneq.replay.remote_identification_radar.fb;
@@ -35,10 +38,72 @@ table RirTrackRecognitionOutputV1 {
   result:RirRecognitionResultV1;
 }
 
+// ===== Stage B 双产品加性扩展（2026-08-18；RIR2 标识不变，旧记录缺字段解码为空）=====
+
+table RirRcsFeatureObservationV1 {
+  valid:bool;
+  mean_dbsm:float;
+  std_db:float;
+  azimuth_variation_db:float;
+  elevation_variation_db:float;
+  peak_to_valley_db:float;
+  aspect_coverage_deg:float;
+  quality:float;
+}
+
+table RirMotionFeatureObservationV1 {
+  valid:bool;
+  speed_m_per_s:float;
+  altitude_m:float;
+  acceleration_m_per_s2:float;
+  turn_radius_m:float;
+  is_straight:bool;
+  quality:float;
+}
+
+table RirPolarizationFeatureObservationV1 {
+  valid:bool;
+  energy_difference_db:float;
+  relative_difference_db:float;
+  energy_sum_db:float;
+  quality:float;
+}
+
+table RirRangeProfileFeatureObservationV1 {
+  valid:bool;
+  length_m:float;
+  peak_count:uint;
+  peak_energy_concentration:float;
+  resolution_m:float;
+  quality:float;
+}
+
+table RirFeatureMeasurementRecordV1 {
+  association_key:ulong;
+  rcs:RirRcsFeatureObservationV1;
+  motion:RirMotionFeatureObservationV1;
+  polarization:RirPolarizationFeatureObservationV1;
+  range_profile:RirRangeProfileFeatureObservationV1;
+  valid_feature_mask:ubyte;
+  look_az_deg:float;
+  look_el_deg:float;
+  range_m:float;
+  snr_db:float;
+  dwell_sec:float;
+  bandwidth_hz:float;
+  has_platform_position:bool;
+  platform_position_x_m:double;
+  platform_position_y_m:double;
+  platform_position_z_m:double;
+  cycle_index:uint;
+  batch_id:ulong;
+}
+
 table RirOutputFrameV1 {
   input_cycle_index:uint;
   batch_id:ulong;
   recognition_outputs:[RirTrackRecognitionOutputV1];
+  feature_measurements:[RirFeatureMeasurementRecordV1];
 }
 
 table RirRecognitionCycleSummaryV1 {
@@ -106,6 +171,17 @@ table RirRecognitionCycleSummaryV2 {
   dwell_budget:RirDwellBudgetSummaryV2;
 }
 
+table RirTrackAttributionRecord {
+  association_key:ulong;
+  external_target_id:ulong;
+  target_name:string;
+  hit_count:uint;
+  position_enu_x_m:double;
+  position_enu_y_m:double;
+  position_enu_z_m:double;
+  speed_m_per_s:double;
+}
+
 table RirCycleResultV2 {
   input_cycle_index:uint;
   status:int;
@@ -119,6 +195,7 @@ table RirCycleResultV2 {
   designation_revert_reason:int = 0;
   dwell_center_az_deg:float = 0.0;
   dwell_center_el_deg:float = 0.0;
+  track_attributions:[RirTrackAttributionRecord];
 }
 
 table RirSessionReplayStateV2 {

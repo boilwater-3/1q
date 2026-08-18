@@ -74,6 +74,123 @@ bool DecodeRecognitionResult(const fb::RirRecognitionResultV1* value, RirRecogni
   return true;
 }
 
+flatbuffers::Offset<fb::RirFeatureMeasurementRecordV1> EncodeFeatureMeasurement(
+    flatbuffers::FlatBufferBuilder* builder, const RirFeatureMeasurementRecord& value) {
+  const flatbuffers::Offset<fb::RirRcsFeatureObservationV1> rcs =
+      fb::CreateRirRcsFeatureObservationV1(
+          *builder, value.features.rcs.valid, value.features.rcs.mean_dbsm,
+          value.features.rcs.std_db, value.features.rcs.azimuth_variation_db,
+          value.features.rcs.elevation_variation_db, value.features.rcs.peak_to_valley_db,
+          value.features.rcs.aspect_coverage_deg, value.features.rcs.quality);
+  const flatbuffers::Offset<fb::RirMotionFeatureObservationV1> motion =
+      fb::CreateRirMotionFeatureObservationV1(
+          *builder, value.features.motion.valid, value.features.motion.speed_m_per_s,
+          value.features.motion.altitude_m, value.features.motion.acceleration_m_per_s2,
+          value.features.motion.turn_radius_m, value.features.motion.is_straight,
+          value.features.motion.quality);
+  const flatbuffers::Offset<fb::RirPolarizationFeatureObservationV1> polarization =
+      fb::CreateRirPolarizationFeatureObservationV1(
+          *builder, value.features.polarization.valid,
+          value.features.polarization.energy_difference_db,
+          value.features.polarization.relative_difference_db,
+          value.features.polarization.energy_sum_db, value.features.polarization.quality);
+  const flatbuffers::Offset<fb::RirRangeProfileFeatureObservationV1> range_profile =
+      fb::CreateRirRangeProfileFeatureObservationV1(
+          *builder, value.features.range_profile.valid, value.features.range_profile.length_m,
+          value.features.range_profile.peak_count,
+          value.features.range_profile.peak_energy_concentration,
+          value.features.range_profile.resolution_m, value.features.range_profile.quality);
+  return fb::CreateRirFeatureMeasurementRecordV1(
+      *builder, value.association_key, rcs, motion, polarization, range_profile,
+      value.valid_feature_mask, value.look_az_deg, value.look_el_deg, value.range_m,
+      value.snr_db, value.dwell_sec, value.bandwidth_hz, value.has_platform_position,
+      value.platform_position.x_m, value.platform_position.y_m, value.platform_position.z_m,
+      value.cycle_index, value.batch_id);
+}
+
+void DecodeFeatureMeasurement(const fb::RirFeatureMeasurementRecordV1* value,
+                               RirFeatureMeasurementRecord* out) {
+  if (value == nullptr) {
+    return;
+  }
+  out->association_key = value->association_key();
+  if (value->rcs() != nullptr) {
+    out->features.rcs.valid = value->rcs()->valid();
+    out->features.rcs.mean_dbsm = value->rcs()->mean_dbsm();
+    out->features.rcs.std_db = value->rcs()->std_db();
+    out->features.rcs.azimuth_variation_db = value->rcs()->azimuth_variation_db();
+    out->features.rcs.elevation_variation_db = value->rcs()->elevation_variation_db();
+    out->features.rcs.peak_to_valley_db = value->rcs()->peak_to_valley_db();
+    out->features.rcs.aspect_coverage_deg = value->rcs()->aspect_coverage_deg();
+    out->features.rcs.quality = value->rcs()->quality();
+  }
+  if (value->motion() != nullptr) {
+    out->features.motion.valid = value->motion()->valid();
+    out->features.motion.speed_m_per_s = value->motion()->speed_m_per_s();
+    out->features.motion.altitude_m = value->motion()->altitude_m();
+    out->features.motion.acceleration_m_per_s2 = value->motion()->acceleration_m_per_s2();
+    out->features.motion.turn_radius_m = value->motion()->turn_radius_m();
+    out->features.motion.is_straight = value->motion()->is_straight();
+    out->features.motion.quality = value->motion()->quality();
+  }
+  if (value->polarization() != nullptr) {
+    out->features.polarization.valid = value->polarization()->valid();
+    out->features.polarization.energy_difference_db =
+        value->polarization()->energy_difference_db();
+    out->features.polarization.relative_difference_db =
+        value->polarization()->relative_difference_db();
+    out->features.polarization.energy_sum_db = value->polarization()->energy_sum_db();
+    out->features.polarization.quality = value->polarization()->quality();
+  }
+  if (value->range_profile() != nullptr) {
+    out->features.range_profile.valid = value->range_profile()->valid();
+    out->features.range_profile.length_m = value->range_profile()->length_m();
+    out->features.range_profile.peak_count = value->range_profile()->peak_count();
+    out->features.range_profile.peak_energy_concentration =
+        value->range_profile()->peak_energy_concentration();
+    out->features.range_profile.resolution_m = value->range_profile()->resolution_m();
+    out->features.range_profile.quality = value->range_profile()->quality();
+  }
+  out->valid_feature_mask = value->valid_feature_mask();
+  out->look_az_deg = value->look_az_deg();
+  out->look_el_deg = value->look_el_deg();
+  out->range_m = value->range_m();
+  out->snr_db = value->snr_db();
+  out->dwell_sec = value->dwell_sec();
+  out->bandwidth_hz = value->bandwidth_hz();
+  out->has_platform_position = value->has_platform_position();
+  out->platform_position.x_m = value->platform_position_x_m();
+  out->platform_position.y_m = value->platform_position_y_m();
+  out->platform_position.z_m = value->platform_position_z_m();
+  out->cycle_index = value->cycle_index();
+  out->batch_id = value->batch_id();
+}
+
+flatbuffers::Offset<fb::RirTrackAttributionRecord> EncodeTrackAttribution(
+    flatbuffers::FlatBufferBuilder* builder, const RirTrackAttributionRecord& value) {
+  return fb::CreateRirTrackAttributionRecord(
+      *builder, value.association_key, value.external_target_id,
+      builder->CreateString(value.target_name), value.hit_count, value.position_enu_x_m,
+      value.position_enu_y_m, value.position_enu_z_m, value.speed_m_per_s);
+}
+
+void DecodeTrackAttribution(const fb::RirTrackAttributionRecord* value,
+                            RirTrackAttributionRecord* out) {
+  if (value == nullptr) {
+    return;
+  }
+  out->association_key = value->association_key();
+  out->external_target_id = value->external_target_id();
+  if (value->target_name() != nullptr) {
+    out->target_name = value->target_name()->str();
+  }
+  out->hit_count = value->hit_count();
+  out->position_enu_x_m = value->position_enu_x_m();
+  out->position_enu_y_m = value->position_enu_y_m();
+  out->position_enu_z_m = value->position_enu_z_m();
+  out->speed_m_per_s = value->speed_m_per_s();
+}
+
 flatbuffers::Offset<fb::RirRecognitionCycleSummaryV2> EncodeSummary(
     flatbuffers::FlatBufferBuilder* builder, const RirRecognitionCycleSummary& value) {
   const flatbuffers::Offset<fb::RirDwellBudgetSummaryV2> dwell_budget =
@@ -128,13 +245,28 @@ std::string EncodeCycleReplayRecordFlatbuffer(const RirCycleReplayRecord& record
     outputs.push_back(fb::CreateRirTrackRecognitionOutputV1(
         builder, output.association_key, EncodeRecognitionResult(&builder, output.result)));
   }
+  // 出口①特征量测（加性向量，总是写入——空列表编码为存在但为空）。
+  std::vector<flatbuffers::Offset<fb::RirFeatureMeasurementRecordV1>> feature_measurements;
+  feature_measurements.reserve(record.result.output_frame.feature_measurements.size());
+  for (std::size_t i = 0U; i < record.result.output_frame.feature_measurements.size(); ++i) {
+    feature_measurements.push_back(
+        EncodeFeatureMeasurement(&builder, record.result.output_frame.feature_measurements[i]));
+  }
   const flatbuffers::Offset<fb::RirOutputFrameV1> output_frame = fb::CreateRirOutputFrameV1(
       builder, record.result.output_frame.input_cycle_index, record.result.output_frame.batch_id,
-      builder.CreateVector(outputs));
+      builder.CreateVector(outputs), builder.CreateVector(feature_measurements));
 
   flatbuffers::Offset<fb::RirRecognitionCycleSummaryV2> summary_offset;
   if (record.result.has_recognition_summary) {
     summary_offset = EncodeSummary(&builder, record.result.recognition_summary);
+  }
+
+  // 航迹归属视图（结果层加性向量，总是写入）。
+  std::vector<flatbuffers::Offset<fb::RirTrackAttributionRecord>> attributions;
+  attributions.reserve(record.result.track_attributions.size());
+  for (std::size_t i = 0U; i < record.result.track_attributions.size(); ++i) {
+    attributions.push_back(
+        EncodeTrackAttribution(&builder, record.result.track_attributions[i]));
   }
 
   const flatbuffers::Offset<fb::RirCycleResultV2> result = fb::CreateRirCycleResultV2(
@@ -143,7 +275,8 @@ std::string EncodeCycleReplayRecordFlatbuffer(const RirCycleReplayRecord& record
       record.result.has_recognition_summary, summary_offset, record.result.designated_target_id,
       record.result.designation_active, record.result.designation_reverted_to_scan,
       static_cast<int>(record.result.designation_revert_reason),
-      record.result.dwell_center_deg.az_deg, record.result.dwell_center_deg.el_deg);
+      record.result.dwell_center_deg.az_deg, record.result.dwell_center_deg.el_deg,
+      builder.CreateVector(attributions));
 
   const flatbuffers::Offset<fb::RirSessionReplayStateV2> session_state =
       fb::CreateRirSessionReplayStateV2(
@@ -244,6 +377,33 @@ bool DecodeCycleReplayRecordFlatbuffer(const std::string& payload_bytes,
         }
         candidate.result.output_frame.recognition_outputs.push_back(decoded);
       }
+    }
+    // 出口①特征量测：旧记录字段缺席（null）→ 保持空（加性兼容）。
+    const auto* feature_measurements = output_frame->feature_measurements();
+    if (feature_measurements != nullptr) {
+      candidate.result.output_frame.feature_measurements.reserve(feature_measurements->size());
+      for (const fb::RirFeatureMeasurementRecordV1* measurement : *feature_measurements) {
+        if (measurement == nullptr) {
+          continue;
+        }
+        RirFeatureMeasurementRecord decoded;
+        DecodeFeatureMeasurement(measurement, &decoded);
+        candidate.result.output_frame.feature_measurements.push_back(decoded);
+      }
+    }
+  }
+
+  // 航迹归属视图：旧记录字段缺席（null）→ 保持空。
+  const auto* attributions = result->track_attributions();
+  if (attributions != nullptr) {
+    candidate.result.track_attributions.reserve(attributions->size());
+    for (const fb::RirTrackAttributionRecord* attribution : *attributions) {
+      if (attribution == nullptr) {
+        continue;
+      }
+      RirTrackAttributionRecord decoded;
+      DecodeTrackAttribution(attribution, &decoded);
+      candidate.result.track_attributions.push_back(decoded);
     }
   }
 

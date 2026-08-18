@@ -170,6 +170,165 @@ TEST(RirReplayCodecRoundtripTest, RejectsPayloadWithoutV2Identifier) {
   EXPECT_FALSE(error.empty());
 }
 
+/// @brief 出口①特征量测全字段往返（含平台位置双路径：携带与缺省记录并存）。
+TEST(RirReplayCodecRoundtripTest, FeatureMeasurementsRoundtripPreserved) {
+  RirCycleReplayRecord record;
+  record.result.status = RirCycleStatus::kCompleted;
+
+  session::RirFeatureMeasurementRecord with_origin;
+  with_origin.association_key = 11U;
+  with_origin.features.rcs.valid = true;
+  with_origin.features.rcs.mean_dbsm = -3.5f;
+  with_origin.features.rcs.std_db = 0.7f;
+  with_origin.features.rcs.azimuth_variation_db = 4.0f;
+  with_origin.features.rcs.elevation_variation_db = 2.0f;
+  with_origin.features.rcs.peak_to_valley_db = 6.0f;
+  with_origin.features.rcs.aspect_coverage_deg = 25.0f;
+  with_origin.features.rcs.quality = 0.8f;
+  with_origin.features.motion.valid = true;
+  with_origin.features.motion.speed_m_per_s = 300.0f;
+  with_origin.features.motion.altitude_m = 3000.0f;
+  with_origin.features.motion.acceleration_m_per_s2 = 12.0f;
+  with_origin.features.motion.turn_radius_m = 5000.0f;
+  with_origin.features.motion.is_straight = false;
+  with_origin.features.motion.quality = 0.6f;
+  with_origin.features.polarization.valid = true;
+  with_origin.features.polarization.energy_difference_db = 2.5f;
+  with_origin.features.polarization.relative_difference_db = 1.5f;
+  with_origin.features.polarization.energy_sum_db = -6.0f;
+  with_origin.features.polarization.quality = 0.7f;
+  with_origin.features.range_profile.valid = true;
+  with_origin.features.range_profile.length_m = 8.0f;
+  with_origin.features.range_profile.peak_count = 3U;
+  with_origin.features.range_profile.peak_energy_concentration = 0.75f;
+  with_origin.features.range_profile.resolution_m = 33.31f;
+  with_origin.features.range_profile.quality = 0.9f;
+  with_origin.valid_feature_mask = 0x0FU;
+  with_origin.look_az_deg = 12.5f;
+  with_origin.look_el_deg = -3.25f;
+  with_origin.range_m = 5385.16f;
+  with_origin.snr_db = 18.0f;
+  with_origin.dwell_sec = 0.05f;
+  with_origin.bandwidth_hz = 4.5e6f;
+  with_origin.has_platform_position = true;
+  with_origin.platform_position.x_m = 6378137.0;
+  with_origin.platform_position.y_m = -100.5;
+  with_origin.platform_position.z_m = 200.25;
+  with_origin.cycle_index = 12U;
+  with_origin.batch_id = 34U;
+  record.result.output_frame.feature_measurements.push_back(with_origin);
+
+  // 第二条记录：缺省平台位置路径（has=false + 默认分量）。
+  session::RirFeatureMeasurementRecord without_origin;
+  without_origin.association_key = 12U;
+  without_origin.valid_feature_mask = 0x01U;
+  without_origin.look_az_deg = -170.0f;
+  record.result.output_frame.feature_measurements.push_back(without_origin);
+
+  const std::string encoded = session::EncodeCycleReplayRecordFlatbuffer(record);
+  ASSERT_FALSE(encoded.empty());
+  RirCycleReplayRecord decoded;
+  std::string error;
+  ASSERT_TRUE(session::DecodeCycleReplayRecordFlatbuffer(encoded, &decoded, &error)) << error;
+  EXPECT_EQ(session::EncodeCycleReplayRecordFlatbuffer(decoded), encoded);
+
+  ASSERT_EQ(decoded.result.output_frame.feature_measurements.size(), 2U);
+  const auto& first = decoded.result.output_frame.feature_measurements[0];
+  EXPECT_EQ(first.association_key, 11U);
+  EXPECT_TRUE(first.features.rcs.valid);
+  EXPECT_FLOAT_EQ(first.features.rcs.mean_dbsm, -3.5f);
+  EXPECT_FLOAT_EQ(first.features.rcs.std_db, 0.7f);
+  EXPECT_FLOAT_EQ(first.features.rcs.azimuth_variation_db, 4.0f);
+  EXPECT_FLOAT_EQ(first.features.rcs.elevation_variation_db, 2.0f);
+  EXPECT_FLOAT_EQ(first.features.rcs.peak_to_valley_db, 6.0f);
+  EXPECT_FLOAT_EQ(first.features.rcs.aspect_coverage_deg, 25.0f);
+  EXPECT_FLOAT_EQ(first.features.rcs.quality, 0.8f);
+  EXPECT_TRUE(first.features.motion.valid);
+  EXPECT_FLOAT_EQ(first.features.motion.speed_m_per_s, 300.0f);
+  EXPECT_FLOAT_EQ(first.features.motion.altitude_m, 3000.0f);
+  EXPECT_FLOAT_EQ(first.features.motion.acceleration_m_per_s2, 12.0f);
+  EXPECT_FLOAT_EQ(first.features.motion.turn_radius_m, 5000.0f);
+  EXPECT_FALSE(first.features.motion.is_straight);
+  EXPECT_FLOAT_EQ(first.features.motion.quality, 0.6f);
+  EXPECT_TRUE(first.features.polarization.valid);
+  EXPECT_FLOAT_EQ(first.features.polarization.energy_difference_db, 2.5f);
+  EXPECT_FLOAT_EQ(first.features.polarization.relative_difference_db, 1.5f);
+  EXPECT_FLOAT_EQ(first.features.polarization.energy_sum_db, -6.0f);
+  EXPECT_FLOAT_EQ(first.features.polarization.quality, 0.7f);
+  EXPECT_TRUE(first.features.range_profile.valid);
+  EXPECT_FLOAT_EQ(first.features.range_profile.length_m, 8.0f);
+  EXPECT_EQ(first.features.range_profile.peak_count, 3U);
+  EXPECT_FLOAT_EQ(first.features.range_profile.peak_energy_concentration, 0.75f);
+  EXPECT_FLOAT_EQ(first.features.range_profile.resolution_m, 33.31f);
+  EXPECT_FLOAT_EQ(first.features.range_profile.quality, 0.9f);
+  EXPECT_EQ(first.valid_feature_mask, 0x0FU);
+  EXPECT_FLOAT_EQ(first.look_az_deg, 12.5f);
+  EXPECT_FLOAT_EQ(first.look_el_deg, -3.25f);
+  EXPECT_FLOAT_EQ(first.range_m, 5385.16f);
+  EXPECT_FLOAT_EQ(first.snr_db, 18.0f);
+  EXPECT_FLOAT_EQ(first.dwell_sec, 0.05f);
+  EXPECT_FLOAT_EQ(first.bandwidth_hz, 4.5e6f);
+  EXPECT_TRUE(first.has_platform_position);
+  EXPECT_DOUBLE_EQ(first.platform_position.x_m, 6378137.0);
+  EXPECT_DOUBLE_EQ(first.platform_position.y_m, -100.5);
+  EXPECT_DOUBLE_EQ(first.platform_position.z_m, 200.25);
+  EXPECT_EQ(first.cycle_index, 12U);
+  EXPECT_EQ(first.batch_id, 34U);
+
+  const auto& second = decoded.result.output_frame.feature_measurements[1];
+  EXPECT_EQ(second.association_key, 12U);
+  EXPECT_EQ(second.valid_feature_mask, 0x01U);
+  EXPECT_FLOAT_EQ(second.look_az_deg, -170.0f);
+  EXPECT_FALSE(second.has_platform_position);
+  EXPECT_DOUBLE_EQ(second.platform_position.x_m, 0.0);
+  EXPECT_DOUBLE_EQ(second.platform_position.y_m, 0.0);
+  EXPECT_DOUBLE_EQ(second.platform_position.z_m, 0.0);
+}
+
+/// @brief 航迹归属视图全字段往返（结果层产品，双记录）。
+TEST(RirReplayCodecRoundtripTest, TrackAttributionsRoundtripPreserved) {
+  RirCycleReplayRecord record;
+  record.result.status = RirCycleStatus::kCompleted;
+
+  session::RirTrackAttributionRecord first;
+  first.association_key = 1U;
+  first.external_target_id = 7U;
+  first.target_name = "truth-a";
+  first.hit_count = 3U;
+  first.position_enu_x_m = 5000.5;
+  first.position_enu_y_m = -12.25;
+  first.position_enu_z_m = 2000.0;
+  first.speed_m_per_s = 150.5;
+  record.result.track_attributions.push_back(first);
+
+  session::RirTrackAttributionRecord second;
+  second.association_key = 2U;
+  second.external_target_id = 0U;  // 真值未提供路径。
+  second.hit_count = 1U;
+  second.speed_m_per_s = 0.0;
+  record.result.track_attributions.push_back(second);
+
+  const std::string encoded = session::EncodeCycleReplayRecordFlatbuffer(record);
+  ASSERT_FALSE(encoded.empty());
+  RirCycleReplayRecord decoded;
+  std::string error;
+  ASSERT_TRUE(session::DecodeCycleReplayRecordFlatbuffer(encoded, &decoded, &error)) << error;
+  EXPECT_EQ(session::EncodeCycleReplayRecordFlatbuffer(decoded), encoded);
+
+  ASSERT_EQ(decoded.result.track_attributions.size(), 2U);
+  EXPECT_EQ(decoded.result.track_attributions[0].association_key, 1U);
+  EXPECT_EQ(decoded.result.track_attributions[0].external_target_id, 7U);
+  EXPECT_EQ(decoded.result.track_attributions[0].target_name, "truth-a");
+  EXPECT_EQ(decoded.result.track_attributions[0].hit_count, 3U);
+  EXPECT_DOUBLE_EQ(decoded.result.track_attributions[0].position_enu_x_m, 5000.5);
+  EXPECT_DOUBLE_EQ(decoded.result.track_attributions[0].position_enu_y_m, -12.25);
+  EXPECT_DOUBLE_EQ(decoded.result.track_attributions[0].position_enu_z_m, 2000.0);
+  EXPECT_DOUBLE_EQ(decoded.result.track_attributions[0].speed_m_per_s, 150.5);
+  EXPECT_EQ(decoded.result.track_attributions[1].association_key, 2U);
+  EXPECT_EQ(decoded.result.track_attributions[1].external_target_id, 0U);
+  EXPECT_TRUE(decoded.result.track_attributions[1].target_name.empty());
+}
+
 }  // namespace
 }  // namespace tests
 }  // namespace remote_identification_radar
