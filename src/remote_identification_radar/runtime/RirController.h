@@ -64,6 +64,15 @@ class RirController {
   const session::RirRecognitionCycleSummary& GetLatestSummary() const { return latest_summary_; }
 
   /**
+   * @brief 最近周期航迹归属视图（库内键 ↔ 场景真值目标对照）。
+   * @note 结果层产品（结果层携带，不进输出帧）；仅已执行周期刷新，
+   *       覆盖本周期全部航迹快照（tentative/confirmed/lost）。
+   */
+  const std::vector<session::RirTrackAttributionRecord>& LatestTrackAttributions() const {
+    return last_track_attributions_;
+  }
+
+  /**
    * @brief 指定外部目标是否已达识别结论（上一周期口径，供任务生命周期推进）。
    * @param[in] external_target_id 外部目标 ID。
    * @return 该目标任一航迹的识别状态达 kCategoryConfirmed/kModelConfirmed 时为 true。
@@ -131,6 +140,7 @@ class RirController {
   session::RirRecognitionCycleSummary latest_summary_{};
   bool has_latest_summary_{false};
   std::vector<tracking::RirTrackState> last_track_snapshots_{}; /**< 上一周期航迹快照（任务判定用）。 */
+  std::vector<session::RirTrackAttributionRecord> last_track_attributions_{}; /**< 最近周期归属视图。 */
 };
 
 }  // namespace runtime

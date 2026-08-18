@@ -217,7 +217,8 @@ void RirTracker::UpdateCycle(
     const std::vector<tracking::RirTrackState>& tracks,
     const std::unordered_map<std::uint64_t, TrackObservationInput>& observations_by_key,
     const RirFeatureDatabase& database, const config::RirRecognitionFeatureWeights& weights,
-    float sim_time_sec, std::uint32_t cycle_index, std::uint64_t batch_id) {
+    float sim_time_sec, std::uint32_t cycle_index, std::uint64_t batch_id,
+    std::vector<CycleFeatureObservation>* cycle_observations) {
   // 捕获 model_id → category_id 映射（真值准确率统计用，与识别结论无关）。
   if (model_categories_.empty() && database.IsLoaded()) {
     for (std::size_t m = 0U; m < database.models().size(); ++m) {
@@ -255,6 +256,13 @@ void RirTracker::UpdateCycle(
     if (features.valid_feature_mask == 0U) {
       ExpireIfHeld(&state, sim_time_sec);
       continue;  // 无有效特征维度 → 本周期不积累
+    }
+    // 出口①透出采集：全维无效已排除；后续质量门只挡积累不挡量测出口。
+    if (cycle_observations != nullptr) {
+      CycleFeatureObservation observation;
+      observation.association_key = key;
+      observation.features = features;
+      cycle_observations->push_back(observation);
     }
     // 观测质量下限：全部维度质量低于下限（如短驻留）的周期不计为有效观测。
     const float max_quality =

@@ -10,6 +10,7 @@
 #include "1q/remote_identification_radar/config/remote_identification_radar_config.hpp"
 #include "1q/remote_identification_radar/session/RirCycleInput.h"
 #include "1q/remote_identification_radar/session/RirCycleResult.h"
+#include "1q/remote_identification_radar/session/RirFeatureMeasurementTypes.h"
 #include "1q/remote_identification_radar/session/RirInputValidation.h"
 #include "1q/remote_identification_radar/session/RirIssueCodes.h"
 #include "1q/remote_identification_radar/session/RirOutputTypes.h"

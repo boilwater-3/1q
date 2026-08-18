@@ -34,12 +34,27 @@ struct ONEQ_API RirEnvironmentSnapshot {
 };
 
 /**
+ * @brief RirEcefPositionM 平台 ECEF 位置值类型（米制地心地固坐标）。
+ * @note 与库内传感器输入坐标约定对齐（SBIRS 卫星位置即 ECEF）；LLA 换算归
+ *       fusion 适配器（TryEcefToLla，AR 先例）。has 存在性标志与数据一致性
+ *       由输入校验断言（has=false 时分量须为默认值）。
+ */
+struct ONEQ_API RirEcefPositionM {
+  double x_m{0.0}; /**< ECEF x 分量（m）。 */
+  double y_m{0.0}; /**< ECEF y 分量（m）。 */
+  double z_m{0.0}; /**< ECEF z 分量（m）。 */
+};
+
+/**
  * @brief RirCycleInput 描述单周期输入。
  *
  * @note 帧约定：`platform_altitude_m` 为平台绝对海拔（识别高度观测 =
  *       平台海拔 + 内部航迹 `position_z`，ENU 局部切平面上向分量）；
  *       `sim_time_sec` 为调用方提供的仿真时间。RF 输入为已求解的 incident
  *       links（common 单源）与 RIR 自身发射身份；RIR 不消费任何 AR 输出。
+ * @note `has_platform_position` 提供时，`platform_position` 同时作为场景
+ *       radar-local ENU 的绝对锚点——不改变场景目标 ENU 语义，只为特征量测
+ *       出口（出口①）提供 sensor_origin 与地理参考（冻结契约 §7 修订 1a）。
  */
 struct ONEQ_API RirCycleInput {
   std::uint32_t input_cycle_index{0U}; /**< 本次调用输入周期号（≠0 合法）。 */
@@ -47,6 +62,8 @@ struct ONEQ_API RirCycleInput {
   double dt_sec{0.0};                  /**< 周期步长（s），有限且为正。 */
   float sim_time_sec{0.0f};            /**< 当前仿真时间（s）。 */
   float platform_altitude_m{0.0f};     /**< 平台绝对海拔（m）。 */
+  bool has_platform_position{false};   /**< 本周期是否携带平台 ECEF 位置（可选）。 */
+  RirEcefPositionM platform_position{}; /**< 平台 ECEF 位置（m）；has=false 时须为默认值。 */
 
   RirSceneTargetList scene_targets{};            /**< 场景目标（含识别特征真值与运动事实）。 */
   RirEnvironmentSnapshot environment_snapshot{}; /**< 环境快照（天气/植被）。 */

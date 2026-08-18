@@ -45,6 +45,13 @@ constexpr char kInvalidOwnEmissionIdentity[] = "rir.validation.invalid_own_emiss
 /** @brief RF 入射链路含非法字段。 */
 constexpr char kInvalidRfIncidentLink[] = "rir.validation.invalid_rf_incident_link";
 
+/** @brief 平台 ECEF 位置非法（has=true 时分量非有限或模长为 0——地心非法）。 */
+constexpr char kInvalidPlatformPosition[] = "rir.validation.invalid_platform_position";
+
+/** @brief 平台位置存在性标志与数据不一致（has=false 但分量非默认值）。 */
+constexpr char kInconsistentPlatformPosition[] =
+    "rir.validation.inconsistent_platform_position";
+
 // ===== 配置校验问题（"rir.validation.<snake_case>"）=====
 
 /** @brief 识别特征权重非法（须有限、在 [0, 1] 且总和为 1）。 */

@@ -7,6 +7,7 @@
 #define ONEQ_REMOTE_IDENTIFICATION_RADAR_SESSION_RIR_CYCLE_RESULT_H_
 
 #include <cstdint>
+#include <vector>
 
 #include "1q/api.hpp"
 #include "1q/remote_identification_radar/config/RirHardwareConfig.h"
@@ -48,6 +49,8 @@ struct ONEQ_API RirCycleResult {
       RirCycleAbortReason::kNone}; /**< 若周期 abort，给出结构化原因 */
   bool has_recognition_summary{false}; /**< 本周期是否发布了识别效能摘要 */
   RirRecognitionCycleSummary recognition_summary{}; /**< 本周期识别效能摘要；未执行时保持默认值 */
+  std::vector<RirTrackAttributionRecord> track_attributions{}; /**< 航迹归属视图（加性字段，
+      默认空；仅 kCompleted 周期携带，非执行周期不复用上一周期列表） */
 
   /** @brief 当前指定识别目标外部 ID（未指定/任务完成/作废后为 0）。 */
   std::uint64_t designated_target_id{0U};

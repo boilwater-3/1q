@@ -51,6 +51,38 @@ Eigen::Vector3f PositionOf(const session::RirSceneTarget& target) {
   return Eigen::Vector3f(target.range_m, 0.0f, 0.0f);
 }
 
+/** @brief 内部四维观测 → 公开特征量测镜像（字段同值透出，仅命名对齐公开契约）。 */
+session::RirFeatureObservations ToPublicFeatureObservations(const recognition::RirFeatureSet& set) {
+  session::RirFeatureObservations features;
+  features.rcs.valid = set.rcs.valid;
+  features.rcs.mean_dbsm = set.rcs.mean_dbsm;
+  features.rcs.std_db = set.rcs.std_db;
+  features.rcs.azimuth_variation_db = set.rcs.azimuth_variation_db;
+  features.rcs.elevation_variation_db = set.rcs.elevation_variation_db;
+  features.rcs.peak_to_valley_db = set.rcs.peak_to_valley_db;
+  features.rcs.aspect_coverage_deg = set.rcs.aspect_coverage_deg;
+  features.rcs.quality = set.rcs.quality;
+  features.motion.valid = set.motion.valid;
+  features.motion.speed_m_per_s = set.motion.speed_mps;
+  features.motion.altitude_m = set.motion.altitude_m;
+  features.motion.acceleration_m_per_s2 = set.motion.acceleration_mps2;
+  features.motion.turn_radius_m = set.motion.turn_radius_m;
+  features.motion.is_straight = set.motion.is_straight;
+  features.motion.quality = set.motion.quality;
+  features.polarization.valid = set.polarization.valid;
+  features.polarization.energy_difference_db = set.polarization.energy_difference_db;
+  features.polarization.relative_difference_db = set.polarization.relative_difference_db;
+  features.polarization.energy_sum_db = set.polarization.energy_sum_db;
+  features.polarization.quality = set.polarization.quality;
+  features.range_profile.valid = set.range_profile.valid;
+  features.range_profile.length_m = set.range_profile.length_m;
+  features.range_profile.peak_count = set.range_profile.peak_count;
+  features.range_profile.peak_energy_concentration = set.range_profile.peak_energy_concentration;
+  features.range_profile.resolution_m = set.range_profile.resolution_m;
+  features.range_profile.quality = set.range_profile.quality;
+  return features;
+}
+
 float DbToLinear(float db_value) { return std::pow(10.0f, db_value / 10.0f); }
 
 bool IsValidIdentity(const oneq::electromagnetics::RfEmissionIdentity& identity) {
@@ -383,6 +415,9 @@ void RirController::RunCycle(const session::RirCycleInput& input,
 
   latest_summary_ = session::RirRecognitionCycleSummary{};
   has_latest_summary_ = false;
+  // 出口①与归属视图按周期重置（透出原则：识别链未构建观测的周期为空）。
+  output_frame->feature_measurements.clear();
+  last_track_attributions_.clear();
 
   std::vector<tracking::RirTrackState> track_snapshots;
   if (in_identify) {
@@ -472,9 +507,35 @@ void RirController::RunCycle(const session::RirCycleInput& input,
     }
 
     if (database_ != nullptr) {
+      // 出口①：采集本周期实际构建的有效特征观测（透出来源），组装公开量测记录。
+      std::vector<recognition::RirTracker::CycleFeatureObservation> cycle_observations;
       tracker_.UpdateCycle(track_snapshots, observations_by_key, *database_,
                            policy_.recognition.feature_weights, sim_time_sec_,
-                           input.input_cycle_index, input.batch_id);
+                           input.input_cycle_index, input.batch_id, &cycle_observations);
+      output_frame->feature_measurements.reserve(cycle_observations.size());
+      for (const recognition::RirTracker::CycleFeatureObservation& observation :
+           cycle_observations) {
+        const auto context_found = observations_by_key.find(observation.association_key);
+        if (context_found == observations_by_key.end()) {
+          continue;  // UpdateCycle 只透出来自本表的键，此分支不可达（防御）。
+        }
+        const recognition::RirObservationContext& context = context_found->second.context;
+        session::RirFeatureMeasurementRecord record;
+        record.association_key = observation.association_key;
+        record.features = ToPublicFeatureObservations(observation.features);
+        record.valid_feature_mask = observation.features.valid_feature_mask;
+        record.look_az_deg = context.look_az_deg;
+        record.look_el_deg = context.look_el_deg;
+        record.range_m = context.range_m;
+        record.snr_db = context.snr_db;
+        record.dwell_sec = context.dwell_sec;
+        record.bandwidth_hz = context.bandwidth_hz;
+        record.has_platform_position = input.has_platform_position;
+        record.platform_position = input.platform_position;
+        record.cycle_index = input.input_cycle_index;
+        record.batch_id = input.batch_id;
+        output_frame->feature_measurements.push_back(record);
+      }
     } else {
       tracker_.HoldCycle(track_snapshots, sim_time_sec_);
     }
@@ -496,6 +557,7 @@ void RirController::RunCycle(const session::RirCycleInput& input,
   last_track_snapshots_ = track_snapshots;
   output_frame->recognition_outputs.clear();
   output_frame->recognition_outputs.reserve(track_snapshots.size());
+  last_track_attributions_.reserve(track_snapshots.size());
   for (const tracking::RirTrackState& track : track_snapshots) {
     session::RirTrackRecognitionOutput output;
     output.association_key = track.association_key;
@@ -504,6 +566,17 @@ void RirController::RunCycle(const session::RirCycleInput& input,
       output.result = *result;
     }
     output_frame->recognition_outputs.push_back(output);
+    // 归属视图与出口②同循环产出（全部航迹快照：tentative/confirmed/lost）。
+    session::RirTrackAttributionRecord attribution;
+    attribution.association_key = track.association_key;
+    attribution.external_target_id = track.external_target_id;
+    attribution.target_name = track.target_name;
+    attribution.hit_count = track.hit_count;
+    attribution.position_enu_x_m = static_cast<double>(track.position.x());
+    attribution.position_enu_y_m = static_cast<double>(track.position.y());
+    attribution.position_enu_z_m = static_cast<double>(track.position.z());
+    attribution.speed_m_per_s = static_cast<double>(track.speed);
+    last_track_attributions_.push_back(attribution);
   }
 }
 

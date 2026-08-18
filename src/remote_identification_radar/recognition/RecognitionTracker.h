@@ -75,6 +75,17 @@ class RirTracker {
     RirObservationContext context{};
   };
 
+  /**
+   * @brief CycleFeatureObservation 本周期实际构建的特征观测（出口①透出来源）。
+   * @note 填充口径 = 识别链实际构建且至少一维有效（Build 后 mask != 0）的观测；
+   *       积累质量门只挡积累不挡透出；超距/无观测输入的键不产生（透出原则，
+   *       冻结契约裁定：识别链未构建观测的周期出口①为空，不虚构）。
+   */
+  struct CycleFeatureObservation {
+    std::uint64_t association_key{0U};
+    RirFeatureSet features{};
+  };
+
   /** @brief 整快照捕获/恢复（回滚边界）。 */
   struct Snapshot {
     std::vector<RirTrackState> tracks{};
@@ -102,12 +113,15 @@ class RirTracker {
    * @param[in] sim_time_sec 当前仿真时刻（s）。
    * @param[in] cycle_index 当前周期号。
    * @param[in] batch_id 当前批号。
+   * @param[out] cycle_observations 可选：本周期实际构建的有效特征观测
+   *            （出口①透出来源，按航迹键；nullptr = 不采集）。
    */
   void UpdateCycle(
       const std::vector<tracking::RirTrackState>& tracks,
       const std::unordered_map<std::uint64_t, TrackObservationInput>& observations_by_key,
       const RirFeatureDatabase& database, const config::RirRecognitionFeatureWeights& weights,
-      float sim_time_sec, std::uint32_t cycle_index, std::uint64_t batch_id);
+      float sim_time_sec, std::uint32_t cycle_index, std::uint64_t batch_id,
+      std::vector<CycleFeatureObservation>* cycle_observations = nullptr);
 
   /**
    * @brief 非 kLrr 已执行周期：结论按 result_hold_sec 过期为 kStale，不积累。
