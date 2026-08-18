@@ -3,6 +3,8 @@
 #include <algorithm>
 #include <cmath>
 
+#include "1q/coordinate/inertial_transform.h"
+
 namespace sbirs_sensor {
 namespace foundation {
 namespace {
@@ -104,6 +106,90 @@ bool IsEarthOcculted(const session::SbirsVector3M& satellite_position_ecef_m,
   // 相切（margin == 0）视为遮挡：与原 closest_sq <= r² 判定语义一致。
   return ComputeEarthOccultationMarginM(satellite_position_ecef_m, target_position_ecef_m,
                                         earth_radius_m) <= 0.0;
+}
+
+bool TryIntersectRayWithSphere(const session::SbirsVector3M& origin_m,
+                               const session::SbirsVector3M& direction_m, double sphere_radius_m,
+                               session::SbirsVector3M* intersection_m) {
+  if (intersection_m == nullptr || sphere_radius_m <= 0.0) {
+    return false;
+  }
+  // |o + t·d|² = r² → a·t² + b·t + c = 0；取最小的正根（最近交点）。
+  const double a = Dot(direction_m, direction_m);
+  if (a <= 0.0) {
+    return false;
+  }
+  const double b = 2.0 * Dot(origin_m, direction_m);
+  const double c = Dot(origin_m, origin_m) - sphere_radius_m * sphere_radius_m;
+  const double discriminant = b * b - 4.0 * a * c;
+  if (discriminant < 0.0) {
+    return false;
+  }
+  const double root = std::sqrt(discriminant);
+  const double t_near = (-b - root) / (2.0 * a);
+  const double t_far = (-b + root) / (2.0 * a);
+  // 起点在球外时近根有效；起点在球内时近根为负，取远根（出射点）。
+  const double t = t_near > 0.0 ? t_near : t_far;
+  if (t <= 0.0) {
+    return false;
+  }
+  intersection_m->x = origin_m.x + t * direction_m.x;
+  intersection_m->y = origin_m.y + t * direction_m.y;
+  intersection_m->z = origin_m.z + t * direction_m.z;
+  return true;
+}
+
+void ComputeGeocentricLatLonDeg(const session::SbirsVector3M& position_ecef_m,
+                                double* latitude_deg, double* longitude_deg) {
+  const double radius = Norm(position_ecef_m);
+  if (radius <= 0.0 || latitude_deg == nullptr || longitude_deg == nullptr) {
+    if (latitude_deg != nullptr) {
+      *latitude_deg = 0.0;
+    }
+    if (longitude_deg != nullptr) {
+      *longitude_deg = 0.0;
+    }
+    return;
+  }
+  *latitude_deg = std::asin(Clamp(position_ecef_m.z / radius, -1.0, 1.0)) * kRadToDeg;
+  *longitude_deg = std::atan2(position_ecef_m.y, position_ecef_m.x) * kRadToDeg;
+}
+
+bool TryComputeGroundIntersectionLatLonDeg(const session::SbirsVector3M& satellite_position_eci_m,
+                                           const session::SbirsVector3M& direction_eci,
+                                           double earth_radius_m, double gmst_rad,
+                                           double* latitude_deg, double* longitude_deg) {
+  if (latitude_deg == nullptr || longitude_deg == nullptr) {
+    return false;
+  }
+  // 圆球模型对绕 z 旋转不变：直接在 ECI 中求交，交点再旋回 ECEF 取固连地球经纬度。
+  session::SbirsVector3M intersection_eci;
+  if (!TryIntersectRayWithSphere(satellite_position_eci_m, direction_eci, earth_radius_m,
+                                 &intersection_eci)) {
+    return false;
+  }
+  const oneq::coordinate::EciPositionM intersection_eci_position(
+      intersection_eci.x, intersection_eci.y, intersection_eci.z);
+  oneq::coordinate::EcefPositionM intersection_ecef;
+  if (!oneq::coordinate::TryEciToEcef(intersection_eci_position, gmst_rad, &intersection_ecef)) {
+    return false;
+  }
+  const session::SbirsVector3M intersection_ecef_m{intersection_ecef.x_m, intersection_ecef.y_m,
+                                                   intersection_ecef.z_m};
+  ComputeGeocentricLatLonDeg(intersection_ecef_m, latitude_deg, longitude_deg);
+  return true;
+}
+
+bool ComputeFocalPlaneOffset(double focal_length_m, double pixel_pitch_m, float delta_az_deg,
+                             float delta_el_deg, SbirsFocalPlaneOffset* offset) {
+  if (offset == nullptr || focal_length_m <= 0.0 || pixel_pitch_m <= 0.0) {
+    return false;
+  }
+  offset->x_m = focal_length_m * std::tan(static_cast<double>(delta_az_deg) * kDegToRad);
+  offset->y_m = focal_length_m * std::tan(static_cast<double>(delta_el_deg) * kDegToRad);
+  offset->x_pixels = offset->x_m / pixel_pitch_m;
+  offset->y_pixels = offset->y_m / pixel_pitch_m;
+  return true;
 }
 
 }  // namespace foundation
