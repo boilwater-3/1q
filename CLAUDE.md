@@ -121,6 +121,10 @@ Docs capture what code alone cannot convey (positioning, boundaries, non-goals, 
   未确认的问题（裁定方向、术语口径、字段语义、范围取舍、验收门数值等），必须**先向用户
   提问确认，再动笔**；不得把假设直接写进文档后搁置——用户很难注意到埋在文档里的假设。
   已由用户明确裁定或已冻结契约的内容照常执行，不需重复确认。
+- **非专业人员表述偏置（用户工作规则，2026-08-18）**：用户不是专业人员——面向用户的
+  描述（对话答复、总结汇报、文档中面向人的段落）优先用大白话和比喻，术语首次出现
+  随文解释；不牺牲技术准确性，但可读性优先于简洁。库内代码注释与规范性契约文档的
+  术语精确性不受此条影响。
 - **Plan mode & branching**: SessionStart hook prompts when on `main`; pre-commit hook auto-creates `feature/<topic>` from commit message on `main`/`master` as a safety net. Branch naming: `feature/<short-description>` in kebab-case.
 - **Commit messages**: [Conventional Commits](https://www.conventionalcommits.org/) format — `type(scope): description`. Types: `feat`, `fix`, `refactor`, `test`, `docs`, `chore`, `perf`. Scope is the primary module/domain (e.g., `airborne_radar`, `eos`, `sar`). Description in imperative mood, lowercase. End every message with `Co-Authored-By: Claude <noreply@anthropic.com>`.
 - **Commit gate**: pre-commit hook blocks `major` C++ changes (≥3 files or ≥50 lines) until `/completeness-review` passes. `minor` and `trivial` changes pass through with a warning.
