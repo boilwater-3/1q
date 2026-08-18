@@ -1,6 +1,9 @@
 /**
  * @file TrackStateSnapshot.h
- * @brief 定义供决策层消费的稳定轨迹快照。
+ * @brief 定义决策引擎 SPI 输入的稳定轨迹状态快照。
+ * @note 该结构是传感器行为建模状态向决策扩展点（唯一许可的用户自定义 SPI）
+ *       的输入形状，不作为传感器发布产品（分层契约规则 3：航迹/状态族估计
+ *       产品不外发；TARGET-OQ-1 已处置）。
  */
 
 #ifndef ONEQ_AIRBORNE_RADAR_MODEL_TRACK_STATE_SNAPSHOT_H_
@@ -53,11 +56,6 @@ struct ONEQ_API TrackStateSnapshot {
 
   std::uint32_t hit_count{0};   /**< 命中累计计数 */
   std::uint32_t miss_count{0};  /**< 连续失配计数 */
-
-  /** @brief 决策层填充的目标分类类型（"UNKNOWN"/"LOW_THREAT_TARGET"/"HIGH_THREAT_FIGHTER" 等） */
-  std::string target_type{"UNKNOWN"};
-  /** @brief 决策层填充的目标分类置信度，范围 [0, 1] */
-  float target_probability{0.0f};
 
   /**
    * @brief 航迹估计不确定度（m²），预测协方差 P 的 position 分块迹。

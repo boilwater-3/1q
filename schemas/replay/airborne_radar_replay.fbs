@@ -2,15 +2,23 @@ namespace oneq.replay.airborne_radar.fb;
 
 table Vector3d { x:double; y:double; z:double; }
 
-table TrackOutputFrame {
-  cycle_index:uint;
-  published_track_count:ulong;
-  batch_id:ulong;
-  confirmed_track_count:ulong;
-  contains_lost_tracks:bool;
-  tracks:[TrackStateSnapshot];
+// AR 公开输出帧（TARGET-OQ-1 处置：传感器 raw output 保持量测形态）。
+table ArDetectionRecord {
+  position_x_m:float;
+  position_y_m:float;
+  position_z_m:float;
+  measurement_covariance:[float]; // 行主序 3x3（9 元素），雷达局部 ENU（单位：m²）
+  detection_margin_db:float;
 }
 
+table ArDetectionOutputFrame {
+  cycle_index:uint;
+  batch_id:ulong;
+  detections:[ArDetectionRecord];
+}
+
+// 决策引擎 SPI 输入快照的回放记录（观测工具面：决策观测回放，不对外发布）。
+// target_type/target_probability 已随识别结论回填退出而删除（TARGET-OQ-1 处置）。
 table DecisionTrackStateSnapshot {
   association_key:ulong;
   external_target_id:ulong;
@@ -29,8 +37,6 @@ table DecisionTrackStateSnapshot {
   rcs:float;
   hit_count:uint;
   miss_count:uint;
-  target_type:string;
-  target_probability:float;
   target_name:string;
   estimation_uncertainty_trace:float;
 }
@@ -277,7 +283,7 @@ table AssociationQualityMetricsV3 {
 table ArCycleResultV3 {
   input_cycle_index:uint;
   status:int;
-  output_frame:TrackOutputFrame;
+  output_frame:ArDetectionOutputFrame;
   emission_frame:RfSceneFrameV2;
   receiver_impairment:int;
   interference_observations:[ArInterferenceObservation];

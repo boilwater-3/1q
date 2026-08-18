@@ -171,6 +171,7 @@ struct SignalPipeline::Impl {
     result.abort_reason = session::SignalCycleAbortReason::kNone;
     result.updated_scene_targets = cycle_input.scene_targets;
     result.decision_frame = cycle_.scratch.decision_frame;
+    result.detection_frame = cycle_.scratch.detection_frame;
     result.association_quality_metrics = cycle_.scratch.association_quality_metrics;
 
     // 中译：周期执行摘要（周期号、目标数、检测数、SNR 门排除计数）。

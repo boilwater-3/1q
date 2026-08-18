@@ -25,6 +25,9 @@
 #include "1q/electronic_surveillance_radar/session/EsrReplaySession.h"
 #include "1q/electronic_surveillance_radar/session/EsrTraceSession.h"
 #include "1q/replay/ReplayTrace.h"
+#include "1q/threat_assessment/ThreatEvaluationInput.h"
+#include "1q/threat_assessment/ThreatEvaluator.h"
+#include "1q/threat_assessment/ThreatEvaluatorConfig.h"
 #include "support/oneq_test_temp_dir.h"
 
 #if defined(ONEQ_TEST_FLIGHT_DYNAMIC_ENABLED)
@@ -225,6 +228,50 @@ eos_session::EosCycleInput BuildEosInput(const WorldState& ws, float dt, std::ui
   eos_session::EosCycleInputAdapter::Build(platform, targets, dt, &input, &status);
   input.cycle_index = cycle_index;
   return input;
+}
+
+// 决策层威胁供给（TARGET-OQ-2 处置）：调用方把 ESM 模式映射为证据（制导/连续波照射
+// 1.0、跟踪 0.66、搜索 0.33、未知 0），与假设置信度相乘后交 threat_assessment 计分，
+// 产物按假设索引对齐值级注入 ECM（ECM 不引用决策层类型，分层契约规则 1）。
+std::vector<float> BuildEsmThreatScores(const esr_session::EmitterHypothesisList& hypotheses) {
+  const auto mode_evidence = [](esr_session::EsrEmitterMode mode) {
+    switch (mode) {
+      case esr_session::EsrEmitterMode::kGuidance:
+      case esr_session::EsrEmitterMode::kContinuousIllumination:
+        return 1.0f;
+      case esr_session::EsrEmitterMode::kTracking:
+        return 0.66f;
+      case esr_session::EsrEmitterMode::kSearch:
+        return 0.33f;
+      case esr_session::EsrEmitterMode::kUnknown:
+        return 0.0f;
+    }
+    return 0.0f;
+  };
+  threat_assessment::ThreatEvaluatorConfig config;
+  config.weight_range = 0.0f;
+  config.weight_speed = 0.0f;
+  config.weight_acceleration = 0.0f;
+  config.weight_rcs = 0.0f;
+  config.weight_target_probability = 0.0f;
+  config.weight_fusion_confidence = 0.0f;
+  config.weight_emitter_threat_evidence = 1.0f;
+  const threat_assessment::ThreatEvaluator evaluator(config);
+  std::vector<threat_assessment::ThreatEvaluationInput> inputs;
+  inputs.reserve(hypotheses.size());
+  for (const esr_session::EmitterHypothesis& hypothesis : hypotheses) {
+    threat_assessment::ThreatEvaluationInput input;
+    input.key = hypothesis.hypothesis_id;
+    input.emitter_threat_evidence = mode_evidence(hypothesis.mode) * hypothesis.confidence;
+    inputs.push_back(input);
+  }
+  const std::vector<threat_assessment::ThreatResult> results = evaluator.Evaluate(inputs);
+  std::vector<float> scores;
+  scores.reserve(results.size());
+  for (const threat_assessment::ThreatResult& result : results) {
+    scores.push_back(result.threat_score);
+  }
+  return scores;
 }
 
 esr_session::EsrCycleInput BuildEsrInput(const WorldState& ws, float dt, std::uint32_t cycle_index) {
@@ -1222,8 +1269,8 @@ TEST(MultiModelScenarioTest, SensorDrivenEcmUsesPreviousSuccessfulEsrFrame) {
   ASSERT_FALSE(hypotheses.empty());
 
   ecm_session::EcmSensorObservationFrame sensor_frame;
-  ASSERT_TRUE(
-      ecm_session::TryBuildEcmSensorObservationFrame(hypotheses, source_esr_batch, &sensor_frame));
+  ASSERT_TRUE(ecm_session::TryBuildEcmSensorObservationFrame(
+      hypotheses, source_esr_batch, BuildEsmThreatScores(hypotheses), &sensor_frame));
   ASSERT_FALSE(sensor_frame.observations.empty());
   EXPECT_EQ(sensor_frame.source_esr_batch_id, source_esr_batch);
 
@@ -1319,8 +1366,8 @@ TEST(MultiModelScenarioTest, EcmDeceptionFalseTargetReachesArAndTriggersEccm) {
 
   // ESR hypotheses → ECM sensor frame。
   ecm_session::EcmSensorObservationFrame sensor_frame;
-  ASSERT_TRUE(
-      ecm_session::TryBuildEcmSensorObservationFrame(hypotheses, source_esr_batch, &sensor_frame));
+  ASSERT_TRUE(ecm_session::TryBuildEcmSensorObservationFrame(
+      hypotheses, source_esr_batch, BuildEsmThreatScores(hypotheses), &sensor_frame));
 
   // ECM: 欺骗 kFalseTarget（每周期向威胁发射 N 个假目标）。
   ecm_config::EcmSessionConfig ecm_config;
@@ -1493,8 +1540,8 @@ TEST(MultiModelScenarioTest, FlightDynamicDrivesSensorEcmClosedLoop) {
   ASSERT_FALSE(hypotheses.empty());
 
   ecm_session::EcmSensorObservationFrame sensor_frame;
-  ASSERT_TRUE(
-      ecm_session::TryBuildEcmSensorObservationFrame(hypotheses, source_esr_batch, &sensor_frame));
+  ASSERT_TRUE(ecm_session::TryBuildEcmSensorObservationFrame(
+      hypotheses, source_esr_batch, BuildEsmThreatScores(hypotheses), &sensor_frame));
   ASSERT_FALSE(sensor_frame.observations.empty());
 
   ecm_config::EcmSessionConfig ecm_config;

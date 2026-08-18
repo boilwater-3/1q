@@ -11,6 +11,7 @@
 #include <vector>
 
 #include "1q/airborne_radar/session/ArControlProfile.h"
+#include "1q/airborne_radar/session/ArDetectionOutput.h"
 #include "1q/airborne_radar/session/DecisionInputFrame.h"
 #include "airborne_radar/environment/EnvironmentTypes.h"
 #include "airborne_radar/signal/association/DataAssociation.h"
@@ -37,6 +38,7 @@ struct CycleExecutionScratch {
   session::ArSceneTargetList output_state;
   std::vector<tracking::TrackMeasurement> track_measurements;
   session::DecisionInputFrame decision_frame{};
+  session::ArDetectionOutputFrame detection_frame{};
   AssociationQualityMetrics association_quality_metrics{};
 
   // 检测阶段中间数据

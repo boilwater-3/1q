@@ -40,7 +40,7 @@ bool EmitterObservationEqual(const session::EmitterObservation& left,
 bool EmitterHypothesisEqual(const session::EmitterHypothesis& left,
                             const session::EmitterHypothesis& right) {
   if (left.hypothesis_id != right.hypothesis_id || left.mode != right.mode ||
-      left.threat_level != right.threat_level || left.bearing_az_deg != right.bearing_az_deg ||
+      left.bearing_az_deg != right.bearing_az_deg ||
       left.bearing_el_deg != right.bearing_el_deg ||
       left.bearing_std_deg != right.bearing_std_deg || left.confidence != right.confidence ||
       left.estimated_center_frequency_hz != right.estimated_center_frequency_hz ||

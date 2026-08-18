@@ -50,23 +50,6 @@ session::EsrEmitterMode InferModeFromCluster(const ClusterSummary& summary) {
 }
 
 /**
- * @brief 根据模式和簇信噪比推断威胁等级。
- * @param[in] mode 工作模式。
- * @param[in] mean_snr_db 簇均值信噪比。
- * @return 威胁等级。
- */
-session::EsrThreatLevel InferThreatFromCluster(session::EsrEmitterMode mode, float mean_snr_db) {
-  if (mode == session::EsrEmitterMode::kGuidance ||
-      mode == session::EsrEmitterMode::kContinuousIllumination || mean_snr_db >= 20.0f) {
-    return session::EsrThreatLevel::kHigh;
-  }
-  if (mode == session::EsrEmitterMode::kTracking || mean_snr_db >= 10.0f) {
-    return session::EsrThreatLevel::kMedium;
-  }
-  return session::EsrThreatLevel::kLow;
-}
-
-/**
  * @brief 构造候选类别列表。
  * @param[in] rf_hz 均值载频（单位：Hz）。
  * @return 候选类别字符串列表。
@@ -285,7 +268,6 @@ session::EmitterHypothesisList HypothesisAssociator::Update(
                 config_.confidence_alpha);
     }
     track.mode = InferModeFromCluster(summary);
-    track.threat_level = InferThreatFromCluster(track.mode, summary.mean_snr_db);
     track.waveform_class = summary.waveform_class;
     track.candidate_classes = BuildCandidateClasses(summary.mean_rf_hz, summary.spectral_class_label);
     track.bearing_az_deg =
@@ -334,7 +316,6 @@ session::EmitterHypothesisList HypothesisAssociator::Update(
     }
     track.feature = clusters[i].centroid_feature;
     track.mode = InferModeFromCluster(clusters[i]);
-    track.threat_level = InferThreatFromCluster(track.mode, clusters[i].mean_snr_db);
     track.waveform_class = clusters[i].waveform_class;
     track.candidate_classes =
         BuildCandidateClasses(clusters[i].mean_rf_hz, clusters[i].spectral_class_label);
@@ -391,7 +372,6 @@ session::EmitterHypothesisList HypothesisAssociator::Update(
     hypothesis.hypothesis_id = tracks_[i].hypothesis_id;
     hypothesis.candidate_classes = tracks_[i].candidate_classes;
     hypothesis.mode = tracks_[i].mode;
-    hypothesis.threat_level = tracks_[i].threat_level;
     hypothesis.bearing_az_deg = tracks_[i].bearing_az_deg;
     hypothesis.bearing_el_deg = tracks_[i].bearing_el_deg;
     hypothesis.bearing_std_deg = tracks_[i].bearing_std_deg;

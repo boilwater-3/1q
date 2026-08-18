@@ -28,6 +28,8 @@ struct ONEQ_API ThreatEvaluatorConfig {
   float weight_rcs{0.10f};                 /**< RCS 属性权重 */
   float weight_target_probability{0.15f};  /**< 类型概率属性权重 */
   float weight_fusion_confidence{0.10f};   /**< 融合置信度属性权重 */
+  float weight_emitter_threat_evidence{0.0f}; /**< 辐射源威胁证据属性权重（默认 0：
+                                                  默认配置行为位恒等，ESM 场景显式启用） */
 
   float range_near_m{20000.0f};     /**< 距离归一化上断点（单位：m） */
   float range_far_m{200000.0f};     /**< 距离归一化下断点（单位：m） */

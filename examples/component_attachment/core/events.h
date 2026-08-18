@@ -58,14 +58,12 @@ struct TargetLostEvent {
 
 /** @brief ESR 辐射源假设事件：每条新假设发布一次。 */
 struct EmitterHypothesisEvent {
-  std::uint64_t cycle{0U};                                           /**< 世界周期号 */
-  std::uint64_t hypothesis_id{0U};                                   /**< 假设标识 */
-  double bearing_az_deg{0.0};                                        /**< 方位线方位角（deg） */
-  double confidence{0.0};                                            /**< 假设置信度 [0,1] */
-  electronic_surveillance_radar::session::EsrEmitterMode mode{       /**< 工作模式假设 */
+  std::uint64_t cycle{0U};                                     /**< 世界周期号 */
+  std::uint64_t hypothesis_id{0U};                             /**< 假设标识 */
+  double bearing_az_deg{0.0};                                  /**< 方位线方位角（deg） */
+  double confidence{0.0};                                      /**< 假设置信度 [0,1] */
+  electronic_surveillance_radar::session::EsrEmitterMode mode{ /**< 工作模式假设 */
       electronic_surveillance_radar::session::EsrEmitterMode::kUnknown};
-  electronic_surveillance_radar::session::EsrThreatLevel threat_level{ /**< 威胁等级 */
-      electronic_surveillance_radar::session::EsrThreatLevel::kLow};
 };
 
 /** @brief EOS 探测事件类型（生命周期语义，源为库内 EosDetectionLifecycleRecorder）。 */

@@ -89,7 +89,7 @@ bool SamePreparedEmission(const oneq::electromagnetics::RfSceneEmission& left,
 struct ArExecutionCycleResult {
   bool executed{false};
   session::SignalCycleAbortReason abort_reason{session::SignalCycleAbortReason::kNone};
-  TrackOutputFrame output_frame{};
+  ArDetectionOutputFrame output_frame{};
   session::ArIssueList issues{}; /**< 正常执行周期按目标排除的 kInfo 诊断（规则 13b）；
                                       校验拒绝时承载校验明细（COMMON-OQ-9）。 */
 };
@@ -119,15 +119,16 @@ struct SttDesignationCycleState {
 
 SttDesignationCycleState BuildSttDesignationCycleState(
     config::ArWorkMode committed_work_mode, std::uint64_t designated_target_id,
-    bool explicit_dwell_override, const session::TrackOutputFrame& latest_track_frame) {
+    bool explicit_dwell_override, const session::TrackStateSnapshotList& latest_track_snapshots) {
   SttDesignationCycleState state;
   state.stt_requested = committed_work_mode == config::ArWorkMode::kStt;
   state.designation_set = designated_target_id != 0U;
   state.designated_target_id = designated_target_id;
   if (state.designation_set) {
-    const session::TrackStateSnapshotList tracks =
-        session::CollectTracksByExternalTargetId(latest_track_frame, designated_target_id);
-    for (const session::TrackStateSnapshot& track : tracks) {
+    for (const session::TrackStateSnapshot& track : latest_track_snapshots) {
+      if (track.external_target_id != designated_target_id) {
+        continue;
+      }
       state.has_track = true;
       state.track_lost = state.track_lost || track.status == session::TrackStatus::kLost;
       if (track.status == session::TrackStatus::kConfirmed && !state.track_confirmed) {
@@ -293,7 +294,7 @@ struct ArSession::Impl {
         committed_work_mode, runtime_state.designated_external_target_id,
         runtime_state.dwell_center_deg.az_deg != 0.0f ||
             runtime_state.dwell_center_deg.el_deg != 0.0f,
-        completed.output_frame);
+        Controller().GetLatestTrackSnapshots());
     const DesignationExpiryState designation_expiry =
         ResolveDesignationExpiry(designation_phase, designation_expired_edge);
     result.effective_work_mode =
@@ -563,7 +564,7 @@ struct ArSession::Impl {
       FinalizePendingRuntimeConfig();
     }
     result.executed = true;
-    result.output_frame = Controller().GetLatestTrackOutputFrame();
+    result.output_frame = Controller().GetLatestDetectionFrame();
     // 规则 13b：正常执行周期按目标排除的 kInfo 诊断转写（abort 路径不变）。
     result.issues = Controller().GetLatestIssues();
     return result;
@@ -682,7 +683,7 @@ struct ArSession::Impl {
         next_operating_state.dwell_center_deg.el_deg != 0.0f;
     const SttDesignationCycleState designation_state = BuildSttDesignationCycleState(
         orientation_config.work_mode, next_operating_state.designated_external_target_id,
-        explicit_dwell_override, Controller().GetLatestTrackOutputFrame());
+        explicit_dwell_override, Controller().GetLatestTrackSnapshots());
     // 指定指令生命周期推进（限时锁定，跨周期状态）：窗口 [start, start+N-1] 内
     // 捕获 confirmed 航迹 → kAcquired（此后不再受窗口约束，丢失按既有回退语义）；
     // 窗口耗尽仍未捕获 → kExpired（指令作废，回到扫描，终态直到外部重新指定）。
@@ -1172,14 +1173,15 @@ ArSession ArSession::CreateWithDiagnostics(const config::ArSessionConfig& config
   return Create(config);
 }
 
-session::TrackOutputFrame ArSession::Step(const ArCycleInput& input) {
+session::ArDetectionOutputFrame ArSession::Step(const ArCycleInput& input) {
   return StepWithResult(input).output_frame;
 }
 
 ArCycleResult ArSession::StepWithResult(const ArCycleInput& input) {
   ArCycleResult result = impl_->RunCycle(input);
   if (impl_->lifecycle_recorder != nullptr) {
-    impl_->lifecycle_recorder->Update(input.targets, result);
+    impl_->lifecycle_recorder->Update(input.targets, result,
+                                      impl_->Controller().GetLatestTrackSnapshots());
   }
   if (impl_->exclusion_cause_recorder != nullptr) {
     impl_->exclusion_cause_recorder->Update(input.targets, result);

@@ -13,6 +13,13 @@ ESR 模块模拟电子侦察接收机对辐射源的观测和估计。它的核�
 - observation output：设备观测记录。
 - emitter output：系统估计的辐射源假设。
 
+**ESM 产品形态（冻结，TARGET-OQ-2 处置结论）**：假设关联/生命周期/平滑（最小费用流指派 +
+指数混合平滑）与工作模式推断（PRI/脉宽→模式标注）是合法的 ESM 量测语义标注/产品形态，
+属于传感器层的分选职责；威胁评分等决策层产品不得作为传感器 public 输出字段（分层契约
+规则 2），`threat_level` 已退出 `EmitterHypothesis`（2026-08-18，回放 schema 字段以
+deprecated 保留槽位）。ECM 等下游的调度威胁分由调用方经 threat_assessment
+（`emitter_threat_evidence` 属性）产出后值级注入。
+
 对外提供稳定 `EsrSession` 门面和四域配置；runtime patch 经 resolver 校验后立即提交，不提供 session 层
 回滚。truth identity、预计算受扰结论和 pipeline internal context 都不进入公共输出合同。
 

@@ -85,17 +85,21 @@ class ONEQ_API ArTrackLifecycleRecorder {
   ArTrackLifecycleRecorder& operator=(ArTrackLifecycleRecorder&&) noexcept;
 
   /**
-   * @brief 基于目标事实与单周期结果产出生命周期事件。
+   * @brief 基于目标事实、单周期结果与轨迹快照列表产出生命周期事件。
    *
    * 仅处理 `external_target_id != 0` 的输入目标；按确认/更新/丢失/未跟踪规则
    * 生成事件，未跟踪事件仅在配置开启时产生。
    *
    * @param[in] targets 当前周期目标事实（用于遍历输入目标表）。
-   * @param[in] result 当前周期结果（用于查询关联轨迹状态）。
+   * @param[in] result 当前周期结果（designation 派生字段）。
+   * @param[in] track_snapshots 当前周期内部轨迹快照（决策 SPI 输入形状；
+   *            调用方通常无需手工构造——注册到 ArSession 后由 Session 自动
+   *            注入内部快照，TARGET-OQ-1 处置后公开结果不再携带航迹）。
    * @return 本周期产生的生命周期事件列表（可能为空）。
    */
   std::vector<ArTrackLifecycleEvent> Update(const ArTargetInputList& targets,
-                                            const ArCycleResult& result);
+                                            const ArCycleResult& result,
+                                            const TrackStateSnapshotList& track_snapshots);
 
   /**
    * @brief 清空内部轨迹状态，回到初始状态。

@@ -2,14 +2,14 @@
  * @file SensorAdapters.h
  * @brief 传感器输出 → 融合探测记录的官方适配器（可选便利层）。
  *
- * 四个传感器模块各自输出自有格式（AR 外部轨迹帧 / ESR 辐射源假设 / EOS 探测
+ * 四个传感器模块各自输出自有格式（AR 量测输出帧 / ESR 辐射源假设 / EOS 探测
  * 记录 / SBIRS 探测记录），而 FusionEngine 只接受泛型 fusion::DetectionRecord。
  * 本文件为每种传感器输出提供一个转换函数（默认映射），集成方即开即用；
  * 业务层也可自行适配（DetectionRecord 保持泛型，算法不感知具体类型）。
  *
  * 默认映射固化了示例场景验证过的业务决策：
- * - 跳过非探测记录（AR kLost / ESR hypothesis_id==0 / EOS-SBIRS detected==false）；
- * - 无身份通道（EOS/SBIRS）key=0，走方位相干关联（去真值化纪律）；
+ * - 跳过非探测记录（ESR hypothesis_id==0 / EOS-SBIRS detected==false）；
+ * - 无身份通道（AR 量测/EOS/SBIRS）key=0，走空间/方位相干关联（去真值化纪律）；
  * - 质量归一化基准（10 dB SNR → 1.0、WFOV 门限 4.0 → 1.0）为库默认，
  *   集成方可自选是否覆盖（覆盖 = 自行适配，不修改本文件）。
  */
@@ -20,7 +20,9 @@
 #include <cstdint>
 #include <vector>
 
-#include "1q/airborne_radar/session/ArCycleOutputAdapter.h"
+#include "1q/airborne_radar/session/ArCycleInput.h"
+#include "1q/airborne_radar/session/ArDetectionOutput.h"
+#include "1q/airborne_radar/session/ArExternalInputAdapter.h"
 #include "1q/api.hpp"
 #include "1q/electro_optical_sensor/session/EosOutputTypes.h"
 #include "1q/electronic_surveillance_radar/session/EmitterHypothesis.h"
@@ -36,15 +38,21 @@ constexpr std::uint32_t kEosSourceId = 3U;   /**< EOS 源通道 */
 constexpr std::uint32_t kSbirsSourceId = 4U; /**< SBIRS 源通道 */
 
 /**
- * @brief 把 AR 外部轨迹帧适配为融合探测记录（key=关联键，含位置）。
+ * @brief 把 AR 量测输出帧适配为融合探测记录（key=0 无身份，含位置）。
  * @param[in] source_id 源通道标识（通常传 kArSourceId）。
- * @param[in] frame AR 周期外部轨迹输出帧（ECEF 位置）。
- * @return 探测记录列表；跳过 kLost 轨迹（避免以旧位置续命航迹），
- *         位置 ECEF→LLA（转换失败退化为仅身份键记录）。
+ * @param[in] platform 生成该量测帧周期的外部平台运动学输入（雷达局部 ENU → ECEF
+ *            换算参考；应与生成帧的输入周期一致）。
+ * @param[in] frame AR 周期量测输出帧（雷达局部 ENU 位置，TARGET-OQ-1 处置后
+ *            传感器公开输出保持量测形态）。
+ * @return 探测记录列表；量测无身份键（key=0 走空间/方位门关联，去真值化纪律），
+ *         位置局部 ENU→ECEF→LLA（转换失败退化为无位置记录；平台位姿非法时
+ *         返回空列表）。质量 = 检测裕量归一化（10 dB margin → 1.0，库默认基准）。
+ * @note 量测协方差 R 不进融合通道（DetectionRecord 无协方差字段）：估计层 R
+ *       语义沿用 FusionConfig 逐源噪声配置路径（P2 冻结）。
  */
-ONEQ_API std::vector<DetectionRecord> AdaptArTracksToDetectionRecords(
-    std::uint32_t source_id,
-    const airborne_radar::session::ArExternalTrackOutputFrame& frame);
+ONEQ_API std::vector<DetectionRecord> AdaptArDetectionsToDetectionRecords(
+    std::uint32_t source_id, const airborne_radar::session::ArExternalPoseInput& platform,
+    const airborne_radar::session::ArDetectionOutputFrame& frame);
 
 /**
  * @brief 把 ESR 辐射源假设适配为融合探测记录（key=假设键，方位+射频特征）。

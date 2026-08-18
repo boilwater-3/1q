@@ -254,6 +254,16 @@ Last-reviewed: 2026-08-17
 - **再进入条件 (Stage A)**：估计层轨迹滤波（fusion 演进）立项时，按证据优先模式提交 AR↔估计层
   职责划分方案（关联单源化、滤波原语单源化、识别结论出口迁移）与 replay/公共 API 迁移契约；
   不得零碎单独修改。
+- **证据与建议裁定（2026-08-17，处置立项 Stage A）**：再进入条件已满足——估计层轨迹滤波
+  （fusion P2，`51c87d70`/`0b1a1d6a`）与推演层识别面（target_inference，`9d402196`，
+  `InferenceTrackState.type_evidence` 外部证据输入位）均已落地。Stage A 判定方向：AR 公开输出
+  量测级重构（新增公开量测通道，航迹帧退出核心运行面，内部关联/滤波/生命周期降格为规则 3
+  行为建模不外发）；识别结论回填退出，类型证据改由推演层识别面供给；滤波原语单源核验已合规
+  （tracking 头为 common/estimation 重导出外观，零代码）。正式裁定随处置迁移契约签认冻结。
+  见 ar_esr_legacy_layering_debt_disposition_plan_2026-08-17.md。
+  [evidence: docs/review/ar_esr_legacy_layering_debt_disposition_plan_2026-08-17.md]
+  [evidence: include/1q/target_inference/InferenceTrackState.h]
+  [evidence: src/airborne_radar/signal/tracking/KalmanPredictor.h]
 
 ### TARGET-OQ-2：ESR 威胁等级进 public 输出（ECM 下游消费）
 
@@ -274,6 +284,14 @@ Last-reviewed: 2026-08-17
   不得新增同类威胁语义字段。
 - **再进入条件 (Stage A)**：ESR 公共 API 修订立项时，提交 `threat_level` 迁移契约（含 ECM
   消费路径改造与 replay 兼容性裁定）。
+- **证据与建议裁定（2026-08-17，处置立项 Stage A）**：AR/ESR 债务处置立项即构成"ESR 公共
+  API 修订立项"触发。Stage A 判定方向：`threat_level` 退出 public DTO，且
+  `InferThreatFromCluster` 启发式与内部威胁字段整体退出传感器（ESR 无内部威胁分消费闭环，
+  区别于 AR 的 LPI/ECCM 边界）；ECM 调度威胁分改由 threat_assessment 供给（决策层输入面
+  ESM 特征失配的子裁定挂 D1 契约）；ESM 假设管理与模式推断确认为合法 ESM 产品形态（仅文档
+  冻结）。正式裁定随处置迁移契约签认冻结。
+  见 ar_esr_legacy_layering_debt_disposition_plan_2026-08-17.md。
+  [evidence: docs/review/ar_esr_legacy_layering_debt_disposition_plan_2026-08-17.md]
 
 ### TARGET-OQ-3：SBIRS Estimated 模式滤波后验作为 raw output
 

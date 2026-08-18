@@ -9,6 +9,7 @@
 
 #include "1q/fusion/SensorAdapters.h"
 
+#include "1q/coordinate/attitude_transform.h"
 #include "1q/coordinate/position_transform.h"
 #include "common/numerics/ClampUtils.h"
 #include "common/numerics/Constants.h"
@@ -17,36 +18,51 @@ namespace fusion {
 
 namespace {
 
-/// 探测质量基准：无识别置信度（target_probability == 0）时按轨迹状态取基准值。
-double ArBaseQualityForStatus(airborne_radar::session::TrackStatus status) {
-  return status == airborne_radar::session::TrackStatus::kConfirmed ? 1.0 : 0.5;
-}
-
 }  // namespace
 
-std::vector<DetectionRecord> AdaptArTracksToDetectionRecords(
-    std::uint32_t source_id,
-    const airborne_radar::session::ArExternalTrackOutputFrame& frame) {
+std::vector<DetectionRecord> AdaptArDetectionsToDetectionRecords(
+    std::uint32_t source_id, const airborne_radar::session::ArExternalPoseInput& platform,
+    const airborne_radar::session::ArDetectionOutputFrame& frame) {
   std::vector<DetectionRecord> detections;
-  detections.reserve(frame.tracks.size());
-  for (const auto& track : frame.tracks) {
-    if (track.status == airborne_radar::session::TrackStatus::kLost) {
-      continue;  // 失跟轨迹不入融合（避免以旧位置续命航迹）
-    }
+  oneq::coordinate::LocalFrameReference reference;
+  oneq::foundation::Vector3f radar_local_velocity;
+  const oneq::coordinate::EulerAnglesDeg zero_mount{};
+  if (!airborne_radar::session::TryMakeArPoseFromExternalKinematics(
+          platform, zero_mount, &reference, &radar_local_velocity)) {
+    return detections;  // 平台位姿非法：无可靠参考系，整帧不适配（返回空，不部分写回）
+  }
+  detections.reserve(frame.detections.size());
+  for (const auto& detection : frame.detections) {
     DetectionRecord record;
-    record.key = track.association_key;
+    record.key = 0U;  // 量测无身份键：走空间/方位门关联（去真值化纪律）
     record.source_id = source_id;
     record.has_position = true;
-    oneq::coordinate::LlaPositionDegM lla;
-    if (oneq::coordinate::TryEcefToLla(track.target_position_ecef_m, &lla)) {
-      record.position = lla;
+    // 雷达局部 ENU（含平台姿态旋转）→ ENU → ECEF → LLA，换算与决策 SPI 快照
+    // 位置语义同帧（TARGET-OQ-1 处置：AR 公开输出保持量测形态）。
+    const oneq::coordinate::Vector3d position_enu =
+        oneq::coordinate::RotateLocalToEnu(
+            static_cast<double>(detection.position_x_m),
+            static_cast<double>(detection.position_y_m),
+            static_cast<double>(detection.position_z_m), reference.frame_attitude_deg);
+    oneq::coordinate::EnuPositionM enu;
+    enu.east_m = position_enu.x;
+    enu.north_m = position_enu.y;
+    enu.up_m = position_enu.z;
+    oneq::coordinate::EcefPositionM position_ecef;
+    if (oneq::coordinate::TryEnuToEcef(enu, reference.origin_lla, &position_ecef)) {
+      oneq::coordinate::LlaPositionDegM lla;
+      if (oneq::coordinate::TryEcefToLla(position_ecef, &lla)) {
+        record.position = lla;
+      } else {
+        record.has_position = false;  // ECEF→LLA 失败则退化为无位置记录
+      }
     } else {
-      record.has_position = false;  // 转换失败则退化为仅身份键记录
+      record.has_position = false;  // ENU→ECEF 失败则退化为无位置记录
     }
-    record.verdict = 1.0;  // 已发布的轨迹快照视为有效探测
-    record.quality = track.target_probability > 0.0f
-                         ? static_cast<double>(track.target_probability)
-                         : ArBaseQualityForStatus(track.status);
+    record.verdict = 1.0;  // 已发布的量测记录视为有效探测
+    // 质量 = 检测裕量归一化（10 dB margin → 1.0，库默认基准，与 EOS 10 dB SNR 同口径）。
+    record.quality =
+        oneq::common::numerics::Clamp01(static_cast<double>(detection.detection_margin_db) / 10.0);
     detections.push_back(record);
   }
   return detections;

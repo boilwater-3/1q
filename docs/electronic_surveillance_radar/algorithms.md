@@ -124,10 +124,12 @@ Replay 的 cycle-input ECEF 位置、速度和独立姿态均为 double 精度�
      sweep 和 noise **不允许**跨周期互相改写 track 类型。
   2. 候选图执行一对一全局分配：**先最大化匹配数量，再在最大匹配中最小化总距离**；总代价相同时按
      cluster input index、track hypothesis id 确定性裁决。不接受任意或贪心分配。
-  3. 匹配 track 使用 `confidence_alpha` blending 更新 feature、bearing、mode、threat、confidence；未匹配
+  3. 匹配 track 使用 `confidence_alpha` blending 更新 feature、bearing、mode、confidence；未匹配
      cluster 创建新 hypothesis id；未命中 track 达 `max_missed_cycles` 阈值的当周期回收。
-  4. 模式/威胁推断只来自观测统计（pulse width、PRI、SNR 推断 search/tracking/guidance；guidance 或高 SNR
-     提升 threat level）；waveform class 只参与同类跨周期关联门控，当前**不**生成 deception/ambiguous
+  4. 模式推断只来自观测统计（pulse width、PRI 推断 search/tracking/guidance），作为 ESM 量测语义
+     标注随假设发布；**威胁评分不在传感器内计算**（TARGET-OQ-2 已处置：threat_level 退出
+     public DTO，威胁评估归决策层 threat_assessment，ECM 调度分由调用方经决策层产品值级供给）；
+     waveform class 只参与同类跨周期关联门控，当前**不**生成 deception/ambiguous
      candidate。
 - **反直觉点**：snapshot continuation 与 replay 必须保持 waveform class gate 确定性——跨周期关联门控属于
   累积运行态，恢复失败不得留下半恢复状态（见 data-flow.md 状态所有权）。

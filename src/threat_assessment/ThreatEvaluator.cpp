@@ -18,8 +18,8 @@ namespace threat_assessment {
 namespace {
 
 // 权重槽位顺序：range / speed / acceleration / rcs / target_probability /
-// fusion_confidence。
-constexpr std::size_t kWeightCount = 6U;
+// fusion_confidence / emitter_threat_evidence。
+constexpr std::size_t kWeightCount = 7U;
 
 // 属性清洗：NaN 按缺失（归一化 0）；负值钳制 0；inf 保留（由归一化断点钳制到 1 或 0）。
 float Clean(float v) { return std::isnan(v) ? 0.0f : std::max(0.0f, v); }
@@ -59,7 +59,7 @@ std::array<float, kWeightCount> NormalizeWeights(
   std::array<float, kWeightCount> weights = {
       config.weight_range, config.weight_speed, config.weight_acceleration,
       config.weight_rcs, config.weight_target_probability,
-      config.weight_fusion_confidence};
+      config.weight_fusion_confidence, config.weight_emitter_threat_evidence};
   // double 累积求和，降低默认配置（和 ≈ 1）下归一化引入的浮点误差。
   double sum = 0.0;
   for (float& w : weights) {
@@ -114,6 +114,9 @@ std::vector<ThreatResult> ThreatEvaluator::Evaluate(
     // 融合置信度冻结公式不归一化、可 >1，作为威胁属性时钳制到 [0,1]。
     const float f_confidence = oneq::common::numerics::Clamp01(
         Clean(input.fusion_confidence));
+    // 辐射源威胁证据为调用方组装的 [0,1] 证据值，直通钳制（默认权重 0 不参与计分）。
+    const float f_evidence = oneq::common::numerics::Clamp01(
+        Clean(input.emitter_threat_evidence));
 
     // 可解释分解：每属性贡献 = 归一化权重 × 属性归一化值；威胁分 = 贡献之和
     // （权重已归一化 Σ = 1 → 总分自然 ∈ [0,1]，再钳制兜底）。
@@ -123,11 +126,13 @@ std::vector<ThreatResult> ThreatEvaluator::Evaluate(
     result.contributions.rcs = weights[3] * f_rcs;
     result.contributions.target_probability = weights[4] * f_probability;
     result.contributions.fusion_confidence = weights[5] * f_confidence;
+    result.contributions.emitter_threat_evidence = weights[6] * f_evidence;
     result.threat_score = oneq::common::numerics::Clamp01(
         result.contributions.range + result.contributions.speed +
         result.contributions.acceleration + result.contributions.rcs +
         result.contributions.target_probability +
-        result.contributions.fusion_confidence);
+        result.contributions.fusion_confidence +
+        result.contributions.emitter_threat_evidence);
 
     // 等级映射：先判 HIGH 再判 MEDIUM（阈值配置倒置时 MEDIUM 不触发，属配置语义）。
     if (result.threat_score >= config_.high_threshold) {

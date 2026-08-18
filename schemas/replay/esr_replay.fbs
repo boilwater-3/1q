@@ -125,7 +125,7 @@ table EmitterHypothesis {
   hypothesis_id:     uint64;
   candidate_classes: [string];
   mode:              int32;
-  threat_level:      int32;
+  // threat_level 已删除（TARGET-OQ-2 处置：威胁评估归决策层；项目未上线无兼容负担）。
   bearing_az_deg:    float;
   bearing_el_deg:    float;
   bearing_std_deg:   float;

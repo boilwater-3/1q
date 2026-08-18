@@ -12,6 +12,9 @@
 
 #include "1q/electronic_countermeasure/EcmEsrAdapter.h"
 #include "1q/electronic_countermeasure/EcmSession.h"
+#include "1q/threat_assessment/ThreatEvaluationInput.h"
+#include "1q/threat_assessment/ThreatEvaluator.h"
+#include "1q/threat_assessment/ThreatEvaluatorConfig.h"
 
 namespace electronic_countermeasure {
 namespace session {
@@ -315,6 +318,7 @@ TEST(EcmSessionTest, RestoreRejectsShallowInconsistencyRegression) {
 TEST(EcmSessionTest, EsrAdapterCopiesOnlyDetruthEstimatedFields) {
   electronic_surveillance_radar::session::EmitterHypothesis hypothesis;
   hypothesis.hypothesis_id = 55U;
+  hypothesis.mode = electronic_surveillance_radar::session::EsrEmitterMode::kGuidance;
   hypothesis.estimated_center_frequency_hz = 10.0e9;
   hypothesis.estimated_bandwidth_hz = 5.0e6;
   hypothesis.estimated_pri_s = 1.0e-3;
@@ -323,17 +327,45 @@ TEST(EcmSessionTest, EsrAdapterCopiesOnlyDetruthEstimatedFields) {
   hypothesis.bandwidth_std_hz = 2000.0;
   hypothesis.bearing_std_deg = 1.0f;
   hypothesis.confidence = 0.8f;
-  hypothesis.threat_level = electronic_surveillance_radar::session::EsrThreatLevel::kHigh;
   electronic_surveillance_radar::session::EmitterHypothesisList hypotheses;
   hypotheses.push_back(hypothesis);
 
+  // 决策层供给链（TARGET-OQ-2 处置）：威胁分由 threat_assessment 产出。
+  // 调用方组装证据：模式基准（制导 = 1.0）× 假设置信度 0.8 → 证据 0.8；
+  // 仅启用证据权重的评估器把证据映射为威胁分 0.8（值级传入 ECM，规则 1 不引类型）。
+  threat_assessment::ThreatEvaluatorConfig threat_config;
+  threat_config.weight_range = 0.0f;
+  threat_config.weight_speed = 0.0f;
+  threat_config.weight_acceleration = 0.0f;
+  threat_config.weight_rcs = 0.0f;
+  threat_config.weight_target_probability = 0.0f;
+  threat_config.weight_fusion_confidence = 0.0f;
+  threat_config.weight_emitter_threat_evidence = 1.0f;
+  const threat_assessment::ThreatEvaluator evaluator(threat_config);
+  threat_assessment::ThreatEvaluationInput threat_input;
+  threat_input.key = hypothesis.hypothesis_id;
+  threat_input.emitter_threat_evidence = 1.0f * hypothesis.confidence;
+  const std::vector<threat_assessment::ThreatResult> threat_results =
+      evaluator.Evaluate({threat_input});
+  ASSERT_EQ(threat_results.size(), 1U);
+  EXPECT_FLOAT_EQ(threat_results.front().threat_score, 0.8f);
+
+  std::vector<float> threat_scores;
+  threat_scores.push_back(threat_results.front().threat_score);
+
   EcmSensorObservationFrame frame;
-  ASSERT_TRUE(TryBuildEcmSensorObservationFrame(hypotheses, 700U, &frame));
+  ASSERT_TRUE(TryBuildEcmSensorObservationFrame(hypotheses, 700U, threat_scores, &frame));
   ASSERT_EQ(frame.observations.size(), 1U);
   EXPECT_EQ(frame.source_esr_batch_id, 700U);
   EXPECT_EQ(frame.observations.front().source_hypothesis_id, 55U);
   EXPECT_DOUBLE_EQ(frame.observations.front().estimated_center_frequency_hz, 10.0e9);
   EXPECT_FLOAT_EQ(frame.observations.front().threat_score, 0.8f);
+
+  // 尺寸失配与非法威胁分整帧拒绝（fail-closed，不部分写回）。
+  EcmSensorObservationFrame rejected;
+  EXPECT_FALSE(TryBuildEcmSensorObservationFrame(hypotheses, 700U, {}, &rejected));
+  std::vector<float> bad_scores = {1.5f};
+  EXPECT_FALSE(TryBuildEcmSensorObservationFrame(hypotheses, 700U, bad_scores, &rejected));
 }
 
 TEST(EcmSessionTest, TruthAssistedSnapshotValidatesDeceptionStates) {

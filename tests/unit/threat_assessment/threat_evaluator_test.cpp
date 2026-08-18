@@ -254,8 +254,9 @@ TEST(ThreatEvaluatorTest, ZeroWeightsDegradeToUniform) {
 
   const ThreatEvaluator evaluator(config);
   const auto result = evaluator.Evaluate({input})[0];
-  EXPECT_NEAR(result.contributions.speed, 1.0f / 6.0f, kEps);
-  EXPECT_NEAR(result.threat_score, 1.0f / 6.0f, kEps);
+  // 均分分母 = 属性数（七属性，TARGET-OQ-2 处置后）。
+  EXPECT_NEAR(result.contributions.speed, 1.0f / 7.0f, kEps);
+  EXPECT_NEAR(result.threat_score, 1.0f / 7.0f, kEps);
 }
 
 TEST(ThreatEvaluatorTest, NegativeAndNaNValuesTreatAsMissing) {
@@ -389,8 +390,9 @@ TEST(ThreatEvaluatorTest, InfWeightDegradesToUniform) {
   const ThreatEvaluator evaluator(config);
   const auto result = evaluator.Evaluate({input})[0];
   EXPECT_TRUE(std::isfinite(result.threat_score));
-  EXPECT_NEAR(result.contributions.range, 1.0f / 6.0f, kEps);
-  EXPECT_NEAR(result.threat_score, 1.0f / 6.0f, kEps);
+  // 均分分母 = 属性数（七属性，TARGET-OQ-2 处置后）。
+  EXPECT_NEAR(result.contributions.range, 1.0f / 7.0f, kEps);
+  EXPECT_NEAR(result.threat_score, 1.0f / 7.0f, kEps);
 }
 
 TEST(ThreatEvaluatorTest, PartialZeroWeightNullifiesAttribute) {
@@ -447,7 +449,41 @@ TEST(ThreatEvaluatorTest, DeterministicSameInputSameOutput) {
                     second[i].contributions.target_probability);
     EXPECT_FLOAT_EQ(first[i].contributions.fusion_confidence,
                     second[i].contributions.fusion_confidence);
+    EXPECT_FLOAT_EQ(first[i].contributions.emitter_threat_evidence,
+                    second[i].contributions.emitter_threat_evidence);
   }
+}
+
+TEST(ThreatEvaluatorTest, EmitterThreatEvidenceAttributeOptInOnly) {
+  // TARGET-OQ-2 处置：第七属性（辐射源威胁证据）默认权重 0——默认配置下行为
+  // 位恒等（证据非零也不参与计分）；显式启用后按权重参与加权和。
+  const ThreatEvaluationInput base = MakeMidpointInput(1U);
+
+  ThreatEvaluationInput with_evidence = base;
+  with_evidence.emitter_threat_evidence = 0.9f;
+
+  const ThreatEvaluator default_evaluator(ThreatEvaluatorConfig{});
+  const auto default_results = default_evaluator.Evaluate({base, with_evidence});
+  ASSERT_EQ(default_results.size(), 2U);
+  EXPECT_FLOAT_EQ(default_results[0].threat_score, default_results[1].threat_score);
+  EXPECT_FLOAT_EQ(default_results[1].contributions.emitter_threat_evidence, 0.0f);
+
+  ThreatEvaluatorConfig evidence_config;
+  evidence_config.weight_range = 0.0f;
+  evidence_config.weight_speed = 0.0f;
+  evidence_config.weight_acceleration = 0.0f;
+  evidence_config.weight_rcs = 0.0f;
+  evidence_config.weight_target_probability = 0.0f;
+  evidence_config.weight_fusion_confidence = 0.0f;
+  evidence_config.weight_emitter_threat_evidence = 1.0f;
+  evidence_config.high_threshold = 0.95f;
+  const ThreatEvaluator evidence_evaluator(evidence_config);
+  const auto evidence_results = evidence_evaluator.Evaluate({base, with_evidence});
+  ASSERT_EQ(evidence_results.size(), 2U);
+  EXPECT_FLOAT_EQ(evidence_results[0].threat_score, 0.0f);
+  EXPECT_FLOAT_EQ(evidence_results[1].threat_score, 0.9f);
+  EXPECT_FLOAT_EQ(evidence_results[1].contributions.emitter_threat_evidence, 0.9f);
+  EXPECT_EQ(evidence_results[1].level, ThreatLevel::kMedium);
 }
 
 }  // namespace

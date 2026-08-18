@@ -6,7 +6,6 @@
 #include <memory>
 
 #include "1q/airborne_radar/session/ArControlProfile.h"
-#include "1q/airborne_radar/session/ArTrackOutput.h"
 #include "airborne_radar/decision/ControlReducer.h"
 #include "airborne_radar/decision/TacticalCoordinator.h"
 #include "airborne_radar/environment/IEnvironmentService.h"
@@ -80,7 +79,9 @@ struct ArController::Impl {
   std::unique_ptr<extension::ControlCommandMapper> command_mapper;
 
   // -- 周期运行时状态
-  oneq::common::runtime::RuntimeCycleState<session::TrackOutputFrame> cycle_state{};
+  oneq::common::runtime::RuntimeCycleState<session::ArDetectionOutputFrame> cycle_state{};
+  session::TrackStateSnapshotList latest_track_snapshots{}; /**< 最近周期内部航迹快照
+      （决策 SPI 输入形状；供 STT 指定派生/生命周期记录器消费，不作为发布产品）。 */
   bool last_cycle_executed{false};
   session::SignalCycleAbortReason last_signal_abort_reason{session::SignalCycleAbortReason::kNone};
   session::ArIssueList latest_issues{}; /**< 正常周期按目标排除的 kInfo 诊断（规则 13b）。 */
@@ -293,25 +294,13 @@ void ArController::RunOnce(const signal::pipeline::SignalCycleInput& cycle_input
   decision_frame.batch_id = stamp.batch_id;
   decision_frame.interference_observations = cycle_input.interference_observations;
 
-  session::TrackOutputFrame output_frame;
-  output_frame.cycle_index = stamp.cycle_index;
-  output_frame.batch_id = stamp.batch_id;
-  output_frame.tracks = decision_frame.tracks;
-
   session::TacticalDecisionResult decision_result;
   if (impl_->owned_decision_components.decision_engine != nullptr &&
       impl_->owned_decision_components.tactical_state_store != nullptr) {
     decision_result = impl_->owned_decision_components.decision_engine->Evaluate(
         decision_frame, *impl_->owned_decision_components.tactical_state_store);
-
-    // 将目标分类结果回填到轨迹输出帧
-    const auto& classifications = decision_result.target_classification_result;
-    auto& output_tracks = output_frame.tracks;
-    const std::size_t count = std::min(classifications.size(), output_tracks.size());
-    for (std::size_t i = 0; i < count; ++i) {
-      output_tracks[i].target_type = classifications[i].target_type;
-      output_tracks[i].target_probability = classifications[i].probability;
-    }
+    // 识别结论（target_classification_result）保留在决策内部：驱动 LPI/ECCM 资源
+    // 管理，不回填任何公开输出（TARGET-OQ-1 处置；类型证据改由推演层识别面供给）。
   }
 
   signal_result.decision_frame = decision_frame;
@@ -324,7 +313,10 @@ void ArController::RunOnce(const signal::pipeline::SignalCycleInput& cycle_input
   impl_->latest_decision_observation.active_control_profile = impl_->control_profile;
   impl_->has_latest_decision_observation = true;
 
-  impl_->cycle_state.latest_output = output_frame;
+  impl_->latest_track_snapshots = decision_frame.tracks;
+  impl_->cycle_state.latest_output = signal_result.detection_frame;
+  impl_->cycle_state.latest_output.cycle_index = stamp.cycle_index;
+  impl_->cycle_state.latest_output.batch_id = stamp.batch_id;
   impl_->cycle_state.has_latest_output = true;
   ++impl_->cycle_state.next_batch_id;
 }
@@ -358,12 +350,16 @@ void ArController::RunCycles(std::size_t cycles) {
   }
 }
 
-bool ArController::HasLatestTrackOutputFrame() const {
+bool ArController::HasLatestDetectionFrame() const {
   return impl_->cycle_state.has_latest_output;
 }
 
-const session::TrackOutputFrame& ArController::GetLatestTrackOutputFrame() const {
+const session::ArDetectionOutputFrame& ArController::GetLatestDetectionFrame() const {
   return impl_->cycle_state.latest_output;
+}
+
+const session::TrackStateSnapshotList& ArController::GetLatestTrackSnapshots() const {
+  return impl_->latest_track_snapshots;
 }
 
 const session::ArIssueList& ArController::GetLatestIssues() const {
@@ -421,7 +417,8 @@ extension::ArControllerRuntimeState ArController::CaptureRuntimeState() const {
   extension::ArControllerRuntimeState state;
   state.owner_identity = this;
   state.schema_version = 8U;
-  state.latest_output = impl_->cycle_state.latest_output;
+  state.latest_detection = impl_->cycle_state.latest_output;
+  state.latest_track_snapshots = impl_->latest_track_snapshots;
   state.has_latest_output = impl_->cycle_state.has_latest_output;
   state.next_batch_id = impl_->cycle_state.next_batch_id;
   state.last_cycle_executed = impl_->last_cycle_executed;
@@ -454,7 +451,8 @@ bool ArController::RestoreRuntimeState(const extension::ArControllerRuntimeState
         "owner/schema mismatch.");
     return false;
   }
-  impl_->cycle_state.latest_output = state.latest_output;
+  impl_->cycle_state.latest_output = state.latest_detection;
+  impl_->latest_track_snapshots = state.latest_track_snapshots;
   impl_->cycle_state.has_latest_output = state.has_latest_output;
   impl_->cycle_state.next_batch_id = state.next_batch_id;
   impl_->last_cycle_executed = state.last_cycle_executed;

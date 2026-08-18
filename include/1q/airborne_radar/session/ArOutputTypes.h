@@ -10,6 +10,7 @@
 
 #include <cstddef>
 
+#include "1q/airborne_radar/session/ArDetectionOutput.h"
 #include "1q/airborne_radar/session/ArSceneTypes.h"
 #include "1q/airborne_radar/session/DecisionInputFrame.h"
 #include "1q/api.hpp"
@@ -113,6 +114,7 @@ struct ONEQ_API SignalCycleResult {
       SignalCycleAbortReason::kNone};           /**< 若当前调用未执行成功，给出结构化 abort 原因 */
   ArSceneTargetList updated_scene_targets{};    /**< 当前周期更新后的场景目标列表 */
   session::DecisionInputFrame decision_frame{}; /**< 当前周期决策输入帧 */
+  ArDetectionOutputFrame detection_frame{}; /**< 当前周期量测输出帧（检测成功目标的量测形态记录） */
   AssociationQualityMetrics association_quality_metrics{}; /**< 当前周期关联质量观测指标 */
   ArIssueList issues{}; /**< 统一问题列表（规则 14：正常周期按目标排除的 kInfo 诊断，
                              phase=kExecution；abort 路径诊断由 RecordAbort 写入）。 */

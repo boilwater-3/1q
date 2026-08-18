@@ -18,7 +18,6 @@
 #include "1q/airborne_radar/session/ArInputValidation.h"
 #include "1q/airborne_radar/session/ArInterferenceObservation.h"
 #include "1q/airborne_radar/session/ArOutputTypes.h"
-#include "1q/airborne_radar/session/ArTrackOutput.h"
 #include "1q/api.hpp"
 
 namespace airborne_radar {
@@ -56,7 +55,8 @@ enum class ArDesignationRevertReason : std::uint8_t {
 struct ONEQ_API ArCycleResult {
   std::uint32_t input_cycle_index{0U};   /**< 本次调用输入周期号，用于失败结果与 trace 归属 */
   ArCycleStatus status{ArCycleStatus::kRejectedInvalidInput}; /**< 周期执行状态。 */
-  TrackOutputFrame output_frame{}; /**< 当前调用返回的轨迹输出帧 */
+  ArDetectionOutputFrame output_frame{}; /**< 当前调用返回的量测输出帧（检测成功目标的量测形态记录，
+                                              分层契约规则 3：传感器 raw output 保持量测形态） */
   oneq::electromagnetics::RfEmissionFrame emission_frame{}; /**< 本周期实际 AR 发射。 */
   ArReceiverImpairment receiver_impairment{ArReceiverImpairment::kNone};
   ArInterferenceObservationList interference_observations{};

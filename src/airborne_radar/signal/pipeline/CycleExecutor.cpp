@@ -181,6 +181,29 @@ void CollectCycleOutputs(std::uint32_t cycle_index, std::uint64_t batch_id,
   scratch.decision_frame.batch_id = batch_id;
   scratch.decision_frame.association_quality_info = association_quality_info;
   scratch.decision_frame.perception_quality_info = perception_quality_info;
+
+  // 量测输出帧（分层契约规则 3：raw output 保持量测形态）：从关联后量测组装，
+  // 只携带位置/量测协方差/检测裕量，不含真值标识与航迹/识别语义。欺骗注入的
+  // 假目标量测同为传感器观测量，一并发布。
+  scratch.detection_frame = session::ArDetectionOutputFrame{};
+  scratch.detection_frame.cycle_index = cycle_index;
+  scratch.detection_frame.batch_id = batch_id;
+  scratch.detection_frame.detections.reserve(scratch.track_measurements.size());
+  for (const tracking::TrackMeasurement& measurement : scratch.track_measurements) {
+    session::ArDetectionRecord record;
+    record.position_x_m = measurement.raw_measurement.position.x();
+    record.position_y_m = measurement.raw_measurement.position.y();
+    record.position_z_m = measurement.raw_measurement.position.z();
+    for (std::size_t row = 0U; row < 3U; ++row) {
+      for (std::size_t col = 0U; col < 3U; ++col) {
+        record.measurement_covariance[row * 3U + col] =
+            measurement.raw_measurement.measurement_covariance(
+                static_cast<Eigen::Index>(row), static_cast<Eigen::Index>(col));
+      }
+    }
+    record.detection_margin_db = measurement.raw_measurement.detection_margin_db;
+    scratch.detection_frame.detections.push_back(record);
+  }
 }
 
 void AssembleOutputs(std::uint32_t cycle_index, std::uint64_t batch_id,

@@ -26,6 +26,9 @@ struct ONEQ_API ThreatEvaluationInput {
   float rcs{0.0f};                    /**< 目标估计雷达散射截面积（单位：m^2） */
   float target_probability{0.0f};     /**< 目标类型/识别概率（单位：1，[0,1]） */
   float fusion_confidence{0.0f};      /**< 融合置信度（融合模块输出，可 >1，评估器内部钳制） */
+  float emitter_threat_evidence{0.0f}; /**< 辐射源威胁证据（单位：1，[0,1]，调用方组装：
+                                            如由 ESM 工作模式基准 × 假设置信度合成；评估器
+                                            不感知传感器与模式枚举，默认权重 0 下不参与计分） */
 };
 
 }  // namespace threat_assessment

@@ -37,11 +37,6 @@ bool IsValidEmitterMode(std::int32_t value) {
                         EsrEmitterMode::kContinuousIllumination);
 }
 
-bool IsValidThreatLevel(std::int32_t value) {
-  return value >= static_cast<std::int32_t>(EsrThreatLevel::kLow) &&
-         value <= static_cast<std::int32_t>(EsrThreatLevel::kHigh);
-}
-
 bool IsValidCycleStatus(std::int32_t value) {
   return value >= static_cast<std::int32_t>(EsrCycleExecutionStatus::kCompleted) &&
          value <= static_cast<std::int32_t>(EsrCycleExecutionStatus::kPoweredOff);
@@ -336,7 +331,6 @@ flatbuffers::Offset<esr::replay::EsrOutputFrame> CreateEsrOutputFrameTable(
     builder.add_hypothesis_id(h.hypothesis_id);
     builder.add_candidate_classes(cls_fb);
     builder.add_mode(static_cast<int32_t>(h.mode));
-    builder.add_threat_level(static_cast<int32_t>(h.threat_level));
     builder.add_bearing_az_deg(h.bearing_az_deg);
     builder.add_bearing_el_deg(h.bearing_el_deg);
     builder.add_bearing_std_deg(h.bearing_std_deg);
@@ -410,14 +404,12 @@ bool PopulateOutputFrame(const esr::replay::EsrOutputFrame* fb,
     if (e->hypotheses()) {
       for (const auto* h : *e->hypotheses()) {
         if (h == nullptr || !IsValidEmitterMode(h->mode()) ||
-            !IsValidThreatLevel(h->threat_level()) ||
             !IsValidWaveformClass(h->waveform_class())) {
           return false;
         }
         session::EmitterHypothesis hyp{};
         hyp.hypothesis_id = h->hypothesis_id();
         hyp.mode = static_cast<session::EsrEmitterMode>(h->mode());
-        hyp.threat_level = static_cast<session::EsrThreatLevel>(h->threat_level());
         hyp.bearing_az_deg = h->bearing_az_deg();
         hyp.bearing_el_deg = h->bearing_el_deg();
         hyp.bearing_std_deg = h->bearing_std_deg();

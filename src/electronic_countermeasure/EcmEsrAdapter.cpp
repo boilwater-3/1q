@@ -7,18 +7,6 @@ namespace electronic_countermeasure {
 namespace session {
 namespace {
 
-float ThreatLevelScore(electronic_surveillance_radar::session::EsrThreatLevel level) {
-  switch (level) {
-    case electronic_surveillance_radar::session::EsrThreatLevel::kHigh:
-      return 1.0f;
-    case electronic_surveillance_radar::session::EsrThreatLevel::kMedium:
-      return 0.66f;
-    case electronic_surveillance_radar::session::EsrThreatLevel::kLow:
-      return 0.33f;
-  }
-  return 0.0f;
-}
-
 bool IsValidHypothesis(
     const electronic_surveillance_radar::session::EmitterHypothesis& hypothesis) {
   return std::isfinite(hypothesis.estimated_center_frequency_hz) &&
@@ -38,12 +26,18 @@ bool IsValidHypothesis(
          hypothesis.confidence <= 1.0f;
 }
 
+bool IsValidThreatScore(float score) {
+  return std::isfinite(score) && score >= 0.0f && score <= 1.0f;
+}
+
 }  // namespace
 
 bool TryBuildEcmSensorObservationFrame(
     const electronic_surveillance_radar::session::EmitterHypothesisList& hypotheses,
-    std::uint64_t source_esr_batch_id, EcmSensorObservationFrame* output) {
-  if (output == nullptr || source_esr_batch_id == 0U) {
+    std::uint64_t source_esr_batch_id,
+    const std::vector<float>& threat_scores, EcmSensorObservationFrame* output) {
+  if (output == nullptr || source_esr_batch_id == 0U ||
+      threat_scores.size() != hypotheses.size()) {
     // A fresh frame must carry a real ESR published batch_id (provenance); zero
     // means "no real ESR success batch" and is rejected so callers cannot supply
     // an unbound frame. See design.md §2 prototype limitation.
@@ -52,9 +46,12 @@ bool TryBuildEcmSensorObservationFrame(
   EcmSensorObservationFrame candidate;
   candidate.source_esr_batch_id = source_esr_batch_id;
   std::set<std::uint64_t> hypothesis_ids;
-  for (const electronic_surveillance_radar::session::EmitterHypothesis& hypothesis : hypotheses) {
+  for (std::size_t i = 0U; i < hypotheses.size(); ++i) {
+    const electronic_surveillance_radar::session::EmitterHypothesis& hypothesis =
+        hypotheses[i];
     if (!IsValidHypothesis(hypothesis) ||
-        !hypothesis_ids.insert(hypothesis.hypothesis_id).second) {
+        !hypothesis_ids.insert(hypothesis.hypothesis_id).second ||
+        !IsValidThreatScore(threat_scores[i])) {
       return false;
     }
     EcmSensorObservation observation;
@@ -69,8 +66,7 @@ bool TryBuildEcmSensorObservationFrame(
     observation.bearing_el_deg = hypothesis.bearing_el_deg;
     observation.bearing_std_deg = hypothesis.bearing_std_deg;
     observation.confidence = hypothesis.confidence;
-    observation.threat_score =
-        ThreatLevelScore(hypothesis.threat_level) * hypothesis.confidence;
+    observation.threat_score = threat_scores[i];
     candidate.observations.push_back(observation);
   }
   *output = candidate;

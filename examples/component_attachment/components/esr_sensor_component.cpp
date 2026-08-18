@@ -118,13 +118,11 @@ void EsrSensorComponent::Step(World& world, double dt_sec) {
     event.bearing_az_deg = hypothesis.bearing_az_deg;
     event.confidence = hypothesis.confidence;
     event.mode = hypothesis.mode;
-    event.threat_level = hypothesis.threat_level;
     // 假设事件每周期重复（目标恒在时）：事件模式一下不落盘（信号照常发布）。
-    CA_LOG_EVENT_DUP(world, "emitter_hypothesis",
-                     "假设={} 方位={:.1f}° 置信={:.2f} 模式={} 威胁={}",
+    // 威胁等级已随 TARGET-OQ-2 处置退出传感器公开输出（威胁评估归 threat_assessment）。
+    CA_LOG_EVENT_DUP(world, "emitter_hypothesis", "假设={} 方位={:.1f}° 置信={:.2f} 模式={}",
                      static_cast<unsigned long long>(event.hypothesis_id),
-                     event.bearing_az_deg, event.confidence,
-                     static_cast<int>(event.mode), static_cast<int>(event.threat_level));
+                     event.bearing_az_deg, event.confidence, static_cast<int>(event.mode));
     world.signals().on_emitter_hypothesis(event);
   }
 

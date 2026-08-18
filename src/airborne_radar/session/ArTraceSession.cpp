@@ -57,7 +57,7 @@ std::string BuildCyclePayload(const ArCycleInput& input,
          << input.interference.emissions.size();
   if (result != nullptr) {
     stream << ",\"status\":" << static_cast<int>(result->status)
-           << ",\"track_count\":" << result->output_frame.tracks.size()
+           << ",\"detection_count\":" << result->output_frame.detections.size()
            << ",\"ar_emission_count\":"
            << result->emission_frame.emissions.size()
            << ",\"interference_observation_count\":"
@@ -101,7 +101,7 @@ ArTraceSession& ArTraceSession::operator=(ArTraceSession&& other) noexcept =
     default;
 ArTraceSession::~ArTraceSession() = default;
 
-TrackOutputFrame ArTraceSession::Step(const ArCycleInput& input) {
+ArDetectionOutputFrame ArTraceSession::Step(const ArCycleInput& input) {
   return StepWithResult(input).output_frame;
 }
 

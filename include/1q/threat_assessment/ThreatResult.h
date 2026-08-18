@@ -23,7 +23,7 @@ enum class ONEQ_API ThreatLevel {
 
 /**
  * @brief 每属性归一化贡献分解（可解释性：威胁分由哪些属性构成）。
- * @note 当配置的权重和为 1 时，六项贡献之和等于威胁分。
+ * @note 当配置的权重和为 1 时，七项贡献之和等于威胁分。
  */
 struct ONEQ_API AttributeContribution {
   float range{0.0f};               /**< 距离贡献（权重 × 距离归一化值） */
@@ -32,6 +32,7 @@ struct ONEQ_API AttributeContribution {
   float rcs{0.0f};                 /**< RCS 贡献 */
   float target_probability{0.0f};  /**< 类型概率贡献 */
   float fusion_confidence{0.0f};   /**< 融合置信度贡献 */
+  float emitter_threat_evidence{0.0f}; /**< 辐射源威胁证据贡献 */
 };
 
 /**
