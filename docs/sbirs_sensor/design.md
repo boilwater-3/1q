@@ -12,12 +12,16 @@ Answers: SBIRS 模块是什么、和 EOS 有何不同、设计文档怎么导航
 trace/replay、调试视图和生命周期事件。
 
 SBIRS 的心智模型是**状态机驱动的双视场传感器**：
-1. **WFOV 宽视场扫描**发现目标（带误差位置）。
+1. **WFOV 宽视场扫描**发现目标（带误差位置）；连续命中达到阈值（默认 1）才允许切换窄场。
 2. **NFOV 首次捕获**：用 WFOV 带误差 cue 生成凝视指向，限速 ATP 稳定后做几何窗口 + SNR 门判定。
 3. **NFOV 持续跟踪**：捕获成功后进入三种互斥模式之一（Estimated/Strict/Sensor-like），闭环 ATP 跟踪。
 
 与 EOS 的核心差异：EOS 是单视场扫描探测器，对 FOV 内目标做一次性 SNR 判定；SBIRS 用跨周期状态机
 管理每个目标的 WFOV 发现 → NFOV 首次捕获 → 持续跟踪全过程。
+
+验收信息（需求映射 3.2.1.3 章节的覆盖区/驻留时间/焦平面脱靶量/信号能量/连续命中计数）走
+`[SbirsAccept]` 专用日志通道（CMake 开关 `ONEQ_ENABLE_SBIRS_ACCEPTANCE_LOG`，默认 OFF），
+不进公开输出结构；见 [boundaries.md](boundaries.md) 与 [algorithms.md](algorithms.md) 的验收派生量节。
 
 本文以公开 SBIRS/OPIR 资料为真实系统校准点，但不声称复刻真实 SBIRS 设备、保密载荷或地面处理链路。
 WFOV/NFOV 是面向仿真实现的宽域搜索/窄域凝视抽象。

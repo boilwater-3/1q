@@ -92,6 +92,7 @@ CMake toolchain/dependency 文件。它没有 `build()`、`package()` 或 `packa
 | `ENABLE_EXAMPLES` | OFF | 构建第一方示例和 batch validation |
 | `ENABLE_INSTALL` | OFF | 启用安装与 package-config 规则 |
 | `ONEQ_ENABLE_FLIGHT_DYNAMIC` | OFF | 构建 flight_dynamic 模块及其专属测试/示例 |
+| `ONEQ_ENABLE_SBIRS_ACCEPTANCE_LOG` | OFF | 开启 SBIRS 验收信息日志（`[SbirsAccept]` 事件流：WFOV 地面覆盖区/驻留时间、疑似目标与信号能量、宽窄切换连续命中、NFOV 捕获/跟踪、焦平面脱靶量、通道协同）；关闭时宏与派生计算一并剪除，零开销 |
 
 选项的最终值以所选 preset 与 configure 命令覆盖后的 CMake cache 为准。
 

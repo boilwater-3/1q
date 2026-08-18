@@ -222,6 +222,7 @@ flowchart LR
     Raw["SbirsOutputFrame"]
     Result["SbirsCycleResult"]
     Trace["Trace / Replay"]
+    Accept["[SbirsAccept] 验收日志\n（编译期开关，默认 OFF）"]
   end
 
   Config --> Internal
@@ -244,7 +245,19 @@ flowchart LR
   Wsnr --> Raw
   Raw --> Result
   Result --> Trace
+  Frame --> Accept
+  Wfov --> Accept
+  Handoff --> Accept
+  Track --> Accept
+  Sched --> Accept
 ```
+
+**验收日志旁路（2026-08-18）**：`[SbirsAccept]` 事件流（`SBIRS_ACCEPTANCE_LOG`，CMake 开关
+`ONEQ_ENABLE_SBIRS_ACCEPTANCE_LOG` 默认 OFF）从各阶段旁路读取中间量（覆盖区投影消费
+Frame 几何、疑似目标/信号能量消费 WFOV discovery、捕获判决与通道协同消费 Handoff/Sched、
+焦平面脱靶量消费 Track 指向），经 `PROJECT_LOG_INFO` 落盘，**不回流任何输出结构**。
+跨周期状态新增 `wfov_consecutive_hits`（宽窄切换连续命中计数表，进 `SbirsPipelineSnapshot`
+capture/restore）。
 
 ## 输入校验边界（dt_sec）
 

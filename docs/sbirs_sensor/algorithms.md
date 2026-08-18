@@ -34,6 +34,9 @@ Answers: SBIRS 用了哪些算法、各自实现到什么地步、边界在哪�
 | 安装失准误差模型 | 安装失准（常值偏置 + 运行期一次随机抽取的常值微扰）合成进 boresight 链影响实际光轴与门控；与量测域误差及时变扰动谱正交 | 生产可用（阶段 3，2026-08-17） | [evidence: tests/unit/sbirs_sensor/sbirs_boresight_chain_test]、[evidence: tests/unit/sbirs_sensor/sbirs_pipeline_test] |
 | 2-D 俯仰栅格扫描 | 俯仰栅格（el 起止+步进角）与方位环扫正交组合；锯齿单向推进、行内相位与既有一致、行末回绕；输出行中心 ECI 俯仰 | 生产可用（阶段 4，2026-08-17） | [evidence: tests/unit/sbirs_sensor/sbirs_pipeline_test] |
 | ECEF→ECI 旋转（GMST） | 周期入口按 UTC 儒略日算 GMST，把卫星/目标位置与卫星/目标速度（含 ω×r 输运项）旋到 ECI | 生产可用（共享域 1q/coordinate/inertial_transform.h，仅 SBIRS 消费） | [evidence: tests/unit/sbirs_sensor/sbirs_eci_transform_test] |
+| WFOV 地面覆盖区投影 | 实际扫描中心 ±半视场四角经指向链到 ECI，与地球圆球交会（最近正根），交点旋回 ECEF 取地心经纬度；指向太空的角记 miss | 生产可用（仅验收日志消费，2026-08-18） | [evidence: tests/unit/sbirs_sensor/sbirs_foundation_test] |
+| 焦平面脱靶量映射 | 目标相对 NFOV 指向中心的逐轴角差经 x=f·tan(Δaz)、y=f·tan(Δel) 映射为米/像素脱靶量 | 生产可用（仅验收日志消费，2026-08-18） | [evidence: tests/unit/sbirs_sensor/sbirs_foundation_test] |
+| 宽窄切换连续命中门 | 逐目标累计连续 WFOV 门通过次数，达到 `wide_to_narrow_required_consecutive_hits`（默认 1）才允许进入 NFOV 调度；门失败/消失清零，捕获清零 | 生产可用（默认 1 行为逐位不变，2026-08-18） | [evidence: tests/unit/sbirs_sensor/sbirs_pipeline_test] |
 
 ## 安装指向与稳定链（阶段 2）
 
@@ -299,12 +302,16 @@ Answers: SBIRS 用了哪些算法、各自实现到什么地步、边界在哪�
   2. 编号分配确定性：相同输入在 replay 中产生相同的目标→通道映射。
   3. 调度器不读取仿真目标名称，只使用状态、SNR、距离和 `target_id`。
   4. `nfov_channel_id` 仅进 attribution 调试层，不进 raw output。
+  5. **切换前置条件（2026-08-18）**：新候选进入调度须先满足连续 WFOV 命中门
+     `hits >= wide_to_narrow_required_consecutive_hits`（默认 1 行为不变；见"验收派生量"
+     节第 5 条）；已锁定/等待捕获目标不受该门影响。
 - **优先级规则**：
   1. 已锁定目标优先级最高（持续占用各自通道）。
   2. 新候选按 WFOV IR SNR 从高到低。
   3. SNR 相同按距离从近到远。
   4. 仍相同按 `target_id` 从小到大。
 - **证据**：[evidence: tests/unit/sbirs_sensor/sbirs_scheduler_test]
+- **证据**：[evidence: tests/unit/sbirs_sensor/sbirs_pipeline_test]（连续命中门控行为）
 
 ## ECEF→ECI 惯性旋转（GMST）
 
@@ -337,6 +344,39 @@ Answers: SBIRS 用了哪些算法、各自实现到什么地步、边界在哪�
      ECI 几何；旋转保模长与球体相交语义，门控结果与帧无关。
 - **证据**：[evidence: tests/unit/sbirs_sensor/sbirs_foundation_test]
 
+## 验收派生量（[SbirsAccept] 日志专用，2026-08-18）
+
+- **意图**：满足需求映射 3.2.1.3 章节（OPIR 宽视场扫描探测与窄视场跟踪探测）的验收信息
+  输出：把管线中间量与少量新增派生量经 `SBIRS_ACCEPTANCE_LOG`（CMake 开关
+  `ONEQ_ENABLE_SBIRS_ACCEPTANCE_LOG`，默认 OFF）写入项目日志，人读验收材料。
+- **派生量与公式**：
+  1. **WFOV 地面覆盖区**：实际扫描中心（传感器系，含共模扰动与限位钳制）± 半视场共 4 角，
+     每角经 boresight 链合成 ECI 视线后与地球圆球求交（半无限射线最近正根；
+     `TryIntersectRayWithSphere`），交点按周期 GMST 旋回 ECEF 取地心经纬度
+     （`ComputeGeocentricLatLonDeg`）；圆球模型与遮挡门控同口径（`kEarthRadiusM`），
+     指向太空的角记 `miss`。
+  2. **驻留时间**：`dwell_s = wide_field_fov_az_deg / scan_rate_deg_per_sec`（方位向扫描
+     穿越视场时间；`scan_rate=0` 退化配置记 0）。
+  3. **焦平面脱靶量**：目标传感器系角 − NFOV 实际指向角，逐轴 `x = f·tan(Δaz)`、
+     `y = f·tan(Δel)`（米），除以像元间距得像素（`ComputeFocalPlaneOffset`）；逐轴独立
+     小角投影，非畸变光学模型。
+  4. **目标信号能量**：`E = P_received · t_int`（`ComputeSnr` 出参透出，不改 SNR 数值）。
+  5. **宽窄切换连续命中计数**：逐目标累计连续通过 WFOV 四门（遮挡/距离/视场/SNR）的
+     周期数；任一门失败、目标消失或待机清零；**捕获成功进入跟踪时清零**（丢锁回宽场后
+     需重新积累）。进入 NFOV 调度的前置条件为 `hits >= wide_to_narrow_required_consecutive_hits`
+     （`SbirsSchedulerConfig`，默认 1 = 单次命中即调度，与既有行为逐位一致）。计数表进
+     `SbirsPipelineSnapshot`（capture/restore 完整）。
+- **反直觉点**：
+  1. 覆盖区四角在**传感器系**加偏移再经链变换（含姿态/安装/失准），不是在 ECI 角度直接
+     加偏移——identity 链下两者才等价。
+  2. 连续命中计数在**候选创建点**自增（当周期即计 1），默认阈值 1 下新候选当周期即可调度，
+     行为与改造前逐位一致。
+  3. 驻留时间是配置派生标量（视场/速率），不依赖目标；与逐周期输出配对供验收核对。
+- **边界**：全部派生量仅走日志通道，不进 raw output/attribution/DebugView（boundaries.md
+  非目标 10）；开关 OFF 时宏与派生计算一并编译剪除。
+- **证据**：[evidence: tests/unit/sbirs_sensor/sbirs_foundation_test]
+- **证据**：[evidence: tests/unit/sbirs_sensor/sbirs_pipeline_test]
+
 ## Foundation 物理链路
 
 - **意图**：目标辐射强度（W/sr）→ 接收功率、路径透过率、背景/探测器噪声和 SNR 门限的标量顺序计算。
@@ -346,8 +386,9 @@ Answers: SBIRS 用了哪些算法、各自实现到什么地步、边界在哪�
      面积），接收功率 `P_sig = I_t · A_ap · τ_opt · τ_atm · η / d²`；模块不再做 Planck 换算
      （无温度输入）。
   3. 第一版只实现标量链路，不实现图像帧、像元级背景图或多色分类器。
-  4. 当前标量 SNR 链缺少把像元面积映射为视场立体角所需的焦距与成像几何，因此 public hardware 和
-     replay schema 都不暴露无消费者的 detector-area 字段。
+  4. 标量 SNR 链不做像元级背景（仍无 PSF/MTF/成像几何）；焦平面脱靶量映射所需的
+     `focal_length_m`/`detector_pixel_pitch_m` 已加入 public hardware 与 replay schema，
+     但仅被验收日志消费（见"验收派生量"节），不进标量探测链路。
   5. WFOV/NFOV 当前共享同一套波段、孔径、透过率、积分时间和噪声参数；两个通道差异由 FOV、调度/指向
      和各自检测门限表达。
   6. 复制自 EOS 的算法允许按天基场景修正常数和几何输入，但必须保持调用面由 `SbirsPipeline` 统一编排。
