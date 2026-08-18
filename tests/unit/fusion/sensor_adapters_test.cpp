@@ -3,9 +3,10 @@
 // @file sensor_adapters_test.cpp
 // @brief 传感器输出 → 融合探测记录官方适配器（SensorAdapters）单元测试。
 //
-// 覆盖四传感器适配函数：正常映射全字段、跳过规则（AR kLost / ESR
-// hypothesis_id==0 / EOS-SBIRS detected==false）、质量归一化夹取、AR ECEF
-// 转换失败退化分支、source_id 透传、空输入 → 空输出。
+// 覆盖五传感器适配函数：正常映射全字段、跳过规则（AR kLost / ESR
+// hypothesis_id==0 / EOS-SBIRS detected==false / RIR 全维无效或键 0）、
+// 质量归一化夹取、AR ECEF 转换失败退化分支、RIR 11 维布局与 east→north
+// 换算、source_id 透传、空输入 → 空输出。
 
 #include <gtest/gtest.h>
 
@@ -314,6 +315,182 @@ TEST(SensorAdaptersTest, EmptyInputYieldsEmptyOutput) {
 
   sbirs_sensor::output::SbirsDetectionRecordList sbirs_records;
   EXPECT_TRUE(AdaptSbirsDetectionsToDetectionRecords(kSbirsSourceId, sbirs_records).empty());
+}
+
+// ============================ RIR 特征量测适配 ============================
+
+namespace rir = remote_identification_radar::session;
+
+/// 全四维有效特征量测记录（11 维布局期望值见各断言）。
+rir::RirFeatureMeasurementRecord MakeRirMeasurement(std::uint64_t key) {
+  rir::RirFeatureMeasurementRecord record;
+  record.association_key = key;
+  record.features.rcs.valid = true;
+  record.features.rcs.mean_dbsm = -3.0f;
+  record.features.rcs.quality = 0.8f;
+  record.features.motion.valid = true;
+  record.features.motion.speed_m_per_s = 250.0f;
+  record.features.motion.altitude_m = 3000.0f;
+  record.features.motion.acceleration_m_per_s2 = 12.0f;
+  record.features.motion.turn_radius_m = 10000.0f;
+  record.features.motion.quality = 0.4f;
+  record.features.polarization.valid = true;
+  record.features.polarization.energy_difference_db = 2.5f;
+  record.features.polarization.relative_difference_db = 1.5f;
+  record.features.polarization.energy_sum_db = -6.0f;
+  record.features.polarization.quality = 0.6f;
+  record.features.range_profile.valid = true;
+  record.features.range_profile.length_m = 8.0f;
+  record.features.range_profile.peak_count = 3U;
+  record.features.range_profile.peak_energy_concentration = 0.75f;
+  record.features.range_profile.quality = 0.2f;
+  record.valid_feature_mask = 0x0FU;
+  record.look_az_deg = 30.0f;
+  record.look_el_deg = 10.0f;
+  return record;
+}
+
+TEST(SensorAdaptersTest, RirMeasurementsAdaptWithElevenDimensionLayout) {
+  rir::RirFeatureMeasurementFrame frame;
+  frame.records.push_back(MakeRirMeasurement(7U));
+
+  const std::vector<DetectionRecord> detections =
+      AdaptRirFeatureMeasurementsToDetectionRecords(kRirSourceId, frame);
+
+  ASSERT_EQ(detections.size(), 1U);
+  const DetectionRecord& detection = detections[0];
+  EXPECT_EQ(detection.key, 7U);  // 库内键透传（ESR hypothesis_id 先例）
+  EXPECT_EQ(detection.source_id, kRirSourceId);
+  EXPECT_TRUE(detection.has_bearing);
+  // east→north 换算：look_az=30°（自东 30°）→ 自北 60°；el 原值。
+  EXPECT_DOUBLE_EQ(detection.bearing_az_deg, 60.0);
+  EXPECT_DOUBLE_EQ(detection.bearing_el_deg, 10.0);
+  EXPECT_DOUBLE_EQ(detection.verdict, 1.0);
+  // 质量 = 四有效维等权均值 (0.8+0.4+0.6+0.2)/4。
+  EXPECT_NEAR(detection.quality, 0.5, 1e-6);  // 质量源自 float 求和
+  EXPECT_FALSE(detection.has_position);
+  EXPECT_FALSE(detection.has_sensor_origin);
+
+  // 11 维固定布局逐维断言（冻结契约 §3.2）。
+  ASSERT_EQ(detection.feature.size(), 11U);
+  EXPECT_DOUBLE_EQ(detection.feature[0], -3.0);                       // RCS 均值 dBsm
+  EXPECT_DOUBLE_EQ(detection.feature[1], 0.25);                        // 速度 km/s
+  EXPECT_DOUBLE_EQ(detection.feature[2], 3.0);                         // 高度 km
+  EXPECT_DOUBLE_EQ(detection.feature[3], 12.0);                        // 加速度 m/s²
+  EXPECT_DOUBLE_EQ(detection.feature[4], 4.0);                         // log10(1e4 m)
+  EXPECT_DOUBLE_EQ(detection.feature[5], 2.5);                         // 极化能量差 dB
+  EXPECT_DOUBLE_EQ(detection.feature[6], 1.5);                         // 极化相对差 dB
+  EXPECT_DOUBLE_EQ(detection.feature[7], -6.0);                        // 极化能量和 dB
+  EXPECT_DOUBLE_EQ(detection.feature[8], 8.0);                         // 距离像长度 m
+  EXPECT_DOUBLE_EQ(detection.feature[9], 3.0);                         // 峰数浮点化
+  EXPECT_DOUBLE_EQ(detection.feature[10], 0.75);                       // 峰能集中度
+}
+
+TEST(SensorAdaptersTest, RirInvalidDimensionsZeroFilled) {
+  rir::RirFeatureMeasurementRecord record = MakeRirMeasurement(7U);
+  // 仅 RCS + 极化有效；无效维即使携带非零数据也按掩码清零（掩码为权威有效性）。
+  record.valid_feature_mask = 0x05U;
+  record.features.motion.turn_radius_m = 50000.0f;
+  record.features.range_profile.length_m = 20.0f;
+
+  rir::RirFeatureMeasurementFrame frame;
+  frame.records.push_back(record);
+
+  const std::vector<DetectionRecord> detections =
+      AdaptRirFeatureMeasurementsToDetectionRecords(kRirSourceId, frame);
+
+  ASSERT_EQ(detections.size(), 1U);
+  ASSERT_EQ(detections[0].feature.size(), 11U);
+  EXPECT_DOUBLE_EQ(detections[0].feature[0], -3.0);
+  EXPECT_DOUBLE_EQ(detections[0].feature[1], 0.0);
+  EXPECT_DOUBLE_EQ(detections[0].feature[2], 0.0);
+  EXPECT_DOUBLE_EQ(detections[0].feature[3], 0.0);
+  EXPECT_DOUBLE_EQ(detections[0].feature[4], 0.0);
+  EXPECT_DOUBLE_EQ(detections[0].feature[5], 2.5);
+  EXPECT_DOUBLE_EQ(detections[0].feature[6], 1.5);
+  EXPECT_DOUBLE_EQ(detections[0].feature[7], -6.0);
+  EXPECT_DOUBLE_EQ(detections[0].feature[8], 0.0);
+  EXPECT_DOUBLE_EQ(detections[0].feature[9], 0.0);
+  EXPECT_DOUBLE_EQ(detections[0].feature[10], 0.0);
+  // 质量只在有效维上取均值 (0.8+0.6)/2。
+  EXPECT_NEAR(detections[0].quality, 0.7, 1e-6);  // 质量源自 float 求和
+}
+
+TEST(SensorAdaptersTest, RirBearingWrapsEastToNorthAcrossQuadrants) {
+  rir::RirFeatureMeasurementFrame frame;
+  for (const float look_az : {0.0f, 90.0f, 180.0f, -170.0f, 45.0f}) {
+    rir::RirFeatureMeasurementRecord record = MakeRirMeasurement(7U);
+    record.look_az_deg = look_az;
+    frame.records.push_back(record);
+  }
+
+  const std::vector<DetectionRecord> detections =
+      AdaptRirFeatureMeasurementsToDetectionRecords(kRirSourceId, frame);
+
+  ASSERT_EQ(detections.size(), 5U);
+  EXPECT_DOUBLE_EQ(detections[0].bearing_az_deg, 90.0);   // 东 → 北
+  EXPECT_DOUBLE_EQ(detections[1].bearing_az_deg, 0.0);    // 北（东 90°）→ 0
+  EXPECT_DOUBLE_EQ(detections[2].bearing_az_deg, -90.0);  // 西 → -90（wrap）
+  EXPECT_DOUBLE_EQ(detections[3].bearing_az_deg, -100.0); // 260° → -100（wrap）
+  EXPECT_DOUBLE_EQ(detections[4].bearing_az_deg, 45.0);   // 东北 → 45
+}
+
+TEST(SensorAdaptersTest, RirSkipsAllInvalidAndZeroKeyRecords) {
+  rir::RirFeatureMeasurementFrame frame;
+  rir::RirFeatureMeasurementRecord all_invalid = MakeRirMeasurement(7U);
+  all_invalid.valid_feature_mask = 0U;
+  frame.records.push_back(all_invalid);
+  frame.records.push_back(MakeRirMeasurement(0U));  // 键 0 = 无身份（ESR 先例）
+  frame.records.push_back(MakeRirMeasurement(9U));  // 正常记录
+
+  const std::vector<DetectionRecord> detections =
+      AdaptRirFeatureMeasurementsToDetectionRecords(kRirSourceId, frame);
+
+  ASSERT_EQ(detections.size(), 1U);
+  EXPECT_EQ(detections[0].key, 9U);
+}
+
+TEST(SensorAdaptersTest, RirSensorOriginFromPlatformPositionAndDegradeOnFailure) {
+  // 携带平台位置（由已知 LLA 反向生成 ECEF）→ 换算回 LLA 填 sensor_origin。
+  rir::RirFeatureMeasurementRecord with_origin = MakeRirMeasurement(7U);
+  with_origin.has_platform_position = true;
+  const oneq::coordinate::EcefPositionM origin_ecef = MakeEcefFromLla(30.0, 120.0, 400.0);
+  with_origin.platform_position.x_m = origin_ecef.x_m;
+  with_origin.platform_position.y_m = origin_ecef.y_m;
+  with_origin.platform_position.z_m = origin_ecef.z_m;
+
+  // 地心 (0,0,0)：TryEcefToLla 失败 → 退化为无原点记录（AR 先例）。
+  rir::RirFeatureMeasurementRecord geocenter = MakeRirMeasurement(8U);
+  geocenter.has_platform_position = true;
+
+  rir::RirFeatureMeasurementFrame frame;
+  frame.records.push_back(with_origin);
+  frame.records.push_back(geocenter);
+  frame.records.push_back(MakeRirMeasurement(9U));  // 缺省：无原点
+
+  const std::vector<DetectionRecord> detections =
+      AdaptRirFeatureMeasurementsToDetectionRecords(kRirSourceId, frame);
+
+  ASSERT_EQ(detections.size(), 3U);
+  EXPECT_TRUE(detections[0].has_sensor_origin);
+  EXPECT_NEAR(detections[0].sensor_origin.latitude_deg, 30.0, 1e-4);
+  EXPECT_NEAR(detections[0].sensor_origin.longitude_deg, 120.0, 1e-4);
+  EXPECT_NEAR(detections[0].sensor_origin.altitude_m, 400.0, 1e-1);
+  EXPECT_FALSE(detections[1].has_sensor_origin);
+  EXPECT_FALSE(detections[2].has_sensor_origin);
+}
+
+TEST(SensorAdaptersTest, RirSourceIdAndEmptyInput) {
+  rir::RirFeatureMeasurementFrame frame;
+  frame.records.push_back(MakeRirMeasurement(7U));
+
+  const std::vector<DetectionRecord> detections =
+      AdaptRirFeatureMeasurementsToDetectionRecords(42U, frame);
+  ASSERT_EQ(detections.size(), 1U);
+  EXPECT_EQ(detections[0].source_id, 42U);
+
+  rir::RirFeatureMeasurementFrame empty_frame;
+  EXPECT_TRUE(AdaptRirFeatureMeasurementsToDetectionRecords(kRirSourceId, empty_frame).empty());
 }
 
 }  // namespace

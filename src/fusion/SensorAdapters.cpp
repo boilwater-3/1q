@@ -9,7 +9,10 @@
 
 #include "1q/fusion/SensorAdapters.h"
 
+#include <cmath>
+
 #include "1q/coordinate/position_transform.h"
+#include "1q/remote_identification_radar/session/RirRecognitionResult.h"
 #include "common/numerics/ClampUtils.h"
 #include "common/numerics/Constants.h"
 
@@ -20,6 +23,80 @@ namespace {
 /// 探测质量基准：无识别置信度（target_probability == 0）时按轨迹状态取基准值。
 double ArBaseQualityForStatus(airborne_radar::session::TrackStatus status) {
   return status == airborne_radar::session::TrackStatus::kConfirmed ? 1.0 : 0.5;
+}
+
+/// east 起量方位 → north 起量方位（90° − az，wrap 到 [-180, 180]）。
+double EastToNorthAzimuthDeg(float look_az_deg) {
+  double az_deg = 90.0 - static_cast<double>(look_az_deg);
+  while (az_deg > 180.0) {
+    az_deg -= 360.0;
+  }
+  while (az_deg <= -180.0) {
+    az_deg += 360.0;
+  }
+  return az_deg;
+}
+
+/// 11 维固定布局（冻结契约 §3.2）；无效维显式填 0（NaN 禁止——毒化欧氏门），
+/// valid_feature_mask 为权威有效性。
+std::vector<double> BuildRirFeatureVector(
+    const remote_identification_radar::session::RirFeatureMeasurementRecord& measurement) {
+  namespace rir = remote_identification_radar::session;
+  const std::uint8_t mask = measurement.valid_feature_mask;
+  std::vector<double> feature(11U, 0.0);
+  if ((mask & static_cast<std::uint8_t>(rir::RirRecognitionFeatureDimension::kRcs)) != 0U) {
+    feature[0] = measurement.features.rcs.mean_dbsm;
+  }
+  if ((mask & static_cast<std::uint8_t>(rir::RirRecognitionFeatureDimension::kMotion)) != 0U) {
+    feature[1] = measurement.features.motion.speed_m_per_s / 1.0e3;
+    feature[2] = measurement.features.motion.altitude_m / 1.0e3;
+    feature[3] = measurement.features.motion.acceleration_m_per_s2;
+    // log10 仅对正半径定义；非正半径按无效处理填 0（防 -inf 毒化欧氏门）。
+    feature[4] = measurement.features.motion.turn_radius_m > 0.0f
+                     ? std::log10(static_cast<double>(measurement.features.motion.turn_radius_m))
+                     : 0.0;
+  }
+  if ((mask & static_cast<std::uint8_t>(rir::RirRecognitionFeatureDimension::kPolarization)) !=
+      0U) {
+    feature[5] = measurement.features.polarization.energy_difference_db;
+    feature[6] = measurement.features.polarization.relative_difference_db;
+    feature[7] = measurement.features.polarization.energy_sum_db;
+  }
+  if ((mask & static_cast<std::uint8_t>(rir::RirRecognitionFeatureDimension::kRangeProfile)) !=
+      0U) {
+    feature[8] = measurement.features.range_profile.length_m;
+    feature[9] = static_cast<double>(measurement.features.range_profile.peak_count);
+    feature[10] = measurement.features.range_profile.peak_energy_concentration;
+  }
+  return feature;
+}
+
+/// 有效维质量等权均值（feature_weights 配置口径、缺省等权——适配器无配置参数）。
+double MeanValidDimensionQuality(
+    const remote_identification_radar::session::RirFeatureMeasurementRecord& measurement) {
+  namespace rir = remote_identification_radar::session;
+  const std::uint8_t mask = measurement.valid_feature_mask;
+  double quality_sum = 0.0;
+  int valid_count = 0;
+  if ((mask & static_cast<std::uint8_t>(rir::RirRecognitionFeatureDimension::kRcs)) != 0U) {
+    quality_sum += measurement.features.rcs.quality;
+    ++valid_count;
+  }
+  if ((mask & static_cast<std::uint8_t>(rir::RirRecognitionFeatureDimension::kMotion)) != 0U) {
+    quality_sum += measurement.features.motion.quality;
+    ++valid_count;
+  }
+  if ((mask & static_cast<std::uint8_t>(rir::RirRecognitionFeatureDimension::kPolarization)) !=
+      0U) {
+    quality_sum += measurement.features.polarization.quality;
+    ++valid_count;
+  }
+  if ((mask & static_cast<std::uint8_t>(rir::RirRecognitionFeatureDimension::kRangeProfile)) !=
+      0U) {
+    quality_sum += measurement.features.range_profile.quality;
+    ++valid_count;
+  }
+  return valid_count > 0 ? quality_sum / static_cast<double>(valid_count) : 0.0;
 }
 
 }  // namespace
@@ -125,6 +202,40 @@ std::vector<DetectionRecord> AdaptSbirsDetectionsToDetectionRecords(
     detection.verdict = 1.0;
     detection.quality = oneq::common::numerics::Clamp01(
         static_cast<double>(record.infrared_snr_linear) / 4.0);
+    detections.push_back(detection);
+  }
+  return detections;
+}
+
+std::vector<DetectionRecord> AdaptRirFeatureMeasurementsToDetectionRecords(
+    std::uint32_t source_id,
+    const remote_identification_radar::session::RirFeatureMeasurementFrame& frame) {
+  std::vector<DetectionRecord> detections;
+  detections.reserve(frame.records.size());
+  for (const auto& measurement : frame.records) {
+    if (measurement.association_key == 0U || measurement.valid_feature_mask == 0U) {
+      continue;  // 库内键 0 = 无身份；全维无效记录不产生（与出口①同口径）
+    }
+    DetectionRecord detection;
+    detection.key = measurement.association_key;
+    detection.source_id = source_id;
+    detection.has_bearing = true;
+    // RIR 出口① az 自 +x（东）起量，融合方位通道自北：east→north 参考换算。
+    detection.bearing_az_deg = EastToNorthAzimuthDeg(measurement.look_az_deg);
+    detection.bearing_el_deg = measurement.look_el_deg;
+    detection.feature = BuildRirFeatureVector(measurement);
+    detection.verdict = 1.0;  // 已发布的特征量测视为有效探测
+    detection.quality = MeanValidDimensionQuality(measurement);
+    if (measurement.has_platform_position) {
+      const oneq::coordinate::EcefPositionM origin(
+          measurement.platform_position.x_m, measurement.platform_position.y_m,
+          measurement.platform_position.z_m);
+      oneq::coordinate::LlaPositionDegM lla;
+      if (oneq::coordinate::TryEcefToLla(origin, &lla)) {
+        detection.has_sensor_origin = true;
+        detection.sensor_origin = lla;  // 参与三维方位滤波通道
+      }  // 转换失败退化为无原点记录（AR 先例）
+    }
     detections.push_back(detection);
   }
   return detections;
