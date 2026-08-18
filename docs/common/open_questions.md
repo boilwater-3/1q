@@ -2,7 +2,7 @@
 Status: active
 Authority: 非规定性记录（不构成契约约束）
 Lifecycle: 条目有结论后回写 contract.md 或 design.md 并从本文删除；不保留已收敛条目
-Last-reviewed: 2026-08-17
+Last-reviewed: 2026-08-18
 ---
 
 # 跨模块开放议题
@@ -35,7 +35,6 @@ Last-reviewed: 2026-08-17
 | TARGET-OQ-1 | target-layer | AR 估计/推演职责前置 | 消费级航迹产品 + 识别结论回填 public 输出 | open |
 | TARGET-OQ-2 | target-layer | ESR 威胁等级进 public 输出 | threat_level 由传感器生产并被 ECM 下游消费 | open |
 | TARGET-OQ-3 | target-layer | SBIRS Estimated 后验外发 | 滤波后验角度作为 raw output 检测记录 | open |
-| TARGET-OQ-4 | target-layer | RIR 识别产品形态 | 双产品裁定已采纳（2026-08-18），待 Stage B 落地迁出 | adopted（待 Stage B） |
 
 ## Common 非阻塞边界
 
@@ -235,6 +234,7 @@ Last-reviewed: 2026-08-17
   [evidence: src/remote_identification_radar/recognition/RcsFeatureExtractor.cpp]
   [evidence: src/remote_identification_radar/recognition/PolarizationFeatureExtractor.cpp]
   [evidence: docs/review/rir_dual_product_stage_a_2026-08-18.md §0 裁定点 2/§3.1]
+  [evidence: include/1q/remote_identification_radar/session/RirFeatureMeasurementTypes.h]
 - **后果**：
   1. 统计类评估（蒙特卡洛识别率、融合收益）中特征不含测量随机性，结果不能代表真实
      量测分布下的性能。
@@ -321,35 +321,3 @@ Last-reviewed: 2026-08-17
   裁定：维持规则 4 装备语义；估计层默认消费 Sensor-like 且 R 含共模偏差项；正式裁定随
   指标签认冻结。见 target_domain_p0_p1_decision_2026-08-17.md §4.1。
   [evidence: tests/unit/sbirs_sensor/sbirs_estimated_semantics_characterization_test]
-
-### TARGET-OQ-4：RIR 识别产品形态与推演层关系
-
-- **现状**：RIR 把类型/型号识别作为装备使命整体内置（特征库 + 模板匹配 + 逐航迹证据积累），
-  public 输出即识别结论（`RirRecognitionResult`）；内部航迹链严格闭环、不发布点迹/航迹，
-  无威胁逻辑混入。2026-08-15 已完成从 AR 的自持化迁移。
-  [evidence: src/remote_identification_radar/recognition/]
-  [evidence: docs/review/remote_identification_radar_migration_status_2026-08-15.md]
-- **后果**：推演层"目标识别"能力以装备形态存在于传感器层，与分层契约规则 2（识别结论不得
-  作为传感器 public 输出）存在张力；未来推演层识别算法面立项时存在两套识别实现的风险。
-- **待决问题**："识别类传感器"（识别即装备使命、public 输出即识别结论）是否作为分层契约的
-  显式豁免装备形态；若是，推演层识别面与 RIR 的复用边界（知识库共享/原语共享/各管各）如何
-  裁定。
-- **当前边界**：RIR 识别输出维持现状（装备使命），不新增威胁评分等决策语义。
-- **再进入条件 (Stage A)**：推演层识别算法面立项时，先裁定 RIR 豁免形态与复用边界，再冻结
-  实现契约。
-- **证据与建议（2026-08-17，P0 落地）**：能力矩阵裁定建议方案 a——调用方维护 RIR
-  `association_key` ↔ 融合航迹键映射（零库内改动，fusion 关联键契约本就要求调用方保证
-  跨源一致）；方案 b（feature-only DetectionRecord）特征语义错位、方案 c（RIR 扩公开
-  方位输出）破坏性公共 API 变更，均不立项。正式裁定随 P3 立项复核。见
-  target_domain_p0_p1_decision_2026-08-17.md §4.3。
-- **裁定修订（2026-08-18 采纳，Stage A pass）**：RIR 转为**双产品形态**——识别结论
-  （装备使命产品，保留，形态不变）+ 特征量测帧（新增合法传感器量测产品：四维特征 +
-  逐维质量 + 有效掩码 + 库内键 + 视线角/效能上下文；**不含** external_target_id/
-  target_name 真值标识——去真值化纪律；特征语义=真值×效能约束转换，公共字段注释
-  明示）。豁免条款将转为契约正式条款（"识别类传感器双产品条款"文案已冻结，Stage B
-  随实施写入 contract.md 规则 2）。方案 a 键映射**降级为兼容选项**：特征记录带库内键
-  + 方位后融合层可自动关联，双源识别证据融合成为可组合能力。字段级冻结契约与证据
-  矩阵见 rir_dual_product_stage_a_2026-08-18.md。
-  [evidence: docs/review/rir_dual_product_stage_a_2026-08-18.md]
-- **当前边界（修订后）**：裁定生效前（Stage B 落地前）维持现状——RIR 输出仅识别结论，
-  接入走方案 a；RIR 不新增威胁评分等决策语义。落地后本条目迁出本文。

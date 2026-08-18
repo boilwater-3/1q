@@ -1,6 +1,6 @@
 ---
 Status: active
-Last-reviewed: 2026-08-15
+Last-reviewed: 2026-08-18
 Authority: RIR 数据流与状态所有权
 Answers: RIR 单周期数据怎么流、状态归谁持有、内部航迹如何生产与消费
 ---
@@ -59,8 +59,10 @@ flowchart TB
 ## 单周期时序（StepWithResult）
 
 1. **入口校验**：`ValidateRirCycleInput`（dt 有限为正、周期号非零、平台海拔/时间
-   有限、场景目标位置/速度/RCS/斜距/特征样本有限、Swerling 取值合法、环境快照
-   有限非负、RF 入射链路与自身发射身份合法）；失败 → `kRejectedInvalidInput`。
+   有限、平台 ECEF 位置可选 fail-closed——has=true 分量有限且模长>0、has=false
+   分量须默认、场景目标位置/速度/RCS/斜距/特征样本有限、Swerling 取值合法、
+   环境快照有限非负、RF 入射链路与自身发射身份合法）；失败 →
+   `kRejectedInvalidInput`。
 2. **关机检查**：`sensor_enabled == false` → `kPoweredOff`，不触碰检测/跟踪/识别状态。
 3. **补丁提交**（staged）：`RirRuntimeConfigPatch` 在下一个成功周期边界应用
    （电源/工作模式/完整 policy 域/指定识别任务字段）→ `RirController::UpdateRuntime`。
@@ -82,16 +84,23 @@ flowchart TB
      → CV KF 或 IMM（confirmed 命中激活，`enable_imm_lifecycle`）预测/更新
      → confirm/lost/回收（池化槽位 + `generation` 复用代次）；
    - 识别积累：内部航迹按 `external_target_id` 回联场景目标，逐航迹
-     `UpdateCycle` 积累/匹配/判定；非 `kIdentify` → `HoldCycle`；
+     `UpdateCycle` 积累/匹配/判定（可选出参采集本周期实际构建的有效特征观测，
+     供出口①透出）；非 `kIdentify` → `HoldCycle`；
      退出 `kIdentify` → `ExitRecognitionMode`。
-5. **输出装配**：逐内部航迹结论回填 `RirOutputFrame::recognition_outputs`（按
-   关联键升序）；`RirRecognitionCycleSummary` 含识别统计、真值准确率与驻留
-   预算摘要。
+5. **输出装配（双产品）**：逐内部航迹结论回填 `RirOutputFrame::recognition_outputs`
+   （按关联键升序，出口②）；特征量测记录回填 `feature_measurements`（出口①：
+   采集观测 × 观测上下文 + 平台位置，透出原则——识别链未构建观测的周期为空）；
+   同循环构建归属视图缓存（`RirController::LatestTrackAttributions`），会话在
+   kCompleted 后回填 `RirCycleResult::track_attributions`；非执行周期产品层与
+   归属层均为空（五模块统一规则）。`RirRecognitionCycleSummary` 含识别统计、
+   真值准确率与驻留预算摘要。
 6. **replay**：`RirSessionReplayAccess::CaptureSessionState` 采集
    `active_database_version` + 检测随机种子；周期记录经 `RirReplayFlatbufferCodec`
-   V2 编解码，旧 V1 显式拒绝。指定任务生命周期阶段（designation_phase/deadline）
-   为派生跨周期状态，不进 replay session state：全量重放由 patch 流 + cycle_index
-   驱动可复现；若未来引入"从第 N 周期恢复"，需同步纳入会话状态。
+   V2 编解码，旧 V1 显式拒绝；输出帧特征量测向量与结果表归属向量为加性扩展
+   （`RIR2` 标识不变，旧记录缺字段解码为空）。指定任务生命周期阶段
+   （designation_phase/deadline）为派生跨周期状态，不进 replay session state：
+   全量重放由 patch 流 + cycle_index 驱动可复现；若未来引入"从第 N 周期恢复"，
+   需同步纳入会话状态。
 
 ## 状态所有权
 
@@ -104,6 +113,7 @@ flowchart TB
 | 每航迹识别积累窗口/结论 | `RirTracker` | 随内部航迹键创建；回收/退出识别模式清理 |
 | 检测 RNG 与量测误差 RNG | `RirController` | 随 `policy.detection.random_seed` 重置，种子入 replay |
 | `latest_summary` | `RirController` | 每成功周期刷新 |
+| `last_track_attributions`（归属视图缓存） | `RirController` | 每执行周期随快照刷新；非执行周期不触碰（会话早退保持空列表） |
 | 指定任务状态（ID/时长/阶段/截止） | `RirSession` | 随 patch 原子提交；识别达成/作废后窗口停止（终态），结果级指定清零，清除需新 patch |
 | `active_database_version` / `detection_random_seed` | `RirController` → `RirSessionReplayState` | 随运行期更新，入 replay |
 

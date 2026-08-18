@@ -1,6 +1,6 @@
 ---
 Status: active
-Last-reviewed: 2026-08-15
+Last-reviewed: 2026-08-18
 Authority: RIR 算法登记与实现边界
 Answers: RIR 每个算法做什么、实现边界在哪、哪些反直觉、哪些刻意不做
 ---
@@ -33,6 +33,8 @@ RIR 自持链路生产的内部航迹，不再消费外部航迹供给。
 | 数据库加载 | `recognition/RecognitionFeatureDatabase.cpp` | SQLite 文件 → 全量内存模板 | schema v1.1 自描述校验；运行期无连接；units `rcs != 'dBsm'` 拒绝 |
 | 匹配 | `recognition/RecognitionMatcher.cpp` | 特征集 + profile 适用条件 → 候选排序/大类分数 | `s = exp(-0.5·z²)`；质量 0 维度不进分子分母；类别得分 = 成员型号未归一化之和 |
 | 积累判定 | `recognition/RecognitionTracker.cpp` | 逐周期观测 → 结论状态机 | 分数 ≥ `acceptance_score` 且 margin 足且有效维度 ≥ 2 → `kModelConfirmed`；运动不能单独确认型号 |
+| 特征量测帧组装（出口①透出，Stage B） | `runtime/RirController.cpp` + `recognition/RecognitionTracker.cpp`（UpdateCycle 采集出参） | 本周期有效特征观测 × 观测上下文 + 平台位置 → `RirFeatureMeasurementRecord` | 透出原则：只透出识别链实际构建且 mask ≠ 0 的观测（透出点在积累质量门之前——质量门只挡积累）；全维无效不产生；无库/超距/非识别模式周期帧为空；字段同值透出无换算 |
+| 归属视图组装（Stage B） | `runtime/RirController.cpp` | 本周期航迹快照 → `RirTrackAttributionRecord`（键↔真值 + hit/位置/速度诊断） | 与出口②同循环覆盖全部快照（tentative/confirmed/lost）；结果层产品，不进输出帧；非执行周期空列表 |
 
 ## 反直觉点
 
@@ -62,6 +64,13 @@ RIR 自持链路生产的内部航迹，不再消费外部航迹供给。
 10. **识别达成即任务完成**：指定识别任务在识别状态达 `kCategoryConfirmed`/
     `kModelConfirmed` 后即完成（下一周期指定清零、回到扫描），不做持续跟随——
     与 AR（捕获后持续跟随航迹）的差异源于识别是离散结论而非连续跟踪。
+11. **出口①透出点在质量门之前**：观测质量低于 `kMinimumObservationQuality` 的
+    周期不计为有效积累，但其特征量测**照常出口**（出口①是量测产品，质量门只
+    约束识别积累）；相反，超识别最大距离的键在观测构建之前即被跳过——特征帧
+    里根本没有该键的记录（透出原则：只透出实际构建的观测）。
+12. **出口①方位角自东起量**：`look_az_deg` 沿用内部 ENU 约定（az 自 +x 东起量），
+    与 fusion 方位通道自北约定不同——换算归 `AdaptRirFeatureMeasurementsToDetectionRecords`
+    （wrap(90° − az)），库内不做跨系转换。
 
 ## 非目标（刻意不实现的算法）
 
@@ -80,6 +89,10 @@ RIR 自持链路生产的内部航迹，不再消费外部航迹供给。
   `rir_track_filter_test.cpp`、`rir_track_lifecycle_test.cpp`
 - 自持链路与输入面：`tests/unit/remote_identification_radar/rir_self_contained_pipeline_test.cpp`、
   `rir_self_contained_validation_test.cpp`
+- 双产品出口（Stage B）：`tests/unit/remote_identification_radar/rir_feature_measurement_test.cpp`
+  （出口①字段透出/平台位置双路径/透出原则/会话级拒绝周期）、
+  `rir_track_attribution_test.cpp`（键↔真值映射/全快照覆盖/非执行周期空列表）、
+  `rir_platform_position_validation_test.cpp`（fail-closed 与存在性一致性）
 - 提取器与门控：`tests/unit/remote_identification_radar/rir_recognition_feature_test.cpp`
 - 匹配与库契约：`tests/unit/remote_identification_radar/rir_recognition_database_test.cpp`
 - 场景/型号效能：`tests/integration/remote_identification_radar/`

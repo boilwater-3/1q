@@ -1,6 +1,6 @@
 ---
 Status: active
-Last-reviewed: 2026-08-15
+Last-reviewed: 2026-08-18
 Authority: RIR 模块级边界、非目标与设计变更规则
 Answers: RIR 有哪些模块级禁令与边界、哪些非目标、单位纪律与失败降级契约
 ---
@@ -65,6 +65,9 @@ RIR 遵守 `docs/common/contract.md` 与 `docs/common/session_contract.md`：
    "目标发现"事件，检测量测不出 public 面。
 5. 波束控制：RIR 消费驻留调度显式给定的波束指向，但不通过本模块 API 控制、
    生成或输出任何外部雷达波束。
+6. 出口①的保真度升级（特征物理化：加噪/电磁散射链，RIR-OQ-1）、fusion 特征门
+   mask-aware 升级、识别链模块内解耦——均非本次范围，各自为独立后续冻结项
+   （登记见 `docs/review/rir_dual_product_stage_a_2026-08-18.md` §6）。
 
 ## 单位纪律
 
@@ -79,6 +82,42 @@ RIR 遵守 `docs/common/contract.md` 与 `docs/common/session_contract.md`：
 - 场景目标 `position_x/y/z` 同帧；`range_m` 为斜距（>0 或带非零位置）。
 - 视角样本网格（`aspect_az_deg`/`aspect_el_deg`）为雷达局部视线角；RCS 插值为
   最近邻（不强制覆盖），覆盖下限属数据库 profile 级适用条件，由匹配阶段判定。
+
+## 双产品输出边界（出口①特征量测 + 出口②识别结论，2026-08-18 Stage B）
+
+契约依据：`docs/common/contract.md` 规则 2 识别类传感器双产品条款；字段级冻结契约见
+`docs/review/rir_dual_product_stage_a_2026-08-18.md` §3。
+
+1. **出口②（识别结论，形态不变）**：`RirRecognitionResult` 逐航迹输出，装备使命
+   产品；出口①上线不改变其任何字段与语义。
+2. **出口①（特征量测帧，`RirOutputFrame.feature_measurements`）**：逐周期逐
+   `association_key` 一条；只携带库内键（去真值化，规则 5——
+   `external_target_id`/`target_name` 不得出口）；**仿真保真度语义 = 场景真值特征
+   经效能约束（SNR/视角覆盖/带宽/驻留）转换的仿真量测，非加噪量测**——角度无噪声、
+   RCS 均值无偏（std_db 为 SNR 推定不确定度），公共头 Doxygen 明示，保真度升级
+   （特征物理化）为独立后续冻结项（RIR-OQ-1）。
+3. **透出原则（裁定）**：出口①只透出识别链本周期实际构建且至少一维有效的观测
+   （`RirObservationBuilder::Build` 后 mask ≠ 0）；积累质量门只挡积累不挡量测出口；
+   无特征库（HoldCycle）、超识别最大距离、非识别模式的周期特征帧为**空**——
+   不虚构。全维无效记录不产生。
+4. **方位角参考系**：出口① `look_az_deg` 自 +x（东）起量（雷达局部 ENU），与
+   fusion 自北约定不同——east→north 换算归 fusion 适配器，库内不做跨系转换。
+5. **平台位置输入**（`has_platform_position` + `RirEcefPositionM`，ECEF 米制）：
+   可选，fail-closed——has=true 时分量须有限且模长 > 0（地心非法，否则
+   `rir.validation.invalid_platform_position` 整周期拒绝）；has=false 时分量须为
+   默认值（存在性一致性，`rir.validation.inconsistent_platform_position`）。
+   语义为场景 radar-local ENU 的绝对锚点（不改变场景目标 ENU 语义），透传到
+   出口①记录（`has_platform_position`/`platform_position`），fusion 适配器换算
+   LLA 填 sensor_origin。replay 输入侧零 schema 变更（RIR replay 无输入表）。
+6. **归属视图（`RirCycleResult.track_attributions`，结果层）**：库内键 ↔ 场景
+   真值目标对照（`external_target_id`/`target_name`）+ 最小航迹诊断
+   （hit_count/滤波 ENU 位置/速度）；覆盖本周期全部航迹快照
+   （tentative/confirmed/lost，与出口②同循环）；**不进 `RirOutputFrame` 产品层**
+   （三层纪律，与 SBIRS detection_attributions 同层同纪律）；非执行周期（校验
+   拒绝/关机/中止）返回空列表且不推进状态。归属为航迹级（RIR 产品粒度即航迹级，
+   不做逐检测级归属）。
+7. **replay 加性扩展**：输出帧加特征量测向量、结果表加归属向量（V2 表加可选
+   字段，`RIR2` 标识不变；旧记录缺新字段解码为空）。
 
 ## 驻留指向跨模块契约（库内驻留调度器：扫描策略 + 指定识别任务）
 

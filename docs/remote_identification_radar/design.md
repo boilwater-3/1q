@@ -1,6 +1,6 @@
 ---
 Status: active
-Last-reviewed: 2026-08-15
+Last-reviewed: 2026-08-18
 Authority: RIR 设计权威入口
 Answers: 远程识别雷达模块是什么、和谁交互、设计文档怎么导航
 ---
@@ -23,16 +23,22 @@ RIR 是与机载雷达（AR）**相互独立的另一部雷达装备**，不是 
    双路径滤波与池化生命周期（跟踪升级 N1-N7 已落地）；
    独立输入输出与 replay/trace。与 AR 无任何模块间协作接口，不 include
    任何 AR 头，不消费任何 AR 输出（阶段 2-S 已删除 RirTrackFeed 供给面）。
-2. **输入面**：`RirCycleInput` 提供周期戳、平台海拔、场景目标（含识别特征真值
-   `aspect_rcs_samples`/`polarization_rcs_samples`/`range_rcs_scatterers`）
-   与 RF 入射链路、环境快照；场景目标速度/名称/Swerling 起伏为自持链路事实；
-   识别只消费效能化观测，场景真值不得直接产生结论。每周期波束中心由**库内
-   驻留调度器**派生（扫描策略或指定识别任务，见 boundaries.md 驻留指向契约），
-   RIR 消费侧只信任并消费给定指向。
-3. **输出面**：识别结论（`RirRecognitionResult`）与效能摘要
-   （`RirRecognitionCycleSummary`）为独立输出模型，与 AR 威胁分类相互独立，
-   不进任何决策帧；指定识别任务状态（`designated_target_id`/`designation_*`/
-   `dwell_center_deg`）经 `RirCycleResult` 逐周期暴露。
+2. **输入面**：`RirCycleInput` 提供周期戳、平台海拔、可选平台 ECEF 位置
+   （`has_platform_position` + `RirEcefPositionM`，fail-closed 校验）、场景目标
+   （含识别特征真值 `aspect_rcs_samples`/`polarization_rcs_samples`/
+   `range_rcs_scatterers`）与 RF 入射链路、环境快照；场景目标速度/名称/Swerling
+   起伏为自持链路事实；识别只消费效能化观测，场景真值不得直接产生结论。每周期
+   波束中心由**库内驻留调度器**派生（扫描策略或指定识别任务，见 boundaries.md
+   驻留指向契约），RIR 消费侧只信任并消费给定指向。
+3. **输出面（双产品，2026-08-18 Stage B）**：出口②识别结论（`RirRecognitionResult`
+   与效能摘要 `RirRecognitionCycleSummary`，形态不变）+ 出口①特征量测帧
+   （`RirFeatureMeasurementRecord`：四维特征 + 逐维质量 + 有效掩码 + 库内键 +
+   视线角/效能上下文 + 可选平台位置，语义=真值×效能约束转换的仿真量测）。
+   归属视图（`RirTrackAttributionRecord`：库内键 ↔ 真值目标对照 + 最小航迹诊断）
+   经 `RirCycleResult.track_attributions` 暴露（结果层，不进产品层）。与 AR 威胁
+   分类相互独立，不进任何决策帧；指定识别任务状态（`designated_target_id`/
+   `designation_*`/`dwell_center_deg`）经 `RirCycleResult` 逐周期暴露。
+   fusion 侧由 `AdaptRirFeatureMeasurementsToDetectionRecords` 消费出口①。
 4. **配置**：四域（hardware/mission/policy/environment）；policy 域承载
    检测/关联/跟踪/生命周期/识别策略，运行期补丁整域提交；识别作用距离/驻留
    四域归位（任务域）；扫描策略（限位/起点/顺序/步长系数）与指定识别任务

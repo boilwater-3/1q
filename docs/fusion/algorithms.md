@@ -1,6 +1,6 @@
 ---
 Status: active
-Last-reviewed: 2026-08-10
+Last-reviewed: 2026-08-18
 Authority: fusion 算法清单与实现边界
 Answers: 每个融合算法怎么实现、边界在哪、反直觉点是什么
 ---
@@ -13,7 +13,7 @@ Answers: 每个融合算法怎么实现、边界在哪、反直觉点是什么
 |---|---|---|---|
 | 关联分层（键直挂 / 位置 / 方位 / 特征） | 探测记录 + 既有航迹 | 探测 → 航迹归属 | `src/fusion/FusionEngine.cpp`；`tests/unit/fusion/fusion_association_test.cpp` |
 | 置信度滑窗融合 | 滑窗内量测 | 每航迹融合置信度 | 同上；`tests/unit/fusion/fusion_confidence_test.cpp` |
-| 传感器输出 → 泛型探测记录（官方适配器） | AR 轨迹帧 / ESR 假设 / EOS 探测 / SBIRS 探测 | `DetectionRecord` 列表 | `src/fusion/SensorAdapters.cpp`；`tests/unit/fusion/sensor_adapters_test.cpp` |
+| 传感器输出 → 泛型探测记录（官方适配器） | AR 轨迹帧 / ESR 假设 / EOS 探测 / SBIRS 探测 / RIR 特征量测帧 | `DetectionRecord` 列表 | `src/fusion/SensorAdapters.cpp`；`tests/unit/fusion/sensor_adapters_test.cpp` |
 | 逐航迹无迹滤波 + 航迹管理（P2，默认关） | 关联后量测（位置 / 方位+原点） | 运动学估计（ECEF 状态 + 6×6 协方差）+ 生命周期 | `src/fusion/FusionEngine.cpp`；`tests/unit/fusion/track_filtering_test.cpp` |
 
 ## 1. 关联分层
@@ -59,10 +59,10 @@ Answers: 每个融合算法怎么实现、边界在哪、反直觉点是什么
 
 ## 3. 传感器输出 → 泛型探测记录（官方适配器）
 
-`fusion/SensorAdapters.h` 为四传感器输出提供默认映射（`Adapt*ToDetectionRecords`，
+`fusion/SensorAdapters.h` 为五传感器输出提供默认映射（`Adapt*ToDetectionRecords`，
 跳过规则与质量归一化基准如下），集成方即开即用；业务层可自行适配（不修改
-本文件）。源通道常量 `kArSourceId=1..kSbirsSourceId=4` 与
-`FusionConfig::source_weights` 索引对齐（索引 0 未用）。
+本文件）。源通道常量 `kArSourceId=1..kSbirsSourceId=4`、`kRirSourceId=5` 与
+`FusionConfig::source_weights` 索引对齐（索引 0 未用；source_weights 缺项按 1.0 计）。
 
 | 适配函数 | 跳过规则 | 身份键 | 质量归一化基准 |
 |---|---|---|---|
@@ -70,9 +70,9 @@ Answers: 每个融合算法怎么实现、边界在哪、反直觉点是什么
 | `AdaptEsrHypothesesToDetectionRecords` | `hypothesis_id == 0` | `hypothesis_id` | `confidence` |
 | `AdaptEosDetectionsToDetectionRecords` | `detected == false` | 0（方位相干） | `fused_snr_db / 10`（10 dB → 1.0）夹取 [0,1] |
 | `AdaptSbirsDetectionsToDetectionRecords` | `detected == false` | 0（方位相干） | `infrared_snr_linear / 4`（WFOV 门限 4.0 → 1.0）夹取 [0,1] |
-| `AdaptRirFeatureMeasurementsToDetectionRecords`（**规划中**，Stage B 落地，冻结契约见 `docs/review/rir_dual_product_stage_a_2026-08-18.md` §3.2/§3.3） | 全维无效记录 | `association_key`（库内键透传，ESR 先例） | 有效维质量加权均值 |
+| `AdaptRirFeatureMeasurementsToDetectionRecords`（2026-08-18 Stage B 落地，冻结契约见 `docs/review/rir_dual_product_stage_a_2026-08-18.md` §3.2/§3.3） | 全维无效或键 0 记录 | `association_key`（库内键透传，ESR 先例） | 有效维质量等权均值（feature_weights 口径，缺省等权） |
 
-**RIR 特征量测映射（规划冻结要点）**：11 维固定布局（RCS dBsm / 速度 km/s / 高度 km /
+**RIR 特征量测映射（已落地，冻结要点）**：11 维固定布局（RCS dBsm / 速度 km/s / 高度 km /
 加速度 m/s² / log10 转弯半径 / 极化三量 dB / 距离像长度 m / 峰数 / 峰能集中度），
 **无效维填 0**（NaN 禁止——毒化欧氏门）、有效性以帧内 valid_feature_mask 为权威；
 方位通道做 east→north 参考换算（az = wrap(90° − look_az)）。**观测原点**（2026-08-18

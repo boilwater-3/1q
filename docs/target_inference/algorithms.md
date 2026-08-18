@@ -1,6 +1,6 @@
 ---
 Status: active
-Last-reviewed: 2026-08-17
+Last-reviewed: 2026-08-18
 Authority: target_inference 算法清单与实现边界
 Answers: 每个推演算法怎么实现、边界在哪、反直觉点是什么
 ---
@@ -66,7 +66,7 @@ Answers: 每个推演算法怎么实现、边界在哪、反直觉点是什么
   （YAGNI，同 fusion 适配器先例）。
 - **证据通道是多源可组合的预留口**：type_evidence 当前通常由 RIR 识别结论（经
   TARGET-OQ-4 方案 a 键映射）组装；RIR 双产品出口①（特征量测帧，2026-08-18 裁定
-  采纳、Stage B 落地）上线后，特征级证据可多源组合——组合逻辑归调用方/未来识别
-  算法面，本模块只消费得分向量，不感知证据来源。
+  采纳并已于同日 Stage B 落地）上线后，特征级证据可多源组合——组合逻辑归调用方/
+  未来识别算法面，本模块只消费得分向量，不感知证据来源。
 
 [evidence: tests/unit/target_inference/target_inference_engine_test.cpp]

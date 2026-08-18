@@ -1,7 +1,7 @@
 # 跨模块契约
 
 Status: active
-Last-reviewed: 2026-08-17
+Last-reviewed: 2026-08-18
 Authority: common contract for all modules
 RF-Interference-Architecture: frozen target; AR/ESR/ECM RF v2 implemented (per-module status in each design.md)
 
@@ -165,6 +165,11 @@ public API 分为两类，二者都受 public boundary、install manifest 和 co
 2. **传感器产品边界**：威胁评分、目标类型识别结论、轨迹/发射点预测不得作为传感器 public
    输出字段（raw output、`*CycleResult`、public DTO 一致适用）。量测质量（SNR、quality）与
    量测特征（辐射强度、RCS 量测值、频段标注）不属此列。
+   **识别类传感器双产品条款**（2026-08-18 Stage B 写入，文案冻结于
+   `docs/review/rir_dual_product_stage_a_2026-08-18.md` §5）：以目标识别为装备使命的传感器
+   （当前：remote_identification_radar）采用双产品形态——识别结论可作为装备使命产品出口，
+   但**必须同时提供特征量测出口**（带库内键、单位后缀命名、逐维质量与有效掩码、并明示
+   仿真保真度语义）；只输出结论不输出特征量测的形态不得新增。
 3. **传感器内部目标处理的豁免**：为驱动自身闭环（波束/光轴指向、驻留调度、检测门控、丢锁
    判定）而维护的内部滤波、关联与生命周期状态是合法的传感器行为建模，须同时满足：不外发
    航迹/状态族估计产品（协方差、速度、生命周期语义的状态族），raw output 记录保持量测形态。
