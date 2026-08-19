@@ -3,14 +3,11 @@
 # C++ 常见开源事件库 Boost.Signals2（header-only，boost 已在 conanfile 基础
 # 依赖）——零自定义分发层；components/ 每个仿真模块对应一个组件（飞行 / AR /
 # ESR / EOS / SBIRS / SAR / 融合 / 威胁评估），挂载到平台实体后按挂载序周期步进。
-# 集成端日志设施（logger/logger.h）直接使用 spdlog（conanfile 非 Windows
-# 依赖，ConanPackages.cmake 的 PROJECT_ENABLE_SPDLOG）；Windows 上 spdlog 关闭，
-# 本示例整体不构建。
-
-if(NOT PROJECT_ENABLE_SPDLOG)
-    message(STATUS "component_attachment: disabled (spdlog unavailable on this platform)")
-    return()
-endif()
+# 集成端日志设施（logger/logger.h）双后端：spdlog 平台（macOS/Linux，conanfile
+# 非 Windows 依赖，ConanPackages.cmake 的 PROJECT_ENABLE_SPDLOG）直用 spdlog；
+# Windows（spdlog 关闭）走 std::ofstream 文件后端（CA_LOG_BACKEND_SPDLOG=0，
+# 仿库内 ProjectFileLog 口径：integration_events/views.log 中文行，仅落文件），
+# 全平台均可构建本示例。
 
 # 验收日志通道提示：SBIRS 宽窄视场验收量（覆盖区/驻留/焦平面脱靶量/信号能量/
 # 连续命中计数器）经 [SbirsAccept] 事件流写入库日志，开关为库编译期选项。
@@ -39,13 +36,21 @@ add_executable(component_attachment_demo
     components/threat_component.cpp
     logger/logger.cpp)
 
-# Boost.Signals2 事件库：与 tests 分区同源解析（tests/cmake/TestSupport.cmake）；
-# spdlog：集成端日志后端（logger.h 的 CA_LOG_EVENT / CA_LOG_VIEW）。
+# Boost.Signals2 事件库：与 tests 分区同源解析（tests/cmake/TestSupport.cmake）。
 find_package(Boost CONFIG REQUIRED)
 target_link_libraries(component_attachment_demo PRIVATE
     ${PROJECT_ALIAS}
-    Boost::boost
-    ${PROJECT_SPDLOG_TARGET})
+    Boost::boost)
+# spdlog：集成端日志后端（logger.h 的 CA_LOG_EVENT / CA_LOG_VIEW），仅平台启用
+# 时链接；Windows 文件后端分支只依赖标准库。示例源含中文 UTF-8 串字面量，
+# MSVC 的 /utf-8 经 core 的 INTERFACE 选项（CompilerMSVC.cmake）随链接传播。
+if(PROJECT_ENABLE_SPDLOG)
+    target_link_libraries(component_attachment_demo PRIVATE ${PROJECT_SPDLOG_TARGET})
+endif()
+# 日志后端开关注入（仿库内 oneq_add_component 的 PROJECT_LOG_BACKEND_* 先例，
+# 见 ProjectTargets.cmake）。
+target_compile_definitions(component_attachment_demo PRIVATE
+    CA_LOG_BACKEND_SPDLOG=$<BOOL:${PROJECT_ENABLE_SPDLOG}>)
 
 target_include_directories(component_attachment_demo PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}"

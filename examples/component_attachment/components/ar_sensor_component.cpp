@@ -131,8 +131,8 @@ void ArSensorComponent::LogDebugView(
     if (!tracks_text.empty()) {
       tracks_text += ", ";
     }
-    tracks_text += spdlog::fmt_lib::format("{} {}(RCS {:.2f}m²)", track.external_target_id,
-                                           ArTrackStatusName(track.status), track.rcs);
+    tracks_text += CA_FMT_FORMAT("{} {}(RCS {:.2f}m²)", track.external_target_id,
+                                 ArTrackStatusName(track.status), track.rcs);
   }
   const std::string issues_text = demo::FormatIssueText(view.issues);
   CA_LOG_VIEW("ar", "周期={} 完成={} 目标=[{}] 问题=[{}]",

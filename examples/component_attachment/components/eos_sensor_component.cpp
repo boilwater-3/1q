@@ -163,10 +163,10 @@ void EosSensorComponent::LogDebugView(
     if (!targets_text.empty()) {
       targets_text += ", ";
     }
-    targets_text += spdlog::fmt_lib::format("{} {}(方位{:.1f}° 俯仰{:.1f}° 距离{:.1f}km)",
-                                            target.target_id, EosTargetStatusName(target.status),
-                                            target.azimuth_deg, target.elevation_deg,
-                                            target.range_m / 1000.0);
+    targets_text += CA_FMT_FORMAT("{} {}(方位{:.1f}° 俯仰{:.1f}° 距离{:.1f}km)",
+                                  target.target_id, EosTargetStatusName(target.status),
+                                  target.azimuth_deg, target.elevation_deg,
+                                  target.range_m / 1000.0);
   }
   const std::string issues_text = demo::FormatIssueText(view.issues);
   CA_LOG_VIEW("eos", "周期={} 执行={} 目标=[{}] 问题=[{}]",

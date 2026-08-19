@@ -46,42 +46,26 @@ if(_oneq_unit_examples)
     # component_attachment 组件实现（ecs_component_runtime_test 测组件运行时
     # 修改接口；传感器→融合适配已上移库内 fusion/SensorAdapters.h）。
     # logger.cpp：组件源文件内 CA_LOG_EVENT / CA_LOG_VIEW 宏引用符号（单测
-    # 不初始化 → 未初始化静默跳过路径）。集成端日志直接使用 spdlog：仅在
-    # PROJECT_ENABLE_SPDLOG 时编译组件源并链接 spdlog；Windows 上该示例门控
-    # 关闭，组件运行时测试一并排除（JsonReader / ECS 核心测试保留，二者无
-    # spdlog 依赖）。
+    # 不初始化 → 未初始化静默跳过路径）。集成端日志双后端（注入
+    # CA_LOG_BACKEND_SPDLOG，与示例 target 同款开关）：组件源与 logger 全平台
+    # 统一编译，spdlog 仅在平台启用时链接；Windows 走标准库文件后端（此前
+    # 因 spdlog 排除的 ecs/scene_data/scene_script 测试随双后端一并恢复）。
     set(_oneq_examples_extra
         "${CMAKE_SOURCE_DIR}/examples/common/json_reader.cpp"
-        # area_division.cpp 为纯几何算法（无 spdlog 依赖），随测试无条件编译；
-        # 其余组件源文件依赖 spdlog，见下方门控。
-        "${CMAKE_SOURCE_DIR}/examples/component_attachment/area_division.cpp")
+        "${CMAKE_SOURCE_DIR}/examples/component_attachment/area_division.cpp"
+        "${CMAKE_SOURCE_DIR}/examples/component_attachment/scene_data.cpp"
+        "${CMAKE_SOURCE_DIR}/examples/component_attachment/demo_config.cpp"
+        "${CMAKE_SOURCE_DIR}/examples/component_attachment/scene_script.cpp"
+        "${CMAKE_SOURCE_DIR}/examples/component_attachment/components/ar_sensor_component.cpp"
+        "${CMAKE_SOURCE_DIR}/examples/component_attachment/components/esr_sensor_component.cpp"
+        "${CMAKE_SOURCE_DIR}/examples/component_attachment/components/eos_sensor_component.cpp"
+        "${CMAKE_SOURCE_DIR}/examples/component_attachment/components/sbirs_sensor_component.cpp"
+        "${CMAKE_SOURCE_DIR}/examples/component_attachment/components/sar_sensor_component.cpp"
+        "${CMAKE_SOURCE_DIR}/examples/component_attachment/components/flight_component.cpp"
+        "${CMAKE_SOURCE_DIR}/examples/component_attachment/logger/logger.cpp")
+    set(_oneq_examples_link_libs "")
     if(PROJECT_ENABLE_SPDLOG)
-        list(APPEND _oneq_examples_extra
-            "${CMAKE_SOURCE_DIR}/examples/component_attachment/scene_data.cpp"
-            "${CMAKE_SOURCE_DIR}/examples/component_attachment/demo_config.cpp"
-            "${CMAKE_SOURCE_DIR}/examples/component_attachment/scene_script.cpp"
-            "${CMAKE_SOURCE_DIR}/examples/component_attachment/components/ar_sensor_component.cpp"
-            "${CMAKE_SOURCE_DIR}/examples/component_attachment/components/esr_sensor_component.cpp"
-            "${CMAKE_SOURCE_DIR}/examples/component_attachment/components/eos_sensor_component.cpp"
-            "${CMAKE_SOURCE_DIR}/examples/component_attachment/components/sbirs_sensor_component.cpp"
-            "${CMAKE_SOURCE_DIR}/examples/component_attachment/components/sar_sensor_component.cpp"
-            "${CMAKE_SOURCE_DIR}/examples/component_attachment/components/flight_component.cpp"
-            "${CMAKE_SOURCE_DIR}/examples/component_attachment/logger/logger.cpp")
-        set(_oneq_examples_link_libs ${PROJECT_SPDLOG_TARGET})
-    else()
-        # 示例整体门控（spdlog 非 Windows 依赖）：组件运行时测试、场景数据与
-        # 场景脚本测试随示例一起排除（Windows 上不测试）。
-        # TestRegistry 孤儿检查要求磁盘上的 _test.cpp 全部登记：被平台门控排除的
-        # 文件登记到 unit.examples.platform_excluded 分区（不参与编译，仅满足登记完整性）。
-        set(_oneq_examples_platform_excluded "")
-        foreach(_src IN LISTS _oneq_unit_examples)
-            if(_src MATCHES "ecs_component_runtime_test\\.cpp$|scene_data_test\\.cpp$|scene_script_test\\.cpp$")
-                list(APPEND _oneq_examples_platform_excluded "${_src}")
-            endif()
-        endforeach()
-        list(FILTER _oneq_unit_examples
-             EXCLUDE REGEX "ecs_component_runtime_test\\.cpp$|scene_data_test\\.cpp$|scene_script_test\\.cpp$")
-        oneq_register_test_sources("unit.examples.platform_excluded" ${_oneq_examples_platform_excluded})
+        list(APPEND _oneq_examples_link_libs ${PROJECT_SPDLOG_TARGET})
     endif()
     oneq_add_test_partition(
         TYPE unit DOMAIN examples
@@ -91,6 +75,7 @@ if(_oneq_unit_examples)
                      "${CMAKE_SOURCE_DIR}/tests/consumer/batch_validation"
                      "${CMAKE_SOURCE_DIR}/examples/component_attachment"
         EXTRA_SOURCES ${_oneq_examples_extra}
+        COMPILE_DEFS "CA_LOG_BACKEND_SPDLOG=$<BOOL:${PROJECT_ENABLE_SPDLOG}>"
         LINK_LIBS ${_oneq_examples_link_libs})
     # demo_config.cpp（场景覆写应用）需要 examples/configs 路径宏与 RIR 识别库
     # 路径，与 component_attachment demo 目标同源注入。

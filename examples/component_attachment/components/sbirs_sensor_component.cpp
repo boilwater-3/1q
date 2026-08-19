@@ -238,10 +238,10 @@ void SbirsSensorComponent::LogDebugView(
     if (!targets_text.empty()) {
       targets_text += ", ";
     }
-    targets_text += spdlog::fmt_lib::format("{} {}(方位{:.1f}° 俯仰{:.1f}°)",
-                                            target.target_id, SbirsTargetStatusName(target.status),
-                                            target.azimuth_rad * kRadToDeg,
-                                            target.elevation_rad * kRadToDeg);
+    targets_text += CA_FMT_FORMAT("{} {}(方位{:.1f}° 俯仰{:.1f}°)",
+                                  target.target_id, SbirsTargetStatusName(target.status),
+                                  target.azimuth_rad * kRadToDeg,
+                                  target.elevation_rad * kRadToDeg);
   }
   const std::string issues_text = demo::FormatIssueText(view.issues);
   CA_LOG_VIEW("sbirs", "周期={} 执行={} 目标=[{}] 问题=[{}]",

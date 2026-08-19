@@ -52,7 +52,7 @@ demo::SceneData LoadOk(const std::string& content) {
   ScopedSceneFile file(content);
   demo::SceneData scene;
   std::string error;
-  EXPECT_TRUE(demo::LoadSceneData(file.path().c_str(), &scene, &error)) << error;
+  EXPECT_TRUE(demo::LoadSceneData(file.path().string().c_str(), &scene, &error)) << error;
   return scene;
 }
 
@@ -282,7 +282,7 @@ TEST(SceneDataTest, MissingPlatformBlockFails) {
   ScopedSceneFile file(R"json({"targets": []})json");
   demo::SceneData scene;
   std::string error;
-  EXPECT_FALSE(demo::LoadSceneData(file.path().c_str(), &scene, &error));
+  EXPECT_FALSE(demo::LoadSceneData(file.path().string().c_str(), &scene, &error));
   EXPECT_NE(error.find("platform"), std::string::npos);
 }
 
@@ -290,7 +290,7 @@ TEST(SceneDataTest, MissingTargetsBlockFails) {
   ScopedSceneFile file(R"json({"platform": {"origin_lat_deg": 30.0, "origin_lon_deg": 120.0}})json");
   demo::SceneData scene;
   std::string error;
-  EXPECT_FALSE(demo::LoadSceneData(file.path().c_str(), &scene, &error));
+  EXPECT_FALSE(demo::LoadSceneData(file.path().string().c_str(), &scene, &error));
   EXPECT_NE(error.find("targets"), std::string::npos);
 }
 
@@ -302,7 +302,7 @@ TEST(SceneDataTest, MissingGeometryFieldFails) {
   })json");
   demo::SceneData scene;
   std::string error;
-  EXPECT_FALSE(demo::LoadSceneData(file.path().c_str(), &scene, &error));
+  EXPECT_FALSE(demo::LoadSceneData(file.path().string().c_str(), &scene, &error));
   EXPECT_NE(error.find("altitude_m"), std::string::npos);
 }
 
@@ -314,7 +314,7 @@ TEST(SceneDataTest, InvalidCyclesFails) {
   })json");
   demo::SceneData scene;
   std::string error;
-  EXPECT_FALSE(demo::LoadSceneData(file.path().c_str(), &scene, &error));
+  EXPECT_FALSE(demo::LoadSceneData(file.path().string().c_str(), &scene, &error));
   EXPECT_NE(error.find("cycles"), std::string::npos);
 }
 
@@ -352,7 +352,7 @@ TEST(SceneDataTest, ManeuverMissingStartCycleFails) {
   })json");
   demo::SceneData scene;
   std::string error;
-  EXPECT_FALSE(demo::LoadSceneData(file.path().c_str(), &scene, &error));
+  EXPECT_FALSE(demo::LoadSceneData(file.path().string().c_str(), &scene, &error));
   EXPECT_NE(error.find("start_cycle"), std::string::npos);
 }
 
@@ -370,7 +370,7 @@ TEST(SceneDataTest, ManeuverStartCycleMustIncrease) {
   })json");
   demo::SceneData scene;
   std::string error;
-  EXPECT_FALSE(demo::LoadSceneData(file.path().c_str(), &scene, &error));
+  EXPECT_FALSE(demo::LoadSceneData(file.path().string().c_str(), &scene, &error));
   EXPECT_NE(error.find("increasing"), std::string::npos);
 }
 
@@ -378,7 +378,7 @@ TEST(SceneDataTest, MalformedJsonFails) {
   ScopedSceneFile file(R"json({"platform": {"origin_lat_deg": )json");
   demo::SceneData scene;
   std::string error;
-  EXPECT_FALSE(demo::LoadSceneData(file.path().c_str(), &scene, &error));
+  EXPECT_FALSE(demo::LoadSceneData(file.path().string().c_str(), &scene, &error));
   EXPECT_FALSE(error.empty());
 }
 
@@ -564,7 +564,7 @@ TEST(SceneDataTest, CoverageAndExplicitWaypointsConflictFails) {
   })json");
   demo::SceneData scene;
   std::string error;
-  EXPECT_FALSE(demo::LoadSceneData(file.path().c_str(), &scene, &error));
+  EXPECT_FALSE(demo::LoadSceneData(file.path().string().c_str(), &scene, &error));
   EXPECT_NE(error.find("mutually exclusive"), std::string::npos);
 }
 
@@ -604,7 +604,7 @@ TEST(SceneDataTest, InvalidCoverageGeometryFails) {
   })json");
   demo::SceneData scene;
   std::string error;
-  EXPECT_FALSE(demo::LoadSceneData(file.path().c_str(), &scene, &error));
+  EXPECT_FALSE(demo::LoadSceneData(file.path().string().c_str(), &scene, &error));
   EXPECT_NE(error.find("planning failed"), std::string::npos);
 }
 
@@ -643,7 +643,7 @@ TEST(SceneDataTest, CoverageModeKindMismatchFails) {
   })json");
   demo::SceneData scene;
   std::string error;
-  EXPECT_FALSE(demo::LoadSceneData(file.path().c_str(), &scene, &error));
+  EXPECT_FALSE(demo::LoadSceneData(file.path().string().c_str(), &scene, &error));
   EXPECT_NE(error.find("planning failed"), std::string::npos);
 }
 
@@ -673,7 +673,7 @@ TEST(SceneDataTest, MissingCoverageVertexFails) {
   })json");
   demo::SceneData scene;
   std::string error;
-  EXPECT_FALSE(demo::LoadSceneData(file.path().c_str(), &scene, &error));
+  EXPECT_FALSE(demo::LoadSceneData(file.path().string().c_str(), &scene, &error));
   EXPECT_NE(error.find("lat_deg"), std::string::npos);
 }
 
@@ -755,7 +755,7 @@ TEST(SceneDataTest, PlatformsNotArrayFails) {
   })json");
   demo::SceneData scene;
   std::string error;
-  EXPECT_FALSE(demo::LoadSceneData(file.path().c_str(), &scene, &error));
+  EXPECT_FALSE(demo::LoadSceneData(file.path().string().c_str(), &scene, &error));
   EXPECT_NE(error.find("platforms"), std::string::npos);
 }
 
@@ -784,7 +784,7 @@ TEST(SceneDataTest, WingmanCoverageAndWaypointsConflictFails) {
   })json");
   demo::SceneData scene;
   std::string error;
-  EXPECT_FALSE(demo::LoadSceneData(file.path().c_str(), &scene, &error));
+  EXPECT_FALSE(demo::LoadSceneData(file.path().string().c_str(), &scene, &error));
   EXPECT_NE(error.find("mutually exclusive"), std::string::npos);
 }
 
@@ -814,7 +814,7 @@ TEST(SceneDataTest, InvalidTargetTypeFails) {
   })json");
   demo::SceneData scene;
   std::string error;
-  EXPECT_FALSE(demo::LoadSceneData(file.path().c_str(), &scene, &error));
+  EXPECT_FALSE(demo::LoadSceneData(file.path().string().c_str(), &scene, &error));
   EXPECT_NE(error.find("type"), std::string::npos);
 }
 
@@ -959,7 +959,7 @@ TEST(SceneDataTest, MissionAreaConflictsWithPerPlatformCoverageFail) {
   })json");
   demo::SceneData scene;
   std::string error;
-  EXPECT_FALSE(demo::LoadSceneData(file.path().c_str(), &scene, &error));
+  EXPECT_FALSE(demo::LoadSceneData(file.path().string().c_str(), &scene, &error));
   EXPECT_NE(error.find("mutually exclusive"), std::string::npos);
 }
 
@@ -981,6 +981,6 @@ TEST(SceneDataTest, MissionAreaWithoutWingmenFails) {
   })json");
   demo::SceneData scene;
   std::string error;
-  EXPECT_FALSE(demo::LoadSceneData(file.path().c_str(), &scene, &error));
+  EXPECT_FALSE(demo::LoadSceneData(file.path().string().c_str(), &scene, &error));
   EXPECT_NE(error.find("requires"), std::string::npos);
 }

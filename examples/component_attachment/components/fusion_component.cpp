@@ -103,7 +103,7 @@ void FusionComponent::Step(World& world, double dt_sec) {
     std::string channels;
     for (const auto& channel : event.channels) {
       if (!channels.empty()) channels += ",";
-      channels += spdlog::fmt_lib::format("{}:{}", channel.first, channel.second);
+      channels += CA_FMT_FORMAT("{}:{}", channel.first, channel.second);
     }
     CA_LOG_EVENT_DUP(world, "fusion_updated", "键={} 置信={:.2f} 新增={} 消失={} 通道=[{}]",
                      static_cast<unsigned long long>(event.key), event.confidence,

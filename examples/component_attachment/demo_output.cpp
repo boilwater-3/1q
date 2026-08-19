@@ -8,6 +8,9 @@
  */
 #include "demo_output.h"
 
+#include <iomanip>
+#include <locale>
+#include <sstream>
 #include <string>
 
 #include "1q/coordinate/position_transform.h"
@@ -20,8 +23,12 @@ namespace demo {
 namespace {
 
 /// 定点格式化（CSV 数值统一走 %.Nf，避免 %g 的科学计数法干扰查看器解析）。
+/// 直写 iostream 定点而非 CA_FMT_FORMAT：动态精度 {:.{}f} 不在其支持子集内。
 std::string Fmt(double value, int precision) {
-  return spdlog::fmt_lib::format("{:.{}f}", value, precision);
+  std::ostringstream out;
+  out.imbue(std::locale::classic());
+  out << std::fixed << std::setprecision(precision) << value;
+  return out.str();
 }
 
 }  // namespace
@@ -43,7 +50,7 @@ void DemoOutputs::RecordPlatformRow(std::uint32_t cycle, double t_sec,
                                     std::uint32_t aircraft_id,
                                     const FlightComponent& flight) {
   platform_csv_.WriteRow(
-      spdlog::fmt_lib::format(
+      CA_FMT_FORMAT(
           "{},{:.2f},{},{:.7f},{:.7f},{:.1f},{:.1f},{:.1f},{},{}", cycle, t_sec, aircraft_id,
           flight.position().latitude_deg, flight.position().longitude_deg,
           flight.position().altitude_m, flight.heading_deg(), flight.speed_mps(),
@@ -58,7 +65,7 @@ void DemoOutputs::RecordTruthRow(std::uint32_t cycle, double t_sec,
   if (!oneq::coordinate::TryEcefToLla(target.position, &lla)) {
     return;  // ECEF 非法：跳过该目标本周期（真值脚本不应触发）
   }
-  truth_csv_.WriteRow(spdlog::fmt_lib::format(
+  truth_csv_.WriteRow(CA_FMT_FORMAT(
       "{},{:.2f},{},{},{:.7f},{:.7f},{:.1f},{:.2f}", cycle, t_sec, target.id, target.type,
       lla.latitude_deg, lla.longitude_deg, lla.altitude_m, target.rcs));
 }
@@ -84,7 +91,7 @@ void DemoOutputs::RecordRoute(std::uint32_t aircraft_id,
                               const std::vector<navigation::RoutePoint>& route) {
   for (std::size_t i = 0U; i < route.size(); ++i) {
     const auto& wp = route[i];
-    route_csv_.WriteRow(spdlog::fmt_lib::format(
+    route_csv_.WriteRow(CA_FMT_FORMAT(
         "{},{},{:.7f},{:.7f},{:.1f},{:.1f},{:.1f}", aircraft_id, i, wp.position.latitude_deg,
         wp.position.longitude_deg, wp.position.altitude_m, wp.speed_mps, wp.radius_m));
   }

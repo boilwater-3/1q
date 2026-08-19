@@ -1,18 +1,22 @@
 /**
  * @file logger.h
- * @brief 集成端日志设施（外部集成惯用法示范）。
+ * @brief 集成端日志设施（外部集成惯用法示范，双后端）。
  *
- * 与库内部日志（PROJECT_LOG_* → spdlog 默认 logger → 1q_library.log）区分成两个
- * 日志模块：
- * 1. 库内部日志：库内 PROJECT_LOG_* 走 spdlog 默认 logger；本设施把默认 logger
- *    装配为文件 sink（1q_library.log，时间戳 + 级别 + 消息），宿主拥有生命周期；
- * 2. 集成端日志：拆两个命名 logger（均带 stdout，pattern 仅消息体）——事件行
- *    （"[事件:type] 周期=... 时间=...s 中文详情"）→ integration_events.log，
- *    各组件每周期调试视图行（"[视图:module] 中文摘要"）→ integration_views.log，
- *    中文人读，不做结构化落盘，结构化持久化由外部集成方自接（规则 12）。
- * 组件源文件内直接调日志宏、字符串就地填充（fmt 风格 {} 语法，经
- * spdlog::fmt_lib 格式化），字符串归属组件源文件（事件产生处）；cycle/t_sec 由
- * 宏从 world 共享场景状态取。日志三模式见 logger_modes.h 模式选择区。
+ * 与库内部日志（PROJECT_LOG_*）区分成两个日志模块：
+ * 1. 库内部日志：spdlog 平台（macOS/Linux）由本设施把库默认 logger 装配为
+ *    文件 sink（output_dir/1q_library.log，时间戳 + 级别 + 消息），宿主拥有
+ *    生命周期；Windows（spdlog 关闭）库内走内置 ProjectFileLog，本设施经其
+ *    ONEQ_FILE_LOG_PATH 环境变量把库日志指到同一路径（实现见 logger.cpp）；
+ * 2. 集成端日志：spdlog 平台拆两个命名 logger（均带 stdout，pattern 仅消息
+ *    体）；Windows 走 std::ofstream 文件后端（仅落文件，行文案与 spdlog 分支
+ *    完全一致）——事件行（"[事件:type] 周期=... 时间=...s 中文详情"）→
+ *    integration_events.log，各组件每周期调试视图行（"[视图:module] 中文摘要"）
+ *    → integration_views.log，中文人读，不做结构化落盘，结构化持久化由外部
+ *    集成方自接（规则 12）。
+ * 组件源文件内直接调日志宏、字符串就地填充（fmt 风格 {} 语法，经 CA_FMT_FORMAT
+ * 格式化——spdlog 平台为 spdlog::fmt_lib，Windows 为 logger/logger_format.h 的
+ * 迷你实现），字符串归属组件源文件（事件产生处）；cycle/t_sec 由宏从 world 共享
+ * 场景状态取。日志三模式见 logger_modes.h 模式选择区。
  */
 
 #ifndef EXAMPLES_COMPONENT_ATTACHMENT_LOGGER_LOGGER_H_
@@ -30,16 +34,18 @@
 #include <cstdint>
 #include <string>
 
-#include <spdlog/spdlog.h>
+// CA_FMT_FORMAT 双后端门面：spdlog 平台转发 spdlog::fmt_lib，Windows 文件后端
+// 分支为迷你格式化（CA_LOG_BACKEND_SPDLOG 由 CMake 注入，见 logger_format.h）。
+#include "logger_format.h"
 
 namespace component_attachment {
 namespace demo {
 
-/// 初始化集成端日志（装配 1q_library.log 默认 logger + 事件/视图两个命名
-/// logger → integration_events.log / integration_views.log；幂等）。main 装配时
-/// 在会话创建前调用一次（库日志入库文件，避免 spdlog 自动创建 stdout 默认
-/// logger）；未初始化时 LogEvent / LogViewSummary 静默跳过（单元测试不初始化
-/// 也可安全编译运行）。
+/// 初始化集成端日志（spdlog 分支：装配 1q_library.log 默认 logger + 事件/视图
+/// 两个命名 logger；Windows 文件后端分支：经 ONEQ_FILE_LOG_PATH 指引库日志 +
+/// 打开两个集成端日志文件。幂等）。main 装配时在会话创建前调用一次（先于库
+/// 首次写日志）；未初始化时 LogEvent / LogViewSummary 静默跳过（单元测试不初始
+/// 化也可安全编译运行）。
 void InitIntegrationLog(const std::string& output_dir);
 
 /// 记录一行事件（宏背后）：integration_events logger 事件行 + 计数。未初始化时
@@ -76,8 +82,8 @@ std::size_t RirViewCount();
  * @brief 事件日志宏（关键事件）：组件源文件内就地记录，字符串归属事件产生处。
  *
  * cycle/t_sec 从 world 共享场景状态取（组件发布事件均以 scene 值填充，二者同源）；
- * detail 为 fmt 风格格式化串（{} 占位，编译期格式检查）。模式一（KEY）下仍逐条
- * 落盘；模式二（AGGREGATE）下并入周期聚合行。
+ * detail 为 fmt 风格格式化串（{} 占位；spdlog 分支持留字面量编译期检查）。
+ * 模式一（KEY）下仍逐条落盘；模式二（AGGREGATE）下并入周期聚合行。
  * @param[in] world World 左值引用（取 scene_state().cycle / .t_sec）
  * @param[in] type  事件类型稳定字符串（如 "target_confirmed"）
  * @param[in] ...   fmt 风格格式串与参数
@@ -85,7 +91,7 @@ std::size_t RirViewCount();
 #define CA_LOG_EVENT(world, type, ...)                                         \
   ::component_attachment::demo::LogEvent(                                      \
       (world).scene_state().cycle, (world).scene_state().t_sec, (type),        \
-      ::spdlog::fmt_lib::format(__VA_ARGS__))
+      CA_FMT_FORMAT(__VA_ARGS__))
 
 #if defined(CA_EVENT_LOG_MODE_KEY)
 /**
@@ -101,7 +107,7 @@ std::size_t RirViewCount();
 #define CA_LOG_EVENT_DUP(world, type, ...)                                     \
   ::component_attachment::demo::LogEvent(                                      \
       (world).scene_state().cycle, (world).scene_state().t_sec, (type),        \
-      ::spdlog::fmt_lib::format(__VA_ARGS__))
+      CA_FMT_FORMAT(__VA_ARGS__))
 #endif
 
 /**
@@ -112,6 +118,6 @@ std::size_t RirViewCount();
  */
 #define CA_LOG_VIEW(module, ...)                                               \
   ::component_attachment::demo::LogViewSummary(                                \
-      (module), ::spdlog::fmt_lib::format(__VA_ARGS__))
+      (module), CA_FMT_FORMAT(__VA_ARGS__))
 
 #endif  // EXAMPLES_COMPONENT_ATTACHMENT_LOGGER_LOGGER_H_

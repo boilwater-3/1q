@@ -188,7 +188,7 @@ void RirSensorComponent::Step(World& world, double dt_sec) {
     if (!attribution_parts.empty()) {
       attribution_parts += ", ";
     }
-    attribution_parts += spdlog::fmt_lib::format(
+    attribution_parts += CA_FMT_FORMAT(
         "目标={}({}) 位置ENU=({:.0f},{:.0f},{:.0f}) 速度={:.1f}",
         static_cast<unsigned long long>(attribution.external_target_id),
         attribution.target_name.empty() ? "-" : attribution.target_name,

@@ -56,7 +56,7 @@ void InferenceComponent::Step(World& world, double dt_sec) {
   for (const auto& result : results_) {
     const auto& trajectory = result.trajectory;
     const std::string launch = trajectory.has_launch
-                                   ? spdlog::fmt_lib::format(
+                                   ? CA_FMT_FORMAT(
                                          "发射=({:.3f},{:.3f}) t={:.0f}s σ={:.0f}m",
                                          trajectory.launch_point.latitude_deg,
                                          trajectory.launch_point.longitude_deg,
@@ -64,7 +64,7 @@ void InferenceComponent::Step(World& world, double dt_sec) {
                                          trajectory.launch_position_sigma_m)
                                    : std::string("发射=未解算");
     const std::string impact = trajectory.has_impact
-                                   ? spdlog::fmt_lib::format(
+                                   ? CA_FMT_FORMAT(
                                          "落点=({:.3f},{:.3f}) t=+{:.0f}s σ={:.0f}m",
                                          trajectory.impact_point.latitude_deg,
                                          trajectory.impact_point.longitude_deg,

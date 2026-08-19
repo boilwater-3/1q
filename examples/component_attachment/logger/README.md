@@ -1,8 +1,12 @@
 # 集成端日志设施（logger/）
 
 > 本目录是示例的**集成端日志设施**——示范"外部集成方怎么自己组织日志/落盘"，不属于
-> oneq 库的 public surface。直接使用 conanfile 的 spdlog 依赖（fmt 风格 `{}` 格式化，
-> 编译期格式检查）。
+> oneq 库的 public surface。**双后端**（开关 `CA_LOG_BACKEND_SPDLOG` 由 CMake 按
+> `PROJECT_ENABLE_SPDLOG` 注入，仿库内 `PROJECT_LOG_BACKEND_*` 先例）：spdlog 平台
+> （macOS/Linux）直接使用 conanfile 的 spdlog 依赖（fmt 风格 `{}` 格式化，编译期格式
+> 检查）；Windows（spdlog/fmt 均不安装）走 `std::ofstream` 文件后端 + `logger_format.h`
+> 的迷你格式化（`{}` / `{:.Nf}` / `{{ }}` 转义，子集与库内 `ProjectFileLog` 对齐），
+> 行文案与 spdlog 分支逐字一致。
 >
 > 想先建立整体认知（三层输出模型 → 两种日志 → 三模式）再读本文件，见使用教程
 > [`docs/practice/output_view_and_logging_guide.md`](../../../../docs/practice/output_view_and_logging_guide.md)。
@@ -14,14 +18,15 @@
 
 | 模块 | 后端 | 输出文件 |
 | --- | --- | --- |
-| **库内部日志** | 库内 `PROJECT_LOG_*` 宏 → spdlog 默认 logger（`InitIntegrationLog` 装配为文件 sink） | `1q_library.log`（时间戳 + 级别 + 消息） |
-| **集成端日志** | spdlog 命名 logger `"integration_events"` / `"integration_views"`（均带 stdout，pattern 仅为消息体） | `integration_events.log`（事件行）+ `integration_views.log`（各组件每周期调试视图行） |
+| **库内部日志** | spdlog 平台：库内 `PROJECT_LOG_*` 宏 → spdlog 默认 logger（`InitIntegrationLog` 装配为文件 sink）；Windows：库内走内置 `ProjectFileLog`，`InitIntegrationLog` 经其 `ONEQ_FILE_LOG_PATH` 环境变量落同路径 | `1q_library.log`（时间戳 + 级别 + 消息） |
+| **集成端日志** | spdlog 平台：命名 logger `"integration_events"` / `"integration_views"`（均带 stdout，pattern 仅为消息体）；Windows：`std::ofstream`（仅落文件，不打 stdout——控制台代码页可能非 UTF-8） | `integration_events.log`（事件行）+ `integration_views.log`（各组件每周期调试视图行） |
 
 ## 文件
 
 | 文件 | 作用 |
 | --- | --- |
-| `logger.h` / `logger.cpp` | 日志设施主体：`InitIntegrationLog`（装配三个 logger）、`LogEvent` / `LogViewSummary`（宏背后）、事件/视图计数器；对外宏 `CA_LOG_EVENT` / `CA_LOG_EVENT_DUP` / `CA_LOG_VIEW` |
+| `logger.h` / `logger.cpp` | 日志设施主体：`InitIntegrationLog`（装配日志后端）、`LogEvent` / `LogViewSummary`（宏背后）、事件/视图计数器；对外宏 `CA_LOG_EVENT` / `CA_LOG_EVENT_DUP` / `CA_LOG_VIEW` |
+| `logger_format.h` | 格式化门面 `CA_FMT_FORMAT` / `FmtFormat`：spdlog 分支转发 `spdlog::fmt_lib::format`；Windows 分支为迷你实现（浮点 `{}` 走 6 位有效数字，与库 Windows 后端一致的既有偏差） |
 | `logger_modes.h` | 日志模式选择区（纯宏定义，零依赖）：视图/事件各三模式，编译期门控 |
 | `logger_i18n.h` | issue code → 中文名适配表（纯查表零依赖；不翻译/不解析 message，量值走 DebugView 结构化字段；未知 code 回退英文原文） |
 
