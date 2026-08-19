@@ -2,7 +2,7 @@
 Status: active
 Authority: 非规定性记录（不构成契约约束）
 Lifecycle: 条目有结论后回写 contract.md 或 design.md 并从本文删除；不保留已收敛条目
-Last-reviewed: 2026-08-18
+Last-reviewed: 2026-08-20
 ---
 
 # 跨模块开放议题
@@ -23,6 +23,13 @@ Last-reviewed: 2026-08-18
 | COMMON-OQ-1 | common | Windows/MSVC 全链验收 | presets/.bat 仅未验收脚手架，CI 只跑 macOS | needs-evidence |
 | COMMON-OQ-7 | common | 双 cycle_index 冗余 | 非执行周期 input_cycle_index 保留输入号，output_frame.cycle_index 为0 | open |
 | COMMON-OQ-8 | common | 周期时间/窗口静默拒绝 | 三类不同性质的拒绝门被并列；空帧 envelope 语义 AR/ESR 分裂 | open |
+| COMMON-OQ-9 | common | RIR 补丁提交策略归类 | 暂存+下周期批量提交、无 resolver 校验、恒 true，不符现有二分类 | open |
+| SAR-OQ-1 | sar | RDA 性能数字是否重测 | /O2 实测数字来自旧档位，需确认是否随真发布档更新 | open |
+| SAR-OQ-2 | sar | 脉冲环缓冲 O(1) 去重契约 | 依赖严格递增不变量，文档无 push 复杂度断言 | open |
+| AR-OQ-2 | airborne_radar | 集成层 rf-world 干扰接线 | examples 从共享 rf-world 派生 interference，模块文档未述 | open |
+| ESR-OQ-4 | electronic_surveillance_radar | 扫描采样点数上限截断 | 超 131072 点截断丢弃窗口末端，是否产品认可 | open |
+| RIR-OQ-2 | remote_identification_radar | 非执行周期输出帧周期号语义 | input_cycle_index/batch_id 保留输入号、载荷空，未用归零约定 | open |
+| RIR-OQ-3 | remote_identification_radar | inconsistent_platform_position 疑似死码 | 头文件有、代码无产生点，是否删除 | open |
 | AR-OQ-1 | airborne_radar | 假目标鉴别跨域命名双轨 | 观测域枚举 vs 量测域 bool | open |
 | ESR-OQ-1 | electronic_surveillance_radar | 压制干扰感知与 ECCM 链路缺失 | 死字段 + 无结构化观测 + 无 ECCM | open |
 | ESR-OQ-2 | electronic_surveillance_radar | 运行时补丁扫描中心静默关边界 | scan center 补丁隐式切扫描模式 | open |
@@ -45,13 +52,20 @@ Last-reviewed: 2026-08-18
   1. 下载来源含 GitLab/archives.boost.io，非锁定 GitHub。
   2. 未对下载内容做 hash 校验。
   [evidence: scripts/fetch_third_party.bat]
+  2026-08 进展（未改变验收状态）：v141 preset（`VisualStudio.15.0-amd64`，Conan）已在 README/CLAUDE.md
+  记载为 Windows 构建主线——库与 examples 可在 Windows 构建运行（集成日志走文件后端）；VS2015 与
+  no-Conan 路径仍为脚手架。
 - **后果**：
   1. 外部读者可能据 presets 或 `.bat` 误判 Windows 已受支持。
   2. 无校验的下载链在真实 Windows runner 上不可重复，无法证明 configure/build/install/consumer 闭环。
 - **待决问题**：如何实现已冻结的 Windows shell/GitHub bootstrap，并在不依赖 Windows Conan 的前提下形成
-  可重复的依赖、configure、build、install 和外部 consumer 闭环。
+  可重复的依赖、configure、build、install 和外部 consumer 闭环。另：README.md（2026-08 起）称 v141 为
+  Windows 构建主线（mainline），而本条目与 docs/practice/build_and_test_governance.md 仍把 Windows presets
+  列为未验收脚手架——两处措辞的正式对齐（升级 README 为正式支持声明，或把治理规则修订为承认 v141
+  本机主线）亦属待决。
 - **当前边界**：这些 presets 和脚本只视为未验收脚手架。不得在文档中宣称 Windows 已受支持，也不得把
-  Conan 路径自动提升为正式 Windows 方案。
+  Conan 路径自动提升为正式 Windows 方案。文档现按"v141 为本机主线、但非正式支持声明"表述
+  （CI 仍仅 macOS）；README 与治理规则措辞未对齐。
 - **再进入条件 (Stage A)**：提交锁定版本/提交与下载校验矩阵，提供 shell bootstrap 原型，并在真实
   Windows runner 上依次证明 configure、Debug/Release build、install、独立 consumer build/run；随后再决定
   保留、删除或重命名现有 presets 与 `.bat` 入口。
@@ -64,6 +78,11 @@ Last-reviewed: 2026-08-18
   2. 非执行路径（COMMON-OQ-5 已统一为不复用）：`output_frame.cycle_index` 保持默认 `0`、
      `input_cycle_index` 为本次输入号，二者分歧。
   [evidence: include/1q/electro_optical_sensor/session/EosCycleResult.h]
+  RIR（2026-08 并入会话契约）为第三形态：输出帧周期号字段亦名 `input_cycle_index`，成功与非执行
+  周期两字段恒同取本次输入号（非执行周期输出帧仅载荷为空）——未采用"失败归零"，冗余以同名恒等
+  形态存在。
+  [evidence: include/1q/remote_identification_radar/session/RirCycleResult.h]
+  [evidence: include/1q/remote_identification_radar/session/RirOutputTypes.h]
 - **后果**：
   1. 双字段在成功路径冗余、在失败路径语义分裂，阅读者需判断何时相等何时分歧。
   2. 去重与周期失败语义耦合，无法独立处理。
@@ -83,12 +102,48 @@ Last-reviewed: 2026-08-18
   此外，RF 物理层 `TryResolveOverlap` 已对每条 emission 的 `activity_start_time_s + propagation_delay_s` 与 receiver 窗口做重叠判断，零重叠即零功率。
   [evidence: include/1q/electromagnetics/RfScene.h]
   [evidence: src/airborne_radar/session/ArInputValidation.cpp]
+  RIR（2026-08-19 rf_scene-only 契约）为第三个消费方：空 `rf_scene` 豁免（同 AR）；非空须
+  `TryValidateRfSceneFrame` 通过且窗口精确等于 `(sim_time_sec, recognition_dwell_sec)`。
+  [evidence: src/remote_identification_radar/session/RirInputValidation.cpp]
 - **后果**：调用方违反时整周期在决策消费点之前被拒绝，无显式错误可供察觉。但 Stage A 证明正常装配不触发：ECM 同步返回 `RfEmissionFrame` 并用同一周期权威时间盖戳，无事件总线、无延迟。触发的真实场景是调用方 bug（只递增 `cycle_index` 忘推进时间戳、缓存复用旧帧），对此显式拒绝是正确行为——若放宽为重叠判断，旧帧会过校验却被 RF 层判零功率静默消失，反而恶化静默问题。
 - **待决问题**：空帧 envelope 语义是否统一——AR 豁免空帧（envelope 全无效也接受），ESR 不豁免（含空帧亦须填齐）。双方均有测试锁定，contract 条款 7 措辞只明确"身份或 mode"可豁免（emission 级），对 envelope（frame 级）未明确，无证据裁定优劣。
 - **当前边界**：非空 envelope-equality 已提取共享谓词，两侧非空行为一致。空帧策略各模块保持现状：AR 豁免、ESR 严格。不得放宽任何时间门为重叠判断，不得宣称周期时间戳可任意重复。
 - **再进入条件 (Stage A)**：出现真实 ESR 消费方因空帧 envelope 未填被静默拒绝的踩坑，或 contract 条款 7 envelope 含义需正式裁定时，先评估空帧豁免语义统一对 contract 条款 7 的修订成本。
 
+### COMMON-OQ-9：RIR 会话运行时补丁提交策略归类的缺口
+
+- **现状**：`session_contract.md` §运行期配置提交策略 将各模块归类为"事务性提交"或"立即提交"，
+  二者均要求 patch 经 resolver 校验（`is_valid`/`has_requested_update`）。RIR（2026-08-20 并入六模块
+  清单后）的 `RirSession::TryApplyRuntimeConfig` 为"暂存 + 下一成功周期边界整批提交"，且不做 resolver
+  校验、恒返回 `true`——既不属于事务性提交，也不属于立即提交，与"patch 必须经 resolver 校验"的条款
+  冲突。分类表现无 RIR 行。
+  [evidence: src/remote_identification_radar/session/RirSession.cpp:315]
+  [evidence: docs/common/session_contract.md §运行期配置提交策略]
+- **后果**：会话契约的分类表缺 RIR 一行；RIR 补丁仅暂存不校验，无效补丁会静默排入下一成功周期，
+  调用方无即时反馈。分类规则（"归属由状态空间决定"）未表述 RIR 这种"仅暂存、无校验、无失败路径"的形态。
+- **待决问题**：RIR 补丁提交策略应归入哪一类——是否增设第三类"暂存提交"（仅暂存、无 resolver 校验、
+  下周期边界整批落定），或将 RIR 收敛到现有某类（如为补丁引入 resolver 校验并入立即提交）。
+- **当前边界**：RIR 按"暂存 + 下周期边界整批提交、恒 true"现状运行；契约分类表未登记 RIR，
+  不得据契约宣称 RIR 属于现有两类之一。
+- **再进入条件 (Stage A)**：会话契约下一轮修订（或 RIR 补丁路径新增真实校验/失败处理）时，
+  先冻结 RIR 分类与校验契约，再更新 `session_contract.md` 与本文条目。
+
 ## Airborne Radar 非阻塞边界
+
+### AR-OQ-2：集成层 rf-world 干扰接线是否补入模块文档
+
+- **现状**：`examples/component_attachment` 集成层把 ECM 等发射设备发布的 `RfEmissionFrame` 汇入共享
+  rf-world（`rf_world_broker.h`），再经 `BuildArInterferenceFromRfWorld` 组装 `ArCycleInput::interference`
+  （排除自身平台发射设备）。AR 模块契约本身仍以 `ArCycleInput::interference` 接收 `RfEmissionFrame`，未变。
+  [evidence: examples/component_attachment/components/ar_sensor_component.cpp:178]
+- **后果**：AR 的四个模块设计文档均不引用 examples 层，该集成先例只存在于演示层；未来集成方从模块文档
+  无法得知"干扰可从共享 rf-world 派生"的现成编排路径。
+- **待决问题**：是否在 AR 的 data-flow.md（或 common/rf_architecture.md）补一段集成先例说明，把
+  "共享 rf-world → AR interference"记为推荐编排方式；还是维持"模块文档只述模块契约、集成先例归 examples"。
+- **当前边界**：模块文档不引用 examples 层；AR 干扰输入契约（`ArCycleInput::interference` =
+  `RfEmissionFrame`，自发发射设备不计干扰）不受影响。
+- **再进入条件 (Stage A)**：出现外部需求要求标准化 AR 干扰供给（或 ECM/RIR 同名先例增多）时，
+  先在第一处编排语义（module contract vs examples）上裁定，再决定是否写入 rf_architecture.md。
 
 ### AR-OQ-1：假目标鉴别跨域命名双轨
 
@@ -152,6 +207,18 @@ Last-reviewed: 2026-08-18
 - **当前边界**：当前行为为 scan center 补丁隐式关闭显式边界模式。消费方必须知晓此副作用。
 - **再进入条件 (Stage A)**：出现真实场景要求"调整扫描中心但保留显式边界模式"，先评估将模式切换提取为
   独立补丁字段的 API 变更成本和向后兼容性。
+
+### ESR-OQ-4：扫描采样点数上限的截断策略
+
+- **现状**：`ScanPatternGenerator` 单轴波位序列改为按整数步数计数采样（b869da22）后，
+  `kMaxScanPointsPerAxis = 131072U`；超出上限时序列**截断保留前 131072 个点**（丢弃扫描窗口末端，
+  不做加密重采样）。
+  [evidence: src/electronic_surveillance_radar/pipeline/ScanPatternGenerator.h:24]
+- **后果**：极小步进 + 大窗口时消费方会静默丢失窗口末端的波位覆盖，且无显式告警；文档已按现状
+  如实描述截断语义（boundaries.md scan_rate_hz 节）。
+- **待决问题**：上限值与"截断丢弃末端"是否为产品认可行为——是否需要显式告警，或改为对超限配置报错拒绝。
+- **当前边界**：按现状截断（保留前 131072 点），文档如实描述；不得宣称窗口全覆盖，也不得称超限报错。
+- **再进入条件 (Stage A)**：出现因截断导致覆盖缺失的验收/集成用例时，先评估告警或报错的 API 成本再决定。
 
 ### ESR-OQ-3：扫描策略跨域耦合（mission.scan + hardware mount 偏移）
 
@@ -222,7 +289,62 @@ Last-reviewed: 2026-08-18
 - **再进入条件 (Stage A)**：先定义被动角度不可观测距离的初始化先验、收敛时间和失败判据，并提供与当前方案
   的捕获率、位置协方差、丢锁率及 replay 对比证据，再决定是否替换。
 
+## SAR 非阻塞边界
+
+### SAR-OQ-1：RDA 性能数字在新 Release 档位下是否重测
+
+- **现状**：`docs/sar/algorithms.md` 性能注记记录 Windows 消费工程实测（1024×1024 孔径 / 20 点滤波器，
+  RDA 总耗时约 0.29-0.39 s），数字来自 e1484476 时期 /O2 实测。bfb53867 后 MSVC Release 已为真发布档
+  （/O2 /Ob2 /Oi），该数字仍代表 /O2 量级、语义未失效，但不是当前构建档位的重新实测。
+  [evidence: docs/sar/algorithms.md 性能注记]
+- **后果**：若消费方按"当前构建档位权威数字"引用会有轻微偏差；但无需阻止任何使用。
+- **待决问题**：是否在新 Release 档位重新实测并更新注记中的数字与修订日期，还是维持现值并在下一次
+  SAR 性能变更时一并刷新。
+- **当前边界**：文档按现有数字如实记录，并标注 2026-08-20 说明档位变化；不冒称是当前档位重新实测。
+- **再进入条件 (Stage A)**：SAR 算法或构建档位下一次实质变化时，随变更重测并更新性能注记。
+
+### SAR-OQ-2：脉冲环缓冲 O(1) 去重是否作为复杂度契约写入文档
+
+- **现状**：`SarProcessingPipeline` 的脉冲推入重复检查由 O(n) 全量扫描改为依赖"严格递增脉冲 ID"不变量
+  的 O(1) 拒绝（00a6d1f7）；现有文档（含 data-flow.md 状态所有权）对 push 复杂度无任何断言。
+  [evidence: src/sar/pipeline/SarProcessingPipeline.cpp]
+- **后果**：O(1) 去重依赖输入严格递增不变量，若未来调用方以乱序/重复脉冲输入，该复杂度契约不再成立；
+  文档未记录该依赖。
+- **待决问题**：是否在 data-flow.md（或 algorithms.md 登记表）把"脉冲 ID 严格递增、push 重复拒绝 O(1)"
+  记为复杂度契约，还是维持现状（契约只存在于代码不变量中）。
+- **当前边界**：代码按严格递增不变量 O(1) 去重；文档无 push 复杂度断言（按"只改错的"原则未新增）。
+- **再进入条件 (Stage A)**：出现以非递增脉冲序列输入的消费方，或文档化复杂度契约的需求时，
+  先冻结不变量边界再写入文档。
+
 ## Remote Identification Radar 非阻塞边界
+
+### RIR-OQ-2：非执行周期输出帧的周期号语义
+
+- **现状**：RIR 输出帧周期号字段亦名 `input_cycle_index`；关机/校验拒绝周期仍写入本次输入周期号
+  `input_cycle_index` 与下一个批次号 `batch_id`（载荷为空），未采用五模块"失败归零"约定
+  （`output_frame.cycle_index = 0`）。与 COMMON-OQ-7 的三形态记录相关但独立。
+  [evidence: src/remote_identification_radar/session/RirSession.cpp:199]
+  [evidence: include/1q/remote_identification_radar/session/RirOutputTypes.h]
+- **后果**：RIR 非执行周期输出帧携带"本次输入号"语义，与五模块读 RIR 结果（或反向）的调用方预期
+  不一致，跨模块读代码需辨别两套周期号语义。
+- **待决问题**：RIR 是否统一为五模块"失败归零"约定（或统一字段命名），还是保留"成功与非执行周期
+  均取本次输入号、载荷为空"的现状并作为 RIR 特有语义固化。
+- **当前边界**：session_contract.md 规则 8 已为 RIR 加例外说明；现状为"字段同名恒等、非执行周期载荷为空"。
+  不得在未裁定前宣称 RIR 与五模块周期语义相同。
+- **再进入条件 (Stage A)**：COMMON-OQ-7 单一周期号字段评估启动时，一并裁定 RIR 的命名与归零语义。
+
+### RIR-OQ-3：inconsistent_platform_position 疑似死码
+
+- **现状**：`RirIssueCodes.h` 登记 `rir.validation.inconsistent_platform_position`（平台位置一致性校验），
+  但 28ca2edf 后 `platform_position` 必填、`has_platform_position = false` 语义消失，全仓无该码产生点，
+  @brief 亦陈旧。issue_codes.md 按"头文件为单一事实来源"如实收录。
+  [evidence: include/1q/remote_identification_radar/session/RirIssueCodes.h:49]
+- **后果**：issue 码表收录了代码永不产生的码；保留死码会让阅读者误以为存在平台位置一致性校验路径。
+- **待决问题**：该常量与注释是否在代码侧删除（或修订 @brief 为预留），以及 issue_codes.md 是否同步
+  移除对应行。
+- **当前边界**：头文件为单一事实来源时该码被登记，但代码无产生路径、不产生该码。
+- **再进入条件 (Stage A)**：RIR 校验层下一轮修订（增删平台一致性校验）时，先删除/修订死码及文档对应行，
+  避免实质校验与登记再次脱节。
 
 ### RIR-OQ-1：特征量测的保真度边界（真值×效能约束，非加噪量测）
 

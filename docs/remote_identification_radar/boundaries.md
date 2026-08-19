@@ -1,6 +1,6 @@
 ---
 Status: active
-Last-reviewed: 2026-08-18
+Last-reviewed: 2026-08-20
 Authority: RIR 模块级边界、非目标与设计变更规则
 Answers: RIR 有哪些模块级禁令与边界、哪些非目标、单位纪律与失败降级契约
 ---
@@ -15,17 +15,19 @@ Answers: RIR 有哪些模块级禁令与边界、哪些非目标、单位纪律�
 RIR 是与机载雷达（AR）**相互独立的另一部雷达装备**，不是 AR 的工作模式或子能力
 （2026-08-15 审计定案）。本模块由 AR 内被耦合的远程识别子系统（kLrr）解耦而来：
 
-- **独立硬件**：自带 hardware 域（`RirHardwareConfig`：发射机/天线/接收机），
-  效能级 SNR 由模块内 `RirRadarEquations` 自算，不引用 AR 内部实现。
+- **独立硬件**：自带 hardware 域（`RirHardwareConfig`：发射机/天线/接收机/RCS
+  物理/信号处理增益），效能级 SNR 由模块内 `RirRadarEquations` 自算，不引用 AR
+  内部实现。
 - **独立输入面（阶段 2-S 已落地；RF 物理链 2026-08-19）**：与 AR 无任何模块间
   接口。输入为场景目标（含速度/名称/Swerling 起伏/识别特征真值）+ 必填平台 ECEF
   + 可选外部 `rf_scene`（非本机 emission；空表示无外部干扰）；自发射与 incident
   links 由库内 RF 链求解，集成方不再预算入射链路。环境事实经
   `RirSessionConfig.environment` / 运行期补丁注入，禁止周期输入；
   内部航迹由 RIR 自持检测与轻量跟踪生产。`RirTrackFeed` 公开供给已删除。
-- **驻留指向（阶段 2-S）**：RIR 自管的是“驻留候选排序”（消费内部航迹，
-  语义为“未识别优先 + 斜距次近”；威胁等级输入随独立性消失）。每周期实际波束
-  中心由调用方驻留调度显式给定，RIR 只消费并信任给定值（见下方驻留指向契约）。
+- **驻留指向（阶段 2-S；调度器入库 2026-08-17）**：RIR 自管的是“驻留候选排序”
+  （消费内部航迹，语义为“未识别优先 + 斜距次近”；威胁等级输入随独立性消失）。
+  每周期实际波束中心由**库内驻留调度器**（`RirSession`：扫描策略或指定识别
+  任务）派生，控制器只消费并信任给定值（见下方驻留指向契约）。
   RIR 不驱动任何外部雷达波束。
 - **自持检测链（阶段 2-S 已接线；跟踪升级 2-T N1-N7 已完成）**：需求所列九项
   信号链能力（天线方向图仿真、回波/干扰/噪声功率计算、四项处理增益、恒虚警
@@ -66,7 +68,7 @@ RIR 遵守 `docs/common/contract.md` 与 `docs/common/session_contract.md`：
    IMM 为 confirmed 命中激活，`enable_imm_lifecycle` 缺省关闭）。战术决策、
    ECCM、对外点迹/航迹输出仍否决；检测判决不解释为对外
    "目标发现"事件，检测量测不出 public 面。
-5. 波束控制：RIR 消费驻留调度显式给定的波束指向，但不通过本模块 API 控制、
+5. 波束控制：RIR 消费库内驻留调度器派生的波束指向，但不通过本模块 API 控制、
    生成或输出任何外部雷达波束。
 6. 出口①的保真度升级（特征物理化：加噪/电磁散射链，RIR-OQ-1）、fusion 特征门
    mask-aware 升级、识别链模块内解耦——均非本次范围，各自为独立后续冻结项
@@ -123,8 +125,8 @@ RIR 遵守 `docs/common/contract.md` 与 `docs/common/session_contract.md`：
    （三层纪律，与 SBIRS detection_attributions 同层同纪律）；非执行周期（校验
    拒绝/关机/中止）返回空列表且不推进状态。归属为航迹级（RIR 产品粒度即航迹级，
    不做逐检测级归属）。
-8. **replay 加性扩展**：输出帧加特征量测向量、结果表加归属向量（V2 表加可选
-   字段，`RIR2` 标识不变；旧记录缺新字段解码为空）。
+8. **replay 加性扩展**：输出帧加特征量测向量、结果表加归属向量与
+   `emission_frame`（V2 表加可选字段，`RIR2` 标识不变；旧记录缺新字段解码为空）。
 
 ## 驻留指向跨模块契约（库内驻留调度器：扫描策略 + 指定识别任务）
 
@@ -225,6 +227,18 @@ RIR 遵守 `docs/common/contract.md` 与 `docs/common/session_contract.md`：
 - 加载期只读读取器，运行期不持有 SQLite 连接。
 - 版本策略：`schema_version` 为 `major.minor`；major 破坏性变更加载器拒绝。
 
+## 验收信息日志（`[RirAccept]` 事件流，2026-08-20）
+
+CMake 开关 `ONEQ_ENABLE_RIR_ACCEPTANCE_LOG`（默认 OFF）门控的编译期专用日志宏
+`RIR_ACCEPTANCE_LOG`（`src/remote_identification_radar/runtime/RirAcceptanceLog.h`），
+把需求映射 3.2.2 章节的验收量按周期经 `PROJECT_LOG_INFO` 输出（事件类型
+`detection_cell`/`beam_scan`/`measurement`/`track`/`recognition`/`schedule`）。
+边界：与 SBIRS `[SbirsAccept]` 同性质——**仅人读验收材料，不属于三写、不进公开输出/
+replay**；关闭时宏与派生计算一并编译剪除，零开销、行为逐位不变。现状：宏与开关
+基础设施先落地，调用点按验收输出统计清单
+（`docs/review/acceptance_output_inventory_2026-08-20.md`）逐项接线，未接线前开启
+开关不产生输出。
+
 ## 设计变更规则
 
 1. 新增/删除/改变 public SPI 时，同步本文档集、consumer tests 与
@@ -236,8 +250,8 @@ RIR 遵守 `docs/common/contract.md` 与 `docs/common/session_contract.md`：
 5. 输入面/RF/环境字段变化须同步 `RirInputValidation` 新 issue code、契约白名单
    与场景测试；不再存在 AR 航迹供给契约。
 6. 验证范围：`unit::remote_identification_radar`、`integration::remote_identification_radar`、
-   `replay::remote_identification_radar`、`integration::cross_domain`。
+   `replay::remote_identification_radar`（AR↔RIR RF 物理链对账测试位于 unit 分区）。
 
 [evidence: tests/unit/remote_identification_radar/]
 [evidence: tests/integration/remote_identification_radar/]
-[evidence: tests/integration/cross_domain/ar_rir_recognition_equivalence_test.cpp]
+[evidence: tests/unit/remote_identification_radar/rir_rf_physical_parity_test.cpp]

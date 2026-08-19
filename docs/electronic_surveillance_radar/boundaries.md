@@ -1,6 +1,6 @@
 ---
 Status: active
-Last-reviewed: 2026-08-07
+Last-reviewed: 2026-08-20
 Authority: ESR 模块级边界、非目标与设计变更规则
 Answers: ESR 有哪些模块级禁令与边界、哪些非目标、配置/扫描/输出/校验的特殊语义、文档变更规则
 ---
@@ -36,6 +36,10 @@ ESR 遵守 `docs/common/contract.md`：
 `scan_rate_hz × dt` 为整数时，相位会按物理周期回到同一点；需要观察完整扫描覆盖的场景必须选择能够
 解析扫描相位的步长/速率组合，不能依赖 cycle index 隐式轮转波束。
 
+波束序列（`pattern_size` 个波束指向）由扫描窗口按 az/el 步进生成：采样按**整数步数计数**（`start + k×step`），
+不使用浮点累加，极小步进不会因增量被舍入吞掉而陷入无限循环；单轴采样点数上限 131072
+（`ScanPatternGenerator.h` 的 `kMaxScanPointsPerAxis`），超出时序列截断到前 131072 个点。
+
 [evidence: tests/unit/electronic_surveillance_radar/esr_controller_runtime_state_test]
 [evidence: tests/unit/electronic_surveillance_radar/esr_session_config_builder_test]
 [evidence: tests/integration/cross_domain/multi_model_scenario_test]
@@ -51,7 +55,7 @@ ESR 域量约束，不适用一个全局 frame_rate 上界。该差异已由校�
 
 不得为"四模块一致"给 ESR 加 frame_rate 上界。
 
-[evidence: src/electronic_surveillance_radar/session/EsrInputValidation]
+[evidence: include/1q/electronic_surveillance_radar/session/EsrInputValidation.h]
 
 ## 扫描窗口与坐标系语义（反直觉）
 
@@ -159,8 +163,11 @@ ESR 所有中止路径遵守 `session_contract.md` 规则 9 的三写模式与�
 emission id，非 entity_index 下标）：记录器 Update 时按同一 identity 排序序重排
 `input.rf_emissions.emissions` 把 entity_index 解析回 identity 三元组，内部状态以 identity 为键
 ——免疫跨周期发射源集合变化时的下标移位（源消失后其余源下标变化不会误判为原因变化）。纯观测
-只读 `result.issues`，不改变执行语义（规则 11c/13c）。ESR 当前仅本排除原因差分记录器（无既有
-生命周期 recorder），`EsrSession::AttachExclusionCauseRecorder` 为首个 recorder 注册点。
+只读 `result.issues`（仅消费 `phase == kExecution` 且 `location.kind == kSceneEntity` 的排除诊断
+条目；同样用 `kSceneEntity` 定位的输入校验 issue 属 `kInputValidation` 阶段，不被记录器消费），
+不改变执行语义（规则 11c/13c）。ESR 当前仅本排除原因差分记录器（无既有
+生命周期 recorder），`EsrSession::AttachExclusionCauseRecorder` 为首个 recorder 注册点（注册后
+`Step()`/`StepWithResult()` 在周期结果装配完成后自动驱动 `Update`）。
 
 ## 专项序列验证边界
 

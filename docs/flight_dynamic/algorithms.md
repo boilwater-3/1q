@@ -1,6 +1,6 @@
 ---
 Status: active
-Last-reviewed: 2026-08-07
+Last-reviewed: 2026-08-20
 Authority: flight_dynamic 算法登记与实现边界
 Answers: flight_dynamic 用了哪些算法、各自实现到什么地步、边界在哪
 ---
@@ -108,7 +108,11 @@ Answers: flight_dynamic 用了哪些算法、各自实现到什么地步、边�
      队列耗尽 `kCompleted` / 中止 `kAborted`。
   3. `PushManeuver()` 总会追加命令；只有 `kReady` 时立即启动执行，执行中追加的命令排队。
   4. `kCompleted` 和 `kAborted` 的 `Step()` 都返回 `false`，必须通过 `Reset()` 重建组件并回到 `kReady`。
+  5. 内部角度归一化（`NormalizeRad` → [-π,π]、`RadToDeg360` → [0,360)）单一来源于
+     `src/flight_dynamic/AngleNormalization.h`，为常数时间 `std::fmod` 实现（common contract 规则 5，
+     巨大有限输入不触发循环式归约）；边界约定与历史 while 实现一致（+π 奇数倍 → +π）。
 - **证据**：[evidence: tests/unit/flight_dynamic/fd_aircraft_maneuver_test]
+- **证据**：[evidence: tests/unit/flight_dynamic/fd_angle_normalization_test]
 
 ## 起飞与降落
 

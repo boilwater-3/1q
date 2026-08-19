@@ -1,6 +1,6 @@
 ---
 Status: active
-Last-reviewed: 2026-08-03
+Last-reviewed: 2026-08-20
 Authority: AR 算法登记与实现边界
 Answers: AR 用了哪些算法/部件、各自实现到什么地步、边界在哪、哪些刻意不实现
 ---
@@ -76,8 +76,9 @@ public API 边界）见 [boundaries.md](boundaries.md)。
   4. 扫描范围由 `mechanical/electronic_scan_limits_deg` 交集决定，`scan_center_deg` 仅作限位非法时的
      回退中心；扫描表按 `cycle_index % pattern.size()` 取波位，STBY 返回零位、STT 返回扫描中心、
      TWS/TAS 返回波位序列（TAS 步长减半，`prefer_dense_tas_sampling` 再减半）。
-  5. **扫描内核为 common 单源**（`common/radar/ScanScheduleRuntime.h`）：波位序列构建与轴步长解析由
-     AR/RIR 共用，模块侧只保留模式语义与指向消费接线；RIR 驻留调度器（空闲扫描策略）与 AR 同一口径。
+  5. **扫描内核为 common 单源**（`src/common/radar/ScanScheduleRuntime.h`）：波位序列构建与轴步长解析由
+     AR/RIR 共用，模块侧只保留模式语义与指向消费接线（AR `ScanScheduleResolver` 委托该内核）；
+     RIR 驻留调度器（空闲扫描策略）与 AR 同一口径。
   6. ECCM 措施只改变下一次成功发射/接收的实际硬件状态（频率捷变改 carrier/tuning、rejitter 改脉冲时序、
      旁瓣对消/自适应波束改方向增益/零陷、烧穿改发射功率/脉冲能量），不直接改写关联、滤波或生命周期参数。
 - **反直觉点**：公开发布的 `emission_frame` 是 base 发射身份，旁瓣对消/自适应波束只作用于接收态
@@ -106,11 +107,12 @@ public API 边界）见 [boundaries.md](boundaries.md)。
      每周期状态指示）；L3 debug view 转写；`ArTrackLifecycleRecorder::kDesignationDropped`
      在转换沿产生；replay 周期记录与 patch 记录同步。
   6. 限时锁定指令（`designation_duration_cycles`，见 boundaries.md 第 7 条）：指定指令
-     可带捕获窗口。窗口自指令生效后首个周期起算，窗口内捕获 confirmed 航迹 →
-     `kAcquired`（此后不再受窗口约束，丢失按既有回退语义）；窗口耗尽仍未捕获 →
-     `kExpired`（指令作废，作废沿报告 `kAcquisitionTimeout`，其后指定清零、回到扫描）。
+     可带捕获窗口。窗口自指令生效后首个成功周期起算（失败/关机周期不消耗窗口），
+     窗口内捕获 confirmed 航迹 → `kAcquired`（此后不再受窗口约束，丢失按既有回退语义）；
+     窗口耗尽仍未捕获 → `kExpired`（指令作废，作废沿 = `kPending` → `kExpired` 转移沿，
+     即截止后首个成功周期报告 `kAcquisitionTimeout`，其后指定清零、回到扫描）。
      生命周期阶段是**会话级跨周期状态**（`RuntimeConfigState`，随 patch 原子暂存/提交/
-     回滚，失败周期由事务快照回滚），与"生效模式 latch-free 派生"正交：后者仍逐周期
+     回滚；阶段推进仅在本周期成功完成后落定），与"生效模式 latch-free 派生"正交：后者仍逐周期
      从"已提交配置 + 最新航迹帧"派生，前者只回答"窗口是否已关闭/作废"。
 - **反直觉点**：
   1. 指向用上一周期航迹后验位置（一周期滞后近似），目标机动时指向滞后一拍；

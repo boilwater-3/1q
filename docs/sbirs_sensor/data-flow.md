@@ -1,6 +1,6 @@
 ---
 Status: active
-Last-reviewed: 2026-08-15
+Last-reviewed: 2026-08-20
 Authority: sbirs_sensor 数据流、Public API 边界、时序与状态所有权
 Answers: SBIRS 的分层架构、数据如何流动、runtime patch 如何迁移状态、Public API 边界在哪
 ---
@@ -254,8 +254,9 @@ flowchart LR
 
 **验收日志旁路（2026-08-18）**：`[SbirsAccept]` 事件流（`SBIRS_ACCEPTANCE_LOG`，CMake 开关
 `ONEQ_ENABLE_SBIRS_ACCEPTANCE_LOG` 默认 OFF）从各阶段旁路读取中间量（覆盖区投影消费
-Frame 几何、疑似目标/信号能量消费 WFOV discovery、捕获判决与通道协同消费 Handoff/Sched、
-焦平面脱靶量消费 Track 指向），经 `PROJECT_LOG_INFO` 落盘，**不回流任何输出结构**。
+Frame 几何、疑似目标/信号能量/角定位误差消费 WFOV discovery、捕获判决与通道协同消费
+Handoff/Sched、焦平面脱靶量与跟踪段角定位误差消费 Track 指向/输出），经 `PROJECT_LOG_INFO`
+落盘，**不回流任何输出结构**。
 跨周期状态新增 `wfov_consecutive_hits`（宽窄切换连续命中计数表，进 `SbirsPipelineSnapshot`
 capture/restore）。
 

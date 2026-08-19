@@ -1,7 +1,7 @@
 # Electronic Countermeasure 当前设计
 
 Status: active
-Last-reviewed: 2026-08-07
+Last-reviewed: 2026-08-20
 Authority: current electronic_countermeasure module design
 RF-Interference-Architecture: frozen target; AR/ESR/ECM RF v2 implemented (per-module status in each design.md)
 
@@ -23,7 +23,7 @@ flowchart LR
   Scheduler --> Raw["RfEmissionFrame(N)\n实际 waveform schedule"]
   Raw --> AR["AR(N).interference"]
   Session --> Result["EcmCycleResult\n模式 / 决策原因 / 热状态"]
-  Raw --> ESR2["ESR(N).interference 当前统一 RF 接收"]
+  Raw --> ESR2["ESR(N).rf_emissions 当前统一 RF 接收"]
   Session -.-> Trace["Trace / Replay\n输入出处和累积调度状态"]
 ```
 
@@ -77,7 +77,7 @@ replay，再把 pointing 写入实际 emission fact。
 - **三条独立 `std::mt19937` 流**：scheduling 流专责 sweep 方向采样，tie-break 流专责等分排序，
   deception 流专责欺骗发射的 timing seed 生成；三者均从会话 `random_seed` 经 splitmix32 终结符
   按各自 domain tag 派生（与 SBIRS `DeriveMeasurementSeed` 同约定），互相不相关。无发射/拒绝/
-  关机周期两条流都不采样。
+  关机周期三条流都不采样。
 - **消耗量与输入顺序无关**：tie-break 流的消耗量只等于"参与排队的可行威胁唯一 ID 数"，scheduling
   流的消耗量只等于"实际生成的 sweep emission 数"，二者都与 threat 输入顺序无关。tie-break 键在排序前
   按威胁稳定 ID 的规范序（而非输入序）逐 ID 派生并回填到威胁，使排序比较器保持纯函数——相同威胁集合
@@ -85,7 +85,7 @@ replay，再把 pointing 写入实际 emission fact。
 - **快照所有权**：scheduling state、next emission ID、最近 ESR 帧、逐威胁年龄、滑行年龄、成功
   prepare sequence、热能、三条随机流、欺骗状态和活动配置均由 session 快照唯一拥有。
 - **快照恢复**：只可恢复到捕获它的同一 session 实例，恢复前完整校验所有嵌套 observation、重复 ID、
-  provenance、模式组合和随机状态（含两条流的反序列化），失败不得部分修改。
+  provenance、模式组合和随机状态（含三条流的反序列化），失败不得部分修改。
 
 原型证据（不构成参数化 waveform、设备 provenance 目标验收；多随机流分离与快照嵌套校验已实现）：
 
@@ -120,15 +120,21 @@ ECM schema 必须记录输入模式、完整 ESR provenance、actual waveform sc
 result。回放按 prepare/emit 事件重建 session 并严格比较发布事实，不能忽略出处、无发射周期或
 truth-assisted 标记；空补丁和被拒 patch 也必须复现原 apply result。
 
-AR 与 ESR 都直接消费 ECM 发布的 `RfEmissionFrame`（分别进入各自的 `interference` 输入字段），不
-消费 ECM 自己计算的 J/S、J/N 或预期效果；任何一方都不把该帧回转为 AR/ESR v1 输入。启用
+AR 与 ESR 都直接消费 ECM 发布的 `RfEmissionFrame`（AR 进入 `ArCycleInput::interference` 输入字段，
+ESR 进入 `EsrCycleInput::rf_emissions` 输入字段），不消费 ECM 自己计算的 J/S、J/N 或预期效果；
+任何一方都不把该帧回转为 AR/ESR v1 输入。集成示例（`examples/component_attachment` 的
+`ecm_esr_driven_jamming` 场景）把 ECM emission frame 发布到共享 rf-world 池，AR 的 interference
+从池中派生并排除自身平台的发射链（保留 ECM 等其它发射）——这是示例层编排，不改变上述模块直连合同。启用
 `flight_dynamic` 时，跨域验收从连续飞行动力学状态导出 ECEF 运动学，并验证 ESR(N-1) → ECM(N) → AR(N)
 的值类型闭环；传感器和 ECM 仍不直接依赖飞行动力学模块。
 
 注：ECM replay schema `ecm_replay.fbs` 中有 `EcmEmissionFrame` table——这只是 FlatBuffers 容器名，不是
 C++ 类型；C++ 代码统一使用 `oneq::electromagnetics::RfEmissionFrame`(即 `RfSceneFrame` 的公共别名)。
 replay 比较以字节级比较(`EncodeEcmCycleResult(actual) != event.payload_bytes`)为最终仲裁；decode 路径
-不重新执行 `TryValidateRfSceneFrame`，篡改 trace 会导致字节比较自然触发 divergence，无需二次校验。
+不重新执行 `TryValidateRfSceneFrame`，篡改 trace 会导致字节比较自然触发 divergence。decode 对以整数
+存储的枚举（`input_mode`、`transmit_polarization`、`status`、`technique`、`default_technique` 及
+欺骗 `mode`/`phase` 等）逐值校验，未知值原子拒绝且不部分修改解码目标（session_contract replay
+规则 7）。
 
 现有 replay、cross-domain 和 performance tests 只证明单阶段原型接线、基本 provenance 字段与 P95；尚不能
 证明 ECM 侧的 fresh-frame cross-world-cycle 绑定、模式切换失效、参数化 waveform 或完整 ECM snapshot/replay

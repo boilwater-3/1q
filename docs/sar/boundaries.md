@@ -1,6 +1,6 @@
 ---
 Status: active
-Last-reviewed: 2026-08-07
+Last-reviewed: 2026-08-20
 Authority: SAR 模块级边界、非目标与设计变更规则
 Answers: SAR 有哪些模块级禁令与边界、哪些非目标、配置/环境/校验的特殊语义、文档变更规则
 ---
@@ -36,7 +36,7 @@ SAR 非执行周期（校验失败/执行 abort/设备关机）的 `Step()` 与 
 `reused_previous_output` 字段已删除。
 
 实现细节：校验失败路径返回严格默认空帧（`cycle_index=0`、空载荷）；pipeline 中止路径
-（squint 成像门/SNR 门限/状态恢复失败）在 `InitializeOutputFrameMetadata` 之后触发，因此
+（squint 成像门/SNR 门限/退化图像检测/状态恢复失败）在 `InitializeOutputFrameMetadata` 之后触发，因此
 `output_frame.cycle_index == input.cycle_index`（元数据已写入但无有效成像产物——squint 门
 在 raw echo 生成之前执行，拒绝帧亦无 raw echo 标记）；
 设备关机路径（`sensor_enabled=false`）在管线入口短路，输出帧保持严格默认空帧。
@@ -137,7 +137,8 @@ PRF 分数余量）不推进。
 `Step()` 返回 L1 元数据；`StepWithResult()` 返回 L1 + L1.5 + 执行元数据。
 L1 和 L1.5 共同构成"本周期的完整产品输出"。
 
-[evidence: include/1q/sar/session/SarCycleResult.h — SarOutputFrame trivially_copyable 哨兵]
+[evidence: include/1q/sar/session/SarCycleResult.h — SarOutputFrame 结构定义]
+[evidence: tests/unit/sar/sar_output_boundary_contract_test.cpp — trivially_copyable 编译期哨兵]
 
 ### 诊断架构：issues 为唯一诊断通道（统一问题列表模型，规则 14）
 

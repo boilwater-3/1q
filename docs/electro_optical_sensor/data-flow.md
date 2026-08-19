@@ -1,6 +1,6 @@
 ---
 Status: active
-Last-reviewed: 2026-08-03
+Last-reviewed: 2026-08-20
 Authority: EOS 数据流、Public API 边界、时序与状态所有权
 Answers: EOS 的分层架构、数据如何流动、Public API 边界在哪、跨周期状态归谁所有
 ---
@@ -25,11 +25,11 @@ recorder 等工具头按需单独包含；foundation 算法、pipeline、control
 
 | 目录 | 职责 |
 |---|---|
-| `config/` | `EosInternalExecutionConfig`、`EosPipelineConfigMapper`（SessionConfig 到内部执行配置） |
+| `config/` | `EosInternalExecutionConfig`（内部执行配置） |
 | `foundation/` | 光学、传播、辐射、噪声、空间频谱、杂散光基础算法 |
 | `environment/` | `ResolveEnvironmentFactors`（preset + 大气观测到环境因子） |
 | `pipeline/` | `EosPipeline`、`FrameContext`、`DetectionComputationContext` |
-| `runtime/` | `EosController`（单周期调度、输入校验 gate、runtime state capture/restore）、`EosRuntimeConfigResolver` |
+| `runtime/` | `EosController`（单周期调度、输入校验 gate、runtime state capture/restore）、`EosPipelineConfigMapper`（SessionConfig 到内部执行配置）、`EosRuntimeConfigResolver` |
 | `session/` | `EosSession`（对外门面）、`EosSessionCompositionRoot`（统一装配）、输入输出适配、trace/replay、debug/lifecycle |
 
 ## 分层组件图
@@ -244,6 +244,8 @@ flowchart TB
 - **replay double-precision 契约（反直觉）**：replay cycle-input 中的平台位置、速度与欧拉角必须保持
   public `PoseState` 的 double 精度；不允许 schema/codec 静默降为 float。即使当前检测 pipeline 不消费
   平台位姿，trace 仍必须能精确重组调用方输入。
+- **replay decode 枚举值校验**：decode 路径对以整数存储的枚举（`abort_reason`、`status`、
+  `work_mode` 等）逐值校验，未知值在任何解码目标写入之前原子拒绝（session_contract replay 规则 7）。
 
 [evidence: tests/replay/electro_optical_sensor/eos_replay_codec_roundtrip_test]
 

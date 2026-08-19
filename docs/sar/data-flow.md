@@ -1,6 +1,6 @@
 ---
 Status: active
-Last-reviewed: 2026-08-03
+Last-reviewed: 2026-08-20
 Authority: SAR 数据流、Public API 边界、时序与状态所有权
 Answers: SAR 的分层架构、数据如何流动、Public API 边界在哪、跨周期状态归谁所有
 ---
@@ -238,7 +238,9 @@ flowchart TB
 2. `PulseRingBuffer`：缓存跨周期 raw pulse，形成完整 aperture。
 3. ideal / actual trajectory buffer：支撑 L2 MoCo、L3 BP 和 external raw IQ 轨迹消费。
 4. `next_pulse_id` 与 `pulse_fraction_carry`：维持固定 PRF 下跨周期脉冲连续性。
-5. `previous_output`：输入或配置失败时允许复用上一有效输出。
+
+会话不保留"上一有效输出"缓存——非执行周期（校验失败/执行 abort/设备关机）的输出帧严格不复用
+（见 boundaries.md 非执行周期契约）。
 
 `Step()` 只返回 `SarOutputFrame`；`StepWithResult()` 返回结构化执行状态、abort reason、diagnostics 和
 focused image。日志不作为状态判断依据。

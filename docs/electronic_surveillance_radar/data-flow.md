@@ -1,6 +1,6 @@
 ---
 Status: active
-Last-reviewed: 2026-08-07
+Last-reviewed: 2026-08-20
 Authority: ESR 数据流、Public API 边界、时序与状态所有权
 Answers: ESR 的分层架构、数据如何流动、Public API 边界在哪、跨周期状态归谁所有
 ---
@@ -132,7 +132,7 @@ flowchart LR
     Env["EnvironmentSnapshot\natmospheric / clutter"]
     Front["EsrRfV2FrontEnd\n宽带预选器 / 调谐通道双状态"]
     Cells["EsrResolutionCellLedger\n到达时间 / 瞬时频率 / 角度单元"]
-    Gate["InterceptGate\n范围 / 频段 / 扫描窗口 / SNR 门"]
+    Gate["拦截门控（内联于 InterceptDetectionExecutor）\n范围 / 频段 / 扫描窗口 / SNR 门"]
     Angle["AngleErrorModel\nAOA 误差采样"]
     Raw["RawObservationRecord\n原始观测记录"]
   end

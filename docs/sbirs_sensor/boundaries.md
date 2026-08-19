@@ -1,6 +1,6 @@
 ---
 Status: active
-Last-reviewed: 2026-08-15
+Last-reviewed: 2026-08-20
 Authority: sbirs_sensor 模块级边界、非目标、能力决策与变更规则
 Answers: SBIRS 有哪些模块级边界、哪些能力刻意不实现及为什么、输出归属规则、变更规则
 ---
@@ -76,7 +76,8 @@ SBIRS 所有中止路径遵守 `session_contract.md` 规则 9 的三写模式与
 **排除原因跨周期差分（规则 13e）**：`SbirsExclusionCauseRecorder` 对持续被排除目标做
 `(code, cause)` 对差分，产出 A2 进入/A3 原因变化/A4 退出事件。差分键为组合对（非纯 cause），
 正确捕获遮挡↔距离带切换（同为 kNone、code 不同）的 A3 变化。纯观测只读 `result.issues`
-（按 `location.kind == kSceneEntity` 过滤），与 `SbirsDetectionLifecycleRecorder` 并列
+（仅消费 `phase == kExecution` 且 `location.kind == kSceneEntity` 的条目——输入校验
+问题也可能用 kSceneEntity 定位，混入会误当排除诊断），与 `SbirsDetectionLifecycleRecorder` 并列
 （独立 Attach/驱动/GetLastEvents），注册与否不影响执行语义（规则 11c）。**消失目标边界**：
 recorder 只遍历当前周期 `input.scene`，目标从输入消失时其排除状态条目保留（不会被 A4 清除，
 与既有 `SbirsDetectionLifecycleRecorder` 的"消失目标状态保留"行为一致）；重现为 A3 而非 A2。
@@ -86,7 +87,10 @@ recorder 只遍历当前周期 `input.scene`，目标从输入消失时其排除
 `SBIRS_ACCEPTANCE_LOG`（`src/sbirs_sensor/pipeline/SbirsAcceptanceLog.h`），把需求映射
 3.2.1.3 章节（OPIR 宽视场扫描探测与窄视场跟踪探测）的验收量按周期经 `PROJECT_LOG_INFO`
 输出（事件类型 `scan_footprint`/`wfov_candidate`/`wfov_hit_gate`/`nfov_acquisition`/
-`nfov_track`/`nfov_schedule`/`nfov_release`）。边界：与规则 13a 摘要同性质——**仅人读验收
+`nfov_track`/`nfov_schedule`/`nfov_release`；`wfov_candidate`/`nfov_track` 另携带
+显式角定位误差字段——需求映射 3.2.1.6.3：前者 `az_error_deg`/`el_error_deg` =
+带误差量测角 − 真值角，后者 `output_az_error_deg`/`output_el_error_deg` = 最终
+输出角 − 真值角，方位按最短角差回绕）。边界：与规则 13a 摘要同性质——**仅人读验收
 材料，不属于三写、不进 raw output/attribution/DebugView**；关闭时宏与派生计算（覆盖区
 投影等）一并编译剪除，零开销、行为逐位不变。地面覆盖区投影使用与遮挡判定同口径的圆球
 地球模型（`kEarthRadiusM`）；焦平面脱靶量由 `focal_length_m`/`detector_pixel_pitch_m`

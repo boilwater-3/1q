@@ -1,7 +1,7 @@
 # CI 持续集成
 
 Status: active
-Last-reviewed: 2026-07-21
+Last-reviewed: 2026-08-20
 Authority: build & test infrastructure
 
 本仓库的持续集成（CI）由两个 GitHub Actions workflow 组成，按"快速门禁 vs 慢任务"分层。
@@ -22,8 +22,9 @@ Authority: build & test infrastructure
 
 当前 CI 仅覆盖 macOS（`macos-14` arm64 runner）。理由：
 - macOS 路径下 Conan 提供全部依赖（含 JSBSim 预编译包 `jsbsim/1.3.1`），最干净可靠。
-- Windows Conan/no-Conan presets 和 `scripts/fetch_third_party.bat` 已存在，但依赖来源、下载校验和安装
-  consumer 闭包尚未按 contract 完成真实 Windows 验证，因此它们只是未验收脚手架，不是支持声明。
+- Windows v141 预设（`VisualStudio.15.0-amd64`）是本机 Windows 开发主线，但 CI 尚无
+  Windows runner job；VS2015 C++14 预设、no-Conan 模式和 `scripts/fetch_third_party.bat`
+  仍属未验收脚手架，不是支持声明（见 `build_and_test_governance.md` 与"扩展指南"）。
 
 Contract 测试数量不在本文硬编码；以配置后执行
 `ctest --preset <preset> -N -L contract` 的结果为准。当前集合同时包含按 domain 编译的 contract tests
@@ -49,6 +50,8 @@ cmake -S tests/consumer -B build/consumer/llvm-ninja-debug -G Ninja \
   -DCMAKE_TOOLCHAIN_FILE="$PWD/build/llvm-ninja-debug-local/build/Debug/generators/conan_toolchain.cmake" \
   -DCMAKE_PREFIX_PATH="$PWD/build/install/llvm-ninja-debug"
 cmake --build build/consumer/llvm-ninja-debug -j 4
+# 运行安装 consumer 可执行程序（CI 同款 find 逐个执行）
+find build/consumer/llvm-ninja-debug -maxdepth 1 -type f -perm -111 -exec {} \;
 ctest --test-dir build/llvm-ninja-debug-local -L ci_required --output-on-failure -j 4
 
 # === build-test 的 unit 分区 ===
@@ -64,7 +67,7 @@ ctest --test-dir build/llvm-ninja-release -R sar_cxx11_compat --output-on-failur
 # === nightly: flight-dynamic（需先获取 JSBSim 数据）===
 git clone --depth 1 https://github.com/JSBSim-Team/jsbsim.git third_party/jsbsim
 bash scripts/bootstrap_conan.sh llvm-ninja-debug
-cmake --preset llvm-ninja-debug -D ONEQ_ENABLE_FLIGHT_DYNAMIC=ON
+cmake --preset llvm-ninja-debug -D ONEQ_ENABLE_FLIGHT_DYNAMIC=ON -D ENABLE_EXAMPLES=ON
 cmake --build --preset llvm-ninja-debug -j 4
 ctest --test-dir build/llvm-ninja-debug-local -R '^unit::flight_dynamic$' --output-on-failure -j 4
 
@@ -85,7 +88,9 @@ GitHub 仓库 → **Actions** 标签页 → 左侧选 **Nightly** → 右上角 
 
 **新增 Windows job**：先实现 `docs/common/contract.md` 冻结的 shell/GitHub 依赖 bootstrap，锁定版本和
 提交并校验下载内容；再在真实 Windows runner 上验证 configure、Debug/Release build、install 与独立
-consumer build/run。现有 Conan/no-Conan preset 只能作为候选入口，是否保留由全链证据决定。
+consumer build/run。Windows 主线 v141 Conan preset（`VisualStudio.15.0-amd64`）是候选主入口（JSBSim
+来源待核实：Windows Conan 不装 jsbsim 包，FD=ON 需源码/预编译树路径）；VS2015 C++14 与 no-Conan
+preset 仅属未验收脚手架，是否保留由全链证据决定。
 
 **新增 lint job**（clang-format/tidy）：在 `ci.yml` 加独立 job 跑 `cmake --build --target format-check`（需 runner 装 clang-format）。与功能测试解耦，格式问题不阻塞代码验证。
 

@@ -1,6 +1,6 @@
 ---
 Status: active
-Last-reviewed: 2026-08-07
+Last-reviewed: 2026-08-20
 Authority: EOS 模块级边界、非目标与设计变更规则
 Answers: EOS 有哪些模块级禁令与边界、哪些非目标、frame_rate/dt 耦合与帧级 config 的特殊语义、文档变更规则
 ---
@@ -18,9 +18,9 @@ EOS 遵守 `docs/common/contract.md`：
    只委托内部 `EosController`；Controller、Pipeline、CompositionRoot、foundation 算法不通过 public
    header 暴露。
 2. `EosSessionConfigBuilder` 是薄封装（整域赋值 + `Build()` 返回副本）；语义档位是
-   `EosProfileConstants.h` 中的预定义结构体常量（如 `profiles::kWideAreaSearchMission` +
-   `profiles::kWideAreaSearchDetection`），不承担 leaf setter 或隐式 validation。旧"Mission Profile
-   跨域覆写 `policy.detection.minimum_snr_db`"语义已消除：配置不再有隐式优先级，任何字段的赋值即
+   `EosProfileConstants.h` 中的预定义结构体常量（如 `profiles::kLongRangeSurveillanceMission` +
+   `profiles::kLongRangeSurveillanceDetection`），不承担 leaf setter 或隐式 validation。旧"Mission
+   Profile 跨域覆写 `policy.detection.minimum_snr_db`"语义已消除：配置不再有隐式优先级，任何字段的赋值即
    最终决定（档位在前、微调在后时微调胜出）。
 3. EOS 输出遵守三层模型：系统输出、结构化结果、调试视图分离。
 4. `EosSession::StepWithResult` 在执行 pipeline 前调用 `ValidateEosCycleInput`；存在 error 级问题时
@@ -132,8 +132,10 @@ message 补相对扫描中心的差值。
 关联消费。
 **排除原因跨周期差分（规则 13e）**：`EosExclusionCauseRecorder` 对持续被排除目标做
 `(code, cause)` 对差分，产出 A2 进入/A3 原因变化（越界轴变化）/A4 退出事件；纯观测只读
-`result.issues`（按 `location.kind == kSceneEntity` 过滤），与 `EosDetectionLifecycleRecorder`
-并列（独立 Attach/驱动/GetLastEvents），注册与否不影响执行语义（规则 11c）。**消失目标边界**：
+`result.issues`（仅消费 `phase == kExecution` 且 `location.kind == kSceneEntity` 的排除诊断条目；
+同样用 `kSceneEntity` 定位的输入校验 issue 属 `kInputValidation` 阶段，不被记录器消费），与
+`EosDetectionLifecycleRecorder` 并列（独立 Attach/驱动/GetLastEvents），注册与否不影响执行语义
+（规则 11c）。**消失目标边界**：
 recorder 只遍历当前周期 `input.scene`，目标从输入消失时其排除状态条目保留（不会被 A4 清除，
 与既有 `EosDetectionLifecycleRecorder` 行为一致）；重现为 A3 而非 A2。
 

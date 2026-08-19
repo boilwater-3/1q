@@ -1,6 +1,6 @@
 ---
 Status: active
-Last-reviewed: 2026-08-07
+Last-reviewed: 2026-08-20
 Authority: SAR 算法登记与实现边界
 Answers: SAR 用了哪些算法、各自实现到什么地步、边界在哪、哪些刻意不实现
 ---
@@ -20,7 +20,7 @@ Answers: SAR 用了哪些算法、各自实现到什么地步、边界在哪、�
 | RDA 聚焦 | L1 broadside stripmap 基础聚焦 | session-wired | [evidence: tests/unit/sar/sar_rda_test] |
 | 一阶运动补偿 (L2 MoCo) | 直线轨迹扰动相位补偿 | session-wired | [evidence: tests/unit/sar/sar_motion_compensation_test] |
 | BP/GBP 小场景聚焦 | L3 转弯/小场景参考成像 | session-wired | [evidence: tests/unit/sar/sar_gbp_test] |
-| 图像质量评估 | 峰值、分辨率、熵、对比度等摘要 | session-wired | [evidence: tests/unit/sar/sar_image_quality_test] |
+| 图像质量评估 | 峰值、分辨率、熵、对比度等摘要；全零峰值退化图像检测 | session-wired | [evidence: tests/unit/sar/sar_image_quality_test] |
 | Stripmap Omega-K | 大斜视/宽波束友好聚焦 | characterized | [evidence: tests/unit/sar/sar_omega_k_focusing_test] |
 | Spotlight Omega-K | 聚束模式聚焦 | experimental | [evidence: tests/unit/sar/sar_omega_k_spotlight_test] |
 | ScanSAR Omega-K | 扫描模式聚焦 | experimental | [evidence: tests/unit/sar/sar_omega_k_scansar_test] |
@@ -51,9 +51,12 @@ Answers: SAR 用了哪些算法、各自实现到什么地步、边界在哪、�
   2. `estimated_snr_db` 是完整孔径内加噪前点目标平均接收功率与"接收机热噪声 + 分布式地表背景功率"
      之比；地表背景不得伪装成目标信号。
   3. 功率、增益、损耗、噪声系数的单变量变化必须分别满足正、正、负、负的方向性。
+  4. 目标实际斜距与 `nominal_slant_range_m` 严重错配时输出 `sar.slant_range_mismatch`（kWarning），
+     按公开输入的 `target_id`/`target_name` 定位目标（不用内部循环下标）。
 - **反直觉点**：环境开启时点目标按真实斜距承受双程大气衰减，地表 sigma0 背景相干叠加到 IQ——但
   这只作用于内部生成路径，外部 raw IQ 路径完全不施加上述链路预算或噪声。
 - **证据**：[evidence: tests/unit/sar/sar_session_pipeline_test]
+- **证据**：[evidence: tests/unit/sar/sar_degenerate_diagnostics_test::SlantRangeMismatchProducesPerTargetWarning]
 
 ## 外部 raw IQ 消费
 
@@ -98,13 +101,16 @@ Answers: SAR 用了哪些算法、各自实现到什么地步、边界在哪、�
   5. RDA 误差用相位曲率、Doppler margin、3dB 宽度、entropy、contrast 等诊断解释，不通过放宽阈值掩盖。
 - **squint 几何定义**（`ComputeSquintAngleDeg`，`src/sar/pipeline/SarProcessingPipeline.cpp`）：
   单脉冲平台状态下，`squint = asin(|v·LOS| / (|v|·|LOS|))`，其中 `v` 为平台速度、`LOS` 为平台指向
-  场景中心的视线（ENU 局部坐标，平台相对 `scene_center_*`）。即 **squint = 视线偏离正侧视的角度**：
+  场景中心的视线（ENU 局部坐标）。即 **squint = 视线偏离正侧视的角度**：
   正侧视（LOS ⊥ 航迹）为 `0°`，前视/后视（LOS ∥ 航迹）趋近 `90°`——**不是**"视线与航迹夹角"
   本身（两者互补为 `90°`）。内部生成路径与外部脉冲/轨迹路径**均取积累窗内所有脉冲的最大
   squint**（内部路径的积累窗 = 上一周期轨迹缓冲 + 本周期新脉冲，裁剪到 `azimuth_pulse_count`；
   门控前置时该轨迹由 `PrepareCycleTrajectory` 预生成，echo 阶段复用，不二次生成）。退化配置
-  （echo 关闭且无外部 IQ）回退当前平台单脉冲状态。**反直觉点**：多数文献把 squint 定义为
-  视线与航迹夹角（前视 0°），本库采用补角定义；场景编排（如平台相对目标区的飞行方向）须按
+  （echo 关闭且无外部 IQ）回退当前平台单脉冲状态。**datum 对齐**：内部生成路径的脉冲高度以
+  `terrain_reference_altitude_m` 为基准，视线须相对真实场景中心计算——显式传入场景中心局部高度
+  `scene_center_altitude_m - terrain_reference_altitude_m`，否则 LOS 的 z 分量被基准面差偏斜、
+  squint 门限失真；外部脉冲与回退路径的局部原点即场景中心，保持默认 0。**反直觉点**：多数文献把
+  squint 定义为视线与航迹夹角（前视 0°），本库采用补角定义；场景编排（如平台相对目标区的飞行方向）须按
   "正侧视 = 0°"设计。
 - **证据**：[evidence: tests/unit/sar/sar_session_pipeline_test::SquintGateUsesMaximumActualApertureAngle]
 - **证据**：[evidence: tests/unit/sar/sar_session_pipeline_test::SquintGatePrecedesEchoGenerationInternalPath]
@@ -121,9 +127,9 @@ Answers: SAR 用了哪些算法、各自实现到什么地步、边界在哪、�
 - **性能注记（Windows 消费工程实测，1024×1024 孔径 / 20 点滤波器）**：RDA 总耗时
   约 0.29-0.39 s，其中距离压缩 98-127 ms、相位参考 50-73 ms、方位 FFT+IFFT 合计
   85-120 ms、RCMC 25-38 ms、图像质量 21-36 ms。耗时分布可用 DEBUG 级
-  [SarRdaTiming] 日志观察（默认 info 级不落盘）。**注意**：Release 一档按项目策略
-  为 /Od（变量级可调试），消费方需性能时应链接 RelWithDebInfo（/O2 + 完整符号）
-  产物，见 docs/practice/build_and_test_governance.md。
+  [SarRdaTiming] 日志观察（默认 info 级不落盘）。**注意（2026-08-20 修订）**：MSVC Release
+  现为真发布档（/O2 /Ob2 /Oi，不含任何调试产物）；需要完整符号/变量级可调试性的消费方应链接
+  RelWithDebInfo（/O2 + 完整符号）产物，见 docs/practice/build_and_test_governance.md。
 
 ## 一阶运动补偿 (L2 MoCo)
 
@@ -154,6 +160,17 @@ Answers: SAR 用了哪些算法、各自实现到什么地步、边界在哪、�
   3. BP quality summary 只输出当前可稳定承诺的摘要；米制分辨率有效性与 RDA 不完全相同。
 - **证据**：[evidence: tests/unit/sar/sar_gbp_test]
 
+## 图像质量评估与退化图像检测
+
+- **意图**：聚焦后计算峰值、分辨率、熵、对比度等产品摘要；管线在成像后检测全零峰值退化图像。
+- **实现边界**：
+  1. 存在点目标输入且完成 L1/L3 成像时，聚焦图像全零峰值以 `sar.degenerate_image_peak`
+     中止周期，提示检查 `sar.raw_echo_clipping` / `sar.slant_range_mismatch` 诊断。
+  2. `SarFocusedImage` 是 real/imag 两个独立 vector 的公共 DTO；两向量长度不一致时无法判定
+     峰值退化，保守跳过检测而不是越界读取 `imaginary_values`。
+- **证据**：[evidence: tests/unit/sar/sar_degenerate_diagnostics_test::DegenerateImagePeakAbortsCycle]
+- **证据**：[evidence: tests/unit/sar/sar_image_quality_test]
+
 ## 能力晋级门
 
 适用于内部候选算法（Omega-K、Spotlight、ScanSAR 等），不创建新的 public 类型。候选算法必须逐级
@@ -172,6 +189,9 @@ Stripmap Omega-K 的 Stage A 矩阵冻结为 L1、匀速直线、broadside strip
 `BuildRawPulseHistory` 生成的孔径调用 `FocusStripmapOmegaK`。Spotlight、ScanSAR、squint、L2/L3 轨迹
 与 session 接线均不在本候选内。
 
+- **归一化注记（2026-08-14 修正）**：共享内核 `FocusOmegaKInternal`（stripmap/spotlight 聚焦入口）
+  的方位逆变换只保留逆 FFT 内建的 1/N（`additional_normalization = 1`），移除此前叠加的额外 1/N
+  （方位向曾被压低到 1/N²、与距离向不对称）。聚焦图像幅度随之修正；公共支持区与拒绝门判定不受影响。
 - **反直觉点（缩小配置的假阴性）**：复用 RDA 单元测试的缩小配置（1 GHz、20 Hz PRF、2 m/s、100 MHz、
   9×64）时，最大 Stolt 频移超过距离频率支持区，公共有效列为零并稳定拒绝；保持其余参数不变、仅把
   平台速度提高到 5 m/s 后，同一路径恢复公共支持并确定性聚焦成功。**直接原因是缩小配置破坏了

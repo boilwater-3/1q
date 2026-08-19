@@ -1,6 +1,6 @@
 ---
 Status: active
-Last-reviewed: 2026-08-07
+Last-reviewed: 2026-08-20
 Authority: ESR 算法登记与实现边界
 Answers: ESR 用了哪些算法、各自实现到什么地步、边界在哪、哪些刻意不实现或预留死字段
 ---
@@ -16,9 +16,8 @@ Answers: ESR 用了哪些算法、各自实现到什么地步、边界在哪、�
 | 算法/部件 | 意图（一句话） | 实现状态 | 证据 |
 |---|---|---|---|
 | 环境采样 | 传播附加损耗与杂波噪声快照 | session-wired | [evidence: tests/unit/electronic_surveillance_radar/esr_controller_runtime_state_test] |
-| 扫描窗口 | 根据扫描模式和运行期配置生成接收窗口 | session-wired | [evidence: tests/unit/electronic_surveillance_radar/esr_controller_runtime_state_test] |
-| 拦截门控 | range、receiver window、dynamic range、SNR 等 joint constraints（内联于 `InterceptDetectionExecutor`：`BuildReceiverWindow`/`minimum_snr_db`；`InterceptGate.h` 为未消费 header-only） | session-wired | [evidence: tests/unit/electronic_surveillance_radar/esr_rf_v2_detection_test] |
-| 边界搜索 | 单调谓词边界查找 | **未接入**（`BoundarySearchSolver.h` header-only 零消费；无直接测试） | — |
+| 扫描窗口 | 根据扫描模式和运行期配置生成接收窗口与波束序列（波束指向按 az/el 步进以整数步数采样，单轴点数上限 131072，超出截断，不依赖浮点累加） | session-wired | [evidence: tests/unit/electronic_surveillance_radar/esr_controller_runtime_state_test] |
+| 拦截门控 | range、receiver window、dynamic range、SNR 等 joint constraints（内联于 `InterceptDetectionExecutor`：`BuildReceiverWindow`/`minimum_snr_db`；原未消费的死头文件 `InterceptGate.h` 已删除） | session-wired | [evidence: tests/unit/electronic_surveillance_radar/esr_rf_v2_detection_test] |
 | 角误差 | 基于 SNR/系数/随机种子的 AOA 扰动 | session-wired | [evidence: tests/unit/electronic_surveillance_radar/esr_rf_v2_detection_test] |
 | RF 接收与干扰影响 | 双 receiver state、宽带入射账本、饱和、到达时频角分辨单元 SINR | session-wired | [evidence: tests/unit/electronic_surveillance_radar/esr_rf_v2_front_end_test] |
 | 分辨单元投影 | 到达活动投影到固定接收时间单元并按角单元/重叠频带归并 | session-wired | [evidence: tests/unit/electronic_surveillance_radar/esr_resolution_cell_ledger_test] |
@@ -85,6 +84,8 @@ continuation/replay 一致。
 
 Replay 的 cycle-input ECEF 位置、速度和独立姿态均为 double 精度；schema/codec **不允许**把它们降为 float。
 输出比较继续使用严格判等，输入必须先做到可精确重组，**不能**用比较容差掩盖几何量化引起的观测角漂移。
+decode 路径对以整数存储的枚举（observation quality/waveform class/deception class/mode/threat、
+status/abort reason 等）逐值校验，未知值原子拒绝且不部分修改解码目标（session_contract replay 规则 7）。
 
 [evidence: tests/unit/electronic_surveillance_radar/esr_rf_v2_front_end_test]
 [evidence: tests/unit/electronic_surveillance_radar/esr_resolution_cell_ledger_test]
@@ -150,3 +151,5 @@ Replay 的 cycle-input ECEF 位置、速度和独立姿态均为 double 精度�
 4. **复数 IQ / 亚时间单元器件瞬态 / 未标定压缩 / 欺骗转发**：不在本模块接收范围（见拦截检测链 模块范围）。
 5. **truth identity 进入输出**：platform/equipment/emission identity 不进入 observation 或 hypothesis；
    ECM sensor-driven adapter 只能复制估计字段和稳定 hypothesis ID（见拦截检测链 §7）。
+6. **边界搜索求解器**：单调谓词边界查找从未接入拦截链，无直接测试；原 header-only 零消费死头文件
+   `BoundarySearchSolver.h` 已删除。重建必须先在算法登记表立项并提供 focused 测试证据。

@@ -1,7 +1,7 @@
 # 1q 库消费指南
 
 Status: active
-Last-reviewed: 2026-07-21
+Last-reviewed: 2026-08-20
 Authority: build/install consumer guide
 
 本文只描述已经由仓库 install/consumer 路径验证的消费方式。构建系统契约见
@@ -92,7 +92,9 @@ CMake toolchain/dependency 文件。它没有 `build()`、`package()` 或 `packa
 | `ENABLE_EXAMPLES` | OFF | 构建第一方示例和 batch validation |
 | `ENABLE_INSTALL` | OFF | 启用安装与 package-config 规则 |
 | `ONEQ_ENABLE_FLIGHT_DYNAMIC` | OFF | 构建 flight_dynamic 模块及其专属测试/示例 |
+| `ONEQ_ENABLE_FILE_LOG` | ON | 内置文件日志后端（ProjectFileLog）：Windows 上 spdlog 关闭时承载 `PROJECT_LOG_*` 落盘 `1q_library.log`；非 Windows 默认休眠（spdlog 分支优先），总开关关闭时宏回到空操作 |
 | `ONEQ_ENABLE_SBIRS_ACCEPTANCE_LOG` | OFF | 开启 SBIRS 验收信息日志（`[SbirsAccept]` 事件流：WFOV 地面覆盖区/驻留时间、疑似目标与信号能量、宽窄切换连续命中、NFOV 捕获/跟踪、焦平面脱靶量、通道协同）；关闭时宏与派生计算一并剪除，零开销 |
+| `ONEQ_ENABLE_RIR_ACCEPTANCE_LOG` | OFF | 开启远程识别雷达验收信息日志（`[RirAccept]` 事件流：检测链 SNR/SINR/Pd 与回波/噪声/干扰/杂波功率及处理增益、波位扫描序列、角距量测、跟踪滤波/关联状态、识别特征与结论、驻留调度统计）；宏基础设施已就绪，调用点按验收输出统计清单逐项接线；关闭时零开销 |
 | `ONEQ_ENABLE_PRECISION_EVALUATION_LOG` | OFF | 开启精度评估日志（`[PrecisionEval]` 事件流：红外角度误差、双星交会位置误差、速度误差、落点/发射点预测误差样本与 AHP 综合评分，评估层 `precision_evaluation` 模块）；关闭时零开销 |
 
 选项的最终值以所选 preset 与 configure 命令覆盖后的 CMake cache 为准。
@@ -100,6 +102,10 @@ CMake toolchain/dependency 文件。它没有 `build()`、`package()` 或 `packa
 ## 支持边界
 
 - macOS Conan 路径由当前 CI 覆盖 configure、build、install 和 consumer。
-- Windows presets 与 `scripts/fetch_third_party.bat` 已存在，但尚未完成 contract 要求的真实 Windows
-  全链验收，因此不构成正式支持声明。
+- Windows v141 preset（`VisualStudio.15.0-amd64`，Conan）已在 README 记载为 Windows 构建
+  主线（库与 examples 可构建；示例集成日志在 Windows 走 `std::ofstream` 文件后端，
+  `CA_LOG_BACKEND_SPDLOG=0`）。VS2015 与 no-Conan preset（`scripts/fetch_third_party.bat`）
+  仍为未验收脚手架。CI 的 configure/build/install/consumer 验收仍只在 macOS 运行，
+  因此按构建治理规则（`docs/practice/build_and_test_governance.md` CMake 工程边界 4）
+  仍不构成"已支持 Windows"的正式声明。
 - install tree 不是通用、完全自包含的二进制 SDK；跨机器分发前必须另行验证依赖闭包和运行时库。

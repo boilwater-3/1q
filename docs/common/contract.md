@@ -1,9 +1,9 @@
 # 跨模块契约
 
 Status: active
-Last-reviewed: 2026-08-18
+Last-reviewed: 2026-08-20
 Authority: common contract for all modules
-RF-Interference-Architecture: frozen target; AR/ESR/ECM RF v2 implemented (per-module status in each design.md)
+RF-Interference-Architecture: frozen target; AR/ESR/ECM/RIR RF v2 implemented (per-module status in each design.md)
 
 本文合并原顶层 public API customization、session config builder、三层输出可观测性和文档治理契约。模块级文档不得与本文冲突。
 
@@ -32,7 +32,7 @@ RF-Interference-Architecture: frozen target; AR/ESR/ECM RF v2 implemented (per-m
 
 ### 会话创建入口的非阻断语义
 
-`*Session::Create` 与 `*Session::CreateWithDiagnostics` 的校验/构造语义必须遵守以下非阻断契约（五模块已实现并经契约测试覆盖）：
+`*Session::Create` 与 `*Session::CreateWithDiagnostics` 的校验/构造语义必须遵守以下非阻断契约（AR/ESR/EOS/SAR/SBIRS 五模块已实现并经契约测试覆盖；RIR 于 2026-08 按同语义并入，`RirSession::CreateWithDiagnostics` 同为非阻断）：
 
 1. `Create(config)` 是信任路径，不做配置校验。
 2. `CreateWithDiagnostics(config, issues)` 是校验路径——**无论 @p issues 是否含有 error 都会构造并返回会话（非阻断）**；`issues` 为模块 `*IssueList`（统一问题列表模型，见 `docs/common/session_contract.md` 规则 14，config 域校验问题 code 为 `"<module>.validation.<snake_case>"`），仅为咨询性诊断输出，传入 `nullptr` 时仅构造会话、不写回。
@@ -47,7 +47,7 @@ RF-Interference-Architecture: frozen target; AR/ESR/ECM RF v2 implemented (per-m
 - `*OutputFrame`、`*CycleResult` 等输出和结构化执行结果 DTO。
 - trace/replay、debug view、lifecycle recorder 等已经形成外部消费合同的工具。
 
-业务模块 public 类型使用模块所有权前缀：`Ar*`、`Eos*`、`Esr*`、`Sar*`、`Sbirs*`。领域术语不受该规则机械约束，例如 `radar_cross_section`、`RadarEquations` 这类物理概念可保留领域名；但 session/config/cycle/result/adapter/trace/replay/debug/lifecycle 等 public DTO 和门面不得把通用领域词误用为模块前缀。
+业务模块 public 类型使用模块所有权前缀：`Ar*`、`Eos*`、`Esr*`、`Rir*`、`Sar*`、`Sbirs*`。领域术语不受该规则机械约束，例如 `radar_cross_section`、`RadarEquations` 这类物理概念可保留领域名；但 session/config/cycle/result/adapter/trace/replay/debug/lifecycle 等 public DTO 和门面不得把通用领域词误用为模块前缀。
 
 默认禁止公开：
 
@@ -101,12 +101,12 @@ EOS 的 `detector_area_cm2` 与 `detector_detectivity_cm_sqrt_hz_per_w` 共同�
 
 ### 工程 RF 契约
 
-以下为 AR/ESR/ECM 公共 RF 事实域（`oneq::electromagnetics`）的跨模块契约条款。设计描述（provenance
+以下为 AR/ESR/ECM/RIR 公共 RF 事实域（`oneq::electromagnetics`）的跨模块契约条款。设计描述（provenance
 四级、单周期交换时序、接收机影响分层）见 [rf_architecture.md](rf_architecture.md)。
 
 1. 发射事实不得再用单一 `entity_id` 同时承担设备身份、同平台判断和待处理信号排除。
 2. 发射事实禁止携带 `received_power`、J/S、J/N、receiver impairment、`jamming_detected` 或成功概率。
-3. AR 目标回波不得伪装成外部 `RfEmission` 后复用单程公式；外部雷达、ECM 和其他 RF 源才走公共单程链路。
+3. AR/RIR 目标回波不得伪装成外部 `RfEmission` 后复用单程公式；外部雷达、ECM 和其他 RF 源才走公共单程链路。
 4. 有效带外发射或零时频重叠产生零贡献，不是错误。非有限值、非法活动区间/波形、负功率、重复 emission
    ID、缺失设备级 co-site isolation 和不支持的近场路径必须 fail closed，且不得部分写回。
 5. 超过已标定最大线性输入功率是合法物理结果：周期仍视为已执行并输出结构化 saturated impairment，
@@ -284,12 +284,12 @@ public API 分为两类，二者都受 public boundary、install manifest 和 co
 
 ## 会话相关模块契约（指针）
 
-以下契约只对"有 `*Session` 会话模型的传感器模块"（AR/ESR/EOS/SAR/SBIRS）有效，不是所有模块的跨模块契约。完整内容见 [session_contract.md](session_contract.md)：
+以下契约只对"有 `*Session` 会话模型的传感器模块"（AR/ESR/EOS/SAR/SBIRS/RIR）有效，不是所有模块的跨模块契约。完整内容见 [session_contract.md](session_contract.md)：
 
 - SessionConfigBuilder 薄封装规则（无 dirty flag / 无隐式覆写）
 - Session composition ownership（`Impl` 所有权边界、AR 决策 seam）
 - 运行期配置提交策略（事务性提交 vs 立即提交的分类表 + 各模块归属判定规则）
-- 电源状态单源契约（`sensor_enabled` 唯一来源、`has_sensor_enabled` 唯一入口，五模块统一）
+- 电源状态单源契约（`sensor_enabled` 唯一来源、`has_sensor_enabled` 唯一入口，六模块统一，RIR 建模即遵守）
 - 三层输出模型（OutputFrame / CycleResult / DebugView 分离 + 失败语义）
 - 统一问题列表模型（`*IssueList` 单一列表 + `phase` 来源标签 + 可选定位；输入校验不设平行字段，见 session_contract.md 规则 14）
 - Replay 与 trace 语义（结构化比较状态、TraceSink vs ReplayTraceWriter、codec 边界、runtime patch trace）
@@ -307,10 +307,17 @@ CMake 工程边界（target 作用域、Windows 验收）和测试架构（type�
 - `practice`
 - `airborne_radar`
 - `electro_optical_sensor`
+- `electronic_countermeasure`
 - `electronic_surveillance_radar`
 - `flight_dynamic`
+- `fusion`
+- `navigation`
+- `precision_evaluation`
+- `remote_identification_radar`
 - `sar`
 - `sbirs_sensor`
+- `target_inference`
+- `threat_assessment`
 
 `docs/` 顶层不保留散落的 Markdown 文件。所有文档必须落在上述某个一级目录内。
 
@@ -320,12 +327,13 @@ CMake 工程边界（target 作用域、Windows 验收）和测试架构（type�
 
 每个业务模块以 `design.md` 为设计权威**入口**，另允许 `boundaries.md`、`data-flow.md`、`algorithms.md` 三个设计文档。`design.md` 承载模块定位与文档导航；`boundaries.md` 承载模块级边界、非目标与设计变更规则；`data-flow.md` 承载数据流、输入输出与状态所有权；`algorithms.md` 承载算法登记表与每算法的实现边界、反直觉点。切分原则：模块级边界（主语是"模块/API/输出"）归 `boundaries.md`，算法级边界（主语是"某算法/某计算路径"）归 `algorithms.md`。文档写代码读不出来的内容（定位/边界/禁令/反直觉点/否决理由），算法逐步逻辑归代码。历史决策记录（旧版 `decisions.md`、`history.md`、`contract.md`）和模块入口（`README.md`）的内容已内聚到该文档集中。
 
-`common/` 只允许保留五份文档：
+`common/` 只允许保留六份文档：
 
 - `contract.md` —— 公共契约（规定性：所有模块必须遵守的规则）。
 - `session_contract.md` —— 有 Session 的传感器模块的统一会话契约（SessionConfigBuilder、Session 组合所有权、运行期配置提交、电源单源、三层输出、Replay/trace 语义）。
 - `open_questions.md` —— 跨模块架构观察与待决项（非规定性：记录调查中发现但尚未定论的议题，不构成契约约束）。条目推进到有结论时，应回写为契约规则（进 contract.md）或模块设计（进对应 design.md），并从 open_questions.md 移除。
-- `rf_architecture.md` —— AR/ESR/ECM 公共 RF 工程架构设计描述（provenance、单周期交换时序、接收机影响分层）。
+- `rf_architecture.md` —— AR/ESR/ECM/RIR 公共 RF 工程架构设计描述（provenance、单周期交换时序、接收机影响分层）。
+- `issue_codes.md` —— 各模块 issue code 注册表的人读辅助目录（由各模块 `<Module>IssueCodes.h` 的 `@brief` 提取生成；机器消费以公开头文件常量为唯一事实来源）。
 - `usage.md` —— 当前已验证的构建、安装与外部消费指南；不得承诺尚未由 consumer 验证的打包方式。
 
 模块目录内不保留 `archive/`、`audits/`、`contracts/`、`design/`、`decisions/`、`workflow/`、`migration/` 等展开式历史目录。历史细节需要追溯时从 git 历史读取。

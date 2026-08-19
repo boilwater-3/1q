@@ -1,7 +1,7 @@
 # 构建与测试治理
 
 Status: active
-Last-reviewed: 2026-08-03
+Last-reviewed: 2026-08-20
 Authority: build infrastructure, test infrastructure
 
 本文承载仓库的 CMake 工程边界与测试架构组织规则。这些是工程基础设施规则，不是业务模块契约。
@@ -22,8 +22,13 @@ Authority: build infrastructure, test infrastructure
    仓库拥有的 shell bootstrap 从 GitHub 获取锁定版本依赖；脚本必须固定版本与提交
    标识、校验下载内容并产出 CMake 可消费的 imported targets。只有真实 Windows
    configure、build、install 和外部 consumer job 均通过后，才可宣称 project build support。
-   当前 Windows Conan/no-Conan presets 与 `fetch_third_party.bat` 只属于未验收脚手架，不改变上述
-   支持契约，也不能单独作为"已支持 Windows"的证据。
+   当前 Windows 主线为 v141 预设（`VisualStudio.15.0-amd64`，VS2026 generator +
+   v141 工具集，本机 Git Bash 下 bootstrap/configure/build/test/install 全链经
+   build preset 驱动，示例层加 `-DENABLE_EXAMPLES=ON` 亦可构建）；VS2015 C++14
+   预设（`VisualStudio.14.0-amd64`，无测试）与 no-Conan 模式
+   （`VisualStudio.14.0-amd64-none`，含 `fetch_third_party.bat`）仍属未验收脚手架，
+   不改变上述支持契约——CI 尚无 Windows job，"已支持 Windows"的宣称仍以真实
+   Windows runner 上的全链证据为准。
 5. MSVC 配置语义（`cmake/compilers/CompilerMSVC.cmake`，2026-08-20 修订）：**Release
    为真发布档**——/O2 /Ob2 /Oi + /OPT:REF /OPT:ICF，**不生成任何调试产物**
    （无 /Z7、无 PDB）；**RelWithDebInfo 是 /O2 /Ob2 /Oi + /Z7 + /DEBUG:FULL 完整
@@ -58,5 +63,5 @@ Authority: build infrastructure, test infrastructure
    domain 前，必须同批更新 guard、分区注册、README 和相关 contract 测试。
 7. `tests/consumer/batch_validation` 拥有的端到端可执行程序不是 `*_test.cpp`，不新增 `tests/`
    源码 type，也不进入 GoogleTest 分区。其 sequence 子集可在本框架自身 CMake 中注册为
-   `batch_validation::<domain>`，必须同时携带 `batch_validation` 与 domain label；199 个 sweep
+   `batch_validation::<domain>`，必须同时携带 `batch_validation` 与 domain label；181 个 sweep
    只由显式 `--suite sweep|all` 运行，不得在 CTest 中重复注册。

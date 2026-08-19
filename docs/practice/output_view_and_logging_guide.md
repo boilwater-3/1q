@@ -1,7 +1,7 @@
 # 输出视图与日志体系使用教程（component_attachment）
 
 Status: active
-Last-reviewed: 2026-08-13
+Last-reviewed: 2026-08-20
 Authority: 三层输出模型（docs/common/session_contract.md §三层输出模型）与集成端日志设施（examples/component_attachment/logger/README.md）
 适用读者: 对"输出视图 / 两种日志 / 三模式"感到困惑的仓库开发者与外部集成方
 
@@ -51,7 +51,9 @@ struct。
 
 示例中每个有 DebugView 的组件（AR/EOS/SBIRS 目标列表型 + SAR 阶段型）把视图暴露为
 `LastDebugView()`（最近周期快照，关机清零），并在 `Step` 内直写中文人读行（详见下节）。
-ESR 库内无 DebugView，不适用视图落盘。
+ESR 库内无 DebugView，不适用视图落盘；RIR/ECM 库内同样无 DebugView，但组件仍每周期
+直写自有摘要视图行（识别归置/干扰发射状态）；推演组件（inference）读融合运动学估计
+直写关键点摘要行（详见 §3 通道 B）。
 
 ---
 
@@ -62,7 +64,7 @@ ESR 库内无 DebugView，不适用视图落盘。
 | | **库内部日志** | **集成端日志** |
 | --- | --- | --- |
 | 谁写 | 库内 `PROJECT_LOG_*` 宏（src/ 内部） | 示例组件源文件（`CA_LOG_EVENT*` / `CA_LOG_VIEW` 宏） |
-| 后端 | spdlog **默认 logger**（`InitIntegrationLog` 装配为文件 sink）；**Windows 上 spdlog 关闭，改由库内内置文件后端**（`ProjectFileLog`，`ONEQ_ENABLE_FILE_LOG` 门控） | spdlog **命名 logger** `"integration_events"` / `"integration_views"`（stdout + 文件） |
+| 后端 | spdlog **默认 logger**（`InitIntegrationLog` 装配为文件 sink）；**Windows 上 spdlog 关闭，改由库内内置文件后端**（`ProjectFileLog`，`ONEQ_ENABLE_FILE_LOG` 门控） | spdlog **命名 logger** `"integration_events"` / `"integration_views"`（stdout + 文件）；**Windows 上为示例自带 `std::ofstream` 文件后端**（仅落文件，不打 stdout） |
 | 输出文件 | `1q_library.log` | `integration_events.log` + `integration_views.log` |
 | 行格式 | 时间戳 + 级别 + 消息（英文） | 仅消息体（中文人读） |
 | 给谁看 | 调试库算法本身（信号处理/跟踪内部） | 检查仿真行为是否符合预期（事件链/目标状态） |
@@ -76,13 +78,21 @@ SAR squint 拒绝等）；`integration_*.log` 回答"**仿真世界里发生了�
 > 重要：`PROJECT_LOG_*` 的日志消息必须保持英文（CLAUDE.md 约束），而集成端日志是示例
 > 业务层，用中文。改 `1q_library.log` 的内容不是集成方职责；集成方看的是 `integration_*.log`。
 
-> **Windows 差异**：Windows 构建（VS2015、`PACKAGE_MANAGER=none`）不依赖 spdlog，
-> 库内 `PROJECT_LOG_*` 由 `src/common/logging/ProjectFileLog`（纯 C++11、无第三方依赖）
+> **Windows 差异**：Windows 不安装 spdlog/fmt（当前主线为 v141 预设
+> `VisualStudio.15.0-amd64`，Conan；VS2015 C++14 与 no-Conan 为备选脚手架），库内
+> `PROJECT_LOG_*` 由 `src/common/logging/ProjectFileLog`（纯 C++11、无第三方依赖）
 > 承载，行为同构：同样产出 `1q_library.log`（默认 CWD，可用 `OpenFileLog(path)` /
 > 环境变量 `ONEQ_FILE_LOG_PATH` / 宏 `ONEQ_FILE_LOG_PATH` 覆盖），行格式
 > 时间戳 + 级别 + 英文消息；默认最低级别 info（debug 需 `SetFileLogLevel(kDebug)`）。
-> 编译期总开关 `ONEQ_ENABLE_FILE_LOG`（默认 ON）关闭后宏回到空操作。示例的
-> `integration_*.log` 属于示例组件（直接用 spdlog），Windows 上示例整体不构建，不受影响。
+> 编译期总开关 `ONEQ_ENABLE_FILE_LOG`（默认 ON）关闭后宏回到空操作。示例在
+> Windows 上同样构建（2026-08-19 起双后端）：集成端日志宏经
+> `CA_LOG_BACKEND_SPDLOG=0` 走示例自带的 `std::ofstream` 文件后端
+> （`logger_format.h` 迷你格式化，`{}` / `{:.Nf}`，与库内 `ProjectFileLog`
+> 口径一致），行文案与 spdlog 分支逐字一致；仅落文件不打 stdout（Windows
+> 控制台代码页可能非 UTF-8）。`InitIntegrationLog` 在 Windows 分支经
+> `ONEQ_FILE_LOG_PATH` 把库日志指到同一输出目录——三个日志文件
+> （`integration_events.log` / `integration_views.log` / `1q_library.log`）
+> 双平台均落在 demo 的 `--output-dir` 下。
 
 ---
 
@@ -116,6 +126,9 @@ SAR squint 拒绝等）；`integration_*.log` 回答"**仿真世界里发生了�
 | `waypoint_reached` / `platform_state` | 航点到达 / 平台状态 | `EVENT` / `_DUP` | 是 |
 | `threat_level_up` | 威胁等级升级 | `CA_LOG_EVENT` | 是 |
 | `command_issued` | 决策指令下发 | `CA_LOG_EVENT` | 是 |
+| `ecm_jamming` | ECM 干扰决策下发（技术/决策数/功率；干扰发射经 rf-world 传播，不发 World 信号） | `CA_LOG_EVENT` | 否 |
+| `rir_recognition` | RIR 识别结论确认态沿（状态迁移到确认时逐条） | `CA_LOG_EVENT` | 否 |
+| `rir_designation` | RIR 指定任务终态沿（识别达成完成/窗口耗尽作废） | `CA_LOG_EVENT` | 否 |
 | `patrol_loop_restart` | 巡逻循环重启（**纯日志，无信号**） | `CA_LOG_EVENT` | 否 |
 | `exclusion_cause` | 排除原因跨周期变化（**纯诊断，无信号**） | `CA_LOG_EVENT` | 否 |
 
@@ -196,8 +209,9 @@ SAR squint 拒绝等）；`integration_*.log` 回答"**仿真世界里发生了�
 ### 通道 B：视图日志 → `integration_views.log`
 
 记录**"每周期目标状态长什么样"**：AR/EOS/SBIRS 各组件每周期一行（或几行，取决于视图模式）
-目标状态明细 + 排除诊断；SAR 为阶段型摘要行；Threat 组件也有每周期视图行。由 `CA_LOG_VIEW`
-宏在组件 `Step` 内直写（字符串归属组件）：
+目标状态明细 + 排除诊断；SAR 为阶段型摘要行；Threat 组件也有每周期视图行；RIR（航迹归置
+摘要）、ECM（干扰发射状态）与推演（关键点/类型概率，读融合运动学估计）组件各每周期直写
+自有摘要行。由 `CA_LOG_VIEW` 宏在组件 `Step` 内直写（字符串归属组件）：
 
 ```
 [视图:ar] 周期=5 完成=是 目标=[1001 已确认(RCS 2.20m²), 1002 候选(RCS 1.40m²)] 问题=[ar.target_snr_below_threshold 目标信噪比低于门限]
@@ -205,9 +219,14 @@ SAR squint 拒绝等）；`integration_*.log` 回答"**仿真世界里发生了�
 [视图:sbirs] 周期=5 执行=是 目标=[1001 已检测(方位120.0° 俯仰-89.0°)] 问题=[sbirs.target_out_of_wfov 目标宽视场外（不在 WFOV 扫描覆盖内）。]
 [视图:sar] 周期=5 执行=是 阶段=L1 RDA 图像 L1图像=有 L3图像=无 聚焦=有 信噪比=2.3dB 目标数=2 问题=[无]
 [视图:threat] 周期=5 目标=2 高=1 中=0 低=1 最高=键1001:7.20 升级=是
+[视图:rir] 航迹=1 确认=是 指定=执行中 驻留中心=(359.8°,45.2°) [目标=1001(F-16C) 位置ENU=(-11500.0,320.0,400.0) 速度=250.0]
+[视图:ecm] 周期=5 状态=已执行 发射数=1 ESR批次=4
+[视图:inference] 键=1001 类型=2 p=0.65 发射=(30.102,120.015) t=-320s σ=850m 落点=时域外
 ```
 
-模块稳定名：`ar` / `eos` / `sbirs` / `sar` / `threat`（ESR 无 DebugView，没有视图行）。
+模块稳定名：`ar` / `eos` / `sbirs` / `sar` / `threat` / `rir` / `ecm` / `inference`
+（ESR 库内无 DebugView，也没有视图行；`rir` / `ecm` 场景未启用或组件未挂载时自然没有视图行，
+`inference` 恒挂载在融合之后）。
 
 ---
 
@@ -390,6 +409,10 @@ SAR 是**集体成像模型**，没有逐目标状态（探测/跟踪语义）�
 
 同理，SAR **无排除诊断**（规则 13b 空洞条款），问题列表多为阶段诊断。
 
+RIR / ECM / 推演（inference）与威胁（threat）的视图行同属**摘要型**（每周期恒写、无目标级
+三模式分支）：RIR/ECM 库内无 DebugView，组件以自有结果结构直写；推演行读融合运动学估计、
+威胁行读融合态势，均为每周期单行摘要。
+
 ---
 
 ## 7. 模式怎么切换（两条互斥途径，均编译期生效）
@@ -492,7 +515,8 @@ cmake --build --preset llvm-ninja-release-local --target component_attachment_de
 默认模式下省去刷屏。
 
 **Q5：问题列表里的中文名是哪来的？会不会翻译错？**
-`logger_i18n.h` 是 **issue code → 中文名**的纯查表适配（五模块 `*IssueCodes.h` 全量注册表）。
+`logger_i18n.h` 是 **issue code → 中文名**的纯查表适配（六模块 `*IssueCodes.h` 全量注册表：
+AR/EOS/ESR/RIR/SAR/SBIRS）。
 它**不翻译、不解析 message**（规则 13b：message 不承诺稳定），量值一律走 DebugView 结构化
 字段；未知 code 自动回退英文 message 原文。
 

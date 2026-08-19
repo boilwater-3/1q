@@ -1,6 +1,6 @@
 ---
 Status: active
-Last-reviewed: 2026-08-07
+Last-reviewed: 2026-08-20
 Authority: AR 模块级边界、非目标与设计变更规则
 Answers: AR 有哪些模块级禁令与边界、哪些非目标、配置/环境/校验/滤波的特殊语义、文档变更规则
 ---
@@ -132,7 +132,8 @@ AR 所有中止路径遵守 `session_contract.md` 规则 9 的三写模式与规
 适配器改为可跳过单目标的过滤逻辑，此对齐会被无声破坏，须同步评估 recorder 实体关联。
 **排除原因跨周期差分（规则 13e）**：`ArExclusionCauseRecorder` 对持续被排除目标做
 `(code, cause)` 对差分，产出 A2 进入/A3 原因变化/A4 退出事件；纯观测只读 `result.issues`
-（按 `location.kind == kSceneEntity` 过滤），与 `ArTrackLifecycleRecorder` 并列（独立 Attach/
+（仅消费 `phase == kExecution` 且 `location.kind == kSceneEntity` 的条目——输入校验
+问题也可能用 kSceneEntity 定位，混入会误当排除诊断），与 `ArTrackLifecycleRecorder` 并列（独立 Attach/
 驱动/GetLastEvents），注册与否不影响执行语义（规则 11c）。**消失目标边界**：recorder 只遍历
 当前周期输入目标表，目标从输入消失时其排除状态条目保留（不会被 A4 清除，与既有
 `ArTrackLifecycleRecorder` 的"消失目标状态保留"行为一致）；重现为 A3 而非 A2。
@@ -195,14 +196,15 @@ STT 模式不再要求外部提供目标角度：外部通过
 7. **限时锁定指令（`designation_duration_cycles`）**：指定指令可带捕获窗口
    （周期数；`0` = 无限期，旧行为）。生命周期阶段（`RuntimeConfigState`：
    `kPending` → `kAcquired` | `kExpired`，终态）由 `AdvanceDesignationPhase`
-   每周期推进：
-   - 窗口自指令生效后首个处理周期起算（deadline = 首周期 + duration）；窗口内
+   每周期推进，推进结果仅在本周期成功完成后落定（失败/关机周期不消耗窗口）：
+   - 窗口自指令生效后首个成功周期起算（deadline = 首周期 + duration）；窗口内
      每周期等待指定目标 confirmed 航迹，未捕获则继续扫描（回退报告
      `kTrackNotConfirmed`）；
    - 窗口内捕获 → `kAcquired`：跟随航迹且**不再受窗口限制**（后续丢失按既有
      回退语义 `kTrackLost`/`kTrackNotConfirmed`，不重新开窗口）；
-   - 窗口耗尽仍未捕获 → `kExpired`：**指令作废**。作废沿周期（cycle ==
-     deadline）保留目标 ID 并报告 `designation_revert_reason =
+   - 窗口耗尽仍未捕获 → `kExpired`：**指令作废**。作废沿为 `kPending` →
+     `kExpired` 转移沿（截止周期被拒时在截止后首个成功周期报告），沿周期
+     保留目标 ID 并报告 `designation_revert_reason =
      kAcquisitionTimeout`（L2 结果 + L3 视图 + `kDesignationDropped` 事件）；
      其后指定清零（`designated_target_id == 0`）、无回退报告、生效模式按扫描
      处理（已提交 `kStt` 时生效为 `kTws`，回到扫描），直到外部重新下达指定。

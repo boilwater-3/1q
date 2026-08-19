@@ -1,7 +1,7 @@
 # 批量场景验证框架
 
 Status: active
-Last-reviewed: 2026-07-21
+Last-reviewed: 2026-08-20
 Authority: tests/consumer/batch_validation engineering practice
 
 本框架位于 `tests/consumer/batch_validation/`，只通过 public Session、Adapter、Trace/Replay 接口验证多个
@@ -49,7 +49,7 @@ cmake --build --preset llvm-ninja-release-local --target \
 - `--output-dir <path>`：覆盖输出目录；
 - `--list-scenarios`：输出当前可执行程序接受的全部 ID。
 
-CTest 只注册五个 sequence 子集，名称为 `batch_validation::<domain>`。199 个 sweep 不重复注册为
+CTest 只注册五个 sequence 子集，名称为 `batch_validation::<domain>`。181 个 sweep 不重复注册为
 CTest；需要全量表征时显式运行 `--suite sweep|all`。
 
 ## 架构与所有权

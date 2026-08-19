@@ -1,6 +1,6 @@
 ---
 Status: active
-Last-reviewed: 2026-08-18
+Last-reviewed: 2026-08-20
 Authority: RIR 算法登记与实现边界
 Answers: RIR 每个算法做什么、实现边界在哪、哪些反直觉、哪些刻意不做
 ---
@@ -39,6 +39,7 @@ RIR 自持链路生产的内部航迹，不再消费外部航迹供给。
 | 积累判定 | `recognition/RecognitionTracker.cpp` | 逐周期观测 → 结论状态机 | 分数 ≥ `acceptance_score` 且 margin 足且有效维度 ≥ 2 → `kModelConfirmed`；运动不能单独确认型号 |
 | 特征量测帧组装（出口①透出，Stage B） | `runtime/RirController.cpp` + `recognition/RecognitionTracker.cpp`（UpdateCycle 采集出参） | 本周期有效特征观测 × 观测上下文 + 平台位置 → `RirFeatureMeasurementRecord` | 透出原则：只透出识别链实际构建且 mask ≠ 0 的观测（透出点在积累质量门之前——质量门只挡积累）；全维无效不产生；无库/超距/非识别模式周期帧为空；字段同值透出无换算 |
 | 归属视图组装（Stage B） | `runtime/RirController.cpp` | 本周期航迹快照 → `RirTrackAttributionRecord`（键↔真值 + hit/位置/速度诊断） | 与出口②同循环覆盖全部快照（tentative/confirmed/lost）；结果层产品，不进输出帧；非执行周期空列表 |
+| 发射帧组装（emission_frame，RF 链） | `runtime/RirController.cpp`（`ResolveRfCycle` 解析成功时） | 本周期自发射 → `RfEmissionFrame`（经 `RirCycleResult::emission_frame`） | `kIdentify` 且 RF 链解析成功时携带本周期实际发射（与 AR 同契约，供编排层汇集 RF scene）；解析失败为空帧，不虚构 |
 
 ## 反直觉点
 
@@ -83,8 +84,8 @@ RIR 自持链路生产的内部航迹，不再消费外部航迹供给。
 3. CA-CFAR（参考单元滑窗/杂波图/OS-GO-SO）。
 4. 战术决策、ECCM 决策与反欺骗（跟踪升级 N1-N7 已落地 LAPJV/池化/IMM，见
    `docs/review/remote_identification_radar_migration_status_2026-08-15.md`）。
-5. 对外点迹/量测输出、外部雷达波束控制接口；RIR 不生成波束指向、不把驻留
-   指向反馈给任何 AR 波束。
+5. 对外点迹/量测输出、外部雷达波束控制接口；驻留指向由库内驻留调度器派生且
+   仅库内消费，不向任何外部雷达（含 AR）输出或反馈波束控制。
 
 ## 证据
 
@@ -94,7 +95,9 @@ RIR 自持链路生产的内部航迹，不再消费外部航迹供给。
 - 自持链路与输入面：`tests/unit/remote_identification_radar/rir_self_contained_pipeline_test.cpp`、
   `rir_self_contained_validation_test.cpp`、`rir_emission_factory_test.cpp`、
   `rir_receiver_state_builder_test.cpp`、`rir_rf_front_end_resolver_test.cpp`、
-  `rir_effective_rcs_test.cpp`
+  `rir_effective_rcs_test.cpp`、`rir_rf_physical_parity_test.cpp`
+  （AR↔RIR RF 物理链对账：基线/干扰/杂波/饱和）、`rir_emission_frame_test.cpp`
+  （emission_frame 出口）
 - 双产品出口（Stage B）：`tests/unit/remote_identification_radar/rir_feature_measurement_test.cpp`
   （出口①字段透出/平台位置双路径/透出原则/会话级拒绝周期）、
   `rir_track_attribution_test.cpp`（键↔真值映射/全快照覆盖/非执行周期空列表）、

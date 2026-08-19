@@ -1,15 +1,18 @@
 ---
 Status: active
-Last-reviewed: 2026-08-07
+Last-reviewed: 2026-08-20
 Authority: 有 Session 的传感器模块的统一会话契约
 Answers: SessionConfigBuilder、Session 组合所有权、运行期配置提交策略、电源单源、三层输出模型、Replay/trace 语义
 ---
 
 # 会话相关模块契约
 
-本文承载"有 `*Session` 会话模型的传感器模块"（AR/ESR/EOS/SAR/SBIRS）的统一契约规则。这些规则不是
+本文承载"有 `*Session` 会话模型的传感器模块"（AR/ESR/EOS/SAR/SBIRS/RIR）的统一契约规则。这些规则不是
 "所有模块必须遵守"（`flight_dynamic` 无会话模型，不适用），而是"有会话的模块必须对齐"。
-所有模块都必须遵守的跨模块契约见 `docs/common/contract.md`。
+RIR 于 2026-08 并入本契约范围（会话门面/四域配置/电源单源/统一问题列表/执行状态信号已对齐，
+会话校验入口与 AR 同为 session 层；RIR 暂无 L3 观测工具——DebugView/LifecycleRecorder/排除诊断
+recorder 均未提供，规则 10/11/13b/13e 对其为空洞条款，同 SAR 13b 先例）。所有模块都必须遵守的
+跨模块契约见 `docs/common/contract.md`。
 
 ## SessionConfigBuilder
 
@@ -30,7 +33,7 @@ struct 默认值即语义默认（no-op 档位不提供常量）；整域赋值�
 
 ## Session composition ownership
 
-AR/EOS/ESR/SAR/SBIRS 的 `Session::Impl` 是 session 依赖图的所有权边界。组合根可以在装配过程中使用
+AR/EOS/ESR/SAR/SBIRS/RIR 的 `Session::Impl` 是 session 依赖图的所有权边界。组合根可以在装配过程中使用
 raw pointer 回填组件关系，但 `Impl` 长期持有状态不得同时保存 `std::unique_ptr<X>` 与同一对象的
 `X&` 成员。`Impl` 应只保存 owning member，并在使用点通过 accessor 或局部引用派生依赖引用。
 
@@ -77,12 +80,13 @@ AR 仍以单周期 `StepWithResult()` 作为公共接口。其内部先提交实
 
 ## 电源状态单源契约
 
-AR/ESR/EOS/SBIRS/SAR 五模块的电源状态必须遵守单源原则：
+AR/ESR/EOS/SBIRS/SAR/RIR 六模块的电源状态必须遵守单源原则：
 
 1. `*SessionConfig` 顶层 `sensor_enabled` 是会话初始电源状态的**唯一来源**；
    `*MissionConfig` 不含电源字段（`mission.power_on` 已整体移除）。
 2. `*RuntimeConfigPatch::has_sensor_enabled` / `sensor_enabled` 是运行时电源变更的**唯一入口**
-   （SBIRS 已从 `has_power_on`/`WithPowerOn` 统一对齐；SAR 于 COMMON-OQ-4 收敛补齐）；
+   （SBIRS 已从 `has_power_on`/`WithPowerOn` 统一对齐；SAR 于 COMMON-OQ-4 收敛补齐；RIR 建模即按
+   本契约，无历史双轨）；
    `has_mission` 整块域不影响电源。
 3. 运行时补丁解析顺序（整块先、叶子后）仅约束几何/模式字段（scan_center、work_mode 等），
    不产生电源状态的二重路径。违反本契约的字段名/映射（`power_on`、`has_power_on`、
@@ -122,6 +126,8 @@ AR/ESR/EOS/SBIRS/SAR 五模块的电源状态必须遵守单源原则：
    本周期有效计算结果；非执行周期返回默认空帧
    （`cycle_index=0`、空载荷），不复用上一有效输出，不得按真实零值参与统计。
    `reused_previous_output` 概念已废除。
+   （RIR 例外说明：其输出帧周期号字段名为 `input_cycle_index`，非执行周期仍写入
+   本次输入号、载荷保持空——命名与"失败周期归零"约定不同，同见 COMMON-OQ-7。）
 9. 所有中止路径（`abort_reason` 非 `kNone`）必须执行三写：
    a. **结构化信号**：设置 `abort_reason`（粗粒度枚举，~6 值，与模块对齐）。
    b. **结构化诊断**：写入唯一问题列表 `*IssueList`（统一问题列表模型，规则 14），
@@ -251,6 +257,8 @@ AR/ESR/EOS/SBIRS/SAR 五模块的电源状态必须遵守单源原则：
       坐标系转换，控制器输入面不含 platform/targets 原始数据，无法下移）；运行期校验
       唯一化在控制器 `RunOnce`（会话层对同一输入的二次校验已删除），拒绝明细经出参
       直通并装配进最终周期结果（运行期拒绝 `abort_reason` 保持真实值，不写死替换）。
+    - **RIR 同形**：周期输入校验在 session 层（`ValidateRirCycleInput` 含平台 ECEF→LLA
+      转换与 rf_scene 窗口对齐），拒绝明细直通 `RirCycleResult.issues`。
     创建时配置校验入口（`Validate*SessionConfig`）返回同一 `*IssueList`：
     - `phase = kInputValidation`、`severity = kError`，code 按 c 条
       `<module>.validation.<snake_case>` 规则（同条件在创建时与运行期路径 code 逐字一致），
@@ -280,6 +288,7 @@ AR/ESR/EOS/SBIRS/SAR 五模块的电源状态必须遵守单源原则：
     | EOS | 已迁移 | 已对齐 | 已对齐 | 已统一 | 控制器 RunOnce + 直通（2026-08 收敛） |
     | SBIRS | 已迁移 | 已对齐 | 已对齐 | 已统一 | 控制器 RunOnce + 直通（2026-08 收敛） |
     | AR | 已迁移 | 已对齐 | 已对齐 | 已统一 | 公共入口 session + 运行期控制器（2026-08 收敛） |
+    | RIR | 无（新模块直接实现） | 已对齐 | 已对齐 | 已统一（`ValidateRirSessionConfig`） | session 层校验 + 直通 |
 
 ### 传感器方位坐标系约定（SBIRS）
 
@@ -328,7 +337,7 @@ AR/ESR/EOS/SBIRS/SAR 五模块的电源状态必须遵守单源原则：
 
 ### 执行状态信号统一
 
-五个传感器模块的 `*CycleResult` 统一包含强类型 `*CycleStatus` 枚举，表达单周期高层执行状态：
+六个传感器模块的 `*CycleResult` 统一包含强类型 `*CycleStatus` 枚举，表达单周期高层执行状态：
 
 | 模块 | 枚举类型 | 典型值 |
 |---|---|---|
@@ -337,6 +346,7 @@ AR/ESR/EOS/SBIRS/SAR 五模块的电源状态必须遵守单源原则：
 | EOS | `EosCycleStatus` | `kCompleted`, `kPoweredOff`, `kRejectedInvalidInput`, `kRejectedExecution` |
 | SAR | `SarCycleStatus` | `kCompleted`, `kRejectedInvalidInput`, `kRejectedExecution`, `kPoweredOff`（细粒度失败信息由 `SarIssue::code` + 日志双写） |
 | SBIRS | `SbirsCycleStatus` | `kCompleted`, `kPoweredOff`, `kRejectedInvalidInput`, `kRejectedExecution` |
+| RIR | `RirCycleStatus` | `kCompleted`, `kPoweredOff`, `kRejectedInvalidInput`, `kRejectedInvalidConfig`, `kRejectedExecution`（与 AR 同集） |
 
 `abort_reason` 是强类型枚举（SAR 为 `SarPipelineAbortReason`，其余模块类似），提供更细粒度的终止原因。
 状态判断以 `status` 枚举为准（`status == kCompleted` 即本周期的有效执行标志）。
@@ -350,6 +360,7 @@ AR/ESR/EOS/SBIRS/SAR 五模块的电源状态必须遵守单源原则：
 | AR | L1（`TrackStateSnapshot` 内嵌 `external_target_id`/`target_name`） | track 是系统级估计，关联键是 track 语义的一部分 |
 | EOS | L2（`EosCycleResult.detection_attributions`） | detection 是原始传感器输出，归属是仿真附加信息 |
 | SBIRS | L2（`SbirsCycleResult.detection_attributions`） | 同 EOS |
+| RIR | L2（`RirCycleResult.track_attributions`） | 同为结果层归属视图；RIR 产品粒度即航迹级，归属为航迹级（库内键↔场景真值对照 + 最小航迹诊断，不进 `RirOutputFrame` 产品层） |
 | ESR | 无归属数据 | ESR 输出是观测+假设，不含检测到目标的映射 |
 | SAR | 无归属数据 | SAR 输出是图像产品，不含检测到目标的映射 |
 
@@ -392,3 +403,4 @@ AR/ESR/EOS/SBIRS/SAR 五模块的电源状态必须遵守单源原则：
 [evidence: tests/replay/airborne_radar/ar_replay_codec_roundtrip_test]
 [evidence: tests/replay/electronic_surveillance_radar/esr_replay_codec_roundtrip_test]
 [evidence: tests/replay/electronic_surveillance_radar/esr_replay_session_test]
+[evidence: tests/replay/remote_identification_radar/rir_replay_codec_roundtrip_test]

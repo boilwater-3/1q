@@ -1,6 +1,6 @@
 ---
 Status: active
-Last-reviewed: 2026-08-10
+Last-reviewed: 2026-08-20
 Authority: fusion 设计权威入口
 Answers: fusion 是什么、关联键策略为何冻结为纯库内身份键、设计文档怎么导航
 ---
@@ -14,8 +14,9 @@ Answers: fusion 是什么、关联键策略为何冻结为纯库内身份键、�
 
 心智模型：**探测 → 航迹 → 估计**。每周期把一批探测记录交给 `FusionEngine::Update`，
 取回当前全部航迹的融合态势；引擎保持增量航迹状态、滑窗与逐航迹滤波器，算法不感知
-ESR/EOS/AR 具体类型。库提供官方适配器 `fusion/SensorAdapters.h`（四传感器输出 →
-泛型探测记录，可选便利层），业务层也可自行适配。
+具体传感器类型。库提供官方适配器 `fusion/SensorAdapters.h`（五传感器输出——AR 轨迹帧 /
+ESR 假设 / EOS 探测 / SBIRS 探测 / RIR 特征量测帧 → 泛型探测记录，可选便利层），
+业务层也可自行适配。
 
 ## 关键定位
 
@@ -48,7 +49,7 @@ flowchart TB
     Detection["DetectionRecord\n泛型探测记录"]
     Config["FusionConfig\n门限 / 权重 / 滑窗"]
     Target["FusedTarget\n融合态势输出"]
-    Adapters["SensorAdapters\n四传感器输出 → 泛型记录（可选便利层）"]
+    Adapters["SensorAdapters\n五传感器输出 → 泛型记录（可选便利层）"]
   end
 
   subgraph Implementation["src/fusion"]
@@ -58,6 +59,7 @@ flowchart TB
     Feature["特征门限\n欧氏距离"]
     Window["滑窗 / 失跟删除\n每源 deque + missed_cycles"]
     Conf["置信度融合\nΣ 判决值 × 质量 × 权重"]
+    Filter["逐航迹无迹滤波\ncommon/estimation 原语（P2，默认关）"]
   end
 
   Engine --> Keyed
@@ -66,6 +68,7 @@ flowchart TB
   Engine --> Feature
   Engine --> Window
   Window --> Conf
+  Engine --> Filter
   Detection --> Engine
   Config --> Engine
   Engine --> Target

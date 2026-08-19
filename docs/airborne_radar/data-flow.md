@@ -1,6 +1,6 @@
 ---
 Status: active
-Last-reviewed: 2026-08-07
+Last-reviewed: 2026-08-20
 Authority: AR 数据流、Public API 边界、时序与状态所有权
 Answers: AR 的分层架构、数据如何流动、Public API 边界在哪、输出/调试/归属边界、跨周期状态归谁所有
 ---
@@ -307,7 +307,7 @@ flowchart LR
   （`designation_duration_cycles`）的生命周期阶段（kPending/kAcquired/kExpired）
   同为会话级跨周期状态，由 `AdvanceDesignationPhase` 每周期推进（窗口内捕获 →
   持续跟随；窗口耗尽未捕获 → 作废，作废沿报告 kAcquisitionTimeout 后指定清零、
-  回到扫描）；失败周期经事务快照回滚，阶段不跨失败周期消耗；
+  回到扫描）；推进结果仅在本周期成功完成后落定（失败/关机周期不消耗窗口）；
 - 生效模式每周期派生（无跨周期记忆）：指定航迹非 confirmed → 回退 `kTws`；
   `designation_reverted_to_tws` 是每周期状态指示，跨周期差分由调用方/recorder 承担；
 - 显式 dwell 覆盖时 `designation_active == false` 但不构成回退。

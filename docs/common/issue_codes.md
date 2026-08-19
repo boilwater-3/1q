@@ -1,11 +1,12 @@
 ---
 Status: active
+Last-reviewed: 2026-08-20
 ---
 
-# Issue Code 目录（五模块总表）
+# Issue Code 目录（六模块总表）
 
 > 本表由各模块 `include/1q/<module>/session/<Module>IssueCodes.h` 的 `@brief` 注释
-> 程序化提取生成（2026-08-10），是 code 全集的人读辅助。**机器消费以公开头文件常量
+> 程序化提取生成（2026-08-20），是 code 全集的人读辅助。**机器消费以公开头文件常量
 > 为唯一事实来源（规则 14c）**：集成方取 code 全集直接 include 各 `IssueCodes.h`，
 > 新增/改名 code 后本表需重新生成，如有出入以头文件为准。
 
@@ -52,6 +53,7 @@ Status: active
 | `ar.validation.non_finite_cycle_delta_time` | 输入校验 | 周期步长非有限值。 |
 | `ar.validation.non_finite_target_field` | 输入校验 | 目标含非有限数值字段（位置/速度/RCS/斜距）。 |
 | `ar.validation.receiver_rf_hardware_invalid` | 输入校验 | 接收机 RF 硬件非法（隔离度/远场距离/线性输入限/共址路径无效）。 |
+| `ar.validation.signal_processing_gains_invalid` | 输入校验 | 信号处理增益偏置非法（四偏置须有限且在 [0, 40] dB）。 |
 | `ar.validation.transmitter_frequency_invalid` | 输入校验 | 发射机频率非法（须有限且为正）。 |
 | `ar.validation.transmitter_operating_envelope_invalid` | 输入校验 | 发射机工作包络非法（功率/占空比/脉冲能量超出硬件限制）。 |
 | `ar.validation.unknown_external_target_id` | 输入校验 | 目标外部 ID 未知（为 0，kInfo 级）。 |
@@ -197,27 +199,80 @@ Status: active
 | `sbirs.target_out_of_wfov` | 执行/外部输入诊断 | 目标宽视场外（不在 WFOV 扫描覆盖内）。 |
 | `sbirs.target_snr_below_threshold` | 执行/外部输入诊断 | 目标信噪比低于门限（低于 WFOV 最低 SNR）。 |
 | `sbirs.validation.cycle_delta_time_exceeds_frame_period` | 输入校验 | 周期步长超过帧周期合理范围（> 10 倍帧周期，即 10 / frame_rate_hz）。 |
+| `sbirs.validation.focal_plane_config_not_positive` | 输入校验 | 焦平面配置非法（焦距/像元间距须为正有限值；焦平面脱靶量映射）。 |
 | `sbirs.validation.frame_rate_not_positive` | 输入校验 | 帧率非正。 |
 | `sbirs.validation.invalid_cycle_delta_time` | 输入校验 | 周期步长非法（非正或非有限值）。 |
 | `sbirs.validation.invalid_detection_thresholds` | 输入校验 | 检测门限非法（须非负）。 |
 | `sbirs.validation.invalid_detector_bandwidth` | 输入校验 | 探测器带宽非法（须为正且有限）。 |
 | `sbirs.validation.invalid_error_model_sigmas` | 输入校验 | 误差模型 sigma 非法（须为非负有限值）。 |
 | `sbirs.validation.invalid_estimated_tracking_backend` | 输入校验 | 估计跟踪后端非法。 |
+| `sbirs.validation.invalid_misalignment` | 输入校验 | 安装失准非法（bias 须有限、random sigma 须非负有限）。 |
+| `sbirs.validation.invalid_mount_angles` | 输入校验 | 传感器安装欧拉角非法（须为有限值）。 |
 | `sbirs.validation.invalid_narrow_pointing_settle_tolerance` | 输入校验 | 窄视场指向沉降容差非法（须为非负有限值）。 |
 | `sbirs.validation.invalid_narrow_pointing_slew_rate` | 输入校验 | 窄视场指向最大转动速率非法（须为正且有限）。 |
 | `sbirs.validation.invalid_pointing_disturbance_correlation` | 输入校验 | 指向扰动相关时间非法（须为正且有限）。 |
 | `sbirs.validation.invalid_pointing_disturbance_values` | 输入校验 | 指向扰动幅值与频率非法（须为非负有限值）。 |
 | `sbirs.validation.invalid_pointing_disturbance_vibration_frequency` | 输入校验 | 指向扰动振动频率非法（幅值非零时须为正）。 |
 | `sbirs.validation.invalid_range_gate` | 输入校验 | 距离门非法（min/max 未有序或为负）。 |
+| `sbirs.validation.invalid_satellite_attitude` | 输入校验 | 卫星姿态缺失或非有限（必填；零欧拉合法 = 体轴对齐 ECI）。 |
 | `sbirs.validation.invalid_satellite_position` | 输入校验 | 卫星位置缺失、非有限或为零向量。 |
+| `sbirs.validation.invalid_satellite_velocity` | 输入校验 | 卫星速度缺失或非有限（必填；ECEF 零向量合法，如 GEO 卫星）。 |
 | `sbirs.validation.invalid_scan_direction` | 输入校验 | 扫描方向非法。 |
+| `sbirs.validation.invalid_scan_elevation_raster` | 输入校验 | 俯仰栅格非法（span 须非负有限、step 须正有限）。 |
 | `sbirs.validation.invalid_scan_rate` | 输入校验 | 扫描速率非法（须为非负有限值）。 |
 | `sbirs.validation.invalid_scan_span` | 输入校验 | 扫描跨度非法（须为有限值且在 (0, 360]）。 |
 | `sbirs.validation.invalid_scan_start_azimuth` | 输入校验 | 扫描起始方位角非法（须为有限值且在 [-180, 180)）。 |
 | `sbirs.validation.invalid_scheduler_nfov_locks` | 输入校验 | 调度器最大并发 NFOV 锁定数非法（须 >= 1）。 |
+| `sbirs.validation.invalid_stabilization_mode` | 输入校验 | 扫描稳定方式非法。 |
 | `sbirs.validation.invalid_target_physical` | 输入校验 | 目标物理输入非法（ID/位置/辐射强度/速度等未满足有限与非负要求）。 |
 | `sbirs.validation.invalid_tracking_gate_loss_cycles` | 输入校验 | 跟踪门丢失周期数非法（须 >= 1）。 |
 | `sbirs.validation.invalid_tracking_mode` | 输入校验 | 跟踪模式非法。 |
+| `sbirs.validation.invalid_utc_julian_day` | 输入校验 | UTC 儒略日缺失、非有限或非正（ECI 输出参考系必需）。 |
+| `sbirs.validation.invalid_wide_to_narrow_required_hits` | 输入校验 | 宽窄切换连续命中阈值非法（须 >=1；宽窄切换前置条件）。 |
 | `sbirs.validation.mission_fov_not_positive` | 输入校验 | 任务视场角非正。 |
 | `sbirs.validation.optical_aperture_not_positive` | 输入校验 | 硬件光学孔径非正。 |
+| `sbirs.validation.scan_elevation_step_exceeds_fov` | 输入校验 | 俯仰栅格行间距超过 WFOV 俯仰视场（无隙覆盖预算违反）。 |
+| `sbirs.validation.scan_path_outside_sensor_limits` | 输入校验 | 扫描路径超出传感器系扫描限位（方位扫掠区间或中心俯仰不在限位内）。 |
+| `sbirs.validation.sensor_scan_limits_out_of_range` | 输入校验 | 传感器系扫描限位超域（az 须在 [-180, 180]、el 须在 [-90, 90]）。 |
+| `sbirs.validation.sensor_scan_limits_swapped_azimuth` | 输入校验 | 传感器系扫描限位方位倒置（az_min > az_max）。 |
+| `sbirs.validation.sensor_scan_limits_swapped_elevation` | 输入校验 | 传感器系扫描限位俯仰倒置（el_min > el_max）。 |
 | `sbirs.validation.wavelength_band_invalid` | 输入校验 | 硬件波长带非法（须为正且有下界小于上界）。 |
+
+## remote_identification_radar（远程识别雷达）
+
+> 当前全部 code 为输入/配置校验问题（`rir.validation.<snake_case>`）；模块尚无
+> 执行诊断类 code。
+
+| code | 类型 | 中文含义 |
+|---|---|---|
+| `rir.validation.antenna_az_geometry_invalid` | 输入校验 | 天线方位几何非法（波束宽度或孔径无效）。 |
+| `rir.validation.antenna_el_geometry_invalid` | 输入校验 | 天线俯仰几何非法。 |
+| `rir.validation.association_policy_invalid` | 输入校验 | 关联策略非法（波门 sigma 非正）。 |
+| `rir.validation.detection_policy_invalid` | 输入校验 | 检测策略非法（Pfa/门限/脉冲数/种子）。 |
+| `rir.validation.duplicate_external_target_id` | 输入校验 | 场景中外部目标 ID 重复。 |
+| `rir.validation.equipment_identity_invalid` | 输入校验 | 发射/接收 equipment_id 非法（须非零且互异）。 |
+| `rir.validation.frequency_plan_invalid` | 输入校验 | 频率计划非法（须含有限正值且包含初始载频）。 |
+| `rir.validation.inconsistent_platform_position` | 输入校验 | 平台位置存在性标志与数据不一致（has=false 但分量非默认值）。 |
+| `rir.validation.invalid_cycle_delta_time` | 输入校验 | 周期步长非法（<= 0）。 |
+| `rir.validation.invalid_cycle_index` | 输入校验 | 周期序号非法（为 0）。 |
+| `rir.validation.invalid_environment_snapshot` | 输入校验 | 环境快照字段非法（天气衰减非有限/负值）。 |
+| `rir.validation.invalid_platform_position` | 输入校验 | 平台 ECEF 位置非法（分量非有限或模长为 0——地心非法）。 |
+| `rir.validation.invalid_rf_scene_frame` | 输入校验 | RF 场景帧非法或与周期窗口不一致。 |
+| `rir.validation.invalid_target_motion_field` | 输入校验 | 目标速度/起伏模型含非有限或非法字段。 |
+| `rir.validation.lifecycle_policy_invalid` | 输入校验 | 生命周期策略非法（confirm/lost 阈值）。 |
+| `rir.validation.missing_range_and_cartesian_position` | 输入校验 | 目标斜距 <= 0 且无笛卡尔位置（二者须至少一为正）。 |
+| `rir.validation.non_finite_cycle_delta_time` | 输入校验 | 周期步长非有限值。 |
+| `rir.validation.non_finite_target_field` | 输入校验 | 目标含非有限数值字段（位置/RCS/斜距/真值样本）。 |
+| `rir.validation.rcs_physics_invalid` | 输入校验 | RCS 物理参数非法。 |
+| `rir.validation.receiver_rf_hardware_invalid` | 输入校验 | 接收机 RF 硬件边界非法。 |
+| `rir.validation.recognition_accumulation_invalid` | 输入校验 | 识别累积计数非法（须至少为 1）。 |
+| `rir.validation.recognition_database_path_missing` | 输入校验 | 识别数据库路径缺失（启用识别时须非空）。 |
+| `rir.validation.recognition_threshold_invalid` | 输入校验 | 识别门限非法（接受分数/最小裕度须在 [0, 1]）。 |
+| `rir.validation.recognition_time_range_invalid` | 输入校验 | 识别时间范围非法（保持时间须非负；最大距离/驻留/累积窗口须有限且为正）。 |
+| `rir.validation.recognition_weights_invalid` | 输入校验 | 识别特征权重非法（须有限、在 [0, 1] 且总和为 1）。 |
+| `rir.validation.scan_strategy_invalid` | 输入校验 | 扫描策略非法（限位须有限有序且在合法域 az∈[-180,180]、el∈[-90,90]；步长系数须为正）。 |
+| `rir.validation.sensor_platform_id_invalid` | 输入校验 | 传感器平台身份非法（须非零）。 |
+| `rir.validation.signal_processing_gains_invalid` | 输入校验 | 信号处理增益偏置非法（四偏置须有限且在 [0, 40] dB）。 |
+| `rir.validation.tracking_policy_invalid` | 输入校验 | 跟踪策略非法（KF 噪声参数非正）。 |
+| `rir.validation.transmitter_frequency_invalid` | 输入校验 | 发射机载频非法（须有限且为正）。 |
+| `rir.validation.transmitter_operating_envelope_invalid` | 输入校验 | 发射机工作包络非法（功率/占空比/脉冲能量越界）。 |

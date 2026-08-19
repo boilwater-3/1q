@@ -1,6 +1,6 @@
 ---
 Status: active
-Last-reviewed: 2026-08-18
+Last-reviewed: 2026-08-20
 Authority: RIR 数据流与状态所有权
 Answers: RIR 单周期数据怎么流、状态归谁持有、内部航迹如何生产与消费
 ---
@@ -23,6 +23,7 @@ flowchart TB
     Session["RirSession\n（校验/补丁提交/任务生命周期/驻留调度）"]
     ScanKernel["common ScanScheduleRuntime\n（扫描波位序列，与 AR 同口径）"]
     Controller["RirController\n（检测 → 量测误差 → 关联/滤波/生命周期）"]
+    RfFrontEnd["RF 物理链（库内）\n（RirEmissionFactory / RirReceiverStateBuilder /\nRirRfFrontEndResolver → incident links）"]
     Detector["RirSignalDetector / RirDetectionCellResolver"]
     Measurement["RirMeasurementErrorModel"]
     Track["RirTrackAssociator × RirTrackLifecycle\n（内部航迹）"]
@@ -30,7 +31,7 @@ flowchart TB
     Extract["四特征提取器\n（RCS/运动/极化/距离像）"]
     Tracker["RirTracker\n（多周期积累 + 判定）"]
     Matcher["RirMatcher × RirFeatureDatabase\n（只读内存基线）"]
-    Result["RirCycleResult\n（输出帧 + 摘要 + designation_* + dwell_center）"]
+    Result["RirCycleResult\n（输出帧 + 摘要 + emission_frame +\ndesignation_* / dwell_center + 归属视图）"]
     Replay["rir_replay.fbs V2\n（周期记录编解码）"]
   end
 
@@ -41,7 +42,8 @@ flowchart TB
   Session --> ScanKernel
   ScanKernel --> Session
   Session --> Controller
-  Controller --> Detector
+  Controller --> RfFrontEnd
+  RfFrontEnd --> Detector
   Detector --> Measurement
   Measurement --> Track
   Track --> Builder
@@ -101,8 +103,9 @@ flowchart TB
    真值准确率与驻留预算摘要。
 6. **replay**：`RirSessionReplayAccess::CaptureSessionState` 采集
    `active_database_version` + 检测随机种子；周期记录经 `RirReplayFlatbufferCodec`
-   V2 编解码，旧 V1 显式拒绝；输出帧特征量测向量与结果表归属向量为加性扩展
-   （`RIR2` 标识不变，旧记录缺字段解码为空）。指定任务生命周期阶段
+   V2 编解码，旧 V1 显式拒绝；输出帧特征量测向量、结果表归属向量与
+   `emission_frame` 为加性扩展（`RIR2` 标识不变，旧记录缺字段解码为空）。
+   指定任务生命周期阶段
    （designation_phase/deadline）为派生跨周期状态，不进 replay session state：
    全量重放由 patch 流 + cycle_index 驱动可复现；若未来引入"从第 N 周期恢复"，
    需同步纳入会话状态。
@@ -126,4 +129,6 @@ flowchart TB
 
 RIR **不 include 任何 AR 头**，不消费任何 AR 输出，也不向 AR 提供航迹、识别
 结论或波束控制。AR 与 RIR 仅为同库共存的两部独立装备，由调用方分别编排；
-RIR 波束中心只来自调用方驻留调度的显式输入。
+RIR 波束中心由库内驻留调度器（`RirSession`：扫描策略或指定识别任务）派生，
+经 `RirCycleResult::dwell_center_deg` 暴露；RIR 不驱动任何外部雷达波束。
+编排层汇集实际发射走 `RirCycleResult::emission_frame`（与 AR 同契约）。
