@@ -1029,9 +1029,11 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
         // 焦平面脱靶量：目标传感器系角与实际指向角的逐轴差经 f·tan 映射（米+像素）；
         // 焦距/像元间距非正时（配置校验已拦截）跳过该字段。
         // 中译：窄视场跟踪事件（目标编号、通道、跟踪模式、实际指向与目标角、指向误差、
-        //       焦平面脱靶量、SNR 与信号能量、几何/SNR 门结果、失败计数、滑行标志、NIS）。
-        // 标识：验收日志 E5——3.2.1.3.2.3"焦平面脱靶量、跟踪状态、目标信号能量与 SNR"
-        //       证据；脱靶量由硬件焦距/像元间距配置映射（本闭包新增字段）。
+        //       焦平面脱靶量、输出角定位角度误差、SNR 与信号能量、几何/SNR 门结果、
+        //       失败计数、滑行标志、NIS）。
+        // 标识：验收日志 E5——3.2.1.3.2.3"焦平面脱靶量、跟踪状态、目标信号能量与 SNR"、
+        //       3.2.1.6.3 红外定位角度误差（跟踪段）证据；输出角误差在滤波/误差注入
+        //       全部完成后取最终输出角 − 真值角（方位最短角差）。
         const char* mode_text = "strict_truth";
         if (state == SbirsTargetState::kSensorLikeTruthAssistedTracking) {
           mode_text = "sensor_like_truth";
@@ -1047,7 +1049,8 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
             "event=nfov_track cycle_index={} target_id={} channel={} mode={} "
             "pointing_sensor_deg=({:.4f},{:.4f}) target_sensor_deg=({:.4f},{:.4f}) "
             "pointing_error_deg={:.4f} focal_valid={} focal_offset_m=({:.6f},{:.6f}) "
-            "focal_offset_pix=({:.2f},{:.2f}) snr={:.3f} received_power_w={} "
+            "focal_offset_pix=({:.2f},{:.2f}) output_az_error_deg={:.6f} "
+            "output_el_error_deg={:.6f} snr={:.3f} received_power_w={} "
             "signal_energy_j={} geo_gate={} snr_gate={} gate_failures={} coasting={} "
             "nis={} nis_exceeded={}",
             input.cycle_index, target.target_id, channel_id, mode_text, actual_pointing_azimuth_deg,
@@ -1055,6 +1058,9 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
             detection.attribution.nfov_pointing_error_deg, focal_valid,
             focal_valid ? focal_offset.x_m : 0.0, focal_valid ? focal_offset.y_m : 0.0,
             focal_valid ? focal_offset.x_pixels : 0.0, focal_valid ? focal_offset.y_pixels : 0.0,
+            AzimuthDelta(static_cast<float>(detection.record.azimuth_rad * 57.29577951308232),
+                         azimuth_deg),
+            static_cast<float>(detection.record.elevation_rad * 57.29577951308232) - elevation_deg,
             snr, received_power_w, signal_energy_j, geometry_gate_passed, snr_gate_passed,
             gate_failure_count, detection.attribution.nfov_tracking_coasting,
             detection.attribution.has_estimation_nis ? detection.attribution.estimation_nis : 0.0f,
@@ -1181,19 +1187,23 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
     // 门失败/目标消失分支已清零，进入跟踪时在捕获处清零。
     const unsigned int consecutive_hits = ++wfov_consecutive_hits_[target.target_id];
     if (SBIRS_ACCEPTANCE_LOG_ENABLED()) {
-      // 中译：宽视场疑似目标事件（目标编号、真值与带误差量测角、距离、SNR、最大探测
-      //       距离、接收功率与信号能量、视线角速度、cue 提前指向命令角、cue 延迟、
-      //       延迟后真值角、连续命中计数与所需阈值）。
+      // 中译：宽视场疑似目标事件（目标编号、真值与带误差量测角、定位角度误差、距离、
+      //       SNR、最大探测距离、接收功率与信号能量、视线角速度、cue 提前指向命令角、
+      //       cue 延迟、延迟后真值角、连续命中计数与所需阈值）。
       // 标识：验收日志 E2——3.2.1.3.2"宽场疑似目标列表/目标信号能量"、3.2.1.3.2.1
-      //       cue 参数与连续命中、3.2.1.3.2.2 宽场检测证据。
+      //       cue 参数与连续命中、3.2.1.3.2.2 宽场检测、3.2.1.6.3 红外定位角度误差
+      //       证据（az/el_error = 带误差量测角 − 真值角，方位最短角差）。
       SBIRS_ACCEPTANCE_LOG(
           "event=wfov_candidate cycle_index={} target_id={} truth_deg=({:.4f},{:.4f}) "
-          "measured_deg=({:.4f},{:.4f}) range_m={:.1f} snr={:.3f} d_max_m={:.1f} "
+          "measured_deg=({:.4f},{:.4f}) az_error_deg={:.6f} el_error_deg={:.6f} "
+          "range_m={:.1f} snr={:.3f} d_max_m={:.1f} "
           "received_power_w={} signal_energy_j={} omega_deg_s={:.4f} "
           "cue_cmd_deg=({:.4f},{:.4f}) cue_latency_s={:.3f} delayed_truth_deg=({:.4f},{:.4f}) "
           "consecutive_hits={} required_hits={}",
           input.cycle_index, target.target_id, azimuth_deg, elevation_deg,
-          candidate.measured_azimuth_deg, candidate.measured_elevation_deg, range_m, snr,
+          candidate.measured_azimuth_deg, candidate.measured_elevation_deg,
+          AzimuthDelta(candidate.measured_azimuth_deg, azimuth_deg),
+          candidate.measured_elevation_deg - elevation_deg, range_m, snr,
           max_detection_range_m, received_power_w, signal_energy_j,
           candidate.relative_angular_rate_deg_per_sec, candidate.command_azimuth_deg,
           candidate.command_elevation_deg, mission.narrow_cue_latency_s,
