@@ -101,3 +101,14 @@ if(ONEQ_ENABLE_SBIRS_ACCEPTANCE_LOG)
 else()
     message(STATUS "sbirs acceptance log: disabled (set -DONEQ_ENABLE_SBIRS_ACCEPTANCE_LOG=ON to enable)")
 endif()
+
+# 精度评估验收日志（[PrecisionEval] 事件流）：开启后评估会话逐周期输出红外角度误差、
+# 双星交会位置误差、速度误差、落点/发射点预测误差样本与 AHP 综合评分（需求映射
+# 3.2.1.6.3 章节）。默认关闭：宏与派生计算一并剪除，零开销。
+option(ONEQ_ENABLE_PRECISION_EVALUATION_LOG
+    "Emit precision evaluation logs (angular errors, dual-sat fix, velocity and key-point errors, AHP score)" OFF)
+if(ONEQ_ENABLE_PRECISION_EVALUATION_LOG)
+    message(STATUS "precision evaluation log: ENABLED ([PrecisionEval] events via PROJECT_LOG_INFO)")
+else()
+    message(STATUS "precision evaluation log: disabled (set -DONEQ_ENABLE_PRECISION_EVALUATION_LOG=ON to enable)")
+endif()

@@ -216,6 +216,16 @@ set(TARGET_INFERENCE_HEADERS
     "target_inference/target_inference.hpp"
 )
 
+set(PRECISION_EVALUATION_HEADERS
+    "precision_evaluation/AhpEvaluator.h"
+    "precision_evaluation/DualLosFix.h"
+    "precision_evaluation/PrecisionEvaluationConfig.h"
+    "precision_evaluation/PrecisionEvaluationMetrics.h"
+    "precision_evaluation/PrecisionEvaluationSession.h"
+    "precision_evaluation/PrecisionEvaluationTypes.h"
+    "precision_evaluation/precision_evaluation.hpp"
+)
+
 set(ENVIRONMENT_HEADERS
     "environment/AtmosphericState.h"
     "environment/AtmosphericTypes.h"
@@ -337,6 +347,7 @@ set(EXPECTED_PUBLIC_HEADERS
     ${FUSION_HEADERS}
     ${THREAT_ASSESSMENT_HEADERS}
     ${TARGET_INFERENCE_HEADERS}
+    ${PRECISION_EVALUATION_HEADERS}
     ${SAR_MODULE_ENTRY_HEADERS}
     ${SAR_CONFIG_HEADERS}
     ${SAR_SESSION_HEADERS}

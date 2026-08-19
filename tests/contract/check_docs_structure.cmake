@@ -44,7 +44,8 @@ set(ALLOWED_DOC_DIRS
     "sar"
     "sbirs_sensor"
     "threat_assessment"
-    "target_inference")
+    "target_inference"
+    "precision_evaluation")
 
 set(BUSINESS_MODULE_DIRS
     "airborne_radar"
@@ -55,6 +56,7 @@ set(BUSINESS_MODULE_DIRS
     "fusion"
     "navigation"
     "remote_identification_radar"
+    "precision_evaluation"
     "sar"
     "sbirs_sensor"
     "threat_assessment"

@@ -201,6 +201,16 @@ if(_oneq_unit_target_inference)
         TIMEOUT 60)
 endif()
 
+# precision_evaluation.
+file(GLOB _oneq_unit_precision_evaluation CONFIGURE_DEPENDS
+    "${CMAKE_CURRENT_SOURCE_DIR}/unit/precision_evaluation/*_test.cpp")
+if(_oneq_unit_precision_evaluation)
+    oneq_add_test_partition(
+        TYPE unit DOMAIN precision_evaluation
+        SOURCES ${_oneq_unit_precision_evaluation}
+        TIMEOUT 60)
+endif()
+
 # electro_optical_sensor (EOS).
 file(GLOB _oneq_unit_electro_optical_sensor CONFIGURE_DEPENDS
     "${CMAKE_CURRENT_SOURCE_DIR}/unit/electro_optical_sensor/*_test.cpp")
