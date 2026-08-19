@@ -18,6 +18,7 @@
 #include "1q/electro_optical_sensor/session/EosExternalInputAdapter.h"
 #include "1q/electromagnetics/RfScene.h"
 #include "1q/sar/session/SarCycleInput.h"
+#include "1q/sbirs_sensor/session/SbirsCycleInput.h"
 #include "1q/sbirs_sensor/session/SbirsSceneTypes.h"
 #include "core/world.h"
 
