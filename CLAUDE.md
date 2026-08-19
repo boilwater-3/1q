@@ -48,36 +48,59 @@ A static library of simulation models for external service modules — airborne 
 
 ## Build and Test
 
-- Presets: `llvm-ninja-debug-local`, `llvm-ninja-release-local` (from `CMakeUserPresets.json`; base presets in `CMakePresets.json`). Prefer release — JSBSim runs ~6× faster.
-- Run bootstrap → configure → build → test **serially** for the same preset; parallel only across different presets.
-- Log prefix `/tmp/1q`, ctest `-j 4`.
-- **验证范围**：日常增量验证用 `ctest --preset <preset> -R <聚焦范围>` 按模块/分区聚焦（如 `-R "unit::<module>"`）；**不要跑 debug-local 完整 ctest**（全量慢且与 release 重复）；完整全量验证只在 release-local 跑（如 `/completeness-review` 阶段）。
+- Run bootstrap → configure → build → test **serially** for the same preset; parallel only across different presets. Log prefix `/tmp/1q`, ctest `-j 4`.
+- **Verification scope**: for day-to-day incremental verification, focus `ctest --preset <preset> -R <focused scope>` on a module/partition (e.g., `-R "unit::<module>"`); **do not run the full debug-local ctest suite** (slow and duplicates release); full-suite verification runs on release-local only (e.g., during `/completeness-review`).
+
+### Platform Difference Overview (macOS mainline vs Windows v141)
+
+macOS is the development/CI mainline (full Conan dependency set); the local Windows machine uses the legacy v141 toolset (trimmed dependencies + built-in file logging). Presets, generators, and dependency sets differ across the two platforms:
+
+| Aspect | macOS (mainline) | Windows (local v141) |
+|---|---|---|
+| preset | `llvm-ninja-debug(-local)` / `llvm-ninja-release(-local)` / `llvm-ninja-coverage` | `VisualStudio.15.0-amd64` |
+| Generator | Ninja, single-config (build_type fixed per preset) | VS2026 generator + v141 (14.16) toolset, multi-config (`--config Debug / Release` selects the flavor) |
+| conan install | Once per preset, single build_type | bootstrap installs both Debug + Release in one pass |
+| Logging | spdlog/fmt (Conan) | No third-party logger; built-in `ProjectFileLog` (gated by `ONEQ_ENABLE_FILE_LOG`, writes `1q_library.log`); the `component_attachment` example layer carries its own std::ofstream file backend (`CA_LOG_BACKEND_SPDLOG=0`) |
+| HighFive / JSBSim | Installed as Conan prebuilts | Neither installed; with FD=ON, JSBSim needs third_party source or a prebuilt tree |
+| Coverage | `llvm-ninja-coverage` | None |
+
+Daily development uses the `*-local` variants (machine-local `CMakeUserPresets.json`, **not in git**; each machine keeps its own); CI uses the base presets in `CMakePresets.json`. Trap: the repo preset `llvm-ninja-release` has binaryDir `build/llvm-ninja-release` (no `-local` suffix — a historical override), while `llvm-ninja-debug` points at `build/llvm-ninja-debug-local`; take install paths from the actual binaryDir. Prefer release — JSBSim runs ~6× faster.
+
+### macOS command flow
 
 ```bash
 bash scripts/bootstrap_conan.sh "$preset" >"${log_prefix}-conan.log" 2>&1 || { tail -n 80 "${log_prefix}-conan.log"; false; }
 cmake --preset "$preset" >"${log_prefix}-cmake.log" 2>&1 || { tail -n 80 "${log_prefix}-cmake.log"; false; }
 cmake --build --preset "$preset" >"${log_prefix}-build.log" 2>&1 || { tail -n 80 "${log_prefix}-build.log"; false; }
 ctest --preset "$preset" --output-on-failure -j 4
+cmake --install "build/${preset}"   # installs to build/install/<preset>: include/1q + lib + cmake config
 ```
 
-- `ONEQ_ENABLE_FLIGHT_DYNAMIC` (default **OFF**) gates `src/flight_dynamic/` and its tests. JSBSim remains required regardless (`src/common/environment/JsbsimAtmosphereAdapter`).
-- Code coverage: `llvm-ninja-coverage` preset + `tools/coverage_report.sh`. **Never run ctest by hand** — the script owns `.profraw` placement. Branch coverage is the primary metric; see `docs/practice/coverage.md`.
-- **Windows/VS 构建环境备注（本机）**：conan 构建目录 `build/VisualStudio.15.0-amd64`
-  （VS 生成器 + v141 工具集）直接 `cmake --build` 会报 `corecrt.h` 找不到——v141 工具集的
-  MSBuild Cpp targets 解析 UCRT 路径失败（SDK 10.0.26100.0 实际已安装）。需先用匹配
-  工具集版本初始化环境并让 MSBuild 消费环境变量路径（`/p:UseEnv=true`）：
+### Windows command flow (v141 mainline; Git Bash throughout)
+
+```bash
+bash scripts/bootstrap_conan.sh VisualStudio.15.0-amd64            # Install deps: Debug+Release in one pass; the script injects UCRTContentRoot
+cmake --preset VisualStudio.15.0-amd64                             # Configure (the configure preset carries UCRTContentRoot)
+cmake --build --preset VisualStudio.15.0-amd64-release             # Build (the build preset sets --config and injects UCRTContentRoot; debug likewise)
+ctest --preset VisualStudio.15.0-amd64-release -R "unit::<module>" --output-on-failure -j 4
+cmake --install build/VisualStudio.15.0-amd64 --config Release     # -> build/install/VisualStudio.15.0-amd64
+```
+
+The final library artifact lands at `build/VisualStudio.15.0-amd64/Release/lib/1q.lib`. **Builds must go through a build preset**: on this machine, the 64-bit registry value `KitsRoot10` under `HKLM\SOFTWARE\Microsoft\Windows Kits\Installed Roots` is written as the non-existent `C:\Program Files\Windows Kits\10\`, so v141's ucrt.props resolves UCRT from the registry into a dead path. A raw-directory build without the `UCRTContentRoot` environment variable (`cmake --build build/VisualStudio.15.0-amd64 ...`, reproduced 2026-08-19) fails compiling TUs with `corecrt.h` not found (C1083) and fails linking with LNK1104 (ucrtd.lib). The preset-injected environment variable makes ucrt.props prefer the env var over the registry. If you must build via the raw directory / IDE MSBuild, initialize the v141 environment first and let MSBuild consume environment paths (`/p:UseEnv=true`):
 
   ```bat
   call "C:\Program Files\Microsoft Visual Studio\18\Community\VC\Auxiliary\Build\vcvarsall.bat" x64 -vcvars_ver=14.16
   cmake --build build/VisualStudio.15.0-amd64 --target <target> --config Debug -- -p:UseEnv=true -m -v:m -nologo
   ```
 
-  另注（2026-08-17 勘误）：该环境（MSVC v141 Debug CRT）曾记录
-  `SbirsExclusionCauseRecorderTest` 全套 bad_alloc 为"既有基线失败"——已证实为
-  **陈旧构建产物**：头文件布局变更后增量 Unity 构建未重建全部 TU，Debug 强检查下出现
-  SEH 崩溃；删除 `build/.../src/sbirs_sensor` 产物强制全量重建后 203 例 sbirs unit 全绿。
-  若 Debug 测试出现无代码逻辑相关的 SEH 0xc0000005/bad_alloc，先做全量重建再定位。
-  `integration::airborne_radar` 0xc0000409 仍为独立既有问题。
+  Note (2026-08-17 erratum): in this environment (MSVC v141 Debug CRT), `SbirsExclusionCauseRecorderTest` failing wholesale with bad_alloc was once recorded as a "known baseline failure" — it turned out to be **stale build artifacts**: after a header-layout change, incremental Unity builds did not rebuild all TUs, and Debug hardened checks surfaced SEH crashes; deleting `build/.../src/sbirs_sensor` artifacts to force a full rebuild turned all 203 sbirs unit tests green. If Debug tests hit SEH 0xc0000005/bad_alloc unrelated to any code logic, do a full rebuild before investigating. `integration::airborne_radar` 0xc0000409 remains a separate pre-existing issue.
+
+Alternative Windows paths (unaccepted scaffolding; not a support statement — see `docs/practice/build_and_test_governance.md`): the VS2015 preset `VisualStudio.14.0-amd64` (C++14, no tests); the no-Conan mode `VisualStudio.14.0-amd64-none` (run `scripts\fetch_third_party.bat` first to fetch pinned dependency sources into `third_party/`, consumed by `VendorPackages.cmake`).
+
+### Module and coverage switches
+
+- `ONEQ_ENABLE_FLIGHT_DYNAMIC` (default **OFF**) gates `src/flight_dynamic/` and its tests; JSBSim is a flight_dynamic-exclusive CMake dependency (with FD=OFF, `JsbsimProvider` short-circuits and core/common carries no JSBSim dependency — the old note "`src/common/environment/JsbsimAtmosphereAdapter` makes JSBSim unconditionally required" is void; that file no longer exists). macOS conan installs the jsbsim package regardless of the switch (it is simply never `find_package`d); Windows conan never installs jsbsim — with FD=ON use `ONEQ_JSBSIM_FROM_SOURCE` (third_party/jsbsim source) or `ONEQ_JSBSIM_PREBUILT_ROOT_DIR` (prebuilt tree).
+- Code coverage (macOS only): `llvm-ninja-coverage` preset + `tools/coverage_report.sh`. **Never run ctest by hand** — the script owns `.profraw` placement. Branch coverage is the primary metric; see `docs/practice/coverage.md`.
 
 ## Documentation
 
@@ -112,19 +135,12 @@ Docs capture what code alone cannot convey (positioning, boundaries, non-goals, 
 
 **Logging**
 - Log critical actions and failures using the project's logging facility, when available.
-- 每个 `PROJECT_LOG_*` 调用点上方应有中文注释（`// 中译：…` + `// 标识：…` 两行式，
-  面向非专业开发人员解释日志含义、触发条件与状态语义）；日志消息文本保持英文。
+- Every `PROJECT_LOG_*` call site should carry a Chinese comment above it (two-line style: `// 中译：…` + `// 标识：…`, explaining the log's meaning, trigger conditions, and state semantics for non-specialist developers); log message text stays in English.
 
 ## Session Workflow
 
-- **文档编写澄清门（用户工作规则，2026-08-18）**：编写或修订任何文档时，凡存在不确定、
-  未确认的问题（裁定方向、术语口径、字段语义、范围取舍、验收门数值等），必须**先向用户
-  提问确认，再动笔**；不得把假设直接写进文档后搁置——用户很难注意到埋在文档里的假设。
-  已由用户明确裁定或已冻结契约的内容照常执行，不需重复确认。
-- **非专业人员表述偏置（用户工作规则，2026-08-18）**：用户不是专业人员——面向用户的
-  描述（对话答复、总结汇报、文档中面向人的段落）优先用大白话和比喻，术语首次出现
-  随文解释；不牺牲技术准确性，但可读性优先于简洁。库内代码注释与规范性契约文档的
-  术语精确性不受此条影响。
+- **Document-writing clarification gate (user work rule, 2026-08-18)**: when writing or revising any document, any uncertain or unconfirmed issue (adjudication direction, terminology alignment, field semantics, scope trade-offs, acceptance-gate values, etc.) must be **confirmed with the user before writing**; never embed assumptions into a document and leave them there — users will hardly notice assumptions buried in docs. Content the user has already adjudicated, or frozen contracts, proceeds as usual without re-confirmation.
+- **Non-specialist wording bias (user work rule, 2026-08-18)**: the user is not a professional developer — user-facing descriptions (conversation replies, summaries and reporting, human-oriented doc paragraphs) should favor plain language and analogies, explaining terms on first use; do not sacrifice technical accuracy, but readability outranks brevity. Terminology precision inside library code comments and normative contract documents is unaffected by this rule.
 - **Plan mode & branching**: SessionStart hook prompts when on `main`; pre-commit hook auto-creates `feature/<topic>` from commit message on `main`/`master` as a safety net. Branch naming: `feature/<short-description>` in kebab-case.
 - **Commit messages**: [Conventional Commits](https://www.conventionalcommits.org/) format — `type(scope): description`. Types: `feat`, `fix`, `refactor`, `test`, `docs`, `chore`, `perf`. Scope is the primary module/domain (e.g., `airborne_radar`, `eos`, `sar`). Description in imperative mood, lowercase. End every message with `Co-Authored-By: Claude <noreply@anthropic.com>`.
 - **Commit gate**: pre-commit hook blocks `major` C++ changes (≥3 files or ≥50 lines) until `/completeness-review` passes. `minor` and `trivial` changes pass through with a warning.

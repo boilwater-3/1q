@@ -1,87 +1,97 @@
 # 1q
 
-`1q` 是一个面向外部服务模块的仿真模型库，当前覆盖机载雷达（AR）、电子侦察雷达（ESR）、合成孔径雷达（SAR）、光电传感器（EOS）、飞行动力学（Flight Dynamic）、天基红外传感器（SBIRS）与远程识别雷达（RIR）七套主模块，并包含电子对抗（ECM）、区域覆盖规划（navigation）、多源融合（fusion）、威胁评估（threat_assessment）、目标推演（target_inference）与精度评估（precision_evaluation）算法模块。项目重点在于稳定的公共 API、可替换的内部组件，以及可测试的仿真链路编排。
+`1q` is a simulation model library for external service modules. It currently covers seven main sensor modules — airborne radar (AR), electronic surveillance radar (ESR), synthetic aperture radar (SAR), electro-optical sensor (EOS), flight dynamics (Flight Dynamic), space-based infrared sensor (SBIRS), and remote identification radar (RIR) — plus electronic countermeasure (ECM), area-coverage planning (`navigation`), multi-source fusion (`fusion`), threat assessment (`threat_assessment`), target inference (`target_inference`), and precision evaluation (`precision_evaluation`) algorithm modules. The project focuses on a stable public API, replaceable internal components, and testable simulation-chain orchestration.
 
-## 模块概览
+## Module Overview
 
-- `include/1q/airborne_radar/`、`src/airborne_radar/`: 机载雷达公共 API 与实现，覆盖环境、决策、信号处理、跟踪与会话编排。
-- `include/1q/electronic_surveillance_radar/`、`src/electronic_surveillance_radar/`: ESR 公共 API 与实现，覆盖环境、截获与流水线编排。
-- `include/1q/sar/`、`src/sar/`: 合成孔径雷达公共 API 与实现。
-- `include/1q/electro_optical_sensor/`、`src/electro_optical_sensor/`: 光电传感器公共 API 与实现。
-- `include/1q/flight_dynamic/`、`src/flight_dynamic/`: 飞行动力学、制导与机动模型。
-- `include/1q/sbirs_sensor/`、`src/sbirs_sensor/`: 天基红外传感器（SBIRS）公共 API 与实现，覆盖环境、错误模型、NFOV 调度与处理流水线。
-- `include/1q/remote_identification_radar/`、`src/remote_identification_radar/`: 远程识别雷达公共 API 与实现，覆盖检测、跟踪、特征识别与会话编排。
-- `include/1q/electronic_countermeasure/`、`src/electronic_countermeasure/`: 电子对抗公共 API 与实现。
-- `include/1q/{navigation,fusion,threat_assessment,target_inference,precision_evaluation}/`、`src/{navigation,fusion,threat_assessment,target_inference,precision_evaluation}/`: 区域覆盖规划、多源融合、威胁评估、目标推演与精度评估算法模块。
-- `include/1q/{coordinate,electromagnetics,environment,foundation,replay,trace}/`: 跨模块共享的坐标、电磁、环境、基础类型、回放与追踪接口。
-- `tests/`: 单元测试、集成测试、契约测试、性能测试与安装消费测试。
-- `examples/`: 各模块的快速上手、会话用法与集成示例。
+- `include/1q/airborne_radar/`, `src/airborne_radar/`: airborne radar public API and implementation, covering environment, decision-making, signal processing, tracking, and session orchestration.
+- `include/1q/electronic_surveillance_radar/`, `src/electronic_surveillance_radar/`: ESR public API and implementation, covering environment, interception, and pipeline orchestration.
+- `include/1q/sar/`, `src/sar/`: synthetic aperture radar public API and implementation.
+- `include/1q/electro_optical_sensor/`, `src/electro_optical_sensor/`: electro-optical sensor public API and implementation.
+- `include/1q/flight_dynamic/`, `src/flight_dynamic/`: flight dynamics, guidance, and maneuver models.
+- `include/1q/sbirs_sensor/`, `src/sbirs_sensor/`: space-based infrared sensor (SBIRS) public API and implementation, covering environment, error models, NFOV scheduling, and processing pipelines.
+- `include/1q/remote_identification_radar/`, `src/remote_identification_radar/`: remote identification radar public API and implementation, covering detection, tracking, feature identification, and session orchestration.
+- `include/1q/electronic_countermeasure/`, `src/electronic_countermeasure/`: electronic countermeasure public API and implementation.
+- `include/1q/{navigation,fusion,threat_assessment,target_inference,precision_evaluation}/`, `src/{navigation,fusion,threat_assessment,target_inference,precision_evaluation}/`: area-coverage planning, multi-source fusion, threat assessment, target inference, and precision evaluation algorithm modules.
+- `include/1q/{coordinate,electromagnetics,environment,foundation,replay,trace}/`: cross-module shared coordinate, electromagnetics, environment, foundation-type, replay, and trace interfaces.
+- `tests/`: unit, integration, contract, performance, and install-consumer tests.
+- `examples/`: per-module quick-start, session usage, and integration examples.
 
-## 依赖
+## Dependencies
 
-- C++17（CMake 默认 `PROJECT_DEFAULT_CXX_STANDARD = 17`，最低要求 C++11）
-- CMake / Conan
-- GTest / GMock（测试）
-- Eigen、nanoflann、Boost
-- FlatBuffers、zlib
-- spdlog / fmt（日志依赖）
-- JSBSim、HighFive（可选，由 Conan 选项控制）
+- C++17 (CMake default `PROJECT_DEFAULT_CXX_STANDARD = 17`; minimum requirement C++11)
+- CMake / Conan (Windows also has a no-Conan mode; see "Alternative paths" below)
+- GTest / GMock (tests)
+- Eigen, nanoflann, Boost, FlatBuffers, zlib, sqlite3
+- spdlog / fmt (logging; installed on non-Windows only — on Windows replaced by the built-in `ProjectFileLog` file-logging backend, gated by `ONEQ_ENABLE_FILE_LOG`, writing `1q_library.log`)
+- JSBSim (a `flight_dynamic`-specific optional dependency, provided prebuilt via Conan on non-Windows only), HighFive (SAR HDF5 output; non-Windows only)
 
-## 构建
+## Build
 
-仓库约定优先使用 CMake preset。本地开发常用 preset（定义于 `CMakeUserPresets.json`）：
+The repository convention is to drive builds through CMake presets, running `bootstrap → configure → build → test` serially under the same preset: `scripts/bootstrap_conan.sh` derives per-preset arguments, runs `conan install`, and generates `conan_toolchain.cmake` for the configure step to consume. macOS and Windows differ in presets, dependency sets, and build mechanics.
 
-- `llvm-ninja-debug-local`
-- `llvm-ninja-release-local`
+### macOS (development/CI mainline)
 
-CI preset（定义于 `CMakePresets.json`，当前支持 macOS / LLVM + Ninja）：
-
-- `llvm-ninja-debug`、`llvm-ninja-release`（macOS / LLVM + Ninja）
-
-示例命令：
+- Presets defined in `CMakePresets.json`: `llvm-ninja-debug` / `llvm-ninja-release` / `llvm-ninja-coverage` (Ninja single-config, Darwin only).
+- Daily development typically uses the local variants `llvm-ninja-debug-local` / `llvm-ninja-release-local` (`CMakeUserPresets.json`, not in git).
+- Conan provides the full dependency set (including spdlog/fmt, the prebuilt JSBSim package, and HighFive).
 
 ```bash
-bash scripts/bootstrap_conan.sh llvm-ninja-debug-local
-cmake --preset llvm-ninja-debug-local
-cmake --build --preset llvm-ninja-debug-local
-ctest --preset llvm-ninja-debug-local --output-on-failure
+bash scripts/bootstrap_conan.sh llvm-ninja-release-local
+cmake --preset llvm-ninja-release-local
+cmake --build --preset llvm-ninja-release-local
+ctest --preset llvm-ninja-release-local --output-on-failure
+cmake --install build/llvm-ninja-release-local   # installs to build/install/<preset>
 ```
 
-同一个 preset 下应串行执行 `bootstrap -> configure -> build -> test`。
-`bootstrap_conan.sh` 负责按 preset 派生参数并执行 `conan install`，生成
-`conan_toolchain.cmake` 供后续配置使用。
+### Windows (v141 toolset mainline)
 
-## 示例
+- Preset: `VisualStudio.15.0-amd64` (VS2026 generator + legacy v141/14.16 toolset, multi-config; the build preset's `--config` selects Debug/Release).
+- Dependency differences: no spdlog/fmt (replaced by the built-in file-logging backend), no HighFive, no JSBSim.
+- Examples build on Windows too: enable with `-DENABLE_EXAMPLES=ON`. The `component_attachment` integration logger runs its own `std::ofstream` file backend on Windows (`CA_LOG_BACKEND_SPDLOG=0`, same log-line text as the spdlog branch); `integration_events.log` / `integration_views.log` / `1q_library.log` all land under the demo's `--output-dir`.
+- Bootstrap and configure run in Git Bash; build, test, and install **must go through build presets** — the preset injects the `UCRTContentRoot` environment variable, bypassing the local 64-bit registry UCRT path defect; a raw-directory `cmake --build build/...` fails with `corecrt.h` not found (C1083) / LNK1104 (ucrtd.lib) — do not use it (details and errata in `CLAUDE.md`).
 
-`examples/` 是**消费方集成参考**（怎么写一个接库的程序，只使用 `include/` 公开接口）：
+```bash
+bash scripts/bootstrap_conan.sh VisualStudio.15.0-amd64
+cmake --preset VisualStudio.15.0-amd64
+cmake --build --preset VisualStudio.15.0-amd64-release
+ctest --preset VisualStudio.15.0-amd64-release --output-on-failure
+cmake --install build/VisualStudio.15.0-amd64 --config Release
+```
 
-- `examples/component_attachment/`: 消费方集成参考示例——当前挂载 AR/ESR/EOS/
-  SBIRS/SAR 五类传感器组件 + 融合 + 威胁评估 + 多机编队，场景 JSON 数据驱动
-  （含多机区域巡逻 fleet_patrol_multi_zone 场景）。
-- `examples/common/`: example 层共享便利层（`json_reader` + 五域 `config_loaders/` +
-  `viz/` 共享可视化查看器，不属于库 public surface）。
-- `examples/configs/`: 跨模块共享的配置样例。
+### Alternative paths (unaccepted scaffolding)
 
-验证/开发期工具已迁出 examples（角色分离）：多场景批量验证框架在
-`tests/consumer/batch_validation/`，飞行力学开发期轨迹工具在
-`tests/unit/flight_dynamic/fd_tools/`。
+- VS2015: preset `VisualStudio.14.0-amd64` (C++14, no tests).
+- No Conan: run `scripts\fetch_third_party.bat` first to fetch pinned dependency sources into `third_party/` (consumed by `VendorPackages.cmake`), then use preset `VisualStudio.14.0-amd64-none`.
 
-## 文档
+Full dual-platform instructions, environment-defect root causes, and errata: see the Build and Test section of `CLAUDE.md` and `docs/practice/build_and_test_governance.md`.
 
-- `CLAUDE.md`: 工程约束、构建测试规则与重构策略。
-- `docs/<module>/design.md`: 各模块当前设计（AR / ESR / SAR / EOS / Flight Dynamic / SBIRS / RIR / ECM / navigation / fusion / threat_assessment / target_inference / precision_evaluation）。
-- `docs/common/`: 跨模块契约与开放问题（`contract.md`、`open_questions.md`）。
-- `docs/practice/`: 工程实践与基础设施类设计文档（覆盖率、批量场景验证框架等）。
-- `docs/review/`: 模块评审与迁移计划。
-- `include/1q/README.md`: 公共头文件导航与对外接入建议。
-- `tests/README.md`: 测试分层约定与运行建议。
+## Examples
 
-## 测试
+`examples/` is the **consumer integration reference** (how to write a program that links against the library, using only the public `include/` surface):
 
-测试覆盖关联、跟踪、环境、决策、会话编排、契约、性能和安装消费路径（见 `tests/{unit,integration,contract,performance,consumer}/`）。修改公共 API 或关键逻辑时，应同步补充或更新 `tests/` 下的测试。
+- `examples/component_attachment/`: consumer integration reference example — currently mounts AR/ESR/EOS/SBIRS/SAR sensor components + fusion + threat assessment + multi-aircraft formations, driven by scene JSON (including the multi-aircraft area-patrol `fleet_patrol_multi_zone` scene).
+- `examples/common/`: example-layer shared convenience layer (`json_reader` + six-domain `config_loaders/` + the `viz/` shared visualization viewer; not part of the library public surface).
+- `examples/configs/`: cross-module shared configuration samples.
 
-## 约束
+Validation and development-time tooling has moved out of examples (role separation): the multi-scene batch validation framework lives in `tests/consumer/batch_validation/`; flight-dynamics development trajectory tools in `tests/unit/flight_dynamic/fd_tools/`.
 
-- 不引入 C++ exceptions。
-- 高速仿真/数学热点路径不打日志。
-- 优先在 `src/` 内部收敛改动，再考虑扩大公共头暴露面。
+## Documentation
+
+- `CLAUDE.md`: engineering constraints, build/test rules, and refactoring strategy.
+- `docs/<module>/design.md`: current design per module (AR / ESR / SAR / EOS / Flight Dynamic / SBIRS / RIR / ECM / navigation / fusion / threat_assessment / target_inference / precision_evaluation).
+- `docs/common/`: cross-module contracts and open questions (`contract.md`, `open_questions.md`).
+- `docs/practice/`: engineering-practice and infrastructure design docs (coverage, the batch scene validation framework, etc.).
+- `docs/review/`: module reviews and migration plans.
+- `include/1q/README.md`: public header navigation and integration advice.
+- `tests/README.md`: test layering conventions and running advice.
+
+## Testing
+
+Tests cover association, tracking, environment, decision-making, session orchestration, contracts, performance, and the install-consumer path (see `tests/{unit,integration,contract,performance,consumer}/`). When changing the public API or key logic, add or update tests under `tests/` accordingly.
+
+## Constraints
+
+- No C++ exceptions.
+- No logging on high-speed simulation/math hot paths.
+- Prefer containing changes inside `src/` before widening the public header surface.
