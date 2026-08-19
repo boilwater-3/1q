@@ -289,6 +289,7 @@ RirCycleResult RirSession::StepWithResult(const RirCycleInput& input) {
   }
   // 航迹归属视图回填（结果层）：仅已执行周期携带，非执行路径早退保持空列表。
   result.track_attributions = impl_->controller.LatestTrackAttributions();
+  result.emission_frame = impl_->controller.LatestEmissionFrame();
 
   // 指定识别任务结果回填（镜像 AR designation_* 形状）：
   //   kPending + 目标在场景 → active（驻留中）；kPending + 目标缺席 → reverted

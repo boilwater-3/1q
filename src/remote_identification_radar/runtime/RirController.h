@@ -80,6 +80,11 @@ class RirController {
     return last_track_attributions_;
   }
 
+  /** @brief 最近周期实际 RIR 发射帧（`kIdentify` 且 RF 链成功时非空）。 */
+  const oneq::electromagnetics::RfEmissionFrame& LatestEmissionFrame() const {
+    return last_emission_frame_;
+  }
+
   /**
    * @brief 指定外部目标是否已达识别结论（上一周期口径，供任务生命周期推进）。
    * @param[in] external_target_id 外部目标 ID。
@@ -99,6 +104,7 @@ class RirController {
     bool resolved{false};
     bool receiver_saturated{false};
     oneq::electromagnetics::RfEmissionIdentity own_emission_identity{};
+    oneq::electromagnetics::RfSceneEmission own_emission{};
     std::vector<oneq::electromagnetics::RfIncidentLinkResult> incident_links{};
     oneq::electromagnetics::RfWaveformSchedule own_transmit_waveform{};
     float carrier_hz{0.0f};
@@ -164,6 +170,7 @@ class RirController {
   bool has_latest_summary_{false};
   std::vector<tracking::RirTrackState> last_track_snapshots_{}; /**< 上一周期航迹快照（任务判定用）。 */
   std::vector<session::RirTrackAttributionRecord> last_track_attributions_{}; /**< 最近周期归属视图。 */
+  oneq::electromagnetics::RfEmissionFrame last_emission_frame_{}; /**< 最近周期实际发射。 */
 };
 
 }  // namespace runtime

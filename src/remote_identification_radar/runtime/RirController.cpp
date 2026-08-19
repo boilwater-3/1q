@@ -287,6 +287,7 @@ RirController::RirResolvedRfCycle RirController::ResolveRfCycle(
   }
 
   resolved.own_emission_identity = own_emission.identity;
+  resolved.own_emission = own_emission;
   resolved.own_transmit_waveform = own_emission.waveform;
   resolved.carrier_hz = static_cast<float>(carrier_hz);
 
@@ -480,6 +481,7 @@ void RirController::RunCycle(const session::RirCycleInput& input,
   // 出口①与归属视图按周期重置（透出原则：识别链未构建观测的周期为空）。
   output_frame->feature_measurements.clear();
   last_track_attributions_.clear();
+  last_emission_frame_ = {};
 
   std::vector<tracking::RirTrackState> track_snapshots;
   if (in_identify) {
@@ -488,6 +490,13 @@ void RirController::RunCycle(const session::RirCycleInput& input,
     ResolveEnvironment(&propagation_loss_db, &clutter_power_w);
 
     const RirResolvedRfCycle rf_cycle = ResolveRfCycle(input, dwell_center_deg);
+    if (rf_cycle.resolved) {
+      last_emission_frame_.world_cycle_index = input.input_cycle_index;
+      last_emission_frame_.window_start_time_s = static_cast<double>(input.sim_time_sec);
+      last_emission_frame_.window_duration_s =
+          static_cast<double>(mission_.recognition_dwell_sec);
+      last_emission_frame_.emissions.push_back(rf_cycle.own_emission);
+    }
 
     std::unordered_map<std::uint64_t, const session::RirSceneTarget*> scene_by_id;
     std::vector<std::size_t> candidate_indices;

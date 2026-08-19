@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "1q/api.hpp"
+#include "1q/electromagnetics/RfScene.h"
 #include "1q/remote_identification_radar/config/RirHardwareConfig.h"
 #include "1q/remote_identification_radar/session/RirOutputTypes.h"
 #include "1q/remote_identification_radar/session/RirRecognitionResult.h"
@@ -38,11 +39,14 @@ enum class RirDesignationRevertReason : std::uint8_t {
 /**
  * @brief RirCycleResult 描述单周期执行后的聚合结果。
  * @note 只有 `status == kCompleted` 携带识别输出；拒绝周期不复用上一帧。
+ *       `kIdentify` 且 RF 链解析成功时，`emission_frame` 携带本周期实际 RIR 发射
+ *       （供编排层汇集全球 RF scene；与 AR `ArCycleResult::emission_frame` 同契约）。
  */
 struct ONEQ_API RirCycleResult {
   std::uint32_t input_cycle_index{0U}; /**< 本次调用输入周期号，用于失败结果与 trace 归属 */
   RirCycleStatus status{RirCycleStatus::kRejectedInvalidInput}; /**< 周期执行状态。 */
   RirOutputFrame output_frame{}; /**< 当前调用返回的识别输出帧。 */
+  oneq::electromagnetics::RfEmissionFrame emission_frame{}; /**< 本周期实际 RIR 发射。 */
   RirIssueList issues{}; /**< 统一问题列表（规则 14：校验问题 phase=kInputValidation 在前 +
                                执行诊断 phase=kExecution/kOutputContract 在后） */
   RirCycleAbortReason abort_reason{

@@ -44,7 +44,7 @@ RIR 遵守 `docs/common/contract.md` 与 `docs/common/session_contract.md`：
    `RirController`、识别内部类型不通过 public header 暴露。
 2. `RirSessionConfigBuilder` 是薄封装（整域赋值 + `Build()` 返回副本）。
 3. 输出遵守三层模型：系统输出（`RirOutputFrame`）、结构化执行结果
-   （`RirCycleResult`）、replay 视图分离。
+   （`RirCycleResult`，含 `emission_frame` 供 RF-WORLD 编排层汇集）、replay 视图分离。
 4. 周期语义：非执行周期不复用上一帧；校验拒绝 `kRejectedInvalidInput` +
    明细 issues；关机 `kPoweredOff` 只推进世界时间；统一问题列表
    （规则 14，`RirIssueList`，code 前缀 `rir.validation.*`）。
