@@ -36,6 +36,13 @@ struct TargetManeuver {
   double v_north_mps{0.0};       /**< 该周期起的新北向速度（m/s） */
 };
 
+/// 距离向散射中心脚本（targets[].rir_scatterers[] 条目）：一维距离像特征
+/// 真值的最小描述（位置 + 强度），极化/相位/起伏不配（缺省非相干叠加）。
+struct RirScattererScript {
+  double offset_m{0.0};  /**< 相对目标参考点的距离向位置（m） */
+  double rcs_dbsm{0.0};  /**< 该散射中心 RCS（dBsm） */
+};
+
 /// 区域巡逻任务（场景文件可选 coverage 块）：覆盖区域 + 规划参数。
 /// 加载时经 navigation::AreaCoveragePlanner 生成巡逻航路（填入 waypoints），
 /// 平台按航路循环巡逻（见 FlightComponent::loop_route）。与显式
@@ -74,6 +81,18 @@ struct ScriptedTarget {
   double radiant_intensity_w_per_sr{0.0};   /**< 目标辐射强度（SBIRS 外观，W/sr；已折算温度/发射率/投影面积） */
   double emitter_center_frequency_hz{0.0};  /**< ESR 辐射源中心频率（Hz；≤0 = 该目标不配辐射源） */
   std::vector<TargetManeuver> maneuvers{};  /**< 变速机动表（可选；start_cycle 严格递增） */
+
+  // RIR 识别特征真值（可选块，has_rir_features=false 时该目标对 RIR 只供标量
+  // RCS、无识别结论——四维特征中仅探测链可用）：标量值由组件铺均匀视角网格
+  // /散射器（仿集成测试配方），识别库模板匹配源。极化须显式给值才铺样
+  // （0 dBsm 是合法物理值，不能用零值当"未提供"判断）。
+  bool has_rir_features{false};             /**< 是否携带 RIR 特征真值 */
+  bool has_rir_polarization{false};         /**< 是否提供极化通道真值（决定铺极化样本） */
+  double rir_rcs_dbsm{0.0};                 /**< 视角 RCS 网格值（dBsm） */
+  double rir_pol_ch1_dbsm{0.0};             /**< 极化通道 1 RCS（dBsm） */
+  double rir_pol_ch2_dbsm{0.0};             /**< 极化通道 2 RCS（dBsm） */
+  std::string rir_truth_model{};            /**< 真值型号名（人读 + 识别准确率统计） */
+  std::vector<RirScattererScript> rir_scatterers{}; /**< 距离向散射中心（一维像真值） */
 };
 
 /// 平台描述（platform 块 / platforms[] 数组条目共用）：飞行器初始状态与
@@ -139,6 +158,15 @@ struct SceneData {
   double sbirs_detector_pixel_pitch_m{30.0e-6};     /**< 探测元间距（m；米→像素换算） */
   int sbirs_wide_to_narrow_required_consecutive_hits{1}; /**< 宽→窄切换连续命中门 */
 
+  // RIR 地基识别雷达站点块（可选，enabled=false 时整机不挂载——现有场景行为
+  // 不变）：站点为固定 LLA（雷达局部 ENU 原点 + 特征量测 sensor_origin）；
+  // 指定目标任务可选（锁定指定目标识别，识别完成/超时回扫）。
+  bool rir_enabled{false};                          /**< 是否挂载 RIR 地基站点组件 */
+  oneq::coordinate::LlaPositionDegM rir_site_origin{
+      30.0, 120.0, 0.0};                            /**< 站点位置（LLA；enabled 时必填语义） */
+  std::uint64_t rir_designated_target_id{0U};       /**< 指定任务目标 ID（0 = 无任务） */
+  std::uint32_t rir_designation_duration_cycles{0U}; /**< 指定任务窗口（周期；0 = 无限期） */
+
   // EOS 业务覆写（原 demo_config 内硬编码，迁入场景数据）：跨会话时间对齐
   // 与视场适配——周期校验要求 dt ≤ 10/frame_rate_hz（10 Hz 对应 1 s 步长
   // 上限）；原 JSON 为下视地面监视（视轴下俯 45°），与空中目标场景不匹配
@@ -174,6 +202,7 @@ struct SceneData {
     std::uint32_t min_sbirs_events{1U};     /**< SBIRS 关键探测事件数下限 */
     std::uint32_t min_sar_products{1U};     /**< SAR 关键产品事件数下限 */
     std::uint32_t min_fused_targets{1U};    /**< 融合目标数（峰值）下限 */
+    std::uint32_t min_rir_recognition_outputs{0U}; /**< RIR 识别结论输出周期数下限（未挂载时 0） */
   };
   SmokeExpectations smoke{};
 };

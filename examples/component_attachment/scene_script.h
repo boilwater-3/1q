@@ -17,6 +17,7 @@
 #include "1q/coordinate/types.h"
 #include "1q/electro_optical_sensor/session/EosExternalInputAdapter.h"
 #include "1q/electromagnetics/RfScene.h"
+#include "1q/remote_identification_radar/session/RirSceneTypes.h"
 #include "1q/sar/session/SarCycleInput.h"
 #include "1q/sbirs_sensor/session/SbirsSceneTypes.h"
 #include "scene_data.h"
@@ -36,6 +37,13 @@ struct TargetEcefState {
   float projected_area_m2{0.0f};      /**< 等效投影面积（EOS 外观，m²） */
   double radiant_intensity_w_per_sr{0.0}; /**< 目标辐射强度（SBIRS 外观，W/sr） */
   double emitter_center_frequency_hz{0.0}; /**< ESR 辐射源中心频率（Hz；≤0 = 不配辐射源） */
+  bool has_rir_features{false};            /**< 是否携带 RIR 识别特征真值（从脚本流转） */
+  bool has_rir_polarization{false};        /**< 是否提供极化通道真值（决定铺极化样本） */
+  double rir_rcs_dbsm{0.0};                /**< 视角 RCS 网格值（dBsm） */
+  double rir_pol_ch1_dbsm{0.0};            /**< 极化通道 1 RCS（dBsm） */
+  double rir_pol_ch2_dbsm{0.0};            /**< 极化通道 2 RCS（dBsm） */
+  std::string rir_truth_model{};           /**< 真值型号名（人读 + 识别准确率统计） */
+  std::vector<RirScattererScript> rir_scatterers{}; /**< 距离向散射中心脚本 */
   std::vector<TargetManeuver> maneuvers{}; /**< 变速机动表（从脚本拷贝，推进时按周期查表） */
 };
 
@@ -68,6 +76,14 @@ std::vector<sbirs_sensor::session::SbirsSceneTarget> MakeSbirsTargetInputs(
 /// SAR 点目标真值：同一物理目标（LLA 位置 + RCS，m² → dBsm）。
 std::vector<sar::session::SarPointTarget> MakeSarPointTargets(
     const std::vector<TargetEcefState>& states);
+
+/// RIR 场景目标真值：同一物理目标投影到站点局部 ENU（位置/速度经库内 ECEF↔ENU
+/// 变换，斜距 = |ENU|）；携带特征脚本的目标铺均匀视角 RCS 网格 + 双通道极化
+/// 样本 + 散射器（仿集成测试配方，识别库模板匹配源），无特征脚本的目标只供
+/// 标量 RCS（探测链可用、无识别结论）。
+std::vector<remote_identification_radar::session::RirSceneTarget> MakeRirSceneTargets(
+    const std::vector<TargetEcefState>& states,
+    const oneq::coordinate::LlaPositionDegM& site_origin);
 
 /// 目标 ECEF 欧拉推进（消费方世界模型）。每周期先
 /// 应用变速机动（maneuvers 中 start_cycle == cycle 的条目生效，分段匀速；

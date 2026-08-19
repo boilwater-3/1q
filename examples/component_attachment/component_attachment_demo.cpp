@@ -38,6 +38,7 @@
 #include "components/flight_component.h"
 #include "components/fusion_component.h"
 #include "components/inference_component.h"
+#include "components/rir_sensor_component.h"
 #include "components/sar_sensor_component.h"
 #include "components/sbirs_sensor_component.h"
 #include "scene_types.h"
@@ -124,6 +125,20 @@ int main(int argc, char* argv[]) {
   // 装配：共享场景状态 → World → 平台实体 + 8 组件（挂载序 = 步进序）。
   ca::DemoSceneState scene;
   ca::World world(scene);
+
+  // RIR 地基识别雷达站点（可选，场景 rir.enabled）：独立实体（固定站点，
+  // S 波段识别雷达的物理摆放——非机载），配置代码装配（MakeRirConfig，识别库
+  // 经编译定义注入）。实体按创建序步进：站点先于平台创建，其本周期特征量测
+  // 在平台融合组件 Step 时已就绪（同周期聚合，无跨周期滞后）。
+  ca::Entity* rir_site = nullptr;
+  if (scene_data.rir_enabled) {
+    rir_site = &world.CreateEntity(ca::kRirSiteEntityName);
+    rir_site->Attach(std::make_unique<ca::RirSensorComponent>(
+        remote_identification_radar::session::RirSession::Create(demo::MakeRirConfig()),
+        scene_data.rir_site_origin, scene_data.rir_designated_target_id,
+        scene_data.rir_designation_duration_cycles));
+  }
+
   ca::Entity& platform = world.CreateEntity("platform");
 
   // 平台初始状态来自场景文件：机场地面（alt 0，六自由度机动从起飞开始）→
@@ -221,6 +236,10 @@ int main(int argc, char* argv[]) {
     scene.sbirs_targets = demo::MakeSbirsTargetInputs(target_states);
     scene.sbirs_utc_julian_day = scene_data.sbirs_utc_julian_day;  // SBIRS ECI 输出参考系（UTC 儒略日）
     scene.sar_point_targets = demo::MakeSarPointTargets(target_states);
+    if (rir_site != nullptr) {
+      // RIR 场景目标：世界 ECEF → 站点局部 ENU（含识别特征真值铺样）。
+      scene.rir_targets = demo::MakeRirSceneTargets(target_states, scene_data.rir_site_origin);
+    }
     if (!target_states.empty()) {
       double centroid_x = 0.0;
       double centroid_y = 0.0;
@@ -267,6 +286,9 @@ int main(int argc, char* argv[]) {
 
   demo::FlushIntegrationLog();
   outputs.Flush();
+  // RIR 站点组件（未启用场景为 nullptr；摘要与冒烟按挂载与否条件化）。
+  const ca::RirSensorComponent* rir_sensor =
+      rir_site != nullptr ? rir_site->Find<ca::RirSensorComponent>() : nullptr;
   std::cout << "\n=== Component Attachment Summary ===\n"
             << "scene=" << scene_data.name
             << " cycles=" << num_cycles
@@ -285,7 +307,13 @@ int main(int argc, char* argv[]) {
             << " eos_views=" << demo::EosViewCount()
             << " sbirs_views=" << demo::SbirsViewCount()
             << " sar_views=" << demo::SarViewCount()
-            << " threat_views=" << demo::ThreatViewCount() << "\n"
+            << " threat_views=" << demo::ThreatViewCount()
+            << (rir_sensor != nullptr
+                    ? " rir_views=" + std::to_string(demo::RirViewCount()) +
+                          " rir_confirmed_cycles=" +
+                          std::to_string(rir_sensor->confirmed_recognition_outputs())
+                    : "")
+            << "\n"
             << "log output -> " << output_dir
             << " (integration_events.log / integration_views.log / 1q_library.log / "
                "platform_track.csv / target_truth.csv / route_plan.csv / zones.csv)\n";
@@ -306,7 +334,12 @@ int main(int argc, char* argv[]) {
             << " scan_az=" << eos->scan_azimuth_deg() << " deg\n"
             << "  sbirs powered=" << (sbirs->powered_on() ? "on" : "off")
             << " scan_az=" << sbirs->scan_azimuth_deg() << " deg\n"
-            << "  sar   powered=" << (sar->powered_on() ? "on" : "off") << "\n";
+            << "  sar   powered=" << (sar->powered_on() ? "on" : "off") << "\n"
+            << (rir_sensor != nullptr
+                    ? "  rir   powered=" + std::string(rir_sensor->powered_on() ? "on" : "off") +
+                          " confirmed_cycles=" +
+                          std::to_string(rir_sensor->confirmed_recognition_outputs()) + "\n"
+                    : "");
 
   // 冒烟断言：端到端链路必须有产出（关键事件/SBIRS/SAR/融合目标下限来自
   // 场景文件 smoke 块，无目标等零产出场景显式置 0；平台轨迹行数 = 周期数；
@@ -321,10 +354,13 @@ int main(int argc, char* argv[]) {
       demo::SbirsEventCount() < smoke.min_sbirs_events ||
       demo::SarProductEventCount() < smoke.min_sar_products ||
       max_fused_targets < smoke.min_fused_targets ||
+      (rir_sensor != nullptr &&
+       rir_sensor->confirmed_recognition_outputs() < smoke.min_rir_recognition_outputs) ||
       outputs.platform_rows() != num_cycles * aircraft_count ||
       demo::ArViewCount() < num_cycles ||
       demo::EosViewCount() < num_cycles || demo::SbirsViewCount() < num_cycles ||
       demo::SarViewCount() != num_cycles || demo::ThreatViewCount() < num_cycles ||
+      (rir_sensor != nullptr && !rir_sensor->powered_on()) ||
       !ar->powered_on() || !esr->powered_on() ||
       !eos->powered_on() || !sbirs->powered_on() || !sar->powered_on()) {
     std::cerr << "SMOKE FAILED: events=" << demo::EventCount()
@@ -333,7 +369,11 @@ int main(int argc, char* argv[]) {
               << " required), sar_products=" << demo::SarProductEventCount()
               << " (>=" << smoke.min_sar_products << " required), max_fused="
               << max_fused_targets << " (>=" << smoke.min_fused_targets
-              << " required), platform_rows="
+              << " required), rir_confirmed_cycles="
+              << (rir_sensor != nullptr
+                      ? std::to_string(rir_sensor->confirmed_recognition_outputs())
+                      : "n/a")
+              << " (>=" << smoke.min_rir_recognition_outputs << " required), platform_rows="
               << outputs.platform_rows() << " (== " << num_cycles << " × " << aircraft_count
               << " 机 required), "
               << "ar_views=" << demo::ArViewCount()

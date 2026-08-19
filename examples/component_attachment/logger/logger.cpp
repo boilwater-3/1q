@@ -35,6 +35,7 @@ std::size_t g_eos_view_count = 0U;
 std::size_t g_sbirs_view_count = 0U;
 std::size_t g_sar_view_count = 0U;
 std::size_t g_threat_view_count = 0U;
+std::size_t g_rir_view_count = 0U;
 
 #if defined(CA_EVENT_LOG_MODE_AGGREGATE)
 /// 事件类型 → 中文名（聚合行人读显示）。
@@ -55,6 +56,8 @@ const char* EventTypeName(const char* type) {
       {"platform_state", "平台状态"},
       {"command_issued", "指令下发"},
       {"exclusion_cause", "排除原因变化"},
+      {"rir_recognition", "RIR 识别确认"},
+      {"rir_designation", "RIR 指定任务"},
   };
   for (const auto& entry : kNames) {
     if (std::strcmp(entry.type, type) == 0) {
@@ -167,6 +170,8 @@ void LogViewSummary(const char* module, const std::string& text) {
     ++g_sar_view_count;
   } else if (std::strcmp(module, "threat") == 0) {
     ++g_threat_view_count;
+  } else if (std::strcmp(module, "rir") == 0) {
+    ++g_rir_view_count;
   }
   g_view_logger->info("[视图:{}] {}", module, text);  // 中文人读摘要行
 }
@@ -216,6 +221,10 @@ std::size_t SarViewCount() {
 
 std::size_t ThreatViewCount() {
   return g_threat_view_count;
+}
+
+std::size_t RirViewCount() {
+  return g_rir_view_count;
 }
 
 }  // namespace demo

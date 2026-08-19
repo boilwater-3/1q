@@ -46,6 +46,13 @@ std::vector<TargetEcefState> MakeTargetStates(
     state.projected_area_m2 = static_cast<float>(entry.projected_area_m2);
     state.radiant_intensity_w_per_sr = entry.radiant_intensity_w_per_sr;
     state.emitter_center_frequency_hz = entry.emitter_center_frequency_hz;
+    state.has_rir_features = entry.has_rir_features;
+    state.has_rir_polarization = entry.has_rir_polarization;
+    state.rir_rcs_dbsm = entry.rir_rcs_dbsm;
+    state.rir_pol_ch1_dbsm = entry.rir_pol_ch1_dbsm;
+    state.rir_pol_ch2_dbsm = entry.rir_pol_ch2_dbsm;
+    state.rir_truth_model = entry.rir_truth_model;
+    state.rir_scatterers = entry.rir_scatterers;
     state.maneuvers = entry.maneuvers;
     states.push_back(state);
   }
@@ -156,6 +163,68 @@ std::vector<sar::session::SarPointTarget> MakeSarPointTargets(
     target.altitude_m = lla.altitude_m;
     target.radar_cross_section_dbsm =
         10.0 * std::log10(std::max(1.0e-6, static_cast<double>(state.rcs)));
+    targets.push_back(target);
+  }
+  return targets;
+}
+
+std::vector<remote_identification_radar::session::RirSceneTarget> MakeRirSceneTargets(
+    const std::vector<TargetEcefState>& states,
+    const oneq::coordinate::LlaPositionDegM& site_origin) {
+  namespace rir = remote_identification_radar::session;
+  std::vector<rir::RirSceneTarget> targets;
+  targets.reserve(states.size());
+  for (const auto& state : states) {
+    oneq::coordinate::EnuPositionM enu;
+    if (!oneq::coordinate::TryEcefToEnu(state.position, site_origin, &enu)) {
+      continue;  // 坐标转换失败：该目标本周期不入 RIR 场景
+    }
+    oneq::coordinate::EnuVelocityMps enu_velocity;
+    if (!oneq::coordinate::TryEcefToEnuVelocity(state.velocity, site_origin, &enu_velocity)) {
+      enu_velocity = {};  // 速度变换失败：按静止目标供（位置几何仍有效）
+    }
+    rir::RirSceneTarget target;
+    target.external_target_id = state.id;
+    target.target_name = state.rir_truth_model;
+    target.position_x = static_cast<float>(enu.east_m);
+    target.position_y = static_cast<float>(enu.north_m);
+    target.position_z = static_cast<float>(enu.up_m);
+    target.velocity_x = static_cast<float>(enu_velocity.east_mps);
+    target.velocity_y = static_cast<float>(enu_velocity.north_mps);
+    target.velocity_z = static_cast<float>(enu_velocity.up_mps);
+    target.rcs = state.rcs;
+    target.range_m = static_cast<float>(
+        std::sqrt(enu.east_m * enu.east_m + enu.north_m * enu.north_m + enu.up_m * enu.up_m));
+    target.target_swerling_type = rir::RirSwerlingType::kSwerling0;
+    if (state.has_rir_features) {
+      // 特征真值铺样（仿集成测试配方）：视角网格方位 ±5°/步 5°、俯仰 5°~30°/步
+      // 10°，RCS 恒为脚本标量；散射器逐条透传。极化仅在场景显式给值时铺样——
+      // 缺省 0 dBsm 不是"未提供"（合法物理值），无值硬铺会把错误极化维带进
+      // 识别匹配（实测拖低综合分致长时间无法确认）。
+      for (float az = -5.0f; az <= 5.0f; az += 5.0f) {
+        for (float el = 5.0f; el <= 30.0f; el += 10.0f) {
+          rir::RirAspectRcsSample aspect;
+          aspect.aspect_az_deg = az;
+          aspect.aspect_el_deg = el;
+          aspect.rcs_dbsm = static_cast<float>(state.rir_rcs_dbsm);
+          target.aspect_rcs_samples.push_back(aspect);
+          if (state.has_rir_polarization) {
+            rir::RirPolarizationRcsSample polarization;
+            polarization.aspect_az_deg = az;
+            polarization.aspect_el_deg = el;
+            polarization.channel_1_rcs_dbsm = static_cast<float>(state.rir_pol_ch1_dbsm);
+            polarization.channel_2_rcs_dbsm = static_cast<float>(state.rir_pol_ch2_dbsm);
+            target.polarization_rcs_samples.push_back(polarization);
+          }
+        }
+      }
+      for (const auto& scatterer : state.rir_scatterers) {
+        rir::RirRangeRcsScatterer entry;
+        entry.range_offset_m = static_cast<float>(scatterer.offset_m);
+        entry.rcs_dbsm = static_cast<float>(scatterer.rcs_dbsm);
+        target.range_rcs_scatterers.push_back(entry);
+      }
+    }
     targets.push_back(target);
   }
   return targets;

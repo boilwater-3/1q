@@ -33,6 +33,7 @@ add_executable(component_attachment_demo
     components/eos_sensor_component.cpp
     components/sbirs_sensor_component.cpp
     components/sar_sensor_component.cpp
+    components/rir_sensor_component.cpp
     components/fusion_component.cpp
     components/inference_component.cpp
     components/threat_component.cpp
@@ -57,7 +58,8 @@ target_include_directories(component_attachment_demo PRIVATE
 target_compile_definitions(component_attachment_demo PRIVATE
     SCENE_CONFIG_DIR="${CMAKE_SOURCE_DIR}/examples/configs"
     CA_SCENE_DIR="${CMAKE_SOURCE_DIR}/examples/component_attachment/scenes"
-    CA_DEFAULT_OUTPUT_DIR="${CMAKE_SOURCE_DIR}/examples/component_attachment/log")
+    CA_DEFAULT_OUTPUT_DIR="${CMAKE_SOURCE_DIR}/examples/component_attachment/log"
+    CA_RIR_DATABASE_PATH="${CMAKE_SOURCE_DIR}/examples/configs/remote_identification_radar/target_feature_database_v1.1.db")
 
 # 集成端日志模式（编译期宏，见 logger/logger_modes.h）：
 # CA_VIEW_LOG_MODE —— summary（每周期摘要）| nonnominal（只落非标称行）|

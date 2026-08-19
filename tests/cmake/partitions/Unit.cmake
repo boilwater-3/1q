@@ -92,10 +92,11 @@ if(_oneq_unit_examples)
                      "${CMAKE_SOURCE_DIR}/examples/component_attachment"
         EXTRA_SOURCES ${_oneq_examples_extra}
         LINK_LIBS ${_oneq_examples_link_libs})
-    # demo_config.cpp（场景覆写应用）需要 examples/configs 路径宏，与
-    # component_attachment demo 目标同源注入。
+    # demo_config.cpp（场景覆写应用）需要 examples/configs 路径宏与 RIR 识别库
+    # 路径，与 component_attachment demo 目标同源注入。
     target_compile_definitions(${PROJECT_NAME}_examples_unit_tests PRIVATE
-        SCENE_CONFIG_DIR="${CMAKE_SOURCE_DIR}/examples/configs")
+        SCENE_CONFIG_DIR="${CMAKE_SOURCE_DIR}/examples/configs"
+        CA_RIR_DATABASE_PATH="${CMAKE_SOURCE_DIR}/examples/configs/remote_identification_radar/target_feature_database_v1.1.db")
     if(ONEQ_ENABLE_FLIGHT_DYNAMIC)
         # 飞行组件 FD 路径（与 examples/component_attachment/CMakeLists.txt 对称）：
         # 静态库不传递依赖，需显式链接 JSBSim；c172x 数据根注入。

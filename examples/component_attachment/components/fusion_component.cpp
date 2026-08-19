@@ -20,6 +20,7 @@
 #include "ar_sensor_component.h"
 #include "eos_sensor_component.h"
 #include "esr_sensor_component.h"
+#include "rir_sensor_component.h"
 #include "sbirs_sensor_component.h"
 #include "sensor_utils.h"
 
@@ -51,6 +52,14 @@ void FusionComponent::Step(World& world, double dt_sec) {
   if (const auto* sbirs = host_->Find<SbirsSensorComponent>()) {
     all_detections.insert(all_detections.end(), sbirs->detections().begin(),
                           sbirs->detections().end());
+  }
+  // RIR 地基站点组件挂载在独立实体上（实体创建序先于平台 → 站点本周期量测
+  // 已就绪）；场景未启用 RIR 时站点实体不存在，聚合行为与五源口径一致。
+  if (Entity* rir_site = world.FindEntity(kRirSiteEntityName)) {
+    if (const auto* rir = rir_site->Find<RirSensorComponent>()) {
+      all_detections.insert(all_detections.end(), rir->detections().begin(),
+                            rir->detections().end());
+    }
   }
 
   const std::uint64_t cycle = world.scene_state().cycle;

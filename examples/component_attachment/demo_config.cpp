@@ -56,6 +56,27 @@ ComponentAttachmentConfigs LoadConfigs() {
   return configs;
 }
 
+remote_identification_radar::config::RirSessionConfig MakeRirConfig() {
+#if !defined(CA_RIR_DATABASE_PATH)
+#error "CA_RIR_DATABASE_PATH 未定义（component_attachment CMakeLists 注入）"
+#endif
+  namespace rir_config = remote_identification_radar::config;
+  rir_config::RirSessionConfig config;
+  config.mission.work_mode = rir_config::RirWorkMode::kIdentify;
+  // 检测准入走 SNR 兜底门（≥6 dB 即过，免 CFAR 训练单元配置）；航迹确认 1
+  // 命中即确认——演示以识别链快速闭环为目标（正式验收按装备指标收紧）。
+  config.policy.detection.gate_mode = rir_config::RirDetectionGateMode::kSnrFallback;
+  config.policy.lifecycle.confirm_hits = 1U;
+  config.policy.recognition.enabled = true;
+  config.policy.recognition.database_path = CA_RIR_DATABASE_PATH;
+  config.policy.recognition.min_confirmed_hits = 1U;
+  config.policy.recognition.min_observation_count = 1U;
+  config.policy.recognition.acceptance_score = 0.6f;
+  config.policy.recognition.minimum_margin = 0.05f;
+  config.policy.recognition.result_hold_sec = 30.0f;
+  return config;
+}
+
 void ApplySceneOverrides(const SceneData& scene, ComponentAttachmentConfigs* configs) {
   if (configs == nullptr) {
     return;

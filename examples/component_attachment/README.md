@@ -27,13 +27,16 @@ cmake --build --preset llvm-ninja-release-local --target component_attachment_de
 - **组件基类**：`core/component.h` 定义虚接口（Name / OnAttach / OnDetach / Step），
   组件**携带逻辑**（每周期 `Step` 驱动封装的一个库会话/引擎）；
 - **模块 → 组件**：每个仿真模块对应一个 `Component` 子类（飞行 / AR / ESR / EOS /
-  SBIRS / SAR / 融合 / 威胁评估），**挂载**到实体上参与仿真；
+  SBIRS / SAR / RIR 地基站点 / 融合 / 推演 / 威胁评估），**挂载**到实体上参与仿真；
 - **事件机制**：使用 C++ 常见开源事件库 **Boost.Signals2**（零自定义分发层），
   提供跨周期通知/记录的事件通道。
 
 单平台精简场景：1 个 `platform` 实体挂载 8 个组件，400 周期 × 1 s。四传感器
 （AR / ESR / EOS / SBIRS）端到端：探测 → 融合 → 威胁评估 → 高置信威胁 → 决策指令（事件链）；
-SAR 为图像产品通道（无探测输出，不入融合，发布产品生命周期事件）。
+SAR 为图像产品通道（无探测输出，不入融合，发布产品生命周期事件）。场景 `rir`
+块 enabled 时额外创建**独立地基站点实体**（先于平台创建保证融合读同周期量测）
+挂载 RIR 识别雷达组件：识别结论/指定任务事件 + 特征量测经归属键重写进融合
+（第 5 源通道）；未启用场景行为不变。
 
 ## 目录结构
 
@@ -56,6 +59,7 @@ examples/component_attachment/
 │   ├── eos_sensor_component.h/.cpp  EosSensorComponent：光电会话
 │   ├── sbirs_sensor_component.h/.cpp SbirsSensorComponent：天基红外会话（第 4 融合通道）
 │   ├── sar_sensor_component.h/.cpp  SarSensorComponent：合成孔径雷达产品（不入融合）
+│   ├── rir_sensor_component.h/.cpp  RirSensorComponent：地基识别雷达（场景可选，第 5 融合通道）
 │   ├── fusion_component.h/.cpp      FusionComponent：多源融合引擎
 │   └── threat_component.h/.cpp      ThreatComponent：威胁评估
 ├── scenes/                          场景描述文件（每场景一子目录；详见 scenes/README.md）

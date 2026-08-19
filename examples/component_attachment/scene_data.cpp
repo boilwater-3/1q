@@ -407,6 +407,37 @@ bool LoadSceneData(const char* path, SceneData* scene, std::string* error) {
         target.maneuvers.push_back(maneuver);
       }
     }
+    // RIR 特征真值块（可选，rir 字段存在即视为携带）：标量 + 散射器脚本。
+    if (t.Has("rir")) {
+      const examples::JsonValue& rir = t["rir"];
+      if (rir.type() != examples::JsonValue::kObject) {
+        *error = "targets[" + std::to_string(i) + "].rir must be an object";
+        return false;
+      }
+      target.has_rir_features = true;
+      target.rir_rcs_dbsm = ReadDouble(rir, "rcs_dbsm", 0.0);
+      // 极化通道显式给值才铺样（0 dBsm 合法，不能按零值判缺省）。
+      target.has_rir_polarization = rir.Has("pol_ch1_dbsm") || rir.Has("pol_ch2_dbsm");
+      target.rir_pol_ch1_dbsm = ReadDouble(rir, "pol_ch1_dbsm", 0.0);
+      target.rir_pol_ch2_dbsm = ReadDouble(rir, "pol_ch2_dbsm", 0.0);
+      if (rir["truth_model"].IsString()) {
+        target.rir_truth_model = rir["truth_model"].AsString();
+      }
+      const examples::JsonValue& scatterers = rir["scatterers"];
+      if (!scatterers.IsNull()) {
+        if (scatterers.type() != examples::JsonValue::kArray) {
+          *error = "targets[" + std::to_string(i) + "].rir.scatterers must be an array";
+          return false;
+        }
+        for (std::size_t s = 0U; s < scatterers.Size(); ++s) {
+          const examples::JsonValue& sc = scatterers[s];
+          RirScattererScript scatterer;
+          scatterer.offset_m = ReadDouble(sc, "offset_m", 0.0);
+          scatterer.rcs_dbsm = ReadDouble(sc, "rcs_dbsm", 0.0);
+          target.rir_scatterers.push_back(scatterer);
+        }
+      }
+    }
     out.targets.push_back(target);
   }
 
@@ -508,6 +539,25 @@ bool LoadSceneData(const char* path, SceneData* scene, std::string* error) {
   out.high_threat_confidence =
       ReadDouble(root, "high_threat_confidence", out.high_threat_confidence);
 
+  // RIR 地基站点块（可选，enabled=true 时挂载识别雷达组件；站点 LLA 为雷达
+  // 局部 ENU 原点，指定目标任务可选——识别完成或窗口超时自动回扫）。
+  const examples::JsonValue& rir = root["rir"];
+  if (!rir.IsNull() && rir.type() == examples::JsonValue::kObject) {
+    out.rir_enabled = rir.Has("enabled") ? rir["enabled"].AsBool() : false;
+    const examples::JsonValue& site = rir["site"];
+    if (!site.IsNull() && site.type() == examples::JsonValue::kObject) {
+      out.rir_site_origin.latitude_deg = ReadDouble(site, "lat_deg", out.rir_site_origin.latitude_deg);
+      out.rir_site_origin.longitude_deg =
+          ReadDouble(site, "lon_deg", out.rir_site_origin.longitude_deg);
+      out.rir_site_origin.altitude_m = ReadDouble(site, "alt_m", out.rir_site_origin.altitude_m);
+    }
+    out.rir_designated_target_id = static_cast<std::uint64_t>(
+        ReadInt(rir, "designated_target_id", static_cast<std::int64_t>(out.rir_designated_target_id)));
+    out.rir_designation_duration_cycles = static_cast<std::uint32_t>(
+        ReadInt(rir, "designation_duration_cycles",
+                static_cast<std::int64_t>(out.rir_designation_duration_cycles)));
+  }
+
   // 威胁评估块（可选，缺省 = ThreatEvaluatorConfig 默认值）。
   const examples::JsonValue& threat = root["threat"];
   if (!threat.IsNull() && threat.type() == examples::JsonValue::kObject) {
@@ -557,6 +607,8 @@ bool LoadSceneData(const char* path, SceneData* scene, std::string* error) {
         ReadInt(smoke, "min_sar_products", out.smoke.min_sar_products));
     out.smoke.min_fused_targets = static_cast<std::uint32_t>(
         ReadInt(smoke, "min_fused_targets", out.smoke.min_fused_targets));
+    out.smoke.min_rir_recognition_outputs = static_cast<std::uint32_t>(
+        ReadInt(smoke, "min_rir_recognition_outputs", out.smoke.min_rir_recognition_outputs));
   }
 
   *scene = std::move(out);

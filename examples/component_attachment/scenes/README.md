@@ -164,14 +164,15 @@ lon 120.0~120.02（约 1.93 km 东西），扫描航向 0（线沿东西）、�
 | `platforms[]` | 否 | 从机数组（多机编队，纯飞行不挂传感器）：每条目同 `platform` 块字段 + `name`（缺省 `wingman_<N>`）；巡航参数缺省回退主平台值 |
 | `coverage`（platform/platforms[] 条目内） | 否 | 区域巡逻任务：`kind`（polygon/circle）、`mode`（scan/orbit，须与 kind 匹配）、polygon `vertices[]`（lat/lon 必填）或 circle `center` + `radius_m`、`scan_heading_deg`（0 = 扫描线沿正东）、`scan_spacing_m`（须 > 0）、`altitude_m`/`speed_mps`（缺省回退巡航参数）、`arrival_radius_m`（500）、`orbit_segments`（8）/`orbit_rings`（1）。加载时经 `navigation::AreaCoveragePlanner` 生成巡逻航路（填入该平台的 `waypoints`），**循环巡逻**（航路飞完回绕首航点）；规划失败（顶点 < 3/间距非正/模式-区域不匹配等）报错退出 |
 | `mission_area`（顶层） | 否 | 编队区域切分任务（**与各平台 `waypoints`/`coverage` 互斥**；需 `platforms[]` ≥ 1）：字段同 `coverage` 块。加载时经 example 层 `area_division` 自动切分为每机子区域（多边形 = 沿扫描航向等宽条带；圆形 = 同心环，外 → 内算术均匀，`orbit_rings` 强制 1），再逐机经 `AreaCoveragePlanner` 生成巡逻航路并循环巡逻；切分失败（退化多边形/空条带/无从机）报错退出 |
-| `targets[]` | **是**（可为空 = 无目标场景） | `id`/`azimuth_deg`/`range_m`/`altitude_m`/`rcs_m2`（**必填**）、`type`（`air`/`ground`，缺省 air；ground = 地面目标，静止近地运动学点，可视化以不同线型标注）、`v_east_mps`/`v_north_mps`（0）、`temperature_k`（0，EOS 外观）、`projected_area_m2`（0，EOS 外观）、`radiant_intensity_w_per_sr`（0，SBIRS 外观，W/sr——已折算温度/发射率/投影面积）、`emitter_center_frequency_hz`（0 = 不配辐射源）、`maneuvers[]`（可选变速机动表：`start_cycle` 必填且严格递增，`v_east_mps`/`v_north_mps` 缺省 0——**绝对速度分段匀速**，未指定分量 = 0，须写全） |
+| `targets[]` | **是**（可为空 = 无目标场景） | `id`/`azimuth_deg`/`range_m`/`altitude_m`/`rcs_m2`（**必填**）、`type`（`air`/`ground`，缺省 air；ground = 地面目标，静止近地运动学点，可视化以不同线型标注）、`v_east_mps`/`v_north_mps`（0）、`temperature_k`（0，EOS 外观）、`projected_area_m2`（0，EOS 外观）、`radiant_intensity_w_per_sr`（0，SBIRS 外观，W/sr——已折算温度/发射率/投影面积）、`emitter_center_frequency_hz`（0 = 不配辐射源）、`maneuvers[]`（可选变速机动表：`start_cycle` 必填且严格递增，`v_east_mps`/`v_north_mps` 缺省 0——**绝对速度分段匀速**，未指定分量 = 0，须写全）、`rir`（可选识别特征真值块：`rcs_dbsm` 视角网格值 / `pol_ch1_dbsm`+`pol_ch2_dbsm` 极化双通道（**显式给值才铺极化样本**，0 dBsm 是合法值不能当缺省）/ `truth_model` 真值型号名 / `scatterers[{offset_m,rcs_dbsm}]` 距离向散射中心） |
 | `esr` | 否 | 辐射源波形：`peak_gain_dbi`（30）、`bandwidth_hz`（2e6）、`peak_power_w`（5e7）、`pulse_width_s`（1e-6）、`pri_s`（1e-3）、`pulse_count`（200）、`timing_seed`（42） |
 | `sbirs_satellite` | 否 | `altitude_m`（500000，凝视目标群质心正上方）、`utc_julian_day`（2460310.5 = 2024-01-01 00:00 UTC；SBIRS ECI 输出参考系必需，GMST 平移 az 不影响全向覆盖）、验收量覆写 `focal_length_m`（2.0）/`detector_pixel_pitch_m`（3.0e-5，焦平面脱靶量映射，仅 `[SbirsAccept]` 日志消费）/`wide_to_narrow_required_consecutive_hits`（1，宽→窄切换连续命中门） |
 | `eos_scan` | 否 | EOS 业务覆写：`frame_rate_hz`（10）、`scan_rate_deg_per_sec`（20）、`scan_start_az_deg`（50）、`scan_end_az_deg`（130）、`scan_center_el_deg`（0）、`boresight_depression_deg`（0） |
 | `sar` | 否 | SAR 任务几何/链路覆写：`peak_power_w`（1e6）、`antenna_gain_db`（40）、`max_squint_deg`（10）、`scene_center_latitude_deg`（30.117…）、`scene_center_longitude_deg`（120.06）、`scene_center_altitude_m`（400）、`slant_range_m`（13000）、`platform_speed_mps`（50） |
 | `fusion` | 否 | `position_radius_m`（1000）、`bearing_beamwidth_deg`（5）、`feature_threshold`（0）、`window_size`（10）、`max_missed_cycles`（5）、`source_weights[]`（空 = 全 1.0） |
 | `high_threat_confidence` | 否 | 决策门限（3.0） |
-| `smoke` | 否 | 冒烟下限：`min_key_events`/`min_sbirs_events`/`min_sar_products`/`min_fused_targets`（全 1；零产出场景显式置 0） |
+| `rir` | 否 | RIR 地基识别雷达站点块：`enabled`（false）、`site{lat_deg,lon_deg,alt_m}`（站点 LLA = 雷达局部 ENU 原点，缺省 30/120/0）、`designated_target_id`（0 = 无指定任务）、`designation_duration_cycles`（0 = 无限期窗口）；enabled 时整机挂载独立地基实体（先于平台创建），识别库经编译定义注入 |
+| `smoke` | 否 | 冒烟下限：`min_key_events`/`min_sbirs_events`/`min_sar_products`/`min_fused_targets`（全 1；零产出场景显式置 0）、`min_rir_recognition_outputs`（0；RIR 确认态周期数下限） |
 
 原 demo_config 内硬编码的 EOS/SAR 业务覆写已迁入场景数据（`eos_scan`/`sar` 块，
 经 `ApplySceneOverrides` 应用）；`kCruiseAltitudeM`/`kCruiseSpeedMps`/
@@ -189,6 +190,7 @@ lon 120.0~120.02（约 1.93 km 东西），扫描航向 0（线沿东西）、�
 | `target_maneuver_evasion` | 目标大机动：跟踪保持（AR 失跟需探测断链） | 通过（1 项预期修正） |
 | `sbirs_altitude_snr_1000km` | SBIRS 高度专项：链路 1/R² 标度 + 门限边界 | 通过（1 项预期修正） |
 | `sbirs_wfov_nfov_handover` | SBIRS 宽窄交接专项：连续命中门（2）→ NFOV 捕获跟踪 + `[SbirsAccept]` 验收事件流消费示范（七类事件全出现） | 通过 |
+| `rir_ground_site_recognition` | RIR 地基站点专项：四维特征识别链（RCS+运动真值）+ 指定任务状态机 + 特征量测进五源融合 | 通过 |
 | `patrol_area_scan` | 区域巡逻专项：coverage 块规划航路 + 循环巡逻（巡逻中四通道探测保持） | 通过 |
 | `fleet_patrol_multi_zone` | 多机区域巡逻专项：3 机各自区域任务（platforms[]）+ 区域内空中/地面目标 + 契约 v2 多机可视化 | 通过（运动学冒烟 + **FD 600 周期复核**：三机 jsbsim、循环重启 5 次、SAR 起飞段 1 产品） |
 | `fleet_area_division` | 编队切分专项（多边形）：顶层单个 `mission_area` 自动切 3 条等宽条带 + 逐机自动航路 + **同机场起飞**分工覆盖 | 通过（**FD 600 周期**：条带边界 29.990/29.999/30.008/30.017 无缝、扫描线纬度与手算逐点吻合、循环重启 9 次） |

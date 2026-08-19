@@ -18,6 +18,7 @@
 #include "1q/airborne_radar/config/ArSessionConfig.h"
 #include "1q/electro_optical_sensor/config/EosSessionConfig.h"
 #include "1q/electronic_surveillance_radar/config/EsrSessionConfig.h"
+#include "1q/remote_identification_radar/config/RirSessionConfig.h"
 #include "1q/sar/config/SarSessionConfig.h"
 #include "1q/sbirs_sensor/config/SbirsSessionConfig.h"
 #include "scene_data.h"
@@ -49,6 +50,12 @@ void PrintUsage(const char* program);
 
 /// 加载五份会话配置（复用各域 config_loader 与 examples/configs/ 同源 JSON）。
 ComponentAttachmentConfigs LoadConfigs();
+
+/// RIR 会话配置（代码装配，不建 JSON 装载器——示例配置面小）：识别模式 +
+/// SNR 兜底检测门 + 识别链宽松阈值（仿集成测试口径，演示场景快速闭环）；
+/// 识别库路径经编译定义 CA_RIR_DATABASE_PATH 注入
+/// （examples/configs/remote_identification_radar/target_feature_database_v1.1.db）。
+remote_identification_radar::config::RirSessionConfig MakeRirConfig();
 
 /// 场景业务调参覆写（EOS 扫描/帧率 + SAR 任务几何/链路）：在 LoadConfigs()
 /// 之后应用，数据源为场景文件（scene_data.h），替代原 demo_config 内硬编码

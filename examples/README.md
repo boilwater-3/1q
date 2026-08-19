@@ -53,7 +53,8 @@ examples/
 
 - **场景数据驱动**：`scenes/<name>/<name>.json` 声明飞行脚本、目标脚本、传感器业务覆写
   与冒烟下限（含多机区域巡逻 `fleet_patrol_multi_zone`），新场景只加子目录
-  不改代码；场景预期表归档为同名 `.md`；
+  不改代码；场景预期表归档为同名 `.md`；`rir` 块 enabled 时额外挂载独立地基
+  识别雷达实体（识别链 + 指定任务 + 第 5 融合源，未启用场景行为不变）；
 - **集成端日志示范**：库日志（`1q_library.log`）+ 集成端事件/视图日志
   （`integration_events.log` / `integration_views.log`，中文人读行），落盘
   密度由 `logger/logger_modes.h` 三模式宏门控；
