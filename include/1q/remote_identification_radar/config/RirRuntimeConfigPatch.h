@@ -9,6 +9,7 @@
 #define ONEQ_REMOTE_IDENTIFICATION_RADAR_CONFIG_RIR_RUNTIME_CONFIG_PATCH_H_
 
 #include "1q/api.hpp"
+#include "1q/remote_identification_radar/config/RirEnvironmentConfig.h"
 #include "1q/remote_identification_radar/config/RirMissionConfig.h"
 #include "1q/remote_identification_radar/config/RirPolicyConfig.h"
 
@@ -23,7 +24,8 @@ namespace config {
  * 提交前统一生效。
  *
  * 支持两类运行期更新：
- * 1) 整域覆盖：`mission`、`policy`（识别策略整域，无叶子级 recognition patch 字段）；
+ * 1) 整域覆盖：`mission`、`policy`、`environment`（识别策略整域，无叶子级 recognition
+ *    patch 字段）；
  * 2) 叶子覆盖：工作模式、传感器开关。
  * 整域与叶子同时出现时，先应用整域再应用叶子，叶子具有最终优先级。
  * 电源状态仅由叶子 `has_sensor_enabled` 控制（COMMON-OQ-4 收敛）：
@@ -38,6 +40,9 @@ struct ONEQ_API RirRuntimeConfigPatch {
 
   bool has_policy{false};
   RirPolicyConfig policy{};
+
+  bool has_environment{false};
+  RirEnvironmentConfig environment{};
 
   bool has_sensor_enabled{false};
   bool sensor_enabled{true};

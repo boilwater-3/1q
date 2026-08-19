@@ -18,8 +18,9 @@ RIR 是与机载雷达（AR）**相互独立的另一部雷达装备**，不是 
 - **独立硬件**：自带 hardware 域（`RirHardwareConfig`：发射机/天线/接收机），
   效能级 SNR 由模块内 `RirRadarEquations` 自算，不引用 AR 内部实现。
 - **独立输入面（阶段 2-S 已落地）**：与 AR 无任何模块间接口。输入为场景目标
-  （含速度/名称/Swerling 起伏/识别特征真值）+ RF 入射链路 + 环境快照；内部
-  航迹由 RIR 自持检测与轻量跟踪生产。`RirTrackFeed` 公开供给已删除。
+  （含速度/名称/Swerling 起伏/识别特征真值）+ 必填平台 ECEF + RF 入射链路；
+  环境事实经 `RirSessionConfig.environment` / 运行期补丁注入，禁止周期输入；
+  内部航迹由 RIR 自持检测与轻量跟踪生产。`RirTrackFeed` 公开供给已删除。
 - **驻留指向（阶段 2-S）**：RIR 自管的是“驻留候选排序”（消费内部航迹，
   语义为“未识别优先 + 斜距次近”；威胁等级输入随独立性消失）。每周期实际波束
   中心由调用方驻留调度显式给定，RIR 只消费并信任给定值（见下方驻留指向契约）。
@@ -77,9 +78,10 @@ RIR 遵守 `docs/common/contract.md` 与 `docs/common/session_contract.md`：
 
 ## ENU 帧约定
 
-- 识别高度观测 = 平台海拔 + 内部航迹 `position_z`；`position_z` 为雷达局部
-  ENU 切平面上向分量，由场景目标位置经自持滤波后回写。
-- 场景目标 `position_x/y/z` 同帧；`range_m` 为斜距（>0 或带非零位置）。
+- 识别高度观测 = 平台绝对海拔 + 内部航迹 `position_z`；绝对海拔由必填平台 ECEF
+  经 `TryEcefToLla` 库内派生；`position_z` 为雷达局部 ENU 切平面上向分量。
+- 场景目标 `position_x/y/z` 同帧（公共 API 为 ENU；集成层用户侧以 ECEF 描述目标，
+  适配层在边界完成 ECEF→ENU 转换）；`range_m` 为斜距（>0 或带非零位置）。
 - 视角样本网格（`aspect_az_deg`/`aspect_el_deg`）为雷达局部视线角；RCS 插值为
   最近邻（不强制覆盖），覆盖下限属数据库 profile 级适用条件，由匹配阶段判定。
 
@@ -102,21 +104,24 @@ RIR 遵守 `docs/common/contract.md` 与 `docs/common/session_contract.md`：
    不虚构。全维无效记录不产生。
 4. **方位角参考系**：出口① `look_az_deg` 自 +x（东）起量（雷达局部 ENU），与
    fusion 自北约定不同——east→north 换算归 fusion 适配器，库内不做跨系转换。
-5. **平台位置输入**（`has_platform_position` + `RirEcefPositionM`，ECEF 米制）：
-   可选，fail-closed——has=true 时分量须有限且模长 > 0（地心非法，否则
-   `rir.validation.invalid_platform_position` 整周期拒绝）；has=false 时分量须为
-   默认值（存在性一致性，`rir.validation.inconsistent_platform_position`）。
+5. **平台位置输入**（`oneq::coordinate::EcefPositionM`，ECEF 米制，**必填**）：
+   fail-closed——分量须有限且模长 > 0（地心非法，否则
+   `rir.validation.invalid_platform_position` 整周期拒绝），且须可转换为合法 LLA。
    语义为场景 radar-local ENU 的绝对锚点（不改变场景目标 ENU 语义），透传到
-   出口①记录（`has_platform_position`/`platform_position`），fusion 适配器换算
-   LLA 填 sensor_origin。replay 输入侧零 schema 变更（RIR replay 无输入表）。
-6. **归属视图（`RirCycleResult.track_attributions`，结果层）**：库内键 ↔ 场景
+   出口①记录（成功执行周期 `has_platform_position=true`），fusion 适配器换算
+   LLA 填 sensor_origin。`batch_id` 由 `RirSession` 内部自增分配（成功执行周期
+   后递增），输出帧/特征量测/replay 仍暴露批号供 fusion 溯源。
+6. **环境事实**（`RirEnvironmentConfig`）：会话初始化 + `RirRuntimeConfigPatch.has_environment`
+   整域覆盖；**禁止**经 `RirCycleInput` 周期携带。`enable_environment_effects=false`
+   （默认）时传播/杂波退化到阶段 1 旧 SNR 口径。
+7. **归属视图（`RirCycleResult.track_attributions`，结果层）**：库内键 ↔ 场景
    真值目标对照（`external_target_id`/`target_name`）+ 最小航迹诊断
    （hit_count/滤波 ENU 位置/速度）；覆盖本周期全部航迹快照
    （tentative/confirmed/lost，与出口②同循环）；**不进 `RirOutputFrame` 产品层**
    （三层纪律，与 SBIRS detection_attributions 同层同纪律）；非执行周期（校验
    拒绝/关机/中止）返回空列表且不推进状态。归属为航迹级（RIR 产品粒度即航迹级，
    不做逐检测级归属）。
-7. **replay 加性扩展**：输出帧加特征量测向量、结果表加归属向量（V2 表加可选
+8. **replay 加性扩展**：输出帧加特征量测向量、结果表加归属向量（V2 表加可选
    字段，`RIR2` 标识不变；旧记录缺新字段解码为空）。
 
 ## 驻留指向跨模块契约（库内驻留调度器：扫描策略 + 指定识别任务）

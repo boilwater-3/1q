@@ -7,8 +7,11 @@
 
 #include <limits>
 
+#include "1q/remote_identification_radar/config/RirSessionConfig.h"
+#include "1q/remote_identification_radar/config/RirSessionConfigValidation.h"
 #include "1q/remote_identification_radar/session/RirInputValidation.h"
 #include "1q/remote_identification_radar/session/RirIssueCodes.h"
+#include "RirCycleInputTestUtil.h"
 
 namespace remote_identification_radar {
 namespace tests {
@@ -23,7 +26,7 @@ RirCycleInput MakeValidInput() {
   input.input_cycle_index = 1U;
   input.dt_sec = 0.5;
   input.sim_time_sec = 0.0f;
-  input.platform_altitude_m = 1000.0f;
+  SetDefaultTestPlatformEcef(&input);
   RirSceneTarget target;
   target.external_target_id = 7U;
   target.position_x = 5000.0f;
@@ -55,13 +58,13 @@ TEST(RirSelfContainedValidationTest, SceneTargetMotionAndSwerlingFieldsAreValida
 }
 
 TEST(RirSelfContainedValidationTest, EnvironmentAndRfInputsAreValidated) {
-  RirCycleInput input = MakeValidInput();
-  input.environment_snapshot.has_environment_data = true;
-  input.environment_snapshot.weather_attenuation_db = -1.0f;
-  const auto env_issues = ValidateRirCycleInput(input);
+  config::RirSessionConfig session_config;
+  session_config.environment.enable_environment_effects = true;
+  session_config.environment.weather_attenuation_db = -1.0f;
+  const auto env_issues = config::ValidateRirSessionConfig(session_config);
   EXPECT_TRUE(HasCode(env_issues, session::codes::kInvalidEnvironmentSnapshot));
 
-  input = MakeValidInput();
+  RirCycleInput input = MakeValidInput();
   oneq::electromagnetics::RfIncidentLinkResult link;
   link.identity.platform_id = 4U;
   link.identity.equipment_id = 5U;

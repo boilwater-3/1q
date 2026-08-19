@@ -20,6 +20,7 @@
 #include "1q/remote_identification_radar/session/RirCycleResult.h"
 #include "1q/remote_identification_radar/session/RirRecognitionResult.h"
 #include "1q/remote_identification_radar/session/RirSession.h"
+#include "RirCycleInputTestUtil.h"
 #include "RirSqliteTestUtil.h"
 #include "remote_identification_radar/runtime/RirController.h"
 
@@ -121,10 +122,9 @@ RirSceneTarget MakeFeaturedTarget() {
 RirCycleInput MakeInput(std::uint32_t cycle, const RirSceneTarget& target) {
   RirCycleInput input;
   input.input_cycle_index = cycle;
-  input.batch_id = 9U;
   input.dt_sec = 0.5;
   input.sim_time_sec = static_cast<float>(cycle - 1U) * 0.5f;
-  input.platform_altitude_m = 1000.0f;
+  SetDefaultTestPlatformEcef(&input);
   input.scene_targets.push_back(target);
   return input;
 }
@@ -147,7 +147,7 @@ TEST(RirFeatureMeasurementTest, RecordCarriesObservationGeometryAndContext) {
   controller.UpdateRuntime(MakeIdentifyMission(), policy);
 
   session::RirOutputFrame frame;
-  controller.RunCycle(MakeInput(1U, MakeFeaturedTarget()), &frame);
+  controller.RunCycle(MakeInput(1U, MakeFeaturedTarget()), &frame, 9U);
 
   ASSERT_EQ(frame.feature_measurements.size(), 1U);
   // 出口②同周期同键（双产品同源）。
@@ -190,8 +190,8 @@ TEST(RirFeatureMeasurementTest, RecordCarriesObservationGeometryAndContext) {
   EXPECT_EQ(record.batch_id, 9U);
 }
 
-/// @brief 平台位置双路径：携带时逐分量透出，缺省时 has=false 且为默认值。
-TEST(RirFeatureMeasurementTest, PlatformPositionPassthroughAndDefault) {
+/// @brief 平台 ECEF 位置在执行周期恒透出（has_platform_position=true）。
+TEST(RirFeatureMeasurementTest, PlatformPositionAlwaysPresent) {
   const std::string database_path = WriteFeatureDatabase();
   ASSERT_FALSE(database_path.empty());
 
@@ -203,28 +203,24 @@ TEST(RirFeatureMeasurementTest, PlatformPositionPassthroughAndDefault) {
   controller.UpdateRuntime(MakeIdentifyMission(), policy);
 
   RirCycleInput with_position = MakeInput(1U, MakeFeaturedTarget());
-  with_position.has_platform_position = true;
   with_position.platform_position.x_m = 6378137.0;
   with_position.platform_position.y_m = 100.0;
   with_position.platform_position.z_m = -200.0;
   session::RirOutputFrame first;
-  controller.RunCycle(with_position, &first);
+  controller.RunCycle(with_position, &first, 9U);
   ASSERT_EQ(first.feature_measurements.size(), 1U);
   EXPECT_TRUE(first.feature_measurements[0].has_platform_position);
   EXPECT_DOUBLE_EQ(first.feature_measurements[0].platform_position.x_m, 6378137.0);
   EXPECT_DOUBLE_EQ(first.feature_measurements[0].platform_position.y_m, 100.0);
   EXPECT_DOUBLE_EQ(first.feature_measurements[0].platform_position.z_m, -200.0);
 
-  // 换目标 ID 保证第二周期新建航迹；不携带平台位置 → 记录为默认缺省。
   RirSceneTarget second_target = MakeFeaturedTarget();
   second_target.external_target_id = 8U;
   session::RirOutputFrame second;
-  controller.RunCycle(MakeInput(2U, second_target), &second);
+  controller.RunCycle(MakeInput(2U, second_target), &second, 10U);
   ASSERT_EQ(second.feature_measurements.size(), 1U);
-  EXPECT_FALSE(second.feature_measurements[0].has_platform_position);
-  EXPECT_DOUBLE_EQ(second.feature_measurements[0].platform_position.x_m, 0.0);
-  EXPECT_DOUBLE_EQ(second.feature_measurements[0].platform_position.y_m, 0.0);
-  EXPECT_DOUBLE_EQ(second.feature_measurements[0].platform_position.z_m, 0.0);
+  EXPECT_TRUE(second.feature_measurements[0].has_platform_position);
+  EXPECT_NE(second.feature_measurements[0].platform_position.x_m, 0.0);
 }
 
 /// @brief 全维无效目标不产生记录（tentative 航迹 + 无真值特征样本）。
@@ -243,7 +239,7 @@ TEST(RirFeatureMeasurementTest, FeaturelessTargetProducesNoRecord) {
   target.range_m = 5385.1648f;
 
   session::RirOutputFrame frame;
-  controller.RunCycle(MakeInput(1U, target), &frame);
+  controller.RunCycle(MakeInput(1U, target), &frame, 1U);
 
   // 无特征库 → 识别链未构建观测，特征帧为空（透出原则）。
   EXPECT_TRUE(frame.feature_measurements.empty());
@@ -297,7 +293,7 @@ TEST(RirFeatureMeasurementTest, ShortDwellObservationStillEmitted) {
   target.rcs = 100.0f;
 
   session::RirOutputFrame frame;
-  controller.RunCycle(MakeInput(1U, target), &frame);
+  controller.RunCycle(MakeInput(1U, target), &frame, 1U);
 
   // 航迹与出口②照常；特征量测不受积累质量门影响，照常出口。
   ASSERT_EQ(frame.recognition_outputs.size(), 1U);
@@ -329,7 +325,7 @@ TEST(RirFeatureMeasurementTest, RangeGatedTargetProducesNoFeatureRecord) {
   controller.UpdateRuntime(mission, policy);
 
   session::RirOutputFrame frame;
-  controller.RunCycle(MakeInput(1U, MakeFeaturedTarget()), &frame);
+  controller.RunCycle(MakeInput(1U, MakeFeaturedTarget()), &frame, 9U);
 
   ASSERT_EQ(frame.recognition_outputs.size(), 1U);
   EXPECT_EQ(controller.LatestTrackAttributions().size(), 1U);

@@ -43,17 +43,22 @@ class RirController {
   void UpdateRuntime(const config::RirMissionConfig& mission,
                      const config::RirPolicyConfig& policy);
 
+  /** @brief 更新环境域配置（会话初始化或运行期补丁提交后调用）。 */
+  void UpdateEnvironment(const config::RirEnvironmentConfig& environment);
+
   /** @brief 设置静态硬件上下文并重建检测器。 */
   void SetHardware(const config::RirHardwareConfig& hardware);
 
   /**
    * @brief 执行一个自持识别周期。
-   * @param[in] input 周期输入（场景目标 + RF 链路 + 环境快照）。
+   * @param[in] input 周期输入（场景目标 + RF 链路）。
    * @param[out] output_frame 识别输出帧（逐内部航迹结论回填）。
+   * @param[in] batch_id 本周期会话内部批号（由 RirSession 分配）。
    * @param[in] dwell_center_deg 本周期驻留波束中心（库内驻留调度器给定：
    *            扫描波位或指定识别目标指向；雷达局部 ENU 系，deg）。
    */
   void RunCycle(const session::RirCycleInput& input, session::RirOutputFrame* output_frame,
+                std::uint64_t batch_id,
                 const config::RirAzimuthElevationDeg& dwell_center_deg =
                     config::RirAzimuthElevationDeg());
 
@@ -90,9 +95,8 @@ class RirController {
   /** @brief 检测器配置装配。 */
   dwell::RirDetectorConfig MakeDetectorConfig() const;
 
-  /** @brief 环境事实解析：无环境输入时退化到阶段 1 旧口径。 */
-  void ResolveEnvironment(const session::RirCycleInput& input, float* propagation_loss_db,
-                          float* clutter_power_w) const;
+  /** @brief 环境事实解析：未启用环境效应时退化到阶段 1 旧口径。 */
+  void ResolveEnvironment(float* propagation_loss_db, float* clutter_power_w) const;
 
   /** @brief 单个目标检测与量测构造；未通过门控返回空 optional 语义（out=false）。 */
   bool TryBuildMeasurement(const session::RirSceneTarget& target, std::size_t source_index,
@@ -121,6 +125,7 @@ class RirController {
   config::RirHardwareConfig hardware_{};
   config::RirMissionConfig mission_{};
   config::RirPolicyConfig policy_{};
+  config::RirEnvironmentConfig environment_{};
   config::RirWorkMode work_mode_{config::RirWorkMode::kStby};
   bool recognition_mode_active_{false};
   float sim_time_sec_{0.0f};

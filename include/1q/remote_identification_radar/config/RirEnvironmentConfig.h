@@ -47,8 +47,13 @@ struct ONEQ_API RirVegetationScatterPhysicsConfig {
 
 /**
  * @brief RirEnvironmentConfig 远程识别雷达环境域配置（场景事实输入）。
+ *
+ * 环境事实在会话初始化（`RirSessionConfig.environment`）注入；运行期变更经
+ * `RirRuntimeConfigPatch.has_environment` 整域覆盖。禁止经周期输入携带。
  */
 struct ONEQ_API RirEnvironmentConfig {
+  bool enable_environment_effects{false}; /**< 是否启用环境传播/杂波效应（默认关闭）。 */
+  float weather_attenuation_db{0.0f};     /**< 天气附加双程传播损耗（dB），须有限且 ≥0。 */
   RirVegetationScatterPhysicsConfig vegetation_scatter_physics{}; /**< 场景植被散射输入 */
 };
 

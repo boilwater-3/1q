@@ -9,6 +9,7 @@
 #include <cstdint>
 
 #include "1q/remote_identification_radar/session/RirCycleInput.h"
+#include "RirCycleInputTestUtil.h"
 #include "remote_identification_radar/runtime/RirController.h"
 
 namespace remote_identification_radar {
@@ -39,10 +40,9 @@ RirController MakeFallbackController() {
 RirCycleInput MakeInput(std::uint32_t cycle, float range_m, float rcs_m2) {
   RirCycleInput input;
   input.input_cycle_index = cycle;
-  input.batch_id = 1U;
   input.dt_sec = 0.5;
   input.sim_time_sec = static_cast<float>(cycle - 1U) * 0.5f;
-  input.platform_altitude_m = 1000.0f;
+  SetDefaultTestPlatformEcef(&input);
   RirSceneTarget target;
   target.external_target_id = 7U;
   target.target_name = "target-a";
@@ -60,7 +60,7 @@ TEST(RirSelfContainedPipelineTest, SnrFallbackBuildsInternalTrackAndDwellSummary
   RirController controller = MakeFallbackController();
 
   RirOutputFrame first;
-  controller.RunCycle(MakeInput(1U, 5000.0f, 5.0f), &first);
+  controller.RunCycle(MakeInput(1U, 5000.0f, 5.0f), &first, 1U);
   EXPECT_EQ(first.recognition_outputs.size(), 1U);
   EXPECT_EQ(first.recognition_outputs[0].association_key, 1U);
   EXPECT_TRUE(controller.HasLatestSummary());
@@ -69,7 +69,7 @@ TEST(RirSelfContainedPipelineTest, SnrFallbackBuildsInternalTrackAndDwellSummary
   EXPECT_FLOAT_EQ(controller.GetLatestSummary().dwell_budget.dwell_consumed_sec, 0.05f);
 
   RirOutputFrame second;
-  controller.RunCycle(MakeInput(2U, 5100.0f, 5.0f), &second);
+  controller.RunCycle(MakeInput(2U, 5100.0f, 5.0f), &second, 2U);
   // 关联键保持稳定（自持身份），不会因外部供给重分配而新建。
   ASSERT_EQ(second.recognition_outputs.size(), 1U);
   EXPECT_EQ(second.recognition_outputs[0].association_key, 1U);
@@ -87,7 +87,7 @@ TEST(RirSelfContainedPipelineTest, DetectorGateRejectsUndetectableTarget) {
   controller.UpdateRuntime(MakeMission(config::RirWorkMode::kIdentify), policy);
 
   RirOutputFrame frame;
-  controller.RunCycle(MakeInput(1U, 300000.0f, 0.1f), &frame);
+  controller.RunCycle(MakeInput(1U, 300000.0f, 0.1f), &frame, 1U);
   EXPECT_TRUE(frame.recognition_outputs.empty());
   EXPECT_EQ(controller.GetLatestSummary().dwell_budget.scheduled_dwell_count, 1U);
   EXPECT_EQ(controller.GetLatestSummary().dwell_budget.executed_dwell_count, 0U);
@@ -98,7 +98,7 @@ TEST(RirSelfContainedPipelineTest, DetectorGateRejectsUndetectableTarget) {
 TEST(RirSelfContainedPipelineTest, StandbyDoesNotAdvanceSelfContainedChain) {
   RirController controller = MakeFallbackController();
   RirOutputFrame first;
-  controller.RunCycle(MakeInput(1U, 5000.0f, 5.0f), &first);
+  controller.RunCycle(MakeInput(1U, 5000.0f, 5.0f), &first, 1U);
   ASSERT_EQ(first.recognition_outputs.size(), 1U);
 
   config::RirPolicyConfig stby_policy;
@@ -109,7 +109,7 @@ TEST(RirSelfContainedPipelineTest, StandbyDoesNotAdvanceSelfContainedChain) {
   RirCycleInput standby_input = MakeInput(2U, 6000.0f, 5.0f);
   standby_input.scene_targets[0].external_target_id = 8U;  // 新目标也不应触发检测建轨。
   RirOutputFrame standby_frame;
-  controller.RunCycle(standby_input, &standby_frame);
+  controller.RunCycle(standby_input, &standby_frame, 2U);
   ASSERT_EQ(standby_frame.recognition_outputs.size(), 1U);
   EXPECT_EQ(standby_frame.recognition_outputs[0].association_key, 1U);
   EXPECT_EQ(controller.GetLatestSummary().dwell_budget.scheduled_dwell_count, 0U);
@@ -134,7 +134,7 @@ TEST(RirSelfContainedPipelineTest, ImmPolicyReachesLifecycleAndKeepsTrackStable)
     RirOutputFrame frame;
     // 位移与速度种子一致（100 m/s × dt 0.5 s = 50 m/周期），保证门内持续命中。
     controller.RunCycle(MakeInput(cycle, 5000.0f + 50.0f * static_cast<float>(cycle - 1U), 5.0f),
-                        &frame);
+                        &frame, static_cast<std::uint64_t>(cycle));
     // 周期 3 起 confirmed 命中走 IMM 路径：链路不因 IMM 挂载而中断。
     ASSERT_EQ(frame.recognition_outputs.size(), 1U);
     if (key == 0U) {

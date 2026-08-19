@@ -109,6 +109,8 @@
     }
   },
   "environment": {
+    "enable_environment_effects": false,
+    "weather_attenuation_db": 0.0,
     "vegetation_scatter_physics": {
       "cover_profile": "kDisabled",
       "enable_physical_model": false

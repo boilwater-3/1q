@@ -122,14 +122,9 @@ void RirSensorComponent::Step(World& world, double dt_sec) {
 
   rir::RirCycleInput input;
   input.input_cycle_index = static_cast<std::uint32_t>(scene.cycle);
-  input.batch_id = 1U;
   input.dt_sec = dt_sec;
   input.sim_time_sec = static_cast<float>(scene.t_sec);
-  input.platform_altitude_m = static_cast<float>(site_origin_.altitude_m);
-  input.has_platform_position = true;
-  input.platform_position.x_m = site_ecef_.x_m;
-  input.platform_position.y_m = site_ecef_.y_m;
-  input.platform_position.z_m = site_ecef_.z_m;
+  input.platform_position = site_ecef_;
   input.scene_targets = scene.rir_targets;  // 站点局部 ENU + 识别特征真值（消费方注入）
 
   const rir::RirCycleResult result = session_.StepWithResult(input);

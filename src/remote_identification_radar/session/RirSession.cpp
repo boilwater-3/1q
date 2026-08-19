@@ -175,10 +175,12 @@ struct RirSession::Impl {
   std::uint32_t designation_duration_cycles{0U};
   RirDesignationPhase designation_phase{RirDesignationPhase::kNone};
   std::uint32_t designation_deadline_cycle_index{0U};
+  std::uint64_t next_batch_id{1U};
 
   explicit Impl(const config::RirSessionConfig& session_config) : config(session_config) {
     controller.SetHardware(config.hardware);
     controller.UpdateRuntime(config.mission, config.policy);
+    controller.UpdateEnvironment(config.environment);
   }
 };
 
@@ -196,7 +198,7 @@ RirCycleResult RirSession::StepWithResult(const RirCycleInput& input) {
   RirCycleResult result;
   result.input_cycle_index = input.input_cycle_index;
   result.output_frame.input_cycle_index = input.input_cycle_index;
-  result.output_frame.batch_id = input.batch_id;
+  result.output_frame.batch_id = impl_->next_batch_id;
 
   // 关机：非执行周期，只记录状态，不推进识别状态（tracker 状态不被触碰）。
   if (!impl_->config.sensor_enabled) {
@@ -225,6 +227,10 @@ RirCycleResult RirSession::StepWithResult(const RirCycleInput& input) {
     }
     if (patch.has_policy) {
       impl_->config.policy = patch.policy;
+    }
+    if (patch.has_environment) {
+      impl_->config.environment = patch.environment;
+      impl_->controller.UpdateEnvironment(impl_->config.environment);
     }
     if (patch.has_sensor_enabled) {
       impl_->config.sensor_enabled = patch.sensor_enabled;
@@ -271,9 +277,10 @@ RirCycleResult RirSession::StepWithResult(const RirCycleInput& input) {
       dwelling_on_target ? TargetLookAngles(*designated_target)
                          : ResolveScanWavePosition(impl_->config, input.input_cycle_index);
 
-  impl_->controller.RunCycle(input, &result.output_frame, dwell_center);
+  impl_->controller.RunCycle(input, &result.output_frame, impl_->next_batch_id, dwell_center);
   result.status = RirCycleStatus::kCompleted;
   result.abort_reason = RirCycleAbortReason::kNone;
+  ++impl_->next_batch_id;
   if (impl_->controller.HasLatestSummary()) {
     result.has_recognition_summary = true;
     result.recognition_summary = impl_->controller.GetLatestSummary();

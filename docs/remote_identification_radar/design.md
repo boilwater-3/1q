@@ -23,10 +23,12 @@ RIR 是与机载雷达（AR）**相互独立的另一部雷达装备**，不是 
    双路径滤波与池化生命周期（跟踪升级 N1-N7 已落地）；
    独立输入输出与 replay/trace。与 AR 无任何模块间协作接口，不 include
    任何 AR 头，不消费任何 AR 输出（阶段 2-S 已删除 RirTrackFeed 供给面）。
-2. **输入面**：`RirCycleInput` 提供周期戳、平台海拔、可选平台 ECEF 位置
-   （`has_platform_position` + `RirEcefPositionM`，fail-closed 校验）、场景目标
+2. **输入面**：`RirCycleInput` 提供周期戳、必填平台 ECEF（
+   `oneq::coordinate::EcefPositionM`，fail-closed 校验）、场景目标
    （含识别特征真值 `aspect_rcs_samples`/`polarization_rcs_samples`/
-   `range_rcs_scatterers`）与 RF 入射链路、环境快照；场景目标速度/名称/Swerling
+   `range_rcs_scatterers`；公共 API 为 radar-local ENU，集成层用户侧以 ECEF
+   描述目标，适配层边界转换）与 RF 入射链路；环境事实经
+   `RirSessionConfig.environment` / 运行期补丁注入。场景目标速度/名称/Swerling
    起伏为自持链路事实；识别只消费效能化观测，场景真值不得直接产生结论。每周期
    波束中心由**库内驻留调度器**派生（扫描策略或指定识别任务，见 boundaries.md
    驻留指向契约），RIR 消费侧只信任并消费给定指向。

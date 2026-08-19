@@ -73,7 +73,8 @@ struct ONEQ_API RirRangeRcsScatterer {
  *       `target_swerling_type`（CFAR 起伏模型）。
  * @note `position_x/y/z` 为雷达局部 ENU 右手坐标系（x=东、y=北、z=天）；
  *       该坐标系也是波束指向角 `config::RirAzimuthElevationDeg` 与目标视线角
- *       的参考系。
+ *       的参考系。集成层用户侧以 ECEF 描述目标位置/速度，适配层在调用
+ *       `StepWithResult` 前完成 ECEF→ENU 转换后再填入本结构体。
  */
 struct ONEQ_API RirSceneTarget {
   std::uint64_t external_target_id{0}; /**< 外部输入原始目标标识符（0 表示未知/未提供） */

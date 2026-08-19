@@ -16,7 +16,7 @@
 #include <vector>
 
 #include "1q/api.hpp"
-#include "1q/remote_identification_radar/session/RirCycleInput.h"
+#include "1q/coordinate/types.h"
 
 namespace remote_identification_radar {
 namespace session {
@@ -100,8 +100,8 @@ struct ONEQ_API RirFeatureMeasurementRecord {
   float snr_db{0.0f};                  /**< 周期信噪比（dB）。 */
   float dwell_sec{0.0f};               /**< 识别驻留时间（s）。 */
   float bandwidth_hz{0.0f};            /**< 有效带宽（Hz）。 */
-  bool has_platform_position{false};   /**< 本周期输入是否携带平台 ECEF 位置。 */
-  RirEcefPositionM platform_position{}; /**< 平台 ECEF 位置（m）；has=false 时为默认值。 */
+  bool has_platform_position{false};   /**< 成功执行周期恒为 true（replay 兼容字段）。 */
+  oneq::coordinate::EcefPositionM platform_position{}; /**< 平台 ECEF 位置（m）。 */
   std::uint32_t cycle_index{0U};       /**< 归属周期号。 */
   std::uint64_t batch_id{0U};          /**< 归属批号。 */
 };

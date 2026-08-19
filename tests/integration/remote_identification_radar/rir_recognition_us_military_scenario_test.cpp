@@ -14,6 +14,7 @@
 #include <string>
 
 #include "1q/remote_identification_radar/session/RirSession.h"
+#include "RirCycleInputTestUtil.h"
 #include "RirSqliteTestUtil.h"
 #include "remote_identification_radar/recognition/RecognitionFeatureDatabase.h"
 
@@ -98,10 +99,9 @@ class RirUsMilitaryRecognitionScenarioTest : public ::testing::Test {
   RirCycleInput MakeInput(std::uint32_t cycle) {
     RirCycleInput input;
     input.input_cycle_index = cycle;
-    input.batch_id = 1U;
     input.dt_sec = 0.5;
     input.sim_time_sec = static_cast<float>(cycle - 1U) * 0.5f;
-    input.platform_altitude_m = 1000.0f;
+    SetDefaultTestPlatformEcef(&input);
     return input;
   }
 

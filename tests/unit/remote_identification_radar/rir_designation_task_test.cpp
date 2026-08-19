@@ -23,6 +23,7 @@
 #include "1q/remote_identification_radar/session/RirCycleInput.h"
 #include "1q/remote_identification_radar/session/RirCycleResult.h"
 #include "1q/remote_identification_radar/session/RirSession.h"
+#include "RirCycleInputTestUtil.h"
 #include "RirSqliteTestUtil.h"
 #include "common/radar/ScanScheduleRuntime.h"
 #include "remote_identification_radar/dwell/RirBeamControl.h"
@@ -62,10 +63,9 @@ RirSceneTarget MakeTarget(std::uint64_t id, float velocity_x_mps = 0.0f) {
 RirCycleInput MakeInput(std::uint32_t cycle, const std::vector<RirSceneTarget>& targets) {
   RirCycleInput input;
   input.input_cycle_index = cycle;
-  input.batch_id = 1U;
   input.dt_sec = 0.5;
   input.sim_time_sec = static_cast<float>(cycle - 1U) * 0.5f;
-  input.platform_altitude_m = 1000.0f;
+  SetDefaultTestPlatformEcef(&input);
   input.scene_targets = targets;
   return input;
 }
@@ -250,7 +250,7 @@ TEST(RirDesignationTaskTest, DwellCenterDrivesOffAxisGainWhenDirectionalPatternE
   on_controller.SetHardware(hardware);
   on_controller.UpdateRuntime(mission, policy);
   session::RirOutputFrame on_frame;
-  on_controller.RunCycle(MakeInput(1U, {target}), &on_frame, on_axis);
+  on_controller.RunCycle(MakeInput(1U, {target}), &on_frame, 1U, on_axis);
   EXPECT_FALSE(on_frame.recognition_outputs.empty());
   EXPECT_EQ(on_controller.GetLatestSummary().dwell_budget.executed_dwell_count, 1U);
 
@@ -259,7 +259,7 @@ TEST(RirDesignationTaskTest, DwellCenterDrivesOffAxisGainWhenDirectionalPatternE
   off_controller.SetHardware(hardware);
   off_controller.UpdateRuntime(mission, policy);
   session::RirOutputFrame off_frame;
-  off_controller.RunCycle(MakeInput(1U, {target}), &off_frame, off_axis);
+  off_controller.RunCycle(MakeInput(1U, {target}), &off_frame, 1U, off_axis);
   EXPECT_TRUE(off_frame.recognition_outputs.empty());
   EXPECT_EQ(off_controller.GetLatestSummary().dwell_budget.executed_dwell_count, 0U);
 }

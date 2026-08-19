@@ -19,6 +19,7 @@
 #include "1q/remote_identification_radar/session/RirCycleInput.h"
 #include "1q/remote_identification_radar/session/RirCycleResult.h"
 #include "1q/remote_identification_radar/session/RirSession.h"
+#include "RirCycleInputTestUtil.h"
 #include "remote_identification_radar/runtime/RirController.h"
 
 namespace remote_identification_radar {
@@ -58,10 +59,9 @@ RirSceneTarget MakeTarget(std::uint64_t id, const char* name, float position_x) 
 RirCycleInput MakeInput(std::uint32_t cycle, const std::vector<RirSceneTarget>& targets) {
   RirCycleInput input;
   input.input_cycle_index = cycle;
-  input.batch_id = 1U;
   input.dt_sec = 0.5;
   input.sim_time_sec = static_cast<float>(cycle - 1U) * 0.5f;
-  input.platform_altitude_m = 1000.0f;
+  SetDefaultTestPlatformEcef(&input);
   input.scene_targets = targets;
   return input;
 }
@@ -77,7 +77,7 @@ TEST(RirTrackAttributionTest, AttributionMapsKeysToTruthTargets) {
   targets.push_back(MakeTarget(8U, "truth-b", 8000.0f));
 
   session::RirOutputFrame frame;
-  controller.RunCycle(MakeInput(1U, targets), &frame);
+  controller.RunCycle(MakeInput(1U, targets), &frame, 1U);
 
   const std::vector<session::RirTrackAttributionRecord>& attributions =
       controller.LatestTrackAttributions();
@@ -114,7 +114,7 @@ TEST(RirTrackAttributionTest, AttributionPresentWithoutDatabase) {
   std::vector<RirSceneTarget> targets;
   targets.push_back(MakeTarget(7U, "truth-a", 5000.0f));
   session::RirOutputFrame frame;
-  controller.RunCycle(MakeInput(1U, targets), &frame);
+  controller.RunCycle(MakeInput(1U, targets), &frame, 1U);
 
   EXPECT_EQ(controller.LatestTrackAttributions().size(), 1U);
   EXPECT_EQ(controller.LatestTrackAttributions()[0].external_target_id, 7U);

@@ -197,6 +197,8 @@ inline void LoadRirVegetationScatterPhysics(const examples::JsonValue& j,
 
 inline void LoadRirEnvironment(const examples::JsonValue& j, rir_cfg::RirEnvironmentConfig* v) {
   if (j.IsNull()) return;
+  v->enable_environment_effects = j["enable_environment_effects"].AsBool();
+  v->weather_attenuation_db = static_cast<float>(j["weather_attenuation_db"].AsDouble());
   LoadRirVegetationScatterPhysics(j["vegetation_scatter_physics"],
                                   &v->vegetation_scatter_physics);
 }

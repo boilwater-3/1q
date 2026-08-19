@@ -6,6 +6,7 @@
  * 96de367c）：有限性 + 正值 + 标识唯一性；所有条目 phase=kInputValidation。
  */
 
+#include "1q/coordinate/position_transform.h"
 #include "1q/remote_identification_radar/session/RirInputValidation.h"
 
 #include <cmath>
@@ -115,43 +116,29 @@ RirIssueList ValidateRirCycleInput(const RirCycleInput& input) {
     PushIssue(&issues, RirIssueSeverity::kError, codes::kInvalidCycleIndex, "input_cycle_index",
               "Cycle index must be non-zero.");
   }
-  if (!IsFinite(input.platform_altitude_m) || !IsFinite(input.sim_time_sec)) {
-    PushIssue(&issues, RirIssueSeverity::kError, codes::kNonFiniteTargetField,
-              "platform_altitude_m / sim_time_sec",
-              "Platform altitude and simulation time must be finite.");
+  if (!IsFinite(input.sim_time_sec)) {
+    PushIssue(&issues, RirIssueSeverity::kError, codes::kNonFiniteTargetField, "sim_time_sec",
+              "Simulation time must be finite.");
   }
-  // 平台 ECEF 位置（可选输入，fail-closed）：has=true 时分量须有限且模长 > 0
-  //（地心非法）；has=false 时分量须为默认值（存在性标志与数据一致性，
-  // contract.md 实现安全规则 2——防止"数据已写但标志漏置"静默跳过）。
-  const RirEcefPositionM& platform_position = input.platform_position;
-  if (input.has_platform_position) {
-    const bool components_finite =
-        std::isfinite(platform_position.x_m) && std::isfinite(platform_position.y_m) &&
-        std::isfinite(platform_position.z_m);
-    const double norm_m = std::sqrt(platform_position.x_m * platform_position.x_m +
-                                    platform_position.y_m * platform_position.y_m +
-                                    platform_position.z_m * platform_position.z_m);
-    if (!components_finite || !(norm_m > 0.0)) {
-      PushIssue(&issues, RirIssueSeverity::kError, codes::kInvalidPlatformPosition,
-                "platform_position",
-                "Platform ECEF position must be finite with positive norm when provided.");
-    }
-  } else if (platform_position.x_m != 0.0 || platform_position.y_m != 0.0 ||
-             platform_position.z_m != 0.0) {
-    PushIssue(&issues, RirIssueSeverity::kError, codes::kInconsistentPlatformPosition,
+  const oneq::coordinate::EcefPositionM& platform_position = input.platform_position;
+  const bool components_finite = oneq::coordinate::IsFinite(platform_position);
+  const double norm_m =
+      std::sqrt(platform_position.x_m * platform_position.x_m +
+                platform_position.y_m * platform_position.y_m +
+                platform_position.z_m * platform_position.z_m);
+  if (!components_finite || !(norm_m > 0.0)) {
+    PushIssue(&issues, RirIssueSeverity::kError, codes::kInvalidPlatformPosition,
               "platform_position",
-              "Platform position components must stay default when has_platform_position is false.");
+              "Platform ECEF position must be finite with positive norm.");
+  } else {
+    oneq::coordinate::LlaPositionDegM lla;
+    if (!oneq::coordinate::TryEcefToLla(platform_position, &lla)) {
+      PushIssue(&issues, RirIssueSeverity::kError, codes::kInvalidPlatformPosition,
+                "platform_position", "Platform ECEF position must convert to valid LLA.");
+    }
   }
   const RirIssueList target_issues = ValidateRirSceneTargets(input.scene_targets);
   issues.insert(issues.end(), target_issues.begin(), target_issues.end());
-
-  // 环境快照：天气衰减必须有限且非负；植被字段由公共类型承载，不逐叶校验。
-  if (!IsFinite(input.environment_snapshot.weather_attenuation_db) ||
-      input.environment_snapshot.weather_attenuation_db < 0.0f) {
-    PushIssue(&issues, RirIssueSeverity::kError, codes::kInvalidEnvironmentSnapshot,
-              "environment_snapshot.weather_attenuation_db",
-              "Weather attenuation must be finite and non-negative.");
-  }
 
   // RF 输入：自身发射身份用于排除自发自收链路；携带入射链路时身份必须完整。
   const oneq::electromagnetics::RfEmissionIdentity& own_identity = input.own_emission_identity;

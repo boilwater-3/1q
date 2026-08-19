@@ -15,6 +15,7 @@
 
 #include "common/logging/ProjectLog.h"
 #include "common/numerics/Constants.h"
+#include "1q/coordinate/position_transform.h"
 #include "remote_identification_radar/dwell/RirBeamControl.h"
 #include "remote_identification_radar/dwell/RirMeasurementErrorModel.h"
 #include "remote_identification_radar/recognition/RecognitionObservationBuilder.h"
@@ -195,18 +196,21 @@ void RirController::UpdateRuntime(const config::RirMissionConfig& mission,
   }
 }
 
-void RirController::ResolveEnvironment(const session::RirCycleInput& input,
-                                       float* propagation_loss_db, float* clutter_power_w) const {
+void RirController::UpdateEnvironment(const config::RirEnvironmentConfig& environment) {
+  environment_ = environment;
+}
+
+void RirController::ResolveEnvironment(float* propagation_loss_db, float* clutter_power_w) const {
   *propagation_loss_db = 0.0f;
   *clutter_power_w = 0.0f;
-  if (!input.environment_snapshot.has_environment_data) {
+  if (!environment_.enable_environment_effects) {
     return;
   }
   internal::RirEnvironmentSceneState scene_state;
-  scene_state.vegetation_scatter_physics = input.environment_snapshot.vegetation_scatter_physics;
+  scene_state.vegetation_scatter_physics = environment_.vegetation_scatter_physics;
   const internal::RirPropagationResult propagation = propagation_model_.Evaluate(scene_state);
   *propagation_loss_db =
-      propagation.propagation_loss_db + input.environment_snapshot.weather_attenuation_db;
+      propagation.propagation_loss_db + environment_.weather_attenuation_db;
   *clutter_power_w = DbToLinear(propagation.clutter_power_db);
 }
 
@@ -300,7 +304,7 @@ bool RirController::TryBuildMeasurement(const session::RirSceneTarget& target,
   target_return.range_m = slant_range_m;
   target_return.swerling_type = ToInternalSwerling(target.target_swerling_type);
 
-  const bool has_environment = input.environment_snapshot.has_environment_data;
+  const bool has_environment = environment_.enable_environment_effects;
   const bool has_interference = !input.incident_links.empty();
   dwell::RirDetectionResult detection;
   bool resolved_cell = false;
@@ -404,7 +408,7 @@ recognition::RirObservationContext RirController::MakeObservationContext(
 }
 
 void RirController::RunCycle(const session::RirCycleInput& input,
-                             session::RirOutputFrame* output_frame,
+                             session::RirOutputFrame* output_frame, std::uint64_t batch_id,
                              const config::RirAzimuthElevationDeg& dwell_center_deg) {
   const bool in_identify = work_mode_ == config::RirWorkMode::kIdentify;
   if (recognition_mode_active_ && !in_identify) {
@@ -412,6 +416,12 @@ void RirController::RunCycle(const session::RirCycleInput& input,
   }
   recognition_mode_active_ = in_identify;
   sim_time_sec_ = input.sim_time_sec;
+
+  float platform_altitude_m = 0.0f;
+  oneq::coordinate::LlaPositionDegM platform_lla;
+  if (oneq::coordinate::TryEcefToLla(input.platform_position, &platform_lla)) {
+    platform_altitude_m = static_cast<float>(platform_lla.altitude_m);
+  }
 
   latest_summary_ = session::RirRecognitionCycleSummary{};
   has_latest_summary_ = false;
@@ -423,7 +433,7 @@ void RirController::RunCycle(const session::RirCycleInput& input,
   if (in_identify) {
     float propagation_loss_db = 0.0f;
     float clutter_power_w = 0.0f;
-    ResolveEnvironment(input, &propagation_loss_db, &clutter_power_w);
+    ResolveEnvironment(&propagation_loss_db, &clutter_power_w);
 
     std::unordered_map<std::uint64_t, const session::RirSceneTarget*> scene_by_id;
     std::vector<std::size_t> candidate_indices;
@@ -481,7 +491,7 @@ void RirController::RunCycle(const session::RirCycleInput& input,
         measurements, lifecycle_->BuildAssociationSeeds(), static_cast<float>(input.dt_sec));
     tracking::RirCycleContext cycle_context;
     cycle_context.cycle_index = input.input_cycle_index;
-    cycle_context.batch_id = input.batch_id;
+    cycle_context.batch_id = batch_id;
     cycle_context.dt_sec = static_cast<float>(input.dt_sec);
     lifecycle_->Update(cycle_context, association.measurements);
 
@@ -502,7 +512,7 @@ void RirController::RunCycle(const session::RirCycleInput& input,
       recognition::RirTracker::TrackObservationInput observation;
       observation.target = scene_found->second;
       observation.context =
-          MakeObservationContext(*scene_found->second, input.platform_altitude_m, snr_db);
+          MakeObservationContext(*scene_found->second, platform_altitude_m, snr_db);
       observations_by_key[track.association_key] = observation;
     }
 
@@ -511,7 +521,7 @@ void RirController::RunCycle(const session::RirCycleInput& input,
       std::vector<recognition::RirTracker::CycleFeatureObservation> cycle_observations;
       tracker_.UpdateCycle(track_snapshots, observations_by_key, *database_,
                            policy_.recognition.feature_weights, sim_time_sec_,
-                           input.input_cycle_index, input.batch_id, &cycle_observations);
+                           input.input_cycle_index, batch_id, &cycle_observations);
       output_frame->feature_measurements.reserve(cycle_observations.size());
       for (const recognition::RirTracker::CycleFeatureObservation& observation :
            cycle_observations) {
@@ -530,10 +540,10 @@ void RirController::RunCycle(const session::RirCycleInput& input,
         record.snr_db = context.snr_db;
         record.dwell_sec = context.dwell_sec;
         record.bandwidth_hz = context.bandwidth_hz;
-        record.has_platform_position = input.has_platform_position;
+        record.has_platform_position = true;
         record.platform_position = input.platform_position;
         record.cycle_index = input.input_cycle_index;
-        record.batch_id = input.batch_id;
+        record.batch_id = batch_id;
         output_frame->feature_measurements.push_back(record);
       }
     } else {

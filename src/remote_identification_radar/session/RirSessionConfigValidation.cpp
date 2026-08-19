@@ -32,6 +32,24 @@ void PushIssue(session::RirIssueList* issues, const char* code, const char* fiel
   issues->push_back(issue);
 }
 
+void ValidateRirEnvironmentConfig(const RirEnvironmentConfig& environment,
+                                  const char* field_prefix, session::RirIssueList* issues) {
+  const std::string prefix = field_prefix == nullptr ? "" : std::string(field_prefix) + ".";
+  if (!IsFinite(environment.weather_attenuation_db) || environment.weather_attenuation_db < 0.0f) {
+    PushIssue(issues, session::codes::kInvalidEnvironmentSnapshot,
+              (prefix + "weather_attenuation_db").c_str(),
+              "Weather attenuation must be finite and non-negative.");
+  }
+  const RirVegetationCoverProfile cover =
+      environment.vegetation_scatter_physics.cover_profile;
+  if (cover < RirVegetationCoverProfile::kDisabled ||
+      cover > RirVegetationCoverProfile::kTropicalDense) {
+    PushIssue(issues, session::codes::kInvalidEnvironmentSnapshot,
+              (prefix + "vegetation_scatter_physics.cover_profile").c_str(),
+              "Vegetation cover profile must be a valid enum value.");
+  }
+}
+
 }  // namespace
 
 session::RirIssueList ValidateRirSessionConfig(const RirSessionConfig& config) {
@@ -170,6 +188,8 @@ session::RirIssueList ValidateRirSessionConfig(const RirSessionConfig& config) {
                 "Signal processing gain offsets must be finite values in [0, 40] dB.");
     }
   }
+
+  ValidateRirEnvironmentConfig(config.environment, "environment", &issues);
 
   return issues;
 }
