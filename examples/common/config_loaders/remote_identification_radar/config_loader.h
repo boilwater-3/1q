@@ -17,6 +17,10 @@ inline void LoadRirSessionConfig(const examples::JsonValue& root,
   LoadRirMission(root["mission"], &config->mission);
   LoadRirPolicy(root["policy"], &config->policy);
   LoadRirEnvironment(root["environment"], &config->environment);
+  if (!root["sensor_platform_id"].IsNull()) {
+    config->sensor_platform_id =
+        static_cast<std::uint64_t>(root["sensor_platform_id"].AsInt());
+  }
   config->sensor_enabled = root["sensor_enabled"].AsBool();
 }
 

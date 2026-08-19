@@ -95,11 +95,25 @@ inline void LoadRirSignalProcessing(const examples::JsonValue& j,
       static_cast<float>(j["jamming_suppression_gain_db"].AsDouble());
 }
 
+inline void LoadRirRcsPhysics(const examples::JsonValue& j,
+                              rir_cfg::hardware::RirRcsPhysicsConfig* v) {
+  if (j.IsNull()) return;
+  v->enable_physical_rcs = j["enable_physical_rcs"].AsBool();
+  v->physics_mix_ratio = static_cast<float>(j["physics_mix_ratio"].AsDouble());
+  v->cylinder_weight = static_cast<float>(j["cylinder_weight"].AsDouble());
+  v->min_equivalent_radius_m = static_cast<float>(j["min_equivalent_radius_m"].AsDouble());
+  v->max_equivalent_radius_m = static_cast<float>(j["max_equivalent_radius_m"].AsDouble());
+  v->min_rcs_m2 = static_cast<float>(j["min_rcs_m2"].AsDouble());
+  v->max_rcs_m2 = static_cast<float>(j["max_rcs_m2"].AsDouble());
+  v->bistatic_psi_offset_deg = static_cast<float>(j["bistatic_psi_offset_deg"].AsDouble());
+}
+
 inline void LoadRirHardware(const examples::JsonValue& j, rir_cfg::RirHardwareConfig* v) {
   if (j.IsNull()) return;
   LoadRirTransmitter(j["transmitter"], &v->transmitter);
   LoadRirAntenna(j["antenna"], &v->antenna);
   LoadRirReceiver(j["receiver"], &v->receiver);
+  LoadRirRcsPhysics(j["rcs_physics"], &v->rcs_physics);
   LoadRirSignalProcessing(j["signal_processing"], &v->signal_processing);
 }
 

@@ -6,6 +6,10 @@ set(RIR_ENGINE_SOURCES
     internal/RirRadarEquations.cpp
     internal/RirPropagationModel.cpp
     dwell/RirDetectionCellResolver.cpp
+    dwell/RirEffectiveRcs.cpp
+    dwell/RirEmissionFactory.cpp
+    dwell/RirReceiverStateBuilder.cpp
+    dwell/RirRfFrontEndResolver.cpp
     dwell/RirSignalDetector.cpp
     tracking/RirTrackFilter.cpp
     tracking/RirLapjvSolver.cpp

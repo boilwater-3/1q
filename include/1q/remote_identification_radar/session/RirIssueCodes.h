@@ -45,6 +45,9 @@ constexpr char kInvalidOwnEmissionIdentity[] = "rir.validation.invalid_own_emiss
 /** @brief RF 入射链路含非法字段。 */
 constexpr char kInvalidRfIncidentLink[] = "rir.validation.invalid_rf_incident_link";
 
+/** @brief RF 场景帧非法或与周期窗口不一致。 */
+constexpr char kInvalidRfSceneFrame[] = "rir.validation.invalid_rf_scene_frame";
+
 /** @brief 平台 ECEF 位置非法（has=true 时分量非有限或模长为 0——地心非法）。 */
 constexpr char kInvalidPlatformPosition[] = "rir.validation.invalid_platform_position";
 
@@ -88,6 +91,34 @@ constexpr char kTrackingPolicyInvalid[] = "rir.validation.tracking_policy_invali
 
 /** @brief 生命周期策略非法（confirm/lost 阈值）。 */
 constexpr char kLifecyclePolicyInvalid[] = "rir.validation.lifecycle_policy_invalid";
+
+/** @brief 传感器平台身份非法（须非零）。 */
+constexpr char kSensorPlatformIdInvalid[] = "rir.validation.sensor_platform_id_invalid";
+
+/** @brief 发射机载频非法（须有限且为正）。 */
+constexpr char kTransmitterFrequencyInvalid[] = "rir.validation.transmitter_frequency_invalid";
+
+/** @brief 频率计划非法（须含有限正值且包含初始载频）。 */
+constexpr char kFrequencyPlanInvalid[] = "rir.validation.frequency_plan_invalid";
+
+/** @brief 发射机工作包络非法（功率/占空比/脉冲能量越界）。 */
+constexpr char kTransmitterOperatingEnvelopeInvalid[] =
+    "rir.validation.transmitter_operating_envelope_invalid";
+
+/** @brief 发射/接收 equipment_id 非法（须非零且互异）。 */
+constexpr char kEquipmentIdentityInvalid[] = "rir.validation.equipment_identity_invalid";
+
+/** @brief 接收机 RF 硬件边界非法。 */
+constexpr char kReceiverRfHardwareInvalid[] = "rir.validation.receiver_rf_hardware_invalid";
+
+/** @brief 天线几何非法（波束宽度或孔径无效）。 */
+constexpr char kAntennaAzGeometryInvalid[] = "rir.validation.antenna_az_geometry_invalid";
+
+/** @brief 天线俯仰几何非法。 */
+constexpr char kAntennaElGeometryInvalid[] = "rir.validation.antenna_el_geometry_invalid";
+
+/** @brief RCS 物理参数非法。 */
+constexpr char kRcsPhysicsInvalid[] = "rir.validation.rcs_physics_invalid";
 
 }  // namespace codes
 }  // namespace session

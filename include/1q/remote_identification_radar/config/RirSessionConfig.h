@@ -29,6 +29,7 @@ struct ONEQ_API RirSessionConfig {
   RirMissionConfig mission{};
   RirPolicyConfig policy{};
   RirEnvironmentConfig environment{};
+  std::uint64_t sensor_platform_id{1U}; /**< RF scene 平台身份；须非零。 */
   bool sensor_enabled{true}; /**< 传感器初始电源状态 */
 };
 

@@ -7,7 +7,7 @@
  *
  * @note 本文件结构为 `ArHardwareConfig.h`（include/1q/airborne_radar/config/，
  * 审计基线 96de367c）中识别链路实际消费子集的副本，字段名与数值语义保持一致；
- * 探测链专用类型（RcsPhysicsConfig 等）刻意不随迁。阶段 3 评估 common 化。
+ * `RirRcsPhysicsConfig` 与 AR `RcsPhysicsConfig` 字段对齐。阶段 3 评估 common 化。
  */
 
 #ifndef ONEQ_REMOTE_IDENTIFICATION_RADAR_CONFIG_RIR_HARDWARE_CONFIG_H_
@@ -142,6 +142,20 @@ struct ONEQ_API RirTransmitterConfig {
 };
 
 /**
+ * @brief RCS 物理建模参数（副本：airborne_radar::config::detection::RcsPhysicsConfig）。
+ */
+struct ONEQ_API RirRcsPhysicsConfig {
+  bool enable_physical_rcs{false};      /**< 是否启用物理 RCS 估计。 */
+  float physics_mix_ratio{0.0f};        /**< 物理估计与经验值的混合比例。 */
+  float cylinder_weight{0.5f};          /**< 圆柱散射模型权重。 */
+  float min_equivalent_radius_m{0.05f}; /**< 等效半径下界。 */
+  float max_equivalent_radius_m{5.0f};  /**< 等效半径上界。 */
+  float min_rcs_m2{0.01f};              /**< RCS 裁剪下界。 */
+  float max_rcs_m2{1000.0f};            /**< RCS 裁剪上界。 */
+  float bistatic_psi_offset_deg{5.0f};  /**< 双站角偏移补偿。 */
+};
+
+/**
  * @brief 信号处理增益偏置（阶段 2-M M3，《能力边界界定》§3.2 方案 A）。
  *
  * 四个 dB 偏置叠加在分项 SINR 账本上；**缺省 0 dB 时与保守账本逐位一致**
@@ -170,6 +184,7 @@ struct ONEQ_API RirHardwareConfig {
   hardware::RirTransmitterConfig transmitter{};      /**< 发射机参数。 */
   hardware::RirAntennaConfig antenna{};              /**< 天线参数。 */
   hardware::RirReceiverConfig receiver{};            /**< 接收机参数。 */
+  hardware::RirRcsPhysicsConfig rcs_physics{};       /**< RCS 物理建模参数。 */
   hardware::RirSignalProcessingConfig signal_processing{}; /**< 信号处理增益偏置（默认全 0 dB）。 */
 };
 

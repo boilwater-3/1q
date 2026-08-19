@@ -13,6 +13,7 @@
 #include <cmath>
 
 #include "1q/remote_identification_radar/session/RirIssueCodes.h"
+#include "common/validation/ValidationUtils.h"
 
 namespace remote_identification_radar {
 namespace config {
@@ -50,10 +51,131 @@ void ValidateRirEnvironmentConfig(const RirEnvironmentConfig& environment,
   }
 }
 
+void ValidateRirHardwareConfig(const RirHardwareConfig& hardware, session::RirIssueList* issues) {
+  const hardware::RirTransmitterConfig& transmitter = hardware.transmitter;
+  const hardware::RirReceiverConfig& receiver = hardware.receiver;
+  const hardware::RirAntennaConfig& antenna = hardware.antenna;
+  const hardware::RirRcsPhysicsConfig& rcs_physics = hardware.rcs_physics;
+  const float transmitter_frequency_hz = transmitter.frequency_hz;
+
+  if (!oneq::common::validation::IsFinite(transmitter_frequency_hz) ||
+      transmitter_frequency_hz <= 0.0f) {
+    PushIssue(issues, session::codes::kTransmitterFrequencyInvalid,
+              "hardware.transmitter.frequency_hz",
+              "Transmitter frequency must be finite and positive.");
+  }
+  bool frequency_plan_valid = !transmitter.frequency_plan_hz.empty();
+  bool contains_initial_frequency = false;
+  for (double frequency_hz : transmitter.frequency_plan_hz) {
+    frequency_plan_valid = frequency_plan_valid &&
+                           oneq::common::validation::IsFinite(frequency_hz) && frequency_hz > 0.0;
+    contains_initial_frequency =
+        contains_initial_frequency || frequency_hz == static_cast<double>(transmitter_frequency_hz);
+  }
+  if (!frequency_plan_valid || !contains_initial_frequency) {
+    PushIssue(issues, session::codes::kFrequencyPlanInvalid,
+              "hardware.transmitter.frequency_plan_hz",
+              "Frequency plan must contain finite positive values and the initial carrier.");
+  }
+  const double duty_cycle =
+      static_cast<double>(transmitter.pulse_width_s) * static_cast<double>(transmitter.prf_hz);
+  const double pulse_energy_j = static_cast<double>(transmitter.peak_power_w) *
+                                static_cast<double>(transmitter.pulse_width_s);
+  if (!oneq::common::validation::IsFinite(transmitter.peak_power_w) ||
+      !oneq::common::validation::IsFinite(transmitter.maximum_peak_power_w) ||
+      !oneq::common::validation::IsFinite(transmitter.maximum_duty_cycle) ||
+      !oneq::common::validation::IsFinite(transmitter.maximum_pulse_energy_j) ||
+      transmitter.peak_power_w <= 0.0f || transmitter.maximum_peak_power_w <= 0.0f ||
+      transmitter.peak_power_w > transmitter.maximum_peak_power_w ||
+      transmitter.maximum_duty_cycle <= 0.0f || transmitter.maximum_duty_cycle > 1.0f ||
+      duty_cycle <= 0.0 || duty_cycle > transmitter.maximum_duty_cycle ||
+      transmitter.maximum_pulse_energy_j <= 0.0f ||
+      pulse_energy_j > transmitter.maximum_pulse_energy_j) {
+    PushIssue(issues, session::codes::kTransmitterOperatingEnvelopeInvalid, "hardware.transmitter",
+              "Transmitter power, duty cycle and pulse energy must stay inside hardware limits.");
+  }
+  if (transmitter.equipment_id == 0U || receiver.equipment_id == 0U ||
+      transmitter.equipment_id == receiver.equipment_id) {
+    PushIssue(issues, session::codes::kEquipmentIdentityInvalid, "hardware.*.equipment_id",
+              "Transmitter and receiver equipment identifiers must be non-zero and distinct.");
+  }
+  if (!oneq::common::validation::IsFinite(receiver.cross_polarization_isolation_db) ||
+      receiver.cross_polarization_isolation_db < 0.0f ||
+      !oneq::common::validation::IsFinite(receiver.minimum_far_field_range_m) ||
+      receiver.minimum_far_field_range_m <= 0.0f ||
+      (receiver.has_co_site_isolation &&
+       (!oneq::common::validation::IsFinite(receiver.co_site_isolation_db) ||
+        receiver.co_site_isolation_db < 0.0f)) ||
+      !oneq::common::validation::IsFinite(receiver.maximum_linear_input_power_w) ||
+      receiver.maximum_linear_input_power_w <= 0.0f ||
+      !oneq::common::validation::IsFinite(receiver.preselector_bandwidth_hz) ||
+      receiver.preselector_bandwidth_hz <= 0.0f ||
+      !oneq::common::validation::IsFinite(receiver.interference_observation_jn_gate_db)) {
+    PushIssue(issues, session::codes::kReceiverRfHardwareInvalid, "hardware.receiver",
+              "Receiver RF isolation, far-field range and linear input limit must be valid.");
+  }
+  for (const auto& path : receiver.co_site_paths) {
+    if (path.transmitter_equipment_id == 0U ||
+        path.receiver_equipment_id != receiver.equipment_id ||
+        path.transmitter_equipment_id == path.receiver_equipment_id ||
+        !oneq::common::validation::IsFinite(path.isolation_db) || path.isolation_db < 0.0) {
+      PushIssue(issues, session::codes::kReceiverRfHardwareInvalid,
+                "hardware.receiver.co_site_paths",
+                "Each co-site path must be a valid directed path into the receiver equipment.");
+      break;
+    }
+  }
+
+  const auto axis_geometry_valid = [transmitter_frequency_hz](float nominal_beamwidth_deg,
+                                                              float aperture_m) {
+    if (!oneq::common::validation::IsFinite(nominal_beamwidth_deg) ||
+        !oneq::common::validation::IsFinite(aperture_m) || nominal_beamwidth_deg < 0.0f ||
+        aperture_m < 0.0f) {
+      return false;
+    }
+    if (nominal_beamwidth_deg > 0.0f) {
+      return true;
+    }
+    return aperture_m > 0.0f && oneq::common::validation::IsFinite(transmitter_frequency_hz) &&
+           transmitter_frequency_hz > 0.0f;
+  };
+
+  if (!axis_geometry_valid(antenna.nominal_az_beamwidth_deg, antenna.antenna_length_m)) {
+    PushIssue(issues, session::codes::kAntennaAzGeometryInvalid,
+              "hardware.antenna.nominal_az_beamwidth_deg / antenna_length_m",
+              "Azimuth beamwidth requires a positive nominal value or a valid physical aperture.");
+  }
+  if (!axis_geometry_valid(antenna.nominal_el_beamwidth_deg, antenna.antenna_width_m)) {
+    PushIssue(issues, session::codes::kAntennaElGeometryInvalid,
+              "hardware.antenna.nominal_el_beamwidth_deg / antenna_width_m",
+              "Elevation beamwidth requires a positive nominal value or a valid physical aperture.");
+  }
+
+  if (!oneq::common::validation::IsFinite(rcs_physics.physics_mix_ratio) ||
+      rcs_physics.physics_mix_ratio < 0.0f || rcs_physics.physics_mix_ratio > 1.0f ||
+      !oneq::common::validation::IsFinite(rcs_physics.cylinder_weight) ||
+      rcs_physics.cylinder_weight < 0.0f || rcs_physics.cylinder_weight > 1.0f ||
+      !oneq::common::validation::IsFinite(rcs_physics.min_equivalent_radius_m) ||
+      !oneq::common::validation::IsFinite(rcs_physics.max_equivalent_radius_m) ||
+      rcs_physics.min_equivalent_radius_m <= 0.0f ||
+      rcs_physics.max_equivalent_radius_m < rcs_physics.min_equivalent_radius_m ||
+      !oneq::common::validation::IsFinite(rcs_physics.min_rcs_m2) ||
+      !oneq::common::validation::IsFinite(rcs_physics.max_rcs_m2) ||
+      rcs_physics.min_rcs_m2 < 0.0f || rcs_physics.max_rcs_m2 < rcs_physics.min_rcs_m2 ||
+      !oneq::common::validation::IsFinite(rcs_physics.bistatic_psi_offset_deg)) {
+    PushIssue(issues, session::codes::kRcsPhysicsInvalid, "hardware.rcs_physics",
+              "RCS physics parameters must be finite with ordered radius and RCS bounds.");
+  }
+}
+
 }  // namespace
 
 session::RirIssueList ValidateRirSessionConfig(const RirSessionConfig& config) {
   session::RirIssueList issues;
+  if (config.sensor_platform_id == 0U) {
+    PushIssue(&issues, session::codes::kSensorPlatformIdInvalid, "sensor_platform_id",
+              "Sensor platform identifier must be non-zero.");
+  }
   const RirMissionConfig& mission = config.mission;
   const RirRecognitionPolicy& recognition = config.policy.recognition;
   const RirRecognitionFeatureWeights& weights = recognition.feature_weights;
@@ -188,6 +310,8 @@ session::RirIssueList ValidateRirSessionConfig(const RirSessionConfig& config) {
                 "Signal processing gain offsets must be finite values in [0, 40] dB.");
     }
   }
+
+  ValidateRirHardwareConfig(config.hardware, &issues);
 
   ValidateRirEnvironmentConfig(config.environment, "environment", &issues);
 
