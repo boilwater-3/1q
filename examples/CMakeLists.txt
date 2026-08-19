@@ -17,3 +17,6 @@ set(ONEQ_EXAMPLE_COMMON_SOURCES
 
 # 消费方集成参考示例：自定义实体-组件（组件基类 + 挂载 + Boost.Signals2 事件）。
 add_subdirectory(component_attachment)
+
+# 评估层集成参考示例：双星定位精度评估（五项误差 + AHP 综合评分）。
+add_subdirectory(precision_evaluation)

@@ -40,7 +40,8 @@ examples/
 ├── README.md                       本文件
 ├── common/                         共享便利层：JSON 解析 + 五域 config_loaders + viz/ 共享查看器（不属于库 public surface）
 ├── configs/                        五域会话配置 JSON + remote_identification_radar/ 识别数据库（详见 configs/README.md）
-└── component_attachment/           消费方集成参考示例：五传感器 + 融合 + 威胁评估 + 多机编队
+├── component_attachment/           消费方集成参考示例：五传感器 + 融合 + 威胁评估 + 多机编队
+└── precision_evaluation/           评估层集成参考示例：双星定位精度评估（五项误差 + AHP 综合评分）
 ```
 
 ## 示例内容
@@ -62,6 +63,18 @@ examples/
   （提交语义随模块而异，权威定义见 `docs/common/contract.md`）。
 
 详见 [`component_attachment/README.md`](component_attachment/README.md)。
+
+`precision_evaluation/` 为评估层集成参考（需求 3.2.1.6.3 定位精度分析）：
+硬编码双星几何（两颗卫星各测一条视线）+ 双目标弹道真值，每周期推进真值并驱动
+`PrecisionEvaluationSession`（内部自持双星 SBIRS + 融合逐航迹滤波 + 弹道推演），
+结束打印五项误差统计（红外测角 / 双星交会位置 / 速度 / 落点 / 发射点）与
+AHP 加权综合得分，并做"五指标均有样本 + AHP 合法 + 综合分 ∈ (0,1]"自检：
+
+```bash
+cmake --build --preset llvm-ninja-release-local --target precision_evaluation_demo
+./build/llvm-ninja-release-local/bin/precision_evaluation_demo [--cycles 60]
+# 逐周期 [PrecisionEval] 事件流：configure 时加 -DONEQ_ENABLE_PRECISION_EVALUATION_LOG=ON
+```
 
 ## 共享便利层
 
