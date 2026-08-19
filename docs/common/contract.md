@@ -153,8 +153,9 @@ public API 分为两类，二者都受 public boundary、install manifest 和 co
 | 传感器层 | AR / ESR / EOS / SAR / SBIRS / RIR | 量测事实生产；传感器自身行为的内部建模（指向闭环、检测门控、驻留调度） | `*OutputFrame` 量测记录 |
 | 适配层 | `fusion::SensorAdapters` | 传感器输出 → 泛型 `fusion::DetectionRecord` | `DetectionRecord` |
 | 估计层 | `fusion` + `src/common/estimation` | 多目标关联、航迹滤波、航迹管理（轨迹滤波为 fusion 冻结的预留演进项） | `FusedTarget` |
-| 推演层 | 尚未建立 | 轨迹预测、发射点/落点回推、目标类型识别分类 | 带误差预算的推演产品 |
+| 推演层 | `target_inference` | 轨迹预测、发射点/落点回推、目标类型识别分类 | 带误差预算的推演产品 |
 | 决策层 | `threat_assessment` | 威胁评分与等级 | `ThreatResult` |
+| 评估层 | `precision_evaluation`（2026-08-19） | 真值对照的定位精度误差提取（角度/双星交会/速度/落点/发射点）与 AHP 指标聚合 | 评估报告 + `[PrecisionEval]` 验收日志 |
 
 规则：
 
@@ -187,6 +188,11 @@ public API 分为两类，二者都受 public boundary、install manifest 和 co
 8. **变更规则**：估计层引入轨迹滤波或新关联度量按 fusion boundaries 变更规则 2 冻结实现边界；
    本分层规则变化必须同步本文与受影响模块 design 文档集，并评估是否需要 include 方向纯净度
    守护（当前 `tests/contract/` 无该守护，为已知空白）。
+9. **评估层真值边界**（2026-08-19）：评估层（`precision_evaluation`）是去真值化规则 5 的唯一
+   合法真值出口——可消费场景真值与各层产品（含仿真归属层）做误差对照，但**只产评估报告与
+   验收日志，不回写、不下发任何产品层**；评估失败（如 AHP 矩阵非法）显式返回无效标志，
+   不得静默退化。评估层自上而下单向依赖各层公开头，不进入任何传感器/估计/推演模块的依赖
+   闭包；其验收日志由编译期开关 `ONEQ_ENABLE_PRECISION_EVALUATION_LOG`（默认 OFF）门控。
 
 新增目标域需求的归属裁定与需求术语对齐背景见
 [../review/target_domain_requirements_alignment_2026-08-17.md](../review/target_domain_requirements_alignment_2026-08-17.md)
