@@ -23,6 +23,7 @@
 #include "remote_identification_radar/dwell/RirReceiverStateBuilder.h"
 #include "remote_identification_radar/dwell/RirRfFrontEndResolver.h"
 #include "remote_identification_radar/recognition/RecognitionObservationBuilder.h"
+#include "remote_identification_radar/runtime/RirAcceptanceLog.h"
 
 namespace remote_identification_radar {
 namespace runtime {

@@ -102,6 +102,19 @@ else()
     message(STATUS "sbirs acceptance log: disabled (set -DONEQ_ENABLE_SBIRS_ACCEPTANCE_LOG=ON to enable)")
 endif()
 
+# RIR 验收信息日志（[RirAccept] 事件流）：开启后 remote_identification_radar 按周期
+# 输出检测链 SNR/SINR/Pd 与回波/噪声/干扰/杂波功率、波位扫描序列、角距量测、跟踪
+# 滤波/关联状态、识别特征与结论、驻留调度统计（需求映射 3.2.2 章节验收量）。默认
+# 关闭：宏与派生计算一并剪除，零开销。宏基础设施已就绪，调用点按验收输出统计清单
+# （docs/review/acceptance_output_inventory_2026-08-20.md）逐项接线。
+option(ONEQ_ENABLE_RIR_ACCEPTANCE_LOG
+    "Emit RIR acceptance information logs (detection powers/SNR, beam scan sequence, measurements, track states, recognition conclusions, dwell statistics)" OFF)
+if(ONEQ_ENABLE_RIR_ACCEPTANCE_LOG)
+    message(STATUS "rir acceptance log: ENABLED ([RirAccept] events via PROJECT_LOG_INFO)")
+else()
+    message(STATUS "rir acceptance log: disabled (set -DONEQ_ENABLE_RIR_ACCEPTANCE_LOG=ON to enable)")
+endif()
+
 # 精度评估验收日志（[PrecisionEval] 事件流）：开启后评估会话逐周期输出红外角度误差、
 # 双星交会位置误差、速度误差、落点/发射点预测误差样本与 AHP 综合评分（需求映射
 # 3.2.1.6.3 章节）。默认关闭：宏与派生计算一并剪除，零开销。

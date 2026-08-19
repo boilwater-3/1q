@@ -38,6 +38,12 @@ set(RIR_CORE_SOURCES
 
 oneq_add_component(rir_engine SOURCES ${RIR_ENGINE_SOURCES})
 oneq_add_component(rir_core SOURCES ${RIR_CORE_SOURCES})
+# RIR 验收信息日志（[RirAccept] 事件流）：检测链/跟踪/识别接线点在 rir_engine，
+# 会话/波位/驻留统计接线点在 rir_core，两侧共用 RirAcceptanceLog.h。
+if(ONEQ_ENABLE_RIR_ACCEPTANCE_LOG)
+    target_compile_definitions(rir_engine PRIVATE ONEQ_ENABLE_RIR_ACCEPTANCE_LOG=1)
+    target_compile_definitions(rir_core PRIVATE ONEQ_ENABLE_RIR_ACCEPTANCE_LOG=1)
+endif()
 # 识别特征库加载（SQLite 只读读取器）；仅 remote_identification_radar 内部消费，
 # PRIVATE 不进公共链接面。
 target_link_libraries(rir_engine PRIVATE SQLite::SQLite3)
