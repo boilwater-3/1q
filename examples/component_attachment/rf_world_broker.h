@@ -4,7 +4,9 @@
  *
  * 编排语义（见 docs/common/rf_architecture.md）：
  *  - 每周期初：rf_world = 上周期装备发射 + 脚本辐射源真值；
- *  - AR/RIR Step 成功后：本周期 emission_frame 追加到 rf_world（同周期 ESR 可见）
+ *  - ESR → ECM → AR 挂载序：ECM 发布干扰进 rf_world，AR 从 rf_world 派生
+ *    interference（排除本机发射 equipment，保留同平台 ECM/外部源）；
+ *  - AR/RIR Step 成功后：本周期 emission_frame 追加到 rf_world（同周期下游可见）
  *    并写入 pending_equipment_emissions（下周期初注入）；
  *  - RIR 站点实体先于平台步进：RIR 消费的是上周期 AR 发射 + 本周期脚本源。
  */
@@ -65,6 +67,25 @@ inline oneq::electromagnetics::RfSceneFrame BuildExternalRfScene(
     }
   }
   return external;
+}
+
+/** @brief 从 RF-WORLD 派生 AR 干扰帧（排除本机发射链，保留 ECM/脚本/它平台发射）。 */
+inline oneq::electromagnetics::RfEmissionFrame BuildArInterferenceFromRfWorld(
+    const oneq::electromagnetics::RfSceneFrame& rf_world, std::uint64_t own_platform_id,
+    std::uint64_t own_transmitter_equipment_id, double window_start_time_s,
+    double window_duration_sec, std::uint64_t world_cycle_index) {
+  oneq::electromagnetics::RfEmissionFrame interference;
+  interference.world_cycle_index = world_cycle_index;
+  interference.window_start_time_s = window_start_time_s;
+  interference.window_duration_s = window_duration_sec;
+  for (const auto& emission : rf_world.emissions) {
+    const bool own_transmitter = emission.identity.platform_id == own_platform_id &&
+                                 emission.identity.equipment_id == own_transmitter_equipment_id;
+    if (!own_transmitter) {
+      interference.emissions.push_back(emission);
+    }
+  }
+  return interference;
 }
 
 }  // namespace component_attachment

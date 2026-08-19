@@ -66,8 +66,12 @@ const char* ArExclusionCauseName(airborne_radar::session::ArIssueCause cause) {
 
 }  // namespace
 
-ArSensorComponent::ArSensorComponent(airborne_radar::session::ArSession session)
-    : session_(std::move(session)) {
+ArSensorComponent::ArSensorComponent(airborne_radar::session::ArSession session,
+                                     std::uint64_t platform_entity_id,
+                                     std::uint64_t transmitter_equipment_id)
+    : session_(std::move(session)),
+      platform_entity_id_(platform_entity_id),
+      transmitter_equipment_id_(transmitter_equipment_id) {
   // 轨迹生命周期事件由库内 recorder 承担（StepWithResult 内部自动喂）。
   session_.AttachTrackLifecycleRecorder(&lifecycle_);
   // 排除原因跨周期差分事件由库内 recorder 承担（与 lifecycle recorder 独立并列）。
@@ -165,11 +169,14 @@ void ArSensorComponent::Step(World& world, double dt_sec) {
   input.cycle_start_time_s = scene.t_sec;
   input.dt_sec = dt_sec;
   airborne_radar::session::ArExternalPoseInput pose;
-  pose.platform_entity_id = 1U;  // 平台实体标识（本示例单平台）
+  pose.platform_entity_id = platform_entity_id_;
   ResolvePlatformEcef(flight->position(), flight->heading_deg(), flight->speed_mps(),
                       &pose.platform_position_ecef_m, &pose.platform_velocity_mps);
   input.platform = pose;
   input.targets = scene.ar_targets;
+  input.interference =
+      BuildArInterferenceFromRfWorld(scene.rf_world, platform_entity_id_, transmitter_equipment_id_,
+                                     scene.t_sec, dt_sec, static_cast<std::uint64_t>(scene.cycle));
 
   const airborne_radar::session::ArCycleResult result = session_.StepWithResult(input);
   // 规则 12 落盘示范：每周期构建调试视图快照（拒绝周期为 kCycleNotCompleted，

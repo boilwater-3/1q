@@ -107,7 +107,12 @@ void EsrSensorComponent::Step(World& world, double dt_sec) {
     return;  // 周期被拒绝：本周期无假设
   }
 
-  const auto& hypotheses = result.output_frame.emitter_output.hypotheses;
+  last_hypotheses_ = result.output_frame.emitter_output.hypotheses;
+  last_batch_id_ = result.output_frame.batch_id;
+  last_completed_cycle_index_ = static_cast<std::uint32_t>(scene.cycle);
+  has_last_completed_output_ = true;
+
+  const auto& hypotheses = last_hypotheses_;
   for (const auto& hypothesis : hypotheses) {
     if (hypothesis.hypothesis_id == 0U) {
       continue;  // 库内键 0 = 无身份，不发布事件

@@ -32,6 +32,7 @@
 #include "1q/sbirs_sensor/session/SbirsSession.h"
 
 #include "components/ar_sensor_component.h"
+#include "components/ecm_sensor_component.h"
 #include "logger/logger.h"
 #include "components/eos_sensor_component.h"
 #include "components/esr_sensor_component.h"
@@ -131,6 +132,11 @@ int main(int argc, char* argv[]) {
   // 任务几何与链路，见 ApplySceneOverrides）。
   demo::ComponentAttachmentConfigs configs = demo::LoadConfigs();
   demo::ApplySceneOverrides(scene_data, &configs);
+  if (scene_data.ecm_enabled) {
+    // 同平台 ECM 发射链与 AR 接收链 co-site 隔离（演示层与跨域集成测试同量级）。
+    configs.ar.hardware.receiver.co_site_paths.push_back(
+        {ca::kDemoEcmTransmitterEquipmentId, configs.ar.hardware.receiver.equipment_id, 100.0});
+  }
 
   // RIR 地基识别雷达站点（可选，场景 rir.enabled）：独立实体（固定站点，
   // S 波段识别雷达的物理摆放——非机载），会话配置经 LoadConfigs 从
@@ -159,10 +165,16 @@ int main(int argc, char* argv[]) {
       scene_data.cruise_altitude_m, scene_data.waypoints,
       /*loop_route=*/scene_data.coverage.planned));
 
-  platform.Attach(std::make_unique<ca::ArSensorComponent>(
-      airborne_radar::session::ArSession::Create(configs.ar)));
+  // RF 链挂载序：Flight → ESR → [ECM] → AR → …（ECM 发布干扰进 rf_world，AR 同周期消费）。
   platform.Attach(std::make_unique<ca::EsrSensorComponent>(
       electronic_surveillance_radar::session::EsrSession::Create(configs.esr)));
+  if (scene_data.ecm_enabled) {
+    platform.Attach(std::make_unique<ca::EcmSensorComponent>(
+        electronic_countermeasure::session::EcmSession::Create(configs.ecm)));
+  }
+  platform.Attach(std::make_unique<ca::ArSensorComponent>(
+      airborne_radar::session::ArSession::Create(configs.ar), ca::kDemoPlatformEntityId,
+      configs.ar.hardware.transmitter.equipment_id));
   platform.Attach(std::make_unique<ca::EosSensorComponent>(
       electro_optical_sensor::session::EosSession::Create(configs.eos)));
   platform.Attach(std::make_unique<ca::SbirsSensorComponent>(
@@ -262,7 +274,7 @@ int main(int argc, char* argv[]) {
           centroid_z / count + scene_data.sbirs_satellite_altitude_m;
     }
 
-    world.Step(scene_data.dt_sec);  // 按挂载序步进：Flight → AR → ESR → EOS → SBIRS → SAR → Fusion
+    world.Step(scene_data.dt_sec);  // 步进序：Flight → ESR → [ECM] → AR → EOS → … → Fusion
 
     // 周期摘要 + 平台轨迹/调试视图落盘（多机：主平台 + 每架从机一行，
     // aircraft_id 区分；目标真值每目标一行，entity_type 透出空中/地面）。

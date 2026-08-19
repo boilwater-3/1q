@@ -15,6 +15,7 @@
 #include "config_loaders/remote_identification_radar/config_loader.h"
 #include "config_loaders/sar/config_loader.h"
 #include "config_loaders/sbirs_sensor/config_loader.h"
+#include "components/ecm_sensor_component.h"
 
 namespace component_attachment {
 namespace demo {
@@ -85,7 +86,18 @@ ComponentAttachmentConfigs LoadConfigs() {
     std::exit(1);
   }
   ResolveRirDatabasePath(&configs.rir);
+  configs.ecm = MakeDefaultEcmConfig();
   return configs;
+}
+
+electronic_countermeasure::config::EcmSessionConfig MakeDefaultEcmConfig() {
+  electronic_countermeasure::config::EcmSessionConfig config;
+  config.transmitter_equipment_id = component_attachment::kDemoEcmTransmitterEquipmentId;
+  config.channel_count = 1U;
+  config.maximum_total_transmit_power_w = 1000.0;
+  config.maximum_channel_transmit_power_w = 1000.0;
+  config.default_technique = electronic_countermeasure::EcmTechnique::kSpot;
+  return config;
 }
 
 void ApplySceneOverrides(const SceneData& scene, ComponentAttachmentConfigs* configs) {

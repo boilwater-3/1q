@@ -25,8 +25,9 @@ add_executable(component_attachment_demo
     scene_script.cpp
     demo_output.cpp
     components/flight_component.cpp
-    components/ar_sensor_component.cpp
     components/esr_sensor_component.cpp
+    components/ecm_sensor_component.cpp
+    components/ar_sensor_component.cpp
     components/eos_sensor_component.cpp
     components/sbirs_sensor_component.cpp
     components/sar_sensor_component.cpp

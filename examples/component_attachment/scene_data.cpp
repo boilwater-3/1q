@@ -558,6 +558,11 @@ bool LoadSceneData(const char* path, SceneData* scene, std::string* error) {
                 static_cast<std::int64_t>(out.rir_designation_duration_cycles)));
   }
 
+  const examples::JsonValue& ecm = root["ecm"];
+  if (!ecm.IsNull() && ecm.type() == examples::JsonValue::kObject) {
+    out.ecm_enabled = ecm.Has("enabled") ? ecm["enabled"].AsBool() : false;
+  }
+
   // 威胁评估块（可选，缺省 = ThreatEvaluatorConfig 默认值）。
   const examples::JsonValue& threat = root["threat"];
   if (!threat.IsNull() && threat.type() == examples::JsonValue::kObject) {

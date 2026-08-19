@@ -34,7 +34,8 @@ namespace component_attachment {
  */
 class ArSensorComponent : public Component {
  public:
-  explicit ArSensorComponent(airborne_radar::session::ArSession session);
+  ArSensorComponent(airborne_radar::session::ArSession session, std::uint64_t platform_entity_id,
+                    std::uint64_t transmitter_equipment_id);
   ~ArSensorComponent() override = default;
 
   ArSensorComponent(const ArSensorComponent&) = delete;
@@ -83,6 +84,8 @@ class ArSensorComponent : public Component {
   std::vector<fusion::DetectionRecord> detections_{};
   bool powered_on_{true}; /**< 电源状态（由 sensor_enabled 补丁唯一维护；关机时组件不驱动会话） */
   airborne_radar::session::ArTrackOutputDebugView last_debug_view_{}; /**< 最近周期调试视图快照（规则 12 落盘） */
+  std::uint64_t platform_entity_id_{1U};          /**< RF platform_id（rf_world 派生干扰时排除本机发射链） */
+  std::uint64_t transmitter_equipment_id_{1U};  /**< 本机发射 equipment_id（与 hardware.transmitter 一致） */
 
   /// 调试视图中文人读行写入（三模式分支见 .cpp；宏选择见 logger/logger.h）。
   void LogDebugView(const airborne_radar::session::ArTrackOutputDebugView& view);

@@ -167,6 +167,9 @@ struct SceneData {
   std::uint64_t rir_designated_target_id{0U};       /**< 指定任务目标 ID（0 = 无任务） */
   std::uint32_t rir_designation_duration_cycles{0U}; /**< 指定任务窗口（周期；0 = 无限期） */
 
+  // ECM 电子对抗块（可选，enabled=true 时挂载 EcmSensorComponent；须 ESR→ECM→AR 挂载序）。
+  bool ecm_enabled{false};                          /**< 是否挂载 ECM 组件 */
+
   // EOS 业务覆写（原 demo_config 内硬编码，迁入场景数据）：跨会话时间对齐
   // 与视场适配——周期校验要求 dt ≤ 10/frame_rate_hz（10 Hz 对应 1 s 步长
   // 上限）；原 JSON 为下视地面监视（视轴下俯 45°），与空中目标场景不匹配

@@ -15,6 +15,7 @@
 #include "1q/electronic_surveillance_radar/config/EsrRuntimeConfigPatch.h"
 #include "1q/electronic_surveillance_radar/session/EsrExclusionCauseRecorder.h"
 #include "1q/electronic_surveillance_radar/session/EsrSession.h"
+#include "1q/electronic_surveillance_radar/session/EmitterHypothesis.h"
 #include "1q/fusion/DetectionRecord.h"
 #include "core/component.h"
 
@@ -47,6 +48,20 @@ class EsrSensorComponent : public Component {
 
   /** @brief 最近周期波束中心方位角（单位：deg，平台系；仅开机且 kCompleted 周期有效，其余为 0）。 */
   float scan_azimuth_deg() const { return scan_azimuth_deg_; }
+
+  /** @brief 上一成功周期的辐射源假设（供 ECM 组件 sensor-driven 输入）。 */
+  const electronic_surveillance_radar::session::EmitterHypothesisList& last_hypotheses() const {
+    return last_hypotheses_;
+  }
+
+  /** @brief 上一成功周期 output batch_id（ECM fresh-frame provenance）。 */
+  std::uint64_t last_batch_id() const { return last_batch_id_; }
+
+  /** @brief 是否至少完成过一个成功周期（hypotheses/batch_id 有效）。 */
+  bool has_last_completed_output() const { return has_last_completed_output_; }
+
+  /** @brief 上一成功周期对应的世界周期号（0 = 尚无成功输出）。 */
+  std::uint32_t last_completed_cycle_index() const { return last_completed_cycle_index_; }
 
   /**
    * @brief 运行时修改入口：包装 EsrSession::TryApplyRuntimeConfig。
@@ -81,6 +96,10 @@ class EsrSensorComponent : public Component {
   std::vector<fusion::DetectionRecord> detections_{};
   bool powered_on_{true};     /**< 电源状态（由 sensor_enabled 补丁唯一维护；关机时组件不驱动会话） */
   float scan_azimuth_deg_{0.0f}; /**< 最近周期波束中心方位角（deg，随周期结果刷新） */
+  electronic_surveillance_radar::session::EmitterHypothesisList last_hypotheses_{};
+  std::uint64_t last_batch_id_{0U};
+  std::uint32_t last_completed_cycle_index_{0U};
+  bool has_last_completed_output_{false};
 };
 
 }  // namespace component_attachment

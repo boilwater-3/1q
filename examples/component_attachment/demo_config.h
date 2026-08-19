@@ -17,6 +17,7 @@
 
 #include "1q/airborne_radar/config/ArSessionConfig.h"
 #include "1q/electro_optical_sensor/config/EosSessionConfig.h"
+#include "1q/electronic_countermeasure/EcmTypes.h"
 #include "1q/electronic_surveillance_radar/config/EsrSessionConfig.h"
 #include "1q/remote_identification_radar/config/RirSessionConfig.h"
 #include "1q/sar/config/SarSessionConfig.h"
@@ -44,6 +45,7 @@ struct ComponentAttachmentConfigs {
   sbirs_sensor::config::SbirsSessionConfig sbirs{};
   sar::config::SarSessionConfig sar{};
   remote_identification_radar::config::RirSessionConfig rir{};
+  electronic_countermeasure::config::EcmSessionConfig ecm{};
 };
 
 /// 打印命令行用法。
@@ -51,6 +53,9 @@ void PrintUsage(const char* program);
 
 /// 加载六份会话配置（复用各域 config_loader 与 examples/configs/ 同源 JSON）。
 ComponentAttachmentConfigs LoadConfigs();
+
+/// 演示层 ECM 默认配置（无独立 JSON；场景 ecm.enabled 时挂载）。
+electronic_countermeasure::config::EcmSessionConfig MakeDefaultEcmConfig();
 
 /// 场景业务调参覆写（EOS 扫描/帧率 + SAR 任务几何/链路）：在 LoadConfigs()
 /// 之后应用，数据源为场景文件（scene_data.h），替代原 demo_config 内硬编码

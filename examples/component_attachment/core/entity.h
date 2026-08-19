@@ -3,8 +3,8 @@
  * @brief 自定义实体-组件示例：实体（组件的挂载容器）。
  *
  * 实体按挂载序持有组件列表（unique_ptr 所有权）；Step 按挂载序步进全部
- * 组件——挂载序即周期执行序（本示例平台实体：Flight → AR → ESR → EOS
- * → Fusion，保证传感器读到推进后的平台位姿、融合读到本周期探测）。
+ * 组件——挂载序即周期执行序（本示例平台实体：Flight → ESR → [ECM] → AR
+ * → EOS → Fusion，保证 ESR 假设先于 ECM、干扰经 rf_world 先于 AR 消费）。
  *
  * 组件间通信：
  *  - 周期内同步数据聚合：Find<T>()（dynamic_cast 类型化访问同实体组件）；
