@@ -27,7 +27,8 @@
 namespace component_attachment {
 
 /// RIR 地基站点实体名（main 创建实体与 FusionComponent 跨实体聚合共用）。
-inline constexpr char kRirSiteEntityName[] = "rir_ground_site";
+// C++14：namespace 作用域 constexpr 自带内部链接（inline 变量为 C++17 特性）。
+constexpr char kRirSiteEntityName[] = "rir_ground_site";
 
 /**
  * @brief RIR 地基站点传感器组件：识别会话驱动 + 识别/指定任务事件 + 融合量测。

@@ -28,8 +28,11 @@
 
 // 前向声明（FD 头零依赖约束）：ManeuverCommand 完整定义在
 // 1q/flight_dynamic/FlightManager.h，仅运行时机动接口按引用传递。
-namespace oneq::flight_dynamic {
+// （嵌套命名空间定义是 C++17 语法，此处用经典两级写法兼容 C++14。）
+namespace oneq {
+namespace flight_dynamic {
 struct ManeuverCommand;
+}
 }
 
 namespace component_attachment {

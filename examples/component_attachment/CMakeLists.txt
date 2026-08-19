@@ -38,7 +38,11 @@ add_executable(component_attachment_demo
     logger/logger.cpp)
 
 # Boost.Signals2 事件库：与 tests 分区同源解析（tests/cmake/TestSupport.cmake）。
-find_package(Boost CONFIG REQUIRED)
+# conan 路径走 find_package（包配置文件由 conan 生成）；none 路径下
+# VendorPackages.cmake 已直接定义 Boost::boost INTERFACE 目标，无需再 find。
+if(NOT TARGET Boost::boost)
+    find_package(Boost CONFIG REQUIRED)
+endif()
 target_link_libraries(component_attachment_demo PRIVATE
     ${PROJECT_ALIAS}
     Boost::boost)

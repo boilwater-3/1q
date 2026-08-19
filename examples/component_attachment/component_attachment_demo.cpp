@@ -16,11 +16,20 @@
 #include <algorithm>
 #include <cstdint>
 #include <cstdlib>
-#include <filesystem>
 #include <iostream>
 #include <memory>
 #include <string>
 #include <vector>
+
+// std::filesystem 为 C++17；VS2015（msvc 190）下同头文件提供 TR2 的
+// std::experimental::filesystem，别名统一调用面。
+#if defined(_MSC_VER) && _MSC_VER < 1910
+#include <filesystem>
+namespace demo_fs = std::experimental::filesystem;
+#else
+#include <filesystem>
+namespace demo_fs = std::filesystem;
+#endif
 
 #include "1q/airborne_radar/session/ArSession.h"
 #include "1q/coordinate/types.h"
@@ -116,7 +125,7 @@ int main(int argc, char* argv[]) {
               << "' or --cycles)\n";
     return 1;
   }
-  std::filesystem::create_directories(output_dir);
+  demo_fs::create_directories(output_dir);
 
   // 集成端日志初始化（三个日志文件：库日志 1q_library.log + 集成端事件行
   // integration_events.log + 视图行 integration_views.log；见 logger/logger.h）。

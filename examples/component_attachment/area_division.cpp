@@ -28,9 +28,14 @@ constexpr double kPi = 3.14159265358979323846;
 double DegToRad(double deg) { return deg * kPi / 180.0; }
 
 // 平面点（ENU 东/北或扫描帧 u/v；示例层局部类型，不依赖 Eigen include 路径）。
+// 值构造：VS2015 的聚合 + NSDMI 花括号初始化支持不完整（C2440），与库内
+// 公共结构体的处理同款。
 struct PlanePoint {
   double x{0.0};
   double y{0.0};
+
+  PlanePoint() = default;
+  PlanePoint(double x_in, double y_in) : x(x_in), y(y_in) {}
 };
 
 // 多边形顶点投影到以顶点平均为原点的 ENU 平面（东/北二维）。
