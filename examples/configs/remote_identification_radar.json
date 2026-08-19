@@ -2,19 +2,19 @@
   "hardware": {
     "transmitter": {
       "equipment_id": 1,
-      "peak_power_w": 1000000.0,
+      "peak_power_w": 582000.0,
       "frequency_hz": 3000000000.0,
       "bandwidth_hz": 4500000.0,
-      "pulse_width_s": 1.3e-5,
-      "prf_hz": 300.0,
+      "pulse_width_s": 0.016,
+      "prf_hz": 10.0,
       "transmit_loss_db": 3.5,
-      "maximum_peak_power_w": 1200000.0,
-      "maximum_duty_cycle": 0.1,
-      "maximum_pulse_energy_j": 20.0,
+      "maximum_peak_power_w": 582000.0,
+      "maximum_duty_cycle": 0.5,
+      "maximum_pulse_energy_j": 10000.0,
       "frequency_plan_hz": [3000000000.0]
     },
     "antenna": {
-      "main_beam_gain_db": 35.0,
+      "main_beam_gain_db": 52.0,
       "nominal_az_beamwidth_deg": 4.0,
       "nominal_el_beamwidth_deg": 4.0,
       "antenna_length_m": 0.0,
@@ -65,14 +65,14 @@
   "sensor_platform_id": 2,
   "mission": {
     "work_mode": "kIdentify",
-    "max_range_m": 300000.0,
-    "recognition_dwell_sec": 0.05,
+    "max_range_m": 9000000.0,
+    "recognition_dwell_sec": 0.1,
     "scan": {
       "scan_limits_deg": {
-        "az_min_deg": -60.0,
-        "az_max_deg": 60.0,
-        "el_min_deg": -30.0,
-        "el_max_deg": 30.0
+        "az_min_deg": -110.0,
+        "az_max_deg": 110.0,
+        "el_min_deg": 2.0,
+        "el_max_deg": 90.0
       },
       "scan_start_position": "kLeftTop",
       "scan_sequence": "kAzimuthFirst",
@@ -84,7 +84,7 @@
       "cfar_pfa": 1.0e-6,
       "min_snr_db": -10.0,
       "min_detection_margin_db": -2.0,
-      "pulse_count": 10,
+      "pulse_count": 1,
       "random_seed": 42,
       "gate_mode": "kSnrFallback"
     },
