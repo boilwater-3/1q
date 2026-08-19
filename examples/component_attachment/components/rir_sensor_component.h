@@ -41,7 +41,8 @@ class RirSensorComponent : public Component {
  public:
   RirSensorComponent(remote_identification_radar::session::RirSession session,
                      const oneq::coordinate::LlaPositionDegM& site_origin,
-                     std::uint64_t designated_target_id, std::uint32_t designation_duration_cycles);
+                     std::uint64_t designated_target_id, std::uint32_t designation_duration_cycles,
+                     std::uint64_t sensor_platform_id, float recognition_dwell_sec);
   ~RirSensorComponent() override = default;
 
   RirSensorComponent(const RirSensorComponent&) = delete;
@@ -67,6 +68,8 @@ class RirSensorComponent : public Component {
   oneq::coordinate::EcefPositionM site_ecef_{};       /**< 站点 ECEF（构造时解析一次） */
   std::uint64_t designated_target_id_{0U};            /**< 指定任务目标 ID（0 = 无任务） */
   std::uint32_t designation_duration_cycles_{0U};     /**< 指定任务窗口（周期；0 = 无限期） */
+  std::uint64_t sensor_platform_id_{0U};              /**< RF scene 平台身份（排除自身发射） */
+  float recognition_dwell_sec_{0.05f};                /**< 识别驻留窗口（rf_scene 时间对齐） */
   bool designation_applied_{false};                   /**< 指定任务补丁是否已下发 */
   std::vector<fusion::DetectionRecord> detections_{};
   bool powered_on_{true};

@@ -98,7 +98,7 @@ void EsrSensorComponent::Step(World& world, double dt_sec) {
   input.rf_emissions.world_cycle_index = input.cycle_index;
   input.rf_emissions.window_start_time_s = input.cycle_start_time_s;
   input.rf_emissions.window_duration_s = input.dt_sec;
-  input.rf_emissions.emissions = scene.emitters;  // 辐射源真值由消费方脚本注入
+  input.rf_emissions.emissions = scene.rf_world.emissions;  // RF-WORLD（脚本源 + 装备发射）
 
   const electronic_surveillance_radar::session::EsrCycleResult result = session_.StepWithResult(input);
   scan_azimuth_deg_ = result.output_frame.scan_azimuth_deg;  // 扫描方位随周期结果刷新（拒绝周期为空帧 → 0）

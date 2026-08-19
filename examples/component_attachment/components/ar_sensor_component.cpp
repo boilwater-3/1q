@@ -20,6 +20,7 @@
 #include "logger/logger_i18n.h"
 #include "flight_component.h"
 #include "core/world.h"
+#include "rf_world_broker.h"
 #include "scene_types.h"
 #include "sensor_utils.h"
 
@@ -158,6 +159,7 @@ void ArSensorComponent::Step(World& world, double dt_sec) {
 
   // 周期输入：世界目标事实由消费方每周期写入共享场景状态。
   const auto& scene = static_cast<const DemoSceneState&>(world.scene_state());
+  auto& mutable_scene = static_cast<DemoSceneState&>(world.scene_state());
   airborne_radar::session::ArCycleInput input;
   input.cycle_index = static_cast<std::uint32_t>(scene.cycle);
   input.cycle_start_time_s = scene.t_sec;
@@ -178,6 +180,7 @@ void ArSensorComponent::Step(World& world, double dt_sec) {
   if (result.status != airborne_radar::session::ArCycleStatus::kCompleted) {
     return;  // 周期被拒绝：本周期无探测
   }
+  PublishEquipmentEmissions(&mutable_scene, result.emission_frame);
 
   // 事件转发与探测适配统一用外部轨迹帧（雷达局部坐标 → ECEF 已在
   // ArCycleOutputAdapter 边界转换；内部帧为 TrackStateSnapshot，无 ECEF）。

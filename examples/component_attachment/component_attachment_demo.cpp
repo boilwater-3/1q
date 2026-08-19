@@ -41,6 +41,7 @@
 #include "components/rir_sensor_component.h"
 #include "components/sar_sensor_component.h"
 #include "components/sbirs_sensor_component.h"
+#include "rf_world_broker.h"
 #include "scene_types.h"
 #include "components/threat_component.h"
 #include "core/world.h"
@@ -143,7 +144,8 @@ int main(int argc, char* argv[]) {
     rir_site->Attach(std::make_unique<ca::RirSensorComponent>(
         remote_identification_radar::session::RirSession::Create(configs.rir),
         scene_data.rir_site_origin, scene_data.rir_designated_target_id,
-        scene_data.rir_designation_duration_cycles));
+        scene_data.rir_designation_duration_cycles, configs.rir.sensor_platform_id,
+        configs.rir.mission.recognition_dwell_sec));
   }
 
   ca::Entity& platform = world.CreateEntity("platform");
@@ -243,6 +245,7 @@ int main(int argc, char* argv[]) {
       // RIR 场景目标：世界 ECEF → 站点局部 ENU（含识别特征真值铺样）。
       scene.rir_targets = demo::MakeRirSceneTargets(target_states, scene_data.rir_site_origin);
     }
+    BeginRfWorldCycle(&scene, scene_data.dt_sec);
     if (!target_states.empty()) {
       double centroid_x = 0.0;
       double centroid_y = 0.0;

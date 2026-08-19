@@ -22,6 +22,7 @@
 #include "1q/remote_identification_radar/session/RirCycleInput.h"
 #include "core/world.h"
 #include "logger/logger.h"
+#include "rf_world_broker.h"
 #include "scene_types.h"
 
 namespace component_attachment {
@@ -90,11 +91,14 @@ const char* DesignationRevertReasonName(
 
 RirSensorComponent::RirSensorComponent(
     rir::RirSession session, const oneq::coordinate::LlaPositionDegM& site_origin,
-    std::uint64_t designated_target_id, std::uint32_t designation_duration_cycles)
+    std::uint64_t designated_target_id, std::uint32_t designation_duration_cycles,
+    std::uint64_t sensor_platform_id, float recognition_dwell_sec)
     : session_(std::move(session)),
       site_origin_(site_origin),
       designated_target_id_(designated_target_id),
-      designation_duration_cycles_(designation_duration_cycles) {
+      designation_duration_cycles_(designation_duration_cycles),
+      sensor_platform_id_(sensor_platform_id),
+      recognition_dwell_sec_(recognition_dwell_sec) {
   // 站点固定：ECEF 解析一次，逐周期作为特征量测 sensor_origin 提供。
   oneq::coordinate::TryLlaToEcef(site_origin_, &site_ecef_);
 }
@@ -106,6 +110,7 @@ void RirSensorComponent::Step(World& world, double dt_sec) {
     return;  // 关机：不驱动会话
   }
   const auto& scene = static_cast<const DemoSceneState&>(world.scene_state());
+  auto& mutable_scene = static_cast<DemoSceneState&>(world.scene_state());
 
   // 指定目标任务首周期下发（识别完成/窗口耗尽的回扫由会话状态机处置）。
   if (!designation_applied_ && designated_target_id_ != 0U) {
@@ -126,11 +131,15 @@ void RirSensorComponent::Step(World& world, double dt_sec) {
   input.sim_time_sec = static_cast<float>(scene.t_sec);
   input.platform_position = site_ecef_;
   input.scene_targets = scene.rir_targets;  // 站点局部 ENU + 识别特征真值（消费方注入）
+  input.rf_scene = BuildExternalRfScene(scene.rf_world, sensor_platform_id_, scene.t_sec,
+                                      static_cast<double>(recognition_dwell_sec_),
+                                      static_cast<std::uint64_t>(scene.cycle));
 
   const rir::RirCycleResult result = session_.StepWithResult(input);
   if (result.status != rir::RirCycleStatus::kCompleted) {
     return;  // 周期被拒绝：本周期无量测/结论
   }
+  PublishEquipmentEmissions(&mutable_scene, result.emission_frame);
 
   // 识别结论：确认态周期计数（冒烟下限）+ 进入确认态的迁移事件（关键事件，
   // 不逐周期重复）。

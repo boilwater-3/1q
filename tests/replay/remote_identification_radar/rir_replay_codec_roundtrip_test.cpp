@@ -13,6 +13,7 @@
 
 #include "1q/remote_identification_radar/session/RirCycleResult.h"
 #include "1q/remote_identification_radar/session/RirRecognitionResult.h"
+#include "1q/electromagnetics/RfScene.h"
 #include "remote_identification_radar/session/RirReplayCycleRecord.h"
 #include "remote_identification_radar/session/RirReplayFlatbufferCodec.h"
 #include "remote_identification_radar/session/generated/rir_replay_generated.h"
@@ -327,6 +328,70 @@ TEST(RirReplayCodecRoundtripTest, TrackAttributionsRoundtripPreserved) {
   EXPECT_EQ(decoded.result.track_attributions[1].association_key, 2U);
   EXPECT_EQ(decoded.result.track_attributions[1].external_target_id, 0U);
   EXPECT_TRUE(decoded.result.track_attributions[1].target_name.empty());
+}
+
+/// @brief emission_frame 全字段往返（加性 V2 扩展；旧记录缺字段解码为空帧）。
+TEST(RirReplayCodecRoundtripTest, EmissionFrameRoundtripPreserved) {
+  RirCycleReplayRecord record;
+  record.result.status = RirCycleStatus::kCompleted;
+  record.result.emission_frame.world_cycle_index = 12U;
+  record.result.emission_frame.window_start_time_s = 5.5;
+  record.result.emission_frame.window_duration_s = 0.05;
+
+  oneq::electromagnetics::RfSceneEmission emission;
+  emission.identity.platform_id = 2U;
+  emission.identity.equipment_id = 1U;
+  emission.identity.emission_id = 7U;
+  emission.position_ecef_m.x_m = 1000.0;
+  emission.position_ecef_m.y_m = 2000.0;
+  emission.position_ecef_m.z_m = 3000.0;
+  emission.velocity_ecef_mps.x_mps = 10.0;
+  emission.antenna.peak_gain_dbi = 35.0;
+  emission.antenna.half_power_beamwidth_deg = 4.0;
+  emission.polarization = oneq::electromagnetics::RfScenePolarization::kVertical;
+  emission.waveform.kind = oneq::electromagnetics::RfSceneWaveformKind::kPulseTrain;
+  emission.waveform.activity_start_time_s = 5.5;
+  emission.waveform.activity_duration_s = 0.05;
+  emission.waveform.center_frequency_hz = 3.0e9;
+  emission.waveform.occupied_bandwidth_hz = 4.5e6;
+  emission.waveform.transmit_power_w = 1.0e6;
+  emission.waveform.pulse_width_s = 1.3e-5;
+  emission.waveform.pulse_repetition_interval_s = 1.0 / 300.0;
+  record.result.emission_frame.emissions.push_back(emission);
+
+  const std::string encoded = session::EncodeCycleReplayRecordFlatbuffer(record);
+  ASSERT_FALSE(encoded.empty());
+  RirCycleReplayRecord decoded;
+  std::string error;
+  ASSERT_TRUE(session::DecodeCycleReplayRecordFlatbuffer(encoded, &decoded, &error)) << error;
+  EXPECT_EQ(session::EncodeCycleReplayRecordFlatbuffer(decoded), encoded);
+
+  EXPECT_EQ(decoded.result.emission_frame.world_cycle_index, 12U);
+  EXPECT_DOUBLE_EQ(decoded.result.emission_frame.window_start_time_s, 5.5);
+  EXPECT_DOUBLE_EQ(decoded.result.emission_frame.window_duration_s, 0.05);
+  ASSERT_EQ(decoded.result.emission_frame.emissions.size(), 1U);
+  EXPECT_EQ(decoded.result.emission_frame.emissions.front().identity.platform_id, 2U);
+  EXPECT_EQ(decoded.result.emission_frame.emissions.front().identity.equipment_id, 1U);
+  EXPECT_EQ(decoded.result.emission_frame.emissions.front().identity.emission_id, 7U);
+  EXPECT_DOUBLE_EQ(decoded.result.emission_frame.emissions.front().position_ecef_m.x_m, 1000.0);
+  EXPECT_DOUBLE_EQ(decoded.result.emission_frame.emissions.front().waveform.transmit_power_w,
+                   1.0e6);
+  EXPECT_EQ(decoded.result.emission_frame.emissions.front().waveform.kind,
+            oneq::electromagnetics::RfSceneWaveformKind::kPulseTrain);
+}
+
+/// @brief 空 emission_frame 往返（加性 V2 扩展默认值）。
+TEST(RirReplayCodecRoundtripTest, EmptyEmissionFrameRoundtripPreserved) {
+  RirCycleReplayRecord record;
+  record.result.status = RirCycleStatus::kCompleted;
+  record.result.input_cycle_index = 3U;
+
+  const std::string encoded = session::EncodeCycleReplayRecordFlatbuffer(record);
+  RirCycleReplayRecord decoded;
+  std::string error;
+  ASSERT_TRUE(session::DecodeCycleReplayRecordFlatbuffer(encoded, &decoded, &error)) << error;
+  EXPECT_TRUE(decoded.result.emission_frame.emissions.empty());
+  EXPECT_EQ(decoded.result.emission_frame.world_cycle_index, 0U);
 }
 
 }  // namespace

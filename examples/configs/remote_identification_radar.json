@@ -62,7 +62,7 @@
       "bistatic_psi_offset_deg": 5.0
     }
   },
-  "sensor_platform_id": 1,
+  "sensor_platform_id": 2,
   "mission": {
     "work_mode": "kIdentify",
     "max_range_m": 300000.0,

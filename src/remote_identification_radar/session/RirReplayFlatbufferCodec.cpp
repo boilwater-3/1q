@@ -12,6 +12,8 @@
 #include <string>
 #include <vector>
 
+#include "1q/coordinate/types.h"
+#include "1q/electromagnetics/RfScene.h"
 #include "remote_identification_radar/session/generated/rir_replay_generated.h"
 
 namespace remote_identification_radar {
@@ -20,6 +22,173 @@ namespace session {
 namespace fb = oneq::replay::remote_identification_radar::fb;
 
 namespace {
+
+flatbuffers::Offset<fb::Vector3d> EncodeRfV2Position(flatbuffers::FlatBufferBuilder* builder,
+                                                      const oneq::coordinate::EcefPositionM& value) {
+  return fb::CreateVector3d(*builder, value.x_m, value.y_m, value.z_m);
+}
+
+flatbuffers::Offset<fb::Vector3d> EncodeRfV2Velocity(
+    flatbuffers::FlatBufferBuilder* builder, const oneq::coordinate::EcefVelocityMps& value) {
+  return fb::CreateVector3d(*builder, value.x_mps, value.y_mps, value.z_mps);
+}
+
+flatbuffers::Offset<fb::RfSceneDirectionV2> EncodeRfV2Direction(
+    flatbuffers::FlatBufferBuilder* builder,
+    const oneq::electromagnetics::RfSceneDirection& value) {
+  return fb::CreateRfSceneDirectionV2(*builder, value.x, value.y, value.z);
+}
+
+flatbuffers::Offset<fb::RfSceneAntennaPatternV2> EncodeRfV2Antenna(
+    flatbuffers::FlatBufferBuilder* builder,
+    const oneq::electromagnetics::RfSceneAntennaPattern& value) {
+  return fb::CreateRfSceneAntennaPatternV2(
+      *builder, EncodeRfV2Direction(builder, value.boresight_ecef), value.peak_gain_dbi,
+      value.half_power_beamwidth_deg, value.sidelobe_level_db, value.backlobe_level_db,
+      value.cross_polarization_isolation_db);
+}
+
+flatbuffers::Offset<fb::RfEmissionIdentityV2> EncodeRfV2Identity(
+    flatbuffers::FlatBufferBuilder* builder,
+    const oneq::electromagnetics::RfEmissionIdentity& value) {
+  return fb::CreateRfEmissionIdentityV2(*builder, value.platform_id, value.equipment_id,
+                                        value.emission_id);
+}
+
+flatbuffers::Offset<fb::RfWaveformScheduleV2> EncodeRfV2Waveform(
+    flatbuffers::FlatBufferBuilder* builder,
+    const oneq::electromagnetics::RfWaveformSchedule& value) {
+  return fb::CreateRfWaveformScheduleV2(
+      *builder, static_cast<int>(value.kind), value.activity_start_time_s,
+      value.activity_duration_s, value.center_frequency_hz, value.occupied_bandwidth_hz,
+      value.transmit_power_w, value.pulse_width_s, value.pulse_repetition_interval_s,
+      value.first_pulse_time_s, value.pulse_count, value.pulse_jitter_fraction, value.timing_seed,
+      value.timing_epoch, value.sweep_start_frequency_hz, value.sweep_stop_frequency_hz,
+      value.sweep_period_s);
+}
+
+flatbuffers::Offset<fb::RfSceneEmissionV2> EncodeRfV2Emission(
+    flatbuffers::FlatBufferBuilder* builder, const oneq::electromagnetics::RfSceneEmission& value) {
+  return fb::CreateRfSceneEmissionV2(*builder, EncodeRfV2Identity(builder, value.identity),
+                                     EncodeRfV2Position(builder, value.position_ecef_m),
+                                     EncodeRfV2Velocity(builder, value.velocity_ecef_mps),
+                                     EncodeRfV2Antenna(builder, value.antenna),
+                                     static_cast<int>(value.polarization),
+                                     EncodeRfV2Waveform(builder, value.waveform));
+}
+
+flatbuffers::Offset<fb::RfSceneFrameV2> EncodeRfV2Scene(
+    flatbuffers::FlatBufferBuilder* builder, const oneq::electromagnetics::RfSceneFrame& value) {
+  std::vector<flatbuffers::Offset<fb::RfSceneEmissionV2>> emissions;
+  emissions.reserve(value.emissions.size());
+  for (const auto& emission : value.emissions) {
+    emissions.push_back(EncodeRfV2Emission(builder, emission));
+  }
+  return fb::CreateRfSceneFrameV2(*builder, value.world_cycle_index, value.window_start_time_s,
+                                  value.window_duration_s, builder->CreateVector(emissions));
+}
+
+oneq::coordinate::EcefPositionM DecodeRfV2Position(const fb::Vector3d* value) {
+  oneq::coordinate::EcefPositionM result;
+  if (value != nullptr) {
+    result.x_m = value->x();
+    result.y_m = value->y();
+    result.z_m = value->z();
+  }
+  return result;
+}
+
+oneq::coordinate::EcefVelocityMps DecodeRfV2Velocity(const fb::Vector3d* value) {
+  oneq::coordinate::EcefVelocityMps result;
+  if (value != nullptr) {
+    result.x_mps = value->x();
+    result.y_mps = value->y();
+    result.z_mps = value->z();
+  }
+  return result;
+}
+
+oneq::electromagnetics::RfSceneDirection DecodeRfV2Direction(const fb::RfSceneDirectionV2* value) {
+  oneq::electromagnetics::RfSceneDirection result;
+  if (value != nullptr) {
+    result.x = value->x();
+    result.y = value->y();
+    result.z = value->z();
+  }
+  return result;
+}
+
+oneq::electromagnetics::RfSceneAntennaPattern DecodeRfV2Antenna(
+    const fb::RfSceneAntennaPatternV2* value) {
+  oneq::electromagnetics::RfSceneAntennaPattern result;
+  if (value != nullptr) {
+    result.boresight_ecef = DecodeRfV2Direction(value->boresight_ecef());
+    result.peak_gain_dbi = value->peak_gain_dbi();
+    result.half_power_beamwidth_deg = value->half_power_beamwidth_deg();
+    result.sidelobe_level_db = value->sidelobe_level_db();
+    result.backlobe_level_db = value->backlobe_level_db();
+    result.cross_polarization_isolation_db = value->cross_polarization_isolation_db();
+  }
+  return result;
+}
+
+oneq::electromagnetics::RfWaveformSchedule DecodeRfV2Waveform(
+    const fb::RfWaveformScheduleV2* value) {
+  oneq::electromagnetics::RfWaveformSchedule result;
+  if (value != nullptr) {
+    result.kind = static_cast<oneq::electromagnetics::RfSceneWaveformKind>(value->kind());
+    result.activity_start_time_s = value->activity_start_time_s();
+    result.activity_duration_s = value->activity_duration_s();
+    result.center_frequency_hz = value->center_frequency_hz();
+    result.occupied_bandwidth_hz = value->occupied_bandwidth_hz();
+    result.transmit_power_w = value->transmit_power_w();
+    result.pulse_width_s = value->pulse_width_s();
+    result.pulse_repetition_interval_s = value->pulse_repetition_interval_s();
+    result.first_pulse_time_s = value->first_pulse_time_s();
+    result.pulse_count = value->pulse_count();
+    result.pulse_jitter_fraction = value->pulse_jitter_fraction();
+    result.timing_seed = value->timing_seed();
+    result.timing_epoch = value->timing_epoch();
+    result.sweep_start_frequency_hz = value->sweep_start_frequency_hz();
+    result.sweep_stop_frequency_hz = value->sweep_stop_frequency_hz();
+    result.sweep_period_s = value->sweep_period_s();
+  }
+  return result;
+}
+
+oneq::electromagnetics::RfSceneEmission DecodeRfV2Emission(const fb::RfSceneEmissionV2* value) {
+  oneq::electromagnetics::RfSceneEmission result;
+  if (value != nullptr) {
+    if (value->identity() != nullptr) {
+      result.identity.platform_id = value->identity()->platform_id();
+      result.identity.equipment_id = value->identity()->equipment_id();
+      result.identity.emission_id = value->identity()->emission_id();
+    }
+    result.position_ecef_m = DecodeRfV2Position(value->position_ecef_m());
+    result.velocity_ecef_mps = DecodeRfV2Velocity(value->velocity_ecef_mps());
+    result.antenna = DecodeRfV2Antenna(value->antenna());
+    result.polarization =
+        static_cast<oneq::electromagnetics::RfScenePolarization>(value->polarization());
+    result.waveform = DecodeRfV2Waveform(value->waveform());
+  }
+  return result;
+}
+
+oneq::electromagnetics::RfSceneFrame DecodeRfV2Scene(const fb::RfSceneFrameV2* value) {
+  oneq::electromagnetics::RfSceneFrame result;
+  if (value != nullptr) {
+    result.world_cycle_index = value->world_cycle_index();
+    result.window_start_time_s = value->window_start_time_s();
+    result.window_duration_s = value->window_duration_s();
+    if (value->emissions() != nullptr) {
+      result.emissions.reserve(value->emissions()->size());
+      for (const fb::RfSceneEmissionV2* emission : *value->emissions()) {
+        result.emissions.push_back(DecodeRfV2Emission(emission));
+      }
+    }
+  }
+  return result;
+}
 
 flatbuffers::Offset<fb::RirRecognitionResultV1> EncodeRecognitionResult(
     flatbuffers::FlatBufferBuilder* builder, const RirRecognitionResult& value) {
@@ -276,7 +445,7 @@ std::string EncodeCycleReplayRecordFlatbuffer(const RirCycleReplayRecord& record
       record.result.designation_active, record.result.designation_reverted_to_scan,
       static_cast<int>(record.result.designation_revert_reason),
       record.result.dwell_center_deg.az_deg, record.result.dwell_center_deg.el_deg,
-      builder.CreateVector(attributions));
+      builder.CreateVector(attributions), EncodeRfV2Scene(&builder, record.result.emission_frame));
 
   const flatbuffers::Offset<fb::RirSessionReplayStateV2> session_state =
       fb::CreateRirSessionReplayStateV2(
@@ -355,6 +524,7 @@ bool DecodeCycleReplayRecordFlatbuffer(const std::string& payload_bytes,
       static_cast<RirDesignationRevertReason>(revert_reason_raw);
   candidate.result.dwell_center_deg.az_deg = result->dwell_center_az_deg();
   candidate.result.dwell_center_deg.el_deg = result->dwell_center_el_deg();
+  candidate.result.emission_frame = DecodeRfV2Scene(result->emission_frame());
 
   const fb::RirOutputFrameV1* output_frame = result->output_frame();
   if (output_frame != nullptr) {

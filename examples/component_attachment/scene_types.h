@@ -32,6 +32,8 @@ struct DemoSceneState : SceneState {
   std::vector<electro_optical_sensor::session::EosExternalTargetInput> optical_targets{}; /**< EOS 光学目标 */
   std::vector<sbirs_sensor::session::SbirsSceneTarget> sbirs_targets{}; /**< SBIRS 红外目标真值 */
   std::vector<remote_identification_radar::session::RirSceneTarget> rir_targets{}; /**< RIR 场景目标真值（站点局部 ENU + 识别特征） */
+  oneq::electromagnetics::RfSceneFrame rf_world{}; /**< 本周期 RF-WORLD（脚本源 + 上周期/同周期装备发射） */
+  oneq::electromagnetics::RfEmissionFrame pending_equipment_emissions{}; /**< 本周期收集、下周期初注入 rf_world */
   sbirs_sensor::session::SbirsVector3M sbirs_satellite_position_ecef_m{}; /**< 天基平台（卫星）ECEF 位置 */
   sbirs_sensor::session::SbirsVector3M sbirs_satellite_velocity_ecef_m_per_s{}; /**< 天基平台（卫星）ECEF 速度（必填；演示合成静止卫星，缺省零向量合法） */
   sbirs_sensor::session::SbirsEulerAnglesDeg sbirs_satellite_attitude_eci_body_deg{}; /**< 天基平台（卫星）姿态（Z-Y-X，Body->ECI；必填，缺省零欧拉 = 体轴对齐 ECI） */
