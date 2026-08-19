@@ -17,7 +17,11 @@
 #include "common/numerics/Constants.h"
 #include "1q/coordinate/position_transform.h"
 #include "remote_identification_radar/dwell/RirBeamControl.h"
+#include "remote_identification_radar/dwell/RirEffectiveRcs.h"
+#include "remote_identification_radar/dwell/RirEmissionFactory.h"
 #include "remote_identification_radar/dwell/RirMeasurementErrorModel.h"
+#include "remote_identification_radar/dwell/RirReceiverStateBuilder.h"
+#include "remote_identification_radar/dwell/RirRfFrontEndResolver.h"
 #include "remote_identification_radar/recognition/RecognitionObservationBuilder.h"
 
 namespace remote_identification_radar {
@@ -90,25 +94,6 @@ bool IsValidIdentity(const oneq::electromagnetics::RfEmissionIdentity& identity)
   return identity.platform_id != 0U && identity.equipment_id != 0U && identity.emission_id != 0U;
 }
 
-bool TryBuildOwnWaveform(const session::RirCycleInput& input,
-                         const config::hardware::RirTransmitterConfig& transmitter, float dwell_sec,
-                         std::uint32_t random_seed,
-                         oneq::electromagnetics::RfWaveformSchedule* waveform) {
-  if (waveform == nullptr || transmitter.prf_hz <= 0.0f) {
-    return false;
-  }
-  const double radiated_peak_power_w =
-      static_cast<double>(transmitter.peak_power_w) *
-      std::pow(10.0, -static_cast<double>(transmitter.transmit_loss_db) / 10.0);
-  const double pri_s = 1.0 / static_cast<double>(transmitter.prf_hz);
-  const std::uint32_t pulse_count = static_cast<std::uint32_t>(std::max(1.0, dwell_sec / pri_s));
-  return oneq::electromagnetics::TryCreateRfPulseTrainWaveform(
-      input.sim_time_sec, static_cast<double>(transmitter.frequency_hz),
-      static_cast<double>(transmitter.bandwidth_hz), radiated_peak_power_w,
-      static_cast<double>(transmitter.pulse_width_s), pri_s, pulse_count, 0.0, random_seed,
-      static_cast<std::uint64_t>(input.input_cycle_index), waveform);
-}
-
 }  // namespace
 
 void RirController::SetHardware(const config::RirHardwareConfig& hardware) {
@@ -120,6 +105,10 @@ void RirController::SetHardware(const config::RirHardwareConfig& hardware) {
   }
   detector_->SetRandomSeed(detection_random_seed_);
   measurement_rng_.seed(detection_random_seed_);
+}
+
+void RirController::SetSensorPlatformId(std::uint64_t sensor_platform_id) {
+  sensor_platform_id_ = sensor_platform_id;
 }
 
 dwell::RirDetectorConfig RirController::MakeDetectorConfig() const {
@@ -272,11 +261,80 @@ tracking::RirTrackMeasurement RirController::SampleMeasurementPosition(
   return sampled;
 }
 
-bool RirController::TryBuildMeasurement(const session::RirSceneTarget& target,
-                                        std::size_t source_index, float propagation_loss_db,
-                                        float clutter_power_w, const session::RirCycleInput& input,
-                                        const config::RirAzimuthElevationDeg& dwell_center_deg,
-                                        tracking::RirTrackMeasurement* measurement, float* snr_db) {
+RirController::RirResolvedRfCycle RirController::ResolveRfCycle(
+    const session::RirCycleInput& input,
+    const config::RirAzimuthElevationDeg& dwell_center_deg) const {
+  RirResolvedRfCycle resolved;
+  if (sensor_platform_id_ == 0U || hardware_.transmitter.prf_hz <= 0.0f) {
+    return resolved;
+  }
+
+  const bool use_rf_scene = !input.rf_scene.emissions.empty();
+  const bool use_legacy_incident_links =
+      !use_rf_scene && !input.incident_links.empty() &&
+      IsValidIdentity(input.own_emission_identity);
+
+  dwell::RirRfCycleInput rf_input;
+  rf_input.platform_id = sensor_platform_id_;
+  rf_input.platform_position_ecef_m = input.platform_position;
+  rf_input.window_start_time_s = static_cast<double>(input.sim_time_sec);
+  rf_input.window_duration_s = static_cast<double>(mission_.recognition_dwell_sec);
+  rf_input.beam_pointing_deg = dwell_center_deg;
+
+  const double carrier_hz =
+      dwell::RirEmissionFactory::ResolveCarrierHz(hardware_.transmitter, input.input_cycle_index);
+  const double pri_s = 1.0 / static_cast<double>(hardware_.transmitter.prf_hz);
+  const std::uint32_t pulse_count = static_cast<std::uint32_t>(std::max(
+      1.0, static_cast<double>(mission_.recognition_dwell_sec) / pri_s));
+
+  oneq::electromagnetics::RfSceneEmission own_emission;
+  if (!dwell::RirEmissionFactory::TryBuildEmission(
+          rf_input, hardware_, static_cast<std::uint64_t>(input.input_cycle_index), carrier_hz,
+          pri_s, pulse_count, static_cast<std::uint64_t>(detection_random_seed_),
+          static_cast<std::uint64_t>(input.input_cycle_index), &own_emission)) {
+    return resolved;
+  }
+
+  resolved.own_emission_identity = own_emission.identity;
+  resolved.own_transmit_waveform = own_emission.waveform;
+  resolved.carrier_hz = static_cast<float>(carrier_hz);
+
+  if (use_legacy_incident_links) {
+    resolved.use_legacy_incident_links = true;
+    resolved.own_emission_identity = input.own_emission_identity;
+    resolved.incident_links = input.incident_links;
+    resolved.resolved = true;
+    return resolved;
+  }
+
+  const dwell::RirReceiverOperatingState receiver_state =
+      dwell::RirReceiverStateBuilder::Build(rf_input, own_emission, hardware_, carrier_hz);
+
+  oneq::electromagnetics::RfSceneFrame resolved_scene = input.rf_scene;
+  resolved_scene.world_cycle_index = input.input_cycle_index;
+  resolved_scene.window_start_time_s = rf_input.window_start_time_s;
+  resolved_scene.window_duration_s = rf_input.window_duration_s;
+  resolved_scene.emissions.push_back(own_emission);
+
+  dwell::RirRfFrontEndResult front_end;
+  if (!dwell::TryResolveRirRfFrontEnd(
+          resolved_scene, receiver_state.rf_receiver,
+          receiver_state.maximum_linear_input_power_w,
+          oneq::electromagnetics::RfIncidentLinkConfig{}, &front_end)) {
+    return resolved;
+  }
+
+  resolved.incident_links = std::move(front_end.incident_links);
+  resolved.receiver_saturated = front_end.receiver_saturated;
+  resolved.resolved = true;
+  return resolved;
+}
+
+bool RirController::TryBuildMeasurement(
+    const session::RirSceneTarget& target, std::size_t source_index, float propagation_loss_db,
+    float clutter_power_w, const session::RirCycleInput& input,
+    const config::RirAzimuthElevationDeg& dwell_center_deg, const RirResolvedRfCycle& rf_cycle,
+    tracking::RirTrackMeasurement* measurement, float* snr_db) {
   if (measurement == nullptr || snr_db == nullptr) {
     return false;
   }
@@ -290,8 +348,10 @@ bool RirController::TryBuildMeasurement(const session::RirSceneTarget& target,
   beam_state.one_way_antenna_gain_db = hardware_.antenna.main_beam_gain_db;
   beam_state.effective_beamwidth_deg = dwell::RirResolveEffectiveBeamwidth(hardware_.antenna);
   if (hardware_.antenna.enable_directional_pattern && has_look_angles) {
-    const float wavelength_m = static_cast<float>(oneq::common::numerics::kLightSpeed) /
-                               hardware_.transmitter.frequency_hz;
+    const float carrier_hz =
+        rf_cycle.resolved ? rf_cycle.carrier_hz : hardware_.transmitter.frequency_hz;
+    const float wavelength_m =
+        static_cast<float>(oneq::common::numerics::kLightSpeed) / carrier_hz;
     // 库内驻留调度器给定波束中心：目标离轴增益按（目标视线角 - 驻留中心）衰减
     // （与 AR 冻结指向链路同口径；enable_directional_pattern=false 时回退主瓣峰值）。
     beam_state = dwell::RirResolveBeamStateForPointing(hardware_.antenna, dwell_center_deg,
@@ -304,49 +364,58 @@ bool RirController::TryBuildMeasurement(const session::RirSceneTarget& target,
   target_return.range_m = slant_range_m;
   target_return.swerling_type = ToInternalSwerling(target.target_swerling_type);
 
-  const bool has_environment = environment_.enable_environment_effects;
-  const bool has_interference = !input.incident_links.empty();
   dwell::RirDetectionResult detection;
   bool resolved_cell = false;
-  if ((has_environment || has_interference) && IsValidIdentity(input.own_emission_identity)) {
-    oneq::electromagnetics::RfWaveformSchedule own_waveform;
-    if (TryBuildOwnWaveform(input, hardware_.transmitter, mission_.recognition_dwell_sec,
-                            detection_random_seed_, &own_waveform)) {
-      dwell::RirDetectionCellConfig cell_config;
-      cell_config.own_transmit_waveform = own_waveform;
-      cell_config.receive_window_start_time_s = input.sim_time_sec;
-      cell_config.receive_window_duration_s = mission_.recognition_dwell_sec;
-      cell_config.matched_filter_bandwidth_hz = hardware_.transmitter.bandwidth_hz;
-      cell_config.one_way_antenna_gain_dbi = beam_state.one_way_antenna_gain_db;
-      cell_config.receiver_loss_db = hardware_.receiver.receive_loss_db;
-      cell_config.receiver_noise_figure_db = hardware_.receiver.noise_figure_db;
-      cell_config.signal_processing = hardware_.signal_processing;
+  if (rf_cycle.resolved) {
+    if (rf_cycle.receiver_saturated) {
+      // 中译：接收前端饱和，detection cell 可能失真，仍尝试求解并在失败时回退。
+      // 标识：RF 前端线性区越界——饱和标志为 true 时记录 WARN。
+      PROJECT_LOG_WARN("[RirController] receiver front-end saturated at cycle={}",
+                       input.input_cycle_index);
+    }
+    dwell::RirDetectionCellConfig cell_config;
+    cell_config.own_transmit_waveform = rf_cycle.own_transmit_waveform;
+    cell_config.receive_window_start_time_s = static_cast<double>(input.sim_time_sec);
+    cell_config.receive_window_duration_s = static_cast<double>(mission_.recognition_dwell_sec);
+    cell_config.matched_filter_bandwidth_hz = static_cast<double>(hardware_.transmitter.bandwidth_hz);
+    cell_config.one_way_antenna_gain_dbi = static_cast<double>(beam_state.one_way_antenna_gain_db);
+    cell_config.receiver_loss_db = static_cast<double>(hardware_.receiver.receive_loss_db);
+    cell_config.receiver_noise_figure_db = static_cast<double>(hardware_.receiver.noise_figure_db);
+    cell_config.signal_processing = hardware_.signal_processing;
 
-      dwell::RirDetectionCellTarget cell_target;
-      cell_target.range_m = slant_range_m;
-      const Eigen::Vector3f position = PositionOf(target);
-      const float range_norm = std::max(position.norm(), 1.0f);
-      const float radial_velocity =
-          (position.x() * target.velocity_x + position.y() * target.velocity_y +
-           position.z() * target.velocity_z) /
-          range_norm;
-      cell_target.closing_radial_velocity_mps = -radial_velocity;
-      cell_target.rcs_m2 = target.rcs;
-      cell_target.two_way_additional_propagation_loss_db = propagation_loss_db;
-      cell_target.effective_pulse_count =
-          static_cast<std::uint32_t>(std::max(1, policy_.detection.pulse_count));
+    dwell::RirDetectionCellTarget cell_target;
+    cell_target.range_m = static_cast<double>(slant_range_m);
+    const Eigen::Vector3f position = PositionOf(target);
+    const float range_norm = std::max(position.norm(), 1.0f);
+    const float radial_velocity =
+        (position.x() * target.velocity_x + position.y() * target.velocity_y +
+         position.z() * target.velocity_z) /
+        range_norm;
+    cell_target.closing_radial_velocity_mps = static_cast<double>(-radial_velocity);
+    dwell::RirTargetLookAngles look_angles;
+    look_angles.look_az_deg = look_az_deg;
+    look_angles.look_el_deg = look_el_deg;
+    look_angles.has_look_angles = has_look_angles;
+    const float carrier_hz =
+        rf_cycle.carrier_hz > 0.0f ? rf_cycle.carrier_hz : hardware_.transmitter.frequency_hz;
+    cell_target.rcs_m2 = static_cast<double>(dwell::ComputeEffectiveTargetRcsM2(
+        target, look_angles, hardware_.rcs_physics, carrier_hz));
+    cell_target.two_way_additional_propagation_loss_db = static_cast<double>(propagation_loss_db);
+    cell_target.effective_pulse_count =
+        static_cast<std::uint32_t>(std::max(1, policy_.detection.pulse_count));
 
-      dwell::RirDetectionCellResult cell;
-      if (dwell::TryResolveRirDetectionCell(cell_config, cell_target, input.own_emission_identity,
-                                            input.incident_links, clutter_power_w, &cell)) {
-        detection = detector_->DetectResolvedCell(target_return, cell);
-        resolved_cell = true;
-      } else {
-        // 中译：detection cell 求解失败，回退效能级检测路径。
-        // 标识：数值/输入保护——RF 分解失败时不丢目标，按旧口径继续判决。
-        PROJECT_LOG_WARN("[RirController] detection cell resolve failed for target id={}",
-                         target.external_target_id);
-      }
+    dwell::RirDetectionCellResult cell;
+    if (dwell::TryResolveRirDetectionCell(cell_config, cell_target, rf_cycle.own_emission_identity,
+                                        rf_cycle.incident_links, static_cast<double>(clutter_power_w),
+                                        &cell)) {
+      target_return.rcs_m2 = static_cast<float>(cell_target.rcs_m2);
+      detection = detector_->DetectResolvedCell(target_return, cell);
+      resolved_cell = true;
+    } else {
+      // 中译：detection cell 求解失败，回退效能级检测路径。
+      // 标识：数值/输入保护——RF 分解失败时不丢目标，按旧口径继续判决。
+      PROJECT_LOG_WARN("[RirController] detection cell resolve failed for target id={}",
+                       target.external_target_id);
     }
   }
 
@@ -435,6 +504,8 @@ void RirController::RunCycle(const session::RirCycleInput& input,
     float clutter_power_w = 0.0f;
     ResolveEnvironment(&propagation_loss_db, &clutter_power_w);
 
+    const RirResolvedRfCycle rf_cycle = ResolveRfCycle(input, dwell_center_deg);
+
     std::unordered_map<std::uint64_t, const session::RirSceneTarget*> scene_by_id;
     std::vector<std::size_t> candidate_indices;
     for (std::size_t i = 0U; i < input.scene_targets.size(); ++i) {
@@ -479,7 +550,8 @@ void RirController::RunCycle(const session::RirCycleInput& input,
       tracking::RirTrackMeasurement measurement;
       float snr_db = 0.0f;
       if (!TryBuildMeasurement(input.scene_targets[target_index], target_index, propagation_loss_db,
-                               clutter_power_w, input, dwell_center_deg, &measurement, &snr_db)) {
+                               clutter_power_w, input, dwell_center_deg, rf_cycle, &measurement,
+                               &snr_db)) {
         continue;
       }
       snr_by_target_id[measurement.external_target_id] = snr_db;

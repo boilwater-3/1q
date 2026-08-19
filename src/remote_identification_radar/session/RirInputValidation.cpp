@@ -159,6 +159,18 @@ RirIssueList ValidateRirCycleInput(const RirCycleInput& input) {
                 "RF incident link identity and received power must be valid.");
     }
   }
+
+  const bool has_external_rf_scene = !input.rf_scene.emissions.empty();
+  if (has_external_rf_scene &&
+      !oneq::electromagnetics::TryValidateRfSceneFrame(input.rf_scene)) {
+    PushIssue(&issues, RirIssueSeverity::kError, codes::kInvalidRfSceneFrame, "rf_scene",
+              "RF scene frame must be valid when external emissions are provided.");
+  }
+  if (has_external_rf_scene && has_incident_links) {
+    PushIssue(&issues, RirIssueSeverity::kError, codes::kInvalidRfSceneFrame,
+              "rf_scene / incident_links",
+              "Provide either rf_scene external emissions or legacy incident links, not both.");
+  }
   return issues;
 }
 

@@ -179,6 +179,7 @@ struct RirSession::Impl {
 
   explicit Impl(const config::RirSessionConfig& session_config) : config(session_config) {
     controller.SetHardware(config.hardware);
+    controller.SetSensorPlatformId(config.sensor_platform_id);
     controller.UpdateRuntime(config.mission, config.policy);
     controller.UpdateEnvironment(config.environment);
   }

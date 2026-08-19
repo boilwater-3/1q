@@ -49,6 +49,9 @@ class RirController {
   /** @brief 设置静态硬件上下文并重建检测器。 */
   void SetHardware(const config::RirHardwareConfig& hardware);
 
+  /** @brief 设置 RF scene 平台身份（来自 `RirSessionConfig::sensor_platform_id`）。 */
+  void SetSensorPlatformId(std::uint64_t sensor_platform_id);
+
   /**
    * @brief 执行一个自持识别周期。
    * @param[in] input 周期输入（场景目标 + RF 链路）。
@@ -92,8 +95,22 @@ class RirController {
   std::uint32_t DetectionRandomSeed() const { return detection_random_seed_; }
 
  private:
+  struct RirResolvedRfCycle {
+    bool resolved{false};
+    bool use_legacy_incident_links{false};
+    bool receiver_saturated{false};
+    oneq::electromagnetics::RfEmissionIdentity own_emission_identity{};
+    std::vector<oneq::electromagnetics::RfIncidentLinkResult> incident_links{};
+    oneq::electromagnetics::RfWaveformSchedule own_transmit_waveform{};
+    float carrier_hz{0.0f};
+  };
+
   /** @brief 检测器配置装配。 */
   dwell::RirDetectorConfig MakeDetectorConfig() const;
+
+  /** @brief 解析本周期 RF 前端（自发射 + 可选外部 scene）。 */
+  RirResolvedRfCycle ResolveRfCycle(const session::RirCycleInput& input,
+                                    const config::RirAzimuthElevationDeg& dwell_center_deg) const;
 
   /** @brief 环境事实解析：未启用环境效应时退化到阶段 1 旧口径。 */
   void ResolveEnvironment(float* propagation_loss_db, float* clutter_power_w) const;
@@ -103,6 +120,7 @@ class RirController {
                            float propagation_loss_db, float clutter_power_w,
                            const session::RirCycleInput& input,
                            const config::RirAzimuthElevationDeg& dwell_center_deg,
+                           const RirResolvedRfCycle& rf_cycle,
                            tracking::RirTrackMeasurement* measurement, float* snr_db);
 
   /** @brief 计算目标视线角。 */
@@ -126,6 +144,7 @@ class RirController {
   config::RirMissionConfig mission_{};
   config::RirPolicyConfig policy_{};
   config::RirEnvironmentConfig environment_{};
+  std::uint64_t sensor_platform_id_{1U};
   config::RirWorkMode work_mode_{config::RirWorkMode::kStby};
   bool recognition_mode_active_{false};
   float sim_time_sec_{0.0f};

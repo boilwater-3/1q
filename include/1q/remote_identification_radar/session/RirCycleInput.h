@@ -43,6 +43,14 @@ struct ONEQ_API RirCycleInput {
 
   oneq::electromagnetics::RfEmissionIdentity own_emission_identity{}; /**< RIR 自身发射身份。 */
   std::vector<oneq::electromagnetics::RfIncidentLinkResult> incident_links{}; /**< 单程入射链路。 */
+
+  /**
+   * @brief 外部 RF 发射场景（仅含非本机 emission）。
+   *
+   * 库内合并自发射后求解 incident links。过渡期：非空时走库内前端；
+   * 为空且 `incident_links` 非空时仍接受预填链路（Phase 3 删除后者）。
+   */
+  oneq::electromagnetics::RfSceneFrame rf_scene{};
 };
 
 }  // namespace session

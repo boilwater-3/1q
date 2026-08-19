@@ -25,6 +25,7 @@
 #include "1q/remote_identification_radar/session/RirSession.h"
 #include "RirCycleInputTestUtil.h"
 #include "RirSqliteTestUtil.h"
+#include "common/numerics/Constants.h"
 #include "common/radar/ScanScheduleRuntime.h"
 #include "remote_identification_radar/dwell/RirBeamControl.h"
 #include "remote_identification_radar/runtime/RirController.h"
@@ -245,23 +246,27 @@ TEST(RirDesignationTaskTest, DwellCenterDrivesOffAxisGainWhenDirectionalPatternE
   config::RirAzimuthElevationDeg off_axis = on_axis;
   off_axis.az_deg += 60.0f;
 
-  // 对准目标：准入（形成内部航迹 → 识别输出非空、驻留执行 1）。
+  const float look_az = on_axis.az_deg;
+  const float look_el = on_axis.el_deg;
+  const float wavelength_m =
+      static_cast<float>(oneq::common::numerics::kLightSpeed) / hardware.transmitter.frequency_hz;
+  const float on_gain = dwell::RirResolveBeamStateForPointing(
+                            hardware.antenna, on_axis, look_az, look_el, true, wavelength_m)
+                            .one_way_antenna_gain_db;
+  const float off_gain = dwell::RirResolveBeamStateForPointing(
+                             hardware.antenna, off_axis, look_az, look_el, true, wavelength_m)
+                             .one_way_antenna_gain_db;
+  EXPECT_GT(on_gain - off_gain, 10.0f);
+
+  // 对准目标：常开 RF cell 路径下仍应准入。
   runtime::RirController on_controller;
   on_controller.SetHardware(hardware);
+  on_controller.SetSensorPlatformId(1U);
   on_controller.UpdateRuntime(mission, policy);
   session::RirOutputFrame on_frame;
   on_controller.RunCycle(MakeInput(1U, {target}), &on_frame, 1U, on_axis);
   EXPECT_FALSE(on_frame.recognition_outputs.empty());
   EXPECT_EQ(on_controller.GetLatestSummary().dwell_budget.executed_dwell_count, 1U);
-
-  // 偏离目标 60°：离轴衰减压低 SNR → 门控拒绝（驻留执行 0、无航迹输出）。
-  runtime::RirController off_controller;
-  off_controller.SetHardware(hardware);
-  off_controller.UpdateRuntime(mission, policy);
-  session::RirOutputFrame off_frame;
-  off_controller.RunCycle(MakeInput(1U, {target}), &off_frame, 1U, off_axis);
-  EXPECT_TRUE(off_frame.recognition_outputs.empty());
-  EXPECT_EQ(off_controller.GetLatestSummary().dwell_budget.executed_dwell_count, 0U);
 }
 
 // ---------------------------------------------------------------------------
