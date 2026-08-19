@@ -65,7 +65,7 @@ examples/component_attachment/
 ├── scenes/                          场景描述文件（每场景一子目录；详见 scenes/README.md）
 │   └── <name>/<name>.json + <name>.md
 ├── component_attachment_demo.cpp    主程序（装配与编排：场景文件加载 + 实体/会话创建 + 周期循环 + 查询演示 + 冒烟断言）
-├── demo_config.h/.cpp               演示常量 + 五会话配置加载（JSON 基线）
+├── demo_config.h/.cpp               演示常量 + 六会话配置加载（JSON 基线，含 remote_identification_radar.json）
 ├── scene_data.h/.cpp                场景描述（scenes/*.json → SceneData + 业务覆写应用；
 │                                    coverage 块经 AreaCoveragePlanner 规划巡逻航路；
 │                                    mission_area 块经 area_division 切分后逐机规划）

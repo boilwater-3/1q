@@ -38,8 +38,8 @@ examples 层只承担一个角色：**消费方集成参考**。验证框架与�
 examples/
 ├── CMakeLists.txt                  编排层：定义共享变量 + add_subdirectory()
 ├── README.md                       本文件
-├── common/                         共享便利层：JSON 解析 + 五域 config_loaders + viz/ 共享查看器（不属于库 public surface）
-├── configs/                        五域会话配置 JSON + remote_identification_radar/ 识别数据库（详见 configs/README.md）
+├── common/                         共享便利层：JSON 解析 + 六域 config_loaders + viz/ 共享查看器（不属于库 public surface）
+├── configs/                        六域会话配置 JSON + remote_identification_radar/ 识别数据库（详见 configs/README.md）
 ├── component_attachment/           消费方集成参考示例：五传感器 + 融合 + 威胁评估 + 多机编队
 └── precision_evaluation/           评估层集成参考示例：双星定位精度评估（五项误差 + AHP 综合评分）
 ```
@@ -101,7 +101,7 @@ cmake --build --preset llvm-ninja-release-local --target precision_evaluation_de
 
 ## 相关文档
 
-- [`configs/README.md`](configs/README.md) — 五域会话配置 JSON 字段说明 + remote_identification_radar/ 识别数据库
+- [`configs/README.md`](configs/README.md) — 六域会话配置 JSON 字段说明 + remote_identification_radar/ 识别数据库
 - [`component_attachment/README.md`](component_attachment/README.md) — 示例详细设计
 - [`component_attachment/scenes/README.md`](component_attachment/scenes/README.md) — 场景系统（JSON schema + 场景集 + 六自由度/巡逻/多机/天基设计）
 - [`component_attachment/logger/README.md`](component_attachment/logger/README.md) — 集成端日志设施（三模式宏门控）

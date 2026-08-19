@@ -1,6 +1,6 @@
 # 会话配置 JSON 文件说明
 
-本目录包含 AR、EOS、ESR、SAR、SBIRS 五个模块的完整会话配置 JSON 文件，供示例程序加载使用。
+本目录包含 AR、EOS、ESR、SAR、SBIRS、RIR 六个模块的完整会话配置 JSON 文件，供示例程序加载使用。
 
 ## 文件清单
 
@@ -11,6 +11,7 @@
 | `electronic_warfare.json` | 电子侦察 | 完整 `EsrSessionConfig`，约 40 个叶子字段 |
 | `sar.json` | 合成孔径雷达 | 完整 `SarSessionConfig`，使用与 SAR integration demo 同类的自洽参数 |
 | `sbirs.json` | 天基红外传感器 | 完整 `SbirsSessionConfig`，供 component_attachment demo 加载 |
+| `remote_identification_radar.json` | 远程识别雷达 | 完整 `RirSessionConfig`，供 component_attachment demo 加载（识别库路径相对 `examples/configs/`，运行时由 `CA_RIR_DATABASE_PATH` 解析） |
 
 ## remote_identification_radar/ 子目录
 

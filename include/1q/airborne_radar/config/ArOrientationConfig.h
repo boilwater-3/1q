@@ -27,6 +27,10 @@ using PlatformAttitudeDeg = EulerAnglesDeg;
 struct ONEQ_API AzimuthElevationDeg {
   float az_deg{0.0f}; /**< 方位角（单位：度） */
   float el_deg{0.0f}; /**< 俯仰角（单位：度） */
+
+  AzimuthElevationDeg() = default;
+  AzimuthElevationDeg(float az_deg_in, float el_deg_in)
+      : az_deg(az_deg_in), el_deg(el_deg_in) {}
 };
 
 /**

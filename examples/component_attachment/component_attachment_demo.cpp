@@ -126,15 +126,22 @@ int main(int argc, char* argv[]) {
   ca::DemoSceneState scene;
   ca::World world(scene);
 
+  // 六会话配置：JSON 基线（examples/configs/）+ 场景业务覆写（EOS 扫描/SAR
+  // 任务几何与链路，见 ApplySceneOverrides）。
+  demo::ComponentAttachmentConfigs configs = demo::LoadConfigs();
+  demo::ApplySceneOverrides(scene_data, &configs);
+
   // RIR 地基识别雷达站点（可选，场景 rir.enabled）：独立实体（固定站点，
-  // S 波段识别雷达的物理摆放——非机载），配置代码装配（MakeRirConfig，识别库
-  // 经编译定义注入）。实体按创建序步进：站点先于平台创建，其本周期特征量测
-  // 在平台融合组件 Step 时已就绪（同周期聚合，无跨周期滞后）。
+  // S 波段识别雷达的物理摆放——非机载），会话配置经 LoadConfigs 从
+  // examples/configs/remote_identification_radar.json 加载（识别库路径由
+  // CMake 注入 CA_RIR_DATABASE_PATH 解析）。实体按创建序步进：站点先于平台
+  // 创建，其本周期特征量测在平台融合组件 Step 时已就绪（同周期聚合，无跨
+  // 周期滞后）。
   ca::Entity* rir_site = nullptr;
   if (scene_data.rir_enabled) {
     rir_site = &world.CreateEntity(ca::kRirSiteEntityName);
     rir_site->Attach(std::make_unique<ca::RirSensorComponent>(
-        remote_identification_radar::session::RirSession::Create(demo::MakeRirConfig()),
+        remote_identification_radar::session::RirSession::Create(configs.rir),
         scene_data.rir_site_origin, scene_data.rir_designated_target_id,
         scene_data.rir_designation_duration_cycles));
   }
@@ -150,10 +157,6 @@ int main(int argc, char* argv[]) {
       scene_data.cruise_altitude_m, scene_data.waypoints,
       /*loop_route=*/scene_data.coverage.planned));
 
-  // 五会话配置：JSON 基线（examples/configs/）+ 场景业务覆写（EOS 扫描/SAR
-  // 任务几何与链路，见 ApplySceneOverrides）。
-  demo::ComponentAttachmentConfigs configs = demo::LoadConfigs();
-  demo::ApplySceneOverrides(scene_data, &configs);
   platform.Attach(std::make_unique<ca::ArSensorComponent>(
       airborne_radar::session::ArSession::Create(configs.ar)));
   platform.Attach(std::make_unique<ca::EsrSensorComponent>(

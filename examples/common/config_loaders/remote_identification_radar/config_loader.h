@@ -1,0 +1,39 @@
+#ifndef EXAMPLES_RIR_CONFIG_LOADER_H_
+#define EXAMPLES_RIR_CONFIG_LOADER_H_
+
+#include <string>
+
+#include "1q/remote_identification_radar/remote_identification_radar.hpp"
+#include "config_loader_common.h"
+#include "config_loader_detail.h"
+#include "json_reader.h"
+
+namespace examples {
+
+/// Load a config::RirSessionConfig from a parsed JSON object.
+inline void LoadRirSessionConfig(const examples::JsonValue& root,
+                                 remote_identification_radar::config::RirSessionConfig* config) {
+  LoadRirHardware(root["hardware"], &config->hardware);
+  LoadRirMission(root["mission"], &config->mission);
+  LoadRirPolicy(root["policy"], &config->policy);
+  LoadRirEnvironment(root["environment"], &config->environment);
+  config->sensor_enabled = root["sensor_enabled"].AsBool();
+}
+
+/// Load a config::RirSessionConfig from a JSON file.
+inline bool LoadRirSessionConfigFromFile(const char* path,
+                                         remote_identification_radar::config::RirSessionConfig* config,
+                                         std::string* error_msg) {
+  examples::JsonValue root;
+  if (!examples::JsonReader::ParseFile(path, &root, error_msg)) return false;
+  if (root.type() != examples::JsonValue::kObject) {
+    *error_msg = "root value must be a JSON object";
+    return false;
+  }
+  LoadRirSessionConfig(root, config);
+  return true;
+}
+
+}  // namespace examples
+
+#endif  // EXAMPLES_RIR_CONFIG_LOADER_H_

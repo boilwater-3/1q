@@ -14,7 +14,8 @@
 ## 链路说明
 
 - 站点为固定 LLA（与机场同点），目标 ENU/斜距逐周期由世界 ECEF 投影；识别库为
-  交付库 `target_feature_database_v1.1.db`（编译定义注入路径）。
+  交付库 `target_feature_database_v1.1.db`（`remote_identification_radar.json` 相对路径，
+  运行时由 `CA_RIR_DATABASE_PATH` 解析）。
 - 识别链真值只给 RCS + 运动两维（极化/散射器未给值不铺样——0 dBsm 是合法物理值，
   硬铺会把错误极化维带进匹配，实测把综合分从 0.79 拖到 0.53 导致长期无法确认）。
 - 指定任务压在战斗机（1001）：识别达到型号确认 → 任务完成自动回扫（无窗口上限）。

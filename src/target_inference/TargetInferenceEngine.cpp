@@ -56,28 +56,36 @@ std::array<double, 3U> Acceleration(const std::array<double, 3U>& r,
 RvState Rk4Step(const RvState& state, double dt, const TargetInferenceConfig& config) {
   const auto accel = [&config](const RvState& s) { return Acceleration(s.r, s.v, config); };
 
-  RvState k1{state.v, accel(state)};
+  RvState k1;
+  k1.r = state.v;
+  k1.v = accel(state);
   RvState s2;
   for (int i = 0; i < 3; ++i) {
     const auto j = static_cast<std::size_t>(i);
     s2.r[j] = state.r[j] + 0.5 * dt * k1.r[j];
     s2.v[j] = state.v[j] + 0.5 * dt * k1.v[j];
   }
-  RvState k2{s2.v, accel(s2)};
+  RvState k2;
+  k2.r = s2.v;
+  k2.v = accel(s2);
   RvState s3;
   for (int i = 0; i < 3; ++i) {
     const auto j = static_cast<std::size_t>(i);
     s3.r[j] = state.r[j] + 0.5 * dt * k2.r[j];
     s3.v[j] = state.v[j] + 0.5 * dt * k2.v[j];
   }
-  RvState k3{s3.v, accel(s3)};
+  RvState k3;
+  k3.r = s3.v;
+  k3.v = accel(s3);
   RvState s4;
   for (int i = 0; i < 3; ++i) {
     const auto j = static_cast<std::size_t>(i);
     s4.r[j] = state.r[j] + dt * k3.r[j];
     s4.v[j] = state.v[j] + dt * k3.v[j];
   }
-  RvState k4{s4.v, accel(s4)};
+  RvState k4;
+  k4.r = s4.v;
+  k4.v = accel(s4);
 
   RvState next;
   for (int i = 0; i < 3; ++i) {

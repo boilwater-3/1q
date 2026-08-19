@@ -36,6 +36,10 @@ enum class AntennaPatternModelType {
 struct AzimuthElevationDeg {
   float az_deg{0.0f};
   float el_deg{0.0f};
+
+  AzimuthElevationDeg() = default;
+  AzimuthElevationDeg(float az_deg_in, float el_deg_in)
+      : az_deg(az_deg_in), el_deg(el_deg_in) {}
 };
 
 /**
@@ -58,6 +62,10 @@ struct AntennaPatternConfig {
 struct AntennaPatternBeamwidthDeg {
   float az_beamwidth_deg{3.0f}; /**< 有效方位波束宽度（单位：deg） */
   float el_beamwidth_deg{3.0f}; /**< 有效俯仰波束宽度（单位：deg） */
+
+  AntennaPatternBeamwidthDeg() = default;
+  AntennaPatternBeamwidthDeg(float az_beamwidth_deg_in, float el_beamwidth_deg_in)
+      : az_beamwidth_deg(az_beamwidth_deg_in), el_beamwidth_deg(el_beamwidth_deg_in) {}
 };
 
 /**
@@ -67,6 +75,10 @@ struct AntennaPatternBeamwidthDeg {
 struct AntennaLookOffsetDeg {
   float delta_az_deg{0.0f}; /**< 方位离轴角（单位：deg） */
   float delta_el_deg{0.0f}; /**< 俯仰离轴角（单位：deg） */
+
+  AntennaLookOffsetDeg() = default;
+  AntennaLookOffsetDeg(float delta_az_deg_in, float delta_el_deg_in)
+      : delta_az_deg(delta_az_deg_in), delta_el_deg(delta_el_deg_in) {}
 };
 
 /**

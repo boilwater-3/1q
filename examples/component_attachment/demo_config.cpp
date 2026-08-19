@@ -7,15 +7,41 @@
 
 #include <cstdlib>
 #include <iostream>
+#include <string>
 
 #include "config_loaders/airborne_radar/config_loader.h"
 #include "config_loaders/electro_optical/config_loader.h"
 #include "config_loaders/electronic_warfare/config_loader.h"
+#include "config_loaders/remote_identification_radar/config_loader.h"
 #include "config_loaders/sar/config_loader.h"
 #include "config_loaders/sbirs_sensor/config_loader.h"
 
 namespace component_attachment {
 namespace demo {
+
+namespace {
+
+void ResolveRirDatabasePath(remote_identification_radar::config::RirSessionConfig* config) {
+  if (config == nullptr) {
+    return;
+  }
+#if defined(CA_RIR_DATABASE_PATH)
+  config->policy.recognition.database_path = CA_RIR_DATABASE_PATH;
+#else
+  std::string& path = config->policy.recognition.database_path;
+  if (path.empty()) {
+    return;
+  }
+  const bool absolute =
+      path[0] == '/' ||
+      (path.size() > 1U && path[1] == ':');
+  if (!absolute) {
+    path = std::string(SCENE_CONFIG_DIR) + "/" + path;
+  }
+#endif
+}
+
+}  // namespace
 
 void PrintUsage(const char* program) {
   std::cout << "Usage: " << program
@@ -53,28 +79,13 @@ ComponentAttachmentConfigs LoadConfigs() {
     std::cerr << "Failed to load SAR config: " << error << "\n";
     std::exit(1);
   }
+  if (!examples::LoadRirSessionConfigFromFile(
+          SCENE_CONFIG_DIR "/remote_identification_radar.json", &configs.rir, &error)) {
+    std::cerr << "Failed to load RIR config: " << error << "\n";
+    std::exit(1);
+  }
+  ResolveRirDatabasePath(&configs.rir);
   return configs;
-}
-
-remote_identification_radar::config::RirSessionConfig MakeRirConfig() {
-#if !defined(CA_RIR_DATABASE_PATH)
-#error "CA_RIR_DATABASE_PATH 未定义（component_attachment CMakeLists 注入）"
-#endif
-  namespace rir_config = remote_identification_radar::config;
-  rir_config::RirSessionConfig config;
-  config.mission.work_mode = rir_config::RirWorkMode::kIdentify;
-  // 检测准入走 SNR 兜底门（≥6 dB 即过，免 CFAR 训练单元配置）；航迹确认 1
-  // 命中即确认——演示以识别链快速闭环为目标（正式验收按装备指标收紧）。
-  config.policy.detection.gate_mode = rir_config::RirDetectionGateMode::kSnrFallback;
-  config.policy.lifecycle.confirm_hits = 1U;
-  config.policy.recognition.enabled = true;
-  config.policy.recognition.database_path = CA_RIR_DATABASE_PATH;
-  config.policy.recognition.min_confirmed_hits = 1U;
-  config.policy.recognition.min_observation_count = 1U;
-  config.policy.recognition.acceptance_score = 0.6f;
-  config.policy.recognition.minimum_margin = 0.05f;
-  config.policy.recognition.result_hold_sec = 30.0f;
-  return config;
 }
 
 void ApplySceneOverrides(const SceneData& scene, ComponentAttachmentConfigs* configs) {

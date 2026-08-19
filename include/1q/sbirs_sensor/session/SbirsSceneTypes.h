@@ -20,6 +20,9 @@ struct ONEQ_API SbirsVector3M {
   double x{0.0}; /**< X 分量，单位 m */
   double y{0.0}; /**< Y 分量，单位 m */
   double z{0.0}; /**< Z 分量，单位 m */
+
+  SbirsVector3M() = default;
+  SbirsVector3M(double x_in, double y_in, double z_in) : x(x_in), y(y_in), z(z_in) {}
 };
 
 /**

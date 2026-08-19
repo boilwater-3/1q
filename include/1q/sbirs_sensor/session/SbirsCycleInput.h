@@ -23,6 +23,10 @@ struct ONEQ_API SbirsEulerAnglesDeg {
   double yaw_deg{0.0};   /**< 偏航角（单位：deg） */
   double pitch_deg{0.0}; /**< 俯仰角（单位：deg） */
   double roll_deg{0.0};  /**< 横滚角（单位：deg） */
+
+  SbirsEulerAnglesDeg() = default;
+  SbirsEulerAnglesDeg(double yaw_deg_in, double pitch_deg_in, double roll_deg_in)
+      : yaw_deg(yaw_deg_in), pitch_deg(pitch_deg_in), roll_deg(roll_deg_in) {}
 };
 
 /**

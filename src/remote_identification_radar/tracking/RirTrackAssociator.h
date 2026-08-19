@@ -49,6 +49,10 @@ struct RirAssociationMatch {
   std::uint64_t association_key{0U}; /**< 稳定关联键。 */
   std::size_t source_index{0U};      /**< 量测原始输入索引。 */
   float cost{0.0f};                  /**< 马氏距离平方代价。 */
+
+  RirAssociationMatch() = default;
+  RirAssociationMatch(std::uint64_t association_key_in, std::size_t source_index_in, float cost_in)
+      : association_key(association_key_in), source_index(source_index_in), cost(cost_in) {}
 };
 
 /**
