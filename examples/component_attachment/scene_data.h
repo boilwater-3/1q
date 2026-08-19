@@ -132,6 +132,12 @@ struct SceneData {
   // 缺省 = 2024-01-01 00:00 UTC）。SBIRS 全向扫描（span 360°）+ 下视覆盖，
   // GMST 引起的 az 平移不影响探测；示例日志中的方位角随之显示为 ECI 参考。
   double sbirs_utc_julian_day{2460310.5}; /**< 天基通道 UTC 儒略日（JD_UTC，必填给库） */
+  // 验收量覆写（可选，缺省 = 库默认）：焦平面几何只被 [SbirsAccept] 验收日志
+  // 的脱靶量映射消费（x=f·tanΔaz），连续命中门为宽→窄切换前置条件（1 =
+  // 单次命中即调度）。开闸方式见 scenes/sbirs_wfov_nfov_handover 场景说明。
+  double sbirs_focal_length_m{2.0};                 /**< 焦距（m；验收日志脱靶量映射） */
+  double sbirs_detector_pixel_pitch_m{30.0e-6};     /**< 探测元间距（m；米→像素换算） */
+  int sbirs_wide_to_narrow_required_consecutive_hits{1}; /**< 宽→窄切换连续命中门 */
 
   // EOS 业务覆写（原 demo_config 内硬编码，迁入场景数据）：跨会话时间对齐
   // 与视场适配——周期校验要求 dt ≤ 10/frame_rate_hz（10 Hz 对应 1 s 步长

@@ -88,6 +88,17 @@ void ApplySceneOverrides(const SceneData& scene, ComponentAttachmentConfigs* con
   configs->sar.mission.scene_center_altitude_m = scene.sar_scene_center_altitude_m;
   configs->sar.mission.nominal_slant_range_m = scene.sar_nominal_slant_range_m;
   configs->sar.mission.platform_speed_mps = scene.sar_platform_speed_mps;
+  // SBIRS 验收量覆写（数据源为场景文件 sbirs_satellite 块）：焦平面几何只进
+  // [SbirsAccept] 验收日志的脱靶量映射（x=f·tanΔaz，米+像素双口径），连续
+  // 命中门为宽→窄切换前置条件（缺省 1 = 单次命中即调度，行为不变）。验收
+  // 事件流需 configure 加 -DONEQ_ENABLE_SBIRS_ACCEPTANCE_LOG=ON（默认关闭，
+  // 关闭时宏与派生计算一并剪除），落盘于 1q_library.log。
+  configs->sbirs.hardware.focal_length_m =
+      static_cast<float>(scene.sbirs_focal_length_m);
+  configs->sbirs.hardware.detector_pixel_pitch_m =
+      static_cast<float>(scene.sbirs_detector_pixel_pitch_m);
+  configs->sbirs.policy.scheduler.wide_to_narrow_required_consecutive_hits =
+      scene.sbirs_wide_to_narrow_required_consecutive_hits;
 }
 
 }  // namespace demo

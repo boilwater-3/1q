@@ -9,7 +9,9 @@
     "noise_equivalent_power_w": 1.0e-12,
     "background_radiance_w_sr_m2": 0.0,
     "detector_temperature_k": 80.0,
-    "readout_noise_rms_w": 0.0
+    "readout_noise_rms_w": 0.0,
+    "focal_length_m": 2.0,
+    "detector_pixel_pitch_m": 3.0e-5
   },
   "mission": {
     "work_mode": "kSearchAndStare",
@@ -53,7 +55,8 @@
       "random_seed": 1
     },
     "scheduler": {
-      "max_concurrent_nfov_locks": 1
+      "max_concurrent_nfov_locks": 1,
+      "wide_to_narrow_required_consecutive_hits": 1
     },
     "tracking": {
       "tracking_mode": "kEstimated",

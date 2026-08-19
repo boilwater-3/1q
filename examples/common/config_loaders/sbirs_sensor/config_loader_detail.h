@@ -26,6 +26,16 @@ inline void LoadSbirsHardware(const examples::JsonValue& j,
   v->detector_temperature_k =
       static_cast<float>(j["detector_temperature_k"].AsDouble());
   v->readout_noise_rms_w = static_cast<float>(j["readout_noise_rms_w"].AsDouble());
+  // 焦平面几何（可选；仅 [SbirsAccept] 验收日志的脱靶量映射消费，缺省保持
+  // 库默认 2.0 m / 30 μm——非必填字段用 Has 门控，避免旧 JSON 缺字段被置 0
+  // 触发库校验 kFocalPlaneConfigNotPositive）。
+  if (j.Has("focal_length_m")) {
+    v->focal_length_m = static_cast<float>(j["focal_length_m"].AsDouble());
+  }
+  if (j.Has("detector_pixel_pitch_m")) {
+    v->detector_pixel_pitch_m =
+        static_cast<float>(j["detector_pixel_pitch_m"].AsDouble());
+  }
 }
 
 inline void LoadSbirsMission(const examples::JsonValue& j,
@@ -97,6 +107,12 @@ inline void LoadSbirsScheduler(const examples::JsonValue& j,
                                sbirs_sensor::config::SbirsSchedulerConfig* v) {
   if (j.IsNull()) return;
   v->max_concurrent_nfov_locks = static_cast<int>(j["max_concurrent_nfov_locks"].AsInt());
+  // 宽→窄切换连续命中门（可选；缺省保持库默认 1 = 单次命中即调度，与既有
+  // 行为逐位一致）。
+  if (j.Has("wide_to_narrow_required_consecutive_hits")) {
+    v->wide_to_narrow_required_consecutive_hits =
+        static_cast<int>(j["wide_to_narrow_required_consecutive_hits"].AsInt());
+  }
 }
 
 inline void LoadSbirsTracking(const examples::JsonValue& j,

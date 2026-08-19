@@ -425,13 +425,21 @@ bool LoadSceneData(const char* path, SceneData* scene, std::string* error) {
   }
 
   // 天基平台块（可选）：凝视目标群质心正上方，高度由场景控制；UTC 儒略日
-  // 可选覆写（缺省 = 2024-01-01 00:00 UTC，SBIRS ECI 输出参考系必需）。
+  // 可选覆写（缺省 = 2024-01-01 00:00 UTC，SBIRS ECI 输出参考系必需）；
+  // 焦平面几何与宽→窄连续命中门为验收量覆写（缺省 = 库默认）。
   const examples::JsonValue& satellite = root["sbirs_satellite"];
   if (!satellite.IsNull() && satellite.type() == examples::JsonValue::kObject) {
     out.sbirs_satellite_altitude_m =
         ReadDouble(satellite, "altitude_m", out.sbirs_satellite_altitude_m);
     out.sbirs_utc_julian_day =
         ReadDouble(satellite, "utc_julian_day", out.sbirs_utc_julian_day);
+    out.sbirs_focal_length_m =
+        ReadDouble(satellite, "focal_length_m", out.sbirs_focal_length_m);
+    out.sbirs_detector_pixel_pitch_m =
+        ReadDouble(satellite, "detector_pixel_pitch_m", out.sbirs_detector_pixel_pitch_m);
+    out.sbirs_wide_to_narrow_required_consecutive_hits = static_cast<int>(
+        ReadInt(satellite, "wide_to_narrow_required_consecutive_hits",
+                out.sbirs_wide_to_narrow_required_consecutive_hits));
   }
 
   // EOS 扫描块（可选）：覆写 LoadConfigs 的 JSON 原值（下视地面监视 → 水平扫描）。

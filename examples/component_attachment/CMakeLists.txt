@@ -12,6 +12,14 @@ if(NOT PROJECT_ENABLE_SPDLOG)
     return()
 endif()
 
+# 验收日志通道提示：SBIRS 宽窄视场验收量（覆盖区/驻留/焦平面脱靶量/信号能量/
+# 连续命中计数器）经 [SbirsAccept] 事件流写入库日志，开关为库编译期选项。
+if(NOT ONEQ_ENABLE_SBIRS_ACCEPTANCE_LOG)
+    message(STATUS "component_attachment: ONEQ_ENABLE_SBIRS_ACCEPTANCE_LOG=OFF -> no "
+        "[SbirsAccept] events; reconfigure with -DONEQ_ENABLE_SBIRS_ACCEPTANCE_LOG=ON "
+        "to enable (events land in <output-dir>/1q_library.log)")
+endif()
+
 add_executable(component_attachment_demo
     component_attachment_demo.cpp
     demo_config.cpp
