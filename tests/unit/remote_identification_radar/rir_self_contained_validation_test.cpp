@@ -7,6 +7,7 @@
 
 #include <limits>
 
+#include "1q/electromagnetics/RfScene.h"
 #include "1q/remote_identification_radar/config/RirSessionConfig.h"
 #include "1q/remote_identification_radar/config/RirSessionConfigValidation.h"
 #include "1q/remote_identification_radar/session/RirInputValidation.h"
@@ -45,6 +46,18 @@ bool HasCode(const session::RirIssueList& issues, const char* code) {
   return false;
 }
 
+oneq::electromagnetics::RfSceneEmission MakeNoiseEmission(std::uint64_t emission_id) {
+  oneq::electromagnetics::RfSceneEmission emission;
+  emission.identity.platform_id = 100U + emission_id;
+  emission.identity.equipment_id = 200U + emission_id;
+  emission.identity.emission_id = emission_id;
+  emission.position_ecef_m.x_m = 1000.0;
+  emission.antenna.boresight_ecef.x = -1.0;
+  EXPECT_TRUE(oneq::electromagnetics::TryCreateRfNoiseWaveform(0.0, 1.0, 3.0e9, 20.0e6, 10.0,
+                                                               &emission.waveform));
+  return emission;
+}
+
 TEST(RirSelfContainedValidationTest, SceneTargetMotionAndSwerlingFieldsAreValidated) {
   RirCycleInput input = MakeValidInput();
   input.scene_targets[0].velocity_y = std::numeric_limits<float>::infinity();
@@ -57,7 +70,7 @@ TEST(RirSelfContainedValidationTest, SceneTargetMotionAndSwerlingFieldsAreValida
   EXPECT_TRUE(HasCode(swerling_issues, session::codes::kInvalidTargetMotionField));
 }
 
-TEST(RirSelfContainedValidationTest, EnvironmentAndRfInputsAreValidated) {
+TEST(RirSelfContainedValidationTest, EnvironmentAndRfSceneInputsAreValidated) {
   config::RirSessionConfig session_config;
   session_config.environment.enable_environment_effects = true;
   session_config.environment.weather_attenuation_db = -1.0f;
@@ -65,19 +78,21 @@ TEST(RirSelfContainedValidationTest, EnvironmentAndRfInputsAreValidated) {
   EXPECT_TRUE(HasCode(env_issues, session::codes::kInvalidEnvironmentSnapshot));
 
   RirCycleInput input = MakeValidInput();
-  oneq::electromagnetics::RfIncidentLinkResult link;
-  link.identity.platform_id = 4U;
-  link.identity.equipment_id = 5U;
-  link.identity.emission_id = 6U;
-  link.received_power_before_overlap_w = 1.0e-9;
-  input.incident_links.push_back(link);
-  const auto identity_issues = ValidateRirCycleInput(input);
-  EXPECT_TRUE(HasCode(identity_issues, session::codes::kInvalidOwnEmissionIdentity));
+  input.rf_scene.world_cycle_index = 1U;
+  input.rf_scene.window_start_time_s = 0.0;
+  input.rf_scene.window_duration_s = session_config.mission.recognition_dwell_sec;
+  input.rf_scene.emissions.push_back(MakeNoiseEmission(1U));
+  input.rf_scene.emissions.push_back(MakeNoiseEmission(1U));
+  const auto invalid_scene_issues =
+      ValidateRirCycleInput(input, session_config.mission.recognition_dwell_sec);
+  EXPECT_TRUE(HasCode(invalid_scene_issues, session::codes::kInvalidRfSceneFrame));
 
-  input.own_emission_identity = oneq::electromagnetics::RfEmissionIdentity{1U, 2U, 3U};
-  input.incident_links[0].received_power_before_overlap_w = -1.0;
-  const auto link_issues = ValidateRirCycleInput(input);
-  EXPECT_TRUE(HasCode(link_issues, session::codes::kInvalidRfIncidentLink));
+  input = MakeValidInput();
+  input.rf_scene.emissions.push_back(MakeNoiseEmission(2U));
+  input.rf_scene.window_start_time_s = 1.0;
+  const auto window_issues =
+      ValidateRirCycleInput(input, session_config.mission.recognition_dwell_sec);
+  EXPECT_TRUE(HasCode(window_issues, session::codes::kInvalidRfSceneFrame));
 }
 
 }  // namespace

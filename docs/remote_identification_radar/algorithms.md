@@ -15,7 +15,11 @@ RIR 自持链路生产的内部航迹，不再消费外部航迹供给。
 | 算法 | 位置 | 输入 → 输出 | 边界与反直觉点 |
 |---|---|---|---|
 | 波束状态解析 | `dwell/RirBeamControl.h` | 驻留调度给定波束中心 + 目标视线角 + 天线配置 → 有效宽度/指向/单程增益 | 调度器给指向、RIR 信指向：不重算、不吸附；指向与视线角同为雷达局部 ENU 系（`az∈[-180,180]`、`el∈[-90,90]`），差值即离轴角 |
-| 检测单元求解 | `dwell/RirDetectionCellResolver.cpp` | 目标回波事实 + RF 入射链路 + 增益偏置 → 分项 SINR 账本 | 干扰按目标单元时频重叠聚合；四增益偏置缺省 0 dB 等于保守账本；自身发射身份不计干扰 |
+| 自发射构建 | `dwell/RirEmissionFactory.cpp` | hardware + 周期上下文 → `RfSceneEmission` | 无 ECCM；功率包络钳制；ECEF 波束指向；载频由频率计划/周期索引解析 |
+| 接收机状态 | `dwell/RirReceiverStateBuilder.cpp` | 自发射 + hardware → `RirReceiverOperatingState` | 与 AR 同口径 RF 接收机参数；供前端聚合与 detection cell |
+| RF 前端求解 | `dwell/RirRfFrontEndResolver.cpp` | 合并场景（外部 + 自发射）+ 接收机 → incident links | 按 emission_id 排序；饱和标志独立暴露；集成方只供外部 emission |
+| 有效 RCS | `dwell/RirEffectiveRcs.cpp` | 场景目标 + 视线角 + `rcs_physics` → m² | AR 同口径 Swerling/视角/物理配置；写入 detection cell 目标 `rcs_m2` |
+| 检测单元求解 | `dwell/RirDetectionCellResolver.cpp` | 目标回波事实 + 库内 incident links + 增益偏置 → 分项 SINR 账本 | 干扰按目标单元时频重叠聚合；四增益偏置缺省 0 dB 等于保守账本；自身发射身份不计干扰 |
 | 统计级 CFAR | `dwell/RirSignalDetector.cpp` | SNR + Swerling + Pfa → Pd → 蒙特卡洛判决 | 不是 CA-CFAR；`min_snr_db` 硬截断、`min_detection_margin_db` 可靠性门；同种子同判决 |
 | 量测误差 | `dwell/RirMeasurementErrorModel.h` | SNR + 波束宽度 + 带宽 → 距离/角度标准差 | 距离偏置 20 m；角度两轴 RMS 合成；只供内部关联/滤波 |
 | LAPJV 全局最优关联 | `tracking/RirTrackAssociator.cpp` + `tracking/RirLapjvSolver.cpp`（common 单源 `src/common/optimization/LapjvSolver` 适配） | 检测量测 + 航迹种子 → 关联键/命中/新键 | 马氏平方波门（缺省 9）兼作未分配代价；方阵增广 + 哑行/列承担未分配；门外对填拒绝代价；键单调不回收复用 |
@@ -43,9 +47,9 @@ RIR 自持链路生产的内部航迹，不再消费外部航迹供给。
    执行蒙特卡洛判决与量测位置采样。
 2. **KF 加速度口径**：hit 时加速度 = KF 后验速度与本周期场景速度种子之差/dt；
    miss 时 CV 外推速度不变、加速度归零。该口径与 AR 轻量跟踪子集一致。
-3. **无环境输入退化**：环境快照 `has_environment_data=false` 且无入射链路时，
-   传播损耗/杂波/干扰均为 0，检测 SNR 回到阶段 1 旧公式口径；有环境事实时走
-   detection cell 分项账本。
+3. **RF 链回退**：`ResolveRfCycle` 失败（hardware 不完整/前端饱和等）或 detection cell
+   求解失败时，传播损耗/杂波/干扰仍按环境配置注入，但检测 SNR 回退阶段 1 旧公式
+   口径；RF 链成功时走分项 SINR 账本（含外部 `rf_scene` 干扰）。
 4. **第一个 profile 报告**：`feature_scores` 分项报告用型号的第一个 profile
    （`profiles.front()`），而非实际命中得分的 profile——多 profile 型号的分项
    报告可能与判定所用 profile 不一致（判定路径本身正确）。
@@ -88,7 +92,9 @@ RIR 自持链路生产的内部航迹，不再消费外部航迹供给。
   `rir_measurement_error_test.cpp`、`rir_track_associator_test.cpp`、
   `rir_track_filter_test.cpp`、`rir_track_lifecycle_test.cpp`
 - 自持链路与输入面：`tests/unit/remote_identification_radar/rir_self_contained_pipeline_test.cpp`、
-  `rir_self_contained_validation_test.cpp`
+  `rir_self_contained_validation_test.cpp`、`rir_emission_factory_test.cpp`、
+  `rir_receiver_state_builder_test.cpp`、`rir_rf_front_end_resolver_test.cpp`、
+  `rir_effective_rcs_test.cpp`
 - 双产品出口（Stage B）：`tests/unit/remote_identification_radar/rir_feature_measurement_test.cpp`
   （出口①字段透出/平台位置双路径/透出原则/会话级拒绝周期）、
   `rir_track_attribution_test.cpp`（键↔真值映射/全快照覆盖/非执行周期空列表）、

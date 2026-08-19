@@ -27,7 +27,7 @@ RIR 是与机载雷达（AR）**相互独立的另一部雷达装备**，不是 
    `oneq::coordinate::EcefPositionM`，fail-closed 校验）、场景目标
    （含识别特征真值 `aspect_rcs_samples`/`polarization_rcs_samples`/
    `range_rcs_scatterers`；公共 API 为 radar-local ENU，集成层用户侧以 ECEF
-   描述目标，适配层边界转换）与 RF 入射链路；环境事实经
+   描述目标，适配层边界转换）与可选外部 `rf_scene`；环境事实经
    `RirSessionConfig.environment` / 运行期补丁注入。场景目标速度/名称/Swerling
    起伏为自持链路事实；识别只消费效能化观测，场景真值不得直接产生结论。每周期
    波束中心由**库内驻留调度器**派生（扫描策略或指定识别任务，见 boundaries.md

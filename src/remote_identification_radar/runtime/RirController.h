@@ -97,7 +97,6 @@ class RirController {
  private:
   struct RirResolvedRfCycle {
     bool resolved{false};
-    bool use_legacy_incident_links{false};
     bool receiver_saturated{false};
     oneq::electromagnetics::RfEmissionIdentity own_emission_identity{};
     std::vector<oneq::electromagnetics::RfIncidentLinkResult> incident_links{};

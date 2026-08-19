@@ -209,7 +209,8 @@ RirCycleResult RirSession::StepWithResult(const RirCycleInput& input) {
   }
 
   // 校验拒绝：不执行流水线，问题明细入 issues。
-  const RirIssueList validation_issues = ValidateRirCycleInput(input);
+  const RirIssueList validation_issues =
+      ValidateRirCycleInput(input, impl_->config.mission.recognition_dwell_sec);
   if (HasValidationError(validation_issues)) {
     result.status = RirCycleStatus::kRejectedInvalidInput;
     result.abort_reason = RirCycleAbortReason::kValidationRejected;

@@ -90,10 +90,6 @@ session::RirFeatureObservations ToPublicFeatureObservations(const recognition::R
 
 float DbToLinear(float db_value) { return std::pow(10.0f, db_value / 10.0f); }
 
-bool IsValidIdentity(const oneq::electromagnetics::RfEmissionIdentity& identity) {
-  return identity.platform_id != 0U && identity.equipment_id != 0U && identity.emission_id != 0U;
-}
-
 }  // namespace
 
 void RirController::SetHardware(const config::RirHardwareConfig& hardware) {
@@ -269,11 +265,6 @@ RirController::RirResolvedRfCycle RirController::ResolveRfCycle(
     return resolved;
   }
 
-  const bool use_rf_scene = !input.rf_scene.emissions.empty();
-  const bool use_legacy_incident_links =
-      !use_rf_scene && !input.incident_links.empty() &&
-      IsValidIdentity(input.own_emission_identity);
-
   dwell::RirRfCycleInput rf_input;
   rf_input.platform_id = sensor_platform_id_;
   rf_input.platform_position_ecef_m = input.platform_position;
@@ -298,14 +289,6 @@ RirController::RirResolvedRfCycle RirController::ResolveRfCycle(
   resolved.own_emission_identity = own_emission.identity;
   resolved.own_transmit_waveform = own_emission.waveform;
   resolved.carrier_hz = static_cast<float>(carrier_hz);
-
-  if (use_legacy_incident_links) {
-    resolved.use_legacy_incident_links = true;
-    resolved.own_emission_identity = input.own_emission_identity;
-    resolved.incident_links = input.incident_links;
-    resolved.resolved = true;
-    return resolved;
-  }
 
   const dwell::RirReceiverOperatingState receiver_state =
       dwell::RirReceiverStateBuilder::Build(rf_input, own_emission, hardware_, carrier_hz);

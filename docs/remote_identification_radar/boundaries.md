@@ -17,9 +17,11 @@ RIR 是与机载雷达（AR）**相互独立的另一部雷达装备**，不是 
 
 - **独立硬件**：自带 hardware 域（`RirHardwareConfig`：发射机/天线/接收机），
   效能级 SNR 由模块内 `RirRadarEquations` 自算，不引用 AR 内部实现。
-- **独立输入面（阶段 2-S 已落地）**：与 AR 无任何模块间接口。输入为场景目标
-  （含速度/名称/Swerling 起伏/识别特征真值）+ 必填平台 ECEF + RF 入射链路；
-  环境事实经 `RirSessionConfig.environment` / 运行期补丁注入，禁止周期输入；
+- **独立输入面（阶段 2-S 已落地；RF 物理链 2026-08-19）**：与 AR 无任何模块间
+  接口。输入为场景目标（含速度/名称/Swerling 起伏/识别特征真值）+ 必填平台 ECEF
+  + 可选外部 `rf_scene`（非本机 emission；空表示无外部干扰）；自发射与 incident
+  links 由库内 RF 链求解，集成方不再预算入射链路。环境事实经
+  `RirSessionConfig.environment` / 运行期补丁注入，禁止周期输入；
   内部航迹由 RIR 自持检测与轻量跟踪生产。`RirTrackFeed` 公开供给已删除。
 - **驻留指向（阶段 2-S）**：RIR 自管的是“驻留候选排序”（消费内部航迹，
   语义为“未识别优先 + 斜距次近”；威胁等级输入随独立性消失）。每周期实际波束

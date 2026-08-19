@@ -13,7 +13,7 @@ Answers: RIR 单周期数据怎么流、状态归谁持有、内部航迹如何�
 flowchart TB
   subgraph Caller["调用方编排"]
     Scene["场景目标\n（位置/速度/名称/Swerling + 特征真值）"]
-    Rf["RF 入射链路 + 自身发射身份"]
+    Rf["外部 RF 场景\n（rf_scene，可为空）"]
     Env["环境配置\n（RirSessionConfig / patch）"]
     Task["指定识别任务\n（目标 ID + 限时窗口）"]
   end
@@ -60,8 +60,8 @@ flowchart TB
 
 1. **入口校验**：`ValidateRirCycleInput`（dt 有限为正、周期号非零、仿真时间
    有限、平台 ECEF 必填 fail-closed——分量有限且模长>0、须可转 LLA、场景目标
-   位置/速度/RCS/斜距/特征样本有限、Swerling 取值合法、RF 入射链路与自身发射
-   身份合法）；失败 → `kRejectedInvalidInput`。
+   位置/速度/RCS/斜距/特征样本有限、Swerling 取值合法、外部 `rf_scene`
+   帧合法且窗口与 `sim_time_sec`/驻留对齐）；失败 → `kRejectedInvalidInput`。
 2. **关机检查**：`sensor_enabled == false` → `kPoweredOff`，不触碰检测/跟踪/识别状态。
 3. **补丁提交**（staged）：`RirRuntimeConfigPatch` 在下一个成功周期边界应用
    （电源/工作模式/完整 policy/environment 域/指定识别任务字段）→
@@ -70,15 +70,18 @@ flowchart TB
    （kNone → kPending → kAcquired | kExpired，镜像 AR 骨架）；驻留中心 =
    任务窗口内指定目标视线角，否则扫描策略波位（common 扫描内核）。
 5. **自持链路执行**：`kIdentify` 门控整链：
+   - **RF 物理链**（库内）：`ResolveRfCycle` 构建自发射（`RirEmissionFactory`）+
+     接收机状态（`RirReceiverStateBuilder`）→ 合并 `rf_scene` 外部 emission →
+     `TryResolveRirRfFrontEnd` 求解 incident links；有效 RCS 经
+     `ComputeEffectiveTargetRcsM2`（AR 同口径）写入 detection cell 目标；
    - 驻留候选排序：未识别优先 + 斜距次近（消费上一周期内部航迹结论；
      只决定候选顺序，不生成波束指向）；
    - 波束状态：消费驻留调度显式给定的波束中心（雷达局部 ENU 系，
      `az ∈ [-180, 180]`、`el ∈ [-90, 90]`），与同帧目标视线角相减求离轴增益；
      方向图关闭或无有效视线角时回退主瓣峰值（契约见 boundaries.md）；
-   - 检测：环境未启用且无 RF 干扰输入时退化为阶段 1 旧 SNR 口径；环境已启用或
-     有 RF 入射链路时走
-     `TryResolveRirDetectionCell` 分项 SINR 账本，再经统计级 CFAR 判决；
-     6 dB 回退模式以 SNR ≥ 6 dB 替代 CFAR 判决（旧识别门控口径）；
+   - 检测：RF 链解析成功时走 `TryResolveRirDetectionCell` 分项 SINR 账本
+     （含传播损耗/杂波/外部干扰）；解析失败或环境未启用时退化为阶段 1 旧 SNR
+     口径；6 dB 回退模式以 SNR ≥ 6 dB 替代 CFAR 判决（旧识别门控口径）；
    - 量测误差：距离/角度标准差 → 笛卡尔协方差；检测器门控模式采样量测位置，
      回退模式量测位置取真值；
    - 关联/滤波/生命周期：LAPJV 全局最优关联（方阵代价矩阵 + 未分配代价）

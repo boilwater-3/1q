@@ -26,9 +26,12 @@ ONEQ_API RirIssueList ValidateRirCycleDeltaTime(double dt_sec);
 /**
  * @brief 校验完整周期输入。
  * @param[in] input 当前周期输入。
+ * @param[in] recognition_dwell_sec 会话识别驻留时长（s）；> 0 时校验 `rf_scene`
+ *            窗口与 `sim_time_sec`/驻留对齐。
  * @return 按发现顺序返回的问题条目列表（所有条目 phase=kInputValidation）。
  */
-ONEQ_API RirIssueList ValidateRirCycleInput(const RirCycleInput& input);
+ONEQ_API RirIssueList ValidateRirCycleInput(const RirCycleInput& input,
+                                            float recognition_dwell_sec = 0.0f);
 
 /**
  * @brief 校验场景目标列表。

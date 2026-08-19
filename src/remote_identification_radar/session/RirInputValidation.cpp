@@ -7,6 +7,7 @@
  */
 
 #include "1q/coordinate/position_transform.h"
+#include "1q/electromagnetics/RfScene.h"
 #include "1q/remote_identification_radar/session/RirInputValidation.h"
 
 #include <cmath>
@@ -110,7 +111,7 @@ RirIssueList ValidateRirSceneTargets(const RirSceneTargetList& targets) {
   return issues;
 }
 
-RirIssueList ValidateRirCycleInput(const RirCycleInput& input) {
+RirIssueList ValidateRirCycleInput(const RirCycleInput& input, float recognition_dwell_sec) {
   RirIssueList issues = ValidateRirCycleDeltaTime(input.dt_sec);
   if (input.input_cycle_index == 0U) {
     PushIssue(&issues, RirIssueSeverity::kError, codes::kInvalidCycleIndex, "input_cycle_index",
@@ -140,36 +141,19 @@ RirIssueList ValidateRirCycleInput(const RirCycleInput& input) {
   const RirIssueList target_issues = ValidateRirSceneTargets(input.scene_targets);
   issues.insert(issues.end(), target_issues.begin(), target_issues.end());
 
-  // RF 输入：自身发射身份用于排除自发自收链路；携带入射链路时身份必须完整。
-  const oneq::electromagnetics::RfEmissionIdentity& own_identity = input.own_emission_identity;
-  const bool has_incident_links = !input.incident_links.empty();
-  if (has_incident_links && (own_identity.platform_id == 0U || own_identity.equipment_id == 0U ||
-                             own_identity.emission_id == 0U)) {
-    PushIssue(&issues, RirIssueSeverity::kError, codes::kInvalidOwnEmissionIdentity,
-              "own_emission_identity",
-              "Own emission identity must be complete when incident links are provided.");
-  }
-  for (std::size_t i = 0U; i < input.incident_links.size(); ++i) {
-    const oneq::electromagnetics::RfIncidentLinkResult& link = input.incident_links[i];
-    if (link.identity.platform_id == 0U || link.identity.equipment_id == 0U ||
-        link.identity.emission_id == 0U || !std::isfinite(link.received_power_before_overlap_w) ||
-        link.received_power_before_overlap_w < 0.0) {
-      PushIssue(&issues, RirIssueSeverity::kError, codes::kInvalidRfIncidentLink,
-                "incident_links[" + std::to_string(i) + "]",
-                "RF incident link identity and received power must be valid.");
-    }
-  }
-
   const bool has_external_rf_scene = !input.rf_scene.emissions.empty();
-  if (has_external_rf_scene &&
-      !oneq::electromagnetics::TryValidateRfSceneFrame(input.rf_scene)) {
-    PushIssue(&issues, RirIssueSeverity::kError, codes::kInvalidRfSceneFrame, "rf_scene",
-              "RF scene frame must be valid when external emissions are provided.");
-  }
-  if (has_external_rf_scene && has_incident_links) {
-    PushIssue(&issues, RirIssueSeverity::kError, codes::kInvalidRfSceneFrame,
-              "rf_scene / incident_links",
-              "Provide either rf_scene external emissions or legacy incident links, not both.");
+  if (has_external_rf_scene) {
+    if (!oneq::electromagnetics::TryValidateRfSceneFrame(input.rf_scene)) {
+      PushIssue(&issues, RirIssueSeverity::kError, codes::kInvalidRfSceneFrame, "rf_scene",
+                "RF scene frame must be valid when external emissions are provided.");
+    }
+    if (std::isfinite(recognition_dwell_sec) && recognition_dwell_sec > 0.0f &&
+        (input.rf_scene.window_start_time_s != static_cast<double>(input.sim_time_sec) ||
+         input.rf_scene.window_duration_s != static_cast<double>(recognition_dwell_sec))) {
+      PushIssue(&issues, RirIssueSeverity::kError, codes::kInvalidRfSceneFrame,
+                "rf_scene.window_start_time_s / window_duration_s",
+                "RF scene window must match sim_time_sec and recognition dwell.");
+    }
   }
   return issues;
 }

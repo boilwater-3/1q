@@ -39,12 +39,6 @@ constexpr char kInvalidTargetMotionField[] = "rir.validation.invalid_target_moti
 /** @brief 环境快照字段非法（天气衰减非有限/负值）。 */
 constexpr char kInvalidEnvironmentSnapshot[] = "rir.validation.invalid_environment_snapshot";
 
-/** @brief 自身发射身份非法（任一 ID 为 0）。 */
-constexpr char kInvalidOwnEmissionIdentity[] = "rir.validation.invalid_own_emission_identity";
-
-/** @brief RF 入射链路含非法字段。 */
-constexpr char kInvalidRfIncidentLink[] = "rir.validation.invalid_rf_incident_link";
-
 /** @brief RF 场景帧非法或与周期窗口不一致。 */
 constexpr char kInvalidRfSceneFrame[] = "rir.validation.invalid_rf_scene_frame";
 
