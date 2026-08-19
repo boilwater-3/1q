@@ -81,10 +81,10 @@ function(apply_msvc_options)
             $<$<CONFIG:Debug>:/Od>                                                # 关闭优化，变量观察值与源码一致
             $<$<CONFIG:Debug>:/RTC1>                                              # 运行期检查：未初始化栈变量 + 栈帧校验
             $<$<AND:$<CONFIG:Debug>,$<VERSION_GREATER_EQUAL:${MSVC_VERSION},1910>>:/JMC>  # 启用 Just My Code 调试（仅步入用户代码）
-            $<$<CONFIG:Release>:/Od>                                              # 关闭优化：生产环境仅 Release 一档，需保留变量级可调试性（配合 /Z7 + /DEBUG:FULL）
-            $<$<CONFIG:Release>:/Ob0>                                             # 禁止内联：避免变量/调用栈被内联优化掉，保证调试时所见即所写
+            $<$<CONFIG:Release>:/O2>                                              # 标准优化（真发布档：不保留调试产物）
+            $<$<CONFIG:Release>:/Ob2>                                             # 任意内联
+            $<$<CONFIG:Release>:/Oi>                                              # 启用内建函数
             $<$<CONFIG:Release>:/GS->                                             # 关闭缓冲区安全检查（性能向，牺牲溢出防护）
-            $<$<CONFIG:Release>:/Z7>                                              # Release 生成完整调试信息（嵌入 .obj），生产可调试
             $<$<CONFIG:RelWithDebInfo>:/O2>                                       # 标准优化，兼顾性能与可调试性
             $<$<CONFIG:RelWithDebInfo>:/Ob2>                                      # 任意内联
             $<$<CONFIG:RelWithDebInfo>:/Oi>                                       # 启用内建函数
@@ -101,7 +101,7 @@ function(apply_msvc_options)
             # 设置栈保留空间为 2MB（默认仅 1MB）
             target_link_options("${_target}" PRIVATE /STACK:2097152)
         elseif(ARG_STACK_SIZE_OPTION STREQUAL "LARGE_PROJECT")
-            # 设置栈保留空间为 4MB，适配较深调用栈的大中型工程
+            # 设置栈保留空间为 4MB，适配较深调用栈的大中型项目
             target_link_options("${_target}" PRIVATE /STACK:4194304)
         elseif(ARG_STACK_SIZE_OPTION STREQUAL "EXTREME_RECURSION")
             # 设置栈保留空间为 8MB，适配深度递归 / 模板实例化场景
@@ -111,8 +111,9 @@ function(apply_msvc_options)
         target_link_options("${_target}" PRIVATE
             $<$<CONFIG:Debug>:/DEBUG:FULL>          # 生成完整 PDB 调试符号
             $<$<CONFIG:Debug>:/INCREMENTAL>         # 启用增量链接，加快反复链接速度
-            $<$<CONFIG:Release>:/DEBUG:FULL>        # Release 生成完整 PDB，配合 /Z7 支持生产环境变量级调试
-            $<$<CONFIG:Release>:/INCREMENTAL:NO>    # 关闭增量链接，Release 调试构建稳定性优先
+            $<$<CONFIG:Release>:/OPT:REF>           # 移除未引用函数/数据（真发布档：无 PDB/调试信息）
+            $<$<CONFIG:Release>:/OPT:ICF>           # 折叠等价 COMDAT 段
+            $<$<CONFIG:Release>:/INCREMENTAL:NO>    # 关闭增量链接，配合 /OPT 优化
             $<$<CONFIG:RelWithDebInfo>:/DEBUG:FULL> # 生成完整 PDB 调试符号
             $<$<CONFIG:RelWithDebInfo>:/OPT:REF>    # 移除未引用函数/数据（需 /Gy 段级编译）
             $<$<CONFIG:RelWithDebInfo>:/OPT:ICF>    # 折叠等价 COMDAT 段（Identical COMDAT Folding）
