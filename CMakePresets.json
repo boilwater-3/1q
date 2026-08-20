@@ -98,7 +98,7 @@
             "inherits": "windows-base",
             "generator": "Visual Studio 14 2015",
             "cacheVariables": {
-                "CMAKE_CXX_STANDARD": "14",
+                "CMAKE_CXX_STANDARD": "11",
                 "BUILD_SHARED_LIBS": "OFF",
                 "ENABLE_INSTALL": "ON"
             }
@@ -152,7 +152,7 @@
             "inherits": "windows-base-none",
             "generator": "Visual Studio 14 2015",
             "cacheVariables": {
-                "CMAKE_CXX_STANDARD": "14",
+                "CMAKE_CXX_STANDARD": "11",
                 "BUILD_SHARED_LIBS": "OFF",
                 "ENABLE_INSTALL": "ON"
             }

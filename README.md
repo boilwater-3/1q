@@ -19,7 +19,7 @@
 
 ## Dependencies
 
-- C++17 (CMake default `PROJECT_DEFAULT_CXX_STANDARD = 17`; minimum requirement C++11)
+- C++11 for delivery (VS2015 presets build with `CMAKE_CXX_STANDARD=11`; public headers guard a C++11 subset). Development/CI presets default to C++17 (`PROJECT_DEFAULT_CXX_STANDARD = 17`) for the optional flight-dynamic module, which is not part of the delivery.
 - CMake / Conan (Windows also has a no-Conan mode; see "Alternative paths" below)
 - GTest / GMock (tests)
 - Eigen, nanoflann, Boost, FlatBuffers, zlib, sqlite3
@@ -61,8 +61,9 @@ cmake --install build/VisualStudio.15.0-amd64 --config Release
 
 ### Alternative paths (unaccepted scaffolding)
 
-- VS2015: preset `VisualStudio.14.0-amd64` (C++14, no tests).
-- No Conan: run `scripts\fetch_third_party.bat` first to fetch pinned dependency sources into `third_party/` (consumed by `VendorPackages.cmake`), then use preset `VisualStudio.14.0-amd64-none`.
+- VS2015: preset `VisualStudio.14.0-amd64` (C++11, no tests).
+- No Conan: run `scripts\fetch_third_party.bat` first to fetch pinned dependency sources into `third_party/` (consumed by `VendorPackages.cmake`), then use preset `VisualStudio.14.0-amd64-none` (C++11, delivery tier — same as `1q_log_vs2015` which adds acceptance logs).
+- Encoding: all tracked C/C++ sources carry a UTF-8 BOM (`scripts/utf8_bom.py` maintains; CI enforces via `check`). MSVC reads BOM files as UTF-8 unconditionally — no `/utf-8` compile flag is needed or propagated, so consumers on VS2015 (any Update) compile Chinese-commented headers correctly without any special options.
 
 Full dual-platform instructions, environment-defect root causes, and errata: see the Build and Test section of `CLAUDE.md` and `docs/practice/build_and_test_governance.md`.
 
