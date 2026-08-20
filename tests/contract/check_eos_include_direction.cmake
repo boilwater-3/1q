@@ -2,6 +2,8 @@ if(NOT DEFINED SOURCE_DIR OR SOURCE_DIR STREQUAL "")
   message(FATAL_ERROR "SOURCE_DIR must be provided")
 endif()
 
+include("${CMAKE_CURRENT_LIST_DIR}/ReadSourceLines.cmake")
+
 set(EOS_SRC_DIR "${SOURCE_DIR}/src/electro_optical_sensor")
 set(CORE_COMPOSITION_ROOT_FILE
     "${SOURCE_DIR}/src/electro_optical_sensor/session/EosSessionCompositionRoot.cpp")
@@ -17,8 +19,9 @@ set(CORE_CONCRETE_DEP_WARNINGS)
 set(CORE_COMPOSITION_ROOT_EXEMPTIONS)
 
 foreach(IMPL_FILE IN LISTS EOS_IMPL_FILES)
-  file(STRINGS "${IMPL_FILE}" INCLUDE_LINES
-       REGEX "^[ \t]*#include[ \t]+\"electro_optical_sensor/[^\"]+\"")
+  oneq_read_source_lines(INCLUDE_LINES "${IMPL_FILE}")
+  list(FILTER INCLUDE_LINES INCLUDE REGEX
+       "^[ \t]*#include[ \t]+\"electro_optical_sensor/[^\"]+\"")
 
   foreach(INCLUDE_LINE IN LISTS INCLUDE_LINES)
     string(REGEX REPLACE "^[ \t]*#include[ \t]+\"([^\"]+)\".*$" "\\1"

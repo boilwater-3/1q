@@ -2,6 +2,8 @@ if(NOT DEFINED SOURCE_DIR OR SOURCE_DIR STREQUAL "")
   message(FATAL_ERROR "SOURCE_DIR must be provided")
 endif()
 
+include("${CMAKE_CURRENT_LIST_DIR}/ReadSourceLines.cmake")
+
 set(PUBLIC_HEADER_DIRS
     "${SOURCE_DIR}/include/1q/airborne_radar"
     "${SOURCE_DIR}/include/1q/electro_optical_sensor"
@@ -15,8 +17,9 @@ foreach(PUBLIC_HEADER_DIR IN LISTS PUBLIC_HEADER_DIRS)
        "${PUBLIC_HEADER_DIR}/*.hpp")
 
   foreach(PUBLIC_HEADER IN LISTS PUBLIC_HEADERS)
-    file(STRINGS "${PUBLIC_HEADER}" INCLUDE_LINES
-         REGEX "^[ \t]*#include[ \t]+[<\"][^>\"]+[>\"]")
+    oneq_read_source_lines(INCLUDE_LINES "${PUBLIC_HEADER}")
+    list(FILTER INCLUDE_LINES INCLUDE REGEX
+         "^[ \t]*#include[ \t]+[<\"][^>\"]+[>\"]")
     foreach(INCLUDE_LINE IN LISTS INCLUDE_LINES)
       string(REGEX REPLACE "^[ \t]*#include[ \t]+([<\"])([^>\"]+)[>\"]"
                            "\\1;\\2" INCLUDE_META "${INCLUDE_LINE}")

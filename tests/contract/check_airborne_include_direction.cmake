@@ -2,6 +2,8 @@ if(NOT DEFINED SOURCE_DIR OR SOURCE_DIR STREQUAL "")
   message(FATAL_ERROR "SOURCE_DIR must be provided")
 endif()
 
+include("${CMAKE_CURRENT_LIST_DIR}/ReadSourceLines.cmake")
+
 set(AIRBORNE_SRC_DIR "${SOURCE_DIR}/src/airborne_radar")
 set(CORE_COMPOSITION_ROOT_FILE
     "${SOURCE_DIR}/src/airborne_radar/session/ArSessionCompositionRoot.cpp")
@@ -18,8 +20,9 @@ set(CORE_COMPOSITION_ROOT_EXEMPTIONS)
 set(CORE_GRAY_ZONE_WARNINGS)
 
 foreach(IMPL_FILE IN LISTS AIRBORNE_IMPL_FILES)
-  file(STRINGS "${IMPL_FILE}" INCLUDE_LINES
-       REGEX "^[ \t]*#include[ \t]+\"airborne_radar/[^\"]+\"")
+  oneq_read_source_lines(INCLUDE_LINES "${IMPL_FILE}")
+  list(FILTER INCLUDE_LINES INCLUDE REGEX
+       "^[ \t]*#include[ \t]+\"airborne_radar/[^\"]+\"")
 
   foreach(INCLUDE_LINE IN LISTS INCLUDE_LINES)
     string(REGEX REPLACE "^[ \t]*#include[ \t]+\"([^\"]+)\".*$" "\\1"

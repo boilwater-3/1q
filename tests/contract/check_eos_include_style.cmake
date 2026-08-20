@@ -5,6 +5,8 @@ endif()
 # 返回空列表（误报或静默放行）。对绝对输入幂等，仅兜底手动调用。
 get_filename_component(SOURCE_DIR "${SOURCE_DIR}" ABSOLUTE)
 
+include("${CMAKE_CURRENT_LIST_DIR}/ReadSourceLines.cmake")
+
 set(EOS_SRC_DIR "${SOURCE_DIR}/src/electro_optical_sensor")
 set(PUBLIC_INCLUDE_ROOT "${SOURCE_DIR}/include/1q")
 set(PRIVATE_INCLUDE_ROOT "${SOURCE_DIR}/src")
@@ -18,8 +20,9 @@ file(GLOB_RECURSE EOS_IMPL_FILES
 set(VIOLATIONS)
 
 foreach(IMPL_FILE IN LISTS EOS_IMPL_FILES)
-  file(STRINGS "${IMPL_FILE}" INCLUDE_LINES
-       REGEX "^[ \t]*#include[ \t]+\"(1q/electro_optical_sensor/|electro_optical_sensor/)[^\"]+\"")
+  oneq_read_source_lines(INCLUDE_LINES "${IMPL_FILE}")
+  list(FILTER INCLUDE_LINES INCLUDE REGEX
+       "^[ \t]*#include[ \t]+\"(1q/electro_optical_sensor/|electro_optical_sensor/)[^\"]+\"")
   foreach(INCLUDE_LINE IN LISTS INCLUDE_LINES)
     string(REGEX REPLACE "^[ \t]*#include[ \t]+\"([^\"]+)\".*$" "\\1"
            INCLUDE_PATH "${INCLUDE_LINE}")

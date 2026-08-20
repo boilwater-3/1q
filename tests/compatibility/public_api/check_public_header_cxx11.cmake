@@ -21,6 +21,10 @@ endif()
 
 set(PUBLIC_INCLUDE_ROOT "${SOURCE_DIR}/include/1q")
 
+# 仓库 C/C++ 源文件统一携带 UTF-8 BOM；BOM 粘在首行行首会使首行注释判定
+# （^ 锚定的行首匹配）失效，首行 doc 注释中提到的禁止 token 会被误报。
+string(ASCII 239 187 191 _UTF8_BOM)
+
 file(GLOB_RECURSE PUBLIC_HEADERS
      "${PUBLIC_INCLUDE_ROOT}/*.h"
      "${PUBLIC_INCLUDE_ROOT}/*.hpp")
@@ -75,6 +79,10 @@ foreach(HEADER IN LISTS PUBLIC_HEADERS)
   # 提到的禁止 token 被误报（如中文注释中的 "std::variant"）。
   # 行号与注释判定均按真实换行位置计算，与文件编码无关。
   file(READ "${HEADER}" HEADER_CONTENT)
+  string(FIND "${HEADER_CONTENT}" "${_UTF8_BOM}" _bom_pos)
+  if(_bom_pos EQUAL 0)
+    string(SUBSTRING "${HEADER_CONTENT}" 3 -1 HEADER_CONTENT)
+  endif()
   math(EXPR _last "${_pattern_count} - 1")
   foreach(_i RANGE ${_last})
     list(GET PATTERNS ${_i} _pattern)
