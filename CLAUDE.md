@@ -95,7 +95,27 @@ The final library artifact lands at `build/VisualStudio.15.0-amd64/Release/lib/1
 
   Note (2026-08-17 erratum): in this environment (MSVC v141 Debug CRT), `SbirsExclusionCauseRecorderTest` failing wholesale with bad_alloc was once recorded as a "known baseline failure" — it turned out to be **stale build artifacts**: after a header-layout change, incremental Unity builds did not rebuild all TUs, and Debug hardened checks surfaced SEH crashes; deleting `build/.../src/sbirs_sensor` artifacts to force a full rebuild turned all 203 sbirs unit tests green. If Debug tests hit SEH 0xc0000005/bad_alloc unrelated to any code logic, do a full rebuild before investigating. `integration::airborne_radar` 0xc0000409 remains a separate pre-existing issue.
 
-Alternative Windows paths (unaccepted scaffolding; not a support statement — see `docs/practice/build_and_test_governance.md`): the VS2015 preset `VisualStudio.14.0-amd64` (C++14, no tests); the no-Conan mode `VisualStudio.14.0-amd64-none` (run `scripts\fetch_third_party.bat` first to fetch pinned dependency sources into `third_party/`, consumed by `VendorPackages.cmake`).
+### VS2015 delivery tier (customer integration)
+
+**Why this tier exists**: the customer's VS2015 (v140, any Update) environment compiles our headers inside their own TUs and cannot be told to add compiler flags. BOM-less UTF-8 sources are read as system codepage (GBK), corrupting Chinese comments. Delivery therefore = C++11 + UTF-8 BOM on every tracked C/C++ file + **no `/utf-8`** anywhere (not even INTERFACE-propagated). The BOM makes cl.exe decode UTF-8 unconditionally; `scripts/utf8_bom.py` maintains it (convert/check/strip), CI's guard job enforces `check`, `.editorconfig` declares `utf-8-bom` for C/C++.
+
+**Preset selection**:
+
+| Preset | Purpose / problem solved |
+|---|---|
+| `1q_log_vs2015` | **Delivery**: v140 x64, no Conan (fetch_third_party.bat first), C++11, SBIRS/RIR acceptance logs ON |
+| `VisualStudio.14.0-amd64-none` | Delivery base (same minus acceptance logs) |
+| `VisualStudio.15.0-amd64` | Windows dev mainline: VS2026 + v141, C++17, Conan |
+| `llvm-ninja-*` (macOS) | CI/dev mainline: full Conan deps, spdlog, coverage |
+| `VisualStudio.14.0-amd64` | VS2015 + Conan — not viable here (CMake 4.3.1 vs v140 toolset; see `docs/practice/build_and_test_governance.md`) |
+
+**Delivery verification workflow** (end-to-end, ~15 min):
+
+1. `cmake --preset 1q_log_vs2015 && cmake --build --preset 1q_log_vs2015-release`
+2. `cmake --install build/1q_log_vs2015 --config Release`
+3. Sync install → consumer (`D:\1q\1q_consumer`): `include/1q/*`, `lib/1q.lib`, and repo `examples/` → consumer `src/` (BOM'd zero-modification mirror)
+4. Consumer builds **C++11, no `/utf-8`** (simulates customer vcxproj): `cmake -G "Visual Studio 14 2015" -A x64 && cmake --build --config Release`
+5. Run demo 3 cycles; verify zero C4819 in build log, `[SbirsAccept]`/`[RirAccept]` present in `1q_library.log`
 
 ### Module and coverage switches
 
