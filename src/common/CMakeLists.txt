@@ -6,6 +6,7 @@ set(ONEQ_COMMON_SOURCES
     electromagnetics/RfLinkBudget.cpp
     electromagnetics/RfScene.cpp
     environment/PropagationPhysicsImpl.cpp
+    geometry/BoresightChain.cpp
     geometry/GeometryTransform.cpp
     coordinate/PositionTransform.cpp
     coordinate/VelocityTransform.cpp

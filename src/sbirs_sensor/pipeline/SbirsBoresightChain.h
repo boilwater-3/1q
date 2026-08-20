@@ -1,16 +1,18 @@
 ﻿/**
  * @file SbirsBoresightChain.h
  * @brief 传感器指向合成链：卫星姿态（Body->ECI）+ 安装角（Body->Sensor）+ 扫描指向。
+ * @note 纯几何引擎已提取到公共域（common/geometry/BoresightChain，参考系无关）；
+ *       本类是 SBIRS 会话类型（SbirsVector3M/SbirsEulerAnglesDeg）与公共引擎
+ *       （coordinate::Vector3d）之间的薄适配层，语义与提取前逐位一致。
  */
 
 #ifndef ONEQ_SRC_SBIRS_SENSOR_PIPELINE_SBIRS_BORESIGHT_CHAIN_H_
 #define ONEQ_SRC_SBIRS_SENSOR_PIPELINE_SBIRS_BORESIGHT_CHAIN_H_
 
-#include "1q/coordinate/attitude_transform.h"
-#include "1q/coordinate/types.h"
 #include "1q/sbirs_sensor/config/SbirsOrientationConfig.h"
 #include "1q/sbirs_sensor/session/SbirsCycleInput.h"
 #include "1q/sbirs_sensor/session/SbirsSceneTypes.h"
+#include "common/geometry/BoresightChain.h"
 
 namespace sbirs_sensor {
 namespace pipeline {
@@ -29,7 +31,8 @@ namespace pipeline {
  *       安装失准（阶段 3）：misalignment 为安装失准角误差（常值偏置 + 运行期一次抽取的
  *       常值随机微扰），作用于传感器系内（等效安装偏置微扰），合成进链路影响实际光轴
  *       足迹与门控；不污染量测输出、不进 BuildMeasurementCovariance。
- *       本工具只承载纯几何（ECI<->传感器系旋转、传感器系 az/el 提取、限位钳制与
+ *       随机抽取在 SbirsPipeline 承载（DrawMisalignmentTotal）；本类与其委托的公共
+ *       引擎只承载纯几何（ECI<->传感器系旋转、传感器系 az/el 提取、限位钳制与
  *       扫掠区间判定），不含任何随机源/时间演化状态。
  */
 class SbirsBoresightChain {
@@ -111,9 +114,7 @@ class SbirsBoresightChain {
                                 float* elevation_deg);
 
  private:
-  oneq::coordinate::RotationMatrix3d sensor_to_eci_{};
-  oneq::coordinate::RotationMatrix3d eci_to_sensor_{};
-  bool identity_{true};
+  oneq::common::geometry::BoresightChain chain_;
 };
 
 }  // namespace pipeline
