@@ -7,22 +7,10 @@ namespace eos.replay;
 
 // ---- 基础向量与姿态类型 ----
 
-struct Vec3 {
-  x: double;
-  y: double;
-  z: double;
-}
-
 struct EulerDeg {
   yaw_deg:   double;
   pitch_deg: double;
   roll_deg:  double;
-}
-
-table PoseState {
-  position_m:   Vec3;
-  velocity_mps: Vec3;
-  attitude_deg: EulerDeg;
 }
 
 // ---- EosCycleInput ----
@@ -40,9 +28,6 @@ table EosTargetState {
   reflectance:           float;
   projected_area_m2:     float;
   target_name:           string;
-  range_m:               float (deprecated);
-  azimuth_deg:           float (deprecated);
-  elevation_deg:         float (deprecated);
 }
 
 table EosCycleInput {
@@ -51,7 +36,6 @@ table EosCycleInput {
   platform_attitude_deg:    EulerDeg;
   scene_targets:            [EosTargetState];
   platform_altitude_m:      float = 0.0;
-  platform_pose:            PoseState (deprecated);
 }
 
 root_type EosCycleInput;

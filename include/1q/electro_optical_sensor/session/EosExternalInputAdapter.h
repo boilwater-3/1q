@@ -44,8 +44,7 @@ struct ONEQ_API EosExternalTargetInput {
 enum class ONEQ_API EosCoordinateStatus {
   kOk = 0,
   kNullOutput,
-  kCoordinateTransformFail,
-  kDegenerateGeometry
+  kCoordinateTransformFail
 };
 
 /**
