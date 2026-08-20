@@ -1,6 +1,7 @@
 ﻿#include "1q/electro_optical_sensor/session/EosOutputDebugView.h"
 
 #include "1q/electro_optical_sensor/session/EosCycleInput.h"
+#include "electro_optical_sensor/foundation/EosLookAngles.h"
 
 namespace electro_optical_sensor {
 namespace session {
@@ -26,16 +27,19 @@ const attribution::EosDetectionAttributionRecord* FindAttribution(
   return nullptr;
 }
 
-EosDebugTargetState BuildTargetState(const EosSceneTarget& target, const EosCycleResult& result) {
+EosDebugTargetState BuildTargetState(const EosSceneTarget& target,
+                                     const oneq::coordinate::EulerAnglesDeg& platform_attitude_deg,
+                                     const EosCycleResult& result) {
   EosDebugTargetState state;
   state.target_id = target.target_id;
   state.target_name = target.target_name;
   state.present_in_input = true;
-  // 输入实体回填（规则 12）：目标角度/距离为 input 侧真值，无论是否检测均
-  // 可见（检测记录存在时下方以记录观测值覆盖）；供调用方人读/结构化落盘。
-  state.range_m = target.range_m;
-  state.azimuth_deg = target.azimuth_deg;
-  state.elevation_deg = target.elevation_deg;
+  // 输入实体回填（规则 12）：目标角度/距离为 input 侧真值（由平台锚点 ENU 位置 +
+  // 平台姿态派生体系球坐标），无论是否检测均可见（检测记录存在时下方以记录观测值
+  // 覆盖）；供调用方人读/结构化落盘。
+  foundation::TryResolveEosLookAngles(target.position_x, target.position_y, target.position_z,
+                                      platform_attitude_deg, &state.range_m, &state.azimuth_deg,
+                                      &state.elevation_deg);
   if (result.status != EosCycleStatus::kCompleted) {
     state.status = EosDebugTargetStatus::kCycleNotExecuted;
     return state;
@@ -74,7 +78,7 @@ EosOutputDebugView EosOutputDebugViewBuilder::Build(const EosCycleInput& input,
   view.issues = result.issues;
   view.targets.reserve(input.scene.size());
   for (const EosSceneTarget& target : input.scene) {
-    view.targets.push_back(BuildTargetState(target, result));
+    view.targets.push_back(BuildTargetState(target, input.platform_attitude_deg, result));
   }
   return view;
 }

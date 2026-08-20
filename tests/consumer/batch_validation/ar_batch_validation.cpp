@@ -33,6 +33,8 @@
 #include "1q/airborne_radar/session/ArReplaySession.h"
 #include "1q/airborne_radar/session/ArSession.h"
 #include "1q/airborne_radar/session/ArTraceSession.h"
+#include "1q/coordinate/position_transform.h"
+#include "1q/coordinate/scene_transform.h"
 #include "1q/coordinate/types.h"
 #include "batch_assertions.h"
 #include "batch_checks.h"
@@ -173,35 +175,55 @@ ar_session::ArExternalPoseInput MakePlatformPose(std::uint32_t cycle_index) {
 }
 
 /**
- * @brief 构造一组目标，分布在目标斜距附近、雷达本地 +x（前向）方向。
+ * @brief 构造一组目标，分布在目标斜距附近、世界 ECEF +x 方向。
  *
- * AR 输入位置为 ECEF；本函数把目标放在平台 ECEF 原点 + 沿 ECEF x 轴偏移 range_km。
- * 实际场景中目标会在本地系呈现该量级的斜距（足够驱动 SNR/距离趋势）。
+ * 世界真值（ECEF 位置 + ECEF 速度）经公共入口 `TryMakeEnuSceneState` 转为平台锚点
+ * ENU 后直填 AR 输入；多目标在 x 方向错开 200m，避免位置完全重叠。
  */
-std::vector<ar_session::ArExternalTargetInput> MakeTargets(const ArCase& c,
-                                                           std::uint32_t cycle_index) {
-  std::vector<ar_session::ArExternalTargetInput> targets;
+std::vector<ar_session::ArTargetInput> MakeTargets(const ArCase& c,
+                                                   std::uint32_t cycle_index) {
+  std::vector<ar_session::ArTargetInput> targets;
   targets.reserve(static_cast<std::size_t>(c.target_count));
   const double base_offset_m = c.target_range_km * 1000.0;
+
+  oneq::coordinate::LlaPositionDegM anchor_lla;
+  if (!oneq::coordinate::TryEcefToLla(MakePlatformPose(cycle_index).platform_position_ecef_m,
+                                      &anchor_lla)) {
+    return targets;
+  }
+
   for (int k = 0; k < c.target_count; ++k) {
-    ar_session::ArExternalTargetInput t;
-    t.target_id = 1000 + static_cast<std::uint64_t>(k);
     // 多目标在 x 方向错开 200m，避免位置完全重叠。
     const double off = base_offset_m + 200.0 * static_cast<double>(k);
-    t.kinematics.position_frame = oneq::coordinate::PositionFrame::kEcef;
-    t.kinematics.position_ecef_m.x_m = -2289512.0 + off;
-    t.kinematics.position_ecef_m.y_m = 4909946.0;
-    t.kinematics.position_ecef_m.z_m = 3640982.0;
+    oneq::coordinate::ExternalKinematics kinematics;
+    kinematics.position_frame = oneq::coordinate::PositionFrame::kEcef;
+    kinematics.position_ecef_m.x_m = -2289512.0 + off;
+    kinematics.position_ecef_m.y_m = 4909946.0;
+    kinematics.position_ecef_m.z_m = 3640982.0;
     // 速度沿 -x（朝向雷达），使相对运动产生多普勒。
-    t.kinematics.velocity_mps.x_mps = -50.0;
-    t.kinematics.velocity_mps.y_mps = 0.0;
-    t.kinematics.velocity_mps.z_mps = 0.0;
+    kinematics.velocity_mps.x_mps = -50.0;
+    kinematics.velocity_mps.y_mps = 0.0;
+    kinematics.velocity_mps.z_mps = 0.0;
     if (c.sequence && c.scenario_id.find("crossing") != std::string::npos && k < 2) {
       const double signed_offset =
           (k == 0 ? -1.0 : 1.0) * (12.5 - static_cast<double>(cycle_index)) * 120.0;
-      t.kinematics.position_ecef_m.y_m += signed_offset;
-      t.kinematics.velocity_mps.y_mps = k == 0 ? 120.0 : -120.0;
+      kinematics.position_ecef_m.y_m += signed_offset;
+      kinematics.velocity_mps.y_mps = k == 0 ? 120.0 : -120.0;
     }
+
+    oneq::coordinate::EnuSceneState enu;
+    if (!oneq::coordinate::TryMakeEnuSceneState(kinematics, anchor_lla, &enu)) {
+      continue;
+    }
+
+    ar_session::ArTargetInput t;
+    t.target_id = 1000 + static_cast<std::uint64_t>(k);
+    t.position_x = static_cast<float>(enu.position_enu_m.east_m);
+    t.position_y = static_cast<float>(enu.position_enu_m.north_m);
+    t.position_z = static_cast<float>(enu.position_enu_m.up_m);
+    t.velocity_x = static_cast<float>(enu.velocity_enu_mps.east_mps);
+    t.velocity_y = static_cast<float>(enu.velocity_enu_mps.north_mps);
+    t.velocity_z = static_cast<float>(enu.velocity_enu_mps.up_mps);
     t.rcs = c.rcs_m2;
     t.swerling_type = 0;
     targets.push_back(t);
@@ -445,7 +467,7 @@ ScenarioSummary RunArScenario(const ArCase& c, const ar_config::ArSessionConfig&
         (void)session.TryApplyRuntimeConfig(patch);
       }
       ar_session::ArExternalPoseInput platform = MakePlatformPose(cycle_index);
-      std::vector<ar_session::ArExternalTargetInput> targets = MakeTargets(c, cycle_index);
+      std::vector<ar_session::ArTargetInput> targets = MakeTargets(c, cycle_index);
 
       ar_session::ArCycleInput input;
       input.cycle_index = cycle_index;

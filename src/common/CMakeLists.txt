@@ -12,6 +12,7 @@ set(ONEQ_COMMON_SOURCES
     coordinate/VelocityTransform.cpp
     coordinate/AttitudeTransform.cpp
     coordinate/InertialTransform.cpp
+    coordinate/SceneTransform.cpp
     numerics/SpectralNumerics.cpp
     optimization/LapjvSolver.cpp
     radar/RadarEquations.cpp

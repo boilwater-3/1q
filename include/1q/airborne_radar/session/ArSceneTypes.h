@@ -47,6 +47,34 @@ struct ONEQ_API ArSceneTarget {
         target_swerling_type(swerling_type_in) {}
 };
 
+/**
+ * @brief ArTargetInput 描述 AR 单周期场景目标输入（平台锚点 radar-local ENU）。
+ * @note ENU 契约见 docs/common/contract.md「场景目标平台锚点 ENU 输入契约」：
+ *       原点 = 当周期平台 ECEF 位置（逐周期重锚），轴 = 锚点 ENU（x=东/y=北/z=天）；
+ *       速度 = 目标 ECEF 速度旋入锚点 ENU 轴（固定锚点旋转，无传输率修正）。
+ *       集成层以 `oneq::coordinate::TryEcefToLla`（锚点）+ `TryMakeEnuSceneState`
+ *       （逐目标）完成 ECEF/LLA→ENU 转换后直填本结构。
+ * @note 与 `ArSceneTarget`（库内雷达局部系）区分：本结构是外部输入面，库内旋入
+ *       雷达体系（平台姿态∘安装角复合）后使用。
+ */
+struct ONEQ_API ArTargetInput {
+  std::uint64_t target_id{0U}; /**< 外部输入原始目标标识符（0 表示未知/未提供） */
+  std::string target_name{};   /**< 可选目标名称，仅用于人读、trace 与调试视图，不参与关联 */
+  float position_x{0.0f};      /**< 平台锚点 ENU 位置 x（东向，单位：m） */
+  float position_y{0.0f};      /**< 平台锚点 ENU 位置 y（北向，单位：m） */
+  float position_z{0.0f};      /**< 平台锚点 ENU 位置 z（天向，单位：m） */
+  float velocity_x{0.0f};      /**< 锚点 ENU 速度 x 分量（单位：m/s） */
+  float velocity_y{0.0f};      /**< 锚点 ENU 速度 y 分量（单位：m/s） */
+  float velocity_z{0.0f};      /**< 锚点 ENU 速度 z 分量（单位：m/s） */
+  float rcs{1.0f};             /**< 目标雷达散射截面积（单位：m^2） */
+  int swerling_type{0};        /**< 目标起伏模型 */
+
+  ArTargetInput() = default;
+};
+
+/** @brief ArTargetInputList 表示 AR 场景目标输入列表。 */
+using ArTargetInputList = std::vector<ArTargetInput>;
+
 /** @brief ArSceneTargetList 表示雷达场景目标输入列表。 */
 using ArSceneTargetList = std::vector<ArSceneTarget>;
 

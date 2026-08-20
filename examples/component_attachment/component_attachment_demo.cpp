@@ -256,7 +256,7 @@ int main(int argc, char* argv[]) {
     // 消费方每周期注入共享场景状态（周期号/时间/四通道世界真值）。
     scene.cycle = cycle;
     scene.t_sec = static_cast<double>(cycle) * scene_data.dt_sec;
-    scene.ar_targets = demo::MakeArTargetInputs(target_states);
+    scene.world_targets = target_states;
     scene.emitters = demo::MakeEmitterTruths(target_states, scene_data.esr, scene.t_sec);
     scene.optical_targets = demo::MakeOpticalTargets(target_states);
     scene.sbirs_targets = demo::MakeSbirsTargetInputs(target_states);

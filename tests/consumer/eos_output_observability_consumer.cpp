@@ -16,6 +16,7 @@
 #include <vector>
 
 #include "1q/electro_optical_sensor/session/EosCycleInput.h"
+#include "support/eos_enu_scene_helpers.h"
 #include "1q/electro_optical_sensor/session/EosCycleResult.h"
 #include "1q/electro_optical_sensor/session/EosDetectionLifecycleRecorder.h"
 #include "1q/electro_optical_sensor/session/EosOutputDebugView.h"
@@ -30,7 +31,7 @@ int main() {
   eos::session::EosSceneTarget target;
   target.target_id = 42U;
   target.target_name = "consumer-target";
-  target.range_m = 1500.0f;
+  target.position_x = 1500.0f;
   input.scene.push_back(target);
 
   // 2. 手填一个含 attribution 的结果，验证 detection_attributions 字段可达。

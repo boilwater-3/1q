@@ -16,16 +16,11 @@ bool EosCycleOutputAdapter::Build(const EosExternalPoseInput& platform, const Eo
     return false;
   }
   reference.frame_attitude_deg = platform.platform_attitude_deg;
-
-  oneq::foundation::PoseState platform_pose;
-  if (!TryMakeEosPoseFromExternalKinematics(platform, reference, &platform_pose)) {
-    return false;
-  }
-  return Build(reference, platform_pose, frame, output);
+  return Build(reference, platform.platform_attitude_deg, frame, output);
 }
 
 bool EosCycleOutputAdapter::Build(const oneq::coordinate::LocalFrameReference& reference,
-                                  const oneq::foundation::PoseState& platform_pose,
+                                  const oneq::coordinate::EulerAnglesDeg& platform_attitude_deg,
                                   const EosOutputFrame& frame, EosExternalOutputFrame* output) {
   if (output == nullptr) {
     return false;
@@ -37,8 +32,8 @@ bool EosCycleOutputAdapter::Build(const oneq::coordinate::LocalFrameReference& r
   output->detections.reserve(frame.detections.size());
   for (std::size_t i = 0; i < frame.detections.size(); ++i) {
     EosExternalDetectionRecord record;
-    if (!TryMakeExternalDetectionFromRecord(frame.detections[i], reference, platform_pose,
-                                            &record)) {
+    if (!TryMakeExternalDetectionFromRecord(frame.detections[i], reference,
+                                            platform_attitude_deg, &record)) {
       return false;
     }
     output->detections.push_back(record);

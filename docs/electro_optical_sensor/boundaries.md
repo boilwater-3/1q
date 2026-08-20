@@ -87,6 +87,14 @@ EOS 遵守 `docs/common/contract.md`：
 pipeline，故正常 Session 路径不会把非法 `range_m` 传入 pipeline。pipeline 内部的
 `SafePositive(target.range_m, 1000.0f)` 仅为深度防御，兜底值 1000m 不构成合法输入约定。
 
+**场景目标输入为平台锚点 radar-local ENU**（契约见 docs/common/contract.md「场景目标平台锚点
+ENU 输入契约」）：`EosSceneTarget::position_x/y/z` 为锚点 ENU 位置（x=东/y=北/z=天，原点=当周期
+平台 ECEF 位置）；体系球坐标（斜距/方位/仰角）是库内量测几何，由控制器经
+`foundation::TryResolveEosLookAngles` 从 ENU 位置 + `platform_attitude_deg`（Body->ENU）派生后供
+pipeline 消费（`EosPipelineSceneTarget`），不进入公开输入契约。斜距权威校验等价于 ENU 位置
+模长非退化（`EosLookAngleNormFloorM` 下限）。速度字段保留 ENU 契约统一形状，当前仅校验
+有限性，不参与探测计算。
+
 [evidence: tests/unit/electro_optical_sensor/eos_input_validation_test]
 [evidence: tests/unit/electro_optical_sensor/eos_controller_runtime_state_test]
 [evidence: tests/contract/electro_optical_sensor/eos_public_api_convenience_test]

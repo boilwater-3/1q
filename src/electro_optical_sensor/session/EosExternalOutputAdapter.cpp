@@ -26,15 +26,6 @@ oneq::coordinate::Vector3d ToPlatformFrameVector(float range_m, float azimuth_de
   return vector;
 }
 
-oneq::coordinate::EulerAnglesDeg ToCoordinateEuler(
-    const oneq::foundation::EulerAnglesDeg& attitude_deg) {
-  oneq::coordinate::EulerAnglesDeg output;
-  output.yaw_deg = static_cast<double>(attitude_deg.yaw_deg);
-  output.pitch_deg = static_cast<double>(attitude_deg.pitch_deg);
-  output.roll_deg = static_cast<double>(attitude_deg.roll_deg);
-  return output;
-}
-
 oneq::coordinate::EnuPositionM Vector3dToEnuPosition(const oneq::coordinate::Vector3d& enu) {
   oneq::coordinate::EnuPositionM pos;
   pos.east_m = enu.x;
@@ -47,7 +38,7 @@ oneq::coordinate::EnuPositionM Vector3dToEnuPosition(const oneq::coordinate::Vec
 
 bool TryMakeExternalDetectionFromRecord(const output::EosDetectionRecord& detection,
                                         const oneq::coordinate::LocalFrameReference& reference,
-                                        const oneq::foundation::PoseState& platform_pose,
+                                        const oneq::coordinate::EulerAnglesDeg& platform_attitude_deg,
                                         EosExternalDetectionRecord* output) {
   if (output == nullptr || !oneq::common::validation::IsFinite(detection.range_m) ||
       !oneq::common::validation::IsFinite(detection.azimuth_deg) ||
@@ -55,17 +46,11 @@ bool TryMakeExternalDetectionFromRecord(const output::EosDetectionRecord& detect
     return false;
   }
 
+  // 体系球坐标 → 平台锚点 ENU（原点即平台，仅姿态旋转）→ ECEF（锚点基准）。
   const oneq::coordinate::Vector3d platform_frame =
       ToPlatformFrameVector(detection.range_m, detection.azimuth_deg, detection.elevation_deg);
-  const oneq::coordinate::Vector3d relative_local =
-      oneq::coordinate::RotateLocalToEnu(platform_frame.x, platform_frame.y, platform_frame.z,
-                                         ToCoordinateEuler(platform_pose.attitude_deg));
-  oneq::coordinate::Vector3d target_local;
-  target_local.x = static_cast<double>(platform_pose.position_m.x) + relative_local.x;
-  target_local.y = static_cast<double>(platform_pose.position_m.y) + relative_local.y;
-  target_local.z = static_cast<double>(platform_pose.position_m.z) + relative_local.z;
   const oneq::coordinate::Vector3d target_enu = oneq::coordinate::RotateLocalToEnu(
-      target_local.x, target_local.y, target_local.z, reference.frame_attitude_deg);
+      platform_frame.x, platform_frame.y, platform_frame.z, platform_attitude_deg);
 
   oneq::coordinate::EcefPositionM target_ecef;
   if (!oneq::coordinate::TryEnuToEcef(Vector3dToEnuPosition(target_enu), reference.origin_lla,

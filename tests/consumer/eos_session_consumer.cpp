@@ -22,6 +22,7 @@
 #include "1q/electro_optical_sensor/session/EosCycleResult.h"
 #include "1q/electro_optical_sensor/session/EosInputValidation.h"
 #include "1q/electro_optical_sensor/session/EosSession.h"
+#include "support/eos_enu_scene_helpers.h"
 
 namespace eos = electro_optical_sensor;
 
@@ -46,13 +47,10 @@ int main() {
   input.cycle_index = 1U;
   input.dt_sec = 0.1f;
   input.platform_altitude_m = 1200.0f;
-  input.platform_pose.position_m.z = 0.0f;
 
   eos::session::EosSceneTarget target;
   target.target_id = 1U;
-  target.range_m = 1500.0f;
-  target.azimuth_deg = 0.0f;
-  target.elevation_deg = 0.0f;
+  oneq::test_support::SetEosSphericalLook(&target, 1500.0f, 0.0f, 0.0f);
   target.appearance.apparent_temperature_k = 330.0f;
   target.appearance.emissivity = 0.92f;
   target.appearance.reflectance = 0.38f;

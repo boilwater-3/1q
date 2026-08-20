@@ -24,13 +24,10 @@ bool EosCycleInputAdapter::Build(const EosExternalPoseInput& platform,
   }
   reference.frame_attitude_deg = platform.platform_attitude_deg;
 
-  if (!TryMakeEosPoseFromExternalKinematics(platform, reference, &output->platform_pose, status)) {
-    return false;
-  }
-
   output->cycle_index = 0U;
   output->dt_sec = dt_sec;
   output->platform_altitude_m = static_cast<float>(reference.origin_lla.altitude_m);
+  output->platform_attitude_deg = platform.platform_attitude_deg;
   output->scene.clear();
 
   for (std::size_t i = 0; i < targets.size(); ++i) {
@@ -39,8 +36,7 @@ bool EosCycleInputAdapter::Build(const EosExternalPoseInput& platform,
     if (target_id == 0U) {
       target_id = static_cast<std::uint64_t>(i);
     }
-    if (!TryMakeEosSceneTargetFromExternalInput(target_id, targets[i],
-                                                reference, output->platform_pose, &target,
+    if (!TryMakeEosSceneTargetFromExternalInput(target_id, targets[i], reference, &target,
                                                 status)) {
       return false;
     }

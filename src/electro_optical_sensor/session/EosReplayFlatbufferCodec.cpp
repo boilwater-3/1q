@@ -59,46 +59,18 @@ void DecodeOneDetection(const eos::replay::EosDetectionRecord& d, output::EosDet
   out->detected = d.detected();
 }
 
-eos::replay::Vec3 ToFbVec3(const oneq::foundation::Vector3f& v) {
-  return eos::replay::Vec3(v.x, v.y, v.z);
-}
-
-eos::replay::EulerDeg ToFbEuler(const oneq::foundation::EulerAnglesDeg& e) {
+eos::replay::EulerDeg ToFbEuler(const oneq::coordinate::EulerAnglesDeg& e) {
   return eos::replay::EulerDeg(e.yaw_deg, e.pitch_deg, e.roll_deg);
 }
 
-flatbuffers::Offset<eos::replay::PoseState> BuildPoseState(flatbuffers::FlatBufferBuilder& fbb,
-                                                           const oneq::foundation::PoseState& v) {
-  eos::replay::PoseStateBuilder b(fbb);
-  auto pos = ToFbVec3(v.position_m);
-  auto vel = ToFbVec3(v.velocity_mps);
-  auto att = ToFbEuler(v.attitude_deg);
-  b.add_position_m(&pos);
-  b.add_velocity_mps(&vel);
-  b.add_attitude_deg(&att);
-  return b.Finish();
-}
-
-oneq::foundation::PoseState FromFbPoseState(const eos::replay::PoseState* fb) {
-  oneq::foundation::PoseState out{};
+oneq::coordinate::EulerAnglesDeg FromFbEuler(const eos::replay::EulerDeg* fb) {
+  oneq::coordinate::EulerAnglesDeg out{};
   if (!fb) {
     return out;
   }
-  if (fb->position_m()) {
-    out.position_m.x = fb->position_m()->x();
-    out.position_m.y = fb->position_m()->y();
-    out.position_m.z = fb->position_m()->z();
-  }
-  if (fb->velocity_mps()) {
-    out.velocity_mps.x = fb->velocity_mps()->x();
-    out.velocity_mps.y = fb->velocity_mps()->y();
-    out.velocity_mps.z = fb->velocity_mps()->z();
-  }
-  if (fb->attitude_deg()) {
-    out.attitude_deg.yaw_deg = fb->attitude_deg()->yaw_deg();
-    out.attitude_deg.pitch_deg = fb->attitude_deg()->pitch_deg();
-    out.attitude_deg.roll_deg = fb->attitude_deg()->roll_deg();
-  }
+  out.yaw_deg = fb->yaw_deg();
+  out.pitch_deg = fb->pitch_deg();
+  out.roll_deg = fb->roll_deg();
   return out;
 }
 
@@ -113,19 +85,19 @@ std::string EncodeEosCycleInput(const EosCycleInput& v) {
   targets_vec.reserve(v.scene.size());
   for (const auto& t : v.scene) {
     const auto target_name = fbb.CreateString(t.target_name);
-    auto b = eos::replay::CreateEosTargetState(fbb, t.target_id, t.range_m, t.azimuth_deg,
-                                               t.elevation_deg, t.appearance.apparent_temperature_k,
-                                               t.appearance.emissivity, t.appearance.reflectance,
-                                               t.appearance.projected_area_m2, target_name);
+    auto b = eos::replay::CreateEosTargetState(
+        fbb, t.target_id, t.position_x, t.position_y, t.position_z, t.velocity_x, t.velocity_y,
+        t.velocity_z, t.appearance.apparent_temperature_k, t.appearance.emissivity,
+        t.appearance.reflectance, t.appearance.projected_area_m2, target_name);
     targets_vec.push_back(b);
   }
   auto targets = fbb.CreateVector(targets_vec);
-  auto pose = BuildPoseState(fbb, v.platform_pose);
+  auto attitude = ToFbEuler(v.platform_attitude_deg);
 
   eos::replay::EosCycleInputBuilder b(fbb);
   b.add_cycle_index(v.cycle_index);
   b.add_dt_sec(v.dt_sec);
-  b.add_platform_pose(pose);
+  b.add_platform_attitude_deg(&attitude);
   b.add_scene_targets(targets);
   b.add_platform_altitude_m(v.platform_altitude_m);
   fbb.Finish(b.Finish());
@@ -141,16 +113,19 @@ bool DecodeEosCycleInput(const std::string& bytes, EosCycleInput* out) {
   out->cycle_index = fb->cycle_index();
   out->dt_sec = fb->dt_sec();
   out->platform_altitude_m = fb->platform_altitude_m();
-  out->platform_pose = FromFbPoseState(fb->platform_pose());
+  out->platform_attitude_deg = FromFbEuler(fb->platform_attitude_deg());
   out->scene.clear();
   if (fb->scene_targets()) {
     for (const auto* t : *fb->scene_targets()) {
       EosSceneTarget ts{};
       ts.target_id = t->target_id();
       ts.target_name = t->target_name() ? t->target_name()->str() : std::string();
-      ts.range_m = t->range_m();
-      ts.azimuth_deg = t->azimuth_deg();
-      ts.elevation_deg = t->elevation_deg();
+      ts.position_x = t->position_x();
+      ts.position_y = t->position_y();
+      ts.position_z = t->position_z();
+      ts.velocity_x = t->velocity_x();
+      ts.velocity_y = t->velocity_y();
+      ts.velocity_z = t->velocity_z();
       ts.appearance.apparent_temperature_k = t->apparent_temperature_k();
       ts.appearance.emissivity = t->emissivity();
       ts.appearance.reflectance = t->reflectance();

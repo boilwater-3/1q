@@ -1,4 +1,4 @@
----
+﻿---
 Status: active
 Last-reviewed: 2026-08-20
 Authority: RIR 模块级边界、非目标与设计变更规则
@@ -81,6 +81,10 @@ RIR 遵守 `docs/common/contract.md` 与 `docs/common/session_contract.md`：
 - 特征单位：速度 m/s、高度 m、加速度 m/s²、转弯半径 log10(m)、极化 dB、距离 m。
 
 ## ENU 帧约定
+
+本节即「场景目标平台锚点 ENU 输入契约」（docs/common/contract.md）的库级范式：AR/EOS 的
+场景目标输入已对齐本模块的 ENU 形态，公共一站式转换入口为
+`oneq::coordinate::TryEcefToLla`（锚点）+ `TryMakeEnuSceneState`（逐目标）。
 
 - 识别高度观测 = 平台绝对海拔 + 内部航迹 `position_z`；绝对海拔由必填平台 ECEF
   经 `TryEcefToLla` 库内派生；`position_z` 为雷达局部 ENU 切平面上向分量。

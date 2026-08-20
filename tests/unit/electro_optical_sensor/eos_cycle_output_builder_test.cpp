@@ -15,10 +15,12 @@
 #include "1q/electro_optical_sensor/session/EosDetectionLifecycleRecorder.h"
 #include "1q/electro_optical_sensor/session/EosOutputDebugView.h"
 #include "1q/electro_optical_sensor/session/EosSession.h"
+#include "support/eos_enu_scene_helpers.h"
 
 namespace {
 
 namespace eos_config = ::electro_optical_sensor::config;
+using oneq::test_support::SetEosSphericalLook;
 namespace eos_session = ::electro_optical_sensor::session;
 
 eos_session::EosExternalPoseInput MakePlatformInput() {
@@ -199,15 +201,10 @@ TEST(EosCycleOutputBuilderTest, DebugViewMergesRawOutputWithInputTargets) {
   outside_fov_target.target_id = 3U;
   outside_fov_target.target_name = "outside";
   // input 侧量值（规则 12 输入实体回填：无检测记录的目标也应可见量值）。
-  detected_target.range_m = 1400.0f;
-  detected_target.azimuth_deg = 10.0f;
-  detected_target.elevation_deg = 2.0f;
-  below_threshold_target.range_m = 1450.0f;
-  below_threshold_target.azimuth_deg = 11.0f;
-  below_threshold_target.elevation_deg = 3.0f;
-  outside_fov_target.range_m = 9999.0f;
-  outside_fov_target.azimuth_deg = 123.0f;
-  outside_fov_target.elevation_deg = -56.0f;
+  // 零姿态下体系球坐标 = ENU 位置的等价表达，库内派生后视图回填同一组角。
+  SetEosSphericalLook(&detected_target, 1400.0f, 10.0f, 2.0f);
+  SetEosSphericalLook(&below_threshold_target, 1450.0f, 11.0f, 3.0f);
+  SetEosSphericalLook(&outside_fov_target, 9999.0f, 123.0f, -56.0f);
   input.scene = {detected_target, below_threshold_target, outside_fov_target};
 
   eos_session::EosCycleResult result;
@@ -260,9 +257,7 @@ TEST(EosCycleOutputBuilderTest, NonExecutedCycleBackfillsInputQuantities) {
   eos_session::EosCycleInput input;
   eos_session::EosSceneTarget target;
   target.target_id = 12U;
-  target.range_m = 5000.0f;
-  target.azimuth_deg = 30.0f;
-  target.elevation_deg = -2.0f;
+  SetEosSphericalLook(&target, 5000.0f, 30.0f, -2.0f);
   input.scene.push_back(target);
   eos_session::EosCycleResult rejected;
   rejected.input_cycle_index = 2U;

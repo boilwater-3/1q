@@ -67,7 +67,7 @@ float ComputeApertureAreaM2(float optical_aperture_m) {
   return foundation::constants::kPi * radius_m * radius_m;
 }
 
-float ResolvePlatformAltitudeM(const ::electro_optical_sensor::session::EosCycleInput& input) {
+float ResolvePlatformAltitudeM(const EosPipelineCycleInput& input) {
   return std::max(0.0f, input.platform_altitude_m);
 }
 
@@ -102,7 +102,7 @@ std::string FormatFloat(float value) {
 
 foundation::radiative_transfer::RadiativeTransferResult ComputePathRadiativeTransfer(
     const config::execution::EosInternalExecutionConfig& config,
-    const ::electro_optical_sensor::session::EosCycleInput& input, float range_m,
+    const EosPipelineCycleInput& input, float range_m,
     const environment::EnvironmentModelResult& environment_result) {
   const float cloud_ratio =
       oneq::common::numerics::Clamp01(config.environment.cloud_coverage_ratio);
@@ -140,7 +140,7 @@ float ComputeFovSolidAngleSr(float horizontal_fov_deg, float vertical_fov_deg) {
 
 float ComputeSensorIntegrationTimeSec(
     const config::execution::EosInternalExecutionConfig& config,
-    const ::electro_optical_sensor::session::EosCycleInput& input) {
+    const EosPipelineCycleInput& input) {
   const float frame_period_sec =
       1.0f /
       std::max(oneq::common::numerics::SafePositive(config.scan.frame_rate_hz, 30.0f), 1.0f);
@@ -154,7 +154,7 @@ float ComputeSensorIntegrationTimeSec(
 
 float ComputeVisiblePhotonNoiseEnhancement(
     const config::execution::EosInternalExecutionConfig& config,
-    const ::electro_optical_sensor::session::EosCycleInput& input) {
+    const EosPipelineCycleInput& input) {
   const float reference_irradiance = oneq::common::numerics::SafePositive(
       config.detection.visible_reference_irradiance_w_m2, 800.0f);
   const float observed_irradiance = std::max(0.0f, config.environment.solar_irradiance_w_m2);
@@ -198,8 +198,8 @@ struct DetectionComputationContext {
 
 DetectionComputationContext BuildDetectionComputationContext(
     const config::execution::EosInternalExecutionConfig& config,
-    const ::electro_optical_sensor::session::EosSceneTarget& target,
-    const ::electro_optical_sensor::session::EosCycleInput& input, const FrameContext& frame_ctx) {
+    const EosPipelineSceneTarget& target,
+    const EosPipelineCycleInput& input, const FrameContext& frame_ctx) {
   DetectionComputationContext context_values;
   // 从帧级上下文复制目标无关字段
   context_values.infrared_enabled = frame_ctx.infrared_enabled;
@@ -273,8 +273,8 @@ DetectionComputationContext BuildDetectionComputationContext(
   return context_values;
 }
 
-float ComputeInfraredSnrLinear(const ::electro_optical_sensor::session::EosSceneTarget& target,
-                               const ::electro_optical_sensor::session::EosCycleInput& input,
+float ComputeInfraredSnrLinear(const EosPipelineSceneTarget& target,
+                               const EosPipelineCycleInput& input,
                                const DetectionComputationContext& context_values) {
   const float background_spectral_radiance = context_values.background_spectral_radiance_w_sr_m3;
   const float target_spectral_radiance = foundation::radiometry::ComputePlanckRadiance(
@@ -314,8 +314,8 @@ float ComputeInfraredSnrLinear(const ::electro_optical_sensor::session::EosScene
   return snr_result.snr_linear * context_values.imaging_quality_gain;
 }
 
-float ComputeVisibleSnrLinear(const ::electro_optical_sensor::session::EosSceneTarget& target,
-                              const ::electro_optical_sensor::session::EosCycleInput& input,
+float ComputeVisibleSnrLinear(const EosPipelineSceneTarget& target,
+                              const EosPipelineCycleInput& input,
                               const DetectionComputationContext& context_values) {
   foundation::radiometry::VisibleChannelInputs visible_inputs;
   visible_inputs.target.solar_irradiance_w_m2 = context_values.solar_irradiance_w_m2;
@@ -433,7 +433,7 @@ bool EosPipeline::RestoreRuntimeState(const extension::EosPipelineRuntimeState& 
 }
 
 extension::EosPipelineExecuteResult EosPipeline::RunCycle(
-    const ::electro_optical_sensor::session::EosCycleInput& input) {
+    const EosPipelineCycleInput& input) {
   if (!config_.sensor_enabled) {
     extension::EosPipelineExecuteResult result;
     result.executed_this_cycle = false;
@@ -450,7 +450,7 @@ extension::EosPipelineExecuteResult EosPipeline::RunCycle(
   std::size_t excluded_out_of_fov = 0U;
 
   for (std::size_t i = 0; i < input.scene.size(); ++i) {
-    const ::electro_optical_sensor::session::EosSceneTarget& target = input.scene[i];
+    const EosPipelineSceneTarget& target = input.scene[i];
     if (!IsTargetInCurrentFov(target)) {
       // 规则 13b：视场外目标排除 → kInfo 诊断（不属于三写，仅承载排查信息）。
       // 门内归因：视场门按越界轴细分（az/el/both），并补越界量（与
@@ -527,7 +527,7 @@ void EosPipeline::AdvanceScan(float dt_sec) {
 }
 
 bool EosPipeline::IsTargetInCurrentFov(
-    const ::electro_optical_sensor::session::EosSceneTarget& target) const {
+    const EosPipelineSceneTarget& target) const {
   const float azimuth_delta_deg = std::fabs(
       oneq::common::numerics::NormalizeAngle180(target.azimuth_deg - current_scan_azimuth_deg_));
   const float elevation_delta_deg =
@@ -537,7 +537,7 @@ bool EosPipeline::IsTargetInCurrentFov(
 }
 
 FrameContext EosPipeline::BuildFrameContext(
-    const ::electro_optical_sensor::session::EosCycleInput& input) const {
+    const EosPipelineCycleInput& input) const {
   FrameContext frame;
   frame.infrared_enabled = WorkModeIncludesInfrared(config_.scan.work_mode);
   frame.visible_enabled = WorkModeIncludesVisible(config_.scan.work_mode);
@@ -602,8 +602,8 @@ FrameContext EosPipeline::BuildFrameContext(
 }
 
 output::EosDetectionRecord EosPipeline::BuildDetectionRecord(
-    std::uint64_t detection_id, const ::electro_optical_sensor::session::EosSceneTarget& target,
-    const ::electro_optical_sensor::session::EosCycleInput& input,
+    std::uint64_t detection_id, const EosPipelineSceneTarget& target,
+    const EosPipelineCycleInput& input,
     const FrameContext& frame_ctx) const {
   output::EosDetectionRecord record;
   record.detection_id = detection_id;

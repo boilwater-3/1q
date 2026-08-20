@@ -1,7 +1,8 @@
-# electro_optical_sensor 模块源文件与安装清单
+﻿# electro_optical_sensor 模块源文件与安装清单
 
 # -- engine: 信号处理、物理模型（foundation + signal，依赖无） -------------------
 set(EOS_ENGINE_SOURCES
+    foundation/EosLookAngles.cpp
     foundation/EosNoiseModel.cpp
     foundation/EosOpticalCharacteristics.cpp
     foundation/EosPropagation.cpp

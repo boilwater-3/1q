@@ -13,6 +13,7 @@
 #include "1q/electro_optical_sensor/session/EosCycleInput.h"
 #include "1q/electro_optical_sensor/session/EosCycleResult.h"
 #include "1q/electro_optical_sensor/session/EosSession.h"
+#include "support/eos_enu_scene_helpers.h"
 
 namespace electro_optical_sensor {
 namespace session {
@@ -28,9 +29,7 @@ session::EosSceneTarget MakeTarget(std::uint64_t id, float azimuth_deg, float ra
                                    float projected_area_m2 = 2.0f) {
   session::EosSceneTarget target;
   target.target_id = id;
-  target.range_m = range_m;
-  target.azimuth_deg = azimuth_deg;
-  target.elevation_deg = 0.0f;
+  oneq::test_support::SetEosSphericalLook(&target, range_m, azimuth_deg, 0.0f);
   target.appearance.apparent_temperature_k = 330.0f;
   target.appearance.emissivity = 0.92f;
   target.appearance.reflectance = 0.38f;
@@ -43,7 +42,6 @@ session::EosSceneTarget MakeTarget(std::uint64_t id, float azimuth_deg, float ra
   input.cycle_index = 1U;
   input.dt_sec = 0.1f;
   input.platform_altitude_m = 1200.0f;
-  input.platform_pose.position_m.z = 0.0f;
   input.scene.push_back(MakeTarget(1U, 0.0f, 1500.0f, 4.0f));
   return input;
 }
@@ -131,7 +129,7 @@ TEST(EosSessionIntegrationTest, FusedModeDetectsInFovTarget) {
   config::EosSessionConfig config = MakeSessionConfig();
   EosSession session = EosSession::Create(config);
   ::electro_optical_sensor::session::EosCycleInput input = MakeBaseInput();
-  input.scene.front().range_m = 1700.0f;
+  oneq::test_support::SetEosSphericalLook(&input.scene.front(), 1700.0f, 0.0f, 0.0f);
   input.scene.front().appearance.apparent_temperature_k = 600.0f;
   input.scene.front().appearance.projected_area_m2 = 8.0f;
 
@@ -407,7 +405,7 @@ TEST(EosSessionIntegrationTest, RuntimeConfigSnrThresholdFiltersWeakTargets) {
   config::EosSessionConfig config = MakeSessionConfig();
   EosSession session = EosSession::Create(config);
   ::electro_optical_sensor::session::EosCycleInput input = MakeBaseInput();
-  input.scene.front().range_m = 1700.0f;
+  oneq::test_support::SetEosSphericalLook(&input.scene.front(), 1700.0f, 0.0f, 0.0f);
   input.scene.front().appearance.apparent_temperature_k = 600.0f;
   input.scene.front().appearance.projected_area_m2 = 8.0f;
 

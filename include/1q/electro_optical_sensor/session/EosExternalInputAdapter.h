@@ -12,15 +12,9 @@
 #include "1q/api.hpp"
 #include "1q/coordinate/types.h"
 #include "1q/electro_optical_sensor/session/EosSceneTypes.h"
-#include "1q/foundation/pose_types.h"
 
 namespace electro_optical_sensor {
 namespace session {
-
-/**
- * @brief EOS 局部坐标参考系定义。
- * @note origin_lla 定义 ENU 原点；frame_attitude_deg 定义 EOS 局部坐标相对 ENU 的姿态。
- */
 
 /**
  * @brief EOS 外部平台运动学输入。
@@ -34,7 +28,7 @@ struct ONEQ_API EosExternalPoseInput {
 };
 
 /**
- * @brief EOS 外部目标输入（统一入口）。
+ * @brief EOS 外部目标输入（统一入口，世界真值 ECEF/LLA）。
  * @note `kinematics.velocity_mps` 始终为 ECEF 速度；LLA 位置输入不改变速度坐标系。
  */
 struct ONEQ_API EosExternalTargetInput {
@@ -55,31 +49,19 @@ enum class ONEQ_API EosCoordinateStatus {
 };
 
 /**
- * @brief 将外部平台运动学输入转换为 EOS 平台位姿。
- * @param[in] input 外部平台输入，位置与速度固定为 ECEF 坐标系。
- * @param[in] reference EOS 局部坐标参考系，决定 ECEF/ENU 到 EOS 局部坐标的转换基准。
- * @param[out] pose 输出平台位姿。
- * @param[out] status 可选输出状态，nullptr 表示不关心失败原因。
- * @return 转换成功返回 true；输入非法、坐标变换失败或输出为空返回 false。
- */
-ONEQ_API bool TryMakeEosPoseFromExternalKinematics(
-    const EosExternalPoseInput& input, const oneq::coordinate::LocalFrameReference& reference,
-    oneq::foundation::PoseState* pose, EosCoordinateStatus* status = nullptr);
-
-/**
- * @brief 两步模式第二步：将外部目标输入转换为 EOS 场景目标状态。
+ * @brief 将外部目标输入（世界 ECEF/LLA + ECEF 速度）转换为平台锚点 ENU 场景目标。
  * @param[in] target_id 目标标识。
  * @param[in] input 外部目标输入。
- * @param[in] reference EOS 局部坐标参考系。
- * @param[in] platform_pose 平台位姿，用于计算目标相对平台的几何关系。
- * @param[out] target 输出目标状态。
+ * @param[in] reference EOS 局部坐标参考系（`origin_lla` 为平台锚点；内部经公共
+ *            `oneq::coordinate::TryMakeEnuSceneState` 一站式转换）。
+ * @param[out] target 输出平台锚点 ENU 场景目标。
  * @param[out] status 可选输出状态，nullptr 表示不关心失败原因。
  * @return 转换成功返回 true；输入非法、坐标变换失败或输出为空返回 false。
+ * @note ENU 契约见 docs/common/contract.md「场景目标平台锚点 ENU 输入契约」。
  */
 ONEQ_API bool TryMakeEosSceneTargetFromExternalInput(
     std::uint64_t target_id, const EosExternalTargetInput& input,
-    const oneq::coordinate::LocalFrameReference& reference,
-    const oneq::foundation::PoseState& platform_pose, EosSceneTarget* target,
+    const oneq::coordinate::LocalFrameReference& reference, EosSceneTarget* target,
     EosCoordinateStatus* status = nullptr);
 
 }  // namespace session

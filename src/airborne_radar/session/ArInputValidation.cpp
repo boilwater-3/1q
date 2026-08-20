@@ -123,12 +123,10 @@ ArIssueList ValidateArCycleInput(const ArCycleInput& input) {
     for (std::size_t index = 0U; index < input.targets.size(); ++index) {
       const ArTargetInput& target = input.targets[index];
       ArSceneTarget local_target;
-      if (!TryMakeArTargetFromExternalKinematics(target, reference,
-                                                 radar_local_velocity,
-                                                 &local_target)) {
+      if (!TryMakeArTargetFromEnu(target, reference, radar_local_velocity, &local_target)) {
         issues.push_back(MakeIssue(ArIssueSeverity::kError, codes::kInvalidTargetInput,
                                    oneq::foundation::ValidationLocationKind::kSceneEntity, index,
-                                   "targets", "target world kinematics cannot be converted"));
+                                   "targets", "target ENU fields must be finite"));
         continue;
       }
       ValidateSingleSceneTarget(local_target, index, &issues);

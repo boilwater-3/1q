@@ -25,6 +25,7 @@
 #include "1q/electro_optical_sensor/session/EosCycleResult.h"
 #include "1q/electro_optical_sensor/session/EosOutputTypes.h"
 #include "1q/electro_optical_sensor/session/EosSession.h"
+#include "support/eos_enu_scene_helpers.h"
 
 namespace electro_optical_sensor {
 namespace tests {
@@ -36,9 +37,7 @@ session::EosCycleInput MakeValidInput(std::uint32_t cycle_index = 1U) {
   input.dt_sec = 0.1f;
   session::EosSceneTarget target;
   target.target_id = 601U;
-  target.range_m = 1000.0f;
-  target.azimuth_deg = 0.0f;
-  target.elevation_deg = 0.0f;
+  oneq::test_support::SetEosSphericalLook(&target, 1000.0f, 0.0f, 0.0f);
   target.appearance.apparent_temperature_k = 310.0f;
   target.appearance.emissivity = 0.9f;
   target.appearance.reflectance = 0.1f;

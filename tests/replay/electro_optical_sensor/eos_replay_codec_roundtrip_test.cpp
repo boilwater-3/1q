@@ -35,22 +35,19 @@ TEST(EosReplayCodecRoundtripTest, CycleInputPreservesAllFields) {
   input.cycle_index = 3U;
   input.dt_sec = 0.1f;
   input.platform_altitude_m = 1200.0f;
-  input.platform_pose.position_m.x = 1000.0f;
-  input.platform_pose.position_m.y = 2000.0f;
-  input.platform_pose.position_m.z = 3000.0f;
-  input.platform_pose.velocity_mps.x = 50.0f;
-  input.platform_pose.velocity_mps.y = 10.0f;
-  input.platform_pose.velocity_mps.z = 0.0f;
-  input.platform_pose.attitude_deg.yaw_deg = 90.0f;
-  input.platform_pose.attitude_deg.pitch_deg = 0.0f;
-  input.platform_pose.attitude_deg.roll_deg = -3.0f;
+  input.platform_attitude_deg.yaw_deg = 90.0;
+  input.platform_attitude_deg.pitch_deg = 0.0;
+  input.platform_attitude_deg.roll_deg = -3.0;
 
   EosSceneTarget target;
   target.target_id = 100U;
   target.target_name = "eos-target-alpha";
-  target.range_m = 5000.0f;
-  target.azimuth_deg = 10.0f;
-  target.elevation_deg = -2.0f;
+  target.position_x = 1200.5f;
+  target.position_y = -3400.25f;
+  target.position_z = 750.125f;
+  target.velocity_x = 12.5f;
+  target.velocity_y = -6.75f;
+  target.velocity_z = 3.25f;
   target.appearance.apparent_temperature_k = 310.0f;
   target.appearance.emissivity = 0.95f;
   target.appearance.reflectance = 0.1f;
@@ -66,45 +63,32 @@ TEST(EosReplayCodecRoundtripTest, CycleInputPreservesAllFields) {
   EXPECT_EQ(decoded.cycle_index, 3U);
   EXPECT_FLOAT_EQ(decoded.dt_sec, 0.1f);
   EXPECT_FLOAT_EQ(decoded.platform_altitude_m, 1200.0f);
-  EXPECT_FLOAT_EQ(decoded.platform_pose.position_m.x, 1000.0f);
-  EXPECT_FLOAT_EQ(decoded.platform_pose.velocity_mps.y, 10.0f);
-  EXPECT_FLOAT_EQ(decoded.platform_pose.attitude_deg.yaw_deg, 90.0f);
+  EXPECT_DOUBLE_EQ(decoded.platform_attitude_deg.yaw_deg, 90.0);
+  EXPECT_DOUBLE_EQ(decoded.platform_attitude_deg.roll_deg, -3.0);
 
   ASSERT_EQ(decoded.scene.size(), 1U);
   EXPECT_EQ(decoded.scene[0].target_id, 100U);
   EXPECT_EQ(decoded.scene[0].target_name, "eos-target-alpha");
-  EXPECT_FLOAT_EQ(decoded.scene[0].range_m, 5000.0f);
+  EXPECT_FLOAT_EQ(decoded.scene[0].position_x, 1200.5f);
+  EXPECT_FLOAT_EQ(decoded.scene[0].position_y, -3400.25f);
+  EXPECT_FLOAT_EQ(decoded.scene[0].velocity_z, 3.25f);
   EXPECT_FLOAT_EQ(decoded.scene[0].appearance.apparent_temperature_k, 310.0f);
   EXPECT_FLOAT_EQ(decoded.scene[0].appearance.emissivity, 0.95f);
 }
 
-TEST(EosReplayCodecRoundtripTest, CycleInputPreservesDoublePrecisionPose) {
+TEST(EosReplayCodecRoundtripTest, CycleInputPreservesDoublePrecisionAttitude) {
   EosCycleInput input;
-  input.platform_pose.position_m.x = -4226.1319451063564;
-  input.platform_pose.position_m.y = -8397.388596805331;
-  input.platform_pose.position_m.z = 5255.8229838761899;
-  input.platform_pose.velocity_mps.x = 123.45678901234567;
-  input.platform_pose.velocity_mps.y = -45.67890123456789;
-  input.platform_pose.velocity_mps.z = 0.000000123456789;
-  input.platform_pose.attitude_deg.yaw_deg = 12.345678901234567;
-  input.platform_pose.attitude_deg.pitch_deg = -2.345678901234567;
-  input.platform_pose.attitude_deg.roll_deg = 0.12345678901234567;
+  input.platform_attitude_deg.yaw_deg = 12.345678901234567;
+  input.platform_attitude_deg.pitch_deg = -2.345678901234567;
+  input.platform_attitude_deg.roll_deg = 0.12345678901234567;
 
   EosCycleInput decoded;
   ASSERT_TRUE(DecodeEosCycleInput(EncodeEosCycleInput(input), &decoded));
 
-  EXPECT_DOUBLE_EQ(decoded.platform_pose.position_m.x, input.platform_pose.position_m.x);
-  EXPECT_DOUBLE_EQ(decoded.platform_pose.position_m.y, input.platform_pose.position_m.y);
-  EXPECT_DOUBLE_EQ(decoded.platform_pose.position_m.z, input.platform_pose.position_m.z);
-  EXPECT_DOUBLE_EQ(decoded.platform_pose.velocity_mps.x, input.platform_pose.velocity_mps.x);
-  EXPECT_DOUBLE_EQ(decoded.platform_pose.velocity_mps.y, input.platform_pose.velocity_mps.y);
-  EXPECT_DOUBLE_EQ(decoded.platform_pose.velocity_mps.z, input.platform_pose.velocity_mps.z);
-  EXPECT_DOUBLE_EQ(decoded.platform_pose.attitude_deg.yaw_deg,
-                   input.platform_pose.attitude_deg.yaw_deg);
-  EXPECT_DOUBLE_EQ(decoded.platform_pose.attitude_deg.pitch_deg,
-                   input.platform_pose.attitude_deg.pitch_deg);
-  EXPECT_DOUBLE_EQ(decoded.platform_pose.attitude_deg.roll_deg,
-                   input.platform_pose.attitude_deg.roll_deg);
+  EXPECT_DOUBLE_EQ(decoded.platform_attitude_deg.yaw_deg, input.platform_attitude_deg.yaw_deg);
+  EXPECT_DOUBLE_EQ(decoded.platform_attitude_deg.pitch_deg,
+                   input.platform_attitude_deg.pitch_deg);
+  EXPECT_DOUBLE_EQ(decoded.platform_attitude_deg.roll_deg, input.platform_attitude_deg.roll_deg);
 }
 
 TEST(EosReplayCodecRoundtripTest, CycleInputDecodesEmptyScene) {

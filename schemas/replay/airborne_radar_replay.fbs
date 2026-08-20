@@ -234,9 +234,15 @@ table ExternalKinematicsV3 {
 table ArTargetInputV3 {
   target_id:ulong;
   target_name:string;
-  kinematics:ExternalKinematicsV3;
+  position_x:float;
+  position_y:float;
+  position_z:float;
+  velocity_x:float;
+  velocity_y:float;
+  velocity_z:float;
   rcs:float;
   swerling_type:int;
+  kinematics:ExternalKinematicsV3 (deprecated);
 }
 table ArCycleInputV3 {
   cycle_index:uint;

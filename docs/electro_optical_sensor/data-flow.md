@@ -241,9 +241,9 @@ flowchart TB
   （detection id、方位/俯仰、距离、SNR、通道）。
 - 仿真归属由 `EosCycleResult` 和 debug view 承接；lifecycle 是跨周期辅助视图，不替代 raw output；
   replay 用于复现输入输出和失败标记，不作为 public 算法扩展点。
-- **replay double-precision 契约（反直觉）**：replay cycle-input 中的平台位置、速度与欧拉角必须保持
-  public `PoseState` 的 double 精度；不允许 schema/codec 静默降为 float。即使当前检测 pipeline 不消费
-  平台位姿，trace 仍必须能精确重组调用方输入。
+- **replay double-precision 契约（反直觉）**：replay cycle-input 中的平台姿态欧拉角必须保持
+  public `oneq::coordinate::EulerAnglesDeg` 的 double 精度；不允许 schema/codec 静默降为 float。
+  即使当前检测 pipeline 只消费由 ENU 位置派生的球坐标，trace 仍必须能精确重组调用方输入。
 - **replay decode 枚举值校验**：decode 路径对以整数存储的枚举（`abort_reason`、`status`、
   `work_mode` 等）逐值校验，未知值在任何解码目标写入之前原子拒绝（session_contract replay 规则 7）。
 

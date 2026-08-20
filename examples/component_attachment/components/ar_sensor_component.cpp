@@ -14,6 +14,7 @@
 #include "1q/airborne_radar/session/ArCycleInput.h"
 #include "1q/airborne_radar/session/ArCycleOutputAdapter.h"
 #include "1q/coordinate/position_transform.h"
+#include "1q/coordinate/scene_transform.h"
 #include "1q/fusion/SensorAdapters.h"
 #include "core/events.h"
 #include "logger/logger.h"
@@ -62,6 +63,45 @@ const char* ArExclusionCauseName(airborne_radar::session::ArIssueCause cause) {
       return "未知主因";
   }
   return "未知主因";
+}
+
+/// 世界 ECEF 目标真值 → 平台锚点 ENU 场景输入（ENU 契约的标准集成侧写法：
+/// 每周期以平台 ECEF 求锚点一次，逐目标经公共 TryMakeEnuSceneState 转换后直填）。
+std::vector<airborne_radar::session::ArTargetInput> BuildArEnuTargets(
+    const std::vector<demo::TargetEcefState>& world_targets,
+    const oneq::coordinate::EcefPositionM& platform_position_ecef_m) {
+  std::vector<airborne_radar::session::ArTargetInput> targets;
+  if (world_targets.empty()) {
+    return targets;
+  }
+  oneq::coordinate::LlaPositionDegM anchor_lla;
+  if (!oneq::coordinate::TryEcefToLla(platform_position_ecef_m, &anchor_lla)) {
+    return targets;
+  }
+  targets.reserve(world_targets.size());
+  for (const auto& state : world_targets) {
+    oneq::coordinate::ExternalKinematics kinematics;
+    kinematics.position_frame = oneq::coordinate::PositionFrame::kEcef;
+    kinematics.position_ecef_m = state.position;
+    kinematics.velocity_mps = state.velocity;
+
+    oneq::coordinate::EnuSceneState enu;
+    if (!oneq::coordinate::TryMakeEnuSceneState(kinematics, anchor_lla, &enu)) {
+      continue;
+    }
+    airborne_radar::session::ArTargetInput target;
+    target.target_id = state.id;
+    target.position_x = static_cast<float>(enu.position_enu_m.east_m);
+    target.position_y = static_cast<float>(enu.position_enu_m.north_m);
+    target.position_z = static_cast<float>(enu.position_enu_m.up_m);
+    target.velocity_x = static_cast<float>(enu.velocity_enu_mps.east_mps);
+    target.velocity_y = static_cast<float>(enu.velocity_enu_mps.north_mps);
+    target.velocity_z = static_cast<float>(enu.velocity_enu_mps.up_mps);
+    target.rcs = state.rcs;
+    target.swerling_type = 0;
+    targets.push_back(target);
+  }
+  return targets;
 }
 
 }  // namespace
@@ -173,7 +213,7 @@ void ArSensorComponent::Step(World& world, double dt_sec) {
   ResolvePlatformEcef(flight->position(), flight->heading_deg(), flight->speed_mps(),
                       &pose.platform_position_ecef_m, &pose.platform_velocity_mps);
   input.platform = pose;
-  input.targets = scene.ar_targets;
+  input.targets = BuildArEnuTargets(scene.world_targets, pose.platform_position_ecef_m);
   input.interference =
       BuildArInterferenceFromRfWorld(scene.rf_world, platform_entity_id_, transmitter_equipment_id_,
                                      scene.t_sec, dt_sec, static_cast<std::uint64_t>(scene.cycle));

@@ -15,6 +15,7 @@
 #include "1q/airborne_radar/session/ArReplaySession.h"
 #include "1q/airborne_radar/session/ArTraceSession.h"
 #include "1q/coordinate/position_transform.h"
+#include "1q/coordinate/scene_transform.h"
 #include "1q/coordinate/velocity_transform.h"
 #include "1q/electro_optical_sensor/electro_optical_sensor.hpp"
 #include "1q/electro_optical_sensor/session/EosReplaySession.h"
@@ -102,12 +103,25 @@ ar_session::ArExternalPoseInput ToArPlatform(const oneq::coordinate::EcefPositio
   return p;
 }
 
-ar_session::ArExternalTargetInput ToArTarget(const WorldTarget& t) {
-  ar_session::ArExternalTargetInput input;
+// 世界真值（ECEF）经公共入口转为平台锚点 ENU 后直填 AR 输入。
+ar_session::ArTargetInput ToArTarget(const WorldTarget& t,
+                                     const oneq::coordinate::LlaPositionDegM& anchor_lla) {
+  oneq::coordinate::ExternalKinematics kinematics;
+  kinematics.position_frame = oneq::coordinate::PositionFrame::kEcef;
+  kinematics.position_ecef_m = t.pos;
+  kinematics.velocity_mps = t.vel;
+
+  oneq::coordinate::EnuSceneState enu;
+  oneq::coordinate::TryMakeEnuSceneState(kinematics, anchor_lla, &enu);
+
+  ar_session::ArTargetInput input;
   input.target_id = t.id;
-  input.kinematics.position_frame = oneq::coordinate::PositionFrame::kEcef;
-  input.kinematics.position_ecef_m = t.pos;
-  input.kinematics.velocity_mps = t.vel;
+  input.position_x = static_cast<float>(enu.position_enu_m.east_m);
+  input.position_y = static_cast<float>(enu.position_enu_m.north_m);
+  input.position_z = static_cast<float>(enu.position_enu_m.up_m);
+  input.velocity_x = static_cast<float>(enu.velocity_enu_mps.east_mps);
+  input.velocity_y = static_cast<float>(enu.velocity_enu_mps.north_mps);
+  input.velocity_z = static_cast<float>(enu.velocity_enu_mps.up_mps);
   input.rcs = t.rcs;
   input.swerling_type = t.swerling_type;
   return input;
@@ -130,10 +144,12 @@ struct ArRfTestCycleResult {
 ArRfTestCycleInput BuildArInput(const WorldState& ws, float dt, std::uint32_t cycle_index) {
   ar_session::ArExternalPoseInput platform = ToArPlatform(ws.platform_pos, ws.platform_vel);
   platform.platform_entity_id = 10U;
-  std::vector<ar_session::ArExternalTargetInput> targets;
+  oneq::coordinate::LlaPositionDegM anchor_lla;
+  oneq::coordinate::TryEcefToLla(platform.platform_position_ecef_m, &anchor_lla);
+  std::vector<ar_session::ArTargetInput> targets;
   targets.reserve(ws.targets.size());
   for (const auto& t : ws.targets) {
-    targets.push_back(ToArTarget(t));
+    targets.push_back(ToArTarget(t, anchor_lla));
   }
   ArRfTestCycleInput input;
   input.cycle.cycle_index = cycle_index;

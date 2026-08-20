@@ -358,15 +358,14 @@ TEST(PublicHeadersSmokeTest, EosPublicSurfaceSupportsMinimalUsage) {
   input.dt_sec = 0.1f;
   session::EosSceneTarget target;
   target.target_id = 7U;
-  target.range_m = 1500.0f;
-  target.azimuth_deg = 0.0f;
-  target.elevation_deg = 0.0f;
+  target.position_x = 1500.0f;  // 平台锚点 ENU（东向），零姿态下斜距 = 1500 m
   target.appearance.apparent_temperature_k = 320.0f;
   target.appearance.emissivity = 0.9f;
   target.appearance.reflectance = 0.4f;
   target.appearance.projected_area_m2 = 2.0f;
   input.scene.push_back(target);
 
+  // 世界侧 ECEF/LLA → ENU 的一站式公共入口（平台锚点 ENU 契约）。
   oneq::coordinate::LocalFrameReference eos_reference;
   eos_reference.origin_lla.latitude_deg = 0.0;
   eos_reference.origin_lla.longitude_deg = 0.0;
@@ -375,9 +374,17 @@ TEST(PublicHeadersSmokeTest, EosPublicSurfaceSupportsMinimalUsage) {
   ASSERT_TRUE(oneq::coordinate::TryLlaToEcef(eos_reference.origin_lla, &eos_origin_ecef));
   session::EosExternalPoseInput eos_pose_input;
   eos_pose_input.platform_position_ecef_m = eos_origin_ecef;
-  oneq::foundation::PoseState eos_pose;
-  ASSERT_TRUE(
-      session::TryMakeEosPoseFromExternalKinematics(eos_pose_input, eos_reference, &eos_pose));
+  session::EosExternalTargetInput eos_world_target;
+  eos_world_target.kinematics.position_frame = oneq::coordinate::PositionFrame::kEcef;
+  eos_world_target.kinematics.position_ecef_m.x_m = eos_origin_ecef.x_m + 100.0;
+  eos_world_target.kinematics.position_ecef_m.y_m = eos_origin_ecef.y_m;
+  eos_world_target.kinematics.position_ecef_m.z_m = eos_origin_ecef.z_m;
+  session::EosSceneTarget eos_scene_target_from_world;
+  ASSERT_TRUE(session::TryMakeEosSceneTargetFromExternalInput(
+      9U, eos_world_target, eos_reference, &eos_scene_target_from_world));
+  EXPECT_GT(eos_scene_target_from_world.position_x + eos_scene_target_from_world.position_y +
+                eos_scene_target_from_world.position_z,
+            0.0f);
 
   const session::EosIssueList issues = session::ValidateEosCycleInput(input, 30.0f);
   EXPECT_FALSE(session::HasValidationError(issues));

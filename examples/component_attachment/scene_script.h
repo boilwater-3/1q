@@ -13,7 +13,6 @@
 #include <cstdint>
 #include <vector>
 
-#include "1q/airborne_radar/session/ArCycleInput.h"
 #include "1q/coordinate/types.h"
 #include "1q/electro_optical_sensor/session/EosExternalInputAdapter.h"
 #include "1q/electromagnetics/RfScene.h"
@@ -53,10 +52,6 @@ struct TargetEcefState {
 std::vector<TargetEcefState> MakeTargetStates(
     const std::vector<ScriptedTarget>& script,
     const oneq::coordinate::LlaPositionDegM& platform_origin);
-
-/// AR 世界目标事实（ECEF 运动学 + RCS）。
-std::vector<airborne_radar::session::ArTargetInput> MakeArTargetInputs(
-    const std::vector<TargetEcefState>& states);
 
 /// ESR 辐射源真值：与目标一一对应（脉冲列波形，供统计检测门限在
 /// pfa=1e-6 下以多脉冲积分过检）。波形共享参数见 esr 块，中心频率在

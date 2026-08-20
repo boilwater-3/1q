@@ -31,6 +31,7 @@
 #include "1q/airborne_radar/session/ArTrackLifecycleRecorder.h"
 #include "1q/airborne_radar/session/ArTrackOutputDebugView.h"
 #include "1q/coordinate/position_transform.h"
+#include "1q/coordinate/scene_transform.h"
 #include "airborne_radar/signal/detection/BeamControlResolver.h"
 #include "airborne_radar/signal/pipeline/ScanScheduleResolver.h"
 
@@ -42,8 +43,8 @@ using airborne_radar::session::ArCycleInput;
 using airborne_radar::session::ArCycleResult;
 using airborne_radar::session::ArDesignationRevertReason;
 using airborne_radar::session::ArExternalPoseInput;
-using airborne_radar::session::ArExternalTargetInput;
 using airborne_radar::session::ArSession;
+using airborne_radar::session::ArTargetInput;
 using airborne_radar::session::ArTrackLifecycleEvent;
 using airborne_radar::session::ArTrackLifecycleEventKind;
 using airborne_radar::session::ArTrackLifecycleRecorder;
@@ -81,7 +82,8 @@ ArExternalPoseInput MakePlatformInput() {
 
 // 静止目标：位于平台东北偏上方向（雷达局部约 az=54.7°、el=14.4°），
 // 保证检测稳定且指向断言不受运动/一周期滞后影响。
-ArExternalTargetInput MakeStationaryTargetInput() {
+// 世界真值（LLA + 零 ECEF 速度）经公共入口转换为平台锚点 ENU 后直填。
+ArTargetInput MakeStationaryTargetInput() {
   oneq::coordinate::EcefPositionM target_ecef;
   oneq::coordinate::LlaPositionDegM target_lla;
   target_lla.latitude_deg = 30.0007;
@@ -89,20 +91,28 @@ ArExternalTargetInput MakeStationaryTargetInput() {
   target_lla.altitude_m = 1035.0;
   EXPECT_TRUE(oneq::coordinate::TryLlaToEcef(target_lla, &target_ecef));
 
-  ArExternalTargetInput target;
+  oneq::coordinate::ExternalKinematics kinematics;
+  kinematics.position_frame = oneq::coordinate::PositionFrame::kEcef;
+  kinematics.position_ecef_m = target_ecef;
+
+  oneq::coordinate::LlaPositionDegM anchor_lla;
+  EXPECT_TRUE(oneq::coordinate::TryEcefToLla(MakePlatformInput().platform_position_ecef_m,
+                                             &anchor_lla));
+  oneq::coordinate::EnuSceneState enu;
+  EXPECT_TRUE(oneq::coordinate::TryMakeEnuSceneState(kinematics, anchor_lla, &enu));
+
+  ArTargetInput target;
   target.target_id = 9001U;
-  target.kinematics.position_frame = oneq::coordinate::PositionFrame::kEcef;
-  target.kinematics.position_ecef_m = target_ecef;
-  target.kinematics.velocity_mps.x_mps = 0.0;
-  target.kinematics.velocity_mps.y_mps = 0.0;
-  target.kinematics.velocity_mps.z_mps = 0.0;
+  target.position_x = static_cast<float>(enu.position_enu_m.east_m);
+  target.position_y = static_cast<float>(enu.position_enu_m.north_m);
+  target.position_z = static_cast<float>(enu.position_enu_m.up_m);
   target.rcs = 1.7f;
   target.swerling_type = 2;
   return target;
 }
 
 ArCycleInput MakeCycleInput(std::uint32_t cycle_index, const ArExternalPoseInput& platform,
-                            const std::vector<ArExternalTargetInput>& targets) {
+                            const std::vector<ArTargetInput>& targets) {
   ArCycleInput input;
   input.cycle_index = cycle_index;
   input.cycle_start_time_s = static_cast<double>(cycle_index - 1U) * 0.5;
@@ -116,7 +126,7 @@ ArCycleInput MakeCycleInput(std::uint32_t cycle_index, const ArExternalPoseInput
 // 返回最后一次结果。周期号必须连续（ArSession 有世界时钟连续性检查）。
 template <typename Predicate>
 ArCycleResult RunUntil(ArSession* session, const ArExternalPoseInput& platform,
-                       const std::vector<ArExternalTargetInput>& targets, std::uint32_t start_cycle,
+                       const std::vector<ArTargetInput>& targets, std::uint32_t start_cycle,
                        std::uint32_t max_cycles, Predicate predicate, std::uint32_t* last_cycle) {
   ArCycleResult last;
   for (std::uint32_t cycle = start_cycle; cycle <= max_cycles; ++cycle) {
@@ -303,24 +313,32 @@ TEST(ArSttTrackFollowTest, MountFramePointingFollowsTrackAndClamps) {
 // 4) Session 端到端：指定 → 确认 → 跟随 → 清除/覆盖 → 丢失回退
 // ---------------------------------------------------------------------------
 
-oneq::electromagnetics::RfSceneDirection TargetDirectionFromPlatform(
-    const ArExternalPoseInput& platform, const ArExternalTargetInput& target) {
-  oneq::electromagnetics::RfSceneDirection delta;
-  delta.x = target.kinematics.position_ecef_m.x_m - platform.platform_position_ecef_m.x_m;
-  delta.y = target.kinematics.position_ecef_m.y_m - platform.platform_position_ecef_m.y_m;
-  delta.z = target.kinematics.position_ecef_m.z_m - platform.platform_position_ecef_m.z_m;
-  return Normalize(delta);
+oneq::electromagnetics::RfSceneDirection TargetDirectionFromEnu(const ArTargetInput& target) {
+  const double norm = std::sqrt(static_cast<double>(target.position_x) * target.position_x +
+                                static_cast<double>(target.position_y) * target.position_y +
+                                static_cast<double>(target.position_z) * target.position_z);
+  oneq::coordinate::Vector3d enu_dir;
+  enu_dir.x = target.position_x / norm;
+  enu_dir.y = target.position_y / norm;
+  enu_dir.z = target.position_z / norm;
+
+  oneq::coordinate::LlaPositionDegM anchor_lla;
+  EXPECT_TRUE(oneq::coordinate::TryEcefToLla(MakePlatformInput().platform_position_ecef_m,
+                                             &anchor_lla));
+  oneq::coordinate::Vector3d ecef_dir;
+  EXPECT_TRUE(oneq::coordinate::TryEnuToEcefDirection(enu_dir, anchor_lla, &ecef_dir));
+  return oneq::electromagnetics::RfSceneDirection{ecef_dir.x, ecef_dir.y, ecef_dir.z};
 }
 
 TEST(ArSttTrackFollowTest, SessionFollowsDesignatedTrackThenRevertsOnLoss) {
   const ArExternalPoseInput platform = MakePlatformInput();
-  const ArExternalTargetInput target = MakeStationaryTargetInput();
-  const std::vector<ArExternalTargetInput> targets{target};
+  const ArTargetInput target = MakeStationaryTargetInput();
+  const std::vector<ArTargetInput> targets{target};
   ArSession session = ArSession::Create(MakeDetectionFocusedConfig());
   ArTrackLifecycleRecorder recorder;
   session.AttachTrackLifecycleRecorder(&recorder);
   const oneq::electromagnetics::RfSceneDirection target_direction =
-      TargetDirectionFromPlatform(platform, target);
+      TargetDirectionFromEnu(target);
 
   // 阶段 0（周期 1-8）：TWS 基线——无指定，生效模式 TWS，无指定字段。
   std::uint32_t last_cycle = 0U;
@@ -382,10 +400,10 @@ TEST(ArSttTrackFollowTest, SessionFollowsDesignatedTrackThenRevertsOnLoss) {
   // （无新量测/新航迹；大距离也不会被大协方差关联吞掉），旧航迹连续失配
   // → lost。目标必须留在输入表，ArTrackLifecycleRecorder 只遍历输入目标
   // （消失目标不产生事件）。
-  ArExternalTargetInput silent_target = target;
-  silent_target.kinematics.position_ecef_m.x_m += 20000.0;
+  ArTargetInput silent_target = target;
+  silent_target.position_x += 20000.0f;
   silent_target.rcs = 1.0e-6f;
-  const std::vector<ArExternalTargetInput> silent_targets{silent_target};
+  const std::vector<ArTargetInput> silent_targets{silent_target};
   std::uint32_t revert_cycle = 0U;
   result = RunUntil(
       &session, platform, silent_targets, last_cycle + 1U, 22U,
@@ -446,8 +464,8 @@ TEST(ArSttTrackFollowTest, SessionFollowsDesignatedTrackThenRevertsOnLoss) {
 
 TEST(ArSttTrackFollowTest, SessionExplicitDwellOverridesTrackFollowing) {
   const ArExternalPoseInput platform = MakePlatformInput();
-  const ArExternalTargetInput target = MakeStationaryTargetInput();
-  const std::vector<ArExternalTargetInput> targets{target};
+  const ArTargetInput target = MakeStationaryTargetInput();
+  const std::vector<ArTargetInput> targets{target};
   ArSession session = ArSession::Create(MakeDetectionFocusedConfig());
 
   // 阶段 1（周期 1-8）：STT + 指定 + 显式 dwell → 指向按现状语义（scan_center + dwell），
@@ -483,7 +501,7 @@ TEST(ArSttTrackFollowTest, SessionExplicitDwellOverridesTrackFollowing) {
   const oneq::electromagnetics::RfSceneDirection boresight =
       Normalize(result.emission_frame.emissions.front().antenna.boresight_ecef);
   const oneq::electromagnetics::RfSceneDirection target_direction =
-      TargetDirectionFromPlatform(platform, target);
+      TargetDirectionFromEnu(target);
   EXPECT_LT(Dot(boresight, target_direction), 0.99)
       << "显式 dwell 优先于航迹跟随，发射指向不应指向目标";
   ++last_cycle;  // 消费掉 boresight 断言周期，保证后续周期号连续。
@@ -507,8 +525,8 @@ TEST(ArSttTrackFollowTest, SessionExplicitDwellOverridesTrackFollowing) {
 // 按扫描表推进（boundaries.md 已知限制修复），不再静止于 base scan_center + dwell。
 TEST(ArSttTrackFollowTest, SessionTwsScanAnimatesBeamAcrossCycles) {
   const ArExternalPoseInput platform = MakePlatformInput();
-  const ArExternalTargetInput target = MakeStationaryTargetInput();
-  const std::vector<ArExternalTargetInput> targets{target};
+  const ArTargetInput target = MakeStationaryTargetInput();
+  const std::vector<ArTargetInput> targets{target};
   ArSession session = ArSession::Create(MakeDetectionFocusedConfig());
 
   // 连续 4 个 TWS 周期：每相邻两周期发射 boresight 都应不同（扫描推进）。
@@ -539,10 +557,10 @@ TEST(ArSttTrackFollowTest, SessionDesignationExpiresOnAcquisitionTimeout) {
   // 静默目标：位移 20km 且 RCS 远低于检测门（与回退测试的静默口径一致）——
   // 任何周期都不会被检测/建航迹 → 窗口内无法捕获（近距离目标即使 RCS 极小
   // 仍可被检测确认，不能用于本测试）。
-  ArExternalTargetInput silent = MakeStationaryTargetInput();
-  silent.kinematics.position_ecef_m.x_m += 20000.0;
+  ArTargetInput silent = MakeStationaryTargetInput();
+  silent.position_x += 20000.0f;
   silent.rcs = 1.0e-9f;
-  const std::vector<ArExternalTargetInput> targets{silent};
+  const std::vector<ArTargetInput> targets{silent};
   ArSession session = ArSession::Create(MakeDetectionFocusedConfig());
   ArTrackLifecycleRecorder recorder;
   session.AttachTrackLifecycleRecorder(&recorder);
@@ -612,13 +630,13 @@ TEST(ArSttTrackFollowTest, SessionDesignationExpiresOnAcquisitionTimeout) {
 // 不作废），记录器无 kAcquisitionTimeout 事件。
 TEST(ArSttTrackFollowTest, SessionDesignationAcquiresWithinWindowKeepsFollowingPastDeadline) {
   const ArExternalPoseInput platform = MakePlatformInput();
-  const ArExternalTargetInput target = MakeStationaryTargetInput();
-  const std::vector<ArExternalTargetInput> targets{target};
+  const ArTargetInput target = MakeStationaryTargetInput();
+  const std::vector<ArTargetInput> targets{target};
   ArSession session = ArSession::Create(MakeDetectionFocusedConfig());
   ArTrackLifecycleRecorder recorder;
   session.AttachTrackLifecycleRecorder(&recorder);
   const oneq::electromagnetics::RfSceneDirection target_direction =
-      TargetDirectionFromPlatform(platform, target);
+      TargetDirectionFromEnu(target);
 
   // 指令：STT + 指定 + 4 周期窗口（生效于周期 1 → 窗口 1..4，周期 5 截止）。
   config::ArRuntimeConfigPatch patch;
@@ -674,10 +692,10 @@ TEST(ArSttTrackFollowTest, SessionDesignationAcquiresWithinWindowKeepsFollowingP
 TEST(ArSttTrackFollowTest, RejectedCycleDoesNotConsumeDesignationWindow) {
   const ArExternalPoseInput platform = MakePlatformInput();
   // 静默目标（移远 + 极小 RCS）：窗口内无法捕获 → 到期作废。
-  ArExternalTargetInput silent = MakeStationaryTargetInput();
-  silent.kinematics.position_ecef_m.x_m += 20000.0;
+  ArTargetInput silent = MakeStationaryTargetInput();
+  silent.position_x += 20000.0f;
   silent.rcs = 1.0e-9f;
-  const std::vector<ArExternalTargetInput> targets{silent};
+  const std::vector<ArTargetInput> targets{silent};
   ArSession session = ArSession::Create(MakeDetectionFocusedConfig());
 
   // 指令：STT + 指定 + 1 周期窗口（生效于周期 1 → deadline = 2）。

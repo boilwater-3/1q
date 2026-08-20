@@ -20,6 +20,7 @@
 #include "1q/electro_optical_sensor/session/EosExternalInputAdapter.h"
 #include "1q/electro_optical_sensor/session/EosInputValidation.h"
 #include "1q/electro_optical_sensor/session/EosSession.h"
+#include "support/eos_enu_scene_helpers.h"
 
 namespace electro_optical_sensor {
 namespace tests {
@@ -41,9 +42,7 @@ session::EosSceneTarget MakeTarget(std::uint64_t id, float range_m, float az_deg
                                    float area_m2) {
   session::EosSceneTarget target;
   target.target_id = id;
-  target.range_m = range_m;
-  target.azimuth_deg = az_deg;
-  target.elevation_deg = el_deg;
+  oneq::test_support::SetEosSphericalLook(&target, range_m, az_deg, el_deg);
   target.appearance.apparent_temperature_k = temp_k;
   target.appearance.emissivity = emissivity;
   target.appearance.reflectance = reflectance;
@@ -192,7 +191,9 @@ TEST(EosPublicApiConvenienceTest, InputValidationReportsErrorsForCommonBoundaryC
 
   session::EosSceneTarget invalid_target;
   invalid_target.target_id = 0U;
-  invalid_target.range_m = -1.0f;
+  invalid_target.position_x = 0.0f;
+  invalid_target.position_y = 0.0f;
+  invalid_target.position_z = 0.0f;  // 退化几何（斜距非正）
   invalid_target.appearance.apparent_temperature_k = 0.0f;
   invalid_target.appearance.emissivity = 1.5f;
   invalid_target.appearance.reflectance = 1.5f;
@@ -216,7 +217,7 @@ TEST(EosPublicApiConvenienceTest, InputValidationFlagsNonFiniteDtAndTargetFields
 
   session::EosSceneTarget nan_target;
   nan_target.target_id = 100U;
-  nan_target.range_m = std::numeric_limits<float>::infinity();
+  nan_target.position_x = std::numeric_limits<float>::infinity();
   input.scene.push_back(nan_target);
 
   const session::EosIssueList issues = session::ValidateEosCycleInput(input, 30.0f);
@@ -232,7 +233,7 @@ TEST(EosPublicApiConvenienceTest, InputValidationFlagsEnergyBalanceInconsistency
 
   session::EosSceneTarget unbalanced;
   unbalanced.target_id = 200U;
-  unbalanced.range_m = 1000.0f;
+  unbalanced.position_x = 1000.0f;
   unbalanced.appearance.apparent_temperature_k = 300.0f;
   unbalanced.appearance.emissivity = 0.8f;
   unbalanced.appearance.reflectance = 0.3f;
@@ -256,50 +257,11 @@ TEST(EosPublicApiConvenienceTest, InputValidationPassesForValidInput) {
   EXPECT_FALSE(session::HasValidationError(issues));
 }
 
-TEST(EosPublicApiConvenienceTest, CoordinateUtilsBuildsPoseFromExternalKinematics) {
-  oneq::coordinate::LocalFrameReference reference;
-  reference.origin_lla.latitude_deg = 0.0;
-  reference.origin_lla.longitude_deg = 0.0;
-  reference.origin_lla.altitude_m = 0.0;
-  reference.frame_attitude_deg.yaw_deg = 0.0f;
-  reference.frame_attitude_deg.pitch_deg = 0.0f;
-  reference.frame_attitude_deg.roll_deg = 0.0f;
-
-  oneq::coordinate::LlaPositionDegM target_lla;
-  target_lla.latitude_deg = 0.0;
-  target_lla.longitude_deg = 0.001;
-  target_lla.altitude_m = 0.0;
-  oneq::coordinate::EcefPositionM target_ecef;
-  ASSERT_TRUE(oneq::coordinate::TryLlaToEcef(target_lla, &target_ecef));
-
-  oneq::coordinate::EulerAnglesDeg platform_attitude_deg;
-  platform_attitude_deg.yaw_deg = 5.0f;
-
-  session::EosExternalPoseInput input;
-  input.platform_position_ecef_m = target_ecef;
-  input.platform_velocity_mps.x_mps = 0.0f;   // ECEF X → ENU Up at lat=0,lon=0
-  input.platform_velocity_mps.y_mps = 10.0f;  // ECEF Y → ENU East at lat=0,lon=0
-  input.platform_velocity_mps.z_mps = 0.0f;   // ECEF Z → ENU North at lat=0,lon=0
-  input.platform_attitude_deg = platform_attitude_deg;
-
-  oneq::foundation::PoseState pose;
-  ASSERT_TRUE(session::TryMakeEosPoseFromExternalKinematics(input, reference, &pose));
-  EXPECT_GT(pose.position_m.x, 100.0f);
-  EXPECT_NEAR(pose.position_m.y, 0.0f, 1.0e-2f);
-  EXPECT_NEAR(pose.position_m.z, 0.0f, 1.0e-2f);
-  EXPECT_NEAR(pose.attitude_deg.yaw_deg, 5.0f, 1.0e-5f);
-}
-
 TEST(EosPublicApiConvenienceTest, CoordinateUtilsBuildsTargetFromEcefAndLla) {
   oneq::coordinate::LocalFrameReference reference;
   reference.origin_lla.latitude_deg = 0.0;
   reference.origin_lla.longitude_deg = 0.0;
   reference.origin_lla.altitude_m = 0.0;
-
-  oneq::foundation::PoseState platform_pose;
-  platform_pose.position_m.x = 0.0f;
-  platform_pose.position_m.y = 0.0f;
-  platform_pose.position_m.z = 1000.0f;
 
   session::EosTargetAppearance appearance;
   appearance.apparent_temperature_k = 320.0f;
@@ -318,9 +280,10 @@ TEST(EosPublicApiConvenienceTest, CoordinateUtilsBuildsTargetFromEcefAndLla) {
   lla_input.appearance = appearance;
   session::EosSceneTarget target_from_lla;
   ASSERT_TRUE(session::TryMakeEosSceneTargetFromExternalInput(401U, lla_input, reference,
-                                                              platform_pose, &target_from_lla));
+                                                              &target_from_lla));
   EXPECT_EQ(target_from_lla.target_id, 401U);
-  EXPECT_GT(target_from_lla.range_m, 0.0f);
+  // 目标在锚点正东（经度 +0.001°）：ENU 东向分量主导。
+  EXPECT_GT(target_from_lla.position_x, 100.0f);
   EXPECT_NEAR(target_from_lla.appearance.apparent_temperature_k, 320.0f, 1e-5f);
 
   oneq::coordinate::EcefPositionM target_ecef;
@@ -331,8 +294,8 @@ TEST(EosPublicApiConvenienceTest, CoordinateUtilsBuildsTargetFromEcefAndLla) {
   ecef_input.appearance = appearance;
   session::EosSceneTarget target_from_ecef;
   ASSERT_TRUE(session::TryMakeEosSceneTargetFromExternalInput(402U, ecef_input, reference,
-                                                              platform_pose, &target_from_ecef));
-  EXPECT_NEAR(target_from_ecef.range_m, target_from_lla.range_m, 1.0f);
+                                                              &target_from_ecef));
+  EXPECT_NEAR(target_from_ecef.position_x, target_from_lla.position_x, 1.0f);
 }
 
 TEST(EosPublicApiConvenienceTest, EosSessionStepProducesDetectionOutput) {

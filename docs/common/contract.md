@@ -124,6 +124,23 @@ EOS 的 `detector_area_cm2` 与 `detector_detectivity_cm_sqrt_hz_per_w` 共同�
 
 RIR 的波束中心由**库内驻留调度器**（`RirSession`）每周期派生：无指定任务时按扫描策略逐周期推进（common 扫描内核 `ScanScheduleRuntime`，与 AR 同一口径）；指定识别任务窗口内对准指定目标。RIR 消费侧只信任并消费给定值，不自行生成指向。指向角类型为 `RirAzimuthElevationDeg`（deg），定义在雷达局部 ENU 右手系（与 `RirSceneTarget::position_x/y/z` 同帧）：`az_deg ∈ [-180, 180]`、`el_deg ∈ [-90, 90]`，单位指向向量为 `(cos(el)·cos(az), cos(el)·sin(az), sin(el))`。RIR 方向图开启时以“目标视线角 - 给定指向”作为离轴角；指向偏离目标即按实际离轴衰减执行。指定识别任务（限时锁定，镜像 AR designation 语义）见 `docs/remote_identification_radar/boundaries.md`。
 
+### 场景目标平台锚点 ENU 输入契约
+
+AR/EOS/RIR 的场景目标输入统一为平台锚点 radar-local ENU。SAR 为文档化例外（地面场景以
+LLA 输入、库内使用 scene-center ENU 几何）；SBIRS 输入保持 ECEF/ECI；ESR 与公共 RF 帧保持
+ECEF 全局几何，不适用本契约：
+
+1. ENU 原点 = 当周期平台 ECEF 位置（逐周期重锚）；轴 = 锚点 ENU（x=东、y=北、z=天）。
+2. 目标速度 = 目标 ECEF 速度旋入锚点 ENU 轴（固定锚点旋转，无传输率修正）。
+3. ECEF/LLA→ENU 转换由公共入口一站式承担：`TryEcefToLla` 求锚点（每周期一次）+
+   `TryMakeEnuSceneState` 逐目标转换后直填输入；模块不再提供私有 ECEF→ENU 目标输入适配。
+4. 各模块继续拥有自己的量测几何：AR 在 ENU 之后再旋入雷达体系（平台姿态∘安装角复合），
+   EOS 由 ENU 位置 + 平台姿态派生体系球坐标（range/az/el），RIR 直接在 ENU 轴上计算。
+5. ENU 原点逐周期随平台移动，跨周期不构成惯性参考系；跨周期状态（航迹/滤波）的帧语义由
+   各模块内部拥有，不通过输入面传递。
+
+[evidence: tests/unit/common/coordinate_scene_transform_test]
+
 ### 折射率温标输入迁移
 
 公开折射率入口只提供 `RefractivityInputs` + `RefractivityTemperaturePair` +

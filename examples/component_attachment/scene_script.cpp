@@ -59,23 +59,6 @@ std::vector<TargetEcefState> MakeTargetStates(
   return states;
 }
 
-std::vector<airborne_radar::session::ArTargetInput> MakeArTargetInputs(
-    const std::vector<TargetEcefState>& states) {
-  std::vector<airborne_radar::session::ArTargetInput> targets;
-  targets.reserve(states.size());
-  for (const auto& state : states) {
-    airborne_radar::session::ArTargetInput target;
-    target.target_id = state.id;
-    target.kinematics.position_frame = oneq::coordinate::PositionFrame::kEcef;
-    target.kinematics.position_ecef_m = state.position;
-    target.kinematics.velocity_mps = state.velocity;
-    target.rcs = state.rcs;
-    target.swerling_type = 0;
-    targets.push_back(target);
-  }
-  return targets;
-}
-
 std::vector<oneq::electromagnetics::RfSceneEmission> MakeEmitterTruths(
     const std::vector<TargetEcefState>& states, const EsrEmitterParams& esr,
     double window_start_time_s) {

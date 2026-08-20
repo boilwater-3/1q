@@ -33,19 +33,6 @@ struct ONEQ_API ArExternalPoseInput {
 };
 
 /**
- * @brief 外部目标输入（统一入口）。
- * @note `kinematics.velocity_mps` 始终为 ECEF 速度；LLA 位置输入不改变速度坐标系。
- */
-struct ONEQ_API ArExternalTargetInput {
-  std::uint64_t target_id{
-      0U}; /**< 外部目标标识符。0 视为未设置，将触发 kUnknownExternalTargetId 警告 */
-  std::string target_name{}; /**< 可选目标名称，仅用于人读、trace 与调试视图，不参与关联 */
-  oneq::coordinate::ExternalKinematics kinematics{}; /**< 外部运动学输入 */
-  float rcs{1.0f};                                   /**< 目标 RCS（m^2） */
-  int swerling_type{0};                              /**< 目标起伏模型 */
-};
-
-/**
  * @brief 严格复合平台姿态与雷达安装角，得到雷达局部姿态角。
  * @param[in] platform_attitude_deg 平台姿态角（Body->ENU，单位：deg）。
  * @param[in] mount_angles_deg 雷达安装角（Body->Radar，单位：deg）。
@@ -60,7 +47,7 @@ ONEQ_API oneq::coordinate::EulerAnglesDeg ComposeRadarAttitudeDeg(
  * @brief 雷达坐标适配执行状态。
  * @note 当前 `kCoordinateTransformFail` 统一覆盖了 "输入 NaN/Inf" 和 "坐标变换数值失败"
  *       两种不同的失败原因。未来可考虑拆分为更细粒度的枚举值（如
- * kInvalidInput、kTransformFailed）。
+ *       kInvalidInput、kTransformFailed）。
  */
 enum class ONEQ_API ArCoordinateStatus { kOk = 0, kNullOutput, kCoordinateTransformFail };
 
@@ -75,7 +62,7 @@ enum class ONEQ_API ArCoordinateStatus { kOk = 0, kNullOutput, kCoordinateTransf
  * @return 成功返回 true，输入非法或输出为空返回 false。
  * @note AR 以传感器自身为局部原点，平台位置无需输出。
  *       `input.platform_position_ecef_m` 写入 `reference->origin_lla`，
- *       用于把目标位置转换为相对雷达的局部坐标。
+ *       用于把平台 ECEF 速度旋转到锚点 ENU 轴。
  */
 ONEQ_API bool TryMakeArPoseFromExternalKinematics(const ArExternalPoseInput& input,
                                                   const oneq::coordinate::EulerAnglesDeg& mount_angles_deg,
@@ -84,19 +71,20 @@ ONEQ_API bool TryMakeArPoseFromExternalKinematics(const ArExternalPoseInput& inp
                                                   ArCoordinateStatus* status = nullptr);
 
 /**
- * @brief 两步模式——第二步：使用预计算的参考系将外部目标转换为 ArSceneTarget。
- * @param[in] target_input 目标运动学输入，其中 `target_id` 字段用作输出的 external_target_id。
- * @param[in] reference 第一步产出的雷达局部参考系。
+ * @brief 两步模式——第二步：将平台锚点 ENU 场景目标旋入雷达局部系得到 ArSceneTarget。
+ * @param[in] target_input 平台锚点 ENU 场景目标输入（`target_id` 字段用作输出的 external_target_id）。
+ * @param[in] reference 第一步产出的雷达局部参考系（仅消费 `frame_attitude_deg`，ENU→Radar 旋转）。
  * @param[in] radar_local_velocity_mps 雷达局部速度（用于计算相对速度）。
  * @param[out] target 输出场景目标输入，可为 nullptr。
  * @param[out] status 可选输出状态，nullptr 表示不关心失败原因。
- * @return 成功返回 true，输入非法或输出为空返回 false。
+ * @return 成功返回 true，输入非有限、非法或输出为空返回 false。
+ * @note ENU 契约见 docs/common/contract.md「场景目标平台锚点 ENU 输入契约」；
+ *       位置/速度先按 `frame_attitude_deg` 旋入雷达体系，速度再扣除平台速度得到相对速度。
  */
-ONEQ_API bool TryMakeArTargetFromExternalKinematics(
-    const ArExternalTargetInput& target_input,
-    const oneq::coordinate::LocalFrameReference& reference,
-    oneq::foundation::Vector3f radar_local_velocity_mps, ArSceneTarget* target,
-    ArCoordinateStatus* status = nullptr);
+ONEQ_API bool TryMakeArTargetFromEnu(const ArTargetInput& target_input,
+                                     const oneq::coordinate::LocalFrameReference& reference,
+                                     oneq::foundation::Vector3f radar_local_velocity_mps,
+                                     ArSceneTarget* target, ArCoordinateStatus* status = nullptr);
 
 }  // namespace session
 }  // namespace airborne_radar
