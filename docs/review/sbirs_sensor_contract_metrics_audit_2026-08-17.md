@@ -42,7 +42,7 @@ data-flow.md），关键结论附 `文件:行号` 证据；"零命中"结论来�
   （随体/惯性/对地，:80-84）、指令态波束宽度。
 - 合成关系（:89-91）：
   `actual_beam_pointing_base = platform_attitude + mount_angles_deg + scan_center_deg`，
-  每周期由平台姿态输入驱动（`src/airborne_radar/session/ArExternalInputAdapter.cpp:28-57`
+  每周期由平台姿态输入驱动（`src/airborne_radar/session/ArRadarFrameTransform.cpp`
   的 `ComposeAttitudeDeg(platform_attitude, mount_angles)`）。
 
 **SBIRS 现状**：

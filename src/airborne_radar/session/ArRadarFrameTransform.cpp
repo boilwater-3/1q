@@ -1,4 +1,4 @@
-﻿#include "1q/airborne_radar/session/ArExternalInputAdapter.h"
+﻿#include "1q/airborne_radar/session/ArRadarFrameTransform.h"
 
 #include <cmath>
 
@@ -14,7 +14,6 @@ namespace {
 
 using oneq::common::coordinate_utils::RotateEnuPositionToLocal;
 using oneq::common::coordinate_utils::RotateEnuVelocityToLocal;
-using oneq::common::coordinate_utils::ToFoundationVector;
 using oneq::common::validation::IsFinite;
 
 bool IsFiniteVector3f(const oneq::foundation::Vector3f& value) {
@@ -29,11 +28,11 @@ oneq::coordinate::EulerAnglesDeg ComposeRadarAttitudeDeg(
   return oneq::coordinate::ComposeAttitudeDeg(platform_attitude_deg, mount_angles_deg);
 }
 
-bool TryMakeArPoseFromExternalKinematics(const ArExternalPoseInput& input,
-                                         const oneq::coordinate::EulerAnglesDeg& mount_angles_deg,
-                                         oneq::coordinate::LocalFrameReference* reference,
-                                         oneq::foundation::Vector3f* radar_local_velocity_mps,
-                                         ArCoordinateStatus* status) {
+bool TryMakeArPoseFromPlatform(const ArPlatformInput& input,
+                               const oneq::coordinate::EulerAnglesDeg& mount_angles_deg,
+                               oneq::coordinate::LocalFrameReference* reference,
+                               oneq::foundation::Vector3f* radar_local_velocity_mps,
+                               ArCoordinateStatus* status) {
   if (status != nullptr) {
     *status = ArCoordinateStatus::kOk;
   }
@@ -105,7 +104,6 @@ bool TryMakeArTargetFromEnu(const ArTargetInput& target_input,
   const oneq::foundation::Vector3f target_position_local =
       RotateEnuPositionToLocal(target_position_enu, reference.frame_attitude_deg);
 
-  // ENU 速度旋入雷达局部坐标系后扣除平台速度得到相对速度
   const oneq::coordinate::EnuVelocityMps velocity_enu{
       static_cast<double>(target_input.velocity_x), static_cast<double>(target_input.velocity_y),
       static_cast<double>(target_input.velocity_z)};

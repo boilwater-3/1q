@@ -208,7 +208,7 @@ void ArSensorComponent::Step(World& world, double dt_sec) {
   input.cycle_index = static_cast<std::uint32_t>(scene.cycle);
   input.cycle_start_time_s = scene.t_sec;
   input.dt_sec = dt_sec;
-  airborne_radar::session::ArExternalPoseInput pose;
+  airborne_radar::session::ArPlatformInput pose;
   pose.platform_entity_id = platform_entity_id_;
   ResolvePlatformEcef(flight->position(), flight->heading_deg(), flight->speed_mps(),
                       &pose.platform_position_ecef_m, &pose.platform_velocity_mps);

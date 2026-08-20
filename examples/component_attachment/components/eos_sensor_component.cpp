@@ -2,7 +2,7 @@
  * @file eos_sensor_component.cpp
  * @brief EOS 传感器组件实现（会话驱动 + 探测生命周期事件转发）。
  *
- * 1. EosCycleInputAdapter 一步构建周期输入（零姿态共享平台局部系），驱动
+ * 1. 公共 TryMakeEnuSceneState 直填 EosSceneTarget + 手填 EosCycleInput，驱动
  *    EosSession，输出探测适配为泛型探测记录（fusion::AdaptEosDetectionsToDetectionRecords）；
  * 2. 探测事件（首发现/更新/丢失）由库内 EosDetectionLifecycleRecorder 差分
  *    产出，组件经归属映射关联目标 ID 后发布 EosDetectionEvent；
@@ -11,8 +11,11 @@
 
 #include "eos_sensor_component.h"
 
-#include "1q/electro_optical_sensor/session/EosCycleInputAdapter.h"
+#include "1q/coordinate/position_transform.h"
+#include "1q/coordinate/scene_transform.h"
+#include "1q/electro_optical_sensor/session/EosCycleInput.h"
 #include "1q/electro_optical_sensor/session/EosCycleResult.h"
+#include "1q/electro_optical_sensor/session/EosSceneTypes.h"
 #include "1q/fusion/SensorAdapters.h"
 #include "core/events.h"
 #include "logger/logger.h"
@@ -65,6 +68,47 @@ const char* EosEventKindName(EosDetectionEventKind kind) {
       return "丢失";
   }
   return "未知";
+}
+
+/// 世界 ECEF 目标真值 → 平台锚点 ENU 场景输入（与 AR 同契约：锚点一次 + 逐目标
+/// TryMakeEnuSceneState 直填 EosSceneTarget）。
+std::vector<electro_optical_sensor::session::EosSceneTarget> BuildEosEnuTargets(
+    const std::vector<demo::TargetEcefState>& world_targets,
+    const oneq::coordinate::EcefPositionM& platform_position_ecef_m) {
+  std::vector<electro_optical_sensor::session::EosSceneTarget> targets;
+  if (world_targets.empty()) {
+    return targets;
+  }
+  oneq::coordinate::LlaPositionDegM anchor_lla;
+  if (!oneq::coordinate::TryEcefToLla(platform_position_ecef_m, &anchor_lla)) {
+    return targets;
+  }
+  targets.reserve(world_targets.size());
+  for (const auto& state : world_targets) {
+    oneq::coordinate::ExternalKinematics kinematics;
+    kinematics.position_frame = oneq::coordinate::PositionFrame::kEcef;
+    kinematics.position_ecef_m = state.position;
+    kinematics.velocity_mps = state.velocity;
+
+    oneq::coordinate::EnuSceneState enu;
+    if (!oneq::coordinate::TryMakeEnuSceneState(kinematics, anchor_lla, &enu)) {
+      continue;
+    }
+    electro_optical_sensor::session::EosSceneTarget target;
+    target.target_id = state.id;
+    target.position_x = static_cast<float>(enu.position_enu_m.east_m);
+    target.position_y = static_cast<float>(enu.position_enu_m.north_m);
+    target.position_z = static_cast<float>(enu.position_enu_m.up_m);
+    target.velocity_x = static_cast<float>(enu.velocity_enu_mps.east_mps);
+    target.velocity_y = static_cast<float>(enu.velocity_enu_mps.north_mps);
+    target.velocity_z = static_cast<float>(enu.velocity_enu_mps.up_mps);
+    target.appearance.apparent_temperature_k = state.temperature_k;
+    target.appearance.emissivity = 0.92f;
+    target.appearance.reflectance = 0.35f;
+    target.appearance.projected_area_m2 = state.projected_area_m2;
+    targets.push_back(target);
+  }
+  return targets;
 }
 
 /// 调试目标状态 → 中文名（人读日志）。
@@ -193,18 +237,22 @@ void EosSensorComponent::Step(World& world, double dt_sec) {
 
   const auto& scene = static_cast<const DemoSceneState&>(world.scene_state());
 
-  // 外部平台运动学（零姿态：三会话共享同一平台局部坐标系）。
-  electro_optical_sensor::session::EosExternalPoseInput pose;
+  // 平台 ECEF（零姿态：与 AR/ESR 共享同一平台局部坐标系）+ ENU 场景目标直填。
+  oneq::coordinate::EcefPositionM platform_ecef;
+  oneq::coordinate::EcefVelocityMps platform_vel;
   ResolvePlatformEcef(flight->position(), flight->heading_deg(), flight->speed_mps(),
-                      &pose.platform_position_ecef_m, &pose.platform_velocity_mps);
+                      &platform_ecef, &platform_vel);
+  oneq::coordinate::LlaPositionDegM platform_lla;
+  if (!oneq::coordinate::TryEcefToLla(platform_ecef, &platform_lla)) {
+    return;  // 平台锚点失败：本周期不产生探测
+  }
 
   electro_optical_sensor::session::EosCycleInput input;
-  electro_optical_sensor::session::EosCoordinateStatus status;
-  if (!electro_optical_sensor::session::EosCycleInputAdapter::Build(
-          pose, scene.optical_targets, static_cast<float>(dt_sec), &input, &status)) {
-    return;  // 坐标适配失败：本周期不产生探测
-  }
   input.cycle_index = static_cast<std::uint32_t>(scene.cycle);
+  input.dt_sec = static_cast<float>(dt_sec);
+  input.platform_altitude_m = static_cast<float>(platform_lla.altitude_m);
+  input.platform_attitude_deg = {};
+  input.scene = BuildEosEnuTargets(scene.world_targets, platform_ecef);
 
   const electro_optical_sensor::session::EosCycleResult result = session_.StepWithResult(input);
   scan_azimuth_deg_ = result.output_frame.scan_azimuth_deg;  // 扫描方位随周期结果刷新（拒绝周期为空帧 → 0）

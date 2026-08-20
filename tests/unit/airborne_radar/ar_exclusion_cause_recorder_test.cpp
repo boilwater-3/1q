@@ -15,7 +15,6 @@
 #include <gtest/gtest.h>
 
 #include "1q/airborne_radar/session/ArCycleResult.h"
-#include "1q/airborne_radar/session/ArExternalInputAdapter.h"
 #include "1q/airborne_radar/session/ArOutputTypes.h"
 #include "1q/foundation/validation_types.h"
 

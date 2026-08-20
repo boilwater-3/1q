@@ -10,8 +10,8 @@
 
 #include "1q/coordinate/position_transform.h"
 #include "1q/electro_optical_sensor/config/EosSessionConfig.h"
-#include "1q/electro_optical_sensor/session/EosCycleInputAdapter.h"
 #include "1q/electro_optical_sensor/session/EosCycleOutputAdapter.h"
+#include "1q/electro_optical_sensor/session/EosPlatformEcefPose.h"
 #include "1q/electro_optical_sensor/session/EosDetectionLifecycleRecorder.h"
 #include "1q/electro_optical_sensor/session/EosOutputDebugView.h"
 #include "1q/electro_optical_sensor/session/EosSession.h"
@@ -20,10 +20,12 @@
 namespace {
 
 namespace eos_config = ::electro_optical_sensor::config;
+using oneq::test_support::EosWorldTargetSpec;
 using oneq::test_support::SetEosSphericalLook;
+using oneq::test_support::TryBuildEosCycleInput;
 namespace eos_session = ::electro_optical_sensor::session;
 
-eos_session::EosExternalPoseInput MakePlatformInput() {
+eos_session::EosPlatformEcefPose MakePlatformInput() {
   oneq::coordinate::LlaPositionDegM platform_lla;
   platform_lla.latitude_deg = 31.0;
   platform_lla.longitude_deg = 121.0;
@@ -31,7 +33,7 @@ eos_session::EosExternalPoseInput MakePlatformInput() {
   oneq::coordinate::EcefPositionM platform_ecef;
   EXPECT_TRUE(oneq::coordinate::TryLlaToEcef(platform_lla, &platform_ecef));
 
-  eos_session::EosExternalPoseInput platform;
+  eos_session::EosPlatformEcefPose platform;
   platform.platform_position_ecef_m = platform_ecef;
   platform.platform_attitude_deg.yaw_deg = 0.0;
   platform.platform_attitude_deg.pitch_deg = 0.0;
@@ -39,8 +41,8 @@ eos_session::EosExternalPoseInput MakePlatformInput() {
   return platform;
 }
 
-std::vector<eos_session::EosExternalTargetInput> MakeMovingTargets(std::size_t count) {
-  std::vector<eos_session::EosExternalTargetInput> targets;
+std::vector<EosWorldTargetSpec> MakeMovingTargets(std::size_t count) {
+  std::vector<EosWorldTargetSpec> targets;
   targets.reserve(count);
   for (std::size_t i = 0; i < count; ++i) {
     oneq::coordinate::LlaPositionDegM lla;
@@ -50,7 +52,8 @@ std::vector<eos_session::EosExternalTargetInput> MakeMovingTargets(std::size_t c
     oneq::coordinate::EcefPositionM ecef;
     EXPECT_TRUE(oneq::coordinate::TryLlaToEcef(lla, &ecef));
 
-    eos_session::EosExternalTargetInput target;
+    EosWorldTargetSpec target;
+    target.target_id = static_cast<std::uint64_t>(i);
     target.kinematics.position_frame = oneq::coordinate::PositionFrame::kEcef;
     target.kinematics.position_ecef_m = ecef;
     target.appearance.apparent_temperature_k = 600.0f;
@@ -62,10 +65,10 @@ std::vector<eos_session::EosExternalTargetInput> MakeMovingTargets(std::size_t c
   return targets;
 }
 
-void AdvanceTargets(double dt_sec, std::vector<eos_session::EosExternalTargetInput>* targets) {
+void AdvanceTargets(double dt_sec, std::vector<EosWorldTargetSpec>* targets) {
   ASSERT_NE(targets, nullptr);
   for (std::size_t i = 0; i < targets->size(); ++i) {
-    eos_session::EosExternalTargetInput& target = (*targets)[i];
+    EosWorldTargetSpec& target = (*targets)[i];
     target.kinematics.position_ecef_m.x_m += (4.0 + static_cast<double>(i % 3U)) * dt_sec;
     target.kinematics.position_ecef_m.y_m += (-2.0 + static_cast<double>(i % 2U)) * dt_sec;
     target.kinematics.position_ecef_m.z_m += 0.1 * static_cast<double>(i % 2U) * dt_sec;
@@ -95,8 +98,8 @@ eos_config::EosSessionConfig MakeDetectableConfig() {
 
 /// 创建位于可探测范围内的目标（距平台约 1400m，超出 dmin_m ≈ 1200m）。
 /// MakeMovingTargets 的默认偏移 (0.001° lon ≈ 95m) 低于最小探测距离，无法触发 detected=true。
-std::vector<eos_session::EosExternalTargetInput> MakeDetectableTargets(std::size_t count) {
-  std::vector<eos_session::EosExternalTargetInput> targets;
+std::vector<EosWorldTargetSpec> MakeDetectableTargets(std::size_t count) {
+  std::vector<EosWorldTargetSpec> targets;
   targets.reserve(count);
   for (std::size_t i = 0; i < count; ++i) {
     oneq::coordinate::LlaPositionDegM lla;
@@ -106,7 +109,8 @@ std::vector<eos_session::EosExternalTargetInput> MakeDetectableTargets(std::size
     oneq::coordinate::EcefPositionM ecef;
     EXPECT_TRUE(oneq::coordinate::TryLlaToEcef(lla, &ecef));
 
-    eos_session::EosExternalTargetInput target;
+    EosWorldTargetSpec target;
+    target.target_id = static_cast<std::uint64_t>(i);
     target.kinematics.position_frame = oneq::coordinate::PositionFrame::kEcef;
     target.kinematics.position_ecef_m = ecef;
     target.appearance.apparent_temperature_k = 600.0f;
@@ -121,8 +125,8 @@ std::vector<eos_session::EosExternalTargetInput> MakeDetectableTargets(std::size
 }  // namespace
 
 TEST(EosCycleOutputBuilderTest, MultiCycleMovingTargetsStayNearExternalTruth) {
-  const eos_session::EosExternalPoseInput platform = MakePlatformInput();
-  std::vector<eos_session::EosExternalTargetInput> targets = MakeMovingTargets(10U);
+  const eos_session::EosPlatformEcefPose platform = MakePlatformInput();
+  std::vector<EosWorldTargetSpec> targets = MakeMovingTargets(10U);
   eos_session::EosSession session = eos_session::EosSession::Create(MakeConfig());
 
   const std::size_t cycle_count = 36U;
@@ -130,7 +134,7 @@ TEST(EosCycleOutputBuilderTest, MultiCycleMovingTargetsStayNearExternalTruth) {
   std::size_t compared_detection_count = 0U;
   for (std::size_t cycle = 0; cycle < cycle_count; ++cycle) {
     eos_session::EosCycleInput input;
-    ASSERT_TRUE(eos_session::EosCycleInputAdapter::Build(platform, targets, dt_sec, &input))
+    ASSERT_TRUE(TryBuildEosCycleInput(platform, targets, dt_sec, &input))
         << "cycle=" << cycle;
     input.cycle_index = static_cast<std::uint32_t>(cycle);
 
@@ -169,7 +173,7 @@ TEST(EosCycleOutputBuilderTest, MultiCycleMovingTargetsStayNearExternalTruth) {
 }
 
 TEST(EosCycleOutputBuilderTest, ExternalOutputPreservesDetectionIdOnly) {
-  const eos_session::EosExternalPoseInput platform = MakePlatformInput();
+  const eos_session::EosPlatformEcefPose platform = MakePlatformInput();
   eos_session::EosOutputFrame frame;
   frame.cycle_index = 7U;
   frame.scan_azimuth_deg = 0.0f;
@@ -356,8 +360,8 @@ TEST(EosCycleOutputBuilderTest, NonExecutedCyclePreservesDetectedState) {
 }
 
 TEST(EosCycleOutputBuilderTest, AttachRecorderDrivesUpdateAutomatically) {
-  const eos_session::EosExternalPoseInput platform = MakePlatformInput();
-  std::vector<eos_session::EosExternalTargetInput> targets = MakeDetectableTargets(1U);
+  const eos_session::EosPlatformEcefPose platform = MakePlatformInput();
+  std::vector<EosWorldTargetSpec> targets = MakeDetectableTargets(1U);
   eos_session::EosSession session = eos_session::EosSession::Create(MakeDetectableConfig());
   eos_session::EosDetectionLifecycleRecorder recorder;
 
@@ -365,7 +369,7 @@ TEST(EosCycleOutputBuilderTest, AttachRecorderDrivesUpdateAutomatically) {
 
   // 第一个周期：目标应被检测，recorder 自动产生 kFirstDetected 事件。
   eos_session::EosCycleInput input;
-  ASSERT_TRUE(eos_session::EosCycleInputAdapter::Build(platform, targets, 0.1f, &input));
+  ASSERT_TRUE(TryBuildEosCycleInput(platform, targets, 0.1f, &input));
   input.cycle_index = 1U;
   const eos_session::EosCycleResult result = session.StepWithResult(input);
   ASSERT_EQ(result.status, eos_session::EosCycleStatus::kCompleted);
@@ -378,7 +382,7 @@ TEST(EosCycleOutputBuilderTest, AttachRecorderDrivesUpdateAutomatically) {
 
   // 第二个周期：目标仍在 FOV 内，recorder 产生 kUpdated 事件。
   AdvanceTargets(0.1f, &targets);
-  ASSERT_TRUE(eos_session::EosCycleInputAdapter::Build(platform, targets, 0.1f, &input));
+  ASSERT_TRUE(TryBuildEosCycleInput(platform, targets, 0.1f, &input));
   input.cycle_index = 2U;
   session.StepWithResult(input);
 
@@ -390,15 +394,15 @@ TEST(EosCycleOutputBuilderTest, AttachRecorderDrivesUpdateAutomatically) {
 }
 
 TEST(EosCycleOutputBuilderTest, DetachRecorderStopsAutomaticDriving) {
-  const eos_session::EosExternalPoseInput platform = MakePlatformInput();
-  std::vector<eos_session::EosExternalTargetInput> targets = MakeDetectableTargets(1U);
+  const eos_session::EosPlatformEcefPose platform = MakePlatformInput();
+  std::vector<EosWorldTargetSpec> targets = MakeDetectableTargets(1U);
   eos_session::EosSession session = eos_session::EosSession::Create(MakeDetectableConfig());
   eos_session::EosDetectionLifecycleRecorder recorder;
 
   session.AttachDetectionLifecycleRecorder(&recorder);
 
   eos_session::EosCycleInput input;
-  ASSERT_TRUE(eos_session::EosCycleInputAdapter::Build(platform, targets, 0.1f, &input));
+  ASSERT_TRUE(TryBuildEosCycleInput(platform, targets, 0.1f, &input));
   input.cycle_index = 1U;
   session.StepWithResult(input);
   const std::size_t first_count = recorder.GetLastEvents().size();
@@ -407,34 +411,34 @@ TEST(EosCycleOutputBuilderTest, DetachRecorderStopsAutomaticDriving) {
   // 解除注册后再步进——recorder 不应被驱动。
   session.AttachDetectionLifecycleRecorder(nullptr);
   AdvanceTargets(0.1f, &targets);
-  ASSERT_TRUE(eos_session::EosCycleInputAdapter::Build(platform, targets, 0.1f, &input));
+  ASSERT_TRUE(TryBuildEosCycleInput(platform, targets, 0.1f, &input));
   input.cycle_index = 2U;
   session.StepWithResult(input);
   EXPECT_EQ(recorder.GetLastEvents().size(), first_count);
 }
 
 TEST(EosCycleOutputBuilderTest, SessionWithoutRecorderIsBackwardCompatible) {
-  const eos_session::EosExternalPoseInput platform = MakePlatformInput();
-  std::vector<eos_session::EosExternalTargetInput> targets = MakeMovingTargets(1U);
+  const eos_session::EosPlatformEcefPose platform = MakePlatformInput();
+  std::vector<EosWorldTargetSpec> targets = MakeMovingTargets(1U);
   eos_session::EosSession session = eos_session::EosSession::Create(MakeConfig());
 
   eos_session::EosCycleInput input;
-  ASSERT_TRUE(eos_session::EosCycleInputAdapter::Build(platform, targets, 0.1f, &input));
+  ASSERT_TRUE(TryBuildEosCycleInput(platform, targets, 0.1f, &input));
   input.cycle_index = 1U;
   const eos_session::EosCycleResult result = session.StepWithResult(input);
   EXPECT_EQ(result.status, eos_session::EosCycleStatus::kCompleted);
 }
 
 TEST(EosCycleOutputBuilderTest, NonExecutedCycleDoesNotUpdateLastEvents) {
-  const eos_session::EosExternalPoseInput platform = MakePlatformInput();
-  std::vector<eos_session::EosExternalTargetInput> targets = MakeDetectableTargets(1U);
+  const eos_session::EosPlatformEcefPose platform = MakePlatformInput();
+  std::vector<EosWorldTargetSpec> targets = MakeDetectableTargets(1U);
   eos_session::EosSession session = eos_session::EosSession::Create(MakeDetectableConfig());
   eos_session::EosDetectionLifecycleRecorder recorder;
   session.AttachDetectionLifecycleRecorder(&recorder);
 
   // 第一个周期执行并驱动 recorder，目标被检测到。
   eos_session::EosCycleInput input;
-  ASSERT_TRUE(eos_session::EosCycleInputAdapter::Build(platform, targets, 0.1f, &input));
+  ASSERT_TRUE(TryBuildEosCycleInput(platform, targets, 0.1f, &input));
   input.cycle_index = 1U;
   session.StepWithResult(input);
   const std::vector<eos_session::EosDetectionLifecycleEvent>& first_events =

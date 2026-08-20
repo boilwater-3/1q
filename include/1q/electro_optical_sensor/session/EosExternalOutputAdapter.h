@@ -11,8 +11,8 @@
 
 #include "1q/api.hpp"
 #include "1q/coordinate/types.h"
-#include "1q/electro_optical_sensor/session/EosExternalInputAdapter.h"
 #include "1q/electro_optical_sensor/session/EosOutputTypes.h"
+#include "1q/electro_optical_sensor/session/EosPlatformEcefPose.h"
 
 namespace electro_optical_sensor {
 namespace session {

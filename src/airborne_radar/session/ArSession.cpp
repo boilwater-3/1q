@@ -6,6 +6,7 @@
 #include <utility>
 
 #include "1q/airborne_radar/session/ArIssueCodes.h"
+#include "1q/airborne_radar/session/ArRadarFrameTransform.h"
 #include "1q/airborne_radar/session/ArExclusionCauseRecorder.h"
 #include "1q/airborne_radar/session/ArTrackLifecycleRecorder.h"
 #include "1q/coordinate/attitude_transform.h"
@@ -598,8 +599,8 @@ struct ArSession::Impl {
       issue.phase = ArIssuePhase::kInputValidation;
       return issue;
     };
-    if (!TryMakeArPoseFromExternalKinematics(input.platform, mount_angles_coord,
-                                             &reference, &radar_local_velocity)) {
+    if (!TryMakeArPoseFromPlatform(input.platform, mount_angles_coord,
+                                  &reference, &radar_local_velocity)) {
       ArIssueList mount_issues = issues;
       mount_issues.push_back(make_mount_issue(
           codes::kInvalidPlatformInput,

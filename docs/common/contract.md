@@ -133,11 +133,23 @@ ECEF 全局几何，不适用本契约：
 1. ENU 原点 = 当周期平台 ECEF 位置（逐周期重锚）；轴 = 锚点 ENU（x=东、y=北、z=天）。
 2. 目标速度 = 目标 ECEF 速度旋入锚点 ENU 轴（固定锚点旋转，无传输率修正）。
 3. ECEF/LLA→ENU 转换由公共入口一站式承担：`TryEcefToLla` 求锚点（每周期一次）+
-   `TryMakeEnuSceneState` 逐目标转换后直填输入；模块不再提供私有 ECEF→ENU 目标输入适配。
-4. 各模块继续拥有自己的量测几何：AR 在 ENU 之后再旋入雷达体系（平台姿态∘安装角复合），
-   EOS 由 ENU 位置 + 平台姿态派生体系球坐标（range/az/el），RIR 直接在 ENU 轴上计算。
+   `TryMakeEnuSceneState` 逐目标转换后直填 `ArTargetInput` / `EosSceneTarget` /
+   `RirSceneTarget`。**禁止**模块级场景目标 ECEF→ENU `*CycleInputAdapter` /
+   `TryMake*FromExternal*` 平行入口；官方入口仅 `include/1q/coordinate/scene_transform.h`。
+4. 各模块继续拥有自己的量测几何：AR 在 ENU 之后再旋入雷达体系（平台姿态∘安装角复合，
+   见 `ArRadarFrameTransform`），EOS 由 ENU 位置 + 平台姿态派生体系球坐标（range/az/el），
+   RIR 直接在 ENU 轴上计算。
 5. ENU 原点逐周期随平台移动，跨周期不构成惯性参考系；跨周期状态（航迹/滤波）的帧语义由
    各模块内部拥有，不通过输入面传递。
+
+集成样板（AR/EOS/RIR 相同）：
+
+```text
+TryEcefToLla(platform_ecef) → anchor_lla   // 每周期一次
+for each target:
+  TryMakeEnuSceneState(kinematics, anchor_lla) → 直填场景目标
+Session::Step(CycleInput)
+```
 
 [evidence: tests/unit/common/coordinate_scene_transform_test]
 

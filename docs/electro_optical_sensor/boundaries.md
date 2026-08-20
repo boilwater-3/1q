@@ -97,6 +97,12 @@ ESR 同引擎），退化判定（模长下限）与斜距输出留在 `EosLookA
 位置模长非退化（`EosLookAngleNormFloorM` 下限）。速度字段保留 ENU 契约统一形状，当前仅校验
 有限性，不参与探测计算。
 
+**集成入口**：调用方以公共 `TryEcefToLla` + `TryMakeEnuSceneState` 直填 `EosSceneTarget`，
+再手填 `EosCycleInput`（海拔/姿态/`dt_sec`/`cycle_index`）。已删除模块级
+`EosCycleInputAdapter` / `TryMakeEosSceneTargetFromExternalInput` /
+`EosExternalTargetInput` 平行入口。平台 ECEF 位姿类型为 `EosPlatformEcefPose`
+（供输出反算等使用，不是目标 ENU 适配器）。
+
 [evidence: tests/unit/electro_optical_sensor/eos_look_angles_test]
 [evidence: tests/unit/electro_optical_sensor/eos_input_validation_test]
 [evidence: tests/unit/electro_optical_sensor/eos_controller_runtime_state_test]

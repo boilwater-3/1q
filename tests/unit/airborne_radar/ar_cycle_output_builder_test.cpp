@@ -13,6 +13,7 @@
 #include "1q/airborne_radar/config/ArProfileConstants.h"
 #include "1q/airborne_radar/config/ArSessionConfigBuilder.h"
 #include "1q/airborne_radar/session/ArCycleOutputAdapter.h"
+#include "1q/airborne_radar/session/ArRadarFrameTransform.h"
 #include "1q/airborne_radar/session/ArTrackLifecycleRecorder.h"
 #include "1q/coordinate/position_transform.h"
 #include "1q/coordinate/scene_transform.h"
@@ -24,7 +25,7 @@ using airborne_radar::session::TrackStateSnapshot;
 using airborne_radar::session::ArCycleInput;
 using airborne_radar::session::ArCycleOutputAdapter;
 using airborne_radar::session::ArCycleResult;
-using airborne_radar::session::ArExternalPoseInput;
+using airborne_radar::session::ArPlatformInput;
 using airborne_radar::session::ArExternalTrackOutputFrame;
 using airborne_radar::session::ArSession;
 using airborne_radar::session::ArTargetInput;
@@ -39,7 +40,7 @@ airborne_radar::config::ArSessionConfig MakeDetectionFocusedConfig() {
   return cfg;
 }
 
-ArExternalPoseInput MakePlatformInput() {
+ArPlatformInput MakePlatformInput() {
   oneq::coordinate::EcefPositionM platform_ecef;
   oneq::coordinate::LlaPositionDegM platform_lla;
   platform_lla.latitude_deg = 30.0;
@@ -47,7 +48,7 @@ ArExternalPoseInput MakePlatformInput() {
   platform_lla.altitude_m = 1000.0;
   EXPECT_TRUE(oneq::coordinate::TryLlaToEcef(platform_lla, &platform_ecef));
 
-  ArExternalPoseInput platform;
+  ArPlatformInput platform;
   platform.platform_entity_id = 42U;
   platform.platform_position_ecef_m = platform_ecef;
   platform.platform_velocity_mps.x_mps = -20.0;
@@ -150,12 +151,12 @@ const airborne_radar::session::ArExternalTrackKinematics* FindExternalTrackByTar
   return nullptr;
 }
 
-TrackOutputFrame MakeFrameFromInternalTarget(const ArExternalPoseInput& platform,
+TrackOutputFrame MakeFrameFromInternalTarget(const ArPlatformInput& platform,
                                              const ArTargetInput& target) {
   oneq::coordinate::LocalFrameReference reference;
   oneq::foundation::Vector3f velocity;
   const oneq::coordinate::EulerAnglesDeg zero_mount{};
-  EXPECT_TRUE(airborne_radar::session::TryMakeArPoseFromExternalKinematics(
+  EXPECT_TRUE(airborne_radar::session::TryMakeArPoseFromPlatform(
       platform, zero_mount, &reference, &velocity));
   airborne_radar::session::ArSceneTarget local_target;
   EXPECT_TRUE(airborne_radar::session::TryMakeArTargetFromEnu(target, reference, velocity,
@@ -186,7 +187,7 @@ TrackOutputFrame MakeFrameFromInternalTarget(const ArExternalPoseInput& platform
 }  // namespace
 
 TEST(RadarCycleOutputBuilderTest, ConvertsInternalLocalFrameBackToExternalEcef) {
-  const ArExternalPoseInput platform = MakePlatformInput();
+  const ArPlatformInput platform = MakePlatformInput();
   const ArTargetInput target = MakeTargetInput();
 
   const TrackOutputFrame frame = MakeFrameFromInternalTarget(platform, target);
@@ -227,13 +228,13 @@ TEST(RadarCycleOutputBuilderTest, ConvertsInternalLocalFrameBackToExternalEcef) 
 }
 
 TEST(RadarCycleOutputBuilderTest, NullOutputReturnsFalse) {
-  const ArExternalPoseInput platform = MakePlatformInput();
+  const ArPlatformInput platform = MakePlatformInput();
   const TrackOutputFrame frame;
   EXPECT_FALSE(ArCycleOutputAdapter::Build(platform, frame, nullptr));
 }
 
 TEST(RadarCycleOutputBuilderTest, FullSessionEstimateConvertsNearExternalTruth) {
-  const ArExternalPoseInput platform = MakePlatformInput();
+  const ArPlatformInput platform = MakePlatformInput();
   const ArTargetInput target = MakeTargetInput();
 
   ArCycleInput input;
@@ -278,7 +279,7 @@ TEST(RadarCycleOutputBuilderTest, FullSessionEstimateConvertsNearExternalTruth) 
 }
 
 TEST(RadarCycleOutputBuilderTest, NaturalEnvironmentIsIndependentFromInterference) {
-  const ArExternalPoseInput platform = MakePlatformInput();
+  const ArPlatformInput platform = MakePlatformInput();
   const ArTargetInput target = MakeTargetInput();
 
   ArCycleInput input;
@@ -295,7 +296,7 @@ TEST(RadarCycleOutputBuilderTest, NaturalEnvironmentIsIndependentFromInterferenc
 }
 
 TEST(RadarCycleOutputBuilderTest, MultiCycleMovingTargetsStayNearExternalTruth) {
-  ArExternalPoseInput platform = MakePlatformInput();
+  ArPlatformInput platform = MakePlatformInput();
   platform.platform_velocity_mps.x_mps = 0.0;
   platform.platform_velocity_mps.y_mps = 0.0;
   platform.platform_velocity_mps.z_mps = 0.0;
@@ -363,7 +364,7 @@ TEST(RadarCycleOutputBuilderTest, MultiCycleMovingTargetsStayNearExternalTruth) 
 }
 
 TEST(RadarCycleOutputBuilderTest, AttachRecorderDrivesUpdateAutomatically) {
-  const ArExternalPoseInput platform = MakePlatformInput();
+  const ArPlatformInput platform = MakePlatformInput();
   const ArTargetInput target = MakeTargetInput();
   ArSession session = ArSession::Create(MakeDetectionFocusedConfig());
   ArTrackLifecycleRecorder recorder;
@@ -392,7 +393,7 @@ TEST(RadarCycleOutputBuilderTest, AttachRecorderDrivesUpdateAutomatically) {
 }
 
 TEST(RadarCycleOutputBuilderTest, DetachRecorderStopsAutomaticDriving) {
-  const ArExternalPoseInput platform = MakePlatformInput();
+  const ArPlatformInput platform = MakePlatformInput();
   ArTargetInput target = MakeTargetInput();
   ArSession session = ArSession::Create(MakeDetectionFocusedConfig());
   ArTrackLifecycleRecorder recorder;
@@ -419,7 +420,7 @@ TEST(RadarCycleOutputBuilderTest, DetachRecorderStopsAutomaticDriving) {
 }
 
 TEST(RadarCycleOutputBuilderTest, SessionWithoutRecorderIsBackwardCompatible) {
-  const ArExternalPoseInput platform = MakePlatformInput();
+  const ArPlatformInput platform = MakePlatformInput();
   const ArTargetInput target = MakeTargetInput();
   ArSession session = ArSession::Create(MakeDetectionFocusedConfig());
 
@@ -438,7 +439,7 @@ TEST(RadarCycleOutputBuilderTest, GetLastEventsEmptyAfterConstruction) {
 }
 
 TEST(RadarCycleOutputBuilderTest, NonExecutedCycleDoesNotUpdateLastEvents) {
-  const ArExternalPoseInput platform = MakePlatformInput();
+  const ArPlatformInput platform = MakePlatformInput();
   ArTargetInput target = MakeTargetInput();
   ArSession session = ArSession::Create(MakeDetectionFocusedConfig());
   ArTrackLifecycleRecorder recorder;

@@ -12,12 +12,10 @@
 #include <type_traits>
 #include <vector>
 
-#include "1q/coordinate/position_transform.h"
 #include "1q/electro_optical_sensor/config/EosProfileConstants.h"
 #include "1q/electro_optical_sensor/config/EosRuntimeConfigBuilder.h"
 #include "1q/electro_optical_sensor/config/EosSessionConfigBuilder.h"
 #include "1q/electro_optical_sensor/config/EosSessionConfigValidation.h"
-#include "1q/electro_optical_sensor/session/EosExternalInputAdapter.h"
 #include "1q/electro_optical_sensor/session/EosInputValidation.h"
 #include "1q/electro_optical_sensor/session/EosSession.h"
 #include "support/eos_enu_scene_helpers.h"
@@ -255,47 +253,6 @@ TEST(EosPublicApiConvenienceTest, InputValidationPassesForValidInput) {
   const session::EosIssueList issues = session::ValidateEosCycleInput(input, 30.0f);
 
   EXPECT_FALSE(session::HasValidationError(issues));
-}
-
-TEST(EosPublicApiConvenienceTest, CoordinateUtilsBuildsTargetFromEcefAndLla) {
-  oneq::coordinate::LocalFrameReference reference;
-  reference.origin_lla.latitude_deg = 0.0;
-  reference.origin_lla.longitude_deg = 0.0;
-  reference.origin_lla.altitude_m = 0.0;
-
-  session::EosTargetAppearance appearance;
-  appearance.apparent_temperature_k = 320.0f;
-  appearance.emissivity = 0.9f;
-  appearance.reflectance = 0.1f;
-  appearance.projected_area_m2 = 2.0f;
-
-  oneq::coordinate::LlaPositionDegM target_lla;
-  target_lla.latitude_deg = 0.0;
-  target_lla.longitude_deg = 0.001;
-  target_lla.altitude_m = 0.0;
-
-  session::EosExternalTargetInput lla_input;
-  lla_input.kinematics.position_frame = oneq::coordinate::PositionFrame::kLla;
-  lla_input.kinematics.position_lla_deg_m = target_lla;
-  lla_input.appearance = appearance;
-  session::EosSceneTarget target_from_lla;
-  ASSERT_TRUE(session::TryMakeEosSceneTargetFromExternalInput(401U, lla_input, reference,
-                                                              &target_from_lla));
-  EXPECT_EQ(target_from_lla.target_id, 401U);
-  // 目标在锚点正东（经度 +0.001°）：ENU 东向分量主导。
-  EXPECT_GT(target_from_lla.position_x, 100.0f);
-  EXPECT_NEAR(target_from_lla.appearance.apparent_temperature_k, 320.0f, 1e-5f);
-
-  oneq::coordinate::EcefPositionM target_ecef;
-  ASSERT_TRUE(oneq::coordinate::TryLlaToEcef(target_lla, &target_ecef));
-  session::EosExternalTargetInput ecef_input;
-  ecef_input.kinematics.position_frame = oneq::coordinate::PositionFrame::kEcef;
-  ecef_input.kinematics.position_ecef_m = target_ecef;
-  ecef_input.appearance = appearance;
-  session::EosSceneTarget target_from_ecef;
-  ASSERT_TRUE(session::TryMakeEosSceneTargetFromExternalInput(402U, ecef_input, reference,
-                                                              &target_from_ecef));
-  EXPECT_NEAR(target_from_ecef.position_x, target_from_lla.position_x, 1.0f);
 }
 
 TEST(EosPublicApiConvenienceTest, EosSessionStepProducesDetectionOutput) {

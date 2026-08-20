@@ -17,8 +17,6 @@ set(EOS_ENGINE_SOURCES
 set(EOS_CORE_SOURCES
     environment/EosEnvironmentModel.cpp
     session/EosSessionConfigBuilder.cpp
-    session/EosExternalInputAdapter.cpp
-    session/EosCycleInputAdapter.cpp
     session/EosExternalOutputAdapter.cpp
     session/EosCycleOutputAdapter.cpp
     session/EosInputValidation.cpp

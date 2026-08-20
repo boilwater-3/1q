@@ -33,7 +33,7 @@ struct ONEQ_API EosCycleOutputAdapter {
    * @param[out] output 输出外部 ECEF 输出帧；为 nullptr 时直接返回 false。
    * @return 转换成功返回 true；`output` 为空或任一坐标变换失败返回 false。
    */
-  static bool Build(const EosExternalPoseInput& platform, const EosOutputFrame& frame,
+  static bool Build(const EosPlatformEcefPose& platform, const EosOutputFrame& frame,
                     EosExternalOutputFrame* output);
 
   /**

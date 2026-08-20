@@ -157,8 +157,8 @@ const char* PhaseFor(const ArCase& c, std::uint32_t cycle) {
 // =============================================================================
 
 /// 构造平台位姿（ECEF，固定原点 + 微小速度，保证雷达本地参考系稳定）。
-ar_session::ArExternalPoseInput MakePlatformPose(std::uint32_t cycle_index) {
-  ar_session::ArExternalPoseInput p;
+ar_session::ArPlatformInput MakePlatformPose(std::uint32_t cycle_index) {
+  ar_session::ArPlatformInput p;
   // 固定平台 ECEF 原点（与 integration_demo 同一参考点）。
   p.platform_position_ecef_m.x_m = -2289512.0;
   p.platform_position_ecef_m.y_m = 4909946.0;
@@ -466,7 +466,7 @@ ScenarioSummary RunArScenario(const ArCase& c, const ar_config::ArSessionConfig&
         patch.work_mode = ar_config::ArWorkMode::kStt;
         (void)session.TryApplyRuntimeConfig(patch);
       }
-      ar_session::ArExternalPoseInput platform = MakePlatformPose(cycle_index);
+      ar_session::ArPlatformInput platform = MakePlatformPose(cycle_index);
       std::vector<ar_session::ArTargetInput> targets = MakeTargets(c, cycle_index);
 
       ar_session::ArCycleInput input;

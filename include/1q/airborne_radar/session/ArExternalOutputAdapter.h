@@ -12,7 +12,6 @@
 #include <vector>
 
 #include "1q/airborne_radar/session/TrackStateSnapshot.h"
-#include "1q/airborne_radar/session/ArExternalInputAdapter.h"
 #include "1q/api.hpp"
 #include "1q/coordinate/types.h"
 #include "1q/foundation/pose_types.h"

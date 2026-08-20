@@ -14,7 +14,6 @@
 
 #include <vector>
 
-#include "1q/electro_optical_sensor/session/EosExternalInputAdapter.h"
 #include "1q/electromagnetics/RfScene.h"
 #include "1q/remote_identification_radar/session/RirSceneTypes.h"
 #include "1q/sar/session/SarCycleInput.h"
@@ -25,11 +24,10 @@
 
 namespace component_attachment {
 
-/** @brief 演示场景共享状态：四传感器世界真值 + 天基平台（消费方脚本注入）。 */
+/** @brief 演示场景共享状态：多传感器世界真值 + 天基平台（消费方脚本注入）。 */
 struct DemoSceneState : SceneState {
-  std::vector<demo::TargetEcefState> world_targets{}; /**< 世界目标真值（ECEF；AR 组件按平台锚点转 ENU） */
+  std::vector<demo::TargetEcefState> world_targets{}; /**< 世界目标真值（ECEF；AR/EOS 按平台锚点转 ENU） */
   std::vector<oneq::electromagnetics::RfSceneEmission> emitters{}; /**< ESR 辐射源真值 */
-  std::vector<electro_optical_sensor::session::EosExternalTargetInput> optical_targets{}; /**< EOS 光学目标 */
   std::vector<sbirs_sensor::session::SbirsSceneTarget> sbirs_targets{}; /**< SBIRS 红外目标真值 */
   std::vector<remote_identification_radar::session::RirSceneTarget> rir_targets{}; /**< RIR 场景目标真值（站点局部 ENU + 识别特征） */
   oneq::electromagnetics::RfSceneFrame rf_world{}; /**< 本周期 RF-WORLD（脚本源 + 上周期/同周期装备发射） */

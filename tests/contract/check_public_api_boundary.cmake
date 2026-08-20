@@ -35,7 +35,8 @@ set(AR_SESSION_HEADERS
     "airborne_radar/session/ArCycleOutputAdapter.h"
     "airborne_radar/session/ArCycleResult.h"
     "airborne_radar/session/ArExclusionCauseRecorder.h"
-    "airborne_radar/session/ArExternalInputAdapter.h"
+    "airborne_radar/session/ArPlatformInput.h"
+    "airborne_radar/session/ArRadarFrameTransform.h"
     "airborne_radar/session/ArExternalOutputAdapter.h"
     "airborne_radar/session/ArInputValidation.h"
     "airborne_radar/session/ArIssueCodes.h"
@@ -83,17 +84,16 @@ set(EOS_FOUNDATION_HEADERS)
 
 set(EOS_SESSION_HEADERS
     "electro_optical_sensor/session/EosCycleInput.h"
-    "electro_optical_sensor/session/EosCycleInputAdapter.h"
     "electro_optical_sensor/session/EosCycleOutputAdapter.h"
     "electro_optical_sensor/session/EosCycleResult.h"
     "electro_optical_sensor/session/EosDetectionLifecycleRecorder.h"
     "electro_optical_sensor/session/EosExclusionCauseRecorder.h"
-    "electro_optical_sensor/session/EosExternalInputAdapter.h"
     "electro_optical_sensor/session/EosExternalOutputAdapter.h"
     "electro_optical_sensor/session/EosInputValidation.h"
     "electro_optical_sensor/session/EosIssueCodes.h"
     "electro_optical_sensor/session/EosOutputDebugView.h"
     "electro_optical_sensor/session/EosOutputTypes.h"
+    "electro_optical_sensor/session/EosPlatformEcefPose.h"
     "electro_optical_sensor/session/EosSceneTypes.h"
     "electro_optical_sensor/session/EosSession.h"
     "electro_optical_sensor/session/EosTraceSession.h"
@@ -266,9 +266,7 @@ set(SAR_CONFIG_HEADERS
 
 set(SAR_SESSION_HEADERS
     "sar/session/SarCycleInput.h"
-    "sar/session/SarCycleInputAdapter.h"
     "sar/session/SarCycleResult.h"
-    "sar/session/SarExternalInputAdapter.h"
     "sar/session/SarInputValidation.h"
     "sar/session/SarIssueCodes.h"
     "sar/session/SarProductDebugView.h"

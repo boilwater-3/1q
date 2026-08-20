@@ -7,9 +7,8 @@
 
 ## 周期 IO
 - EosCycleInput.h — 单周期输入
-- EosCycleInputBuilder.h — 周期输入构造器
 - EosCycleResult.h — 周期结果 + 输出帧
-- EosCycleOutputBuilder.h — 周期输出构造器
+- EosCycleOutputAdapter.h — 周期输出适配器（内部帧 → 外部 ECEF）
 
 ## 环境域
 - 环境配置已迁移至 config 目录，见 EosEnvironmentConfig.h（环境场景配置由 `EosSessionConfig.environment` 聚合，运行期更新通过 `EosRuntimeConfigPatch` 提交）
@@ -19,7 +18,7 @@
 - EosOutputTypes.h — 输出类型（EosDetectionRecord 等）
 
 ## 适配器
-- EosExternalInputAdapter.h — 外部输入适配器
+- EosPlatformEcefPose.h — 平台 ECEF 位姿（CycleInput 字段派生与输出反算共用）
 - EosExternalOutputAdapter.h — 外部输出适配器
 
 ## 校验与调试

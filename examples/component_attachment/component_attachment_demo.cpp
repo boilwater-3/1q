@@ -258,7 +258,6 @@ int main(int argc, char* argv[]) {
     scene.t_sec = static_cast<double>(cycle) * scene_data.dt_sec;
     scene.world_targets = target_states;
     scene.emitters = demo::MakeEmitterTruths(target_states, scene_data.esr, scene.t_sec);
-    scene.optical_targets = demo::MakeOpticalTargets(target_states);
     scene.sbirs_targets = demo::MakeSbirsTargetInputs(target_states);
     scene.sbirs_utc_julian_day = scene_data.sbirs_utc_julian_day;  // SBIRS ECI 输出参考系（UTC 儒略日）
     scene.sar_point_targets = demo::MakeSarPointTargets(target_states);

@@ -45,9 +45,7 @@ set(SAR_ENGINE_SOURCES
 )
 
 set(SAR_CORE_SOURCES
-    sar/session/SarCycleInputAdapter.cpp
     sar/session/SarDiagnosticUtils.cpp
-    sar/session/SarExternalInputAdapter.cpp
     sar/session/SarInputValidation.cpp
     sar/session/SarRawHistoryBuilder.cpp
     sar/session/SarReplayFlatbufferCodec.cpp

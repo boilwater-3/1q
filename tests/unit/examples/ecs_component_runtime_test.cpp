@@ -29,7 +29,6 @@
 #include "1q/coordinate/position_transform.h"
 #include "1q/coordinate/types.h"
 #include "1q/electro_optical_sensor/config/EosRuntimeConfigBuilder.h"
-#include "1q/electro_optical_sensor/session/EosExternalInputAdapter.h"
 #include "1q/electro_optical_sensor/session/EosOutputDebugView.h"
 #include "1q/electro_optical_sensor/session/EosSession.h"
 #include "1q/electronic_surveillance_radar/config/EsrRuntimeConfigBuilder.h"
@@ -381,11 +380,13 @@ class SensorQueryScene {
     oneq::coordinate::EcefPositionM target_ecef;
     oneq::coordinate::TryEnuToEcef(offset, origin, &target_ecef);
 
-    // AR：一个目标（世界 ECEF 真值 + RCS；组件按平台锚点转 ENU）。
+    // AR/EOS：同一世界 ECEF 真值（EOS 经平台锚点转 ENU；外观字段供光学通道）。
     ca::demo::TargetEcefState ar_world_target;
     ar_world_target.id = 1001U;
     ar_world_target.position = target_ecef;
     ar_world_target.rcs = 2.0f;
+    ar_world_target.temperature_k = 520.0f;
+    ar_world_target.projected_area_m2 = 18.0f;
     scene_.world_targets.push_back(ar_world_target);
 
     // ESR：一个辐射源（脉冲列波形，10 GHz 级）。脉冲列自窗口起点铺开——
@@ -400,17 +401,6 @@ class SensorQueryScene {
     emitter_template_.antenna.peak_gain_dbi = 30.0;
     RebuildEmitterWaveforms(0.0);
     scene_.emitters.push_back(emitter_template_);
-
-    // EOS：一个光学目标。
-    electro_optical_sensor::session::EosExternalTargetInput optical;
-    optical.target_id = 1001U;
-    optical.kinematics.position_frame = oneq::coordinate::PositionFrame::kEcef;
-    optical.kinematics.position_ecef_m = target_ecef;
-    optical.appearance.apparent_temperature_k = 520.0f;
-    optical.appearance.emissivity = 0.92f;
-    optical.appearance.reflectance = 0.35f;
-    optical.appearance.projected_area_m2 = 18.0f;
-    scene_.optical_targets.push_back(optical);
 
     // SBIRS：一个红外目标 + 天基平台（目标群中心正上方 +500 km，凝视模式）。
     sbirs_sensor::session::SbirsSceneTarget ir;
@@ -437,10 +427,12 @@ class SensorQueryScene {
 
 TEST(SensorQueryGettersTest, CompletedCyclesReportPoweredOnAndScanAzimuth) {
   SensorQueryScene scene;
-  scene.platform().Attach(std::make_unique<ca::ArSensorComponent>(
-      airborne_radar::session::ArSession::Create(MakeArConfig()), 1U, 1U));
+  // Demo mount order: Flight → ESR → [ECM] → AR → … so AR RF publish does not
+  // land in rf_world before ESR consumes the script emitters for this cycle.
   scene.platform().Attach(std::make_unique<ca::EsrSensorComponent>(
       electronic_surveillance_radar::session::EsrSession::Create()));
+  scene.platform().Attach(std::make_unique<ca::ArSensorComponent>(
+      airborne_radar::session::ArSession::Create(MakeArConfig()), 1U, 1U));
   scene.platform().Attach(std::make_unique<ca::EosSensorComponent>(
       electro_optical_sensor::session::EosSession::Create(MakeEosConfig())));
   scene.platform().Attach(std::make_unique<ca::SbirsSensorComponent>(
@@ -468,10 +460,12 @@ TEST(SensorQueryGettersTest, CompletedCyclesReportPoweredOnAndScanAzimuth) {
 
 TEST(SensorQueryGettersTest, PowerOffPatchFlipsPoweredStateAndClearsAzimuth) {
   SensorQueryScene scene;
-  scene.platform().Attach(std::make_unique<ca::ArSensorComponent>(
-      airborne_radar::session::ArSession::Create(MakeArConfig()), 1U, 1U));
+  // Demo mount order: Flight → ESR → [ECM] → AR → … so AR RF publish does not
+  // land in rf_world before ESR consumes the script emitters for this cycle.
   scene.platform().Attach(std::make_unique<ca::EsrSensorComponent>(
       electronic_surveillance_radar::session::EsrSession::Create()));
+  scene.platform().Attach(std::make_unique<ca::ArSensorComponent>(
+      airborne_radar::session::ArSession::Create(MakeArConfig()), 1U, 1U));
   scene.platform().Attach(std::make_unique<ca::EosSensorComponent>(
       electro_optical_sensor::session::EosSession::Create(MakeEosConfig())));
   scene.platform().Attach(std::make_unique<ca::SbirsSensorComponent>(

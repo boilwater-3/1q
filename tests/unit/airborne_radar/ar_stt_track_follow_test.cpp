@@ -42,7 +42,7 @@ namespace {
 using airborne_radar::session::ArCycleInput;
 using airborne_radar::session::ArCycleResult;
 using airborne_radar::session::ArDesignationRevertReason;
-using airborne_radar::session::ArExternalPoseInput;
+using airborne_radar::session::ArPlatformInput;
 using airborne_radar::session::ArSession;
 using airborne_radar::session::ArTargetInput;
 using airborne_radar::session::ArTrackLifecycleEvent;
@@ -60,7 +60,7 @@ config::ArSessionConfig MakeDetectionFocusedConfig() {
   return cfg;
 }
 
-ArExternalPoseInput MakePlatformInput() {
+ArPlatformInput MakePlatformInput() {
   oneq::coordinate::EcefPositionM platform_ecef;
   oneq::coordinate::LlaPositionDegM platform_lla;
   platform_lla.latitude_deg = 30.0;
@@ -68,7 +68,7 @@ ArExternalPoseInput MakePlatformInput() {
   platform_lla.altitude_m = 1000.0;
   EXPECT_TRUE(oneq::coordinate::TryLlaToEcef(platform_lla, &platform_ecef));
 
-  ArExternalPoseInput platform;
+  ArPlatformInput platform;
   platform.platform_entity_id = 42U;
   platform.platform_position_ecef_m = platform_ecef;
   platform.platform_velocity_mps.x_mps = 0.0;
@@ -111,7 +111,7 @@ ArTargetInput MakeStationaryTargetInput() {
   return target;
 }
 
-ArCycleInput MakeCycleInput(std::uint32_t cycle_index, const ArExternalPoseInput& platform,
+ArCycleInput MakeCycleInput(std::uint32_t cycle_index, const ArPlatformInput& platform,
                             const std::vector<ArTargetInput>& targets) {
   ArCycleInput input;
   input.cycle_index = cycle_index;
@@ -125,7 +125,7 @@ ArCycleInput MakeCycleInput(std::uint32_t cycle_index, const ArExternalPoseInput
 // 运行 [start_cycle, max_cycles] 区间的周期直到指定条件满足（上限保护），
 // 返回最后一次结果。周期号必须连续（ArSession 有世界时钟连续性检查）。
 template <typename Predicate>
-ArCycleResult RunUntil(ArSession* session, const ArExternalPoseInput& platform,
+ArCycleResult RunUntil(ArSession* session, const ArPlatformInput& platform,
                        const std::vector<ArTargetInput>& targets, std::uint32_t start_cycle,
                        std::uint32_t max_cycles, Predicate predicate, std::uint32_t* last_cycle) {
   ArCycleResult last;
@@ -331,7 +331,7 @@ oneq::electromagnetics::RfSceneDirection TargetDirectionFromEnu(const ArTargetIn
 }
 
 TEST(ArSttTrackFollowTest, SessionFollowsDesignatedTrackThenRevertsOnLoss) {
-  const ArExternalPoseInput platform = MakePlatformInput();
+  const ArPlatformInput platform = MakePlatformInput();
   const ArTargetInput target = MakeStationaryTargetInput();
   const std::vector<ArTargetInput> targets{target};
   ArSession session = ArSession::Create(MakeDetectionFocusedConfig());
@@ -463,7 +463,7 @@ TEST(ArSttTrackFollowTest, SessionFollowsDesignatedTrackThenRevertsOnLoss) {
 }
 
 TEST(ArSttTrackFollowTest, SessionExplicitDwellOverridesTrackFollowing) {
-  const ArExternalPoseInput platform = MakePlatformInput();
+  const ArPlatformInput platform = MakePlatformInput();
   const ArTargetInput target = MakeStationaryTargetInput();
   const std::vector<ArTargetInput> targets{target};
   ArSession session = ArSession::Create(MakeDetectionFocusedConfig());
@@ -524,7 +524,7 @@ TEST(ArSttTrackFollowTest, SessionExplicitDwellOverridesTrackFollowing) {
 // TWS 生效模式（含 STT 回退）下 session 级波束动画：发射 boresight 逐周期
 // 按扫描表推进（boundaries.md 已知限制修复），不再静止于 base scan_center + dwell。
 TEST(ArSttTrackFollowTest, SessionTwsScanAnimatesBeamAcrossCycles) {
-  const ArExternalPoseInput platform = MakePlatformInput();
+  const ArPlatformInput platform = MakePlatformInput();
   const ArTargetInput target = MakeStationaryTargetInput();
   const std::vector<ArTargetInput> targets{target};
   ArSession session = ArSession::Create(MakeDetectionFocusedConfig());
@@ -553,7 +553,7 @@ TEST(ArSttTrackFollowTest, SessionTwsScanAnimatesBeamAcrossCycles) {
 // kAcquisitionTimeout（kDesignationDropped 事件）；作废后指定清零、生效模式
 // 按扫描（kTws）处理且波束继续逐周期推进。
 TEST(ArSttTrackFollowTest, SessionDesignationExpiresOnAcquisitionTimeout) {
-  const ArExternalPoseInput platform = MakePlatformInput();
+  const ArPlatformInput platform = MakePlatformInput();
   // 静默目标：位移 20km 且 RCS 远低于检测门（与回退测试的静默口径一致）——
   // 任何周期都不会被检测/建航迹 → 窗口内无法捕获（近距离目标即使 RCS 极小
   // 仍可被检测确认，不能用于本测试）。
@@ -629,7 +629,7 @@ TEST(ArSttTrackFollowTest, SessionDesignationExpiresOnAcquisitionTimeout) {
 // 超过窗口截止周期后仍持续跟随（窗口只约束首次捕获，捕获后不受窗口限制、
 // 不作废），记录器无 kAcquisitionTimeout 事件。
 TEST(ArSttTrackFollowTest, SessionDesignationAcquiresWithinWindowKeepsFollowingPastDeadline) {
-  const ArExternalPoseInput platform = MakePlatformInput();
+  const ArPlatformInput platform = MakePlatformInput();
   const ArTargetInput target = MakeStationaryTargetInput();
   const std::vector<ArTargetInput> targets{target};
   ArSession session = ArSession::Create(MakeDetectionFocusedConfig());
@@ -690,7 +690,7 @@ TEST(ArSttTrackFollowTest, SessionDesignationAcquiresWithinWindowKeepsFollowingP
 // 失败周期不消耗指定窗口（审核修复）：post-emission 拒绝周期后，作废沿
 // 在后续首个成功周期才可见（kAcquisitionTimeout 报告不被失败周期吞掉）。
 TEST(ArSttTrackFollowTest, RejectedCycleDoesNotConsumeDesignationWindow) {
-  const ArExternalPoseInput platform = MakePlatformInput();
+  const ArPlatformInput platform = MakePlatformInput();
   // 静默目标（移远 + 极小 RCS）：窗口内无法捕获 → 到期作废。
   ArTargetInput silent = MakeStationaryTargetInput();
   silent.position_x += 20000.0f;

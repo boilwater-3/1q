@@ -14,7 +14,6 @@
 #include <vector>
 
 #include "1q/coordinate/types.h"
-#include "1q/electro_optical_sensor/session/EosExternalInputAdapter.h"
 #include "1q/electromagnetics/RfScene.h"
 #include "1q/remote_identification_radar/session/RirSceneTypes.h"
 #include "1q/sar/session/SarCycleInput.h"
@@ -60,10 +59,6 @@ std::vector<oneq::electromagnetics::RfSceneEmission> MakeEmitterTruths(
     const std::vector<TargetEcefState>& states, const EsrEmitterParams& esr,
     double window_start_time_s);
 
-/// EOS 光学目标真值：同一物理目标（外观参数仿 electro_optical 示例）。
-std::vector<electro_optical_sensor::session::EosExternalTargetInput> MakeOpticalTargets(
-    const std::vector<TargetEcefState>& states);
-
 /// SBIRS 红外目标真值：同一物理目标（红外签名以辐射强度 W/sr 提供，与 EOS 温度型外观不同源）。
 std::vector<sbirs_sensor::session::SbirsSceneTarget> MakeSbirsTargetInputs(
     const std::vector<TargetEcefState>& states);
@@ -72,8 +67,8 @@ std::vector<sbirs_sensor::session::SbirsSceneTarget> MakeSbirsTargetInputs(
 std::vector<sar::session::SarPointTarget> MakeSarPointTargets(
     const std::vector<TargetEcefState>& states);
 
-/// RIR 场景目标真值：同一物理目标投影到站点局部 ENU（位置/速度经库内 ECEF↔ENU
-/// 变换，斜距 = |ENU|）；携带特征脚本的目标铺均匀视角 RCS 网格 + 双通道极化
+/// RIR 场景目标真值：同一物理目标经公共 TryMakeEnuSceneState 投影到站点局部 ENU；
+/// 携带特征脚本的目标铺均匀视角 RCS 网格 + 双通道极化
 /// 样本 + 散射器（仿集成测试配方，识别库模板匹配源），无特征脚本的目标只供
 /// 标量 RCS（探测链可用、无识别结论）。
 std::vector<remote_identification_radar::session::RirSceneTarget> MakeRirSceneTargets(

@@ -8,7 +8,7 @@
 #ifndef ONEQ_AIRBORNE_RADAR_SESSION_AR_CYCLE_OUTPUT_ADAPTER_H_
 #define ONEQ_AIRBORNE_RADAR_SESSION_AR_CYCLE_OUTPUT_ADAPTER_H_
 
-#include "1q/airborne_radar/session/ArExternalInputAdapter.h"
+#include "1q/airborne_radar/session/ArPlatformInput.h"
 #include "1q/airborne_radar/session/ArExternalOutputAdapter.h"
 #include "1q/airborne_radar/session/ArTrackOutput.h"
 #include "1q/api.hpp"
@@ -37,7 +37,7 @@ struct ONEQ_API ArCycleOutputAdapter {
    * @param[out] output 外部 ECEF 轨迹输出帧；可为 nullptr。
    * @return 转换成功返回 true。
    */
-  static bool Build(const ArExternalPoseInput& platform, const TrackOutputFrame& frame,
+  static bool Build(const ArPlatformInput& platform, const TrackOutputFrame& frame,
                     ArExternalTrackOutputFrame* output);
 
   /**

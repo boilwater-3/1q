@@ -1,6 +1,6 @@
 ﻿/**
- * @file ar_external_input_adapter_test.cpp
- * @brief 验证 ArExternalInputAdapter 的坐标转换与校验分支（此前 32% 覆盖）。
+ * @file ar_radar_frame_transform_test.cpp
+ * @brief 验证 ArRadarFrameTransform 的坐标转换与校验分支（此前 32% 覆盖）。
  */
 
 #include <gtest/gtest.h>
@@ -8,7 +8,7 @@
 #include <cmath>
 #include <limits>
 
-#include "1q/airborne_radar/session/ArExternalInputAdapter.h"
+#include "1q/airborne_radar/session/ArRadarFrameTransform.h"
 #include "1q/coordinate/types.h"
 
 namespace airborne_radar {
@@ -44,8 +44,8 @@ EcefVelocityMps MakeValidEcefVelocity() {
   return v;
 }
 
-ArExternalPoseInput MakeValidPoseInput() {
-  ArExternalPoseInput input;
+ArPlatformInput MakeValidPoseInput() {
+  ArPlatformInput input;
   input.platform_position_ecef_m = MakeValidEcefPosition();
   input.platform_velocity_mps = MakeValidEcefVelocity();
   input.platform_attitude_deg = EulerAnglesDeg{10.0, -5.0, 2.0};
@@ -57,54 +57,54 @@ ArExternalPoseInput MakeValidPoseInput() {
 const EulerAnglesDeg kZeroMount{0.0, 0.0, 0.0};
 
 // =============================================================================
-// TryMakeArPoseFromExternalKinematics
+// TryMakeArPoseFromPlatform
 // =============================================================================
 
-TEST(ArExternalInputAdapterTest, ValidPoseConvertsToFrameAndVelocity) {
-  ArExternalPoseInput input = MakeValidPoseInput();
+TEST(ArRadarFrameTransformTest, ValidPoseConvertsToFrameAndVelocity) {
+  ArPlatformInput input = MakeValidPoseInput();
   LocalFrameReference reference;
   oneq::foundation::Vector3f velocity;
   ArCoordinateStatus status;
 
-  ASSERT_TRUE(TryMakeArPoseFromExternalKinematics(input, kZeroMount, &reference, &velocity, &status));
+  ASSERT_TRUE(TryMakeArPoseFromPlatform(input, kZeroMount, &reference, &velocity, &status));
   EXPECT_EQ(status, ArCoordinateStatus::kOk);
   // 验证 LLA 转换成功且纬度在合理范围
   EXPECT_GT(reference.origin_lla.latitude_deg, 20.0);
   EXPECT_LT(reference.origin_lla.latitude_deg, 40.0);
 }
 
-TEST(ArExternalInputAdapterTest, NullOutputsReturnFalseWithStatus) {
-  ArExternalPoseInput input = MakeValidPoseInput();
+TEST(ArRadarFrameTransformTest, NullOutputsReturnFalseWithStatus) {
+  ArPlatformInput input = MakeValidPoseInput();
   ArCoordinateStatus status;
-  EXPECT_FALSE(TryMakeArPoseFromExternalKinematics(input, kZeroMount, nullptr, nullptr, &status));
+  EXPECT_FALSE(TryMakeArPoseFromPlatform(input, kZeroMount, nullptr, nullptr, &status));
   EXPECT_EQ(status, ArCoordinateStatus::kNullOutput);
 }
 
-TEST(ArExternalInputAdapterTest, NullStatusDoesNotCrash) {
-  ArExternalPoseInput input = MakeValidPoseInput();
+TEST(ArRadarFrameTransformTest, NullStatusDoesNotCrash) {
+  ArPlatformInput input = MakeValidPoseInput();
   LocalFrameReference reference;
   oneq::foundation::Vector3f velocity;
-  EXPECT_TRUE(TryMakeArPoseFromExternalKinematics(input, kZeroMount, &reference, &velocity, nullptr));
+  EXPECT_TRUE(TryMakeArPoseFromPlatform(input, kZeroMount, &reference, &velocity, nullptr));
 }
 
-TEST(ArExternalInputAdapterTest, InvalidEcefPositionReturnsTransformFail) {
-  ArExternalPoseInput input = MakeValidPoseInput();
+TEST(ArRadarFrameTransformTest, InvalidEcefPositionReturnsTransformFail) {
+  ArPlatformInput input = MakeValidPoseInput();
   input.platform_position_ecef_m = EcefPositionM{0.0, 0.0, 0.0};  // 原点 → norm=0
   LocalFrameReference reference;
   oneq::foundation::Vector3f velocity;
   ArCoordinateStatus status;
-  EXPECT_FALSE(TryMakeArPoseFromExternalKinematics(input, kZeroMount, &reference, &velocity, &status));
+  EXPECT_FALSE(TryMakeArPoseFromPlatform(input, kZeroMount, &reference, &velocity, &status));
   EXPECT_EQ(status, ArCoordinateStatus::kCoordinateTransformFail);
 }
 
-TEST(ArExternalInputAdapterTest, NonFiniteVelocityUsesZeroVelocity) {
-  ArExternalPoseInput input = MakeValidPoseInput();
+TEST(ArRadarFrameTransformTest, NonFiniteVelocityUsesZeroVelocity) {
+  ArPlatformInput input = MakeValidPoseInput();
   input.platform_velocity_mps.x_mps = std::numeric_limits<double>::quiet_NaN();
   LocalFrameReference reference;
   oneq::foundation::Vector3f velocity;
   ArCoordinateStatus status;
   // 非有限速度不导致失败，而是退化为零速度
-  ASSERT_TRUE(TryMakeArPoseFromExternalKinematics(input, kZeroMount, &reference, &velocity, &status));
+  ASSERT_TRUE(TryMakeArPoseFromPlatform(input, kZeroMount, &reference, &velocity, &status));
   EXPECT_EQ(velocity.x, 0.0f);
   EXPECT_EQ(velocity.y, 0.0f);
   EXPECT_EQ(velocity.z, 0.0f);
@@ -114,12 +114,12 @@ TEST(ArExternalInputAdapterTest, NonFiniteVelocityUsesZeroVelocity) {
 // TryMakeArTargetFromEnu
 // =============================================================================
 
-TEST(ArExternalInputAdapterTest, ValidEnuTargetWithZeroAttitudePreservesGeometry) {
-  ArExternalPoseInput pose_input = MakeValidPoseInput();
+TEST(ArRadarFrameTransformTest, ValidEnuTargetWithZeroAttitudePreservesGeometry) {
+  ArPlatformInput pose_input = MakeValidPoseInput();
   pose_input.platform_attitude_deg = EulerAnglesDeg{0.0, 0.0, 0.0};
   LocalFrameReference reference;
   oneq::foundation::Vector3f velocity;
-  ASSERT_TRUE(TryMakeArPoseFromExternalKinematics(pose_input, kZeroMount, &reference, &velocity,
+  ASSERT_TRUE(TryMakeArPoseFromPlatform(pose_input, kZeroMount, &reference, &velocity,
                                                   nullptr));
 
   ArTargetInput target_input;
@@ -153,13 +153,13 @@ TEST(ArExternalInputAdapterTest, ValidEnuTargetWithZeroAttitudePreservesGeometry
   EXPECT_FLOAT_EQ(target.rcs, 5.0f);
 }
 
-TEST(ArExternalInputAdapterTest, EnuTargetRotationPreservesNormAndSubtractsPlatformVelocity) {
-  ArExternalPoseInput pose_input = MakeValidPoseInput();
+TEST(ArRadarFrameTransformTest, EnuTargetRotationPreservesNormAndSubtractsPlatformVelocity) {
+  ArPlatformInput pose_input = MakeValidPoseInput();
   // 平台零速度：相对速度 = 目标 ENU 速度旋入雷达体系，模长保持
   pose_input.platform_velocity_mps = EcefVelocityMps{};
   LocalFrameReference reference;
   oneq::foundation::Vector3f velocity;
-  ASSERT_TRUE(TryMakeArPoseFromExternalKinematics(pose_input, kZeroMount, &reference, &velocity,
+  ASSERT_TRUE(TryMakeArPoseFromPlatform(pose_input, kZeroMount, &reference, &velocity,
                                                   nullptr));
   EXPECT_EQ(velocity.x, 0.0f);
   EXPECT_EQ(velocity.y, 0.0f);
@@ -189,7 +189,7 @@ TEST(ArExternalInputAdapterTest, EnuTargetRotationPreservesNormAndSubtractsPlatf
   EXPECT_NEAR(relative_norm, target_norm, 1.0e-2f);
 }
 
-TEST(ArExternalInputAdapterTest, NullEnuTargetReturnsFalse) {
+TEST(ArRadarFrameTransformTest, NullEnuTargetReturnsFalse) {
   ArTargetInput target_input;
   LocalFrameReference reference;
   oneq::foundation::Vector3f radar_vel;
@@ -198,7 +198,7 @@ TEST(ArExternalInputAdapterTest, NullEnuTargetReturnsFalse) {
   EXPECT_EQ(status, ArCoordinateStatus::kNullOutput);
 }
 
-TEST(ArExternalInputAdapterTest, NonFiniteEnuPositionReturnsTransformFail) {
+TEST(ArRadarFrameTransformTest, NonFiniteEnuPositionReturnsTransformFail) {
   ArTargetInput target_input;
   target_input.position_x = std::numeric_limits<float>::quiet_NaN();
   target_input.velocity_x = 10.0f;
@@ -210,7 +210,7 @@ TEST(ArExternalInputAdapterTest, NonFiniteEnuPositionReturnsTransformFail) {
   EXPECT_EQ(status, ArCoordinateStatus::kCoordinateTransformFail);
 }
 
-TEST(ArExternalInputAdapterTest, NonFiniteEnuVelocityReturnsTransformFail) {
+TEST(ArRadarFrameTransformTest, NonFiniteEnuVelocityReturnsTransformFail) {
   ArTargetInput target_input;
   target_input.velocity_z = std::numeric_limits<float>::infinity();
   LocalFrameReference reference;
@@ -221,7 +221,7 @@ TEST(ArExternalInputAdapterTest, NonFiniteEnuVelocityReturnsTransformFail) {
   EXPECT_EQ(status, ArCoordinateStatus::kCoordinateTransformFail);
 }
 
-TEST(ArExternalInputAdapterTest, NonFiniteRadarVelocityReturnsTransformFail) {
+TEST(ArRadarFrameTransformTest, NonFiniteRadarVelocityReturnsTransformFail) {
   ArTargetInput target_input;
   target_input.velocity_x = 10.0f;
   LocalFrameReference reference;

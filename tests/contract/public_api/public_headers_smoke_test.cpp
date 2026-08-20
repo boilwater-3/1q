@@ -52,11 +52,10 @@
 #include "1q/electro_optical_sensor/config/electro_optical_sensor_config.hpp"
 #include "1q/electro_optical_sensor/electro_optical_sensor.hpp"
 #include "1q/electro_optical_sensor/session/EosCycleInput.h"
-#include "1q/electro_optical_sensor/session/EosCycleInputAdapter.h"
 #include "1q/electro_optical_sensor/session/EosCycleResult.h"
 #include "1q/electro_optical_sensor/session/EosDetectionLifecycleRecorder.h"
-#include "1q/electro_optical_sensor/session/EosExternalInputAdapter.h"
 #include "1q/electro_optical_sensor/session/EosInputValidation.h"
+#include "1q/electro_optical_sensor/session/EosPlatformEcefPose.h"
 #include "1q/electro_optical_sensor/session/EosOutputDebugView.h"
 #include "1q/electro_optical_sensor/session/EosOutputTypes.h"
 #include "1q/electro_optical_sensor/session/EosSession.h"
@@ -365,26 +364,16 @@ TEST(PublicHeadersSmokeTest, EosPublicSurfaceSupportsMinimalUsage) {
   target.appearance.projected_area_m2 = 2.0f;
   input.scene.push_back(target);
 
-  // 世界侧 ECEF/LLA → ENU 的一站式公共入口（平台锚点 ENU 契约）。
-  oneq::coordinate::LocalFrameReference eos_reference;
-  eos_reference.origin_lla.latitude_deg = 0.0;
-  eos_reference.origin_lla.longitude_deg = 0.0;
-  eos_reference.origin_lla.altitude_m = 0.0;
+  // 平台 ECEF 位姿类型可构造（场景目标 ENU 由公共 TryMakeEnuSceneState 直填）。
+  oneq::coordinate::LlaPositionDegM eos_origin_lla;
+  eos_origin_lla.latitude_deg = 0.0;
+  eos_origin_lla.longitude_deg = 0.0;
+  eos_origin_lla.altitude_m = 0.0;
   oneq::coordinate::EcefPositionM eos_origin_ecef;
-  ASSERT_TRUE(oneq::coordinate::TryLlaToEcef(eos_reference.origin_lla, &eos_origin_ecef));
-  session::EosExternalPoseInput eos_pose_input;
-  eos_pose_input.platform_position_ecef_m = eos_origin_ecef;
-  session::EosExternalTargetInput eos_world_target;
-  eos_world_target.kinematics.position_frame = oneq::coordinate::PositionFrame::kEcef;
-  eos_world_target.kinematics.position_ecef_m.x_m = eos_origin_ecef.x_m + 100.0;
-  eos_world_target.kinematics.position_ecef_m.y_m = eos_origin_ecef.y_m;
-  eos_world_target.kinematics.position_ecef_m.z_m = eos_origin_ecef.z_m;
-  session::EosSceneTarget eos_scene_target_from_world;
-  ASSERT_TRUE(session::TryMakeEosSceneTargetFromExternalInput(
-      9U, eos_world_target, eos_reference, &eos_scene_target_from_world));
-  EXPECT_GT(eos_scene_target_from_world.position_x + eos_scene_target_from_world.position_y +
-                eos_scene_target_from_world.position_z,
-            0.0f);
+  ASSERT_TRUE(oneq::coordinate::TryLlaToEcef(eos_origin_lla, &eos_origin_ecef));
+  session::EosPlatformEcefPose eos_platform_pose;
+  eos_platform_pose.platform_position_ecef_m = eos_origin_ecef;
+  EXPECT_NEAR(eos_platform_pose.platform_position_ecef_m.x_m, eos_origin_ecef.x_m, 1.0e-6);
 
   const session::EosIssueList issues = session::ValidateEosCycleInput(input, 30.0f);
   EXPECT_FALSE(session::HasValidationError(issues));

@@ -81,6 +81,9 @@ PRF 分数余量）不推进。
 SAR 是「场景目标平台锚点 ENU 输入契约」（docs/common/contract.md）的**文档化例外**：
 孔径跨多脉冲、场景固定于地面，几何锚点是配置期确定的场景中心（非逐周期移动的平台），
 故点目标输入保持 LLA（`SarPointTarget`），库内使用 scene-center 相对 ENU 几何。
+外部完整 IQ 的 `pulse_states` 亦要求调用方直接填 scene-center 相对 ENU（见
+`SarCycleInput.h`）；已删除无生产调用的 `SarCycleInputAdapter` /
+`SarExternalInputAdapter`（原 ECEF/LLA→scene-center 脉冲便利层）。
 
 1. 场景中心经纬度和 `terrain_reference_altitude_m` 组成局部原点，平台、点目标和 L3 航路点使用同一转换。
 2. `use_flat_earth_geometry=true` 时，`x = R cos(lat0) Δlon`、`y = R Δlat`、

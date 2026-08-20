@@ -5,7 +5,7 @@
 namespace electro_optical_sensor {
 namespace session {
 
-bool EosCycleOutputAdapter::Build(const EosExternalPoseInput& platform, const EosOutputFrame& frame,
+bool EosCycleOutputAdapter::Build(const EosPlatformEcefPose& platform, const EosOutputFrame& frame,
                                   EosExternalOutputFrame* output) {
   if (output == nullptr) {
     return false;

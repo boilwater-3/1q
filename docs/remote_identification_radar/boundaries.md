@@ -88,8 +88,8 @@ RIR 遵守 `docs/common/contract.md` 与 `docs/common/session_contract.md`：
 
 - 识别高度观测 = 平台绝对海拔 + 内部航迹 `position_z`；绝对海拔由必填平台 ECEF
   经 `TryEcefToLla` 库内派生；`position_z` 为雷达局部 ENU 切平面上向分量。
-- 场景目标 `position_x/y/z` 同帧（公共 API 为 ENU；集成层用户侧以 ECEF 描述目标，
-  适配层在边界完成 ECEF→ENU 转换）；`range_m` 为斜距（>0 或带非零位置）。
+- 场景目标 `position_x/y/z` 同帧（公共 API 为 ENU；集成层以公共
+  `TryMakeEnuSceneState` 完成 ECEF→ENU 后直填）；`range_m` 为斜距（>0 或带非零位置）。
 - 视角样本网格（`aspect_az_deg`/`aspect_el_deg`）为雷达局部视线角；RCS 插值为
   最近邻（不强制覆盖），覆盖下限属数据库 profile 级适用条件，由匹配阶段判定。
 

@@ -70,8 +70,10 @@ ISA 标准大气，这些字段全部未被消费，属未接入的死输入。�
    校验已删除），拒绝时明细经出参直通并装配进最终周期结果；运行期执行失败透传真实
    `abort_reason`（校验拒绝为 `kRejectedInvalidInput` + 细粒度明细），不写死替换。
    场景目标输入为平台锚点 radar-local ENU（`ArTargetInput`，契约见
-   docs/common/contract.md「场景目标平台锚点 ENU 输入契约」）；库内经
-   `TryMakeArTargetFromEnu` 旋入雷达体系（平台姿态∘安装角复合）后供检测/关联/跟踪使用。
+   docs/common/contract.md「场景目标平台锚点 ENU 输入契约」）；集成侧以公共
+   `TryMakeEnuSceneState` 直填。库内经 `TryMakeArTargetFromEnu`（`ArRadarFrameTransform`）
+   旋入雷达体系（平台姿态∘安装角复合）后供检测/关联/跟踪使用。平台位姿类型为
+   `ArPlatformInput`（ECEF），不是场景目标适配器。
 2. cycle input 校验失败时不执行 pipeline，`ArCycleResult` 携带 validation issues 与显式 abort
    reason `kValidationRejected`（保留 replay/trace 数值语义）。
 3. **非执行周期统一不复用（五模块统一规则）**：`Step()` 与 `ArCycleResult.output_frame`
