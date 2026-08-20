@@ -97,8 +97,6 @@ The final library artifact lands at `build/VisualStudio.15.0-amd64/Release/lib/1
 
 ### VS2015 delivery tier (customer integration)
 
-**目前项目并没有交付：重构不考虑过度兼容性，以边界干净为第一准则。**（The project has not shipped; do not chase excessive compatibility in refactors — clean boundaries come first.）
-
 **Why this tier exists**: the customer's VS2015 (v140, any Update) environment compiles our headers inside their own TUs and cannot be told to add compiler flags. BOM-less UTF-8 sources are read as system codepage (GBK), corrupting Chinese comments. Delivery therefore = C++11 + UTF-8 BOM on every tracked C/C++ file + **no `/utf-8`** anywhere (not even INTERFACE-propagated). The BOM makes cl.exe decode UTF-8 unconditionally; `scripts/utf8_bom.py` maintains it (convert/check/strip), CI's guard job enforces `check`, `.editorconfig` declares `utf-8-bom` for C/C++.
 
 **Preset selection**:
@@ -135,6 +133,8 @@ Each module keeps a design-doc set with `design.md` as the navigation entry and 
 Docs capture what code alone cannot convey (positioning, boundaries, non-goals, counter-intuitive behavior, veto rationale); step-by-step algorithm logic belongs in code.
 
 ## Engineering Conventions
+
+**The project has not been delivered: refactoring does not chase excessive compatibility — clean boundaries are the first principle.**
 
 **Style**
 - Follow the Google C++ Style Guide.
