@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file SarAngleWrap.h
  * @brief SAR 内部角度/相位归一化单一源。
  *

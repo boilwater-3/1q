@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file DecisionControlTypes.h
  * @brief 定义 AR 决策控制公共 DTO。
  */

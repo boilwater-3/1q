@@ -1,4 +1,4 @@
-// Copyright 2026. All Rights Reserved.
+﻿// Copyright 2026. All Rights Reserved.
 //
 // @file rir_recognition_feature_test.cpp
 // @brief 验证远程识别观测构造器与四类特征提取器的效能级行为。

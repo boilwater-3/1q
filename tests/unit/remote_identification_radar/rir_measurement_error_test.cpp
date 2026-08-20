@@ -1,4 +1,4 @@
-// Copyright 2026. All Rights Reserved.
+﻿// Copyright 2026. All Rights Reserved.
 //
 // @file rir_measurement_error_test.cpp
 // @brief 验证 RIR 测量误差模型（副本改写自 ar_signal_detection_test.cpp 的

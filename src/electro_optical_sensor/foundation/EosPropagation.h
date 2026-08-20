@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file EosPropagation.h
  * @brief 定义大气传输、接收功率与 SNR 计算函数。
  */

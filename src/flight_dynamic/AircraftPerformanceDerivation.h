@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file AircraftPerformanceDerivation.h
  * @brief 飞机性能推导单一源：CLmax（planform 分类）与失速速度。
  *

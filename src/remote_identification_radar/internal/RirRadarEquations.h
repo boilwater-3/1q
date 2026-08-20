@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file RirRadarEquations.h
  * @brief RIR 内部链路预算与检测物理函数薄适配层（common 单源）。
  *

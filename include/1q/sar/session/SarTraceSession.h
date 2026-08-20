@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file SarTraceSession.h
  * @brief 定义 SAR trace 会话占位门面。
  */

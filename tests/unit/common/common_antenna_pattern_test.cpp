@@ -1,4 +1,4 @@
-// Copyright 2026. All Rights Reserved.
+﻿// Copyright 2026. All Rights Reserved.
 //
 // @file common_antenna_pattern_test.cpp
 // @brief 验证 common 天线方向图基础行为。

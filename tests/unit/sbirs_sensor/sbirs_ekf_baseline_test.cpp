@@ -1,4 +1,4 @@
-// 验证 algorithms.md EKF 滤波跟踪 / NIS 诊断条目：SBIRS EKF 基线 NIS 诊断。
+﻿// 验证 algorithms.md EKF 滤波跟踪 / NIS 诊断条目：SBIRS EKF 基线 NIS 诊断。
 // 覆盖恒速 CV 适配场景与突发机动失配场景，为是否需要 IMM 提供最小可执行证据。
 #include <gtest/gtest.h>
 

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file ScanPatternGenerator.h
  * @brief 定义电子侦察波束扫描排布生成器。
  */

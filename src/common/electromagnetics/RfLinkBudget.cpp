@@ -1,4 +1,4 @@
-// Copyright 2026. All Rights Reserved.
+﻿// Copyright 2026. All Rights Reserved.
 
 #include "1q/electromagnetics/RfLinkBudget.h"
 

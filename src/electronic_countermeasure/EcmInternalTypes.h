@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file EcmInternalTypes.h
  * @brief ECM 模块内部共享类型：调度威胁表示、种子派生和域标签常量。
  *

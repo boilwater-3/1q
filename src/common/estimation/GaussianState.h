@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file GaussianState.h
  * @brief 定义高斯状态表示与维度化类型别名，作为 Kalman 滤波系列的核心数据载体。
  *

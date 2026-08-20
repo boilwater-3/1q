@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file SarProductLifecycleRecorder.h
  * @brief 定义 SAR 产品生命周期记录器。
  */

@@ -1,4 +1,4 @@
-// Copyright 2026. All Rights Reserved.
+﻿// Copyright 2026. All Rights Reserved.
 //
 // @file fusion_confidence_test.cpp
 // @brief 验证融合置信度公式：Σ 判决值 × 质量归一化 × 权重（滑窗内精确求和）。

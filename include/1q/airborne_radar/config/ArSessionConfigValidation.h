@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file ArSessionConfigValidation.h
  * @brief 机载雷达会话配置校验入口。
  *

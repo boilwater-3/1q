@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file threat_component.h
  * @brief 自定义实体-组件示例：威胁评估组件。
  *

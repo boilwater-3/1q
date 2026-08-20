@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file RirSessionConfigValidation.cpp
  * @brief 远程识别雷达会话配置校验实现。
  *

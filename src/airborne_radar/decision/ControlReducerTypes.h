@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file ControlReducerTypes.h
  * @brief 定义控制归并器内部使用的配置、结果与控制意图类型。
  *

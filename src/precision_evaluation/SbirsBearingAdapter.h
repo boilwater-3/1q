@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file SbirsBearingAdapter.h
  * @brief SBIRS 归属结果 → fusion DetectionRecord 的评估侧适配器（内部实现头）。
  *

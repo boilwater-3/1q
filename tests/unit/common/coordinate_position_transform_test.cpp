@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file coordinate_position_transform_test.cpp
  * @brief 验证 oneq::coordinate 位置转换数值正确性与往返一致性。
  */

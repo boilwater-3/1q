@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file esr_extension_consumer.cpp
  * @brief 验证安装后 ESR 扩展接口可被外部工程实现并访问。
  *

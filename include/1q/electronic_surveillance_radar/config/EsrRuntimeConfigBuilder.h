@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file EsrRuntimeConfigBuilder.h
  * @brief ESR 对外配置入口：运行期补丁类型与 RuntimeConfig Builder。
  */

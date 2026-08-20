@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file SbirsPolicyConfig.h
  * @brief 定义 SBIRS-inspired 检测、误差和调度策略。
  */

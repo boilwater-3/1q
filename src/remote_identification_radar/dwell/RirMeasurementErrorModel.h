@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file RirMeasurementErrorModel.h
  * @brief RIR 测量误差模型薄适配层（common 单源）。
  * @note 本文件仅供 RIR 模块内部使用，不作为公开 API；检测量测误差供

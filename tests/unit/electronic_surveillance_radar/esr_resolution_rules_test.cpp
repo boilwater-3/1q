@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file esr_resolution_rules_test.cpp
  * @brief ESR 配置解析规则单元测试。
  *

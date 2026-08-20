@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file SbirsReplayFlatbufferCodec.h
  * @brief SBIRS-inspired replay payload 的 FlatBuffers encode/decode 接口。
  */

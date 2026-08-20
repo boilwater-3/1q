@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file batch_replay.h
  * @brief 批量场景验证共享工具：可回放 trace 录制工厂 + 回放结果断言。
  *

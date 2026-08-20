@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file RuntimeAssemblySupport.h
  * @brief 定义 SignalPipeline 运行时配置与组件装配的内部辅助函数。
  */

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file SarOmegaKReferenceMapping.h
  * @brief Omega-K 参考元数据与绝对斜距映射执行器。
  */

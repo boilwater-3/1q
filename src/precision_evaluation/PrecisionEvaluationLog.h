@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file PrecisionEvaluationLog.h
  * @brief 精度评估验收日志宏：把需求 3.2.1.6.3 章节的误差样本与 AHP 评分写入项目日志。
  *

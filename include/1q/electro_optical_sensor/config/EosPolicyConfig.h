@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file EosPolicyConfig.h
  * @brief 定义 EOS 策略域配置。
  */

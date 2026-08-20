@@ -1,4 +1,4 @@
-#include "sbirs_sensor/foundation/SbirsRadiometry.h"
+﻿#include "sbirs_sensor/foundation/SbirsRadiometry.h"
 
 #include <algorithm>
 #include <cmath>

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file EsrTraceSession.h
  * @brief 为电子侦察模块提供独立的中间层记录包装器。
  */

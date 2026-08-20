@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file EosDetectionLifecycleRecorder.h
  * @brief 定义 EOS 目标探测生命周期记录器。
  */

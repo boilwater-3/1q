@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file CycleContextSupport.h
  * @brief 定义 SignalPipeline 周期缓存初始化与配置同步的内部辅助函数。
  */

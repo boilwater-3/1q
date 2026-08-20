@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file sbirs_exclusion_cause_recorder_test.cpp
  * @brief SBIRS 排除原因跨周期差分记录器单元测试（规则 13b 差分观测）。
  *

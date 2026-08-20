@@ -1,4 +1,4 @@
-// Copyright 2026. All Rights Reserved.
+﻿// Copyright 2026. All Rights Reserved.
 //
 // @file ar_input_validation_test.cpp
 // @brief 验证 AR 内部目标与单周期用户输入的原子校验合同。

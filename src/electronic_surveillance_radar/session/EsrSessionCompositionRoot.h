@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file EsrSessionCompositionRoot.h
  * @brief 定义电子侦察会话组合根。
  */

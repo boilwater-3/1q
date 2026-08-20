@@ -1,4 +1,4 @@
-// 守护 SAR 退化诊断可见性契约（见 post-mortem）：
+﻿// 守护 SAR 退化诊断可见性契约（见 post-mortem）：
 //   D1: 采样窗口装不下脉冲宽度 → config 层 abort（sample_window_too_small_for_pulse）
 //   D2: 回波 clipping → kWarning（从淹没的 kInfo 浮出）
 //   D3: 斜距与标称值严重错配 → 逐目标 kWarning（slant_range_mismatch）

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file ControlCommandMapper.h
  * @brief 封装控制意图归并、状态镜像与命令提交职责。
  */

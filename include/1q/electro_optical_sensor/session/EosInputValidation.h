@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file EosInputValidation.h
  * @brief 定义光学传感器周期输入校验接口。
  */

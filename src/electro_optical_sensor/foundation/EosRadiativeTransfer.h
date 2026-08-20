@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file EosRadiativeTransfer.h
  * @brief 内部辐射传输计算基元（RadiativeTransferInputs/Result/EvaluateRadiativeTransfer）。
  *

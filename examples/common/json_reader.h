@@ -1,4 +1,4 @@
-#ifndef EXAMPLES_COMMON_JSON_READER_H_
+﻿#ifndef EXAMPLES_COMMON_JSON_READER_H_
 #define EXAMPLES_COMMON_JSON_READER_H_
 
 #include <cstddef>

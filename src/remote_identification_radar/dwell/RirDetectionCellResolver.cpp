@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file RirDetectionCellResolver.cpp
  * @brief RIR detection cell 求解器实现（副本改写自 ArDetectionCellResolver.cpp；
  *        阶段 2-M M3：去 anti-RGPO 分支、施加四增益偏置）。

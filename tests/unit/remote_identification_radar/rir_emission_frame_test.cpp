@@ -1,4 +1,4 @@
-// Copyright 2026. All Rights Reserved.
+﻿// Copyright 2026. All Rights Reserved.
 //
 // @file rir_emission_frame_test.cpp
 // @brief 验证 RIR 公开 API 输出本周期实际发射（与 AR emission_frame 同契约）。

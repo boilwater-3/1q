@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file EosHardwareConfig.h
  * @brief 定义 EOS 硬件域配置。
  */

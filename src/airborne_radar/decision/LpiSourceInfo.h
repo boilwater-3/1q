@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file LpiSourceInfo.h
  * @brief 定义供 LPI evaluator 消费的内部威胁来源信息。
  */

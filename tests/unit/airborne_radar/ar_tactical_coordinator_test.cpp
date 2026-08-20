@@ -1,4 +1,4 @@
-// Copyright 2026. All Rights Reserved.
+﻿// Copyright 2026. All Rights Reserved.
 //
 // @file tactical_coordinator_test.cpp
 // @brief 验证新决策协调器与控制归并器的基础行为。

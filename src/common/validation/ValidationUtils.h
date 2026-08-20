@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file ValidationUtils.h
  * @brief 定义校验链路复用的有限值、问题构造与严重级别扫描工具。
  */

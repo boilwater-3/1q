@@ -1,4 +1,4 @@
-#include <gtest/gtest.h>
+﻿#include <gtest/gtest.h>
 
 #include "sar/imaging/SarImageQuality.h"
 #include "sar/imaging/SarMotionCompensation.h"

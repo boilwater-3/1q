@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file LapjvSolver.h
  * @brief 定义基于 LAPJV 最短增广路算法的全局最优指派求解器（common 单源）。
  */

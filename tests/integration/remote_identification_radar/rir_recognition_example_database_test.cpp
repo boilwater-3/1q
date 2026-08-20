@@ -1,4 +1,4 @@
-// Copyright 2026. All Rights Reserved.
+﻿// Copyright 2026. All Rights Reserved.
 //
 // @file rir_recognition_example_database_test.cpp
 // @brief 验证提交入库的示例识别基线可被加载（建库工具生成物端到端）。

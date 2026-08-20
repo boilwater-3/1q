@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file EosSessionCompositionRoot.h
  * @brief 定义 EOS 会话组合根及其装配结果。
  */

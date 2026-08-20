@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file ArHardwareConfig.h
  * @brief 机载雷达硬件域主配置类型集合。
  *

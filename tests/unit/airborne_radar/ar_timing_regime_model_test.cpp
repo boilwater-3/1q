@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file timing_regime_model_test.cpp
  * @brief 验证共享周期级时序体制与统计检测模型行为。
  */

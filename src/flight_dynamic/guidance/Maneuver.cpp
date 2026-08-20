@@ -1,4 +1,4 @@
-#include "1q/flight_dynamic/guidance/Maneuver.h"
+﻿#include "1q/flight_dynamic/guidance/Maneuver.h"
 
 #include <algorithm>
 #include <cmath>

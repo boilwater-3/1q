@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file eos_straylight_unit_test.cpp
  * @brief 验证 EOS 遮光罩杂散光抑制模型与管线接入行为。
  */

@@ -1,4 +1,4 @@
-// Copyright 2026. All Rights Reserved.
+﻿// Copyright 2026. All Rights Reserved.
 //
 // @file ar_signal_pipeline_test.cpp
 // @brief 验证信号处理流水线与内部配置的基础行为。

@@ -1,4 +1,4 @@
-// 规则 13b 门内归因分类器单测：ClassifySnrExclusionCause 五类输出与数值边界。
+﻿// 规则 13b 门内归因分类器单测：ClassifySnrExclusionCause 五类输出与数值边界。
 // 参考状态（全部损失为 0）：1 km 距离、主瓣中心增益、1 m² RCS、热噪声底、零传播损耗。
 
 #include "airborne_radar/signal/pipeline/DetectionExecution.h"

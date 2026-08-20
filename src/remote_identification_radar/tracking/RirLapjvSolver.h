@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file RirLapjvSolver.h
  * @brief RIR LAPJV 指派求解器薄适配层（common 单源，阶段 2-T N1）。
  *

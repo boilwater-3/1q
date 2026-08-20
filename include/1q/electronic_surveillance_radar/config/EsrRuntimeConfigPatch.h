@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file EsrRuntimeConfigPatch.h
  * @brief 定义 ESR 会话运行期配置补丁结构。
  */

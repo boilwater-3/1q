@@ -1,4 +1,4 @@
-#include "sar/session/SarDiagnosticUtils.h"
+﻿#include "sar/session/SarDiagnosticUtils.h"
 
 #include <utility>
 

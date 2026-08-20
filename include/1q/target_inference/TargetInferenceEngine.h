@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file TargetInferenceEngine.h
  * @brief 定义目标推演引擎（无状态纯函数算法面：航迹状态 → 带误差预算的推演结论）。
  */

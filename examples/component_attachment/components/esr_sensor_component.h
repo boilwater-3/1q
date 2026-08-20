@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file esr_sensor_component.h
  * @brief 自定义实体-组件示例：ESR（电子侦察）传感器组件。
  *

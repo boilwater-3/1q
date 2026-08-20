@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file SarOmegaKStoltInterpolation.h
  * @brief Omega-K 内部复数 Stolt 线性插值。
  */

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file ArSceneTypes.h
  * @brief 机载雷达场景实体输入类型集合。
  *

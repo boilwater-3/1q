@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file ThreatEvaluator.h
  * @brief 定义归一化加权和威胁评估器。
  */

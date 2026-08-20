@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file RirImmFilter.h
  * @brief RIR 交互多模型（IMM）滤波器包装（阶段 2-T N4）。
  *

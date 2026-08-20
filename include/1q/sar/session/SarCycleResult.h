@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file SarCycleResult.h
  * @brief 定义 SAR 会话单周期输出与诊断结果。
  */

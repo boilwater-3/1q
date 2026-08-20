@@ -1,4 +1,4 @@
-// Copyright 2026. All Rights Reserved.
+﻿// Copyright 2026. All Rights Reserved.
 //
 // @file ar_imm_matrix_defaults_test.cpp
 // @brief 验证 IMM 矩阵/权重单一构建源的默认值、校验与违规收敛行为。

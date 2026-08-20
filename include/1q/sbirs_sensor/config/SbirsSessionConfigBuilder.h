@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file SbirsSessionConfigBuilder.h
  * @brief 定义 SBIRS-inspired 会话配置 builder。
  */

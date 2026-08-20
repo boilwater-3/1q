@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file RirRuntimeConfigPatch.h
  * @brief 远程识别雷达运行期配置补丁类型集合。
  *

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file sbirs_sensor_config.hpp
  * @brief 聚合 SBIRS-inspired 配置 public headers。
  */

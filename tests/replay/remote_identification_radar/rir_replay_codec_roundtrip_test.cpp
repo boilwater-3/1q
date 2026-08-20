@@ -1,4 +1,4 @@
-// Copyright 2026. All Rights Reserved.
+﻿// Copyright 2026. All Rights Reserved.
 //
 // @file rir_replay_codec_roundtrip_test.cpp
 // @brief RIR replay 编解码字节精确往返测试。

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file RadarEquations.cpp
  * @brief AR 雷达方程薄适配层（common 单源）。
  */

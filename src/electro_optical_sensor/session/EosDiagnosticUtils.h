@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file EosDiagnosticUtils.h
  * @brief EOS 单周期诊断条目构造与中止记录工具函数。
  */

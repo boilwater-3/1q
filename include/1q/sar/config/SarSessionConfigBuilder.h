@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file SarSessionConfigBuilder.h
  * @brief 合成孔径雷达会话配置链式构造器（薄封装）。
  *

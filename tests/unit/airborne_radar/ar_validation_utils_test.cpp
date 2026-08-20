@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file validation_utils_test.cpp
  * @brief 验证校验通用工具的有限值、问题构造与严重级别扫描行为。
  */

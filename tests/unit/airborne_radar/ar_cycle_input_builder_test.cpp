@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file ar_cycle_input_builder_test.cpp
  * @brief 验证 AR 单周期用户输入的时间、坐标和 interference 合同。
  */

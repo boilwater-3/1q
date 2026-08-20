@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file RirEnvironmentConfig.h
  * @brief 远程识别雷达环境域主配置类型。
  *

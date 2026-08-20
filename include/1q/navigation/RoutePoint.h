@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file RoutePoint.h
  * @brief 定义中性航点类型与航路计划。
  */

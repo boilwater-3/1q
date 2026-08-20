@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file SarRuntimeConfigPatch.h
  * @brief 定义 SAR 运行期可变配置补丁。
  */

@@ -1,4 +1,4 @@
-// MSVC 的 <cmath> 默认不定义 M_PI，需在第一个 <cmath> include 前定义 _USE_MATH_DEFINES。
+﻿// MSVC 的 <cmath> 默认不定义 M_PI，需在第一个 <cmath> include 前定义 _USE_MATH_DEFINES。
 // 必须放在本文件第一个 #include 之前（SarSpotlightBeam.h 链会引入 <cmath>）。
 #ifndef _USE_MATH_DEFINES
 #define _USE_MATH_DEFINES

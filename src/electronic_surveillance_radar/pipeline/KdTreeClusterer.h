@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file KdTreeClusterer.h
  * @brief 定义基于 KD-tree 的 ESR 观测聚类器。
  */

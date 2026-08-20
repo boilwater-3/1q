@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file DeceptionEngagementManager.h
  * @brief 欺骗交战状态管理器——唯一拥有交战状态、相位转换和模式迁移。
  *

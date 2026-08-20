@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file DetectionRecord.h
  * @brief 定义多源融合的泛型探测记录。
  */

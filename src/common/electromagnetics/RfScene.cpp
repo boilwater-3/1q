@@ -1,4 +1,4 @@
-#include "1q/electromagnetics/RfScene.h"
+﻿#include "1q/electromagnetics/RfScene.h"
 
 #include <algorithm>
 #include <cmath>

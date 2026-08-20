@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file PropertyNames.h
  * @brief 定义 JSBSim 属性树属性名常量，供 adapter/autopilot/guidance 等模块统一引用。
  *

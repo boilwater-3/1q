@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file EosMissionConfig.h
  * @brief 定义 EOS 任务域配置及工作模式枚举。
  */

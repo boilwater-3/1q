@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file SarMissionConfig.h
  * @brief 定义 SAR 任务几何与成像网格配置。
  */

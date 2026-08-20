@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file ImmMatrixDefaults.h
  * @brief IMM 转移概率矩阵与初始权重的单一构建/校验源。
  *

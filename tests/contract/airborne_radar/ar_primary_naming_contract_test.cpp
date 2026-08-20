@@ -1,4 +1,4 @@
-// Copyright 2026. All Rights Reserved.
+﻿// Copyright 2026. All Rights Reserved.
 //
 // @file ar_primary_naming_contract_test.cpp
 // @brief Verifies the preferred Ar* public API naming surface.

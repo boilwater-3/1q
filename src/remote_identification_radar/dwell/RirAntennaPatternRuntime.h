@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file RirAntennaPatternRuntime.h
  * @brief 定义 RIR 方向图运行期中间量与评估函数（RIR 薄适配层，common 单源）。
  * @note 本文件仅供 RIR 模块内部使用，不作为公开 API。

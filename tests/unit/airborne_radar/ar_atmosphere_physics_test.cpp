@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file atmosphere_physics_test.cpp
  * @brief 验证共享大气传播物理模型与 REOS 对齐入口的基础行为。
  */

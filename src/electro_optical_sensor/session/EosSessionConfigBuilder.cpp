@@ -1,4 +1,4 @@
-// @file EosSessionConfigBuilder.cpp
+﻿// @file EosSessionConfigBuilder.cpp
 // @brief Implementation of EosSessionConfigBuilder (thin wrapper).
 
 #include "1q/electro_optical_sensor/config/EosSessionConfigBuilder.h"

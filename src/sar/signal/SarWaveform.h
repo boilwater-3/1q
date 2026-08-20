@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file SarWaveform.h
  * @brief SAR 内部 LFM 波形、匹配滤波和距离压缩工具。
  */

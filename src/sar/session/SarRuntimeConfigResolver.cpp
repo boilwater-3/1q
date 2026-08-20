@@ -1,4 +1,4 @@
-#include "sar/session/SarRuntimeConfigResolver.h"
+﻿#include "sar/session/SarRuntimeConfigResolver.h"
 
 #include "common/logging/ProjectLog.h"
 #include "common/validation/ValidationUtils.h"

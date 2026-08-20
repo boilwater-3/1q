@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file AtmospherePhysics.h
  * @brief 定义共享的大气传播物理近似模型与 REOS 对齐函数入口。
  */

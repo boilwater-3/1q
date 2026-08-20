@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file esr_runtime_config_resolver_test.cpp
  * @brief ESR 运行期补丁解析器测试（高层语义补丁）。
  */

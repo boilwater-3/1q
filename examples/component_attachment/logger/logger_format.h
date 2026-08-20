@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file logger_format.h
  * @brief 集成端日志的字符串格式化门面（双后端，仿库内 ProjectLog 开关先例）。
  *

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file SbirsRuntimeConfigPatch.h
  * @brief 定义 SBIRS-inspired 运行期配置补丁。
  */

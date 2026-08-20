@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file eos_input_validation_unit_test.cpp
  * @brief 验证光学传感器输入契约、扫描视场和探测判决链路的最小行为。
  */

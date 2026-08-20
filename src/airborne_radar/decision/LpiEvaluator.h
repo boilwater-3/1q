@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file LpiEvaluator.h
  * @brief 定义 LPI（低截获概率）评估器类。
  */

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file PrecisionEvaluationMetrics.h
  * @brief 误差序列汇总统计与 AHP 归一化评分纯函数（需求 3.2.1.6.3.1 关键精度指标提取）。
  */

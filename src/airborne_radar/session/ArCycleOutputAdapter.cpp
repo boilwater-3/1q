@@ -1,4 +1,4 @@
-#include "1q/airborne_radar/session/ArCycleOutputAdapter.h"
+﻿#include "1q/airborne_radar/session/ArCycleOutputAdapter.h"
 
 namespace airborne_radar {
 namespace session {

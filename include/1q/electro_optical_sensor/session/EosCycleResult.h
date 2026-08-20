@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file EosCycleResult.h
  * @brief 定义光学传感器会话单周期聚合结果类型。
  */

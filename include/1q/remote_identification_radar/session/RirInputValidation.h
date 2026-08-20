@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file RirInputValidation.h
  * @brief 远程识别雷达周期输入校验入口。
  *

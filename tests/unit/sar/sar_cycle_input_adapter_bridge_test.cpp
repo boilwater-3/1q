@@ -1,4 +1,4 @@
-// 桥接守护：验证 SarCycleInputAdapter 产出的仅轨迹输入能正确进入 SarSession 内部
+﻿// 桥接守护：验证 SarCycleInputAdapter 产出的仅轨迹输入能正确进入 SarSession 内部
 // raw echo 路径，而不是被误判为外部完整 IQ 并在 shape 校验处中止。
 //
 // 历史背景：HasExternalRawIq 曾是 6 个 raw_iq 字段的析取（pulse_count/pulse_states/

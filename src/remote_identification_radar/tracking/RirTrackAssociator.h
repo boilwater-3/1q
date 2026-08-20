@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file RirTrackAssociator.h
  * @brief RIR 轻量跟踪子集的门限 + LAPJV 全局最优检测-航迹关联器（阶段 2-T T2，
  *        N1/N2 升级为全局最优指派）。

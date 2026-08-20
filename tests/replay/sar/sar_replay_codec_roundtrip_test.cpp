@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file sar_replay_codec_roundtrip_test.cpp
  * @brief 验证 SAR replay FlatBuffers codec 的 Encode/Decode 字段保真。
  */

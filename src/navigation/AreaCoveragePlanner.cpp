@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file AreaCoveragePlanner.cpp
  * @brief AreaCoveragePlanner 实现：多边形牛耕式扫描线与圆形单环/同心圆盘旋规划。
  */

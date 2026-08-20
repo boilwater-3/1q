@@ -1,4 +1,4 @@
-// Copyright 2026. All Rights Reserved.
+﻿// Copyright 2026. All Rights Reserved.
 //
 // @file rir_session_config_validation_test.cpp
 // @brief 验证 RIR 会话配置 hardware 域校验（对标 AR ValidateArSessionConfig hardware 段）。

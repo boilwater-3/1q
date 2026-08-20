@@ -1,4 +1,4 @@
-// Copyright 2026. All Rights Reserved.
+﻿// Copyright 2026. All Rights Reserved.
 //
 // @file rir_detection_cell_test.cpp
 // @brief 验证 RIR detection cell 求解器（副本改写自 ar_detection_cell_resolver_test.cpp；

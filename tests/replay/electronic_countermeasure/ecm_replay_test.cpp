@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file ecm_replay_test.cpp
  * @brief 验证 ECM FlatBuffers 字段保真和 ReplayTrace 确定性。
  */

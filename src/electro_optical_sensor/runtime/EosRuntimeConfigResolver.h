@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file EosRuntimeConfigResolver.h
  * @brief 定义 EOS 运行期补丁解析接口，直接操作内部执行配置。
  */

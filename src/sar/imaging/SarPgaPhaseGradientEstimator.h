@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file SarPgaPhaseGradientEstimator.h
  * @brief 有界邻样本 PGA 相位梯度估计器。
  */

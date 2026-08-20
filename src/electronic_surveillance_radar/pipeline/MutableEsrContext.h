@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file MutableEsrContext.h
  * @brief 定义面向内部流水线的可变电子侦察上下文默认实现。
  */

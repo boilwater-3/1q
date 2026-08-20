@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file EmitterHypothesis.h
  * @brief 定义电子侦察输出侧的辐射源假设与威胁评估类型。
  */

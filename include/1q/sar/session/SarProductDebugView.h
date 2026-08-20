@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file SarProductDebugView.h
  * @brief 定义 SAR 产品开发调试视图构建工具。
  */

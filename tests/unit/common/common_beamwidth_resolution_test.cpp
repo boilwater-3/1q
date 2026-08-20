@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file common_beamwidth_resolution_test.cpp
  * @brief 验证 common 波束宽度解析的 nominal、物理推导与 commanded 覆盖语义。
  */

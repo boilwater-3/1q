@@ -1,4 +1,4 @@
-// Copyright 2026. All Rights Reserved.
+﻿// Copyright 2026. All Rights Reserved.
 //
 // @file rir_propagation_model_test.cpp
 // @brief 验证 RIR 环境层传播/杂波模型（副本改写自 AR PropagationModel 语义；

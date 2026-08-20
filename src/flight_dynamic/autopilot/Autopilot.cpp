@@ -1,4 +1,4 @@
-#include "1q/flight_dynamic/autopilot/Autopilot.h"
+﻿#include "1q/flight_dynamic/autopilot/Autopilot.h"
 
 #include <algorithm>
 #include <cmath>

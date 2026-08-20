@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file SarGeometry.h
  * @brief SAR 内部本地几何与 L1-L3 轨迹工具。
  */

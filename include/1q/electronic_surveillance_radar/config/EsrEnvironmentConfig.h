@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file EsrEnvironmentConfig.h
  * @brief ESR 环境配置契约（Scenario/Model/Default）。
  */

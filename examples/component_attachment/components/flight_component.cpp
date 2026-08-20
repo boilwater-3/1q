@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file flight_component.cpp
  * @brief 飞行组件实现：六自由度真实飞行（JSBSim）与运动学回退两路径。
  *

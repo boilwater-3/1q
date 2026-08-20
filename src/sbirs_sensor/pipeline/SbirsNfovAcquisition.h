@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file SbirsNfovAcquisition.h
  * @brief Internal NFOV first-acquisition eligibility evaluation.
  */

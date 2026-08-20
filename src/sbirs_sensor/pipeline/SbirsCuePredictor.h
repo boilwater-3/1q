@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file SbirsCuePredictor.h
  * @brief Internal measurement-derived angular constant-velocity cue predictor.
  */

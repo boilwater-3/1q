@@ -1,4 +1,4 @@
-// Copyright 2026. All Rights Reserved.
+﻿// Copyright 2026. All Rights Reserved.
 //
 // @file esr_public_api_convenience_test.cpp
 // @brief ESR 对外易用性 API 契约测试（高层语义配置版本）。

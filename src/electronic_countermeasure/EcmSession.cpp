@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file EcmSession.cpp
  * @brief EcmSession 实现：编排配置校验、欺骗交战、资源分配和波形构造。
  *

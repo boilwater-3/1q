@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file RirProfileConstants.h
  * @brief 远程识别雷达语义档位常量表。
  *

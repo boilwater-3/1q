@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file AtmosphericState.h
  * @brief 定义统一大气状态查询结果（SI 单位制）。
  */

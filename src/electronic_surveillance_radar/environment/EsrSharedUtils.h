@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file EsrSharedUtils.h
  * @brief ESR 模块内部共享工具函数，消除各子模块重复定义。
  */

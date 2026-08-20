@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file SbirsBoresightChain.h
  * @brief 传感器指向合成链：卫星姿态（Body->ECI）+ 安装角（Body->Sensor）+ 扫描指向。
  */

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file TrackLifecycleTypes.h
  * @brief 定义轨迹生命周期管理的输入类型。
  */

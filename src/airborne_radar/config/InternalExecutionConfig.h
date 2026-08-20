@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file InternalExecutionConfig.h
  * @brief 定义唯一内部执行配置真值及其 domain 子配置。
  *

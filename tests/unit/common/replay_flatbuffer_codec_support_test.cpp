@@ -1,4 +1,4 @@
-// 验证 replay codec 内部 helper 只复制完成后的 FlatBuffer 字节，不改变其大小或内容。
+﻿// 验证 replay codec 内部 helper 只复制完成后的 FlatBuffer 字节，不改变其大小或内容。
 
 #include <gtest/gtest.h>
 

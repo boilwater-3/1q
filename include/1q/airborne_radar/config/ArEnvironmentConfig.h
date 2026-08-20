@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file ArEnvironmentConfig.h
  * @brief 机载雷达环境域主配置类型集合。
  *

@@ -1,4 +1,4 @@
-// Copyright 2026. All Rights Reserved.
+﻿// Copyright 2026. All Rights Reserved.
 //
 // @file RirCycleInputTestUtil.h
 // @brief RIR 周期输入测试辅助（平台 ECEF 等）。

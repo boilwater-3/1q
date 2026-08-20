@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file RirIssueCodes.h
  * @brief 远程识别雷达 issue code 注册表：本模块全部 code 常量的单一事实来源
  *       （session_contract.md 规则 14c）。

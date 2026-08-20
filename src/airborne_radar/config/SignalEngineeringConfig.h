@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file SignalEngineeringConfig.h
  * @brief 定义 Signal 子系统内部工程参数类型（非公开 API）。
  */

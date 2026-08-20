@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file SynchronizedTrackPool.h
  * @brief SynchronizedTrackPool 为任意对象池提供全局互斥包装。
  */

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file ScanScheduleRuntime.h
  * @brief 二维扫描调度数值内核（common 单源）。
  *

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file target_inference_engine_test.cpp
  * @brief 验证 target_inference 推演引擎：弹道守恒、发射/落点一致性、误差预算出口、
  *        类型融合与确定性。

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file sar_output_observability_consumer.cpp
  * @brief 验证安装后 SAR 三层输出可观测性 API 可被外部工程编译链接。
  *

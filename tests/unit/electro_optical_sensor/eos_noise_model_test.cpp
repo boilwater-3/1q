@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file eos_noise_model_unit_test.cpp
  * @brief 验证 EOS 背景噪声统计模型数值行为。
  */

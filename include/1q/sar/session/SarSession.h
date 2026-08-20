@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file SarSession.h
  * @brief 定义 SAR 对外会话门面。
  */

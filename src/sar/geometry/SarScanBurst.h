@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file SarScanBurst.h
  * @brief 扫描模式(ScanSAR)elevation 向 burst 调度序列生成。
  *

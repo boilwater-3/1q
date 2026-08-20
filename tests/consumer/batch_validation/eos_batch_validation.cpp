@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file eos_batch_validation.cpp
  * @brief 光电传感器（EOS）批量场景验证。
  *

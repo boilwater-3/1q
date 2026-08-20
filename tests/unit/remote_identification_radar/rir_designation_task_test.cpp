@@ -1,4 +1,4 @@
-// Copyright 2026. All Rights Reserved.
+﻿// Copyright 2026. All Rights Reserved.
 //
 // @file rir_designation_task_test.cpp
 // @brief 验证 RIR 指定识别任务（限时锁定，镜像 AR designation 语义）。

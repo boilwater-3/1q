@@ -1,4 +1,4 @@
-#include "sar/session/SarSessionCompositionRoot.h"
+﻿#include "sar/session/SarSessionCompositionRoot.h"
 
 #include "sar/pipeline/SarProcessingPipeline.h"
 #include "sar/runtime/SarController.h"

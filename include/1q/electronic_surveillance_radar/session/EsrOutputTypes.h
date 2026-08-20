@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file EsrOutputTypes.h
  * @brief 定义电子侦察公共输出通道与周期终止原因类型。
  */

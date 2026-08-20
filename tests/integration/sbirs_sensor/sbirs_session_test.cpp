@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file sbirs_session_test.cpp
  * @brief 验证 SBIRS Session 端到端闭环：状态机交接、多周期跟踪、运行时热切换、校验回退。
  *

@@ -1,4 +1,4 @@
-/// @file
+﻿/// @file
 /// @brief 盘旋逐点轨迹导出 — 每步记录位置、到中心距离、半径误差
 ///
 /// 输出 CSV 可用于 Matplotlib 绘图 / Google Earth KML 转换。

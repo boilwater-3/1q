@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file ArOrientationUtils.h
  * @brief 定义机载雷达方向配置的组合、限幅与校验工具函数。
  */

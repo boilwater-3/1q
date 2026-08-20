@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file sar_geometry_model_test.cpp
  * @brief 斜距模型、多普勒模型、Sinc 与 DeterministicGaussianSampler 的单元测试。
  */

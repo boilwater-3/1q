@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file SbirsGeometry.h
  * @brief SBIRS-inspired 基础几何工具。
  */

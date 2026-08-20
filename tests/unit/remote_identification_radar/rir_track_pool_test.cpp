@@ -1,4 +1,4 @@
-// Copyright 2026. All Rights Reserved.
+﻿// Copyright 2026. All Rights Reserved.
 //
 // @file rir_track_pool_test.cpp
 // @brief 验证 RIR 航迹对象池申请/归还/双重释放拒绝语义（阶段 2-T N3）。

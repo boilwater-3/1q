@@ -1,4 +1,4 @@
-#include "flight_dynamic/adapter/JsbsimAdapter.h"
+﻿#include "flight_dynamic/adapter/JsbsimAdapter.h"
 
 #include <filesystem>
 

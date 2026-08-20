@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file validation_types.h
  * @brief 定义跨模块共享的输入校验基础类型。
  */

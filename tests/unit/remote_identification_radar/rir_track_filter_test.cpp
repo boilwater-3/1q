@@ -1,4 +1,4 @@
-// Copyright 2026. All Rights Reserved.
+﻿// Copyright 2026. All Rights Reserved.
 //
 // @file rir_track_filter_test.cpp
 // @brief 验证 RIR 轻量跟踪子集单目标 KF（阶段 2-T T1：预测/更新/初始化布局）。

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file EsrResolutionCellLedger.h
  * @brief 定义 ESR 到达时间、瞬时频率和角度分辨单元账本。
  */

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file EosExternalOutputAdapter.h
  * @brief EOS 外部输出适配统一入口。
  */

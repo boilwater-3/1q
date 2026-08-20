@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file SarSessionConfigValidation.h
  * @brief SAR 会话配置校验工具。
  */

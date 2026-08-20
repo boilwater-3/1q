@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file esr_session_consumer.cpp
  * @brief 验证安装后 ESR 公共 API 路径可被外部工程编译链接。
  *

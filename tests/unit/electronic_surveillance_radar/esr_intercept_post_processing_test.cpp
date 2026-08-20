@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file esr_intercept_post_processing_test.cpp
  * @brief 验证 InterceptPostProcessingExecutor::Execute 的全链路分支覆盖。
  *

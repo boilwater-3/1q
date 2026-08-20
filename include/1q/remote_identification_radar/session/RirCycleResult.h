@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file RirCycleResult.h
  * @brief 远程识别雷达单周期执行结果类型。
  */

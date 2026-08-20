@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file RirEffectiveRcs.h
  * @brief 有效目标 RCS 求解（物理估计与经验值混合）。
  */

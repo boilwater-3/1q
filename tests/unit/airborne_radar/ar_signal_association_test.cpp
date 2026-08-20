@@ -1,4 +1,4 @@
-// Copyright 2026. All Rights Reserved.
+﻿// Copyright 2026. All Rights Reserved.
 //
 // @file signal_association_test.cpp
 // @brief 验证数据关联模块的关键行为。

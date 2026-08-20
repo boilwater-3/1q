@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file eos_cycle_output_builder_test.cpp
  * @brief 验证 EosCycleOutputAdapter 将内部 EOS 输出转换回外部 ECEF 输出。
  */

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file esr_batch_validation.cpp
  * @brief 电子侦察（ESR）批量场景验证。
  *

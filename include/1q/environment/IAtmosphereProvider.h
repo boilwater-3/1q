@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file IAtmosphereProvider.h
  * @brief 定义大气模型抽象接口。
  */

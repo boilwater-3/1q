@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file RecognitionObservationBuilder.h
  * @brief 识别观测构造器（组合四类特征提取器）。
  */

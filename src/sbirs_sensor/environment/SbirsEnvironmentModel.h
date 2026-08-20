@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file SbirsEnvironmentModel.h
  * @brief SBIRS-inspired 气象衰减模型。
  */

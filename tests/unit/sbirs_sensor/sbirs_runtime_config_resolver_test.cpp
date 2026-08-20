@@ -1,4 +1,4 @@
-#include <gtest/gtest.h>
+﻿#include <gtest/gtest.h>
 
 #include "1q/sbirs_sensor/config/SbirsRuntimeConfigBuilder.h"
 #include "sbirs_sensor/runtime/SbirsRuntimeConfigResolver.h"

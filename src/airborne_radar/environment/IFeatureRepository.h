@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file IFeatureRepository.h
  * @brief 定义目标特征仓储抽象接口。
  */

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file EcmConfigValidator.cpp
  * @brief EcmConfigValidator 纯校验函数实现。
  */

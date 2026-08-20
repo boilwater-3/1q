@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file ArProfileConstants.h
  * @brief 机载雷达语义档位常量表。
  *

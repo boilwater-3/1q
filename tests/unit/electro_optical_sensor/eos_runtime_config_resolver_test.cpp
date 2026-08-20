@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file eos_runtime_config_resolver_test.cpp
  * @brief 验证 EOS 运行期补丁解析器的原子更新语义。
  */

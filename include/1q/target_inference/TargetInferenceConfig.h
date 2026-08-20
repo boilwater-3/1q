@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file TargetInferenceConfig.h
  * @brief 定义目标推演引擎配置（弹道模型与判决阈值）。
  */

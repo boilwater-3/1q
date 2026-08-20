@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file EsrConfigDomainValidation.h
  * @brief ESR 静态配置、运行期补丁与 replay 解码共享的领域不变量。
  */

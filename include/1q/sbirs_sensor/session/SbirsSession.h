@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file SbirsSession.h
  * @brief 定义 SBIRS-inspired 会话门面。
  */

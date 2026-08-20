@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file EosExclusionCauseRecorder.h
  * @brief EOS 排除原因跨周期差分记录器（规则 13b 排除诊断的差分观测）。
  *

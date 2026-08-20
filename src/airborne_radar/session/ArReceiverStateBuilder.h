@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file ArReceiverStateBuilder.h
  * @brief 无状态构造器——从 prepare 输入、发射事实与工程配置组装接收工作状态。
  *

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file IEnvironmentService.h
  * @brief 环境服务接口（内部实现细节，不对外暴露）。
  */

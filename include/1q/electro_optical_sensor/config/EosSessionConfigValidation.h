@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file EosSessionConfigValidation.h
  * @brief EOS 会话配置校验工具。
  */

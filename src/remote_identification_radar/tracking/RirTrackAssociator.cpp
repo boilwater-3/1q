@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file RirTrackAssociator.cpp
  * @brief RIR 轻量跟踪子集的门限 + LAPJV 全局最优关联器实现
  *        （阶段 2-T T2，N1/N2 升级为全局最优指派）。

@@ -1,4 +1,4 @@
-#include "common/validation/ValidationUtils.h"
+﻿#include "common/validation/ValidationUtils.h"
 #include "1q/airborne_radar/session/ArExternalOutputAdapter.h"
 
 #include <cmath>

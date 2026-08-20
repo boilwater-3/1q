@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file EosPipeline.h
  * @brief 定义 EOS 核心处理层管线（扫描递推、视场判定、探测评估）。
  */

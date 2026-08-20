@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file eos_cycle_input_builder_test.cpp
  * @brief 验证 EosCycleInputAdapter 一步构建与原始两步适配器的等价一致性。
  */

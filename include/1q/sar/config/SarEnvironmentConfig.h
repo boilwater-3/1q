@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file SarEnvironmentConfig.h
  * @brief 定义 SAR 环境与传播默认配置。
  */

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file EosCycleInput.h
  * @brief 定义光学传感器组件单周期输入载荷。
  */

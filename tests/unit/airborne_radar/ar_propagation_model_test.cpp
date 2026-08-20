@@ -1,4 +1,4 @@
-// Copyright 2026. All Rights Reserved.
+﻿// Copyright 2026. All Rights Reserved.
 //
 // @file ar_propagation_model_test.cpp
 // @brief 验证传播模型与杂波计算的基础行为。

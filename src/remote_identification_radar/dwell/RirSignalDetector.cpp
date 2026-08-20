@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file RirSignalDetector.cpp
  * @brief RIR 统计级 CFAR 探测判决器实现（副本改写自 SignalDetector.cpp；
  *        阶段 2-M M4）。

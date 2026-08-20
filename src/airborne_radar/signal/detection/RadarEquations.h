@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file RadarEquations.h
  * @brief AR 雷达探测通用物理方程薄适配层（common 单源）。
  */

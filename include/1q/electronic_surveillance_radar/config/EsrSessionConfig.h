@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file EsrSessionConfig.h
  * @brief 定义 ESR 会话初始化配置结构。
  */

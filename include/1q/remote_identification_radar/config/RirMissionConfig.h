@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file RirMissionConfig.h
  * @brief 远程识别雷达任务域主配置类型。
  *

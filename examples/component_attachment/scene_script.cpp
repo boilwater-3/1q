@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file scene_script.cpp
  * @brief 世界模型目标真值脚本实现（见 scene_script.h）。
  */

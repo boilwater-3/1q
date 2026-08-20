@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file VegetationClutterModel.cpp
  * @brief 实现植被散射杂波与最小传播损耗组合模型（common 单源）。
  */

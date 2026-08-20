@@ -1,4 +1,4 @@
-#include <gtest/gtest.h>
+﻿#include <gtest/gtest.h>
 
 #include "1q/sar/config/SarMissionConfig.h"
 #include "1q/sar/session/SarCycleInputAdapter.h"

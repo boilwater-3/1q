@@ -1,4 +1,4 @@
-// @file SarCycleInputAdapter.cpp
+﻿// @file SarCycleInputAdapter.cpp
 // @brief Implementation of one-step SarCycleInput assembly.
 
 #include "1q/sar/session/SarCycleInputAdapter.h"

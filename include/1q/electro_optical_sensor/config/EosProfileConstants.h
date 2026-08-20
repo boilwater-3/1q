@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file EosProfileConstants.h
  * @brief 光电传感器语义档位常量表。
  *

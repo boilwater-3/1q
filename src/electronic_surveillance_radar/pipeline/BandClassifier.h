@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file BandClassifier.h
  * @brief 定义电子侦察频段分类工具。
  */

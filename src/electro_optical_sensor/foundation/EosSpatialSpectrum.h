@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file EosSpatialSpectrum.h
  * @brief 定义空间频率谱可分辨性评估接口。
  */

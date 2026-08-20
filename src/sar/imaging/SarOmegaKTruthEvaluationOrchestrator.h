@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file SarOmegaKTruthEvaluationOrchestrator.h
  * @brief 身份绑定的合格真值评估编排器。
  */

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file position_transform.h
  * @brief 定义 WGS-84 坐标系下位置类型的帧间转换。
  *

@@ -1,4 +1,4 @@
-#ifndef EXAMPLES_SBIRS_CONFIG_LOADER_DETAIL_H_
+﻿#ifndef EXAMPLES_SBIRS_CONFIG_LOADER_DETAIL_H_
 #define EXAMPLES_SBIRS_CONFIG_LOADER_DETAIL_H_
 
 #include "1q/sbirs_sensor/sbirs_sensor.hpp"

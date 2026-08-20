@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file SensorAdapters.h
  * @brief 传感器输出 → 融合探测记录的官方适配器（可选便利层）。
  *

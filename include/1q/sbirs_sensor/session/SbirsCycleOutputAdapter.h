@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file SbirsCycleOutputAdapter.h
  * @brief 定义 SBIRS-inspired 输出适配入口。
  */

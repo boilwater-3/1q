@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file rir_sensor_component.cpp
  * @brief RIR 地基站点传感器组件实现（会话驱动 + 识别/指定任务事件 + 融合量测）。
  *

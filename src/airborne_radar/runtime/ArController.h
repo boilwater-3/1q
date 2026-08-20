@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file ArController.h
  * @brief 核心处理层 AR 调度控制器（内部实现细节，不对外暴露）。
  */

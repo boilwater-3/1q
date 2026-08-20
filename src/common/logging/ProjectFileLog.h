@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file ProjectFileLog.h
  * @brief 库内内置文件日志后端：PROJECT_LOG_* 在无 spdlog 平台（Windows）的落盘实现。
  *

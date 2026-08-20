@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file PrecisionEvaluationTypes.h
  * @brief 定义精度评估层的输入真值、逐周期误差样本与汇总报告类型（需求 3.2.1.6.3）。
  */

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file LapjvSolver.cpp
  * @brief AR LAPJV 指派求解器薄适配层（common 单源）。
  */

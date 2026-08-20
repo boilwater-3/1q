@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file ar_external_input_adapter_test.cpp
  * @brief 验证 ArExternalInputAdapter 的坐标转换与校验分支（此前 32% 覆盖）。
  */

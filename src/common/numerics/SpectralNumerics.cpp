@@ -1,4 +1,4 @@
-#include "common/numerics/SpectralNumerics.h"
+﻿#include "common/numerics/SpectralNumerics.h"
 
 #include <Eigen/Cholesky>
 #include <Eigen/QR>

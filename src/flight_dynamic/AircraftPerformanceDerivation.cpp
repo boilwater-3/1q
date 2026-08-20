@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file AircraftPerformanceDerivation.cpp
  * @brief 飞机性能推导单一实现（见 AircraftPerformanceDerivation.h）。
  */

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file component.h
  * @brief 自定义实体-组件示例：组件基类。
  *

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file fusion.hpp
  * @brief fusion 模块稳定入口头。
  */

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file RirInputValidation.cpp
  * @brief 远程识别雷达周期输入校验实现。
  *

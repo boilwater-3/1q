@@ -1,4 +1,4 @@
-#include "precision_evaluation/SbirsBearingAdapter.h"
+﻿#include "precision_evaluation/SbirsBearingAdapter.h"
 
 #include <algorithm>
 #include <cmath>

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file ISignalPipeline.h
  * @brief 信号处理流水线内部端口（内部实现细节，不对外暴露）。
  */

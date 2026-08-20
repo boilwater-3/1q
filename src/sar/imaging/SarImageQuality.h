@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file SarImageQuality.h
  * @brief SAR 内部复图像质量评估与跨算法比较工具。
  */

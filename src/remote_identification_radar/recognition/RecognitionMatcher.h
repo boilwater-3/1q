@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file RecognitionMatcher.h
  * @brief 动态加权匹配与候选排序（库内部）。
  */

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file SarSpotlightBeam.h
  * @brief 聚束(Spotlight)模式时变波束指向序列生成。
  *

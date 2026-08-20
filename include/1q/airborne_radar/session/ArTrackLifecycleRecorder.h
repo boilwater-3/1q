@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file ArTrackLifecycleRecorder.h
  * @brief 机载雷达轨迹生命周期记录类型集合。
  *

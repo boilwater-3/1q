@@ -1,4 +1,4 @@
-// Copyright 2026. All Rights Reserved.
+﻿// Copyright 2026. All Rights Reserved.
 //
 // @file esr_environment_config_contract_test.cpp
 // @brief ESR 环境配置分层契约测试。

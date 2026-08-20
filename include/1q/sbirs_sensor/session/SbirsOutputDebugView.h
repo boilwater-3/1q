@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file SbirsOutputDebugView.h
  * @brief 定义 SBIRS-inspired 输出开发调试视图。
  */

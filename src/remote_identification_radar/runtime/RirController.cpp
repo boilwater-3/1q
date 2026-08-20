@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file RirController.cpp
  * @brief 远程识别雷达自持链路控制器实现（阶段 2-S S2）。
  */

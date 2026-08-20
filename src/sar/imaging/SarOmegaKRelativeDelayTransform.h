@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file SarOmegaKRelativeDelayTransform.h
  * @brief Omega-K 收缩频谱相对延迟变换执行器。
  */

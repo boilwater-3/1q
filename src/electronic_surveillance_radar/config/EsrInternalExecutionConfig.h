@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file EsrInternalExecutionConfig.h
  * @brief 定义 ESR 内部执行态统一配置类型。
  *

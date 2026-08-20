@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file EosSession.h
  * @brief 定义光学传感器对外会话门面。
  */

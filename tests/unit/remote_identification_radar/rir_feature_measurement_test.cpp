@@ -1,4 +1,4 @@
-// Copyright 2026. All Rights Reserved.
+﻿// Copyright 2026. All Rights Reserved.
 //
 // @file rir_feature_measurement_test.cpp
 // @brief 验证特征量测帧（双产品出口①）的生产路径与透出原则。

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file scene_script_test.cpp
  * @brief 世界模型目标真值脚本（examples/component_attachment/scene_script.*）
  * 单元测试。

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file SarOmegaKFocusing.h
  * @brief Omega-K stripmap 聚焦编排器:把 front-end + 全部 Omega-K 部件串联成完整聚焦入口。
  *

@@ -1,4 +1,4 @@
-#include "1q/sbirs_sensor/session/SbirsExternalOutputAdapter.h"
+﻿#include "1q/sbirs_sensor/session/SbirsExternalOutputAdapter.h"
 
 namespace sbirs_sensor {
 namespace session {

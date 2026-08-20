@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file RcsPhysics.h
  * @brief 定义共享 RCS/植被散射的首批物理近似入口（REOS 对齐命名）。
  */

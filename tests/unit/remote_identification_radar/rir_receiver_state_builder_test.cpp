@@ -1,4 +1,4 @@
-// Copyright 2026. All Rights Reserved.
+﻿// Copyright 2026. All Rights Reserved.
 //
 // @file rir_receiver_state_builder_test.cpp
 // @brief 验证 RIR 接收状态构造字段映射。

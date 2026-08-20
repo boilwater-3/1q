@@ -1,4 +1,4 @@
-// Copyright 2026. All Rights Reserved.
+﻿// Copyright 2026. All Rights Reserved.
 //
 // @file ar_environment_config_contract_test.cpp
 // @brief 验证 AR 自然环境配置、派生量与运行期补丁合同。

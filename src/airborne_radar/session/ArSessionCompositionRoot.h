@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file ArSessionCompositionRoot.h
  * @brief 定义 AR 会话的组合根（composition root），统一装配上下文、流水线、环境服务与控制器。
  */

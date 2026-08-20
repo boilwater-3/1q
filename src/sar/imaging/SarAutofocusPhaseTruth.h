@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file SarAutofocusPhaseTruth.h
  * @brief 自聚焦残余相位误差注入与可观测真值诊断。
  */

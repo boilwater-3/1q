@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file ClampUtils.h
  * @brief 定义库内共享的基础限幅工具。
  */

@@ -1,4 +1,4 @@
-#include "sbirs_sensor/pipeline/SbirsPipeline.h"
+﻿#include "sbirs_sensor/pipeline/SbirsPipeline.h"
 
 #include <algorithm>
 #include <cmath>

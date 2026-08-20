@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file SensorContract.h
  * @brief 跨域传感器会话形状契约：编译期锚定各域 Session 的 Step/StepWithResult 签名。
  *

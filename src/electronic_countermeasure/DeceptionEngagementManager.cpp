@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file DeceptionEngagementManager.cpp
  * @brief DeceptionEngagementManager 实现：欺骗状态机和 RNG 管理。
  */

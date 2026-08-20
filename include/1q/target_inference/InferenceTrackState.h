@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file InferenceTrackState.h
  * @brief 定义推演层泛型航迹输入帧（算法不感知传感器与坐标系来源）。
  */

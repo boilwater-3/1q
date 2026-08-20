@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file sar_image_output_test.cpp
  * @brief Binary 图像写入与 GeoTIFF sidecar 的单元测试。
  */

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file DistanceMetric.h
  * @brief 定义 Signal 层数据关联使用的距离度量实现。
  */

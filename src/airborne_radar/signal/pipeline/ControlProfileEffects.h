@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file ControlProfileEffects.h
  * @brief 定义控制真值到 SignalPipeline 运行时配置的内部映射辅助函数。
  */

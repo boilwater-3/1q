@@ -1,4 +1,4 @@
-#include <gtest/gtest.h>
+﻿#include <gtest/gtest.h>
 
 #include "1q/sbirs_sensor/session/SbirsCycleInputAdapter.h"
 #include "sbirs_sensor/pipeline/SbirsPipeline.h"

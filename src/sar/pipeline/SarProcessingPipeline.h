@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file SarProcessingPipeline.h
  * @brief SAR 单周期处理流水线，编排 raw echo 生成、成像聚焦与质量摘要。
  */

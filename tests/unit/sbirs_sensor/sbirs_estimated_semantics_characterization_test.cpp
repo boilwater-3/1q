@@ -1,4 +1,4 @@
-// Copyright 2026. All Rights Reserved.
+﻿// Copyright 2026. All Rights Reserved.
 //
 // @file sbirs_estimated_semantics_characterization_test.cpp
 // @brief TARGET-OQ-3 证据：Estimated 与 Sensor-like 模式 raw output 的统计语义差异实测。

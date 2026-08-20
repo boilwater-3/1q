@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file EmitterObservation.h
  * @brief 定义接收机视角的辐射源观测记录类型。
  */

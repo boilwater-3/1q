@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file SarFft.h
  * @brief SAR 内部 FFT facade。
  */

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file ArRfFrontEndResolver.h
  * @brief 定义 AR RF v2 宽带接收前端的纯求解边界。
  */

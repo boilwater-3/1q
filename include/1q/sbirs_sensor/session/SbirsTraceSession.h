@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file SbirsTraceSession.h
  * @brief 为 SBIRS-inspired 模块提供独立的记录包装器。
  */

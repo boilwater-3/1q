@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file SarOmegaKGeometry.h
  * @brief Omega-K 波数与 Stolt 查询几何诊断。
  */

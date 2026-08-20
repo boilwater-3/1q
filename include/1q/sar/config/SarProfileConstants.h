@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file SarProfileConstants.h
  * @brief 合成孔径雷达语义档位常量表。
  *

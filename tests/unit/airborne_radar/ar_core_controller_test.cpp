@@ -1,4 +1,4 @@
-// Copyright 2026. All Rights Reserved.
+﻿// Copyright 2026. All Rights Reserved.
 //
 // @file core_controller_test.cpp
 // @brief 验证核心调度器使用桩组件的最小集成流程。

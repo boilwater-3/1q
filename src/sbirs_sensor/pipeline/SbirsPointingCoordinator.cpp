@@ -1,4 +1,4 @@
-#include "sbirs_sensor/pipeline/SbirsPointingCoordinator.h"
+﻿#include "sbirs_sensor/pipeline/SbirsPointingCoordinator.h"
 
 #include <algorithm>
 #include <cmath>

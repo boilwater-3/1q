@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file ObservationFeatureEncoder.h
  * @brief 定义 ESR 观测特征编码与距离计算工具。
  */

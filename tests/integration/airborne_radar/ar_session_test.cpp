@@ -1,4 +1,4 @@
-// Copyright 2026. All Rights Reserved.
+﻿// Copyright 2026. All Rights Reserved.
 //
 // @file ar_session_test.cpp
 // @brief 验证机载雷达两阶段联调场景下的控制器驱动集成链路。

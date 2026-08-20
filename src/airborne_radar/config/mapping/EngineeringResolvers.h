@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file EngineeringResolvers.h
  * @brief 定义四域配置子类型到 engineering 配置的共享映射函数。
  */

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file LifecycleConfig.h
  * @brief 定义轨迹生命周期配置类型。
  */

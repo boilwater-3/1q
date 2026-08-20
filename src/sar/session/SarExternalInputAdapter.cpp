@@ -1,4 +1,4 @@
-// @file SarExternalInputAdapter.cpp
+﻿// @file SarExternalInputAdapter.cpp
 // @brief Implementation of SAR external pulse coordinate adaptation.
 
 #include "1q/sar/session/SarExternalInputAdapter.h"

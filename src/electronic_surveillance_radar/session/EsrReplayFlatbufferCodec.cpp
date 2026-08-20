@@ -1,4 +1,4 @@
-#include "EsrReplayFlatbufferCodec.h"
+﻿#include "EsrReplayFlatbufferCodec.h"
 
 #include <cstdint>
 #include <string>

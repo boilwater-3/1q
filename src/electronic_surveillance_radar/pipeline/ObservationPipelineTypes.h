@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file ObservationPipelineTypes.h
  * @brief 定义 ESR 观测处理链内部共享类型。
  */

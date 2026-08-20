@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file ScanScheduleResolver.h
  * @brief 定义机载雷达二维扫描调度解析工具。
  */

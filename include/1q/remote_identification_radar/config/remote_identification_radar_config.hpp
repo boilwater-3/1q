@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file remote_identification_radar_config.hpp
  * @brief 远程识别雷达配置域聚合头。
  */

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file SbirsInternalExecutionConfig.h
  * @brief SBIRS-inspired pipeline 内部执行配置。
  */

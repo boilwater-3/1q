@@ -1,4 +1,4 @@
-// @file EsrSessionConfigBuilder.cpp
+﻿// @file EsrSessionConfigBuilder.cpp
 // @brief Implementation of EsrSessionConfigBuilder (thin wrapper).
 
 #include "1q/electronic_surveillance_radar/config/EsrSessionConfigBuilder.h"

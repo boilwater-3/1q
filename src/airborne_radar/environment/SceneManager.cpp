@@ -1,4 +1,4 @@
-#include "airborne_radar/environment/SceneManager.h"
+﻿#include "airborne_radar/environment/SceneManager.h"
 
 namespace airborne_radar {
 namespace environment {

@@ -1,4 +1,4 @@
-#include "sbirs_sensor/pipeline/SbirsNfovAcquisition.h"
+﻿#include "sbirs_sensor/pipeline/SbirsNfovAcquisition.h"
 
 #include <cmath>
 

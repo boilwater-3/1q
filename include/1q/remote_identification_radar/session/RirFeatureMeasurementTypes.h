@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file RirFeatureMeasurementTypes.h
  * @brief 特征量测帧公开类型（双产品出口①）。
  *

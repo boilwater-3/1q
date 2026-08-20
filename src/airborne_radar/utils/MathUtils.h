@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file MathUtils.h
  * @brief 提供通用数学辅助内联函数。
  */

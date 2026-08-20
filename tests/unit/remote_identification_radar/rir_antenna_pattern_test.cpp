@@ -1,4 +1,4 @@
-// Copyright 2026. All Rights Reserved.
+﻿// Copyright 2026. All Rights Reserved.
 //
 // @file rir_antenna_pattern_test.cpp
 // @brief 验证 RIR 方向图评估与波束控制子集（副本改写自 ar_signal_detection_test.cpp

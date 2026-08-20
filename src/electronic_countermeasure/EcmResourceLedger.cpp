@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file EcmResourceLedger.cpp
  * @brief EcmResourceLedger 实现：发射 ID、热预算、RNG 流和威胁可行性。
  */

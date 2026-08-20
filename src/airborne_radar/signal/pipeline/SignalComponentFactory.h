@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file SignalComponentFactory.h
  * @brief 定义 SignalPipeline 私有组件工厂，负责配置映射与组件装配。
  */

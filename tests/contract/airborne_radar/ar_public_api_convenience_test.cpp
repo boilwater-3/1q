@@ -1,4 +1,4 @@
-// Copyright 2026. All Rights Reserved.
+﻿// Copyright 2026. All Rights Reserved.
 //
 // @file ar_public_api_convenience_test.cpp
 // @brief 验证 AR 单周期用户门面的可用性、失败原子性与 RF 交换合同。

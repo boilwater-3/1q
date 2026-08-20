@@ -1,4 +1,4 @@
-#include "sar/imaging/SarImageQuality.h"
+﻿#include "sar/imaging/SarImageQuality.h"
 
 #include <algorithm>
 #include <cmath>

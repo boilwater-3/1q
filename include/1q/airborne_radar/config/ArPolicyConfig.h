@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file ArPolicyConfig.h
  * @brief 机载雷达策略域主配置类型。
  *

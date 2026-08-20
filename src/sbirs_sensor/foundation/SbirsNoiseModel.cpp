@@ -1,4 +1,4 @@
-#include "sbirs_sensor/foundation/SbirsNoiseModel.h"
+﻿#include "sbirs_sensor/foundation/SbirsNoiseModel.h"
 
 #include <algorithm>
 #include <cmath>

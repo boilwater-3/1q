@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file public_headers_smoke_test.cpp
  * @brief 验证稳定公共头集合可被统一包含并完成最小用法编译。
  */

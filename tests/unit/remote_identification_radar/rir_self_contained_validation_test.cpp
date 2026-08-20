@@ -1,4 +1,4 @@
-// Copyright 2026. All Rights Reserved.
+﻿// Copyright 2026. All Rights Reserved.
 //
 // @file rir_self_contained_validation_test.cpp
 // @brief 验证阶段 2-S 独立输入面校验：速度/起伏/环境/RF 输入。

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file ArInputValidation.h
  * @brief 机载雷达周期输入校验入口。
  *

@@ -1,4 +1,4 @@
-#include "sar/session/SarFocusedImageAssembler.h"
+﻿#include "sar/session/SarFocusedImageAssembler.h"
 
 namespace sar {
 namespace session {

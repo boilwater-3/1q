@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file CoveragePlanConfig.h
  * @brief 定义区域覆盖规划参数（首期最小面）。
  */

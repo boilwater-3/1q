@@ -1,4 +1,4 @@
-// MSVC 需在首次包含 <cmath> 前定义 _USE_MATH_DEFINES 才有 M_PI（gtest.h 内部已含 <cmath>）。
+﻿// MSVC 需在首次包含 <cmath> 前定义 _USE_MATH_DEFINES 才有 M_PI（gtest.h 内部已含 <cmath>）。
 #define _USE_MATH_DEFINES
 #include <gtest/gtest.h>
 

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file EcmTraceSession.h
  * @brief 定义 ECM 调试 trace 与可回放事件包装器。
  */

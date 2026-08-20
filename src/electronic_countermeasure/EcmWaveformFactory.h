@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file EcmWaveformFactory.h
  * @brief ECM 波形工厂——根据已冻结交战状态构造 RF 波形，不提交功率或 ID。
  *

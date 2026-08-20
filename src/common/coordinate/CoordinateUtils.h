@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file CoordinateUtils.h
  * @brief 定义 coordinate 域与 foundation 域之间的轻量类型适配工具。
  */

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file EcmResourceLedger.h
  * @brief ECM 资源账本——拥有发射 ID、热预算和调度/平局裁决 RNG 流。
  *

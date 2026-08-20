@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file AntennaPatternRuntime.h
  * @brief 定义方向图运行期中间量与评估函数（AR 薄适配层，common 单源）。
  * @note 本文件仅供 `signal::detection` 链路内部使用，不作为公开 API。

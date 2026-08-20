@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file EsrSessionConfigResolver.h
  * @brief 定义 ESR 会话分层参数到运行态配置的私有解析器。
  */

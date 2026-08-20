@@ -1,4 +1,4 @@
-#ifndef EXAMPLES_ESR_CONFIG_LOADER_DETAIL_H_
+﻿#ifndef EXAMPLES_ESR_CONFIG_LOADER_DETAIL_H_
 #define EXAMPLES_ESR_CONFIG_LOADER_DETAIL_H_
 
 #include "1q/electronic_surveillance_radar/electronic_surveillance_radar.hpp"

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file TimeUtils.h
  * @brief 定义 trace 时间戳复用的轻量时间工具。
  */

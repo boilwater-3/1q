@@ -1,4 +1,4 @@
-// Copyright 2026. All Rights Reserved.
+﻿// Copyright 2026. All Rights Reserved.
 //
 // @file radar_session_config_builder_test.cpp
 // @brief 验证 ArSessionConfigBuilder 薄封装与 ArProfileConstants 常量赋值路径。

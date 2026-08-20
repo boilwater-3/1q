@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file eos_spatial_spectrum_unit_test.cpp
  * @brief 验证 EOS 空间频率谱可分辨性评估行为。
  */

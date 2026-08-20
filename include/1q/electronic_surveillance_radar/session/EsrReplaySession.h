@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file EsrReplaySession.h
  * @brief 基于 replay trace 事件提供 ESR 回放入口。
  */

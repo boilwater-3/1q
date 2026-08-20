@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file sar_sensor_component.cpp
  * @brief SAR 产品组件实现（孔径积累驱动 + 产品生命周期事件转发）。
  *

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file EosPhysicalConstants.h
  * @brief 定义 EOS 内部物理/数学常量。
  */

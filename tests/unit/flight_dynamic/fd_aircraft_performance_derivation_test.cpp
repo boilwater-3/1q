@@ -1,4 +1,4 @@
-// Copyright 2026. All Rights Reserved.
+﻿// Copyright 2026. All Rights Reserved.
 //
 // @file fd_aircraft_performance_derivation_test.cpp
 // @brief 验证飞机性能推导单一源（CLmax planform 分类 + V_stall 公式）。

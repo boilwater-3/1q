@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file EnvironmentService.h
  * @brief 定义环境建模层的基础实现。
  */

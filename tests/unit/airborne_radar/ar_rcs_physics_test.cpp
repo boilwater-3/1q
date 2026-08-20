@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file rcs_physics_test.cpp
  * @brief 验证共享 RCS 与植被散射首批入口的基础行为。
  */

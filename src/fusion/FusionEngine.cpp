@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file FusionEngine.cpp
  * @brief FusionEngine 实现：身份键直挂 + 空间/方位/特征关联 + 置信度滑窗融合。
  */

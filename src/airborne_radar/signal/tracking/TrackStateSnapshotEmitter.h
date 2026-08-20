@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file TrackStateSnapshotEmitter.h
  * @brief 定义轨迹快照导出器，负责将活跃轨迹集转换为各类外部消费快照。
  */

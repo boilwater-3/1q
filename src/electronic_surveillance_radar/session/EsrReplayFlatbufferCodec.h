@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file EsrReplayFlatbufferCodec.h
  * @brief ESR replay payload 的 FlatBuffers encode/decode 接口。
  */

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file EsrHardwareConfig.h
  * @brief 定义 ESR 装备固有参数配置结构。
  */

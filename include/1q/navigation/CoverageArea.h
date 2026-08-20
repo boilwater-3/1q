@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file CoverageArea.h
  * @brief 定义覆盖区域类型（多边形 / 圆形）。
  */

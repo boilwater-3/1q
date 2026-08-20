@@ -1,4 +1,4 @@
-// Copyright 2026. All Rights Reserved.
+﻿// Copyright 2026. All Rights Reserved.
 //
 // @file antenna_pattern_utils_test.cpp
 // @brief 验证机载雷达天线方向图工程近似工具函数。

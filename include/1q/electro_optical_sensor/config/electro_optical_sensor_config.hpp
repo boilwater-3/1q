@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file electro_optical_sensor_config.hpp
  * @brief 光电传感器模块配置统一入口。
  */

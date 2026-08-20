@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file ReplayFlatbufferCodecSupport.h
  * @brief 模块 replay codec 共用的内部 FlatBuffers 机械基元。
  *

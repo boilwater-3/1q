@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file JsonFormatUtils.h
  * @brief 定义 trace 序列化复用的轻量 JSON 文本工具。
  */

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file ReplayTrace.h
  * @brief 定义可复现仿真用的回放 trace（Replay Trace）写入、读取与回放公开 API。
  *

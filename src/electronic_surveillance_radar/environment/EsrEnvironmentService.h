@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file EsrEnvironmentService.h
  * @brief 定义 ESR 环境服务默认实现。
  */

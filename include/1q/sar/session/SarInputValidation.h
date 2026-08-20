@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file SarInputValidation.h
  * @brief 定义 SAR 周期输入校验接口。
  */

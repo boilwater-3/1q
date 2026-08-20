@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file RecognitionMatcher.cpp
  * @brief 动态加权匹配实现。
  */

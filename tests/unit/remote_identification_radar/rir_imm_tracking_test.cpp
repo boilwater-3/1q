@@ -1,4 +1,4 @@
-// Copyright 2026. All Rights Reserved.
+﻿// Copyright 2026. All Rights Reserved.
 //
 // @file rir_imm_tracking_test.cpp
 // @brief 验证 RIR IMM 生命周期双路径（阶段 2-T N4/N5）。

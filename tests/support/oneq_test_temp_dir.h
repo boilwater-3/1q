@@ -1,4 +1,4 @@
-// 测试临时目录统一入口。
+﻿// 测试临时目录统一入口。
 //
 // 优先使用 CMake 注入的 ONEQ_TEST_TEMP_DIR（见 tests/CMakeLists.txt：
 // Windows 取 %TEMP%，macOS/Linux 取 /tmp，经 add_1q_gtest /

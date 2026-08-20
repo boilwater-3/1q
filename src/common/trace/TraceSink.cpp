@@ -1,4 +1,4 @@
-#include "1q/trace/TraceSink.h"
+﻿#include "1q/trace/TraceSink.h"
 
 #include <flatbuffers/flexbuffers.h>
 

@@ -1,4 +1,4 @@
-// Copyright 2026. All Rights Reserved.
+﻿// Copyright 2026. All Rights Reserved.
 //
 // @file rir_recognition_us_military_scenario_test.cpp
 // @brief 美方公开型号识别效能验证（RIR 独立模块版，交付库直载）。

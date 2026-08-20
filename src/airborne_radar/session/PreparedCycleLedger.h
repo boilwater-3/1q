@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file PreparedCycleLedger.h
  * @brief AR 周期账本——拥有 prepared-cycle 书记、编年史与单调计数器/令牌。
  *

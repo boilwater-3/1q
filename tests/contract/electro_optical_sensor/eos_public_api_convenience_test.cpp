@@ -1,4 +1,4 @@
-// Copyright 2026. All Rights Reserved.
+﻿// Copyright 2026. All Rights Reserved.
 //
 // @file eos_public_api_convenience_test.cpp
 // @brief 验证 EOS 对外易用性增强 API 的默认语义与集成行为。

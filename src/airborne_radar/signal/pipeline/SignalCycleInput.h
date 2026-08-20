@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file SignalCycleInput.h
  * @brief 定义信号流水线单周期的显式输入结构体，取代分散的 setter 旁路。
  */

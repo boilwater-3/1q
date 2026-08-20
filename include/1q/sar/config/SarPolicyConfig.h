@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file SarPolicyConfig.h
  * @brief 定义 SAR 会话执行策略配置。
  */

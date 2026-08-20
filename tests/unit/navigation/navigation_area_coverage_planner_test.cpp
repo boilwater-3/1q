@@ -1,4 +1,4 @@
-// Copyright 2026. All Rights Reserved.
+﻿// Copyright 2026. All Rights Reserved.
 //
 // @file navigation_area_coverage_planner_test.cpp
 // @brief 验证区域覆盖规划器：多边形牛耕式扫描与圆形盘旋的几何不变量。

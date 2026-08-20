@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file SignalPipelineRuntimeTypes.h
  * @brief 汇聚 SignalPipeline 内部运行时需要的配置与结果类型。
  */

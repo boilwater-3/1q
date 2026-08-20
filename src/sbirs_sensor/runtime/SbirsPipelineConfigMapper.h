@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file SbirsPipelineConfigMapper.h
  * @brief SBIRS-inspired public config 到 internal config 映射。
  */

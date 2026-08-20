@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file SbirsTrackingTypes.h
  * @brief SBIRS 红外滤波测量跟踪 facade：消费 common/estimation 模板化滤波框架，实例化为 SBIRS
  *        6 维 CV 状态 / 2 维角度量测场景，并提供球坐标角度量测模型与动态 R 矩阵构造。

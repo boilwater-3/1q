@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file sar_config.hpp
  * @brief 汇总 SAR 公共配置头。
  */

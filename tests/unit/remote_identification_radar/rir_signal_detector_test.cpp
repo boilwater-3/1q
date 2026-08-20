@@ -1,4 +1,4 @@
-// Copyright 2026. All Rights Reserved.
+﻿// Copyright 2026. All Rights Reserved.
 //
 // @file rir_signal_detector_test.cpp
 // @brief 验证 RIR 统计级 CFAR 探测判决器（副本改写自 ar_signal_detection_test.cpp

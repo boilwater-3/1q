@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file RirTrackTypes.h
  * @brief RIR 轻量跟踪子集的内部航迹类型（阶段 2-T T4）。
  *

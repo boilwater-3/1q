@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file RirRfCycleState.h
  * @brief 定义 RIR 单周期 RF 构建输入与冻结接收工作状态。
  */

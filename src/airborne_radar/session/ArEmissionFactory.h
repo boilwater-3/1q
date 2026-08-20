@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file ArEmissionFactory.h
  * @brief 无状态构造器——从 prepare 输入与工程配置编写一次 AR 脉冲列发射。
  *

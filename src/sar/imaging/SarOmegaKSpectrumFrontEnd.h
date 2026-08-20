@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file SarOmegaKSpectrumFrontEnd.h
  * @brief Omega-K 前端执行器:从 raw baseband history 产生 2D 波数谱(source_spectrum)。
  *

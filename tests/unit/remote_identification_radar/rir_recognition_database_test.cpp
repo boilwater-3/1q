@@ -1,4 +1,4 @@
-// Copyright 2026. All Rights Reserved.
+﻿// Copyright 2026. All Rights Reserved.
 //
 // @file rir_recognition_database_test.cpp
 // @brief 验证识别特征数据库 SQLite 加载/校验与动态加权匹配行为。

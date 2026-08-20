@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file WaypointSequencingEvent.h
  * @brief 定义 kFlyToWaypoint 完成事件记录与完成门枚举。
  * @note 该类型是 flight_dynamic 的决策诊断面：完成判定命中时保留"哪个门、

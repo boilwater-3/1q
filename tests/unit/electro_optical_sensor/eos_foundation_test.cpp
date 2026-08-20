@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file eos_foundation_unit_test.cpp
  * @brief 验证光学传感器基础计算层核心公式的数值行为。
  */

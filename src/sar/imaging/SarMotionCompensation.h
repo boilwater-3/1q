@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file SarMotionCompensation.h
  * @brief SAR 内部一阶运动补偿工具。
  */

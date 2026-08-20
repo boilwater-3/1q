@@ -1,4 +1,4 @@
-// Copyright 2026. All Rights Reserved.
+﻿// Copyright 2026. All Rights Reserved.
 //
 // @file rir_effective_rcs_test.cpp
 // @brief 验证 RIR 有效 RCS 混合逻辑。

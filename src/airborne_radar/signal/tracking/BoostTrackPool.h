@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file BoostTrackPool.h
  * @brief 基于 Boost object_pool 的轨迹对象池实现。
  */

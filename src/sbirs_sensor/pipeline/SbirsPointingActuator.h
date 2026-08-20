@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file SbirsPointingActuator.h
  * @brief Internal rate-limited optical line-of-sight actuator characterization model.
  */

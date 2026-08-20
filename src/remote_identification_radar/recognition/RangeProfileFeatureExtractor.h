@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file RangeProfileFeatureExtractor.h
  * @brief 宽带一维距离像特征提取器（识别专用）。
  */

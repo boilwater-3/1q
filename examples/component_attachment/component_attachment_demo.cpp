@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file component_attachment_demo.cpp
  * @brief 自定义实体-组件示例主程序。
  *

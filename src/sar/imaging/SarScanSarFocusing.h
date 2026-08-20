@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file SarScanSarFocusing.h
  * @brief 扫描模式(ScanSAR)逐 burst Omega-K 聚焦编排器。
  *

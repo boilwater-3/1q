@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file sar_batch_validation.cpp
  * @brief 合成孔径雷达（SAR）批量场景验证。
  *

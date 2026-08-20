@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file SarFocusedImageAssembler.h
  * @brief SAR 输出帧元数据初始化与各处理阶段标记工具函数。
  */

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file SignalDetector.h
  * @brief 定义封装物理化回波评估与探测判决的信号检测器。
  */

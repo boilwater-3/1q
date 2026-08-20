@@ -1,4 +1,4 @@
-// FD 开发期验证工具：机型能力探针 → 三种 CSV 导出。
+﻿// FD 开发期验证工具：机型能力探针 → 三种 CSV 导出。
 // 用法：aircraft_probe_csv（按环境变量门控导出）：
 //   FD_RUN_AIRCRAFT_PROBE=1 → 机型剖面/襟副翼探针（FD_AIRCRAFT_PROBE_CSV 或 /tmp/1q_aircraft_probe.csv）
 //   FD_RUN_WAYPOINT_PROBE=1 → 航点寻的扫描（FD_WAYPOINT_PROBE_CSV 或 /tmp/1q_waypoint_probe.csv）

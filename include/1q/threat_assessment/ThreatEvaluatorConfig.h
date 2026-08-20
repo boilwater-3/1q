@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file ThreatEvaluatorConfig.h
  * @brief 定义威胁评估配置（属性权重与归一化参考值）。
  */

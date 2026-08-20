@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file DetectionExecution.h
  * @brief 定义 SignalPipeline 探测执行阶段的内部辅助函数。
  */

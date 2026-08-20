@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file EcmWaveformFactory.cpp
  * @brief EcmWaveformFactory 实现：压制和欺骗波形构造。
  */

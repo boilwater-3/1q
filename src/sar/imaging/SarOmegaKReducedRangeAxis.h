@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file SarOmegaKReducedRangeAxis.h
  * @brief Omega-K 收缩距离频率网格与相对延迟轴诊断。
  */

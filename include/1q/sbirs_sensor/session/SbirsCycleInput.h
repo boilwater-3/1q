@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file SbirsCycleInput.h
  * @brief 定义 SBIRS-inspired 单周期输入。
  */

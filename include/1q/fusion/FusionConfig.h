@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file FusionConfig.h
  * @brief 定义多源融合配置（权重/门限/窗口）。
  */

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file area_division.cpp
  * @brief 编队区域切分实现（见 area_division.h）。
  */

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file EcmReplayFlatbufferCodec.h
  * @brief 声明 ECM replay FlatBuffers payload 编解码接口。
  */

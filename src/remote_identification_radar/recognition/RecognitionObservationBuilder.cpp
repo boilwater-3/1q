@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file RecognitionObservationBuilder.cpp
  * @brief 识别观测构造器实现。
  */

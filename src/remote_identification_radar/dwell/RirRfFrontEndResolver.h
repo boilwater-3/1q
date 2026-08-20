@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file RirRfFrontEndResolver.h
  * @brief 定义 RIR RF v2 宽带接收前端的纯求解边界。
  */

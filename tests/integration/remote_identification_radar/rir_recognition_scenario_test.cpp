@@ -1,4 +1,4 @@
-// Copyright 2026. All Rights Reserved.
+﻿// Copyright 2026. All Rights Reserved.
 //
 // @file rir_recognition_scenario_test.cpp
 // @brief 远程识别效能验证：标注场景 + 混合 + 模式切换（RIR 独立模块版）。

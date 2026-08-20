@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file sar_controller_runtime_state_test.cpp
  * @brief 验证 SAR 控制器与处理流水线运行态快照契约。
  */

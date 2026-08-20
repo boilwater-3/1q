@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file esr_kdtree_clusterer_test.cpp
  * @brief 验证 ESR 预处理与 KD-tree 聚类组件行为。
  */

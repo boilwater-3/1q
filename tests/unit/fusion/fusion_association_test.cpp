@@ -1,4 +1,4 @@
-// Copyright 2026. All Rights Reserved.
+﻿// Copyright 2026. All Rights Reserved.
 //
 // @file fusion_association_test.cpp
 // @brief 验证关联分层：身份键直挂、位置半径、方位相干、特征门限与失跟删除。

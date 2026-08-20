@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file AntennaPatternRuntime.h
  * @brief 定义天线方向图运行期中间量与评估函数（common 单源，header-only）。
  */

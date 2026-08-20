@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file EsrMissionConfig.h
  * @brief 定义 ESR 任务域配置、工作模式与扫描策略。
  */

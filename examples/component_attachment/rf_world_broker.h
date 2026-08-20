@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file rf_world_broker.h
  * @brief 演示层 RF-WORLD 编排：跨实体汇集/分发装备发射（无库内全局 RfScene 总线）。
  *

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file logger.cpp
  * @brief 集成端日志设施实现（见 logger.h）。
  *

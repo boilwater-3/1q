@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file batch_checks.h
  * @brief 专项序列的结构化契约检查记录器。
  */

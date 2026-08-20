@@ -1,4 +1,4 @@
-#include "sar/imaging/SarMotionCompensation.h"
+﻿#include "sar/imaging/SarMotionCompensation.h"
 
 #include <algorithm>
 #include <cmath>

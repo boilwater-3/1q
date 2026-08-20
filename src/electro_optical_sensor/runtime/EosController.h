@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file EosController.h
  * @brief 定义光学传感器核心调度控制器接口。
  */

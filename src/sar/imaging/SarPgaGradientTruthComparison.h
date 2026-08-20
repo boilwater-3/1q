@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file SarPgaGradientTruthComparison.h
  * @brief 有界 PGA 梯度估计的缠绕误差比较。
  */

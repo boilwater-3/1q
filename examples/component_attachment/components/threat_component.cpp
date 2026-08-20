@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file threat_component.cpp
  * @brief 威胁评估组件实现（融合态势 + 运动学 → 威胁分/等级 + 升级事件）。
  *

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file PipelineTargetUtils.h
  * @brief 信号处理流水线内部目标特征工具函数。
  */

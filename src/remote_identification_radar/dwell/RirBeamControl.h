@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file RirBeamControl.h
  * @brief 定义 RIR 波束宽度解析与给定指向下的方向图增益求解（私有实现头）。
  *

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file EcmEsrAdapter.h
  * @brief 定义 ESR 去真值化假设到 ECM 观测帧的公共适配入口。
  */

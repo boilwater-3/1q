@@ -1,4 +1,4 @@
-#include "1q/sbirs_sensor/session/SbirsCycleOutputAdapter.h"
+﻿#include "1q/sbirs_sensor/session/SbirsCycleOutputAdapter.h"
 
 namespace sbirs_sensor {
 namespace session {

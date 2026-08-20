@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file ar_sensor_component.cpp
  * @brief AR 传感器组件实现（会话驱动 + 轨迹生命周期事件转发）。
  *

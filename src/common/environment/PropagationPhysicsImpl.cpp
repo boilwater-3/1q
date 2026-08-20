@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file PropagationPhysicsImpl.cpp
  * @brief 实现大气传播物理算法公开 API（转发到 common/atmosphere）。
  */

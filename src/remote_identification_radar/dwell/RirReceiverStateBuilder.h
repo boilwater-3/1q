@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file RirReceiverStateBuilder.h
  * @brief 无状态构造器——从周期输入、发射事实与硬件配置组装接收工作状态。
  */

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file SarOmegaKPointTargetAcceptance.h
  * @brief Omega-K 点目标候选的独立验收评估器。
  */

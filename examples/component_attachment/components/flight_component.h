@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file flight_component.h
  * @brief 自定义实体-组件示例：飞行组件（六自由度机动 + 航点跟随）。
  *

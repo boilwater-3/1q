@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file signals.h
  * @brief 自定义实体-组件示例：事件信号集合（Boost.Signals2）。
  *

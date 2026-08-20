@@ -1,4 +1,4 @@
-// Copyright 2026. All Rights Reserved.
+﻿// Copyright 2026. All Rights Reserved.
 //
 // @file rir_rf_physical_parity_test.cpp
 // @brief 验证 RIR RF 物理链（emission → receiver → FE → cell → CFAR）与 AR 基线数值一致。

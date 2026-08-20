@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file EosReplayFlatbufferCodec.h
  * @brief EOS replay payload 的 FlatBuffers encode/decode 接口。
  *

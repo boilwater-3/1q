@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file RecognitionTypes.h
  * @brief 远程目标识别内部观测与特征类型。
  *

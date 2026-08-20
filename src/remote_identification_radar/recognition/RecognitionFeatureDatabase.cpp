@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file RecognitionFeatureDatabase.cpp
  * @brief 目标特征数据库加载与校验实现（SQLite schema v1.1）。
  *

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file IKalmanUpdater.h
  * @brief 定义基于 Kalman 滤波的量测更新器抽象接口（维度模板化）。
  */

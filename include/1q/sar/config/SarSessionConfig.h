@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file SarSessionConfig.h
  * @brief 定义 SAR 会话初始化配置结构。
  */

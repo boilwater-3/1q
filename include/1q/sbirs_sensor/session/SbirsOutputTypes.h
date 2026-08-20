@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file SbirsOutputTypes.h
  * @brief 定义 SBIRS-inspired 原生观测输出与归属类型。
  */

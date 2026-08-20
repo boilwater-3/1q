@@ -1,4 +1,4 @@
-// @file ArSessionConfigBuilder.cpp
+﻿// @file ArSessionConfigBuilder.cpp
 // @brief Implementation of ArSessionConfigBuilder (thin wrapper).
 
 #include "1q/airborne_radar/config/ArSessionConfigBuilder.h"

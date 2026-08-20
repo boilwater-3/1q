@@ -13,6 +13,12 @@ tab_width = 2
 indent_size = 4
 tab_width = 4
 
+# C/C++ 源文件统一 UTF-8 with BOM：VS2015 集成端对无 BOM 文件按系统代码页
+# （GBK）误读，中文注释错位截断；cl.exe 对带 BOM 文件无条件按 UTF-8 解码。
+# MSVC/Clang 均兼容。维护用 scripts/utf8_bom.py（convert/check）。
+[{*.h,*.hh,*.hpp,*.hxx,*.ipp,*.inl,*.c,*.cc,*.cpp,*.cxx}]
+charset = utf-8-bom
+
 [*.md]
 trim_trailing_whitespace = false
 

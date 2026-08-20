@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file TrackStateSnapshotEmitter.cpp
  * @brief 轨迹快照导出器实现。
  */

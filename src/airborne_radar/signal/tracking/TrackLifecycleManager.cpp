@@ -1,4 +1,4 @@
-#include "airborne_radar/signal/tracking/TrackLifecycleManager.h"
+﻿#include "airborne_radar/signal/tracking/TrackLifecycleManager.h"
 
 #include <algorithm>
 #include <cmath>

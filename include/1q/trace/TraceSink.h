@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file TraceSink.h
  * @brief 定义用于会话中间层记录的通用 sink 接口与文件实现。
  */

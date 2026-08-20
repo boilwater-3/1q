@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file EsrController.h
  * @brief 定义电子侦察核心调度控制器接口。
  */

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file SarCycleInputAdapter.h
  * @brief 一步法构建 SarCycleInput，封装脉冲状态坐标转换。
  *

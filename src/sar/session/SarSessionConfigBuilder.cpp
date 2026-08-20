@@ -1,4 +1,4 @@
-// @file SarSessionConfigBuilder.cpp
+﻿// @file SarSessionConfigBuilder.cpp
 // @brief Implementation of SarSessionConfigBuilder (thin wrapper).
 
 #include "1q/sar/config/SarSessionConfigBuilder.h"

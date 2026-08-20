@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file EsrRuntimeConfigResolver.h
  * @brief 解析 ESR 运行期补丁到内部执行态配置的统一更新计划。
  */

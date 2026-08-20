@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file eos_sensor_component.cpp
  * @brief EOS 传感器组件实现（会话驱动 + 探测生命周期事件转发）。
  *

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file ArDiagnosticUtils.h
  * @brief AR 单周期诊断条目构造与中止记录工具函数。
  */

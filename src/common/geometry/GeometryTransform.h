@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file GeometryTransform.h
  * @brief 定义库内共享的姿态旋转、视线角解析与扫描限位几何工具。
  */

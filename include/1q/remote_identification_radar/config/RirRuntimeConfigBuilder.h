@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file RirRuntimeConfigBuilder.h
  * @brief 远程识别雷达运行期配置补丁建造者。
  *

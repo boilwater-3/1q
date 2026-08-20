@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file IEsrEnvironmentService.h
  * @brief 定义电子侦察环境服务只读接口与快照类型。
  */

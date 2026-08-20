@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file TacticalDecisionTypes.h
  * @brief 定义 AR 默认战术决策器的内部状态与结果类型。
  */

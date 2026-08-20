@@ -1,4 +1,4 @@
-// Copyright 2026. All Rights Reserved.
+﻿// Copyright 2026. All Rights Reserved.
 //
 // @file spectral_numerics_test.cpp
 // @brief 验证频谱基础数值入口的可用性与一致性。

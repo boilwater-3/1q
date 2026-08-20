@@ -1,4 +1,4 @@
-// Copyright 2026. All Rights Reserved.
+﻿// Copyright 2026. All Rights Reserved.
 //
 // @file radar_orientation_utils_test.cpp
 // @brief 验证机载雷达方向配置工具函数的组合与限幅行为。

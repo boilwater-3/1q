@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file RirHardwareConfig.h
  * @brief 远程识别雷达硬件域主配置类型。
  *

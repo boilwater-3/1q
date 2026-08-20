@@ -1,4 +1,4 @@
-#include "1q/coordinate/position_transform.h"
+﻿#include "1q/coordinate/position_transform.h"
 
 #include <cmath>
 #include "common/validation/ValidationUtils.h"

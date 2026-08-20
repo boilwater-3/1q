@@ -1,4 +1,4 @@
-#include "sar/runtime/PulseRingBuffer.h"
+﻿#include "sar/runtime/PulseRingBuffer.h"
 
 #include <cmath>
 

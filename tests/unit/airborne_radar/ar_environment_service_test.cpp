@@ -1,4 +1,4 @@
-// Copyright 2026. All Rights Reserved.
+﻿// Copyright 2026. All Rights Reserved.
 //
 // @file ar_environment_service_test.cpp
 // @brief 验证自然环境场景冻结、派生与运行态恢复。

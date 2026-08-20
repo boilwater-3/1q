@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file ecm_scheduler_order_invariance_test.cpp
  * @brief Property-style tests: scheduler randomness must be independent of threat
  *        input order (design §3 hard constraint — separate RNG streams).

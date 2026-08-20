@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file FeatureRepository.h
  * @brief 定义目标特征仓储的具体实现。
  */

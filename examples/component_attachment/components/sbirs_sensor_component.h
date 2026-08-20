@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file sbirs_sensor_component.h
  * @brief 自定义实体-组件示例：SBIRS（天基红外）传感器组件。
  *

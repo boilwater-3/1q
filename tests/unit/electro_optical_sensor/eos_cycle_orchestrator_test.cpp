@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file eos_cycle_orchestrator_test.cpp
  * @brief 验证 EOS 会话的周期执行、配置提交与运行期补丁契约。
  *

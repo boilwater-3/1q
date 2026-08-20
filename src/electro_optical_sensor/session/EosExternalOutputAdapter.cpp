@@ -1,4 +1,4 @@
-#include "1q/electro_optical_sensor/session/EosExternalOutputAdapter.h"
+﻿#include "1q/electro_optical_sensor/session/EosExternalOutputAdapter.h"
 
 #include <cmath>
 

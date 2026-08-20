@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file SbirsIssueCodes.h
  * @brief SBIRS issue code 注册表：本模块全部 code 常量的单一事实来源（规则 14c）。
  * @note 仅用于日志映射、不产生为 issue code 的兜底串（如 sbirs.validation_rejected）不在此登记。

@@ -1,4 +1,4 @@
-#include "1q/electro_optical_sensor/session/EosCycleOutputAdapter.h"
+﻿#include "1q/electro_optical_sensor/session/EosCycleOutputAdapter.h"
 
 #include "1q/coordinate/position_transform.h"
 

@@ -1,4 +1,4 @@
-// @file eos_profile_constants_test.cpp
+﻿// @file eos_profile_constants_test.cpp
 // @brief 验证 EosProfileConstants 常量字段值与旧 Builder 翻译输出一致（迁移锚点）。
 
 #include <gtest/gtest.h>

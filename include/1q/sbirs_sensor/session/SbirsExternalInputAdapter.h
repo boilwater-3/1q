@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file SbirsExternalInputAdapter.h
  * @brief 定义 SBIRS-inspired 外部输入适配占位入口。
  */

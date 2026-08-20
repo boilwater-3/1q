@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file SbirsMissionConfig.h
  * @brief 定义 SBIRS-inspired 任务与视场参数。
  */

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file EosOpticalCharacteristics.h
  * @brief 定义光学系统几何、成像质量与空间分辨率计算函数。
  */

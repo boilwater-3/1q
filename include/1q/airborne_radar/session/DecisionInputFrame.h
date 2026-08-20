@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file DecisionInputFrame.h
  * @brief 定义供决策引擎消费的单周期输入帧。
  */

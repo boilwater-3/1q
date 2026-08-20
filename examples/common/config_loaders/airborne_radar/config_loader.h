@@ -1,4 +1,4 @@
-#ifndef EXAMPLES_AR_CONFIG_LOADER_H_
+﻿#ifndef EXAMPLES_AR_CONFIG_LOADER_H_
 #define EXAMPLES_AR_CONFIG_LOADER_H_
 
 #include <string>

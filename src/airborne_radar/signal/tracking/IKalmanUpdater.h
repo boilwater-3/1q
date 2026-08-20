@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file IKalmanUpdater.h
  * @brief 向后兼容外观：将 common/estimation 模板化 Kalman 更新器接口重导出为 6/3 实例化旧名。
  */

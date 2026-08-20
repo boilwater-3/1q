@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file ArReplayFlatbufferCodec.h
  * @brief 提供 AR 会话回放（replay）相关结构的 FlatBuffers 序列化/反序列化编解码。
  *

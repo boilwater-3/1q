@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file ecm_session_test.cpp
  * @brief 验证 ECM 双模式、资源调度、滑行和快照确定性契约。
  */

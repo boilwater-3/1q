@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file SbirsInputValidation.h
  * @brief 定义 SBIRS-inspired 输入校验类型与入口。
  */

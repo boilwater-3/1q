@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file SbirsErrorModel.h
  * @brief SBIRS-inspired WFOV 带误差位置模型（见 algorithms.md 误差模型条目）。
  *

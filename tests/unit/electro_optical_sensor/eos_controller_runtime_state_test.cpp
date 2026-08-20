@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file eos_controller_runtime_state_test.cpp
  * @brief 验证 EOS 控制器运行态快照与失败回退契约。
  */

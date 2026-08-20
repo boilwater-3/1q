@@ -1,4 +1,4 @@
-#ifndef EXAMPLES_RIR_CONFIG_LOADER_DETAIL_H_
+﻿#ifndef EXAMPLES_RIR_CONFIG_LOADER_DETAIL_H_
 #define EXAMPLES_RIR_CONFIG_LOADER_DETAIL_H_
 
 #include "1q/remote_identification_radar/remote_identification_radar.hpp"

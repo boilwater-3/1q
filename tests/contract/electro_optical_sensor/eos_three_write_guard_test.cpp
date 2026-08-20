@@ -1,4 +1,4 @@
-// Copyright 2026. All Rights Reserved.
+﻿// Copyright 2026. All Rights Reserved.
 //
 // @file eos_three_write_guard_test.cpp
 // @brief EOS 三写约束机制性守卫（session_contract.md 规则 9 + 统一问题列表模型规则 14）。

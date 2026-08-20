@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file fusion_component.cpp
  * @brief 融合组件实现（多源聚合 + 态势差分）。
  *

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file MotionFeatureExtractor.cpp
  * @brief 运动特征提取器实现。
  */

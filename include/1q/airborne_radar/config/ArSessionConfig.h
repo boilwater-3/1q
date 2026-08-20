@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file ArSessionConfig.h
  * @brief 机载雷达会话初始化主配置类型。
  *

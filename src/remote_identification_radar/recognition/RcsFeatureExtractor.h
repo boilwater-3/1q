@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file RcsFeatureExtractor.h
  * @brief 各向 RCS 特征提取器（识别专用，dBsm 域）。
  */

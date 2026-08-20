@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file coordinate_position_transform_legacy_test.cpp
  * @brief 验证公共 LLA/ECEF/ENU 坐标转换工具的数值正确性与输入校验行为。
  */

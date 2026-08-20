@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file logger_i18n.h
  * @brief 集成端日志中文适配：issue code → 中文名 + 问题列表格式化（查表）。
  *

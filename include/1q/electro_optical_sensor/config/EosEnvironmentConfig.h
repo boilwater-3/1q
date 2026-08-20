@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file EosEnvironmentConfig.h
  * @brief EOS 单一场景环境配置契约。
  */

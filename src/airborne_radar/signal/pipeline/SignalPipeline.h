@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file SignalPipeline.h
  * @brief 定义信号处理流水线的默认内部实现。
  */

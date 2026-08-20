@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file sar.hpp
  * @brief SAR 模块稳定会话入口头。
  * @note trace/replay 工具头按需单独包含。

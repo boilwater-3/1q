@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file RirTrackLifecycle.cpp
  * @brief RIR 轻量跟踪子集的航迹生命周期管理器实现（阶段 2-T T3，N3 池化）。
  */

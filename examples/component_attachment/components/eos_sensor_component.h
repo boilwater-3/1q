@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file eos_sensor_component.h
  * @brief 自定义实体-组件示例：EOS（光电）传感器组件。
  *

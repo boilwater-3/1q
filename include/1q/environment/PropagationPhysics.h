@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file PropagationPhysics.h
  * @brief 定义大气传播物理算法公开 API。
  *

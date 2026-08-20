@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file SbirsRuntimeConfigResolver.h
  * @brief SBIRS-inspired runtime patch resolver。
  */

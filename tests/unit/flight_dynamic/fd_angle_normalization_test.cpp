@@ -1,4 +1,4 @@
-// Copyright 2026. All Rights Reserved.
+﻿// Copyright 2026. All Rights Reserved.
 //
 // @file fd_angle_normalization_test.cpp
 // @brief 验证角度归一化单一源（NormalizeRad → [-π,π]、RadToDeg360 → [0,360)）。

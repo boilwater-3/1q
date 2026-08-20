@@ -1,4 +1,4 @@
-// Copyright 2026. All Rights Reserved.
+﻿// Copyright 2026. All Rights Reserved.
 //
 // @file sbirs_public_api_convenience_test.cpp
 // @brief SBIRS 对外易用性 API 契约测试。

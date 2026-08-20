@@ -1,4 +1,4 @@
-#include "1q/flight_dynamic/guidance/WaypointManager.h"
+﻿#include "1q/flight_dynamic/guidance/WaypointManager.h"
 
 #include <algorithm>
 #include <cmath>

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file common_measurement_error_model_test.cpp
  * @brief 验证 common 测量误差模型的高 SNR、低 SNR、波束宽度与 RMS 合成语义。
  */

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file SbirsController.h
  * @brief SBIRS-inspired 周期控制器。
  */

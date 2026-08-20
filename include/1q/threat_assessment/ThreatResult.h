@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file ThreatResult.h
  * @brief 定义威胁评估输出结果。
  */

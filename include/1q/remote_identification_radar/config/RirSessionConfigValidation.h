@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file RirSessionConfigValidation.h
  * @brief 远程识别雷达会话配置校验入口。
  *

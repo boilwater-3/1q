@@ -1,4 +1,4 @@
-// Copyright 2026. All Rights Reserved.
+﻿// Copyright 2026. All Rights Reserved.
 //
 // @file rir_self_contained_pipeline_test.cpp
 // @brief 验证阶段 2-S 自持链路：检测 → 量测误差 → 关联/滤波/生命周期 → 内部航迹。

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file esr_hypothesis_associator_test.cpp
  * @brief 验证 ESR 假设关联器的关联与回收行为。
  */

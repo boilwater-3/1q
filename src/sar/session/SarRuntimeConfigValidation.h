@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file SarRuntimeConfigValidation.h
  * @brief SAR 单周期 step-time 运行期配置校验。
  */

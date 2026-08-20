@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file EosOutputTypes.h
  * @brief EOS 公共输出记录、归属记录与周期终止原因类型。
  */

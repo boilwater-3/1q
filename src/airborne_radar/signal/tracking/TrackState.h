@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file TrackState.h
  * @brief 定义 tracking 子域内的轨迹状态类型。
  */

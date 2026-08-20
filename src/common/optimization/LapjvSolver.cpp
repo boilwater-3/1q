@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file LapjvSolver.cpp
  * @brief LAPJV 指派求解器实现（common 单源）。
  */

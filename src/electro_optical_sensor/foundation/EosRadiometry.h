@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file EosRadiometry.h
  * @brief 定义光学传感器基础辐射度量计算函数。
  */

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file eos_session_composition_root_test.cpp
  * @brief 验证 EOS 会话装配根的依赖组合与配置同步契约。
  * @note 管线与环境服务已完全内部化，不再支持外部注入。

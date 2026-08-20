@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file EosRuntimeConfigPatch.h
  * @brief 定义 EOS 会话运行期配置补丁结构。
  */

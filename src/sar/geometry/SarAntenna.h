@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file SarAntenna.h
  * @brief SAR 天线方向图、增益与合成孔径时间计算。
  */

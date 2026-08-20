@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file SbirsTrackingCoordinator.h
  * @brief Internal owner of SBIRS estimated-tracking runtime state.
  */

@@ -1,4 +1,4 @@
-#ifndef EXAMPLES_EOS_CONFIG_LOADER_H_
+﻿#ifndef EXAMPLES_EOS_CONFIG_LOADER_H_
 #define EXAMPLES_EOS_CONFIG_LOADER_H_
 
 #include <string>

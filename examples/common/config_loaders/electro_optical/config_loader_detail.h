@@ -1,4 +1,4 @@
-#ifndef EXAMPLES_EOS_CONFIG_LOADER_DETAIL_H_
+﻿#ifndef EXAMPLES_EOS_CONFIG_LOADER_DETAIL_H_
 #define EXAMPLES_EOS_CONFIG_LOADER_DETAIL_H_
 
 #include "1q/electro_optical_sensor/electro_optical_sensor.hpp"

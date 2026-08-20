@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file sbirs_sensor_component.cpp
  * @brief SBIRS 传感器组件实现（会话驱动 + 探测生命周期事件转发）。
  *

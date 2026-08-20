@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file ArInterferenceObservationResolver.h
  * @brief 定义去真值化 AR 干扰观测的纯求解边界。
  */

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file EccmEvaluator.h
  * @brief 定义 ECCM（电子抗干扰）评估器类。
  */

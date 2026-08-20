@@ -1,4 +1,4 @@
-#include "sar/output/ImageFormatter.h"
+﻿#include "sar/output/ImageFormatter.h"
 
 #include <fstream>
 #include <sstream>

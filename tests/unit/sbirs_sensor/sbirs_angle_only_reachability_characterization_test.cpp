@@ -1,4 +1,4 @@
-// Copyright 2026. All Rights Reserved.
+﻿// Copyright 2026. All Rights Reserved.
 //
 // @file sbirs_angle_only_reachability_characterization_test.cpp
 // @brief 角度-only 弱可观测可达性矩阵（P0 指标签认依据，TARGET-OQ/F4 证据）。

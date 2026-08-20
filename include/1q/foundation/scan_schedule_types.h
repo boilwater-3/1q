@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file scan_schedule_types.h
  * @brief 定义跨雷达模块复用的扫描调度轻量原语。
  */

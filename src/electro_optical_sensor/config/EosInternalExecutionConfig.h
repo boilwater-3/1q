@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file EosInternalExecutionConfig.h
  * @brief 定义 EOS 唯一内部执行配置真值及其物理域子配置。
  *

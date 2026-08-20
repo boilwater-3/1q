@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file SbirsRadiometry.h
  * @brief SBIRS-inspired 红外辐射与 SNR 标量链路。
  */

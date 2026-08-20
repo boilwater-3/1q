@@ -1,4 +1,4 @@
-// Copyright 2026. All Rights Reserved.
+﻿// Copyright 2026. All Rights Reserved.
 //
 // @file sensor_adapters_test.cpp
 // @brief 传感器输出 → 融合探测记录官方适配器（SensorAdapters）单元测试。

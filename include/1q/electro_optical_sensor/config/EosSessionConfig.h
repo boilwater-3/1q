@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file EosSessionConfig.h
  * @brief 定义 EOS 会话初始化配置结构。
  */

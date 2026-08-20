@@ -1,4 +1,4 @@
-// Copyright 2026. All Rights Reserved.
+﻿// Copyright 2026. All Rights Reserved.
 //
 // @file ar_lapjv_solver_test.cpp
 // @brief 验证 LAPJV 指派求解器的正确性和边界行为。

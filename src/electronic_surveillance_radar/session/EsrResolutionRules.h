@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file EsrResolutionRules.h
  * @brief ESR 配置解析的单一规则源（work-mode 调整、scan policy 解析、scan 边界归一）。
  *

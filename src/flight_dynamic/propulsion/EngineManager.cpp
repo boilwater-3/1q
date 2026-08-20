@@ -1,4 +1,4 @@
-#include "flight_dynamic/propulsion/EngineManager.h"
+﻿#include "flight_dynamic/propulsion/EngineManager.h"
 
 #include <cmath>
 #include <string>

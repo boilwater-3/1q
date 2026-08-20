@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file SpectralNumerics.h
  * @brief 频谱与线性代数基础数值工具。
  */

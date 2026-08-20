@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file eos_session_test.cpp
  * @brief 验证 EOS Session 单周期闭环：三工作模式输出、环境退化、运行时热切换。
  */

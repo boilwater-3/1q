@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file inertial_transform.h
  * @brief 定义 ECEF ↔ ECI（J2000 平赤道面）惯性坐标转换与 GMST 恒星时计算。
  *

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file ar_track_output_debug_view_test.cpp
  * @brief 验证 AR 轨迹三层输出：debug view 构建与生命周期记录器。
  *

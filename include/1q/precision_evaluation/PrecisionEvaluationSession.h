@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file PrecisionEvaluationSession.h
  * @brief 定义精度评估编排会话：双星 SBIRS + 融合 + 推演的真值对照误差提取（需求 3.2.1.6.3）。
  */

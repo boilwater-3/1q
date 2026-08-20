@@ -1,4 +1,4 @@
-#include "1q/airborne_radar/session/ArExternalInputAdapter.h"
+﻿#include "1q/airborne_radar/session/ArExternalInputAdapter.h"
 
 #include <cmath>
 

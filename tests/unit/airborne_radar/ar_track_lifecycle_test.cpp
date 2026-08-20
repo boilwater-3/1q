@@ -1,4 +1,4 @@
-// Copyright 2026. All Rights Reserved.
+﻿// Copyright 2026. All Rights Reserved.
 //
 // @file track_lifecycle_test.cpp
 // @brief 验证轨迹对象池与生命周期管理的基础状态机行为。

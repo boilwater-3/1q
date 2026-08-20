@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file SbirsSessionConfigValidation.h
  * @brief 定义 SBIRS-inspired 配置校验入口。
  */

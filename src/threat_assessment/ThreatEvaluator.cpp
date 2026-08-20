@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file ThreatEvaluator.cpp
  * @brief 归一化加权和威胁评估器实现。
  */

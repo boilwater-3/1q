@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file SbirsNfovScheduler.cpp
  * @brief NFOV 多通道资源调度器实现。
  */

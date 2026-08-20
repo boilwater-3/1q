@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file BeamwidthResolution.h
  * @brief AR 波束宽度解析薄适配层（common 单源）。
  */

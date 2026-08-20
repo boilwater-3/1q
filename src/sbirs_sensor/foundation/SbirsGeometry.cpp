@@ -1,4 +1,4 @@
-#include "sbirs_sensor/foundation/SbirsGeometry.h"
+﻿#include "sbirs_sensor/foundation/SbirsGeometry.h"
 
 #include <algorithm>
 #include <cmath>

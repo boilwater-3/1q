@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file ArCycleOutputAdapter.h
  * @brief 机载雷达周期输出适配器。
  *

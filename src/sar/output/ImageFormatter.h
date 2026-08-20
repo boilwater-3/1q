@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file ImageFormatter.h
  * @brief SAR 聚焦图像二进制与 sidecar manifest 输出。
  */

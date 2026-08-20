@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file eos_pipeline_unit_test.cpp
  * @brief 验证 EOS core/pipeline 的扫描递推与视场判定策略。
  */

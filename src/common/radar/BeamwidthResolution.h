@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file BeamwidthResolution.h
  * @brief 定义名义波束宽度、指令态覆盖与孔径物理推导的统一解析规则（common 单源）。
  */

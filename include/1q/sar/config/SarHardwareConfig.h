@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file SarHardwareConfig.h
  * @brief 定义 SAR 传感器硬件与波形基础配置。
  */

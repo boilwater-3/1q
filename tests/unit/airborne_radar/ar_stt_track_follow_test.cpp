@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file ar_stt_track_follow_test.cpp
  * @brief 验证 STT 指定航迹跟随指向（方案 A）与自动丢跟踪回退。
  *

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file PipelineRuntimeSnapshot.h
  * @brief 定义 ESR 流水线运行态快照的私有数据结构及其类型安全访问器。
  *

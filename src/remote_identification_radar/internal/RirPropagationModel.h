@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file RirPropagationModel.h
  * @brief 定义 RIR 环境层最小传播与杂波组合模型（私有实现头）。
  *

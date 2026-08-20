@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file EsrResolutionRules.cpp
  * @brief ESR 配置解析规则的单一实现（见 EsrResolutionRules.h）。
  */

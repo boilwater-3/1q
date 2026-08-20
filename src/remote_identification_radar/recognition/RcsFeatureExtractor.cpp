@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file RcsFeatureExtractor.cpp
  * @brief 各向 RCS 特征提取器实现。
  */

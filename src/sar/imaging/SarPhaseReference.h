@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file SarPhaseReference.h
  * @brief SAR 内部相位重参考与全局常数相位估计工具。
  */

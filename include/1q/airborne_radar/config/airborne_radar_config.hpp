@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file airborne_radar_config.hpp
  * @brief 机载雷达模块配置统一入口。
  * @note 当调用方只需要公开配置 API 时，优先包含本头而不是逐个引入 `config/` 子头。

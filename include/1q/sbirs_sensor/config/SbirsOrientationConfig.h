@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file SbirsOrientationConfig.h
  * @brief 定义 SBIRS-inspired 传感器安装指向与稳定配置（对齐 ArOrientationConfig 语义）。
  */

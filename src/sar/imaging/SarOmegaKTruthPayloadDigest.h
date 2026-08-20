@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file SarOmegaKTruthPayloadDigest.h
  * @brief Omega-K 真值载荷字节的可移植 SHA-256 校验器。
  */

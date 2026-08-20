@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file PulseWidthErrorModel.h
  * @brief 定义电子侦察脉宽测量误差模型。
  */

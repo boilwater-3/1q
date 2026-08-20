@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file precision_evaluation_demo.cpp
  * @brief 精度评估层集成参考示例（需求 3.2.1.6.3：五项定位误差 + AHP 综合评分）。
  *

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file RecognitionTracker.cpp
  * @brief 识别积累与判定状态机实现。
  */

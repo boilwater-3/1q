@@ -1,4 +1,4 @@
-// 谓词守护：验证 HasExternalRawIq 以 IQ 样本为充要条件。
+﻿// 谓词守护：验证 HasExternalRawIq 以 IQ 样本为充要条件。
 //
 // 历史背景：该谓词曾是 6 个 raw_iq 字段的析取，导致 SarCycleInputAdapter 仅填伴随
 // 轨迹（pulse_states/pulse_count）的输入被误判为"外部完整 IQ"。收紧后，只有同时

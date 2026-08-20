@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file Waypoint.h
  * @brief 定义 flight_dynamic 引导模块使用的地理航点类型。
  */

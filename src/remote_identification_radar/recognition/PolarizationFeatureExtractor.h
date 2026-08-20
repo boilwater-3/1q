@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file PolarizationFeatureExtractor.h
  * @brief 双通道极化特征提取器（识别专用）。
  */

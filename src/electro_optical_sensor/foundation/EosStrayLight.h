@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file EosStrayLight.h
  * @brief 定义遮光罩杂散光抑制模型接口。
  */

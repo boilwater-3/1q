@@ -1,4 +1,4 @@
-// Copyright 2026. All Rights Reserved.
+﻿// Copyright 2026. All Rights Reserved.
 //
 // @file rir_emission_factory_test.cpp
 // @brief 验证 RIR 自发射构造（包络钳位、ECEF boresight、载频计划）。

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file ProjectFileLog.cpp
  * @brief 文件日志后端 sink 实现：单例 + mutex + ofstream + 时间戳 + 懒打开。
  *

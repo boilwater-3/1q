@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file SbirsDetectionLifecycleRecorder.h
  * @brief 定义 SBIRS-inspired 目标探测生命周期记录器。
  */

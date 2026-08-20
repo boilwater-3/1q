@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file EosRuntimeConfigResolver.cpp
  * @brief 实现 EOS 运行期补丁解析，直接操作内部执行配置。
  */

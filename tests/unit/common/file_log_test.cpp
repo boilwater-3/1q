@@ -1,4 +1,4 @@
-// 文件日志后端单测：oneq::logging 迷你 sink + 格式化引擎 + PROJECT_LOG_* 宏路由。
+﻿// 文件日志后端单测：oneq::logging 迷你 sink + 格式化引擎 + PROJECT_LOG_* 宏路由。
 //
 // 仅当 PROJECT_LOG_BACKEND_FILE=1（ONEQ_ENABLE_FILE_LOG=ON，Windows 默认）时
 // 本文件编译为真实测试；否则为空 TU（守卫与库编译在 Unit.cmake 中同步）。

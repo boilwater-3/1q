@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file InterceptPipelineTypes.h
  * @brief 定义 ESR 内部流水线配置、运行态与执行结果类型。
  */

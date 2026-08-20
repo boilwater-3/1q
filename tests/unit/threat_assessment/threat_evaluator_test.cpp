@@ -1,4 +1,4 @@
-// Copyright 2026. All Rights Reserved.
+﻿// Copyright 2026. All Rights Reserved.
 //
 // @file threat_evaluator_test.cpp
 // @brief 验证归一化加权和威胁评估器：归一化边界、加权和、等级映射、钳制与确定性。

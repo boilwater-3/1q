@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file batch_assertions.h
  * @brief 批量场景验证共享工具：软断言收集器 + 统计辅助。
  *

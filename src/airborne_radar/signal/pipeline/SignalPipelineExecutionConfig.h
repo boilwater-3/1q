@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file SignalPipelineExecutionConfig.h
  * @brief 定义 SignalPipeline 内部执行阶段使用的配置类型别名。
  */

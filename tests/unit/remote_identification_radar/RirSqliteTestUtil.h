@@ -1,4 +1,4 @@
-// Copyright 2026. All Rights Reserved.
+﻿// Copyright 2026. All Rights Reserved.
 //
 // @file RecognitionSqliteTestUtil.h
 // @brief 识别特征数据库测试的 SQLite 构造工具（测试专用，非库代码）。

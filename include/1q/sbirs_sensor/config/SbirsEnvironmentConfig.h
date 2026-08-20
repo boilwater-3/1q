@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file SbirsEnvironmentConfig.h
  * @brief 定义 SBIRS-inspired 环境和气象衰减参数。
  */

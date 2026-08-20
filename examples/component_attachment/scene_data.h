@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file scene_data.h
  * @brief 自定义实体-组件示例：场景描述（scenes 目录的 JSON 场景文件 → SceneData）。
  *

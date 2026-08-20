@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file rir_sensor_component.h
  * @brief 自定义实体-组件示例：RIR（远程识别雷达）地基站点组件。
  *

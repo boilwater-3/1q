@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file AngleErrorModel.h
  * @brief 定义电子侦察测角误差模型。
  */

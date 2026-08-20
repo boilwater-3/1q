@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file scene_data.cpp
  * @brief 场景描述加载实现（见 scene_data.h）。
  */

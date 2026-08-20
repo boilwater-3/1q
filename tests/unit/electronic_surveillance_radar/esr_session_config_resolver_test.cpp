@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file esr_session_config_resolver_test.cpp
  * @brief ESR 会话配置解析器测试（高层语义输入 -> 内部参数）。
  */

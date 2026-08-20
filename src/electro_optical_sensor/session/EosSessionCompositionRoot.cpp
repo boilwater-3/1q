@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file EosSessionCompositionRoot.cpp
  * @brief 实现 EOS 会话组合根，统一装配 pipeline 与 controller 依赖。
  * @note 管线与环境服务已完全内部化，仅支持 ComposeDefault。

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file replay_trace_compression_test.cpp
  * @brief 验证 ReplayTraceWriter 的 compress_closed_chunks 功能：
  *        chunk 关闭后生成 .gz、Reader 透明解压、事件内容一致、

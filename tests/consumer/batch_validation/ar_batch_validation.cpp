@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file ar_batch_validation.cpp
  * @brief 机载雷达（AR）批量场景验证。
  *

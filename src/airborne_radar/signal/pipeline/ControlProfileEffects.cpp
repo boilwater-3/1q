@@ -1,4 +1,4 @@
-#include "airborne_radar/signal/pipeline/ControlProfileEffects.h"
+﻿#include "airborne_radar/signal/pipeline/ControlProfileEffects.h"
 
 #include <algorithm>
 #include <cmath>

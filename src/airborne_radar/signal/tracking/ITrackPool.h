@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file ITrackPool.h
  * @brief 定义轨迹对象池抽象接口。
  */

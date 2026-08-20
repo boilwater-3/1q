@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file ecm_session_consumer.cpp
  * @brief 验证安装后的 ECM、ESR adapter 与公共 RF 发射事实可被 C++11 消费者使用。
  */

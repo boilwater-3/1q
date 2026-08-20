@@ -1,4 +1,4 @@
-#include "EosReplayFlatbufferCodec.h"
+﻿#include "EosReplayFlatbufferCodec.h"
 
 #include <cstdint>
 #include <string>

@@ -1,4 +1,4 @@
-// Copyright 2026. All Rights Reserved.
+﻿// Copyright 2026. All Rights Reserved.
 //
 // @file rir_radar_equations_test.cpp
 // @brief 验证 RIR 链路预算与检测物理纯函数（副本改写自 ar_signal_detection_test.cpp

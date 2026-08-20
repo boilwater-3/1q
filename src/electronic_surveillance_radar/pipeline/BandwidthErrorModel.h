@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file BandwidthErrorModel.h
  * @brief 定义电子侦察占用带宽测量误差模型。
  */

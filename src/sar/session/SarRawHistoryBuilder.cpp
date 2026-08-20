@@ -1,4 +1,4 @@
-#include "sar/session/SarRawHistoryBuilder.h"
+﻿#include "sar/session/SarRawHistoryBuilder.h"
 
 #include <algorithm>
 #include <cmath>

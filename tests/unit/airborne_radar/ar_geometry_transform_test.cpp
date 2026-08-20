@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file geometry_transform_test.cpp
  * @brief 验证共享几何变换模块的姿态旋转、视线角解析与限位规则。
  */

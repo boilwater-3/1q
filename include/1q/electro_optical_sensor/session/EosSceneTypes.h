@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file EosSceneTypes.h
  * @brief 定义 EOS 单周期场景实体输入类型。
  */

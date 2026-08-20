@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file EcmConfigValidator.h
  * @brief ECM 纯配置与输入校验器——无状态，所有方法均为静态纯函数。
  *

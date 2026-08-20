@@ -1,4 +1,4 @@
-// Copyright 2026. All Rights Reserved.
+﻿// Copyright 2026. All Rights Reserved.
 //
 // @file signal_scan_schedule_test.cpp
 // @brief 验证机载雷达扫描调度语义与逐周期行为。

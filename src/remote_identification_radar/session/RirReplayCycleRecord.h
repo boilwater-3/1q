@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file RirReplayCycleRecord.h
  * @brief 远程识别雷达 replay 记录类型与窄访问适配器（内部）。
  */

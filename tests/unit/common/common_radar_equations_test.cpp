@@ -1,4 +1,4 @@
-// Copyright 2026. All Rights Reserved.
+﻿// Copyright 2026. All Rights Reserved.
 //
 // @file common_radar_equations_test.cpp
 // @brief 验证 common 雷达方程纯函数基本行为。

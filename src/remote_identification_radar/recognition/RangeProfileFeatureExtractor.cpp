@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file RangeProfileFeatureExtractor.cpp
  * @brief 宽带一维距离像特征提取器实现。
  */

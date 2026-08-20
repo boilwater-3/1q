@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file SbirsRuntimeConfigImpact.h
  * @brief 描述 SBIRS runtime patch 对 pipeline 累积状态的最小迁移影响。
  */

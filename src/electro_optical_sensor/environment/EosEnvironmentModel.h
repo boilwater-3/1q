@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file EosEnvironmentModel.h
  * @brief 定义 EOS 环境模型参数派生接口（内部使用）。
  */

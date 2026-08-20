@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file RfLinkBudget.h
  * @brief 定义跨模块 RF 发射事实和单程链路预算公共 API。
  */

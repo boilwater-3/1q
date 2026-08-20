@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file RirController.h
  * @brief 远程识别雷达自持链路控制器（内部）。
  *

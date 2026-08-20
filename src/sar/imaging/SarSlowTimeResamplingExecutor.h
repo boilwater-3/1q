@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file SarSlowTimeResamplingExecutor.h
  * @brief SAR 内部慢时间重采样显式请求执行器。
  */

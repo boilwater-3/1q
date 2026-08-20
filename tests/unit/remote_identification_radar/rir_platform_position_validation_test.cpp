@@ -1,4 +1,4 @@
-// Copyright 2026. All Rights Reserved.
+﻿// Copyright 2026. All Rights Reserved.
 //
 // @file rir_platform_position_validation_test.cpp
 // @brief 验证平台 ECEF 位置必填输入的 fail-closed 校验。

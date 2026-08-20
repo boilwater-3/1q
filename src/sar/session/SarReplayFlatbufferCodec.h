@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file SarReplayFlatbufferCodec.h
  * @brief SAR replay payload 的 FlatBuffers encode/decode 接口。
  */

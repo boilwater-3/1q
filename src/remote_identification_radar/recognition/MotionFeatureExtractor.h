@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file MotionFeatureExtractor.h
  * @brief 运动特征提取器（识别专用）。
  */

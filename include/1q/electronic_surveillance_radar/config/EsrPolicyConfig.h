@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file EsrPolicyConfig.h
  * @brief 定义 ESR 策略域配置与探测策略参数。
  */

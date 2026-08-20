@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file EosPipelineConfigMapper.cpp
  * @brief 实现 EOS 会话配置到内部执行配置的映射。
  */

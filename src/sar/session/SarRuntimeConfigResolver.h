@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file SarRuntimeConfigResolver.h
  * @brief SAR 运行期补丁解析与可前置不变式校验。
  */

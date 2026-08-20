@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file PrecisionEvaluationConfig.h
  * @brief 定义精度评估会话的聚合配置（双星 SBIRS + 融合 + 推演 + AHP 指标体系）。
  */

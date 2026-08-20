@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file SarController.h
  * @brief SAR 运行期控制器，驱动处理流水线单周期执行与运行期配置热更新。
  */

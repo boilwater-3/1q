@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file electro_optical_sensor.hpp
  * @brief 光电传感器模块稳定会话入口。
  * @note 输出类型请直接使用 `session/EosOutputTypes.h`；

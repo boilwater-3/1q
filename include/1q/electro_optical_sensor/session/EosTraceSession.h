@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file EosTraceSession.h
  * @brief 为光电传感器模块提供独立的中间层记录包装器。
  */

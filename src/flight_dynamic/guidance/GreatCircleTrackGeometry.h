@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file GreatCircleTrackGeometry.h
  * @brief 提供全球航路点通过判定所需的球面大圆航迹几何。
  */

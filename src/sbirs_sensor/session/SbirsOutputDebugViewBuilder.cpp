@@ -1,4 +1,4 @@
-#include "1q/sbirs_sensor/session/SbirsCycleInput.h"
+﻿#include "1q/sbirs_sensor/session/SbirsCycleInput.h"
 #include "1q/sbirs_sensor/session/SbirsOutputDebugView.h"
 
 #include <algorithm>

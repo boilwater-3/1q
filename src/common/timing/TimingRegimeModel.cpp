@@ -1,4 +1,4 @@
-#include "common/timing/TimingRegimeModel.h"
+﻿#include "common/timing/TimingRegimeModel.h"
 
 #include <algorithm>
 #include <cmath>

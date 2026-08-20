@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file esr_session_config_builder_test.cpp
  * @brief 验证 ESR ProfileConstants 常量赋值与配置校验。
  */

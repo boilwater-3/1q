@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file SarRawHistoryBuilder.h
  * @brief SAR raw history 构造工具：外部 IQ 接入、脉冲生成与 SNR 估算。
  */

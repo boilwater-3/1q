@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file SbirsCycleResult.h
  * @brief 定义 SBIRS-inspired 单周期执行结果。
  */

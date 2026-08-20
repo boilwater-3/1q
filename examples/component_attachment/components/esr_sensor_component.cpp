@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file esr_sensor_component.cpp
  * @brief ESR 传感器组件实现（会话驱动 + 假设事件发布）。
  *

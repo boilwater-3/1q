@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file RuntimePatchMapper.h
  * @brief 定义运行期补丁映射与执行配置反向映射入口。
  */

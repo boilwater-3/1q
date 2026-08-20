@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file SceneManager.h
  * @brief 管理环境层待生效与已冻结场景状态。
  */

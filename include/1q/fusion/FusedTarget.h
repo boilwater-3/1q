@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file FusedTarget.h
  * @brief 定义融合目标态势输出记录。
  */

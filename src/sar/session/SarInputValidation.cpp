@@ -1,4 +1,4 @@
-// @file SarInputValidation.cpp
+﻿// @file SarInputValidation.cpp
 // @brief Implementation of SAR cycle input validation.
 
 #include "1q/sar/session/SarInputValidation.h"

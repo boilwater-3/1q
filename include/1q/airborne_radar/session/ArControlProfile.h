@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file ArControlProfile.h
  * @brief 机载雷达控制 profile 状态类型。
  *

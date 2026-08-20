@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file StandardAtmosphere.h
  * @brief ISA 1976 标准大气模型实现。
  */

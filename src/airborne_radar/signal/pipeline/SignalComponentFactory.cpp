@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file SignalComponentFactory.cpp
  * @brief SignalPipeline 私有组件工厂实现。
  */

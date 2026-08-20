@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file demo_config.cpp
  * @brief 演示常量与配置加载实现（见 demo_config.h）。
  */

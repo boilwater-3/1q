@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file TimingRegimeModel.h
  * @brief 定义库内共享的周期级时序体制与统计检测计算模型。
  */

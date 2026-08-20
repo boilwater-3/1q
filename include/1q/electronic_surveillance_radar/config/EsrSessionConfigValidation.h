@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file EsrSessionConfigValidation.h
  * @brief ESR 会话配置校验工具（统一问题列表模型）。
  */

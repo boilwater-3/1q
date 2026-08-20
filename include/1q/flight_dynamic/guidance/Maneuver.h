@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file Maneuver.h
  * @brief 定义机动类型枚举与机动执行状态机（ManeuverExecutor）。
  */

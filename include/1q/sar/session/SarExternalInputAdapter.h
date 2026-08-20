@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file SarExternalInputAdapter.h
  * @brief 定义 SAR 外部脉冲状态坐标适配接口。
  *

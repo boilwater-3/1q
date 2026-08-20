@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file EosNoiseModel.h
  * @brief 定义背景噪声统计模型接口。
  */

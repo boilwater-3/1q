@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file ar_sensor_component.h
  * @brief 自定义实体-组件示例：AR（机载雷达）传感器组件。
  *

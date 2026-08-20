@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file RecognitionFeatureDatabase.h
  * @brief 目标特征数据库（SQLite 加载 + 结构校验，库内部）。
  *

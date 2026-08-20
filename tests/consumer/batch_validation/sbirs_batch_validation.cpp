@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file sbirs_batch_validation.cpp
  * @brief SBIRS 距离与辐射强度的批量物理场景验证。
  */

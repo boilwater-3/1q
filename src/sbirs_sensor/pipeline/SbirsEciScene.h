@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file SbirsEciScene.h
  * @brief 管线内部 ECI 场景目标：周期入口按 GMST 旋转后的诚实命名副本。
  *

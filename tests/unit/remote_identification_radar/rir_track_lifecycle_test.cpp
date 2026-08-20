@@ -1,4 +1,4 @@
-// Copyright 2026. All Rights Reserved.
+﻿// Copyright 2026. All Rights Reserved.
 //
 // @file rir_track_lifecycle_test.cpp
 // @brief 验证 RIR 轻量跟踪子集航迹生命周期与 KF 接线（阶段 2-T T3/T4）。

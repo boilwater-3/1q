@@ -1,4 +1,4 @@
-// Copyright 2026. All Rights Reserved.
+﻿// Copyright 2026. All Rights Reserved.
 //
 // @file beamwidth_resolution_test.cpp
 // @brief 验证名义波束宽度与指令态波束宽度的解析规则。

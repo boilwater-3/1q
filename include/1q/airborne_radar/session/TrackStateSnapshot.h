@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file TrackStateSnapshot.h
  * @brief 定义供决策层消费的稳定轨迹快照。
  */

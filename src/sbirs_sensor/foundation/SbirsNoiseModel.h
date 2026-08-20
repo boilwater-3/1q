@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file SbirsNoiseModel.h
  * @brief SBIRS-inspired 红外噪声分解（design 2.8）。
  *

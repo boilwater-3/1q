@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file ArRfCycleState.h
  * @brief 定义 AR 单周期门面内部的 RF 准备与接收状态。
  */

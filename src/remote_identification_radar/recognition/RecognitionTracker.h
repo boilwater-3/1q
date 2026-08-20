@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file RecognitionTracker.h
  * @brief 单航迹识别积累、判定与结论保持（库内部）。
  *

@@ -1,4 +1,4 @@
-// @file eos_session_config_builder_test.cpp
+﻿// @file eos_session_config_builder_test.cpp
 // @brief 验证 EOS ProfileConstants 常量赋值与配置校验。
 
 #include <gtest/gtest.h>

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file eos_session_create_test.cpp
  * @brief 验证 EOS 会话创建的默认装配路径契约。
  * @note 管线与环境服务已完全内部化，仅保留 Create() 路径。

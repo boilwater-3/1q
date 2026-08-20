@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file BeamControlResolver.h
  * @brief 定义波束控制与方向图增益解析的私有工具。
  */

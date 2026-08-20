@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file RirPropagationModel.cpp
  * @brief RIR 环境层传播/杂波模型薄适配层（common 单源）。
  */

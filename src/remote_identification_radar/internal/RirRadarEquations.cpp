@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file RirRadarEquations.cpp
  * @brief RIR 雷达方程薄适配层（common 单源）。
  */

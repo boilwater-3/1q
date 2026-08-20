@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file VehicleState.h
  * @brief 定义 flight_dynamic 对外暴露的载机运动学/姿态状态快照。
  */

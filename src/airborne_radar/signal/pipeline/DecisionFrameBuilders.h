@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file DecisionFrameBuilders.h
  * @brief 定义 SignalPipeline 决策帧与快照构建的内部辅助函数。
  */

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file common_scan_schedule_test.cpp
  * @brief 验证 common 单源二维扫描调度内核（ScanScheduleRuntime.h）。
  *

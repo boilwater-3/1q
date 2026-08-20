@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file ThreatAssessmentEvaluator.h
  * @brief 定义威胁评估 evaluator 类。
  */

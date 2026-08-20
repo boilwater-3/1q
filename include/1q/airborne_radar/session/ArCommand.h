@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file ArCommand.h
  * @brief 机载雷达战术指令类型集合。
  *

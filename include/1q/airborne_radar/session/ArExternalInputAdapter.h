@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file ArExternalInputAdapter.h
  * @brief 机载雷达外部输入适配类型集合。
  *

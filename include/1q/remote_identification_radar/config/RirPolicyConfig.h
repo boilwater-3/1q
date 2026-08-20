@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file RirPolicyConfig.h
  * @brief 远程识别雷达策略域主配置类型。
  *

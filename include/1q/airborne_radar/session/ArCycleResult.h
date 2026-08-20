@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file ArCycleResult.h
  * @brief 机载雷达单周期执行结果类型。
  *

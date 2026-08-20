@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file ecm_sensor_component.cpp
  * @brief ECM 组件实现（ESR 假设驱动 + RF-WORLD 发布）。
  */

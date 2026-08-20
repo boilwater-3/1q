@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file ecs_core_test.cpp
  * @brief 自定义实体-组件核心（examples/component_attachment/core/）单元测试。
  *

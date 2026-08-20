@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file remote_identification_radar.hpp
  * @brief 远程识别雷达模块稳定会话入口头。
  * @note trace/replay 工具头按需单独包含（不聚合进入口头）。

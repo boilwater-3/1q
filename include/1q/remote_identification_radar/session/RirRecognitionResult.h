@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file RirRecognitionResult.h
  * @brief 远程目标识别结果与周期摘要类型。
  *

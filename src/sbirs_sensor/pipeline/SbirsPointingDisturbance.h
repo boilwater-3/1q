@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file SbirsPointingDisturbance.h
  * @brief Internal time-correlated attitude and per-channel pointing disturbance model.
  */

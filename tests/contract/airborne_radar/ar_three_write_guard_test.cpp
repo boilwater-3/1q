@@ -1,4 +1,4 @@
-// Copyright 2026. All Rights Reserved.
+﻿// Copyright 2026. All Rights Reserved.
 //
 // @file ar_three_write_guard_test.cpp
 // @brief AR 三写约束机制性守卫（session_contract.md 规则 9）。

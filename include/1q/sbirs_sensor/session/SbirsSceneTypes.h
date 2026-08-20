@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file SbirsSceneTypes.h
  * @brief 定义 SBIRS-inspired 场景目标输入类型。
  */

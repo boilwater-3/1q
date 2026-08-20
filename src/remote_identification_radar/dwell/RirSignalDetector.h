@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file RirSignalDetector.h
  * @brief 定义 RIR 物理化回波评估与统计级 CFAR 探测判决器。
  *

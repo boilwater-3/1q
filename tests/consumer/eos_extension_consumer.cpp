@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file eos_extension_consumer.cpp
  * @brief 验证安装后 EOS 扩展接口可被外部工程访问。
  *

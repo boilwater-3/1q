@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file SbirsCycleInputAdapter.h
  * @brief 定义 SBIRS-inspired 输入构造辅助。
  */

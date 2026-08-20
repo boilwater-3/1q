@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file JsbsimAdapter.h
  * @brief 定义对 JSBSim FGFDMExec 的薄封装，提供机型加载、积分器配置、属性读写与单步推进。
  *

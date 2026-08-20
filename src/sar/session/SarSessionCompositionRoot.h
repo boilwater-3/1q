@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file SarSessionCompositionRoot.h
  * @brief SAR 会话组合根，按默认依赖装配 pipeline 与 controller。
  */

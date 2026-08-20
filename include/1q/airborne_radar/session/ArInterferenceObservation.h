@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file ArInterferenceObservation.h
  * @brief 定义 AR 接收机生成的去真值化 RF 干扰观测。
  */

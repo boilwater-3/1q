@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file SarOmegaKReferencePhaseCompensation.h
  * @brief Omega-K 显式参考相位补偿执行器。
  */

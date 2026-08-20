@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file ArDetectionCellResolver.h
  * @brief 定义 AR 统计级 range-Doppler-beam-time-frequency detection cell 求解器。
  */

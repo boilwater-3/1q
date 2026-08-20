@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file SbirsRuntimeConfigBuilder.h
  * @brief 定义 SBIRS-inspired runtime patch builder。
  */

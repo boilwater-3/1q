@@ -1,4 +1,4 @@
-// Copyright 2026. All Rights Reserved.
+﻿// Copyright 2026. All Rights Reserved.
 //
 // @file advanced_filter_test.cpp
 // @brief 验证 FullMahalanobisDistanceMetric 和 ImmFilter 的正确性。

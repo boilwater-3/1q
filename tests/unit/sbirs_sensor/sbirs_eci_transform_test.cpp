@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file sbirs_eci_transform_test.cpp
  * @brief ECI 输出参考系（2026-08 正式变更）单元测试：
  *        - 共享坐标域 GMST/ECEF→ECI 转换（1q/coordinate/inertial_transform.h）；

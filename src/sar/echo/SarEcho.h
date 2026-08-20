@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file SarEcho.h
  * @brief SAR 内部点目标原始回波生成工具。
  */

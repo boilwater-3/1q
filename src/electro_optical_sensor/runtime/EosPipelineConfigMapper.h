@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file EosPipelineConfigMapper.h
  * @brief 定义 EOS 会话配置到内部执行配置的映射接口。
  */

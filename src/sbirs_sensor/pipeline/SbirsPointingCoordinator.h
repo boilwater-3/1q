@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file SbirsPointingCoordinator.h
  * @brief Internal per-channel NFOV pointing runtime coordinator.
  */

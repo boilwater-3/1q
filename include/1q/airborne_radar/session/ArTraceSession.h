@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file ArTraceSession.h
  * @brief 机载雷达 trace 记录会话类型。
  *

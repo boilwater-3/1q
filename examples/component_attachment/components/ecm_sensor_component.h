@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file ecm_sensor_component.h
  * @brief 自定义实体-组件示例：ECM（电子对抗）组件。
  *

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file MappingTransforms.h
  * @brief 定义四域配置映射层的共享变换函数。
  *

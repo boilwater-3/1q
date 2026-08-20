@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file MeasurementErrorModel.h
  * @brief 定义基于有效信噪比与波束宽度的通用测量误差模型（common 单源）。
  */

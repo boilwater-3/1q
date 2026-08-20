@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file sbirs_sensor.hpp
  * @brief SBIRS-inspired 传感器模块稳定会话入口。
  */

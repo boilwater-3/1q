@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file RirOutputTypes.h
  * @brief 远程识别雷达输出与诊断基础类型。
  *

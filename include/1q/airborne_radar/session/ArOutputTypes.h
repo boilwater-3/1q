@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file ArOutputTypes.h
  * @brief 机载雷达输出辅助类型集合。
  *

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file EosSessionConfigBuilder.h
  * @brief 光电传感器会话配置链式构造器（薄封装）。
  *

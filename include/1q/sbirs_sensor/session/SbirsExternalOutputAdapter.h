@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file SbirsExternalOutputAdapter.h
  * @brief 定义 SBIRS-inspired 外部输出适配入口。
  */

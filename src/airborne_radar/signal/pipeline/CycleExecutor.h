@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file CycleExecutor.h
  * @brief 定义 SignalPipeline 单周期执行器与相关数据结构。
  */

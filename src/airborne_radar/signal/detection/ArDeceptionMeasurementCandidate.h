@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file ArDeceptionMeasurementCandidate.h
  * @brief 定义由接收端欺骗残差解析出的内部候选量测。
  */

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file ArTrackOutput.h
  * @brief 定义 AR 工程周期发布的稳定轨迹输出帧与只读查询函数。
  */

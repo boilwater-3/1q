@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file ar_cycle_output_builder_test.cpp
  * @brief 验证 ArCycleOutputAdapter 将内部雷达局部输出转换回外部 ECEF 输出。
  */

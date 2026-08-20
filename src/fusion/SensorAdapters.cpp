@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file SensorAdapters.cpp
  * @brief 传感器输出 → 融合探测记录的官方适配器实现。
  *

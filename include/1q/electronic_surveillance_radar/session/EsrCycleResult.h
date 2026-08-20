@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file EsrCycleResult.h
  * @brief 定义电子侦察单周期输出帧与聚合结果类型。
  */

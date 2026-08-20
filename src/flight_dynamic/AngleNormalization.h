@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file AngleNormalization.h
  * @brief 角度归一化单一源：NormalizeRad（→[-π,π]）与 RadToDeg360（→[0,360)）。
  *

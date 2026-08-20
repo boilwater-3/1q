@@ -1,4 +1,4 @@
-// Copyright 2026. All Rights Reserved.
+﻿// Copyright 2026. All Rights Reserved.
 //
 // @file rir_track_attribution_test.cpp
 // @brief 验证航迹归属视图（库内键 ↔ 场景真值目标对照，结果层产品）。

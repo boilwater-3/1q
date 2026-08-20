@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file EsrInputValidation.h
  * @brief 定义电子侦察周期输入校验接口。
  */

@@ -1,4 +1,4 @@
-#include "1q/sar/session/SarProductLifecycleRecorder.h"
+﻿#include "1q/sar/session/SarProductLifecycleRecorder.h"
 
 #include "sar/session/SarDiagnosticUtils.h"
 

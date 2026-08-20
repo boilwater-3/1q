@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file ArReplayCycleRecord.h
  * @brief 定义 AR replay 专用周期记录与内部决策状态。
  */

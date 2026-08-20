@@ -1,4 +1,4 @@
-// Copyright 2026. All Rights Reserved.
+﻿// Copyright 2026. All Rights Reserved.
 //
 // @file decision_layer_test.cpp
 // @brief 验证默认战术协调器路径的核心行为。

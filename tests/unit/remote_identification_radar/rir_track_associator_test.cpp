@@ -1,4 +1,4 @@
-// Copyright 2026. All Rights Reserved.
+﻿// Copyright 2026. All Rights Reserved.
 //
 // @file rir_track_associator_test.cpp
 // @brief 验证 RIR 轻量跟踪子集门限 + LAPJV 全局最优关联（阶段 2-T T2，N1/N2）。

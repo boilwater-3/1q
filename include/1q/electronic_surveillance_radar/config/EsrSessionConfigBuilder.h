@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file EsrSessionConfigBuilder.h
  * @brief 电子侦察雷达会话配置链式构造器（薄封装）。
  *

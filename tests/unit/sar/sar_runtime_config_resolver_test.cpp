@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file sar_runtime_config_resolver_test.cpp
  * @brief SAR 运行期补丁解析器测试。
  *

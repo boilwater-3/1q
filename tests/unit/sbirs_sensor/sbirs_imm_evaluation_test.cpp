@@ -1,4 +1,4 @@
-// Copyright 2026. All Rights Reserved.
+﻿// Copyright 2026. All Rights Reserved.
 //
 // @file sbirs_imm_evaluation_test.cpp
 // @brief SBIRS IMM 机动跟踪收益评估：比较 EKF(CV) vs IMM(EKF×2) 在红外角度量测场景下的表现。

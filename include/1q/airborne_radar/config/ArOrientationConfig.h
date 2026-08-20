@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file ArOrientationConfig.h
  * @brief 机载雷达方向与扫描相关主配置类型。
  *

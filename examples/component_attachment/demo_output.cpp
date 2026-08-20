@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file demo_output.cpp
  * @brief 输出落盘与事件消费实现（见 demo_output.h）。
  *

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file sar_antenna_pattern_test.cpp
  * @brief 天线增益、方向图、合成孔径时间与分辨率的单元测试。
  */

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file SbirsSessionCompositionRoot.h
  * @brief SBIRS-inspired session 默认依赖装配。
  */

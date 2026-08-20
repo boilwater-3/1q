@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file SarRuntimeConfigBuilder.h
  * @brief SAR 运行期补丁构造器。
  *

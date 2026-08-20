@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file EosCycleInputAdapter.h
  * @brief 一步法构建 EosCycleInput，封装 ExternalInputAdapter 的两步调用。
  */

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file RirEmissionFactory.h
  * @brief 无状态构造器——从周期输入与硬件配置编写一次 RIR 脉冲列发射。
  */

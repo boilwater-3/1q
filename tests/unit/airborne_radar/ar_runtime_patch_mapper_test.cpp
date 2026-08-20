@@ -1,4 +1,4 @@
-// Copyright 2026. All Rights Reserved.
+﻿// Copyright 2026. All Rights Reserved.
 //
 // @file ar_runtime_patch_mapper_test.cpp
 // @brief 验证 AR 运行期补丁映射器的合并优先级、原子拒绝语义与反向映射。

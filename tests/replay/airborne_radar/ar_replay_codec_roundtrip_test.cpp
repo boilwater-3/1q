@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file ar_replay_codec_roundtrip_test.cpp
  * @brief 验证 AR replay FlatBuffers codec 各 payload 的 Encode→Decode round-trip 字段精确保真。
  *

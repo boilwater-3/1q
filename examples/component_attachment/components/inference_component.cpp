@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file inference_component.cpp
  * @brief 目标推演组件实现（融合运动学估计 → 轨迹/发射点/类型推演）。
  *

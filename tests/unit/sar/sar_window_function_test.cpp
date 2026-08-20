@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file sar_window_function_test.cpp
  * @brief 窗函数、加窗匹配滤波/距离压缩与二维脉冲压缩的单元测试。
  */

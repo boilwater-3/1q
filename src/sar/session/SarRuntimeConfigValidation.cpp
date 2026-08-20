@@ -1,4 +1,4 @@
-#include "sar/session/SarRuntimeConfigValidation.h"
+﻿#include "sar/session/SarRuntimeConfigValidation.h"
 
 #include <cmath>
 #include <cstddef>

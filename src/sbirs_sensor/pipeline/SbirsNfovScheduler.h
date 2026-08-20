@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file SbirsNfovScheduler.h
  * @brief NFOV 多通道资源调度器：候选排序、通道分配与释放。
  */

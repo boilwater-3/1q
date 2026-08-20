@@ -1,4 +1,4 @@
-/// Standalone program: run takeoff → cruise → landing and output CSV.
+﻿/// Standalone program: run takeoff → cruise → landing and output CSV.
 /// Usage:
 ///   takeoff_land_csv <aircraft_model> [output.csv]
 ///   takeoff_land_csv --heading-alt <aircraft_model> [output.csv]

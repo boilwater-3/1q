@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file RirTrackPool.cpp
  * @brief RIR 航迹对象池实现（阶段 2-T N3）。
  */

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file ArSceneTargetUtils.h
  * @brief 雷达场景目标构造与几何规范化工具（内部头，不对外暴露）。
  */

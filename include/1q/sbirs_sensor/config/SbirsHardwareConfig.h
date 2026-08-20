@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file SbirsHardwareConfig.h
  * @brief 定义 SBIRS-inspired 传感器硬件参数。
  */

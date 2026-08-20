@@ -1,4 +1,4 @@
-#include "common/atmosphere/AtmospherePhysics.h"
+﻿#include "common/atmosphere/AtmospherePhysics.h"
 
 #include <algorithm>
 #include <cmath>

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file ITrackLifecycleManager.h
  * @brief 定义轨迹生命周期管理抽象接口。
  */

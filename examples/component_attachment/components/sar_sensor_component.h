@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file sar_sensor_component.h
  * @brief 自定义实体-组件示例：SAR（合成孔径雷达）产品组件。
  *

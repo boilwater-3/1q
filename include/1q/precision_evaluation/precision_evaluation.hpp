@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file precision_evaluation.hpp
  * @brief 精度评估模块公共头聚合入口（评估层：真值对照误差提取 + AHP 指标体系）。
  */

@@ -1,4 +1,4 @@
-// Copyright 2026. All Rights Reserved.
+﻿// Copyright 2026. All Rights Reserved.
 //
 // @file signal_component_factory_test.cpp
 // @brief 验证 SignalComponentFactory 的 KF 装配与 IMM 组装行为。

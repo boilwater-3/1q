@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file PulseRingBuffer.h
  * @brief SAR 内部 pulse_id 连续性环形缓冲区。
  */

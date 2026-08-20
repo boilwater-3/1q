@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file AtmosphericTypes.h
  * @brief 定义跨模块复用的大气观测类型。
  *

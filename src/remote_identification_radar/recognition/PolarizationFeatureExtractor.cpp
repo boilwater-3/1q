@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file PolarizationFeatureExtractor.cpp
  * @brief 双通道极化特征提取器实现。
  */

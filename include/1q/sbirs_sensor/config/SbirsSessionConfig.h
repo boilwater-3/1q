@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file SbirsSessionConfig.h
  * @brief 定义 SBIRS-inspired 会话初始化配置。
  */

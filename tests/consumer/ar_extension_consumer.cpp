@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file ar_extension_consumer.cpp
  * @brief 验证安装后机载雷达步间外部 profile 覆盖接口可被外部工程使用。
  *

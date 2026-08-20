@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file FlightManager.h
  * @brief flight_dynamic 模块的顶层入口，封装 JSBSim 动力学仿真与机动队列调度。
  * @note 用户通过 FlightManager 构造会话、PushManeuver 下发机动、Step 步进并读取 VehicleState。
