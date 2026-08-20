@@ -52,6 +52,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # 编码守卫：全部 git 追踪的 C/C++ 源文件必须为 UTF-8 with BOM
+      # （VS2015 集成端按 GBK 误读无 BOM 文件，中文注释错位截断）。
+      # 零依赖秒级检查，先于 Conan/CMake 反馈。
+      - name: Source encoding guard (UTF-8 BOM)
+        run: python3 scripts/utf8_bom.py check
+
       - name: Install Conan 2.x
         run: pip install conan
 
