@@ -42,7 +42,8 @@ oneq_add_component(eos_core SOURCES ${EOS_CORE_SOURCES})
 # Unity Build; the recorder and debug-view builder use identical local names.
 set_source_files_properties(session/EosDetectionLifecycleRecorder.cpp
     PROPERTIES SKIP_UNITY_BUILD_INCLUSION ON)
-target_link_libraries(eos_engine PRIVATE flatbuffers::flatbuffers)
+# eos_engine 经 common/geometry/BoresightChain（GeometryTransform.h 传递包含 Eigen）。
+target_link_libraries(eos_engine PRIVATE Eigen3::Eigen flatbuffers::flatbuffers)
 target_link_libraries(eos_core PRIVATE flatbuffers::flatbuffers)
 oneq_add_flatbuffers_schemas(
     TARGET eos_core

@@ -2,8 +2,7 @@
 
 #include <cmath>
 
-#include "1q/coordinate/attitude_transform.h"
-#include "electro_optical_sensor/foundation/EosPhysicalConstants.h"
+#include "common/geometry/BoresightChain.h"
 
 namespace electro_optical_sensor {
 namespace foundation {
@@ -29,17 +28,17 @@ bool TryResolveEosLookAngles(double position_x, double position_y, double positi
     return false;
   }
 
-  // ENU 旋入平台体系后取角：方位 = atan2(体系 y, 体系 x)，仰角出水平面为正。
-  const oneq::coordinate::Vector3d body_vector =
-      oneq::coordinate::RotateEnuToLocal(position_x, position_y, position_z,
-                                         platform_attitude_deg);
-  const double horizontal_norm =
-      std::sqrt(body_vector.x * body_vector.x + body_vector.y * body_vector.y);
-  const double kPi = static_cast<double>(constants::kPi);
+  // ENU 旋入体系取角委托公共安装链（common/geometry/BoresightChain 薄使用）：EOS 无
+  // 安装角/失准配置，链路仅含平台姿态（Body->ENU），方位/仰角语义与直接 atan2 提取
+  // 一致；退化判定（模长下限）与斜距输出留在本层（模块策略）。
+  const oneq::common::geometry::BoresightChain chain(
+      oneq::foundation::EulerAnglesDeg(platform_attitude_deg.yaw_deg,
+                                       platform_attitude_deg.pitch_deg,
+                                       platform_attitude_deg.roll_deg),
+      oneq::foundation::EulerAnglesDeg());
+  const oneq::coordinate::Vector3d enu_position(position_x, position_y, position_z);
   *range_m = static_cast<float>(range);
-  *azimuth_deg = static_cast<float>(std::atan2(body_vector.y, body_vector.x) * 180.0 / kPi);
-  *elevation_deg =
-      static_cast<float>(std::atan2(body_vector.z, horizontal_norm) * 180.0 / kPi);
+  chain.SensorAzElOfReferenceVector(enu_position, azimuth_deg, elevation_deg);
   return true;
 }
 

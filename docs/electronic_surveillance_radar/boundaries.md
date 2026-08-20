@@ -1,6 +1,6 @@
 ---
 Status: active
-Last-reviewed: 2026-08-20
+Last-reviewed: 2026-08-21
 Authority: ESR 模块级边界、非目标与设计变更规则
 Answers: ESR 有哪些模块级禁令与边界、哪些非目标、配置/扫描/输出/校验的特殊语义、文档变更规则
 ---
@@ -85,6 +85,18 @@ payload 中的四个边界字段，并按中心角、硬件扫描范围和天线
 波束指向时，会从 mission 域扫描角中**减去** hardware 域安装偏置。因此 mission 配置给出的扫描角与最终
 平台系指向之间相差一个 hardware mount 偏移：消费方只看 mission 配置无法推断实际平台系扫描方向。这是
 当前固化语义，不接受在 mission 域直接填写平台系角度。
+
+前端 boresight 的物理实现（2026-08-21 公共域收敛）：`EsrRfV2FrontEnd` 经 `EsrBoresightChain`
+（`src/common/geometry/BoresightChain` 的 ESR 薄适配）把天线系波束指向按"平台姿态（Body->ENU）∘
+天线安装偏置"做**旋转复合**后旋入 ENU，再经 geodetic 步骤转 ECEF；不再使用历史的"波束角 + 安装偏置"
+角度加法。正安装偏置仍表示光轴偏向机体系正方位/正仰角（语义与 AR 前向链一致；公共链 mount 参数为
+Body->Sensor 坐标旋转，方向相反，取反入链，模块侧不可见）。零姿态 + 单轴安装偏置下与历史加法严格
+一致；非零姿态 + 非零安装偏置下几何由近似升级为严格旋转合成。波束角度合法域校验也随之回到天线系
+波束角本身（历史校验的是加法后的体系角）。`ApplyScanPolicy` 的减法语义与 `scan_azimuth_deg` 输出
+算式不变。
+
+[evidence: tests/unit/electronic_surveillance_radar/esr_boresight_chain_test]
+[evidence: tests/unit/electronic_surveillance_radar/esr_rf_v2_front_end_test]
 
 ## 电源状态单源（COMMON-OQ-4 字段提升）
 

@@ -1,5 +1,6 @@
 ﻿#include <gtest/gtest.h>
 
+#include "1q/coordinate/position_transform.h"
 #include "1q/electromagnetics/RfScene.h"
 #include "electronic_surveillance_radar/pipeline/EsrRfV2FrontEnd.h"
 
@@ -99,6 +100,37 @@ TEST(EsrRfV2FrontEndTest, RequiresEquipmentSpecificCoSiteIsolation) {
   hardware.co_site_paths.push_back(config::EsrCoSiteIsolationPath{99U, 80.0});
   EXPECT_TRUE(TryResolveEsrRfV2FrontEnd(input, hardware, 0.0, 0.0, 10.0e9, 2.0e6, 0.0,
                                         &result));
+}
+
+TEST(EsrRfV2FrontEndTest, RealizesBoresightThroughInstallationChain) {
+  // 姿态 yaw=90° + 安装方位偏置 10°：天线系 az=0 的波束应指向 ENU 方位 100°
+  //（安装链旋转合成；历史角度加法在非零姿态下为近似，此处锁定链路合成语义）。
+  session::EsrCycleInput input = MakeInput();
+  input.platform_attitude_deg.yaw_deg = 90.0;
+  input.rf_emissions.emissions.push_back(MakeEmission(1U, 1000.0, 10.0));
+
+  config::EsrHardwareConfig hardware = MakeHardware();
+  hardware.antenna_mount_az_deg = 10.0f;
+  EsrRfV2FrontEndResult result;
+  ASSERT_TRUE(TryResolveEsrRfV2FrontEnd(input, hardware, 0.0, 0.0, 10.0e9, 2.0e6, 0.0,
+                                        &result));
+
+  oneq::coordinate::LlaPositionDegM platform_lla;
+  oneq::coordinate::Vector3d expected_ecef;
+  ASSERT_TRUE(oneq::coordinate::TryEcefToLla(input.platform_position_ecef_m,
+                                             &platform_lla));
+  constexpr double kPi = 3.14159265358979323846;
+  const double azimuth_rad = 100.0 * kPi / 180.0;
+  const oneq::coordinate::Vector3d expected_enu(std::cos(azimuth_rad),
+                                                std::sin(azimuth_rad), 0.0);
+  ASSERT_TRUE(oneq::coordinate::TryEnuToEcefDirection(expected_enu, platform_lla,
+                                                     &expected_ecef));
+  EXPECT_NEAR(result.channel_receiver.antenna.boresight_ecef.x, expected_ecef.x,
+              1.0e-12);
+  EXPECT_NEAR(result.channel_receiver.antenna.boresight_ecef.y, expected_ecef.y,
+              1.0e-12);
+  EXPECT_NEAR(result.channel_receiver.antenna.boresight_ecef.z, expected_ecef.z,
+              1.0e-12);
 }
 
 }  // namespace

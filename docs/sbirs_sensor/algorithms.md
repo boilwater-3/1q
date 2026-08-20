@@ -1,6 +1,6 @@
 ---
 Status: active
-Last-reviewed: 2026-08-20
+Last-reviewed: 2026-08-21
 Authority: sbirs_sensor 算法登记与实现边界
 Answers: SBIRS 用了哪些算法、各自实现到什么地步、边界在哪、哪些刻意不实现
 ---
@@ -73,6 +73,10 @@ Answers: SBIRS 用了哪些算法、各自实现到什么地步、边界在哪�
   先例提取为 `src/common/geometry/BoresightChain`（参考系无关，公共单测
   `tests/unit/common/common_boresight_chain_test.cpp` 守护）；SBIRS 侧保留薄适配层
   （会话类型转换 + 传感器系限位钳制），行为与提取前一致（identity 链逐位不变）。
+  2026-08-21 ESR/EOS 接入完成：ESR 前端经 `EsrBoresightChain`（安装偏置取反入链——其语义为
+  光轴体方位/俯仰正偏置，与公共链 Body->Sensor 坐标旋转方向相反；角度加法近似升级为旋转合成），
+  EOS 经 `EosLookAngles` 委托（仅姿态链）；两模块沿用薄适配模式，稳定方式策略仍在各模块
+  （ESR/EOS 当前无稳定方式配置）。
 - **证据**：[evidence: tests/unit/sbirs_sensor/sbirs_boresight_chain_test]
 - **证据**：[evidence: tests/unit/sbirs_sensor/sbirs_pipeline_test]
 

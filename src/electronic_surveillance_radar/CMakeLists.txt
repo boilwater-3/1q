@@ -5,6 +5,7 @@ set(ESR_ENGINE_SOURCES
     pipeline/MutableEsrContext.cpp
     pipeline/HypothesisAssociator.cpp
     pipeline/InterceptDetectionExecutor.cpp
+    pipeline/EsrBoresightChain.cpp
     pipeline/EsrRfV2FrontEnd.cpp
     pipeline/EsrResolutionCellLedger.cpp
     pipeline/InterceptPostProcessingExecutor.cpp
