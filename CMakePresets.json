@@ -104,6 +104,16 @@
             }
         },
         {
+            "name": "1q_log_vs2015",
+            "displayName": "1q acceptance logs (VS2015 x64, no Conan)",
+            "description": "VisualStudio.14.0-amd64-none variant with SBIRS/RIR acceptance information logs ON by default ([SbirsAccept]/[RirAccept] event streams to 1q_library.log; docs/review/acceptance_output_inventory_2026-08-20.md). Run scripts/fetch_third_party.bat first. VS2015+Conan is not viable on this machine: CMake 4.3.1 emits v145 toolset requirements that MSBuild v140 cannot satisfy (flatbuffers recipe build fails).",
+            "inherits": "VisualStudio.14.0-amd64-none",
+            "cacheVariables": {
+                "ONEQ_ENABLE_SBIRS_ACCEPTANCE_LOG": "ON",
+                "ONEQ_ENABLE_RIR_ACCEPTANCE_LOG": "ON"
+            }
+        },
+        {
             "name": "VisualStudio.15.0-amd64",
             "displayName": "VS2026 + v141 (VS2017-era toolset, x64, Conan)",
             "description": "VS2026 generator with v141 (14.16.27023) toolset via Conan. UCRTContentRoot env required: 64-bit MSBuild reads broken 64-bit registry KitsRoot10 (C:\\Program Files\\Windows Kits\\10\\) which does not exist; ucrt.props prefers this var, bypassing the registry.",
@@ -171,6 +181,18 @@
             "name": "VisualStudio.14.0-amd64-release",
             "displayName": "Visual Studio 14 2015 (x64) - Release",
             "configurePreset": "VisualStudio.14.0-amd64",
+            "configuration": "Release"
+        },
+        {
+            "name": "1q_log_vs2015-debug",
+            "displayName": "1q acceptance logs (VS2015 x64) - Debug",
+            "configurePreset": "1q_log_vs2015",
+            "configuration": "Debug"
+        },
+        {
+            "name": "1q_log_vs2015-release",
+            "displayName": "1q acceptance logs (VS2015 x64) - Release",
+            "configurePreset": "1q_log_vs2015",
             "configuration": "Release"
         },
         {

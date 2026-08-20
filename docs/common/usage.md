@@ -99,6 +99,14 @@ CMake toolchain/dependency 文件。它没有 `build()`、`package()` 或 `packa
 
 选项的最终值以所选 preset 与 configure 命令覆盖后的 CMake cache 为准。
 
+组合 preset：`1q_log_vs2015`（VS2015 x64，无 Conan）继承 `VisualStudio.14.0-amd64-none`
+并**默认开启** `ONEQ_ENABLE_SBIRS_ACCEPTANCE_LOG` 与
+`ONEQ_ENABLE_RIR_ACCEPTANCE_LOG`（验收日志一键配置：先跑一次
+`scripts\fetch_third_party.bat` 拉取依赖源码，然后 `cmake --preset 1q_log_vs2015` →
+`cmake --build --preset 1q_log_vs2015-release`，事件流写入运行目录的
+`1q_library.log`）。注：VS2015+Conan 组合在本机不可用——CMake 4.3.1 生成的工程要求
+v145 工具集，MSBuild v140 无法满足。
+
 ## 支持边界
 
 - macOS Conan 路径由当前 CI 覆盖 configure、build、install 和 consumer。
