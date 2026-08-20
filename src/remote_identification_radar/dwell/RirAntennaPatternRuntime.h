@@ -2,6 +2,10 @@
  * @file RirAntennaPatternRuntime.h
  * @brief 定义 RIR 方向图运行期中间量与评估函数（RIR 薄适配层，common 单源）。
  * @note 本文件仅供 RIR 模块内部使用，不作为公开 API。
+ * @note 三维天线增益方向图数据表不输出（2026-08-20 验收输出统计裁定，
+ *       docs/review/acceptance_output_inventory_2026-08-20.md §4.4/§6）；逐目标
+ *       方向图评估结果（离轴增益，含主瓣衰减/扫描损耗的总效果）经 [RirAccept]
+ *       detection_cell 事件的 gain_dbi 字段输出，衰减分量不单列。
  */
 
 #ifndef REMOTE_IDENTIFICATION_RADAR_DWELL_RIR_ANTENNA_PATTERN_RUNTIME_H_

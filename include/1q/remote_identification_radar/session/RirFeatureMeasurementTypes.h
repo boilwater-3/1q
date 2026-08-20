@@ -39,6 +39,8 @@ struct ONEQ_API RirRcsFeatureObservation {
 
 /**
  * @brief RirMotionFeatureObservation 运动特征量测（由滤波航迹估计派生）。
+ * @note 无航向（速度方向）字段——2026-08-20 验收输出统计裁定不新增
+ *       （docs/review/acceptance_output_inventory_2026-08-20.md §4.5/§6）。
  */
 struct ONEQ_API RirMotionFeatureObservation {
   bool valid{false};                 /**< 维度可用性（快照为已确认航迹）。 */

@@ -45,6 +45,9 @@ enum class ONEQ_API SbirsDetectionLifecycleReason {
 /**
  * @brief 单条目标探测生命周期事件，记录某周期某目标的状态变化与原因。
  * @note 仅供调试层消费，不进入 `SbirsOutputFrame` raw output。
+ * @note 事件不携带事件等级与空间位置字段，也不做文件日志持久化（各记录器仅
+ *       缓存最近周期）——2026-08-20 验收输出统计裁定不新增
+ *       （docs/review/acceptance_output_inventory_2026-08-20.md §4.2/§6）。
  */
 struct ONEQ_API SbirsDetectionLifecycleEvent {
   std::uint32_t cycle_index{0U}; /**< 周期序号 */

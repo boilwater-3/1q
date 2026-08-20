@@ -94,7 +94,7 @@ CMake toolchain/dependency 文件。它没有 `build()`、`package()` 或 `packa
 | `ONEQ_ENABLE_FLIGHT_DYNAMIC` | OFF | 构建 flight_dynamic 模块及其专属测试/示例 |
 | `ONEQ_ENABLE_FILE_LOG` | ON | 内置文件日志后端（ProjectFileLog）：Windows 上 spdlog 关闭时承载 `PROJECT_LOG_*` 落盘 `1q_library.log`；非 Windows 默认休眠（spdlog 分支优先），总开关关闭时宏回到空操作 |
 | `ONEQ_ENABLE_SBIRS_ACCEPTANCE_LOG` | OFF | 开启 SBIRS 验收信息日志（`[SbirsAccept]` 事件流：WFOV 地面覆盖区/驻留时间、疑似目标与信号能量、宽窄切换连续命中、NFOV 捕获/跟踪、焦平面脱靶量、通道协同）；关闭时宏与派生计算一并剪除，零开销 |
-| `ONEQ_ENABLE_RIR_ACCEPTANCE_LOG` | OFF | 开启远程识别雷达验收信息日志（`[RirAccept]` 事件流：检测链 SNR/SINR/Pd 与回波/噪声/干扰/杂波功率及处理增益、波位扫描序列、角距量测、跟踪滤波/关联状态、识别特征与结论、驻留调度统计）；宏基础设施已就绪，调用点按验收输出统计清单逐项接线；关闭时零开销 |
+| `ONEQ_ENABLE_RIR_ACCEPTANCE_LOG` | OFF | 开启远程识别雷达验收信息日志（`[RirAccept]` 事件流：检测链功率/SINR/Pd 与方向图增益、逐源干扰功率、波位排列表与扫描序列、关联结果、航迹滤波全量状态含协方差、四维特征量测、识别结论、驻留调度统计）；关闭时宏与派生计算一并剪除，零开销 |
 | `ONEQ_ENABLE_PRECISION_EVALUATION_LOG` | OFF | 开启精度评估日志（`[PrecisionEval]` 事件流：红外角度误差、双星交会位置误差、速度误差、落点/发射点预测误差样本与 AHP 综合评分，评估层 `precision_evaluation` 模块）；关闭时零开销 |
 
 选项的最终值以所选 preset 与 configure 命令覆盖后的 CMake cache 为准。

@@ -74,7 +74,9 @@ struct ONEQ_API AhpJudgmentMatrix {
   AhpJudgmentMatrix();  // cpp 中默认填充全 1（等权、完全一致）
 };
 
-/** @brief AHP 求解结果（权重与一致性）。 */
+/** @brief AHP 求解结果（权重与一致性）。
+ *  @note 无等级评定（分档映射）、多层级层次树与贡献度排序输出——2026-08-20
+ *        验收输出统计裁定不新增（docs/review/acceptance_output_inventory_2026-08-20.md §4.3/§6）。 */
 struct ONEQ_API AhpEvaluation {
   double weights[kPrecisionMetricCount]{}; /**< 归一化权重（Σ=1，主特征向量） */
   double lambda_max{0.0};                  /**< 最大特征值 */

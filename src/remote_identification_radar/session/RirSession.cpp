@@ -19,6 +19,7 @@
 #include "common/numerics/Constants.h"
 #include "common/radar/ScanScheduleRuntime.h"
 #include "remote_identification_radar/dwell/RirBeamControl.h"
+#include "remote_identification_radar/runtime/RirAcceptanceLog.h"
 #include "remote_identification_radar/runtime/RirController.h"
 #include "remote_identification_radar/session/RirReplayCycleRecord.h"
 
@@ -176,6 +177,8 @@ struct RirSession::Impl {
   RirDesignationPhase designation_phase{RirDesignationPhase::kNone};
   std::uint32_t designation_deadline_cycle_index{0U};
   std::uint64_t next_batch_id{1U};
+  // [RirAccept] 波位排列表已按当前扫描配置输出（mission 配置变更后重置重发）。
+  bool acceptance_scan_pattern_logged{false};
 
   explicit Impl(const config::RirSessionConfig& session_config) : config(session_config) {
     controller.SetHardware(config.hardware);
@@ -223,6 +226,7 @@ RirCycleResult RirSession::StepWithResult(const RirCycleInput& input) {
     const config::RirRuntimeConfigPatch& patch = impl_->pending_patch;
     if (patch.has_mission) {
       impl_->config.mission = patch.mission;
+      impl_->acceptance_scan_pattern_logged = false;
     }
     if (patch.has_work_mode) {
       impl_->config.mission.work_mode = patch.work_mode;
@@ -278,6 +282,37 @@ RirCycleResult RirSession::StepWithResult(const RirCycleInput& input) {
   const config::RirAzimuthElevationDeg dwell_center =
       dwelling_on_target ? TargetLookAngles(*designated_target)
                          : ResolveScanWavePosition(impl_->config, input.input_cycle_index);
+
+  // 验收事件 beam_pattern（3.2.2.4.2.1）：完整波位排列表按当前扫描配置一次性
+  // 输出（common 扫描内核确定性重建，与逐周期取位同源；mission 配置变更后重发）。
+  if (RIR_ACCEPTANCE_LOG_ENABLED() && !impl_->acceptance_scan_pattern_logged) {
+    const dwell::RirEffectiveBeamwidthDeg beamwidth =
+        dwell::RirResolveEffectiveBeamwidth(impl_->config.hardware.antenna);
+    const config::RirScanConfig& scan = impl_->config.mission.scan;
+    const float az_step = beamwidth.az_beamwidth_deg * scan.step_scale;
+    const float el_step = beamwidth.el_beamwidth_deg * scan.step_scale;
+    const std::vector<oneq::common::radar::AzimuthElevationDeg> pattern =
+        oneq::common::radar::BuildScanPattern(
+            scan.scan_limits_deg.az_min_deg, scan.scan_limits_deg.az_max_deg,
+            scan.scan_limits_deg.el_min_deg, scan.scan_limits_deg.el_max_deg, az_step, el_step,
+            scan.scan_start_position, scan.scan_sequence);
+    RIR_ACCEPTANCE_LOG(
+        "event=beam_pattern cycle={} size={} az_step_deg={:.3f} el_step_deg={:.3f}",
+        input.input_cycle_index, pattern.size(), az_step, el_step);
+    for (std::size_t wave_index = 0U; wave_index < pattern.size(); ++wave_index) {
+      RIR_ACCEPTANCE_LOG("event=beam_pattern_wave index={} az_deg={:.3f} el_deg={:.3f}",
+                         wave_index, pattern[wave_index].az_deg, pattern[wave_index].el_deg);
+    }
+    impl_->acceptance_scan_pattern_logged = true;
+  }
+  // 验收事件 beam_scan（3.2.2.1.2/3.2.2.4.2.1）：本周期驻留波束中心与来源
+  // （designate=指定识别任务对准目标；scan=扫描策略波位，序列即扫描轨迹）。
+  if (RIR_ACCEPTANCE_LOG_ENABLED()) {
+    RIR_ACCEPTANCE_LOG(
+        "event=beam_scan cycle={} mode={} az_deg={:.3f} el_deg={:.3f} designated={}",
+        input.input_cycle_index, dwelling_on_target ? "designate" : "scan", dwell_center.az_deg,
+        dwell_center.el_deg, impl_->designated_external_target_id);
+  }
 
   impl_->controller.RunCycle(input, &result.output_frame, impl_->next_batch_id, dwell_center);
   result.status = RirCycleStatus::kCompleted;

@@ -120,25 +120,36 @@
 | 典型场景与总仿真次数 | A | 批量验证框架完整：五模块 212 场景清单（`docs/practice/batch_validation.md:14-21`）+ scenarios.csv + 汇总脚本（`analyze_batch_results.py`） |
 | 组件模型参数性能（含红外测角误差） | B+A | 测角偏差=`[SbirsAccept]` 逐周期字段（`SbirsPipeline.cpp:1198,1052-1053`，开关默认 OFF）+ `[PrecisionEval]` 汇总；表征测试有 RecordProperty（`sbirs_cue_ca_characterization_test.cpp:268-308`）；批量验证 cycles.csv **无测角误差列** |
 
-## 5. `[RirAccept]` 接线建议（待确认后实施）
+## 5. `[RirAccept]` 接线记录（2026-08-20 已实施）
 
-按"数值已算、只差出口"优先分批，全部调用点遵循 `if (RIR_ACCEPTANCE_LOG_ENABLED())` 包裹派生计算的零开销模式：
+按"数值已算、只差出口"分批接线，全部调用点遵循 `if (RIR_ACCEPTANCE_LOG_ENABLED())` 包裹的零开销模式；实施后 ON 态 `unit::remote_identification_radar` + `unit::sbirs_sensor` 测试全绿，5191 条 `[RirAccept]` 事件实测落盘（含 6×6 协方差 36 元素完整输出）：
 
-1. **第一批 detection_cell（dwell/internal，数据都在 `RirDetectionCellResult`/`RirDetectionResult` 中间结构）**：回波/热噪/干扰/杂波功率与脉压/处理增益、SINR、Pd、detected、离轴增益与主瓣/扫描损耗（消费点 `RirController.cpp:284-296,303-347,416-421`；计算点 `RirDetectionCellResolver.cpp:221-272`、`RirSignalDetector.cpp:29-113`）。
-2. **第二批 track（tracking，内部 `RirTrackState`/关联结果）**：6 维滤波值与协方差、IMM 权重、下一时刻预测值、关联对与马氏代价（`RirTrackLifecycle.cpp:347-435`、`RirTrackAssociator.cpp:66-217`）。
-3. **第三批 beam_scan/schedule（session/runtime）**：波位排列表一次性输出（`RirSession.cpp:142-163` BuildScanPattern）、逐周期波位序列、事件分类执行计数（`RirController.cpp:539-551` 现口径 + 分类细化）。
-4. **measurement/recognition 事件**：多数量已公开（T2/T8-T11），仅按验收格式补日志形态即可，优先级最低。
+1. **detection_cell（`RirController.cpp` TryBuildMeasurement）**：逐目标方向图离轴增益/有效波束宽度/离轴角/峰值增益、回波（W 与 dBW）/热噪/干扰/杂波功率、脉压增益、SINR/SNR、Pd、detected、admitted；`has_cell=0` 标记 v1 效能级回退路径。
+2. **interference_link（RunCycle，逐周期逐干扰源）**：发射身份三元组、路径长度、时/频重叠率、到达功率（前端口径；聚合后入 SINR 的总量在 detection_cell.interference_w）。
+3. **association / association_match / association_missed（RunCycle）**：量测数/命中对数/漏检数摘要 + 逐命中对（键/量测索引/马氏代价）+ 逐漏检键。
+4. **track（输出循环）**：航迹全量状态——status/hits/misses、位置/速度/加速度三分量、速度模、RCS、协方差迹 + 6×6 协方差全矩阵（行主序 [x,vx,y,vy,z,vz]）。IMM 权重不在快照层（裁定不新增，注释在 `RirImmFilter.h`）；无显式下一时刻预测值（注释在调用点）。
+5. **measurement（出口①记录循环）**：四维特征量测全量字段（RCS 7 量/运动 6 量/极化 4 量/距离像 5 量）+ 视线角/距离/SNR/驻留/带宽/掩码。
+6. **recognition（输出循环）**：state/category/model/confidence/best/runner_up/掩码/积累量/库版本。
+7. **schedule（RunCycle 尾部）**：scheduled/executed 驻留计数、预算/耗时、识别效能摘要（参与/大类确认/型号确认/未知/未启用/平均置信度/真值正确率）。
+8. **beam_pattern / beam_pattern_wave（RirSession）**：完整波位排列表一次性输出（mission 配置变更后重发；common 扫描内核确定性重建）。
+9. **beam_scan（RirSession 逐周期）**：驻留波束中心 az/el 与来源（designate/scan）。
 
-SBIRS 侧缺口（S5 失准矩阵值、S11 模块内汇总）可走既有 `[SbirsAccept]` 通道同理接线；性能项（X1/X2/X3）与融合/推演缺口（F2 接力、F10 等级/位置/突变、F11 置信度/分发、P1 三轴/CEP/置信区间/贡献率）涉及新建模型或输出字段，超出"日志接线"范畴，需单独立项决策。
+SBIRS 侧同步接线：**misalignment** 事件（`SbirsPipeline.cpp` 构造与 ApplyConfig）——安装失准角 yaw/pitch/roll 运行期一次抽取值（S5 项，`[SbirsAccept]` 通道）。
 
-## 6. 待确认清单
+D 项缺失部分按裁定不输出、只写注释，落点：`RirFeatureMeasurementTypes.h`（航向）、`RirRecognitionResult.h`（舰船/车辆类型）、`RirAntennaPatternRuntime.h`（三维方向图表）、`RirImmFilter.h`（IMM 权重）、`RirController.cpp`（预测值，随 track 事件注释）、`FusedTarget.h`（ECEF 位置向量/加速度）、`InferenceResult.h`（误差椭圆）、`PrecisionEvaluationTypes.h`（等级评定/排序）、`SbirsDetectionLifecycleRecorder.h`（事件等级/位置）。
 
-1. "扫描掠角"的定义：ECI/传感器系俯仰角已有，是否需要"对地掠射角"新量？
-2. 低动态目标落点是否需要专门算法分支（现为通用弹道外推）？
-3. 单步执行时间验收阈值 20ms 与现有性能预算（RF 干涉 P95<100ms、SAR 单步上限 30s）口径不一致，以哪个为准？
-4. 整项未实现的 5 项（卫星定位误差统计、集群规模识别、关机点预测、初始化/加载计时、多模型并行加载）是否属本轮验收必须？
-5. RIR 舰船/车辆类型与航向字段：是否扩展类别枚举（连带 `RirTracker::CategoryToPublic` 白名单与 replay 兼容性评估）？
-6. 批量验证 cycles.csv 是否需要新增测角误差列？
+**已知注意事项**：`1q_library.log` 文件后端仅进程内互斥；多个测试可执行文件并行（ctest -j4、同工作目录）写同一日志文件时可能出现跨进程行交错（实测 5191 条中 1 条截断）。单进程运行（验收的正常形态：示例/批验证逐模块执行）不受影响。
+
+## 6. 待确认清单（2026-08-20 已裁定）
+
+1. "扫描掠角"新定义（对地掠射角）——**裁定：不需要**，沿用 ECI/传感器系俯仰角。
+2. 低动态目标落点专门算法分支——**裁定：不需要**，通用弹道外推即验收口径。
+3. 单步执行时间阈值——**裁定：以现有为准**（RF 干涉 P95<100ms、SAR 单步上限 30s）。
+4. 整项未实现的 5 项（卫星定位误差统计、集群规模识别、关机点预测、初始化/加载计时、多模型并行加载）——**裁定：不计入验收**。
+5. RIR 舰船/车辆类型与航向字段——**裁定：不增加**（注释说明落点见 §5）。
+6. 批量验证 cycles.csv 测角误差列——**裁定：不增加**。
+
+**实施总则（用户裁定）**：A+B+C+D 项输出已有的部分（本档 §5 已接线）；D 项缺失子项不输出、在对应类型定义处写注释说明；E 项不管。
 
 [evidence: src/sbirs_sensor/pipeline/SbirsPipeline.cpp]
 [evidence: src/sbirs_sensor/pipeline/SbirsAcceptanceLog.h]

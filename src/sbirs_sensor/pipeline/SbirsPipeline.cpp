@@ -405,7 +405,15 @@ SbirsPipeline::SbirsPipeline(const config::SbirsInternalExecutionConfig& config)
       estimated_measurement_random_source_(DeriveMeasurementSeed(
           config.session.policy.error_model.random_seed, kEstimatedMeasurementDomain)),
       sensor_like_output_random_source_(DeriveMeasurementSeed(
-          config.session.policy.error_model.random_seed, kSensorLikeOutputDomain)) {}
+          config.session.policy.error_model.random_seed, kSensorLikeOutputDomain)) {
+  // 验收事件 misalignment（安装矩阵误差）：安装失准角（yaw/pitch/roll）运行期
+  // 一次抽取值（常值偏置 + 随机微扰）；构造与 ApplyConfig 同种子确定性重抽。
+  if (SBIRS_ACCEPTANCE_LOG_ENABLED()) {
+    SBIRS_ACCEPTANCE_LOG("event=misalignment yaw_deg={:.4f} pitch_deg={:.4f} roll_deg={:.4f}",
+                         misalignment_total_deg_.yaw_deg, misalignment_total_deg_.pitch_deg,
+                         misalignment_total_deg_.roll_deg);
+  }
+}
 
 void SbirsPipeline::ApplyConfig(const config::SbirsInternalExecutionConfig& config,
                                 const runtime::SbirsRuntimeConfigImpact& impact) {
@@ -416,6 +424,12 @@ void SbirsPipeline::ApplyConfig(const config::SbirsInternalExecutionConfig& conf
   // 阶段 3：安装失准为静态配置（不进运行期 patch），每次应用配置时确定性重抽
   // 运行期失准角总量——配置不变时同种子重抽产生同值（行为不变），配置变时即刻生效。
   misalignment_total_deg_ = DrawMisalignmentTotal(config_.session.orientation.misalignment);
+  // 验收事件 misalignment（安装矩阵误差）：随配置重抽后的失准角值（同构造事件）。
+  if (SBIRS_ACCEPTANCE_LOG_ENABLED()) {
+    SBIRS_ACCEPTANCE_LOG("event=misalignment yaw_deg={:.4f} pitch_deg={:.4f} roll_deg={:.4f}",
+                         misalignment_total_deg_.yaw_deg, misalignment_total_deg_.pitch_deg,
+                         misalignment_total_deg_.roll_deg);
+  }
   if (impact.scan_sector_changed) {
     const float candidate_phase =
         ScanPhaseForAzimuth(config_.session.mission, previous_scan_azimuth_deg);

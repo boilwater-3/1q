@@ -47,6 +47,10 @@ enum class ONEQ_API FusedTrackLifecycle : std::uint8_t {
  * @note 协方差为 6×6 ECEF 行主序，状态排列 [x, vx, y, vy, z, vz]（与
  *       common/estimation CV 布局一致）；角度-only 弱可观测必须由该协方差如实承载
  *       （contract.md §目标处理分层契约规则 6），消费方不得只读点估计。
+ * @note ECEF 三维位置向量不单独导出（公开面为 LLA 位置 + ECEF 速度/协方差，
+ *       消费方可自行换算）；融合层状态为 6 维 CV、无加速度字段——两者均为
+ *       2026-08-20 验收输出统计裁定不新增（docs/review/acceptance_output_inventory_
+ *       2026-08-20.md §4.2/§6）。
  */
 struct ONEQ_API FusedKinematicEstimate {
   oneq::coordinate::LlaPositionDegM position{}; /**< 位置估计（度制 LLA）。 */

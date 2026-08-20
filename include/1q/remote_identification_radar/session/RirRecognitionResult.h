@@ -35,6 +35,8 @@ enum class ONEQ_API RirRecognitionState : std::uint8_t {
 /**
  * @brief RirRecognitionCategory 识别目标大类。
  * @note 取值加性扩展（不重排既有值），旧 trace/replay 字节兼容。
+ * @note 无舰船/车辆类型——2026-08-20 验收输出统计裁定不新增
+ *       （docs/review/acceptance_output_inventory_2026-08-20.md §4.5/§6）。
  */
 enum class ONEQ_API RirRecognitionCategory : std::uint8_t {
   kBallistic = 0, /**< 弹道目标。 */

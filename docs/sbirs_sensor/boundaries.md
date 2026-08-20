@@ -87,7 +87,9 @@ recorder 只遍历当前周期 `input.scene`，目标从输入消失时其排除
 `SBIRS_ACCEPTANCE_LOG`（`src/sbirs_sensor/pipeline/SbirsAcceptanceLog.h`），把需求映射
 3.2.1.3 章节（OPIR 宽视场扫描探测与窄视场跟踪探测）的验收量按周期经 `PROJECT_LOG_INFO`
 输出（事件类型 `scan_footprint`/`wfov_candidate`/`wfov_hit_gate`/`nfov_acquisition`/
-`nfov_track`/`nfov_schedule`/`nfov_release`；`wfov_candidate`/`nfov_track` 另携带
+`nfov_track`/`nfov_schedule`/`nfov_release`，2026-08-20 补 `misalignment`——安装失准角
+运行期一次抽取值（构造与 ApplyConfig 配置重抽时各一次，安装矩阵误差验收项）；
+`wfov_candidate`/`nfov_track` 另携带
 显式角定位误差字段——需求映射 3.2.1.6.3：前者 `az_error_deg`/`el_error_deg` =
 带误差量测角 − 真值角，后者 `output_az_error_deg`/`output_el_error_deg` = 最终
 输出角 − 真值角，方位按最短角差回绕）。边界：与规则 13a 摘要同性质——**仅人读验收

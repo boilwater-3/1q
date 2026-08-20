@@ -231,13 +231,17 @@ RIR 遵守 `docs/common/contract.md` 与 `docs/common/session_contract.md`：
 
 CMake 开关 `ONEQ_ENABLE_RIR_ACCEPTANCE_LOG`（默认 OFF）门控的编译期专用日志宏
 `RIR_ACCEPTANCE_LOG`（`src/remote_identification_radar/runtime/RirAcceptanceLog.h`），
-把需求映射 3.2.2 章节的验收量按周期经 `PROJECT_LOG_INFO` 输出（事件类型
-`detection_cell`/`beam_scan`/`measurement`/`track`/`recognition`/`schedule`）。
+把需求映射 3.2.2 章节的验收量按周期经 `PROJECT_LOG_INFO` 输出。已接线事件：
+`detection_cell`（方向图增益/四功率/脉压增益/SINR/SNR/Pd/判决）、`interference_link`
+（逐源干扰功率）、`association`/`association_match`/`association_missed`（关联结果）、
+`track`（航迹全量状态含 6×6 协方差）、`measurement`（四维特征量测）、`recognition`
+（识别结论）、`schedule`（驻留计数与效能摘要）、`beam_pattern`/`beam_pattern_wave`
+（波位排列表，mission 配置变更后重发）、`beam_scan`（逐周期波束中心与来源）。
 边界：与 SBIRS `[SbirsAccept]` 同性质——**仅人读验收材料，不属于三写、不进公开输出/
-replay**；关闭时宏与派生计算一并编译剪除，零开销、行为逐位不变。现状：宏与开关
-基础设施先落地，调用点按验收输出统计清单
-（`docs/review/acceptance_output_inventory_2026-08-20.md`）逐项接线，未接线前开启
-开关不产生输出。
+replay**；关闭时宏与派生计算一并编译剪除，零开销、行为逐位不变。缺失子项（航向、
+舰船/车辆类型、MTI/MTD 通道级量、事件类型分类计数细化）经 2026-08-20 验收裁定
+不新增，对应注释已落在各类型定义处，见
+`docs/review/acceptance_output_inventory_2026-08-20.md` §5/§6。
 
 ## 设计变更规则
 

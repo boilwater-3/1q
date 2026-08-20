@@ -36,7 +36,7 @@ struct ONEQ_API TrajectoryPrediction {
   bool has_impact{false};           /**< 预测时域内是否解算出落点。 */
   oneq::coordinate::LlaPositionDegM impact_point{}; /**< 落点（度制 LLA）。 */
   double impact_time_offset_sec{0.0};  /**< 落点时间偏移（单位：s）。 */
-  double impact_position_sigma_m{0.0}; /**< 落点 1-σ（单位：m）。 */
+  double impact_position_sigma_m{0.0}; /**< 落点 1-σ（单位：m）；误差椭圆参数（半轴/取向）不输出——2026-08-20 验收输出统计裁定不新增（docs/review/acceptance_output_inventory_2026-08-20.md §4.2/§6）。 */
   bool has_launch{false};           /**< 是否解算出发射点。 */
   oneq::coordinate::LlaPositionDegM launch_point{}; /**< 发射点（度制 LLA）。 */
   double launch_time_offset_sec{0.0};  /**< 发射点时间偏移（负值=过去，单位：s）。 */
