@@ -1,6 +1,6 @@
 ---
 Status: active
-Last-reviewed: 2026-08-20
+Last-reviewed: 2026-08-21
 Authority: RIR 模块级边界、非目标与设计变更规则
 Answers: RIR 有哪些模块级禁令与边界、哪些非目标、单位纪律与失败降级契约
 ---
@@ -47,8 +47,11 @@ RIR 遵守 `docs/common/contract.md` 与 `docs/common/session_contract.md`：
    `RirController`、识别内部类型不通过 public header 暴露。
 2. 会话配置直接赋值 `RirSessionConfig`；运行期热更新直接写 `RirRuntimeConfigPatch`
    （显式 `has_*`）；不提供 ConfigBuilder。
-3. 输出遵守三层模型：系统输出（`RirOutputFrame`）、结构化执行结果
-   （`RirCycleResult`，含 `emission_frame` 供 RF-WORLD 编排层汇集）、replay 视图分离。
+3. 输出遵守两通道 + 可选投影模型：产品通道（`RirOutputFrame`）、信封通道
+   （`RirCycleResult`，含 `emission_frame` 与 `track_attributions`）、观测投影分离。
+   目标列表型三类投影（DebugView / Lifecycle / ExclusionCause）为观测完备必选；
+   字段冻结见 `docs/review/rir_observability_projections_freeze_2026-08-21.md`
+   （实现未齐前规则 10/11/13b/13e 对 RIR 为空洞条款）。
 4. 周期语义：非执行周期不复用上一帧；校验拒绝 `kRejectedInvalidInput` +
    明细 issues；关机 `kPoweredOff` 只推进世界时间；统一问题列表
    （规则 14，`RirIssueList`，code 前缀 `rir.validation.*`）。
@@ -131,11 +134,11 @@ RIR 遵守 `docs/common/contract.md` 与 `docs/common/session_contract.md`：
    `enable_physical_model=true` 时驻留链路预算按每目标真实几何计算大气物理附加损耗
    （common 大气单源）；默认关闭零回归。k 因子为运行期派生量
    （`ResolveEffectiveKFactor`），不进配置。
-7. **归属视图（`RirCycleResult.track_attributions`，结果层）**：库内键 ↔ 场景
+7. **归属视图（`RirCycleResult.track_attributions`，信封通道）**：库内键 ↔ 场景
    真值目标对照（`external_target_id`/`target_name`）+ 最小航迹诊断
    （hit_count/滤波 ENU 位置/速度）；覆盖本周期全部航迹快照
-   （tentative/confirmed/lost，与出口②同循环）；**不进 `RirOutputFrame` 产品层**
-   （三层纪律，与 SBIRS detection_attributions 同层同纪律）；非执行周期（校验
+   （tentative/confirmed/lost，与出口②同循环）；**不进 `RirOutputFrame` 产品通道**
+   （两通道纪律，与 SBIRS detection_attributions 同通道同纪律）；非执行周期（校验
    拒绝/关机/中止）返回空列表且不推进状态。归属为航迹级（RIR 产品粒度即航迹级，
    不做逐检测级归属）。
 8. **replay 加性扩展**：输出帧加特征量测向量、结果表加归属向量与
@@ -258,7 +261,7 @@ replay**；关闭时宏与派生计算一并编译剪除，零开销、行为逐
 2. 任何新增 runtime patch 字段，明确整域/叶子归属并接入提交语义。
 3. 观测构造/提取/匹配/判定语义变化，必须同步 algorithms.md 与
    `tests/unit|integration/remote_identification_radar/` 对应测试。
-4. 输出字段变化保持三层分离；replay 表变更评估字节兼容。
+4. 输出字段变化保持两通道与可选投影分离；replay 表变更评估字节兼容。
 5. 输入面/RF/环境字段变化须同步 `RirInputValidation` 新 issue code、契约白名单
    与场景测试；不再存在 AR 航迹供给契约。
 6. 验证范围：`unit::remote_identification_radar`、`integration::remote_identification_radar`、

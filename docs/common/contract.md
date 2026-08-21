@@ -5,7 +5,8 @@ Last-reviewed: 2026-08-21
 Authority: common contract for all modules
 RF-Interference-Architecture: frozen target; AR/ESR/ECM/RIR RF v2 implemented (per-module status in each design.md)
 
-本文合并原顶层 public API customization、session config builder、三层输出可观测性和文档治理契约。模块级文档不得与本文冲突。
+本文合并原顶层 public API customization、session config builder、两通道+可选投影输出可观测性
+（旧称三层）和文档治理契约。模块级文档不得与本文冲突。
 
 ## 证据优先开发模式
 
@@ -194,7 +195,10 @@ public API 分为两类，二者都受 public boundary、install manifest 和 co
 1. **核心运行面**：模块聚合入口、config、input、session、raw output 与 cycle result。它定义调用方驱动模型和消费仿真结果的稳定语义。
 2. **观测工具面**：trace/replay、debug view、lifecycle recorder 及其结果 DTO。它用于诊断、复现和人读归属，不能反向改变核心运行面、raw output 或控制行为。
 
-观测工具面的新增字段或事件必须保持三层输出分离，并同步 schema/codec、对应 replay/trace 测试和 consumer 测试；删除或重命名已公开工具仍属于 public API 变更，必须先冻结兼容迁移契约。
+观测工具面的新增字段或事件必须保持两通道与可选投影分离（旧称三层输出分离），并同步
+schema/codec、对应 replay/trace 测试和 consumer 测试；删除或重命名已公开工具仍属于
+public API 变更，必须先冻结兼容迁移契约。详见 `session_contract.md`「两通道 + 可选投影
+输出模型」。
 
 ## 目标处理分层契约
 
@@ -343,7 +347,7 @@ public API 分为两类，二者都受 public boundary、install manifest 和 co
 - Session composition ownership（`Impl` 所有权边界、AR 决策 seam）
 - 运行期配置提交策略（事务性提交 vs 立即提交的分类表 + 各模块归属判定规则）
 - 电源状态单源契约（`sensor_enabled` 唯一来源、`has_sensor_enabled` 唯一入口，六模块统一，RIR 建模即遵守）
-- 三层输出模型（OutputFrame / CycleResult / DebugView 分离 + 失败语义）
+- 两通道 + 可选投影输出模型（产品 `OutputFrame` / 信封 `CycleResult` / 可选 DebugView·Lifecycle·ExclusionCause；旧称三层；失败语义不变）
 - 统一问题列表模型（`*IssueList` 单一列表 + `phase` 来源标签 + 可选定位；输入校验不设平行字段，见 session_contract.md 规则 14）
 - Replay 与 trace 语义（结构化比较状态、TraceSink vs ReplayTraceWriter、codec 边界、runtime patch trace）
 
@@ -383,7 +387,7 @@ CMake 工程边界（target 作用域、Windows 验收）和测试架构（type�
 `common/` 只允许保留六份文档：
 
 - `contract.md` —— 公共契约（规定性：所有模块必须遵守的规则）。
-- `session_contract.md` —— 有 Session 的传感器模块的统一会话契约（会话配置直接赋值、Session 组合所有权、运行期配置提交、电源单源、三层输出、Replay/trace 语义）。
+- `session_contract.md` —— 有 Session 的传感器模块的统一会话契约（会话配置直接赋值、Session 组合所有权、运行期配置提交、电源单源、两通道+可选投影输出、Replay/trace 语义）。
 - `open_questions.md` —— 跨模块架构观察与待决项（非规定性：记录调查中发现但尚未定论的议题，不构成契约约束）。条目推进到有结论时，应回写为契约规则（进 contract.md）或模块设计（进对应 design.md），并从 open_questions.md 移除。
 - `rf_architecture.md` —— AR/ESR/ECM/RIR 公共 RF 工程架构设计描述（provenance、单周期交换时序、接收机影响分层）。
 - `issue_codes.md` —— 各模块 issue code 注册表的人读辅助目录（由各模块 `<Module>IssueCodes.h` 的 `@brief` 提取生成；机器消费以公开头文件常量为唯一事实来源）。

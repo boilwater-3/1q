@@ -39,7 +39,7 @@ RIR 是与机载雷达（AR）**相互独立的另一部雷达装备**，不是 
    （`RirFeatureMeasurementRecord`：四维特征 + 逐维质量 + 有效掩码 + 库内键 +
    视线角/效能上下文 + 平台位置，语义=真值×效能约束转换的仿真量测）。
    归属视图（`RirTrackAttributionRecord`：库内键 ↔ 真值目标对照 + 最小航迹诊断）
-   经 `RirCycleResult.track_attributions` 暴露（结果层，不进产品层）。与 AR 威胁
+   经 `RirCycleResult.track_attributions` 暴露（信封通道，不进产品通道）。与 AR 威胁
    分类相互独立，不进任何决策帧；指定识别任务状态（`designated_target_id`/
    `designation_*`/`dwell_center_deg`）经 `RirCycleResult` 逐周期暴露。
    fusion 侧由 `AdaptRirFeatureMeasurementsToDetectionRecords` 消费出口①。

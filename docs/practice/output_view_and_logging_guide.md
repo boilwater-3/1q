@@ -1,8 +1,9 @@
 # 输出视图与日志体系使用教程（component_attachment）
 
 Status: active
-Last-reviewed: 2026-08-20
-Authority: 三层输出模型（docs/common/session_contract.md §三层输出模型）与集成端日志设施（examples/component_attachment/logger/README.md）
+Last-reviewed: 2026-08-21
+Authority: 两通道+可选投影输出模型（docs/common/session_contract.md §两通道 + 可选投影输出模型；
+  旧称三层）与集成端日志设施（examples/component_attachment/logger/README.md）
 适用读者: 对"输出视图 / 两种日志 / 三模式"感到困惑的仓库开发者与外部集成方
 
 > 本教程是**教学性导航**，不是契约文档。契约权威仍是 `docs/common/session_contract.md`
@@ -14,46 +15,45 @@ Authority: 三层输出模型（docs/common/session_contract.md §三层输出�
 
 | 你感到困惑的词 | 它到底指什么 | 一句话 |
 | --- | --- | --- |
-| **输出视图** | 库侧 L3 开发调试视图层 | 传感器每周期把"探测结果 + 逐目标状态 + 排除诊断"整理成一份人读友好的快照（`*OutputDebugView`），由调用方决定怎么落盘 |
+| **输出视图** | 可选观测投影里的 DebugView（旧称 L3） | 传感器每周期把"探测/航迹结果 + 逐目标状态 + 排除诊断"整理成一份人读友好的快照（`*OutputDebugView`），由调用方决定怎么落盘 |
 | **两种日志** | 库内部日志 vs 集成端日志 | 一个写给"调试库算法"的人看（英文、带级别），一个写给"检查仿真行为"的人看（中文、事件/视图分文件） |
 | **三个模式** | 视图三模式 + 事件三模式 | 每周期数据都会产生，**落盘多少、怎么落**由编译期宏决定：视图控制密度（异常/变化/摘要），事件控制粒度（关键/聚合/全量） |
 
-三者关系一句话：**库每次仿真周期产出三层结果（L1 原始帧 → L2 结构化结果 → L3 调试视图），
-示例示范"集成方怎么把 L3 视图与生命周期事件转成自己的日志"——转写时用两种日志，每种日志
-各自有三档密度可选。**
+三者关系一句话：**库每次仿真周期必出两通道（产品帧 + 信封结果），目标列表型再拼可选投影
+（DebugView / 生命周期 / 排除差分）；示例示范"集成方怎么把投影转成自己的日志"——转写时用两种
+日志，各自有三档密度可选。**
 
 ---
 
-## 1. 三层输出模型：先搞清"输出视图"指什么
+## 1. 两通道 + 投影：先搞清"输出视图"指什么
 
-所有有 Session 的传感器模块（AR/ESR/EOS/SAR/SBIRS）每次 `Step` 都产出三层东西
-（`docs/common/session_contract.md` §三层输出模型）：
+有 Session 的传感器模块每次 `Step` 都产出**两个必选通道**，并按产品形态选装观测投影
+（`docs/common/session_contract.md` §两通道 + 可选投影输出模型；旧称 L1/L2/L3）：
 
-| 层级 | 入口 | 责任 | 谁消费 |
-| --- | --- | --- | --- |
-| **L1 原始系统输出层** | `Step()` 返回的 `*OutputFrame` | 真实传感器/产品输出 | 业务逻辑（融合、跟踪） |
-| **L2 结构化执行结果层** | `StepWithResult()` 返回的 `*CycleResult` | 输出帧 + 执行状态 + 校验 + 诊断 + **问题列表 issues** | 状态判断（`status == kCompleted`） |
-| **L3 开发调试视图层** | `*OutputDebugViewBuilder` / `*LifecycleRecorder` | 人读状态、生命周期事件、输入实体回填 | 调用方落盘/观测 |
+| 通道/投影 | 旧称 | 入口 | 责任 | 谁消费 |
+| --- | --- | --- | --- | --- |
+| **产品通道** | L1 | `Step()` → `*OutputFrame` | 真实传感器/产品输出 | 业务逻辑（融合、跟踪） |
+| **信封通道** | L2 | `StepWithResult()` → `*CycleResult` | 输出帧 + 执行状态 + 校验 + 诊断 + **issues**；可含归属对照 | 状态判断（`status == kCompleted`） |
+| **观测投影** | L3 | `*OutputDebugViewBuilder` / `*LifecycleRecorder` / `*ExclusionCauseRecorder` | 人读快照、生命周期事件、排除差分、输入回填 | 调用方落盘/观测 |
 
-**"输出视图" = L3 的 `*OutputDebugView`**。它每周期由 `*OutputDebugViewBuilder::Build(input, result)`
-构造——注意它是**无状态快照构造器**：只把本周期的"逐目标状态（AR 已确认/候选/丢失；EOS/SBIRS
-已检测/未检测）+ 每目标结构化量值（方位/俯仰/距离/RCS）+ 规则 13b 排除诊断问题列表"装进一个
-struct。
+**"输出视图" = DebugView 投影**（不是信封里的归属对照表）。它每周期由
+`*OutputDebugViewBuilder::Build(input, result)` 构造——无状态快照：只把本周期"逐目标状态
+（AR/RIR 航迹态；EOS/SBIRS 检测态）+ 结构化量值 + 规则 13b 排除诊断"装进一个 struct。
 
 三个容易混淆的点：
 
-1. **视图每周期都会产生**，与落盘无关。组件 `Step` 里总是 `Build` 一个 `last_debug_view_`，
-   只是"写不写日志、写几行"由三模式决定。
-2. **视图是"本周期快照"**，没有跨周期记忆。想看"目标从什么时候开始丢失"这种跨周期信息，
-   库不提供查询接口（规则 12）——由调用方把每周期视图落盘到自己的日志/事件系统自己累积。
-3. **视图 ≠ 探测记录**。探测记录（L1 适配后的 `DetectionRecord`）进融合；视图只给人看/落盘，
-   不进业务逻辑。
+1. **视图每周期都会产生**（有 Builder 的模块），与落盘无关。组件 `Step` 里总是 `Build` 一个
+   `last_debug_view_`，只是"写不写日志、写几行"由三模式决定。
+2. **视图是"本周期快照"**，没有跨周期记忆。想看"目标从什么时候开始丢失"，用 Lifecycle
+   投影或由调用方落盘自累积（规则 12）。
+3. **视图 ≠ 探测/识别产品**。产品进融合；视图只给人看/落盘。
 
 示例中每个有 DebugView 的组件（AR/EOS/SBIRS 目标列表型 + SAR 阶段型）把视图暴露为
 `LastDebugView()`（最近周期快照，关机清零），并在 `Step` 内直写中文人读行（详见下节）。
-ESR 库内无 DebugView，不适用视图落盘；RIR/ECM 库内同样无 DebugView，但组件仍每周期
-直写自有摘要视图行（识别归置/干扰发射状态）；推演组件（inference）读融合运动学估计
-直写关键点摘要行（详见 §3 通道 B）。
+ESR 库内无 DebugView，不适用视图落盘；RIR 三类投影契约已冻结、**实现未齐**——组件暂用
+信封 `track_attributions` 自拼摘要行（见
+`docs/review/rir_observability_projections_freeze_2026-08-21.md`）；ECM 同形自拼；推演组件读
+融合运动学估计直写关键点摘要行（详见 §3 通道 B）。
 
 ---
 
@@ -537,7 +537,7 @@ AR/EOS/ESR/RIR/SAR/SBIRS）。
 
 | 想看什么 | 看哪 |
 | --- | --- |
-| 三层输出模型契约（规则 12/13b/13e） | `docs/common/session_contract.md` §三层输出模型 |
+| 两通道+投影输出模型契约（规则 12/13b/13e；旧称三层） | `docs/common/session_contract.md` §两通道 + 可选投影输出模型 |
 | 日志设施主体与宏定义 | `examples/component_attachment/logger/logger.h`（`CA_LOG_EVENT*`/`CA_LOG_VIEW`） |
 | 模式选择区（宏兜底默认值） | `examples/component_attachment/logger/logger_modes.h` |
 | issue code → 中文名查表 | `examples/component_attachment/logger/logger_i18n.h` |
