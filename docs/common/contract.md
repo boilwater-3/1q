@@ -1,7 +1,7 @@
 # 跨模块契约
 
 Status: active
-Last-reviewed: 2026-08-20
+Last-reviewed: 2026-08-21
 Authority: common contract for all modules
 RF-Interference-Architecture: frozen target; AR/ESR/ECM/RIR RF v2 implemented (per-module status in each design.md)
 
@@ -28,7 +28,7 @@ RF-Interference-Architecture: frozen target; AR/ESR/ECM/RIR RF v2 implemented (p
 
 - 模块聚合入口头。
 - `*Session`，包括 `Create` / `CreateWithDiagnostics` 等静态创建入口。
-- `*SessionConfig` 四域配置和运行期 patch。
+- `*SessionConfig` 配置域（条件五域，见下节）和运行期 patch。
 
 ### 会话创建入口的非阻断语义
 
@@ -58,20 +58,34 @@ RF-Interference-Architecture: frozen target; AR/ESR/ECM/RIR RF v2 implemented (p
 
 唯一允许的用户自定义 SPI 是 `airborne_radar` 的 decision engine。其它模块默认只提供稳定 session 门面。
 
-### 四域配置所有权
+### 条件五域配置所有权
 
-`*SessionConfig` 的 hardware / mission / policy / environment 按“参数表达的用户意图”划分，而不是按
-当前内部消费类所在目录划分：
+`*SessionConfig` 的配置域按“参数表达的用户意图”划分，而不是按当前内部消费类所在目录划分。
 
-- hardware：发射机、接收机、天线、探测器、光学和波形等物理能力。
-- mission：开关机、工作模式、扫描几何、指向和任务目标。
+**基线四域**（所有有会话的传感器模块均具备）：
+
+- hardware：发射机、接收机、天线、探测器、光学和波形等物理能力（不含静态安装欧拉/失准）。
+- mission：工作模式、运行期扫描/驻留指向、任务目标与可热更新的扫描任务参数。
 - policy：最低 SNR、虚警概率、脉冲积累数、检测 margin、关联门限等可由任务策略调整的判决规则。
 - environment：场景介质、传播、地表和大气观测等外部环境语义。
 
+**第五域 orientation**（仅当模块有静态安装/指向几何时）：
+
+- 语义：Body→Sensor（或等效）安装角、扫描限位、稳定方式、安装失准（若建模）。
+- 生命周期：初始化静态配置；**不得**进入 `*RuntimeConfigPatch`（与 SBIRS 范本一致）。
+- 禁止空壳：无静态安装指向几何的模块不得添加仅占位的 `orientation{}`。
+
+| 模块 | 配置域数 | orientation |
+|---|---|---|
+| SBIRS / AR / ESR | 五域 | 有（范本：SBIRS；AR 拆分静态/运行期后上提；ESR 瘦 mount az/el） |
+| EOS / RIR / SAR | 四域 | 无（EOS 仅复用瞄准引擎姿态链；RIR/SAR 无该子域需求） |
+
 因此最低 SNR、Pfa 等探测门限不得因内部 signal detector 与 hardware 相邻而放入 hardware。跨模块的
-同类判决参数应归 policy；模块可以保留不同物理算法和字段集合，但不能改变所有权含义。
+同类判决参数应归 policy；静态 mount 不得因历史嵌在 mission/hardware 而继续错域。
+模块可以保留不同物理算法和字段集合，但不能改变所有权含义。
 [evidence: tests/unit/airborne_radar/ar_session_config_builder_test.cpp]
 [evidence: tests/replay/airborne_radar/ar_replay_codec_roundtrip_test.cpp]
+[evidence: include/1q/sbirs_sensor/config/SbirsSessionConfig.h]
 
 ### 物理量单位命名
 

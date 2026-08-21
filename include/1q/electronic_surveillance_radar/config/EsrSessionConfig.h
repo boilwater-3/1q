@@ -10,6 +10,7 @@
 #include "1q/electronic_surveillance_radar/config/EsrEnvironmentConfig.h"
 #include "1q/electronic_surveillance_radar/config/EsrHardwareConfig.h"
 #include "1q/electronic_surveillance_radar/config/EsrMissionConfig.h"
+#include "1q/electronic_surveillance_radar/config/EsrOrientationConfig.h"
 #include "1q/electronic_surveillance_radar/config/EsrPolicyConfig.h"
 
 namespace electronic_surveillance_radar {
@@ -18,13 +19,16 @@ namespace config {
 
 /**
  * @brief config::EsrSessionConfig 描述电子侦察会话初始化高层输入。
+ *
+ * 条件五域公开模型：`orientation` 为静态安装指向域，不进入 RuntimeConfigPatch。
  */
 struct ONEQ_API EsrSessionConfig {
-  EsrHardwareConfig hardware{};       /**< 装备固有能力输入 */
-  EsrMissionConfig mission{};         /**< 任务域语义输入 */
-  EsrPolicyConfig policy{};           /**< 策略域语义输入 */
-  EsrEnvironmentConfig environment{}; /**< 环境域语义输入 */
-  bool sensor_enabled{true};          /**< 传感器初始电源状态（COMMON-OQ-4 字段提升） */
+  EsrHardwareConfig hardware{};         /**< 装备固有能力输入 */
+  EsrMissionConfig mission{};           /**< 任务域语义输入 */
+  EsrOrientationConfig orientation{}; /**< 安装指向（静态；瘦 mount az/el） */
+  EsrPolicyConfig policy{};             /**< 策略域语义输入 */
+  EsrEnvironmentConfig environment{};   /**< 环境域语义输入 */
+  bool sensor_enabled{true};            /**< 传感器初始电源状态（COMMON-OQ-4 字段提升） */
 };
 
 }  // namespace config

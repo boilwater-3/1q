@@ -24,7 +24,7 @@ namespace pipeline {
  * @return 分量均为有限值的扫描中心。
  */
 config::AzimuthElevationDeg ResolveFiniteScanCenter(
-    const config::ArOrientationConfig& orientation_config);
+    const config::ArEffectiveOrientationConfig& orientation_config);
 
 /**
  * @brief 解析给定工作模式下的扫描步长缩放因子。
@@ -55,7 +55,7 @@ std::vector<config::AzimuthElevationDeg> BuildScheduledScanPattern(
  * @return 当前周期波束指向；STBY 返回零位、STT/LRR 返回扫描中心。
  */
 config::AzimuthElevationDeg ResolveScheduledBeamPointing(
-    const config::ArOrientationConfig& orientation_config,
+    const config::ArEffectiveOrientationConfig& orientation_config,
     const detection::EffectiveBeamwidthDeg& effective_beamwidth_deg, std::uint32_t cycle_index);
 
 /**
@@ -67,7 +67,7 @@ config::AzimuthElevationDeg ResolveScheduledBeamPointing(
  * @return 当前周期波束指向；范围或波束宽度非法时回退到限幅后的扫描中心。
  */
 config::AzimuthElevationDeg ResolveScheduledBeamPointing(
-    const config::ArOrientationConfig& orientation_config,
+    const config::ArEffectiveOrientationConfig& orientation_config,
     const detection::EffectiveBeamwidthDeg& effective_beamwidth_deg,
     const config::BeamSchedulerConfig& scheduler_config,
     std::uint32_t cycle_index);
@@ -80,7 +80,7 @@ config::AzimuthElevationDeg ResolveScheduledBeamPointing(
  * @return 驻留偏移量（波束指向减去扫描中心）；STT/LRR 模式返回零偏。
  */
 config::AzimuthElevationDeg ResolveScheduledDwellCenter(
-    const config::ArOrientationConfig& orientation_config,
+    const config::ArEffectiveOrientationConfig& orientation_config,
     const detection::EffectiveBeamwidthDeg& effective_beamwidth_deg, std::uint32_t cycle_index);
 
 /**
@@ -158,7 +158,7 @@ struct SttTrackFollowingResolution {
  * @return 指向来源解析结果（track_following_active 供结果/日志标记本次自动跟随）。
  */
 SttTrackFollowingResolution ResolveSttTrackFollowingPointing(
-    const config::ArOrientationConfig& orientation_config,
+    const config::ArEffectiveOrientationConfig& orientation_config,
     const config::AzimuthElevationDeg& dwell_center_deg, bool has_designated_target,
     bool designated_track_confirmed, const config::AzimuthElevationDeg& track_pointing_deg);
 

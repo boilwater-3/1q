@@ -64,6 +64,43 @@ inline void ReconcilePolicyToEngineering(execution::InternalExecutionConfig& exe
   }
 }
 
+/** @brief 静态 orientation + mission 运行期字段 → 内部执行拼装态。 */
+inline config::ArEffectiveOrientationConfig AssembleEffectiveOrientation(
+    const config::ArOrientationConfig& orientation, const config::ArMissionConfig& mission) {
+  config::ArEffectiveOrientationConfig effective;
+  effective.mount_angles_deg = orientation.mount_angles_deg;
+  effective.mechanical_scan_limits_deg = orientation.mechanical_scan_limits_deg;
+  effective.electronic_scan_limits_deg = orientation.electronic_scan_limits_deg;
+  effective.scan_start_position = orientation.scan_start_position;
+  effective.scan_sequence = orientation.scan_sequence;
+  effective.stabilization_mode = orientation.stabilization_mode;
+  effective.scan_center_deg = mission.scan_center_deg;
+  effective.work_mode = mission.work_mode;
+  effective.commanded_beamwidth_enabled = mission.commanded_beamwidth_enabled;
+  effective.commanded_beamwidth_deg = mission.commanded_beamwidth_deg;
+  return effective;
+}
+
+/** @brief 内部拼装态拆回会话 orientation / mission 两域。 */
+inline void SplitEffectiveOrientation(const config::ArEffectiveOrientationConfig& effective,
+                                      config::ArOrientationConfig* orientation,
+                                      config::ArMissionConfig* mission) {
+  if (orientation != nullptr) {
+    orientation->mount_angles_deg = effective.mount_angles_deg;
+    orientation->mechanical_scan_limits_deg = effective.mechanical_scan_limits_deg;
+    orientation->electronic_scan_limits_deg = effective.electronic_scan_limits_deg;
+    orientation->scan_start_position = effective.scan_start_position;
+    orientation->scan_sequence = effective.scan_sequence;
+    orientation->stabilization_mode = effective.stabilization_mode;
+  }
+  if (mission != nullptr) {
+    mission->scan_center_deg = effective.scan_center_deg;
+    mission->work_mode = effective.work_mode;
+    mission->commanded_beamwidth_enabled = effective.commanded_beamwidth_enabled;
+    mission->commanded_beamwidth_deg = effective.commanded_beamwidth_deg;
+  }
+}
+
 }  // namespace mapping
 }  // namespace config
 }  // namespace airborne_radar

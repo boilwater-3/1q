@@ -25,15 +25,18 @@ table CommandedBeamwidthDeg {
 
 table ArOrientationConfig {
   mount_angles_deg:EulerAnglesDeg;
-  scan_center_deg:AzimuthElevationDeg;
   mechanical_scan_limits_deg:AzimuthElevationLimitsDeg;
   electronic_scan_limits_deg:AzimuthElevationLimitsDeg;
   scan_start_position:int;
   scan_sequence:int;
+  stabilization_mode:int;
+}
+
+table ArMissionConfig {
   work_mode:int;
+  scan_center_deg:AzimuthElevationDeg;
   commanded_beamwidth_enabled:bool;
   commanded_beamwidth_deg:CommandedBeamwidthDeg;
-  stabilization_mode:int;
 }
 
 table TransmitterConfig {
@@ -209,7 +212,7 @@ table EnvironmentRuntimeConfigPatch {
 
 table ArRuntimeConfigPatch {
   has_mission:bool;
-  mission_orientation:ArOrientationConfig;
+  mission:ArMissionConfig;
   has_policy:bool;
   policy:ArPolicyConfig;
   has_environment:bool;
@@ -234,7 +237,8 @@ table ArRuntimeConfigPatch {
 
 table ArSessionConfig {
   hardware_detection:DetectionConfig;
-  mission_orientation:ArOrientationConfig;
+  orientation:ArOrientationConfig;
+  mission:ArMissionConfig;
   policy:ArPolicyConfig;
   environment_default_config:EnvironmentDefaultConfig;
   sensor_enabled:bool = true;

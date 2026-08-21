@@ -24,8 +24,6 @@ inline void LoadEsrHardware(const examples::JsonValue& j,
   v->beam_el_width_deg = static_cast<float>(j["beam_el_width_deg"].AsDouble());
   v->az_scan_range_deg = static_cast<float>(j["az_scan_range_deg"].AsDouble());
   v->el_scan_range_deg = static_cast<float>(j["el_scan_range_deg"].AsDouble());
-  v->antenna_mount_az_deg = static_cast<float>(j["antenna_mount_az_deg"].AsDouble());
-  v->antenna_mount_el_deg = static_cast<float>(j["antenna_mount_el_deg"].AsDouble());
   v->antenna_peak_gain_dbi = static_cast<float>(j["antenna_peak_gain_dbi"].AsDouble());
   v->antenna_sidelobe_level_db =
       static_cast<float>(j["antenna_sidelobe_level_db"].AsDouble());
@@ -37,6 +35,13 @@ inline void LoadEsrHardware(const examples::JsonValue& j,
       static_cast<float>(j["minimum_far_field_range_m"].AsDouble());
   v->maximum_linear_input_power_w =
       static_cast<float>(j["maximum_linear_input_power_w"].AsDouble());
+}
+
+inline void LoadEsrOrientation(const examples::JsonValue& j,
+                               esr_cfg::EsrOrientationConfig* v) {
+  if (j.IsNull()) return;
+  v->antenna_mount_az_deg = static_cast<float>(j["antenna_mount_az_deg"].AsDouble());
+  v->antenna_mount_el_deg = static_cast<float>(j["antenna_mount_el_deg"].AsDouble());
 }
 
 inline void LoadEsrScanPolicy(const examples::JsonValue& j,

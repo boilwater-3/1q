@@ -171,7 +171,7 @@ inline config::AzimuthElevationLimitsDeg IntersectScanLimits(
  *       非零时表示在静态基准上叠加运行期偏移。
  */
 inline config::AzimuthElevationDeg ComputeMountFrameBeamPointing(
-    const config::ArOrientationConfig& config,
+    const config::ArEffectiveOrientationConfig& config,
     const config::AzimuthElevationDeg& dwell_center_deg) {
   config::AzimuthElevationDeg unclamped;
   unclamped.az_deg = config.scan_center_deg.az_deg + dwell_center_deg.az_deg;
@@ -187,7 +187,7 @@ inline config::AzimuthElevationDeg ComputeMountFrameBeamPointing(
  * @return 相对雷达安装基准轴的方位/俯仰指向。
  */
 inline config::AzimuthElevationDeg ComputeMountFrameBeamPointing(
-    const config::ArOrientationConfig& config) {
+    const config::ArEffectiveOrientationConfig& config) {
   return ComputeMountFrameBeamPointing(config, config::AzimuthElevationDeg());
 }
 
@@ -198,7 +198,7 @@ inline config::AzimuthElevationDeg ComputeMountFrameBeamPointing(
  * @return 机体系下的欧拉角；由安装姿态与挂架波束指向做旋转合成得到。
  */
 inline config::EulerAnglesDeg ComputeBodyFrameBeamPointing(
-    const config::ArOrientationConfig& config,
+    const config::ArEffectiveOrientationConfig& config,
     const config::AzimuthElevationDeg& dwell_center_deg) {
   const config::AzimuthElevationDeg mount_frame_pointing =
       ComputeMountFrameBeamPointing(config, dwell_center_deg);
@@ -217,7 +217,7 @@ inline config::EulerAnglesDeg ComputeBodyFrameBeamPointing(
  * @return 机体系下的欧拉角；由安装姿态与挂架波束指向做旋转合成得到。
  */
 inline config::EulerAnglesDeg ComputeBodyFrameBeamPointing(
-    const config::ArOrientationConfig& config) {
+    const config::ArEffectiveOrientationConfig& config) {
   return ComputeBodyFrameBeamPointing(config, config::AzimuthElevationDeg());
 }
 
@@ -232,7 +232,7 @@ inline config::EulerAnglesDeg ComputeBodyFrameBeamPointing(
  */
 inline config::EulerAnglesDeg ComputePlatformFrameBeamPointing(
     const config::EulerAnglesDeg& platform_attitude_deg,
-    const config::ArOrientationConfig& config,
+    const config::ArEffectiveOrientationConfig& config,
     const config::AzimuthElevationDeg& dwell_center_deg) {
   const config::AzimuthElevationDeg mount_frame_pointing =
       ComputeMountFrameBeamPointing(config, dwell_center_deg);
@@ -255,7 +255,7 @@ inline config::EulerAnglesDeg ComputePlatformFrameBeamPointing(
  */
 inline config::EulerAnglesDeg ComputePlatformFrameBeamPointing(
     const config::EulerAnglesDeg& platform_attitude_deg,
-    const config::ArOrientationConfig& config) {
+    const config::ArEffectiveOrientationConfig& config) {
   return ComputePlatformFrameBeamPointing(platform_attitude_deg, config,
                                           config::AzimuthElevationDeg());
 }

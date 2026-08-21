@@ -15,7 +15,7 @@ public API 边界）见 [boundaries.md](boundaries.md)。
 
 | 算法/部件 | 意图（一句话） | 实现状态 | 证据 |
 |---|---|---|---|
-| 配置映射与 runtime patch | 四域配置转内部工程配置；运行期变更可回滚提交 | session-wired | [evidence: tests/unit/airborne_radar/ar_session_config_builder_test.cpp] |
+| 配置映射与 runtime patch | 条件五域配置转内部工程配置；运行期变更可回滚提交 | session-wired | [evidence: tests/unit/airborne_radar/ar_session_config_builder_test.cpp] |
 | 环境冻结与传播 | pending/active scene 管理，冻结周期环境，传播损失/杂波/大气物理 | session-wired | [evidence: tests/unit/airborne_radar/ar_environment_service_test.cpp] |
 | 外部 RF 接入 | 以实际时频发射事实构建前端与 detection-cell 干扰账本，J/N 门控后去真值化观测 | session-wired | [evidence: tests/unit/airborne_radar/ar_rf_front_end_resolver_test.cpp] |
 | 扫描和波束控制 | 解析扫描中心、坐标组合、波束增益和波束宽度；TWS/TAS 生效模式下 session 级指向逐周期按扫描表推进 | session-wired | [evidence: tests/unit/airborne_radar/ar_signal_scan_schedule_test.cpp] |
@@ -65,9 +65,9 @@ public API 边界）见 [boundaries.md](boundaries.md)。
   session 级指向逐周期按扫描表推进（波束动画，见 boundaries.md 扫描动画接线），pipeline RF v1 回退
   路径经 `ApplyScanScheduleToRuntimeConfig` 使用同一扫描相位。
 - **实现边界**：
-  1. `ArMissionConfig::orientation.scan_center_deg` 是基础扫描中心 public source of truth；policy 不再保留
+  1. `ArMissionConfig::scan_center_deg` 是基础扫描中心 public source of truth；policy 不再保留
      默认中心或 replay-only 副本。runtime patch 的 `dwell_center_deg` 是当次驻留偏移，最终指向为"基础中心 +
-     偏移"；replay 分别保留两者。
+     偏移"；replay 分别保留两者。静态安装/限位/稳定见 `ArSessionConfig::orientation`。
   2. 机体稳定直接使用扫描中心和 dwell；惯性/对地稳定先用本周期平台姿态和实际安装角反解挂架指向，再同时
      用于 ECEF 发射 boresight 与目标方向增益——平台转动不得使波束随机体漂移。
   3. 天线波束宽度按轴独立解析（commanded > nominal > 由波长/孔径推导）；三级均无有效值时返回 0（不

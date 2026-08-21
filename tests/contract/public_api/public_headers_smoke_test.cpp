@@ -223,7 +223,7 @@ TEST(PublicHeadersSmokeTest, SbirsPublicSurfaceSupportsMinimalUsage) {
   EXPECT_TRUE(sbirs_sensor::session::SbirsOutputFrameContainsOnlyNativeFields(result.output_frame));
 }
 
-TEST(PublicHeadersSmokeTest, FourDomainHeadersDefineIndependentConfigTypes) {
+TEST(PublicHeadersSmokeTest, FiveDomainHeadersDefineIndependentConfigTypes) {
   config::ArHardwareConfig hardware{};
   hardware.transmitter.peak_power_w = 2.0e6f;
   EXPECT_FLOAT_EQ(hardware.transmitter.peak_power_w, 2.0e6f);
@@ -232,8 +232,12 @@ TEST(PublicHeadersSmokeTest, FourDomainHeadersDefineIndependentConfigTypes) {
   scan_center.az_deg = 45.0f;
   scan_center.el_deg = -5.0f;
   config::ArMissionConfig mission{};
-  mission.orientation.scan_center_deg = scan_center;
-  EXPECT_FLOAT_EQ(mission.orientation.scan_center_deg.az_deg, 45.0f);
+  mission.scan_center_deg = scan_center;
+  EXPECT_FLOAT_EQ(mission.scan_center_deg.az_deg, 45.0f);
+
+  config::ArOrientationConfig orientation{};
+  orientation.stabilization_mode = config::StabilizationMode::kBodyStabilized;
+  EXPECT_EQ(orientation.stabilization_mode, config::StabilizationMode::kBodyStabilized);
 
   config::ArPolicyConfig policy{};
   policy.detection.pulse_count = 32;
@@ -248,10 +252,13 @@ TEST(PublicHeadersSmokeTest, FourDomainHeadersDefineIndependentConfigTypes) {
   config::ArSessionConfig session_cfg;
   session_cfg.hardware = hardware;
   session_cfg.mission = mission;
+  session_cfg.orientation = orientation;
   session_cfg.policy = policy;
   session_cfg.environment = env;
   EXPECT_EQ(session_cfg.policy.detection.pulse_count, 32);
-  EXPECT_FLOAT_EQ(session_cfg.mission.orientation.scan_center_deg.az_deg, 45.0f);
+  EXPECT_FLOAT_EQ(session_cfg.mission.scan_center_deg.az_deg, 45.0f);
+  EXPECT_EQ(session_cfg.orientation.stabilization_mode,
+            config::StabilizationMode::kBodyStabilized);
   EXPECT_EQ(session_cfg.policy.lifecycle.confirm_hits, 2U);
 }
 
@@ -265,11 +272,11 @@ TEST(PublicHeadersSmokeTest, RadarSessionBuilderCanConfigureLeafAndDomainFields)
   session_config.hardware = config::profiles::kLongRangeHighPowerHardware;
   session_config.hardware.antenna.pattern = config::profiles::kLowSidelobeAntennaPattern;
   session_config.policy.lifecycle = config::profiles::kFastConfirmLifecycle;
-  session_config.mission.orientation.scan_center_deg = scan_center;
+  session_config.mission.scan_center_deg = scan_center;
   EXPECT_EQ(session_config.policy.detection.pulse_count, 16);
   EXPECT_FLOAT_EQ(session_config.hardware.transmitter.peak_power_w, 5.0e6f);
   EXPECT_FLOAT_EQ(session_config.hardware.antenna.pattern.max_sidelobe_level_db, -30.0f);
-  EXPECT_FLOAT_EQ(session_config.mission.orientation.scan_center_deg.az_deg, -12.0f);
+  EXPECT_FLOAT_EQ(session_config.mission.scan_center_deg.az_deg, -12.0f);
   EXPECT_EQ(session_config.policy.lifecycle.confirm_hits, 1U);
   config::EnvironmentScenarioConfig scenario;
   scenario.atmospheric_physics.enable_physical_model = true;

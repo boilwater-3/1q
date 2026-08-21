@@ -35,8 +35,8 @@ EsrInternalExecutionConfig MakeDefaultConfig() {
   config.detection.pulse_count = 8U;
   config.hardware.receiver_sensitivity_w = 1.0e-12f;
   config.hardware.integrated_receive_loss_db = 0.0f;
-  config.hardware.antenna_mount_az_deg = 0.0f;
-  config.hardware.antenna_mount_el_deg = 0.0f;
+  config.orientation.antenna_mount_az_deg = 0.0f;
+  config.orientation.antenna_mount_el_deg = 0.0f;
   return config;
 }
 
@@ -339,7 +339,7 @@ TEST(EsrControllerRuntimeStateTest, OutputFrameScanAzimuthAddsMountOffset) {
   config.resolved_scan.scan_start_az_deg = 130.0f;
   config.resolved_scan.scan_end_az_deg = 150.0f;
   config.resolved_scan.az_step_deg = 20.0f;
-  config.hardware.antenna_mount_az_deg = 20.0f;
+  config.orientation.antenna_mount_az_deg = 20.0f;
   config.mission.scan.scan_rate_hz = 0.5f;
   pipeline::InterceptPipeline pipeline(config);
   StubEnvironmentService env;

@@ -30,8 +30,6 @@ table EsrHardwareConfig {
   beam_el_width_deg:           float;
   az_scan_range_deg:           float;
   el_scan_range_deg:           float;
-  antenna_mount_az_deg:        float;
-  antenna_mount_el_deg:        float;
   antenna_peak_gain_dbi:       float = 0.0;
   antenna_sidelobe_level_db:   float = -30.0;
   antenna_backlobe_level_db:   float = -40.0;
@@ -41,6 +39,11 @@ table EsrHardwareConfig {
   co_site_paths:               [EsrCoSiteIsolationPath];
   maximum_linear_input_power_w: float = 0.001;
   tuning_plan:                 [EsrTuningWindow];
+}
+
+table EsrOrientationConfig {
+  antenna_mount_az_deg: float;
+  antenna_mount_el_deg: float;
 }
 
 table EsrScanConfig {
@@ -95,6 +98,7 @@ table EsrEnvironmentConfig {
 table EsrSessionConfig {
   hardware:       EsrHardwareConfig;
   mission:        EsrMissionConfig;
+  orientation:    EsrOrientationConfig;
   policy:         EsrPolicyConfig;
   environment:    EsrEnvironmentConfig;
   sensor_enabled: bool = true;

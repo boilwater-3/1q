@@ -17,7 +17,7 @@ Answers: SBIRS 的分层架构、数据如何流动、runtime patch 如何迁移
 | 区域 | 职责 |
 |---|---|
 | `sbirs_sensor.hpp` | 模块聚合入口；只聚合稳定 public API，不暴露 foundation/pipeline/runtime/state-machine 内部类型 |
-| `config/` | `SbirsSessionConfig`、runtime patch、semantic builder、config validation；表达硬件（WFOV/NFOV）、任务、策略、环境四域 |
+| `config/` | `SbirsSessionConfig`、runtime patch、semantic builder、config validation；条件五域（hardware / mission / orientation / policy / environment；orientation 为静态安装指向范本） |
 | `session/` | `SbirsSession`、cycle input/result、scene target、output types、adapter、trace/replay、debug/lifecycle |
 
 SBIRS 不在公开头文件中暴露 `electro_optical_sensor`、`Eos*` 或 `1q/electro_optical_sensor/...`。EOS 仅作为
@@ -185,7 +185,7 @@ pipeline 内部原子状态替换，不虚构 session rollback。
 ```mermaid
 flowchart LR
   subgraph Input["Input"]
-    Config["SbirsSessionConfig\nWFOV/NFOV / Mission / Policy / Environment"]
+    Config["SbirsSessionConfig\nHardware / Mission / Orientation / Policy / Environment"]
     Cycle["SbirsCycleInput\n卫星姿态 / 环境快照 / 目标列表"]
     Patch["SbirsRuntimeConfigPatch"]
   end

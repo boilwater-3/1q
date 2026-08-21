@@ -27,7 +27,9 @@
 
 每个 JSON 文件的顶层键与对应模块的 `*SessionConfig` 结构体字段一一映射。
 
-### 公共四域结构
+### 公共配置域结构
+
+基线四域（所有有会话的传感器）：
 
 ```text
 {
@@ -38,7 +40,11 @@
 }
 ```
 
+有静态安装指向几何的模块（SBIRS / AR / ESR）另含顶层 `"orientation"`（初始化静态；
+不进 RuntimeConfigPatch）。EOS / RIR / SAR 保持四域，禁止空壳 orientation。
+
 详细字段说明见 `docs/common/usage.md`（1q 库消费指南）与 `docs/common/session_contract.md`（会话相关模块契约）。
+所有权规则见 `docs/common/contract.md`「条件五域配置所有权」。
 
 ### 物理链路提示
 

@@ -44,7 +44,7 @@ inline float DeriveBeamwidthFromApertureRad(float aperture_length_m, float wavel
  */
 inline EffectiveBeamwidthDeg ResolveEffectiveBeamwidth(
     const config::engineering::AntennaConfig& antenna_config,
-    const config::ArOrientationConfig& orientation_config,
+    const config::ArEffectiveOrientationConfig& orientation_config,
     float wavelength_m = 0.0f) {
   ::oneq::common::radar::CommandedBeamwidthOverride override;
   if (orientation_config.commanded_beamwidth_enabled) {

@@ -1,6 +1,6 @@
 ---
 Status: active
-Last-reviewed: 2026-08-03
+Last-reviewed: 2026-08-21
 Authority: ESR 设计权威入口
 Answers: ESR 模块是什么、和谁交互、设计文档怎么导航
 ---
@@ -13,8 +13,10 @@ ESR 模块模拟电子侦察接收机对辐射源的观测和估计。它的核�
 - observation output：设备观测记录。
 - emitter output：系统估计的辐射源假设。
 
-对外提供稳定 `EsrSession` 门面和四域配置；runtime patch 经 resolver 校验后立即提交，不提供 session 层
-回滚。truth identity、预计算受扰结论和 pipeline internal context 都不进入公共输出合同。
+对外提供稳定 `EsrSession` 门面和条件五域配置（hardware / mission / orientation / policy /
+environment）；`orientation` 仅承载静态天线安装偏置（瘦 mount az/el），不进入 runtime patch。
+runtime patch 经 resolver 校验后立即提交，不提供 session 层回滚。truth identity、预计算受扰结论和
+pipeline internal context 都不进入公共输出合同。
 
 ## 心智模型：拦截流水线
 
@@ -39,5 +41,5 @@ AR、ECM 或其它 RF 发射在接收链中没有"目标/干扰"角色差异，�
 - 算法登记表（环境采样/扫描窗口/拦截门控/拦截检测链/预处理/聚类/假设关联）、每算法的实现边界与
   反直觉点、刻意不实现的死字段（`spectrum_occupancy_ratio`，cross-ref ESR-OQ-1）→ [algorithms.md](algorithms.md)
 
-跨模块公共规则（public API 边界、四域配置、三层输出模型、runtime patch 立即提交策略、证据优先开发
+跨模块公共规则（public API 边界、条件五域配置、三层输出模型、runtime patch 立即提交策略、证据优先开发
 模式等）见 `docs/common/contract.md`。

@@ -44,11 +44,13 @@ void ApplyWorkModeAdjustment(config::EsrWorkMode mode, DetectionConfig* detectio
  * 解析优先级：显式扫描边界（explicit bounds）> 中心角（center）> 当前透传。
  * beam 波束宽度会覆盖 az/el 步进；天线安装角（mount）会从边界/中心角中扣除。
  *
- * @param[in]     hardware     硬件配置（mount、beam 宽度、扫描范围）。
+ * @param[in]     hardware     硬件配置（beam 宽度、扫描范围）。
+ * @param[in]     orientation  静态安装指向（mount az/el）。
  * @param[in]     scan_policy  扫描策略（显式边界 / 中心角 / 起点、序列）。
  * @param[in,out] scan_config  待填充的运行态扫描配置，可为 nullptr（直接返回）。
  */
 void ApplyScanPolicy(const config::EsrHardwareConfig& hardware,
+                     const config::EsrOrientationConfig& orientation,
                      const config::EsrScanPolicyConfig& scan_policy,
                      extension::InterceptScanConfig* scan_config);
 

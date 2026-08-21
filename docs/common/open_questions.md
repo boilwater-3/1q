@@ -2,7 +2,7 @@
 Status: active
 Authority: 非规定性记录（不构成契约约束）
 Lifecycle: 条目有结论后回写 contract.md 或 design.md 并从本文删除；不保留已收敛条目
-Last-reviewed: 2026-08-20
+Last-reviewed: 2026-08-21
 ---
 
 # 跨模块开放议题
@@ -33,7 +33,7 @@ Last-reviewed: 2026-08-20
 | AR-OQ-1 | airborne_radar | 假目标鉴别跨域命名双轨 | 观测域枚举 vs 量测域 bool | open |
 | ESR-OQ-1 | electronic_surveillance_radar | 压制干扰感知与 ECCM 链路缺失 | 死字段 + 无结构化观测 + 无 ECCM | open |
 | ESR-OQ-2 | electronic_surveillance_radar | 运行时补丁扫描中心静默关边界 | scan center 补丁隐式切扫描模式 | open |
-| ESR-OQ-3 | electronic_surveillance_radar | 扫描策略跨域耦合 | mission 值被 hardware mount 静默偏移 | open |
+| ESR-OQ-3 | electronic_surveillance_radar | 扫描策略跨域耦合 | mission 值被 orientation mount 静默偏移 | open |
 | SBIRS-OQ-1 | sbirs_sensor | 诊断距离的物理语义 | 仅 cue/诊断层，易被误读为测距输出 | open |
 | SBIRS-OQ-2 | sbirs_sensor | 分阶段误差统计共享参数 | 三用途共享一组角度/距离统计 | open |
 | SBIRS-OQ-3 | sbirs_sensor | 多目标随机样本与输入顺序 | 全局用途流，无 target 不变性 | open |
@@ -220,12 +220,12 @@ Last-reviewed: 2026-08-20
 - **当前边界**：按现状截断（保留前 131072 点），文档如实描述；不得宣称窗口全覆盖，也不得称超限报错。
 - **再进入条件 (Stage A)**：出现因截断导致覆盖缺失的验收/集成用例时，先评估告警或报错的 API 成本再决定。
 
-### ESR-OQ-3：扫描策略跨域耦合（mission.scan + hardware mount 偏移）
+### ESR-OQ-3：扫描策略跨域耦合（mission.scan + orientation mount 偏移）
 
-- **现状**：`EsrScanPolicyConfig`（mission 域）的扫描字段经 `ApplyScanPolicy` 解算时会被 hardware 域偏移：
-  1. `scan_center_az_deg` 减去 `EsrHardwareConfig::antenna_mount_az_deg`。
+- **现状**：`EsrScanPolicyConfig`（mission 域）的扫描字段经 `ApplyScanPolicy` 解算时会被 orientation 域偏移：
+  1. `scan_center_az_deg` 减去 `EsrOrientationConfig::antenna_mount_az_deg`。
   2. `scan_start_az_deg` / `scan_end_az_deg` 在 `use_explicit_scan_bounds` 模式下也被 mount 偏移。
-  mission 域的值被 hardware 域静默偏移。[evidence: src/electronic_surveillance_radar/session/EsrResolutionRules.cpp]
+  mission 域的值被 orientation 域静默偏移。[evidence: src/electronic_surveillance_radar/session/EsrResolutionRules.cpp]
 - **后果**：用户只看 mission 配置无法推断实际扫描方向；mount 偏移在内部解算时扣除但文档未明确，集成时易误配。
 - **待决问题**：是否在公开 API 中明确扫描中心的坐标系语义，有三个备选：
   1. 定义为"天线坐标系"（已含 mount 偏移）。

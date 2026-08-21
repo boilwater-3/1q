@@ -17,6 +17,7 @@
 #include "1q/electronic_surveillance_radar/config/EsrEnvironmentConfig.h"
 #include "1q/electronic_surveillance_radar/config/EsrHardwareConfig.h"
 #include "1q/electronic_surveillance_radar/config/EsrMissionConfig.h"
+#include "1q/electronic_surveillance_radar/config/EsrOrientationConfig.h"
 #include "1q/electronic_surveillance_radar/config/EsrPolicyConfig.h"
 #include "electronic_surveillance_radar/pipeline/InterceptPipelineTypes.h"
 
@@ -131,8 +132,9 @@ struct EsrInternalExecutionConfig {
   bool sensor_enabled{true};            /**< 全局设备开关（COMMON-OQ-4 字段提升） */
   config::EsrHardwareConfig hardware{}; /**< 装备固有参数（using 别名直接赋值） */
   config::EsrMissionConfig mission{};   /**< 任务域参数（using 别名直接赋值） */
+  config::EsrOrientationConfig orientation{}; /**< 静态安装指向（会话第五域） */
   extension::InterceptScanConfig
-      resolved_scan{};             /**< 由 mission.scan + hardware 解析生成的扫描配置 */
+      resolved_scan{}; /**< 由 mission.scan + hardware + orientation 解析生成的扫描配置 */
   DetectionConfig base_detection{}; /**< 未施加工作模式倍率的探测策略真值。 */
   DetectionConfig detection{};     /**< 解析后的探测策略参数（SNR/PFA/脉冲/门限/统计） */
   InterceptConfig intercept{};     /**< 截获流水线配置（算法/预处理/检测子/聚类/频谱/建模） */
@@ -229,8 +231,7 @@ inline extension::InterceptRuntimeConfig BuildRuntimeConfig(
     const EsrInternalExecutionConfig& internal) {
   extension::InterceptRuntimeConfig rt;
   rt.sensor_enabled = internal.sensor_enabled;
-  rt.antenna_mount_az_deg = internal.hardware.antenna_mount_az_deg;
-  rt.antenna_mount_el_deg = internal.hardware.antenna_mount_el_deg;
+  rt.orientation = internal.orientation;
   rt.integrated_receive_loss_db = internal.hardware.integrated_receive_loss_db;
   rt.scan_rate_hz = internal.mission.scan.scan_rate_hz;
   rt.receiver_hardware = internal.hardware;

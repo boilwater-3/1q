@@ -33,7 +33,7 @@ class BeamControlResolver {
   /** @brief 使用 Prepare 已冻结的局部波束中心解析目标方向增益。 */
   static ResolvedBeamState ResolveFrozen(
       const config::engineering::AntennaConfig& antenna_config,
-      const config::ArOrientationConfig& orientation_config,
+      const config::ArEffectiveOrientationConfig& orientation_config,
       const TargetLookAnglesDeg& target_look_angles,
       const config::AzimuthElevationDeg& frozen_beam_pointing_deg,
       float wavelength_m = 0.0f) {
@@ -72,7 +72,7 @@ class BeamControlResolver {
    */
   static ResolvedBeamState Resolve(
       const config::engineering::AntennaConfig& antenna_config,
-      const config::ArOrientationConfig& orientation_config,
+      const config::ArEffectiveOrientationConfig& orientation_config,
       const config::PlatformAttitudeDeg& platform_attitude_deg,
       const TargetLookAnglesDeg& target_look_angles,
       const config::AzimuthElevationDeg& dwell_center_deg = config::AzimuthElevationDeg(),
@@ -112,7 +112,7 @@ class BeamControlResolver {
    * @note 对地稳定当前无地理参考输入，代码上显式等同于对惯性空间稳定。
    */
   static config::AzimuthElevationDeg ResolveMountFrameBeamPointing(
-      const config::ArOrientationConfig& orientation_config,
+      const config::ArEffectiveOrientationConfig& orientation_config,
       const config::PlatformAttitudeDeg& platform_attitude_deg,
       const config::AzimuthElevationDeg& dwell_center_deg = config::AzimuthElevationDeg()) {
     const config::AzimuthElevationLimitsDeg effective_limits =

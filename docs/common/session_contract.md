@@ -2,17 +2,18 @@
 Status: active
 Last-reviewed: 2026-08-21
 Authority: 有 Session 的传感器模块的统一会话契约
-Answers: 会话配置直接赋值、Session 组合所有权、运行期配置提交策略、电源单源、三层输出模型、Replay/trace 语义
+Answers: 会话配置直接赋值、Session 组合所有权、运行期配置提交策略、电源单源、三层输出模型、Replay/trace 语义、条件五域 orientation
 ---
 
 # 会话相关模块契约
 
 本文承载"有 `*Session` 会话模型的传感器模块"（AR/ESR/EOS/SAR/SBIRS/RIR）的统一契约规则。这些规则不是
 "所有模块必须遵守"（`flight_dynamic` 无会话模型，不适用），而是"有会话的模块必须对齐"。
-RIR 于 2026-08 并入本契约范围（会话门面/四域配置/电源单源/统一问题列表/执行状态信号已对齐，
+RIR 于 2026-08 并入本契约范围（会话门面/条件五域配置/电源单源/统一问题列表/执行状态信号已对齐，
 会话校验入口与 AR 同为 session 层；RIR 暂无 L3 观测工具——DebugView/LifecycleRecorder/排除诊断
-recorder 均未提供，规则 10/11/13b/13e 对其为空洞条款，同 SAR 13b 先例）。所有模块都必须遵守的
-跨模块契约见 `docs/common/contract.md`。
+recorder 均未提供，规则 10/11/13b/13e 对其为空洞条款，同 SAR 13b 先例）。配置域形状见
+`docs/common/contract.md`「条件五域配置所有权」（SBIRS/AR/ESR 五域；EOS/RIR/SAR 四域）。
+所有模块都必须遵守的跨模块契约见 `docs/common/contract.md`。
 
 ## 会话配置直接赋值
 
@@ -24,9 +25,12 @@ recorder 均未提供，规则 10/11/13b/13e 对其为空洞条款，同 SAR 13b
    用户直接整域赋值；常量只含该档位管理的字段，其余字段保持 struct 默认值。
 2. 配置中不存在隐式优先级："对 config 的任何赋值即最终决定"，档位在前、微调在后时微调胜出。
    不得以任何形式复活 dirty flag / Profile 枚举 / 隐式覆写机制 / leaf setter Builder。
-3. 细粒度工程参数由调用方直接编辑 `*SessionConfig` 四域字段。
+3. 细粒度工程参数由调用方直接编辑 `*SessionConfig` 配置域字段（条件五域或四域，见
+   `contract.md`）。
 4. 运行期变更只写 `*RuntimeConfigPatch`：每个生效字段必须显式设置对应 `has_*`
    （嵌套域再设子级 `has_*`，如 `environment.has_scenario_config`）。
+   有 orientation 域的模块：该域为初始化静态配置，**不得**进入 RuntimeConfigPatch
+   （不得新增 `has_orientation`；`has_mission` 不得覆写静态安装角/限位/稳定/失准）。
 5. 配置合法性由独立 validator 检查最终 config。
 
 不得重新引入 leaf setter 建造者，例如 frame rate、scene center、minimum SNR、atmospheric loss 这类

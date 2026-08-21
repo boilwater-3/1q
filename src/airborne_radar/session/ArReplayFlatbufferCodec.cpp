@@ -313,8 +313,11 @@ bool IsKnownVegetationCoverProfile(int raw_value) {
 bool IsValidDecodedOrientationEnums(const config::ArOrientationConfig& orientation) {
   return IsKnownScanStartPosition(static_cast<int>(orientation.scan_start_position)) &&
          IsKnownScanSequence(static_cast<int>(orientation.scan_sequence)) &&
-         IsKnownArWorkMode(static_cast<int>(orientation.work_mode)) &&
          IsKnownStabilizationMode(static_cast<int>(orientation.stabilization_mode));
+}
+
+bool IsValidDecodedMissionEnums(const config::ArMissionConfig& mission) {
+  return IsKnownArWorkMode(static_cast<int>(mission.work_mode));
 }
 
 bool IsValidDecodedDetectionEnums(const config::DetectionConfig& detection) {
@@ -543,13 +546,18 @@ flatbuffers::Offset<session_fb::ArOrientationConfig> EncodeSessionOrientation(
     flatbuffers::FlatBufferBuilder* builder, const config::ArOrientationConfig& value) {
   return session_fb::CreateArOrientationConfig(
       *builder, EncodeSessionEulerAngles(builder, value.mount_angles_deg),
-      EncodeSessionAzEl(builder, value.scan_center_deg),
       EncodeSessionAzElLimits(builder, value.mechanical_scan_limits_deg),
       EncodeSessionAzElLimits(builder, value.electronic_scan_limits_deg),
       static_cast<int>(value.scan_start_position), static_cast<int>(value.scan_sequence),
-      static_cast<int>(value.work_mode), value.commanded_beamwidth_enabled,
-      EncodeSessionCommandedBeamwidth(builder, value.commanded_beamwidth_deg),
       static_cast<int>(value.stabilization_mode));
+}
+
+flatbuffers::Offset<session_fb::ArMissionConfig> EncodeSessionMission(
+    flatbuffers::FlatBufferBuilder* builder, const config::ArMissionConfig& value) {
+  return session_fb::CreateArMissionConfig(
+      *builder, static_cast<int>(value.work_mode), EncodeSessionAzEl(builder, value.scan_center_deg),
+      value.commanded_beamwidth_enabled,
+      EncodeSessionCommandedBeamwidth(builder, value.commanded_beamwidth_deg));
 }
 
 flatbuffers::Offset<session_fb::DetectionConfig> EncodeSessionDetectionConfig(
@@ -732,7 +740,6 @@ config::ArOrientationConfig DecodeSessionOrientation(const session_fb::ArOrienta
   config::ArOrientationConfig result;
   if (value != nullptr) {
     result.mount_angles_deg = DecodeSessionEulerAngles(value->mount_angles_deg());
-    result.scan_center_deg = DecodeSessionAzEl(value->scan_center_deg());
     result.mechanical_scan_limits_deg =
         DecodeSessionAzElLimits(value->mechanical_scan_limits_deg());
     result.electronic_scan_limits_deg =
@@ -740,11 +747,19 @@ config::ArOrientationConfig DecodeSessionOrientation(const session_fb::ArOrienta
     result.scan_start_position =
         static_cast<oneq::foundation::ScanStartPosition>(value->scan_start_position());
     result.scan_sequence = static_cast<oneq::foundation::ScanSequence>(value->scan_sequence());
+    result.stabilization_mode = static_cast<config::StabilizationMode>(value->stabilization_mode());
+  }
+  return result;
+}
+
+config::ArMissionConfig DecodeSessionMission(const session_fb::ArMissionConfig* value) {
+  config::ArMissionConfig result;
+  if (value != nullptr) {
     result.work_mode = static_cast<config::ArWorkMode>(value->work_mode());
+    result.scan_center_deg = DecodeSessionAzEl(value->scan_center_deg());
     result.commanded_beamwidth_enabled = value->commanded_beamwidth_enabled();
     result.commanded_beamwidth_deg =
         DecodeSessionCommandedBeamwidth(value->commanded_beamwidth_deg());
-    result.stabilization_mode = static_cast<config::StabilizationMode>(value->stabilization_mode());
   }
   return result;
 }
@@ -1603,7 +1618,8 @@ std::string EncodeSessionConfigFlatbuffer(const config::ArSessionConfig& config)
   flatbuffers::FlatBufferBuilder builder;
   const flatbuffers::Offset<session_fb::ArSessionConfig> root = session_fb::CreateArSessionConfig(
       builder, EncodeSessionDetectionConfig(&builder, config.hardware),
-      EncodeSessionOrientation(&builder, config.mission.orientation),
+      EncodeSessionOrientation(&builder, config.orientation),
+      EncodeSessionMission(&builder, config.mission),
       EncodeSessionPolicyConfig(&builder, config.policy),
       EncodeEnvironmentDefaultConfig(&builder, config.environment), config.sensor_enabled);
   builder.Finish(root, session_fb::ArSessionConfigIdentifier());
@@ -1640,11 +1656,13 @@ bool DecodeSessionConfigFlatbuffer(const std::string& payload_bytes,
   // 未知值原子拒绝、不得部分修改解码目标）。
   config::ArSessionConfig decoded = *config;
   decoded.hardware = DecodeSessionDetectionConfig(root->hardware_detection());
-  decoded.mission.orientation = DecodeSessionOrientation(root->mission_orientation());
+  decoded.orientation = DecodeSessionOrientation(root->orientation());
+  decoded.mission = DecodeSessionMission(root->mission());
   decoded.sensor_enabled = root->sensor_enabled();
   decoded.policy = DecodeSessionPolicyConfig(root->policy());
   decoded.environment = DecodeEnvironmentDefaultConfig(root->environment_default_config());
-  if (!IsValidDecodedOrientationEnums(decoded.mission.orientation) ||
+  if (!IsValidDecodedOrientationEnums(decoded.orientation) ||
+      !IsValidDecodedMissionEnums(decoded.mission) ||
       !IsValidDecodedDetectionEnums(decoded.hardware) ||
       !IsValidDecodedEnvironmentEnums(decoded.environment.scenario_config)) {
     if (error != nullptr) {
@@ -1660,7 +1678,7 @@ std::string EncodeRuntimeConfigPatchFlatbuffer(const config::ArRuntimeConfigPatc
   flatbuffers::FlatBufferBuilder builder;
   const flatbuffers::Offset<session_fb::ArRuntimeConfigPatch> root =
       session_fb::CreateArRuntimeConfigPatch(
-          builder, patch.has_mission, EncodeSessionOrientation(&builder, patch.mission.orientation),
+          builder, patch.has_mission, EncodeSessionMission(&builder, patch.mission),
           patch.has_policy, EncodeSessionPolicyConfig(&builder, patch.policy),
           patch.has_environment,
           EncodeSessionEnvironmentRuntimeConfigPatch(&builder, patch.environment),
@@ -1707,7 +1725,7 @@ bool DecodeRuntimeConfigPatchFlatbuffer(const std::string& payload_bytes,
   // 未知值原子拒绝、不得部分修改解码目标）。
   config::ArRuntimeConfigPatch decoded = *patch;
   decoded.has_mission = root->has_mission();
-  decoded.mission.orientation = DecodeSessionOrientation(root->mission_orientation());
+  decoded.mission = DecodeSessionMission(root->mission());
   decoded.has_policy = root->has_policy();
   decoded.policy = DecodeSessionPolicyConfig(root->policy());
   decoded.has_environment = root->has_environment();
@@ -1728,7 +1746,7 @@ bool DecodeRuntimeConfigPatchFlatbuffer(const std::string& payload_bytes,
   decoded.commanded_beamwidth_enabled = root->commanded_beamwidth_enabled();
   decoded.has_sensor_enabled = root->has_sensor_enabled();
   decoded.sensor_enabled = root->sensor_enabled();
-  if (!IsValidDecodedOrientationEnums(decoded.mission.orientation) ||
+  if (!IsValidDecodedMissionEnums(decoded.mission) ||
       !IsKnownArWorkMode(static_cast<int>(decoded.work_mode)) ||
       !IsValidDecodedEnvironmentEnums(decoded.environment.scenario_config)) {
     if (error != nullptr) {

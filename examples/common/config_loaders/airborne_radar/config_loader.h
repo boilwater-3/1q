@@ -15,6 +15,7 @@ inline void LoadArSessionConfig(
     const examples::JsonValue& root,
     airborne_radar::config::ArSessionConfig* config) {
   LoadHardware(root["hardware"], &config->hardware);
+  LoadOrientation(root["orientation"], &config->orientation);
   LoadMission(root["mission"], &config->mission);
   LoadPolicy(root["policy"], &config->policy);
   LoadEnvironment(root["environment"], &config->environment);

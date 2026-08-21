@@ -63,17 +63,18 @@ void ApplyWorkModeAdjustment(config::EsrWorkMode mode, DetectionConfig* detectio
 }
 
 void ApplyScanPolicy(const config::EsrHardwareConfig& hardware,
+                     const config::EsrOrientationConfig& orientation,
                      const config::EsrScanPolicyConfig& scan_policy,
                      extension::InterceptScanConfig* scan_config) {
   if (scan_config == nullptr) {
     return;
   }
 
-  const float mount_az = oneq::common::validation::IsFinite(hardware.antenna_mount_az_deg)
-                             ? hardware.antenna_mount_az_deg
+  const float mount_az = oneq::common::validation::IsFinite(orientation.antenna_mount_az_deg)
+                             ? orientation.antenna_mount_az_deg
                              : 0.0f;
-  const float mount_el = oneq::common::validation::IsFinite(hardware.antenna_mount_el_deg)
-                             ? hardware.antenna_mount_el_deg
+  const float mount_el = oneq::common::validation::IsFinite(orientation.antenna_mount_el_deg)
+                             ? orientation.antenna_mount_el_deg
                              : 0.0f;
   scan_config->scan_start_pos = static_cast<int>(scan_policy.scan_start_position);
   scan_config->scan_sequence = static_cast<int>(scan_policy.scan_sequence);

@@ -54,8 +54,8 @@ TEST(ArReplayCodecRoundtripTest, SessionConfigPreservesAllDomains) {
   config.hardware.signal_processing.clutter_suppression_gain_db = 12.0f;
   config.hardware.signal_processing.jamming_suppression_gain_db = 8.0f;
   // mission
-  config.mission.orientation.scan_center_deg.az_deg = 15.0f;
-  config.mission.orientation.scan_center_deg.el_deg = -2.0f;
+  config.mission.scan_center_deg.az_deg = 15.0f;
+  config.mission.scan_center_deg.el_deg = -2.0f;
   // policy
   config.policy.lifecycle.confirm_hits = 2U;
   config.policy.detection.minimum_detection_margin_db = -20.0f;
@@ -112,8 +112,8 @@ TEST(ArReplayCodecRoundtripTest, SessionConfigPreservesAllDomains) {
   EXPECT_FLOAT_EQ(decoded.hardware.signal_processing.clutter_suppression_gain_db, 12.0f);
   EXPECT_FLOAT_EQ(decoded.hardware.signal_processing.jamming_suppression_gain_db, 8.0f);
   // mission
-  EXPECT_FLOAT_EQ(decoded.mission.orientation.scan_center_deg.az_deg, 15.0f);
-  EXPECT_FLOAT_EQ(decoded.mission.orientation.scan_center_deg.el_deg, -2.0f);
+  EXPECT_FLOAT_EQ(decoded.mission.scan_center_deg.az_deg, 15.0f);
+  EXPECT_FLOAT_EQ(decoded.mission.scan_center_deg.el_deg, -2.0f);
   // sensor_enabled 往返锚点（COMMON-OQ-4 字段提升）
   EXPECT_FALSE(decoded.sensor_enabled);
   // policy

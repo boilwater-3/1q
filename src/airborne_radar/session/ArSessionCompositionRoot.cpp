@@ -16,6 +16,7 @@ config::ArSessionConfig BuildRuntimeSessionConfig(const ArSessionComposition& co
   config::ArSessionConfig config;
   config.hardware = composition.runtime_hardware;
   config.mission = composition.runtime_mission;
+  config.orientation = composition.runtime_orientation;
   config.policy = composition.runtime_policy;
   config.environment.scenario_config = composition.runtime_environment_scenario_config;
   return config;
@@ -25,6 +26,7 @@ ArSessionComposition BuildCompositionBase(const config::ArSessionConfig& config)
   ArSessionComposition composition;
   composition.runtime_hardware = config.hardware;
   composition.runtime_mission = config.mission;
+  composition.runtime_orientation = config.orientation;
   composition.runtime_policy = config.policy;
   composition.runtime_environment_scenario_config = config.environment.scenario_config;
   return composition;

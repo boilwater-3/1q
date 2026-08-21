@@ -22,8 +22,8 @@ TEST(EsrSessionConfigResolverTest, HardwareAndMissionMapToRuntimeAndScanConfig) 
   config.hardware.receiver_sensitivity_w = 2.0e-12f;
   config.hardware.beam_az_width_deg = 8.0f;
   config.hardware.beam_el_width_deg = 6.0f;
-  config.hardware.antenna_mount_az_deg = 5.0f;
-  config.hardware.antenna_mount_el_deg = 2.0f;
+  config.orientation.antenna_mount_az_deg = 5.0f;
+  config.orientation.antenna_mount_el_deg = 2.0f;
   config.sensor_enabled = false;
   config.mission.work_mode = config::EsrWorkMode::kHgesm;
   config.mission.scan.scan_center_az_deg = 10.0f;
@@ -71,8 +71,8 @@ TEST(EsrSessionConfigResolverTest, InvalidInputsFallBackToSafeDefaults) {
   config.hardware.receiver_band_upper_hz = 9.0e9;
   config.hardware.receiver_sensitivity_w = -1.0f;
   config.hardware.integrated_receive_loss_db = std::numeric_limits<float>::quiet_NaN();
-  config.hardware.antenna_mount_az_deg = std::numeric_limits<float>::infinity();
-  config.hardware.antenna_mount_el_deg = -std::numeric_limits<float>::infinity();
+  config.orientation.antenna_mount_az_deg = std::numeric_limits<float>::infinity();
+  config.orientation.antenna_mount_el_deg = -std::numeric_limits<float>::infinity();
   config.mission.scan.scan_rate_hz = 0.0f;
   config.mission.scan.use_explicit_scan_bounds = true;
   config.mission.scan.scan_start_az_deg = std::numeric_limits<float>::quiet_NaN();
@@ -83,8 +83,8 @@ TEST(EsrSessionConfigResolverTest, InvalidInputsFallBackToSafeDefaults) {
   const EsrInternalExecutionConfig exec = MapSessionToInternal(config);
 
   // Mount angles validated — default to 0.0f
-  EXPECT_FLOAT_EQ(exec.hardware.antenna_mount_az_deg, std::numeric_limits<float>::infinity());
-  EXPECT_FLOAT_EQ(exec.hardware.antenna_mount_el_deg, -std::numeric_limits<float>::infinity());
+  EXPECT_FLOAT_EQ(exec.orientation.antenna_mount_az_deg, std::numeric_limits<float>::infinity());
+  EXPECT_FLOAT_EQ(exec.orientation.antenna_mount_el_deg, -std::numeric_limits<float>::infinity());
   // Scan rate falls back via hardware/mission (not validated in resolver)
   EXPECT_FLOAT_EQ(exec.mission.scan.scan_rate_hz, 0.0f);
 }

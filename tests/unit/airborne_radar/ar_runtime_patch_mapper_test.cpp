@@ -26,9 +26,9 @@ TEST(ArRuntimePatchMapperTest, MissionDomainAppliedBeforeLeafPatch) {
       config::ArWorkMode::kTws;
 
   ArMissionConfig mission_patch;
-  mission_patch.orientation.scan_center_deg.az_deg = 10.0f;
-  mission_patch.orientation.scan_center_deg.el_deg = 20.0f;
-  mission_patch.orientation.work_mode = config::ArWorkMode::kTas;
+  mission_patch.scan_center_deg.az_deg = 10.0f;
+  mission_patch.scan_center_deg.el_deg = 20.0f;
+  mission_patch.work_mode = config::ArWorkMode::kTas;
 
   ArRuntimeConfigPatch patch;
   patch.has_mission = true;
@@ -57,7 +57,7 @@ TEST(ArRuntimePatchMapperTest, MissionDomainDoesNotAffectSensorEnabled) {
   current_state.execution_config.sensor_enabled = true;
 
   ArMissionConfig mission_patch;
-  mission_patch.orientation.work_mode = config::ArWorkMode::kTas;
+  mission_patch.work_mode = config::ArWorkMode::kTas;
 
   ArRuntimeConfigPatch patch;
   patch.has_mission = true;
@@ -107,8 +107,8 @@ TEST(ArRuntimePatchMapperTest, DwellPatchContributesToPipelinePointing) {
   EXPECT_TRUE(resolved.execution_config_changed);
   EXPECT_FLOAT_EQ(resolved.next_state.dwell_center_deg.az_deg, 3.0f);
   EXPECT_FLOAT_EQ(resolved.next_state.dwell_center_deg.el_deg, -1.0f);
-  EXPECT_FLOAT_EQ(pipeline_config.mission.orientation.scan_center_deg.az_deg, 13.0f);
-  EXPECT_FLOAT_EQ(pipeline_config.mission.orientation.scan_center_deg.el_deg, 1.0f);
+  EXPECT_FLOAT_EQ(pipeline_config.mission.scan_center_deg.az_deg, 13.0f);
+  EXPECT_FLOAT_EQ(pipeline_config.mission.scan_center_deg.el_deg, 1.0f);
   EXPECT_FLOAT_EQ(resolved.next_state.execution_config.detection.orientation.scan_center_deg.az_deg,
                   10.0f);
   EXPECT_FLOAT_EQ(resolved.next_state.execution_config.detection.orientation.scan_center_deg.el_deg,
@@ -284,8 +284,8 @@ TEST(ArRuntimePatchMapperTest, MapExecutionToSessionRoundTripsFields) {
   config::ArSessionConfig original;
   original.policy.detection.minimum_detection_margin_db = -3.0f;
   original.policy.detection.pulse_count = 20;
-  original.mission.orientation.scan_center_deg.az_deg = 45.0f;
-  original.mission.orientation.scan_center_deg.el_deg = 10.0f;
+  original.mission.scan_center_deg.az_deg = 45.0f;
+  original.mission.scan_center_deg.el_deg = 10.0f;
   original.policy.tracking.speed_decay_ratio_on_loss = 0.9f;
   original.policy.association.distance_gate_sigma = std::sqrt(12.0f);
   original.hardware.signal_processing.target_processing_gain_db = 4.0f;
@@ -298,8 +298,8 @@ TEST(ArRuntimePatchMapperTest, MapExecutionToSessionRoundTripsFields) {
 
   EXPECT_FLOAT_EQ(round_tripped.policy.detection.minimum_detection_margin_db, -3.0f);
   EXPECT_EQ(round_tripped.policy.detection.pulse_count, 20);
-  EXPECT_FLOAT_EQ(round_tripped.mission.orientation.scan_center_deg.az_deg, 45.0f);
-  EXPECT_FLOAT_EQ(round_tripped.mission.orientation.scan_center_deg.el_deg, 10.0f);
+  EXPECT_FLOAT_EQ(round_tripped.mission.scan_center_deg.az_deg, 45.0f);
+  EXPECT_FLOAT_EQ(round_tripped.mission.scan_center_deg.el_deg, 10.0f);
   EXPECT_FLOAT_EQ(round_tripped.policy.tracking.speed_decay_ratio_on_loss, 0.9f);
   EXPECT_FLOAT_EQ(round_tripped.policy.association.distance_gate_sigma, std::sqrt(12.0f));
   EXPECT_FLOAT_EQ(round_tripped.hardware.signal_processing.target_processing_gain_db, 4.0f);

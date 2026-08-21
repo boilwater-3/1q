@@ -73,27 +73,52 @@ inline void LoadHardware(const examples::JsonValue& j,
   LoadDetectionConfig(j["detection"], v);
 }
 
-// -- mission / orientation ---------------------------------------------------
+// -- orientation (static) / mission (runtime) --------------------------------
+
+inline oneq::foundation::ScanStartPosition ArScanStartFromString(const std::string& s) {
+  if (s == "kLeftTop") return oneq::foundation::ScanStartPosition::kLeftTop;
+  if (s == "kRightTop") return oneq::foundation::ScanStartPosition::kRightTop;
+  if (s == "kLeftBottom") return oneq::foundation::ScanStartPosition::kLeftBottom;
+  if (s == "kRightBottom") return oneq::foundation::ScanStartPosition::kRightBottom;
+  return oneq::foundation::ScanStartPosition::kLeftTop;
+}
+
+inline oneq::foundation::ScanSequence ArScanSequenceFromString(const std::string& s) {
+  if (s == "kAzimuthFirst") return oneq::foundation::ScanSequence::kAzimuthFirst;
+  if (s == "kElevationFirst") return oneq::foundation::ScanSequence::kElevationFirst;
+  return oneq::foundation::ScanSequence::kAzimuthFirst;
+}
 
 inline void LoadOrientation(const examples::JsonValue& j,
                             airborne_radar::config::ArOrientationConfig* v) {
   if (j.IsNull()) return;
   LoadEulerAngles(j["mount_angles_deg"], &v->mount_angles_deg);
-  LoadAzEl(j["scan_center_deg"], &v->scan_center_deg);
   LoadAzElLimits(j["mechanical_scan_limits_deg"], &v->mechanical_scan_limits_deg);
   LoadAzElLimits(j["electronic_scan_limits_deg"], &v->electronic_scan_limits_deg);
-  v->scan_start_position =
-      static_cast<oneq::foundation::ScanStartPosition>(j["scan_start_position"].AsInt());
-  v->scan_sequence = static_cast<oneq::foundation::ScanSequence>(j["scan_sequence"].AsInt());
-  v->work_mode = WorkModeFromString(j["work_mode"].AsString());
-  v->commanded_beamwidth_enabled = j["commanded_beamwidth_enabled"].AsBool();
-  LoadCmdBeamwidth(j["commanded_beamwidth_deg"], &v->commanded_beamwidth_deg);
+  if (!j["scan_start_position"].IsNull()) {
+    if (j["scan_start_position"].IsString()) {
+      v->scan_start_position = ArScanStartFromString(j["scan_start_position"].AsString());
+    } else {
+      v->scan_start_position =
+          static_cast<oneq::foundation::ScanStartPosition>(j["scan_start_position"].AsInt());
+    }
+  }
+  if (!j["scan_sequence"].IsNull()) {
+    if (j["scan_sequence"].IsString()) {
+      v->scan_sequence = ArScanSequenceFromString(j["scan_sequence"].AsString());
+    } else {
+      v->scan_sequence = static_cast<oneq::foundation::ScanSequence>(j["scan_sequence"].AsInt());
+    }
+  }
   v->stabilization_mode = StabilizationFromString(j["stabilization_mode"].AsString());
 }
 
 inline void LoadMission(const examples::JsonValue& j, airborne_radar::config::ArMissionConfig* v) {
   if (j.IsNull()) return;
-  LoadOrientation(j["orientation"], &v->orientation);
+  v->work_mode = WorkModeFromString(j["work_mode"].AsString());
+  LoadAzEl(j["scan_center_deg"], &v->scan_center_deg);
+  v->commanded_beamwidth_enabled = j["commanded_beamwidth_enabled"].AsBool();
+  LoadCmdBeamwidth(j["commanded_beamwidth_deg"], &v->commanded_beamwidth_deg);
 }
 
 // -- policy sub-tree ---------------------------------------------------------

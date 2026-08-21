@@ -45,7 +45,7 @@ bool AlmostSamePoint(const config::AzimuthElevationDeg& lhs,
          std::fabs(lhs.el_deg - rhs.el_deg) <= 1.0e-4f;
 }
 
-std::size_t CountUniqueScheduledPoints(const config::ArOrientationConfig& orientation,
+std::size_t CountUniqueScheduledPoints(const config::ArEffectiveOrientationConfig& orientation,
                                        const signal::detection::EffectiveBeamwidthDeg& beamwidth,
                                        std::uint32_t cycle_count) {
   std::vector<config::AzimuthElevationDeg> unique_points;
@@ -200,15 +200,15 @@ TEST(ScanScheduleResolverTest, StartPositionControlsFirstBeamQuadrant) {
 
 TEST(ScanScheduleResolverTest, ApplyScanScheduleUsesPolicyBeamControlInputs) {
   config::ArSessionConfig session_config = MakeDetectionFocusedConfig();
-  session_config.mission.orientation.work_mode = config::ArWorkMode::kTas;
-  session_config.mission.orientation.scan_center_deg.az_deg = 3.0f;
-  session_config.mission.orientation.scan_center_deg.el_deg = -1.0f;
-  session_config.mission.orientation.mechanical_scan_limits_deg.az_min_deg = -10.0f;
-  session_config.mission.orientation.mechanical_scan_limits_deg.az_max_deg = 10.0f;
-  session_config.mission.orientation.mechanical_scan_limits_deg.el_min_deg = -4.0f;
-  session_config.mission.orientation.mechanical_scan_limits_deg.el_max_deg = 4.0f;
-  session_config.mission.orientation.electronic_scan_limits_deg =
-      session_config.mission.orientation.mechanical_scan_limits_deg;
+  session_config.mission.work_mode = config::ArWorkMode::kTas;
+  session_config.mission.scan_center_deg.az_deg = 3.0f;
+  session_config.mission.scan_center_deg.el_deg = -1.0f;
+  session_config.orientation.mechanical_scan_limits_deg.az_min_deg = -10.0f;
+  session_config.orientation.mechanical_scan_limits_deg.az_max_deg = 10.0f;
+  session_config.orientation.mechanical_scan_limits_deg.el_min_deg = -4.0f;
+  session_config.orientation.mechanical_scan_limits_deg.el_max_deg = 4.0f;
+  session_config.orientation.electronic_scan_limits_deg =
+      session_config.orientation.mechanical_scan_limits_deg;
   session_config.policy.beam_control.pointing.nominal_beamwidth_deg.commanded_az_beamwidth_deg =
       4.0f;
   session_config.policy.beam_control.pointing.nominal_beamwidth_deg.commanded_el_beamwidth_deg =
@@ -229,15 +229,15 @@ TEST(ScanScheduleResolverTest, ApplyScanScheduleUsesPolicyBeamControlInputs) {
 // pipeline 本地副本共用同一扫描相位），且不同周期给出不同指向（扫描推进）。
 TEST(ScanScheduleResolverTest, ResolveFromExecutionConfigMatchesApplyAndAdvancesPhase) {
   config::ArSessionConfig session_config = MakeDetectionFocusedConfig();
-  session_config.mission.orientation.work_mode = config::ArWorkMode::kTas;
-  session_config.mission.orientation.scan_center_deg.az_deg = 3.0f;
-  session_config.mission.orientation.scan_center_deg.el_deg = -1.0f;
-  session_config.mission.orientation.mechanical_scan_limits_deg.az_min_deg = -10.0f;
-  session_config.mission.orientation.mechanical_scan_limits_deg.az_max_deg = 10.0f;
-  session_config.mission.orientation.mechanical_scan_limits_deg.el_min_deg = -4.0f;
-  session_config.mission.orientation.mechanical_scan_limits_deg.el_max_deg = 4.0f;
-  session_config.mission.orientation.electronic_scan_limits_deg =
-      session_config.mission.orientation.mechanical_scan_limits_deg;
+  session_config.mission.work_mode = config::ArWorkMode::kTas;
+  session_config.mission.scan_center_deg.az_deg = 3.0f;
+  session_config.mission.scan_center_deg.el_deg = -1.0f;
+  session_config.orientation.mechanical_scan_limits_deg.az_min_deg = -10.0f;
+  session_config.orientation.mechanical_scan_limits_deg.az_max_deg = 10.0f;
+  session_config.orientation.mechanical_scan_limits_deg.el_min_deg = -4.0f;
+  session_config.orientation.mechanical_scan_limits_deg.el_max_deg = 4.0f;
+  session_config.orientation.electronic_scan_limits_deg =
+      session_config.orientation.mechanical_scan_limits_deg;
   session_config.policy.beam_control.pointing.nominal_beamwidth_deg.commanded_az_beamwidth_deg =
       4.0f;
   session_config.policy.beam_control.pointing.nominal_beamwidth_deg.commanded_el_beamwidth_deg =
@@ -484,7 +484,7 @@ TEST(ScanScheduleResolverTest, SequenceControlsFastScanAxisWithSerpentine) {
 }
 
 TEST(ScanScheduleResolverTest, InvalidStepFallsBackToClampedScanCenter) {
-  config::ArOrientationConfig orientation;
+  config::ArEffectiveOrientationConfig orientation;
   orientation.scan_center_deg.az_deg = 80.0f;
   orientation.scan_center_deg.el_deg = 40.0f;
   orientation.mechanical_scan_limits_deg.az_min_deg = -30.0f;
@@ -509,7 +509,7 @@ TEST(ScanScheduleResolverTest, InvalidStepFallsBackToClampedScanCenter) {
 }
 
 TEST(ScanScheduleResolverTest, FirstCycleMapsToFirstBeamIndex) {
-  config::ArOrientationConfig orientation;
+  config::ArEffectiveOrientationConfig orientation;
   orientation.scan_center_deg.az_deg = 0.0f;
   orientation.scan_center_deg.el_deg = 0.0f;
   orientation.mechanical_scan_limits_deg.az_min_deg = -60.0f;
@@ -533,7 +533,7 @@ TEST(ScanScheduleResolverTest, FirstCycleMapsToFirstBeamIndex) {
 }
 
 TEST(ScanScheduleResolverTest, StbyParksAtClampedBoresightWithoutCycleAdvance) {
-  config::ArOrientationConfig orientation;
+  config::ArEffectiveOrientationConfig orientation;
   orientation.work_mode = config::ArWorkMode::kStby;
   orientation.scan_center_deg.az_deg = 20.0f;
   orientation.scan_center_deg.el_deg = -8.0f;
@@ -562,7 +562,7 @@ TEST(ScanScheduleResolverTest, StbyParksAtClampedBoresightWithoutCycleAdvance) {
 }
 
 TEST(ScanScheduleResolverTest, SttFixesAtScanCenterAndKeepsZeroDwell) {
-  config::ArOrientationConfig orientation;
+  config::ArEffectiveOrientationConfig orientation;
   orientation.work_mode = config::ArWorkMode::kStt;
   orientation.scan_center_deg.az_deg = 12.5f;
   orientation.scan_center_deg.el_deg = -4.5f;
@@ -600,7 +600,7 @@ TEST(ScanScheduleResolverTest, ResolveScanStepScaleDefinesDirectCallFallbacks) {
 }
 
 TEST(ScanScheduleResolverTest, TasIsDenserThanTwsAndKeepsSerpentineSemantics) {
-  config::ArOrientationConfig tws_orientation;
+  config::ArEffectiveOrientationConfig tws_orientation;
   tws_orientation.work_mode = config::ArWorkMode::kTws;
   tws_orientation.scan_start_position = oneq::foundation::ScanStartPosition::kLeftTop;
   tws_orientation.scan_sequence = oneq::foundation::ScanSequence::kAzimuthFirst;
@@ -609,7 +609,7 @@ TEST(ScanScheduleResolverTest, TasIsDenserThanTwsAndKeepsSerpentineSemantics) {
   tws_orientation.mechanical_scan_limits_deg.el_min_deg = -10.0f;
   tws_orientation.mechanical_scan_limits_deg.el_max_deg = 10.0f;
   tws_orientation.electronic_scan_limits_deg = tws_orientation.mechanical_scan_limits_deg;
-  config::ArOrientationConfig tas_orientation = tws_orientation;
+  config::ArEffectiveOrientationConfig tas_orientation = tws_orientation;
   tas_orientation.work_mode = config::ArWorkMode::kTas;
 
   signal::detection::EffectiveBeamwidthDeg beamwidth;
@@ -659,7 +659,7 @@ TEST(SignalPipelineScanScheduleTest, RunCycleAdvancesBeamAndChangesDetectionOutc
   exec_config.detection.engineering.antenna.pattern.max_sidelobe_level_db = -80.0f;
   exec_config.detection.engineering.antenna.pattern.backlobe_level_db = -80.0f;
 
-  config::ArOrientationConfig& orientation = exec_config.detection.orientation;
+  config::ArEffectiveOrientationConfig& orientation = exec_config.detection.orientation;
   orientation.scan_center_deg.az_deg = 0.0f;
   orientation.scan_center_deg.el_deg = 0.0f;
   orientation.mechanical_scan_limits_deg.az_min_deg = -60.0f;
@@ -745,21 +745,21 @@ TEST(SignalPipelineScanScheduleTest, WorkModeSttReducesSweepCoverageComparedToTw
       config::AntennaPatternModelType::kParabolicMainLobe;
   tws_session.hardware.antenna.pattern.max_sidelobe_level_db = -18.0f;
   tws_session.hardware.antenna.pattern.max_scan_loss_db = 8.0f;
-  tws_session.mission.orientation.work_mode = config::ArWorkMode::kTws;
-  tws_session.mission.orientation.scan_center_deg.az_deg = -60.0f;
-  tws_session.mission.orientation.scan_center_deg.el_deg = 0.0f;
-  tws_session.mission.orientation.mechanical_scan_limits_deg.az_min_deg = -60.0f;
-  tws_session.mission.orientation.mechanical_scan_limits_deg.az_max_deg = 60.0f;
-  tws_session.mission.orientation.mechanical_scan_limits_deg.el_min_deg = 0.0f;
-  tws_session.mission.orientation.mechanical_scan_limits_deg.el_max_deg = 0.0f;
-  tws_session.mission.orientation.electronic_scan_limits_deg =
-      tws_session.mission.orientation.mechanical_scan_limits_deg;
-  tws_session.mission.orientation.scan_start_position =
+  tws_session.mission.work_mode = config::ArWorkMode::kTws;
+  tws_session.mission.scan_center_deg.az_deg = -60.0f;
+  tws_session.mission.scan_center_deg.el_deg = 0.0f;
+  tws_session.orientation.mechanical_scan_limits_deg.az_min_deg = -60.0f;
+  tws_session.orientation.mechanical_scan_limits_deg.az_max_deg = 60.0f;
+  tws_session.orientation.mechanical_scan_limits_deg.el_min_deg = 0.0f;
+  tws_session.orientation.mechanical_scan_limits_deg.el_max_deg = 0.0f;
+  tws_session.orientation.electronic_scan_limits_deg =
+      tws_session.orientation.mechanical_scan_limits_deg;
+  tws_session.orientation.scan_start_position =
       oneq::foundation::ScanStartPosition::kLeftTop;
-  tws_session.mission.orientation.scan_sequence = oneq::foundation::ScanSequence::kAzimuthFirst;
+  tws_session.orientation.scan_sequence = oneq::foundation::ScanSequence::kAzimuthFirst;
 
   config::ArSessionConfig stt_session = tws_session;
-  stt_session.mission.orientation.work_mode = config::ArWorkMode::kStt;
+  stt_session.mission.work_mode = config::ArWorkMode::kStt;
 
   signal::pipeline::SignalPipeline tws_pipeline(tws_session);
   signal::pipeline::SignalPipeline stt_pipeline(stt_session);
@@ -846,7 +846,7 @@ TEST(ScanScheduleResolverTest, BuildPatternRejectsNonPositiveStep) {
 }
 
 TEST(ScanScheduleResolverTest, ResolveFiniteScanCenterReturnsZeroForNan) {
-  config::ArOrientationConfig orientation;
+  config::ArEffectiveOrientationConfig orientation;
   orientation.scan_center_deg.az_deg = std::numeric_limits<float>::quiet_NaN();
   orientation.scan_center_deg.el_deg = std::numeric_limits<float>::quiet_NaN();
   const config::AzimuthElevationDeg center = signal::pipeline::ResolveFiniteScanCenter(orientation);
@@ -855,7 +855,7 @@ TEST(ScanScheduleResolverTest, ResolveFiniteScanCenterReturnsZeroForNan) {
 }
 
 TEST(ScanScheduleResolverTest, ResolveFiniteScanCenterReturnsValidCenter) {
-  config::ArOrientationConfig orientation;
+  config::ArEffectiveOrientationConfig orientation;
   orientation.scan_center_deg.az_deg = 15.0f;
   orientation.scan_center_deg.el_deg = -5.0f;
   const config::AzimuthElevationDeg center = signal::pipeline::ResolveFiniteScanCenter(orientation);

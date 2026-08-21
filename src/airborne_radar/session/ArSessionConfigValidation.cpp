@@ -20,7 +20,8 @@ session::ArIssueList ValidateArSessionConfig(const config::ArSessionConfig& conf
     issue.message = msg;
     issues.push_back(issue);
   };
-  const config::ArOrientationConfig& orientation = config.mission.orientation;
+  const config::ArOrientationConfig& orientation = config.orientation;
+  const config::ArMissionConfig& mission = config.mission;
   const config::detection::AntennaConfig& antenna = config.hardware.antenna;
   const config::detection::ReceiverConfig& receiver = config.hardware.receiver;
   const config::detection::TransmitterConfig& transmitter = config.hardware.transmitter;
@@ -123,31 +124,31 @@ session::ArIssueList ValidateArSessionConfig(const config::ArSessionConfig& conf
            transmitter_frequency_hz > 0.0f;
   };
 
-  if (orientation.commanded_beamwidth_enabled) {
+  if (mission.commanded_beamwidth_enabled) {
     if (!oneq::common::validation::IsFinite(
-            orientation.commanded_beamwidth_deg.commanded_az_beamwidth_deg) ||
-        orientation.commanded_beamwidth_deg.commanded_az_beamwidth_deg <= 0.0f) {
+            mission.commanded_beamwidth_deg.commanded_az_beamwidth_deg) ||
+        mission.commanded_beamwidth_deg.commanded_az_beamwidth_deg <= 0.0f) {
       push(session::codes::kCommandedBeamwidthAzNotPositive,
-           "mission.orientation.commanded_beamwidth_deg.commanded_az_beamwidth_deg",
+           "mission.commanded_beamwidth_deg.commanded_az_beamwidth_deg",
            "Commanded azimuth beamwidth must be finite and positive when enabled.");
     }
     if (!oneq::common::validation::IsFinite(
-            orientation.commanded_beamwidth_deg.commanded_el_beamwidth_deg) ||
-        orientation.commanded_beamwidth_deg.commanded_el_beamwidth_deg <= 0.0f) {
+            mission.commanded_beamwidth_deg.commanded_el_beamwidth_deg) ||
+        mission.commanded_beamwidth_deg.commanded_el_beamwidth_deg <= 0.0f) {
       push(session::codes::kCommandedBeamwidthElNotPositive,
-           "mission.orientation.commanded_beamwidth_deg.commanded_el_beamwidth_deg",
+           "mission.commanded_beamwidth_deg.commanded_el_beamwidth_deg",
            "Commanded elevation beamwidth must be finite and positive when enabled.");
     }
   }
 
   if (!axis_geometry_valid(antenna.nominal_az_beamwidth_deg, antenna.antenna_length_m,
-                           orientation.commanded_beamwidth_enabled)) {
+                           mission.commanded_beamwidth_enabled)) {
     push(session::codes::kAntennaAzGeometryInvalid,
          "hardware.antenna.nominal_az_beamwidth_deg / antenna_length_m",
          "Azimuth beamwidth requires a positive nominal value or a valid physical aperture.");
   }
   if (!axis_geometry_valid(antenna.nominal_el_beamwidth_deg, antenna.antenna_width_m,
-                           orientation.commanded_beamwidth_enabled)) {
+                           mission.commanded_beamwidth_enabled)) {
     push(session::codes::kAntennaElGeometryInvalid,
          "hardware.antenna.nominal_el_beamwidth_deg / antenna_width_m",
          "Elevation beamwidth requires a positive nominal value or a valid physical aperture.");
@@ -155,27 +156,23 @@ session::ArIssueList ValidateArSessionConfig(const config::ArSessionConfig& conf
 
   if (orientation.mechanical_scan_limits_deg.az_min_deg >
       orientation.mechanical_scan_limits_deg.az_max_deg) {
-    push(session::codes::kMechanicalScanLimitsSwappedAz,
-         "mission.orientation.mechanical_scan_limits_deg",
+    push(session::codes::kMechanicalScanLimitsSwappedAz, "orientation.mechanical_scan_limits_deg",
          "Mechanical azimuth scan min exceeds max.");
   }
   if (orientation.mechanical_scan_limits_deg.el_min_deg >
       orientation.mechanical_scan_limits_deg.el_max_deg) {
-    push(session::codes::kMechanicalScanLimitsSwappedEl,
-         "mission.orientation.mechanical_scan_limits_deg",
+    push(session::codes::kMechanicalScanLimitsSwappedEl, "orientation.mechanical_scan_limits_deg",
          "Mechanical elevation scan min exceeds max.");
   }
 
   if (orientation.electronic_scan_limits_deg.az_min_deg >
       orientation.electronic_scan_limits_deg.az_max_deg) {
-    push(session::codes::kElectronicScanLimitsSwappedAz,
-         "mission.orientation.electronic_scan_limits_deg",
+    push(session::codes::kElectronicScanLimitsSwappedAz, "orientation.electronic_scan_limits_deg",
          "Electronic azimuth scan min exceeds max.");
   }
   if (orientation.electronic_scan_limits_deg.el_min_deg >
       orientation.electronic_scan_limits_deg.el_max_deg) {
-    push(session::codes::kElectronicScanLimitsSwappedEl,
-         "mission.orientation.electronic_scan_limits_deg",
+    push(session::codes::kElectronicScanLimitsSwappedEl, "orientation.electronic_scan_limits_deg",
          "Electronic elevation scan min exceeds max.");
   }
 

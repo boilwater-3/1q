@@ -100,8 +100,8 @@ TEST(EsrRuntimeConfigResolverTest, MissionDomainPatchUpdatesMissionAndResolvedSc
   EsrInternalExecutionConfig current_config;
   current_config.hardware.az_scan_range_deg = 80.0f;
   current_config.hardware.el_scan_range_deg = 20.0f;
-  current_config.hardware.antenna_mount_az_deg = 3.0f;
-  current_config.hardware.antenna_mount_el_deg = -2.0f;
+  current_config.orientation.antenna_mount_az_deg = 3.0f;
+  current_config.orientation.antenna_mount_el_deg = -2.0f;
   current_config.sensor_enabled = false;
   current_config.mission.work_mode = config::EsrWorkMode::kEsm;
   current_config.mission.scan.scan_rate_hz = 1.0f;
@@ -389,8 +389,8 @@ TEST(EsrRuntimeConfigResolverTest, DisableExplicitBoundsRebuildsCenterDrivenWind
   EsrInternalExecutionConfig current_config;
   current_config.hardware.az_scan_range_deg = 80.0f;
   current_config.hardware.el_scan_range_deg = 20.0f;
-  current_config.hardware.antenna_mount_az_deg = 3.0f;
-  current_config.hardware.antenna_mount_el_deg = -2.0f;
+  current_config.orientation.antenna_mount_az_deg = 3.0f;
+  current_config.orientation.antenna_mount_el_deg = -2.0f;
   current_config.mission.scan.use_explicit_scan_bounds = true;
   current_config.mission.scan.scan_center_az_deg = 20.0f;
   current_config.mission.scan.scan_center_el_deg = 4.0f;
@@ -422,8 +422,8 @@ TEST(EsrRuntimeConfigResolverTest, DisableExplicitBoundsRebuildsCenterDrivenWind
 
 TEST(EsrRuntimeConfigResolverTest, EnableExplicitBoundsUsesStaticMountConvention) {
   EsrInternalExecutionConfig current_config;
-  current_config.hardware.antenna_mount_az_deg = 3.0f;
-  current_config.hardware.antenna_mount_el_deg = -2.0f;
+  current_config.orientation.antenna_mount_az_deg = 3.0f;
+  current_config.orientation.antenna_mount_el_deg = -2.0f;
 
   config::EsrRuntimeConfigPatch patch;
   patch.has_explicit_scan_bounds = true;
