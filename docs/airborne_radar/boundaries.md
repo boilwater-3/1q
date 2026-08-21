@@ -21,7 +21,10 @@ AR 遵守 `docs/common/contract.md`：
    中的预定义结构体常量）；运行期热更新直接写 `ArRuntimeConfigPatch`（显式 `has_*`）。
    不提供 ConfigBuilder，不承担 leaf setter 或隐式 validation。
 3. AR 输出遵守两通道 + 可选投影模型：产品通道（`TrackOutputFrame`）、信封通道（`ArCycleResult`）、
-   调试/生命周期/排除差分投影与 replay 分离（旧称三层）。
+   调试/生命周期/排除差分投影与 replay 分离（旧称三层）。仿真真值归属挂信封通道
+   （`ArCycleResult.track_attributions`，权威路径）；产品航迹内嵌的
+   `external_target_id`/`target_name` 为注册 deprecated 遗留（sim-only，session_contract.md
+   Attribution 挂载表，回收由后续独立工作处理）。
 4. decision seam 是同进程步间 observation/response，是唯一的 public 决策扩展点。
 
 ## dt_sec 校验边界（反直觉，勿按"四模块一致"补齐）

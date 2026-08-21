@@ -386,7 +386,7 @@ SBIRS 的方位/俯仰（卫星→目标视线 ECI 极坐标，弧度）、AR �
 
 | 模块 | 归属位置 | 理由 |
 |---|---|---|
-| AR | 产品通道（`TrackStateSnapshot` 内嵌 `external_target_id`/`target_name`） | **历史特例**：track 是系统级估计，关联键历史上写进产品航迹；**本次不搬迁**（去真值化收回由后续独立工作处理） |
+| AR | 双挂载：产品通道（`TrackStateSnapshot` 内嵌 `external_target_id`/`target_name`，**deprecated 遗留**，sim-only）＋ 信封通道（`ArCycleResult.track_attributions`，**权威路径**） | **历史特例**：track 是系统级估计，关联键历史上写进产品航迹。信封对照表已补齐（2026-08-21，与 RIR 同构、产品导出航迹级），产品字段降级为 deprecated 遗留，回收（去真值化）由后续独立工作处理 |
 | EOS | 信封通道（`EosCycleResult.detection_attributions`） | detection 是原始传感器输出，归属是仿真附加信息 |
 | SBIRS | 信封通道（`SbirsCycleResult.detection_attributions`） | 同 EOS |
 | RIR | 信封通道（`RirCycleResult.track_attributions`） | 同为信封对照表；产品粒度航迹级，归属航迹级（不进 `RirOutputFrame` 产品通道） |
@@ -394,11 +394,17 @@ SBIRS 的方位/俯仰（卫星→目标视线 ECI 极坐标，弧度）、AR �
 | SAR | 无归属数据 | SAR 输出是图像产品，不含检测到目标的映射 |
 
 规则：
-1. **产品通道默认不含仿真真值归属**（EOS/SBIRS/RIR 已遵守；AR 为上表历史特例）。
+1. **产品通道默认不含仿真真值归属**（EOS/SBIRS/RIR 已遵守；AR 为上表历史特例——产品字段已标记
+   deprecated/sim-only，权威关联路径是信封 `ArCycleResult.track_attributions`，新代码不得以产品
+   字段为关联依据）。
 2. **信封通道允许承载归属**——归属是结构化数据（非人读），replay/trace 需要消费。
 3. **观测投影通过信封通道访问归属**，不是归属的唯一载体。
 4. EOS/SBIRS 的 `*CycleOutputAdapter` 守卫（如 `SbirsOutputFrameContainsOnlyNativeFields()`）
    确保产品通道不含归属泄漏。
+5. **新产品类型的真值归属只允许信封挂载**，由 CI 源码守卫 `attribution_mounting_guard`
+   （`tests/contract/check_attribution_mounting.cmake`）强制：公共头中的真值标识符
+   （`external_target_id`/`target_name`/`*Attribution*`）只允许出现在守卫注册表内；AR 产品遗留
+   注册表冻结、不得新增条目，特例不再开第二次。
 
 ## Replay 与 trace 语义
 

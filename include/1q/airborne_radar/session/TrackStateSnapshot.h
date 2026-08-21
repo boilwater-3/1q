@@ -29,8 +29,8 @@ enum class ONEQ_API TrackStatus {
  */
 struct ONEQ_API TrackStateSnapshot {
   std::uint64_t association_key{0};    /**< 当前快照对应的关联键 */
-  std::uint64_t external_target_id{0}; /**< 外部输入原始目标标识符（0 表示未知/未提供） */
-  std::string target_name{};           /**< 可选目标名称，随 external_target_id 透传，仅用于人读、trace 与调试视图 */
+  std::uint64_t external_target_id{0}; /**< DEPRECATED（sim-only，注册遗留）：场景真值目标 ID（0 表示未知/未提供）。仿真真值归属的权威路径是信封通道 ArCycleResult.track_attributions（session_contract.md Attribution 挂载表）；新代码不得以本字段为关联依据，回收由后续独立工作处理 */
+  std::string target_name{};           /**< DEPRECATED（sim-only，注册遗留）：场景真值目标名，仅用于人读、trace 与调试视图；权威归属见 ArCycleResult.track_attributions */
   TrackStatus status{TrackStatus::kTentative}; /**< 轨迹生命周期状态 */
 
   float position_x{0.0f}; /**< 雷达局部笛卡尔坐标 x（单位：m；平台 ENU 切平面东向分量，含平台姿态旋转） */

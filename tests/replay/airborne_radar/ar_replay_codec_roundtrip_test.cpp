@@ -390,6 +390,34 @@ TEST(ArReplayCodecRoundtripTest, CycleRecordDesignationRevertStateRoundtripPrese
             session::ArDesignationRevertReason::kTrackLost);
 }
 
+// 航迹归属对照表（信封通道，session_contract.md Attribution 挂载表）往返保真：
+// 加性字段，encode→decode 后键/真值 ID/名称逐条不丢；含"未提供真值"哨兵记录。
+TEST(ArReplayCodecRoundtripTest, TrackAttributionsRoundtripPreserved) {
+  ArCycleReplayRecord record;
+  record.result.input_cycle_index = 83U;
+  record.result.status = ArCycleStatus::kCompleted;
+  record.result.track_attributions.resize(2U);
+  record.result.track_attributions[0].association_key = 11U;
+  record.result.track_attributions[0].external_target_id = 7U;
+  record.result.track_attributions[0].target_name = "truth-a";
+  record.result.track_attributions[1].association_key = 12U;
+  record.result.track_attributions[1].external_target_id = 0U;
+  record.result.track_attributions[1].target_name = "";
+
+  ArCycleReplayRecord decoded;
+  std::string error;
+  ASSERT_TRUE(DecodeCycleReplayRecordFlatbuffer(EncodeCycleReplayRecordFlatbuffer(record), &decoded,
+                                                &error))
+      << error;
+  ASSERT_EQ(decoded.result.track_attributions.size(), 2U);
+  EXPECT_EQ(decoded.result.track_attributions[0].association_key, 11U);
+  EXPECT_EQ(decoded.result.track_attributions[0].external_target_id, 7U);
+  EXPECT_EQ(decoded.result.track_attributions[0].target_name, "truth-a");
+  EXPECT_EQ(decoded.result.track_attributions[1].association_key, 12U);
+  EXPECT_EQ(decoded.result.track_attributions[1].external_target_id, 0U);
+  EXPECT_TRUE(decoded.result.track_attributions[1].target_name.empty());
+}
+
 TEST(ArReplayCodecRoundtripTest, AttemptsPreserveRejectedRuntimeConfigResult) {
   config::ArRuntimeConfigPatch patch;
   patch.has_sensor_enabled = true;

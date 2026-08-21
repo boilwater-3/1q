@@ -267,6 +267,14 @@ table AssociationQualityMetricsV3 {
   association_stress:float;
 }
 
+// 航迹归属对照表（信封通道，session_contract.md Attribution 挂载表）：
+// 库内键 ↔ 场景真值目标。加性字段：旧记录缺省时解码为空列表（flatbuffers 加性规则）。
+table ArTrackAttributionRecord {
+  association_key:ulong;
+  external_target_id:ulong;
+  target_name:string;
+}
+
 table ArCycleResultV3 {
   input_cycle_index:uint;
   status:int;
@@ -290,6 +298,7 @@ table ArCycleResultV3 {
   designated_target_id:ulong;
   designation_reverted_to_tws:bool;
   revert_reason:int;
+  track_attributions:[ArTrackAttributionRecord]; // 加性字段，追加于表尾（字段 ID 兼容）
 }
 table ArSessionReplayStateV3 {
   has_world_chronology:bool;

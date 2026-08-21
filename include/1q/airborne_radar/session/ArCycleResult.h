@@ -57,6 +57,10 @@ struct ONEQ_API ArCycleResult {
   std::uint32_t input_cycle_index{0U};   /**< 本次调用输入周期号，用于失败结果与 trace 归属 */
   ArCycleStatus status{ArCycleStatus::kRejectedInvalidInput}; /**< 周期执行状态。 */
   TrackOutputFrame output_frame{}; /**< 当前调用返回的轨迹输出帧 */
+  std::vector<ArTrackAttributionRecord> track_attributions{}; /**< 航迹归属对照表
+      （库内键 ↔ 场景真值目标，信封通道权威路径；仅 kCompleted 周期填充，与
+      output_frame.tracks 逐条对应；非执行周期为空列表）。运动学不在此重复出口
+      （产品帧副本已在信封内嵌）。 */
   oneq::electromagnetics::RfEmissionFrame emission_frame{}; /**< 本周期实际 AR 发射。 */
   ArReceiverImpairment receiver_impairment{ArReceiverImpairment::kNone};
   ArInterferenceObservationList interference_observations{};
