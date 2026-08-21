@@ -9,6 +9,8 @@
 #define ONEQ_AIRBORNE_RADAR_SESSION_AR_OUTPUT_TYPES_H_
 
 #include <cstddef>
+#include <cstdint>
+#include <string>
 
 #include "1q/airborne_radar/session/ArSceneTypes.h"
 #include "1q/airborne_radar/session/DecisionInputFrame.h"
@@ -116,6 +118,20 @@ struct ONEQ_API SignalCycleResult {
   AssociationQualityMetrics association_quality_metrics{}; /**< 当前周期关联质量观测指标 */
   ArIssueList issues{}; /**< 统一问题列表（规则 14：正常周期按目标排除的 kInfo 诊断，
                              phase=kExecution；abort 路径诊断由 RecordAbort 写入）。 */
+};
+
+/**
+ * @brief ArTrackAttributionRecord 航迹归属记录（库内键 ↔ 场景真值目标对照，信封通道）。
+ * @note 仅供结构化结果/调试层消费，是 AR 仿真真值归属的权威路径（session_contract.md
+ *       Attribution 挂载表）；`TrackStateSnapshot.external_target_id/target_name` 为注册
+ *       deprecated 产品遗留（sim-only），新代码不得以其为关联依据。覆盖范围为产品导出
+ *       航迹（output_frame.tracks，去重后），与产品帧逐条对应；非执行周期（校验失败/
+ *       关机/中止）返回空列表，不复用上一周期。
+ */
+struct ONEQ_API ArTrackAttributionRecord {
+  std::uint64_t association_key{0};    /**< AR 内部航迹关联键。 */
+  std::uint64_t external_target_id{0}; /**< 场景真值目标 ID（0 = 未提供）。 */
+  std::string target_name{};           /**< 场景真值目标名。 */
 };
 
 }  // namespace session

@@ -23,7 +23,7 @@ EOS 遵守 `docs/common/contract.md`：
    Profile 跨域覆写 `policy.detection.minimum_snr_db`"语义已消除：配置不再有隐式优先级，任何字段的赋值即
    最终决定（档位在前、微调在后时微调胜出）。运行期热更新直接写 `EosRuntimeConfigPatch`（显式 `has_*`）；
    不提供 ConfigBuilder。
-3. EOS 输出遵守三层模型：系统输出、结构化结果、调试视图分离。
+3. EOS 输出遵守两通道 + 可选投影模型：产品通道、信封通道、调试/生命周期/排除差分投影分离（旧称三层）。
 4. `EosSession::StepWithResult` 在执行 pipeline 前调用 `ValidateEosCycleInput`；存在 error 级问题时
    不执行 pipeline、返回默认空帧并记录校验失败状态（符合 contract.md §实现安全与失败语义规则 3）。
 5. EOS runtime config 属于先完整校验、后一次提交的原子语义；`EosRuntimeConfigResolver` 解析 patch，

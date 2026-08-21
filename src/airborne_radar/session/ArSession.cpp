@@ -262,6 +262,17 @@ struct ArSession::Impl {
     result.input_cycle_index = input.cycle_index;
     result.status = ArCycleStatus::kCompleted;
     result.output_frame = completed.output_frame;
+    // 航迹归属对照表（信封通道，session_contract.md Attribution 挂载表）：与产品导出
+    // 航迹逐条对应，键与真值透传自同一快照。产品帧上的 external_target_id/target_name
+    // 为 deprecated 遗留（sim-only），权威关联路径是本表。
+    result.track_attributions.reserve(completed.output_frame.tracks.size());
+    for (const TrackStateSnapshot& track : completed.output_frame.tracks) {
+      ArTrackAttributionRecord attribution;
+      attribution.association_key = track.association_key;
+      attribution.external_target_id = track.external_target_id;
+      attribution.target_name = track.target_name;
+      result.track_attributions.push_back(attribution);
+    }
     // 统一问题列表（规则 14）：输入校验问题（phase=kInputValidation）在前，
     // 正常执行周期按目标排除的 kInfo 诊断（phase=kExecution，规则 13b）在后。
     result.issues = issues;

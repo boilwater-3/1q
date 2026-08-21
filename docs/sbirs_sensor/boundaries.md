@@ -21,15 +21,15 @@ replay schema 的 session config 表承载 `sensor_enabled`。旧名 `power_on`/
 [evidence: tests/unit/sbirs_sensor/sbirs_runtime_config_resolver_test]
 [evidence: tests/replay/sbirs_sensor/sbirs_replay_codec_roundtrip_test]
 
-## 输出与仿真归属（三层模型）
+## 输出与仿真归属（两通道 + 可选投影）
 
-SBIRS 遵守三层输出模型（contract.md §三层输出模型）：
+SBIRS 遵守两通道 + 可选投影输出模型（`session_contract.md`；旧称三层）：
 
-| 层级 | 入口 | 责任 |
-|---|---|---|
-| 原始系统输出层 | `Step()` 返回的 `SbirsOutputFrame` | 1q 仿真传感器主输出 |
-| 结构化执行结果层 | `StepWithResult()` 返回的 `SbirsCycleResult` | 输出帧、执行状态、校验、abort reason、诊断摘要 |
-| 开发调试视图层 | `SbirsOutputDebugViewBuilder` / `SbirsDetectionLifecycleRecorder` / `SbirsExclusionCauseRecorder` | 人读状态、生命周期事件、排除原因差分、输入实体回填 |
+| 通道/投影 | 旧称 | 入口 | 责任 |
+|---|---|---|---|
+| 产品通道 | 原始系统输出层 | `Step()` 返回的 `SbirsOutputFrame` | 1q 仿真传感器主输出 |
+| 信封通道 | 结构化执行结果层 | `StepWithResult()` 返回的 `SbirsCycleResult` | 输出帧、执行状态、校验、abort reason、诊断摘要、归属对照 |
+| 观测投影 | 开发调试视图层 | `SbirsOutputDebugViewBuilder` / `SbirsDetectionLifecycleRecorder` / `SbirsExclusionCauseRecorder` | 人读状态、生命周期事件、排除原因差分、输入实体回填 |
 
 非执行周期（`status != kCompleted`）表示本周期没有产生新的目标观测事实。所有 recorder（
 `SbirsDetectionLifecycleRecorder` 与 `SbirsExclusionCauseRecorder`）在该边界返回空事件

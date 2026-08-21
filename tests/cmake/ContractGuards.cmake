@@ -26,6 +26,7 @@ oneq_add_script_guard(preset_provider_contract_guard check_preset_provider_contr
 oneq_add_script_guard(cmake_project_layout_guard check_cmake_project_layout.cmake)
 oneq_add_script_guard(sar_frozen_sources check_sar_frozen_sources.cmake)
 oneq_add_script_guard(target_layer_purity_guard check_target_layer_purity.cmake)
+oneq_add_script_guard(attribution_mounting_guard check_attribution_mounting.cmake)
 
 set_tests_properties(
     public_api_boundary_guard
@@ -46,6 +47,7 @@ set_tests_properties(
     cmake_project_layout_guard
     sar_frozen_sources
     target_layer_purity_guard
+    attribution_mounting_guard
     PROPERTIES LABELS "contract")
 set_tests_properties(public_api_boundary_guard PROPERTIES LABELS "contract;public_api;ci_required")
 set_tests_properties(sar_doc_governance_guard PROPERTIES LABELS "contract;sar;ci_required")

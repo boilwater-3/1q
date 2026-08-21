@@ -1319,6 +1319,14 @@ flatbuffers::Offset<fb::ArCycleResultV3> EncodeCycleResultV3(
   const auto observations_fb = builder->CreateVector(observations);
   const auto commands_fb = builder->CreateVector(commands);
   const auto issues_fb = builder->CreateVector(issues);
+  std::vector<flatbuffers::Offset<fb::ArTrackAttributionRecord>> attributions;
+  attributions.reserve(value.track_attributions.size());
+  for (const ArTrackAttributionRecord& attribution : value.track_attributions) {
+    attributions.push_back(fb::CreateArTrackAttributionRecord(
+        *builder, attribution.association_key, attribution.external_target_id,
+        builder->CreateString(attribution.target_name)));
+  }
+  const auto attributions_fb = builder->CreateVector(attributions);
   return fb::CreateArCycleResultV3(
       *builder, value.input_cycle_index, static_cast<int>(value.status),
       EncodeTrackOutputFrame(builder, value.output_frame),
@@ -1332,7 +1340,7 @@ flatbuffers::Offset<fb::ArCycleResultV3> EncodeCycleResultV3(
       value.applied_decision_batch_id, issues_fb,
       static_cast<int>(value.effective_work_mode), value.designation_active,
       value.designated_target_id, value.designation_reverted_to_tws,
-      static_cast<int>(value.designation_revert_reason));
+      static_cast<int>(value.designation_revert_reason), attributions_fb);
 }
 
 bool TryDecodeCycleResultV3(const fb::ArCycleResultV3* value, ArCycleResult* result) {
@@ -1397,6 +1405,22 @@ bool TryDecodeCycleResultV3(const fb::ArCycleResultV3* value, ArCycleResult* res
   }
   candidate.designation_revert_reason =
       static_cast<session::ArDesignationRevertReason>(revert_reason_raw);
+  // 航迹归属对照表（加性字段）：旧记录缺省时解码为空列表。
+  if (value->track_attributions() != nullptr) {
+    candidate.track_attributions.reserve(value->track_attributions()->size());
+    for (const fb::ArTrackAttributionRecord* attribution : *value->track_attributions()) {
+      if (attribution == nullptr) {
+        return false;
+      }
+      ArTrackAttributionRecord decoded;
+      decoded.association_key = attribution->association_key();
+      decoded.external_target_id = attribution->external_target_id();
+      if (attribution->target_name() != nullptr) {
+        decoded.target_name = attribution->target_name()->str();
+      }
+      candidate.track_attributions.push_back(decoded);
+    }
+  }
   // 统一问题列表（规则 14）：decode 期校验 severity/phase（fail-closed），
   // entity_index 仅在 location_kind==kSceneEntity 且 >=0 时有效，否则还原为 kGlobal。
   if (value->issues() != nullptr) {

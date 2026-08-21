@@ -397,7 +397,10 @@ Last-reviewed: 2026-08-21
   在传感器内的前置实现）；识别结论回填 public 输出是否退出，改由推演层识别面供给。
 - **当前边界**：AR 航迹输出是冻结公共 API（fusion SensorAdapters 消费），不因分层契约追溯
   回改；AR 内部威胁分仅驱动 LPI/ECCM 资源管理，不外发威胁产品；`target_type`/
-  `target_probability` 维持现状直至推演层识别面立项。
+  `target_probability` 维持现状直至推演层识别面立项。仿真真值归属（`external_target_id`/
+  `target_name`）已于 2026-08-21 补齐信封对照表 `ArCycleResult.track_attributions`（权威
+  路径，见 session_contract.md Attribution 挂载表与 docs/review/ar_track_attribution_2026-08-21.md），
+  产品字段降级为 deprecated 遗留（sim-only）；字段回收（去真值化收回）仍归本条 Stage A 处理。
 - **再进入条件 (Stage A)**：估计层轨迹滤波（fusion 演进）立项时，按证据优先模式提交 AR↔估计层
   职责划分方案（关联单源化、滤波原语单源化、识别结论出口迁移）与 replay/公共 API 迁移契约；
   不得零碎单独修改。

@@ -23,7 +23,10 @@ struct ONEQ_API TrackOutputFrame {
   session::TrackStateSnapshotList tracks{}; /**< 当前周期发布的轨迹快照。 */
 };
 
-/** @brief 按非零外部目标 ID 构造轨迹映射。 */
+/** @brief 按非零外部目标 ID 构造轨迹映射。
+ *  @note DEPRECATED（sim-only）：以产品帧真值字段为键的遗留查询；仿真真值归属的
+ *        权威路径是信封通道 ArCycleResult.track_attributions（session_contract.md
+ *        Attribution 挂载表）。 */
 ONEQ_API std::unordered_map<std::uint64_t, session::TrackStateSnapshot>
 BuildTrackMapByExternalTargetId(const TrackOutputFrame& frame);
 
@@ -31,7 +34,8 @@ BuildTrackMapByExternalTargetId(const TrackOutputFrame& frame);
 ONEQ_API std::unordered_map<std::uint64_t, session::TrackStateSnapshot>
 BuildTrackMapByAssociationKey(const TrackOutputFrame& frame);
 
-/** @brief 收集指定外部目标 ID 对应的全部轨迹。 */
+/** @brief 收集指定外部目标 ID 对应的全部轨迹。
+ *  @note DEPRECATED（sim-only）：同 BuildTrackMapByExternalTargetId。 */
 ONEQ_API session::TrackStateSnapshotList CollectTracksByExternalTargetId(
     const TrackOutputFrame& frame, std::uint64_t external_target_id);
 
@@ -41,7 +45,8 @@ ONEQ_API session::TrackStateSnapshotList CollectConfirmedTracks(const TrackOutpu
 /** @brief 收集所有 lost 轨迹。 */
 ONEQ_API session::TrackStateSnapshotList CollectLostTracks(const TrackOutputFrame& frame);
 
-/** @brief 判断输出帧中是否包含指定外部目标 ID。 */
+/** @brief 判断输出帧中是否包含指定外部目标 ID。
+ *  @note DEPRECATED（sim-only）：同 BuildTrackMapByExternalTargetId。 */
 ONEQ_API bool ContainsExternalTargetId(const TrackOutputFrame& frame,
                                        std::uint64_t external_target_id);
 

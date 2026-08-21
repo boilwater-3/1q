@@ -9,6 +9,11 @@
  * - 同名不同 ID 是合法输入，不会互相干扰。
  * - name 可经 ArTrackOutputDebugViewBuilder 回填。
  * - 未提供 name（空字符串）不影响 track 关联与输出。
+ *
+ * 契约状态（session_contract.md Attribution 挂载表）：产品帧上的
+ * external_target_id/target_name 为注册 deprecated 遗留（sim-only，回收由后续
+ * 独立工作处理）；仿真真值归属的权威路径是信封通道 ArCycleResult.track_attributions
+ * （与产品航迹逐条对应，见 ar_track_attribution_test.cpp）。
  */
 
 #include <gtest/gtest.h>

@@ -2,7 +2,7 @@
 Status: active
 Last-reviewed: 2026-08-21
 Authority: 有 Session 的传感器模块的统一会话契约
-Answers: 会话配置直接赋值、Session 组合所有权、运行期配置提交策略、电源单源、三层输出模型、Replay/trace 语义、条件五域 orientation
+Answers: 会话配置直接赋值、Session 组合所有权、运行期配置提交策略、电源单源、两通道+可选投影输出模型、Replay/trace 语义、条件五域 orientation
 ---
 
 # 会话相关模块契约
@@ -10,10 +10,15 @@ Answers: 会话配置直接赋值、Session 组合所有权、运行期配置提
 本文承载"有 `*Session` 会话模型的传感器模块"（AR/ESR/EOS/SAR/SBIRS/RIR）的统一契约规则。这些规则不是
 "所有模块必须遵守"（`flight_dynamic` 无会话模型，不适用），而是"有会话的模块必须对齐"。
 RIR 于 2026-08 并入本契约范围（会话门面/条件五域配置/电源单源/统一问题列表/执行状态信号已对齐，
-会话校验入口与 AR 同为 session 层；RIR 暂无 L3 观测工具——DebugView/LifecycleRecorder/排除诊断
-recorder 均未提供，规则 10/11/13b/13e 对其为空洞条款，同 SAR 13b 先例）。配置域形状见
-`docs/common/contract.md`「条件五域配置所有权」（SBIRS/AR/ESR/RIR 五域；EOS/SAR 四域）。
-所有模块都必须遵守的跨模块契约见 `docs/common/contract.md`。
+会话校验入口与 AR 同为 session 层）。配置域形状见 `docs/common/contract.md`「条件五域配置所有权」
+（SBIRS/AR/ESR/RIR 五域；EOS/SAR 四域）。所有模块都必须遵守的跨模块契约见
+`docs/common/contract.md`。
+
+**输出模型口径（2026-08-21）**：正文使用「两通道 + 可选投影」；「三层 / L1 / L2 / L3」为历史别名，
+仅用于对照旧讨论与旧审查文档，不再作为齐套验收标准。目标列表型模块（AR/EOS/SBIRS/RIR）的三类
+观测投影（DebugView / LifecycleRecorder / ExclusionCauseRecorder）为**观测完备必选项**；RIR 的
+字段与挂载契约见 `docs/review/rir_observability_projections_freeze_2026-08-21.md`（契约已冻结，
+实现未齐前规则 10/11/13b/13e 对 RIR 仍按空洞条款执行，与 SAR 13b 先例同形）。
 
 ## 会话配置直接赋值
 
@@ -98,23 +103,41 @@ AR/ESR/EOS/SBIRS/SAR/RIR 六模块的电源状态必须遵守单源原则：
    不产生电源状态的二重路径。违反本契约的字段名/映射（`power_on`、`has_power_on`、
    `WithPowerOn` 回流）由 `tests/contract/check_cross_domain_naming.cmake` 阻断 7 硬性守护。
 
-## 三层输出模型
+## 两通道 + 可选投影输出模型
 
-所有传感器/产品模块遵守三层输出模型：
+所有有 Session 的传感器/产品模块遵守本模型。齐套标准是**两个必选通道**；观测投影按产品形态选装，
+不得用「有没有旧称 L3」单独判定模块是否完整。
 
-| 层级 | 入口 | 责任 |
+### 必选通道
+
+| 通道 | 旧称 | 入口 | 责任 |
+|---|---|---|---|
+| 产品通道 | L1 / 原始系统输出层 | `Step()` 返回的 `*OutputFrame` | 真实传感器或产品输出 |
+| 信封通道 | L2 / 结构化执行结果层 | `StepWithResult()` 返回的 `*CycleResult` | 输出帧、执行状态、校验、abort reason、诊断摘要；可承载仿真归属对照 |
+
+信封通道**嵌有**本周期产品帧副本，不是产品通道之上的第三份独立产品。
+
+### 可选投影（旧称 L3 / 开发调试视图层）
+
+| 投影 | 入口 | 责任 |
 |---|---|---|
-| 原始系统输出层 | `Step()` 返回的 `*OutputFrame` | 真实传感器或产品输出 |
-| 结构化执行结果层 | `StepWithResult()` 返回的 `*CycleResult` | 输出帧、执行状态、校验、abort reason 和诊断摘要 |
-| 开发调试视图层 | `*OutputDebugViewBuilder` / `*LifecycleRecorder` | 人读状态、生命周期事件、输入实体回填 |
+| DebugView | `*OutputDebugViewBuilder` | 帧作用域人读快照、输入实体回填 |
+| 生命周期 | `*LifecycleRecorder` | 跨周期确认/更新/丢失等事件 |
+| 排除差分 | `*ExclusionCauseRecorder` | 跨周期排除原因 `(code,cause)` 差分事件 |
 
-开发调试视图层中，`*LifecycleRecorder` 是转换检测状态机（非数据存储）：累积状态刻意最小化为每实体
-1-bit 存在标志（已确认/已检测/已有产品），事件富信息在每次 `Update()` 时从 L2 实时转发，不在内部累积。
-`*OutputDebugViewBuilder` 与 `*LifecycleRecorder` 在 L3 内并列，互不消费——前者是无状态快照构造器，
-后者是有状态跨周期状态机。`*OutputDebugViewBuilder` 对无探测/无轨迹目标回填**输入实体量值**
-（EOS 的方位/俯仰/距离、SBIRS 的方位/俯仰（卫星→目标视线 ECI 极坐标，弧度）、AR 的 RCS，
-与检测记录同参考系；检测记录存在时以记录观测值覆盖）——
-未检测也可见目标量值，供调用方人读/结构化落盘（规则 12）。
+| 产品形态 | 模块 | 三类投影要求 |
+|---|---|---|
+| 目标列表型 | AR / EOS / SBIRS / RIR | **必选**（观测完备）；RIR 实现以冻结文档为准，未齐前对应条款空洞 |
+| 非目标列表型 | ESR / SAR | **可不提供**同形态投影；规则 10/11/13b/13e 可为空洞条款 |
+
+观测投影中，`*LifecycleRecorder` 是转换检测状态机（非数据存储）：累积状态刻意最小化为每实体
+1-bit 存在标志（已确认/已检测/已有产品），事件富信息在每次 `Update()` 时从信封通道实时转发，
+不在内部累积。`*OutputDebugViewBuilder` 与 `*LifecycleRecorder` / `*ExclusionCauseRecorder`
+并列、互不消费——前者是无状态快照构造器，后两者是有状态跨周期状态机。
+`*OutputDebugViewBuilder` 对无探测/无轨迹目标回填**输入实体量值**（EOS 的方位/俯仰/距离、
+SBIRS 的方位/俯仰（卫星→目标视线 ECI 极坐标，弧度）、AR 的 RCS；RIR 冻结为滤波 ENU
+位置/速度或输入斜距几何，见 RIR 观测投影冻结文档），与检测/航迹记录同参考系；有产品记录时
+以记录观测值覆盖——未检测也可见目标量值，供调用方人读/结构化落盘（规则 12）。
 
 规则：
 
@@ -357,25 +380,31 @@ AR/ESR/EOS/SBIRS/SAR/RIR 六模块的电源状态必须遵守单源原则：
 `abort_reason` 是强类型枚举（SAR 为 `SarPipelineAbortReason`，其余模块类似），提供更细粒度的终止原因。
 状态判断以 `status` 枚举为准（`status == kCompleted` 即本周期的有效执行标志）。
 
-### Attribution（仿真真值归属）层级
+### Attribution（仿真真值归属）挂载
 
-仿真真值归属（detection → simulation target 映射）在各模块的层级位置不同，这是有意设计：
+仿真真值归属（detection/track → simulation target 映射）在各模块的挂载位置不同，这是有意设计：
 
 | 模块 | 归属位置 | 理由 |
 |---|---|---|
-| AR | L1（`TrackStateSnapshot` 内嵌 `external_target_id`/`target_name`） | track 是系统级估计，关联键是 track 语义的一部分 |
-| EOS | L2（`EosCycleResult.detection_attributions`） | detection 是原始传感器输出，归属是仿真附加信息 |
-| SBIRS | L2（`SbirsCycleResult.detection_attributions`） | 同 EOS |
-| RIR | L2（`RirCycleResult.track_attributions`） | 同为结果层归属视图；RIR 产品粒度即航迹级，归属为航迹级（库内键↔场景真值对照 + 最小航迹诊断，不进 `RirOutputFrame` 产品层） |
+| AR | 双挂载：产品通道（`TrackStateSnapshot` 内嵌 `external_target_id`/`target_name`，**deprecated 遗留**，sim-only）＋ 信封通道（`ArCycleResult.track_attributions`，**权威路径**） | **历史特例**：track 是系统级估计，关联键历史上写进产品航迹。信封对照表已补齐（2026-08-21，与 RIR 同构、产品导出航迹级），产品字段降级为 deprecated 遗留，回收（去真值化）由后续独立工作处理 |
+| EOS | 信封通道（`EosCycleResult.detection_attributions`） | detection 是原始传感器输出，归属是仿真附加信息 |
+| SBIRS | 信封通道（`SbirsCycleResult.detection_attributions`） | 同 EOS |
+| RIR | 信封通道（`RirCycleResult.track_attributions`） | 同为信封对照表；产品粒度航迹级，归属航迹级（不进 `RirOutputFrame` 产品通道） |
 | ESR | 无归属数据 | ESR 输出是观测+假设，不含检测到目标的映射 |
 | SAR | 无归属数据 | SAR 输出是图像产品，不含检测到目标的映射 |
 
 规则：
-1. **L1 不含仿真真值归属**（EOS/SBIRS 已遵守；AR 的 track 关联键是特例，不适用于检测型传感器）。
-2. **L2 允许承载归属**——归属是结构化数据（非人读），replay/trace 需要消费。
-3. **L3（DebugView/LifecycleRecorder）通过 L2 访问归属**，不是归属的唯一载体。
+1. **产品通道默认不含仿真真值归属**（EOS/SBIRS/RIR 已遵守；AR 为上表历史特例——产品字段已标记
+   deprecated/sim-only，权威关联路径是信封 `ArCycleResult.track_attributions`，新代码不得以产品
+   字段为关联依据）。
+2. **信封通道允许承载归属**——归属是结构化数据（非人读），replay/trace 需要消费。
+3. **观测投影通过信封通道访问归属**，不是归属的唯一载体。
 4. EOS/SBIRS 的 `*CycleOutputAdapter` 守卫（如 `SbirsOutputFrameContainsOnlyNativeFields()`）
-   确保 L1 不含归属泄漏。
+   确保产品通道不含归属泄漏。
+5. **新产品类型的真值归属只允许信封挂载**，由 CI 源码守卫 `attribution_mounting_guard`
+   （`tests/contract/check_attribution_mounting.cmake`）强制：公共头中的真值标识符
+   （`external_target_id`/`target_name`/`*Attribution*`）只允许出现在守卫注册表内；AR 产品遗留
+   注册表冻结、不得新增条目，特例不再开第二次。
 
 ## Replay 与 trace 语义
 

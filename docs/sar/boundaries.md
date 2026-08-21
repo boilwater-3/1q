@@ -21,7 +21,8 @@ SAR 遵守 `docs/common/contract.md`：
    `profiles::kL3BackprojectionProcessing`）。档位常量是完整子域
    结构体，整域赋值会重置未管理字段（如 `scene_center_*`、`l3_waypoints`），正确用法是"先赋档位、
    再设场景数据"。运行期热更新直接写 `SarRuntimeConfigPatch`（显式 `has_*`）；不提供 ConfigBuilder。
-3. SAR 输出遵守三层模型：系统输出、结构化结果、调试视图分离。
+3. SAR 输出遵守两通道 + 可选投影模型：产品通道、信封通道、调试视图分离（旧称三层会话输出模型）。
+   **勿与**下文「成像路径 L1/L1.5/L2/L3」混淆——后者是 RDA/动补/BP 成像档位，不是会话输出模型。
 4. `SarSession::StepWithResult` 在运行期配置和成像链路前调用 `ValidateSarCycleInput`；存在 error 级
    问题时记录 `invalid_cycle_input` abort，返回默认空帧（不复用上一有效输出，符合 contract.md
    §实现安全与失败语义规则 3）。

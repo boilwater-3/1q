@@ -3,6 +3,8 @@
 # 仓库元文件统一 LF
 .gitattributes text eol=lf
 .gitignore text eol=lf
+# 无扩展名 hook 脚本：须强制 LF，否则 Windows 检出成 CRLF 会在 WSL 下弄坏 shebang
+.githooks/** text eol=lf
 
 # 源码/构建/脚本统一 LF
 *.c text eol=lf

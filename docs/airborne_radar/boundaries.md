@@ -20,8 +20,11 @@ AR 遵守 `docs/common/contract.md`：
 2. 会话配置直接赋值 `ArSessionConfig`（语义档位是 `ArProfileConstants.h`
    中的预定义结构体常量）；运行期热更新直接写 `ArRuntimeConfigPatch`（显式 `has_*`）。
    不提供 ConfigBuilder，不承担 leaf setter 或隐式 validation。
-3. AR 输出遵守三层模型：系统输出（`TrackOutputFrame`）、结构化执行结果（`ArCycleResult`）、调试/生命周期/
-   replay 视图分离。
+3. AR 输出遵守两通道 + 可选投影模型：产品通道（`TrackOutputFrame`）、信封通道（`ArCycleResult`）、
+   调试/生命周期/排除差分投影与 replay 分离（旧称三层）。仿真真值归属挂信封通道
+   （`ArCycleResult.track_attributions`，权威路径）；产品航迹内嵌的
+   `external_target_id`/`target_name` 为注册 deprecated 遗留（sim-only，session_contract.md
+   Attribution 挂载表，回收由后续独立工作处理）。
 4. decision seam 是同进程步间 observation/response，是唯一的 public 决策扩展点。
 
 ## dt_sec 校验边界（反直觉，勿按"四模块一致"补齐）
@@ -159,7 +162,7 @@ AR 所有中止路径遵守 `session_contract.md` 规则 9 的三写模式与规
    `ecm_result.emission_frame`（ECM 的发射事实作为 AR 输入），不读 `ar_result.emission_frame`。
 3. **合并会污染 track-only 消费者**：`ArTrackLifecycleRecorder` 和 `Step()` 会被迫携带它们忽略的数据。
 
-`ArCycleResult` 的膨胀是 AR 多子系统（发射/接收/检测/跟踪/决策）耦合的自然结果，不是三层模型的缺陷。
+`ArCycleResult` 的膨胀是 AR 多子系统（发射/接收/检测/跟踪/决策）耦合的自然结果，不是两通道+投影模型的缺陷。
 各字段在 L2 的位置是正确的——它们是"本周期执行结果的完整上下文"，不是"传感器原始输出"。
 
 [evidence: tests/integration/cross_domain/multi_model_scenario_test.cpp — ArRfTestCycleResult 字段选择]
