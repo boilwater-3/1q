@@ -12,7 +12,6 @@
 
 #include "1q/airborne_radar/config/ArProfileConstants.h"
 #include "1q/airborne_radar/config/ArSessionConfig.h"
-#include "1q/airborne_radar/config/ArSessionConfigBuilder.h"
 #include "airborne_radar/config/InternalExecutionConfig.h"
 #include "airborne_radar/config/mapping/RuntimePatchMapper.h"
 #include "airborne_radar/config/mapping/SessionToExecutionMapper.h"

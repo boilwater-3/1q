@@ -16,10 +16,8 @@
 #include "1q/airborne_radar/config/ArOrientationConfig.h"
 #include "1q/airborne_radar/config/ArPolicyConfig.h"
 #include "1q/airborne_radar/config/ArProfileConstants.h"
-#include "1q/airborne_radar/config/ArRuntimeConfigBuilder.h"
 #include "1q/airborne_radar/config/ArRuntimeConfigPatch.h"
 #include "1q/airborne_radar/config/ArSessionConfig.h"
-#include "1q/airborne_radar/config/ArSessionConfigBuilder.h"
 #include "1q/airborne_radar/config/airborne_radar_config.hpp"
 #include "1q/airborne_radar/session/ArCommand.h"
 #include "1q/airborne_radar/session/ArControlProfile.h"
@@ -46,9 +44,7 @@
 #include "1q/electronic_countermeasure/EcmTypes.h"
 #include "1q/electro_optical_sensor/config/EosEnvironmentConfig.h"
 #include "1q/electro_optical_sensor/config/EosProfileConstants.h"
-#include "1q/electro_optical_sensor/config/EosRuntimeConfigBuilder.h"
 #include "1q/electro_optical_sensor/config/EosRuntimeConfigPatch.h"
-#include "1q/electro_optical_sensor/config/EosSessionConfigBuilder.h"
 #include "1q/electro_optical_sensor/config/electro_optical_sensor_config.hpp"
 #include "1q/electro_optical_sensor/electro_optical_sensor.hpp"
 #include "1q/electro_optical_sensor/session/EosCycleInput.h"
@@ -62,9 +58,7 @@
 #include "1q/electro_optical_sensor/session/EosTraceSession.h"
 #include "1q/electronic_surveillance_radar/config/EsrEnvironmentConfig.h"
 #include "1q/electronic_surveillance_radar/config/EsrProfileConstants.h"
-#include "1q/electronic_surveillance_radar/config/EsrRuntimeConfigBuilder.h"
 #include "1q/electronic_surveillance_radar/config/EsrRuntimeConfigPatch.h"
-#include "1q/electronic_surveillance_radar/config/EsrSessionConfigBuilder.h"
 #include "1q/electronic_surveillance_radar/config/electronic_surveillance_radar_config.hpp"
 #include "1q/electronic_surveillance_radar/electronic_surveillance_radar.hpp"
 #include "1q/electronic_surveillance_radar/session/EsrCycleInput.h"
@@ -90,10 +84,8 @@
 #include "1q/sar/session/SarReplaySession.h"
 #include "1q/sar/session/SarSession.h"
 #include "1q/sar/session/SarTraceSession.h"
-#include "1q/sbirs_sensor/config/SbirsRuntimeConfigBuilder.h"
 #include "1q/sbirs_sensor/config/SbirsRuntimeConfigPatch.h"
 #include "1q/sbirs_sensor/config/SbirsSessionConfig.h"
-#include "1q/sbirs_sensor/config/SbirsSessionConfigBuilder.h"
 #include "1q/sbirs_sensor/config/sbirs_sensor_config.hpp"
 #include "1q/sbirs_sensor/sbirs_sensor.hpp"
 #include "1q/sbirs_sensor/session/SbirsCycleInput.h"
@@ -159,7 +151,7 @@ TEST(PublicHeadersSmokeTest, StablePublicSurfaceSupportsMinimalUsage) {
   oneq::coordinate::EcefPositionM origin_ecef;
   ASSERT_TRUE(oneq::coordinate::TryLlaToEcef(origin_lla, &origin_ecef));
 
-  config::ArSessionConfig session_config = config::ArSessionConfigBuilder().Build();
+  config::ArSessionConfig session_config;
   session_config.environment.scenario_config.atmospheric_physics.enable_physical_model = true;
 
   session::ArCycleInput input;
@@ -175,10 +167,11 @@ TEST(PublicHeadersSmokeTest, StablePublicSurfaceSupportsMinimalUsage) {
   session::ArSession session = session::ArSession::Create(session_config);
   session::ArTraceSession trace_session(session_config,
                                         session::ArTraceSessionOptions{nullptr, false});
-  const config::ArRuntimeConfigPatch runtime_patch = config::ArRuntimeConfigBuilder()
-                                                         .WithWorkMode(config::ArWorkMode::kTas)
-                                                         .WithCommandedBeamwidthEnabled(true)
-                                                         .Build();
+  config::ArRuntimeConfigPatch runtime_patch;
+  runtime_patch.has_work_mode = true;
+  runtime_patch.work_mode = config::ArWorkMode::kTas;
+  runtime_patch.has_commanded_beamwidth_enabled = true;
+  runtime_patch.commanded_beamwidth_enabled = true;
   (void)session.TryApplyRuntimeConfig(runtime_patch);
   const session::ArCycleResult result = session.StepWithResult(input);
   const session::ArCycleResult trace_result =
@@ -192,8 +185,7 @@ TEST(PublicHeadersSmokeTest, StablePublicSurfaceSupportsMinimalUsage) {
 }
 
 TEST(PublicHeadersSmokeTest, SbirsPublicSurfaceSupportsMinimalUsage) {
-  sbirs_sensor::config::SbirsSessionConfig config =
-      sbirs_sensor::config::SbirsSessionConfigBuilder().Build();
+  sbirs_sensor::config::SbirsSessionConfig config;
   config.mission.scan_start_az_deg = 170.0f;
   config.mission.scan_span_deg = 40.0f;
   config.mission.scan_direction = sbirs_sensor::config::SbirsScanDirection::kDecreasingAzimuth;
@@ -222,10 +214,9 @@ TEST(PublicHeadersSmokeTest, SbirsPublicSurfaceSupportsMinimalUsage) {
       sbirs_sensor::session::ValidateSbirsCycleInput(input, 10.0f);
   EXPECT_FALSE(sbirs_sensor::session::HasValidationError(issues));
 
-  const sbirs_sensor::config::SbirsRuntimeConfigPatch patch =
-      sbirs_sensor::config::SbirsRuntimeConfigBuilder()
-          .WithWorkMode(sbirs_sensor::config::SbirsWorkMode::kSearchAndStare)
-          .Build();
+  sbirs_sensor::config::SbirsRuntimeConfigPatch patch;
+  patch.has_work_mode = true;
+  patch.work_mode = sbirs_sensor::config::SbirsWorkMode::kSearchAndStare;
   EXPECT_TRUE(session.TryApplyRuntimeConfig(patch));
   const sbirs_sensor::session::SbirsCycleResult result = session.StepWithResult(input);
   EXPECT_EQ(result.status, sbirs_sensor::session::SbirsCycleStatus::kCompleted);
@@ -325,8 +316,9 @@ TEST(PublicHeadersSmokeTest, EsrPublicSurfaceSupportsMinimalUsage) {
   EXPECT_FALSE(session::HasValidationError(issues));
 
   auto session = session::EsrSession::Create(session_config);
-  const config::EsrRuntimeConfigPatch runtime_patch =
-      config::EsrRuntimeConfigBuilder().WithWorkMode(config::EsrWorkMode::kRwr).Build();
+  config::EsrRuntimeConfigPatch runtime_patch;
+  runtime_patch.has_work_mode = true;
+  runtime_patch.work_mode = config::EsrWorkMode::kRwr;
   (void)session.TryApplyRuntimeConfig(runtime_patch);
   const session::EsrCycleResult result = session.StepWithResult(input);
   session::EsrTraceSession trace_session(session_config, session::EsrTraceSessionOptions{});
@@ -382,8 +374,9 @@ TEST(PublicHeadersSmokeTest, EosPublicSurfaceSupportsMinimalUsage) {
   EXPECT_NE(static_cast<int>(config::EosEnvironmentPreset::kStandard), -1);
 
   session::EosSession session = session::EosSession::Create(session_config);
-  const config::EosRuntimeConfigPatch runtime_patch =
-      config::EosRuntimeConfigBuilder().WithFrameRateHz(15.0f).Build();
+  config::EosRuntimeConfigPatch runtime_patch;
+  runtime_patch.has_frame_rate_hz = true;
+  runtime_patch.frame_rate_hz = 15.0f;
   (void)session.TryApplyRuntimeConfig(runtime_patch);
   const ::electro_optical_sensor::session::EosCycleResult result = session.StepWithResult(input);
   session::EosTraceSession trace_session(session_config, session::EosTraceSessionOptions{});

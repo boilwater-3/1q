@@ -7,7 +7,7 @@
 
 #include <limits>
 
-#include "1q/electronic_surveillance_radar/config/EsrRuntimeConfigBuilder.h"
+#include "1q/electronic_surveillance_radar/config/EsrRuntimeConfigPatch.h"
 #include "electronic_surveillance_radar/session/EsrRuntimeConfigResolver.h"
 
 namespace electronic_surveillance_radar {
@@ -25,11 +25,14 @@ TEST(EsrRuntimeConfigResolverTest, ValidPatchUpdatesRuntimePipelineAndEnvironmen
   atmospheric_physics.enable_physical_model = true;
   atmospheric_physics.relative_humidity = 0.66f;
 
-  const config::EsrRuntimeConfigPatch patch = esr_config::EsrRuntimeConfigBuilder()
-                                          .WithScanRateHz(4.0f)
-                                          .WithWorkMode(esr_config::EsrWorkMode::kRwr)
-                                          .WithAtmosphericPhysicsConfig(atmospheric_physics)
-                                          .Build();
+  config::EsrRuntimeConfigPatch patch;
+  patch.has_scan_rate_hz = true;
+  patch.scan_rate_hz = 4.0f;
+  patch.has_work_mode = true;
+  patch.work_mode = esr_config::EsrWorkMode::kRwr;
+  patch.has_environment = true;
+  patch.environment.has_atmospheric_physics = true;
+  patch.environment.atmospheric_physics = atmospheric_physics;
 
   const EsrRuntimeConfigResolveResult resolved =
       ResolveEsrRuntimeConfigPatch(current_config, patch);
@@ -56,9 +59,10 @@ TEST(EsrRuntimeConfigResolverTest, AtmosphericPhysicsOnlyDoesNotOverridePreset) 
   atmospheric_physics.temperature_k = 295.0f;
   atmospheric_physics.relative_humidity = 0.81f;
 
-  const config::EsrRuntimeConfigPatch patch = esr_config::EsrRuntimeConfigBuilder()
-                                          .WithAtmosphericPhysicsConfig(atmospheric_physics)
-                                          .Build();
+  config::EsrRuntimeConfigPatch patch;
+  patch.has_environment = true;
+  patch.environment.has_atmospheric_physics = true;
+  patch.environment.atmospheric_physics = atmospheric_physics;
   const EsrRuntimeConfigResolveResult resolved =
       ResolveEsrRuntimeConfigPatch(current_config, patch);
 
@@ -77,9 +81,10 @@ TEST(EsrRuntimeConfigResolverTest, MultiEnvironmentSubdomainsCanBeUpdatedInSingl
   atmospheric_physics.enable_physical_model = true;
   atmospheric_physics.relative_humidity = 0.9f;
 
-  const config::EsrRuntimeConfigPatch patch = esr_config::EsrRuntimeConfigBuilder()
-                                          .WithAtmosphericPhysicsConfig(atmospheric_physics)
-                                          .Build();
+  config::EsrRuntimeConfigPatch patch;
+  patch.has_environment = true;
+  patch.environment.has_atmospheric_physics = true;
+  patch.environment.atmospheric_physics = atmospheric_physics;
   const EsrRuntimeConfigResolveResult resolved =
       ResolveEsrRuntimeConfigPatch(current_config, patch);
 
@@ -315,7 +320,9 @@ TEST(EsrRuntimeConfigResolverTest, InvalidExplicitBoundsRejectWholePatch) {
   EsrInternalExecutionConfig current_config;
   current_config.mission.scan.scan_rate_hz = 1.0f;
 
-  config::EsrRuntimeConfigPatch patch = esr_config::EsrRuntimeConfigBuilder().WithScanRateHz(3.0f).Build();
+  config::EsrRuntimeConfigPatch patch;
+  patch.has_scan_rate_hz = true;
+  patch.scan_rate_hz = 3.0f;
   patch.has_explicit_scan_bounds = true;
   patch.explicit_scan_bounds.enabled = true;
 
@@ -396,8 +403,9 @@ TEST(EsrRuntimeConfigResolverTest, DisableExplicitBoundsRebuildsCenterDrivenWind
   current_config.resolved_scan.scan_start_el_deg = -5.0f;
   current_config.resolved_scan.scan_end_el_deg = 5.0f;
 
-  const config::EsrRuntimeConfigPatch patch =
-      esr_config::EsrRuntimeConfigBuilder().WithExplicitScanBoundsEnabled(false).Build();
+  config::EsrRuntimeConfigPatch patch;
+  patch.has_explicit_scan_bounds = true;
+  patch.explicit_scan_bounds.enabled = false;
   const EsrRuntimeConfigResolveResult resolved =
       ResolveEsrRuntimeConfigPatch(current_config, patch);
 
@@ -475,8 +483,9 @@ TEST(EsrRuntimeConfigResolverTest, DisableExplicitBoundsRejectsNonFiniteCenterAt
   current_config.resolved_scan.scan_start_az_deg = -10.0f;
   current_config.resolved_scan.scan_end_az_deg = 10.0f;
 
-  const config::EsrRuntimeConfigPatch disable_patch =
-      esr_config::EsrRuntimeConfigBuilder().WithExplicitScanBoundsEnabled(false).Build();
+  config::EsrRuntimeConfigPatch disable_patch;
+  disable_patch.has_explicit_scan_bounds = true;
+  disable_patch.explicit_scan_bounds.enabled = false;
   const EsrRuntimeConfigResolveResult invalid_az =
       ResolveEsrRuntimeConfigPatch(current_config, disable_patch);
 

@@ -25,7 +25,7 @@ session::ArCycleInput MakeMinimalArInput() {
 }
 
 TEST(ArPrimaryNamingContractTest, PreferredArNamesConstructAndStepSession) {
-  config::ArSessionConfig config = config::ArSessionConfigBuilder().Build();
+  config::ArSessionConfig config;
   session::ArSession session = session::ArSession::Create(config);
 
   const session::ArCycleInput input = MakeMinimalArInput();
@@ -38,8 +38,9 @@ TEST(ArPrimaryNamingContractTest, PreferredArNamesConstructAndStepSession) {
 
 TEST(ArPrimaryNamingContractTest, PreferredArRuntimePatchAppliesThroughSession) {
   session::ArSession session = session::ArSession::Create(config::ArSessionConfig{});
-  const config::ArRuntimeConfigPatch patch =
-      config::ArRuntimeConfigBuilder().WithWorkMode(config::ArWorkMode::kTas).Build();
+  config::ArRuntimeConfigPatch patch;
+  patch.has_work_mode = true;
+  patch.work_mode = config::ArWorkMode::kTas;
 
   EXPECT_TRUE(session.TryApplyRuntimeConfig(patch));
 

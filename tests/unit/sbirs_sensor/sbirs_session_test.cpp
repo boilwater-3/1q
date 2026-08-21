@@ -3,7 +3,7 @@
 #include <limits>
 #include <string>
 
-#include "1q/sbirs_sensor/config/SbirsRuntimeConfigBuilder.h"
+#include "1q/sbirs_sensor/config/SbirsRuntimeConfigPatch.h"
 #include "1q/sbirs_sensor/session/SbirsCycleInputAdapter.h"
 #include "1q/sbirs_sensor/session/SbirsDetectionLifecycleRecorder.h"
 #include "1q/sbirs_sensor/session/SbirsSession.h"
@@ -115,8 +115,9 @@ TEST(SbirsSessionTest, ValidationRejectDoesNotAdvancePipelineState) {
 TEST(SbirsRuntimeConfigResolverTest, InvalidPatchDoesNotPolluteConfig) {
   sbirs_sensor::session::SbirsSession session =
       sbirs_sensor::session::SbirsSession::Create(Config());
-  const sbirs_sensor::config::SbirsRuntimeConfigPatch invalid =
-      sbirs_sensor::config::SbirsRuntimeConfigBuilder().WithScanRateDegPerSec(-5.0f).Build();
+  sbirs_sensor::config::SbirsRuntimeConfigPatch invalid;
+  invalid.has_scan_rate_deg_per_sec = true;
+  invalid.scan_rate_deg_per_sec = -5.0f;
   EXPECT_FALSE(session.TryApplyRuntimeConfig(invalid));
   const sbirs_sensor::session::SbirsCycleResult result = session.StepWithResult(ValidInput(1U));
   EXPECT_EQ(result.status, sbirs_sensor::session::SbirsCycleStatus::kCompleted);

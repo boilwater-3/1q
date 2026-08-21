@@ -315,7 +315,7 @@ public API 分为两类，二者都受 public boundary、install manifest 和 co
 
 以下契约只对"有 `*Session` 会话模型的传感器模块"（AR/ESR/EOS/SAR/SBIRS/RIR）有效，不是所有模块的跨模块契约。完整内容见 [session_contract.md](session_contract.md)：
 
-- SessionConfigBuilder 薄封装规则（无 dirty flag / 无隐式覆写）
+- SessionConfig 直接赋值规则（无 ConfigBuilder / 无 dirty flag / 无隐式覆写；运行期写 RuntimeConfigPatch + has_*）
 - Session composition ownership（`Impl` 所有权边界、AR 决策 seam）
 - 运行期配置提交策略（事务性提交 vs 立即提交的分类表 + 各模块归属判定规则）
 - 电源状态单源契约（`sensor_enabled` 唯一来源、`has_sensor_enabled` 唯一入口，六模块统一，RIR 建模即遵守）
@@ -359,7 +359,7 @@ CMake 工程边界（target 作用域、Windows 验收）和测试架构（type�
 `common/` 只允许保留六份文档：
 
 - `contract.md` —— 公共契约（规定性：所有模块必须遵守的规则）。
-- `session_contract.md` —— 有 Session 的传感器模块的统一会话契约（SessionConfigBuilder、Session 组合所有权、运行期配置提交、电源单源、三层输出、Replay/trace 语义）。
+- `session_contract.md` —— 有 Session 的传感器模块的统一会话契约（会话配置直接赋值、Session 组合所有权、运行期配置提交、电源单源、三层输出、Replay/trace 语义）。
 - `open_questions.md` —— 跨模块架构观察与待决项（非规定性：记录调查中发现但尚未定论的议题，不构成契约约束）。条目推进到有结论时，应回写为契约规则（进 contract.md）或模块设计（进对应 design.md），并从 open_questions.md 移除。
 - `rf_architecture.md` —— AR/ESR/ECM/RIR 公共 RF 工程架构设计描述（provenance、单周期交换时序、接收机影响分层）。
 - `issue_codes.md` —— 各模块 issue code 注册表的人读辅助目录（由各模块 `<Module>IssueCodes.h` 的 `@brief` 提取生成；机器消费以公开头文件常量为唯一事实来源）。

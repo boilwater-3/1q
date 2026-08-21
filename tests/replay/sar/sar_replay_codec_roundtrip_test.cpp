@@ -10,7 +10,6 @@
 #include <vector>
 
 #include "1q/sar/config/SarRuntimeConfigPatch.h"
-#include "1q/sar/config/SarRuntimeConfigBuilder.h"
 #include "1q/sar/config/SarSessionConfig.h"
 #include "1q/sar/session/SarCycleInput.h"
 #include "1q/sar/session/SarCycleResult.h"
@@ -425,15 +424,17 @@ TEST(SarReplayCodecRoundtripTest, CycleResultRejectsMalformedRawPhaseHistory) {
 }
 
 TEST(SarReplayCodecRoundtripTest, RuntimeConfigPatchPreservesHasBitsAndValues) {
-  // 通过 SarRuntimeConfigBuilder 构造补丁（与 EOS/ESR/AR 对齐，避免手写 has_*）。
-  const config::SarRuntimeConfigPatch patch =
-      config::SarRuntimeConfigBuilder()
-          .WithEnableRawEchoGeneration(false)
-          .WithEnableL1RdaImaging(true)
-          .WithRetainRawPhaseHistory(true)
-          .WithMinimumSnrDb(6.5)
-          .WithSensorEnabled(false)
-          .Build();
+  config::SarRuntimeConfigPatch patch;
+  patch.has_enable_raw_echo_generation = true;
+  patch.enable_raw_echo_generation = false;
+  patch.has_enable_l1_rda_imaging = true;
+  patch.enable_l1_rda_imaging = true;
+  patch.has_retain_raw_phase_history = true;
+  patch.retain_raw_phase_history = true;
+  patch.has_minimum_snr_db = true;
+  patch.minimum_snr_db = 6.5;
+  patch.has_sensor_enabled = true;
+  patch.sensor_enabled = false;
 
   const std::string bytes = EncodeSarRuntimeConfigPatch(patch);
   ASSERT_FALSE(bytes.empty());

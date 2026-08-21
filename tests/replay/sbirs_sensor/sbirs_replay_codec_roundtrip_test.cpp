@@ -5,7 +5,7 @@
 #include <string>
 
 #include "1q/replay/ReplayTrace.h"
-#include "1q/sbirs_sensor/config/SbirsRuntimeConfigBuilder.h"
+#include "1q/sbirs_sensor/config/SbirsRuntimeConfigPatch.h"
 #include "1q/sbirs_sensor/config/SbirsSessionConfig.h"
 #include "1q/sbirs_sensor/session/SbirsCycleInputAdapter.h"
 #include "1q/sbirs_sensor/session/SbirsCycleResult.h"
@@ -24,7 +24,6 @@ using config::SbirsEnvironmentConfig;
 using config::SbirsHardwareConfig;
 using config::SbirsMissionConfig;
 using config::SbirsPolicyConfig;
-using config::SbirsRuntimeConfigBuilder;
 using config::SbirsRuntimeConfigPatch;
 using config::SbirsScanDirection;
 using config::SbirsSeaState;
@@ -461,14 +460,19 @@ TEST(SbirsReplayCodecRoundtripTest, RuntimeConfigPatchPreservesAllFields) {
   SbirsEnvironmentConfig environment;
   environment.weather_type = SbirsWeatherType::kCloudy;
 
-  const SbirsRuntimeConfigPatch patch = SbirsRuntimeConfigBuilder()
-                                            .WithMission(mission)
-                                            .WithPolicy(policy)
-                                            .WithEnvironment(environment)
-                                            .WithWorkMode(SbirsWorkMode::kWideSearch)
-                                            .WithScanRateDegPerSec(4.0f)
-                                            .WithSensorEnabled(false)
-                                            .Build();
+  SbirsRuntimeConfigPatch patch;
+  patch.has_mission = true;
+  patch.mission = mission;
+  patch.has_policy = true;
+  patch.policy = policy;
+  patch.has_environment = true;
+  patch.environment = environment;
+  patch.has_work_mode = true;
+  patch.work_mode = SbirsWorkMode::kWideSearch;
+  patch.has_scan_rate_deg_per_sec = true;
+  patch.scan_rate_deg_per_sec = 4.0f;
+  patch.has_sensor_enabled = true;
+  patch.sensor_enabled = false;
   SbirsRuntimeConfigPatch decoded;
   ASSERT_TRUE(DecodeSbirsRuntimeConfigPatch(EncodeSbirsRuntimeConfigPatch(patch), &decoded));
 

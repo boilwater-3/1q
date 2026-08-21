@@ -13,9 +13,8 @@ config/
 |-- ArPolicyConfig.h                   调度/关联/跟踪/生命周期策略
 |-- ArEnvironmentConfig.h              环境默认参数
 |-- ArSessionConfig.h                  会话初始化配置壳（四域聚合）
-|-- ArRuntimeConfigPatch.h             运行期可变参数补丁
-|-- ArRuntimeConfigBuilder.h           运行期补丁 Builder
-|-- ArSessionConfigBuilder.h           语义 Builder（Profile 输入）
+|-- ArRuntimeConfigPatch.h             运行期可变参数补丁（显式 has_*）
+|-- ArProfileConstants.h               语义档位常量（直接赋值）
 |-- airborne_radar_config.hpp          统一入口头（聚合以上全部）
 ```
 
@@ -43,25 +42,19 @@ config/
 - `policy`：`ArPolicyConfig`
 - `environment`：`ArEnvironmentConfig`
 
-## Builder 选择
+## 会话配置
 
-### 语义 Builder
-
-[`ArSessionConfigBuilder.h`](ArSessionConfigBuilder.h)
-
-- 输入：`profiles::...Profile` 枚举
-- 输出：`ArSessionConfig`（落到 `hardware/mission/policy/environment`）
-
-适用：业务/任务层快速配置。
+直接构造/赋值 [`ArSessionConfig.h`](ArSessionConfig.h)；语义档位见
+[`ArProfileConstants.h`](ArProfileConstants.h)（整域赋给 `hardware`/`mission`/`policy` 等）。
 
 ## Runtime Patch
 
-[`ArRuntimeConfigPatch.h`](ArRuntimeConfigPatch.h) / [`ArRuntimeConfigBuilder.h`](ArRuntimeConfigBuilder.h)
+[`ArRuntimeConfigPatch.h`](ArRuntimeConfigPatch.h)
 
 支持运行期在不重建 `ArSession` 的前提下热更新参数：
 
-- 整域覆盖：`mission`、`policy`、`environment_runtime_config`
-- 叶子覆盖：工作模式、扫描中心、驻留中心、指令态波束宽度
+- 整域覆盖：`mission`、`policy`、`environment_runtime_config`（须设对应 `has_*`）
+- 叶子覆盖：工作模式、扫描中心、驻留中心、指令态波束宽度（须设对应 `has_*`）
 
 规则：
 
@@ -70,12 +63,13 @@ config/
 
 ## 使用建议
 
-- 业务/任务层优先：`ArSessionConfigBuilder`
+- 业务/任务层：直接赋值 `ArSessionConfig` + `ArProfileConstants`
 - 常见场景推荐配置应在调用方业务层以具名函数封装，并返回 `ArSessionConfig` 传入 `ArSession::Create`
-- 细粒度建模优先：直接字段赋值
+- 运行期：直接写 `ArRuntimeConfigPatch` 并显式设 `has_*`
 
 ## 推荐入口
 
 - [`airborne_radar_config.hpp`](airborne_radar_config.hpp)
 - [`ArSessionConfig.h`](ArSessionConfig.h)
-- [`ArSessionConfigBuilder.h`](ArSessionConfigBuilder.h)
+- [`ArProfileConstants.h`](ArProfileConstants.h)
+- [`ArRuntimeConfigPatch.h`](ArRuntimeConfigPatch.h)

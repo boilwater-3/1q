@@ -11,7 +11,7 @@
  */
 
 #include "1q/electronic_surveillance_radar/config/EsrProfileConstants.h"
-#include "1q/electronic_surveillance_radar/config/EsrSessionConfigBuilder.h"
+#include "1q/electronic_surveillance_radar/config/EsrSessionConfig.h"
 #include "1q/electronic_surveillance_radar/session/EsrOutputTypes.h"
 #include "1q/electronic_surveillance_radar/session/EsrCycleResult.h"
 #include "1q/electronic_surveillance_radar/session/EsrCycleInput.h"
@@ -22,10 +22,8 @@ int main() {
   // 1. Session assembly：零值 EsrSessionConfig 不合法（scan_rate/接收频段/检测策略
   // 均为 0 会触发 ValidateEsrSessionConfig），必须使用语义档位常量或显式合法字段。
   using electronic_surveillance_radar::config::profiles::kElectronicOrderOfBattleMission;
-  electronic_surveillance_radar::config::EsrSessionConfig config =
-      electronic_surveillance_radar::config::EsrSessionConfigBuilder()
-          .WithMission(kElectronicOrderOfBattleMission)
-          .Build();
+  electronic_surveillance_radar::config::EsrSessionConfig config;
+  config.mission = kElectronicOrderOfBattleMission;
   config.mission.scan.scan_rate_hz = 1.0f;
   electronic_surveillance_radar::session::EsrSession session =
       electronic_surveillance_radar::session::EsrSession::Create(config);

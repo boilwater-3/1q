@@ -17,11 +17,12 @@ EOS 遵守 `docs/common/contract.md`：
 1. public API 只暴露稳定 session/config/input/output/trace/replay 门面。`EosSession` 是对外门面，
    只委托内部 `EosController`；Controller、Pipeline、CompositionRoot、foundation 算法不通过 public
    header 暴露。
-2. `EosSessionConfigBuilder` 是薄封装（整域赋值 + `Build()` 返回副本）；语义档位是
+2. 会话配置直接赋值 `EosSessionConfig`；语义档位是
    `EosProfileConstants.h` 中的预定义结构体常量（如 `profiles::kLongRangeSurveillanceMission` +
-   `profiles::kLongRangeSurveillanceDetection`），不承担 leaf setter 或隐式 validation。旧"Mission
+   `profiles::kLongRangeSurveillanceDetection`）。旧"Mission
    Profile 跨域覆写 `policy.detection.minimum_snr_db`"语义已消除：配置不再有隐式优先级，任何字段的赋值即
-   最终决定（档位在前、微调在后时微调胜出）。
+   最终决定（档位在前、微调在后时微调胜出）。运行期热更新直接写 `EosRuntimeConfigPatch`（显式 `has_*`）；
+   不提供 ConfigBuilder。
 3. EOS 输出遵守三层模型：系统输出、结构化结果、调试视图分离。
 4. `EosSession::StepWithResult` 在执行 pipeline 前调用 `ValidateEosCycleInput`；存在 error 级问题时
    不执行 pipeline、返回默认空帧并记录校验失败状态（符合 contract.md §实现安全与失败语义规则 3）。

@@ -8,7 +8,7 @@
 #include <string>
 
 #include "1q/replay/ReplayTrace.h"
-#include "1q/sbirs_sensor/config/SbirsRuntimeConfigBuilder.h"
+#include "1q/sbirs_sensor/config/SbirsRuntimeConfigPatch.h"
 #include "1q/sbirs_sensor/session/SbirsCycleInputAdapter.h"
 #include "1q/sbirs_sensor/session/SbirsReplaySession.h"
 #include "1q/sbirs_sensor/session/SbirsSession.h"
@@ -17,7 +17,6 @@
 #include "support/oneq_test_temp_dir.h"
 
 namespace {
-
 std::string MakeTempTracePath(const char* prefix) {
   static unsigned int unique_counter = 0U;
   std::ostringstream stream;
@@ -158,9 +157,9 @@ TEST(SbirsReplaySessionTest, ReplaySbirsTraceRoundtrip) {
     options.replay_writer = replay_writer;
     options.trace_config_on_construct = true;
     sbirs_sensor::session::SbirsTraceSession session(Config(), options);
-
-    const sbirs_sensor::config::SbirsRuntimeConfigPatch patch =
-        sbirs_sensor::config::SbirsRuntimeConfigBuilder().WithScanRateDegPerSec(1.0f).Build();
+    sbirs_sensor::config::SbirsRuntimeConfigPatch patch;
+    patch.has_scan_rate_deg_per_sec = true;
+    patch.scan_rate_deg_per_sec = 1.0f;
     (void)session.TryApplyRuntimeConfig(patch);
     const sbirs_sensor::session::SbirsCycleResult result = session.StepWithResult(ValidInput(1U));
     EXPECT_EQ(result.status, sbirs_sensor::session::SbirsCycleStatus::kCompleted);
@@ -207,8 +206,13 @@ TEST(SbirsReplaySessionTest, ReplayPreservesTruthModesAndRuntimeTransitions) {
 
     config.policy.tracking.tracking_mode =
         sbirs_sensor::config::SbirsTrackingMode::kSensorLikeTruthAssisted;
-    (void)session.TryApplyRuntimeConfig(
-        sbirs_sensor::config::SbirsRuntimeConfigBuilder().WithPolicy(config.policy).Build());
+    {
+      sbirs_sensor::config::SbirsRuntimeConfigPatch policy_patch;
+      policy_patch.has_policy = true;
+      policy_patch.policy = config.policy;
+      (void)session.TryApplyRuntimeConfig(policy_patch);
+
+    }
     const auto sensor_like = session.StepWithResult(ValidInput(2U));
     ASSERT_EQ(sensor_like.detection_attributions.size(), 1U);
     EXPECT_EQ(sensor_like.detection_attributions.front().tracking_source,
@@ -216,8 +220,13 @@ TEST(SbirsReplaySessionTest, ReplayPreservesTruthModesAndRuntimeTransitions) {
 
     config.policy.tracking.tracking_mode =
         sbirs_sensor::config::SbirsTrackingMode::kEstimated;
-    (void)session.TryApplyRuntimeConfig(
-        sbirs_sensor::config::SbirsRuntimeConfigBuilder().WithPolicy(config.policy).Build());
+    {
+      sbirs_sensor::config::SbirsRuntimeConfigPatch policy_patch;
+      policy_patch.has_policy = true;
+      policy_patch.policy = config.policy;
+      (void)session.TryApplyRuntimeConfig(policy_patch);
+
+    }
     const auto estimated = session.StepWithResult(ValidInput(3U));
     ASSERT_EQ(estimated.detection_attributions.size(), 1U);
     EXPECT_EQ(estimated.detection_attributions.front().tracking_source,
@@ -405,8 +414,13 @@ TEST(SbirsReplaySessionTest, ReplayPreservesMultiCycleSlewAndRuntimeMissionPatch
     EXPECT_EQ(slewing.detection_attributions.front().nfov_channel_id, 0);
 
     config.mission.narrow_pointing_max_slew_rate_deg_per_sec = 20.0f;
-    (void)session.TryApplyRuntimeConfig(
-        sbirs_sensor::config::SbirsRuntimeConfigBuilder().WithMission(config.mission).Build());
+    {
+      sbirs_sensor::config::SbirsRuntimeConfigPatch mission_patch;
+      mission_patch.has_mission = true;
+      mission_patch.mission = config.mission;
+      (void)session.TryApplyRuntimeConfig(mission_patch);
+
+    }
     const sbirs_sensor::session::SbirsCycleResult acquired =
         session.StepWithResult(PointingInput(2U, 0.0));
     ASSERT_EQ(acquired.output_frame.detections.size(), 1U);
@@ -478,22 +492,36 @@ TEST(SbirsReplaySessionTest, ReplayPreservesChannelShrinkAndWideSearchRoundTrip)
     session.StepWithResult(ImmMultiTargetInput(1U));
 
     config.policy.scheduler.max_concurrent_nfov_locks = 1;
-    (void)session.TryApplyRuntimeConfig(
-        sbirs_sensor::config::SbirsRuntimeConfigBuilder().WithPolicy(config.policy).Build());
+    {
+      sbirs_sensor::config::SbirsRuntimeConfigPatch policy_patch;
+      policy_patch.has_policy = true;
+      policy_patch.policy = config.policy;
+      (void)session.TryApplyRuntimeConfig(policy_patch);
+
+    }
     session.StepWithResult(ImmMultiTargetInput(2U));
 
-    (void)session.TryApplyRuntimeConfig(sbirs_sensor::config::SbirsRuntimeConfigBuilder()
-                                   .WithWorkMode(sbirs_sensor::config::SbirsWorkMode::kWideSearch)
-                                   .Build());
+    {
+      sbirs_sensor::config::SbirsRuntimeConfigPatch wide_patch;
+      wide_patch.has_work_mode = true;
+      wide_patch.work_mode = sbirs_sensor::config::SbirsWorkMode::kWideSearch;
+      (void)session.TryApplyRuntimeConfig(wide_patch);
+
+
+    }
     const auto wide = session.StepWithResult(ImmMultiTargetInput(3U));
     for (const auto& attribution : wide.detection_attributions) {
       EXPECT_EQ(attribution.nfov_channel_id, -1);
     }
 
-    (void)session.TryApplyRuntimeConfig(
-        sbirs_sensor::config::SbirsRuntimeConfigBuilder()
-            .WithWorkMode(sbirs_sensor::config::SbirsWorkMode::kSearchAndStare)
-            .Build());
+    {
+      sbirs_sensor::config::SbirsRuntimeConfigPatch stare_patch;
+      stare_patch.has_work_mode = true;
+      stare_patch.work_mode = sbirs_sensor::config::SbirsWorkMode::kSearchAndStare;
+      (void)session.TryApplyRuntimeConfig(stare_patch);
+
+
+    }
     session.StepWithResult(ImmMultiTargetInput(4U));
     replay_writer->Flush();
   }
@@ -569,8 +597,13 @@ TEST(SbirsReplaySessionTest, ReplayPreservesPointingDisturbanceAndRuntimePolicyP
 
     config.policy.pointing_disturbance.random_seed = 67U;
     config.policy.pointing_disturbance.channel_vibration_amplitude_deg = 0.1f;
-    (void)session.TryApplyRuntimeConfig(
-        sbirs_sensor::config::SbirsRuntimeConfigBuilder().WithPolicy(config.policy).Build());
+    {
+      sbirs_sensor::config::SbirsRuntimeConfigPatch policy_patch;
+      policy_patch.has_policy = true;
+      policy_patch.policy = config.policy;
+      (void)session.TryApplyRuntimeConfig(policy_patch);
+
+    }
     session.StepWithResult(ImmMultiTargetInput(3U));
     session.StepWithResult(ImmMultiTargetInput(4U));
     replay_writer->Flush();

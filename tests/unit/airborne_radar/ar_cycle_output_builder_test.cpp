@@ -11,7 +11,7 @@
 
 #include "1q/airborne_radar/session/ArSession.h"
 #include "1q/airborne_radar/config/ArProfileConstants.h"
-#include "1q/airborne_radar/config/ArSessionConfigBuilder.h"
+#include "1q/airborne_radar/config/ArSessionConfig.h"
 #include "1q/airborne_radar/session/ArCycleOutputAdapter.h"
 #include "1q/airborne_radar/session/ArRadarFrameTransform.h"
 #include "1q/airborne_radar/session/ArTrackLifecycleRecorder.h"

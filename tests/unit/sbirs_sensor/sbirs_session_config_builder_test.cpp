@@ -2,7 +2,7 @@
 
 #include <limits>
 
-#include "1q/sbirs_sensor/config/SbirsSessionConfigBuilder.h"
+#include "1q/sbirs_sensor/config/SbirsSessionConfig.h"
 #include "1q/sbirs_sensor/config/SbirsSessionConfigValidation.h"
 #include "1q/sbirs_sensor/session/SbirsOutputTypes.h"
 
@@ -29,7 +29,7 @@ const sbirs_sensor::session::SbirsIssue* FindIssue(
   return nullptr;
 }
 
-TEST(SbirsSessionConfigBuilderTest, BuildsFourDomainConfiguration) {
+TEST(SbirsSessionConfigValidationTest, AssignsFourDomainConfiguration) {
   sbirs_sensor::config::SbirsHardwareConfig hardware;
   hardware.optical_aperture_m = 0.7f;
   sbirs_sensor::config::SbirsMissionConfig mission;
@@ -40,13 +40,11 @@ TEST(SbirsSessionConfigBuilderTest, BuildsFourDomainConfiguration) {
   sbirs_sensor::config::SbirsEnvironmentConfig environment;
   environment.weather_type = sbirs_sensor::config::SbirsWeatherType::kCloudy;
 
-  const sbirs_sensor::config::SbirsSessionConfig config =
-      sbirs_sensor::config::SbirsSessionConfigBuilder()
-          .WithHardware(hardware)
-          .WithMission(mission)
-          .WithPolicy(policy)
-          .WithEnvironment(environment)
-          .Build();
+  sbirs_sensor::config::SbirsSessionConfig config;
+  config.hardware = hardware;
+  config.mission = mission;
+  config.policy = policy;
+  config.environment = environment;
 
   EXPECT_FLOAT_EQ(config.hardware.optical_aperture_m, 0.7f);
   EXPECT_EQ(config.mission.work_mode, sbirs_sensor::config::SbirsWorkMode::kSearchAndStare);
@@ -56,11 +54,11 @@ TEST(SbirsSessionConfigBuilderTest, BuildsFourDomainConfiguration) {
   EXPECT_TRUE(sbirs_sensor::config::ValidateSbirsSessionConfig(config).empty());
 }
 
-TEST(SbirsSessionConfigBuilderTest, RejectsInvalidScanRate) {
+TEST(SbirsSessionConfigValidationTest, RejectsInvalidScanRate) {
   sbirs_sensor::config::SbirsMissionConfig mission;
   mission.scan_rate_deg_per_sec = -1.0f;
-  const sbirs_sensor::config::SbirsSessionConfig config =
-      sbirs_sensor::config::SbirsSessionConfigBuilder().WithMission(mission).Build();
+  sbirs_sensor::config::SbirsSessionConfig config;
+  config.mission = mission;
 
   const sbirs_sensor::session::SbirsIssueList issues =
       sbirs_sensor::config::ValidateSbirsSessionConfig(config);
@@ -73,7 +71,7 @@ TEST(SbirsSessionConfigBuilderTest, RejectsInvalidScanRate) {
   EXPECT_EQ(issue->severity, sbirs_sensor::session::SbirsIssueSeverity::kError);
 }
 
-TEST(SbirsSessionConfigBuilderTest, ValidatesCircularScanContract) {
+TEST(SbirsSessionConfigValidationTest, ValidatesCircularScanContract) {
   // ECI 方位约定（2026-08 正式变更）：scan_start ∈ [0, 360)；180 合法、
   // −180 与 360 非法（旧对称约定 [-180,180) 已废除）。
   sbirs_sensor::config::SbirsSessionConfig config;
@@ -104,7 +102,7 @@ TEST(SbirsSessionConfigBuilderTest, ValidatesCircularScanContract) {
                            "sbirs.validation.invalid_scan_direction"));
 }
 
-TEST(SbirsSessionConfigBuilderTest, PointingDefaultsAreProductionValues) {
+TEST(SbirsSessionConfigValidationTest, PointingDefaultsAreProductionValues) {
   const sbirs_sensor::config::SbirsMissionConfig mission;
   const sbirs_sensor::config::SbirsTrackingConfig tracking;
 
@@ -120,7 +118,7 @@ TEST(SbirsSessionConfigBuilderTest, PointingDefaultsAreProductionValues) {
   EXPECT_FLOAT_EQ(disturbance.channel_vibration_amplitude_deg, 0.0f);
 }
 
-TEST(SbirsSessionConfigBuilderTest, RejectsUnknownTrackingEnums) {
+TEST(SbirsSessionConfigValidationTest, RejectsUnknownTrackingEnums) {
   sbirs_sensor::config::SbirsSessionConfig config;
   config.policy.tracking.tracking_mode =
       static_cast<sbirs_sensor::config::SbirsTrackingMode>(99);
@@ -134,7 +132,7 @@ TEST(SbirsSessionConfigBuilderTest, RejectsUnknownTrackingEnums) {
                            "sbirs.validation.invalid_estimated_tracking_backend"));
 }
 
-TEST(SbirsSessionConfigBuilderTest, RejectsInvalidPointingParameters) {
+TEST(SbirsSessionConfigValidationTest, RejectsInvalidPointingParameters) {
   sbirs_sensor::config::SbirsSessionConfig config;
   config.mission.narrow_pointing_max_slew_rate_deg_per_sec = 0.0f;
   EXPECT_TRUE(ContainsCode(sbirs_sensor::config::ValidateSbirsSessionConfig(config),
@@ -154,7 +152,7 @@ TEST(SbirsSessionConfigBuilderTest, RejectsInvalidPointingParameters) {
                            "sbirs.validation.invalid_narrow_pointing_settle_tolerance"));
 }
 
-TEST(SbirsSessionConfigBuilderTest, RejectsZeroTrackingGateLossCycles) {
+TEST(SbirsSessionConfigValidationTest, RejectsZeroTrackingGateLossCycles) {
   sbirs_sensor::config::SbirsSessionConfig config;
   config.policy.tracking.nfov_tracking_gate_loss_cycles = 0U;
 
@@ -162,7 +160,7 @@ TEST(SbirsSessionConfigBuilderTest, RejectsZeroTrackingGateLossCycles) {
                            "sbirs.validation.invalid_tracking_gate_loss_cycles"));
 }
 
-TEST(SbirsSessionConfigBuilderTest, RejectsNonPositiveFocalPlaneConfig) {
+TEST(SbirsSessionConfigValidationTest, RejectsNonPositiveFocalPlaneConfig) {
   // 焦平面几何（3.2.1.3.2.3）：焦距/像元间距非正须拒绝；默认值恒通过。
   sbirs_sensor::config::SbirsSessionConfig config;
   config.hardware.focal_length_m = 0.0f;
@@ -179,7 +177,7 @@ TEST(SbirsSessionConfigBuilderTest, RejectsNonPositiveFocalPlaneConfig) {
                            "sbirs.validation.focal_plane_config_not_positive"));
 }
 
-TEST(SbirsSessionConfigBuilderTest, RejectsInvalidWideToNarrowRequiredHits) {
+TEST(SbirsSessionConfigValidationTest, RejectsInvalidWideToNarrowRequiredHits) {
   // 宽窄切换前置条件（3.2.1.3.2.1）：连续命中阈值须 >=1；默认 1 恒通过。
   sbirs_sensor::config::SbirsSessionConfig config;
   config.policy.scheduler.wide_to_narrow_required_consecutive_hits = 0;
@@ -191,7 +189,7 @@ TEST(SbirsSessionConfigBuilderTest, RejectsInvalidWideToNarrowRequiredHits) {
                             "sbirs.validation.invalid_wide_to_narrow_required_hits"));
 }
 
-TEST(SbirsSessionConfigBuilderTest, ValidatesPointingDisturbanceParameters) {
+TEST(SbirsSessionConfigValidationTest, ValidatesPointingDisturbanceParameters) {
   sbirs_sensor::config::SbirsSessionConfig config;
   config.policy.pointing_disturbance.common_attitude_sigma_deg = -0.1f;
   EXPECT_TRUE(ContainsCode(sbirs_sensor::config::ValidateSbirsSessionConfig(config),
@@ -223,7 +221,7 @@ TEST(SbirsSessionConfigBuilderTest, ValidatesPointingDisturbanceParameters) {
   EXPECT_TRUE(sbirs_sensor::config::ValidateSbirsSessionConfig(config).empty());
 }
 
-TEST(SbirsSessionConfigBuilderTest, OrientationDomainValidation) {
+TEST(SbirsSessionConfigValidationTest, OrientationDomainValidation) {
   // 阶段 2 安装指向域：默认配置（零安装角、全开限位、体稳定）必须通过校验。
   sbirs_sensor::config::SbirsSessionConfig config;
   EXPECT_TRUE(sbirs_sensor::config::ValidateSbirsSessionConfig(config).empty());
@@ -287,7 +285,7 @@ TEST(SbirsSessionConfigBuilderTest, OrientationDomainValidation) {
   EXPECT_TRUE(sbirs_sensor::config::ValidateSbirsSessionConfig(config).empty());
 }
 
-TEST(SbirsSessionConfigBuilderTest, ScanPathMustFitSensorScanLimits) {
+TEST(SbirsSessionConfigValidationTest, ScanPathMustFitSensorScanLimits) {
   // 扫描路径适配限位：方位扫掠弧（起点 + 有向跨度）与中心俯仰必须落在限位窗口内。
   sbirs_sensor::config::SbirsSessionConfig config;
   config.mission.scan_start_az_deg = 300.0f;
@@ -318,7 +316,7 @@ TEST(SbirsSessionConfigBuilderTest, ScanPathMustFitSensorScanLimits) {
   EXPECT_TRUE(sbirs_sensor::config::ValidateSbirsSessionConfig(config).empty());
 }
 
-TEST(SbirsSessionConfigBuilderTest, RejectsInvalidElevationRaster) {
+TEST(SbirsSessionConfigValidationTest, RejectsInvalidElevationRaster) {
   // 阶段 4 俯仰栅格：span 非负有限、step 正有限；span>0 时 step 不得超 WFOV 俯仰视场。
   sbirs_sensor::config::SbirsSessionConfig config;
   EXPECT_TRUE(sbirs_sensor::config::ValidateSbirsSessionConfig(config).empty());
@@ -352,7 +350,7 @@ TEST(SbirsSessionConfigBuilderTest, RejectsInvalidElevationRaster) {
   config.mission.scan_el_span_deg = 0.0f;
 }
 
-TEST(SbirsSessionConfigBuilderTest, ElevationRasterMustFitSensorScanLimits) {
+TEST(SbirsSessionConfigValidationTest, ElevationRasterMustFitSensorScanLimits) {
   // 栅格模式首末行中心 el 须落在传感器系限位窗口内（span>0 走 el_start 与 el_start+span）。
   sbirs_sensor::config::SbirsSessionConfig config;
   config.mission.scan_el_span_deg = 20.0f;

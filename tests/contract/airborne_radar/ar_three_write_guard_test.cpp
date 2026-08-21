@@ -17,7 +17,7 @@
 #include <cstdint>
 
 #include "1q/airborne_radar/config/ArProfileConstants.h"
-#include "1q/airborne_radar/config/ArRuntimeConfigBuilder.h"
+#include "1q/airborne_radar/config/ArRuntimeConfigPatch.h"
 #include "1q/airborne_radar/config/ArSessionConfig.h"
 #include "1q/airborne_radar/session/ArCycleInput.h"
 #include "1q/airborne_radar/session/ArCycleResult.h"
@@ -126,8 +126,9 @@ TEST(ArThreeWriteGuardTest, ValidationAbortWritesAllThree) {
 
 TEST(ArThreeWriteGuardTest, PoweredOffAbortWritesAllThree) {
   session::ArSession radar = session::ArSession::Create(MakeSessionConfig());
-  const config::ArRuntimeConfigPatch power_off =
-      config::ArRuntimeConfigBuilder().WithSensorEnabled(false).Build();
+  config::ArRuntimeConfigPatch power_off;
+  power_off.has_sensor_enabled = true;
+  power_off.sensor_enabled = false;
   ASSERT_TRUE(radar.TryApplyRuntimeConfig(power_off));
 
   const session::ArCycleResult result = radar.StepWithResult(MakeInput());

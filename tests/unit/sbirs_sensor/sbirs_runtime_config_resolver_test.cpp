@@ -1,6 +1,6 @@
 ﻿#include <gtest/gtest.h>
 
-#include "1q/sbirs_sensor/config/SbirsRuntimeConfigBuilder.h"
+#include "1q/sbirs_sensor/config/SbirsRuntimeConfigPatch.h"
 #include "sbirs_sensor/runtime/SbirsRuntimeConfigResolver.h"
 
 namespace {
@@ -14,8 +14,9 @@ TEST(SbirsRuntimeConfigResolverTest, MissionDomainPreservesExistingPowerState) {
 
   sbirs_sensor::config::SbirsMissionConfig mission_patch;
   mission_patch.work_mode = sbirs_sensor::config::SbirsWorkMode::kSearchAndStare;
-  const sbirs_sensor::config::SbirsRuntimeConfigPatch patch =
-      sbirs_sensor::config::SbirsRuntimeConfigBuilder().WithMission(mission_patch).Build();
+  sbirs_sensor::config::SbirsRuntimeConfigPatch patch;
+  patch.has_mission = true;
+  patch.mission = mission_patch;
 
   const auto resolved = sbirs_sensor::runtime::ResolveSbirsRuntimeConfigPatch(config, patch);
 
@@ -30,8 +31,9 @@ TEST(SbirsRuntimeConfigResolverTest, SensorEnabledLeafRemainsSolePowerControl) {
   sbirs_sensor::config::SbirsSessionConfig config;
   config.sensor_enabled = true;
 
-  const sbirs_sensor::config::SbirsRuntimeConfigPatch patch =
-      sbirs_sensor::config::SbirsRuntimeConfigBuilder().WithSensorEnabled(false).Build();
+  sbirs_sensor::config::SbirsRuntimeConfigPatch patch;
+  patch.has_sensor_enabled = true;
+  patch.sensor_enabled = false;
 
   const auto resolved = sbirs_sensor::runtime::ResolveSbirsRuntimeConfigPatch(config, patch);
 
@@ -43,8 +45,9 @@ TEST(SbirsRuntimeConfigResolverTest, SensorEnabledLeafRemainsSolePowerControl) {
 
 TEST(SbirsRuntimeConfigResolverTest, SameValueMissionPatchIsValidWithoutMigration) {
   const sbirs_sensor::config::SbirsSessionConfig config;
-  const sbirs_sensor::config::SbirsRuntimeConfigPatch patch =
-      sbirs_sensor::config::SbirsRuntimeConfigBuilder().WithMission(config.mission).Build();
+  sbirs_sensor::config::SbirsRuntimeConfigPatch patch;
+  patch.has_mission = true;
+  patch.mission = config.mission;
 
   const auto resolved = sbirs_sensor::runtime::ResolveSbirsRuntimeConfigPatch(config, patch);
 
@@ -71,9 +74,9 @@ TEST(SbirsRuntimeConfigResolverTest, SeparatesTruthRetagFromEstimatedFamilyTrans
   sensor_like.policy.tracking.tracking_mode =
       sbirs_sensor::config::SbirsTrackingMode::kSensorLikeTruthAssisted;
 
-  const auto truth_patch = sbirs_sensor::config::SbirsRuntimeConfigBuilder()
-                               .WithPolicy(sensor_like.policy)
-                               .Build();
+  sbirs_sensor::config::SbirsRuntimeConfigPatch truth_patch;
+  truth_patch.has_policy = true;
+  truth_patch.policy = sensor_like.policy;
   const auto truth =
       sbirs_sensor::runtime::ResolveSbirsRuntimeConfigPatch(strict, truth_patch);
   ASSERT_TRUE(truth.is_valid);
@@ -84,9 +87,9 @@ TEST(SbirsRuntimeConfigResolverTest, SeparatesTruthRetagFromEstimatedFamilyTrans
   sbirs_sensor::config::SbirsSessionConfig estimated = sensor_like;
   estimated.policy.tracking.tracking_mode =
       sbirs_sensor::config::SbirsTrackingMode::kEstimated;
-  const auto estimated_patch = sbirs_sensor::config::SbirsRuntimeConfigBuilder()
-                                   .WithPolicy(estimated.policy)
-                                   .Build();
+  sbirs_sensor::config::SbirsRuntimeConfigPatch estimated_patch;
+  estimated_patch.has_policy = true;
+  estimated_patch.policy = estimated.policy;
   const auto family =
       sbirs_sensor::runtime::ResolveSbirsRuntimeConfigPatch(sensor_like, estimated_patch);
   ASSERT_TRUE(family.is_valid);
@@ -110,10 +113,11 @@ TEST(SbirsRuntimeConfigResolverTest, ClassifiesIndependentStateMigrationGroups) 
       sbirs_sensor::config::SbirsEstimatedTrackingBackend::kImm;
   next.policy.scheduler.max_concurrent_nfov_locks = 2;
 
-  const auto patch = sbirs_sensor::config::SbirsRuntimeConfigBuilder()
-                         .WithMission(next.mission)
-                         .WithPolicy(next.policy)
-                         .Build();
+  sbirs_sensor::config::SbirsRuntimeConfigPatch patch;
+  patch.has_mission = true;
+  patch.mission = next.mission;
+  patch.has_policy = true;
+  patch.policy = next.policy;
   const auto resolved = sbirs_sensor::runtime::ResolveSbirsRuntimeConfigPatch(current, patch);
 
   ASSERT_TRUE(resolved.is_valid);
@@ -157,9 +161,9 @@ TEST(SbirsRuntimeConfigResolverTest, ElevationRasterChangeClassifiesAsScanSector
   next.mission.scan_el_span_deg = 30.0f;
   next.mission.scan_el_step_deg = 10.0f;
 
-  const auto patch = sbirs_sensor::config::SbirsRuntimeConfigBuilder()
-                         .WithMission(next.mission)
-                         .Build();
+  sbirs_sensor::config::SbirsRuntimeConfigPatch patch;
+  patch.has_mission = true;
+  patch.mission = next.mission;
   const auto resolved = sbirs_sensor::runtime::ResolveSbirsRuntimeConfigPatch(current, patch);
   ASSERT_TRUE(resolved.is_valid);
   EXPECT_TRUE(resolved.impact.scan_sector_changed);
@@ -167,36 +171,37 @@ TEST(SbirsRuntimeConfigResolverTest, ElevationRasterChangeClassifiesAsScanSector
   // 单独改 step 同样触发。
   sbirs_sensor::config::SbirsSessionConfig step_only = current;
   step_only.mission.scan_el_step_deg = 4.0f;
-  const auto step_patch = sbirs_sensor::config::SbirsRuntimeConfigBuilder()
-                              .WithMission(step_only.mission)
-                              .Build();
+  sbirs_sensor::config::SbirsRuntimeConfigPatch step_patch;
+  step_patch.has_mission = true;
+  step_patch.mission = step_only.mission;
   const auto step_resolved =
       sbirs_sensor::runtime::ResolveSbirsRuntimeConfigPatch(current, step_patch);
   ASSERT_TRUE(step_resolved.is_valid);
   EXPECT_TRUE(step_resolved.impact.scan_sector_changed);
 
   // 未变栅格 → 不触发。
-  const auto no_change = sbirs_sensor::runtime::ResolveSbirsRuntimeConfigPatch(
-      current, sbirs_sensor::config::SbirsRuntimeConfigBuilder()
-                   .WithMission(current.mission)
-                   .Build());
+  sbirs_sensor::config::SbirsRuntimeConfigPatch no_change_patch;
+  no_change_patch.has_mission = true;
+  no_change_patch.mission = current.mission;
+  const auto no_change =
+      sbirs_sensor::runtime::ResolveSbirsRuntimeConfigPatch(current, no_change_patch);
   ASSERT_TRUE(no_change.is_valid);
   EXPECT_FALSE(no_change.impact.scan_sector_changed);
 }
 
 TEST(SbirsRuntimeConfigResolverTest, WorkModeTransitionsClassifyOnlyEntryCleanup) {
   const sbirs_sensor::config::SbirsSessionConfig current;
-  const auto wide_patch = sbirs_sensor::config::SbirsRuntimeConfigBuilder()
-                              .WithWorkMode(sbirs_sensor::config::SbirsWorkMode::kWideSearch)
-                              .Build();
+  sbirs_sensor::config::SbirsRuntimeConfigPatch wide_patch;
+  wide_patch.has_work_mode = true;
+  wide_patch.work_mode = sbirs_sensor::config::SbirsWorkMode::kWideSearch;
   const auto wide = sbirs_sensor::runtime::ResolveSbirsRuntimeConfigPatch(current, wide_patch);
   ASSERT_TRUE(wide.is_valid);
   EXPECT_TRUE(wide.impact.clear_for_wide_search);
   EXPECT_FALSE(wide.impact.clear_for_inactive);
 
-  const auto standby_patch = sbirs_sensor::config::SbirsRuntimeConfigBuilder()
-                                 .WithWorkMode(sbirs_sensor::config::SbirsWorkMode::kStandby)
-                                 .Build();
+  sbirs_sensor::config::SbirsRuntimeConfigPatch standby_patch;
+  standby_patch.has_work_mode = true;
+  standby_patch.work_mode = sbirs_sensor::config::SbirsWorkMode::kStandby;
   const auto standby =
       sbirs_sensor::runtime::ResolveSbirsRuntimeConfigPatch(current, standby_patch);
   ASSERT_TRUE(standby.is_valid);

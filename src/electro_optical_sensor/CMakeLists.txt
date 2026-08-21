@@ -16,7 +16,7 @@ set(EOS_ENGINE_SOURCES
 # -- core: 会话、运行时、环境（粘合层，依赖轻） --------------------------------
 set(EOS_CORE_SOURCES
     environment/EosEnvironmentModel.cpp
-    session/EosSessionConfigBuilder.cpp
+    session/EosSessionConfigValidation.cpp
     session/EosExternalOutputAdapter.cpp
     session/EosCycleOutputAdapter.cpp
     session/EosInputValidation.cpp

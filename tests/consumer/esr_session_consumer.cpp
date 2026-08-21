@@ -3,21 +3,21 @@
  * @brief 验证安装后 ESR 公共 API 路径可被外部工程编译链接。
  *
  * 覆盖要点：
- *   - EsrSessionConfigBuilder 薄封装 + 语义档位常量构造会话配置
+ *   - EsrSessionConfig 语义档位常量构造会话配置
  *   - 直接字段赋值构造详细会话配置
  *   - EsrCycleInput + RfEmissionFrame 构造周期输入
  *   - EsrInputValidation 输入校验
  *   - EsrSession 构造、Step、StepWithResult 调用
  *   - EsrOutputFrame 的观测与假设输出字段可访问
- *   - EsrRuntimeConfigBuilder 热切换（传感器开关、扫描率、接收窗、检测门限）
+ *   - EsrRuntimeConfigPatch 热切换（传感器开关、扫描率、接收窗、检测门限）
  */
 
 #include <cstddef>
 #include <string>
 
 #include "1q/electronic_surveillance_radar/config/EsrProfileConstants.h"
-#include "1q/electronic_surveillance_radar/config/EsrRuntimeConfigBuilder.h"
-#include "1q/electronic_surveillance_radar/config/EsrSessionConfigBuilder.h"
+#include "1q/electronic_surveillance_radar/config/EsrRuntimeConfigPatch.h"
+#include "1q/electronic_surveillance_radar/config/EsrSessionConfig.h"
 #include "1q/electronic_surveillance_radar/session/EsrCycleInput.h"
 #include "1q/electronic_surveillance_radar/session/EsrCycleResult.h"
 #include "1q/electronic_surveillance_radar/session/EsrInputValidation.h"
@@ -26,12 +26,10 @@
 namespace esr = electronic_surveillance_radar;
 
 int main() {
-  // 1. EsrSessionConfigBuilder 薄封装：语义档位常量整域赋值
+  // 1. 语义档位常量整域赋值
   //    （kStandard 灵敏度为 no-op，已随 Profile 枚举删除）
-  esr::config::EsrSessionConfig config =
-      esr::config::EsrSessionConfigBuilder()
-          .WithMission(esr::config::profiles::kElectronicOrderOfBattleMission)
-          .Build();
+  esr::config::EsrSessionConfig config;
+  config.mission = esr::config::profiles::kElectronicOrderOfBattleMission;
   config.mission.scan.scan_rate_hz = 1.0f;
 
   // 2. 直接字段赋值构造详细会话配置
@@ -82,9 +80,10 @@ int main() {
   (void)hyp_count;
   (void)cycle_index;
 
-  // 9. RuntimeConfigBuilder: disable sensor
-  const esr::config::EsrRuntimeConfigPatch disable_patch =
-      esr::config::EsrRuntimeConfigBuilder().WithSensorEnabled(false).Build();
+  // 9. RuntimeConfigPatch: disable sensor
+  esr::config::EsrRuntimeConfigPatch disable_patch;
+  disable_patch.has_sensor_enabled = true;
+  disable_patch.sensor_enabled = false;
   (void)session.TryApplyRuntimeConfig(disable_patch);
 
   // 10. Step after sensor disabled — should return empty output
@@ -96,39 +95,44 @@ int main() {
     return 3;
   }
 
-  // 11. RuntimeConfigBuilder: re-enable sensor
-  const esr::config::EsrRuntimeConfigPatch enable_patch =
-      esr::config::EsrRuntimeConfigBuilder().WithSensorEnabled(true).Build();
+  // 11. RuntimeConfigPatch: re-enable sensor
+  esr::config::EsrRuntimeConfigPatch enable_patch;
+  enable_patch.has_sensor_enabled = true;
+  enable_patch.sensor_enabled = true;
   (void)session.TryApplyRuntimeConfig(enable_patch);
 
-  // 12. RuntimeConfigBuilder: scan rate + work mode
-  const esr::config::EsrRuntimeConfigPatch tune_patch =
-      esr::config::EsrRuntimeConfigBuilder()
-          .WithScanRateHz(2.0f)
-          .WithWorkMode(esr::config::EsrWorkMode::kHgesm)
-          .Build();
+  // 12. RuntimeConfigPatch: scan rate + work mode
+  esr::config::EsrRuntimeConfigPatch tune_patch;
+  tune_patch.has_scan_rate_hz = true;
+  tune_patch.scan_rate_hz = 2.0f;
+  tune_patch.has_work_mode = true;
+  tune_patch.work_mode = esr::config::EsrWorkMode::kHgesm;
   (void)session.TryApplyRuntimeConfig(tune_patch);
 
-  // 13. RuntimeConfigBuilder: explicit scan bounds
-  const esr::config::EsrRuntimeConfigPatch window_patch =
-      esr::config::EsrRuntimeConfigBuilder()
-          .WithExplicitScanBoundsDeg(-45.0f, 45.0f, -15.0f, 15.0f)
-          .Build();
+  // 13. RuntimeConfigPatch: explicit scan bounds
+  esr::config::EsrRuntimeConfigPatch window_patch;
+  window_patch.has_explicit_scan_bounds = true;
+  window_patch.explicit_scan_bounds.enabled = true;
+  window_patch.explicit_scan_bounds.scan_start_az_deg = -45.0f;
+  window_patch.explicit_scan_bounds.scan_end_az_deg = 45.0f;
+  window_patch.explicit_scan_bounds.scan_start_el_deg = -15.0f;
+  window_patch.explicit_scan_bounds.scan_end_el_deg = 15.0f;
   (void)session.TryApplyRuntimeConfig(window_patch);
 
-  // 14. RuntimeConfigBuilder: reset to center-driven scan
-  const esr::config::EsrRuntimeConfigPatch clear_window_patch =
-      esr::config::EsrRuntimeConfigBuilder().WithExplicitScanBoundsEnabled(false).Build();
+  // 14. RuntimeConfigPatch: reset to center-driven scan
+  esr::config::EsrRuntimeConfigPatch clear_window_patch;
+  clear_window_patch.has_explicit_scan_bounds = true;
+  clear_window_patch.explicit_scan_bounds.enabled = false;
   (void)session.TryApplyRuntimeConfig(clear_window_patch);
 
-  // 15. RuntimeConfigBuilder: environment atmospheric config via environment runtime config
+  // 15. RuntimeConfigPatch: environment atmospheric config via environment runtime config
   esr::config::EsrAtmosphericPhysicsConfig atmospheric_physics;
   atmospheric_physics.enable_physical_model = true;
   atmospheric_physics.relative_humidity = 0.7f;
-  const esr::config::EsrRuntimeConfigPatch env_patch =
-      esr::config::EsrRuntimeConfigBuilder()
-          .WithAtmosphericPhysicsConfig(atmospheric_physics)
-          .Build();
+  esr::config::EsrRuntimeConfigPatch env_patch;
+  env_patch.has_environment = true;
+  env_patch.environment.has_atmospheric_physics = true;
+  env_patch.environment.atmospheric_physics = atmospheric_physics;
   (void)session.TryApplyRuntimeConfig(env_patch);
 
   // 16. Final cycle

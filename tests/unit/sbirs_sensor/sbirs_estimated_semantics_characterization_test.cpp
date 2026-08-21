@@ -21,7 +21,6 @@
 #include <cstdint>
 #include <vector>
 
-#include "1q/sbirs_sensor/config/SbirsRuntimeConfigBuilder.h"
 #include "1q/sbirs_sensor/config/SbirsSessionConfig.h"
 #include "1q/sbirs_sensor/session/SbirsCycleInputAdapter.h"
 #include "1q/sbirs_sensor/session/SbirsCycleResult.h"

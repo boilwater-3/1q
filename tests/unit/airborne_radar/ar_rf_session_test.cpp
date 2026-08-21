@@ -3,8 +3,8 @@
 #include <string>
 
 #include "1q/airborne_radar/config/ArProfileConstants.h"
-#include "1q/airborne_radar/config/ArRuntimeConfigBuilder.h"
-#include "1q/airborne_radar/config/ArSessionConfigBuilder.h"
+#include "1q/airborne_radar/config/ArRuntimeConfigPatch.h"
+#include "1q/airborne_radar/config/ArSessionConfig.h"
 #include "1q/airborne_radar/session/ArExclusionCauseRecorder.h"
 #include "1q/airborne_radar/session/ArSession.h"
 #include "airborne_radar/session/ArReplayCycleRecord.h"
@@ -279,10 +279,9 @@ TEST(ArRfSessionTest, RuntimePointingPatchChangesNextActualBoresight) {
 
   config::AzimuthElevationDeg scan_center;
   scan_center.az_deg = 20.0f;
-  const config::ArRuntimeConfigPatch patch =
-      config::ArRuntimeConfigBuilder()
-          .WithScanCenterDeg(scan_center)
-          .Build();
+  config::ArRuntimeConfigPatch patch;
+  patch.has_scan_center_deg = true;
+  patch.scan_center_deg = scan_center;
   ASSERT_TRUE(radar.TryApplyRuntimeConfig(patch));
 
   const ArCycleResult second = radar.StepWithResult(MakeInput(2U, 0.5));
@@ -298,13 +297,17 @@ TEST(ArRfSessionTest, RuntimePointingPatchChangesNextActualBoresight) {
 
 TEST(ArRfSessionTest, PoweredOffCycleDoesNotConsumeEmissionIdentity) {
   ArSession radar = ArSession::Create();
-  ASSERT_TRUE(radar.TryApplyRuntimeConfig(
-      config::ArRuntimeConfigBuilder().WithSensorEnabled(false).Build()));
+  config::ArRuntimeConfigPatch power_off;
+  power_off.has_sensor_enabled = true;
+  power_off.sensor_enabled = false;
+  ASSERT_TRUE(radar.TryApplyRuntimeConfig(power_off));
   EXPECT_EQ(radar.StepWithResult(MakeInput(1U, 0.0)).status,
             ArCycleStatus::kPoweredOff);
 
-  ASSERT_TRUE(radar.TryApplyRuntimeConfig(
-      config::ArRuntimeConfigBuilder().WithSensorEnabled(true).Build()));
+  config::ArRuntimeConfigPatch power_on;
+  power_on.has_sensor_enabled = true;
+  power_on.sensor_enabled = true;
+  ASSERT_TRUE(radar.TryApplyRuntimeConfig(power_on));
   const ArCycleResult on = radar.StepWithResult(MakeInput(2U, 0.5));
   ASSERT_EQ(on.status, ArCycleStatus::kCompleted);
   ASSERT_EQ(on.emission_frame.emissions.size(), 1U);

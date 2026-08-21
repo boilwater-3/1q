@@ -8,7 +8,7 @@
 #include <cstddef>
 #include <limits>
 
-#include "1q/electro_optical_sensor/config/EosRuntimeConfigBuilder.h"
+#include "1q/electro_optical_sensor/config/EosRuntimeConfigPatch.h"
 #include "1q/electro_optical_sensor/config/EosSessionConfig.h"
 #include "1q/electro_optical_sensor/session/EosCycleInput.h"
 #include "1q/electro_optical_sensor/session/EosInputValidation.h"
@@ -274,7 +274,7 @@ TEST(EosInputValidationTest, SessionReturnsValidationErrorsForInvalidInput) {
   EXPECT_TRUE(result.output_frame.detections.empty());
 }
 
-TEST(EosInputValidationTest, SessionConfigBuilderCanStartFromExternalConfig) {
+TEST(EosInputValidationTest, SessionConfigCanStartFromExternalConfig) {
   config::EosSessionConfig base_config;
   base_config.mission.work_mode = config::EosWorkMode::kInfraredOnly;
   base_config.mission.scan_rate_deg_per_sec = 12.0f;
@@ -295,7 +295,7 @@ TEST(EosInputValidationTest, SessionConfigBuilderCanStartFromExternalConfig) {
   EXPECT_EQ(built_config.policy.stray_light.enable_straylight_filter, true);
 }
 
-TEST(EosInputValidationTest, RuntimeConfigBuilderCanTightenDetectionThresholdAtRuntime) {
+TEST(EosInputValidationTest, RuntimeConfigPatchCanTightenDetectionThresholdAtRuntime) {
   config::EosSessionConfig config;
   config.mission.work_mode = config::EosWorkMode::kFused;
   config.policy.detection.minimum_snr_db = 4.5f;
@@ -318,11 +318,11 @@ TEST(EosInputValidationTest, RuntimeConfigBuilderCanTightenDetectionThresholdAtR
   ASSERT_FALSE(baseline.output_frame.detections.empty());
   EXPECT_TRUE(baseline.output_frame.detections[0].detected);
 
-  const eos_config::EosRuntimeConfigPatch patch = eos_config::EosRuntimeConfigBuilder()
-                                                      .WithMinimumSnrDb(60.0f)
-                                                      .WithDetectionSensitivityW(2.0e-12f)
-                                                      .WithVisibleReferenceIrradianceWM2(1000.0f)
-                                                      .Build();
+  eos_config::EosRuntimeConfigPatch patch;
+  patch.has_policy = true;
+  patch.policy.detection.minimum_snr_db = 60.0f;
+  patch.policy.detection.detection_sensitivity_w = 2.0e-12f;
+  patch.policy.detection.visible_reference_irradiance_w_m2 = 1000.0f;
   (void)eos_session.TryApplyRuntimeConfig(patch);
 
   input.cycle_index += 1U;
@@ -362,12 +362,11 @@ TEST(EosInputValidationTest, RuntimePatchPreservesScanPhaseUnlessScanRateChanges
   ASSERT_FALSE(HasValidationError(first.issues));
   const float first_scan_azimuth_deg = first.output_frame.scan_azimuth_deg;
 
-  const eos_config::EosRuntimeConfigPatch non_geometry_patch =
-      eos_config::EosRuntimeConfigBuilder()
-          .WithMinimumSnrDb(4.5f)
-          .WithDetectionSensitivityW(0.8e-12f)
-          .WithVisibleReferenceIrradianceWM2(700.0f)
-          .Build();
+  eos_config::EosRuntimeConfigPatch non_geometry_patch;
+  non_geometry_patch.has_policy = true;
+  non_geometry_patch.policy.detection.minimum_snr_db = 4.5f;
+  non_geometry_patch.policy.detection.detection_sensitivity_w = 0.8e-12f;
+  non_geometry_patch.policy.detection.visible_reference_irradiance_w_m2 = 700.0f;
   (void)eos_session.TryApplyRuntimeConfig(non_geometry_patch);
 
   input.cycle_index += 1U;
@@ -379,8 +378,9 @@ TEST(EosInputValidationTest, RuntimePatchPreservesScanPhaseUnlessScanRateChanges
   EXPECT_NEAR(after_non_geometry_patch.output_frame.scan_azimuth_deg,
               expected_after_non_geometry_patch, 1.0e-5f);
 
-  const eos_config::EosRuntimeConfigPatch scan_rate_patch =
-      eos_config::EosRuntimeConfigBuilder().WithScanRateDegPerSec(12.0f).Build();
+  eos_config::EosRuntimeConfigPatch scan_rate_patch;
+  scan_rate_patch.has_scan_rate_deg_per_sec = true;
+  scan_rate_patch.scan_rate_deg_per_sec = 12.0f;
   (void)eos_session.TryApplyRuntimeConfig(scan_rate_patch);
 
   input.cycle_index += 1U;
@@ -416,8 +416,9 @@ TEST(EosInputValidationTest, RuntimePatchRejectsInvalidFrameRateHz) {
       eos_session.StepWithResult(input);
   ASSERT_FALSE(HasValidationError(baseline.issues));
 
-  const eos_config::EosRuntimeConfigPatch patch =
-      eos_config::EosRuntimeConfigBuilder().WithFrameRateHz(0.0f).Build();
+  eos_config::EosRuntimeConfigPatch patch;
+  patch.has_frame_rate_hz = true;
+  patch.frame_rate_hz = 0.0f;
   (void)eos_session.TryApplyRuntimeConfig(patch);
 
   input.cycle_index += 1U;
@@ -429,13 +430,13 @@ TEST(EosInputValidationTest, RuntimePatchRejectsInvalidFrameRateHz) {
       eos_session.StepWithResult(input);
   EXPECT_FALSE(HasValidationError(after_patch.issues));
 
-  const eos_config::EosRuntimeConfigPatch valid_patch =
-      eos_config::EosRuntimeConfigBuilder()
-          .WithFrameRateHz(-5.0f)
-          .WithMinimumSnrDb(4.5f)
-          .WithDetectionSensitivityW(0.8e-12f)
-          .WithVisibleReferenceIrradianceWM2(700.0f)
-          .Build();
+  eos_config::EosRuntimeConfigPatch valid_patch;
+  valid_patch.has_frame_rate_hz = true;
+  valid_patch.frame_rate_hz = -5.0f;
+  valid_patch.has_policy = true;
+  valid_patch.policy.detection.minimum_snr_db = 4.5f;
+  valid_patch.policy.detection.detection_sensitivity_w = 0.8e-12f;
+  valid_patch.policy.detection.visible_reference_irradiance_w_m2 = 700.0f;
   (void)eos_session.TryApplyRuntimeConfig(valid_patch);
 
   input.cycle_index += 1U;
@@ -466,8 +467,9 @@ TEST(EosInputValidationTest, RuntimePatchRejectsInvalidScanRate) {
   ASSERT_FALSE(HasValidationError(baseline.issues));
   const float baseline_azimuth = baseline.output_frame.scan_azimuth_deg;
 
-  const eos_config::EosRuntimeConfigPatch patch =
-      eos_config::EosRuntimeConfigBuilder().WithScanRateDegPerSec(-1.0f).Build();
+  eos_config::EosRuntimeConfigPatch patch;
+  patch.has_scan_rate_deg_per_sec = true;
+  patch.scan_rate_deg_per_sec = -1.0f;
   (void)eos_session.TryApplyRuntimeConfig(patch);
 
   input.cycle_index += 1U;
@@ -503,12 +505,13 @@ TEST(EosInputValidationTest, RuntimePatchIsAtomicWhenAnyFieldIsInvalid) {
   ASSERT_EQ(baseline.output_frame.detections.size(), 1U);
   ASSERT_TRUE(baseline.output_frame.detections[0].detected);
 
-  const eos_config::EosRuntimeConfigPatch patch = eos_config::EosRuntimeConfigBuilder()
-                                                      .WithFrameRateHz(0.0f)
-                                                      .WithMinimumSnrDb(4.5f)
-                                                      .WithDetectionSensitivityW(0.8e-12f)
-                                                      .WithVisibleReferenceIrradianceWM2(700.0f)
-                                                      .Build();
+  eos_config::EosRuntimeConfigPatch patch;
+  patch.has_frame_rate_hz = true;
+  patch.frame_rate_hz = 0.0f;
+  patch.has_policy = true;
+  patch.policy.detection.minimum_snr_db = 4.5f;
+  patch.policy.detection.detection_sensitivity_w = 0.8e-12f;
+  patch.policy.detection.visible_reference_irradiance_w_m2 = 700.0f;
   (void)eos_session.TryApplyRuntimeConfig(patch);
 
   input.cycle_index += 1U;

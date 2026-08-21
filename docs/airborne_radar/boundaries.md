@@ -17,8 +17,9 @@ AR 遵守 `docs/common/contract.md`：
 1. public API 只暴露稳定 session/config/input/output/trace/replay/decision DTO 门面。`EnvironmentService`、
    `SignalPipeline`、`ArController`、`MutableArContext`、tracking lifecycle 和战术决策部件不通过 public
    header 暴露。
-2. `ArSessionConfigBuilder` 是薄封装（整域赋值 + `Build()` 返回副本）；语义档位是 `ArProfileConstants.h`
-   中的预定义结构体常量，不承担 leaf setter 或隐式 validation。
+2. 会话配置直接赋值 `ArSessionConfig`（语义档位是 `ArProfileConstants.h`
+   中的预定义结构体常量）；运行期热更新直接写 `ArRuntimeConfigPatch`（显式 `has_*`）。
+   不提供 ConfigBuilder，不承担 leaf setter 或隐式 validation。
 3. AR 输出遵守三层模型：系统输出（`TrackOutputFrame`）、结构化执行结果（`ArCycleResult`）、调试/生命周期/
    replay 视图分离。
 4. decision seam 是同进程步间 observation/response，是唯一的 public 决策扩展点。

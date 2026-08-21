@@ -11,7 +11,7 @@
 #include <cmath>
 #include <cstdint>
 
-#include "1q/electro_optical_sensor/config/EosRuntimeConfigBuilder.h"
+#include "1q/electro_optical_sensor/config/EosRuntimeConfigPatch.h"
 #include "1q/electro_optical_sensor/session/EosSession.h"
 
 namespace electro_optical_sensor {
@@ -62,8 +62,10 @@ TEST(EosSessionTest, ValidRuntimePatchTakesEffectOnNextStep) {
   const float baseline_scan_azimuth = baseline.output_frame.scan_azimuth_deg;
   EXPECT_NEAR(baseline_scan_azimuth, -9.5f, 1.0e-6f);
 
-  ASSERT_TRUE(session.TryApplyRuntimeConfig(
-      eos_config::EosRuntimeConfigBuilder().WithScanRateDegPerSec(9.0f).Build()));
+  eos_config::EosRuntimeConfigPatch scan_rate_patch;
+  scan_rate_patch.has_scan_rate_deg_per_sec = true;
+  scan_rate_patch.scan_rate_deg_per_sec = 9.0f;
+  ASSERT_TRUE(session.TryApplyRuntimeConfig(scan_rate_patch));
 
   // Cycle 2: rate patched to 9.0 → scan phase resets to start, advance=9*0.1=0.9,
   // scan_az = -10 + 0.9 = -9.1
@@ -79,8 +81,10 @@ TEST(EosSessionTest, InvalidRuntimePatchDoesNotChangeUpdateBehavior) {
   const eos_config::EosSessionConfig config = MakeSessionConfig();
   eos_session::EosSession session = eos_session::EosSession::Create(config);
 
-  EXPECT_FALSE(session.TryApplyRuntimeConfig(
-      eos_config::EosRuntimeConfigBuilder().WithFrameRateHz(0.0f).Build()));
+  eos_config::EosRuntimeConfigPatch bad_frame_rate;
+  bad_frame_rate.has_frame_rate_hz = true;
+  bad_frame_rate.frame_rate_hz = 0.0f;
+  EXPECT_FALSE(session.TryApplyRuntimeConfig(bad_frame_rate));
 
   // Invalid patch rejected; rate remains 5.0, dt=0.1 → advance=0.5, scan_az = -10 + 0.5 = -9.5
   const eos_session::EosCycleResult result =

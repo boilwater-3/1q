@@ -16,11 +16,11 @@ SAR 遵守 `docs/common/contract.md`：
 
 1. public API 只暴露稳定 session/config/input/output/trace/replay 门面。`SarSession` 是对外门面，
    只委托内部 `SarController`；Controller、ProcessingPipeline、CompositionRoot 不通过 public header 暴露。
-2. `SarSessionConfigBuilder` 是薄封装（整域赋值 + `Build()` 返回副本）；语义档位是
+2. 会话配置直接赋值 `SarSessionConfig`；语义档位是
    `SarProfileConstants.h` 中的预定义结构体常量（如 `profiles::kHighResolutionImagingMission`、
-   `profiles::kL3BackprojectionProcessing`），不承担 leaf setter 或隐式 validation。档位常量是完整子域
+   `profiles::kL3BackprojectionProcessing`）。档位常量是完整子域
    结构体，整域赋值会重置未管理字段（如 `scene_center_*`、`l3_waypoints`），正确用法是"先赋档位、
-   再设场景数据"。
+   再设场景数据"。运行期热更新直接写 `SarRuntimeConfigPatch`（显式 `has_*`）；不提供 ConfigBuilder。
 3. SAR 输出遵守三层模型：系统输出、结构化结果、调试视图分离。
 4. `SarSession::StepWithResult` 在运行期配置和成像链路前调用 `ValidateSarCycleInput`；存在 error 级
    问题时记录 `invalid_cycle_input` abort，返回默认空帧（不复用上一有效输出，符合 contract.md

@@ -16,7 +16,7 @@
 
 #include <cstdint>
 
-#include "1q/sbirs_sensor/config/SbirsRuntimeConfigBuilder.h"
+#include "1q/sbirs_sensor/config/SbirsRuntimeConfigPatch.h"
 #include "1q/sbirs_sensor/config/SbirsSessionConfig.h"
 #include "1q/sbirs_sensor/session/SbirsCycleInputAdapter.h"
 #include "1q/sbirs_sensor/session/SbirsCycleResult.h"
@@ -103,8 +103,10 @@ TEST(SbirsThreeWriteGuardTest, PoweredOffAbortWritesAllThree) {
   const session::SbirsCycleResult active = session.StepWithResult(MakeInput());
   ASSERT_EQ(active.status, session::SbirsCycleStatus::kCompleted);
 
-  (void)session.TryApplyRuntimeConfig(
-      config::SbirsRuntimeConfigBuilder().WithSensorEnabled(false).Build());
+  config::SbirsRuntimeConfigPatch power_off;
+  power_off.has_sensor_enabled = true;
+  power_off.sensor_enabled = false;
+  (void)session.TryApplyRuntimeConfig(power_off);
 
   const session::SbirsCycleResult powered_off = session.StepWithResult(MakeInput(2U));
   ExpectThreeWriteAbort(powered_off, session::SbirsPipelineAbortReason::kSensorPoweredOff,

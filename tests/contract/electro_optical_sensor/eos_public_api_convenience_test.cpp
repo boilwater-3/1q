@@ -13,8 +13,8 @@
 #include <vector>
 
 #include "1q/electro_optical_sensor/config/EosProfileConstants.h"
-#include "1q/electro_optical_sensor/config/EosRuntimeConfigBuilder.h"
-#include "1q/electro_optical_sensor/config/EosSessionConfigBuilder.h"
+#include "1q/electro_optical_sensor/config/EosRuntimeConfigPatch.h"
+#include "1q/electro_optical_sensor/config/EosSessionConfig.h"
 #include "1q/electro_optical_sensor/config/EosSessionConfigValidation.h"
 #include "1q/electro_optical_sensor/session/EosInputValidation.h"
 #include "1q/electro_optical_sensor/session/EosSession.h"
@@ -50,8 +50,8 @@ session::EosSceneTarget MakeTarget(std::uint64_t id, float range_m, float az_deg
 
 }  // namespace
 
-TEST(EosPublicApiConvenienceTest, SessionConfigBuilderDefaultsMatchEosSessionConfig) {
-  const config::EosSessionConfig built = config::EosSessionConfigBuilder().Build();
+TEST(EosPublicApiConvenienceTest, SessionConfigDefaultsMatchEosSessionConfig) {
+  const config::EosSessionConfig built;
   const config::EosSessionConfig default_config;
 
   EXPECT_EQ(built.mission.work_mode, default_config.mission.work_mode);
@@ -63,12 +63,10 @@ TEST(EosPublicApiConvenienceTest, SessionConfigBuilderDefaultsMatchEosSessionCon
                   default_config.policy.detection.minimum_snr_db);
 }
 
-TEST(EosPublicApiConvenienceTest, SessionConfigBuilderOverridesSemanticFields) {
-  config::EosSessionConfig config =
-      config::EosSessionConfigBuilder()
-          .WithMission(config::profiles::kLongRangeSurveillanceMission)
-          .WithEnvironmentPreset(config::EosEnvironmentPreset::kDusty)
-          .Build();
+TEST(EosPublicApiConvenienceTest, SessionConfigOverridesSemanticFields) {
+  config::EosSessionConfig config;
+  config.mission = config::profiles::kLongRangeSurveillanceMission;
+  config.environment.scenario_config.preset = config::EosEnvironmentPreset::kDusty;
   config.policy.detection = config::profiles::kLongRangeSurveillanceDetection;
   config.policy.detection.minimum_snr_db = 60.0f;  // 档位赋值在前、微调在后 → 微调胜出
   config.policy.detection.detection_sensitivity_w = 2.0e-12f;
@@ -84,7 +82,7 @@ TEST(EosPublicApiConvenienceTest, SessionConfigBuilderOverridesSemanticFields) {
   EXPECT_TRUE(config.policy.stray_light.enable_straylight_filter);
 }
 
-TEST(EosPublicApiConvenienceTest, DetailedSessionConfigBuilderOverridesDomainAndLeafFields) {
+TEST(EosPublicApiConvenienceTest, DetailedSessionConfigOverridesDomainAndLeafFields) {
   config::EosSessionConfig config{};
   config.mission.work_mode = config::EosWorkMode::kInfraredOnly;
   config.mission.scan_rate_deg_per_sec = 40.0f;
@@ -105,7 +103,7 @@ TEST(EosPublicApiConvenienceTest, DetailedSessionConfigBuilderOverridesDomainAnd
   EXPECT_TRUE(config.policy.stray_light.enable_straylight_filter);
 }
 
-TEST(EosPublicApiConvenienceTest, SessionConfigBuilderPreservesPreconfiguredSessionConfig) {
+TEST(EosPublicApiConvenienceTest, SessionConfigPreservesPreconfiguredSessionConfig) {
   config::EosSessionConfig base;
   base.hardware.wavelength_lower_um = 8.0f;
   base.hardware.wavelength_upper_um = 12.0f;
@@ -113,7 +111,7 @@ TEST(EosPublicApiConvenienceTest, SessionConfigBuilderPreservesPreconfiguredSess
   base.policy.detection.detection_sensitivity_w = 0.8e-12f;
   base.policy.detection.visible_reference_irradiance_w_m2 = 700.0f;
 
-  const config::EosSessionConfig config = config::EosSessionConfigBuilder(base).Build();
+  const config::EosSessionConfig config = base;
 
   EXPECT_NEAR(config.hardware.wavelength_lower_um, 8.0f, 1e-5f);
   EXPECT_NEAR(config.hardware.wavelength_upper_um, 12.0f, 1e-5f);
@@ -139,8 +137,8 @@ TEST(EosPublicApiConvenienceTest, SessionConfigValidatorReportsFinalConfigIssues
   EXPECT_EQ(issues[4].code, "eos.validation.scan_range_az_swapped");
 }
 
-TEST(EosPublicApiConvenienceTest, RuntimeConfigBuilderDefaultsAreUnset) {
-  const config::EosRuntimeConfigPatch patch = config::EosRuntimeConfigBuilder().Build();
+TEST(EosPublicApiConvenienceTest, RuntimeConfigPatchDefaultsAreUnset) {
+  const config::EosRuntimeConfigPatch patch;
 
   EXPECT_FALSE(patch.has_mission);
   EXPECT_FALSE(patch.has_policy);
@@ -150,26 +148,31 @@ TEST(EosPublicApiConvenienceTest, RuntimeConfigBuilderDefaultsAreUnset) {
   EXPECT_FALSE(patch.has_frame_rate_hz);
 }
 
-TEST(EosPublicApiConvenienceTest, RuntimeConfigBuilderSetsAllFields) {
+TEST(EosPublicApiConvenienceTest, RuntimeConfigPatchSetsAllFields) {
   config::EosEnvironmentScenarioConfig env_config;
   env_config.preset = config::EosEnvironmentPreset::kTurbulent;
   env_config.atmospheric_physics.enable_physical_model = true;
   env_config.atmospheric_physics.relative_humidity = 0.8f;
 
-  const config::EosRuntimeConfigPatch patch = config::EosRuntimeConfigBuilder()
-                                                  .WithWorkMode(config::EosWorkMode::kVisibleOnly)
-                                                  .WithScanRateDegPerSec(50.0f)
-                                                  .WithFrameRateHz(120.0f)
-                                                  .WithMinimumSnrDb(60.0f)
-                                                  .WithDetectionSensitivityW(2.0e-12f)
-                                                  .WithVisibleReferenceIrradianceWM2(1000.0f)
-                                                  .WithEnableStraylightFilter(true)
-                                                  .WithHoodInnerHalfAngleDeg(8.0f)
-                                                  .WithHoodOuterHalfAngleDeg(55.0f)
-                                                  .WithHoodMinSuppressionRatio(0.35f)
-                                                  .WithHoodMaxSuppressionRatio(0.95f)
-                                                  .WithEnvironmentScenarioConfig(env_config)
-                                                  .Build();
+  config::EosRuntimeConfigPatch patch;
+  patch.has_work_mode = true;
+  patch.work_mode = config::EosWorkMode::kVisibleOnly;
+  patch.has_scan_rate_deg_per_sec = true;
+  patch.scan_rate_deg_per_sec = 50.0f;
+  patch.has_frame_rate_hz = true;
+  patch.frame_rate_hz = 120.0f;
+  patch.has_policy = true;
+  patch.policy.detection.minimum_snr_db = 60.0f;
+  patch.policy.detection.detection_sensitivity_w = 2.0e-12f;
+  patch.policy.detection.visible_reference_irradiance_w_m2 = 1000.0f;
+  patch.policy.stray_light.enable_straylight_filter = true;
+  patch.policy.stray_light.hood_inner_half_angle_deg = 8.0f;
+  patch.policy.stray_light.hood_outer_half_angle_deg = 55.0f;
+  patch.policy.stray_light.hood_min_suppression_ratio = 0.35f;
+  patch.policy.stray_light.hood_max_suppression_ratio = 0.95f;
+  patch.has_environment = true;
+  patch.environment.has_scenario_config = true;
+  patch.environment.scenario_config = env_config;
 
   EXPECT_TRUE(patch.has_work_mode);
   EXPECT_EQ(patch.work_mode, config::EosWorkMode::kVisibleOnly);
@@ -321,15 +324,17 @@ TEST(EosPublicApiConvenienceTest, EosSessionAppliesRuntimeConfigPatch) {
   config::EosSessionConfig session_config;
   session::EosSession session = session::EosSession::Create(session_config);
 
-  const config::EosRuntimeConfigPatch patch = config::EosRuntimeConfigBuilder()
-                                                  .WithWorkMode(config::EosWorkMode::kInfraredOnly)
-                                                  .WithFrameRateHz(15.0f)
-                                                  .WithEnableStraylightFilter(true)
-                                                  .WithHoodInnerHalfAngleDeg(8.0f)
-                                                  .WithHoodOuterHalfAngleDeg(55.0f)
-                                                  .WithHoodMinSuppressionRatio(0.35f)
-                                                  .WithHoodMaxSuppressionRatio(0.95f)
-                                                  .Build();
+  config::EosRuntimeConfigPatch patch;
+  patch.has_work_mode = true;
+  patch.work_mode = config::EosWorkMode::kInfraredOnly;
+  patch.has_frame_rate_hz = true;
+  patch.frame_rate_hz = 15.0f;
+  patch.has_policy = true;
+  patch.policy.stray_light.enable_straylight_filter = true;
+  patch.policy.stray_light.hood_inner_half_angle_deg = 8.0f;
+  patch.policy.stray_light.hood_outer_half_angle_deg = 55.0f;
+  patch.policy.stray_light.hood_min_suppression_ratio = 0.35f;
+  patch.policy.stray_light.hood_max_suppression_ratio = 0.95f;
   (void)session.TryApplyRuntimeConfig(patch);
 
   ::electro_optical_sensor::session::EosCycleInput input;
@@ -352,7 +357,10 @@ TEST(EosPublicApiConvenienceTest, EosSessionReportsPoweredOffWithoutContractViol
       session.StepWithResult(input);
   ASSERT_EQ(active.status, session::EosCycleStatus::kCompleted);
 
-  (void)session.TryApplyRuntimeConfig(config::EosRuntimeConfigBuilder().WithSensorEnabled(false).Build());
+  config::EosRuntimeConfigPatch power_off;
+  power_off.has_sensor_enabled = true;
+  power_off.sensor_enabled = false;
+  (void)session.TryApplyRuntimeConfig(power_off);
   ++input.cycle_index;
   const ::electro_optical_sensor::session::EosCycleResult powered_off =
       session.StepWithResult(input);
@@ -394,13 +402,15 @@ TEST(EosPublicApiConvenienceTest, EosEnvironmentDefaultConfigHasReasonableDefaul
             config::EosEnvironmentPreset::kStandard);
 }
 
-TEST(EosPublicApiConvenienceTest, EosRuntimeConfigBuilderWithEnvironmentPolicies) {
+TEST(EosPublicApiConvenienceTest, EosRuntimeConfigPatchWithEnvironmentPolicies) {
   config::EosEnvironmentScenarioConfig env_config;
   env_config.preset = config::EosEnvironmentPreset::kTurbulent;
   env_config.atmospheric_physics.enable_physical_model = true;
 
-  const config::EosRuntimeConfigPatch patch =
-      config::EosRuntimeConfigBuilder().WithEnvironmentScenarioConfig(env_config).Build();
+  config::EosRuntimeConfigPatch patch;
+  patch.has_environment = true;
+  patch.environment.has_scenario_config = true;
+  patch.environment.scenario_config = env_config;
 
   EXPECT_TRUE(patch.has_environment);
 }

@@ -1,11 +1,10 @@
-﻿// @file EosSessionConfigBuilder.cpp
-// @brief Implementation of EosSessionConfigBuilder (thin wrapper).
+﻿// @file EosSessionConfigValidation.cpp
+// @brief Session-config validation for electro-optical sensor.
 
-#include "1q/electro_optical_sensor/config/EosSessionConfigBuilder.h"
+#include "1q/electro_optical_sensor/config/EosSessionConfigValidation.h"
 
 #include <cmath>
 
-#include "1q/electro_optical_sensor/config/EosSessionConfigValidation.h"
 #include "1q/electro_optical_sensor/session/EosIssueCodes.h"
 
 namespace electro_optical_sensor {
@@ -26,8 +25,6 @@ bool IsValidEnvironmentPreset(EosEnvironmentPreset preset) {
 }
 
 }  // namespace
-
-config::EosSessionConfig EosSessionConfigBuilder::Build() const noexcept { return config_; }
 
 session::EosIssueList ValidateEosSessionConfig(const config::EosSessionConfig& config) noexcept {
   session::EosIssueList issues;

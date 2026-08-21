@@ -2,8 +2,8 @@
  * @file EsrProfileConstants.h
  * @brief 电子侦察雷达语义档位常量表。
  *
- * 将原 EsrSessionConfigBuilder 的 Profile 枚举翻译结果提取为预定义结构体常量，
- * 用户直接赋值到目标字段即可（"Profile 覆盖"语义不再存在——赋值即最终决定）。
+ * 预定义结构体常量（语义档位），用户直接赋值到目标字段即可
+ * （"Profile 覆盖"语义不再存在——赋值即最终决定）。
  *
  * 命名约定：k<档位名><子域类型>。仅收录对 struct 默认值产生有效覆盖的档位；
  * 与默认值相同的 no-op 档位（EsrSensitivityProfile::kStandard）不提供常量，

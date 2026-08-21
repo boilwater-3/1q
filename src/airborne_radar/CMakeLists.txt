@@ -53,7 +53,7 @@ set(AIRBORNE_CORE_SOURCES
     session/ArTrackOutputDebugViewBuilder.cpp
     session/ArTrackLifecycleRecorder.cpp
     session/ArExclusionCauseRecorder.cpp
-    session/ArSessionConfigBuilder.cpp
+    session/ArSessionConfigValidation.cpp
     session/ArReplaySession.cpp
     session/ArSession.cpp
     session/ArEmissionFactory.cpp

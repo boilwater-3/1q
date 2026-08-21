@@ -50,8 +50,9 @@
 
 各传感器域采用统一的 `config/` + `session/` 两域布局：
 
-- `<module>/config/`：初始化与运行期配置入口（四域 Config、RuntimeBuilder、
-  RuntimePatch、SessionConfig、SessionConfigBuilder）。聚合头 `<module>_config.hpp`。
+- `<module>/config/`：初始化与运行期配置入口（四域 Config、RuntimePatch、
+  SessionConfig、ProfileConstants）。聚合头 `<module>_config.hpp`。
+  会话配置直接赋值；运行期补丁直接写 `*RuntimeConfigPatch` 并显式设对应 `has_*`。
 - `<module>/session/`：会话门面、周期输入/结果、输入校验、外部适配器、
   场景/输出类型、Trace/Replay 会话。聚合头 `<module>.hpp`。
 - 各模块顶层 `<module>.hpp` 聚合稳定会话与配置 API；
@@ -60,14 +61,14 @@
 
 ### Airborne Radar (AR)
 
-- `airborne_radar/config/`：含 `RadarSessionConfigBuilder`（Mission/Sensitivity 等
+- `airborne_radar/config/`：含 `ArProfileConstants`（Mission/Sensitivity 等
   语义档位）、`JammingSemantics`、`RadarOrientationConfig` 等雷达专用配置。
 - `airborne_radar/session/`：会话门面、周期 IO、环境输入、外部适配器、
   决策 observation/response DTO、航迹生命周期记录。
 
 ### Electronic Surveillance Radar (ESR)
 
-- `electronic_surveillance_radar/config/`：含 `EsrSessionConfigBuilder`
+- `electronic_surveillance_radar/config/`：含 `EsrProfileConstants`
   （Mission/Sensitivity 语义档位）。
 - `electronic_surveillance_radar/session/`：会话门面、周期 IO、环境输入、
   外部适配器、辐射源假设/观测类型（`EmitterHypothesis`、`EmitterObservation`）、
@@ -75,14 +76,14 @@
 
 ### Electro Optical Sensor (EOS)
 
-- `electro_optical_sensor/config/`：含 `EosSessionConfigBuilder`
+- `electro_optical_sensor/config/`：含 `EosProfileConstants`
   （Mission/Hardware 语义档位）。
 - `electro_optical_sensor/session/`：会话门面、周期 IO、环境输入、
   外部适配器、场景/输出类型、检测生命周期记录。
 
 ### Synthetic Aperture Radar (SAR)
 
-- `sar/config/`：含 `SarSessionConfigBuilder`（Mission/Processing 语义档位）。
+- `sar/config/`：含 `SarProfileConstants`（Mission/Processing 语义档位）。
 - `sar/session/`：会话门面、周期输入/结果、输入校验、产品调试视图与生命周期记录。
   SAR 为批处理成像模型，一个周期对应一次完整合成孔径成像。
   @note SAR 的 `SarPlatformState`/`SarPointTarget` 使用 LLA，调用方填 LLA 即可；
@@ -91,14 +92,14 @@
 
 ### Space-Based Infrared Sensor (SBIRS)
 
-- `sbirs_sensor/config/`：含 `SbirsSessionConfigBuilder`（Mission/Hardware 语义档位）。
+- `sbirs_sensor/config/`：四域 SessionConfig + RuntimeConfigPatch（直接赋值 + 显式 `has_*`）。
 - `sbirs_sensor/session/`：会话门面、周期 IO、外部适配器、场景/输出类型、
   检测生命周期记录、排除原因差分记录。
 
 ### Remote Identification Radar (RIR)
 
-- `remote_identification_radar/config/`：四域配置、RuntimePatch/Builder、
-  SessionConfig/Builder 与 Profile 常量。
+- `remote_identification_radar/config/`：四域配置、RuntimePatch、
+  SessionConfig 与 Profile 常量（直接赋值）。
 - `remote_identification_radar/session/`：会话门面、周期 IO、输入校验、
   场景/输出/识别结果类型。
 

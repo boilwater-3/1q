@@ -72,4 +72,4 @@ AR 始终使用物理探测链。`airborne_radar.json` 启用
 
 相关文档：
 - `docs/common/usage.md` — 1q 库消费指南
-- `docs/common/session_contract.md` — 会话相关模块契约（SessionConfigBuilder、运行期配置提交策略、三层输出模型等）
+- `docs/common/session_contract.md` — 会话相关模块契约（SessionConfig 直接赋值、RuntimeConfigPatch 显式 has_*、运行期配置提交策略、三层输出模型等）

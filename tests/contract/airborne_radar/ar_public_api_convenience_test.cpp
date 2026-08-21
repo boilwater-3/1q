@@ -9,8 +9,7 @@
 #include <limits>
 
 #include "1q/airborne_radar/config/ArProfileConstants.h"
-#include "1q/airborne_radar/config/ArRuntimeConfigBuilder.h"
-#include "1q/airborne_radar/config/ArSessionConfigBuilder.h"
+#include "1q/airborne_radar/config/ArRuntimeConfigPatch.h"
 #include "1q/airborne_radar/session/ArInputValidation.h"
 #include "1q/airborne_radar/session/ArSession.h"
 #include "1q/coordinate/position_transform.h"
@@ -231,16 +230,18 @@ TEST(ArPublicApiContractTest, ReceiverSaturationIsACompletedStructuredImpairment
 
 TEST(ArPublicApiContractTest, PoweredOffCycleAdvancesTimeWithoutEmission) {
   session::ArSession radar = session::ArSession::Create(MakeSessionConfig());
-  const config::ArRuntimeConfigPatch power_off =
-      config::ArRuntimeConfigBuilder().WithSensorEnabled(false).Build();
+  config::ArRuntimeConfigPatch power_off;
+  power_off.has_sensor_enabled = true;
+  power_off.sensor_enabled = false;
   ASSERT_TRUE(radar.TryApplyRuntimeConfig(power_off));
 
   const session::ArCycleResult off = radar.StepWithResult(MakeInput());
   EXPECT_EQ(off.status, session::ArCycleStatus::kPoweredOff);
   EXPECT_TRUE(off.emission_frame.emissions.empty());
 
-  const config::ArRuntimeConfigPatch power_on =
-      config::ArRuntimeConfigBuilder().WithSensorEnabled(true).Build();
+  config::ArRuntimeConfigPatch power_on;
+  power_on.has_sensor_enabled = true;
+  power_on.sensor_enabled = true;
   ASSERT_TRUE(radar.TryApplyRuntimeConfig(power_on));
   const session::ArCycleResult on = radar.StepWithResult(MakeInput(2U, 0.5));
   ASSERT_EQ(on.status, session::ArCycleStatus::kCompleted);

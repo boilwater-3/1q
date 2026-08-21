@@ -11,10 +11,8 @@
 #include "1q/remote_identification_radar/config/RirMissionConfig.h"
 #include "1q/remote_identification_radar/config/RirPolicyConfig.h"
 #include "1q/remote_identification_radar/config/RirProfileConstants.h"
-#include "1q/remote_identification_radar/config/RirRuntimeConfigBuilder.h"
 #include "1q/remote_identification_radar/config/RirRuntimeConfigPatch.h"
 #include "1q/remote_identification_radar/config/RirSessionConfig.h"
-#include "1q/remote_identification_radar/config/RirSessionConfigBuilder.h"
 #include "1q/remote_identification_radar/config/RirSessionConfigValidation.h"
 
 #endif  // ONEQ_REMOTE_IDENTIFICATION_RADAR_CONFIG_REMOTE_IDENTIFICATION_RADAR_CONFIG_HPP_

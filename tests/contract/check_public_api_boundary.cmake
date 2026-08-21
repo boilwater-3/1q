@@ -12,7 +12,7 @@ set(PUBLIC_INCLUDE_DIR "${SOURCE_DIR}/include/1q")
 # EXPECTED_DEPRECATED_HEADERS 及其守护),便于分批收口。两层的完整语义
 # 与迁移策略参见 docs/common/contract.md 的 Public API 边界章节。
 
-# ── AR 推荐公开主路径（四域 + 会话 + Builder + 统一入口） ──────────
+# ── AR 推荐公开主路径（四域 + 会话 + 统一入口） ──────────
 set(AR_PUBLIC_PRIMARY_HEADERS
     "airborne_radar/airborne_radar.hpp"
     "airborne_radar/config/ArHardwareConfig.h"
@@ -21,9 +21,7 @@ set(AR_PUBLIC_PRIMARY_HEADERS
     "airborne_radar/config/ArEnvironmentConfig.h"
     "airborne_radar/config/ArSessionConfig.h"
     "airborne_radar/config/ArRuntimeConfigPatch.h"
-    "airborne_radar/config/ArRuntimeConfigBuilder.h"
     "airborne_radar/config/ArProfileConstants.h"
-    "airborne_radar/config/ArSessionConfigBuilder.h"
     "airborne_radar/config/ArSessionConfigValidation.h"
     "airborne_radar/config/ArOrientationConfig.h"
     "airborne_radar/config/airborne_radar_config.hpp"
@@ -69,11 +67,9 @@ set(EOS_CONFIG_HEADERS
     "electro_optical_sensor/config/EosHardwareConfig.h"
     "electro_optical_sensor/config/EosMissionConfig.h"
     "electro_optical_sensor/config/EosPolicyConfig.h"
-    "electro_optical_sensor/config/EosRuntimeConfigBuilder.h"
     "electro_optical_sensor/config/EosRuntimeConfigPatch.h"
     "electro_optical_sensor/config/EosProfileConstants.h"
     "electro_optical_sensor/config/EosSessionConfig.h"
-    "electro_optical_sensor/config/EosSessionConfigBuilder.h"
     "electro_optical_sensor/config/EosSessionConfigValidation.h"
     "electro_optical_sensor/config/electro_optical_sensor_config.hpp"
 )
@@ -110,10 +106,8 @@ set(SBIRS_CONFIG_HEADERS
     "sbirs_sensor/config/SbirsMissionConfig.h"
     "sbirs_sensor/config/SbirsOrientationConfig.h"
     "sbirs_sensor/config/SbirsPolicyConfig.h"
-    "sbirs_sensor/config/SbirsRuntimeConfigBuilder.h"
     "sbirs_sensor/config/SbirsRuntimeConfigPatch.h"
     "sbirs_sensor/config/SbirsSessionConfig.h"
-    "sbirs_sensor/config/SbirsSessionConfigBuilder.h"
     "sbirs_sensor/config/SbirsSessionConfigValidation.h"
     "sbirs_sensor/config/sbirs_sensor_config.hpp"
 )
@@ -146,11 +140,9 @@ set(ESR_CONFIG_HEADERS
     "electronic_surveillance_radar/config/EsrHardwareConfig.h"
     "electronic_surveillance_radar/config/EsrMissionConfig.h"
     "electronic_surveillance_radar/config/EsrPolicyConfig.h"
-    "electronic_surveillance_radar/config/EsrRuntimeConfigBuilder.h"
     "electronic_surveillance_radar/config/EsrRuntimeConfigPatch.h"
     "electronic_surveillance_radar/config/EsrProfileConstants.h"
     "electronic_surveillance_radar/config/EsrSessionConfig.h"
-    "electronic_surveillance_radar/config/EsrSessionConfigBuilder.h"
     "electronic_surveillance_radar/config/EsrSessionConfigValidation.h"
     "electronic_surveillance_radar/config/electronic_surveillance_radar_config.hpp"
 )
@@ -256,10 +248,8 @@ set(SAR_CONFIG_HEADERS
     "sar/config/SarMissionConfig.h"
     "sar/config/SarPolicyConfig.h"
     "sar/config/SarRuntimeConfigPatch.h"
-    "sar/config/SarRuntimeConfigBuilder.h"
     "sar/config/SarProfileConstants.h"
     "sar/config/SarSessionConfig.h"
-    "sar/config/SarSessionConfigBuilder.h"
     "sar/config/SarSessionConfigValidation.h"
     "sar/config/sar_config.hpp"
 )
@@ -276,7 +266,7 @@ set(SAR_SESSION_HEADERS
     "sar/session/SarTraceSession.h"
 )
 
-# ── 远程识别雷达（RIR）推荐公开主路径（四域 + 会话 + Builder + 统一入口） ──
+# ── 远程识别雷达（RIR）推荐公开主路径（四域 + 会话 + 统一入口） ──
 set(RIR_PUBLIC_PRIMARY_HEADERS
     "remote_identification_radar/remote_identification_radar.hpp"
     "remote_identification_radar/config/RirEnvironmentConfig.h"
@@ -284,10 +274,8 @@ set(RIR_PUBLIC_PRIMARY_HEADERS
     "remote_identification_radar/config/RirMissionConfig.h"
     "remote_identification_radar/config/RirPolicyConfig.h"
     "remote_identification_radar/config/RirProfileConstants.h"
-    "remote_identification_radar/config/RirRuntimeConfigBuilder.h"
     "remote_identification_radar/config/RirRuntimeConfigPatch.h"
     "remote_identification_radar/config/RirSessionConfig.h"
-    "remote_identification_radar/config/RirSessionConfigBuilder.h"
     "remote_identification_radar/config/RirSessionConfigValidation.h"
     "remote_identification_radar/config/remote_identification_radar_config.hpp"
 )
@@ -309,6 +297,7 @@ set(COORDINATE_HEADERS
     "coordinate/attitude_transform.h"
     "coordinate/inertial_transform.h"
     "coordinate/position_transform.h"
+    "coordinate/scene_transform.h"
     "coordinate/types.h"
     "coordinate/velocity_transform.h"
 )
@@ -459,180 +448,18 @@ foreach(HEADER IN LISTS AR_CONFIG_HEADERS_NO_EXPERT_NAMESPACE)
   endif()
 endforeach()
 
-set(AR_SESSION_BUILDER_HEADER
-    "${PUBLIC_INCLUDE_DIR}/airborne_radar/config/ArSessionConfigBuilder.h")
-file(READ "${AR_SESSION_BUILDER_HEADER}" AR_SESSION_BUILDER_CONTENT)
-
-set(FORBIDDEN_BUILDER_METHOD_PATTERNS
-    "ArSessionConfigBuilder[ \t]*&[ \t]*WithDetection[ \t]*\\("
-    "ArSessionConfigBuilder[ \t]*&[ \t]*WithBeamControl[ \t]*\\("
-    "ArSessionConfigBuilder[ \t]*&[ \t]*WithTracking[ \t]*\\("
-    "ArSessionConfigBuilder[ \t]*&[ \t]*WithLifecycle[ \t]*\\("
-    "ArSessionConfigBuilder[ \t]*&[ \t]*WithEnvironmentDefault[ \t]*\\("
-    "EnablePhysicsDetection[ \t]*\\("
-    "ArSessionConfigBuilder[ \t]*&[ \t]*WithMinDetectionMarginDb[ \t]*\\("
-    "ArSessionConfigBuilder[ \t]*&[ \t]*WithPulseCount[ \t]*\\("
-    "ArSessionConfigBuilder[ \t]*&[ \t]*WithTransmitterConfig[ \t]*\\("
-    "ArSessionConfigBuilder[ \t]*&[ \t]*WithAntennaConfig[ \t]*\\("
-    "ArSessionConfigBuilder[ \t]*&[ \t]*WithReceiverConfig[ \t]*\\("
-    "ArSessionConfigBuilder[ \t]*&[ \t]*WithDetectionPolicy[ \t]*\\("
-    "ArSessionConfigBuilder[ \t]*&[ \t]*WithPeakPowerW[ \t]*\\("
-    "ArSessionConfigBuilder[ \t]*&[ \t]*WithFrequencyHz[ \t]*\\("
-    "ArSessionConfigBuilder[ \t]*&[ \t]*WithBandwidthHz[ \t]*\\("
-    "ArSessionConfigBuilder[ \t]*&[ \t]*WithPulseWidthS[ \t]*\\("
-    "ArSessionConfigBuilder[ \t]*&[ \t]*WithPrfHz[ \t]*\\("
-    "ArSessionConfigBuilder[ \t]*&[ \t]*WithMainBeamGainDb[ \t]*\\("
-    "ArSessionConfigBuilder[ \t]*&[ \t]*WithNoiseFigureDb[ \t]*\\("
-    "ArSessionConfigBuilder[ \t]*&[ \t]*WithWorkMode[ \t]*\\("
-    "ArSessionConfigBuilder[ \t]*&[ \t]*WithScanCenterDeg[ \t]*\\("
-    "ArSessionConfigBuilder[ \t]*&[ \t]*WithDwellCenterDeg[ \t]*\\("
-    "ArSessionConfigBuilder[ \t]*&[ \t]*EnableCommandedBeamwidth[ \t]*\\("
-    "ArSessionConfigBuilder[ \t]*&[ \t]*WithCommandedBeamwidthDeg[ \t]*\\("
-    "ArSessionConfigBuilder[ \t]*&[ \t]*WithLifecycleConfirmHits[ \t]*\\("
-    "ArSessionConfigBuilder[ \t]*&[ \t]*WithLifecycleMaxMissBeforeLost[ \t]*\\("
-    "ArSessionConfigBuilder[ \t]*&[ \t]*WithLifecycleMaxLostCycles[ \t]*\\("
-    "ArSessionConfigBuilder[ \t]*&[ \t]*WithJammingDetectionThresholdDb[ \t]*\\(")
-
-foreach(FORBIDDEN_PATTERN IN LISTS FORBIDDEN_BUILDER_METHOD_PATTERNS)
-  if(AR_SESSION_BUILDER_CONTENT MATCHES "${FORBIDDEN_PATTERN}")
-    message(FATAL_ERROR
-            "Legacy top-level ArSessionConfigBuilder API reintroduced: ${FORBIDDEN_PATTERN}\n"
-            "Use grouped editors only: Detection()/Beam()/Tracking()/Lifecycle()/Environment().")
-  endif()
-endforeach()
-
-set(AR_FORBIDDEN_SESSION_METHOD_PATTERNS
-    "WithWorkMode[ \t]*\\("
-    "WithScanCenterDeg[ \t]*\\("
-    "WithDwellCenterDeg[ \t]*\\("
-    "EnableCommandedBeamwidth[ \t]*\\("
-    "WithCommandedBeamwidthDeg[ \t]*\\("
-    "WithEnvironmentDefault[ \t]*\\("
-    "Validate[ \t]*\\(")
-
-foreach(FORBIDDEN_PATTERN IN LISTS AR_FORBIDDEN_SESSION_METHOD_PATTERNS)
-  if(AR_SESSION_BUILDER_CONTENT MATCHES "${FORBIDDEN_PATTERN}")
-    message(FATAL_ERROR
-            "Direct ArSessionConfigBuilder editor reintroduced: ${FORBIDDEN_PATTERN}\n"
-            "Use ArProfileConstants and direct ArSessionConfig fields.")
-  endif()
-endforeach()
-
-set(ESR_SESSION_BUILDER_HEADER
-    "${PUBLIC_INCLUDE_DIR}/electronic_surveillance_radar/config/EsrSessionConfigBuilder.h")
-file(READ "${ESR_SESSION_BUILDER_HEADER}" ESR_SESSION_BUILDER_CONTENT)
-
-set(ESR_FORBIDDEN_SESSION_METHOD_PATTERNS
-    "EsrSessionConfigBuilder[ \t]*&[ \t]*WithHardwareConfig[ \t]*\\("
-    "EsrSessionConfigBuilder[ \t]*&[ \t]*WithMissionConfig[ \t]*\\("
-    "EsrSessionConfigBuilder[ \t]*&[ \t]*WithPolicyConfig[ \t]*\\("
-    "EsrSessionConfigBuilder[ \t]*&[ \t]*WithEnvironmentConfig[ \t]*\\("
-    "WithWorkMode[ \t]*\\("
-    "WithPowerOn[ \t]*\\("
-    "WithScanRateHz[ \t]*\\("
-    "WithScanCenterAzDeg[ \t]*\\("
-    "WithScanCenterElDeg[ \t]*\\("
-    "WithScanStartPosition[ \t]*\\("
-    "WithScanSequence[ \t]*\\("
-    "WithUseExplicitScanBounds[ \t]*\\("
-    "WithScanStartAzDeg[ \t]*\\("
-    "WithScanEndAzDeg[ \t]*\\("
-    "WithScanStartElDeg[ \t]*\\("
-    "WithScanEndElDeg[ \t]*\\("
-    "WithMinDetectSnrDb[ \t]*\\("
-    "WithPfa[ \t]*\\("
-    "WithPulseCount[ \t]*\\("
-    "WithThresholdScale[ \t]*\\("
-    "EnableStatisticalDetection[ \t]*\\("
-    "WithEnvironmentDefault[ \t]*\\("
-    "WithAtmosphericPhysics[ \t]*\\("
-    "WithAtmosphericContext[ \t]*\\("
-    "Validate[ \t]*\\(")
-
-foreach(FORBIDDEN_PATTERN IN LISTS ESR_FORBIDDEN_SESSION_METHOD_PATTERNS)
-  if(ESR_SESSION_BUILDER_CONTENT MATCHES "${FORBIDDEN_PATTERN}")
-    message(FATAL_ERROR
-            "Direct EsrSessionConfigBuilder editor reintroduced: ${FORBIDDEN_PATTERN}\n"
-            "Use EsrProfileConstants and direct EsrSessionConfig fields.")
-  endif()
-endforeach()
-
-set(EOS_SESSION_BUILDER_HEADER
-    "${PUBLIC_INCLUDE_DIR}/electro_optical_sensor/config/EosSessionConfigBuilder.h")
-file(READ "${EOS_SESSION_BUILDER_HEADER}" EOS_SESSION_BUILDER_CONTENT)
-
-set(EOS_FORBIDDEN_SESSION_METHOD_PATTERNS
-    "WithWorkMode[ \t]*\\("
-    "WithScanRateDegPerSec[ \t]*\\("
-    "WithFrameRateHz[ \t]*\\("
-    "WithPowerOn[ \t]*\\("
-    "WithHorizontalFovDeg[ \t]*\\("
-    "WithVerticalFovDeg[ \t]*\\("
-    "WithScanStartAzDeg[ \t]*\\("
-    "WithScanEndAzDeg[ \t]*\\("
-    "WithScanCenterElDeg[ \t]*\\("
-    "WithBoresightDepressionDeg[ \t]*\\("
-    "WithEnvironmentDefault[ \t]*\\("
-    "WithMinSnrDb[ \t]*\\("
-    "WithDetectionSensitivityW[ \t]*\\("
-    "WithVisibleReferenceIrradianceWM2[ \t]*\\("
-    "WithEnableStraylightFilter[ \t]*\\("
-    "WithHoodInnerHalfAngleDeg[ \t]*\\("
-    "WithHoodOuterHalfAngleDeg[ \t]*\\("
-    "WithHoodMinSuppressionRatio[ \t]*\\("
-    "WithHoodMaxSuppressionRatio[ \t]*\\("
-    "WithWavelengthLowerUm[ \t]*\\("
-    "WithWavelengthUpperUm[ \t]*\\("
-    "WithOpticalApertureM[ \t]*\\("
-    "WithFocalLengthM[ \t]*\\("
-    "WithDetectorDetectivity[ \t]*\\("
-    "WithDetectorAreaCm2[ \t]*\\("
-    "WithMinDetectionDepressionDeg[ \t]*\\("
-    "WithMaxDetectionDepressionDeg[ \t]*\\("
-    "Validate[ \t]*\\(")
-
-foreach(FORBIDDEN_PATTERN IN LISTS EOS_FORBIDDEN_SESSION_METHOD_PATTERNS)
-  if(EOS_SESSION_BUILDER_CONTENT MATCHES "${FORBIDDEN_PATTERN}")
-    message(FATAL_ERROR
-            "Direct EosSessionConfigBuilder editor reintroduced: ${FORBIDDEN_PATTERN}\n"
-            "Use EosProfileConstants and direct EosSessionConfig fields.")
-  endif()
-endforeach()
-
-set(SAR_SESSION_BUILDER_HEADER
-    "${PUBLIC_INCLUDE_DIR}/sar/config/SarSessionConfigBuilder.h")
-file(READ "${SAR_SESSION_BUILDER_HEADER}" SAR_SESSION_BUILDER_CONTENT)
-
-set(SAR_FORBIDDEN_SESSION_METHOD_PATTERNS
-    "WithSceneCenter[ \t]*\\("
-    "WithNominalSlantRangeM[ \t]*\\("
-    "WithSyntheticApertureTimeS[ \t]*\\("
-    "WithPlatformSpeedMps[ \t]*\\("
-    "WithAzimuthPulseCount[ \t]*\\("
-    "WithRangeSampleCount[ \t]*\\("
-    "WithDesiredGroundRangeResolutionM[ \t]*\\("
-    "WithDesiredAzimuthResolutionM[ \t]*\\("
-    "EnableRawEchoGeneration[ \t]*\\("
-    "EnableRangeCompression[ \t]*\\("
-    "EnableL1RdaImaging[ \t]*\\("
-    "EnableL2MotionCompensation[ \t]*\\("
-    "EnableL3BpImaging[ \t]*\\("
-    "RetainFocusedImage[ \t]*\\("
-    "WithMinimumSnrDb[ \t]*\\("
-    "WithEnvironmentDefault[ \t]*\\("
-    "WithTerrainReferenceAltitudeM[ \t]*\\("
-    "WithAtmosphericLossDbPerKm[ \t]*\\("
-    "WithSurfaceBackscatterSigma0Db[ \t]*\\("
-    "EnableAtmosphericAttenuation[ \t]*\\("
-    "Validate[ \t]*\\(")
-
-foreach(FORBIDDEN_PATTERN IN LISTS SAR_FORBIDDEN_SESSION_METHOD_PATTERNS)
-  if(SAR_SESSION_BUILDER_CONTENT MATCHES "${FORBIDDEN_PATTERN}")
-    message(FATAL_ERROR
-            "Direct SarSessionConfigBuilder editor reintroduced: ${FORBIDDEN_PATTERN}\n"
-            "Use SarProfileConstants and direct SarSessionConfig fields.")
-  endif()
-endforeach()
+# Config Builder 已删除：公开头不得再出现 *SessionConfigBuilder.h / *RuntimeConfigBuilder.h。
+# 会话配置直接赋值 *SessionConfig；运行期热更新直接写 *RuntimeConfigPatch（含 has_*）。
+file(GLOB_RECURSE FORBIDDEN_CONFIG_BUILDER_HEADERS
+     RELATIVE "${PUBLIC_INCLUDE_DIR}"
+     "${PUBLIC_INCLUDE_DIR}/*SessionConfigBuilder.h"
+     "${PUBLIC_INCLUDE_DIR}/*RuntimeConfigBuilder.h")
+if(FORBIDDEN_CONFIG_BUILDER_HEADERS)
+  message(FATAL_ERROR
+          "Forbidden config Builder public headers reintroduced:\n"
+          "  ${FORBIDDEN_CONFIG_BUILDER_HEADERS}\n"
+          "Use direct *SessionConfig / *RuntimeConfigPatch assignment (explicit has_*).")
+endif()
 
 set(AR_FORBIDDEN_INTERNAL_PATHS
     "${CMAKE_SOURCE_DIR}/src/airborne_radar/config/legacy"

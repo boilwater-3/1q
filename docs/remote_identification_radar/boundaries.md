@@ -44,7 +44,8 @@ RIR 遵守 `docs/common/contract.md` 与 `docs/common/session_contract.md`：
 
 1. public API 只暴露稳定 session/config/input/output/validation/replay DTO 门面；
    `RirController`、识别内部类型不通过 public header 暴露。
-2. `RirSessionConfigBuilder` 是薄封装（整域赋值 + `Build()` 返回副本）。
+2. 会话配置直接赋值 `RirSessionConfig`；运行期热更新直接写 `RirRuntimeConfigPatch`
+   （显式 `has_*`）；不提供 ConfigBuilder。
 3. 输出遵守三层模型：系统输出（`RirOutputFrame`）、结构化执行结果
    （`RirCycleResult`，含 `emission_frame` 供 RF-WORLD 编排层汇集）、replay 视图分离。
 4. 周期语义：非执行周期不复用上一帧；校验拒绝 `kRejectedInvalidInput` +

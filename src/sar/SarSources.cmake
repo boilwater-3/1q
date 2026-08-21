@@ -51,7 +51,7 @@ set(SAR_CORE_SOURCES
     sar/session/SarReplayFlatbufferCodec.cpp
     sar/session/SarRuntimeConfigResolver.cpp
     sar/session/SarRuntimeConfigValidation.cpp
-    sar/session/SarSessionConfigBuilder.cpp
+    sar/session/SarSessionConfigValidation.cpp
     sar/session/SarFocusedImageAssembler.cpp
     sar/session/SarImagingExecutor.cpp
     sar/session/SarProductDebugViewBuilder.cpp

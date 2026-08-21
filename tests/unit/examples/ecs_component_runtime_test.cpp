@@ -23,22 +23,22 @@
 #include <gtest/gtest.h>
 
 #include "1q/airborne_radar/config/ArProfileConstants.h"
-#include "1q/airborne_radar/config/ArRuntimeConfigBuilder.h"
+#include "1q/airborne_radar/config/ArRuntimeConfigPatch.h"
 #include "1q/airborne_radar/session/ArSession.h"
 #include "1q/airborne_radar/session/ArTrackOutputDebugView.h"
 #include "1q/coordinate/position_transform.h"
 #include "1q/coordinate/types.h"
-#include "1q/electro_optical_sensor/config/EosRuntimeConfigBuilder.h"
+#include "1q/electro_optical_sensor/config/EosRuntimeConfigPatch.h"
 #include "1q/electro_optical_sensor/session/EosOutputDebugView.h"
 #include "1q/electro_optical_sensor/session/EosSession.h"
-#include "1q/electronic_surveillance_radar/config/EsrRuntimeConfigBuilder.h"
+#include "1q/electronic_surveillance_radar/config/EsrRuntimeConfigPatch.h"
 #include "1q/electronic_surveillance_radar/session/EsrSession.h"
 #include "1q/electromagnetics/RfScene.h"
 #include "1q/flight_dynamic/FlightManager.h"
 #include "1q/navigation/RoutePoint.h"
-#include "1q/sar/config/SarRuntimeConfigBuilder.h"
+#include "1q/sar/config/SarRuntimeConfigPatch.h"
 #include "1q/sar/session/SarSession.h"
-#include "1q/sbirs_sensor/config/SbirsRuntimeConfigBuilder.h"
+#include "1q/sbirs_sensor/config/SbirsRuntimeConfigPatch.h"
 #include "1q/sbirs_sensor/session/SbirsOutputDebugView.h"
 #include "1q/sbirs_sensor/session/SbirsSceneTypes.h"
 #include "1q/sbirs_sensor/session/SbirsSession.h"
@@ -475,18 +475,38 @@ TEST(SensorQueryGettersTest, PowerOffPatchFlipsPoweredStateAndClearsAzimuth) {
 
   scene.DriveCycle(1U);  // 开机周期：查询状态就绪
 
-  // 五传感器全部下电（各模块 WithSensorEnabled(false) 补丁；AR 为事务性
+  // 五传感器全部下电（各模块 sensor_enabled 补丁；AR 为事务性
   // 暂存，下个周期边界生效，其余立即生效）。
-  EXPECT_TRUE(scene.platform().Find<ca::ArSensorComponent>()->TryApplyRuntimeConfig(
-      airborne_radar::config::ArRuntimeConfigBuilder().WithSensorEnabled(false).Build()));
-  EXPECT_TRUE(scene.platform().Find<ca::EsrSensorComponent>()->TryApplyRuntimeConfig(
-      electronic_surveillance_radar::config::EsrRuntimeConfigBuilder().WithSensorEnabled(false).Build()));
-  EXPECT_TRUE(scene.platform().Find<ca::EosSensorComponent>()->TryApplyRuntimeConfig(
-      electro_optical_sensor::config::EosRuntimeConfigBuilder().WithSensorEnabled(false).Build()));
-  EXPECT_TRUE(scene.platform().Find<ca::SbirsSensorComponent>()->TryApplyRuntimeConfig(
-      sbirs_sensor::config::SbirsRuntimeConfigBuilder().WithSensorEnabled(false).Build()));
-  EXPECT_TRUE(scene.platform().Find<ca::SarSensorComponent>()->TryApplyRuntimeConfig(
-      sar::config::SarRuntimeConfigBuilder().WithSensorEnabled(false).Build()));
+  {
+    airborne_radar::config::ArRuntimeConfigPatch ar_off;
+    ar_off.has_sensor_enabled = true;
+    ar_off.sensor_enabled = false;
+    EXPECT_TRUE(scene.platform().Find<ca::ArSensorComponent>()->TryApplyRuntimeConfig(ar_off));
+  }
+  {
+    electronic_surveillance_radar::config::EsrRuntimeConfigPatch esr_off;
+    esr_off.has_sensor_enabled = true;
+    esr_off.sensor_enabled = false;
+    EXPECT_TRUE(scene.platform().Find<ca::EsrSensorComponent>()->TryApplyRuntimeConfig(esr_off));
+  }
+  {
+    electro_optical_sensor::config::EosRuntimeConfigPatch eos_off;
+    eos_off.has_sensor_enabled = true;
+    eos_off.sensor_enabled = false;
+    EXPECT_TRUE(scene.platform().Find<ca::EosSensorComponent>()->TryApplyRuntimeConfig(eos_off));
+  }
+  {
+    sbirs_sensor::config::SbirsRuntimeConfigPatch sbirs_off;
+    sbirs_off.has_sensor_enabled = true;
+    sbirs_off.sensor_enabled = false;
+    EXPECT_TRUE(scene.platform().Find<ca::SbirsSensorComponent>()->TryApplyRuntimeConfig(sbirs_off));
+  }
+  {
+    sar::config::SarRuntimeConfigPatch sar_off;
+    sar_off.has_sensor_enabled = true;
+    sar_off.sensor_enabled = false;
+    EXPECT_TRUE(scene.platform().Find<ca::SarSensorComponent>()->TryApplyRuntimeConfig(sar_off));
+  }
 
   scene.DriveCycle(2U);
 
@@ -503,8 +523,12 @@ TEST(SensorQueryGettersTest, PowerOffPatchFlipsPoweredStateAndClearsAzimuth) {
   EXPECT_FLOAT_EQ(scene.platform().Find<ca::SbirsSensorComponent>()->scan_azimuth_deg(), 0.0f);
 
   // 重新上电：SAR 组件恢复驱动（状态翻转回 true，会话可继续工作）。
-  EXPECT_TRUE(scene.platform().Find<ca::SarSensorComponent>()->TryApplyRuntimeConfig(
-      sar::config::SarRuntimeConfigBuilder().WithSensorEnabled(true).Build()));
+  {
+    sar::config::SarRuntimeConfigPatch sar_on;
+    sar_on.has_sensor_enabled = true;
+    sar_on.sensor_enabled = true;
+    EXPECT_TRUE(scene.platform().Find<ca::SarSensorComponent>()->TryApplyRuntimeConfig(sar_on));
+  }
   scene.DriveCycle(3U);
   EXPECT_TRUE(scene.platform().Find<ca::SarSensorComponent>()->powered_on());
 }
@@ -522,8 +546,12 @@ TEST(SensorQueryGettersTest, PowerOffFreezesSessionUntilReenabled) {
   EXPECT_FLOAT_EQ(scene.platform().Find<ca::SbirsSensorComponent>()->scan_azimuth_deg(), 310.0f);
 
   // 下电：关机两个周期，组件短路（不驱动会话），角度清零。
-  EXPECT_TRUE(scene.platform().Find<ca::SbirsSensorComponent>()->TryApplyRuntimeConfig(
-      sbirs_sensor::config::SbirsRuntimeConfigBuilder().WithSensorEnabled(false).Build()));
+  {
+    sbirs_sensor::config::SbirsRuntimeConfigPatch sbirs_off;
+    sbirs_off.has_sensor_enabled = true;
+    sbirs_off.sensor_enabled = false;
+    EXPECT_TRUE(scene.platform().Find<ca::SbirsSensorComponent>()->TryApplyRuntimeConfig(sbirs_off));
+  }
   scene.DriveCycle(2U);
   scene.DriveCycle(3U);
   EXPECT_FALSE(scene.platform().Find<ca::SbirsSensorComponent>()->powered_on());
@@ -531,8 +559,12 @@ TEST(SensorQueryGettersTest, PowerOffFreezesSessionUntilReenabled) {
 
   // 重新上电：相位从关机前冻结处继续（310° 基础上仅推进一个周期 → 320°）；
   // 若关机期间被驱动，相位会多推进两个周期（→ 340°），断言即失败。
-  EXPECT_TRUE(scene.platform().Find<ca::SbirsSensorComponent>()->TryApplyRuntimeConfig(
-      sbirs_sensor::config::SbirsRuntimeConfigBuilder().WithSensorEnabled(true).Build()));
+  {
+    sbirs_sensor::config::SbirsRuntimeConfigPatch sbirs_on;
+    sbirs_on.has_sensor_enabled = true;
+    sbirs_on.sensor_enabled = true;
+    EXPECT_TRUE(scene.platform().Find<ca::SbirsSensorComponent>()->TryApplyRuntimeConfig(sbirs_on));
+  }
   scene.DriveCycle(4U);
   EXPECT_TRUE(scene.platform().Find<ca::SbirsSensorComponent>()->powered_on());
   // 310° + 10° = 320°。
@@ -656,14 +688,30 @@ TEST(SensorQueryGettersTest, LastDebugViewClearedOnPowerOff) {
   EXPECT_EQ(scene.platform().Find<ca::SbirsSensorComponent>()->LastDebugView().targets.size(), 1U);
   EXPECT_EQ(scene.platform().Find<ca::SarSensorComponent>()->LastDebugView().input_cycle_index, 1U);
 
-  EXPECT_TRUE(scene.platform().Find<ca::ArSensorComponent>()->TryApplyRuntimeConfig(
-      airborne_radar::config::ArRuntimeConfigBuilder().WithSensorEnabled(false).Build()));
-  EXPECT_TRUE(scene.platform().Find<ca::EosSensorComponent>()->TryApplyRuntimeConfig(
-      electro_optical_sensor::config::EosRuntimeConfigBuilder().WithSensorEnabled(false).Build()));
-  EXPECT_TRUE(scene.platform().Find<ca::SbirsSensorComponent>()->TryApplyRuntimeConfig(
-      sbirs_sensor::config::SbirsRuntimeConfigBuilder().WithSensorEnabled(false).Build()));
-  EXPECT_TRUE(scene.platform().Find<ca::SarSensorComponent>()->TryApplyRuntimeConfig(
-      sar::config::SarRuntimeConfigBuilder().WithSensorEnabled(false).Build()));
+  {
+    airborne_radar::config::ArRuntimeConfigPatch ar_off;
+    ar_off.has_sensor_enabled = true;
+    ar_off.sensor_enabled = false;
+    EXPECT_TRUE(scene.platform().Find<ca::ArSensorComponent>()->TryApplyRuntimeConfig(ar_off));
+  }
+  {
+    electro_optical_sensor::config::EosRuntimeConfigPatch eos_off;
+    eos_off.has_sensor_enabled = true;
+    eos_off.sensor_enabled = false;
+    EXPECT_TRUE(scene.platform().Find<ca::EosSensorComponent>()->TryApplyRuntimeConfig(eos_off));
+  }
+  {
+    sbirs_sensor::config::SbirsRuntimeConfigPatch sbirs_off;
+    sbirs_off.has_sensor_enabled = true;
+    sbirs_off.sensor_enabled = false;
+    EXPECT_TRUE(scene.platform().Find<ca::SbirsSensorComponent>()->TryApplyRuntimeConfig(sbirs_off));
+  }
+  {
+    sar::config::SarRuntimeConfigPatch sar_off;
+    sar_off.has_sensor_enabled = true;
+    sar_off.sensor_enabled = false;
+    EXPECT_TRUE(scene.platform().Find<ca::SarSensorComponent>()->TryApplyRuntimeConfig(sar_off));
+  }
   scene.DriveCycle(2U);
 
   // 关机周期：四通道调试视图均为默认清零快照（无残留目标行/周期号）。

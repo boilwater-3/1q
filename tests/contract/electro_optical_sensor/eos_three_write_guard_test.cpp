@@ -19,7 +19,7 @@
 #include <cstdint>
 #include <limits>
 
-#include "1q/electro_optical_sensor/config/EosRuntimeConfigBuilder.h"
+#include "1q/electro_optical_sensor/config/EosRuntimeConfigPatch.h"
 #include "1q/electro_optical_sensor/config/EosSessionConfig.h"
 #include "1q/electro_optical_sensor/session/EosCycleInput.h"
 #include "1q/electro_optical_sensor/session/EosCycleResult.h"
@@ -95,8 +95,10 @@ TEST(EosThreeWriteGuardTest, PoweredOffAbortWritesAllThree) {
   const session::EosCycleResult active = session.StepWithResult(MakeValidInput());
   ASSERT_EQ(active.status, session::EosCycleStatus::kCompleted);
 
-  (void)session.TryApplyRuntimeConfig(
-      config::EosRuntimeConfigBuilder().WithSensorEnabled(false).Build());
+  config::EosRuntimeConfigPatch power_off;
+  power_off.has_sensor_enabled = true;
+  power_off.sensor_enabled = false;
+  (void)session.TryApplyRuntimeConfig(power_off);
 
   const session::EosCycleResult powered_off = session.StepWithResult(MakeValidInput(2U));
   ExpectThreeWriteAbort(powered_off, session::EosPipelineAbortReason::kSensorPoweredOff,

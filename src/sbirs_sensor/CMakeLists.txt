@@ -19,8 +19,6 @@ set(SBIRS_ENGINE_SOURCES
 )
 
 set(SBIRS_CORE_SOURCES
-    session/SbirsSessionConfigBuilder.cpp
-    session/SbirsRuntimeConfigBuilder.cpp
     session/SbirsSessionConfigValidation.cpp
     session/SbirsInputValidation.cpp
     session/SbirsCycleInputAdapter.cpp

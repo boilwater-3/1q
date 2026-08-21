@@ -1,20 +1,17 @@
-﻿// @file SarSessionConfigBuilder.cpp
-// @brief Implementation of SarSessionConfigBuilder (thin wrapper).
+﻿// @file SarSessionConfigValidation.cpp
+// @brief Session-config validation for synthetic aperture radar.
 
-#include "1q/sar/config/SarSessionConfigBuilder.h"
+#include "1q/sar/config/SarSessionConfigValidation.h"
 
 #include <cmath>
 #include <cstddef>
 #include <string>
 #include <utility>
 
-#include "1q/sar/config/SarSessionConfigValidation.h"
 #include "1q/sar/session/SarIssueCodes.h"
 
 namespace sar {
 namespace config {
-
-config::SarSessionConfig SarSessionConfigBuilder::Build() const noexcept { return config_; }
 
 session::SarIssueList ValidateSarSessionConfig(const config::SarSessionConfig& config) noexcept {
   session::SarIssueList issues;

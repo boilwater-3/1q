@@ -4,7 +4,7 @@
 #include <limits>
 
 #include "1q/sar/config/SarProfileConstants.h"
-#include "1q/sar/config/SarSessionConfigBuilder.h"
+#include "1q/sar/config/SarSessionConfig.h"
 #include "1q/sar/config/SarSessionConfigValidation.h"
 #include "1q/sar/session/SarSession.h"
 #include "sar/session/SarRuntimeConfigValidation.h"
@@ -14,8 +14,7 @@ namespace config {
 namespace {
 
 TEST(SarSessionConfigBuilderTest, DefaultBuildKeepsConfigDefaults) {
-  SarSessionConfigBuilder builder;
-  const SarSessionConfig config = builder.Build();
+  const SarSessionConfig config;
 
   // 未设置任何语义常量，应保持 struct 默认值。
   EXPECT_DOUBLE_EQ(config.mission.nominal_slant_range_m, 15000.0);
