@@ -25,7 +25,7 @@ A static library of simulation models for external service modules — airborne 
 - Build before test, serially, same preset; presets may run in parallel. Log prefix `/tmp/1q`, ctest `-j 4`.
 - Verify focused: `ctest --preset <preset> -R "unit::<module>"`. Do not run full debug-local suites; full suites run on release-local only (`/completeness-review`).
 - macOS mainline: `llvm-ninja-*` presets; daily dev uses `*-local` variants from per-machine `CMakeUserPresets.json`; prefer release (JSBSim ~6× faster); take install paths from the preset's actual binaryDir (`llvm-ninja-release` has no `-local` suffix).
-- Windows local: `VisualStudio.15.0-amd64` (v141, multi-config). Environment, troubleshooting, delivery runbook: `docs/practice/windows_local_build.md`.
+- Windows local: `VisualStudio.15.0-amd64` (v141, multi-config). Entry is `scripts/1q.sh` (Git Bash or WSL). Environment, troubleshooting, delivery runbook: `docs/practice/windows_local_build.md`.
 
 ### macOS command flow
 
@@ -44,26 +44,24 @@ ctest --preset "$preset" -R "unit::<module>" --output-on-failure -j 4
 cmake --install "build/${preset}"   # packaging only
 ```
 
-### Windows command flow (v141; Git Bash only)
+### Windows command flow (v141)
 
-Rules: use Git Bash, never WSL (`scripts/1q.sh doctor` to verify); build only the needed target; BOM is auto-fixed by the pre-commit hook; batch SEH/`bad_alloc` after header-layout changes → `scripts/1q.sh clean-stale VisualStudio.15.0-amd64 <module>`, then rebuild.
+Use `scripts/1q.sh` from Git Bash or WSL. `doctor` must show Windows `cmake=` / `ctest=` paths. Do not point a Linux-native cmake at `VisualStudio.*` presets. Build only the needed target; BOM is auto-fixed by the pre-commit hook. After public-header layout changes, batch SEH `0xc0000005` / spurious `bad_alloc` → `scripts/1q.sh clean-stale VisualStudio.15.0-amd64 <module>`, then rebuild.
 
 One-time:
 
 ```bash
 source scripts/activate_1q_git_bash.sh
-bash scripts/bootstrap_conan.sh VisualStudio.15.0-amd64
-cmake --preset VisualStudio.15.0-amd64
+scripts/1q.sh bootstrap VisualStudio.15.0-amd64
+scripts/1q.sh configure VisualStudio.15.0-amd64
 ```
 
 Daily:
 
 ```bash
-cmake --build --preset VisualStudio.15.0-amd64-release --target 1q_<module>_unit_tests
-ctest --preset VisualStudio.15.0-amd64-release -R "unit::<module>" --output-on-failure -j 4
+scripts/1q.sh build VisualStudio.15.0-amd64-release --target 1q_<module>_unit_tests
+scripts/1q.sh test VisualStudio.15.0-amd64-release -R "unit::<module>"
 ```
-
-Entry: `scripts/1q.sh {bootstrap,configure,build,test,clean-stale,doctor}`. Gate: `.cursor/rules/windows-git-bash-build.mdc`.
 
 ### Delivery tier (VS2015 customer integration)
 

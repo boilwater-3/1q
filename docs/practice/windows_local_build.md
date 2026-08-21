@@ -8,6 +8,10 @@ CLAUDE.md 只保留命令流；本文件承载 Windows 本机开发的环境说�
 VS2015 交付档手册与历史事件。会话门禁的权威简版见
 `.cursor/rules/windows-git-bash-build.mdc`。
 
+入口是 `scripts/1q.sh`：包装脚本 exec Windows 的 `cmake.exe` / `ctest.exe`，
+因此 **Git Bash 与 Cursor/WSL bash 的日常编测命令相同**。二者并不等价——WSL
+里的 Linux 原生 cmake/ctest 不能拿去配 `VisualStudio.*` preset。
+
 ## 平台差异总览（macOS 主线 vs Windows v141）
 
 macOS 是开发/CI 主线（完整 Conan 依赖集）；本机 Windows 使用 legacy v141 工具集
@@ -29,26 +33,29 @@ binaryDir 是 `build/llvm-ninja-release`（无 `-local` 后缀的历史遗留）
 
 ## 一次性环境准备
 
-1. **Git Bash**（本机 Windows 开发唯一合法 shell；WSL/system32 bash 不注入 PATH 且
-   解析不了 `ctest.exe`）。Cursor/VS Code 打开本仓库时默认终端已由仓库提交的
-   `.vscode/settings.json` 锁定为 Git Bash。
-2. `source scripts/activate_1q_git_bash.sh`（建议写入 `~/.bashrc` 持久化；activate
+1. **壳 / `1q.sh`**：Git Bash（MINGW）或 Cursor 落到的 WSL bash 均可，前提是
+   `source scripts/activate_1q_git_bash.sh` 后 `scripts/1q.sh doctor` 能解析到
+   Windows `cmake`/`ctest`（`scripts/bin` 包装或 `*.exe`）。不要用 Linux 自带
+   cmake 去配 `VisualStudio.*`。Cursor 打开本仓库时，用户集成终端默认仍是
+   Git Bash（`.vscode/settings.json`）；Agent 若在 WSL 里，同样走 `1q.sh`。
+2. `source scripts/activate_1q_git_bash.sh`（Git Bash 可写入 `~/.bashrc`；activate
    会补 cmake/ctest PATH、自愈 `core.hooksPath=.githooks`）。机器本地 cmake 路径
    覆盖：`scripts/1q_env.local.sh`（模板见 `.example`，已 gitignore）。
 3. 建议把仓库目录加入 Windows Defender 排除（管理员 PowerShell：
    `Add-MpPreference -ExclusionPath 'D:\1q\1q'`），减少 `.obj` 文件锁并提速构建。
 
-自检：`scripts/1q.sh doctor`——`cmake=`/`ctest=` 有路径、`uname` 为 MINGW*/MSYS*、
-无 `SHELL_WARNING`。
+自检：`scripts/1q.sh doctor`——`cmake=`/`ctest=` 有路径。WSL 下 `uname=Linux` 且
+出现 `SHELL_NOTE` 不算失败；`SHELL_WARNING` 或 `ctest=NOT FOUND` 才需要修 PATH。
 
 ## 排障顺序（避免打转）
 
 按序归因，**禁止跳过前几步去改业务代码碰运气**：
 
-1. **壳/PATH**：`uname -s` 须 MINGW*/MSYS*。若是 `Linux` + `/mnt/d/...` 路径 →
-   在 WSL 里，换 Git Bash。错误壳的典型症状：“cmake 能跑、ctest NOT FOUND、
-   构建测试反复空转”。
-2. **doctor**：见上；失败先修壳/PATH。
+1. **壳/PATH**：先 `source scripts/activate_1q_git_bash.sh && scripts/1q.sh doctor`。
+   `cmake=`/`ctest=` 必须有路径。WSL（`uname=Linux` + `/mnt/d/...`）可继续，只要
+   `1q.sh` 能 exec 到 Windows `cmake.exe`/`ctest.exe`。真正的失败态是 `ctest=NOT FOUND`
+   或误用 Linux `/usr/bin/ctest` 去跑 VisualStudio 测试树。
+2. **doctor**：见上；失败先修 PATH / `ONEQ_CMAKE_ROOT`，不要换业务代码碰运气。
 3. **BOM**：带中文注释的 `.h/.cpp` 缺 UTF-8 BOM → C4819/C1083 类问题。
    pre-commit 钩子会在提交时自动补齐；**禁止**删中文注释来消 C4819。
 4. **陈旧产物/文件锁**：见下节。

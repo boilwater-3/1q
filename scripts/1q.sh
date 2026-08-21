@@ -37,13 +37,11 @@ doctor() {
   echo "ONEQ_ROOT=${ONEQ_ROOT}"
   echo "ONEQ_CMAKE_ROOT=${ONEQ_CMAKE_ROOT:-<unset>}"
   echo "uname=$(uname -s 2>/dev/null || echo unknown)"
+  _wsl_windows_repo=0
   case "$(uname -s 2>/dev/null || true)" in
-    MINGW*|MSYS*|CYGWIN*) ;;
     Linux*)
       if [[ "${ONEQ_ROOT}" == /mnt/?/* || "${ONEQ_ROOT}" == /d/* || "${ONEQ_ROOT}" == /D/* ]]; then
-        echo "SHELL_WARNING=Cursor/WSL bash detected on a Windows repo path."
-        echo "  Windows v141 builds MUST use Git Bash (MINGW), not WSL or system32 bash."
-        echo "  Symptom: ctest=NOT FOUND (WSL does not resolve ctest.exe as ctest)."
+        _wsl_windows_repo=1
       fi
       ;;
   esac
@@ -59,7 +57,18 @@ doctor() {
   else
     echo "ctest=NOT FOUND"
   fi
-  unset _ctest
+  if [[ "${_wsl_windows_repo}" -eq 1 ]]; then
+    if [[ -n "${_ctest}" ]]; then
+      echo "SHELL_NOTE=WSL bash on a Windows repo path."
+      echo "  Daily build/test: scripts/1q.sh (wrappers exec Windows cmake.exe/ctest.exe)."
+      echo "  Do not use Linux-native cmake/ctest against VisualStudio.* presets."
+    else
+      echo "SHELL_WARNING=WSL bash cannot resolve ctest.exe."
+      echo "  source scripts/activate_1q_git_bash.sh so scripts/bin/ctest is on PATH."
+      echo "  Do not invoke Linux /usr/bin/ctest against a VisualStudio build tree."
+    fi
+  fi
+  unset _ctest _wsl_windows_repo
   echo "ONEQ_REAL_CMAKE=${ONEQ_REAL_CMAKE:-<unset>}"
   echo "ONEQ_GIT_BASH_ACTIVATED=${ONEQ_GIT_BASH_ACTIVATED:-0}"
 }
@@ -122,7 +131,7 @@ case "${cmd}" in
     _ctest="$(_oneq_resolve_ctest || true)"
     if [[ -z "${_ctest}" ]]; then
       echo "[1q.sh test] ctest not found. Run: source scripts/activate_1q_git_bash.sh && scripts/1q.sh doctor" >&2
-      echo "  On Windows use Git Bash (MINGW). WSL/system32 bash cannot see ctest.exe as 'ctest'." >&2
+      echo "  Wrappers exec Windows ctest.exe from Git Bash or WSL. Do not use Linux /usr/bin/ctest." >&2
       exit 127
     fi
     exec "${_ctest}" --preset "${preset}" "${extra[@]}"

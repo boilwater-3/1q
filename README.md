@@ -49,7 +49,7 @@ cmake --install build/llvm-ninja-release-local   # installs to build/install/<pr
 - Preset: `VisualStudio.15.0-amd64` (VS2026 generator + legacy v141/14.16 toolset, multi-config; the build preset's `--config` selects Debug/Release).
 - Dependency differences: no spdlog/fmt (replaced by the built-in file-logging backend), no HighFive, no JSBSim.
 - Examples build on Windows too: enable with `-DENABLE_EXAMPLES=ON`. The `component_attachment` integration logger runs its own `std::ofstream` file backend on Windows (`CA_LOG_BACKEND_SPDLOG=0`, same log-line text as the spdlog branch); `integration_events.log` / `integration_views.log` / `1q_library.log` all land under the demo's `--output-dir`.
-- Bootstrap, configure, build, and test run in Git Bash. Since 2026-08-21 the machine's 64-bit registry `KitsRoot10` points at the real Windows SDK again, so raw-directory builds work and presets no longer inject `UCRTContentRoot`; build presets (`cmake --build --preset ...` / `scripts/1q.sh`) remain the recommended entry.
+- Bootstrap, configure, build, and test go through `scripts/1q.sh` (Git Bash or WSL). Since 2026-08-21 the machine's 64-bit registry `KitsRoot10` points at the real Windows SDK again, so raw-directory builds work and presets no longer inject `UCRTContentRoot`; build presets (`scripts/1q.sh` / `cmake --build --preset ...`) remain the recommended entry.
 
 ```bash
 bash scripts/bootstrap_conan.sh VisualStudio.15.0-amd64
