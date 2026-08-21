@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+# 1Q ctest 包装：与 scripts/bin/cmake 同会话注入 1q_env，并解析 Windows ctest.exe。
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=../lib/1q_env.sh
+source "${SCRIPT_DIR}/../lib/1q_env.sh"
+
+if command -v ctest >/dev/null 2>&1; then
+  exec ctest "$@"
+fi
+if [[ -n "${ONEQ_REAL_CMAKE:-}" ]]; then
+  _dir="$(dirname "${ONEQ_REAL_CMAKE}")"
+  for _c in "${_dir}/ctest.exe" "${_dir}/ctest"; do
+    if [[ -x "${_c}" || -f "${_c}" ]]; then
+      exec "${_c}" "$@"
+    fi
+  done
+fi
+echo "[1q ctest] 未找到 ctest；请 source scripts/activate_1q_git_bash.sh 并确认 ONEQ_CMAKE_ROOT。" >&2
+exit 127

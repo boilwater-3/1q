@@ -11,6 +11,7 @@
 #include <utility>
 
 #include "common/logging/ProjectLog.h"
+#include "common/tracking/TrackLifecyclePromote.h"
 
 namespace remote_identification_radar {
 namespace tracking {
@@ -342,31 +343,29 @@ void RirTrackLifecycle::RestoreRuntimeState(const RirLifecycleRuntimeState& stat
 
 bool RirTrackLifecycle::PromoteState(RirTrackState* track, std::uint32_t cycle_index,
                                      bool hit_this_cycle) {
-  if (hit_this_cycle) {
-    if (track->status == RirTrackStatus::kLost ||
-        (track->status == RirTrackStatus::kTentative &&
-         track->hit_count >= lifecycle_config_.confirm_hits)) {
-      track->status = RirTrackStatus::kConfirmed;
-    }
-    return false;
-  }
+  oneq::common::tracking::TrackLifecycleCounters counters;
+  counters.status = static_cast<oneq::common::tracking::TrackLifecyclePhase>(
+      static_cast<std::uint8_t>(track->status));
+  counters.hit_count = track->hit_count;
+  counters.miss_count = track->miss_count;
+  counters.last_update_cycle = track->last_update_cycle;
+  counters.generation = track->generation;
 
-  track->miss_count += 1U;
-  if (track->status == RirTrackStatus::kTentative || track->status == RirTrackStatus::kConfirmed) {
-    if (track->miss_count > lifecycle_config_.max_miss_before_lost) {
-      track->status = RirTrackStatus::kLost;
-    }
-    return false;
-  }
+  oneq::common::tracking::TrackLifecyclePromotePolicy policy;
+  policy.confirm_hits = lifecycle_config_.confirm_hits;
+  policy.max_miss_before_lost = lifecycle_config_.max_miss_before_lost;
+  policy.max_lost_cycles = lifecycle_config_.max_lost_cycles;
+  policy.extra_miss_tolerance = 0U;
+  policy.suppress_confirm = false;
+  policy.recycle_as_status = false;
 
-  if (track->status == RirTrackStatus::kLost) {
-    const std::uint32_t lost_cycles =
-        cycle_index >= track->last_update_cycle ? (cycle_index - track->last_update_cycle) : 0U;
-    if (lost_cycles > lifecycle_config_.max_lost_cycles) {
-      return true;
-    }
-  }
-  return false;
+  const bool should_recycle = oneq::common::tracking::PromoteTrackLifecycle(
+      &counters, cycle_index, hit_this_cycle, policy);
+
+  track->status = static_cast<RirTrackStatus>(static_cast<std::uint8_t>(counters.status));
+  track->hit_count = counters.hit_count;
+  track->miss_count = counters.miss_count;
+  return should_recycle;
 }
 
 void RirTrackLifecycle::ApplyGaussianState(RirTrackState* track, const RirGaussianState& state,

@@ -1,6 +1,6 @@
 ---
 Status: active
-Last-reviewed: 2026-08-20
+Last-reviewed: 2026-08-21
 Authority: RIR 算法登记与实现边界
 Answers: RIR 每个算法做什么、实现边界在哪、哪些反直觉、哪些刻意不做
 ---
@@ -14,19 +14,19 @@ RIR 自持链路生产的内部航迹，不再消费外部航迹供给。
 
 | 算法 | 位置 | 输入 → 输出 | 边界与反直觉点 |
 |---|---|---|---|
-| 波束状态解析 | `dwell/RirBeamControl.h` | 驻留调度给定波束中心 + 目标视线角 + 天线配置 → 有效宽度/指向/单程增益 | 调度器给指向、RIR 信指向：不重算、不吸附；方位离轴差经 NormalizeAzimuthDeltaDeg 折算；视线角有效性 = 位置范数 > 0.1 m（AR TargetLookResolver 同口径），无效回退主瓣峰值增益；主/回退两分支波长同源（λ/L 物理推导一致喂量测误差模型） |
-| 自发射构建 | `dwell/RirEmissionFactory.cpp` | hardware + 周期上下文 → `RfSceneEmission` | 无 ECCM；功率包络钳制；ECEF 波束指向；载频由频率计划/周期索引解析；驻留窗脉冲数按 ceil(窗/PRI) 计（AR PrepareRfCycle 同口径），下限 1 |
-| 接收机状态 | `dwell/RirReceiverStateBuilder.cpp` | 自发射 + hardware → `RirReceiverOperatingState` | 与 AR 同口径 RF 接收机参数；供前端聚合与 detection cell |
+| 波束状态解析 | `dwell/RirBeamControl.h` → `common/radar/FrozenBeamResolve.h` | 驻留调度给定波束中心 + 目标视线角 + 天线配置 → 有效宽度/指向/单程增益 | 冻结变体 common 单源（`normalize_azimuth_delta=true`）；调度器给指向、RIR 信指向；视线角有效性 = 位置范数 > 0.1 m；无效回退主瓣峰值增益 |
+| 自发射构建 | `dwell/RirEmissionFactory.cpp` | hardware + 周期上下文 → `RfSceneEmission` | 无 ECCM；功率包络钳制；ECEF 波束指向；载频由频率计划/周期索引解析；驻留窗脉冲数按 ceil(窗/PRI) 计（AR PrepareRfCycle 同口径），下限 1 — **可提取核心，阶段 3b 未迁** |
+| 接收机状态 | `dwell/RirReceiverStateBuilder.cpp` | 自发射 + hardware → `RirReceiverOperatingState` | 与 AR 同口径 RF 接收机参数；供前端聚合与 detection cell — **可提取核心，阶段 3b 未迁** |
 | RF 前端求解 | `dwell/RirRfFrontEndResolver.cpp` | 合并场景（外部 + 自发射）+ 接收机 → incident links | 按 emission_id 排序；饱和标志独立暴露；集成方只供外部 emission |
-| 有效 RCS | `dwell/RirEffectiveRcs.cpp` | 场景目标 + 视线角 + `rcs_physics` → m² | AR 同口径 Swerling/视角/物理配置；写入 detection cell 目标 `rcs_m2` |
-| 逐目标大气物理损耗 | `runtime/RirController.cpp`（`ComputeTargetAtmosphericLossDb`） | 周期载频 + 平台/目标几何（斜距/海拔/仰角）+ 气象观测 → 大气附加损耗 dB | common 大气单源（`BuildPropagationInputs`+`EvaluateAtmosphericPropagation`），与 AR 信号层同口径；叠加进全局植被/天气损耗（cell 与回退两路径）；k 因子按气象派生；`enable_physical_model=false`（默认）时为 0 |
-| 检测单元求解 | `dwell/RirDetectionCellResolver.cpp` | 目标回波事实 + 库内 incident links + 增益偏置 → 分项 SINR 账本 | 干扰按目标单元时频重叠聚合；四增益偏置缺省 0 dB 等于保守账本；自身发射身份不计干扰；环境杂波按"相对热噪 dB"换算为瓦（common 单源 `ComputeEquivalentClutterNoiseW`，与 AR 同口径，非绝对 dBW）；匹配滤波带宽取本周期波形实际占用带宽（AR 同口径，当前与 hardware bandwidth_hz 恒等） |
-| 统计级 CFAR | `dwell/RirSignalDetector.cpp` | SNR + Swerling + Pfa → Pd → 蒙特卡洛判决 | 不是 CA-CFAR；`min_snr_db` 硬截断、`min_detection_margin_db` 可靠性门；同种子同判决 |
+| 有效 RCS | `dwell/RirEffectiveRcs.cpp` → `common/rcs/RcsPhysics`（`ComputeMixedPhysicalRcsM2`） | 场景目标 + 视线角 + `rcs_physics` → m² | 混合编排 common 单源；`carrier_hz<=0` 返回 input RCS（RIR 模块侧策略）；写入 detection cell 目标 `rcs_m2` |
+| 逐目标大气物理损耗 | `runtime/RirController.cpp` → `common/atmosphere`（`ComputeTargetAtmosphericPhysicsLossDb`） | 周期载频 + 平台/目标几何 + 气象观测 → 大气附加损耗 dB | common 标量胶水；enable/k_factor 留模块侧；叠加进全局植被/天气损耗；`enable_physical_model=false`（默认）时为 0 |
+| 检测单元求解 | `dwell/RirDetectionCellResolver.cpp` → `common/radar/DetectionCellResolver` | 目标回波事实 + 库内 incident links + 增益偏置 → 分项 SINR 账本 | common 单源；RIR 恒 `anti_rgpo=false`；四增益缺省 0 dB；杂波瓦经 `ComputeEquivalentClutterNoiseW` |
+| 统计级 CFAR | `dwell/RirSignalDetector.cpp` → `common/radar/StatisticalCfarDetector` | SNR + Swerling + Pfa → Pd → 蒙特卡洛判决 | 判决编排 common；不是 CA-CFAR；**6 dB 真值回退门不在本类**（`RirController` 仿真脚手架） |
 | 量测误差 | `dwell/RirMeasurementErrorModel.h` | SNR + 波束宽度 + 带宽 → 距离/角度标准差 | 距离偏置 20 m；角度两轴 RMS 合成；只供内部关联/滤波 |
-| LAPJV 全局最优关联 | `tracking/RirTrackAssociator.cpp` + `tracking/RirLapjvSolver.cpp`（common 单源 `src/common/optimization/LapjvSolver` 适配） | 检测量测 + 航迹种子 → 关联键/命中/新键 | 马氏平方波门（缺省 9）兼作未分配代价；方阵增广 + 哑行/列承担未分配；门外对填拒绝代价；键单调不回收复用 |
+| LAPJV 全局最优关联 | `tracking/RirTrackAssociator.cpp` + `common/tracking/GatedSquareAssignment.h` + `RirLapjvSolver` | 检测量测 + 航迹种子 → 关联键/命中/新键 | 方阵增广核 common；马氏平方波门（缺省 9）；键单调不回收复用 |
 | 单目标 KF | `tracking/RirTrackFilter.cpp` | 量测 + 先验状态 → 预测/更新后验 | 6 维 CV 状态；动态 R 更新；LLT 失败跳过更新；q/std 下限 0.001 钳制（AR SignalComponentFactory 工厂同口径） |
 | IMM 双路径 | `tracking/RirImmFilter.cpp` | 量测/失配 + 先验状态 → 组合后验 | 数值核 common `ImmFilter<6,3>`；缺省双模型 CV {1.0, 10.0} 对数等距；对角 0.95 转移；confirmed 命中激活、失配仅预测；命中更新走逐量测动态 R（与 AR 同口径，缺省量测噪声不参与数值）；UpdateConfig 在线热同步既有运行态（每模型 q/转移矩阵，AR SyncRuntimeTuning 同口径；模型数变化丢弃运行态、下次 confirmed 命中惰性重建）；缺省关闭 |
-| 航迹池与生命周期 | `tracking/RirTrackPool.cpp` + `tracking/RirTrackLifecycle.cpp` | 关联量测 + 周期上下文 → 内部航迹 | hit/miss 计数、confirm/lost/回收；lost 重捕获重置 KF；回收不回收关联键；槽位复用经 `generation` 单调递增标识；双重释放拒绝 |
+| 航迹池与生命周期 | `tracking/RirTrackPool.cpp` → `common/tracking/ObjectPool`；`RirTrackLifecycle` → `TrackLifecyclePromote` | 关联量测 + 周期上下文 → 内部航迹 | 池/PromoteState FSM common；RIR 无 `kRecycled` 中间态（回收即 erase）；双重释放拒绝 |
 | 驻留排序 | `runtime/RirController.cpp` | 上一周期内部航迹结论 + 场景目标 → 驻留候选顺序 | 未识别优先 + 斜距次近；威胁等级输入不参与；只决定候选顺序，不生成波束指向 |
 | 驻留调度（库内） | `session/RirSession.cpp` + `common/radar/ScanScheduleRuntime.h` | 相对体积 + scan_center + 指定任务状态 + 场景目标 → 本周期驻留波束中心 | 相对限位建波位 → center 平移 → 方位归一化；指定任务限位执行（越界 kOutsideSteerableVolume）；非法体积/步长回退 scan_center |
 | 指定识别任务（限时锁定） | `session/RirSession.cpp` | 指定（目标 ID + 窗口周期数）→ 任务生命周期（kPending/kAcquired/kExpired） | 镜像 AR designation 骨架；识别达成即任务完成回扫描（识别是离散结论，不持续跟随）；窗口耗尽作废（kAcquisitionTimeout） |

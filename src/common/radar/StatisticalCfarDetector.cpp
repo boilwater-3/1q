@@ -1,0 +1,82 @@
+﻿#include "common/radar/StatisticalCfarDetector.h"
+
+#include <algorithm>
+#include <cmath>
+
+namespace oneq {
+namespace common {
+namespace radar {
+
+StatisticalCfarDetector::StatisticalCfarDetector(float thermal_noise_w,
+                                                 StatisticalCfarPolicy policy)
+    : thermal_noise_w_(thermal_noise_w), policy_(policy), rng_(42u) {}
+
+void StatisticalCfarDetector::Update(float thermal_noise_w, StatisticalCfarPolicy policy) {
+  thermal_noise_w_ = thermal_noise_w;
+  policy_ = policy;
+}
+
+void StatisticalCfarDetector::SetRandomSeed(unsigned int seed) { rng_.seed(seed); }
+
+StatisticalCfarResult StatisticalCfarDetector::DetectFromEchoBudget(
+    float echo_power_dbw_after_receive_loss, float clutter_noise_w, float jam_noise_w,
+    SwerlingModel swerling, int pulse_count) {
+  StatisticalCfarResult result;
+  result.echo_power_dbw = echo_power_dbw_after_receive_loss;
+
+  const float echo_power_w = std::pow(10.0f, result.echo_power_dbw / 10.0f);
+  const float kNoiseFloorW = 1e-30f;
+  const float safe_thermal_noise_w = std::max(thermal_noise_w_, 0.0f);
+  const float safe_clutter_noise_w = std::max(clutter_noise_w, 0.0f);
+  const float safe_jam_noise_w = std::max(jam_noise_w, 0.0f);
+  const float total_noise_w =
+      std::max(safe_thermal_noise_w + safe_clutter_noise_w + safe_jam_noise_w, kNoiseFloorW);
+
+  const float base_snr_linear = echo_power_w / total_noise_w;
+  result.snr_db = 10.0f * std::log10(base_snr_linear + kNoiseFloorW);
+
+  const int effective_pulse_count = std::max(1, pulse_count);
+  result.detection_prob = RadarEquations::ComputeDetectionProbability(
+      result.snr_db, policy_.cfar_pfa, swerling, effective_pulse_count);
+
+  if (result.snr_db < policy_.min_snr_db) {
+    result.detected = false;
+    result.detection_prob = 0.0f;
+  } else {
+    result.detected = RadarEquations::ThresholdDecision(result.detection_prob, rng_);
+  }
+
+  if (result.detected && result.snr_db < policy_.min_detection_margin_db) {
+    result.detected = false;
+  }
+  return result;
+}
+
+StatisticalCfarResult StatisticalCfarDetector::DetectResolvedCell(
+    float echo_power_w, float processed_single_pulse_sinr_db, SwerlingModel swerling,
+    int pulse_count) {
+  StatisticalCfarResult result;
+  if (!std::isfinite(echo_power_w) || echo_power_w < 0.0f ||
+      !std::isfinite(processed_single_pulse_sinr_db) || pulse_count <= 0) {
+    return result;
+  }
+  constexpr double kLinearFloor = 1.0e-300;
+  result.echo_power_dbw =
+      static_cast<float>(10.0 * std::log10(std::max(static_cast<double>(echo_power_w), kLinearFloor)));
+  result.snr_db = processed_single_pulse_sinr_db;
+  result.detection_prob = RadarEquations::ComputeDetectionProbability(
+      result.snr_db, policy_.cfar_pfa, swerling, pulse_count);
+  if (result.snr_db < policy_.min_snr_db) {
+    result.detection_prob = 0.0f;
+    return result;
+  }
+  result.detected = RadarEquations::ThresholdDecision(result.detection_prob, rng_);
+  if (result.detected && result.snr_db < policy_.min_detection_margin_db) {
+    result.detected = false;
+  }
+  return result;
+}
+
+}  // namespace radar
+}  // namespace common
+}  // namespace oneq

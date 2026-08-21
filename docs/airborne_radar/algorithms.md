@@ -1,6 +1,6 @@
 ---
 Status: active
-Last-reviewed: 2026-08-20
+Last-reviewed: 2026-08-21
 Authority: AR 算法登记与实现边界
 Answers: AR 用了哪些算法/部件、各自实现到什么地步、边界在哪、哪些刻意不实现
 ---
@@ -18,12 +18,12 @@ public API 边界）见 [boundaries.md](boundaries.md)。
 | 配置映射与 runtime patch | 条件五域配置转内部工程配置；运行期变更可回滚提交 | session-wired | [evidence: tests/unit/airborne_radar/ar_session_config_builder_test.cpp] |
 | 环境冻结与传播 | pending/active scene 管理，冻结周期环境，传播损失/杂波/大气物理 | session-wired | [evidence: tests/unit/airborne_radar/ar_environment_service_test.cpp] |
 | 外部 RF 接入 | 以实际时频发射事实构建前端与 detection-cell 干扰账本，J/N 门控后去真值化观测 | session-wired | [evidence: tests/unit/airborne_radar/ar_rf_front_end_resolver_test.cpp] |
-| 扫描和波束控制 | 解析扫描中心、坐标组合、波束增益和波束宽度；TWS/TAS 生效模式下 session 级指向逐周期按扫描表推进 | session-wired | [evidence: tests/unit/airborne_radar/ar_signal_scan_schedule_test.cpp] |
+| 扫描和波束控制 | 解析扫描中心、坐标组合、波束增益和波束宽度；冻结指向变体走 `common/radar/FrozenBeamResolve`；TWS/TAS 生效模式下 session 级指向逐周期按扫描表推进 | session-wired | [evidence: tests/unit/airborne_radar/ar_signal_scan_schedule_test.cpp] |
 | STT 指定航迹跟随指向 | 外部只指定目标，STT 波束指向由指定航迹位置换算（优先级：显式 dwell > 航迹 > scan_center） | session-wired | [evidence: tests/unit/airborne_radar/ar_stt_track_follow_test.cpp] |
 | 指定目标生命周期回退 | 指定航迹未确认/丢失时 STT 自动回退 TWS；限时指令窗口耗尽未捕获时作废（kAcquisitionTimeout），经 L2 结果/L3 视图/生命周期事件暴露 | session-wired | [evidence: tests/unit/airborne_radar/ar_stt_track_follow_test.cpp] |
-| 统一物理探测与工程 RF 干扰链 | 实际发射→echo→incident RF→前端账本→检测单元→判决的单一物理链 | session-wired | [evidence: tests/unit/airborne_radar/ar_signal_pipeline_test.cpp] |
-| 数据关联 | 位置量测、协方差和 track seeds 的 LAPJV assignment | session-wired | [evidence: tests/unit/airborne_radar/ar_signal_association_test.cpp] |
-| 航迹过滤与生命周期 | KF/IMM(KF) 更新航迹、missed detection、确认/丢失/回收、反欺骗抑制 | session-wired | [evidence: tests/unit/airborne_radar/ar_track_filter_test.cpp] |
+| 统一物理探测与工程 RF 干扰链 | 实际发射→echo→incident RF→前端账本→检测单元→判决；大气胶水/`DetectionCellResolver`/`StatisticalCfarDetector`/RCS 混合为 common 单源 | session-wired | [evidence: tests/unit/airborne_radar/ar_signal_pipeline_test.cpp; ar_detection_cell_resolver_test.cpp; ar_signal_detection_test.cpp] |
+| 数据关联 | 位置量测、协方差和 track seeds 的 LAPJV assignment（方阵增广核见 `common/tracking/GatedSquareAssignment`；AR 反欺骗/Hypothesiser 留模块侧） | session-wired | [evidence: tests/unit/airborne_radar/ar_signal_association_test.cpp] |
+| 航迹过滤与生命周期 | KF/IMM(KF) 更新航迹；池=`common/tracking/ObjectPool`；PromoteState=`TrackLifecyclePromote`；反欺骗为模块侧钩子 | session-wired | [evidence: tests/unit/airborne_radar/ar_track_lifecycle_test.cpp; ar_track_filter_test.cpp] |
 | 战术协调 | 威胁评估、LPI、ECCM、关联压力补触发、状态清理 | session-wired | [evidence: tests/unit/airborne_radar/ar_decision_layer_test.cpp] |
 | 控制归约 | proposal 冲突、保持窗口、冷却和下一周期控制配置 | session-wired | [evidence: tests/unit/airborne_radar/ar_tactical_coordinator_test.cpp] |
 | 专项序列验证 | 公开 Session 边界六类跨周期序列 | session-wired | `tests/consumer/batch_validation/ar_batch_validation.cpp` |

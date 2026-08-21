@@ -44,21 +44,10 @@ float ComputeTargetSpecificAtmosphericLossDb(
   obs.temperature_k = environment_snapshot.atmospheric_physics.temperature_k;
   obs.relative_humidity = environment_snapshot.atmospheric_physics.relative_humidity;
   obs.k_factor = environment_snapshot.effective_k_factor;
-  const auto inputs = oneq::common::atmosphere::BuildPropagationInputs(
-      exec_config.detection.engineering.transmitter.frequency_hz, std::max(geometry.range_m, 0.1f),
+  return oneq::common::atmosphere::ComputeTargetAtmosphericPhysicsLossDb(
+      exec_config.detection.engineering.transmitter.frequency_hz, geometry.range_m,
       platform_altitude_m, std::max(platform_altitude_m + geometry.position_m.z(), 0.0f),
-      geometry.look_angles_deg.has_look_angles ? geometry.look_angles_deg.look_el_deg : 0.0f, obs);
-  return oneq::common::atmosphere::EvaluateAtmosphericPropagation(inputs).total_physics_loss_db;
-}
-
-float ComputeEquivalentRadiusM(float input_rcs_m2,
-                               const config::engineering::RcsPhysicsConfig& rcs_config) {
-  const float min_radius_m = std::max(rcs_config.min_equivalent_radius_m, 1.0e-3f);
-  const float max_radius_m = std::max(rcs_config.max_equivalent_radius_m, min_radius_m);
-  const float safe_input_rcs_m2 = std::max(input_rcs_m2, 0.0f);
-  const float equivalent_radius_m =
-      std::sqrt(safe_input_rcs_m2 / static_cast<float>(oneq::common::numerics::kPi));
-  return oneq::common::numerics::Clamp(equivalent_radius_m, min_radius_m, max_radius_m);
+      geometry.look_angles_deg.look_el_deg, geometry.look_angles_deg.has_look_angles, obs);
 }
 
 float ComputeEffectiveTargetRcsM2(const session::ArSceneTarget& target,
@@ -67,59 +56,24 @@ float ComputeEffectiveTargetRcsM2(const session::ArSceneTarget& target,
   const float input_rcs_m2 = std::max(target.rcs, 0.0f);
   const config::engineering::RcsPhysicsConfig& rcs_config =
       exec_config.detection.engineering.rcs_physics;
-  if (!rcs_config.enable_physical_rcs) {
-    return input_rcs_m2;
-  }
-
-  const float mix_ratio = oneq::common::numerics::Clamp(rcs_config.physics_mix_ratio, 0.0f, 1.0f);
-  if (mix_ratio <= 0.0f) {
-    return input_rcs_m2;
-  }
-
-  // 与 RIR 同口径：k0 取本周期实际发射载频（频率捷变下物理 RCS 随跳频点波动）；
-  // carrier_hz 非正（v1 无冻结波形事实）时回退静态 transmitter.frequency_hz。
+  // carrier_hz 非正（v1 无冻结波形事实）时回退静态 transmitter.frequency_hz（模块侧策略）。
   const float frequency_hz = carrier_hz > 0.0f
                                  ? carrier_hz
                                  : exec_config.detection.engineering.transmitter.frequency_hz;
-  if (frequency_hz <= 0.0f) {
-    return input_rcs_m2;
-  }
 
-  const float wavenumber_k0 = 2.0f * static_cast<float>(oneq::common::numerics::kPi) *
-                              frequency_hz /
-                              static_cast<float>(oneq::common::numerics::kLightSpeed);
-  if (wavenumber_k0 <= 0.0f) {
-    return input_rcs_m2;
-  }
+  oneq::common::rcs::RcsPhysicsParams params;
+  params.enable_physical_rcs = rcs_config.enable_physical_rcs;
+  params.physics_mix_ratio = rcs_config.physics_mix_ratio;
+  params.cylinder_weight = rcs_config.cylinder_weight;
+  params.min_equivalent_radius_m = rcs_config.min_equivalent_radius_m;
+  params.max_equivalent_radius_m = rcs_config.max_equivalent_radius_m;
+  params.min_rcs_m2 = rcs_config.min_rcs_m2;
+  params.max_rcs_m2 = rcs_config.max_rcs_m2;
+  params.bistatic_psi_offset_deg = rcs_config.bistatic_psi_offset_deg;
 
-  const float equivalent_radius_m = ComputeEquivalentRadiusM(input_rcs_m2, rcs_config);
-  const float azimuth_deg = geometry.look_angles_deg.has_look_angles
-                                ? std::fabs(geometry.look_angles_deg.look_az_deg)
-                                : 0.0f;
-  const float elevation_deg = geometry.look_angles_deg.has_look_angles
-                                  ? std::fabs(geometry.look_angles_deg.look_el_deg)
-                                  : 0.0f;
-  const float psi_i_deg = oneq::common::numerics::Clamp(elevation_deg, 0.0f, 89.0f);
-  const float psi_s_deg = oneq::common::numerics::Clamp(
-      psi_i_deg + std::fabs(rcs_config.bistatic_psi_offset_deg), 0.0f, 89.0f);
-
-  const float cylinder_rcs_m2 =
-      oneq::common::rcs::ComputeCylinderRcs(equivalent_radius_m, wavenumber_k0);
-  const float bistatic_rcs_m2 = oneq::common::rcs::ComputeBistaticCylinderRcs(
-      wavenumber_k0, equivalent_radius_m, psi_i_deg, psi_s_deg, azimuth_deg);
-  const float planar_rcs_m2 =
-      oneq::common::rcs::ComputePlanarPlateRcs(wavenumber_k0, equivalent_radius_m, elevation_deg);
-
-  const float cylinder_weight =
-      oneq::common::numerics::Clamp(rcs_config.cylinder_weight, 0.0f, 1.0f);
-  const float physical_rcs_m2 = cylinder_weight * (0.5f * (cylinder_rcs_m2 + bistatic_rcs_m2)) +
-                                (1.0f - cylinder_weight) * planar_rcs_m2;
-
-  const float min_rcs_m2 = std::max(rcs_config.min_rcs_m2, 0.0f);
-  const float max_rcs_m2 = std::max(rcs_config.max_rcs_m2, min_rcs_m2);
-  const float clamped_physical_rcs_m2 =
-      oneq::common::numerics::Clamp(physical_rcs_m2, min_rcs_m2, max_rcs_m2);
-  return input_rcs_m2 * (1.0f - mix_ratio) + clamped_physical_rcs_m2 * mix_ratio;
+  return oneq::common::rcs::ComputeMixedPhysicalRcsM2(
+      input_rcs_m2, frequency_hz, geometry.look_angles_deg.look_az_deg,
+      geometry.look_angles_deg.look_el_deg, geometry.look_angles_deg.has_look_angles, params);
 }
 
 tracking::MeasurementCovariance BuildMeasurementCovariance(

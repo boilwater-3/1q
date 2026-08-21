@@ -87,7 +87,7 @@ source scripts/activate_1q_git_bash.sh
 #   echo 'source "/d/1q/1q/scripts/activate_1q_git_bash.sh" 2>/dev/null' >> ~/.bashrc
 ```
 
-`activate` adds `cmake`/`ctest` to PATH (including common roots such as `D:/environment/CMake`), injects `UCRTContentRoot`, and prepends `scripts/bin/cmake` so bare `build/VisualStudio.15.0-amd64` builds are blocked.
+`activate` adds `cmake`/`ctest` to PATH (including common roots such as `D:/environment/CMake`), injects `UCRTContentRoot`, and prepends `scripts/bin/cmake` + `scripts/bin/ctest` so bare `build/VisualStudio.15.0-amd64` builds are blocked and `ctest.exe` resolves even when the shell does not map `.exe` names automatically.
 
 **Preferred unified entry** (avoids repeating the same UCRT/PATH footguns across sessions):
 
@@ -96,8 +96,32 @@ scripts/1q.sh bootstrap VisualStudio.15.0-amd64
 scripts/1q.sh configure VisualStudio.15.0-amd64
 scripts/1q.sh build VisualStudio.15.0-amd64-release --target 1q_remote_identification_radar_unit_tests
 scripts/1q.sh test VisualStudio.15.0-amd64-release -R "unit::remote_identification_radar" -j 4
-scripts/1q.sh doctor   # check cmake / UCRT / PATH
+scripts/1q.sh doctor   # check cmake / ctest / UCRT / PATH / shell
 ```
+
+#### Agent / Cursor Windows build–test gate (no thrashing)
+
+On this machine, Cursor’s default `bash` is often **WSL / system32 bash**, not Git Bash (MINGW).
+The wrong shell looks like “cmake works, ctest is NOT FOUND, UCRT flickers, build/test loops forever.”
+**Before any Windows build/test, pass the gate below. If the gate fails, fix the shell/PATH — do not change product code hoping it will help.**
+
+1. **Shell identity**: `uname -s` must be `MINGW*` / `MSYS*` (Git Bash). If it is `Linux` and paths are under `/mnt/d/...`, you are on WSL — switch to a Git Bash terminal, or set Cursor’s default profile to Git Bash.
+2. **Env inject**: `source scripts/activate_1q_git_bash.sh` (once per new terminal).
+3. **doctor green** (all must hold before build/test):
+   - `cmake=` points at `scripts/bin/cmake` or a real cmake, and `cmake --version` runs
+   - `ctest=` is **not** `NOT FOUND` (`1q.sh test` resolves `ctest.exe`; doctor must print a path)
+   - `UCRTContentRoot=` is set (under MINGW)
+   - no `SHELL_WARNING=Cursor/WSL bash detected...`
+4. **Commands only via preset / 1q.sh** (serial: same preset, build then test):
+   - `scripts/1q.sh build VisualStudio.15.0-amd64-release --target <tests>`
+   - `scripts/1q.sh test VisualStudio.15.0-amd64-release -R "unit::<module>" -j 4`
+5. **UTF-8 BOM (sources with Chinese comments)**: new/rewritten `.h/.cpp` that contain Chinese comments must have a BOM.
+   - `scripts/utf8_bom.py convert` **only touches git-tracked files** → `git add` new files first, then `convert`, or confirm the file starts with `EF BB BF` right after write.
+   - **Do not** “fix” C4819 by deleting Chinese comments; the root cause is a missing BOM.
+6. **Stale artifacts / file locks**: SEH `0xc0000005` or unrelated `bad_alloc` → `clean-stale` then rebuild; `Permission denied` writing `.obj` → unlock the IDE/AV hold first; do not treat as a logic bug.
+7. **Failure attribution order** (avoid thrashing): shell/PATH → doctor → BOM → stale/locks → then the compile error itself.
+
+Canonical short rule: `.cursor/rules/windows-git-bash-build.mdc`.
 
 Equivalent raw commands (only after `source activate`):
 

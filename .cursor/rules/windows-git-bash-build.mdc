@@ -1,24 +1,28 @@
 ---
-description: Windows 本机 Git Bash 构建：PATH/UCRT/preset/陈旧产物清理
+description: Windows 本机 Git Bash 构建：PATH/UCRT/preset/BOM/门禁（禁止 WSL 打转）
 alwaysApply: true
 ---
 
 # Windows Git Bash 构建约定（v141 主线）
 
 本机 Windows 开发**必须在 Git Bash (MINGW)** 中构建，不要用裸 `cmake --build build/...`。
-Cursor 内置 WSL bash 不注入 UCRT，不能替代 Git Bash。
+Cursor 默认常落到 **WSL / system32 bash**——不注入 UCRT，且 `command -v ctest` 找不到 `ctest.exe`，会表现为「编得动、测不动、反复空转」。**不能**用 WSL 替代 Git Bash。
 
-## 会话初始化（每个 Git Bash 终端一次）
+## 会话门禁（每个终端 / 每次代理开跑前）
 
 ```bash
+uname -s    # 须 MINGW* / MSYS*；若是 Linux+/mnt/d → 立刻换 Git Bash
 source scripts/activate_1q_git_bash.sh
 scripts/1q.sh doctor
+# doctor 须：ctest=有路径、无 SHELL_WARNING、MINGW 下 UCRTContentRoot 已设
 ```
+
+门禁失败：**先修壳/PATH，禁止改业务代码碰运气。**
 
 持久化：`echo 'source "/d/1q/1q/scripts/activate_1q_git_bash.sh" 2>/dev/null' >> ~/.bashrc`
 本机 cmake 路径：`scripts/1q_env.local.sh`（`ONEQ_CMAKE_ROOT='D:/environment/CMake'`，已在 .gitignore）
 
-## 标准命令（一律走 preset / 1q.sh）
+## 标准命令（一律走 preset / 1q.sh；同 preset 先 build 再 test）
 
 ```bash
 scripts/1q.sh bootstrap VisualStudio.15.0-amd64
@@ -28,15 +32,22 @@ scripts/1q.sh test VisualStudio.15.0-amd64-release -R "unit::<module>" -j 4
 ```
 
 禁止：`cmake --build build/VisualStudio.15.0-amd64 ...`（64 位 UCRT 注册表死路径 → C1083/LNK1104）。
-`scripts/bin/cmake` 包装器会拦截裸目录构建。
+`scripts/bin/cmake` 包装器会拦截裸目录构建；`scripts/bin/ctest` / `1q.sh test` 会解析 `ctest.exe`。
 
-## 陈旧增量产物（SEH 0xc0000005 / 与逻辑无关的 bad_alloc）
+## UTF-8 BOM（中文注释）
 
-public 头布局变更后若模块测试批量崩溃，先清模块再编：
+新建/重写带中文的 `.h/.cpp` 必须带 BOM。`scripts/utf8_bom.py convert` **只处理 git 已追踪文件** → 新建文件先 `git add` 再 `convert`。
+**禁止**删中文注释来消 C4819。
+
+## 陈旧增量产物 / 文件锁
+
+public 头布局变更后若模块测试批量 SEH `0xc0000005` / 无关 `bad_alloc`：
 
 ```bash
 scripts/1q.sh clean-stale VisualStudio.15.0-amd64 <module_slug>
 scripts/1q.sh build VisualStudio.15.0-amd64-release --target <tests>
 ```
 
-权威细节见 `CLAUDE.md`「Windows command flow」。
+写 `.obj` 出现 `Permission denied`：先解除 IDE/杀毒锁定再编，不要当逻辑 bug。
+
+权威细节见 `CLAUDE.md`「Windows command flow」与「Agent / Cursor Windows build–test gate」。

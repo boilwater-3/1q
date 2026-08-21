@@ -216,18 +216,15 @@ float RirController::ComputeTargetAtmosphericLossDb(float carrier_hz, float plat
   if (!environment_.atmospheric_physics.enable_physical_model) {
     return 0.0f;
   }
-  // 与 AR DetectionExecution::ComputeTargetSpecificAtmosphericLossDb 同口径：
-  // 频率/斜距/平台与目标海拔/仰角 + 气象观测（k 因子为预派生值，非 4/3 硬值）。
+  // 与 AR DetectionExecution 同口径：common 标量胶水 + 模块侧 enable/k_factor。
   oneq::common::atmosphere::AtmosphericObservationRef obs;
   obs.pressure_hpa = environment_.atmospheric_physics.pressure_hpa;
   obs.temperature_k = environment_.atmospheric_physics.temperature_k;
   obs.relative_humidity = environment_.atmospheric_physics.relative_humidity;
   obs.k_factor = effective_k_factor_;
-  const auto inputs = oneq::common::atmosphere::BuildPropagationInputs(
-      carrier_hz, std::max(slant_range_m, 0.1f), platform_altitude_m,
-      std::max(platform_altitude_m + target_position_z_m, 0.0f),
-      has_look_angles ? look_el_deg : 0.0f, obs);
-  return oneq::common::atmosphere::EvaluateAtmosphericPropagation(inputs).total_physics_loss_db;
+  return oneq::common::atmosphere::ComputeTargetAtmosphericPhysicsLossDb(
+      carrier_hz, slant_range_m, platform_altitude_m,
+      std::max(platform_altitude_m + target_position_z_m, 0.0f), look_el_deg, has_look_angles, obs);
 }
 
 void RirController::ComputeLookAngles(const session::RirSceneTarget& target, float* look_az_deg,

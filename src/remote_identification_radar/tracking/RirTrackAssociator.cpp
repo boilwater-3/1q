@@ -15,6 +15,7 @@
 
 #include "common/estimation/IKalmanUpdater.h"
 #include "common/logging/ProjectLog.h"
+#include "common/tracking/GatedSquareAssignment.h"
 
 namespace remote_identification_radar {
 namespace tracking {
@@ -153,19 +154,8 @@ RirAssociationResult RirTrackAssociator::Associate(
   if (!seed_priors.empty() && !viable_measurement_indices.empty()) {
     const std::size_t rows = seed_priors.size();
     const std::size_t cols = viable_measurement_indices.size();
-    const std::size_t dim = std::max(rows, cols);
-    const float unassigned_cost = config_.gate_threshold;
-    const float rejected_cost =
-        std::nextafter(unassigned_cost, std::numeric_limits<float>::infinity());
-
-    Eigen::MatrixXf cost_matrix(static_cast<Eigen::Index>(dim), static_cast<Eigen::Index>(dim));
-    cost_matrix.setConstant(rejected_cost);
-    if (dim > cols) {
-      cost_matrix.rightCols(static_cast<Eigen::Index>(dim - cols)).setConstant(unassigned_cost);
-    }
-    if (dim > rows) {
-      cost_matrix.bottomRows(static_cast<Eigen::Index>(dim - rows)).setConstant(unassigned_cost);
-    }
+    Eigen::MatrixXf gated_costs(static_cast<Eigen::Index>(rows), static_cast<Eigen::Index>(cols));
+    gated_costs.setConstant(std::numeric_limits<float>::infinity());
 
     for (std::size_t s = 0U; s < seed_priors.size(); ++s) {
       for (std::size_t m = 0U; m < viable_measurement_indices.size(); ++m) {
@@ -175,25 +165,27 @@ RirAssociationResult RirTrackAssociator::Associate(
         const float cost = ComputeSquaredMahalanobisDistance(
             seed_priors[s].predicted_position, measurement.position, innovation_covariance);
         if (cost <= config_.gate_threshold) {
-          cost_matrix(static_cast<Eigen::Index>(s), static_cast<Eigen::Index>(m)) = cost;
+          gated_costs(static_cast<Eigen::Index>(s), static_cast<Eigen::Index>(m)) = cost;
         }
       }
     }
 
-    const std::vector<int> assignment = assignment_solver_.Solve(cost_matrix);
+    const Eigen::MatrixXf square_cost =
+        oneq::common::tracking::BuildAugmentedSquareCostMatrix(gated_costs,
+                                                               config_.gate_threshold);
+    const std::vector<int> row_to_col = oneq::common::tracking::SolveAugmentedSquareAssignment(
+        square_cost, rows, cols, config_.gate_threshold, assignment_solver_);
 
     for (std::size_t r = 0U; r < rows; ++r) {
-      const int assigned_col = assignment[r];
-      if (assigned_col < 0 || static_cast<std::size_t>(assigned_col) >= cols) {
+      const int assigned_col = row_to_col[r];
+      if (assigned_col < 0) {
         continue;
       }
-      const float matched_cost =
-          cost_matrix(static_cast<Eigen::Index>(r), static_cast<Eigen::Index>(assigned_col));
-      if (matched_cost <= unassigned_cost) {
-        matched_key_by_measurement[static_cast<std::size_t>(assigned_col)] = seed_priors[r].key;
-        matched_cost_by_measurement[static_cast<std::size_t>(assigned_col)] = matched_cost;
-        seed_matched[r] = 1U;
-      }
+      const float matched_cost = square_cost(static_cast<Eigen::Index>(r),
+                                             static_cast<Eigen::Index>(assigned_col));
+      matched_key_by_measurement[static_cast<std::size_t>(assigned_col)] = seed_priors[r].key;
+      matched_cost_by_measurement[static_cast<std::size_t>(assigned_col)] = matched_cost;
+      seed_matched[r] = 1U;
     }
   }
 

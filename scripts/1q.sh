@@ -36,20 +36,53 @@ EOF
 doctor() {
   echo "ONEQ_ROOT=${ONEQ_ROOT}"
   echo "ONEQ_CMAKE_ROOT=${ONEQ_CMAKE_ROOT:-<unset>}"
+  echo "uname=$(uname -s 2>/dev/null || echo unknown)"
+  case "$(uname -s 2>/dev/null || true)" in
+    MINGW*|MSYS*|CYGWIN*) ;;
+    Linux*)
+      if [[ "${ONEQ_ROOT}" == /mnt/?/* || "${ONEQ_ROOT}" == /d/* || "${ONEQ_ROOT}" == /D/* ]]; then
+        echo "SHELL_WARNING=Cursor/WSL bash detected on a Windows repo path."
+        echo "  Windows v141 builds MUST use Git Bash (MINGW), not WSL or system32 bash."
+        echo "  Symptom: ctest=NOT FOUND (WSL does not resolve ctest.exe as ctest)."
+      fi
+      ;;
+  esac
   if command -v cmake >/dev/null 2>&1; then
     echo "cmake=$(command -v cmake)"
     cmake --version | head -n 1
   else
     echo "cmake=NOT FOUND"
   fi
-  if command -v ctest >/dev/null 2>&1; then
-    echo "ctest=$(command -v ctest)"
+  _ctest="$(_oneq_resolve_ctest || true)"
+  if [[ -n "${_ctest}" ]]; then
+    echo "ctest=${_ctest}"
   else
     echo "ctest=NOT FOUND"
   fi
+  unset _ctest
   echo "UCRTContentRoot=${UCRTContentRoot:-<unset>}"
   echo "ONEQ_REAL_CMAKE=${ONEQ_REAL_CMAKE:-<unset>}"
   echo "ONEQ_GIT_BASH_ACTIVATED=${ONEQ_GIT_BASH_ACTIVATED:-0}"
+}
+
+# Resolve ctest even when the shell only finds Windows *.exe via full path
+# (WSL: command -v ctest fails; Git Bash: finds ctest.exe as ctest).
+_oneq_resolve_ctest() {
+  if command -v ctest >/dev/null 2>&1; then
+    command -v ctest
+    return 0
+  fi
+  if [[ -n "${ONEQ_REAL_CMAKE:-}" ]]; then
+    local dir candidate
+    dir="$(dirname "${ONEQ_REAL_CMAKE}")"
+    for candidate in "${dir}/ctest.exe" "${dir}/ctest"; do
+      if [[ -x "${candidate}" || -f "${candidate}" ]]; then
+        printf '%s' "${candidate}"
+        return 0
+      fi
+    done
+  fi
+  return 1
 }
 
 cmd="${1:-}"
@@ -87,7 +120,13 @@ case "${cmd}" in
     if ! printf '%s\n' "${extra[@]}" | grep -q -- '-j'; then
       extra+=(-j 4)
     fi
-    exec ctest --preset "${preset}" "${extra[@]}"
+    _ctest="$(_oneq_resolve_ctest || true)"
+    if [[ -z "${_ctest}" ]]; then
+      echo "[1q.sh test] ctest not found. Run: source scripts/activate_1q_git_bash.sh && scripts/1q.sh doctor" >&2
+      echo "  On Windows use Git Bash (MINGW). WSL/system32 bash cannot see ctest.exe as 'ctest'." >&2
+      exit 127
+    fi
+    exec "${_ctest}" --preset "${preset}" "${extra[@]}"
     ;;
   clean-stale)
     [[ $# -eq 2 ]] || { usage; exit 2; }

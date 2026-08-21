@@ -56,8 +56,11 @@ RIR 遵守 `docs/common/contract.md` 与 `docs/common/session_contract.md`：
    `RirRuntimeConfigPatch::has_sensor_enabled`（COMMON-OQ-4 对齐）。
 6. 跨域形状契约：`ONEQ_SENSOR_SESSION_CONTRACT` 锚定
    `RirSession::Step/StepWithResult` 签名。
-7. 阶段 3 common 化已完成：LAPJV / 雷达方程 / 天线方向图已收敛到 `src/common/`，
-   RIR 保留薄适配层，不引入 AR 头。
+7. 阶段 3 / 3b common 化：LAPJV / 雷达方程 / 天线方向图 / 植被杂波 / 大气胶水 /
+   RCS 混合 / 检测单元账本 / 统计级 CFAR 编排 / 冻结波束 / 航迹池·关联核·生命周期
+   计数已收敛到 `src/common/`，RIR 保留薄适配层，不引入 AR 头。发射/接收「可提取
+   核心」与 6 dB 真值回退门留模块侧（见
+   `docs/review/ar_rir_shared_capability_extract_audit_2026-08-21.md`）。
 
 ## 非目标（否决项）
 
