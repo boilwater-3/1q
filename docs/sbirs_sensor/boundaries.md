@@ -82,21 +82,15 @@ SBIRS 所有中止路径遵守 `session_contract.md` 规则 9 的三写模式与
 recorder 只遍历当前周期 `input.scene`，目标从输入消失时其排除状态条目保留（不会被 A4 清除，
 与既有 `SbirsDetectionLifecycleRecorder` 的"消失目标状态保留"行为一致）；重现为 A3 而非 A2。
 
-**验收信息日志（`[SbirsAccept]` 事件流，2026-08-18）**：CMake 开关
-`ONEQ_ENABLE_SBIRS_ACCEPTANCE_LOG`（默认 OFF）门控的编译期专用日志宏
-`SBIRS_ACCEPTANCE_LOG`（`src/sbirs_sensor/pipeline/SbirsAcceptanceLog.h`），把需求映射
-3.2.1.3 章节（OPIR 宽视场扫描探测与窄视场跟踪探测）的验收量按周期经 `PROJECT_LOG_INFO`
-输出（事件类型 `scan_footprint`/`wfov_candidate`/`wfov_hit_gate`/`nfov_acquisition`/
-`nfov_track`/`nfov_schedule`/`nfov_release`，2026-08-20 补 `misalignment`——安装失准角
-运行期一次抽取值（构造与 ApplyConfig 配置重抽时各一次，安装矩阵误差验收项）；
-`wfov_candidate`/`nfov_track` 另携带
-显式角定位误差字段——需求映射 3.2.1.6.3：前者 `az_error_deg`/`el_error_deg` =
-带误差量测角 − 真值角，后者 `output_az_error_deg`/`output_el_error_deg` = 最终
-输出角 − 真值角，方位按最短角差回绕）。边界：与规则 13a 摘要同性质——**仅人读验收
-材料，不属于三写、不进 raw output/attribution/DebugView**；关闭时宏与派生计算（覆盖区
-投影等）一并编译剪除，零开销、行为逐位不变。地面覆盖区投影使用与遮挡判定同口径的圆球
-地球模型（`kEarthRadiusM`）；焦平面脱靶量由 `focal_length_m`/`detector_pixel_pitch_m`
-配置映射（仅日志消费，不进标量探测链路）；宽窄切换连续命中计数器
+**验收信息日志（`sbirs_acceptance.log`，2026-08-22）**：CMake 开关
+`ONEQ_ENABLE_SBIRS_ACCEPTANCE_LOG`（默认 OFF）门控。开启后按验收项写入运行目录
+`sbirs_acceptance.log`（四段同一行：仿真时间 / 仿真周期 / 验收项 / 验收内容），
+不进 `1q_library.log`，也不把融合/推演/精度抄进本文件。关闭时宏与派生计算一并
+编译剪除，零开销、行为逐位不变。项表与派生公式见
+`docs/review/acceptance_item_catalog_2026-08-22.md`。边界：仅人读验收材料，
+不属于三写、不进 raw output/attribution/DebugView。地面覆盖区投影使用与遮挡判定
+同口径的圆球地球模型（`kEarthRadiusM`）；焦平面脱靶量由
+`focal_length_m`/`detector_pixel_pitch_m` 配置映射（仅日志消费，不进标量探测链路）；宽窄切换连续命中计数器
 （`wide_to_narrow_required_consecutive_hits`，默认 1 = 既有单次命中调度行为）进快照。
 
 ### 输出规则（WFOV/NFOV 状态仅决定当前周期哪些目标输出检测记录，不进 raw output 字段）
@@ -187,7 +181,7 @@ batch 未直接证明通道跨周期稳定映射、无效输入前零 mutation�
 | 简化整星姿态动力学与执行机构约束 | defer | 必须先给出当前角度域模型无法满足的可复现失败和误差预算，再冻结共享平台姿态与逐通道光轴所有权 |
 | 多通道机械耦合与共享姿态资源 | defer | 必须证明独立 LOS 假设导致可观测错误，并具备确定性仲裁、失败归属和 snapshot/replay 验收矩阵 |
 | 探测器像元、背景杂波与图像帧 | defer outside current product boundary | 仅在产品目标转为图像检测/TBD/NCC 且具备 PSF/MTF、焦距、像元几何、背景和独立物理真值时重开；归属独立 imaging 子系统 |
-| 验收信息日志（[SbirsAccept] 事件流） | implemented（编译期门控） | `ONEQ_ENABLE_SBIRS_ACCEPTANCE_LOG` 默认 OFF 零开销；开启态与关闭态 sbirs 全套测试均绿（行为逐位一致由默认 OFF + 阈值默认 1 保证） |
+| 验收信息日志（`sbirs_acceptance.log`） | implemented（编译期门控） | `ONEQ_ENABLE_SBIRS_ACCEPTANCE_LOG` 默认 OFF 零开销；开启后写四段中文验收行，不进 `1q_library.log` |
 | WGS84 椭球地面投影 | reject（保持圆球单口径） | 覆盖区投影与遮挡判定共用 `kEarthRadiusM` 圆球；引入椭球须先给出双地球模型口径分叉的可复现验收失败 |
 | 威胁等级/航迹质量/任务优先级联合评分 | reject in sensor ownership | 分层契约归决策层（threat_assessment）；传感器侧只输出通道调度/资源跳过/失败回退事件 |
 | 高精度轨道传播 | reject in sensor ownership | cycle input 已提供同一时标下的平台/目标状态；默认归属场景或平台动力学模块 |
@@ -214,7 +208,7 @@ batch 未直接证明通道跨周期稳定映射、无效输入前零 mutation�
 8. 不把 debug view、lifecycle 或 replay 当作 1q 仿真传感器主输出。
 9. 不为测试 mock 便利新增 public 扩展点。
 10. **验收量不进公开输出**：地面覆盖区/驻留时间/焦平面脱靶量/信号能量/连续命中计数只走
-    `[SbirsAccept]` 日志通道（人读验收材料），不扩展 `SbirsOutputFrame`、attribution 或
+    `sbirs_acceptance.log`（人读验收材料），不扩展 `SbirsOutputFrame`、attribution 或
     DebugView 字段；公开输出结构变化须走输出边界评审。
 
 ## 设计变更规则

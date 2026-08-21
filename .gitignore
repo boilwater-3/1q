@@ -4,6 +4,14 @@
 # Windows 内置文件日志后端（ProjectFileLog，ONEQ_ENABLE_FILE_LOG）运行产物
 1q_library.log
 
+# 分层验收日志运行产物（ONEQ_ENABLE_*_ACCEPTANCE_LOG）
+sbirs_acceptance.log
+rir_acceptance.log
+fusion_acceptance.log
+inference_acceptance.log
+precision_acceptance.log
+rir_antenna_pattern.csv
+
 # Build outputs
 build/
 out/

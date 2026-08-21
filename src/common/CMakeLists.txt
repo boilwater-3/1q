@@ -23,6 +23,7 @@ set(ONEQ_COMMON_SOURCES
     replay/ReplayTrace.cpp
     trace/TraceSink.cpp
     timing/TimingRegimeModel.cpp
+    logging/AcceptanceFileLog.cpp
 )
 
 # 内置文件日志后端（PROJECT_LOG_* 的 Windows 落盘实现）：总开关 OFF 时不编译。

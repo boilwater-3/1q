@@ -1,13 +1,13 @@
 ---
-Status: draft
+Status: implemented
 Date: 2026-08-22
-Review-Baseline: `feature/acceptance-chinese-file-log` 工作区（未提交验收日志改动）
+Review-Baseline: `feature/acceptance-chinese-file-log`
 Authority: 验收日志规划统计；不替代模块 design/boundaries。与代码冲突时以代码为准。
 ---
 
 # 验收项统计（2026-08-22）
 
-本档把验收清单收成「一项三块」，给后续改日志用。验收旁路不改仿真主链。
+本档把验收清单收成「一项三块」，给验收日志接线用。验收旁路不改仿真主链。代码已按本档落盘（四段同一行、按层分文件）。
 
 对照：功能是否实现见《红外载荷与远程识别雷达需求源码对应关系.md》；本档只答「验收文件里能不能看见、看见什么」。
 
@@ -39,7 +39,7 @@ Authority: 验收日志规划统计；不替代模块 design/boundaries。与代
 | 性能测试 | 各层自己 | 写入**该层**验收文件（红外计时进红外文件，雷达计时进雷达文件）；不集中造一份假总表 |
 | 集群目标识别、关机点 | 无对应层 | 不写文件，或只在规划档保留 `暂无` |
 
-开关仍按层各开各的（规划名：`ONEQ_ENABLE_<LAYER>_ACCEPTANCE_LOG`），默认 OFF。精度评估现有 `[PrecisionEval]` 可迁入 `precision_acceptance.log`，不再往红外/雷达会话开头抄一份示意。
+开关按层各开各的（`ONEQ_ENABLE_SBIRS_ACCEPTANCE_LOG` / `ONEQ_ENABLE_RIR_ACCEPTANCE_LOG` / `ONEQ_ENABLE_FUSION_ACCEPTANCE_LOG` / `ONEQ_ENABLE_INFERENCE_ACCEPTANCE_LOG` / `ONEQ_ENABLE_PRECISION_EVALUATION_LOG`），默认 OFF。精度评估写入 `precision_acceptance.log`，不再往红外/雷达会话开头抄示意。
 
 原文 OCR：宽/展市场→宽/窄视场；拖把量→脱靶量；大负面→大幅面；斜方差→协方差；弟弟目标→低动态目标；dd 模型→弹道模型；扫描操角→扫描掠角；UK f→UKF；规模目标识别→集群目标识别。
 
@@ -352,13 +352,13 @@ Authority: 验收日志规划统计；不替代模块 design/boundaries。与代
 
 ---
 
-## 11. 改日志时建议顺序（规划，未实施）
+## 11. 接线状态（已实施）
 
-1. 全部改为四段同一行。
-2. 能派生的按第 2 块公式写入；加粗的 **不能输出** 写 `无`/`暂无`，删掉捏造数字。
-3. **按层分文件**：融合/推演/精度只写本层验收文件；禁止在红外/雷达会话开头抄一份示意顶替。
-4. 没跑到该层引擎时，该层文件本项按加粗处理，不要向传感器文件借行。
-5. 计时三项保持 `暂无`，除非另外要求加真实 chrono。
+1. 四段同一行，写入各层独立验收文件。
+2. 能派生的按第 2 块公式写入；加粗的 **不能输出** 写 `无`/`暂无`，不编造数字。
+3. 融合/推演/精度只写本层文件；红外/雷达会话开头不再抄示意。
+4. 没跑到该层引擎时，该层文件本项按加粗处理。
+5. 计时三项保持 `暂无`。
 
 [evidence: include/1q/fusion/FusedTarget.h]
 [evidence: include/1q/target_inference/InferenceResult.h]

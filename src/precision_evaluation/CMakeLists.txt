@@ -5,6 +5,7 @@ oneq_add_component(precision_evaluation_core SOURCES
     DualLosFix.cpp
     PrecisionEvaluationMetrics.cpp
     PrecisionEvaluationSession.cpp
+    PrecisionAcceptanceRecords.cpp
     SbirsBearingAdapter.cpp
 )
 # 精度评估验收日志（[PrecisionEval] 事件流）：仅本模块内部消费

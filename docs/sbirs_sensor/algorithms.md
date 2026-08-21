@@ -354,12 +354,13 @@ Answers: SBIRS 用了哪些算法、各自实现到什么地步、边界在哪�
      ECI 几何；旋转保模长与球体相交语义，门控结果与帧无关。
 - **证据**：[evidence: tests/unit/sbirs_sensor/sbirs_foundation_test]
 
-## 验收派生量（[SbirsAccept] 日志专用，2026-08-18）
+## 验收派生量（`sbirs_acceptance.log`，2026-08-22）
 
 - **意图**：满足需求映射 3.2.1.3 章节（OPIR 宽视场扫描探测与窄视场跟踪探测）与
   3.2.1.6.3 角定位误差的验收信息
-  输出：把管线中间量与少量新增派生量经 `SBIRS_ACCEPTANCE_LOG`（CMake 开关
-  `ONEQ_ENABLE_SBIRS_ACCEPTANCE_LOG`，默认 OFF）写入项目日志，人读验收材料。
+  输出：把管线中间量与少量新增派生量经 `SBIRS_ACCEPTANCE_ITEM`（CMake 开关
+  `ONEQ_ENABLE_SBIRS_ACCEPTANCE_LOG`，默认 OFF）写入 `sbirs_acceptance.log`，
+  四段同一行，人读验收材料。项表见 `docs/review/acceptance_item_catalog_2026-08-22.md`。
 - **派生量与公式**：
   1. **WFOV 地面覆盖区**：实际扫描中心（传感器系，含共模扰动与限位钳制）± 半视场共 4 角，
      每角经 boresight 链合成 ECI 视线后与地球圆球求交（半无限射线最近正根；
@@ -377,11 +378,9 @@ Answers: SBIRS 用了哪些算法、各自实现到什么地步、边界在哪�
      需重新积累）。进入 NFOV 调度的前置条件为 `hits >= wide_to_narrow_required_consecutive_hits`
      （`SbirsSchedulerConfig`，默认 1 = 单次命中即调度，与既有行为逐位一致）。计数表进
      `SbirsPipelineSnapshot`（capture/restore 完整）。
-  6. **角定位误差（需求映射 3.2.1.6.3）**：`wfov_candidate`（E2）输出 `az_error_deg`/
-     `el_error_deg` = 带误差量测角 − 真值角；`nfov_track`（E5）输出
-     `output_az_error_deg`/`output_el_error_deg` = 最终输出角（滤波/误差注入全部
-     完成后）− 真值角；方位差按最短角差回绕（wrap-aware）。仅日志字段，不进任何
-     输出结构。
+  6. **角定位误差（需求映射 3.2.1.6.3）**：宽场候选写测量角 − 真值角；窄场跟踪写最终
+     输出角（滤波/误差注入全部完成后）− 真值角；方位差按最短角差回绕（wrap-aware）。
+     仅日志字段，不进任何输出结构。
 - **反直觉点**：
   1. 覆盖区四角在**传感器系**加偏移再经链变换（含姿态/安装/失准），不是在 ECI 角度直接
      加偏移——identity 链下两者才等价。

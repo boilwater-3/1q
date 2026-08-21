@@ -1,7 +1,12 @@
 ﻿#include "1q/sbirs_sensor/session/SbirsSession.h"
 
+#include <memory>
+#include <vector>
+
 #include "1q/sbirs_sensor/session/SbirsDetectionLifecycleRecorder.h"
 #include "1q/sbirs_sensor/session/SbirsExclusionCauseRecorder.h"
+#include "sbirs_sensor/pipeline/SbirsAcceptanceLog.h"
+#include "sbirs_sensor/pipeline/SbirsAcceptanceRecords.h"
 #include "sbirs_sensor/runtime/SbirsPipelineConfigMapper.h"
 #include "sbirs_sensor/runtime/SbirsRuntimeConfigResolver.h"
 #include "sbirs_sensor/session/SbirsSessionCompositionRoot.h"
@@ -33,7 +38,12 @@ SbirsOutputFrame SbirsSession::Step(const SbirsCycleInput& input) {
 SbirsCycleResult SbirsSession::StepWithResult(const SbirsCycleInput& input) {
   SbirsCycleResult result = impl_->controller->RunOnce(input);
   if (impl_->lifecycle_recorder != nullptr) {
-    impl_->lifecycle_recorder->Update(input, result);
+    const std::vector<SbirsDetectionLifecycleEvent> events =
+        impl_->lifecycle_recorder->Update(input, result);
+    if (SBIRS_ACCEPTANCE_LOG_ENABLED()) {
+      const float sim_time_sec = static_cast<float>(input.cycle_index) * input.dt_sec;
+      pipeline::WriteSbirsLifecycleEvents(sim_time_sec, input.cycle_index, events, input);
+    }
   }
   if (impl_->exclusion_cause_recorder != nullptr) {
     impl_->exclusion_cause_recorder->Update(input, result);

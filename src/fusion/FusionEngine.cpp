@@ -26,6 +26,8 @@
 #include "common/estimation/UnscentedPredictor.h"
 #include "common/estimation/UnscentedUpdater.h"
 #include "common/geometry/BearingCluster.h"
+#include "fusion/FusionAcceptanceLog.h"
+#include "fusion/FusionAcceptanceRecords.h"
 
 namespace fusion {
 
@@ -718,7 +720,18 @@ FusionEngine::~FusionEngine() = default;
 
 std::vector<FusedTarget> FusionEngine::Update(
     const std::vector<DetectionRecord>& detections, std::uint64_t cycle) {
-  return impl_->Update(detections, cycle);
+  std::vector<FusedTarget> output = impl_->Update(detections, cycle);
+  if (FUSION_ACCEPTANCE_LOG_ENABLED()) {
+    bool filtering = false;
+    for (const FusedTarget& track : output) {
+      if (track.has_kinematic_estimate) {
+        filtering = true;
+        break;
+      }
+    }
+    WriteFusionAcceptance(static_cast<std::uint32_t>(cycle), output, filtering);
+  }
+  return output;
 }
 
 void FusionEngine::Reset() { impl_->Reset(); }

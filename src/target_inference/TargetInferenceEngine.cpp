@@ -13,6 +13,8 @@
 #include <vector>
 
 #include "1q/coordinate/position_transform.h"
+#include "target_inference/InferenceAcceptanceLog.h"
+#include "target_inference/InferenceAcceptanceRecords.h"
 
 namespace target_inference {
 
@@ -403,6 +405,9 @@ std::vector<TargetInferenceResult> TargetInferenceEngine::Infer(
     }
 
     results.push_back(std::move(result));
+  }
+  if (INFERENCE_ACCEPTANCE_LOG_ENABLED()) {
+    WriteInferenceAcceptance(tracks, results);
   }
   return results;
 }

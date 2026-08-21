@@ -103,7 +103,8 @@ INTERFACE 传播）。BOM 使 cl.exe 无条件按 UTF-8 解码。维护链：
    仓库 `examples/` → consumer `src/`（BOM 零改动镜像）。
 4. consumer 以 **C++11、无 `/utf-8`** 构建（模拟客户 vcxproj）：
    `cmake -G "Visual Studio 14 2015" -A x64 && cmake --build --config Release`
-5. 跑 demo 3 周期；构建日志零 C4819；`1q_library.log` 有 `[SbirsAccept]`/`[RirAccept]`。
+5. 跑 demo 3 周期；构建日志零 C4819；运行目录有 `sbirs_acceptance.log` / `rir_acceptance.log`
+   （四段中文验收行）。库内部 `1q_library.log` 仍只承载 `PROJECT_LOG_*`，不再写验收项。
 
 ## 历史事件：UCRT 注册表死路径（已修复 2026-08-21）
 

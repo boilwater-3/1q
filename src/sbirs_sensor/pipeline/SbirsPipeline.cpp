@@ -6,9 +6,11 @@
 #include <set>
 #include <string>
 
+#include "common/logging/AcceptanceText.h"
 #include "common/logging/ProjectLog.h"
 #include "common/numerics/Constants.h"
 #include "1q/coordinate/inertial_transform.h"
+#include "1q/coordinate/position_transform.h"
 #include "1q/sbirs_sensor/session/SbirsIssueCodes.h"
 #include "sbirs_sensor/environment/SbirsEnvironmentModel.h"
 #include "sbirs_sensor/foundation/SbirsErrorModel.h"
@@ -16,6 +18,7 @@
 #include "sbirs_sensor/foundation/SbirsNoiseModel.h"
 #include "sbirs_sensor/foundation/SbirsRadiometry.h"
 #include "sbirs_sensor/pipeline/SbirsAcceptanceLog.h"
+#include "sbirs_sensor/pipeline/SbirsAcceptanceRecords.h"
 #include "sbirs_sensor/pipeline/SbirsBoresightChain.h"
 #include "sbirs_sensor/pipeline/SbirsEciScene.h"
 #include "sbirs_sensor/pipeline/SbirsNfovAcquisition.h"
@@ -406,12 +409,13 @@ SbirsPipeline::SbirsPipeline(const config::SbirsInternalExecutionConfig& config)
           config.session.policy.error_model.random_seed, kEstimatedMeasurementDomain)),
       sensor_like_output_random_source_(DeriveMeasurementSeed(
           config.session.policy.error_model.random_seed, kSensorLikeOutputDomain)) {
-  // 验收事件 misalignment（安装矩阵误差）：安装失准角（yaw/pitch/roll）运行期
-  // 一次抽取值（常值偏置 + 随机微扰）；构造与 ApplyConfig 同种子确定性重抽。
+  // 验收项「安装矩阵误差」：安装角 / 失准角派生三套矩阵；构造与 ApplyConfig 同种子确定性重抽。
   if (SBIRS_ACCEPTANCE_LOG_ENABLED()) {
-    SBIRS_ACCEPTANCE_LOG("event=misalignment yaw_deg={:.4f} pitch_deg={:.4f} roll_deg={:.4f}",
-                         misalignment_total_deg_.yaw_deg, misalignment_total_deg_.pitch_deg,
-                         misalignment_total_deg_.roll_deg);
+    WriteSbirsInstallMatrices(
+        config.session.orientation.mount_angles_deg,
+        oneq::foundation::EulerAnglesDeg(misalignment_total_deg_.yaw_deg,
+                                         misalignment_total_deg_.pitch_deg,
+                                         misalignment_total_deg_.roll_deg));
   }
 }
 
@@ -424,11 +428,13 @@ void SbirsPipeline::ApplyConfig(const config::SbirsInternalExecutionConfig& conf
   // 阶段 3：安装失准为静态配置（不进运行期 patch），每次应用配置时确定性重抽
   // 运行期失准角总量——配置不变时同种子重抽产生同值（行为不变），配置变时即刻生效。
   misalignment_total_deg_ = DrawMisalignmentTotal(config_.session.orientation.misalignment);
-  // 验收事件 misalignment（安装矩阵误差）：随配置重抽后的失准角值（同构造事件）。
+  // 验收项「安装矩阵误差」：配置重抽后的失准角与三套矩阵。
   if (SBIRS_ACCEPTANCE_LOG_ENABLED()) {
-    SBIRS_ACCEPTANCE_LOG("event=misalignment yaw_deg={:.4f} pitch_deg={:.4f} roll_deg={:.4f}",
-                         misalignment_total_deg_.yaw_deg, misalignment_total_deg_.pitch_deg,
-                         misalignment_total_deg_.roll_deg);
+    WriteSbirsInstallMatrices(
+        config_.session.orientation.mount_angles_deg,
+        oneq::foundation::EulerAnglesDeg(misalignment_total_deg_.yaw_deg,
+                                         misalignment_total_deg_.pitch_deg,
+                                         misalignment_total_deg_.roll_deg));
   }
   if (impact.scan_sector_changed) {
     const float candidate_phase =
@@ -552,6 +558,7 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
   const config::SbirsMissionConfig& mission = config_.session.mission;
   const config::SbirsPolicyConfig& policy = config_.session.policy;
   const config::SbirsEnvironmentConfig& environment_config = config_.session.environment;
+  const float sim_time_sec = static_cast<float>(input.cycle_index) * input.dt_sec;
 
   // 指向合成链（阶段 2/3）：每周期由卫星姿态（Body->ECI）与安装角（Body->Sensor）
   // 及运行期安装失准角总量构建。默认零姿态 + 零安装角 + 零失准下为恒等变换
@@ -665,9 +672,12 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
     // 中译：窄视场通道释放事件（目标编号、通道号、释放原因、门连续失败计数）。
     // 标识：验收日志 E7——宽窄协同的"释放回宽场"分支证据（门失败丢锁/NIS 丢锁/
     //       指向超时/捕获失败/目标消失），仅人读验收材料，不参与状态判断。
-    SBIRS_ACCEPTANCE_LOG(
-        "event=nfov_release target_id={} channel={} reason={} gate_failures={}", target_id,
-        nfov_scheduler_.ChannelOf(target_id), reason, gate_failures);
+    SBIRS_ACCEPTANCE_ITEM(sim_time_sec, input.cycle_index, "协同工作机制",
+                          std::string("选中目标=[] 锁定=") +
+                              std::to_string(nfov_scheduler_.LockedCount()) + "/" +
+                              std::to_string(nfov_scheduler_.max_locks()) + " 释放目标=" +
+                              std::to_string(target_id) + " 原因=" + reason +
+                              " 门失败=" + std::to_string(gate_failures) + " 按威胁等级抢占=无");
   };
 
   const SbirsPointingDisturbanceParameters disturbance_parameters =
@@ -783,12 +793,47 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
         center_valid ? FormatFloat(static_cast<float>(center_lat_deg)) + "," +
                            FormatFloat(static_cast<float>(center_lon_deg))
                      : std::string("miss");
-    SBIRS_ACCEPTANCE_LOG(
-        "event=scan_footprint cycle_index={} scan_phase_deg={:.3f} row={}/{} "
-        "fov_center_eci_rad=({:.5f},{:.5f}) corners_latlon_deg=[{}] center_latlon_deg={} "
-        "dwell_s={:.3f} scan_rate_deg_s={:.3f}",
-        input.cycle_index, scan_phase_deg_, scan_row_index_, row_count, result.scan_azimuth_rad,
-        result.scan_elevation_rad, corners, center_text, dwell_s, mission.scan_rate_deg_per_sec);
+    const std::string corners_csv = [&corners]() {
+      std::string text = corners;
+      for (char& ch : text) {
+        if (ch == ' ') {
+          ch = ';';
+        }
+      }
+      return text;
+    }();
+    std::string graze_text;
+    if (center_valid) {
+      oneq::coordinate::LlaPositionDegM lla(center_lat_deg, center_lon_deg, 0.0);
+      oneq::coordinate::EcefPositionM sat_ecef(input.satellite_position_ecef_m.x,
+                                               input.satellite_position_ecef_m.y,
+                                               input.satellite_position_ecef_m.z);
+      oneq::coordinate::EnuPositionM sat_enu;
+      if (oneq::coordinate::TryEcefToEnu(sat_ecef, lla, &sat_enu)) {
+        const double horiz = std::hypot(sat_enu.east_m, sat_enu.north_m);
+        const double graze_deg = std::atan2(sat_enu.up_m, std::max(horiz, 1.0e-6)) * 57.29577951308232;
+        graze_text = oneq::logging::FormatF(graze_deg, 3) + "°";
+      }
+    }
+    if (graze_text.empty()) {
+      graze_text = oneq::logging::FormatF(actual_scan_elevation_sensor_deg, 3) +
+                   "°（无地面交点，记视场中心俯仰）";
+    }
+    std::string footprint = "覆盖四角经纬=[" + corners_csv + "] 中心=(" + center_text +
+                            ") 驻留=" + oneq::logging::FormatF(dwell_s, 3) + "s";
+    SBIRS_ACCEPTANCE_ITEM(sim_time_sec, input.cycle_index, "宽视场扫描探测", footprint);
+    std::string scan_w = "扫描幅宽az/el=(" +
+                         oneq::logging::FormatF(mission.wide_field_fov_az_deg, 3) + "," +
+                         oneq::logging::FormatF(mission.wide_field_fov_el_deg, 3) + ")° 扫描掠角=" +
+                         graze_text;
+    SBIRS_ACCEPTANCE_ITEM(sim_time_sec, input.cycle_index, "大幅面扫描与探测", scan_w);
+    const double sat_range = std::sqrt(input.satellite_position_ecef_m.x * input.satellite_position_ecef_m.x +
+                                       input.satellite_position_ecef_m.y * input.satellite_position_ecef_m.y +
+                                       input.satellite_position_ecef_m.z * input.satellite_position_ecef_m.z);
+    WriteSbirsOrbitSample(sim_time_sec, input.cycle_index, policy.error_model.orbit_sigma_deg,
+                          sat_range);
+    WriteSbirsOncePerSession(sim_time_sec, input.cycle_index);
+    WriteSbirsCycleRunCount(sim_time_sec, input.cycle_index);
   }
 
   const float transmittance = environment::ResolveEffectiveTransmittance(environment_config);
@@ -1048,37 +1093,33 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
         // 标识：验收日志 E5——3.2.1.3.2.3"焦平面脱靶量、跟踪状态、目标信号能量与 SNR"、
         //       3.2.1.6.3 红外定位角度误差（跟踪段）证据；输出角误差在滤波/误差注入
         //       全部完成后取最终输出角 − 真值角（方位最短角差）。
-        const char* mode_text = "strict_truth";
-        if (state == SbirsTargetState::kSensorLikeTruthAssistedTracking) {
-          mode_text = "sensor_like_truth";
-        } else if (estimated_tracking) {
-          mode_text = "estimated";
-        }
         foundation::SbirsFocalPlaneOffset focal_offset;
         const bool focal_valid = foundation::ComputeFocalPlaneOffset(
             hw.focal_length_m, hw.detector_pixel_pitch_m,
             AzimuthDelta(sensor_azimuth_deg, actual_pointing_azimuth_deg),
             sensor_elevation_deg - actual_pointing_elevation_deg, &focal_offset);
-        SBIRS_ACCEPTANCE_LOG(
-            "event=nfov_track cycle_index={} target_id={} channel={} mode={} "
-            "pointing_sensor_deg=({:.4f},{:.4f}) target_sensor_deg=({:.4f},{:.4f}) "
-            "pointing_error_deg={:.4f} focal_valid={} focal_offset_m=({:.6f},{:.6f}) "
-            "focal_offset_pix=({:.2f},{:.2f}) output_az_error_deg={:.6f} "
-            "output_el_error_deg={:.6f} snr={:.3f} received_power_w={} "
-            "signal_energy_j={} geo_gate={} snr_gate={} gate_failures={} coasting={} "
-            "nis={} nis_exceeded={}",
-            input.cycle_index, target.target_id, channel_id, mode_text, actual_pointing_azimuth_deg,
-            actual_pointing_elevation_deg, sensor_azimuth_deg, sensor_elevation_deg,
-            detection.attribution.nfov_pointing_error_deg, focal_valid,
-            focal_valid ? focal_offset.x_m : 0.0, focal_valid ? focal_offset.y_m : 0.0,
-            focal_valid ? focal_offset.x_pixels : 0.0, focal_valid ? focal_offset.y_pixels : 0.0,
-            AzimuthDelta(static_cast<float>(detection.record.azimuth_rad * 57.29577951308232),
-                         azimuth_deg),
-            static_cast<float>(detection.record.elevation_rad * 57.29577951308232) - elevation_deg,
-            snr, received_power_w, signal_energy_j, geometry_gate_passed, snr_gate_passed,
-            gate_failure_count, detection.attribution.nfov_tracking_coasting,
-            detection.attribution.has_estimation_nis ? detection.attribution.estimation_nis : 0.0f,
-            detection.attribution.estimation_nis_gate_exceeded);
+        const double az_err = AzimuthDelta(
+            static_cast<float>(detection.record.azimuth_rad * 57.29577951308232), azimuth_deg);
+        const double el_err =
+            static_cast<float>(detection.record.elevation_rad * 57.29577951308232) - elevation_deg;
+        std::string nfov = "目标ID=" + std::to_string(target.target_id);
+        nfov += " 脱靶量m=(";
+        nfov += focal_valid ? oneq::logging::FormatF(focal_offset.x_m, 6) : std::string("无");
+        nfov += ",";
+        nfov += focal_valid ? oneq::logging::FormatF(focal_offset.y_m, 6) : std::string("无");
+        nfov += ") 脱靶量像素=(";
+        nfov += focal_valid ? oneq::logging::FormatF(focal_offset.x_pixels, 2) : std::string("无");
+        nfov += ",";
+        nfov += focal_valid ? oneq::logging::FormatF(focal_offset.y_pixels, 2) : std::string("无");
+        nfov += ") 跟踪状态=";
+        nfov += detection.attribution.nfov_tracking_coasting ? "滑行" : "跟踪";
+        nfov += " 信号能量=" + oneq::logging::FormatSci(signal_energy_j) + "J";
+        nfov += " SNR=" + oneq::logging::FormatF(snr, 3);
+        SBIRS_ACCEPTANCE_ITEM(sim_time_sec, input.cycle_index, "窄视场跟踪探测", nfov);
+        WriteSbirsAngleError(sim_time_sec, input.cycle_index, target.target_id, az_err, el_err,
+                             detection.record.azimuth_rad * 57.29577951308232,
+                             detection.record.elevation_rad * 57.29577951308232, azimuth_deg,
+                             elevation_deg);
       }
       result.detections.push_back(detection);
       continue;
@@ -1207,22 +1248,56 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
       // 标识：验收日志 E2——3.2.1.3.2"宽场疑似目标列表/目标信号能量"、3.2.1.3.2.1
       //       cue 参数与连续命中、3.2.1.3.2.2 宽场检测、3.2.1.6.3 红外定位角度误差
       //       证据（az/el_error = 带误差量测角 − 真值角，方位最短角差）。
-      SBIRS_ACCEPTANCE_LOG(
-          "event=wfov_candidate cycle_index={} target_id={} truth_deg=({:.4f},{:.4f}) "
-          "measured_deg=({:.4f},{:.4f}) az_error_deg={:.6f} el_error_deg={:.6f} "
-          "range_m={:.1f} snr={:.3f} d_max_m={:.1f} "
-          "received_power_w={} signal_energy_j={} omega_deg_s={:.4f} "
-          "cue_cmd_deg=({:.4f},{:.4f}) cue_latency_s={:.3f} delayed_truth_deg=({:.4f},{:.4f}) "
-          "consecutive_hits={} required_hits={}",
-          input.cycle_index, target.target_id, azimuth_deg, elevation_deg,
-          candidate.measured_azimuth_deg, candidate.measured_elevation_deg,
-          AzimuthDelta(candidate.measured_azimuth_deg, azimuth_deg),
-          candidate.measured_elevation_deg - elevation_deg, range_m, snr,
-          max_detection_range_m, received_power_w, signal_energy_j,
-          candidate.relative_angular_rate_deg_per_sec, candidate.command_azimuth_deg,
-          candidate.command_elevation_deg, mission.narrow_cue_latency_s,
-          candidate.delayed_truth_azimuth_deg, candidate.delayed_truth_elevation_deg,
-          consecutive_hits, policy.scheduler.wide_to_narrow_required_consecutive_hits);
+      const double az_err = AzimuthDelta(candidate.measured_azimuth_deg, azimuth_deg);
+      const double el_err = candidate.measured_elevation_deg - elevation_deg;
+      const double nfov_d_max = foundation::ComputeMaxDetectionRangeM(
+          target.radiant_intensity_w_per_sr, hw.optical_aperture_m, hw.optical_transmission,
+          transmittance, hw.detector_quantum_efficiency, hw.integration_time_sec,
+          effective_noise_w, policy.detection.narrow_min_snr_linear);
+      session::SbirsVector3M ecef = target.position_eci_m;
+      for (const session::SbirsSceneTarget& source : input.scene) {
+        if (source.target_id == target.target_id) {
+          ecef = source.position_ecef_m;
+          break;
+        }
+      }
+      std::string dmax = "目标ID=" + std::to_string(target.target_id);
+      dmax += " 相对卫星最大探测距离=" + oneq::logging::FormatF(max_detection_range_m, 1) + "m";
+      dmax += " 窄场最大探测距离=" + oneq::logging::FormatF(nfov_d_max, 1) + "m";
+      SBIRS_ACCEPTANCE_ITEM(sim_time_sec, input.cycle_index, "最大探测距离", dmax);
+      std::string dyn = "目标ID=" + std::to_string(target.target_id);
+      dyn += " ECEF位置m=" + oneq::logging::FormatVec3(ecef.x, ecef.y, ecef.z, 1);
+      dyn += " 斜距=" + oneq::logging::FormatF(range_m, 1) + "m";
+      dyn += " 真值方位/俯仰=" + oneq::logging::FormatPairDeg(azimuth_deg, elevation_deg, 3) + "°";
+      dyn += " 量测方位/俯仰=" +
+             oneq::logging::FormatPairDeg(candidate.measured_azimuth_deg,
+                                          candidate.measured_elevation_deg, 3) +
+             "°";
+      dyn += " 探测器系方位/俯仰=" +
+             oneq::logging::FormatPairDeg(sensor_azimuth_deg, sensor_elevation_deg, 3) + "°";
+      dyn += " 相对角速度=" +
+             oneq::logging::FormatF(candidate.relative_angular_rate_deg_per_sec, 4) + "°/s";
+      dyn += " SNR=" + oneq::logging::FormatF(snr, 3);
+      dyn += " 红外可探测=是";
+      SBIRS_ACCEPTANCE_ITEM(sim_time_sec, input.cycle_index, "目标可探测性与动态参数", dyn);
+      std::string energy = "扫描幅宽az/el=(" +
+                           oneq::logging::FormatF(mission.wide_field_fov_az_deg, 3) + "," +
+                           oneq::logging::FormatF(mission.wide_field_fov_el_deg, 3) + ")°";
+      energy += " 目标ID=" + std::to_string(target.target_id);
+      energy += " 接收功率=" + oneq::logging::FormatSci(received_power_w) + "W";
+      energy += " 信号能量=" + oneq::logging::FormatSci(signal_energy_j) + "J";
+      SBIRS_ACCEPTANCE_ITEM(sim_time_sec, input.cycle_index, "大幅面扫描与探测", energy);
+      WriteSbirsAngleError(sim_time_sec, input.cycle_index, target.target_id, az_err, el_err,
+                           candidate.measured_azimuth_deg, candidate.measured_elevation_deg,
+                           azimuth_deg, elevation_deg);
+      const int required_hits =
+          std::max(1, policy.scheduler.wide_to_narrow_required_consecutive_hits);
+      std::string joint = "宽场疑似=[" + std::to_string(target.target_id) + "]";
+      joint += " 连续命中=" + std::to_string(consecutive_hits) + "/" + std::to_string(required_hits);
+      joint += consecutive_hits >= static_cast<unsigned int>(required_hits) ? " 序列确认=达标"
+                                                                           : " 序列确认=未达标";
+      joint += " 独立目标识别器结论=无";
+      SBIRS_ACCEPTANCE_ITEM(sim_time_sec, input.cycle_index, "宽窄视场联合探测", joint);
     }
     if (target_states_[target.target_id] != SbirsTargetState::kAwaitingNfovAcquisition) {
       target_states_[target.target_id] = SbirsTargetState::kWideCandidate;
@@ -1311,11 +1386,10 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
       if (SBIRS_ACCEPTANCE_LOG_ENABLED()) {
         // 中译：窄视场首次捕获事件——转向中（目标编号、通道、命令角、SNR）。
         // 标识：验收日志 E4——3.2.1.3.2.1 NFOV 指向/捕获过程的"转向"中间态证据。
-        SBIRS_ACCEPTANCE_LOG(
-            "event=nfov_acquisition cycle_index={} target_id={} channel={} outcome=slewing "
-            "cmd_deg=({:.4f},{:.4f}) snr={:.3f}",
-            input.cycle_index, target_id, channel_id, selected.command_azimuth_deg,
-            selected.command_elevation_deg, selected.snr);
+        SBIRS_ACCEPTANCE_ITEM(
+            sim_time_sec, input.cycle_index, "宽窄视场联合探测",
+            "宽场疑似=[" + std::to_string(target_id) + "] 窄场通道=" + std::to_string(channel_id) +
+                " 捕获=转向中 SNR=" + oneq::logging::FormatF(selected.snr, 3));
       }
       append_wfov_detection(selected, channel_id);
       return;
@@ -1328,11 +1402,9 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
       if (SBIRS_ACCEPTANCE_LOG_ENABLED()) {
         // 中译：窄视场首次捕获事件——指向超时失败（目标编号、通道、命令角）。
         // 标识：验收日志 E4——3.2.1.3.2.1 指向超时回退证据（与 E7 release 成对）。
-        SBIRS_ACCEPTANCE_LOG(
-            "event=nfov_acquisition cycle_index={} target_id={} channel={} outcome=timeout "
-            "cmd_deg=({:.4f},{:.4f})",
-            input.cycle_index, target_id, channel_id, selected.command_azimuth_deg,
-            selected.command_elevation_deg);
+        SBIRS_ACCEPTANCE_ITEM(sim_time_sec, input.cycle_index, "宽窄视场联合探测",
+                              "宽场疑似=[" + std::to_string(target_id) +
+                                  "] 窄场通道=" + std::to_string(channel_id) + " 捕获=超时失败");
       }
       append_acquisition_failure(selected, channel_id,
                                  attribution::SbirsCaptureFailureReason::kNfovPointingTimeout);
@@ -1347,11 +1419,9 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
       if (SBIRS_ACCEPTANCE_LOG_ENABLED()) {
         // 中译：窄视场首次捕获事件——指向被拒失败（目标编号、通道、命令角）。
         // 标识：验收日志 E4——3.2.1.3.2.1 指向拒绝回退证据（与 E7 release 成对）。
-        SBIRS_ACCEPTANCE_LOG(
-            "event=nfov_acquisition cycle_index={} target_id={} channel={} outcome=rejected "
-            "cmd_deg=({:.4f},{:.4f})",
-            input.cycle_index, target_id, channel_id, selected.command_azimuth_deg,
-            selected.command_elevation_deg);
+        SBIRS_ACCEPTANCE_ITEM(sim_time_sec, input.cycle_index, "宽窄视场联合探测",
+                              "宽场疑似=[" + std::to_string(target_id) +
+                                  "] 窄场通道=" + std::to_string(channel_id) + " 捕获=指向被拒");
       }
       append_acquisition_failure(selected, channel_id,
                                  attribution::SbirsCaptureFailureReason::kNfovAcquisitionFailed);
@@ -1386,28 +1456,14 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
     acquisition_request.minimum_snr_linear = policy.detection.narrow_min_snr_linear;
     const bool captured = IsNfovAcquisitionEligible(acquisition_request);
     if (SBIRS_ACCEPTANCE_LOG_ENABLED()) {
-      // 几何门余量 = NFOV 半视场 − |延迟真值角 − 实际命令角|（逐轴，正=门内）。
-      // 中译：窄视场首次捕获判决事件（目标编号、通道、判决结果、几何门方位/俯仰余量、
-      //       命令与延迟真值角、SNR 与门限、沉降误差）。
-      // 标识：验收日志 E4——3.2.1.3.2.1"以预测后几何和 SNR 判定 NFOV 捕获"证据；
-      //       几何门+SNR 门单次判定（IsNfovAcquisitionEligible）。
-      const float az_margin_deg =
-          0.5f * mission.narrow_field_fov_az_deg -
-          std::fabs(AzimuthDelta(acquisition_request.delayed_truth_azimuth_deg,
-                                 acquisition_request.command_azimuth_deg));
-      const float el_margin_deg =
-          0.5f * mission.narrow_field_fov_el_deg -
-          std::fabs(acquisition_request.delayed_truth_elevation_deg -
-                    acquisition_request.command_elevation_deg);
-      SBIRS_ACCEPTANCE_LOG(
-          "event=nfov_acquisition cycle_index={} target_id={} channel={} outcome={} "
-          "az_margin_deg={:.4f} el_margin_deg={:.4f} cmd_deg=({:.4f},{:.4f}) "
-          "delayed_truth_deg=({:.4f},{:.4f}) snr={:.3f} min_snr={:.3f} settle_error_deg={:.4f}",
-          input.cycle_index, target_id, channel_id, captured ? "captured" : "failed", az_margin_deg,
-          el_margin_deg, acquisition_request.command_azimuth_deg,
-          acquisition_request.command_elevation_deg, acquisition_request.delayed_truth_azimuth_deg,
-          acquisition_request.delayed_truth_elevation_deg, selected.snr,
-          policy.detection.narrow_min_snr_linear, mission.narrow_pointing_settle_error_deg);
+      // 几何门余量计算保留在捕获判定函数内；此处只写捕获结论。
+      SBIRS_ACCEPTANCE_ITEM(
+          sim_time_sec, input.cycle_index, "宽窄视场联合探测",
+          "宽场疑似=[" + std::to_string(target_id) + "] 窄场通道=" + std::to_string(channel_id) +
+              " 捕获=" + std::string(captured ? "成功" : "失败") + " 窄场方位/俯仰=" +
+              oneq::logging::FormatPairDeg(acquisition_request.command_azimuth_deg,
+                                           acquisition_request.command_elevation_deg, 3) +
+              "° SNR=" + oneq::logging::FormatF(selected.snr, 3));
     }
     if (captured) {
       if (!pointing_coordinator_.PromoteToTracking(target_id)) {
@@ -1520,9 +1576,11 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
         // 中译：宽窄切换命中门事件（目标编号、当前连续命中数、所需阈值）。
         // 标识：验收日志 E3——3.2.1.3.2.1"宽窄切换连续检测计数器"作为切换前置
         //       条件的证据；被挡下的目标本周期保持宽场候选，不进入 NFOV 调度。
-        SBIRS_ACCEPTANCE_LOG(
-            "event=wfov_hit_gate cycle_index={} target_id={} consecutive_hits={} required={}",
-            input.cycle_index, target_id, consecutive_hits, required_consecutive_hits);
+        SBIRS_ACCEPTANCE_ITEM(
+            sim_time_sec, input.cycle_index, "宽窄视场联合探测",
+            "宽场疑似=[" + std::to_string(target_id) + "] 连续命中=" +
+                std::to_string(consecutive_hits) + "/" + std::to_string(required_consecutive_hits) +
+                " 序列确认=未达标");
       }
       continue;
     }
@@ -1580,12 +1638,14 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
         skipped_text += std::to_string(target_id);
       }
     }
-    SBIRS_ACCEPTANCE_LOG(
-        "event=nfov_schedule cycle_index={} selected=[{}] locked={}/{} resources_full={} "
-        "skipped=[{}]",
-        input.cycle_index, selected_text, nfov_scheduler_.LockedCount(),
-        nfov_scheduler_.max_locks(),
-        nfov_scheduler_.LockedCount() >= nfov_scheduler_.max_locks(), skipped_text);
+    std::string collab = "选中目标=[" + selected_text + "]";
+    collab += " 锁定=" + std::to_string(nfov_scheduler_.LockedCount()) + "/" +
+              std::to_string(nfov_scheduler_.max_locks());
+    collab += " 跳过=[" + skipped_text + "]";
+    collab += nfov_scheduler_.LockedCount() >= nfov_scheduler_.max_locks() ? " 资源满=是"
+                                                                          : " 资源满=否";
+    collab += " 按威胁等级抢占=无";
+    SBIRS_ACCEPTANCE_ITEM(sim_time_sec, input.cycle_index, "协同工作机制", collab);
   }
 
   // 通道已满（无并发余量）时，未被选中的 WFOV 候选标记为调度跳过。

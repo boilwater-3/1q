@@ -238,21 +238,15 @@ RIR 遵守 `docs/common/contract.md` 与 `docs/common/session_contract.md`：
 - 加载期只读读取器，运行期不持有 SQLite 连接。
 - 版本策略：`schema_version` 为 `major.minor`；major 破坏性变更加载器拒绝。
 
-## 验收信息日志（`[RirAccept]` 事件流，2026-08-20）
+## 验收信息日志（`rir_acceptance.log`，2026-08-22）
 
-CMake 开关 `ONEQ_ENABLE_RIR_ACCEPTANCE_LOG`（默认 OFF）门控的编译期专用日志宏
-`RIR_ACCEPTANCE_LOG`（`src/remote_identification_radar/runtime/RirAcceptanceLog.h`），
-把需求映射 3.2.2 章节的验收量按周期经 `PROJECT_LOG_INFO` 输出。已接线事件：
-`detection_cell`（方向图增益/四功率/脉压增益/SINR/SNR/Pd/判决）、`interference_link`
-（逐源干扰功率）、`association`/`association_match`/`association_missed`（关联结果）、
-`track`（航迹全量状态含 6×6 协方差）、`measurement`（四维特征量测）、`recognition`
-（识别结论）、`schedule`（驻留计数与效能摘要）、`beam_pattern`/`beam_pattern_wave`
-（波位排列表，mission / scan_center 配置变更后重发）、`beam_scan`（逐周期波束中心与来源）。
-边界：与 SBIRS `[SbirsAccept]` 同性质——**仅人读验收材料，不属于三写、不进公开输出/
-replay**；关闭时宏与派生计算一并编译剪除，零开销、行为逐位不变。缺失子项（航向、
-舰船/车辆类型、MTI/MTD 通道级量、事件类型分类计数细化）经 2026-08-20 验收裁定
-不新增，对应注释已落在各类型定义处，见
-`docs/review/acceptance_output_inventory_2026-08-20.md` §5/§6。
+CMake 开关 `ONEQ_ENABLE_RIR_ACCEPTANCE_LOG`（默认 OFF）门控。开启后按验收项写入
+`rir_acceptance.log`（四段同一行），三维方向图另写 `rir_antenna_pattern.csv`。
+不进 `1q_library.log`，也不把融合/推演/精度抄进本文件。关闭时宏与派生计算一并
+编译剪除，零开销、行为逐位不变。项表与「不能输出」字段见
+`docs/review/acceptance_item_catalog_2026-08-22.md`。边界：仅人读验收材料，
+不属于三写、不进公开输出/replay。加粗缺项（舰船/车辆类型、真实 MTI/MTD 通道、
+IMM 权重、指定角域裁剪后的搜索集合）写 `无`/`暂无`，不编造。
 
 ## 设计变更规则
 

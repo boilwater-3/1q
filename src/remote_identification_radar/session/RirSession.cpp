@@ -20,6 +20,7 @@
 #include "common/radar/ScanScheduleRuntime.h"
 #include "remote_identification_radar/dwell/RirBeamControl.h"
 #include "remote_identification_radar/runtime/RirAcceptanceLog.h"
+#include "remote_identification_radar/runtime/RirAcceptanceRecords.h"
 #include "remote_identification_radar/runtime/RirController.h"
 #include "remote_identification_radar/session/RirReplayCycleRecord.h"
 
@@ -324,27 +325,24 @@ RirCycleResult RirSession::StepWithResult(const RirCycleInput& input) {
   if (RIR_ACCEPTANCE_LOG_ENABLED() && !impl_->acceptance_scan_pattern_logged) {
     const dwell::RirEffectiveBeamwidthDeg beamwidth =
         dwell::RirResolveEffectiveBeamwidth(impl_->config.hardware.antenna);
-    const config::RirScanConfig& scan = impl_->config.mission.scan;
-    const float az_step = beamwidth.az_beamwidth_deg * scan.step_scale;
-    const float el_step = beamwidth.el_beamwidth_deg * scan.step_scale;
     const std::vector<oneq::common::radar::AzimuthElevationDeg> pattern =
         BuildAbsoluteScanWaves(impl_->config);
-    RIR_ACCEPTANCE_LOG(
-        "event=beam_pattern cycle={} size={} az_step_deg={:.3f} el_step_deg={:.3f}",
-        input.input_cycle_index, pattern.size(), az_step, el_step);
-    for (std::size_t wave_index = 0U; wave_index < pattern.size(); ++wave_index) {
-      RIR_ACCEPTANCE_LOG("event=beam_pattern_wave index={} az_deg={:.3f} el_deg={:.3f}",
-                         wave_index, pattern[wave_index].az_deg, pattern[wave_index].el_deg);
-    }
+    const std::string csv_path = "rir_antenna_pattern.csv";
+    runtime::TryExportRirAntennaPatternCsv(impl_->config.hardware.antenna, csv_path.c_str());
+    runtime::WriteRirAntennaPatternSummary(input.sim_time_sec, input.input_cycle_index,
+                                           impl_->config.hardware.antenna.main_beam_gain_db,
+                                           beamwidth.az_beamwidth_deg, beamwidth.el_beamwidth_deg,
+                                           csv_path);
+    runtime::WriteRirOncePerSession(input.sim_time_sec, input.input_cycle_index);
     impl_->acceptance_scan_pattern_logged = true;
+    (void)pattern;
   }
-  // 验收事件 beam_scan（3.2.2.1.2/3.2.2.4.2.1）：本周期驻留波束中心与来源
-  // （designate=指定识别任务对准目标；scan=扫描策略波位，序列即扫描轨迹）。
   if (RIR_ACCEPTANCE_LOG_ENABLED()) {
-    RIR_ACCEPTANCE_LOG(
-        "event=beam_scan cycle={} mode={} az_deg={:.3f} el_deg={:.3f} designated={}",
-        input.input_cycle_index, dwelling_on_target ? "designate" : "scan", dwell_center.az_deg,
-        dwell_center.el_deg, impl_->designated_external_target_id);
+    const std::vector<oneq::common::radar::AzimuthElevationDeg> pattern =
+        BuildAbsoluteScanWaves(impl_->config);
+    runtime::WriteRirBeamScan(input.sim_time_sec, input.input_cycle_index, pattern.size(),
+                              dwell_center.az_deg, dwell_center.el_deg, dwelling_on_target);
+    runtime::WriteRirCycleRunCount(input.sim_time_sec, input.input_cycle_index);
   }
 
   impl_->controller.RunCycle(input, &result.output_frame, impl_->next_batch_id, dwell_center);

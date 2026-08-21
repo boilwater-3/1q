@@ -13,6 +13,7 @@
 #include <utility>
 #include <vector>
 
+#include "common/logging/AcceptanceText.h"
 #include "common/logging/ProjectLog.h"
 #include "common/numerics/Constants.h"
 #include "common/radar/VegetationClutterModel.h"
@@ -27,6 +28,7 @@
 #include "remote_identification_radar/dwell/RirRfFrontEndResolver.h"
 #include "remote_identification_radar/recognition/RecognitionObservationBuilder.h"
 #include "remote_identification_radar/runtime/RirAcceptanceLog.h"
+#include "remote_identification_radar/runtime/RirAcceptanceRecords.h"
 
 namespace remote_identification_radar {
 namespace runtime {
@@ -35,6 +37,7 @@ namespace {
 
 constexpr float kSnrFallbackGateDb = 6.0f;
 constexpr float kCovarianceFloorM2 = 1.0e-6f;
+std::string g_acceptance_found_targets;
 
 internal::RirSwerlingModel ToInternalSwerling(session::RirSwerlingType type) {
   switch (type) {
@@ -470,27 +473,38 @@ bool RirController::TryBuildMeasurement(
   // 离轴增益/有效波束宽度/离轴角、回波/热噪/干扰/杂波功率、脉压增益、SINR/SNR、
   // Pd 与判决。has_cell=0 为 v1 效能级回退路径（cell 分项功率不可得，只有 SNR/Pd）。
   if (RIR_ACCEPTANCE_LOG_ENABLED()) {
-    RIR_ACCEPTANCE_LOG(
-        "event=detection_cell cycle={} target_id={} name={} look_az_deg={:.3f} "
-        "look_el_deg={:.3f} range_m={:.1f} rcs_m2={:.3f} peak_gain_dbi={:.2f} "
-        "gain_dbi={:.2f} bw_az_deg={:.3f} bw_el_deg={:.3f} off_az_deg={:.3f} "
-        "off_el_deg={:.3f} has_cell={} echo_power_dbw={:.3f} echo_power_w={} "
-        "pulse_compression_gain={:.3f} thermal_noise_w={} interference_w={} clutter_w={} "
-        "sinr_db={:.3f} snr_db={:.3f} pd={:.5f} detected={} admitted={}",
-        input.input_cycle_index, target.external_target_id, target.target_name, look_az_deg,
-        look_el_deg, slant_range_m, target_return.rcs_m2, hardware_.antenna.main_beam_gain_db,
-        beam_state.one_way_antenna_gain_db, beam_state.effective_beamwidth_deg.az_beamwidth_deg,
-        beam_state.effective_beamwidth_deg.el_beamwidth_deg,
-        look_az_deg - dwell_center_deg.az_deg, look_el_deg - dwell_center_deg.el_deg,
-        static_cast<int>(resolved_cell), detection.echo_power_dbw, cell.echo_power_w,
-        cell.pulse_compression_gain, cell.thermal_noise_power_w, cell.interference_power_w,
-        cell.clutter_power_w, cell.processed_single_pulse_sinr_db, detection.snr_db,
-        detection.detection_prob, static_cast<int>(detection.detected),
-        static_cast<int>(admitted));
+    RirDetectionAcceptInput snap;
+    snap.sim_time_sec = input.sim_time_sec;
+    snap.cycle = input.input_cycle_index;
+    snap.target_id = target.external_target_id;
+    snap.range_m = slant_range_m;
+    snap.look_az_deg = look_az_deg;
+    snap.look_el_deg = look_el_deg;
+    snap.rcs_m2 = target_return.rcs_m2;
+    snap.snr_db = detection.snr_db;
+    snap.pd = detection.detection_prob;
+    snap.detected = detection.detected;
+    snap.has_cell = resolved_cell;
+    snap.peak_gain_dbi = hardware_.antenna.main_beam_gain_db;
+    snap.bw_az_deg = beam_state.effective_beamwidth_deg.az_beamwidth_deg;
+    snap.bw_el_deg = beam_state.effective_beamwidth_deg.el_beamwidth_deg;
+    snap.echo_power_dbw = detection.echo_power_dbw;
+    snap.cell = cell;
+    snap.gains = hardware_.signal_processing;
+    WriteRirDetectionChain(snap);
   }
 
   if (!admitted) {
     return false;
+  }
+  if (RIR_ACCEPTANCE_LOG_ENABLED()) {
+    if (!g_acceptance_found_targets.empty()) {
+      g_acceptance_found_targets += "; ";
+    }
+    g_acceptance_found_targets +=
+        "ID=" + std::to_string(target.external_target_id) + " 斜距=" +
+        std::to_string(static_cast<int>(slant_range_m)) + "m Pd=" +
+        oneq::logging::FormatF(detection.detection_prob, 5);
   }
 
   const dwell::RirMeasurementErrorState measurement_error =
@@ -577,16 +591,9 @@ void RirController::RunCycle(const session::RirCycleInput& input,
     // 验收事件 interference_link（3.2.2.1.1.3）：逐干扰源到达接收端的入射功率
     // （RF 前端口径，未做 detection cell 内时频重叠聚合；聚合后进入 SINR 分母的
     // 总量见 detection_cell 事件 interference_w 字段）。
-    if (RIR_ACCEPTANCE_LOG_ENABLED() && !rf_cycle.incident_links.empty()) {
-      for (const oneq::electromagnetics::RfIncidentLinkResult& link : rf_cycle.incident_links) {
-        RIR_ACCEPTANCE_LOG(
-            "event=interference_link cycle={} emitter_platform_id={} "
-            "emitter_equipment_id={} emission_id={} path_length_m={:.1f} "
-            "time_overlap={:.4f} freq_overlap={:.4f} received_power_w={}",
-            input.input_cycle_index, link.identity.platform_id, link.identity.equipment_id,
-            link.identity.emission_id, link.path_length_m, link.time_overlap_fraction,
-            link.frequency_overlap_fraction, link.received_power_w);
-      }
+    if (RIR_ACCEPTANCE_LOG_ENABLED()) {
+      g_acceptance_found_targets.clear();
+      WriteRirInterferenceLinks(input.sim_time_sec, input.input_cycle_index, rf_cycle.incident_links);
     }
 
     std::unordered_map<std::uint64_t, const session::RirSceneTarget*> scene_by_id;
@@ -653,18 +660,9 @@ void RirController::RunCycle(const session::RirCycleInput& input,
     // 验收事件 association（3.2.2.3.1.1）：全局最优关联结果——命中对（键/量测
     // 索引/马氏代价）与漏检航迹键（量测清单经 detection_cell 事件逐目标留痕）。
     if (RIR_ACCEPTANCE_LOG_ENABLED()) {
-      RIR_ACCEPTANCE_LOG("event=association cycle={} measurements={} matches={} missed={}",
-                         input.input_cycle_index, association.measurements.size(),
-                         association.matches.size(), association.missed_track_keys.size());
-      for (const tracking::RirAssociationMatch& match : association.matches) {
-        RIR_ACCEPTANCE_LOG("event=association_match cycle={} key={} source_index={} cost={:.4f}",
-                           input.input_cycle_index, match.association_key, match.source_index,
-                           match.cost);
-      }
-      for (const std::uint64_t missed_key : association.missed_track_keys) {
-        RIR_ACCEPTANCE_LOG("event=association_missed cycle={} key={}", input.input_cycle_index,
-                           missed_key);
-      }
+      WriteRirSearchDetections(input.sim_time_sec, input.input_cycle_index, dwell_center_deg.az_deg,
+                               dwell_center_deg.el_deg, g_acceptance_found_targets);
+      WriteRirAssociation(input.sim_time_sec, input.input_cycle_index, association);
     }
 
     track_snapshots = lifecycle_->BuildTrackSnapshots();
@@ -716,36 +714,6 @@ void RirController::RunCycle(const session::RirCycleInput& input,
         record.platform_position = input.platform_position;
         record.cycle_index = input.input_cycle_index;
         record.batch_id = batch_id;
-        // 验收事件 measurement（3.2.2.3.3.x，出口①）：四维特征量测逐航迹记录
-        // （RCS/运动/极化/距离像全量字段；无效维按内部现状透出，有效性看 mask）。
-        if (RIR_ACCEPTANCE_LOG_ENABLED()) {
-          RIR_ACCEPTANCE_LOG(
-              "event=measurement cycle={} key={} look_az_deg={:.3f} look_el_deg={:.3f} "
-              "range_m={:.1f} snr_db={:.3f} dwell_sec={:.3f} bandwidth_hz={:.1f} mask={} "
-              "rcs_mean_dbsm={:.3f} rcs_std_db={:.3f} rcs_az_var_db={:.3f} "
-              "rcs_el_var_db={:.3f} rcs_pv_db={:.3f} rcs_coverage_deg={:.2f} "
-              "rcs_quality={:.4f} motion_speed_mps={:.3f} motion_alt_m={:.1f} "
-              "motion_accel_mps2={:.4f} motion_turn_radius_m={:.1f} motion_straight={} "
-              "motion_quality={:.4f} pol_energy_diff_db={:.3f} pol_rel_diff_db={:.3f} "
-              "pol_energy_sum_db={:.3f} pol_quality={:.4f} rp_length_m={:.3f} rp_peaks={} "
-              "rp_concentration={:.4f} rp_resolution_m={:.3f} rp_quality={:.4f}",
-              record.cycle_index, record.association_key, record.look_az_deg,
-              record.look_el_deg, record.range_m, record.snr_db, record.dwell_sec,
-              record.bandwidth_hz, record.valid_feature_mask, record.features.rcs.mean_dbsm,
-              record.features.rcs.std_db, record.features.rcs.azimuth_variation_db,
-              record.features.rcs.elevation_variation_db, record.features.rcs.peak_to_valley_db,
-              record.features.rcs.aspect_coverage_deg, record.features.rcs.quality,
-              record.features.motion.speed_m_per_s, record.features.motion.altitude_m,
-              record.features.motion.acceleration_m_per_s2,
-              record.features.motion.turn_radius_m,
-              static_cast<int>(record.features.motion.is_straight),
-              record.features.motion.quality, record.features.polarization.energy_difference_db,
-              record.features.polarization.relative_difference_db,
-              record.features.polarization.energy_sum_db, record.features.polarization.quality,
-              record.features.range_profile.length_m, record.features.range_profile.peak_count,
-              record.features.range_profile.peak_energy_concentration,
-              record.features.range_profile.resolution_m, record.features.range_profile.quality);
-        }
         output_frame->feature_measurements.push_back(record);
       }
     } else {
@@ -764,20 +732,16 @@ void RirController::RunCycle(const session::RirCycleInput& input,
     // scheduled=非零 ID 场景目标数、executed=检测准入门通过数（事后统计，
     // 非调度器准入）；事件类型分类计数为既有口径所能提供的粒度。
     if (RIR_ACCEPTANCE_LOG_ENABLED()) {
-      RIR_ACCEPTANCE_LOG(
-          "event=schedule cycle={} scheduled={} executed={} budget_sec={:.3f} "
-          "consumed_sec={:.3f} participating={} category_confirmed={} model_confirmed={} "
-          "unknown={} disabled={} mean_confidence={:.4f} has_truth={} "
-          "category_accuracy={:.4f} model_accuracy={:.4f}",
-          input.input_cycle_index, latest_summary_.dwell_budget.scheduled_dwell_count,
-          latest_summary_.dwell_budget.executed_dwell_count,
-          latest_summary_.dwell_budget.dwell_budget_sec,
-          latest_summary_.dwell_budget.dwell_consumed_sec,
-          latest_summary_.participating_track_count,
-          latest_summary_.category_confirmed_count, latest_summary_.model_confirmed_count,
-          latest_summary_.unknown_count, latest_summary_.disabled_count,
-          latest_summary_.mean_confidence, static_cast<int>(latest_summary_.has_ground_truth),
-          latest_summary_.category_accuracy, latest_summary_.model_accuracy);
+      std::uint32_t confirmed = 0U;
+      for (const tracking::RirTrackState& track : track_snapshots) {
+        if (track.status == tracking::RirTrackStatus::kConfirmed) {
+          ++confirmed;
+        }
+      }
+      WriteRirSchedule(input.sim_time_sec, input.input_cycle_index, scheduled_count, executed_count,
+                       latest_summary_.dwell_budget.dwell_budget_sec,
+                       latest_summary_.dwell_budget.dwell_consumed_sec, 1U, confirmed,
+                       latest_summary_.participating_track_count);
     }
   } else {
     track_snapshots = lifecycle_->BuildTrackSnapshots();
@@ -798,46 +762,17 @@ void RirController::RunCycle(const session::RirCycleInput& input,
       output.result = *result;
     }
     output_frame->recognition_outputs.push_back(output);
-    // 验收事件 track（3.2.2.2/3.2.2.3.1）：滤波航迹全量状态——位置/速度/加速度
-    // 向量、6×6 协方差（行主序 [x,vx,y,vy,z,vz]）。无显式"下一时刻预测值"字段：
-    // 失配外推路径的预测值直接覆盖航迹位置（裁定不新增字段，见
-    // docs/review/acceptance_output_inventory_2026-08-20.md §4.5/§6）。
     if (RIR_ACCEPTANCE_LOG_ENABLED()) {
-      const tracking::RirStateCovariance& cov = track.gaussian_state.covariance;
-      RIR_ACCEPTANCE_LOG(
-          "event=track cycle={} key={} target_id={} name={} status={} hits={} misses={} "
-          "pos_m=({:.3f},{:.3f},{:.3f}) vel_mps=({:.3f},{:.3f},{:.3f}) "
-          "acc_mps2=({:.4f},{:.4f},{:.4f}) speed_mps={:.3f} rcs_m2={:.3f} "
-          "p_trace_m2={:.4f} "
-          "cov=[{:.6f},{:.6f},{:.6f},{:.6f},{:.6f},{:.6f};"
-          "{:.6f},{:.6f},{:.6f},{:.6f},{:.6f},{:.6f};"
-          "{:.6f},{:.6f},{:.6f},{:.6f},{:.6f},{:.6f};"
-          "{:.6f},{:.6f},{:.6f},{:.6f},{:.6f},{:.6f};"
-          "{:.6f},{:.6f},{:.6f},{:.6f},{:.6f},{:.6f};"
-          "{:.6f},{:.6f},{:.6f},{:.6f},{:.6f},{:.6f}]",
-          input.input_cycle_index, track.association_key, track.external_target_id,
-          track.target_name, static_cast<int>(track.status), track.hit_count, track.miss_count,
-          track.position.x(), track.position.y(), track.position.z(), track.velocity.x(),
-          track.velocity.y(), track.velocity.z(), track.acceleration.x(),
-          track.acceleration.y(), track.acceleration.z(), track.speed, track.rcs,
-          track.EstimationUncertaintyTrace(), cov(0, 0), cov(0, 1), cov(0, 2), cov(0, 3),
-          cov(0, 4), cov(0, 5), cov(1, 0), cov(1, 1), cov(1, 2), cov(1, 3), cov(1, 4),
-          cov(1, 5), cov(2, 0), cov(2, 1), cov(2, 2), cov(2, 3), cov(2, 4), cov(2, 5),
-          cov(3, 0), cov(3, 1), cov(3, 2), cov(3, 3), cov(3, 4), cov(3, 5), cov(4, 0),
-          cov(4, 1), cov(4, 2), cov(4, 3), cov(4, 4), cov(4, 5), cov(5, 0), cov(5, 1),
-          cov(5, 2), cov(5, 3), cov(5, 4), cov(5, 5));
-    }
-    // 验收事件 recognition（3.2.2.3.3，出口②）：识别结论（状态/大类/型号/置信度/
-    // 得分/特征掩码/积累量）；大类枚举值定义见 RirRecognitionResult.h。
-    if (RIR_ACCEPTANCE_LOG_ENABLED() && result != nullptr) {
-      RIR_ACCEPTANCE_LOG(
-          "event=recognition cycle={} key={} state={} category={} model={} "
-          "confidence={:.4f} best={:.4f} runner_up={:.4f} mask={} observations={} "
-          "accumulation_sec={:.3f} db_version={}",
-          input.input_cycle_index, track.association_key, static_cast<int>(result->state),
-          static_cast<int>(result->target_category), result->target_model, result->confidence,
-          result->best_score, result->runner_up_score, result->valid_feature_mask,
-          result->observation_count, result->accumulation_sec, result->database_version);
+      const session::RirFeatureMeasurementRecord* features = nullptr;
+      for (const session::RirFeatureMeasurementRecord& record : output_frame->feature_measurements) {
+        if (record.association_key == track.association_key) {
+          features = &record;
+          break;
+        }
+      }
+      WriteRirTrackAndId(input.sim_time_sec, input.input_cycle_index, track, result, features,
+                         latest_summary_.has_ground_truth,
+                         static_cast<double>(latest_summary_.category_accuracy));
     }
     // 归属视图与出口②同循环产出（全部航迹快照：tentative/confirmed/lost）。
     session::RirTrackAttributionRecord attribution;
@@ -850,6 +785,15 @@ void RirController::RunCycle(const session::RirCycleInput& input,
     attribution.position_enu_z_m = static_cast<double>(track.position.z());
     attribution.speed_m_per_s = static_cast<double>(track.speed);
     last_track_attributions_.push_back(attribution);
+  }
+  if (RIR_ACCEPTANCE_LOG_ENABLED()) {
+    std::string multi = "本周期航迹数=" + std::to_string(track_snapshots.size());
+    std::size_t index = 1U;
+    for (const tracking::RirTrackState& track : track_snapshots) {
+      multi += " 航迹" + std::to_string(index) + "→目标" + std::to_string(track.external_target_id);
+      ++index;
+    }
+    RIR_ACCEPTANCE_ITEM(input.sim_time_sec, input.input_cycle_index, "多目标跟踪", multi);
   }
 }
 
