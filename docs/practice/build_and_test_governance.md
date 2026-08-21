@@ -23,7 +23,7 @@ Authority: build infrastructure, test infrastructure
    标识、校验下载内容并产出 CMake 可消费的 imported targets。只有真实 Windows
    configure、build、install 和外部 consumer job 均通过后，才可宣称 project build support。
    当前 Windows 主线为 v141 预设（`VisualStudio.15.0-amd64`，VS2026 generator +
-   v141 工具集，本机 Git Bash 下 bootstrap/configure/build/test/install 全链经
+   v141 工具集，本机 `scripts/1q.sh` 下 bootstrap/configure/build/test/install 全链经
    build preset 驱动，示例层加 `-DENABLE_EXAMPLES=ON` 亦可构建）；VS2015 C++14
    预设（`VisualStudio.14.0-amd64`，无测试）与 no-Conan 模式
    （`VisualStudio.14.0-amd64-none`，含 `fetch_third_party.bat`）仍属未验收脚手架，

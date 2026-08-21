@@ -49,9 +49,9 @@ TEST(RecognitionExampleDatabaseTest, LoadsCommittedExampleDatabase) {
 
   // 自描述字段（display_name / aspect）与模板数据往返保真。
   ASSERT_EQ(database.categories().size(), 6U);
-  EXPECT_EQ(database.categories()[0].display_name, "弹道目标");
+  EXPECT_EQ(database.categories()[0].display_name, u8"弹道目标");
   ASSERT_EQ(database.models().size(), 17U);
-  EXPECT_EQ(database.models()[0].display_name, "弹道目标示例 A");
+  EXPECT_EQ(database.models()[0].display_name, u8"弹道目标示例 A");
   const auto& profile = database.models()[0].profiles.front();
   EXPECT_FLOAT_EQ(profile.aspect_az_min_deg, -180.0f);
   EXPECT_FLOAT_EQ(profile.aspect_az_max_deg, 180.0f);
@@ -68,7 +68,7 @@ TEST(RecognitionExampleDatabaseTest, LoadsCommittedExampleDatabase) {
   const RirModel* f16 = FindModel(database, "F-16C");
   ASSERT_NE(f16, nullptr);
   EXPECT_EQ(f16->category_id, "FIGHTER");
-  EXPECT_EQ(f16->display_name, "F-16C 战隼");
+  EXPECT_EQ(f16->display_name, u8"F-16C 战隼");
   EXPECT_FLOAT_EQ(f16->profiles.front().rcs.mean_dbsm, 0.8f);
   EXPECT_FLOAT_EQ(f16->profiles.front().motion.speed_mps.mean, 250.0f);
   EXPECT_FLOAT_EQ(f16->profiles.front().motion.altitude_m.mean, 10500.0f);

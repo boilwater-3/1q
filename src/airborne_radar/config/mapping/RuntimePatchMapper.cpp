@@ -94,8 +94,14 @@ RuntimeConfigResolveResult ApplyRuntimePatch(const RuntimeConfigState& current_s
   }
 
   if (patch.has_mission) {
-    // 电源单源：mission 域无电源字段（COMMON-OQ-4，见 contract.md §电源状态单源契约）。
-    next_execution_config.detection.orientation = patch.mission.orientation;
+    // 电源单源：mission 域无电源字段（COMMON-OQ-4）。
+    // has_mission 只覆写运行期 mission 字段，不触碰静态 orientation。
+    next_execution_config.detection.orientation.work_mode = patch.mission.work_mode;
+    next_execution_config.detection.orientation.scan_center_deg = patch.mission.scan_center_deg;
+    next_execution_config.detection.orientation.commanded_beamwidth_enabled =
+        patch.mission.commanded_beamwidth_enabled;
+    next_execution_config.detection.orientation.commanded_beamwidth_deg =
+        patch.mission.commanded_beamwidth_deg;
     execution_config_changed = true;
     has_requested_update = true;
   }
@@ -150,7 +156,8 @@ RuntimeConfigResolveResult ApplyRuntimePatch(const RuntimeConfigState& current_s
     has_requested_update = true;
   }
 
-  const config::ArOrientationConfig& next_orientation = next_execution_config.detection.orientation;
+  const config::ArEffectiveOrientationConfig& next_orientation =
+      next_execution_config.detection.orientation;
   if (next_orientation.commanded_beamwidth_enabled &&
       (next_orientation.commanded_beamwidth_deg.commanded_az_beamwidth_deg <= 0.0f ||
        next_orientation.commanded_beamwidth_deg.commanded_el_beamwidth_deg <= 0.0f)) {
@@ -190,7 +197,8 @@ config::ArSessionConfig MapExecutionToSession(
   config.hardware.receiver = execution_config.detection.engineering.receiver;
   config.hardware.rcs_physics = execution_config.detection.engineering.rcs_physics;
   config.hardware.signal_processing = execution_config.detection.engineering.signal_processing;
-  config.mission.orientation = execution_config.detection.orientation;
+  SplitEffectiveOrientation(execution_config.detection.orientation, &config.orientation,
+                            &config.mission);
   config.policy.decision_control = execution_config.decision_control;
   config.policy.decision_control.anti_vgpo_max_acceleration_mps2 =
       execution_config.anti_vgpo_max_acceleration_mps2;
@@ -210,8 +218,8 @@ config::ArSessionConfig MapExecutionToSession(
 
 config::ArSessionConfig MapRuntimeStateToPipelineSession(const RuntimeConfigState& runtime_state) {
   config::ArSessionConfig config = MapExecutionToSession(runtime_state.execution_config);
-  config.mission.orientation.scan_center_deg.az_deg += runtime_state.dwell_center_deg.az_deg;
-  config.mission.orientation.scan_center_deg.el_deg += runtime_state.dwell_center_deg.el_deg;
+  config.mission.scan_center_deg.az_deg += runtime_state.dwell_center_deg.az_deg;
+  config.mission.scan_center_deg.el_deg += runtime_state.dwell_center_deg.el_deg;
   return config;
 }
 

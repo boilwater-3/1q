@@ -204,7 +204,8 @@ EsrRuntimeConfigResolveResult ResolveEsrRuntimeConfigPatch(
                            EsrRuntimeConfigApplyStatus::kRejectedInvalidScanCenterEl);
       }
     }
-    ApplyScanPolicy(resolved.next_config.hardware, scan, &resolved.next_config.resolved_scan);
+    ApplyScanPolicy(resolved.next_config.hardware, resolved.next_config.orientation, scan,
+                    &resolved.next_config.resolved_scan);
   }
 
   if (work_mode_or_policy_changed) {

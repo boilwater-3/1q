@@ -29,7 +29,7 @@ AR 的决策扩展点是同进程步间 observation/response seam：
 
 ## 模块定位要点
 
-1. `ArSessionConfig` 描述硬件、任务、策略、环境四域配置：直接构造并逐字段赋值，或从
+1. `ArSessionConfig` 描述硬件、任务、安装指向、策略、环境条件五域配置：直接构造并逐字段赋值，或从
    `ArProfileConstants.h` 的预定义语义常量整域赋值到 `ArSessionConfig`。
 2. `ArCycleInput` 提供绝对周期时间、单一世界坐标平台状态、目标和独立 interference frame；自然环境配置
    由 `ArSessionConfig.environment` 提供，运行期更新通过 `ArRuntimeConfigPatch` 提交。
@@ -58,5 +58,5 @@ AR 的决策扩展点是同进程步间 observation/response seam：
   边界与反直觉点、刻意不实现的算法（EKF/UDKF/SRIF 在线自动切换、双 association 路径） →
   [algorithms.md](algorithms.md)
 
-跨模块公共规则（public API 边界、四域配置、三层输出模型、运行期配置提交策略、证据优先开发模式等）
+跨模块公共规则（public API 边界、条件五域配置、三层输出模型、运行期配置提交策略、证据优先开发模式等）
 见 `docs/common/contract.md`。

@@ -15,7 +15,10 @@
 
 #include "common/logging/ProjectLog.h"
 #include "common/numerics/Constants.h"
+#include "common/radar/VegetationClutterModel.h"
 #include "1q/coordinate/position_transform.h"
+#include "1q/environment/AtmosphericTypes.h"
+#include "common/atmosphere/AtmospherePhysics.h"
 #include "remote_identification_radar/dwell/RirBeamControl.h"
 #include "remote_identification_radar/dwell/RirEffectiveRcs.h"
 #include "remote_identification_radar/dwell/RirEmissionFactory.h"
@@ -88,8 +91,6 @@ session::RirFeatureObservations ToPublicFeatureObservations(const recognition::R
   features.range_profile.quality = set.range_profile.quality;
   return features;
 }
-
-float DbToLinear(float db_value) { return std::pow(10.0f, db_value / 10.0f); }
 
 }  // namespace
 
@@ -184,6 +185,9 @@ void RirController::UpdateRuntime(const config::RirMissionConfig& mission,
 
 void RirController::UpdateEnvironment(const config::RirEnvironmentConfig& environment) {
   environment_ = environment;
+  // k 因子随气象观测派生（对标 AR EnvironmentService 冻结快照口径；非法输入内部兜底 4/3）。
+  effective_k_factor_ = oneq::environment::ResolveEffectiveKFactor(
+      environment.atmospheric_physics);
 }
 
 void RirController::ResolveEnvironment(float* propagation_loss_db, float* clutter_power_w) const {
@@ -197,7 +201,30 @@ void RirController::ResolveEnvironment(float* propagation_loss_db, float* clutte
   const internal::RirPropagationResult propagation = propagation_model_.Evaluate(scene_state);
   *propagation_loss_db =
       propagation.propagation_loss_db + environment_.weather_attenuation_db;
-  *clutter_power_w = DbToLinear(propagation.clutter_power_db);
+  // clutter_power_db 是相对热噪底的 dB（CNR 口径，与 AR 同口径单源换算），
+  // 不得解释为绝对 dBW。
+  const float thermal_noise_w = internal::RirRadarEquations::ComputeThermalNoisePower_W(
+      hardware_.transmitter, hardware_.receiver);
+  *clutter_power_w = oneq::common::radar::ComputeEquivalentClutterNoiseW(
+      thermal_noise_w, propagation.clutter_power_db);
+}
+
+float RirController::ComputeTargetAtmosphericLossDb(float carrier_hz, float platform_altitude_m,
+                                                    float look_el_deg, bool has_look_angles,
+                                                    float slant_range_m,
+                                                    float target_position_z_m) const {
+  if (!environment_.atmospheric_physics.enable_physical_model) {
+    return 0.0f;
+  }
+  // 与 AR DetectionExecution 同口径：common 标量胶水 + 模块侧 enable/k_factor。
+  oneq::common::atmosphere::AtmosphericObservationRef obs;
+  obs.pressure_hpa = environment_.atmospheric_physics.pressure_hpa;
+  obs.temperature_k = environment_.atmospheric_physics.temperature_k;
+  obs.relative_humidity = environment_.atmospheric_physics.relative_humidity;
+  obs.k_factor = effective_k_factor_;
+  return oneq::common::atmosphere::ComputeTargetAtmosphericPhysicsLossDb(
+      carrier_hz, slant_range_m, platform_altitude_m,
+      std::max(platform_altitude_m + target_position_z_m, 0.0f), look_el_deg, has_look_angles, obs);
 }
 
 void RirController::ComputeLookAngles(const session::RirSceneTarget& target, float* look_az_deg,
@@ -276,8 +303,12 @@ RirController::RirResolvedRfCycle RirController::ResolveRfCycle(
   const double carrier_hz =
       dwell::RirEmissionFactory::ResolveCarrierHz(hardware_.transmitter, input.input_cycle_index);
   const double pri_s = 1.0 / static_cast<double>(hardware_.transmitter.prf_hz);
-  const std::uint32_t pulse_count = static_cast<std::uint32_t>(std::max(
-      1.0, static_cast<double>(mission_.recognition_dwell_sec) / pri_s));
+  // 与 AR PrepareRfCycle 同口径：驻留窗内脉冲数按 ceil 计（首沿落入窗口的脉冲
+  // 全部计入积累增益），下限 1 保持驻留窗短于一个 PRI 时仍有单脉冲。
+  const double pulse_count_value =
+      std::ceil(static_cast<double>(mission_.recognition_dwell_sec) / pri_s);
+  const std::uint32_t pulse_count =
+      static_cast<std::uint32_t>(std::max(1.0, pulse_count_value));
 
   oneq::electromagnetics::RfSceneEmission own_emission;
   if (!dwell::RirEmissionFactory::TryBuildEmission(
@@ -316,8 +347,8 @@ RirController::RirResolvedRfCycle RirController::ResolveRfCycle(
 }
 
 bool RirController::TryBuildMeasurement(
-    const session::RirSceneTarget& target, std::size_t source_index, float propagation_loss_db,
-    float clutter_power_w, const session::RirCycleInput& input,
+    const session::RirSceneTarget& target, std::size_t source_index, float platform_altitude_m,
+    float propagation_loss_db, float clutter_power_w, const session::RirCycleInput& input,
     const config::RirAzimuthElevationDeg& dwell_center_deg, const RirResolvedRfCycle& rf_cycle,
     tracking::RirTrackMeasurement* measurement, float* snr_db) {
   if (measurement == nullptr || snr_db == nullptr) {
@@ -328,15 +359,28 @@ bool RirController::TryBuildMeasurement(
   float slant_range_m = 0.0f;
   ComputeLookAngles(target, &look_az_deg, &look_el_deg, &slant_range_m);
 
-  const bool has_look_angles = slant_range_m > 0.0f;
+  // 与 AR TargetLookResolver 同口径：位置范数 ≤0.1 m 时视线角无效（range_m 兜底
+  // 得到的 az=0/el=0 不是真实视线）→ 方向图增益回退主瓣峰值，而非按兜底角离轴衰减。
+  const Eigen::Vector3f raw_position(target.position_x, target.position_y, target.position_z);
+  const bool has_look_angles = raw_position.norm() > 0.1f;
+  const float carrier_hz =
+      rf_cycle.carrier_hz > 0.0f ? rf_cycle.carrier_hz : hardware_.transmitter.frequency_hz;
+  // 逐目标大气物理附加损耗（与 AR 同口径：全局植被/天气损耗之外的按几何分量）。
+  const float atmospheric_loss_db = ComputeTargetAtmosphericLossDb(
+      carrier_hz, platform_altitude_m, look_el_deg, has_look_angles, slant_range_m,
+      PositionOf(target).z());
+  const float total_propagation_loss_db = propagation_loss_db + atmospheric_loss_db;
+  // 与 AR DetectionExecution 同口径：主路径与回退分支波长同源——回退分支的有效
+  // 波束宽度同样经 λ/L 物理推导（结果喂量测误差模型）；载频非正时不启用物理推导。
+  const float wavelength_m = carrier_hz > 0.0f
+                                 ? static_cast<float>(oneq::common::numerics::kLightSpeed) /
+                                       carrier_hz
+                                 : 0.0f;
   dwell::RirResolvedBeamState beam_state;
   beam_state.one_way_antenna_gain_db = hardware_.antenna.main_beam_gain_db;
-  beam_state.effective_beamwidth_deg = dwell::RirResolveEffectiveBeamwidth(hardware_.antenna);
+  beam_state.effective_beamwidth_deg =
+      dwell::RirResolveEffectiveBeamwidth(hardware_.antenna, wavelength_m);
   if (hardware_.antenna.enable_directional_pattern && has_look_angles) {
-    const float carrier_hz =
-        rf_cycle.resolved ? rf_cycle.carrier_hz : hardware_.transmitter.frequency_hz;
-    const float wavelength_m =
-        static_cast<float>(oneq::common::numerics::kLightSpeed) / carrier_hz;
     // 库内驻留调度器给定波束中心：目标离轴增益按（目标视线角 - 驻留中心）衰减
     // （与 AR 冻结指向链路同口径；enable_directional_pattern=false 时回退主瓣峰值）。
     beam_state = dwell::RirResolveBeamStateForPointing(hardware_.antenna, dwell_center_deg,
@@ -363,7 +407,10 @@ bool RirController::TryBuildMeasurement(
     cell_config.own_transmit_waveform = rf_cycle.own_transmit_waveform;
     cell_config.receive_window_start_time_s = static_cast<double>(input.sim_time_sec);
     cell_config.receive_window_duration_s = static_cast<double>(mission_.recognition_dwell_sec);
-    cell_config.matched_filter_bandwidth_hz = static_cast<double>(hardware_.transmitter.bandwidth_hz);
+    // 与 AR DetectionExecution 同口径：匹配滤波带宽取本周期波形实际占用带宽
+    // （当前发射工厂与 hardware bandwidth_hz 恒等；波形级带宽解耦后两侧同源）。
+    cell_config.matched_filter_bandwidth_hz =
+        rf_cycle.own_transmit_waveform.occupied_bandwidth_hz;
     cell_config.one_way_antenna_gain_dbi = static_cast<double>(beam_state.one_way_antenna_gain_db);
     cell_config.receiver_loss_db = static_cast<double>(hardware_.receiver.receive_loss_db);
     cell_config.receiver_noise_figure_db = static_cast<double>(hardware_.receiver.noise_figure_db);
@@ -386,7 +433,8 @@ bool RirController::TryBuildMeasurement(
         rf_cycle.carrier_hz > 0.0f ? rf_cycle.carrier_hz : hardware_.transmitter.frequency_hz;
     cell_target.rcs_m2 = static_cast<double>(dwell::ComputeEffectiveTargetRcsM2(
         target, look_angles, hardware_.rcs_physics, carrier_hz));
-    cell_target.two_way_additional_propagation_loss_db = static_cast<double>(propagation_loss_db);
+    cell_target.two_way_additional_propagation_loss_db =
+        static_cast<double>(total_propagation_loss_db);
     cell_target.effective_pulse_count =
         static_cast<std::uint32_t>(std::max(1, policy_.detection.pulse_count));
 
@@ -406,7 +454,7 @@ bool RirController::TryBuildMeasurement(
 
   if (!resolved_cell) {
     dwell::RirEnvironmentNoise env;
-    env.propagation_loss_db = propagation_loss_db;
+    env.propagation_loss_db = total_propagation_loss_db;
     env.clutter_noise_w = clutter_power_w;
     env.jam_noise_w = 0.0f;
     detection = detector_->Detect(target_return, env, beam_state.one_way_antenna_gain_db,
@@ -454,6 +502,9 @@ bool RirController::TryBuildMeasurement(
   built.target_name = target.target_name;
   built.position = PositionOf(target);
   built.velocity = Eigen::Vector3f(target.velocity_x, target.velocity_y, target.velocity_z);
+  // 标量速度观测（与 AR filtered_feature.observed_speed 同位）：速度向量为零时
+  // 生命周期速度种子按 (observed_speed, 0, 0) 回退的基准。
+  built.observed_speed = built.velocity.norm();
   built.rcs = target.rcs;
   built.measurement_covariance = MakeCartesianMeasurementCovariance(
       target, measurement_error.range_error_std_m, measurement_error.angle_error_std_rad);
@@ -581,9 +632,9 @@ void RirController::RunCycle(const session::RirCycleInput& input,
     for (const std::size_t target_index : candidate_indices) {
       tracking::RirTrackMeasurement measurement;
       float snr_db = 0.0f;
-      if (!TryBuildMeasurement(input.scene_targets[target_index], target_index, propagation_loss_db,
-                               clutter_power_w, input, dwell_center_deg, rf_cycle, &measurement,
-                               &snr_db)) {
+      if (!TryBuildMeasurement(input.scene_targets[target_index], target_index, platform_altitude_m,
+                               propagation_loss_db, clutter_power_w, input, dwell_center_deg,
+                               rf_cycle, &measurement, &snr_db)) {
         continue;
       }
       snr_by_target_id[measurement.external_target_id] = snr_db;

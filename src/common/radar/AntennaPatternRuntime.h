@@ -99,13 +99,18 @@ inline float ClampLowerBound(float value, float min_value) {
   return value < min_value ? min_value : value;
 }
 
+inline float NormalizeAzimuthDeltaDeg(float delta_az_deg) {
+  return std::remainder(delta_az_deg, 360.0f);
+}
+
 /**
  * @brief 判断离轴角是否进入后瓣区域。
  * @param[in] offset_deg 目标相对当前波束中心的离轴角。
  * @return 任一轴绝对离轴角超过 90 度时返回 true。
  */
 inline bool IsInsideBackLobe(const AntennaLookOffsetDeg& offset_deg) {
-  return std::fabs(offset_deg.delta_az_deg) > 90.0f || std::fabs(offset_deg.delta_el_deg) > 90.0f;
+  return std::fabs(NormalizeAzimuthDeltaDeg(offset_deg.delta_az_deg)) > 90.0f ||
+         std::fabs(offset_deg.delta_el_deg) > 90.0f;
 }
 
 }  // namespace antenna_pattern_internal
@@ -122,7 +127,9 @@ inline bool IsInsideMainLobe(const AntennaPatternBeamwidthDeg& beamwidth_deg,
       0.5f * antenna_pattern_internal::ClampLowerBound(beamwidth_deg.az_beamwidth_deg, 1e-3f);
   const float half_el_beamwidth_deg =
       0.5f * antenna_pattern_internal::ClampLowerBound(beamwidth_deg.el_beamwidth_deg, 1e-3f);
-  return std::fabs(offset_deg.delta_az_deg) <= half_az_beamwidth_deg &&
+  const float delta_az_deg =
+      antenna_pattern_internal::NormalizeAzimuthDeltaDeg(offset_deg.delta_az_deg);
+  return std::fabs(delta_az_deg) <= half_az_beamwidth_deg &&
          std::fabs(offset_deg.delta_el_deg) <= half_el_beamwidth_deg;
 }
 
@@ -143,7 +150,9 @@ inline float ComputeMainLobeAttenuationDb(const AntennaPatternConfig& config,
       0.5f * antenna_pattern_internal::ClampLowerBound(beamwidth_deg.az_beamwidth_deg, 1e-3f);
   const float half_el_beamwidth_deg =
       0.5f * antenna_pattern_internal::ClampLowerBound(beamwidth_deg.el_beamwidth_deg, 1e-3f);
-  const float normalized_az = std::fabs(offset_deg.delta_az_deg) / half_az_beamwidth_deg;
+  const float normalized_az =
+      std::fabs(antenna_pattern_internal::NormalizeAzimuthDeltaDeg(offset_deg.delta_az_deg)) /
+      half_az_beamwidth_deg;
   const float normalized_el = std::fabs(offset_deg.delta_el_deg) / half_el_beamwidth_deg;
 
   switch (config.model_type) {
@@ -153,7 +162,10 @@ inline float ComputeMainLobeAttenuationDb(const AntennaPatternConfig& config,
     case AntennaPatternModelType::kCosinePower: {
       const float kDeg2Rad = 3.14159265358979f / 180.0f;
       const float az_offset_rad =
-          antenna_pattern_internal::ClampFloat(offset_deg.delta_az_deg, -89.9f, 89.9f) * kDeg2Rad;
+          antenna_pattern_internal::ClampFloat(
+              antenna_pattern_internal::NormalizeAzimuthDeltaDeg(offset_deg.delta_az_deg), -89.9f,
+              89.9f) *
+          kDeg2Rad;
       const float el_offset_rad =
           antenna_pattern_internal::ClampFloat(offset_deg.delta_el_deg, -89.9f, 89.9f) * kDeg2Rad;
       const float az_half_bw_rad = half_az_beamwidth_deg * kDeg2Rad;
@@ -176,7 +188,8 @@ inline float ComputeMainLobeAttenuationDb(const AntennaPatternConfig& config,
       float attenuation_db = 0.0f;
       if (antenna_az_length_m > 0.0f && wavelength_m > 0.0f) {
         const float kDeg2Rad = 3.14159265358979f / 180.0f;
-        const float az_offset_rad = offset_deg.delta_az_deg * kDeg2Rad;
+        const float az_offset_rad =
+            antenna_pattern_internal::NormalizeAzimuthDeltaDeg(offset_deg.delta_az_deg) * kDeg2Rad;
         const float arg =
             3.14159265358979f * antenna_az_length_m * std::sin(az_offset_rad) / wavelength_m;
         const float sinc_val = (std::fabs(arg) < 1e-6f) ? 1.0f : std::sin(arg) / arg;
@@ -211,7 +224,8 @@ inline float ComputeMainLobeAttenuationDb(const AntennaPatternConfig& config,
  */
 inline float ComputeScanLossDb(const AntennaPatternConfig& config,
                                const AzimuthElevationDeg& beam_pointing_deg) {
-  const float delta_scan_az_deg = beam_pointing_deg.az_deg - config.boresight_offset_deg.az_deg;
+  const float delta_scan_az_deg = antenna_pattern_internal::NormalizeAzimuthDeltaDeg(
+      beam_pointing_deg.az_deg - config.boresight_offset_deg.az_deg);
   const float delta_scan_el_deg = beam_pointing_deg.el_deg - config.boresight_offset_deg.el_deg;
   const float raw_scan_loss_db =
       config.scan_loss_coeff_db_per_deg2 *

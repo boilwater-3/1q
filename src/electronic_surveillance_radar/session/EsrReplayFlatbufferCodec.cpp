@@ -584,8 +584,6 @@ std::string EncodeEsrSessionConfig(const config::EsrSessionConfig& v) {
   hardware_builder.add_beam_el_width_deg(v.hardware.beam_el_width_deg);
   hardware_builder.add_az_scan_range_deg(v.hardware.az_scan_range_deg);
   hardware_builder.add_el_scan_range_deg(v.hardware.el_scan_range_deg);
-  hardware_builder.add_antenna_mount_az_deg(v.hardware.antenna_mount_az_deg);
-  hardware_builder.add_antenna_mount_el_deg(v.hardware.antenna_mount_el_deg);
   hardware_builder.add_antenna_peak_gain_dbi(v.hardware.antenna_peak_gain_dbi);
   hardware_builder.add_antenna_sidelobe_level_db(v.hardware.antenna_sidelobe_level_db);
   hardware_builder.add_antenna_backlobe_level_db(v.hardware.antenna_backlobe_level_db);
@@ -605,6 +603,8 @@ std::string EncodeEsrSessionConfig(const config::EsrSessionConfig& v) {
       sc.scan_end_el_deg);
   auto mission = esr::replay::CreateEsrMissionConfig(
       fbb, static_cast<int32_t>(v.mission.work_mode), scan);
+  auto orientation = esr::replay::CreateEsrOrientationConfig(
+      fbb, v.orientation.antenna_mount_az_deg, v.orientation.antenna_mount_el_deg);
   // detection_profile and use_profile_defaults retired in Phase 2; pass defaults for schema compat
   auto policy = esr::replay::CreateEsrPolicyConfig(
       fbb, 0, false, v.policy.detection.minimum_snr_db, v.policy.detection.pfa,
@@ -625,7 +625,7 @@ std::string EncodeEsrSessionConfig(const config::EsrSessionConfig& v) {
   env_builder.add_spectrum_occupancy_ratio(es.spectrum_occupancy_ratio);
   env_builder.add_atmospheric_observation(atm_obs);
   auto env = env_builder.Finish();
-  fbb.Finish(esr::replay::CreateEsrSessionConfig(fbb, hw, mission, policy, env,
+  fbb.Finish(esr::replay::CreateEsrSessionConfig(fbb, hw, mission, orientation, policy, env,
                                                  v.sensor_enabled));
   return oneq::common::replay::CopyFinishedFlatbuffer(fbb);
 }
@@ -655,8 +655,6 @@ bool DecodeEsrSessionConfig(const std::string& bytes, config::EsrSessionConfig* 
     out->hardware.beam_el_width_deg = h->beam_el_width_deg();
     out->hardware.az_scan_range_deg = h->az_scan_range_deg();
     out->hardware.el_scan_range_deg = h->el_scan_range_deg();
-    out->hardware.antenna_mount_az_deg = h->antenna_mount_az_deg();
-    out->hardware.antenna_mount_el_deg = h->antenna_mount_el_deg();
     out->hardware.antenna_peak_gain_dbi = h->antenna_peak_gain_dbi();
     out->hardware.antenna_sidelobe_level_db = h->antenna_sidelobe_level_db();
     out->hardware.antenna_backlobe_level_db = h->antenna_backlobe_level_db();
@@ -702,6 +700,11 @@ bool DecodeEsrSessionConfig(const std::string& bytes, config::EsrSessionConfig* 
       out->mission.scan.scan_start_el_deg = s->scan_start_el_deg();
       out->mission.scan.scan_end_el_deg = s->scan_end_el_deg();
     }
+  }
+  if (fb->orientation()) {
+    const auto* o = fb->orientation();
+    out->orientation.antenna_mount_az_deg = o->antenna_mount_az_deg();
+    out->orientation.antenna_mount_el_deg = o->antenna_mount_el_deg();
   }
   if (fb->policy()) {
     const auto* p = fb->policy();

@@ -16,6 +16,8 @@ set(ONEQ_COMMON_SOURCES
     numerics/SpectralNumerics.cpp
     optimization/LapjvSolver.cpp
     radar/RadarEquations.cpp
+    radar/DetectionCellResolver.cpp
+    radar/StatisticalCfarDetector.cpp
     radar/VegetationClutterModel.cpp
     rcs/RcsPhysics.cpp
     replay/ReplayTrace.cpp

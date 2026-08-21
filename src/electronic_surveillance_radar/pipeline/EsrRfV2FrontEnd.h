@@ -10,6 +10,7 @@
 
 #include "1q/electromagnetics/RfScene.h"
 #include "1q/electronic_surveillance_radar/config/EsrHardwareConfig.h"
+#include "1q/electronic_surveillance_radar/config/EsrOrientationConfig.h"
 #include "1q/electronic_surveillance_radar/session/EsrCycleInput.h"
 
 namespace electronic_surveillance_radar {
@@ -34,6 +35,7 @@ struct EsrRfV2FrontEndResult {
  */
 bool TryResolveEsrRfV2FrontEnd(const session::EsrCycleInput& input,
                                const config::EsrHardwareConfig& hardware,
+                               const config::EsrOrientationConfig& orientation,
                                double beam_az_deg, double beam_el_deg,
                                double receiver_center_frequency_hz,
                                double receiver_bandwidth_hz,

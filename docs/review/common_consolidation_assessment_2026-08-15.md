@@ -1,13 +1,18 @@
 ---
 Status: draft
 Date: 2026-08-15
+Amended: 2026-08-21（#4/#5/#7 分类推翻；见 `ar_rir_shared_capability_extract_audit_2026-08-21.md`）
 Review-Baseline: `feature/remote-identification-radar-phase1` @ `63962f62`
 Authority: 阶段 3 common 化收敛的逐项评估结论与执行立项（评估 + 执行计划入口）。
 评估准则（2026-08-15 定案）：**物理恒等式优先收敛、装备私有账本/判决链不动**。
+评估准则修订（2026-08-21）：现实映射审核后，账本/判决链若双侧同形且差异可标量化钩子，
+  则归入收敛；仿真脚手架与 ECCM 整段仍留模块侧。
 Related-Authority:
   - 迁移唯一状态文档：`remote_identification_radar_migration_status_2026-08-15.md`
   - 九项能力边界：`rir_signal_chain_capability_boundary_2026-08-15.md`
   - 执行计划：`common_consolidation_execution_plan_2026-08-15.md`
+  - 阶段 3b 审核与执行：`ar_rir_shared_capability_extract_audit_2026-08-21.md`、
+    `common_consolidation_execution_plan_2026-08-21.md`
 ---
 
 # AR/RIR common 化收敛逐项评估（阶段 3）
@@ -23,10 +28,12 @@ AR 与 RIR 之间存在一批"同形副本"。本文件逐项判定每份副本�
 1. **立项收敛 #1-#3**：收敛动机不是"复用"，而是**消除双源分叉风险**
    （副本 + 注明来源 commit 的形态下，任一侧修改都会制造隐性分叉）。
 2. 按"物理恒等式 vs 装备私有口径"分类：**LAPJV 求解器、雷达方程全集、
-   天线方向图四个模型**属物理恒等式，列入收敛清单并**本次执行**；
-   **检测单元账本、CFAR 判决链、传播/环境子集、航迹池**属装备私有或
-   低收益，不动或缓。
-3. 收敛执行采用 **一次性收敛到 `src/common/` + 两侧薄适配层**：
+   天线方向图四个模型**属物理恒等式，列入收敛清单并**阶段 3 已执行**；
+   **传播/环境子集（#6）** 第二阶段已执行。
+3. **2026-08-21 修订**：现实映射审核推翻 #4/#5「不动」与 #7「暂缓」——
+   检测单元账本、统计级 CFAR 编排、航迹池/关联核/生命周期计数列入
+   **阶段 3b 收敛**（详见审核决策记录）。发射/接收仍为「可提取核心、本轮不改」。
+4. 收敛执行采用 **一次性收敛到 `src/common/` + 两侧薄适配层**：
    AR/RIR 保留模块内函数名/类名，内部改为调用 common 单源；缺省行为
    逐位一致（等价回归）是收敛门。后续任何一侧修改共享物理恒等式时，
    直接修改 common，不再维护副本。
@@ -49,10 +56,10 @@ AR 与 RIR 之间存在一批"同形副本"。本文件逐项判定每份副本�
 | 1 | LAPJV 指派求解器 | `signal/association/LapjvSolver.*` | `tracking/RirLapjvSolver.*` | 物理恒等式（纯算法，与雷达无关） | **收敛（最高优先）** |
 | 2 | 雷达方程全集（回波/噪声/积累/误差/Pd/门限） | `signal/detection/RadarEquations.*` | `internal/RirRadarEquations.*` | 物理恒等式 + 配置类型适配 | **收敛** |
 | 3 | 天线方向图 4 模型（高斯/抛物线/余弦幂/sinc² + 扫描损失/旁瓣/后瓣） | `signal/detection/AntennaPatternRuntime.h` | `dwell/RirAntennaPatternRuntime.h` | 物理恒等式 + 配置类型适配 | **收敛** |
-| 4 | 检测单元求解 + 干扰时频聚合 | `signal/detection/ArDetectionCellResolver.*` | `dwell/RirDetectionCellResolver.*` | **装备账本** | **不动** |
-| 5 | 统计级 CFAR 判决器 | `signal/detection/SignalDetector.*` | `dwell/RirSignalDetector.*` | **装备判决链** | **不动** |
+| 4 | 检测单元求解 + 干扰时频聚合 | `signal/detection/ArDetectionCellResolver.*` | `dwell/RirDetectionCellResolver.*` | 物理账本 + ECCM bool 钩子 | **收敛（阶段 3b）** — 旧「不动」已推翻 |
+| 5 | 统计级 CFAR 判决器 | `signal/detection/SignalDetector.*` | `dwell/RirSignalDetector.*` | 统计判决编排 + 策略标量 | **收敛（阶段 3b）** — 旧「不动」已推翻 |
 | 6 | 传播/杂波模型子集 | `environment/PropagationModel.*` | `internal/RirPropagationModel.*` | 物理恒等式 + 场景配置适配 | **已执行（第二阶段）** |
-| 7 | 航迹对象池 | `signal/tracking/BoostTrackPool.*` | `tracking/RirTrackPool.*` | 通用内存件（无装备语义） | 收敛候选，**暂缓** |
+| 7 | 航迹对象池（及关联核/生命周期计数） | `signal/tracking/BoostTrackPool.*` 等 | `tracking/RirTrackPool.*` 等 | 通用内存件 + 计数 FSM | **收敛（阶段 3b）** — 旧「暂缓」已解除 |
 | 8 | KF/IMM 数值核 | common 已单源 | `RirTrackFilter`/`RirImmFilter` 包装 | 已收敛 | 无动作 |
 
 ### 2.1 收敛清单细则（#1-#3）
@@ -85,24 +92,25 @@ AR 与 RIR 之间存在一批"同形副本"。本文件逐项判定每份副本�
    - `ComputeEchoPowerWithGain_dBW` 在两版的增益叠加语义；
    - 方向图主瓣判定边界（旁瓣/后瓣电平闭合条件）。
 
-### 2.2 不动清单细则（#4-#5）
+### 2.2 #4/#5/#7 历史「不动/暂缓」与 2026-08-21 推翻
 
-- **检测单元/干扰聚合（#4）**：RIR 有四增益 dB 偏置（缺省 0 dB 等保守
-  账本）且无 AR 的抗 RGPO 前沿减半（AR ECCM 语义）；账本结构
-  （SINR 分项、单元口径）是装备规格。物理子件若同形（如脉压增益
-  `max(1, B·τ)`）随 #2 收敛，账本本体不动。
-- **CFAR 判决器（#5）**：同为统计级 CFAR（Pfa 门限 + Swerling Pd + 种子
-  判决），但判决门限、硬截断、裕量门与种子管理是装备策略；收敛只会让
-  两侧共享一个谁都不完全想要的判决链。
-- **传播/杂波子集（#6）**：第二阶段已执行。数值内核收敛到
-  `common/radar/VegetationClutterModel`；AR/RIR 只保留公开枚举到 common
-  枚举的映射适配层，两侧公开配置与结果类型不变。
+**历史理由（保留备查）**：2026-08-15 时 RIR 独有四增益偏置、AR 有 anti-RGPO
+分支；评估按「装备账本/判决链」判 #4/#5 不动；#7 航迹池因修改频率低暂缓。
 
-### 2.3 航迹池（#7）
+**推翻理由（2026-08-21 审核）**：
 
-通用内存复用件、无装备语义，理论上可收敛；但当前两实现各自稳定、
-修改频率低，双源分叉风险小，**暂缓**——出现第三消费者或任一侧改动时
-再收敛。
+- 四增益偏置现双侧同形（缺省 0 dB = 保守账本）；anti-RGPO 仅剩一个 bool，
+  可作为 common 标量钩子（RIR 恒 false），不制造假共性。
+- 现实映射：机载火控与远程识别雷达均具备单元级检测账本与统计级 CFAR。
+- 航迹池无装备语义；关联核（门限+LAPJV）与生命周期计数可共享，AR 反欺骗
+  留模块侧钩子。
+
+细则与边界见 `ar_rir_shared_capability_extract_audit_2026-08-21.md`；
+执行见 `common_consolidation_execution_plan_2026-08-21.md`。
+
+- **传播/杂波子集（#6）**：第二阶段已执行。数值内核在
+  `common/radar/VegetationClutterModel`；2026-08-21 审核确认「可选输入、
+  默认关」设计正确，无进一步代码动作。
 
 ## 3. 执行机制
 

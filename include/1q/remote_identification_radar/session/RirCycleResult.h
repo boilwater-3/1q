@@ -33,7 +33,8 @@ enum class RirCycleStatus : std::uint8_t {
 enum class RirDesignationRevertReason : std::uint8_t {
   kNone = 0,          /**< 无回退（指定识别驻留正常/任务完成）。 */
   kNotRecognized = 1, /**< 指定目标不在场景（驻留期间回扫描等待）。 */
-  kAcquisitionTimeout = 2 /**< 限时窗口耗尽仍未识别：任务作废（回到扫描，终态）。 */
+  kAcquisitionTimeout = 2, /**< 限时窗口耗尽仍未识别：任务作废（回到扫描，终态）。 */
+  kOutsideSteerableVolume = 3 /**< 目标视线越出 scan_center + 可扫描体积（驻留回扫描；转台重新瞄准后可恢复）。 */
 };
 
 /**

@@ -104,6 +104,26 @@ TEST(RirTrackFilterTest, SmallerMeasurementNoisePullsPosteriorTowardMeasurement)
   EXPECT_LT(precise_result.posterior.covariance(0, 0), coarse_result.posterior.covariance(0, 0));
 }
 
+/// @brief 越界 q/std 下限钳制（与 AR SignalComponentFactory 工厂口径一致）：
+///        负值 q 不再产生负定过程噪声，预测协方差保持 PSD（对角非负）。
+TEST(RirTrackFilterTest, ClampsOutOfRangeNoiseConfigToLowerBound) {
+  RirTrackFilterConfig config;
+  config.process_noise_diff_coeff = -1.0f;  // 未钳制时 Q 负定 → 协方差对角变负
+  config.default_measurement_noise_std = -2.0f;
+  const RirTrackFilter filter(config);
+
+  RirStateVector mean = RirStateVector::Zero();
+  mean(1) = 10.0f;
+  const RirGaussianState predicted = filter.Predict(RirGaussianState(mean, RirStateCovariance::Zero()), 1.0f);
+  EXPECT_TRUE(predicted.covariance.allFinite());
+  EXPECT_GE(predicted.covariance(0, 0), 0.0f);
+  EXPECT_GE(predicted.covariance(1, 1), 0.0f);
+
+  const auto result =
+      filter.Update(predicted, MakeMeasurement(10.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f));
+  EXPECT_TRUE(result.posterior.covariance.allFinite());
+}
+
 /// @brief 不确定度迹 = 协方差 position 分块迹（识别运动质量本源信号）。
 TEST(RirTrackStateTest, EstimationUncertaintyTraceUsesPositionBlock) {
   RirTrackState state;

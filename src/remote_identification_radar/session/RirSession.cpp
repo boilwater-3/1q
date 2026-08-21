@@ -135,25 +135,51 @@ config::RirAzimuthElevationDeg TargetLookAngles(const session::RirSceneTarget& t
   return look;
 }
 
-/**
- * @brief 扫描策略波位（common 扫描内核；非法限位/步长回退零位）。
- * @note 与 AR 同一扫描策略口径：限位/步长（波束宽度 × 系数）/起点/顺序 → 波位序列，
- *       第 N 周期取第 (N-1) % size 个波位。
- */
-config::RirAzimuthElevationDeg ResolveScanWavePosition(const config::RirSessionConfig& config,
-                                                       std::uint32_t cycle_index) {
+/** @brief 目标视线角是否在 scan_center + 可扫描体积内（az 相对、el 绝对）。 */
+bool TargetWithinSteerableVolume(const config::RirAzimuthElevationDeg& look,
+                                 const config::RirAzimuthElevationLimitsDeg& volume,
+                                 const config::RirAzimuthElevationDeg& scan_center) {
+  const float delta_az_deg = oneq::common::radar::NormalizeAzimuthDeltaDeg(
+      look.az_deg - scan_center.az_deg);
+  return delta_az_deg >= volume.az_min_deg && delta_az_deg <= volume.az_max_deg &&
+         look.el_deg >= volume.el_min_deg && look.el_deg <= volume.el_max_deg;
+}
+
+/** @brief 由相对可扫描体积 + scan_center 构建绝对 ENU 波位序列。 */
+std::vector<oneq::common::radar::AzimuthElevationDeg> BuildAbsoluteScanWaves(
+    const config::RirSessionConfig& config) {
   const dwell::RirEffectiveBeamwidthDeg beamwidth =
       dwell::RirResolveEffectiveBeamwidth(config.hardware.antenna);
   const config::RirScanConfig& scan = config.mission.scan;
+  const config::RirAzimuthElevationLimitsDeg& volume = config.orientation.steerable_volume_deg;
   const float az_step = beamwidth.az_beamwidth_deg * scan.step_scale;
   const float el_step = beamwidth.el_beamwidth_deg * scan.step_scale;
-  const std::vector<oneq::common::radar::AzimuthElevationDeg> pattern =
+  const std::vector<oneq::common::radar::AzimuthElevationDeg> relative_pattern =
       oneq::common::radar::BuildScanPattern(
-          scan.scan_limits_deg.az_min_deg, scan.scan_limits_deg.az_max_deg,
-          scan.scan_limits_deg.el_min_deg, scan.scan_limits_deg.el_max_deg, az_step, el_step,
-          scan.scan_start_position, scan.scan_sequence);
+          volume.az_min_deg, volume.az_max_deg, volume.el_min_deg, volume.el_max_deg, az_step,
+          el_step, scan.scan_start_position, scan.scan_sequence);
+  std::vector<oneq::common::radar::AzimuthElevationDeg> absolute_pattern;
+  absolute_pattern.reserve(relative_pattern.size());
+  const config::RirAzimuthElevationDeg& center = config.mission.scan_center_deg;
+  for (const oneq::common::radar::AzimuthElevationDeg& wave : relative_pattern) {
+    oneq::common::radar::AzimuthElevationDeg absolute;
+    absolute.az_deg = oneq::common::radar::NormalizeAzimuthDeg(center.az_deg + wave.az_deg);
+    absolute.el_deg = wave.el_deg;
+    absolute_pattern.push_back(absolute);
+  }
+  return absolute_pattern;
+}
+
+/**
+ * @brief 扫描策略波位（相对体积 + center 平移 + 方位归一化；非法体积/步长回退 scan_center）。
+ * @note 第 N 周期取第 (N-1) % size 个波位。
+ */
+config::RirAzimuthElevationDeg ResolveScanWavePosition(const config::RirSessionConfig& config,
+                                                       std::uint32_t cycle_index) {
+  const std::vector<oneq::common::radar::AzimuthElevationDeg> pattern =
+      BuildAbsoluteScanWaves(config);
   if (pattern.empty()) {
-    return config::RirAzimuthElevationDeg{};
+    return config.mission.scan_center_deg;
   }
   const std::uint64_t zero_based_cycle =
       cycle_index > 0U ? static_cast<std::uint64_t>(cycle_index - 1U) : 0U;
@@ -231,6 +257,10 @@ RirCycleResult RirSession::StepWithResult(const RirCycleInput& input) {
     if (patch.has_work_mode) {
       impl_->config.mission.work_mode = patch.work_mode;
     }
+    if (patch.has_scan_center) {
+      impl_->config.mission.scan_center_deg = patch.scan_center_deg;
+      impl_->acceptance_scan_pattern_logged = false;
+    }
     if (patch.has_policy) {
       impl_->config.policy = patch.policy;
     }
@@ -273,18 +303,24 @@ RirCycleResult RirSession::StepWithResult(const RirCycleInput& input) {
   const RirDesignationExpiry expiry =
       ResolveDesignationExpiry(advance.phase, advance.expired_edge);
 
-  // 驻留中心（库内驻留调度器）：任务窗口内对准指定目标（目标在场景时）；
-  // 其余情况按扫描策略逐周期推进（common 扫描内核，与 AR 同口径）。
+  // 驻留中心（库内驻留调度器）：任务窗口内对准指定目标（在场景且在可扫描体积内）；
+  // 其余情况按扫描策略逐周期推进。
   const session::RirSceneTarget* designated_target = FindSceneTarget(
       input.scene_targets, impl_->designated_external_target_id);
+  const bool target_in_scene = designated_target != nullptr;
+  const bool target_in_volume =
+      target_in_scene &&
+      TargetWithinSteerableVolume(TargetLookAngles(*designated_target),
+                                  impl_->config.orientation.steerable_volume_deg,
+                                  impl_->config.mission.scan_center_deg);
   const bool dwelling_on_target =
-      advance.phase == RirDesignationPhase::kPending && designated_target != nullptr;
+      advance.phase == RirDesignationPhase::kPending && target_in_volume;
   const config::RirAzimuthElevationDeg dwell_center =
       dwelling_on_target ? TargetLookAngles(*designated_target)
                          : ResolveScanWavePosition(impl_->config, input.input_cycle_index);
 
   // 验收事件 beam_pattern（3.2.2.4.2.1）：完整波位排列表按当前扫描配置一次性
-  // 输出（common 扫描内核确定性重建，与逐周期取位同源；mission 配置变更后重发）。
+  // 输出（与逐周期取位同源；mission/orientation 配置变更后重发）。
   if (RIR_ACCEPTANCE_LOG_ENABLED() && !impl_->acceptance_scan_pattern_logged) {
     const dwell::RirEffectiveBeamwidthDeg beamwidth =
         dwell::RirResolveEffectiveBeamwidth(impl_->config.hardware.antenna);
@@ -292,10 +328,7 @@ RirCycleResult RirSession::StepWithResult(const RirCycleInput& input) {
     const float az_step = beamwidth.az_beamwidth_deg * scan.step_scale;
     const float el_step = beamwidth.el_beamwidth_deg * scan.step_scale;
     const std::vector<oneq::common::radar::AzimuthElevationDeg> pattern =
-        oneq::common::radar::BuildScanPattern(
-            scan.scan_limits_deg.az_min_deg, scan.scan_limits_deg.az_max_deg,
-            scan.scan_limits_deg.el_min_deg, scan.scan_limits_deg.el_max_deg, az_step, el_step,
-            scan.scan_start_position, scan.scan_sequence);
+        BuildAbsoluteScanWaves(impl_->config);
     RIR_ACCEPTANCE_LOG(
         "event=beam_pattern cycle={} size={} az_step_deg={:.3f} el_step_deg={:.3f}",
         input.input_cycle_index, pattern.size(), az_step, el_step);
@@ -327,22 +360,25 @@ RirCycleResult RirSession::StepWithResult(const RirCycleInput& input) {
   result.emission_frame = impl_->controller.LatestEmissionFrame();
 
   // 指定识别任务结果回填（镜像 AR designation_* 形状）：
-  //   kPending + 目标在场景 → active（驻留中）；kPending + 目标缺席 → reverted
-  //   （kNotRecognized，驻留回扫描等待）；作废沿 → reverted + kAcquisitionTimeout
-  //   （ID 保留供事件关联）；任务完成（kAcquired）/作废后 → 指定清零、无回退报告；
-  //   驻留波束中心随本周期调度暴露。
+  //   kPending + 目标在体积内 → active；kPending + 目标缺席 → kNotRecognized；
+  //   kPending + 目标在场景但越界 → kOutsideSteerableVolume（阶段保持 kPending）；
+  //   作废沿 → kAcquisitionTimeout；任务完成/作废后 → 指定清零。
   const bool pending = advance.phase == RirDesignationPhase::kPending;
   result.designated_target_id =
       (pending || expiry.expiry_cycle) ? impl_->designated_external_target_id : 0U;
-  result.designation_active = pending && designated_target != nullptr;
+  result.designation_active = pending && target_in_volume;
   result.designation_reverted_to_scan =
-      expiry.expired ? expiry.expiry_cycle : (pending && designated_target == nullptr);
-  result.designation_revert_reason =
-      expiry.expiry_cycle
-          ? session::RirDesignationRevertReason::kAcquisitionTimeout
-          : (result.designation_reverted_to_scan
-                 ? session::RirDesignationRevertReason::kNotRecognized
-                 : session::RirDesignationRevertReason::kNone);
+      expiry.expired ? expiry.expiry_cycle : (pending && !target_in_volume);
+  if (expiry.expiry_cycle) {
+    result.designation_revert_reason = session::RirDesignationRevertReason::kAcquisitionTimeout;
+  } else if (result.designation_reverted_to_scan) {
+    result.designation_revert_reason =
+        target_in_scene && !target_in_volume
+            ? session::RirDesignationRevertReason::kOutsideSteerableVolume
+            : session::RirDesignationRevertReason::kNotRecognized;
+  } else {
+    result.designation_revert_reason = session::RirDesignationRevertReason::kNone;
+  }
   result.dwell_center_deg = dwell_center;
   return result;
 }

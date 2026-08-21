@@ -17,7 +17,7 @@ Answers: AR 的分层架构、数据如何流动、Public API 边界在哪、输
 | 区域 | 职责 |
 |---|---|
 | `airborne_radar.hpp` | 模块聚合入口；聚合稳定 public API，不暴露内部 signal/environment/runtime 类型 |
-| `config/` | `ArSessionConfig` 四域配置、runtime patch、语义常量表（`ArProfileConstants.h`）、薄封装 builder、validation |
+| `config/` | `ArSessionConfig` 条件五域配置、runtime patch、语义常量表（`ArProfileConstants.h`）、薄封装 builder、validation |
 | `session/` | `ArSession`、cycle input/result、scene target、output types、trace/replay、debug/lifecycle、decision DTO |
 
 Public 决策 DTO 只包含 `DecisionObservation`、`ExternalDecisionOverride`、`ExternalDecisionSubmitStatus` 和
@@ -34,7 +34,7 @@ Public 决策 DTO 只包含 `DecisionObservation`、`ExternalDecisionOverride`�
 flowchart TB
   subgraph Public["Public API / 公共调用面"]
     Entry["airborne_radar.hpp\n稳定聚合入口"]
-    Config["config/*\nHardware / Mission / Policy / Environment\nRuntimePatch / Builder / Validation"]
+    Config["config/*\nHardware / Mission / Orientation / Policy / Environment\nRuntimePatch / Builder / Validation"]
     SessionApi["session/*\nArSession / ArCycleInput / ArCycleResult\nTrackOutputFrame / SceneTarget"]
     DecisionSeam["DecisionObservation / ExternalDecisionOverride\n步间外部决策 seam"]
     Tools["Trace / Replay / Debug / Lifecycle\n追踪 / 回放 / 调试 / 生命周期"]

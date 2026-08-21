@@ -11,7 +11,7 @@
 namespace airborne_radar {
 namespace tests {
 
-using config::ArOrientationConfig;
+using config::ArEffectiveOrientationConfig;
 using config::engineering::AntennaConfig;
 using signal::detection::EffectiveBeamwidthDeg;
 using signal::detection::ResolveEffectiveBeamwidth;
@@ -21,7 +21,7 @@ TEST(BeamwidthResolutionTest, FallsBackToNominalWhenCommandedDisabled) {
   antenna_config.nominal_az_beamwidth_deg = 3.5f;
   antenna_config.nominal_el_beamwidth_deg = 5.5f;
 
-  ArOrientationConfig orientation_config;
+  ArEffectiveOrientationConfig orientation_config;
   orientation_config.commanded_beamwidth_enabled = false;
   orientation_config.commanded_beamwidth_deg.commanded_az_beamwidth_deg = 8.0f;
   orientation_config.commanded_beamwidth_deg.commanded_el_beamwidth_deg = 9.0f;
@@ -38,7 +38,7 @@ TEST(BeamwidthResolutionTest, UsesCommandedBeamwidthWhenEnabled) {
   antenna_config.nominal_az_beamwidth_deg = 3.5f;
   antenna_config.nominal_el_beamwidth_deg = 5.5f;
 
-  ArOrientationConfig orientation_config;
+  ArEffectiveOrientationConfig orientation_config;
   orientation_config.commanded_beamwidth_enabled = true;
   orientation_config.commanded_beamwidth_deg.commanded_az_beamwidth_deg = 8.0f;
   orientation_config.commanded_beamwidth_deg.commanded_el_beamwidth_deg = 9.0f;
@@ -57,7 +57,7 @@ TEST(BeamwidthResolutionTest, DerivesZeroNominalBeamwidthFromPhysicalAperture) {
   antenna_config.antenna_length_m = 2.0f;
   antenna_config.antenna_width_m = 1.0f;
 
-  ArOrientationConfig orientation_config;
+  ArEffectiveOrientationConfig orientation_config;
   constexpr float kWavelengthM = 0.03f;
   constexpr float kRad2Deg = 180.0f / 3.14159265358979f;
   const EffectiveBeamwidthDeg effective_beamwidth =
@@ -73,7 +73,7 @@ TEST(BeamwidthResolutionTest, LeavesUnresolvableZeroGeometryAtZeroForValidation)
   AntennaConfig antenna_config;
   antenna_config.nominal_az_beamwidth_deg = 0.0f;
   antenna_config.nominal_el_beamwidth_deg = 0.0f;
-  ArOrientationConfig orientation_config;
+  ArEffectiveOrientationConfig orientation_config;
 
   const EffectiveBeamwidthDeg effective_beamwidth =
       ResolveEffectiveBeamwidth(antenna_config, orientation_config, 0.03f);

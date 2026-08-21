@@ -65,6 +65,7 @@ struct RirTrackMeasurement {
   bool matched_existing_track{false};                /**< 是否命中既有航迹。 */
   Eigen::Vector3f position{Eigen::Vector3f::Zero()}; /**< 量测位置（m）。 */
   Eigen::Vector3f velocity{Eigen::Vector3f::Zero()}; /**< 速度种子（m/s）。 */
+  float observed_speed{0.0f}; /**< 标量速度观测（m/s）；速度向量为零时生命周期速度种子的回退基准（AR filtered_feature.observed_speed 同位）。 */
   float rcs{0.0f};                                   /**< 目标估计 RCS（m²）。 */
   RirMeasurementCovariance measurement_covariance{
       RirMeasurementCovariance::Zero()}; /**< 笛卡尔量测噪声协方差 R（m²）。 */

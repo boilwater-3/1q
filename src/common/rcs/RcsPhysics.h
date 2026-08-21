@@ -127,6 +127,36 @@ inline void ComputeLeavesParamEq_ymm8r4(const TreeScattererState& state, float v
   ComputeLeavesParametricEquation(state, va, vb, out_x_param, out_y_param);
 }
 
+/**
+ * @brief 有效 RCS 物理混合参数（标量 POD；不含模块 config 类型）。
+ *
+ * 字段与 AR `RcsPhysicsConfig` / RIR `RirRcsPhysicsConfig` 同形；carrier 回退
+ * 策略由调用方在传入 frequency_hz 前完成。
+ */
+struct RcsPhysicsParams {
+  bool enable_physical_rcs{false};
+  float physics_mix_ratio{0.0f};
+  float cylinder_weight{0.7f};
+  float min_equivalent_radius_m{0.05f};
+  float max_equivalent_radius_m{5.0f};
+  float min_rcs_m2{1.0e-4f};
+  float max_rcs_m2{100.0f};
+  float bistatic_psi_offset_deg{0.0f};
+};
+
+/**
+ * @brief 视角/频率相关物理 RCS 与输入 RCS 的混合。
+ *
+ * @param[in] input_rcs_m2 场景输入 RCS（m²）。
+ * @param[in] frequency_hz 载频（Hz）；非正时返回 input_rcs_m2。
+ * @param[in] look_az_deg / look_el_deg 视线角（deg）；has_look_angles=false 时按 0。
+ * @param[in] params 混合参数。
+ * @return 混合后有效 RCS（m²）。
+ */
+float ComputeMixedPhysicalRcsM2(float input_rcs_m2, float frequency_hz, float look_az_deg,
+                                float look_el_deg, bool has_look_angles,
+                                const RcsPhysicsParams& params);
+
 }  // namespace rcs
 }  // namespace common
 }  // namespace oneq

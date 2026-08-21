@@ -8,6 +8,7 @@
 #include "airborne_radar/signal/tracking/KalmanPredictor.h"
 #include "airborne_radar/signal/tracking/KalmanUpdater.h"
 #include "common/logging/ProjectLog.h"
+#include "common/tracking/TrackLifecyclePromote.h"
 
 namespace airborne_radar {
 namespace signal {
@@ -244,6 +245,7 @@ void TrackLifecycleManager::SyncRuntimeTuning(const LifecycleConfig& lifecycle_c
     UpdatePredictorConfigIfSupported(imm_predictors_[i], model_noise_diff_coeff);
   }
   for (std::size_t i = 0; i < imm_updaters_.size(); ++i) {
+    // IMM 更新器 std 仅作量测协方差缺失时的回退 R（正常命中走逐量测动态 R）。
     UpdateUpdaterConfigIfSupported(imm_updaters_[i], kalman_measurement_noise_std);
   }
 
@@ -667,7 +669,15 @@ void TrackLifecycleManager::ApplyKalmanHitUpdate(const TrackUpdateWorkItem& work
       ApplyGaussianState(track, BuildInitialGaussianState(measurement), velocity_before_filter,
                          effective_dt_sec);
     } else {
-      work_item.imm_filter->Process(BuildMeasurementVector(measurement), effective_dt_sec);
+      // IMM 命中更新与 CV KF 路径/关联门控同口径：消费逐量测动态 R。
+      // 零矩阵/非有限视为"未注入动态 R"，回退更新器配置的标量 R（缺省量测噪声）。
+      const Eigen::Matrix3f& dynamic_r = measurement.raw_measurement.measurement_covariance;
+      if (dynamic_r.allFinite() && !dynamic_r.isZero(0.0f)) {
+        work_item.imm_filter->Process(BuildMeasurementVector(measurement), effective_dt_sec,
+                                      dynamic_r);
+      } else {
+        work_item.imm_filter->Process(BuildMeasurementVector(measurement), effective_dt_sec);
+      }
       ApplyGaussianState(track, work_item.imm_filter->GetCombinedState(), velocity_before_filter,
                          effective_dt_sec);
     }
@@ -704,37 +714,31 @@ void TrackLifecycleManager::PromoteState(TrackState& track, std::uint32_t cycle_
                                          bool hit_this_cycle,
                                          std::uint32_t extra_miss_tolerance,
                                          bool classified_as_false_target) const {
-  if (hit_this_cycle) {
-    // 假目标鉴别：启用时，疑似假目标的量测不把 tentative 航迹晋升为 confirmed，
-    // 抑制欺骗干扰制造的虚假航迹起批。已 confirmed/lost 的航迹不受影响（维持现有状态机语义）。
-    const bool suppressed_by_discrimination =
-        config_.enable_anti_false_target_discrimination && classified_as_false_target &&
-        track.status == TrackStatus::kTentative;
-    if (!suppressed_by_discrimination &&
-        (track.status == TrackStatus::kLost ||
-         (track.status == TrackStatus::kTentative && track.hit_count >= config_.confirm_hits))) {
-      track.status = TrackStatus::kConfirmed;
-    }
-    return;
-  }
+  oneq::common::tracking::TrackLifecycleCounters counters;
+  counters.status = static_cast<oneq::common::tracking::TrackLifecyclePhase>(
+      static_cast<std::uint8_t>(track.status));
+  counters.hit_count = track.hit_count;
+  counters.miss_count = track.miss_count;
+  counters.last_update_cycle = track.last_update_cycle;
+  counters.generation = track.generation;
 
-  track.miss_count += 1;
-  if (track.status == TrackStatus::kTentative || track.status == TrackStatus::kConfirmed) {
-    const std::uint32_t max_miss_before_lost = config_.max_miss_before_lost + extra_miss_tolerance;
-    if (track.miss_count > max_miss_before_lost) {
-      track.status = TrackStatus::kLost;
-    }
-    return;
-  }
+  oneq::common::tracking::TrackLifecyclePromotePolicy policy;
+  policy.confirm_hits = config_.confirm_hits;
+  policy.max_miss_before_lost = config_.max_miss_before_lost;
+  policy.max_lost_cycles = config_.max_lost_cycles;
+  policy.extra_miss_tolerance = extra_miss_tolerance;
+  // 假目标鉴别：启用时抑制 tentative→confirmed（模块侧钩子）。
+  policy.suppress_confirm = config_.enable_anti_false_target_discrimination &&
+                            classified_as_false_target &&
+                            track.status == TrackStatus::kTentative;
+  policy.recycle_as_status = true;
 
-  if (track.status == TrackStatus::kLost) {
-    const std::uint32_t lost_cycles =
-        cycle_index >= track.last_update_cycle ? (cycle_index - track.last_update_cycle) : 0;
-    if (lost_cycles > config_.max_lost_cycles) {
-      track.status = TrackStatus::kRecycled;
-      track.generation += 1;
-    }
-  }
+  oneq::common::tracking::PromoteTrackLifecycle(&counters, cycle_index, hit_this_cycle, policy);
+
+  track.status = static_cast<TrackStatus>(static_cast<std::uint8_t>(counters.status));
+  track.hit_count = counters.hit_count;
+  track.miss_count = counters.miss_count;
+  track.generation = counters.generation;
 }
 
 void TrackLifecycleManager::ResetForReuse(TrackState& track) const {

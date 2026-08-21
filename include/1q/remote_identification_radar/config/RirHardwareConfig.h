@@ -29,7 +29,7 @@ namespace config {
  * 角度约定（雷达局部 ENU 右手坐标系，与
  * `remote_identification_radar::session::RirSceneTarget::position_x/y/z` 同帧）：
  * - `az_deg`：从 +x（东）向 +y（北）旋转的方位角，合法域 [-180, 180]；
- *   调用方必须预先折算到该区间，消费侧不做跨 ±180° 归一化。
+ *   驻留调度器输出绝对指向前经 `NormalizeAzimuthDeg` 折算。
  * - `el_deg`：相对 x-y 水平面的俯仰角，合法域 [-90, 90]；正值指向 +z（天）。
  * - `(az_deg, el_deg)` 对应的单位指向向量为
  *   `(cos(el)·cos(az), cos(el)·sin(az), sin(el))`；
@@ -50,8 +50,8 @@ struct ONEQ_API RirAzimuthElevationDeg {
 
 /**
  * @brief RirAzimuthElevationLimitsDeg 方位-俯仰扫描限位（单位：度）。
- * @note 与 AR `AzimuthElevationLimitsDeg` 同口径；扫描策略消费侧为
- *       common 扫描内核（ScanScheduleRuntime.h）。
+ * @note 与 AR `AzimuthElevationLimitsDeg` 同口径；RIR orientation 域中 az 为
+ *       相对阵面/转台基准、el 为绝对俯仰；common 扫描内核消费相对 az 与绝对 el。
  */
 struct ONEQ_API RirAzimuthElevationLimitsDeg {
   float az_min_deg{-60.0f}; /**< 方位最小扫描角（单位：度）。 */

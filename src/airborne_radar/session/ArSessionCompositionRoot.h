@@ -33,6 +33,7 @@ class MutableArContext;
 struct ArSessionComposition {
   config::ArHardwareConfig runtime_hardware{};
   config::ArMissionConfig runtime_mission{};
+  config::ArOrientationConfig runtime_orientation{};
   config::ArPolicyConfig runtime_policy{};
   config::EnvironmentScenarioConfig runtime_environment_scenario_config{};
   std::unique_ptr<MutableArContext> owned_ar_context;

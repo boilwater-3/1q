@@ -28,8 +28,8 @@ int main() {
   auto built_config = preset_config;
   built_config.hardware.transmitter.peak_power_w = 5.0e6f;
   built_config.hardware.transmitter.frequency_hz = 9.3e9f;
-  built_config.mission.orientation.scan_center_deg.az_deg = 0.0f;
-  built_config.mission.orientation.scan_center_deg.el_deg = 0.0f;
+  built_config.mission.scan_center_deg.az_deg = 0.0f;
+  built_config.mission.scan_center_deg.el_deg = 0.0f;
   built_config.policy.tracking.enable_kalman_filter = true;
   built_config.policy.lifecycle.confirm_hits = 3;
   built_config.environment.scenario_config.atmospheric_physics.enable_physical_model = true;

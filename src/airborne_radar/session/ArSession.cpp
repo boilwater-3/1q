@@ -240,6 +240,7 @@ struct ArSession::Impl {
     config::ArSessionConfig initial_session_config;
     initial_session_config.hardware = composition.runtime_hardware;
     initial_session_config.mission = composition.runtime_mission;
+    initial_session_config.orientation = composition.runtime_orientation;
     initial_session_config.policy = composition.runtime_policy;
     initial_session_config.environment.scenario_config =
         composition.runtime_environment_scenario_config;
@@ -580,7 +581,7 @@ struct ArSession::Impl {
     oneq::foundation::Vector3f radar_local_velocity;
     const config::mapping::RuntimeConfigState& next_operating_state =
         has_pending_runtime_update ? pending_runtime_state : runtime_state;
-    const config::ArOrientationConfig& orientation_config =
+    const config::ArEffectiveOrientationConfig& orientation_config =
         next_operating_state.execution_config.detection.orientation;
     const oneq::coordinate::EulerAnglesDeg mount_angles_coord{
         orientation_config.mount_angles_deg.yaw_deg,
@@ -719,7 +720,7 @@ struct ArSession::Impl {
                    : orientation_config.work_mode)
             : (designation_state.reverted_to_tws ? config::ArWorkMode::kTws
                                                  : orientation_config.work_mode);
-    config::ArOrientationConfig effective_orientation = orientation_config;
+    config::ArEffectiveOrientationConfig effective_orientation = orientation_config;
     effective_orientation.scan_center_deg = stt_pointing.scan_center_deg;
     if (!explicit_dwell_override && !stt_pointing.track_following_active &&
         (effective_work_mode == config::ArWorkMode::kTws ||

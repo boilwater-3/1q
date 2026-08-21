@@ -9,6 +9,8 @@ Supersedes:
 Related-Authority:
   - AR 侧耦合审计：`docs/review/ar_remote_identification_radar_coupling_audit_2026-08-15.md`
   - 九项信号链能力归属：`docs/review/rir_signal_chain_capability_boundary_2026-08-15.md`
+  - 阶段 3b 审核：`docs/review/ar_rir_shared_capability_extract_audit_2026-08-21.md`
+  - 阶段 3b 执行：`docs/review/common_consolidation_execution_plan_2026-08-21.md`
 ---
 
 # RIR 迁移状态与下一步迁移计算（唯一迁移文档）
@@ -39,6 +41,7 @@ Related-Authority:
 | 2-C | AR 侧识别耦合收尾删除 | 完成 | `1ac346ca`（按耦合审计 §3/§9 全清单：识别实现目录/public 头/Controller-Session-Pipeline 胶合/replay fbs 表与 codec/测试 SQLite 接线/文档四件套与 i18n 收敛；`ArWorkMode` 值域收紧为 kStby/kTas/kTws/kStt，replay 工作模式上界 kStt，`airborne_engine` 解除 SQLite 链接；replay 字节兼容断裂按审计 §7.1 接受，一次性无兼容层） |
 | 跟踪升级 N1-N7 | LAPJV/航迹池/IMM（突破 2-T 轻量边界） | 完成 | N1+N2 `46e495dd`（RirLapjvSolver + 方阵代价矩阵全局最优指派）；N3 `93bd3a4f`（RirTrackPool + generation 复用代次）；N4+N5 `6bfca646`（RirImmFilter 包装 common ImmFilter + 生命周期双路径）；N6+N7 public policy IMM 开关接线 + 四件套文档改写 |
 | 阶段 3 | common 化收敛与四域归位 | 完成 | 四域归位见 §5；common 化（LAPJV/雷达方程/方向图）已完成并落 `src/common/`，评估见 `common_consolidation_assessment_2026-08-15.md`，执行计划见 `common_consolidation_execution_plan_2026-08-15.md` |
+| 阶段 3b | 可直接提取项 common 化（大气/RCS 混合/检测账本/CFAR/冻结波束/航迹栈） | 完成 | 审核推翻 #4/#5/#7：见 `ar_rir_shared_capability_extract_audit_2026-08-21.md`；执行见 `common_consolidation_execution_plan_2026-08-21.md` |
 
 当前验证基线：
 - `unit::remote_identification_radar` 115/115
@@ -115,11 +118,16 @@ Related-Authority:
     - `src/common/radar/RadarEquations.{h,cpp}`
     - `src/common/radar/AntennaPatternRuntime.h`
   - AR/RIR 保留薄适配层，模块内类名/函数名不变。
-  - 检测单元/CFAR 判决/传播环境/航迹池不动或缓。
   - 执行步骤见 `docs/review/common_consolidation_execution_plan_2026-08-15.md`。
   - `max_range_m`/`recognition_dwell_sec` 四域归位已执行：字段从
     `policy.recognition` 移至 `mission` 域（`RirMissionConfig::max_range_m` /
     `recognition_dwell_sec`），控制器消费与配置校验同步更新。
+- **阶段 3b（2026-08-21）**：现实映射审核后，#4 检测单元账本 / #5 CFAR 编排 /
+  #7 航迹池（及关联核/生命周期计数）由「不动/暂缓」改为收敛；逐目标大气、
+  有效 RCS 混合、冻结波束一并提取。审核决策与执行计划见
+  `ar_rir_shared_capability_extract_audit_2026-08-21.md`、
+  `common_consolidation_execution_plan_2026-08-21.md`。
+  发射/接收「可提取核心」、RIR 6 dB 真值回退门、AR ECCM/挂架驻留留模块侧。
 - **暂缓议题**：跟踪波束/成波、再入目标专项物理模型（气动/等离子/RCS 剖面）、
   全天候天气物理模型。
 

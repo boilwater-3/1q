@@ -147,6 +147,26 @@ TEST(RirSelfContainedPipelineTest, ImmPolicyReachesLifecycleAndKeepsTrackStable)
   EXPECT_NE(key, 0U);
 }
 
+/// @brief 环境效果开启（热带密林）：杂波按"相对热噪 dB"换算（与 AR 同口径），
+///        6 dB 回退门下目标仍可检测建轨。修复前杂波被按绝对 dBW 读出 ~2 W，
+///        SNR 崩塌约 136 dB，检测全灭——本用例锁死该回归。
+TEST(RirSelfContainedPipelineTest, EnvironmentEffectsKeepTargetDetectable) {
+  config::RirEnvironmentConfig environment;
+  environment.enable_environment_effects = true;
+  environment.vegetation_scatter_physics.cover_profile =
+      config::RirVegetationCoverProfile::kTropicalDense;
+  environment.vegetation_scatter_physics.enable_physical_model = true;
+  environment.weather_attenuation_db = 0.0f;
+
+  RirController controller = MakeFallbackController();
+  controller.UpdateEnvironment(environment);
+
+  RirOutputFrame frame;
+  controller.RunCycle(MakeInput(1U, 5000.0f, 5.0f), &frame, 1U);
+  ASSERT_EQ(frame.recognition_outputs.size(), 1U);
+  EXPECT_EQ(controller.GetLatestSummary().dwell_budget.executed_dwell_count, 1U);
+}
+
 }  // namespace
 }  // namespace tests
 }  // namespace remote_identification_radar

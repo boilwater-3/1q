@@ -124,6 +124,8 @@ LifecycleAssemblyArtifacts SignalComponentFactory::BuildLifecycleAssemblyArtifac
         artifacts.imm_predictors_owned.push_back(std::unique_ptr<tracking::IKalmanPredictor>(
             new tracking::KalmanPredictor(imm_pred_cfg)));
         tracking::KalmanUpdaterConfig imm_upd_cfg;
+        // 该 std 仅作 IMM 量测协方差缺失（零/非有限）时的回退 R；正常命中更新
+        // 走逐量测动态 R（TrackLifecycleManager::ApplyKalmanHitUpdate）。
         imm_upd_cfg.measurement_noise_std =
             std::max(config.tracking.engineering.kalman_measurement_noise_std, 0.001f);
         artifacts.imm_updaters_owned.push_back(

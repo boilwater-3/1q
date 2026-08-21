@@ -161,8 +161,9 @@ TEST(EsrResolutionRulesTest, WorkModeIsSafeOnNullptr) {
 
 TEST(EsrResolutionRulesTest, ScanPolicyExplicitBoundsSubtractMountAndNormalize) {
   test_config::EsrHardwareConfig hardware;
-  hardware.antenna_mount_az_deg = 5.0f;
-  hardware.antenna_mount_el_deg = 2.0f;
+  test_config::EsrOrientationConfig orientation;
+  orientation.antenna_mount_az_deg = 5.0f;
+  orientation.antenna_mount_el_deg = 2.0f;
   test_config::EsrScanPolicyConfig scan_policy;
   scan_policy.use_explicit_scan_bounds = true;
   // Reversed order to exercise NormalizeScanBounds swap.
@@ -173,7 +174,7 @@ TEST(EsrResolutionRulesTest, ScanPolicyExplicitBoundsSubtractMountAndNormalize) 
 
   extension::InterceptScanConfig scan_config;
 
-  ApplyScanPolicy(hardware, scan_policy, &scan_config);
+  ApplyScanPolicy(hardware, orientation, scan_policy, &scan_config);
 
   // Bounds are mount-relative and normalized (start <= end).
   EXPECT_FLOAT_EQ(scan_config.scan_start_az_deg, -65.0f);  // -60 - 5
@@ -191,7 +192,7 @@ TEST(EsrResolutionRulesTest, ScanPolicyCenterAzUsesHardwareScanRangeWhenPresent)
 
   extension::InterceptScanConfig scan_config;
 
-  ApplyScanPolicy(hardware, scan_policy, &scan_config);
+  ApplyScanPolicy(hardware, test_config::EsrOrientationConfig(), scan_policy, &scan_config);
 
   EXPECT_FLOAT_EQ(scan_config.scan_start_az_deg, 10.0f - 60.0f);  // -50
   EXPECT_FLOAT_EQ(scan_config.scan_end_az_deg, 10.0f + 60.0f);    // 70
@@ -205,7 +206,7 @@ TEST(EsrResolutionRulesTest, ScanPolicyCenterAzFallsBackToCurrentSpanWithoutRang
 
   extension::InterceptScanConfig scan_config;  // default az span [-60, 60] => half=60
 
-  ApplyScanPolicy(hardware, scan_policy, &scan_config);
+  ApplyScanPolicy(hardware, test_config::EsrOrientationConfig(), scan_policy, &scan_config);
 
   EXPECT_FLOAT_EQ(scan_config.scan_start_az_deg, -60.0f);
   EXPECT_FLOAT_EQ(scan_config.scan_end_az_deg, 60.0f);
@@ -219,7 +220,7 @@ TEST(EsrResolutionRulesTest, ScanPolicyBeamWidthsOverrideStepsWhenFinite) {
 
   extension::InterceptScanConfig scan_config;
 
-  ApplyScanPolicy(hardware, scan_policy, &scan_config);
+  ApplyScanPolicy(hardware, test_config::EsrOrientationConfig(), scan_policy, &scan_config);
 
   EXPECT_FLOAT_EQ(scan_config.az_step_deg, 8.0f);
   EXPECT_FLOAT_EQ(scan_config.el_step_deg, 6.0f);
@@ -233,7 +234,7 @@ TEST(EsrResolutionRulesTest, ScanPolicyStartPosAndSequenceAreMappedToInt) {
 
   extension::InterceptScanConfig scan_config;
 
-  ApplyScanPolicy(hardware, scan_policy, &scan_config);
+  ApplyScanPolicy(hardware, test_config::EsrOrientationConfig(), scan_policy, &scan_config);
 
   EXPECT_EQ(scan_config.scan_start_pos, static_cast<int>(test_config::EsrScanStartPosition::kRightBottom));
   EXPECT_EQ(scan_config.scan_sequence, static_cast<int>(test_config::EsrScanSequence::kElevationFirst));
@@ -245,7 +246,7 @@ TEST(EsrResolutionRulesTest, ScanPolicyWithoutExplicitOrCenterPassesThroughDefau
 
   extension::InterceptScanConfig scan_config;  // defaults: az [-60,60], el [-10,10]
 
-  ApplyScanPolicy(hardware, scan_policy, &scan_config);
+  ApplyScanPolicy(hardware, test_config::EsrOrientationConfig(), scan_policy, &scan_config);
 
   EXPECT_FLOAT_EQ(scan_config.scan_start_az_deg, -60.0f);
   EXPECT_FLOAT_EQ(scan_config.scan_end_az_deg, 60.0f);
@@ -256,7 +257,7 @@ TEST(EsrResolutionRulesTest, ScanPolicyWithoutExplicitOrCenterPassesThroughDefau
 TEST(EsrResolutionRulesTest, ScanPolicyIsSafeOnNullptr) {
   test_config::EsrHardwareConfig hardware;
   test_config::EsrScanPolicyConfig scan_policy;
-  ApplyScanPolicy(hardware, scan_policy, nullptr);  // must not crash
+  ApplyScanPolicy(hardware, test_config::EsrOrientationConfig(), scan_policy, nullptr);  // must not crash
   SUCCEED();
 }
 
@@ -273,7 +274,7 @@ TEST(EsrResolutionRulesTest, ScanPolicyExplicitBoundsDominatesCenterWhenBothSet)
 
   extension::InterceptScanConfig scan_config;
 
-  ApplyScanPolicy(hardware, scan_policy, &scan_config);
+  ApplyScanPolicy(hardware, test_config::EsrOrientationConfig(), scan_policy, &scan_config);
 
   EXPECT_FLOAT_EQ(scan_config.scan_start_az_deg, -40.0f);
   EXPECT_FLOAT_EQ(scan_config.scan_end_az_deg, 40.0f);

@@ -81,7 +81,7 @@ constexpr ControlProfileEffectsConfig kDefaultControlProfileEffects{};
  */
 struct DetectionExecutionConfig {
   BeamControlConfig beam_control{};
-  config::ArOrientationConfig orientation{};
+  config::ArEffectiveOrientationConfig orientation{};
   config::PlatformAttitudeDeg platform_attitude_deg{};
   engineering::DetectionConfig engineering{};
 };

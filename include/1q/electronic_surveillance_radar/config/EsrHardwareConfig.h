@@ -44,8 +44,6 @@ struct ONEQ_API EsrHardwareConfig {
   float beam_el_width_deg{5.0f};           /**< 俯仰波束宽度（单位：deg） */
   float az_scan_range_deg{120.0f};         /**< 方位扫描范围（单位：deg） */
   float el_scan_range_deg{20.0f};          /**< 俯仰扫描范围（单位：deg） */
-  float antenna_mount_az_deg{0.0f};        /**< 天线中心方位相对角（单位：deg） */
-  float antenna_mount_el_deg{0.0f};        /**< 天线中心俯仰相对角（单位：deg） */
   float antenna_peak_gain_dbi{0.0f};       /**< 接收天线峰值增益（单位：dBi）。 */
   float antenna_sidelobe_level_db{-30.0f}; /**< 旁瓣相对峰值电平（单位：dB）。 */
   float antenna_backlobe_level_db{-40.0f}; /**< 后瓣相对峰值电平（单位：dB）。 */

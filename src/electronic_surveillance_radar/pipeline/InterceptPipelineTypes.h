@@ -11,6 +11,7 @@
 #include <vector>
 
 #include "1q/electronic_surveillance_radar/config/EsrHardwareConfig.h"
+#include "1q/electronic_surveillance_radar/config/EsrOrientationConfig.h"
 #include "1q/electronic_surveillance_radar/session/EsrOutputTypes.h"
 
 namespace electronic_surveillance_radar {
@@ -139,8 +140,7 @@ struct InterceptRuntimeConfig {
   double receiver_lower_hz{0.0};
   double receiver_upper_hz{0.0};
   float integrated_receive_loss_db{0.0f};
-  float antenna_mount_az_deg{0.0f};
-  float antenna_mount_el_deg{0.0f};
+  config::EsrOrientationConfig orientation{}; /**< 静态安装指向（来自会话 orientation 域） */
   float scan_rate_hz{1.0f};
   config::EsrHardwareConfig receiver_hardware{};
 };

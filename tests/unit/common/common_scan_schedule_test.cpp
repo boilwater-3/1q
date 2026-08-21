@@ -123,6 +123,36 @@ TEST(CommonScanScheduleTest, InvalidInputsReturnEmptyPattern) {
                   .empty());
 }
 
+TEST(CommonScanScheduleTest, NormalizeAzimuthDegMapsToOpenClosedInterval) {
+  struct Case {
+    float input_deg;
+    float expected_deg;
+  };
+  const Case cases[] = {
+      {0.0f, 0.0f},    {180.0f, 180.0f}, {-180.0f, 180.0f}, {360.0f, 0.0f},
+      {370.0f, 10.0f}, {-370.0f, -10.0f}, {540.0f, 180.0f}, {-540.0f, 180.0f},
+  };
+  for (const Case& test_case : cases) {
+    EXPECT_NEAR(NormalizeAzimuthDeg(test_case.input_deg), test_case.expected_deg, 1.0e-5f)
+        << "input=" << test_case.input_deg;
+  }
+}
+
+TEST(CommonScanScheduleTest, NormalizeAzimuthDeltaDegMapsToClosedInterval) {
+  struct Case {
+    float input_deg;
+    float expected_deg;
+  };
+  const Case cases[] = {
+      {0.0f, 0.0f},     {180.0f, 180.0f},  {-180.0f, -180.0f}, {350.0f, -10.0f},
+      {-350.0f, 10.0f}, {720.0f, 0.0f},
+  };
+  for (const Case& test_case : cases) {
+    EXPECT_NEAR(NormalizeAzimuthDeltaDeg(test_case.input_deg), test_case.expected_deg, 1.0e-5f)
+        << "input=" << test_case.input_deg;
+  }
+}
+
 }  // namespace
 }  // namespace radar
 }  // namespace common

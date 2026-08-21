@@ -271,7 +271,7 @@ InterceptDetectionOutput InterceptDetectionExecutor::Execute(
                                                output.scan_pattern.size(), ctx.GetRuntimeConfig())];
   // 当前扫描方位 = 波束中心方位 + 天线安装角（平台系实际指向；与 RF 前端 LOS 求解同算式）。
   output.scan_azimuth_deg = oneq::common::numerics::NormalizeAngle180(
-      active_beam.az_deg + ctx.GetRuntimeConfig().antenna_mount_az_deg);
+      active_beam.az_deg + ctx.GetRuntimeConfig().orientation.antenna_mount_az_deg);
   const std::pair<double, double> receiver_window =
       BuildReceiverWindow(completed_receive_cycles, ctx.GetRuntimeConfig());
   output.receiver_center_frequency_hz = 0.5 * (receiver_window.first + receiver_window.second);
@@ -297,8 +297,9 @@ bool InterceptDetectionExecutor::ProcessRfV2Frame(
   }
   EsrRfV2FrontEndResult front_end;
   if (!TryResolveEsrRfV2FrontEnd(
-          ctx.GetCycleInput(), ctx.GetRuntimeConfig().receiver_hardware, active_beam.az_deg,
-          active_beam.el_deg, 0.5 * (receiver_window.first + receiver_window.second),
+          ctx.GetCycleInput(), ctx.GetRuntimeConfig().receiver_hardware,
+          ctx.GetRuntimeConfig().orientation, active_beam.az_deg, active_beam.el_deg,
+          0.5 * (receiver_window.first + receiver_window.second),
           receiver_window.second - receiver_window.first,
           std::max(0.0f, ctx.GetEnvironmentSnapshot().propagation_loss_db), &front_end)) {
     return false;

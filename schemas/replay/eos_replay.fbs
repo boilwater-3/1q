@@ -1,4 +1,4 @@
-﻿// eos_replay.fbs
+// eos_replay.fbs
 // EOS 模块 replay FlatBuffers schema：cycle_input 与 cycle_output 载荷
 //
 // file_identifier: EOSC (EOS Cycle)

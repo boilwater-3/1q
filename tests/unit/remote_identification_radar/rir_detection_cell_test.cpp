@@ -243,37 +243,48 @@ TEST(RirDetectionCellTest, MissionRangeAndDwellRejectedByConfigValidation) {
   EXPECT_TRUE(found);
 }
 
-/// @brief 扫描策略非法被配置校验拒绝（rir.validation.scan_strategy_invalid）：
-/// 限位乱序/越合法域/步长系数非正。
+/// @brief 扫描策略/体积/朝向非法被配置校验拒绝。
 TEST(RirDetectionCellTest, ScanStrategyRejectedByConfigValidation) {
   config::RirSessionConfig session_config;
 
-  // 乱序限位。
-  session_config.mission.scan.scan_limits_deg.az_min_deg = 30.0f;
-  session_config.mission.scan.scan_limits_deg.az_max_deg = -30.0f;
+  // 体积方位乱序。
+  session_config.orientation.steerable_volume_deg.az_min_deg = 30.0f;
+  session_config.orientation.steerable_volume_deg.az_max_deg = -30.0f;
   session::RirIssueList issues = config::ValidateRirSessionConfig(session_config);
   bool found = false;
   for (const auto& issue : issues) {
-    if (issue.code == "rir.validation.scan_strategy_invalid") {
+    if (issue.code == "rir.validation.steerable_volume_invalid") {
       found = true;
     }
   }
   EXPECT_TRUE(found);
 
-  // 越合法域（az > 180）。
-  session_config.mission.scan.scan_limits_deg.az_min_deg = -60.0f;
-  session_config.mission.scan.scan_limits_deg.az_max_deg = 200.0f;
+  // 体积方位越相对域（az > 180）。
+  session_config.orientation.steerable_volume_deg.az_min_deg = -60.0f;
+  session_config.orientation.steerable_volume_deg.az_max_deg = 200.0f;
   issues = config::ValidateRirSessionConfig(session_config);
   found = false;
   for (const auto& issue : issues) {
-    if (issue.code == "rir.validation.scan_strategy_invalid") {
+    if (issue.code == "rir.validation.steerable_volume_invalid") {
+      found = true;
+    }
+  }
+  EXPECT_TRUE(found);
+
+  // 转台朝向越域。
+  session_config.orientation.steerable_volume_deg.az_max_deg = 60.0f;
+  session_config.mission.scan_center_deg.az_deg = 200.0f;
+  issues = config::ValidateRirSessionConfig(session_config);
+  found = false;
+  for (const auto& issue : issues) {
+    if (issue.code == "rir.validation.scan_center_invalid") {
       found = true;
     }
   }
   EXPECT_TRUE(found);
 
   // 步长系数非正。
-  session_config.mission.scan.scan_limits_deg.az_max_deg = 60.0f;
+  session_config.mission.scan_center_deg.az_deg = 0.0f;
   session_config.mission.scan.step_scale = 0.0f;
   issues = config::ValidateRirSessionConfig(session_config);
   found = false;

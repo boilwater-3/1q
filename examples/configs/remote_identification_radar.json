@@ -63,17 +63,20 @@
     }
   },
   "sensor_platform_id": 2,
+  "orientation": {
+    "steerable_volume_deg": {
+      "az_min_deg": -110.0,
+      "az_max_deg": 110.0,
+      "el_min_deg": 2.0,
+      "el_max_deg": 85.0
+    }
+  },
   "mission": {
     "work_mode": "kIdentify",
+    "scan_center_deg": {"az_deg": 0.0, "el_deg": 0.0},
     "max_range_m": 9000000.0,
     "recognition_dwell_sec": 0.1,
     "scan": {
-      "scan_limits_deg": {
-        "az_min_deg": -110.0,
-        "az_max_deg": 110.0,
-        "el_min_deg": 2.0,
-        "el_max_deg": 90.0
-      },
       "scan_start_position": "kLeftTop",
       "scan_sequence": "kAzimuthFirst",
       "step_scale": 1.0
@@ -125,6 +128,12 @@
     "vegetation_scatter_physics": {
       "cover_profile": "kDisabled",
       "enable_physical_model": false
+    },
+    "atmospheric_physics": {
+      "enable_physical_model": false,
+      "pressure_hpa": 1013.25,
+      "temperature_k": 288.15,
+      "relative_humidity": 0.5
     }
   },
   "sensor_enabled": true

@@ -164,6 +164,17 @@ AtmosphericPropagationInputs BuildPropagationInputs(
     float frequency_hz, float path_length_m, float radar_altitude_m, float target_altitude_m,
     float elevation_deg, const AtmosphericObservationRef& observation);
 
+/**
+ * @brief 逐目标大气物理附加损耗（dB）的标量胶水。
+ *
+ * 封装 BuildPropagationInputs + EvaluateAtmosphericPropagation；调用方负责
+ * enable 门控与 k_factor / 观测字段填充。has_look_angles=false 时仰角按 0 deg。
+ */
+float ComputeTargetAtmosphericPhysicsLossDb(float frequency_hz, float slant_range_m,
+                                            float radar_altitude_m, float target_altitude_m,
+                                            float elevation_deg, bool has_look_angles,
+                                            const AtmosphericObservationRef& observation);
+
 }  // namespace atmosphere
 }  // namespace common
 }  // namespace oneq

@@ -49,6 +49,16 @@ void ValidateRirEnvironmentConfig(const RirEnvironmentConfig& environment,
               (prefix + "vegetation_scatter_physics.cover_profile").c_str(),
               "Vegetation cover profile must be a valid enum value.");
   }
+  const RirAtmosphericPhysicsConfig& atmospheric = environment.atmospheric_physics;
+  if (!IsFinite(atmospheric.pressure_hpa) || atmospheric.pressure_hpa <= 0.0f ||
+      !IsFinite(atmospheric.temperature_k) || atmospheric.temperature_k <= 0.0f ||
+      !IsFinite(atmospheric.relative_humidity) || atmospheric.relative_humidity < 0.0f ||
+      atmospheric.relative_humidity > 1.0f) {
+    PushIssue(issues, session::codes::kInvalidEnvironmentSnapshot,
+              (prefix + "atmospheric_physics").c_str(),
+              "Atmospheric observation must be finite with pressure/temperature > 0 and "
+              "relative humidity in [0, 1].");
+  }
 }
 
 void ValidateRirHardwareConfig(const RirHardwareConfig& hardware, session::RirIssueList* issues) {
@@ -235,22 +245,37 @@ session::RirIssueList ValidateRirSessionConfig(const RirSessionConfig& config) {
               "Recognition max range and dwell must be finite and positive.");
   }
 
-  // 扫描策略（库内驻留调度器）：限位有限有序且在合法域（驻留中心契约
-  // az∈[-180,180]、el∈[-90,90]），步长系数有限且为正。
+  // 扫描策略（库内驻留调度器）：步长系数有限且为正。
   {
     const RirScanConfig& scan = mission.scan;
-    if (!IsFinite(scan.scan_limits_deg.az_min_deg) ||
-        !IsFinite(scan.scan_limits_deg.az_max_deg) ||
-        !IsFinite(scan.scan_limits_deg.el_min_deg) ||
-        !IsFinite(scan.scan_limits_deg.el_max_deg) ||
-        scan.scan_limits_deg.az_min_deg > scan.scan_limits_deg.az_max_deg ||
-        scan.scan_limits_deg.el_min_deg > scan.scan_limits_deg.el_max_deg ||
-        scan.scan_limits_deg.az_min_deg < -180.0f || scan.scan_limits_deg.az_max_deg > 180.0f ||
-        scan.scan_limits_deg.el_min_deg < -90.0f || scan.scan_limits_deg.el_max_deg > 90.0f ||
-        !IsFinite(scan.step_scale) || scan.step_scale <= 0.0f) {
+    if (!IsFinite(scan.step_scale) || scan.step_scale <= 0.0f) {
       PushIssue(&issues, session::codes::kScanStrategyInvalid, "mission.scan",
-                "Scan limits must be finite, ordered and within az[-180,180]/el[-90,90]; step "
-                "scale must be finite and positive.");
+                "Scan step scale must be finite and positive.");
+    }
+  }
+
+  // 可扫描体积（orientation 第五域）：az 相对域 [-180,180]、el 绝对域 [-90,90]。
+  {
+    const RirAzimuthElevationLimitsDeg& volume = config.orientation.steerable_volume_deg;
+    if (!IsFinite(volume.az_min_deg) || !IsFinite(volume.az_max_deg) ||
+        !IsFinite(volume.el_min_deg) || !IsFinite(volume.el_max_deg) ||
+        volume.az_min_deg > volume.az_max_deg || volume.el_min_deg > volume.el_max_deg ||
+        volume.az_min_deg < -180.0f || volume.az_max_deg > 180.0f ||
+        volume.el_min_deg < -90.0f || volume.el_max_deg > 90.0f) {
+      PushIssue(&issues, session::codes::kSteerableVolumeInvalid,
+                "orientation.steerable_volume_deg",
+                "Steerable volume limits must be finite, ordered, az in [-180,180] relative "
+                "domain and el in [-90,90].");
+    }
+  }
+
+  // 转台朝向（mission.scan_center_deg）：有限且在合法域。
+  {
+    const RirAzimuthElevationDeg& center = mission.scan_center_deg;
+    if (!IsFinite(center.az_deg) || !IsFinite(center.el_deg) || center.az_deg < -180.0f ||
+        center.az_deg > 180.0f || center.el_deg < -90.0f || center.el_deg > 90.0f) {
+      PushIssue(&issues, session::codes::kScanCenterInvalid, "mission.scan_center_deg",
+                "Scan center must be finite with az in [-180,180] and el in [-90,90].");
     }
   }
 

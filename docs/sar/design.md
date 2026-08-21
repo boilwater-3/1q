@@ -22,5 +22,5 @@ SAR 的心智模型是**信号处理链**：LFM 波形 → raw history 构造 �
 - 算法登记表（LFM/RDA/MoCo/BP/Omega-K/Multilook/calibration）、每算法的实现边界与反直觉点、
   刻意不实现的算法（CSA/PGA/二阶 MoCo） → [algorithms.md](algorithms.md)
 
-跨模块公共规则（public API 边界、四域配置、三层输出模型、会话配置直接赋值、运行期配置提交策略、
-证据优先开发模式等）见 `docs/common/contract.md`。
+跨模块公共规则（public API 边界、条件五域配置所有权、三层输出模型、会话配置直接赋值、运行期配置提交策略、
+证据优先开发模式等）以 `docs/common/contract.md` / `session_contract.md` 为准；SAR 本身为四域（无 orientation）。

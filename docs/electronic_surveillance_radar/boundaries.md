@@ -80,10 +80,10 @@ payload 中的四个边界字段，并按中心角、硬件扫描范围和天线
 
 `EsrScanPolicyConfig`（mission 域）中的 `scan_center_az_deg` / `scan_center_el_deg`，以及显式模式下的
 `scan_start_az_deg` / `scan_end_az_deg` / `scan_start_el_deg` / `scan_end_el_deg`，均定义在**天线坐标系**中，
-即默认假定天线 boresight 与接收机参考轴对齐。`EsrHardwareConfig::antenna_mount_az_deg` /
-`antenna_mount_el_deg`（hardware 域）描述天线相对平台参考轴的安装偏置；`ApplyScanPolicy` 在解算实际接收
-波束指向时，会从 mission 域扫描角中**减去** hardware 域安装偏置。因此 mission 配置给出的扫描角与最终
-平台系指向之间相差一个 hardware mount 偏移：消费方只看 mission 配置无法推断实际平台系扫描方向。这是
+即默认假定天线 boresight 与接收机参考轴对齐。`EsrOrientationConfig::antenna_mount_az_deg` /
+`antenna_mount_el_deg`（会话 `orientation` 域）描述天线相对平台参考轴的安装偏置；`ApplyScanPolicy` 在解算实际接收
+波束指向时，会从 mission 域扫描角中**减去** orientation 域安装偏置。因此 mission 配置给出的扫描角与最终
+平台系指向之间相差一个 orientation mount 偏移：消费方只看 mission 配置无法推断实际平台系扫描方向。这是
 当前固化语义，不接受在 mission 域直接填写平台系角度。
 
 前端 boresight 的物理实现（2026-08-21 公共域收敛）：`EsrRfV2FrontEnd` 经 `EsrBoresightChain`

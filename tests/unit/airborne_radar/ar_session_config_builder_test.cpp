@@ -191,7 +191,7 @@ TEST(RadarSessionConfigBuilderTest, DetailedBuilderProducesDetailedSessionConfig
   detailed_config.hardware.transmitter.prf_hz = 500.0f;
   detailed_config.hardware.antenna.main_beam_gain_db = 38.0f;
   detailed_config.hardware.receiver.noise_figure_db = 3.5f;
-  detailed_config.mission.orientation.work_mode = config::ArWorkMode::kTas;
+  detailed_config.mission.work_mode = config::ArWorkMode::kTas;
   detailed_config.policy.tracking.enable_kalman_filter = true;
   detailed_config.policy.tracking.kalman_measurement_noise_std = 7.5f;
   detailed_config.policy.lifecycle.enable_imm_lifecycle = true;
@@ -203,7 +203,7 @@ TEST(RadarSessionConfigBuilderTest, DetailedBuilderProducesDetailedSessionConfig
 
   EXPECT_FLOAT_EQ(detailed_config.hardware.transmitter.peak_power_w, 5.0e6f);
   EXPECT_FLOAT_EQ(detailed_config.hardware.transmitter.frequency_hz, 9.3e9f);
-  EXPECT_EQ(detailed_config.mission.orientation.work_mode, config::ArWorkMode::kTas);
+  EXPECT_EQ(detailed_config.mission.work_mode, config::ArWorkMode::kTas);
   EXPECT_FLOAT_EQ(detailed_config.policy.tracking.kalman_measurement_noise_std, 7.5f);
   EXPECT_EQ(detailed_config.policy.lifecycle.confirm_hits, 2U);
   EXPECT_TRUE(detailed_config.policy.lifecycle.enable_imm_lifecycle);
@@ -234,26 +234,26 @@ TEST(RadarSessionConfigBuilderTest, DetailedBeamSchedulerWritesPolicyPath) {
   detailed_config.policy.beam_control.scheduler.azimuth_step_count_hint = 8U;
   detailed_config.policy.beam_control.scheduler.elevation_step_count_hint = 4U;
   detailed_config.policy.beam_control.scheduler.prefer_dense_tas_sampling = true;
-  detailed_config.mission.orientation.scan_center_deg = default_scan_center;
+  detailed_config.mission.scan_center_deg = default_scan_center;
   detailed_config.policy.beam_control.pointing.nominal_beamwidth_deg = nominal_beamwidth;
-  detailed_config.mission.orientation.commanded_beamwidth_deg = nominal_beamwidth;
+  detailed_config.mission.commanded_beamwidth_deg = nominal_beamwidth;
 
   EXPECT_EQ(detailed_config.policy.beam_control.scheduler.azimuth_step_count_hint, 8U);
   EXPECT_EQ(detailed_config.policy.beam_control.scheduler.elevation_step_count_hint, 4U);
   EXPECT_TRUE(detailed_config.policy.beam_control.scheduler.prefer_dense_tas_sampling);
-  EXPECT_FLOAT_EQ(detailed_config.mission.orientation.scan_center_deg.az_deg, 6.0f);
-  EXPECT_FLOAT_EQ(detailed_config.mission.orientation.scan_center_deg.el_deg, -1.5f);
+  EXPECT_FLOAT_EQ(detailed_config.mission.scan_center_deg.az_deg, 6.0f);
+  EXPECT_FLOAT_EQ(detailed_config.mission.scan_center_deg.el_deg, -1.5f);
   EXPECT_FLOAT_EQ(
-      detailed_config.mission.orientation.commanded_beamwidth_deg.commanded_az_beamwidth_deg, 2.5f);
+      detailed_config.mission.commanded_beamwidth_deg.commanded_az_beamwidth_deg, 2.5f);
   EXPECT_FLOAT_EQ(
-      detailed_config.mission.orientation.commanded_beamwidth_deg.commanded_el_beamwidth_deg, 1.5f);
+      detailed_config.mission.commanded_beamwidth_deg.commanded_el_beamwidth_deg, 1.5f);
 }
 
 TEST(RadarSessionConfigValidationTest, ReportsInvalidCommandedBeamwidth) {
   config::ArSessionConfig session_config;
-  session_config.mission.orientation.commanded_beamwidth_enabled = true;
-  session_config.mission.orientation.commanded_beamwidth_deg.commanded_az_beamwidth_deg = 0.0f;
-  session_config.mission.orientation.commanded_beamwidth_deg.commanded_el_beamwidth_deg = 1.0f;
+  session_config.mission.commanded_beamwidth_enabled = true;
+  session_config.mission.commanded_beamwidth_deg.commanded_az_beamwidth_deg = 0.0f;
+  session_config.mission.commanded_beamwidth_deg.commanded_el_beamwidth_deg = 1.0f;
 
   const auto issues = config::ValidateArSessionConfig(session_config);
   ASSERT_EQ(issues.size(), 1U);
@@ -265,9 +265,9 @@ TEST(RadarSessionConfigValidationTest, ReportsInvalidCommandedBeamwidth) {
 
 TEST(RadarSessionConfigValidationTest, RejectsNonFiniteCommandedBeamwidth) {
   config::ArSessionConfig session_config;
-  session_config.mission.orientation.commanded_beamwidth_enabled = true;
-  session_config.mission.orientation.commanded_beamwidth_deg.commanded_az_beamwidth_deg = 1.0f;
-  session_config.mission.orientation.commanded_beamwidth_deg.commanded_el_beamwidth_deg =
+  session_config.mission.commanded_beamwidth_enabled = true;
+  session_config.mission.commanded_beamwidth_deg.commanded_az_beamwidth_deg = 1.0f;
+  session_config.mission.commanded_beamwidth_deg.commanded_el_beamwidth_deg =
       std::numeric_limits<float>::quiet_NaN();
 
   const auto issues = config::ValidateArSessionConfig(session_config);
@@ -411,8 +411,8 @@ TEST(RadarSessionCreateWithDiagnosticsTest, BuildsSessionAndReportsNoIssuesForHe
 
 TEST(RadarSessionCreateWithDiagnosticsTest, ReportsIssuesButStillConstructsSession) {
   config::ArSessionConfig invalid;
-  invalid.mission.orientation.mechanical_scan_limits_deg.az_min_deg = 10.0f;
-  invalid.mission.orientation.mechanical_scan_limits_deg.az_max_deg = -10.0f;
+  invalid.orientation.mechanical_scan_limits_deg.az_min_deg = 10.0f;
+  invalid.orientation.mechanical_scan_limits_deg.az_max_deg = -10.0f;
 
   session::ArIssueList issues;
   const session::ArSession session = session::ArSession::CreateWithDiagnostics(invalid, &issues);
@@ -424,8 +424,8 @@ TEST(RadarSessionCreateWithDiagnosticsTest, ReportsIssuesButStillConstructsSessi
 
 TEST(RadarSessionCreateWithDiagnosticsTest, AcceptsNullIssuesWithoutCrash) {
   config::ArSessionConfig invalid;
-  invalid.mission.orientation.mechanical_scan_limits_deg.az_min_deg = 10.0f;
-  invalid.mission.orientation.mechanical_scan_limits_deg.az_max_deg = -10.0f;
+  invalid.orientation.mechanical_scan_limits_deg.az_min_deg = 10.0f;
+  invalid.orientation.mechanical_scan_limits_deg.az_max_deg = -10.0f;
 
   const session::ArSession session = session::ArSession::CreateWithDiagnostics(invalid, nullptr);
   (void)session;  // nullptr 时仅构造，不写回 issues

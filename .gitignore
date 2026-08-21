@@ -25,8 +25,9 @@ Testing/
 # Conan local cache in workspace
 .cache/
 
-# VS Code local settings
-.vscode/
+# VS Code local settings（settings.json 为仓库共享配置：默认终端 Git Bash + utf8bom）
+.vscode/*
+!.vscode/settings.json
 imgui.ini
 
 # Local documentation scratch space
@@ -90,6 +91,9 @@ src/airborne_radar/signal/Stone-Soup/
 
 # Local working documents (not tracked)
 Work/
+
+# Local machine Git Bash overrides (ONEQ_CMAKE_ROOT, etc.)
+scripts/1q_env.local.sh
 
 # component_attachment 示例运行时日志/CSV 产物（默认输出目录）
 examples/component_attachment/log/

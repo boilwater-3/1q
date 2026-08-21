@@ -49,10 +49,11 @@ struct ONEQ_API EnvironmentRuntimeConfigPatch {
  * 整域与叶子同时出现时，先应用整域再应用叶子，叶子具有最终优先级。
  * 电源状态仅由叶子 `has_sensor_enabled` 控制（COMMON-OQ-4 收敛）：
  * `has_mission` 不改变电源，mission 域在类型层面已无电源字段（字段提升）。
+ * `orientation` 为会话静态域，不得进入本补丁（无 `has_orientation`）。
  */
 struct ONEQ_API ArRuntimeConfigPatch {
   bool has_mission{false};
-  config::ArMissionConfig mission{};
+  config::ArMissionConfig mission{}; /**< 仅运行期 mission 字段；不覆写静态 orientation */
 
   bool has_policy{false};
   config::ArPolicyConfig policy{};

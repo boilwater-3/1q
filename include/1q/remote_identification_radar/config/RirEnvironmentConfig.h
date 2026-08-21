@@ -16,9 +16,17 @@
 #define ONEQ_REMOTE_IDENTIFICATION_RADAR_CONFIG_RIR_ENVIRONMENT_CONFIG_H_
 
 #include "1q/api.hpp"
+#include "1q/environment/AtmosphericTypes.h"
 
 namespace remote_identification_radar {
 namespace config {
+
+/**
+ * @brief RirAtmosphericPhysicsConfig 复用统一环境模块基础气象观测类型
+ *        （与 AR `AtmosphericPhysicsConfig` 同源，对齐 `ArEnvironmentConfig.h`）。
+ * @note k 因子为运行期派生量（`ResolveEffectiveKFactor`），不进配置。
+ */
+using RirAtmosphericPhysicsConfig = oneq::environment::AtmosphericObservation;
 
 /**
  * @brief 地表植被覆盖档位（副本：airborne_radar::config::VegetationCoverProfile）。
@@ -55,6 +63,12 @@ struct ONEQ_API RirEnvironmentConfig {
   bool enable_environment_effects{false}; /**< 是否启用环境传播/杂波效应（默认关闭）。 */
   float weather_attenuation_db{0.0f};     /**< 天气附加双程传播损耗（dB），须有限且 ≥0。 */
   RirVegetationScatterPhysicsConfig vegetation_scatter_physics{}; /**< 场景植被散射输入 */
+  /**
+   * 场景气象观测输入（气压/温度/相对湿度）。`enable_physical_model=true` 时
+   * 驻留链路预算按每目标真实几何计算大气物理附加损耗（common 大气单源，
+   * 与 AR 同口径）；默认关闭，行为零回归。
+   */
+  RirAtmosphericPhysicsConfig atmospheric_physics{};
 };
 
 }  // namespace config

@@ -1,0 +1,9 @@
+{
+    "terminal.integrated.defaultProfile.windows": "Git Bash",
+    "[c]": {
+        "files.encoding": "utf8bom"
+    },
+    "[cpp]": {
+        "files.encoding": "utf8bom"
+    }
+}

@@ -24,6 +24,7 @@
 #include "1q/remote_identification_radar/session/RirRecognitionResult.h"
 #include "remote_identification_radar/dwell/RirSignalDetector.h"
 #include "remote_identification_radar/internal/RirPropagationModel.h"
+#include "remote_identification_radar/internal/RirRadarEquations.h"
 #include "remote_identification_radar/recognition/RecognitionFeatureDatabase.h"
 #include "remote_identification_radar/recognition/RecognitionTracker.h"
 #include "remote_identification_radar/tracking/RirTrackAssociator.h"
@@ -120,10 +121,18 @@ class RirController {
   /** @brief 环境事实解析：未启用环境效应时退化到阶段 1 旧口径。 */
   void ResolveEnvironment(float* propagation_loss_db, float* clutter_power_w) const;
 
+  /**
+   * @brief 逐目标大气物理附加损耗（common 大气单源，与 AR 同口径）。
+   * @note 大气物理关闭时返回 0；k 因子经 UpdateEnvironment 预派生（非 4/3 硬值）。
+   */
+  float ComputeTargetAtmosphericLossDb(float carrier_hz, float platform_altitude_m,
+                                       float look_el_deg, bool has_look_angles,
+                                       float slant_range_m, float target_position_z_m) const;
+
   /** @brief 单个目标检测与量测构造；未通过门控返回空 optional 语义（out=false）。 */
   bool TryBuildMeasurement(const session::RirSceneTarget& target, std::size_t source_index,
-                           float propagation_loss_db, float clutter_power_w,
-                           const session::RirCycleInput& input,
+                           float platform_altitude_m, float propagation_loss_db,
+                           float clutter_power_w, const session::RirCycleInput& input,
                            const config::RirAzimuthElevationDeg& dwell_center_deg,
                            const RirResolvedRfCycle& rf_cycle,
                            tracking::RirTrackMeasurement* measurement, float* snr_db);
@@ -149,6 +158,8 @@ class RirController {
   config::RirMissionConfig mission_{};
   config::RirPolicyConfig policy_{};
   config::RirEnvironmentConfig environment_{};
+  // 大气 k 因子（UpdateEnvironment 时按气象观测派生，缺省 4/3，与 AR 冻结口径一致）。
+  float effective_k_factor_{4.0f / 3.0f};
   std::uint64_t sensor_platform_id_{1U};
   config::RirWorkMode work_mode_{config::RirWorkMode::kStby};
   bool recognition_mode_active_{false};

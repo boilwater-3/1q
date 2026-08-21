@@ -481,6 +481,107 @@ TEST(TrackLifecycleManagerTest, ImmPathPredictsConfirmedTrackAcrossMissedCycles)
   EXPECT_FLOAT_EQ(snapshot[0].position_x, active_tracks[0]->position(0));
 }
 
+namespace {
+
+/// @brief 构造双模型 IMM 生命周期管理器（kAllTracks 激活，更新器 std=1）。
+/// @note 预测器/更新器为 static：管理器持有裸指针，必须比管理器长寿；
+///       Predict/Update 均为 const，跨用例共享只读安全。
+signal::tracking::TrackLifecycleManager MakeTwoModelImmManager(
+    signal::tracking::BoostTrackPool& pool) {
+  signal::tracking::LifecycleConfig config;
+  config.confirm_hits = 1;
+  config.max_miss_before_lost = 1;
+  config.max_lost_cycles = 3;
+  config.imm_activation_policy = signal::tracking::ImmActivationPolicy::kAllTracks;
+
+  static signal::tracking::KalmanPredictor pred_1(
+      [] {
+        signal::tracking::KalmanPredictorConfig cfg;
+        cfg.noise_diff_coeff = 0.5f;
+        return cfg;
+      }());
+  static signal::tracking::KalmanPredictor pred_2(
+      [] {
+        signal::tracking::KalmanPredictorConfig cfg;
+        cfg.noise_diff_coeff = 15.0f;
+        return cfg;
+      }());
+  static signal::tracking::KalmanUpdater upd_1(
+      [] {
+        signal::tracking::KalmanUpdaterConfig cfg;
+        cfg.measurement_noise_std = 1.0f;
+        return cfg;
+      }());
+  static signal::tracking::KalmanUpdater upd_2(
+      [] {
+        signal::tracking::KalmanUpdaterConfig cfg;
+        cfg.measurement_noise_std = 1.0f;
+        return cfg;
+      }());
+
+  Eigen::MatrixXf transition_probability(2, 2);
+  transition_probability << 0.95f, 0.05f, 0.05f, 0.95f;
+  Eigen::VectorXf initial_weights(2);
+  initial_weights << 0.5f, 0.5f;
+
+  return signal::tracking::TrackLifecycleManager(pool, config, {&pred_1, &pred_2},
+                                                 {&upd_1, &upd_2}, transition_probability,
+                                                 initial_weights);
+}
+
+/// @brief 建轨（cycle 1，确认于同一周期）并做 matched 命中（cycle 2），
+///        返回命中后航迹位置 x。cov 决定 cycle 2 量测的动态协方差。
+float RunImmTwoCycleHit(const Eigen::Matrix3f& cov) {
+  signal::tracking::BoostTrackPool pool(4, 16);
+  signal::tracking::TrackLifecycleManager manager = MakeTwoModelImmManager(pool);
+
+  signal::tracking::TrackMeasurement measurement;
+  measurement.raw_measurement.association_key = 62u;
+  measurement.raw_measurement.matched_existing_track = false;
+  measurement.raw_measurement.position = Eigen::Vector3f(100.0f, 0.0f, 0.0f);
+  measurement.filtered_feature.velocity = Eigen::Vector3f(10.0f, 0.0f, 0.0f);
+  measurement.raw_measurement.measurement_covariance = Eigen::Matrix3f::Identity();
+  manager.Update(MakeCycle(1u, 6101u), {measurement});
+
+  // 命中量测 115 m（预测 110 m，新息 5 m）：x 轴噪声越大，后验越靠近预测。
+  measurement.raw_measurement.matched_existing_track = true;
+  measurement.raw_measurement.position = Eigen::Vector3f(115.0f, 0.0f, 0.0f);
+  measurement.raw_measurement.measurement_covariance = cov;
+  manager.Update(MakeCycle(2u, 6102u), {measurement});
+
+  const auto active_tracks = manager.GetActiveTracks();
+  EXPECT_EQ(active_tracks.size(), 1u);
+  return active_tracks[0]->position(0);
+}
+
+}  // namespace
+
+/// @brief IMM 命中更新消费逐量测动态 R：x 轴大协方差（10 m std）相对小协方差
+///        （1 m std）产生更保守的后验（更靠近预测值）。修复前 IMM 用装配时
+///        标量 std²·I，两种协方差的后验完全相同。
+TEST(TrackLifecycleManagerTest, ImmHitUpdateConsumesMeasurementCovarianceDynamicR) {
+  Eigen::Matrix3f large_r = Eigen::Matrix3f::Identity();
+  large_r(0, 0) = 100.0f;
+  const float posterior_with_large_r = RunImmTwoCycleHit(large_r);
+  const float posterior_with_small_r = RunImmTwoCycleHit(Eigen::Matrix3f::Identity());
+
+  EXPECT_NE(posterior_with_large_r, posterior_with_small_r);
+  // 预测 110 / 量测 115：大 R 后验 ∈ (110, 115) 且更靠近 110。
+  EXPECT_GT(posterior_with_large_r, 110.0f);
+  EXPECT_LT(posterior_with_large_r, 115.0f);
+  EXPECT_LT(posterior_with_large_r - 110.0f, posterior_with_small_r - 110.0f);
+}
+
+/// @brief 量测协方差为零矩阵（"未注入动态 R"）时回退更新器配置的标量 R：
+///        后验与显式注入 std²·I（数值等于回退 R）完全一致，且不崩溃。
+TEST(TrackLifecycleManagerTest, ImmHitUpdateZeroCovarianceFallsBackToConfiguredStd) {
+  const float posterior_zero_cov = RunImmTwoCycleHit(Eigen::Matrix3f::Zero());
+  const float posterior_identity = RunImmTwoCycleHit(Eigen::Matrix3f::Identity());
+
+  EXPECT_TRUE(std::isfinite(posterior_zero_cov));
+  EXPECT_FLOAT_EQ(posterior_zero_cov, posterior_identity);
+}
+
 TEST(TrackLifecycleManagerTest, ConfirmedOnlyImmFallsBackToSingleModelBeforeImmCreation) {
   signal::tracking::BoostTrackPool pool(4, 16);
   signal::tracking::LifecycleConfig config;

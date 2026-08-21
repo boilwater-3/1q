@@ -1,6 +1,6 @@
 ---
 Status: active
-Last-reviewed: 2026-08-20
+Last-reviewed: 2026-08-21
 Authority: AR 算法登记与实现边界
 Answers: AR 用了哪些算法/部件、各自实现到什么地步、边界在哪、哪些刻意不实现
 ---
@@ -15,15 +15,15 @@ public API 边界）见 [boundaries.md](boundaries.md)。
 
 | 算法/部件 | 意图（一句话） | 实现状态 | 证据 |
 |---|---|---|---|
-| 配置映射与 runtime patch | 四域配置转内部工程配置；运行期变更可回滚提交 | session-wired | [evidence: tests/unit/airborne_radar/ar_session_config_builder_test.cpp] |
+| 配置映射与 runtime patch | 条件五域配置转内部工程配置；运行期变更可回滚提交 | session-wired | [evidence: tests/unit/airborne_radar/ar_session_config_builder_test.cpp] |
 | 环境冻结与传播 | pending/active scene 管理，冻结周期环境，传播损失/杂波/大气物理 | session-wired | [evidence: tests/unit/airborne_radar/ar_environment_service_test.cpp] |
 | 外部 RF 接入 | 以实际时频发射事实构建前端与 detection-cell 干扰账本，J/N 门控后去真值化观测 | session-wired | [evidence: tests/unit/airborne_radar/ar_rf_front_end_resolver_test.cpp] |
-| 扫描和波束控制 | 解析扫描中心、坐标组合、波束增益和波束宽度；TWS/TAS 生效模式下 session 级指向逐周期按扫描表推进 | session-wired | [evidence: tests/unit/airborne_radar/ar_signal_scan_schedule_test.cpp] |
+| 扫描和波束控制 | 解析扫描中心、坐标组合、波束增益和波束宽度；冻结指向变体走 `common/radar/FrozenBeamResolve`；TWS/TAS 生效模式下 session 级指向逐周期按扫描表推进 | session-wired | [evidence: tests/unit/airborne_radar/ar_signal_scan_schedule_test.cpp] |
 | STT 指定航迹跟随指向 | 外部只指定目标，STT 波束指向由指定航迹位置换算（优先级：显式 dwell > 航迹 > scan_center） | session-wired | [evidence: tests/unit/airborne_radar/ar_stt_track_follow_test.cpp] |
 | 指定目标生命周期回退 | 指定航迹未确认/丢失时 STT 自动回退 TWS；限时指令窗口耗尽未捕获时作废（kAcquisitionTimeout），经 L2 结果/L3 视图/生命周期事件暴露 | session-wired | [evidence: tests/unit/airborne_radar/ar_stt_track_follow_test.cpp] |
-| 统一物理探测与工程 RF 干扰链 | 实际发射→echo→incident RF→前端账本→检测单元→判决的单一物理链 | session-wired | [evidence: tests/unit/airborne_radar/ar_signal_pipeline_test.cpp] |
-| 数据关联 | 位置量测、协方差和 track seeds 的 LAPJV assignment | session-wired | [evidence: tests/unit/airborne_radar/ar_signal_association_test.cpp] |
-| 航迹过滤与生命周期 | KF/IMM(KF) 更新航迹、missed detection、确认/丢失/回收、反欺骗抑制 | session-wired | [evidence: tests/unit/airborne_radar/ar_track_filter_test.cpp] |
+| 统一物理探测与工程 RF 干扰链 | 实际发射→echo→incident RF→前端账本→检测单元→判决；大气胶水/`DetectionCellResolver`/`StatisticalCfarDetector`/RCS 混合为 common 单源 | session-wired | [evidence: tests/unit/airborne_radar/ar_signal_pipeline_test.cpp; ar_detection_cell_resolver_test.cpp; ar_signal_detection_test.cpp] |
+| 数据关联 | 位置量测、协方差和 track seeds 的 LAPJV assignment（方阵增广核见 `common/tracking/GatedSquareAssignment`；AR 反欺骗/Hypothesiser 留模块侧） | session-wired | [evidence: tests/unit/airborne_radar/ar_signal_association_test.cpp] |
+| 航迹过滤与生命周期 | KF/IMM(KF) 更新航迹；池=`common/tracking/ObjectPool`；PromoteState=`TrackLifecyclePromote`；反欺骗为模块侧钩子 | session-wired | [evidence: tests/unit/airborne_radar/ar_track_lifecycle_test.cpp; ar_track_filter_test.cpp] |
 | 战术协调 | 威胁评估、LPI、ECCM、关联压力补触发、状态清理 | session-wired | [evidence: tests/unit/airborne_radar/ar_decision_layer_test.cpp] |
 | 控制归约 | proposal 冲突、保持窗口、冷却和下一周期控制配置 | session-wired | [evidence: tests/unit/airborne_radar/ar_tactical_coordinator_test.cpp] |
 | 专项序列验证 | 公开 Session 边界六类跨周期序列 | session-wired | `tests/consumer/batch_validation/ar_batch_validation.cpp` |
@@ -65,9 +65,9 @@ public API 边界）见 [boundaries.md](boundaries.md)。
   session 级指向逐周期按扫描表推进（波束动画，见 boundaries.md 扫描动画接线），pipeline RF v1 回退
   路径经 `ApplyScanScheduleToRuntimeConfig` 使用同一扫描相位。
 - **实现边界**：
-  1. `ArMissionConfig::orientation.scan_center_deg` 是基础扫描中心 public source of truth；policy 不再保留
+  1. `ArMissionConfig::scan_center_deg` 是基础扫描中心 public source of truth；policy 不再保留
      默认中心或 replay-only 副本。runtime patch 的 `dwell_center_deg` 是当次驻留偏移，最终指向为"基础中心 +
-     偏移"；replay 分别保留两者。
+     偏移"；replay 分别保留两者。静态安装/限位/稳定见 `ArSessionConfig::orientation`。
   2. 机体稳定直接使用扫描中心和 dwell；惯性/对地稳定先用本周期平台姿态和实际安装角反解挂架指向，再同时
      用于 ECEF 发射 boresight 与目标方向增益——平台转动不得使波束随机体漂移。
   3. 天线波束宽度按轴独立解析（commanded > nominal > 由波长/孔径推导）；三级均无有效值时返回 0（不
@@ -175,8 +175,9 @@ detection toggle 或启发式 pass。
 - **反直觉点（航迹影响边界）**：压制干扰只能通过量测存在性和量测协方差间接影响 association/Kalman/IMM/
   lifecycle；按干扰类别、ECCM profile 或预计算受扰布尔值直接缩放门限、过程噪声、失配容忍或生命周期计数
   的路径都不属于目标架构。
-- **单一频率来源**：探测、传播、天线波长和物理 RCS 全部消费当前有效的 `transmitter.frequency_hz`；
-  `RcsPhysicsConfig` 不再提供独立频率或隐式继承规则。
+- **单一频率来源**：探测、传播与天线波长消费当前有效的 `transmitter.frequency_hz`；物理 RCS 的 k0 取
+  本周期冻结波形的实际载频（频率捷变下随跳频点波动，与 RIR 同口径），v1 无冻结波形事实时回退
+  `transmitter.frequency_hz`；`RcsPhysicsConfig` 不再提供独立频率或隐式继承规则。
 - **interference observation 通道**：与目标 track 分离，只在独立能量/J/N 门通过后生成，不能由场景标签或
   ECM source ID 直接生成；输出估计 bearing/frequency/bandwidth/waveform class 和不确定度；不包含 truth
   equipment/emission ID 或"敌方干扰意图"；interference-limited/masked/saturated 是接收机事实，不是外部
@@ -284,7 +285,10 @@ AR 在接收链的三个层次主动反制欺骗干扰（kPulseTrain），均不
 
 ## 滤波后端评估表
 
-AR 生产后端是 Joseph 形式 KF；IMM 是包裹 KF 的多模型融合层（见 boundaries.md 选型原则）。以下候选
+AR 生产后端是 Joseph 形式 KF；IMM 是包裹 KF 的多模型融合层（见 boundaries.md 选型原则）。
+IMM 命中更新与 CV KF 路径、关联门控同口径：消费逐量测动态协方差 R
+（`ImmFilter<6,3>` 三参 `Process`，各模型共用同一 R）；量测协方差为零/非有限时回退
+更新器装配的标量 `std²·I`（装配与热调参的 std 仅作该回退 R）。以下候选
 **不**与 live 生产链并列：
 
 | 候选 | 当前结论 | 否决依据 |

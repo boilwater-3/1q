@@ -219,10 +219,10 @@ TEST(ArRfSessionTest, SidelobeCancellerLeavesPublishedEmissionSidelobeUnchanged)
 
 TEST(ArRfSessionTest, InertialStabilizationKeepsActualEcefBoresightFixed) {
   config::ArSessionConfig body_config = MakeRfConfig();
-  body_config.mission.orientation.work_mode = config::ArWorkMode::kStt;
-  body_config.mission.orientation.stabilization_mode = config::StabilizationMode::kBodyStabilized;
+  body_config.mission.work_mode = config::ArWorkMode::kStt;
+  body_config.orientation.stabilization_mode = config::StabilizationMode::kBodyStabilized;
   config::ArSessionConfig inertial_config = body_config;
-  inertial_config.mission.orientation.stabilization_mode =
+  inertial_config.orientation.stabilization_mode =
       config::StabilizationMode::kInertialStabilized;
 
   ArCycleInput level_input = MakeInput(1U, 0.0);
@@ -271,7 +271,7 @@ TEST(ArRfSessionTest, RuntimePointingPatchChangesNextActualBoresight) {
   // STT 模式隔离扫描动画（TWS 下波束已逐周期推进，scan_center patch 不再
   // 单独决定指向）：STT 下指向 = scan_center，patch 语义可独立验证。
   config::ArSessionConfig config;
-  config.mission.orientation.work_mode = config::ArWorkMode::kStt;
+  config.mission.work_mode = config::ArWorkMode::kStt;
   ArSession radar = ArSession::Create(config);
   const ArCycleResult first = radar.StepWithResult(MakeInput(1U, 0.0));
   ASSERT_EQ(first.status, ArCycleStatus::kCompleted);

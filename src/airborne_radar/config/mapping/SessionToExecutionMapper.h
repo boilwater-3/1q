@@ -14,16 +14,16 @@ namespace config {
 namespace mapping {
 
 /**
- * @brief 将四域会话配置映射为内部执行配置（唯一运行期配置真值）。
+ * @brief 将条件五域会话配置映射为内部执行配置（唯一运行期配置真值）。
  *
- * 会合并 hardware/policy/mission 三个域的字段，并依据 lifecycle 策略派生
+ * 会合并 hardware/policy/mission/orientation 域的字段，并依据 lifecycle 策略派生
  * engineering 子配置及默认 IMM 模型噪声差异系数。
  *
  * @note environment 域不参与此映射。环境观测数据（大气物理、植被散射）
  *       通过独立路径传递给 EnvironmentService 管理，不进入 InternalExecutionConfig。
  *       设计意图：environment 仅携带自然环境事实，不含算法调参字段。
  *
- * @param[in] session_config 外部提交的四域会话配置。
+ * @param[in] session_config 外部提交的会话配置。
  * @return 完整初始化后的 InternalExecutionConfig。
  */
 execution::InternalExecutionConfig MapSessionToExecution(

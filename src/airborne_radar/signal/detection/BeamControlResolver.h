@@ -13,6 +13,7 @@
 #include "airborne_radar/signal/detection/TargetLookResolver.h"
 #include "airborne_radar/utils/ArOrientationUtils.h"
 #include "common/geometry/GeometryTransform.h"
+#include "common/radar/FrozenBeamResolve.h"
 
 namespace airborne_radar {
 namespace signal {
@@ -33,7 +34,7 @@ class BeamControlResolver {
   /** @brief 使用 Prepare 已冻结的局部波束中心解析目标方向增益。 */
   static ResolvedBeamState ResolveFrozen(
       const config::engineering::AntennaConfig& antenna_config,
-      const config::ArOrientationConfig& orientation_config,
+      const config::ArEffectiveOrientationConfig& orientation_config,
       const TargetLookAnglesDeg& target_look_angles,
       const config::AzimuthElevationDeg& frozen_beam_pointing_deg,
       float wavelength_m = 0.0f) {
@@ -41,22 +42,27 @@ class BeamControlResolver {
     state.effective_beamwidth_deg =
         ResolveEffectiveBeamwidth(antenna_config, orientation_config, wavelength_m);
     state.beam_pointing_deg = frozen_beam_pointing_deg;
-    state.one_way_antenna_gain_db = antenna_config.main_beam_gain_db;
-    if (!antenna_config.enable_directional_pattern || !target_look_angles.has_look_angles) {
-      return state;
-    }
-    AntennaPatternBeamwidthDeg pattern_beamwidth;
-    pattern_beamwidth.az_beamwidth_deg = state.effective_beamwidth_deg.az_beamwidth_deg;
-    pattern_beamwidth.el_beamwidth_deg = state.effective_beamwidth_deg.el_beamwidth_deg;
-    AntennaLookOffsetDeg offset_deg;
-    offset_deg.delta_az_deg = target_look_angles.look_az_deg - state.beam_pointing_deg.az_deg;
-    offset_deg.delta_el_deg = target_look_angles.look_el_deg - state.beam_pointing_deg.el_deg;
-    state.one_way_antenna_gain_db =
-        EvaluateAntennaPattern(antenna_config.main_beam_gain_db, antenna_config.pattern,
-                               pattern_beamwidth, offset_deg, state.beam_pointing_deg,
-                               antenna_config.antenna_length_m, antenna_config.antenna_width_m,
-                               wavelength_m)
-            .gain_dbi;
+
+    oneq::common::radar::FrozenBeamResolveInputs inputs;
+    inputs.main_beam_gain_db = antenna_config.main_beam_gain_db;
+    inputs.enable_directional_pattern = antenna_config.enable_directional_pattern;
+    inputs.pattern = antenna_pattern_adapter::ToCommonPatternConfig(antenna_config.pattern);
+    inputs.effective_beamwidth_deg.az_beamwidth_deg =
+        state.effective_beamwidth_deg.az_beamwidth_deg;
+    inputs.effective_beamwidth_deg.el_beamwidth_deg =
+        state.effective_beamwidth_deg.el_beamwidth_deg;
+    inputs.beam_pointing_az_deg = frozen_beam_pointing_deg.az_deg;
+    inputs.beam_pointing_el_deg = frozen_beam_pointing_deg.el_deg;
+    inputs.look_az_deg = target_look_angles.look_az_deg;
+    inputs.look_el_deg = target_look_angles.look_el_deg;
+    inputs.has_look_angles = target_look_angles.has_look_angles;
+    inputs.antenna_length_m = antenna_config.antenna_length_m;
+    inputs.antenna_width_m = antenna_config.antenna_width_m;
+    inputs.wavelength_m = wavelength_m;
+    inputs.normalize_azimuth_delta = false;
+    const oneq::common::radar::FrozenBeamResolveResult frozen =
+        oneq::common::radar::ResolveFrozenBeamState(inputs);
+    state.one_way_antenna_gain_db = frozen.one_way_antenna_gain_db;
     return state;
   }
 
@@ -72,7 +78,7 @@ class BeamControlResolver {
    */
   static ResolvedBeamState Resolve(
       const config::engineering::AntennaConfig& antenna_config,
-      const config::ArOrientationConfig& orientation_config,
+      const config::ArEffectiveOrientationConfig& orientation_config,
       const config::PlatformAttitudeDeg& platform_attitude_deg,
       const TargetLookAnglesDeg& target_look_angles,
       const config::AzimuthElevationDeg& dwell_center_deg = config::AzimuthElevationDeg(),
@@ -112,7 +118,7 @@ class BeamControlResolver {
    * @note 对地稳定当前无地理参考输入，代码上显式等同于对惯性空间稳定。
    */
   static config::AzimuthElevationDeg ResolveMountFrameBeamPointing(
-      const config::ArOrientationConfig& orientation_config,
+      const config::ArEffectiveOrientationConfig& orientation_config,
       const config::PlatformAttitudeDeg& platform_attitude_deg,
       const config::AzimuthElevationDeg& dwell_center_deg = config::AzimuthElevationDeg()) {
     const config::AzimuthElevationLimitsDeg effective_limits =

@@ -1,8 +1,10 @@
 ﻿/**
  * @file ArOrientationConfig.h
- * @brief 机载雷达方向与扫描相关主配置类型。
+ * @brief 机载雷达安装指向静态配置，以及波束控制共享类型。
  *
- * 姿态、工作模式与扫描调度的主头文件。
+ * 会话顶层 `ArSessionConfig::orientation` 仅承载静态安装/限位/稳定/扫描程序。
+ * 运行期 work_mode / scan_center / 指令波束宽归 `ArMissionConfig`。
+ * 内部执行拼装态见同文件 `ArEffectiveOrientationConfig`。
  */
 
 #ifndef ONEQ_AIRBORNE_RADAR_CONFIG_AR_ORIENTATION_CONFIG_H_
@@ -61,7 +63,7 @@ struct ONEQ_API CommandedBeamwidthDeg {
 
 /**
  * @brief ArWorkMode 表示机载雷达工作模式。
- * @note 该枚举对应运行期可外部调整控制量。
+ * @note 该枚举对应运行期可外部调整控制量（会话 mission 域）。
  * @note "可外部调整"定义：调用方可在不重建 `ArSession` 的前提下，通过公开 API 直接提交修改。
  * @note 命名对齐 EOS/ESR 的 work_mode / EosWorkMode / EsrWorkMode（原名带 Sub 后缀，
  *       已去掉以消除跨域"同概念异名"；由 check_cross_domain_naming.cmake 守护不回归）。
@@ -88,11 +90,10 @@ enum class ONEQ_API StabilizationMode {
 };
 
 /**
- * @brief ArOrientationConfig 表示机载雷达方向与扫描相关配置。
- * @note 本结构描述初始化/静态配置项，不包含运行期驻留偏移。
- * @note 静态基准组合关系:
+ * @brief ArOrientationConfig 表示机载雷达静态安装指向配置（会话第五域）。
+ * @note 初始化静态配置，不进入 RuntimeConfigPatch。
+ * @note 静态基准组合关系（与运行期 mission 指向拼装后）:
  *       actual_beam_pointing_base = platform_attitude + mount_angles_deg + scan_center_deg
- * @note 运行期若存在驻留偏移（dwell center），由运行态控制链路在上述基准上追加叠加。
  */
 struct ONEQ_API ArOrientationConfig {
   /**
@@ -100,23 +101,35 @@ struct ONEQ_API ArOrientationConfig {
    * @note 该角度定义在机体坐标系下，描述雷达坐标系相对机体系的固定安装偏置；
    *       与运行期平台姿态（Body -> ENU）通过旋转矩阵复合后，
    *       可得到"ENU -> Radar"的等效姿态。
-   * @note 当前为静态配置。若未来需要支持可动天线座（运行期安装角变化），
-   *       可通过 ArRuntimeConfigPatch 扩展此字段的运行期更新能力。
    */
   EulerAnglesDeg mount_angles_deg;
-  AzimuthElevationDeg scan_center_deg; /**< [可外部调整] 基准指向方向；不是扫描体积中心 */
   AzimuthElevationLimitsDeg mechanical_scan_limits_deg; /**< 机械扫描限位 */
   AzimuthElevationLimitsDeg electronic_scan_limits_deg; /**< 电子扫描限位 */
   oneq::foundation::ScanStartPosition scan_start_position{
       oneq::foundation::ScanStartPosition::kLeftTop}; /**< 扫描起始象限 */
   oneq::foundation::ScanSequence scan_sequence{
-      oneq::foundation::ScanSequence::kAzimuthFirst};         /**< 二维扫描推进顺序 */
-  ArWorkMode work_mode{ArWorkMode::kTws}; /**< [可外部调整] 当前工作模式 */
-  bool commanded_beamwidth_enabled{false};       /**< 指令态波束宽度覆盖使能 */
-  CommandedBeamwidthDeg commanded_beamwidth_deg; /**< 当前指令态瞬时波束宽度 */
+      oneq::foundation::ScanSequence::kAzimuthFirst}; /**< 二维扫描推进顺序 */
   StabilizationMode stabilization_mode{StabilizationMode::kBodyStabilized}; /**< 波束稳定方式 */
 };
 
+/**
+ * @brief 内部执行拼装态：静态 orientation + mission 运行期指向字段。
+ * @note 仅供 session→execution 映射与 pipeline 消费；不是 SessionConfig 顶层域。
+ */
+struct ONEQ_API ArEffectiveOrientationConfig {
+  EulerAnglesDeg mount_angles_deg;
+  AzimuthElevationDeg scan_center_deg; /**< 基准指向方向；不是扫描体积中心 */
+  AzimuthElevationLimitsDeg mechanical_scan_limits_deg;
+  AzimuthElevationLimitsDeg electronic_scan_limits_deg;
+  oneq::foundation::ScanStartPosition scan_start_position{
+      oneq::foundation::ScanStartPosition::kLeftTop};
+  oneq::foundation::ScanSequence scan_sequence{
+      oneq::foundation::ScanSequence::kAzimuthFirst};
+  ArWorkMode work_mode{ArWorkMode::kTws};
+  bool commanded_beamwidth_enabled{false};
+  CommandedBeamwidthDeg commanded_beamwidth_deg;
+  StabilizationMode stabilization_mode{StabilizationMode::kBodyStabilized};
+};
 
 }  // namespace config
 }  // namespace airborne_radar

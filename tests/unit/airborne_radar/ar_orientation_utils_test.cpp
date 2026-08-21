@@ -74,7 +74,7 @@ TEST(RadarOrientationUtilsTest, IntersectScanLimitsReturnsOverlapWindow) {
 }
 
 TEST(RadarOrientationUtilsTest, ComputeMountFrameBeamPointingClampsToOverlap) {
-  config::ArOrientationConfig config;
+  config::ArEffectiveOrientationConfig config;
   config.scan_center_deg.az_deg = 55.0f;
   config.scan_center_deg.el_deg = -20.0f;
   config.mechanical_scan_limits_deg.az_min_deg = -60.0f;
@@ -93,7 +93,7 @@ TEST(RadarOrientationUtilsTest, ComputeMountFrameBeamPointingClampsToOverlap) {
 }
 
 TEST(RadarOrientationUtilsTest, ComputeBodyFrameBeamPointingUsesRotationComposition) {
-  config::ArOrientationConfig config;
+  config::ArEffectiveOrientationConfig config;
   config.mount_angles_deg.yaw_deg = 10.0f;
   config.mount_angles_deg.pitch_deg = 5.0f;
   config.mount_angles_deg.roll_deg = 2.0f;
@@ -127,7 +127,7 @@ TEST(RadarOrientationUtilsTest, ComputeBodyFrameBeamPointingUsesRotationComposit
 }
 
 TEST(RadarOrientationUtilsTest, ComputePlatformFrameBeamPointingUsesRotationComposition) {
-  config::ArOrientationConfig config;
+  config::ArEffectiveOrientationConfig config;
   config.mount_angles_deg.yaw_deg = 10.0f;
   config.mount_angles_deg.pitch_deg = 5.0f;
   config.mount_angles_deg.roll_deg = 2.0f;
@@ -167,7 +167,7 @@ TEST(RadarOrientationUtilsTest, ComputePlatformFrameBeamPointingUsesRotationComp
 }
 
 TEST(RadarOrientationUtilsTest, ComputePlatformFrameBeamPointingCapturesLargeAttitudeCoupling) {
-  config::ArOrientationConfig config;
+  config::ArEffectiveOrientationConfig config;
   config.mount_angles_deg.yaw_deg = 35.0f;
   config.mount_angles_deg.pitch_deg = 20.0f;
   config.mount_angles_deg.roll_deg = 15.0f;
@@ -205,7 +205,7 @@ TEST(RadarOrientationUtilsTest, ComputePlatformFrameBeamPointingCapturesLargeAtt
 }
 
 TEST(RadarOrientationUtilsTest, BeamControlResolverPreservesInertialStabilizedPointing) {
-  config::ArOrientationConfig config;
+  config::ArEffectiveOrientationConfig config;
   config.stabilization_mode = config::StabilizationMode::kInertialStabilized;
   config.mechanical_scan_limits_deg.az_min_deg = -120.0f;
   config.mechanical_scan_limits_deg.az_max_deg = 120.0f;

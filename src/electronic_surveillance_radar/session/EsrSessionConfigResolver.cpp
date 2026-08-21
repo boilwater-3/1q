@@ -13,9 +13,10 @@ EsrInternalExecutionConfig MapSessionToInternal(const config::EsrSessionConfig& 
   const config::EsrMissionConfig& mission = session_config.mission;
   const config::EsrScanPolicyConfig& scan_policy = session_config.mission.scan;
 
-  // Hardware/Mission: using aliases, direct assignment
+  // Hardware/Mission/Orientation: using aliases, direct assignment
   exec.hardware = hardware;
   exec.mission = mission;
+  exec.orientation = session_config.orientation;
   // 电源状态顶层字段（COMMON-OQ-4 字段提升）
   exec.sensor_enabled = session_config.sensor_enabled;
 
@@ -27,7 +28,7 @@ EsrInternalExecutionConfig MapSessionToInternal(const config::EsrSessionConfig& 
   ApplyWorkModeAdjustment(mission.work_mode, &exec.detection);
 
   // Scan resolution
-  ApplyScanPolicy(hardware, scan_policy, &exec.resolved_scan);
+  ApplyScanPolicy(hardware, session_config.orientation, scan_policy, &exec.resolved_scan);
 
   // Intercept sub-configs (direct defaults from internal types)
   exec.intercept.algorithm.random_seed = 20260323U;

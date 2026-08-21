@@ -40,7 +40,8 @@ class RirPropagationModel {
    * @brief 根据场景状态计算传播与杂波输出。
    * @param[in] scene_state 当前周期场景状态（含植被覆盖物理量）。
    * @return 包含传播损耗与杂波功率的 RirPropagationResult。
-   * @note 逐目标大气物理损耗由驻留链路预算按真实目标几何计算，
+   * @note 逐目标大气物理损耗由驻留链路预算按真实目标几何计算
+   *       （`RirController::ComputeTargetAtmosphericLossDb`，common 大气单源），
    *       环境层不重复计算（避免硬编码几何的死计算）。
    */
   RirPropagationResult Evaluate(const RirEnvironmentSceneState& scene_state) const;

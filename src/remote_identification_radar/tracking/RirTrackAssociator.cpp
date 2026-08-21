@@ -15,6 +15,7 @@
 
 #include "common/estimation/IKalmanUpdater.h"
 #include "common/logging/ProjectLog.h"
+#include "common/tracking/GatedSquareAssignment.h"
 
 namespace remote_identification_radar {
 namespace tracking {
@@ -23,6 +24,9 @@ namespace {
 
 /** @brief 关联键保留值：未关联。 */
 constexpr std::uint64_t kUnassociatedKey = 0U;
+
+/** @brief 过程噪声差异系数下限（与 AR SignalComponentFactory 工厂钳制同口径）。 */
+constexpr float kMinimumNoiseDiffCoeff = 0.001f;
 
 /** @brief 位置量测矩阵 H（状态序 [x, vx, y, vy, z, vz]）。 */
 RirMeasurementMatrix BuildPositionMeasurementMatrix() {
@@ -58,7 +62,9 @@ float ComputeSquaredMahalanobisDistance(const Eigen::Vector3f& predicted_positio
 
 RirTrackAssociator::RirTrackAssociator(RirAssociationConfig config) : config_(config) {
   ::oneq::common::estimation::KalmanPredictorConfig predictor_config;
-  predictor_config.noise_diff_coeff = config.kalman_noise_diff_coeff;
+  // 越界 q 钳制口径同 RirTrackFilter/AR 工厂：非法 q 会污染关联门限协方差传播。
+  predictor_config.noise_diff_coeff =
+      std::max(config.kalman_noise_diff_coeff, kMinimumNoiseDiffCoeff);
   predictor_.UpdateConfig(predictor_config);
   next_key_ = config.initial_next_key == kUnassociatedKey ? 1U : config.initial_next_key;
 }
@@ -148,19 +154,8 @@ RirAssociationResult RirTrackAssociator::Associate(
   if (!seed_priors.empty() && !viable_measurement_indices.empty()) {
     const std::size_t rows = seed_priors.size();
     const std::size_t cols = viable_measurement_indices.size();
-    const std::size_t dim = std::max(rows, cols);
-    const float unassigned_cost = config_.gate_threshold;
-    const float rejected_cost =
-        std::nextafter(unassigned_cost, std::numeric_limits<float>::infinity());
-
-    Eigen::MatrixXf cost_matrix(static_cast<Eigen::Index>(dim), static_cast<Eigen::Index>(dim));
-    cost_matrix.setConstant(rejected_cost);
-    if (dim > cols) {
-      cost_matrix.rightCols(static_cast<Eigen::Index>(dim - cols)).setConstant(unassigned_cost);
-    }
-    if (dim > rows) {
-      cost_matrix.bottomRows(static_cast<Eigen::Index>(dim - rows)).setConstant(unassigned_cost);
-    }
+    Eigen::MatrixXf gated_costs(static_cast<Eigen::Index>(rows), static_cast<Eigen::Index>(cols));
+    gated_costs.setConstant(std::numeric_limits<float>::infinity());
 
     for (std::size_t s = 0U; s < seed_priors.size(); ++s) {
       for (std::size_t m = 0U; m < viable_measurement_indices.size(); ++m) {
@@ -170,25 +165,27 @@ RirAssociationResult RirTrackAssociator::Associate(
         const float cost = ComputeSquaredMahalanobisDistance(
             seed_priors[s].predicted_position, measurement.position, innovation_covariance);
         if (cost <= config_.gate_threshold) {
-          cost_matrix(static_cast<Eigen::Index>(s), static_cast<Eigen::Index>(m)) = cost;
+          gated_costs(static_cast<Eigen::Index>(s), static_cast<Eigen::Index>(m)) = cost;
         }
       }
     }
 
-    const std::vector<int> assignment = assignment_solver_.Solve(cost_matrix);
+    const Eigen::MatrixXf square_cost =
+        oneq::common::tracking::BuildAugmentedSquareCostMatrix(gated_costs,
+                                                               config_.gate_threshold);
+    const std::vector<int> row_to_col = oneq::common::tracking::SolveAugmentedSquareAssignment(
+        square_cost, rows, cols, config_.gate_threshold, assignment_solver_);
 
     for (std::size_t r = 0U; r < rows; ++r) {
-      const int assigned_col = assignment[r];
-      if (assigned_col < 0 || static_cast<std::size_t>(assigned_col) >= cols) {
+      const int assigned_col = row_to_col[r];
+      if (assigned_col < 0) {
         continue;
       }
-      const float matched_cost =
-          cost_matrix(static_cast<Eigen::Index>(r), static_cast<Eigen::Index>(assigned_col));
-      if (matched_cost <= unassigned_cost) {
-        matched_key_by_measurement[static_cast<std::size_t>(assigned_col)] = seed_priors[r].key;
-        matched_cost_by_measurement[static_cast<std::size_t>(assigned_col)] = matched_cost;
-        seed_matched[r] = 1U;
-      }
+      const float matched_cost = square_cost(static_cast<Eigen::Index>(r),
+                                             static_cast<Eigen::Index>(assigned_col));
+      matched_key_by_measurement[static_cast<std::size_t>(assigned_col)] = seed_priors[r].key;
+      matched_cost_by_measurement[static_cast<std::size_t>(assigned_col)] = matched_cost;
+      seed_matched[r] = 1U;
     }
   }
 
@@ -219,7 +216,8 @@ RirAssociationResult RirTrackAssociator::Associate(
 void RirTrackAssociator::UpdateConfig(RirAssociationConfig config) {
   config_ = config;
   ::oneq::common::estimation::KalmanPredictorConfig predictor_config;
-  predictor_config.noise_diff_coeff = config.kalman_noise_diff_coeff;
+  predictor_config.noise_diff_coeff =
+      std::max(config.kalman_noise_diff_coeff, kMinimumNoiseDiffCoeff);
   predictor_.UpdateConfig(predictor_config);
 }
 

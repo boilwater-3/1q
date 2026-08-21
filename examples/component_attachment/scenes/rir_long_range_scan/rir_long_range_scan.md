@@ -17,8 +17,8 @@
 
 | 甲方量 | 填入字段 | 值 |
 | --- | --- | --- |
-| 阵面方位 220° | `mission.scan.scan_limits_deg.az_*` | −110° ~ +110°（雷达局部系 az 0 = 东，合法域不能跨过 ±180°） |
-| 俯仰 2°–90° | `el_min_deg` / `el_max_deg` | 2 / 90 |
+| 阵面方位 220° | `orientation.steerable_volume_deg.az_*` | −110° ~ +110°（阵面相对；`mission.scan_center_deg` 默认 0°=东向） |
+| 俯仰 2°–85° | `orientation.steerable_volume_deg.el_*` | 2 / 85 |
 | 峰值功率 582 kW | `hardware.transmitter.peak_power_w` | 582000 W |
 | 天线增益 52 dB | `hardware.antenna.main_beam_gain_db` | 52 |
 | 脉宽 16 ms | `hardware.transmitter.pulse_width_s` | 0.016 s |

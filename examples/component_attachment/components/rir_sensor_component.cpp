@@ -83,6 +83,8 @@ const char* DesignationRevertReasonName(
       return "目标缺席";
     case remote_identification_radar::session::RirDesignationRevertReason::kAcquisitionTimeout:
       return "窗口超时";
+    case remote_identification_radar::session::RirDesignationRevertReason::kOutsideSteerableVolume:
+      return "超出可扫描体积";
   }
   return "未知";
 }

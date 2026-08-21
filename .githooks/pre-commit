@@ -1,0 +1,77 @@
+#!/usr/bin/env bash
+# 1Q pre-commit 钩子（经 core.hooksPath=.githooks 激活，activate 脚本自动配置）：
+#   1) BOM：暂存区 C/C++ 文件缺 UTF-8 BOM 时自动补齐并重新暂存（VS2015 交付要求）。
+#      存在分块暂存（暂存内容 ≠ 工作区）时拒绝自动补齐，避免夹带未暂存改动。
+#   2) completeness 门禁：major 级 C++ 改动（scripts/pre-commit-review.py 分级）
+#      默认阻止；/completeness-review 通过后以 ONEQ_ALLOW_MAJOR=1 重试放行。
+#   3) main 安全网：在 main/master 上提交时自动切到 feature/auto-<时间戳> 分支。
+set -euo pipefail
+
+cd "$(git rev-parse --show-toplevel)"
+
+# ---------- 1) BOM 自动补齐 ----------
+# 扩展名口径与 scripts/utf8_bom.py 的 SOURCE_EXTENSIONS 一致（仅 C/C++；shell 等
+# 带 BOM 会破坏 shebang，不碰）。
+_bom_fixed=0
+_bom_blocked=()
+while IFS= read -r -d '' f; do
+  case "$f" in
+    *.h|*.hh|*.hpp|*.hxx|*.ipp|*.inl|*.c|*.cc|*.cpp|*.cxx) ;;
+    *) continue ;;
+  esac
+  [[ -f "$f" ]] || continue
+  if head -c 3 -- "$f" | cmp -s - <(printf '\xef\xbb\xbf'); then
+    continue
+  fi
+  _staged="$(git show ":$f" 2>/dev/null | git hash-object --stdin || true)"
+  _worktree="$(git hash-object -- "$f")"
+  if [[ "$_staged" != "$_worktree" ]]; then
+    _bom_blocked+=("$f")
+    continue
+  fi
+  printf '\xef\xbb\xbf' | cat - "$f" > "$f.__bom_tmp" && mv "$f.__bom_tmp" "$f"
+  git add -- "$f"
+  _bom_fixed=$((_bom_fixed + 1))
+done < <(git diff --cached --name-only --diff-filter=ACMR -z)
+
+if (( ${#_bom_blocked[@]} > 0 )); then
+  echo "[pre-commit] 以下 C/C++ 文件缺 UTF-8 BOM，且暂存内容与工作区不一致（分块暂存），" >&2
+  echo "             无法自动补齐（会夹带未暂存改动）：" >&2
+  printf '  %s\n' "${_bom_blocked[@]}" >&2
+  echo "  处理：完整暂存后重试，或手动 scripts/utf8_bom.py convert。" >&2
+  exit 1
+fi
+if (( _bom_fixed > 0 )); then
+  echo "[pre-commit] 已为 ${_bom_fixed} 个 C/C++ 文件自动补 UTF-8 BOM 并重新暂存"
+fi
+
+# ---------- 2) completeness 门禁 ----------
+if [[ -z "${ONEQ_ALLOW_MAJOR:-}" ]]; then
+  _py="$(command -v python || command -v python3 || true)"
+  if [[ -n "$_py" ]]; then
+    _tier="$("$_py" scripts/pre-commit-review.py 2>/dev/null \
+      | "$_py" -c 'import json,sys; print(json.load(sys.stdin).get("tier","error"))' || echo error)"
+    if [[ "$_tier" == "major" ]]; then
+      echo "[pre-commit] 阻止：major 级 C++ 改动（≥3 核心文件或 ≥50 核心行，" >&2
+      echo "             分级见 scripts/pre-commit-review.py）。" >&2
+      echo "  通过 /completeness-review 后重试：ONEQ_ALLOW_MAJOR=1 git commit ..." >&2
+      echo "  或拆小本次提交。" >&2
+      exit 1
+    fi
+  fi
+fi
+
+# ---------- 3) main/master 安全网 ----------
+_branch="$(git branch --show-current 2>/dev/null || true)"
+if [[ "$_branch" == "main" || "$_branch" == "master" ]]; then
+  _name="feature/auto-$(date +%Y%m%d-%H%M%S)"
+  _n=2
+  while git show-ref --verify --quiet "refs/heads/${_name}"; do
+    _name="feature/auto-$(date +%Y%m%d-%H%M%S)-${_n}"
+    _n=$((_n + 1))
+  done
+  git checkout -b "$_name" >/dev/null 2>&1
+  echo "[pre-commit] 检测到在 ${_branch} 上提交，已自动切到 ${_name}（安全网）"
+fi
+
+exit 0

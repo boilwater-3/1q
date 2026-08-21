@@ -142,6 +142,64 @@ TEST(RirImmFilterTest, DefaultDualModelIsValid) {
   EXPECT_TRUE(filter.GetCombinedState().mean.allFinite());
 }
 
+/// @brief RirImmFilter 运行时热调参契约（AR SyncRuntimeTuning 同口径）：
+///        同模型数在线重调每模型 q 与转移矩阵，已演化权重/状态保留；
+///        模型数变化拒绝原位重调（调用方丢弃运行态并惰性重建）。
+TEST(RirImmFilterTest, UpdateRuntimeTuningRetunesWithinSameModelCount) {
+  tracking::RirImmFilter filter;
+  ASSERT_TRUE(filter.IsValid());
+  filter.Process(Eigen::Vector3f(1.0f, 2.0f, 3.0f), 1.0f, RirMeasurementCovariance::Identity());
+  const Eigen::VectorXf weights_before = filter.GetModelWeights();
+
+  tracking::RirImmFilter::Config config;
+  config.model_noise_diff_coeffs = {0.5f, 20.0f};
+  config.transition_diagonal_probability = 0.9f;
+  EXPECT_TRUE(filter.UpdateRuntimeTuning(config));
+  EXPECT_TRUE(filter.IsValid());
+  EXPECT_EQ(filter.ModelCount(), 2U);
+
+  // 热调参不重置已演化的模型权重。
+  const Eigen::VectorXf weights_after = filter.GetModelWeights();
+  ASSERT_EQ(weights_after.size(), weights_before.size());
+  for (Eigen::Index i = 0; i < weights_after.size(); ++i) {
+    EXPECT_NEAR(weights_after(i), weights_before(i), 1.0e-6f);
+  }
+
+  // 重调后数值链路仍可用。
+  filter.Process(Eigen::Vector3f(2.0f, 2.0f, 3.0f), 1.0f, RirMeasurementCovariance::Identity());
+  EXPECT_TRUE(filter.GetCombinedState().mean.allFinite());
+
+  tracking::RirImmFilter::Config mismatched;
+  mismatched.model_noise_diff_coeffs = {1.0f, 10.0f, 100.0f};  // 模型数变化
+  EXPECT_FALSE(filter.UpdateRuntimeTuning(mismatched));
+}
+
+/// @brief 生命周期 UpdateConfig 热同步既有 IMM 运行态（AR SyncRuntimeTuning 同口径）：
+///        模型数不变 → 原位重调、运行态实例保留；模型数变化 → 运行态丢弃、
+///        下次 confirmed 命中按新模型集惰性重建。
+TEST(RirImmTrackingTest, UpdateConfigHotTunesExistingImmRuntimeState) {
+  RirTrackLifecycle lifecycle(MakeImmConfig());
+  lifecycle.Update(MakeCycle(1U), {MakeMeasurement(7U, 0.0f, 10.0f, false)});
+  lifecycle.Update(MakeCycle(2U), {MakeMeasurement(7U, 10.0f, 10.0f, true)});
+  const tracking::RirImmFilter* imm_before = lifecycle.FindImmFilter(7U);
+  ASSERT_NE(imm_before, nullptr);
+  ASSERT_EQ(imm_before->ModelCount(), 2U);
+
+  lifecycle.UpdateConfig(MakeImmConfig(), tracking::RirTrackFilterConfig{});
+  EXPECT_EQ(lifecycle.FindImmFilter(7U), imm_before);  // 原位重调，不丢弃运行态
+  EXPECT_EQ(lifecycle.FindImmFilter(7U)->ModelCount(), 2U);
+
+  RirLifecycleConfig three_models = MakeImmConfig();
+  three_models.model_count_hint = 3U;
+  lifecycle.UpdateConfig(three_models, tracking::RirTrackFilterConfig{});
+  EXPECT_EQ(lifecycle.FindImmFilter(7U), nullptr);  // 模型数变化 → 运行态丢弃
+
+  lifecycle.Update(MakeCycle(3U), {MakeMeasurement(7U, 20.0f, 10.0f, true)});
+  const tracking::RirImmFilter* rebuilt = lifecycle.FindImmFilter(7U);
+  ASSERT_NE(rebuilt, nullptr);
+  EXPECT_EQ(rebuilt->ModelCount(), 3U);  // 惰性重建按新模型集
+}
+
 }  // namespace
 }  // namespace tests
 }  // namespace remote_identification_radar

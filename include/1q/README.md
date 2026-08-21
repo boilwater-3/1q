@@ -50,8 +50,10 @@
 
 各传感器域采用统一的 `config/` + `session/` 两域布局：
 
-- `<module>/config/`：初始化与运行期配置入口（四域 Config、RuntimePatch、
-  SessionConfig、ProfileConstants）。聚合头 `<module>_config.hpp`。
+- `<module>/config/`：初始化与运行期配置入口（条件五域或四域 Config、RuntimePatch、
+  ProfileConstants）；有静态安装指向几何的模块（SBIRS/AR/ESR）含 `orientation` 域，
+  EOS/RIR/SAR 保持四域（见 `docs/common/contract.md`）。
+  聚合头 `<module>_config.hpp`。
   会话配置直接赋值；运行期补丁直接写 `*RuntimeConfigPatch` 并显式设对应 `has_*`。
 - `<module>/session/`：会话门面、周期输入/结果、输入校验、外部适配器、
   场景/输出类型、Trace/Replay 会话。聚合头 `<module>.hpp`。
@@ -92,13 +94,14 @@
 
 ### Space-Based Infrared Sensor (SBIRS)
 
-- `sbirs_sensor/config/`：四域 SessionConfig + RuntimeConfigPatch（直接赋值 + 显式 `has_*`）。
+- `sbirs_sensor/config/`：条件五域 SessionConfig（含静态 `orientation`）+ RuntimeConfigPatch
+  （直接赋值 + 显式 `has_*`；orientation 不进 patch）。
 - `sbirs_sensor/session/`：会话门面、周期 IO、外部适配器、场景/输出类型、
   检测生命周期记录、排除原因差分记录。
 
 ### Remote Identification Radar (RIR)
 
-- `remote_identification_radar/config/`：四域配置、RuntimePatch、
+- `remote_identification_radar/config/`：四域配置（无 orientation 域）、RuntimePatch、
   SessionConfig 与 Profile 常量（直接赋值）。
 - `remote_identification_radar/session/`：会话门面、周期 IO、输入校验、
   场景/输出/识别结果类型。

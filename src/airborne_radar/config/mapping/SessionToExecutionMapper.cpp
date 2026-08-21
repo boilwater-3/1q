@@ -22,7 +22,8 @@ execution::InternalExecutionConfig MapSessionToExecution(
       SigmaToSquaredCost(session_config.policy.association.distance_gate_sigma);
   exec.tracking.policy = session_config.policy.tracking;
   exec.lifecycle.policy = session_config.policy.lifecycle;
-  exec.detection.orientation = session_config.mission.orientation;
+  exec.detection.orientation =
+      AssembleEffectiveOrientation(session_config.orientation, session_config.mission);
 
   ReconcilePolicyToEngineering(exec);
 

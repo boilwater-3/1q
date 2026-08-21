@@ -49,6 +49,29 @@ TEST(CommonAntennaPatternTest, EvaluateAntennaPatternReturnsSample) {
   EXPECT_NEAR(sample.gain_dbi, 38.0f, 1e-5f);
 }
 
+TEST(CommonAntennaPatternTest, WrapAroundAzimuthDeltaIsOnAxisNotBacklobe) {
+  AntennaPatternConfig config;
+  config.model_type = AntennaPatternModelType::kGaussianMainLobe;
+  config.max_sidelobe_level_db = -20.0f;
+  config.backlobe_level_db = -35.0f;
+
+  AntennaPatternBeamwidthDeg beamwidth;
+  beamwidth.az_beamwidth_deg = 4.0f;
+  beamwidth.el_beamwidth_deg = 4.0f;
+
+  AntennaLookOffsetDeg wrap;
+  wrap.delta_az_deg = 358.0f;
+  wrap.delta_el_deg = 0.0f;
+  EXPECT_TRUE(IsInsideMainLobe(beamwidth, wrap));
+  EXPECT_FALSE(antenna_pattern_internal::IsInsideBackLobe(wrap));
+
+  AzimuthElevationDeg pointing;
+  const AntennaPatternSample sample =
+      EvaluateAntennaPattern(38.0f, config, beamwidth, wrap, pointing);
+  EXPECT_TRUE(sample.inside_main_lobe);
+  EXPECT_NEAR(sample.gain_dbi, 35.0f, 1e-3f);
+}
+
 }  // namespace
 }  // namespace radar
 }  // namespace common

@@ -206,7 +206,7 @@ TEST(ArSttTrackFollowTest, TrackPositionToLookAnglesMath) {
 // ---------------------------------------------------------------------------
 
 TEST(ArSttTrackFollowTest, PointingPriorityMatrix) {
-  config::ArOrientationConfig orientation;
+  config::ArEffectiveOrientationConfig orientation;
   orientation.work_mode = config::ArWorkMode::kStt;
   orientation.scan_center_deg.az_deg = 10.0f;
   orientation.scan_center_deg.el_deg = 5.0f;
@@ -256,7 +256,7 @@ TEST(ArSttTrackFollowTest, PointingPriorityMatrix) {
   EXPECT_FALSE(invalid.track_following_active);
 
   // 指定在非 STT 模式下被忽略（TWS + 指定 + confirmed → 不跟随）。
-  config::ArOrientationConfig tws_orientation = orientation;
+  config::ArEffectiveOrientationConfig tws_orientation = orientation;
   tws_orientation.work_mode = config::ArWorkMode::kTws;
   const signal::pipeline::SttTrackFollowingResolution tws_ignored =
       signal::pipeline::ResolveSttTrackFollowingPointing(
@@ -270,7 +270,7 @@ TEST(ArSttTrackFollowTest, PointingPriorityMatrix) {
 // ---------------------------------------------------------------------------
 
 TEST(ArSttTrackFollowTest, MountFramePointingFollowsTrackAndClamps) {
-  config::ArOrientationConfig orientation;
+  config::ArEffectiveOrientationConfig orientation;
   orientation.work_mode = config::ArWorkMode::kStt;
   orientation.scan_center_deg.az_deg = 0.0f;
   orientation.scan_center_deg.el_deg = 0.0f;
@@ -284,7 +284,7 @@ TEST(ArSttTrackFollowTest, MountFramePointingFollowsTrackAndClamps) {
       signal::pipeline::ResolveSttTrackFollowingPointing(orientation, config::AzimuthElevationDeg(),
                                                          true, true, track_pointing);
   ASSERT_TRUE(resolution.track_following_active);
-  config::ArOrientationConfig effective = orientation;
+  config::ArEffectiveOrientationConfig effective = orientation;
   effective.scan_center_deg = resolution.scan_center_deg;
   const config::AzimuthElevationDeg pointing =
       signal::detection::BeamControlResolver::ResolveMountFrameBeamPointing(

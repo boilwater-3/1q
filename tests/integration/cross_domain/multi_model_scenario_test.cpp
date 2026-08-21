@@ -299,8 +299,8 @@ ar_config::ArSessionConfig MakeArConfigAirToAir() {
   config.policy.tracking = ar_config::profiles::kFastAssociationTracking;
   config.policy.tracking.enable_kalman_filter = true;
   config.policy.lifecycle = ar_config::profiles::kFastConfirmLifecycle;
-  config.mission.orientation.work_mode = ar_config::ArWorkMode::kTas;
-  config.mission.orientation.scan_center_deg = ar_config::AzimuthElevationDeg{};
+  config.mission.work_mode = ar_config::ArWorkMode::kTas;
+  config.mission.scan_center_deg = ar_config::AzimuthElevationDeg{};
   config.hardware.receiver.has_co_site_isolation = true;
   config.hardware.receiver.co_site_isolation_db = 80.0f;
   return config;
@@ -357,8 +357,8 @@ ar_config::ArSessionConfig MakeArConfigAirToGround() {
   config.policy.tracking = ar_config::profiles::kFastAssociationTracking;
   config.policy.tracking.enable_kalman_filter = true;
   config.policy.lifecycle = ar_config::profiles::kFastConfirmLifecycle;
-  config.mission.orientation.work_mode = ar_config::ArWorkMode::kTas;
-  config.mission.orientation.scan_center_deg = ar_config::AzimuthElevationDeg{};
+  config.mission.work_mode = ar_config::ArWorkMode::kTas;
+  config.mission.scan_center_deg = ar_config::AzimuthElevationDeg{};
   return config;
 }
 

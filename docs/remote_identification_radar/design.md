@@ -31,8 +31,9 @@ RIR 是与机载雷达（AR）**相互独立的另一部雷达装备**，不是 
    描述目标，适配层边界转换）与可选外部 `rf_scene`；环境事实经
    `RirSessionConfig.environment` / 运行期补丁注入。场景目标速度/名称/Swerling
    起伏为自持链路事实；识别只消费效能化观测，场景真值不得直接产生结论。每周期
-   波束中心由**库内驻留调度器**派生（扫描策略或指定识别任务，见 boundaries.md
-   驻留指向契约），RIR 消费侧只信任并消费给定指向。
+   波束中心由**库内驻留调度器**派生（相对可扫描体积 + 转台朝向 `scan_center_deg`
+   平移归一化，或指定识别任务限位执行，见 boundaries.md 驻留指向契约），
+   RIR 消费侧只信任并消费给定指向。
 3. **输出面（双产品，2026-08-18 Stage B）**：出口②识别结论（`RirRecognitionResult`
    与效能摘要 `RirRecognitionCycleSummary`，形态不变）+ 出口①特征量测帧
    （`RirFeatureMeasurementRecord`：四维特征 + 逐维质量 + 有效掩码 + 库内键 +
@@ -42,9 +43,10 @@ RIR 是与机载雷达（AR）**相互独立的另一部雷达装备**，不是 
    分类相互独立，不进任何决策帧；指定识别任务状态（`designated_target_id`/
    `designation_*`/`dwell_center_deg`）经 `RirCycleResult` 逐周期暴露。
    fusion 侧由 `AdaptRirFeatureMeasurementsToDetectionRecords` 消费出口①。
-4. **配置**：四域（hardware/mission/policy/environment）；policy 域承载
+4. **配置**：五域（hardware/orientation/mission/policy/environment）；policy 域承载
    检测/关联/跟踪/生命周期/识别策略，运行期补丁整域提交；识别作用距离/驻留
-   四域归位（任务域）；扫描策略（限位/起点/顺序/步长系数）与指定识别任务
+   四域归位（任务域）；`orientation.steerable_volume_deg` 承载阵面相对可扫描体积，
+   `mission.scan_center_deg` 承载转台朝向（可补丁）；扫描步进/起点/顺序与指定识别任务
    （目标 ID + 限时窗口）随 mission/patch 配置，库内驻留调度器消费。
 5. **数据**：特征数据库为只读 SQLite 基线（schema v1.1，权威 DDL 单源随迁），
    运行期不持有连接；单位纪律：场景 `rcs` 为 m²（SNR 门控），识别 RCS 特征与

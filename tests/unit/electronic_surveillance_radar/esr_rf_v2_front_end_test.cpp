@@ -44,13 +44,17 @@ config::EsrHardwareConfig MakeHardware() {
   return hardware;
 }
 
+config::EsrOrientationConfig MakeOrientation() {
+  return config::EsrOrientationConfig{};
+}
+
 TEST(EsrRfV2FrontEndTest, ResolvesEveryEmissionOnceAndAggregatesInStableOrder) {
   session::EsrCycleInput input = MakeInput();
   input.rf_emissions.emissions.push_back(MakeEmission(2U, 2000.0, 10.0));
   input.rf_emissions.emissions.push_back(MakeEmission(1U, 1000.0, 10.0));
 
   EsrRfV2FrontEndResult result;
-  ASSERT_TRUE(TryResolveEsrRfV2FrontEnd(input, MakeHardware(), 0.0, 0.0, 10.0e9, 2.0e6, 0.0,
+  ASSERT_TRUE(TryResolveEsrRfV2FrontEnd(input, MakeHardware(), MakeOrientation(), 0.0, 0.0, 10.0e9, 2.0e6, 0.0,
                                         &result));
   ASSERT_EQ(result.front_end_incident_links.size(), 2U);
   ASSERT_EQ(result.channel_incident_links.size(), 2U);
@@ -69,7 +73,7 @@ TEST(EsrRfV2FrontEndTest, StrongHardwareBandSignalOutsideTunedChannelStillSatura
   hardware.receiver_band_lower_hz = 9.0e9;
   hardware.receiver_band_upper_hz = 11.0e9;
   EsrRfV2FrontEndResult result;
-  ASSERT_TRUE(TryResolveEsrRfV2FrontEnd(input, hardware, 0.0, 0.0, 10.0e9, 2.0e6, 0.0,
+  ASSERT_TRUE(TryResolveEsrRfV2FrontEnd(input, hardware, MakeOrientation(), 0.0, 0.0, 10.0e9, 2.0e6, 0.0,
                                         &result));
   ASSERT_EQ(result.front_end_incident_links.size(), 1U);
   ASSERT_EQ(result.channel_incident_links.size(), 1U);
@@ -82,7 +86,7 @@ TEST(EsrRfV2FrontEndTest, RejectsUnmatchedFrameBeforeProducingResult) {
   session::EsrCycleInput input = MakeInput();
   input.rf_emissions.window_start_time_s += 0.1;
   EsrRfV2FrontEndResult result;
-  EXPECT_FALSE(TryResolveEsrRfV2FrontEnd(input, MakeHardware(), 0.0, 0.0, 10.0e9, 2.0e6, 0.0,
+  EXPECT_FALSE(TryResolveEsrRfV2FrontEnd(input, MakeHardware(), MakeOrientation(), 0.0, 0.0, 10.0e9, 2.0e6, 0.0,
                                          &result));
 }
 
@@ -93,12 +97,12 @@ TEST(EsrRfV2FrontEndTest, RequiresEquipmentSpecificCoSiteIsolation) {
   emission.identity.equipment_id = 99U;
   input.rf_emissions.emissions.push_back(emission);
   EsrRfV2FrontEndResult result;
-  EXPECT_FALSE(TryResolveEsrRfV2FrontEnd(input, MakeHardware(), 0.0, 0.0, 10.0e9, 2.0e6, 0.0,
+  EXPECT_FALSE(TryResolveEsrRfV2FrontEnd(input, MakeHardware(), MakeOrientation(), 0.0, 0.0, 10.0e9, 2.0e6, 0.0,
                                          &result));
 
   config::EsrHardwareConfig hardware = MakeHardware();
   hardware.co_site_paths.push_back(config::EsrCoSiteIsolationPath{99U, 80.0});
-  EXPECT_TRUE(TryResolveEsrRfV2FrontEnd(input, hardware, 0.0, 0.0, 10.0e9, 2.0e6, 0.0,
+  EXPECT_TRUE(TryResolveEsrRfV2FrontEnd(input, hardware, MakeOrientation(), 0.0, 0.0, 10.0e9, 2.0e6, 0.0,
                                         &result));
 }
 
@@ -110,9 +114,10 @@ TEST(EsrRfV2FrontEndTest, RealizesBoresightThroughInstallationChain) {
   input.rf_emissions.emissions.push_back(MakeEmission(1U, 1000.0, 10.0));
 
   config::EsrHardwareConfig hardware = MakeHardware();
-  hardware.antenna_mount_az_deg = 10.0f;
+  config::EsrOrientationConfig orientation = MakeOrientation();
+  orientation.antenna_mount_az_deg = 10.0f;
   EsrRfV2FrontEndResult result;
-  ASSERT_TRUE(TryResolveEsrRfV2FrontEnd(input, hardware, 0.0, 0.0, 10.0e9, 2.0e6, 0.0,
+  ASSERT_TRUE(TryResolveEsrRfV2FrontEnd(input, hardware, orientation, 0.0, 0.0, 10.0e9, 2.0e6, 0.0,
                                         &result));
 
   oneq::coordinate::LlaPositionDegM platform_lla;

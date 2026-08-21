@@ -405,7 +405,7 @@ TEST(MeasurementErrorModelTest, ElevationBeamwidthAffectsEquivalentAngleStdDev) 
   AntennaConfig wide_el_antenna = narrow_antenna;
   wide_el_antenna.nominal_el_beamwidth_deg = 8.0f;
 
-  config::ArOrientationConfig orientation;
+  config::ArEffectiveOrientationConfig orientation;
   config::PlatformAttitudeDeg platform_attitude_deg;
   signal::detection::TargetLookAnglesDeg look_angles;
   look_angles.has_look_angles = true;
@@ -431,11 +431,11 @@ TEST(MeasurementErrorModelTest, CommandedBeamwidthOverrideAffectsAngleStdDev) {
   antenna.nominal_az_beamwidth_deg = 2.0f;
   antenna.nominal_el_beamwidth_deg = 2.0f;
 
-  config::ArOrientationConfig nominal_orientation;
+  config::ArEffectiveOrientationConfig nominal_orientation;
   nominal_orientation.commanded_beamwidth_enabled = false;
   config::PlatformAttitudeDeg platform_attitude_deg;
 
-  config::ArOrientationConfig commanded_orientation;
+  config::ArEffectiveOrientationConfig commanded_orientation;
   commanded_orientation.commanded_beamwidth_enabled = true;
   commanded_orientation.commanded_beamwidth_deg.commanded_az_beamwidth_deg = 8.0f;
   commanded_orientation.commanded_beamwidth_deg.commanded_el_beamwidth_deg = 8.0f;
@@ -466,11 +466,11 @@ TEST(BeamControlResolverTest, CommandedBeamwidthAffectsDirectionalPatternGain) {
   config.antenna.enable_directional_pattern = true;
   config.antenna.pattern.max_sidelobe_level_db = -25.0f;
 
-  config::ArOrientationConfig nominal_orientation;
+  config::ArEffectiveOrientationConfig nominal_orientation;
   nominal_orientation.commanded_beamwidth_enabled = false;
   config::PlatformAttitudeDeg platform_attitude_deg;
 
-  config::ArOrientationConfig commanded_orientation;
+  config::ArEffectiveOrientationConfig commanded_orientation;
   commanded_orientation.commanded_beamwidth_enabled = true;
   commanded_orientation.commanded_beamwidth_deg.commanded_az_beamwidth_deg = 8.0f;
   commanded_orientation.commanded_beamwidth_deg.commanded_el_beamwidth_deg = 8.0f;
@@ -511,7 +511,7 @@ TEST(BeamControlResolverTest, CommandedBeamwidthAffectsDirectionalPatternGain) {
 /// @brief 对惯性稳定模式应补偿平台姿态变化。
 TEST(BeamControlResolverTest, InertialStabilizedCompensatesPlatformAttitude) {
   AntennaConfig antenna;
-  config::ArOrientationConfig orientation;
+  config::ArEffectiveOrientationConfig orientation;
   orientation.stabilization_mode = config::StabilizationMode::kInertialStabilized;
 
   config::PlatformAttitudeDeg platform_attitude_deg;
@@ -533,7 +533,7 @@ TEST(BeamControlResolverTest, InertialStabilizedCompensatesPlatformAttitude) {
 /// @brief 对惯性稳定模式应显式补偿平台滚转角。
 TEST(BeamControlResolverTest, InertialStabilizedAccountsForPlatformRoll) {
   AntennaConfig antenna;
-  config::ArOrientationConfig orientation;
+  config::ArEffectiveOrientationConfig orientation;
   orientation.stabilization_mode = config::StabilizationMode::kInertialStabilized;
   orientation.scan_center_deg.el_deg = 30.0f;
 
@@ -554,12 +554,12 @@ TEST(BeamControlResolverTest, InertialStabilizedAccountsForPlatformRoll) {
 /// @brief 对地稳定当前无地理参考输入，代码上显式等同于惯性稳定。
 TEST(BeamControlResolverTest, GroundStabilizedCurrentlyMatchesInertialStabilized) {
   AntennaConfig antenna;
-  config::ArOrientationConfig inertial_orientation;
+  config::ArEffectiveOrientationConfig inertial_orientation;
   inertial_orientation.stabilization_mode = config::StabilizationMode::kInertialStabilized;
   inertial_orientation.scan_center_deg.az_deg = 5.0f;
   inertial_orientation.scan_center_deg.el_deg = 20.0f;
 
-  config::ArOrientationConfig ground_orientation = inertial_orientation;
+  config::ArEffectiveOrientationConfig ground_orientation = inertial_orientation;
   ground_orientation.stabilization_mode = config::StabilizationMode::kGroundStabilized;
 
   config::PlatformAttitudeDeg platform_attitude_deg;

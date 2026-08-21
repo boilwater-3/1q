@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+# 1Q ctest 包装：按路径解析真实 ctest.exe 后转发。
+# 注意：不得用 `command -v ctest` 转发——source 环境后 scripts/bin 位于 PATH 最前，
+# 会解析到本包装器自身造成无限 exec 自递归（表现为 ctest 永远不结束）。
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=../lib/1q_env.sh
+source "${SCRIPT_DIR}/../lib/1q_env.sh"
+
+if [[ -n "${ONEQ_REAL_CMAKE:-}" ]]; then
+  _dir="$(dirname "${ONEQ_REAL_CMAKE}")"
+  for _c in "${_dir}/ctest.exe" "${_dir}/ctest"; do
+    if [[ -x "${_c}" || -f "${_c}" ]]; then
+      exec "${_c}" "$@"
+    fi
+  done
+fi
+
+# 兜底：PATH 里的 ctest，但须排除本包装器自身
+_c="$(command -v ctest 2>/dev/null || true)"
+if [[ -n "${_c}" && "${_c}" != "${SCRIPT_DIR}/ctest" && "${_c}" != "${SCRIPT_DIR}/ctest.exe" ]]; then
+  exec "${_c}" "$@"
+fi
+echo "[1q ctest] 未找到 ctest；请 source scripts/activate_1q_git_bash.sh 并确认 ONEQ_CMAKE_ROOT。" >&2
+exit 127

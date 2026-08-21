@@ -15,6 +15,7 @@ inline void LoadEsrSessionConfig(
     const examples::JsonValue& root,
     electronic_surveillance_radar::config::EsrSessionConfig* config) {
   LoadEsrHardware(root["hardware"], &config->hardware);
+  LoadEsrOrientation(root["orientation"], &config->orientation);
   LoadEsrMission(root["mission"], &config->mission);
   LoadEsrPolicy(root["policy"], &config->policy);
   LoadEsrEnvironment(root["environment"], &config->environment);

@@ -47,7 +47,7 @@ detection::EffectiveBeamwidthDeg ResolveSchedulingBeamwidth(const ExecutionConfi
 }  // namespace
 
 config::AzimuthElevationDeg ResolveFiniteScanCenter(
-    const config::ArOrientationConfig& orientation_config) {
+    const config::ArEffectiveOrientationConfig& orientation_config) {
   config::AzimuthElevationDeg center = orientation_config.scan_center_deg;
   if (!std::isfinite(center.az_deg)) {
     center.az_deg = 0.0f;
@@ -88,7 +88,7 @@ std::vector<config::AzimuthElevationDeg> BuildScheduledScanPattern(
 }
 
 config::AzimuthElevationDeg ResolveScheduledBeamPointing(
-    const config::ArOrientationConfig& orientation_config,
+    const config::ArEffectiveOrientationConfig& orientation_config,
     const detection::EffectiveBeamwidthDeg& effective_beamwidth_deg,
     const config::BeamSchedulerConfig& scheduler_config, std::uint32_t cycle_index) {
   config::AzimuthElevationLimitsDeg effective_limits = utils::IntersectScanLimits(
@@ -154,14 +154,14 @@ config::AzimuthElevationDeg ResolveScheduledBeamPointing(
 }
 
 config::AzimuthElevationDeg ResolveScheduledBeamPointing(
-    const config::ArOrientationConfig& orientation_config,
+    const config::ArEffectiveOrientationConfig& orientation_config,
     const detection::EffectiveBeamwidthDeg& effective_beamwidth_deg, std::uint32_t cycle_index) {
   return ResolveScheduledBeamPointing(orientation_config, effective_beamwidth_deg,
                                       config::BeamSchedulerConfig(), cycle_index);
 }
 
 config::AzimuthElevationDeg ResolveScheduledDwellCenter(
-    const config::ArOrientationConfig& orientation_config,
+    const config::ArEffectiveOrientationConfig& orientation_config,
     const detection::EffectiveBeamwidthDeg& effective_beamwidth_deg, std::uint32_t cycle_index) {
   if (orientation_config.work_mode == config::ArWorkMode::kStt) {
     return config::AzimuthElevationDeg();
@@ -185,7 +185,7 @@ config::AzimuthElevationDeg ResolveScheduledBeamPointingFromExecutionConfig(
 config::AzimuthElevationDeg ResolveScheduledBeamPointingFromExecutionConfig(
     const ExecutionConfig& runtime_config, std::uint32_t cycle_index,
     config::ArWorkMode effective_work_mode) {
-  config::ArOrientationConfig orientation = runtime_config.detection.orientation;
+  config::ArEffectiveOrientationConfig orientation = runtime_config.detection.orientation;
   orientation.work_mode = effective_work_mode;
   return ResolveScheduledBeamPointing(
       orientation, ResolveSchedulingBeamwidth(runtime_config),
@@ -220,7 +220,7 @@ bool TryTrackPositionToLookAnglesDeg(float position_x, float position_y, float p
 }
 
 SttTrackFollowingResolution ResolveSttTrackFollowingPointing(
-    const config::ArOrientationConfig& orientation_config,
+    const config::ArEffectiveOrientationConfig& orientation_config,
     const config::AzimuthElevationDeg& dwell_center_deg, bool has_designated_target,
     bool designated_track_confirmed, const config::AzimuthElevationDeg& track_pointing_deg) {
   SttTrackFollowingResolution resolved;

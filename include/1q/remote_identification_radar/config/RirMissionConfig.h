@@ -32,13 +32,13 @@ enum class ONEQ_API RirWorkMode {
 /**
  * @brief RirScanConfig 扫描策略配置（与 AR 同一 common 扫描内核口径）。
  *
- * 空闲/任务间隙时驻留波束中心按扫描策略逐周期推进（波位序列 =
- * common `ScanScheduleRuntime::BuildScanPattern`）；指定识别任务窗口内
- * 驻留对准指定目标。扫描范围由本限位决定，波束步长 = 生效波束宽度 ×
- * `step_scale`（TAS 密度等价于 step_scale=0.5）。
+ * 空闲/任务间隙时驻留波束中心按扫描策略逐周期推进：common 内核在
+ * `orientation.steerable_volume_deg` 相对限位上建波位，再经
+ * `mission.scan_center_deg` 平移并方位归一化输出绝对指向；指定识别
+ * 任务窗口内对准指定目标（限位执行见 boundaries.md）。波束步长 =
+ * 生效波束宽度 × `step_scale`（TAS 密度等价于 step_scale=0.5）。
  */
 struct ONEQ_API RirScanConfig {
-  RirAzimuthElevationLimitsDeg scan_limits_deg{}; /**< 扫描限位（默认 ±60/±30，与 AR 一致）。 */
   oneq::foundation::ScanStartPosition scan_start_position{
       oneq::foundation::ScanStartPosition::kLeftTop}; /**< 扫描起始象限。 */
   oneq::foundation::ScanSequence scan_sequence{
@@ -52,6 +52,7 @@ struct ONEQ_API RirScanConfig {
  */
 struct ONEQ_API RirMissionConfig {
   RirWorkMode work_mode{RirWorkMode::kStby}; /**< [可外部调整] 当前工作模式。 */
+  RirAzimuthElevationDeg scan_center_deg{}; /**< [可外部调整] 转台当前朝向（ENU az/el）；默认 (0,0)=东水平。 */
   float max_range_m{300000.0f};              /**< 识别任务最大作用距离（m），>0。 */
   float recognition_dwell_sec{0.05f};        /**< 单次识别驻留时间（s），>0。 */
   RirScanConfig scan{};                      /**< 扫描策略（库内驻留调度器消费）。 */

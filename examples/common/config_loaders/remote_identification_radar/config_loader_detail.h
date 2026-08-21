@@ -119,15 +119,20 @@ inline void LoadRirHardware(const examples::JsonValue& j, rir_cfg::RirHardwareCo
 
 inline void LoadRirScan(const examples::JsonValue& j, rir_cfg::RirScanConfig* v) {
   if (j.IsNull()) return;
-  LoadRirAzElLimits(j["scan_limits_deg"], &v->scan_limits_deg);
   v->scan_start_position = ScanStartPositionFromString(j["scan_start_position"].AsString());
   v->scan_sequence = ScanSequenceFromString(j["scan_sequence"].AsString());
   v->step_scale = static_cast<float>(j["step_scale"].AsDouble());
 }
 
+inline void LoadRirOrientation(const examples::JsonValue& j, rir_cfg::RirOrientationConfig* v) {
+  if (j.IsNull()) return;
+  LoadRirAzElLimits(j["steerable_volume_deg"], &v->steerable_volume_deg);
+}
+
 inline void LoadRirMission(const examples::JsonValue& j, rir_cfg::RirMissionConfig* v) {
   if (j.IsNull()) return;
   v->work_mode = RirWorkModeFromString(j["work_mode"].AsString());
+  LoadRirAzEl(j["scan_center_deg"], &v->scan_center_deg);
   v->max_range_m = static_cast<float>(j["max_range_m"].AsDouble());
   v->recognition_dwell_sec = static_cast<float>(j["recognition_dwell_sec"].AsDouble());
   LoadRirScan(j["scan"], &v->scan);
@@ -209,12 +214,22 @@ inline void LoadRirVegetationScatterPhysics(const examples::JsonValue& j,
   v->enable_physical_model = j["enable_physical_model"].AsBool();
 }
 
+inline void LoadRirAtmosphericPhysics(const examples::JsonValue& j,
+                                      oneq::environment::AtmosphericObservation* v) {
+  if (j.IsNull()) return;
+  v->enable_physical_model = j["enable_physical_model"].AsBool();
+  v->pressure_hpa = static_cast<float>(j["pressure_hpa"].AsDouble());
+  v->temperature_k = static_cast<float>(j["temperature_k"].AsDouble());
+  v->relative_humidity = static_cast<float>(j["relative_humidity"].AsDouble());
+}
+
 inline void LoadRirEnvironment(const examples::JsonValue& j, rir_cfg::RirEnvironmentConfig* v) {
   if (j.IsNull()) return;
   v->enable_environment_effects = j["enable_environment_effects"].AsBool();
   v->weather_attenuation_db = static_cast<float>(j["weather_attenuation_db"].AsDouble());
   LoadRirVegetationScatterPhysics(j["vegetation_scatter_physics"],
                                   &v->vegetation_scatter_physics);
+  LoadRirAtmosphericPhysics(j["atmospheric_physics"], &v->atmospheric_physics);
 }
 
 }  // namespace examples

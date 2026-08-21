@@ -24,7 +24,7 @@ bool IdentityLess(const oneq::electromagnetics::RfIncidentLinkResult& left,
 }
 
 bool TryResolveBoresight(const session::EsrCycleInput& input,
-                         const config::EsrHardwareConfig& hardware,
+                         const config::EsrOrientationConfig& orientation,
                          double beam_az_deg, double beam_el_deg,
                          oneq::electromagnetics::RfSceneDirection* boresight) {
   // beam_az/el 为天线系指向角（扫描图案输出口径），安装偏置由链路复合，不再角度相加。
@@ -34,8 +34,8 @@ bool TryResolveBoresight(const session::EsrCycleInput& input,
     return false;
   }
   const EsrBoresightChain chain(
-      input.platform_attitude_deg, static_cast<double>(hardware.antenna_mount_az_deg),
-      static_cast<double>(hardware.antenna_mount_el_deg));
+      input.platform_attitude_deg, static_cast<double>(orientation.antenna_mount_az_deg),
+      static_cast<double>(orientation.antenna_mount_el_deg));
   const oneq::coordinate::Vector3d enu_direction =
       chain.EnuLosOfAntennaPointing(beam_az_deg, beam_el_deg);
   oneq::coordinate::LlaPositionDegM platform_lla;
@@ -52,6 +52,7 @@ bool TryResolveBoresight(const session::EsrCycleInput& input,
 
 bool TryBuildReceiverState(const session::EsrCycleInput& input,
                            const config::EsrHardwareConfig& hardware,
+                           const config::EsrOrientationConfig& orientation,
                            double beam_az_deg, double beam_el_deg,
                            double center_frequency_hz, double bandwidth_hz,
                            oneq::electromagnetics::RfSceneReceiverState* receiver) {
@@ -85,7 +86,7 @@ bool TryBuildReceiverState(const session::EsrCycleInput& input,
     resolved_path.isolation_db = path.isolation_db;
     receiver->co_site_paths.push_back(resolved_path);
   }
-  return TryResolveBoresight(input, hardware, beam_az_deg, beam_el_deg,
+  return TryResolveBoresight(input, orientation, beam_az_deg, beam_el_deg,
                              &receiver->antenna.boresight_ecef);
 }
 
@@ -93,6 +94,7 @@ bool TryBuildReceiverState(const session::EsrCycleInput& input,
 
 bool TryResolveEsrRfV2FrontEnd(const session::EsrCycleInput& input,
                                const config::EsrHardwareConfig& hardware,
+                               const config::EsrOrientationConfig& orientation,
                                double beam_az_deg, double beam_el_deg,
                                double receiver_center_frequency_hz,
                                double receiver_bandwidth_hz,
@@ -120,10 +122,10 @@ bool TryResolveEsrRfV2FrontEnd(const session::EsrCycleInput& input,
       hardware.receiver_band_upper_hz - hardware.receiver_band_lower_hz;
   const double front_end_center_frequency_hz =
       0.5 * (hardware.receiver_band_lower_hz + hardware.receiver_band_upper_hz);
-  if (!TryBuildReceiverState(input, hardware, beam_az_deg, beam_el_deg,
+  if (!TryBuildReceiverState(input, hardware, orientation, beam_az_deg, beam_el_deg,
                              front_end_center_frequency_hz, front_end_bandwidth_hz,
                              &candidate.front_end_receiver) ||
-      !TryBuildReceiverState(input, hardware, beam_az_deg, beam_el_deg,
+      !TryBuildReceiverState(input, hardware, orientation, beam_az_deg, beam_el_deg,
                              receiver_center_frequency_hz, receiver_bandwidth_hz,
                              &candidate.channel_receiver)) {
     return false;

@@ -1,6 +1,6 @@
 ---
 Status: active
-Last-reviewed: 2026-08-20
+Last-reviewed: 2026-08-21
 Authority: ESR 数据流、Public API 边界、时序与状态所有权
 Answers: ESR 的分层架构、数据如何流动、Public API 边界在哪、跨周期状态归谁所有
 ---
@@ -14,7 +14,7 @@ Answers: ESR 的分层架构、数据如何流动、Public API 边界在哪、�
 **公共头**位于 `include/1q/electronic_surveillance_radar/`：
 
 - `electronic_surveillance_radar.hpp`（模块聚合入口）
-- `config/`（`EsrSessionConfig` 四域配置、runtime patch、`EsrProfileConstants.h`、
+- `config/`（`EsrSessionConfig` 条件五域配置、runtime patch、`EsrProfileConstants.h`、
   config validation）
 - `session/`（`EsrSession`、cycle input/result、observation/hypothesis、trace/replay）
 
@@ -35,7 +35,7 @@ pipeline/controller/environment service、runtime snapshot 不通过聚合入口
 flowchart TB
   subgraph Public["Public API\n公共 API：include/1q/electronic_surveillance_radar"]
     Entry["electronic_surveillance_radar.hpp\n模块聚合入口"]
-    Config["config/*\n四域配置 / RuntimePatch\nProfileConstants / Builder / Validation"]
+    Config["config/*\n条件五域配置 / RuntimePatch\nProfileConstants / Builder / Validation"]
     SessionApi["session/*\nEsrSession / CycleInput / CycleResult"]
     Types["EmitterObservation / EmitterHypothesis\n设备观测 / 辐射源假设"]
     Tools["Trace / Replay"]
@@ -123,7 +123,7 @@ sequenceDiagram
 ```mermaid
 flowchart LR
   subgraph Input["输入层 Input"]
-    Config["EsrSessionConfig\n硬件 / 任务 / 策略 / 环境"]
+    Config["EsrSessionConfig\n硬件 / 任务 / 安装指向 / 策略 / 环境"]
     Cycle["EsrCycleInput\n周期 / 平台 / 自然环境 / RfEmissionFrame"]
     Patch["EsrRuntimeConfigPatch\n运行期变更"]
   end

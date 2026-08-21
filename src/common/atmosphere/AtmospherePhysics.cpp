@@ -187,6 +187,17 @@ AtmosphericPropagationInputs BuildPropagationInputs(
   return inputs;
 }
 
+float ComputeTargetAtmosphericPhysicsLossDb(float frequency_hz, float slant_range_m,
+                                            float radar_altitude_m, float target_altitude_m,
+                                            float elevation_deg, bool has_look_angles,
+                                            const AtmosphericObservationRef& observation) {
+  const float path_m = slant_range_m > 0.1f ? slant_range_m : 0.1f;
+  const float el_deg = has_look_angles ? elevation_deg : 0.0f;
+  const AtmosphericPropagationInputs inputs = BuildPropagationInputs(
+      frequency_hz, path_m, radar_altitude_m, target_altitude_m, el_deg, observation);
+  return EvaluateAtmosphericPropagation(inputs).total_physics_loss_db;
+}
+
 }  // namespace atmosphere
 }  // namespace common
 }  // namespace oneq
