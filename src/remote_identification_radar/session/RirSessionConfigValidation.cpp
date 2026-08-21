@@ -49,6 +49,16 @@ void ValidateRirEnvironmentConfig(const RirEnvironmentConfig& environment,
               (prefix + "vegetation_scatter_physics.cover_profile").c_str(),
               "Vegetation cover profile must be a valid enum value.");
   }
+  const RirAtmosphericPhysicsConfig& atmospheric = environment.atmospheric_physics;
+  if (!IsFinite(atmospheric.pressure_hpa) || atmospheric.pressure_hpa <= 0.0f ||
+      !IsFinite(atmospheric.temperature_k) || atmospheric.temperature_k <= 0.0f ||
+      !IsFinite(atmospheric.relative_humidity) || atmospheric.relative_humidity < 0.0f ||
+      atmospheric.relative_humidity > 1.0f) {
+    PushIssue(issues, session::codes::kInvalidEnvironmentSnapshot,
+              (prefix + "atmospheric_physics").c_str(),
+              "Atmospheric observation must be finite with pressure/temperature > 0 and "
+              "relative humidity in [0, 1].");
+  }
 }
 
 void ValidateRirHardwareConfig(const RirHardwareConfig& hardware, session::RirIssueList* issues) {

@@ -17,6 +17,8 @@
 #include "common/numerics/Constants.h"
 #include "common/radar/VegetationClutterModel.h"
 #include "1q/coordinate/position_transform.h"
+#include "1q/environment/AtmosphericTypes.h"
+#include "common/atmosphere/AtmospherePhysics.h"
 #include "remote_identification_radar/dwell/RirBeamControl.h"
 #include "remote_identification_radar/dwell/RirEffectiveRcs.h"
 #include "remote_identification_radar/dwell/RirEmissionFactory.h"
@@ -183,6 +185,9 @@ void RirController::UpdateRuntime(const config::RirMissionConfig& mission,
 
 void RirController::UpdateEnvironment(const config::RirEnvironmentConfig& environment) {
   environment_ = environment;
+  // k 因子随气象观测派生（对标 AR EnvironmentService 冻结快照口径；非法输入内部兜底 4/3）。
+  effective_k_factor_ = oneq::environment::ResolveEffectiveKFactor(
+      environment.atmospheric_physics);
 }
 
 void RirController::ResolveEnvironment(float* propagation_loss_db, float* clutter_power_w) const {
@@ -202,6 +207,27 @@ void RirController::ResolveEnvironment(float* propagation_loss_db, float* clutte
       hardware_.transmitter, hardware_.receiver);
   *clutter_power_w = oneq::common::radar::ComputeEquivalentClutterNoiseW(
       thermal_noise_w, propagation.clutter_power_db);
+}
+
+float RirController::ComputeTargetAtmosphericLossDb(float carrier_hz, float platform_altitude_m,
+                                                    float look_el_deg, bool has_look_angles,
+                                                    float slant_range_m,
+                                                    float target_position_z_m) const {
+  if (!environment_.atmospheric_physics.enable_physical_model) {
+    return 0.0f;
+  }
+  // 与 AR DetectionExecution::ComputeTargetSpecificAtmosphericLossDb 同口径：
+  // 频率/斜距/平台与目标海拔/仰角 + 气象观测（k 因子为预派生值，非 4/3 硬值）。
+  oneq::common::atmosphere::AtmosphericObservationRef obs;
+  obs.pressure_hpa = environment_.atmospheric_physics.pressure_hpa;
+  obs.temperature_k = environment_.atmospheric_physics.temperature_k;
+  obs.relative_humidity = environment_.atmospheric_physics.relative_humidity;
+  obs.k_factor = effective_k_factor_;
+  const auto inputs = oneq::common::atmosphere::BuildPropagationInputs(
+      carrier_hz, std::max(slant_range_m, 0.1f), platform_altitude_m,
+      std::max(platform_altitude_m + target_position_z_m, 0.0f),
+      has_look_angles ? look_el_deg : 0.0f, obs);
+  return oneq::common::atmosphere::EvaluateAtmosphericPropagation(inputs).total_physics_loss_db;
 }
 
 void RirController::ComputeLookAngles(const session::RirSceneTarget& target, float* look_az_deg,
@@ -320,8 +346,8 @@ RirController::RirResolvedRfCycle RirController::ResolveRfCycle(
 }
 
 bool RirController::TryBuildMeasurement(
-    const session::RirSceneTarget& target, std::size_t source_index, float propagation_loss_db,
-    float clutter_power_w, const session::RirCycleInput& input,
+    const session::RirSceneTarget& target, std::size_t source_index, float platform_altitude_m,
+    float propagation_loss_db, float clutter_power_w, const session::RirCycleInput& input,
     const config::RirAzimuthElevationDeg& dwell_center_deg, const RirResolvedRfCycle& rf_cycle,
     tracking::RirTrackMeasurement* measurement, float* snr_db) {
   if (measurement == nullptr || snr_db == nullptr) {
@@ -333,6 +359,11 @@ bool RirController::TryBuildMeasurement(
   ComputeLookAngles(target, &look_az_deg, &look_el_deg, &slant_range_m);
 
   const bool has_look_angles = slant_range_m > 0.0f;
+  // 逐目标大气物理附加损耗（与 AR 同口径：全局植被/天气损耗之外的按几何分量）。
+  const float atmospheric_loss_db = ComputeTargetAtmosphericLossDb(
+      rf_cycle.carrier_hz > 0.0f ? rf_cycle.carrier_hz : hardware_.transmitter.frequency_hz,
+      platform_altitude_m, look_el_deg, has_look_angles, slant_range_m, PositionOf(target).z());
+  const float total_propagation_loss_db = propagation_loss_db + atmospheric_loss_db;
   dwell::RirResolvedBeamState beam_state;
   beam_state.one_way_antenna_gain_db = hardware_.antenna.main_beam_gain_db;
   beam_state.effective_beamwidth_deg = dwell::RirResolveEffectiveBeamwidth(hardware_.antenna);
@@ -390,7 +421,8 @@ bool RirController::TryBuildMeasurement(
         rf_cycle.carrier_hz > 0.0f ? rf_cycle.carrier_hz : hardware_.transmitter.frequency_hz;
     cell_target.rcs_m2 = static_cast<double>(dwell::ComputeEffectiveTargetRcsM2(
         target, look_angles, hardware_.rcs_physics, carrier_hz));
-    cell_target.two_way_additional_propagation_loss_db = static_cast<double>(propagation_loss_db);
+    cell_target.two_way_additional_propagation_loss_db =
+        static_cast<double>(total_propagation_loss_db);
     cell_target.effective_pulse_count =
         static_cast<std::uint32_t>(std::max(1, policy_.detection.pulse_count));
 
@@ -410,7 +442,7 @@ bool RirController::TryBuildMeasurement(
 
   if (!resolved_cell) {
     dwell::RirEnvironmentNoise env;
-    env.propagation_loss_db = propagation_loss_db;
+    env.propagation_loss_db = total_propagation_loss_db;
     env.clutter_noise_w = clutter_power_w;
     env.jam_noise_w = 0.0f;
     detection = detector_->Detect(target_return, env, beam_state.one_way_antenna_gain_db,
@@ -585,9 +617,9 @@ void RirController::RunCycle(const session::RirCycleInput& input,
     for (const std::size_t target_index : candidate_indices) {
       tracking::RirTrackMeasurement measurement;
       float snr_db = 0.0f;
-      if (!TryBuildMeasurement(input.scene_targets[target_index], target_index, propagation_loss_db,
-                               clutter_power_w, input, dwell_center_deg, rf_cycle, &measurement,
-                               &snr_db)) {
+      if (!TryBuildMeasurement(input.scene_targets[target_index], target_index, platform_altitude_m,
+                               propagation_loss_db, clutter_power_w, input, dwell_center_deg,
+                               rf_cycle, &measurement, &snr_db)) {
         continue;
       }
       snr_by_target_id[measurement.external_target_id] = snr_db;

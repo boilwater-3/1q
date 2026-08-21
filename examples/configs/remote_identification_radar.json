@@ -125,6 +125,12 @@
     "vegetation_scatter_physics": {
       "cover_profile": "kDisabled",
       "enable_physical_model": false
+    },
+    "atmospheric_physics": {
+      "enable_physical_model": false,
+      "pressure_hpa": 1013.25,
+      "temperature_k": 288.15,
+      "relative_humidity": 0.5
     }
   },
   "sensor_enabled": true

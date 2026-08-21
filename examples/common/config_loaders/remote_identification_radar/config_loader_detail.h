@@ -209,12 +209,22 @@ inline void LoadRirVegetationScatterPhysics(const examples::JsonValue& j,
   v->enable_physical_model = j["enable_physical_model"].AsBool();
 }
 
+inline void LoadRirAtmosphericPhysics(const examples::JsonValue& j,
+                                      oneq::environment::AtmosphericObservation* v) {
+  if (j.IsNull()) return;
+  v->enable_physical_model = j["enable_physical_model"].AsBool();
+  v->pressure_hpa = static_cast<float>(j["pressure_hpa"].AsDouble());
+  v->temperature_k = static_cast<float>(j["temperature_k"].AsDouble());
+  v->relative_humidity = static_cast<float>(j["relative_humidity"].AsDouble());
+}
+
 inline void LoadRirEnvironment(const examples::JsonValue& j, rir_cfg::RirEnvironmentConfig* v) {
   if (j.IsNull()) return;
   v->enable_environment_effects = j["enable_environment_effects"].AsBool();
   v->weather_attenuation_db = static_cast<float>(j["weather_attenuation_db"].AsDouble());
   LoadRirVegetationScatterPhysics(j["vegetation_scatter_physics"],
                                   &v->vegetation_scatter_physics);
+  LoadRirAtmosphericPhysics(j["atmospheric_physics"], &v->atmospheric_physics);
 }
 
 }  // namespace examples
