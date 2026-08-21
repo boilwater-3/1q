@@ -267,12 +267,13 @@ set(SAR_SESSION_HEADERS
     "sar/session/SarTraceSession.h"
 )
 
-# ── 远程识别雷达（RIR）推荐公开主路径（四域 + 会话 + 统一入口） ──
+# ── 远程识别雷达（RIR）推荐公开主路径（五域 + 会话 + 统一入口） ──
 set(RIR_PUBLIC_PRIMARY_HEADERS
     "remote_identification_radar/remote_identification_radar.hpp"
     "remote_identification_radar/config/RirEnvironmentConfig.h"
     "remote_identification_radar/config/RirHardwareConfig.h"
     "remote_identification_radar/config/RirMissionConfig.h"
+    "remote_identification_radar/config/RirOrientationConfig.h"
     "remote_identification_radar/config/RirPolicyConfig.h"
     "remote_identification_radar/config/RirProfileConstants.h"
     "remote_identification_radar/config/RirRuntimeConfigPatch.h"

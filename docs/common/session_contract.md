@@ -12,7 +12,7 @@ Answers: 会话配置直接赋值、Session 组合所有权、运行期配置提
 RIR 于 2026-08 并入本契约范围（会话门面/条件五域配置/电源单源/统一问题列表/执行状态信号已对齐，
 会话校验入口与 AR 同为 session 层；RIR 暂无 L3 观测工具——DebugView/LifecycleRecorder/排除诊断
 recorder 均未提供，规则 10/11/13b/13e 对其为空洞条款，同 SAR 13b 先例）。配置域形状见
-`docs/common/contract.md`「条件五域配置所有权」（SBIRS/AR/ESR 五域；EOS/RIR/SAR 四域）。
+`docs/common/contract.md`「条件五域配置所有权」（SBIRS/AR/ESR/RIR 五域；EOS/SAR 四域）。
 所有模块都必须遵守的跨模块契约见 `docs/common/contract.md`。
 
 ## 会话配置直接赋值

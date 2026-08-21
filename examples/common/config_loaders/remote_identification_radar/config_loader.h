@@ -14,6 +14,7 @@ namespace examples {
 inline void LoadRirSessionConfig(const examples::JsonValue& root,
                                  remote_identification_radar::config::RirSessionConfig* config) {
   LoadRirHardware(root["hardware"], &config->hardware);
+  LoadRirOrientation(root["orientation"], &config->orientation);
   LoadRirMission(root["mission"], &config->mission);
   LoadRirPolicy(root["policy"], &config->policy);
   LoadRirEnvironment(root["environment"], &config->environment);

@@ -98,6 +98,30 @@ bool IsWithinTolerance(const config::RirAzimuthElevationDeg& lhs,
          std::fabs(lhs.el_deg - rhs.el_deg) < tolerance_deg;
 }
 
+std::vector<oneq::common::radar::AzimuthElevationDeg> BuildExpectedAbsoluteScanPattern(
+    const config::RirSessionConfig& session_config) {
+  const dwell::RirEffectiveBeamwidthDeg beamwidth =
+      dwell::RirResolveEffectiveBeamwidth(session_config.hardware.antenna);
+  const config::RirScanConfig& scan = session_config.mission.scan;
+  const config::RirAzimuthElevationLimitsDeg& volume =
+      session_config.orientation.steerable_volume_deg;
+  const std::vector<oneq::common::radar::AzimuthElevationDeg> relative_pattern =
+      oneq::common::radar::BuildScanPattern(
+          volume.az_min_deg, volume.az_max_deg, volume.el_min_deg, volume.el_max_deg,
+          beamwidth.az_beamwidth_deg * scan.step_scale, beamwidth.el_beamwidth_deg * scan.step_scale,
+          scan.scan_start_position, scan.scan_sequence);
+  std::vector<oneq::common::radar::AzimuthElevationDeg> absolute_pattern;
+  absolute_pattern.reserve(relative_pattern.size());
+  const config::RirAzimuthElevationDeg& center = session_config.mission.scan_center_deg;
+  for (const oneq::common::radar::AzimuthElevationDeg& wave : relative_pattern) {
+    oneq::common::radar::AzimuthElevationDeg absolute;
+    absolute.az_deg = oneq::common::radar::NormalizeAzimuthDeg(center.az_deg + wave.az_deg);
+    absolute.el_deg = wave.el_deg;
+    absolute_pattern.push_back(absolute);
+  }
+  return absolute_pattern;
+}
+
 // ---------------------------------------------------------------------------
 // 1) 任务窗口内驻留对准指定目标 + 3) 窗口耗尽作废回到扫描
 // ---------------------------------------------------------------------------
@@ -150,15 +174,8 @@ TEST(RirDesignationTaskTest, IdleDwellCenterFollowsScanStrategy) {
   RirSession session = RirSession::Create(session_config);
   const RirSceneTarget target = MakeTarget(9002U);
 
-  const dwell::RirEffectiveBeamwidthDeg beamwidth =
-      dwell::RirResolveEffectiveBeamwidth(session_config.hardware.antenna);
-  const config::RirScanConfig& scan = session_config.mission.scan;
   const std::vector<oneq::common::radar::AzimuthElevationDeg> pattern =
-      oneq::common::radar::BuildScanPattern(
-          scan.scan_limits_deg.az_min_deg, scan.scan_limits_deg.az_max_deg,
-          scan.scan_limits_deg.el_min_deg, scan.scan_limits_deg.el_max_deg,
-          beamwidth.az_beamwidth_deg * scan.step_scale, beamwidth.el_beamwidth_deg * scan.step_scale,
-          scan.scan_start_position, scan.scan_sequence);
+      BuildExpectedAbsoluteScanPattern(session_config);
   ASSERT_FALSE(pattern.empty());
 
   config::RirAzimuthElevationDeg previous_center;
@@ -207,16 +224,9 @@ TEST(RirDesignationTaskTest, AbsentTargetReportsNotRecognizedAndDwellsOnScan) {
   const RirSceneTarget target = MakeTarget(9300U);
   ASSERT_TRUE(session.TryApplyRuntimeConfig(MakeDesignationPatch(target.external_target_id, 5U)));
 
-  // 期望扫描波位 = common 内核第 1 周期波位（与 IdleDwellCenterFollowsScanStrategy 同口径）。
-  const dwell::RirEffectiveBeamwidthDeg beamwidth =
-      dwell::RirResolveEffectiveBeamwidth(session_config.hardware.antenna);
-  const config::RirScanConfig& scan = session_config.mission.scan;
+  // 期望扫描波位 = 相对体积 + center 平移 + 归一化后的第 1 周期波位。
   const std::vector<oneq::common::radar::AzimuthElevationDeg> pattern =
-      oneq::common::radar::BuildScanPattern(
-          scan.scan_limits_deg.az_min_deg, scan.scan_limits_deg.az_max_deg,
-          scan.scan_limits_deg.el_min_deg, scan.scan_limits_deg.el_max_deg,
-          beamwidth.az_beamwidth_deg * scan.step_scale, beamwidth.el_beamwidth_deg * scan.step_scale,
-          scan.scan_start_position, scan.scan_sequence);
+      BuildExpectedAbsoluteScanPattern(session_config);
   ASSERT_FALSE(pattern.empty());
 
   const RirCycleResult result = session.StepWithResult(MakeInput(1U, {}));
@@ -382,6 +392,143 @@ TEST(RirDesignationTaskTest, RecognitionAchievementCompletesTaskAndReturnsToScan
       << "任务完成后驻留中心回到扫描波位（不再对准目标）";
   // 无超时事件：任务在窗口内完成。
   EXPECT_NE(completed.designation_revert_reason, RirDesignationRevertReason::kAcquisitionTimeout);
+}
+
+TEST(RirDesignationTaskTest, OffAxisGainUsesNormalizedAzimuthDeltaNearWrapBoundary) {
+  config::RirHardwareConfig hardware;
+  hardware.antenna.enable_directional_pattern = true;
+  const config::RirAzimuthElevationDeg beam_pointing{179.0f, 0.0f};
+  const float look_az = -179.0f;
+  const float look_el = 0.0f;
+  const float wavelength_m =
+      static_cast<float>(oneq::common::numerics::kLightSpeed) / hardware.transmitter.frequency_hz;
+  const float gain = dwell::RirResolveBeamStateForPointing(
+                         hardware.antenna, beam_pointing, look_az, look_el, true, wavelength_m)
+                         .one_way_antenna_gain_db;
+  EXPECT_GE(gain, hardware.antenna.main_beam_gain_db - 3.0f)
+      << "2° 离轴应接近主瓣而非深度衰减";
+}
+
+TEST(RirDesignationTaskTest, DesignationOutsideVolumeRevertsUntilScanCenterPatch) {
+  config::RirSessionConfig session_config = MakeIdentifyConfig();
+  session_config.mission.scan_center_deg = config::RirAzimuthElevationDeg{0.0f, 0.0f};
+  RirSession session = RirSession::Create(session_config);
+
+  RirSceneTarget target;
+  target.external_target_id = 9400U;
+  target.target_name = "wrap-target";
+  target.position_x = -10000.0f;
+  target.position_y = 200.0f;
+  target.position_z = 500.0f;
+  target.rcs = 0.5f;
+  target.range_m = std::sqrt(target.position_x * target.position_x +
+                             target.position_y * target.position_y +
+                             target.position_z * target.position_z);
+
+  ASSERT_TRUE(session.TryApplyRuntimeConfig(MakeDesignationPatch(target.external_target_id, 10U)));
+
+  const RirCycleResult outside = session.StepWithResult(MakeInput(1U, {target}));
+  ASSERT_EQ(outside.status, session::RirCycleStatus::kCompleted);
+  EXPECT_FALSE(outside.designation_active);
+  EXPECT_TRUE(outside.designation_reverted_to_scan);
+  EXPECT_EQ(outside.designation_revert_reason, RirDesignationRevertReason::kOutsideSteerableVolume);
+  EXPECT_EQ(outside.designated_target_id, target.external_target_id);
+
+  config::RirRuntimeConfigPatch center_patch;
+  center_patch.has_scan_center = true;
+  center_patch.scan_center_deg = config::RirAzimuthElevationDeg{170.0f, 0.0f};
+  ASSERT_TRUE(session.TryApplyRuntimeConfig(center_patch));
+
+  const RirCycleResult realigned = session.StepWithResult(MakeInput(2U, {target}));
+  ASSERT_EQ(realigned.status, session::RirCycleStatus::kCompleted);
+  EXPECT_TRUE(realigned.designation_active);
+  EXPECT_FALSE(realigned.designation_reverted_to_scan);
+  EXPECT_EQ(realigned.designation_revert_reason, RirDesignationRevertReason::kNone);
+}
+
+TEST(RirDesignationTaskTest, CrossBoundaryScanPatternStaysWithinLegalAzimuth) {
+  config::RirSessionConfig session_config = MakeIdentifyConfig();
+  session_config.mission.scan_center_deg = config::RirAzimuthElevationDeg{170.0f, 0.0f};
+  session_config.orientation.steerable_volume_deg.az_min_deg = -60.0f;
+  session_config.orientation.steerable_volume_deg.az_max_deg = 60.0f;
+  // 大步长保证数周期内同时覆盖 +170 侧与跨界负方位，避免默认密网格前 12 拍全在正侧。
+  session_config.mission.scan.step_scale = 15.0f;
+  const std::vector<oneq::common::radar::AzimuthElevationDeg> pattern =
+      BuildExpectedAbsoluteScanPattern(session_config);
+  ASSERT_FALSE(pattern.empty());
+
+  RirSession session = RirSession::Create(session_config);
+  const RirSceneTarget target = MakeTarget(9500U);
+  bool has_high_az = false;
+  bool has_low_az = false;
+  const std::uint32_t cycle_count = static_cast<std::uint32_t>(pattern.size());
+  for (std::uint32_t cycle = 1U; cycle <= cycle_count; ++cycle) {
+    const RirCycleResult result = session.StepWithResult(MakeInput(cycle, {target}));
+    ASSERT_EQ(result.status, session::RirCycleStatus::kCompleted);
+    EXPECT_GE(result.dwell_center_deg.az_deg, -180.0f);
+    EXPECT_LE(result.dwell_center_deg.az_deg, 180.0f);
+    has_high_az = has_high_az || result.dwell_center_deg.az_deg > 100.0f;
+    has_low_az = has_low_az || result.dwell_center_deg.az_deg < -100.0f;
+    const oneq::common::radar::AzimuthElevationDeg& wave =
+        pattern[static_cast<std::size_t>((cycle - 1U) % pattern.size())];
+    EXPECT_NEAR(result.dwell_center_deg.az_deg, wave.az_deg, 1.0e-4f);
+    EXPECT_NEAR(result.dwell_center_deg.el_deg, wave.el_deg, 1.0e-4f);
+  }
+  EXPECT_TRUE(has_high_az);
+  EXPECT_TRUE(has_low_az);
+}
+
+TEST(RirDesignationTaskTest, ScanCenterPatchAppliesOnNextSuccessfulCycle) {
+  config::RirSessionConfig session_config = MakeIdentifyConfig();
+  RirSession session = RirSession::Create(session_config);
+  const RirCycleResult before = session.StepWithResult(MakeInput(1U, {}));
+  ASSERT_EQ(before.status, session::RirCycleStatus::kCompleted);
+
+  config::RirRuntimeConfigPatch patch;
+  patch.has_scan_center = true;
+  patch.scan_center_deg = config::RirAzimuthElevationDeg{30.0f, 5.0f};
+  ASSERT_TRUE(session.TryApplyRuntimeConfig(patch));
+
+  const RirCycleResult after = session.StepWithResult(MakeInput(2U, {}));
+  ASSERT_EQ(after.status, session::RirCycleStatus::kCompleted);
+  session_config.mission.scan_center_deg = patch.scan_center_deg;
+  const std::vector<oneq::common::radar::AzimuthElevationDeg> shifted =
+      BuildExpectedAbsoluteScanPattern(session_config);
+  ASSERT_FALSE(shifted.empty());
+  const std::size_t cycle_index = 1U;  // 周期 2 → 第 (2-1) 个波位
+  EXPECT_NEAR(after.dwell_center_deg.az_deg, shifted[cycle_index].az_deg, 1.0e-4f);
+  EXPECT_NEAR(after.dwell_center_deg.el_deg, shifted[cycle_index].el_deg, 1.0e-4f);
+  EXPECT_FALSE(IsWithinTolerance(before.dwell_center_deg, after.dwell_center_deg, 1.0e-3f));
+
+  // 叶子 has_scan_center 不得覆写 mission 其他字段（work_mode 默认补丁值为 kStby）。
+  const RirSceneTarget target = MakeTarget(9600U);
+  ASSERT_TRUE(session.TryApplyRuntimeConfig(MakeDesignationPatch(target.external_target_id, 5U)));
+  const RirCycleResult designated = session.StepWithResult(MakeInput(3U, {target}));
+  ASSERT_EQ(designated.status, session::RirCycleStatus::kCompleted);
+  EXPECT_TRUE(designated.designation_active) << "仅补丁 scan_center 不得把 work_mode 打回 kStby";
+}
+
+TEST(RirDesignationTaskTest, DefaultConfigScanPatternMatchesPreRefactorAbsoluteLimits) {
+  config::RirSessionConfig session_config = MakeIdentifyConfig();
+  session_config.mission.scan_center_deg = config::RirAzimuthElevationDeg{};
+  session_config.orientation.steerable_volume_deg = config::RirAzimuthElevationLimitsDeg{};
+  const dwell::RirEffectiveBeamwidthDeg beamwidth =
+      dwell::RirResolveEffectiveBeamwidth(session_config.hardware.antenna);
+  const config::RirScanConfig& scan = session_config.mission.scan;
+  const config::RirAzimuthElevationLimitsDeg& volume =
+      session_config.orientation.steerable_volume_deg;
+  const std::vector<oneq::common::radar::AzimuthElevationDeg> legacy =
+      oneq::common::radar::BuildScanPattern(
+          volume.az_min_deg, volume.az_max_deg, volume.el_min_deg, volume.el_max_deg,
+          beamwidth.az_beamwidth_deg * scan.step_scale, beamwidth.el_beamwidth_deg * scan.step_scale,
+          scan.scan_start_position, scan.scan_sequence);
+  const std::vector<oneq::common::radar::AzimuthElevationDeg> current =
+      BuildExpectedAbsoluteScanPattern(session_config);
+  ASSERT_EQ(legacy.size(), current.size());
+  for (std::size_t index = 0U; index < legacy.size(); ++index) {
+    EXPECT_NEAR(legacy[index].az_deg, current[index].az_deg, 1.0e-4f);
+    EXPECT_NEAR(legacy[index].el_deg, current[index].el_deg, 1.0e-4f);
+  }
 }
 
 }  // namespace

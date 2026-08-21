@@ -2,7 +2,7 @@
  * @file RirSessionConfig.h
  * @brief 远程识别雷达会话初始化主配置类型。
  *
- * 会话初始化配置（四域公开模型）的主头文件。
+ * 会话初始化配置（五域公开模型）的主头文件。
  */
 
 #ifndef ONEQ_REMOTE_IDENTIFICATION_RADAR_CONFIG_RIR_SESSION_CONFIG_H_
@@ -12,13 +12,14 @@
 #include "1q/remote_identification_radar/config/RirEnvironmentConfig.h"
 #include "1q/remote_identification_radar/config/RirHardwareConfig.h"
 #include "1q/remote_identification_radar/config/RirMissionConfig.h"
+#include "1q/remote_identification_radar/config/RirOrientationConfig.h"
 #include "1q/remote_identification_radar/config/RirPolicyConfig.h"
 
 namespace remote_identification_radar {
 namespace config {
 
 /**
- * @brief RirSessionConfig 会话初始化配置（四域公开模型）。
+ * @brief RirSessionConfig 会话初始化配置（五域公开模型）。
  *
  * 电源状态由顶层 `sensor_enabled` 唯一承载（COMMON-OQ-4 字段提升）：
  * `mission` 域不含电源字段，运行时补丁的电源入口为
@@ -26,6 +27,7 @@ namespace config {
  */
 struct ONEQ_API RirSessionConfig {
   RirHardwareConfig hardware{};
+  RirOrientationConfig orientation{};
   RirMissionConfig mission{};
   RirPolicyConfig policy{};
   RirEnvironmentConfig environment{};

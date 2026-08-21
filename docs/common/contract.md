@@ -65,7 +65,7 @@ RF-Interference-Architecture: frozen target; AR/ESR/ECM/RIR RF v2 implemented (p
 **基线四域**（所有有会话的传感器模块均具备）：
 
 - hardware：发射机、接收机、天线、探测器、光学和波形等物理能力（不含静态安装欧拉/失准）。
-- mission：工作模式、运行期扫描/驻留指向、任务目标与可热更新的扫描任务参数。
+- mission：工作模式、运行期扫描/驻留指向（含转台朝向 `scan_center_deg`）、任务目标与可热更新的扫描任务参数。
 - policy：最低 SNR、虚警概率、脉冲积累数、检测 margin、关联门限等可由任务策略调整的判决规则。
 - environment：场景介质、传播、地表和大气观测等外部环境语义。
 
@@ -78,7 +78,8 @@ RF-Interference-Architecture: frozen target; AR/ESR/ECM/RIR RF v2 implemented (p
 | 模块 | 配置域数 | orientation |
 |---|---|---|
 | SBIRS / AR / ESR | 五域 | 有（范本：SBIRS；AR 拆分静态/运行期后上提；ESR 瘦 mount az/el） |
-| EOS / RIR / SAR | 四域 | 无（EOS 仅复用瞄准引擎姿态链；RIR/SAR 无该子域需求） |
+| EOS / SAR | 四域 | 无（EOS 仅复用瞄准引擎姿态链；SAR 无该子域需求） |
+| RIR | 五域 | 有（阵面相对可扫描体积 `steerable_volume_deg`；转台朝向在 mission.scan_center_deg） |
 
 因此最低 SNR、Pfa 等探测门限不得因内部 signal detector 与 hardware 相邻而放入 hardware。跨模块的
 同类判决参数应归 policy；静态 mount 不得因历史嵌在 mission/hardware 而继续错域。
@@ -136,7 +137,16 @@ EOS 的 `detector_area_cm2` 与 `detector_detectivity_cm_sqrt_hz_per_w` 共同�
 
 ### RIR 驻留指向输入契约
 
-RIR 的波束中心由**库内驻留调度器**（`RirSession`）每周期派生：无指定任务时按扫描策略逐周期推进（common 扫描内核 `ScanScheduleRuntime`，与 AR 同一口径）；指定识别任务窗口内对准指定目标。RIR 消费侧只信任并消费给定值，不自行生成指向。指向角类型为 `RirAzimuthElevationDeg`（deg），定义在雷达局部 ENU 右手系（与 `RirSceneTarget::position_x/y/z` 同帧）：`az_deg ∈ [-180, 180]`、`el_deg ∈ [-90, 90]`，单位指向向量为 `(cos(el)·cos(az), cos(el)·sin(az), sin(el))`。RIR 方向图开启时以“目标视线角 - 给定指向”作为离轴角；指向偏离目标即按实际离轴衰减执行。指定识别任务（限时锁定，镜像 AR designation 语义）见 `docs/remote_identification_radar/boundaries.md`。
+RIR 的波束中心由**库内驻留调度器**（`RirSession`）每周期派生：common 内核在
+`orientation.steerable_volume_deg`（阵面相对 az、绝对 el）上建波位，再经
+`mission.scan_center_deg`（转台 ENU 朝向）平移并将方位归一化到 `(-180, 180]`；
+无指定任务时按该序列逐周期推进；指定识别任务窗口内对准指定目标，但目标视线越出
+「center + 体积」时驻留回扫描并报告 `kOutsideSteerableVolume`（任务保持
+`kPending`，转台重新瞄准后可恢复）。RIR 消费侧只信任并消费给定值。指向角类型为
+`RirAzimuthElevationDeg`（deg），雷达局部 ENU 右手系（与
+`RirSceneTarget::position_x/y/z` 同帧）：`az_deg ∈ (-180, 180]`、`el_deg ∈ [-90, 90]`。
+离轴方位差由调度/增益链路经 `NormalizeAzimuthDeltaDeg` 折算。指定识别任务见
+`docs/remote_identification_radar/boundaries.md`。
 
 ### 场景目标平台锚点 ENU 输入契约
 

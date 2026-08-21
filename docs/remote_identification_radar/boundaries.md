@@ -26,8 +26,9 @@ RIR 是与机载雷达（AR）**相互独立的另一部雷达装备**，不是 
   内部航迹由 RIR 自持检测与轻量跟踪生产。`RirTrackFeed` 公开供给已删除。
 - **驻留指向（阶段 2-S；调度器入库 2026-08-17）**：RIR 自管的是“驻留候选排序”
   （消费内部航迹，语义为“未识别优先 + 斜距次近”；威胁等级输入随独立性消失）。
-  每周期实际波束中心由**库内驻留调度器**（`RirSession`：扫描策略或指定识别
-  任务）派生，控制器只消费并信任给定值（见下方驻留指向契约）。
+  每周期实际波束中心由**库内驻留调度器**（`RirSession`：相对可扫描体积 +
+  转台朝向平移归一化，或指定识别任务限位执行）派生，控制器只消费并信任
+  给定值（见下方驻留指向契约）。
   RIR 不驱动任何外部雷达波束。
 - **自持检测链（阶段 2-S 已接线；跟踪升级 2-T N1-N7 已完成）**：需求所列九项
   信号链能力（天线方向图仿真、回波/干扰/噪声功率计算、四项处理增益、恒虚警
@@ -137,36 +138,30 @@ RIR 遵守 `docs/common/contract.md` 与 `docs/common/session_contract.md`：
 8. **replay 加性扩展**：输出帧加特征量测向量、结果表加归属向量与
    `emission_frame`（V2 表加可选字段，`RIR2` 标识不变；旧记录缺新字段解码为空）。
 
-## 驻留指向跨模块契约（库内驻留调度器：扫描策略 + 指定识别任务）
+## 驻留指向跨模块契约（库内驻留调度器：相对体积 + 转台朝向 + 指定任务限位）
 
-波束指向的来源是**库内驻留调度器**（`RirSession` 每周期派生）：无指定任务时按
-扫描策略逐周期推进（common 扫描内核，与 AR 同一口径）；指定识别任务窗口内
-对准指定目标（目标在场景时）。RIR 消费侧（`RirController`）只信任并消费给定
-的波束中心值，不自行生成指向。
+波束指向的来源是**库内驻留调度器**（`RirSession` 每周期派生）：common 内核在
+`orientation.steerable_volume_deg`（阵面相对 az、绝对 el）上建波位，再经
+`mission.scan_center_deg` 平移并方位归一化；无指定任务时按该序列推进；指定识别
+任务窗口内对准指定目标（目标在场景且在体积内）。RIR 消费侧只信任并消费给定波束中心。
 
 1. **来源与所有权**：`RirSession::StepWithResult` 每周期解析驻留中心
    （`RirCycleResult::dwell_center_deg`）：
-   - 无任务 / 任务间隙：扫描波位 = common `ScanScheduleRuntime::BuildScanPattern`
-     （限位/步长（波束宽度 × `RirScanConfig::step_scale`）/起点/顺序），第 N 周期
-     取第 `(N-1) % size` 个波位——与 AR 同一扫描策略口径；
-   - 指定识别任务窗口内（`kPending`）且目标在场景：驻留中心 = 指定目标视线角
-     （`atan2` 口径同 ENU 帧约定）；
-   - 非法限位/步长：扫描波位回退零位。
+   - 无任务 / 任务间隙 / 越界回扫：绝对波位 = `NormalizeAzimuthDeg(scan_center.az +
+     relative_wave.az)` + 绝对 el（相对体积 el 轴）；
+   - 指定识别任务窗口内（`kPending`）且目标在场景且在体积内：驻留中心 = 目标视线角；
+   - 非法体积/步长：扫描波位回退 `scan_center`（转台指向基准）。
 2. **信任边界**：RIR 不判断给定指向是否朝向目标。`enable_directional_pattern=true`
-   且有有效目标视线角时，按 `目标视线角 - 给定指向` 计算离轴角与方向图增益；
+   且有有效目标视线角时，方位离轴差经 `NormalizeAzimuthDeltaDeg` 折算后求方向图增益；
    指向偏离目标就按实际离轴衰减执行，不静默修正。方向图关闭或无有效视线角时
    回退主瓣峰值增益（阶段 1 缺省兼容）。
 3. **角度含义与范围**：波束中心类型为 `config::RirAzimuthElevationDeg`（单位：度），
    定义在雷达局部 ENU 右手坐标系，与 `RirSceneTarget::position_x/y/z` 同帧：
-   `az_deg = atan2(y, x)`，合法域 [-180, 180]；
+   `az_deg = atan2(y, x)`，调度器输出前归一化到 `(-180, 180]`；
    `el_deg = atan2(z, sqrt(x²+y²))`，合法域 [-90, 90]。
-   (az, el) 对应的单位指向向量为
-   `(cos(el)·cos(az), cos(el)·sin(az), sin(el))`。
-   因此 `(0°, 0°)` 指向 +x（东向水平）；az 正向转向 +y（北），el 正向指向 +z（天）。
-4. **方位角折算**：扫描波位来自限位（[-180, 180] 内合法配置），目标指向由
-   `atan2` 产生——调度器保证落在合法域；RIR 消费侧不做跨 ±180° 归一化。
-5. **目标视线角同帧**：RIR 计算目标视线角必须使用与指向角完全相同的坐标系和
-   公式；只有两者同帧，`目标视线角 - 指向角` 才是有效离轴角。
+4. **可扫描体积语义**：`steerable_volume_deg.az_*` 相对 `scan_center_deg.az`；
+   `el_*` 为绝对俯仰域（ENU）。跨界扇区（如朝南 ±110°）通过 center 平移 + 归一化表达。
+5. **目标视线角同帧**：RIR 计算目标视线角必须使用与指向角完全相同的坐标系和公式。
 
 ## 指定识别任务（限时锁定，镜像 AR designation 语义）
 
@@ -178,9 +173,10 @@ RIR 遵守 `docs/common/contract.md` 与 `docs/common/session_contract.md`：
    kExpired`（kAcquired/kExpired 为终态）。窗口自指令生效后首个处理周期起算
    （deadline = 首周期 + duration）；任一指定相关 patch 变更（含仅改时长）视为
    新指令，窗口重新起算。
-2. **任务窗口内（kPending）**：驻留中心对准指定目标（目标在场景时），识别积累
-   照常进行；目标缺席时驻留回扫描波位并报告 `designation_reverted_to_scan =
-   kNotRecognized`。
+2. **任务窗口内（kPending）**：驻留中心对准指定目标（目标在场景且在可扫描体积内），
+   识别积累照常进行；目标缺席时驻留回扫描波位并报告 `designation_reverted_to_scan =
+   kNotRecognized`；目标在场景但视线越出 `scan_center + steerable_volume` 时回扫描并
+   报告 `kOutsideSteerableVolume`（阶段保持 `kPending`，转台重新瞄准后可恢复对准）。
 3. **识别达成（kAcquired）**：指定目标识别状态达 `kCategoryConfirmed`/`kModelConfirmed`
    （上一周期航迹快照口径，滞后一周期）→ **任务完成**：指定清零、回到扫描。
    与 AR 不同（AR 捕获后持续跟随），识别是离散结论，确认即任务结束。
@@ -245,7 +241,7 @@ CMake 开关 `ONEQ_ENABLE_RIR_ACCEPTANCE_LOG`（默认 OFF）门控的编译期�
 （逐源干扰功率）、`association`/`association_match`/`association_missed`（关联结果）、
 `track`（航迹全量状态含 6×6 协方差）、`measurement`（四维特征量测）、`recognition`
 （识别结论）、`schedule`（驻留计数与效能摘要）、`beam_pattern`/`beam_pattern_wave`
-（波位排列表，mission 配置变更后重发）、`beam_scan`（逐周期波束中心与来源）。
+（波位排列表，mission / scan_center 配置变更后重发）、`beam_scan`（逐周期波束中心与来源）。
 边界：与 SBIRS `[SbirsAccept]` 同性质——**仅人读验收材料，不属于三写、不进公开输出/
 replay**；关闭时宏与派生计算一并编译剪除，零开销、行为逐位不变。缺失子项（航向、
 舰船/车辆类型、MTI/MTD 通道级量、事件类型分类计数细化）经 2026-08-20 验收裁定

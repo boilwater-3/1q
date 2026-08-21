@@ -119,15 +119,20 @@ inline void LoadRirHardware(const examples::JsonValue& j, rir_cfg::RirHardwareCo
 
 inline void LoadRirScan(const examples::JsonValue& j, rir_cfg::RirScanConfig* v) {
   if (j.IsNull()) return;
-  LoadRirAzElLimits(j["scan_limits_deg"], &v->scan_limits_deg);
   v->scan_start_position = ScanStartPositionFromString(j["scan_start_position"].AsString());
   v->scan_sequence = ScanSequenceFromString(j["scan_sequence"].AsString());
   v->step_scale = static_cast<float>(j["step_scale"].AsDouble());
 }
 
+inline void LoadRirOrientation(const examples::JsonValue& j, rir_cfg::RirOrientationConfig* v) {
+  if (j.IsNull()) return;
+  LoadRirAzElLimits(j["steerable_volume_deg"], &v->steerable_volume_deg);
+}
+
 inline void LoadRirMission(const examples::JsonValue& j, rir_cfg::RirMissionConfig* v) {
   if (j.IsNull()) return;
   v->work_mode = RirWorkModeFromString(j["work_mode"].AsString());
+  LoadRirAzEl(j["scan_center_deg"], &v->scan_center_deg);
   v->max_range_m = static_cast<float>(j["max_range_m"].AsDouble());
   v->recognition_dwell_sec = static_cast<float>(j["recognition_dwell_sec"].AsDouble());
   LoadRirScan(j["scan"], &v->scan);

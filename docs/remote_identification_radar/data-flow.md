@@ -21,7 +21,7 @@ flowchart TB
   subgraph Rir["remote_identification_radar 模块"]
     Input["RirCycleInput\n（周期戳 + 平台 ECEF + 场景 + RF）"]
     Session["RirSession\n（校验/补丁提交/任务生命周期/驻留调度）"]
-    ScanKernel["common ScanScheduleRuntime\n（扫描波位序列，与 AR 同口径）"]
+    ScanKernel["common ScanScheduleRuntime\n（相对体积波位 + center 平移/归一化）"]
     Controller["RirController\n（检测 → 量测误差 → 关联/滤波/生命周期）"]
     RfFrontEnd["RF 物理链（库内）\n（RirEmissionFactory / RirReceiverStateBuilder /\nRirRfFrontEndResolver → incident links）"]
     Detector["RirSignalDetector / RirDetectionCellResolver"]
@@ -66,11 +66,11 @@ flowchart TB
    帧合法且窗口与 `sim_time_sec`/驻留对齐）；失败 → `kRejectedInvalidInput`。
 2. **关机检查**：`sensor_enabled == false` → `kPoweredOff`，不触碰检测/跟踪/识别状态。
 3. **补丁提交**（staged）：`RirRuntimeConfigPatch` 在下一个成功周期边界应用
-   （电源/工作模式/完整 policy/environment 域/指定识别任务字段）→
-   `RirController::UpdateRuntime` / `UpdateEnvironment`。
+   （电源/工作模式/转台朝向 `has_scan_center`/完整 policy/environment 域/
+   指定识别任务字段）→ `RirController::UpdateRuntime` / `UpdateEnvironment`。
 4. **指定识别任务推进 + 驻留调度**（`RirSession`）：任务生命周期逐周期推进
    （kNone → kPending → kAcquired | kExpired，镜像 AR 骨架）；驻留中心 =
-   任务窗口内指定目标视线角，否则扫描策略波位（common 扫描内核）。
+   任务窗口内指定目标视线角（在体积内），否则相对体积 + scan_center 扫描波位。
 5. **自持链路执行**：`kIdentify` 门控整链：
    - **RF 物理链**（库内）：`ResolveRfCycle` 构建自发射（`RirEmissionFactory`）+
      接收机状态（`RirReceiverStateBuilder`）→ 合并 `rf_scene` 外部 emission →
@@ -129,6 +129,6 @@ flowchart TB
 
 RIR **不 include 任何 AR 头**，不消费任何 AR 输出，也不向 AR 提供航迹、识别
 结论或波束控制。AR 与 RIR 仅为同库共存的两部独立装备，由调用方分别编排；
-RIR 波束中心由库内驻留调度器（`RirSession`：扫描策略或指定识别任务）派生，
-经 `RirCycleResult::dwell_center_deg` 暴露；RIR 不驱动任何外部雷达波束。
+RIR 波束中心由库内驻留调度器（`RirSession`：相对体积 + scan_center 平移归一化，
+或指定识别任务限位执行）派生，经 `RirCycleResult::dwell_center_deg` 暴露；RIR 不驱动任何外部雷达波束。
 编排层汇集实际发射走 `RirCycleResult::emission_frame`（与 AR 同契约）。

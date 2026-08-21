@@ -18,8 +18,8 @@
  *   - 含义：az=0/el=0 指向 +x（东向水平），az 正向转向 +y（北），
  *     el 正向指向 +z（天）；单位向量
  *     (cos(el)·cos(az), cos(el)·sin(az), sin(el))。
- *   - 离轴：目标视线角以同一坐标系公式计算，直接相减得到离轴角；
- *     本函数不做跨 ±180° 归一化。
+ *   - 离轴：目标视线角以同一坐标系公式计算；方位差经
+ *     `NormalizeAzimuthDeltaDeg` 折算到 [-180, 180]，俯仰差直接相减。
  * @note 本文件仅供 RIR 模块内部使用，不作为公开 API。
  */
 
@@ -28,6 +28,7 @@
 
 #include "1q/remote_identification_radar/config/RirHardwareConfig.h"
 #include "common/radar/BeamwidthResolution.h"
+#include "common/radar/ScanScheduleRuntime.h"
 #include "remote_identification_radar/dwell/RirAntennaPatternRuntime.h"
 
 namespace remote_identification_radar {
@@ -81,8 +82,8 @@ struct RirResolvedBeamState {
  *
  * @note 给定指向与目标视线角必须同属雷达局部 ENU 右手系：
  *       az ∈ [-180, 180]、el ∈ [-90, 90]；az=0/el=0 指向 +x，
- *       az 正向转向 +y，el 正向指向 +z。调用方负责方位角预先折算，
- *       本函数不做跨 ±180° 归一化；指向不朝向目标时按实际离轴角衰减。
+ *       az 正向转向 +y，el 正向指向 +z。给定指向须预先折算到合法域；
+ *       离轴方位差由本函数归一化；指向不朝向目标时按实际离轴角衰减。
  * @param antenna_config 天线配置。
  * @param beam_pointing_deg 驻留波束指向（调度器显式给定，雷达局部 ENU 系，单位：度）。
  * @param target_look_az_deg 目标视线方位角（同一雷达局部 ENU 系，单位：度）。
@@ -106,7 +107,8 @@ inline RirResolvedBeamState RirResolveBeamStateForPointing(
   pattern_beamwidth.az_beamwidth_deg = state.effective_beamwidth_deg.az_beamwidth_deg;
   pattern_beamwidth.el_beamwidth_deg = state.effective_beamwidth_deg.el_beamwidth_deg;
   RirAntennaLookOffsetDeg offset_deg;
-  offset_deg.delta_az_deg = target_look_az_deg - state.beam_pointing_deg.az_deg;
+  offset_deg.delta_az_deg = ::oneq::common::radar::NormalizeAzimuthDeltaDeg(
+      target_look_az_deg - state.beam_pointing_deg.az_deg);
   offset_deg.delta_el_deg = target_look_el_deg - state.beam_pointing_deg.el_deg;
   state.one_way_antenna_gain_db =
       RirEvaluateAntennaPattern(antenna_config.main_beam_gain_db, antenna_config.pattern,

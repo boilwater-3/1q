@@ -8,6 +8,8 @@
 //   旧记录缺新字段时解码为空值（flatbuffers 加性规则）。
 // RF 物理链加性扩展（2026-08-19）：RirCycleResultV2 加 emission_frame（本周期
 //   实际 RIR 发射；旧记录缺字段时解码为空帧）。
+// 指定任务回退成因加性扩展（2026-08-21）：designation_revert_reason 新增
+//   kOutsideSteerableVolume=3（int 字段；旧记录不受影响）。
 // V2 为唯一支持 root_type；V1 保留仅用于旧记录识别与显式拒绝。
 
 namespace oneq.replay.remote_identification_radar.fb;

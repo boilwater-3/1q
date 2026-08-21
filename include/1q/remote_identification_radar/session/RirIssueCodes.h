@@ -68,8 +68,14 @@ constexpr char kRecognitionAccumulationInvalid[] =
 /** @brief 识别时间范围非法（保持时间须非负；最大距离/驻留/累积窗口须有限且为正）。 */
 constexpr char kRecognitionTimeRangeInvalid[] = "rir.validation.recognition_time_range_invalid";
 
-/** @brief 扫描策略非法（限位须有限有序且在合法域 az∈[-180,180]、el∈[-90,90]；步长系数须为正）。 */
+/** @brief 扫描策略非法（步长系数须为正）。 */
 constexpr char kScanStrategyInvalid[] = "rir.validation.scan_strategy_invalid";
+
+/** @brief 可扫描体积非法（orientation.steerable_volume_deg 须有限有序且在合法域）。 */
+constexpr char kSteerableVolumeInvalid[] = "rir.validation.steerable_volume_invalid";
+
+/** @brief 转台朝向非法（mission.scan_center_deg 须有限且在合法域）。 */
+constexpr char kScanCenterInvalid[] = "rir.validation.scan_center_invalid";
 
 /** @brief 信号处理增益偏置非法（四偏置须有限且在 [0, 40] dB；阶段 2-M M3）。 */
 constexpr char kSignalProcessingGainsInvalid[] = "rir.validation.signal_processing_gains_invalid";

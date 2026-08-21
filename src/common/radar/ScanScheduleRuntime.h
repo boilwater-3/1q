@@ -24,6 +24,34 @@ namespace common {
 namespace radar {
 
 /**
+ * @brief 将绝对方位角折算到 (-180, 180]（deg）。
+ * @param[in] az_deg 输入方位角（deg）。
+ * @return 折算后的方位角；非有限输入原样返回。
+ */
+inline float NormalizeAzimuthDeg(float az_deg) {
+  if (!std::isfinite(az_deg)) {
+    return az_deg;
+  }
+  float normalized = std::remainder(az_deg, 360.0f);
+  if (normalized <= -180.0f) {
+    normalized += 360.0f;
+  }
+  return normalized;
+}
+
+/**
+ * @brief 将方位角差折算到 [-180, 180]（deg）。
+ * @param[in] delta_az_deg 输入方位角差（deg）。
+ * @return 折算后的方位角差；非有限输入原样返回。
+ */
+inline float NormalizeAzimuthDeltaDeg(float delta_az_deg) {
+  if (!std::isfinite(delta_az_deg)) {
+    return delta_az_deg;
+  }
+  return std::remainder(delta_az_deg, 360.0f);
+}
+
+/**
  * @brief 由跨度与步进数提示解析轴步长。
  * @param[in] min_deg 轴最小值（度）。
  * @param[in] max_deg 轴最大值（度）。

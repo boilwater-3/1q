@@ -394,6 +394,24 @@ TEST(RirReplayCodecRoundtripTest, EmptyEmissionFrameRoundtripPreserved) {
   EXPECT_EQ(decoded.result.emission_frame.world_cycle_index, 0U);
 }
 
+TEST(RirReplayCodecRoundtripTest, OutsideSteerableVolumeRevertReasonRoundtrips) {
+  RirCycleReplayRecord record;
+  record.result.status = RirCycleStatus::kCompleted;
+  record.result.input_cycle_index = 8U;
+  record.result.designated_target_id = 9400U;
+  record.result.designation_active = false;
+  record.result.designation_reverted_to_scan = true;
+  record.result.designation_revert_reason = RirDesignationRevertReason::kOutsideSteerableVolume;
+
+  const std::string encoded = session::EncodeCycleReplayRecordFlatbuffer(record);
+  RirCycleReplayRecord decoded;
+  std::string error;
+  ASSERT_TRUE(session::DecodeCycleReplayRecordFlatbuffer(encoded, &decoded, &error)) << error;
+  EXPECT_EQ(decoded.result.designation_revert_reason,
+            RirDesignationRevertReason::kOutsideSteerableVolume);
+  EXPECT_EQ(session::EncodeCycleReplayRecordFlatbuffer(decoded), encoded);
+}
+
 }  // namespace
 }  // namespace tests
 }  // namespace remote_identification_radar

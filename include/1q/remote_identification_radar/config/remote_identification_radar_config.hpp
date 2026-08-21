@@ -9,6 +9,7 @@
 #include "1q/remote_identification_radar/config/RirEnvironmentConfig.h"
 #include "1q/remote_identification_radar/config/RirHardwareConfig.h"
 #include "1q/remote_identification_radar/config/RirMissionConfig.h"
+#include "1q/remote_identification_radar/config/RirOrientationConfig.h"
 #include "1q/remote_identification_radar/config/RirPolicyConfig.h"
 #include "1q/remote_identification_radar/config/RirProfileConstants.h"
 #include "1q/remote_identification_radar/config/RirRuntimeConfigPatch.h"

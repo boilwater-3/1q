@@ -514,7 +514,7 @@ bool DecodeCycleReplayRecordFlatbuffer(const std::string& payload_bytes,
   const int revert_reason_raw = result->designation_revert_reason();
   if (revert_reason_raw <
           static_cast<int>(RirDesignationRevertReason::kNone) ||
-      revert_reason_raw > static_cast<int>(RirDesignationRevertReason::kAcquisitionTimeout)) {
+      revert_reason_raw > static_cast<int>(RirDesignationRevertReason::kOutsideSteerableVolume)) {
     if (error != nullptr) {
       *error = "invalid designation revert reason";
     }
