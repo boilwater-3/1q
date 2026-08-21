@@ -168,7 +168,11 @@ void RirTrackLifecycle::Update(const RirCycleContext& cycle,
         track.target_name = measurement.target_name;
       }
       // 先写入本周期速度种子，再执行 KF 更新；加速度为滤波修正/新息速度差。
-      track.velocity = measurement.velocity;
+      // 速度向量为零时与 AR 同口径以标量速度沿 +x 回填（速度种子为场景真值向量时
+      // 回退值退化为零向量，保留口径以防未来独立标量速度源接入后 hit 加速度基准分叉）。
+      track.velocity = measurement.velocity != Eigen::Vector3f::Zero()
+                           ? measurement.velocity
+                           : Eigen::Vector3f(measurement.observed_speed, 0.0f, 0.0f);
       track.rcs = measurement.rcs;
 
       PromoteState(&track, cycle.cycle_index, true);
@@ -276,6 +280,27 @@ void RirTrackLifecycle::UpdateConfig(RirLifecycleConfig lifecycle_config,
   lifecycle_config_ = lifecycle_config;
   imm_enabled_ = lifecycle_config.enable_imm_lifecycle;
   filter_.UpdateConfig(filter_config);
+
+  // 与 AR SyncRuntimeTuning 同口径：运行期改配在线同步已建 IMM 运行态的每模型 q 与
+  // 转移矩阵（CV KF 经 filter_.UpdateConfig 同步）；模型数变化无法原位重调 → 丢弃
+  // 该运行态，下次 confirmed 命中按航迹当前高斯状态惰性重建（与 replay 恢复同语义）。
+  const RirImmFilter::Config imm_config = BuildImmFilterConfig();
+  for (std::unordered_map<std::uint64_t, std::unique_ptr<RirImmFilter>>::iterator it =
+           imm_filters_by_key_.begin();
+       it != imm_filters_by_key_.end();) {
+    if (it->second != nullptr && it->second->UpdateRuntimeTuning(imm_config)) {
+      ++it;
+      continue;
+    }
+    // 中译：模型数变化后关联键 {} 的 IMM 运行态无法原位重调，已丢弃；
+    // 下次 confirmed 命中时按新模型集惰性重建。
+    // 标识：配置热更新——运行态丢弃语义与 replay 恢复一致，航迹本身不受影响。
+    PROJECT_LOG_WARN(
+        "[RirTrackLifecycle] imm runtime state dropped for association_key={} after model "
+        "count change; lazily rebuilt on next confirmed hit",
+        it->first);
+    imm_filters_by_key_.erase(it++);
+  }
 }
 
 RirLifecycleRuntimeState RirTrackLifecycle::CaptureRuntimeState() const {
@@ -415,6 +440,15 @@ bool RirTrackLifecycle::ShouldUseImmForMiss(RirTrackStatus status_before) const 
   return status_before == RirTrackStatus::kConfirmed;
 }
 
+RirImmFilter::Config RirTrackLifecycle::BuildImmFilterConfig() const {
+  RirImmFilter::Config imm_config;
+  const std::uint32_t model_count_hint =
+      lifecycle_config_.model_count_hint < 2U ? 2U : lifecycle_config_.model_count_hint;
+  imm_config.model_noise_diff_coeffs = BuildDefaultImmNoiseDiffCoeffs(model_count_hint);
+  imm_config.transition_diagonal_probability = 0.95f;
+  return imm_config;
+}
+
 RirImmFilter* RirTrackLifecycle::GetOrCreateImmFilter(std::uint64_t association_key,
                                                       const RirGaussianState& initial_state) {
   const std::unordered_map<std::uint64_t, std::unique_ptr<RirImmFilter>>::iterator found =
@@ -423,12 +457,7 @@ RirImmFilter* RirTrackLifecycle::GetOrCreateImmFilter(std::uint64_t association_
     return found->second.get();
   }
 
-  RirImmFilter::Config imm_config;
-  const std::uint32_t model_count_hint =
-      lifecycle_config_.model_count_hint < 2U ? 2U : lifecycle_config_.model_count_hint;
-  imm_config.model_noise_diff_coeffs = BuildDefaultImmNoiseDiffCoeffs(model_count_hint);
-  imm_config.transition_diagonal_probability = 0.95f;
-  std::unique_ptr<RirImmFilter> filter(new RirImmFilter(imm_config));
+  std::unique_ptr<RirImmFilter> filter(new RirImmFilter(BuildImmFilterConfig()));
   filter->Initialize(initial_state);
   RirImmFilter* filter_ptr = filter.get();
   imm_filters_by_key_[association_key] = std::move(filter);

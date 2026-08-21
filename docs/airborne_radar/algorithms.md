@@ -175,8 +175,9 @@ detection toggle 或启发式 pass。
 - **反直觉点（航迹影响边界）**：压制干扰只能通过量测存在性和量测协方差间接影响 association/Kalman/IMM/
   lifecycle；按干扰类别、ECCM profile 或预计算受扰布尔值直接缩放门限、过程噪声、失配容忍或生命周期计数
   的路径都不属于目标架构。
-- **单一频率来源**：探测、传播、天线波长和物理 RCS 全部消费当前有效的 `transmitter.frequency_hz`；
-  `RcsPhysicsConfig` 不再提供独立频率或隐式继承规则。
+- **单一频率来源**：探测、传播与天线波长消费当前有效的 `transmitter.frequency_hz`；物理 RCS 的 k0 取
+  本周期冻结波形的实际载频（频率捷变下随跳频点波动，与 RIR 同口径），v1 无冻结波形事实时回退
+  `transmitter.frequency_hz`；`RcsPhysicsConfig` 不再提供独立频率或隐式继承规则。
 - **interference observation 通道**：与目标 track 分离，只在独立能量/J/N 门通过后生成，不能由场景标签或
   ECM source ID 直接生成；输出估计 bearing/frequency/bandwidth/waveform class 和不确定度；不包含 truth
   equipment/emission ID 或"敌方干扰意图"；interference-limited/masked/saturated 是接收机事实，不是外部

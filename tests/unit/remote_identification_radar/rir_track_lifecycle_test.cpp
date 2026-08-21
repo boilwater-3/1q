@@ -209,6 +209,30 @@ TEST(RirTrackLifecycleTest, SnapshotsAreOrderedByAssociationKey) {
   EXPECT_EQ(snapshots[0].track_id, 2U);
 }
 
+/// @brief 速度向量为零的速度种子回退（AR 同口径）：hit 以标量速度沿 +x 回填，
+///        hit 加速度以该回填种子为基准（旧口径直接写零向量 → 加速度虚高）。
+TEST(RirTrackLifecycleTest, ZeroVelocitySeedFallsBackToObservedSpeed) {
+  RirLifecycleConfig config;
+  config.confirm_hits = 1U;
+  config.max_miss_before_lost = 2U;
+  config.max_lost_cycles = 5U;
+  RirTrackLifecycle lifecycle(config);
+
+  lifecycle.Update(MakeCycle(1U, 2701U), {MakeMeasurement(7U, 0.0f, 10.0f, false)});
+  lifecycle.Update(MakeCycle(2U, 2702U), {MakeMeasurement(7U, 10.0f, 10.0f, true)});
+
+  // 退化量测：速度向量为零但标量速度观测有效（位置仍按匀速真值给出）。
+  RirTrackMeasurement degraded = MakeMeasurement(7U, 20.0f, 0.0f, true);
+  degraded.observed_speed = 10.0f;
+  lifecycle.Update(MakeCycle(3U, 2703U), {degraded});
+
+  const RirTrackState* track = lifecycle.FindTrack(7U);
+  ASSERT_NE(track, nullptr);
+  // 后验速度仍由 KF 主导（≈10 m/s）；加速度基准为回填种子（≈10 m/s）→ 加速度≈0。
+  EXPECT_GT(track->velocity.x(), 5.0f);
+  EXPECT_LT(std::fabs(track->acceleration.x()), 3.0f);
+}
+
 }  // namespace
 }  // namespace tests
 }  // namespace remote_identification_radar

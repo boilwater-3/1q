@@ -72,6 +72,14 @@ class RirImmFilter {
                const RirMeasurementCovariance& dynamic_R);
 
   /**
+   * @brief 在线同步每模型过程噪声与转移矩阵（AR SyncRuntimeTuning 同口径）。
+   * @param config 新配置；`model_noise_diff_coeffs` 为空时按当前模型数取缺省系数。
+   * @return 同步成功返回 true；惰性状态或模型数变化（无法原位重调）返回 false。
+   * @note 各模型已演化的权重与状态保留；更新器走逐量测动态 R，无可同步参数。
+   */
+  bool UpdateRuntimeTuning(const Config& config);
+
+  /**
    * @brief 仅预测（失配周期）：混合 → 预测 → 组合。
    * @param dt_sec 时间步长（s），须为正。
    */

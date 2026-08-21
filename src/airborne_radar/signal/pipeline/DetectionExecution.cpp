@@ -63,7 +63,7 @@ float ComputeEquivalentRadiusM(float input_rcs_m2,
 
 float ComputeEffectiveTargetRcsM2(const session::ArSceneTarget& target,
                                   const detection::ResolvedTargetGeometry& geometry,
-                                  const ExecutionConfig& exec_config) {
+                                  const ExecutionConfig& exec_config, float carrier_hz) {
   const float input_rcs_m2 = std::max(target.rcs, 0.0f);
   const config::engineering::RcsPhysicsConfig& rcs_config =
       exec_config.detection.engineering.rcs_physics;
@@ -76,7 +76,11 @@ float ComputeEffectiveTargetRcsM2(const session::ArSceneTarget& target,
     return input_rcs_m2;
   }
 
-  const float frequency_hz = exec_config.detection.engineering.transmitter.frequency_hz;
+  // 与 RIR 同口径：k0 取本周期实际发射载频（频率捷变下物理 RCS 随跳频点波动）；
+  // carrier_hz 非正（v1 无冻结波形事实）时回退静态 transmitter.frequency_hz。
+  const float frequency_hz = carrier_hz > 0.0f
+                                 ? carrier_hz
+                                 : exec_config.detection.engineering.transmitter.frequency_hz;
   if (frequency_hz <= 0.0f) {
     return input_rcs_m2;
   }
@@ -269,8 +273,16 @@ bool RunPhysicalDetectionPass(const session::ArSceneTargetList& input,
     // 综合噪声底（门内归因判定输入）：RF v1 = 热噪声 + 杂波；RF v2 由检测单元给出
     // 热噪声/杂波/干扰分解。
     float noise_floor_w = thermal_noise_w + clutter_w;
+    // 与 RIR 同口径：物理 RCS 的 k0 取本周期实际发射载频（冻结波形的中心频率，
+    // 频率捷变时逐周期跳变）；v1 无冻结波形事实时回退静态 transmitter.frequency_hz。
+    const float rcs_carrier_hz =
+        rf_v2_detection_context != nullptr
+            ? static_cast<float>(
+                  rf_v2_detection_context->own_transmit_waveform.center_frequency_hz)
+            : 0.0f;
     const float effective_rcs_m2 =
-        ComputeEffectiveTargetRcsM2(input[i], (*buffers->target_geometry)[i], config);
+        ComputeEffectiveTargetRcsM2(input[i], (*buffers->target_geometry)[i], config,
+                                    rcs_carrier_hz);
     detection::TargetReturn target;
     target.rcs_m2 = effective_rcs_m2;
     target.range_m = (*buffers->target_geometry)[i].range_m;

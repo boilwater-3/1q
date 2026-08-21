@@ -160,6 +160,8 @@ class RirTrackLifecycle {
   /** @brief 取或建关联键对应的 IMM 运行态（以 initial_state 播种各模型分支）。 */
   RirImmFilter* GetOrCreateImmFilter(std::uint64_t association_key,
                                      const RirGaussianState& initial_state);
+  /** @brief 由当前 lifecycle 配置构建 IMM 包装配置（建轨与热调参同源）。 */
+  RirImmFilter::Config BuildImmFilterConfig() const;
 
   /** @brief 复用槽位业务字段清零；`generation` 保持单调不清零。 */
   static void ResetForReuse(RirTrackState& track);

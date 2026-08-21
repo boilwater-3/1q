@@ -5,22 +5,31 @@
 
 #include "remote_identification_radar/tracking/RirTrackFilter.h"
 
+#include <algorithm>
+
 namespace remote_identification_radar {
 namespace tracking {
 
 namespace {
 
+/** @brief 过程噪声差异系数下限（与 AR SignalComponentFactory 工厂钳制同口径）。 */
+constexpr float kMinimumNoiseDiffCoeff = 0.001f;
+/** @brief 量测噪声标准差下限（与 AR SignalComponentFactory 工厂钳制同口径）。 */
+constexpr float kMinimumMeasurementNoiseStd = 0.001f;
+
 ::oneq::common::estimation::KalmanPredictorConfig MakePredictorConfig(
     const RirTrackFilterConfig& config) {
   ::oneq::common::estimation::KalmanPredictorConfig common_config;
-  common_config.noise_diff_coeff = config.process_noise_diff_coeff;
+  // 越界配置以非法 q 运行会污染协方差传播：与 AR 同口径下限钳制。
+  common_config.noise_diff_coeff = std::max(config.process_noise_diff_coeff, kMinimumNoiseDiffCoeff);
   return common_config;
 }
 
 ::oneq::common::estimation::KalmanUpdaterConfig MakeUpdaterConfig(
     const RirTrackFilterConfig& config) {
   ::oneq::common::estimation::KalmanUpdaterConfig common_config;
-  common_config.measurement_noise_std = config.default_measurement_noise_std;
+  common_config.measurement_noise_std =
+      std::max(config.default_measurement_noise_std, kMinimumMeasurementNoiseStd);
   return common_config;
 }
 
