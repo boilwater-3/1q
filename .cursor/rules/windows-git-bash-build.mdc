@@ -1,0 +1,42 @@
+---
+description: Windows 本机 Git Bash 构建：PATH/UCRT/preset/陈旧产物清理
+alwaysApply: true
+---
+
+# Windows Git Bash 构建约定（v141 主线）
+
+本机 Windows 开发**必须在 Git Bash (MINGW)** 中构建，不要用裸 `cmake --build build/...`。
+Cursor 内置 WSL bash 不注入 UCRT，不能替代 Git Bash。
+
+## 会话初始化（每个 Git Bash 终端一次）
+
+```bash
+source scripts/activate_1q_git_bash.sh
+scripts/1q.sh doctor
+```
+
+持久化：`echo 'source "/d/1q/1q/scripts/activate_1q_git_bash.sh" 2>/dev/null' >> ~/.bashrc`
+本机 cmake 路径：`scripts/1q_env.local.sh`（`ONEQ_CMAKE_ROOT='D:/environment/CMake'`，已在 .gitignore）
+
+## 标准命令（一律走 preset / 1q.sh）
+
+```bash
+scripts/1q.sh bootstrap VisualStudio.15.0-amd64
+scripts/1q.sh configure VisualStudio.15.0-amd64
+scripts/1q.sh build VisualStudio.15.0-amd64-release --target <target>
+scripts/1q.sh test VisualStudio.15.0-amd64-release -R "unit::<module>" -j 4
+```
+
+禁止：`cmake --build build/VisualStudio.15.0-amd64 ...`（64 位 UCRT 注册表死路径 → C1083/LNK1104）。
+`scripts/bin/cmake` 包装器会拦截裸目录构建。
+
+## 陈旧增量产物（SEH 0xc0000005 / 与逻辑无关的 bad_alloc）
+
+public 头布局变更后若模块测试批量崩溃，先清模块再编：
+
+```bash
+scripts/1q.sh clean-stale VisualStudio.15.0-amd64 <module_slug>
+scripts/1q.sh build VisualStudio.15.0-amd64-release --target <tests>
+```
+
+权威细节见 `CLAUDE.md`「Windows command flow」。

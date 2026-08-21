@@ -78,12 +78,42 @@ cmake --install "build/${preset}"   # installs to build/install/<preset>: includ
 
 ### Windows command flow (v141 mainline; Git Bash throughout)
 
+**Git Bash session init** (once per new terminal, or persist in `~/.bashrc`):
+
 ```bash
-bash scripts/bootstrap_conan.sh VisualStudio.15.0-amd64            # Install deps: Debug+Release in one pass; the script injects UCRTContentRoot
-cmake --preset VisualStudio.15.0-amd64                             # Configure (the configure preset carries UCRTContentRoot)
-cmake --build --preset VisualStudio.15.0-amd64-release             # Build (the build preset sets --config and injects UCRTContentRoot; debug likewise)
+source scripts/activate_1q_git_bash.sh
+# One-time persistence (adjust repo path for this machine):
+#   cp scripts/1q_env.local.sh.example scripts/1q_env.local.sh   # set ONEQ_CMAKE_ROOT
+#   echo 'source "/d/1q/1q/scripts/activate_1q_git_bash.sh" 2>/dev/null' >> ~/.bashrc
+```
+
+`activate` adds `cmake`/`ctest` to PATH (including common roots such as `D:/environment/CMake`), injects `UCRTContentRoot`, and prepends `scripts/bin/cmake` so bare `build/VisualStudio.15.0-amd64` builds are blocked.
+
+**Preferred unified entry** (avoids repeating the same UCRT/PATH footguns across sessions):
+
+```bash
+scripts/1q.sh bootstrap VisualStudio.15.0-amd64
+scripts/1q.sh configure VisualStudio.15.0-amd64
+scripts/1q.sh build VisualStudio.15.0-amd64-release --target 1q_remote_identification_radar_unit_tests
+scripts/1q.sh test VisualStudio.15.0-amd64-release -R "unit::remote_identification_radar" -j 4
+scripts/1q.sh doctor   # check cmake / UCRT / PATH
+```
+
+Equivalent raw commands (only after `source activate`):
+
+```bash
+bash scripts/bootstrap_conan.sh VisualStudio.15.0-amd64
+cmake --preset VisualStudio.15.0-amd64
+cmake --build --preset VisualStudio.15.0-amd64-release
 ctest --preset VisualStudio.15.0-amd64-release -R "unit::<module>" --output-on-failure -j 4
-cmake --install build/VisualStudio.15.0-amd64 --config Release     # -> build/install/VisualStudio.15.0-amd64
+cmake --install build/VisualStudio.15.0-amd64 --config Release
+```
+
+**Stale incremental artifacts** (after public-header layout changes, if Debug/Release tests batch-fail with SEH `0xc0000005` / unrelated `bad_alloc`, clean the module then rebuild):
+
+```bash
+scripts/1q.sh clean-stale VisualStudio.15.0-amd64 remote_identification_radar
+scripts/1q.sh build VisualStudio.15.0-amd64-release --target 1q_remote_identification_radar_unit_tests
 ```
 
 The final library artifact lands at `build/VisualStudio.15.0-amd64/Release/lib/1q.lib`. **Builds must go through a build preset**: on this machine, the 64-bit registry value `KitsRoot10` under `HKLM\SOFTWARE\Microsoft\Windows Kits\Installed Roots` is written as the non-existent `C:\Program Files\Windows Kits\10\`, so v141's ucrt.props resolves UCRT from the registry into a dead path. A raw-directory build without the `UCRTContentRoot` environment variable (`cmake --build build/VisualStudio.15.0-amd64 ...`, reproduced 2026-08-19) fails compiling TUs with `corecrt.h` not found (C1083) and fails linking with LNK1104 (ucrtd.lib). The preset-injected environment variable makes ucrt.props prefer the env var over the registry. If you must build via the raw directory / IDE MSBuild, initialize the v141 environment first and let MSBuild consume environment paths (`/p:UseEnv=true`):

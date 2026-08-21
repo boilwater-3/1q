@@ -28,6 +28,10 @@
 #
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=lib/1q_env.sh
+source "${SCRIPT_DIR}/lib/1q_env.sh"
+
 # --- 参数校验 ---
 if [[ $# -ne 1 ]]; then
     echo "用法: $0 <preset>" >&2
@@ -111,14 +115,12 @@ case "${PRESET}" in
         # 的 KitsRoot10 被写成不存在的 C:\Program Files\Windows Kits\10\（32 位 WOW64 项
         # 才是正确的 (x86) 路径）。v141 的 ucrt.props 从该注册表读 UCRTContentRoot，64 位
         # MSBuild 拼出死库路径导致 LNK1104(ucrtd.lib)。ucrt.props 优先采用环境变量
-        # UCRTContentRoot，因此配置/构建/conan 源码构建（gtest 等 --build=missing）都须
-        # 注入该变量；CMakePresets.json 的 configure/build preset 已带 environment。
+        # UCRTContentRoot 由 scripts/lib/1q_env.sh 注入（Git Bash / bootstrap / activate）。
         BINARY_DIR="${SOURCE_DIR}/build/VisualStudio.15.0-amd64"
         BUILD_TYPE=""            # 多配置生成器，不固定 build_type
         ENABLE_TESTING="True"
         GENERATOR="Visual Studio 18 2026"
         CPPSTD=17
-        export UCRTContentRoot='C:\Program Files (x86)\Windows Kits\10\'
         ;;
     *)
         echo "错误: 不支持的 preset '${PRESET}'" >&2
