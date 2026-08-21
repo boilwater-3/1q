@@ -1,21 +1,13 @@
-﻿// @file ArSessionConfigBuilder.cpp
-// @brief Implementation of ArSessionConfigBuilder (thin wrapper).
-
-#include "1q/airborne_radar/config/ArSessionConfigBuilder.h"
+﻿// @file ArSessionConfigValidation.cpp
+// @brief Session-config validation for airborne radar.
 
 #include "1q/airborne_radar/config/ArSessionConfigValidation.h"
+
 #include "1q/airborne_radar/session/ArIssueCodes.h"
 #include "common/validation/ValidationUtils.h"
 
 namespace airborne_radar {
 namespace config {
-
-ArSessionConfigBuilder::ArSessionConfigBuilder() = default;
-
-ArSessionConfigBuilder::ArSessionConfigBuilder(const config::ArSessionConfig& config)
-    : config_(config) {}
-
-config::ArSessionConfig ArSessionConfigBuilder::Build() const { return config_; }
 
 session::ArIssueList ValidateArSessionConfig(const config::ArSessionConfig& config) noexcept {
   session::ArIssueList issues;

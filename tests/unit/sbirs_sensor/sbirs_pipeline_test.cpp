@@ -5,7 +5,6 @@
 #include <map>
 #include <string>
 
-#include "1q/sbirs_sensor/config/SbirsSessionConfigBuilder.h"
 #include "1q/sbirs_sensor/session/SbirsCycleInputAdapter.h"
 #include "1q/sbirs_sensor/session/SbirsIssueCodes.h"
 #include "sbirs_sensor/environment/SbirsEnvironmentModel.h"

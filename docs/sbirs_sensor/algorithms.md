@@ -1,6 +1,6 @@
 ---
 Status: active
-Last-reviewed: 2026-08-20
+Last-reviewed: 2026-08-21
 Authority: sbirs_sensor 算法登记与实现边界
 Answers: SBIRS 用了哪些算法、各自实现到什么地步、边界在哪、哪些刻意不实现
 ---
@@ -30,8 +30,8 @@ Answers: SBIRS 用了哪些算法、各自实现到什么地步、边界在哪�
 | 气象衰减 | 查表+加权叠加得透过率衰减因子 | 生产可用 | [evidence: tests/unit/sbirs_sensor/sbirs_environment_model_test] |
 | 误差模型 | 5 类误差（轨道/姿态/视场高斯 + 折射/滞后确定性；滞后随相对视线角速度 v_t−v_sat） | 生产可用 | [evidence: tests/unit/sbirs_sensor/sbirs_error_model_test] |
 | 时间相关指向扰动 | 整星共模 + 逐通道 GM + 振动的 Gauss-Markov | 生产可用 | [evidence: tests/unit/sbirs_sensor/sbirs_pointing_disturbance_test] |
-| 安装指向与稳定链 | 卫星姿态(Body→ECI)∘安装角(Body→Sensor)∘扫描指向合成实际光轴；体/惯性双稳定；传感器系限位 | 生产可用（阶段 2，2026-08-17） | [evidence: tests/unit/sbirs_sensor/sbirs_boresight_chain_test] |
-| 安装失准误差模型 | 安装失准（常值偏置 + 运行期一次随机抽取的常值微扰）合成进 boresight 链影响实际光轴与门控；与量测域误差及时变扰动谱正交 | 生产可用（阶段 3，2026-08-17） | [evidence: tests/unit/sbirs_sensor/sbirs_boresight_chain_test]、[evidence: tests/unit/sbirs_sensor/sbirs_pipeline_test] |
+| 安装指向与稳定链 | 卫星姿态(Body→ECI)∘安装角(Body→Sensor)∘扫描指向合成实际光轴；体/惯性双稳定；传感器系限位；纯几何引擎在公共域 `src/common/geometry/BoresightChain` | 生产可用（阶段 2，2026-08-17） | [evidence: tests/unit/sbirs_sensor/sbirs_boresight_chain_test]、[evidence: tests/unit/common/common_boresight_chain_test] |
+| 安装失准误差模型 | 安装失准（常值偏置 + 运行期一次随机抽取的常值微扰）合成进 boresight 链影响实际光轴与门控；与量测域误差及时变扰动谱正交 | 生产可用（阶段 3，2026-08-17） | [evidence: tests/unit/sbirs_sensor/sbirs_boresight_chain_test]、[evidence: tests/unit/common/common_boresight_chain_test]、[evidence: tests/unit/sbirs_sensor/sbirs_pipeline_test] |
 | 2-D 俯仰栅格扫描 | 俯仰栅格（el 起止+步进角）与方位环扫正交组合；锯齿单向推进、行内相位与既有一致、行末回绕；输出行中心 ECI 俯仰 | 生产可用（阶段 4，2026-08-17） | [evidence: tests/unit/sbirs_sensor/sbirs_pipeline_test] |
 | ECEF→ECI 旋转（GMST） | 周期入口按 UTC 儒略日算 GMST，把卫星/目标位置与卫星/目标速度（含 ω×r 输运项）旋到 ECI | 生产可用（共享域 1q/coordinate/inertial_transform.h，仅 SBIRS 消费） | [evidence: tests/unit/sbirs_sensor/sbirs_eci_transform_test] |
 | WFOV 地面覆盖区投影 | 实际扫描中心 ±半视场四角经指向链到 ECI，与地球圆球交会（最近正根），交点旋回 ECEF 取地心经纬度；指向太空的角记 miss | 生产可用（仅验收日志消费，2026-08-18） | [evidence: tests/unit/sbirs_sensor/sbirs_foundation_test] |
@@ -45,9 +45,11 @@ Answers: SBIRS 用了哪些算法、各自实现到什么地步、边界在哪�
   影响内部光轴，消费方兼容）。
 - **实现边界**：
   1. 组合关系：`actual_boresight = attitude(Body→ECI) ∘ mount(Body→Sensor) ∘ scan(传感器系)`；
-     旋转矩阵由公共库 `oneq::coordinate::{BuildRotationMatrix, Compose, Inverse}` 合成
-     （Z-Y-X 欧拉，正 pitch = 正仰角），传感器系 az/el 与 ECI 采用同一
-     `(cos(el)cos(az), cos(el)sin(az), sin(el))` 约定。
+     纯几何引擎为公共域 `oneq::common::geometry::BoresightChain`（`src/common/geometry/`，
+     参考系无关），内部由公共库 `oneq::coordinate::{BuildRotationMatrix, Compose, Inverse}`
+     合成旋转矩阵（Z-Y-X 欧拉，正 pitch = 正仰角），传感器系 az/el 与 ECI 采用同一
+     `(cos(el)cos(az), cos(el)sin(az), sin(el))` 约定；`SbirsBoresightChain` 是
+     SBIRS 会话类型与引擎向量类型之间的薄适配层（两侧均为 double，无精度转换）。
   2. 姿态为周期输入（Body→ECI，必填，零欧拉合法 = 体轴对齐 ECI）；安装角为初始化静态配置
      （`SbirsOrientationConfig::mount_angles_deg`），不进 RuntimeConfigPatch。
   3. 稳定方式两种：`kBodyStabilized`（默认）——扫描参数（`scan_start_az/span/el`）为传感器系
@@ -65,9 +67,16 @@ Answers: SBIRS 用了哪些算法、各自实现到什么地步、边界在哪�
 - **反直觉点（参考系分化）**：门控在传感器系、输出在 ECI——非零姿态下目标 ECI az/el 与传感器系
   az/el 不同，但 raw output 仍报 ECI 参考（客户契约）；"探测与否"由传感器系几何决定，"报哪里"
   由 ECI 惯性参考决定。
-- **COMMON 收敛决策**：本链复用公共姿态原语（`oneq::coordinate`），未为 SBIRS 引入 Eigen 内核；
-  惯性稳定反解仅 3 行矩阵运算，暂不抽 `src/common/` 内核——待第三模块需要同语义时再按
-  `src/common/radar/ScanScheduleRuntime.h` 先例收敛（决策登记，避免过早抽象）。
+- **COMMON 收敛决策（已执行，2026-08-20）**：安装矩阵链的需求面经现实仿真评估扩大
+  （AR/SBIRS 已有同语义链、ESR 现为角度加法近似、EOS 无安装配置），触发原"待第三模块
+  需要同语义时收敛"的登记条件——纯几何引擎按 `src/common/radar/ScanScheduleRuntime.h`
+  先例提取为 `src/common/geometry/BoresightChain`（参考系无关，公共单测
+  `tests/unit/common/common_boresight_chain_test.cpp` 守护）；SBIRS 侧保留薄适配层
+  （会话类型转换 + 传感器系限位钳制），行为与提取前一致（identity 链逐位不变）。
+  2026-08-21 ESR/EOS 接入完成：ESR 前端经 `EsrBoresightChain`（安装偏置取反入链——其语义为
+  光轴体方位/俯仰正偏置，与公共链 Body->Sensor 坐标旋转方向相反；角度加法近似升级为旋转合成），
+  EOS 经 `EosLookAngles` 委托（仅姿态链）；两模块沿用薄适配模式，稳定方式策略仍在各模块
+  （ESR/EOS 当前无稳定方式配置）。
 - **证据**：[evidence: tests/unit/sbirs_sensor/sbirs_boresight_chain_test]
 - **证据**：[evidence: tests/unit/sbirs_sensor/sbirs_pipeline_test]
 
@@ -79,8 +88,9 @@ Answers: SBIRS 用了哪些算法、各自实现到什么地步、边界在哪�
 - **实现边界**：
   1. 组合关系扩展：`actual_boresight = attitude(Body→ECI) ∘ mount(Body→Sensor)
      ∘ misalignment⁻¹ ∘ scan(传感器系)`——失准作用于传感器系内，等效安装偏置微扰
-     （与 mount 同语义不同来源）；旋转矩阵合成复用 `oneq::coordinate`，链保持纯几何
-     （`SbirsBoresightChain` 无随机源/时间演化状态，失准总量由 pipeline 抽好传入）。
+     （与 mount 同语义不同来源）；旋转矩阵合成在公共域引擎
+     （`oneq::common::geometry::BoresightChain`）内复用 `oneq::coordinate`，链保持纯几何
+     （SBIRS 适配层与引擎均无随机源/时间演化状态，失准总量由 pipeline 抽好传入）。
   2. 配置域：`SbirsOrientationConfig::misalignment`（`SbirsMisalignmentModel`，静态
      会话配置，不进 RuntimeConfigPatch）——常值偏置 `bias_deg`（Z-Y-X，deg）+
      随机微扰 1-σ `random_sigma_deg` + 独立种子 `random_seed`；默认全零 = 既有行为

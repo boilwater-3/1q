@@ -13,7 +13,6 @@
 #include "1q/airborne_radar/config/ArHardwareConfig.h"
 #include "1q/airborne_radar/config/ArProfileConstants.h"
 #include "1q/airborne_radar/config/ArSessionConfig.h"
-#include "1q/airborne_radar/config/ArSessionConfigBuilder.h"
 #include "1q/airborne_radar/session/ArControlProfile.h"
 #include "1q/airborne_radar/session/ArSceneTypes.h"
 #include "airborne_radar/config/InternalExecutionConfig.h"

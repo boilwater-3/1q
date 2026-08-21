@@ -3,13 +3,14 @@
 #include <string>
 
 #include "1q/airborne_radar/config/ArProfileConstants.h"
-#include "1q/airborne_radar/config/ArRuntimeConfigBuilder.h"
-#include "1q/airborne_radar/config/ArSessionConfigBuilder.h"
+#include "1q/airborne_radar/config/ArRuntimeConfigPatch.h"
+#include "1q/airborne_radar/config/ArSessionConfig.h"
 #include "1q/airborne_radar/session/ArExclusionCauseRecorder.h"
 #include "1q/airborne_radar/session/ArSession.h"
 #include "airborne_radar/session/ArReplayCycleRecord.h"
 
 #include "1q/coordinate/position_transform.h"
+#include "1q/coordinate/scene_transform.h"
 
 namespace airborne_radar {
 namespace session {
@@ -35,12 +36,24 @@ ArCycleInput MakeInput(std::uint32_t cycle, double start_time_s) {
   platform_lla.altitude_m = 1000.0;
   EXPECT_TRUE(oneq::coordinate::TryLlaToEcef(
       platform_lla, &input.platform.platform_position_ecef_m));
+  // 世界 ECEF → 平台锚点 ENU（公共一站式入口）。
+  oneq::coordinate::LlaPositionDegM anchor_lla;
+  EXPECT_TRUE(oneq::coordinate::TryEcefToLla(input.platform.platform_position_ecef_m, &anchor_lla));
+  oneq::coordinate::ExternalKinematics world_kinematics;
+  world_kinematics.position_frame = oneq::coordinate::PositionFrame::kEcef;
+  world_kinematics.position_ecef_m = input.platform.platform_position_ecef_m;
+  world_kinematics.position_ecef_m.x_m += 5000.0;
+  oneq::coordinate::EnuSceneState enu;
+  EXPECT_TRUE(oneq::coordinate::TryMakeEnuSceneState(world_kinematics, anchor_lla, &enu));
+
   ArTargetInput target;
   target.target_id = 77U;
-  target.kinematics.position_frame = oneq::coordinate::PositionFrame::kEcef;
-  target.kinematics.position_ecef_m =
-      input.platform.platform_position_ecef_m;
-  target.kinematics.position_ecef_m.x_m += 5000.0;
+  target.position_x = static_cast<float>(enu.position_enu_m.east_m);
+  target.position_y = static_cast<float>(enu.position_enu_m.north_m);
+  target.position_z = static_cast<float>(enu.position_enu_m.up_m);
+  target.velocity_x = static_cast<float>(enu.velocity_enu_mps.east_mps);
+  target.velocity_y = static_cast<float>(enu.velocity_enu_mps.north_mps);
+  target.velocity_z = static_cast<float>(enu.velocity_enu_mps.up_mps);
   target.rcs = 5.0f;
   input.targets.push_back(target);
   return input;
@@ -266,10 +279,9 @@ TEST(ArRfSessionTest, RuntimePointingPatchChangesNextActualBoresight) {
 
   config::AzimuthElevationDeg scan_center;
   scan_center.az_deg = 20.0f;
-  const config::ArRuntimeConfigPatch patch =
-      config::ArRuntimeConfigBuilder()
-          .WithScanCenterDeg(scan_center)
-          .Build();
+  config::ArRuntimeConfigPatch patch;
+  patch.has_scan_center_deg = true;
+  patch.scan_center_deg = scan_center;
   ASSERT_TRUE(radar.TryApplyRuntimeConfig(patch));
 
   const ArCycleResult second = radar.StepWithResult(MakeInput(2U, 0.5));
@@ -285,13 +297,17 @@ TEST(ArRfSessionTest, RuntimePointingPatchChangesNextActualBoresight) {
 
 TEST(ArRfSessionTest, PoweredOffCycleDoesNotConsumeEmissionIdentity) {
   ArSession radar = ArSession::Create();
-  ASSERT_TRUE(radar.TryApplyRuntimeConfig(
-      config::ArRuntimeConfigBuilder().WithSensorEnabled(false).Build()));
+  config::ArRuntimeConfigPatch power_off;
+  power_off.has_sensor_enabled = true;
+  power_off.sensor_enabled = false;
+  ASSERT_TRUE(radar.TryApplyRuntimeConfig(power_off));
   EXPECT_EQ(radar.StepWithResult(MakeInput(1U, 0.0)).status,
             ArCycleStatus::kPoweredOff);
 
-  ASSERT_TRUE(radar.TryApplyRuntimeConfig(
-      config::ArRuntimeConfigBuilder().WithSensorEnabled(true).Build()));
+  config::ArRuntimeConfigPatch power_on;
+  power_on.has_sensor_enabled = true;
+  power_on.sensor_enabled = true;
+  ASSERT_TRUE(radar.TryApplyRuntimeConfig(power_on));
   const ArCycleResult on = radar.StepWithResult(MakeInput(2U, 0.5));
   ASSERT_EQ(on.status, ArCycleStatus::kCompleted);
   ASSERT_EQ(on.emission_frame.emissions.size(), 1U);

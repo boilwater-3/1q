@@ -11,10 +11,8 @@
 #include "1q/sbirs_sensor/config/SbirsMissionConfig.h"
 #include "1q/sbirs_sensor/config/SbirsOrientationConfig.h"
 #include "1q/sbirs_sensor/config/SbirsPolicyConfig.h"
-#include "1q/sbirs_sensor/config/SbirsRuntimeConfigBuilder.h"
 #include "1q/sbirs_sensor/config/SbirsRuntimeConfigPatch.h"
 #include "1q/sbirs_sensor/config/SbirsSessionConfig.h"
-#include "1q/sbirs_sensor/config/SbirsSessionConfigBuilder.h"
 #include "1q/sbirs_sensor/config/SbirsSessionConfigValidation.h"
 
 #endif  // ONEQ_SBIRS_SENSOR_CONFIG_SBIRS_SENSOR_CONFIG_HPP_

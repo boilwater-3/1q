@@ -8,7 +8,7 @@
 #include <cmath>
 #include <limits>
 
-#include "1q/airborne_radar/config/ArRuntimeConfigBuilder.h"
+#include "1q/airborne_radar/config/ArRuntimeConfigPatch.h"
 #include "1q/airborne_radar/config/ArSessionConfig.h"
 #include "airborne_radar/config/mapping/RuntimePatchMapper.h"
 #include "airborne_radar/config/mapping/SessionToExecutionMapper.h"
@@ -94,8 +94,9 @@ TEST(ArRuntimePatchMapperTest, DwellPatchContributesToPipelinePointing) {
   config::AzimuthElevationDeg dwell_center;
   dwell_center.az_deg = 3.0f;
   dwell_center.el_deg = -1.0f;
-  const ArRuntimeConfigPatch patch =
-      ArRuntimeConfigBuilder().WithDwellCenterDeg(dwell_center).Build();
+  ArRuntimeConfigPatch patch;
+  patch.has_dwell_center_deg = true;
+  patch.dwell_center_deg = dwell_center;
 
   const RuntimeConfigResolveResult resolved = ApplyRuntimePatch(current_state, patch);
   const config::ArSessionConfig pipeline_config =
@@ -218,10 +219,10 @@ TEST(ArRuntimePatchMapperTest, EnvironmentPatchUpdatesNaturalModel) {
   RuntimeConfigState current_state;
   current_state.environment_scenario_config.atmospheric_physics.enable_physical_model = false;
 
-  ArRuntimeConfigPatch patch =
-      ArRuntimeConfigBuilder()
-          .WithEnvironmentScenarioConfig(config::EnvironmentScenarioConfig{})
-          .Build();
+  ArRuntimeConfigPatch patch;
+  patch.has_environment = true;
+  patch.environment.has_scenario_config = true;
+  patch.environment.scenario_config = config::EnvironmentScenarioConfig{};
   patch.environment.scenario_config.atmospheric_physics.enable_physical_model = true;
 
   const RuntimeConfigResolveResult resolved = ApplyRuntimePatch(current_state, patch);
@@ -238,10 +239,10 @@ TEST(ArRuntimePatchMapperTest, InvalidPatchIsRejectedAtomically) {
   current_state.execution_config.detection.orientation.scan_center_deg.az_deg = 1.0f;
   current_state.execution_config.detection.orientation.scan_center_deg.el_deg = 2.0f;
 
-  ArRuntimeConfigPatch patch =
-      ArRuntimeConfigBuilder()
-          .WithEnvironmentScenarioConfig(config::EnvironmentScenarioConfig{})
-          .Build();
+  ArRuntimeConfigPatch patch;
+  patch.has_environment = true;
+  patch.environment.has_scenario_config = true;
+  patch.environment.scenario_config = config::EnvironmentScenarioConfig{};
   patch.has_scan_center_deg = true;
   patch.scan_center_deg.az_deg = std::numeric_limits<float>::quiet_NaN();
   patch.scan_center_deg.el_deg = 0.0f;

@@ -1,15 +1,15 @@
 ﻿// Copyright 2026. All Rights Reserved.
 //
 // @file radar_session_config_builder_test.cpp
-// @brief 验证 ArSessionConfigBuilder 薄封装与 ArProfileConstants 常量赋值路径。
+// @brief 验证 ArProfileConstants 常量赋值路径与运行期补丁直接赋值。
 
 #include <gtest/gtest.h>
 
 #include <limits>
 
 #include "1q/airborne_radar/config/ArProfileConstants.h"
-#include "1q/airborne_radar/config/ArRuntimeConfigBuilder.h"
-#include "1q/airborne_radar/config/ArSessionConfigBuilder.h"
+#include "1q/airborne_radar/config/ArRuntimeConfigPatch.h"
+#include "1q/airborne_radar/config/ArSessionConfig.h"
 #include "1q/airborne_radar/config/ArSessionConfigValidation.h"
 #include "1q/airborne_radar/session/ArSession.h"
 
@@ -29,8 +29,7 @@ config::ArSessionConfig MakeDetectionFocusedConfig() {
 }  // namespace
 
 TEST(RadarSessionConfigBuilderTest, DefaultConstructionPreservesSemanticDefaults) {
-  // 薄封装 Build() 直接返回结构体默认值（= 语义默认）。
-  const auto config = config::ArSessionConfigBuilder().Build();
+  const config::ArSessionConfig config;
 
   EXPECT_FLOAT_EQ(config.policy.detection.minimum_detection_margin_db, -2.0f);
   EXPECT_EQ(config.policy.detection.pulse_count, 10);
@@ -40,9 +39,8 @@ TEST(RadarSessionConfigBuilderTest, DefaultConstructionPreservesSemanticDefaults
   EXPECT_FALSE(config.policy.lifecycle.enable_imm_lifecycle);
 }
 
-TEST(RadarSessionConfigBuilderTest, ExistingBuilderBasePreservesValues) {
-  // 薄封装按值保留基线配置，不做任何翻译或覆写。
-  const auto config = config::ArSessionConfigBuilder(MakeDetectionFocusedConfig()).Build();
+TEST(RadarSessionConfigBuilderTest, DetectionFocusedConfigPreservesValues) {
+  const auto config = MakeDetectionFocusedConfig();
 
   EXPECT_EQ(config.policy.detection.pulse_count, 16);
   EXPECT_FLOAT_EQ(config.policy.detection.minimum_snr_db, -12.0f);
@@ -50,7 +48,7 @@ TEST(RadarSessionConfigBuilderTest, ExistingBuilderBasePreservesValues) {
   EXPECT_EQ(config.policy.lifecycle.confirm_hits, 1U);
 }
 
-TEST(RadarSessionConfigBuilderTest, ExistingDetailedConfigIsPreserved) {
+TEST(RadarSessionConfigBuilderTest, DirectFieldAssignmentPreservesDetailedConfig) {
   config::ArSessionConfig base_config{};
   base_config.hardware.transmitter.peak_power_w = 7.5e6f;
   base_config.hardware.transmitter.frequency_hz = 9.7e9f;
@@ -59,15 +57,12 @@ TEST(RadarSessionConfigBuilderTest, ExistingDetailedConfigIsPreserved) {
   base_config.policy.lifecycle.enable_imm_lifecycle = true;
   base_config.policy.lifecycle.confirm_hits = 2U;
 
-  const config::ArSessionConfig rebuilt =
-      config::ArSessionConfigBuilder(base_config).Build();
-
-  EXPECT_FLOAT_EQ(rebuilt.hardware.transmitter.peak_power_w, 7.5e6f);
-  EXPECT_FLOAT_EQ(rebuilt.hardware.transmitter.frequency_hz, 9.7e9f);
-  EXPECT_TRUE(rebuilt.policy.tracking.enable_kalman_filter);
-  EXPECT_FLOAT_EQ(rebuilt.policy.tracking.kalman_measurement_noise_std, 4.5f);
-  EXPECT_TRUE(rebuilt.policy.lifecycle.enable_imm_lifecycle);
-  EXPECT_EQ(rebuilt.policy.lifecycle.confirm_hits, 2U);
+  EXPECT_FLOAT_EQ(base_config.hardware.transmitter.peak_power_w, 7.5e6f);
+  EXPECT_FLOAT_EQ(base_config.hardware.transmitter.frequency_hz, 9.7e9f);
+  EXPECT_TRUE(base_config.policy.tracking.enable_kalman_filter);
+  EXPECT_FLOAT_EQ(base_config.policy.tracking.kalman_measurement_noise_std, 4.5f);
+  EXPECT_TRUE(base_config.policy.lifecycle.enable_imm_lifecycle);
+  EXPECT_EQ(base_config.policy.lifecycle.confirm_hits, 2U);
 }
 
 TEST(RadarSessionConfigBuilderTest, ProfileConstantsAssignToConfig) {
@@ -99,14 +94,26 @@ TEST(RadarSessionConfigBuilderTest, TrackingAndLifecycleConstantsAssignToConfig)
 }
 
 TEST(RadarSessionConfigBuilderTest, BuiltConfigCanConstructRadarSession) {
-  const auto config =
-      config::ArSessionConfigBuilder(MakeDetectionFocusedConfig()).Build();
+  const auto config = MakeDetectionFocusedConfig();
   session::ArSession session = session::ArSession::Create(config);
   EXPECT_TRUE(session.HasLatestControlProfile() == false ||
               session.HasLatestControlProfile() == true);
 }
 
-TEST(RadarSessionConfigBuilderTest, RuntimeConfigBuilderBuildsPatchFlagsAndValues) {
+TEST(RadarSessionConfigBuilderTest, DefaultConstructedPatchLeavesAllFlagsUnset) {
+  const config::ArRuntimeConfigPatch patch;
+  EXPECT_FALSE(patch.has_mission);
+  EXPECT_FALSE(patch.has_policy);
+  EXPECT_FALSE(patch.has_environment);
+  EXPECT_FALSE(patch.has_work_mode);
+  EXPECT_FALSE(patch.has_scan_center_deg);
+  EXPECT_FALSE(patch.has_dwell_center_deg);
+  EXPECT_FALSE(patch.has_commanded_beamwidth_deg);
+  EXPECT_FALSE(patch.has_commanded_beamwidth_enabled);
+  EXPECT_FALSE(patch.has_sensor_enabled);
+}
+
+TEST(RadarSessionConfigBuilderTest, RuntimeConfigPatchSetsAllFields) {
   config::AzimuthElevationDeg scan_center;
   scan_center.az_deg = 12.0f;
   scan_center.el_deg = -3.0f;
@@ -119,15 +126,20 @@ TEST(RadarSessionConfigBuilderTest, RuntimeConfigBuilderBuildsPatchFlagsAndValue
   commanded_beamwidth.commanded_az_beamwidth_deg = 2.5f;
   commanded_beamwidth.commanded_el_beamwidth_deg = 2.0f;
 
-  const config::ArRuntimeConfigPatch patch =
-      config::ArRuntimeConfigBuilder()
-          .WithWorkMode(config::ArWorkMode::kStt)
-          .WithScanCenterDeg(scan_center)
-          .WithDwellCenterDeg(dwell_center)
-          .WithCommandedBeamwidthDeg(commanded_beamwidth)
-          .WithCommandedBeamwidthEnabled(true)
-          .WithEnvironmentScenarioConfig(config::EnvironmentScenarioConfig{})
-          .Build();
+  config::ArRuntimeConfigPatch patch;
+  patch.has_work_mode = true;
+  patch.work_mode = config::ArWorkMode::kStt;
+  patch.has_scan_center_deg = true;
+  patch.scan_center_deg = scan_center;
+  patch.has_dwell_center_deg = true;
+  patch.dwell_center_deg = dwell_center;
+  patch.has_commanded_beamwidth_deg = true;
+  patch.commanded_beamwidth_deg = commanded_beamwidth;
+  patch.has_commanded_beamwidth_enabled = true;
+  patch.commanded_beamwidth_enabled = true;
+  patch.has_environment = true;
+  patch.environment.has_scenario_config = true;
+  patch.environment.scenario_config = config::EnvironmentScenarioConfig{};
 
   EXPECT_TRUE(patch.has_work_mode);
   EXPECT_EQ(patch.work_mode, config::ArWorkMode::kStt);
@@ -146,39 +158,17 @@ TEST(RadarSessionConfigBuilderTest, RuntimeConfigBuilderBuildsPatchFlagsAndValue
   EXPECT_TRUE(patch.environment.has_scenario_config);
 }
 
-// P3-b：四域 RuntimeConfigBuilder 形状对齐——必须提供 WithRuntimeConfigPatch 整块覆盖入口，
-// 与 EOS/ESR/SAR 一致。本测试锁定 AR 侧的语义：整块覆盖优先于链上逐字段设置。
-TEST(RadarSessionConfigBuilderTest, WithRuntimeConfigPatchOverridesWholePatch) {
-  // 先用链式逐字段构造一份补丁
-  const config::ArRuntimeConfigPatch seed = config::ArRuntimeConfigBuilder()
-                                                .WithWorkMode(config::ArWorkMode::kStt)
-                                                .WithSensorEnabled(true)
-                                                .Build();
-  ASSERT_TRUE(seed.has_work_mode);
-  ASSERT_TRUE(seed.has_sensor_enabled);
-
-  // 再用 WithRuntimeConfigPatch 整块覆盖到一个新 builder，验证整块替换语义
-  config::ArRuntimeConfigPatch whole;
-  whole.has_work_mode = true;
-  whole.work_mode = config::ArWorkMode::kTas;
-  const config::ArRuntimeConfigPatch patch =
-      config::ArRuntimeConfigBuilder().WithRuntimeConfigPatch(whole).Build();
-
-  EXPECT_TRUE(patch.has_work_mode);
-  EXPECT_EQ(patch.work_mode, config::ArWorkMode::kTas);
-  // 整块覆盖应清空 seed 里的 sensor_enabled（WithRuntimeConfigPatch 是替换不是合并）
-  EXPECT_FALSE(patch.has_sensor_enabled);
-}
-
 TEST(RadarSessionConfigBuilderTest, RuntimePatchCanBeAppliedWithoutReconstructingSession) {
   session::ArSession session = session::ArSession::Create(MakeDetectionFocusedConfig());
 
-  const config::ArRuntimeConfigPatch patch =
-      config::ArRuntimeConfigBuilder()
-          .WithWorkMode(config::ArWorkMode::kTas)
-          .WithCommandedBeamwidthEnabled(true)
-          .WithEnvironmentScenarioConfig(config::EnvironmentScenarioConfig{})
-          .Build();
+  config::ArRuntimeConfigPatch patch;
+  patch.has_work_mode = true;
+  patch.work_mode = config::ArWorkMode::kTas;
+  patch.has_commanded_beamwidth_enabled = true;
+  patch.commanded_beamwidth_enabled = true;
+  patch.has_environment = true;
+  patch.environment.has_scenario_config = true;
+  patch.environment.scenario_config = config::EnvironmentScenarioConfig{};
 
   ASSERT_TRUE(session.TryApplyRuntimeConfig(patch));
 

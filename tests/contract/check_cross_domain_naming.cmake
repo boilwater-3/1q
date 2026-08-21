@@ -14,17 +14,13 @@
 #   4) 四域 public 配置的最小 SNR 门限统一为 minimum_snr_db；旧的
 #      min_detect_snr_db / min_valid_snr_db / min_snr_db 均不得回流。内部 timing
 #      model 的动态门限不属于 public 配置命名契约。
-#   5) 四域 RuntimeConfigBuilder 的链式方法统一以 With* 动词开头，不得回归
-#      Set*/Enable* 旧动词（P3-b 统一）。仅约束 *RuntimeConfigBuilder.h 公共头，
-#      不影响 ArSessionConfigBuilder::MissionEditor 等其它建造者类。
-#   6) 四域 RuntimeConfigBuilder 必须提供 WithRuntimeConfigPatch 整块覆盖入口
-#      （P3-b 对齐，四域形状一致）。
-#   7) 四域（含 SBIRS）电源状态统一由 SessionConfig 顶层 sensor_enabled 承载
+#   5) （已删除）*RuntimeConfigBuilder / *SessionConfigBuilder 不再属于公开 API；
+#      配置直写 *SessionConfig，运行期直写 *RuntimeConfigPatch（含 has_*）。
+#   6) 四域（含 SBIRS）电源状态统一由 SessionConfig 顶层 sensor_enabled 承载
 #      （COMMON-OQ-4 字段提升，2026-07-31）；mission 域禁止 power_on，
-#      SBIRS runtime patch 必须用 has_sensor_enabled（对齐 AR/ESR/EOS），
-#      builder 必须用 WithSensorEnabled。旧名 power_on/WithPowerOn 不得回流。
-#   8) EOS 探测器面积必须保留显式单位后缀；SBIRS 禁止回流未消费的面积字段。
-#   9) SBIRS lifecycle/abort public 枚举不得回流没有生产传播路径的历史 reason。
+#      runtime patch 必须用 has_sensor_enabled（对齐 AR/ESR/EOS）。旧名 power_on 不得回流。
+#   7) EOS 探测器面积必须保留显式单位后缀；SBIRS 禁止回流未消费的面积字段。
+#   8) SBIRS lifecycle/abort public 枚举不得回流没有生产传播路径的历史 reason。
 #
 # 配套：跨域"形状契约"（Step/StepWithResult 返回类型）由编译期
 # foundation/SensorContract.h 的 static_assert 守护，本脚本不重复检查类型形状。
@@ -144,50 +140,11 @@ foreach(HEADER IN LISTS PUBLIC_CONFIG_HEADERS)
   endforeach()
 endforeach()
 
-# ---- 阻断 5：RuntimeConfigBuilder 链式方法统一 With* 动词 ----
-# 仅扫描四域 *RuntimeConfigBuilder.h 公共头，避免误伤 SessionConfigBuilder 等
-# 其它合法持有 Set*/Enable* 动词的建造者类（如 ArSessionConfigBuilder::MissionEditor）。
-set(RUNTIME_BUILDER_HEADERS
-    "${PUBLIC_INCLUDE_ROOT}/airborne_radar/config/ArRuntimeConfigBuilder.h"
-    "${PUBLIC_INCLUDE_ROOT}/electro_optical_sensor/config/EosRuntimeConfigBuilder.h"
-    "${PUBLIC_INCLUDE_ROOT}/electronic_surveillance_radar/config/EsrRuntimeConfigBuilder.h"
-    "${PUBLIC_INCLUDE_ROOT}/sar/config/SarRuntimeConfigBuilder.h")
-# 禁止的链式方法动词前缀：Set*/Enable*（已统一为 With*）。
-# 显式排除注释行与 Build()。Bare token 用正则词边界匹配声明形式
-# "& Set...(" / "& Enable...("。
-set(BANNED_VERBS_REGEX "(Builder&[ \t]+(Set|Enable)[A-Za-z0-9_]+[ \t]*\\()")
-
-# ---- 阻断 6：四域 RuntimeConfigBuilder 必须有 WithRuntimeConfigPatch ----
-foreach(HEADER IN LISTS RUNTIME_BUILDER_HEADERS)
-  oneq_read_source_lines(HEADER_LINES "${HEADER}")
-  set(_line_no 0)
-  set(_has_patch_entry FALSE)
-  foreach(LINE IN LISTS HEADER_LINES)
-    math(EXPR _line_no "${_line_no} + 1")
-    string(STRIP "${LINE}" _stripped)
-    # 跳过注释行
-    if(_stripped MATCHES "^(//|/\\*|\\*)")
-      continue()
-    endif()
-    # 阻断 5：禁止 Set*/Enable* 链式动词
-    if(LINE MATCHES "${BANNED_VERBS_REGEX}")
-      list(APPEND VIOLATIONS
-           "${HEADER}:${_line_no}: [P3-b 动词统一] RuntimeConfigBuilder 链式方法须用 With*，禁止 Set*/Enable*: ${LINE}")
-    endif()
-    # 阻断 6：必须有 WithRuntimeConfigPatch 声明
-    if(LINE MATCHES "WithRuntimeConfigPatch[ \t]*\\(")
-      set(_has_patch_entry TRUE)
-    endif()
-  endforeach()
-  if(NOT _has_patch_entry)
-    list(APPEND VIOLATIONS
-         "${HEADER}: [P3-b 整块入口] 缺少 WithRuntimeConfigPatch 声明，四域 RuntimeConfigBuilder 须提供整块覆盖入口")
-  endif()
-endforeach()
+# ---- 阻断 5/6：RuntimeConfigBuilder 已删除；相关 With* / WithRuntimeConfigPatch 守卫一并移除 ----
 
 # ---- 阻断 7：电源状态唯一权威 = SessionConfig::sensor_enabled（COMMON-OQ-4 字段提升） ----
 # 五域统一（AR/ESR/EOS/SBIRS/SAR）：mission 域禁止 power_on；SessionConfig 顶层必须提供
-# sensor_enabled；runtime patch 必须用 has_sensor_enabled；builder 必须用 WithSensorEnabled。
+# sensor_enabled；runtime patch 必须用 has_sensor_enabled。
 # 检查覆盖全部模块（含新模块 remote_identification_radar），避免单模块回归漏网。
 set(POWER_DOMAINS airborne_radar electronic_surveillance_radar electro_optical_sensor sbirs_sensor sar remote_identification_radar)
 foreach(DOMAIN IN LISTS POWER_DOMAINS)
@@ -195,8 +152,7 @@ foreach(DOMAIN IN LISTS POWER_DOMAINS)
   file(GLOB _mission_headers "${_mission_header}/*MissionConfig.h")
   file(GLOB _session_headers "${_mission_header}/*SessionConfig.h")
   file(GLOB _patch_headers "${_mission_header}/*RuntimeConfigPatch.h")
-  file(GLOB _builder_headers "${_mission_header}/*RuntimeConfigBuilder.h")
-  foreach(_h IN LISTS _mission_headers _session_headers _patch_headers _builder_headers)
+  foreach(_h IN LISTS _mission_headers _session_headers _patch_headers)
     file(READ "${_h}" _header_text)
     if(_h MATCHES "MissionConfig")
       string(FIND "${_header_text}" "power_on" _legacy_pos)
@@ -216,13 +172,6 @@ foreach(DOMAIN IN LISTS POWER_DOMAINS)
       if(_sensor_pos EQUAL -1 OR NOT _legacy_pos EQUAL -1)
         list(APPEND VIOLATIONS
              "${_h}: [电源命名] runtime patch 必须用 has_sensor_enabled，禁止 power_on 出现")
-      endif()
-    elseif(_h MATCHES "RuntimeConfigBuilder")
-      string(FIND "${_header_text}" "WithSensorEnabled" _sensor_pos)
-      string(FIND "${_header_text}" "WithPowerOn" _legacy_pos)
-      if(_sensor_pos EQUAL -1 OR NOT _legacy_pos EQUAL -1)
-        list(APPEND VIOLATIONS
-             "${_h}: [电源命名] RuntimeConfigBuilder 必须用 WithSensorEnabled，禁止 WithPowerOn")
       endif()
     endif()
   endforeach()

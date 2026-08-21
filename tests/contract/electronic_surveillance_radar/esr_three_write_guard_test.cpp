@@ -17,7 +17,7 @@
 
 #include <cstdint>
 
-#include "1q/electronic_surveillance_radar/config/EsrRuntimeConfigBuilder.h"
+#include "1q/electronic_surveillance_radar/config/EsrRuntimeConfigPatch.h"
 #include "1q/electronic_surveillance_radar/config/EsrSessionConfig.h"
 #include "1q/electronic_surveillance_radar/session/EsrCycleInput.h"
 #include "1q/electronic_surveillance_radar/session/EsrCycleResult.h"
@@ -97,8 +97,10 @@ TEST(EsrThreeWriteGuardTest, PoweredOffAbortWritesAllThree) {
   const session::EsrCycleResult active = session.StepWithResult(MakeValidInput());
   ASSERT_EQ(active.status, session::EsrCycleExecutionStatus::kCompleted);
 
-  (void)session.TryApplyRuntimeConfig(
-      config::EsrRuntimeConfigBuilder().WithSensorEnabled(false).Build());
+  config::EsrRuntimeConfigPatch power_off;
+  power_off.has_sensor_enabled = true;
+  power_off.sensor_enabled = false;
+  (void)session.TryApplyRuntimeConfig(power_off);
 
   // rf_emissions.world_cycle_index 必须与 cycle_index 一致（EsrInputValidation），
   // 故 powered-off 周期复用与 active 周期一致的输入构造。

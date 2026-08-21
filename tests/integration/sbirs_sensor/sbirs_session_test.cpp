@@ -11,7 +11,7 @@
 #include <cmath>
 #include <cstdint>
 
-#include "1q/sbirs_sensor/config/SbirsRuntimeConfigBuilder.h"
+#include "1q/sbirs_sensor/config/SbirsRuntimeConfigPatch.h"
 #include "1q/sbirs_sensor/config/SbirsSessionConfig.h"
 #include "1q/sbirs_sensor/session/SbirsCycleInputAdapter.h"
 #include "1q/sbirs_sensor/session/SbirsIssueCodes.h"
@@ -22,7 +22,6 @@
 namespace sbirs_sensor {
 namespace session {
 namespace {
-
 namespace output = ::sbirs_sensor::output;
 namespace attribution = ::sbirs_sensor::attribution;
 namespace sbirs_config = ::sbirs_sensor::config;
@@ -147,8 +146,13 @@ TEST(SbirsSessionIntegrationTest, TruthModesRetagInPlaceAndEstimatedTransitionRe
 
   config.policy.tracking.tracking_mode =
       config::SbirsTrackingMode::kSensorLikeTruthAssisted;
-  ASSERT_TRUE(session.TryApplyRuntimeConfig(
-      sbirs_config::SbirsRuntimeConfigBuilder().WithPolicy(config.policy).Build()));
+  {
+    config::SbirsRuntimeConfigPatch policy_patch;
+    policy_patch.has_policy = true;
+    policy_patch.policy = config.policy;
+    ASSERT_TRUE(session.TryApplyRuntimeConfig(policy_patch));
+
+  }
   const SbirsCycleResult sensor_like = session.StepWithResult(MakeBaseInput(2U));
   ASSERT_EQ(sensor_like.output_frame.detections.size(), 1U);
   EXPECT_EQ(sensor_like.output_frame.detections.front().observation_stage,
@@ -158,8 +162,13 @@ TEST(SbirsSessionIntegrationTest, TruthModesRetagInPlaceAndEstimatedTransitionRe
   EXPECT_NE(sensor_like.output_frame.detections.front().azimuth_rad, 0.0f);
 
   config.policy.tracking.tracking_mode = config::SbirsTrackingMode::kEstimated;
-  ASSERT_TRUE(session.TryApplyRuntimeConfig(
-      sbirs_config::SbirsRuntimeConfigBuilder().WithPolicy(config.policy).Build()));
+  {
+    config::SbirsRuntimeConfigPatch policy_patch;
+    policy_patch.has_policy = true;
+    policy_patch.policy = config.policy;
+    ASSERT_TRUE(session.TryApplyRuntimeConfig(policy_patch));
+
+  }
   const SbirsCycleResult estimated = session.StepWithResult(MakeBaseInput(3U));
   ASSERT_EQ(estimated.output_frame.detections.size(), 1U);
   EXPECT_EQ(estimated.output_frame.detections.front().observation_stage,
@@ -205,10 +214,9 @@ TEST(SbirsSessionIntegrationTest, RuntimeWorkModeSwitchTakesEffectImmediately) {
   SbirsSession session = SbirsSession::Create(MakeSessionConfig());
   const SbirsOutputFrame active_frame = session.Step(MakeBaseInput(1U));
   ASSERT_FALSE(active_frame.detections.empty());
-
-  const config::SbirsRuntimeConfigPatch patch = sbirs_config::SbirsRuntimeConfigBuilder()
-                                                    .WithWorkMode(config::SbirsWorkMode::kStandby)
-                                                    .Build();
+  config::SbirsRuntimeConfigPatch patch;
+  patch.has_work_mode = true;
+  patch.work_mode = config::SbirsWorkMode::kStandby;
   EXPECT_TRUE(session.TryApplyRuntimeConfig(patch));
 
   const SbirsOutputFrame standby_frame = session.Step(MakeBaseInput(2U));
@@ -218,9 +226,13 @@ TEST(SbirsSessionIntegrationTest, RuntimeWorkModeSwitchTakesEffectImmediately) {
 TEST(SbirsSessionIntegrationTest, WideSearchIsWfovOnlyAndRoundTripResumesScheduling) {
   SbirsSession session = SbirsSession::Create(MakeSessionConfig());
   ASSERT_FALSE(session.StepWithResult(MakeBaseInput(1U)).output_frame.detections.empty());
-  ASSERT_TRUE(session.TryApplyRuntimeConfig(sbirs_config::SbirsRuntimeConfigBuilder()
-                                                .WithWorkMode(config::SbirsWorkMode::kWideSearch)
-                                                .Build()));
+  {
+    config::SbirsRuntimeConfigPatch wide_patch;
+    wide_patch.has_work_mode = true;
+    wide_patch.work_mode = config::SbirsWorkMode::kWideSearch;
+    ASSERT_TRUE(session.TryApplyRuntimeConfig(wide_patch));
+
+  }
 
   const SbirsCycleResult wide = session.StepWithResult(MakeBaseInput(2U));
   ASSERT_EQ(wide.output_frame.detections.size(), 1U);
@@ -229,10 +241,14 @@ TEST(SbirsSessionIntegrationTest, WideSearchIsWfovOnlyAndRoundTripResumesSchedul
   ASSERT_EQ(wide.detection_attributions.size(), 1U);
   EXPECT_EQ(wide.detection_attributions.front().nfov_channel_id, -1);
 
-  ASSERT_TRUE(
-      session.TryApplyRuntimeConfig(sbirs_config::SbirsRuntimeConfigBuilder()
-                                        .WithWorkMode(config::SbirsWorkMode::kSearchAndStare)
-                                        .Build()));
+  {
+    config::SbirsRuntimeConfigPatch stare_patch;
+    stare_patch.has_work_mode = true;
+    stare_patch.work_mode = config::SbirsWorkMode::kSearchAndStare;
+    ASSERT_TRUE(session.TryApplyRuntimeConfig(stare_patch));
+
+
+  }
   const SbirsCycleResult resumed = session.StepWithResult(MakeBaseInput(3U));
   ASSERT_EQ(resumed.output_frame.detections.size(), 1U);
   EXPECT_EQ(resumed.output_frame.detections.front().observation_stage,
@@ -253,14 +269,24 @@ TEST(SbirsSessionIntegrationTest, RuntimeScanSectorKeepsPointingInsideAndResetsO
   config.mission.scan_start_az_deg = 340.0f;
   config.mission.scan_span_deg = 30.0f;
   config.mission.scan_rate_deg_per_sec = 0.0f;
-  ASSERT_TRUE(session.TryApplyRuntimeConfig(
-      sbirs_config::SbirsRuntimeConfigBuilder().WithMission(config.mission).Build()));
+  {
+    config::SbirsRuntimeConfigPatch mission_patch;
+    mission_patch.has_mission = true;
+    mission_patch.mission = config.mission;
+    ASSERT_TRUE(session.TryApplyRuntimeConfig(mission_patch));
+
+  }
   EXPECT_FLOAT_EQ(session.Step(MakeBaseInput(2U)).scan_azimuth_rad, 6.1959188f);
 
   config.mission.scan_start_az_deg = 30.0f;
   config.mission.scan_span_deg = 20.0f;
-  ASSERT_TRUE(session.TryApplyRuntimeConfig(
-      sbirs_config::SbirsRuntimeConfigBuilder().WithMission(config.mission).Build()));
+  {
+    config::SbirsRuntimeConfigPatch mission_patch;
+    mission_patch.has_mission = true;
+    mission_patch.mission = config.mission;
+    ASSERT_TRUE(session.TryApplyRuntimeConfig(mission_patch));
+
+  }
   // 30° → 0.5236 rad。
   EXPECT_FLOAT_EQ(session.Step(MakeBaseInput(3U)).scan_azimuth_rad, 0.5235988f);
 }
@@ -274,16 +300,25 @@ TEST(SbirsSessionIntegrationTest, StandbyFreezesScanPhaseUntilSearchResumes) {
   // 355° → 6.1959 rad。
   EXPECT_FLOAT_EQ(session.Step(MakeBaseInput(1U)).scan_azimuth_rad, 6.1959188f);
 
-  ASSERT_TRUE(session.TryApplyRuntimeConfig(sbirs_config::SbirsRuntimeConfigBuilder()
-                                                .WithWorkMode(config::SbirsWorkMode::kStandby)
-                                                .Build()));
+  {
+    config::SbirsRuntimeConfigPatch standby_patch;
+    standby_patch.has_work_mode = true;
+    standby_patch.work_mode = config::SbirsWorkMode::kStandby;
+    ASSERT_TRUE(session.TryApplyRuntimeConfig(standby_patch));
+
+
+  }
   EXPECT_FLOAT_EQ(session.Step(MakeBaseInput(2U)).scan_azimuth_rad, 6.1959188f);
   EXPECT_FLOAT_EQ(session.Step(MakeBaseInput(3U)).scan_azimuth_rad, 6.1959188f);
 
-  ASSERT_TRUE(
-      session.TryApplyRuntimeConfig(sbirs_config::SbirsRuntimeConfigBuilder()
-                                        .WithWorkMode(config::SbirsWorkMode::kSearchAndStare)
-                                        .Build()));
+  {
+    config::SbirsRuntimeConfigPatch stare_patch;
+    stare_patch.has_work_mode = true;
+    stare_patch.work_mode = config::SbirsWorkMode::kSearchAndStare;
+    ASSERT_TRUE(session.TryApplyRuntimeConfig(stare_patch));
+
+
+  }
   // 350°+10° = 360° → 0 rad。
   EXPECT_FLOAT_EQ(session.Step(MakeBaseInput(4U)).scan_azimuth_rad, 0.0f);
 }
@@ -296,8 +331,9 @@ TEST(SbirsSessionIntegrationTest, RuntimeScanRateChangeUpdatesAdvance) {
 
   SbirsSession fast_session = SbirsSession::Create(config);
   const SbirsOutputFrame fast_1 = fast_session.Step(MakeBaseInput(1U));
-  const config::SbirsRuntimeConfigPatch patch =
-      sbirs_config::SbirsRuntimeConfigBuilder().WithScanRateDegPerSec(97.0f).Build();
+  config::SbirsRuntimeConfigPatch patch;
+  patch.has_scan_rate_deg_per_sec = true;
+  patch.scan_rate_deg_per_sec = 97.0f;
   fast_session.TryApplyRuntimeConfig(patch);
   const SbirsOutputFrame fast_2 = fast_session.Step(MakeBaseInput(2U));
   const float delta_fast = std::fabs(fast_2.scan_azimuth_rad - fast_1.scan_azimuth_rad);
@@ -306,7 +342,6 @@ TEST(SbirsSessionIntegrationTest, RuntimeScanRateChangeUpdatesAdvance) {
   const SbirsOutputFrame slow_1 = slow_session.Step(MakeBaseInput(1U));
   const SbirsOutputFrame slow_2 = slow_session.Step(MakeBaseInput(2U));
   const float delta_slow = std::fabs(slow_2.scan_azimuth_rad - slow_1.scan_azimuth_rad);
-
   EXPECT_GT(delta_fast, delta_slow);
 }
 
@@ -355,8 +390,9 @@ TEST(SbirsSessionIntegrationTest, RuntimeMissionPatchClearsSlewAndUsesNewRate) {
             output::SbirsObservationStage::kWideFieldSearch);
 
   config.mission.narrow_pointing_max_slew_rate_deg_per_sec = 20.0f;
-  const config::SbirsRuntimeConfigPatch patch =
-      sbirs_config::SbirsRuntimeConfigBuilder().WithMission(config.mission).Build();
+  config::SbirsRuntimeConfigPatch patch;
+  patch.has_mission = true;
+  patch.mission = config.mission;
   ASSERT_TRUE(session.TryApplyRuntimeConfig(patch));
   const SbirsCycleResult acquired = session.StepWithResult(MakeBaseInput(2U));
   ASSERT_EQ(acquired.output_frame.detections.size(), 1U);
@@ -411,8 +447,9 @@ TEST(SbirsSessionIntegrationTest, DualChannelAssignmentIsIndependentOfInputOrder
 TEST(SbirsSessionIntegrationTest, InvalidRuntimePatchDoesNotPolluteConfig) {
   // 无效 patch（负扫描速率）被拒绝，配置不变，后续周期正常执行。
   SbirsSession session = SbirsSession::Create(MakeSessionConfig());
-  const config::SbirsRuntimeConfigPatch invalid =
-      sbirs_config::SbirsRuntimeConfigBuilder().WithScanRateDegPerSec(-5.0f).Build();
+  config::SbirsRuntimeConfigPatch invalid;
+  invalid.has_scan_rate_deg_per_sec = true;
+  invalid.scan_rate_deg_per_sec = -5.0f;
   EXPECT_FALSE(session.TryApplyRuntimeConfig(invalid));
   const SbirsCycleResult result = session.StepWithResult(MakeBaseInput());
   EXPECT_EQ(result.status, SbirsCycleStatus::kCompleted);
@@ -515,7 +552,6 @@ TEST(SbirsSessionIntegrationTest, CueLatencyFailureAttributionStaysOutOfRawOutpu
   SbirsSceneTarget target = MakeTarget(1U);
   target.velocity_ecef_m_per_s = Vector(0.0, 1500000.0, 0.0);  // 横向高速
   target.has_velocity_ecef_m_per_s = true;
-
   SbirsCycleInput input = SbirsCycleInputBuilder()
                               .WithCycleIndex(1U)
                               .WithDeltaTimeSec(1.0f)
@@ -599,7 +635,6 @@ TEST(SbirsSessionIntegrationTest, DebugViewRangeBackfillReflectsAttributionOnly)
   const SbirsCycleResult result = session.StepWithResult(input);
   ASSERT_EQ(result.status, SbirsCycleStatus::kCompleted);
   const SbirsOutputDebugView view = SbirsOutputDebugViewBuilder::Build(input, result);
-
   ASSERT_EQ(view.targets.size(), 2U);
   const SbirsDebugTargetState* detected_row = nullptr;
   const SbirsDebugTargetState* excluded_row = nullptr;

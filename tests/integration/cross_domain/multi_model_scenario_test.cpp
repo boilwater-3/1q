@@ -15,6 +15,7 @@
 #include "1q/airborne_radar/session/ArReplaySession.h"
 #include "1q/airborne_radar/session/ArTraceSession.h"
 #include "1q/coordinate/position_transform.h"
+#include "1q/coordinate/scene_transform.h"
 #include "1q/coordinate/velocity_transform.h"
 #include "1q/electro_optical_sensor/electro_optical_sensor.hpp"
 #include "1q/electro_optical_sensor/session/EosReplaySession.h"
@@ -25,6 +26,7 @@
 #include "1q/electronic_surveillance_radar/session/EsrReplaySession.h"
 #include "1q/electronic_surveillance_radar/session/EsrTraceSession.h"
 #include "1q/replay/ReplayTrace.h"
+#include "support/eos_enu_scene_helpers.h"
 #include "support/oneq_test_temp_dir.h"
 
 #if defined(ONEQ_TEST_FLIGHT_DYNAMIC_ENABLED)
@@ -91,9 +93,9 @@ struct WorldState {
 
 // --- AR input conversion ---
 
-ar_session::ArExternalPoseInput ToArPlatform(const oneq::coordinate::EcefPositionM& pos,
+ar_session::ArPlatformInput ToArPlatform(const oneq::coordinate::EcefPositionM& pos,
                                              const oneq::coordinate::EcefVelocityMps& vel) {
-  ar_session::ArExternalPoseInput p;
+  ar_session::ArPlatformInput p;
   p.platform_position_ecef_m = pos;
   p.platform_velocity_mps = vel;
   p.platform_attitude_deg.yaw_deg = 0.0;
@@ -102,12 +104,25 @@ ar_session::ArExternalPoseInput ToArPlatform(const oneq::coordinate::EcefPositio
   return p;
 }
 
-ar_session::ArExternalTargetInput ToArTarget(const WorldTarget& t) {
-  ar_session::ArExternalTargetInput input;
+// 世界真值（ECEF）经公共入口转为平台锚点 ENU 后直填 AR 输入。
+ar_session::ArTargetInput ToArTarget(const WorldTarget& t,
+                                     const oneq::coordinate::LlaPositionDegM& anchor_lla) {
+  oneq::coordinate::ExternalKinematics kinematics;
+  kinematics.position_frame = oneq::coordinate::PositionFrame::kEcef;
+  kinematics.position_ecef_m = t.pos;
+  kinematics.velocity_mps = t.vel;
+
+  oneq::coordinate::EnuSceneState enu;
+  oneq::coordinate::TryMakeEnuSceneState(kinematics, anchor_lla, &enu);
+
+  ar_session::ArTargetInput input;
   input.target_id = t.id;
-  input.kinematics.position_frame = oneq::coordinate::PositionFrame::kEcef;
-  input.kinematics.position_ecef_m = t.pos;
-  input.kinematics.velocity_mps = t.vel;
+  input.position_x = static_cast<float>(enu.position_enu_m.east_m);
+  input.position_y = static_cast<float>(enu.position_enu_m.north_m);
+  input.position_z = static_cast<float>(enu.position_enu_m.up_m);
+  input.velocity_x = static_cast<float>(enu.velocity_enu_mps.east_mps);
+  input.velocity_y = static_cast<float>(enu.velocity_enu_mps.north_mps);
+  input.velocity_z = static_cast<float>(enu.velocity_enu_mps.up_mps);
   input.rcs = t.rcs;
   input.swerling_type = t.swerling_type;
   return input;
@@ -128,12 +143,14 @@ struct ArRfTestCycleResult {
 };
 
 ArRfTestCycleInput BuildArInput(const WorldState& ws, float dt, std::uint32_t cycle_index) {
-  ar_session::ArExternalPoseInput platform = ToArPlatform(ws.platform_pos, ws.platform_vel);
+  ar_session::ArPlatformInput platform = ToArPlatform(ws.platform_pos, ws.platform_vel);
   platform.platform_entity_id = 10U;
-  std::vector<ar_session::ArExternalTargetInput> targets;
+  oneq::coordinate::LlaPositionDegM anchor_lla;
+  oneq::coordinate::TryEcefToLla(platform.platform_position_ecef_m, &anchor_lla);
+  std::vector<ar_session::ArTargetInput> targets;
   targets.reserve(ws.targets.size());
   for (const auto& t : ws.targets) {
-    targets.push_back(ToArTarget(t));
+    targets.push_back(ToArTarget(t, anchor_lla));
   }
   ArRfTestCycleInput input;
   input.cycle.cycle_index = cycle_index;
@@ -187,11 +204,11 @@ ArRfTestCycleResult RunArCycle(ar_session::ArTraceSession* session,
   return result;
 }
 
-// --- EOS input conversion ---
+// --- EOS input conversion（平台 ECEF + TryMakeEnuSceneState 手填 CycleInput）---
 
-eos_session::EosExternalPoseInput ToEosPlatform(const oneq::coordinate::EcefPositionM& pos,
-                                                const oneq::coordinate::EcefVelocityMps& vel) {
-  eos_session::EosExternalPoseInput p;
+eos_session::EosPlatformEcefPose ToEosPlatform(const oneq::coordinate::EcefPositionM& pos,
+                                               const oneq::coordinate::EcefVelocityMps& vel) {
+  eos_session::EosPlatformEcefPose p;
   p.platform_position_ecef_m = pos;
   p.platform_velocity_mps = vel;
   p.platform_attitude_deg.yaw_deg = 0.0;
@@ -200,8 +217,8 @@ eos_session::EosExternalPoseInput ToEosPlatform(const oneq::coordinate::EcefPosi
   return p;
 }
 
-eos_session::EosExternalTargetInput ToEosTarget(const WorldTarget& t) {
-  eos_session::EosExternalTargetInput input;
+oneq::test_support::EosWorldTargetSpec ToEosTarget(const WorldTarget& t) {
+  oneq::test_support::EosWorldTargetSpec input;
   input.target_id = t.id;
   input.kinematics.position_frame = oneq::coordinate::PositionFrame::kEcef;
   input.kinematics.position_ecef_m = t.pos;
@@ -214,15 +231,14 @@ eos_session::EosExternalTargetInput ToEosTarget(const WorldTarget& t) {
 }
 
 eos_session::EosCycleInput BuildEosInput(const WorldState& ws, float dt, std::uint32_t cycle_index) {
-  eos_session::EosExternalPoseInput platform = ToEosPlatform(ws.platform_pos, ws.platform_vel);
-  std::vector<eos_session::EosExternalTargetInput> targets;
+  eos_session::EosPlatformEcefPose platform = ToEosPlatform(ws.platform_pos, ws.platform_vel);
+  std::vector<oneq::test_support::EosWorldTargetSpec> targets;
   targets.reserve(ws.targets.size());
   for (const auto& t : ws.targets) {
     targets.push_back(ToEosTarget(t));
   }
   eos_session::EosCycleInput input;
-  eos_session::EosCoordinateStatus status;
-  eos_session::EosCycleInputAdapter::Build(platform, targets, dt, &input, &status);
+  (void)oneq::test_support::TryBuildEosCycleInput(platform, targets, dt, &input);
   input.cycle_index = cycle_index;
   return input;
 }

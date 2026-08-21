@@ -45,8 +45,8 @@ namespace pipeline {
 namespace context = ::electro_optical_sensor::session;
 namespace {
 
-session::EosSceneTarget MakeTarget(float azimuth_deg, float elevation_deg) {
-  session::EosSceneTarget target;
+EosPipelineSceneTarget MakeTarget(float azimuth_deg, float elevation_deg) {
+  EosPipelineSceneTarget target;
   target.target_id = 1U;
   target.range_m = 500.0f;
   target.azimuth_deg = azimuth_deg;
@@ -58,12 +58,11 @@ session::EosSceneTarget MakeTarget(float azimuth_deg, float elevation_deg) {
   return target;
 }
 
-::electro_optical_sensor::session::EosCycleInput MakeInput() {
-  ::electro_optical_sensor::session::EosCycleInput input;
+EosPipelineCycleInput MakeInput() {
+  EosPipelineCycleInput input;
   input.cycle_index = 1U;
   input.dt_sec = 1.0f;
   input.platform_altitude_m = 1200.0f;
-  input.platform_pose.position_m.z = 0.0f;
   input.scene.push_back(MakeTarget(180.0f, 45.0f));
   return input;
 }
@@ -89,7 +88,7 @@ config::execution::EosInternalExecutionConfig MakeConfig(bool enable_straylight_
 TEST(EosStrayLightPipelineTest, EnablingHoodFilterImprovesNearSunSnr) {
   EosPipeline pipeline_without_filter(MakeConfig(false));
   EosPipeline pipeline_with_filter(MakeConfig(true));
-  const ::electro_optical_sensor::session::EosCycleInput input = MakeInput();
+  const EosPipelineCycleInput input = MakeInput();
 
   const auto frame_without_filter = pipeline_without_filter.RunCycle(input);
   const auto frame_with_filter = pipeline_with_filter.RunCycle(input);

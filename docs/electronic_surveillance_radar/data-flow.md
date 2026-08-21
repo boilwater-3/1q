@@ -14,7 +14,7 @@ Answers: ESR 的分层架构、数据如何流动、Public API 边界在哪、�
 **公共头**位于 `include/1q/electronic_surveillance_radar/`：
 
 - `electronic_surveillance_radar.hpp`（模块聚合入口）
-- `config/`（`EsrSessionConfig` 四域配置、runtime patch、`EsrProfileConstants.h`、薄封装 builder、
+- `config/`（`EsrSessionConfig` 四域配置、runtime patch、`EsrProfileConstants.h`、
   config validation）
 - `session/`（`EsrSession`、cycle input/result、observation/hypothesis、trace/replay）
 

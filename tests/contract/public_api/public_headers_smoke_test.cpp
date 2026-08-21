@@ -16,10 +16,8 @@
 #include "1q/airborne_radar/config/ArOrientationConfig.h"
 #include "1q/airborne_radar/config/ArPolicyConfig.h"
 #include "1q/airborne_radar/config/ArProfileConstants.h"
-#include "1q/airborne_radar/config/ArRuntimeConfigBuilder.h"
 #include "1q/airborne_radar/config/ArRuntimeConfigPatch.h"
 #include "1q/airborne_radar/config/ArSessionConfig.h"
-#include "1q/airborne_radar/config/ArSessionConfigBuilder.h"
 #include "1q/airborne_radar/config/airborne_radar_config.hpp"
 #include "1q/airborne_radar/session/ArCommand.h"
 #include "1q/airborne_radar/session/ArControlProfile.h"
@@ -46,26 +44,21 @@
 #include "1q/electronic_countermeasure/EcmTypes.h"
 #include "1q/electro_optical_sensor/config/EosEnvironmentConfig.h"
 #include "1q/electro_optical_sensor/config/EosProfileConstants.h"
-#include "1q/electro_optical_sensor/config/EosRuntimeConfigBuilder.h"
 #include "1q/electro_optical_sensor/config/EosRuntimeConfigPatch.h"
-#include "1q/electro_optical_sensor/config/EosSessionConfigBuilder.h"
 #include "1q/electro_optical_sensor/config/electro_optical_sensor_config.hpp"
 #include "1q/electro_optical_sensor/electro_optical_sensor.hpp"
 #include "1q/electro_optical_sensor/session/EosCycleInput.h"
-#include "1q/electro_optical_sensor/session/EosCycleInputAdapter.h"
 #include "1q/electro_optical_sensor/session/EosCycleResult.h"
 #include "1q/electro_optical_sensor/session/EosDetectionLifecycleRecorder.h"
-#include "1q/electro_optical_sensor/session/EosExternalInputAdapter.h"
 #include "1q/electro_optical_sensor/session/EosInputValidation.h"
+#include "1q/electro_optical_sensor/session/EosPlatformEcefPose.h"
 #include "1q/electro_optical_sensor/session/EosOutputDebugView.h"
 #include "1q/electro_optical_sensor/session/EosOutputTypes.h"
 #include "1q/electro_optical_sensor/session/EosSession.h"
 #include "1q/electro_optical_sensor/session/EosTraceSession.h"
 #include "1q/electronic_surveillance_radar/config/EsrEnvironmentConfig.h"
 #include "1q/electronic_surveillance_radar/config/EsrProfileConstants.h"
-#include "1q/electronic_surveillance_radar/config/EsrRuntimeConfigBuilder.h"
 #include "1q/electronic_surveillance_radar/config/EsrRuntimeConfigPatch.h"
-#include "1q/electronic_surveillance_radar/config/EsrSessionConfigBuilder.h"
 #include "1q/electronic_surveillance_radar/config/electronic_surveillance_radar_config.hpp"
 #include "1q/electronic_surveillance_radar/electronic_surveillance_radar.hpp"
 #include "1q/electronic_surveillance_radar/session/EsrCycleInput.h"
@@ -91,10 +84,8 @@
 #include "1q/sar/session/SarReplaySession.h"
 #include "1q/sar/session/SarSession.h"
 #include "1q/sar/session/SarTraceSession.h"
-#include "1q/sbirs_sensor/config/SbirsRuntimeConfigBuilder.h"
 #include "1q/sbirs_sensor/config/SbirsRuntimeConfigPatch.h"
 #include "1q/sbirs_sensor/config/SbirsSessionConfig.h"
-#include "1q/sbirs_sensor/config/SbirsSessionConfigBuilder.h"
 #include "1q/sbirs_sensor/config/sbirs_sensor_config.hpp"
 #include "1q/sbirs_sensor/sbirs_sensor.hpp"
 #include "1q/sbirs_sensor/session/SbirsCycleInput.h"
@@ -160,7 +151,7 @@ TEST(PublicHeadersSmokeTest, StablePublicSurfaceSupportsMinimalUsage) {
   oneq::coordinate::EcefPositionM origin_ecef;
   ASSERT_TRUE(oneq::coordinate::TryLlaToEcef(origin_lla, &origin_ecef));
 
-  config::ArSessionConfig session_config = config::ArSessionConfigBuilder().Build();
+  config::ArSessionConfig session_config;
   session_config.environment.scenario_config.atmospheric_physics.enable_physical_model = true;
 
   session::ArCycleInput input;
@@ -176,10 +167,11 @@ TEST(PublicHeadersSmokeTest, StablePublicSurfaceSupportsMinimalUsage) {
   session::ArSession session = session::ArSession::Create(session_config);
   session::ArTraceSession trace_session(session_config,
                                         session::ArTraceSessionOptions{nullptr, false});
-  const config::ArRuntimeConfigPatch runtime_patch = config::ArRuntimeConfigBuilder()
-                                                         .WithWorkMode(config::ArWorkMode::kTas)
-                                                         .WithCommandedBeamwidthEnabled(true)
-                                                         .Build();
+  config::ArRuntimeConfigPatch runtime_patch;
+  runtime_patch.has_work_mode = true;
+  runtime_patch.work_mode = config::ArWorkMode::kTas;
+  runtime_patch.has_commanded_beamwidth_enabled = true;
+  runtime_patch.commanded_beamwidth_enabled = true;
   (void)session.TryApplyRuntimeConfig(runtime_patch);
   const session::ArCycleResult result = session.StepWithResult(input);
   const session::ArCycleResult trace_result =
@@ -193,8 +185,7 @@ TEST(PublicHeadersSmokeTest, StablePublicSurfaceSupportsMinimalUsage) {
 }
 
 TEST(PublicHeadersSmokeTest, SbirsPublicSurfaceSupportsMinimalUsage) {
-  sbirs_sensor::config::SbirsSessionConfig config =
-      sbirs_sensor::config::SbirsSessionConfigBuilder().Build();
+  sbirs_sensor::config::SbirsSessionConfig config;
   config.mission.scan_start_az_deg = 170.0f;
   config.mission.scan_span_deg = 40.0f;
   config.mission.scan_direction = sbirs_sensor::config::SbirsScanDirection::kDecreasingAzimuth;
@@ -223,10 +214,9 @@ TEST(PublicHeadersSmokeTest, SbirsPublicSurfaceSupportsMinimalUsage) {
       sbirs_sensor::session::ValidateSbirsCycleInput(input, 10.0f);
   EXPECT_FALSE(sbirs_sensor::session::HasValidationError(issues));
 
-  const sbirs_sensor::config::SbirsRuntimeConfigPatch patch =
-      sbirs_sensor::config::SbirsRuntimeConfigBuilder()
-          .WithWorkMode(sbirs_sensor::config::SbirsWorkMode::kSearchAndStare)
-          .Build();
+  sbirs_sensor::config::SbirsRuntimeConfigPatch patch;
+  patch.has_work_mode = true;
+  patch.work_mode = sbirs_sensor::config::SbirsWorkMode::kSearchAndStare;
   EXPECT_TRUE(session.TryApplyRuntimeConfig(patch));
   const sbirs_sensor::session::SbirsCycleResult result = session.StepWithResult(input);
   EXPECT_EQ(result.status, sbirs_sensor::session::SbirsCycleStatus::kCompleted);
@@ -326,8 +316,9 @@ TEST(PublicHeadersSmokeTest, EsrPublicSurfaceSupportsMinimalUsage) {
   EXPECT_FALSE(session::HasValidationError(issues));
 
   auto session = session::EsrSession::Create(session_config);
-  const config::EsrRuntimeConfigPatch runtime_patch =
-      config::EsrRuntimeConfigBuilder().WithWorkMode(config::EsrWorkMode::kRwr).Build();
+  config::EsrRuntimeConfigPatch runtime_patch;
+  runtime_patch.has_work_mode = true;
+  runtime_patch.work_mode = config::EsrWorkMode::kRwr;
   (void)session.TryApplyRuntimeConfig(runtime_patch);
   const session::EsrCycleResult result = session.StepWithResult(input);
   session::EsrTraceSession trace_session(session_config, session::EsrTraceSessionOptions{});
@@ -358,26 +349,23 @@ TEST(PublicHeadersSmokeTest, EosPublicSurfaceSupportsMinimalUsage) {
   input.dt_sec = 0.1f;
   session::EosSceneTarget target;
   target.target_id = 7U;
-  target.range_m = 1500.0f;
-  target.azimuth_deg = 0.0f;
-  target.elevation_deg = 0.0f;
+  target.position_x = 1500.0f;  // 平台锚点 ENU（东向），零姿态下斜距 = 1500 m
   target.appearance.apparent_temperature_k = 320.0f;
   target.appearance.emissivity = 0.9f;
   target.appearance.reflectance = 0.4f;
   target.appearance.projected_area_m2 = 2.0f;
   input.scene.push_back(target);
 
-  oneq::coordinate::LocalFrameReference eos_reference;
-  eos_reference.origin_lla.latitude_deg = 0.0;
-  eos_reference.origin_lla.longitude_deg = 0.0;
-  eos_reference.origin_lla.altitude_m = 0.0;
+  // 平台 ECEF 位姿类型可构造（场景目标 ENU 由公共 TryMakeEnuSceneState 直填）。
+  oneq::coordinate::LlaPositionDegM eos_origin_lla;
+  eos_origin_lla.latitude_deg = 0.0;
+  eos_origin_lla.longitude_deg = 0.0;
+  eos_origin_lla.altitude_m = 0.0;
   oneq::coordinate::EcefPositionM eos_origin_ecef;
-  ASSERT_TRUE(oneq::coordinate::TryLlaToEcef(eos_reference.origin_lla, &eos_origin_ecef));
-  session::EosExternalPoseInput eos_pose_input;
-  eos_pose_input.platform_position_ecef_m = eos_origin_ecef;
-  oneq::foundation::PoseState eos_pose;
-  ASSERT_TRUE(
-      session::TryMakeEosPoseFromExternalKinematics(eos_pose_input, eos_reference, &eos_pose));
+  ASSERT_TRUE(oneq::coordinate::TryLlaToEcef(eos_origin_lla, &eos_origin_ecef));
+  session::EosPlatformEcefPose eos_platform_pose;
+  eos_platform_pose.platform_position_ecef_m = eos_origin_ecef;
+  EXPECT_NEAR(eos_platform_pose.platform_position_ecef_m.x_m, eos_origin_ecef.x_m, 1.0e-6);
 
   const session::EosIssueList issues = session::ValidateEosCycleInput(input, 30.0f);
   EXPECT_FALSE(session::HasValidationError(issues));
@@ -386,8 +374,9 @@ TEST(PublicHeadersSmokeTest, EosPublicSurfaceSupportsMinimalUsage) {
   EXPECT_NE(static_cast<int>(config::EosEnvironmentPreset::kStandard), -1);
 
   session::EosSession session = session::EosSession::Create(session_config);
-  const config::EosRuntimeConfigPatch runtime_patch =
-      config::EosRuntimeConfigBuilder().WithFrameRateHz(15.0f).Build();
+  config::EosRuntimeConfigPatch runtime_patch;
+  runtime_patch.has_frame_rate_hz = true;
+  runtime_patch.frame_rate_hz = 15.0f;
   (void)session.TryApplyRuntimeConfig(runtime_patch);
   const ::electro_optical_sensor::session::EosCycleResult result = session.StepWithResult(input);
   session::EosTraceSession trace_session(session_config, session::EosTraceSessionOptions{});

@@ -1,6 +1,6 @@
 ﻿/**
  * @file eos_cycle_input_builder_test.cpp
- * @brief 验证 EosCycleInputAdapter 一步构建与原始两步适配器的等价一致性。
+ * @brief 验证手填 EosCycleInput（TryEcefToLla + TryMakeEnuSceneState）的一致性与烟雾行为。
  */
 
 #include <gtest/gtest.h>
@@ -9,14 +9,19 @@
 #include <cstddef>
 
 #include "1q/coordinate/position_transform.h"
-#include "1q/electro_optical_sensor/session/EosCycleInputAdapter.h"
+#include "1q/electro_optical_sensor/session/EosPlatformEcefPose.h"
+#include "support/eos_enu_scene_helpers.h"
 
 namespace electro_optical_sensor {
 namespace session {
 namespace {
 
-/// @brief Builder 生成结果与两步式适配器对同一输入产生相同输出。
-TEST(EosCycleInputBuilderTest, BuilderMatchesTwoStepAdapter) {
+using oneq::test_support::EosWorldTargetSpec;
+using oneq::test_support::TryBuildEosCycleInput;
+using oneq::test_support::TryFillEosSceneTargetFromKinematics;
+
+/// @brief 手填 CycleInput 与单目标 TryFill 对同一输入产生相同 ENU。
+TEST(EosCycleInputBuilderTest, DirectFillMatchesSingleTargetFill) {
   oneq::coordinate::LlaPositionDegM origin_lla;
   origin_lla.latitude_deg = 31.2304;
   origin_lla.longitude_deg = 121.4737;
@@ -29,22 +34,14 @@ TEST(EosCycleInputBuilderTest, BuilderMatchesTwoStepAdapter) {
   oneq::coordinate::EcefPositionM target_ecef;
   ASSERT_TRUE(oneq::coordinate::TryLlaToEcef(target_lla, &target_ecef));
 
-  oneq::coordinate::LocalFrameReference reference;
-  reference.origin_lla = origin_lla;
-  reference.frame_attitude_deg.yaw_deg = 5.0f;
-
-  EosExternalPoseInput pose_input;
+  EosPlatformEcefPose pose_input;
   pose_input.platform_position_ecef_m = origin_ecef;
   pose_input.platform_velocity_mps.x_mps = 120.0f;
   pose_input.platform_velocity_mps.y_mps = -70.0f;
   pose_input.platform_velocity_mps.z_mps = 30.0f;
   pose_input.platform_attitude_deg.yaw_deg = 5.0f;
 
-  // 两步式适配器（参考基准）
-  oneq::foundation::PoseState pose_2step;
-  ASSERT_TRUE(TryMakeEosPoseFromExternalKinematics(pose_input, reference, &pose_2step));
-
-  EosExternalTargetInput ext_target;
+  EosWorldTargetSpec ext_target;
   ext_target.target_name = "eos-builder-target";
   ext_target.kinematics.position_frame = oneq::coordinate::PositionFrame::kEcef;
   ext_target.kinematics.position_ecef_m = target_ecef;
@@ -53,31 +50,36 @@ TEST(EosCycleInputBuilderTest, BuilderMatchesTwoStepAdapter) {
   ext_target.appearance.reflectance = 0.3f;
   ext_target.appearance.projected_area_m2 = 2.5f;
 
-  EosSceneTarget target_2step;
-  ASSERT_TRUE(TryMakeEosSceneTargetFromExternalInput(100U, ext_target, reference, pose_2step,
-                                                     &target_2step));
+  EosSceneTarget target_single_step;
+  ASSERT_TRUE(TryFillEosSceneTargetFromKinematics(100U, ext_target.kinematics, origin_lla,
+                                                  ext_target.appearance, &target_single_step,
+                                                  ext_target.target_name));
 
-  // Builder（一步构建）
   EosCycleInput builder_input;
-  ASSERT_TRUE(EosCycleInputAdapter::Build(pose_input, {ext_target}, 1.0f, &builder_input));
+  ASSERT_TRUE(TryBuildEosCycleInput(pose_input, {ext_target}, 1.0f, &builder_input));
 
   ASSERT_EQ(builder_input.scene.size(), 1U);
 
   const auto& builder_target = builder_input.scene[0];
-  EXPECT_EQ(builder_target.target_id, 0U);  // Builder 使用索引作为 ID
+  EXPECT_EQ(builder_target.target_id, 0U);  // 未设 target_id 时用索引
   EXPECT_EQ(builder_target.target_name, "eos-builder-target");
-  EXPECT_NEAR(builder_target.range_m, target_2step.range_m, 1.0e-4f);
-  EXPECT_NEAR(builder_target.azimuth_deg, target_2step.azimuth_deg, 1.0e-4f);
-  EXPECT_NEAR(builder_target.elevation_deg, target_2step.elevation_deg, 1.0e-4f);
+  EXPECT_NEAR(builder_target.position_x, target_single_step.position_x, 1.0e-4f);
+  EXPECT_NEAR(builder_target.position_y, target_single_step.position_y, 1.0e-4f);
+  EXPECT_NEAR(builder_target.position_z, target_single_step.position_z, 1.0e-4f);
+  EXPECT_NEAR(builder_target.velocity_x, target_single_step.velocity_x, 1.0e-4f);
+  EXPECT_NEAR(builder_target.velocity_y, target_single_step.velocity_y, 1.0e-4f);
+  EXPECT_NEAR(builder_target.velocity_z, target_single_step.velocity_z, 1.0e-4f);
   EXPECT_FLOAT_EQ(builder_target.appearance.apparent_temperature_k,
                   ext_target.appearance.apparent_temperature_k);
   EXPECT_FLOAT_EQ(builder_target.appearance.emissivity, ext_target.appearance.emissivity);
   EXPECT_FLOAT_EQ(builder_target.appearance.reflectance, ext_target.appearance.reflectance);
   EXPECT_FLOAT_EQ(builder_target.appearance.projected_area_m2,
                   ext_target.appearance.projected_area_m2);
+  EXPECT_FLOAT_EQ(builder_input.platform_altitude_m, 200.0f);
+  EXPECT_NEAR(builder_input.platform_attitude_deg.yaw_deg, 5.0, 1.0e-5);
 }
 
-/// @brief Builder 接受空目标列表。
+/// @brief 空目标列表仍产生合法 CycleInput。
 TEST(EosCycleInputBuilderTest, EmptyTargetsProducesValidCycleInput) {
   oneq::coordinate::LlaPositionDegM origin_lla;
   origin_lla.latitude_deg = 31.0;
@@ -86,30 +88,27 @@ TEST(EosCycleInputBuilderTest, EmptyTargetsProducesValidCycleInput) {
   oneq::coordinate::EcefPositionM origin_ecef;
   ASSERT_TRUE(oneq::coordinate::TryLlaToEcef(origin_lla, &origin_ecef));
 
-  EosExternalPoseInput pose_input;
+  EosPlatformEcefPose pose_input;
   pose_input.platform_position_ecef_m = origin_ecef;
   pose_input.platform_attitude_deg.yaw_deg = 10.0f;
 
   EosCycleInput input;
-  ASSERT_TRUE(EosCycleInputAdapter::Build(pose_input, {}, 2.0f, &input));
+  ASSERT_TRUE(TryBuildEosCycleInput(pose_input, {}, 2.0f, &input));
 
   EXPECT_EQ(input.cycle_index, 0U);
   EXPECT_FLOAT_EQ(input.dt_sec, 2.0f);
   EXPECT_FLOAT_EQ(input.platform_altitude_m, 1000.0f);
-  EXPECT_NEAR(input.platform_pose.attitude_deg.yaw_deg, 10.0f, 1.0e-5f);
+  EXPECT_NEAR(input.platform_attitude_deg.yaw_deg, 10.0, 1.0e-5);
   EXPECT_TRUE(input.scene.empty());
 }
 
-/// @brief Builder 显式环境重载写入完整环境快照。
-/// @brief Builder 在 nullptr 输出时返回 false 并设置 status。
+/// @brief nullptr 输出时返回 false。
 TEST(EosCycleInputBuilderTest, NullOutputReturnsFalse) {
-  EosExternalPoseInput pose_input;
-  EosCoordinateStatus status = EosCoordinateStatus::kOk;
-  EXPECT_FALSE(EosCycleInputAdapter::Build(pose_input, {}, 1.0f, nullptr, &status));
-  EXPECT_EQ(status, EosCoordinateStatus::kNullOutput);
+  EosPlatformEcefPose pose_input;
+  EXPECT_FALSE(TryBuildEosCycleInput(pose_input, {}, 1.0f, nullptr));
 }
 
-/// @brief Builder 等价的 LLA 目标位置。
+/// @brief LLA 目标位置可手填为非零 ENU。
 TEST(EosCycleInputBuilderTest, LlaTargetPosition) {
   oneq::coordinate::LlaPositionDegM origin_lla;
   origin_lla.latitude_deg = 31.0;
@@ -118,20 +117,22 @@ TEST(EosCycleInputBuilderTest, LlaTargetPosition) {
   oneq::coordinate::EcefPositionM origin_ecef;
   ASSERT_TRUE(oneq::coordinate::TryLlaToEcef(origin_lla, &origin_ecef));
 
-  EosExternalPoseInput pose_input;
+  EosPlatformEcefPose pose_input;
   pose_input.platform_position_ecef_m = origin_ecef;
   pose_input.platform_attitude_deg.yaw_deg = 0.0f;
 
-  EosExternalTargetInput ext_target;
+  EosWorldTargetSpec ext_target;
   ext_target.kinematics.position_frame = oneq::coordinate::PositionFrame::kLla;
   ext_target.kinematics.position_lla_deg_m = origin_lla;
   ext_target.kinematics.position_lla_deg_m.latitude_deg += 0.001;
 
   EosCycleInput input;
-  ASSERT_TRUE(EosCycleInputAdapter::Build(pose_input, {ext_target}, 1.0f, &input));
+  ASSERT_TRUE(TryBuildEosCycleInput(pose_input, {ext_target}, 1.0f, &input));
 
   ASSERT_EQ(input.scene.size(), 1U);
-  EXPECT_GT(input.scene[0].range_m, 0.0f);
+  EXPECT_GT(input.scene[0].position_x + std::fabs(input.scene[0].position_y) +
+                std::fabs(input.scene[0].position_z),
+            0.0f);
 }
 
 }  // namespace

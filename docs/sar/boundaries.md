@@ -1,4 +1,4 @@
----
+﻿---
 Status: active
 Last-reviewed: 2026-08-20
 Authority: SAR 模块级边界、非目标与设计变更规则
@@ -16,11 +16,11 @@ SAR 遵守 `docs/common/contract.md`：
 
 1. public API 只暴露稳定 session/config/input/output/trace/replay 门面。`SarSession` 是对外门面，
    只委托内部 `SarController`；Controller、ProcessingPipeline、CompositionRoot 不通过 public header 暴露。
-2. `SarSessionConfigBuilder` 是薄封装（整域赋值 + `Build()` 返回副本）；语义档位是
+2. 会话配置直接赋值 `SarSessionConfig`；语义档位是
    `SarProfileConstants.h` 中的预定义结构体常量（如 `profiles::kHighResolutionImagingMission`、
-   `profiles::kL3BackprojectionProcessing`），不承担 leaf setter 或隐式 validation。档位常量是完整子域
+   `profiles::kL3BackprojectionProcessing`）。档位常量是完整子域
    结构体，整域赋值会重置未管理字段（如 `scene_center_*`、`l3_waypoints`），正确用法是"先赋档位、
-   再设场景数据"。
+   再设场景数据"。运行期热更新直接写 `SarRuntimeConfigPatch`（显式 `has_*`）；不提供 ConfigBuilder。
 3. SAR 输出遵守三层模型：系统输出、结构化结果、调试视图分离。
 4. `SarSession::StepWithResult` 在运行期配置和成像链路前调用 `ValidateSarCycleInput`；存在 error 级
    问题时记录 `invalid_cycle_input` abort，返回默认空帧（不复用上一有效输出，符合 contract.md
@@ -77,6 +77,13 @@ PRF 分数余量）不推进。
 不得再次施加坐标转换、大气衰减或地表背景。
 
 内部生成路径的几何转换：
+
+SAR 是「场景目标平台锚点 ENU 输入契约」（docs/common/contract.md）的**文档化例外**：
+孔径跨多脉冲、场景固定于地面，几何锚点是配置期确定的场景中心（非逐周期移动的平台），
+故点目标输入保持 LLA（`SarPointTarget`），库内使用 scene-center 相对 ENU 几何。
+外部完整 IQ 的 `pulse_states` 亦要求调用方直接填 scene-center 相对 ENU（见
+`SarCycleInput.h`）；已删除无生产调用的 `SarCycleInputAdapter` /
+`SarExternalInputAdapter`（原 ECEF/LLA→scene-center 脉冲便利层）。
 
 1. 场景中心经纬度和 `terrain_reference_altitude_m` 组成局部原点，平台、点目标和 L3 航路点使用同一转换。
 2. `use_flat_earth_geometry=true` 时，`x = R cos(lat0) Δlon`、`y = R Δlat`、

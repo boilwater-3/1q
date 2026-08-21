@@ -19,7 +19,8 @@
 - 环境配置已迁移至 config 目录，见 [ArEnvironmentConfig](../config/ArEnvironmentConfig.h)（环境场景配置由 `ArSessionConfig.environment` 聚合，运行期更新通过 `ArRuntimeConfigPatch` 提交）
 
 ## 适配器
-- [ArExternalInputAdapter](ArExternalInputAdapter.h) — 外部输入适配器（平台姿态 → 雷达坐标系）
+- [ArPlatformInput](ArPlatformInput.h) — 平台 ECEF 位姿（CycleInput.platform）
+- [ArRadarFrameTransform](ArRadarFrameTransform.h) — 平台锚点 ENU → 雷达局部系变换
 - [ArExternalOutputAdapter](ArExternalOutputAdapter.h) — 外部输出适配器（雷达航迹 → 平台坐标系）
 - [ArCycleOutputAdapter](ArCycleOutputAdapter.h) — 周期输出适配器（内部帧 → ECEF 输出帧）
 

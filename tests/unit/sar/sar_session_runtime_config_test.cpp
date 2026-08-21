@@ -12,7 +12,7 @@
 
 #include <cstdint>
 
-#include "1q/sar/config/SarRuntimeConfigBuilder.h"
+#include "1q/sar/config/SarRuntimeConfigPatch.h"
 #include "1q/sar/session/SarSession.h"
 
 namespace sar {
@@ -74,15 +74,19 @@ TEST(SarSessionRuntimeConfigTest, RetainRawPhaseHistoryWithoutRawEchoRejected) {
   session::SarSession session = session::SarSession::Create(config);
 
   // 第一步：关闭 raw echo（有效补丁，立即提交），下个 Step 立即反映。
-  EXPECT_TRUE(session.TryApplyRuntimeConfig(
-      config::SarRuntimeConfigBuilder().WithEnableRawEchoGeneration(false).Build()));
+  config::SarRuntimeConfigPatch close_raw;
+  close_raw.has_enable_raw_echo_generation = true;
+  close_raw.enable_raw_echo_generation = false;
+  EXPECT_TRUE(session.TryApplyRuntimeConfig(close_raw));
   const session::SarCycleResult after_close = session.StepWithResult(MakeInput());
   EXPECT_EQ(after_close.status, session::SarCycleStatus::kCompleted);
   EXPECT_FALSE(after_close.output_frame.has_raw_echo);
 
   // 第二步：retain_raw_phase_history 依赖 raw echo，应被 resolver 拒绝。
-  EXPECT_FALSE(session.TryApplyRuntimeConfig(
-      config::SarRuntimeConfigBuilder().WithRetainRawPhaseHistory(true).Build()));
+  config::SarRuntimeConfigPatch retain_history;
+  retain_history.has_retain_raw_phase_history = true;
+  retain_history.retain_raw_phase_history = true;
+  EXPECT_FALSE(session.TryApplyRuntimeConfig(retain_history));
 
   // 拒绝后 runtime_config 未被污染：步进行为与"从未应用被拒补丁"一致。
   const session::SarCycleResult after_reject = session.StepWithResult(MakeInput(2U));

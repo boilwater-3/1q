@@ -10,15 +10,13 @@
 
 #include <limits>
 
-#include "1q/sar/config/SarRuntimeConfigBuilder.h"
+#include "1q/sar/config/SarRuntimeConfigPatch.h"
 #include "sar/session/SarRuntimeConfigResolver.h"
 
 namespace sar {
 namespace session {
 namespace internal {
 namespace {
-
-namespace sar_config = ::sar::config;
 
 TEST(SarRuntimeConfigResolverTest, EmptyPatchReportsNoRequestedUpdateAndIsUnchanged) {
   const config::SarSessionConfig current_config;
@@ -35,11 +33,13 @@ TEST(SarRuntimeConfigResolverTest, EmptyPatchReportsNoRequestedUpdateAndIsUnchan
 }
 
 TEST(SarRuntimeConfigResolverTest, ValidPatchWritesPolicyFields) {
-  const config::SarRuntimeConfigPatch patch = sar_config::SarRuntimeConfigBuilder()
-                                                  .WithEnableL1RdaImaging(true)
-                                                  .WithMinimumSnrDb(-5.0)
-                                                  .WithRetainFocusedImage(false)
-                                                  .Build();
+  config::SarRuntimeConfigPatch patch;
+  patch.has_enable_l1_rda_imaging = true;
+  patch.enable_l1_rda_imaging = true;
+  patch.has_minimum_snr_db = true;
+  patch.minimum_snr_db = -5.0;
+  patch.has_retain_focused_image = true;
+  patch.retain_focused_image = false;
 
   const SarRuntimeConfigResolveResult resolved =
       ResolveSarRuntimeConfigPatch(config::SarSessionConfig{}, patch);
@@ -54,10 +54,11 @@ TEST(SarRuntimeConfigResolverTest, ValidPatchWritesPolicyFields) {
 
 TEST(SarRuntimeConfigResolverTest, PatchEnablingRdaAndRawEchoTogetherIsAccepted) {
   // 同一补丁内同时打开 raw echo + L1 RDA，resolve 后两者并存，应放行。
-  const config::SarRuntimeConfigPatch patch = sar_config::SarRuntimeConfigBuilder()
-                                                  .WithEnableRawEchoGeneration(true)
-                                                  .WithEnableL1RdaImaging(true)
-                                                  .Build();
+  config::SarRuntimeConfigPatch patch;
+  patch.has_enable_raw_echo_generation = true;
+  patch.enable_raw_echo_generation = true;
+  patch.has_enable_l1_rda_imaging = true;
+  patch.enable_l1_rda_imaging = true;
 
   const SarRuntimeConfigResolveResult resolved =
       ResolveSarRuntimeConfigPatch(config::SarSessionConfig{}, patch);
@@ -68,8 +69,9 @@ TEST(SarRuntimeConfigResolverTest, PatchEnablingRdaAndRawEchoTogetherIsAccepted)
 }
 
 TEST(SarRuntimeConfigResolverTest, NonFiniteMinimumSnrDbRejectsWholePatch) {
-  const config::SarRuntimeConfigPatch patch =
-      sar_config::SarRuntimeConfigBuilder().WithMinimumSnrDb(std::numeric_limits<double>::quiet_NaN()).Build();
+  config::SarRuntimeConfigPatch patch;
+  patch.has_minimum_snr_db = true;
+  patch.minimum_snr_db = std::numeric_limits<double>::quiet_NaN();
 
   config::SarSessionConfig current_config;
   current_config.policy.minimum_snr_db = -10.0;
@@ -87,8 +89,9 @@ TEST(SarRuntimeConfigResolverTest, L1RdaWithoutRawEchoRejectsWholePatch) {
   config::SarSessionConfig current_config;
   current_config.policy.enable_raw_echo_generation = false;
 
-  const config::SarRuntimeConfigPatch patch =
-      sar_config::SarRuntimeConfigBuilder().WithEnableL1RdaImaging(true).Build();
+  config::SarRuntimeConfigPatch patch;
+  patch.has_enable_l1_rda_imaging = true;
+  patch.enable_l1_rda_imaging = true;
 
   const SarRuntimeConfigResolveResult resolved =
       ResolveSarRuntimeConfigPatch(current_config, patch);
@@ -100,10 +103,11 @@ TEST(SarRuntimeConfigResolverTest, L1RdaWithoutRawEchoRejectsWholePatch) {
 
 TEST(SarRuntimeConfigResolverTest, L1RdaBlockedEvenIfCurrentConfigEnabledRawEcho) {
   // 补丁显式关闭 raw echo 同时打开 L1 RDA：resolve 基于 next_config 判定，应拒绝。
-  const config::SarRuntimeConfigPatch patch = sar_config::SarRuntimeConfigBuilder()
-                                                  .WithEnableRawEchoGeneration(false)
-                                                  .WithEnableL1RdaImaging(true)
-                                                  .Build();
+  config::SarRuntimeConfigPatch patch;
+  patch.has_enable_raw_echo_generation = true;
+  patch.enable_raw_echo_generation = false;
+  patch.has_enable_l1_rda_imaging = true;
+  patch.enable_l1_rda_imaging = true;
 
   const SarRuntimeConfigResolveResult resolved =
       ResolveSarRuntimeConfigPatch(config::SarSessionConfig{}, patch);
@@ -112,10 +116,11 @@ TEST(SarRuntimeConfigResolverTest, L1RdaBlockedEvenIfCurrentConfigEnabledRawEcho
 }
 
 TEST(SarRuntimeConfigResolverTest, RetainRawHistoryWithoutRawEchoRejectsWholePatch) {
-  const config::SarRuntimeConfigPatch patch = sar_config::SarRuntimeConfigBuilder()
-                                                   .WithEnableRawEchoGeneration(false)
-                                                   .WithRetainRawPhaseHistory(true)
-                                                   .Build();
+  config::SarRuntimeConfigPatch patch;
+  patch.has_enable_raw_echo_generation = true;
+  patch.enable_raw_echo_generation = false;
+  patch.has_retain_raw_phase_history = true;
+  patch.retain_raw_phase_history = true;
   const SarRuntimeConfigResolveResult resolved =
       ResolveSarRuntimeConfigPatch(config::SarSessionConfig{}, patch);
   EXPECT_TRUE(resolved.has_requested_update);
@@ -126,8 +131,9 @@ TEST(SarRuntimeConfigResolverTest, RetainRawHistoryWithoutRawEchoRejectsWholePat
 
 TEST(SarRuntimeConfigResolverTest, SensorEnabledLeafUpdatesConfig) {
   // 电源叶子（COMMON-OQ-4 字段提升）：false 值透传到 next_config。
-  const config::SarRuntimeConfigPatch patch =
-      sar_config::SarRuntimeConfigBuilder().WithSensorEnabled(false).Build();
+  config::SarRuntimeConfigPatch patch;
+  patch.has_sensor_enabled = true;
+  patch.sensor_enabled = false;
 
   const SarRuntimeConfigResolveResult resolved =
       ResolveSarRuntimeConfigPatch(config::SarSessionConfig{}, patch);
@@ -142,8 +148,9 @@ TEST(SarRuntimeConfigResolverTest, ProcessingPatchPreservesExistingPowerState) {
   config::SarSessionConfig current_config;
   current_config.sensor_enabled = false;
 
-  const config::SarRuntimeConfigPatch patch =
-      sar_config::SarRuntimeConfigBuilder().WithMinimumSnrDb(-5.0).Build();
+  config::SarRuntimeConfigPatch patch;
+  patch.has_minimum_snr_db = true;
+  patch.minimum_snr_db = -5.0;
 
   const SarRuntimeConfigResolveResult resolved =
       ResolveSarRuntimeConfigPatch(current_config, patch);

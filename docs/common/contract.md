@@ -124,6 +124,35 @@ EOS 的 `detector_area_cm2` 与 `detector_detectivity_cm_sqrt_hz_per_w` 共同�
 
 RIR 的波束中心由**库内驻留调度器**（`RirSession`）每周期派生：无指定任务时按扫描策略逐周期推进（common 扫描内核 `ScanScheduleRuntime`，与 AR 同一口径）；指定识别任务窗口内对准指定目标。RIR 消费侧只信任并消费给定值，不自行生成指向。指向角类型为 `RirAzimuthElevationDeg`（deg），定义在雷达局部 ENU 右手系（与 `RirSceneTarget::position_x/y/z` 同帧）：`az_deg ∈ [-180, 180]`、`el_deg ∈ [-90, 90]`，单位指向向量为 `(cos(el)·cos(az), cos(el)·sin(az), sin(el))`。RIR 方向图开启时以“目标视线角 - 给定指向”作为离轴角；指向偏离目标即按实际离轴衰减执行。指定识别任务（限时锁定，镜像 AR designation 语义）见 `docs/remote_identification_radar/boundaries.md`。
 
+### 场景目标平台锚点 ENU 输入契约
+
+AR/EOS/RIR 的场景目标输入统一为平台锚点 radar-local ENU。SAR 为文档化例外（地面场景以
+LLA 输入、库内使用 scene-center ENU 几何）；SBIRS 输入保持 ECEF/ECI；ESR 与公共 RF 帧保持
+ECEF 全局几何，不适用本契约：
+
+1. ENU 原点 = 当周期平台 ECEF 位置（逐周期重锚）；轴 = 锚点 ENU（x=东、y=北、z=天）。
+2. 目标速度 = 目标 ECEF 速度旋入锚点 ENU 轴（固定锚点旋转，无传输率修正）。
+3. ECEF/LLA→ENU 转换由公共入口一站式承担：`TryEcefToLla` 求锚点（每周期一次）+
+   `TryMakeEnuSceneState` 逐目标转换后直填 `ArTargetInput` / `EosSceneTarget` /
+   `RirSceneTarget`。**禁止**模块级场景目标 ECEF→ENU `*CycleInputAdapter` /
+   `TryMake*FromExternal*` 平行入口；官方入口仅 `include/1q/coordinate/scene_transform.h`。
+4. 各模块继续拥有自己的量测几何：AR 在 ENU 之后再旋入雷达体系（平台姿态∘安装角复合，
+   见 `ArRadarFrameTransform`），EOS 由 ENU 位置 + 平台姿态派生体系球坐标（range/az/el），
+   RIR 直接在 ENU 轴上计算。
+5. ENU 原点逐周期随平台移动，跨周期不构成惯性参考系；跨周期状态（航迹/滤波）的帧语义由
+   各模块内部拥有，不通过输入面传递。
+
+集成样板（AR/EOS/RIR 相同）：
+
+```text
+TryEcefToLla(platform_ecef) → anchor_lla   // 每周期一次
+for each target:
+  TryMakeEnuSceneState(kinematics, anchor_lla) → 直填场景目标
+Session::Step(CycleInput)
+```
+
+[evidence: tests/unit/common/coordinate_scene_transform_test]
+
 ### 折射率温标输入迁移
 
 公开折射率入口只提供 `RefractivityInputs` + `RefractivityTemperaturePair` +
@@ -286,7 +315,7 @@ public API 分为两类，二者都受 public boundary、install manifest 和 co
 
 以下契约只对"有 `*Session` 会话模型的传感器模块"（AR/ESR/EOS/SAR/SBIRS/RIR）有效，不是所有模块的跨模块契约。完整内容见 [session_contract.md](session_contract.md)：
 
-- SessionConfigBuilder 薄封装规则（无 dirty flag / 无隐式覆写）
+- SessionConfig 直接赋值规则（无 ConfigBuilder / 无 dirty flag / 无隐式覆写；运行期写 RuntimeConfigPatch + has_*）
 - Session composition ownership（`Impl` 所有权边界、AR 决策 seam）
 - 运行期配置提交策略（事务性提交 vs 立即提交的分类表 + 各模块归属判定规则）
 - 电源状态单源契约（`sensor_enabled` 唯一来源、`has_sensor_enabled` 唯一入口，六模块统一，RIR 建模即遵守）
@@ -330,7 +359,7 @@ CMake 工程边界（target 作用域、Windows 验收）和测试架构（type�
 `common/` 只允许保留六份文档：
 
 - `contract.md` —— 公共契约（规定性：所有模块必须遵守的规则）。
-- `session_contract.md` —— 有 Session 的传感器模块的统一会话契约（SessionConfigBuilder、Session 组合所有权、运行期配置提交、电源单源、三层输出、Replay/trace 语义）。
+- `session_contract.md` —— 有 Session 的传感器模块的统一会话契约（会话配置直接赋值、Session 组合所有权、运行期配置提交、电源单源、三层输出、Replay/trace 语义）。
 - `open_questions.md` —— 跨模块架构观察与待决项（非规定性：记录调查中发现但尚未定论的议题，不构成契约约束）。条目推进到有结论时，应回写为契约规则（进 contract.md）或模块设计（进对应 design.md），并从 open_questions.md 移除。
 - `rf_architecture.md` —— AR/ESR/ECM/RIR 公共 RF 工程架构设计描述（provenance、单周期交换时序、接收机影响分层）。
 - `issue_codes.md` —— 各模块 issue code 注册表的人读辅助目录（由各模块 `<Module>IssueCodes.h` 的 `@brief` 提取生成；机器消费以公开头文件常量为唯一事实来源）。

@@ -23,23 +23,22 @@
 #include <gtest/gtest.h>
 
 #include "1q/airborne_radar/config/ArProfileConstants.h"
-#include "1q/airborne_radar/config/ArRuntimeConfigBuilder.h"
+#include "1q/airborne_radar/config/ArRuntimeConfigPatch.h"
 #include "1q/airborne_radar/session/ArSession.h"
 #include "1q/airborne_radar/session/ArTrackOutputDebugView.h"
 #include "1q/coordinate/position_transform.h"
 #include "1q/coordinate/types.h"
-#include "1q/electro_optical_sensor/config/EosRuntimeConfigBuilder.h"
-#include "1q/electro_optical_sensor/session/EosExternalInputAdapter.h"
+#include "1q/electro_optical_sensor/config/EosRuntimeConfigPatch.h"
 #include "1q/electro_optical_sensor/session/EosOutputDebugView.h"
 #include "1q/electro_optical_sensor/session/EosSession.h"
-#include "1q/electronic_surveillance_radar/config/EsrRuntimeConfigBuilder.h"
+#include "1q/electronic_surveillance_radar/config/EsrRuntimeConfigPatch.h"
 #include "1q/electronic_surveillance_radar/session/EsrSession.h"
 #include "1q/electromagnetics/RfScene.h"
 #include "1q/flight_dynamic/FlightManager.h"
 #include "1q/navigation/RoutePoint.h"
-#include "1q/sar/config/SarRuntimeConfigBuilder.h"
+#include "1q/sar/config/SarRuntimeConfigPatch.h"
 #include "1q/sar/session/SarSession.h"
-#include "1q/sbirs_sensor/config/SbirsRuntimeConfigBuilder.h"
+#include "1q/sbirs_sensor/config/SbirsRuntimeConfigPatch.h"
 #include "1q/sbirs_sensor/session/SbirsOutputDebugView.h"
 #include "1q/sbirs_sensor/session/SbirsSceneTypes.h"
 #include "1q/sbirs_sensor/session/SbirsSession.h"
@@ -51,6 +50,7 @@
 #include "components/sbirs_sensor_component.h"
 #include "scene_types.h"
 #include "core/world.h"
+#include "rf_world_broker.h"
 
 namespace ca = component_attachment;
 
@@ -81,7 +81,9 @@ oneq::coordinate::LlaPositionDegM MakeAirfield() {
 // =============================================================================
 
 TEST(ArSensorComponentRuntimeTest, ValidWorkModePatchAccepted) {
-  ca::ArSensorComponent component(airborne_radar::session::ArSession::Create(MakeArConfig()));
+  ca::ArSensorComponent component(airborne_radar::session::ArSession::Create(MakeArConfig()),
+                                                /*platform_entity_id=*/1U,
+                                                /*transmitter_equipment_id=*/1U);
 
   airborne_radar::config::ArRuntimeConfigPatch patch;
   patch.has_work_mode = true;
@@ -91,7 +93,9 @@ TEST(ArSensorComponentRuntimeTest, ValidWorkModePatchAccepted) {
 }
 
 TEST(ArSensorComponentRuntimeTest, NonPositiveBeamwidthRejected) {
-  ca::ArSensorComponent component(airborne_radar::session::ArSession::Create(MakeArConfig()));
+  ca::ArSensorComponent component(airborne_radar::session::ArSession::Create(MakeArConfig()),
+                                                /*platform_entity_id=*/1U,
+                                                /*transmitter_equipment_id=*/1U);
 
   // 非正指令波束宽度（沿用 ar_runtime_patch_mapper_test 已知非法用例）。
   airborne_radar::config::ArRuntimeConfigPatch patch;
@@ -343,10 +347,27 @@ class SensorQueryScene {
   ca::World& world() { return world_; }
   ca::Entity& platform() { return *platform_; }
 
+  /// 按窗口起点重建脉冲列波形（首脉冲 = 窗口起点，PRI 1ms×200 脉冲 ≈ 0.2 s
+  /// 覆盖 1 s 周期窗口），并把重建后的辐射源写回 scene_.emitters[0]。
+  void RebuildEmitterWaveforms(double window_start_time_s) {
+    if (!oneq::electromagnetics::TryCreateRfPulseTrainWaveform(
+            window_start_time_s, 9.5e9, 2.0e6, 5.0e7, 1.0e-6, 1.0e-3, 200U, 0.0, 42U, 1U,
+            &emitter_template_.waveform)) {
+      return;
+    }
+    if (!scene_.emitters.empty()) {
+      scene_.emitters[0] = emitter_template_;
+    }
+  }
+
   /// 推进一个周期（周期号/时间注入共享场景状态后 Step）。
+  /// RF-WORLD 每周期初重建（脚本辐射源 + 上周期装备发射），与 demo 主循环同源；
+  /// e62b6824 起 ESR/AR 组件消费 scene.rf_world 而非 scene.emitters。
   void DriveCycle(std::uint64_t cycle) {
     scene_.cycle = cycle;
     scene_.t_sec = static_cast<double>(cycle);
+    RebuildEmitterWaveforms(scene_.t_sec);
+    ca::BeginRfWorldCycle(&scene_, 1.0);
     world_.Step(1.0);
   }
 
@@ -359,37 +380,27 @@ class SensorQueryScene {
     oneq::coordinate::EcefPositionM target_ecef;
     oneq::coordinate::TryEnuToEcef(offset, origin, &target_ecef);
 
-    // AR：一个目标（ECEF 运动学 + RCS）。
-    airborne_radar::session::ArTargetInput ar_target;
-    ar_target.target_id = 1001U;
-    ar_target.kinematics.position_frame = oneq::coordinate::PositionFrame::kEcef;
-    ar_target.kinematics.position_ecef_m = target_ecef;
-    ar_target.rcs = 2.0f;
-    ar_target.swerling_type = 0;
-    scene_.ar_targets.push_back(ar_target);
+    // AR/EOS：同一世界 ECEF 真值（EOS 经平台锚点转 ENU；外观字段供光学通道）。
+    ca::demo::TargetEcefState ar_world_target;
+    ar_world_target.id = 1001U;
+    ar_world_target.position = target_ecef;
+    ar_world_target.rcs = 2.0f;
+    ar_world_target.temperature_k = 520.0f;
+    ar_world_target.projected_area_m2 = 18.0f;
+    scene_.world_targets.push_back(ar_world_target);
 
-    // ESR：一个辐射源（脉冲列波形，10 GHz 级）。
-    oneq::electromagnetics::RfSceneEmission emitter;
-    emitter.identity.platform_id = 1001U;
-    emitter.identity.equipment_id = 1U;
-    emitter.identity.emission_id = 1U;
-    emitter.position_ecef_m = target_ecef;
-    emitter.antenna.peak_gain_dbi = 30.0;
-    oneq::electromagnetics::TryCreateRfPulseTrainWaveform(
-        0.0, 9.5e9, 2.0e6, 5.0e7, 1.0e-6, 1.0e-3, 200U, 0.0, 42U, 1U,
-        &emitter.waveform);
-    scene_.emitters.push_back(emitter);
-
-    // EOS：一个光学目标。
-    electro_optical_sensor::session::EosExternalTargetInput optical;
-    optical.target_id = 1001U;
-    optical.kinematics.position_frame = oneq::coordinate::PositionFrame::kEcef;
-    optical.kinematics.position_ecef_m = target_ecef;
-    optical.appearance.apparent_temperature_k = 520.0f;
-    optical.appearance.emissivity = 0.92f;
-    optical.appearance.reflectance = 0.35f;
-    optical.appearance.projected_area_m2 = 18.0f;
-    scene_.optical_targets.push_back(optical);
+    // ESR：一个辐射源（脉冲列波形，10 GHz 级）。脉冲列自窗口起点铺开——
+    // 与 demo 的 MakeEmitterTruths 同源语义：RF 活动必须与本周期窗口时频重叠，
+    // 固定 t=0 起点的波形在 cycle>=2 会被 RF v2 接收机拒绝（零重叠整周期拒绝）。
+    // 波形参数在 DriveCycle 按当前窗口起点重建（见 RebuildEmitterWaveforms）。
+    emitter_template_ = oneq::electromagnetics::RfSceneEmission{};
+    emitter_template_.identity.platform_id = 1001U;
+    emitter_template_.identity.equipment_id = 1U;
+    emitter_template_.identity.emission_id = 1U;
+    emitter_template_.position_ecef_m = target_ecef;
+    emitter_template_.antenna.peak_gain_dbi = 30.0;
+    RebuildEmitterWaveforms(0.0);
+    scene_.emitters.push_back(emitter_template_);
 
     // SBIRS：一个红外目标 + 天基平台（目标群中心正上方 +500 km，凝视模式）。
     sbirs_sensor::session::SbirsSceneTarget ir;
@@ -408,6 +419,7 @@ class SensorQueryScene {
 
   ca::DemoSceneState scene_;
   ca::World world_{scene_};
+  oneq::electromagnetics::RfSceneEmission emitter_template_{};  ///< 脉冲列参数模板（波形每周期按窗口重建）
   ca::Entity* platform_{nullptr};
 };
 
@@ -415,10 +427,12 @@ class SensorQueryScene {
 
 TEST(SensorQueryGettersTest, CompletedCyclesReportPoweredOnAndScanAzimuth) {
   SensorQueryScene scene;
-  scene.platform().Attach(std::make_unique<ca::ArSensorComponent>(
-      airborne_radar::session::ArSession::Create(MakeArConfig())));
+  // Demo mount order: Flight → ESR → [ECM] → AR → … so AR RF publish does not
+  // land in rf_world before ESR consumes the script emitters for this cycle.
   scene.platform().Attach(std::make_unique<ca::EsrSensorComponent>(
       electronic_surveillance_radar::session::EsrSession::Create()));
+  scene.platform().Attach(std::make_unique<ca::ArSensorComponent>(
+      airborne_radar::session::ArSession::Create(MakeArConfig()), 1U, 1U));
   scene.platform().Attach(std::make_unique<ca::EosSensorComponent>(
       electro_optical_sensor::session::EosSession::Create(MakeEosConfig())));
   scene.platform().Attach(std::make_unique<ca::SbirsSensorComponent>(
@@ -446,10 +460,12 @@ TEST(SensorQueryGettersTest, CompletedCyclesReportPoweredOnAndScanAzimuth) {
 
 TEST(SensorQueryGettersTest, PowerOffPatchFlipsPoweredStateAndClearsAzimuth) {
   SensorQueryScene scene;
-  scene.platform().Attach(std::make_unique<ca::ArSensorComponent>(
-      airborne_radar::session::ArSession::Create(MakeArConfig())));
+  // Demo mount order: Flight → ESR → [ECM] → AR → … so AR RF publish does not
+  // land in rf_world before ESR consumes the script emitters for this cycle.
   scene.platform().Attach(std::make_unique<ca::EsrSensorComponent>(
       electronic_surveillance_radar::session::EsrSession::Create()));
+  scene.platform().Attach(std::make_unique<ca::ArSensorComponent>(
+      airborne_radar::session::ArSession::Create(MakeArConfig()), 1U, 1U));
   scene.platform().Attach(std::make_unique<ca::EosSensorComponent>(
       electro_optical_sensor::session::EosSession::Create(MakeEosConfig())));
   scene.platform().Attach(std::make_unique<ca::SbirsSensorComponent>(
@@ -459,18 +475,38 @@ TEST(SensorQueryGettersTest, PowerOffPatchFlipsPoweredStateAndClearsAzimuth) {
 
   scene.DriveCycle(1U);  // 开机周期：查询状态就绪
 
-  // 五传感器全部下电（各模块 WithSensorEnabled(false) 补丁；AR 为事务性
+  // 五传感器全部下电（各模块 sensor_enabled 补丁；AR 为事务性
   // 暂存，下个周期边界生效，其余立即生效）。
-  EXPECT_TRUE(scene.platform().Find<ca::ArSensorComponent>()->TryApplyRuntimeConfig(
-      airborne_radar::config::ArRuntimeConfigBuilder().WithSensorEnabled(false).Build()));
-  EXPECT_TRUE(scene.platform().Find<ca::EsrSensorComponent>()->TryApplyRuntimeConfig(
-      electronic_surveillance_radar::config::EsrRuntimeConfigBuilder().WithSensorEnabled(false).Build()));
-  EXPECT_TRUE(scene.platform().Find<ca::EosSensorComponent>()->TryApplyRuntimeConfig(
-      electro_optical_sensor::config::EosRuntimeConfigBuilder().WithSensorEnabled(false).Build()));
-  EXPECT_TRUE(scene.platform().Find<ca::SbirsSensorComponent>()->TryApplyRuntimeConfig(
-      sbirs_sensor::config::SbirsRuntimeConfigBuilder().WithSensorEnabled(false).Build()));
-  EXPECT_TRUE(scene.platform().Find<ca::SarSensorComponent>()->TryApplyRuntimeConfig(
-      sar::config::SarRuntimeConfigBuilder().WithSensorEnabled(false).Build()));
+  {
+    airborne_radar::config::ArRuntimeConfigPatch ar_off;
+    ar_off.has_sensor_enabled = true;
+    ar_off.sensor_enabled = false;
+    EXPECT_TRUE(scene.platform().Find<ca::ArSensorComponent>()->TryApplyRuntimeConfig(ar_off));
+  }
+  {
+    electronic_surveillance_radar::config::EsrRuntimeConfigPatch esr_off;
+    esr_off.has_sensor_enabled = true;
+    esr_off.sensor_enabled = false;
+    EXPECT_TRUE(scene.platform().Find<ca::EsrSensorComponent>()->TryApplyRuntimeConfig(esr_off));
+  }
+  {
+    electro_optical_sensor::config::EosRuntimeConfigPatch eos_off;
+    eos_off.has_sensor_enabled = true;
+    eos_off.sensor_enabled = false;
+    EXPECT_TRUE(scene.platform().Find<ca::EosSensorComponent>()->TryApplyRuntimeConfig(eos_off));
+  }
+  {
+    sbirs_sensor::config::SbirsRuntimeConfigPatch sbirs_off;
+    sbirs_off.has_sensor_enabled = true;
+    sbirs_off.sensor_enabled = false;
+    EXPECT_TRUE(scene.platform().Find<ca::SbirsSensorComponent>()->TryApplyRuntimeConfig(sbirs_off));
+  }
+  {
+    sar::config::SarRuntimeConfigPatch sar_off;
+    sar_off.has_sensor_enabled = true;
+    sar_off.sensor_enabled = false;
+    EXPECT_TRUE(scene.platform().Find<ca::SarSensorComponent>()->TryApplyRuntimeConfig(sar_off));
+  }
 
   scene.DriveCycle(2U);
 
@@ -487,8 +523,12 @@ TEST(SensorQueryGettersTest, PowerOffPatchFlipsPoweredStateAndClearsAzimuth) {
   EXPECT_FLOAT_EQ(scene.platform().Find<ca::SbirsSensorComponent>()->scan_azimuth_deg(), 0.0f);
 
   // 重新上电：SAR 组件恢复驱动（状态翻转回 true，会话可继续工作）。
-  EXPECT_TRUE(scene.platform().Find<ca::SarSensorComponent>()->TryApplyRuntimeConfig(
-      sar::config::SarRuntimeConfigBuilder().WithSensorEnabled(true).Build()));
+  {
+    sar::config::SarRuntimeConfigPatch sar_on;
+    sar_on.has_sensor_enabled = true;
+    sar_on.sensor_enabled = true;
+    EXPECT_TRUE(scene.platform().Find<ca::SarSensorComponent>()->TryApplyRuntimeConfig(sar_on));
+  }
   scene.DriveCycle(3U);
   EXPECT_TRUE(scene.platform().Find<ca::SarSensorComponent>()->powered_on());
 }
@@ -506,8 +546,12 @@ TEST(SensorQueryGettersTest, PowerOffFreezesSessionUntilReenabled) {
   EXPECT_FLOAT_EQ(scene.platform().Find<ca::SbirsSensorComponent>()->scan_azimuth_deg(), 310.0f);
 
   // 下电：关机两个周期，组件短路（不驱动会话），角度清零。
-  EXPECT_TRUE(scene.platform().Find<ca::SbirsSensorComponent>()->TryApplyRuntimeConfig(
-      sbirs_sensor::config::SbirsRuntimeConfigBuilder().WithSensorEnabled(false).Build()));
+  {
+    sbirs_sensor::config::SbirsRuntimeConfigPatch sbirs_off;
+    sbirs_off.has_sensor_enabled = true;
+    sbirs_off.sensor_enabled = false;
+    EXPECT_TRUE(scene.platform().Find<ca::SbirsSensorComponent>()->TryApplyRuntimeConfig(sbirs_off));
+  }
   scene.DriveCycle(2U);
   scene.DriveCycle(3U);
   EXPECT_FALSE(scene.platform().Find<ca::SbirsSensorComponent>()->powered_on());
@@ -515,8 +559,12 @@ TEST(SensorQueryGettersTest, PowerOffFreezesSessionUntilReenabled) {
 
   // 重新上电：相位从关机前冻结处继续（310° 基础上仅推进一个周期 → 320°）；
   // 若关机期间被驱动，相位会多推进两个周期（→ 340°），断言即失败。
-  EXPECT_TRUE(scene.platform().Find<ca::SbirsSensorComponent>()->TryApplyRuntimeConfig(
-      sbirs_sensor::config::SbirsRuntimeConfigBuilder().WithSensorEnabled(true).Build()));
+  {
+    sbirs_sensor::config::SbirsRuntimeConfigPatch sbirs_on;
+    sbirs_on.has_sensor_enabled = true;
+    sbirs_on.sensor_enabled = true;
+    EXPECT_TRUE(scene.platform().Find<ca::SbirsSensorComponent>()->TryApplyRuntimeConfig(sbirs_on));
+  }
   scene.DriveCycle(4U);
   EXPECT_TRUE(scene.platform().Find<ca::SbirsSensorComponent>()->powered_on());
   // 310° + 10° = 320°。
@@ -559,7 +607,7 @@ TEST(SensorQueryGettersTest, ArLastDebugViewCarriesPerTargetState) {
   // 与输入存在标志），供调用方结构化持久化。
   SensorQueryScene scene;
   scene.platform().Attach(std::make_unique<ca::ArSensorComponent>(
-      airborne_radar::session::ArSession::Create(MakeArConfig())));
+      airborne_radar::session::ArSession::Create(MakeArConfig()), 1U, 1U));
   scene.DriveCycle(1U);
 
   const auto& view = scene.platform().Find<ca::ArSensorComponent>()->LastDebugView();
@@ -626,7 +674,7 @@ TEST(SensorQueryGettersTest, LastDebugViewClearedOnPowerOff) {
   // 与 SBIRS 组件行为一致，AR/EOS/SAR 对齐后同样不残留上周期快照）。
   SensorQueryScene scene;
   scene.platform().Attach(std::make_unique<ca::ArSensorComponent>(
-      airborne_radar::session::ArSession::Create(MakeArConfig())));
+      airborne_radar::session::ArSession::Create(MakeArConfig()), 1U, 1U));
   scene.platform().Attach(std::make_unique<ca::EosSensorComponent>(
       electro_optical_sensor::session::EosSession::Create(MakeEosConfig())));
   scene.platform().Attach(std::make_unique<ca::SbirsSensorComponent>(
@@ -640,14 +688,30 @@ TEST(SensorQueryGettersTest, LastDebugViewClearedOnPowerOff) {
   EXPECT_EQ(scene.platform().Find<ca::SbirsSensorComponent>()->LastDebugView().targets.size(), 1U);
   EXPECT_EQ(scene.platform().Find<ca::SarSensorComponent>()->LastDebugView().input_cycle_index, 1U);
 
-  EXPECT_TRUE(scene.platform().Find<ca::ArSensorComponent>()->TryApplyRuntimeConfig(
-      airborne_radar::config::ArRuntimeConfigBuilder().WithSensorEnabled(false).Build()));
-  EXPECT_TRUE(scene.platform().Find<ca::EosSensorComponent>()->TryApplyRuntimeConfig(
-      electro_optical_sensor::config::EosRuntimeConfigBuilder().WithSensorEnabled(false).Build()));
-  EXPECT_TRUE(scene.platform().Find<ca::SbirsSensorComponent>()->TryApplyRuntimeConfig(
-      sbirs_sensor::config::SbirsRuntimeConfigBuilder().WithSensorEnabled(false).Build()));
-  EXPECT_TRUE(scene.platform().Find<ca::SarSensorComponent>()->TryApplyRuntimeConfig(
-      sar::config::SarRuntimeConfigBuilder().WithSensorEnabled(false).Build()));
+  {
+    airborne_radar::config::ArRuntimeConfigPatch ar_off;
+    ar_off.has_sensor_enabled = true;
+    ar_off.sensor_enabled = false;
+    EXPECT_TRUE(scene.platform().Find<ca::ArSensorComponent>()->TryApplyRuntimeConfig(ar_off));
+  }
+  {
+    electro_optical_sensor::config::EosRuntimeConfigPatch eos_off;
+    eos_off.has_sensor_enabled = true;
+    eos_off.sensor_enabled = false;
+    EXPECT_TRUE(scene.platform().Find<ca::EosSensorComponent>()->TryApplyRuntimeConfig(eos_off));
+  }
+  {
+    sbirs_sensor::config::SbirsRuntimeConfigPatch sbirs_off;
+    sbirs_off.has_sensor_enabled = true;
+    sbirs_off.sensor_enabled = false;
+    EXPECT_TRUE(scene.platform().Find<ca::SbirsSensorComponent>()->TryApplyRuntimeConfig(sbirs_off));
+  }
+  {
+    sar::config::SarRuntimeConfigPatch sar_off;
+    sar_off.has_sensor_enabled = true;
+    sar_off.sensor_enabled = false;
+    EXPECT_TRUE(scene.platform().Find<ca::SarSensorComponent>()->TryApplyRuntimeConfig(sar_off));
+  }
   scene.DriveCycle(2U);
 
   // 关机周期：四通道调试视图均为默认清零快照（无残留目标行/周期号）。

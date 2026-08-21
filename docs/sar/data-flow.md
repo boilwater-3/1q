@@ -197,8 +197,7 @@ flowchart TB
 
   subgraph External["外部 IQ 路径"]
     RawIq["SarRawIqFrame\n行主序 I/Q 样本"]
-    PulseState["PulseState[]\nscene-center-relative ENU"]
-    Adapter["SarExternalInputAdapter\n外部运动学到 ENU"]
+    PulseState["PulseState[]\nscene-center-relative ENU\n调用方直接填充"]
   end
 
   subgraph Common["统一成像输入"]
@@ -215,7 +214,6 @@ flowchart TB
   Track --> Ideal
   Track --> Actual
 
-  Adapter --> PulseState
   RawIq --> History
   PulseState --> Actual
   PulseState -. "optional ideal states" .-> Ideal
@@ -228,7 +226,8 @@ flowchart TB
 读图规则：
 1. `SarSession` 只让两条 raw history 来源在 `raw_history + trajectory buffers` 处汇合。
 2. RDA、BP 和后续成像算法不关心 raw history 是内部 echo 生成还是外部 IQ 输入。
-3. external adapter 只服务 raw IQ pulse state 坐标适配，不负责平台/点目标 public 输入的批量转换。
+3. 外部 raw IQ 的 pulse state 坐标由调用方以 scene-center-relative ENU 直接提供；库内不做
+   ECEF/LLA 到 ENU 适配，也不负责平台/点目标 public 输入的批量转换。
 
 ## 生命周期与状态所有权
 
@@ -260,5 +259,5 @@ focused image。日志不作为状态判断依据。
 1. 平台和点目标 public 输入使用 LLA/NED 语义；内部生成路径按统一环境几何转换到局部 ENU
    （见 boundaries.md Environment 契约）。
 2. raw IQ pulse state 使用 scene-center-relative ENU。
-3. 外部 raw IQ pulse state 的 ECEF/LLA 到 ENU 适配集中在 `SarExternalInputAdapter`；环境几何只存在于
+3. 外部 raw IQ pulse state 必须由调用方以 scene-center-relative ENU 提供；环境几何只存在于
    raw-history 构造边界，均不得散落进 imaging 算法。

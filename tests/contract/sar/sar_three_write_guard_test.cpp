@@ -18,7 +18,7 @@
 #include <cstdint>
 #include <limits>
 
-#include "1q/sar/config/SarRuntimeConfigBuilder.h"
+#include "1q/sar/config/SarRuntimeConfigPatch.h"
 #include "1q/sar/config/SarSessionConfig.h"
 #include "1q/sar/session/SarCycleInput.h"
 #include "1q/sar/session/SarCycleResult.h"
@@ -131,8 +131,10 @@ TEST(SarThreeWriteGuardTest, PoweredOffAbortWritesAllThree) {
   const session::SarCycleResult active = session.StepWithResult(MakeMinimalInput());
   ASSERT_EQ(active.status, session::SarCycleStatus::kCompleted);
 
-  (void)session.TryApplyRuntimeConfig(
-      config::SarRuntimeConfigBuilder().WithSensorEnabled(false).Build());
+  config::SarRuntimeConfigPatch power_off;
+  power_off.has_sensor_enabled = true;
+  power_off.sensor_enabled = false;
+  (void)session.TryApplyRuntimeConfig(power_off);
 
   const session::SarCycleResult powered_off = session.StepWithResult(MakeMinimalInput());
   ExpectThreeWriteAbort(powered_off, session::SarPipelineAbortReason::kSensorPoweredOff,

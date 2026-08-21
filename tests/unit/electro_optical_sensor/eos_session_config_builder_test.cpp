@@ -6,7 +6,6 @@
 #include <string>
 
 #include "1q/electro_optical_sensor/config/EosProfileConstants.h"
-#include "1q/electro_optical_sensor/config/EosSessionConfigBuilder.h"
 #include "1q/electro_optical_sensor/config/EosSessionConfigValidation.h"
 
 namespace electro_optical_sensor {

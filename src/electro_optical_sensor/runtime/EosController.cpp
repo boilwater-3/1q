@@ -6,8 +6,11 @@
 #include "1q/electro_optical_sensor/session/EosInputValidation.h"
 #include "1q/electro_optical_sensor/session/EosIssueCodes.h"
 #include "common/logging/ProjectLog.h"
+#include "electro_optical_sensor/foundation/EosLookAngles.h"
 #include "electro_optical_sensor/pipeline/EosPipeline.h"
 #include "electro_optical_sensor/session/EosDiagnosticUtils.h"
+
+#include <utility>
 
 namespace electro_optical_sensor {
 namespace extension {
@@ -15,6 +18,35 @@ namespace extension {
 namespace {
 
 constexpr std::uint32_t kControllerRuntimeStateSchemaVersion = 1U;
+
+/**
+ * @brief 公开 ENU 周期输入 → 管道内部球坐标输入（每周期一次派生）。
+ * @note 体系球坐标（斜距/方位/仰角）是库内量测几何，由 ENU 位置 +
+ *       platform_attitude_deg（Body->ENU）派生；退化几何在校验层已拒绝，
+ *       此处防御性跳过。
+ */
+signal::pipeline::EosPipelineCycleInput BuildPipelineInput(
+    const session::EosCycleInput& input) {
+  signal::pipeline::EosPipelineCycleInput pipeline_input;
+  pipeline_input.cycle_index = input.cycle_index;
+  pipeline_input.dt_sec = input.dt_sec;
+  pipeline_input.platform_altitude_m = input.platform_altitude_m;
+  pipeline_input.scene.reserve(input.scene.size());
+  for (const session::EosSceneTarget& target : input.scene) {
+    signal::pipeline::EosPipelineSceneTarget scene_target;
+    scene_target.target_id = target.target_id;
+    scene_target.target_name = target.target_name;
+    scene_target.appearance = target.appearance;
+    if (!foundation::TryResolveEosLookAngles(
+            target.position_x, target.position_y, target.position_z,
+            input.platform_attitude_deg, &scene_target.range_m, &scene_target.azimuth_deg,
+            &scene_target.elevation_deg)) {
+      continue;
+    }
+    pipeline_input.scene.push_back(std::move(scene_target));
+  }
+  return pipeline_input;
+}
 
 session::EosCycleStatus DeriveCycleStatus(session::EosPipelineAbortReason reason) {
   switch (reason) {
@@ -138,7 +170,9 @@ void EosController::RunOnce(const ::electro_optical_sensor::session::EosCycleInp
     return;
   }
 
-  const extension::EosPipelineExecuteResult execute_result = impl_->pipeline.RunCycle(input);
+  const signal::pipeline::EosPipelineCycleInput pipeline_input = BuildPipelineInput(input);
+  const extension::EosPipelineExecuteResult execute_result =
+      impl_->pipeline.RunCycle(pipeline_input);
 
   if (!execute_result.executed_this_cycle &&
       execute_result.abort_reason == session::EosPipelineAbortReason::kSensorPoweredOff) {

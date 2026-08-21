@@ -156,7 +156,7 @@ AR 子能力；`docs/common/contract.md` 未单独定义远程识别雷达。因
 | `session/ArSessionCompositionRoot.cpp:45-52` | 从 AR hardware 组装识别静态上下文 |
 | `session/ArSessionConfigBuilder.cpp:172-220` | 识别配置校验段（5 个 issue code 触发点） |
 | `config/mapping/RuntimePatchMapper.h:25`、`.cpp:104` | recognition 整域 patch 搬运 |
-| `session/ArExternalInputAdapter.cpp:159-161` | 识别真值字段拷贝进场景目标表 |
+| `session/ArRadarFrameTransform.cpp`（及场景目标 ENU 路径） | 识别真值字段随目标输入进入场景目标表 |
 | `session/ArReplayCycleRecord.h:46` | `ArSessionReplayState::active_database_version` |
 | `session/ArReplayFlatbufferCodec.cpp:31-56,93,129` | 识别结果编解码 |
 | `session/ArReplayFlatbufferCodec.cpp:341` | 工作模式合法范围上界含 `kLrr`（删除后收紧为 `kStt`） |

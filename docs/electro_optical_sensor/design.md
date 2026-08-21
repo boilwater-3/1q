@@ -37,5 +37,5 @@ EOS 的心智模型是**光电探测流水线**：
 - 算法登记表（配置映射 / 环境因子 / 辐射传输 / 光学几何 / 红外 / 可见光 / 噪声·NEP / 空间频谱 /
   杂散光 / 融合）、每算法的实现边界与反直觉点、刻意不实现的扩展点 → [algorithms.md](algorithms.md)
 
-跨模块公共规则（public API 边界、四域配置、三层输出模型、`EosSessionConfigBuilder`、运行期配置提交
+跨模块公共规则（public API 边界、四域配置、三层输出模型、会话配置直接赋值、运行期配置提交
 策略、证据优先开发模式等）见 `docs/common/contract.md`。

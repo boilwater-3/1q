@@ -6,11 +6,13 @@ set(ONEQ_COMMON_SOURCES
     electromagnetics/RfLinkBudget.cpp
     electromagnetics/RfScene.cpp
     environment/PropagationPhysicsImpl.cpp
+    geometry/BoresightChain.cpp
     geometry/GeometryTransform.cpp
     coordinate/PositionTransform.cpp
     coordinate/VelocityTransform.cpp
     coordinate/AttitudeTransform.cpp
     coordinate/InertialTransform.cpp
+    coordinate/SceneTransform.cpp
     numerics/SpectralNumerics.cpp
     optimization/LapjvSolver.cpp
     radar/RadarEquations.cpp

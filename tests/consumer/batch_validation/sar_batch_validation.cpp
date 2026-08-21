@@ -11,7 +11,8 @@
  *   - 每场景录制可回放 trace，用 ReplaySarTrace 做确定性回归。
  *
  * @par 与 AR/EOS/ESR 的差异
- *   - SAR 内部存 LLA+NED 大地坐标，外部输入也是 LLA，无需 SarCycleInputAdapter 做坐标转换。
+ *   - SAR 平台/点目标 public 输入使用 LLA+NED；外部 IQ 的 pulse_states 由调用方直接填
+ *     scene-center-relative ENU，库内无坐标适配器。
  *   - SAR 单周期即完成聚焦成像（非多周期跟踪）。
  *   - 输出是聚焦图像而非航迹/检测；CSV 只记录图像质量摘要，复数像素不入 CSV。
  *

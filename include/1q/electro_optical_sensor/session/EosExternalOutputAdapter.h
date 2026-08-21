@@ -12,8 +12,7 @@
 #include "1q/api.hpp"
 #include "1q/coordinate/types.h"
 #include "1q/electro_optical_sensor/session/EosOutputTypes.h"
-#include "1q/electro_optical_sensor/session/EosExternalInputAdapter.h"
-#include "1q/foundation/pose_types.h"
+#include "1q/electro_optical_sensor/session/EosPlatformEcefPose.h"
 
 namespace electro_optical_sensor {
 namespace session {
@@ -47,15 +46,16 @@ using EosExternalDetectionRecordList = std::vector<EosExternalDetectionRecord>;
  * 并原样复制信噪比等标量字段。
  *
  * @param[in] detection 内部探测记录（相对平台的几何量）。
- * @param[in] reference 局部坐标参考系，决定 ENU 到 ECEF 的转换基准。
- * @param[in] platform_pose 平台局部位姿状态。
+ * @param[in] reference 锚点参考系（`origin_lla` 为平台锚点，决定 ENU→ECEF 基准）。
+ * @param[in] platform_attitude_deg 平台姿态角（Body->ENU，单位：deg）。
  * @param[out] output 输出外部 ECEF 探测记录；为 nullptr 时直接返回 false。
  * @return 转换成功返回 true；`output` 为空、几何量非有限/非法、或 ENU→ECEF 变换失败返回 false。
  */
 ONEQ_API bool TryMakeExternalDetectionFromRecord(
     const output::EosDetectionRecord& detection,
     const oneq::coordinate::LocalFrameReference& reference,
-    const oneq::foundation::PoseState& platform_pose, EosExternalDetectionRecord* output);
+    const oneq::coordinate::EulerAnglesDeg& platform_attitude_deg,
+    EosExternalDetectionRecord* output);
 
 }  // namespace session
 }  // namespace electro_optical_sensor

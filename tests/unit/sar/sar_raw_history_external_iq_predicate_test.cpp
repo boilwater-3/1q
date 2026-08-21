@@ -1,7 +1,7 @@
 ﻿// 谓词守护：验证 HasExternalRawIq 以 IQ 样本为充要条件。
 //
-// 历史背景：该谓词曾是 6 个 raw_iq 字段的析取，导致 SarCycleInputAdapter 仅填伴随
-// 轨迹（pulse_states/pulse_count）的输入被误判为"外部完整 IQ"。收紧后，只有同时
+// 历史背景：该谓词曾是 6 个 raw_iq 字段的析取，导致仅填伴随轨迹（pulse_states/pulse_count）
+// 的输入被误判为"外部完整 IQ"。收紧后，只有同时
 // 提供 samples_per_pulse + i_values + q_values 才视为外部 IQ；仅轨迹不再触发外部
 // 路径。本测试守护该契约，防回退。
 

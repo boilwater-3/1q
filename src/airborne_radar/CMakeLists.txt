@@ -47,13 +47,13 @@ set(AIRBORNE_CORE_SOURCES
     runtime/ControlCommandMapper.cpp
     runtime/ArController.cpp
     session/ArSessionCompositionRoot.cpp
-    session/ArExternalInputAdapter.cpp
+    session/ArRadarFrameTransform.cpp
     session/ArExternalOutputAdapter.cpp
     session/ArCycleOutputAdapter.cpp
     session/ArTrackOutputDebugViewBuilder.cpp
     session/ArTrackLifecycleRecorder.cpp
     session/ArExclusionCauseRecorder.cpp
-    session/ArSessionConfigBuilder.cpp
+    session/ArSessionConfigValidation.cpp
     session/ArReplaySession.cpp
     session/ArSession.cpp
     session/ArEmissionFactory.cpp

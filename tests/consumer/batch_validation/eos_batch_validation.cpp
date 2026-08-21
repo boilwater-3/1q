@@ -3,7 +3,7 @@
  * @brief 光电传感器（EOS）批量场景验证。
  *
  * @par 目标
- * 通过公开 Session 接口（EosTraceSession + EosCycleInputAdapter）对 EOS 模块做多场景
+ * 通过公开 Session 接口（EosTraceSession + 手填 EosCycleInput）对 EOS 模块做多场景
  * 参数扫描，验证其在不同目标距离 / 红外对比度 / 光照条件下的泛用性：
  *   - 采集周期级 CSV（检出数、融合/红外/可见光 SNR 分布）+ 场景汇总 CSV。
  *   - 软断言：高红外对比度场景检出率 ≥ 低对比度；夜间可见光 SNR 显著低于红外；
@@ -31,14 +31,14 @@
 #include "1q/coordinate/types.h"
 #include "1q/electro_optical_sensor/electro_optical_sensor.hpp"
 #include "1q/electro_optical_sensor/config/EosRuntimeConfigPatch.h"
-#include "1q/electro_optical_sensor/session/EosCycleInputAdapter.h"
 #include "1q/electro_optical_sensor/session/EosCycleResult.h"
 #include "1q/electro_optical_sensor/session/EosInputValidation.h"
-#include "1q/electro_optical_sensor/session/EosExternalInputAdapter.h"
+#include "1q/electro_optical_sensor/session/EosPlatformEcefPose.h"
 #include "1q/electro_optical_sensor/session/EosReplaySession.h"
 #include "1q/electro_optical_sensor/session/EosSceneTypes.h"
 #include "1q/electro_optical_sensor/session/EosSession.h"
 #include "1q/electro_optical_sensor/session/EosTraceSession.h"
+#include "1q/coordinate/scene_transform.h"
 
 #include "batch_assertions.h"
 #include "batch_checks.h"
@@ -175,8 +175,51 @@ constexpr double kPlatformLon = 114.5;
 constexpr double kPlatformAlt = 7000.0;
 constexpr double kBaseLon = kPlatformLon + 0.06925;  ///< 传感器足印中心经度
 
-eos_session::EosExternalPoseInput MakePlatform(std::uint32_t cycle_index) {
-  eos_session::EosExternalPoseInput p;
+/// 世界侧目标规格（手填 CycleInput 前的中间结构）。
+struct EosWorldTargetSpec {
+  std::uint64_t target_id{0U};
+  oneq::coordinate::ExternalKinematics kinematics{};
+  eos_session::EosTargetAppearance appearance{};
+};
+
+bool TryBuildEosCycleInput(const eos_session::EosPlatformEcefPose& platform,
+                           const std::vector<EosWorldTargetSpec>& targets, float dt_sec,
+                           eos_session::EosCycleInput* output) {
+  if (output == nullptr) {
+    return false;
+  }
+  oneq::coordinate::LlaPositionDegM anchor_lla;
+  if (!oneq::coordinate::TryEcefToLla(platform.platform_position_ecef_m, &anchor_lla)) {
+    return false;
+  }
+  output->dt_sec = dt_sec;
+  output->platform_altitude_m = static_cast<float>(anchor_lla.altitude_m);
+  output->platform_attitude_deg = platform.platform_attitude_deg;
+  output->scene.clear();
+  output->scene.reserve(targets.size());
+  for (std::size_t i = 0; i < targets.size(); ++i) {
+    const EosWorldTargetSpec& spec = targets[i];
+    oneq::coordinate::EnuSceneState enu;
+    if (!oneq::coordinate::TryMakeEnuSceneState(spec.kinematics, anchor_lla, &enu)) {
+      return false;
+    }
+    eos_session::EosSceneTarget scene_target;
+    scene_target.target_id =
+        (spec.target_id != 0U) ? spec.target_id : static_cast<std::uint64_t>(i);
+    scene_target.position_x = static_cast<float>(enu.position_enu_m.east_m);
+    scene_target.position_y = static_cast<float>(enu.position_enu_m.north_m);
+    scene_target.position_z = static_cast<float>(enu.position_enu_m.up_m);
+    scene_target.velocity_x = static_cast<float>(enu.velocity_enu_mps.east_mps);
+    scene_target.velocity_y = static_cast<float>(enu.velocity_enu_mps.north_mps);
+    scene_target.velocity_z = static_cast<float>(enu.velocity_enu_mps.up_mps);
+    scene_target.appearance = spec.appearance;
+    output->scene.push_back(scene_target);
+  }
+  return true;
+}
+
+eos_session::EosPlatformEcefPose MakePlatform(std::uint32_t cycle_index) {
+  eos_session::EosPlatformEcefPose p;
   // 用项目精确 LLA→ECEF 转换（手写近似会导致几何失真、目标落出视场）。
   oneq::coordinate::LlaPositionDegM platform_lla;
   platform_lla.latitude_deg = kPlatformLat;
@@ -216,10 +259,10 @@ eos_session::EosTargetAppearance MakeAppearance(ContrastLevel c) {
   return a;
 }
 
-std::vector<eos_session::EosExternalTargetInput> MakeTargets(const EosCase& c,
+std::vector<EosWorldTargetSpec> MakeTargets(const EosCase& c,
                                                               std::uint32_t cycle_index) {
-  std::vector<eos_session::EosExternalTargetInput> targets;
-  eos_session::EosExternalTargetInput t;
+  std::vector<EosWorldTargetSpec> targets;
+  EosWorldTargetSpec t;
   t.target_id = 101;
   t.kinematics.position_frame = oneq::coordinate::PositionFrame::kLla;
   // 目标放在传感器足印中心附近，按场景偏移量错开（偏移即相对足印中心的地面距离）。
@@ -231,7 +274,7 @@ std::vector<eos_session::EosExternalTargetInput> MakeTargets(const EosCase& c,
   if (c.sequence && c.scenario_id == "eos_seq_two_target_focal_crossing") {
     const double delta = (12.5 - static_cast<double>(cycle_index)) * 0.00025;
     targets[0].kinematics.position_lla_deg_m.longitude_deg = kBaseLon + delta;
-    eos_session::EosExternalTargetInput second = targets[0];
+    EosWorldTargetSpec second = targets[0];
     second.target_id = 102U;
     second.kinematics.position_lla_deg_m.longitude_deg = kBaseLon - delta;
     second.appearance = MakeAppearance(ContrastLevel::kMedium);
@@ -385,19 +428,18 @@ ScenarioSummary RunEosScenario(const EosCase& c, const eos_config::EosSessionCon
         patch.sensor_enabled = cycle_index == 14U;
         (void)session.TryApplyRuntimeConfig(patch);
       }
-      eos_session::EosExternalPoseInput platform = MakePlatform(cycle_index);
-      std::vector<eos_session::EosExternalTargetInput> targets = MakeTargets(c, cycle_index);
+      eos_session::EosPlatformEcefPose platform = MakePlatform(cycle_index);
+      std::vector<EosWorldTargetSpec> targets = MakeTargets(c, cycle_index);
       LightingCondition lighting = c.lighting;
       if (c.scenario_id == "eos_seq_day_twilight_night") {
         lighting = cycle_index <= 8U ? LightingCondition::kDay :
                    cycle_index <= 16U ? LightingCondition::kTwilight : LightingCondition::kNight;
       }
       eos_session::EosCycleInput input;
-      eos_session::EosCoordinateStatus status;
       // dt_sec=0.1f：electro_optical.json 的 frame_rate_hz=30，53c56e21 收紧的
       // dt_sec <= 10/frame_rate_hz 上界为 ≈0.333s，1.0f 会触发校验拒绝。
-      if (!eos_session::EosCycleInputAdapter::Build(platform, targets, 0.1f, &input, &status)) {
-        s.warnings.Error("EosCycleInputAdapter::Build failed at cycle " +
+      if (!TryBuildEosCycleInput(platform, targets, 0.1f, &input)) {
+        s.warnings.Error("TryBuildEosCycleInput failed at cycle " +
                          std::to_string(cycle_index));
         break;
       }

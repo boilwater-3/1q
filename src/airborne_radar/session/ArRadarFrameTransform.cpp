@@ -1,4 +1,4 @@
-﻿#include "1q/airborne_radar/session/ArExternalInputAdapter.h"
+﻿#include "1q/airborne_radar/session/ArRadarFrameTransform.h"
 
 #include <cmath>
 
@@ -14,7 +14,6 @@ namespace {
 
 using oneq::common::coordinate_utils::RotateEnuPositionToLocal;
 using oneq::common::coordinate_utils::RotateEnuVelocityToLocal;
-using oneq::common::coordinate_utils::ToFoundationVector;
 using oneq::common::validation::IsFinite;
 
 bool IsFiniteVector3f(const oneq::foundation::Vector3f& value) {
@@ -29,11 +28,11 @@ oneq::coordinate::EulerAnglesDeg ComposeRadarAttitudeDeg(
   return oneq::coordinate::ComposeAttitudeDeg(platform_attitude_deg, mount_angles_deg);
 }
 
-bool TryMakeArPoseFromExternalKinematics(const ArExternalPoseInput& input,
-                                         const oneq::coordinate::EulerAnglesDeg& mount_angles_deg,
-                                         oneq::coordinate::LocalFrameReference* reference,
-                                         oneq::foundation::Vector3f* radar_local_velocity_mps,
-                                         ArCoordinateStatus* status) {
+bool TryMakeArPoseFromPlatform(const ArPlatformInput& input,
+                               const oneq::coordinate::EulerAnglesDeg& mount_angles_deg,
+                               oneq::coordinate::LocalFrameReference* reference,
+                               oneq::foundation::Vector3f* radar_local_velocity_mps,
+                               ArCoordinateStatus* status) {
   if (status != nullptr) {
     *status = ArCoordinateStatus::kOk;
   }
@@ -74,10 +73,10 @@ bool TryMakeArPoseFromExternalKinematics(const ArExternalPoseInput& input,
   return true;
 }
 
-bool TryMakeArTargetFromExternalKinematics(const ArExternalTargetInput& target_input,
-                                           const oneq::coordinate::LocalFrameReference& reference,
-                                           oneq::foundation::Vector3f radar_local_velocity_mps,
-                                           ArSceneTarget* target, ArCoordinateStatus* status) {
+bool TryMakeArTargetFromEnu(const ArTargetInput& target_input,
+                            const oneq::coordinate::LocalFrameReference& reference,
+                            oneq::foundation::Vector3f radar_local_velocity_mps,
+                            ArSceneTarget* target, ArCoordinateStatus* status) {
   if (status != nullptr) {
     *status = ArCoordinateStatus::kOk;
   }
@@ -89,7 +88,9 @@ bool TryMakeArTargetFromExternalKinematics(const ArExternalTargetInput& target_i
     return false;
   }
 
-  if (!oneq::coordinate::IsFinite(target_input.kinematics.velocity_mps) ||
+  if (!IsFinite(target_input.position_x) || !IsFinite(target_input.position_y) ||
+      !IsFinite(target_input.position_z) || !IsFinite(target_input.velocity_x) ||
+      !IsFinite(target_input.velocity_y) || !IsFinite(target_input.velocity_z) ||
       !IsFiniteVector3f(radar_local_velocity_mps)) {
     if (status != nullptr) {
       *status = ArCoordinateStatus::kCoordinateTransformFail;
@@ -97,44 +98,15 @@ bool TryMakeArTargetFromExternalKinematics(const ArExternalTargetInput& target_i
     return false;
   }
 
-  oneq::coordinate::EnuPositionM target_position_enu;
-  switch (target_input.kinematics.position_frame) {
-    case oneq::coordinate::PositionFrame::kEcef:
-      if (!oneq::coordinate::TryEcefToEnu(target_input.kinematics.position_ecef_m,
-                                          reference.origin_lla, &target_position_enu)) {
-        if (status != nullptr) {
-          *status = ArCoordinateStatus::kCoordinateTransformFail;
-        }
-        return false;
-      }
-      break;
-    case oneq::coordinate::PositionFrame::kLla:
-      if (!oneq::coordinate::TryLlaToEnu(target_input.kinematics.position_lla_deg_m,
-                                         reference.origin_lla, &target_position_enu)) {
-        if (status != nullptr) {
-          *status = ArCoordinateStatus::kCoordinateTransformFail;
-        }
-        return false;
-      }
-      break;
-    default:
-      if (status != nullptr) {
-        *status = ArCoordinateStatus::kCoordinateTransformFail;
-      }
-      return false;
-  }
-  oneq::foundation::Vector3f target_position_local =
+  const oneq::coordinate::EnuPositionM target_position_enu{
+      static_cast<double>(target_input.position_x), static_cast<double>(target_input.position_y),
+      static_cast<double>(target_input.position_z)};
+  const oneq::foundation::Vector3f target_position_local =
       RotateEnuPositionToLocal(target_position_enu, reference.frame_attitude_deg);
 
-  // 速度固定为 ECEF，转换为雷达局部坐标系后扣除平台速度得到相对速度
-  oneq::coordinate::EnuVelocityMps velocity_enu;
-  if (!oneq::coordinate::TryEcefToEnuVelocity(target_input.kinematics.velocity_mps,
-                                              reference.origin_lla, &velocity_enu)) {
-    if (status != nullptr) {
-      *status = ArCoordinateStatus::kCoordinateTransformFail;
-    }
-    return false;
-  }
+  const oneq::coordinate::EnuVelocityMps velocity_enu{
+      static_cast<double>(target_input.velocity_x), static_cast<double>(target_input.velocity_y),
+      static_cast<double>(target_input.velocity_z)};
   oneq::foundation::Vector3f target_velocity_local =
       RotateEnuVelocityToLocal(velocity_enu, reference.frame_attitude_deg);
   target_velocity_local.x -= radar_local_velocity_mps.x;

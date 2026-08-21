@@ -8,12 +8,13 @@
 #include <cstddef>
 #include <limits>
 
-#include "1q/electro_optical_sensor/config/EosRuntimeConfigBuilder.h"
+#include "1q/electro_optical_sensor/config/EosRuntimeConfigPatch.h"
 #include "1q/electro_optical_sensor/config/EosSessionConfig.h"
 #include "1q/electro_optical_sensor/session/EosCycleInput.h"
 #include "1q/electro_optical_sensor/session/EosInputValidation.h"
 #include "1q/electro_optical_sensor/session/EosSession.h"
 #include "electro_optical_sensor/foundation/EosRadiometry.h"
+#include "support/eos_enu_scene_helpers.h"
 
 namespace electro_optical_sensor {
 namespace model {
@@ -24,6 +25,7 @@ namespace eos_session_ns = ::electro_optical_sensor::session;
 
 using namespace ::electro_optical_sensor::model;
 using namespace ::electro_optical_sensor::session;
+using oneq::test_support::SetEosSphericalLook;
 
 bool ContainsCode(const EosIssueList& issues, const std::string& code) {
   for (std::size_t i = 0; i < issues.size(); ++i) {
@@ -47,9 +49,7 @@ const EosIssue* FindIssue(const EosIssueList& issues, const std::string& code) {
 EosSceneTarget MakeValidTarget() {
   EosSceneTarget target;
   target.target_id = 1001U;
-  target.range_m = 2200.0f;
-  target.azimuth_deg = 2.0f;
-  target.elevation_deg = 0.0f;
+  SetEosSphericalLook(&target, 2200.0f, 2.0f, 0.0f);
   target.appearance.apparent_temperature_k = 335.0f;
   target.appearance.emissivity = 0.93f;
   target.appearance.reflectance = 0.45f;
@@ -62,7 +62,6 @@ EosCycleInput MakeValidInput() {
   input.cycle_index = 1U;
   input.dt_sec = 0.1f;
   input.platform_altitude_m = 1200.0f;
-  input.platform_pose.position_m.z = 0.0f;
   input.scene.push_back(MakeValidTarget());
   return input;
 }
@@ -117,7 +116,7 @@ TEST(EosInputValidationTest, InvalidCycleDeltaTimeIsReportedAsError) {
 
 TEST(EosInputValidationTest, NonFinitePlatformNumericFieldIsReportedAsError) {
   EosCycleInput input = MakeValidInput();
-  input.platform_pose.attitude_deg.yaw_deg = std::numeric_limits<float>::infinity();
+  input.platform_attitude_deg.yaw_deg = std::numeric_limits<double>::infinity();
 
   const EosIssueList issues = ValidateEosCycleInput(input, 30.0f);
 
@@ -175,7 +174,7 @@ TEST(EosInputValidationTest, ZeroTargetIdDoesNotProduceValidationError) {
 
 TEST(EosInputValidationTest, NonFiniteTargetFieldIsReportedAsError) {
   EosCycleInput input = MakeValidInput();
-  input.scene[0].azimuth_deg = std::numeric_limits<float>::quiet_NaN();
+  input.scene[0].position_x = std::numeric_limits<float>::quiet_NaN();
 
   const EosIssueList issues = ValidateEosCycleInput(input, 30.0f);
   EXPECT_TRUE(ContainsCode(issues, "eos.validation.non_finite_target_numeric_field"));
@@ -243,10 +242,10 @@ TEST(EosInputValidationTest, SessionProducesInFovDetectionsOnly) {
 
   session::EosSession eos_session = session::EosSession::Create(config);
   EosCycleInput input = MakeValidInput();
-  input.scene[0].azimuth_deg = -3.0f;
+  SetEosSphericalLook(&input.scene[0], 2200.0f, -3.0f, 0.0f);
   EosSceneTarget out_of_fov_target = MakeValidTarget();
   out_of_fov_target.target_id = 1002U;
-  out_of_fov_target.azimuth_deg = 30.0f;
+  SetEosSphericalLook(&out_of_fov_target, 2200.0f, 30.0f, 0.0f);
   input.scene.push_back(out_of_fov_target);
 
   const ::electro_optical_sensor::session::EosCycleResult result =
@@ -262,7 +261,9 @@ TEST(EosInputValidationTest, SessionProducesInFovDetectionsOnly) {
 TEST(EosInputValidationTest, SessionReturnsValidationErrorsForInvalidInput) {
   session::EosSession eos_session = session::EosSession::Create();
   EosCycleInput input = MakeValidInput();
-  input.scene[0].range_m = 0.0f;
+  input.scene[0].position_x = 0.0f;
+  input.scene[0].position_y = 0.0f;
+  input.scene[0].position_z = 0.0f;
 
   const ::electro_optical_sensor::session::EosCycleResult result =
       eos_session.StepWithResult(input);
@@ -273,7 +274,7 @@ TEST(EosInputValidationTest, SessionReturnsValidationErrorsForInvalidInput) {
   EXPECT_TRUE(result.output_frame.detections.empty());
 }
 
-TEST(EosInputValidationTest, SessionConfigBuilderCanStartFromExternalConfig) {
+TEST(EosInputValidationTest, SessionConfigCanStartFromExternalConfig) {
   config::EosSessionConfig base_config;
   base_config.mission.work_mode = config::EosWorkMode::kInfraredOnly;
   base_config.mission.scan_rate_deg_per_sec = 12.0f;
@@ -294,7 +295,7 @@ TEST(EosInputValidationTest, SessionConfigBuilderCanStartFromExternalConfig) {
   EXPECT_EQ(built_config.policy.stray_light.enable_straylight_filter, true);
 }
 
-TEST(EosInputValidationTest, RuntimeConfigBuilderCanTightenDetectionThresholdAtRuntime) {
+TEST(EosInputValidationTest, RuntimeConfigPatchCanTightenDetectionThresholdAtRuntime) {
   config::EosSessionConfig config;
   config.mission.work_mode = config::EosWorkMode::kFused;
   config.policy.detection.minimum_snr_db = 4.5f;
@@ -307,9 +308,9 @@ TEST(EosInputValidationTest, RuntimeConfigBuilderCanTightenDetectionThresholdAtR
 
   session::EosSession eos_session = session::EosSession::Create(config);
   EosCycleInput input = MakeValidInput();
-  input.scene[0].range_m = 1700.0f;
   // Keep target aligned to first-cycle scan azimuth so this test isolates threshold behavior.
-  input.scene[0].azimuth_deg = ResolveFirstCycleScanAzimuthDeg(config, input.dt_sec);
+  SetEosSphericalLook(&input.scene[0], 1700.0f, ResolveFirstCycleScanAzimuthDeg(config, input.dt_sec),
+                      0.0f);
 
   const ::electro_optical_sensor::session::EosCycleResult baseline =
       eos_session.StepWithResult(input);
@@ -317,16 +318,18 @@ TEST(EosInputValidationTest, RuntimeConfigBuilderCanTightenDetectionThresholdAtR
   ASSERT_FALSE(baseline.output_frame.detections.empty());
   EXPECT_TRUE(baseline.output_frame.detections[0].detected);
 
-  const eos_config::EosRuntimeConfigPatch patch = eos_config::EosRuntimeConfigBuilder()
-                                                      .WithMinimumSnrDb(60.0f)
-                                                      .WithDetectionSensitivityW(2.0e-12f)
-                                                      .WithVisibleReferenceIrradianceWM2(1000.0f)
-                                                      .Build();
+  eos_config::EosRuntimeConfigPatch patch;
+  patch.has_policy = true;
+  patch.policy.detection.minimum_snr_db = 60.0f;
+  patch.policy.detection.detection_sensitivity_w = 2.0e-12f;
+  patch.policy.detection.visible_reference_irradiance_w_m2 = 1000.0f;
   (void)eos_session.TryApplyRuntimeConfig(patch);
 
   input.cycle_index += 1U;
-  input.scene[0].azimuth_deg =
-      ResolveNextScanAzimuthDeg(config, baseline.output_frame.scan_azimuth_deg, input.dt_sec);
+  SetEosSphericalLook(&input.scene[0], 2200.0f,
+                      ResolveNextScanAzimuthDeg(config, baseline.output_frame.scan_azimuth_deg,
+                                                input.dt_sec),
+                      0.0f);
   const ::electro_optical_sensor::session::EosCycleResult updated =
       eos_session.StepWithResult(input);
   EXPECT_FALSE(HasValidationError(updated.issues));
@@ -352,18 +355,18 @@ TEST(EosInputValidationTest, RuntimePatchPreservesScanPhaseUnlessScanRateChanges
   session::EosSession eos_session = session::EosSession::Create(config);
   EosCycleInput input = MakeValidInput();
   input.dt_sec = 0.1f;
-  input.scene[0].azimuth_deg = ResolveFirstCycleScanAzimuthDeg(config, input.dt_sec);
+  SetEosSphericalLook(&input.scene[0], 2200.0f,
+                      ResolveFirstCycleScanAzimuthDeg(config, input.dt_sec), 0.0f);
 
   const ::electro_optical_sensor::session::EosCycleResult first = eos_session.StepWithResult(input);
   ASSERT_FALSE(HasValidationError(first.issues));
   const float first_scan_azimuth_deg = first.output_frame.scan_azimuth_deg;
 
-  const eos_config::EosRuntimeConfigPatch non_geometry_patch =
-      eos_config::EosRuntimeConfigBuilder()
-          .WithMinimumSnrDb(4.5f)
-          .WithDetectionSensitivityW(0.8e-12f)
-          .WithVisibleReferenceIrradianceWM2(700.0f)
-          .Build();
+  eos_config::EosRuntimeConfigPatch non_geometry_patch;
+  non_geometry_patch.has_policy = true;
+  non_geometry_patch.policy.detection.minimum_snr_db = 4.5f;
+  non_geometry_patch.policy.detection.detection_sensitivity_w = 0.8e-12f;
+  non_geometry_patch.policy.detection.visible_reference_irradiance_w_m2 = 700.0f;
   (void)eos_session.TryApplyRuntimeConfig(non_geometry_patch);
 
   input.cycle_index += 1U;
@@ -375,8 +378,9 @@ TEST(EosInputValidationTest, RuntimePatchPreservesScanPhaseUnlessScanRateChanges
   EXPECT_NEAR(after_non_geometry_patch.output_frame.scan_azimuth_deg,
               expected_after_non_geometry_patch, 1.0e-5f);
 
-  const eos_config::EosRuntimeConfigPatch scan_rate_patch =
-      eos_config::EosRuntimeConfigBuilder().WithScanRateDegPerSec(12.0f).Build();
+  eos_config::EosRuntimeConfigPatch scan_rate_patch;
+  scan_rate_patch.has_scan_rate_deg_per_sec = true;
+  scan_rate_patch.scan_rate_deg_per_sec = 12.0f;
   (void)eos_session.TryApplyRuntimeConfig(scan_rate_patch);
 
   input.cycle_index += 1U;
@@ -405,30 +409,34 @@ TEST(EosInputValidationTest, RuntimePatchRejectsInvalidFrameRateHz) {
 
   session::EosSession eos_session = session::EosSession::Create(config);
   EosCycleInput input = MakeValidInput();
-  input.scene[0].azimuth_deg = ResolveFirstCycleScanAzimuthDeg(config, input.dt_sec);
+  SetEosSphericalLook(&input.scene[0], 2200.0f,
+                      ResolveFirstCycleScanAzimuthDeg(config, input.dt_sec), 0.0f);
 
   const ::electro_optical_sensor::session::EosCycleResult baseline =
       eos_session.StepWithResult(input);
   ASSERT_FALSE(HasValidationError(baseline.issues));
 
-  const eos_config::EosRuntimeConfigPatch patch =
-      eos_config::EosRuntimeConfigBuilder().WithFrameRateHz(0.0f).Build();
+  eos_config::EosRuntimeConfigPatch patch;
+  patch.has_frame_rate_hz = true;
+  patch.frame_rate_hz = 0.0f;
   (void)eos_session.TryApplyRuntimeConfig(patch);
 
   input.cycle_index += 1U;
-  input.scene[0].azimuth_deg =
-      ResolveNextScanAzimuthDeg(config, baseline.output_frame.scan_azimuth_deg, input.dt_sec);
+  SetEosSphericalLook(&input.scene[0], 2200.0f,
+                      ResolveNextScanAzimuthDeg(config, baseline.output_frame.scan_azimuth_deg,
+                                                input.dt_sec),
+                      0.0f);
   const ::electro_optical_sensor::session::EosCycleResult after_patch =
       eos_session.StepWithResult(input);
   EXPECT_FALSE(HasValidationError(after_patch.issues));
 
-  const eos_config::EosRuntimeConfigPatch valid_patch =
-      eos_config::EosRuntimeConfigBuilder()
-          .WithFrameRateHz(-5.0f)
-          .WithMinimumSnrDb(4.5f)
-          .WithDetectionSensitivityW(0.8e-12f)
-          .WithVisibleReferenceIrradianceWM2(700.0f)
-          .Build();
+  eos_config::EosRuntimeConfigPatch valid_patch;
+  valid_patch.has_frame_rate_hz = true;
+  valid_patch.frame_rate_hz = -5.0f;
+  valid_patch.has_policy = true;
+  valid_patch.policy.detection.minimum_snr_db = 4.5f;
+  valid_patch.policy.detection.detection_sensitivity_w = 0.8e-12f;
+  valid_patch.policy.detection.visible_reference_irradiance_w_m2 = 700.0f;
   (void)eos_session.TryApplyRuntimeConfig(valid_patch);
 
   input.cycle_index += 1U;
@@ -451,19 +459,22 @@ TEST(EosInputValidationTest, RuntimePatchRejectsInvalidScanRate) {
 
   session::EosSession eos_session = session::EosSession::Create(config);
   EosCycleInput input = MakeValidInput();
-  input.scene[0].azimuth_deg = ResolveFirstCycleScanAzimuthDeg(config, input.dt_sec);
+  SetEosSphericalLook(&input.scene[0], 2200.0f,
+                      ResolveFirstCycleScanAzimuthDeg(config, input.dt_sec), 0.0f);
 
   const ::electro_optical_sensor::session::EosCycleResult baseline =
       eos_session.StepWithResult(input);
   ASSERT_FALSE(HasValidationError(baseline.issues));
   const float baseline_azimuth = baseline.output_frame.scan_azimuth_deg;
 
-  const eos_config::EosRuntimeConfigPatch patch =
-      eos_config::EosRuntimeConfigBuilder().WithScanRateDegPerSec(-1.0f).Build();
+  eos_config::EosRuntimeConfigPatch patch;
+  patch.has_scan_rate_deg_per_sec = true;
+  patch.scan_rate_deg_per_sec = -1.0f;
   (void)eos_session.TryApplyRuntimeConfig(patch);
 
   input.cycle_index += 1U;
-  input.scene[0].azimuth_deg = ResolveNextScanAzimuthDeg(config, baseline_azimuth, input.dt_sec);
+  SetEosSphericalLook(&input.scene[0], 2200.0f,
+                      ResolveNextScanAzimuthDeg(config, baseline_azimuth, input.dt_sec), 0.0f);
   const ::electro_optical_sensor::session::EosCycleResult after_patch =
       eos_session.StepWithResult(input);
   EXPECT_FALSE(HasValidationError(after_patch.issues));
@@ -485,8 +496,8 @@ TEST(EosInputValidationTest, RuntimePatchIsAtomicWhenAnyFieldIsInvalid) {
 
   session::EosSession eos_session = session::EosSession::Create(config);
   EosCycleInput input = MakeValidInput();
-  input.scene[0].range_m = 1700.0f;
-  input.scene[0].azimuth_deg = ResolveFirstCycleScanAzimuthDeg(config, input.dt_sec);
+  SetEosSphericalLook(&input.scene[0], 1700.0f, ResolveFirstCycleScanAzimuthDeg(config, input.dt_sec),
+                      0.0f);
 
   const ::electro_optical_sensor::session::EosCycleResult baseline =
       eos_session.StepWithResult(input);
@@ -494,17 +505,20 @@ TEST(EosInputValidationTest, RuntimePatchIsAtomicWhenAnyFieldIsInvalid) {
   ASSERT_EQ(baseline.output_frame.detections.size(), 1U);
   ASSERT_TRUE(baseline.output_frame.detections[0].detected);
 
-  const eos_config::EosRuntimeConfigPatch patch = eos_config::EosRuntimeConfigBuilder()
-                                                      .WithFrameRateHz(0.0f)
-                                                      .WithMinimumSnrDb(4.5f)
-                                                      .WithDetectionSensitivityW(0.8e-12f)
-                                                      .WithVisibleReferenceIrradianceWM2(700.0f)
-                                                      .Build();
+  eos_config::EosRuntimeConfigPatch patch;
+  patch.has_frame_rate_hz = true;
+  patch.frame_rate_hz = 0.0f;
+  patch.has_policy = true;
+  patch.policy.detection.minimum_snr_db = 4.5f;
+  patch.policy.detection.detection_sensitivity_w = 0.8e-12f;
+  patch.policy.detection.visible_reference_irradiance_w_m2 = 700.0f;
   (void)eos_session.TryApplyRuntimeConfig(patch);
 
   input.cycle_index += 1U;
-  input.scene[0].azimuth_deg =
-      ResolveNextScanAzimuthDeg(config, baseline.output_frame.scan_azimuth_deg, input.dt_sec);
+  SetEosSphericalLook(&input.scene[0], 1700.0f,
+                      ResolveNextScanAzimuthDeg(config, baseline.output_frame.scan_azimuth_deg,
+                                                input.dt_sec),
+                      0.0f);
   const ::electro_optical_sensor::session::EosCycleResult after_patch =
       eos_session.StepWithResult(input);
   ASSERT_FALSE(HasValidationError(after_patch.issues));

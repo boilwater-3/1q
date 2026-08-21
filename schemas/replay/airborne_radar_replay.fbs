@@ -211,11 +211,6 @@ table ArRuntimeConfigAttemptV2 {
 
 // Single-cycle AR user facade. Two-stage AR records were deliberately removed;
 // current replay accepts only V3 cycle records.
-table LlaPositionV3 {
-  latitude_deg:double;
-  longitude_deg:double;
-  altitude_m:double;
-}
 table EcefVelocityV3 { x_mps:double; y_mps:double; z_mps:double; }
 table ArPlatformInputV3 {
   platform_entity_id:ulong;
@@ -224,17 +219,15 @@ table ArPlatformInputV3 {
   platform_attitude_deg:EulerAnglesDeg64;
   radar_mount_angles_deg:EulerAnglesDeg64 (deprecated);
 }
-table ExternalKinematicsV3 {
-  position_frame:int;
-  position_ecef_m:Vector3d;
-  position_lla_deg_m:LlaPositionV3;
-  velocity_mps:EcefVelocityV3;
-  attitude_deg:EulerAnglesDeg64;
-}
 table ArTargetInputV3 {
   target_id:ulong;
   target_name:string;
-  kinematics:ExternalKinematicsV3;
+  position_x:float;
+  position_y:float;
+  position_z:float;
+  velocity_x:float;
+  velocity_y:float;
+  velocity_z:float;
   rcs:float;
   swerling_type:int;
 }

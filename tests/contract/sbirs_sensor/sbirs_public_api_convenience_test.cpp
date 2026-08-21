@@ -5,8 +5,8 @@
 //
 // 补齐 SBIRS 与 EOS/ESR/SAR/AR 对称的 public api convenience test 缺口。
 // 聚焦：
-//   - SbirsSessionConfigBuilder 默认值与字段可达
-//   - SbirsRuntimeConfigBuilder 默认 unset / 全 set
+//   - SbirsSessionConfig 默认值与字段可达
+//   - SbirsRuntimeConfigPatch 默认 unset / 全 set（显式 has_*）
 //   - ValidateSbirsCycleInput 边界校验码
 //   - SbirsSession::Create + StepWithResult 结构化执行结果字段
 //   - 三层输出（debug view / lifecycle recorder）类型可达
@@ -15,8 +15,8 @@
 
 #include <cstdint>
 
-#include "1q/sbirs_sensor/config/SbirsRuntimeConfigBuilder.h"
-#include "1q/sbirs_sensor/config/SbirsSessionConfigBuilder.h"
+#include "1q/sbirs_sensor/config/SbirsRuntimeConfigPatch.h"
+#include "1q/sbirs_sensor/config/SbirsSessionConfig.h"
 #include "1q/sbirs_sensor/config/SbirsSessionConfigValidation.h"
 #include "1q/sbirs_sensor/session/SbirsCycleInputAdapter.h"
 #include "1q/sbirs_sensor/session/SbirsCycleOutputAdapter.h"
@@ -70,16 +70,15 @@ config::SbirsSessionConfig MakeExecutableConfig() {
   return config;
 }
 
-TEST(SbirsPublicApiConvenienceTest, SessionConfigBuilderDefaultsMatchDirectConstruction) {
-  // builder 无覆盖时与默认构造的 config 行为一致。
-  const config::SbirsSessionConfig built = config::SbirsSessionConfigBuilder().Build();
-  const config::SbirsSessionConfig direct;
-  // 同配置驱动相同输出：用一个低阈值场景跑单周期比较。
-  session::SbirsSession built_session = session::SbirsSession::Create(built);
-  session::SbirsSession direct_session = session::SbirsSession::Create(direct);
-  const session::SbirsCycleResult built_result = built_session.StepWithResult(MakeMinimalInput());
-  const session::SbirsCycleResult direct_result = direct_session.StepWithResult(MakeMinimalInput());
-  EXPECT_EQ(built_result.status, direct_result.status);
+TEST(SbirsPublicApiConvenienceTest, DefaultSessionConfigIsConstructible) {
+  // 默认构造的 SessionConfig 可直接创建会话并跑单周期（与旧 Builder 无覆盖路径等价）。
+  const config::SbirsSessionConfig a;
+  const config::SbirsSessionConfig b;
+  session::SbirsSession session_a = session::SbirsSession::Create(a);
+  session::SbirsSession session_b = session::SbirsSession::Create(b);
+  const session::SbirsCycleResult result_a = session_a.StepWithResult(MakeMinimalInput());
+  const session::SbirsCycleResult result_b = session_b.StepWithResult(MakeMinimalInput());
+  EXPECT_EQ(result_a.status, result_b.status);
 }
 
 TEST(SbirsPublicApiConvenienceTest, SessionConfigFieldsAreAssignable) {
@@ -136,9 +135,9 @@ TEST(SbirsPublicApiConvenienceTest, MinimalInputSetsSatelliteAttitudeFlag) {
   EXPECT_EQ(session.StepWithResult(input).status, session::SbirsCycleStatus::kCompleted);
 }
 
-TEST(SbirsPublicApiConvenienceTest, RuntimeConfigBuilderDefaultsAreAllUnset) {
-  // 默认 Build() 后所有 has_* flag 应为 false（无变更请求）。
-  const config::SbirsRuntimeConfigPatch patch = sbirs_config::SbirsRuntimeConfigBuilder().Build();
+TEST(SbirsPublicApiConvenienceTest, RuntimeConfigPatchDefaultsAreAllUnset) {
+  // 默认构造后所有 has_* flag 应为 false（无变更请求）。
+  const config::SbirsRuntimeConfigPatch patch;
   EXPECT_FALSE(patch.has_mission);
   EXPECT_FALSE(patch.has_policy);
   EXPECT_FALSE(patch.has_environment);
@@ -147,13 +146,14 @@ TEST(SbirsPublicApiConvenienceTest, RuntimeConfigBuilderDefaultsAreAllUnset) {
   EXPECT_FALSE(patch.has_sensor_enabled);
 }
 
-TEST(SbirsPublicApiConvenienceTest, RuntimeConfigBuilderAllFieldsPopulateFlags) {
-  const config::SbirsRuntimeConfigPatch patch =
-      sbirs_config::SbirsRuntimeConfigBuilder()
-          .WithWorkMode(config::SbirsWorkMode::kWideSearch)
-          .WithScanRateDegPerSec(8.0f)
-          .WithSensorEnabled(true)
-          .Build();
+TEST(SbirsPublicApiConvenienceTest, RuntimeConfigPatchAllFieldsPopulateFlags) {
+  config::SbirsRuntimeConfigPatch patch;
+  patch.has_work_mode = true;
+  patch.work_mode = config::SbirsWorkMode::kWideSearch;
+  patch.has_scan_rate_deg_per_sec = true;
+  patch.scan_rate_deg_per_sec = 8.0f;
+  patch.has_sensor_enabled = true;
+  patch.sensor_enabled = true;
   EXPECT_TRUE(patch.has_work_mode);
   EXPECT_EQ(patch.work_mode, config::SbirsWorkMode::kWideSearch);
   EXPECT_TRUE(patch.has_scan_rate_deg_per_sec);

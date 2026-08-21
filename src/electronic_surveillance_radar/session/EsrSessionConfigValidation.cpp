@@ -1,17 +1,14 @@
-﻿// @file EsrSessionConfigBuilder.cpp
-// @brief Implementation of EsrSessionConfigBuilder (thin wrapper).
-
-#include "1q/electronic_surveillance_radar/config/EsrSessionConfigBuilder.h"
+﻿// @file EsrSessionConfigValidation.cpp
+// @brief Session-config validation for electronic surveillance radar.
 
 #include "1q/electronic_surveillance_radar/config/EsrSessionConfigValidation.h"
+
 #include "1q/electronic_surveillance_radar/session/EsrIssueCodes.h"
 #include "common/validation/ValidationUtils.h"
 #include "electronic_surveillance_radar/session/EsrConfigDomainValidation.h"
 
 namespace electronic_surveillance_radar {
 namespace config {
-
-config::EsrSessionConfig EsrSessionConfigBuilder::Build() const { return config_; }
 
 session::EsrIssueList ValidateEsrSessionConfig(const config::EsrSessionConfig& config) noexcept {
   session::EsrIssueList issues;

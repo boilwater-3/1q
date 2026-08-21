@@ -9,8 +9,12 @@
 #include "1q/electro_optical_sensor/session/EosCycleInput.h"
 #include "1q/electro_optical_sensor/session/EosCycleResult.h"
 #include "1q/electro_optical_sensor/session/EosOutputTypes.h"
+#include "1q/electro_optical_sensor/session/EosSceneTypes.h"
 #include "electro_optical_sensor/config/EosInternalExecutionConfig.h"
 #include "electro_optical_sensor/pipeline/EosPipelineRuntimeTypes.h"
+
+#include <string>
+#include <vector>
 
 namespace electro_optical_sensor {
 namespace signal {
@@ -20,6 +24,28 @@ using ::electro_optical_sensor::extension::EosPipelineWorkMode;
 
 /** @brief 帧级别环境计算上下文，目标无关字段的聚合（完整定义见 cpp）。 */
 struct FrameContext;
+
+/**
+ * @brief 管道内部球坐标场景目标（由控制器从平台锚点 ENU 输入派生）。
+ * @note 公开输入面 `session::EosSceneTarget` 为平台锚点 ENU；体系球坐标
+ *       （斜距/方位/仰角）是库内量测几何，不进入公开输入契约。
+ */
+struct EosPipelineSceneTarget {
+  std::uint64_t target_id{0U};                                  /**< 目标标识 */
+  std::string target_name{};                                    /**< 可选目标名称（人读/归属） */
+  float range_m{0.0f};                                          /**< 斜距（单位：m） */
+  float azimuth_deg{0.0f};                                      /**< 体系方位角（单位：deg） */
+  float elevation_deg{0.0f};                                    /**< 体系仰角（单位：deg） */
+  ::electro_optical_sensor::session::EosTargetAppearance appearance{}; /**< 外观参数 */
+};
+
+/** @brief 管道内部周期输入（球坐标场景 + 环境事实）。 */
+struct EosPipelineCycleInput {
+  std::uint32_t cycle_index{0U};       /**< 周期号 */
+  float dt_sec{1.0f};                  /**< 周期步长（单位：s） */
+  float platform_altitude_m{0.0f};     /**< 平台 WGS84 绝对海拔（单位：m） */
+  std::vector<EosPipelineSceneTarget> scene{}; /**< 球坐标场景目标 */
+};
 
 /**
  * @brief EosPipeline 封装核心处理层执行。
@@ -58,25 +84,23 @@ class EosPipeline {
 
   /**
    * @brief 执行单周期核心处理（扫描递推、视场判定、探测评估）。
-   * @param[in] input 当前周期输入。
+   * @param[in] input 管道内部周期输入（球坐标场景，由控制器从公开 ENU 输入派生）。
    * @return 单周期执行结果，含探测记录、归属映射与扫描方位角。
    * @note `sensor_enabled` 为 false 时直接返回 `kSensorPoweredOff` 未执行结果。
    */
-  extension::EosPipelineExecuteResult RunCycle(
-      const ::electro_optical_sensor::session::EosCycleInput& input);
+  extension::EosPipelineExecuteResult RunCycle(const EosPipelineCycleInput& input);
 
   /** @return 当前配置的帧率（Hz）。 */
   float GetFrameRateHz() const { return config_.scan.frame_rate_hz; }
 
  private:
   void AdvanceScan(float dt_sec);
-  bool IsTargetInCurrentFov(const ::electro_optical_sensor::session::EosSceneTarget& target) const;
-  FrameContext BuildFrameContext(
-      const ::electro_optical_sensor::session::EosCycleInput& input) const;
-  output::EosDetectionRecord BuildDetectionRecord(
-      std::uint64_t detection_id, const ::electro_optical_sensor::session::EosSceneTarget& target,
-      const ::electro_optical_sensor::session::EosCycleInput& input,
-      const FrameContext& frame_ctx) const;
+  bool IsTargetInCurrentFov(const EosPipelineSceneTarget& target) const;
+  FrameContext BuildFrameContext(const EosPipelineCycleInput& input) const;
+  output::EosDetectionRecord BuildDetectionRecord(std::uint64_t detection_id,
+                                                  const EosPipelineSceneTarget& target,
+                                                  const EosPipelineCycleInput& input,
+                                                  const FrameContext& frame_ctx) const;
 
   config::execution::EosInternalExecutionConfig config_{};
   float current_scan_azimuth_deg_{0.0f};

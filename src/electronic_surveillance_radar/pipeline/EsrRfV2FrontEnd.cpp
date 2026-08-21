@@ -3,8 +3,8 @@
 #include <algorithm>
 #include <cmath>
 
-#include "1q/coordinate/attitude_transform.h"
 #include "1q/coordinate/position_transform.h"
+#include "electronic_surveillance_radar/pipeline/EsrBoresightChain.h"
 
 namespace electronic_surveillance_radar {
 namespace pipeline {
@@ -23,23 +23,21 @@ bool IdentityLess(const oneq::electromagnetics::RfIncidentLinkResult& left,
   return left.identity.emission_id < right.identity.emission_id;
 }
 
-bool TryResolveBoresight(const session::EsrCycleInput& input, double beam_az_deg,
-                         double beam_el_deg,
+bool TryResolveBoresight(const session::EsrCycleInput& input,
+                         const config::EsrHardwareConfig& hardware,
+                         double beam_az_deg, double beam_el_deg,
                          oneq::electromagnetics::RfSceneDirection* boresight) {
+  // beam_az/el 为天线系指向角（扫描图案输出口径），安装偏置由链路复合，不再角度相加。
   if (boresight == nullptr || !IsFinite(beam_az_deg) || !IsFinite(beam_el_deg) ||
       beam_az_deg < -180.0 || beam_az_deg > 180.0 || beam_el_deg < -90.0 ||
       beam_el_deg > 90.0) {
     return false;
   }
-  constexpr double kPi = 3.14159265358979323846;
-  const double azimuth_rad = beam_az_deg * kPi / 180.0;
-  const double elevation_rad = beam_el_deg * kPi / 180.0;
-  const double cos_elevation = std::cos(elevation_rad);
-  oneq::coordinate::EulerAnglesDeg attitude;
-  attitude = input.platform_attitude_deg;
-  const oneq::coordinate::Vector3d enu_direction = oneq::coordinate::RotateLocalToEnu(
-      cos_elevation * std::cos(azimuth_rad), cos_elevation * std::sin(azimuth_rad),
-      std::sin(elevation_rad), attitude);
+  const EsrBoresightChain chain(
+      input.platform_attitude_deg, static_cast<double>(hardware.antenna_mount_az_deg),
+      static_cast<double>(hardware.antenna_mount_el_deg));
+  const oneq::coordinate::Vector3d enu_direction =
+      chain.EnuLosOfAntennaPointing(beam_az_deg, beam_el_deg);
   oneq::coordinate::LlaPositionDegM platform_lla;
   oneq::coordinate::Vector3d ecef_direction;
   if (!oneq::coordinate::TryEcefToLla(input.platform_position_ecef_m, &platform_lla) ||
@@ -87,10 +85,8 @@ bool TryBuildReceiverState(const session::EsrCycleInput& input,
     resolved_path.isolation_db = path.isolation_db;
     receiver->co_site_paths.push_back(resolved_path);
   }
-  return TryResolveBoresight(
-      input, beam_az_deg + static_cast<double>(hardware.antenna_mount_az_deg),
-      beam_el_deg + static_cast<double>(hardware.antenna_mount_el_deg),
-      &receiver->antenna.boresight_ecef);
+  return TryResolveBoresight(input, hardware, beam_az_deg, beam_el_deg,
+                             &receiver->antenna.boresight_ecef);
 }
 
 }  // namespace

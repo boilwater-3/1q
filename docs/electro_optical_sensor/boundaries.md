@@ -1,6 +1,6 @@
 ---
 Status: active
-Last-reviewed: 2026-08-20
+Last-reviewed: 2026-08-21
 Authority: EOS 模块级边界、非目标与设计变更规则
 Answers: EOS 有哪些模块级禁令与边界、哪些非目标、frame_rate/dt 耦合与帧级 config 的特殊语义、文档变更规则
 ---
@@ -17,11 +17,12 @@ EOS 遵守 `docs/common/contract.md`：
 1. public API 只暴露稳定 session/config/input/output/trace/replay 门面。`EosSession` 是对外门面，
    只委托内部 `EosController`；Controller、Pipeline、CompositionRoot、foundation 算法不通过 public
    header 暴露。
-2. `EosSessionConfigBuilder` 是薄封装（整域赋值 + `Build()` 返回副本）；语义档位是
+2. 会话配置直接赋值 `EosSessionConfig`；语义档位是
    `EosProfileConstants.h` 中的预定义结构体常量（如 `profiles::kLongRangeSurveillanceMission` +
-   `profiles::kLongRangeSurveillanceDetection`），不承担 leaf setter 或隐式 validation。旧"Mission
+   `profiles::kLongRangeSurveillanceDetection`）。旧"Mission
    Profile 跨域覆写 `policy.detection.minimum_snr_db`"语义已消除：配置不再有隐式优先级，任何字段的赋值即
-   最终决定（档位在前、微调在后时微调胜出）。
+   最终决定（档位在前、微调在后时微调胜出）。运行期热更新直接写 `EosRuntimeConfigPatch`（显式 `has_*`）；
+   不提供 ConfigBuilder。
 3. EOS 输出遵守三层模型：系统输出、结构化结果、调试视图分离。
 4. `EosSession::StepWithResult` 在执行 pipeline 前调用 `ValidateEosCycleInput`；存在 error 级问题时
    不执行 pipeline、返回默认空帧并记录校验失败状态（符合 contract.md §实现安全与失败语义规则 3）。
@@ -87,6 +88,23 @@ EOS 遵守 `docs/common/contract.md`：
 pipeline，故正常 Session 路径不会把非法 `range_m` 传入 pipeline。pipeline 内部的
 `SafePositive(target.range_m, 1000.0f)` 仅为深度防御，兜底值 1000m 不构成合法输入约定。
 
+**场景目标输入为平台锚点 radar-local ENU**（契约见 docs/common/contract.md「场景目标平台锚点
+ENU 输入契约」）：`EosSceneTarget::position_x/y/z` 为锚点 ENU 位置（x=东/y=北/z=天，原点=当周期
+平台 ECEF 位置）；体系球坐标（斜距/方位/仰角）是库内量测几何，由控制器经
+`foundation::TryResolveEosLookAngles` 从 ENU 位置 + `platform_attitude_deg`（Body->ENU）派生后供
+pipeline 消费（`EosPipelineSceneTarget`），不进入公开输入契约。旋转与取角委托公共域
+`common/geometry/BoresightChain`（2026-08-21 收敛；EOS 无安装角/失准配置，链路仅含姿态，与 SBIRS/
+ESR 同引擎），退化判定（模长下限）与斜距输出留在 `EosLookAngles` 模块层。斜距权威校验等价于 ENU
+位置模长非退化（`EosLookAngleNormFloorM` 下限）。速度字段保留 ENU 契约统一形状，当前仅校验
+有限性，不参与探测计算。
+
+**集成入口**：调用方以公共 `TryEcefToLla` + `TryMakeEnuSceneState` 直填 `EosSceneTarget`，
+再手填 `EosCycleInput`（海拔/姿态/`dt_sec`/`cycle_index`）。已删除模块级
+`EosCycleInputAdapter` / `TryMakeEosSceneTargetFromExternalInput` /
+`EosExternalTargetInput` 平行入口。平台 ECEF 位姿类型为 `EosPlatformEcefPose`
+（供输出反算等使用，不是目标 ENU 适配器）。
+
+[evidence: tests/unit/electro_optical_sensor/eos_look_angles_test]
 [evidence: tests/unit/electro_optical_sensor/eos_input_validation_test]
 [evidence: tests/unit/electro_optical_sensor/eos_controller_runtime_state_test]
 [evidence: tests/contract/electro_optical_sensor/eos_public_api_convenience_test]

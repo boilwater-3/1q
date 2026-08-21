@@ -4,7 +4,6 @@
 #include <unordered_map>
 #include <utility>
 
-#include "1q/airborne_radar/session/ArExternalInputAdapter.h"
 #include "1q/foundation/validation_types.h"
 
 namespace airborne_radar {

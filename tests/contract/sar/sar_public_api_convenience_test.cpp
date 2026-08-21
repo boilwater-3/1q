@@ -4,7 +4,7 @@
 // @brief SAR 对外易用性 API 契约测试。
 //
 // 补齐 SAR 与 EOS/ESR/AR 对称的 public api convenience test 缺口。
-// SAR 没有语义化 SessionConfigBuilder（用直接字段赋值），故聚焦：
+// SAR 会话配置用直接字段赋值，故聚焦：
 //   - SarSessionConfig 字段可达与默认值
 //   - SarSession::Create + StepWithResult 主路径
 //   - SarCycleInput/Result 结构化执行结果字段

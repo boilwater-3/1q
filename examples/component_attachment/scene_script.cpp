@@ -8,7 +8,9 @@
 #include <algorithm>
 #include <cmath>
 
+#include "1q/coordinate/scene_transform.h"
 #include "1q/coordinate/position_transform.h"
+#include "1q/coordinate/scene_transform.h"
 #include "1q/coordinate/velocity_transform.h"
 
 namespace component_attachment {
@@ -59,23 +61,6 @@ std::vector<TargetEcefState> MakeTargetStates(
   return states;
 }
 
-std::vector<airborne_radar::session::ArTargetInput> MakeArTargetInputs(
-    const std::vector<TargetEcefState>& states) {
-  std::vector<airborne_radar::session::ArTargetInput> targets;
-  targets.reserve(states.size());
-  for (const auto& state : states) {
-    airborne_radar::session::ArTargetInput target;
-    target.target_id = state.id;
-    target.kinematics.position_frame = oneq::coordinate::PositionFrame::kEcef;
-    target.kinematics.position_ecef_m = state.position;
-    target.kinematics.velocity_mps = state.velocity;
-    target.rcs = state.rcs;
-    target.swerling_type = 0;
-    targets.push_back(target);
-  }
-  return targets;
-}
-
 std::vector<oneq::electromagnetics::RfSceneEmission> MakeEmitterTruths(
     const std::vector<TargetEcefState>& states, const EsrEmitterParams& esr,
     double window_start_time_s) {
@@ -103,25 +88,6 @@ std::vector<oneq::electromagnetics::RfSceneEmission> MakeEmitterTruths(
     emitters.push_back(emitter);
   }
   return emitters;
-}
-
-std::vector<electro_optical_sensor::session::EosExternalTargetInput> MakeOpticalTargets(
-    const std::vector<TargetEcefState>& states) {
-  std::vector<electro_optical_sensor::session::EosExternalTargetInput> targets;
-  targets.reserve(states.size());
-  for (const auto& state : states) {
-    electro_optical_sensor::session::EosExternalTargetInput target;
-    target.target_id = state.id;
-    target.kinematics.position_frame = oneq::coordinate::PositionFrame::kEcef;
-    target.kinematics.position_ecef_m = state.position;
-    target.kinematics.velocity_mps = state.velocity;
-    target.appearance.apparent_temperature_k = state.temperature_k;
-    target.appearance.emissivity = 0.92f;
-    target.appearance.reflectance = 0.35f;
-    target.appearance.projected_area_m2 = state.projected_area_m2;
-    targets.push_back(target);
-  }
-  return targets;
 }
 
 std::vector<sbirs_sensor::session::SbirsSceneTarget> MakeSbirsTargetInputs(
@@ -175,26 +141,28 @@ std::vector<remote_identification_radar::session::RirSceneTarget> MakeRirSceneTa
   std::vector<rir::RirSceneTarget> targets;
   targets.reserve(states.size());
   for (const auto& state : states) {
-    oneq::coordinate::EnuPositionM enu;
-    if (!oneq::coordinate::TryEcefToEnu(state.position, site_origin, &enu)) {
+    oneq::coordinate::ExternalKinematics kinematics;
+    kinematics.position_frame = oneq::coordinate::PositionFrame::kEcef;
+    kinematics.position_ecef_m = state.position;
+    kinematics.velocity_mps = state.velocity;
+    oneq::coordinate::EnuSceneState enu;
+    if (!oneq::coordinate::TryMakeEnuSceneState(kinematics, site_origin, &enu)) {
       continue;  // 坐标转换失败：该目标本周期不入 RIR 场景
-    }
-    oneq::coordinate::EnuVelocityMps enu_velocity;
-    if (!oneq::coordinate::TryEcefToEnuVelocity(state.velocity, site_origin, &enu_velocity)) {
-      enu_velocity = {};  // 速度变换失败：按静止目标供（位置几何仍有效）
     }
     rir::RirSceneTarget target;
     target.external_target_id = state.id;
     target.target_name = state.rir_truth_model;
-    target.position_x = static_cast<float>(enu.east_m);
-    target.position_y = static_cast<float>(enu.north_m);
-    target.position_z = static_cast<float>(enu.up_m);
-    target.velocity_x = static_cast<float>(enu_velocity.east_mps);
-    target.velocity_y = static_cast<float>(enu_velocity.north_mps);
-    target.velocity_z = static_cast<float>(enu_velocity.up_mps);
+    target.position_x = static_cast<float>(enu.position_enu_m.east_m);
+    target.position_y = static_cast<float>(enu.position_enu_m.north_m);
+    target.position_z = static_cast<float>(enu.position_enu_m.up_m);
+    target.velocity_x = static_cast<float>(enu.velocity_enu_mps.east_mps);
+    target.velocity_y = static_cast<float>(enu.velocity_enu_mps.north_mps);
+    target.velocity_z = static_cast<float>(enu.velocity_enu_mps.up_mps);
     target.rcs = state.rcs;
-    target.range_m = static_cast<float>(
-        std::sqrt(enu.east_m * enu.east_m + enu.north_m * enu.north_m + enu.up_m * enu.up_m));
+    target.range_m = static_cast<float>(std::sqrt(
+        enu.position_enu_m.east_m * enu.position_enu_m.east_m +
+        enu.position_enu_m.north_m * enu.position_enu_m.north_m +
+        enu.position_enu_m.up_m * enu.position_enu_m.up_m));
     target.target_swerling_type = rir::RirSwerlingType::kSwerling0;
     if (state.has_rir_features) {
       // 特征真值铺样（仿集成测试配方）：视角网格方位 ±5°/步 5°、俯仰 5°~30°/步

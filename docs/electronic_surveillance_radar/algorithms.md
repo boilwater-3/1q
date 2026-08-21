@@ -1,6 +1,6 @@
 ---
 Status: active
-Last-reviewed: 2026-08-20
+Last-reviewed: 2026-08-21
 Authority: ESR 算法登记与实现边界
 Answers: ESR 用了哪些算法、各自实现到什么地步、边界在哪、哪些刻意不实现或预留死字段
 ---
@@ -17,6 +17,7 @@ Answers: ESR 用了哪些算法、各自实现到什么地步、边界在哪、�
 |---|---|---|---|
 | 环境采样 | 传播附加损耗与杂波噪声快照 | session-wired | [evidence: tests/unit/electronic_surveillance_radar/esr_controller_runtime_state_test] |
 | 扫描窗口 | 根据扫描模式和运行期配置生成接收窗口与波束序列（波束指向按 az/el 步进以整数步数采样，单轴点数上限 131072，超出截断，不依赖浮点累加） | session-wired | [evidence: tests/unit/electronic_surveillance_radar/esr_controller_runtime_state_test] |
+| 天线指向合成链 | 天线系波束指向 → 姿态（Body->ENU）∘ 安装偏置旋转合成 → ENU → ECEF boresight（`EsrBoresightChain` 薄适配，委托公共域 BoresightChain；2026-08-21 前为"波束角 + 安装偏置"角度加法近似） | session-wired | [evidence: tests/unit/electronic_surveillance_radar/esr_boresight_chain_test] |
 | 拦截门控 | range、receiver window、dynamic range、SNR 等 joint constraints（内联于 `InterceptDetectionExecutor`：`BuildReceiverWindow`/`minimum_snr_db`；原未消费的死头文件 `InterceptGate.h` 已删除） | session-wired | [evidence: tests/unit/electronic_surveillance_radar/esr_rf_v2_detection_test] |
 | 角误差 | 基于 SNR/系数/随机种子的 AOA 扰动 | session-wired | [evidence: tests/unit/electronic_surveillance_radar/esr_rf_v2_detection_test] |
 | RF 接收与干扰影响 | 双 receiver state、宽带入射账本、饱和、到达时频角分辨单元 SINR | session-wired | [evidence: tests/unit/electronic_surveillance_radar/esr_rf_v2_front_end_test] |
@@ -43,7 +44,9 @@ ESR 当前所有登记算法均为 session-wired；不存在 characterized/exper
 2. **宽带前端账本。** 用固定 receive beam、预选器和设备损耗聚合所有进入前端的功率。该账本独立于当前
    调谐通道，用于最大线性输入、同平台泄漏和强带外 blocking 边界。超过标定上限时输出结构化
    `receiver_saturated` impairment，本周期仍是 executed，但 observation/hypothesis 不生成新记录；**不使用**
-   未标定压缩曲线。
+   未标定压缩曲线。固定 receive beam 的 boresight 方向由 `EsrBoresightChain` 合成（姿态 ∘ 天线安装偏置
+   旋转复合，委托公共域 `common/geometry/BoresightChain`；2026-08-21 起替代"波束角 + 安装偏置"角度加法
+   近似，零姿态 + 单轴安装偏置下与历史加法严格一致），ENU→ECEF 的 geodetic 步骤留在前端模块层。
 3. **通道化与可分辨性。** `EsrRfV2FrontEnd` 同时冻结两个接收状态：硬件频段的 `front_end_receiver` 只服务
    blocking/饱和，当前 tuning window 的 `channel_receiver` 只服务候选检测。`EsrResolutionCellLedger` 将调谐
    通道内的到达活动投影到固定接收时间单元：

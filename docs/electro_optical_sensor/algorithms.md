@@ -1,6 +1,6 @@
 ---
 Status: active
-Last-reviewed: 2026-08-07
+Last-reviewed: 2026-08-21
 Authority: EOS 算法登记与实现边界
 Answers: EOS 用了哪些算法、各自实现到什么地步、边界在哪、哪些刻意不实现
 ---
@@ -20,6 +20,7 @@ Answers: EOS 用了哪些算法、各自实现到什么地步、边界在哪、�
 | 环境因子解析 | 场景/大气观测映射为 aerosol、turbulence、radiance bias、分子密度因子 | session-wired | [evidence: tests/unit/electro_optical_sensor/eos_environment_model_test] |
 | 辐射传输 | 路径长度/云量/分子密度/气溶胶/湍流/模型类型 → 透过率与路径辐射惩罚 | session-wired | [evidence: tests/unit/electro_optical_sensor/eos_radiative_transfer_test] |
 | 光学几何 | 孔径面积、视场立体角、衍射、GSD | session-wired | [evidence: tests/unit/electro_optical_sensor/eos_foundation_test] |
+| 视轴角派生 | 平台锚点 ENU 位置 + 姿态 → 体系斜距/方位/仰角（旋转与取角委托公共域 BoresightChain，仅姿态链；退化下限与斜距留在模块层） | session-wired | [evidence: tests/unit/electro_optical_sensor/eos_look_angles_test] |
 | 红外辐射 | Planck 辐射、发射率、背景辐射、路径透过率 → IR SNR | session-wired | [evidence: tests/unit/electro_optical_sensor/eos_pipeline_test] |
 | 可见光辐射 | 太阳辐照、反射率、投影面积、路径影响 → visible SNR | session-wired | [evidence: tests/unit/electro_optical_sensor/eos_pipeline_test] |
 | 背景噪声与 NEP | 背景噪声统计、抑制权重、等效噪声、有效信号功率 | session-wired | [evidence: tests/unit/electro_optical_sensor/eos_noise_model_test] |

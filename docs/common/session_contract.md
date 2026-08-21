@@ -1,8 +1,8 @@
 ---
 Status: active
-Last-reviewed: 2026-08-20
+Last-reviewed: 2026-08-21
 Authority: 有 Session 的传感器模块的统一会话契约
-Answers: SessionConfigBuilder、Session 组合所有权、运行期配置提交策略、电源单源、三层输出模型、Replay/trace 语义
+Answers: 会话配置直接赋值、Session 组合所有权、运行期配置提交策略、电源单源、三层输出模型、Replay/trace 语义
 ---
 
 # 会话相关模块契约
@@ -14,22 +14,24 @@ RIR 于 2026-08 并入本契约范围（会话门面/四域配置/电源单源/�
 recorder 均未提供，规则 10/11/13b/13e 对其为空洞条款，同 SAR 13b 先例）。所有模块都必须遵守的
 跨模块契约见 `docs/common/contract.md`。
 
-## SessionConfigBuilder
+## 会话配置直接赋值
 
-所有 `*SessionConfigBuilder` 都是**薄封装**：
+`*SessionConfig` / `*RuntimeConfigPatch` 由调用方直接构造与字段赋值；**不得**再提供
+`*SessionConfigBuilder` / `*RuntimeConfigBuilder` 公开 API。
 
-1. 内部只持有 `*SessionConfig` 副本；`Build()` 直接返回该副本，不做任何翻译、合并或覆写。
-2. 语义档位（profile）是各模块 `XxxProfileConstants.h` 中的预定义结构体常量
+1. 语义档位（profile）是各模块 `XxxProfileConstants.h` 中的预定义结构体常量
    （如 `profiles::kLongRangeHighPowerHardware`、`profiles::kThreatWarningMission`），
    用户直接整域赋值；常量只含该档位管理的字段，其余字段保持 struct 默认值。
-3. 配置中不存在隐式优先级："对 config 的任何赋值即最终决定"，档位在前、微调在后时微调胜出。
-   不得以任何形式复活 dirty flag / Profile 枚举 / 隐式覆写机制。
-4. 细粒度工程参数由调用方直接编辑 `*SessionConfig` 四域字段。
-5. 运行期变更走 `*RuntimeConfigPatch` / `*RuntimeConfigBuilder`。
-6. 配置合法性由独立 validator 检查最终 config。
+2. 配置中不存在隐式优先级："对 config 的任何赋值即最终决定"，档位在前、微调在后时微调胜出。
+   不得以任何形式复活 dirty flag / Profile 枚举 / 隐式覆写机制 / leaf setter Builder。
+3. 细粒度工程参数由调用方直接编辑 `*SessionConfig` 四域字段。
+4. 运行期变更只写 `*RuntimeConfigPatch`：每个生效字段必须显式设置对应 `has_*`
+   （嵌套域再设子级 `has_*`，如 `environment.has_scenario_config`）。
+5. 配置合法性由独立 validator 检查最终 config。
 
-不得重新引入 leaf setter，例如 frame rate、scene center、minimum SNR、atmospheric loss 这类直接字段编辑器。
-struct 默认值即语义默认（no-op 档位不提供常量）；整域赋值会重置子域内未被常量管理的字段，调用方应先赋档位再设场景特定数据。
+不得重新引入 leaf setter 建造者，例如 frame rate、scene center、minimum SNR、atmospheric loss 这类
+链式字段编辑器。struct 默认值即语义默认（no-op 档位不提供常量）；整域赋值会重置子域内未被常量管理的字段，
+调用方应先赋档位再设场景特定数据。
 
 ## Session composition ownership
 

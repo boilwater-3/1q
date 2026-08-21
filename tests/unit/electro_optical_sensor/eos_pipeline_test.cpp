@@ -18,9 +18,9 @@ namespace {
 namespace context = ::electro_optical_sensor::session;
 namespace output = ::electro_optical_sensor::output;
 
-session::EosSceneTarget MakeTarget(std::uint64_t id, float azimuth_deg, float range_m = 1800.0f,
+EosPipelineSceneTarget MakeTarget(std::uint64_t id, float azimuth_deg, float range_m = 1800.0f,
                                    float projected_area_m2 = 2.0f) {
-  session::EosSceneTarget target;
+  EosPipelineSceneTarget target;
   target.target_id = id;
   target.range_m = range_m;
   target.azimuth_deg = azimuth_deg;
@@ -32,11 +32,10 @@ session::EosSceneTarget MakeTarget(std::uint64_t id, float azimuth_deg, float ra
   return target;
 }
 
-::electro_optical_sensor::session::EosCycleInput MakeCycleInput(float dt_sec = 1.0f) {
-  ::electro_optical_sensor::session::EosCycleInput input;
+EosPipelineCycleInput MakeCycleInput(float dt_sec = 1.0f) {
+  EosPipelineCycleInput input;
   input.dt_sec = dt_sec;
   input.platform_altitude_m = 1200.0f;
-  input.platform_pose.position_m.z = 0.0f;
   return input;
 }
 
@@ -71,7 +70,7 @@ float ResolveFirstCycleScanAzimuthDeg(const config::execution::EosInternalExecut
 
 TEST(EosPipelineTest, ScanAngleAdvancesAndWrapsInsideRange) {
   EosPipeline pipeline(MakePipelineConfig());
-  ::electro_optical_sensor::session::EosCycleInput input =
+  EosPipelineCycleInput input =
       MakeCycleInput(5.0f);  // advance by 25 deg, wrap inside [-10, 10]
   input.cycle_index = 1U;
   input.scene.push_back(MakeTarget(1U, -5.0f));
@@ -84,7 +83,7 @@ TEST(EosPipelineTest, ScanAngleAdvancesAndWrapsInsideRange) {
 
 TEST(EosPipelineTest, InFovTargetIsDetectedAndOutOfFovTargetIsFiltered) {
   EosPipeline pipeline(MakePipelineConfig());
-  ::electro_optical_sensor::session::EosCycleInput input = MakeCycleInput(1.0f);
+  EosPipelineCycleInput input = MakeCycleInput(1.0f);
   input.cycle_index = 3U;
   input.scene.push_back(MakeTarget(101U, -5.0f));  // in fov after first advance
   input.scene.push_back(MakeTarget(102U, 35.0f));  // out of fov
@@ -99,7 +98,7 @@ TEST(EosPipelineTest, InFovTargetIsDetectedAndOutOfFovTargetIsFiltered) {
 
 TEST(EosPipelineTest, OutOfRangeTargetIsMarkedUndetected) {
   EosPipeline pipeline(MakePipelineConfig());
-  ::electro_optical_sensor::session::EosCycleInput input = MakeCycleInput(1.0f);
+  EosPipelineCycleInput input = MakeCycleInput(1.0f);
   input.cycle_index = 4U;
   input.scene.push_back(MakeTarget(201U, -5.0f, 8000.0f));
 
@@ -113,12 +112,12 @@ TEST(EosPipelineTest, LargerTargetAreaHasHigherFusedSnrAtSameGeometry) {
   config::execution::EosInternalExecutionConfig config = MakePipelineConfig();
   config.scan.work_mode = EosPipelineWorkMode::kInfraredOnly;
   EosPipeline pipeline(config);
-  ::electro_optical_sensor::session::EosCycleInput input = MakeCycleInput(1.0f);
+  EosPipelineCycleInput input = MakeCycleInput(1.0f);
   input.cycle_index = 5U;
-  session::EosSceneTarget small_target = MakeTarget(301U, -5.0f, 600.0f, 1.0f);
+  EosPipelineSceneTarget small_target = MakeTarget(301U, -5.0f, 600.0f, 1.0f);
   small_target.appearance.apparent_temperature_k = 900.0f;
   small_target.appearance.emissivity = 0.98f;
-  session::EosSceneTarget large_target = MakeTarget(302U, -5.0f, 600.0f, 36.0f);
+  EosPipelineSceneTarget large_target = MakeTarget(302U, -5.0f, 600.0f, 36.0f);
   large_target.appearance.apparent_temperature_k = 900.0f;
   large_target.appearance.emissivity = 0.98f;
   input.scene.push_back(small_target);
@@ -136,7 +135,7 @@ TEST(EosPipelineTest, VisibleChainAppliesProjectedAreaOnce) {
   config.scan.work_mode = EosPipelineWorkMode::kVisibleOnly;
   config.detection.minimum_snr_db = -120.0f;
   EosPipeline pipeline(config);
-  ::electro_optical_sensor::session::EosCycleInput input = MakeCycleInput(1.0f);
+  EosPipelineCycleInput input = MakeCycleInput(1.0f);
   input.cycle_index = 6U;
   const float scan_azimuth = ResolveFirstCycleScanAzimuthDeg(config, input.dt_sec);
   input.scene.push_back(MakeTarget(401U, scan_azimuth, 800.0f, 4.0f));
@@ -163,9 +162,9 @@ TEST(EosPipelineTest, AdaptiveRadiativeTransferModelProducesLowerSnrInSameScene)
   EosPipeline baseline_pipeline(baseline_config);
   EosPipeline adaptive_pipeline(adaptive_config);
 
-  ::electro_optical_sensor::session::EosCycleInput input = MakeCycleInput(1.0f);
+  EosPipelineCycleInput input = MakeCycleInput(1.0f);
   input.cycle_index = 6U;
-  session::EosSceneTarget target = MakeTarget(401U, -5.0f, 1200.0f, 12.0f);
+  EosPipelineSceneTarget target = MakeTarget(401U, -5.0f, 1200.0f, 12.0f);
   target.appearance.apparent_temperature_k = 850.0f;
   target.appearance.emissivity = 0.98f;
   input.scene.push_back(target);
@@ -191,10 +190,10 @@ TEST(EosPipelineTest, HigherPressureLowersSnrThroughMolecularAttenuation) {
 
   EosPipeline low_pressure_pipeline(low_pressure_config);
   EosPipeline high_pressure_pipeline(high_pressure_config);
-  ::electro_optical_sensor::session::EosCycleInput input = MakeCycleInput(1.0f);
+  EosPipelineCycleInput input = MakeCycleInput(1.0f);
   input.cycle_index = 7U;
   input.platform_altitude_m = 0.0f;
-  session::EosSceneTarget target = MakeTarget(402U, -5.0f, 4000.0f, 12.0f);
+  EosPipelineSceneTarget target = MakeTarget(402U, -5.0f, 4000.0f, 12.0f);
   target.appearance.apparent_temperature_k = 850.0f;
   target.appearance.emissivity = 0.98f;
   input.scene.push_back(target);
@@ -219,9 +218,9 @@ TEST(EosPipelineTest, RuntimeEnvironmentAutomaticallyLowersSnrInHighWindScene) {
   EosPipeline calm_pipeline(calm_config);
   EosPipeline severe_pipeline(severe_config);
 
-  ::electro_optical_sensor::session::EosCycleInput input = MakeCycleInput(1.0f);
+  EosPipelineCycleInput input = MakeCycleInput(1.0f);
   input.cycle_index = 7U;
-  session::EosSceneTarget target = MakeTarget(501U, -5.0f, 1200.0f, 10.0f);
+  EosPipelineSceneTarget target = MakeTarget(501U, -5.0f, 1200.0f, 10.0f);
   target.appearance.apparent_temperature_k = 880.0f;
   target.appearance.emissivity = 0.98f;
   input.scene.push_back(target);
@@ -233,38 +232,6 @@ TEST(EosPipelineTest, RuntimeEnvironmentAutomaticallyLowersSnrInHighWindScene) {
   ASSERT_EQ(severe_frame.detections.size(), 1U);
   EXPECT_GT(calm_frame.detections[0].fused_snr_linear,
             severe_frame.detections[0].fused_snr_linear);
-}
-
-TEST(EosPipelineTest, PlatformVelocityDoesNotAffectEnvironmentPenaltyWhenWindFixed) {
-  config::execution::EosInternalExecutionConfig config = MakePipelineConfig();
-  config.scan.work_mode = EosPipelineWorkMode::kInfraredOnly;
-  config.environment.radiative_transfer_model =
-      config::execution::RadiativeTransferModel::kAdaptivePathRadiance;
-
-  EosPipeline low_speed_pipeline(config);
-  EosPipeline high_speed_pipeline(config);
-
-  ::electro_optical_sensor::session::EosCycleInput low_speed_input = MakeCycleInput(1.0f);
-  low_speed_input.cycle_index = 8U;
-  low_speed_input.platform_pose.velocity_mps.x = 10.0f;
-  session::EosSceneTarget low_speed_target = MakeTarget(601U, -5.0f, 1200.0f, 10.0f);
-  low_speed_target.appearance.apparent_temperature_k = 880.0f;
-  low_speed_target.appearance.emissivity = 0.98f;
-  low_speed_input.scene.push_back(low_speed_target);
-
-  ::electro_optical_sensor::session::EosCycleInput high_speed_input = low_speed_input;
-  high_speed_input.cycle_index = 9U;
-  high_speed_input.platform_pose.velocity_mps.x = 250.0f;
-  high_speed_input.platform_pose.velocity_mps.y = -90.0f;
-  high_speed_input.platform_pose.velocity_mps.z = 20.0f;
-
-  const auto low_speed_frame = low_speed_pipeline.RunCycle(low_speed_input);
-  const auto high_speed_frame = high_speed_pipeline.RunCycle(high_speed_input);
-
-  ASSERT_EQ(low_speed_frame.detections.size(), 1U);
-  ASSERT_EQ(high_speed_frame.detections.size(), 1U);
-  EXPECT_NEAR(low_speed_frame.detections[0].fused_snr_linear,
-              high_speed_frame.detections[0].fused_snr_linear, 1.0e-8f);
 }
 
 TEST(EosPipelineTest, LowerFrameRateProducesHigherSnrWithLongerIntegrationWindow) {
@@ -279,9 +246,9 @@ TEST(EosPipelineTest, LowerFrameRateProducesHigherSnrWithLongerIntegrationWindow
   EosPipeline low_rate_pipeline(low_rate_config);
   EosPipeline high_rate_pipeline(high_rate_config);
 
-  ::electro_optical_sensor::session::EosCycleInput input = MakeCycleInput(0.1f);
+  EosPipelineCycleInput input = MakeCycleInput(0.1f);
   input.cycle_index = 10U;
-  session::EosSceneTarget target = MakeTarget(
+  EosPipelineSceneTarget target = MakeTarget(
       701U, ResolveFirstCycleScanAzimuthDeg(low_rate_config, input.dt_sec), 1000.0f, 8.0f);
   target.appearance.apparent_temperature_k = 860.0f;
   target.appearance.emissivity = 0.98f;
@@ -308,9 +275,9 @@ TEST(EosPipelineTest, VisibleReferenceIrradianceAffectsVisibleSnrThroughNoiseMod
   EosPipeline matched_reference_pipeline(matched_reference_config);
   EosPipeline mismatched_reference_pipeline(mismatched_reference_config);
 
-  ::electro_optical_sensor::session::EosCycleInput input = MakeCycleInput(1.0f);
+  EosPipelineCycleInput input = MakeCycleInput(1.0f);
   input.cycle_index = 11U;
-  session::EosSceneTarget target = MakeTarget(801U, -5.0f, 1200.0f, 4.0f);
+  EosPipelineSceneTarget target = MakeTarget(801U, -5.0f, 1200.0f, 4.0f);
   input.scene.push_back(target);
 
   const auto matched_frame = matched_reference_pipeline.RunCycle(input);
@@ -334,9 +301,9 @@ TEST(EosPipelineTest, BetterDetectionSensitivityProducesHigherSnr) {
   EosPipeline better_sensitivity_pipeline(better_sensitivity_config);
   EosPipeline worse_sensitivity_pipeline(worse_sensitivity_config);
 
-  ::electro_optical_sensor::session::EosCycleInput input = MakeCycleInput(0.5f);
+  EosPipelineCycleInput input = MakeCycleInput(0.5f);
   input.cycle_index = 12U;
-  session::EosSceneTarget target = MakeTarget(
+  EosPipelineSceneTarget target = MakeTarget(
       901U, ResolveFirstCycleScanAzimuthDeg(better_sensitivity_config, input.dt_sec), 900.0f, 9.0f);
   target.appearance.apparent_temperature_k = 860.0f;
   target.appearance.emissivity = 0.98f;
@@ -365,9 +332,9 @@ TEST(EosPipelineTest, InfraredBandwidthIncreaseRaisesSnrAtFixedCenterWavelength)
   EosPipeline narrow_band_pipeline(narrow_band_config);
   EosPipeline wide_band_pipeline(wide_band_config);
 
-  ::electro_optical_sensor::session::EosCycleInput input = MakeCycleInput(1.0f);
+  EosPipelineCycleInput input = MakeCycleInput(1.0f);
   input.cycle_index = 13U;
-  session::EosSceneTarget target = MakeTarget(
+  EosPipelineSceneTarget target = MakeTarget(
       1001U, ResolveFirstCycleScanAzimuthDeg(narrow_band_config, input.dt_sec), 900.0f, 8.0f);
   target.appearance.apparent_temperature_k = 860.0f;
   target.appearance.emissivity = 0.98f;
@@ -394,7 +361,7 @@ TEST(EosPipelineTest, FusedWeightShiftsTowardVisibleInDayAndInfraredAtNight) {
   EosPipeline infrared_pipeline(infrared_config);
   EosPipeline visible_pipeline(visible_config);
 
-  ::electro_optical_sensor::session::EosCycleInput day_input = MakeCycleInput(1.0f);
+  EosPipelineCycleInput day_input = MakeCycleInput(1.0f);
   day_input.cycle_index = 12U;
   const float day_scan_azimuth = ResolveFirstCycleScanAzimuthDeg(fused_config, day_input.dt_sec);
   day_input.scene.push_back(MakeTarget(1101U, day_scan_azimuth, 800.0f, 10.0f));
@@ -424,7 +391,7 @@ TEST(EosPipelineTest, FusedWeightShiftsTowardVisibleInDayAndInfraredAtNight) {
   EosPipeline night_infrared_pipeline(night_infrared_config);
   EosPipeline night_visible_pipeline(night_visible_config);
 
-  ::electro_optical_sensor::session::EosCycleInput night_input = day_input;
+  EosPipelineCycleInput night_input = day_input;
   night_input.cycle_index = 13U;
   const auto night_fused_frame = night_fused_pipeline.RunCycle(night_input);
   const auto night_infrared_frame = night_infrared_pipeline.RunCycle(night_input);
@@ -443,7 +410,7 @@ TEST(EosPipelineTest, FusedWeightShiftsTowardVisibleInDayAndInfraredAtNight) {
 
 TEST(EosPipelineTest, OutOfFovTargetWritesInfoExclusionDiagnostic) {
   EosPipeline pipeline(MakePipelineConfig());
-  ::electro_optical_sensor::session::EosCycleInput input = MakeCycleInput(1.0f);
+  EosPipelineCycleInput input = MakeCycleInput(1.0f);
   input.cycle_index = 4U;
   input.scene.push_back(MakeTarget(201U, 35.0f));  // 扫描中心外 → 视场外排除
 
@@ -470,9 +437,9 @@ TEST(EosPipelineTest, OutOfFovTargetWritesInfoExclusionDiagnostic) {
 
 TEST(EosPipelineTest, OutOfFovBothAxesWritesBothAxesOutsideCause) {
   EosPipeline pipeline(MakePipelineConfig());
-  ::electro_optical_sensor::session::EosCycleInput input = MakeCycleInput(1.0f);
+  EosPipelineCycleInput input = MakeCycleInput(1.0f);
   input.cycle_index = 5U;
-  ::electro_optical_sensor::session::EosSceneTarget target = MakeTarget(202U, 35.0f);
+  EosPipelineSceneTarget target = MakeTarget(202U, 35.0f);
   target.elevation_deg = 20.0f;  // az 与 el 均越界（半视场 az=3°/el=2°）
   input.scene.push_back(target);
 
@@ -494,10 +461,10 @@ TEST(EosPipelineTest, OutOfFovBothAxesWritesBothAxesOutsideCause) {
 
 TEST(EosPipelineTest, OutOfFovElevationOnlyWritesElOutsideCause) {
   EosPipeline pipeline(MakePipelineConfig());
-  ::electro_optical_sensor::session::EosCycleInput input = MakeCycleInput(1.0f);
+  EosPipelineCycleInput input = MakeCycleInput(1.0f);
   input.cycle_index = 6U;
   // az 在扫描中心（首周期 -5°）视场内（半视场 az=3°）、el=20° 越界（半视场 el=2°）。
-  ::electro_optical_sensor::session::EosSceneTarget target = MakeTarget(203U, -5.0f);
+  EosPipelineSceneTarget target = MakeTarget(203U, -5.0f);
   target.elevation_deg = 20.0f;
   input.scene.push_back(target);
 

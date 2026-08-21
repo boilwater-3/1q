@@ -62,8 +62,7 @@ using SarPointTargetList = std::vector<SarPointTarget>;
  * - **平台轨迹**：`pulse_states`、`ideal_pulse_states`（运动学域数据）
  *
  * `HasExternalRawIq()` 仅检查 IQ 样本字段（`samples_per_pulse != 0 && !i_values.empty()`），
- * 忽略轨迹字段。仅提供轨迹而不提供 IQ 样本时（如 `SarCycleInputAdapter` 产物），
- * 不会触发外部 IQ 路径。
+ * 忽略轨迹字段。调用方仅填 `pulse_states` 而不提供 IQ 样本时，不会触发外部 IQ 路径。
  *
  * 坐标系约定：`PulseState` 中的位置与速度使用 **本地直角坐标**（local Cartesian），
  * 与 `SarPlatformState` / `SarPointTarget` 的大地坐标（LLA + NED）不同。这是因为外部
@@ -75,9 +74,9 @@ using SarPointTargetList = std::vector<SarPointTarget>;
  * - y 轴：北向（North），水平向北。
  * - z 轴：上向（Up），垂直向上为正，相对 `scene_center_altitude_m`。
  *
- * 因此，调用方在填充 `pulse_states` 时必须使用 **相对于 `scene_center_*` 的 ENU 本地坐标**，
- * 而非绝对大地坐标。`SarSession` 内部会将这些值直接映射到聚焦算法所需的本地几何，
- * 不再做 LLA 转换。`SarExternalInputAdapter` 提供从 ECEF/LLA 到本坐标系的转换辅助。
+ * 因此，调用方在填充 `pulse_states` 时必须直接使用 **相对于 `scene_center_*` 的 ENU 本地坐标**，
+ * 而非绝对大地坐标；库内不提供 ECEF/LLA 到 ENU 的适配器。`SarSession` 内部会将这些值直接
+ * 映射到聚焦算法所需的本地几何，不再做 LLA 转换。
  */
 struct ONEQ_API SarRawIqFrame {
   /**

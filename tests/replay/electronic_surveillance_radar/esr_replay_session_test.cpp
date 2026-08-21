@@ -3,7 +3,7 @@
 #include <memory>
 
 #include "1q/electromagnetics/RfScene.h"
-#include "1q/electronic_surveillance_radar/config/EsrRuntimeConfigBuilder.h"
+#include "1q/electronic_surveillance_radar/config/EsrRuntimeConfigPatch.h"
 #include "1q/replay/ReplayTrace.h"
 #include "1q/electronic_surveillance_radar/session/EsrReplaySession.h"
 #include "1q/electronic_surveillance_radar/session/EsrTraceSession.h"
@@ -164,22 +164,18 @@ TEST(EsrReplaySessionTest,
   ASSERT_EQ(rejected.status,
             EsrRuntimeConfigApplyStatus::kRejectedInvalidPolicy);
 
-  ASSERT_TRUE(session
-                  .TryApplyRuntimeConfig(
-                      config::EsrRuntimeConfigBuilder()
-                          .WithSensorEnabled(false)
-                          .Build())
-                  .applied);
+  config::EsrRuntimeConfigPatch power_off;
+  power_off.has_sensor_enabled = true;
+  power_off.sensor_enabled = false;
+  ASSERT_TRUE(session.TryApplyRuntimeConfig(power_off).applied);
   const EsrCycleResult powered_off =
       session.StepWithResult(MakeContinuousInput(1U, 10.0e9, 1.0e6));
   ASSERT_EQ(powered_off.status, EsrCycleExecutionStatus::kPoweredOff);
 
-  ASSERT_TRUE(session
-                  .TryApplyRuntimeConfig(
-                      config::EsrRuntimeConfigBuilder()
-                          .WithSensorEnabled(true)
-                          .Build())
-                  .applied);
+  config::EsrRuntimeConfigPatch power_on;
+  power_on.has_sensor_enabled = true;
+  power_on.sensor_enabled = true;
+  ASSERT_TRUE(session.TryApplyRuntimeConfig(power_on).applied);
   const EsrCycleResult recovered =
       session.StepWithResult(MakeContinuousInput(2U, 10.0e9, 1.0e6));
   ASSERT_EQ(recovered.status, EsrCycleExecutionStatus::kCompleted);

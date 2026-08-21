@@ -8,11 +8,12 @@
 #include <cmath>
 #include <cstdint>
 
-#include "1q/electro_optical_sensor/config/EosRuntimeConfigBuilder.h"
-#include "1q/electro_optical_sensor/config/EosSessionConfigBuilder.h"
+#include "1q/electro_optical_sensor/config/EosRuntimeConfigPatch.h"
+#include "1q/electro_optical_sensor/config/EosSessionConfig.h"
 #include "1q/electro_optical_sensor/session/EosCycleInput.h"
 #include "1q/electro_optical_sensor/session/EosCycleResult.h"
 #include "1q/electro_optical_sensor/session/EosSession.h"
+#include "support/eos_enu_scene_helpers.h"
 
 namespace electro_optical_sensor {
 namespace session {
@@ -28,9 +29,7 @@ session::EosSceneTarget MakeTarget(std::uint64_t id, float azimuth_deg, float ra
                                    float projected_area_m2 = 2.0f) {
   session::EosSceneTarget target;
   target.target_id = id;
-  target.range_m = range_m;
-  target.azimuth_deg = azimuth_deg;
-  target.elevation_deg = 0.0f;
+  oneq::test_support::SetEosSphericalLook(&target, range_m, azimuth_deg, 0.0f);
   target.appearance.apparent_temperature_k = 330.0f;
   target.appearance.emissivity = 0.92f;
   target.appearance.reflectance = 0.38f;
@@ -43,7 +42,6 @@ session::EosSceneTarget MakeTarget(std::uint64_t id, float azimuth_deg, float ra
   input.cycle_index = 1U;
   input.dt_sec = 0.1f;
   input.platform_altitude_m = 1200.0f;
-  input.platform_pose.position_m.z = 0.0f;
   input.scene.push_back(MakeTarget(1U, 0.0f, 1500.0f, 4.0f));
   return input;
 }
@@ -131,7 +129,7 @@ TEST(EosSessionIntegrationTest, FusedModeDetectsInFovTarget) {
   config::EosSessionConfig config = MakeSessionConfig();
   EosSession session = EosSession::Create(config);
   ::electro_optical_sensor::session::EosCycleInput input = MakeBaseInput();
-  input.scene.front().range_m = 1700.0f;
+  oneq::test_support::SetEosSphericalLook(&input.scene.front(), 1700.0f, 0.0f, 0.0f);
   input.scene.front().appearance.apparent_temperature_k = 600.0f;
   input.scene.front().appearance.projected_area_m2 = 8.0f;
 
@@ -364,9 +362,9 @@ TEST(EosSessionIntegrationTest, RuntimeConfigWorkModeSwitchTakesEffectImmediatel
   EXPECT_GT(fused_frame.detections.front().infrared_snr_linear, 0.0f);
   EXPECT_GT(fused_frame.detections.front().visible_snr_linear, 0.0f);
 
-  const config::EosRuntimeConfigPatch patch = eos_config::EosRuntimeConfigBuilder()
-                                                  .WithWorkMode(config::EosWorkMode::kInfraredOnly)
-                                                  .Build();
+  config::EosRuntimeConfigPatch patch;
+  patch.has_work_mode = true;
+  patch.work_mode = config::EosWorkMode::kInfraredOnly;
   (void)session.TryApplyRuntimeConfig(patch);
 
   ::electro_optical_sensor::session::EosCycleInput input_2 = MakeBaseInput();
@@ -383,8 +381,9 @@ TEST(EosSessionIntegrationTest, RuntimeConfigScanRateChangeUpdatesAdvance) {
   const ::electro_optical_sensor::session::EosCycleInput input = MakeBaseInput();
   const session::EosOutputFrame frame_1 = session.Step(input);
 
-  const config::EosRuntimeConfigPatch patch =
-      eos_config::EosRuntimeConfigBuilder().WithScanRateDegPerSec(97.0f).Build();
+  config::EosRuntimeConfigPatch patch;
+  patch.has_scan_rate_deg_per_sec = true;
+  patch.scan_rate_deg_per_sec = 97.0f;
   (void)session.TryApplyRuntimeConfig(patch);
 
   ::electro_optical_sensor::session::EosCycleInput input_2 = MakeBaseInput();
@@ -407,18 +406,18 @@ TEST(EosSessionIntegrationTest, RuntimeConfigSnrThresholdFiltersWeakTargets) {
   config::EosSessionConfig config = MakeSessionConfig();
   EosSession session = EosSession::Create(config);
   ::electro_optical_sensor::session::EosCycleInput input = MakeBaseInput();
-  input.scene.front().range_m = 1700.0f;
+  oneq::test_support::SetEosSphericalLook(&input.scene.front(), 1700.0f, 0.0f, 0.0f);
   input.scene.front().appearance.apparent_temperature_k = 600.0f;
   input.scene.front().appearance.projected_area_m2 = 8.0f;
 
   const session::EosOutputFrame baseline_frame = session.Step(input);
   ASSERT_GT(CountDetectedTargets(baseline_frame), 0U);
 
-  const config::EosRuntimeConfigPatch patch = eos_config::EosRuntimeConfigBuilder()
-                                                  .WithMinimumSnrDb(60.0f)
-                                                  .WithDetectionSensitivityW(2.0e-12f)
-                                                  .WithVisibleReferenceIrradianceWM2(1000.0f)
-                                                  .Build();
+  config::EosRuntimeConfigPatch patch;
+  patch.has_policy = true;
+  patch.policy.detection.minimum_snr_db = 60.0f;
+  patch.policy.detection.detection_sensitivity_w = 2.0e-12f;
+  patch.policy.detection.visible_reference_irradiance_w_m2 = 1000.0f;
   (void)session.TryApplyRuntimeConfig(patch);
 
   ::electro_optical_sensor::session::EosCycleInput input_2 = input;
@@ -431,10 +430,9 @@ TEST(EosSessionIntegrationTest, RuntimeConfigSnrThresholdFiltersWeakTargets) {
             baseline_frame.detections.front().fused_snr_db);
 }
 
-TEST(EosSessionIntegrationTest, SessionConfigBuilderPreservesDirectConfigBaseline) {
+TEST(EosSessionIntegrationTest, SessionConfigCopyPreservesDirectConfigBaseline) {
   const config::EosSessionConfig direct_config = MakeSessionConfig();
-  const config::EosSessionConfig built_config =
-      eos_config::EosSessionConfigBuilder(MakeSessionConfig()).Build();
+  const config::EosSessionConfig built_config = MakeSessionConfig();
 
   EosSession direct_session = EosSession::Create(direct_config);
   EosSession built_session = EosSession::Create(built_config);
@@ -581,13 +579,13 @@ TEST(EosSessionIntegrationTest, RuntimeConfigStraylightToggleWorks) {
 
   const session::EosOutputFrame baseline_frame = session.Step(input);
 
-  const config::EosRuntimeConfigPatch patch = eos_config::EosRuntimeConfigBuilder()
-                                                  .WithEnableStraylightFilter(true)
-                                                  .WithHoodInnerHalfAngleDeg(8.0f)
-                                                  .WithHoodOuterHalfAngleDeg(55.0f)
-                                                  .WithHoodMinSuppressionRatio(0.35f)
-                                                  .WithHoodMaxSuppressionRatio(0.95f)
-                                                  .Build();
+  config::EosRuntimeConfigPatch patch;
+  patch.has_policy = true;
+  patch.policy.stray_light.enable_straylight_filter = true;
+  patch.policy.stray_light.hood_inner_half_angle_deg = 8.0f;
+  patch.policy.stray_light.hood_outer_half_angle_deg = 55.0f;
+  patch.policy.stray_light.hood_min_suppression_ratio = 0.35f;
+  patch.policy.stray_light.hood_max_suppression_ratio = 0.95f;
   (void)session.TryApplyRuntimeConfig(patch);
 
   ::electro_optical_sensor::session::EosCycleInput input_2 = MakeBaseInput();
@@ -619,8 +617,10 @@ TEST(EosSessionIntegrationTest, RuntimeEnvironmentPresetChangeTakesEffect) {
   config::EosEnvironmentScenarioConfig env_config;
   env_config.preset = config::EosEnvironmentPreset::kTurbulent;
 
-  const config::EosRuntimeConfigPatch patch =
-      eos_config::EosRuntimeConfigBuilder().WithEnvironmentScenarioConfig(env_config).Build();
+  config::EosRuntimeConfigPatch patch;
+  patch.has_environment = true;
+  patch.environment.has_scenario_config = true;
+  patch.environment.scenario_config = env_config;
   (void)session.TryApplyRuntimeConfig(patch);
 
   ::electro_optical_sensor::session::EosCycleInput input_2 = MakeBaseInput();

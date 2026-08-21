@@ -5,6 +5,7 @@
 #include <unordered_map>
 
 #include "1q/airborne_radar/session/ArIssueCodes.h"
+#include "1q/airborne_radar/session/ArRadarFrameTransform.h"
 #include "1q/coordinate/attitude_transform.h"
 #include "1q/coordinate/position_transform.h"
 #include "1q/coordinate/velocity_transform.h"
@@ -112,8 +113,8 @@ ArIssueList ValidateArCycleInput(const ArCycleInput& input) {
       !oneq::coordinate::IsFinite(input.platform.platform_position_ecef_m) ||
       !oneq::coordinate::IsFinite(input.platform.platform_velocity_mps) ||
       !oneq::coordinate::IsFinite(input.platform.platform_attitude_deg) ||
-      !TryMakeArPoseFromExternalKinematics(input.platform, zero_mount, &reference,
-                                            &radar_local_velocity)) {
+      !TryMakeArPoseFromPlatform(input.platform, zero_mount, &reference,
+                                &radar_local_velocity)) {
     issues.push_back(MakeIssue(ArIssueSeverity::kError, codes::kInvalidPlatformInput,
                                oneq::foundation::ValidationLocationKind::kPlatform,
                                static_cast<std::size_t>(-1), "platform",
@@ -123,12 +124,10 @@ ArIssueList ValidateArCycleInput(const ArCycleInput& input) {
     for (std::size_t index = 0U; index < input.targets.size(); ++index) {
       const ArTargetInput& target = input.targets[index];
       ArSceneTarget local_target;
-      if (!TryMakeArTargetFromExternalKinematics(target, reference,
-                                                 radar_local_velocity,
-                                                 &local_target)) {
+      if (!TryMakeArTargetFromEnu(target, reference, radar_local_velocity, &local_target)) {
         issues.push_back(MakeIssue(ArIssueSeverity::kError, codes::kInvalidTargetInput,
                                    oneq::foundation::ValidationLocationKind::kSceneEntity, index,
-                                   "targets", "target world kinematics cannot be converted"));
+                                   "targets", "target ENU fields must be finite"));
         continue;
       }
       ValidateSingleSceneTarget(local_target, index, &issues);

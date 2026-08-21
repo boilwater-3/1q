@@ -184,16 +184,29 @@ ar_session::ArCycleInput MakeArInput() {
   input.platform.platform_entity_id = 1U;
   input.platform.platform_position_ecef_m.x_m = 6378137.0;
   input.targets.reserve(kArTargetCount);
+  oneq::coordinate::LlaPositionDegM anchor_lla;
+  oneq::coordinate::TryEcefToLla(input.platform.platform_position_ecef_m, &anchor_lla);
   for (std::size_t i = 0U; i < kArTargetCount; ++i) {
-    ar_session::ArExternalTargetInput target;
-    target.target_id = i + 1U;
-    target.kinematics.position_frame = oneq::coordinate::PositionFrame::kEcef;
-    target.kinematics.position_ecef_m.x_m =
+    oneq::coordinate::ExternalKinematics kinematics;
+    kinematics.position_frame = oneq::coordinate::PositionFrame::kEcef;
+    kinematics.position_ecef_m.x_m =
         6378137.0 + 10000.0 + 50.0 * static_cast<double>(i);
-    target.kinematics.position_ecef_m.y_m =
+    kinematics.position_ecef_m.y_m =
         10.0 * static_cast<double>(static_cast<int>(i % 21U) - 10);
-    target.kinematics.position_ecef_m.z_m =
+    kinematics.position_ecef_m.z_m =
         5.0 * static_cast<double>(static_cast<int>(i % 11U) - 5);
+
+    oneq::coordinate::EnuSceneState enu;
+    oneq::coordinate::TryMakeEnuSceneState(kinematics, anchor_lla, &enu);
+
+    ar_session::ArTargetInput target;
+    target.target_id = i + 1U;
+    target.position_x = static_cast<float>(enu.position_enu_m.east_m);
+    target.position_y = static_cast<float>(enu.position_enu_m.north_m);
+    target.position_z = static_cast<float>(enu.position_enu_m.up_m);
+    target.velocity_x = static_cast<float>(enu.velocity_enu_mps.east_mps);
+    target.velocity_y = static_cast<float>(enu.velocity_enu_mps.north_mps);
+    target.velocity_z = static_cast<float>(enu.velocity_enu_mps.up_mps);
     target.rcs = 10.0f;
     input.targets.push_back(target);
   }

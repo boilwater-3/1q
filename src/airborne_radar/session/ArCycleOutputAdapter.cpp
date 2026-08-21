@@ -1,9 +1,11 @@
 ﻿#include "1q/airborne_radar/session/ArCycleOutputAdapter.h"
 
+#include "1q/airborne_radar/session/ArRadarFrameTransform.h"
+
 namespace airborne_radar {
 namespace session {
 
-bool ArCycleOutputAdapter::Build(const ArExternalPoseInput& platform,
+bool ArCycleOutputAdapter::Build(const ArPlatformInput& platform,
                                  const TrackOutputFrame& frame,
                                  ArExternalTrackOutputFrame* output) {
   if (output == nullptr) {
@@ -13,7 +15,7 @@ bool ArCycleOutputAdapter::Build(const ArExternalPoseInput& platform,
   oneq::coordinate::LocalFrameReference reference;
   oneq::foundation::Vector3f radar_local_velocity;
   const oneq::coordinate::EulerAnglesDeg zero_mount{};
-  if (!TryMakeArPoseFromExternalKinematics(platform, zero_mount, &reference, &radar_local_velocity)) {
+  if (!TryMakeArPoseFromPlatform(platform, zero_mount, &reference, &radar_local_velocity)) {
     return false;
   }
   return Build(reference, radar_local_velocity, frame, output);

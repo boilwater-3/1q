@@ -9,9 +9,7 @@
 
 #include "1q/sar/config/sar_config.hpp"
 #include "1q/sar/session/SarCycleInput.h"
-#include "1q/sar/session/SarCycleInputAdapter.h"
 #include "1q/sar/session/SarCycleResult.h"
-#include "1q/sar/session/SarExternalInputAdapter.h"
 #include "1q/sar/session/SarInputValidation.h"
 #include "1q/sar/session/SarSession.h"
 

@@ -9,7 +9,6 @@
 #include <string>
 
 #include "1q/electronic_surveillance_radar/config/EsrProfileConstants.h"
-#include "1q/electronic_surveillance_radar/config/EsrSessionConfigBuilder.h"
 #include "1q/electronic_surveillance_radar/config/EsrSessionConfigValidation.h"
 
 namespace electronic_surveillance_radar {

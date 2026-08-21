@@ -1,4 +1,4 @@
----
+﻿---
 Status: active
 Last-reviewed: 2026-08-20
 Authority: RIR 模块级边界、非目标与设计变更规则
@@ -44,7 +44,8 @@ RIR 遵守 `docs/common/contract.md` 与 `docs/common/session_contract.md`：
 
 1. public API 只暴露稳定 session/config/input/output/validation/replay DTO 门面；
    `RirController`、识别内部类型不通过 public header 暴露。
-2. `RirSessionConfigBuilder` 是薄封装（整域赋值 + `Build()` 返回副本）。
+2. 会话配置直接赋值 `RirSessionConfig`；运行期热更新直接写 `RirRuntimeConfigPatch`
+   （显式 `has_*`）；不提供 ConfigBuilder。
 3. 输出遵守三层模型：系统输出（`RirOutputFrame`）、结构化执行结果
    （`RirCycleResult`，含 `emission_frame` 供 RF-WORLD 编排层汇集）、replay 视图分离。
 4. 周期语义：非执行周期不复用上一帧；校验拒绝 `kRejectedInvalidInput` +
@@ -82,10 +83,14 @@ RIR 遵守 `docs/common/contract.md` 与 `docs/common/session_contract.md`：
 
 ## ENU 帧约定
 
+本节即「场景目标平台锚点 ENU 输入契约」（docs/common/contract.md）的库级范式：AR/EOS 的
+场景目标输入已对齐本模块的 ENU 形态，公共一站式转换入口为
+`oneq::coordinate::TryEcefToLla`（锚点）+ `TryMakeEnuSceneState`（逐目标）。
+
 - 识别高度观测 = 平台绝对海拔 + 内部航迹 `position_z`；绝对海拔由必填平台 ECEF
   经 `TryEcefToLla` 库内派生；`position_z` 为雷达局部 ENU 切平面上向分量。
-- 场景目标 `position_x/y/z` 同帧（公共 API 为 ENU；集成层用户侧以 ECEF 描述目标，
-  适配层在边界完成 ECEF→ENU 转换）；`range_m` 为斜距（>0 或带非零位置）。
+- 场景目标 `position_x/y/z` 同帧（公共 API 为 ENU；集成层以公共
+  `TryMakeEnuSceneState` 完成 ECEF→ENU 后直填）；`range_m` 为斜距（>0 或带非零位置）。
 - 视角样本网格（`aspect_az_deg`/`aspect_el_deg`）为雷达局部视线角；RCS 插值为
   最近邻（不强制覆盖），覆盖下限属数据库 profile 级适用条件，由匹配阶段判定。
 

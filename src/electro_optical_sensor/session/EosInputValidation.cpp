@@ -1,10 +1,12 @@
 ﻿#include "1q/electro_optical_sensor/session/EosInputValidation.h"
 
 #include <algorithm>
+#include <cmath>
 #include <limits>
 
 #include "1q/electro_optical_sensor/session/EosIssueCodes.h"
 #include "common/validation/ValidationUtils.h"
+#include "electro_optical_sensor/foundation/EosLookAngles.h"
 
 namespace electro_optical_sensor {
 namespace session {
@@ -30,23 +32,20 @@ EosIssue MakeIssue(EosIssueSeverity severity, const char* code,
   return issue;
 }
 
-void ValidatePlatformPose(const oneq::foundation::PoseState& platform_pose,
-                          EosIssueList* issues) {
+void ValidatePlatformAttitude(const oneq::coordinate::EulerAnglesDeg& platform_attitude_deg,
+                             EosIssueList* issues) {
   if (issues == nullptr) {
     return;
   }
 
-  if (!IsFinite(platform_pose.position_m.x) || !IsFinite(platform_pose.position_m.y) ||
-      !IsFinite(platform_pose.position_m.z) || !IsFinite(platform_pose.velocity_mps.x) ||
-      !IsFinite(platform_pose.velocity_mps.y) || !IsFinite(platform_pose.velocity_mps.z) ||
-      !IsFinite(platform_pose.attitude_deg.yaw_deg) ||
-      !IsFinite(platform_pose.attitude_deg.pitch_deg) ||
-      !IsFinite(platform_pose.attitude_deg.roll_deg)) {
+  if (!IsFinite(platform_attitude_deg.yaw_deg) ||
+      !IsFinite(platform_attitude_deg.pitch_deg) ||
+      !IsFinite(platform_attitude_deg.roll_deg)) {
     issues->push_back(
         MakeIssue(EosIssueSeverity::kError, codes::kNonFinitePlatformNumericField,
                   oneq::foundation::ValidationLocationKind::kPlatform,
-                  static_cast<std::size_t>(-1), "platform_pose",
-                  "platform pose contains non-finite numeric field"));
+                  static_cast<std::size_t>(-1), "platform_attitude_deg",
+                  "platform attitude contains non-finite numeric field"));
   }
 }
 
@@ -66,8 +65,10 @@ void ValidateTarget(const EosSceneTarget& target, std::size_t target_index,
     return;
   }
 
-  if (!IsFinite(target.range_m) || !IsFinite(target.azimuth_deg) ||
-      !IsFinite(target.elevation_deg) || !IsFinite(target.appearance.apparent_temperature_k) ||
+  if (!IsFinite(target.position_x) || !IsFinite(target.position_y) ||
+      !IsFinite(target.position_z) || !IsFinite(target.velocity_x) ||
+      !IsFinite(target.velocity_y) || !IsFinite(target.velocity_z) ||
+      !IsFinite(target.appearance.apparent_temperature_k) ||
       !IsFinite(target.appearance.emissivity) || !IsFinite(target.appearance.reflectance) ||
       !IsFinite(target.appearance.projected_area_m2)) {
     issues->push_back(MakeIssue(EosIssueSeverity::kError, codes::kNonFiniteTargetNumericField,
@@ -76,10 +77,18 @@ void ValidateTarget(const EosSceneTarget& target, std::size_t target_index,
                                 "target contains non-finite numeric field"));
   }
 
-  if (target.range_m <= 0.0f) {
+  // 平台锚点 ENU 位置模长即斜距：退化几何（目标与平台重合）拒绝。
+  const double position_norm =
+      std::sqrt(static_cast<double>(target.position_x) * target.position_x +
+                static_cast<double>(target.position_y) * target.position_y +
+                static_cast<double>(target.position_z) * target.position_z);
+  if (IsFinite(target.position_x) && IsFinite(target.position_y) &&
+      IsFinite(target.position_z) &&
+      position_norm <= static_cast<double>(foundation::EosLookAngleNormFloorM())) {
     issues->push_back(MakeIssue(EosIssueSeverity::kError, codes::kInvalidTargetRange,
                                 oneq::foundation::ValidationLocationKind::kSceneEntity,
-                                target_index, "range_m", "target range must be positive"));
+                                target_index, "position",
+                                "target ENU position must be non-degenerate (range positive)"));
   }
   if (target.appearance.apparent_temperature_k <= 0.0f) {
     issues->push_back(MakeIssue(EosIssueSeverity::kError, codes::kInvalidTargetTemperature,
@@ -143,7 +152,7 @@ EosIssueList ValidateEosCycleInput(
     }
   }
 
-  ValidatePlatformPose(input.platform_pose, &issues);
+  ValidatePlatformAttitude(input.platform_attitude_deg, &issues);
   ValidatePlatformAltitude(input.platform_altitude_m, &issues);
 
   for (std::size_t i = 0; i < input.scene.size(); ++i) {

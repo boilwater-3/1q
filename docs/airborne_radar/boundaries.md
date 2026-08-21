@@ -17,8 +17,9 @@ AR 遵守 `docs/common/contract.md`：
 1. public API 只暴露稳定 session/config/input/output/trace/replay/decision DTO 门面。`EnvironmentService`、
    `SignalPipeline`、`ArController`、`MutableArContext`、tracking lifecycle 和战术决策部件不通过 public
    header 暴露。
-2. `ArSessionConfigBuilder` 是薄封装（整域赋值 + `Build()` 返回副本）；语义档位是 `ArProfileConstants.h`
-   中的预定义结构体常量，不承担 leaf setter 或隐式 validation。
+2. 会话配置直接赋值 `ArSessionConfig`（语义档位是 `ArProfileConstants.h`
+   中的预定义结构体常量）；运行期热更新直接写 `ArRuntimeConfigPatch`（显式 `has_*`）。
+   不提供 ConfigBuilder，不承担 leaf setter 或隐式 validation。
 3. AR 输出遵守三层模型：系统输出（`TrackOutputFrame`）、结构化执行结果（`ArCycleResult`）、调试/生命周期/
    replay 视图分离。
 4. decision seam 是同进程步间 observation/response，是唯一的 public 决策扩展点。
@@ -65,10 +66,15 @@ ISA 标准大气，这些字段全部未被消费，属未接入的死输入。�
 `ArSession` 和 `ArController` 都有明确的失败语义：
 
 1. **校验层归属（COMMON-OQ-9 收敛，2026-08）**：公共路径入口校验在 `ArSession`
-   （`ValidateArCycleInput` 含外部运动学坐标系转换，控制器输入面不含 platform/targets 原始
+   （`ValidateArCycleInput` 含 ENU→雷达体系旋转，控制器输入面不含 platform/targets 原始
    数据，无法下移）；运行期校验唯一化在 `ArController::RunOnce`（会话层对同一输入的二次
    校验已删除），拒绝时明细经出参直通并装配进最终周期结果；运行期执行失败透传真实
    `abort_reason`（校验拒绝为 `kRejectedInvalidInput` + 细粒度明细），不写死替换。
+   场景目标输入为平台锚点 radar-local ENU（`ArTargetInput`，契约见
+   docs/common/contract.md「场景目标平台锚点 ENU 输入契约」）；集成侧以公共
+   `TryMakeEnuSceneState` 直填。库内经 `TryMakeArTargetFromEnu`（`ArRadarFrameTransform`）
+   旋入雷达体系（平台姿态∘安装角复合）后供检测/关联/跟踪使用。平台位姿类型为
+   `ArPlatformInput`（ECEF），不是场景目标适配器。
 2. cycle input 校验失败时不执行 pipeline，`ArCycleResult` 携带 validation issues 与显式 abort
    reason `kValidationRejected`（保留 replay/trace 数值语义）。
 3. **非执行周期统一不复用（五模块统一规则）**：`Step()` 与 `ArCycleResult.output_frame`

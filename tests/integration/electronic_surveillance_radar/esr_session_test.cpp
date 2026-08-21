@@ -3,7 +3,7 @@
 #include <cmath>
 
 #include "1q/electromagnetics/RfScene.h"
-#include "1q/electronic_surveillance_radar/config/EsrRuntimeConfigBuilder.h"
+#include "1q/electronic_surveillance_radar/config/EsrRuntimeConfigPatch.h"
 #include "1q/electronic_surveillance_radar/session/EsrSession.h"
 
 namespace electronic_surveillance_radar {
@@ -97,7 +97,10 @@ TEST(EsrSessionIntegrationTest, PowerOffProducesNoHistoricalOutput) {
   EsrCycleInput input = MakeInput();
   input.rf_emissions.emissions.push_back(MakeEmission(1U, 1.0e6));
   ASSERT_EQ(session.StepWithResult(input).status, EsrCycleExecutionStatus::kCompleted);
-  (void)session.TryApplyRuntimeConfig(config::EsrRuntimeConfigBuilder().WithSensorEnabled(false).Build());
+  config::EsrRuntimeConfigPatch power_off;
+  power_off.has_sensor_enabled = true;
+  power_off.sensor_enabled = false;
+  (void)session.TryApplyRuntimeConfig(power_off);
   const EsrCycleResult powered_off = session.StepWithResult(input);
   EXPECT_EQ(powered_off.status, EsrCycleExecutionStatus::kPoweredOff);
   EXPECT_EQ(powered_off.output_frame.cycle_index, 0U);

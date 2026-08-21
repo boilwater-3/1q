@@ -27,26 +27,26 @@ struct ONEQ_API EosExternalOutputFrame {
  */
 struct ONEQ_API EosCycleOutputAdapter {
   /**
-   * @brief 由外部平台位姿推导局部参考系，再将内部输出帧转换为外部 ECEF 输出帧。
-   * @param[in] platform 外部平台运动学输入（ECEF 位置 + 姿态）。
+   * @brief 由外部平台运动学推导锚点参考系，再将内部输出帧转换为外部 ECEF 输出帧。
+   * @param[in] platform 外部平台运动学输入（ECEF 位置决定锚点，姿态参与反解）。
    * @param[in] frame 本周期内部输出帧。
    * @param[out] output 输出外部 ECEF 输出帧；为 nullptr 时直接返回 false。
    * @return 转换成功返回 true；`output` 为空或任一坐标变换失败返回 false。
    */
-  static bool Build(const EosExternalPoseInput& platform, const EosOutputFrame& frame,
+  static bool Build(const EosPlatformEcefPose& platform, const EosOutputFrame& frame,
                     EosExternalOutputFrame* output);
 
   /**
-   * @brief 使用显式局部参考系，将内部输出帧转换为外部 ECEF 输出帧。
-   * @param[in] reference 局部参考系（原点 LLA + 姿态）。
-   * @param[in] platform_pose 平台局部位姿状态。
+   * @brief 使用显式锚点参考系，将内部输出帧转换为外部 ECEF 输出帧。
+   * @param[in] reference 锚点参考系（`origin_lla` 为平台锚点）。
+   * @param[in] platform_attitude_deg 平台姿态角（Body->ENU，单位：deg）。
    * @param[in] frame 本周期内部输出帧。
    * @param[out] output 输出外部 ECEF 输出帧；为 nullptr 时直接返回 false。
    * @return 转换成功返回 true；`output` 为空或任一探测记录坐标变换失败返回 false。
    */
   static bool Build(const oneq::coordinate::LocalFrameReference& reference,
-                    const oneq::foundation::PoseState& platform_pose, const EosOutputFrame& frame,
-                    EosExternalOutputFrame* output);
+                    const oneq::coordinate::EulerAnglesDeg& platform_attitude_deg,
+                    const EosOutputFrame& frame, EosExternalOutputFrame* output);
 
  private:
   EosCycleOutputAdapter() = delete;

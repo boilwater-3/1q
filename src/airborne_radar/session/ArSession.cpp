@@ -6,6 +6,7 @@
 #include <utility>
 
 #include "1q/airborne_radar/session/ArIssueCodes.h"
+#include "1q/airborne_radar/session/ArRadarFrameTransform.h"
 #include "1q/airborne_radar/session/ArExclusionCauseRecorder.h"
 #include "1q/airborne_radar/session/ArTrackLifecycleRecorder.h"
 #include "1q/coordinate/attitude_transform.h"
@@ -598,8 +599,8 @@ struct ArSession::Impl {
       issue.phase = ArIssuePhase::kInputValidation;
       return issue;
     };
-    if (!TryMakeArPoseFromExternalKinematics(input.platform, mount_angles_coord,
-                                             &reference, &radar_local_velocity)) {
+    if (!TryMakeArPoseFromPlatform(input.platform, mount_angles_coord,
+                                  &reference, &radar_local_velocity)) {
       ArIssueList mount_issues = issues;
       mount_issues.push_back(make_mount_issue(
           codes::kInvalidPlatformInput,
@@ -612,14 +613,13 @@ struct ArSession::Impl {
     for (std::size_t target_index = 0U; target_index < input.targets.size(); ++target_index) {
       const ArTargetInput& target = input.targets[target_index];
       ArSceneTarget local_target;
-      if (!TryMakeArTargetFromExternalKinematics(target, reference, radar_local_velocity,
-                                                 &local_target)) {
+      if (!TryMakeArTargetFromEnu(target, reference, radar_local_velocity, &local_target)) {
         ArIssueList mount_issues = issues;
         mount_issues.push_back(make_mount_issue(
             codes::kInvalidTargetInput,
             oneq::foundation::ValidationLocationKind::kSceneEntity, target_index,
             "targets",
-            "target pose conversion failed with configured mount angles"));
+            "target ENU scene conversion failed with configured mount angles"));
         return BuildValidationErrorResult(input, mount_issues);
       }
       local_targets.push_back(local_target);

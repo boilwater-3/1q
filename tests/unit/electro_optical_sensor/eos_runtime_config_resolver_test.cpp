@@ -10,7 +10,7 @@
 
 #include "1q/electro_optical_sensor/config/EosMissionConfig.h"
 #include "1q/electro_optical_sensor/config/EosPolicyConfig.h"
-#include "1q/electro_optical_sensor/config/EosRuntimeConfigBuilder.h"
+#include "1q/electro_optical_sensor/config/EosRuntimeConfigPatch.h"
 #include "electro_optical_sensor/runtime/EosRuntimeConfigResolver.h"
 
 namespace electro_optical_sensor {
@@ -37,14 +37,16 @@ TEST(EosRuntimeConfigResolverTest, ValidPatchBuildsRuntimeUpdateAndScanResetFlag
   config::EosEnvironmentScenarioConfig env_config;
   env_config.preset = eos_config::EosEnvironmentPreset::kDusty;
 
-  const eos_config::EosRuntimeConfigPatch patch =
-      eos_config::EosRuntimeConfigBuilder()
-          .WithScanRateDegPerSec(60.0f)
-          .WithMinimumSnrDb(60.0f)
-          .WithDetectionSensitivityW(2.0e-12f)
-          .WithVisibleReferenceIrradianceWM2(1000.0f)
-          .WithEnvironmentScenarioConfig(env_config)
-          .Build();
+  eos_config::EosRuntimeConfigPatch patch;
+  patch.has_scan_rate_deg_per_sec = true;
+  patch.scan_rate_deg_per_sec = 60.0f;
+  patch.has_policy = true;
+  patch.policy.detection.minimum_snr_db = 60.0f;
+  patch.policy.detection.detection_sensitivity_w = 2.0e-12f;
+  patch.policy.detection.visible_reference_irradiance_w_m2 = 1000.0f;
+  patch.has_environment = true;
+  patch.environment.has_scenario_config = true;
+  patch.environment.scenario_config = env_config;
 
   const EosRuntimeConfigResolveResult resolved =
       ResolveEosRuntimeConfigPatch(current_config, patch);
@@ -68,12 +70,13 @@ TEST(EosRuntimeConfigResolverTest, InvalidFieldRejectsWholePatch) {
   current_config.scan.scan_rate_deg_per_sec = 20.0f;
   current_config.detection.minimum_snr_db = 6.0f;
 
-  const eos_config::EosRuntimeConfigPatch patch =
-      eos_config::EosRuntimeConfigBuilder()
-          .WithScanRateDegPerSec(60.0f)
-          .WithMinimumSnrDb(6.0f)
-          .WithFrameRateHz(0.0f)
-          .Build();
+  eos_config::EosRuntimeConfigPatch patch;
+  patch.has_scan_rate_deg_per_sec = true;
+  patch.scan_rate_deg_per_sec = 60.0f;
+  patch.has_policy = true;
+  patch.policy.detection.minimum_snr_db = 6.0f;
+  patch.has_frame_rate_hz = true;
+  patch.frame_rate_hz = 0.0f;
 
   const EosRuntimeConfigResolveResult resolved =
       ResolveEosRuntimeConfigPatch(current_config, patch);
@@ -104,8 +107,9 @@ TEST(EosRuntimeConfigResolverTest, ValidMissionPatchAppliesAndResetsScanPhase) {
   mission.scan_center_el_deg = 0.0f;
   mission.boresight_depression_deg = 45.0f;
 
-  const eos_config::EosRuntimeConfigPatch patch =
-      eos_config::EosRuntimeConfigBuilder().WithMission(mission).Build();
+  eos_config::EosRuntimeConfigPatch patch;
+  patch.has_mission = true;
+  patch.mission = mission;
 
   const EosRuntimeConfigResolveResult resolved =
       ResolveEosRuntimeConfigPatch(current_config, patch);
@@ -126,8 +130,9 @@ TEST(EosRuntimeConfigResolverTest, MissionDomainDoesNotAffectSensorEnabled) {
 
   eos_config::EosMissionConfig mission;
   mission.work_mode = eos_config::EosWorkMode::kFused;
-  eos_config::EosRuntimeConfigPatch patch =
-      eos_config::EosRuntimeConfigBuilder().WithMission(mission).Build();
+  eos_config::EosRuntimeConfigPatch patch;
+  patch.has_mission = true;
+  patch.mission = mission;
 
   const EosRuntimeConfigResolveResult resolved =
       ResolveEosRuntimeConfigPatch(current_config, patch);
@@ -161,8 +166,9 @@ TEST(EosRuntimeConfigResolverTest, MissionWithZeroScanRateIsRejected) {
   mission.horizontal_fov_deg = 6.0f;
   mission.vertical_fov_deg = 4.0f;
 
-  const eos_config::EosRuntimeConfigPatch patch =
-      eos_config::EosRuntimeConfigBuilder().WithMission(mission).Build();
+  eos_config::EosRuntimeConfigPatch patch;
+  patch.has_mission = true;
+  patch.mission = mission;
 
   const EosRuntimeConfigResolveResult resolved =
       ResolveEosRuntimeConfigPatch(current_config, patch);
@@ -178,8 +184,9 @@ TEST(EosRuntimeConfigResolverTest, MissionWithZeroFrameRateIsRejected) {
   mission.horizontal_fov_deg = 6.0f;
   mission.vertical_fov_deg = 4.0f;
 
-  const eos_config::EosRuntimeConfigPatch patch =
-      eos_config::EosRuntimeConfigBuilder().WithMission(mission).Build();
+  eos_config::EosRuntimeConfigPatch patch;
+  patch.has_mission = true;
+  patch.mission = mission;
 
   EXPECT_FALSE(ResolveEosRuntimeConfigPatch(current_config, patch).is_valid);
 }
@@ -195,7 +202,12 @@ TEST(EosRuntimeConfigResolverTest, MissionWithZeroFovIsRejected) {
 
   EXPECT_FALSE(ResolveEosRuntimeConfigPatch(
                    current_config,
-                   eos_config::EosRuntimeConfigBuilder().WithMission(mission).Build())
+                   [&] {
+                       eos_config::EosRuntimeConfigPatch p;
+                       p.has_mission = true;
+                       p.mission = mission;
+                       return p;
+                     }())
                    .is_valid);
 }
 
@@ -211,7 +223,12 @@ TEST(EosRuntimeConfigResolverTest, MissionWithNanFieldIsRejected) {
 
   EXPECT_FALSE(ResolveEosRuntimeConfigPatch(
                    current_config,
-                   eos_config::EosRuntimeConfigBuilder().WithMission(mission).Build())
+                   [&] {
+                       eos_config::EosRuntimeConfigPatch p;
+                       p.has_mission = true;
+                       p.mission = mission;
+                       return p;
+                     }())
                    .is_valid);
 }
 
@@ -232,8 +249,9 @@ TEST(EosRuntimeConfigResolverTest, ValidPolicyPatchApplies) {
   policy.stray_light.hood_min_suppression_ratio = 0.2f;
   policy.stray_light.hood_max_suppression_ratio = 0.85f;
 
-  const eos_config::EosRuntimeConfigPatch patch =
-      eos_config::EosRuntimeConfigBuilder().WithPolicy(policy).Build();
+  eos_config::EosRuntimeConfigPatch patch;
+  patch.has_policy = true;
+  patch.policy = policy;
 
   const EosRuntimeConfigResolveResult resolved =
       ResolveEosRuntimeConfigPatch(current_config, patch);
@@ -249,7 +267,12 @@ TEST(EosRuntimeConfigResolverTest, PolicyWithZeroDetectionSensitivityIsRejected)
 
   EXPECT_FALSE(ResolveEosRuntimeConfigPatch(
                    current_config,
-                   eos_config::EosRuntimeConfigBuilder().WithPolicy(policy).Build())
+                   [&] {
+                       eos_config::EosRuntimeConfigPatch p;
+                       p.has_policy = true;
+                       p.policy = policy;
+                       return p;
+                     }())
                    .is_valid);
 }
 
@@ -261,7 +284,12 @@ TEST(EosRuntimeConfigResolverTest, PolicyWithZeroIrradianceIsRejected) {
 
   EXPECT_FALSE(ResolveEosRuntimeConfigPatch(
                    current_config,
-                   eos_config::EosRuntimeConfigBuilder().WithPolicy(policy).Build())
+                   [&] {
+                       eos_config::EosRuntimeConfigPatch p;
+                       p.has_policy = true;
+                       p.policy = policy;
+                       return p;
+                     }())
                    .is_valid);
 }
 
@@ -273,7 +301,12 @@ TEST(EosRuntimeConfigResolverTest, PolicyWithZeroHoodInnerAngleIsRejected) {
 
   EXPECT_FALSE(ResolveEosRuntimeConfigPatch(
                    current_config,
-                   eos_config::EosRuntimeConfigBuilder().WithPolicy(policy).Build())
+                   [&] {
+                       eos_config::EosRuntimeConfigPatch p;
+                       p.has_policy = true;
+                       p.policy = policy;
+                       return p;
+                     }())
                    .is_valid);
 }
 
@@ -286,7 +319,12 @@ TEST(EosRuntimeConfigResolverTest, PolicyWithOuterLessThanInnerHoodIsRejected) {
 
   EXPECT_FALSE(ResolveEosRuntimeConfigPatch(
                    current_config,
-                   eos_config::EosRuntimeConfigBuilder().WithPolicy(policy).Build())
+                   [&] {
+                       eos_config::EosRuntimeConfigPatch p;
+                       p.has_policy = true;
+                       p.policy = policy;
+                       return p;
+                     }())
                    .is_valid);
 }
 
@@ -298,7 +336,12 @@ TEST(EosRuntimeConfigResolverTest, PolicyWithSuppressionRatioOutOfRangeIsRejecte
 
   EXPECT_FALSE(ResolveEosRuntimeConfigPatch(
                    current_config,
-                   eos_config::EosRuntimeConfigBuilder().WithPolicy(policy).Build())
+                   [&] {
+                       eos_config::EosRuntimeConfigPatch p;
+                       p.has_policy = true;
+                       p.policy = policy;
+                       return p;
+                     }())
                    .is_valid);
 }
 
@@ -311,7 +354,12 @@ TEST(EosRuntimeConfigResolverTest, PolicyWithMaxLessThanMinSuppressionIsRejected
 
   EXPECT_FALSE(ResolveEosRuntimeConfigPatch(
                    current_config,
-                   eos_config::EosRuntimeConfigBuilder().WithPolicy(policy).Build())
+                   [&] {
+                       eos_config::EosRuntimeConfigPatch p;
+                       p.has_policy = true;
+                       p.policy = policy;
+                       return p;
+                     }())
                    .is_valid);
 }
 
@@ -323,7 +371,12 @@ TEST(EosRuntimeConfigResolverTest, PolicyWithNanHoodAngleIsRejected) {
 
   EXPECT_FALSE(ResolveEosRuntimeConfigPatch(
                    current_config,
-                   eos_config::EosRuntimeConfigBuilder().WithPolicy(policy).Build())
+                   [&] {
+                       eos_config::EosRuntimeConfigPatch p;
+                       p.has_policy = true;
+                       p.policy = policy;
+                       return p;
+                     }())
                    .is_valid);
 }
 
@@ -337,8 +390,9 @@ TEST(EosRuntimeConfigResolverTest, EnvironmentWithoutScenarioConfigIsValid) {
   eos_config::EosEnvironmentRuntimeConfigPatch env_patch;
   env_patch.has_scenario_config = false;
 
-  const eos_config::EosRuntimeConfigPatch patch =
-      eos_config::EosRuntimeConfigBuilder().WithEnvironment(env_patch).Build();
+  eos_config::EosRuntimeConfigPatch patch;
+  patch.has_environment = true;
+  patch.environment = env_patch;
 
   const EosRuntimeConfigResolveResult resolved =
       ResolveEosRuntimeConfigPatch(current_config, patch);
@@ -356,8 +410,9 @@ TEST(EosRuntimeConfigResolverTest, EnvironmentWithInvalidAtmosphericPressureIsRe
   env_patch.has_scenario_config = true;
   env_patch.scenario_config = scenario;
 
-  const eos_config::EosRuntimeConfigPatch patch =
-      eos_config::EosRuntimeConfigBuilder().WithEnvironment(env_patch).Build();
+  eos_config::EosRuntimeConfigPatch patch;
+  patch.has_environment = true;
+  patch.environment = env_patch;
 
   EXPECT_FALSE(ResolveEosRuntimeConfigPatch(current_config, patch).is_valid);
 }
@@ -375,7 +430,12 @@ TEST(EosRuntimeConfigResolverTest, EnvironmentWithInvalidAtmosphericHumidityIsRe
 
   EXPECT_FALSE(ResolveEosRuntimeConfigPatch(
                    current_config,
-                   eos_config::EosRuntimeConfigBuilder().WithEnvironment(env_patch).Build())
+                   [&] {
+                       eos_config::EosRuntimeConfigPatch p;
+                       p.has_environment = true;
+                       p.environment = env_patch;
+                       return p;
+                     }())
                    .is_valid);
 }
 
@@ -383,8 +443,10 @@ TEST(EosRuntimeConfigResolverTest, EnvironmentWithInvalidPresetIsRejected) {
   config::execution::EosInternalExecutionConfig current_config = MakeValidCurrentConfig();
   eos_config::EosEnvironmentScenarioConfig scenario;
   scenario.preset = static_cast<eos_config::EosEnvironmentPreset>(99);
-  const eos_config::EosRuntimeConfigPatch patch =
-      eos_config::EosRuntimeConfigBuilder().WithEnvironmentScenarioConfig(scenario).Build();
+  eos_config::EosRuntimeConfigPatch patch;
+  patch.has_environment = true;
+  patch.environment.has_scenario_config = true;
+  patch.environment.scenario_config = scenario;
   EXPECT_FALSE(ResolveEosRuntimeConfigPatch(current_config, patch).is_valid);
 }
 TEST(EosRuntimeConfigResolverTest, EnvironmentPresetAppliesAtRuntime) {
@@ -392,8 +454,10 @@ TEST(EosRuntimeConfigResolverTest, EnvironmentPresetAppliesAtRuntime) {
   eos_config::EosEnvironmentScenarioConfig scenario;
   scenario.preset = eos_config::EosEnvironmentPreset::kMaritime;
 
-  const eos_config::EosRuntimeConfigPatch patch =
-      eos_config::EosRuntimeConfigBuilder().WithEnvironmentScenarioConfig(scenario).Build();
+  eos_config::EosRuntimeConfigPatch patch;
+  patch.has_environment = true;
+  patch.environment.has_scenario_config = true;
+  patch.environment.scenario_config = scenario;
   const EosRuntimeConfigResolveResult resolved =
       ResolveEosRuntimeConfigPatch(current_config, patch);
 
@@ -409,10 +473,9 @@ TEST(EosRuntimeConfigResolverTest, EnvironmentPresetAppliesAtRuntime) {
 TEST(EosRuntimeConfigResolverTest, WorkModePatchApplies) {
   config::execution::EosInternalExecutionConfig current_config = MakeValidCurrentConfig();
 
-  const eos_config::EosRuntimeConfigPatch patch =
-      eos_config::EosRuntimeConfigBuilder()
-          .WithWorkMode(eos_config::EosWorkMode::kInfraredOnly)
-          .Build();
+  eos_config::EosRuntimeConfigPatch patch;
+  patch.has_work_mode = true;
+  patch.work_mode = eos_config::EosWorkMode::kInfraredOnly;
 
   const EosRuntimeConfigResolveResult resolved =
       ResolveEosRuntimeConfigPatch(current_config, patch);
@@ -424,8 +487,9 @@ TEST(EosRuntimeConfigResolverTest, SensorEnabledPatchApplies) {
   config::execution::EosInternalExecutionConfig current_config = MakeValidCurrentConfig();
   current_config.sensor_enabled = true;
 
-  const eos_config::EosRuntimeConfigPatch patch =
-      eos_config::EosRuntimeConfigBuilder().WithSensorEnabled(false).Build();
+  eos_config::EosRuntimeConfigPatch patch;
+  patch.has_sensor_enabled = true;
+  patch.sensor_enabled = false;
 
   const EosRuntimeConfigResolveResult resolved =
       ResolveEosRuntimeConfigPatch(current_config, patch);
@@ -436,8 +500,9 @@ TEST(EosRuntimeConfigResolverTest, SensorEnabledPatchApplies) {
 TEST(EosRuntimeConfigResolverTest, ValidFrameRatePatchApplies) {
   config::execution::EosInternalExecutionConfig current_config = MakeValidCurrentConfig();
 
-  const eos_config::EosRuntimeConfigPatch patch =
-      eos_config::EosRuntimeConfigBuilder().WithFrameRateHz(60.0f).Build();
+  eos_config::EosRuntimeConfigPatch patch;
+  patch.has_frame_rate_hz = true;
+  patch.frame_rate_hz = 60.0f;
 
   const EosRuntimeConfigResolveResult resolved =
       ResolveEosRuntimeConfigPatch(current_config, patch);
@@ -448,8 +513,9 @@ TEST(EosRuntimeConfigResolverTest, ValidFrameRatePatchApplies) {
 TEST(EosRuntimeConfigResolverTest, InvalidFrameRateZeroIsRejected) {
   config::execution::EosInternalExecutionConfig current_config = MakeValidCurrentConfig();
 
-  const eos_config::EosRuntimeConfigPatch patch =
-      eos_config::EosRuntimeConfigBuilder().WithFrameRateHz(0.0f).Build();
+  eos_config::EosRuntimeConfigPatch patch;
+  patch.has_frame_rate_hz = true;
+  patch.frame_rate_hz = 0.0f;
 
   EXPECT_FALSE(ResolveEosRuntimeConfigPatch(current_config, patch).is_valid);
 }
@@ -457,8 +523,7 @@ TEST(EosRuntimeConfigResolverTest, InvalidFrameRateZeroIsRejected) {
 TEST(EosRuntimeConfigResolverTest, EmptyPatchProducesNoUpdate) {
   config::execution::EosInternalExecutionConfig current_config = MakeValidCurrentConfig();
 
-  const eos_config::EosRuntimeConfigPatch patch =
-      eos_config::EosRuntimeConfigBuilder().Build();
+  const eos_config::EosRuntimeConfigPatch patch;
 
   const EosRuntimeConfigResolveResult resolved =
       ResolveEosRuntimeConfigPatch(current_config, patch);

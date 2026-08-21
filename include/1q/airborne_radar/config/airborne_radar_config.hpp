@@ -13,10 +13,8 @@
 #include "1q/airborne_radar/config/ArOrientationConfig.h"
 #include "1q/airborne_radar/config/ArPolicyConfig.h"
 #include "1q/airborne_radar/config/ArProfileConstants.h"
-#include "1q/airborne_radar/config/ArRuntimeConfigBuilder.h"
 #include "1q/airborne_radar/config/ArRuntimeConfigPatch.h"
 #include "1q/airborne_radar/config/ArSessionConfig.h"
-#include "1q/airborne_radar/config/ArSessionConfigBuilder.h"
 #include "1q/airborne_radar/config/ArSessionConfigValidation.h"
 
 #endif  // ONEQ_AIRBORNE_RADAR_CONFIG_AIRBORNE_RADAR_CONFIG_HPP_

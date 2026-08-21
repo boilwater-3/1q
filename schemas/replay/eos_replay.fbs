@@ -1,4 +1,4 @@
-// eos_replay.fbs
+﻿// eos_replay.fbs
 // EOS 模块 replay FlatBuffers schema：cycle_input 与 cycle_output 载荷
 //
 // file_identifier: EOSC (EOS Cycle)
@@ -7,31 +7,22 @@ namespace eos.replay;
 
 // ---- 基础向量与姿态类型 ----
 
-struct Vec3 {
-  x: double;
-  y: double;
-  z: double;
-}
-
 struct EulerDeg {
   yaw_deg:   double;
   pitch_deg: double;
   roll_deg:  double;
 }
 
-table PoseState {
-  position_m:   Vec3;
-  velocity_mps: Vec3;
-  attitude_deg: EulerDeg;
-}
-
 // ---- EosCycleInput ----
 
 table EosTargetState {
   target_id:             uint64;
-  range_m:               float;
-  azimuth_deg:           float;
-  elevation_deg:         float;
+  position_x:            float;
+  position_y:            float;
+  position_z:            float;
+  velocity_x:            float;
+  velocity_y:            float;
+  velocity_z:            float;
   apparent_temperature_k: float;
   emissivity:            float;
   reflectance:           float;
@@ -42,7 +33,7 @@ table EosTargetState {
 table EosCycleInput {
   cycle_index:              uint32;
   dt_sec:                   float;
-  platform_pose:            PoseState;
+  platform_attitude_deg:    EulerDeg;
   scene_targets:            [EosTargetState];
   platform_altitude_m:      float = 0.0;
 }

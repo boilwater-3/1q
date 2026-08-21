@@ -8,7 +8,7 @@
 
 #include <cstdint>
 
-#include "1q/airborne_radar/config/ArRuntimeConfigBuilder.h"
+#include "1q/airborne_radar/config/ArRuntimeConfigPatch.h"
 #include "1q/airborne_radar/config/ArSessionConfig.h"
 #include "1q/airborne_radar/config/ArEnvironmentConfig.h"
 #include "airborne_radar/config/InternalExecutionConfig.h"

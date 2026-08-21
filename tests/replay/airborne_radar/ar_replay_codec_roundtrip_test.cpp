@@ -244,11 +244,12 @@ TEST(ArReplayCodecRoundtripTest, SingleCycleInputPreservesWorldAndRfFacts) {
   ArTargetInput target;
   target.target_id = 123U;
   target.target_name = "replay-target";
-  target.kinematics.position_frame = oneq::coordinate::PositionFrame::kLla;
-  target.kinematics.position_lla_deg_m.latitude_deg = 31.2;
-  target.kinematics.position_lla_deg_m.longitude_deg = 121.5;
-  target.kinematics.position_lla_deg_m.altitude_m = 8000.0;
-  target.kinematics.velocity_mps.z_mps = 8.0;
+  target.position_x = 1200.0f;
+  target.position_y = -3400.0f;
+  target.position_z = 500.0f;
+  target.velocity_x = 12.0f;
+  target.velocity_y = -6.0f;
+  target.velocity_z = 8.0f;
   target.rcs = 3.5f;
   target.swerling_type = 2;
   input.targets.push_back(target);
@@ -271,9 +272,9 @@ TEST(ArReplayCodecRoundtripTest, SingleCycleInputPreservesWorldAndRfFacts) {
   EXPECT_DOUBLE_EQ(decoded.platform.platform_attitude_deg.yaw_deg, 17.25);
   ASSERT_EQ(decoded.targets.size(), 1U);
   EXPECT_EQ(decoded.targets.front().target_name, "replay-target");
-  EXPECT_EQ(decoded.targets.front().kinematics.position_frame,
-            oneq::coordinate::PositionFrame::kLla);
-  EXPECT_DOUBLE_EQ(decoded.targets.front().kinematics.position_lla_deg_m.longitude_deg, 121.5);
+  EXPECT_FLOAT_EQ(decoded.targets.front().position_x, 1200.0f);
+  EXPECT_FLOAT_EQ(decoded.targets.front().position_y, -3400.0f);
+  EXPECT_FLOAT_EQ(decoded.targets.front().velocity_z, 8.0f);
   ASSERT_EQ(decoded.interference.emissions.size(), 1U);
   EXPECT_EQ(decoded.interference.emissions.front().waveform.kind,
             oneq::electromagnetics::RfSceneWaveformKind::kLinearSweep);

@@ -2,7 +2,7 @@
  * @file RirSessionConfigValidation.cpp
  * @brief 远程识别雷达会话配置校验实现。
  *
- * 校验逻辑为 `ArSessionConfigBuilder.cpp` 识别校验段（审计基线 96de367c）
+ * 校验逻辑为历史 AR 会话配置校验中的识别校验段（审计基线 96de367c）
  * 的平移改写：识别策略字段路径改为 `policy.recognition.*` 域内、识别任务
  * 作用距离/驻留字段四域归位至 `mission.*` 域内；issue code 改为
  * `rir.validation.recognition_*`（RirIssueCodes.h），语义与门限值不变。

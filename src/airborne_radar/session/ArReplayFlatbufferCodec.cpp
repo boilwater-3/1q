@@ -1182,39 +1182,12 @@ ArPlatformInput DecodePlatformInputV3(const fb::ArPlatformInputV3* value) {
   return result;
 }
 
-flatbuffers::Offset<fb::ExternalKinematicsV3> EncodeExternalKinematicsV3(
-    flatbuffers::FlatBufferBuilder* builder, const oneq::coordinate::ExternalKinematics& value) {
-  const oneq::coordinate::LlaPositionDegM& lla = value.position_lla_deg_m;
-  return fb::CreateExternalKinematicsV3(
-      *builder, static_cast<int>(value.position_frame),
-      EncodeRfV2Position(builder, value.position_ecef_m),
-      fb::CreateLlaPositionV3(*builder, lla.latitude_deg, lla.longitude_deg, lla.altitude_m),
-      EncodeEcefVelocityV3(builder, value.velocity_mps),
-      EncodeEulerAnglesV3(builder, value.attitude_deg));
-}
-
-oneq::coordinate::ExternalKinematics DecodeExternalKinematicsV3(
-    const fb::ExternalKinematicsV3* value) {
-  oneq::coordinate::ExternalKinematics result;
-  if (value != nullptr) {
-    result.position_frame = static_cast<oneq::coordinate::PositionFrame>(value->position_frame());
-    result.position_ecef_m = DecodeRfV2Position(value->position_ecef_m());
-    if (value->position_lla_deg_m() != nullptr) {
-      result.position_lla_deg_m.latitude_deg = value->position_lla_deg_m()->latitude_deg();
-      result.position_lla_deg_m.longitude_deg = value->position_lla_deg_m()->longitude_deg();
-      result.position_lla_deg_m.altitude_m = value->position_lla_deg_m()->altitude_m();
-    }
-    result.velocity_mps = DecodeEcefVelocityV3(value->velocity_mps());
-    result.attitude_deg = DecodeEulerAnglesV3(value->attitude_deg());
-  }
-  return result;
-}
-
 flatbuffers::Offset<fb::ArTargetInputV3> EncodeTargetInputV3(
     flatbuffers::FlatBufferBuilder* builder, const ArTargetInput& value) {
   return fb::CreateArTargetInputV3(
-      *builder, value.target_id, builder->CreateString(value.target_name),
-      EncodeExternalKinematicsV3(builder, value.kinematics), value.rcs, value.swerling_type);
+      *builder, value.target_id, builder->CreateString(value.target_name), value.position_x,
+      value.position_y, value.position_z, value.velocity_x, value.velocity_y, value.velocity_z,
+      value.rcs, value.swerling_type);
 }
 
 ArTargetInput DecodeTargetInputV3(const fb::ArTargetInputV3* value) {
@@ -1224,7 +1197,12 @@ ArTargetInput DecodeTargetInputV3(const fb::ArTargetInputV3* value) {
     if (value->target_name() != nullptr) {
       result.target_name = value->target_name()->str();
     }
-    result.kinematics = DecodeExternalKinematicsV3(value->kinematics());
+    result.position_x = value->position_x();
+    result.position_y = value->position_y();
+    result.position_z = value->position_z();
+    result.velocity_x = value->velocity_x();
+    result.velocity_y = value->velocity_y();
+    result.velocity_z = value->velocity_z();
     result.rcs = value->rcs();
     result.swerling_type = value->swerling_type();
   }

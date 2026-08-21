@@ -3,10 +3,10 @@
  * @brief 验证安装后机载雷达公共 API 路径可被外部工程编译链接。
  *
  * 覆盖要点：
- *   - ArSessionConfigBuilder/直接字段赋值 构造会话配置
+ *   - 直接字段赋值构造会话配置
  *   - ArCycleInput 构造 + ArInputValidation 校验
  *   - ArSession 构造、StepWithResult、Step 调用
- *   - ArRuntimeConfigBuilder 热切换（工作模式、扫描中心）
+ *   - ArRuntimeConfigPatch 热切换（工作模式、扫描中心）
  *   - ArCycleResult 各字段可访问
  *   - TrackOutputQueries 输出查询工具
  */
@@ -21,9 +21,8 @@
 #include "1q/coordinate/position_transform.h"
 
 int main() {
-  // 1. Builder config construction
-  airborne_radar::config::ArSessionConfig preset_config =
-      airborne_radar::config::ArSessionConfigBuilder().Build();
+  // 1. 默认会话配置
+  airborne_radar::config::ArSessionConfig preset_config;
 
   // 2. 直接字段赋值构造会话配置
   auto built_config = preset_config;
@@ -35,7 +34,7 @@ int main() {
   built_config.policy.lifecycle.confirm_hits = 3;
   built_config.environment.scenario_config.atmospheric_physics.enable_physical_model = true;
 
-  // 3. Session construction from builder config
+  // 3. Session construction from direct config
   airborne_radar::session::ArSession session =
       airborne_radar::session::ArSession::Create(built_config);
 
@@ -80,18 +79,21 @@ int main() {
       result.status == airborne_radar::session::ArCycleStatus::kCompleted;
   (void)completed;
 
-  // 8. RuntimeConfigBuilder hot-switch
+  // 8. RuntimeConfigPatch hot-switch
   airborne_radar::config::AzimuthElevationDeg scan_center_deg;
   scan_center_deg.az_deg = 15.0f;
   scan_center_deg.el_deg = -5.0f;
-  const airborne_radar::config::ArRuntimeConfigPatch runtime_patch =
-      airborne_radar::config::ArRuntimeConfigBuilder()
-          .WithWorkMode(airborne_radar::config::ArWorkMode::kTas)
-          .WithScanCenterDeg(scan_center_deg)
-          .WithEnvironmentScenarioConfig(
-              airborne_radar::config::EnvironmentScenarioConfig{})
-          .WithCommandedBeamwidthEnabled(true)
-          .Build();
+  airborne_radar::config::ArRuntimeConfigPatch runtime_patch;
+  runtime_patch.has_work_mode = true;
+  runtime_patch.work_mode = airborne_radar::config::ArWorkMode::kTas;
+  runtime_patch.has_scan_center_deg = true;
+  runtime_patch.scan_center_deg = scan_center_deg;
+  runtime_patch.has_environment = true;
+  runtime_patch.environment.has_scenario_config = true;
+  runtime_patch.environment.scenario_config =
+      airborne_radar::config::EnvironmentScenarioConfig{};
+  runtime_patch.has_commanded_beamwidth_enabled = true;
+  runtime_patch.commanded_beamwidth_enabled = true;
   (void)session.TryApplyRuntimeConfig(runtime_patch);
 
   // 9. Second cycle after runtime config change
