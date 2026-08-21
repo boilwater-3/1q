@@ -1,57 +1,14 @@
 #!/usr/bin/env bash
-# 1Q cmake 包装：确保 Git Bash 下 UCRTContentRoot 已注入，并对易错裸目录 build 给出明确拒绝。
+# 1Q cmake 包装：确保 Git Bash 会话 PATH 就绪后转发真实 cmake。
+# （2026-08-21 起 UCRT 注册表已修复，不再拦截裸目录构建。）
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=../lib/1q_env.sh
 source "${SCRIPT_DIR}/../lib/1q_env.sh"
 
-_real_cmake() {
-  if [[ -n "${ONEQ_REAL_CMAKE:-}" && -x "${ONEQ_REAL_CMAKE}" ]]; then
-    exec "${ONEQ_REAL_CMAKE}" "$@"
-  fi
-  echo "[1q cmake] 未找到真实 cmake 可执行文件；设置 ONEQ_CMAKE_ROOT 或安装 CMake。" >&2
-  exit 127
-}
-
-_oneq_is_windows_shell() {
-  case "$(uname -s 2>/dev/null || true)" in
-    MINGW*|MSYS*|CYGWIN*) return 0 ;;
-    *) return 1 ;;
-  esac
-}
-
-_oneq_warn_raw_v141_build() {
-  local arg
-  for arg in "$@"; do
-    case "$arg" in
-      --preset)
-        return 0
-        ;;
-      build/VisualStudio.15.0-amd64|*/build/VisualStudio.15.0-amd64|\
-      build\\VisualStudio.15.0-amd64|*\\build\\VisualStudio.15.0-amd64)
-        cat >&2 <<'EOF'
-[1q cmake] 拒绝裸目录构建 build/VisualStudio.15.0-amd64：本机 64 位 UCRT 注册表为死路径，
-  须走 build preset 注入 UCRTContentRoot。
-
-  推荐：
-    source scripts/activate_1q_git_bash.sh
-    cmake --build --preset VisualStudio.15.0-amd64-release --target <target>
-
-  或：
-    scripts/1q.sh build VisualStudio.15.0-amd64-release --target <target>
-
-  若必须裸 MSBuild：见 CLAUDE.md「vcvarsall + /p:UseEnv=true」。
-EOF
-        exit 2
-        ;;
-    esac
-  done
-  return 0
-}
-
-if _oneq_is_windows_shell; then
-  _oneq_warn_raw_v141_build "$@"
+if [[ -n "${ONEQ_REAL_CMAKE:-}" && -x "${ONEQ_REAL_CMAKE}" ]]; then
+  exec "${ONEQ_REAL_CMAKE}" "$@"
 fi
-
-_real_cmake "$@"
+echo "[1q cmake] 未找到真实 cmake 可执行文件；设置 ONEQ_CMAKE_ROOT 或安装 CMake。" >&2
+exit 127

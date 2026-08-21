@@ -49,7 +49,7 @@ cmake --install build/llvm-ninja-release-local   # installs to build/install/<pr
 - Preset: `VisualStudio.15.0-amd64` (VS2026 generator + legacy v141/14.16 toolset, multi-config; the build preset's `--config` selects Debug/Release).
 - Dependency differences: no spdlog/fmt (replaced by the built-in file-logging backend), no HighFive, no JSBSim.
 - Examples build on Windows too: enable with `-DENABLE_EXAMPLES=ON`. The `component_attachment` integration logger runs its own `std::ofstream` file backend on Windows (`CA_LOG_BACKEND_SPDLOG=0`, same log-line text as the spdlog branch); `integration_events.log` / `integration_views.log` / `1q_library.log` all land under the demo's `--output-dir`.
-- Bootstrap and configure run in Git Bash; build, test, and install **must go through build presets** — the preset injects the `UCRTContentRoot` environment variable, bypassing the local 64-bit registry UCRT path defect; a raw-directory `cmake --build build/...` fails with `corecrt.h` not found (C1083) / LNK1104 (ucrtd.lib) — do not use it (details and errata in `CLAUDE.md`).
+- Bootstrap, configure, build, and test run in Git Bash. Since 2026-08-21 the machine's 64-bit registry `KitsRoot10` points at the real Windows SDK again, so raw-directory builds work and presets no longer inject `UCRTContentRoot`; build presets (`cmake --build --preset ...` / `scripts/1q.sh`) remain the recommended entry.
 
 ```bash
 bash scripts/bootstrap_conan.sh VisualStudio.15.0-amd64
@@ -63,9 +63,9 @@ cmake --install build/VisualStudio.15.0-amd64 --config Release
 
 - VS2015: preset `VisualStudio.14.0-amd64` (C++11, no tests).
 - No Conan: run `scripts\fetch_third_party.bat` first to fetch pinned dependency sources into `third_party/` (consumed by `VendorPackages.cmake`), then use preset `VisualStudio.14.0-amd64-none` (C++11, delivery tier — same as `1q_log_vs2015` which adds acceptance logs).
-- Encoding: all tracked C/C++ sources carry a UTF-8 BOM (`scripts/utf8_bom.py` maintains; CI enforces via `check`). MSVC reads BOM files as UTF-8 unconditionally — no `/utf-8` compile flag is needed or propagated, so consumers on VS2015 (any Update) compile Chinese-commented headers correctly without any special options.
+- Encoding: all tracked C/C++ sources carry a UTF-8 BOM (`scripts/utf8_bom.py` maintains; a `.githooks/pre-commit` hook auto-prepends it at commit time — activate via `scripts/activate_1q_git_bash.sh`; CI enforces via `check`). MSVC reads BOM files as UTF-8 unconditionally — no `/utf-8` compile flag is needed or propagated, so consumers on VS2015 (any Update) compile Chinese-commented headers correctly without any special options.
 
-Full dual-platform instructions, environment-defect root causes, and errata: see the Build and Test section of `CLAUDE.md` and `docs/practice/build_and_test_governance.md`.
+Full dual-platform instructions: see the Build and Test section of `CLAUDE.md`; Windows environment setup, troubleshooting, delivery-tier runbook, and historical errata: `docs/practice/windows_local_build.md`; build/test governance: `docs/practice/build_and_test_governance.md`.
 
 ## Examples
 

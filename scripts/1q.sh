@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 1Q Git Bash 构建/测试统一入口（强制 preset 流，避免 UCRT 与 PATH 踩坑）。
+# 1Q Git Bash 构建/测试统一入口（统一 PATH 与 preset 流）。
 #
 # 用法：
 #   source scripts/activate_1q_git_bash.sh    # 每个 Git Bash 会话一次（或写入 ~/.bashrc）
@@ -60,7 +60,6 @@ doctor() {
     echo "ctest=NOT FOUND"
   fi
   unset _ctest
-  echo "UCRTContentRoot=${UCRTContentRoot:-<unset>}"
   echo "ONEQ_REAL_CMAKE=${ONEQ_REAL_CMAKE:-<unset>}"
   echo "ONEQ_GIT_BASH_ACTIVATED=${ONEQ_GIT_BASH_ACTIVATED:-0}"
 }

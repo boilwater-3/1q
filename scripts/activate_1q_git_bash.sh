@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 在 Git Bash 会话中 source 一次，补 cmake PATH + UCRTContentRoot + 1q 命令。
+# 在 Git Bash 会话中 source 一次，补 cmake PATH + 1q 命令。
 #
 # 一次性安装（写入 ~/.bashrc，新终端自动生效）：
 #   echo 'source "/d/1q/1q/scripts/activate_1q_git_bash.sh" 2>/dev/null' >> ~/.bashrc
@@ -22,15 +22,21 @@ if ! _oneq_path_has "${ONEQ_ROOT}/scripts"; then
   export PATH="${ONEQ_ROOT}/scripts:${PATH}"
 fi
 
+# .githooks/pre-commit 自愈激活（幂等；BOM 自动补齐 + completeness 门禁 + main 安全网）
+if [[ -d "${ONEQ_ROOT}/.githooks" ]] && git -C "${ONEQ_ROOT}" rev-parse --git-dir >/dev/null 2>&1; then
+  _oneq_hooks="$(git -C "${ONEQ_ROOT}" config --get core.hooksPath || true)"
+  if [[ "${_oneq_hooks}" != ".githooks" ]]; then
+    git -C "${ONEQ_ROOT}" config core.hooksPath .githooks
+  fi
+fi
+unset _oneq_hooks
+
 if [[ -z "${ONEQ_GIT_BASH_ACTIVATED:-}" ]]; then
   export ONEQ_GIT_BASH_ACTIVATED=1
   if command -v cmake >/dev/null 2>&1; then
     echo "[1q] Git Bash 环境就绪：cmake=$(command -v cmake)"
   else
     echo "[1q] 警告：仍未找到 cmake；可设置 ONEQ_CMAKE_ROOT 后重新 source" >&2
-  fi
-  if [[ -n "${UCRTContentRoot:-}" ]]; then
-    echo "[1q] UCRTContentRoot=${UCRTContentRoot}"
   fi
   if [[ -n "${ONEQ_REAL_CMAKE:-}" ]]; then
     echo "[1q] ONEQ_REAL_CMAKE=${ONEQ_REAL_CMAKE}"

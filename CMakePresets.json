@@ -116,13 +116,10 @@
         {
             "name": "VisualStudio.15.0-amd64",
             "displayName": "VS2026 + v141 (VS2017-era toolset, x64, Conan)",
-            "description": "VS2026 generator with v141 (14.16.27023) toolset via Conan. UCRTContentRoot env required: 64-bit MSBuild reads broken 64-bit registry KitsRoot10 (C:\\Program Files\\Windows Kits\\10\\) which does not exist; ucrt.props prefers this var, bypassing the registry.",
+            "description": "VS2026 generator with v141 (14.16.27023) toolset via Conan.",
             "inherits": "windows-base",
             "generator": "Visual Studio 18 2026",
             "toolset": "v141",
-            "environment": {
-                "UCRTContentRoot": "C:\\Program Files (x86)\\Windows Kits\\10\\"
-            },
             "cacheVariables": {
                 "CMAKE_CXX_STANDARD": "17",
                 "BUILD_SHARED_LIBS": "OFF",
@@ -212,20 +209,14 @@
             "displayName": "VS2026 v141 (VS2017-era) - Debug",
             "configurePreset": "VisualStudio.15.0-amd64",
             "configuration": "Debug",
-            "jobs": 12,
-            "environment": {
-                "UCRTContentRoot": "C:\\Program Files (x86)\\Windows Kits\\10\\"
-            }
+            "jobs": 12
         },
         {
             "name": "VisualStudio.15.0-amd64-release",
             "displayName": "VS2026 v141 (VS2017-era) - Release",
             "configurePreset": "VisualStudio.15.0-amd64",
             "configuration": "Release",
-            "jobs": 12,
-            "environment": {
-                "UCRTContentRoot": "C:\\Program Files (x86)\\Windows Kits\\10\\"
-            }
+            "jobs": 12
         }
     ],
     "testPresets": [

@@ -1,12 +1,12 @@
 ---
-description: Windows 本机 Git Bash 构建：PATH/UCRT/preset/BOM/门禁（禁止 WSL 打转）
+description: Windows 本机 Git Bash 构建：PATH/preset/BOM/门禁（禁止 WSL 打转）
 alwaysApply: true
 ---
 
 # Windows Git Bash 构建约定（v141 主线）
 
-本机 Windows 开发**必须在 Git Bash (MINGW)** 中构建，不要用裸 `cmake --build build/...`。
-Cursor 默认常落到 **WSL / system32 bash**——不注入 UCRT，且 `command -v ctest` 找不到 `ctest.exe`，会表现为「编得动、测不动、反复空转」。**不能**用 WSL 替代 Git Bash。
+本机 Windows 开发**必须在 Git Bash (MINGW)** 中构建。
+Cursor 默认常落到 **WSL / system32 bash**——不注入 PATH，且 `command -v ctest` 找不到 `ctest.exe`，会表现为「编得动、测不动、反复空转」。**不能**用 WSL 替代 Git Bash。
 
 ## 会话门禁（每个终端 / 每次代理开跑前）
 
@@ -14,7 +14,7 @@ Cursor 默认常落到 **WSL / system32 bash**——不注入 UCRT，且 `comman
 uname -s    # 须 MINGW* / MSYS*；若是 Linux+/mnt/d → 立刻换 Git Bash
 source scripts/activate_1q_git_bash.sh
 scripts/1q.sh doctor
-# doctor 须：ctest=有路径、无 SHELL_WARNING、MINGW 下 UCRTContentRoot 已设
+# doctor 须：ctest=有路径、无 SHELL_WARNING
 ```
 
 门禁失败：**先修壳/PATH，禁止改业务代码碰运气。**
@@ -24,19 +24,24 @@ scripts/1q.sh doctor
 
 ## 标准命令（一律走 preset / 1q.sh；同 preset 先 build 再 test）
 
+bootstrap/configure **只在首次或依赖/CMake 变更后跑**——重跑 configure 会打破增量状态、触发大重建。
+日常只编需要的 target（全解决方案 119 个工程，很少需要全编）：
+
 ```bash
-scripts/1q.sh bootstrap VisualStudio.15.0-amd64
-scripts/1q.sh configure VisualStudio.15.0-amd64
+scripts/1q.sh bootstrap VisualStudio.15.0-amd64     # 一次性
+scripts/1q.sh configure VisualStudio.15.0-amd64     # 一次性
 scripts/1q.sh build VisualStudio.15.0-amd64-release --target <target>
 scripts/1q.sh test VisualStudio.15.0-amd64-release -R "unit::<module>" -j 4
 ```
 
-禁止：`cmake --build build/VisualStudio.15.0-amd64 ...`（64 位 UCRT 注册表死路径 → C1083/LNK1104）。
-`scripts/bin/cmake` 包装器会拦截裸目录构建；`scripts/bin/ctest` / `1q.sh test` 会解析 `ctest.exe`。
+裸目录构建自 2026-08-21 起可用（64 位注册表 KitsRoot10 已修复为真实 SDK 路径，UCRTContentRoot 注入已退役）；
+仍推荐 preset / 1q.sh 入口。`scripts/bin/ctest` / `1q.sh test` 会解析 `ctest.exe`。
 
 ## UTF-8 BOM（中文注释）
 
-新建/重写带中文的 `.h/.cpp` 必须带 BOM。`scripts/utf8_bom.py convert` **只处理 git 已追踪文件** → 新建文件先 `git add` 再 `convert`。
+新建/重写带中文的 `.h/.cpp` 必须带 BOM。`.githooks/pre-commit`（activate 自愈激活 `core.hooksPath`）
+会在提交时自动为暂存的 C/C++ 文件补 BOM 并重新暂存；分块暂存（暂存≠工作区）会被拦截提示。
+手动兜底：`scripts/utf8_bom.py convert`（只处理 git 已追踪文件 → 新建文件先 `git add`）。
 **禁止**删中文注释来消 C4819。
 
 ## 陈旧增量产物 / 文件锁
@@ -50,4 +55,4 @@ scripts/1q.sh build VisualStudio.15.0-amd64-release --target <tests>
 
 写 `.obj` 出现 `Permission denied`：先解除 IDE/杀毒锁定再编，不要当逻辑 bug。
 
-权威细节见 `CLAUDE.md`「Windows command flow」与「Agent / Cursor Windows build–test gate」。
+权威细节（环境准备、排障顺序、交付档、历史事件）见 `docs/practice/windows_local_build.md`。
