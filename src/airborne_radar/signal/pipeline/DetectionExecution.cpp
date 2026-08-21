@@ -16,6 +16,7 @@
 #include "airborne_radar/signal/pipeline/PipelineTargetUtils.h"
 #include "common/atmosphere/AtmospherePhysics.h"
 #include "common/logging/ProjectLog.h"
+#include "common/radar/VegetationClutterModel.h"
 #include "common/rcs/RcsPhysics.h"
 
 namespace airborne_radar {
@@ -26,21 +27,9 @@ namespace {
 
 float ComputeEquivalentClutterNoiseW(const config::engineering::DetectionConfig& detection_config,
                                      float clutter_power_db) {
-  if (!std::isfinite(clutter_power_db)) {
-    return 0.0f;
-  }
-
   const float thermal_noise_w = detection::RadarEquations::ComputeThermalNoisePower_W(
       detection_config.transmitter, detection_config.receiver);
-  if (!std::isfinite(thermal_noise_w) || thermal_noise_w <= 0.0f) {
-    return 0.0f;
-  }
-
-  const float kMinRelativeClutterDb = -120.0f;
-  const float kMaxRelativeClutterDb = 120.0f;
-  const float relative_clutter_db =
-      oneq::common::numerics::Clamp(clutter_power_db, kMinRelativeClutterDb, kMaxRelativeClutterDb);
-  return thermal_noise_w * std::pow(10.0f, relative_clutter_db / 10.0f);
+  return oneq::common::radar::ComputeEquivalentClutterNoiseW(thermal_noise_w, clutter_power_db);
 }
 
 float ComputeTargetSpecificAtmosphericLossDb(

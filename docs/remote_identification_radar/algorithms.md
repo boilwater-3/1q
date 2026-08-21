@@ -19,7 +19,7 @@ RIR 自持链路生产的内部航迹，不再消费外部航迹供给。
 | 接收机状态 | `dwell/RirReceiverStateBuilder.cpp` | 自发射 + hardware → `RirReceiverOperatingState` | 与 AR 同口径 RF 接收机参数；供前端聚合与 detection cell |
 | RF 前端求解 | `dwell/RirRfFrontEndResolver.cpp` | 合并场景（外部 + 自发射）+ 接收机 → incident links | 按 emission_id 排序；饱和标志独立暴露；集成方只供外部 emission |
 | 有效 RCS | `dwell/RirEffectiveRcs.cpp` | 场景目标 + 视线角 + `rcs_physics` → m² | AR 同口径 Swerling/视角/物理配置；写入 detection cell 目标 `rcs_m2` |
-| 检测单元求解 | `dwell/RirDetectionCellResolver.cpp` | 目标回波事实 + 库内 incident links + 增益偏置 → 分项 SINR 账本 | 干扰按目标单元时频重叠聚合；四增益偏置缺省 0 dB 等于保守账本；自身发射身份不计干扰 |
+| 检测单元求解 | `dwell/RirDetectionCellResolver.cpp` | 目标回波事实 + 库内 incident links + 增益偏置 → 分项 SINR 账本 | 干扰按目标单元时频重叠聚合；四增益偏置缺省 0 dB 等于保守账本；自身发射身份不计干扰；环境杂波按"相对热噪 dB"换算为瓦（common 单源 `ComputeEquivalentClutterNoiseW`，与 AR 同口径，非绝对 dBW） |
 | 统计级 CFAR | `dwell/RirSignalDetector.cpp` | SNR + Swerling + Pfa → Pd → 蒙特卡洛判决 | 不是 CA-CFAR；`min_snr_db` 硬截断、`min_detection_margin_db` 可靠性门；同种子同判决 |
 | 量测误差 | `dwell/RirMeasurementErrorModel.h` | SNR + 波束宽度 + 带宽 → 距离/角度标准差 | 距离偏置 20 m；角度两轴 RMS 合成；只供内部关联/滤波 |
 | LAPJV 全局最优关联 | `tracking/RirTrackAssociator.cpp` + `tracking/RirLapjvSolver.cpp`（common 单源 `src/common/optimization/LapjvSolver` 适配） | 检测量测 + 航迹种子 → 关联键/命中/新键 | 马氏平方波门（缺省 9）兼作未分配代价；方阵增广 + 哑行/列承担未分配；门外对填拒绝代价；键单调不回收复用 |
@@ -50,7 +50,9 @@ RIR 自持链路生产的内部航迹，不再消费外部航迹供给。
    miss 时 CV 外推速度不变、加速度归零。该口径与 AR 轻量跟踪子集一致。
 3. **RF 链回退**：`ResolveRfCycle` 失败（hardware 不完整/前端饱和等）或 detection cell
    求解失败时，传播损耗/杂波/干扰仍按环境配置注入，但检测 SNR 回退阶段 1 旧公式
-   口径；RF 链成功时走分项 SINR 账本（含外部 `rf_scene` 干扰）。
+   口径；RF 链成功时走分项 SINR 账本（含外部 `rf_scene` 干扰）。环境杂波
+   （`enable_environment_effects=true`）按"相对热噪底的 dB"换算为等效瓦数
+   （common 单源，与 AR 同口径）——植被基线 3 dB 即 2 倍热噪，不是 2 W。
 4. **第一个 profile 报告**：`feature_scores` 分项报告用型号的第一个 profile
    （`profiles.front()`），而非实际命中得分的 profile——多 profile 型号的分项
    报告可能与判定所用 profile 不一致（判定路径本身正确）。

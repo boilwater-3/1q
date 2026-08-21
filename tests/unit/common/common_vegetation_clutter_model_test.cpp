@@ -57,6 +57,25 @@ TEST(CommonVegetationClutterModelTest, DenseProfileExceedsGrassland) {
   EXPECT_GT(dense.clutter_power_db, grass.clutter_power_db);
 }
 
+TEST(CommonVegetationClutterModelTest, EquivalentClutterNoiseScalesThermalNoise) {
+  // 3 dB 基线 = 2 倍热噪（相对 dB / CNR 口径，不是绝对 dBW）。
+  EXPECT_NEAR(ComputeEquivalentClutterNoiseW(1.0e-14f, 3.0f), 2.0e-14f, 1.0e-15f);
+  EXPECT_FLOAT_EQ(ComputeEquivalentClutterNoiseW(5.0e-14f, 10.0f), 5.0e-13f);
+}
+
+TEST(CommonVegetationClutterModelTest, EquivalentClutterNoiseClampsAndRejectsInvalidInput) {
+  // 相对 dB 钳制到 [-120, +120]。
+  EXPECT_FLOAT_EQ(ComputeEquivalentClutterNoiseW(1.0e-14f, 1000.0f),
+                  1.0e-14f * std::pow(10.0f, 120.0f / 10.0f));
+  EXPECT_FLOAT_EQ(ComputeEquivalentClutterNoiseW(1.0e-14f, -1000.0f),
+                  1.0e-14f * std::pow(10.0f, -120.0f / 10.0f));
+  // 非有限杂波/热噪与非正热噪返回 0。
+  EXPECT_FLOAT_EQ(ComputeEquivalentClutterNoiseW(1.0e-14f, std::nanf("")), 0.0f);
+  EXPECT_FLOAT_EQ(ComputeEquivalentClutterNoiseW(std::nanf(""), 3.0f), 0.0f);
+  EXPECT_FLOAT_EQ(ComputeEquivalentClutterNoiseW(0.0f, 3.0f), 0.0f);
+  EXPECT_FLOAT_EQ(ComputeEquivalentClutterNoiseW(-1.0f, 3.0f), 0.0f);
+}
+
 }  // namespace
 }  // namespace radar
 }  // namespace common

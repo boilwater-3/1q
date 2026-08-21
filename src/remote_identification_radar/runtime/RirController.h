@@ -24,6 +24,7 @@
 #include "1q/remote_identification_radar/session/RirRecognitionResult.h"
 #include "remote_identification_radar/dwell/RirSignalDetector.h"
 #include "remote_identification_radar/internal/RirPropagationModel.h"
+#include "remote_identification_radar/internal/RirRadarEquations.h"
 #include "remote_identification_radar/recognition/RecognitionFeatureDatabase.h"
 #include "remote_identification_radar/recognition/RecognitionTracker.h"
 #include "remote_identification_radar/tracking/RirTrackAssociator.h"

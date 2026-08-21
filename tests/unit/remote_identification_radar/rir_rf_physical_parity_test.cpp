@@ -15,6 +15,8 @@
 #include "airborne_radar/signal/detection/ArDetectionCellResolver.h"
 #include "airborne_radar/signal/detection/ArRfFrontEndResolver.h"
 #include "airborne_radar/signal/detection/SignalDetector.h"
+#include "common/radar/RadarEquations.h"
+#include "common/radar/VegetationClutterModel.h"
 #include "remote_identification_radar/dwell/RirEmissionFactory.h"
 #include "remote_identification_radar/dwell/RirReceiverStateBuilder.h"
 #include "remote_identification_radar/dwell/RirDetectionCellResolver.h"
@@ -357,6 +359,36 @@ TEST_F(RirRfPhysicalParityTest, DominantClutterChainMatchesAr) {
   ASSERT_TRUE(ar.chain_resolved);
   EXPECT_NEAR(rir.sinr_db, ar.sinr_db, kSinrToleranceDb);
   EXPECT_EQ(rir.detected, ar.detected);
+}
+
+/// @brief 环境配置杂波对账：植被模型输出的相对热噪 dB 经 common 单源换算为瓦
+///        后进入两侧检测链——锁死"dB → W"口径（AR/RIR 同源换算，非绝对 dBW）。
+TEST_F(RirRfPhysicalParityTest, EnvironmentDerivedClutterChainMatchesAr) {
+  oneq::electromagnetics::RfSceneFrame external_scene;
+  const RirDetectionCellTarget cell_target = MakeCellTarget(10000.0, 1.0);
+
+  oneq::common::radar::VegetationScatterPhysicsConfig vegetation;
+  vegetation.cover_profile = oneq::common::radar::VegetationCoverProfile::kTropicalDense;
+  vegetation.enable_physical_model = true;
+  const auto env = oneq::common::radar::EvaluatePropagationClutter(vegetation);
+  const float thermal_noise_w = oneq::common::radar::RadarEquations::ComputeThermalNoisePower_W(
+      hardware_.transmitter.bandwidth_hz, hardware_.receiver.noise_figure_db);
+  const double clutter_power_w = static_cast<double>(
+      oneq::common::radar::ComputeEquivalentClutterNoiseW(thermal_noise_w, env.clutter_power_db));
+
+  // 防御断言：换算结果必须落在热噪的倍数量级（修复前 RIR 按绝对 dBW 读出 ~2 W）。
+  ASSERT_GT(clutter_power_w, thermal_noise_w);
+  ASSERT_LT(clutter_power_w, thermal_noise_w * 1.0e3);
+
+  const ParityOutcome rir =
+      RunRirChain(hardware_, rir_input_, external_scene, cell_target, clutter_power_w, 35.0f);
+  const ParityOutcome ar =
+      RunArChain(ar_detection_, ar_input_, external_scene, cell_target, clutter_power_w, 35.0f);
+  ASSERT_TRUE(rir.chain_resolved);
+  ASSERT_TRUE(ar.chain_resolved);
+  EXPECT_NEAR(rir.sinr_db, ar.sinr_db, kSinrToleranceDb);
+  EXPECT_EQ(rir.detected, ar.detected);
+  EXPECT_TRUE(rir.detected);
 }
 
 TEST_F(RirRfPhysicalParityTest, ReceiverSaturationFlagMatchesAr) {

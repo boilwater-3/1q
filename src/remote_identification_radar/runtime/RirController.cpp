@@ -15,6 +15,7 @@
 
 #include "common/logging/ProjectLog.h"
 #include "common/numerics/Constants.h"
+#include "common/radar/VegetationClutterModel.h"
 #include "1q/coordinate/position_transform.h"
 #include "remote_identification_radar/dwell/RirBeamControl.h"
 #include "remote_identification_radar/dwell/RirEffectiveRcs.h"
@@ -88,8 +89,6 @@ session::RirFeatureObservations ToPublicFeatureObservations(const recognition::R
   features.range_profile.quality = set.range_profile.quality;
   return features;
 }
-
-float DbToLinear(float db_value) { return std::pow(10.0f, db_value / 10.0f); }
 
 }  // namespace
 
@@ -197,7 +196,12 @@ void RirController::ResolveEnvironment(float* propagation_loss_db, float* clutte
   const internal::RirPropagationResult propagation = propagation_model_.Evaluate(scene_state);
   *propagation_loss_db =
       propagation.propagation_loss_db + environment_.weather_attenuation_db;
-  *clutter_power_w = DbToLinear(propagation.clutter_power_db);
+  // clutter_power_db 是相对热噪底的 dB（CNR 口径，与 AR 同口径单源换算），
+  // 不得解释为绝对 dBW。
+  const float thermal_noise_w = internal::RirRadarEquations::ComputeThermalNoisePower_W(
+      hardware_.transmitter, hardware_.receiver);
+  *clutter_power_w = oneq::common::radar::ComputeEquivalentClutterNoiseW(
+      thermal_noise_w, propagation.clutter_power_db);
 }
 
 void RirController::ComputeLookAngles(const session::RirSceneTarget& target, float* look_az_deg,
