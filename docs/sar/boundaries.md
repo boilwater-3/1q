@@ -1,4 +1,4 @@
-﻿---
+---
 Status: active
 Last-reviewed: 2026-08-20
 Authority: SAR 模块级边界、非目标与设计变更规则
