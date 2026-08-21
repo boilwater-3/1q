@@ -284,7 +284,10 @@ AR 在接收链的三个层次主动反制欺骗干扰（kPulseTrain），均不
 
 ## 滤波后端评估表
 
-AR 生产后端是 Joseph 形式 KF；IMM 是包裹 KF 的多模型融合层（见 boundaries.md 选型原则）。以下候选
+AR 生产后端是 Joseph 形式 KF；IMM 是包裹 KF 的多模型融合层（见 boundaries.md 选型原则）。
+IMM 命中更新与 CV KF 路径、关联门控同口径：消费逐量测动态协方差 R
+（`ImmFilter<6,3>` 三参 `Process`，各模型共用同一 R）；量测协方差为零/非有限时回退
+更新器装配的标量 `std²·I`（装配与热调参的 std 仅作该回退 R）。以下候选
 **不**与 live 生产链并列：
 
 | 候选 | 当前结论 | 否决依据 |

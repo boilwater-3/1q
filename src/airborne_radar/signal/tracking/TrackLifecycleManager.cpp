@@ -244,6 +244,7 @@ void TrackLifecycleManager::SyncRuntimeTuning(const LifecycleConfig& lifecycle_c
     UpdatePredictorConfigIfSupported(imm_predictors_[i], model_noise_diff_coeff);
   }
   for (std::size_t i = 0; i < imm_updaters_.size(); ++i) {
+    // IMM 更新器 std 仅作量测协方差缺失时的回退 R（正常命中走逐量测动态 R）。
     UpdateUpdaterConfigIfSupported(imm_updaters_[i], kalman_measurement_noise_std);
   }
 
@@ -667,7 +668,15 @@ void TrackLifecycleManager::ApplyKalmanHitUpdate(const TrackUpdateWorkItem& work
       ApplyGaussianState(track, BuildInitialGaussianState(measurement), velocity_before_filter,
                          effective_dt_sec);
     } else {
-      work_item.imm_filter->Process(BuildMeasurementVector(measurement), effective_dt_sec);
+      // IMM 命中更新与 CV KF 路径/关联门控同口径：消费逐量测动态 R。
+      // 零矩阵/非有限视为"未注入动态 R"，回退更新器配置的标量 R（缺省量测噪声）。
+      const Eigen::Matrix3f& dynamic_r = measurement.raw_measurement.measurement_covariance;
+      if (dynamic_r.allFinite() && !dynamic_r.isZero(0.0f)) {
+        work_item.imm_filter->Process(BuildMeasurementVector(measurement), effective_dt_sec,
+                                      dynamic_r);
+      } else {
+        work_item.imm_filter->Process(BuildMeasurementVector(measurement), effective_dt_sec);
+      }
       ApplyGaussianState(track, work_item.imm_filter->GetCombinedState(), velocity_before_filter,
                          effective_dt_sec);
     }

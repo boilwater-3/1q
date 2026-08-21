@@ -24,7 +24,7 @@ RIR 自持链路生产的内部航迹，不再消费外部航迹供给。
 | 量测误差 | `dwell/RirMeasurementErrorModel.h` | SNR + 波束宽度 + 带宽 → 距离/角度标准差 | 距离偏置 20 m；角度两轴 RMS 合成；只供内部关联/滤波 |
 | LAPJV 全局最优关联 | `tracking/RirTrackAssociator.cpp` + `tracking/RirLapjvSolver.cpp`（common 单源 `src/common/optimization/LapjvSolver` 适配） | 检测量测 + 航迹种子 → 关联键/命中/新键 | 马氏平方波门（缺省 9）兼作未分配代价；方阵增广 + 哑行/列承担未分配；门外对填拒绝代价；键单调不回收复用 |
 | 单目标 KF | `tracking/RirTrackFilter.cpp` | 量测 + 先验状态 → 预测/更新后验 | 6 维 CV 状态；动态 R 更新；LLT 失败跳过更新 |
-| IMM 双路径 | `tracking/RirImmFilter.cpp` | 量测/失配 + 先验状态 → 组合后验 | 数值核 common `ImmFilter<6,3>`；缺省双模型 CV {1.0, 10.0} 对数等距；对角 0.95 转移；confirmed 命中激活、失配仅预测；缺省关闭 |
+| IMM 双路径 | `tracking/RirImmFilter.cpp` | 量测/失配 + 先验状态 → 组合后验 | 数值核 common `ImmFilter<6,3>`；缺省双模型 CV {1.0, 10.0} 对数等距；对角 0.95 转移；confirmed 命中激活、失配仅预测；命中更新走逐量测动态 R（与 AR 同口径，缺省量测噪声不参与数值）；缺省关闭 |
 | 航迹池与生命周期 | `tracking/RirTrackPool.cpp` + `tracking/RirTrackLifecycle.cpp` | 关联量测 + 周期上下文 → 内部航迹 | hit/miss 计数、confirm/lost/回收；lost 重捕获重置 KF；回收不回收关联键；槽位复用经 `generation` 单调递增标识；双重释放拒绝 |
 | 驻留排序 | `runtime/RirController.cpp` | 上一周期内部航迹结论 + 场景目标 → 驻留候选顺序 | 未识别优先 + 斜距次近；威胁等级输入不参与；只决定候选顺序，不生成波束指向 |
 | 驻留调度（库内） | `session/RirSession.cpp` + `common/radar/ScanScheduleRuntime.h` | 指定任务状态 + 扫描策略配置 + 场景目标 → 本周期驻留波束中心 | 无任务按扫描策略逐周期推进（common 扫描内核，与 AR 同口径）；指定识别任务窗口内对准指定目标；非法限位回退零位 |
