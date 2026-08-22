@@ -113,6 +113,23 @@ void ThreatComponent::Step(World& world, double dt_sec) {
       // 中译：目标键 {} 威胁等级升级为{}（威胁分 {:.2f}）。
       // 标识：威胁升级关键事件——等级相对上一周期上升（含首见即高威胁），
       //       战术决策侧的触发信号。
+      // 与下方写入行同内容：纯 std::string/std::to_string 拼接的日志字符串，供集成方直接搬入己方日志（示例自身不消费）。
+      const std::string threat_level_up_event_log =
+          std::string("键=") +
+          std::to_string(static_cast<unsigned long long>(result.key)) +
+          " 等级=" +
+          (ThreatLevelName(result.level)) +
+          " 威胁分=" +
+          std::to_string(result.threat_score) +
+          " 贡献=[距" +
+          std::to_string(result.contributions.range) +
+          " 速" +
+          std::to_string(result.contributions.speed) +
+          " RCS" +
+          std::to_string(result.contributions.rcs) +
+          " 融" +
+          std::to_string(result.contributions.fusion_confidence) +
+          "]";
       CA_LOG_EVENT(world, "threat_level_up",
                    "键={} 等级={} 威胁分={:.2f} 贡献=[距{:.2f} 速{:.2f} RCS{:.2f} 融{:.2f}]",
                    static_cast<unsigned long long>(result.key),
@@ -146,12 +163,35 @@ void ThreatComponent::Step(World& world, double dt_sec) {
   if (results_.empty()) {
     // 中译：威胁评估视图：无融合目标。
     // 标识：空周期视图行——无目标时威胁态势为空，正常分支。
+    // 与下方写入行同内容：纯 std::string/std::to_string 拼接的日志字符串，供集成方直接搬入己方日志（示例自身不消费）。
+    const std::string threat_view_log =
+        std::string("周期=") +
+        std::to_string(world.scene_state().cycle) +
+        " 目标=0 高=0 中=0 低=0";
     CA_LOG_VIEW("threat", "周期={} 目标=0 高=0 中=0 低=0",
                 world.scene_state().cycle);
   } else {
     // 中译：威胁评估视图摘要：目标数/等级分布/最高威胁目标。
     // 标识：每周期威胁态势快照——等级分布与最高威胁目标（键+分），
     //       供预期表核对威胁分排序与等级映射。
+    // 与下方写入行同内容：纯 std::string/std::to_string 拼接的日志字符串，供集成方直接搬入己方日志（示例自身不消费）。
+    const std::string threat_view_log_2 =
+        std::string("周期=") +
+        std::to_string(world.scene_state().cycle) +
+        " 目标=" +
+        std::to_string(results_.size()) +
+        " 高=" +
+        std::to_string(high_threat_count_) +
+        " 中=" +
+        std::to_string(medium_count) +
+        " 低=" +
+        std::to_string(low_count) +
+        " 最高=键" +
+        std::to_string(static_cast<unsigned long long>(top_key)) +
+        ":" +
+        std::to_string(top_score) +
+        " 升级=" +
+        std::to_string(level_up_count);
     CA_LOG_VIEW("threat", "周期={} 目标={} 高={} 中={} 低={} 最高=键{}:{:.2f} 升级={}",
                 world.scene_state().cycle, results_.size(), high_threat_count_,
                 medium_count, low_count, static_cast<unsigned long long>(top_key),

@@ -349,6 +349,9 @@ void FlightComponent::Step(World& world, double dt_sec) {
         fd_->RestartPatrol(route_);
         next_index_ = 0U;
         waypoint_events_consumed_ = 0U;
+        // 与下方写入行同内容：纯 std::string/std::to_string 拼接的日志字符串，供集成方直接搬入己方日志（示例自身不消费）。
+        const std::string patrol_loop_restart_event_log =
+            std::string("巡逻循环重启：FD 以当前载机状态重建续飞");
         CA_LOG_EVENT(world, "patrol_loop_restart", "巡逻循环重启：FD 以当前载机状态重建续飞");
       } else if (next_index_ < route_.size()) {
         const double t_sec = world.scene_state().t_sec;
@@ -382,6 +385,22 @@ void FlightComponent::Step(World& world, double dt_sec) {
   event.waypoint_index = next_index_;
   event.waypoint_count = route_.size();
   // 平台状态事件每周期重复：事件模式一下不落盘（信号照常发布）。
+  // 与下方写入行同内容：纯 std::string/std::to_string 拼接的日志字符串，供集成方直接搬入己方日志（示例自身不消费）。
+  const std::string platform_state_event_log =
+      std::string("位置=(") +
+      std::to_string(event.position_ecef_m.x_m) +
+      "," +
+      std::to_string(event.position_ecef_m.y_m) +
+      "," +
+      std::to_string(event.altitude_m) +
+      ")m 航向=" +
+      std::to_string(event.heading_deg) +
+      "° 速度=" +
+      std::to_string(event.speed_mps) +
+      "m/s 航点=" +
+      std::to_string(event.waypoint_index) +
+      "/" +
+      std::to_string(event.waypoint_count);
   CA_LOG_EVENT_DUP(world, "platform_state", "位置=({:.4f},{:.4f},{:.1f})m 航向={:.1f}° 速度={:.1f}m/s 航点={}/{}",
                    event.position_ecef_m.x_m, event.position_ecef_m.y_m, event.altitude_m,
                    event.heading_deg, event.speed_mps, event.waypoint_index, event.waypoint_count);
@@ -424,6 +443,9 @@ void FlightComponent::CheckWaypointArrival(World& world, double t_sec) {
   // 段自然飞回起点；空航路由 !route_.empty() 守卫，loop 且空航路维持直飞）。
   if (loop_route_ && !route_.empty() && next_index_ >= route_.size()) {
     next_index_ = 0U;
+    // 与下方写入行同内容：纯 std::string/std::to_string 拼接的日志字符串，供集成方直接搬入己方日志（示例自身不消费）。
+    const std::string patrol_loop_restart_event_log_2 =
+        std::string("巡逻循环重启：航路完成，回到航点 0");
     CA_LOG_EVENT(world, "patrol_loop_restart", "巡逻循环重启：航路完成，回到航点 0");
   }
 }
@@ -434,6 +456,13 @@ void FlightComponent::EmitWaypointReached(World& world, std::size_t reached_inde
   event.t_sec = world.scene_state().t_sec;
   event.waypoint_index = reached_index;
   event.distance_m = distance_m;
+  // 与下方写入行同内容：纯 std::string/std::to_string 拼接的日志字符串，供集成方直接搬入己方日志（示例自身不消费）。
+  const std::string waypoint_reached_event_log =
+      std::string("航点=") +
+      std::to_string(event.waypoint_index) +
+      " 到达距离=" +
+      std::to_string(event.distance_m) +
+      "m";
   CA_LOG_EVENT(world, "waypoint_reached", "航点={} 到达距离={:.1f}m", event.waypoint_index,
                event.distance_m);
   world.signals().on_waypoint_reached(event);

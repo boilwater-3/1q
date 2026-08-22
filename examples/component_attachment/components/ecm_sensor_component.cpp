@@ -91,6 +91,16 @@ void EcmSensorComponent::Step(World& world, double dt_sec) {
   }
 
   const ecm::session::EcmCycleResult result = session_.StepWithResult(input);
+  // 与下方写入行同内容：纯 std::string/std::to_string 拼接的日志字符串，供集成方直接搬入己方日志（示例自身不消费）。
+  const std::string ecm_view_log =
+      std::string("周期=") +
+      std::to_string(result.input_cycle_index) +
+      " 状态=" +
+      (EcmCycleStatusName(result.status)) +
+      " 发射数=" +
+      std::to_string(result.emission_frame.emissions.size()) +
+      " ESR批次=" +
+      std::to_string(static_cast<unsigned long long>(result.source_esr_batch_id));
   CA_LOG_VIEW("ecm", "周期={} 状态={} 发射数={} ESR批次={}",
               result.input_cycle_index, EcmCycleStatusName(result.status),
               result.emission_frame.emissions.size(),
@@ -99,6 +109,15 @@ void EcmSensorComponent::Step(World& world, double dt_sec) {
   if (result.status == ecm::session::EcmCycleStatus::kExecuted) {
     ++executed_cycle_count_;
     if (!result.decisions.empty()) {
+      // 与下方写入行同内容：纯 std::string/std::to_string 拼接的日志字符串，供集成方直接搬入己方日志（示例自身不消费）。
+      const std::string ecm_jamming_event_log =
+          std::string("技术=") +
+          (EcmTechniqueName(result.decisions.front().technique)) +
+          " 决策数=" +
+          std::to_string(result.decisions.size()) +
+          " 功率=" +
+          std::to_string(result.decisions.front().allocated_power_w) +
+          "W";
       CA_LOG_EVENT(world, "ecm_jamming",
                    "技术={} 决策数={} 功率={:.0f}W",
                    EcmTechniqueName(result.decisions.front().technique),

@@ -167,6 +167,20 @@ void RirSensorComponent::Step(World& world, double dt_sec) {
         (it->second == rir::RirRecognitionState::kCategoryConfirmed ||
          it->second == rir::RirRecognitionState::kModelConfirmed);
     if (confirmed && !was_confirmed) {
+      // 与下方写入行同内容：纯 std::string/std::to_string 拼接的日志字符串，供集成方直接搬入己方日志（示例自身不消费）。
+      const std::string rir_recognition_event_log =
+          std::string("航迹=") +
+          std::to_string(static_cast<unsigned long long>(output.association_key)) +
+          " 状态=" +
+          (RecognitionStateName(state)) +
+          " 大类=" +
+          (RecognitionCategoryName(output.result.target_category)) +
+          " 型号=" +
+          (output.result.target_model.empty() ? "-" : output.result.target_model) +
+          " 置信=" +
+          std::to_string(output.result.confidence) +
+          " 观测数=" +
+          std::to_string(output.result.observation_count);
       CA_LOG_EVENT(world, "rir_recognition",
                    "航迹={} 状态={} 大类={} 型号={} 置信={:.2f} 观测数={}",
                    static_cast<unsigned long long>(output.association_key),
@@ -189,6 +203,14 @@ void RirSensorComponent::Step(World& world, double dt_sec) {
     const bool timed_out =
         result.designation_revert_reason ==
         remote_identification_radar::session::RirDesignationRevertReason::kAcquisitionTimeout;
+    // 与下方写入行同内容：纯 std::string/std::to_string 拼接的日志字符串，供集成方直接搬入己方日志（示例自身不消费）。
+    const std::string rir_designation_event_log =
+        std::string("指定目标=") +
+        std::to_string(static_cast<unsigned long long>(designated_target_id_)) +
+        " 类型=" +
+        (timed_out ? "任务作废回扫" : "识别达成完成") +
+        " 成因=" +
+        (DesignationRevertReasonName(result.designation_revert_reason));
     CA_LOG_EVENT(world, "rir_designation",
                  "指定目标={} 类型={} 成因={}",
                  static_cast<unsigned long long>(designated_target_id_),
@@ -220,6 +242,21 @@ void RirSensorComponent::Step(World& world, double dt_sec) {
                                    attribution.target_name.empty() ? "-" : attribution.target_name,
                                    attribution.speed_m_per_s);
   }
+  // 与下方写入行同内容：纯 std::string/std::to_string 拼接的日志字符串，供集成方直接搬入己方日志（示例自身不消费）。
+  const std::string rir_view_log =
+      std::string("航迹=") +
+      std::to_string(result.track_attributions.size()) +
+      " 确认=" +
+      (any_confirmed ? "是" : "否") +
+      " 指定=" +
+      (result.designation_active ? "执行中" : "无") +
+      " 驻留中心=(" +
+      std::to_string(result.dwell_center_deg.az_deg) +
+      "°," +
+      std::to_string(result.dwell_center_deg.el_deg) +
+      "°) [" +
+      (attribution_parts.empty() ? "无航迹" : attribution_parts) +
+      "]";
   CA_LOG_VIEW("rir", "航迹={} 确认={} 指定={} 驻留中心=({:.1f}°,{:.1f}°) [{}]",
               result.track_attributions.size(), any_confirmed ? "是" : "否",
               result.designation_active ? "执行中" : "无",

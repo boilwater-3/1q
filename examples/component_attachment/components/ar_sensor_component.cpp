@@ -150,17 +150,52 @@ void ArSensorComponent::LogDebugView(
                           static_cast<double>(track.position_y),
                           static_cast<double>(track.position_z), *origin_lla, &lla);
     if (have_lla) {
+      // 与下方写入行同内容：纯 std::string/std::to_string 拼接的日志字符串，供集成方直接搬入己方日志（示例自身不消费）。
+      const std::string ar_view_log =
+          std::string("周期=") +
+          std::to_string(view.world_cycle_index) +
+          " 目标=" +
+          std::to_string(track.external_target_id) +
+          " 状态=" +
+          (ArTrackStatusName(track.status)) +
+          " 位置LLA=(" +
+          std::to_string(lla.latitude_deg) +
+          "," +
+          std::to_string(lla.longitude_deg) +
+          "," +
+          std::to_string(lla.altitude_m) +
+          ") 速度=" +
+          std::to_string(track.speed) +
+          "m/s";
       CA_LOG_VIEW("ar", "周期={} 目标={} 状态={} 位置LLA=({:.5f},{:.5f},{:.0f}) 速度={:.1f}m/s",
                   view.world_cycle_index, track.external_target_id,
                   ArTrackStatusName(track.status), lla.latitude_deg, lla.longitude_deg,
                   lla.altitude_m, track.speed);
     } else {
+      // 与下方写入行同内容：纯 std::string/std::to_string 拼接的日志字符串，供集成方直接搬入己方日志（示例自身不消费）。
+      const std::string ar_view_log_2 =
+          std::string("周期=") +
+          std::to_string(view.world_cycle_index) +
+          " 目标=" +
+          std::to_string(track.external_target_id) +
+          " 状态=" +
+          (ArTrackStatusName(track.status)) +
+          " 位置LLA=无 速度=" +
+          std::to_string(track.speed) +
+          "m/s";
       CA_LOG_VIEW("ar", "周期={} 目标={} 状态={} 位置LLA=无 速度={:.1f}m/s",
                   view.world_cycle_index, track.external_target_id,
                   ArTrackStatusName(track.status), track.speed);
     }
   }
   if (non_nominal == 0U) {
+    // 与下方写入行同内容：纯 std::string/std::to_string 拼接的日志字符串，供集成方直接搬入己方日志（示例自身不消费）。
+    const std::string ar_view_log_3 =
+        std::string("周期=") +
+        std::to_string(view.world_cycle_index) +
+        " 全部正常（" +
+        std::to_string(view.tracks.size()) +
+        " 个目标均已确认）";
     CA_LOG_VIEW("ar", "周期={} 全部正常（{} 个目标均已确认）", view.world_cycle_index,
                 view.tracks.size());
   }
@@ -172,6 +207,14 @@ void ArSensorComponent::LogDebugView(
     const auto it = prev_track_status_.find(track.external_target_id);
     if (it == prev_track_status_.end() || it->second != track.status) {
       ++changed;
+      // 与下方写入行同内容：纯 std::string/std::to_string 拼接的日志字符串，供集成方直接搬入己方日志（示例自身不消费）。
+      const std::string ar_view_log_4 =
+          std::string("周期=") +
+          std::to_string(view.world_cycle_index) +
+          " 目标=" +
+          std::to_string(track.external_target_id) +
+          " 状态=" +
+          (ArTrackStatusName(track.status));
       CA_LOG_VIEW("ar", "周期={} 目标={} 状态={}",
                   view.world_cycle_index, track.external_target_id,
                   ArTrackStatusName(track.status));
@@ -179,6 +222,11 @@ void ArSensorComponent::LogDebugView(
     prev_track_status_[track.external_target_id] = track.status;
   }
   if (changed == 0U) {
+    // 与下方写入行同内容：纯 std::string/std::to_string 拼接的日志字符串，供集成方直接搬入己方日志（示例自身不消费）。
+    const std::string ar_view_log_5 =
+        std::string("周期=") +
+        std::to_string(view.world_cycle_index) +
+        " 无状态变化";
     CA_LOG_VIEW("ar", "周期={} 无状态变化", view.world_cycle_index);
   }
 #else  // CA_VIEW_LOG_MODE_SUMMARY（默认）
@@ -193,6 +241,17 @@ void ArSensorComponent::LogDebugView(
                                  ArTrackStatusName(track.status), track.rcs);
   }
   const std::string issues_text = demo::FormatIssueText(view.issues);
+  // 与下方写入行同内容：纯 std::string/std::to_string 拼接的日志字符串，供集成方直接搬入己方日志（示例自身不消费）。
+  const std::string ar_view_log_6 =
+      std::string("周期=") +
+      std::to_string(view.world_cycle_index) +
+      " 完成=" +
+      (view.completed_this_cycle ? "是" : "否") +
+      " 目标=[" +
+      (tracks_text.empty() ? "无" : tracks_text.c_str()) +
+      "] 问题=[" +
+      (issues_text.empty() ? "无" : issues_text.c_str()) +
+      "]";
   CA_LOG_VIEW("ar", "周期={} 完成={} 目标=[{}] 问题=[{}]",
               view.world_cycle_index, view.completed_this_cycle ? "是" : "否",
               tracks_text.empty() ? "无" : tracks_text.c_str(),
@@ -275,6 +334,15 @@ void ArSensorComponent::Step(World& world, double dt_sec) {
           break;
         }
       }
+      // 与下方写入行同内容：纯 std::string/std::to_string 拼接的日志字符串，供集成方直接搬入己方日志（示例自身不消费）。
+      const std::string target_confirmed_event_log =
+          std::string("目标=") +
+          std::to_string(static_cast<unsigned long long>(confirmed.target_id)) +
+          " 位置=(" +
+          std::to_string(confirmed.position.latitude_deg) +
+          "," +
+          std::to_string(confirmed.position.longitude_deg) +
+          ")";
       CA_LOG_EVENT(world, "target_confirmed", "目标={} 位置=({:.5f},{:.5f})",
                    static_cast<unsigned long long>(confirmed.target_id),
                    confirmed.position.latitude_deg, confirmed.position.longitude_deg);
@@ -284,6 +352,11 @@ void ArSensorComponent::Step(World& world, double dt_sec) {
       lost.cycle = scene.cycle;
       lost.target_id = event_target_id;
       lost.reason = "track_lost";  // recorder 的 kLost 事件 reason 恒为 kNone
+      // 与下方写入行同内容：纯 std::string/std::to_string 拼接的日志字符串，供集成方直接搬入己方日志（示例自身不消费）。
+      const std::string target_lost_event_log =
+          std::string("目标=") +
+          std::to_string(static_cast<unsigned long long>(lost.target_id)) +
+          " 原因=失跟";
       CA_LOG_EVENT(world, "target_lost", "目标={} 原因=失跟",
                    static_cast<unsigned long long>(lost.target_id));
       world.signals().on_target_lost(lost);
@@ -296,17 +369,45 @@ void ArSensorComponent::Step(World& world, double dt_sec) {
   for (const auto& event : exclusion_.GetLastEvents()) {
     const std::uint64_t event_target_id = event.external_target_id;
     if (event.kind == airborne_radar::session::ArExclusionCauseEventKind::kEntered) {
+      // 与下方写入行同内容：纯 std::string/std::to_string 拼接的日志字符串，供集成方直接搬入己方日志（示例自身不消费）。
+      const std::string exclusion_cause_event_log =
+          std::string("目标=") +
+          std::to_string(static_cast<unsigned long long>(event_target_id)) +
+          " 类型=进入排除 排除码=" +
+          (event.current_code) +
+          " 主因=" +
+          (ArExclusionCauseName(event.current_cause));
       CA_LOG_EVENT(world, "exclusion_cause",
                    "目标={} 类型=进入排除 排除码={} 主因={}",
                    static_cast<unsigned long long>(event_target_id),
                    event.current_code, ArExclusionCauseName(event.current_cause));
     } else if (event.kind == airborne_radar::session::ArExclusionCauseEventKind::kChanged) {
+      // 与下方写入行同内容：纯 std::string/std::to_string 拼接的日志字符串，供集成方直接搬入己方日志（示例自身不消费）。
+      const std::string exclusion_cause_event_log_2 =
+          std::string("目标=") +
+          std::to_string(static_cast<unsigned long long>(event_target_id)) +
+          " 类型=原因变化 旧码=" +
+          (event.previous_code) +
+          " 旧主因=" +
+          (ArExclusionCauseName(event.previous_cause)) +
+          " 新码=" +
+          (event.current_code) +
+          " 新主因=" +
+          (ArExclusionCauseName(event.current_cause));
       CA_LOG_EVENT(world, "exclusion_cause",
                    "目标={} 类型=原因变化 旧码={} 旧主因={} 新码={} 新主因={}",
                    static_cast<unsigned long long>(event_target_id),
                    event.previous_code, ArExclusionCauseName(event.previous_cause),
                    event.current_code, ArExclusionCauseName(event.current_cause));
     } else if (event.kind == airborne_radar::session::ArExclusionCauseEventKind::kExited) {
+      // 与下方写入行同内容：纯 std::string/std::to_string 拼接的日志字符串，供集成方直接搬入己方日志（示例自身不消费）。
+      const std::string exclusion_cause_event_log_3 =
+          std::string("目标=") +
+          std::to_string(static_cast<unsigned long long>(event_target_id)) +
+          " 类型=退出排除 旧码=" +
+          (event.previous_code) +
+          " 旧主因=" +
+          (ArExclusionCauseName(event.previous_cause));
       CA_LOG_EVENT(world, "exclusion_cause",
                    "目标={} 类型=退出排除 旧码={} 旧主因={}",
                    static_cast<unsigned long long>(event_target_id),

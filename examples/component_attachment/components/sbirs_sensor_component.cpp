@@ -207,12 +207,32 @@ void SbirsSensorComponent::LogDebugView(
     // 2026-08 正式变更：库内方位/俯仰输出为 ECI 极坐标弧度；示例按可读性转
     // 度显示。距离仅存在于库内诊断字段（estimated_range_m，仅归属目标有值），
     // 非标称行不再展示距离（被动红外测距无物理依据，见 docs/common/contract.md）。
+    // 与下方写入行同内容：纯 std::string/std::to_string 拼接的日志字符串，供集成方直接搬入己方日志（示例自身不消费）。
+    const std::string sbirs_view_log =
+        std::string("周期=") +
+        std::to_string(view.input_cycle_index) +
+        " 目标=" +
+        std::to_string(target.target_id) +
+        " 状态=" +
+        (SbirsTargetStatusName(target.status)) +
+        " 方位(ECI)=" +
+        std::to_string(target.azimuth_rad * kRadToDeg) +
+        "° 仰角(ECI)=" +
+        std::to_string(target.elevation_rad * kRadToDeg) +
+        "°";
     CA_LOG_VIEW("sbirs", "周期={} 目标={} 状态={} 方位(ECI)={:.1f}° 仰角(ECI)={:.1f}°",
                 view.input_cycle_index, target.target_id,
                 SbirsTargetStatusName(target.status), target.azimuth_rad * kRadToDeg,
                 target.elevation_rad * kRadToDeg);
   }
   if (non_nominal == 0U) {
+    // 与下方写入行同内容：纯 std::string/std::to_string 拼接的日志字符串，供集成方直接搬入己方日志（示例自身不消费）。
+    const std::string sbirs_view_log_2 =
+        std::string("周期=") +
+        std::to_string(view.input_cycle_index) +
+        " 全部正常（" +
+        std::to_string(view.targets.size()) +
+        " 个目标均已检测）";
     CA_LOG_VIEW("sbirs", "周期={} 全部正常（{} 个目标均已检测）", view.input_cycle_index,
                 view.targets.size());
   }
@@ -224,6 +244,14 @@ void SbirsSensorComponent::LogDebugView(
     const auto it = prev_target_status_.find(target.target_id);
     if (it == prev_target_status_.end() || it->second != target.status) {
       ++changed;
+      // 与下方写入行同内容：纯 std::string/std::to_string 拼接的日志字符串，供集成方直接搬入己方日志（示例自身不消费）。
+      const std::string sbirs_view_log_3 =
+          std::string("周期=") +
+          std::to_string(view.input_cycle_index) +
+          " 目标=" +
+          std::to_string(target.target_id) +
+          " 状态=" +
+          (SbirsTargetStatusName(target.status));
       CA_LOG_VIEW("sbirs", "周期={} 目标={} 状态={}",
                   view.input_cycle_index, target.target_id,
                   SbirsTargetStatusName(target.status));
@@ -231,6 +259,11 @@ void SbirsSensorComponent::LogDebugView(
     prev_target_status_[target.target_id] = target.status;
   }
   if (changed == 0U) {
+    // 与下方写入行同内容：纯 std::string/std::to_string 拼接的日志字符串，供集成方直接搬入己方日志（示例自身不消费）。
+    const std::string sbirs_view_log_4 =
+        std::string("周期=") +
+        std::to_string(view.input_cycle_index) +
+        " 无状态变化";
     CA_LOG_VIEW("sbirs", "周期={} 无状态变化", view.input_cycle_index);
   }
 #else  // CA_VIEW_LOG_MODE_SUMMARY（默认）
@@ -247,6 +280,17 @@ void SbirsSensorComponent::LogDebugView(
                                   target.elevation_rad * kRadToDeg);
   }
   const std::string issues_text = demo::FormatIssueText(view.issues);
+  // 与下方写入行同内容：纯 std::string/std::to_string 拼接的日志字符串，供集成方直接搬入己方日志（示例自身不消费）。
+  const std::string sbirs_view_log_5 =
+      std::string("周期=") +
+      std::to_string(view.input_cycle_index) +
+      " 执行=" +
+      (view.executed_this_cycle ? "是" : "否") +
+      " 目标=[" +
+      (targets_text.empty() ? "无" : targets_text.c_str()) +
+      "] 问题=[" +
+      (issues_text.empty() ? "无" : issues_text.c_str()) +
+      "]";
   CA_LOG_VIEW("sbirs", "周期={} 执行={} 目标=[{}] 问题=[{}]",
               view.input_cycle_index, view.executed_this_cycle ? "是" : "否",
               targets_text.empty() ? "无" : targets_text.c_str(),
@@ -331,6 +375,19 @@ void SbirsSensorComponent::Step(World& world, double dt_sec) {
     }
     if (sbirs_event.kind == SbirsDetectionEventKind::kUpdated) {
       // 更新类事件每周期重复：事件模式一下不落盘（信号照常发布）。
+      // 与下方写入行同内容：纯 std::string/std::to_string 拼接的日志字符串，供集成方直接搬入己方日志（示例自身不消费）。
+      const std::string sbirs_detection_event_log =
+          std::string("类型=") +
+          (SbirsEventKindName(sbirs_event.kind)) +
+          " 探测ID=" +
+          std::to_string(static_cast<unsigned long long>(sbirs_event.detection_id)) +
+          " 目标=" +
+          std::to_string(static_cast<unsigned long long>(sbirs_event.target_id)) +
+          " 信噪比(线性)=" +
+          std::to_string(sbirs_event.infrared_snr_linear) +
+          " 方位=" +
+          std::to_string(sbirs_event.az_deg) +
+          "°";
       CA_LOG_EVENT_DUP(world, "sbirs_detection",
                        "类型={} 探测ID={} 目标={} 信噪比(线性)={:.1f} 方位={:.1f}°",
                        SbirsEventKindName(sbirs_event.kind),
@@ -339,6 +396,19 @@ void SbirsSensorComponent::Step(World& world, double dt_sec) {
                        sbirs_event.infrared_snr_linear, sbirs_event.az_deg);
     } else if (sbirs_event.kind == SbirsDetectionEventKind::kLost) {
       // 丢失事件携带细分原因（视场外/调度跳过/门失败…），区分扫描间隙与真丢失。
+      // 与下方写入行同内容：纯 std::string/std::to_string 拼接的日志字符串，供集成方直接搬入己方日志（示例自身不消费）。
+      const std::string sbirs_detection_event_log_2 =
+          std::string("类型=丢失(") +
+          (LossReasonName(sbirs_event.reason)) +
+          ") 探测ID=" +
+          std::to_string(static_cast<unsigned long long>(sbirs_event.detection_id)) +
+          " 目标=" +
+          std::to_string(static_cast<unsigned long long>(sbirs_event.target_id)) +
+          " 信噪比(线性)=" +
+          std::to_string(sbirs_event.infrared_snr_linear) +
+          " 方位=" +
+          std::to_string(sbirs_event.az_deg) +
+          "°";
       CA_LOG_EVENT(world, "sbirs_detection",
                    "类型=丢失({}) 探测ID={} 目标={} 信噪比(线性)={:.1f} 方位={:.1f}°",
                    LossReasonName(sbirs_event.reason),
@@ -346,6 +416,19 @@ void SbirsSensorComponent::Step(World& world, double dt_sec) {
                    static_cast<unsigned long long>(sbirs_event.target_id),
                    sbirs_event.infrared_snr_linear, sbirs_event.az_deg);
     } else {
+      // 与下方写入行同内容：纯 std::string/std::to_string 拼接的日志字符串，供集成方直接搬入己方日志（示例自身不消费）。
+      const std::string sbirs_detection_event_log_3 =
+          std::string("类型=") +
+          (SbirsEventKindName(sbirs_event.kind)) +
+          " 探测ID=" +
+          std::to_string(static_cast<unsigned long long>(sbirs_event.detection_id)) +
+          " 目标=" +
+          std::to_string(static_cast<unsigned long long>(sbirs_event.target_id)) +
+          " 信噪比(线性)=" +
+          std::to_string(sbirs_event.infrared_snr_linear) +
+          " 方位=" +
+          std::to_string(sbirs_event.az_deg) +
+          "°";
       CA_LOG_EVENT(world, "sbirs_detection",
                    "类型={} 探测ID={} 目标={} 信噪比(线性)={:.1f} 方位={:.1f}°",
                    SbirsEventKindName(sbirs_event.kind),
@@ -362,17 +445,45 @@ void SbirsSensorComponent::Step(World& world, double dt_sec) {
   for (const auto& event : exclusion_.GetLastEvents()) {
     const std::uint64_t event_target_id = event.target_id;
     if (event.kind == sbirs_sensor::session::SbirsExclusionCauseEventKind::kEntered) {
+      // 与下方写入行同内容：纯 std::string/std::to_string 拼接的日志字符串，供集成方直接搬入己方日志（示例自身不消费）。
+      const std::string exclusion_cause_event_log =
+          std::string("目标=") +
+          std::to_string(static_cast<unsigned long long>(event_target_id)) +
+          " 类型=进入排除 排除码=" +
+          (event.current_code) +
+          " 主因=" +
+          (SbirsExclusionCauseName(event.current_cause));
       CA_LOG_EVENT(world, "exclusion_cause",
                    "目标={} 类型=进入排除 排除码={} 主因={}",
                    static_cast<unsigned long long>(event_target_id),
                    event.current_code, SbirsExclusionCauseName(event.current_cause));
     } else if (event.kind == sbirs_sensor::session::SbirsExclusionCauseEventKind::kChanged) {
+      // 与下方写入行同内容：纯 std::string/std::to_string 拼接的日志字符串，供集成方直接搬入己方日志（示例自身不消费）。
+      const std::string exclusion_cause_event_log_2 =
+          std::string("目标=") +
+          std::to_string(static_cast<unsigned long long>(event_target_id)) +
+          " 类型=原因变化 旧码=" +
+          (event.previous_code) +
+          " 旧主因=" +
+          (SbirsExclusionCauseName(event.previous_cause)) +
+          " 新码=" +
+          (event.current_code) +
+          " 新主因=" +
+          (SbirsExclusionCauseName(event.current_cause));
       CA_LOG_EVENT(world, "exclusion_cause",
                    "目标={} 类型=原因变化 旧码={} 旧主因={} 新码={} 新主因={}",
                    static_cast<unsigned long long>(event_target_id),
                    event.previous_code, SbirsExclusionCauseName(event.previous_cause),
                    event.current_code, SbirsExclusionCauseName(event.current_cause));
     } else if (event.kind == sbirs_sensor::session::SbirsExclusionCauseEventKind::kExited) {
+      // 与下方写入行同内容：纯 std::string/std::to_string 拼接的日志字符串，供集成方直接搬入己方日志（示例自身不消费）。
+      const std::string exclusion_cause_event_log_3 =
+          std::string("目标=") +
+          std::to_string(static_cast<unsigned long long>(event_target_id)) +
+          " 类型=退出排除 旧码=" +
+          (event.previous_code) +
+          " 旧主因=" +
+          (SbirsExclusionCauseName(event.previous_cause));
       CA_LOG_EVENT(world, "exclusion_cause",
                    "目标={} 类型=退出排除 旧码={} 旧主因={}",
                    static_cast<unsigned long long>(event_target_id),

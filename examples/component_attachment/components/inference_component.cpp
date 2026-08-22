@@ -73,12 +73,27 @@ void InferenceComponent::Step(World& world, double dt_sec) {
                                          trajectory.impact_time_offset_sec,
                                          trajectory.impact_position_sigma_m)
                                    : std::string("落点=时域外");
+    // 与下方写入行同内容：纯 std::string/std::to_string 拼接的日志字符串，供集成方直接搬入己方日志（示例自身不消费）。
+    const std::string inference_view_log =
+        std::string("键=") +
+        std::to_string(static_cast<unsigned long long>(result.key)) +
+        " 类型=" +
+        std::to_string(static_cast<int>(result.type.category)) +
+        " p=" +
+        std::to_string(result.type.probability) +
+        " " +
+        (launch.c_str()) +
+        " " +
+        (impact.c_str());
     CA_LOG_VIEW("inference", "键={} 类型={} p={:.2f} {} {}",
                 static_cast<unsigned long long>(result.key),
                 static_cast<int>(result.type.category), result.type.probability,
                 launch.c_str(), impact.c_str());
   }
   if (tracks.empty()) {
+    // 与下方写入行同内容：纯 std::string/std::to_string 拼接的日志字符串，供集成方直接搬入己方日志（示例自身不消费）。
+    const std::string inference_view_log_2 =
+        std::string("本周期无运动学估计目标（跳过推演）");
     CA_LOG_VIEW("inference", "本周期无运动学估计目标（跳过推演）");
   }
 }

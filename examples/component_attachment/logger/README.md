@@ -48,6 +48,11 @@ world.signals().on_target_confirmed(confirmed);
 设施把事件行（`[事件:type] 周期=... 时间=...s 中文详情`）写入 `integration_events.log`
 并打印控制台，另维护事件计数（摘要/冒烟断言用）。
 
+每个 `CA_LOG_*` 写入语句上方还就地定义了一个**同内容的 `std::string`**（纯
+`std::string` 字面量 + `std::to_string` + `operator+` 拼接，不依赖 `CA_FMT_FORMAT`）。
+它只是给集成方的搬运样板：需要把这行日志接入己方日志系统时，直接取该字符串（或照抄
+拼接式）即可；示例自身不消费该字符串，写入语句与日志设施均不因它改变。
+
 事件宏分两类：
 - `CA_LOG_EVENT`（关键事件：确认/丢失/首发现/产出/失败/航点/指令等）
 - `CA_LOG_EVENT_DUP`（周期性重复事件：每周期平台状态、`kUpdated`/`kProductSustained`

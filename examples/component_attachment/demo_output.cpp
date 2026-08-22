@@ -112,6 +112,10 @@ DecisionListener::DecisionListener(World& world, double high_threat_confidence)
       CommandIssuedEvent command;
       command.cycle = e.cycle;
       command.command = "ENABLE_ANTI_FALSE_TARGET_DISCRIMINATION";
+      // 与下方写入行同内容：纯 std::string/std::to_string 拼接的日志字符串，供集成方直接搬入己方日志（示例自身不消费）。
+      const std::string command_issued_event_log =
+          std::string("指令=") +
+          (command.command.c_str());
       CA_LOG_EVENT(world_, "command_issued", "指令={}", command.command.c_str());
       world_.signals().on_command_issued(command);
     }
@@ -127,6 +131,14 @@ DecisionListener::DecisionListener(World& world, double high_threat_confidence)
       // 中译：高威胁目标键 {} 触发交战指令（威胁分 {:.2f}）。
       // 标识：威胁→决策指令链——威胁等级 HIGH 首次出现即下发一次指令，
       //       与融合置信度门限指令互斥（issued_ 共享）。
+      // 与下方写入行同内容：纯 std::string/std::to_string 拼接的日志字符串，供集成方直接搬入己方日志（示例自身不消费）。
+      const std::string command_issued_event_log_2 =
+          std::string("指令=") +
+          (command.command.c_str()) +
+          " 键=" +
+          std::to_string(static_cast<unsigned long long>(e.result.key)) +
+          " 威胁分=" +
+          std::to_string(e.result.threat_score);
       CA_LOG_EVENT(world_, "command_issued", "指令={} 键={} 威胁分={:.2f}",
                    command.command.c_str(),
                    static_cast<unsigned long long>(e.result.key),

@@ -174,11 +174,31 @@ void EosSensorComponent::LogDebugView(
       continue;
     }
     ++non_nominal;
+    // 与下方写入行同内容：纯 std::string/std::to_string 拼接的日志字符串，供集成方直接搬入己方日志（示例自身不消费）。
+    const std::string eos_view_log =
+        std::string("周期=") +
+        std::to_string(view.input_cycle_index) +
+        " 目标=" +
+        std::to_string(target.target_id) +
+        " 状态=" +
+        (EosTargetStatusName(target.status)) +
+        " 距离=" +
+        std::to_string(target.range_m) +
+        "m 方位=" +
+        std::to_string(target.azimuth_deg) +
+        "°";
     CA_LOG_VIEW("eos", "周期={} 目标={} 状态={} 距离={:.1f}m 方位={:.1f}°",
                 view.input_cycle_index, target.target_id,
                 EosTargetStatusName(target.status), target.range_m, target.azimuth_deg);
   }
   if (non_nominal == 0U) {
+    // 与下方写入行同内容：纯 std::string/std::to_string 拼接的日志字符串，供集成方直接搬入己方日志（示例自身不消费）。
+    const std::string eos_view_log_2 =
+        std::string("周期=") +
+        std::to_string(view.input_cycle_index) +
+        " 全部正常（" +
+        std::to_string(view.targets.size()) +
+        " 个目标均已检测）";
     CA_LOG_VIEW("eos", "周期={} 全部正常（{} 个目标均已检测）", view.input_cycle_index,
                 view.targets.size());
   }
@@ -190,6 +210,14 @@ void EosSensorComponent::LogDebugView(
     const auto it = prev_target_status_.find(target.target_id);
     if (it == prev_target_status_.end() || it->second != target.status) {
       ++changed;
+      // 与下方写入行同内容：纯 std::string/std::to_string 拼接的日志字符串，供集成方直接搬入己方日志（示例自身不消费）。
+      const std::string eos_view_log_3 =
+          std::string("周期=") +
+          std::to_string(view.input_cycle_index) +
+          " 目标=" +
+          std::to_string(target.target_id) +
+          " 状态=" +
+          (EosTargetStatusName(target.status));
       CA_LOG_VIEW("eos", "周期={} 目标={} 状态={}",
                   view.input_cycle_index, target.target_id,
                   EosTargetStatusName(target.status));
@@ -197,6 +225,11 @@ void EosSensorComponent::LogDebugView(
     prev_target_status_[target.target_id] = target.status;
   }
   if (changed == 0U) {
+    // 与下方写入行同内容：纯 std::string/std::to_string 拼接的日志字符串，供集成方直接搬入己方日志（示例自身不消费）。
+    const std::string eos_view_log_4 =
+        std::string("周期=") +
+        std::to_string(view.input_cycle_index) +
+        " 无状态变化";
     CA_LOG_VIEW("eos", "周期={} 无状态变化", view.input_cycle_index);
   }
 #else  // CA_VIEW_LOG_MODE_SUMMARY（默认）
@@ -213,6 +246,17 @@ void EosSensorComponent::LogDebugView(
                                   target.range_m / 1000.0);
   }
   const std::string issues_text = demo::FormatIssueText(view.issues);
+  // 与下方写入行同内容：纯 std::string/std::to_string 拼接的日志字符串，供集成方直接搬入己方日志（示例自身不消费）。
+  const std::string eos_view_log_5 =
+      std::string("周期=") +
+      std::to_string(view.input_cycle_index) +
+      " 执行=" +
+      (view.executed_this_cycle ? "是" : "否") +
+      " 目标=[" +
+      (targets_text.empty() ? "无" : targets_text.c_str()) +
+      "] 问题=[" +
+      (issues_text.empty() ? "无" : issues_text.c_str()) +
+      "]";
   CA_LOG_VIEW("eos", "周期={} 执行={} 目标=[{}] 问题=[{}]",
               view.input_cycle_index, view.executed_this_cycle ? "是" : "否",
               targets_text.empty() ? "无" : targets_text.c_str(),
@@ -293,12 +337,38 @@ void EosSensorComponent::Step(World& world, double dt_sec) {
     }
     if (eos_event.kind == EosDetectionEventKind::kUpdated) {
       // 更新类事件每周期重复：事件模式一下不落盘（信号照常发布）。
+      // 与下方写入行同内容：纯 std::string/std::to_string 拼接的日志字符串，供集成方直接搬入己方日志（示例自身不消费）。
+      const std::string eos_detection_event_log =
+          std::string("类型=") +
+          (EosEventKindName(eos_event.kind)) +
+          " 探测ID=" +
+          std::to_string(static_cast<unsigned long long>(eos_event.detection_id)) +
+          " 目标=" +
+          std::to_string(static_cast<unsigned long long>(eos_event.target_id)) +
+          " 信噪比=" +
+          std::to_string(eos_event.snr_db) +
+          "dB 方位=" +
+          std::to_string(eos_event.az_deg) +
+          "°";
       CA_LOG_EVENT_DUP(world, "eos_detection", "类型={} 探测ID={} 目标={} 信噪比={:.1f}dB 方位={:.1f}°",
                        EosEventKindName(eos_event.kind),
                        static_cast<unsigned long long>(eos_event.detection_id),
                        static_cast<unsigned long long>(eos_event.target_id), eos_event.snr_db,
                        eos_event.az_deg);
     } else {
+      // 与下方写入行同内容：纯 std::string/std::to_string 拼接的日志字符串，供集成方直接搬入己方日志（示例自身不消费）。
+      const std::string eos_detection_event_log_2 =
+          std::string("类型=") +
+          (EosEventKindName(eos_event.kind)) +
+          " 探测ID=" +
+          std::to_string(static_cast<unsigned long long>(eos_event.detection_id)) +
+          " 目标=" +
+          std::to_string(static_cast<unsigned long long>(eos_event.target_id)) +
+          " 信噪比=" +
+          std::to_string(eos_event.snr_db) +
+          "dB 方位=" +
+          std::to_string(eos_event.az_deg) +
+          "°";
       CA_LOG_EVENT(world, "eos_detection", "类型={} 探测ID={} 目标={} 信噪比={:.1f}dB 方位={:.1f}°",
                    EosEventKindName(eos_event.kind),
                    static_cast<unsigned long long>(eos_event.detection_id),
@@ -314,17 +384,45 @@ void EosSensorComponent::Step(World& world, double dt_sec) {
   for (const auto& event : exclusion_.GetLastEvents()) {
     const std::uint64_t event_target_id = event.target_id;
     if (event.kind == electro_optical_sensor::session::EosExclusionCauseEventKind::kEntered) {
+      // 与下方写入行同内容：纯 std::string/std::to_string 拼接的日志字符串，供集成方直接搬入己方日志（示例自身不消费）。
+      const std::string exclusion_cause_event_log =
+          std::string("目标=") +
+          std::to_string(static_cast<unsigned long long>(event_target_id)) +
+          " 类型=进入排除 排除码=" +
+          (event.current_code) +
+          " 主因=" +
+          (EosExclusionCauseName(event.current_cause));
       CA_LOG_EVENT(world, "exclusion_cause",
                    "目标={} 类型=进入排除 排除码={} 主因={}",
                    static_cast<unsigned long long>(event_target_id),
                    event.current_code, EosExclusionCauseName(event.current_cause));
     } else if (event.kind == electro_optical_sensor::session::EosExclusionCauseEventKind::kChanged) {
+      // 与下方写入行同内容：纯 std::string/std::to_string 拼接的日志字符串，供集成方直接搬入己方日志（示例自身不消费）。
+      const std::string exclusion_cause_event_log_2 =
+          std::string("目标=") +
+          std::to_string(static_cast<unsigned long long>(event_target_id)) +
+          " 类型=原因变化 旧码=" +
+          (event.previous_code) +
+          " 旧主因=" +
+          (EosExclusionCauseName(event.previous_cause)) +
+          " 新码=" +
+          (event.current_code) +
+          " 新主因=" +
+          (EosExclusionCauseName(event.current_cause));
       CA_LOG_EVENT(world, "exclusion_cause",
                    "目标={} 类型=原因变化 旧码={} 旧主因={} 新码={} 新主因={}",
                    static_cast<unsigned long long>(event_target_id),
                    event.previous_code, EosExclusionCauseName(event.previous_cause),
                    event.current_code, EosExclusionCauseName(event.current_cause));
     } else if (event.kind == electro_optical_sensor::session::EosExclusionCauseEventKind::kExited) {
+      // 与下方写入行同内容：纯 std::string/std::to_string 拼接的日志字符串，供集成方直接搬入己方日志（示例自身不消费）。
+      const std::string exclusion_cause_event_log_3 =
+          std::string("目标=") +
+          std::to_string(static_cast<unsigned long long>(event_target_id)) +
+          " 类型=退出排除 旧码=" +
+          (event.previous_code) +
+          " 旧主因=" +
+          (EosExclusionCauseName(event.previous_cause));
       CA_LOG_EVENT(world, "exclusion_cause",
                    "目标={} 类型=退出排除 旧码={} 旧主因={}",
                    static_cast<unsigned long long>(event_target_id),

@@ -92,6 +92,27 @@ bool SarSensorComponent::TryApplyRuntimeConfig(
 // 阶段型调试视图摘要行（SAR 无逐目标状态，仅单行摘要；规则 12 落盘示范）。
 void SarSensorComponent::LogDebugView(const sar::session::SarProductDebugView& view) {
   const std::string issues_text = demo::FormatIssueText(view.issues);
+  // 与下方写入行同内容：纯 std::string/std::to_string 拼接的日志字符串，供集成方直接搬入己方日志（示例自身不消费）。
+  const std::string sar_view_log =
+      std::string("周期=") +
+      std::to_string(view.input_cycle_index) +
+      " 执行=" +
+      (view.executed_this_cycle ? "是" : "否") +
+      " 阶段=" +
+      (SarStageName(view.completed_stage)) +
+      " L1图像=" +
+      (view.has_l1_image ? "有" : "无") +
+      " L3图像=" +
+      (view.has_l3_bp_image ? "有" : "无") +
+      " 聚焦=" +
+      (view.has_focused_pixels ? "有" : "无") +
+      " 信噪比=" +
+      std::to_string(view.estimated_snr_db) +
+      "dB 目标数=" +
+      std::to_string(view.point_targets.size()) +
+      " 问题=[" +
+      (issues_text.empty() ? "无" : issues_text.c_str()) +
+      "]";
   CA_LOG_VIEW("sar", "周期={} 执行={} 阶段={} L1图像={} L3图像={} 聚焦={} 信噪比={:.1f}dB 目标数={} 问题=[{}]",
               view.input_cycle_index, view.executed_this_cycle ? "是" : "否",
               SarStageName(view.completed_stage),
@@ -156,12 +177,34 @@ void SarSensorComponent::Step(World& world, double dt_sec) {
     product.abort_reason = event.abort_reason;
     if (product.kind == SarProductEventKind::kProductSustained) {
       // 持续类事件每周期重复：事件模式一下不落盘（信号照常发布）。
+      // 与下方写入行同内容：纯 std::string/std::to_string 拼接的日志字符串，供集成方直接搬入己方日志（示例自身不消费）。
+      const std::string sar_product_event_log =
+          std::string("类型=") +
+          (SarEventKindName(product.kind)) +
+          " 阶段=" +
+          (SarStageName(product.stage)) +
+          " 信噪比=" +
+          std::to_string(product.estimated_snr_db) +
+          "dB" +
+          (product.abort_reason.empty() ? "" : " 中止原因=") +
+          (product.abort_reason.c_str());
       CA_LOG_EVENT_DUP(world, "sar_product", "类型={} 阶段={} 信噪比={:.1f}dB{}{}",
                        SarEventKindName(product.kind), SarStageName(product.stage),
                        product.estimated_snr_db,
                        product.abort_reason.empty() ? "" : " 中止原因=",
                        product.abort_reason.c_str());
     } else {
+      // 与下方写入行同内容：纯 std::string/std::to_string 拼接的日志字符串，供集成方直接搬入己方日志（示例自身不消费）。
+      const std::string sar_product_event_log_2 =
+          std::string("类型=") +
+          (SarEventKindName(product.kind)) +
+          " 阶段=" +
+          (SarStageName(product.stage)) +
+          " 信噪比=" +
+          std::to_string(product.estimated_snr_db) +
+          "dB" +
+          (product.abort_reason.empty() ? "" : " 中止原因=") +
+          (product.abort_reason.c_str());
       CA_LOG_EVENT(world, "sar_product", "类型={} 阶段={} 信噪比={:.1f}dB{}{}",
                    SarEventKindName(product.kind), SarStageName(product.stage),
                    product.estimated_snr_db,

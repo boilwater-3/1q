@@ -125,6 +125,18 @@ void EsrSensorComponent::Step(World& world, double dt_sec) {
     event.mode = hypothesis.mode;
     event.threat_level = hypothesis.threat_level;
     // 假设事件每周期重复（目标恒在时）：事件模式一下不落盘（信号照常发布）。
+    // 与下方写入行同内容：纯 std::string/std::to_string 拼接的日志字符串，供集成方直接搬入己方日志（示例自身不消费）。
+    const std::string emitter_hypothesis_event_log =
+        std::string("假设=") +
+        std::to_string(static_cast<unsigned long long>(event.hypothesis_id)) +
+        " 方位=" +
+        std::to_string(event.bearing_az_deg) +
+        "° 置信=" +
+        std::to_string(event.confidence) +
+        " 模式=" +
+        std::to_string(static_cast<int>(event.mode)) +
+        " 威胁=" +
+        std::to_string(static_cast<int>(event.threat_level));
     CA_LOG_EVENT_DUP(world, "emitter_hypothesis",
                      "假设={} 方位={:.1f}° 置信={:.2f} 模式={} 威胁={}",
                      static_cast<unsigned long long>(event.hypothesis_id),
@@ -140,6 +152,18 @@ void EsrSensorComponent::Step(World& world, double dt_sec) {
   for (const auto& event : exclusion_.GetLastEvents()) {
     const auto& id = event.identity;
     if (event.kind == electronic_surveillance_radar::session::EsrExclusionCauseEventKind::kEntered) {
+      // 与下方写入行同内容：纯 std::string/std::to_string 拼接的日志字符串，供集成方直接搬入己方日志（示例自身不消费）。
+      const std::string exclusion_cause_event_log =
+          std::string("辐射源=(platform=") +
+          std::to_string(static_cast<unsigned long long>(id.platform_id)) +
+          ",equipment=" +
+          std::to_string(static_cast<unsigned long long>(id.equipment_id)) +
+          ",emission=" +
+          std::to_string(static_cast<unsigned long long>(id.emission_id)) +
+          ") 类型=进入排除 排除码=" +
+          (event.current_code) +
+          " 主因=" +
+          (EsrExclusionCauseName(event.current_cause));
       CA_LOG_EVENT(world, "exclusion_cause",
                    "辐射源=(platform={},equipment={},emission={}) 类型=进入排除 排除码={} 主因={}",
                    static_cast<unsigned long long>(id.platform_id),
@@ -147,6 +171,22 @@ void EsrSensorComponent::Step(World& world, double dt_sec) {
                    static_cast<unsigned long long>(id.emission_id),
                    event.current_code, EsrExclusionCauseName(event.current_cause));
     } else if (event.kind == electronic_surveillance_radar::session::EsrExclusionCauseEventKind::kChanged) {
+      // 与下方写入行同内容：纯 std::string/std::to_string 拼接的日志字符串，供集成方直接搬入己方日志（示例自身不消费）。
+      const std::string exclusion_cause_event_log_2 =
+          std::string("辐射源=(platform=") +
+          std::to_string(static_cast<unsigned long long>(id.platform_id)) +
+          ",equipment=" +
+          std::to_string(static_cast<unsigned long long>(id.equipment_id)) +
+          ",emission=" +
+          std::to_string(static_cast<unsigned long long>(id.emission_id)) +
+          ") 类型=原因变化 旧码=" +
+          (event.previous_code) +
+          " 旧主因=" +
+          (EsrExclusionCauseName(event.previous_cause)) +
+          " 新码=" +
+          (event.current_code) +
+          " 新主因=" +
+          (EsrExclusionCauseName(event.current_cause));
       CA_LOG_EVENT(world, "exclusion_cause",
                    "辐射源=(platform={},equipment={},emission={}) 类型=原因变化 旧码={} 旧主因={} 新码={} 新主因={}",
                    static_cast<unsigned long long>(id.platform_id),
@@ -155,6 +195,18 @@ void EsrSensorComponent::Step(World& world, double dt_sec) {
                    event.previous_code, EsrExclusionCauseName(event.previous_cause),
                    event.current_code, EsrExclusionCauseName(event.current_cause));
     } else if (event.kind == electronic_surveillance_radar::session::EsrExclusionCauseEventKind::kExited) {
+      // 与下方写入行同内容：纯 std::string/std::to_string 拼接的日志字符串，供集成方直接搬入己方日志（示例自身不消费）。
+      const std::string exclusion_cause_event_log_3 =
+          std::string("辐射源=(platform=") +
+          std::to_string(static_cast<unsigned long long>(id.platform_id)) +
+          ",equipment=" +
+          std::to_string(static_cast<unsigned long long>(id.equipment_id)) +
+          ",emission=" +
+          std::to_string(static_cast<unsigned long long>(id.emission_id)) +
+          ") 类型=退出排除 旧码=" +
+          (event.previous_code) +
+          " 旧主因=" +
+          (EsrExclusionCauseName(event.previous_cause));
       CA_LOG_EVENT(world, "exclusion_cause",
                    "辐射源=(platform={},equipment={},emission={}) 类型=退出排除 旧码={} 旧主因={}",
                    static_cast<unsigned long long>(id.platform_id),

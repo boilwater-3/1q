@@ -105,6 +105,19 @@ void FusionComponent::Step(World& world, double dt_sec) {
       if (!channels.empty()) channels += ",";
       channels += CA_FMT_FORMAT("{}:{}", channel.first, channel.second);
     }
+    // 与下方写入行同内容：纯 std::string/std::to_string 拼接的日志字符串，供集成方直接搬入己方日志（示例自身不消费）。
+    const std::string fusion_updated_event_log =
+        std::string("键=") +
+        std::to_string(static_cast<unsigned long long>(event.key)) +
+        " 置信=" +
+        std::to_string(event.confidence) +
+        " 新增=" +
+        std::to_string(event.new_targets) +
+        " 消失=" +
+        std::to_string(event.lost_targets) +
+        " 通道=[" +
+        (channels.c_str()) +
+        "]";
     CA_LOG_EVENT_DUP(world, "fusion_updated", "键={} 置信={:.2f} 新增={} 消失={} 通道=[{}]",
                      static_cast<unsigned long long>(event.key), event.confidence,
                      event.new_targets, event.lost_targets, channels.c_str());
