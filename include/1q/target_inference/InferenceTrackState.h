@@ -24,7 +24,8 @@ enum class ONEQ_API InferenceTargetCategory : std::uint8_t {
   kFighter = 2,   /**< 战斗机。 */
   kBomber = 3,    /**< 轰炸机。 */
   kMissile = 4,   /**< 导弹。 */
-  kUav = 5,       /**< 无人机。 */
+  /* kUav = 5 已移除（2026-08-22 甲方裁定，产品不识别无人机）：槽位 5 保留
+     不复用（加性扩展、不重排），先验恒零、永不为 argmax。 */
   kOther = 6,     /**< 其它。 */
   kUnknown = 7    /**< 未知。 */
 };

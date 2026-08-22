@@ -75,11 +75,12 @@ void WriteInferenceAcceptance(const std::vector<InferenceTrackState>& tracks,
       forecast += " 落点经纬高=" + FormatVec3(traj.impact_point.latitude_deg,
                                               traj.impact_point.longitude_deg,
                                               traj.impact_point.altitude_m, 3);
+      forecast += " 误差椭圆半长/半短/方位=(" + FormatF(sigma, 1) + "m," + FormatF(sigma, 1) +
+                  "m,0°)";
     } else {
       forecast += " 落点经纬高=无";
+      forecast += " 误差椭圆半长/半短/方位=无";
     }
-    forecast += " 误差椭圆半长/半短/方位=(" + FormatF(sigma, 1) + "m," + FormatF(sigma, 1) +
-                "m,0°)";
     INFERENCE_ACCEPTANCE_ITEM(sim_time, cycle, "目标轨迹预报", forecast);
 
     if (traj.has_impact) {

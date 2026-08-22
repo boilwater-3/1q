@@ -125,13 +125,13 @@ TEST(TargetInferenceEngineTest, TypeAssessmentCombinesKinematicsAndEvidence) {
   const auto fused = engine.Infer({evidenced});
   EXPECT_EQ(fused.front().type.category, InferenceTargetCategory::kMissile);
 
-  // 低速低空无证据：无人机倾向。
+  // 低速低空无证据：kOther 倾向（无人机类别已按 2026-08-22 甲方裁定移除）。
   InferenceTrackState slow;
   slow.key = 7U;
   slow.position = oneq::coordinate::EcefPositionM(kEarthRadiusM + 1000.0, 0.0, 0.0);
   slow.velocity_ecef_m_per_s = {0.0, 80.0, 0.0};
   const auto slow_result = engine.Infer({slow});
-  EXPECT_EQ(slow_result.front().type.category, InferenceTargetCategory::kUav);
+  EXPECT_EQ(slow_result.front().type.category, InferenceTargetCategory::kOther);
 }
 
 TEST(TargetInferenceEngineTest, InvalidInputMarksTrajectoryInvalid) {

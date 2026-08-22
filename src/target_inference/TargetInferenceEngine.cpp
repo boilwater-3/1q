@@ -158,8 +158,8 @@ std::array<double, kInferenceCategoryCount> KinematicPrior(double speed_m_per_s,
     prior[static_cast<std::size_t>(InferenceTargetCategory::kBomber)] = 0.25;
     prior[static_cast<std::size_t>(InferenceTargetCategory::kOther)] = 0.20;
   } else {
-    prior[static_cast<std::size_t>(InferenceTargetCategory::kUav)] = 0.35;
-    prior[static_cast<std::size_t>(InferenceTargetCategory::kOther)] = 0.30;
+    // 低速低空：原无人机倾向已移除（2026-08-22 甲方裁定），归 kOther。
+    prior[static_cast<std::size_t>(InferenceTargetCategory::kOther)] = 0.35;
     prior[static_cast<std::size_t>(InferenceTargetCategory::kFighter)] = 0.10;
   }
   return prior;
@@ -215,6 +215,9 @@ std::vector<TargetInferenceResult> TargetInferenceEngine::Infer(
             LlaPositionDegM impact_lla{};
             if (ToLla(impact, &impact_lla)) {
               result.trajectory.has_impact = true;
+              /* 地表穿越点按本引擎球面地表模型即高度 0；ToLla 的 WGS84 椭球高与
+                 球面（赤道半径）混用会产生中纬度约 +5km 的伪高差，交付口径归零。 */
+              impact_lla.altitude_m = 0.0;
               result.trajectory.impact_point = impact_lla;
               result.trajectory.impact_time_offset_sec = t + frac * dt;
             }
@@ -236,9 +239,10 @@ std::vector<TargetInferenceResult> TargetInferenceEngine::Infer(
       }
 
       /* ---- 发射点回推（地表交点或速度停机门；助推段未建模） ---- */
-      auto backtrack = [this, dt](const RvState& start, double* elapsed) {
+      auto backtrack = [this, dt](const RvState& start, double* elapsed, bool* hit_surface) {
         RvState state = start;
         double t = 0.0;
+        *hit_surface = false;
         while (t < config_.launch_max_backtrack_sec) {
           const RvState next = Rk4Step(state, -dt, config_);
           if (!StateIsFinite(next)) {
@@ -255,6 +259,7 @@ std::vector<TargetInferenceResult> TargetInferenceEngine::Infer(
               launch.r[j] = state.r[j] + frac * (next.r[j] - state.r[j]);
               launch.v[j] = state.v[j] + frac * (next.v[j] - state.v[j]);
             }
+            *hit_surface = true;
             *elapsed = -(t + frac * dt);
             return launch;
           }
@@ -270,10 +275,15 @@ std::vector<TargetInferenceResult> TargetInferenceEngine::Infer(
       };
 
       double launch_elapsed = 0.0;
-      const RvState launch_state = backtrack(input_state, &launch_elapsed);
+      bool launch_hit_surface = false;
+      const RvState launch_state = backtrack(input_state, &launch_elapsed, &launch_hit_surface);
       if (launch_elapsed < 0.0) {
         LlaPositionDegM launch_lla{};
         if (ToLla(launch_state, &launch_lla)) {
+          if (launch_hit_surface) {
+            /* 同落点口径：地表交点高度归零；速度门停机分支保留真实空中高度。 */
+            launch_lla.altitude_m = 0.0;
+          }
           result.trajectory.has_launch = true;
           result.trajectory.launch_point = launch_lla;
           result.trajectory.launch_time_offset_sec = launch_elapsed;
@@ -295,7 +305,9 @@ std::vector<TargetInferenceResult> TargetInferenceEngine::Infer(
             perturbed.v[j / 2U] += eps[j];
           }
           double perturbed_elapsed = 0.0;
-          const RvState perturbed_launch = backtrack(perturbed, &perturbed_elapsed);
+          bool perturbed_hit_surface = false;
+          const RvState perturbed_launch =
+              backtrack(perturbed, &perturbed_elapsed, &perturbed_hit_surface);
           const std::array<double, 6U> nominal_in{input_state.r[0U], input_state.v[0U],
                                                   input_state.r[1U], input_state.v[1U],
                                                   input_state.r[2U], input_state.v[2U]};
