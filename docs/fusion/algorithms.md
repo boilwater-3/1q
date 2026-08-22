@@ -1,6 +1,6 @@
 ---
 Status: active
-Last-reviewed: 2026-08-18
+Last-reviewed: 2026-08-22
 Authority: fusion 算法清单与实现边界
 Answers: 每个融合算法怎么实现、边界在哪、反直觉点是什么
 ---
@@ -102,8 +102,8 @@ Answers: 每个融合算法怎么实现、边界在哪、反直觉点是什么
 
 ### 实现边界
 
-- **开关与零回退**：`enable_track_filtering` 默认 false——关闭时引擎行为与 P2 前
-  完全一致（关联/置信度/删除语义不变，仅输出追加 lifecycle 字段）。
+- **开关**：`enable_track_filtering` 默认 true。置 false 时引擎行为与 P2 前
+  完全一致（关联/置信度/删除语义不变，仅输出追加 lifecycle 字段，无运动学估计）。
 - **状态**：每航迹 6 维 ECEF CV [x,vx,y,vy,z,vz]；预测 = 无迹 + `LinearCvTransitionModel`
   （`track_process_noise`），dt = (cycle − 上次滤波周期) × `track_cycle_period_sec`。
 - **位置通道更新**：z = LLA→ECEF 位置，`UnscentedUpdater<6,3>` +

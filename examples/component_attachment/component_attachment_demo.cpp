@@ -239,9 +239,8 @@ int main(int argc, char* argv[]) {
   // 融合配置来自场景文件（空间门限/方位相干门限/特征门/窗口/失跟周期/源权重；
   // 基线场景放宽方位相干门限到 8°：ESR 假设方位含平滑滞差、EOS 探测含扫描
   // 中心残差，同物理目标的跨源方位差实测可达 4-6°——业务层调参，非库内标准）。
-  // 示例层显式开启逐航迹滤波（库内默认关闭保零回退）：AR 位置通道航迹获得
-  // 运动学估计（SBIRS 角度-only 无量测原点，走关联通道——估计层接入门示例）。
-  scene_data.fusion.enable_track_filtering = true;
+  // 逐航迹滤波库内默认开启（AR 位置通道有运动学估计；SBIRS 角度-only 无量测
+  // 原点时仍走关联通道）。
   platform.Attach(std::make_unique<ca::FusionComponent>(
       std::make_unique<fusion::FusionEngine>(scene_data.fusion)));
 

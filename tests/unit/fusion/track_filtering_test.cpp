@@ -163,8 +163,23 @@ const FusedTarget* FindByKey(const std::vector<FusedTarget>& targets, std::uint6
   return nullptr;
 }
 
-TEST(FusionTrackFilteringTest, FilteringDisabledByDefaultOutputsNoKinematics) {
+TEST(FusionTrackFilteringTest, FilteringEnabledByDefaultOutputsKinematics) {
   FusionEngine engine(FusionConfig{});
+  std::mt19937 engine_random(7U);
+  EcefPositionM truth(kEarthRadiusM, 0.0, 0.0);
+  for (std::uint64_t cycle = 1U; cycle <= 5U; ++cycle) {
+    const auto targets =
+        engine.Update({MakePositionRecord(7U, EcefToLla(NoisyEcef(truth, 50.0, engine_random)))},
+                      cycle);
+    ASSERT_EQ(targets.size(), 1U);
+    EXPECT_TRUE(targets.front().has_kinematic_estimate);
+  }
+}
+
+TEST(FusionTrackFilteringTest, FilteringExplicitlyDisabledOutputsNoKinematics) {
+  FusionConfig config;
+  config.enable_track_filtering = false;
+  FusionEngine engine(config);
   std::mt19937 engine_random(7U);
   EcefPositionM truth(kEarthRadiusM, 0.0, 0.0);
   for (std::uint64_t cycle = 1U; cycle <= 5U; ++cycle) {
