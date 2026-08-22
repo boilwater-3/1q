@@ -1,6 +1,6 @@
 ---
 Status: active
-Last-reviewed: 2026-08-21
+Last-reviewed: 2026-08-22
 Authority: RIR 模块级边界、非目标与设计变更规则
 Answers: RIR 有哪些模块级禁令与边界、哪些非目标、单位纪律与失败降级契约
 ---
@@ -245,7 +245,9 @@ CMake 开关 `ONEQ_ENABLE_RIR_ACCEPTANCE_LOG`（默认 OFF）门控。开启后�
 不进 `1q_library.log`，也不把融合/推演/精度抄进本文件。关闭时宏与派生计算一并
 编译剪除，零开销、行为逐位不变。项表与「不能输出」字段见
 `docs/review/acceptance_item_catalog_2026-08-22.md`。边界：仅人读验收材料，
-不属于三写、不进公开输出/replay。加粗缺项（舰船/车辆类型、真实 MTI/MTD 通道、
+不属于三写、不进公开输出/replay。MTI/MTD 通道数为验收旁路频谱派生（未进 SINR，
+见 `docs/review/rir_mti_mtd_acceptance_sidecar_freeze_2026-08-22.md`），日志写
+「验收派生」不写「经处理后」。加粗缺项（舰船/车辆类型、无链路时的 MTD 干扰通道、
 IMM 权重、指定角域裁剪后的搜索集合）写 `无`/`暂无`，不编造。
 
 ## 设计变更规则
