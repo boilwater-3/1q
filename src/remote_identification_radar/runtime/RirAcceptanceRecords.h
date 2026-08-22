@@ -47,6 +47,9 @@ struct RirDetectionAcceptInput {
   double echo_power_dbw{0.0};
   dwell::RirDetectionCellResult cell{};
   config::hardware::RirSignalProcessingConfig gains{};
+  double prf_hz{0.0};
+  double center_frequency_hz{0.0};
+  std::vector<oneq::electromagnetics::RfIncidentLinkResult> incident_links{};
 };
 
 void WriteRirAntennaPatternSummary(float sim_time_sec, std::uint32_t cycle, float peak_gain_dbi,

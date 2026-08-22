@@ -491,6 +491,20 @@ bool RirController::TryBuildMeasurement(
     snap.echo_power_dbw = detection.echo_power_dbw;
     snap.cell = cell;
     snap.gains = hardware_.signal_processing;
+    snap.prf_hz = static_cast<double>(hardware_.transmitter.prf_hz);
+    snap.center_frequency_hz =
+        rf_cycle.own_transmit_waveform.center_frequency_hz > 0.0
+            ? rf_cycle.own_transmit_waveform.center_frequency_hz
+            : static_cast<double>(hardware_.transmitter.frequency_hz);
+    snap.incident_links.reserve(rf_cycle.incident_links.size());
+    for (const auto& link : rf_cycle.incident_links) {
+      if (link.identity.platform_id == rf_cycle.own_emission_identity.platform_id &&
+          link.identity.equipment_id == rf_cycle.own_emission_identity.equipment_id &&
+          link.identity.emission_id == rf_cycle.own_emission_identity.emission_id) {
+        continue;
+      }
+      snap.incident_links.push_back(link);
+    }
     WriteRirDetectionChain(snap);
   }
 

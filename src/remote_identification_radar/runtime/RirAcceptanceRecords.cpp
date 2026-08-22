@@ -5,6 +5,7 @@
 
 #include "remote_identification_radar/runtime/RirAcceptanceRecords.h"
 
+#include <array>
 #include <cmath>
 #include <cstdlib>
 #include <fstream>
@@ -14,6 +15,7 @@
 #include "1q/remote_identification_radar/session/RirFeatureMeasurementTypes.h"
 #include "1q/remote_identification_radar/session/RirRecognitionResult.h"
 #include "common/logging/AcceptanceText.h"
+#include "common/radar/MtiMtdAcceptanceBank.h"
 #include "remote_identification_radar/dwell/RirAntennaPatternRuntime.h"
 #include "remote_identification_radar/runtime/RirAcceptanceLog.h"
 #include "remote_identification_radar/tracking/RirTrackAssociator.h"
@@ -54,6 +56,54 @@ const char* TrackStatusText(tracking::RirTrackStatus status) {
 }
 
 double HeadingDeg(double ve, double vn) { return std::atan2(vn, ve) * kRadToDeg; }
+
+std::string FormatChannelWatts(const std::array<double, oneq::common::radar::kMtiMtdChannelCount>& values) {
+  std::string text = "[";
+  for (std::size_t i = 0U; i < values.size(); ++i) {
+    if (i != 0U) {
+      text += ",";
+    }
+    text += FormatSci(values[i]);
+  }
+  text += "]";
+  return text;
+}
+
+bool TryBuildAcceptanceBank(const RirDetectionAcceptInput& input,
+                            oneq::common::radar::MtiMtdAcceptanceResult* bank) {
+  if (bank == nullptr || !input.has_cell) {
+    return false;
+  }
+  std::vector<oneq::common::radar::MtiMtdInterferenceTone> tones;
+  tones.reserve(input.incident_links.size());
+  for (const auto& link : input.incident_links) {
+    if (!std::isfinite(link.doppler_shift_hz)) {
+      continue;
+    }
+    const double power = std::isfinite(link.received_power_before_overlap_w)
+                             ? link.received_power_before_overlap_w
+                             : link.received_power_w;
+    if (!std::isfinite(power) || power < 0.0) {
+      continue;
+    }
+    oneq::common::radar::MtiMtdInterferenceTone tone;
+    tone.doppler_hz = link.doppler_shift_hz;
+    tone.power_w = power;
+    tones.push_back(tone);
+  }
+  oneq::common::radar::MtiMtdAcceptanceInput bank_input;
+  bank_input.echo_power_w = input.cell.echo_power_w;
+  bank_input.thermal_noise_power_w = input.cell.thermal_noise_power_w;
+  bank_input.clutter_power_w = input.cell.clutter_power_w;
+  bank_input.two_way_doppler_shift_hz = input.cell.two_way_doppler_shift_hz;
+  bank_input.prf_hz = input.prf_hz;
+  bank_input.center_frequency_hz = input.center_frequency_hz;
+  if (!tones.empty()) {
+    bank_input.tones = tones.data();
+    bank_input.tone_count = tones.size();
+  }
+  return oneq::common::radar::TryResolveMtiMtdAcceptanceBank(bank_input, bank);
+}
 
 std::string DefaultAntennaCsvPath() {
 #if defined(_MSC_VER)
@@ -110,6 +160,10 @@ void WriteRirDetectionChain(const RirDetectionAcceptInput& input) {
   const double target_sum_db = pc_db + coherent_db + target_db;
   const double pc_noise = thermal * std::max(pc, 0.0);
   const double mti_residual = clutter_db <= 0.0 ? clutter : clutter / FromDb(clutter_db);
+  oneq::common::radar::MtiMtdAcceptanceResult bank;
+  const bool has_bank = TryBuildAcceptanceBank(input, &bank);
+  const char* derived_missing =
+      input.has_cell ? "暂无（PRF/载频非法，无法派生）" : "暂无（无 detection cell，无法派生）";
 
   std::string echo = id + range;
   echo += " SNR=" + FormatF(input.snr_db, 3) + "dB";
@@ -127,20 +181,45 @@ void WriteRirDetectionChain(const RirDetectionAcceptInput& input) {
   gain += " 相干积累=" + FormatF(coherent_db, 3) + "dB(N=" + std::to_string(pulses) + ")";
   gain += " 目标偏置=" + FormatF(target_db, 3) + "dB";
   gain += " 目标侧合计=" + FormatF(target_sum_db, 3) + "dB";
-  gain += " MTI增益=无（无MTI滤波器；杂波抑制偏置=" + FormatF(clutter_db, 3) + "dB）";
+  gain += " 杂波抑制偏置=" + FormatF(clutter_db, 3) + "dB";
+  if (has_bank) {
+    gain += " 验收派生MTI增益=" + FormatF(bank.mti_gain_db, 3) + "dB";
+    gain += " 验收派生MTD增益=" + FormatF(bank.mtd_gain_db, 3) + "dB（未进SINR）";
+  } else {
+    gain += " 验收派生MTI增益=";
+    gain += derived_missing;
+    gain += " 验收派生MTD增益=";
+    gain += derived_missing;
+  }
   RIR_ACCEPTANCE_ITEM(input.sim_time_sec, input.cycle, "目标信号增益", gain);
 
   std::string noise_gain = "热噪声=" + FormatSci(thermal) + "W";
   noise_gain += " 脉压后噪声=" + FormatSci(pc_noise) + "W";
   noise_gain += " 噪声处理偏置=" + FormatF(noise_db, 3) + "dB";
-  noise_gain += " 多普勒通道噪声=无 MTD等效噪声=无";
+  if (has_bank) {
+    noise_gain += " 验收派生多普勒通道噪声=" + FormatChannelWatts(bank.noise_w) + "W";
+    noise_gain += " 验收派生MTD等效噪声=" + FormatSci(bank.mtd_equivalent_noise_w) + "W（未进SINR）";
+  } else {
+    noise_gain += " 验收派生多普勒通道噪声=";
+    noise_gain += derived_missing;
+    noise_gain += " 验收派生MTD等效噪声=";
+    noise_gain += derived_missing;
+  }
   noise_gain += " 噪声总增益=脉压线性增益+偏置";
   RIR_ACCEPTANCE_ITEM(input.sim_time_sec, input.cycle, "噪声增益", noise_gain);
 
   std::string clutter_text = id;
-  clutter_text += " MTI后剩余杂波=" + FormatSci(mti_residual) + "W";
+  clutter_text += " 主链偏置MTI后剩余杂波=" + FormatSci(mti_residual) + "W";
   clutter_text += " 杂波总抑制比=" + FormatF(clutter_db, 3) + "dB";
-  clutter_text += " MTD通道分布=无";
+  if (has_bank) {
+    clutter_text += " 验收派生MTI剩余杂波=" + FormatSci(bank.mti_residual_clutter_w) + "W";
+    clutter_text += " 验收派生MTD通道分布=" + FormatChannelWatts(bank.clutter_w) + "W（未进SINR）";
+  } else {
+    clutter_text += " 验收派生MTI剩余杂波=";
+    clutter_text += derived_missing;
+    clutter_text += " 验收派生MTD通道分布=";
+    clutter_text += derived_missing;
+  }
   RIR_ACCEPTANCE_ITEM(input.sim_time_sec, input.cycle, "杂波信号处理", clutter_text);
 
   std::string jam_text = id;
@@ -149,6 +228,17 @@ void WriteRirDetectionChain(const RirDetectionAcceptInput& input) {
   jam_text += range;
   jam_text += " 方位/俯仰=" + FormatPairDeg(input.look_az_deg, input.look_el_deg, 3) + "°";
   jam_text += " 干扰抑制偏置=" + FormatF(jam_db, 3) + "dB";
+  if (has_bank && bank.has_jam_channels) {
+    jam_text += " 验收派生MTI剩余干扰=" + FormatSci(bank.mti_residual_jam_w) + "W";
+    jam_text += " 验收派生MTD通道干扰=" + FormatChannelWatts(bank.jam_w) + "W（未进SINR）";
+  } else if (has_bank) {
+    jam_text += " 验收派生MTI剩余干扰=无 验收派生MTD通道干扰=无";
+  } else {
+    jam_text += " 验收派生MTI剩余干扰=";
+    jam_text += derived_missing;
+    jam_text += " 验收派生MTD通道干扰=";
+    jam_text += derived_missing;
+  }
   RIR_ACCEPTANCE_ITEM(input.sim_time_sec, input.cycle, "干扰信号处理增益", jam_text);
 
   std::string rcs = id;
