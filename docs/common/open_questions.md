@@ -2,7 +2,7 @@
 Status: active
 Authority: 非规定性记录（不构成契约约束）
 Lifecycle: 条目有结论后回写 contract.md 或 design.md 并从本文删除；不保留已收敛条目
-Last-reviewed: 2026-08-21
+Last-reviewed: 2026-08-23
 ---
 
 # 跨模块开放议题
@@ -21,14 +21,12 @@ Last-reviewed: 2026-08-21
 | ID | 域 | 主题 | 一句话 | Status |
 |---|---|---|---|---|
 | COMMON-OQ-1 | common | Windows/MSVC 全链验收 | presets/.bat 仅未验收脚手架，CI 只跑 macOS | needs-evidence |
-| COMMON-OQ-7 | common | 双 cycle_index 冗余 | 非执行周期 input_cycle_index 保留输入号，output_frame.cycle_index 为0 | open |
 | COMMON-OQ-8 | common | 周期时间/窗口静默拒绝 | 三类不同性质的拒绝门被并列；空帧 envelope 语义 AR/ESR 分裂 | open |
 | COMMON-OQ-9 | common | RIR 补丁提交策略归类 | 暂存+下周期批量提交、无 resolver 校验、恒 true，不符现有二分类 | open |
 | SAR-OQ-1 | sar | RDA 性能数字是否重测 | /O2 实测数字来自旧档位，需确认是否随真发布档更新 | open |
 | SAR-OQ-2 | sar | 脉冲环缓冲 O(1) 去重契约 | 依赖严格递增不变量，文档无 push 复杂度断言 | open |
 | AR-OQ-2 | airborne_radar | 集成层 rf-world 干扰接线 | examples 从共享 rf-world 派生 interference，模块文档未述 | open |
 | ESR-OQ-4 | electronic_surveillance_radar | 扫描采样点数上限截断 | 超 131072 点截断丢弃窗口末端，是否产品认可 | open |
-| RIR-OQ-2 | remote_identification_radar | 非执行周期输出帧周期号语义 | input_cycle_index/batch_id 保留输入号、载荷空，未用归零约定 | open |
 | RIR-OQ-3 | remote_identification_radar | inconsistent_platform_position 疑似死码 | 头文件有、代码无产生点，是否删除 | open |
 | AR-OQ-1 | airborne_radar | 假目标鉴别跨域命名双轨 | 观测域枚举 vs 量测域 bool | open |
 | ESR-OQ-1 | electronic_surveillance_radar | 压制干扰感知与 ECCM 链路缺失 | 死字段 + 无结构化观测 + 无 ECCM | open |
@@ -69,29 +67,6 @@ Last-reviewed: 2026-08-21
 - **再进入条件 (Stage A)**：提交锁定版本/提交与下载校验矩阵，提供 shell bootstrap 原型，并在真实
   Windows runner 上依次证明 configure、Debug/Release build、install、独立 consumer build/run；随后再决定
   保留、删除或重命名现有 presets 与 `.bat` 入口。
-
-### COMMON-OQ-7：CycleResult.input_cycle_index 与 OutputFrame.cycle_index 冗余
-
-- **现状**：五模块 `CycleResult` 均同时携带 `input_cycle_index`（本次输入周期号）与内嵌
-  `OutputFrame.cycle_index`。两者关系随周期成败而变：
-  1. 成功路径：两者均取自 `input.cycle_index`，数值恒等。
-  2. 非执行路径（COMMON-OQ-5 已统一为不复用）：`output_frame.cycle_index` 保持默认 `0`、
-     `input_cycle_index` 为本次输入号，二者分歧。
-  [evidence: include/1q/electro_optical_sensor/session/EosCycleResult.h]
-  RIR（2026-08 并入会话契约）为第三形态：输出帧周期号字段亦名 `input_cycle_index`，成功与非执行
-  周期两字段恒同取本次输入号（非执行周期输出帧仅载荷为空）——未采用"失败归零"，冗余以同名恒等
-  形态存在。
-  [evidence: include/1q/remote_identification_radar/session/RirCycleResult.h]
-  [evidence: include/1q/remote_identification_radar/session/RirOutputTypes.h]
-- **后果**：
-  1. 双字段在成功路径冗余、在失败路径语义分裂，阅读者需判断何时相等何时分歧。
-  2. 去重与周期失败语义耦合，无法独立处理。
-- **待决问题**：
-  1. 是否移除 `input_cycle_index`、统一用 `output_frame.cycle_index`。
-  2. 或反向统一为仅保留 `input_cycle_index`。
-- **当前边界**：五模块保留双字段。非执行周期中 `input_cycle_index` 承载"本次失败周期的归属号"语义，
-  `output_frame.cycle_index` 为默认 `0`，不可简单删除。
-- **再进入条件 (Stage A)**：评估单一周期号字段的可行性及其对 trace/replay 归属的影响。
 
 ### COMMON-OQ-8：周期输入时间/窗口字段无统一契约，违反时静默拒绝
 
@@ -317,21 +292,6 @@ Last-reviewed: 2026-08-21
   先冻结不变量边界再写入文档。
 
 ## Remote Identification Radar 非阻塞边界
-
-### RIR-OQ-2：非执行周期输出帧的周期号语义
-
-- **现状**：RIR 输出帧周期号字段亦名 `input_cycle_index`；关机/校验拒绝周期仍写入本次输入周期号
-  `input_cycle_index` 与下一个批次号 `batch_id`（载荷为空），未采用五模块"失败归零"约定
-  （`output_frame.cycle_index = 0`）。与 COMMON-OQ-7 的三形态记录相关但独立。
-  [evidence: src/remote_identification_radar/session/RirSession.cpp:199]
-  [evidence: include/1q/remote_identification_radar/session/RirOutputTypes.h]
-- **后果**：RIR 非执行周期输出帧携带"本次输入号"语义，与五模块读 RIR 结果（或反向）的调用方预期
-  不一致，跨模块读代码需辨别两套周期号语义。
-- **待决问题**：RIR 是否统一为五模块"失败归零"约定（或统一字段命名），还是保留"成功与非执行周期
-  均取本次输入号、载荷为空"的现状并作为 RIR 特有语义固化。
-- **当前边界**：session_contract.md 规则 8 已为 RIR 加例外说明；现状为"字段同名恒等、非执行周期载荷为空"。
-  不得在未裁定前宣称 RIR 与五模块周期语义相同。
-- **再进入条件 (Stage A)**：COMMON-OQ-7 单一周期号字段评估启动时，一并裁定 RIR 的命名与归零语义。
 
 ### RIR-OQ-3：inconsistent_platform_position 疑似死码
 

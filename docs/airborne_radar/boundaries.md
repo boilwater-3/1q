@@ -20,12 +20,13 @@ AR 遵守 `docs/common/contract.md`：
 2. 会话配置直接赋值 `ArSessionConfig`（语义档位是 `ArProfileConstants.h`
    中的预定义结构体常量）；运行期热更新直接写 `ArRuntimeConfigPatch`（显式 `has_*`）。
    不提供 ConfigBuilder，不承担 leaf setter 或隐式 validation。
-3. AR 输出遵守两通道 + 可选投影模型：产品通道（`TrackOutputFrame`）、信封通道（`ArCycleResult`）、
-   调试/生命周期/排除差分投影与 replay 分离（旧称三层）。仿真真值归属挂信封通道
-   （`ArCycleResult.track_attributions`，权威路径）；产品航迹内嵌的
-   `external_target_id`/`target_name` 为注册 deprecated 遗留（sim-only，session_contract.md
-   Attribution 挂载表，回收由后续独立工作处理）。
-4. decision seam 是同进程步间 observation/response，是唯一的 public 决策扩展点。
+3. AR 输出遵守分层周期记录 + 可选投影（`session_contract.md` 规则 15；旧称两通道/三层）。
+   产品层是 `TrackOutputFrame`；执行/副作用/仿真附件/闭环 provenance 在周期记录里分层，
+   **不**把 `DecisionObservation` 放进记录。落地前仍为扁平 `ArCycleResult`。
+   仿真真值归属挂仿真附件层（`ArCycleResult.track_attributions`，权威路径）；产品航迹内嵌的
+   `external_target_id`/`target_name` 为注册 deprecated 遗留（sim-only），回收由后续独立工作处理。
+4. decision 内部闭环是特征驱动的下一拍控制；唯一 public 缝是 `SubmitExternalDecision()`
+   （规则 15f）。`DecisionObservation` 不得进入周期记录。
 
 ## dt_sec 校验边界（反直觉，勿按"四模块一致"补齐）
 
@@ -80,10 +81,9 @@ ISA 标准大气，这些字段全部未被消费，属未接入的死输入。�
    `ArPlatformInput`（ECEF），不是场景目标适配器。
 2. cycle input 校验失败时不执行 pipeline，`ArCycleResult` 携带 validation issues 与显式 abort
    reason `kValidationRejected`（保留 replay/trace 数值语义）。
-3. **非执行周期统一不复用（五模块统一规则）**：`Step()` 与 `ArCycleResult.output_frame`
-   返回默认空帧（`cycle_index==0`、空 tracks/emission），不论是否存在上一有效输出。调用方仅凭
-   `Step()` 返回值即可判定本轮无新航迹。状态判断统一走 `StepWithResult().status`
-   （`kRejectedInvalidInput`/`kPoweredOff`/`kRejectedExecution`）。
+3. **非执行周期统一不复用**：`Step()` 与产品层返回空载荷，不论是否存在上一有效输出（规则 15d）。
+   调用方仅凭 `Step()` 即可判定本轮无新航迹。状态判断走 `StepWithResult()` 的执行层
+   （`kRejectedInvalidInput`/`kPoweredOff`/`kRejectedExecution`）。落地前空帧 `cycle_index` 仍可能为 0。
 4. controller 内部 `last_cycle_reused_previous_output` 仅是 RF 接收/检测侧跨周期状态机的簿记标志
    （捕获/恢复 snapshot 用），不进入 public `ArCycleResult`，也不等于公开输出帧被复用；不得据此推断
    `Step()` 会回传历史航迹。
@@ -98,10 +98,10 @@ ISA 标准大气，这些字段全部未被消费，属未接入的死输入。�
 ## 输出边界要求
 
 1. track output 保持系统侧航迹语义；名称、仿真便利信息或调试归因不能替代 stable association key/status。
-2. `ArCycleResult` 由 `ArSession` 汇总 controller、context 和 pipeline 状态，承载执行状态、validation issues、
-   abort reason、submitted commands、control profile、association quality metrics、decision observation 和已采用
-   来源 provenance；完整 proposal、待消费响应与 reducer 计数只属于内部 `ArReplayCycleRecord`，不进入 public
-   业务结果。
+2. `ArCycleResult` 由 `ArSession` 汇总 controller、context 和 pipeline 状态。落地后按规则 15
+   分层：执行状态与 `issues`、产品航迹、`emission_frame` 副作用、归属、闭环 provenance。
+   **不得**再携带 `decision_observation`。完整 proposal、待消费响应与 reducer 计数只属于内部
+   replay 状态，不进入 public 业务结果。落地前仍为扁平字段袋。
 3. query/debug/lifecycle/replay 是诊断辅助，不是用户扩展 signal pipeline 的入口；决策 SPI 不拥有输出结构，
    也不能绕过内部 output adapter 写系统输出。
 
@@ -147,25 +147,22 @@ AR 所有中止路径遵守 `session_contract.md` 规则 9 的三写模式与规
 当前周期输入目标表，目标从输入消失时其排除状态条目保留（不会被 A4 清除，与既有
 `ArTrackLifecycleRecorder` 的"消失目标状态保留"行为一致）；重现为 A3 而非 A2。
 
-### TrackOutputFrame 不扩展的决策依据
+### 周期记录分层（规则 15）：不要把闭环和副作用摊进产品航迹
 
-`TrackOutputFrame`（L1）只包含 track 快照（`cycle_index`、`batch_id`、`tracks`）。
-`ArCycleResult`（L2）承载 `emission_frame`、`receiver_impairment`、`interference_observations`、
-`submitted_commands`、`control_profile`、`decision_observation`、`association_quality_metrics` 等额外字段。
+`TrackOutputFrame` 只包含 track 快照（`cycle_index`、`batch_id`、`tracks`）。
+其余事实按层挂在周期记录上，而不是继续把 `ArCycleResult` 当成厨房水槽：
 
-**这些字段不合并入 TrackOutputFrame 的证据**：
+| 层 | 字段 | 为何不进产品航迹 |
+|---|---|---|
+| 副作用 | `emission_frame`、`receiver_impairment`、`interference_observations` | 物理已发生，产品可空 |
+| 闭环 | `control_profile`、`applied_decision_*`、指定回退 | 下一拍控制，不是本拍航迹 |
+| 仿真附件 | `track_attributions` | 真值对照 |
+| 禁止 | `decision_observation` | 航迹再复印；外部决策读产品层即可 |
 
-1. **消费者画像完全分离**：`ArTrackLifecycleRecorder` 和 `Step()` 只读 track；跨域测试
-   `ArRfTestCycleResult` 明确跳过 `emission_frame`；`TacticalCoordinator` 从 `DecisionInputFrame` 读
-   `interference_observations`，不从 `CycleResult` 读。
-2. **`emission_frame` 是孤立的**：唯一非基础设施消费者是 AR RF 测试自身。跨域消费者只读
-   `ecm_result.emission_frame`（ECM 的发射事实作为 AR 输入），不读 `ar_result.emission_frame`。
-3. **合并会污染 track-only 消费者**：`ArTrackLifecycleRecorder` 和 `Step()` 会被迫携带它们忽略的数据。
-
-`ArCycleResult` 的膨胀是 AR 多子系统（发射/接收/检测/跟踪/决策）耦合的自然结果，不是两通道+投影模型的缺陷。
-各字段在 L2 的位置是正确的——它们是"本周期执行结果的完整上下文"，不是"传感器原始输出"。
+`DecisionInputFrame` 仍是内部 `TacticalCoordinator` 的输入，不外发。
 
 [evidence: tests/integration/cross_domain/multi_model_scenario_test.cpp — ArRfTestCycleResult 字段选择]
+[evidence: src/airborne_radar/runtime/ArController.cpp]
 
 ## STT 指定航迹跟随与自动回退（方案 A，冻结）
 

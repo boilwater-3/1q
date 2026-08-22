@@ -21,7 +21,9 @@ SAR 遵守 `docs/common/contract.md`：
    `profiles::kL3BackprojectionProcessing`）。档位常量是完整子域
    结构体，整域赋值会重置未管理字段（如 `scene_center_*`、`l3_waypoints`），正确用法是"先赋档位、
    再设场景数据"。运行期热更新直接写 `SarRuntimeConfigPatch`（显式 `has_*`）；不提供 ConfigBuilder。
-3. SAR 输出遵守两通道 + 可选投影模型：产品通道、信封通道、调试视图分离（旧称三层会话输出模型）。
+3. SAR 输出遵守分层周期记录 + 可选投影（规则 15）。**聚焦图像是产品**，`Step()` 必须能拿到图像。
+   原始 IQ 默认不进周期记录。落地前 `Step()` 只返回 `SarOutputFrame` 元数据、图像与 IQ 同袋在
+   `SarCycleResult`，属待迁移实现。
    **勿与**下文「成像路径 L1/L1.5/L2/L3」混淆——后者是 RDA/动补/BP 成像档位，不是会话输出模型。
 4. `SarSession::StepWithResult` 在运行期配置和成像链路前调用 `ValidateSarCycleInput`；存在 error 级
    问题时记录 `invalid_cycle_input` abort，返回默认空帧（不复用上一有效输出，符合 contract.md
@@ -32,9 +34,8 @@ SAR 遵守 `docs/common/contract.md`：
 
 ### 非执行周期统一不复用（五模块统一规则）
 
-SAR 非执行周期（校验失败/执行 abort/设备关机）的 `Step()` 与 `SarCycleResult.output_frame` **永不复用**
-上一有效输出。调用方用 `StepWithResult().status` / `abort_reason` 判断周期状态。
-`reused_previous_output` 字段已删除。
+SAR 非执行周期（校验失败/执行 abort/设备关机）的产品层 **永不复用**上一有效输出。
+调用方用执行层 `status` / `abort_reason` 判断周期状态。`reused_previous_output` 字段已删除。
 
 实现细节：校验失败路径返回严格默认空帧（`cycle_index=0`、空载荷）；pipeline 中止路径
 （squint 成像门/SNR 门限/退化图像检测/状态恢复失败）在 `InitializeOutputFrameMetadata` 之后触发，因此
@@ -125,27 +126,22 @@ SAR 是「场景目标平台锚点 ENU 输入契约」（docs/common/contract.md
 熵非正、跨场景趋势。batch 没有直接读取 lifecycle recorder 或断言完整 ring-buffer 状态，因此不得把
 场景名扩大为这些内部状态的硬契约。场景 ID 与运行方式由 `tests/consumer/batch_validation/README.md` 维护。
 
-## 三层输出结构：L1/L1.5 分裂与诊断架构
-
-### OutputFrame 的 trivially_copyable 约束
+## 产品边界：图像是产品，IQ 默认不进记录（规则 15e）
 
 `SarOutputFrame` 是纯标量元数据（21 字段），受编译哨兵守护为 `trivially_copyable`。
-聚焦图像（`SarFocusedImage`）和原始相位历史（`SarRawPhaseHistory`）包含 `std::vector`，
-**结构性地无法放入 OutputFrame**。这不是偶然设计——它确保 OutputFrame 可零拷贝传递、序列化友好。
+聚焦图像含 `std::vector`，不能塞进这个元数据 struct——这只约束**元数据子结构**，
+不表示「图像不是产品」。
 
-因此 SAR 的三层模型存在结构性 L1/L1.5 分裂：
+| 落地后 | 类型 | 内容 |
+|---|---|---|
+| 产品 | 元数据 + `SarFocusedImage` | `Step()` 必须能拿到聚焦图像 |
+| 可选回放 | `SarRawPhaseHistory` | 默认不进周期记录；成像链回放另表 |
+| 执行 | `status` / `issues` / `abort_reason` | 分层周期记录的执行层 |
 
-| 层级 | 类型 | 内容 | trivially_copyable |
-|---|---|---|---|
-| L1 | `SarOutputFrame` | 产品元数据（处理阶段、网格尺寸、SNR、分辨率、熵、对比度、阶段标志） | ✅ |
-| L1.5 | `SarFocusedImage` + `SarRawPhaseHistory` | 产品数据（复数图像矩阵、原始 I/Q 向量） | ❌ |
-| L2 | `SarCycleResult` | L1 + L1.5 + 执行状态 + 诊断 | — |
-| L3 | `SarProductDebugView` / `SarProductLifecycleRecorder` | 人读视图、生命周期事件 | — |
+落地前现状（待废止）：`Step()` 只返回元数据；图像与 IQ 都在 `SarCycleResult` 里。
+不得再把 L1/L1.5 分裂写成权威产品模型。
 
-`Step()` 返回 L1 元数据；`StepWithResult()` 返回 L1 + L1.5 + 执行元数据。
-L1 和 L1.5 共同构成"本周期的完整产品输出"。
-
-[evidence: include/1q/sar/session/SarCycleResult.h — SarOutputFrame 结构定义]
+[evidence: include/1q/sar/session/SarCycleResult.h — SarOutputFrame / SarFocusedImage]
 [evidence: tests/unit/sar/sar_output_boundary_contract_test.cpp — trivially_copyable 编译期哨兵]
 
 ### 诊断架构：issues 为唯一诊断通道（统一问题列表模型，规则 14）

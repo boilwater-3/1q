@@ -2,7 +2,7 @@
 Status: active
 Last-reviewed: 2026-08-23
 Authority: 有 Session 的传感器模块的统一会话契约
-Answers: 会话配置直接赋值、Session 组合所有权、运行期配置提交策略、电源单源、两通道+可选投影输出模型、可观测性单源、Replay 持久化语义、条件五域 orientation
+Answers: 会话配置直接赋值、Session 组合所有权、运行期配置提交策略、电源单源、分层周期记录+可选投影、可观测性单源、Replay 持久化语义、条件五域 orientation
 ---
 
 # 会话相关模块契约
@@ -14,11 +14,13 @@ RIR 于 2026-08 并入本契约范围（会话门面/条件五域配置/电源�
 （SBIRS/AR/ESR/RIR 五域；EOS/SAR 四域）。所有模块都必须遵守的跨模块契约见
 `docs/common/contract.md`。
 
-**输出模型口径（2026-08-23）**：正文使用「两通道 + 可选投影」；「三层 / L1 / L2 / L3」为历史别名。
+**输出模型口径（2026-08-23）**：正文使用「分层周期记录 + 可选投影」（规则 15）。
+「两通道 / 信封嵌产品副本 / 三层 / L1 / L2 / L3」为历史别名，嵌副本口径已废止。
 齐套标准是产品形态表（见「可观测性单源」），不是「有没有某条并行通道」。
 目标列表型模块（AR/EOS/SBIRS/RIR）的三类观测投影为观测完备必选项；RIR 字段与挂载见
 `docs/review/rir_observability_projections_freeze_2026-08-21.md`。
 库内周期落盘只允许 Replay；禁止再引入不能被 `ReplayXxxTrace()` 消费的记录文件。
+规则 15 于 2026-08-23 冻结，**代码与 schema 尚未落地**——当前扁平 `*CycleResult` 不得解读为已实现。
 
 ## 会话配置直接赋值
 
@@ -52,11 +54,16 @@ raw pointer 回填组件关系，但 `Impl` 长期持有状态不得同时保存
 
 1. `Session` public move 语义由外层 `std::unique_ptr<Impl>` 承担；不得让 `Impl` 内部的冗余引用成为移动/所有权重构的隐藏前提。
 2. 组合根创建的默认 controller、pipeline、context、environment service 由对应 session 唯一拥有。
-3. AR 唯一 public 决策 seam 是 `ArCycleResult::decision_observation` 与
-   `ArSession::SubmitExternalDecision()` 组成的步间 observation/response seam。外部决策模块
-   与 session 同进程运行，但不注入或替换内部对象；内部 baseline 每个成功周期仍持续计算。
-   Public seam 只公开 profile 覆盖值、observation、提交状态和控制来源；默认决策器的
-   分类结果、模式与状态存储不得进入 `include/1q`。
+3. AR 内部闭环仍是「分析本拍特征 → 改下一拍发射控制」。
+   - 每成功周期：`TacticalCoordinator` 做威胁分类与 LPI/ECCM 提案，`ControlReducer` 收成
+     `ArControlProfile`，下一成功发射时消费。
+   - 唯一 public 决策缝是 `ArSession::SubmitExternalDecision()`（整包替换下一拍 profile）。
+   - 外部模块不注入或替换内部对象；分类与内部 baseline 每个成功周期仍持续计算。
+   - `DecisionObservation` / `DecisionInputFrame` 不得作为周期记录字段（规则 15f）。
+   - Public 只公开 profile 覆盖值、提交状态和控制来源 provenance；默认决策器的分类结果、
+     模式与状态存储不得进入 `include/1q`。
+   [evidence: src/airborne_radar/decision/TacticalCoordinator.cpp]
+   [evidence: src/airborne_radar/runtime/ArController.cpp]
    [evidence: tests/contract/airborne_radar/ar_public_api_convenience_test]
 4. 若未来新增非 owned 依赖，必须先在模块 design 或本契约声明其生命周期边界，不能通过 `Impl` 冗余引用隐式表达。
 
@@ -103,19 +110,32 @@ AR/ESR/EOS/SBIRS/SAR/RIR 六模块的电源状态必须遵守单源原则：
    不产生电源状态的二重路径。违反本契约的字段名/映射（`power_on`、`has_power_on`、
    `WithPowerOn` 回流）由 `tests/contract/check_cross_domain_naming.cmake` 阻断 7 硬性守护。
 
-## 两通道 + 可选投影输出模型
+## 分层周期记录 + 可选投影
 
-所有有 Session 的传感器/产品模块遵守本模型。齐套标准是**两个必选通道**；观测投影按产品形态选装，
-不得用「有没有旧称 L3」单独判定模块是否完整。
+所有有 Session 的传感器/产品模块遵守本模型。齐套标准是**一次 `StepWithResult()` 生产一份分层周期记录**；
+观测投影按产品形态选装。不得用「有没有旧称 L3」单独判定模块是否完整。
+「信封嵌有产品帧副本」口径已废止，详见规则 15。
 
-### 必选通道
+**实现状态（2026-08-23）**：规则已冻结，代码与 Replay schema **未落地**。当前头文件仍为扁平
+`*CycleResult`（内嵌 `output_frame`、SAR 图像与 IQ 同袋、AR `decision_observation`）。
+不得把当前字段布局解读为本节已实现。
 
-| 通道 | 旧称 | 入口 | 责任 |
+### 生产者与分层
+
+| 入口 | 责任 |
+|---|---|
+| `StepWithResult()` | 唯一真正的 Step：生产一份分层周期记录 |
+| `Step()` | 糖：只返回产品层（移动，不是第二份副本） |
+
+| 层 | 问的问题 | 放什么 | 非执行周期 |
 |---|---|---|---|
-| 产品通道 | L1 / 原始系统输出层 | `Step()` 返回的 `*OutputFrame` | 真实传感器或产品输出 |
-| 信封通道 | L2 / 结构化执行结果层 | `StepWithResult()` 返回的 `*CycleResult` | 输出帧、执行状态、校验、abort reason、诊断摘要；可承载仿真归属对照 |
+| 执行 | 这拍跑没跑成、为什么 | `cycle_index` + `status` + `abort_reason` + `issues` | 照样填 |
+| 产品 | 真实下游会拿到什么 | 航迹 / 探测 / 成像结果（SAR 含聚焦图像） | 空载荷 |
+| 副作用 | 即使没产品，物理上已发生什么 | AR/RIR `emission_frame` | 可以有（发射已提交、接收失败） |
+| 仿真附件 | 库外系统看不到的对照 | 归属表 | 空 |
+| 模块闭环 | 传感器自己的下一拍控制 | AR/RIR 指定回退、控制 provenance；不含决策观测袋 | 按模块 |
 
-信封通道**嵌有**本周期产品帧副本，不是产品通道之上的第三份独立产品。
+EOS / SBIRS / ESR 没有的层放空结构，不得为齐套假造。公开头保持 C++11：空对象表示缺席。
 
 ### 可选投影（旧称 L3 / 开发调试视图层）
 
@@ -125,7 +145,7 @@ AR/ESR/EOS/SBIRS/SAR/RIR 六模块的电源状态必须遵守单源原则：
 | 生命周期 | `*LifecycleRecorder` | 跨周期确认/更新/丢失等事件 |
 | 排除差分 | `*ExclusionCauseRecorder` | 跨周期排除原因 `(code,cause)` 差分事件 |
 
-投影按产品形态选装，完整齐套面（信封 / 三写 / 投影 / Replay）以「可观测性单源」产品形态表为准，
+投影按产品形态选装，完整齐套面（分层周期记录 / 三写 / 投影 / Replay）以「可观测性单源」产品形态表为准，
 不得在该表之外点菜增减通道。
 
 | 产品形态 | 模块 | 三类投影要求 |
@@ -135,7 +155,7 @@ AR/ESR/EOS/SBIRS/SAR/RIR 六模块的电源状态必须遵守单源原则：
 | 成像传感器 | SAR | ProductDebugView + ProductLifecycle；ExclusionCause 与规则 13b/13e 为空洞条款 |
 
 观测投影中，`*LifecycleRecorder` 是转换检测状态机（非数据存储）：累积状态刻意最小化为每实体
-1-bit 存在标志（已确认/已检测/已有产品），事件富信息在每次 `Update()` 时从信封通道实时转发，
+1-bit 存在标志（已确认/已检测/已有产品），事件富信息在每次 `Update()` 时从周期记录实时转发，
 不在内部累积。`*OutputDebugViewBuilder` 与 `*LifecycleRecorder` / `*ExclusionCauseRecorder`
 并列、互不消费——前者是无状态快照构造器，后两者是有状态跨周期状态机。
 `*OutputDebugViewBuilder` 对无探测/无轨迹目标回填**输入实体量值**（EOS 的方位/俯仰/距离、
@@ -145,8 +165,8 @@ SBIRS 的方位/俯仰（卫星→目标视线 ECI 极坐标，弧度）、AR �
 
 规则：
 
-1. `Step()` 只返回主系统输出帧。
-2. `StepWithResult()` 是状态判断入口。
+1. `StepWithResult()` 是唯一真正的 Step，生产一份分层周期记录（规则 15）。
+2. `Step()` 只返回产品层；不得再声称周期记录嵌有产品副本。
 3. 日志只用于人读运行信息，状态判断不得依赖解析日志文本。
 4. 调用方主动注入且被结构化结果正确拒绝的无效输入属于可预期边界，不记 error；批量验证中只有
    "未按预期拒绝"或拒绝后状态发生污染才记 error 并使验证失败。
@@ -155,12 +175,12 @@ SBIRS 的方位/俯仰（卫星→目标视线 ECI 极坐标，弧度）、AR �
    validation error。若未来引入可表达负数的外部输入入口，负数 ID 必须在转换为
    public `std::uint64_t` DTO 前被拒绝。
 7. 仿真真值不得混入面向外部系统的真实输出通道。
-8. `*CycleResult` 的输出帧、指标和诊断产品仅在 `status == kCompleted` 时代表
-   本周期有效计算结果；非执行周期返回默认空帧
-   （`cycle_index=0`、空载荷），不复用上一有效输出，不得按真实零值参与统计。
-   `reused_previous_output` 概念已废除。
-   （RIR 例外说明：其输出帧周期号字段名为 `input_cycle_index`，非执行周期仍写入
-   本次输入号、载荷保持空——命名与"失败周期归零"约定不同，同见 COMMON-OQ-7。）
+8. 周期号只活在执行层，永远等于本次输入号（成功与非执行相同）。产品层仅在
+   `status == kCompleted` 时代表本周期有效计算结果；非执行周期产品为空载荷，
+   不复用上一有效输出，不得按真实零值参与统计，也不得用产品帧 `cycle_index=0`
+   表示「没发生」。`reused_previous_output` 概念已废除。
+   （落地前现状：多数模块仍同时带 `input_cycle_index` 与内嵌 `output_frame.cycle_index`，
+   失败路径后者为 0——这是待迁移实现，不是本规则的目标形态。）
 9. 所有中止路径（`abort_reason` 非 `kNone`）必须执行三写：
    a. **结构化信号**：设置 `abort_reason`（粗粒度枚举，~6 值，与模块对齐）。
    b. **结构化诊断**：写入唯一问题列表 `*IssueList`（统一问题列表模型，规则 14），
@@ -391,30 +411,31 @@ SBIRS 的方位/俯仰（卫星→目标视线 ECI 极坐标，弧度）、AR �
 
 | 模块 | 归属位置 | 理由 |
 |---|---|---|
-| AR | 双挂载：产品通道（`TrackStateSnapshot` 内嵌 `external_target_id`/`target_name`，**deprecated 遗留**，sim-only）＋ 信封通道（`ArCycleResult.track_attributions`，**权威路径**） | **历史特例**：track 是系统级估计，关联键历史上写进产品航迹。信封对照表已补齐（2026-08-21，与 RIR 同构、产品导出航迹级），产品字段降级为 deprecated 遗留，回收（去真值化）由后续独立工作处理 |
-| EOS | 信封通道（`EosCycleResult.detection_attributions`） | detection 是原始传感器输出，归属是仿真附加信息 |
-| SBIRS | 信封通道（`SbirsCycleResult.detection_attributions`） | 同 EOS |
-| RIR | 信封通道（`RirCycleResult.track_attributions`） | 同为信封对照表；产品粒度航迹级，归属航迹级（不进 `RirOutputFrame` 产品通道） |
+| AR | 双挂载：产品层（`TrackStateSnapshot` 内嵌 `external_target_id`/`target_name`，**deprecated 遗留**，sim-only）＋ 仿真附件层（`ArCycleResult.track_attributions`，**权威路径**） | **历史特例**：track 是系统级估计，关联键历史上写进产品航迹。对照表已补齐（2026-08-21，与 RIR 同构、产品导出航迹级），产品字段降级为 deprecated 遗留，回收（去真值化）由后续独立工作处理 |
+| EOS | 仿真附件层（`EosCycleResult.detection_attributions`） | detection 是原始传感器输出，归属是仿真附加信息 |
+| SBIRS | 仿真附件层（`SbirsCycleResult.detection_attributions`） | 同 EOS |
+| RIR | 仿真附件层（`RirCycleResult.track_attributions`） | 同为对照表；产品粒度航迹级，归属航迹级（不进 `RirOutputFrame` 产品层） |
 | ESR | 无归属数据 | ESR 输出是观测+假设，不含检测到目标的映射 |
 | SAR | 无归属数据 | SAR 输出是图像产品，不含检测到目标的映射 |
 
 规则：
-1. **产品通道默认不含仿真真值归属**（EOS/SBIRS/RIR 已遵守；AR 为上表历史特例——产品字段已标记
-   deprecated/sim-only，权威关联路径是信封 `ArCycleResult.track_attributions`，新代码不得以产品
+1. **产品层默认不含仿真真值归属**（EOS/SBIRS/RIR 已遵守；AR 为上表历史特例——产品字段已标记
+   deprecated/sim-only，权威关联路径是 `ArCycleResult.track_attributions`，新代码不得以产品
    字段为关联依据）。
-2. **信封通道允许承载归属**——归属是结构化数据（非人读），Replay 落盘需要消费。
-3. **观测投影通过信封通道访问归属**，不是归属的唯一载体。
+2. **仿真附件层允许承载归属**——归属是结构化数据（非人读），Replay 落盘需要消费。
+3. **观测投影通过周期记录访问归属**，不是归属的唯一载体。
 4. EOS/SBIRS 的 `*CycleOutputAdapter` 守卫（如 `SbirsOutputFrameContainsOnlyNativeFields()`）
-   确保产品通道不含归属泄漏。
-5. **新产品类型的真值归属只允许信封挂载**，由 CI 源码守卫 `attribution_mounting_guard`
+   确保产品层不含归属泄漏。
+5. **新产品类型的真值归属只允许仿真附件层挂载**，由 CI 源码守卫 `attribution_mounting_guard`
    （`tests/contract/check_attribution_mounting.cmake`）强制：公共头中的真值标识符
    （`external_target_id`/`target_name`/`*Attribution*`）只允许出现在守卫注册表内；AR 产品遗留
    注册表冻结、不得新增条目，特例不再开第二次。
 
 ## 可观测性单源
 
-调用方面只记四件事：信封事实、派生投影、Replay 落盘、`PROJECT_LOG` 人读旁路。
-禁止再引入与信封并行的第二套周期事实生产者，禁止再引入不能被 `ReplayXxxTrace()` 消费的记录文件。
+调用方面只记四件事：分层周期记录、派生投影、Replay 落盘、`PROJECT_LOG` 人读旁路。
+禁止再引入与 `StepWithResult()` 并行的第二套周期事实生产者，禁止再引入不能被
+`ReplayXxxTrace()` 消费的记录文件。
 
 本规则约束有 `*Session` 的传感器模块（AR/ESR/EOS/SAR/SBIRS/RIR）。ECM 是效应器，不进
 IssueList / 三写 / 三类投影，只提供周期状态与 Replay 落盘。fusion / threat_assessment /
@@ -422,13 +443,14 @@ navigation / flight_dynamic 是算法面，不进本模型。
 
 ### 四件事
 
-1. **信封是唯一结构化事实。** 机器消费只认 `StepWithResult()` 返回的 `*CycleResult`
-   （产品帧副本、`status`、`abort_reason`、`issues`，含规则 13b 的 kInfo 排除）。
-2. **投影是信封的视图，不是第二套事实。** DebugView / Lifecycle / ExclusionCause 只读
-   同周期 `input` 与 `*CycleResult`，禁止自行再写一份排除或中止原因。Attach 与否零行为改变（规则 11c）。
-3. **落盘只有 Replay。** 需要复现实验时使用 `*RecordingSession` + `ReplayTraceWriter`；
+1. **生产者唯一。** 机器消费只认 `StepWithResult()` 返回的分层周期记录
+   （执行层 `status` / `abort_reason` / `issues`，含规则 13b 的 kInfo 排除；产品层见规则 15）。
+   单源指一次周期一份记录，不是一个扁平上帝结构体。
+2. **投影是记录的视图，不是第二套事实。** DebugView / Lifecycle / ExclusionCause 只读
+   同周期 `input` 与周期记录，禁止自行再写一份排除或中止原因。Attach 与否零行为改变（规则 11c）。
+3. **落盘只有 Replay，且按层编码。** 需要复现实验时使用 `*RecordingSession` + `ReplayTraceWriter`；
    回放入口为 `ReplayXxxTrace()`。禁止再引入 FlexBuffers 观测帧、手搓 cycle JSON 或任何
-   不能被 `ReplayXxxTrace()` 消费的记录文件。
+   不能被 `ReplayXxxTrace()` 消费的记录文件。Recording 不得为落盘再拷一份产品。
 4. **`PROJECT_LOG` 是人读旁路。** 默认关闭；状态判断禁止解析日志文本（规则 3）。
    示例层中文事件与验收文件（`*acceptance.log`）不是库可观测性 API。
 
@@ -439,7 +461,7 @@ navigation / flight_dynamic 是算法面，不进本模型。
 
 「有没有某通道」不得由模块自选。形态决定必选面；豁免只允许写在本表。
 
-| 形态 | 模块 | 信封 + 三写 | 投影 | Replay 落盘 |
+| 形态 | 模块 | 周期记录 + 三写 | 投影 | Replay 落盘 |
 |---|---|---|---|---|
 | 目标列表传感器 | AR / EOS / SBIRS / RIR | 必选 | DebugView + Lifecycle + ExclusionCause | `*RecordingSession` + `ReplayXxxTrace` |
 | 非目标列表传感器 | ESR | 必选 | 仅 ExclusionCause（发射源身份键）；不提供目标 DebugView / Lifecycle | 同上 |
@@ -449,22 +471,56 @@ navigation / flight_dynamic 是算法面，不进本模型。
 
 规则：
 
-1. **单源**：一个周期事实只允许信封通道生产；投影与 Replay 只能消费 `*CycleResult`（及同周期 input）。
+1. **单源**：一个周期事实只允许 `StepWithResult()` 生产；投影与 Replay 只能消费该周期记录（及同周期 input）。
 2. **单落盘**：`ReplayTraceWriter` 是库内唯一周期持久化格式。禁止再引入不能被 `ReplayXxxTrace()`
    消费的记录文件。
 3. **记录包装器**：上表承诺 Replay 的模块必须提供 `*RecordingSession` 门面，选项仅 `replay_writer`
    与是否在构造时记录配置；不得再提供第二套不能回放的记录选项。
 4. **点菜式覆盖视为契约违规**：模块不得在齐套表外自行增减通道；新增形态必须先改本表。
 
-**对齐状态（2026-08-23）**：六传感器 + ECM 已按产品形态表齐套。RIR 已提供 `RirRecordingSession` /
-`ReplayRirTrace`，中止路径已补三写（关机细码 `rir.sensor_powered_off`）。ECM 按效应器行豁免
-IssueList/三写/三类投影。
+**对齐状态（2026-08-23）**：产品形态表（投影 / Recording 门面 / 三写）六传感器 + ECM 已齐套。
+规则 15 分层记录为**契约冻结、代码未落地**。
 
 [evidence: include/1q/remote_identification_radar/session/RirRecordingSession.h]
 [evidence: include/1q/remote_identification_radar/session/RirReplaySession.h]
 [evidence: tests/replay/remote_identification_radar/rir_replay_session_test.cpp]
 [evidence: tests/contract/remote_identification_radar/rir_three_write_guard_test.cpp]
 [evidence: src/remote_identification_radar/session/RirSession.cpp]
+
+## 规则 15：分层周期记录（2026-08-23 冻结）
+
+有 Session 的传感器模块必须对齐。ECM 效应器与算法面不适用。
+本规则是下一轮 DTO / schema 改造的权威；当前扁平 `*CycleResult` 是待迁移实现。
+
+- **15a 一次生产。** 一个周期只允许 `Session::StepWithResult()` 生产一份周期记录。
+  投影与 Replay 只消费该记录及同周期 input。
+- **15b 按层组合。** 记录含执行 / 产品 / 副作用 / 仿真附件；AR/RIR 闭环（指定、控制 provenance）可另成块。
+  禁止把 Lifecycle 事件、`DecisionObservation` 航迹复印塞进记录。
+- **15c 产品不嵌套复制。** 废止「信封嵌有产品帧副本」。`Step()` 从同一记录取出产品层。
+- **15d 单一周期号。** 执行层 `cycle_index` 永远等于本次输入号。产品在非执行周期为空载荷，
+  不得用产品帧 `cycle_index=0` 表示未发生。（收敛原 COMMON-OQ-7、RIR-OQ-2。）
+- **15e SAR 产品边界。** 聚焦图像是产品，`Step()` 必须能拿到图像。
+  `SarOutputFrame` 标量元数据可作为产品内的 trivially_copyable 子结构。
+  原始相位历史（IQ）默认不进周期记录；仅在调用方显式要求成像链回放时另表落盘。
+  [evidence: include/1q/sar/session/SarCycleResult.h]
+- **15f AR 决策缝。** 内部「特征 → 分类 → LPI/ECCM → 下一拍 `ArControlProfile`」闭环保留。
+  `DecisionObservation` / `DecisionInputFrame` 不得作为周期记录字段。
+  唯一 public 决策缝是 `SubmitExternalDecision()`；外部模块读产品航迹、干扰观测、本拍 `control_profile`。
+  周期记录只留 `applied_decision_source` 与对应 cycle/batch。
+  Replay 覆盖用独立 submit 事件，不落盘第二份航迹。
+  [evidence: src/airborne_radar/decision/TacticalCoordinator.cpp]
+  [evidence: include/1q/airborne_radar/session/ArCycleResult.h]
+
+**对齐状态（2026-08-23）**：契约冻结，代码与 schema 未落地。
+
+本周交付模块（RIR / SBIRS）**不改 public `*CycleResult` 字段布局**。规则 15 对它们是目标形态映射，不是本周改动清单：
+
+| 模块 | 本周 | 现有字段如何对应分层 | 交付后再动 |
+|---|---|---|---|
+| SBIRS | 不动 public DTO / Replay schema | 执行 = `input_cycle_index`+`status`+`issues`+`abort_reason`；产品 = `output_frame`；仿真附件 = `detection_attributions`。无副作用、无闭环、无决策观测袋。 | 可选嵌套成层；唯一行为差是 15d（失败时产品帧 `cycle_index` 现为 0） |
+| RIR | 不动 public DTO / Replay schema | 执行同上；产品 = `output_frame`；副作用 = `emission_frame`；仿真附件 = `track_attributions`；闭环 = 指定回退 / `dwell_center_deg` / 识别摘要。无 `DecisionObservation`。失败周期已把输入号写进输出帧（更接近 15d）。 | 可选嵌套成层，不改语义 |
+
+行为向改造（SAR 图像进产品、AR 拆决策观测袋）不进 RIR/SBIRS 本周范围。
 
 ## Replay 持久化语义
 

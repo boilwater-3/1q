@@ -23,7 +23,7 @@ EOS 遵守 `docs/common/contract.md`：
    Profile 跨域覆写 `policy.detection.minimum_snr_db`"语义已消除：配置不再有隐式优先级，任何字段的赋值即
    最终决定（档位在前、微调在后时微调胜出）。运行期热更新直接写 `EosRuntimeConfigPatch`（显式 `has_*`）；
    不提供 ConfigBuilder。
-3. EOS 输出遵守两通道 + 可选投影模型：产品通道、信封通道、调试/生命周期/排除差分投影分离（旧称三层）。
+3. EOS 输出遵守分层周期记录 + 可选投影（规则 15；旧称两通道/三层）。落地前仍为扁平 `EosCycleResult`。
 4. `EosSession::StepWithResult` 在执行 pipeline 前调用 `ValidateEosCycleInput`；存在 error 级问题时
    不执行 pipeline、返回默认空帧并记录校验失败状态（符合 contract.md §实现安全与失败语义规则 3）。
 5. EOS runtime config 属于先完整校验、后一次提交的原子语义；`EosRuntimeConfigResolver` 解析 patch，
@@ -112,9 +112,9 @@ ESR 同引擎），退化判定（模长下限）与斜距输出留在 `EosLookA
 
 ### 非执行周期统一不复用（五模块统一规则）
 
-EOS 非执行周期（校验失败/关机/执行 abort）的 `Step()` 与 `EosCycleResult.output_frame` 一律返回**默认空帧**
-（`cycle_index=0`、空检测），**永不复用**上一有效输出。调用方用 `StepWithResult().status` /
-`abort_reason` 判断周期状态。`reused_previous_output` 字段已删除。
+EOS 非执行周期（校验失败/关机/执行 abort）的产品层一律为空载荷，**永不复用**上一有效输出
+（规则 15d）。调用方用执行层 `status` / `abort_reason` 判断周期状态。落地前空帧
+`cycle_index` 仍可能为 0。`reused_previous_output` 字段已删除。
 
 [evidence: tests/contract/electro_optical_sensor/eos_public_api_convenience_test.cpp::StepReturnsEmptyFrameOnValidationFailureAfterSuccess]
 

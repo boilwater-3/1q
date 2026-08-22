@@ -1,6 +1,6 @@
 ---
 Status: active
-Last-reviewed: 2026-08-20
+Last-reviewed: 2026-08-23
 Authority: sbirs_sensor 模块级边界、非目标、能力决策与变更规则
 Answers: SBIRS 有哪些模块级边界、哪些能力刻意不实现及为什么、输出归属规则、变更规则
 ---
@@ -21,15 +21,15 @@ replay schema 的 session config 表承载 `sensor_enabled`。旧名 `power_on`/
 [evidence: tests/unit/sbirs_sensor/sbirs_runtime_config_resolver_test]
 [evidence: tests/replay/sbirs_sensor/sbirs_replay_codec_roundtrip_test]
 
-## 输出与仿真归属（两通道 + 可选投影）
+## 输出与仿真归属（分层周期记录 + 可选投影）
 
-SBIRS 遵守两通道 + 可选投影输出模型（`session_contract.md`；旧称三层）：
+SBIRS 遵守分层周期记录 + 可选投影（`session_contract.md` 规则 15；旧称两通道/三层）。落地前仍为扁平 `SbirsCycleResult`。
 
-| 通道/投影 | 旧称 | 入口 | 责任 |
-|---|---|---|---|
-| 产品通道 | 原始系统输出层 | `Step()` 返回的 `SbirsOutputFrame` | 1q 仿真传感器主输出 |
-| 信封通道 | 结构化执行结果层 | `StepWithResult()` 返回的 `SbirsCycleResult` | 输出帧、执行状态、校验、abort reason、诊断摘要、归属对照 |
-| 观测投影 | 开发调试视图层 | `SbirsOutputDebugViewBuilder` / `SbirsDetectionLifecycleRecorder` / `SbirsExclusionCauseRecorder` | 人读状态、生命周期事件、排除原因差分、输入实体回填 |
+| 层/投影 | 入口 | 责任 |
+|---|---|---|
+| 产品 | `Step()` → `SbirsOutputFrame` | 检测记录 |
+| 周期记录 | `StepWithResult()` → `SbirsCycleResult` | 执行状态、诊断、仿真附件（归属） |
+| 观测投影 | DebugView / Lifecycle / ExclusionCause | 人读快照、生命周期、排除差分 |
 
 非执行周期（`status != kCompleted`）表示本周期没有产生新的目标观测事实。所有 recorder（
 `SbirsDetectionLifecycleRecorder` 与 `SbirsExclusionCauseRecorder`）在该边界返回空事件
@@ -38,9 +38,8 @@ SBIRS 遵守两通道 + 可选投影输出模型（`session_contract.md`；旧�
 
 ### 非执行周期统一不复用（五模块统一规则）
 
-SBIRS 非执行周期（校验失败/执行 abort）的 `Step()` 与 `SbirsCycleResult.output_frame` 一律返回**默认空帧**
-（`cycle_index=0`、空检测），**永不复用**上一有效输出。调用方用 `StepWithResult().status` /
-`abort_reason` 判断周期状态。`reused_previous_output` 字段已删除。
+SBIRS 非执行周期（校验失败/执行 abort）的产品层一律为空载荷，**永不复用**上一有效输出（规则 15d）。
+调用方用执行层 `status` / `abort_reason` 判断周期状态。落地前空帧 `cycle_index` 仍可能为 0。
 
 [evidence: tests/contract/sbirs_sensor/sbirs_public_api_convenience_test.cpp::StepReturnsEmptyFrameOnValidationFailureAfterSuccess]
 
