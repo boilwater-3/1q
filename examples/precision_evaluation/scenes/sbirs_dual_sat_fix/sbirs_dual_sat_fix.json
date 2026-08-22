@@ -1,0 +1,55 @@
+{
+  "name": "sbirs_dual_sat_fix",
+  "cycles": 60,
+  "dt_sec": 1.0,
+  "utc_julian_day": 2451544.2230698913,
+  "inference_horizon_sec": 1200.0,
+  "satellites": [
+    {
+      "id": "A",
+      "position_ecef_m": [7000000.0, 0.0, 0.0],
+      "velocity_ecef_mps": [0.0, 0.0, 0.0],
+      "scan_start_az_deg": 79.5,
+      "scan_span_deg": 11.0,
+      "scan_rate_deg_per_sec": 1.0,
+      "wide_field_fov_az_deg": 20.0,
+      "wide_field_fov_el_deg": 20.0,
+      "narrow_field_fov_az_deg": 5.0,
+      "narrow_field_fov_el_deg": 5.0,
+      "wide_min_snr_linear": 0.001,
+      "narrow_min_snr_linear": 0.001,
+      "noise_equivalent_power_w": 1.0e-18,
+      "integration_time_sec": 1.0
+    },
+    {
+      "id": "B",
+      "position_ecef_m": [0.0, 7000000.0, 0.0],
+      "velocity_ecef_mps": [0.0, 0.0, 0.0],
+      "scan_start_az_deg": 351.9,
+      "scan_span_deg": 11.0,
+      "scan_rate_deg_per_sec": 1.0,
+      "wide_field_fov_az_deg": 20.0,
+      "wide_field_fov_el_deg": 20.0,
+      "narrow_field_fov_az_deg": 5.0,
+      "narrow_field_fov_el_deg": 5.0,
+      "wide_min_snr_linear": 0.001,
+      "narrow_min_snr_linear": 0.001,
+      "noise_equivalent_power_w": 1.0e-18,
+      "integration_time_sec": 1.0
+    }
+  ],
+  "targets": [
+    {
+      "key": 1,
+      "position_ecef_m": [8000000.0, 6000000.0, 0.0],
+      "velocity_ecef_mps": [-3200.0, -2400.0, 0.0],
+      "radiant_intensity_w_per_sr": 1.0e8
+    },
+    {
+      "key": 2,
+      "position_ecef_m": [8200000.0, 5800000.0, 0.0],
+      "velocity_ecef_mps": [3266.0, 2309.0, 0.0],
+      "radiant_intensity_w_per_sr": 1.0e8
+    }
+  ]
+}

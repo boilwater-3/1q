@@ -66,15 +66,20 @@ examples/
 详见 [`component_attachment/README.md`](component_attachment/README.md)。
 
 `precision_evaluation/` 为评估层集成参考（需求 3.2.1.6.3 定位精度分析）：
-硬编码双星几何（两颗卫星各测一条视线）+ 双目标弹道真值，每周期推进真值并驱动
+场景 JSON 给出双星几何与双目标弹道真值，每周期推进真值并驱动
 `PrecisionEvaluationSession`（内部自持双星 SBIRS + 融合逐航迹滤波 + 弹道推演），
 结束打印五项误差统计（红外测角 / 双星交会位置 / 速度 / 落点 / 发射点）与
-AHP 加权综合得分，并做"五指标均有样本 + AHP 合法 + 综合分 ∈ (0,1]"自检：
+AHP 加权综合得分，并把目录第 6 节写入 `precision_acceptance.log`。
+默认场景 `scenes/sbirs_dual_sat_fix/`（宽窄视场齐套仍用
+`component_attachment` 的 `sbirs_wfov_nfov_handover`）：
 
 ```bash
-cmake --build --preset llvm-ninja-release-local --target precision_evaluation_demo
-./build/llvm-ninja-release-local/bin/precision_evaluation_demo [--cycles 60]
-# 逐周期 [PrecisionEval] 事件流：configure 时加 -DONEQ_ENABLE_PRECISION_EVALUATION_LOG=ON
+# configure 加 -DONEQ_ENABLE_PRECISION_EVALUATION_LOG=ON 后
+cmake --build --preset <preset> --target precision_evaluation_demo
+# Windows：./build/VisualStudio.15.0-amd64/Release/bin/precision_evaluation_demo.exe
+# macOS：  ./build/<preset>/bin/precision_evaluation_demo
+# [--scene <path>] [--cycles 60] [--output-dir <dir>]
+# 验收文件默认 examples/precision_evaluation/log/<场景名>/precision_acceptance.log
 ```
 
 ## 共享便利层
@@ -98,6 +103,8 @@ cmake --build --preset llvm-ninja-release-local --target precision_evaluation_de
 | `SCENE_CONFIG_DIR` | component_attachment demo 与单元测试 | 指向 `examples/configs/`，供 config_loader 加载 JSON |
 | `CA_SCENE_DIR` | component_attachment demo | 指向 `examples/component_attachment/scenes/`，`--scene` 默认值 |
 | `CA_DEFAULT_OUTPUT_DIR` | component_attachment demo | 指向 `examples/component_attachment/log/`，`--output-dir` 默认值（运行时产物不入版本控制） |
+| `PE_DEFAULT_SCENE_FILE` | precision_evaluation demo | 指向 `scenes/sbirs_dual_sat_fix/sbirs_dual_sat_fix.json` |
+| `PE_DEFAULT_OUTPUT_DIR` | precision_evaluation demo | 指向 `examples/precision_evaluation/log/`（运行时产物不入版本控制） |
 
 ## 相关文档
 

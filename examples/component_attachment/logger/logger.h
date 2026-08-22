@@ -43,9 +43,10 @@ namespace demo {
 
 /// 初始化集成端日志（spdlog 分支：装配 1q_library.log 默认 logger + 事件/视图
 /// 两个命名 logger；Windows 文件后端分支：经 ONEQ_FILE_LOG_PATH 指引库日志 +
-/// 打开两个集成端日志文件。幂等）。main 装配时在会话创建前调用一次（先于库
-/// 首次写日志）；未初始化时 LogEvent / LogViewSummary 静默跳过（单元测试不初始
-/// 化也可安全编译运行）。
+/// 打开两个集成端日志文件。幂等）。同时把各层验收文件
+/// （`rir_acceptance.log` 等）钉到同一 `output_dir`。main 装配时在会话创建前
+/// 调用一次（先于库首次写日志）；未初始化时 LogEvent / LogViewSummary 静默跳过
+/// （单元测试不初始化也可安全编译运行）。
 void InitIntegrationLog(const std::string& output_dir);
 
 /// 记录一行事件（宏背后）：integration_events logger 事件行 + 计数。未初始化时

@@ -37,6 +37,10 @@ constexpr char kDefaultOutputDir[] = CA_DEFAULT_OUTPUT_DIR;
 constexpr char kDefaultOutputDir[] = "examples/component_attachment/log";
 #endif
 
+/// 从场景路径取目录名：`scenes/rir_long_range_scan/rir_long_range_scan.json`
+/// → `rir_long_range_scan`。默认日志落在 `kDefaultOutputDir/<此名>/`。
+std::string SceneSlugFromPath(const std::string& scene_path);
+
 /// 六会话配置聚合（消费方装配输入）。
 struct ComponentAttachmentConfigs {
   airborne_radar::config::ArSessionConfig ar{};

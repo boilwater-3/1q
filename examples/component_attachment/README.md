@@ -257,8 +257,10 @@ cmake --build --preset llvm-ninja-release-local --target component_attachment_de
 - `--scene <path>`：场景描述文件（默认 `scenes/baseline_takeoff_east/baseline_takeoff_east.json`，路径由
   CMake 注入 `CA_SCENE_DIR`）；场景文件即配置记录，见 [`scenes/README.md`](scenes/README.md)；
 - `--cycles <n>`：仿真周期数（覆盖场景文件，默认场景文件值）；
-- `--output-dir <dir>`：输出目录（日志 + CSV，默认 `examples/component_attachment/log/`
-  ——CMake 注入的仓库内绝对路径，运行时产物不入版本控制，见 .gitignore）；
+- `--output-dir <dir>`：输出目录（日志 + CSV + 各层验收文件）。默认
+  `examples/component_attachment/log/<场景名>/`（例如 `rir_long_range_scan`），
+  不传则按场景钉死，避免 `rir_acceptance.log` 落到运行目录。显式传入则用该路径。
+  运行时产物不入版本控制，见 .gitignore；
 - 日志模式可在 configure 时用 CMake 变量控制（不传则用默认：视图跨周期增量 +
   事件只记关键）：
   ```bash

@@ -44,12 +44,36 @@ void ResolveRirDatabasePath(remote_identification_radar::config::RirSessionConfi
 
 }  // namespace
 
+std::string SceneSlugFromPath(const std::string& scene_path) {
+  std::string path = scene_path;
+  for (std::size_t i = 0U; i < path.size(); ++i) {
+    if (path[i] == '\\') {
+      path[i] = '/';
+    }
+  }
+  while (!path.empty() && path[path.size() - 1U] == '/') {
+    path.erase(path.size() - 1U);
+  }
+  const std::size_t slash = path.find_last_of('/');
+  const std::string parent = (slash == std::string::npos) ? std::string() : path.substr(0U, slash);
+  const std::size_t parent_slash = parent.find_last_of('/');
+  const std::string parent_name =
+      (parent_slash == std::string::npos) ? parent : parent.substr(parent_slash + 1U);
+  if (!parent_name.empty() && parent_name != "." && parent_name != "..") {
+    return parent_name;
+  }
+  const std::string file = (slash == std::string::npos) ? path : path.substr(slash + 1U);
+  const std::size_t dot = file.rfind('.');
+  return (dot == std::string::npos || dot == 0U) ? file : file.substr(0U, dot);
+}
+
 void PrintUsage(const char* program) {
   std::cout << "Usage: " << program
             << " [--scene <path>] [--cycles <n>] [--output-dir <dir>]\n"
             << "  --scene <path>      场景描述文件（默认 <场景目录>/baseline_takeoff_east.json）\n"
             << "  --cycles <n>        仿真周期数（覆盖场景文件，默认场景文件值）\n"
-            << "  --output-dir <dir>  CSV 输出目录（默认 " << kDefaultOutputDir << "）\n";
+            << "  --output-dir <dir>  日志+CSV 目录（默认 " << kDefaultOutputDir
+            << "/<场景名>/）\n";
 }
 
 ComponentAttachmentConfigs LoadConfigs() {

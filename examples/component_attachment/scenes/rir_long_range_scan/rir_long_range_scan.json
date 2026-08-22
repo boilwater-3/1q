@@ -48,7 +48,16 @@
       "emitter_center_frequency_hz": 0.0,
       "rir": {
         "rcs_dbsm": -16.0206,
-        "truth_model": "RCS-0.025"
+        "pol_ch1_dbsm": -16.0,
+        "pol_ch2_dbsm": -19.0,
+        "pol_cross_dbsm": -26.0,
+        "pol_phase_vv_deg": 30.0,
+        "truth_model": "RCS-0.025",
+        "scatterers": [
+          {"offset_m": 0.0, "rcs_dbsm": -16.0},
+          {"offset_m": 6.0, "rcs_dbsm": -16.0},
+          {"offset_m": 12.0, "rcs_dbsm": -16.0}
+        ]
       }
     },
     {
@@ -65,7 +74,16 @@
       "emitter_center_frequency_hz": 0.0,
       "rir": {
         "rcs_dbsm": 0.0,
-        "truth_model": "RCS-1.0"
+        "pol_ch1_dbsm": 0.0,
+        "pol_ch2_dbsm": -3.0,
+        "pol_cross_dbsm": -10.0,
+        "pol_phase_vv_deg": 20.0,
+        "truth_model": "RCS-1.0",
+        "scatterers": [
+          {"offset_m": 0.0, "rcs_dbsm": 0.0},
+          {"offset_m": 8.0, "rcs_dbsm": 0.0},
+          {"offset_m": 16.0, "rcs_dbsm": 0.0}
+        ]
       }
     }
   ],

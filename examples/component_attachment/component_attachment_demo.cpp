@@ -79,6 +79,7 @@ int main(int argc, char* argv[]) {
   std::string scene_path = kDefaultSceneFile;
   int cycles_override = -1;  // < 0 = 未指定，用场景文件值
   std::string output_dir = demo::kDefaultOutputDir;
+  bool output_dir_overridden = false;
   for (int i = 1; i < argc; ++i) {
     const std::string arg = argv[i];
     if (arg == "--scene") {
@@ -102,6 +103,7 @@ int main(int argc, char* argv[]) {
         return 1;
       }
       output_dir = argv[++i];
+      output_dir_overridden = true;
     } else if (arg == "--help" || arg == "-h") {
       demo::PrintUsage(argv[0]);
       return 0;
@@ -126,6 +128,9 @@ int main(int argc, char* argv[]) {
     std::cerr << "Invalid cycle count: must be > 0 (scene '" << scene_path
               << "' or --cycles)\n";
     return 1;
+  }
+  if (!output_dir_overridden) {
+    output_dir = std::string(demo::kDefaultOutputDir) + "/" + demo::SceneSlugFromPath(scene_path);
   }
   demo_fs::create_directories(output_dir);
 

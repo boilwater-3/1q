@@ -15,6 +15,7 @@
 #include "logger/logger.h"
 #include "logger/logger_format.h"
 
+#include <cstdlib>
 #include <cstring>
 #include <memory>
 #include <string>
@@ -26,7 +27,6 @@
 #include <spdlog/sinks/stdout_sinks.h>
 #else
 #include <cstdio>
-#include <cstdlib>
 #include <fstream>
 #endif
 
@@ -120,9 +120,28 @@ void FlushAggregate() {
 }
 #endif  // CA_EVENT_LOG_MODE_AGGREGATE
 
+void SetProcessEnv(const char* name, const std::string& value) {
+#if defined(_WIN32)
+  _putenv_s(name, value.c_str());
+#else
+  setenv(name, value.c_str(), /*overwrite=*/1);
+#endif
+}
+
+void BindAcceptanceLogPaths(const std::string& output_dir) {
+  SetProcessEnv("ONEQ_RIR_ACCEPTANCE_LOG_PATH", output_dir + "/rir_acceptance.log");
+  SetProcessEnv("ONEQ_SBIRS_ACCEPTANCE_LOG_PATH", output_dir + "/sbirs_acceptance.log");
+  SetProcessEnv("ONEQ_FUSION_ACCEPTANCE_LOG_PATH", output_dir + "/fusion_acceptance.log");
+  SetProcessEnv("ONEQ_INFERENCE_ACCEPTANCE_LOG_PATH", output_dir + "/inference_acceptance.log");
+  SetProcessEnv("ONEQ_PRECISION_ACCEPTANCE_LOG_PATH",
+                output_dir + "/precision_acceptance.log");
+}
+
 }  // namespace
 
 void InitIntegrationLog(const std::string& output_dir) {
+  // 验收文件默认写 CWD；这里钉到本场景输出目录，避免 rir_acceptance.log 落到仓库根。
+  BindAcceptanceLogPaths(output_dir);
 #if defined(CA_LOG_BACKEND_SPDLOG) && CA_LOG_BACKEND_SPDLOG
   if (g_event_logger != nullptr) {
     return;  // 幂等
