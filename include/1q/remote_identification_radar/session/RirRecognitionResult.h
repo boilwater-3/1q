@@ -37,6 +37,8 @@ enum class ONEQ_API RirRecognitionState : std::uint8_t {
  * @note 取值加性扩展（不重排既有值），旧 trace/replay 字节兼容。
  * @note 无舰船/车辆类型——2026-08-20 验收输出统计裁定不新增
  *       （docs/review/acceptance_output_inventory_2026-08-20.md §4.5/§6）。
+ * @note 无无人机类型——2026-08-22 甲方裁定移除（原 kUav=7 弃用）；库内
+ *       UAV 型号经类别映射按 kUnknown 输出，型号识别不受影响。
  */
 enum class ONEQ_API RirRecognitionCategory : std::uint8_t {
   kBallistic = 0, /**< 弹道目标。 */
@@ -45,8 +47,7 @@ enum class ONEQ_API RirRecognitionCategory : std::uint8_t {
   kUnknown = 3,   /**< 未知。 */
   kFighter = 4,   /**< 战斗机。 */
   kBomber = 5,    /**< 轰炸机。 */
-  kMissile = 6,   /**< 导弹。 */
-  kUav = 7        /**< 无人机。 */
+  kMissile = 6    /**< 导弹。 */
 };
 
 /**

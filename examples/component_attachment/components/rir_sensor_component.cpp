@@ -70,8 +70,6 @@ const char* RecognitionCategoryName(rir::RirRecognitionCategory category) {
       return "轰炸机";
     case rir::RirRecognitionCategory::kMissile:
       return "导弹";
-    case rir::RirRecognitionCategory::kUav:
-      return "无人机";
   }
   return "未知";
 }

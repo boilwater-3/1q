@@ -42,6 +42,28 @@ using oneq::logging::FormatSci;
 using oneq::logging::FormatVec3;
 using oneq::logging::YesNo;
 
+const char* CategoryName(int category) {
+  using session::RirRecognitionCategory;
+  switch (category) {
+    case static_cast<int>(RirRecognitionCategory::kBallistic):
+      return "弹道目标";
+    case static_cast<int>(RirRecognitionCategory::kNearSpace):
+      return "临近空间目标";
+    case static_cast<int>(RirRecognitionCategory::kOther):
+      return "其它";
+    case static_cast<int>(RirRecognitionCategory::kUnknown):
+      return "未知";
+    case static_cast<int>(RirRecognitionCategory::kFighter):
+      return "战斗机";
+    case static_cast<int>(RirRecognitionCategory::kBomber):
+      return "轰炸机";
+    case static_cast<int>(RirRecognitionCategory::kMissile):
+      return "导弹";
+    default:
+      return "无";
+  }
+}
+
 constexpr double kLn10 = 2.302585092994046;
 constexpr double kRadToDeg = 57.29577951308232;
 
@@ -417,7 +439,7 @@ void WriteRirTrackAndId(float sim_time_sec, std::uint32_t cycle, const tracking:
   measure += " 加速度=" + FormatVec3(track.acceleration.x(), track.acceleration.y(),
                                      track.acceleration.z(), 4) +
              "m/s²";
-  measure += " 飞机类型=识别大类枚举" + std::to_string(category);
+  measure += " 飞机类型=识别大类枚举" + std::to_string(category) + "(" + CategoryName(category) + ")";
   Emit(sim_time_sec, cycle, "目标测量角度与距离", measure);
   Emit(sim_time_sec, cycle, "角度和距离测量", measure);
 
@@ -479,7 +501,9 @@ void WriteRirTrackAndId(float sim_time_sec, std::uint32_t cycle, const tracking:
   id_text += " 目标ID=" + std::to_string(track.external_target_id);
   if (result != nullptr) {
     id_text += " 状态=" + std::to_string(static_cast<int>(result->state));
-    id_text += " 大类枚举=" + std::to_string(static_cast<int>(result->target_category));
+    const int result_category = static_cast<int>(result->target_category);
+    id_text += " 大类枚举=" + std::to_string(result_category) + "(" +
+               CategoryName(result_category) + ")";
     id_text += " 型号=" + (result->target_model.empty() ? std::string("无") : result->target_model);
     id_text += " 置信度=" + FormatF(static_cast<double>(result->confidence), 4);
   } else {
@@ -493,21 +517,21 @@ void WriteRirTrackAndId(float sim_time_sec, std::uint32_t cycle, const tracking:
     motion_text += " 速度=" + FormatF(motion.speed_m_per_s, 3) + "m/s";
     motion_text += " 高度=" + FormatF(motion.altitude_m, 1) + "m";
     motion_text += std::string(" 近似直线=") + YesNo(motion.is_straight);
-    motion_text += " 目标类别=大类枚举" + std::to_string(category);
+    motion_text += " 目标类别=大类枚举" + std::to_string(category) + "(" + CategoryName(category) + ")";
     Emit(sim_time_sec, cycle, "运动特征处理", motion_text);
     Emit(sim_time_sec, cycle, "目标类别", motion_text);
 
     const auto& rcs = features->features.rcs;
     std::string rcs_text = "航迹=" + std::to_string(track.association_key);
     rcs_text += " RCS均值/标准差=" + FormatF(rcs.mean_dbsm, 3) + "/" + FormatF(rcs.std_db, 3) + "dBsm";
-    rcs_text += " 目标类别=大类枚举" + std::to_string(category);
+    rcs_text += " 目标类别=大类枚举" + std::to_string(category) + "(" + CategoryName(category) + ")";
     Emit(sim_time_sec, cycle, "RCS统计特征处理", rcs_text);
 
     const auto& pol = features->features.polarization;
     std::string pol_text = "航迹=" + std::to_string(track.association_key);
     pol_text += " 极化差/相对/和=" +
                 FormatVec3(pol.energy_difference_db, pol.relative_difference_db, pol.energy_sum_db, 3);
-    pol_text += " 目标类别=大类枚举" + std::to_string(category);
+    pol_text += " 目标类别=大类枚举" + std::to_string(category) + "(" + CategoryName(category) + ")";
     pol_text += " 置信度=" + FormatF(result != nullptr ? result->confidence : 0.0, 4);
     if (has_truth) {
       pol_text += " 正确识别率=" + FormatF(category_accuracy, 4);

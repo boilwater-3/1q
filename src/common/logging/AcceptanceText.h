@@ -44,6 +44,9 @@ inline std::string FormatF(double value, int precision) {
 }
 
 inline std::string FormatSci(double value) {
+  if (value == 0.0) {
+    return "0.000";  // 零不进科学计数，避免 0.000e+00 与 0.000 混排
+  }
   char buf[64];
   std::snprintf(buf, sizeof(buf), "%.3e", value);
   return std::string(buf);

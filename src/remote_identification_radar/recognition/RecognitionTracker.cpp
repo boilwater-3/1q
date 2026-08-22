@@ -79,9 +79,7 @@ session::RirRecognitionCategory CategoryToPublic(const std::string& category_id)
   if (category_id == "MISSILE") {
     return session::RirRecognitionCategory::kMissile;
   }
-  if (category_id == "UAV") {
-    return session::RirRecognitionCategory::kUav;
-  }
+  // "UAV" 不再映射专属大类（2026-08-22 甲方裁定移除无人机识别），落入 kUnknown。
   if (category_id == "OTHER") {
     return session::RirRecognitionCategory::kOther;
   }
