@@ -17,6 +17,7 @@ set(ONEQ_COMMON_SOURCES
     optimization/LapjvSolver.cpp
     radar/RadarEquations.cpp
     radar/DetectionCellResolver.cpp
+    radar/MtiMtdAcceptanceBank.cpp
     radar/StatisticalCfarDetector.cpp
     radar/VegetationClutterModel.cpp
     rcs/RcsPhysics.cpp
