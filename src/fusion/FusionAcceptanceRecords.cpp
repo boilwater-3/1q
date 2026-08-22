@@ -112,7 +112,15 @@ void WriteFusionAcceptance(std::uint32_t cycle, const std::vector<FusedTarget>& 
     FUSION_ACCEPTANCE_ITEM(sim_time, cycle, "多传感器接力跟踪", relay);
 
     if (filtering_enabled && track.has_kinematic_estimate) {
-      std::string ukf = "位置ENU=由LLA换算";
+      std::string ukf = "位置LLA=(";
+      ukf += FormatF(track.kinematic_estimate.position.latitude_deg, 6) + ",";
+      ukf += FormatF(track.kinematic_estimate.position.longitude_deg, 6) + ",";
+      ukf += FormatF(track.kinematic_estimate.position.altitude_m, 1) + ")";
+      if (have_ecef) {
+        ukf += " ECEF位置m=" + FormatVec3(ecef.x_m, ecef.y_m, ecef.z_m, 1);
+      } else {
+        ukf += " ECEF位置m=无";
+      }
       ukf += " 速度m/s=" + FormatVec3(vel[0], vel[1], vel[2], 3);
       ukf += " 加速度m/s²=" + FormatVec3(ax, ay, az, 3);
       ukf += " 协方差迹=" + FormatF(CovarianceTrace6(track.kinematic_estimate.covariance_ecef), 2);

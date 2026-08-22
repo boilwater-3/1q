@@ -67,7 +67,8 @@ void WritePrecisionKeyMetrics(const PrecisionEvaluationReport& report,
   const double range_rmse = report.metrics[static_cast<std::size_t>(PrecisionMetric::kDualSatFix)].rmse;
   const double az_rmse = RmseOf(az_deg);
   const double el_rmse = RmseOf(el_deg);
-  const double composite_rmse = report.metrics[0].rmse;
+  const double composite_rmse =
+      std::sqrt(east_rmse * east_rmse + north_rmse * north_rmse + up_rmse * up_rmse);
   const double cep50 = 0.5887 * horiz_rmse;
   const std::size_t n = east_m.size();
   const double mean_range = report.metrics[static_cast<std::size_t>(PrecisionMetric::kDualSatFix)].mean;
@@ -77,7 +78,7 @@ void WritePrecisionKeyMetrics(const PrecisionEvaluationReport& report,
   std::string content = "东/北/天RMSE=" + FormatVec3(east_rmse, north_rmse, up_rmse, 1) + "m";
   content += " 距离RMSE=" + FormatF(range_rmse, 1) + "m";
   content += " 方位/俯仰RMSE=" + FormatPairDeg(az_rmse, el_rmse, 4) + "°";
-  content += " 合成RMSE=" + FormatF(composite_rmse, 1);
+  content += " 合成RMSE=" + FormatF(composite_rmse, 1) + "m";
   content += " CEP50=" + FormatF(cep50, 1) + "m";
   if (n > 0U) {
     content += " 位置误差95%CI=[" + FormatF(mean_range - ci_half, 1) + "," +
