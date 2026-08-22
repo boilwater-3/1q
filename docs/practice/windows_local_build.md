@@ -89,7 +89,7 @@ INTERFACE 传播）。BOM 使 cl.exe 无条件按 UTF-8 解码。维护链：
 
 | Preset | 用途 |
 |---|---|
-| `1q_log_vs2015` | **交付验证**：v140 x64，无 Conan（先跑 `fetch_third_party.bat`），C++11，SBIRS/RIR 验收日志 ON |
+| `1q_log_vs2015` | **交付验证**：v140 x64，无 Conan（先跑 `fetch_third_party.bat`），C++11，五层验收文件（sbirs/rir/fusion/inference/precision）ON |
 | `VisualStudio.14.0-amd64-none` | 交付基座（同上去掉验收日志） |
 | `VisualStudio.15.0-amd64` | Windows 开发主线：VS2026 + v141，C++17，Conan |
 | `llvm-ninja-*` | macOS CI/开发主线 |
