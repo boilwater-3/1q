@@ -14,11 +14,13 @@ RIR 于 2026-08 并入本契约范围（会话门面/条件五域配置/电源�
 （SBIRS/AR/ESR/RIR 五域；EOS/SAR 四域）。所有模块都必须遵守的跨模块契约见
 `docs/common/contract.md`。
 
-**输出模型口径（2026-08-21）**：正文使用「两通道 + 可选投影」；「三层 / L1 / L2 / L3」为历史别名，
-仅用于对照旧讨论与旧审查文档，不再作为齐套验收标准。目标列表型模块（AR/EOS/SBIRS/RIR）的三类
-观测投影（DebugView / LifecycleRecorder / ExclusionCauseRecorder）为**观测完备必选项**；RIR 的
-字段与挂载契约见 `docs/review/rir_observability_projections_freeze_2026-08-21.md`（契约已冻结，
-实现未齐前规则 10/11/13b/13e 对 RIR 仍按空洞条款执行，与 SAR 13b 先例同形）。
+**输出模型口径（2026-08-21；RIR 于 2026-08-22 关闭空洞）**：正文使用「两通道 + 可选投影」；
+「三层 / L1 / L2 / L3」为历史别名，仅用于对照旧讨论与旧审查文档，不再作为齐套验收标准。
+目标列表型模块（AR/EOS/SBIRS/RIR）的三类观测投影（DebugView / LifecycleRecorder /
+ExclusionCauseRecorder）为**观测完备必选项**；RIR 的字段与挂载契约见
+`docs/review/rir_observability_projections_freeze_2026-08-21.md`，三类投影与规则 13b
+排除码子集已落地（`RirOutputDebugViewBuilder` / `RirTrackLifecycleRecorder` /
+`RirExclusionCauseRecorder` + `RirSession::Attach*`）。
 
 ## 会话配置直接赋值
 
@@ -127,7 +129,7 @@ AR/ESR/EOS/SBIRS/SAR/RIR 六模块的电源状态必须遵守单源原则：
 
 | 产品形态 | 模块 | 三类投影要求 |
 |---|---|---|
-| 目标列表型 | AR / EOS / SBIRS / RIR | **必选**（观测完备）；RIR 实现以冻结文档为准，未齐前对应条款空洞 |
+| 目标列表型 | AR / EOS / SBIRS / RIR | **必选**（观测完备）；RIR 已按冻结文档落地（2026-08-22，见 `docs/review/rir_observability_projections_freeze_2026-08-21.md`） |
 | 非目标列表型 | ESR / SAR | **可不提供**同形态投影；规则 10/11/13b/13e 可为空洞条款 |
 
 观测投影中，`*LifecycleRecorder` 是转换检测状态机（非数据存储）：累积状态刻意最小化为每实体
@@ -135,8 +137,8 @@ AR/ESR/EOS/SBIRS/SAR/RIR 六模块的电源状态必须遵守单源原则：
 不在内部累积。`*OutputDebugViewBuilder` 与 `*LifecycleRecorder` / `*ExclusionCauseRecorder`
 并列、互不消费——前者是无状态快照构造器，后两者是有状态跨周期状态机。
 `*OutputDebugViewBuilder` 对无探测/无轨迹目标回填**输入实体量值**（EOS 的方位/俯仰/距离、
-SBIRS 的方位/俯仰（卫星→目标视线 ECI 极坐标，弧度）、AR 的 RCS；RIR 冻结为滤波 ENU
-位置/速度或输入斜距几何，见 RIR 观测投影冻结文档），与检测/航迹记录同参考系；有产品记录时
+SBIRS 的方位/俯仰（卫星→目标视线 ECI 极坐标，弧度）、AR 的 RCS；RIR 为滤波 ENU
+位置/速度，无航迹时回填输入斜距与视线角几何，见 RIR 观测投影冻结文档），与检测/航迹记录同参考系；有产品记录时
 以记录观测值覆盖——未检测也可见目标量值，供调用方人读/结构化落盘（规则 12）。
 
 规则：
@@ -238,14 +240,15 @@ SBIRS 的方位/俯仰（卫星→目标视线 ECI 极坐标，弧度）、AR �
          非执行周期不推进状态（与 `*LifecycleRecorder` 语义一致）。
        - **纯观测**：只读 `result.issues`（按 `location.kind == kSceneEntity` 过滤），不改变
          `*CycleStatus`、排除诊断、DebugView 状态语义（规则 13c 边界延续）。
-       - **适用范围**：具有"按实体门控排除"语义的模块（AR/SBIRS/EOS/ESR）；SAR 无排除诊断
-         （13b 空洞条款），不适用。四模块全部落地（2026-08）：AR/SBIRS 以 `target_id` 为
-         内部状态键；ESR 无 target_id 概念，以发射源标识（platform/equipment/emission id 三元组）
+       - **适用范围**：具有"按实体门控排除"语义的模块（AR/SBIRS/EOS/ESR/RIR）；SAR 无排除诊断
+         （13b 空洞条款），不适用。五模块全部落地（RIR 于 2026-08-22 补齐）：AR/SBIRS/RIR 以
+         `target_id` 为内部状态键；ESR 无 target_id 概念，以发射源标识（platform/equipment/emission id 三元组）
          为内部状态键——`location.entity_index` 为 identity 排序后下标（与
          `InterceptDetectionExecutor` 排序序一致），记录器 Update 时按同一序重排 emissions
          把 entity_index 解析回 identity 三元组，**内部以 identity 为键**免疫跨周期发射源
          集合变化时的下标移位。EOS 单一视场门，与 SBIRS 同构（target_id 键）。
-   **对齐状态（2026-08）**：五传感器模块已全部按本规则对齐（SBIRS/AR/ESR/EOS/SAR）。SAR 无
+   **对齐状态（2026-08）**：六传感器模块已全部按本规则对齐（SBIRS/AR/ESR/EOS/SAR/RIR——
+   RIR 于 2026-08-22 补齐 cause/location 与排除码子集）。SAR 无
    逐目标门控排除（集体成像模型，几何/SNR 门均为整周期中止 → 三写），13b 对其为空洞条款，
    以 kInfo/kWarning 正常路径诊断承载（见 `docs/sar/boundaries.md`）。
 14. **统一问题列表模型**：`*CycleResult` 只承载**单一问题列表** `*IssueList`（字段名 `issues`）；

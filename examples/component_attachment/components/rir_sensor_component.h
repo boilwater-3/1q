@@ -20,9 +20,13 @@
 #include "1q/fusion/DetectionRecord.h"
 #include "1q/remote_identification_radar/config/RirRuntimeConfigPatch.h"
 #include "1q/remote_identification_radar/session/RirCycleResult.h"
+#include "1q/remote_identification_radar/session/RirExclusionCauseRecorder.h"
+#include "1q/remote_identification_radar/session/RirOutputDebugView.h"
 #include "1q/remote_identification_radar/session/RirRecognitionResult.h"
 #include "1q/remote_identification_radar/session/RirSession.h"
+#include "1q/remote_identification_radar/session/RirTrackLifecycleRecorder.h"
 #include "core/component.h"
+#include "logger/logger_modes.h"
 
 namespace component_attachment {
 
@@ -62,7 +66,20 @@ class RirSensorComponent : public Component {
   /** @brief 累计识别结论输出数（冒烟断言：确认态结论按周期计数）。 */
   std::uint32_t confirmed_recognition_outputs() const { return confirmed_recognition_outputs_; }
 
+  /** @brief 最近周期目标输出调试视图（规则 12；关机周期重置为空视图）。 */
+  const remote_identification_radar::session::RirOutputDebugView& LastDebugView() const {
+    return last_debug_view_;
+  }
+
  private:
+  /// 视图行三模式落盘（密度由编译期宏门控；纯观测）。
+  void LogDebugView(World& world,
+                    const remote_identification_radar::session::RirOutputDebugView& view);
+
+  // 观测投影记录器（规则 10/11）：声明在 session_ 之前——析构顺序保证
+  // "recorder 生命周期长于 Session 注册期"（Session 持非拥有裸指针）。
+  remote_identification_radar::session::RirTrackLifecycleRecorder lifecycle_{};
+  remote_identification_radar::session::RirExclusionCauseRecorder exclusion_{};
   remote_identification_radar::session::RirSession session_;
   Entity* host_{nullptr};
   oneq::coordinate::LlaPositionDegM site_origin_{};   /**< 站点 LLA（ENU 原点） */
@@ -80,6 +97,13 @@ class RirSensorComponent : public Component {
       prev_recognition_states_{};
   bool prev_designation_assigned_{false}; /**< 上一周期指定任务是否在案（终态沿事件判定） */
   bool step_timing_logged_{false};        /**< 单步执行时间是否已写入示例日志 */
+  remote_identification_radar::session::RirOutputDebugView last_debug_view_{}; /**< 最近周期视图 */
+#if defined(CA_VIEW_LOG_MODE_DELTA)
+  /// 视图模式二（跨周期增量）：上一周期逐目标调试状态（首次出现视为变化；
+  /// 表只增不减，目标集长期收缩时调用方可按需清理——示例保持简单，不清理）。
+  std::unordered_map<std::uint64_t, remote_identification_radar::session::RirDebugTargetStatus>
+      prev_target_status_{};
+#endif
 };
 
 }  // namespace component_attachment

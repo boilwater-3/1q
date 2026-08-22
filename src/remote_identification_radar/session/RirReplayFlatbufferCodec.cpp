@@ -340,7 +340,8 @@ flatbuffers::Offset<fb::RirTrackAttributionRecordV2> EncodeTrackAttribution(
   return fb::CreateRirTrackAttributionRecordV2(
       *builder, value.association_key, value.external_target_id,
       builder->CreateString(value.target_name), value.hit_count, value.position_enu_x_m,
-      value.position_enu_y_m, value.position_enu_z_m, value.speed_m_per_s);
+      value.position_enu_y_m, value.position_enu_z_m, value.speed_m_per_s,
+      static_cast<std::uint8_t>(value.track_status));
 }
 
 void DecodeTrackAttribution(const fb::RirTrackAttributionRecordV2* value,
@@ -353,6 +354,7 @@ void DecodeTrackAttribution(const fb::RirTrackAttributionRecordV2* value,
   if (value->target_name() != nullptr) {
     out->target_name = value->target_name()->str();
   }
+  out->track_status = static_cast<RirTrackLifecycleStatus>(value->track_status());
   out->hit_count = value->hit_count();
   out->position_enu_x_m = value->position_enu_x_m();
   out->position_enu_y_m = value->position_enu_y_m();

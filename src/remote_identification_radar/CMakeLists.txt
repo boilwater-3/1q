@@ -33,6 +33,9 @@ set(RIR_CORE_SOURCES
     session/RirInputValidation.cpp
     session/RirSession.cpp
     session/RirReplayFlatbufferCodec.cpp
+    session/RirOutputDebugViewBuilder.cpp
+    session/RirTrackLifecycleRecorder.cpp
+    session/RirExclusionCauseRecorder.cpp
     runtime/RirController.cpp
     runtime/RirAcceptanceRecords.cpp
     runtime/PolarizationAcceptanceS.cpp

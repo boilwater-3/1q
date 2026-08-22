@@ -210,6 +210,10 @@ inline const char* IssueCodeChineseName(const std::string& code) {
       {remote_identification_radar::session::codes::kRecognitionThresholdInvalid, "识别门限非法（接受分数/最小裕度须在 [0, 1]）。"},
       {remote_identification_radar::session::codes::kRecognitionTimeRangeInvalid, "识别时间范围非法（保持时间须非负；最大距离/驻留/累积窗口须有限且为正）。"},
       {remote_identification_radar::session::codes::kRecognitionWeightsInvalid, "识别特征权重非法（须有限、在 [0, 1] 且总和为 1）。"},
+      {remote_identification_radar::session::codes::kTargetDetectionGate, "检测准入门未过（正常周期按目标排除的 kInfo 诊断，规则 13b；携带门内归因主因）。"},
+      {remote_identification_radar::session::codes::kTargetBeyondRecognitionRange, "目标斜距超识别最大作用距离（正常周期按目标排除的 kInfo 诊断，规则 13b）。"},
+      {remote_identification_radar::session::codes::kTargetModeNotIdentify, "本周期非识别工作模式，不建识别观测（正常周期按目标排除的 kInfo 诊断，规则 13b）。"},
+      {remote_identification_radar::session::codes::kTargetNoFeatureDatabase, "特征库缺失或加载失败，特征链空（正常周期按目标排除的 kInfo 诊断，规则 13b）。"},
       // electronic_surveillance_radar (24)
       {electronic_surveillance_radar::session::codes::kEmissionBelowThreshold, "发射源低于检测门限（正常周期按发射源排除的 kInfo 诊断）。"},
       {electronic_surveillance_radar::session::codes::kEmissionCoSite, "发射源同址干扰（正常周期按发射源排除的 kInfo 诊断，规则 13b）。"},

@@ -6,6 +6,8 @@ Authority: RIR 三类观测投影（DebugView / LifecycleRecorder / ExclusionCau
   Stage A 证据矩阵与冻结契约。非规范性记录；字段冻结供 Stage B 实施。
   若与 `docs/common/session_contract.md` 冲突，以 session_contract 为准；
   若与库实现冲突，以库为准（实现未齐前以本文 + session_contract 为应建口径）。
+Stage B 落地（2026-08-22）：三类投影 + Attach 契约 + 规则 13b 排除码子集已实现
+  （§5 残留表记录子集口径与延后项）；本文转为历史依据，后续以库与 session_contract 为准。
 ---
 
 # RIR 观测投影：Stage A 证据矩阵与冻结契约
@@ -139,9 +141,9 @@ Authority: RIR 三类观测投影（DebugView / LifecycleRecorder / ExclusionCau
 | 项 | 状态 |
 |---|---|
 | AR 产品航迹真值 ID 收回 | 用户另行处理；本文不阻塞 |
-| RIR 排除 code 全集 vs 子集 | Stage B 按实际门控路径裁剪，超集需再冻结 |
-| 投影进 replay | 默认可延后；要进则加性 schema 另验 |
-| session_contract 空洞条款关闭 | Stage B 落地后 Stage C 回写「RIR 已对齐」 |
+| RIR 排除 code 全集 vs 子集 | Stage B 已落 4/6 子集：detection_gate（含 AR 同构主因分类）、beyond_recognition_range、mode_not_identify、no_feature_database；`outside_dwell`（无逐目标执行分支）与 `observation_invalid`（逐航迹键、非场景实体键）延后，落地需再冻结 |
+| 投影进 replay | 投影本体未进 schema；归属记录 `track_status` 以加性字段进 `RirTrackAttributionRecordV2`（roundtrip 已验） |
+| session_contract 空洞条款关闭 | 已回写（2026-08-22）：目标列表型表/13b 对齐状态/13e 适用范围均含 RIR |
 
 ## 6. 与「两通道 + 投影」的关系
 

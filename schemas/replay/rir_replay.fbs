@@ -233,6 +233,7 @@ table RirTrackAttributionRecordV2 {
   position_enu_y_m:double;
   position_enu_z_m:double;
   speed_m_per_s:double;
+  track_status:ubyte = 0;  // RirTrackLifecycleStatus（加性，默认 kTentative）
 }
 
 table RirCycleResultV2 {

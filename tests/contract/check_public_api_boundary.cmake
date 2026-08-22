@@ -286,13 +286,16 @@ set(RIR_PUBLIC_PRIMARY_HEADERS
 set(RIR_SESSION_HEADERS
     "remote_identification_radar/session/RirCycleInput.h"
     "remote_identification_radar/session/RirCycleResult.h"
+    "remote_identification_radar/session/RirExclusionCauseRecorder.h"
     "remote_identification_radar/session/RirFeatureMeasurementTypes.h"
     "remote_identification_radar/session/RirInputValidation.h"
     "remote_identification_radar/session/RirIssueCodes.h"
+    "remote_identification_radar/session/RirOutputDebugView.h"
     "remote_identification_radar/session/RirOutputTypes.h"
     "remote_identification_radar/session/RirRecognitionResult.h"
     "remote_identification_radar/session/RirSceneTypes.h"
     "remote_identification_radar/session/RirSession.h"
+    "remote_identification_radar/session/RirTrackLifecycleRecorder.h"
 )
 
 set(COORDINATE_HEADERS

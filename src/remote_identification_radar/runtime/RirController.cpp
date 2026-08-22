@@ -9,6 +9,7 @@
 #include <algorithm>
 #include <chrono>
 #include <cmath>
+#include <cstdio>
 #include <random>
 #include <unordered_map>
 #include <utility>
@@ -20,6 +21,7 @@
 #include "common/radar/VegetationClutterModel.h"
 #include "1q/coordinate/position_transform.h"
 #include "1q/environment/AtmosphericTypes.h"
+#include "1q/remote_identification_radar/session/RirIssueCodes.h"
 #include "common/atmosphere/AtmospherePhysics.h"
 #include "remote_identification_radar/dwell/RirBeamControl.h"
 #include "remote_identification_radar/dwell/RirEffectiveRcs.h"
@@ -64,6 +66,19 @@ Eigen::Vector3f PositionOf(const session::RirSceneTarget& target) {
   return Eigen::Vector3f(target.range_m, 0.0f, 0.0f);
 }
 
+/** @brief 内部航迹生命周期状态 → 公开枚举镜像（归属记录透出，观测投影消费）。 */
+session::RirTrackLifecycleStatus ToPublicTrackStatus(tracking::RirTrackStatus status) {
+  switch (status) {
+    case tracking::RirTrackStatus::kConfirmed:
+      return session::RirTrackLifecycleStatus::kConfirmed;
+    case tracking::RirTrackStatus::kLost:
+      return session::RirTrackLifecycleStatus::kLost;
+    case tracking::RirTrackStatus::kTentative:
+    default:
+      return session::RirTrackLifecycleStatus::kTentative;
+  }
+}
+
 /** @brief 内部四维观测 → 公开特征量测镜像（字段同值透出，仅命名对齐公开契约）。 */
 session::RirFeatureObservations ToPublicFeatureObservations(const recognition::RirFeatureSet& set) {
   session::RirFeatureObservations features;
@@ -94,6 +109,75 @@ session::RirFeatureObservations ToPublicFeatureObservations(const recognition::R
   features.range_profile.resolution_m = set.range_profile.resolution_m;
   features.range_profile.quality = set.range_profile.quality;
   return features;
+}
+
+/// 格式化量值为两位小数（消息文本稳定，不承诺解析稳定性；规则 13b message 约定）。
+std::string RirFormatFloat(float value) {
+  char buffer[32];
+  std::snprintf(buffer, sizeof(buffer), "%.2f", static_cast<double>(value));
+  return buffer;
+}
+
+/// 构造 kInfo 级按目标排除诊断（不属于三写，仅承载排查信息；规则 13b）。
+/// @param cause 门内归因；聚合门排除须给出主因，具体门可 kNone。
+/// @param target_index 场景目标下标；写入 `location = {kSceneEntity, index}` 供
+///                     跨周期差分记录器按实体关联消费。
+session::RirIssue RirMakeExclusionIssue(const char* code, const std::string& message,
+                                        session::RirIssueCause cause,
+                                        std::size_t target_index) {
+  session::RirIssue issue;
+  issue.severity = session::RirIssueSeverity::kInfo;
+  issue.phase = session::RirIssuePhase::kExecution;
+  issue.code = code;
+  issue.message = message;
+  issue.cause = cause;
+  issue.location.kind = oneq::foundation::ValidationLocationKind::kSceneEntity;
+  issue.location.entity_index = target_index;
+  return issue;
+}
+
+// 规则 13b 门内归因：检测准入门（detector 判决/SNR 回退门）折入距离/波束/噪声底/
+// RCS 多种物理因素，按各因素相对参考状态的损失 dB 判定主因（损失最大者）。
+// 参考态与 AR ClassifySnrExclusionCause 同口径：1 km 距离、主瓣中心增益、
+// 1 m² RCS、热噪声底、零传播损耗；传播损耗并入距离项。
+session::RirIssueCause ClassifyRirDetectionExclusionCause(
+    float range_m, float effective_rcs_m2, float one_way_antenna_gain_db,
+    float main_beam_gain_db, float propagation_loss_db, float total_noise_w,
+    float thermal_noise_w) {
+  constexpr float kReferenceRangeM = 1000.0f;
+  constexpr float kMinRcsM2 = 1.0e-12f;
+  constexpr float kMinNoiseW = 1.0e-30f;
+
+  const float distance_loss_db =
+      4.0f * 10.0f * std::log10(std::max(range_m, 1.0e-3f) / kReferenceRangeM) +
+      std::max(propagation_loss_db, 0.0f);
+  const float beam_loss_db =
+      2.0f * std::max(main_beam_gain_db - one_way_antenna_gain_db, 0.0f);
+  const float rcs_loss_db = -10.0f * std::log10(std::max(effective_rcs_m2, kMinRcsM2));
+  const float noise_loss_db =
+      thermal_noise_w > 0.0f
+          ? 10.0f * std::log10(std::max(total_noise_w, kMinNoiseW) /
+                               std::max(thermal_noise_w, kMinNoiseW))
+          : 0.0f;
+
+  float max_loss_db = 0.0f;
+  session::RirIssueCause cause = session::RirIssueCause::kUnknown;
+  const struct {
+    float loss_db;
+    session::RirIssueCause cause;
+  } kCandidates[] = {
+      {distance_loss_db, session::RirIssueCause::kDistanceLimited},
+      {beam_loss_db, session::RirIssueCause::kBeamLimited},
+      {noise_loss_db, session::RirIssueCause::kNoiseLimited},
+      {rcs_loss_db, session::RirIssueCause::kRcsLimited},
+  };
+  for (const auto& candidate : kCandidates) {
+    if (candidate.loss_db > max_loss_db) {
+      max_loss_db = candidate.loss_db;
+      cause = candidate.cause;
+    }
+  }
+  return max_loss_db > 0.0f ? cause : session::RirIssueCause::kUnknown;
 }
 
 }  // namespace
@@ -474,7 +558,6 @@ bool RirController::TryBuildMeasurement(
   const bool admitted = policy_.detection.gate_mode == config::RirDetectionGateMode::kSnrFallback
                             ? detection.snr_db >= kSnrFallbackGateDb
                             : detection.detected;
-
   // 验收事件 detection_cell（3.2.2.1.1.x/3.2.2.1.2）：逐目标检测链物理量——方向图
   // 离轴增益/有效波束宽度/离轴角、回波/热噪/干扰/杂波功率、脉压增益、SINR/SNR、
   // Pd 与判决。has_cell=0 为 v1 效能级回退路径（cell 分项功率不可得，只有 SNR/Pd）。
@@ -516,6 +599,31 @@ bool RirController::TryBuildMeasurement(
   }
 
   if (!admitted) {
+    // 规则 13b：检测准入门排除 → kInfo 诊断（不属于三写，仅承载排查信息）。
+    // 检测门为聚合门（距离/波束/噪声底/RCS 折入单一判决），按各因素相对参考态
+    // 损失 dB 判定主因（与 AR ClassifySnrExclusionCause 同口径）。
+    const float thermal_noise_w = internal::RirRadarEquations::ComputeThermalNoisePower_W(
+        hardware_.transmitter, hardware_.receiver);
+    float total_noise_w = thermal_noise_w + clutter_power_w;
+    if (resolved_cell) {
+      total_noise_w = static_cast<float>(cell.thermal_noise_power_w + cell.clutter_power_w +
+                                         cell.interference_power_w);
+    }
+    const session::RirIssueCause cause = ClassifyRirDetectionExclusionCause(
+        slant_range_m, target_return.rcs_m2, beam_state.one_way_antenna_gain_db,
+        hardware_.antenna.main_beam_gain_db, total_propagation_loss_db, total_noise_w,
+        thermal_noise_w);
+    const char* gate_mode_text =
+        policy_.detection.gate_mode == config::RirDetectionGateMode::kSnrFallback
+            ? "snr_fallback"
+            : "detector";
+    last_execution_issues_.push_back(RirMakeExclusionIssue(
+        session::codes::kTargetDetectionGate,
+        "target_id=" + std::to_string(target.external_target_id) + "; snr_db=" +
+            RirFormatFloat(detection.snr_db) + " range_m=" + RirFormatFloat(slant_range_m) +
+            " rcs_m2=" + RirFormatFloat(target_return.rcs_m2) +
+            " rejected by detection gate (mode=" + gate_mode_text + ")",
+        cause, source_index));
     return false;
   }
   if (RIR_ACCEPTANCE_LOG_ENABLED()) {
@@ -592,6 +700,7 @@ void RirController::RunCycle(const session::RirCycleInput& input,
   // 出口①与归属视图按周期重置（透出原则：识别链未构建观测的周期为空）。
   output_frame->feature_measurements.clear();
   last_track_attributions_.clear();
+  last_execution_issues_.clear();
   last_emission_frame_ = {};
 
   std::vector<tracking::RirTrackState> track_snapshots;
@@ -664,6 +773,29 @@ void RirController::RunCycle(const session::RirCycleInput& input,
                                propagation_loss_db, clutter_power_w, input, dwell_center_deg,
                                rf_cycle, &measurement, &snr_db)) {
         continue;
+      }
+      // 规则 13b：检测通过后的识别链门控诊断（每目标至多一条，链上第一门优先；
+      // 检测门失败已在 TryBuildMeasurement 内落诊断）。
+      if (database_ == nullptr) {
+        last_execution_issues_.push_back(RirMakeExclusionIssue(
+            session::codes::kTargetNoFeatureDatabase,
+            "target_id=" + std::to_string(input.scene_targets[target_index].external_target_id) +
+                "; feature database unavailable, recognition held",
+            session::RirIssueCause::kNone, target_index));
+      } else {
+        float look_az_deg = 0.0f;
+        float look_el_deg = 0.0f;
+        float slant_range_m = 0.0f;
+        ComputeLookAngles(input.scene_targets[target_index], &look_az_deg, &look_el_deg,
+                          &slant_range_m);
+        if (slant_range_m > mission_.max_range_m) {
+          last_execution_issues_.push_back(RirMakeExclusionIssue(
+              session::codes::kTargetBeyondRecognitionRange,
+              "target_id=" + std::to_string(input.scene_targets[target_index].external_target_id) +
+                  "; slant_range_m=" + RirFormatFloat(slant_range_m) + " beyond max_range_m=" +
+                  RirFormatFloat(mission_.max_range_m),
+              session::RirIssueCause::kNone, target_index));
+        }
       }
       snr_by_target_id[measurement.external_target_id] = snr_db;
       measurements.push_back(measurement);
@@ -769,6 +901,18 @@ void RirController::RunCycle(const session::RirCycleInput& input,
     tracker_.HoldCycle(track_snapshots, sim_time_sec_);
     latest_summary_ = tracker_.BuildSummary(track_snapshots);
     has_latest_summary_ = true;
+    // 规则 13b：非识别工作模式 → 全局模式门，逐目标落 kInfo 诊断（不建识别观测，
+    // 检测/跟踪不受影响的 STBY 保持周期）。
+    for (std::size_t i = 0U; i < input.scene_targets.size(); ++i) {
+      if (input.scene_targets[i].external_target_id == 0U) {
+        continue;
+      }
+      last_execution_issues_.push_back(RirMakeExclusionIssue(
+          session::codes::kTargetModeNotIdentify,
+          "target_id=" + std::to_string(input.scene_targets[i].external_target_id) +
+              "; work_mode=stby, no recognition observation this cycle",
+          session::RirIssueCause::kNone, i));
+    }
   }
 
   last_track_snapshots_ = track_snapshots;
@@ -818,6 +962,7 @@ void RirController::RunCycle(const session::RirCycleInput& input,
     attribution.association_key = track.association_key;
     attribution.external_target_id = track.external_target_id;
     attribution.target_name = track.target_name;
+    attribution.track_status = ToPublicTrackStatus(track.status);
     attribution.hit_count = track.hit_count;
     attribution.position_enu_x_m = static_cast<double>(track.position.x());
     attribution.position_enu_y_m = static_cast<double>(track.position.y());

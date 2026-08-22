@@ -81,6 +81,15 @@ class RirController {
     return last_track_attributions_;
   }
 
+  /**
+   * @brief 最近周期按目标门控排除诊断（规则 13b kInfo 执行期条目）。
+   * @note 纯观测（不改变周期语义）；每目标每周期至多一条，链上第一门优先；
+   *       供 RirSession 并入完成周期 result.issues，供排除差分记录器消费。
+   */
+  const session::RirIssueList& LatestExecutionIssues() const {
+    return last_execution_issues_;
+  }
+
   /** @brief 最近周期实际 RIR 发射帧（`kIdentify` 且 RF 链成功时非空）。 */
   const oneq::electromagnetics::RfEmissionFrame& LatestEmissionFrame() const {
     return last_emission_frame_;
@@ -185,6 +194,7 @@ class RirController {
   bool has_latest_summary_{false};
   std::vector<tracking::RirTrackState> last_track_snapshots_{}; /**< 上一周期航迹快照（任务判定用）。 */
   std::vector<session::RirTrackAttributionRecord> last_track_attributions_{}; /**< 最近周期归属视图。 */
+  session::RirIssueList last_execution_issues_{}; /**< 最近周期按目标排除诊断（规则 13b）。 */
   oneq::electromagnetics::RfEmissionFrame last_emission_frame_{}; /**< 最近周期实际发射。 */
 };
 

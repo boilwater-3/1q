@@ -50,9 +50,9 @@ Authority: 两通道+可选投影输出模型（docs/common/session_contract.md 
 
 示例中每个有 DebugView 的组件（AR/EOS/SBIRS 目标列表型 + SAR 阶段型）把视图暴露为
 `LastDebugView()`（最近周期快照，关机清零），并在 `Step` 内直写中文人读行（详见下节）。
-ESR 库内无 DebugView，不适用视图落盘；RIR 三类投影契约已冻结、**实现未齐**——组件暂用
-信封 `track_attributions` 自拼摘要行（见
-`docs/review/rir_observability_projections_freeze_2026-08-21.md`）；ECM 同形自拼；推演组件读
+RIR 三类投影已落地（2026-08-22，`RirOutputDebugViewBuilder` / `RirTrackLifecycleRecorder` /
+`RirExclusionCauseRecorder`），组件同样经 `LastDebugView()` + recorder 事件写视图/事件行；
+ESR 库内无 DebugView，不适用视图落盘；ECM 同形自拼；推演组件读
 融合运动学估计直写关键点摘要行（详见 §3 通道 B）。
 
 ---
@@ -129,6 +129,8 @@ SAR squint 拒绝等）；`integration_*.log` 回答"**仿真世界里发生了�
 | `ecm_jamming` | ECM 干扰决策下发（技术/决策数/功率；干扰发射经 rf-world 传播，不发 World 信号） | `CA_LOG_EVENT` | 否 |
 | `rir_recognition` | RIR 识别结论确认态沿（状态迁移到确认时逐条） | `CA_LOG_EVENT` | 否 |
 | `rir_designation` | RIR 指定任务终态沿（识别达成完成/窗口耗尽作废） | `CA_LOG_EVENT` | 否 |
+| `rir_track_confirmed` / `rir_track_lost` | RIR 航迹首确认/丢失（生命周期 recorder） | `CA_LOG_EVENT` | 否 |
+| `rir_designation_dropped` | RIR 指定任务作废/回扫终态（生命周期 recorder，镜像 revert_reason） | `CA_LOG_EVENT` | 否 |
 | `patrol_loop_restart` | 巡逻循环重启（**纯日志，无信号**） | `CA_LOG_EVENT` | 否 |
 | `exclusion_cause` | 排除原因跨周期变化（**纯诊断，无信号**） | `CA_LOG_EVENT` | 否 |
 
@@ -209,9 +211,9 @@ SAR squint 拒绝等）；`integration_*.log` 回答"**仿真世界里发生了�
 ### 通道 B：视图日志 → `integration_views.log`
 
 记录**"每周期目标状态长什么样"**：AR/EOS/SBIRS 各组件每周期一行（或几行，取决于视图模式）
-目标状态明细 + 排除诊断；SAR 为阶段型摘要行；Threat 组件也有每周期视图行；RIR（航迹归置
-摘要）、ECM（干扰发射状态）与推演（关键点/类型概率，读融合运动学估计）组件各每周期直写
-自有摘要行。由 `CA_LOG_VIEW` 宏在组件 `Step` 内直写（字符串归属组件）：
+目标状态明细 + 排除诊断；SAR 为阶段型摘要行；Threat 组件也有每周期视图行；RIR（标准投影
+DebugView，航迹状态枚举 + 识别诊断）、ECM（干扰发射状态）与推演（关键点/类型概率，读融合运动学估计）
+组件各每周期直写自有摘要行。由 `CA_LOG_VIEW` 宏在组件 `Step` 内直写（字符串归属组件）：
 
 ```
 [视图:ar] 周期=5 完成=是 目标=[1001 已确认(RCS 2.20m²), 1002 候选(RCS 1.40m²)] 问题=[ar.target_snr_below_threshold 目标信噪比低于门限]
@@ -409,9 +411,11 @@ SAR 是**集体成像模型**，没有逐目标状态（探测/跟踪语义）�
 
 同理，SAR **无排除诊断**（规则 13b 空洞条款），问题列表多为阶段诊断。
 
-RIR / ECM / 推演（inference）与威胁（threat）的视图行同属**摘要型**（每周期恒写、无目标级
-三模式分支）：RIR/ECM 库内无 DebugView，组件以自有结果结构直写；推演行读融合运动学估计、
-威胁行读融合态势，均为每周期单行摘要。
+ECM / 推演（inference）与威胁（threat）的视图行同属**摘要型**（每周期恒写、无目标级
+三模式分支）：ECM 库内无 DebugView，组件以自有结果结构直写；推演行读融合运动学估计、
+威胁行读融合态势，均为每周期单行摘要。RIR 自 2026-08-22 起为目标列表型（库内
+`RirOutputDebugView`，无航迹目标回填输入斜距/视线角），与 AR/EOS/SBIRS 同样适用目标级
+三模式落盘；其摘要行保留 航迹=/确认=/指定=/驻留中心= 汇总令牌。
 
 ---
 

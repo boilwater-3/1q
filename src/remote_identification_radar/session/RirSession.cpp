@@ -15,7 +15,9 @@
 #include <vector>
 
 #include "1q/remote_identification_radar/config/RirRuntimeConfigPatch.h"
+#include "1q/remote_identification_radar/session/RirExclusionCauseRecorder.h"
 #include "1q/remote_identification_radar/session/RirInputValidation.h"
+#include "1q/remote_identification_radar/session/RirTrackLifecycleRecorder.h"
 #include "common/numerics/Constants.h"
 #include "common/radar/ScanScheduleRuntime.h"
 #include "remote_identification_radar/dwell/RirBeamControl.h"
@@ -206,6 +208,12 @@ struct RirSession::Impl {
   std::uint64_t next_batch_id{1U};
   // [RirAccept] 波位排列表已按当前扫描配置输出（mission 配置变更后重置重发）。
   bool acceptance_scan_pattern_logged{false};
+  // 观测投影记录器（规则 10/11）：非拥有裸指针，nullptr = 未注册。
+  RirTrackLifecycleRecorder* lifecycle_recorder{nullptr};
+  RirExclusionCauseRecorder* exclusion_cause_recorder{nullptr};
+
+  /** @brief 组装单周期聚合结果（早退路径保持非执行语义；不驱动 recorder）。 */
+  RirCycleResult RunCycle(const RirCycleInput& input);
 
   explicit Impl(const config::RirSessionConfig& session_config) : config(session_config) {
     controller.SetHardware(config.hardware);
@@ -226,13 +234,34 @@ RirOutputFrame RirSession::Step(const RirCycleInput& input) {
 }
 
 RirCycleResult RirSession::StepWithResult(const RirCycleInput& input) {
+  // 规则 10：recorder 注册后在 Step/StepWithResult 内部自动驱动（含早退路径，
+  // 非执行周期由 recorder 自身空转——空事件、不推进状态）。
+  RirCycleResult result = impl_->RunCycle(input);
+  if (impl_->lifecycle_recorder != nullptr) {
+    impl_->lifecycle_recorder->Update(input.scene_targets, result);
+  }
+  if (impl_->exclusion_cause_recorder != nullptr) {
+    impl_->exclusion_cause_recorder->Update(input.scene_targets, result);
+  }
+  return result;
+}
+
+void RirSession::AttachTrackLifecycleRecorder(RirTrackLifecycleRecorder* recorder) noexcept {
+  impl_->lifecycle_recorder = recorder;
+}
+
+void RirSession::AttachExclusionCauseRecorder(RirExclusionCauseRecorder* recorder) noexcept {
+  impl_->exclusion_cause_recorder = recorder;
+}
+
+RirCycleResult RirSession::Impl::RunCycle(const RirCycleInput& input) {
   RirCycleResult result;
   result.input_cycle_index = input.input_cycle_index;
   result.output_frame.input_cycle_index = input.input_cycle_index;
-  result.output_frame.batch_id = impl_->next_batch_id;
+  result.output_frame.batch_id = next_batch_id;
 
   // 关机：非执行周期，只记录状态，不推进识别状态（tracker 状态不被触碰）。
-  if (!impl_->config.sensor_enabled) {
+  if (!config.sensor_enabled) {
     result.status = RirCycleStatus::kPoweredOff;
     result.abort_reason = RirCycleAbortReason::kPoweredOff;
     return result;
@@ -240,7 +269,7 @@ RirCycleResult RirSession::StepWithResult(const RirCycleInput& input) {
 
   // 校验拒绝：不执行流水线，问题明细入 issues。
   const RirIssueList validation_issues =
-      ValidateRirCycleInput(input, impl_->config.mission.recognition_dwell_sec);
+      ValidateRirCycleInput(input, config.mission.recognition_dwell_sec);
   if (HasValidationError(validation_issues)) {
     result.status = RirCycleStatus::kRejectedInvalidInput;
     result.abort_reason = RirCycleAbortReason::kValidationRejected;
@@ -249,113 +278,116 @@ RirCycleResult RirSession::StepWithResult(const RirCycleInput& input) {
   }
 
   // 补丁提交（下一个成功周期边界）：任务域/电源/识别策略整域；叶子 work_mode 覆盖整域。
-  if (impl_->has_pending_patch) {
-    const config::RirRuntimeConfigPatch& patch = impl_->pending_patch;
+  if (has_pending_patch) {
+    const config::RirRuntimeConfigPatch& patch = pending_patch;
     if (patch.has_mission) {
-      impl_->config.mission = patch.mission;
-      impl_->acceptance_scan_pattern_logged = false;
+      config.mission = patch.mission;
+      acceptance_scan_pattern_logged = false;
     }
     if (patch.has_work_mode) {
-      impl_->config.mission.work_mode = patch.work_mode;
+      config.mission.work_mode = patch.work_mode;
     }
     if (patch.has_scan_center) {
-      impl_->config.mission.scan_center_deg = patch.scan_center_deg;
-      impl_->acceptance_scan_pattern_logged = false;
+      config.mission.scan_center_deg = patch.scan_center_deg;
+      acceptance_scan_pattern_logged = false;
     }
     if (patch.has_policy) {
-      impl_->config.policy = patch.policy;
+      config.policy = patch.policy;
     }
     if (patch.has_environment) {
-      impl_->config.environment = patch.environment;
-      impl_->controller.UpdateEnvironment(impl_->config.environment);
+      config.environment = patch.environment;
+      controller.UpdateEnvironment(config.environment);
     }
     if (patch.has_sensor_enabled) {
-      impl_->config.sensor_enabled = patch.sensor_enabled;
+      config.sensor_enabled = patch.sensor_enabled;
     }
     // 指定识别任务：任一指定相关字段变更（含仅改时长）都视为新指令，
     // 生命周期阶段重置，窗口在指令生效后首个周期重新起算。
     if (patch.has_designated_target_id || patch.has_designation_duration_cycles) {
       if (patch.has_designated_target_id) {
-        impl_->designated_external_target_id = patch.designated_external_target_id;
+        designated_external_target_id = patch.designated_external_target_id;
       }
       if (patch.has_designation_duration_cycles) {
-        impl_->designation_duration_cycles = patch.designation_duration_cycles;
+        designation_duration_cycles = patch.designation_duration_cycles;
       }
-      impl_->designation_phase = RirDesignationPhase::kNone;
-      impl_->designation_deadline_cycle_index = 0U;
+      designation_phase = RirDesignationPhase::kNone;
+      designation_deadline_cycle_index = 0U;
     }
-    impl_->controller.UpdateRuntime(impl_->config.mission, impl_->config.policy);
-    impl_->has_pending_patch = false;
+    controller.UpdateRuntime(config.mission, config.policy);
+    has_pending_patch = false;
   }
 
   // 指定识别任务生命周期推进（镜像 AR 限时锁定语义）：
   //   识别达成（上一周期口径）→ 任务完成回到扫描；窗口耗尽仍未识别 →
   //   任务作废（作废沿报告 kAcquisitionTimeout）→ 回到扫描。
   const bool designation_consumed =
-      impl_->config.mission.work_mode == config::RirWorkMode::kIdentify &&
-      impl_->designated_external_target_id != 0U;
+      config.mission.work_mode == config::RirWorkMode::kIdentify &&
+      designated_external_target_id != 0U;
   const RirDesignationPhaseAdvance advance = AdvanceDesignationPhase(
-      impl_->designation_phase, impl_->designation_deadline_cycle_index,
-      impl_->designation_duration_cycles, input.input_cycle_index, designation_consumed,
+      designation_phase, designation_deadline_cycle_index, designation_duration_cycles,
+      input.input_cycle_index, designation_consumed,
       designation_consumed &&
-          impl_->controller.IsTargetRecognized(impl_->designated_external_target_id));
-  impl_->designation_phase = advance.phase;
-  impl_->designation_deadline_cycle_index = advance.deadline_cycle_index;
+          controller.IsTargetRecognized(designated_external_target_id));
+  designation_phase = advance.phase;
+  designation_deadline_cycle_index = advance.deadline_cycle_index;
   const RirDesignationExpiry expiry =
       ResolveDesignationExpiry(advance.phase, advance.expired_edge);
 
   // 驻留中心（库内驻留调度器）：任务窗口内对准指定目标（在场景且在可扫描体积内）；
   // 其余情况按扫描策略逐周期推进。
   const session::RirSceneTarget* designated_target = FindSceneTarget(
-      input.scene_targets, impl_->designated_external_target_id);
+      input.scene_targets, designated_external_target_id);
   const bool target_in_scene = designated_target != nullptr;
   const bool target_in_volume =
       target_in_scene &&
       TargetWithinSteerableVolume(TargetLookAngles(*designated_target),
-                                  impl_->config.orientation.steerable_volume_deg,
-                                  impl_->config.mission.scan_center_deg);
+                                  config.orientation.steerable_volume_deg,
+                                  config.mission.scan_center_deg);
   const bool dwelling_on_target =
       advance.phase == RirDesignationPhase::kPending && target_in_volume;
   const config::RirAzimuthElevationDeg dwell_center =
       dwelling_on_target ? TargetLookAngles(*designated_target)
-                         : ResolveScanWavePosition(impl_->config, input.input_cycle_index);
+                         : ResolveScanWavePosition(config, input.input_cycle_index);
 
   // 验收事件 beam_pattern（3.2.2.4.2.1）：完整波位排列表按当前扫描配置一次性
   // 输出（与逐周期取位同源；mission/orientation 配置变更后重发）。
-  if (RIR_ACCEPTANCE_LOG_ENABLED() && !impl_->acceptance_scan_pattern_logged) {
+  if (RIR_ACCEPTANCE_LOG_ENABLED() && !acceptance_scan_pattern_logged) {
     const dwell::RirEffectiveBeamwidthDeg beamwidth =
-        dwell::RirResolveEffectiveBeamwidth(impl_->config.hardware.antenna);
+        dwell::RirResolveEffectiveBeamwidth(config.hardware.antenna);
     const std::vector<oneq::common::radar::AzimuthElevationDeg> pattern =
-        BuildAbsoluteScanWaves(impl_->config);
+        BuildAbsoluteScanWaves(config);
     const std::string csv_path = runtime::ResolveRirAntennaPatternCsvPath();
-    runtime::TryExportRirAntennaPatternCsv(impl_->config.hardware.antenna, csv_path.c_str());
+    runtime::TryExportRirAntennaPatternCsv(config.hardware.antenna, csv_path.c_str());
     runtime::WriteRirAntennaPatternSummary(input.sim_time_sec, input.input_cycle_index,
-                                           impl_->config.hardware.antenna.main_beam_gain_db,
+                                           config.hardware.antenna.main_beam_gain_db,
                                            beamwidth.az_beamwidth_deg, beamwidth.el_beamwidth_deg,
                                            csv_path);
     runtime::WriteRirOncePerSession(input.sim_time_sec, input.input_cycle_index);
-    impl_->acceptance_scan_pattern_logged = true;
+    acceptance_scan_pattern_logged = true;
     (void)pattern;
   }
   if (RIR_ACCEPTANCE_LOG_ENABLED()) {
     const std::vector<oneq::common::radar::AzimuthElevationDeg> pattern =
-        BuildAbsoluteScanWaves(impl_->config);
+        BuildAbsoluteScanWaves(config);
     runtime::WriteRirBeamScan(input.sim_time_sec, input.input_cycle_index, pattern,
                               dwell_center.az_deg, dwell_center.el_deg, dwelling_on_target);
     runtime::WriteRirCycleRunCount(input.sim_time_sec, input.input_cycle_index);
   }
 
-  impl_->controller.RunCycle(input, &result.output_frame, impl_->next_batch_id, dwell_center);
+  controller.RunCycle(input, &result.output_frame, next_batch_id, dwell_center);
   result.status = RirCycleStatus::kCompleted;
   result.abort_reason = RirCycleAbortReason::kNone;
-  ++impl_->next_batch_id;
-  if (impl_->controller.HasLatestSummary()) {
+  ++next_batch_id;
+  if (controller.HasLatestSummary()) {
     result.has_recognition_summary = true;
-    result.recognition_summary = impl_->controller.GetLatestSummary();
+    result.recognition_summary = controller.GetLatestSummary();
   }
   // 航迹归属视图回填（结果层）：仅已执行周期携带，非执行路径早退保持空列表。
-  result.track_attributions = impl_->controller.LatestTrackAttributions();
-  result.emission_frame = impl_->controller.LatestEmissionFrame();
+  result.track_attributions = controller.LatestTrackAttributions();
+  result.emission_frame = controller.LatestEmissionFrame();
+  // 执行期按目标排除诊断（规则 13b）：完成周期并入统一问题列表（早退路径
+  // 保持校验明细，不携带执行诊断）。
+  result.issues = controller.LatestExecutionIssues();
 
   // 指定识别任务结果回填（镜像 AR designation_* 形状）：
   //   kPending + 目标在体积内 → active；kPending + 目标缺席 → kNotRecognized；
@@ -363,7 +395,7 @@ RirCycleResult RirSession::StepWithResult(const RirCycleInput& input) {
   //   作废沿 → kAcquisitionTimeout；任务完成/作废后 → 指定清零。
   const bool pending = advance.phase == RirDesignationPhase::kPending;
   result.designated_target_id =
-      (pending || expiry.expiry_cycle) ? impl_->designated_external_target_id : 0U;
+      (pending || expiry.expiry_cycle) ? designated_external_target_id : 0U;
   result.designation_active = pending && target_in_volume;
   result.designation_reverted_to_scan =
       expiry.expired ? expiry.expiry_cycle : (pending && !target_in_volume);

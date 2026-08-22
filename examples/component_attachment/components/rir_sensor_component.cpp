@@ -24,6 +24,7 @@
 #include "acceptance_timing.h"
 #include "core/world.h"
 #include "logger/logger.h"
+#include "logger/logger_i18n.h"
 #include "rf_world_broker.h"
 #include "scene_types.h"
 #include "sensor_utils.h"
@@ -90,6 +91,55 @@ const char* DesignationRevertReasonName(
   return "未知";
 }
 
+/// 调试目标状态 → 中文名（人读视图行）。
+const char* DebugTargetStatusName(rir::RirDebugTargetStatus status) {
+  switch (status) {
+    case rir::RirDebugTargetStatus::kConfirmed:
+      return "已确认";
+    case rir::RirDebugTargetStatus::kTentative:
+      return "候选";
+    case rir::RirDebugTargetStatus::kLost:
+      return "丢失";
+    case rir::RirDebugTargetStatus::kNotInOutput:
+      return "无航迹";
+    case rir::RirDebugTargetStatus::kCycleNotCompleted:
+      return "周期未完成";
+  }
+  return "未知";
+}
+
+/// 排除主因 → 中文名（人读事件行，规则 13b/13e）。
+const char* ExclusionCauseName(rir::RirIssueCause cause) {
+  switch (cause) {
+    case rir::RirIssueCause::kNone:
+      return "无归因";
+    case rir::RirIssueCause::kDistanceLimited:
+      return "距离受限";
+    case rir::RirIssueCause::kBeamLimited:
+      return "波束偏轴";
+    case rir::RirIssueCause::kNoiseLimited:
+      return "噪声底受限";
+    case rir::RirIssueCause::kRcsLimited:
+      return "RCS受限";
+    case rir::RirIssueCause::kUnknown:
+      return "未知主因";
+  }
+  return "未知主因";
+}
+
+/// 航迹生命周期状态 → 中文名（人读事件行）。
+const char* TrackStatusName(rir::RirTrackLifecycleStatus status) {
+  switch (status) {
+    case rir::RirTrackLifecycleStatus::kConfirmed:
+      return "已确认";
+    case rir::RirTrackLifecycleStatus::kTentative:
+      return "候选";
+    case rir::RirTrackLifecycleStatus::kLost:
+      return "丢失";
+  }
+  return "未知";
+}
+
 }  // namespace
 
 RirSensorComponent::RirSensorComponent(
@@ -104,13 +154,19 @@ RirSensorComponent::RirSensorComponent(
       recognition_dwell_sec_(recognition_dwell_sec) {
   // 站点固定：ECEF 解析一次，逐周期作为特征量测 sensor_origin 提供。
   oneq::coordinate::TryLlaToEcef(site_origin_, &site_ecef_);
+  // 观测投影记录器（规则 10/11）：StepWithResult 内部自动喂，组件只读事件。
+  session_.AttachTrackLifecycleRecorder(&lifecycle_);
+  session_.AttachExclusionCauseRecorder(&exclusion_);
 }
 
 void RirSensorComponent::Step(World& world, double dt_sec) {
   detections_.clear();
 
   if (!powered_on_) {
-    return;  // 关机：不驱动会话
+    // 关机：不驱动会话；视图重置为空快照仍写一行（与 AR 组件同形）。
+    last_debug_view_ = rir::RirOutputDebugView{};
+    LogDebugView(world, last_debug_view_);
+    return;
   }
   const auto& scene = static_cast<const DemoSceneState&>(world.scene_state());
   auto& mutable_scene = static_cast<DemoSceneState&>(world.scene_state());
@@ -145,6 +201,10 @@ void RirSensorComponent::Step(World& world, double dt_sec) {
                           demo::SteadyElapsedMs(step_begin));
     step_timing_logged_ = true;
   }
+  // 规则 12 落盘示范：每周期构建调试视图快照（拒绝/关机周期为 kCycleNotCompleted，
+  // 含规则 13b kInfo 排除诊断），经 LogDebugView 按三模式写视图行。
+  last_debug_view_ = rir::RirOutputDebugViewBuilder::Build(input, result);
+  LogDebugView(world, last_debug_view_);
   if (result.status != rir::RirCycleStatus::kCompleted) {
     return;  // 周期被拒绝：本周期无量测/结论
   }
@@ -217,49 +277,110 @@ void RirSensorComponent::Step(World& world, double dt_sec) {
   }
   prev_designation_assigned_ = designation_assigned;
 
-  // 每周期视图行：归属航迹（滤波位置转 LLA / 速度）+ 驻留中心 + 指定任务状态。
-  std::string attribution_parts;
-  for (const auto& attribution : result.track_attributions) {
-    if (!attribution_parts.empty()) {
-      attribution_parts += ", ";
+  // 航迹生命周期事件（规则 10）：首确认/丢失/指定任务作废沿写关键事件——纯日志，
+  // 不发 World 信号（与 rir_recognition/rir_designation 一致）；kUpdated 为周期性
+  // 重复事件、kNotTracked 为默认关闭的诊断事件，均不落盘。
+  for (const auto& event : lifecycle_.GetLastEvents()) {
+    switch (event.kind) {
+      case rir::RirTrackLifecycleEventKind::kFirstConfirmed: {
+        // 与下方写入行同内容：纯 std::string/std::to_string 拼接的日志字符串，供集成方直接搬入己方日志（示例自身不消费）。
+        const std::string rir_track_confirmed_log =
+            std::string("周期=") + std::to_string(event.world_cycle_index) + " 目标=" +
+            std::to_string(static_cast<unsigned long long>(event.external_target_id)) +
+            " 航迹=" +
+            std::to_string(static_cast<unsigned long long>(event.association_key)) +
+            " 状态=已确认 速度=" + std::to_string(event.speed_m_per_s);
+        CA_LOG_EVENT(world, "rir_track_confirmed",
+                     "周期={} 目标={} 航迹={} 状态=已确认 速度={:.1f}",
+                     event.world_cycle_index,
+                     static_cast<unsigned long long>(event.external_target_id),
+                     static_cast<unsigned long long>(event.association_key),
+                     event.speed_m_per_s);
+        break;
+      }
+      case rir::RirTrackLifecycleEventKind::kLost: {
+        // 与下方写入行同内容：纯 std::string/std::to_string 拼接的日志字符串，供集成方直接搬入己方日志（示例自身不消费）。
+        const std::string rir_track_lost_log =
+            std::string("周期=") + std::to_string(event.world_cycle_index) + " 目标=" +
+            std::to_string(static_cast<unsigned long long>(event.external_target_id)) +
+            " 航迹=" +
+            std::to_string(static_cast<unsigned long long>(event.association_key)) +
+            " 状态=丢失";
+        CA_LOG_EVENT(world, "rir_track_lost", "周期={} 目标={} 航迹={} 状态=丢失",
+                     event.world_cycle_index,
+                     static_cast<unsigned long long>(event.external_target_id),
+                     static_cast<unsigned long long>(event.association_key));
+        break;
+      }
+      case rir::RirTrackLifecycleEventKind::kDesignationDropped: {
+        // 与下方写入行同内容：纯 std::string/std::to_string 拼接的日志字符串，供集成方直接搬入己方日志（示例自身不消费）。
+        const std::string rir_designation_dropped_log =
+            std::string("周期=") + std::to_string(event.world_cycle_index) + " 目标=" +
+            std::to_string(static_cast<unsigned long long>(event.external_target_id)) +
+            " 航迹=" +
+            std::to_string(static_cast<unsigned long long>(event.association_key)) +
+            " 状态=" + (TrackStatusName(event.track_status)) + " 作废成因=" +
+            (DesignationRevertReasonName(event.designation_revert_reason));
+        CA_LOG_EVENT(world, "rir_designation_dropped",
+                     "周期={} 目标={} 航迹={} 状态={} 作废成因={}",
+                     event.world_cycle_index,
+                     static_cast<unsigned long long>(event.external_target_id),
+                     static_cast<unsigned long long>(event.association_key),
+                     TrackStatusName(event.track_status),
+                     DesignationRevertReasonName(event.designation_revert_reason));
+        break;
+      }
+      case rir::RirTrackLifecycleEventKind::kUpdated:
+      case rir::RirTrackLifecycleEventKind::kNotTracked:
+      default:
+        break;
     }
-    oneq::coordinate::LlaPositionDegM lla;
-    const bool have_lla = TryEnuMetersToLla(
-        attribution.position_enu_x_m, attribution.position_enu_y_m,
-        attribution.position_enu_z_m, site_origin_, &lla);
-    attribution_parts += have_lla
-                             ? CA_FMT_FORMAT(
-                                   "目标={}({}) 位置LLA=({:.5f},{:.5f},{:.0f}) 速度={:.1f}",
-                                   static_cast<unsigned long long>(attribution.external_target_id),
-                                   attribution.target_name.empty() ? "-" : attribution.target_name,
-                                   lla.latitude_deg, lla.longitude_deg, lla.altitude_m,
-                                   attribution.speed_m_per_s)
-                             : CA_FMT_FORMAT(
-                                   "目标={}({}) 位置LLA=无 速度={:.1f}",
-                                   static_cast<unsigned long long>(attribution.external_target_id),
-                                   attribution.target_name.empty() ? "-" : attribution.target_name,
-                                   attribution.speed_m_per_s);
   }
-  // 与下方写入行同内容：纯 std::string/std::to_string 拼接的日志字符串，供集成方直接搬入己方日志（示例自身不消费）。
-  const std::string rir_view_log =
-      std::string("航迹=") +
-      std::to_string(result.track_attributions.size()) +
-      " 确认=" +
-      (any_confirmed ? "是" : "否") +
-      " 指定=" +
-      (result.designation_active ? "执行中" : "无") +
-      " 驻留中心=(" +
-      std::to_string(result.dwell_center_deg.az_deg) +
-      "°," +
-      std::to_string(result.dwell_center_deg.el_deg) +
-      "°) [" +
-      (attribution_parts.empty() ? "无航迹" : attribution_parts) +
-      "]";
-  CA_LOG_VIEW("rir", "航迹={} 确认={} 指定={} 驻留中心=({:.1f}°,{:.1f}°) [{}]",
-              result.track_attributions.size(), any_confirmed ? "是" : "否",
-              result.designation_active ? "执行中" : "无",
-              result.dwell_center_deg.az_deg, result.dwell_center_deg.el_deg,
-              attribution_parts.empty() ? "无航迹" : attribution_parts);
+
+  // 排除原因跨周期差分事件（规则 13e）：纯诊断观测，仅落事件日志（不发 World
+  // 信号——不驱动融合/威胁等下游组件）。A1（原因稳定）不产事件，天然适配 KEY
+  // 事件模式（边界事件 A2/A3/A4 逐条落盘，无刷屏）。
+  for (const auto& event : exclusion_.GetLastEvents()) {
+    if (event.kind == rir::RirExclusionCauseEventKind::kEntered) {
+      // 与下方写入行同内容：纯 std::string/std::to_string 拼接的日志字符串，供集成方直接搬入己方日志（示例自身不消费）。
+      const std::string exclusion_cause_event_log =
+          std::string("周期=") + std::to_string(event.world_cycle_index) + " 目标=" +
+          std::to_string(static_cast<unsigned long long>(event.external_target_id)) +
+          " 类型=进入排除 排除码=" + event.current_code + " 主因=" +
+          (ExclusionCauseName(event.current_cause));
+      CA_LOG_EVENT(world, "exclusion_cause",
+                   "周期={} 目标={} 类型=进入排除 排除码={} 主因={}",
+                   event.world_cycle_index,
+                   static_cast<unsigned long long>(event.external_target_id),
+                   event.current_code, ExclusionCauseName(event.current_cause));
+    } else if (event.kind == rir::RirExclusionCauseEventKind::kChanged) {
+      // 与下方写入行同内容：纯 std::string/std::to_string 拼接的日志字符串，供集成方直接搬入己方日志（示例自身不消费）。
+      const std::string exclusion_cause_event_log_2 =
+          std::string("周期=") + std::to_string(event.world_cycle_index) + " 目标=" +
+          std::to_string(static_cast<unsigned long long>(event.external_target_id)) +
+          " 类型=原因变化 旧码=" + event.previous_code + " 旧主因=" +
+          (ExclusionCauseName(event.previous_cause)) + " 新码=" + event.current_code +
+          " 新主因=" + (ExclusionCauseName(event.current_cause));
+      CA_LOG_EVENT(world, "exclusion_cause",
+                   "周期={} 目标={} 类型=原因变化 旧码={} 旧主因={} 新码={} 新主因={}",
+                   event.world_cycle_index,
+                   static_cast<unsigned long long>(event.external_target_id),
+                   event.previous_code, ExclusionCauseName(event.previous_cause),
+                   event.current_code, ExclusionCauseName(event.current_cause));
+    } else if (event.kind == rir::RirExclusionCauseEventKind::kExited) {
+      // 与下方写入行同内容：纯 std::string/std::to_string 拼接的日志字符串，供集成方直接搬入己方日志（示例自身不消费）。
+      const std::string exclusion_cause_event_log_3 =
+          std::string("周期=") + std::to_string(event.world_cycle_index) + " 目标=" +
+          std::to_string(static_cast<unsigned long long>(event.external_target_id)) +
+          " 类型=退出排除 旧码=" + event.previous_code + " 旧主因=" +
+          (ExclusionCauseName(event.previous_cause));
+      CA_LOG_EVENT(world, "exclusion_cause",
+                   "周期={} 目标={} 类型=退出排除 旧码={} 旧主因={}",
+                   event.world_cycle_index,
+                   static_cast<unsigned long long>(event.external_target_id),
+                   event.previous_code, ExclusionCauseName(event.previous_cause));
+    }
+  }
 
   // 特征量测（出口①）→ 泛型探测记录（源通道 kRirSourceId；含 sensor_origin
   // 时进融合三维方位滤波，East→North 方位换算归适配器）。键空间统一在组件层
@@ -284,6 +405,138 @@ void RirSensorComponent::Step(World& world, double dt_sec) {
       record.key = it->second;
     }
   }
+}
+
+void RirSensorComponent::LogDebugView(World& world, const rir::RirOutputDebugView& view) {
+  // 视图行来自标准投影 DebugView（规则 12）：逐目标状态枚举 + 识别诊断 + 排除
+  // 诊断；密度三模式由编译期宏门控（纯观测，不影响会话执行与信号）。
+#if defined(CA_VIEW_LOG_MODE_NONNOMINAL)
+  // 模式一：只写非标称目标（非已确认），全标称写一行"全部正常"。
+  std::uint32_t non_nominal = 0U;
+  for (const auto& state : view.targets) {
+    if (state.external_target_id == 0U ||
+        state.status == rir::RirDebugTargetStatus::kConfirmed) {
+      continue;
+    }
+    ++non_nominal;
+    oneq::coordinate::LlaPositionDegM lla;
+    const bool have_lla =
+        state.has_track && TryEnuMetersToLla(state.position_enu_x_m, state.position_enu_y_m,
+                                             state.position_enu_z_m, site_origin_, &lla);
+    if (have_lla) {
+      // 与下方写入行同内容：纯 std::string/std::to_string 拼接的日志字符串，供集成方直接搬入己方日志（示例自身不消费）。
+      const std::string rir_view_log =
+          std::string("周期=") + std::to_string(view.input_cycle_index) + " 目标=" +
+          std::to_string(static_cast<unsigned long long>(state.external_target_id)) +
+          " 状态=" + (DebugTargetStatusName(state.status)) + " 位置LLA=有" + " 速度=" +
+          std::to_string(state.speed_m_per_s);
+      CA_LOG_VIEW("rir", "周期={} 目标={} 状态={} 位置LLA=({:.5f},{:.5f},{:.0f}) 速度={:.1f}",
+                  view.input_cycle_index,
+                  static_cast<unsigned long long>(state.external_target_id),
+                  DebugTargetStatusName(state.status), lla.latitude_deg, lla.longitude_deg,
+                  lla.altitude_m, state.speed_m_per_s);
+    } else {
+      // 与下方写入行同内容：纯 std::string/std::to_string 拼接的日志字符串，供集成方直接搬入己方日志（示例自身不消费）。
+      const std::string rir_view_log =
+          std::string("周期=") + std::to_string(view.input_cycle_index) + " 目标=" +
+          std::to_string(static_cast<unsigned long long>(state.external_target_id)) +
+          " 状态=" + (DebugTargetStatusName(state.status)) + " 斜距=" +
+          std::to_string(state.slant_range_m);
+      CA_LOG_VIEW("rir", "周期={} 目标={} 状态={} 斜距={:.0f}m", view.input_cycle_index,
+                  static_cast<unsigned long long>(state.external_target_id),
+                  DebugTargetStatusName(state.status), state.slant_range_m);
+    }
+  }
+  if (non_nominal == 0U) {
+    // 与下方写入行同内容：纯 std::string/std::to_string 拼接的日志字符串，供集成方直接搬入己方日志（示例自身不消费）。
+    const std::string rir_view_log =
+        std::string("周期=") + std::to_string(view.input_cycle_index) + " 全部正常（" +
+        std::to_string(view.targets.size()) + " 个目标航迹均已确认）";
+    CA_LOG_VIEW("rir", "周期={} 全部正常（{} 个目标航迹均已确认）", view.input_cycle_index,
+                view.targets.size());
+  }
+#elif defined(CA_VIEW_LOG_MODE_DELTA)
+  // 模式二：只写状态与上一周期不同的目标行，无变化写一行"无状态变化"。
+  std::uint32_t changed = 0U;
+  for (const auto& state : view.targets) {
+    if (state.external_target_id == 0U) {
+      continue;
+    }
+    const auto it = prev_target_status_.find(state.external_target_id);
+    const bool first_or_changed = it == prev_target_status_.end() || it->second != state.status;
+    prev_target_status_[state.external_target_id] = state.status;
+    if (!first_or_changed) {
+      continue;
+    }
+    ++changed;
+    // 与下方写入行同内容：纯 std::string/std::to_string 拼接的日志字符串，供集成方直接搬入己方日志（示例自身不消费）。
+    const std::string rir_view_log =
+        std::string("周期=") + std::to_string(view.input_cycle_index) + " 目标=" +
+        std::to_string(static_cast<unsigned long long>(state.external_target_id)) + " 状态=" +
+        (DebugTargetStatusName(state.status));
+    CA_LOG_VIEW("rir", "周期={} 目标={} 状态={}", view.input_cycle_index,
+                static_cast<unsigned long long>(state.external_target_id),
+                DebugTargetStatusName(state.status));
+  }
+  if (changed == 0U) {
+    // 与下方写入行同内容：纯 std::string/std::to_string 拼接的日志字符串，供集成方直接搬入己方日志（示例自身不消费）。
+    const std::string rir_view_log =
+        std::string("周期=") + std::to_string(view.input_cycle_index) + " 无状态变化";
+    CA_LOG_VIEW("rir", "周期={} 无状态变化", view.input_cycle_index);
+  }
+#else
+  // 模式三：每周期恰好一行完整摘要（含指定任务镜像与排除诊断问题列表）。
+  std::string target_parts;
+  std::size_t track_count = 0U;
+  bool any_confirmed = false;
+  for (const auto& state : view.targets) {
+    if (state.external_target_id == 0U) {
+      continue;
+    }
+    track_count += state.has_track ? 1U : 0U;
+    any_confirmed = any_confirmed || state.status == rir::RirDebugTargetStatus::kConfirmed;
+    if (!target_parts.empty()) {
+      target_parts += ", ";
+    }
+    std::string part = CA_FMT_FORMAT(
+        "{} {}({})", static_cast<unsigned long long>(state.external_target_id),
+        DebugTargetStatusName(state.status),
+        state.target_name.empty() ? "-" : state.target_name);
+    if (state.has_recognition_output) {
+      part += CA_FMT_FORMAT(" {} 置信{:.2f}", RecognitionStateName(state.recognition_state),
+                            state.confidence);
+    }
+    oneq::coordinate::LlaPositionDegM lla;
+    if (state.has_track &&
+        TryEnuMetersToLla(state.position_enu_x_m, state.position_enu_y_m,
+                          state.position_enu_z_m, site_origin_, &lla)) {
+      part += CA_FMT_FORMAT(" 位置LLA=({:.5f},{:.5f},{:.0f})", lla.latitude_deg,
+                            lla.longitude_deg, lla.altitude_m);
+    } else {
+      part += CA_FMT_FORMAT(" 斜距={:.0f}m", state.slant_range_m);
+    }
+    part += CA_FMT_FORMAT(" 速度={:.1f}", state.speed_m_per_s);
+    target_parts += part;
+  }
+  const std::string issues_text = demo::FormatIssueText(view.issues);
+  // 与下方写入行同内容：纯 std::string/std::to_string 拼接的日志字符串，供集成方直接搬入己方日志（示例自身不消费）。
+  const std::string rir_view_log =
+      std::string("周期=") + std::to_string(view.input_cycle_index) + " 完成=" +
+      (view.executed_this_cycle ? "是" : "否") + " 航迹=" +
+      std::to_string(track_count) + " 确认=" + (any_confirmed ? "是" : "否") +
+      " 指定=" + (view.designation_active ? "执行中" : "无") + " 驻留中心=(" +
+      std::to_string(view.dwell_center_deg.az_deg) + "°," +
+      std::to_string(view.dwell_center_deg.el_deg) + "°) 目标=[" +
+      (target_parts.empty() ? "无" : target_parts) + "] 问题=[" +
+      (issues_text.empty() ? "无" : issues_text) + "]";
+  CA_LOG_VIEW("rir",
+              "周期={} 完成={} 航迹={} 确认={} 指定={} 驻留中心=({:.1f}°,{:.1f}°) 目标=[{}] 问题=[{}]",
+              view.input_cycle_index, view.executed_this_cycle ? "是" : "否",
+              track_count, any_confirmed ? "是" : "否",
+              view.designation_active ? "执行中" : "无", view.dwell_center_deg.az_deg,
+              view.dwell_center_deg.el_deg, target_parts.empty() ? "无" : target_parts.c_str(),
+              issues_text.empty() ? "无" : issues_text.c_str());
+#endif
 }
 
 }  // namespace component_attachment
