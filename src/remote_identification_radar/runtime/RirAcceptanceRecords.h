@@ -12,6 +12,7 @@
 
 #include "1q/electromagnetics/RfScene.h"
 #include "1q/remote_identification_radar/config/RirHardwareConfig.h"
+#include "1q/remote_identification_radar/session/RirSceneTypes.h"
 #include "remote_identification_radar/dwell/RirDetectionCellResolver.h"
 
 namespace remote_identification_radar {
@@ -70,6 +71,7 @@ void WriteRirAssociation(float sim_time_sec, std::uint32_t cycle,
 void WriteRirTrackAndId(float sim_time_sec, std::uint32_t cycle, const tracking::RirTrackState& track,
                         const session::RirRecognitionResult* result,
                         const session::RirFeatureMeasurementRecord* features,
+                        const std::vector<session::RirPolarizationRcsSample>* polarization_samples,
                         bool has_truth, double category_accuracy);
 
 void WriteRirSchedule(float sim_time_sec, std::uint32_t cycle, std::uint32_t planned,

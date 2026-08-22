@@ -420,6 +420,10 @@ bool LoadSceneData(const char* path, SceneData* scene, std::string* error) {
       target.has_rir_polarization = rir.Has("pol_ch1_dbsm") || rir.Has("pol_ch2_dbsm");
       target.rir_pol_ch1_dbsm = ReadDouble(rir, "pol_ch1_dbsm", 0.0);
       target.rir_pol_ch2_dbsm = ReadDouble(rir, "pol_ch2_dbsm", 0.0);
+      target.has_rir_pol_cross = rir.Has("pol_cross_dbsm");
+      target.rir_pol_cross_dbsm = ReadDouble(rir, "pol_cross_dbsm", 0.0);
+      target.has_rir_pol_phase = rir.Has("pol_phase_vv_deg");
+      target.rir_pol_phase_vv_deg = ReadDouble(rir, "pol_phase_vv_deg", 0.0);
       if (rir["truth_model"].IsString()) {
         target.rir_truth_model = rir["truth_model"].AsString();
       }

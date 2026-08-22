@@ -17,6 +17,7 @@
 #include "common/logging/AcceptanceText.h"
 #include "common/radar/MtiMtdAcceptanceBank.h"
 #include "remote_identification_radar/dwell/RirAntennaPatternRuntime.h"
+#include "remote_identification_radar/runtime/PolarizationAcceptanceS.h"
 #include "remote_identification_radar/runtime/RirAcceptanceLog.h"
 #include "remote_identification_radar/tracking/RirTrackAssociator.h"
 #include "remote_identification_radar/tracking/RirTrackTypes.h"
@@ -308,8 +309,9 @@ void WriteRirAssociation(float sim_time_sec, std::uint32_t cycle,
 
 void WriteRirTrackAndId(float sim_time_sec, std::uint32_t cycle, const tracking::RirTrackState& track,
                         const session::RirRecognitionResult* result,
-                        const session::RirFeatureMeasurementRecord* features, bool has_truth,
-                        double category_accuracy) {
+                        const session::RirFeatureMeasurementRecord* features,
+                        const std::vector<session::RirPolarizationRcsSample>* polarization_samples,
+                        bool has_truth, double category_accuracy) {
   if (!RIR_ACCEPTANCE_LOG_ENABLED()) {
     return;
   }
@@ -386,6 +388,30 @@ void WriteRirTrackAndId(float sim_time_sec, std::uint32_t cycle, const tracking:
     pol_text += " 置信度=" + FormatF(result != nullptr ? result->confidence : 0.0, 4);
     pol_text += has_truth ? (" 正确识别率=" + FormatF(category_accuracy, 4))
                           : std::string(" 正确识别率=无（本场无真值对照）");
+    PolarizationAcceptanceSResult derived;
+    const bool has_s =
+        polarization_samples != nullptr && features != nullptr &&
+        TryResolvePolarizationAcceptanceS(*polarization_samples, features->look_az_deg,
+                                          features->look_el_deg, &derived);
+    if (has_s) {
+      pol_text += " 验收派生功率迹=" + FormatSci(derived.span);
+      pol_text += " 验收派生行列式=" + FormatSci(derived.abs_det);
+      pol_text += " 验收派生去极化系数=" + FormatF(derived.depolarization, 4);
+      pol_text += " 验收派生本征极化方向角=" + FormatF(derived.psi_deg, 3) + "°";
+      pol_text += " 验收派生本征极化椭圆率=" + FormatF(derived.tau_deg, 3) + "（未进识别）";
+    } else {
+      const char* missing = "暂无（无交叉极化或HH-VV相位，无法按S派生）";
+      pol_text += " 验收派生功率迹=";
+      pol_text += missing;
+      pol_text += " 验收派生行列式=";
+      pol_text += missing;
+      pol_text += " 验收派生去极化系数=";
+      pol_text += missing;
+      pol_text += " 验收派生本征极化方向角=";
+      pol_text += missing;
+      pol_text += " 验收派生本征极化椭圆率=";
+      pol_text += missing;
+    }
     RIR_ACCEPTANCE_ITEM(sim_time_sec, cycle, "极化特征解算", pol_text);
 
     const auto& rp = features->features.range_profile;

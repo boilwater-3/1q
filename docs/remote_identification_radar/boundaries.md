@@ -224,6 +224,7 @@ RIR 遵守 `docs/common/contract.md` 与 `docs/common/session_contract.md`：
 
 1. **F1 双通道极化**：场景目标 `polarization_rcs_samples`（dBsm）经同一雷达方程
    与 SNR 噪声底派生；通道定义（H/V）由数据库固定（meta `polarization_channels`）。
+   可选 `cross_rcs_dbsm` / `phase_vv_rel_hh_deg` 仅验收旁路消费（须 `has_*`），不进提取器。
 2. **F2 距离像相干叠加**：仅消费场景侧 `range_rcs_scatterers` 真值列表；散射中心级
    峰值判定为效能级简化（粗距离单元下不合并峰标识，仅投影能量）。
 
@@ -247,7 +248,9 @@ CMake 开关 `ONEQ_ENABLE_RIR_ACCEPTANCE_LOG`（默认 OFF）门控。开启后�
 `docs/review/acceptance_item_catalog_2026-08-22.md`。边界：仅人读验收材料，
 不属于三写、不进公开输出/replay。MTI/MTD 通道数为验收旁路频谱派生（未进 SINR，
 见 `docs/review/rir_mti_mtd_acceptance_sidecar_freeze_2026-08-22.md`），日志写
-「验收派生」不写「经处理后」。加粗缺项（舰船/车辆类型、无链路时的 MTD 干扰通道、
+「验收派生」不写「经处理后」。极化五项（功率迹 / 行列式 / 去极化 / 本征极化角 / 椭圆率）
+按 L2 Sinclair S 派生（见 `docs/review/rir_polarization_l2_acceptance_sidecar_freeze_2026-08-22.md`），
+未进识别；缺交叉极化或 HH–VV 相位写暂无，不回退对角实矩阵。加粗缺项（舰船/车辆类型、无链路时的 MTD 干扰通道、
 IMM 权重、指定角域裁剪后的搜索集合）写 `无`/`暂无`，不编造。
 
 ## 设计变更规则

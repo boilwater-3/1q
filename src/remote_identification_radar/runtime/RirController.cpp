@@ -784,8 +784,15 @@ void RirController::RunCycle(const session::RirCycleInput& input,
           break;
         }
       }
+      const std::vector<session::RirPolarizationRcsSample>* polarization_samples = nullptr;
+      for (const session::RirSceneTarget& target : input.scene_targets) {
+        if (target.external_target_id == track.external_target_id) {
+          polarization_samples = &target.polarization_rcs_samples;
+          break;
+        }
+      }
       WriteRirTrackAndId(input.sim_time_sec, input.input_cycle_index, track, result, features,
-                         latest_summary_.has_ground_truth,
+                         polarization_samples, latest_summary_.has_ground_truth,
                          static_cast<double>(latest_summary_.category_accuracy));
     }
     // 归属视图与出口②同循环产出（全部航迹快照：tentative/confirmed/lost）。

@@ -51,8 +51,12 @@ std::vector<TargetEcefState> MakeTargetStates(
     state.has_rir_features = entry.has_rir_features;
     state.has_rir_polarization = entry.has_rir_polarization;
     state.rir_rcs_dbsm = entry.rir_rcs_dbsm;
+    state.has_rir_pol_cross = entry.has_rir_pol_cross;
+    state.has_rir_pol_phase = entry.has_rir_pol_phase;
     state.rir_pol_ch1_dbsm = entry.rir_pol_ch1_dbsm;
     state.rir_pol_ch2_dbsm = entry.rir_pol_ch2_dbsm;
+    state.rir_pol_cross_dbsm = entry.rir_pol_cross_dbsm;
+    state.rir_pol_phase_vv_deg = entry.rir_pol_phase_vv_deg;
     state.rir_truth_model = entry.rir_truth_model;
     state.rir_scatterers = entry.rir_scatterers;
     state.maneuvers = entry.maneuvers;
@@ -182,6 +186,10 @@ std::vector<remote_identification_radar::session::RirSceneTarget> MakeRirSceneTa
             polarization.aspect_el_deg = el;
             polarization.channel_1_rcs_dbsm = static_cast<float>(state.rir_pol_ch1_dbsm);
             polarization.channel_2_rcs_dbsm = static_cast<float>(state.rir_pol_ch2_dbsm);
+            polarization.has_cross_pol = state.has_rir_pol_cross;
+            polarization.cross_rcs_dbsm = static_cast<float>(state.rir_pol_cross_dbsm);
+            polarization.has_phase_vv = state.has_rir_pol_phase;
+            polarization.phase_vv_rel_hh_deg = static_cast<float>(state.rir_pol_phase_vv_deg);
             target.polarization_rcs_samples.push_back(polarization);
           }
         }

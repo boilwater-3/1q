@@ -37,9 +37,13 @@ struct TargetEcefState {
   double emitter_center_frequency_hz{0.0}; /**< ESR 辐射源中心频率（Hz；≤0 = 不配辐射源） */
   bool has_rir_features{false};            /**< 是否携带 RIR 识别特征真值（从脚本流转） */
   bool has_rir_polarization{false};        /**< 是否提供极化通道真值（决定铺极化样本） */
+  bool has_rir_pol_cross{false};           /**< 是否显式给出交叉极化 RCS */
+  bool has_rir_pol_phase{false};           /**< 是否显式给出 HH–VV 相位 */
   double rir_rcs_dbsm{0.0};                /**< 视角 RCS 网格值（dBsm） */
   double rir_pol_ch1_dbsm{0.0};            /**< 极化通道 1 RCS（dBsm） */
   double rir_pol_ch2_dbsm{0.0};            /**< 极化通道 2 RCS（dBsm） */
+  double rir_pol_cross_dbsm{0.0};          /**< 交叉极化 HV=VH RCS（dBsm） */
+  double rir_pol_phase_vv_deg{0.0};        /**< VV 相对 HH 相位（deg） */
   std::string rir_truth_model{};           /**< 真值型号名（人读 + 识别准确率统计） */
   std::vector<RirScattererScript> rir_scatterers{}; /**< 距离向散射中心脚本 */
   std::vector<TargetManeuver> maneuvers{}; /**< 变速机动表（从脚本拷贝，推进时按周期查表） */

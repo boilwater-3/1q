@@ -35,6 +35,7 @@ set(RIR_CORE_SOURCES
     session/RirReplayFlatbufferCodec.cpp
     runtime/RirController.cpp
     runtime/RirAcceptanceRecords.cpp
+    runtime/PolarizationAcceptanceS.cpp
 )
 
 oneq_add_component(rir_engine SOURCES ${RIR_ENGINE_SOURCES})

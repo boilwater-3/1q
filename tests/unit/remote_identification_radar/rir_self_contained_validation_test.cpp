@@ -58,6 +58,29 @@ oneq::electromagnetics::RfSceneEmission MakeNoiseEmission(std::uint64_t emission
   return emission;
 }
 
+TEST(RirSelfContainedValidationTest, PolarizationHasFlagsRequireFiniteOptionalFields) {
+  RirCycleInput input = MakeValidInput();
+  session::RirPolarizationRcsSample sample;
+  sample.has_cross_pol = true;
+  sample.cross_rcs_dbsm = std::numeric_limits<float>::quiet_NaN();
+  input.scene_targets[0].polarization_rcs_samples.push_back(sample);
+  EXPECT_TRUE(HasCode(ValidateRirCycleInput(input), session::codes::kNonFiniteTargetField));
+
+  input = MakeValidInput();
+  sample = session::RirPolarizationRcsSample{};
+  sample.has_phase_vv = true;
+  sample.phase_vv_rel_hh_deg = std::numeric_limits<float>::infinity();
+  input.scene_targets[0].polarization_rcs_samples.push_back(sample);
+  EXPECT_TRUE(HasCode(ValidateRirCycleInput(input), session::codes::kNonFiniteTargetField));
+
+  input = MakeValidInput();
+  sample = session::RirPolarizationRcsSample{};
+  sample.cross_rcs_dbsm = std::numeric_limits<float>::quiet_NaN();
+  sample.phase_vv_rel_hh_deg = std::numeric_limits<float>::infinity();
+  input.scene_targets[0].polarization_rcs_samples.push_back(sample);
+  EXPECT_FALSE(HasCode(ValidateRirCycleInput(input), session::codes::kNonFiniteTargetField));
+}
+
 TEST(RirSelfContainedValidationTest, SceneTargetMotionAndSwerlingFieldsAreValidated) {
   RirCycleInput input = MakeValidInput();
   input.scene_targets[0].velocity_y = std::numeric_limits<float>::infinity();

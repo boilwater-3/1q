@@ -43,13 +43,19 @@ struct ONEQ_API RirAspectRcsSample {
 };
 
 /**
- * @brief RirPolarizationRcsSample 同一观测几何下两正交极化通道的 RCS 样本。
+ * @brief RirPolarizationRcsSample 同一观测几何下极化 RCS 样本。
+ * @note channel_1 = HH，channel_2 = VV。交叉极化与 HH–VV 相位仅验收旁路消费；
+ *       0 dBsm 合法，必须用 has_* 声明已填，不得把 0 当缺省。
  */
 struct ONEQ_API RirPolarizationRcsSample {
-  float aspect_az_deg{0.0f};      /**< 入射方位角（deg），任意有限值。 */
-  float aspect_el_deg{0.0f};      /**< 入射俯仰角（deg），任意有限值。 */
-  float channel_1_rcs_dbsm{0.0f}; /**< 第一极化通道 RCS（dBsm）。 */
-  float channel_2_rcs_dbsm{0.0f}; /**< 第二极化通道 RCS（dBsm）。 */
+  float aspect_az_deg{0.0f};       /**< 入射方位角（deg），任意有限值。 */
+  float aspect_el_deg{0.0f};       /**< 入射俯仰角（deg），任意有限值。 */
+  float channel_1_rcs_dbsm{0.0f};  /**< HH 通道 RCS（dBsm）。 */
+  float channel_2_rcs_dbsm{0.0f};  /**< VV 通道 RCS（dBsm）。 */
+  float cross_rcs_dbsm{0.0f};      /**< 交叉极化 HV=VH RCS（dBsm）；has_cross_pol 为假时忽略。 */
+  float phase_vv_rel_hh_deg{0.0f}; /**< VV 相对 HH 相位（deg）；has_phase_vv 为假时忽略。 */
+  bool has_cross_pol{false};       /**< 已显式提供交叉极化 RCS。 */
+  bool has_phase_vv{false};        /**< 已显式提供 HH–VV 相位。 */
 };
 
 /**

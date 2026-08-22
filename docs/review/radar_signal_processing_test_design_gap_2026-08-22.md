@@ -170,11 +170,11 @@ OCR 归一：功率迹距离 / 功率迹降 → **功率迹（Span）**；本征
 | 跟踪滤波 | 估计误差指标 | 跟踪滤波 | 清单无对等字段 | 清单把估计误差放在融合 UKF / 精度评估，雷达滤波行不写 |
 | RCS 实时探测 | 持续定位 + 运动参数 | 根据目标 RCS 实时计算探测结果 | 能输出 | 清单另写本周期 RCS |
 | 运动特征 | 目标类别 | 运动特征处理 | 能输出 | 清单另写速度 / 高度 / 近似直线 |
-| 极化特征 | 极化散射矩阵行列式 | 极化特征解算 | 清单无对等字段 | 清单字段是极化差 / 相对 / 和 |
-| 极化特征 | 功率迹（Span） | 极化特征解算 | 清单无对等字段 | 同上 |
-| 极化特征 | 去极化系数 | 极化特征解算 | 清单无对等字段 | 同上 |
-| 极化特征 | 本征极化方向角 | 极化特征解算 | 清单无对等字段 | 同上 |
-| 极化特征 | 本征极化椭圆率 | 极化特征解算 | 清单无对等字段 | 同上 |
+| 极化特征 | 极化散射矩阵行列式 | 极化特征解算 | 能派生（旁路） | `|det(S)|`，缺 has_* 写暂无，未进识别 |
+| 极化特征 | 功率迹（Span） | 极化特征解算 | 能派生（旁路） | `σ_hh+σ_vv+2σ_hv`，不是 energy_sum_db |
+| 极化特征 | 去极化系数 | 极化特征解算 | 能派生（旁路） | `2σ_hv/Span`，缺交叉极化写暂无 |
+| 极化特征 | 本征极化方向角 | 极化特征解算 | 能派生（旁路） | Graves ψ，缺相位写暂无 |
+| 极化特征 | 本征极化椭圆率 | 极化特征解算 | 能派生（旁路） | Graves τ，缺相位写暂无 |
 | 极化特征 | 目标类型 | 极化特征解算 | 能输出 | 清单：目标类别 + 置信度 |
 | 宽带一维像 | 散射中心和轮廓特征 | 宽带一维像特征解算 | **不能输出**（明细） | 清单：能写长度 / 峰数 / 能量集中 / 分辨率；逐散射中心列表加粗否决 |
 | 宽带一维像 | 识别类别 | 宽带一维像特征解算 | 能输出 | 清单：识别类型 + 置信度 |
@@ -257,7 +257,7 @@ OCR 归一：功率迹距离 / 功率迹降 → **功率迹（Span）**；本征
 
 ### 3.5 极化是双通道能量，不是散射矩阵（5 条）
 
-库极化观测只有 `energy_difference_db` / `relative_difference_db` / `energy_sum_db` / `quality`。没有 Sinclair / Kennaugh 矩阵，也就没有行列式、Span、去极化系数、本征极化角、椭圆率。
+库识别观测只有 `energy_difference_db` / `relative_difference_db` / `energy_sum_db` / `quality`。Sinclair S 与行列式、Span、去极化、本征极化角 / 椭圆率只在验收旁路构造，不进识别。
 
 | 原文指标 | 原因 |
 |---|---|
@@ -269,8 +269,22 @@ OCR 归一：功率迹距离 / 功率迹降 → **功率迹（Span）**；本征
 
 能写的近邻：极化差 / 相对 / 和、目标类别、置信度。
 
-[evidence: src/remote_identification_radar/recognition/RecognitionTypes.h]
-[evidence: src/remote_identification_radar/recognition/PolarizationFeatureExtractor.h]
+识别观测仍是两路实数 RCS 三能量。2026-08-22 续裁走 **L2 验收旁路**（与 MTI/MTD 同模式）：公开样本可加交叉极化与 HH–VV 相位（`has_*` 显式开关），不改提取器 / 匹配 / 模板。最近邻样本两个 `has_*` 都为真才按 Sinclair S 写「验收派生」五字段并标明「未进识别」；否则五行同句暂无，**不回退 L1 对角实矩阵**。
+
+| 验收派生字段 | 公式 |
+|---|---|
+| 功率迹 | `σ_hh + σ_vv + 2 σ_hv`（不是 `energy_sum_db`） |
+| 行列式 | `|det(S)|`，`S` 按 HH/VV、HV=VH、φ_hv=0 构造 |
+| 去极化系数 | `2 σ_hv / Span`（Span=0 失败 → 暂无） |
+| 本征极化方向角 | Graves `G=SᴴS` 最大特征向量，ρ=V/H，`ψ=½ atan2(2 Re ρ, 1−|ρ|²)` |
+| 本征极化椭圆率 | `τ=½ asin(2 Im ρ / (1+|ρ|²))`（度） |
+
+L3（IQ 协方差）不实施。识别结论仍只用极化差 / 相对 / 和。
+
+[evidence: docs/review/rir_polarization_l2_acceptance_sidecar_freeze_2026-08-22.md]
+[evidence: src/remote_identification_radar/runtime/PolarizationAcceptanceS.cpp]
+[evidence: src/remote_identification_radar/runtime/RirAcceptanceRecords.cpp]
+[evidence: src/remote_identification_radar/recognition/PolarizationFeatureExtractor.cpp]
 
 ### 3.6 一维像只给统计量（1 条明细）
 
@@ -293,7 +307,7 @@ OCR 归一：功率迹距离 / 功率迹降 → **功率迹（Span）**；本征
 
 - 原文约束是「指定 CSV 里有没有」；库约束是「主链有没有量、有没有可套公式、按层写哪份验收文件」。
 - 主题名多数对得上清单雷达三项（探测 / 跟踪识别 / 调度）。裂开的是**指标粒度**：原文按 MTI/MTD/CA-CFAR/极化矩阵/事件列表要产品；清单按已实现账本与否决项收口。
-- 本档不改清单、不改接线。若要把原文 15 条「清单无对等」升成验收项，须先改模块能力边界，而不是补日志。
+- MTI/MTD 已按 L1、极化矩阵五项已按 L2 验收旁路接线（未进主链）。其余「清单无对等」项仍须先改能力边界，再补日志。
 
 [evidence: docs/review/acceptance_item_catalog_2026-08-22.md]
 [evidence: docs/review/rir_signal_chain_capability_boundary_2026-08-15.md]
