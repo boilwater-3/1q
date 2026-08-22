@@ -18,6 +18,7 @@
 #include "1q/airborne_radar/session/ArExclusionCauseRecorder.h"
 #include "1q/airborne_radar/session/ArTrackLifecycleRecorder.h"
 #include "1q/airborne_radar/session/ArTrackOutputDebugView.h"
+#include "1q/coordinate/types.h"
 #include "1q/fusion/DetectionRecord.h"
 #include "core/component.h"
 #include "logger/logger_modes.h"
@@ -88,7 +89,8 @@ class ArSensorComponent : public Component {
   std::uint64_t transmitter_equipment_id_{1U};  /**< 本机发射 equipment_id（与 hardware.transmitter 一致） */
 
   /// 调试视图中文人读行写入（三模式分支见 .cpp；宏选择见 logger/logger.h）。
-  void LogDebugView(const airborne_radar::session::ArTrackOutputDebugView& view);
+  void LogDebugView(const airborne_radar::session::ArTrackOutputDebugView& view,
+                    const oneq::coordinate::LlaPositionDegM* origin_lla);
 #if defined(CA_VIEW_LOG_MODE_DELTA)
   /// 模式二（跨周期状态增量）用：上一周期状态表（external_target_id → status）。
   std::unordered_map<std::uint64_t, airborne_radar::session::ArDebugTrackStatus>

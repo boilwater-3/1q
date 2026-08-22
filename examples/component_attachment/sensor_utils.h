@@ -32,6 +32,19 @@ inline void ResolvePlatformEcef(const oneq::coordinate::LlaPositionDegM& positio
   }
 }
 
+/// 雷达局部 ENU（m）→ WGS84 LLA。视图目标位置统一用此出口，失败时调用方写「无」。
+inline bool TryEnuMetersToLla(double east_m, double north_m, double up_m,
+                              const oneq::coordinate::LlaPositionDegM& origin,
+                              oneq::coordinate::LlaPositionDegM* lla) {
+  if (lla == nullptr) {
+    return false;
+  }
+  const oneq::coordinate::EnuPositionM enu(east_m, north_m, up_m);
+  oneq::coordinate::EcefPositionM ecef;
+  return oneq::coordinate::TryEnuToEcef(enu, origin, &ecef) &&
+         oneq::coordinate::TryEcefToLla(ecef, lla);
+}
+
 }  // namespace component_attachment
 
 #endif  // EXAMPLES_COMPONENT_ATTACHMENT_SENSOR_UTILS_H_

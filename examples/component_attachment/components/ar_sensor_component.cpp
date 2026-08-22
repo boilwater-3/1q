@@ -133,7 +133,8 @@ bool ArSensorComponent::TryApplyRuntimeConfig(
 // 视图行写入（三模式，宏门控——未选中的模式不参与编译，见 logger/logger.h 模式选择
 // 区）。DebugView 每周期都构建，落多少、怎么落由集成方按需求选择。
 void ArSensorComponent::LogDebugView(
-    const airborne_radar::session::ArTrackOutputDebugView& view) {
+    const airborne_radar::session::ArTrackOutputDebugView& view,
+    const oneq::coordinate::LlaPositionDegM* origin_lla) {
 #if defined(CA_VIEW_LOG_MODE_NONNOMINAL)
   // 模式一（只落非标称行）：跳过已确认（标称）目标，日志量 ∝ 异常数。
   std::size_t non_nominal = 0U;
@@ -142,10 +143,22 @@ void ArSensorComponent::LogDebugView(
       continue;
     }
     ++non_nominal;
-    CA_LOG_VIEW("ar", "周期={} 目标={} 状态={} 位置=({:.1f},{:.1f},{:.1f})m 速度={:.1f}m/s",
-                view.world_cycle_index, track.external_target_id,
-                ArTrackStatusName(track.status), track.position_x, track.position_y,
-                track.position_z, track.speed);
+    oneq::coordinate::LlaPositionDegM lla;
+    const bool have_lla =
+        origin_lla != nullptr &&
+        TryEnuMetersToLla(static_cast<double>(track.position_x),
+                          static_cast<double>(track.position_y),
+                          static_cast<double>(track.position_z), *origin_lla, &lla);
+    if (have_lla) {
+      CA_LOG_VIEW("ar", "周期={} 目标={} 状态={} 位置LLA=({:.5f},{:.5f},{:.0f}) 速度={:.1f}m/s",
+                  view.world_cycle_index, track.external_target_id,
+                  ArTrackStatusName(track.status), lla.latitude_deg, lla.longitude_deg,
+                  lla.altitude_m, track.speed);
+    } else {
+      CA_LOG_VIEW("ar", "周期={} 目标={} 状态={} 位置LLA=无 速度={:.1f}m/s",
+                  view.world_cycle_index, track.external_target_id,
+                  ArTrackStatusName(track.status), track.speed);
+    }
   }
   if (non_nominal == 0U) {
     CA_LOG_VIEW("ar", "周期={} 全部正常（{} 个目标均已确认）", view.world_cycle_index,
@@ -192,7 +205,7 @@ void ArSensorComponent::Step(World& world, double dt_sec) {
 
   if (!powered_on_) {
     last_debug_view_ = airborne_radar::session::ArTrackOutputDebugView{};  // 关机：调试视图清零（无有效周期）
-    LogDebugView(last_debug_view_);
+    LogDebugView(last_debug_view_, nullptr);
     return;  // 关机：组件不驱动会话（设备不工作），本周期无探测
   }
 
@@ -223,7 +236,8 @@ void ArSensorComponent::Step(World& world, double dt_sec) {
   // 含规则 13b kInfo 排除诊断），供调用方结构化持久化；本示例经 LogDebugView
   // 直写中文人读行（三模式由集成方按需选择）。
   last_debug_view_ = airborne_radar::session::ArTrackOutputDebugViewBuilder::Build(input, result);
-  LogDebugView(last_debug_view_);
+  const oneq::coordinate::LlaPositionDegM origin = flight->position();
+  LogDebugView(last_debug_view_, &origin);
   if (result.status != airborne_radar::session::ArCycleStatus::kCompleted) {
     return;  // 周期被拒绝：本周期无探测
   }

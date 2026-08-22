@@ -57,17 +57,19 @@ void InferenceComponent::Step(World& world, double dt_sec) {
     const auto& trajectory = result.trajectory;
     const std::string launch = trajectory.has_launch
                                    ? CA_FMT_FORMAT(
-                                         "发射=({:.3f},{:.3f}) t={:.0f}s σ={:.0f}m",
+                                         "发射=({:.5f},{:.5f},{:.0f}) t={:.0f}s σ={:.0f}m",
                                          trajectory.launch_point.latitude_deg,
                                          trajectory.launch_point.longitude_deg,
+                                         trajectory.launch_point.altitude_m,
                                          trajectory.launch_time_offset_sec,
                                          trajectory.launch_position_sigma_m)
                                    : std::string("发射=未解算");
     const std::string impact = trajectory.has_impact
                                    ? CA_FMT_FORMAT(
-                                         "落点=({:.3f},{:.3f}) t=+{:.0f}s σ={:.0f}m",
+                                         "落点=({:.5f},{:.5f},{:.0f}) t=+{:.0f}s σ={:.0f}m",
                                          trajectory.impact_point.latitude_deg,
                                          trajectory.impact_point.longitude_deg,
+                                         trajectory.impact_point.altitude_m,
                                          trajectory.impact_time_offset_sec,
                                          trajectory.impact_position_sigma_m)
                                    : std::string("落点=时域外");

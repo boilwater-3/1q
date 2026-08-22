@@ -26,6 +26,7 @@
 #include "logger/logger.h"
 #include "rf_world_broker.h"
 #include "scene_types.h"
+#include "sensor_utils.h"
 
 namespace component_attachment {
 
@@ -196,18 +197,28 @@ void RirSensorComponent::Step(World& world, double dt_sec) {
   }
   prev_designation_assigned_ = designation_assigned;
 
-  // 每周期视图行：归属航迹（滤波位置/速度）+ 驻留中心 + 指定任务状态。
+  // 每周期视图行：归属航迹（滤波位置转 LLA / 速度）+ 驻留中心 + 指定任务状态。
   std::string attribution_parts;
   for (const auto& attribution : result.track_attributions) {
     if (!attribution_parts.empty()) {
       attribution_parts += ", ";
     }
-    attribution_parts += CA_FMT_FORMAT(
-        "目标={}({}) 位置ENU=({:.0f},{:.0f},{:.0f}) 速度={:.1f}",
-        static_cast<unsigned long long>(attribution.external_target_id),
-        attribution.target_name.empty() ? "-" : attribution.target_name,
+    oneq::coordinate::LlaPositionDegM lla;
+    const bool have_lla = TryEnuMetersToLla(
         attribution.position_enu_x_m, attribution.position_enu_y_m,
-        attribution.position_enu_z_m, attribution.speed_m_per_s);
+        attribution.position_enu_z_m, site_origin_, &lla);
+    attribution_parts += have_lla
+                             ? CA_FMT_FORMAT(
+                                   "目标={}({}) 位置LLA=({:.5f},{:.5f},{:.0f}) 速度={:.1f}",
+                                   static_cast<unsigned long long>(attribution.external_target_id),
+                                   attribution.target_name.empty() ? "-" : attribution.target_name,
+                                   lla.latitude_deg, lla.longitude_deg, lla.altitude_m,
+                                   attribution.speed_m_per_s)
+                             : CA_FMT_FORMAT(
+                                   "目标={}({}) 位置LLA=无 速度={:.1f}",
+                                   static_cast<unsigned long long>(attribution.external_target_id),
+                                   attribution.target_name.empty() ? "-" : attribution.target_name,
+                                   attribution.speed_m_per_s);
   }
   CA_LOG_VIEW("rir", "航迹={} 确认={} 指定={} 驻留中心=({:.1f}°,{:.1f}°) [{}]",
               result.track_attributions.size(), any_confirmed ? "是" : "否",
