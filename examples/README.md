@@ -108,6 +108,7 @@ cmake --build --preset <preset> --target precision_evaluation_demo
 
 ## 相关文档
 
+- [`docs/practice/customer_integration_verification.md`](../docs/practice/customer_integration_verification.md) — 甲方集成验证清单（两个核心场景要挂哪些组件/接哪些事件/核验什么）
 - [`configs/README.md`](configs/README.md) — 六域会话配置 JSON 字段说明 + remote_identification_radar/ 识别数据库
 - [`component_attachment/README.md`](component_attachment/README.md) — 示例详细设计
 - [`component_attachment/scenes/README.md`](component_attachment/scenes/README.md) — 场景系统（JSON schema + 场景集 + 六自由度/巡逻/多机/天基设计）
