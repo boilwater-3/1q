@@ -1,6 +1,6 @@
 ﻿/**
  * @file sar_replay_session_test.cpp
- * @brief 验证 SAR TraceSession 与 ReplaySession 的 replay trace 闭环。
+ * @brief 验证 SAR RecordingSession 与 ReplaySession 的 replay 闭环。
  */
 
 #include <gtest/gtest.h>
@@ -15,7 +15,7 @@
 #include "1q/replay/ReplayTrace.h"
 #include "1q/sar/session/SarReplaySession.h"
 #include "1q/sar/session/SarSession.h"
-#include "1q/sar/session/SarTraceSession.h"
+#include "1q/sar/session/SarRecordingSession.h"
 #include "sar/session/SarReplayFlatbufferCodec.h"
 
 namespace {
@@ -143,15 +143,15 @@ TEST(SarReplaySessionTest, ReplaySarTraceRoundtrip) {
   {
     std::shared_ptr<oneq::replay::ReplayTraceWriter> replay_writer(
         new oneq::replay::ReplayTraceWriter(trace_dir, manifest, true));
-    SarTraceSessionOptions options;
+    SarRecordingSessionOptions options;
     options.replay_writer = replay_writer;
-    options.trace_config_on_construct = true;
+    options.record_config_on_construct = true;
     config::SarSessionConfig config = MakeSmallRdaConfigForReplay();
     config.policy.enable_l2_motion_compensation = true;
     config.mission.l2_velocity_error_stddev_y_mps = 30.0;
     config.mission.l2_velocity_error_stddev_z_mps = 10.0;
     config.mission.l2_random_seed = 2026U;
-    SarTraceSession session(config, options);
+    SarRecordingSession session(config, options);
 
     const SarCycleResult result = session.StepWithResult(MakeReplayInput());
     ASSERT_EQ(result.status, SarCycleStatus::kCompleted);
@@ -179,12 +179,12 @@ TEST(SarReplaySessionTest, ReplayExternalRawIqTraceRoundtrip) {
   {
     std::shared_ptr<oneq::replay::ReplayTraceWriter> replay_writer(
         new oneq::replay::ReplayTraceWriter(temp_dir.Path(), manifest, true));
-    SarTraceSessionOptions options;
+    SarRecordingSessionOptions options;
     options.replay_writer = replay_writer;
-    options.trace_config_on_construct = true;
+    options.record_config_on_construct = true;
     config::SarSessionConfig config = MakeSmallRdaConfigForReplay();
     config.policy.retain_raw_phase_history = true;
-    SarTraceSession session(config, options);
+    SarRecordingSession session(config, options);
 
     const SarCycleResult result = session.StepWithResult(MakeExternalRawIqReplayInput());
     ASSERT_EQ(result.status, SarCycleStatus::kCompleted) << static_cast<int>(result.abort_reason);
@@ -210,10 +210,10 @@ TEST(SarReplaySessionTest, ReplayExternalRawIqShapeFailureRoundtrip) {
   {
     std::shared_ptr<oneq::replay::ReplayTraceWriter> replay_writer(
         new oneq::replay::ReplayTraceWriter(temp_dir.Path(), manifest, true));
-    SarTraceSessionOptions options;
+    SarRecordingSessionOptions options;
     options.replay_writer = replay_writer;
-    options.trace_config_on_construct = true;
-    SarTraceSession session(MakeSmallRdaConfigForReplay(), options);
+    options.record_config_on_construct = true;
+    SarRecordingSession session(MakeSmallRdaConfigForReplay(), options);
     SarCycleInput malformed = MakeExternalRawIqReplayInput();
     malformed.raw_iq.i_values.pop_back();
 
@@ -240,10 +240,10 @@ TEST(SarReplaySessionTest, ReplayContinuesAfterFailureMarker) {
   {
     std::shared_ptr<oneq::replay::ReplayTraceWriter> writer(
         new oneq::replay::ReplayTraceWriter(temp_dir.Path(), manifest, true));
-    SarTraceSessionOptions options;
+    SarRecordingSessionOptions options;
     options.replay_writer = writer;
-    options.trace_config_on_construct = true;
-    SarTraceSession session(MakeSmallRdaConfigForReplay(), options);
+    options.record_config_on_construct = true;
+    SarRecordingSession session(MakeSmallRdaConfigForReplay(), options);
     ASSERT_EQ(session.StepWithResult(MakeReplayInput(1U)).status, SarCycleStatus::kCompleted);
     oneq::replay::ReplayTraceFailure failure;
     failure.error_code = "SAR_RECOVERABLE_TEST";
@@ -274,10 +274,10 @@ TEST(SarReplaySessionTest, ReplayL3BpTraceRoundtrip) {
   {
     std::shared_ptr<oneq::replay::ReplayTraceWriter> replay_writer(
         new oneq::replay::ReplayTraceWriter(trace_dir, manifest, true));
-    SarTraceSessionOptions options;
+    SarRecordingSessionOptions options;
     options.replay_writer = replay_writer;
-    options.trace_config_on_construct = true;
-    SarTraceSession session(MakeSmallL3BpConfigForReplay(), options);
+    options.record_config_on_construct = true;
+    SarRecordingSession session(MakeSmallL3BpConfigForReplay(), options);
 
     const SarCycleResult first = session.StepWithResult(MakeReplayInput(1U));
     ASSERT_EQ(first.status, SarCycleStatus::kCompleted);
@@ -312,10 +312,10 @@ TEST(SarReplaySessionTest, ReplaySarTraceAppliesRuntimePatchBeforeCycle) {
         new oneq::replay::ReplayTraceWriter(trace_dir, manifest, true));
     config::SarSessionConfig config = MakeSmallRdaConfigForReplay();
     config.policy.enable_l1_rda_imaging = false;
-    SarTraceSessionOptions options;
+    SarRecordingSessionOptions options;
     options.replay_writer = replay_writer;
-    options.trace_config_on_construct = true;
-    SarTraceSession session(config, options);
+    options.record_config_on_construct = true;
+    SarRecordingSession session(config, options);
 
     config::SarRuntimeConfigPatch patch;
     patch.has_enable_l1_rda_imaging = true;

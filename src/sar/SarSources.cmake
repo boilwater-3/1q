@@ -60,7 +60,7 @@ set(SAR_CORE_SOURCES
     sar/runtime/SarController.cpp
     sar/session/SarSession.cpp
     sar/session/SarSessionCompositionRoot.cpp
-    sar/session/SarTraceSession.cpp
+    sar/session/SarRecordingSession.cpp
     sar/session/SarReplaySession.cpp
 )
 

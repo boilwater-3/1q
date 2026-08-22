@@ -1,6 +1,6 @@
 ---
 Status: active
-Last-reviewed: 2026-08-21
+Last-reviewed: 2026-08-23
 Authority: EOS 模块级边界、非目标与设计变更规则
 Answers: EOS 有哪些模块级禁令与边界、哪些非目标、frame_rate/dt 耦合与帧级 config 的特殊语义、文档变更规则
 ---
@@ -14,7 +14,7 @@ Answers: EOS 有哪些模块级禁令与边界、哪些非目标、frame_rate/dt
 
 EOS 遵守 `docs/common/contract.md`：
 
-1. public API 只暴露稳定 session/config/input/output/trace/replay 门面。`EosSession` 是对外门面，
+1. public API 只暴露稳定 session/config/input/output/Recording/Replay 门面。`EosSession` 是对外门面，
    只委托内部 `EosController`；Controller、Pipeline、CompositionRoot、foundation 算法不通过 public
    header 暴露。
 2. 会话配置直接赋值 `EosSessionConfig`；语义档位是

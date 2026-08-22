@@ -1,6 +1,6 @@
 ---
 Status: active
-Last-reviewed: 2026-08-20
+Last-reviewed: 2026-08-23
 Authority: RIR 数据流与状态所有权
 Answers: RIR 单周期数据怎么流、状态归谁持有、内部航迹如何生产与消费
 ---
@@ -32,7 +32,7 @@ flowchart TB
     Tracker["RirTracker\n（多周期积累 + 判定）"]
     Matcher["RirMatcher × RirFeatureDatabase\n（只读内存基线）"]
     Result["RirCycleResult\n（输出帧 + 摘要 + emission_frame +\ndesignation_* / dwell_center + 归属视图）"]
-    Replay["rir_replay.fbs V2\n（周期记录编解码）"]
+    Replay["RirRecordingSession +\nReplayRirTrace"]
   end
 
   Scene --> Input
@@ -60,11 +60,13 @@ flowchart TB
 
 ## 单周期时序（StepWithResult）
 
-1. **入口校验**：`ValidateRirCycleInput`（dt 有限为正、周期号非零、仿真时间
+1. **关机检查**：`sensor_enabled == false` → `kPoweredOff` 三写（`abort_reason` +
+   `rir.sensor_powered_off` + `PROJECT_LOG`），不触碰检测/跟踪/识别状态。
+2. **入口校验**：`ValidateRirCycleInput`（dt 有限为正、周期号非零、仿真时间
    有限、平台 ECEF 必填 fail-closed——分量有限且模长>0、须可转 LLA、场景目标
    位置/速度/RCS/斜距/特征样本有限、Swerling 取值合法、外部 `rf_scene`
-   帧合法且窗口与 `sim_time_sec`/驻留对齐）；失败 → `kRejectedInvalidInput`。
-2. **关机检查**：`sensor_enabled == false` → `kPoweredOff`，不触碰检测/跟踪/识别状态。
+   帧合法且窗口与 `sim_time_sec`/驻留对齐）；失败 → `kRejectedInvalidInput` 三写
+   （校验 issues 本身即写二，再补 abort_reason 与 `PROJECT_LOG`）。
 3. **补丁提交**（staged）：`RirRuntimeConfigPatch` 在下一个成功周期边界应用
    （电源/工作模式/转台朝向 `has_scan_center`/完整 policy/environment 域/
    指定识别任务字段）→ `RirController::UpdateRuntime` / `UpdateEnvironment`。
@@ -93,7 +95,7 @@ flowchart TB
      `UpdateCycle` 积累/匹配/判定（可选出参采集本周期实际构建的有效特征观测，
      供出口①透出）；非 `kIdentify` → `HoldCycle`；
      退出 `kIdentify` → `ExitRecognitionMode`。
-5. **输出装配（双产品）**：逐内部航迹结论回填 `RirOutputFrame::recognition_outputs`
+6. **输出装配（双产品）**：逐内部航迹结论回填 `RirOutputFrame::recognition_outputs`
    （按关联键升序，出口②）；特征量测记录回填 `feature_measurements`（出口①：
    采集观测 × 观测上下文 + 平台位置，透出原则——识别链未构建观测的周期为空）；
    `RirCycleResult::emission_frame` 在 `kIdentify` 且 RF 链成功时携带本周期实际
@@ -101,8 +103,10 @@ flowchart TB
    kCompleted 后回填 `RirCycleResult::track_attributions`；非执行周期产品层与
    归属层均为空（五模块统一规则）。`RirRecognitionCycleSummary` 含识别统计、
    真值准确率与驻留预算摘要。
-6. **replay**：`RirSessionReplayAccess::CaptureSessionState` 采集
+7. **replay**：公开 `RirRecordingSession` / `ReplayRirTrace`；内部
+   `RirSessionReplayAccess::CaptureSessionState` 采集
    `active_database_version` + 检测随机种子；周期记录经 `RirReplayFlatbufferCodec`
+   编入 Replay 目录。
    V2 编解码，旧 V1 显式拒绝；输出帧特征量测向量、结果表归属向量与
    `emission_frame` 为加性扩展（`RIR2` 标识不变，旧记录缺字段解码为空）。
    指定任务生命周期阶段

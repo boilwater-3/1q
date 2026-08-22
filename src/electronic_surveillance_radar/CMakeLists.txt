@@ -26,7 +26,7 @@ set(ESR_CORE_SOURCES
     session/EsrRuntimeConfigResolver.cpp
     session/EsrSession.cpp
     session/EsrExclusionCauseRecorder.cpp
-    session/EsrTraceSession.cpp
+    session/EsrRecordingSession.cpp
     session/EsrReplaySession.cpp
     session/EsrDiagnosticUtils.cpp
     session/EsrReplayFlatbufferCodec.cpp

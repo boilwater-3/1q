@@ -20,7 +20,7 @@
 #include "1q/sbirs_sensor/session/SbirsCycleResult.h"
 #include "1q/sbirs_sensor/session/SbirsInputValidation.h"
 #include "1q/sbirs_sensor/session/SbirsReplaySession.h"
-#include "1q/sbirs_sensor/session/SbirsTraceSession.h"
+#include "1q/sbirs_sensor/session/SbirsRecordingSession.h"
 #include "batch_assertions.h"
 #include "batch_checks.h"
 #include "batch_cli.h"
@@ -245,9 +245,9 @@ ScenarioSummary RunScenario(const SbirsCase& scenario, const std::string& output
   auto replay_writer = batch_validation::MakeReplayWriter(trace_dir, ModuleName::kSbirsSensor,
                                                           kTraceId, scenario.scenario_id);
   {
-    sbirs_session::SbirsTraceSessionOptions options;
+    sbirs_session::SbirsRecordingSessionOptions options;
     options.replay_writer = replay_writer;
-    sbirs_session::SbirsTraceSession session(MakeConfig(&scenario), options);
+    sbirs_session::SbirsRecordingSession session(MakeConfig(&scenario), options);
     const std::uint32_t cycle_count = CycleCount(scenario);
     std::size_t nonexecuted_count = 0U;
     bool channels_unique = true;

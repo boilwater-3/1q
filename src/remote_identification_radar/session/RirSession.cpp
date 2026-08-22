@@ -17,7 +17,9 @@
 #include "1q/remote_identification_radar/config/RirRuntimeConfigPatch.h"
 #include "1q/remote_identification_radar/session/RirExclusionCauseRecorder.h"
 #include "1q/remote_identification_radar/session/RirInputValidation.h"
+#include "1q/remote_identification_radar/session/RirIssueCodes.h"
 #include "1q/remote_identification_radar/session/RirTrackLifecycleRecorder.h"
+#include "common/logging/ProjectLog.h"
 #include "common/numerics/Constants.h"
 #include "common/radar/ScanScheduleRuntime.h"
 #include "remote_identification_radar/dwell/RirBeamControl.h"
@@ -264,6 +266,17 @@ RirCycleResult RirSession::Impl::RunCycle(const RirCycleInput& input) {
   if (!config.sensor_enabled) {
     result.status = RirCycleStatus::kPoweredOff;
     result.abort_reason = RirCycleAbortReason::kPoweredOff;
+    RirIssue issue;
+    issue.severity = RirIssueSeverity::kError;
+    issue.phase = RirIssuePhase::kExecution;
+    issue.code = codes::kSensorPoweredOff;
+    issue.message = "RIR sensor is powered off.";
+    result.issues.push_back(std::move(issue));
+    // 中译：RIR 传感器关机（非执行周期中止）。
+    // 标识：三写之三（人读日志）——电源关闭，本周期未执行；
+    //       仅用于人读，不用于状态判断（规则 3）。
+    PROJECT_LOG_ERROR("RIR sensor_powered_off: {} — {}", codes::kSensorPoweredOff,
+                      "RIR sensor is powered off.");
     return result;
   }
 
@@ -274,6 +287,10 @@ RirCycleResult RirSession::Impl::RunCycle(const RirCycleInput& input) {
     result.status = RirCycleStatus::kRejectedInvalidInput;
     result.abort_reason = RirCycleAbortReason::kValidationRejected;
     result.issues = validation_issues;
+    // 中译：RIR 输入校验拒绝（周期号）。
+    // 标识：三写之三（人读日志）——调用方输入非法，本周期未执行；
+    //       仅用于人读，不用于状态判断（规则 3）。
+    PROJECT_LOG_WARN("RIR validation rejected for cycle_index={}", input.input_cycle_index);
     return result;
   }
 

@@ -55,7 +55,7 @@ using SarPointTargetList = std::vector<SarPointTarget>;
 
 /**
  * @brief 外部提供的完整孔径行主序复数 IQ 帧。
- * @note 当前支持 L1 RDA、双轨迹 L2+RDA、实际轨迹 BP，以及完整 trace/replay。
+ * @note 当前支持 L1 RDA、双轨迹 L2+RDA、实际轨迹 BP，以及完整 Recording/Replay。
  *
  * 本结构体同时承载两类数据：
  * - **IQ 样本**：`i_values`、`q_values`、`samples_per_pulse`（信号域数据）

@@ -22,7 +22,6 @@ set(ONEQ_COMMON_SOURCES
     radar/VegetationClutterModel.cpp
     rcs/RcsPhysics.cpp
     replay/ReplayTrace.cpp
-    trace/TraceSink.cpp
     timing/TimingRegimeModel.cpp
     logging/AcceptanceFileLog.cpp
 )

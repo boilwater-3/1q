@@ -1,6 +1,6 @@
 ---
 Status: active
-Last-reviewed: 2026-08-22
+Last-reviewed: 2026-08-23
 Authority: RIR 模块级边界、非目标与设计变更规则
 Answers: RIR 有哪些模块级禁令与边界、哪些非目标、单位纪律与失败降级契约
 ---

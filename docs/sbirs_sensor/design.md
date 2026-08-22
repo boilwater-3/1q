@@ -1,6 +1,6 @@
 ---
 Status: active
-Last-reviewed: 2026-08-20
+Last-reviewed: 2026-08-23
 Authority: sbirs_sensor 设计权威入口
 Answers: SBIRS 模块是什么、和 EOS 有何不同、设计文档怎么导航
 ---
@@ -9,7 +9,7 @@ Answers: SBIRS 模块是什么、和 EOS 有何不同、设计文档怎么导航
 
 `sbirs_sensor` 提供天基红外预警仿真传感器（SBIRS-inspired）的配置、单周期输入、环境与大气建模、
 扫描搜索发现、凝视捕获/跟踪、搜索→凝视交接（cueing & handover）、多目标状态管理、结构化结果聚合、
-trace/replay、调试视图和生命周期事件。
+Recording/Replay、调试视图和生命周期事件。
 
 SBIRS 的心智模型是**状态机驱动的双视场传感器**：
 1. **WFOV 宽视场扫描**发现目标（带误差位置）；连续命中达到阈值（默认 1）才允许切换窄场。

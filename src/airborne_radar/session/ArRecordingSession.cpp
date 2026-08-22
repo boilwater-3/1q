@@ -1,11 +1,9 @@
-﻿#include "1q/airborne_radar/session/ArTraceSession.h"
+﻿#include "1q/airborne_radar/session/ArRecordingSession.h"
 
-#include <sstream>
 #include <string>
 #include <utility>
 
 #include "1q/airborne_radar/config/ArRuntimeConfigPatch.h"
-#include "1q/trace/TraceSink.h"
 #include "airborne_radar/session/ArReplayCycleRecord.h"
 #include "airborne_radar/session/ArReplayFlatbufferCodec.h"
 
@@ -48,76 +46,41 @@ void WriteSessionConfigReplay(
   writer->WriteEvent(event);
 }
 
-std::string BuildCyclePayload(const ArCycleInput& input,
-                              const ArCycleResult* result) {
-  std::ostringstream stream;
-  stream << "{\"cycle_index\":" << input.cycle_index
-         << ",\"cycle_start_time_s\":" << input.cycle_start_time_s
-         << ",\"external_emission_count\":"
-         << input.interference.emissions.size();
-  if (result != nullptr) {
-    stream << ",\"status\":" << static_cast<int>(result->status)
-           << ",\"track_count\":" << result->output_frame.tracks.size()
-           << ",\"ar_emission_count\":"
-           << result->emission_frame.emissions.size()
-           << ",\"interference_observation_count\":"
-           << result->interference_observations.size()
-           << ",\"receiver_impairment\":"
-           << static_cast<int>(result->receiver_impairment)
-           << ",\"issue_count\":" << result->issues.size();
-  }
-  stream << "}";
-  return stream.str();
-}
-
 }  // namespace
 
-struct ArTraceSession::Impl {
-  Impl(ArSession value, std::shared_ptr<oneq::trace::TraceSink> trace_sink,
+struct ArRecordingSession::Impl {
+  Impl(ArSession value,
        std::shared_ptr<oneq::replay::ReplayTraceWriter> replay_trace_writer)
       : session(std::move(value)),
-        sink(std::move(trace_sink)),
         replay_writer(std::move(replay_trace_writer)) {}
 
   ArSession session;
-  std::shared_ptr<oneq::trace::TraceSink> sink;
   std::shared_ptr<oneq::replay::ReplayTraceWriter> replay_writer;
 };
 
-ArTraceSession::ArTraceSession(const config::ArSessionConfig& config,
-                               ArTraceSessionOptions options)
-    : impl_(new Impl(ArSession::Create(config), std::move(options.sink),
+ArRecordingSession::ArRecordingSession(const config::ArSessionConfig& config,
+                                       ArRecordingSessionOptions options)
+    : impl_(new Impl(ArSession::Create(config),
                      std::move(options.replay_writer))) {
-  if (options.trace_config_on_construct) {
-    if (impl_->sink) {
-      impl_->sink->Record("airborne_radar", "config", "{}");
-    }
+  if (options.record_config_on_construct) {
     WriteSessionConfigReplay(impl_->replay_writer, config);
   }
 }
 
-ArTraceSession::ArTraceSession(ArTraceSession&& other) noexcept = default;
-ArTraceSession& ArTraceSession::operator=(ArTraceSession&& other) noexcept =
+ArRecordingSession::ArRecordingSession(ArRecordingSession&& other) noexcept = default;
+ArRecordingSession& ArRecordingSession::operator=(ArRecordingSession&& other) noexcept =
     default;
-ArTraceSession::~ArTraceSession() = default;
+ArRecordingSession::~ArRecordingSession() = default;
 
-TrackOutputFrame ArTraceSession::Step(const ArCycleInput& input) {
+TrackOutputFrame ArRecordingSession::Step(const ArCycleInput& input) {
   return StepWithResult(input).output_frame;
 }
 
-ArCycleResult ArTraceSession::StepWithResult(const ArCycleInput& input) {
-  if (impl_->sink) {
-    impl_->sink->Record("airborne_radar", "cycle_input",
-                        BuildCyclePayload(input, nullptr));
-  }
+ArCycleResult ArRecordingSession::StepWithResult(const ArCycleInput& input) {
   WriteReplayEvent(impl_->replay_writer, "cycle_input", "ArCycleInputV3",
                    EncodeCycleInputFlatbuffer(input), input);
 
   const ArCycleResult result = impl_->session.StepWithResult(input);
-  if (impl_->sink) {
-    impl_->sink->Record("airborne_radar", "cycle_output",
-                        BuildCyclePayload(input, &result));
-  }
   ArCycleReplayRecord record;
   record.result = result;
   record.session_state =
@@ -128,7 +91,7 @@ ArCycleResult ArTraceSession::StepWithResult(const ArCycleInput& input) {
   return result;
 }
 
-bool ArTraceSession::TryApplyRuntimeConfig(
+bool ArRecordingSession::TryApplyRuntimeConfig(
     const config::ArRuntimeConfigPatch& patch) {
   const bool accepted = impl_->session.TryApplyRuntimeConfig(patch);
   if (impl_->replay_writer) {
@@ -144,7 +107,7 @@ bool ArTraceSession::TryApplyRuntimeConfig(
   return accepted;
 }
 
-session::ExternalDecisionSubmitStatus ArTraceSession::SubmitExternalDecision(
+session::ExternalDecisionSubmitStatus ArRecordingSession::SubmitExternalDecision(
     session::ExternalDecisionOverride override_decision) {
   // 先序列化 profile 值（移动前），再按返回状态决定是否写回放事件。
   const std::string replay_payload =
@@ -164,7 +127,7 @@ session::ExternalDecisionSubmitStatus ArTraceSession::SubmitExternalDecision(
   return status;
 }
 
-const ArSession& ArTraceSession::session() const { return impl_->session; }
+const ArSession& ArRecordingSession::session() const { return impl_->session; }
 
 }  // namespace session
 }  // namespace airborne_radar

@@ -120,6 +120,11 @@ constexpr char kAntennaElGeometryInvalid[] = "rir.validation.antenna_el_geometry
 /** @brief RCS 物理参数非法。 */
 constexpr char kRcsPhysicsInvalid[] = "rir.validation.rcs_physics_invalid";
 
+// ===== 执行中止诊断（规则 9 三写）=====
+
+/** @brief 设备关机（非执行周期中止）。 */
+constexpr char kSensorPoweredOff[] = "rir.sensor_powered_off";
+
 // ===== 周期执行按目标门控排除诊断（"rir.target_<snake_case>"，规则 13b）=====
 
 /** @brief 检测准入门未过（聚合门：SNR/检测器判决；携带门内归因主因）。 */

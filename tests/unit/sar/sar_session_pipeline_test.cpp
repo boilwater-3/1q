@@ -8,7 +8,7 @@
 #include "1q/sar/session/SarSession.h"
 #include "1q/sar/session/SarProductDebugView.h"
 #include "1q/sar/session/SarProductLifecycleRecorder.h"
-#include "1q/sar/session/SarTraceSession.h"
+#include "1q/sar/session/SarRecordingSession.h"
 #include "sar/session/SarReplayFlatbufferCodec.h"
 
 namespace sar {
@@ -686,8 +686,8 @@ TEST(SarSessionPipelineTest, ExternalRawIqRunsL1RdaAndReturnsFocusedImage) {
   EXPECT_FALSE(HasIssueContaining(result, "sar.pulse_ring_buffer", ""));
 }
 
-TEST(SarSessionPipelineTest, TraceSessionWithoutReplayWriterAcceptsExternalRawIq) {
-  session::SarTraceSession session(MakeSmallRdaConfig());
+TEST(SarSessionPipelineTest, RecordingSessionWithoutReplayWriterAcceptsExternalRawIq) {
+  session::SarRecordingSession session(MakeSmallRdaConfig());
 
   const session::SarCycleResult result = session.StepWithResult(MakeExternalRawIqInput());
 

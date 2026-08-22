@@ -3,7 +3,7 @@
  * @brief 合成孔径雷达（SAR）批量场景验证。
  *
  * @par 目标
- * 通过公开 Session 接口（SarTraceSession）对 SAR 模块做多场景参数扫描，验证其在不同
+ * 通过公开 Session 接口（SarRecordingSession）对 SAR 模块做多场景参数扫描，验证其在不同
  * 带宽 / 斜距 / 孔径长度下的成像泛用性：
  *   - 采集周期级 CSV（聚焦阶段、图像质量指标：SNR / 主瓣宽 / 分辨率 / 图像熵 / 对比度）。
  *   - 软断言：带宽↑ → 距离分辨率↑（分辨率数值↓）；聚焦阶段达预期 kL1RdaImage；
@@ -40,7 +40,7 @@
 #include "1q/sar/session/SarCycleResult.h"
 #include "1q/sar/session/SarReplaySession.h"
 #include "1q/sar/session/SarSession.h"
-#include "1q/sar/session/SarTraceSession.h"
+#include "1q/sar/session/SarRecordingSession.h"
 #include "batch_assertions.h"
 #include "batch_checks.h"
 #include "batch_cli.h"
@@ -390,10 +390,10 @@ ScenarioSummary RunSarScenario(const SarCase& c, const sar_config::SarSessionCon
   metrics.reserve(cycle_count);
   bool invalid_patch_rejected = false;
   {
-    sar_session::SarTraceSessionOptions options;
+    sar_session::SarRecordingSessionOptions options;
     options.replay_writer = replay_writer;
-    options.trace_config_on_construct = true;
-    sar_session::SarTraceSession session(config, options);
+    options.record_config_on_construct = true;
+    sar_session::SarRecordingSession session(config, options);
 
     const char* previous_phase = nullptr;
     for (std::uint32_t cycle_index = 1U; cycle_index <= cycle_count; ++cycle_index) {

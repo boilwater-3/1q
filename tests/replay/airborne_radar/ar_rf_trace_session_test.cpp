@@ -9,7 +9,7 @@
 
 #include "1q/airborne_radar/config/ArRuntimeConfigPatch.h"
 #include "1q/airborne_radar/session/ArReplaySession.h"
-#include "1q/airborne_radar/session/ArTraceSession.h"
+#include "1q/airborne_radar/session/ArRecordingSession.h"
 #include "airborne_radar/decision/ControlReducerTypes.h"
 #include "1q/replay/ReplayTrace.h"
 #include "airborne_radar/session/ArReplayCycleRecord.h"
@@ -80,9 +80,9 @@ TEST(ArRfTraceSessionTest, SingleCycleInputAndOutputReplayExactly) {
   const std::string trace_dir = MakeTraceDir("oneq-ar-cycle-complete");
   {
     const auto writer = MakeWriter(trace_dir);
-    ArTraceSessionOptions options;
+    ArRecordingSessionOptions options;
     options.replay_writer = writer;
-    ArTraceSession traced(config::ArSessionConfig{}, options);
+    ArRecordingSession traced(config::ArSessionConfig{}, options);
 
     const ArCycleResult result =
         traced.StepWithResult(MakeCycleInput(1U, 10.0));
@@ -101,9 +101,9 @@ TEST(ArRfTraceSessionTest, RejectedCycleAndSameCycleRetryReplayExactly) {
   const std::string trace_dir = MakeTraceDir("oneq-ar-cycle-retry");
   {
     const auto writer = MakeWriter(trace_dir);
-    ArTraceSessionOptions options;
+    ArRecordingSessionOptions options;
     options.replay_writer = writer;
-    ArTraceSession traced(config::ArSessionConfig{}, options);
+    ArRecordingSession traced(config::ArSessionConfig{}, options);
 
     ArCycleInput invalid = MakeCycleInput(2U, 20.0);
     invalid.platform.platform_entity_id = 0U;
@@ -135,9 +135,9 @@ TEST(ArRfTraceSessionTest, PostEmissionReceiveRejectionReplayExactly) {
   const std::string trace_dir = MakeTraceDir("oneq-ar-post-emission-reject");
   {
     const auto writer = MakeWriter(trace_dir);
-    ArTraceSessionOptions options;
+    ArRecordingSessionOptions options;
     options.replay_writer = writer;
-    ArTraceSession traced(config::ArSessionConfig{}, options);
+    ArRecordingSession traced(config::ArSessionConfig{}, options);
 
     ArCycleInput rejected_input = MakeCycleInput(1U, 10.0);
     AddUnconfiguredCoSiteEmission(&rejected_input);
@@ -163,9 +163,9 @@ TEST(ArRfTraceSessionTest, RejectedPatchReplaysExactly) {
   const std::string trace_dir = MakeTraceDir("oneq-ar-cycle-attempts");
   {
     const auto writer = MakeWriter(trace_dir);
-    ArTraceSessionOptions options;
+    ArRecordingSessionOptions options;
     options.replay_writer = writer;
-    ArTraceSession traced(config::ArSessionConfig{}, options);
+    ArRecordingSession traced(config::ArSessionConfig{}, options);
 
     config::ArRuntimeConfigPatch empty_patch;
     EXPECT_FALSE(traced.TryApplyRuntimeConfig(empty_patch));
@@ -248,9 +248,9 @@ TEST(ArRfTraceSessionTest, ExternalOverrideReplaysExactly) {
   const std::string trace_dir = MakeTraceDir("oneq-ar-override-replay");
   {
     const auto writer = MakeWriter(trace_dir);
-    ArTraceSessionOptions options;
+    ArRecordingSessionOptions options;
     options.replay_writer = writer;
-    ArTraceSession traced(config::ArSessionConfig{}, options);
+    ArRecordingSession traced(config::ArSessionConfig{}, options);
 
     // Cycle 1: baseline
     const ArCycleResult first =

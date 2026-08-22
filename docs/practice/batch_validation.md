@@ -1,10 +1,10 @@
 # 批量场景验证框架
 
 Status: active
-Last-reviewed: 2026-08-20
+Last-reviewed: 2026-08-23
 Authority: tests/consumer/batch_validation engineering practice
 
-本框架位于 `tests/consumer/batch_validation/`，只通过 public Session、Adapter、Trace/Replay 接口验证多个
+本框架位于 `tests/consumer/batch_validation/`，只通过 public Session、Adapter、Recording/Replay 接口验证多个
 周期和参数组合，不定义业务模块行为。模块设计以各自 `design.md` 为准，跨模块硬规则以
 `docs/common/contract.md` 为准。
 
@@ -58,7 +58,7 @@ CTest；需要全量表征时显式运行 `--suite sweep|all`。
 flowchart LR
   Shared["example-local shared tools\nCLI / CSV / checks / replay"]
   Programs["five module executables\nsweep + sequence"]
-  Public["public module API\nSession / Adapter / Trace / Replay"]
+  Public["public module API\nSession / Adapter / Recording / Replay"]
   Products["cycles.csv / scenarios.csv / checks.csv\nreplay trace directory"]
   Analyzer["analyze_batch_results.py"]
 
@@ -71,16 +71,16 @@ flowchart LR
 框架不得 include pipeline/controller/generated codec 等内部头，也不得为了批量场景新增 public seam。
 配置加载器属于 example-local 工具，不是稳定的库消费合同。
 
-## Trace 与 replay
+## Recording 与 Replay
 
 每个场景使用独立 `ReplayTraceWriter` 目录和唯一 manifest：
 
-1. `*TraceSession` 构造时记录 session config；
-2. 每周期记录 input、output，runtime patch 和 failure marker 按真实事件进入 trace；
+1. `*RecordingSession` 构造时记录 session config；
+2. 每周期记录 input、output，runtime patch 和 failure marker 按真实事件进入 Replay 目录；
 3. writer `Flush()` 并释放句柄后调用模块 `ReplayXxxTrace()`；
 4. replay 重建 Session、重放输入并逐周期比较输出。
 
-`TraceSink` 是调试流，不是 `ReplayXxxTrace()` 的输入。failure marker 是可报告边界，不终止回放；
+库内没有第二套不能回放的记录格式。failure marker 是可报告边界，不终止回放；
 marker 后恢复周期仍必须比较。EOS 对应的模块级回放证据位于
 `tests/replay/electro_optical_sensor/eos_replay_session_test.cpp`，其它模块位于各自
 `tests/replay/<domain>/` 分区。

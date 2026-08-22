@@ -1,13 +1,13 @@
 ---
 Status: active
-Last-reviewed: 2026-08-07
+Last-reviewed: 2026-08-23
 Authority: AR 设计权威入口
 Answers: AR 模块是什么、和谁交互、设计文档怎么导航
 ---
 
 # Airborne Radar 设计
 
-`airborne_radar` 提供机载雷达探测、航迹维护、环境/干扰建模、战术决策、控制指令归约、trace/replay、
+`airborne_radar` 提供机载雷达探测、航迹维护、环境/干扰建模、战术决策、控制指令归约、Recording/Replay、
 调试视图和生命周期事件。对外提供稳定 `ArSession` 门面；环境服务、信号流水线、控制器、战术决策、
 控制归约和 mutable context 保持 internal。
 
@@ -24,7 +24,7 @@ AR 的决策扩展点是同进程步间 observation/response seam：
    （整包替换 native 归约结果，绕过 hold/cooldown）。
 3. 外部模块不替换内部对象；威胁分类和内部 baseline 每个成功周期仍持续计算，外部长期生效后内部
    baseline 仍能立即接管。
-4. trace/replay 在外部覆盖被接受时立即写入独立 `decision_input` 事件，并在 `ArReplayRecord` 中固化
+4. Recording/Replay 在外部覆盖被接受时立即写入独立 `decision_input` 事件，并在 `ArReplayRecord` 中固化
    observation、pending/applied internal proposals、来源 cycle/batch、reducer 计数和最终 profile。
 
 ## 模块定位要点

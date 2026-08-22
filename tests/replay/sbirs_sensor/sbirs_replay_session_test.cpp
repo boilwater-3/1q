@@ -12,7 +12,7 @@
 #include "1q/sbirs_sensor/session/SbirsCycleInputAdapter.h"
 #include "1q/sbirs_sensor/session/SbirsReplaySession.h"
 #include "1q/sbirs_sensor/session/SbirsSession.h"
-#include "1q/sbirs_sensor/session/SbirsTraceSession.h"
+#include "1q/sbirs_sensor/session/SbirsRecordingSession.h"
 #include "sbirs_sensor/session/SbirsReplayFlatbufferCodec.h"
 #include "support/oneq_test_temp_dir.h"
 
@@ -153,10 +153,10 @@ TEST(SbirsReplaySessionTest, ReplaySbirsTraceRoundtrip) {
   {
     std::shared_ptr<oneq::replay::ReplayTraceWriter> replay_writer(
         new oneq::replay::ReplayTraceWriter(trace_dir, Manifest("sbirs-roundtrip"), true));
-    sbirs_sensor::session::SbirsTraceSessionOptions options;
+    sbirs_sensor::session::SbirsRecordingSessionOptions options;
     options.replay_writer = replay_writer;
-    options.trace_config_on_construct = true;
-    sbirs_sensor::session::SbirsTraceSession session(Config(), options);
+    options.record_config_on_construct = true;
+    sbirs_sensor::session::SbirsRecordingSession session(Config(), options);
     sbirs_sensor::config::SbirsRuntimeConfigPatch patch;
     patch.has_scan_rate_deg_per_sec = true;
     patch.scan_rate_deg_per_sec = 1.0f;
@@ -194,10 +194,10 @@ TEST(SbirsReplaySessionTest, ReplayPreservesTruthModesAndRuntimeTransitions) {
     config.policy.error_model.range_fraction_sigma = 0.01f;
     std::shared_ptr<oneq::replay::ReplayTraceWriter> writer(
         new oneq::replay::ReplayTraceWriter(trace_dir, Manifest("sbirs-truth-modes"), true));
-    sbirs_sensor::session::SbirsTraceSessionOptions options;
+    sbirs_sensor::session::SbirsRecordingSessionOptions options;
     options.replay_writer = writer;
-    options.trace_config_on_construct = true;
-    sbirs_sensor::session::SbirsTraceSession session(config, options);
+    options.record_config_on_construct = true;
+    sbirs_sensor::session::SbirsRecordingSession session(config, options);
 
     const auto strict = session.StepWithResult(ValidInput(1U));
     ASSERT_EQ(strict.detection_attributions.size(), 1U);
@@ -248,10 +248,10 @@ TEST(SbirsReplaySessionTest, ReplayContinuesAfterFailureMarker) {
   {
     std::shared_ptr<oneq::replay::ReplayTraceWriter> writer(
         new oneq::replay::ReplayTraceWriter(trace_dir, Manifest("sbirs-marker-continuation"), true));
-    sbirs_sensor::session::SbirsTraceSessionOptions options;
+    sbirs_sensor::session::SbirsRecordingSessionOptions options;
     options.replay_writer = writer;
-    options.trace_config_on_construct = true;
-    sbirs_sensor::session::SbirsTraceSession session(Config(), options);
+    options.record_config_on_construct = true;
+    sbirs_sensor::session::SbirsRecordingSession session(Config(), options);
     ASSERT_EQ(session.StepWithResult(ValidInput(1U)).status, sbirs_sensor::session::SbirsCycleStatus::kCompleted);
     oneq::replay::ReplayTraceFailure failure;
     failure.error_code = "SBIRS_RECOVERABLE_TEST";
@@ -279,10 +279,10 @@ TEST(SbirsReplaySessionTest, ReplayPreservesNisLossAndReacquisitionDiagnostics) 
   {
     std::shared_ptr<oneq::replay::ReplayTraceWriter> replay_writer(
         new oneq::replay::ReplayTraceWriter(trace_dir, Manifest("sbirs-nis-loss"), true));
-    sbirs_sensor::session::SbirsTraceSessionOptions options;
+    sbirs_sensor::session::SbirsRecordingSessionOptions options;
     options.replay_writer = replay_writer;
-    options.trace_config_on_construct = true;
-    sbirs_sensor::session::SbirsTraceSession session(config, options);
+    options.record_config_on_construct = true;
+    sbirs_sensor::session::SbirsRecordingSession session(config, options);
 
     const sbirs_sensor::session::SbirsCycleResult acquired = session.StepWithResult(ValidInput(1U));
     ASSERT_FALSE(acquired.output_frame.detections.empty());
@@ -333,10 +333,10 @@ TEST(SbirsReplaySessionTest, ReplayPreservesMultiTargetImmTracking) {
   {
     std::shared_ptr<oneq::replay::ReplayTraceWriter> replay_writer(
         new oneq::replay::ReplayTraceWriter(trace_dir, Manifest("sbirs-multi-imm"), true));
-    sbirs_sensor::session::SbirsTraceSessionOptions options;
+    sbirs_sensor::session::SbirsRecordingSessionOptions options;
     options.replay_writer = replay_writer;
-    options.trace_config_on_construct = true;
-    sbirs_sensor::session::SbirsTraceSession session(config, options);
+    options.record_config_on_construct = true;
+    sbirs_sensor::session::SbirsRecordingSession session(config, options);
     const sbirs_sensor::session::SbirsCycleResult acquired =
         session.StepWithResult(ImmMultiTargetInput(1U));
     ASSERT_EQ(acquired.output_frame.detections.size(), 2U);
@@ -367,10 +367,10 @@ TEST(SbirsReplaySessionTest, ReplayPreservesMeasurementDerivedCvCue) {
   {
     std::shared_ptr<oneq::replay::ReplayTraceWriter> replay_writer(
         new oneq::replay::ReplayTraceWriter(trace_dir, Manifest("sbirs-cv-cue"), true));
-    sbirs_sensor::session::SbirsTraceSessionOptions options;
+    sbirs_sensor::session::SbirsRecordingSessionOptions options;
     options.replay_writer = replay_writer;
-    options.trace_config_on_construct = true;
-    sbirs_sensor::session::SbirsTraceSession session(config, options);
+    options.record_config_on_construct = true;
+    sbirs_sensor::session::SbirsRecordingSession session(config, options);
     const auto first = session.StepWithResult(MovingCueInput(1U, 0.0));
     for (const auto& detection : first.output_frame.detections) {
       EXPECT_NE(detection.observation_stage,
@@ -402,10 +402,10 @@ TEST(SbirsReplaySessionTest, ReplayPreservesMultiCycleSlewAndRuntimeMissionPatch
   {
     std::shared_ptr<oneq::replay::ReplayTraceWriter> replay_writer(
         new oneq::replay::ReplayTraceWriter(trace_dir, Manifest("sbirs-atp-patch"), true));
-    sbirs_sensor::session::SbirsTraceSessionOptions options;
+    sbirs_sensor::session::SbirsRecordingSessionOptions options;
     options.replay_writer = replay_writer;
-    options.trace_config_on_construct = true;
-    sbirs_sensor::session::SbirsTraceSession session(config, options);
+    options.record_config_on_construct = true;
+    sbirs_sensor::session::SbirsRecordingSession session(config, options);
     const sbirs_sensor::session::SbirsCycleResult slewing =
         session.StepWithResult(PointingInput(1U, 0.0));
     ASSERT_EQ(slewing.output_frame.detections.size(), 1U);
@@ -450,10 +450,10 @@ TEST(SbirsReplaySessionTest, ReplayPreservesDualChannelPointingTimeout) {
   {
     std::shared_ptr<oneq::replay::ReplayTraceWriter> replay_writer(
         new oneq::replay::ReplayTraceWriter(trace_dir, Manifest("sbirs-atp-timeout"), true));
-    sbirs_sensor::session::SbirsTraceSessionOptions options;
+    sbirs_sensor::session::SbirsRecordingSessionOptions options;
     options.replay_writer = replay_writer;
-    options.trace_config_on_construct = true;
-    sbirs_sensor::session::SbirsTraceSession session(config, options);
+    options.record_config_on_construct = true;
+    sbirs_sensor::session::SbirsRecordingSession session(config, options);
     sbirs_sensor::session::SbirsCycleResult result;
     for (std::uint32_t cycle = 1U; cycle <= 180U; ++cycle) {
       const double offset_y_m = cycle % 2U == 0U ? -176326.9807 : 176326.9807;
@@ -485,10 +485,10 @@ TEST(SbirsReplaySessionTest, ReplayPreservesChannelShrinkAndWideSearchRoundTrip)
   {
     std::shared_ptr<oneq::replay::ReplayTraceWriter> replay_writer(
         new oneq::replay::ReplayTraceWriter(trace_dir, Manifest("sbirs-runtime-migration"), true));
-    sbirs_sensor::session::SbirsTraceSessionOptions options;
+    sbirs_sensor::session::SbirsRecordingSessionOptions options;
     options.replay_writer = replay_writer;
-    options.trace_config_on_construct = true;
-    sbirs_sensor::session::SbirsTraceSession session(config, options);
+    options.record_config_on_construct = true;
+    sbirs_sensor::session::SbirsRecordingSession session(config, options);
     session.StepWithResult(ImmMultiTargetInput(1U));
 
     config.policy.scheduler.max_concurrent_nfov_locks = 1;
@@ -543,10 +543,10 @@ TEST(SbirsReplaySessionTest, ReplayPreservesTrackingCoastAndGateLoss) {
   {
     std::shared_ptr<oneq::replay::ReplayTraceWriter> replay_writer(
         new oneq::replay::ReplayTraceWriter(trace_dir, Manifest("sbirs-tracking-gate"), true));
-    sbirs_sensor::session::SbirsTraceSessionOptions options;
+    sbirs_sensor::session::SbirsRecordingSessionOptions options;
     options.replay_writer = replay_writer;
-    options.trace_config_on_construct = true;
-    sbirs_sensor::session::SbirsTraceSession session(config, options);
+    options.record_config_on_construct = true;
+    sbirs_sensor::session::SbirsRecordingSession session(config, options);
     session.StepWithResult(ValidInput(1U));
     const auto coast = session.StepWithResult(ValidInput(2U, 35000.0));
     EXPECT_TRUE(coast.output_frame.detections.empty());
@@ -586,10 +586,10 @@ TEST(SbirsReplaySessionTest, ReplayPreservesPointingDisturbanceAndRuntimePolicyP
     std::shared_ptr<oneq::replay::ReplayTraceWriter> replay_writer(
         new oneq::replay::ReplayTraceWriter(trace_dir, Manifest("sbirs-pointing-disturbance"),
                                             true));
-    sbirs_sensor::session::SbirsTraceSessionOptions options;
+    sbirs_sensor::session::SbirsRecordingSessionOptions options;
     options.replay_writer = replay_writer;
-    options.trace_config_on_construct = true;
-    sbirs_sensor::session::SbirsTraceSession session(config, options);
+    options.record_config_on_construct = true;
+    sbirs_sensor::session::SbirsRecordingSession session(config, options);
     session.StepWithResult(ImmMultiTargetInput(1U));
     const auto tracked = session.StepWithResult(ImmMultiTargetInput(2U));
     ASSERT_EQ(tracked.detection_attributions.size(), 2U);

@@ -1,17 +1,32 @@
 # 输出视图与日志体系使用教程（component_attachment）
 
 Status: active
-Last-reviewed: 2026-08-21
-Authority: 两通道+可选投影输出模型（docs/common/session_contract.md §两通道 + 可选投影输出模型；
-  旧称三层）与集成端日志设施（examples/component_attachment/logger/README.md）
+Last-reviewed: 2026-08-23
+Authority: 可观测性单源四件事（docs/common/session_contract.md）+ 两通道与投影输出模型 +
+  集成端日志设施（examples/component_attachment/logger/README.md）
 适用读者: 对"输出视图 / 两种日志 / 三模式"感到困惑的仓库开发者与外部集成方
 
 > 本教程是**教学性导航**，不是契约文档。契约权威仍是 `docs/common/session_contract.md`
-> （规则 12/13b/13e 等）与 `examples/component_attachment/logger/README.md`；
+> （可观测性单源 / 规则 12/13b/13e）与 `examples/component_attachment/logger/README.md`；
 > 源码事实以 `examples/component_attachment/` 为准，本文只负责把这些概念串成一条
 > 可理解的主线。
 
-## 0. 三个概念，一句话回答
+## 0. 调用方只记四件事
+
+库可观测性只有四件事（`session_contract.md`「可观测性单源」）。示例层的视图/事件日志是第五件
+教学示范，不是库 API。
+
+| 你要记住的 | 入口 | 一句话 |
+| --- | --- | --- |
+| **信封** | `StepWithResult()` → `*CycleResult` | 唯一结构化事实：产品帧副本、`status`、`abort_reason`、`issues` |
+| **投影** | DebugView / Lifecycle / ExclusionCause | 信封的视图，不是第二套事实；Attach 与否零行为改变 |
+| **Replay** | `*RecordingSession` + `ReplayTraceWriter` | 库内唯一周期落盘；回放入口 `ReplayXxxTrace()` |
+| **`PROJECT_LOG`** | 库内人读旁路 | 默认关闭；状态判断禁止解析日志 |
+
+需要复现实验时包一层 Recording 包装器。人读摘要由调用方从 `CycleResult` 自己写；示例中文事件
+只活在 `examples/`。验收文件（`*acceptance.log`）也不是库可观测性 API。
+
+下面三个词是**示例教程**用语，用来解释 `component_attachment` 怎么把信封/投影转成自己的日志：
 
 | 你感到困惑的词 | 它到底指什么 | 一句话 |
 | --- | --- | --- |
@@ -535,12 +550,17 @@ AR/EOS/ESR/RIR/SAR/SBIRS）。
 `result.issues`（按 `location.kind == kSceneEntity` 关联实体）做原料，但两者一静一动，
 分别落在 `integration_views.log`（视图行）与 `integration_events.log`（事件行）两个文件。
 
+**Q8：库会不会再写一份 JSON / FlexBuffers 观测文件？**
+不会。周期落盘只有 Replay（`*RecordingSession` + `ReplayTraceWriter`）。调用方若要把
+DebugView 存成自己的 JSON，那是集成方文件，不是库可观测性 API。
+
 ---
 
 ## 11. 关键文件索引（想深入时按此查）
 
 | 想看什么 | 看哪 |
 | --- | --- |
+| 可观测性单源（信封 / 投影 / Replay / PROJECT_LOG） | `docs/common/session_contract.md` §可观测性单源 |
 | 两通道+投影输出模型契约（规则 12/13b/13e；旧称三层） | `docs/common/session_contract.md` §两通道 + 可选投影输出模型 |
 | 日志设施主体与宏定义 | `examples/component_attachment/logger/logger.h`（`CA_LOG_EVENT*`/`CA_LOG_VIEW`） |
 | 模式选择区（宏兜底默认值） | `examples/component_attachment/logger/logger_modes.h` |

@@ -1,7 +1,7 @@
 ﻿/**
  * @file electronic_surveillance_radar.hpp
  * @brief 电子侦察雷达模块对外统一入口。
- * @note trace/replay 工具头按需单独包含。
+ * @note Recording/Replay 工具头按需单独包含。
  */
 
 #ifndef ONEQ_ELECTRONIC_SURVEILLANCE_RADAR_ELECTRONIC_SURVEILLANCE_RADAR_HPP_

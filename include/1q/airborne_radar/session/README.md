@@ -27,7 +27,7 @@
 ## 会话
 - [ArSession](ArSession.h) — 主会话（PIMPL，静态工厂 Create；通过 SubmitExternalDecision 提交步间 profile 覆盖值）
 - [ArReplaySession](ArReplaySession.h) — 回放会话
-- [ArTraceSession](ArTraceSession.h) — 跟踪会话
+- [ArRecordingSession](ArRecordingSession.h) — Replay 记录包装会话
 
 ## 基础类型
 - [ArInputValidation](ArInputValidation.h) — 输入校验

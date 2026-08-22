@@ -1,6 +1,6 @@
 ---
 Status: active
-Last-reviewed: 2026-08-21
+Last-reviewed: 2026-08-23
 Authority: ESR 数据流、Public API 边界、时序与状态所有权
 Answers: ESR 的分层架构、数据如何流动、Public API 边界在哪、跨周期状态归谁所有
 ---
@@ -16,9 +16,9 @@ Answers: ESR 的分层架构、数据如何流动、Public API 边界在哪、�
 - `electronic_surveillance_radar.hpp`（模块聚合入口）
 - `config/`（`EsrSessionConfig` 条件五域配置、runtime patch、`EsrProfileConstants.h`、
   config validation）
-- `session/`（`EsrSession`、cycle input/result、observation/hypothesis、trace/replay）
+- `session/`（`EsrSession`、cycle input/result、observation/hypothesis、Recording/Replay）
 
-聚合入口**不是全量 public header 汇总**：trace/replay、debug view 等工具头按需单独包含；
+聚合入口**不是全量 public header 汇总**：Recording/Replay、debug view 等工具头按需单独包含；
 pipeline/controller/environment service、runtime snapshot 不通过聚合入口暴露。
 
 **内部实现**位于 `src/electronic_surveillance_radar/`：
@@ -27,7 +27,7 @@ pipeline/controller/environment service、runtime snapshot 不通过聚合入口
 - `environment/`（`EsrEnvironmentService` 和单程传播附加损耗采样）
 - `pipeline/`（拦截 gate、检测执行、预处理、特征编码、Kd-tree 聚类、假设关联、后处理）
 - `runtime/`（`EsrController` 和执行状态、输出缓存管理）
-- `session/`（组合根、配置解析、runtime patch、输入校验、trace/replay）
+- `session/`（组合根、配置解析、runtime patch、输入校验、Recording/Replay）
 
 ## 分层组件图
 
@@ -38,7 +38,7 @@ flowchart TB
     Config["config/*\n条件五域配置 / RuntimePatch\nProfileConstants / Builder / Validation"]
     SessionApi["session/*\nEsrSession / CycleInput / CycleResult"]
     Types["EmitterObservation / EmitterHypothesis\n设备观测 / 辐射源假设"]
-    Tools["Trace / Replay"]
+    Tools["Recording / Replay"]
   end
 
   subgraph Session["Session orchestration\n会话编排层：src/electronic_surveillance_radar/session"]
@@ -213,7 +213,7 @@ flowchart LR
 是否可观测、可分辨或形成干扰，"敌方""jammer""普通 emitter"等角色只允许存在于调用方外部业务语义或
 debug attribution 中，不得提前改变 raw detection gate。同周期 active receive beam、安装姿态、tuning
 window、极化、噪声参数、最大线性输入功率和 equipment-level co-site isolation 构成唯一 receiver operating
-state；pipeline 唯一拥有扫描/调谐累积相位并写入自身 snapshot，trace/replay 由输入与事件重建该状态，
+state；pipeline 唯一拥有扫描/调谐累积相位并写入自身 snapshot，Recording/Replay 由输入与事件重建该状态，
 处理不同候选 emission 时不得逐候选重指向天线、改调谐或改前端带宽。
 
 ## 生命周期与状态所有权
@@ -237,7 +237,7 @@ validation rejection 在进入 pipeline 前发生（`EsrCycleResult.status=kReje
 定义回滚边界（非法 scene/link 仍属未执行的结构化失败，饱和仍属已执行 impairment，二者不得混用）。
 
 调谐位置只在成功完成的 `Step()` / `StepWithResult()` 周期推进，validation/RF rejection 和设备关机均冻结；
-累积调谐相位 `completed_receive_cycles` 只由 pipeline snapshot 持有，trace/replay 通过 config、patch 和 cycle
+累积调谐相位 `completed_receive_cycles` 只由 pipeline snapshot 持有，Recording/Replay 通过 config、patch 和 cycle
 事件重建，**不**另存第二份调谐相位，**禁止**按 world cycle index 隐式轮转。
 
 [evidence: tests/unit/electronic_surveillance_radar/esr_controller_runtime_state_test]

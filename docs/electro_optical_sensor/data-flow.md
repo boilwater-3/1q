@@ -1,6 +1,6 @@
 ---
 Status: active
-Last-reviewed: 2026-08-20
+Last-reviewed: 2026-08-23
 Authority: EOS 数据流、Public API 边界、时序与状态所有权
 Answers: EOS 的分层架构、数据如何流动、Public API 边界在哪、跨周期状态归谁所有
 ---
@@ -18,9 +18,9 @@ Answers: EOS 的分层架构、数据如何流动、Public API 边界在哪、�
 |---|---|
 | `electro_optical_sensor.hpp` | 模块聚合入口；只聚合稳定 public API，不暴露 foundation/pipeline/runtime 内部类型 |
 | `config/` | `EosSessionConfig` 四域配置、runtime patch、语义常量表（`EosProfileConstants.h`）、薄封装 builder、config validation |
-| `session/` | `EosSession`、cycle input/result、scene target、output types、adapter、trace/replay、debug/lifecycle |
+| `session/` | `EosSession`、cycle input/result、scene target、output types、adapter、Recording/Replay、debug/lifecycle |
 
-`electro_optical_sensor.hpp` 不是 EOS 全量 public header 汇总。trace/replay、debug view、lifecycle
+`electro_optical_sensor.hpp` 不是 EOS 全量 public header 汇总。Recording/Replay、debug view、lifecycle
 recorder 等工具头按需单独包含；foundation 算法、pipeline、controller 不通过聚合入口暴露。内部实现位于 `src/electro_optical_sensor/`。新增生产源必须通过 EOS C++11/冻结源/contract guard：
 
 | 目录 | 职责 |
@@ -30,7 +30,7 @@ recorder 等工具头按需单独包含；foundation 算法、pipeline、control
 | `environment/` | `ResolveEnvironmentFactors`（preset + 大气观测到环境因子） |
 | `pipeline/` | `EosPipeline`、`FrameContext`、`DetectionComputationContext` |
 | `runtime/` | `EosController`（单周期调度、输入校验 gate、runtime state capture/restore）、`EosPipelineConfigMapper`（SessionConfig 到内部执行配置）、`EosRuntimeConfigResolver` |
-| `session/` | `EosSession`（对外门面）、`EosSessionCompositionRoot`（统一装配）、输入输出适配、trace/replay、debug/lifecycle |
+| `session/` | `EosSession`（对外门面）、`EosSessionCompositionRoot`（统一装配）、输入输出适配、Recording/Replay、debug/lifecycle |
 
 ## 分层组件图
 
@@ -40,7 +40,7 @@ flowchart TB
     Entry["electro_optical_sensor.hpp\n聚合稳定入口"]
     Config["config/*\n硬件 / 任务 / 策略 / 环境配置\nRuntimePatch / ProfileConstants / Builder / Validation"]
     SessionApi["session/*\nEosSession / CycleInput / CycleResult\nOutputFrame / SceneTarget"]
-    Tools["Trace / Replay / Debug / Lifecycle\n追踪 / 回放 / 调试 / 生命周期"]
+    Tools["Recording / Replay / Debug / Lifecycle\n追踪 / 回放 / 调试 / 生命周期"]
   end
 
   subgraph Session["Session orchestration / 会话编排层"]
@@ -184,7 +184,7 @@ flowchart LR
   subgraph Output["Output / 输出"]
     Raw["EosOutputFrame\n真实传感器侧检测记录"]
     Result["EosCycleResult\n状态 / attribution / debug source"]
-    Trace["Trace / Replay\n可回放输入输出"]
+    Trace["Recording / Replay\n可回放输入输出"]
   end
 
   Config --> Internal

@@ -29,7 +29,7 @@ set(SBIRS_CORE_SOURCES
     session/SbirsExclusionCauseRecorder.cpp
     session/SbirsDiagnosticUtils.cpp
     session/SbirsReplayFlatbufferCodec.cpp
-    session/SbirsTraceSession.cpp
+    session/SbirsRecordingSession.cpp
     session/SbirsReplaySession.cpp
     session/SbirsExternalInputAdapter.cpp
     session/SbirsExternalOutputAdapter.cpp

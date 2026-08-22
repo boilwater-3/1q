@@ -1,8 +1,8 @@
 ---
 Status: active
-Last-reviewed: 2026-08-21
+Last-reviewed: 2026-08-23
 Authority: 有 Session 的传感器模块的统一会话契约
-Answers: 会话配置直接赋值、Session 组合所有权、运行期配置提交策略、电源单源、两通道+可选投影输出模型、Replay/trace 语义、条件五域 orientation
+Answers: 会话配置直接赋值、Session 组合所有权、运行期配置提交策略、电源单源、两通道+可选投影输出模型、可观测性单源、Replay 持久化语义、条件五域 orientation
 ---
 
 # 会话相关模块契约
@@ -14,13 +14,11 @@ RIR 于 2026-08 并入本契约范围（会话门面/条件五域配置/电源�
 （SBIRS/AR/ESR/RIR 五域；EOS/SAR 四域）。所有模块都必须遵守的跨模块契约见
 `docs/common/contract.md`。
 
-**输出模型口径（2026-08-21；RIR 于 2026-08-22 关闭空洞）**：正文使用「两通道 + 可选投影」；
-「三层 / L1 / L2 / L3」为历史别名，仅用于对照旧讨论与旧审查文档，不再作为齐套验收标准。
-目标列表型模块（AR/EOS/SBIRS/RIR）的三类观测投影（DebugView / LifecycleRecorder /
-ExclusionCauseRecorder）为**观测完备必选项**；RIR 的字段与挂载契约见
-`docs/review/rir_observability_projections_freeze_2026-08-21.md`，三类投影与规则 13b
-排除码子集已落地（`RirOutputDebugViewBuilder` / `RirTrackLifecycleRecorder` /
-`RirExclusionCauseRecorder` + `RirSession::Attach*`）。
+**输出模型口径（2026-08-23）**：正文使用「两通道 + 可选投影」；「三层 / L1 / L2 / L3」为历史别名。
+齐套标准是产品形态表（见「可观测性单源」），不是「有没有某条并行通道」。
+目标列表型模块（AR/EOS/SBIRS/RIR）的三类观测投影为观测完备必选项；RIR 字段与挂载见
+`docs/review/rir_observability_projections_freeze_2026-08-21.md`。
+库内周期落盘只允许 Replay；禁止再引入不能被 `ReplayXxxTrace()` 消费的记录文件。
 
 ## 会话配置直接赋值
 
@@ -127,10 +125,14 @@ AR/ESR/EOS/SBIRS/SAR/RIR 六模块的电源状态必须遵守单源原则：
 | 生命周期 | `*LifecycleRecorder` | 跨周期确认/更新/丢失等事件 |
 | 排除差分 | `*ExclusionCauseRecorder` | 跨周期排除原因 `(code,cause)` 差分事件 |
 
+投影按产品形态选装，完整齐套面（信封 / 三写 / 投影 / Replay）以「可观测性单源」产品形态表为准，
+不得在该表之外点菜增减通道。
+
 | 产品形态 | 模块 | 三类投影要求 |
 |---|---|---|
 | 目标列表型 | AR / EOS / SBIRS / RIR | **必选**（观测完备）；RIR 已按冻结文档落地（2026-08-22，见 `docs/review/rir_observability_projections_freeze_2026-08-21.md`） |
-| 非目标列表型 | ESR / SAR | **可不提供**同形态投影；规则 10/11/13b/13e 可为空洞条款 |
+| 非目标列表传感器 | ESR | 仅 ExclusionCause（发射源身份键）；不提供目标 DebugView / Lifecycle |
+| 成像传感器 | SAR | ProductDebugView + ProductLifecycle；ExclusionCause 与规则 13b/13e 为空洞条款 |
 
 观测投影中，`*LifecycleRecorder` 是转换检测状态机（非数据存储）：累积状态刻意最小化为每实体
 1-bit 存在标志（已确认/已检测/已有产品），事件富信息在每次 `Update()` 时从信封通道实时转发，
@@ -148,7 +150,7 @@ SBIRS 的方位/俯仰（卫星→目标视线 ECI 极坐标，弧度）、AR �
 3. 日志只用于人读运行信息，状态判断不得依赖解析日志文本。
 4. 调用方主动注入且被结构化结果正确拒绝的无效输入属于可预期边界，不记 error；批量验证中只有
    "未按预期拒绝"或拒绝后状态发生污染才记 error 并使验证失败。
-5. 数值 ID 是稳定关联键，名称只用于人读、trace/replay、报告和调试视图。
+5. 数值 ID 是稳定关联键，名称只用于人读、replay、报告和调试视图。
 6. `external_target_id` 与模块实体 ID 当前都允许 `0` 作为合法值；`0` 不得触发
    validation error。若未来引入可表达负数的外部输入入口，负数 ID 必须在转换为
    public `std::uint64_t` DTO 前被拒绝。
@@ -400,7 +402,7 @@ SBIRS 的方位/俯仰（卫星→目标视线 ECI 极坐标，弧度）、AR �
 1. **产品通道默认不含仿真真值归属**（EOS/SBIRS/RIR 已遵守；AR 为上表历史特例——产品字段已标记
    deprecated/sim-only，权威关联路径是信封 `ArCycleResult.track_attributions`，新代码不得以产品
    字段为关联依据）。
-2. **信封通道允许承载归属**——归属是结构化数据（非人读），replay/trace 需要消费。
+2. **信封通道允许承载归属**——归属是结构化数据（非人读），Replay 落盘需要消费。
 3. **观测投影通过信封通道访问归属**，不是归属的唯一载体。
 4. EOS/SBIRS 的 `*CycleOutputAdapter` 守卫（如 `SbirsOutputFrameContainsOnlyNativeFields()`）
    确保产品通道不含归属泄漏。
@@ -409,7 +411,62 @@ SBIRS 的方位/俯仰（卫星→目标视线 ECI 极坐标，弧度）、AR �
    （`external_target_id`/`target_name`/`*Attribution*`）只允许出现在守卫注册表内；AR 产品遗留
    注册表冻结、不得新增条目，特例不再开第二次。
 
-## Replay 与 trace 语义
+## 可观测性单源
+
+调用方面只记四件事：信封事实、派生投影、Replay 落盘、`PROJECT_LOG` 人读旁路。
+禁止再引入与信封并行的第二套周期事实生产者，禁止再引入不能被 `ReplayXxxTrace()` 消费的记录文件。
+
+本规则约束有 `*Session` 的传感器模块（AR/ESR/EOS/SAR/SBIRS/RIR）。ECM 是效应器，不进
+IssueList / 三写 / 三类投影，只提供周期状态与 Replay 落盘。fusion / threat_assessment /
+navigation / flight_dynamic 是算法面，不进本模型。
+
+### 四件事
+
+1. **信封是唯一结构化事实。** 机器消费只认 `StepWithResult()` 返回的 `*CycleResult`
+   （产品帧副本、`status`、`abort_reason`、`issues`，含规则 13b 的 kInfo 排除）。
+2. **投影是信封的视图，不是第二套事实。** DebugView / Lifecycle / ExclusionCause 只读
+   同周期 `input` 与 `*CycleResult`，禁止自行再写一份排除或中止原因。Attach 与否零行为改变（规则 11c）。
+3. **落盘只有 Replay。** 需要复现实验时使用 `*RecordingSession` + `ReplayTraceWriter`；
+   回放入口为 `ReplayXxxTrace()`。禁止再引入 FlexBuffers 观测帧、手搓 cycle JSON 或任何
+   不能被 `ReplayXxxTrace()` 消费的记录文件。
+4. **`PROJECT_LOG` 是人读旁路。** 默认关闭；状态判断禁止解析日志文本（规则 3）。
+   示例层中文事件与验收文件（`*acceptance.log`）不是库可观测性 API。
+
+中止路径仍执行规则 9 三写（`abort_reason` + `issues` + `PROJECT_LOG`）：粗信号、细码、人读日志
+语义不同，不是三套事实。正常周期排除只写入 `issues`（规则 13b），不升格为三写。
+
+### 产品形态齐套表
+
+「有没有某通道」不得由模块自选。形态决定必选面；豁免只允许写在本表。
+
+| 形态 | 模块 | 信封 + 三写 | 投影 | Replay 落盘 |
+|---|---|---|---|---|
+| 目标列表传感器 | AR / EOS / SBIRS / RIR | 必选 | DebugView + Lifecycle + ExclusionCause | `*RecordingSession` + `ReplayXxxTrace` |
+| 非目标列表传感器 | ESR | 必选 | 仅 ExclusionCause（发射源身份键）；不提供目标 DebugView / Lifecycle | 同上 |
+| 成像传感器 | SAR | 必选 | ProductDebugView + ProductLifecycle；ExclusionCause 空洞（规则 13b/13e） | 同上 |
+| 效应器 | ECM | 不进 IssueList/三写；`EcmCycleStatus` 为周期状态 | 无三类投影 | `EcmRecordingSession` + `ReplayEcmTrace` |
+| 算法面 | fusion / threat_assessment / navigation / flight_dynamic | 不适用 | 不适用 | 不适用 |
+
+规则：
+
+1. **单源**：一个周期事实只允许信封通道生产；投影与 Replay 只能消费 `*CycleResult`（及同周期 input）。
+2. **单落盘**：`ReplayTraceWriter` 是库内唯一周期持久化格式。禁止再引入不能被 `ReplayXxxTrace()`
+   消费的记录文件。
+3. **记录包装器**：上表承诺 Replay 的模块必须提供 `*RecordingSession` 门面，选项仅 `replay_writer`
+   与是否在构造时记录配置；不得再提供第二套不能回放的记录选项。
+4. **点菜式覆盖视为契约违规**：模块不得在齐套表外自行增减通道；新增形态必须先改本表。
+
+**对齐状态（2026-08-23）**：六传感器 + ECM 已按产品形态表齐套。RIR 已提供 `RirRecordingSession` /
+`ReplayRirTrace`，中止路径已补三写（关机细码 `rir.sensor_powered_off`）。ECM 按效应器行豁免
+IssueList/三写/三类投影。
+
+[evidence: include/1q/remote_identification_radar/session/RirRecordingSession.h]
+[evidence: include/1q/remote_identification_radar/session/RirReplaySession.h]
+[evidence: tests/replay/remote_identification_radar/rir_replay_session_test.cpp]
+[evidence: tests/contract/remote_identification_radar/rir_three_write_guard_test.cpp]
+[evidence: src/remote_identification_radar/session/RirSession.cpp]
+
+## Replay 持久化语义
 
 1. 模块级 cycle-output 回调必须用 `ReplayTraceOutputStatus` 结构化表达比较结果。
    `kDivergence` 是输出分叉；`kOtherFailure` 是解码、类型或执行失败，不能被标记为
@@ -418,21 +475,21 @@ SBIRS 的方位/俯仰（卫星→目标视线 ECI 极坐标，弧度）、AR �
    `kHandledByModule` 和 `kDivergence` 均计入 `compared_output_count`，
    `kOtherFailure` 不计入且不改变分叉状态；两条路径必须遵守同一
    `stop_on_first_divergence` 语义。
-3. `TraceSink` 是调试/观测记录格式，不能作为 `ReplayXxxTrace()` 输入。
-   需要可回放目录时必须使用 `ReplayTraceWriter` 并经对应
-   `*TraceSessionOptions::replay_writer` 传入；两者可同时配置，但不能相互替代。
+3. `ReplayTraceWriter` 是库内唯一周期持久化入口，经对应 `*RecordingSessionOptions::replay_writer`
+   传入。`*RecordingSession` 包装 `*Session`，拦截 Step / runtime patch / 外部决策并写出可被
+   `ReplayXxxTrace()` 消费的目录。不得再提供第二套不能回放的记录格式。
 4. `ReplayTraceWriter(overwrite=false)` 必须对既有 replay 工件 fail closed：不得重写
-   manifest、追加事件或重置 sequence/hash chain。续写已有 trace 需要独立、显式且能恢复
+   manifest、追加事件或重置 sequence/hash chain。续写已有记录需要独立、显式且能恢复
    sequence、hash、chunk 与 index 状态的 resume 契约，不能复用普通创建入口隐式实现。
 5. Replay I/O 不得把错误伪装成正常结束。Reader 调用方必须可通过
-   `ReplayTraceReadStatus` 区分事件、正常 trace 末尾与读取错误；Writer 调用方必须可通过
+   `ReplayTraceReadStatus` 区分事件、正常记录末尾与读取错误；Writer 调用方必须可通过
    `ReplayTraceWriteStatus` 和 `first_error()` 观察初始化、写入及刷新失败。扫描和回放遇到
    缺失 manifest、缺失首 chunk 或底层读取错误时必须 fail closed。
 6. 模块 FlatBuffers codec 只共享无 schema 知识的机械基元：已完成 builder 的字节复制，以及
    字段布局一致的 `FailureMarker` 空值、空 payload、verifier 和共有字段解码保护。schema、DTO
    映射、payload identifier、模块错误文本、外部数据资格与 divergence 行为继续由模块拥有；
    不得把公共 helper 扩张为万能 codec 或跨模块对象图。
-7. runtime patch trace 必须记录实际应用结果，不能只记录请求。replay 应重新应用 patch 并比较结构化
+7. runtime patch 记录必须写下实际应用结果，不能只记录请求。replay 应重新应用 patch 并比较结构化
    status、是否包含请求以及是否提交；合法拒绝和空补丁是可回放事件，不得被强制解释为成功。输入配置、
    patch 和输出中以整数存储的 enum 必须逐值校验；未知值应原子拒绝且不得部分修改解码目标。
 

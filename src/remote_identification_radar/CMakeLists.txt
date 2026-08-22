@@ -32,6 +32,8 @@ set(RIR_CORE_SOURCES
     session/RirSessionConfigValidation.cpp
     session/RirInputValidation.cpp
     session/RirSession.cpp
+    session/RirRecordingSession.cpp
+    session/RirReplaySession.cpp
     session/RirReplayFlatbufferCodec.cpp
     session/RirOutputDebugViewBuilder.cpp
     session/RirTrackLifecycleRecorder.cpp
@@ -58,4 +60,4 @@ target_link_libraries(rir_core PRIVATE ${ONEQ_LINK_DEPENDENCIES})
 oneq_add_flatbuffers_schemas(
     TARGET rir_core
     MODULE remote_identification_radar
-    SCHEMAS rir_replay.fbs)
+    SCHEMAS rir_replay.fbs rir_session_replay.fbs)

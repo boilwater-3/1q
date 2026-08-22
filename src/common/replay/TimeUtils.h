@@ -1,17 +1,17 @@
 ﻿/**
  * @file TimeUtils.h
- * @brief 定义 trace 时间戳复用的轻量时间工具。
+ * @brief 定义 Replay 元数据时间戳工具。
  */
 
-#ifndef ONEQ_SRC_COMMON_TRACE_TIME_UTILS_H_
-#define ONEQ_SRC_COMMON_TRACE_TIME_UTILS_H_
+#ifndef ONEQ_SRC_COMMON_REPLAY_TIME_UTILS_H_
+#define ONEQ_SRC_COMMON_REPLAY_TIME_UTILS_H_
 
 #include <chrono>
 #include <cstdint>
 
 namespace oneq {
 namespace common {
-namespace trace {
+namespace replay {
 
 /**
  * @brief 获取当前 Unix 纪元毫秒级时间戳。
@@ -23,8 +23,8 @@ inline std::int64_t CurrentTimestampMs() {
       .count();
 }
 
-}  // namespace trace
+}  // namespace replay
 }  // namespace common
 }  // namespace oneq
 
-#endif  // ONEQ_SRC_COMMON_TRACE_TIME_UTILS_H_
+#endif  // ONEQ_SRC_COMMON_REPLAY_TIME_UTILS_H_

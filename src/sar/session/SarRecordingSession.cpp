@@ -1,12 +1,10 @@
-﻿#include "1q/sar/session/SarTraceSession.h"
+﻿#include "1q/sar/session/SarRecordingSession.h"
 #include "1q/sar/session/SarSession.h"
 
-#include <sstream>
 #include <string>
 #include <utility>
 
 #include "1q/replay/ReplayTrace.h"
-#include "1q/trace/TraceSink.h"
 #include "SarReplayFlatbufferCodec.h"
 #include "1q/sar/session/SarInputValidation.h"
 #include "sar/session/SarDiagnosticUtils.h"
@@ -14,64 +12,16 @@
 
 namespace sar {
 namespace session {
-namespace {
 
-std::string BuildSarInputPayload(const SarCycleInput& input) {
-  std::ostringstream os;
-  os << "{"
-     << "\"cycle_index\":" << input.cycle_index << ","
-     << "\"dt_sec\":" << input.dt_sec << ","
-     << "\"point_target_count\":" << input.point_targets.size() << ","
-     << "\"has_external_raw_iq\":" << (HasExternalRawIq(input) ? "true" : "false") << "}";
-  return os.str();
-}
-
-std::string BuildSarOutputPayload(const SarCycleResult& result) {
-  const SarOutputFrame& frame = result.output_frame;
-  std::ostringstream os;
-  os << "{"
-     << "\"cycle_index\":" << frame.cycle_index << ","
-     << "\"completed_stage\":" << static_cast<int>(frame.completed_stage) << ","
-     << "\"executed\":" << (result.status == SarCycleStatus::kCompleted ? "true" : "false") << ","
-     << "\"status\":" << static_cast<int>(result.status) << ","
-     << "\"validation_error\":" << (HasValidationError(result.issues) ? "true" : "false") << ","
-     << "\"issue_count\":" << result.issues.size() << ","
-     << "\"has_l1_image\":" << (frame.has_l1_image ? "true" : "false") << ","
-     << "\"has_l3_bp_image\":" << (frame.has_l3_bp_image ? "true" : "false") << ","
-     << "\"phase_reference_mode\":" << static_cast<int>(frame.phase_reference_mode) << ","
-     << "\"phase_reference_applied\":"
-     << (frame.phase_reference_applied ? "true" : "false") << ","
-     << "\"image_quality_mainlobe_method\":"
-     << static_cast<int>(frame.image_quality_mainlobe_method) << ","
-     << "\"has_image_quality_metrics\":"
-     << (frame.has_image_quality_metrics ? "true" : "false") << ","
-     << "\"image_resolution_m_valid\":"
-     << (frame.image_resolution_m_valid ? "true" : "false") << ","
-     << "\"range_width_3db_bins\":" << frame.range_width_3db_bins << ","
-     << "\"azimuth_width_3db_bins\":" << frame.azimuth_width_3db_bins << ","
-     << "\"range_resolution_3db_m\":" << frame.range_resolution_3db_m << ","
-     << "\"azimuth_resolution_3db_m\":" << frame.azimuth_resolution_3db_m << ","
-     << "\"image_entropy_nats\":" << frame.image_entropy_nats << ","
-     << "\"image_contrast\":" << frame.image_contrast << "}";
-  return os.str();
-}
-
-}  // namespace
-
-struct SarTraceSession::Impl {
-  Impl(SarSession initial_session, SarTraceSessionOptions session_options)
+struct SarRecordingSession::Impl {
+  Impl(SarSession initial_session, SarRecordingSessionOptions session_options)
       : session(std::move(initial_session)),
-        sink(std::move(session_options.sink)),
         replay_writer(std::move(session_options.replay_writer)) {}
 
-  Impl(config::SarSessionConfig config, SarTraceSessionOptions session_options)
+  Impl(config::SarSessionConfig config, SarRecordingSessionOptions session_options)
       : session(SarSession::Create(config)),
-        sink(std::move(session_options.sink)),
         replay_writer(std::move(session_options.replay_writer)) {
-    if (sink && session_options.trace_config_on_construct) {
-      sink->Record("sar", "config", "{}");
-    }
-    if (replay_writer && session_options.trace_config_on_construct) {
+    if (replay_writer && session_options.record_config_on_construct) {
       WriteReplayEvent("session_config", "SarSessionConfig", EncodeSarSessionConfig(config));
     }
   }
@@ -111,28 +61,27 @@ struct SarTraceSession::Impl {
   }
 
   SarSession session;
-  std::shared_ptr<oneq::trace::TraceSink> sink{};
   std::shared_ptr<oneq::replay::ReplayTraceWriter> replay_writer{};
   bool pending_input_written{false};
 };
 
-SarTraceSession::SarTraceSession() : impl_(new Impl(SarSession{}, SarTraceSessionOptions{})) {}
+SarRecordingSession::SarRecordingSession() : impl_(new Impl(SarSession{}, SarRecordingSessionOptions{})) {}
 
-SarTraceSession::SarTraceSession(SarSession session)
-    : impl_(new Impl(std::move(session), SarTraceSessionOptions{})) {}
+SarRecordingSession::SarRecordingSession(SarSession session)
+    : impl_(new Impl(std::move(session), SarRecordingSessionOptions{})) {}
 
-SarTraceSession::SarTraceSession(config::SarSessionConfig config, SarTraceSessionOptions options)
+SarRecordingSession::SarRecordingSession(config::SarSessionConfig config, SarRecordingSessionOptions options)
     : impl_(new Impl(std::move(config), std::move(options))) {}
 
-SarTraceSession::~SarTraceSession() = default;
-SarTraceSession::SarTraceSession(SarTraceSession&&) noexcept = default;
-SarTraceSession& SarTraceSession::operator=(SarTraceSession&&) noexcept = default;
+SarRecordingSession::~SarRecordingSession() = default;
+SarRecordingSession::SarRecordingSession(SarRecordingSession&&) noexcept = default;
+SarRecordingSession& SarRecordingSession::operator=(SarRecordingSession&&) noexcept = default;
 
-SarOutputFrame SarTraceSession::Step(const SarCycleInput& input) {
+SarOutputFrame SarRecordingSession::Step(const SarCycleInput& input) {
   return StepWithResult(input).output_frame;
 }
 
-SarCycleResult SarTraceSession::StepWithResult(const SarCycleInput& input) {
+SarCycleResult SarRecordingSession::StepWithResult(const SarCycleInput& input) {
   if (impl_->replay_writer) {
     if (impl_->pending_input_written) {
       oneq::replay::ReplayTraceEvent warning;
@@ -146,15 +95,9 @@ SarCycleResult SarTraceSession::StepWithResult(const SarCycleInput& input) {
                             input.cycle_index);
     impl_->pending_input_written = true;
   }
-  if (impl_->sink) {
-    impl_->sink->Record("sar", "input", BuildSarInputPayload(input));
-  }
 
   const SarCycleResult result = impl_->session.StepWithResult(input);
 
-  if (impl_->sink) {
-    impl_->sink->Record("sar", "output", BuildSarOutputPayload(result));
-  }
   if (impl_->replay_writer) {
     impl_->WriteReplayEvent("cycle_output", "SarCycleResult", EncodeSarCycleResult(result),
                             result.input_cycle_index);
@@ -170,7 +113,7 @@ SarCycleResult SarTraceSession::StepWithResult(const SarCycleInput& input) {
   return result;
 }
 
-bool SarTraceSession::TryApplyRuntimeConfig(const config::SarRuntimeConfigPatch& patch) {
+bool SarRecordingSession::TryApplyRuntimeConfig(const config::SarRuntimeConfigPatch& patch) {
   const bool accepted = impl_->session.TryApplyRuntimeConfig(patch);
   if (impl_->replay_writer) {
     impl_->WriteReplayEvent("runtime_config_patch", "SarRuntimeConfigPatch",
@@ -179,8 +122,8 @@ bool SarTraceSession::TryApplyRuntimeConfig(const config::SarRuntimeConfigPatch&
   return accepted;
 }
 
-SarSession& SarTraceSession::session() { return impl_->session; }
-const SarSession& SarTraceSession::session() const { return impl_->session; }
+SarSession& SarRecordingSession::session() { return impl_->session; }
+const SarSession& SarRecordingSession::session() const { return impl_->session; }
 
 }  // namespace session
 }  // namespace sar

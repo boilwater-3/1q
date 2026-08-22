@@ -1,55 +1,19 @@
-﻿#include "1q/sbirs_sensor/session/SbirsTraceSession.h"
+﻿#include "1q/sbirs_sensor/session/SbirsRecordingSession.h"
 
-#include <sstream>
 #include <string>
 #include <utility>
 
 #include "1q/replay/ReplayTrace.h"
-#include "1q/trace/TraceSink.h"
 #include "sbirs_sensor/session/SbirsReplayFlatbufferCodec.h"
 
 namespace sbirs_sensor {
 namespace session {
-namespace {
 
-std::string BuildSbirsInputPayload(const SbirsCycleInput& input) {
-  std::ostringstream os;
-  os << "{"
-     << "\"cycle_index\":" << input.cycle_index << ","
-     << "\"dt_sec\":" << input.dt_sec << ","
-     << "\"has_satellite_position\":" << (input.has_satellite_position ? "true" : "false") << ","
-     << "\"has_satellite_velocity\":"
-     << (input.has_satellite_velocity_ecef_m_per_s ? "true" : "false") << ","
-     << "\"has_satellite_attitude\":" << (input.has_satellite_attitude ? "true" : "false") << ","
-     << "\"scene_target_count\":" << input.scene.size() << "}";
-  return os.str();
-}
-
-std::string BuildSbirsOutputPayload(const SbirsCycleResult& result) {
-  const SbirsOutputFrame& frame = result.output_frame;
-  std::ostringstream os;
-  os << "{"
-     << "\"cycle_index\":" << frame.cycle_index << ","
-     << "\"scan_azimuth_rad\":" << frame.scan_azimuth_rad << ","
-     << "\"executed\":" << (result.status == SbirsCycleStatus::kCompleted ? "true" : "false") << ","
-     << "\"status\":" << static_cast<int>(result.status) << ","
-     << "\"detection_count\":" << frame.detections.size() << ","
-     << "\"validation_error\":" << (HasValidationError(result.issues) ? "true" : "false") << ","
-     << "\"issue_count\":" << result.issues.size() << "}";
-  return os.str();
-}
-
-}  // namespace
-
-struct SbirsTraceSession::Impl {
-  Impl(config::SbirsSessionConfig session_config, SbirsTraceSessionOptions session_options)
+struct SbirsRecordingSession::Impl {
+  Impl(config::SbirsSessionConfig session_config, SbirsRecordingSessionOptions session_options)
       : session(SbirsSession::Create(session_config)),
-        sink(std::move(session_options.sink)),
         replay_writer(std::move(session_options.replay_writer)) {
-    if (sink && session_options.trace_config_on_construct) {
-      sink->Record("sbirs_sensor", "config", "{}");
-    }
-    if (replay_writer && session_options.trace_config_on_construct) {
+    if (replay_writer && session_options.record_config_on_construct) {
       WriteReplayEvent("session_config", "SbirsSessionConfig",
                        EncodeSbirsSessionConfig(session_config));
     }
@@ -83,39 +47,32 @@ struct SbirsTraceSession::Impl {
     oneq::replay::ReplayTraceFailure failure;
     failure.error_code = "SBIRS_VALIDATION_ERROR";
     failure.message = "SbirsCycleResult input validation rejected";
-    failure.location = "SbirsTraceSession::StepWithResult";
+    failure.location = "SbirsRecordingSession::StepWithResult";
     failure.cycle_index = result.input_cycle_index;
     failure.has_cycle_index = true;
     replay_writer->WriteFailureMarker(failure, EncodeSbirsFailureMarker(failure));
   }
 
   SbirsSession session;
-  std::shared_ptr<oneq::trace::TraceSink> sink;
   std::shared_ptr<oneq::replay::ReplayTraceWriter> replay_writer;
   bool pending_input_written{false};
 };
 
-SbirsTraceSession::SbirsTraceSession(config::SbirsSessionConfig config,
-                                     SbirsTraceSessionOptions options)
+SbirsRecordingSession::SbirsRecordingSession(config::SbirsSessionConfig config,
+                                     SbirsRecordingSessionOptions options)
     : impl_(new Impl(std::move(config), std::move(options))) {}
 
-SbirsTraceSession::~SbirsTraceSession() = default;
-SbirsTraceSession::SbirsTraceSession(SbirsTraceSession&&) noexcept = default;
-SbirsTraceSession& SbirsTraceSession::operator=(SbirsTraceSession&&) noexcept = default;
+SbirsRecordingSession::~SbirsRecordingSession() = default;
+SbirsRecordingSession::SbirsRecordingSession(SbirsRecordingSession&&) noexcept = default;
+SbirsRecordingSession& SbirsRecordingSession::operator=(SbirsRecordingSession&&) noexcept = default;
 
-SbirsOutputFrame SbirsTraceSession::Step(const SbirsCycleInput& input) {
+SbirsOutputFrame SbirsRecordingSession::Step(const SbirsCycleInput& input) {
   if (impl_->replay_writer) {
     impl_->WriteReplayEvent("cycle_input", "SbirsCycleInput", EncodeSbirsCycleInput(input),
                             input.cycle_index);
     impl_->pending_input_written = true;
   }
-  if (impl_->sink) {
-    impl_->sink->Record("sbirs_sensor", "input", BuildSbirsInputPayload(input));
-  }
   const SbirsCycleResult result = impl_->session.StepWithResult(input);
-  if (impl_->sink) {
-    impl_->sink->Record("sbirs_sensor", "output", BuildSbirsOutputPayload(result));
-  }
   if (impl_->replay_writer) {
     impl_->WriteReplayEvent("cycle_output", "SbirsCycleResult", EncodeSbirsCycleResult(result),
                             result.input_cycle_index);
@@ -127,7 +84,7 @@ SbirsOutputFrame SbirsTraceSession::Step(const SbirsCycleInput& input) {
   return result.output_frame;
 }
 
-SbirsCycleResult SbirsTraceSession::StepWithResult(const SbirsCycleInput& input) {
+SbirsCycleResult SbirsRecordingSession::StepWithResult(const SbirsCycleInput& input) {
   if (impl_->replay_writer) {
     if (impl_->pending_input_written) {
       oneq::replay::ReplayTraceEvent warning;
@@ -141,13 +98,7 @@ SbirsCycleResult SbirsTraceSession::StepWithResult(const SbirsCycleInput& input)
                             input.cycle_index);
     impl_->pending_input_written = true;
   }
-  if (impl_->sink) {
-    impl_->sink->Record("sbirs_sensor", "input", BuildSbirsInputPayload(input));
-  }
   const SbirsCycleResult result = impl_->session.StepWithResult(input);
-  if (impl_->sink) {
-    impl_->sink->Record("sbirs_sensor", "output", BuildSbirsOutputPayload(result));
-  }
   if (impl_->replay_writer) {
     impl_->WriteReplayEvent("cycle_output", "SbirsCycleResult", EncodeSbirsCycleResult(result),
                             result.input_cycle_index);
@@ -159,7 +110,7 @@ SbirsCycleResult SbirsTraceSession::StepWithResult(const SbirsCycleInput& input)
   return result;
 }
 
-bool SbirsTraceSession::TryApplyRuntimeConfig(const config::SbirsRuntimeConfigPatch& patch) {
+bool SbirsRecordingSession::TryApplyRuntimeConfig(const config::SbirsRuntimeConfigPatch& patch) {
   const bool accepted = impl_->session.TryApplyRuntimeConfig(patch);
   if (impl_->replay_writer) {
     impl_->WriteReplayEvent("runtime_config_patch", "SbirsRuntimeConfigPatch",
@@ -168,8 +119,8 @@ bool SbirsTraceSession::TryApplyRuntimeConfig(const config::SbirsRuntimeConfigPa
   return accepted;
 }
 
-SbirsSession& SbirsTraceSession::session() { return impl_->session; }
-const SbirsSession& SbirsTraceSession::session() const { return impl_->session; }
+SbirsSession& SbirsRecordingSession::session() { return impl_->session; }
+const SbirsSession& SbirsRecordingSession::session() const { return impl_->session; }
 
 }  // namespace session
 }  // namespace sbirs_sensor

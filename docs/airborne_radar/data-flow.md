@@ -1,6 +1,6 @@
 ---
 Status: active
-Last-reviewed: 2026-08-20
+Last-reviewed: 2026-08-23
 Authority: AR 数据流、Public API 边界、时序与状态所有权
 Answers: AR 的分层架构、数据如何流动、Public API 边界在哪、输出/调试/归属边界、跨周期状态归谁所有
 ---
@@ -18,7 +18,7 @@ Answers: AR 的分层架构、数据如何流动、Public API 边界在哪、输
 |---|---|
 | `airborne_radar.hpp` | 模块聚合入口；聚合稳定 public API，不暴露内部 signal/environment/runtime 类型 |
 | `config/` | `ArSessionConfig` 条件五域配置、runtime patch、语义常量表（`ArProfileConstants.h`）、薄封装 builder、validation |
-| `session/` | `ArSession`、cycle input/result、scene target、output types、trace/replay、debug/lifecycle、decision DTO |
+| `session/` | `ArSession`、cycle input/result、scene target、output types、Recording/Replay、debug/lifecycle、decision DTO |
 
 Public 决策 DTO 只包含 `DecisionObservation`、`ExternalDecisionOverride`、`ExternalDecisionSubmitStatus` 和
 `DecisionControlSource`。默认算法使用的 `TargetCategory`、`TacticalMode`、`TacticalStateStore` 和
@@ -37,7 +37,7 @@ flowchart TB
     Config["config/*\nHardware / Mission / Orientation / Policy / Environment\nRuntimePatch / Builder / Validation"]
     SessionApi["session/*\nArSession / ArCycleInput / ArCycleResult\nTrackOutputFrame / SceneTarget"]
     DecisionSeam["DecisionObservation / ExternalDecisionOverride\n步间外部决策 seam"]
-    Tools["Trace / Replay / Debug / Lifecycle\n追踪 / 回放 / 调试 / 生命周期"]
+    Tools["Recording / Replay / Debug / Lifecycle\n追踪 / 回放 / 调试 / 生命周期"]
   end
 
   subgraph Session["Session orchestration / 会话编排层"]
@@ -251,7 +251,7 @@ flowchart TB
     Debug["ArTrackOutputDebugView\n人读排查视图"]
     Lifecycle["ArTrackLifecycleRecorder\nconfirmed / lost / recycled"]
     ExclusionCause["ArExclusionCauseRecorder\n排除原因跨周期差分\n(进入/变化/退出)"]
-    Replay["ArTraceSession / ArReplaySession\n回放输入输出、决策状态和失败标记"]
+    Replay["ArRecordingSession / ArReplaySession\n回放输入输出、决策状态和失败标记"]
   end
 
   Tracks --> Frame
@@ -284,7 +284,7 @@ flowchart LR
   Result["ArCycleResult\neffective_work_mode / designation_*\n（每周期状态指示）"]
   View["ArTrackOutputDebugView\n转写同名字段"]
   Recorder["ArTrackLifecycleRecorder\nkDesignationDropped（回退转换沿）"]
-  Replay["ArTraceSession / ArReplaySession\npatch 与周期结果新字段"]
+  Replay["ArRecordingSession / ArReplaySession\npatch 与周期结果新字段"]
 
   Patch --> State
   State --> Resolve

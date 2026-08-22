@@ -1,6 +1,6 @@
 ---
 Status: active
-Last-reviewed: 2026-08-20
+Last-reviewed: 2026-08-23
 Authority: SAR 模块级边界、非目标与设计变更规则
 Answers: SAR 有哪些模块级禁令与边界、哪些非目标、配置/环境/校验的特殊语义、文档变更规则
 ---
@@ -14,7 +14,7 @@ MoCo 阈值等）见 [algorithms.md](algorithms.md)。
 
 SAR 遵守 `docs/common/contract.md`：
 
-1. public API 只暴露稳定 session/config/input/output/trace/replay 门面。`SarSession` 是对外门面，
+1. public API 只暴露稳定 session/config/input/output/Recording/Replay 门面。`SarSession` 是对外门面，
    只委托内部 `SarController`；Controller、ProcessingPipeline、CompositionRoot 不通过 public header 暴露。
 2. 会话配置直接赋值 `SarSessionConfig`；语义档位是
    `SarProfileConstants.h` 中的预定义结构体常量（如 `profiles::kHighResolutionImagingMission`、

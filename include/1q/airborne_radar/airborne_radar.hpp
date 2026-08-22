@@ -2,7 +2,7 @@
  * @file airborne_radar.hpp
  * @brief 机载雷达模块对外统一入口。
  * @note 当调用方需要稳定会话、输入输出、环境与配置 API 时，优先包含本头；
- *       trace/replay 工具头按需单独包含。
+ *       Recording/Replay 工具头按需单独包含。
  */
 
 #ifndef ONEQ_AIRBORNE_RADAR_AIRBORNE_RADAR_HPP_

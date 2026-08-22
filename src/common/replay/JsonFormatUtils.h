@@ -1,17 +1,17 @@
 ﻿/**
  * @file JsonFormatUtils.h
- * @brief 定义 trace 序列化复用的轻量 JSON 文本工具。
+ * @brief 定义 Replay 元数据序列化复用的轻量 JSON 文本工具。
  */
 
-#ifndef ONEQ_TRACE_JSON_FORMAT_UTILS_H_
-#define ONEQ_TRACE_JSON_FORMAT_UTILS_H_
+#ifndef ONEQ_REPLAY_JSON_FORMAT_UTILS_H_
+#define ONEQ_REPLAY_JSON_FORMAT_UTILS_H_
 
 #include <sstream>
 #include <string>
 
 namespace oneq {
 namespace common {
-namespace trace {
+namespace replay {
 
 /**
  * @brief 对字符串做 JSON 转义（控制字符替换为空格，不含外层引号）。
@@ -66,8 +66,8 @@ inline std::string QuoteString(const std::string& input) {
  */
 inline std::string BoolToJson(bool value) { return value ? "true" : "false"; }
 
-}  // namespace trace
+}  // namespace replay
 }  // namespace common
 }  // namespace oneq
 
-#endif  // ONEQ_TRACE_JSON_FORMAT_UTILS_H_
+#endif  // ONEQ_REPLAY_JSON_FORMAT_UTILS_H_

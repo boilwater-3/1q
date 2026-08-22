@@ -1,6 +1,6 @@
 ---
 Status: active
-Last-reviewed: 2026-08-03
+Last-reviewed: 2026-08-23
 Authority: SAR 设计权威入口
 Answers: SAR 模块是什么、和谁交互、设计文档怎么导航
 ---
@@ -8,7 +8,7 @@ Answers: SAR 模块是什么、和谁交互、设计文档怎么导航
 # SAR 设计
 
 SAR 模块负责合成孔径雷达的回波仿真、完整孔径 raw IQ 消费、距离压缩、聚焦成像、图像质量摘要、
-trace/replay 和运行期配置。对外提供稳定 `SarSession` 门面；算法部件、truth oracle、聚焦中间态和
+Recording/Replay 和运行期配置。对外提供稳定 `SarSession` 门面；算法部件、truth oracle、聚焦中间态和
 证据矩阵保持 internal。
 
 SAR 的心智模型是**信号处理链**：LFM 波形 → raw history 构造 → 距离压缩 → 聚焦成像（RDA/BP）→

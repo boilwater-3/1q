@@ -1,6 +1,6 @@
 ---
 Status: active
-Last-reviewed: 2026-08-20
+Last-reviewed: 2026-08-23
 Authority: AR 模块级边界、非目标与设计变更规则
 Answers: AR 有哪些模块级禁令与边界、哪些非目标、配置/环境/校验/滤波的特殊语义、文档变更规则
 ---
@@ -14,7 +14,7 @@ Answers: AR 有哪些模块级禁令与边界、哪些非目标、配置/环境/
 
 AR 遵守 `docs/common/contract.md`：
 
-1. public API 只暴露稳定 session/config/input/output/trace/replay/decision DTO 门面。`EnvironmentService`、
+1. public API 只暴露稳定 session/config/input/output/Recording/Replay/decision DTO 门面。`EnvironmentService`、
    `SignalPipeline`、`ArController`、`MutableArContext`、tracking lifecycle 和战术决策部件不通过 public
    header 暴露。
 2. 会话配置直接赋值 `ArSessionConfig`（语义档位是 `ArProfileConstants.h`

@@ -1,6 +1,6 @@
 ---
 Status: active
-Last-reviewed: 2026-08-20
+Last-reviewed: 2026-08-23
 ---
 
 # Issue Code 目录（六模块总表）
@@ -240,11 +240,12 @@ Last-reviewed: 2026-08-20
 
 ## remote_identification_radar（远程识别雷达）
 
-> 输入/配置校验问题（`rir.validation.<snake_case>`）与执行期按目标门控排除诊断
-> （`rir.target_<snake_case>`，规则 13b；2026-08-22 随观测投影落地）两类。
+> 输入/配置校验问题（`rir.validation.<snake_case>`）、执行期按目标门控排除诊断
+> （`rir.target_<snake_case>`，规则 13b）与执行中止细码（`rir.sensor_powered_off`，规则 9）三类。
 
 | code | 类型 | 中文含义 |
 |---|---|---|
+| `rir.sensor_powered_off` | 执行/外部输入诊断 | 设备关机（非执行周期中止）。 |
 | `rir.target_beyond_recognition_range` | 执行排除 | 目标斜距超识别最大作用距离（识别链距离门，检测/跟踪不受影响）。 |
 | `rir.target_detection_gate` | 执行排除 | 检测准入门未过（聚合门：SNR/检测器判决；携带门内归因主因）。 |
 | `rir.target_mode_not_identify` | 执行排除 | 本周期非识别工作模式，不建识别观测（STBY 全局模式门）。 |

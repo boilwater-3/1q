@@ -10,7 +10,7 @@
 - 推荐优先从以下入口开始：
   - 基础契约：`1q/foundation/*`、`1q/coordinate/*`
   - 大气与传播：`1q/environment/*`
-  - 追踪与回放：`1q/trace/*`、`1q/replay/*`
+  - 回放：`1q/replay/*`
   - 机载雷达：`1q/airborne_radar/airborne_radar.hpp`
   - 电子侦察雷达：`1q/electronic_surveillance_radar/electronic_surveillance_radar.hpp`
   - 光电传感器：`1q/electro_optical_sensor/electro_optical_sensor.hpp`
@@ -36,8 +36,7 @@
   轻量姿态/向量原语见 `types.h`（`EulerAnglesDeg`、`Vector3d`）。
 - `environment/`：大气模型抽象接口与传播物理算法（`IAtmosphereProvider`、
   `AtmosphericState`、`PropagationPhysics`、JSBSim 适配器）。作为大气类型的唯一公开来源。
-- `trace/`：通用结构化记录 sink 接口（`TraceSink`）。
-- `replay/`：回放 trace 写入器（`ReplayTrace.h`），用于可复现仿真。
+- `replay/`：Replay 落盘与回放（`ReplayTrace.h`），库内唯一周期持久化格式。
 - `flight_dynamic/`：JSBSim 动力学仿真入口（`FlightManager.h`），含 `config/`、
   `guidance/`、`model/`、`autopilot/` 子目录。
 - `navigation/`：区域覆盖路径规划算法面（`AreaCoveragePlanner.h`），独立中立
@@ -57,9 +56,9 @@
   聚合头 `<module>_config.hpp`。
   会话配置直接赋值；运行期补丁直接写 `*RuntimeConfigPatch` 并显式设对应 `has_*`。
 - `<module>/session/`：会话门面、周期输入/结果、输入校验、外部适配器、
-  场景/输出类型、Trace/Replay 会话。聚合头 `<module>.hpp`。
+  场景/输出类型、Recording/Replay 会话。聚合头 `<module>.hpp`。
 - 各模块顶层 `<module>.hpp` 聚合稳定会话与配置 API；
-  trace/replay 工具头（`*TraceSession.h`、`*ReplaySession.h`、`*DebugView.h`、
+  Recording/Replay 工具头（`*RecordingSession.h`、`*ReplaySession.h`、`*DebugView.h`、
   `*LifecycleRecorder.h`）按需单独包含，不进入聚合头。
 
 ### Airborne Radar (AR)
@@ -105,7 +104,7 @@
 - `remote_identification_radar/config/`：四域配置（无 orientation 域）、RuntimePatch、
   SessionConfig 与 Profile 常量（直接赋值）。
 - `remote_identification_radar/session/`：会话门面、周期 IO、输入校验、
-  场景/输出/识别结果类型。
+  场景/输出/识别结果类型、Recording/Replay、调试视图与生命周期/排除差分记录。
 
 ## Recommended Include Strategy
 
@@ -114,7 +113,7 @@
   - `*/config/<module>_config.hpp`（模块配置统一入口，优先）
   - `*/session/`（会话生命周期与输入校验）
 - 避免无目的直接包含细粒度基础头，除非确实需要对应能力。
-- trace/replay 能力按需单独包含对应工具头。
+- Recording/Replay 能力按需单独包含对应工具头。
 
 ## Minimal Integration Checklist
 

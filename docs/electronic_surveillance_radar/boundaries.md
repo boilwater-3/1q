@@ -1,6 +1,6 @@
 ---
 Status: active
-Last-reviewed: 2026-08-21
+Last-reviewed: 2026-08-23
 Authority: ESR 模块级边界、非目标与设计变更规则
 Answers: ESR 有哪些模块级禁令与边界、哪些非目标、配置/扫描/输出/校验的特殊语义、文档变更规则
 ---
@@ -14,7 +14,7 @@ Answers: ESR 有哪些模块级禁令与边界、哪些非目标、配置/扫描
 
 ESR 遵守 `docs/common/contract.md`：
 
-1. public API 只暴露稳定 session/config/input/output/trace/replay 门面；`EsrSession` 是对外门面，
+1. public API 只暴露稳定 session/config/input/output/Recording/Replay 门面；`EsrSession` 是对外门面，
    pipeline/controller/environment service、runtime snapshot 和 generated replay header 不通过 public header 暴露。
 2. runtime patch 经 `ApplyRuntimeConfigWithResult()` → `ResolveEsrRuntimeConfigPatch()` 解析：整域值先合并，
    leaf override 后应用，再对最终 mission 枚举、scan policy、基础 detection policy 和 environment 统一做

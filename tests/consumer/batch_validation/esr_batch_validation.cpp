@@ -3,7 +3,7 @@
  * @brief 电子侦察（ESR）批量场景验证。
  *
  * @par 目标
- * 通过公开 Session 接口（EsrTraceSession + RF v2 发射帧）对 ESR 模块做多场景
+ * 通过公开 Session 接口（EsrRecordingSession + RF v2 发射帧）对 ESR 模块做多场景
  * 参数扫描，验证其在不同辐射源距离 / 载频 / 频谱占用率下的泛用性：
  *   - 采集周期级 CSV（观测、侦察假设与接收机状态）。
  *   - 软断言：假设置信度 ∈ [0,1]。
@@ -34,7 +34,7 @@
 #include "1q/electronic_surveillance_radar/session/EsrInputValidation.h"
 #include "1q/electronic_surveillance_radar/session/EsrReplaySession.h"
 #include "1q/electronic_surveillance_radar/session/EsrSession.h"
-#include "1q/electronic_surveillance_radar/session/EsrTraceSession.h"
+#include "1q/electronic_surveillance_radar/session/EsrRecordingSession.h"
 
 #include "batch_assertions.h"
 #include "batch_checks.h"
@@ -330,10 +330,10 @@ ScenarioSummary RunEsrScenario(const EsrCase& c, const esr_config::EsrSessionCon
   std::vector<std::uint64_t> recovered_ids;
 
   {
-    esr_session::EsrTraceSessionOptions options;
+    esr_session::EsrRecordingSessionOptions options;
     options.replay_writer = replay_writer;
-    options.trace_config_on_construct = true;
-    esr_session::EsrTraceSession session(config, options);
+    options.record_config_on_construct = true;
+    esr_session::EsrRecordingSession session(config, options);
 
     const char* previous_phase = nullptr;
     for (std::uint32_t i = 0; i < cycle_count; ++i) {

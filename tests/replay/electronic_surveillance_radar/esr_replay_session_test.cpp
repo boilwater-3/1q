@@ -6,7 +6,7 @@
 #include "1q/electronic_surveillance_radar/config/EsrRuntimeConfigPatch.h"
 #include "1q/replay/ReplayTrace.h"
 #include "1q/electronic_surveillance_radar/session/EsrReplaySession.h"
-#include "1q/electronic_surveillance_radar/session/EsrTraceSession.h"
+#include "1q/electronic_surveillance_radar/session/EsrRecordingSession.h"
 #include "electronic_surveillance_radar/session/EsrReplayFlatbufferCodec.h"
 #include "support/oneq_test_temp_dir.h"
 
@@ -85,9 +85,9 @@ TEST(EsrReplaySessionTest, ReplaysDirectRfV2Input) {
 
   config::EsrSessionConfig config;
   config.policy.detection.minimum_snr_db = -100.0f;
-  EsrTraceSessionOptions options;
+  EsrRecordingSessionOptions options;
   options.replay_writer = writer;
-  EsrTraceSession session(config, options);
+  EsrRecordingSession session(config, options);
   EsrCycleInput input;
   input.cycle_index = 1U;
   input.cycle_start_time_s = 10.0;
@@ -120,9 +120,9 @@ TEST(EsrReplaySessionTest, WaveformClassGateContinuesDeterministicallyInReplay) 
   config.hardware.maximum_linear_input_power_w = 10.0f;
   config.policy.detection.minimum_snr_db = -100.0f;
   config.policy.detection.enable_statistical_detection = false;
-  EsrTraceSessionOptions options;
+  EsrRecordingSessionOptions options;
   options.replay_writer = writer;
-  EsrTraceSession session(config, options);
+  EsrRecordingSession session(config, options);
 
   const EsrCycleResult pulse_result = session.StepWithResult(MakeWaveformClassInput(
       1U, oneq::electromagnetics::RfSceneWaveformKind::kPulseTrain));
@@ -150,9 +150,9 @@ TEST(EsrReplaySessionTest,
   config.hardware.beam_az_width_deg = 120.0f;
   config.hardware.beam_el_width_deg = 120.0f;
   config.policy.detection.enable_statistical_detection = false;
-  EsrTraceSessionOptions options;
+  EsrRecordingSessionOptions options;
   options.replay_writer = writer;
-  EsrTraceSession session(config, options);
+  EsrRecordingSession session(config, options);
 
   config::EsrRuntimeConfigPatch invalid_policy;
   invalid_policy.has_policy = true;
@@ -227,9 +227,9 @@ TEST(EsrReplaySessionTest, RuntimePatchApplyResultDivergenceFailsReplay) {
 TEST(EsrReplaySessionTest, ReplayEsrTraceContinuesAfterFailureMarker) {
   const std::string trace_dir = oneq_test::TempDir() + "1q-esr-failure-marker-replay";
   const auto writer = MakeWriter(trace_dir);
-  EsrTraceSessionOptions options;
+  EsrRecordingSessionOptions options;
   options.replay_writer = writer;
-  EsrTraceSession session(config::EsrSessionConfig{}, options);
+  EsrRecordingSession session(config::EsrSessionConfig{}, options);
 
   EsrCycleInput invalid = MakeContinuousInput(1U, 10.0e9, 1.0e6);
   invalid.dt_sec = -1.0f;
@@ -264,9 +264,9 @@ TEST(EsrReplaySessionTest,
   config.hardware.tuning_plan.push_back(
       config::EsrTuningWindow{10.0e9, 10.0e6, 1U});
   config.policy.detection.enable_statistical_detection = false;
-  EsrTraceSessionOptions options;
+  EsrRecordingSessionOptions options;
   options.replay_writer = writer;
-  EsrTraceSession session(config, options);
+  EsrRecordingSession session(config, options);
 
   const EsrCycleResult saturated =
       session.StepWithResult(MakeContinuousInput(1U, 9.5e9, 1.0e12));
@@ -300,9 +300,9 @@ TEST(EsrReplaySessionTest,
   config.hardware.receiver_band_upper_hz = 10.01e9;
   config.policy.detection.minimum_snr_db = -100.0f;
   config.policy.detection.enable_statistical_detection = false;
-  EsrTraceSessionOptions options;
+  EsrRecordingSessionOptions options;
   options.replay_writer = writer;
-  EsrTraceSession session(config, options);
+  EsrRecordingSession session(config, options);
 
   // 构造同一周期内两个正交方位脉冲发射（触发欺骗标注）
   EsrCycleInput input;
@@ -358,9 +358,9 @@ TEST(EsrReplaySessionTest,
     config.hardware.receiver_band_upper_hz = 10.01e9;
     config.policy.detection.minimum_snr_db = -100.0f;
     config.policy.detection.enable_statistical_detection = false;
-    EsrTraceSessionOptions options;
+    EsrRecordingSessionOptions options;
     options.replay_writer = writer;
-    EsrTraceSession session(config, options);
+    EsrRecordingSession session(config, options);
 
     EsrCycleInput input;
     input.cycle_index = 1U;
@@ -462,9 +462,9 @@ TEST(EsrReplaySessionTest,
     config.policy.detection.minimum_snr_db = -100.0f;
     config.policy.detection.enable_statistical_detection = false;
     config.mission.scan.scan_center_az_deg = 30.0f;
-    EsrTraceSessionOptions options;
+    EsrRecordingSessionOptions options;
     options.replay_writer = writer;
-    EsrTraceSession session(config, options);
+    EsrRecordingSession session(config, options);
 
     EsrCycleInput input;
     input.cycle_index = 1U;
@@ -542,6 +542,37 @@ TEST(EsrReplaySessionTest,
   EXPECT_NE(replay.first_error.find("divergence"), std::string::npos)
       << "tampered scan_azimuth_deg should cause replay divergence: "
       << replay.first_error;
+}
+
+TEST(EsrRecordingSessionTest, ValidationFailureUsesInputCycleIndex) {
+  const std::string trace_dir = oneq_test::TempDir() + "1q-esr-validation";
+  std::shared_ptr<oneq::replay::ReplayTraceWriter> writer = MakeWriter(trace_dir);
+  EsrRecordingSessionOptions options;
+  options.replay_writer = writer;
+  EsrRecordingSession traced(config::EsrSessionConfig{}, options);
+  EsrCycleInput input;
+  input.cycle_index = 77U;
+  input.dt_sec = -1.0f;
+  (void)traced.StepWithResult(input);
+  ASSERT_EQ(writer->Flush(), oneq::replay::ReplayTraceWriteStatus::kSuccess);
+
+  oneq::replay::ReplayTraceReader reader(trace_dir);
+  oneq::replay::ReplayTraceReadEvent event;
+  bool saw_rejected_output = false;
+  while (reader.ReadNextEvent(&event) == oneq::replay::ReplayTraceReadStatus::kEvent) {
+    if (event.event_type != "cycle_output") {
+      continue;
+    }
+    EsrCycleResult result;
+    ASSERT_TRUE(DecodeEsrCycleResult(event.payload_bytes, &result));
+    if (HasValidationError(result.issues)) {
+      saw_rejected_output = true;
+      EXPECT_TRUE(event.has_cycle_index);
+      EXPECT_EQ(event.cycle_index, 77U);
+      EXPECT_EQ(result.input_cycle_index, 77U);
+    }
+  }
+  EXPECT_TRUE(saw_rejected_output);
 }
 
 }  // namespace
