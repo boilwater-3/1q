@@ -131,15 +131,13 @@ double SumIncidentJamWatts(const RirDetectionAcceptInput& input) {
   return sum;
 }
 
-void AppendDerivedRatio(std::string* text, const char* label, bool ok, double ratio_db,
-                        const char* missing) {
-  *text += label;
-  if (ok) {
-    *text += FormatF(ratio_db, 3);
-    *text += "dB";
-  } else {
-    *text += missing;
-  }
+void Emit(float sim_time_sec, std::uint32_t cycle, const char* item, const std::string& content) {
+  RIR_ACCEPTANCE_ITEM(sim_time_sec, cycle, item, content);
+}
+
+void EmitOrNone(float sim_time_sec, std::uint32_t cycle, const char* item, const std::string& prefix,
+                bool ok, const std::string& value) {
+  Emit(sim_time_sec, cycle, item, prefix + (ok ? value : std::string("无")));
 }
 
 std::string DefaultAntennaCsvPath() {
@@ -197,149 +195,100 @@ void WriteRirDetectionChain(const RirDetectionAcceptInput& input) {
   if (!RIR_ACCEPTANCE_LOG_ENABLED()) {
     return;
   }
+  const float t = input.sim_time_sec;
+  const std::uint32_t cycle = input.cycle;
   const std::string id = "目标ID=" + std::to_string(input.target_id);
-  const std::string range = " 斜距=" + FormatF(input.range_m, 1) + "m";
-  const double echo_w = input.has_cell ? input.cell.echo_power_w : 0.0;
-  (void)echo_w;
+  const std::string id_sp = id + " ";
   const double thermal = input.has_cell ? input.cell.thermal_noise_power_w : 0.0;
   const double jam = input.has_cell ? input.cell.interference_power_w : 0.0;
   const double clutter = input.has_cell ? input.cell.clutter_power_w : 0.0;
   const double pc = input.has_cell ? input.cell.pulse_compression_gain : 1.0;
-  const std::uint32_t pulses =
-      input.has_cell ? input.cell.effective_pulse_count : 1U;
+  const std::uint32_t pulses = input.has_cell ? input.cell.effective_pulse_count : 1U;
   const double pc_db = ToDb(pc);
   const double coherent_db = ToDb(static_cast<double>(std::max(1U, pulses)));
-  const double target_db = static_cast<double>(input.gains.target_processing_gain_db);
   const double noise_db = static_cast<double>(input.gains.noise_processing_gain_db);
   const double clutter_db = static_cast<double>(input.gains.clutter_suppression_gain_db);
-  const double jam_db = static_cast<double>(input.gains.jamming_suppression_gain_db);
-  const double target_sum_db = pc_db + coherent_db + target_db;
   const double pc_noise = thermal * std::max(pc, 0.0);
   const double mti_residual = clutter_db <= 0.0 ? clutter : clutter / FromDb(clutter_db);
   oneq::common::radar::MtiMtdAcceptanceResult bank;
   const bool has_bank = TryBuildAcceptanceBank(input, &bank);
-  const char* derived_missing =
-      input.has_cell ? "暂无（PRF/载频非法，无法派生）" : "暂无（无 detection cell，无法派生）";
 
-  std::string echo = id + range;
+  std::string echo = id;
+  echo += " 斜距=" + FormatF(input.range_m, 1) + "m";
   echo += " SNR=" + FormatF(input.snr_db, 3) + "dB";
   echo += " 回波功率=" + FormatF(input.echo_power_dbw, 3) + "dBW";
   echo += " 热噪声=" + FormatSci(thermal) + "W";
   echo += " 干扰功率=" + FormatSci(jam) + "W";
   echo += " 杂波功率=" + FormatSci(clutter) + "W";
-  RIR_ACCEPTANCE_ITEM(input.sim_time_sec, input.cycle, "回波功率计算", echo);
+  Emit(t, cycle, "经处理后雷达回波信号", echo);
+  Emit(t, cycle, "回波功率计算", echo);
 
-  std::string noise = id + " 热噪声功率=" + FormatSci(thermal) + "W SNR=" + FormatF(input.snr_db, 3) + "dB";
-  RIR_ACCEPTANCE_ITEM(input.sim_time_sec, input.cycle, "接收机噪声功率", noise);
+  Emit(t, cycle, "接收机噪声功率",
+       id_sp + "热噪声功率=" + FormatSci(thermal) + "W SNR=" + FormatF(input.snr_db, 3) + "dB");
 
-  std::string gain = id;
-  gain += " 脉压=" + FormatF(pc_db, 3) + "dB";
-  gain += " 相干积累=" + FormatF(coherent_db, 3) + "dB(N=" + std::to_string(pulses) + ")";
-  gain += " 目标偏置=" + FormatF(target_db, 3) + "dB";
-  gain += " 目标侧合计=" + FormatF(target_sum_db, 3) + "dB";
-  gain += " 杂波抑制偏置=" + FormatF(clutter_db, 3) + "dB";
-  if (has_bank) {
-    gain += " 验收派生MTI增益=" + FormatF(bank.mti_gain_db, 3) + "dB";
-    gain += " 验收派生MTD增益=" + FormatF(bank.mtd_gain_db, 3) + "dB（未进SINR）";
-  } else {
-    gain += " 验收派生MTI增益=";
-    gain += derived_missing;
-    gain += " 验收派生MTD增益=";
-    gain += derived_missing;
-  }
-  RIR_ACCEPTANCE_ITEM(input.sim_time_sec, input.cycle, "目标信号增益", gain);
+  Emit(t, cycle, "脉压增益", id_sp + FormatF(pc_db, 3) + "dB");
+  Emit(t, cycle, "相干积累增益",
+       id_sp + FormatF(coherent_db, 3) + "dB N=" + std::to_string(pulses));
+  EmitOrNone(t, cycle, "MTI增益", id_sp, has_bank,
+             has_bank ? FormatF(bank.mti_gain_db, 3) + "dB" : std::string());
+  EmitOrNone(t, cycle, "MTD增益", id_sp, has_bank,
+             has_bank ? FormatF(bank.mtd_gain_db, 3) + "dB" : std::string());
 
-  std::string noise_gain = "热噪声=" + FormatSci(thermal) + "W";
-  noise_gain += " 脉压后噪声=" + FormatSci(pc_noise) + "W";
-  noise_gain += " 噪声处理偏置=" + FormatF(noise_db, 3) + "dB";
-  if (has_bank) {
-    noise_gain += " 验收派生多普勒通道噪声=" + FormatChannelWatts(bank.noise_w) + "W";
-    noise_gain += " 验收派生MTD等效噪声=" + FormatSci(bank.mtd_equivalent_noise_w) + "W（未进SINR）";
-  } else {
-    noise_gain += " 验收派生多普勒通道噪声=";
-    noise_gain += derived_missing;
-    noise_gain += " 验收派生MTD等效噪声=";
-    noise_gain += derived_missing;
-  }
-  noise_gain += " 噪声总增益=脉压线性增益+偏置";
-  RIR_ACCEPTANCE_ITEM(input.sim_time_sec, input.cycle, "噪声增益", noise_gain);
+  Emit(t, cycle, "脉冲压缩后的噪声功率", id_sp + FormatSci(pc_noise) + "W");
+  EmitOrNone(t, cycle, "各多普勒滤波器通道噪声功率", id_sp, has_bank,
+             has_bank ? FormatChannelWatts(bank.noise_w) + "W" : std::string());
+  EmitOrNone(t, cycle, "MTD等效噪声功率", id_sp, has_bank,
+             has_bank ? FormatSci(bank.mtd_equivalent_noise_w) + "W" : std::string());
+  Emit(t, cycle, "噪声总增益", id_sp + FormatF(pc_db + noise_db, 3) + "dB");
 
-  std::string clutter_text = id;
-  clutter_text += " 主链偏置MTI后剩余杂波=" + FormatSci(mti_residual) + "W";
-  clutter_text += " 杂波总抑制比=" + FormatF(clutter_db, 3) + "dB";
-  if (has_bank) {
-    clutter_text += " 验收派生MTI剩余杂波=" + FormatSci(bank.mti_residual_clutter_w) + "W";
-    clutter_text += " 验收派生MTD通道分布=" + FormatChannelWatts(bank.clutter_w) + "W";
-    double clutter_ratio_db = 0.0;
-    const bool has_clutter_ratio = oneq::common::radar::TryAcceptancePowerRatioDb(
-        clutter, SumChannelWatts(bank.clutter_w), &clutter_ratio_db);
-    AppendDerivedRatio(&clutter_text, " 验收派生MTD杂波抑制比=", has_clutter_ratio, clutter_ratio_db,
-                       "暂无（杂波输入或剩余非正，无法派生）");
-    clutter_text += "（未进SINR）";
-  } else {
-    clutter_text += " 验收派生MTI剩余杂波=";
-    clutter_text += derived_missing;
-    clutter_text += " 验收派生MTD通道分布=";
-    clutter_text += derived_missing;
-    clutter_text += " 验收派生MTD杂波抑制比=";
-    clutter_text += derived_missing;
-  }
-  RIR_ACCEPTANCE_ITEM(input.sim_time_sec, input.cycle, "杂波信号处理", clutter_text);
+  Emit(t, cycle, "MTI处理后杂波剩余功率",
+       id_sp + FormatSci(has_bank ? bank.mti_residual_clutter_w : mti_residual) + "W");
+  EmitOrNone(t, cycle, "MTD各多普勒通道杂波剩余功率分布", id_sp, has_bank,
+             has_bank ? FormatChannelWatts(bank.clutter_w) + "W" : std::string());
+  double clutter_ratio_db = 0.0;
+  const bool has_clutter_ratio =
+      has_bank && oneq::common::radar::TryAcceptancePowerRatioDb(
+                      clutter, SumChannelWatts(bank.clutter_w), &clutter_ratio_db);
+  EmitOrNone(t, cycle, "MTD处理后的杂波抑制比", id_sp, has_clutter_ratio,
+             FormatF(clutter_ratio_db, 3) + "dB");
+  Emit(t, cycle, "总杂波抑制增益", id_sp + FormatF(clutter_db, 3) + "dB");
 
-  std::string jam_text = id;
-  jam_text += " 检测概率Pd=" + FormatF(input.pd, 5);
-  jam_text += std::string(" 本周期检出=") + YesNo(input.detected);
-  jam_text += range;
-  jam_text += " 方位/俯仰=" + FormatPairDeg(input.look_az_deg, input.look_el_deg, 3) + "°";
-  jam_text += " 干扰抑制偏置=" + FormatF(jam_db, 3) + "dB";
-  if (has_bank && bank.has_jam_channels) {
-    jam_text += " 验收派生MTI剩余干扰=" + FormatSci(bank.mti_residual_jam_w) + "W";
-    jam_text += " 验收派生MTD通道干扰=" + FormatChannelWatts(bank.jam_w) + "W";
-    const double jam_in = SumIncidentJamWatts(input);
-    double mtd_jam_ratio_db = 0.0;
-    double total_jam_ratio_db = 0.0;
-    const bool has_mtd_jam = oneq::common::radar::TryAcceptancePowerRatioDb(
-        jam_in, SumChannelWatts(bank.jam_w), &mtd_jam_ratio_db);
-    const bool has_total_jam = oneq::common::radar::TryAcceptancePowerRatioDb(
-        jam_in, bank.mti_residual_jam_w, &total_jam_ratio_db);
-    AppendDerivedRatio(&jam_text, " 验收派生MTD干扰抑制比=", has_mtd_jam, mtd_jam_ratio_db,
-                       "暂无（干扰输入或剩余非正，无法派生）");
-    AppendDerivedRatio(&jam_text, " 验收派生总干扰抑制增益=", has_total_jam, total_jam_ratio_db,
-                       "暂无（干扰输入或剩余非正，无法派生）");
-    jam_text += "（未进SINR）";
-  } else if (has_bank) {
-    jam_text += " 验收派生MTI剩余干扰=无 验收派生MTD通道干扰=无";
-    jam_text += " 验收派生MTD干扰抑制比=无 验收派生总干扰抑制增益=无";
-  } else {
-    jam_text += " 验收派生MTI剩余干扰=";
-    jam_text += derived_missing;
-    jam_text += " 验收派生MTD通道干扰=";
-    jam_text += derived_missing;
-    jam_text += " 验收派生MTD干扰抑制比=";
-    jam_text += derived_missing;
-    jam_text += " 验收派生总干扰抑制增益=";
-    jam_text += derived_missing;
-  }
+  const bool has_jam = has_bank && bank.has_jam_channels;
+  const double jam_in = SumIncidentJamWatts(input);
+  double mtd_jam_ratio_db = 0.0;
+  double total_jam_ratio_db = 0.0;
+  const bool has_mtd_jam =
+      has_jam && oneq::common::radar::TryAcceptancePowerRatioDb(
+                     jam_in, SumChannelWatts(bank.jam_w), &mtd_jam_ratio_db);
+  const bool has_total_jam =
+      has_jam && oneq::common::radar::TryAcceptancePowerRatioDb(jam_in, bank.mti_residual_jam_w,
+                                                               &total_jam_ratio_db);
+  EmitOrNone(t, cycle, "MTI处理后干扰剩余功率", id_sp, has_jam,
+             has_jam ? FormatSci(bank.mti_residual_jam_w) + "W" : std::string());
+  EmitOrNone(t, cycle, "MTD各多普勒通道干扰功率分布", id_sp, has_jam,
+             has_jam ? FormatChannelWatts(bank.jam_w) + "W" : std::string());
+  EmitOrNone(t, cycle, "MTD处理后的干扰总抑制比", id_sp, has_mtd_jam,
+             FormatF(mtd_jam_ratio_db, 3) + "dB");
+  EmitOrNone(t, cycle, "总干扰抑制增益", id_sp, has_total_jam,
+             FormatF(total_jam_ratio_db, 3) + "dB");
+
+  bool has_threshold = false;
+  double threshold = 0.0;
   if (input.has_cell && std::isfinite(input.cfar_pfa) && input.cfar_pfa > 0.0 &&
       input.cfar_pfa < 1.0) {
-    const double threshold = oneq::common::radar::RadarEquations::ComputeThreshold(
+    threshold = oneq::common::radar::RadarEquations::ComputeThreshold(
         input.cfar_pfa, static_cast<int>(std::max(1U, pulses)));
-    if (std::isfinite(threshold)) {
-      jam_text += " 验收派生统计检测门限=" + FormatF(threshold, 6) + "（未进判决）";
-    } else {
-      jam_text += " 验收派生统计检测门限=暂无（门限非有限）";
-    }
-  } else {
-    jam_text += " 验收派生统计检测门限=";
-    jam_text += input.has_cell ? "暂无（Pfa非法，无法派生）" : derived_missing;
+    has_threshold = std::isfinite(threshold);
   }
-  RIR_ACCEPTANCE_ITEM(input.sim_time_sec, input.cycle, "干扰信号处理增益", jam_text);
+  EmitOrNone(t, cycle, "统计检测门限", id_sp, has_threshold, FormatF(threshold, 6));
+  Emit(t, cycle, "统计检测结果", id_sp + YesNo(input.detected));
+  Emit(t, cycle, "统计检测概率", id_sp + FormatF(input.pd, 5));
 
   std::string rcs = id;
   rcs += " 本周期RCS=" + FormatF(input.rcs_m2, 3) + "m²";
-  rcs += range;
+  rcs += " 斜距=" + FormatF(input.range_m, 1) + "m";
   rcs += " 方位/俯仰=" + FormatPairDeg(input.look_az_deg, input.look_el_deg, 3) + "°";
-  RIR_ACCEPTANCE_ITEM(input.sim_time_sec, input.cycle, "RCS实时探测", rcs);
+  Emit(t, cycle, "RCS实时探测", rcs);
 }
 
 void WriteRirInterferenceLinks(
@@ -372,10 +321,12 @@ void WriteRirSearchDetections(float sim_time_sec, std::uint32_t cycle, float bea
   if (!RIR_ACCEPTANCE_LOG_ENABLED()) {
     return;
   }
-  std::string content = "波束中心方位/俯仰=" + FormatPairDeg(beam_az_deg, beam_el_deg, 3) + "°";
-  content += " 搜到目标=[" + found_targets + "]";
-  content += " 指定角域裁剪后的搜索集合=无（实现仍遍历全部场景目标）";
-  RIR_ACCEPTANCE_ITEM(sim_time_sec, cycle, "指定空域搜索", content);
+  const std::string pointing =
+      "方位/俯仰=" + FormatPairDeg(beam_az_deg, beam_el_deg, 3) + "°";
+  const std::string detections = "搜到目标=[" + found_targets + "]";
+  Emit(sim_time_sec, cycle, "本周期方位俯仰指向", pointing);
+  Emit(sim_time_sec, cycle, "检测量测信息", detections);
+  Emit(sim_time_sec, cycle, "指定空域搜索", pointing + " " + detections);
 }
 
 void WriteRirAssociation(float sim_time_sec, std::uint32_t cycle,
@@ -397,7 +348,8 @@ void WriteRirAssociation(float sim_time_sec, std::uint32_t cycle,
                  std::to_string(match.source_index) + " 代价=" + FormatF(match.cost, 4);
     }
   }
-  RIR_ACCEPTANCE_ITEM(sim_time_sec, cycle, "航迹关联", content);
+  Emit(sim_time_sec, cycle, "航迹关联", content);
+  Emit(sim_time_sec, cycle, "更新后的航迹集合", content);
 }
 
 void WriteRirTrackAndId(float sim_time_sec, std::uint32_t cycle, const tracking::RirTrackState& track,
@@ -416,7 +368,7 @@ void WriteRirTrackAndId(float sim_time_sec, std::uint32_t cycle, const tracking:
                  track.position.z() + track.velocity.z() * dt, 1);
   const int category = result != nullptr ? static_cast<int>(result->target_category) : -1;
   std::string measure = "目标ID=" + std::to_string(track.external_target_id);
-  measure += " 斜距=无（滤波ENU） 方位/俯仰=无";
+  measure += " 斜距=无 方位/俯仰=无";
   measure += " 高度=" + FormatF(track.position.z(), 1) + "m";
   measure += " 速度=" + FormatF(track.speed, 3) + "m/s";
   measure += " 航向=" + FormatF(heading, 2) + "°";
@@ -424,8 +376,8 @@ void WriteRirTrackAndId(float sim_time_sec, std::uint32_t cycle, const tracking:
                                      track.acceleration.z(), 4) +
              "m/s²";
   measure += " 飞机类型=识别大类枚举" + std::to_string(category);
-  measure += " 舰船类型=无 车辆类型=无";
-  RIR_ACCEPTANCE_ITEM(sim_time_sec, cycle, "角度和距离测量", measure);
+  Emit(sim_time_sec, cycle, "目标测量角度与距离", measure);
+  Emit(sim_time_sec, cycle, "角度和距离测量", measure);
 
   std::string reentry = "航迹=" + std::to_string(track.association_key);
   reentry += " 目标ID=" + std::to_string(track.external_target_id);
@@ -436,7 +388,8 @@ void WriteRirTrackAndId(float sim_time_sec, std::uint32_t cycle, const tracking:
   reentry += " 加速度=" + FormatVec3(track.acceleration.x(), track.acceleration.y(),
                                      track.acceleration.z(), 4) +
              "m/s²";
-  RIR_ACCEPTANCE_ITEM(sim_time_sec, cycle, "典型/再入目标跟踪", reentry);
+  Emit(sim_time_sec, cycle, "典型/再入目标跟踪", reentry);
+  Emit(sim_time_sec, cycle, "多目标跟踪", reentry);
 
   const tracking::RirStateCovariance& cov = track.gaussian_state.covariance;
   std::string filter = "航迹=" + std::to_string(track.association_key);
@@ -455,8 +408,15 @@ void WriteRirTrackAndId(float sim_time_sec, std::uint32_t cycle, const tracking:
       filter += FormatF(static_cast<double>(cov(row, col)), 6);
     }
   }
-  filter += "] IMM权重=无";
-  RIR_ACCEPTANCE_ITEM(sim_time_sec, cycle, "跟踪滤波", filter);
+  filter += "]";
+  Emit(sim_time_sec, cycle, "目标位置速度加速度估计",
+       "航迹=" + std::to_string(track.association_key) + " 当前ENU m=" +
+           FormatVec3(track.position.x(), track.position.y(), track.position.z(), 1) +
+           " 下一时刻预测ENU m=" + next_pos);
+  const std::string cov_text = filter.substr(filter.find("完整协方差="));
+  Emit(sim_time_sec, cycle, "目标状态协方差",
+       "航迹=" + std::to_string(track.association_key) + " " + cov_text);
+  Emit(sim_time_sec, cycle, "跟踪滤波", filter);
 
   if (features != nullptr) {
     const auto& motion = features->features.motion;
@@ -465,13 +425,14 @@ void WriteRirTrackAndId(float sim_time_sec, std::uint32_t cycle, const tracking:
     motion_text += " 高度=" + FormatF(motion.altitude_m, 1) + "m";
     motion_text += std::string(" 近似直线=") + YesNo(motion.is_straight);
     motion_text += " 目标类别=大类枚举" + std::to_string(category);
-    RIR_ACCEPTANCE_ITEM(sim_time_sec, cycle, "运动特征处理", motion_text);
+    Emit(sim_time_sec, cycle, "运动特征处理", motion_text);
+    Emit(sim_time_sec, cycle, "目标类别", motion_text);
 
     const auto& rcs = features->features.rcs;
     std::string rcs_text = "航迹=" + std::to_string(track.association_key);
     rcs_text += " RCS均值/标准差=" + FormatF(rcs.mean_dbsm, 3) + "/" + FormatF(rcs.std_db, 3) + "dBsm";
     rcs_text += " 目标类别=大类枚举" + std::to_string(category);
-    RIR_ACCEPTANCE_ITEM(sim_time_sec, cycle, "RCS统计特征处理", rcs_text);
+    Emit(sim_time_sec, cycle, "RCS统计特征处理", rcs_text);
 
     const auto& pol = features->features.polarization;
     std::string pol_text = "航迹=" + std::to_string(track.association_key);
@@ -479,33 +440,30 @@ void WriteRirTrackAndId(float sim_time_sec, std::uint32_t cycle, const tracking:
                 FormatVec3(pol.energy_difference_db, pol.relative_difference_db, pol.energy_sum_db, 3);
     pol_text += " 目标类别=大类枚举" + std::to_string(category);
     pol_text += " 置信度=" + FormatF(result != nullptr ? result->confidence : 0.0, 4);
-    pol_text += has_truth ? (" 正确识别率=" + FormatF(category_accuracy, 4))
-                          : std::string(" 正确识别率=无（本场无真值对照）");
+    if (has_truth) {
+      pol_text += " 正确识别率=" + FormatF(category_accuracy, 4);
+    }
+    Emit(sim_time_sec, cycle, "极化特征解算", pol_text);
+    Emit(sim_time_sec, cycle, "目标类型",
+         "航迹=" + std::to_string(track.association_key) + " 目标类别=大类枚举" +
+             std::to_string(category) +
+             " 置信度=" + FormatF(result != nullptr ? result->confidence : 0.0, 4));
     PolarizationAcceptanceSResult derived;
     const bool has_s =
-        polarization_samples != nullptr && features != nullptr &&
+        polarization_samples != nullptr &&
         TryResolvePolarizationAcceptanceS(*polarization_samples, features->look_az_deg,
                                           features->look_el_deg, &derived);
-    if (has_s) {
-      pol_text += " 验收派生功率迹=" + FormatSci(derived.span);
-      pol_text += " 验收派生行列式=" + FormatSci(derived.abs_det);
-      pol_text += " 验收派生去极化系数=" + FormatF(derived.depolarization, 4);
-      pol_text += " 验收派生本征极化方向角=" + FormatF(derived.psi_deg, 3) + "°";
-      pol_text += " 验收派生本征极化椭圆率=" + FormatF(derived.tau_deg, 3) + "（未进识别）";
-    } else {
-      const char* missing = "暂无（无交叉极化或HH-VV相位，无法按S派生）";
-      pol_text += " 验收派生功率迹=";
-      pol_text += missing;
-      pol_text += " 验收派生行列式=";
-      pol_text += missing;
-      pol_text += " 验收派生去极化系数=";
-      pol_text += missing;
-      pol_text += " 验收派生本征极化方向角=";
-      pol_text += missing;
-      pol_text += " 验收派生本征极化椭圆率=";
-      pol_text += missing;
-    }
-    RIR_ACCEPTANCE_ITEM(sim_time_sec, cycle, "极化特征解算", pol_text);
+    const std::string track_id = "航迹=" + std::to_string(track.association_key) + " ";
+    EmitOrNone(sim_time_sec, cycle, "功率迹", track_id, has_s,
+               has_s ? FormatSci(derived.span) : std::string());
+    EmitOrNone(sim_time_sec, cycle, "极化散射矩阵行列式", track_id, has_s,
+               has_s ? FormatSci(derived.abs_det) : std::string());
+    EmitOrNone(sim_time_sec, cycle, "去极化系数", track_id, has_s,
+               has_s ? FormatF(derived.depolarization, 4) : std::string());
+    EmitOrNone(sim_time_sec, cycle, "本征极化方向角", track_id, has_s,
+               has_s ? FormatF(derived.psi_deg, 3) + "°" : std::string());
+    EmitOrNone(sim_time_sec, cycle, "本征极化椭圆率", track_id, has_s,
+               has_s ? FormatF(derived.tau_deg, 3) + "°" : std::string());
 
     const auto& rp = features->features.range_profile;
     std::string rp_text = "航迹=" + std::to_string(track.association_key);
@@ -513,10 +471,18 @@ void WriteRirTrackAndId(float sim_time_sec, std::uint32_t cycle, const tracking:
     rp_text += " 峰数=" + std::to_string(rp.peak_count);
     rp_text += " 能量集中=" + FormatF(rp.peak_energy_concentration, 3);
     rp_text += " 分辨率=" + FormatF(rp.resolution_m, 3) + "m";
-    rp_text += " 识别类型=大类枚举" + std::to_string(category);
-    rp_text += " 置信度=" + FormatF(result != nullptr ? result->confidence : 0.0, 4);
-    rp_text += " 散射中心列表=无";
-    RIR_ACCEPTANCE_ITEM(sim_time_sec, cycle, "宽带一维像特征解算", rp_text);
+    const std::string rp_id = "航迹=" + std::to_string(track.association_key) + " ";
+    Emit(sim_time_sec, cycle, "散射中心和轮廓特征",
+         rp_id + "长度=" + FormatF(rp.length_m, 3) + "m 峰数=" + std::to_string(rp.peak_count) +
+             " 能量集中=" + FormatF(rp.peak_energy_concentration, 3) +
+             " 分辨率=" + FormatF(rp.resolution_m, 3) + "m");
+    Emit(sim_time_sec, cycle, "识别类别",
+         rp_id + "识别类型=大类枚举" + std::to_string(category) +
+             " 置信度=" + FormatF(result != nullptr ? result->confidence : 0.0, 4));
+    Emit(sim_time_sec, cycle, "宽带一维像特征解算", rp_text +
+                                                         " 识别类型=大类枚举" +
+                                                         std::to_string(category) + " 置信度=" +
+                                                         FormatF(result != nullptr ? result->confidence : 0.0, 4));
   }
 }
 
@@ -531,10 +497,13 @@ void WriteRirSchedule(float sim_time_sec, std::uint32_t cycle, std::uint32_t pla
   content += " 搜索=" + std::to_string(search_count);
   content += " 跟踪=" + std::to_string(track_count);
   content += " 识别=" + std::to_string(ident_count);
-  content += " 验收派生事件执行列表=[搜索×" + std::to_string(search_count) + ",跟踪×" +
-             std::to_string(track_count) + ",识别×" + std::to_string(ident_count) + "]";
   content += " 预算/已耗时=" + FormatF(budget_sec, 3) + "/" + FormatF(consumed_sec, 3) + "s";
-  RIR_ACCEPTANCE_ITEM(sim_time_sec, cycle, "调度策略", content);
+  const std::string events = "[搜索×" + std::to_string(search_count) + ",跟踪×" +
+                             std::to_string(track_count) + ",识别×" + std::to_string(ident_count) +
+                             "]";
+  Emit(sim_time_sec, cycle, "各类事件的实际执行列表", events);
+  Emit(sim_time_sec, cycle, "扫描调度信息", content);
+  Emit(sim_time_sec, cycle, "调度策略", content);
 }
 
 void WriteRirOncePerSession(float sim_time_sec, std::uint32_t cycle) {
@@ -546,12 +515,11 @@ void WriteRirOncePerSession(float sim_time_sec, std::uint32_t cycle) {
     return;
   }
   written = true;
-  RIR_ACCEPTANCE_ITEM(sim_time_sec, cycle, "初始化时间", "暂无（未做Session建链计时；门限≤100ms）");
-  RIR_ACCEPTANCE_ITEM(sim_time_sec, cycle, "单步执行时间", "暂无（生产Step未计时落盘；门限<20ms）");
-  RIR_ACCEPTANCE_ITEM(sim_time_sec, cycle, "单个模型加载时间", "暂无（识别库加载无时长记录）");
-  RIR_ACCEPTANCE_ITEM(sim_time_sec, cycle, "多模型并行加载", "暂无（库内无并行加载）");
-  RIR_ACCEPTANCE_ITEM(sim_time_sec, cycle, "典型场景和总仿真次数",
-                      "场景=本会话 场景数=1 总仿真周期=结束时回写");
+  Emit(sim_time_sec, cycle, "初始化时间", "暂无");
+  Emit(sim_time_sec, cycle, "单步执行时间", "暂无");
+  Emit(sim_time_sec, cycle, "单个模型加载时间", "暂无");
+  Emit(sim_time_sec, cycle, "多模型并行加载", "暂无");
+  Emit(sim_time_sec, cycle, "典型场景和总仿真次数", "场景=本会话 场景数=1 总仿真周期=结束时回写");
 }
 
 void WriteRirCycleRunCount(float sim_time_sec, std::uint32_t cycle) {
@@ -570,27 +538,25 @@ void WriteRirBeamScan(float sim_time_sec, std::uint32_t cycle,
   }
   const std::string csv_path = DefaultScanCsvPath();
   const bool wrote = TryExportRirScanPatternCsv(pattern, csv_path.c_str());
-  std::string content = "波位总数=" + std::to_string(pattern.size());
-  content += " 本周期驻留中心方位/俯仰=" + FormatPairDeg(az_deg, el_deg, 3) + "°";
-  content += designate ? " 模式=指定" : " 模式=扫描";
+  std::string scan = "波位总数=" + std::to_string(pattern.size());
+  scan += " 本周期驻留中心方位/俯仰=" + FormatPairDeg(az_deg, el_deg, 3) + "°";
+  scan += designate ? " 模式=指定" : " 模式=扫描";
+  Emit(sim_time_sec, cycle, "波束扫描", scan);
   if (wrote && !pattern.empty()) {
     const std::uint64_t zero_based =
         cycle > 0U ? static_cast<std::uint64_t>(cycle - 1U) : 0U;
     const std::size_t index =
         static_cast<std::size_t>(zero_based % static_cast<std::uint64_t>(pattern.size()));
     const std::size_t next = (index + 1U) % pattern.size();
-    content += " 验收派生波位排列表=" + csv_path;
-    content += " 本周期序号=" + std::to_string(index);
-    content += " 下一波位=" + FormatPairDeg(pattern[next].az_deg, pattern[next].el_deg, 3) + "°";
-    if (designate) {
-      content += "（本周期指向=指定，表为扫描序列，未进指向）";
-    } else {
-      content += "（未进指向）";
-    }
+    std::string table = "文件=" + csv_path;
+    table += " 本周期序号=" + std::to_string(index);
+    table += " 下一波位=" + FormatPairDeg(pattern[next].az_deg, pattern[next].el_deg, 3) + "°";
+    Emit(sim_time_sec, cycle, "波位排列表", table);
+    Emit(sim_time_sec, cycle, "扫描轨迹序列", table);
   } else {
-    content += " 验收派生波位排列表=暂无（扫描序列为空或未能写CSV）";
+    Emit(sim_time_sec, cycle, "波位排列表", "无");
+    Emit(sim_time_sec, cycle, "扫描轨迹序列", "无");
   }
-  RIR_ACCEPTANCE_ITEM(sim_time_sec, cycle, "波束扫描", content);
 }
 
 bool TryExportRirAntennaPatternCsv(const config::hardware::RirAntennaConfig& antenna,

@@ -59,10 +59,8 @@ void WriteFusionAcceptance(std::uint32_t cycle, const std::vector<FusedTarget>& 
   }
   const float sim_time = static_cast<float>(cycle);
   if (tracks.empty()) {
-    FUSION_ACCEPTANCE_ITEM(sim_time, cycle, "多传感器目标跟踪",
-                           "暂无（本周期无融合航迹）");
-    FUSION_ACCEPTANCE_ITEM(sim_time, cycle, "协同探测信息融合",
-                           "暂无（本周期无融合航迹）");
+    FUSION_ACCEPTANCE_ITEM(sim_time, cycle, "多传感器目标跟踪", "暂无");
+    FUSION_ACCEPTANCE_ITEM(sim_time, cycle, "协同探测信息融合", "暂无");
     return;
   }
 
@@ -75,7 +73,7 @@ void WriteFusionAcceptance(std::uint32_t cycle, const std::vector<FusedTarget>& 
     if (have_ecef) {
       content += " ECEF位置m=" + FormatVec3(ecef.x_m, ecef.y_m, ecef.z_m, 1);
     } else {
-      content += " ECEF位置m=无（无运动学估计）";
+      content += " ECEF位置m=无";
     }
     if (track.has_kinematic_estimate) {
       content += " 协方差对角=" + FormatCovDiag6(track.kinematic_estimate.covariance_ecef);
@@ -106,8 +104,8 @@ void WriteFusionAcceptance(std::uint32_t cycle, const std::vector<FusedTarget>& 
     relay += FormatF(track.kinematic_estimate.position.longitude_deg, 6) + ",";
     relay += FormatF(track.kinematic_estimate.position.altitude_m, 1) + ")";
     relay += " 速度模=" + FormatF(speed, 3) + "m/s";
-    relay += " 加速度模=" + FormatF(acc, 3) + "m/s²(Δv/Δt)";
-    relay += " 预测航路点=无（推演层另文件）";
+    relay += " 加速度模=" + FormatF(acc, 3) + "m/s²";
+    relay += " 预测航路点=无";
     relay += " 融合航迹数=" + std::to_string(tracks.size());
     relay += " 置信度=" + FormatF(track.confidence, 3);
     relay += " 剩余覆盖时间=无 接力计划=无 交接指令=无";
@@ -116,9 +114,9 @@ void WriteFusionAcceptance(std::uint32_t cycle, const std::vector<FusedTarget>& 
     if (filtering_enabled && track.has_kinematic_estimate) {
       std::string ukf = "位置ENU=由LLA换算";
       ukf += " 速度m/s=" + FormatVec3(vel[0], vel[1], vel[2], 3);
-      ukf += " 加速度m/s²=" + FormatVec3(ax, ay, az, 3) + "(Δv/Δt)";
+      ukf += " 加速度m/s²=" + FormatVec3(ax, ay, az, 3);
       ukf += " 协方差迹=" + FormatF(CovarianceTrace6(track.kinematic_estimate.covariance_ecef), 2);
-      ukf += " 位置估计误差=无（本引擎无真值对照）";
+      ukf += " 位置估计误差=无";
       ukf += " 完整协方差=" + FormatCov6x6(track.kinematic_estimate.covariance_ecef);
       FUSION_ACCEPTANCE_ITEM(sim_time, cycle, "UKF滤波", ukf);
     }

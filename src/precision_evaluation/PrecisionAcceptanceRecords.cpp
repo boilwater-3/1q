@@ -94,7 +94,7 @@ void WritePrecisionAhp(const PrecisionEvaluationReport& report) {
     return;
   }
   if (!report.ahp_valid) {
-    PRECISION_EVAL_ITEM(0.0f, 0U, "层次分析法", "暂无（判断矩阵非法，综合分不可用）");
+    PRECISION_EVAL_ITEM(0.0f, 0U, "层次分析法", "暂无");
     return;
   }
   std::string weights = "(";
@@ -132,7 +132,7 @@ void WritePrecisionAhp(const PrecisionEvaluationReport& report) {
   content += std::string(" 等级=") + GradeOf(report.composite_score);
   content += " 贡献排序=" + rank;
   content += " CR=" + FormatF(report.ahp.consistency_ratio, 3);
-  content += " 独立多层树=无（只有一层准则）";
+  content += " 独立多层树=无";
   PRECISION_EVAL_ITEM(0.0f, 0U, "层次分析法", content);
 }
 

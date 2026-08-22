@@ -161,8 +161,8 @@ void WriteSbirsOrbitSample(float sim_time_sec, std::uint32_t cycle, float orbit_
   content += " 本会话累计n=" + std::to_string(acc.n);
   content += " 角误差RMS=" + FormatF(0.5 * (rms_az + rms_el), 6) + "°";
   content += " 横向位移均值/σ=" + FormatF(mean_lat, 1) + "/" + FormatF(std_lat, 1) + "m";
-  content += " 卫星ECEF三维导航定位误差=无";
   SBIRS_ACCEPTANCE_ITEM(sim_time_sec, cycle, "卫星自身定位误差", content);
+  SBIRS_ACCEPTANCE_ITEM(sim_time_sec, cycle, "卫星ECEF三维导航定位误差", "无");
 }
 
 void WriteSbirsAngleError(float sim_time_sec, std::uint32_t cycle, std::uint64_t target_id,
@@ -237,10 +237,8 @@ void WriteSbirsOncePerSession(float sim_time_sec, std::uint32_t cycle) {
     return;
   }
   written = true;
-  SBIRS_ACCEPTANCE_ITEM(sim_time_sec, cycle, "初始化时间",
-                        "暂无（未做Session建链计时；门限≤100ms）");
-  SBIRS_ACCEPTANCE_ITEM(sim_time_sec, cycle, "单步执行时间",
-                        "暂无（生产Step未计时落盘；门限<20ms）");
+  SBIRS_ACCEPTANCE_ITEM(sim_time_sec, cycle, "初始化时间", "暂无");
+  SBIRS_ACCEPTANCE_ITEM(sim_time_sec, cycle, "单步执行时间", "暂无");
   SBIRS_ACCEPTANCE_ITEM(sim_time_sec, cycle, "典型场景和总仿真次数",
                         "场景=本会话 场景数=1 总仿真周期=结束时回写");
   SBIRS_ACCEPTANCE_ITEM(sim_time_sec, cycle, "组件模型参数性能", "见红外系统测角误差");

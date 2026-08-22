@@ -35,7 +35,7 @@ TEST_F(AcceptanceRecordFormatTest, WriteAndReadFile) {
   ASSERT_TRUE(oneq::logging::IsAcceptanceLogOpen(oneq::logging::AcceptanceChannel::kSbirs));
   oneq::logging::WriteAcceptanceLog(
       oneq::logging::AcceptanceChannel::kSbirs,
-      oneq::logging::FormatAcceptanceLine(0.0f, 0U, "初始化时间", "暂无（未做Session建链计时；门限≤100ms）"));
+      oneq::logging::FormatAcceptanceLine(0.0f, 0U, "初始化时间", "暂无"));
   oneq::logging::FlushAcceptanceLog(oneq::logging::AcceptanceChannel::kSbirs);
   oneq::logging::CloseAcceptanceLog(oneq::logging::AcceptanceChannel::kSbirs);
 

@@ -54,8 +54,7 @@ void WriteInferenceAcceptance(const std::vector<InferenceTrackState>& tracks,
   }
   const float sim_time = 0.0f;
   const std::uint32_t cycle = 0U;
-  INFERENCE_ACCEPTANCE_ITEM(sim_time, cycle, "关机点预测",
-                            "暂无（无推力弹道，不建模关机点）");
+  INFERENCE_ACCEPTANCE_ITEM(sim_time, cycle, "关机点预测", "暂无");
 
   for (std::size_t i = 0; i < results.size(); ++i) {
     const TargetInferenceResult& result = results[i];
@@ -80,7 +79,7 @@ void WriteInferenceAcceptance(const std::vector<InferenceTrackState>& tracks,
       forecast += " 落点经纬高=无";
     }
     forecast += " 误差椭圆半长/半短/方位=(" + FormatF(sigma, 1) + "m," + FormatF(sigma, 1) +
-                "m,0°)（由1σ各向同性派生）";
+                "m,0°)";
     INFERENCE_ACCEPTANCE_ITEM(sim_time, cycle, "目标轨迹预报", forecast);
 
     if (traj.has_impact) {
@@ -108,8 +107,8 @@ void WriteInferenceAcceptance(const std::vector<InferenceTrackState>& tracks,
                                           traj.launch_point.altitude_m, 3);
       launch += " 位置误差1σ=" + FormatF(traj.launch_position_sigma_m, 1) + "m";
       launch += " 椭圆半长/半短/方位=(" + FormatF(a, 1) + "m," + FormatF(b, 1) + "m," +
-                FormatF(az, 1) + "°)（由协方差特征值）";
-      launch += " 置信度=0.68（1σ高斯约定）";
+                FormatF(az, 1) + "°)";
+      launch += " 置信度=0.68";
       INFERENCE_ACCEPTANCE_ITEM(sim_time, cycle, "发射点预测", launch);
     }
 
