@@ -16,6 +16,7 @@
 #include "1q/remote_identification_radar/session/RirRecognitionResult.h"
 #include "common/logging/AcceptanceText.h"
 #include "common/logging/LogDirectory.h"
+#include "common/numerics/Constants.h"
 #include "common/radar/MtiMtdAcceptanceBank.h"
 #include "common/radar/RadarEquations.h"
 #include "remote_identification_radar/dwell/RirAntennaPatternRuntime.h"
@@ -148,7 +149,38 @@ void EmitOrNone(float sim_time_sec, std::uint32_t cycle, const char* item, const
   Emit(sim_time_sec, cycle, item, prefix + (ok ? value : std::string("无")));
 }
 
+/** 航迹 ENU → 验收斜距/方位/俯仰；无效位置保持「无」。 */
+std::string FormatTrackLookPolar(const tracking::RirTrackState& track) {
+  float range_m = 0.0f;
+  float az_deg = 0.0f;
+  float el_deg = 0.0f;
+  if (!TryLookPolarFromEnuM(track.position.x(), track.position.y(), track.position.z(), &range_m,
+                            &az_deg, &el_deg)) {
+    return "斜距=无 方位/俯仰=无";
+  }
+  return "斜距=" + FormatF(range_m, 1) + "m 方位/俯仰=" + FormatPairDeg(az_deg, el_deg, 3) + "°";
+}
+
 }  // namespace
+
+bool TryLookPolarFromEnuM(float east_m, float north_m, float up_m, float* range_m, float* az_deg,
+                          float* el_deg) {
+  if (range_m == nullptr || az_deg == nullptr || el_deg == nullptr) {
+    return false;
+  }
+  if (!std::isfinite(east_m) || !std::isfinite(north_m) || !std::isfinite(up_m)) {
+    return false;
+  }
+  const float range = std::sqrt(east_m * east_m + north_m * north_m + up_m * up_m);
+  if (!(range > 0.1f)) {
+    return false;
+  }
+  const float range_hypot = std::sqrt(east_m * east_m + north_m * north_m);
+  *range_m = range;
+  *az_deg = oneq::common::numerics::RadToDeg(std::atan2(north_m, east_m));
+  *el_deg = oneq::common::numerics::RadToDeg(std::atan2(up_m, range_hypot));
+  return true;
+}
 
 std::string ResolveRirAntennaPatternCsvPath() {
 #if defined(_MSC_VER)
@@ -376,8 +408,9 @@ void WriteRirTrackAndId(float sim_time_sec, std::uint32_t cycle, const tracking:
                  track.position.y() + track.velocity.y() * dt,
                  track.position.z() + track.velocity.z() * dt, 1);
   const int category = result != nullptr ? static_cast<int>(result->target_category) : -1;
+  const std::string polar = FormatTrackLookPolar(track);
   std::string measure = "目标ID=" + std::to_string(track.external_target_id);
-  measure += " 斜距=无 方位/俯仰=无";
+  measure += " " + polar;
   measure += " 高度=" + FormatF(track.position.z(), 1) + "m";
   measure += " 速度=" + FormatF(track.speed, 3) + "m/s";
   measure += " 航向=" + FormatF(heading, 2) + "°";
@@ -391,6 +424,7 @@ void WriteRirTrackAndId(float sim_time_sec, std::uint32_t cycle, const tracking:
   std::string reentry = "航迹=" + std::to_string(track.association_key);
   reentry += " 目标ID=" + std::to_string(track.external_target_id);
   reentry += std::string(" 状态=") + TrackStatusText(track.status);
+  reentry += " " + polar;
   reentry += " 高度=" + FormatF(track.position.z(), 1) + "m";
   reentry += " 速度=" + FormatF(track.speed, 3) + "m/s";
   reentry += " 航向=" + FormatF(heading, 2) + "°";

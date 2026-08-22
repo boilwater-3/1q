@@ -73,6 +73,19 @@ void WriteRirSearchDetections(float sim_time_sec, std::uint32_t cycle, float bea
 void WriteRirAssociation(float sim_time_sec, std::uint32_t cycle,
                          const tracking::RirAssociationResult& association);
 
+/**
+ * @brief 雷达局部 ENU 位置换斜距与视线角（与 RirController::ComputeLookAngles 同口径）。
+ * @param[in] east_m 东向坐标（m）。
+ * @param[in] north_m 北向坐标（m）。
+ * @param[in] up_m 天向坐标（m）。
+ * @param[out] range_m 斜距（m）。
+ * @param[out] az_deg 方位角（deg，自 +x 东起量）。
+ * @param[out] el_deg 俯仰角（deg）。
+ * @return 输出指针有效、坐标有限且位置范数 > 0.1 m 时为 true。
+ */
+bool TryLookPolarFromEnuM(float east_m, float north_m, float up_m, float* range_m, float* az_deg,
+                          float* el_deg);
+
 void WriteRirTrackAndId(float sim_time_sec, std::uint32_t cycle, const tracking::RirTrackState& track,
                         const session::RirRecognitionResult* result,
                         const session::RirFeatureMeasurementRecord* features,
