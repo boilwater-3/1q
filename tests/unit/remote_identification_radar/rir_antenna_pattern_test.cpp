@@ -7,10 +7,16 @@
 #include <gtest/gtest.h>
 
 #include <cmath>
+#include <fstream>
+#include <string>
+#include <vector>
 
 #include "1q/remote_identification_radar/config/RirHardwareConfig.h"
+#include "common/radar/AntennaPatternRuntime.h"
+#include "support/oneq_test_temp_dir.h"
 #include "remote_identification_radar/dwell/RirAntennaPatternRuntime.h"
 #include "remote_identification_radar/dwell/RirBeamControl.h"
+#include "remote_identification_radar/runtime/RirAcceptanceRecords.h"
 
 namespace remote_identification_radar {
 namespace tests {
@@ -181,6 +187,23 @@ TEST(RirBeamControlTest, PointingOnTarget_PeakGainElseAttenuated) {
                                      true, 0.1f);
   // 离轴 1.5° = 半功率边缘 → 约 -3 dB
   EXPECT_NEAR(off_target.one_way_antenna_gain_db, ant.main_beam_gain_db - 3.0f, 0.05f);
+}
+
+TEST(RirAcceptanceScanPatternTest, WritesIndexAzElCsv) {
+  std::vector<oneq::common::radar::AzimuthElevationDeg> pattern;
+  pattern.push_back(oneq::common::radar::AzimuthElevationDeg(-10.0f, 5.0f));
+  pattern.push_back(oneq::common::radar::AzimuthElevationDeg(20.0f, 15.0f));
+  const std::string path = oneq_test::TempDir() + "rir_scan_pattern_test.csv";
+  ASSERT_TRUE(runtime::TryExportRirScanPatternCsv(pattern, path.c_str()));
+  std::ifstream in(path.c_str());
+  ASSERT_TRUE(in.is_open());
+  std::string header;
+  std::getline(in, header);
+  EXPECT_EQ(header, "index,az_deg,el_deg");
+  std::string row0;
+  std::getline(in, row0);
+  EXPECT_NE(row0.find("0,"), std::string::npos);
+  EXPECT_NE(row0.find("-10.000"), std::string::npos);
 }
 
 }  // namespace

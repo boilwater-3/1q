@@ -154,6 +154,18 @@ bool TryResolveMtiMtdAcceptanceBank(const MtiMtdAcceptanceInput& input,
   return true;
 }
 
+bool TryAcceptancePowerRatioDb(double input_w, double residual_w, double* ratio_db) {
+  if (ratio_db == nullptr || !IsFinitePositive(input_w) || !IsFinitePositive(residual_w)) {
+    return false;
+  }
+  const double ratio = 10.0 * std::log10(input_w / residual_w);
+  if (!std::isfinite(ratio)) {
+    return false;
+  }
+  *ratio_db = ratio;
+  return true;
+}
+
 }  // namespace radar
 }  // namespace common
 }  // namespace oneq

@@ -93,6 +93,15 @@ TEST(CommonMtiMtdAcceptanceBankTest, InvalidInputLeavesOutputUntouched) {
   EXPECT_FALSE(TryResolveMtiMtdAcceptanceBank(input, nullptr));
 }
 
+TEST(CommonMtiMtdAcceptanceBankTest, PowerRatioDbUsesInputOverResidual) {
+  double ratio = 0.0;
+  ASSERT_TRUE(TryAcceptancePowerRatioDb(1.0e-12, 1.0e-15, &ratio));
+  EXPECT_NEAR(ratio, 30.0, 1.0e-9);
+  EXPECT_FALSE(TryAcceptancePowerRatioDb(0.0, 1.0, &ratio));
+  EXPECT_FALSE(TryAcceptancePowerRatioDb(1.0, 0.0, &ratio));
+  EXPECT_FALSE(TryAcceptancePowerRatioDb(1.0, 1.0, nullptr));
+}
+
 TEST(CommonMtiMtdAcceptanceBankTest, JamTonesSplitWithoutEqualShare) {
   MtiMtdInterferenceTone tone;
   tone.doppler_hz = 0.5 * kPrfHz;

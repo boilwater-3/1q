@@ -59,6 +59,12 @@ struct MtiMtdAcceptanceResult {
 bool TryResolveMtiMtdAcceptanceBank(const MtiMtdAcceptanceInput& input,
                                     MtiMtdAcceptanceResult* result);
 
+/**
+ * @brief 验收旁路功率比（dB）= 10 log10(input / residual)。
+ * @return 两边均有限且为正时写 @p ratio_db 并返回 true；否则不改输出。
+ */
+bool TryAcceptancePowerRatioDb(double input_w, double residual_w, double* ratio_db);
+
 }  // namespace radar
 }  // namespace common
 }  // namespace oneq

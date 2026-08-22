@@ -13,6 +13,7 @@
 #include "1q/electromagnetics/RfScene.h"
 #include "1q/remote_identification_radar/config/RirHardwareConfig.h"
 #include "1q/remote_identification_radar/session/RirSceneTypes.h"
+#include "common/radar/AntennaPatternRuntime.h"
 #include "remote_identification_radar/dwell/RirDetectionCellResolver.h"
 
 namespace remote_identification_radar {
@@ -50,6 +51,7 @@ struct RirDetectionAcceptInput {
   config::hardware::RirSignalProcessingConfig gains{};
   double prf_hz{0.0};
   double center_frequency_hz{0.0};
+  double cfar_pfa{1.0e-6};
   std::vector<oneq::electromagnetics::RfIncidentLinkResult> incident_links{};
 };
 
@@ -81,11 +83,15 @@ void WriteRirSchedule(float sim_time_sec, std::uint32_t cycle, std::uint32_t pla
 
 void WriteRirOncePerSession(float sim_time_sec, std::uint32_t cycle);
 void WriteRirCycleRunCount(float sim_time_sec, std::uint32_t cycle);
-void WriteRirBeamScan(float sim_time_sec, std::uint32_t cycle, std::size_t wave_count,
+void WriteRirBeamScan(float sim_time_sec, std::uint32_t cycle,
+                      const std::vector<oneq::common::radar::AzimuthElevationDeg>& pattern,
                       float az_deg, float el_deg, bool designate);
 
 bool TryExportRirAntennaPatternCsv(const config::hardware::RirAntennaConfig& antenna,
                                    const char* path);
+
+bool TryExportRirScanPatternCsv(
+    const std::vector<oneq::common::radar::AzimuthElevationDeg>& pattern, const char* path);
 
 }  // namespace runtime
 }  // namespace remote_identification_radar

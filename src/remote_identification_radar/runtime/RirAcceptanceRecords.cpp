@@ -16,6 +16,7 @@
 #include "1q/remote_identification_radar/session/RirRecognitionResult.h"
 #include "common/logging/AcceptanceText.h"
 #include "common/radar/MtiMtdAcceptanceBank.h"
+#include "common/radar/RadarEquations.h"
 #include "remote_identification_radar/dwell/RirAntennaPatternRuntime.h"
 #include "remote_identification_radar/runtime/PolarizationAcceptanceS.h"
 #include "remote_identification_radar/runtime/RirAcceptanceLog.h"
@@ -106,6 +107,41 @@ bool TryBuildAcceptanceBank(const RirDetectionAcceptInput& input,
   return oneq::common::radar::TryResolveMtiMtdAcceptanceBank(bank_input, bank);
 }
 
+double SumChannelWatts(const std::array<double, oneq::common::radar::kMtiMtdChannelCount>& values) {
+  double sum = 0.0;
+  for (double value : values) {
+    sum += value;
+  }
+  return sum;
+}
+
+double SumIncidentJamWatts(const RirDetectionAcceptInput& input) {
+  double sum = 0.0;
+  for (const auto& link : input.incident_links) {
+    if (!std::isfinite(link.doppler_shift_hz)) {
+      continue;
+    }
+    const double power = std::isfinite(link.received_power_before_overlap_w)
+                             ? link.received_power_before_overlap_w
+                             : link.received_power_w;
+    if (std::isfinite(power) && power > 0.0) {
+      sum += power;
+    }
+  }
+  return sum;
+}
+
+void AppendDerivedRatio(std::string* text, const char* label, bool ok, double ratio_db,
+                        const char* missing) {
+  *text += label;
+  if (ok) {
+    *text += FormatF(ratio_db, 3);
+    *text += "dB";
+  } else {
+    *text += missing;
+  }
+}
+
 std::string DefaultAntennaCsvPath() {
 #if defined(_MSC_VER)
   char* buffer = nullptr;
@@ -123,6 +159,25 @@ std::string DefaultAntennaCsvPath() {
   }
 #endif
   return std::string("rir_antenna_pattern.csv");
+}
+
+std::string DefaultScanCsvPath() {
+#if defined(_MSC_VER)
+  char* buffer = nullptr;
+  if (_dupenv_s(&buffer, nullptr, "ONEQ_RIR_SCAN_PATTERN_CSV_PATH") == 0 && buffer != nullptr) {
+    std::string result(buffer);
+    std::free(buffer);
+    if (!result.empty()) {
+      return result;
+    }
+  }
+#else
+  const char* env = std::getenv("ONEQ_RIR_SCAN_PATTERN_CSV_PATH");
+  if (env != nullptr && *env != '\0') {
+    return std::string(env);
+  }
+#endif
+  return std::string("rir_scan_pattern.csv");
 }
 
 }  // namespace
@@ -214,11 +269,19 @@ void WriteRirDetectionChain(const RirDetectionAcceptInput& input) {
   clutter_text += " 杂波总抑制比=" + FormatF(clutter_db, 3) + "dB";
   if (has_bank) {
     clutter_text += " 验收派生MTI剩余杂波=" + FormatSci(bank.mti_residual_clutter_w) + "W";
-    clutter_text += " 验收派生MTD通道分布=" + FormatChannelWatts(bank.clutter_w) + "W（未进SINR）";
+    clutter_text += " 验收派生MTD通道分布=" + FormatChannelWatts(bank.clutter_w) + "W";
+    double clutter_ratio_db = 0.0;
+    const bool has_clutter_ratio = oneq::common::radar::TryAcceptancePowerRatioDb(
+        clutter, SumChannelWatts(bank.clutter_w), &clutter_ratio_db);
+    AppendDerivedRatio(&clutter_text, " 验收派生MTD杂波抑制比=", has_clutter_ratio, clutter_ratio_db,
+                       "暂无（杂波输入或剩余非正，无法派生）");
+    clutter_text += "（未进SINR）";
   } else {
     clutter_text += " 验收派生MTI剩余杂波=";
     clutter_text += derived_missing;
     clutter_text += " 验收派生MTD通道分布=";
+    clutter_text += derived_missing;
+    clutter_text += " 验收派生MTD杂波抑制比=";
     clutter_text += derived_missing;
   }
   RIR_ACCEPTANCE_ITEM(input.sim_time_sec, input.cycle, "杂波信号处理", clutter_text);
@@ -231,14 +294,44 @@ void WriteRirDetectionChain(const RirDetectionAcceptInput& input) {
   jam_text += " 干扰抑制偏置=" + FormatF(jam_db, 3) + "dB";
   if (has_bank && bank.has_jam_channels) {
     jam_text += " 验收派生MTI剩余干扰=" + FormatSci(bank.mti_residual_jam_w) + "W";
-    jam_text += " 验收派生MTD通道干扰=" + FormatChannelWatts(bank.jam_w) + "W（未进SINR）";
+    jam_text += " 验收派生MTD通道干扰=" + FormatChannelWatts(bank.jam_w) + "W";
+    const double jam_in = SumIncidentJamWatts(input);
+    double mtd_jam_ratio_db = 0.0;
+    double total_jam_ratio_db = 0.0;
+    const bool has_mtd_jam = oneq::common::radar::TryAcceptancePowerRatioDb(
+        jam_in, SumChannelWatts(bank.jam_w), &mtd_jam_ratio_db);
+    const bool has_total_jam = oneq::common::radar::TryAcceptancePowerRatioDb(
+        jam_in, bank.mti_residual_jam_w, &total_jam_ratio_db);
+    AppendDerivedRatio(&jam_text, " 验收派生MTD干扰抑制比=", has_mtd_jam, mtd_jam_ratio_db,
+                       "暂无（干扰输入或剩余非正，无法派生）");
+    AppendDerivedRatio(&jam_text, " 验收派生总干扰抑制增益=", has_total_jam, total_jam_ratio_db,
+                       "暂无（干扰输入或剩余非正，无法派生）");
+    jam_text += "（未进SINR）";
   } else if (has_bank) {
     jam_text += " 验收派生MTI剩余干扰=无 验收派生MTD通道干扰=无";
+    jam_text += " 验收派生MTD干扰抑制比=无 验收派生总干扰抑制增益=无";
   } else {
     jam_text += " 验收派生MTI剩余干扰=";
     jam_text += derived_missing;
     jam_text += " 验收派生MTD通道干扰=";
     jam_text += derived_missing;
+    jam_text += " 验收派生MTD干扰抑制比=";
+    jam_text += derived_missing;
+    jam_text += " 验收派生总干扰抑制增益=";
+    jam_text += derived_missing;
+  }
+  if (input.has_cell && std::isfinite(input.cfar_pfa) && input.cfar_pfa > 0.0 &&
+      input.cfar_pfa < 1.0) {
+    const double threshold = oneq::common::radar::RadarEquations::ComputeThreshold(
+        input.cfar_pfa, static_cast<int>(std::max(1U, pulses)));
+    if (std::isfinite(threshold)) {
+      jam_text += " 验收派生统计检测门限=" + FormatF(threshold, 6) + "（未进判决）";
+    } else {
+      jam_text += " 验收派生统计检测门限=暂无（门限非有限）";
+    }
+  } else {
+    jam_text += " 验收派生统计检测门限=";
+    jam_text += input.has_cell ? "暂无（Pfa非法，无法派生）" : derived_missing;
   }
   RIR_ACCEPTANCE_ITEM(input.sim_time_sec, input.cycle, "干扰信号处理增益", jam_text);
 
@@ -438,6 +531,8 @@ void WriteRirSchedule(float sim_time_sec, std::uint32_t cycle, std::uint32_t pla
   content += " 搜索=" + std::to_string(search_count);
   content += " 跟踪=" + std::to_string(track_count);
   content += " 识别=" + std::to_string(ident_count);
+  content += " 验收派生事件执行列表=[搜索×" + std::to_string(search_count) + ",跟踪×" +
+             std::to_string(track_count) + ",识别×" + std::to_string(ident_count) + "]";
   content += " 预算/已耗时=" + FormatF(budget_sec, 3) + "/" + FormatF(consumed_sec, 3) + "s";
   RIR_ACCEPTANCE_ITEM(sim_time_sec, cycle, "调度策略", content);
 }
@@ -467,14 +562,34 @@ void WriteRirCycleRunCount(float sim_time_sec, std::uint32_t cycle) {
                       "本会话已运行周期=" + std::to_string(cycle) + " 状态=正常");
 }
 
-void WriteRirBeamScan(float sim_time_sec, std::uint32_t cycle, std::size_t wave_count, float az_deg,
-                      float el_deg, bool designate) {
+void WriteRirBeamScan(float sim_time_sec, std::uint32_t cycle,
+                      const std::vector<oneq::common::radar::AzimuthElevationDeg>& pattern,
+                      float az_deg, float el_deg, bool designate) {
   if (!RIR_ACCEPTANCE_LOG_ENABLED()) {
     return;
   }
-  std::string content = "波位总数=" + std::to_string(wave_count);
+  const std::string csv_path = DefaultScanCsvPath();
+  const bool wrote = TryExportRirScanPatternCsv(pattern, csv_path.c_str());
+  std::string content = "波位总数=" + std::to_string(pattern.size());
   content += " 本周期驻留中心方位/俯仰=" + FormatPairDeg(az_deg, el_deg, 3) + "°";
   content += designate ? " 模式=指定" : " 模式=扫描";
+  if (wrote && !pattern.empty()) {
+    const std::uint64_t zero_based =
+        cycle > 0U ? static_cast<std::uint64_t>(cycle - 1U) : 0U;
+    const std::size_t index =
+        static_cast<std::size_t>(zero_based % static_cast<std::uint64_t>(pattern.size()));
+    const std::size_t next = (index + 1U) % pattern.size();
+    content += " 验收派生波位排列表=" + csv_path;
+    content += " 本周期序号=" + std::to_string(index);
+    content += " 下一波位=" + FormatPairDeg(pattern[next].az_deg, pattern[next].el_deg, 3) + "°";
+    if (designate) {
+      content += "（本周期指向=指定，表为扫描序列，未进指向）";
+    } else {
+      content += "（未进指向）";
+    }
+  } else {
+    content += " 验收派生波位排列表=暂无（扫描序列为空或未能写CSV）";
+  }
   RIR_ACCEPTANCE_ITEM(sim_time_sec, cycle, "波束扫描", content);
 }
 
@@ -502,6 +617,22 @@ bool TryExportRirAntennaPatternCsv(const config::hardware::RirAntennaConfig& ant
           antenna.antenna_length_m, antenna.antenna_width_m, 0.0f);
       out << FormatF(az, 1) << "," << FormatF(el, 1) << "," << FormatF(sample.gain_dbi, 3) << "\n";
     }
+  }
+  return true;
+}
+
+bool TryExportRirScanPatternCsv(
+    const std::vector<oneq::common::radar::AzimuthElevationDeg>& pattern, const char* path) {
+  const std::string out_path = (path != nullptr && *path != '\0') ? std::string(path)
+                                                                  : DefaultScanCsvPath();
+  std::ofstream out(out_path.c_str(), std::ios::out | std::ios::trunc | std::ios::binary);
+  if (!out.is_open()) {
+    return false;
+  }
+  out << "index,az_deg,el_deg\n";
+  for (std::size_t i = 0U; i < pattern.size(); ++i) {
+    out << i << "," << FormatF(pattern[i].az_deg, 3) << "," << FormatF(pattern[i].el_deg, 3)
+        << "\n";
   }
   return true;
 }

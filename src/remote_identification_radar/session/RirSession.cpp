@@ -340,7 +340,7 @@ RirCycleResult RirSession::StepWithResult(const RirCycleInput& input) {
   if (RIR_ACCEPTANCE_LOG_ENABLED()) {
     const std::vector<oneq::common::radar::AzimuthElevationDeg> pattern =
         BuildAbsoluteScanWaves(impl_->config);
-    runtime::WriteRirBeamScan(input.sim_time_sec, input.input_cycle_index, pattern.size(),
+    runtime::WriteRirBeamScan(input.sim_time_sec, input.input_cycle_index, pattern,
                               dwell_center.az_deg, dwell_center.el_deg, dwelling_on_target);
     runtime::WriteRirCycleRunCount(input.sim_time_sec, input.input_cycle_index);
   }
