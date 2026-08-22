@@ -73,7 +73,7 @@ RIR 遵守 `docs/common/contract.md` 与 `docs/common/session_contract.md`：
 3. 暴露内部识别类型为 public SPI；process-wide 识别全局状态。
 4. 战斗级跟踪之外的关联决策/战术决策：RIR 自持跟踪为 **LAPJV 全局最优关联 +
    CV KF/IMM 双路径滤波 + 池化生命周期**（2026-08-15 跟踪升级 N1-N7 已落地；
-   IMM 为 confirmed 命中激活，`enable_imm_lifecycle` 缺省关闭）。战术决策、
+   IMM 为 confirmed 命中激活，`enable_imm_lifecycle` 缺省开启）。战术决策、
    ECCM、对外点迹/航迹输出仍否决；检测判决不解释为对外
    "目标发现"事件，检测量测不出 public 面。
 5. 波束控制：RIR 消费库内驻留调度器派生的波束指向，但不通过本模块 API 控制、

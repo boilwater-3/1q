@@ -13,6 +13,7 @@
 
 #include "rir_sensor_component.h"
 
+#include <chrono>
 #include <cstdint>
 #include <string>
 #include <unordered_map>
@@ -20,6 +21,7 @@
 #include "1q/coordinate/position_transform.h"
 #include "1q/fusion/SensorAdapters.h"
 #include "1q/remote_identification_radar/session/RirCycleInput.h"
+#include "acceptance_timing.h"
 #include "core/world.h"
 #include "logger/logger.h"
 #include "rf_world_broker.h"
@@ -137,7 +139,13 @@ void RirSensorComponent::Step(World& world, double dt_sec) {
                                       static_cast<double>(recognition_dwell_sec_),
                                       static_cast<std::uint64_t>(scene.cycle));
 
+  const std::chrono::steady_clock::time_point step_begin = std::chrono::steady_clock::now();
   const rir::RirCycleResult result = session_.StepWithResult(input);
+  if (!step_timing_logged_) {
+    demo::LogAcceptanceMs(scene.cycle, scene.t_sec, "单步执行时间", "RIR",
+                          demo::SteadyElapsedMs(step_begin));
+    step_timing_logged_ = true;
+  }
   if (result.status != rir::RirCycleStatus::kCompleted) {
     return;  // 周期被拒绝：本周期无量测/结论
   }

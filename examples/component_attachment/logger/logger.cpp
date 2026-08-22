@@ -72,6 +72,7 @@ const char* EventTypeName(const char* type) {
       {"exclusion_cause", "排除原因变化"},
       {"rir_recognition", "RIR 识别确认"},
       {"rir_designation", "RIR 指定任务"},
+      {"acceptance", "验收计时"},
   };
   for (const auto& entry : kNames) {
     if (std::strcmp(entry.type, type) == 0) {

@@ -88,9 +88,7 @@ class RirImmFilter {
   /** @return 组合高斯状态。 */
   RirGaussianState GetCombinedState() const;
 
-  /** @return 各模型当前权重。
-   *  @note 权重仅内部消费（组合态之外不输出）——2026-08-20 验收输出统计裁定
-   *        不新增输出字段（docs/review/acceptance_output_inventory_2026-08-20.md §4.5/§6）。 */
+  /** @return 各模型当前权重。验收日志 `IMM模型权重` 抄此向量。 */
   Eigen::VectorXf GetModelWeights() const;
 
  private:

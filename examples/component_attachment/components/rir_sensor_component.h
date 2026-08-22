@@ -79,6 +79,7 @@ class RirSensorComponent : public Component {
   std::unordered_map<std::uint64_t, remote_identification_radar::session::RirRecognitionState>
       prev_recognition_states_{};
   bool prev_designation_assigned_{false}; /**< 上一周期指定任务是否在案（终态沿事件判定） */
+  bool step_timing_logged_{false};        /**< 单步执行时间是否已写入示例日志 */
 };
 
 }  // namespace component_attachment

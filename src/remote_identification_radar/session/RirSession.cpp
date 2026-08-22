@@ -395,6 +395,10 @@ const RirRecognitionCycleSummary& RirSession::GetLatestRecognitionSummary() cons
   return impl_->controller.GetLatestSummary();
 }
 
+double RirSession::LastRecognitionDatabaseLoadMs() const {
+  return impl_ != nullptr ? impl_->controller.LastDatabaseLoadMs() : 0.0;
+}
+
 RirSession RirSession::Create(const config::RirSessionConfig& config) {
   return RirSession(std::unique_ptr<Impl>(new Impl(config)));
 }

@@ -7,6 +7,7 @@
 
 #include <Eigen/Cholesky>
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <random>
 #include <unordered_map>
@@ -173,8 +174,13 @@ void RirController::UpdateRuntime(const config::RirMissionConfig& mission,
     std::unique_ptr<recognition::RirFeatureDatabase> candidate(
         new recognition::RirFeatureDatabase());
     std::string error;
-    if (recognition::RirFeatureDatabase::Load(policy_.recognition.database_path, candidate.get(),
-                                              &error)) {
+    const std::chrono::steady_clock::time_point load_begin = std::chrono::steady_clock::now();
+    const bool loaded = recognition::RirFeatureDatabase::Load(
+        policy_.recognition.database_path, candidate.get(), &error);
+    last_database_load_ms_ = std::chrono::duration<double, std::milli>(
+                                 std::chrono::steady_clock::now() - load_begin)
+                                 .count();
+    if (loaded) {
       database_ = std::move(candidate);
       database_path_ = policy_.recognition.database_path;
       tracker_.SetActiveDatabaseVersion(database_->version());
@@ -792,9 +798,20 @@ void RirController::RunCycle(const session::RirCycleInput& input,
           break;
         }
       }
+      std::vector<float> imm_weights;
+      if (lifecycle_ != nullptr) {
+        const tracking::RirImmFilter* imm = lifecycle_->FindImmFilter(track.association_key);
+        if (imm != nullptr && imm->IsValid()) {
+          const Eigen::VectorXf weights = imm->GetModelWeights();
+          imm_weights.reserve(static_cast<std::size_t>(weights.size()));
+          for (Eigen::Index i = 0; i < weights.size(); ++i) {
+            imm_weights.push_back(weights(i));
+          }
+        }
+      }
       WriteRirTrackAndId(input.sim_time_sec, input.input_cycle_index, track, result, features,
                          polarization_samples, latest_summary_.has_ground_truth,
-                         static_cast<double>(latest_summary_.category_accuracy));
+                         static_cast<double>(latest_summary_.category_accuracy), &imm_weights);
     }
     // 归属视图与出口②同循环产出（全部航迹快照：tentative/confirmed/lost）。
     session::RirTrackAttributionRecord attribution;

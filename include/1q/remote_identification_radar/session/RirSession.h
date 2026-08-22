@@ -71,6 +71,9 @@ class ONEQ_API RirSession {
   /** @brief 获取最近周期识别效能摘要。 */
   const RirRecognitionCycleSummary& GetLatestRecognitionSummary() const;
 
+  /** @brief 最近一次识别库加载耗时（毫秒）；未加载过为 0。 */
+  double LastRecognitionDatabaseLoadMs() const;
+
   /** @brief 使用四域配置创建会话（推荐入口，信任路径，不做配置校验）。 */
   static RirSession Create(const config::RirSessionConfig& config = {});
 

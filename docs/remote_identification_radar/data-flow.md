@@ -87,7 +87,7 @@ flowchart TB
    - 量测误差：距离/角度标准差 → 笛卡尔协方差；检测器门控模式采样量测位置，
      回退模式量测位置取真值；
    - 关联/滤波/生命周期：LAPJV 全局最优关联（方阵代价矩阵 + 未分配代价）
-     → CV KF 或 IMM（confirmed 命中激活，`enable_imm_lifecycle`）预测/更新
+     → CV KF 或 IMM（confirmed 命中激活，`enable_imm_lifecycle` 缺省开启）预测/更新
      → confirm/lost/回收（池化槽位 + `generation` 复用代次）；
    - 识别积累：内部航迹按 `external_target_id` 回联场景目标，逐航迹
      `UpdateCycle` 积累/匹配/判定（可选出参采集本周期实际构建的有效特征观测，

@@ -14,6 +14,7 @@
  */
 
 #include <algorithm>
+#include <chrono>
 #include <cstdint>
 #include <cstdlib>
 #include <iostream>
@@ -55,6 +56,7 @@ namespace demo_fs = std::filesystem;
 #include "scene_types.h"
 #include "components/threat_component.h"
 #include "core/world.h"
+#include "acceptance_timing.h"
 #include "demo_config.h"
 #include "demo_output.h"
 #include "scene_data.h"
@@ -156,9 +158,16 @@ int main(int argc, char* argv[]) {
   ca::Entity* rir_site = nullptr;
   if (scene_data.rir_enabled) {
     rir_site = &world.CreateEntity(ca::kRirSiteEntityName);
+    const std::chrono::steady_clock::time_point rir_create_begin =
+        std::chrono::steady_clock::now();
+    remote_identification_radar::session::RirSession rir_session =
+        remote_identification_radar::session::RirSession::Create(configs.rir);
+    const double rir_create_ms = demo::SteadyElapsedMs(rir_create_begin);
+    demo::LogAcceptanceMs(0, 0.0, "初始化时间", "RIR", rir_create_ms);
+    demo::LogAcceptanceMs(0, 0.0, "单个模型加载时间", "RIR",
+                          rir_session.LastRecognitionDatabaseLoadMs());
     rir_site->Attach(std::make_unique<ca::RirSensorComponent>(
-        remote_identification_radar::session::RirSession::Create(configs.rir),
-        scene_data.rir_site_origin, scene_data.rir_designated_target_id,
+        std::move(rir_session), scene_data.rir_site_origin, scene_data.rir_designated_target_id,
         scene_data.rir_designation_duration_cycles, configs.rir.sensor_platform_id,
         configs.rir.mission.recognition_dwell_sec));
   }
@@ -186,8 +195,12 @@ int main(int argc, char* argv[]) {
       configs.ar.hardware.transmitter.equipment_id));
   platform.Attach(std::make_unique<ca::EosSensorComponent>(
       electro_optical_sensor::session::EosSession::Create(configs.eos)));
-  platform.Attach(std::make_unique<ca::SbirsSensorComponent>(
-      sbirs_sensor::session::SbirsSession::Create(configs.sbirs)));
+  const std::chrono::steady_clock::time_point sbirs_create_begin =
+      std::chrono::steady_clock::now();
+  sbirs_sensor::session::SbirsSession sbirs_session =
+      sbirs_sensor::session::SbirsSession::Create(configs.sbirs);
+  demo::LogAcceptanceMs(0, 0.0, "初始化时间", "SBIRS", demo::SteadyElapsedMs(sbirs_create_begin));
+  platform.Attach(std::make_unique<ca::SbirsSensorComponent>(std::move(sbirs_session)));
   platform.Attach(std::make_unique<ca::SarSensorComponent>(
       sar::session::SarSession::Create(configs.sar)));
 

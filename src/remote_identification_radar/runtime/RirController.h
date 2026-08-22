@@ -100,6 +100,9 @@ class RirController {
   /** @brief 当前检测随机种子（供 replay 状态溯源）。 */
   std::uint32_t DetectionRandomSeed() const { return detection_random_seed_; }
 
+  /** @brief 最近一次识别库加载耗时（毫秒）；未加载过为 0。 */
+  double LastDatabaseLoadMs() const { return last_database_load_ms_; }
+
  private:
   struct RirResolvedRfCycle {
     bool resolved{false};
@@ -175,6 +178,7 @@ class RirController {
 
   std::unique_ptr<recognition::RirFeatureDatabase> database_{};
   std::string database_path_{};
+  double last_database_load_ms_{0.0};
   recognition::RirTracker tracker_{};
 
   session::RirRecognitionCycleSummary latest_summary_{};

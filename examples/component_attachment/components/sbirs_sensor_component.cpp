@@ -11,7 +11,10 @@
 
 #include "sbirs_sensor_component.h"
 
+#include <chrono>
+
 #include "1q/fusion/SensorAdapters.h"
+#include "acceptance_timing.h"
 #include "core/events.h"
 #include "core/world.h"
 #include "logger/logger.h"
@@ -281,7 +284,13 @@ void SbirsSensorComponent::Step(World& world, double dt_sec) {
   input.utc_julian_day = scene.sbirs_utc_julian_day;  // ECI 输出参考系（UTC 儒略日）
   input.scene = scene.sbirs_targets;
 
+  const std::chrono::steady_clock::time_point step_begin = std::chrono::steady_clock::now();
   const sbirs_sensor::session::SbirsCycleResult result = session_.StepWithResult(input);
+  if (!step_timing_logged_) {
+    demo::LogAcceptanceMs(scene.cycle, scene.t_sec, "单步执行时间", "SBIRS",
+                          demo::SteadyElapsedMs(step_begin));
+    step_timing_logged_ = true;
+  }
   // 扫描方位随周期结果刷新（拒绝周期为空帧 → 0）；库内为 ECI 弧度，组件转度显示。
   scan_azimuth_deg_ = result.output_frame.scan_azimuth_rad * kRadToDeg;
   // 规则 12 落盘示范：每周期构建调试视图快照（拒绝周期为 kCycleNotExecuted，

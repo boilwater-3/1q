@@ -1296,7 +1296,6 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
       joint += " 连续命中=" + std::to_string(consecutive_hits) + "/" + std::to_string(required_hits);
       joint += consecutive_hits >= static_cast<unsigned int>(required_hits) ? " 序列确认=达标"
                                                                            : " 序列确认=未达标";
-      joint += " 独立目标识别器结论=无";
       SBIRS_ACCEPTANCE_ITEM(sim_time_sec, input.cycle_index, "宽窄视场联合探测", joint);
     }
     if (target_states_[target.target_id] != SbirsTargetState::kAwaitingNfovAcquisition) {

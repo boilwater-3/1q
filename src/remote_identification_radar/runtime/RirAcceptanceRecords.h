@@ -74,7 +74,8 @@ void WriteRirTrackAndId(float sim_time_sec, std::uint32_t cycle, const tracking:
                         const session::RirRecognitionResult* result,
                         const session::RirFeatureMeasurementRecord* features,
                         const std::vector<session::RirPolarizationRcsSample>* polarization_samples,
-                        bool has_truth, double category_accuracy);
+                        bool has_truth, double category_accuracy,
+                        const std::vector<float>* imm_weights);
 
 void WriteRirSchedule(float sim_time_sec, std::uint32_t cycle, std::uint32_t planned,
                       std::uint32_t executed, float budget_sec, float consumed_sec,

@@ -356,7 +356,8 @@ void WriteRirTrackAndId(float sim_time_sec, std::uint32_t cycle, const tracking:
                         const session::RirRecognitionResult* result,
                         const session::RirFeatureMeasurementRecord* features,
                         const std::vector<session::RirPolarizationRcsSample>* polarization_samples,
-                        bool has_truth, double category_accuracy) {
+                        bool has_truth, double category_accuracy,
+                        const std::vector<float>* imm_weights) {
   if (!RIR_ACCEPTANCE_LOG_ENABLED()) {
     return;
   }
@@ -417,6 +418,32 @@ void WriteRirTrackAndId(float sim_time_sec, std::uint32_t cycle, const tracking:
   Emit(sim_time_sec, cycle, "目标状态协方差",
        "航迹=" + std::to_string(track.association_key) + " " + cov_text);
   Emit(sim_time_sec, cycle, "跟踪滤波", filter);
+  if (imm_weights != nullptr && !imm_weights->empty()) {
+    std::string weights = "航迹=" + std::to_string(track.association_key) + " 权重=[";
+    for (std::size_t i = 0U; i < imm_weights->size(); ++i) {
+      if (i != 0U) {
+        weights += ",";
+      }
+      weights += FormatF(static_cast<double>((*imm_weights)[i]), 3);
+    }
+    weights += "]";
+    Emit(sim_time_sec, cycle, "IMM模型权重", weights);
+  } else {
+    Emit(sim_time_sec, cycle, "IMM模型权重",
+         "航迹=" + std::to_string(track.association_key) + " 无");
+  }
+
+  std::string id_text = "航迹=" + std::to_string(track.association_key);
+  id_text += " 目标ID=" + std::to_string(track.external_target_id);
+  if (result != nullptr) {
+    id_text += " 状态=" + std::to_string(static_cast<int>(result->state));
+    id_text += " 大类枚举=" + std::to_string(static_cast<int>(result->target_category));
+    id_text += " 型号=" + (result->target_model.empty() ? std::string("无") : result->target_model);
+    id_text += " 置信度=" + FormatF(static_cast<double>(result->confidence), 4);
+  } else {
+    id_text += " 无";
+  }
+  Emit(sim_time_sec, cycle, "独立目标识别器结论", id_text);
 
   if (features != nullptr) {
     const auto& motion = features->features.motion;

@@ -94,6 +94,7 @@ class SbirsSensorComponent : public Component {
   std::unordered_map<std::uint64_t, sbirs_sensor::session::SbirsDebugTargetStatus>
       prev_target_status_{};
 #endif
+  bool step_timing_logged_{false}; /**< 单步执行时间是否已写入示例日志 */
 };
 
 }  // namespace component_attachment
