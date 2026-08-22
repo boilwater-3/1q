@@ -9,7 +9,7 @@ A static library of simulation models for external service modules — airborne 
 - Language: C++17 (minimum C++11)
 - Build: CMake, Conan
 - Test: GTest/GMock
-- Runtime libraries: Eigen, nanoflann, Boost, FlatBuffers, zlib, HighFive; plus spdlog/fmt and JSBSim (non-Windows only; on Windows the built-in `ProjectFileLog` backend carries `PROJECT_LOG_*` to `1q_library.log`, gated by `ONEQ_ENABLE_FILE_LOG`)
+- Runtime libraries: Eigen, nanoflann, Boost, FlatBuffers, zlib, HighFive; plus spdlog/fmt and JSBSim (non-Windows only). Library debug log (`PROJECT_LOG_*`) is **off by default** (`ONEQ_ENABLE_FILE_LOG=OFF`); Windows stays off; macOS may turn it on only when debugging the library. Log directory is CMake `ONEQ_LOG_DIR`, not a hardcoded path.
 
 ## Directory Structure
 
@@ -22,7 +22,7 @@ A static library of simulation models for external service modules — airborne 
 ## Build and Test
 
 - Bootstrap + configure are **one-time** per preset; re-run only after dependency or CMake changes.
-- Build before test, serially, same preset; presets may run in parallel. Log prefix `/tmp/1q`, ctest `-j 4`.
+- Build before test, serially, same preset; presets may run in parallel. ctest `-j 4`.
 - Verify focused: `ctest --preset <preset> -R "unit::<module>"`. Do not run full debug-local suites; full suites run on release-local only (`/completeness-review`).
 - macOS mainline: `llvm-ninja-*` presets; daily dev uses `*-local` variants from per-machine `CMakeUserPresets.json`; prefer release (JSBSim ~6× faster); take install paths from the preset's actual binaryDir (`llvm-ninja-release` has no `-local` suffix).
 - Windows local: `VisualStudio.15.0-amd64` (v141, multi-config). Entry is `scripts/1q.sh` (Git Bash or WSL). Environment, troubleshooting, delivery runbook: `docs/practice/windows_local_build.md`.
@@ -68,11 +68,13 @@ scripts/1q.sh test VisualStudio.15.0-amd64-release -R "unit::<module>"
 - Contract: C++11 + UTF-8 BOM on every tracked C/C++ file + no `/utf-8` anywhere — customers compile our headers inside their own VS2015 TUs with no extra flags.
 - Maintenance chain: `scripts/utf8_bom.py` + pre-commit hook + CI `check` + `.editorconfig`.
 - Presets: `1q_log_vs2015` / `VisualStudio.14.0-amd64-none`.
-- Verification project: `D:\1q\1q_consumer` — zero-modification consumer mirror; builds the installed `1q.lib` as C++11 / no-`/utf-8` (VS2015 generator, simulating the customer vcxproj). Pass = zero C4819 in the build log + `[SbirsAccept]`/`[RirAccept]` in `1q_library.log`. Runbook: `docs/practice/windows_local_build.md`.
+- Verification project: zero-modification consumer mirror of the installed `1q.lib` as C++11 / no-`/utf-8` (VS2015 generator). Pass = zero C4819 + acceptance rows in the configured log directory (do not require the library debug log). Runbook: `docs/practice/windows_local_build.md`.
 
 ### Module and coverage switches
 
 - `ONEQ_ENABLE_FLIGHT_DYNAMIC` (default **OFF**) gates `src/flight_dynamic/` and its tests; JSBSim is a flight_dynamic-exclusive dependency. Windows conan never installs jsbsim — with FD=ON use `ONEQ_JSBSIM_FROM_SOURCE` (third_party source) or `ONEQ_JSBSIM_PREBUILT_ROOT_DIR` (prebuilt tree).
+- `ONEQ_ENABLE_FILE_LOG` (default **OFF**) is the library debug-log gate. Leave it off on Windows. On macOS only, pass `-DONEQ_ENABLE_FILE_LOG=ON` when debugging library internals. Acceptance metrics stay in the acceptance files, not the debug log.
+- `ONEQ_LOG_DIR` (default empty = `<cwd>/log`) is how integrators pin where those files go: `-DONEQ_LOG_DIR=<dir>` at configure. Do not hardcode log paths in source or in this file. First-party examples may still override a single file at runtime for scene-scoped output.
 - Coverage (macOS only): `llvm-ninja-coverage` preset + `tools/coverage_report.sh` — **never run ctest by hand** (the script owns `.profraw` placement). Branch coverage is the primary metric; see `docs/practice/coverage.md`.
 
 ## Documentation
@@ -103,6 +105,8 @@ Each module keeps a design-doc set — `design.md` (navigation entry) + `boundar
 - Semantic refactors: commit as the smallest buildable and testable closure; enumerate the dependency closure and validate at real compileable boundaries.
 
 **Logging**
+- Library debug log (`PROJECT_LOG_*`) defaults **OFF**. Windows stays off — do not enable `ONEQ_ENABLE_FILE_LOG` for daily v141 work. macOS may enable it only when debugging library internals (`-DONEQ_ENABLE_FILE_LOG=ON`).
+- Integrators set the log directory with CMake `ONEQ_LOG_DIR` when building the library. Do not hardcode output paths. Acceptance rows go to the acceptance files under that directory.
 - Log critical actions and failures using the project's logging facility, when available.
 - Every `PROJECT_LOG_*` call site should carry a Chinese comment above it (two-line style: `// 中译：…` + `// 标识：…`, explaining the log's meaning, trigger conditions, and state semantics for non-specialist developers); log message text stays in English.
 

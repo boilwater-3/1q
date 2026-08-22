@@ -131,6 +131,7 @@ struct EsrEmitterParams {
 struct SceneData {
   std::string name{"unnamed_scene"};        /**< 场景名（摘要打印） */
   std::uint32_t cycles{400U};               /**< 周期数（缺省 = demo_config kNumCycles） */
+  std::uint32_t view_log_every_cycles{1U};  /**< 视图摘要间隔：周期 % 此值 == 0 才写；1 = 每周期 */
   double dt_sec{1.0};                       /**< 步长（s，缺省 = demo_config kDtSec） */
 
   oneq::coordinate::LlaPositionDegM platform_origin{}; /**< 机场位置（度制 LLA；必填） */
@@ -161,6 +162,14 @@ struct SceneData {
   double sbirs_focal_length_m{2.0};                 /**< 焦距（m；验收日志脱靶量映射） */
   double sbirs_detector_pixel_pitch_m{30.0e-6};     /**< 探测元间距（m；米→像素换算） */
   int sbirs_wide_to_narrow_required_consecutive_hits{1}; /**< 宽→窄切换连续命中门 */
+
+  // 机载传感器默认挂载。场景 sensors.{ar,esr,eos,sbirs,sar}=false 则不挂，
+  // 不写该通道视图/排除原因事件。RIR/ECM 仍用各自 enabled。
+  bool ar_enabled{true};
+  bool esr_enabled{true};
+  bool eos_enabled{true};
+  bool sbirs_enabled{true};
+  bool sar_enabled{true};
 
   // RIR 地基识别雷达站点块（可选，enabled=false 时整机不挂载——现有场景行为
   // 不变）：站点为固定 LLA（雷达局部 ENU 原点 + 特征量测 sensor_origin）；

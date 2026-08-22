@@ -74,10 +74,10 @@ constexpr char kDefaultSceneFile[] =
 }  // namespace
 
 int main(int argc, char* argv[]) {
-  // 命令行参数：--scene（场景描述文件）/ --cycles（覆盖场景周期数）/
-  // --output-dir（输出目录）。
+  // 命令行参数：--scene / --cycles / --view-every / --output-dir。
   std::string scene_path = kDefaultSceneFile;
   int cycles_override = -1;  // < 0 = 未指定，用场景文件值
+  int view_every_override = -1;
   std::string output_dir = demo::kDefaultOutputDir;
   bool output_dir_overridden = false;
   for (int i = 1; i < argc; ++i) {
@@ -96,6 +96,13 @@ int main(int argc, char* argv[]) {
         return 1;
       }
       cycles_override = std::atoi(argv[++i]);
+    } else if (arg == "--view-every") {
+      if (i + 1 >= argc) {
+        std::cerr << "Missing value for --view-every\n";
+        demo::PrintUsage(argv[0]);
+        return 1;
+      }
+      view_every_override = std::atoi(argv[++i]);
     } else if (arg == "--output-dir") {
       if (i + 1 >= argc) {
         std::cerr << "Missing value for --output-dir\n";
@@ -129,6 +136,14 @@ int main(int argc, char* argv[]) {
               << "' or --cycles)\n";
     return 1;
   }
+  const std::uint32_t view_every =
+      view_every_override > 0 ? static_cast<std::uint32_t>(view_every_override)
+                              : scene_data.view_log_every_cycles;
+  if (view_every == 0U) {
+    std::cerr << "Invalid --view-every / view_log_every_cycles: must be > 0\n";
+    return 1;
+  }
+  demo::SetViewLogEveryCycles(view_every);
   if (!output_dir_overridden) {
     output_dir = std::string(demo::kDefaultOutputDir) + "/" + demo::SceneSlugFromPath(scene_path);
   }
@@ -188,26 +203,38 @@ int main(int argc, char* argv[]) {
       scene_data.cruise_altitude_m, scene_data.waypoints,
       /*loop_route=*/scene_data.coverage.planned));
 
-  // RF 链挂载序：Flight → ESR → [ECM] → AR → …（ECM 发布干扰进 rf_world，AR 同周期消费）。
-  platform.Attach(std::make_unique<ca::EsrSensorComponent>(
-      electronic_surveillance_radar::session::EsrSession::Create(configs.esr)));
-  if (scene_data.ecm_enabled) {
+  // RF 链挂载序：Flight → ESR → [ECM] → AR → …。场景 sensors.* = false 则不挂，
+  // 该通道不写视图/排除原因。
+  if (scene_data.esr_enabled) {
+    platform.Attach(std::make_unique<ca::EsrSensorComponent>(
+        electronic_surveillance_radar::session::EsrSession::Create(configs.esr)));
+  }
+  if (scene_data.ecm_enabled && scene_data.esr_enabled) {
     platform.Attach(std::make_unique<ca::EcmSensorComponent>(
         electronic_countermeasure::session::EcmSession::Create(configs.ecm)));
   }
-  platform.Attach(std::make_unique<ca::ArSensorComponent>(
-      airborne_radar::session::ArSession::Create(configs.ar), ca::kDemoPlatformEntityId,
-      configs.ar.hardware.transmitter.equipment_id));
-  platform.Attach(std::make_unique<ca::EosSensorComponent>(
-      electro_optical_sensor::session::EosSession::Create(configs.eos)));
-  const std::chrono::steady_clock::time_point sbirs_create_begin =
-      std::chrono::steady_clock::now();
-  sbirs_sensor::session::SbirsSession sbirs_session =
-      sbirs_sensor::session::SbirsSession::Create(configs.sbirs);
-  demo::LogAcceptanceMs(0, 0.0, "初始化时间", "SBIRS", demo::SteadyElapsedMs(sbirs_create_begin));
-  platform.Attach(std::make_unique<ca::SbirsSensorComponent>(std::move(sbirs_session)));
-  platform.Attach(std::make_unique<ca::SarSensorComponent>(
-      sar::session::SarSession::Create(configs.sar)));
+  if (scene_data.ar_enabled) {
+    platform.Attach(std::make_unique<ca::ArSensorComponent>(
+        airborne_radar::session::ArSession::Create(configs.ar), ca::kDemoPlatformEntityId,
+        configs.ar.hardware.transmitter.equipment_id));
+  }
+  if (scene_data.eos_enabled) {
+    platform.Attach(std::make_unique<ca::EosSensorComponent>(
+        electro_optical_sensor::session::EosSession::Create(configs.eos)));
+  }
+  if (scene_data.sbirs_enabled) {
+    const std::chrono::steady_clock::time_point sbirs_create_begin =
+        std::chrono::steady_clock::now();
+    sbirs_sensor::session::SbirsSession sbirs_session =
+        sbirs_sensor::session::SbirsSession::Create(configs.sbirs);
+    demo::LogAcceptanceMs(0, 0.0, "初始化时间", "SBIRS",
+                          demo::SteadyElapsedMs(sbirs_create_begin));
+    platform.Attach(std::make_unique<ca::SbirsSensorComponent>(std::move(sbirs_session)));
+  }
+  if (scene_data.sar_enabled) {
+    platform.Attach(std::make_unique<ca::SarSensorComponent>(
+        sar::session::SarSession::Create(configs.sar)));
+  }
 
   // 融合配置来自场景文件（空间门限/方位相干门限/特征门/窗口/失跟周期/源权重；
   // 基线场景放宽方位相干门限到 8°：ESR 假设方位含平滑滞差、EOS 探测含扫描
@@ -271,6 +298,7 @@ int main(int argc, char* argv[]) {
   // el −90° 覆盖，GMST 平移不影响探测；消费方每周期注入世界模型）。
   // 无目标时保持上一周期位置（初始零向量 = 场景占位）。
   for (std::uint32_t cycle = 1U; cycle <= num_cycles; ++cycle) {
+    demo::BeginViewLogCycle(cycle);
     // 消费方每周期注入共享场景状态（周期号/时间/四通道世界真值）。
     scene.cycle = cycle;
     scene.t_sec = static_cast<double>(cycle) * scene_data.dt_sec;
@@ -336,6 +364,7 @@ int main(int argc, char* argv[]) {
   std::cout << "\n=== Component Attachment Summary ===\n"
             << "scene=" << scene_data.name
             << " cycles=" << num_cycles
+            << " view_every=" << view_every
             << " aircraft=" << aircraft_count
             << " entities=" << world.entity_count()
             << " components=" << platform.component_count()
@@ -359,7 +388,8 @@ int main(int argc, char* argv[]) {
                     : "")
             << "\n"
             << "log output -> " << output_dir
-            << " (integration_events.log / integration_views.log / 1q_library.log / "
+            << " (integration_events.log / integration_views.log / "
+               "*_acceptance.log / rir_antenna_pattern.csv / rir_scan_pattern.csv / "
                "platform_track.csv / target_truth.csv / route_plan.csv / zones.csv)\n";
 
   // 外置查询演示：按实体名/类型查找平台实体，读取各传感器开关机与当前扫描
@@ -370,43 +400,52 @@ int main(int argc, char* argv[]) {
   const auto* eos = platform.Find<ca::EosSensorComponent>();
   const auto* sbirs = platform.Find<ca::SbirsSensorComponent>();
   const auto* sar = platform.Find<ca::SarSensorComponent>();
-  std::cout << "\n=== Platform Sensor States (entity query) ===\n"
-            << "  ar    powered=" << (ar->powered_on() ? "on" : "off") << "\n"
-            << "  esr   powered=" << (esr->powered_on() ? "on" : "off")
-            << " scan_az=" << esr->scan_azimuth_deg() << " deg\n"
-            << "  eos   powered=" << (eos->powered_on() ? "on" : "off")
-            << " scan_az=" << eos->scan_azimuth_deg() << " deg\n"
-            << "  sbirs powered=" << (sbirs->powered_on() ? "on" : "off")
-            << " scan_az=" << sbirs->scan_azimuth_deg() << " deg\n"
-            << "  sar   powered=" << (sar->powered_on() ? "on" : "off") << "\n"
-            << (rir_sensor != nullptr
-                    ? "  rir   powered=" + std::string(rir_sensor->powered_on() ? "on" : "off") +
-                          " confirmed_cycles=" +
-                          std::to_string(rir_sensor->confirmed_recognition_outputs()) + "\n"
-                    : "");
+  std::cout << "\n=== Platform Sensor States (entity query) ===\n";
+  if (ar != nullptr) {
+    std::cout << "  ar    powered=" << (ar->powered_on() ? "on" : "off") << "\n";
+  }
+  if (esr != nullptr) {
+    std::cout << "  esr   powered=" << (esr->powered_on() ? "on" : "off")
+              << " scan_az=" << esr->scan_azimuth_deg() << " deg\n";
+  }
+  if (eos != nullptr) {
+    std::cout << "  eos   powered=" << (eos->powered_on() ? "on" : "off")
+              << " scan_az=" << eos->scan_azimuth_deg() << " deg\n";
+  }
+  if (sbirs != nullptr) {
+    std::cout << "  sbirs powered=" << (sbirs->powered_on() ? "on" : "off")
+              << " scan_az=" << sbirs->scan_azimuth_deg() << " deg\n";
+  }
+  if (sar != nullptr) {
+    std::cout << "  sar   powered=" << (sar->powered_on() ? "on" : "off") << "\n";
+  }
+  if (rir_sensor != nullptr) {
+    std::cout << "  rir   powered=" << (rir_sensor->powered_on() ? "on" : "off")
+              << " confirmed_cycles=" << rir_sensor->confirmed_recognition_outputs() << "\n";
+  }
 
-  // 冒烟断言：端到端链路必须有产出（关键事件/SBIRS/SAR/融合目标下限来自
-  // 场景文件 smoke 块，无目标等零产出场景显式置 0；平台轨迹行数 = 周期数；
-  // 视图行数每周期 ≥ 1 行、五传感器全程开机），否则视为链路断裂（ctest 失败）。
-  // 断言与日志模式无关：视图按"每周期至少一行"断言（默认跨周期增量模式下状态
-  // 变化周期会写多行，故为 ≥ 周期数；SAR 阶段型摘要恒每周期一行，== 周期数）；
-  // 事件按"关键事件存在"断言（默认只记关键模式下平台状态等重复事件不落盘）。
-  // 前置条件：视图行数由组件 Step 内计数，依赖每周期到达视图日志调用点（本
-  // 场景 Flight 恒挂载、坐标适配恒成功；场景改动需同步检查该断言）。
+  // 冒烟：视图按摘要间隔求余后的拍数断言（默认每周期一行；--view-every N
+  // 时为 cycles/N）。事件仍按场景 smoke 下限。
   const auto& smoke = scene_data.smoke;
+  const std::uint32_t view_ticks = demo::ViewLogExpectedTicks(num_cycles, view_every);
+  const bool views_ok =
+      (ar == nullptr || demo::ArViewCount() >= view_ticks) &&
+      (eos == nullptr || demo::EosViewCount() >= view_ticks) &&
+      (sbirs == nullptr || demo::SbirsViewCount() >= view_ticks) &&
+      (sar == nullptr || demo::SarViewCount() == view_ticks) &&
+      demo::ThreatViewCount() >= view_ticks;
+  const bool powered_ok =
+      (ar == nullptr || ar->powered_on()) && (esr == nullptr || esr->powered_on()) &&
+      (eos == nullptr || eos->powered_on()) && (sbirs == nullptr || sbirs->powered_on()) &&
+      (sar == nullptr || sar->powered_on()) &&
+      (rir_sensor == nullptr || rir_sensor->powered_on());
   if (demo::EventCount() < smoke.min_key_events ||
-      demo::SbirsEventCount() < smoke.min_sbirs_events ||
-      demo::SarProductEventCount() < smoke.min_sar_products ||
+      (sbirs != nullptr && demo::SbirsEventCount() < smoke.min_sbirs_events) ||
+      (sar != nullptr && demo::SarProductEventCount() < smoke.min_sar_products) ||
       max_fused_targets < smoke.min_fused_targets ||
       (rir_sensor != nullptr &&
        rir_sensor->confirmed_recognition_outputs() < smoke.min_rir_recognition_outputs) ||
-      outputs.platform_rows() != num_cycles * aircraft_count ||
-      demo::ArViewCount() < num_cycles ||
-      demo::EosViewCount() < num_cycles || demo::SbirsViewCount() < num_cycles ||
-      demo::SarViewCount() != num_cycles || demo::ThreatViewCount() < num_cycles ||
-      (rir_sensor != nullptr && !rir_sensor->powered_on()) ||
-      !ar->powered_on() || !esr->powered_on() ||
-      !eos->powered_on() || !sbirs->powered_on() || !sar->powered_on()) {
+      outputs.platform_rows() != num_cycles * aircraft_count || !views_ok || !powered_ok) {
     std::cerr << "SMOKE FAILED: events=" << demo::EventCount()
               << " (>=" << smoke.min_key_events << " required), sbirs_events="
               << demo::SbirsEventCount() << " (>=" << smoke.min_sbirs_events
@@ -421,14 +460,12 @@ int main(int argc, char* argv[]) {
               << outputs.platform_rows() << " (== " << num_cycles << " × " << aircraft_count
               << " 机 required), "
               << "ar_views=" << demo::ArViewCount()
-              << " (>= " << num_cycles << " required), eos_views="
-              << demo::EosViewCount() << " (>= " << num_cycles << " required), sbirs_views="
-              << demo::SbirsViewCount() << " (>= " << num_cycles << " required), sar_views="
-              << demo::SarViewCount() << " (== " << num_cycles << " required), threat_views="
-              << demo::ThreatViewCount() << " (>= " << num_cycles << " required), sensor_powered="
-              << (ar->powered_on() && esr->powered_on() && eos->powered_on() &&
-                  sbirs->powered_on() && sar->powered_on() ? "true" : "false")
-              << " (all required)\n";
+              << " (>= " << view_ticks << " required), eos_views="
+              << demo::EosViewCount() << " (>= " << view_ticks << " required), sbirs_views="
+              << demo::SbirsViewCount() << " (>= " << view_ticks << " required), sar_views="
+              << demo::SarViewCount() << " (== " << view_ticks << " required), threat_views="
+              << demo::ThreatViewCount() << " (>= " << view_ticks << " required), sensor_powered="
+              << (powered_ok ? "true" : "false") << " (mounted only)\n";
     return 1;
   }
   return 0;

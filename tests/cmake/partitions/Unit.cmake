@@ -76,6 +76,7 @@ if(_oneq_unit_examples)
                      "${CMAKE_SOURCE_DIR}/examples/component_attachment"
         EXTRA_SOURCES ${_oneq_examples_extra}
         COMPILE_DEFS "CA_LOG_BACKEND_SPDLOG=$<BOOL:${PROJECT_ENABLE_SPDLOG}>"
+                     "CA_LIBRARY_FILE_LOG=$<BOOL:${ONEQ_ENABLE_FILE_LOG}>"
         LINK_LIBS ${_oneq_examples_link_libs})
     # demo_config.cpp（场景覆写应用）需要 examples/configs 路径宏与 RIR 识别库
     # 路径，与 component_attachment demo 目标同源注入。

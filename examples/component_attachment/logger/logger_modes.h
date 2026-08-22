@@ -20,10 +20,11 @@
 #ifndef EXAMPLES_COMPONENT_ATTACHMENT_LOGGER_LOGGER_MODES_H_
 #define EXAMPLES_COMPONENT_ATTACHMENT_LOGGER_LOGGER_MODES_H_
 
-// 视图模式（三选一）：未被 CMake 或本文件指定时默认模式二（跨周期增量）。
+// 视图模式（三选一）：未被 CMake 或本文件指定时默认摘要（每周期一行）。
+// 落盘频率由运行时 view_log_every_cycles / --view-every 求余控制，不靠换模式。
 #if !defined(CA_VIEW_LOG_MODE_SUMMARY) && !defined(CA_VIEW_LOG_MODE_NONNOMINAL) && \
     !defined(CA_VIEW_LOG_MODE_DELTA)
-#define CA_VIEW_LOG_MODE_DELTA  // 模式二（默认）：只落跨周期状态变化行
+#define CA_VIEW_LOG_MODE_SUMMARY
 #endif
 
 // 事件模式（三选一）：未被 CMake 或本文件指定时默认模式一（只记关键事件）。

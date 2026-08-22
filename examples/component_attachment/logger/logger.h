@@ -3,10 +3,8 @@
  * @brief 集成端日志设施（外部集成惯用法示范，双后端）。
  *
  * 与库内部日志（PROJECT_LOG_*）区分成两个日志模块：
- * 1. 库内部日志：spdlog 平台（macOS/Linux）由本设施把库默认 logger 装配为
- *    文件 sink（output_dir/1q_library.log，时间戳 + 级别 + 消息），宿主拥有
- *    生命周期；Windows（spdlog 关闭）库内走内置 ProjectFileLog，本设施经其
- *    ONEQ_FILE_LOG_PATH 环境变量把库日志指到同一路径（实现见 logger.cpp）；
+ * 1. 库内部调试日志默认关闭（ONEQ_ENABLE_FILE_LOG / CA_LIBRARY_FILE_LOG）。
+ *    仅 macOS 显式打开时装配 1q_library.log；Windows 保持关闭。
  * 2. 集成端日志：spdlog 平台拆两个命名 logger（均带 stdout，pattern 仅消息
  *    体）；Windows 走 std::ofstream 文件后端（仅落文件，行文案与 spdlog 分支
  *    完全一致）——事件行（"[事件:type] 周期=... 时间=...s 中文详情"）→
@@ -41,13 +39,23 @@
 namespace component_attachment {
 namespace demo {
 
-/// 初始化集成端日志（spdlog 分支：装配 1q_library.log 默认 logger + 事件/视图
-/// 两个命名 logger；Windows 文件后端分支：经 ONEQ_FILE_LOG_PATH 指引库日志 +
-/// 打开两个集成端日志文件。幂等）。同时把各层验收文件
-/// （`rir_acceptance.log` 等）钉到同一 `output_dir`。main 装配时在会话创建前
-/// 调用一次（先于库首次写日志）；未初始化时 LogEvent / LogViewSummary 静默跳过
-/// （单元测试不初始化也可安全编译运行）。
+/// 初始化集成端日志（事件/视图两个文件。库内部 1q_library.log 仅在
+/// CA_LIBRARY_FILE_LOG 打开时装配）。幂等。同时把各层验收文件与 RIR
+/// 天线/波位 CSV 钉到同一 `output_dir`。main 装配时在会话创建前调用一次；
+/// 未初始化时 LogEvent / LogViewSummary 静默跳过。
 void InitIntegrationLog(const std::string& output_dir);
+
+/// 视图摘要每隔多少周期写一行（求余：cycle % n == 0）。n<=1 表示每周期都写。
+void SetViewLogEveryCycles(std::uint32_t every_cycles);
+
+/// 本周期开始时调用，供 CA_LOG_VIEW 求余。未调用时（单测）视为每周期都写。
+void BeginViewLogCycle(std::uint64_t cycle);
+
+/// 本周期是否该写视图行（cycle % every == 0；every<=1 或未 Begin 则为是）。
+bool ShouldWriteViewLog();
+
+/// 按周期数与间隔算出应落盘的视图拍数（冒烟用）。
+std::uint32_t ViewLogExpectedTicks(std::uint32_t cycles, std::uint32_t every_cycles);
 
 /// 记录一行事件（宏背后）：integration_events logger 事件行 + 计数。未初始化时
 /// 静默跳过。
@@ -118,7 +126,11 @@ std::size_t RirViewCount();
  * @param[in] ...    fmt 风格格式串与参数（中文，如 "周期={} 完成=是 目标=2 问题=0"）
  */
 #define CA_LOG_VIEW(module, ...)                                               \
-  ::component_attachment::demo::LogViewSummary(                                \
-      (module), CA_FMT_FORMAT(__VA_ARGS__))
+  do {                                                                         \
+    if (::component_attachment::demo::ShouldWriteViewLog()) {                  \
+      ::component_attachment::demo::LogViewSummary(                            \
+          (module), CA_FMT_FORMAT(__VA_ARGS__));                               \
+    }                                                                          \
+  } while (0)
 
 #endif  // EXAMPLES_COMPONENT_ATTACHMENT_LOGGER_LOGGER_H_

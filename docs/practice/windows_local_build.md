@@ -22,7 +22,7 @@ macOS 是开发/CI 主线（完整 Conan 依赖集）；本机 Windows 使用 le
 | preset | `llvm-ninja-debug(-local)` / `llvm-ninja-release(-local)` / `llvm-ninja-coverage` | `VisualStudio.15.0-amd64` |
 | Generator | Ninja, single-config（build_type 随 preset 固定） | VS2026 generator + v141 (14.16) toolset, multi-config（`--config Debug/Release` 选档） |
 | conan install | 每 preset 一次，单一 build_type | bootstrap 一次装 Debug + Release |
-| Logging | spdlog/fmt (Conan) | 无第三方 logger；内置 `ProjectFileLog`（`ONEQ_ENABLE_FILE_LOG` 门控，写 `1q_library.log`）；`component_attachment` 示例层自带 std::ofstream 后端（`CA_LOG_BACKEND_SPDLOG=0`） |
+| Logging | spdlog/fmt (Conan)；库调试日志默认关，排库时才 `-DONEQ_ENABLE_FILE_LOG=ON` | 库调试日志默认关（不要开 `ONEQ_ENABLE_FILE_LOG`）；`component_attachment` 示例层自带 std::ofstream 后端（`CA_LOG_BACKEND_SPDLOG=0`） |
 | HighFive / JSBSim | Conan 预装 | 均未装；FD=ON 时 JSBSim 需 third_party 源码或预编译树 |
 | Coverage | `llvm-ninja-coverage` | 无 |
 
@@ -103,7 +103,7 @@ INTERFACE 传播）。BOM 使 cl.exe 无条件按 UTF-8 解码。维护链：
    仓库 `examples/` → consumer `src/`（BOM 零改动镜像）。
 4. consumer 以 **C++11、无 `/utf-8`** 构建（模拟客户 vcxproj）：
    `cmake -G "Visual Studio 14 2015" -A x64 && cmake --build --config Release`
-5. 跑 demo 3 周期；构建日志零 C4819；运行目录有 `sbirs_acceptance.log` / `rir_acceptance.log`
+5. 跑 demo 3 周期；构建日志零 C4819；运行目录 `log/` 下有验收文件
    （四段中文验收行）。库内部 `1q_library.log` 仍只承载 `PROJECT_LOG_*`，不再写验收项。
 
 ## 历史事件：UCRT 注册表死路径（已修复 2026-08-21）

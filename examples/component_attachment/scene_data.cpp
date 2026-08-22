@@ -234,7 +234,34 @@ bool LoadSceneData(const char* path, SceneData* scene, std::string* error) {
     }
     out.cycles = static_cast<std::uint32_t>(cycles);
   }
+  if (root["view_log_every_cycles"].IsInt()) {
+    const std::int64_t every = root["view_log_every_cycles"].AsInt();
+    if (every <= 0) {
+      *error = "invalid \"view_log_every_cycles\": must be > 0";
+      return false;
+    }
+    out.view_log_every_cycles = static_cast<std::uint32_t>(every);
+  }
   out.dt_sec = ReadDouble(root, "dt_sec", out.dt_sec);
+
+  const examples::JsonValue& sensors = root["sensors"];
+  if (!sensors.IsNull() && sensors.type() == examples::JsonValue::kObject) {
+    if (sensors.Has("ar")) {
+      out.ar_enabled = sensors["ar"].AsBool();
+    }
+    if (sensors.Has("esr")) {
+      out.esr_enabled = sensors["esr"].AsBool();
+    }
+    if (sensors.Has("eos")) {
+      out.eos_enabled = sensors["eos"].AsBool();
+    }
+    if (sensors.Has("sbirs")) {
+      out.sbirs_enabled = sensors["sbirs"].AsBool();
+    }
+    if (sensors.Has("sar")) {
+      out.sar_enabled = sensors["sar"].AsBool();
+    }
+  }
 
   // 主平台块（必填）：原点/起飞航向/巡航参数 + 可选航路/区域巡逻。
   const examples::JsonValue& platform = root["platform"];

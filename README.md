@@ -23,7 +23,7 @@
 - CMake / Conan (Windows also has a no-Conan mode; see "Alternative paths" below)
 - GTest / GMock (tests)
 - Eigen, nanoflann, Boost, FlatBuffers, zlib, sqlite3
-- spdlog / fmt (logging; installed on non-Windows only — on Windows replaced by the built-in `ProjectFileLog` file-logging backend, gated by `ONEQ_ENABLE_FILE_LOG`, writing `1q_library.log`)
+- spdlog / fmt (logging; installed on non-Windows only). Library debug log (`PROJECT_LOG_*`) is off by default (`ONEQ_ENABLE_FILE_LOG=OFF`); Windows stays off; macOS may enable it only when debugging the library. Integrators pin the log directory with CMake `ONEQ_LOG_DIR`.
 - JSBSim (a `flight_dynamic`-specific optional dependency, provided prebuilt via Conan on non-Windows only), HighFive (SAR HDF5 output; non-Windows only)
 
 ## Build

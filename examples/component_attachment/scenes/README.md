@@ -171,6 +171,7 @@ lon 120.0~120.02（约 1.93 km 东西），扫描航向 0（线沿东西）、�
 | `sar` | 否 | SAR 任务几何/链路覆写：`peak_power_w`（1e6）、`antenna_gain_db`（40）、`max_squint_deg`（10）、`scene_center_latitude_deg`（30.117…）、`scene_center_longitude_deg`（120.06）、`scene_center_altitude_m`（400）、`slant_range_m`（13000）、`platform_speed_mps`（50） |
 | `fusion` | 否 | `position_radius_m`（1000）、`bearing_beamwidth_deg`（5）、`feature_threshold`（0）、`window_size`（10）、`max_missed_cycles`（5）、`source_weights[]`（空 = 全 1.0） |
 | `high_threat_confidence` | 否 | 决策门限（3.0） |
+| `sensors` | 否 | 机载传感器挂载：`ar`/`esr`/`eos`/`sbirs`/`sar`（全 true）。`false` 则不挂该组件，不写该通道视图/排除原因。RIR/ECM 仍用各自 `enabled`；ECM 还要求 `esr=true` |
 | `rir` | 否 | RIR 地基识别雷达站点块：`enabled`（false）、`site{lat_deg,lon_deg,alt_m}`（站点 LLA = 雷达局部 ENU 原点，缺省 30/120/0）、`designated_target_id`（0 = 无指定任务）、`designation_duration_cycles`（0 = 无限期窗口）；enabled 时整机挂载独立地基实体（先于平台创建），识别库经编译定义注入 |
 | `smoke` | 否 | 冒烟下限：`min_key_events`/`min_sbirs_events`/`min_sar_products`/`min_fused_targets`（全 1；零产出场景显式置 0）、`min_rir_recognition_outputs`（0；RIR 确认态周期数下限） |
 

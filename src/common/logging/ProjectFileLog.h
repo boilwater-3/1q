@@ -13,7 +13,7 @@
  * 路径解析优先级（懒打开时生效）：
  *   1) OpenFileLog(path) 显式指定；
  *   2) 环境变量 ONEQ_FILE_LOG_PATH（仅打开时读取一次）；
- *   3) 编译期宏 ONEQ_FILE_LOG_PATH（CMake 默认注入 "1q_library.log"）。
+ *   3) 编译期宏 ONEQ_FILE_LOG_PATH（CMake 默认注入 <cwd>/log/ 下的文件名）。
  *
  * 本头为内部头（src/ 下，不随安装导出），仅由 ProjectLog.h 的 FILE 分支与
  * 单元测试包含。

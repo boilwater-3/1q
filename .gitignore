@@ -1,6 +1,9 @@
 # macOS
 .DS_Store
 
+# 库默认日志目录（ONEQ_LOG_DIR 为空时落到进程 CWD/log/）
+/log/
+
 # Windows 内置文件日志后端（ProjectFileLog，ONEQ_ENABLE_FILE_LOG）运行产物
 1q_library.log
 
@@ -11,6 +14,7 @@ fusion_acceptance.log
 inference_acceptance.log
 precision_acceptance.log
 rir_antenna_pattern.csv
+rir_scan_pattern.csv
 
 # Build outputs
 build/

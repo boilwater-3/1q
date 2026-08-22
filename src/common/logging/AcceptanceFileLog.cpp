@@ -4,6 +4,7 @@
  */
 
 #include "common/logging/AcceptanceFileLog.h"
+#include "common/logging/LogDirectory.h"
 
 #include <cstdio>
 #include <cstdlib>
@@ -12,19 +13,19 @@
 #include <string>
 
 #ifndef ONEQ_SBIRS_ACCEPTANCE_LOG_PATH
-#define ONEQ_SBIRS_ACCEPTANCE_LOG_PATH "sbirs_acceptance.log"
+#define ONEQ_SBIRS_ACCEPTANCE_LOG_PATH "log/sbirs_acceptance.log"
 #endif
 #ifndef ONEQ_RIR_ACCEPTANCE_LOG_PATH
-#define ONEQ_RIR_ACCEPTANCE_LOG_PATH "rir_acceptance.log"
+#define ONEQ_RIR_ACCEPTANCE_LOG_PATH "log/rir_acceptance.log"
 #endif
 #ifndef ONEQ_FUSION_ACCEPTANCE_LOG_PATH
-#define ONEQ_FUSION_ACCEPTANCE_LOG_PATH "fusion_acceptance.log"
+#define ONEQ_FUSION_ACCEPTANCE_LOG_PATH "log/fusion_acceptance.log"
 #endif
 #ifndef ONEQ_INFERENCE_ACCEPTANCE_LOG_PATH
-#define ONEQ_INFERENCE_ACCEPTANCE_LOG_PATH "inference_acceptance.log"
+#define ONEQ_INFERENCE_ACCEPTANCE_LOG_PATH "log/inference_acceptance.log"
 #endif
 #ifndef ONEQ_PRECISION_ACCEPTANCE_LOG_PATH
-#define ONEQ_PRECISION_ACCEPTANCE_LOG_PATH "precision_acceptance.log"
+#define ONEQ_PRECISION_ACCEPTANCE_LOG_PATH "log/precision_acceptance.log"
 #endif
 
 namespace oneq {
@@ -156,6 +157,7 @@ class ChannelSink {
       stream_.flush();
       stream_.close();
     }
+    oneq::logging::EnsureParentDirectory(path);
     stream_.open(path, std::ios::out | std::ios::app | std::ios::binary);
     if (stream_.is_open()) {
       open_failed_ = false;

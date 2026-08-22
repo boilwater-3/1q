@@ -9,12 +9,10 @@
 # 仿库内 ProjectFileLog 口径：integration_events/views.log 中文行，仅落文件），
 # 全平台均可构建本示例。
 
-# 验收日志通道提示：SBIRS 宽窄视场验收量（覆盖区/驻留/焦平面脱靶量/信号能量/
-# 连续命中计数器）经 [SbirsAccept] 事件流写入库日志，开关为库编译期选项。
+# 验收日志通道提示：SBIRS 宽窄视场验收量写入 sbirs_acceptance.log，开关为库编译期选项。
 if(NOT ONEQ_ENABLE_SBIRS_ACCEPTANCE_LOG)
     message(STATUS "component_attachment: ONEQ_ENABLE_SBIRS_ACCEPTANCE_LOG=OFF -> no "
-        "[SbirsAccept] events; reconfigure with -DONEQ_ENABLE_SBIRS_ACCEPTANCE_LOG=ON "
-        "to enable (events land in <output-dir>/1q_library.log)")
+        "sbirs_acceptance.log; reconfigure with -DONEQ_ENABLE_SBIRS_ACCEPTANCE_LOG=ON")
 endif()
 
 add_executable(component_attachment_demo
@@ -55,7 +53,8 @@ endif()
 # 日志后端开关注入（仿库内 oneq_add_component 的 PROJECT_LOG_BACKEND_* 先例，
 # 见 ProjectTargets.cmake）。
 target_compile_definitions(component_attachment_demo PRIVATE
-    CA_LOG_BACKEND_SPDLOG=$<BOOL:${PROJECT_ENABLE_SPDLOG}>)
+    CA_LOG_BACKEND_SPDLOG=$<BOOL:${PROJECT_ENABLE_SPDLOG}>
+    CA_LIBRARY_FILE_LOG=$<BOOL:${ONEQ_ENABLE_FILE_LOG}>)
 
 target_include_directories(component_attachment_demo PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}"
@@ -72,8 +71,8 @@ target_compile_definitions(component_attachment_demo PRIVATE
     CA_RIR_DATABASE_PATH="${CMAKE_SOURCE_DIR}/examples/configs/remote_identification_radar/target_feature_database_v1.1.db")
 
 # 集成端日志模式（编译期宏，见 logger/logger_modes.h）：
-# CA_VIEW_LOG_MODE —— summary（每周期摘要）| nonnominal（只落非标称行）|
-#                    delta（跨周期增量，默认，同 logger_modes.h）
+# CA_VIEW_LOG_MODE —— summary（每周期摘要，默认）| nonnominal | delta
+#                    落盘频率用 --view-every / 场景 view_log_every_cycles，不靠换模式
 # CA_EVENT_LOG_MODE —— all（逐条全量）| key（只记关键，默认，同 logger_modes.h）|
 #                      aggregate（周期聚合）
 # 不传（空）时用 logger_modes.h 源码默认；显式传值则覆盖源码默认。

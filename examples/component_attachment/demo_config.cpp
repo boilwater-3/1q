@@ -69,9 +69,10 @@ std::string SceneSlugFromPath(const std::string& scene_path) {
 
 void PrintUsage(const char* program) {
   std::cout << "Usage: " << program
-            << " [--scene <path>] [--cycles <n>] [--output-dir <dir>]\n"
+            << " [--scene <path>] [--cycles <n>] [--view-every <n>] [--output-dir <dir>]\n"
             << "  --scene <path>      场景描述文件（默认 <场景目录>/baseline_takeoff_east.json）\n"
             << "  --cycles <n>        仿真周期数（覆盖场景文件，默认场景文件值）\n"
+            << "  --view-every <n>    视图摘要间隔（周期求余，覆盖场景 view_log_every_cycles）\n"
             << "  --output-dir <dir>  日志+CSV 目录（默认 " << kDefaultOutputDir
             << "/<场景名>/）\n";
 }

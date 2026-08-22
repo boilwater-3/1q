@@ -15,6 +15,7 @@
 #include "1q/remote_identification_radar/session/RirFeatureMeasurementTypes.h"
 #include "1q/remote_identification_radar/session/RirRecognitionResult.h"
 #include "common/logging/AcceptanceText.h"
+#include "common/logging/LogDirectory.h"
 #include "common/radar/MtiMtdAcceptanceBank.h"
 #include "common/radar/RadarEquations.h"
 #include "remote_identification_radar/dwell/RirAntennaPatternRuntime.h"
@@ -22,6 +23,13 @@
 #include "remote_identification_radar/runtime/RirAcceptanceLog.h"
 #include "remote_identification_radar/tracking/RirTrackAssociator.h"
 #include "remote_identification_radar/tracking/RirTrackTypes.h"
+
+#ifndef ONEQ_RIR_ANTENNA_PATTERN_CSV_PATH
+#define ONEQ_RIR_ANTENNA_PATTERN_CSV_PATH "log/rir_antenna_pattern.csv"
+#endif
+#ifndef ONEQ_RIR_SCAN_PATTERN_CSV_PATH
+#define ONEQ_RIR_SCAN_PATTERN_CSV_PATH "log/rir_scan_pattern.csv"
+#endif
 
 namespace remote_identification_radar {
 namespace runtime {
@@ -140,7 +148,9 @@ void EmitOrNone(float sim_time_sec, std::uint32_t cycle, const char* item, const
   Emit(sim_time_sec, cycle, item, prefix + (ok ? value : std::string("无")));
 }
 
-std::string DefaultAntennaCsvPath() {
+}  // namespace
+
+std::string ResolveRirAntennaPatternCsvPath() {
 #if defined(_MSC_VER)
   char* buffer = nullptr;
   if (_dupenv_s(&buffer, nullptr, "ONEQ_RIR_ANTENNA_PATTERN_CSV_PATH") == 0 && buffer != nullptr) {
@@ -156,10 +166,10 @@ std::string DefaultAntennaCsvPath() {
     return std::string(env);
   }
 #endif
-  return std::string("rir_antenna_pattern.csv");
+  return std::string(ONEQ_RIR_ANTENNA_PATTERN_CSV_PATH);
 }
 
-std::string DefaultScanCsvPath() {
+std::string ResolveRirScanPatternCsvPath() {
 #if defined(_MSC_VER)
   char* buffer = nullptr;
   if (_dupenv_s(&buffer, nullptr, "ONEQ_RIR_SCAN_PATTERN_CSV_PATH") == 0 && buffer != nullptr) {
@@ -175,10 +185,8 @@ std::string DefaultScanCsvPath() {
     return std::string(env);
   }
 #endif
-  return std::string("rir_scan_pattern.csv");
+  return std::string(ONEQ_RIR_SCAN_PATTERN_CSV_PATH);
 }
-
-}  // namespace
 
 void WriteRirAntennaPatternSummary(float sim_time_sec, std::uint32_t cycle, float peak_gain_dbi,
                                    float bw_az_deg, float bw_el_deg, const std::string& csv_path) {
@@ -563,7 +571,7 @@ void WriteRirBeamScan(float sim_time_sec, std::uint32_t cycle,
   if (!RIR_ACCEPTANCE_LOG_ENABLED()) {
     return;
   }
-  const std::string csv_path = DefaultScanCsvPath();
+  const std::string csv_path = ResolveRirScanPatternCsvPath();
   const bool wrote = TryExportRirScanPatternCsv(pattern, csv_path.c_str());
   std::string scan = "波位总数=" + std::to_string(pattern.size());
   scan += " 本周期驻留中心方位/俯仰=" + FormatPairDeg(az_deg, el_deg, 3) + "°";
@@ -589,7 +597,8 @@ void WriteRirBeamScan(float sim_time_sec, std::uint32_t cycle,
 bool TryExportRirAntennaPatternCsv(const config::hardware::RirAntennaConfig& antenna,
                                    const char* path) {
   const std::string out_path = (path != nullptr && *path != '\0') ? std::string(path)
-                                                                  : DefaultAntennaCsvPath();
+                                                                  : ResolveRirAntennaPatternCsvPath();
+  oneq::logging::EnsureParentDirectory(out_path.c_str());
   std::ofstream out(out_path.c_str(), std::ios::out | std::ios::trunc | std::ios::binary);
   if (!out.is_open()) {
     return false;
@@ -617,7 +626,8 @@ bool TryExportRirAntennaPatternCsv(const config::hardware::RirAntennaConfig& ant
 bool TryExportRirScanPatternCsv(
     const std::vector<oneq::common::radar::AzimuthElevationDeg>& pattern, const char* path) {
   const std::string out_path = (path != nullptr && *path != '\0') ? std::string(path)
-                                                                  : DefaultScanCsvPath();
+                                                                  : ResolveRirScanPatternCsvPath();
+  oneq::logging::EnsureParentDirectory(out_path.c_str());
   std::ofstream out(out_path.c_str(), std::ios::out | std::ios::trunc | std::ios::binary);
   if (!out.is_open()) {
     return false;

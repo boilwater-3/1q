@@ -111,10 +111,28 @@ function(oneq_add_component target)
     if(PROJECT_ENABLE_SPDLOG)
         target_link_libraries("${target}" PRIVATE "${PROJECT_SPDLOG_TARGET}")
     endif()
+    # 库调试日志总闸是 ONEQ_ENABLE_FILE_LOG。关掉则两端后端都是 0，PROJECT_LOG_* 空操作。
+    # 打开时：有 spdlog（macOS）走 spdlog；无 spdlog（Windows）走 ProjectFileLog。
+    # 落盘目录由 ONEQ_LOG_DIR 编进默认路径（空则 <cwd>/log/）。
+    oneq_log_file(_oneq_file_log_path "1q_library.log")
+    oneq_log_file(_oneq_sbirs_accept_path "sbirs_acceptance.log")
+    oneq_log_file(_oneq_rir_accept_path "rir_acceptance.log")
+    oneq_log_file(_oneq_fusion_accept_path "fusion_acceptance.log")
+    oneq_log_file(_oneq_inference_accept_path "inference_acceptance.log")
+    oneq_log_file(_oneq_precision_accept_path "precision_acceptance.log")
+    oneq_log_file(_oneq_rir_antenna_csv_path "rir_antenna_pattern.csv")
+    oneq_log_file(_oneq_rir_scan_csv_path "rir_scan_pattern.csv")
     target_compile_definitions("${target}" PRIVATE
-        PROJECT_LOG_BACKEND_SPDLOG=$<BOOL:${PROJECT_ENABLE_SPDLOG}>
-        PROJECT_LOG_BACKEND_FILE=$<BOOL:${ONEQ_ENABLE_FILE_LOG}>
-        ONEQ_FILE_LOG_PATH=\"1q_library.log\"
+        PROJECT_LOG_BACKEND_SPDLOG=$<AND:$<BOOL:${PROJECT_ENABLE_SPDLOG}>,$<BOOL:${ONEQ_ENABLE_FILE_LOG}>>
+        PROJECT_LOG_BACKEND_FILE=$<AND:$<BOOL:${ONEQ_ENABLE_FILE_LOG}>,$<NOT:$<BOOL:${PROJECT_ENABLE_SPDLOG}>>>
+        ONEQ_FILE_LOG_PATH=\"${_oneq_file_log_path}\"
+        ONEQ_SBIRS_ACCEPTANCE_LOG_PATH=\"${_oneq_sbirs_accept_path}\"
+        ONEQ_RIR_ACCEPTANCE_LOG_PATH=\"${_oneq_rir_accept_path}\"
+        ONEQ_FUSION_ACCEPTANCE_LOG_PATH=\"${_oneq_fusion_accept_path}\"
+        ONEQ_INFERENCE_ACCEPTANCE_LOG_PATH=\"${_oneq_inference_accept_path}\"
+        ONEQ_PRECISION_ACCEPTANCE_LOG_PATH=\"${_oneq_precision_accept_path}\"
+        ONEQ_RIR_ANTENNA_PATTERN_CSV_PATH=\"${_oneq_rir_antenna_csv_path}\"
+        ONEQ_RIR_SCAN_PATTERN_CSV_PATH=\"${_oneq_rir_scan_csv_path}\"
         ONEQ_HAVE_ZLIB=$<BOOL:${ONEQ_HAVE_ZLIB}>)
     if(ONEQ_HAVE_ZLIB)
         target_link_libraries("${target}" PRIVATE ZLIB::ZLIB)

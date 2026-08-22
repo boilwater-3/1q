@@ -2,11 +2,11 @@
  * @file logger.cpp
  * @brief 集成端日志设施实现（见 logger.h）。
  *
- * 1. 两个日志模块装配：库内部日志（spdlog 分支：spdlog 默认 logger →
- *    1q_library.log；Windows 文件后端分支：经 ONEQ_FILE_LOG_PATH 指引库内
- *    ProjectFileLog 落同一路径）与集成端日志（事件行 → integration_events.log、
+ * 1. 两个日志模块装配：库内部调试日志默认关闭（CA_LIBRARY_FILE_LOG=0）。打开时
+ *    spdlog 分支装配默认 logger → 1q_library.log，Windows 经 ONEQ_FILE_LOG_PATH
+ *    指引 ProjectFileLog。集成端日志（事件行 → integration_events.log、
  *    视图行 → integration_views.log；spdlog 分支均带 stdout，Windows 分支仅落
- *    文件，中文人读行文案双分支一致）；
+ *    文件，中文人读行文案双分支一致）；天线/波位 CSV 与验收文件钉同一目录；
  * 2. 事件模式二（AGGREGATE）：事件按周期聚合，周期边界落一行（类型+次数）；
  * 3. 背后设施为进程级单例（延迟创建；未初始化时 LogEvent / LogViewSummary 静默
  *    跳过——单元测试链接本文件但不调用 InitIntegrationLog，组件宏调用安全无副作用）。
@@ -50,6 +50,9 @@ std::size_t g_sbirs_view_count = 0U;
 std::size_t g_sar_view_count = 0U;
 std::size_t g_threat_view_count = 0U;
 std::size_t g_rir_view_count = 0U;
+std::uint32_t g_view_every_cycles = 1U;
+std::uint64_t g_view_cycle = 0U;
+bool g_view_cycle_set = false;
 
 #if defined(CA_EVENT_LOG_MODE_AGGREGATE)
 /// 事件类型 → 中文名（聚合行人读显示）。
@@ -135,23 +138,28 @@ void BindAcceptanceLogPaths(const std::string& output_dir) {
   SetProcessEnv("ONEQ_INFERENCE_ACCEPTANCE_LOG_PATH", output_dir + "/inference_acceptance.log");
   SetProcessEnv("ONEQ_PRECISION_ACCEPTANCE_LOG_PATH",
                 output_dir + "/precision_acceptance.log");
+  SetProcessEnv("ONEQ_RIR_ANTENNA_PATTERN_CSV_PATH",
+                output_dir + "/rir_antenna_pattern.csv");
+  SetProcessEnv("ONEQ_RIR_SCAN_PATTERN_CSV_PATH", output_dir + "/rir_scan_pattern.csv");
 }
 
 }  // namespace
 
 void InitIntegrationLog(const std::string& output_dir) {
-  // 验收文件默认写 CWD；这里钉到本场景输出目录，避免 rir_acceptance.log 落到仓库根。
+  // 验收文件与天线/波位 CSV 默认写 CWD；钉到本场景输出目录，避免落到仓库根。
   BindAcceptanceLogPaths(output_dir);
 #if defined(CA_LOG_BACKEND_SPDLOG) && CA_LOG_BACKEND_SPDLOG
   if (g_event_logger != nullptr) {
     return;  // 幂等
   }
-  // 库内部日志：库内 PROJECT_LOG_* 走 spdlog 默认 logger，装配为
-  // 1q_library.log 文件 sink（人读：默认 pattern 含时间戳 + 级别 + 消息）。
+#if defined(CA_LIBRARY_FILE_LOG) && CA_LIBRARY_FILE_LOG
+  // 库内部调试日志（仅 macOS 显式打开 ONEQ_ENABLE_FILE_LOG 时）：PROJECT_LOG_*
+  // 走 spdlog 默认 logger，装配为 1q_library.log。
   auto library_sink = std::make_shared<spdlog::sinks::basic_file_sink_mt>(
       output_dir + "/1q_library.log", /*truncate=*/true);
   spdlog::set_default_logger(
       std::make_shared<spdlog::logger>("", library_sink));
+#endif
 
   // 集成端日志拆两个命名 logger（stdout + 文件，pattern 仅为消息体）：
   // 事件行（[事件:...] / [事件聚合]）→ integration_events.log；视图行
@@ -171,16 +179,10 @@ void InitIntegrationLog(const std::string& output_dir) {
   if (g_event_stream.is_open()) {
     return;  // 幂等
   }
-  // 库内部日志落位：Windows 上库内 PROJECT_LOG_* 走内置 ProjectFileLog
-  //（内部头不对消费方导出，本示例无法装配其 sink），经其文档化的
-  // ONEQ_FILE_LOG_PATH 环境变量把库日志指到 output_dir/1q_library.log
-  //（该变量在库首次写日志时读取一次并缓存；main 在会话创建前调用本函数，
-  // 先于库首次写日志，时序确定）。
-  const std::string library_log_path = output_dir + "/1q_library.log";
-#if defined(_WIN32)
-  _putenv_s("ONEQ_FILE_LOG_PATH", library_log_path.c_str());
-#else
-  setenv("ONEQ_FILE_LOG_PATH", library_log_path.c_str(), /*overwrite=*/1);
+#if defined(CA_LIBRARY_FILE_LOG) && CA_LIBRARY_FILE_LOG
+  // 库内部调试日志（默认关；Windows 不要开）。打开时经 ONEQ_FILE_LOG_PATH
+  // 把 ProjectFileLog 指到 output_dir/1q_library.log。
+  SetProcessEnv("ONEQ_FILE_LOG_PATH", output_dir + "/1q_library.log");
 #endif
   // 集成端日志：两个 std::ofstream（out|trunc|binary，LF 换行与库文件后端
   // 一致），行文案与 spdlog 分支逐字相同；仅落文件不打 stdout（Windows 控制
@@ -247,6 +249,33 @@ void LogEvent(std::uint64_t cycle, double t_sec, const char* type,
       << '\n';
 #endif
 #endif  // CA_EVENT_LOG_MODE_AGGREGATE
+}
+
+void SetViewLogEveryCycles(std::uint32_t every_cycles) {
+  g_view_every_cycles = (every_cycles == 0U) ? 1U : every_cycles;
+}
+
+void BeginViewLogCycle(std::uint64_t cycle) {
+  g_view_cycle = cycle;
+  g_view_cycle_set = true;
+}
+
+bool ShouldWriteViewLog() {
+  if (!g_view_cycle_set || g_view_every_cycles <= 1U) {
+    return true;
+  }
+  return (g_view_cycle % static_cast<std::uint64_t>(g_view_every_cycles)) == 0U;
+}
+
+std::uint32_t ViewLogExpectedTicks(std::uint32_t cycles, std::uint32_t every_cycles) {
+  if (cycles == 0U) {
+    return 0U;
+  }
+  const std::uint32_t every = (every_cycles == 0U) ? 1U : every_cycles;
+  if (every <= 1U) {
+    return cycles;
+  }
+  return cycles / every;
 }
 
 void LogViewSummary(const char* module, const std::string& text) {

@@ -55,6 +55,9 @@ struct RirDetectionAcceptInput {
   std::vector<oneq::electromagnetics::RfIncidentLinkResult> incident_links{};
 };
 
+std::string ResolveRirAntennaPatternCsvPath();
+std::string ResolveRirScanPatternCsvPath();
+
 void WriteRirAntennaPatternSummary(float sim_time_sec, std::uint32_t cycle, float peak_gain_dbi,
                                    float bw_az_deg, float bw_el_deg, const std::string& csv_path);
 

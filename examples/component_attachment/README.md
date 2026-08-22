@@ -257,12 +257,14 @@ cmake --build --preset llvm-ninja-release-local --target component_attachment_de
 - `--scene <path>`：场景描述文件（默认 `scenes/baseline_takeoff_east/baseline_takeoff_east.json`，路径由
   CMake 注入 `CA_SCENE_DIR`）；场景文件即配置记录，见 [`scenes/README.md`](scenes/README.md)；
 - `--cycles <n>`：仿真周期数（覆盖场景文件，默认场景文件值）；
+- `--view-every <n>`：视图摘要间隔（`周期 % n == 0` 才写；覆盖场景
+  `view_log_every_cycles`，默认 1 = 每周期一行）；
 - `--output-dir <dir>`：输出目录（日志 + CSV + 各层验收文件）。默认
   `examples/component_attachment/log/<场景名>/`（例如 `rir_long_range_scan`），
   不传则按场景钉死，避免 `rir_acceptance.log` 落到运行目录。显式传入则用该路径。
   运行时产物不入版本控制，见 .gitignore；
-- 日志模式可在 configure 时用 CMake 变量控制（不传则用默认：视图跨周期增量 +
-  事件只记关键）：
+- 视图默认摘要模式；密度用 `--view-every` / 场景 `view_log_every_cycles`。
+  编译期模式一般不用改（不传则：视图摘要 + 事件只记关键）：
   ```bash
   cmake --preset llvm-ninja-release-local -DENABLE_EXAMPLES=ON \
       -DCA_VIEW_LOG_MODE=summary -DCA_EVENT_LOG_MODE=aggregate
@@ -297,7 +299,5 @@ cmake --build --preset llvm-ninja-release-local --target component_attachment_de
   13b kInfo 排除诊断、关机清零、SBIRS 关机冻结相位）；
 - ctest `examples::component_attachment_demo`：demo 冒烟（400 周期 + 日志/CSV
   落盘 + 最小产出断言：关键事件 ≥ 1、SBIRS 关键探测事件 ≥ 1、SAR 关键产品事件
-  ≥ 1、融合目标 ≥ 1、平台轨迹行数 = 周期数、视图行数每周期 ≥ 1 行（AR/EOS/
-  SBIRS 为 ≥ 周期数——默认跨周期增量模式下状态变化周期会写多行；SAR 阶段型
-  摘要恒每周期一行 == 周期数））。**断言与日志模式无关**：任意视图/事件模式
-  组合（含 CMake `-DCA_*_LOG_MODE=...` 切换）下冒烟均成立。
+  ≥ 1、融合目标 ≥ 1、平台轨迹行数 = 周期数、视图行数按 `view_log_every_cycles`
+  求余后的拍数断言；未挂传感器不计入视图/排除原因）。

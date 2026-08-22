@@ -327,7 +327,7 @@ RirCycleResult RirSession::StepWithResult(const RirCycleInput& input) {
         dwell::RirResolveEffectiveBeamwidth(impl_->config.hardware.antenna);
     const std::vector<oneq::common::radar::AzimuthElevationDeg> pattern =
         BuildAbsoluteScanWaves(impl_->config);
-    const std::string csv_path = "rir_antenna_pattern.csv";
+    const std::string csv_path = runtime::ResolveRirAntennaPatternCsvPath();
     runtime::TryExportRirAntennaPatternCsv(impl_->config.hardware.antenna, csv_path.c_str());
     runtime::WriteRirAntennaPatternSummary(input.sim_time_sec, input.input_cycle_index,
                                            impl_->config.hardware.antenna.main_beam_gain_db,

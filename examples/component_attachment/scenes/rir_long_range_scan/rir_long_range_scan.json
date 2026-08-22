@@ -117,6 +117,13 @@
     "slant_range_m": 13000.0,
     "platform_speed_mps": 50.0
   },
+  "sensors": {
+    "ar": false,
+    "esr": false,
+    "eos": false,
+    "sbirs": false,
+    "sar": false
+  },
   "rir": {
     "enabled": true,
     "site": {
@@ -144,9 +151,9 @@
   },
   "high_threat_confidence": 3.0,
   "smoke": {
-    "min_key_events": 1,
+    "min_key_events": 0,
     "min_sbirs_events": 0,
-    "min_sar_products": 1,
+    "min_sar_products": 0,
     "min_fused_targets": 1,
     "min_rir_recognition_outputs": 0
   }

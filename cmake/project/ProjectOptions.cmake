@@ -80,10 +80,10 @@ else()
     message(STATUS "flight_dynamic module: disabled (set -DONEQ_ENABLE_FLIGHT_DYNAMIC=ON to enable)")
 endif()
 
-# 库内内置文件日志后端（ProjectFileLog）：Windows 上 spdlog 关闭时承载
-# PROJECT_LOG_* 落盘 CWD/1q_library.log；Unix 上默认休眠但可测（SPDLOG 分支优先）。
-# 总开关关闭时宏回到空操作且 sink 不编译。
-option(ONEQ_ENABLE_FILE_LOG "Enable built-in file logging backend (used when spdlog is unavailable)" ON)
+# 库内部调试日志总闸（PROJECT_LOG_* → 1q_library.log）。默认关闭。
+# Windows 保持关闭；macOS 排库算法时才 -DONEQ_ENABLE_FILE_LOG=ON（接 spdlog）。
+# 关闭时宏空操作，sink 不编译。
+option(ONEQ_ENABLE_FILE_LOG "Enable library debug file log (1q_library.log); default OFF" OFF)
 if(ONEQ_ENABLE_FILE_LOG)
     message(STATUS "file log backend: ENABLED (ProjectFileLog)")
 else()
@@ -131,3 +131,20 @@ if(ONEQ_ENABLE_PRECISION_EVALUATION_LOG)
 else()
     message(STATUS "precision evaluation log: disabled (set -DONEQ_ENABLE_PRECISION_EVALUATION_LOG=ON to enable)")
 endif()
+
+# 集成方用 CMake 指定日志目录（编进库的默认落盘路径）。
+# 空 = 进程当前目录下的 log/。文件名仍按层固定；运行时环境变量可再覆盖单文件。
+set(ONEQ_LOG_DIR "" CACHE PATH
+    "Directory for library debug and acceptance log files (empty = <cwd>/log)")
+if(ONEQ_LOG_DIR)
+    file(TO_CMAKE_PATH "${ONEQ_LOG_DIR}" ONEQ_LOG_DIR_NORMALIZED)
+    string(REGEX REPLACE "/+$" "" ONEQ_LOG_DIR_NORMALIZED "${ONEQ_LOG_DIR_NORMALIZED}")
+    message(STATUS "log dir: ${ONEQ_LOG_DIR_NORMALIZED} (-DONEQ_LOG_DIR)")
+else()
+    set(ONEQ_LOG_DIR_NORMALIZED "log")
+    message(STATUS "log dir: <cwd>/log (set -DONEQ_LOG_DIR=<dir> to pin)")
+endif()
+
+function(oneq_log_file out_var filename)
+    set("${out_var}" "${ONEQ_LOG_DIR_NORMALIZED}/${filename}" PARENT_SCOPE)
+endfunction()

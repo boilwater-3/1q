@@ -7,7 +7,7 @@
 | 场景文件 | `scenes/rir_long_range_scan/rir_long_range_scan.json` |
 | 场景意图 | 被测通道：RIR（主）；被测行为：甲方链路参数下，3400 km / RCS 0.025 m² 与 8550 km / RCS 1 m² 两目标在扫描体积内被探测并形成航迹；验证深度：L2 预期表 + L3 几何/链路先验 |
 | 构建模式 | release（运动学回退） |
-| 日志模式 | delta + key（默认） |
+| 日志模式 | 摘要 + 关键事件；机载 AR/ESR/EOS/SBIRS/SAR 不挂（`sensors.* = false`），不写排除原因 |
 | 目标设定 | 两目标同方位正东、俯仰 20°（扫描体积内：方位 ±110°、俯仰 2°–90°），沿北向穿过扫描扇区 |
 | 运行日期 | 2026-08-22（验收文件覆盖复核；探测基线 2026-08-20） |
 
@@ -59,15 +59,12 @@
 | RIR | 两目标 SNR 同量级 | 探测周期 | ~8 dB（过 6 dB 回退门） | 与航迹同期 | 两目标同期探测成立（等 SNR 轮廓）；视图不落 SNR 数值，手算 7.9 dB | 通过 |
 | RIR | 型号确认 | 不作为本场景门控 | 真值型号不在交付库；补极化后综合分 ~0.10 | — | 400 周期 `状态=4`（无候选）`型号=无` 置信 ~0.10；非本场景被测项 | 按设计（非门控） |
 | Fusion | RIR 量测并键 | cycle 1 起 | 源通道 5，峰值 ≥1 | ≥1 | cycle 1 `fused=2`，推理源类型=5 | 通过 |
-| 其余通道 | 远距目标不在机载窗内 | — | EOS/AR 无探测属按设计；SAR 产品与点目标解耦 | SAR 产品 ≥1 | AR `snr_below_threshold`、EOS/SBIRS 视场外、SAR 产品 1（squint 拒绝穿插） | 通过 |
+| 其余通道 | 未挂机载传感器 | — | events 无 AR/EOS/SBIRS 排除原因、无 SAR 产品 | 0 | 本场景 `sensors.* = false`，不写该通道事件 | 按设计 |
 
 ## 冒烟下限
 
-min_key_events=1 / min_sbirs_events=0 / min_sar_products=1 / min_fused_targets=1 /
-min_rir_recognition_outputs=0（识别确认不是本场景被测行为）
-
-实测（2026-08-22，400 周期）：events=59 / sbirs=0 / sar_products=1 / fused≥2 /
-rir_views=400 / rir_confirmed_cycles=0 / **SMOKE exit=0**。
+min_key_events=0 / min_sbirs_events=0 / min_sar_products=0 / min_fused_targets=1 /
+min_rir_recognition_outputs=0（机载未挂，排除原因不再充关键事件；识别确认不是本场景被测行为）
 
 ## 验收文件覆盖表（`rir_acceptance.log`，2026-08-22）
 
