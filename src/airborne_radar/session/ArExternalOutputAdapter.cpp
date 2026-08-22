@@ -16,7 +16,7 @@ namespace session {
 namespace {
 
 
-bool IsFiniteVector3f(const oneq::foundation::Vector3f& value) {
+bool IsFiniteVector3d(const oneq::coordinate::Vector3d& value) {
   return oneq::common::validation::IsFinite(value.x) && oneq::common::validation::IsFinite(value.y) && oneq::common::validation::IsFinite(value.z);
 }
 
@@ -40,9 +40,9 @@ oneq::coordinate::EnuVelocityMps Vector3dToEnuVelocity(const oneq::coordinate::V
 
 bool TryMakeExternalTrackFromSnapshot(const session::TrackStateSnapshot& snapshot,
                                       const oneq::coordinate::LocalFrameReference& reference,
-                                      oneq::foundation::Vector3f radar_local_velocity_mps,
+                                      oneq::coordinate::Vector3d radar_local_velocity_mps,
                                       ArExternalTrackKinematics* output) {
-  if (output == nullptr || !IsFiniteVector3f(radar_local_velocity_mps) ||
+  if (output == nullptr || !IsFiniteVector3d(radar_local_velocity_mps) ||
       !oneq::common::validation::IsFinite(snapshot.position_x) || !oneq::common::validation::IsFinite(snapshot.position_y) ||
       !oneq::common::validation::IsFinite(snapshot.position_z) || !oneq::common::validation::IsFinite(snapshot.velocity_x) ||
       !oneq::common::validation::IsFinite(snapshot.velocity_y) || !oneq::common::validation::IsFinite(snapshot.velocity_z)) {

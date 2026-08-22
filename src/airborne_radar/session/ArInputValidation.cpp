@@ -107,7 +107,7 @@ ArIssueList ValidateArCycleInput(const ArCycleInput& input) {
   }
 
   oneq::coordinate::LocalFrameReference reference;
-  oneq::foundation::Vector3f radar_local_velocity;
+  oneq::coordinate::Vector3d radar_local_velocity;
   const oneq::coordinate::EulerAnglesDeg zero_mount{};
   if (input.platform.platform_entity_id == 0U ||
       !oneq::coordinate::IsFinite(input.platform.platform_position_ecef_m) ||

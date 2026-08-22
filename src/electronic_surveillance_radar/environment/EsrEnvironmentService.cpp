@@ -4,7 +4,7 @@
 #include <cstddef>
 
 #include "1q/environment/PropagationPhysics.h"
-#include "electronic_surveillance_radar/environment/EsrSharedUtils.h"
+#include "common/numerics/ClampUtils.h"
 
 namespace electronic_surveillance_radar {
 namespace environment {
@@ -37,13 +37,15 @@ float ResolvePropagationProfileLossDb(config::EsrPropagationEnvironmentProfile p
 
 float ResolveWeatherLossDb(const config::EsrAtmosphericPhysicsConfig& physics,
                            const config::EsrAtmosphericObservation& observation) {
-  const float humidity = utils::Clamp01(physics.relative_humidity);
-  const float precipitation = utils::ClampNonNegative(observation.precipitation_rate_mmph);
+  const float humidity = oneq::common::numerics::Clamp01(physics.relative_humidity);
+  const float precipitation =
+      oneq::common::numerics::ClampNonNegative(observation.precipitation_rate_mmph);
   const float visibility_km = std::max(0.5f, observation.visibility_km);
   const float humidity_loss_db = 1.5f * humidity;
   const float precipitation_loss_db = 0.12f * precipitation;
   const float visibility_loss_db = visibility_km < 20.0f ? (20.0f - visibility_km) * 0.08f : 0.0f;
-  return utils::ClampNonNegative(humidity_loss_db + precipitation_loss_db + visibility_loss_db);
+  return oneq::common::numerics::ClampNonNegative(humidity_loss_db + precipitation_loss_db +
+                                                  visibility_loss_db);
 }
 
 float ResolveClutterNoiseW(const config::EsrEnvironmentScenarioConfig& config) {
@@ -102,9 +104,11 @@ session::EsrEnvironmentSnapshot BuildSnapshot(std::uint32_t cycle_index, float d
   const float semantic_loss_db =
       ResolvePropagationProfileLossDb(config.propagation_profile) +
       ResolveWeatherLossDb(config.atmospheric_physics, config.atmospheric_observation);
-  snapshot.propagation_loss_db = utils::ClampNonNegative(semantic_loss_db + physical_loss_db);
+  snapshot.propagation_loss_db =
+      oneq::common::numerics::ClampNonNegative(semantic_loss_db + physical_loss_db);
   snapshot.clutter_noise_w = ResolveClutterNoiseW(config);
-  snapshot.spectrum_occupancy_ratio = utils::Clamp01(config.spectrum_occupancy_ratio);
+  snapshot.spectrum_occupancy_ratio =
+      oneq::common::numerics::Clamp01(config.spectrum_occupancy_ratio);
   return snapshot;
 }
 

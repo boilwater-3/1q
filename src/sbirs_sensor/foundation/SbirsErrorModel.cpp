@@ -1,13 +1,14 @@
 ﻿#include "sbirs_sensor/foundation/SbirsErrorModel.h"
 
 #include <cmath>
+#include "common/numerics/Constants.h"
 
 namespace sbirs_sensor {
 namespace foundation {
 namespace {
 
-const double kPi = 3.14159265358979323846;
-const double kDegToRad = kPi / 180.0;
+using oneq::common::numerics::kPi;
+using oneq::common::numerics::DegToRad;
 
 }  // namespace
 
@@ -39,7 +40,7 @@ double RefractionErrorDeg(double range_m, float elevation_deg) {
   if (range_m <= 0.0) {
     return 0.0;
   }
-  const double cos_beta = std::cos(static_cast<double>(elevation_deg) * kDegToRad);
+  const double cos_beta = std::cos(DegToRad(static_cast<double>(elevation_deg)));
   // 仰角接近 0° 时 cosβ→1；俯仰角在天基 LOS 下通常较大，cos 不会发散。
   // 1.5e-6 为红外波段折射角系数（design 2.10）。
   const double denominator = range_m * std::fabs(cos_beta);

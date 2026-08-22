@@ -4,14 +4,15 @@
 #include <cmath>
 
 #include "sar/signal/SarWaveform.h"
+#include "common/numerics/Constants.h"
 
 namespace sar {
 namespace imaging {
 
 namespace {
 
-constexpr double kPi = 3.141592653589793238462643383279502884;
-constexpr double kSpeedOfLightMps = 299792458.0;
+using oneq::common::numerics::kPi;
+using oneq::common::numerics::kLightSpeed;
 constexpr std::size_t kMaxApprovedDimension = 128U;
 
 enum class BackprojectionTraversal { kPixelMajor, kPulseMajor };
@@ -66,7 +67,7 @@ void AccumulatePulseAtPixel(const GbpConfig& config,
                             FocusedGbpImage* output, GbpDiagnostics* diagnostics) {
   const geometry::LocalPoint pixel = MakePixel(config, row, col);
   const double slant_range_m = geometry::Distance(pulses[pulse].position_m, pixel);
-  const double source_col = 2.0 * slant_range_m * config.sample_rate_hz / kSpeedOfLightMps;
+  const double source_col = 2.0 * slant_range_m * config.sample_rate_hz / kLightSpeed;
   bool out_of_bounds = false;
   const signal::ComplexSample sample =
       InterpolateLinear(range_compressed, pulse, source_col, &out_of_bounds);
@@ -102,7 +103,7 @@ bool FocusSmallSceneBackprojection(const GbpConfig& config,
   output->image.cols = config.grid.range_pixel_count;
   output->image.values.assign(diagnostics.evaluated_pixels, signal::ComplexSample(0.0, 0.0));
 
-  const double wavelength_m = kSpeedOfLightMps / config.carrier_frequency_hz;
+  const double wavelength_m = kLightSpeed / config.carrier_frequency_hz;
   if (traversal == BackprojectionTraversal::kPixelMajor) {
     for (std::size_t row = 0U; row < output->image.rows; ++row) {
       for (std::size_t col = 0U; col < output->image.cols; ++col) {

@@ -9,7 +9,7 @@
 #include <cstdint>
 
 #include "1q/api.hpp"
-#include "1q/foundation/pose_types.h"
+#include "1q/coordinate/types.h"
 
 namespace sbirs_sensor {
 namespace config {
@@ -52,7 +52,7 @@ enum class ONEQ_API SbirsStabilizationMode {
  *       驱动运行期一次高斯抽取（pipeline 构造/ApplyConfig 时），保证 replay 可复现。
  */
 struct ONEQ_API SbirsMisalignmentModel {
-  oneq::foundation::EulerAnglesDeg bias_deg{}; /**< 常值失准偏置（单位：deg，Z-Y-X，Body->Sensor） */
+  oneq::coordinate::EulerAnglesDeg bias_deg{}; /**< 常值失准偏置（单位：deg，Z-Y-X，Body->Sensor） */
   float random_sigma_deg{0.0f};                /**< 随机微扰 1-σ（单位：deg；0 时不抽取随机流） */
   std::uint32_t random_seed{1U};               /**< 微扰流 32 位种子（固定，保证 replay 可复现） */
 };
@@ -72,7 +72,7 @@ struct ONEQ_API SbirsOrientationConfig {
    * @note 与周期输入的卫星姿态（Body->ECI）通过旋转矩阵复合得 ECI->Sensor
    *       等效姿态；静态配置（可动安装座如需运行期变化须扩展 patch 通道）。
    */
-  oneq::foundation::EulerAnglesDeg mount_angles_deg;
+  oneq::coordinate::EulerAnglesDeg mount_angles_deg;
   SbirsScanLimitsDeg sensor_scan_limits_deg; /**< 传感器系扫描限位 */
   SbirsStabilizationMode stabilization_mode{
       SbirsStabilizationMode::kBodyStabilized}; /**< 扫描稳定方式 */

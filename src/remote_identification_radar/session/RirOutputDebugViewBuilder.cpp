@@ -3,15 +3,17 @@
 #include <cmath>
 
 #include "1q/remote_identification_radar/session/RirCycleInput.h"
+#include "common/numerics/Constants.h"
 
 namespace remote_identification_radar {
 namespace session {
 
 namespace {
 
-constexpr double kRadToDeg = 57.29577951308232; /**< 180/π（局部换算，避免拉入公共数值头）。 */
 
-double RirRadToDeg(double radians) { return radians * kRadToDeg; }
+double RirRadToDeg(double radians) {
+  return oneq::common::numerics::RadToDeg(radians);
+}
 
 RirDebugTargetStatus ToDebugTargetStatus(RirTrackLifecycleStatus status) {
   switch (status) {

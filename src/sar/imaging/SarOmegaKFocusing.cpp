@@ -2,14 +2,15 @@
 
 #include <cmath>
 #include <vector>
+#include "common/numerics/Constants.h"
 
 namespace sar {
 namespace imaging {
 
 namespace {
 
-constexpr double kPi = 3.141592653589793238462643383279502884;
-constexpr double kSpeedOfLightMps = 299792458.0;
+using oneq::common::numerics::kPi;
+using oneq::common::numerics::kLightSpeed;
 
 bool IsValidConfig(const OmegaKConfig& config) {
   return config.range_sample_count >= 2U && config.azimuth_pulse_count >= 2U &&
@@ -134,7 +135,7 @@ bool FocusOmegaKInternal(const OmegaKConfig& config,
   // [阶段 5] 参考映射:相对延迟 → 绝对斜距。
   OmegaKReferenceMappingRequest mapping_request;
   mapping_request.request_id = kRequestId;
-  mapping_request.propagation_speed_mps = kSpeedOfLightMps;
+  mapping_request.propagation_speed_mps = kLightSpeed;
   mapping_request.reference_slant_range_m = config.reference_range_m;
   mapping_request.delay_sign = OmegaKDelaySign::kPositiveIncreasesRange;
   mapping_request.reference_phase_sign = OmegaKReferencePhaseSign::kPositive;
@@ -157,7 +158,7 @@ bool FocusOmegaKInternal(const OmegaKConfig& config,
   // K_z_target(col) = geometry.range_wavenumbers_rad_per_m[original_col],
   //   original_col 由网格收缩保留的列索引给出。
   // K_r_DC = 4π·f_c/c。
-  const double k_r_dc = 4.0 * kPi * config.carrier_frequency_hz / kSpeedOfLightMps;
+  const double k_r_dc = 4.0 * kPi * config.carrier_frequency_hz / kLightSpeed;
   std::vector<double> range_phase_radians;
   range_phase_radians.reserve(grid_reduction.original_column_indices.size());
   for (std::size_t original_col : grid_reduction.original_column_indices) {

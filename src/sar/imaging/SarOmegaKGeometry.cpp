@@ -3,14 +3,15 @@
 #include <algorithm>
 #include <cmath>
 #include <limits>
+#include "common/numerics/Constants.h"
 
 namespace sar {
 namespace imaging {
 
 namespace {
 
-constexpr double kPi = 3.141592653589793238462643383279502884;
-constexpr double kSpeedOfLightMps = 299792458.0;
+using oneq::common::numerics::kPi;
+using oneq::common::numerics::kLightSpeed;
 
 bool IsPositiveFinite(double value) {
   return std::isfinite(value) && value > 0.0;
@@ -43,7 +44,7 @@ bool EvaluateOmegaKStoltGeometry(const OmegaKGeometryConfig& config,
       config.sample_rate_hz / static_cast<double>(config.range_sample_count);
   diagnostics->azimuth_frequency_spacing_hz =
       config.prf_hz / static_cast<double>(config.azimuth_pulse_count);
-  diagnostics->wavelength_m = kSpeedOfLightMps / config.carrier_frequency_hz;
+  diagnostics->wavelength_m = kLightSpeed / config.carrier_frequency_hz;
   diagnostics->minimum_range_wavenumber_rad_per_m = std::numeric_limits<double>::infinity();
   diagnostics->minimum_valid_propagation_wavenumber_rad_per_m =
       std::numeric_limits<double>::infinity();
@@ -58,7 +59,7 @@ bool EvaluateOmegaKStoltGeometry(const OmegaKGeometryConfig& config,
     const double frequency_hz =
         UnshiftedFrequency(range_index, config.range_sample_count, config.sample_rate_hz);
     const double wavenumber =
-        4.0 * kPi * (config.carrier_frequency_hz + frequency_hz) / kSpeedOfLightMps;
+        4.0 * kPi * (config.carrier_frequency_hz + frequency_hz) / kLightSpeed;
     diagnostics->range_frequencies_hz.push_back(frequency_hz);
     diagnostics->range_wavenumbers_rad_per_m.push_back(wavenumber);
     minimum_supported_range_frequency_hz =
@@ -118,7 +119,7 @@ bool EvaluateOmegaKStoltGeometry(const OmegaKGeometryConfig& config,
       const double source_frequency_hz =
           azimuth_wavenumber == 0.0
               ? diagnostics->range_frequencies_hz[range_index]
-              : kSpeedOfLightMps * source_range_wavenumber / (4.0 * kPi) -
+              : kLightSpeed * source_range_wavenumber / (4.0 * kPi) -
                     config.carrier_frequency_hz;
       const double shift_hz = source_frequency_hz - diagnostics->range_frequencies_hz[range_index];
       diagnostics->source_range_frequency_queries_hz.push_back(source_frequency_hz);

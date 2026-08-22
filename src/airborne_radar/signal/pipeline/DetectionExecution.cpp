@@ -18,6 +18,7 @@
 #include "common/logging/ProjectLog.h"
 #include "common/radar/VegetationClutterModel.h"
 #include "common/rcs/RcsPhysics.h"
+#include "common/numerics/Constants.h"
 
 namespace airborne_radar {
 namespace signal {
@@ -212,7 +213,7 @@ bool RunPhysicalDetectionPass(const session::ArSceneTargetList& input,
 
   signal_detector->UpdateConfig(config.detection.engineering);
 
-  constexpr float kSpeedOfLightMps = 299792458.0f;
+  constexpr float kSpeedOfLightMps = static_cast<float>(oneq::common::numerics::kLightSpeed);
   const float wavelength_m =
       config.detection.engineering.transmitter.frequency_hz > 0.0f
           ? kSpeedOfLightMps / config.detection.engineering.transmitter.frequency_hz

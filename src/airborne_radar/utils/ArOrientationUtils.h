@@ -206,8 +206,8 @@ inline config::EulerAnglesDeg ComputeBodyFrameBeamPointing(
   mount_frame_euler.yaw_deg = mount_frame_pointing.az_deg;
   mount_frame_euler.pitch_deg = mount_frame_pointing.el_deg;
   const Matrix3f body_rotation = Multiply(
-      BuildRotationMatrix(config.mount_angles_deg),
-      BuildRotationMatrix(mount_frame_euler));
+      airborne_radar::utils::BuildRotationMatrix(config.mount_angles_deg),
+      airborne_radar::utils::BuildRotationMatrix(mount_frame_euler));
   return FromRotationMatrix(body_rotation);
 }
 
@@ -240,10 +240,10 @@ inline config::EulerAnglesDeg ComputePlatformFrameBeamPointing(
   mount_frame_euler.yaw_deg = mount_frame_pointing.az_deg;
   mount_frame_euler.pitch_deg = mount_frame_pointing.el_deg;
   const Matrix3f platform_mount_rotation = Multiply(
-      BuildRotationMatrix(platform_attitude_deg),
-      BuildRotationMatrix(config.mount_angles_deg));
+      airborne_radar::utils::BuildRotationMatrix(platform_attitude_deg),
+      airborne_radar::utils::BuildRotationMatrix(config.mount_angles_deg));
   const Matrix3f platform_rotation = Multiply(
-      platform_mount_rotation, BuildRotationMatrix(mount_frame_euler));
+      platform_mount_rotation, airborne_radar::utils::BuildRotationMatrix(mount_frame_euler));
   return FromRotationMatrix(platform_rotation);
 }
 

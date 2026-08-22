@@ -2,12 +2,13 @@
 
 #include <algorithm>
 #include <cmath>
+#include "common/numerics/Constants.h"
 
 namespace sbirs_sensor {
 namespace pipeline {
 namespace {
 
-constexpr double kPi = 3.141592653589793238462643383279502884;
+using oneq::common::numerics::kPi;
 constexpr double kVectorEpsilon = 1.0e-12;
 
 bool IsFinite(const session::SbirsVector3M& value) {

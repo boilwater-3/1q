@@ -16,12 +16,14 @@
 
 #include <cmath>
 
-#ifndef M_PI
-#define M_PI 3.14159265358979323846
-#endif
+#include "common/numerics/Constants.h"
 
 namespace oneq {
 namespace flight_dynamic {
+
+using oneq::common::numerics::kPi;
+using oneq::common::numerics::kTwoPi;
+using oneq::common::numerics::RadToDeg;
 
 /**
  * @brief 将弧度角归一化到 [-π, π]。
@@ -33,11 +35,11 @@ namespace flight_dynamic {
  * @return 归一化到 [-π, π] 的弧度。
  */
 inline double NormalizeRad(double angle_rad) {
-  double normalized = std::fmod(angle_rad, 2.0 * M_PI);
-  if (normalized > M_PI) {
-    normalized -= 2.0 * M_PI;
-  } else if (normalized < -M_PI) {
-    normalized += 2.0 * M_PI;
+  double normalized = std::fmod(angle_rad, kTwoPi);
+  if (normalized > kPi) {
+    normalized -= kTwoPi;
+  } else if (normalized < -kPi) {
+    normalized += kTwoPi;
   }
   return normalized;
 }
@@ -52,7 +54,7 @@ inline double NormalizeRad(double angle_rad) {
  * @return 归一化到 [0, 360) 的度。
  */
 inline double RadToDeg360(double angle_rad) {
-  double deg = std::fmod(angle_rad * 180.0 / M_PI, 360.0);
+  double deg = std::fmod(RadToDeg(angle_rad), 360.0);
   if (deg < 0.0) {
     deg += 360.0;
   }

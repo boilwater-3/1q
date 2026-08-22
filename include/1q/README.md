@@ -28,11 +28,12 @@
 跨模块复用的基础设施目录（非传感器域）：
 
 - `foundation/`：跨模块复用的基础类型与契约。
-  - 位姿原语（`pose_types.h`）、扫描调度（`scan_schedule_types.h`）、
+  - 单周期执行状态（`RuntimeCycleExecutor.h`）、扫描调度（`scan_schedule_types.h`）、
     输入校验基础类型（`validation_types.h`）、跨域会话形状契约（`SensorContract.h`）。
   轻量 JSON 解析器 `json_reader` 属于 example 共享便利层
   （`examples/common/json_reader.h`），不属于库 public surface。
-- `coordinate/`：WGS-84 坐标系下位置/速度/姿态的帧间转换（LLA/ECEF/ENU/NED/NUE 互转）。
+- `coordinate/`：WGS-84 坐标系下位置/速度/姿态的帧间转换（LLA/ECEF/ENU/NED/NUE 互转）；
+  轻量姿态/向量原语见 `types.h`（`EulerAnglesDeg`、`Vector3d`）。
 - `environment/`：大气模型抽象接口与传播物理算法（`IAtmosphereProvider`、
   `AtmosphericState`、`PropagationPhysics`、JSBSim 适配器）。作为大气类型的唯一公开来源。
 - `trace/`：通用结构化记录 sink 接口（`TraceSink`）。

@@ -70,8 +70,6 @@ class VehicleStateMapper {
   static constexpr double kSlugToKg = 14.5939;
   static constexpr double kLbfToN = 4.44822;
   static constexpr double kPsfToPa = 47.8803;
-  static constexpr double kRadToDeg = 57.2957795;
-  static constexpr double kDegToRad = 1.0 / kRadToDeg;
 };
 
 }  // namespace model

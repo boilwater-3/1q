@@ -10,6 +10,7 @@
 #include <sstream>
 
 #include "electronic_countermeasure/EcmInternalTypes.h"
+#include "common/numerics/Constants.h"
 
 namespace electronic_countermeasure {
 namespace session {
@@ -19,7 +20,7 @@ DeceptionEngagementManager::DeceptionEngagementManager(std::uint32_t random_seed
 
 void DeceptionEngagementManager::AdvanceStates(const config::EcmSessionConfig& config,
                                                double dt_sec) {
-  const double c = 299792458.0;
+  const double c = oneq::common::numerics::kLightSpeed;
   for (EcmDeceptionState& state : states_) {
     if (!state.engaged) {
       continue;

@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <cmath>
 #include <set>
+#include "common/numerics/Constants.h"
 
 namespace electronic_countermeasure {
 namespace session {
@@ -190,7 +191,7 @@ bool EcmConfigValidator::IsSnapshotInternallyConsistent(const EcmRuntimeState& s
         deception_state.phase == EcmDeceptionPhase::kIdle) {
       return false;
     }
-    const double c = 299792458.0;
+    const double c = oneq::common::numerics::kLightSpeed;
     const double max_delay_s = 2.0 * state.active_config.deception_rgpo_max_range_m / c;
     switch (deception_state.mode) {
       case EcmDeceptionMode::kRgpo:

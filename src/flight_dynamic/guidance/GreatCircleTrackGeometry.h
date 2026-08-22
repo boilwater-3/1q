@@ -8,6 +8,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include "common/numerics/Constants.h"
 
 namespace oneq {
 namespace flight_dynamic {
@@ -15,7 +16,7 @@ namespace guidance {
 namespace great_circle_track {
 
 constexpr double kEarthRadiusM = 6378137.0;
-constexpr double kPi = 3.14159265358979323846;
+using oneq::common::numerics::kPi;
 
 /**
  * @brief 大圆航迹上的沿航向与横航向距离。

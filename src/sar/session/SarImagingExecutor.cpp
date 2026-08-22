@@ -14,13 +14,14 @@
 #include "sar/imaging/SarRda.h"
 #include "sar/session/SarDiagnosticUtils.h"
 #include "sar/signal/SarWaveform.h"
+#include "common/numerics/Constants.h"
 
 namespace sar {
 namespace session {
 
 namespace {
 
-constexpr double kSpeedOfLightMps = 299792458.0;
+using oneq::common::numerics::kLightSpeed;
 
 bool CopyFocusedImage(const signal::ComplexMatrix& source, SarFocusedImageSource image_source,
                       SarFocusedImage* output) {
@@ -188,7 +189,7 @@ bool ExecuteL3BpImaging(const config::SarSessionConfig& config,
   bp_config.grid.azimuth_spacing_m = config.mission.platform_speed_mps /
                                      config.hardware.pulse_repetition_frequency_hz;
   bp_config.grid.range_spacing_m =
-      kSpeedOfLightMps / (2.0 * config.hardware.sample_rate_hz);
+      kLightSpeed / (2.0 * config.hardware.sample_rate_hz);
   bp_config.grid.azimuth_start_m =
       -0.5 * static_cast<double>(bp_config.grid.azimuth_pixel_count - 1U) *
       bp_config.grid.azimuth_spacing_m;

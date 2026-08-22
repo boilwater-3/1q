@@ -31,10 +31,6 @@ std::string FormatRotation(const oneq::coordinate::RotationMatrix3d& r) {
          FormatF(r.m20, 6) + "," + FormatF(r.m21, 6) + "," + FormatF(r.m22, 6) + "]]";
 }
 
-oneq::coordinate::EulerAnglesDeg ToCoord(const oneq::foundation::EulerAnglesDeg& angles) {
-  return oneq::coordinate::EulerAnglesDeg(angles.yaw_deg, angles.pitch_deg, angles.roll_deg);
-}
-
 oneq::coordinate::RotationMatrix3d ComposeMountAndMisalignment(
     const oneq::coordinate::EulerAnglesDeg& mount, const oneq::coordinate::EulerAnglesDeg& misalign) {
   return oneq::coordinate::Compose(oneq::coordinate::BuildRotationMatrix(mount),
@@ -111,16 +107,16 @@ int EventLevel(session::SbirsDetectionLifecycleEventKind kind) {
 
 }  // namespace
 
-void WriteSbirsInstallMatrices(const oneq::foundation::EulerAnglesDeg& mount_deg,
-                               const oneq::foundation::EulerAnglesDeg& misalignment_deg) {
+void WriteSbirsInstallMatrices(const oneq::coordinate::EulerAnglesDeg& mount_deg,
+                               const oneq::coordinate::EulerAnglesDeg& misalignment_deg) {
   if (!SBIRS_ACCEPTANCE_LOG_ENABLED()) {
     return;
   }
-  const oneq::coordinate::EulerAnglesDeg mount = ToCoord(mount_deg);
-  const oneq::coordinate::EulerAnglesDeg misalign = ToCoord(misalignment_deg);
-  const oneq::coordinate::RotationMatrix3d r_mount = oneq::coordinate::BuildRotationMatrix(mount);
-  const oneq::coordinate::RotationMatrix3d r_mis = oneq::coordinate::BuildRotationMatrix(misalign);
-  const oneq::coordinate::RotationMatrix3d r_actual = ComposeMountAndMisalignment(mount, misalign);
+  const oneq::coordinate::RotationMatrix3d r_mount = oneq::coordinate::BuildRotationMatrix(mount_deg);
+  const oneq::coordinate::RotationMatrix3d r_mis =
+      oneq::coordinate::BuildRotationMatrix(misalignment_deg);
+  const oneq::coordinate::RotationMatrix3d r_actual =
+      ComposeMountAndMisalignment(mount_deg, misalignment_deg);
   std::string content = "传感器安装R=" + FormatRotation(r_mount);
   content += " 失准R=" + FormatRotation(r_mis);
   content += " 实际指向R=" + FormatRotation(r_actual);

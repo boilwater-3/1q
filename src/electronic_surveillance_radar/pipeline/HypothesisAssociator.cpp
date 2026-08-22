@@ -9,7 +9,7 @@
 #include <utility>
 #include <vector>
 
-#include "electronic_surveillance_radar/environment/EsrSharedUtils.h"
+#include "common/numerics/ClampUtils.h"
 #include "electronic_surveillance_radar/pipeline/BandClassifier.h"
 #include "electronic_surveillance_radar/pipeline/ObservationFeatureEncoder.h"
 
@@ -91,12 +91,12 @@ std::vector<std::string> BuildCandidateClasses(double rf_hz,
  * @return 更新结果。
  */
 float Blend(float previous, float current, float alpha) {
-  const float a = utils::Clamp01(alpha);
+  const float a = oneq::common::numerics::Clamp01(alpha);
   return (1.0f - a) * previous + a * current;
 }
 
 double BlendDouble(double previous, double current, float alpha) {
-  const double a = static_cast<double>(utils::Clamp01(alpha));
+  const double a = static_cast<double>(oneq::common::numerics::Clamp01(alpha));
   return (1.0 - a) * previous + a * current;
 }
 
@@ -309,7 +309,7 @@ session::EmitterHypothesisList HypothesisAssociator::Update(
         track.pulse_width_std_s, summary.pulse_width_std_s, config_.confidence_alpha);
     const float base_bearing_std_deg = ComputeBaseBearingStdDeg(summary.support_count);
     track.bearing_std_deg = base_bearing_std_deg;
-    const float confidence_measurement = utils::Clamp01(summary.confidence_score);
+    const float confidence_measurement = oneq::common::numerics::Clamp01(summary.confidence_score);
     track.confidence = Blend(track.confidence, confidence_measurement, config_.confidence_alpha);
     track.last_seen_cycle = cycle_index;
     ++track.hit_streak;
@@ -350,7 +350,7 @@ session::EmitterHypothesisList HypothesisAssociator::Update(
     track.pulse_width_std_s = clusters[i].pulse_width_std_s;
     const float base_bearing_std_deg = ComputeBaseBearingStdDeg(clusters[i].support_count);
     track.bearing_std_deg = base_bearing_std_deg;
-    track.confidence = utils::Clamp01(clusters[i].confidence_score);
+    track.confidence = oneq::common::numerics::Clamp01(clusters[i].confidence_score);
     track.last_seen_cycle = cycle_index;
     track.hit_streak = 1U;
     track.missed_cycles = 0U;
@@ -368,7 +368,7 @@ session::EmitterHypothesisList HypothesisAssociator::Update(
     ++tracks_[i].age_cycles;
     tracks_[i].hit_streak = 0U;
     tracks_[i].confirmed = false;
-    tracks_[i].confidence = utils::Clamp01(tracks_[i].confidence * 0.92f);
+    tracks_[i].confidence = oneq::common::numerics::Clamp01(tracks_[i].confidence * 0.92f);
   }
 
   tracks_.erase(std::remove_if(tracks_.begin(), tracks_.end(),

@@ -9,6 +9,7 @@
 #include <cmath>
 
 #include "1q/airborne_radar/session/ArSceneTypes.h"
+#include "common/numerics/Constants.h"
 
 namespace airborne_radar {
 namespace signal {
@@ -44,9 +45,8 @@ class TargetLookResolver {
       return result;
     }
 
-    const float kRad2Deg = 180.0f / 3.14159265358979f;
-    result.look_az_deg = std::atan2(position_y, position_x) * kRad2Deg;
-    result.look_el_deg = std::atan2(position_z, horizontal_norm) * kRad2Deg;
+    result.look_az_deg = oneq::common::numerics::RadToDeg(std::atan2(position_y, position_x));
+    result.look_el_deg = oneq::common::numerics::RadToDeg(std::atan2(position_z, horizontal_norm));
     result.has_look_angles = true;
     return result;
   }

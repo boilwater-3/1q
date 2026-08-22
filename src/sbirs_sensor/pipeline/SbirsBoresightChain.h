@@ -46,7 +46,7 @@ class SbirsBoresightChain {
    * @param[in] mount_angles_deg 传感器安装偏置角（Body->Sensor，deg）
    */
   SbirsBoresightChain(const session::SbirsEulerAnglesDeg& attitude_eci_body_deg,
-                      const oneq::foundation::EulerAnglesDeg& mount_angles_deg);
+                      const oneq::coordinate::EulerAnglesDeg& mount_angles_deg);
 
   /**
    * @brief 由卫星姿态（Body->ECI）、安装角（Body->Sensor）与安装失准角构造合成链。
@@ -57,8 +57,8 @@ class SbirsBoresightChain {
    * @param[in] misalignment_deg 安装失准角误差（常值偏置 + 运行期一次随机抽取，deg）
    */
   SbirsBoresightChain(const session::SbirsEulerAnglesDeg& attitude_eci_body_deg,
-                      const oneq::foundation::EulerAnglesDeg& mount_angles_deg,
-                      const oneq::foundation::EulerAnglesDeg& misalignment_deg);
+                      const oneq::coordinate::EulerAnglesDeg& mount_angles_deg,
+                      const oneq::coordinate::EulerAnglesDeg& misalignment_deg);
 
   /** @brief 是否为恒等链（零姿态 + 零安装角）。 */
   bool IsIdentity() const;

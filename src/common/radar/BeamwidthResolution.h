@@ -6,9 +6,13 @@
 #ifndef COMMON_RADAR_BEAMWIDTH_RESOLUTION_H_
 #define COMMON_RADAR_BEAMWIDTH_RESOLUTION_H_
 
+#include "common/numerics/Constants.h"
+
 namespace oneq {
 namespace common {
 namespace radar {
+
+using oneq::common::numerics::RadToDeg;
 
 /**
  * @brief EffectiveBeamwidthDeg 表示解析后的有效波束宽度（单位：度）。
@@ -65,14 +69,13 @@ inline EffectiveBeamwidthDeg ResolveEffectiveBeamwidth(
   beamwidth.az_beamwidth_deg = nominal_az_deg;
   beamwidth.el_beamwidth_deg = nominal_el_deg;
 
-  constexpr float kRad2Deg = 180.0f / 3.14159265358979f;
   if (beamwidth.az_beamwidth_deg <= 0.0f && aperture_az_m > 0.0f && wavelength_m > 0.0f) {
     beamwidth.az_beamwidth_deg =
-        DeriveBeamwidthFromApertureRad(aperture_az_m, wavelength_m) * kRad2Deg;
+        RadToDeg(DeriveBeamwidthFromApertureRad(aperture_az_m, wavelength_m));
   }
   if (beamwidth.el_beamwidth_deg <= 0.0f && aperture_el_m > 0.0f && wavelength_m > 0.0f) {
     beamwidth.el_beamwidth_deg =
-        DeriveBeamwidthFromApertureRad(aperture_el_m, wavelength_m) * kRad2Deg;
+        RadToDeg(DeriveBeamwidthFromApertureRad(aperture_el_m, wavelength_m));
   }
   return beamwidth;
 }

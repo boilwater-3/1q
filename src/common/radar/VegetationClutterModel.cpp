@@ -12,18 +12,19 @@
 
 #include "common/numerics/ClampUtils.h"
 #include "common/rcs/RcsPhysics.h"
+#include "common/numerics/Constants.h"
 
 namespace oneq {
 namespace common {
 namespace radar {
 
 namespace {
+using oneq::common::numerics::RadToDeg;
 
 constexpr float kInternalBasePropagationLossDb = 4.0f;
 constexpr float kInternalAtmosphericAttenuationDb = 1.5f;
 constexpr float kInternalTerrainReflectionDb = 1.0f;
 constexpr float kInternalBaselineClutterPowerDb = 3.0f;
-constexpr float kRadToDeg = 57.2957795f;
 
 float DbToLinear(float db_value) { return std::pow(10.0f, db_value / 10.0f); }
 
@@ -89,7 +90,7 @@ float ResolveVegetationIncidenceDeg(const VegetationPhysicsParameters& parameter
   const float canopy_slope_rad =
       std::atan2(std::max(parameters.canopy_height_m, 0.1f),
                  std::max(parameters.canopy_radius_m, 0.1f));
-  const float incidence_deg = 8.0f + canopy_slope_rad * kRadToDeg * 0.5f;
+  const float incidence_deg = 8.0f + RadToDeg(canopy_slope_rad) * 0.5f;
   return oneq::common::numerics::Clamp(incidence_deg, 8.0f, 75.0f);
 }
 

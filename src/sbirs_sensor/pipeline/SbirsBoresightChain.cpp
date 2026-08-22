@@ -5,8 +5,8 @@ namespace pipeline {
 
 namespace {
 
-oneq::foundation::EulerAnglesDeg ToFoundation(const session::SbirsEulerAnglesDeg& angles) {
-  return oneq::foundation::EulerAnglesDeg(angles.yaw_deg, angles.pitch_deg, angles.roll_deg);
+oneq::coordinate::EulerAnglesDeg ToCoordinateEuler(const session::SbirsEulerAnglesDeg& angles) {
+  return oneq::coordinate::EulerAnglesDeg(angles.yaw_deg, angles.pitch_deg, angles.roll_deg);
 }
 
 oneq::coordinate::Vector3d ToVector3d(const session::SbirsVector3M& vector) {
@@ -20,14 +20,14 @@ session::SbirsVector3M ToSbirsVector(const oneq::coordinate::Vector3d& vector) {
 }  // namespace
 
 SbirsBoresightChain::SbirsBoresightChain(const session::SbirsEulerAnglesDeg& attitude_eci_body_deg,
-                                         const oneq::foundation::EulerAnglesDeg& mount_angles_deg)
+                                         const oneq::coordinate::EulerAnglesDeg& mount_angles_deg)
     : SbirsBoresightChain(attitude_eci_body_deg, mount_angles_deg,
-                          oneq::foundation::EulerAnglesDeg()) {}
+                          oneq::coordinate::EulerAnglesDeg()) {}
 
 SbirsBoresightChain::SbirsBoresightChain(const session::SbirsEulerAnglesDeg& attitude_eci_body_deg,
-                                         const oneq::foundation::EulerAnglesDeg& mount_angles_deg,
-                                         const oneq::foundation::EulerAnglesDeg& misalignment_deg)
-    : chain_(ToFoundation(attitude_eci_body_deg), mount_angles_deg, misalignment_deg) {}
+                                         const oneq::coordinate::EulerAnglesDeg& mount_angles_deg,
+                                         const oneq::coordinate::EulerAnglesDeg& misalignment_deg)
+    : chain_(ToCoordinateEuler(attitude_eci_body_deg), mount_angles_deg, misalignment_deg) {}
 
 bool SbirsBoresightChain::IsIdentity() const { return chain_.IsIdentity(); }
 

@@ -26,8 +26,10 @@
 #include "common/estimation/IKalmanPredictor.h"
 #include "common/estimation/IKalmanUpdater.h"
 #include "common/estimation/ImmFilter.h"
+#include "common/numerics/Constants.h"
 #include "common/estimation/KalmanPredictor.h"
 #include "sbirs_sensor/foundation/SbirsErrorModel.h"
+#include "common/numerics/Constants.h"
 
 namespace sbirs_sensor {
 namespace tracking {
@@ -169,9 +171,10 @@ inline SbirsMeasurementCovariance BuildMeasurementCovariance(
   const double sigma_el_deg = sigma_az_deg;
 
   // deg² → rad²。
-  const double deg2rad = 3.14159265358979323846 / 180.0;
-  const double var_az_rad2 = sigma_az_deg * deg2rad * sigma_az_deg * deg2rad;
-  const double var_el_rad2 = sigma_el_deg * deg2rad * sigma_el_deg * deg2rad;
+  const double var_az_rad2 =
+      oneq::common::numerics::DegToRad(sigma_az_deg) * oneq::common::numerics::DegToRad(sigma_az_deg);
+  const double var_el_rad2 =
+      oneq::common::numerics::DegToRad(sigma_el_deg) * oneq::common::numerics::DegToRad(sigma_el_deg);
 
   SbirsMeasurementCovariance R = SbirsMeasurementCovariance::Zero();
   R(0, 0) = static_cast<float>(var_az_rad2);

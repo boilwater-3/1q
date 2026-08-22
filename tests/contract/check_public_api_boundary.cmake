@@ -308,7 +308,7 @@ set(COORDINATE_HEADERS
 )
 
 set(FOUNDATION_HEADERS
-    "foundation/pose_types.h"
+    "foundation/RuntimeCycleExecutor.h"
     "foundation/scan_schedule_types.h"
     "foundation/SensorContract.h"
     "foundation/validation_types.h"

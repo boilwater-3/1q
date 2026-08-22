@@ -19,7 +19,7 @@ sbirs_sensor::session::SbirsVector3M Vector(double x, double y, double z) {
 TEST(SbirsBoresightChainTest, ZeroIdentityPreservesEciAzEl) {
   // 零姿态 + 零安装角：链路为恒等变换，传感器系 az/el 与 ECI az/el 逐位一致。
   const sbirs_sensor::pipeline::SbirsBoresightChain chain(
-      sbirs_sensor::session::SbirsEulerAnglesDeg{}, oneq::foundation::EulerAnglesDeg{});
+      sbirs_sensor::session::SbirsEulerAnglesDeg{}, oneq::coordinate::EulerAnglesDeg{});
   ASSERT_TRUE(chain.IsIdentity());
 
   float sensor_azimuth_deg = 0.0f;
@@ -41,7 +41,7 @@ TEST(SbirsBoresightChainTest, YawRotationMapsSensorXToEciY) {
   sbirs_sensor::session::SbirsEulerAnglesDeg attitude;
   attitude.yaw_deg = 90.0;
   const sbirs_sensor::pipeline::SbirsBoresightChain chain(attitude,
-                                                          oneq::foundation::EulerAnglesDeg{});
+                                                          oneq::coordinate::EulerAnglesDeg{});
   ASSERT_FALSE(chain.IsIdentity());
 
   const sbirs_sensor::session::SbirsVector3M eci_los = chain.EciLosOfSensorPointing(0.0f, 0.0f);
@@ -59,7 +59,7 @@ TEST(SbirsBoresightChainTest, YawRotationMapsSensorXToEciY) {
 TEST(SbirsBoresightChainTest, MountPitchMapsSensorXToEciZ) {
   // 安装角 pitch=90°：传感器 +x̂ 指向 body −ẑ（库约定正 pitch = 正仰角，
   // Ry(-90) 旋转使 x̂ → −ẑ）；零姿态下即 ECI −ẑ（el=-90°）。
-  oneq::foundation::EulerAnglesDeg mount;
+  oneq::coordinate::EulerAnglesDeg mount;
   mount.pitch_deg = 90.0;
   const sbirs_sensor::pipeline::SbirsBoresightChain chain(sbirs_sensor::session::SbirsEulerAnglesDeg{},
                                                           mount);
@@ -72,7 +72,7 @@ TEST(SbirsBoresightChainTest, MountPitchMapsSensorXToEciZ) {
 
 TEST(SbirsBoresightChainTest, SensorAzElRoundTripIsIdentity) {
   const sbirs_sensor::session::SbirsEulerAnglesDeg attitude{30.0, -15.0, 7.0};
-  oneq::foundation::EulerAnglesDeg mount;
+  oneq::coordinate::EulerAnglesDeg mount;
   mount.yaw_deg = 10.0;
   mount.pitch_deg = -25.0;
   mount.roll_deg = 5.0;
@@ -93,7 +93,7 @@ TEST(SbirsBoresightChainTest, SensorAzElRoundTripIsIdentity) {
 
 TEST(SbirsBoresightChainTest, EciVectorRoundTripPreservesDirection) {
   const sbirs_sensor::session::SbirsEulerAnglesDeg attitude{120.0, 40.0, -10.0};
-  oneq::foundation::EulerAnglesDeg mount;
+  oneq::coordinate::EulerAnglesDeg mount;
   mount.yaw_deg = -30.0;
   mount.pitch_deg = 15.0;
   mount.roll_deg = 60.0;
@@ -118,7 +118,7 @@ TEST(SbirsBoresightChainTest, EciVectorRoundTripPreservesDirection) {
 TEST(SbirsBoresightChainTest, SensorPointingForDesiredEciLosInvertsChain) {
   // 惯性稳定反解：期望 ECI 光轴经链路反解为传感器系指向，应等于该光轴的传感器系 az/el。
   const sbirs_sensor::session::SbirsEulerAnglesDeg attitude{45.0, 20.0, -30.0};
-  oneq::foundation::EulerAnglesDeg mount;
+  oneq::coordinate::EulerAnglesDeg mount;
   mount.yaw_deg = 5.0;
   mount.pitch_deg = -10.0;
   const sbirs_sensor::pipeline::SbirsBoresightChain chain(attitude, mount);
@@ -170,10 +170,10 @@ TEST(SbirsBoresightChainTest, NonZeroInputsAreNotIdentity) {
   sbirs_sensor::session::SbirsEulerAnglesDeg attitude;
   attitude.pitch_deg = 5.0;
   EXPECT_FALSE(
-      sbirs_sensor::pipeline::SbirsBoresightChain(attitude, oneq::foundation::EulerAnglesDeg{})
+      sbirs_sensor::pipeline::SbirsBoresightChain(attitude, oneq::coordinate::EulerAnglesDeg{})
           .IsIdentity());
 
-  oneq::foundation::EulerAnglesDeg mount;
+  oneq::coordinate::EulerAnglesDeg mount;
   mount.roll_deg = 2.0;
   EXPECT_FALSE(sbirs_sensor::pipeline::SbirsBoresightChain(
                    sbirs_sensor::session::SbirsEulerAnglesDeg{}, mount)
@@ -185,11 +185,11 @@ TEST(SbirsBoresightChainTest, ZeroMisalignmentMatchesTwoArgConstructor) {
   sbirs_sensor::session::SbirsEulerAnglesDeg attitude;
   attitude.yaw_deg = 12.0;
   attitude.roll_deg = -4.0;
-  oneq::foundation::EulerAnglesDeg mount;
+  oneq::coordinate::EulerAnglesDeg mount;
   mount.pitch_deg = 7.0;
   const sbirs_sensor::pipeline::SbirsBoresightChain two_arg(attitude, mount);
   const sbirs_sensor::pipeline::SbirsBoresightChain three_arg(attitude, mount,
-                                                              oneq::foundation::EulerAnglesDeg{});
+                                                              oneq::coordinate::EulerAnglesDeg{});
   const sbirs_sensor::session::SbirsVector3M probe = Vector(0.6, -0.3, 0.8);
   const sbirs_sensor::session::SbirsVector3M left = two_arg.RotateSensorToEci(probe);
   const sbirs_sensor::session::SbirsVector3M right = three_arg.RotateSensorToEci(probe);
@@ -202,10 +202,10 @@ TEST(SbirsBoresightChainTest, ZeroMisalignmentMatchesTwoArgConstructor) {
 TEST(SbirsBoresightChainTest, MisalignmentYawRotatesSensorFrame) {
   // 失准与 mount 同语义（链取 R_misalign⁻¹）：misalignment yaw +90° 使传感器 +x̂ 指向
   // ECI -ŷ（绕 body z 反转 90°，与姿态 yaw 的方向相反）。
-  oneq::foundation::EulerAnglesDeg misalignment;
+  oneq::coordinate::EulerAnglesDeg misalignment;
   misalignment.yaw_deg = 90.0;
   const sbirs_sensor::pipeline::SbirsBoresightChain chain(
-      sbirs_sensor::session::SbirsEulerAnglesDeg{}, oneq::foundation::EulerAnglesDeg{},
+      sbirs_sensor::session::SbirsEulerAnglesDeg{}, oneq::coordinate::EulerAnglesDeg{},
       misalignment);
   ASSERT_FALSE(chain.IsIdentity());
   const sbirs_sensor::session::SbirsVector3M eci = chain.RotateSensorToEci(Vector(1.0, 0.0, 0.0));
@@ -215,11 +215,11 @@ TEST(SbirsBoresightChainTest, MisalignmentYawRotatesSensorFrame) {
 }
 
 TEST(SbirsBoresightChainTest, MisalignmentMakesChainNonIdentity) {
-  oneq::foundation::EulerAnglesDeg misalignment;
+  oneq::coordinate::EulerAnglesDeg misalignment;
   misalignment.pitch_deg = 3.0;
   EXPECT_FALSE(sbirs_sensor::pipeline::SbirsBoresightChain(
                    sbirs_sensor::session::SbirsEulerAnglesDeg{},
-                   oneq::foundation::EulerAnglesDeg{}, misalignment)
+                   oneq::coordinate::EulerAnglesDeg{}, misalignment)
                    .IsIdentity());
 }
 
@@ -228,9 +228,9 @@ TEST(SbirsBoresightChainTest, MisalignmentRoundTripPreservesDirection) {
   sbirs_sensor::session::SbirsEulerAnglesDeg attitude;
   attitude.yaw_deg = 20.0;
   attitude.pitch_deg = -6.0;
-  oneq::foundation::EulerAnglesDeg mount;
+  oneq::coordinate::EulerAnglesDeg mount;
   mount.roll_deg = 9.0;
-  oneq::foundation::EulerAnglesDeg misalignment;
+  oneq::coordinate::EulerAnglesDeg misalignment;
   misalignment.yaw_deg = -15.0;
   misalignment.pitch_deg = 2.0;
   const sbirs_sensor::pipeline::SbirsBoresightChain chain(attitude, mount, misalignment);

@@ -1,21 +1,22 @@
 ﻿/**
  * @file RuntimeCycleExecutor.h
- * @brief 定义跨模块复用的单周期运行骨架工具。
+ * @brief 定义跨模块复用的单周期执行状态类型（周期标识与输出锁存）。
  */
 
-#ifndef COMMON_RUNTIME_RUNTIME_CYCLE_EXECUTOR_H_
-#define COMMON_RUNTIME_RUNTIME_CYCLE_EXECUTOR_H_
+#ifndef ONEQ_FOUNDATION_RUNTIME_CYCLE_EXECUTOR_H_
+#define ONEQ_FOUNDATION_RUNTIME_CYCLE_EXECUTOR_H_
 
 #include <cstdint>
 
+#include "1q/api.hpp"
+
 namespace oneq {
-namespace common {
-namespace runtime {
+namespace foundation {
 
 /**
  * @brief RuntimeCycleStamp 描述单周期执行时的只读标识。
  */
-struct RuntimeCycleStamp {
+struct ONEQ_API RuntimeCycleStamp {
   std::uint32_t cycle_index{0U}; /**< 当前周期号。 */
   std::uint64_t batch_id{1U};    /**< 当前批次号。 */
 };
@@ -44,8 +45,7 @@ inline RuntimeCycleStamp MakeRuntimeCycleStamp(std::uint32_t cycle_index, std::u
   return stamp;
 }
 
-}  // namespace runtime
-}  // namespace common
+}  // namespace foundation
 }  // namespace oneq
 
-#endif  // COMMON_RUNTIME_RUNTIME_CYCLE_EXECUTOR_H_
+#endif  // ONEQ_FOUNDATION_RUNTIME_CYCLE_EXECUTOR_H_

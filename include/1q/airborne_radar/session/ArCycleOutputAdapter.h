@@ -49,7 +49,7 @@ struct ONEQ_API ArCycleOutputAdapter {
    * @return 转换成功返回 true。
    */
   static bool Build(const oneq::coordinate::LocalFrameReference& reference,
-                    oneq::foundation::Vector3f radar_local_velocity_mps,
+                    oneq::coordinate::Vector3d radar_local_velocity_mps,
                     const TrackOutputFrame& frame, ArExternalTrackOutputFrame* output);
 
  private:

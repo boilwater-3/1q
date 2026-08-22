@@ -28,6 +28,7 @@
 #include "common/geometry/BearingCluster.h"
 #include "fusion/FusionAcceptanceLog.h"
 #include "fusion/FusionAcceptanceRecords.h"
+#include "common/numerics/Constants.h"
 
 namespace fusion {
 
@@ -41,7 +42,8 @@ using oneq::coordinate::LlaPositionDegM;
 constexpr std::uint64_t kUnidentifiedKey = 0U;
 // 无身份航迹的合成键起点：与调用方身份键（约定 < 2^63）不冲突。
 constexpr std::uint64_t kSyntheticKeyBase = (1ULL << 63);
-constexpr double kRadToDeg = 57.29577951308232;
+using oneq::common::numerics::DegToRad;
+using oneq::common::numerics::RadToDeg;
 
 // 传感器局部 ENU 基（由原点大地法向导出；极点退化时 invalid）。
 struct EnuBasis {
@@ -104,8 +106,8 @@ class EnuBearingMeasurementModel final : public estimation::IMeasurementModel<6,
     const double u = Dot3(d, basis_.up);
     const double range = std::sqrt(Dot3(d, d));
     const double sin_el = (range > 1.0e-9) ? std::max(-1.0, std::min(1.0, u / range)) : 0.0;
-    z(0) = static_cast<float>(std::atan2(e, n) * kRadToDeg);
-    z(1) = static_cast<float>(std::asin(sin_el) * kRadToDeg);
+    z(0) = static_cast<float>(RadToDeg(std::atan2(e, n)));
+    z(1) = static_cast<float>(RadToDeg(std::asin(sin_el)));
     return z;
   }
 
@@ -130,16 +132,17 @@ class EnuBearingMeasurementModel final : public estimation::IMeasurementModel<6,
     if (cos_el < 1.0e-9) {
       return h;
     }
-    // ∂az/∂d = (n·east − e·north)/(e²+n²)（rad/m）；×kRadToDeg 转 deg/m。
+    // ∂az/∂d = (n·east − e·north)/(e²+n²)（rad/m）；×RadToDeg 转 deg/m。
     for (int i = 0; i < 3; ++i) {
-      h(0, 2 * i) = static_cast<float>((n * basis_.east[i] - e * basis_.north[i]) /
-                                       horizontal_sq * kRadToDeg);
+      h(0, 2 * i) =
+          static_cast<float>(RadToDeg(
+              (n * basis_.east[i] - e * basis_.north[i]) / horizontal_sq));
     }
     // ∂el/∂d = (r²·up − u·d)/(r³·cos_el)（rad/m）。
     const double scale = 1.0 / (range * range * range * cos_el);
     for (int i = 0; i < 3; ++i) {
-      h(1, 2 * i) = static_cast<float>((range * range * basis_.up[i] - u * d[i]) * scale *
-                                       kRadToDeg);
+      h(1, 2 * i) = static_cast<float>(
+          RadToDeg((range * range * basis_.up[i] - u * d[i]) * scale));
     }
     return h;
   }
@@ -525,8 +528,8 @@ class FusionEngine::Impl {
         return false;
       }
       // LOS 单位向量（ENU az 自北向东、el 出地平）→ ECEF。
-      const double az_rad = detection.bearing_az_deg / kRadToDeg;
-      const double el_rad = detection.bearing_el_deg / kRadToDeg;
+      const double az_rad = DegToRad(detection.bearing_az_deg);
+      const double el_rad = DegToRad(detection.bearing_el_deg);
       const double e = std::sin(az_rad) * std::cos(el_rad);
       const double n = std::cos(az_rad) * std::cos(el_rad);
       const double u = std::sin(el_rad);
@@ -619,7 +622,7 @@ class FusionEngine::Impl {
         return;
       }
       estimation::UnscentedUpdaterConfig updater_config;
-      const double sigma_deg = sigma_rad * kRadToDeg;
+      const double sigma_deg = RadToDeg(sigma_rad);
       updater_config.measurement_noise_std = static_cast<float>(sigma_deg);
       const estimation::UnscentedUpdater<6, 2> updater(&bearing_model, updater_config);
       estimation::GaussianState<6, 2> state;

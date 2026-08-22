@@ -8,13 +8,13 @@
 #include <cmath>
 #include <complex>
 #include <limits>
+#include "common/numerics/Constants.h"
 
 namespace remote_identification_radar {
 namespace runtime {
 namespace {
 
-constexpr double kPi = 3.14159265358979323846;
-constexpr double kRadToDeg = 180.0 / kPi;
+using oneq::common::numerics::kPi;
 constexpr double kOffDiagonalFloor = 1.0e-18;
 
 bool IsFiniteLook(float az_deg, float el_deg) {
@@ -111,8 +111,8 @@ bool TryResolvePolarizationAcceptanceS(
       tau_arg = -1.0;
     }
     const double tau_rad = 0.5 * std::asin(tau_arg);
-    psi_deg = psi_rad * kRadToDeg;
-    tau_deg = tau_rad * kRadToDeg;
+    psi_deg = oneq::common::numerics::RadToDeg(psi_rad);
+    tau_deg = oneq::common::numerics::RadToDeg(tau_rad);
   }
   if (!std::isfinite(psi_deg) || !std::isfinite(tau_deg)) {
     return false;

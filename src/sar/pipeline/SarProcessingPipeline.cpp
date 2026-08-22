@@ -13,15 +13,17 @@
 #include "sar/session/SarImagingExecutor.h"
 #include "sar/session/SarRawHistoryBuilder.h"
 #include "sar/signal/SarWaveform.h"
+#include "common/numerics/Constants.h"
 
 namespace sar {
 namespace pipeline {
 
 namespace {
+using oneq::common::numerics::DegToRad;
+using oneq::common::numerics::RadToDeg;
 
 constexpr std::uint32_t kPipelineRuntimeStateSchemaVersion = 1U;
 constexpr double kEarthRadiusM = 6378137.0;
-constexpr double kRadiansToDegrees = 180.0 / 3.141592653589793238462643383279502884;
 
 bool HasDegenerateImagePeak(const session::SarCycleResult& result,
                             const session::SarCycleInput& input) {
@@ -97,19 +99,18 @@ double ComputeSquintAngleDeg(const geometry::PlatformPulseState& pulse,
       std::abs((pulse.velocity_x_mps * los_x + pulse.velocity_y_mps * los_y +
                 pulse.velocity_z_mps * los_z) /
                (speed * range));
-  return std::asin(std::min(1.0, along_track_cosine)) * kRadiansToDegrees;
+  return RadToDeg(std::asin(std::min(1.0, along_track_cosine)));
 }
 
 geometry::PlatformPulseState BuildCurrentPlatformPulse(
     const config::SarMissionConfig& mission, const session::SarPlatformState& platform) {
-  const double degrees_to_radians = 1.0 / kRadiansToDegrees;
-  const double reference_latitude_rad = mission.scene_center_latitude_deg * degrees_to_radians;
+  const double reference_latitude_rad = DegToRad(mission.scene_center_latitude_deg);
   geometry::PlatformPulseState pulse;
   pulse.position_m.x_m =
-      (platform.longitude_deg - mission.scene_center_longitude_deg) * degrees_to_radians *
+      oneq::common::numerics::DegToRad(platform.longitude_deg - mission.scene_center_longitude_deg) *
       std::cos(reference_latitude_rad) * kEarthRadiusM;
   pulse.position_m.y_m =
-      (platform.latitude_deg - mission.scene_center_latitude_deg) * degrees_to_radians *
+      oneq::common::numerics::DegToRad(platform.latitude_deg - mission.scene_center_latitude_deg) *
       kEarthRadiusM;
   pulse.position_m.z_m = platform.altitude_m - mission.scene_center_altitude_m;
   pulse.velocity_x_mps = platform.velocity_east_mps;

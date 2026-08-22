@@ -24,12 +24,13 @@
 #include "precision_evaluation/PrecisionEvaluationLog.h"
 #include "precision_evaluation/PrecisionAcceptanceRecords.h"
 #include "precision_evaluation/SbirsBearingAdapter.h"
+#include "common/numerics/Constants.h"
 
 namespace precision_evaluation {
 namespace {
 
-const double kPi = 3.14159265358979323846;
-const double kRadToDeg = 180.0 / kPi;
+using oneq::common::numerics::kPi;
+using oneq::common::numerics::RadToDeg;
 
 // 方位角最短角差（deg）：结果落在 (-180, 180]。
 float WrapAzimuthDeltaDeg(double a_deg, double b_deg) {
@@ -303,11 +304,11 @@ PrecisionEvaluationCycleResult PrecisionEvaluationSession::Step(
       sample.cycle_index = cycle_index;
       sample.satellite_index = satellite_index;
       sample.azimuth_error_deg =
-          WrapAzimuthDeltaDeg(static_cast<double>(entry.second->azimuth_rad) * kRadToDeg,
-                              truth_az_rad * kRadToDeg);
+          WrapAzimuthDeltaDeg(RadToDeg(static_cast<double>(entry.second->azimuth_rad)),
+                              RadToDeg(truth_az_rad));
       sample.elevation_error_deg =
-          static_cast<float>(static_cast<double>(entry.second->elevation_rad) * kRadToDeg -
-                             truth_el_rad * kRadToDeg);
+          static_cast<float>(RadToDeg(static_cast<double>(entry.second->elevation_rad)) -
+                             RadToDeg(truth_el_rad));
       cycle_result.angular.push_back(sample);
       impl_->angular_series.push_back(
           std::hypot(static_cast<double>(sample.azimuth_error_deg),

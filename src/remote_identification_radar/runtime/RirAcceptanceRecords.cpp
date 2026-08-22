@@ -65,7 +65,6 @@ const char* CategoryName(int category) {
 }
 
 constexpr double kLn10 = 2.302585092994046;
-constexpr double kRadToDeg = 57.29577951308232;
 
 double ToDb(double linear) {
   if (linear <= 0.0) {
@@ -88,7 +87,9 @@ const char* TrackStatusText(tracking::RirTrackStatus status) {
   }
 }
 
-double HeadingDeg(double ve, double vn) { return std::atan2(vn, ve) * kRadToDeg; }
+double HeadingDeg(double ve, double vn) {
+  return oneq::common::numerics::RadToDeg(std::atan2(vn, ve));
+}
 
 std::string FormatChannelWatts(const std::array<double, oneq::common::radar::kMtiMtdChannelCount>& values) {
   std::string text = "[";

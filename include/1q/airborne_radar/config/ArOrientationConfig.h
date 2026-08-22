@@ -11,14 +11,14 @@
 #define ONEQ_AIRBORNE_RADAR_CONFIG_AR_ORIENTATION_CONFIG_H_
 
 #include "1q/api.hpp"
-#include "1q/foundation/pose_types.h"
+#include "1q/coordinate/types.h"
 #include "1q/foundation/scan_schedule_types.h"
 
 namespace airborne_radar {
 namespace config {
 
 /** @brief EulerAnglesDeg 兼容别名：欧拉角姿态（单位：deg）。 */
-using EulerAnglesDeg = oneq::foundation::EulerAnglesDeg;
+using EulerAnglesDeg = oneq::coordinate::EulerAnglesDeg;
 
 /** @brief PlatformAttitudeDeg 表示搭载平台姿态角（单位：度） */
 using PlatformAttitudeDeg = EulerAnglesDeg;

@@ -2,10 +2,10 @@
 
 set(ONEQ_COMMON_SOURCES
     atmosphere/AtmospherePhysics.cpp
+    atmosphere/PropagationPhysicsImpl.cpp
     atmosphere/StandardAtmosphere.cpp
     electromagnetics/RfLinkBudget.cpp
     electromagnetics/RfScene.cpp
-    environment/PropagationPhysicsImpl.cpp
     geometry/BoresightChain.cpp
     geometry/GeometryTransform.cpp
     coordinate/PositionTransform.cpp

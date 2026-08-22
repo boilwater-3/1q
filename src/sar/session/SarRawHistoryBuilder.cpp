@@ -16,17 +16,19 @@
 #include "sar/runtime/PulseRingBuffer.h"
 #include "sar/session/SarDiagnosticUtils.h"
 #include "sar/signal/SarWaveform.h"
+#include "common/numerics/Constants.h"
 
 namespace sar {
 namespace session {
 
 namespace {
+using oneq::common::numerics::DegToRad;
 
 constexpr double kEarthRadiusM = 6378137.0;
-constexpr double kBoltzmannConstantJPerK = 1.380649e-23;
+using oneq::common::numerics::kBoltzmann;
 constexpr double kReferenceTemperatureK = 290.0;
-constexpr double kSpeedOfLightMps = 299792458.0;
-constexpr double kPi = 3.141592653589793238462643383279502884;
+using oneq::common::numerics::kLightSpeed;
+using oneq::common::numerics::kPi;
 
 bool TryToLocalPoint(double latitude_deg, double longitude_deg, double altitude_m,
                      const config::SarSessionConfig& config, geometry::LocalPoint* point) {
@@ -56,12 +58,11 @@ bool TryToLocalPoint(double latitude_deg, double longitude_deg, double altitude_
     return true;
   }
 
-  const double deg_to_rad = 3.141592653589793238462643383279502884 / 180.0;
-  const double lat0_rad = config.mission.scene_center_latitude_deg * deg_to_rad;
+  const double lat0_rad = DegToRad(config.mission.scene_center_latitude_deg);
   const double dlat_rad =
-      (latitude_deg - config.mission.scene_center_latitude_deg) * deg_to_rad;
+      DegToRad(latitude_deg - config.mission.scene_center_latitude_deg);
   const double dlon_rad =
-      (longitude_deg - config.mission.scene_center_longitude_deg) * deg_to_rad;
+      DegToRad(longitude_deg - config.mission.scene_center_longitude_deg);
 
   point->x_m = dlon_rad * std::cos(lat0_rad) * kEarthRadiusM;
   point->y_m = dlat_rad * kEarthRadiusM;
@@ -73,11 +74,11 @@ double DbsmToSquareMeters(double dbsm) { return std::pow(10.0, dbsm / 10.0); }
 
 double ReceiverNoisePowerW(const config::SarHardwareConfig& hardware) {
   const double noise_factor = std::pow(10.0, hardware.receiver_noise_figure_db / 10.0);
-  return kBoltzmannConstantJPerK * kReferenceTemperatureK * hardware.bandwidth_hz * noise_factor;
+  return kBoltzmann * kReferenceTemperatureK * hardware.bandwidth_hz * noise_factor;
 }
 
 double MonostaticLinkAmplitudeScale(const config::SarHardwareConfig& hardware) {
-  const double wavelength_m = kSpeedOfLightMps / hardware.carrier_frequency_hz;
+  const double wavelength_m = kLightSpeed / hardware.carrier_frequency_hz;
   const double gain_linear = std::pow(10.0, hardware.antenna_gain_db / 10.0);
   const double loss_linear = std::pow(10.0, hardware.system_loss_db / 10.0);
   const double numerator =
@@ -541,7 +542,7 @@ bool BuildRawPulseHistory(const config::SarSessionConfig& config, const SarCycle
   const double receiver_noise_power_w = ReceiverNoisePowerW(config.hardware);
 
   // 构建天线方向图配置:从硬件参数推导 AntennaParams,波束指向为平台速度右侧垂直方向(broadside)。
-  const double wavelength_m = kSpeedOfLightMps / config.hardware.carrier_frequency_hz;
+  const double wavelength_m = kLightSpeed / config.hardware.carrier_frequency_hz;
   geometry::AntennaParams antenna_params = geometry::MakeAntennaParams(config.hardware, wavelength_m);
   echo::AntennaModulationConfig antenna_mod;
   antenna_mod.antenna = antenna_params;

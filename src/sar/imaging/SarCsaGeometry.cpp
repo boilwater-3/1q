@@ -9,13 +9,14 @@
 #include <algorithm>
 #include <cmath>
 #include <limits>
+#include "common/numerics/Constants.h"
 
 namespace sar {
 namespace imaging {
 
 namespace {
 
-constexpr double kSpeedOfLightMps = 299792458.0;
+using oneq::common::numerics::kLightSpeed;
 
 bool IsPositiveFinite(double value) {
   return std::isfinite(value) && value > 0.0;
@@ -48,7 +49,7 @@ bool EvaluateCsaFrequencyGeometry(const CsaGeometryConfig& config,
       config.sample_rate_hz / static_cast<double>(config.range_sample_count);
   diagnostics->azimuth_frequency_spacing_hz =
       config.prf_hz / static_cast<double>(config.azimuth_pulse_count);
-  diagnostics->wavelength_m = kSpeedOfLightMps / config.carrier_frequency_hz;
+  diagnostics->wavelength_m = kLightSpeed / config.carrier_frequency_hz;
   diagnostics->valid_doppler_limit_hz =
       2.0 * config.platform_velocity_mps / diagnostics->wavelength_m;
   diagnostics->minimum_doppler_factor = std::numeric_limits<double>::infinity();

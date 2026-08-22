@@ -11,13 +11,19 @@ namespace common {
 namespace numerics {
 
 /** @brief 圆周率 (π) */
-constexpr long double kPi = 3.14159265358979323846L;
+constexpr double kPi = 3.14159265358979323846;
+
+/** @brief 二倍圆周率 (2π) */
+constexpr double kTwoPi = 6.28318530717958647692;
+
+/** @brief 半圆周率 (π/2) */
+constexpr double kHalfPi = 1.57079632679489661923;
 
 /** @brief 真空光速 (m/s)，CODATA 2018 */
-constexpr long double kLightSpeed = 299792458.0L;
+constexpr double kLightSpeed = 299792458.0;
 
 /** @brief 玻尔兹曼常数 (J/K)，CODATA 2019 */
-constexpr long double kBoltzmann = 1.380649e-23L;
+constexpr double kBoltzmann = 1.380649e-23;
 
 /**
  * @brief 角度（deg）转弧度（rad）。

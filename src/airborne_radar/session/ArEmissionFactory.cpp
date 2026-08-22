@@ -5,6 +5,7 @@
 
 #include "1q/coordinate/attitude_transform.h"
 #include "1q/coordinate/position_transform.h"
+#include "common/numerics/Constants.h"
 
 namespace airborne_radar {
 namespace session {
@@ -20,7 +21,7 @@ bool TryResolveEcefBoresight(const ArPrepareCycleInput& input,
       input.beam_pointing_deg.el_deg > 90.0f) {
     return false;
   }
-  constexpr double kPi = 3.14159265358979323846;
+  using oneq::common::numerics::kPi;
   const double azimuth_rad = static_cast<double>(input.beam_pointing_deg.az_deg) * kPi / 180.0;
   const double elevation_rad = static_cast<double>(input.beam_pointing_deg.el_deg) * kPi / 180.0;
   const double cos_elevation = std::cos(elevation_rad);

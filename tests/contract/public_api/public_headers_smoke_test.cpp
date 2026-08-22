@@ -66,7 +66,7 @@
 #include "1q/electronic_surveillance_radar/session/EsrSession.h"
 #include "1q/electronic_surveillance_radar/session/EsrTraceSession.h"
 #include "1q/environment/AtmosphericTypes.h"
-#include "1q/foundation/pose_types.h"
+#include "1q/foundation/RuntimeCycleExecutor.h"
 #include "1q/foundation/scan_schedule_types.h"
 #include "1q/sar/config/SarEnvironmentConfig.h"
 #include "1q/sar/config/SarHardwareConfig.h"

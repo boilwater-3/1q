@@ -11,6 +11,7 @@
 #include "models/FGAuxiliary.h"
 #include "models/FGMassBalance.h"
 #include "math/FGLocation.h"
+#include "common/numerics/Constants.h"
 
 namespace oneq {
 namespace flight_dynamic {
@@ -127,9 +128,9 @@ void VehicleStateMapper::ApplyInitialConditions(
     ic->SetWBodyFpsIC(kinematics.velocity_mps.z_mps * kMToFt);
   }
 
-  ic->SetPhiRadIC(kinematics.attitude_deg.roll_deg * kDegToRad);
-  ic->SetThetaRadIC(kinematics.attitude_deg.pitch_deg * kDegToRad);
-  ic->SetPsiRadIC(kinematics.attitude_deg.yaw_deg * kDegToRad);
+  ic->SetPhiRadIC(oneq::common::numerics::DegToRad(kinematics.attitude_deg.roll_deg));
+  ic->SetThetaRadIC(oneq::common::numerics::DegToRad(kinematics.attitude_deg.pitch_deg));
+  ic->SetPsiRadIC(oneq::common::numerics::DegToRad(kinematics.attitude_deg.yaw_deg));
 }
 
 }  // namespace model

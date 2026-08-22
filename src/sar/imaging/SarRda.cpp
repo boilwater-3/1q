@@ -10,14 +10,15 @@
 #include "sar/imaging/SarImageQuality.h"
 #include "sar/imaging/SarPhaseReference.h"
 #include "sar/signal/SarWaveform.h"
+#include "common/numerics/Constants.h"
 
 namespace sar {
 namespace imaging {
 
 namespace {
 
-constexpr double kPi = 3.141592653589793238462643383279502884;
-constexpr double kSpeedOfLightMps = 299792458.0;
+using oneq::common::numerics::kPi;
+using oneq::common::numerics::kLightSpeed;
 
 /**
  * @brief 返回自 start 起经过的毫秒数（供聚焦阶段耗时统计使用）。
@@ -116,8 +117,8 @@ bool ComputeRdaSamplingDiagnostics(const RdaConfig& config, std::size_t pulse_co
 
   *diagnostics = RdaDiagnostics{};
   diagnostics->reference_range_m = config.reference_range_m;
-  diagnostics->range_bin_spacing_m = kSpeedOfLightMps / (2.0 * config.sample_rate_hz);
-  const double wavelength_m = kSpeedOfLightMps / config.carrier_frequency_hz;
+  diagnostics->range_bin_spacing_m = kLightSpeed / (2.0 * config.sample_rate_hz);
+  const double wavelength_m = kLightSpeed / config.carrier_frequency_hz;
   diagnostics->doppler_rate_hz_per_s =
       2.0 * config.platform_velocity_mps * config.platform_velocity_mps /
       (wavelength_m * config.reference_range_m);
@@ -192,7 +193,7 @@ bool FocusStripmapRda(const RdaConfig& config, const signal::ComplexMatrix& raw_
   if (!ComputeRdaSamplingDiagnostics(config, raw_pulse_history.rows, &diagnostics)) {
     return false;
   }
-  const double wavelength_m = kSpeedOfLightMps / config.carrier_frequency_hz;
+  const double wavelength_m = kLightSpeed / config.carrier_frequency_hz;
   diagnostics.rcmc_interpolation = InterpolationName(config.rcmc_interpolation);
 
   signal::ComplexMatrix range_compressed;

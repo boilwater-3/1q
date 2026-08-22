@@ -14,7 +14,7 @@
 #include "airborne_radar/session/MutableArContext.h"
 #include "airborne_radar/signal/pipeline/ISignalPipeline.h"
 #include "common/logging/ProjectLog.h"
-#include "common/runtime/RuntimeCycleExecutor.h"
+#include "1q/foundation/RuntimeCycleExecutor.h"
 
 namespace airborne_radar {
 namespace extension {
@@ -80,7 +80,7 @@ struct ArController::Impl {
   std::unique_ptr<extension::ControlCommandMapper> command_mapper;
 
   // -- 周期运行时状态
-  oneq::common::runtime::RuntimeCycleState<session::TrackOutputFrame> cycle_state{};
+  oneq::foundation::RuntimeCycleState<session::TrackOutputFrame> cycle_state{};
   bool last_cycle_executed{false};
   session::SignalCycleAbortReason last_signal_abort_reason{session::SignalCycleAbortReason::kNone};
   session::ArIssueList latest_issues{}; /**< 正常周期按目标排除的 kInfo 诊断（规则 13b）。 */
@@ -236,8 +236,8 @@ void ArController::RunOnce(const signal::pipeline::SignalCycleInput& cycle_input
   const float cycle_dt_sec = impl_->radar_context.GetCycleDeltaTimeSec();
   const std::uint32_t cycle_index = impl_->radar_context.GetCycleIndex();
 
-  const oneq::common::runtime::RuntimeCycleStamp stamp =
-      oneq::common::runtime::MakeRuntimeCycleStamp(cycle_index, impl_->cycle_state.next_batch_id);
+  const oneq::foundation::RuntimeCycleStamp stamp =
+      oneq::foundation::MakeRuntimeCycleStamp(cycle_index, impl_->cycle_state.next_batch_id);
 
   // 校验（COMMON-OQ-9：拒绝时明细经出参直通，无校验缓存）
   session::ArIssueList issues = session::ValidateArCycleDeltaTime(cycle_dt_sec);

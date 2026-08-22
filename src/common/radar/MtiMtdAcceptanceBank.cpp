@@ -7,14 +7,15 @@
 
 #include <algorithm>
 #include <cmath>
+#include "common/numerics/Constants.h"
 
 namespace oneq {
 namespace common {
 namespace radar {
 namespace {
 
-constexpr double kSpeedOfLightMps = 299792458.0;
-constexpr double kPi = 3.14159265358979323846;
+using oneq::common::numerics::kLightSpeed;
+using oneq::common::numerics::kPi;
 constexpr double kLinearFloor = 1.0e-300;
 constexpr std::size_t kClutterGridCount = 512U;
 
@@ -105,7 +106,7 @@ bool TryResolveMtiMtdAcceptanceBank(const MtiMtdAcceptanceInput& input,
       ToDecibels(DftBinPower(fd_hz, candidate.selected_channel, input.prf_hz));
   candidate.mtd_equivalent_noise_w = candidate.noise_w[candidate.selected_channel];
 
-  const double wavelength_m = kSpeedOfLightMps / input.center_frequency_hz;
+  const double wavelength_m = kLightSpeed / input.center_frequency_hz;
   const double sigma_hz = 2.0 * kMtiMtdClutterSigmaVelocityMps / wavelength_m;
   const double df = input.prf_hz / static_cast<double>(kClutterGridCount);
   const double grid_start = -0.5 * input.prf_hz;

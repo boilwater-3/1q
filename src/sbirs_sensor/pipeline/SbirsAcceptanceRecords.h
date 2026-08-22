@@ -10,14 +10,14 @@
 #include <string>
 #include <vector>
 
-#include "1q/foundation/pose_types.h"
+#include "1q/coordinate/types.h"
 #include "1q/sbirs_sensor/session/SbirsDetectionLifecycleRecorder.h"
 
 namespace sbirs_sensor {
 namespace pipeline {
 
-void WriteSbirsInstallMatrices(const oneq::foundation::EulerAnglesDeg& mount_deg,
-                               const oneq::foundation::EulerAnglesDeg& misalignment_deg);
+void WriteSbirsInstallMatrices(const oneq::coordinate::EulerAnglesDeg& mount_deg,
+                               const oneq::coordinate::EulerAnglesDeg& misalignment_deg);
 
 void WriteSbirsOrbitSample(float sim_time_sec, std::uint32_t cycle, float orbit_sigma_deg,
                            double reference_range_m);

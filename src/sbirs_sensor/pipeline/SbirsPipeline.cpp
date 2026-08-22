@@ -413,7 +413,7 @@ SbirsPipeline::SbirsPipeline(const config::SbirsInternalExecutionConfig& config)
   if (SBIRS_ACCEPTANCE_LOG_ENABLED()) {
     WriteSbirsInstallMatrices(
         config.session.orientation.mount_angles_deg,
-        oneq::foundation::EulerAnglesDeg(misalignment_total_deg_.yaw_deg,
+        oneq::coordinate::EulerAnglesDeg(misalignment_total_deg_.yaw_deg,
                                          misalignment_total_deg_.pitch_deg,
                                          misalignment_total_deg_.roll_deg));
   }
@@ -432,7 +432,7 @@ void SbirsPipeline::ApplyConfig(const config::SbirsInternalExecutionConfig& conf
   if (SBIRS_ACCEPTANCE_LOG_ENABLED()) {
     WriteSbirsInstallMatrices(
         config_.session.orientation.mount_angles_deg,
-        oneq::foundation::EulerAnglesDeg(misalignment_total_deg_.yaw_deg,
+        oneq::coordinate::EulerAnglesDeg(misalignment_total_deg_.yaw_deg,
                                          misalignment_total_deg_.pitch_deg,
                                          misalignment_total_deg_.roll_deg));
   }
@@ -563,7 +563,7 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
   // 指向合成链（阶段 2/3）：每周期由卫星姿态（Body->ECI）与安装角（Body->Sensor）
   // 及运行期安装失准角总量构建。默认零姿态 + 零安装角 + 零失准下为恒等变换
   // （IsIdentity），全部门控与输出与历史逐位一致。
-  const oneq::foundation::EulerAnglesDeg misalignment_angles_deg{
+  const oneq::coordinate::EulerAnglesDeg misalignment_angles_deg{
       misalignment_total_deg_.yaw_deg, misalignment_total_deg_.pitch_deg,
       misalignment_total_deg_.roll_deg};
   const SbirsBoresightChain boresight_chain(input.satellite_attitude_eci_body_deg,
