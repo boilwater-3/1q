@@ -223,12 +223,21 @@ bool LoadScene(const char* path, LoadedScene* scene, std::string* error) {
   return true;
 }
 
-void SetPrecisionAcceptanceLogPath(const std::string& path) {
+void SetProcessEnv(const char* name, const std::string& value) {
 #if defined(_WIN32)
-  _putenv_s("ONEQ_PRECISION_ACCEPTANCE_LOG_PATH", path.c_str());
+  _putenv_s(name, value.c_str());
 #else
-  setenv("ONEQ_PRECISION_ACCEPTANCE_LOG_PATH", path.c_str(), /*overwrite=*/1);
+  setenv(name, value.c_str(), /*overwrite=*/1);
 #endif
+}
+
+void BindAcceptanceLogPaths(const std::string& output_dir) {
+  SetProcessEnv("ONEQ_PRECISION_ACCEPTANCE_LOG_PATH",
+                output_dir + "/precision_acceptance.log");
+  SetProcessEnv("ONEQ_SBIRS_ACCEPTANCE_LOG_PATH", output_dir + "/sbirs_acceptance.log");
+  SetProcessEnv("ONEQ_FUSION_ACCEPTANCE_LOG_PATH", output_dir + "/fusion_acceptance.log");
+  SetProcessEnv("ONEQ_INFERENCE_ACCEPTANCE_LOG_PATH",
+                output_dir + "/inference_acceptance.log");
 }
 
 const char* MetricName(pe::PrecisionMetric metric) {
@@ -350,19 +359,19 @@ int main(int argc, char* argv[]) {
               << "\n";
     return 1;
   }
-  const std::string acceptance_path = output_dir + "/precision_acceptance.log";
-  SetPrecisionAcceptanceLogPath(acceptance_path);
+  BindAcceptanceLogPaths(output_dir);
 
 #if !defined(PE_ACCEPTANCE_LOG_ENABLED) || !PE_ACCEPTANCE_LOG_ENABLED
   std::cerr << "warning: ONEQ_ENABLE_PRECISION_EVALUATION_LOG=OFF; "
-            << acceptance_path << " will not be written\n";
+            << output_dir << "/precision_acceptance.log will not be written\n";
 #endif
 
   pe::PrecisionEvaluationSession session(scene.config);
 
   std::cout << "precision_evaluation demo: " << scene_path << ", " << scene.cycles << " cycles x "
             << scene.dt_sec << " s\n"
-            << "acceptance log -> " << acceptance_path << "\n";
+            << "acceptance logs -> " << output_dir
+            << " (precision/sbirs/fusion/inference_acceptance.log)\n";
   std::uint32_t dual_sat_cycles = 0U;
   for (std::uint32_t cycle = 1U; cycle <= scene.cycles; ++cycle) {
     // 真值弹道由调用方推进（评估会话不拥有真值；同单测约定 p += v·dt）。

@@ -18,10 +18,15 @@ if(NOT ONEQ_ENABLE_PRECISION_EVALUATION_LOG)
     message(STATUS "precision_evaluation: ONEQ_ENABLE_PRECISION_EVALUATION_LOG=OFF -> no "
         "precision_acceptance.log; reconfigure with -DONEQ_ENABLE_PRECISION_EVALUATION_LOG=ON")
 endif()
+if(NOT ONEQ_ENABLE_SBIRS_ACCEPTANCE_LOG OR NOT ONEQ_ENABLE_FUSION_ACCEPTANCE_LOG
+    OR NOT ONEQ_ENABLE_INFERENCE_ACCEPTANCE_LOG)
+    message(STATUS "precision_evaluation: also enable "
+        "ONEQ_ENABLE_SBIRS_ACCEPTANCE_LOG / FUSION / INFERENCE for "
+        "sbirs/fusion/inference_acceptance.log under the scene output dir")
+endif()
 
 # 手动运行：
 #   ./build/<preset>/bin/precision_evaluation_demo
 #       [--scene <path>] [--cycles <n>] [--output-dir <dir>]
-# 验收文件：configure 加 -DONEQ_ENABLE_PRECISION_EVALUATION_LOG=ON 后，
-# demo 在 --output-dir 下写 precision_acceptance.log（环境变量
-# ONEQ_PRECISION_ACCEPTANCE_LOG_PATH）。内部双 SBIRS 不承担 sbirs_acceptance.log。
+# 验收文件：configure 打开 PE + SBIRS + FUSION + INFERENCE 四个开关后，
+# demo 把四份验收文件钉到 --output-dir（默认 log/<场景名>/）。

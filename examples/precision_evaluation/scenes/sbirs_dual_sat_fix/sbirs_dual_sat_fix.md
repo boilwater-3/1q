@@ -6,7 +6,7 @@
 | --- | --- |
 | 场景文件 | `examples/precision_evaluation/scenes/sbirs_dual_sat_fix/sbirs_dual_sat_fix.json` |
 | 宿主 | `precision_evaluation_demo`（评估层编排，不进 `component_attachment`） |
-| 场景意图 | 被测通道：精度评估（`precision_acceptance.log`）；被测行为：双星同目标双检出 → 双视线交会位置误差 + 五项 AHP。内部双 SBIRS 是评估配方（SNR 门 0.001），**不**承担 `sbirs_acceptance.log` / 宽窄视场齐套（那条用 `sbirs_wfov_nfov_handover`） |
+| 场景意图 | 被测通道：精度评估 + 内部双 SBIRS + 融合 + 推演。交会与 AHP 写 `precision_acceptance.log`；红外/融合/推演验收写同目录三份文件。几何是评估配方（SNR 门 0.001），宽窄交接专项仍看 `sbirs_wfov_nfov_handover` |
 | 构建模式 | release |
 | 运行日期 | 2026-08-22 |
 
@@ -26,18 +26,33 @@
 
 ## 验收日志开闸
 
-精度评估写入 `precision_acceptance.log` 是库编译期开关，默认 OFF：
+四层验收都是库编译期开关，默认 OFF。本场景要齐红外/融合/推演/精度：
 
 ```bash
 source scripts/activate_1q_git_bash.sh
-scripts/bin/cmake --preset VisualStudio.15.0-amd64 -DONEQ_ENABLE_PRECISION_EVALUATION_LOG=ON
+scripts/bin/cmake --preset VisualStudio.15.0-amd64 \
+  -DONEQ_ENABLE_PRECISION_EVALUATION_LOG=ON \
+  -DONEQ_ENABLE_SBIRS_ACCEPTANCE_LOG=ON \
+  -DONEQ_ENABLE_FUSION_ACCEPTANCE_LOG=ON \
+  -DONEQ_ENABLE_INFERENCE_ACCEPTANCE_LOG=ON
 scripts/1q.sh build VisualStudio.15.0-amd64-release --target precision_evaluation_demo
 ./build/VisualStudio.15.0-amd64/Release/bin/precision_evaluation_demo.exe
 # 不要从 WSL 传 /mnt/d 的 --output-dir（Windows exe 会吃掉路径）
 ```
 
-默认输出：`examples/precision_evaluation/log/sbirs_dual_sat_fix/precision_acceptance.log`
-（git 忽略）。demo 在首步前设置 `ONEQ_PRECISION_ACCEPTANCE_LOG_PATH`。
+默认输出目录：`examples/precision_evaluation/log/sbirs_dual_sat_fix/`
+（`precision/sbirs/fusion/inference_acceptance.log`，git 忽略）。
+
+2026-08-22 本机已开四开关并跑 60 周期，四份文件均写出：
+
+| 文件 | 字节 | 行数 | 目录项数 |
+| --- | ---: | ---: | ---: |
+| `precision_acceptance.log` | 57 556 | 482 | 2 |
+| `sbirs_acceptance.log` | 270 581 | 1808 | 17 |
+| `fusion_acceptance.log` | 128 104 | 420 | 4 |
+| `inference_acceptance.log` | 52 002 | 370 | 6 |
+
+与 `rir_long_range_scan` 的 `rir_acceptance.log` 合计对照 `docs/review/acceptance_item_catalog_2026-08-22.md`：**77/78**。缺的只有「集群目标识别」（无模型，目录写不落盘 / `暂无`）。
 
 ## 预期事件表
 
@@ -47,16 +62,67 @@ scripts/1q.sh build VisualStudio.15.0-amd64-release --target precision_evaluatio
 | PE | 交会位置误差 | 全程 | km 量级（评估几何 + 默认姿态噪声） | mean 1571 m，RMSE 1785 m，P95 2950 m，max 3851 m | 通过 |
 | PE | 红外测角 | 全程 | <0.05° 参考 | 239 样本，RMSE 0.012° | 通过 |
 | PE | AHP 五项底层分 | Summarize | 五指标均有样本、权重 0.2×5 | 底层分 (0.807, 0.849, 0.060, 0.012, 0.028)，综合分 0.351，等级 D | 通过 |
+| SBIRS | 红外可探测 | 全程 | 两目标 SNR≫1 | 121 行可探测性，红外可探测=是；窄场跟踪 118 行 | 通过 |
+| 融合 | 双源融合航迹 | 全程 | 每周期 2 航迹 | 协同融合 60 行，通道=源4+源104，目标数=2 | 通过 |
+| 推演 | 落点/发射点 | 有样本后 | 经纬有数 | 落点 58、发射点 57、轨迹预报 122；关机点=`暂无` | 通过 |
 
 落点/发射点 RMSE 到百公里是状态误差经 1200 s 推演放大，不是交会失败。综合分 D 是参考误差标定前的演示口径（`docs/precision_evaluation/algorithms.md`），本场景门控是「有数 + 双星样本」，不是装备指标过关。
 
-## 验收文件覆盖表（目录第 6 节）
+## 验收文件覆盖表
+
+### 精度评估（目录第 6 节）
 
 | 项名 | 行数 | 内容 | 三分类 |
 | --- | ---: | --- | --- |
-| 关键精度指标（逐周期测角） | 239 | `目标键=… 方位/俯仰测角误差=…°` | 能写 |
+| 关键精度指标（逐周期测角） | 480 | `目标键=… 方位/俯仰测角误差=…°` | 能写 |
 | 关键精度指标（汇总） | 1 | `东/北/天RMSE=(1192.7,678.7,1141.0)m 距离RMSE=1784.7m 方位/俯仰RMSE=(0.0094,0.0075)° CEP50=807.9m 位置误差95%CI=[1250.0,1891.3]m 误差源贡献率=无` | 能写；贡献率按设计 `无` |
 | 层次分析法 | 1 | `准则层权重=(0.200×5) 底层分=(0.807,0.849,0.060,0.012,0.028) 综合分=0.351 等级=D 贡献排序=双星>测角>速度>发射点>落点 CR=-0.000 独立多层树=无` | 能写；独立多层树按设计 `无` |
+
+### 红外（`sbirs_acceptance.log`）
+
+几何是评估配方（SNR 门 0.001、卫星停在 7000 km），所以最大探测距离到 1.1e10 m、宽视场四角经纬全 `miss`。能写项都有行；宽窄交接专项仍看 `sbirs_wfov_nfov_handover`。
+
+| 项名 | 行数 | 实测摘要 | 三分类 |
+| --- | ---: | --- | --- |
+| 安装矩阵误差 | 2 | 两星各一次，失准角 (0,0,0)° | 能写 |
+| 最大探测距离 | 121 | 相对/窄场最大探测距离=11460693333.8m | 能写（配方量级） |
+| 目标可探测性与动态参数 | 121 | 斜距 ~6e6 m，SNR 两千到三千，红外可探测=是 | 能写 |
+| 红外载荷测角误差 | 239 | 方位/俯仰误差 ~0.00x° | 能写 |
+| 红外系统测角误差 | 239 | 测量/真值/偏差/会话 RMSE | 能写 |
+| 大幅面扫描与探测 | 241 | 幅宽 20°；无地面交点时记视场中心俯仰；有目标时写接收功率 | 能写 |
+| 宽视场扫描探测 | 120 | 覆盖四角经纬=[miss×4] 中心=(miss) 驻留=20 s | 能写（无地面交点） |
+| 宽窄视场联合探测 | 123 | 宽场疑似有 ID，序列确认=达标；窄场细节在下一栏 | 能写 |
+| 窄视场跟踪探测 | 118 | 跟踪状态=跟踪，脱靶量像素量级，SNR 两千+ | 能写 |
+| 协同工作机制 | 120 | 锁定=1/1，资源满=是，按威胁等级抢占=无 | 能写；抢占按设计 `无` |
+| 卫星自身定位误差 | 120 | 本配方姿态噪声未灌进该行，角误差 RMS=0 | 能写 |
+| 卫星ECEF三维导航定位误差 | 120 | `无` | 按设计 `无` |
+| 连续运行次数 | 120 | 本会话已运行周期=1…60 状态=正常 | 能写 |
+| 初始化时间 / 单步执行时间 | 各 1 | `暂无` | 按设计 `暂无` |
+| 典型场景和总仿真次数 | 1 | 场景=本会话；总仿真周期=结束时回写（未回写） | 能写，结束回写未做 |
+| 组件模型参数性能 | 1 | 见红外系统测角误差 | 能写（转发） |
+
+### 融合（`fusion_acceptance.log`）
+
+双星内部源键写成 `源4+源104`。加速度单位²在 GBK 文件里落成 `m/s?`，读数仍在。置信度/接力计划/交接指令按设计 `无`。
+
+| 项名 | 行数 | 实测摘要 | 三分类 |
+| --- | ---: | --- | --- |
+| 多传感器目标跟踪 | 120 | 两航迹 ECEF + 协方差对角，每周期各 1 | 能写 |
+| 多传感器接力跟踪 | 120 | 周期 60：速度模 ~4000 m/s，航迹数=2；预测航路点/接力计划/交接指令=无，置信度=0.000 | 能写 |
+| UKF滤波 | 120 | 周期 60：速度有数，协方差迹 ~3.6e5；位置估计误差=无 | 能写 |
+| 协同探测信息融合 | 60 | 参与通道=源4+源104 通道数=2 融合目标数=2 融合置信度=0.000 | 能写 |
+
+### 推演（`inference_acceptance.log`）
+
+| 项名 | 行数 | 实测摘要 | 三分类 |
+| --- | ---: | --- | --- |
+| 目标轨迹预报 | 122 | 航路点 61–121，有落点时椭圆半长 ~11 km | 能写 |
+| 落点预测 | 58 | 末期初步落点约 (0.08, 36.98, 0.04) | 能写 |
+| 发射点预测 | 57 | 相对 t≈−685 s，位置误差 1σ ≈ 6 km，置信度=0.68 | 能写 |
+| 落点预报与信息发布 | 58 | 无推力弹道外推，误差 1σ ≈ 11 km；标准化封装/分发=无 | 能写 |
+| 特殊事件监测与提示 | 13 | 开局轨迹突变（相对 Δv 到 4000，滤波收敛） | 能写 |
+| 关机点预测 | 62 | `暂无` | 按设计 `暂无` |
+| 集群目标识别 | 0 | 无模型、不落盘 | 按设计不写 |
 
 ## 冒烟下限
 
@@ -64,4 +130,4 @@ scripts/1q.sh build VisualStudio.15.0-amd64-release --target precision_evaluatio
 
 ## 结论
 
-**判定：通过**（双星交会与精度验收文件能写项已落盘）。不把本场景当作 SBIRS 宽窄视场或 `sbirs_acceptance.log` 齐套。
+**判定：通过。** 四开关打开后，本场景把红外、融合、推演、精度四份验收文件都写到 `log/sbirs_dual_sat_fix/`。目录能写项至此只缺「集群目标识别」。宽窄交接专项仍看 `sbirs_wfov_nfov_handover`，不要拿本配方的 `miss` 四角和 1e10 m 最大探测距离当装备指标。
