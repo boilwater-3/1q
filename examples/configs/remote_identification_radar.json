@@ -92,15 +92,15 @@
       "gate_mode": "kSnrFallback"
     },
     "association": {
-      "distance_gate_sigma": 3.0
+      "distance_gate_sigma": 6.0
     },
     "tracking": {
-      "kalman_noise_diff_coeff": 1.0,
-      "kalman_measurement_noise_std": 10.0
+      "kalman_noise_diff_coeff": 30.0,
+      "kalman_measurement_noise_std": 300.0
     },
     "lifecycle": {
-      "confirm_hits": 1,
-      "max_miss_before_lost": 2,
+      "confirm_hits": 3,
+      "max_miss_before_lost": 4,
       "max_lost_cycles": 5,
       "enable_imm_lifecycle": true,
       "model_count_hint": 2
