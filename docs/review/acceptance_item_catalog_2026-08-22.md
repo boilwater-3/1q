@@ -1,5 +1,5 @@
----
-Status: implemented
+﻿---
+Status: draft
 Date: 2026-08-22
 Review-Baseline: `feature/acceptance-chinese-file-log`
 Authority: 验收日志规划统计；不替代模块 design/boundaries。与代码冲突时以代码为准。

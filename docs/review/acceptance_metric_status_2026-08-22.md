@@ -1,5 +1,5 @@
----
-Status: final
+﻿---
+Status: draft
 Date: 2026-08-22
 Review-Baseline: `feature/acceptance-chinese-file-log`
 Authority: 验收指标状态单（有/没有/应付验收）。汇总性质，不替代下列来源档；与代码冲突时以代码为准。
