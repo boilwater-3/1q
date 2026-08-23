@@ -1,4 +1,4 @@
-// Copyright 2026. All Rights Reserved.
+﻿// Copyright 2026. All Rights Reserved.
 //
 // @file rir_search_sector_test.cpp
 // @brief 验证指定空域搜索的候选集角域裁剪（2026-08-22 甲方批注「设定方位俯仰进行扫描」）。

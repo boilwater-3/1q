@@ -1,4 +1,4 @@
-// config_loader 缺键门控：缺省字段保持库结构体默认值（Has 门控，非 0.0 覆写）。
+﻿// config_loader 缺键门控：缺省字段保持库结构体默认值（Has 门控，非 0.0 覆写）。
 
 #include <cstdio>
 #include <fstream>

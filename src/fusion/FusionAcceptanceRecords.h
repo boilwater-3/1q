@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file FusionAcceptanceRecords.h
  * @brief 融合层验收行拼装。
  */
