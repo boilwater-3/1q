@@ -94,7 +94,14 @@ void WriteInferenceAcceptance(const std::vector<InferenceTrackState>& tracks,
                                            traj.impact_point.longitude_deg,
                                            traj.impact_point.altitude_m, 3);
       publish += " 误差1σ=" + FormatF(sigma, 1) + "m";
-      publish += " 置信度=0.68 标准化封装=无 分发=无";
+      publish += " 置信度=0.68";
+      // 甲方 2026-08-22 批注「写明文」：库内无标准编解码与发布订阅——封装按
+      // 明文报文原样写出（字段自包含），分发状态如实标注明文落盘、未外发。
+      publish += " 标准化封装=明文:[落点预报|落点=" +
+                 FormatVec3(traj.impact_point.latitude_deg, traj.impact_point.longitude_deg,
+                            traj.impact_point.altitude_m, 3) +
+                 "|1σ=" + FormatF(sigma, 1) + "m|置信度=0.68]";
+      publish += " 分发状态=明文落盘未外发";
       INFERENCE_ACCEPTANCE_ITEM(sim_time, cycle, "落点预报与信息发布", publish);
     }
 
