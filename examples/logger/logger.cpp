@@ -13,6 +13,7 @@
  */
 
 #include "logger/logger.h"
+#include "logger/acceptance_paths.h"
 #include "logger/logger_format.h"
 
 #include <cstdlib>
@@ -125,26 +126,6 @@ void FlushAggregate() {
   g_aggregate_cycle_set = false;
 }
 #endif  // CA_EVENT_LOG_MODE_AGGREGATE
-
-void SetProcessEnv(const char* name, const std::string& value) {
-#if defined(_WIN32)
-  _putenv_s(name, value.c_str());
-#else
-  setenv(name, value.c_str(), /*overwrite=*/1);
-#endif
-}
-
-void BindAcceptanceLogPaths(const std::string& output_dir) {
-  SetProcessEnv("ONEQ_RIR_ACCEPTANCE_LOG_PATH", output_dir + "/rir_acceptance.log");
-  SetProcessEnv("ONEQ_SBIRS_ACCEPTANCE_LOG_PATH", output_dir + "/sbirs_acceptance.log");
-  SetProcessEnv("ONEQ_FUSION_ACCEPTANCE_LOG_PATH", output_dir + "/fusion_acceptance.log");
-  SetProcessEnv("ONEQ_INFERENCE_ACCEPTANCE_LOG_PATH", output_dir + "/inference_acceptance.log");
-  SetProcessEnv("ONEQ_PRECISION_ACCEPTANCE_LOG_PATH",
-                output_dir + "/precision_acceptance.log");
-  SetProcessEnv("ONEQ_RIR_ANTENNA_PATTERN_CSV_PATH",
-                output_dir + "/rir_antenna_pattern.csv");
-  SetProcessEnv("ONEQ_RIR_SCAN_PATTERN_CSV_PATH", output_dir + "/rir_scan_pattern.csv");
-}
 
 }  // namespace
 

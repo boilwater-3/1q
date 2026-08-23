@@ -1,8 +1,11 @@
 ﻿/**
- * @file precision_evaluation_demo.cpp
- * @brief 精度评估层集成参考示例（需求 3.2.1.6.3：五项定位误差 + AHP 综合评分）。
+ * @file sbirs_dual_sat_fix/main.cpp
+ * @brief 精度评估场景可执行（需求 3.2.1.6.3：五项定位误差 + AHP 综合评分）。
  *
- * 默认场景 `scenes/sbirs_dual_sat_fix/sbirs_dual_sat_fix.json`（原硬编码几何外置）：
+ * 评估层编排（内部自持双星 SBIRS + 融合 + 推演整链，非 ECS 组件栈），故为
+ * 独立 main 而非 app/runner.h 的 RunScene。场景由 ONEQ_SCENE_JSON 钉死
+ * （本目录 sbirs_dual_sat_fix.json）；兼容目标 precision_evaluation_demo
+ * 与本可执行同源。默认场景 `scenes/sbirs_dual_sat_fix/sbirs_dual_sat_fix.json`：
  *  - 双星：主星 (7e6,0,0)、辅星 (0,7e6,0)（ECEF 静止），各自扫描中心对准目标群
  *    （主星 ≈79.5°、辅星 ≈351.9°）；
  *  - 目标 1（key=1）：径向下降弹道，供落点预测误差样本；目标 2（key=2）：邻近
@@ -15,7 +18,7 @@
  * 内部双星 SBIRS + 融合（强制逐航迹滤波）+ 按间隔推演；结束 Summarize 汇总五指标
  * + AHP，并写入 precision_acceptance.log（需 ONEQ_ENABLE_PRECISION_EVALUATION_LOG）。
  *
- * 运行：precision_evaluation_demo [--scene <path>] [--cycles <n>] [--output-dir <dir>]
+ * 运行：sbirs_dual_sat_fix / precision_evaluation_demo [--scene <path>] [--cycles <n>] [--output-dir <dir>]
  */
 
 #include <cmath>
@@ -25,13 +28,7 @@
 #include <string>
 #include <vector>
 
-#if defined(_MSC_VER) && _MSC_VER < 1910
-#include <filesystem>
-namespace demo_fs = std::experimental::filesystem;
-#else
-#include <filesystem>
-namespace demo_fs = std::filesystem;
-#endif
+#include "app/fs_compat.h"
 
 #include "1q/coordinate/types.h"
 #include "1q/precision_evaluation/PrecisionEvaluationConfig.h"
@@ -39,13 +36,14 @@ namespace demo_fs = std::filesystem;
 #include "1q/precision_evaluation/PrecisionEvaluationTypes.h"
 #include "1q/sbirs_sensor/config/SbirsSessionConfig.h"
 #include "json_reader.h"
+#include "logger/acceptance_paths.h"
 
 namespace pe = precision_evaluation;
 
 namespace {
 
-#ifndef PE_DEFAULT_SCENE_FILE
-#define PE_DEFAULT_SCENE_FILE \
+#ifndef ONEQ_SCENE_JSON
+#define ONEQ_SCENE_JSON \
   "examples/scenes/sbirs_dual_sat_fix/sbirs_dual_sat_fix.json"
 #endif
 #ifndef PE_DEFAULT_OUTPUT_DIR
@@ -223,22 +221,6 @@ bool LoadScene(const char* path, LoadedScene* scene, std::string* error) {
   return true;
 }
 
-void SetProcessEnv(const char* name, const std::string& value) {
-#if defined(_WIN32)
-  _putenv_s(name, value.c_str());
-#else
-  setenv(name, value.c_str(), /*overwrite=*/1);
-#endif
-}
-
-void BindAcceptanceLogPaths(const std::string& output_dir) {
-  SetProcessEnv("ONEQ_PRECISION_ACCEPTANCE_LOG_PATH",
-                output_dir + "/precision_acceptance.log");
-  SetProcessEnv("ONEQ_SBIRS_ACCEPTANCE_LOG_PATH", output_dir + "/sbirs_acceptance.log");
-  SetProcessEnv("ONEQ_FUSION_ACCEPTANCE_LOG_PATH", output_dir + "/fusion_acceptance.log");
-  SetProcessEnv("ONEQ_INFERENCE_ACCEPTANCE_LOG_PATH",
-                output_dir + "/inference_acceptance.log");
-}
 
 const char* MetricName(pe::PrecisionMetric metric) {
   switch (metric) {
@@ -288,7 +270,7 @@ void PrintReport(const pe::PrecisionEvaluationReport& report) {
 void PrintUsage(const char* argv0) {
   std::cerr << "Usage: " << argv0
             << " [--scene <path>] [--cycles <n>] [--output-dir <dir>]\n"
-            << "  --scene       JSON 场景（默认 " << PE_DEFAULT_SCENE_FILE << "）\n"
+            << "  --scene       JSON 场景（默认 " << ONEQ_SCENE_JSON << "）\n"
             << "  --cycles      覆盖场景 cycles\n"
             << "  --output-dir  验收文件目录（默认 " << PE_DEFAULT_OUTPUT_DIR
             << "/<场景名>/）\n";
@@ -297,7 +279,7 @@ void PrintUsage(const char* argv0) {
 }  // namespace
 
 int main(int argc, char* argv[]) {
-  std::string scene_path = PE_DEFAULT_SCENE_FILE;
+  std::string scene_path = ONEQ_SCENE_JSON;
   std::string output_dir = PE_DEFAULT_OUTPUT_DIR;
   bool output_dir_overridden = false;
   bool cycles_overridden = false;
@@ -353,13 +335,13 @@ int main(int argc, char* argv[]) {
     }
   }
   std::error_code fs_error;
-  demo_fs::create_directories(output_dir, fs_error);
+  app_fs::create_directories(output_dir, fs_error);
   if (fs_error) {
     std::cerr << "Failed to create output dir \"" << output_dir << "\": " << fs_error.message()
               << "\n";
     return 1;
   }
-  BindAcceptanceLogPaths(output_dir);
+  component_attachment::app::BindAcceptanceLogPaths(output_dir);
 
 #if !defined(PE_ACCEPTANCE_LOG_ENABLED) || !PE_ACCEPTANCE_LOG_ENABLED
   std::cerr << "warning: ONEQ_ENABLE_PRECISION_EVALUATION_LOG=OFF; "
