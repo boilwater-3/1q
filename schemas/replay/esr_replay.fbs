@@ -79,7 +79,6 @@ table EsrCycleInput {
   cycle_index:             uint32;
   dt_sec:                  float;
   platform_entity_id:      uint64 = 0;
-  has_platform_ecef_kinematics: bool = false;
   platform_position_ecef_m: Vec3;
   platform_velocity_ecef_mps: Vec3;
   platform_attitude_deg: EulerDeg;

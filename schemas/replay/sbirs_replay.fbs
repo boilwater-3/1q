@@ -29,11 +29,8 @@ table SbirsCycleInput {
   cycle_index: uint32;
   dt_sec: float;
   utc_julian_day: double;
-  has_satellite_position: bool;
   satellite_position_ecef_m: Vec3d;
-  has_satellite_velocity: bool;
   satellite_velocity_ecef_m_per_s: Vec3d;
-  has_satellite_attitude: bool;
   satellite_attitude_eci_body_deg: EulerDeg3d;
   scene_targets: [SbirsSceneTarget];
 }
@@ -43,6 +40,8 @@ root_type SbirsCycleInput;
 // codec 写入并校验该标识符，v1（"SBIC"，deg/ECEF 语义或无标识符）录制被显式拒绝。
 // 2026-08-17 起周期输入新增必填卫星速度（ECEF）；同日起阶段 2 新增必填卫星姿态
 // （Z-Y-X 欧拉角，Body->ECI）；项目未上线，直接演进、无兼容分支。
+// 2026-08-24 起移除卫星位置/速度/姿态的 has_* 在场标志（必填输入不用可选模式，
+// schema 与结构体同步去标志，旧录制不兼容）。
 file_identifier "SBI2";
 
 table SbirsDetectionRecord {

@@ -33,7 +33,6 @@ int main() {
   input.cycle_index = 1U;
   input.dt_sec = 1.0f;
   input.platform_entity_id = 100U;
-  input.has_platform_ecef_kinematics = true;
   input.platform_position_ecef_m.x_m = 6378137.0;
   // 空 RF 帧也必须与周期窗口匹配（world_cycle_index/时间戳三字段，见 EsrInputValidation）。
   input.rf_emissions.world_cycle_index = input.cycle_index;
@@ -53,7 +52,6 @@ int main() {
   input_2.cycle_index = 2U;
   input_2.dt_sec = 1.0f;
   input_2.platform_entity_id = 100U;
-  input_2.has_platform_ecef_kinematics = true;
   input_2.platform_position_ecef_m.x_m = 6378137.0;
   input_2.rf_emissions.world_cycle_index = input_2.cycle_index;
   input_2.rf_emissions.window_start_time_s = input_2.cycle_start_time_s;

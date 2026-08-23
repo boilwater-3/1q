@@ -288,11 +288,8 @@ sbirs_sensor::session::SbirsCycleInput SbirsSensorComponent::BuildCycleInput(
   sbirs_sensor::session::SbirsCycleInput input;
   input.cycle_index = static_cast<std::uint32_t>(scene.cycle);
   input.dt_sec = static_cast<float>(dt_sec);
-  input.has_satellite_position = true;
   input.satellite_position_ecef_m = scene.sbirs_satellite_position_ecef_m;
-  input.has_satellite_velocity_ecef_m_per_s = true;
   input.satellite_velocity_ecef_m_per_s = scene.sbirs_satellite_velocity_ecef_m_per_s;
-  input.has_satellite_attitude = true;
   input.satellite_attitude_eci_body_deg = scene.sbirs_satellite_attitude_eci_body_deg;
   input.utc_julian_day = scene.sbirs_utc_julian_day;  // ECI 输出参考系（UTC 儒略日）
   input.scene = scene.sbirs_targets;

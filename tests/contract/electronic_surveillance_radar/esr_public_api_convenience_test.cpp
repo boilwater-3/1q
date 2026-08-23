@@ -234,7 +234,6 @@ TEST(EsrPublicApiConvenienceTest, SessionStepAndRuntimePatchWorkTogether) {
   input.cycle_start_time_s = 10.0;
   input.dt_sec = 1.0f;
   input.platform_entity_id = 1U;
-  input.has_platform_ecef_kinematics = true;
   input.platform_position_ecef_m.x_m = 6378137.0;
   input.rf_emissions.world_cycle_index = input.cycle_index;
   input.rf_emissions.window_start_time_s = input.cycle_start_time_s;
@@ -322,7 +321,6 @@ TEST(EsrPublicApiConvenienceTest, StepReturnsEmptyFrameOnValidationFailure) {
   valid_input.cycle_start_time_s = 10.0;
   valid_input.dt_sec = 1.0f;
   valid_input.platform_entity_id = 1U;
-  valid_input.has_platform_ecef_kinematics = true;
   valid_input.platform_position_ecef_m.x_m = 6378137.0;
   valid_input.rf_emissions.world_cycle_index = valid_input.cycle_index;
   valid_input.rf_emissions.window_start_time_s = valid_input.cycle_start_time_s;

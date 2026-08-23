@@ -394,11 +394,8 @@ std::string EncodeSbirsCycleInput(const SbirsCycleInput& value) {
       value.satellite_attitude_eci_body_deg.pitch_deg,
       value.satellite_attitude_eci_body_deg.roll_deg);
   fbb.Finish(sbirs::replay::CreateSbirsCycleInput(
-                 fbb, value.cycle_index, value.dt_sec, value.utc_julian_day,
-                 value.has_satellite_position, &satellite,
-                 value.has_satellite_velocity_ecef_m_per_s, &satellite_velocity,
-                 value.has_satellite_attitude, &satellite_attitude,
-                 fbb.CreateVector(targets)),
+                 fbb, value.cycle_index, value.dt_sec, value.utc_julian_day, &satellite,
+                 &satellite_velocity, &satellite_attitude, fbb.CreateVector(targets)),
              kSbirsReplayFileIdentifier);
   return oneq::common::replay::CopyFinishedFlatbuffer(fbb);
 }
@@ -414,11 +411,8 @@ bool DecodeSbirsCycleInput(const std::string& bytes, SbirsCycleInput* out) {
   out->cycle_index = fb->cycle_index();
   out->dt_sec = fb->dt_sec();
   out->utc_julian_day = fb->utc_julian_day();
-  out->has_satellite_position = fb->has_satellite_position();
   out->satellite_position_ecef_m = FromFbVec3(fb->satellite_position_ecef_m());
-  out->has_satellite_velocity_ecef_m_per_s = fb->has_satellite_velocity();
   out->satellite_velocity_ecef_m_per_s = FromFbVec3(fb->satellite_velocity_ecef_m_per_s());
-  out->has_satellite_attitude = fb->has_satellite_attitude();
   if (fb->satellite_attitude_eci_body_deg() != nullptr) {
     out->satellite_attitude_eci_body_deg.yaw_deg =
         fb->satellite_attitude_eci_body_deg()->yaw_deg();

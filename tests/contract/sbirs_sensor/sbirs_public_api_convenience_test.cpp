@@ -124,13 +124,9 @@ TEST(SbirsPublicApiConvenienceTest, SessionConfigFieldsAreAssignable) {
   EXPECT_EQ(config.orientation.misalignment.random_seed, 9U);
 }
 
-TEST(SbirsPublicApiConvenienceTest, MinimalInputSetsSatelliteAttitudeFlag) {
-  // 存在性标志必须与数据一致（docs/common/contract.md 规则 2）：便捷工厂置位
-  // has_satellite_attitude，否则输入会被 kInvalidSatelliteAttitude 拒绝。
+TEST(SbirsPublicApiConvenienceTest, MinimalInputCompletesCycle) {
+  // 卫星位置/速度/姿态为必填值字段（无可选标志）：便捷工厂填齐后整周期可执行。
   const session::SbirsCycleInput input = MakeMinimalInput();
-  EXPECT_TRUE(input.has_satellite_attitude);
-  EXPECT_TRUE(input.has_satellite_velocity_ecef_m_per_s);
-  EXPECT_TRUE(input.has_satellite_position);
   session::SbirsSession session = session::SbirsSession::Create(MakeExecutableConfig());
   EXPECT_EQ(session.StepWithResult(input).status, session::SbirsCycleStatus::kCompleted);
 }

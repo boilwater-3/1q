@@ -241,7 +241,6 @@ std::string EncodeEsrCycleInput(const EsrCycleInput& v) {
   esr::replay::Vec3 platform_position_ecef = ToV(v.platform_position_ecef_m);
   esr::replay::Vec3 platform_velocity_ecef = ToV(v.platform_velocity_ecef_mps);
   b.add_platform_entity_id(v.platform_entity_id);
-  b.add_has_platform_ecef_kinematics(v.has_platform_ecef_kinematics);
   b.add_platform_position_ecef_m(&platform_position_ecef);
   b.add_platform_velocity_ecef_mps(&platform_velocity_ecef);
   const esr::replay::EulerDeg platform_attitude = ToE(v.platform_attitude_deg);
@@ -262,7 +261,6 @@ bool DecodeEsrCycleInput(const std::string& bytes, EsrCycleInput* out) {
   out->cycle_start_time_s = fb->cycle_start_time_s();
   out->dt_sec = fb->dt_sec();
   out->platform_entity_id = fb->platform_entity_id();
-  out->has_platform_ecef_kinematics = fb->has_platform_ecef_kinematics();
   out->rf_emissions = FromRfSceneFrame(fb->rf_emissions());
   if (fb->platform_position_ecef_m()) {
     out->platform_position_ecef_m.x_m = fb->platform_position_ecef_m()->x();

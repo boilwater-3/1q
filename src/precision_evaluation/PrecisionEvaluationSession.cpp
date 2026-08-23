@@ -180,13 +180,10 @@ sbirs_sensor::session::SbirsCycleInput BuildSatelliteCycleInput(
   input.cycle_index = cycle_index;
   input.dt_sec = dt_sec;
   input.utc_julian_day = utc_julian_day;
-  input.has_satellite_position = true;
   input.satellite_position_ecef_m = sbirs_sensor::session::SbirsVector3M{
       satellite_position.x_m, satellite_position.y_m, satellite_position.z_m};
-  input.has_satellite_velocity_ecef_m_per_s = true;
   input.satellite_velocity_ecef_m_per_s = sbirs_sensor::session::SbirsVector3M{
       satellite_velocity.x_mps, satellite_velocity.y_mps, satellite_velocity.z_mps};
-  input.has_satellite_attitude = true;
   input.satellite_attitude_eci_body_deg = sbirs_sensor::session::SbirsEulerAnglesDeg{
       yaw_deg, pitch_deg, roll_deg};
   input.scene.reserve(truth_targets.size());

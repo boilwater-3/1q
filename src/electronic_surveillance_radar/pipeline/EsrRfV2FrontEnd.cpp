@@ -101,7 +101,7 @@ bool TryResolveEsrRfV2FrontEnd(const session::EsrCycleInput& input,
                                double additional_propagation_loss_db,
                                EsrRfV2FrontEndResult* result) {
   if (result == nullptr ||
-      !input.has_platform_ecef_kinematics || input.platform_entity_id == 0U ||
+      input.platform_entity_id == 0U ||
       hardware.receiver_equipment_id == 0U || !IsFinite(receiver_center_frequency_hz) ||
       receiver_center_frequency_hz <= 0.0 || !IsFinite(receiver_bandwidth_hz) ||
       receiver_bandwidth_hz <= 0.0 || !IsFinite(additional_propagation_loss_db) ||

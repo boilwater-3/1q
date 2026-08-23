@@ -79,7 +79,6 @@ electronic_surveillance_radar::session::EsrCycleInput EsrSensorComponent::BuildC
   input.cycle_start_time_s = scene.t_sec;
   input.dt_sec = static_cast<float>(dt_sec);
   input.platform_entity_id = 1U;  // 平台实体标识（本示例单平台）
-  input.has_platform_ecef_kinematics = true;
   ResolvePlatformEcef(flight.position(), flight.heading_deg(), flight.speed_mps(),
                       &input.platform_position_ecef_m, &input.platform_velocity_ecef_mps);
   // RF 场景包络必须与本周期权威时间一致（含空帧亦须填齐）。

@@ -152,7 +152,6 @@ esr_session::EsrCycleInput MakeInput(const EsrCase& c, std::uint32_t cycle_index
   input.cycle_start_time_s = static_cast<double>(cycle_index - 1U);
   input.dt_sec = 1.0f;
   input.platform_entity_id = 9001U;
-  input.has_platform_ecef_kinematics = true;
   input.platform_position_ecef_m.x_m = -2289512.0;
   input.platform_position_ecef_m.y_m = 4909946.0;
   input.platform_position_ecef_m.z_m = 3650982.0;

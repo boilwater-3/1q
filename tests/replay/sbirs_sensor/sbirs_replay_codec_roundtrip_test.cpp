@@ -128,13 +128,10 @@ TEST(SbirsReplayCodecRoundtripTest, CycleInputPreservesAllFields) {
   EXPECT_EQ(decoded.cycle_index, 3U);
   EXPECT_FLOAT_EQ(decoded.dt_sec, 0.25f);
   EXPECT_DOUBLE_EQ(decoded.utc_julian_day, 2451544.2230698913);  // ECI 输出参考系（UTC 儒略日）
-  EXPECT_TRUE(decoded.has_satellite_position);
   EXPECT_DOUBLE_EQ(decoded.satellite_position_ecef_m.x, 7000000.0);
-  EXPECT_TRUE(decoded.has_satellite_velocity_ecef_m_per_s);
   EXPECT_DOUBLE_EQ(decoded.satellite_velocity_ecef_m_per_s.x, 7500.0);
   EXPECT_DOUBLE_EQ(decoded.satellite_velocity_ecef_m_per_s.y, -300.0);
   EXPECT_DOUBLE_EQ(decoded.satellite_velocity_ecef_m_per_s.z, 120.0);
-  EXPECT_TRUE(decoded.has_satellite_attitude);
   EXPECT_DOUBLE_EQ(decoded.satellite_attitude_eci_body_deg.yaw_deg, 12.0);
   EXPECT_DOUBLE_EQ(decoded.satellite_attitude_eci_body_deg.pitch_deg, -3.0);
   EXPECT_DOUBLE_EQ(decoded.satellite_attitude_eci_body_deg.roll_deg, 4.0);
@@ -647,7 +644,6 @@ TEST(SbirsReplayCodecRoundtripTest, DecodeRejectsLegacyOrForeignIdentifierBuffer
   input.cycle_index = 3U;
   input.dt_sec = 1.0f;
   input.utc_julian_day = 2460310.5;
-  input.has_satellite_position = true;
   const std::string encoded = EncodeSbirsCycleInput(input);
   ASSERT_GE(encoded.size(), 8U);
   EXPECT_TRUE(DecodeSbirsCycleInput(encoded, &input));

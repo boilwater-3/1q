@@ -249,7 +249,6 @@ esr_session::EsrCycleInput BuildEsrInput(const WorldState& ws, float dt, std::ui
   input.cycle_start_time_s = static_cast<double>(cycle_index - 1U) * dt;
   input.dt_sec = dt;
   input.platform_entity_id = 7001U;
-  input.has_platform_ecef_kinematics = true;
   input.platform_position_ecef_m = ws.platform_pos;
   input.platform_velocity_ecef_mps = ws.platform_vel;
   input.rf_emissions.world_cycle_index = cycle_index;

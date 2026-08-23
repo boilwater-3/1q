@@ -45,8 +45,6 @@ class MutableEsrContext final {
   const oneq::coordinate::EulerAnglesDeg& GetPlatformAttitude() const;
   /** @brief 返回接收平台实体标识。 */
   std::uint64_t GetPlatformEntityId() const;
-  /** @brief 返回是否具有工程 RF 链路所需的平台 ECEF 运动学。 */
-  bool HasPlatformEcefKinematics() const;
   /** @brief 返回接收平台 ECEF 位置。 */
   const oneq::coordinate::EcefPositionM& GetPlatformPositionEcefM() const;
   /** @brief 返回接收平台 ECEF 速度。 */
@@ -66,7 +64,6 @@ class MutableEsrContext final {
   double cycle_start_time_s_{0.0};
   float dt_sec_{1.0f};
   std::uint64_t platform_entity_id_{0U};
-  bool has_platform_ecef_kinematics_{false};
   oneq::coordinate::EcefPositionM platform_position_ecef_m_{};
   oneq::coordinate::EcefVelocityMps platform_velocity_ecef_mps_{};
   oneq::coordinate::EulerAnglesDeg platform_attitude_deg_{};
