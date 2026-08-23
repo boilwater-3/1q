@@ -38,16 +38,22 @@ std::map<std::uint64_t, LastVel>& LastVelocities() {
 
 /**
  * @brief （航迹键, 源）视线角采样状态（会话内累计，仿 LastVelocities 先例）。
- * @note 2026-08-22 甲方批注：剩余覆盖时间以「视场宽度 ÷ 视线角速率」的简易
- *       外推估计（从该源首见该航迹起倒计时）；库内无接力协议。
+ * @note 2026-08-22 甲方批注：剩余覆盖时间以「(视场宽度 − 已扫过角) ÷ 滑窗
+ *       最小二乘角速率」的简易外推估计（自该源首见该航迹起累计扫过角）；
+ *       库内无接力协议。
  */
 struct RelaySight {
-  double az_deg{0.0};        /**< 最近一次方位角（deg）。 */
+  double az_deg{0.0};        /**< 最近一次方位角（deg，原始缠绕值）。 */
   double el_deg{0.0};        /**< 最近一次俯仰角（deg）。 */
   std::uint64_t cycle{0U};   /**< 最近采样周期号。 */
-  std::uint64_t first_cycle{0U}; /**< 该（键,源）首见周期号（覆盖倒计时锚点）。 */
+  double unwrapped_az_deg{0.0}; /**< 自首见累计解缠方位（deg，扫过角分子用）。 */
+  double first_el_deg{0.0};  /**< 首见俯仰角（扫过角俯仰分量锚点）。 */
+  std::vector<RelayAngularSample> window; /**< 最近采样滑窗（最小二乘角速率用）。 */
   bool valid{false};         /**< 已收到首个方位样本。 */
 };
+
+/** @brief 接力角速率滑窗长度（逐拍差分噪声均摊；方法常数见目录条目）。 */
+constexpr std::size_t kRelayWindowSamples = 8U;
 
 std::map<std::pair<std::uint64_t, std::uint32_t>, RelaySight>& RelaySights() {
   static std::map<std::pair<std::uint64_t, std::uint32_t>, RelaySight> values;
@@ -71,21 +77,59 @@ std::string ChannelNames(const FusedTarget& track) {
 
 }  // namespace
 
-double AngularSpeedDegPerSec(double az0_deg, double el0_deg, double az1_deg, double el1_deg,
-                             double dt_sec) {
-  if (dt_sec <= 0.0) {
-    return 0.0;
+double WrappedAzimuthDeltaDeg(double az_from_deg, double az_to_deg) {
+  double delta = std::fmod(az_to_deg - az_from_deg, 360.0);
+  if (delta <= -180.0) {
+    delta += 360.0;
+  } else if (delta > 180.0) {
+    delta -= 360.0;
   }
-  const double d_az = az1_deg - az0_deg;
-  const double d_el = el1_deg - el0_deg;
-  return std::sqrt(d_az * d_az + d_el * d_el) / dt_sec;
+  return delta;
 }
 
-double RelayCoverageSec(double fov_width_deg, double angular_speed_deg_per_s) {
-  if (fov_width_deg <= 0.0 || angular_speed_deg_per_s <= 0.0) {
+double LeastSquaresAngularSpeedDegPerSec(const std::vector<RelayAngularSample>& samples) {
+  // 需 ≥2 个不同时刻采样；时间跨度为零（同拍重复）不可估。
+  if (samples.size() < 2U) {
     return -1.0;
   }
-  return fov_width_deg / angular_speed_deg_per_s;
+  const double t0 = samples.front().time_sec;
+  double sum_t = 0.0;
+  double sum_tt = 0.0;
+  double sum_az = 0.0;
+  double sum_el = 0.0;
+  double sum_t_az = 0.0;
+  double sum_t_el = 0.0;
+  double unwrapped_az = 0.0;
+  double prev_az = samples.front().az_deg;
+  for (std::size_t i = 0U; i < samples.size(); ++i) {
+    const double t = samples[i].time_sec - t0;
+    // 逐差分解缠：跨 ±180 缠绕不产生 360° 假差分。
+    unwrapped_az += WrappedAzimuthDeltaDeg(prev_az, samples[i].az_deg);
+    prev_az = samples[i].az_deg;
+    sum_t += t;
+    sum_tt += t * t;
+    sum_az += unwrapped_az;
+    sum_el += samples[i].el_deg;
+    sum_t_az += t * unwrapped_az;
+    sum_t_el += t * samples[i].el_deg;
+  }
+  const double n = static_cast<double>(samples.size());
+  const double det = n * sum_tt - sum_t * sum_t;
+  if (det <= 0.0) {
+    return -1.0;  // 全部同拍（时间跨度为零）。
+  }
+  const double slope_az = (n * sum_t_az - sum_t * sum_az) / det;
+  const double slope_el = (n * sum_t_el - sum_t * sum_el) / det;
+  return std::sqrt(slope_az * slope_az + slope_el * slope_el);
+}
+
+double RelayRemainingCoverageSec(double fov_width_deg, double swept_deg,
+                                 double omega_deg_per_s) {
+  if (fov_width_deg <= 0.0 || omega_deg_per_s <= 0.0 || swept_deg < 0.0) {
+    return -1.0;
+  }
+  const double remaining = (fov_width_deg - swept_deg) / omega_deg_per_s;
+  return remaining > 0.0 ? remaining : 0.0;
 }
 
 void WriteFusionAcceptance(std::uint32_t cycle, const std::vector<FusedTarget>& tracks,
@@ -149,8 +193,10 @@ void WriteFusionAcceptance(std::uint32_t cycle, const std::vector<FusedTarget>& 
     relay += " 融合航迹数=" + std::to_string(tracks.size());
     relay += " 置信度=" + FormatF(track.confidence, 3);
 
-    // 接力三项（2026-08-22 甲方批注）：逐方位源以「视场宽度 ÷ 视线角速率」
-    // 外推覆盖时长，自该源首见该航迹起倒计时；取最早离开的源为接力对象。
+    // 接力三项（2026-08-22 甲方批注）：逐方位源以「(视场宽度 − 自首见累计扫过角)
+    // ÷ 滑窗最小二乘角速率」外推剩余覆盖；取最早离开的源为接力对象。
+    const double t_sec =
+        static_cast<double>(cycle_u64) * config.track_cycle_period_sec;
     std::uint32_t exit_source = 0U;
     double min_remaining_sec = -1.0;
     for (const ChannelMeasurement& channel : track.channels) {
@@ -160,33 +206,32 @@ void WriteFusionAcceptance(std::uint32_t cycle, const std::vector<FusedTarget>& 
       RelaySight& sight = RelaySights()[{track.key, channel.source_id}];
       double remaining = -1.0;
       if (sight.valid && cycle_u64 > sight.cycle) {
-        const double dt_sec = static_cast<double>(cycle_u64 - sight.cycle) *
-                              config.track_cycle_period_sec;
-        const double omega = AngularSpeedDegPerSec(sight.az_deg, sight.el_deg,
-                                                   channel.bearing_az_deg,
-                                                   channel.bearing_el_deg, dt_sec);
-        const double coverage_sec =
-            RelayCoverageSec(config.relay_fov_width_deg, omega);
-        if (coverage_sec > 0.0) {
-          const double elapsed_sec = static_cast<double>(cycle_u64 - sight.first_cycle) *
-                                     config.track_cycle_period_sec;
-          remaining = coverage_sec - elapsed_sec;
-          if (remaining < 0.0) {
-            remaining = 0.0;
-          }
+        // 自首见累计解缠扫过角：方位逐差分归一（跨 ±180 不假跳 360°），俯仰直线差。
+        sight.unwrapped_az_deg +=
+            WrappedAzimuthDeltaDeg(sight.az_deg, channel.bearing_az_deg);
+        const double swept_el_deg = channel.bearing_el_deg - sight.first_el_deg;
+        const double swept_deg = std::sqrt(sight.unwrapped_az_deg * sight.unwrapped_az_deg +
+                                           swept_el_deg * swept_el_deg);
+        sight.window.push_back({t_sec, channel.bearing_az_deg, channel.bearing_el_deg});
+        if (sight.window.size() > kRelayWindowSamples) {
+          sight.window.erase(sight.window.begin());
         }
+        const double omega_deg_per_s = LeastSquaresAngularSpeedDegPerSec(sight.window);
+        remaining =
+            RelayRemainingCoverageSec(config.relay_fov_width_deg, swept_deg, omega_deg_per_s);
+      } else if (!sight.valid) {
+        sight.first_el_deg = channel.bearing_el_deg;
+        sight.unwrapped_az_deg = 0.0;
+        sight.window.push_back({t_sec, channel.bearing_az_deg, channel.bearing_el_deg});
       }
       if (remaining >= 0.0 && (min_remaining_sec < 0.0 || remaining < min_remaining_sec)) {
         min_remaining_sec = remaining;
         exit_source = channel.source_id;
       }
-      if (!sight.valid) {
-        sight.first_cycle = cycle_u64;
-        sight.valid = true;
-      }
       sight.az_deg = channel.bearing_az_deg;
       sight.el_deg = channel.bearing_el_deg;
       sight.cycle = cycle_u64;
+      sight.valid = true;
     }
 
     // 交接对象：同航迹上滑窗内仍有量测的其他源（取量测数最多者）；无则如实写无。
