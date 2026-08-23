@@ -25,6 +25,13 @@ inline void LogAcceptanceMs(std::uint64_t cycle, double t_sec, const char* item,
            CA_FMT_FORMAT("[验收项：{}] 验收内容：{:.3f}ms 模块={}", item, ms, module));
 }
 
+/// 非计时的验收行（文本内容，如加载完毕状态行），与 LogAcceptanceMs 同一落盘格式。
+inline void LogAcceptanceText(std::uint64_t cycle, double t_sec, const char* item,
+                              const std::string& text) {
+  LogEvent(cycle, t_sec, "acceptance",
+           CA_FMT_FORMAT("[验收项：{}] 验收内容：{}", item, text));
+}
+
 }  // namespace demo
 }  // namespace component_attachment
 

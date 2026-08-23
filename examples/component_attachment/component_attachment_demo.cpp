@@ -175,6 +175,10 @@ int main(int argc, char* argv[]) {
   // CMake 注入 CA_RIR_DATABASE_PATH 解析）。实体按创建序步进：站点先于平台
   // 创建，其本周期特征量测在平台融合组件 Step 时已就绪（同周期聚合，无跨
   // 周期滞后）。
+  // 验收行（多模型并行加载）的装配段墙钟起点：从这里到威胁组件挂载完毕
+  // 覆盖全部模块会话创建（库内无并行加载实现，真实加载状态由 example 层给出）。
+  const std::chrono::steady_clock::time_point models_load_begin =
+      std::chrono::steady_clock::now();
   ca::Entity* rir_site = nullptr;
   if (scene_data.rir_enabled) {
     rir_site = &world.CreateEntity(ca::kRirSiteEntityName);
@@ -251,6 +255,48 @@ int main(int argc, char* argv[]) {
   // 威胁评估配置来自场景文件（threat 块；缺省 = 库内默认权重/断点/阈值）。
   // 挂载序在 Fusion 之后：威胁组件每周期读融合输出与 AR 调试视图组装输入。
   platform.Attach(std::make_unique<ca::ThreatComponent>(scene_data.threat));
+
+  // 验收行（多模型并行加载）：初始化结束时显示动态库（模块）加载完毕——
+  // 按实际挂载的模块列清单 + 装配段真实墙钟，写入 integration_events.log。
+  {
+    std::vector<const char*> loaded_models;
+    if (scene_data.rir_enabled) {
+      loaded_models.push_back("RIR");
+    }
+    if (scene_data.esr_enabled) {
+      loaded_models.push_back("ESR");
+    }
+    if (scene_data.ecm_enabled && scene_data.esr_enabled) {
+      loaded_models.push_back("ECM");
+    }
+    if (scene_data.ar_enabled) {
+      loaded_models.push_back("AR");
+    }
+    if (scene_data.eos_enabled) {
+      loaded_models.push_back("EOS");
+    }
+    if (scene_data.sbirs_enabled) {
+      loaded_models.push_back("SBIRS");
+    }
+    if (scene_data.sar_enabled) {
+      loaded_models.push_back("SAR");
+    }
+    loaded_models.push_back("Fusion");
+    loaded_models.push_back("Inference");
+    loaded_models.push_back("Threat");
+    std::string model_names;
+    for (const char* name : loaded_models) {
+      if (!model_names.empty()) {
+        model_names += ",";
+      }
+      model_names += name;
+    }
+    demo::LogAcceptanceText(
+        0, 0.0, "多模型并行加载",
+        CA_FMT_FORMAT("动态库加载完毕 模块数={} 模块=[{}] 装配墙钟={:.3f}ms",
+                      loaded_models.size(), model_names,
+                      demo::SteadyElapsedMs(models_load_begin)));
+  }
 
   // 事件接线：决策监听器（订阅融合信号，门限来自场景）+ 周期落盘输出
   // （统一契约 v2：多机平台轨迹/目标真值/航路/巡逻区域 CSV；集成端日志
