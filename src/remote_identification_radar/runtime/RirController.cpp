@@ -820,6 +820,12 @@ void RirController::RunCycle(const session::RirCycleInput& input,
 
     track_snapshots = lifecycle_->BuildTrackSnapshots();
 
+    // 验收事件 cluster（2026-08-22 甲方批注）：集群目标数量 = 确认航迹数
+    // （计数口径；非检测条数）。
+    if (RIR_ACCEPTANCE_LOG_ENABLED()) {
+      WriteRirClusterCount(input.sim_time_sec, input.input_cycle_index, track_snapshots);
+    }
+
     std::unordered_map<std::uint64_t, recognition::RirTracker::TrackObservationInput>
         observations_by_key;
     for (const tracking::RirTrackState& track : track_snapshots) {

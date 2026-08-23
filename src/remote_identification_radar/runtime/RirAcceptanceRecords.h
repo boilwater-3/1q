@@ -73,6 +73,9 @@ void WriteRirSearchDetections(float sim_time_sec, std::uint32_t cycle, float bea
 void WriteRirAssociation(float sim_time_sec, std::uint32_t cycle,
                          const tracking::RirAssociationResult& association);
 
+void WriteRirClusterCount(float sim_time_sec, std::uint32_t cycle,
+                          const std::vector<tracking::RirTrackState>& tracks);
+
 /**
  * @brief 雷达局部 ENU 位置换斜距与视线角（与 RirController::ComputeLookAngles 同口径）。
  * @param[in] east_m 东向坐标（m）。

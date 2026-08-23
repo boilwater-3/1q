@@ -415,6 +415,38 @@ void WriteRirAssociation(float sim_time_sec, std::uint32_t cycle,
   Emit(sim_time_sec, cycle, "更新后的航迹集合", content);
 }
 
+void WriteRirClusterCount(float sim_time_sec, std::uint32_t cycle,
+                          const std::vector<tracking::RirTrackState>& tracks) {
+  if (!RIR_ACCEPTANCE_LOG_ENABLED()) {
+    return;
+  }
+  // 甲方 2026-08-22 批注「要输出集群目标数量（知道能打出几枚即可）」：
+  // 集群目标数量 = 确认航迹数（身份去重后的在跟目标数，非检测条数——
+  // 「检测条数不得顶替集群规模」原裁定由本批注按计数口径覆盖）。同时给出
+  // 待确认/丢失计数作上下文；无确认航迹时如实写 0。
+  std::size_t confirmed = 0U;
+  std::size_t tentative = 0U;
+  std::size_t lost = 0U;
+  for (const tracking::RirTrackState& track : tracks) {
+    switch (track.status) {
+      case tracking::RirTrackStatus::kConfirmed:
+        ++confirmed;
+        break;
+      case tracking::RirTrackStatus::kTentative:
+        ++tentative;
+        break;
+      case tracking::RirTrackStatus::kLost:
+        ++lost;
+        break;
+    }
+  }
+  std::string content = "集群目标数量=" + std::to_string(confirmed);
+  content += " 在跟=" + std::to_string(confirmed + tentative);
+  content += " 待确认=" + std::to_string(tentative);
+  content += " 丢失=" + std::to_string(lost);
+  Emit(sim_time_sec, cycle, "集群目标识别", content);
+}
+
 void WriteRirTrackAndId(float sim_time_sec, std::uint32_t cycle, const tracking::RirTrackState& track,
                         const session::RirRecognitionResult* result,
                         const session::RirFeatureMeasurementRecord* features,
