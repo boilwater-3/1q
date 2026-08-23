@@ -300,6 +300,8 @@ void ArSensorComponent::Step(World& world, double dt_sec) {
   if (result.status != airborne_radar::session::ArCycleStatus::kCompleted) {
     return;  // 周期被拒绝：本周期无探测
   }
+  // 航迹归属对照表（指令路由器把融合键翻译为外部目标 ID 的权威来源）。
+  last_track_attributions_ = result.track_attributions;
   PublishEquipmentEmissions(&mutable_scene, result.emission_frame);
 
   // 事件转发与探测适配统一用外部轨迹帧（雷达局部坐标 → ECEF 已在

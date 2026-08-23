@@ -157,10 +157,21 @@ struct SarProductEvent {
   std::string abort_reason{};                           /**< 中止原因（kProcessingFailed 时非空） */
 };
 
-/** @brief 决策指令事件：高置信威胁判定后由决策侧（订阅者）发布。 */
+/** @brief 决策指令类型（结构化载荷：路由器按类型分发到传感器运行期接口）。 */
+enum class CommandKind {
+  kEnableAntiFalseTarget = 0, /**< 开启抗假目标鉴别（纯日志演示，无库接口） */
+  kEngageHighThreat = 1,      /**< 交战高威胁目标（触发 AR STT 锁定 + RIR 指定识别） */
+  kDesignateTarget = 2,       /**< 指定目标（外部系统下令：AR STT + RIR 限时识别） */
+  kClearDesignation = 3,      /**< 清除指定（回到扫描；两传感器 designated=0） */
+};
+
+/** @brief 决策指令事件：决策侧（DecisionListener）或外部指令脚本发布。 */
 struct CommandIssuedEvent {
-  std::uint64_t cycle{0U}; /**< 世界周期号 */
-  std::string command{};   /**< 指令描述（可读文本） */
+  std::uint64_t cycle{0U};      /**< 世界周期号 */
+  CommandKind kind{CommandKind::kDesignateTarget}; /**< 指令类型 */
+  std::uint64_t target_key{0U}; /**< 目标键（发布方视角的融合键；路由器翻译为外部目标 ID） */
+  std::uint32_t duration_cycles{0U}; /**< 限时窗口（周期；0 = 无限期） */
+  std::string command{};        /**< 指令描述（可读文本） */
 };
 
 }  // namespace component_attachment

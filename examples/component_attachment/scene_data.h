@@ -23,6 +23,7 @@
 #include "1q/navigation/CoverageArea.h"
 #include "1q/navigation/CoveragePlanConfig.h"
 #include "1q/navigation/RoutePoint.h"
+#include "core/events.h"
 
 namespace component_attachment {
 namespace demo {
@@ -61,6 +62,17 @@ struct CoverageTask {
 struct FormationMissionArea {
   navigation::CoverageArea area{};                 /**< 覆盖区域（多边形 / 圆形） */
   navigation::CoveragePlanConfig config{};         /**< 覆盖规划参数 */
+};
+
+/// 运行期指令脚本（场景文件顶层可选 commands[] 条目）：外部指挥系统在指定
+/// 周期下发的指令——指定/锁定目标不再走任务开始配置，而是经指令事件
+/// （CommandIssuedEvent）→ CommandRouter → 组件运行期补丁的统一路径执行。
+/// 主循环在每周期 world.Step 前按 start_cycle 派发（当周期生效）。
+struct ScriptedCommand {
+  std::uint32_t start_cycle{0U};   /**< 下发周期（含；相对周期 1 起，须 > 0） */
+  CommandKind kind{CommandKind::kDesignateTarget}; /**< 指令类型 */
+  std::uint64_t target_id{0U};     /**< 目标外部 ID（kClearDesignation 时忽略） */
+  std::uint32_t duration_cycles{0U}; /**< 限时窗口（周期；0 = 无限期） */
 };
 
 /// 目标脚本（场景文件 targets[] 条目）：四通道共享同一物理目标
@@ -173,12 +185,14 @@ struct SceneData {
 
   // RIR 地基识别雷达站点块（可选，enabled=false 时整机不挂载——现有场景行为
   // 不变）：站点为固定 LLA（雷达局部 ENU 原点 + 特征量测 sensor_origin）；
-  // 指定目标任务可选（锁定指定目标识别，识别完成/超时回扫）。
+  // 指定识别任务经运行期指令（commands[] 或威胁闭环）下发，不再随场景配置。
   bool rir_enabled{false};                          /**< 是否挂载 RIR 地基站点组件 */
   oneq::coordinate::LlaPositionDegM rir_site_origin{
       30.0, 120.0, 0.0};                            /**< 站点位置（LLA；enabled 时必填语义） */
-  std::uint64_t rir_designated_target_id{0U};       /**< 指定任务目标 ID（0 = 无任务） */
-  std::uint32_t rir_designation_duration_cycles{0U}; /**< 指定任务窗口（周期；0 = 无限期） */
+
+  // 运行期指令脚本（顶层可选 commands[]，缺省空）：按周期派发的指定/锁定/
+  // 清除指令——"外部控制"的确定性载体（见 ScriptedCommand）。
+  std::vector<ScriptedCommand> commands{};
 
   // ECM 电子对抗块（可选，enabled=true 时挂载 EcmSensorComponent；须 ESR→ECM→AR 挂载序）。
   bool ecm_enabled{false};                          /**< 是否挂载 ECM 组件 */

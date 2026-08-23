@@ -72,6 +72,8 @@ const char* EventTypeName(const char* type) {
       {"waypoint_reached", "航点到达"},
       {"platform_state", "平台状态"},
       {"command_issued", "指令下发"},
+      {"command_executed", "指令执行"},
+      {"command_dropped", "指令未执行"},
       {"exclusion_cause", "排除原因变化"},
       {"rir_recognition", "RIR 识别确认"},
       {"rir_designation", "RIR 指定任务"},

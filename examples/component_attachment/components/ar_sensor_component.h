@@ -16,6 +16,7 @@
 #include "1q/airborne_radar/config/ArRuntimeConfigPatch.h"
 #include "1q/airborne_radar/session/ArSession.h"
 #include "1q/airborne_radar/session/ArExclusionCauseRecorder.h"
+#include "1q/airborne_radar/session/ArOutputTypes.h"
 #include "1q/airborne_radar/session/ArTrackLifecycleRecorder.h"
 #include "1q/airborne_radar/session/ArTrackOutputDebugView.h"
 #include "1q/coordinate/types.h"
@@ -66,6 +67,17 @@ class ArSensorComponent : public Component {
   }
 
   /**
+   * @brief 最近成功周期的航迹归属对照表（association_key → external_target_id）。
+   *
+   * 指令路由器经此把融合键（AR 通道 = 内部 association_key）翻译为外部目标
+   * ID，再下发 STT 指定/识别指定补丁；未步进或周期被拒时为上一成功周期值。
+   */
+  const std::vector<airborne_radar::session::ArTrackAttributionRecord>& last_track_attributions()
+      const {
+    return last_track_attributions_;
+  }
+
+  /**
    * @brief 运行时修改入口：包装 ArSession::TryApplyRuntimeConfig。
    *
    * AR 为事务性提交：补丁先暂存，下次成功周期边界统一生效（提交失败
@@ -85,6 +97,7 @@ class ArSensorComponent : public Component {
   std::vector<fusion::DetectionRecord> detections_{};
   bool powered_on_{true}; /**< 电源状态（由 sensor_enabled 补丁唯一维护；关机时组件不驱动会话） */
   airborne_radar::session::ArTrackOutputDebugView last_debug_view_{}; /**< 最近周期调试视图快照（规则 12 落盘） */
+  std::vector<airborne_radar::session::ArTrackAttributionRecord> last_track_attributions_{}; /**< 最近成功周期航迹归属表（指令路由器键翻译） */
   std::uint64_t platform_entity_id_{1U};          /**< RF platform_id（rf_world 派生干扰时排除本机发射链） */
   std::uint64_t transmitter_equipment_id_{1U};  /**< 本机发射 equipment_id（与 hardware.transmitter 一致） */
 

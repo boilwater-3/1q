@@ -3,8 +3,9 @@
  * @brief RIR 地基站点传感器组件实现（会话驱动 + 识别/指定任务事件 + 融合量测）。
  *
  * 1. RirCycleInput 直接构造（固定站点海拔/ECEF + 消费方注入的站点局部 ENU
- *    场景目标帧），驱动 RirSession；指定目标任务经运行期补丁在首周期下发
- *    （识别完成或窗口耗尽由会话状态机自动回扫）；
+ *    场景目标帧），驱动 RirSession；指定识别任务经运行期补丁接口下发
+ *    （外部指令事件 → CommandRouter → TryApplyRuntimeConfig；识别完成或
+ *    窗口耗尽由会话状态机自动回扫）；
  * 2. 识别结论进入确认态时发关键事件（逐航迹状态迁移判定，避免每周期重复）；
  *    指定任务回扫沿发事件；每周期视图行汇总归属航迹/驻留中心；
  * 3. 特征量测（出口①）适配为泛型探测记录（fusion::AdaptRirFeatureMeasurements-
@@ -144,12 +145,9 @@ const char* TrackStatusName(rir::RirTrackLifecycleStatus status) {
 
 RirSensorComponent::RirSensorComponent(
     rir::RirSession session, const oneq::coordinate::LlaPositionDegM& site_origin,
-    std::uint64_t designated_target_id, std::uint32_t designation_duration_cycles,
     std::uint64_t sensor_platform_id, float recognition_dwell_sec)
     : session_(std::move(session)),
       site_origin_(site_origin),
-      designated_target_id_(designated_target_id),
-      designation_duration_cycles_(designation_duration_cycles),
       sensor_platform_id_(sensor_platform_id),
       recognition_dwell_sec_(recognition_dwell_sec) {
   // 站点固定：ECEF 解析一次，逐周期作为特征量测 sensor_origin 提供。
@@ -157,6 +155,11 @@ RirSensorComponent::RirSensorComponent(
   // 观测投影记录器（规则 10/11）：StepWithResult 内部自动喂，组件只读事件。
   session_.AttachTrackLifecycleRecorder(&lifecycle_);
   session_.AttachExclusionCauseRecorder(&exclusion_);
+}
+
+bool RirSensorComponent::TryApplyRuntimeConfig(
+    const remote_identification_radar::config::RirRuntimeConfigPatch& patch) {
+  return session_.TryApplyRuntimeConfig(patch);
 }
 
 void RirSensorComponent::Step(World& world, double dt_sec) {
@@ -170,19 +173,6 @@ void RirSensorComponent::Step(World& world, double dt_sec) {
   }
   const auto& scene = static_cast<const DemoSceneState&>(world.scene_state());
   auto& mutable_scene = static_cast<DemoSceneState&>(world.scene_state());
-
-  // 指定目标任务首周期下发（识别完成/窗口耗尽的回扫由会话状态机处置）。
-  if (!designation_applied_ && designated_target_id_ != 0U) {
-    remote_identification_radar::config::RirRuntimeConfigPatch patch;
-    patch.has_designated_target_id = true;
-    patch.designated_external_target_id = designated_target_id_;
-    if (designation_duration_cycles_ > 0U) {
-      patch.has_designation_duration_cycles = true;
-      patch.designation_duration_cycles = designation_duration_cycles_;
-    }
-    session_.TryApplyRuntimeConfig(patch);
-    designation_applied_ = true;
-  }
 
   rir::RirCycleInput input;
   input.input_cycle_index = static_cast<std::uint32_t>(scene.cycle);
@@ -257,25 +247,25 @@ void RirSensorComponent::Step(World& world, double dt_sec) {
   // 回退成因区分——kAcquisitionTimeout 为窗口耗尽作废；无回退标志为识别达成
   // 完成（成功完成不置 designation_reverted_to_scan，该标志仅缺席/超时使用）。
   const bool designation_assigned = result.designated_target_id != 0U;
-  if (!designation_assigned && prev_designation_assigned_) {
+  if (!designation_assigned && prev_designated_target_id_ != 0U) {
     const bool timed_out =
         result.designation_revert_reason ==
         remote_identification_radar::session::RirDesignationRevertReason::kAcquisitionTimeout;
     // 与下方写入行同内容：纯 std::string/std::to_string 拼接的日志字符串，供集成方直接搬入己方日志（示例自身不消费）。
     const std::string rir_designation_event_log =
         std::string("指定目标=") +
-        std::to_string(static_cast<unsigned long long>(designated_target_id_)) +
+        std::to_string(static_cast<unsigned long long>(prev_designated_target_id_)) +
         " 类型=" +
         (timed_out ? "任务作废回扫" : "识别达成完成") +
         " 成因=" +
         (DesignationRevertReasonName(result.designation_revert_reason));
     CA_LOG_EVENT(world, "rir_designation",
                  "指定目标={} 类型={} 成因={}",
-                 static_cast<unsigned long long>(designated_target_id_),
+                 static_cast<unsigned long long>(prev_designated_target_id_),
                  timed_out ? "任务作废回扫" : "识别达成完成",
                  DesignationRevertReasonName(result.designation_revert_reason));
   }
-  prev_designation_assigned_ = designation_assigned;
+  prev_designated_target_id_ = result.designated_target_id;
 
   // 航迹生命周期事件（规则 10）：首确认/丢失/指定任务作废沿写关键事件——纯日志，
   // 不发 World 信号（与 rir_recognition/rir_designation 一致）；kUpdated 为周期性

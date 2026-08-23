@@ -46,7 +46,6 @@ class RirSensorComponent : public Component {
  public:
   RirSensorComponent(remote_identification_radar::session::RirSession session,
                      const oneq::coordinate::LlaPositionDegM& site_origin,
-                     std::uint64_t designated_target_id, std::uint32_t designation_duration_cycles,
                      std::uint64_t sensor_platform_id, float recognition_dwell_sec);
   ~RirSensorComponent() override = default;
 
@@ -59,6 +58,18 @@ class RirSensorComponent : public Component {
 
   /** @brief 本周期适配后的泛型探测记录（融合聚合读；源通道 kRirSourceId）。 */
   const std::vector<fusion::DetectionRecord>& detections() const { return detections_; }
+
+  /**
+   * @brief 运行时修改入口：包装 RirSession::TryApplyRuntimeConfig。
+   *
+   * 指定识别任务（designated_external_target_id + 限时窗口）经此运行期下发
+   * （外部指令事件 → CommandRouter → 本入口），不再走任务开始构造注入；
+   * 补丁在会话下次成功周期边界统一生效，非法补丁原子拒绝。
+   * @param[in] patch 运行期可变参数补丁（has_* 位标志选择字段）。
+   * @return true 已接受并暂存；false 补丁非法（原子拒绝，现有配置不变）。
+   */
+  bool TryApplyRuntimeConfig(
+      const remote_identification_radar::config::RirRuntimeConfigPatch& patch);
 
   /** @brief 当前电源状态（关机时组件不驱动会话）。 */
   bool powered_on() const { return powered_on_; }
@@ -84,18 +95,15 @@ class RirSensorComponent : public Component {
   Entity* host_{nullptr};
   oneq::coordinate::LlaPositionDegM site_origin_{};   /**< 站点 LLA（ENU 原点） */
   oneq::coordinate::EcefPositionM site_ecef_{};       /**< 站点 ECEF（构造时解析一次） */
-  std::uint64_t designated_target_id_{0U};            /**< 指定任务目标 ID（0 = 无任务） */
-  std::uint32_t designation_duration_cycles_{0U};     /**< 指定任务窗口（周期；0 = 无限期） */
   std::uint64_t sensor_platform_id_{0U};              /**< RF scene 平台身份（排除自身发射） */
   float recognition_dwell_sec_{0.05f};                /**< 识别驻留窗口（rf_scene 时间对齐） */
-  bool designation_applied_{false};                   /**< 指定任务补丁是否已下发 */
   std::vector<fusion::DetectionRecord> detections_{};
   bool powered_on_{true};
   std::uint32_t confirmed_recognition_outputs_{0U};
   /// 上一周期逐航迹识别状态（状态迁移事件判定：accumulating → confirmed）。
   std::unordered_map<std::uint64_t, remote_identification_radar::session::RirRecognitionState>
       prev_recognition_states_{};
-  bool prev_designation_assigned_{false}; /**< 上一周期指定任务是否在案（终态沿事件判定） */
+  std::uint64_t prev_designated_target_id_{0U}; /**< 上一周期指定目标 ID（终态沿事件判定；0 = 无任务） */
   bool step_timing_logged_{false};        /**< 单步执行时间是否已写入示例日志 */
   remote_identification_radar::session::RirOutputDebugView last_debug_view_{}; /**< 最近周期视图 */
 #if defined(CA_VIEW_LOG_MODE_DELTA)

@@ -28,6 +28,23 @@ std::int64_t ReadInt(const examples::JsonValue& value, const char* key,
   return value[key].IsNull() ? default_value : value[key].AsInt();
 }
 
+/// 指令类型字符串 → 枚举（commands[].kind；非法值报错而非静默默认——
+/// 指令名拼错会让场景悄然缺失指定/锁定演示）。
+bool ParseCommandKind(const std::string& text, CommandKind* kind, std::string* error) {
+  if (text == "designate") {
+    *kind = CommandKind::kDesignateTarget;
+  } else if (text == "engage") {
+    *kind = CommandKind::kEngageHighThreat;
+  } else if (text == "clear_designation") {
+    *kind = CommandKind::kClearDesignation;
+  } else {
+    *error = "invalid \"commands[].kind\" (must be \"designate\", \"engage\" or "
+             "\"clear_designation\")";
+    return false;
+  }
+  return true;
+}
+
 /// 必填几何字段校验：缺失时置 error 并返回 false（几何字段静默为 0 会让
 /// 场景在错误位置"合理"运行，浪费整轮验证——此处严格于调参字段）。
 bool RequireGeometry(const examples::JsonValue& value, const std::string& block,
@@ -571,7 +588,7 @@ bool LoadSceneData(const char* path, SceneData* scene, std::string* error) {
       ReadDouble(root, "high_threat_confidence", out.high_threat_confidence);
 
   // RIR 地基站点块（可选，enabled=true 时挂载识别雷达组件；站点 LLA 为雷达
-  // 局部 ENU 原点，指定目标任务可选——识别完成或窗口超时自动回扫）。
+  // 局部 ENU 原点；指定识别任务经运行期指令 commands[] 下发）。
   const examples::JsonValue& rir = root["rir"];
   if (!rir.IsNull() && rir.type() == examples::JsonValue::kObject) {
     out.rir_enabled = rir.Has("enabled") ? rir["enabled"].AsBool() : false;
@@ -582,11 +599,6 @@ bool LoadSceneData(const char* path, SceneData* scene, std::string* error) {
           ReadDouble(site, "lon_deg", out.rir_site_origin.longitude_deg);
       out.rir_site_origin.altitude_m = ReadDouble(site, "alt_m", out.rir_site_origin.altitude_m);
     }
-    out.rir_designated_target_id = static_cast<std::uint64_t>(
-        ReadInt(rir, "designated_target_id", static_cast<std::int64_t>(out.rir_designated_target_id)));
-    out.rir_designation_duration_cycles = static_cast<std::uint32_t>(
-        ReadInt(rir, "designation_duration_cycles",
-                static_cast<std::int64_t>(out.rir_designation_duration_cycles)));
   }
 
   const examples::JsonValue& ecm = root["ecm"];
@@ -630,6 +642,50 @@ bool LoadSceneData(const char* path, SceneData* scene, std::string* error) {
         ReadDouble(threat, "high_threshold", out.threat.high_threshold);
     out.threat.medium_threshold =
         ReadDouble(threat, "medium_threshold", out.threat.medium_threshold);
+  }
+
+  // 运行期指令脚本块（顶层可选 commands[]，缺省空）：按周期派发的外部指令。
+  // target_id 必须命中 targets[].id（下发前校验——指令指向不存在的目标属于
+  // 场景文件错误，静默跳过会让指定/锁定演示悄然缺失）。
+  const examples::JsonValue& commands = root["commands"];
+  if (!commands.IsNull()) {
+    if (commands.type() != examples::JsonValue::kArray) {
+      *error = "\"commands\" must be an array";
+      return false;
+    }
+    for (std::size_t i = 0U; i < commands.Size(); ++i) {
+      const examples::JsonValue& entry = commands[i];
+      ScriptedCommand command;
+      command.start_cycle = static_cast<std::uint32_t>(
+          ReadInt(entry, "cycle", static_cast<std::int64_t>(command.start_cycle)));
+      const std::string kind_text =
+          entry["kind"].IsString() ? entry["kind"].AsString() : "designate";
+      if (!ParseCommandKind(kind_text, &command.kind, error)) {
+        return false;
+      }
+      command.target_id = static_cast<std::uint64_t>(
+          ReadInt(entry, "target_id", static_cast<std::int64_t>(command.target_id)));
+      command.duration_cycles = static_cast<std::uint32_t>(ReadInt(
+          entry, "duration_cycles", static_cast<std::int64_t>(command.duration_cycles)));
+      if (command.start_cycle == 0U) {
+        *error = "\"commands[].cycle\" must be >= 1";
+        return false;
+      }
+      if (command.kind != CommandKind::kClearDesignation) {
+        bool target_found = false;
+        for (const auto& target : out.targets) {
+          if (static_cast<std::uint64_t>(target.id) == command.target_id) {
+            target_found = true;
+            break;
+          }
+        }
+        if (!target_found) {
+          *error = "\"commands[].target_id\" does not match any targets[].id";
+          return false;
+        }
+      }
+      out.commands.push_back(command);
+    }
   }
 
   // 冒烟块（可选，缺省全部下限 = 1）。

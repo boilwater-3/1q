@@ -71,6 +71,21 @@ namespace {
 constexpr char kDefaultSceneFile[] =
     CA_SCENE_DIR "/baseline_takeoff_east/baseline_takeoff_east.json";
 
+/// 脚本指令 → 人读指令名（command_issued 事件行与 DecisionListener 文案同形）。
+const char* ScriptedCommandName(ca::CommandKind kind) {
+  switch (kind) {
+    case ca::CommandKind::kDesignateTarget:
+      return "DESIGNATE_TARGET";
+    case ca::CommandKind::kEngageHighThreat:
+      return "ENGAGE_HIGH_THREAT";
+    case ca::CommandKind::kClearDesignation:
+      return "CLEAR_DESIGNATION";
+    case ca::CommandKind::kEnableAntiFalseTarget:
+      return "ENABLE_ANTI_FALSE_TARGET_DISCRIMINATION";
+  }
+  return "UNKNOWN";
+}
+
 }  // namespace
 
 int main(int argc, char* argv[]) {
@@ -191,8 +206,7 @@ int main(int argc, char* argv[]) {
     demo::LogAcceptanceMs(0, 0.0, "单个模型加载时间", "RIR",
                           rir_session.LastRecognitionDatabaseLoadMs());
     rir_site->Attach(std::make_unique<ca::RirSensorComponent>(
-        std::move(rir_session), scene_data.rir_site_origin, scene_data.rir_designated_target_id,
-        scene_data.rir_designation_duration_cycles, configs.rir.sensor_platform_id,
+        std::move(rir_session), scene_data.rir_site_origin, configs.rir.sensor_platform_id,
         configs.rir.mission.recognition_dwell_sec));
   }
 
@@ -298,10 +312,16 @@ int main(int argc, char* argv[]) {
                       demo::SteadyElapsedMs(models_load_begin)));
   }
 
-  // 事件接线：决策监听器（订阅融合信号，门限来自场景）+ 周期落盘输出
-  // （统一契约 v2：多机平台轨迹/目标真值/航路/巡逻区域 CSV；集成端日志
-  // 已由 InitIntegrationLog 装配，组件在 Step 内直写视图与事件）。
+  // 事件接线：决策监听器（订阅融合信号，门限来自场景）+ 指令路由器（订阅
+  // 指令信号 → 键解析 → 传感器运行期补丁：指定/锁定经事件驱动，不再是任务
+  // 开始配置）+ 周期落盘输出（统一契约 v2：多机平台轨迹/目标真值/航路/巡逻
+  // 区域 CSV；集成端日志已由 InitIntegrationLog 装配，组件在 Step 内直写
+  // 视图与事件）。
   demo::DecisionListener decision(world, scene_data.high_threat_confidence);
+  demo::CommandRouter command_router(
+      world, scene_data.ar_enabled ? platform.Find<ca::ArSensorComponent>() : nullptr,
+      rir_site != nullptr ? rir_site->Find<ca::RirSensorComponent>() : nullptr,
+      scene_data.targets);
   demo::DemoOutputs outputs(output_dir);
 
   // 多机编队：主平台（platform 块，挂传感器/融合）+ 从机（platforms[] 数组，
@@ -373,6 +393,34 @@ int main(int argc, char* argv[]) {
           centroid_z / count + scene_data.sbirs_satellite_altitude_m;
     }
 
+    // 运行期指令脚本派发（world.Step 前 = 当周期生效）：场景 commands[] 按
+    // 周期下发外部指令——与决策侧 DecisionListener 走同一信号入口，经
+    // CommandRouter 翻译键后下发传感器运行期补丁（指定/锁定的事件驱动路径）。
+    for (const auto& scripted : scene_data.commands) {
+      if (scripted.start_cycle != cycle) {
+        continue;
+      }
+      ca::CommandIssuedEvent command;
+      command.cycle = cycle;
+      command.kind = scripted.kind;
+      command.target_key = scripted.target_id;  // 脚本指令直接用外部目标 ID
+      command.duration_cycles = scripted.duration_cycles;
+      command.command = ScriptedCommandName(scripted.kind);
+      // 与下方写入行同内容：纯 std::string/std::to_string 拼接的日志字符串，供集成方直接搬入己方日志（示例自身不消费）。
+      const std::string scripted_command_event_log =
+          std::string("指令=") +
+          (command.command.c_str()) +
+          " 目标=" +
+          std::to_string(static_cast<unsigned long long>(command.target_key)) +
+          " 窗口=" +
+          std::to_string(command.duration_cycles);
+      CA_LOG_EVENT(world, "command_issued", "指令={} 目标={} 窗口={}",
+                   command.command.c_str(),
+                   static_cast<unsigned long long>(command.target_key),
+                   command.duration_cycles);
+      world.signals().on_command_issued(command);
+    }
+
     world.Step(scene_data.dt_sec);  // 步进序：Flight → ESR → [ECM] → AR → EOS → … → Fusion
 
     // 周期摘要 + 平台轨迹/调试视图落盘（多机：主平台 + 每架从机一行，
@@ -421,6 +469,8 @@ int main(int argc, char* argv[]) {
             << " sbirs_events=" << demo::SbirsEventCount()
             << " sar_products=" << demo::SarProductEventCount()
             << " command_issued=" << (decision.issued() ? "true" : "false")
+            << " command_executed=" << command_router.executed_count()
+            << " command_dropped=" << command_router.dropped_count()
             << " ar_views=" << demo::ArViewCount()
             << " eos_views=" << demo::EosViewCount()
             << " sbirs_views=" << demo::SbirsViewCount()
