@@ -16,6 +16,8 @@
 #include "1q/target_inference/TargetInferenceConfig.h"
 #include "1q/target_inference/TargetInferenceEngine.h"
 
+#include "target_inference/InferenceAcceptanceRecords.h"
+
 namespace target_inference {
 namespace {
 
@@ -41,6 +43,23 @@ InferenceTrackState WithCovariance(InferenceTrackState track, double position_si
                      : velocity_sigma_m_per_s * velocity_sigma_m_per_s;
   }
   return track;
+}
+
+TEST(TargetInferenceEngineTest, SpecificMechanicalEnergyAnchors) {
+  // 地面静止：ε = −μ/R（比机械能纯势能锚点）。
+  const oneq::coordinate::EcefPositionM ground(kEarthRadiusM, 0.0, 0.0);
+  EXPECT_NEAR(SpecificMechanicalEnergyJPerKg(ground, {{0.0, 0.0, 0.0}}, kEarthMu),
+              -kEarthMu / kEarthRadiusM, 1.0);
+  // 半径 a 圆轨道：v² = μ/a ⇒ ε = −μ/(2a)（轨道能量锚点）。
+  const double semi_major = kEarthRadiusM + 500000.0;
+  const double v_circular = std::sqrt(kEarthMu / semi_major);
+  const oneq::coordinate::EcefPositionM orbit(semi_major, 0.0, 0.0);
+  EXPECT_NEAR(
+      SpecificMechanicalEnergyJPerKg(orbit, {{0.0, v_circular, 0.0}}, kEarthMu),
+      -kEarthMu / (2.0 * semi_major), 1.0);
+  // 零位置：不可用约定返回 0（调用方跳过该采样）。
+  const oneq::coordinate::EcefPositionM zero_pos;
+  EXPECT_DOUBLE_EQ(SpecificMechanicalEnergyJPerKg(zero_pos, {{1.0, 2.0, 3.0}}, kEarthMu), 0.0);
 }
 
 TEST(TargetInferenceEngineTest, BallisticPredictionConservesEnergy) {

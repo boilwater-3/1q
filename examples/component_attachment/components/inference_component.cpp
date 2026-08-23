@@ -42,6 +42,10 @@ void InferenceComponent::Step(World& world, double dt_sec) {
     }
     target_inference::InferenceTrackState track;
     track.key = target.key;
+    // 采样仿真时间/周期号：验收行（关机点等时间戳量）需要真实值；world 共享
+    // 场景状态与各组件事件同源。
+    track.sim_time_sec = world.scene_state().t_sec;
+    track.input_cycle_index = static_cast<std::uint32_t>(world.scene_state().cycle);
     if (!oneq::coordinate::TryLlaToEcef(target.kinematic_estimate.position, &track.position)) {
       continue;  // 坐标回写异常：跳过该目标（视图计数呈现）
     }

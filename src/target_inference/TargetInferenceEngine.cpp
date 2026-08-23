@@ -419,7 +419,7 @@ std::vector<TargetInferenceResult> TargetInferenceEngine::Infer(
     results.push_back(std::move(result));
   }
   if (INFERENCE_ACCEPTANCE_LOG_ENABLED()) {
-    WriteInferenceAcceptance(tracks, results);
+    WriteInferenceAcceptance(tracks, results, config_);
   }
   return results;
 }
