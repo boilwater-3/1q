@@ -38,6 +38,12 @@ struct ONEQ_API FusionConfig {
   double default_position_noise_std_m{50.0};        /**< 位置量测噪声默认 1-σ（单位：m） */
   double default_bearing_noise_sigma_rad{2.0e-4};   /**< 方位量测噪声默认 1-σ（单位：rad，az/el 同 σ） */
   std::size_t confirm_hits{3U};              /**< 航迹确认门：累计命中数达该值转 confirmed */
+
+  // ---- 接力覆盖估算（验收行派生量；库内无接力协议） ----
+  /** 接力覆盖估算用视场角宽度（单位：deg；业务层按场景覆写）。
+   *  验收行按「视场宽度 ÷ 视线角速率 = 覆盖时长」简易外推剩余覆盖时间；
+   *  默认 20° 对应示例 SBIRS 宽场。 */
+  double relay_fov_width_deg{20.0};
 };
 
 }  // namespace fusion

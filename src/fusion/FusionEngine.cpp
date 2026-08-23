@@ -308,7 +308,19 @@ class FusionEngine::Impl {
     // ④ 失跟航迹的滤波外推（coasting；本周期已更新的航迹 dt=0 自然跳过）。
     AdvanceFilters(cycle);
 
-    return BuildOutput();
+    // 验收行写入在 Impl 内收口：直接持有 config_ 单源（周期时长/接力视场宽度）。
+    const std::vector<FusedTarget> output = BuildOutput();
+    if (FUSION_ACCEPTANCE_LOG_ENABLED()) {
+      bool filtering = false;
+      for (const FusedTarget& track : output) {
+        if (track.has_kinematic_estimate) {
+          filtering = true;
+          break;
+        }
+      }
+      WriteFusionAcceptance(static_cast<std::uint32_t>(cycle), output, filtering, config_);
+    }
+    return output;
   }
 
   void Reset() {
@@ -723,18 +735,7 @@ FusionEngine::~FusionEngine() = default;
 
 std::vector<FusedTarget> FusionEngine::Update(
     const std::vector<DetectionRecord>& detections, std::uint64_t cycle) {
-  std::vector<FusedTarget> output = impl_->Update(detections, cycle);
-  if (FUSION_ACCEPTANCE_LOG_ENABLED()) {
-    bool filtering = false;
-    for (const FusedTarget& track : output) {
-      if (track.has_kinematic_estimate) {
-        filtering = true;
-        break;
-      }
-    }
-    WriteFusionAcceptance(static_cast<std::uint32_t>(cycle), output, filtering);
-  }
-  return output;
+  return impl_->Update(detections, cycle);
 }
 
 void FusionEngine::Reset() { impl_->Reset(); }
