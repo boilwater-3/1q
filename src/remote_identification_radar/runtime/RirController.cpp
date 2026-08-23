@@ -29,6 +29,7 @@
 #include "remote_identification_radar/dwell/RirMeasurementErrorModel.h"
 #include "remote_identification_radar/dwell/RirReceiverStateBuilder.h"
 #include "remote_identification_radar/dwell/RirRfFrontEndResolver.h"
+#include "remote_identification_radar/internal/RirScanVolume.h"
 #include "remote_identification_radar/recognition/RecognitionObservationBuilder.h"
 #include "remote_identification_radar/runtime/RirAcceptanceLog.h"
 #include "remote_identification_radar/runtime/RirAcceptanceRecords.h"
@@ -681,7 +682,9 @@ recognition::RirObservationContext RirController::MakeObservationContext(
 
 void RirController::RunCycle(const session::RirCycleInput& input,
                              session::RirOutputFrame* output_frame, std::uint64_t batch_id,
-                             const config::RirAzimuthElevationDeg& dwell_center_deg) {
+                             const config::RirAzimuthElevationDeg& dwell_center_deg,
+                             const config::RirAzimuthElevationLimitsDeg& steerable_volume_deg,
+                             const config::RirAzimuthElevationDeg& scan_center_deg) {
   const bool in_identify = work_mode_ == config::RirWorkMode::kIdentify;
   if (recognition_mode_active_ && !in_identify) {
     tracker_.ExitRecognitionMode();
@@ -734,6 +737,17 @@ void RirController::RunCycle(const session::RirCycleInput& input,
         continue;
       }
       scene_by_id[target.external_target_id] = &target;
+      // 2026-08-22 甲方批注「设定方位俯仰进行扫描」：搜索候选集按可扫描体积
+      // 裁剪（az 相对 scan_center、el 绝对；与指定识别目标驻留门同口径）——
+      // 视线角出角域的目标不入检测候选，不再依赖方向图衰减软门控。
+      float look_az_deg = 0.0f;
+      float look_el_deg = 0.0f;
+      float slant_range_m = 0.0f;
+      ComputeLookAngles(target, &look_az_deg, &look_el_deg, &slant_range_m);
+      const config::RirAzimuthElevationDeg look{look_az_deg, look_el_deg};
+      if (!internal::TargetWithinSteerableVolume(look, steerable_volume_deg, scan_center_deg)) {
+        continue;
+      }
       candidate_indices.push_back(i);
     }
 
@@ -814,7 +828,8 @@ void RirController::RunCycle(const session::RirCycleInput& input,
     // 索引/马氏代价）与漏检航迹键（量测清单经 detection_cell 事件逐目标留痕）。
     if (RIR_ACCEPTANCE_LOG_ENABLED()) {
       WriteRirSearchDetections(input.sim_time_sec, input.input_cycle_index, dwell_center_deg.az_deg,
-                               dwell_center_deg.el_deg, g_acceptance_found_targets);
+                               dwell_center_deg.el_deg, steerable_volume_deg, scan_center_deg,
+                               g_acceptance_found_targets);
       WriteRirAssociation(input.sim_time_sec, input.input_cycle_index, association);
     }
 

@@ -60,10 +60,20 @@ class RirController {
    * @param[in] batch_id 本周期会话内部批号（由 RirSession 分配）。
    * @param[in] dwell_center_deg 本周期驻留波束中心（库内驻留调度器给定：
    *            扫描波位或指定识别目标指向；雷达局部 ENU 系，deg）。
+   * @param[in] steerable_volume_deg 搜索角域裁剪用可扫描体积（az 相对
+   *            scan_center、el 绝对，deg）；缺省无界 = 不裁剪（直连调用方
+   *            与既有行为兼容）。
+   * @param[in] scan_center_deg 转台当前朝向（ENU az/el，deg）。
+   * @note 2026-08-22 甲方批注「设定方位俯仰进行扫描」：视线角出体积的场景
+   *       目标不入检测候选集（与指定识别目标驻留门同口径）。
    */
   void RunCycle(const session::RirCycleInput& input, session::RirOutputFrame* output_frame,
                 std::uint64_t batch_id,
                 const config::RirAzimuthElevationDeg& dwell_center_deg =
+                    config::RirAzimuthElevationDeg(),
+                const config::RirAzimuthElevationLimitsDeg& steerable_volume_deg =
+                    config::RirAzimuthElevationLimitsDeg{-180.0f, 180.0f, -90.0f, 90.0f},
+                const config::RirAzimuthElevationDeg& scan_center_deg =
                     config::RirAzimuthElevationDeg());
 
   /** @brief 最近周期是否发布了识别效能摘要。 */

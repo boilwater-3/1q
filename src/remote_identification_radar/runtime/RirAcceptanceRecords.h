@@ -68,7 +68,10 @@ void WriteRirInterferenceLinks(
     const std::vector<oneq::electromagnetics::RfIncidentLinkResult>& links);
 
 void WriteRirSearchDetections(float sim_time_sec, std::uint32_t cycle, float beam_az_deg,
-                              float beam_el_deg, const std::string& found_targets);
+                              float beam_el_deg,
+                              const config::RirAzimuthElevationLimitsDeg& search_volume_deg,
+                              const config::RirAzimuthElevationDeg& scan_center_deg,
+                              const std::string& found_targets);
 
 void WriteRirAssociation(float sim_time_sec, std::uint32_t cycle,
                          const tracking::RirAssociationResult& association);

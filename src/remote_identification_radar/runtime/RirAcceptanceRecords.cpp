@@ -380,16 +380,27 @@ void WriteRirInterferenceLinks(
 }
 
 void WriteRirSearchDetections(float sim_time_sec, std::uint32_t cycle, float beam_az_deg,
-                              float beam_el_deg, const std::string& found_targets) {
+                              float beam_el_deg,
+                              const config::RirAzimuthElevationLimitsDeg& search_volume_deg,
+                              const config::RirAzimuthElevationDeg& scan_center_deg,
+                              const std::string& found_targets) {
   if (!RIR_ACCEPTANCE_LOG_ENABLED()) {
     return;
   }
   const std::string pointing =
       "方位/俯仰=" + FormatPairDeg(beam_az_deg, beam_el_deg, 3) + "°";
+  // 2026-08-22 甲方批注「设定方位俯仰进行扫描」：搜索集合按可扫描体积裁剪
+  // （检测候选与该角域同源）；行内给出中心与角域上下界。
+  std::string sector = "搜索角域=中心(az" + FormatF(scan_center_deg.az_deg, 1) + ",el" +
+                       FormatF(scan_center_deg.el_deg, 1) + ")°";
+  sector += " az[" + FormatF(search_volume_deg.az_min_deg, 1) + "," +
+            FormatF(search_volume_deg.az_max_deg, 1) + "]°相对中心";
+  sector += " el[" + FormatF(search_volume_deg.el_min_deg, 1) + "," +
+            FormatF(search_volume_deg.el_max_deg, 1) + "]°";
   const std::string detections = "搜到目标=[" + found_targets + "]";
   Emit(sim_time_sec, cycle, "本周期方位俯仰指向", pointing);
   Emit(sim_time_sec, cycle, "检测量测信息", detections);
-  Emit(sim_time_sec, cycle, "指定空域搜索", pointing + " " + detections);
+  Emit(sim_time_sec, cycle, "指定空域搜索", pointing + " " + sector + " " + detections);
 }
 
 void WriteRirAssociation(float sim_time_sec, std::uint32_t cycle,

@@ -23,6 +23,7 @@
 #include "common/numerics/Constants.h"
 #include "common/radar/ScanScheduleRuntime.h"
 #include "remote_identification_radar/dwell/RirBeamControl.h"
+#include "remote_identification_radar/internal/RirScanVolume.h"
 #include "remote_identification_radar/runtime/RirAcceptanceLog.h"
 #include "remote_identification_radar/runtime/RirAcceptanceRecords.h"
 #include "remote_identification_radar/runtime/RirController.h"
@@ -140,15 +141,7 @@ config::RirAzimuthElevationDeg TargetLookAngles(const session::RirSceneTarget& t
   return look;
 }
 
-/** @brief 目标视线角是否在 scan_center + 可扫描体积内（az 相对、el 绝对）。 */
-bool TargetWithinSteerableVolume(const config::RirAzimuthElevationDeg& look,
-                                 const config::RirAzimuthElevationLimitsDeg& volume,
-                                 const config::RirAzimuthElevationDeg& scan_center) {
-  const float delta_az_deg = oneq::common::radar::NormalizeAzimuthDeltaDeg(
-      look.az_deg - scan_center.az_deg);
-  return delta_az_deg >= volume.az_min_deg && delta_az_deg <= volume.az_max_deg &&
-         look.el_deg >= volume.el_min_deg && look.el_deg <= volume.el_max_deg;
-}
+// 可扫描体积判定单源于 internal/RirScanVolume.h（驻留门与检测候选裁剪同口径）。
 
 /** @brief 由相对可扫描体积 + scan_center 构建绝对 ENU 波位序列。 */
 std::vector<oneq::common::radar::AzimuthElevationDeg> BuildAbsoluteScanWaves(
@@ -357,9 +350,9 @@ RirCycleResult RirSession::Impl::RunCycle(const RirCycleInput& input) {
   const bool target_in_scene = designated_target != nullptr;
   const bool target_in_volume =
       target_in_scene &&
-      TargetWithinSteerableVolume(TargetLookAngles(*designated_target),
-                                  config.orientation.steerable_volume_deg,
-                                  config.mission.scan_center_deg);
+      internal::TargetWithinSteerableVolume(TargetLookAngles(*designated_target),
+                                            config.orientation.steerable_volume_deg,
+                                            config.mission.scan_center_deg);
   const bool dwelling_on_target =
       advance.phase == RirDesignationPhase::kPending && target_in_volume;
   const config::RirAzimuthElevationDeg dwell_center =
@@ -391,7 +384,10 @@ RirCycleResult RirSession::Impl::RunCycle(const RirCycleInput& input) {
     runtime::WriteRirCycleRunCount(input.sim_time_sec, input.input_cycle_index);
   }
 
-  controller.RunCycle(input, &result.output_frame, next_batch_id, dwell_center);
+  // 搜索角域（体积 + 转台朝向）随驻留中心一并下发：检测候选集按此裁剪
+  // （2026-08-22 甲方批注「设定方位俯仰进行扫描」）。
+  controller.RunCycle(input, &result.output_frame, next_batch_id, dwell_center,
+                      config.orientation.steerable_volume_deg, config.mission.scan_center_deg);
   result.status = RirCycleStatus::kCompleted;
   result.abort_reason = RirCycleAbortReason::kNone;
   ++next_batch_id;
