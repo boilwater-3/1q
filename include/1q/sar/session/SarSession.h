@@ -37,9 +37,12 @@ class ONEQ_API SarSession {
   SarSession& operator=(SarSession&&) noexcept;
 
   /**
-   * @brief 执行单周期并返回输出帧。
+   * @brief 执行单周期并返回产品载荷（元数据 + 聚焦图像）。
+   * @note 规则 15c：产品层从同一次 `StepWithResult()` 生产的周期记录中移动取出，
+   *       不产生第二份副本。非执行周期（校验失败/执行中止/关机）返回空载荷
+   *       （默认元数据 + 无来源图像），不复用上一有效输出。
    */
-  SarOutputFrame Step(const SarCycleInput& input);
+  SarCycleProduct Step(const SarCycleInput& input);
 
   /**
    * @brief 执行单周期并返回聚合结果。
@@ -91,8 +94,10 @@ class ONEQ_API SarSession {
 }  // namespace session
 
 // 跨域传感器会话形状契约：锚定 Step/StepWithResult 签名，防止伪对称漂移。
+// SAR 产品层例外（规则 15c/15e）：Step 返回 SarCycleProduct（元数据 + 聚焦图像），
+// 而非裸 *OutputFrame；产品由同一份周期记录移动取出。
 ONEQ_SENSOR_SESSION_CONTRACT(session::SarSession, session::SarCycleInput,
-                             session::SarOutputFrame, session::SarCycleResult);
+                             session::SarCycleProduct, session::SarCycleResult);
 
 }  // namespace sar
 

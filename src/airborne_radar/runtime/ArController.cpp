@@ -91,8 +91,6 @@ struct ArController::Impl {
   std::vector<session::TacticalProposal> pending_internal_proposals{};
   bool has_pending_external_override{false};
   session::ExternalDecisionOverride pending_external_override{};
-  bool has_latest_decision_observation{false};
-  session::DecisionObservation latest_decision_observation{};
   session::DecisionControlSource last_applied_decision_source{
       session::DecisionControlSource::kNone};
   std::uint32_t last_applied_decision_cycle_index{0U};
@@ -320,9 +318,6 @@ void ArController::RunOnce(const signal::pipeline::SignalCycleInput& cycle_input
   impl_->pending_internal_cycle_index = stamp.cycle_index;
   impl_->pending_internal_batch_id = stamp.batch_id;
   impl_->pending_internal_proposals = decision_result.proposals;
-  impl_->latest_decision_observation.input_frame = decision_frame;
-  impl_->latest_decision_observation.active_control_profile = impl_->control_profile;
-  impl_->has_latest_decision_observation = true;
 
   impl_->cycle_state.latest_output = output_frame;
   impl_->cycle_state.has_latest_output = true;
@@ -376,17 +371,11 @@ session::SignalCycleAbortReason ArController::GetLastSignalCycleAbortReason() co
   return impl_->last_signal_abort_reason;
 }
 
-const session::DecisionObservation& ArController::GetLatestDecisionObservation() const {
-  return impl_->latest_decision_observation;
-}
-
-bool ArController::HasLatestDecisionObservation() const {
-  return impl_->has_latest_decision_observation;
-}
-
 session::ExternalDecisionSubmitStatus ArController::SubmitExternalDecision(
     session::ExternalDecisionOverride override_decision) {
-  if (!impl_->has_pending_internal_decision || !impl_->has_latest_decision_observation) {
+  // 15f 语义等价收窄：两标志历史上只在成功周期成对置位、观测袋无独立清除路径，
+  // has_pending_internal_decision 单条件即原 has_pending && has_observation。
+  if (!impl_->has_pending_internal_decision) {
     return session::ExternalDecisionSubmitStatus::kNoPendingObservation;
   }
   if (impl_->has_pending_external_override) {
@@ -420,7 +409,7 @@ const std::vector<session::TacticalProposal>& ArController::GetLastAppliedDecisi
 extension::ArControllerRuntimeState ArController::CaptureRuntimeState() const {
   extension::ArControllerRuntimeState state;
   state.owner_identity = this;
-  state.schema_version = 8U;
+  state.schema_version = 9U;
   state.latest_output = impl_->cycle_state.latest_output;
   state.has_latest_output = impl_->cycle_state.has_latest_output;
   state.next_batch_id = impl_->cycle_state.next_batch_id;
@@ -435,8 +424,6 @@ extension::ArControllerRuntimeState ArController::CaptureRuntimeState() const {
   state.pending_internal_proposals = impl_->pending_internal_proposals;
   state.has_pending_external_override = impl_->has_pending_external_override;
   state.pending_external_override = impl_->pending_external_override;
-  state.has_latest_decision_observation = impl_->has_latest_decision_observation;
-  state.latest_decision_observation = impl_->latest_decision_observation;
   state.last_applied_decision_source = impl_->last_applied_decision_source;
   state.last_applied_decision_cycle_index = impl_->last_applied_decision_cycle_index;
   state.last_applied_decision_batch_id = impl_->last_applied_decision_batch_id;
@@ -446,7 +433,7 @@ extension::ArControllerRuntimeState ArController::CaptureRuntimeState() const {
 }
 
 bool ArController::RestoreRuntimeState(const extension::ArControllerRuntimeState& state) {
-  if (state.owner_identity != this || state.schema_version != 8U) {
+  if (state.owner_identity != this || state.schema_version != 9U) {
     // 中译：控制器运行状态恢复被拒绝：所有者/结构不匹配。
     // 标识：回滚保护——归属/结构校验失败时拒绝恢复，防止错误状态写入。
     PROJECT_LOG_ERROR(
@@ -469,8 +456,6 @@ bool ArController::RestoreRuntimeState(const extension::ArControllerRuntimeState
   impl_->pending_internal_proposals = state.pending_internal_proposals;
   impl_->has_pending_external_override = state.has_pending_external_override;
   impl_->pending_external_override = state.pending_external_override;
-  impl_->has_latest_decision_observation = state.has_latest_decision_observation;
-  impl_->latest_decision_observation = state.latest_decision_observation;
   impl_->last_applied_decision_source = state.last_applied_decision_source;
   impl_->last_applied_decision_cycle_index = state.last_applied_decision_cycle_index;
   impl_->last_applied_decision_batch_id = state.last_applied_decision_batch_id;

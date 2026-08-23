@@ -183,7 +183,6 @@ Last-reviewed: 2026-08-23
 | `sar.validation.range_sample_count_zero` | 输入校验 | 距离向采样数为零。 |
 | `sar.validation.rda_requires_raw_echo` | 输入校验 | RDA 成像需要启用回波生成。 |
 | `sar.validation.rda_size_gate` | 输入校验 | RDA 尺寸超出批准运行门限（性能批准前限制场景规模）。 |
-| `sar.validation.retain_raw_history_requires_raw_echo` | 输入校验 | 保留原始相位历史需要启用回波生成。 |
 | `sar.validation.sample_rate_not_positive` | 输入校验 | 采样率非正。 |
 | `sar.validation.sample_window_too_small_for_pulse` | 输入校验 | 距离采样窗口容不下完整 LFM 脉冲。 |
 | `sar.validation.squint_angle_invalid` | 输入校验 | 最大允许斜视角非法（须有限且在 [0, 90) 度）。 |

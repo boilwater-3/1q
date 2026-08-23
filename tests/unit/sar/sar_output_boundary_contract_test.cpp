@@ -87,10 +87,10 @@ TEST(SarOutputBoundaryContractTest, NamedPointTargetDoesNotLeakIntoProductOutput
   // 产品输出帧是成像产品元数据；它不含任何 target_name/target_id 字段。
   // 这里断言它确实产出了产品（证明 pipeline 真实执行），同时其字段集
   // 保持产品语义（阶段/样本/分辨率/SNR）而非目标语义。
-  EXPECT_TRUE(result.output_frame.has_l1_image);
-  EXPECT_EQ(result.output_frame.completed_stage, session::SarProcessingStage::kL1RdaImage);
-  EXPECT_GT(result.output_frame.range_sample_count, 0U);
-  EXPECT_GT(result.output_frame.azimuth_pulse_count, 0U);
+  EXPECT_TRUE(result.product.output_frame.has_l1_image);
+  EXPECT_EQ(result.product.output_frame.completed_stage, session::SarProcessingStage::kL1RdaImage);
+  EXPECT_GT(result.product.output_frame.range_sample_count, 0U);
+  EXPECT_GT(result.product.output_frame.azimuth_pulse_count, 0U);
 }
 
 // 合同：点目标 name 只能经 debug view 通过输入表回填，

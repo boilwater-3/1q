@@ -165,39 +165,6 @@ flatbuffers::Offset<fb::ArInterferenceObservation> EncodeArInterferenceObservati
       value.estimated_first_pulse_delay_s);
 }
 
-flatbuffers::Offset<fb::DecisionInputFrame> EncodeDecisionInputFrame(
-    flatbuffers::FlatBufferBuilder* builder, const session::DecisionInputFrame& value) {
-  std::vector<flatbuffers::Offset<fb::TrackStateSnapshot>> track_offsets;
-  track_offsets.reserve(value.tracks.size());
-  for (std::size_t i = 0; i < value.tracks.size(); ++i) {
-    track_offsets.push_back(EncodeTrackSnapshot(builder, value.tracks[i]));
-  }
-  std::vector<flatbuffers::Offset<fb::ArInterferenceObservation>> observation_offsets;
-  observation_offsets.reserve(value.interference_observations.size());
-  for (const session::ArInterferenceObservation& observation : value.interference_observations) {
-    observation_offsets.push_back(EncodeArInterferenceObservation(builder, observation));
-  }
-  const session::AssociationQualityInfo& association = value.association_quality_info;
-  const session::PerceptionQualityInfo& perception = value.perception_quality_info;
-  return fb::CreateDecisionInputFrame(
-      *builder, value.cycle_index, value.batch_id, builder->CreateVector(observation_offsets),
-      fb::CreateAssociationQualityInfo(*builder, association.match_rate, association.new_track_rate,
-                                       association.missed_track_rate, association.mean_match_cost,
-                                       association.p95_match_cost, association.association_stress),
-      fb::CreatePerceptionQualityInfo(*builder,
-                                      static_cast<std::uint64_t>(perception.input_target_count),
-                                      static_cast<std::uint64_t>(perception.detection_count),
-                                      perception.detection_rate, perception.detection_stress),
-      builder->CreateVector(track_offsets));
-}
-
-flatbuffers::Offset<fb::DecisionObservation> EncodeDecisionObservation(
-    flatbuffers::FlatBufferBuilder* builder, const session::DecisionObservation& value) {
-  return fb::CreateDecisionObservation(
-      *builder, EncodeDecisionInputFrame(builder, value.input_frame),
-      EncodeArControlProfile(builder, value.active_control_profile));
-}
-
 flatbuffers::Offset<fb::TacticalProposal> EncodeTacticalProposal(
     flatbuffers::FlatBufferBuilder* builder, const session::TacticalProposal& value) {
   const session::ControlDirective& directive = value.directive;
@@ -363,69 +330,6 @@ bool TryDecodeArInterferenceObservation(const fb::ArInterferenceObservation* val
   candidate.estimated_carrier_offset_hz = value->estimated_carrier_offset_hz();
   candidate.estimated_first_pulse_delay_s = value->estimated_first_pulse_delay_s();
   *observation = candidate;
-  return true;
-}
-
-bool TryDecodeDecisionInputFrame(const fb::DecisionInputFrame* value,
-                                 session::DecisionInputFrame* frame) {
-  if (value == nullptr || frame == nullptr) {
-    return false;
-  }
-  session::DecisionInputFrame result;
-  result.cycle_index = value->cycle_index();
-  result.batch_id = value->batch_id();
-  if (value->interference_observations() != nullptr) {
-    result.interference_observations.reserve(value->interference_observations()->size());
-    for (flatbuffers::uoffset_t index = 0U; index < value->interference_observations()->size();
-         ++index) {
-      session::ArInterferenceObservation observation;
-      if (!TryDecodeArInterferenceObservation(value->interference_observations()->Get(index),
-                                              &observation)) {
-        return false;
-      }
-      result.interference_observations.push_back(observation);
-    }
-  }
-  if (value->association_quality_info() != nullptr) {
-    const fb::AssociationQualityInfo* association = value->association_quality_info();
-    result.association_quality_info.match_rate = association->match_rate();
-    result.association_quality_info.new_track_rate = association->new_track_rate();
-    result.association_quality_info.missed_track_rate = association->missed_track_rate();
-    result.association_quality_info.mean_match_cost = association->mean_match_cost();
-    result.association_quality_info.p95_match_cost = association->p95_match_cost();
-    result.association_quality_info.association_stress = association->association_stress();
-  }
-  if (value->perception_quality_info() != nullptr) {
-    const fb::PerceptionQualityInfo* perception = value->perception_quality_info();
-    result.perception_quality_info.input_target_count =
-        static_cast<std::size_t>(perception->input_target_count());
-    result.perception_quality_info.detection_count =
-        static_cast<std::size_t>(perception->detection_count());
-    result.perception_quality_info.detection_rate = perception->detection_rate();
-    result.perception_quality_info.detection_stress = perception->detection_stress();
-  }
-  const flatbuffers::Vector<flatbuffers::Offset<fb::TrackStateSnapshot>>* tracks = value->tracks();
-  if (tracks != nullptr) {
-    result.tracks.reserve(tracks->size());
-    for (flatbuffers::uoffset_t i = 0; i < tracks->size(); ++i) {
-      result.tracks.push_back(DecodeTrackSnapshot(tracks->Get(i)));
-    }
-  }
-  *frame = result;
-  return true;
-}
-
-bool TryDecodeDecisionObservation(const fb::DecisionObservation* value,
-                                  session::DecisionObservation* observation) {
-  if (value == nullptr || observation == nullptr) {
-    return false;
-  }
-  session::DecisionObservation result;
-  if (!TryDecodeDecisionInputFrame(value->input_frame(), &result.input_frame)) {
-    return false;
-  }
-  result.active_control_profile = DecodeArControlProfile(value->active_control_profile());
-  *observation = result;
   return true;
 }
 
@@ -1334,8 +1238,6 @@ flatbuffers::Offset<fb::ArCycleResultV3> EncodeCycleResultV3(
       observations_fb, commands_fb, static_cast<int>(value.abort_reason),
       value.has_control_profile, EncodeArControlProfile(builder, value.control_profile),
       EncodeAssociationQualityMetricsV3(builder, value.association_quality_metrics),
-      value.has_decision_observation,
-      EncodeDecisionObservation(builder, value.decision_observation),
       static_cast<int>(value.applied_decision_source), value.applied_decision_cycle_index,
       value.applied_decision_batch_id, issues_fb,
       static_cast<int>(value.effective_work_mode), value.designation_active,
@@ -1376,12 +1278,6 @@ bool TryDecodeCycleResultV3(const fb::ArCycleResultV3* value, ArCycleResult* res
   candidate.control_profile = DecodeArControlProfile(value->control_profile());
   candidate.association_quality_metrics =
       DecodeAssociationQualityMetricsV3(value->association_quality_metrics());
-  candidate.has_decision_observation = value->has_decision_observation();
-  if (candidate.has_decision_observation &&
-      !TryDecodeDecisionObservation(value->decision_observation(),
-                                    &candidate.decision_observation)) {
-    return false;
-  }
   const int applied_source_raw = value->applied_decision_source();
   if (!IsKnownDecisionControlSource(applied_source_raw)) {
     return false;
@@ -1534,6 +1430,12 @@ bool DecodeCycleInputFlatbuffer(const std::string& payload_bytes, ArCycleInput* 
   if (root == nullptr) {
     return false;
   }
+  if (!flatbuffers::BufferHasIdentifier(payload_bytes.data(), fb::ArCycleInputV3Identifier())) {
+    if (error != nullptr) {
+      *error = "ArCycleInputV3 payload missing ARC3 file identifier";
+    }
+    return false;
+  }
   *input = DecodeCycleInputV3(root);
   return true;
 }
@@ -1543,7 +1445,9 @@ std::string EncodeCycleReplayRecordFlatbuffer(const ArCycleReplayRecord& record)
   const flatbuffers::Offset<fb::ArCycleReplayRecordV3> root =
       fb::CreateArCycleReplayRecordV3(builder, EncodeCycleResultV3(&builder, record.result),
                                       EncodeSessionReplayStateV3(&builder, record.session_state));
-  builder.Finish(root);
+  // 规则 15f 收回了 ArCycleResultV3 中段字段（field ID 前移）：record 自此写入 file_identifier，
+  // decode 侧校验，无标识符的旧缓冲显式拒绝（参照 RIR replay 的失败闭合范式）。
+  builder.Finish(root, fb::ArCycleInputV3Identifier());
   return oneq::common::replay::CopyFinishedFlatbuffer(builder);
 }
 
@@ -1558,6 +1462,14 @@ bool DecodeCycleReplayRecordFlatbuffer(const std::string& payload_bytes,
   const fb::ArCycleReplayRecordV3* root =
       TryGetReplayRoot<fb::ArCycleReplayRecordV3>(payload_bytes, "ArCycleReplayRecordV3", error);
   if (root == nullptr || root->result() == nullptr || root->session_state() == nullptr) {
+    return false;
+  }
+  // 规则 15f 落地前的旧 record 未写入 file_identifier（且 result 字段 ID 已前移）：
+  // 显式拒绝，不按新布局静默解码。
+  if (!flatbuffers::BufferHasIdentifier(payload_bytes.data(), fb::ArCycleInputV3Identifier())) {
+    if (error != nullptr) {
+      *error = "ArCycleReplayRecordV3 payload missing ARC3 file identifier";
+    }
     return false;
   }
   ArCycleReplayRecord candidate;

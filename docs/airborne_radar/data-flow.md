@@ -21,8 +21,8 @@ Answers: AR 的分层架构、数据如何流动、Public API 边界在哪、输
 | `session/` | `ArSession`、cycle input/result、scene target、output types、Recording/Replay、debug/lifecycle、decision DTO |
 
 Public 决策 DTO 只包含 `ExternalDecisionOverride`、`ExternalDecisionSubmitStatus` 和
-`DecisionControlSource`。`DecisionObservation` / `DecisionInputFrame` 落地后退出 public 周期记录
-（规则 15f；当前头文件仍暴露，属待删除）。默认算法使用的 `TargetCategory`、`TacticalMode`、
+`DecisionControlSource`（规则 15f 已落地）。`DecisionObservation` 结构已删除；
+`DecisionInputFrame` 移至 `src/airborne_radar/decision/`，不再是 public 头。默认算法使用的 `TargetCategory`、`TacticalMode`、
 `TacticalStateStore` 和 `TacticalDecisionResult` 位于 `src/airborne_radar/decision/`，不属于安装边界。
 
 内部实现位于 `src/airborne_radar/`（`config/mapping`、`environment`、`signal/{detection,pipeline,association,tracking}`、
@@ -155,9 +155,9 @@ sequenceDiagram
       Pipe-->>Controller: SignalCycleResult + DecisionInputFrame\n信号结果与决策帧
       Controller->>Decision: Evaluate(frame, state_store)\n评估战术决策
       Decision-->>Controller: TacticalDecisionResult\n当前分类与下一周期 internal baseline
-      Controller->>Controller: stage baseline + observation\n暂存 baseline 与观测
+      Controller->>Controller: stage pending internal baseline\n暂存下一拍内部基线
       Session->>Session: assemble ArCycleResult from controller/context/pipeline\n组装周期结果
-      Session-->>Caller: ArCycleResult（分层周期记录；落地前仍扁平）
+      Session-->>Caller: ArCycleResult（分层周期记录；15f 观测袋已移除）
       Caller->>Caller: 可选：外部评估（读产品航迹 + 干扰 + control_profile）
       Caller->>Session: SubmitExternalDecision(override)\n在下一次 Step 前提交
     end
@@ -365,7 +365,7 @@ flowchart LR
 trace 因果顺序 `cycle_output(N) → decision_input(override profile) → cycle_input(N+1) → cycle_output(N+1)`。
 `cycle_output` 使用内部 `ArReplayCycleRecord`（public result + `ArDecisionReplayState`）；内部决策按 live 路径
 重新计算并逐字段比较 pending internal baseline、实际采用 proposal、来源 cycle/batch、reducer 计数、
-最终 profile，不落盘第二份航迹观测袋（规则 15f；落地前 codec 仍编码 `decision_observation`）。
+最终 profile，不落盘第二份航迹观测袋（规则 15f 已落地：schema 与 codec 均无观测袋）。
 指定指令生命周期阶段（designation_phase/deadline）为派生跨周期状态，不进 replay session state
 快照：全量重放（patch 流 + 周期输入）由 cycle_index 驱动可复现；若未来引入"从第 N 周期恢复"，
 需同步纳入会话状态。

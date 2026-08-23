@@ -1,10 +1,10 @@
 ﻿/**
  * @file DecisionInputFrame.h
- * @brief 定义供决策引擎消费的单周期输入帧。
+ * @brief 定义供决策引擎消费的单周期输入帧（内部 DTO，规则 15f：不进 public 周期记录）。
  */
 
-#ifndef ONEQ_AIRBORNE_RADAR_SESSION_DECISION_INPUT_FRAME_H_
-#define ONEQ_AIRBORNE_RADAR_SESSION_DECISION_INPUT_FRAME_H_
+#ifndef AIRBORNE_RADAR_DECISION_DECISION_INPUT_FRAME_H_
+#define AIRBORNE_RADAR_DECISION_DECISION_INPUT_FRAME_H_
 
 #include <cstddef>
 #include <cstdint>
@@ -63,4 +63,4 @@ struct ONEQ_API DecisionInputFrame {
 }  // namespace session
 }  // namespace airborne_radar
 
-#endif  // ONEQ_AIRBORNE_RADAR_MODEL_DECISION_INPUT_FRAME_H_
+#endif  // AIRBORNE_RADAR_DECISION_DECISION_INPUT_FRAME_H_

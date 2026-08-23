@@ -12,7 +12,8 @@ Recording/Replay 和运行期配置。对外提供稳定 `SarSession` 门面；�
 证据矩阵保持 internal。
 
 SAR 的心智模型是**信号处理链**：LFM 波形 → raw history 构造 → 距离压缩 → 聚焦成像（RDA/BP）→
-图像质量评估。聚焦图像是产品（规则 15e）；两条 raw history 来源在统一成像入口汇合，IQ 默认不进周期记录。
+图像质量评估。聚焦图像是产品（规则 15e 已落地：`Step()` 返回 `SarCycleProduct`）；两条 raw history
+来源在统一成像入口汇合，IQ 不进周期记录。
 
 ## 文档导航
 

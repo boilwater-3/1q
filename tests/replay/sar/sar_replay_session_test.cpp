@@ -155,7 +155,7 @@ TEST(SarReplaySessionTest, ReplaySarTraceRoundtrip) {
 
     const SarCycleResult result = session.StepWithResult(MakeReplayInput());
     ASSERT_EQ(result.status, SarCycleStatus::kCompleted);
-    ASSERT_TRUE(result.output_frame.has_l1_image);
+    ASSERT_TRUE(result.product.output_frame.has_l1_image);
     ASSERT_GE(result.issues.size(), 3U);
     replay_writer->Flush();
   }
@@ -183,13 +183,12 @@ TEST(SarReplaySessionTest, ReplayExternalRawIqTraceRoundtrip) {
     options.replay_writer = replay_writer;
     options.record_config_on_construct = true;
     config::SarSessionConfig config = MakeSmallRdaConfigForReplay();
-    config.policy.retain_raw_phase_history = true;
     SarRecordingSession session(config, options);
 
+    // 外部 IQ 输入仍无条件记录进 cycle_input（可回放）；IQ 不再进周期记录（规则 15e）。
     const SarCycleResult result = session.StepWithResult(MakeExternalRawIqReplayInput());
     ASSERT_EQ(result.status, SarCycleStatus::kCompleted) << static_cast<int>(result.abort_reason);
-    ASSERT_TRUE(result.output_frame.has_l1_image);
-    ASSERT_EQ(result.raw_phase_history.source, SarRawPhaseHistorySource::kExternalRawIq);
+    ASSERT_TRUE(result.product.output_frame.has_l1_image);
     replay_writer->Flush();
   }
 
@@ -281,11 +280,11 @@ TEST(SarReplaySessionTest, ReplayL3BpTraceRoundtrip) {
 
     const SarCycleResult first = session.StepWithResult(MakeReplayInput(1U));
     ASSERT_EQ(first.status, SarCycleStatus::kCompleted);
-    ASSERT_TRUE(first.output_frame.has_l3_bp_image);
-    ASSERT_EQ(first.output_frame.completed_stage, SarProcessingStage::kL3BpImage);
+    ASSERT_TRUE(first.product.output_frame.has_l3_bp_image);
+    ASSERT_EQ(first.product.output_frame.completed_stage, SarProcessingStage::kL3BpImage);
     const SarCycleResult second = session.StepWithResult(MakeReplayInput(2U));
     ASSERT_EQ(second.status, SarCycleStatus::kCompleted);
-    ASSERT_TRUE(second.output_frame.has_l3_bp_image);
+    ASSERT_TRUE(second.product.output_frame.has_l3_bp_image);
     replay_writer->Flush();
   }
 
@@ -322,7 +321,7 @@ TEST(SarReplaySessionTest, ReplaySarTraceAppliesRuntimePatchBeforeCycle) {
     patch.enable_l1_rda_imaging = true;
     (void)session.TryApplyRuntimeConfig(patch);
     const SarCycleResult result = session.StepWithResult(MakeReplayInput(2U));
-    ASSERT_TRUE(result.output_frame.has_l1_image);
+    ASSERT_TRUE(result.product.output_frame.has_l1_image);
     replay_writer->Flush();
   }
 
@@ -346,8 +345,8 @@ TEST(SarReplaySessionTest, ReplaySarTraceDetectsFocusedImagePixelDivergence) {
   SarSession session = SarSession::Create(config);
   SarCycleResult expected = session.StepWithResult(input);
   ASSERT_EQ(expected.status, SarCycleStatus::kCompleted);
-  ASSERT_FALSE(expected.focused_image.real_values.empty());
-  expected.focused_image.real_values.front() += 1.0;
+  ASSERT_FALSE(expected.product.focused_image.real_values.empty());
+  expected.product.focused_image.real_values.front() += 1.0;
 
   oneq::replay::ReplayTraceWriter writer(trace_dir, manifest, true);
   oneq::replay::ReplayTraceEvent config_event;

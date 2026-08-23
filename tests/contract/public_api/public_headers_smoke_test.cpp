@@ -30,7 +30,6 @@
 #include "1q/airborne_radar/session/ArTrackLifecycleRecorder.h"
 #include "1q/airborne_radar/session/ArTrackOutputDebugView.h"
 #include "1q/airborne_radar/session/DecisionControlTypes.h"
-#include "1q/airborne_radar/session/DecisionInputFrame.h"
 #include "1q/airborne_radar/session/TrackStateSnapshot.h"
 #include "1q/api.hpp"
 #include "1q/coordinate/attitude_transform.h"
@@ -467,24 +466,24 @@ TEST(PublicHeadersSmokeTest, SarPublicSurfaceSupportsMinimalUsage) {
 
   session::SarSession session = session::SarSession::Create(session_config);
   config::SarRuntimeConfigPatch patch;
-  patch.has_retain_raw_phase_history = true;
-  patch.retain_raw_phase_history = true;
+  patch.has_retain_focused_image = true;
+  patch.retain_focused_image = true;
   EXPECT_TRUE(session.TryApplyRuntimeConfig(patch));
 
   const session::SarCycleResult result = session.StepWithResult(input);
   EXPECT_EQ(result.status, session::SarCycleStatus::kCompleted)
       << static_cast<int>(result.abort_reason);
-  EXPECT_EQ(result.output_frame.range_sample_count, 64U);
-  EXPECT_TRUE(result.output_frame.has_raw_echo);
-  EXPECT_TRUE(result.output_frame.has_range_compressed_echo);
-  EXPECT_TRUE(result.output_frame.has_l1_image);
-  EXPECT_FALSE(result.output_frame.has_l3_bp_image);
-  EXPECT_EQ(result.focused_image.source, session::SarFocusedImageSource::kL1Rda);
-  EXPECT_EQ(result.focused_image.row_count, 9U);
-  EXPECT_EQ(result.focused_image.column_count, 64U);
-  EXPECT_EQ(result.focused_image.real_values.size(), 9U * 64U);
-  EXPECT_EQ(result.focused_image.imaginary_values.size(), 9U * 64U);
-  EXPECT_FALSE(result.focused_image.is_placeholder);
+  EXPECT_EQ(result.product.output_frame.range_sample_count, 64U);
+  EXPECT_TRUE(result.product.output_frame.has_raw_echo);
+  EXPECT_TRUE(result.product.output_frame.has_range_compressed_echo);
+  EXPECT_TRUE(result.product.output_frame.has_l1_image);
+  EXPECT_FALSE(result.product.output_frame.has_l3_bp_image);
+  EXPECT_EQ(result.product.focused_image.source, session::SarFocusedImageSource::kL1Rda);
+  EXPECT_EQ(result.product.focused_image.row_count, 9U);
+  EXPECT_EQ(result.product.focused_image.column_count, 64U);
+  EXPECT_EQ(result.product.focused_image.real_values.size(), 9U * 64U);
+  EXPECT_EQ(result.product.focused_image.imaginary_values.size(), 9U * 64U);
+  EXPECT_FALSE(result.product.focused_image.is_placeholder);
 
   session::SarRecordingSession trace_session(session::SarSession::Create(session_config));
   const session::SarCycleResult trace_result = trace_session.StepWithResult(input);

@@ -88,7 +88,7 @@ inline const char* IssueCodeChineseName(const std::string& code) {
       {sbirs_sensor::session::codes::kMissionFovNotPositive, "任务视场角非正。"},
       {sbirs_sensor::session::codes::kOpticalApertureNotPositive, "硬件光学孔径非正。"},
       {sbirs_sensor::session::codes::kWavelengthBandInvalid, "硬件波长带非法（须为正且有下界小于上界）。"},
-      // sar (70)
+      // sar (69)
       {sar::session::codes::kBpPeak, "BP 峰值定位（kInfo）。"},
       {sar::session::codes::kBpTraversal, "BP 遍历顺序（kInfo）。"},
       {sar::session::codes::kDegenerateImagePeak, "退化图像峰值（聚焦图像零峰值功率，管线无信号产出）。"},
@@ -154,7 +154,6 @@ inline const char* IssueCodeChineseName(const std::string& code) {
       {sar::session::codes::kRangeSampleCountZero, "距离向采样数为零。"},
       {sar::session::codes::kRdaRequiresRawEcho, "RDA 成像需要启用回波生成。"},
       {sar::session::codes::kRdaSizeGate, "RDA 尺寸超出批准运行门限（性能批准前限制场景规模）。"},
-      {sar::session::codes::kRetainRawHistoryRequiresRawEcho, "保留原始相位历史需要启用回波生成。"},
       {sar::session::codes::kSampleRateNotPositive, "采样率非正。"},
       {sar::session::codes::kSampleWindowTooSmallForPulse, "距离采样窗口容不下完整 LFM 脉冲。"},
       {sar::session::codes::kSquintAngleInvalid, "最大允许斜视角非法（须有限且在 [0, 90) 度）。"},

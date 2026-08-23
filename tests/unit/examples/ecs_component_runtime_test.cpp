@@ -211,21 +211,21 @@ TEST(SarSensorComponentRuntimeTest, DisableRawEchoAppliesImmediately) {
   EXPECT_TRUE(component.TryApplyRuntimeConfig(patch));
 }
 
-TEST(SarSensorComponentRuntimeTest, RetainRawPhaseHistoryWithoutRawEchoRejected) {
+TEST(SarSensorComponentRuntimeTest, L1ImagingWithoutRawEchoRejected) {
   ca::SarSensorComponent component(sar::session::SarSession::Create());
 
-  // 保留原始相位历史依赖 raw echo 生成（沿用 SarSessionRuntimeConfigTest
-  // 的 RetainRawPhaseHistoryWithoutRawEchoRejected 用例）。
+  // L1 成像依赖 raw echo 生成（沿用 SarSessionRuntimeConfigTest
+  // 的 L1ImagingWithoutRawEchoRejected 用例）。
   sar::config::SarRuntimeConfigPatch patch;
   patch.has_enable_raw_echo_generation = true;
   patch.enable_raw_echo_generation = false;
   ASSERT_TRUE(component.TryApplyRuntimeConfig(patch));
 
-  sar::config::SarRuntimeConfigPatch retain_patch;
-  retain_patch.has_retain_raw_phase_history = true;
-  retain_patch.retain_raw_phase_history = true;
+  sar::config::SarRuntimeConfigPatch l1_patch;
+  l1_patch.has_enable_l1_rda_imaging = true;
+  l1_patch.enable_l1_rda_imaging = true;
 
-  EXPECT_FALSE(component.TryApplyRuntimeConfig(retain_patch));
+  EXPECT_FALSE(component.TryApplyRuntimeConfig(l1_patch));
 }
 
 // =============================================================================

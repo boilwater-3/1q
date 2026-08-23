@@ -11,7 +11,7 @@
 #include <set>
 #include <string>
 
-#include "1q/airborne_radar/session/DecisionInputFrame.h"
+#include "airborne_radar/decision/DecisionInputFrame.h"
 #include "1q/airborne_radar/session/TrackStateSnapshot.h"
 #include "airborne_radar/decision/ControlReducer.h"
 #include "airborne_radar/decision/LpiEvaluator.h"

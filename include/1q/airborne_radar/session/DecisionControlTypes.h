@@ -9,17 +9,10 @@
 #include <cstdint>
 
 #include "1q/airborne_radar/session/ArControlProfile.h"
-#include "1q/airborne_radar/session/DecisionInputFrame.h"
 #include "1q/api.hpp"
 
 namespace airborne_radar {
 namespace session {
-
-/** @brief 一个成功探测周期结束后发布给外部决策模块的观测。 */
-struct ONEQ_API DecisionObservation {
-  session::DecisionInputFrame input_frame{};
-  session::ArControlProfile active_control_profile{};
-};
 
 /** @brief 外部 profile 覆盖提交。profile 为整包替换值，将在下一成功周期替换原生归约结果。 */
 struct ONEQ_API ExternalDecisionOverride {

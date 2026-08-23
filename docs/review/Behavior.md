@@ -192,8 +192,8 @@ examples/component_entt/
   写入各机 `RoutePlanComponent`；分发与驱动 FlightManager 仍是消费方职责。
 - **事件模型（冻结）**：不建全局消息总线；命令 = `CommandFrameComponent` 组件写入，
   事件驱动报告（新目标出现/置信度跃迁/目标消失）用 `entt::observer` 观察组件变化触发。
-- **与 AR 交互**：走既有 public seam（`SubmitExternalDecision` / `decision_observation`，
-  session_contract.md §Session composition ownership），不注入或替换 session 内部对象。
+- **与 AR 交互**：走既有 public seam（`SubmitExternalDecision`，规则 15f 落地后唯一决策缝；
+  观测袋已移除，外部读产品航迹/干扰观测/本拍 control_profile），不注入或替换 session 内部对象。
 - **与 ECM 交互（冻结）**：干扰系统只在 ECM 现有公共面内工作——构造
   `EcmCycleInput::sensor_observation_frame` + runtime patch 默认技术；**不做逐威胁
   tasking SPI**（ECM design.md 明确不公开 planner SPI）。逐威胁任务分配列为已知限制。

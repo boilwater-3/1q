@@ -59,12 +59,12 @@ TEST(SarControllerRuntimeStateTest, CaptureAndRestoreRoundTripState) {
   const SarControllerRuntimeState snapshot = controller.CaptureRuntimeState();
 
   controller.RunOnce(MakeInput(2U));
-  ASSERT_EQ(controller.BuildCycleResult().output_frame.cycle_index, 2U);
+  ASSERT_EQ(controller.BuildCycleResult().product.output_frame.cycle_index, 2U);
 
   EXPECT_TRUE(controller.RestoreRuntimeState(snapshot));
   const session::SarCycleResult restored = controller.BuildCycleResult();
   EXPECT_EQ(restored.status, session::SarCycleStatus::kCompleted);
-  EXPECT_EQ(restored.output_frame.cycle_index, 1U);
+  EXPECT_EQ(restored.product.output_frame.cycle_index, 1U);
 }
 
 TEST(SarControllerRuntimeStateTest, RestoreRejectsSnapshotFromOtherControllerInstance) {
@@ -79,7 +79,7 @@ TEST(SarControllerRuntimeStateTest, RestoreRejectsSnapshotFromOtherControllerIns
   const SarControllerRuntimeState foreign_state = controller_b.CaptureRuntimeState();
 
   EXPECT_FALSE(controller_a.RestoreRuntimeState(foreign_state));
-  EXPECT_EQ(controller_a.BuildCycleResult().output_frame.cycle_index, 20U);
+  EXPECT_EQ(controller_a.BuildCycleResult().product.output_frame.cycle_index, 20U);
 }
 
 TEST(SarControllerRuntimeStateTest, ValidationRejectReturnsEmptyOutputNotReused) {
@@ -98,7 +98,7 @@ TEST(SarControllerRuntimeStateTest, ValidationRejectReturnsEmptyOutputNotReused)
   EXPECT_NE(result.status, session::SarCycleStatus::kCompleted);
   EXPECT_TRUE(session::HasValidationError(result.issues));
   EXPECT_EQ(result.abort_reason, session::SarPipelineAbortReason::kValidationRejected);
-  EXPECT_EQ(result.output_frame.cycle_index, 0U);
+  EXPECT_EQ(result.product.output_frame.cycle_index, 0U);
 }
 
 TEST(SarControllerRuntimeStateTest, PipelineAbortRestoresAllCrossCycleState) {
@@ -124,7 +124,7 @@ TEST(SarControllerRuntimeStateTest, PipelineAbortRestoresAllCrossCycleState) {
   ASSERT_EQ(result.abort_reason, session::SarPipelineAbortReason::kPipelineExecutionFailed);
   // Pipeline abort 后 output_frame 保留已初始化的元数据（cycle_index = input.cycle_index），
   // 区别于校验失败的默认空帧（cycle_index = 0）。
-  EXPECT_EQ(result.output_frame.cycle_index, input.cycle_index);
+  EXPECT_EQ(result.product.output_frame.cycle_index, input.cycle_index);
   EXPECT_EQ(after.next_pulse_id, before.next_pulse_id);
   EXPECT_DOUBLE_EQ(after.pulse_fraction_carry, before.pulse_fraction_carry);
   EXPECT_EQ(after.raw_pulse_buffer_state.records.size(),

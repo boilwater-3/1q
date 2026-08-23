@@ -178,7 +178,7 @@ boost::signals2::scoped_connection conn =
 | `EsrSensorComponent` | `bool TryApplyRuntimeConfig(const EsrRuntimeConfigPatch&)`；`ApplyRuntimeConfigWithResult(...)` → 结构化结果（拒绝原因枚举） | **立即提交**：调用即生效、单向落定（session 层无回滚）；结构化结果供外部决策/诊断 |
 | `EosSensorComponent` | `bool TryApplyRuntimeConfig(const EosRuntimeConfigPatch&)` | **立即提交**：补丁经 resolver 原子校验后一次生效；frame_rate_hz 热更新经 resolver 校验（非法值整补丁拒绝） |
 | `SbirsSensorComponent` | `bool TryApplyRuntimeConfig(const SbirsRuntimeConfigPatch&)` | **立即提交**：补丁经配置校验后一次生效（如 scan_rate < 0 整补丁拒绝） |
-| `SarSensorComponent` | `bool TryApplyRuntimeConfig(const SarRuntimeConfigPatch&)` | **立即提交**：补丁经配置校验后一次生效（如 retain_raw_phase_history 依赖 raw echo，依赖不满足时整补丁拒绝） |
+| `SarSensorComponent` | `bool TryApplyRuntimeConfig(const SarRuntimeConfigPatch&)` | **立即提交**：补丁经配置校验后一次生效（如 enable_l1_rda_imaging 依赖 raw echo，依赖不满足时整补丁拒绝） |
 | `FlightComponent` | `bool PushManeuver(const ManeuverCommand&)`；`bool ClearManeuvers()`；`bool Abort()` | **命令式**（FD 无 patch 范式）：追加机动队列/清空/中止；FD 未启用或初始化失败（运动学回退）时返回 false（指令被丢弃） |
 | `FusionComponent` | 无 | fusion 模块参数为**会话级不可变**（库内无 RuntimeConfigPatch 设计，FusionEngine 仅构造时接受 FusionConfig）；需要运行时修改须先补库 API，不在示例层包装 |
 

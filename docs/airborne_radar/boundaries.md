@@ -22,7 +22,7 @@ AR 遵守 `docs/common/contract.md`：
    不提供 ConfigBuilder，不承担 leaf setter 或隐式 validation。
 3. AR 输出遵守分层周期记录 + 可选投影（`session_contract.md` 规则 15；旧称两通道/三层）。
    产品层是 `TrackOutputFrame`；执行/副作用/仿真附件/闭环 provenance 在周期记录里分层，
-   **不**把 `DecisionObservation` 放进记录。落地前仍为扁平 `ArCycleResult`。
+   **不**把 `DecisionObservation` 放进记录（15f 已落地：观测袋与 public 头已删除）。
    仿真真值归属挂仿真附件层（`ArCycleResult.track_attributions`，权威路径）；产品航迹内嵌的
    `external_target_id`/`target_name` 为注册 deprecated 遗留（sim-only），回收由后续独立工作处理。
 4. decision 内部闭环是特征驱动的下一拍控制；唯一 public 缝是 `SubmitExternalDecision()`
@@ -98,10 +98,10 @@ ISA 标准大气，这些字段全部未被消费，属未接入的死输入。�
 ## 输出边界要求
 
 1. track output 保持系统侧航迹语义；名称、仿真便利信息或调试归因不能替代 stable association key/status。
-2. `ArCycleResult` 由 `ArSession` 汇总 controller、context 和 pipeline 状态。落地后按规则 15
+2. `ArCycleResult` 由 `ArSession` 汇总 controller、context 和 pipeline 状态。按规则 15
    分层：执行状态与 `issues`、产品航迹、`emission_frame` 副作用、归属、闭环 provenance。
-   **不得**再携带 `decision_observation`。完整 proposal、待消费响应与 reducer 计数只属于内部
-   replay 状态，不进入 public 业务结果。落地前仍为扁平字段袋。
+   不携带 `decision_observation`（15f 已删除）。完整 proposal、待消费响应与 reducer 计数
+   只属于内部 replay 状态，不进入 public 业务结果。
 3. query/debug/lifecycle/replay 是诊断辅助，不是用户扩展 signal pipeline 的入口；决策 SPI 不拥有输出结构，
    也不能绕过内部 output adapter 写系统输出。
 
@@ -157,9 +157,10 @@ AR 所有中止路径遵守 `session_contract.md` 规则 9 的三写模式与规
 | 副作用 | `emission_frame`、`receiver_impairment`、`interference_observations` | 物理已发生，产品可空 |
 | 闭环 | `control_profile`、`applied_decision_*`、指定回退 | 下一拍控制，不是本拍航迹 |
 | 仿真附件 | `track_attributions` | 真值对照 |
-| 禁止 | `decision_observation` | 航迹再复印；外部决策读产品层即可 |
+| 禁止 | ~~`decision_observation`~~ | 已删除（15f）：外部决策读产品层即可 |
 
-`DecisionInputFrame` 仍是内部 `TacticalCoordinator` 的输入，不外发。
+`DecisionInputFrame` 仍是内部 `TacticalCoordinator` 的输入（头文件已移
+`src/airborne_radar/decision/`），不外发。
 
 [evidence: tests/integration/cross_domain/multi_model_scenario_test.cpp — ArRfTestCycleResult 字段选择]
 [evidence: src/airborne_radar/runtime/ArController.cpp]

@@ -81,7 +81,6 @@ inline void LoadSarProcessing(const examples::JsonValue& j,
   v->enable_l2_motion_compensation = j["enable_l2_motion_compensation"].AsBool();
   v->enable_l3_bp_imaging = j["enable_l3_bp_imaging"].AsBool();
   v->enable_diagnostics = j["enable_diagnostics"].AsBool();
-  v->retain_raw_phase_history = j["retain_raw_phase_history"].AsBool();
   v->retain_focused_image = j["retain_focused_image"].AsBool();
   v->max_allowed_squint_angle_deg =
       j["max_allowed_squint_angle_deg"].AsDouble();

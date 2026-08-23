@@ -199,7 +199,7 @@ TEST(SarDegenerateDiagnosticsTest, HealthyImageDoesNotTripDegeneratePeakGate) {
 
   EXPECT_FALSE(HasAbortReason(result, session::SarPipelineAbortReason::kPipelineExecutionFailed));
   EXPECT_EQ(result.status, session::SarCycleStatus::kCompleted);
-  EXPECT_TRUE(result.output_frame.has_l1_image);
+  EXPECT_TRUE(result.product.output_frame.has_l1_image);
 }
 
 }  // namespace

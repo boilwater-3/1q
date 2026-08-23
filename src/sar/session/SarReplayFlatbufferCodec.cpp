@@ -248,7 +248,7 @@ flatbuffers::Offset<replay::SarPolicyConfig> BuildPolicyConfig(
     flatbuffers::FlatBufferBuilder& fbb, const config::SarPolicyConfig& value) {
   return replay::CreateSarPolicyConfig(
       fbb, value.enable_raw_echo_generation,
-      value.enable_l1_rda_imaging, value.enable_diagnostics, value.retain_raw_phase_history,
+      value.enable_l1_rda_imaging, value.enable_diagnostics,
       value.retain_focused_image, value.max_allowed_squint_angle_deg, value.minimum_snr_db,
       value.enable_l2_motion_compensation, value.enable_l3_bp_imaging);
 }
@@ -260,7 +260,6 @@ void FromFbPolicyConfig(const replay::SarPolicyConfig* fb, config::SarPolicyConf
   out->enable_raw_echo_generation = fb->enable_raw_echo_generation();
   out->enable_l1_rda_imaging = fb->enable_l1_rda_imaging();
   out->enable_diagnostics = fb->enable_diagnostics();
-  out->retain_raw_phase_history = fb->retain_raw_phase_history();
   out->retain_focused_image = fb->retain_focused_image();
   out->max_allowed_squint_angle_deg = fb->max_allowed_squint_angle_deg();
   out->minimum_snr_db = fb->minimum_snr_db();
@@ -302,8 +301,12 @@ std::string EncodeSarCycleInput(const SarCycleInput& value) {
   const auto platform = BuildPlatformState(fbb, value.platform);
   const auto targets = fbb.CreateVector(target_offsets);
   const auto raw_iq = BuildRawIqFrame(fbb, value.raw_iq);
+  // 规则 15e 收回了 schema 中段字段（field ID 前移）：自此 encode 写入 file_identifier，
+  // decode 侧校验，无标识符的旧缓冲显式拒绝，避免按前移后的布局静默错读。
+  // flatc 仅为 root_type 生成标识符常量，result/patch 面复用同文件标识符。
   fbb.Finish(
-      replay::CreateSarCycleInput(fbb, value.cycle_index, value.dt_sec, platform, targets, raw_iq));
+      replay::CreateSarCycleInput(fbb, value.cycle_index, value.dt_sec, platform, targets, raw_iq),
+      replay::SarCycleInputIdentifier());
   return oneq::common::replay::CopyFinishedFlatbuffer(fbb);
 }
 
@@ -312,7 +315,7 @@ bool DecodeSarCycleInput(const std::string& bytes, SarCycleInput* out) {
     return false;
   }
   flatbuffers::Verifier verifier(reinterpret_cast<const std::uint8_t*>(bytes.data()), bytes.size());
-  if (!verifier.VerifyBuffer<replay::SarCycleInput>()) {
+  if (!verifier.VerifyBuffer<replay::SarCycleInput>(replay::SarCycleInputIdentifier())) {
     return false;
   }
   const auto* fb = flatbuffers::GetRoot<replay::SarCycleInput>(bytes.data());
@@ -346,11 +349,14 @@ bool DecodeSarCycleInput(const std::string& bytes, SarCycleInput* out) {
 
 std::string EncodeSarCycleResult(const SarCycleResult& value) {
   flatbuffers::FlatBufferBuilder fbb(512);
-  const auto frame = BuildOutputFrame(fbb, value.output_frame);
+  const auto frame = BuildOutputFrame(fbb, value.product.output_frame);
   const auto focused_image = replay::CreateSarFocusedImage(
-      fbb, static_cast<std::int32_t>(value.focused_image.source), value.focused_image.row_count,
-      value.focused_image.column_count, fbb.CreateVector(value.focused_image.real_values),
-      fbb.CreateVector(value.focused_image.imaginary_values), value.focused_image.is_placeholder);
+      fbb, static_cast<std::int32_t>(value.product.focused_image.source),
+      value.product.focused_image.row_count, value.product.focused_image.column_count,
+      fbb.CreateVector(value.product.focused_image.real_values),
+      fbb.CreateVector(value.product.focused_image.imaginary_values),
+      value.product.focused_image.is_placeholder);
+  const auto product = replay::CreateSarCycleProduct(fbb, frame, focused_image);
   std::vector<flatbuffers::Offset<replay::SarIssue>> issue_offsets;
   issue_offsets.reserve(value.issues.size());
   for (const SarIssue& issue : value.issues) {
@@ -365,15 +371,11 @@ std::string EncodeSarCycleResult(const SarCycleResult& value) {
         static_cast<std::int64_t>(encoded_entity_index), fbb.CreateString(issue.field),
         static_cast<std::int32_t>(issue.cause)));
   }
-  const auto raw_phase_history = replay::CreateSarRawPhaseHistory(
-      fbb, static_cast<std::int32_t>(value.raw_phase_history.source),
-      value.raw_phase_history.pulse_count, value.raw_phase_history.samples_per_pulse,
-      fbb.CreateVector(value.raw_phase_history.i_values),
-      fbb.CreateVector(value.raw_phase_history.q_values));
-  fbb.Finish(replay::CreateSarCycleResult(fbb, value.input_cycle_index, frame, focused_image,
-                                          fbb.CreateVector(issue_offsets), raw_phase_history,
+  fbb.Finish(replay::CreateSarCycleResult(fbb, value.input_cycle_index, product,
+                                          fbb.CreateVector(issue_offsets),
                                           static_cast<std::int32_t>(value.abort_reason),
-                                          static_cast<std::uint8_t>(value.status)));
+                                          static_cast<std::uint8_t>(value.status)),
+             replay::SarCycleInputIdentifier());
   return oneq::common::replay::CopyFinishedFlatbuffer(fbb);
 }
 
@@ -382,14 +384,18 @@ bool DecodeSarCycleResult(const std::string& bytes, SarCycleResult* out) {
     return false;
   }
   flatbuffers::Verifier verifier(reinterpret_cast<const std::uint8_t*>(bytes.data()), bytes.size());
-  if (!verifier.VerifyBuffer<replay::SarCycleResult>()) {
+  if (!verifier.VerifyBuffer<replay::SarCycleResult>(replay::SarCycleInputIdentifier())) {
     return false;
   }
   const auto* fb = flatbuffers::GetRoot<replay::SarCycleResult>(bytes.data());
   SarCycleResult decoded;
   decoded.input_cycle_index = fb->input_cycle_index();
-  FromFbOutputFrame(fb->output_frame(), &decoded.output_frame);
-  const auto* focused = fb->focused_image();
+  const replay::SarCycleProduct* product = fb->product();
+  if (product == nullptr) {
+    return false;
+  }
+  FromFbOutputFrame(product->output_frame(), &decoded.product.output_frame);
+  const auto* focused = product->focused_image();
   if (focused == nullptr || focused->real_values() == nullptr ||
       focused->imaginary_values() == nullptr) {
     return false;
@@ -423,17 +429,17 @@ bool DecodeSarCycleResult(const std::string& bytes, SarCycleResult* out) {
     default:
       return false;
   }
-  decoded.focused_image.source = source;
-  decoded.focused_image.row_count = focused->row_count();
-  decoded.focused_image.column_count = focused->column_count();
-  decoded.focused_image.is_placeholder = focused->is_placeholder();
-  decoded.focused_image.real_values.assign(focused->real_values()->begin(),
-                                           focused->real_values()->end());
-  decoded.focused_image.imaginary_values.assign(focused->imaginary_values()->begin(),
-                                                focused->imaginary_values()->end());
+  decoded.product.focused_image.source = source;
+  decoded.product.focused_image.row_count = focused->row_count();
+  decoded.product.focused_image.column_count = focused->column_count();
+  decoded.product.focused_image.is_placeholder = focused->is_placeholder();
+  decoded.product.focused_image.real_values.assign(focused->real_values()->begin(),
+                                                   focused->real_values()->end());
+  decoded.product.focused_image.imaginary_values.assign(focused->imaginary_values()->begin(),
+                                                        focused->imaginary_values()->end());
   for (std::size_t index = 0U; index < real_size; ++index) {
-    if (std::isfinite(decoded.focused_image.real_values[index]) == 0 ||
-        std::isfinite(decoded.focused_image.imaginary_values[index]) == 0) {
+    if (std::isfinite(decoded.product.focused_image.real_values[index]) == 0 ||
+        std::isfinite(decoded.product.focused_image.imaginary_values[index]) == 0) {
       return false;
     }
   }
@@ -468,32 +474,6 @@ bool DecodeSarCycleResult(const std::string& bytes, SarCycleResult* out) {
       decoded.issues.push_back(std::move(decoded_issue));
     }
   }
-  if (fb->raw_phase_history()) {
-    const auto* raw = fb->raw_phase_history();
-    const std::size_t pulse_count = raw->pulse_count();
-    const std::size_t samples_per_pulse = raw->samples_per_pulse();
-    if (samples_per_pulse != 0U &&
-        pulse_count > std::numeric_limits<std::size_t>::max() / samples_per_pulse) {
-      return false;
-    }
-    const std::size_t expected_size = pulse_count * samples_per_pulse;
-    if (raw->i_values() == nullptr || raw->q_values() == nullptr ||
-        raw->i_values()->size() != expected_size || raw->q_values()->size() != expected_size) {
-      return false;
-    }
-    decoded.raw_phase_history.source =
-        static_cast<SarRawPhaseHistorySource>(raw->source());
-    decoded.raw_phase_history.pulse_count = raw->pulse_count();
-    decoded.raw_phase_history.samples_per_pulse = raw->samples_per_pulse();
-    decoded.raw_phase_history.i_values.assign(raw->i_values()->begin(), raw->i_values()->end());
-    decoded.raw_phase_history.q_values.assign(raw->q_values()->begin(), raw->q_values()->end());
-    for (std::size_t index = 0U; index < expected_size; ++index) {
-      if (std::isfinite(decoded.raw_phase_history.i_values[index]) == 0 ||
-          std::isfinite(decoded.raw_phase_history.q_values[index]) == 0) {
-        return false;
-      }
-    }
-  }
   const std::int32_t abort_reason = fb->abort_reason();
   if (abort_reason != static_cast<std::int32_t>(SarPipelineAbortReason::kNone) &&
       abort_reason !=
@@ -521,7 +501,8 @@ std::string EncodeSarSessionConfig(const config::SarSessionConfig& value) {
   const auto policy = BuildPolicyConfig(fbb, value.policy);
   const auto environment = BuildEnvironmentConfig(fbb, value.environment);
   fbb.Finish(replay::CreateSarSessionConfig(fbb, hardware, mission, policy, environment,
-                                            value.sensor_enabled));
+                                            value.sensor_enabled),
+             replay::SarSessionConfigIdentifier());
   return oneq::common::replay::CopyFinishedFlatbuffer(fbb);
 }
 
@@ -530,7 +511,7 @@ bool DecodeSarSessionConfig(const std::string& bytes, config::SarSessionConfig* 
     return false;
   }
   flatbuffers::Verifier verifier(reinterpret_cast<const std::uint8_t*>(bytes.data()), bytes.size());
-  if (!verifier.VerifyBuffer<replay::SarSessionConfig>()) {
+  if (!verifier.VerifyBuffer<replay::SarSessionConfig>(replay::SarSessionConfigIdentifier())) {
     return false;
   }
   const auto* fb = flatbuffers::GetRoot<replay::SarSessionConfig>(bytes.data());
@@ -545,11 +526,12 @@ bool DecodeSarSessionConfig(const std::string& bytes, config::SarSessionConfig* 
 std::string EncodeSarRuntimeConfigPatch(const config::SarRuntimeConfigPatch& value) {
   flatbuffers::FlatBufferBuilder fbb(256);
   fbb.Finish(replay::CreateSarRuntimeConfigPatch(
-      fbb, value.has_enable_raw_echo_generation, value.enable_raw_echo_generation,
-      value.has_enable_l1_rda_imaging, value.enable_l1_rda_imaging,
-      value.has_retain_raw_phase_history, value.retain_raw_phase_history,
-      value.has_retain_focused_image, value.retain_focused_image, value.has_minimum_snr_db,
-      value.minimum_snr_db, value.has_sensor_enabled, value.sensor_enabled));
+                  fbb, value.has_enable_raw_echo_generation, value.enable_raw_echo_generation,
+                  value.has_enable_l1_rda_imaging, value.enable_l1_rda_imaging,
+                  value.has_retain_focused_image, value.retain_focused_image,
+                  value.has_minimum_snr_db, value.minimum_snr_db, value.has_sensor_enabled,
+                  value.sensor_enabled),
+             replay::SarSessionConfigIdentifier());
   return oneq::common::replay::CopyFinishedFlatbuffer(fbb);
 }
 
@@ -558,7 +540,7 @@ bool DecodeSarRuntimeConfigPatch(const std::string& bytes, config::SarRuntimeCon
     return false;
   }
   flatbuffers::Verifier verifier(reinterpret_cast<const std::uint8_t*>(bytes.data()), bytes.size());
-  if (!verifier.VerifyBuffer<replay::SarRuntimeConfigPatch>()) {
+  if (!verifier.VerifyBuffer<replay::SarRuntimeConfigPatch>(replay::SarSessionConfigIdentifier())) {
     return false;
   }
   const auto* fb = flatbuffers::GetRoot<replay::SarRuntimeConfigPatch>(bytes.data());
@@ -566,8 +548,6 @@ bool DecodeSarRuntimeConfigPatch(const std::string& bytes, config::SarRuntimeCon
   out->enable_raw_echo_generation = fb->enable_raw_echo_generation();
   out->has_enable_l1_rda_imaging = fb->has_enable_l1_rda_imaging();
   out->enable_l1_rda_imaging = fb->enable_l1_rda_imaging();
-  out->has_retain_raw_phase_history = fb->has_retain_raw_phase_history();
-  out->retain_raw_phase_history = fb->retain_raw_phase_history();
   out->has_retain_focused_image = fb->has_retain_focused_image();
   out->retain_focused_image = fb->retain_focused_image();
   out->has_minimum_snr_db = fb->has_minimum_snr_db();

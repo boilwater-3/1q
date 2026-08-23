@@ -50,7 +50,6 @@ set(AR_SESSION_HEADERS
     "airborne_radar/session/ArCommand.h"
     "airborne_radar/session/ArControlProfile.h"
     "airborne_radar/session/DecisionControlTypes.h"
-    "airborne_radar/session/DecisionInputFrame.h"
     "airborne_radar/session/TrackStateSnapshot.h"
 )
 

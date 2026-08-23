@@ -84,36 +84,6 @@ table ArInterferenceObservation {
   estimated_first_pulse_delay_s:double;
 }
 
-table AssociationQualityInfo {
-  match_rate:float;
-  new_track_rate:float;
-  missed_track_rate:float;
-  mean_match_cost:float;
-  p95_match_cost:float;
-  association_stress:float;
-}
-
-table PerceptionQualityInfo {
-  input_target_count:ulong;
-  detection_count:ulong;
-  detection_rate:float;
-  detection_stress:float;
-}
-
-table DecisionInputFrame {
-  cycle_index:uint;
-  batch_id:ulong;
-  interference_observations:[ArInterferenceObservation];
-  association_quality_info:AssociationQualityInfo;
-  perception_quality_info:PerceptionQualityInfo;
-  tracks:[TrackStateSnapshot];
-}
-
-table DecisionObservation {
-  input_frame:DecisionInputFrame;
-  active_control_profile:ArControlProfile;
-}
-
 table ControlDirective {
   type:int;
   source:int;
@@ -287,8 +257,6 @@ table ArCycleResultV3 {
   has_control_profile:bool;
   control_profile:ArControlProfile;
   association_quality_metrics:AssociationQualityMetricsV3;
-  has_decision_observation:bool;
-  decision_observation:DecisionObservation;
   applied_decision_source:int;
   applied_decision_cycle_index:uint;
   applied_decision_batch_id:ulong;
@@ -317,5 +285,8 @@ table ArCycleReplayRecordV3 {
   session_state:ArSessionReplayStateV3;
 }
 
+// 2026-08 规则 15f 落地：ArCycleResultV3 中段收回 decision_observation 字段（field ID 前移，
+// 非表尾加性变更）。codec 自此写入并校验 file_identifier：无标识符的旧轨迹被显式拒绝，
+// 不会被同名标识按新布局静默误读。
 root_type ArCycleInputV3;
 file_identifier "ARC3";

@@ -241,8 +241,9 @@ flowchart TB
 会话不保留"上一有效输出"缓存——非执行周期（校验失败/执行 abort/设备关机）的输出帧严格不复用
 （见 boundaries.md 非执行周期契约）。
 
-落地后：`Step()` 返回产品（元数据 + 聚焦图像）；`StepWithResult()` 返回分层周期记录。
-IQ 默认不进记录。落地前 `Step()` 仍只返回 `SarOutputFrame` 元数据。日志不作为状态判断依据。
+已落地（规则 15e）：`Step()` 返回产品 `SarCycleProduct`（元数据 + 聚焦图像，同一周期记录移动取出）；
+`StepWithResult()` 返回执行层 + `product` 的 `SarCycleResult`。IQ 不进记录。
+日志不作为状态判断依据。
 
 ### 内部轨迹分层
 

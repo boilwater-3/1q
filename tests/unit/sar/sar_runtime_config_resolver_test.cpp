@@ -115,20 +115,6 @@ TEST(SarRuntimeConfigResolverTest, L1RdaBlockedEvenIfCurrentConfigEnabledRawEcho
   EXPECT_FALSE(resolved.is_valid);
 }
 
-TEST(SarRuntimeConfigResolverTest, RetainRawHistoryWithoutRawEchoRejectsWholePatch) {
-  config::SarRuntimeConfigPatch patch;
-  patch.has_enable_raw_echo_generation = true;
-  patch.enable_raw_echo_generation = false;
-  patch.has_retain_raw_phase_history = true;
-  patch.retain_raw_phase_history = true;
-  const SarRuntimeConfigResolveResult resolved =
-      ResolveSarRuntimeConfigPatch(config::SarSessionConfig{}, patch);
-  EXPECT_TRUE(resolved.has_requested_update);
-  EXPECT_FALSE(resolved.is_valid);
-  EXPECT_FALSE(resolved.next_config.policy.retain_raw_phase_history);
-  EXPECT_TRUE(resolved.next_config.policy.enable_raw_echo_generation);
-}
-
 TEST(SarRuntimeConfigResolverTest, SensorEnabledLeafUpdatesConfig) {
   // 电源叶子（COMMON-OQ-4 字段提升）：false 值透传到 next_config。
   config::SarRuntimeConfigPatch patch;

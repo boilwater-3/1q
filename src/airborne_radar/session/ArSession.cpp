@@ -288,10 +288,6 @@ struct ArSession::Impl {
       result.control_profile = RadarContext().GetLatestControlProfile();
     }
     result.association_quality_metrics = SignalPipeline().GetLastAssociationQualityMetrics();
-    result.has_decision_observation = completed.has_decision_observation;
-    if (result.has_decision_observation) {
-      result.decision_observation = completed.decision_observation;
-    }
     FillAppliedDecisionMetadata(result);
     // STT 指定航迹状态回填（派生规则见 BuildSttDesignationCycleState；指令
     // 生命周期阶段为会话级状态，由 RunCycle prepare 推进，见 AdvanceDesignationPhase）：
@@ -1088,10 +1084,6 @@ struct ArSession::Impl {
     result.output_frame = execution_result.output_frame;
     // 规则 13b：正常执行周期按目标排除的 kInfo 诊断转写（abort 路径不变）。
     result.issues = execution_result.issues;
-    result.has_decision_observation = Controller().HasLatestDecisionObservation();
-    if (result.has_decision_observation) {
-      result.decision_observation = Controller().GetLatestDecisionObservation();
-    }
     prepared_ledger_.ClearPrepared();
     return result;
   }

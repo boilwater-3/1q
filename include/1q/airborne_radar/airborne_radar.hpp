@@ -11,7 +11,6 @@
 #include "1q/airborne_radar/config/airborne_radar_config.hpp"
 #include "1q/airborne_radar/config/ArOrientationConfig.h"
 #include "1q/airborne_radar/session/DecisionControlTypes.h"
-#include "1q/airborne_radar/session/DecisionInputFrame.h"
 #include "1q/airborne_radar/session/TrackStateSnapshot.h"
 #include "1q/airborne_radar/session/ArCycleInput.h"
 #include "1q/airborne_radar/session/ArCycleOutputAdapter.h"

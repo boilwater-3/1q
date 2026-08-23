@@ -77,8 +77,10 @@ SarRecordingSession::~SarRecordingSession() = default;
 SarRecordingSession::SarRecordingSession(SarRecordingSession&&) noexcept = default;
 SarRecordingSession& SarRecordingSession::operator=(SarRecordingSession&&) noexcept = default;
 
-SarOutputFrame SarRecordingSession::Step(const SarCycleInput& input) {
-  return StepWithResult(input).output_frame;
+SarCycleProduct SarRecordingSession::Step(const SarCycleInput& input) {
+  // 规则 15c：产品层从同一份周期记录移动取出，非第二份副本。
+  SarCycleResult result = StepWithResult(input);
+  return std::move(result.product);
 }
 
 SarCycleResult SarRecordingSession::StepWithResult(const SarCycleInput& input) {

@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "1q/airborne_radar/session/ArOutputTypes.h"
+#include "airborne_radar/signal/pipeline/SignalCycleResult.h"
 #include "1q/airborne_radar/config/ArOrientationConfig.h"
 #include "1q/electromagnetics/RfScene.h"
 #include "airborne_radar/signal/pipeline/SignalPipelineExecutionConfig.h"

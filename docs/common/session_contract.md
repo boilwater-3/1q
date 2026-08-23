@@ -116,9 +116,9 @@ AR/ESR/EOS/SBIRS/SAR/RIR 六模块的电源状态必须遵守单源原则：
 观测投影按产品形态选装。不得用「有没有旧称 L3」单独判定模块是否完整。
 「信封嵌有产品帧副本」口径已废止，详见规则 15。
 
-**实现状态（2026-08-23）**：规则已冻结，代码与 Replay schema **未落地**。当前头文件仍为扁平
-`*CycleResult`（内嵌 `output_frame`、SAR 图像与 IQ 同袋、AR `decision_observation`）。
-不得把当前字段布局解读为本节已实现。
+**实现状态（2026-08-23）**：**15e/15f 已落地**（SAR 产品层含 `Step()` 取图、IQ 出记录；
+AR 决策观测袋已移除）。IQ 另表落盘机制待真实消费者出现再建。分层嵌套的其余模块与
+15d（产品帧 cycle_index 去重）仍为待迁移；它们的当前扁平字段布局是过渡实现，不是本节的反例。
 
 ### 生产者与分层
 
@@ -499,19 +499,24 @@ navigation / flight_dynamic 是算法面，不进本模型。
 - **15c 产品不嵌套复制。** 废止「信封嵌有产品帧副本」。`Step()` 从同一记录取出产品层。
 - **15d 单一周期号。** 执行层 `cycle_index` 永远等于本次输入号。产品在非执行周期为空载荷，
   不得用产品帧 `cycle_index=0` 表示未发生。（收敛原 COMMON-OQ-7、RIR-OQ-2。）
-- **15e SAR 产品边界。** 聚焦图像是产品，`Step()` 必须能拿到图像。
+- **15e SAR 产品边界（已落地）。** 聚焦图像是产品，`Step()` 必须能拿到图像。
   `SarOutputFrame` 标量元数据可作为产品内的 trivially_copyable 子结构。
-  原始相位历史（IQ）默认不进周期记录；仅在调用方显式要求成像链回放时另表落盘。
-  [evidence: include/1q/sar/session/SarCycleResult.h]
-- **15f AR 决策缝。** 内部「特征 → 分类 → LPI/ECCM → 下一拍 `ArControlProfile`」闭环保留。
+  原始相位历史（IQ）不进周期记录（`SarRawPhaseHistory` 载荷与 `retain_raw_phase_history`
+  配置已删除）；成像链回放另表落盘，待真实消费者出现再建。
+  [evidence: include/1q/sar/session/SarCycleResult.h — SarCycleProduct / SarCycleResult]
+- **15f AR 决策缝（已落地）。** 内部「特征 → 分类 → LPI/ECCM → 下一拍 `ArControlProfile`」闭环保留。
   `DecisionObservation` / `DecisionInputFrame` 不得作为周期记录字段。
   唯一 public 决策缝是 `SubmitExternalDecision()`；外部模块读产品航迹、干扰观测、本拍 `control_profile`。
   周期记录只留 `applied_decision_source` 与对应 cycle/batch。
-  Replay 覆盖用独立 submit 事件，不落盘第二份航迹。
+  Replay 覆盖用独立 submit 事件，不落盘第二份航迹。`DecisionObservation` 结构已删除，
+  `DecisionInputFrame` 头移至 `src/airborne_radar/decision/`（不外发）。
   [evidence: src/airborne_radar/decision/TacticalCoordinator.cpp]
+  [evidence: src/airborne_radar/decision/DecisionInputFrame.h]
   [evidence: include/1q/airborne_radar/session/ArCycleResult.h]
 
-**对齐状态（2026-08-23）**：契约冻结，代码与 schema 未落地。
+**对齐状态（2026-08-23）**：15e/15f 已落地（SAR 产品层 + IQ 出记录；AR 袋已移除，含
+schema/codec 与 public 头收口）；IQ 另表落盘待真实消费者出现再建；其余模块的分层嵌套与
+15d 仍为待迁移。
 
 本周交付模块（RIR / SBIRS）**不改 public `*CycleResult` 字段布局**。规则 15 对它们是目标形态映射，不是本周改动清单：
 

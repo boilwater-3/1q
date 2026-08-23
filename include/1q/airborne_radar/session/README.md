@@ -4,7 +4,6 @@
 
 ## 决策域
 - DecisionControlTypes.h — 决策观测、外部 profile 覆盖值、提交状态和控制来源；proposal/directive 抽象已收口为内部实现
-- DecisionInputFrame.h — 单周期决策输入帧（关联/探测质量摘要 + 轨迹快照）
 - TrackStateSnapshot.h — 轨迹快照 DTO（位置/速度/加速度/RCS/航迹状态）
 
 ## 控制域

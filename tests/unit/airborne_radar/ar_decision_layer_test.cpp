@@ -11,7 +11,7 @@
 #include <vector>
 
 #include "airborne_radar/decision/ControlReducerTypes.h"
-#include "1q/airborne_radar/session/DecisionInputFrame.h"
+#include "airborne_radar/decision/DecisionInputFrame.h"
 #include "1q/airborne_radar/session/TrackStateSnapshot.h"
 #include "airborne_radar/decision/ThreatAssessmentEvaluator.h"
 #include "airborne_radar/decision/TacticalCoordinator.h"

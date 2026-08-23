@@ -21,9 +21,6 @@ struct ONEQ_API SarRuntimeConfigPatch {
   bool has_enable_l1_rda_imaging{false};       /**< 是否携带 enable_l1_rda_imaging 变更 */
   bool enable_l1_rda_imaging{false};           /**< 目标 L1 RDA 成像开关值 */
 
-  bool has_retain_raw_phase_history{false};    /**< 是否携带 retain_raw_phase_history 变更 */
-  bool retain_raw_phase_history{false};        /**< 目标 retain_raw_phase_history 值 */
-
   bool has_retain_focused_image{false};        /**< 是否携带 retain_focused_image 变更 */
   bool retain_focused_image{true};             /**< 目标 retain_focused_image 值 */
 

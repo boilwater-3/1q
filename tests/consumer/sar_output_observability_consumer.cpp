@@ -35,10 +35,10 @@ int main() {
   sar::session::SarCycleResult result;
   result.input_cycle_index = input.cycle_index;
   result.status = sar::session::SarCycleStatus::kCompleted;
-  result.output_frame.cycle_index = input.cycle_index;
-  result.output_frame.completed_stage = sar::session::SarProcessingStage::kL1RdaImage;
-  result.output_frame.has_l1_image = true;
-  result.output_frame.estimated_snr_db = 18.0;
+  result.product.output_frame.cycle_index = input.cycle_index;
+  result.product.output_frame.completed_stage = sar::session::SarProcessingStage::kL1RdaImage;
+  result.product.output_frame.has_l1_image = true;
+  result.product.output_frame.estimated_snr_db = 18.0;
 
   // 3. Debug view：产品输出 + 点目标解释（name 只在 point_targets 中）。
   const sar::session::SarProductDebugView view =

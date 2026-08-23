@@ -309,7 +309,7 @@ CycleMetrics ExtractCycleMetrics(const sar_session::SarCycleResult& r) {
   m.has_error = r.status == sar_session::SarCycleStatus::kRejectedInvalidInput ||
                 r.status == sar_session::SarCycleStatus::kRejectedExecution;
   m.abort_reason = static_cast<int>(r.abort_reason);
-  const auto& f = r.output_frame;
+  const auto& f = r.product.output_frame;
   m.completed_stage = static_cast<int>(f.completed_stage);
   m.has_raw_echo = f.has_raw_echo;
   m.has_rc_echo = f.has_range_compressed_echo;
@@ -331,8 +331,8 @@ CycleMetrics ExtractCycleMetrics(const sar_session::SarCycleResult& r) {
     if (d.severity == sar_session::SarIssueSeverity::kWarning) ++m.diag_warn;
     if (d.severity == sar_session::SarIssueSeverity::kError) ++m.diag_err;
   }
-  m.img_rows = r.focused_image.row_count;
-  m.img_cols = r.focused_image.column_count;
+  m.img_rows = r.product.focused_image.row_count;
+  m.img_cols = r.product.focused_image.column_count;
   return m;
 }
 

@@ -2,7 +2,7 @@
  * @file ArOutputTypes.h
  * @brief 机载雷达输出辅助类型集合。
  *
- * 输出辅助类型（SignalCycleResult、关联质量指标等）的主头文件。
+ * 输出辅助类型（问题条目、关联质量指标等）的主头文件。
  */
 
 #ifndef ONEQ_AIRBORNE_RADAR_SESSION_AR_OUTPUT_TYPES_H_
@@ -13,7 +13,6 @@
 #include <string>
 
 #include "1q/airborne_radar/session/ArSceneTypes.h"
-#include "1q/airborne_radar/session/DecisionInputFrame.h"
 #include "1q/api.hpp"
 #include "1q/foundation/validation_types.h"
 
@@ -102,22 +101,6 @@ struct ONEQ_API AssociationQualityMetrics {
   float mean_match_cost{0.0f};       /**< cost: 命中关联代价均值（仅统计 matches） */
   float p95_match_cost{0.0f};        /**< cost: 命中关联代价 P95（仅统计 matches） */
   float association_stress{0.0f};      /**< summary [0,1]: 当前周期的归一化关联压力 */
-};
-
-/**
- * @brief SignalCycleResult 描述信号流水线单周期的稳定输出。
- * @note 当 `executed_this_cycle=false` 时，输出与指标字段保持默认值，不代表真实零值；
- *       统计消费方必须先检查 `executed_this_cycle`。
- */
-struct ONEQ_API SignalCycleResult {
-  bool executed_this_cycle{false}; /**< 当前调用是否真正完成了 signal pipeline 主链路 */
-  SignalCycleAbortReason abort_reason{
-      SignalCycleAbortReason::kNone};           /**< 若当前调用未执行成功，给出结构化 abort 原因 */
-  ArSceneTargetList updated_scene_targets{};    /**< 当前周期更新后的场景目标列表 */
-  session::DecisionInputFrame decision_frame{}; /**< 当前周期决策输入帧 */
-  AssociationQualityMetrics association_quality_metrics{}; /**< 当前周期关联质量观测指标 */
-  ArIssueList issues{}; /**< 统一问题列表（规则 14：正常周期按目标排除的 kInfo 诊断，
-                             phase=kExecution；abort 路径诊断由 RecordAbort 写入）。 */
 };
 
 /**

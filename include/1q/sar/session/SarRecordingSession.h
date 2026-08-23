@@ -54,11 +54,11 @@ class ONEQ_API SarRecordingSession {
    */
   SarCycleResult StepWithResult(const SarCycleInput& input);
   /**
-   * @brief 执行单周期并返回输出帧（同时写入 Replay 记录）。
+   * @brief 执行单周期并返回产品载荷（元数据 + 聚焦图像，同时写入 Replay 记录）。
    * @param[in] input 单周期输入载荷。
-   * @return 单周期输出帧。
+   * @return 单周期产品载荷；非执行周期为空载荷。
    */
-  SarOutputFrame Step(const SarCycleInput& input);
+  SarCycleProduct Step(const SarCycleInput& input);
   /**
    * @brief 尝试应用运行期可变配置补丁（透传至内部 SarSession）。
    * @param[in] patch 运行期配置补丁。

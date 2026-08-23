@@ -25,11 +25,11 @@ AR 的内部闭环是「分析本拍特征 → 改下一拍发射控制」，不
 3. 唯一 public 决策缝是 `SubmitExternalDecision()`：调用方在下一次 `Step` 前整包替换
    下一拍 profile（绕过 hold/cooldown）。外部模块不替换内部对象；分类与内部 baseline
    每个成功周期仍持续计算。
-4. `DecisionObservation` / `DecisionInputFrame` **不得**进入周期记录（规则 15f）。
+4. `DecisionObservation` / `DecisionInputFrame` **不得**进入周期记录（规则 15f，已落地）。
    外部模块读产品航迹、干扰观测、本拍 `control_profile`。Recording 在覆盖被接受时写独立
    submit 事件；周期记录只留 `applied_decision_source` 与 cycle/batch。
-
-落地前现状：`ArCycleResult` 仍携带整包 `decision_observation`（航迹再复印一份），属待删除实现。
+   观测袋与 `DecisionInputFrame` public 头均已删除；`DecisionInputFrame` 移至
+   `src/airborne_radar/decision/`（内部 TacticalCoordinator 输入，不外发）。
 
 ## 模块定位要点
 

@@ -26,14 +26,16 @@ namespace {
 // 绕过 EncodeSarCycleResult 的合法值限制，直接构造携带任意 abort_reason 的帧。
 // 注：decode 在 abort_reason 校验前要求 focused_image 及其向量非空，须构造合法空聚焦图像，
 //     否则帧在更早的校验处被拒，abort_reason 守卫不会被真正测到。
+// 注：decode 侧校验 file_identifier，手构帧须盖 SARC（经根类型常量取值）。
 std::string EncodeCycleResultWithRawAbortReason(std::int32_t abort_reason) {
   flatbuffers::FlatBufferBuilder builder(128U);
   const auto real = builder.CreateVector(std::vector<double>{});
   const auto imaginary = builder.CreateVector(std::vector<double>{});
   const auto focused_image =
       replay::CreateSarFocusedImage(builder, 0, 0, 0, real, imaginary, /*is_placeholder=*/true);
-  builder.Finish(replay::CreateSarCycleResult(
-      builder, 1U, 0, focused_image, 0, 0, abort_reason, 0));
+  const auto product = replay::CreateSarCycleProduct(builder, 0, focused_image);
+  builder.Finish(replay::CreateSarCycleResult(builder, 1U, product, 0, abort_reason, 0),
+                 replay::SarCycleInputIdentifier());
   return std::string(reinterpret_cast<const char*>(builder.GetBufferPointer()),
                      builder.GetSize());
 }
@@ -132,26 +134,26 @@ TEST(SarReplayCodecRoundtripTest, CycleInputDecodeFailureDoesNotModifyOutput) {
 TEST(SarReplayCodecRoundtripTest, CycleResultPreservesOutputAndDiagnostics) {
   SarCycleResult result;
   result.input_cycle_index = 9U;
-  result.output_frame.cycle_index = 9U;
-  result.output_frame.completed_stage = SarProcessingStage::kL3BpImage;
-  result.output_frame.range_sample_count = 64U;
-  result.output_frame.azimuth_pulse_count = 9U;
-  result.output_frame.center_slant_range_m = 29.9792458;
-  result.output_frame.estimated_snr_db = 18.5;
-  result.output_frame.phase_reference_mode = SarPhaseReferenceMode::kCenterBroadside;
-  result.output_frame.image_quality_mainlobe_method = SarMainlobeEstimationMethod::k20dB;
-  result.output_frame.range_width_3db_bins = 3.0;
-  result.output_frame.azimuth_width_3db_bins = 5.0;
-  result.output_frame.range_resolution_3db_m = 4.5;
-  result.output_frame.azimuth_resolution_3db_m = 10.0;
-  result.output_frame.image_entropy_nats = 2.25;
-  result.output_frame.image_contrast = 1.5;
-  result.output_frame.has_raw_echo = true;
-  result.output_frame.has_range_compressed_echo = true;
-  result.output_frame.has_l3_bp_image = true;
-  result.output_frame.has_image_quality_metrics = true;
-  result.output_frame.image_resolution_m_valid = true;
-  result.output_frame.phase_reference_applied = true;
+  result.product.output_frame.cycle_index = 9U;
+  result.product.output_frame.completed_stage = SarProcessingStage::kL3BpImage;
+  result.product.output_frame.range_sample_count = 64U;
+  result.product.output_frame.azimuth_pulse_count = 9U;
+  result.product.output_frame.center_slant_range_m = 29.9792458;
+  result.product.output_frame.estimated_snr_db = 18.5;
+  result.product.output_frame.phase_reference_mode = SarPhaseReferenceMode::kCenterBroadside;
+  result.product.output_frame.image_quality_mainlobe_method = SarMainlobeEstimationMethod::k20dB;
+  result.product.output_frame.range_width_3db_bins = 3.0;
+  result.product.output_frame.azimuth_width_3db_bins = 5.0;
+  result.product.output_frame.range_resolution_3db_m = 4.5;
+  result.product.output_frame.azimuth_resolution_3db_m = 10.0;
+  result.product.output_frame.image_entropy_nats = 2.25;
+  result.product.output_frame.image_contrast = 1.5;
+  result.product.output_frame.has_raw_echo = true;
+  result.product.output_frame.has_range_compressed_echo = true;
+  result.product.output_frame.has_l3_bp_image = true;
+  result.product.output_frame.has_image_quality_metrics = true;
+  result.product.output_frame.image_resolution_m_valid = true;
+  result.product.output_frame.phase_reference_applied = true;
   SarIssue issue;
   issue.severity = SarIssueSeverity::kInfo;
   issue.phase = SarIssuePhase::kExecution;
@@ -163,16 +165,11 @@ TEST(SarReplayCodecRoundtripTest, CycleResultPreservesOutputAndDiagnostics) {
   issue.field = "platform";
   issue.cause = SarIssueCause::kUnknown;
   result.issues.push_back(issue);
-  result.raw_phase_history.source = SarRawPhaseHistorySource::kExternalRawIq;
-  result.raw_phase_history.pulse_count = 2U;
-  result.raw_phase_history.samples_per_pulse = 2U;
-  result.raw_phase_history.i_values = {1.0, 2.0, 3.0, 4.0};
-  result.raw_phase_history.q_values = {-1.0, -2.0, -3.0, -4.0};
-  result.focused_image.source = SarFocusedImageSource::kL3Bp;
-  result.focused_image.row_count = 2U;
-  result.focused_image.column_count = 2U;
-  result.focused_image.real_values = {10.0, 20.0, 30.0, 40.0};
-  result.focused_image.imaginary_values = {-10.0, -20.0, -30.0, -40.0};
+  result.product.focused_image.source = SarFocusedImageSource::kL3Bp;
+  result.product.focused_image.row_count = 2U;
+  result.product.focused_image.column_count = 2U;
+  result.product.focused_image.real_values = {10.0, 20.0, 30.0, 40.0};
+  result.product.focused_image.imaginary_values = {-10.0, -20.0, -30.0, -40.0};
   result.status = SarCycleStatus::kCompleted;
 
   const std::string bytes = EncodeSarCycleResult(result);
@@ -181,22 +178,22 @@ TEST(SarReplayCodecRoundtripTest, CycleResultPreservesOutputAndDiagnostics) {
   ASSERT_TRUE(DecodeSarCycleResult(bytes, &decoded));
 
   EXPECT_EQ(decoded.input_cycle_index, result.input_cycle_index);
-  EXPECT_EQ(decoded.output_frame.completed_stage, SarProcessingStage::kL3BpImage);
-  EXPECT_EQ(decoded.output_frame.range_sample_count, 64U);
-  EXPECT_EQ(decoded.output_frame.phase_reference_mode, SarPhaseReferenceMode::kCenterBroadside);
-  EXPECT_EQ(decoded.output_frame.image_quality_mainlobe_method, SarMainlobeEstimationMethod::k20dB);
-  EXPECT_DOUBLE_EQ(decoded.output_frame.range_width_3db_bins, 3.0);
-  EXPECT_DOUBLE_EQ(decoded.output_frame.azimuth_width_3db_bins, 5.0);
-  EXPECT_DOUBLE_EQ(decoded.output_frame.range_resolution_3db_m, 4.5);
-  EXPECT_DOUBLE_EQ(decoded.output_frame.azimuth_resolution_3db_m, 10.0);
-  EXPECT_DOUBLE_EQ(decoded.output_frame.image_entropy_nats, 2.25);
-  EXPECT_DOUBLE_EQ(decoded.output_frame.image_contrast, 1.5);
-  EXPECT_TRUE(decoded.output_frame.has_range_compressed_echo);
-  EXPECT_TRUE(decoded.output_frame.has_l3_bp_image);
-  EXPECT_FALSE(decoded.output_frame.has_l1_image);
-  EXPECT_TRUE(decoded.output_frame.has_image_quality_metrics);
-  EXPECT_TRUE(decoded.output_frame.image_resolution_m_valid);
-  EXPECT_TRUE(decoded.output_frame.phase_reference_applied);
+  EXPECT_EQ(decoded.product.output_frame.completed_stage, SarProcessingStage::kL3BpImage);
+  EXPECT_EQ(decoded.product.output_frame.range_sample_count, 64U);
+  EXPECT_EQ(decoded.product.output_frame.phase_reference_mode, SarPhaseReferenceMode::kCenterBroadside);
+  EXPECT_EQ(decoded.product.output_frame.image_quality_mainlobe_method, SarMainlobeEstimationMethod::k20dB);
+  EXPECT_DOUBLE_EQ(decoded.product.output_frame.range_width_3db_bins, 3.0);
+  EXPECT_DOUBLE_EQ(decoded.product.output_frame.azimuth_width_3db_bins, 5.0);
+  EXPECT_DOUBLE_EQ(decoded.product.output_frame.range_resolution_3db_m, 4.5);
+  EXPECT_DOUBLE_EQ(decoded.product.output_frame.azimuth_resolution_3db_m, 10.0);
+  EXPECT_DOUBLE_EQ(decoded.product.output_frame.image_entropy_nats, 2.25);
+  EXPECT_DOUBLE_EQ(decoded.product.output_frame.image_contrast, 1.5);
+  EXPECT_TRUE(decoded.product.output_frame.has_range_compressed_echo);
+  EXPECT_TRUE(decoded.product.output_frame.has_l3_bp_image);
+  EXPECT_FALSE(decoded.product.output_frame.has_l1_image);
+  EXPECT_TRUE(decoded.product.output_frame.has_image_quality_metrics);
+  EXPECT_TRUE(decoded.product.output_frame.image_resolution_m_valid);
+  EXPECT_TRUE(decoded.product.output_frame.phase_reference_applied);
   ASSERT_EQ(decoded.issues.size(), 1U);
   EXPECT_EQ(decoded.issues[0].severity, SarIssueSeverity::kInfo);
   EXPECT_EQ(decoded.issues[0].phase, SarIssuePhase::kExecution);
@@ -208,55 +205,50 @@ TEST(SarReplayCodecRoundtripTest, CycleResultPreservesOutputAndDiagnostics) {
   EXPECT_EQ(decoded.issues[0].field, "platform");
   EXPECT_EQ(decoded.issues[0].cause, SarIssueCause::kUnknown);
   EXPECT_EQ(decoded.status, SarCycleStatus::kCompleted);
-  EXPECT_EQ(decoded.raw_phase_history.source, SarRawPhaseHistorySource::kExternalRawIq);
-  EXPECT_EQ(decoded.raw_phase_history.pulse_count, 2U);
-  EXPECT_EQ(decoded.raw_phase_history.samples_per_pulse, 2U);
-  EXPECT_EQ(decoded.raw_phase_history.i_values, result.raw_phase_history.i_values);
-  EXPECT_EQ(decoded.raw_phase_history.q_values, result.raw_phase_history.q_values);
-  EXPECT_EQ(decoded.focused_image.source, SarFocusedImageSource::kL3Bp);
-  EXPECT_EQ(decoded.focused_image.row_count, 2U);
-  EXPECT_EQ(decoded.focused_image.column_count, 2U);
-  EXPECT_EQ(decoded.focused_image.real_values, result.focused_image.real_values);
-  EXPECT_EQ(decoded.focused_image.imaginary_values, result.focused_image.imaginary_values);
-  EXPECT_FALSE(decoded.focused_image.is_placeholder);
+  EXPECT_EQ(decoded.product.focused_image.source, SarFocusedImageSource::kL3Bp);
+  EXPECT_EQ(decoded.product.focused_image.row_count, 2U);
+  EXPECT_EQ(decoded.product.focused_image.column_count, 2U);
+  EXPECT_EQ(decoded.product.focused_image.real_values, result.product.focused_image.real_values);
+  EXPECT_EQ(decoded.product.focused_image.imaginary_values, result.product.focused_image.imaginary_values);
+  EXPECT_FALSE(decoded.product.focused_image.is_placeholder);
 }
 
 TEST(SarReplayCodecRoundtripTest, CycleResultPreservesFocusedImagePlaceholder) {
   SarCycleResult result;
-  result.focused_image.source = SarFocusedImageSource::kL1Rda;
-  result.focused_image.row_count = 9U;
-  result.focused_image.column_count = 64U;
-  result.focused_image.is_placeholder = true;
+  result.product.focused_image.source = SarFocusedImageSource::kL1Rda;
+  result.product.focused_image.row_count = 9U;
+  result.product.focused_image.column_count = 64U;
+  result.product.focused_image.is_placeholder = true;
 
   SarCycleResult decoded;
   ASSERT_TRUE(DecodeSarCycleResult(EncodeSarCycleResult(result), &decoded));
-  EXPECT_EQ(decoded.focused_image.source, SarFocusedImageSource::kL1Rda);
-  EXPECT_EQ(decoded.focused_image.row_count, 9U);
-  EXPECT_EQ(decoded.focused_image.column_count, 64U);
-  EXPECT_TRUE(decoded.focused_image.real_values.empty());
-  EXPECT_TRUE(decoded.focused_image.imaginary_values.empty());
-  EXPECT_TRUE(decoded.focused_image.is_placeholder);
+  EXPECT_EQ(decoded.product.focused_image.source, SarFocusedImageSource::kL1Rda);
+  EXPECT_EQ(decoded.product.focused_image.row_count, 9U);
+  EXPECT_EQ(decoded.product.focused_image.column_count, 64U);
+  EXPECT_TRUE(decoded.product.focused_image.real_values.empty());
+  EXPECT_TRUE(decoded.product.focused_image.imaginary_values.empty());
+  EXPECT_TRUE(decoded.product.focused_image.is_placeholder);
 }
 
 TEST(SarReplayCodecRoundtripTest, CycleResultRejectsMalformedFocusedImage) {
   SarCycleResult malformed;
-  malformed.focused_image.source = SarFocusedImageSource::kL1Rda;
-  malformed.focused_image.row_count = 2U;
-  malformed.focused_image.column_count = 2U;
-  malformed.focused_image.real_values = {1.0, 2.0, 3.0};
-  malformed.focused_image.imaginary_values = {1.0, 2.0, 3.0, 4.0};
+  malformed.product.focused_image.source = SarFocusedImageSource::kL1Rda;
+  malformed.product.focused_image.row_count = 2U;
+  malformed.product.focused_image.column_count = 2U;
+  malformed.product.focused_image.real_values = {1.0, 2.0, 3.0};
+  malformed.product.focused_image.imaginary_values = {1.0, 2.0, 3.0, 4.0};
   SarCycleResult decoded;
   EXPECT_FALSE(DecodeSarCycleResult(EncodeSarCycleResult(malformed), &decoded));
 
-  malformed.focused_image.real_values = {1.0, 2.0, 3.0, 4.0};
-  malformed.focused_image.real_values[2] = std::numeric_limits<double>::infinity();
+  malformed.product.focused_image.real_values = {1.0, 2.0, 3.0, 4.0};
+  malformed.product.focused_image.real_values[2] = std::numeric_limits<double>::infinity();
   EXPECT_FALSE(DecodeSarCycleResult(EncodeSarCycleResult(malformed), &decoded));
 
-  malformed.focused_image.real_values.clear();
-  malformed.focused_image.imaginary_values.clear();
-  malformed.focused_image.real_values.push_back(1.0);
-  malformed.focused_image.imaginary_values.push_back(1.0);
-  malformed.focused_image.is_placeholder = true;
+  malformed.product.focused_image.real_values.clear();
+  malformed.product.focused_image.imaginary_values.clear();
+  malformed.product.focused_image.real_values.push_back(1.0);
+  malformed.product.focused_image.imaginary_values.push_back(1.0);
+  malformed.product.focused_image.is_placeholder = true;
   EXPECT_FALSE(DecodeSarCycleResult(EncodeSarCycleResult(malformed), &decoded));
 }
 
@@ -264,31 +256,31 @@ TEST(SarReplayCodecRoundtripTest, CycleResultRejectsInvalidFocusedImageStateComb
   SarCycleResult malformed;
   SarCycleResult decoded;
 
-  malformed.focused_image.source = SarFocusedImageSource::kNone;
-  malformed.focused_image.row_count = 1U;
+  malformed.product.focused_image.source = SarFocusedImageSource::kNone;
+  malformed.product.focused_image.row_count = 1U;
   EXPECT_FALSE(DecodeSarCycleResult(EncodeSarCycleResult(malformed), &decoded));
 
-  malformed.focused_image = SarFocusedImage{};
-  malformed.focused_image.is_placeholder = true;
+  malformed.product.focused_image = SarFocusedImage{};
+  malformed.product.focused_image.is_placeholder = true;
   EXPECT_FALSE(DecodeSarCycleResult(EncodeSarCycleResult(malformed), &decoded));
 
-  malformed.focused_image = SarFocusedImage{};
-  malformed.focused_image.source = SarFocusedImageSource::kL1Rda;
-  malformed.focused_image.column_count = 2U;
+  malformed.product.focused_image = SarFocusedImage{};
+  malformed.product.focused_image.source = SarFocusedImageSource::kL1Rda;
+  malformed.product.focused_image.column_count = 2U;
   EXPECT_FALSE(DecodeSarCycleResult(EncodeSarCycleResult(malformed), &decoded));
 
-  malformed.focused_image = SarFocusedImage{};
-  malformed.focused_image.source = SarFocusedImageSource::kL3Bp;
-  malformed.focused_image.row_count = 2U;
-  malformed.focused_image.is_placeholder = true;
+  malformed.product.focused_image = SarFocusedImage{};
+  malformed.product.focused_image.source = SarFocusedImageSource::kL3Bp;
+  malformed.product.focused_image.row_count = 2U;
+  malformed.product.focused_image.is_placeholder = true;
   EXPECT_FALSE(DecodeSarCycleResult(EncodeSarCycleResult(malformed), &decoded));
 
-  malformed.focused_image = SarFocusedImage{};
-  malformed.focused_image.source = static_cast<SarFocusedImageSource>(99);
-  malformed.focused_image.row_count = 1U;
-  malformed.focused_image.column_count = 1U;
-  malformed.focused_image.real_values.push_back(1.0);
-  malformed.focused_image.imaginary_values.push_back(1.0);
+  malformed.product.focused_image = SarFocusedImage{};
+  malformed.product.focused_image.source = static_cast<SarFocusedImageSource>(99);
+  malformed.product.focused_image.row_count = 1U;
+  malformed.product.focused_image.column_count = 1U;
+  malformed.product.focused_image.real_values.push_back(1.0);
+  malformed.product.focused_image.imaginary_values.push_back(1.0);
   EXPECT_FALSE(DecodeSarCycleResult(EncodeSarCycleResult(malformed), &decoded));
 }
 
@@ -311,29 +303,46 @@ TEST(SarReplayCodecRoundtripTest, DecodeCycleResultRejectsUnknownAbortReasonAtom
 TEST(SarReplayCodecRoundtripTest, CycleResultDecodeFailureDoesNotModifyOutput) {
   SarCycleResult output;
   output.input_cycle_index = 77U;
-  output.focused_image.source = SarFocusedImageSource::kL3Bp;
-  output.focused_image.row_count = 1U;
-  output.focused_image.column_count = 1U;
-  output.focused_image.real_values.push_back(123.0);
-  output.focused_image.imaginary_values.push_back(-456.0);
+  output.product.focused_image.source = SarFocusedImageSource::kL3Bp;
+  output.product.focused_image.row_count = 1U;
+  output.product.focused_image.column_count = 1U;
+  output.product.focused_image.real_values.push_back(123.0);
+  output.product.focused_image.imaginary_values.push_back(-456.0);
   output.status = SarCycleStatus::kRejectedExecution;
   output.abort_reason = SarPipelineAbortReason::kPipelineExecutionFailed;
 
   SarCycleResult malformed;
   malformed.input_cycle_index = 9U;
-  malformed.raw_phase_history.source = SarRawPhaseHistorySource::kInternallyGenerated;
-  malformed.raw_phase_history.pulse_count = 1U;
-  malformed.raw_phase_history.samples_per_pulse = 1U;
-  malformed.raw_phase_history.i_values.push_back(std::numeric_limits<double>::infinity());
-  malformed.raw_phase_history.q_values.push_back(0.0);
+  malformed.product.focused_image.source = SarFocusedImageSource::kL3Bp;
+  malformed.product.focused_image.row_count = 1U;
+  malformed.product.focused_image.column_count = 1U;
+  malformed.product.focused_image.real_values.push_back(
+      std::numeric_limits<double>::infinity());
+  malformed.product.focused_image.imaginary_values.push_back(0.0);
   EXPECT_FALSE(DecodeSarCycleResult(EncodeSarCycleResult(malformed), &output));
 
   EXPECT_EQ(output.input_cycle_index, 77U);
-  EXPECT_EQ(output.focused_image.source, SarFocusedImageSource::kL3Bp);
-  EXPECT_EQ(output.focused_image.real_values, std::vector<double>({123.0}));
-  EXPECT_EQ(output.focused_image.imaginary_values, std::vector<double>({-456.0}));
+  EXPECT_EQ(output.product.focused_image.source, SarFocusedImageSource::kL3Bp);
+  EXPECT_EQ(output.product.focused_image.real_values, std::vector<double>({123.0}));
+  EXPECT_EQ(output.product.focused_image.imaginary_values, std::vector<double>({-456.0}));
   EXPECT_EQ(output.status, SarCycleStatus::kRejectedExecution);
   EXPECT_EQ(output.abort_reason, SarPipelineAbortReason::kPipelineExecutionFailed);
+}
+
+TEST(SarReplayCodecRoundtripTest, CycleResultRejectsPayloadWithoutFileIdentifier) {
+  // 规则 15e 落地收回了 schema 中段字段：抹掉 file_identifier "SARC" 模拟落地前的旧记录，
+  // 必须显式拒绝而非按前移后的 field ID 静默错读。
+  SarCycleResult result;
+  result.status = SarCycleStatus::kCompleted;
+  std::string encoded = EncodeSarCycleResult(result);
+  ASSERT_GE(encoded.size(), 8U);
+  const char* identifier = flatbuffers::GetBufferIdentifier(encoded.data());
+  encoded[static_cast<std::size_t>(identifier - encoded.data())] = 'X';
+  encoded[static_cast<std::size_t>(identifier - encoded.data()) + 1U] = 'X';
+  encoded[static_cast<std::size_t>(identifier - encoded.data()) + 2U] = 'X';
+  encoded[static_cast<std::size_t>(identifier - encoded.data()) + 3U] = 'X';
+  SarCycleResult decoded;
+  EXPECT_FALSE(DecodeSarCycleResult(encoded, &decoded));
 }
 
 TEST(SarReplayCodecRoundtripTest, SessionConfigPreservesAllDomains) {
@@ -374,7 +383,6 @@ TEST(SarReplayCodecRoundtripTest, SessionConfigPreservesAllDomains) {
   config.policy.enable_l2_motion_compensation = true;
   config.policy.enable_l3_bp_imaging = true;
   config.policy.enable_diagnostics = false;
-  config.policy.retain_raw_phase_history = true;
   config.policy.max_allowed_squint_angle_deg = 3.0;
   config.policy.minimum_snr_db = -5.0;
   config.environment.terrain_reference_altitude_m = 4.0;
@@ -401,26 +409,10 @@ TEST(SarReplayCodecRoundtripTest, SessionConfigPreservesAllDomains) {
   EXPECT_TRUE(decoded.policy.enable_l1_rda_imaging);
   EXPECT_TRUE(decoded.policy.enable_l2_motion_compensation);
   EXPECT_TRUE(decoded.policy.enable_l3_bp_imaging);
-  EXPECT_TRUE(decoded.policy.retain_raw_phase_history);
   EXPECT_DOUBLE_EQ(decoded.policy.minimum_snr_db, -5.0);
   EXPECT_FALSE(decoded.environment.use_flat_earth_geometry);
   EXPECT_TRUE(decoded.environment.enable_atmospheric_attenuation);
   EXPECT_FALSE(decoded.sensor_enabled);
-}
-
-TEST(SarReplayCodecRoundtripTest, CycleResultRejectsMalformedRawPhaseHistory) {
-  SarCycleResult malformed;
-  malformed.raw_phase_history.source = SarRawPhaseHistorySource::kInternallyGenerated;
-  malformed.raw_phase_history.pulse_count = 2U;
-  malformed.raw_phase_history.samples_per_pulse = 2U;
-  malformed.raw_phase_history.i_values = {1.0, 2.0, 3.0};
-  malformed.raw_phase_history.q_values = {1.0, 2.0, 3.0, 4.0};
-  SarCycleResult decoded;
-  EXPECT_FALSE(DecodeSarCycleResult(EncodeSarCycleResult(malformed), &decoded));
-
-  malformed.raw_phase_history.i_values = {1.0, 2.0, 3.0, 4.0};
-  malformed.raw_phase_history.i_values[2] = std::numeric_limits<double>::infinity();
-  EXPECT_FALSE(DecodeSarCycleResult(EncodeSarCycleResult(malformed), &decoded));
 }
 
 TEST(SarReplayCodecRoundtripTest, RuntimeConfigPatchPreservesHasBitsAndValues) {
@@ -429,8 +421,6 @@ TEST(SarReplayCodecRoundtripTest, RuntimeConfigPatchPreservesHasBitsAndValues) {
   patch.enable_raw_echo_generation = false;
   patch.has_enable_l1_rda_imaging = true;
   patch.enable_l1_rda_imaging = true;
-  patch.has_retain_raw_phase_history = true;
-  patch.retain_raw_phase_history = true;
   patch.has_minimum_snr_db = true;
   patch.minimum_snr_db = 6.5;
   patch.has_sensor_enabled = true;
@@ -445,12 +435,25 @@ TEST(SarReplayCodecRoundtripTest, RuntimeConfigPatchPreservesHasBitsAndValues) {
   EXPECT_FALSE(decoded.enable_raw_echo_generation);
   EXPECT_TRUE(decoded.has_enable_l1_rda_imaging);
   EXPECT_TRUE(decoded.enable_l1_rda_imaging);
-  EXPECT_TRUE(decoded.has_retain_raw_phase_history);
-  EXPECT_TRUE(decoded.retain_raw_phase_history);
   EXPECT_TRUE(decoded.has_minimum_snr_db);
   EXPECT_DOUBLE_EQ(decoded.minimum_snr_db, 6.5);
   EXPECT_TRUE(decoded.has_sensor_enabled);
   EXPECT_FALSE(decoded.sensor_enabled);
+}
+
+TEST(SarReplayCodecRoundtripTest, SessionConfigRejectsPayloadWithoutFileIdentifier) {
+  // 规则 15e 收回了 SarPolicyConfig 中段字段：抹掉 file_identifier "SARS" 模拟落地前的
+  // 旧记录，必须显式拒绝而非按前移后的 field ID 静默错读。
+  config::SarSessionConfig config;
+  std::string encoded = EncodeSarSessionConfig(config);
+  ASSERT_GE(encoded.size(), 8U);
+  const char* identifier = flatbuffers::GetBufferIdentifier(encoded.data());
+  encoded[static_cast<std::size_t>(identifier - encoded.data())] = 'X';
+  encoded[static_cast<std::size_t>(identifier - encoded.data()) + 1U] = 'X';
+  encoded[static_cast<std::size_t>(identifier - encoded.data()) + 2U] = 'X';
+  encoded[static_cast<std::size_t>(identifier - encoded.data()) + 3U] = 'X';
+  config::SarSessionConfig decoded;
+  EXPECT_FALSE(DecodeSarSessionConfig(encoded, &decoded));
 }
 
 TEST(SarReplayCodecRoundtripTest, RejectsEmptyPayload) {

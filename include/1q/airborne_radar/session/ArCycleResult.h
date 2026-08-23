@@ -74,8 +74,6 @@ struct ONEQ_API ArCycleResult {
   session::ArControlProfile control_profile{}; /**< 当前周期控制真值；若未执行则保持默认值 */
   session::AssociationQualityMetrics
       association_quality_metrics{}; /**< 当前周期关联质量观测指标；若未执行则保持默认值 */
-  bool has_decision_observation{false}; /**< 当前周期是否发布了新的外部决策观测 */
-  session::DecisionObservation decision_observation{}; /**< 当前周期决策观测 */
   session::DecisionControlSource applied_decision_source{
       session::DecisionControlSource::kNone}; /**< 本周期控制采用的决策来源 */
   std::uint32_t applied_decision_cycle_index{0U}; /**< 本周期控制对应的源周期 */

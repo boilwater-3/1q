@@ -14,6 +14,7 @@
 #include "1q/airborne_radar/session/ArControlProfile.h"
 #include "1q/airborne_radar/session/ArOutputTypes.h"
 #include "1q/airborne_radar/session/ArSceneTypes.h"
+#include "airborne_radar/signal/pipeline/SignalCycleResult.h"
 #include "airborne_radar/environment/IEnvironmentService.h"
 #include "airborne_radar/signal/pipeline/SignalCycleInput.h"
 

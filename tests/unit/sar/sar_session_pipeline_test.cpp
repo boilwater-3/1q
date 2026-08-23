@@ -150,32 +150,32 @@ TEST(SarSessionPipelineTest, StepWithResultRunsRawRangeAndRdaPipeline) {
 
   EXPECT_EQ(result.status, session::SarCycleStatus::kCompleted);
   EXPECT_FALSE(HasErrorIssue(result));
-  EXPECT_TRUE(result.output_frame.has_raw_echo);
-  EXPECT_TRUE(result.output_frame.has_range_compressed_echo);
-  EXPECT_TRUE(result.output_frame.has_l1_image);
-  EXPECT_TRUE(result.output_frame.has_image_quality_metrics);
-  EXPECT_TRUE(result.output_frame.image_resolution_m_valid);
-  EXPECT_TRUE(result.output_frame.phase_reference_applied);
-  EXPECT_EQ(result.output_frame.phase_reference_mode,
+  EXPECT_TRUE(result.product.output_frame.has_raw_echo);
+  EXPECT_TRUE(result.product.output_frame.has_range_compressed_echo);
+  EXPECT_TRUE(result.product.output_frame.has_l1_image);
+  EXPECT_TRUE(result.product.output_frame.has_image_quality_metrics);
+  EXPECT_TRUE(result.product.output_frame.image_resolution_m_valid);
+  EXPECT_TRUE(result.product.output_frame.phase_reference_applied);
+  EXPECT_EQ(result.product.output_frame.phase_reference_mode,
             session::SarPhaseReferenceMode::kCenterBroadside);
-  EXPECT_EQ(result.output_frame.image_quality_mainlobe_method,
+  EXPECT_EQ(result.product.output_frame.image_quality_mainlobe_method,
             session::SarMainlobeEstimationMethod::k3dB);
-  EXPECT_GT(result.output_frame.range_width_3db_bins, 0.0);
-  EXPECT_GT(result.output_frame.azimuth_width_3db_bins, 0.0);
-  EXPECT_GT(result.output_frame.range_resolution_3db_m, 0.0);
-  EXPECT_GT(result.output_frame.azimuth_resolution_3db_m, 0.0);
-  EXPECT_GE(result.output_frame.image_entropy_nats, 0.0);
-  EXPECT_GE(result.output_frame.image_contrast, 0.0);
-  EXPECT_EQ(result.output_frame.completed_stage, session::SarProcessingStage::kL1RdaImage);
-  EXPECT_EQ(result.output_frame.range_sample_count, 64U);
-  EXPECT_EQ(result.output_frame.azimuth_pulse_count, 9U);
-  EXPECT_EQ(result.focused_image.source, session::SarFocusedImageSource::kL1Rda);
-  EXPECT_EQ(result.focused_image.row_count, 9U);
-  EXPECT_EQ(result.focused_image.column_count, 64U);
-  EXPECT_EQ(result.focused_image.real_values.size(), 9U * 64U);
-  EXPECT_EQ(result.focused_image.imaginary_values.size(), 9U * 64U);
-  EXPECT_FALSE(result.focused_image.is_placeholder);
-  EXPECT_TRUE(HasNonZeroFocusedPixel(result.focused_image));
+  EXPECT_GT(result.product.output_frame.range_width_3db_bins, 0.0);
+  EXPECT_GT(result.product.output_frame.azimuth_width_3db_bins, 0.0);
+  EXPECT_GT(result.product.output_frame.range_resolution_3db_m, 0.0);
+  EXPECT_GT(result.product.output_frame.azimuth_resolution_3db_m, 0.0);
+  EXPECT_GE(result.product.output_frame.image_entropy_nats, 0.0);
+  EXPECT_GE(result.product.output_frame.image_contrast, 0.0);
+  EXPECT_EQ(result.product.output_frame.completed_stage, session::SarProcessingStage::kL1RdaImage);
+  EXPECT_EQ(result.product.output_frame.range_sample_count, 64U);
+  EXPECT_EQ(result.product.output_frame.azimuth_pulse_count, 9U);
+  EXPECT_EQ(result.product.focused_image.source, session::SarFocusedImageSource::kL1Rda);
+  EXPECT_EQ(result.product.focused_image.row_count, 9U);
+  EXPECT_EQ(result.product.focused_image.column_count, 64U);
+  EXPECT_EQ(result.product.focused_image.real_values.size(), 9U * 64U);
+  EXPECT_EQ(result.product.focused_image.imaginary_values.size(), 9U * 64U);
+  EXPECT_FALSE(result.product.focused_image.is_placeholder);
+  EXPECT_TRUE(HasNonZeroFocusedPixel(result.product.focused_image));
   EXPECT_FALSE(result.issues.empty());
   // 13b 空洞条款：SAR 无逐目标门控排除，cause 恒 kNone（五模块结构同构保留字段）。
   for (const session::SarIssue& diagnostic : result.issues) {
@@ -195,9 +195,6 @@ TEST(SarSessionPipelineTest, StepWithResultRunsRawRangeAndRdaPipeline) {
   EXPECT_TRUE(HasIssueContaining(result, "sar.rda_peak", "azimuth_quadratic_phase_span_rad="));
   EXPECT_TRUE(HasIssueContaining(result, "sar.rda_peak", "max_geometric_doppler_hz="));
   EXPECT_TRUE(HasIssueContaining(result, "sar.rda_peak", "doppler_nyquist_margin="));
-  EXPECT_EQ(result.raw_phase_history.source, session::SarRawPhaseHistorySource::kNone);
-  EXPECT_TRUE(result.raw_phase_history.i_values.empty());
-  EXPECT_TRUE(result.raw_phase_history.q_values.empty());
 }
 
 TEST(SarSessionPipelineTest, PoweredOffCycleShortCircuitsWithEmptyFrame) {
@@ -213,16 +210,16 @@ TEST(SarSessionPipelineTest, PoweredOffCycleShortCircuitsWithEmptyFrame) {
   EXPECT_EQ(result.abort_reason, session::SarPipelineAbortReason::kSensorPoweredOff);
   EXPECT_NE(result.status, session::SarCycleStatus::kCompleted);
   // 严格默认空帧：元数据未写入（controller 在元数据写入前短路）。
-  EXPECT_EQ(result.output_frame.cycle_index, 0U);
-  EXPECT_EQ(result.output_frame.range_sample_count, 0U);
-  EXPECT_FALSE(result.output_frame.has_raw_echo);
-  EXPECT_FALSE(result.output_frame.has_l1_image);
-  EXPECT_EQ(result.output_frame.completed_stage, session::SarProcessingStage::kNone);
+  EXPECT_EQ(result.product.output_frame.cycle_index, 0U);
+  EXPECT_EQ(result.product.output_frame.range_sample_count, 0U);
+  EXPECT_FALSE(result.product.output_frame.has_raw_echo);
+  EXPECT_FALSE(result.product.output_frame.has_l1_image);
+  EXPECT_EQ(result.product.output_frame.completed_stage, session::SarProcessingStage::kNone);
   // focused_image 保持默认空图像（无来源、无像素；is_placeholder 默认 false，
   // 仅成功聚焦路径置 true）。
-  EXPECT_EQ(result.focused_image.source, session::SarFocusedImageSource::kNone);
-  EXPECT_TRUE(result.focused_image.real_values.empty());
-  EXPECT_TRUE(result.focused_image.imaginary_values.empty());
+  EXPECT_EQ(result.product.focused_image.source, session::SarFocusedImageSource::kNone);
+  EXPECT_TRUE(result.product.focused_image.real_values.empty());
+  EXPECT_TRUE(result.product.focused_image.imaginary_values.empty());
 }
 
 TEST(SarSessionPipelineTest, PowerOffPatchThenReenabledResumesExecution) {
@@ -244,37 +241,7 @@ TEST(SarSessionPipelineTest, PowerOffPatchThenReenabledResumesExecution) {
   const session::SarCycleResult resumed = session.StepWithResult(MakeInput());
   EXPECT_EQ(resumed.status, session::SarCycleStatus::kCompleted);
   EXPECT_FALSE(HasErrorIssue(resumed));
-  EXPECT_TRUE(resumed.output_frame.has_raw_echo);
-}
-
-TEST(SarSessionPipelineTest, RetainedInternalRawPhaseHistoryReturnsCompleteAperture) {
-  config::SarSessionConfig config = MakeSmallRdaConfig();
-  config.policy.retain_raw_phase_history = true;
-  const session::SarCycleResult result =
-      session::SarSession::Create(config).StepWithResult(MakeInput());
-  ASSERT_EQ(result.status, session::SarCycleStatus::kCompleted);
-  EXPECT_EQ(result.raw_phase_history.source,
-            session::SarRawPhaseHistorySource::kInternallyGenerated);
-  EXPECT_EQ(result.raw_phase_history.pulse_count, 9U);
-  EXPECT_EQ(result.raw_phase_history.samples_per_pulse, 64U);
-  EXPECT_EQ(result.raw_phase_history.i_values.size(), 9U * 64U);
-  EXPECT_EQ(result.raw_phase_history.q_values.size(), 9U * 64U);
-}
-
-TEST(SarSessionPipelineTest, RetainedExternalRawPhaseHistoryIsExactInputIq) {
-  config::SarSessionConfig config = MakeSmallRdaConfig();
-  config.policy.retain_raw_phase_history = true;
-  config.environment.enable_atmospheric_attenuation = true;
-  config.environment.atmospheric_loss_db_per_km = 1000.0;
-  config.environment.surface_backscatter_sigma0_db = 20.0;
-  const session::SarCycleInput input = MakeExternalRawIqInput();
-  const session::SarCycleResult result =
-      session::SarSession::Create(config).StepWithResult(input);
-  ASSERT_EQ(result.status, session::SarCycleStatus::kCompleted);
-  EXPECT_EQ(result.raw_phase_history.source,
-            session::SarRawPhaseHistorySource::kExternalRawIq);
-  EXPECT_EQ(result.raw_phase_history.i_values, input.raw_iq.i_values);
-  EXPECT_EQ(result.raw_phase_history.q_values, input.raw_iq.q_values);
+  EXPECT_TRUE(resumed.product.output_frame.has_raw_echo);
 }
 
 TEST(SarSessionPipelineTest, SquintGateUsesMaximumActualApertureAngle) {
@@ -332,14 +299,14 @@ TEST(SarSessionPipelineTest, SquintGatePrecedesEchoGenerationInternalPath) {
   EXPECT_TRUE(HasIssueContaining(rejected, session::codes::kSquintAngleExceedsLimit,
                                  "exceeds the configured imaging limit"));
   // 门控前置的可观察契约：被拒周期不生成 raw echo（输出帧仅元数据）。
-  EXPECT_FALSE(rejected.output_frame.has_raw_echo);
-  EXPECT_EQ(rejected.output_frame.completed_stage, session::SarProcessingStage::kNone);
+  EXPECT_FALSE(rejected.product.output_frame.has_raw_echo);
+  EXPECT_EQ(rejected.product.output_frame.completed_stage, session::SarProcessingStage::kNone);
 
   config.policy.max_allowed_squint_angle_deg = 8.0;
   const session::SarCycleResult accepted =
       session::SarSession::Create(config).StepWithResult(input);
   EXPECT_EQ(accepted.status, session::SarCycleStatus::kCompleted);
-  EXPECT_TRUE(accepted.output_frame.has_raw_echo);
+  EXPECT_TRUE(accepted.product.output_frame.has_raw_echo);
 }
 
 // 门控前置后：被拒周期不污染跨周期状态——同一会话下一周期（几何合规）
@@ -357,14 +324,14 @@ TEST(SarSessionPipelineTest, SquintGateRejectionDoesNotPolluteNextCycle) {
   // 周期 1：平台位于原点，孔径最大 squint ≈ 6.0° 超限 → 拒绝。
   const session::SarCycleResult rejected = session.StepWithResult(MakeInput(1U));
   EXPECT_NE(rejected.status, session::SarCycleStatus::kCompleted);
-  EXPECT_FALSE(rejected.output_frame.has_raw_echo);
+  EXPECT_FALSE(rejected.product.output_frame.has_raw_echo);
 
   // 周期 2：平台推进到与场景中心同经度（正侧视），最大 squint ≈ 1.5° → 接受。
   session::SarCycleInput input = MakeInput(2U);
   input.platform.longitude_deg = config.mission.scene_center_longitude_deg;
   const session::SarCycleResult accepted = session.StepWithResult(input);
   EXPECT_EQ(accepted.status, session::SarCycleStatus::kCompleted);
-  EXPECT_TRUE(accepted.output_frame.has_raw_echo);
+  EXPECT_TRUE(accepted.product.output_frame.has_raw_echo);
 }
 
 TEST(SarSessionPipelineTest, ProductDebugViewCarriesProductAndTargetLabels) {
@@ -376,15 +343,15 @@ TEST(SarSessionPipelineTest, ProductDebugViewCarriesProductAndTargetLabels) {
   session::SarCycleResult result;
   result.input_cycle_index = input.cycle_index;
   result.status = session::SarCycleStatus::kCompleted;
-  result.output_frame.cycle_index = input.cycle_index;
-  result.output_frame.completed_stage = session::SarProcessingStage::kL1RdaImage;
-  result.output_frame.has_raw_echo = true;
-  result.output_frame.has_range_compressed_echo = true;
-  result.output_frame.has_l1_image = true;
-  result.output_frame.estimated_snr_db = 18.0;
-  result.output_frame.range_sample_count = 64U;
-  result.output_frame.azimuth_pulse_count = 9U;
-  result.focused_image.real_values.push_back(1.0);
+  result.product.output_frame.cycle_index = input.cycle_index;
+  result.product.output_frame.completed_stage = session::SarProcessingStage::kL1RdaImage;
+  result.product.output_frame.has_raw_echo = true;
+  result.product.output_frame.has_range_compressed_echo = true;
+  result.product.output_frame.has_l1_image = true;
+  result.product.output_frame.estimated_snr_db = 18.0;
+  result.product.output_frame.range_sample_count = 64U;
+  result.product.output_frame.azimuth_pulse_count = 9U;
+  result.product.focused_image.real_values.push_back(1.0);
   session::SarIssue issue;
   issue.code = "sar.test";
   issue.message = "debug";
@@ -411,16 +378,16 @@ TEST(SarSessionPipelineTest, ProductLifecycleRecorderTracksProducedUpdatedLostAn
   session::SarCycleResult produced;
   produced.input_cycle_index = 1U;
   produced.status = session::SarCycleStatus::kCompleted;
-  produced.output_frame.cycle_index = 1U;
-  produced.output_frame.completed_stage = session::SarProcessingStage::kL1RdaImage;
-  produced.output_frame.has_l1_image = true;
+  produced.product.output_frame.cycle_index = 1U;
+  produced.product.output_frame.completed_stage = session::SarProcessingStage::kL1RdaImage;
+  produced.product.output_frame.has_l1_image = true;
   std::vector<session::SarProductLifecycleEvent> events = recorder.Update(produced);
   ASSERT_EQ(events.size(), 1U);
   EXPECT_EQ(events.front().kind, session::SarProductLifecycleEventKind::kImageProduced);
 
   session::SarCycleResult updated = produced;
   updated.input_cycle_index = 2U;
-  updated.output_frame.cycle_index = 2U;
+  updated.product.output_frame.cycle_index = 2U;
   events = recorder.Update(updated);
   ASSERT_EQ(events.size(), 1U);
   EXPECT_EQ(events.front().kind, session::SarProductLifecycleEventKind::kProductSustained);
@@ -428,8 +395,8 @@ TEST(SarSessionPipelineTest, ProductLifecycleRecorderTracksProducedUpdatedLostAn
   session::SarCycleResult lost;
   lost.input_cycle_index = 3U;
   lost.status = session::SarCycleStatus::kCompleted;
-  lost.output_frame.cycle_index = 3U;
-  lost.output_frame.completed_stage = session::SarProcessingStage::kRawEcho;
+  lost.product.output_frame.cycle_index = 3U;
+  lost.product.output_frame.completed_stage = session::SarProcessingStage::kRawEcho;
   events = recorder.Update(lost);
   ASSERT_EQ(events.size(), 1U);
   EXPECT_EQ(events.front().kind, session::SarProductLifecycleEventKind::kProductLost);
@@ -459,7 +426,7 @@ TEST(SarSessionPipelineTest, ProductLifecycleRecorderPreservesStateAcrossNonExec
   session::SarCycleResult produced;
   produced.input_cycle_index = 1U;
   produced.status = session::SarCycleStatus::kCompleted;
-  produced.output_frame.has_l1_image = true;
+  produced.product.output_frame.has_l1_image = true;
   ASSERT_EQ(recorder.Update(produced).front().kind,
             session::SarProductLifecycleEventKind::kImageProduced);
   session::SarCycleResult rejected;
@@ -481,14 +448,14 @@ TEST(SarSessionPipelineTest, RetainFocusedImageFalseProducesPlaceholder) {
 
   EXPECT_EQ(result.status, session::SarCycleStatus::kCompleted);
   EXPECT_FALSE(HasErrorIssue(result));
-  EXPECT_TRUE(result.output_frame.has_l1_image);
+  EXPECT_TRUE(result.product.output_frame.has_l1_image);
   // 元数据仍完整，但像素数据被跳过。
-  EXPECT_EQ(result.focused_image.source, session::SarFocusedImageSource::kL1Rda);
-  EXPECT_EQ(result.focused_image.row_count, 9U);
-  EXPECT_EQ(result.focused_image.column_count, 64U);
-  EXPECT_TRUE(result.focused_image.is_placeholder);
-  EXPECT_TRUE(result.focused_image.real_values.empty());
-  EXPECT_TRUE(result.focused_image.imaginary_values.empty());
+  EXPECT_EQ(result.product.focused_image.source, session::SarFocusedImageSource::kL1Rda);
+  EXPECT_EQ(result.product.focused_image.row_count, 9U);
+  EXPECT_EQ(result.product.focused_image.column_count, 64U);
+  EXPECT_TRUE(result.product.focused_image.is_placeholder);
+  EXPECT_TRUE(result.product.focused_image.real_values.empty());
+  EXPECT_TRUE(result.product.focused_image.imaginary_values.empty());
 }
 
 TEST(SarSessionPipelineTest, RetainFocusedImageFalseAppliesToL3Bp) {
@@ -500,10 +467,10 @@ TEST(SarSessionPipelineTest, RetainFocusedImageFalseAppliesToL3Bp) {
 
   EXPECT_EQ(result.status, session::SarCycleStatus::kCompleted);
   EXPECT_FALSE(HasErrorIssue(result));
-  EXPECT_TRUE(result.output_frame.has_l3_bp_image);
-  EXPECT_EQ(result.focused_image.source, session::SarFocusedImageSource::kL3Bp);
-  EXPECT_TRUE(result.focused_image.is_placeholder);
-  EXPECT_TRUE(result.focused_image.real_values.empty());
+  EXPECT_TRUE(result.product.output_frame.has_l3_bp_image);
+  EXPECT_EQ(result.product.focused_image.source, session::SarFocusedImageSource::kL3Bp);
+  EXPECT_TRUE(result.product.focused_image.is_placeholder);
+  EXPECT_TRUE(result.product.focused_image.real_values.empty());
 }
 
 TEST(SarSessionPipelineTest, DiagnosticsDisabledSuppressesNonErrorDiagnostics) {
@@ -516,7 +483,7 @@ TEST(SarSessionPipelineTest, DiagnosticsDisabledSuppressesNonErrorDiagnostics) {
   EXPECT_EQ(result.status, session::SarCycleStatus::kCompleted);
   EXPECT_FALSE(HasErrorIssue(result));
   EXPECT_TRUE(result.issues.empty());
-  EXPECT_TRUE(result.output_frame.has_l1_image);
+  EXPECT_TRUE(result.product.output_frame.has_l1_image);
 }
 
 TEST(SarSessionPipelineTest, MinValidSnrRejectsApertureBelowThreshold) {
@@ -529,9 +496,9 @@ TEST(SarSessionPipelineTest, MinValidSnrRejectsApertureBelowThreshold) {
   EXPECT_NE(result.status, session::SarCycleStatus::kCompleted);
   EXPECT_TRUE(HasErrorIssue(result));
   EXPECT_EQ(result.abort_reason, session::SarPipelineAbortReason::kPipelineExecutionFailed);
-  EXPECT_TRUE(result.output_frame.has_raw_echo);
-  EXPECT_FALSE(result.output_frame.has_l1_image);
-  EXPECT_LT(result.output_frame.estimated_snr_db, config.policy.minimum_snr_db);
+  EXPECT_TRUE(result.product.output_frame.has_raw_echo);
+  EXPECT_FALSE(result.product.output_frame.has_l1_image);
+  EXPECT_LT(result.product.output_frame.estimated_snr_db, config.policy.minimum_snr_db);
   EXPECT_TRUE(HasIssueContaining(result, "sar.snr_below_minimum", "below"));
 }
 
@@ -550,23 +517,23 @@ TEST(SarSessionPipelineTest, HardwareLinkBudgetControlsInternalRawEchoSnr) {
 
   config::SarHardwareConfig higher_power = baseline;
   higher_power.peak_power_w *= 10.0;
-  EXPECT_GT(run_with(higher_power).output_frame.estimated_snr_db,
-            reference.output_frame.estimated_snr_db + 9.9);
+  EXPECT_GT(run_with(higher_power).product.output_frame.estimated_snr_db,
+            reference.product.output_frame.estimated_snr_db + 9.9);
 
   config::SarHardwareConfig higher_gain = baseline;
   higher_gain.antenna_gain_db += 10.0;
-  EXPECT_GT(run_with(higher_gain).output_frame.estimated_snr_db,
-            reference.output_frame.estimated_snr_db + 19.9);
+  EXPECT_GT(run_with(higher_gain).product.output_frame.estimated_snr_db,
+            reference.product.output_frame.estimated_snr_db + 19.9);
 
   config::SarHardwareConfig higher_loss = baseline;
   higher_loss.system_loss_db += 10.0;
-  EXPECT_LT(run_with(higher_loss).output_frame.estimated_snr_db,
-            reference.output_frame.estimated_snr_db - 9.9);
+  EXPECT_LT(run_with(higher_loss).product.output_frame.estimated_snr_db,
+            reference.product.output_frame.estimated_snr_db - 9.9);
 
   config::SarHardwareConfig higher_noise_figure = baseline;
   higher_noise_figure.receiver_noise_figure_db += 10.0;
-  EXPECT_LT(run_with(higher_noise_figure).output_frame.estimated_snr_db,
-            reference.output_frame.estimated_snr_db - 9.9);
+  EXPECT_LT(run_with(higher_noise_figure).product.output_frame.estimated_snr_db,
+            reference.product.output_frame.estimated_snr_db - 9.9);
 }
 
 TEST(SarSessionPipelineTest, AtmosphericAttenuationAppliesTwoWayLossToInternalEcho) {
@@ -585,8 +552,8 @@ TEST(SarSessionPipelineTest, AtmosphericAttenuationAppliesTwoWayLossToInternalEc
   ASSERT_EQ(attenuated.status, session::SarCycleStatus::kCompleted);
 
   // 目标斜距约 30 m；100 dB/km 的单程比损耗应在双程造成约 6 dB SNR 下降。
-  EXPECT_NEAR(reference.output_frame.estimated_snr_db -
-                  attenuated.output_frame.estimated_snr_db,
+  EXPECT_NEAR(reference.product.output_frame.estimated_snr_db -
+                  attenuated.product.output_frame.estimated_snr_db,
               6.0, 0.1);
 }
 
@@ -602,10 +569,10 @@ TEST(SarSessionPipelineTest, SurfaceSigma0ControlsDistributedInternalBackground)
   const session::SarCycleResult high_background = run_with(-10.0);
   ASSERT_EQ(low_background.status, session::SarCycleStatus::kCompleted);
   ASSERT_EQ(high_background.status, session::SarCycleStatus::kCompleted);
-  ASSERT_TRUE(std::isfinite(low_background.output_frame.estimated_snr_db));
-  ASSERT_TRUE(std::isfinite(high_background.output_frame.estimated_snr_db));
-  EXPECT_NEAR(low_background.output_frame.estimated_snr_db -
-                  high_background.output_frame.estimated_snr_db,
+  ASSERT_TRUE(std::isfinite(low_background.product.output_frame.estimated_snr_db));
+  ASSERT_TRUE(std::isfinite(high_background.product.output_frame.estimated_snr_db));
+  EXPECT_NEAR(low_background.product.output_frame.estimated_snr_db -
+                  high_background.product.output_frame.estimated_snr_db,
               20.0, 0.05);
 }
 
@@ -622,7 +589,7 @@ TEST(SarSessionPipelineTest, ExternalRawIqDoesNotReapplyHardwareOrSnrGate) {
 
   EXPECT_EQ(result.status, session::SarCycleStatus::kCompleted);
   EXPECT_FALSE(HasErrorIssue(result));
-  EXPECT_EQ(result.output_frame.estimated_snr_db,
+  EXPECT_EQ(result.product.output_frame.estimated_snr_db,
             -std::numeric_limits<double>::infinity());
   EXPECT_TRUE(HasIssueContaining(result, "sar.external_raw_iq_snr_unavailable",
                                       "not reapplied"));
@@ -638,7 +605,7 @@ TEST(SarSessionPipelineTest, InvalidHardwareLinkBudgetFailsBeforeRawEcho) {
   EXPECT_NE(result.status, session::SarCycleStatus::kCompleted);
   EXPECT_TRUE(HasErrorIssue(result));
   EXPECT_EQ(result.abort_reason, session::SarPipelineAbortReason::kValidationRejected);
-  EXPECT_FALSE(result.output_frame.has_raw_echo);
+  EXPECT_FALSE(result.product.output_frame.has_raw_echo);
 }
 
 TEST(SarSessionPipelineTest, EmptySceneDoesNotTripMinSnrGate) {
@@ -651,9 +618,9 @@ TEST(SarSessionPipelineTest, EmptySceneDoesNotTripMinSnrGate) {
 
   EXPECT_EQ(result.status, session::SarCycleStatus::kCompleted);
   EXPECT_FALSE(HasErrorIssue(result));
-  EXPECT_TRUE(result.output_frame.has_raw_echo);
-  EXPECT_TRUE(result.output_frame.has_l1_image);
-  EXPECT_EQ(result.output_frame.estimated_snr_db, -std::numeric_limits<double>::infinity());
+  EXPECT_TRUE(result.product.output_frame.has_raw_echo);
+  EXPECT_TRUE(result.product.output_frame.has_l1_image);
+  EXPECT_EQ(result.product.output_frame.estimated_snr_db, -std::numeric_limits<double>::infinity());
 }
 
 TEST(SarSessionPipelineTest, RawPulseHistoryUsesCrossCycleRingBuffer) {
@@ -661,12 +628,12 @@ TEST(SarSessionPipelineTest, RawPulseHistoryUsesCrossCycleRingBuffer) {
 
   const session::SarCycleResult first = session.StepWithResult(MakeInput(1U));
   ASSERT_EQ(first.status, session::SarCycleStatus::kCompleted);
-  EXPECT_TRUE(first.output_frame.has_l1_image);
+  EXPECT_TRUE(first.product.output_frame.has_l1_image);
   EXPECT_TRUE(HasIssueContaining(first, "sar.pulse_ring_buffer", "generated=9"));
 
   const session::SarCycleResult second = session.StepWithResult(MakeInput(2U));
   EXPECT_EQ(second.status, session::SarCycleStatus::kCompleted);
-  EXPECT_TRUE(second.output_frame.has_l1_image);
+  EXPECT_TRUE(second.product.output_frame.has_l1_image);
   EXPECT_TRUE(HasIssueContaining(second, "sar.pulse_ring_buffer", "generated=2"));
   EXPECT_TRUE(HasIssueContaining(second, "sar.pulse_ring_buffer", "overflow=true"));
 }
@@ -678,10 +645,10 @@ TEST(SarSessionPipelineTest, ExternalRawIqRunsL1RdaAndReturnsFocusedImage) {
 
   EXPECT_EQ(result.status, session::SarCycleStatus::kCompleted);
   EXPECT_FALSE(HasErrorIssue(result));
-  EXPECT_TRUE(result.output_frame.has_raw_echo);
-  EXPECT_TRUE(result.output_frame.has_l1_image);
-  EXPECT_EQ(result.focused_image.source, session::SarFocusedImageSource::kL1Rda);
-  EXPECT_TRUE(HasNonZeroFocusedPixel(result.focused_image));
+  EXPECT_TRUE(result.product.output_frame.has_raw_echo);
+  EXPECT_TRUE(result.product.output_frame.has_l1_image);
+  EXPECT_EQ(result.product.focused_image.source, session::SarFocusedImageSource::kL1Rda);
+  EXPECT_TRUE(HasNonZeroFocusedPixel(result.product.focused_image));
   EXPECT_TRUE(HasIssueContaining(result, "sar.external_raw_iq", "pulses=9"));
   EXPECT_FALSE(HasIssueContaining(result, "sar.pulse_ring_buffer", ""));
 }
@@ -693,8 +660,8 @@ TEST(SarSessionPipelineTest, RecordingSessionWithoutReplayWriterAcceptsExternalR
 
   EXPECT_EQ(result.status, session::SarCycleStatus::kCompleted);
   EXPECT_FALSE(HasErrorIssue(result));
-  EXPECT_TRUE(result.output_frame.has_l1_image);
-  EXPECT_EQ(result.focused_image.source, session::SarFocusedImageSource::kL1Rda);
+  EXPECT_TRUE(result.product.output_frame.has_l1_image);
+  EXPECT_EQ(result.product.focused_image.source, session::SarFocusedImageSource::kL1Rda);
 }
 
 TEST(SarSessionPipelineTest, ReplayCodecPreservesExternalRawIq) {
@@ -746,9 +713,9 @@ TEST(SarSessionPipelineTest, ExternalRawIqWithPulseStatesRunsL3Bp) {
 
   EXPECT_EQ(result.status, session::SarCycleStatus::kCompleted);
   EXPECT_FALSE(HasErrorIssue(result));
-  EXPECT_TRUE(result.output_frame.has_l3_bp_image);
-  EXPECT_EQ(result.focused_image.source, session::SarFocusedImageSource::kL3Bp);
-  EXPECT_TRUE(HasNonZeroFocusedPixel(result.focused_image));
+  EXPECT_TRUE(result.product.output_frame.has_l3_bp_image);
+  EXPECT_EQ(result.product.focused_image.source, session::SarFocusedImageSource::kL3Bp);
+  EXPECT_TRUE(HasNonZeroFocusedPixel(result.product.focused_image));
   EXPECT_TRUE(HasIssueContaining(result, "sar.external_raw_iq", "pulses=9"));
   EXPECT_FALSE(HasIssueContaining(result, "sar.l3_trajectory", ""));
 }
@@ -761,7 +728,7 @@ TEST(SarSessionPipelineTest, ExternalRawIqL1ExplicitlyIgnoresPulseStates) {
 
   EXPECT_EQ(result.status, session::SarCycleStatus::kCompleted);
   EXPECT_FALSE(HasErrorIssue(result));
-  EXPECT_TRUE(result.output_frame.has_l1_image);
+  EXPECT_TRUE(result.product.output_frame.has_l1_image);
   EXPECT_TRUE(HasIssueContaining(result, "sar.external_raw_iq_trajectory_ignored", ""));
 }
 
@@ -776,8 +743,8 @@ TEST(SarSessionPipelineTest, ExternalRawIqDualTrajectoryRunsL2MotionCompensation
 
   EXPECT_EQ(result.status, session::SarCycleStatus::kCompleted);
   EXPECT_FALSE(HasErrorIssue(result));
-  EXPECT_TRUE(result.output_frame.has_l1_image);
-  EXPECT_EQ(result.focused_image.source, session::SarFocusedImageSource::kL1Rda);
+  EXPECT_TRUE(result.product.output_frame.has_l1_image);
+  EXPECT_EQ(result.product.focused_image.source, session::SarFocusedImageSource::kL1Rda);
   EXPECT_TRUE(HasIssueContaining(result, "sar.motion_compensation", "max_abs_range_error_m="));
   EXPECT_FALSE(HasIssueContaining(result, "sar.external_raw_iq_trajectory_ignored", ""));
 }
@@ -841,7 +808,7 @@ TEST(SarSessionPipelineTest, RuntimeSizeGateRejectsUnapprovedLargeRda) {
   EXPECT_NE(result.status, session::SarCycleStatus::kCompleted);
   EXPECT_TRUE(HasErrorIssue(result));
   EXPECT_EQ(result.abort_reason, session::SarPipelineAbortReason::kValidationRejected);
-  EXPECT_FALSE(result.output_frame.has_l1_image);
+  EXPECT_FALSE(result.product.output_frame.has_l1_image);
 }
 
 TEST(SarSessionPipelineTest, RdaRequiresRawEcho) {
@@ -853,8 +820,8 @@ TEST(SarSessionPipelineTest, RdaRequiresRawEcho) {
   EXPECT_NE(result.status, session::SarCycleStatus::kCompleted);
   EXPECT_TRUE(HasErrorIssue(result));
   EXPECT_EQ(result.abort_reason, session::SarPipelineAbortReason::kValidationRejected);
-  EXPECT_FALSE(result.output_frame.has_range_compressed_echo);
-  EXPECT_FALSE(result.output_frame.has_l1_image);
+  EXPECT_FALSE(result.product.output_frame.has_range_compressed_echo);
+  EXPECT_FALSE(result.product.output_frame.has_l1_image);
 }
 
 TEST(SarSessionPipelineTest, RangeCompressionStatusRequiresExecutedImaging) {
@@ -864,18 +831,18 @@ TEST(SarSessionPipelineTest, RangeCompressionStatusRequiresExecutedImaging) {
   const session::SarCycleResult no_raw_result =
       session::SarSession::Create(no_raw).StepWithResult(MakeInput());
   EXPECT_EQ(no_raw_result.status, session::SarCycleStatus::kCompleted);
-  EXPECT_FALSE(no_raw_result.output_frame.has_raw_echo);
-  EXPECT_FALSE(no_raw_result.output_frame.has_range_compressed_echo);
-  EXPECT_EQ(no_raw_result.output_frame.completed_stage, session::SarProcessingStage::kNone);
+  EXPECT_FALSE(no_raw_result.product.output_frame.has_raw_echo);
+  EXPECT_FALSE(no_raw_result.product.output_frame.has_range_compressed_echo);
+  EXPECT_EQ(no_raw_result.product.output_frame.completed_stage, session::SarProcessingStage::kNone);
 
   config::SarSessionConfig raw_only = MakeSmallRdaConfig();
   raw_only.policy.enable_l1_rda_imaging = false;
   const session::SarCycleResult raw_only_result =
       session::SarSession::Create(raw_only).StepWithResult(MakeInput());
   EXPECT_EQ(raw_only_result.status, session::SarCycleStatus::kCompleted);
-  EXPECT_TRUE(raw_only_result.output_frame.has_raw_echo);
-  EXPECT_FALSE(raw_only_result.output_frame.has_range_compressed_echo);
-  EXPECT_EQ(raw_only_result.output_frame.completed_stage, session::SarProcessingStage::kRawEcho);
+  EXPECT_TRUE(raw_only_result.product.output_frame.has_raw_echo);
+  EXPECT_FALSE(raw_only_result.product.output_frame.has_range_compressed_echo);
+  EXPECT_EQ(raw_only_result.product.output_frame.completed_stage, session::SarProcessingStage::kRawEcho);
 }
 
 TEST(SarSessionPipelineTest, L2MotionCompensationIsDefaultOffAndRunsWhenExplicitlyEnabled) {
@@ -897,7 +864,7 @@ TEST(SarSessionPipelineTest, L2MotionCompensationIsDefaultOffAndRunsWhenExplicit
 
   EXPECT_EQ(l2_result.status, session::SarCycleStatus::kCompleted);
   EXPECT_FALSE(HasErrorIssue(l2_result));
-  EXPECT_TRUE(l2_result.output_frame.has_l1_image);
+  EXPECT_TRUE(l2_result.product.output_frame.has_l1_image);
   EXPECT_TRUE(HasIssueContaining(l2_result, "sar.l2_trajectory", "max_position_error_m="));
   EXPECT_TRUE(
       HasIssueContaining(l2_result, "sar.motion_compensation", "max_abs_range_error_m="));
@@ -916,17 +883,17 @@ TEST(SarSessionPipelineTest, ZeroPerturbationL2StrictlyDegradesToL1Trajectory) {
 
   ASSERT_EQ(result.status, session::SarCycleStatus::kCompleted);
   EXPECT_FALSE(HasErrorIssue(result));
-  EXPECT_TRUE(result.output_frame.has_l1_image);
-  EXPECT_EQ(result.output_frame.cycle_index, l1_result.output_frame.cycle_index);
-  EXPECT_EQ(result.output_frame.completed_stage, l1_result.output_frame.completed_stage);
-  EXPECT_EQ(result.output_frame.range_sample_count, l1_result.output_frame.range_sample_count);
-  EXPECT_EQ(result.output_frame.azimuth_pulse_count, l1_result.output_frame.azimuth_pulse_count);
-  EXPECT_EQ(result.output_frame.center_slant_range_m, l1_result.output_frame.center_slant_range_m);
-  EXPECT_EQ(result.output_frame.estimated_snr_db, l1_result.output_frame.estimated_snr_db);
-  EXPECT_EQ(result.output_frame.has_raw_echo, l1_result.output_frame.has_raw_echo);
-  EXPECT_EQ(result.output_frame.has_range_compressed_echo,
-            l1_result.output_frame.has_range_compressed_echo);
-  EXPECT_EQ(result.output_frame.has_l1_image, l1_result.output_frame.has_l1_image);
+  EXPECT_TRUE(result.product.output_frame.has_l1_image);
+  EXPECT_EQ(result.product.output_frame.cycle_index, l1_result.product.output_frame.cycle_index);
+  EXPECT_EQ(result.product.output_frame.completed_stage, l1_result.product.output_frame.completed_stage);
+  EXPECT_EQ(result.product.output_frame.range_sample_count, l1_result.product.output_frame.range_sample_count);
+  EXPECT_EQ(result.product.output_frame.azimuth_pulse_count, l1_result.product.output_frame.azimuth_pulse_count);
+  EXPECT_EQ(result.product.output_frame.center_slant_range_m, l1_result.product.output_frame.center_slant_range_m);
+  EXPECT_EQ(result.product.output_frame.estimated_snr_db, l1_result.product.output_frame.estimated_snr_db);
+  EXPECT_EQ(result.product.output_frame.has_raw_echo, l1_result.product.output_frame.has_raw_echo);
+  EXPECT_EQ(result.product.output_frame.has_range_compressed_echo,
+            l1_result.product.output_frame.has_range_compressed_echo);
+  EXPECT_EQ(result.product.output_frame.has_l1_image, l1_result.product.output_frame.has_l1_image);
   EXPECT_TRUE(
       HasIssueContaining(result, "sar.l2_trajectory", "max_position_error_m=0.000000"));
   EXPECT_TRUE(
@@ -954,7 +921,7 @@ TEST(SarSessionPipelineTest, L2TrajectoryHistoryRemainsAlignedAcrossCycles) {
   const session::SarCycleResult second = session.StepWithResult(MakeInput(2U));
   EXPECT_EQ(second.status, session::SarCycleStatus::kCompleted);
   EXPECT_FALSE(HasErrorIssue(second));
-  EXPECT_TRUE(second.output_frame.has_l1_image);
+  EXPECT_TRUE(second.product.output_frame.has_l1_image);
   EXPECT_TRUE(HasIssueContaining(second, "sar.pulse_ring_buffer", "generated=2"));
   EXPECT_TRUE(HasIssueContaining(second, "sar.pulse_ring_buffer", "overflow=true"));
   EXPECT_TRUE(HasIssueContaining(second, "sar.l2_trajectory", "max_position_error_m="));
@@ -981,28 +948,28 @@ TEST(SarSessionPipelineTest, L3BpRunsOnlyWhenExplicitlyEnabled) {
 
   EXPECT_EQ(result.status, session::SarCycleStatus::kCompleted);
   EXPECT_FALSE(HasErrorIssue(result));
-  EXPECT_TRUE(result.output_frame.has_raw_echo);
-  EXPECT_TRUE(result.output_frame.has_range_compressed_echo);
-  EXPECT_FALSE(result.output_frame.has_l1_image);
-  EXPECT_TRUE(result.output_frame.has_l3_bp_image);
-  EXPECT_TRUE(result.output_frame.has_image_quality_metrics);
-  EXPECT_FALSE(result.output_frame.image_resolution_m_valid);
-  EXPECT_FALSE(result.output_frame.phase_reference_applied);
-  EXPECT_EQ(result.output_frame.phase_reference_mode, session::SarPhaseReferenceMode::kNative);
-  EXPECT_EQ(result.output_frame.image_quality_mainlobe_method,
+  EXPECT_TRUE(result.product.output_frame.has_raw_echo);
+  EXPECT_TRUE(result.product.output_frame.has_range_compressed_echo);
+  EXPECT_FALSE(result.product.output_frame.has_l1_image);
+  EXPECT_TRUE(result.product.output_frame.has_l3_bp_image);
+  EXPECT_TRUE(result.product.output_frame.has_image_quality_metrics);
+  EXPECT_FALSE(result.product.output_frame.image_resolution_m_valid);
+  EXPECT_FALSE(result.product.output_frame.phase_reference_applied);
+  EXPECT_EQ(result.product.output_frame.phase_reference_mode, session::SarPhaseReferenceMode::kNative);
+  EXPECT_EQ(result.product.output_frame.image_quality_mainlobe_method,
             session::SarMainlobeEstimationMethod::k3dB);
-  EXPECT_GT(result.output_frame.range_width_3db_bins, 0.0);
-  EXPECT_GT(result.output_frame.azimuth_width_3db_bins, 0.0);
-  EXPECT_GE(result.output_frame.image_entropy_nats, 0.0);
-  EXPECT_GE(result.output_frame.image_contrast, 0.0);
-  EXPECT_EQ(result.output_frame.completed_stage, session::SarProcessingStage::kL3BpImage);
-  EXPECT_EQ(result.focused_image.source, session::SarFocusedImageSource::kL3Bp);
-  EXPECT_EQ(result.focused_image.row_count, 9U);
-  EXPECT_EQ(result.focused_image.column_count, 64U);
-  EXPECT_EQ(result.focused_image.real_values.size(), 9U * 64U);
-  EXPECT_EQ(result.focused_image.imaginary_values.size(), 9U * 64U);
-  EXPECT_FALSE(result.focused_image.is_placeholder);
-  EXPECT_TRUE(HasNonZeroFocusedPixel(result.focused_image));
+  EXPECT_GT(result.product.output_frame.range_width_3db_bins, 0.0);
+  EXPECT_GT(result.product.output_frame.azimuth_width_3db_bins, 0.0);
+  EXPECT_GE(result.product.output_frame.image_entropy_nats, 0.0);
+  EXPECT_GE(result.product.output_frame.image_contrast, 0.0);
+  EXPECT_EQ(result.product.output_frame.completed_stage, session::SarProcessingStage::kL3BpImage);
+  EXPECT_EQ(result.product.focused_image.source, session::SarFocusedImageSource::kL3Bp);
+  EXPECT_EQ(result.product.focused_image.row_count, 9U);
+  EXPECT_EQ(result.product.focused_image.column_count, 64U);
+  EXPECT_EQ(result.product.focused_image.real_values.size(), 9U * 64U);
+  EXPECT_EQ(result.product.focused_image.imaginary_values.size(), 9U * 64U);
+  EXPECT_FALSE(result.product.focused_image.is_placeholder);
+  EXPECT_TRUE(HasNonZeroFocusedPixel(result.product.focused_image));
   EXPECT_TRUE(HasIssueContaining(result, "sar.l3_trajectory", "generated=9"));
   EXPECT_TRUE(HasIssueContaining(result, "sar.bp_peak", "peak_row="));
   EXPECT_TRUE(HasIssueContaining(result, "sar.bp_traversal", "pulse_major"));
@@ -1058,14 +1025,14 @@ TEST(SarSessionPipelineTest, L3BpTrajectoryHistoryRemainsAlignedAcrossCycles) {
   const session::SarCycleResult first = session.StepWithResult(MakeInput(1U));
   ASSERT_EQ(first.status, session::SarCycleStatus::kCompleted);
   ASSERT_FALSE(HasErrorIssue(first));
-  EXPECT_TRUE(first.output_frame.has_l3_bp_image);
+  EXPECT_TRUE(first.product.output_frame.has_l3_bp_image);
   EXPECT_TRUE(HasIssueContaining(first, "sar.l3_trajectory", "generated=9"));
   EXPECT_TRUE(HasIssueContaining(first, "sar.l3_trajectory", "last_time_s=0.400000"));
 
   const session::SarCycleResult second = session.StepWithResult(MakeInput(2U));
   EXPECT_EQ(second.status, session::SarCycleStatus::kCompleted);
   EXPECT_FALSE(HasErrorIssue(second));
-  EXPECT_TRUE(second.output_frame.has_l3_bp_image);
+  EXPECT_TRUE(second.product.output_frame.has_l3_bp_image);
   EXPECT_TRUE(HasIssueContaining(second, "sar.pulse_ring_buffer", "generated=2"));
   EXPECT_TRUE(HasIssueContaining(second, "sar.pulse_ring_buffer", "overflow=true"));
   EXPECT_TRUE(HasIssueContaining(second, "sar.l3_trajectory", "first_time_s=0.450000"));
@@ -1097,11 +1064,11 @@ TEST(SarSessionPipelineTest, InvalidCycleReturnsEmptyOutputNotReused) {
 
   EXPECT_NE(second.status, session::SarCycleStatus::kCompleted);
   EXPECT_TRUE(HasErrorIssue(second));
-  EXPECT_EQ(second.output_frame.cycle_index, 0U);
-  EXPECT_FALSE(second.output_frame.has_l1_image);
-  EXPECT_EQ(second.focused_image.source, session::SarFocusedImageSource::kNone);
-  EXPECT_TRUE(second.focused_image.real_values.empty());
-  EXPECT_TRUE(second.focused_image.imaginary_values.empty());
+  EXPECT_EQ(second.product.output_frame.cycle_index, 0U);
+  EXPECT_FALSE(second.product.output_frame.has_l1_image);
+  EXPECT_EQ(second.product.focused_image.source, session::SarFocusedImageSource::kNone);
+  EXPECT_TRUE(second.product.focused_image.real_values.empty());
+  EXPECT_TRUE(second.product.focused_image.imaginary_values.empty());
 }
 
 TEST(SarSessionPipelineTest, InvalidTargetInputAbortsBeforeImaging) {
@@ -1114,10 +1081,10 @@ TEST(SarSessionPipelineTest, InvalidTargetInputAbortsBeforeImaging) {
   EXPECT_NE(result.status, session::SarCycleStatus::kCompleted);
   EXPECT_TRUE(HasErrorIssue(result));
   EXPECT_EQ(result.abort_reason, session::SarPipelineAbortReason::kValidationRejected);
-  EXPECT_FALSE(result.output_frame.has_l1_image);
+  EXPECT_FALSE(result.product.output_frame.has_l1_image);
   EXPECT_TRUE(HasIssueContaining(result, "sar.validation.non_finite_target_field",
                                   "non-finite"));
-  EXPECT_EQ(result.focused_image.source, session::SarFocusedImageSource::kNone);
+  EXPECT_EQ(result.product.focused_image.source, session::SarFocusedImageSource::kNone);
 }
 
 // 运行期配置提交策略契约（docs/common/contract.md）：SAR 属立即提交类——
@@ -1129,7 +1096,7 @@ TEST(SarSessionPipelineTest, ValidRuntimePatchTakesEffectImmediately) {
   const session::SarCycleResult baseline = session.StepWithResult(MakeInput());
   ASSERT_EQ(baseline.status, session::SarCycleStatus::kCompleted);
   // 默认 retain_focused_image=true，基线输出应含非占位聚焦图像。
-  ASSERT_FALSE(baseline.focused_image.is_placeholder);
+  ASSERT_FALSE(baseline.product.focused_image.is_placeholder);
 
   // 立即提交：关闭 retain_focused_image，下个 Step 立即反映。
   config::SarRuntimeConfigPatch patch;
@@ -1139,14 +1106,14 @@ TEST(SarSessionPipelineTest, ValidRuntimePatchTakesEffectImmediately) {
 
   const session::SarCycleResult updated = session.StepWithResult(MakeInput(2U));
   EXPECT_EQ(updated.status, session::SarCycleStatus::kCompleted);
-  EXPECT_TRUE(updated.focused_image.is_placeholder);
+  EXPECT_TRUE(updated.product.focused_image.is_placeholder);
 }
 
 TEST(SarSessionPipelineTest, InvalidRuntimePatchRejectedWithoutPollutingConfig) {
   session::SarSession session = session::SarSession::Create(MakeSmallRdaConfig());
   const session::SarCycleResult baseline = session.StepWithResult(MakeInput());
   ASSERT_EQ(baseline.status, session::SarCycleStatus::kCompleted);
-  ASSERT_FALSE(baseline.focused_image.is_placeholder);
+  ASSERT_FALSE(baseline.product.focused_image.is_placeholder);
 
   // 无效 patch（NaN minimum_snr_db）应被 resolver 拒绝。
   config::SarRuntimeConfigPatch invalid_patch;
@@ -1157,7 +1124,7 @@ TEST(SarSessionPipelineTest, InvalidRuntimePatchRejectedWithoutPollutingConfig) 
   // 拒绝后 runtime_config 不被污染：retain_focused_image 仍为默认 true。
   const session::SarCycleResult after_invalid = session.StepWithResult(MakeInput(2U));
   EXPECT_EQ(after_invalid.status, session::SarCycleStatus::kCompleted);
-  EXPECT_FALSE(after_invalid.focused_image.is_placeholder);
+  EXPECT_FALSE(after_invalid.product.focused_image.is_placeholder);
 }
 
 TEST(SarSessionPipelineTest, RuntimePatchViolatingL1RdaDependencyRejected) {
@@ -1172,7 +1139,7 @@ TEST(SarSessionPipelineTest, RuntimePatchViolatingL1RdaDependencyRejected) {
   // 拒绝后配置不变，仍能正常执行 RDA 成像。
   const session::SarCycleResult result = session.StepWithResult(MakeInput());
   EXPECT_EQ(result.status, session::SarCycleStatus::kCompleted);
-  EXPECT_TRUE(result.output_frame.has_l1_image);
+  EXPECT_TRUE(result.product.output_frame.has_l1_image);
 }
 
 TEST(SarSessionPipelineTest, AttachRecorderDrivesUpdateAutomatically) {
@@ -1184,7 +1151,7 @@ TEST(SarSessionPipelineTest, AttachRecorderDrivesUpdateAutomatically) {
   // 第一次步进应产出图像产品——recorder 应被自动驱动，发出 kImageProduced。
   const session::SarCycleResult first = session.StepWithResult(MakeInput(1U));
   ASSERT_EQ(first.status, session::SarCycleStatus::kCompleted);
-  ASSERT_TRUE(first.output_frame.has_l1_image);
+  ASSERT_TRUE(first.product.output_frame.has_l1_image);
 
   const std::vector<session::SarProductLifecycleEvent>& first_events = recorder.GetLastEvents();
   ASSERT_EQ(first_events.size(), 1U);
@@ -1222,7 +1189,7 @@ TEST(SarSessionPipelineTest, SessionWithoutRecorderIsBackwardCompatible) {
   // 不 Attach 任何 recorder，行为与改动前完全一致。
   const session::SarCycleResult result = session.StepWithResult(MakeInput());
   EXPECT_EQ(result.status, session::SarCycleStatus::kCompleted);
-  EXPECT_TRUE(result.output_frame.has_l1_image);
+  EXPECT_TRUE(result.product.output_frame.has_l1_image);
 }
 
 TEST(SarSessionPipelineTest, GetLastEventsEmptyAfterConstruction) {

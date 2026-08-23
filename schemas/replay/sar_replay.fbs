@@ -2,6 +2,10 @@
 // SAR 模块 replay FlatBuffers schema：cycle_input 与 cycle_output 载荷。
 //
 // file_identifier: SARC (SAR Cycle)
+//
+// 2026-08 规则 15e 落地：SarCycleResult 收回 raw_phase_history 并改为 product 分层（field ID
+// 前移，非表尾加性变更）。codec 自此写入并校验 file_identifier：无标识符的旧轨迹被显式拒绝，
+// 不会被同名标识按新布局静默误读。
 
 namespace sar.replay;
 
@@ -92,14 +96,6 @@ table SarIssue {
   cause:         int32;
 }
 
-table SarRawPhaseHistory {
-  source: int32;
-  pulse_count: uint32;
-  samples_per_pulse: uint32;
-  i_values: [double];
-  q_values: [double];
-}
-
 table SarFocusedImage {
   source: int32;
   row_count: uint32;
@@ -109,12 +105,16 @@ table SarFocusedImage {
   is_placeholder: bool;
 }
 
-table SarCycleResult {
-  input_cycle_index: uint32;
+// 产品层（规则 15e）：元数据子结构 + 聚焦图像本体。原始相位历史（IQ）不进周期记录。
+table SarCycleProduct {
   output_frame: SarOutputFrame;
   focused_image: SarFocusedImage;
+}
+
+table SarCycleResult {
+  input_cycle_index: uint32;
+  product: SarCycleProduct;
   issues: [SarIssue];
-  raw_phase_history: SarRawPhaseHistory;
   abort_reason: int32;
   status: uint8;
 }

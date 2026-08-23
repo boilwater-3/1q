@@ -21,9 +21,10 @@ SAR 遵守 `docs/common/contract.md`：
    `profiles::kL3BackprojectionProcessing`）。档位常量是完整子域
    结构体，整域赋值会重置未管理字段（如 `scene_center_*`、`l3_waypoints`），正确用法是"先赋档位、
    再设场景数据"。运行期热更新直接写 `SarRuntimeConfigPatch`（显式 `has_*`）；不提供 ConfigBuilder。
-3. SAR 输出遵守分层周期记录 + 可选投影（规则 15）。**聚焦图像是产品**，`Step()` 必须能拿到图像。
-   原始 IQ 默认不进周期记录。落地前 `Step()` 只返回 `SarOutputFrame` 元数据、图像与 IQ 同袋在
-   `SarCycleResult`，属待迁移实现。
+3. SAR 输出遵守分层周期记录 + 可选投影（规则 15）。**聚焦图像是产品**（15e 已落地）：
+   `Step()` 返回 `SarCycleProduct`（元数据 + 聚焦图像，从同一份周期记录移动取出），
+   `StepWithResult()` 返回执行层字段 + `product` 的 `SarCycleResult`。原始 IQ 不进周期记录
+   （成像链回放另表落盘，待真实消费者出现再建）。
    **勿与**下文「成像路径 L1/L1.5/L2/L3」混淆——后者是 RDA/动补/BP 成像档位，不是会话输出模型。
 4. `SarSession::StepWithResult` 在运行期配置和成像链路前调用 `ValidateSarCycleInput`；存在 error 级
    问题时记录 `invalid_cycle_input` abort，返回默认空帧（不复用上一有效输出，符合 contract.md
@@ -126,22 +127,21 @@ SAR 是「场景目标平台锚点 ENU 输入契约」（docs/common/contract.md
 熵非正、跨场景趋势。batch 没有直接读取 lifecycle recorder 或断言完整 ring-buffer 状态，因此不得把
 场景名扩大为这些内部状态的硬契约。场景 ID 与运行方式由 `tests/consumer/batch_validation/README.md` 维护。
 
-## 产品边界：图像是产品，IQ 默认不进记录（规则 15e）
+## 产品边界：图像是产品，IQ 不进记录（规则 15e，已落地）
 
-`SarOutputFrame` 是纯标量元数据（21 字段），受编译哨兵守护为 `trivially_copyable`。
-聚焦图像含 `std::vector`，不能塞进这个元数据 struct——这只约束**元数据子结构**，
-不表示「图像不是产品」。
+`SarOutputFrame` 是纯标量元数据（21 字段），受编译哨兵守护为 `trivially_copyable`，
+作为 `SarCycleProduct` 内的元数据子结构；聚焦图像本体（含 `std::vector`）与之并列组成产品。
 
-| 落地后 | 类型 | 内容 |
+| 层 | 类型 | 内容 |
 |---|---|---|
-| 产品 | 元数据 + `SarFocusedImage` | `Step()` 必须能拿到聚焦图像 |
-| 可选回放 | `SarRawPhaseHistory` | 默认不进周期记录；成像链回放另表 |
-| 执行 | `status` / `issues` / `abort_reason` | 分层周期记录的执行层 |
+| 产品 | `SarCycleProduct` = 元数据 + `SarFocusedImage` | `Step()` 直接返回；从同一周期记录移动取出（15c） |
+| 执行 | `input_cycle_index` / `status` / `issues` / `abort_reason` | 分层周期记录的执行层 |
+| 不进记录 | 原始相位历史（IQ） | 已删除 `SarRawPhaseHistory`/`retain_raw_phase_history`；成像链回放另表落盘，待真实消费者出现再建 |
 
-落地前现状（待废止）：`Step()` 只返回元数据；图像与 IQ 都在 `SarCycleResult` 里。
+外部 raw IQ 输入仍无条件记录进 `cycle_input`（可回放）；内部生成孔径由 replay 确定性重算。
 不得再把 L1/L1.5 分裂写成权威产品模型。
 
-[evidence: include/1q/sar/session/SarCycleResult.h — SarOutputFrame / SarFocusedImage]
+[evidence: include/1q/sar/session/SarCycleResult.h — SarCycleProduct / SarCycleResult]
 [evidence: tests/unit/sar/sar_output_boundary_contract_test.cpp — trivially_copyable 编译期哨兵]
 
 ### 诊断架构：issues 为唯一诊断通道（统一问题列表模型，规则 14）

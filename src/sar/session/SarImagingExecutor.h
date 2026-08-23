@@ -21,7 +21,7 @@ namespace session {
  *
  * 当 policy.enable_l2_motion_compensation 为真时，先在 raw history 上执行一阶运动
  * 补偿（基于理想/实际轨迹缓冲），再进入 RDA。成功时写入：
- *   - result.focused_image（按 retain_focused_image 决定全矩阵或占位元数据）
+ *   - result.product.focused_image（按 retain_focused_image 决定全矩阵或占位元数据）
  *   - sar.motion_compensation / sar.rda_peak 诊断
  *   - output_frame 的 L1 阶段标记与图像质量字段
  * 失败时向 result 写入结构化错误诊断（abort_reason / sar.<tag>）并返回 false；调用方应据此中止本周期。
@@ -45,7 +45,7 @@ bool ExecuteL1RdaImaging(const config::SarSessionConfig& config,
  * @brief 执行 L3 BP 聚焦成像。
  *
  * 逐脉冲实际轨迹来自 actual_trajectory_buffer。成功时写入：
- *   - result.focused_image（按 retain_focused_image 决定全矩阵或占位元数据）
+ *   - result.product.focused_image（按 retain_focused_image 决定全矩阵或占位元数据）
  *   - sar.bp_peak / sar.bp_traversal 诊断
  *   - output_frame 的 L3 阶段标记与图像质量字段
  * 失败时写入结构化错误诊断并返回 false。
