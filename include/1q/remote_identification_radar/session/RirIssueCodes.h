@@ -127,6 +127,10 @@ constexpr char kSensorPoweredOff[] = "rir.sensor_powered_off";
 
 // ===== 周期执行按目标门控排除诊断（"rir.target_<snake_case>"，规则 13b）=====
 
+/** @brief 目标视线角出可扫描体积，不入搜索候选集（角域裁剪最早门；
+ *         az 相对 scan_center、el 绝对；具体门 cause=kNone）。 */
+constexpr char kTargetOutsideSearchVolume[] = "rir.target_outside_search_volume";
+
 /** @brief 检测准入门未过（聚合门：SNR/检测器判决；携带门内归因主因）。 */
 constexpr char kTargetDetectionGate[] = "rir.target_detection_gate";
 

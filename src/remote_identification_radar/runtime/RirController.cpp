@@ -746,6 +746,20 @@ void RirController::RunCycle(const session::RirCycleInput& input,
       ComputeLookAngles(target, &look_az_deg, &look_el_deg, &slant_range_m);
       const config::RirAzimuthElevationDeg look{look_az_deg, look_el_deg};
       if (!internal::TargetWithinSteerableVolume(look, steerable_volume_deg, scan_center_deg)) {
+        // 规则 13b：角域裁剪排除 → kInfo 诊断（不属于三写，仅承载排查信息）。
+        // 出界目标不入检测候选、航迹按失跟语义自然消退，发码使"目标消失"可归因
+        // （此前为静默 continue）。具体门 cause=kNone，az 相对 scan_center、el 绝对。
+        last_execution_issues_.push_back(RirMakeExclusionIssue(
+            session::codes::kTargetOutsideSearchVolume,
+            "target_id=" + std::to_string(target.external_target_id) +
+                "; look_az_deg=" + RirFormatFloat(look.az_deg) +
+                " look_el_deg=" + RirFormatFloat(look.el_deg) +
+                " outside steerable volume az_rel_deg=[" +
+                RirFormatFloat(steerable_volume_deg.az_min_deg) + "," +
+                RirFormatFloat(steerable_volume_deg.az_max_deg) + "] el_deg=[" +
+                RirFormatFloat(steerable_volume_deg.el_min_deg) + "," +
+                RirFormatFloat(steerable_volume_deg.el_max_deg) + "]",
+            session::RirIssueCause::kNone, i));
         continue;
       }
       candidate_indices.push_back(i);

@@ -7,17 +7,20 @@
 //   1) 可扫描体积内目标照常检出建航迹；
 //   2) 俯仰出体积目标不入检测候选集（无航迹归属）；
 //   3) 方位出体积（相对 scan_center）目标无航迹归属；
-//   4) 运行期改 scan_center（设定方位俯仰）后窗口随之移动：原出界目标入界检出。
+//   4) 运行期改 scan_center（设定方位俯仰）后窗口随之移动：原出界目标入界检出；
+//   5) 出界目标携带 kTargetOutsideSearchVolume 排除诊断（规则 13b），体积内目标不带。
 
 #include <gtest/gtest.h>
 
 #include <cstdint>
+#include <string>
 #include <vector>
 
 #include "1q/remote_identification_radar/config/RirRuntimeConfigPatch.h"
 #include "1q/remote_identification_radar/config/RirSessionConfig.h"
 #include "1q/remote_identification_radar/session/RirCycleInput.h"
 #include "1q/remote_identification_radar/session/RirCycleResult.h"
+#include "1q/remote_identification_radar/session/RirIssueCodes.h"
 #include "1q/remote_identification_radar/session/RirSession.h"
 #include "RirCycleInputTestUtil.h"
 
@@ -68,6 +71,18 @@ bool HasAttributionFor(const RirCycleResult& result, std::uint64_t target_id) {
     }
   }
   return false;
+}
+
+/// @brief 按代码与消息中的 target_id 查找排除诊断（与投影会话测试同口径）。
+const session::RirIssue* FindIssue(const RirCycleResult& result, const char* code,
+                                   std::uint64_t target_id) {
+  const std::string id_text = "target_id=" + std::to_string(target_id);
+  for (const session::RirIssue& issue : result.issues) {
+    if (issue.code == code && issue.message.find(id_text) != std::string::npos) {
+      return &issue;
+    }
+  }
+  return nullptr;
 }
 
 // ---------------------------------------------------------------------------
@@ -154,6 +169,33 @@ TEST(RirSearchSectorTest, RuntimeScanCenterMovesWindow) {
     seen = seen || HasAttributionFor(result, target.external_target_id);
   }
   EXPECT_TRUE(seen) << "指向回 0° 后目标应入界检出";
+}
+
+// ---------------------------------------------------------------------------
+// 5) 出界目标带排除诊断码，体积内目标不带（规则 13b：消失可归因，不再静默）
+// ---------------------------------------------------------------------------
+
+TEST(RirSearchSectorTest, OutsideVolumeTargetCarriesExclusionIssue) {
+  RirSceneTarget in_volume = MakeTarget(9005U);  // az=0°、el≈11.3°，默认体积内
+  RirSceneTarget out_volume = MakeTarget(9006U);  // el=45°，出默认体积 el 上界 30°
+  out_volume.position_z = 10000.0f;
+  out_volume.range_m = std::sqrt(10000.0f * 10000.0f + 10000.0f * 10000.0f);
+  config::RirSessionConfig config = MakeIdentifyConfig();  // 默认体积 ±60/[-30,30]
+  RirSession session = RirSession::Create(config);
+  for (std::uint32_t cycle = 1U; cycle <= 3U; ++cycle) {
+    const RirCycleResult result =
+        session.StepWithResult(MakeInput(cycle, {in_volume, out_volume}));
+    ASSERT_EQ(result.status, session::RirCycleStatus::kCompleted);
+    const session::RirIssue* excluded =
+        FindIssue(result, session::codes::kTargetOutsideSearchVolume, out_volume.external_target_id);
+    ASSERT_NE(excluded, nullptr) << "出界目标应携带角域裁剪排除诊断";
+    EXPECT_EQ(excluded->cause, session::RirIssueCause::kNone);
+    EXPECT_EQ(excluded->location.entity_index, 1U) << "出界目标为场景下标 1";
+    EXPECT_EQ(FindIssue(result, session::codes::kTargetOutsideSearchVolume,
+                        in_volume.external_target_id),
+              nullptr)
+        << "体积内目标不应携带角域裁剪排除诊断";
+  }
 }
 
 }  // namespace
