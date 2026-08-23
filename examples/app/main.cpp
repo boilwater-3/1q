@@ -12,7 +12,6 @@
 #include <iostream>
 #include <string>
 
-#include "app/demo_config.h"
 #include "app/runner.h"
 
 namespace app = component_attachment::app;

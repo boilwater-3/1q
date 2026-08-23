@@ -34,7 +34,6 @@ set(ONEQ_EXAMPLE_COMMON_SOURCES
 # （tests/cmake/partitions/Unit.cmake）仍直编同一批源码，不依赖本 target
 # （测试构建不要求 ENABLE_EXAMPLES）。
 add_library(examples_core STATIC
-    app/demo_config.cpp
     app/outputs.cpp
     app/command_routing.cpp
     app/runner.cpp

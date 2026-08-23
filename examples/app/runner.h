@@ -39,6 +39,9 @@ int RunScene(const std::string& scene_path, const RunOptions& options);
  */
 int RunSceneWithArgs(const char* scene_json_path, int argc, char* argv[]);
 
+/// 通用 runner 用法打印（--scene/--cycles/--view-every/--output-dir）。
+void PrintUsage(const char* program);
+
 }  // namespace app
 }  // namespace component_attachment
 

@@ -54,7 +54,6 @@ if(_oneq_unit_examples)
         "${CMAKE_SOURCE_DIR}/examples/common/json_reader.cpp"
         "${CMAKE_SOURCE_DIR}/examples/scenes/area_division.cpp"
         "${CMAKE_SOURCE_DIR}/examples/scenes/scene_data.cpp"
-        "${CMAKE_SOURCE_DIR}/examples/app/demo_config.cpp"
         "${CMAKE_SOURCE_DIR}/examples/scenes/scene_script.cpp"
         "${CMAKE_SOURCE_DIR}/examples/components/ar_sensor_component.cpp"
         "${CMAKE_SOURCE_DIR}/examples/components/esr_sensor_component.cpp"
@@ -78,8 +77,8 @@ if(_oneq_unit_examples)
         COMPILE_DEFS "CA_LOG_BACKEND_SPDLOG=$<BOOL:${PROJECT_ENABLE_SPDLOG}>"
                      "CA_LIBRARY_FILE_LOG=$<BOOL:${ONEQ_ENABLE_FILE_LOG}>"
         LINK_LIBS ${_oneq_examples_link_libs})
-    # app/demo_config.cpp（场景覆写应用）需要 examples/basic_config 路径宏与
-    # RIR 识别库路径，与示例 component_attachment_demo 目标同源注入。
+    # scenes/scene_data.cpp（session_config 加载 + RIR 识别库路径解析）需要
+    # examples/basic_config 路径宏，与 examples_core 目标同源注入。
     target_compile_definitions(${PROJECT_NAME}_examples_unit_tests PRIVATE
         SCENE_CONFIG_DIR="${CMAKE_SOURCE_DIR}/examples/basic_config"
         CA_RIR_DATABASE_PATH="${CMAKE_SOURCE_DIR}/examples/basic_config/remote_identification_radar/target_feature_database_v1.1.db")

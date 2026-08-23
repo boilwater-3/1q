@@ -12,6 +12,12 @@
 #include "1q/navigation/AreaCoveragePlanner.h"
 #include "scenes/area_division.h"
 #include "json_reader.h"
+#include "config_loaders/airborne_radar/config_loader.h"
+#include "config_loaders/electro_optical/config_loader.h"
+#include "config_loaders/electronic_warfare/config_loader.h"
+#include "config_loaders/remote_identification_radar/config_loader.h"
+#include "config_loaders/sar/config_loader.h"
+#include "config_loaders/sbirs_sensor/config_loader.h"
 
 namespace component_attachment {
 namespace app {
@@ -224,6 +230,15 @@ bool ParsePlatformBlock(const examples::JsonValue& block, const std::string& blo
 
 }  // namespace
 
+namespace {
+
+// 场景体与会话配置解析（定义于本文件尾部；场景加载入口先行声明）。
+bool ParseSceneBody(const examples::JsonValue& root, SceneData* scene, std::string* error);
+bool LoadSessionConfigs(const examples::JsonValue& root, const SceneData& scene,
+                        SceneSessionConfigs* configs, std::string* error);
+
+}  // namespace
+
 bool LoadSceneData(const char* path, SceneData* scene, std::string* error) {
   if (scene == nullptr || error == nullptr) {
     return false;
@@ -238,6 +253,38 @@ bool LoadSceneData(const char* path, SceneData* scene, std::string* error) {
     *error = "scene root must be a JSON object";
     return false;
   }
+  return ParseSceneBody(root, scene, error);
+}
+
+bool LoadSceneData(const char* path, SceneData* scene, SceneSessionConfigs* configs,
+                   std::string* error) {
+  if (scene == nullptr || configs == nullptr || error == nullptr) {
+    return false;
+  }
+  error->clear();
+
+  examples::JsonValue root;
+  if (!examples::JsonReader::ParseFile(path, &root, error)) {
+    return false;
+  }
+  if (root.IsNull() || root.type() != examples::JsonValue::kObject) {
+    *error = "scene root must be a JSON object";
+    return false;
+  }
+  if (!ParseSceneBody(root, scene, error)) {
+    return false;
+  }
+  return LoadSessionConfigs(root, *scene, configs, error);
+}
+
+namespace {
+
+bool ParseSceneBody(const examples::JsonValue& root, SceneData* scene,
+                    std::string* error) {
+  if (scene == nullptr || error == nullptr) {
+    return false;
+  }
+  error->clear();
 
   SceneData out;  // 成员初始化值 = 缺省字段值
   if (root["name"].IsString()) {
@@ -504,86 +551,17 @@ bool LoadSceneData(const char* path, SceneData* scene, std::string* error) {
   }
 
   // 天基平台块（可选）：凝视目标群质心正上方，高度由场景控制；UTC 儒略日
-  // 可选覆写（缺省 = 2024-01-01 00:00 UTC，SBIRS ECI 输出参考系必需）；
-  // 焦平面几何与宽→窄连续命中门为验收量覆写（缺省 = 库默认）。
+  // 可选覆写（缺省 = 2024-01-01 00:00 UTC，SBIRS ECI 输出参考系必需）。
+  // 焦平面几何与宽→窄命中门属 SBIRS 会话配置（session_config.sbirs）。
   const examples::JsonValue& satellite = root["sbirs_satellite"];
   if (!satellite.IsNull() && satellite.type() == examples::JsonValue::kObject) {
     out.sbirs_satellite_altitude_m =
         ReadDouble(satellite, "altitude_m", out.sbirs_satellite_altitude_m);
     out.sbirs_utc_julian_day =
         ReadDouble(satellite, "utc_julian_day", out.sbirs_utc_julian_day);
-    out.sbirs_focal_length_m =
-        ReadDouble(satellite, "focal_length_m", out.sbirs_focal_length_m);
-    out.sbirs_detector_pixel_pitch_m =
-        ReadDouble(satellite, "detector_pixel_pitch_m", out.sbirs_detector_pixel_pitch_m);
-    out.sbirs_wide_to_narrow_required_consecutive_hits = static_cast<int>(
-        ReadInt(satellite, "wide_to_narrow_required_consecutive_hits",
-                out.sbirs_wide_to_narrow_required_consecutive_hits));
   }
 
-  // EOS 扫描块（可选）：覆写 LoadConfigs 的 JSON 原值（下视地面监视 → 水平扫描）。
-  const examples::JsonValue& eos = root["eos_scan"];
-  if (!eos.IsNull() && eos.type() == examples::JsonValue::kObject) {
-    out.eos_frame_rate_hz =
-        static_cast<float>(ReadDouble(eos, "frame_rate_hz", out.eos_frame_rate_hz));
-    out.eos_scan_rate_deg_per_sec =
-        static_cast<float>(ReadDouble(eos, "scan_rate_deg_per_sec", out.eos_scan_rate_deg_per_sec));
-    out.eos_scan_start_az_deg =
-        static_cast<float>(ReadDouble(eos, "scan_start_az_deg", out.eos_scan_start_az_deg));
-    out.eos_scan_end_az_deg =
-        static_cast<float>(ReadDouble(eos, "scan_end_az_deg", out.eos_scan_end_az_deg));
-    out.eos_scan_center_el_deg =
-        static_cast<float>(ReadDouble(eos, "scan_center_el_deg", out.eos_scan_center_el_deg));
-    out.eos_boresight_depression_deg =
-        static_cast<float>(ReadDouble(eos, "boresight_depression_deg",
-                                     out.eos_boresight_depression_deg));
-  }
 
-  // SAR 任务几何/链路块（可选）：覆写 sar.json 的远程监视档为场景适配值。
-  const examples::JsonValue& sar = root["sar"];
-  if (!sar.IsNull() && sar.type() == examples::JsonValue::kObject) {
-    out.sar_peak_power_w = ReadDouble(sar, "peak_power_w", out.sar_peak_power_w);
-    out.sar_antenna_gain_db = ReadDouble(sar, "antenna_gain_db", out.sar_antenna_gain_db);
-    out.sar_max_squint_angle_deg =
-        ReadDouble(sar, "max_squint_deg", out.sar_max_squint_angle_deg);
-    out.sar_scene_center_latitude_deg =
-        ReadDouble(sar, "scene_center_latitude_deg", out.sar_scene_center_latitude_deg);
-    out.sar_scene_center_longitude_deg =
-        ReadDouble(sar, "scene_center_longitude_deg", out.sar_scene_center_longitude_deg);
-    out.sar_scene_center_altitude_m =
-        ReadDouble(sar, "scene_center_altitude_m", out.sar_scene_center_altitude_m);
-    out.sar_nominal_slant_range_m =
-        ReadDouble(sar, "slant_range_m", out.sar_nominal_slant_range_m);
-    out.sar_platform_speed_mps =
-        ReadDouble(sar, "platform_speed_mps", out.sar_platform_speed_mps);
-  }
-
-  // 融合块（可选，缺省 = FusionConfig 默认值）。
-  const examples::JsonValue& fusion = root["fusion"];
-  if (!fusion.IsNull() && fusion.type() == examples::JsonValue::kObject) {
-    out.fusion.position_radius_m =
-        ReadDouble(fusion, "position_radius_m", out.fusion.position_radius_m);
-    out.fusion.bearing_beamwidth_deg =
-        ReadDouble(fusion, "bearing_beamwidth_deg", out.fusion.bearing_beamwidth_deg);
-    out.fusion.feature_threshold =
-        ReadDouble(fusion, "feature_threshold", out.fusion.feature_threshold);
-    out.fusion.window_size = static_cast<std::size_t>(
-        ReadInt(fusion, "window_size", static_cast<std::int64_t>(out.fusion.window_size)));
-    out.fusion.max_missed_cycles = static_cast<std::size_t>(
-        ReadInt(fusion, "max_missed_cycles",
-                static_cast<std::int64_t>(out.fusion.max_missed_cycles)));
-    const examples::JsonValue& weights = fusion["source_weights"];
-    if (!weights.IsNull()) {
-      if (weights.type() != examples::JsonValue::kArray) {
-        *error = "\"fusion.source_weights\" must be an array";
-        return false;
-      }
-      out.fusion.source_weights.clear();
-      for (std::size_t i = 0U; i < weights.Size(); ++i) {
-        out.fusion.source_weights.push_back(weights[i].AsDouble());
-      }
-    }
-  }
   out.high_threat_confidence =
       ReadDouble(root, "high_threat_confidence", out.high_threat_confidence);
 
@@ -604,44 +582,6 @@ bool LoadSceneData(const char* path, SceneData* scene, std::string* error) {
   const examples::JsonValue& ecm = root["ecm"];
   if (!ecm.IsNull() && ecm.type() == examples::JsonValue::kObject) {
     out.ecm_enabled = ecm.Has("enabled") ? ecm["enabled"].AsBool() : false;
-  }
-
-  // 威胁评估块（可选，缺省 = ThreatEvaluatorConfig 默认值）。
-  const examples::JsonValue& threat = root["threat"];
-  if (!threat.IsNull() && threat.type() == examples::JsonValue::kObject) {
-    out.threat.weight_range =
-        ReadDouble(threat, "weight_range", out.threat.weight_range);
-    out.threat.weight_speed =
-        ReadDouble(threat, "weight_speed", out.threat.weight_speed);
-    out.threat.weight_acceleration =
-        ReadDouble(threat, "weight_acceleration", out.threat.weight_acceleration);
-    out.threat.weight_rcs =
-        ReadDouble(threat, "weight_rcs", out.threat.weight_rcs);
-    out.threat.weight_target_probability =
-        ReadDouble(threat, "weight_target_probability",
-                   out.threat.weight_target_probability);
-    out.threat.weight_fusion_confidence =
-        ReadDouble(threat, "weight_fusion_confidence",
-                   out.threat.weight_fusion_confidence);
-    out.threat.range_near_m =
-        ReadDouble(threat, "range_near_m", out.threat.range_near_m);
-    out.threat.range_far_m =
-        ReadDouble(threat, "range_far_m", out.threat.range_far_m);
-    out.threat.speed_min_mps =
-        ReadDouble(threat, "speed_min_mps", out.threat.speed_min_mps);
-    out.threat.speed_max_mps =
-        ReadDouble(threat, "speed_max_mps", out.threat.speed_max_mps);
-    out.threat.acceleration_max_mps2 =
-        ReadDouble(threat, "acceleration_max_mps2",
-                   out.threat.acceleration_max_mps2);
-    out.threat.rcs_min_sqm =
-        ReadDouble(threat, "rcs_min_sqm", out.threat.rcs_min_sqm);
-    out.threat.rcs_max_sqm =
-        ReadDouble(threat, "rcs_max_sqm", out.threat.rcs_max_sqm);
-    out.threat.high_threshold =
-        ReadDouble(threat, "high_threshold", out.threat.high_threshold);
-    out.threat.medium_threshold =
-        ReadDouble(threat, "medium_threshold", out.threat.medium_threshold);
   }
 
   // 运行期指令脚本块（顶层可选 commands[]，缺省空）：按周期派发的外部指令。
@@ -706,6 +646,194 @@ bool LoadSceneData(const char* path, SceneData* scene, std::string* error) {
   *scene = std::move(out);
   return true;
 }
+
+/// RIR 识别库路径解析：编译宏 CA_RIR_DATABASE_PATH 钉定（CMake 注入仓库
+/// 绝对路径，Windows 交付免相对路径歧义）；无宏时相对值按 SCENE_CONFIG_DIR
+/// （examples/basic_config/）解析。
+void ResolveRirDatabasePath(remote_identification_radar::config::RirSessionConfig* config) {
+  if (config == nullptr) {
+    return;
+  }
+#if defined(CA_RIR_DATABASE_PATH)
+  config->policy.recognition.database_path = CA_RIR_DATABASE_PATH;
+#else
+  std::string& path = config->policy.recognition.database_path;
+  if (path.empty()) {
+    return;
+  }
+  const bool absolute =
+      path[0] == '/' ||
+      (path.size() > 1U && path[1] == ':');
+  if (!absolute) {
+    path = std::string(SCENE_CONFIG_DIR) + "/" + path;
+  }
+#endif
+}
+
+/// session_config{} 解析（挂载即全量）：挂载通道必带子块、未挂载通道禁止
+/// 携带；子块结构 = examples/basic_config/<域>.json 模板（config_loaders
+/// 原样解析，字段缺省 = 库结构体默认）。fusion/threat 恒挂载恒必带（可为
+/// 空对象 {}，字段级缺省）；ecm 仅 ecm.enabled 场景携带（原代码默认值
+/// MakeDefaultEcmConfig 数据化）。
+bool LoadSessionConfigs(const examples::JsonValue& root, const SceneData& scene,
+                        SceneSessionConfigs* configs, std::string* error) {
+  // ECM 演示基线默认（原 MakeDefaultEcmConfig 无条件赋值的 v1 行为等价）：
+  // 未挂载场景同样持有该装备参数；挂载场景由 session_config.ecm 覆写。
+  configs->ecm.transmitter_equipment_id = 101U;
+  configs->ecm.channel_count = 1U;
+  configs->ecm.maximum_total_transmit_power_w = 1000.0;
+  configs->ecm.maximum_channel_transmit_power_w = 1000.0;
+  configs->ecm.default_technique = electronic_countermeasure::EcmTechnique::kSpot;
+
+  const examples::JsonValue& sc = root["session_config"];
+  if (sc.IsNull() || sc.type() != examples::JsonValue::kObject) {
+    *error =
+        "missing required \"session_config\" block（挂载即全量：挂载通道必带"
+        "子块，模板见 examples/basic_config/）";
+    return false;
+  }
+
+  // 挂载 ⇔ 携带一一对应的六域传感器块。
+  const struct {
+    const char* key;
+    bool mounted;
+  } sensor_blocks[] = {
+      {"ar", scene.ar_enabled},     {"esr", scene.esr_enabled},
+      {"eos", scene.eos_enabled},   {"sbirs", scene.sbirs_enabled},
+      {"sar", scene.sar_enabled},   {"rir", scene.rir_enabled},
+      {"ecm", scene.ecm_enabled},
+  };
+  for (const auto& block : sensor_blocks) {
+    const examples::JsonValue& value = sc[block.key];
+    const bool present = !value.IsNull();
+    if (block.mounted && (!present || value.type() != examples::JsonValue::kObject)) {
+      *error = std::string("session_config.") + block.key +
+               " 缺失或非对象：挂载通道必带全量配置"
+               "（模板 examples/basic_config/，键名对应 sensors.*/rir.enabled/ecm.enabled）";
+      return false;
+    }
+    if (!block.mounted && present) {
+      *error = std::string("session_config.") + block.key +
+               " 不应存在：未挂载通道禁止携带配置（挂载开关见 sensors.*/rir/ecm 块）";
+      return false;
+    }
+    if (!present) {
+      continue;
+    }
+    if (std::string(block.key) == "ar") {
+      examples::LoadArSessionConfig(value, &configs->ar);
+    } else if (std::string(block.key) == "esr") {
+      examples::LoadEsrSessionConfig(value, &configs->esr);
+    } else if (std::string(block.key) == "eos") {
+      examples::LoadEosSessionConfig(value, &configs->eos);
+    } else if (std::string(block.key) == "sbirs") {
+      examples::LoadSbirsSessionConfig(value, &configs->sbirs);
+    } else if (std::string(block.key) == "sar") {
+      examples::LoadSarSessionConfig(value, &configs->sar);
+    } else if (std::string(block.key) == "rir") {
+      examples::LoadRirSessionConfig(value, &configs->rir);
+      ResolveRirDatabasePath(&configs->rir);
+    } else if (std::string(block.key) == "ecm") {
+      configs->ecm.transmitter_equipment_id = static_cast<std::uint32_t>(ReadInt(
+          value, "transmitter_equipment_id",
+          static_cast<std::int64_t>(configs->ecm.transmitter_equipment_id)));
+      configs->ecm.channel_count = static_cast<std::uint32_t>(
+          ReadInt(value, "channel_count", static_cast<std::int64_t>(configs->ecm.channel_count)));
+      configs->ecm.maximum_total_transmit_power_w =
+          ReadDouble(value, "maximum_total_transmit_power_w",
+                     configs->ecm.maximum_total_transmit_power_w);
+      configs->ecm.maximum_channel_transmit_power_w =
+          ReadDouble(value, "maximum_channel_transmit_power_w",
+                     configs->ecm.maximum_channel_transmit_power_w);
+      if (value["default_technique"].IsString()) {
+        const std::string technique = value["default_technique"].AsString();
+        if (technique == "kSpot") {
+          configs->ecm.default_technique = electronic_countermeasure::EcmTechnique::kSpot;
+        } else if (technique == "kBarrage") {
+          configs->ecm.default_technique = electronic_countermeasure::EcmTechnique::kBarrage;
+        } else if (technique == "kSweep") {
+          configs->ecm.default_technique = electronic_countermeasure::EcmTechnique::kSweep;
+        } else if (technique == "kDeception") {
+          configs->ecm.default_technique = electronic_countermeasure::EcmTechnique::kDeception;
+        } else {
+          *error = "session_config.ecm.default_technique 非法（kSpot|kBarrage|kSweep|kDeception）";
+          return false;
+        }
+      }
+    }
+  }
+
+  // 融合/威胁（恒挂载恒必带；字段级缺省 = 库结构体默认）。
+  const examples::JsonValue& fusion = sc["fusion"];
+  if (fusion.IsNull() || fusion.type() != examples::JsonValue::kObject) {
+    *error = "session_config.fusion 缺失（融合恒挂载，可为空对象 {}）";
+    return false;
+  }
+  configs->fusion.position_radius_m =
+      ReadDouble(fusion, "position_radius_m", configs->fusion.position_radius_m);
+  configs->fusion.bearing_beamwidth_deg =
+      ReadDouble(fusion, "bearing_beamwidth_deg", configs->fusion.bearing_beamwidth_deg);
+  configs->fusion.feature_threshold =
+      ReadDouble(fusion, "feature_threshold", configs->fusion.feature_threshold);
+  configs->fusion.window_size = static_cast<std::size_t>(
+      ReadInt(fusion, "window_size", static_cast<std::int64_t>(configs->fusion.window_size)));
+  configs->fusion.max_missed_cycles = static_cast<std::size_t>(
+      ReadInt(fusion, "max_missed_cycles",
+              static_cast<std::int64_t>(configs->fusion.max_missed_cycles)));
+  const examples::JsonValue& weights = fusion["source_weights"];
+  if (!weights.IsNull()) {
+    if (weights.type() != examples::JsonValue::kArray) {
+      *error = "session_config.fusion.source_weights must be an array";
+      return false;
+    }
+    configs->fusion.source_weights.clear();
+    for (std::size_t i = 0U; i < weights.Size(); ++i) {
+      configs->fusion.source_weights.push_back(weights[i].AsDouble());
+    }
+  }
+
+  const examples::JsonValue& threat = sc["threat"];
+  if (threat.IsNull() || threat.type() != examples::JsonValue::kObject) {
+    *error = "session_config.threat 缺失（威胁评估恒挂载，可为空对象 {}）";
+    return false;
+  }
+  configs->threat.weight_range =
+      ReadDouble(threat, "weight_range", configs->threat.weight_range);
+  configs->threat.weight_speed =
+      ReadDouble(threat, "weight_speed", configs->threat.weight_speed);
+  configs->threat.weight_acceleration =
+      ReadDouble(threat, "weight_acceleration", configs->threat.weight_acceleration);
+  configs->threat.weight_rcs =
+      ReadDouble(threat, "weight_rcs", configs->threat.weight_rcs);
+  configs->threat.weight_target_probability =
+      ReadDouble(threat, "weight_target_probability",
+                 configs->threat.weight_target_probability);
+  configs->threat.weight_fusion_confidence =
+      ReadDouble(threat, "weight_fusion_confidence",
+                 configs->threat.weight_fusion_confidence);
+  configs->threat.range_near_m =
+      ReadDouble(threat, "range_near_m", configs->threat.range_near_m);
+  configs->threat.range_far_m =
+      ReadDouble(threat, "range_far_m", configs->threat.range_far_m);
+  configs->threat.speed_min_mps =
+      ReadDouble(threat, "speed_min_mps", configs->threat.speed_min_mps);
+  configs->threat.speed_max_mps =
+      ReadDouble(threat, "speed_max_mps", configs->threat.speed_max_mps);
+  configs->threat.acceleration_max_mps2 =
+      ReadDouble(threat, "acceleration_max_mps2",
+                 configs->threat.acceleration_max_mps2);
+  configs->threat.rcs_min_sqm =
+      ReadDouble(threat, "rcs_min_sqm", configs->threat.rcs_min_sqm);
+  configs->threat.rcs_max_sqm =
+      ReadDouble(threat, "rcs_max_sqm", configs->threat.rcs_max_sqm);
+  configs->threat.high_threshold =
+      ReadDouble(threat, "high_threshold", configs->threat.high_threshold);
+  configs->threat.medium_threshold =
+      ReadDouble(threat, "medium_threshold", configs->threat.medium_threshold);
+  return true;
+}
+
+}  // namespace
 
 }  // namespace app
 }  // namespace component_attachment

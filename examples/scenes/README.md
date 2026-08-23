@@ -149,11 +149,17 @@ lon 120.0~120.02（约 1.93 km 东西），扫描航向 0（线沿东西）、�
 > 生命周期语义下的自然表现。SAR 的 squint 门控失败周期（起飞/转弯段）不产生
 > 生命周期事件（recorder 对非执行周期静默），属库内契约。
 
-## 场景描述文件（数据驱动）
+## 场景描述文件（数据驱动，schema v2：session_config 自持）
 
-场景 = 消费方世界模型 + 业务调参的数据化载体，加载见上级目录的 `scene_data.h/.cpp`
-（`LoadSceneData` + `ApplySceneOverrides`，解析复用 `examples/common/json_reader.h`，
-遵循 config_loader 惯例：缺省字段静默默认、语法错误与必填几何字段缺失报错）。
+场景 = 消费方世界模型 + 业务调参的数据化载体。每场景目录自带三件套：
+`<name>.json`（场景描述）+ `<name>.md`（期望表）+ `main.cpp`（薄入口，编译为
+同名可执行——`ONEQ_SCENE_JSON` 钉死本场景，装配与执行共用 `app/runner.h` 的
+`RunScene`；调试参数 `--cycles/--view-every/--output-dir`）。
+
+加载见本目录 `scene_data.h/.cpp`（`LoadSceneData` 四参重载 = 场景层 +
+`session_config`；解析复用 `examples/common/json_reader.h` 与各域
+config_loader，遵循惯例：块内缺省字段静默默认、语法错误与必填几何字段缺失
+报错）。
 
 顶层结构（`baseline_takeoff_east/baseline_takeoff_east.json` 为基线样例）：
 
@@ -165,21 +171,20 @@ lon 120.0~120.02（约 1.93 km 东西），扫描航向 0（线沿东西）、�
 | `coverage`（platform/platforms[] 条目内） | 否 | 区域巡逻任务：`kind`（polygon/circle）、`mode`（scan/orbit，须与 kind 匹配）、polygon `vertices[]`（lat/lon 必填）或 circle `center` + `radius_m`、`scan_heading_deg`（0 = 扫描线沿正东）、`scan_spacing_m`（须 > 0）、`altitude_m`/`speed_mps`（缺省回退巡航参数）、`arrival_radius_m`（500）、`orbit_segments`（8）/`orbit_rings`（1）。加载时经 `navigation::AreaCoveragePlanner` 生成巡逻航路（填入该平台的 `waypoints`），**循环巡逻**（航路飞完回绕首航点）；规划失败（顶点 < 3/间距非正/模式-区域不匹配等）报错退出 |
 | `mission_area`（顶层） | 否 | 编队区域切分任务（**与各平台 `waypoints`/`coverage` 互斥**；需 `platforms[]` ≥ 1）：字段同 `coverage` 块。加载时经 example 层 `area_division` 自动切分为每机子区域（多边形 = 沿扫描航向等宽条带；圆形 = 同心环，外 → 内算术均匀，`orbit_rings` 强制 1），再逐机经 `AreaCoveragePlanner` 生成巡逻航路并循环巡逻；切分失败（退化多边形/空条带/无从机）报错退出 |
 | `targets[]` | **是**（可为空 = 无目标场景） | `id`/`azimuth_deg`/`range_m`/`altitude_m`/`rcs_m2`（**必填**）、`type`（`air`/`ground`，缺省 air；ground = 地面目标，静止近地运动学点，可视化以不同线型标注）、`v_east_mps`/`v_north_mps`（0）、`temperature_k`（0，EOS 外观）、`projected_area_m2`（0，EOS 外观）、`radiant_intensity_w_per_sr`（0，SBIRS 外观，W/sr——已折算温度/发射率/投影面积）、`emitter_center_frequency_hz`（0 = 不配辐射源）、`maneuvers[]`（可选变速机动表：`start_cycle` 必填且严格递增，`v_east_mps`/`v_north_mps` 缺省 0——**绝对速度分段匀速**，未指定分量 = 0，须写全）、`rir`（可选识别特征真值块：`rcs_dbsm` 视角网格值 / `pol_ch1_dbsm`+`pol_ch2_dbsm` 极化双通道（**显式给值才铺极化样本**，0 dBsm 是合法值不能当缺省）/ `pol_cross_dbsm`+`pol_phase_vv_deg`（**显式键才置 has_***，供验收旁路构造 S）/ `truth_model` 真值型号名 / `scatterers[{offset_m,rcs_dbsm}]` 距离向散射中心） |
-| `esr` | 否 | 辐射源波形：`peak_gain_dbi`（30）、`bandwidth_hz`（2e6）、`peak_power_w`（5e7）、`pulse_width_s`（1e-6）、`pri_s`（1e-3）、`pulse_count`（200）、`timing_seed`（42） |
-| `sbirs_satellite` | 否 | `altitude_m`（500000，凝视目标群质心正上方）、`utc_julian_day`（2460310.5 = 2024-01-01 00:00 UTC；SBIRS ECI 输出参考系必需，GMST 平移 az 不影响全向覆盖）、验收量覆写 `focal_length_m`（2.0）/`detector_pixel_pitch_m`（3.0e-5，焦平面脱靶量映射，仅 `[SbirsAccept]` 日志消费）/`wide_to_narrow_required_consecutive_hits`（1，宽→窄切换连续命中门） |
-| `eos_scan` | 否 | EOS 业务覆写：`frame_rate_hz`（10）、`scan_rate_deg_per_sec`（20）、`scan_start_az_deg`（50）、`scan_end_az_deg`（130）、`scan_center_el_deg`（0）、`boresight_depression_deg`（0） |
-| `sar` | 否 | SAR 任务几何/链路覆写：`peak_power_w`（1e6）、`antenna_gain_db`（40）、`max_squint_deg`（10）、`scene_center_latitude_deg`（30.117…）、`scene_center_longitude_deg`（120.06）、`scene_center_altitude_m`（400）、`slant_range_m`（13000）、`platform_speed_mps`（50） |
-| `fusion` | 否 | `position_radius_m`（1000）、`bearing_beamwidth_deg`（5）、`feature_threshold`（0）、`window_size`（10）、`max_missed_cycles`（5）、`source_weights[]`（空 = 全 1.0） |
-| `high_threat_confidence` | 否 | 决策门限（3.0） |
+| `esr` | 否 | **辐射源波形真值**（目标侧发射机参数，非 ESR 传感器配置）：`peak_gain_dbi`（30）、`bandwidth_hz`（2e6）、`peak_power_w`（5e7）、`pulse_width_s`（1e-6）、`pri_s`（1e-3）、`pulse_count`（200）、`timing_seed`（42） |
+| `sbirs_satellite` | 否 | 天基平台几何：`altitude_m`（500000，凝视目标群质心正上方）、`utc_julian_day`（2460310.5 = 2024-01-01 00:00 UTC；SBIRS ECI 输出参考系必需，GMST 平移 az 不影响全向覆盖）。焦平面/命中门等会话量在 `session_config.sbirs` |
 | `sensors` | 否 | 机载传感器挂载：`ar`/`esr`/`eos`/`sbirs`/`sar`（全 true）。`false` 则不挂该组件，不写该通道视图/排除原因。RIR/ECM 仍用各自 `enabled`；ECM 还要求 `esr=true` |
 | `rir` | 否 | RIR 地基识别雷达站点块：`enabled`（false）、`site{lat_deg,lon_deg,alt_m}`（站点 LLA = 雷达局部 ENU 原点，缺省 30/120/0）；enabled 时整机挂载独立地基实体（先于平台创建），识别库经编译定义注入。指定识别任务不再随场景配置——经 `commands[]` 指令或威胁闭环运行期下发 |
+| `ecm` | 否 | ECM 挂载开关：`enabled`（false；须 `esr=true` 挂载序） |
 | `commands[]` | 否 | 运行期指令脚本（外部指挥系统代理）：`cycle`（**必填** ≥ 1，下发周期）、`kind`（`designate` 指定识别+锁定 / `engage` 交战 / `clear_designation` 清除指定，缺省 designate）、`target_id`（**designate/engage 必填**，须命中 `targets[].id`）、`duration_cycles`（0 = 无限期窗口）。主循环每周期 world.Step 前派发 → 指令事件 → CommandRouter 键解析 → 传感器运行期补丁（AR 切 STT 指定 + RIR 指定识别）；与威胁自动闭环（DecisionListener 的 `ENGAGE_HIGH_THREAT`）共用同一指令入口 |
+| `high_threat_confidence` | 否 | 决策门限（3.0） |
 | `smoke` | 否 | 冒烟下限：`min_key_events`/`min_sbirs_events`/`min_sar_products`/`min_fused_targets`（全 1；零产出场景显式置 0）、`min_rir_recognition_outputs`（0；RIR 确认态周期数下限） |
+| `session_config` | **是** | **场景自持会话配置（挂载即全量）**：挂载的通道必带对应子块，未挂载通道**禁止携带**（loader 校验，"有配置 = 有挂载"一一对应）。子块：`ar`/`esr`/`eos`/`sbirs`/`sar`/`rir`（= `examples/basic_config/<域>.json` 模板整份拷贝后按场景改；`esr` 源文件为 `electronic_warfare.json`；结构见各模板与 `examples/common/config_loaders/`，缺省字段 = 库结构体默认）；`ecm`（仅 `ecm.enabled` 场景：`transmitter_equipment_id`/`channel_count`/`maximum_total_transmit_power_w`/`maximum_channel_transmit_power_w`/`default_technique`（kSpot/kBarrage/kSweep/kDeception），基线 101/1/1000/1000/kSpot）；`fusion`（**恒必带**，可为空对象：`position_radius_m`（1000）/`bearing_beamwidth_deg`（5）/`feature_threshold`（0）/`window_size`（10）/`max_missed_cycles`（5）/`source_weights[]`（空 = 全 1.0））；`threat`（**恒必带**，可为空对象：权重/断点/阈值字段集见 loader 映射，缺省 = 库默认）。RIR 识别库路径按编译宏 `CA_RIR_DATABASE_PATH` 钉定。**新建场景的推荐做法：从 `examples/basic_config/` 拷模板 → 只留挂载通道 → 按场景改参** |
 
-原 demo_config 内硬编码的 EOS/SAR 业务覆写已迁入场景数据（`eos_scan`/`sar` 块，
-经 `ApplySceneOverrides` 应用）；`kCruiseAltitudeM`/`kCruiseSpeedMps`/
-`kHighThreatConfidence`/`kDtSec` 常量随迁出移除，语义见 SceneData 默认值。
-场景验证工作流（预期事件表/三分类判定/原型库）见仓库 skill `scenario-verify`。
+历史注：v1 场景的顶层 `eos_scan`/`sar`/`fusion`/`threat` 覆写块与
+`sbirs_satellite` 的焦平面/命中门键已并入 `session_config` 对应子块（生效值 =
+模板 ⊕ 场景覆写）；ECM 由代码默认（MakeDefaultEcmConfig）升为 `session_config.ecm`
+数据。场景验证工作流（预期事件表/三分类判定/原型库）见仓库 skill `scenario-verify`。
 
 ## 现有场景集
 

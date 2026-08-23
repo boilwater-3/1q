@@ -3,7 +3,7 @@
  * @brief 场景描述加载器（examples/component_attachment/scene_data.*）单元测试。
  *
  * 覆盖：基线场景解析（全字段）、缺省块回退、必填几何字段校验、畸形 JSON
- * 报错、空目标数组（"无目标"场景）、场景业务覆写应用（ApplySceneOverrides）。
+ * 报错、空目标数组（"无目标"场景）、session_config 挂载即全量校验。
  * 场景内容以原始字符串内嵌（与 scenes/baseline_takeoff_east/baseline_takeoff_east.json 同值），
  * 写入临时目录后加载——测试不依赖仓库路径。
  */
@@ -18,7 +18,6 @@
 
 #include <gtest/gtest.h>
 
-#include "app/demo_config.h"
 #include "scenes/scene_data.h"
 
 namespace ca = component_attachment;
@@ -94,31 +93,17 @@ constexpr char kBaselineSceneJson[] = R"json({
   "sbirs_satellite": {
     "altitude_m": 500000.0
   },
-  "eos_scan": {
-    "frame_rate_hz": 10.0,
-    "scan_rate_deg_per_sec": 20.0,
-    "scan_start_az_deg": 50.0,
-    "scan_end_az_deg": 130.0,
-    "scan_center_el_deg": 0.0,
-    "boresight_depression_deg": 0.0
-  },
-  "sar": {
-    "peak_power_w": 1.0e6,
-    "antenna_gain_db": 40.0,
-    "max_squint_deg": 10.0,
-    "scene_center_latitude_deg": 30.117117117117118,
-    "scene_center_longitude_deg": 120.06,
-    "scene_center_altitude_m": 400.0,
-    "slant_range_m": 13000.0,
-    "platform_speed_mps": 50.0
-  },
-  "fusion": {
-    "position_radius_m": 1000.0,
-    "bearing_beamwidth_deg": 8.0,
-    "feature_threshold": 0.0,
-    "window_size": 10,
-    "max_missed_cycles": 5,
-    "source_weights": [0.0, 1.0, 0.8, 0.6, 0.5]
+  "sensors": {"ar": false, "esr": false, "eos": false, "sbirs": false, "sar": false},
+  "session_config": {
+    "fusion": {
+      "position_radius_m": 1000.0,
+      "bearing_beamwidth_deg": 8.0,
+      "feature_threshold": 0.0,
+      "window_size": 10,
+      "max_missed_cycles": 5,
+      "source_weights": [0.0, 1.0, 0.8, 0.6, 0.5]
+    },
+    "threat": {}
   },
   "high_threat_confidence": 3.0,
   "smoke": {
@@ -182,36 +167,29 @@ TEST(SceneDataTest, LoadsBaselineScene) {
 
   EXPECT_DOUBLE_EQ(scene.sbirs_satellite_altitude_m, 500000.0);
 
-  EXPECT_FLOAT_EQ(scene.eos_frame_rate_hz, 10.0f);
-  EXPECT_FLOAT_EQ(scene.eos_scan_rate_deg_per_sec, 20.0f);
-  EXPECT_FLOAT_EQ(scene.eos_scan_start_az_deg, 50.0f);
-  EXPECT_FLOAT_EQ(scene.eos_scan_end_az_deg, 130.0f);
-  EXPECT_FLOAT_EQ(scene.eos_scan_center_el_deg, 0.0f);
-  EXPECT_FLOAT_EQ(scene.eos_boresight_depression_deg, 0.0f);
-
-  EXPECT_DOUBLE_EQ(scene.sar_peak_power_w, 1.0e6);
-  EXPECT_DOUBLE_EQ(scene.sar_antenna_gain_db, 40.0);
-  EXPECT_DOUBLE_EQ(scene.sar_max_squint_angle_deg, 10.0);
-  EXPECT_DOUBLE_EQ(scene.sar_scene_center_latitude_deg, 30.117117117117118);
-  EXPECT_DOUBLE_EQ(scene.sar_scene_center_longitude_deg, 120.06);
-  EXPECT_DOUBLE_EQ(scene.sar_scene_center_altitude_m, 400.0);
-  EXPECT_DOUBLE_EQ(scene.sar_nominal_slant_range_m, 13000.0);
-  EXPECT_DOUBLE_EQ(scene.sar_platform_speed_mps, 50.0);
-
-  EXPECT_DOUBLE_EQ(scene.fusion.position_radius_m, 1000.0);
-  EXPECT_DOUBLE_EQ(scene.fusion.bearing_beamwidth_deg, 8.0);
-  EXPECT_DOUBLE_EQ(scene.fusion.feature_threshold, 0.0);
-  EXPECT_EQ(scene.fusion.window_size, 10U);
-  EXPECT_EQ(scene.fusion.max_missed_cycles, 5U);
-  ASSERT_EQ(scene.fusion.source_weights.size(), 5U);
-  EXPECT_DOUBLE_EQ(scene.fusion.source_weights[1], 1.0);
-  EXPECT_DOUBLE_EQ(scene.fusion.source_weights[4], 0.5);
-
   EXPECT_DOUBLE_EQ(scene.high_threat_confidence, 3.0);
   EXPECT_EQ(scene.smoke.min_key_events, 1U);
   EXPECT_EQ(scene.smoke.min_sbirs_events, 1U);
   EXPECT_EQ(scene.smoke.min_sar_products, 1U);
   EXPECT_EQ(scene.smoke.min_fused_targets, 1U);
+}
+
+TEST(SceneDataTest, SessionConfigFusionParsedFromBaseline) {
+  // 基线 fixture 的 session_config.fusion 经四参加载进 SceneSessionConfigs。
+  ScopedSceneFile file(kBaselineSceneJson);
+  app::SceneData scene;
+  app::SceneSessionConfigs configs;
+  std::string error;
+  ASSERT_TRUE(app::LoadSceneData(file.path().string().c_str(), &scene, &configs, &error))
+      << error;
+  EXPECT_DOUBLE_EQ(configs.fusion.position_radius_m, 1000.0);
+  EXPECT_DOUBLE_EQ(configs.fusion.bearing_beamwidth_deg, 8.0);
+  EXPECT_DOUBLE_EQ(configs.fusion.feature_threshold, 0.0);
+  EXPECT_EQ(configs.fusion.window_size, 10U);
+  EXPECT_EQ(configs.fusion.max_missed_cycles, 5U);
+  ASSERT_EQ(configs.fusion.source_weights.size(), 5U);
+  EXPECT_DOUBLE_EQ(configs.fusion.source_weights[1], 1.0);
+  EXPECT_DOUBLE_EQ(configs.fusion.source_weights[4], 0.5);
 }
 
 TEST(SceneDataTest, DefaultsWhenBlocksMissing) {
@@ -232,11 +210,6 @@ TEST(SceneDataTest, DefaultsWhenBlocksMissing) {
   EXPECT_EQ(scene.esr.pulse_count, 200U);
   EXPECT_EQ(scene.esr.timing_seed, 42U);
   EXPECT_DOUBLE_EQ(scene.sbirs_satellite_altitude_m, 500000.0);
-  EXPECT_FLOAT_EQ(scene.eos_frame_rate_hz, 10.0f);
-  EXPECT_DOUBLE_EQ(scene.sar_peak_power_w, 1.0e6);
-  // 融合缺省 = FusionConfig 默认值（方位相干门限 5°、权重空）。
-  EXPECT_DOUBLE_EQ(scene.fusion.bearing_beamwidth_deg, 5.0);
-  EXPECT_TRUE(scene.fusion.source_weights.empty());
   EXPECT_DOUBLE_EQ(scene.high_threat_confidence, 3.0);
   EXPECT_EQ(scene.smoke.min_key_events, 1U);
   EXPECT_EQ(scene.smoke.min_fused_targets, 1U);
@@ -262,18 +235,26 @@ TEST(SceneDataTest, WaypointDefaultsToCruiseParameters) {
 }
 
 TEST(SceneDataTest, FusionAndSmokeOverrides) {
-  const app::SceneData scene = LoadOk(R"json({
+  // 融合覆写位于 session_config.fusion（四参加载）；smoke 仍在场景层。
+  ScopedSceneFile file(R"json({
     "platform": {"origin_lat_deg": 30.0, "origin_lon_deg": 120.0},
     "targets": [],
-    "fusion": {"bearing_beamwidth_deg": 12.0, "source_weights": [0.0, 0.5]},
+    "sensors": {"ar": false, "esr": false, "eos": false, "sbirs": false, "sar": false},
+    "session_config": {"fusion": {"bearing_beamwidth_deg": 12.0, "source_weights": [0.0, 0.5]},
+                       "threat": {}},
     "smoke": {"min_fused_targets": 0}
   })json");
+  app::SceneData scene;
+  app::SceneSessionConfigs configs;
+  std::string error;
+  ASSERT_TRUE(app::LoadSceneData(file.path().string().c_str(), &scene, &configs, &error))
+      << error;
 
-  EXPECT_DOUBLE_EQ(scene.fusion.bearing_beamwidth_deg, 12.0);
-  ASSERT_EQ(scene.fusion.source_weights.size(), 2U);
-  EXPECT_DOUBLE_EQ(scene.fusion.source_weights[1], 0.5);
+  EXPECT_DOUBLE_EQ(configs.fusion.bearing_beamwidth_deg, 12.0);
+  ASSERT_EQ(configs.fusion.source_weights.size(), 2U);
+  EXPECT_DOUBLE_EQ(configs.fusion.source_weights[1], 0.5);
   // 未覆写字段保持默认。
-  EXPECT_DOUBLE_EQ(scene.fusion.position_radius_m, 1000.0);
+  EXPECT_DOUBLE_EQ(configs.fusion.position_radius_m, 1000.0);
   EXPECT_EQ(scene.smoke.min_fused_targets, 0U);
   EXPECT_EQ(scene.smoke.min_key_events, 1U);
 }
@@ -382,28 +363,88 @@ TEST(SceneDataTest, MalformedJsonFails) {
   EXPECT_FALSE(error.empty());
 }
 
-TEST(SceneDataTest, AppliesSceneOverrides) {
-  const app::SceneData scene = LoadOk(kBaselineSceneJson);
-  app::ComponentAttachmentConfigs configs;  // 默认构造 = JSON 加载后未覆写状态
+TEST(SceneDataTest, SessionConfigRequiredForFullLoad) {
+  // 四参重载（场景可执行/通用 runner 的加载路径）：session_config 缺失 →
+  // 报错；挂载即全量——挂载通道缺子块、未挂载通道携带子块均报错。
+  ScopedSceneFile file(R"json({"platform": {"origin_lat_deg": 30.0, "origin_lon_deg": 120.0},
+    "targets": []})json");
+  app::SceneData scene;
+  app::SceneSessionConfigs configs;
+  std::string error;
+  EXPECT_FALSE(app::LoadSceneData(file.path().string().c_str(), &scene, &configs, &error));
+  EXPECT_NE(error.find("session_config"), std::string::npos);
+}
 
-  app::ApplySceneOverrides(scene, &configs);
+TEST(SceneDataTest, SessionConfigUnmountedSensorBlockRejected) {
+  // 全通道不挂载（sensors 全 false、rir/ecm 关）：session_config 只带恒挂载
+  // 的 fusion/threat（可为空对象）→ 通过；额外携带未挂载通道的 ar 块 → 报错。
+  const char* ok_json = R"json({"platform": {"origin_lat_deg": 30.0, "origin_lon_deg": 120.0},
+    "targets": [],
+    "sensors": {"ar": false, "esr": false, "eos": false, "sbirs": false, "sar": false},
+    "session_config": {"fusion": {}, "threat": {}}})json";
+  app::SceneData scene;
+  app::SceneSessionConfigs configs;
+  std::string error;
+  {
+    ScopedSceneFile file(ok_json);
+    EXPECT_TRUE(app::LoadSceneData(file.path().string().c_str(), &scene, &configs, &error))
+        << error;
+  }
+  const std::string with_ar = std::string(R"json({"platform": {"origin_lat_deg": 30.0, "origin_lon_deg": 120.0},
+    "targets": [],
+    "sensors": {"ar": false, "esr": false, "eos": false, "sbirs": false, "sar": false},
+    "session_config": {"fusion": {}, "threat": {}, "ar": {"hardware": {}}}})json");
+  ScopedSceneFile file(with_ar);
+  EXPECT_FALSE(app::LoadSceneData(file.path().string().c_str(), &scene, &configs, &error))
+      << error;
+  EXPECT_NE(error.find("session_config.ar"), std::string::npos) << error;
+}
 
-  // EOS 扫描/帧率覆写（替代原 demo_config 内硬编码）。
-  EXPECT_FLOAT_EQ(configs.eos.mission.frame_rate_hz, 10.0f);
-  EXPECT_FLOAT_EQ(configs.eos.mission.scan_rate_deg_per_sec, 20.0f);
-  EXPECT_FLOAT_EQ(configs.eos.mission.scan_start_az_deg, 50.0f);
-  EXPECT_FLOAT_EQ(configs.eos.mission.scan_end_az_deg, 130.0f);
-  EXPECT_FLOAT_EQ(configs.eos.mission.scan_center_el_deg, 0.0f);
-  EXPECT_FLOAT_EQ(configs.eos.mission.boresight_depression_deg, 0.0f);
-  // SAR 任务几何/链路覆写。
-  EXPECT_DOUBLE_EQ(configs.sar.hardware.peak_power_w, 1.0e6);
-  EXPECT_DOUBLE_EQ(configs.sar.hardware.antenna_gain_db, 40.0);
-  EXPECT_DOUBLE_EQ(configs.sar.policy.max_allowed_squint_angle_deg, 10.0);
-  EXPECT_DOUBLE_EQ(configs.sar.mission.scene_center_latitude_deg, 30.117117117117118);
-  EXPECT_DOUBLE_EQ(configs.sar.mission.scene_center_longitude_deg, 120.06);
-  EXPECT_DOUBLE_EQ(configs.sar.mission.scene_center_altitude_m, 400.0);
-  EXPECT_DOUBLE_EQ(configs.sar.mission.nominal_slant_range_m, 13000.0);
-  EXPECT_DOUBLE_EQ(configs.sar.mission.platform_speed_mps, 50.0);
+TEST(SceneDataTest, SessionConfigMountedSensorBlockRequiredAndParsed) {
+  // 挂载 EOS（默认 true）：session_config 缺 eos 子块 → 报错；携带子块后
+  // 字段按模板结构解析（帧率来自 mission.frame_rate_hz）。
+  const std::string missing = std::string(R"json({"platform": {"origin_lat_deg": 30.0, "origin_lon_deg": 120.0},
+    "targets": [], "sensors": {"ar": false, "esr": false, "eos": true, "sbirs": false, "sar": false},
+    "session_config": {"fusion": {}, "threat": {}}})json");
+  app::SceneData scene;
+  app::SceneSessionConfigs configs;
+  std::string error;
+  {
+    ScopedSceneFile file(missing);
+    EXPECT_FALSE(app::LoadSceneData(file.path().string().c_str(), &scene, &configs, &error));
+    EXPECT_NE(error.find("session_config.eos"), std::string::npos);
+  }
+  const std::string with_eos = std::string(R"json({"platform": {"origin_lat_deg": 30.0, "origin_lon_deg": 120.0},
+    "targets": [], "sensors": {"ar": false, "esr": false, "eos": true, "sbirs": false, "sar": false},
+    "session_config": {"fusion": {}, "threat": {},
+      "eos": {"mission": {"frame_rate_hz": 12.5}}}})json");
+  ScopedSceneFile file(with_eos);
+  EXPECT_TRUE(app::LoadSceneData(file.path().string().c_str(), &scene, &configs, &error))
+      << error;
+  EXPECT_FLOAT_EQ(configs.eos.mission.frame_rate_hz, 12.5f);
+}
+
+TEST(SceneDataTest, SessionConfigEcmParsed) {
+  // ecm.enabled 场景携带 session_config.ecm（原 MakeDefaultEcmConfig 代码默认
+  // 数据化）：发射机设备号/通道数/功率上限/默认技术解析入库配置。
+  ScopedSceneFile file(R"json({"platform": {"origin_lat_deg": 30.0, "origin_lon_deg": 120.0},
+    "targets": [], "sensors": {"ar": false, "esr": false, "eos": false, "sbirs": false, "sar": false},
+    "ecm": {"enabled": true},
+    "session_config": {"fusion": {}, "threat": {},
+      "ecm": {"transmitter_equipment_id": 101, "channel_count": 1,
+              "maximum_total_transmit_power_w": 1000.0,
+              "maximum_channel_transmit_power_w": 1000.0,
+              "default_technique": "kSpot"}}})json");
+  app::SceneData scene;
+  app::SceneSessionConfigs configs;
+  std::string error;
+  EXPECT_TRUE(app::LoadSceneData(file.path().string().c_str(), &scene, &configs, &error))
+      << error;
+  EXPECT_EQ(configs.ecm.transmitter_equipment_id, 101U);
+  EXPECT_EQ(configs.ecm.channel_count, 1U);
+  EXPECT_DOUBLE_EQ(configs.ecm.maximum_total_transmit_power_w, 1000.0);
+  EXPECT_EQ(configs.ecm.default_technique,
+            electronic_countermeasure::EcmTechnique::kSpot);
 }
 
 TEST(SceneDataTest, PlansPolygonScanPatrolRoute) {

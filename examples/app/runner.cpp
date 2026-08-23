@@ -45,7 +45,6 @@
 #include "components/threat_component.h"
 #include "core/world.h"
 #include "logger/acceptance_timing.h"
-#include "app/demo_config.h"
 #include "app/command_routing.h"
 #include "app/outputs.h"
 #include "scenes/scene_data.h"
@@ -75,6 +74,47 @@ const char* ScriptedCommandName(ca::CommandKind kind) {
 
 }  // namespace
 
+/// 默认输出根目录（CMake 注入 CA_DEFAULT_OUTPUT_DIR：仓库内 examples/log/，
+/// 运行时产物不入版本控制，见 .gitignore；无宏时的回退值供独立编译）。
+#ifdef CA_DEFAULT_OUTPUT_DIR
+constexpr char kDefaultOutputDir[] = CA_DEFAULT_OUTPUT_DIR;
+#else
+constexpr char kDefaultOutputDir[] = "examples/log";
+#endif
+
+std::string SceneSlugFromPath(const std::string& scene_path) {
+  std::string path = scene_path;
+  for (std::size_t i = 0U; i < path.size(); ++i) {
+    if (path[i] == '\\') {
+      path[i] = '/';
+    }
+  }
+  while (!path.empty() && path[path.size() - 1U] == '/') {
+    path.erase(path.size() - 1U);
+  }
+  const std::size_t slash = path.find_last_of('/');
+  const std::string parent = (slash == std::string::npos) ? std::string() : path.substr(0U, slash);
+  const std::size_t parent_slash = parent.find_last_of('/');
+  const std::string parent_name =
+      (parent_slash == std::string::npos) ? parent : parent.substr(parent_slash + 1U);
+  if (!parent_name.empty() && parent_name != "." && parent_name != "..") {
+    return parent_name;
+  }
+  const std::string file = (slash == std::string::npos) ? path : path.substr(slash + 1U);
+  const std::size_t dot = file.rfind('.');
+  return (dot == std::string::npos || dot == 0U) ? file : file.substr(0U, dot);
+}
+
+void PrintUsage(const char* program) {
+  std::cout << "Usage: " << program
+            << " [--scene <path>] [--cycles <n>] [--view-every <n>] [--output-dir <dir>]\n"
+            << "  --scene <path>      场景描述文件（默认 <场景目录>/baseline_takeoff_east.json）\n"
+            << "  --cycles <n>        仿真周期数（覆盖场景文件，默认场景文件值）\n"
+            << "  --view-every <n>    视图摘要间隔（周期求余，覆盖场景 view_log_every_cycles）\n"
+            << "  --output-dir <dir>  日志+CSV 目录（默认 " << kDefaultOutputDir
+            << "/<场景名>/）\n";
+}
+
 int RunScene(const std::string& scene_path, const RunOptions& options) {
   const int cycles_override = options.cycles_override;
   const int view_every_override = options.view_every_override;
@@ -84,11 +124,12 @@ int RunScene(const std::string& scene_path, const RunOptions& options) {
     output_dir = std::string(kDefaultOutputDir);
   }
 
-  // 场景描述加载（平台/目标脚本/业务覆写/冒烟下限；缺省字段静默默认，
-  // 必填几何字段缺失或 JSON 语法错误 → 报错退出）。
+  // 场景加载（场景层几何/真值/挂载/指令/冒烟 + session_config 自持会话
+  // 配置：挂载即全量，缺挂载子块/未挂载携带 → 报错退出）。
   app::SceneData scene_data;
+  app::SceneSessionConfigs configs;
   std::string scene_error;
-  if (!app::LoadSceneData(scene_path.c_str(), &scene_data, &scene_error)) {
+  if (!app::LoadSceneData(scene_path.c_str(), &scene_data, &configs, &scene_error)) {
     std::cerr << "Failed to load scene '" << scene_path << "': " << scene_error << "\n";
     return 1;
   }
@@ -122,20 +163,18 @@ int RunScene(const std::string& scene_path, const RunOptions& options) {
   ca::AppSceneState scene;
   ca::World world(scene);
 
-  // 六会话配置：JSON 基线（examples/configs/）+ 场景业务覆写（EOS 扫描/SAR
-  // 任务几何与链路，见 ApplySceneOverrides）。
-  app::ComponentAttachmentConfigs configs = app::LoadConfigs();
-  app::ApplySceneOverrides(scene_data, &configs);
   if (scene_data.ecm_enabled) {
-    // 同平台 ECM 发射链与 AR 接收链 co-site 隔离（演示层与跨域集成测试同量级）。
+    // 同平台 ECM 发射链与 AR 接收链 co-site 隔离（演示层与跨域集成测试同量级）；
+    // 发射机设备号取自场景 session_config.ecm（单源：JSON）。
     configs.ar.hardware.receiver.co_site_paths.push_back(
-        {ca::kEcmTransmitterEquipmentId, configs.ar.hardware.receiver.equipment_id, 100.0});
+        {configs.ecm.transmitter_equipment_id, configs.ar.hardware.receiver.equipment_id,
+         100.0});
   }
 
   // RIR 地基识别雷达站点（可选，场景 rir.enabled）：独立实体（固定站点，
-  // S 波段识别雷达的物理摆放——非机载），会话配置经 LoadConfigs 从
-  // examples/configs/remote_identification_radar.json 加载（识别库路径由
-  // CMake 注入 CA_RIR_DATABASE_PATH 解析）。实体按创建序步进：站点先于平台
+  // S 波段识别雷达的物理摆放——非机载），会话配置来自场景
+  // session_config.rir（识别库路径由 CMake 注入 CA_RIR_DATABASE_PATH 解析）。
+  // 实体按创建序步进：站点先于平台
   // 创建，其本周期特征量测在平台融合组件 Step 时已就绪（同周期聚合，无跨
   // 周期滞后）。
   // 验收行（多模型并行加载）的装配段墙钟起点：从这里到威胁组件挂载完毕
@@ -202,21 +241,21 @@ int RunScene(const std::string& scene_path, const RunOptions& options) {
         sar::session::SarSession::Create(configs.sar)));
   }
 
-  // 融合配置来自场景文件（空间门限/方位相干门限/特征门/窗口/失跟周期/源权重；
+  // 融合配置来自场景 session_config.fusion（空间门限/方位相干门限/特征门/窗口/失跟周期/源权重；
   // 基线场景放宽方位相干门限到 8°：ESR 假设方位含平滑滞差、EOS 探测含扫描
   // 中心残差，同物理目标的跨源方位差实测可达 4-6°——业务层调参，非库内标准）。
   // 逐航迹滤波库内默认开启（AR 位置通道有运动学估计；SBIRS 角度-only 无量测
   // 原点时仍走关联通道）。
   platform.Attach(std::make_unique<ca::FusionComponent>(
-      std::make_unique<fusion::FusionEngine>(scene_data.fusion)));
+      std::make_unique<fusion::FusionEngine>(configs.fusion)));
 
   // 目标推演组件（P3 链路）：读融合运动学估计，输出轨迹/发射点/落点/类型概率
   // （含误差预算）。挂载序在 Fusion 之后、Threat 之前。
   platform.Attach(std::make_unique<ca::InferenceComponent>());
 
-  // 威胁评估配置来自场景文件（threat 块；缺省 = 库内默认权重/断点/阈值）。
+  // 威胁评估配置来自场景 session_config.threat（缺省 = 库内默认权重/断点/阈值）。
   // 挂载序在 Fusion 之后：威胁组件每周期读融合输出与 AR 调试视图组装输入。
-  platform.Attach(std::make_unique<ca::ThreatComponent>(scene_data.threat));
+  platform.Attach(std::make_unique<ca::ThreatComponent>(configs.threat));
 
   // 验收行（多模型并行加载）：初始化结束时显示动态库（模块）加载完毕——
   // 按实际挂载的模块列清单 + 装配段真实墙钟，写入 integration_events.log。

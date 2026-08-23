@@ -17,8 +17,15 @@
 #include <string>
 #include <vector>
 
+#include "1q/airborne_radar/airborne_radar.hpp"
 #include "1q/coordinate/types.h"
+#include "1q/electro_optical_sensor/electro_optical_sensor.hpp"
+#include "1q/electronic_countermeasure/EcmTypes.h"
+#include "1q/electronic_surveillance_radar/electronic_surveillance_radar.hpp"
 #include "1q/fusion/FusionConfig.h"
+#include "1q/remote_identification_radar/remote_identification_radar.hpp"
+#include "1q/sar/sar.hpp"
+#include "1q/sbirs_sensor/sbirs_sensor.hpp"
 #include "1q/threat_assessment/ThreatEvaluatorConfig.h"
 #include "1q/navigation/CoverageArea.h"
 #include "1q/navigation/CoveragePlanConfig.h"
@@ -168,12 +175,6 @@ struct SceneData {
   // 缺省 = 2024-01-01 00:00 UTC）。SBIRS 全向扫描（span 360°）+ 下视覆盖，
   // GMST 引起的 az 平移不影响探测；示例日志中的方位角随之显示为 ECI 参考。
   double sbirs_utc_julian_day{2460310.5}; /**< 天基通道 UTC 儒略日（JD_UTC，必填给库） */
-  // 验收量覆写（可选，缺省 = 库默认）：焦平面几何只被 [SbirsAccept] 验收日志
-  // 的脱靶量映射消费（x=f·tanΔaz），连续命中门为宽→窄切换前置条件（1 =
-  // 单次命中即调度）。开闸方式见 scenes/sbirs_wfov_nfov_handover 场景说明。
-  double sbirs_focal_length_m{2.0};                 /**< 焦距（m；验收日志脱靶量映射） */
-  double sbirs_detector_pixel_pitch_m{30.0e-6};     /**< 探测元间距（m；米→像素换算） */
-  int sbirs_wide_to_narrow_required_consecutive_hits{1}; /**< 宽→窄切换连续命中门 */
 
   // 机载传感器默认挂载。场景 sensors.{ar,esr,eos,sbirs,sar}=false 则不挂，
   // 不写该通道视图/排除原因事件。RIR/ECM 仍用各自 enabled。
@@ -197,34 +198,8 @@ struct SceneData {
   // ECM 电子对抗块（可选，enabled=true 时挂载 EcmSensorComponent；须 ESR→ECM→AR 挂载序）。
   bool ecm_enabled{false};                          /**< 是否挂载 ECM 组件 */
 
-  // EOS 业务覆写（原 demo_config 内硬编码，迁入场景数据）：跨会话时间对齐
-  // 与视场适配——周期校验要求 dt ≤ 10/frame_rate_hz（10 Hz 对应 1 s 步长
-  // 上限）；原 JSON 为下视地面监视（视轴下俯 45°），与空中目标场景不匹配
-  // → 覆写为水平扫描（默认扇区 50°~130°，覆盖平台正北目标）。
-  float eos_frame_rate_hz{10.0f};           /**< EOS 帧率（Hz） */
-  float eos_scan_rate_deg_per_sec{20.0f};   /**< EOS 扫描速率（deg/s） */
-  float eos_scan_start_az_deg{50.0f};       /**< EOS 扫描扇区起点（deg，平台局部系 az 0 = 东） */
-  float eos_scan_end_az_deg{130.0f};        /**< EOS 扫描扇区终点（deg） */
-  float eos_scan_center_el_deg{0.0f};       /**< EOS 扫描中心俯仰（deg，0 = 水平） */
-  float eos_boresight_depression_deg{0.0f}; /**< EOS 视轴下俯（deg，0 = 不俯视） */
-
-  // SAR 任务几何/链路覆写（原 demo_config 内硬编码，迁入场景数据）：
-  // sar.json 为 100 km 斜距 / 180 m/s 的远程监视档，演示场景需覆写为
-  // 低空巡航几何；目标 RCS 仅 2.2/1.4 m²，10 kW 峰值功率下链路 SNR ≈ −29 dB
-  // → 功率提升至 1 MW、天线增益 40 dBi（SAR 常用量级），SNR ≈ +10 dB 过门限。
-  double sar_peak_power_w{1.0e6};           /**< SAR 峰值功率（W） */
-  double sar_antenna_gain_db{40.0};         /**< SAR 天线增益（dBi） */
-  double sar_max_squint_angle_deg{10.0};    /**< SAR squint 门限（deg，覆写自 sar.json 的 5°） */
-  double sar_scene_center_latitude_deg{30.0 + 13.0e3 / 111.0e3}; /**< SAR 场景中心纬度（deg） */
-  double sar_scene_center_longitude_deg{120.06}; /**< SAR 场景中心经度（deg） */
-  double sar_scene_center_altitude_m{400.0}; /**< SAR 场景中心高度（m） */
-  double sar_nominal_slant_range_m{13000.0}; /**< SAR 标称斜距（m） */
-  double sar_platform_speed_mps{50.0};      /**< SAR 平台速度（m/s） */
-
-  fusion::FusionConfig fusion{};            /**< 融合配置（缺省 = FusionConfig 默认值） */
   double high_threat_confidence{3.0};       /**< 决策门限：融合置信度达到该值视为高置信威胁
                                                  （示例业务策略，原 demo_config kHighThreatConfidence） */
-  threat_assessment::ThreatEvaluatorConfig threat{}; /**< 威胁评估配置（缺省 = ThreatEvaluatorConfig 默认值） */
 
   /// 冒烟断言下限（场景文件 smoke 块；"无目标"等零产出场景显式置 0）。
   struct SmokeExpectations {
@@ -237,9 +212,33 @@ struct SceneData {
   SmokeExpectations smoke{};
 };
 
-/// 场景文件 → SceneData。返回 false 并置 error（JSON 语法错误/根节点非对象/
-/// 缺必需块（platform/targets）/几何字段缺失）；可缺省字段按成员默认值填充。
+/// 场景自持的会话配置集（场景文件 session_config{} 块 → 六域传感器 + ECM +
+/// 融合 + 威胁的库 SessionConfig）。挂载即全量：挂载的通道必带对应子块
+/// （自 examples/basic_config/<域>.json 模板整份拷贝后按场景改），未挂载
+/// 通道禁止携带（loader 校验，"有配置 = 有挂载"一一对应）。
+struct SceneSessionConfigs {
+  fusion::FusionConfig fusion{};            /**< 融合（恒挂载；字段集见 loader 映射） */
+  threat_assessment::ThreatEvaluatorConfig threat{}; /**< 威胁评估（恒挂载） */
+  airborne_radar::config::ArSessionConfig ar{};      /**< 机载雷达（sensors.ar） */
+  electronic_surveillance_radar::config::EsrSessionConfig esr{}; /**< ESR（sensors.esr） */
+  electro_optical_sensor::config::EosSessionConfig eos{};        /**< EOS（sensors.eos） */
+  sbirs_sensor::config::SbirsSessionConfig sbirs{};  /**< SBIRS（sensors.sbirs） */
+  sar::config::SarSessionConfig sar{};               /**< SAR（sensors.sar） */
+  remote_identification_radar::config::RirSessionConfig rir{};   /**< RIR（rir.enabled） */
+  electronic_countermeasure::config::EcmSessionConfig ecm{};     /**< ECM（ecm.enabled） */
+};
+
+/// 场景文件 → SceneData（仅场景层：几何/真值/挂载开关/指令/冒烟；session_config
+/// 块被忽略）。返回 false 并置 error（JSON 语法错误/根节点非对象/缺必需块
+/// （platform/targets）/几何字段缺失）；可缺省字段按成员默认值填充。
+/// 场景可执行与通用 runner 走四参重载（含 session_config 挂载校验）。
 bool LoadSceneData(const char* path, SceneData* scene, std::string* error);
+
+/// 场景文件 → SceneData + SceneSessionConfigs（session_config 挂载即全量：
+/// 挂载通道缺子块 / 未挂载通道带子块 → error；RIR 识别库路径由编译宏
+/// CA_RIR_DATABASE_PATH 钉定，相对值按 SCENE_CONFIG_DIR 解析）。
+bool LoadSceneData(const char* path, SceneData* scene, SceneSessionConfigs* configs,
+                   std::string* error);
 
 }  // namespace app
 }  // namespace component_attachment
