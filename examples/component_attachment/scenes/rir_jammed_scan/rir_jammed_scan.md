@@ -39,4 +39,4 @@ demo exit=0；`rir_acceptance.log` 四行干扰子项在干扰周期有真值、
 
 **判定：通过。** 本场景把「无外部干扰单音 → 四行写无」的条件演示补全为「有/无」双态：RIR 受 ECM 点频干扰的周期里四行全出真值，ECM 停发周期如实回 `无`。干扰真实进入 RIR 检测判决链（SINR 分母），集群数量抖动是其物理表现；验收旁路四行标「未进判决」不受主链消费。
 
-[evidence: /tmp 验证运行 2026-08-23，开关验后还原 OFF]
+[evidence: examples/component_attachment/log/rir_jammed_scan/（2026-08-23 验证运行存档，开关验后还原 OFF）]
