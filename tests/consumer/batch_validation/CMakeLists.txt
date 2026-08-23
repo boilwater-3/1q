@@ -9,7 +9,7 @@
 # 实现（详见 README.md「与现有测试的关系」）。
 #
 # 依赖说明：各模块的 config_loader.h 经 examples/common/config_loaders/<域>/
-# 注入，配置 JSON 经 BATCH_CONFIG_DIR 指向 examples/configs/——本框架
+# 注入，配置 JSON 经 BATCH_CONFIG_DIR 指向 examples/basic_config/——本框架
 # 单向依赖 examples 层共享便利层（消费方参考的一部分，不属于库 public
 # surface；tests/unit/examples 分区同样直接编译 examples 源码，先例一致）。
 
@@ -21,7 +21,7 @@ target_include_directories(ar_batch_validation PRIVATE
     "${CMAKE_SOURCE_DIR}/examples/common/config_loaders/airborne_radar"
     "${CMAKE_SOURCE_DIR}/examples/common")
 target_compile_definitions(ar_batch_validation PRIVATE
-    BATCH_CONFIG_DIR="${CMAKE_SOURCE_DIR}/examples/configs")
+    BATCH_CONFIG_DIR="${CMAKE_SOURCE_DIR}/examples/basic_config")
 target_sources(ar_batch_validation PRIVATE
     "${CMAKE_SOURCE_DIR}/examples/common/json_reader.cpp")
 
@@ -33,7 +33,7 @@ target_include_directories(eos_batch_validation PRIVATE
     "${CMAKE_SOURCE_DIR}/examples/common/config_loaders/electro_optical"
     "${CMAKE_SOURCE_DIR}/examples/common")
 target_compile_definitions(eos_batch_validation PRIVATE
-    BATCH_CONFIG_DIR="${CMAKE_SOURCE_DIR}/examples/configs")
+    BATCH_CONFIG_DIR="${CMAKE_SOURCE_DIR}/examples/basic_config")
 target_sources(eos_batch_validation PRIVATE
     "${CMAKE_SOURCE_DIR}/examples/common/json_reader.cpp")
 
@@ -45,7 +45,7 @@ target_include_directories(esr_batch_validation PRIVATE
     "${CMAKE_SOURCE_DIR}/examples/common/config_loaders/electronic_warfare"
     "${CMAKE_SOURCE_DIR}/examples/common")
 target_compile_definitions(esr_batch_validation PRIVATE
-    BATCH_CONFIG_DIR="${CMAKE_SOURCE_DIR}/examples/configs")
+    BATCH_CONFIG_DIR="${CMAKE_SOURCE_DIR}/examples/basic_config")
 target_sources(esr_batch_validation PRIVATE
     "${CMAKE_SOURCE_DIR}/examples/common/json_reader.cpp")
 
@@ -58,7 +58,7 @@ target_include_directories(sar_batch_validation PRIVATE
     "${CMAKE_SOURCE_DIR}/examples/common/config_loaders/sar"
     "${CMAKE_SOURCE_DIR}/examples/common")
 target_compile_definitions(sar_batch_validation PRIVATE
-    BATCH_CONFIG_DIR="${CMAKE_SOURCE_DIR}/examples/configs")
+    BATCH_CONFIG_DIR="${CMAKE_SOURCE_DIR}/examples/basic_config")
 target_sources(sar_batch_validation PRIVATE
     "${CMAKE_SOURCE_DIR}/examples/common/json_reader.cpp")
 

@@ -48,9 +48,9 @@
 #include "components/flight_component.h"
 #include "components/sar_sensor_component.h"
 #include "components/sbirs_sensor_component.h"
-#include "scene_types.h"
+#include "core/scene_types.h"
 #include "core/world.h"
-#include "rf_world_broker.h"
+#include "core/rf_world_broker.h"
 
 namespace ca = component_attachment;
 
@@ -267,7 +267,7 @@ TEST(FlightComponentRuntimeTest, PatrolLoopWrapsRouteIndex) {
   // 循环巡逻（loop_route=true）：航路耗尽后回绕首个航点继续。两航点
   // 正东约 963 m 间距（0.01° @ 30°N），运动学寻的路径下每轮循环
   // 产生 2 条 waypoint_reached 事件、索引回绕 1 次。
-  ca::DemoSceneState scene;
+  ca::AppSceneState scene;
   ca::World world(scene);
   ca::Entity& platform = world.CreateEntity("platform");
 
@@ -381,7 +381,7 @@ class SensorQueryScene {
     oneq::coordinate::TryEnuToEcef(offset, origin, &target_ecef);
 
     // AR/EOS：同一世界 ECEF 真值（EOS 经平台锚点转 ENU；外观字段供光学通道）。
-    ca::demo::TargetEcefState ar_world_target;
+    ca::app::TargetEcefState ar_world_target;
     ar_world_target.id = 1001U;
     ar_world_target.position = target_ecef;
     ar_world_target.rcs = 2.0f;
@@ -417,7 +417,7 @@ class SensorQueryScene {
     scene_.sbirs_satellite_position_ecef_m.z = target_ecef.z_m + 500000.0;
   }
 
-  ca::DemoSceneState scene_;
+  ca::AppSceneState scene_;
   ca::World world_{scene_};
   oneq::electromagnetics::RfSceneEmission emitter_template_{};  ///< 脉冲列参数模板（波形每周期按窗口重建）
   ca::Entity* platform_{nullptr};

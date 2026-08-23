@@ -18,11 +18,11 @@
 
 #include <gtest/gtest.h>
 
-#include "demo_config.h"
-#include "scene_data.h"
+#include "app/demo_config.h"
+#include "scenes/scene_data.h"
 
 namespace ca = component_attachment;
-namespace demo = component_attachment::demo;
+namespace app = component_attachment::app;
 
 namespace {
 
@@ -48,11 +48,11 @@ class ScopedSceneFile {
 };
 
 /// 加载临时文件内容，返回场景与错误串（断言加载成功）。
-demo::SceneData LoadOk(const std::string& content) {
+app::SceneData LoadOk(const std::string& content) {
   ScopedSceneFile file(content);
-  demo::SceneData scene;
+  app::SceneData scene;
   std::string error;
-  EXPECT_TRUE(demo::LoadSceneData(file.path().string().c_str(), &scene, &error)) << error;
+  EXPECT_TRUE(app::LoadSceneData(file.path().string().c_str(), &scene, &error)) << error;
   return scene;
 }
 
@@ -132,7 +132,7 @@ constexpr char kBaselineSceneJson[] = R"json({
 }  // namespace
 
 TEST(SceneDataTest, LoadsBaselineScene) {
-  const demo::SceneData scene = LoadOk(kBaselineSceneJson);
+  const app::SceneData scene = LoadOk(kBaselineSceneJson);
 
   EXPECT_EQ(scene.name, "baseline_takeoff_east");
   EXPECT_EQ(scene.cycles, 400U);
@@ -216,7 +216,7 @@ TEST(SceneDataTest, LoadsBaselineScene) {
 
 TEST(SceneDataTest, DefaultsWhenBlocksMissing) {
   // 仅平台 + 空目标：全部可缺省块回退默认值。
-  const demo::SceneData scene = LoadOk(R"json({
+  const app::SceneData scene = LoadOk(R"json({
     "platform": {"origin_lat_deg": 30.0, "origin_lon_deg": 120.0},
     "targets": []
   })json");
@@ -243,7 +243,7 @@ TEST(SceneDataTest, DefaultsWhenBlocksMissing) {
 }
 
 TEST(SceneDataTest, WaypointDefaultsToCruiseParameters) {
-  const demo::SceneData scene = LoadOk(R"json({
+  const app::SceneData scene = LoadOk(R"json({
     "platform": {
       "origin_lat_deg": 30.0, "origin_lon_deg": 120.0,
       "cruise_altitude_m": 800.0, "cruise_speed_mps": 60.0,
@@ -262,7 +262,7 @@ TEST(SceneDataTest, WaypointDefaultsToCruiseParameters) {
 }
 
 TEST(SceneDataTest, FusionAndSmokeOverrides) {
-  const demo::SceneData scene = LoadOk(R"json({
+  const app::SceneData scene = LoadOk(R"json({
     "platform": {"origin_lat_deg": 30.0, "origin_lon_deg": 120.0},
     "targets": [],
     "fusion": {"bearing_beamwidth_deg": 12.0, "source_weights": [0.0, 0.5]},
@@ -280,17 +280,17 @@ TEST(SceneDataTest, FusionAndSmokeOverrides) {
 
 TEST(SceneDataTest, MissingPlatformBlockFails) {
   ScopedSceneFile file(R"json({"targets": []})json");
-  demo::SceneData scene;
+  app::SceneData scene;
   std::string error;
-  EXPECT_FALSE(demo::LoadSceneData(file.path().string().c_str(), &scene, &error));
+  EXPECT_FALSE(app::LoadSceneData(file.path().string().c_str(), &scene, &error));
   EXPECT_NE(error.find("platform"), std::string::npos);
 }
 
 TEST(SceneDataTest, MissingTargetsBlockFails) {
   ScopedSceneFile file(R"json({"platform": {"origin_lat_deg": 30.0, "origin_lon_deg": 120.0}})json");
-  demo::SceneData scene;
+  app::SceneData scene;
   std::string error;
-  EXPECT_FALSE(demo::LoadSceneData(file.path().string().c_str(), &scene, &error));
+  EXPECT_FALSE(app::LoadSceneData(file.path().string().c_str(), &scene, &error));
   EXPECT_NE(error.find("targets"), std::string::npos);
 }
 
@@ -300,9 +300,9 @@ TEST(SceneDataTest, MissingGeometryFieldFails) {
     "platform": {"origin_lat_deg": 30.0, "origin_lon_deg": 120.0},
     "targets": [{"id": 1001, "azimuth_deg": 0.0, "range_m": 1000.0, "rcs_m2": 1.0}]
   })json");
-  demo::SceneData scene;
+  app::SceneData scene;
   std::string error;
-  EXPECT_FALSE(demo::LoadSceneData(file.path().string().c_str(), &scene, &error));
+  EXPECT_FALSE(app::LoadSceneData(file.path().string().c_str(), &scene, &error));
   EXPECT_NE(error.find("altitude_m"), std::string::npos);
 }
 
@@ -312,14 +312,14 @@ TEST(SceneDataTest, InvalidCyclesFails) {
     "platform": {"origin_lat_deg": 30.0, "origin_lon_deg": 120.0},
     "targets": []
   })json");
-  demo::SceneData scene;
+  app::SceneData scene;
   std::string error;
-  EXPECT_FALSE(demo::LoadSceneData(file.path().string().c_str(), &scene, &error));
+  EXPECT_FALSE(app::LoadSceneData(file.path().string().c_str(), &scene, &error));
   EXPECT_NE(error.find("cycles"), std::string::npos);
 }
 
 TEST(SceneDataTest, ParsesTargetManeuvers) {
-  const demo::SceneData scene = LoadOk(R"json({
+  const app::SceneData scene = LoadOk(R"json({
     "platform": {"origin_lat_deg": 30.0, "origin_lon_deg": 120.0},
     "targets": [{
       "id": 1001, "azimuth_deg": 0.0, "range_m": 12000.0, "altitude_m": 400.0,
@@ -350,9 +350,9 @@ TEST(SceneDataTest, ManeuverMissingStartCycleFails) {
       "rcs_m2": 2.2, "maneuvers": [{"v_north_mps": -30.0}]
     }]
   })json");
-  demo::SceneData scene;
+  app::SceneData scene;
   std::string error;
-  EXPECT_FALSE(demo::LoadSceneData(file.path().string().c_str(), &scene, &error));
+  EXPECT_FALSE(app::LoadSceneData(file.path().string().c_str(), &scene, &error));
   EXPECT_NE(error.find("start_cycle"), std::string::npos);
 }
 
@@ -368,25 +368,25 @@ TEST(SceneDataTest, ManeuverStartCycleMustIncrease) {
       ]
     }]
   })json");
-  demo::SceneData scene;
+  app::SceneData scene;
   std::string error;
-  EXPECT_FALSE(demo::LoadSceneData(file.path().string().c_str(), &scene, &error));
+  EXPECT_FALSE(app::LoadSceneData(file.path().string().c_str(), &scene, &error));
   EXPECT_NE(error.find("increasing"), std::string::npos);
 }
 
 TEST(SceneDataTest, MalformedJsonFails) {
   ScopedSceneFile file(R"json({"platform": {"origin_lat_deg": )json");
-  demo::SceneData scene;
+  app::SceneData scene;
   std::string error;
-  EXPECT_FALSE(demo::LoadSceneData(file.path().string().c_str(), &scene, &error));
+  EXPECT_FALSE(app::LoadSceneData(file.path().string().c_str(), &scene, &error));
   EXPECT_FALSE(error.empty());
 }
 
 TEST(SceneDataTest, AppliesSceneOverrides) {
-  const demo::SceneData scene = LoadOk(kBaselineSceneJson);
-  demo::ComponentAttachmentConfigs configs;  // 默认构造 = JSON 加载后未覆写状态
+  const app::SceneData scene = LoadOk(kBaselineSceneJson);
+  app::ComponentAttachmentConfigs configs;  // 默认构造 = JSON 加载后未覆写状态
 
-  demo::ApplySceneOverrides(scene, &configs);
+  app::ApplySceneOverrides(scene, &configs);
 
   // EOS 扫描/帧率覆写（替代原 demo_config 内硬编码）。
   EXPECT_FLOAT_EQ(configs.eos.mission.frame_rate_hz, 10.0f);
@@ -411,7 +411,7 @@ TEST(SceneDataTest, PlansPolygonScanPatrolRoute) {
   // 区域 lat 29.989..30.001（约 1334 m 南北跨度）× lon 120.0..120.03，间距
   // 500 m → 扫描线 v = 250/750/1250（3 条 × 2 端点 = 6 航点），牛耕式交替
   // 方向（线 1 东向 → 线 2 西向 → 线 3 东向）。
-  const demo::SceneData scene = LoadOk(R"json({
+  const app::SceneData scene = LoadOk(R"json({
 
     "platform": {
         "origin_lat_deg": 30.0,
@@ -484,7 +484,7 @@ TEST(SceneDataTest, PlansPolygonScanPatrolRoute) {
 TEST(SceneDataTest, PlansCircleOrbitPatrolRoute) {
   // coverage 圆形 + 盘旋模式：8 段 × 1 环 = 8 航点，均匀分布在半径 5000 m
   // 的圆周上（逆时针，自正北起）。
-  const demo::SceneData scene = LoadOk(R"json({
+  const app::SceneData scene = LoadOk(R"json({
 
     "platform": {
         "origin_lat_deg": 30.0,
@@ -562,9 +562,9 @@ TEST(SceneDataTest, CoverageAndExplicitWaypointsConflictFails) {
     "targets": []
 
   })json");
-  demo::SceneData scene;
+  app::SceneData scene;
   std::string error;
-  EXPECT_FALSE(demo::LoadSceneData(file.path().string().c_str(), &scene, &error));
+  EXPECT_FALSE(app::LoadSceneData(file.path().string().c_str(), &scene, &error));
   EXPECT_NE(error.find("mutually exclusive"), std::string::npos);
 }
 
@@ -602,9 +602,9 @@ TEST(SceneDataTest, InvalidCoverageGeometryFails) {
     "targets": []
 
   })json");
-  demo::SceneData scene;
+  app::SceneData scene;
   std::string error;
-  EXPECT_FALSE(demo::LoadSceneData(file.path().string().c_str(), &scene, &error));
+  EXPECT_FALSE(app::LoadSceneData(file.path().string().c_str(), &scene, &error));
   EXPECT_NE(error.find("planning failed"), std::string::npos);
 }
 
@@ -641,9 +641,9 @@ TEST(SceneDataTest, CoverageModeKindMismatchFails) {
     "targets": []
 
   })json");
-  demo::SceneData scene;
+  app::SceneData scene;
   std::string error;
-  EXPECT_FALSE(demo::LoadSceneData(file.path().string().c_str(), &scene, &error));
+  EXPECT_FALSE(app::LoadSceneData(file.path().string().c_str(), &scene, &error));
   EXPECT_NE(error.find("planning failed"), std::string::npos);
 }
 
@@ -671,16 +671,16 @@ TEST(SceneDataTest, MissingCoverageVertexFails) {
     "targets": []
 
   })json");
-  demo::SceneData scene;
+  app::SceneData scene;
   std::string error;
-  EXPECT_FALSE(demo::LoadSceneData(file.path().string().c_str(), &scene, &error));
+  EXPECT_FALSE(app::LoadSceneData(file.path().string().c_str(), &scene, &error));
   EXPECT_NE(error.find("lat_deg"), std::string::npos);
 }
 
 TEST(SceneDataTest, ParsesWingmanPlatforms) {
   // platforms[] 数组：每条目同 platform 块（原点/航向/巡航 + waypoints 或
   // coverage 区域巡逻）；巡航参数缺省回退主平台值。
-  const demo::SceneData scene = LoadOk(R"json({
+  const app::SceneData scene = LoadOk(R"json({
     "platform": {
       "origin_lat_deg": 30.0,
       "origin_lon_deg": 120.0,
@@ -734,7 +734,7 @@ TEST(SceneDataTest, ParsesWingmanPlatforms) {
 }
 
 TEST(SceneDataTest, WingmanWithoutNameDefaultsToWingmanIndex) {
-  const demo::SceneData scene = LoadOk(R"json({
+  const app::SceneData scene = LoadOk(R"json({
     "platform": {"origin_lat_deg": 30.0, "origin_lon_deg": 120.0},
     "targets": [],
     "platforms": [
@@ -753,9 +753,9 @@ TEST(SceneDataTest, PlatformsNotArrayFails) {
     "targets": [],
     "platforms": {"origin_lat_deg": 30.01, "origin_lon_deg": 120.01}
   })json");
-  demo::SceneData scene;
+  app::SceneData scene;
   std::string error;
-  EXPECT_FALSE(demo::LoadSceneData(file.path().string().c_str(), &scene, &error));
+  EXPECT_FALSE(app::LoadSceneData(file.path().string().c_str(), &scene, &error));
   EXPECT_NE(error.find("platforms"), std::string::npos);
 }
 
@@ -782,15 +782,15 @@ TEST(SceneDataTest, WingmanCoverageAndWaypointsConflictFails) {
       }
     ]
   })json");
-  demo::SceneData scene;
+  app::SceneData scene;
   std::string error;
-  EXPECT_FALSE(demo::LoadSceneData(file.path().string().c_str(), &scene, &error));
+  EXPECT_FALSE(app::LoadSceneData(file.path().string().c_str(), &scene, &error));
   EXPECT_NE(error.find("mutually exclusive"), std::string::npos);
 }
 
 TEST(SceneDataTest, ParsesTargetType) {
   // targets[].type：缺省 air；ground 显式（地面目标 = 静止近地运动学点）。
-  const demo::SceneData scene = LoadOk(R"json({
+  const app::SceneData scene = LoadOk(R"json({
     "platform": {"origin_lat_deg": 30.0, "origin_lon_deg": 120.0},
     "targets": [
       {"id": 1001, "azimuth_deg": 0.0, "range_m": 12000.0, "altitude_m": 400.0,
@@ -812,9 +812,9 @@ TEST(SceneDataTest, InvalidTargetTypeFails) {
        "rcs_m2": 2.2, "type": "sea"}
     ]
   })json");
-  demo::SceneData scene;
+  app::SceneData scene;
   std::string error;
-  EXPECT_FALSE(demo::LoadSceneData(file.path().string().c_str(), &scene, &error));
+  EXPECT_FALSE(app::LoadSceneData(file.path().string().c_str(), &scene, &error));
   EXPECT_NE(error.find("type"), std::string::npos);
 }
 
@@ -823,7 +823,7 @@ TEST(SceneDataTest, PlansFormationDivisionPolygonRoutes) {
   // （主机 = 最南条带，wingman_1/2 依次向北），逐机生成覆盖航路。
   // 区域 lat 29.989..30.001（约 1334 m）× lon 120.0..120.03，条带宽
   // ≈ 444.8 m；间距 250 m → 每机条带内 2 条扫描线 × 2 端点 = 4 航点。
-  const demo::SceneData scene = LoadOk(R"json({
+  const app::SceneData scene = LoadOk(R"json({
     "platform": {
         "origin_lat_deg": 30.0,
         "origin_lon_deg": 120.0,
@@ -891,7 +891,7 @@ TEST(SceneDataTest, PlansFormationDivisionCircleRoutes) {
   // 顶层 mission_area（圆形 + 盘旋）+ 1 架从机 → 2 个同心环：主机最外环
   // （半径 2000 m）、wingman_1 内环（1000 m）；每机单环（orbit_rings 由
   // 切分强制 1，JSON 传入的 2 被覆盖），8 段 = 8 航点。
-  const demo::SceneData scene = LoadOk(R"json({
+  const app::SceneData scene = LoadOk(R"json({
     "platform": {
         "origin_lat_deg": 30.0,
         "origin_lon_deg": 120.0
@@ -957,9 +957,9 @@ TEST(SceneDataTest, MissionAreaConflictsWithPerPlatformCoverageFail) {
     },
     "targets": []
   })json");
-  demo::SceneData scene;
+  app::SceneData scene;
   std::string error;
-  EXPECT_FALSE(demo::LoadSceneData(file.path().string().c_str(), &scene, &error));
+  EXPECT_FALSE(app::LoadSceneData(file.path().string().c_str(), &scene, &error));
   EXPECT_NE(error.find("mutually exclusive"), std::string::npos);
 }
 
@@ -979,8 +979,8 @@ TEST(SceneDataTest, MissionAreaWithoutWingmenFails) {
     },
     "targets": []
   })json");
-  demo::SceneData scene;
+  app::SceneData scene;
   std::string error;
-  EXPECT_FALSE(demo::LoadSceneData(file.path().string().c_str(), &scene, &error));
+  EXPECT_FALSE(app::LoadSceneData(file.path().string().c_str(), &scene, &error));
   EXPECT_NE(error.find("requires"), std::string::npos);
 }

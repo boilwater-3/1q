@@ -46,10 +46,10 @@ namespace {
 
 #ifndef PE_DEFAULT_SCENE_FILE
 #define PE_DEFAULT_SCENE_FILE \
-  "examples/precision_evaluation/scenes/sbirs_dual_sat_fix/sbirs_dual_sat_fix.json"
+  "examples/scenes/sbirs_dual_sat_fix/sbirs_dual_sat_fix.json"
 #endif
 #ifndef PE_DEFAULT_OUTPUT_DIR
-#define PE_DEFAULT_OUTPUT_DIR "examples/precision_evaluation/log"
+#define PE_DEFAULT_OUTPUT_DIR "examples/log"
 #endif
 
 struct LoadedScene {

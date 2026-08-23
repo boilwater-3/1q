@@ -15,17 +15,17 @@
 
 #include "1q/coordinate/types.h"
 #include "1q/coordinate/velocity_transform.h"
-#include "scene_data.h"
-#include "scene_script.h"
+#include "scenes/scene_data.h"
+#include "scenes/scene_script.h"
 
 namespace ca = component_attachment;
-namespace demo = component_attachment::demo;
+namespace app = component_attachment::app;
 
 namespace {
 
 /// 构造单目标脚本（含两条机动：cycle 200 转北、cycle 260 停北向速度）。
-demo::ScriptedTarget MakeManeuverTarget() {
-  demo::ScriptedTarget target;
+app::ScriptedTarget MakeManeuverTarget() {
+  app::ScriptedTarget target;
   target.id = 1001U;
   target.azimuth_deg = 0.0;
   target.range_m = 12000.0;
@@ -37,12 +37,12 @@ demo::ScriptedTarget MakeManeuverTarget() {
   target.projected_area_m2 = 18.0;
   target.radiant_intensity_w_per_sr = 3819.864;
   target.emitter_center_frequency_hz = 9.5e9;
-  demo::TargetManeuver turn;
+  app::TargetManeuver turn;
   turn.start_cycle = 200U;
   turn.v_east_mps = 47.0;
   turn.v_north_mps = -30.0;  // 转向：向北速 -30 m/s（相对平台快速机动）
   target.maneuvers.push_back(turn);
-  demo::TargetManeuver straighten;
+  app::TargetManeuver straighten;
   straighten.start_cycle = 260U;
   straighten.v_east_mps = 47.0;
   straighten.v_north_mps = 0.0;
@@ -54,8 +54,8 @@ demo::ScriptedTarget MakeManeuverTarget() {
 
 TEST(SceneScriptTest, StateCarriesIdentityAndAppearance) {
   const oneq::coordinate::LlaPositionDegM origin{30.0, 120.0, 0.0};
-  const std::vector<demo::TargetEcefState> states =
-      demo::MakeTargetStates({MakeManeuverTarget()}, origin);
+  const std::vector<app::TargetEcefState> states =
+      app::MakeTargetStates({MakeManeuverTarget()}, origin);
 
   ASSERT_EQ(states.size(), 1U);
   EXPECT_EQ(states[0].id, 1001U);
@@ -72,12 +72,12 @@ TEST(SceneScriptTest, StateCarriesIdentityAndAppearance) {
 
 TEST(SceneScriptTest, ManeuverAppliesProjectedVelocityAtStartCycle) {
   const oneq::coordinate::LlaPositionDegM origin{30.0, 120.0, 0.0};
-  std::vector<demo::TargetEcefState> states =
-      demo::MakeTargetStates({MakeManeuverTarget()}, origin);
+  std::vector<app::TargetEcefState> states =
+      app::MakeTargetStates({MakeManeuverTarget()}, origin);
 
   // 机动前推进（cycle 199）：速度保持初始值，位置沿当前速度推进。
-  const demo::TargetEcefState before = states[0];
-  demo::AdvanceTargetStates(states, 199U, 1.0, origin);
+  const app::TargetEcefState before = states[0];
+  app::AdvanceTargetStates(states, 199U, 1.0, origin);
   EXPECT_NEAR(states[0].position.x_m - before.position.x_m,
               before.velocity.x_mps * 1.0, 1e-6);
   EXPECT_NEAR(states[0].position.y_m - before.position.y_m,
@@ -93,7 +93,7 @@ TEST(SceneScriptTest, ManeuverAppliesProjectedVelocityAtStartCycle) {
   enu.up_mps = 0.0;
   oneq::coordinate::EcefVelocityMps expected;
   oneq::coordinate::TryEnuToEcefVelocity(enu, origin, &expected);
-  demo::AdvanceTargetStates(states, 200U, 1.0, origin);
+  app::AdvanceTargetStates(states, 200U, 1.0, origin);
   EXPECT_NEAR(states[0].velocity.x_mps, expected.x_mps, 1e-9);
   EXPECT_NEAR(states[0].velocity.y_mps, expected.y_mps, 1e-9);
   EXPECT_NEAR(states[0].velocity.z_mps, expected.z_mps, 1e-9);
@@ -101,8 +101,8 @@ TEST(SceneScriptTest, ManeuverAppliesProjectedVelocityAtStartCycle) {
   EXPECT_GT(std::abs(states[0].velocity.y_mps - before.velocity.y_mps), 1.0);
 
   // cycle 201（非机动周期）：速度保持 cycle 200 的值，位置继续推进。
-  const demo::TargetEcefState post_maneuver = states[0];
-  demo::AdvanceTargetStates(states, 201U, 1.0, origin);
+  const app::TargetEcefState post_maneuver = states[0];
+  app::AdvanceTargetStates(states, 201U, 1.0, origin);
   EXPECT_NEAR(states[0].velocity.x_mps, post_maneuver.velocity.x_mps, 1e-9);
   EXPECT_NEAR(states[0].position.x_m - post_maneuver.position.x_m,
               post_maneuver.velocity.x_mps, 1e-6);
@@ -114,8 +114,8 @@ TEST(SceneScriptTest, LaterManeuverOverridesEarlier) {
   // 多段机动：cycle 260 第二条机动（47, 0）覆盖 cycle 200 的（47, -30）——
   // 分段匀速语义，速度按生效条目切换。
   const oneq::coordinate::LlaPositionDegM origin{30.0, 120.0, 0.0};
-  std::vector<demo::TargetEcefState> states =
-      demo::MakeTargetStates({MakeManeuverTarget()}, origin);
+  std::vector<app::TargetEcefState> states =
+      app::MakeTargetStates({MakeManeuverTarget()}, origin);
 
   oneq::coordinate::EnuVelocityMps enu;
   enu.east_mps = 47.0;
@@ -123,7 +123,7 @@ TEST(SceneScriptTest, LaterManeuverOverridesEarlier) {
   enu.up_mps = 0.0;
   oneq::coordinate::EcefVelocityMps expected;
   oneq::coordinate::TryEnuToEcefVelocity(enu, origin, &expected);
-  demo::AdvanceTargetStates(states, 260U, 1.0, origin);
+  app::AdvanceTargetStates(states, 260U, 1.0, origin);
   EXPECT_NEAR(states[0].velocity.x_mps, expected.x_mps, 1e-9);
   EXPECT_NEAR(states[0].velocity.y_mps, expected.y_mps, 1e-9);
   EXPECT_NEAR(states[0].velocity.z_mps, expected.z_mps, 1e-9);

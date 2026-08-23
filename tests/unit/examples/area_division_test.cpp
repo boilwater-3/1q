@@ -20,10 +20,10 @@
 
 #include "1q/coordinate/position_transform.h"
 #include "1q/navigation/AreaCoveragePlanner.h"
-#include "area_division.h"
+#include "scenes/area_division.h"
 
 namespace component_attachment {
-namespace demo {
+namespace app {
 namespace {
 
 using oneq::coordinate::EcefPositionM;
@@ -450,5 +450,5 @@ TEST(AreaDivisionTest, InvalidInputsFail) {
 }
 
 }  // namespace
-}  // namespace demo
+}  // namespace app
 }  // namespace component_attachment
