@@ -31,20 +31,20 @@ class ONEQ_API SbirsCycleInputBuilder {
    */
   SbirsCycleInputBuilder& WithDeltaTimeSec(float dt_sec);
   /**
-   * @brief 设置卫星 ECEF 位置并标记为已提供。
+   * @brief 设置卫星 ECEF 位置（必填：非有限或零向量即校验拒绝）。
    * @param[in] position_ecef_m 卫星位置，单位 m
    * @return 自身引用，支持链式调用
    */
   SbirsCycleInputBuilder& WithSatellitePosition(const SbirsVector3M& position_ecef_m);
   /**
-   * @brief 设置卫星 ECEF 速度并标记为已提供（必填；未设置时校验拒绝）。
-   * @param[in] velocity_ecef_m_per_s 卫星速度，单位 m/s（零向量合法，如 GEO 卫星）
+   * @brief 设置卫星 ECEF 速度（必填：非有限即校验拒绝；零向量合法，如 GEO 卫星）。
+   * @param[in] velocity_ecef_m_per_s 卫星速度，单位 m/s
    * @return 自身引用，支持链式调用
    */
   SbirsCycleInputBuilder& WithSatelliteVelocity(const SbirsVector3M& velocity_ecef_m_per_s);
   /**
-   * @brief 设置卫星姿态欧拉角并标记为已提供（必填；未设置时校验拒绝）。
-   * @param[in] attitude_eci_body_deg 卫星姿态（Z-Y-X，Body->ECI，单位 deg；零欧拉合法）
+   * @brief 设置卫星姿态欧拉角（必填：非有限即校验拒绝；零欧拉合法 = 体轴对齐 ECI）。
+   * @param[in] attitude_eci_body_deg 卫星姿态（Z-Y-X，Body->ECI，单位 deg）
    * @return 自身引用，支持链式调用
    */
   SbirsCycleInputBuilder& WithSatelliteAttitude(

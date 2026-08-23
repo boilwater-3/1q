@@ -692,7 +692,7 @@ TEST(SbirsSessionIntegrationTest, CueLatencyAccountsForSatelliteDisplacementDuri
 }
 
 // 卫星速度必填（合同指标 2）：非有限即整周期校验拒绝，空帧 + error 级 issue。
-TEST(SbirsSessionIntegrationTest, MissingSatelliteVelocityRejectsCycle) {
+TEST(SbirsSessionIntegrationTest, NonFiniteSatelliteVelocityRejectsCycle) {
   SbirsSession session = SbirsSession::Create(MakeSessionConfig());
   SbirsCycleInput input = MakeBaseInput();
   input.satellite_velocity_ecef_m_per_s.x = NAN;  // 注入非有限必填速度
@@ -712,7 +712,7 @@ TEST(SbirsSessionIntegrationTest, MissingSatelliteVelocityRejectsCycle) {
 }
 
 // 卫星姿态必填（阶段 2 指向合成链）：非有限即整周期校验拒绝，空帧 + error 级 issue。
-TEST(SbirsSessionIntegrationTest, MissingSatelliteAttitudeRejectsCycle) {
+TEST(SbirsSessionIntegrationTest, NonFiniteSatelliteAttitudeRejectsCycle) {
   SbirsSession session = SbirsSession::Create(MakeSessionConfig());
   SbirsCycleInput input = MakeBaseInput();
   input.satellite_attitude_eci_body_deg.yaw_deg = NAN;  // 注入非有限必填姿态

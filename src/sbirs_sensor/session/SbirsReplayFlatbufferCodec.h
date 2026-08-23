@@ -18,11 +18,11 @@ namespace sbirs_sensor {
 namespace session {
 
 /**
- * @brief 回放负载版本标识（v2，2026-08 正式变更：ECI 弧度 / 辐射强度 / UTC 儒略日）。
- * @note Encode 写入、Decode 校验：v1 时代的录制（deg/ECEF 语义，且从未写入标识符）
- *       与任何异源负载按标识符不符显式拒绝，避免被 v2 语义静默误解码。
+ * @brief 回放负载版本标识（v3，2026-08-24：必填卫星字段去 has_* 在场标志后表槽位前移）。
+ * @note Encode 写入、Decode 校验：v1 时代（deg/ECEF 语义，无标识符）、v2（"SBI2"，
+ * 含 has_* 标志字段）与任何异源负载按标识符不符显式拒绝，避免跨版本静默误解码。
  */
-constexpr char kSbirsReplayFileIdentifier[] = "SBI2";
+constexpr char kSbirsReplayFileIdentifier[] = "SBI3";
 
 /** @brief 将单周期输入编码为 FlatBuffers payload 字节串。 */
 std::string EncodeSbirsCycleInput(const SbirsCycleInput& value);

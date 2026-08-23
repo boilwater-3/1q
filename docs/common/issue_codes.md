@@ -213,9 +213,9 @@ Last-reviewed: 2026-08-23
 | `sbirs.validation.invalid_pointing_disturbance_values` | 输入校验 | 指向扰动幅值与频率非法（须为非负有限值）。 |
 | `sbirs.validation.invalid_pointing_disturbance_vibration_frequency` | 输入校验 | 指向扰动振动频率非法（幅值非零时须为正）。 |
 | `sbirs.validation.invalid_range_gate` | 输入校验 | 距离门非法（min/max 未有序或为负）。 |
-| `sbirs.validation.invalid_satellite_attitude` | 输入校验 | 卫星姿态缺失或非有限（必填；零欧拉合法 = 体轴对齐 ECI）。 |
-| `sbirs.validation.invalid_satellite_position` | 输入校验 | 卫星位置缺失、非有限或为零向量。 |
-| `sbirs.validation.invalid_satellite_velocity` | 输入校验 | 卫星速度缺失或非有限（必填；ECEF 零向量合法，如 GEO 卫星）。 |
+| `sbirs.validation.invalid_satellite_attitude` | 输入校验 | 卫星姿态非有限（必填；零欧拉合法 = 体轴对齐 ECI）。 |
+| `sbirs.validation.invalid_satellite_position` | 输入校验 | 卫星位置非有限或为零向量（必填）。 |
+| `sbirs.validation.invalid_satellite_velocity` | 输入校验 | 卫星速度非有限（必填；ECEF 零向量合法，如 GEO 卫星）。 |
 | `sbirs.validation.invalid_scan_direction` | 输入校验 | 扫描方向非法。 |
 | `sbirs.validation.invalid_scan_elevation_raster` | 输入校验 | 俯仰栅格非法（span 须非负有限、step 须正有限）。 |
 | `sbirs.validation.invalid_scan_rate` | 输入校验 | 扫描速率非法（须为非负有限值）。 |

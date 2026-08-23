@@ -36,13 +36,13 @@ table SbirsCycleInput {
 }
 
 root_type SbirsCycleInput;
-// v2（2026-08 正式变更）：ECI 弧度输出 / 辐射强度签名 / UTC 儒略日；
-// codec 写入并校验该标识符，v1（"SBIC"，deg/ECEF 语义或无标识符）录制被显式拒绝。
-// 2026-08-17 起周期输入新增必填卫星速度（ECEF）；同日起阶段 2 新增必填卫星姿态
-// （Z-Y-X 欧拉角，Body->ECI）；项目未上线，直接演进、无兼容分支。
-// 2026-08-24 起移除卫星位置/速度/姿态的 has_* 在场标志（必填输入不用可选模式，
-// schema 与结构体同步去标志，旧录制不兼容）。
-file_identifier "SBI2";
+// v2（2026-08 正式变更）：ECI 弧度输出 / 辐射强度签名 / UTC 儒略日；v1（"SBIC"，
+// deg/ECEF 语义或无标识符）录制被显式拒绝。
+// 2026-08-17 起周期输入新增必填卫星速度（ECEF）与必填卫星姿态（Z-Y-X 欧拉角，
+// Body->ECI）。
+// v3（2026-08-24）：必填卫星字段去 has_* 在场标志，表槽位前移——与 v2 载荷互不
+// 兼容，标识符升 SBI3 防静默误解码；项目未上线，无兼容分支。
+file_identifier "SBI3";
 
 table SbirsDetectionRecord {
   detection_id: uint64;

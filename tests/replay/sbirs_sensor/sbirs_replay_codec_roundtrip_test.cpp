@@ -639,7 +639,8 @@ TEST(SbirsReplayCodecRoundtripTest, DecodeRuntimeConfigPatchRejectsNullAndCorrup
 
 TEST(SbirsReplayCodecRoundtripTest, DecodeRejectsLegacyOrForeignIdentifierBuffers) {
   // v1 时代录制从未写入 file_identifier（deg/ECEF 语义）；v2 codec 写入并校验
-  // "SBI2"，标识符不符必须显式拒绝。标识符位于字节 [4,8)（root uoffset 之后）。
+  // 标识符，标识符不符必须显式拒绝。标识符位于字节 [4,8)（root uoffset 之后）。
+  // v3（2026-08-24 去 has_* 槽位变更）起，v2 的 "SBI2" 同样属被拒的旧版本载荷。
   SbirsCycleInput input;
   input.cycle_index = 3U;
   input.dt_sec = 1.0f;
@@ -656,6 +657,10 @@ TEST(SbirsReplayCodecRoundtripTest, DecodeRejectsLegacyOrForeignIdentifierBuffer
   std::string v1_identifier = encoded;
   v1_identifier.replace(4U, 4U, "SBIC");  // v1 声明过的标识符
   EXPECT_FALSE(DecodeSbirsCycleInput(v1_identifier, &legacy_decoded));
+
+  std::string v2_identifier = encoded;
+  v2_identifier.replace(4U, 4U, "SBI2");  // v2 标识符（含 has_* 槽位的旧表）
+  EXPECT_FALSE(DecodeSbirsCycleInput(v2_identifier, &legacy_decoded));
 
   // 其余 sbirs replay 负载同样受护栏保护：篡改标识符后拒绝。
   SbirsOutputFrame frame;
