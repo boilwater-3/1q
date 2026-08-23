@@ -158,10 +158,17 @@ class ChannelSink {
       stream_.close();
     }
     oneq::logging::EnsureParentDirectory(path);
-    stream_.open(path, std::ios::out | std::ios::app | std::ios::binary);
+    // 同一进程内首次打开截断旧内容（重跑进程重写干净的验收文件，避免向归档
+    // 证据目录追加重复行）；进程内再次打开（会话重启等）仍追加，保住本进程
+    // 已写下的行。
+    const std::ios::openmode mode =
+        opened_in_process_ ? (std::ios::out | std::ios::app | std::ios::binary)
+                           : (std::ios::out | std::ios::trunc | std::ios::binary);
+    stream_.open(path, mode);
     if (stream_.is_open()) {
       open_failed_ = false;
       warned_ = false;
+      opened_in_process_ = true;
     } else {
       open_failed_ = true;
       if (!warned_) {
@@ -178,6 +185,7 @@ class ChannelSink {
   std::ofstream stream_;
   bool open_failed_ = false;
   bool warned_ = false;
+  bool opened_in_process_ = false;
 };
 
 ChannelSink& SinkOf(AcceptanceChannel channel) {
