@@ -58,34 +58,56 @@ inline airborne_radar::config::VegetationCoverProfile VegCoverFromString(
 inline void LoadAzEl(const examples::JsonValue& j,
                      airborne_radar::config::AzimuthElevationDeg* v) {
   if (j.IsNull()) return;
-  v->az_deg = static_cast<float>(j["az_deg"].AsDouble());
-  v->el_deg = static_cast<float>(j["el_deg"].AsDouble());
+  if (j.Has("az_deg")) {
+    v->az_deg = static_cast<float>(j["az_deg"].AsDouble());
+  }
+  if (j.Has("el_deg")) {
+    v->el_deg = static_cast<float>(j["el_deg"].AsDouble());
+  }
 }
 
 inline void LoadAzElLimits(const examples::JsonValue& j,
                            airborne_radar::config::AzimuthElevationLimitsDeg* v) {
   if (j.IsNull()) return;
-  v->az_min_deg = static_cast<float>(j["az_min_deg"].AsDouble());
-  v->az_max_deg = static_cast<float>(j["az_max_deg"].AsDouble());
-  v->el_min_deg = static_cast<float>(j["el_min_deg"].AsDouble());
-  v->el_max_deg = static_cast<float>(j["el_max_deg"].AsDouble());
+  if (j.Has("az_min_deg")) {
+    v->az_min_deg = static_cast<float>(j["az_min_deg"].AsDouble());
+  }
+  if (j.Has("az_max_deg")) {
+    v->az_max_deg = static_cast<float>(j["az_max_deg"].AsDouble());
+  }
+  if (j.Has("el_min_deg")) {
+    v->el_min_deg = static_cast<float>(j["el_min_deg"].AsDouble());
+  }
+  if (j.Has("el_max_deg")) {
+    v->el_max_deg = static_cast<float>(j["el_max_deg"].AsDouble());
+  }
 }
 
 inline void LoadCmdBeamwidth(const examples::JsonValue& j,
                              airborne_radar::config::CommandedBeamwidthDeg* v) {
   if (j.IsNull()) return;
-  v->commanded_az_beamwidth_deg =
-      static_cast<float>(j["commanded_az_beamwidth_deg"].AsDouble());
-  v->commanded_el_beamwidth_deg =
-      static_cast<float>(j["commanded_el_beamwidth_deg"].AsDouble());
+  if (j.Has("commanded_az_beamwidth_deg")) {
+    v->commanded_az_beamwidth_deg =
+        static_cast<float>(j["commanded_az_beamwidth_deg"].AsDouble());
+  }
+  if (j.Has("commanded_el_beamwidth_deg")) {
+    v->commanded_el_beamwidth_deg =
+        static_cast<float>(j["commanded_el_beamwidth_deg"].AsDouble());
+  }
 }
 
 inline void LoadEulerAngles(const examples::JsonValue& j,
                             airborne_radar::config::EulerAnglesDeg* v) {
   if (j.IsNull()) return;
-  v->yaw_deg = static_cast<float>(j["yaw_deg"].AsDouble());
-  v->pitch_deg = static_cast<float>(j["pitch_deg"].AsDouble());
-  v->roll_deg = static_cast<float>(j["roll_deg"].AsDouble());
+  if (j.Has("yaw_deg")) {
+    v->yaw_deg = static_cast<float>(j["yaw_deg"].AsDouble());
+  }
+  if (j.Has("pitch_deg")) {
+    v->pitch_deg = static_cast<float>(j["pitch_deg"].AsDouble());
+  }
+  if (j.Has("roll_deg")) {
+    v->roll_deg = static_cast<float>(j["roll_deg"].AsDouble());
+  }
 }
 
 }  // namespace examples

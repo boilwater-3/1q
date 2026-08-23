@@ -74,7 +74,9 @@ AR 始终使用物理探测链。`airborne_radar.json` 启用
 
 示例程序通过轻量 JSON 解析器 `oneq::JsonReader` 加载配置文件，再通过域映射器
 （`examples/common/config_loaders/<域>/config_loader.h`）将 JSON 树转换为对应的
-`*SessionConfig` 结构体。
+`*SessionConfig` 结构体。叶子字段一律 `Has` 门控：**缺键保持库结构体默认值**，
+不会用 0/空串覆写（整块缺失同样整块保持默认）；JSON 值与目标类型不符时按
+`JsonReader` 的宽松转换规则处理。
 
 相关文档：
 - `docs/common/usage.md` — 1q 库消费指南
