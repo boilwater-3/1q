@@ -23,6 +23,7 @@ Last-reviewed: 2026-08-23
 | COMMON-OQ-1 | common | Windows 全链 CI 验收缺口 | 本机构建/交付已成治理事实；CI 仅 macOS、依赖引导无校验 | open |
 | COMMON-OQ-8 | common | 周期时间/窗口静默拒绝 | 三类不同性质的拒绝门被并列；空帧 envelope 语义 AR/ESR 分裂 | open |
 | COMMON-OQ-9 | common | RIR 补丁提交策略归类 | 暂存+下周期批量提交、无 resolver 校验、恒 true，不符现有二分类 | open |
+| COMMON-OQ-10 | common | examples 会话配置三处同构维护 | 模板 + 16 场景 JSON + loader 键映射靠人工同步，字段变更漏一处即静默失配 | open |
 | SAR-OQ-1 | sar | RDA 性能数字是否重测 | /O2 实测数字来自旧档位，需确认是否随真发布档更新 | open |
 | SAR-OQ-2 | sar | 脉冲环缓冲 O(1) 去重契约 | 依赖严格递增不变量，文档无 push 复杂度断言 | open |
 | AR-OQ-2 | airborne_radar | 集成层 rf-world 干扰接线 | examples 从共享 rf-world 派生 interference，模块文档未述 | open |
@@ -100,6 +101,22 @@ Last-reviewed: 2026-08-23
   不得据契约宣称 RIR 属于现有两类之一。
 - **再进入条件 (Stage A)**：会话契约下一轮修订（或 RIR 补丁路径新增真实校验/失败处理）时，
   先冻结 RIR 分类与校验契约，再更新 `session_contract.md` 与本文条目。
+
+### COMMON-OQ-10：examples 会话配置三处同构维护（模板 / 场景 JSON / loader）
+
+- **现状**：session_config"挂载即全量"口径落地后，同一份传感器配置结构存在三处同构拷贝，靠人工同步。
+  1. `examples/basic_config/` 六域模板（batch_validation 夹具同源引用同一批文件）。
+  2. 16 个场景 JSON 的 `session_config` 子块（模板整份拷贝后按场景改值）。
+  3. `examples/common/config_loaders/` 的叶子键映射（决定读哪些键、缺键回落库默认）。
+  [evidence: examples/basic_config]
+- **后果**：传感器配置字段增删改需要人工同步模板 + 16 份场景 JSON + loader 映射；
+  漏一处要么静默失配（缺键回落库默认值），要么场景间隐性漂移；副本完备性目前只能靠人工审计确认。
+- **待决问题**：是否将"场景自持全量副本"收敛为单源机制——运行期模板 ⊕ 场景覆写、
+  脚本生成场景 JSON、CI 键树校验三者的取舍或组合。
+- **当前边界**：保持 schema v2 挂载即全量口径与 16 份全量副本不变；不得在机制定论前
+  引入"部分字段块"混用形态。
+- **再进入条件 (Stage A)**：下一次传感器配置字段增删改需触及超过 5 份 JSON，
+  或发现任一场景 `session_config` 键树与模板漂移。
 
 ## Airborne Radar 非阻塞边界
 
