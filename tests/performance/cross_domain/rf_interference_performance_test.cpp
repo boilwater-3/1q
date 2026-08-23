@@ -25,6 +25,8 @@
 #endif
 
 #include "1q/airborne_radar/airborne_radar.hpp"
+#include "1q/coordinate/position_transform.h"
+#include "1q/coordinate/scene_transform.h"
 #include "1q/electromagnetics/RfScene.h"
 #include "1q/electronic_surveillance_radar/electronic_surveillance_radar.hpp"
 
