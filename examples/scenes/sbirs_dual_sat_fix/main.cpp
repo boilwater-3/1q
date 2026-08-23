@@ -36,6 +36,7 @@
 #include "1q/precision_evaluation/PrecisionEvaluationTypes.h"
 #include "1q/sbirs_sensor/config/SbirsSessionConfig.h"
 #include "json_reader.h"
+#include "app/output_dir.h"
 #include "logger/acceptance_paths.h"
 
 namespace pe = precision_evaluation;
@@ -52,6 +53,7 @@ namespace {
 
 struct LoadedScene {
   std::uint32_t cycles{60U};
+  std::string log_dir{};
   float dt_sec{1.0f};
   double utc_julian_day{2451544.2230698913};
   pe::PrecisionEvaluationConfig config{};
@@ -155,6 +157,17 @@ bool LoadScene(const char* path, LoadedScene* scene, std::string* error) {
   }
   if (root.Has("dt_sec")) {
     scene->dt_sec = static_cast<float>(root["dt_sec"].AsDouble());
+  }
+  // 场景自带日志输出目录（强制约束）：相对路径（基点 examples/log/），无 ..。
+  if (!root["log_dir"].IsString() || root["log_dir"].AsString().empty()) {
+    *error = "missing required \"log_dir\"（相对 examples/log/ 的路径）";
+    return false;
+  }
+  scene->log_dir = root["log_dir"].AsString();
+  if (scene->log_dir[0] == '/' ||
+      scene->log_dir.find("..") != std::string::npos) {
+    *error = "invalid \"log_dir\"：须为相对路径且不含 ..";
+    return false;
   }
   if (root.Has("utc_julian_day")) {
     scene->utc_julian_day = root["utc_julian_day"].AsDouble();
@@ -316,23 +329,13 @@ int main(int argc, char* argv[]) {
   }
 
   if (!output_dir_overridden) {
-    std::string slug = scene_path;
-    for (std::size_t i = 0U; i < slug.size(); ++i) {
-      if (slug[i] == '\\') {
-        slug[i] = '/';
-      }
-    }
-    while (!slug.empty() && slug[slug.size() - 1U] == '/') {
-      slug.erase(slug.size() - 1U);
-    }
-    const std::size_t slash = slug.find_last_of('/');
-    const std::string parent = (slash == std::string::npos) ? std::string() : slug.substr(0U, slash);
-    const std::size_t parent_slash = parent.find_last_of('/');
-    const std::string parent_name =
-        (parent_slash == std::string::npos) ? parent : parent.substr(parent_slash + 1U);
-    if (!parent_name.empty()) {
-      output_dir = std::string(PE_DEFAULT_OUTPUT_DIR) + "/" + parent_name;
-    }
+    output_dir = std::string(PE_DEFAULT_OUTPUT_DIR) + "/" + scene.log_dir;
+  }
+  if (component_attachment::app::IsInsideTempArea(output_dir)) {
+    std::cerr << "refusing output dir \"" << output_dir
+              << "\": 场景产物禁止落到系统临时目录（强制约束；输出位置由场景 "
+                 "JSON 的 log_dir 声明，--output-dir 仅允许非临时目录覆盖）\n";
+    return 1;
   }
   std::error_code fs_error;
   app_fs::create_directories(output_dir, fs_error);

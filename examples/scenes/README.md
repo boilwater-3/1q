@@ -166,6 +166,7 @@ config_loader，遵循惯例：块内缺省字段静默默认、语法错误与�
 | 块 | 必填 | 字段（缺省值） |
 | --- | --- | --- |
 | `name` / `cycles` / `dt_sec` | 否 | 场景名 / 周期数（400）/ 步长 s（1.0） |
+| `log_dir` | **是** | 本场景日志输出目录（相对 `examples/log/` 的路径，如 `"baseline_takeoff_east"`；须相对且不含 `..`。运行期对最终目录做临时区硬拒——`--output-dir` 覆盖同样受约束） |
 | `platform` | **是** | `origin_lat_deg`/`origin_lon_deg`（**必填**）、`origin_alt_m`（0）、`initial_heading_deg`（90）、`cruise_altitude_m`（400）、`cruise_speed_mps`（50）、`waypoints[]`（lat/lon 必填，alt/speed 缺省回退巡航参数、radius 500；**与块内 `coverage` 互斥**）、`coverage`（可选区域巡逻任务，字段见下） |
 | `platforms[]` | 否 | 从机数组（多机编队，纯飞行不挂传感器）：每条目同 `platform` 块字段 + `name`（缺省 `wingman_<N>`）；巡航参数缺省回退主平台值 |
 | `coverage`（platform/platforms[] 条目内） | 否 | 区域巡逻任务：`kind`（polygon/circle）、`mode`（scan/orbit，须与 kind 匹配）、polygon `vertices[]`（lat/lon 必填）或 circle `center` + `radius_m`、`scan_heading_deg`（0 = 扫描线沿正东）、`scan_spacing_m`（须 > 0）、`altitude_m`/`speed_mps`（缺省回退巡航参数）、`arrival_radius_m`（500）、`orbit_segments`（8）/`orbit_rings`（1）。加载时经 `navigation::AreaCoveragePlanner` 生成巡逻航路（填入该平台的 `waypoints`），**循环巡逻**（航路飞完回绕首航点）；规划失败（顶点 < 3/间距非正/模式-区域不匹配等）报错退出 |

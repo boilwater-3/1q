@@ -9,6 +9,8 @@
  */
 #include "app/runner.h"
 
+#include "app/output_dir.h"
+
 #include <algorithm>
 #include <chrono>
 #include <cstdint>
@@ -82,29 +84,6 @@ constexpr char kDefaultOutputDir[] = CA_DEFAULT_OUTPUT_DIR;
 constexpr char kDefaultOutputDir[] = "examples/log";
 #endif
 
-std::string SceneSlugFromPath(const std::string& scene_path) {
-  std::string path = scene_path;
-  for (std::size_t i = 0U; i < path.size(); ++i) {
-    if (path[i] == '\\') {
-      path[i] = '/';
-    }
-  }
-  while (!path.empty() && path[path.size() - 1U] == '/') {
-    path.erase(path.size() - 1U);
-  }
-  const std::size_t slash = path.find_last_of('/');
-  const std::string parent = (slash == std::string::npos) ? std::string() : path.substr(0U, slash);
-  const std::size_t parent_slash = parent.find_last_of('/');
-  const std::string parent_name =
-      (parent_slash == std::string::npos) ? parent : parent.substr(parent_slash + 1U);
-  if (!parent_name.empty() && parent_name != "." && parent_name != "..") {
-    return parent_name;
-  }
-  const std::string file = (slash == std::string::npos) ? path : path.substr(slash + 1U);
-  const std::size_t dot = file.rfind('.');
-  return (dot == std::string::npos || dot == 0U) ? file : file.substr(0U, dot);
-}
-
 void PrintUsage(const char* program) {
   std::cout << "Usage: " << program
             << " [--scene <path>] [--cycles <n>] [--view-every <n>] [--output-dir <dir>]\n"
@@ -149,7 +128,14 @@ int RunScene(const std::string& scene_path, const RunOptions& options) {
   }
   app::SetViewLogEveryCycles(view_every);
   if (!output_dir_overridden) {
-    output_dir = std::string(app::kDefaultOutputDir) + "/" + app::SceneSlugFromPath(scene_path);
+    // 场景自带日志落点：log_dir（场景 JSON 必填，解析基点 examples/log/）。
+    output_dir = std::string(kDefaultOutputDir) + "/" + scene_data.log_dir;
+  }
+  if (app::IsInsideTempArea(output_dir)) {
+    std::cerr << "refusing output dir \"" << output_dir
+              << "\": 场景产物禁止落到系统临时目录（强制约束；输出位置由场景 "
+                 "JSON 的 log_dir 声明，--output-dir 仅允许非临时目录覆盖）\n";
+    return 1;
   }
   app_fs::create_directories(output_dir);
 

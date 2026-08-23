@@ -2,6 +2,7 @@
   "name": "no_targets_clean_airspace",
   "cycles": 400,
   "dt_sec": 1.0,
+  "log_dir": "no_targets_clean_airspace",
   "platform": {
     "origin_lat_deg": 30.0,
     "origin_lon_deg": 120.0,

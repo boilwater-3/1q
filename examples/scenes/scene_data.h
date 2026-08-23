@@ -149,6 +149,10 @@ struct EsrEmitterParams {
 /// 周期数/步长按场景文件控制）；平台与目标几何字段为必填（loader 校验）。
 struct SceneData {
   std::string name{"unnamed_scene"};        /**< 场景名（摘要打印） */
+  std::string log_dir{};                    /**< 本场景日志输出目录（相对
+                                                  examples/log/ 的路径；四参加载
+                                                  必填——场景自带日志落点，禁止
+                                                  漂到运行目录或临时目录） */
   std::uint32_t cycles{400U};               /**< 周期数（缺省 = demo_config kNumCycles） */
   std::uint32_t view_log_every_cycles{1U};  /**< 视图摘要间隔：周期 % 此值 == 0 才写；1 = 每周期 */
   double dt_sec{1.0};                       /**< 步长（s，缺省 = demo_config kDtSec） */

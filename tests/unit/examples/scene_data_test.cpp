@@ -58,6 +58,7 @@ app::SceneData LoadOk(const std::string& content) {
 /// 与 scenes/baseline_takeoff_east/baseline_takeoff_east.json 同值的基线场景内容。
 constexpr char kBaselineSceneJson[] = R"json({
   "name": "baseline_takeoff_east",
+  "log_dir": "baseline_takeoff_east",
   "cycles": 400,
   "dt_sec": 1.0,
   "platform": {
@@ -239,6 +240,7 @@ TEST(SceneDataTest, FusionAndSmokeOverrides) {
   ScopedSceneFile file(R"json({
     "platform": {"origin_lat_deg": 30.0, "origin_lon_deg": 120.0},
     "targets": [],
+    "log_dir": "test",
     "sensors": {"ar": false, "esr": false, "eos": false, "sbirs": false, "sar": false},
     "session_config": {"fusion": {"bearing_beamwidth_deg": 12.0, "source_weights": [0.0, 0.5]},
                        "threat": {}},
@@ -367,7 +369,7 @@ TEST(SceneDataTest, SessionConfigRequiredForFullLoad) {
   // 四参重载（场景可执行/通用 runner 的加载路径）：session_config 缺失 →
   // 报错；挂载即全量——挂载通道缺子块、未挂载通道携带子块均报错。
   ScopedSceneFile file(R"json({"platform": {"origin_lat_deg": 30.0, "origin_lon_deg": 120.0},
-    "targets": []})json");
+    "targets": [], "log_dir": "test"})json");
   app::SceneData scene;
   app::SceneSessionConfigs configs;
   std::string error;
@@ -380,6 +382,7 @@ TEST(SceneDataTest, SessionConfigUnmountedSensorBlockRejected) {
   // 的 fusion/threat（可为空对象）→ 通过；额外携带未挂载通道的 ar 块 → 报错。
   const char* ok_json = R"json({"platform": {"origin_lat_deg": 30.0, "origin_lon_deg": 120.0},
     "targets": [],
+    "log_dir": "test",
     "sensors": {"ar": false, "esr": false, "eos": false, "sbirs": false, "sar": false},
     "session_config": {"fusion": {}, "threat": {}}})json";
   app::SceneData scene;
@@ -392,6 +395,7 @@ TEST(SceneDataTest, SessionConfigUnmountedSensorBlockRejected) {
   }
   const std::string with_ar = std::string(R"json({"platform": {"origin_lat_deg": 30.0, "origin_lon_deg": 120.0},
     "targets": [],
+    "log_dir": "test",
     "sensors": {"ar": false, "esr": false, "eos": false, "sbirs": false, "sar": false},
     "session_config": {"fusion": {}, "threat": {}, "ar": {"hardware": {}}}})json");
   ScopedSceneFile file(with_ar);
@@ -404,7 +408,7 @@ TEST(SceneDataTest, SessionConfigMountedSensorBlockRequiredAndParsed) {
   // 挂载 EOS（默认 true）：session_config 缺 eos 子块 → 报错；携带子块后
   // 字段按模板结构解析（帧率来自 mission.frame_rate_hz）。
   const std::string missing = std::string(R"json({"platform": {"origin_lat_deg": 30.0, "origin_lon_deg": 120.0},
-    "targets": [], "sensors": {"ar": false, "esr": false, "eos": true, "sbirs": false, "sar": false},
+    "targets": [], "log_dir": "test", "sensors": {"ar": false, "esr": false, "eos": true, "sbirs": false, "sar": false},
     "session_config": {"fusion": {}, "threat": {}}})json");
   app::SceneData scene;
   app::SceneSessionConfigs configs;
@@ -415,7 +419,7 @@ TEST(SceneDataTest, SessionConfigMountedSensorBlockRequiredAndParsed) {
     EXPECT_NE(error.find("session_config.eos"), std::string::npos);
   }
   const std::string with_eos = std::string(R"json({"platform": {"origin_lat_deg": 30.0, "origin_lon_deg": 120.0},
-    "targets": [], "sensors": {"ar": false, "esr": false, "eos": true, "sbirs": false, "sar": false},
+    "targets": [], "log_dir": "test", "sensors": {"ar": false, "esr": false, "eos": true, "sbirs": false, "sar": false},
     "session_config": {"fusion": {}, "threat": {},
       "eos": {"mission": {"frame_rate_hz": 12.5}}}})json");
   ScopedSceneFile file(with_eos);
@@ -424,11 +428,51 @@ TEST(SceneDataTest, SessionConfigMountedSensorBlockRequiredAndParsed) {
   EXPECT_FLOAT_EQ(configs.eos.mission.frame_rate_hz, 12.5f);
 }
 
+TEST(SceneDataTest, LogDirRequiredForFullLoad) {
+  // 四参加载：log_dir 必填（场景自带日志落点，禁止漂到运行目录/临时目录）。
+  ScopedSceneFile file(R"json({"platform": {"origin_lat_deg": 30.0, "origin_lon_deg": 120.0},
+    "targets": [],
+    "sensors": {"ar": false, "esr": false, "eos": false, "sbirs": false, "sar": false},
+    "session_config": {"fusion": {}, "threat": {}}})json");
+  app::SceneData scene;
+  app::SceneSessionConfigs configs;
+  std::string error;
+  EXPECT_FALSE(app::LoadSceneData(file.path().string().c_str(), &scene, &configs, &error));
+  EXPECT_NE(error.find("log_dir"), std::string::npos) << error;
+}
+
+TEST(SceneDataTest, LogDirRejectsTraversalAndAbsolute) {
+  // log_dir 须为相对路径且不含 ..（解析基点 examples/log/，防逃逸日志根）。
+  app::SceneData scene;
+  app::SceneSessionConfigs configs;
+  std::string error;
+  for (const char* bad : {"../escape", "/abs/dir", "a/../.."}) {
+    const std::string json = std::string(R"json({"platform": {"origin_lat_deg": 30.0, "origin_lon_deg": 120.0},
+    "targets": [], "log_dir": ")json") + bad +
+        R"json("})json";
+    ScopedSceneFile file(json);
+    EXPECT_FALSE(app::LoadSceneData(file.path().string().c_str(), &scene, &configs, &error))
+        << bad;
+    EXPECT_NE(error.find("log_dir"), std::string::npos) << bad;
+  }
+}
+
+TEST(SceneDataTest, UnknownTopLevelKeyRejected) {
+  // schema 正式化：未知顶层键报错（拼写保护——错键名静默忽略会让调参失效）。
+  ScopedSceneFile file(R"json({"platform": {"origin_lat_deg": 30.0, "origin_lon_deg": 120.0},
+    "targets": [], "log_dir": "test", "fusio_typo": 1})json");
+  app::SceneData scene;
+  app::SceneSessionConfigs configs;
+  std::string error;
+  EXPECT_FALSE(app::LoadSceneData(file.path().string().c_str(), &scene, &configs, &error));
+  EXPECT_NE(error.find("fusio_typo"), std::string::npos) << error;
+}
+
 TEST(SceneDataTest, SessionConfigEcmParsed) {
   // ecm.enabled 场景携带 session_config.ecm（原 MakeDefaultEcmConfig 代码默认
   // 数据化）：发射机设备号/通道数/功率上限/默认技术解析入库配置。
   ScopedSceneFile file(R"json({"platform": {"origin_lat_deg": 30.0, "origin_lon_deg": 120.0},
-    "targets": [], "sensors": {"ar": false, "esr": false, "eos": false, "sbirs": false, "sar": false},
+    "targets": [], "log_dir": "test", "sensors": {"ar": false, "esr": false, "eos": false, "sbirs": false, "sar": false},
     "ecm": {"enabled": true},
     "session_config": {"fusion": {}, "threat": {},
       "ecm": {"transmitter_equipment_id": 101, "channel_count": 1,

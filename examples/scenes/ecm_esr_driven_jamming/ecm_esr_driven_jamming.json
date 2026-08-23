@@ -2,6 +2,7 @@
   "name": "ecm_esr_driven_jamming",
   "cycles": 120,
   "dt_sec": 1.0,
+  "log_dir": "ecm_esr_driven_jamming",
   "platform": {
     "origin_lat_deg": 30.0,
     "origin_lon_deg": 120.0,

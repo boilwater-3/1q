@@ -2,6 +2,7 @@
   "name": "threat_multi_target",
   "cycles": 400,
   "dt_sec": 1.0,
+  "log_dir": "threat_multi_target",
   "platform": {
     "origin_lat_deg": 30.0,
     "origin_lon_deg": 120.0,

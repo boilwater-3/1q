@@ -39,6 +39,9 @@ class JsonValue {
 
   std::size_t Size() const { return children_.size(); }
   bool Has(const char* key) const;
+  /// Object member names in insertion order (empty for non-objects)——schema
+  /// 校验（未知键拒绝）遍历用。
+  const std::vector<std::string>& Keys() const { return keys_; }
 
  private:
   friend class JsonReader;

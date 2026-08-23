@@ -236,6 +236,8 @@ namespace {
 bool ParseSceneBody(const examples::JsonValue& root, SceneData* scene, std::string* error);
 bool LoadSessionConfigs(const examples::JsonValue& root, const SceneData& scene,
                         SceneSessionConfigs* configs, std::string* error);
+bool ValidateFullLoadExtras(const examples::JsonValue& root, SceneData* scene,
+                            std::string* error);
 
 }  // namespace
 
@@ -272,6 +274,9 @@ bool LoadSceneData(const char* path, SceneData* scene, SceneSessionConfigs* conf
     return false;
   }
   if (!ParseSceneBody(root, scene, error)) {
+    return false;
+  }
+  if (!ValidateFullLoadExtras(root, scene, error)) {
     return false;
   }
   return LoadSessionConfigs(root, *scene, configs, error);
@@ -644,6 +649,48 @@ bool ParseSceneBody(const examples::JsonValue& root, SceneData* scene,
   }
 
   *scene = std::move(out);
+  return true;
+}
+
+/// 四参加载的额外校验：log_dir 必填 + 顶层未知键拒绝（schema 正式化后的
+/// 拼写保护——错键名静默忽略会让调参悄悄失效）。三参重载（单测场景层路径）
+/// 不做这两项，保持夹具最小。
+bool ValidateFullLoadExtras(const examples::JsonValue& root, SceneData* scene,
+                            std::string* error) {
+  static const char* kAllowedKeys[] = {
+      "name",  "cycles", "dt_sec", "view_log_every_cycles", "platform",
+      "platforms", "mission_area", "targets", "esr", "sbirs_satellite",
+      "sensors", "rir", "ecm", "commands", "high_threat_confidence",
+      "smoke", "session_config", "log_dir"};
+  for (const std::string& key : root.Keys()) {
+    bool known = false;
+    for (const char* allowed : kAllowedKeys) {
+      if (key == allowed) {
+        known = true;
+        break;
+      }
+    }
+    if (!known) {
+      *error = "unknown scene key \"" + key +
+               "\"（schema v2 顶层键集见 scenes/README.md；调参多在 "
+               "session_config 子块内）";
+      return false;
+    }
+  }
+  const examples::JsonValue& log_dir = root["log_dir"];
+  if (!log_dir.IsString() || log_dir.AsString().empty()) {
+    *error = "missing required \"log_dir\"（场景自带日志输出目录：相对 "
+             "examples/log/ 的路径，如 \"baseline_takeoff_east\"）";
+    return false;
+  }
+  const std::string& dir = log_dir.AsString();
+  const bool absolute = !dir.empty() && (dir[0] == '/' || dir[1] == ':');
+  if (absolute || dir.find("..") != std::string::npos) {
+    *error = "invalid \"log_dir\" \"" + dir +
+             "\"：须为相对路径且不含 ..（解析基点 = examples/log/）";
+    return false;
+  }
+  scene->log_dir = dir;
   return true;
 }
 
