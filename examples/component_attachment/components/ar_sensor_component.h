@@ -96,6 +96,7 @@ class ArSensorComponent : public Component {
   Entity* host_{nullptr};
   std::vector<fusion::DetectionRecord> detections_{};
   bool powered_on_{true}; /**< 电源状态（由 sensor_enabled 补丁唯一维护；关机时组件不驱动会话） */
+  std::uint64_t prev_designated_target_id_{0U}; /**< 上一周期指定目标 ID（锁定生效/终态沿事件判定；0 = 无指定） */
   airborne_radar::session::ArTrackOutputDebugView last_debug_view_{}; /**< 最近周期调试视图快照（规则 12 落盘） */
   std::vector<airborne_radar::session::ArTrackAttributionRecord> last_track_attributions_{}; /**< 最近成功周期航迹归属表（指令路由器键翻译） */
   std::uint64_t platform_entity_id_{1U};          /**< RF platform_id（rf_world 派生干扰时排除本机发射链） */

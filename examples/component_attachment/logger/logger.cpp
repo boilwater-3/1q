@@ -74,6 +74,7 @@ const char* EventTypeName(const char* type) {
       {"command_issued", "指令下发"},
       {"command_executed", "指令执行"},
       {"command_dropped", "指令未执行"},
+      {"ar_designation", "AR 指定锁定"},
       {"exclusion_cause", "排除原因变化"},
       {"rir_recognition", "RIR 识别确认"},
       {"rir_designation", "RIR 指定任务"},

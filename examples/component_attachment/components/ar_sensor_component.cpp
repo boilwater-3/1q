@@ -304,6 +304,39 @@ void ArSensorComponent::Step(World& world, double dt_sec) {
   last_track_attributions_ = result.track_attributions;
   PublishEquipmentEmissions(&mutable_scene, result.emission_frame);
 
+  // STT 指定任务沿事件（与 RIR 组件 rir_designation 同形）：designated_target_id
+  // 非零归零沿 = 任务终态——回退标志区分超时作废与正常结束；无标志归零为
+  // 指定目标航迹确认后的锁定解除（外部清除/任务完成）。锁定生效沿（0→非零）
+  // 证明指令事件 → 运行期补丁 → 会话消费的闭环可见。
+  if (result.designated_target_id != 0U && prev_designated_target_id_ == 0U) {
+    // 与下方写入行同内容：纯 std::string/std::to_string 拼接的日志字符串，供集成方直接搬入己方日志（示例自身不消费）。
+    const std::string ar_designation_log =
+        std::string("指定目标=") +
+        std::to_string(static_cast<unsigned long long>(result.designated_target_id)) +
+        " 类型=STT锁定生效 生效模式=" +
+        std::to_string(static_cast<unsigned long long>(
+            static_cast<int>(result.effective_work_mode)));
+    CA_LOG_EVENT(world, "ar_designation",
+                 "指定目标={} 类型=STT锁定生效 生效模式={}",
+                 static_cast<unsigned long long>(result.designated_target_id),
+                 static_cast<int>(result.effective_work_mode));
+  } else if (result.designated_target_id == 0U && prev_designated_target_id_ != 0U) {
+    const bool timed_out = result.designation_reverted_to_tws;
+    // 与下方写入行同内容：纯 std::string/std::to_string 拼接的日志字符串，供集成方直接搬入己方日志（示例自身不消费）。
+    const std::string ar_designation_log_2 =
+        std::string("指定目标=") +
+        std::to_string(static_cast<unsigned long long>(prev_designated_target_id_)) +
+        " 类型=" +
+        (timed_out ? "窗口耗尽作废回扫" : "锁定解除回扫") +
+        " 回退=" +
+        (timed_out ? "是" : "否");
+    CA_LOG_EVENT(world, "ar_designation", "指定目标={} 类型={} 回退={}",
+                 static_cast<unsigned long long>(prev_designated_target_id_),
+                 timed_out ? "窗口耗尽作废回扫" : "锁定解除回扫",
+                 timed_out ? "是" : "否");
+  }
+  prev_designated_target_id_ = result.designated_target_id;
+
   // 事件转发与探测适配统一用外部轨迹帧（雷达局部坐标 → ECEF 已在
   // ArCycleOutputAdapter 边界转换；内部帧为 TrackStateSnapshot，无 ECEF）。
   airborne_radar::session::ArExternalTrackOutputFrame external_frame;
