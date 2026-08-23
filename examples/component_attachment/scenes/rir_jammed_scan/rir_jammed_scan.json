@@ -1,0 +1,181 @@
+{
+  "name": "rir_jammed_scan",
+  "cycles": 400,
+  "dt_sec": 1.0,
+  "platform": {
+    "origin_lat_deg": 30.0,
+    "origin_lon_deg": 120.0,
+    "origin_alt_m": 0.0,
+    "initial_heading_deg": 90.0,
+    "cruise_altitude_m": 400.0,
+    "cruise_speed_mps": 50.0,
+    "waypoints": [
+      {
+        "lat_deg": 30.0,
+        "lon_deg": 120.05,
+        "alt_m": 400.0,
+        "speed_mps": 50.0,
+        "radius_m": 500.0
+      },
+      {
+        "lat_deg": 30.0,
+        "lon_deg": 120.1,
+        "alt_m": 400.0,
+        "speed_mps": 50.0,
+        "radius_m": 500.0
+      },
+      {
+        "lat_deg": 30.0,
+        "lon_deg": 120.15,
+        "alt_m": 400.0,
+        "speed_mps": 50.0,
+        "radius_m": 500.0
+      }
+    ]
+  },
+  "targets": [
+    {
+      "id": 1001,
+      "azimuth_deg": 90.0,
+      "range_m": 3194955.0,
+      "altitude_m": 1162868.0,
+      "v_east_mps": 0.0,
+      "v_north_mps": 2500.0,
+      "temperature_k": 520.0,
+      "rcs_m2": 0.025,
+      "projected_area_m2": 2.0,
+      "radiant_intensity_w_per_sr": 0.0,
+      "emitter_center_frequency_hz": 0.0,
+      "rir": {
+        "rcs_dbsm": -16.0206,
+        "pol_ch1_dbsm": -16.0,
+        "pol_ch2_dbsm": -19.0,
+        "pol_cross_dbsm": -26.0,
+        "pol_phase_vv_deg": 30.0,
+        "truth_model": "RCS-0.025",
+        "scatterers": [
+          {
+            "offset_m": 0.0,
+            "rcs_dbsm": -16.0
+          },
+          {
+            "offset_m": 6.0,
+            "rcs_dbsm": -16.0
+          },
+          {
+            "offset_m": 12.0,
+            "rcs_dbsm": -16.0
+          }
+        ]
+      }
+    },
+    {
+      "id": 1002,
+      "azimuth_deg": 90.0,
+      "range_m": 8034372.0,
+      "altitude_m": 2924272.0,
+      "v_east_mps": 0.0,
+      "v_north_mps": 6287.0,
+      "temperature_k": 300.0,
+      "rcs_m2": 1.0,
+      "projected_area_m2": 10.0,
+      "radiant_intensity_w_per_sr": 0.0,
+      "emitter_center_frequency_hz": 0.0,
+      "rir": {
+        "rcs_dbsm": 0.0,
+        "pol_ch1_dbsm": 0.0,
+        "pol_ch2_dbsm": -3.0,
+        "pol_cross_dbsm": -10.0,
+        "pol_phase_vv_deg": 20.0,
+        "truth_model": "RCS-1.0",
+        "scatterers": [
+          {
+            "offset_m": 0.0,
+            "rcs_dbsm": 0.0
+          },
+          {
+            "offset_m": 8.0,
+            "rcs_dbsm": 0.0
+          },
+          {
+            "offset_m": 16.0,
+            "rcs_dbsm": 0.0
+          }
+        ]
+      }
+    }
+  ],
+  "esr": {
+    "peak_gain_dbi": 30.0,
+    "bandwidth_hz": 2000000.0,
+    "peak_power_w": 50000000.0,
+    "pulse_width_s": 1e-06,
+    "pri_s": 0.001,
+    "pulse_count": 200,
+    "timing_seed": 42
+  },
+  "sbirs_satellite": {
+    "altitude_m": 500000.0
+  },
+  "eos_scan": {
+    "frame_rate_hz": 10.0,
+    "scan_rate_deg_per_sec": 20.0,
+    "scan_start_az_deg": 50.0,
+    "scan_end_az_deg": 130.0,
+    "scan_center_el_deg": 0.0,
+    "boresight_depression_deg": 0.0
+  },
+  "sar": {
+    "peak_power_w": 1000000.0,
+    "antenna_gain_db": 40.0,
+    "max_squint_deg": 10.0,
+    "scene_center_latitude_deg": 30.117117117117118,
+    "scene_center_longitude_deg": 120.06,
+    "scene_center_altitude_m": 400.0,
+    "slant_range_m": 13000.0,
+    "platform_speed_mps": 50.0
+  },
+  "sensors": {
+    "ar": false,
+    "esr": true,
+    "eos": false,
+    "sbirs": false,
+    "sar": false
+  },
+  "rir": {
+    "enabled": true,
+    "site": {
+      "lat_deg": 30.0,
+      "lon_deg": 120.0,
+      "alt_m": 0.0
+    },
+    "designated_target_id": 0,
+    "designation_duration_cycles": 0
+  },
+  "fusion": {
+    "position_radius_m": 50000.0,
+    "bearing_beamwidth_deg": 8.0,
+    "feature_threshold": 0.0,
+    "window_size": 10,
+    "max_missed_cycles": 5,
+    "source_weights": [
+      0.0,
+      1.0,
+      0.8,
+      0.6,
+      0.5,
+      0.6
+    ]
+  },
+  "high_threat_confidence": 3.0,
+  "smoke": {
+    "min_key_events": 0,
+    "min_sbirs_events": 0,
+    "min_sar_products": 0,
+    "min_fused_targets": 1,
+    "min_rir_recognition_outputs": 0
+  },
+  "ecm": {
+    "enabled": true
+  }
+}
