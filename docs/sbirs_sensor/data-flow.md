@@ -270,11 +270,13 @@ capture/restore）。
 3. 卫星和目标 ECEF 必须有限且非原点；`target_id` 必须非零且周期内唯一；
     UTC 儒略日（`utc_julian_day`）必须正有限（缺失 = 0 即校验拒绝；ECI 输出参考系必需）。
 4. 目标速度在 `has_velocity_ecef_m_per_s=true` 时必须有限，为 false 时必须是有限零向量。
-5. 卫星速度（`satellite_velocity_ecef_m_per_s`）必填（2026-08-17 起，合同指标 2）：缺失或非有限即
-    校验拒绝（code `sbirs.validation.invalid_satellite_velocity`）；ECEF 零向量合法（如 GEO 卫星）。
+5. 卫星速度（`satellite_velocity_ecef_m_per_s`）必填（2026-08-17 起，合同指标 2）：非有限即校验拒绝
+    （code `sbirs.validation.invalid_satellite_velocity`；2026-08-24 起无在场标志，缺失≡零值≡合法）；
+    ECEF 零向量合法（如 GEO 卫星）。
     速度旋入 ECI 后与目标速度合成相对视线角速度，驱动动态滞后误差、cue 延迟外推与 EKF R 阵。
-6. 卫星姿态（`satellite_attitude_eci_body_deg`）必填（2026-08-17 起，阶段 2 指向合成链）：缺失或
-    非有限即校验拒绝（code `sbirs.validation.invalid_satellite_attitude`）；零欧拉合法（体轴对齐
+6. 卫星姿态（`satellite_attitude_eci_body_deg`）必填（2026-08-17 起，阶段 2 指向合成链）：非有限即
+    校验拒绝（code `sbirs.validation.invalid_satellite_attitude`；2026-08-24 起无在场标志，零欧拉即
+    合法默认）；零欧拉合法（体轴对齐
     ECI）。姿态与安装角（及阶段 3 安装失准，静态配置）复合为指向合成链，驱动 WFOV/NFOV 内部光轴
     几何；安装失准 bias/sigma 由会话配置校验（code `sbirs.validation.invalid_misalignment`）。
 7. 启用 environment override 时，天气/海况枚举、绝对温度下限、湿度、能见度、透过率和交互权重全部校验。

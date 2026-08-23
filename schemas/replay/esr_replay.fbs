@@ -2,6 +2,8 @@
 // ESR 模块 replay FlatBuffers schema：cycle_input 与 cycle_output 载荷
 //
 // file_identifier: ESRC (ESR Cycle)
+// 2026-08-24：EsrCycleInput 去 has_platform_ecef_kinematics 在场标志（必填输入不用
+// 可选模式），表槽位前移——与此前载荷互不兼容；项目未上线，无兼容分支。
 
 namespace esr.replay;
 
