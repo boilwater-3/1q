@@ -1,6 +1,7 @@
 ---
-Status: draft
+Status: final
 Date: 2026-08-15
+Completed: 2026-08-16（#1-#3 阶段 3）+ 2026-08-21（#4/#5/#7 阶段 3b）；逐项评估表为最终判定记录
 Amended: 2026-08-21（#4/#5/#7 分类推翻；见 `ar_rir_shared_capability_extract_audit_2026-08-21.md`）
 Review-Baseline: `feature/remote-identification-radar-phase1` @ `63962f62`
 Authority: 阶段 3 common 化收敛的逐项评估结论与执行立项（评估 + 执行计划入口）。

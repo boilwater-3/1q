@@ -1,7 +1,8 @@
 ---
-Status: draft
+Status: final
 Date: 2026-08-21
-Authority: 阶段 3b common 化执行计划（大气/有效 RCS/检测单元账本/CFAR 编排/冻结波束/航迹池·关联核·生命周期计数）
+Completed: 2026-08-21（`e702de90` refactor(common): extract AR/RIR shared detection and track kernels）
+Authority: 阶段 3b common 化执行计划（大气/有效 RCS/检测单元账本/CFAR 编排/冻结波束/航迹池·关联核·生命周期计数）——已执行完毕
 Related-Authority:
   - 审核决策：`ar_rir_shared_capability_extract_audit_2026-08-21.md`
   - 评估（#4/#5/#7 已推翻）：`common_consolidation_assessment_2026-08-15.md`
@@ -49,3 +50,13 @@ RIR 6 dB 真值回退门、AR 挂架/驻留叠加、AR 反欺骗整段留模块�
 - 聚焦单测：`unit::airborne_radar` / `unit::remote_identification_radar` / `unit::common` 相关目标绿
 - common 无 `airborne_radar` / `remote_identification_radar` include
 - algorithms.md evidence 指向 common 单源
+
+## 4. 完成记录（2026-08-21）
+
+- 六个切片（大气标量胶水 / 有效 RCS 混合 / 检测单元账本含 `anti_rgpo_leading_edge` 钩子 /
+  统计级 CFAR 编排壳 / 波束冻结 Resolve / 航迹池模板+关联核+PromoteState 计数 FSM）
+  已全部落 `src/common/`，AR/RIR 薄适配层切换：`e702de90`。
+- 「可提取核心」发射/接收按计划未改；RIR 6 dB 真值回退门、AR 挂架/驻留叠加、
+  AR 反欺骗整段留模块侧。
+- 等价回归门与验收三条（聚焦单测绿 / common 无模块 include / algorithms.md 指向单源）
+  随 `e702de90` 达成；逐项验证数字见该提交与两侧模块 algorithms.md 登记表。
