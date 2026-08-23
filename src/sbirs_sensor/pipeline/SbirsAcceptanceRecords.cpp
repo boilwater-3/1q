@@ -128,7 +128,8 @@ void WriteSbirsInstallMatrices(const oneq::coordinate::EulerAnglesDeg& mount_deg
 }
 
 void WriteSbirsOrbitSample(float sim_time_sec, std::uint32_t cycle, float orbit_sigma_deg,
-                           double reference_range_m) {
+                           double reference_range_m,
+                           const session::SbirsVector3M& satellite_ecef) {
   if (!SBIRS_ACCEPTANCE_LOG_ENABLED()) {
     return;
   }
@@ -158,7 +159,45 @@ void WriteSbirsOrbitSample(float sim_time_sec, std::uint32_t cycle, float orbit_
   content += " 角误差RMS=" + FormatF(0.5 * (rms_az + rms_el), 6) + "°";
   content += " 横向位移均值/σ=" + FormatF(mean_lat, 1) + "/" + FormatF(std_lat, 1) + "m";
   SBIRS_ACCEPTANCE_ITEM(sim_time_sec, cycle, "卫星自身定位误差", content);
-  SBIRS_ACCEPTANCE_ITEM(sim_time_sec, cycle, "卫星ECEF三维导航定位误差", "无");
+
+  // 甲方 2026-08-22 批注「映射的错误三维」：同一抽样 az/el 在参考距离上的弧长
+  // 偏移，沿卫星本地水平面（东/北，由真值 ECEF 正交基派生）叠加到真值位置，
+  // 得到错误三维位置；径向不扰动（定位误差全水平映射约定）。真值不可用时
+  // 如实写「无」。
+  const double r_norm = std::sqrt(satellite_ecef.x * satellite_ecef.x +
+                                  satellite_ecef.y * satellite_ecef.y +
+                                  satellite_ecef.z * satellite_ecef.z);
+  if (r_norm > 0.0) {
+    const double kDegToRad = 0.017453292519943295;
+    const double east_arc = az * kDegToRad * range;
+    const double north_arc = el * kDegToRad * range;
+    const double up_x = satellite_ecef.x / r_norm;
+    const double up_y = satellite_ecef.y / r_norm;
+    const double up_z = satellite_ecef.z / r_norm;
+    // 东向单位矢 = ẑ×r̂ = (-ry, rx, 0)/|·|（极轨卫星不在极点，叉积非退化）；
+    // 北向单位矢 = r̂×east。
+    const double east_norm = std::sqrt(satellite_ecef.x * satellite_ecef.x +
+                                       satellite_ecef.y * satellite_ecef.y);
+    const double east_x = -satellite_ecef.y / east_norm;
+    const double east_y = satellite_ecef.x / east_norm;
+    const double north_x = -up_z * east_y;
+    const double north_y = up_z * east_x;
+    const double north_z = up_x * east_y - up_y * east_x;
+    const double dx = east_arc * east_x + north_arc * north_x;
+    const double dy = east_arc * east_y + north_arc * north_y;
+    const double dz = north_arc * north_z;
+    const double err_norm = std::sqrt(dx * dx + dy * dy + dz * dz);
+    std::string nav = "真值ECEF=";
+    nav += FormatVec3(satellite_ecef.x, satellite_ecef.y, satellite_ecef.z, 1);
+    nav += "m 错误三维ECEF=";
+    nav += FormatVec3(satellite_ecef.x + dx, satellite_ecef.y + dy, satellite_ecef.z + dz, 1);
+    nav += "m 误差向量=(" + FormatF(dx, 1) + "," + FormatF(dy, 1) + "," + FormatF(dz, 1) +
+           ")m |误差|=" + FormatF(err_norm, 1);
+    nav += "m 口径=抽样角经参考距离弧长映射至本地水平面(东/北),径向不扰动";
+    SBIRS_ACCEPTANCE_ITEM(sim_time_sec, cycle, "卫星ECEF三维导航定位误差", nav);
+  } else {
+    SBIRS_ACCEPTANCE_ITEM(sim_time_sec, cycle, "卫星ECEF三维导航定位误差", "无");
+  }
 }
 
 void WriteSbirsAngleError(float sim_time_sec, std::uint32_t cycle, std::uint64_t target_id,

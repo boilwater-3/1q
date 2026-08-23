@@ -831,7 +831,7 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
                                        input.satellite_position_ecef_m.y * input.satellite_position_ecef_m.y +
                                        input.satellite_position_ecef_m.z * input.satellite_position_ecef_m.z);
     WriteSbirsOrbitSample(sim_time_sec, input.cycle_index, policy.error_model.orbit_sigma_deg,
-                          sat_range);
+                          sat_range, input.satellite_position_ecef_m);
     WriteSbirsOncePerSession(sim_time_sec, input.cycle_index);
     WriteSbirsCycleRunCount(sim_time_sec, input.cycle_index);
   }

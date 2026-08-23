@@ -12,6 +12,7 @@
 
 #include "1q/coordinate/types.h"
 #include "1q/sbirs_sensor/session/SbirsDetectionLifecycleRecorder.h"
+#include "1q/sbirs_sensor/session/SbirsSceneTypes.h"
 
 namespace sbirs_sensor {
 namespace pipeline {
@@ -20,7 +21,8 @@ void WriteSbirsInstallMatrices(const oneq::coordinate::EulerAnglesDeg& mount_deg
                                const oneq::coordinate::EulerAnglesDeg& misalignment_deg);
 
 void WriteSbirsOrbitSample(float sim_time_sec, std::uint32_t cycle, float orbit_sigma_deg,
-                           double reference_range_m);
+                           double reference_range_m,
+                           const session::SbirsVector3M& satellite_ecef);
 
 void WriteSbirsAngleError(float sim_time_sec, std::uint32_t cycle, std::uint64_t target_id,
                           double az_error_deg, double el_error_deg, double measured_az_deg,
