@@ -162,6 +162,20 @@ bool RirSensorComponent::TryApplyRuntimeConfig(
   return session_.TryApplyRuntimeConfig(patch);
 }
 
+rir::RirCycleInput RirSensorComponent::BuildCycleInput(const DemoSceneState& scene,
+                                                       double dt_sec) const {
+  rir::RirCycleInput input;
+  input.input_cycle_index = static_cast<std::uint32_t>(scene.cycle);
+  input.dt_sec = dt_sec;
+  input.sim_time_sec = static_cast<float>(scene.t_sec);
+  input.platform_position = site_ecef_;
+  input.scene_targets = scene.rir_targets;  // 站点局部 ENU + 识别特征真值（消费方注入）
+  input.rf_scene = BuildExternalRfScene(scene.rf_world, sensor_platform_id_, scene.t_sec,
+                                        static_cast<double>(recognition_dwell_sec_),
+                                        static_cast<std::uint64_t>(scene.cycle));
+  return input;
+}
+
 void RirSensorComponent::Step(World& world, double dt_sec) {
   detections_.clear();
 
@@ -174,15 +188,7 @@ void RirSensorComponent::Step(World& world, double dt_sec) {
   const auto& scene = static_cast<const DemoSceneState&>(world.scene_state());
   auto& mutable_scene = static_cast<DemoSceneState&>(world.scene_state());
 
-  rir::RirCycleInput input;
-  input.input_cycle_index = static_cast<std::uint32_t>(scene.cycle);
-  input.dt_sec = dt_sec;
-  input.sim_time_sec = static_cast<float>(scene.t_sec);
-  input.platform_position = site_ecef_;
-  input.scene_targets = scene.rir_targets;  // 站点局部 ENU + 识别特征真值（消费方注入）
-  input.rf_scene = BuildExternalRfScene(scene.rf_world, sensor_platform_id_, scene.t_sec,
-                                      static_cast<double>(recognition_dwell_sec_),
-                                      static_cast<std::uint64_t>(scene.cycle));
+  const rir::RirCycleInput input = BuildCycleInput(scene, dt_sec);
 
   const std::chrono::steady_clock::time_point step_begin = std::chrono::steady_clock::now();
   const rir::RirCycleResult result = session_.StepWithResult(input);
@@ -199,7 +205,15 @@ void RirSensorComponent::Step(World& world, double dt_sec) {
     return;  // 周期被拒绝：本周期无量测/结论
   }
   PublishEquipmentEmissions(&mutable_scene, result.emission_frame);
+  PublishRecognitionEvents(world, result);
+  PublishDesignationEvent(world, result);
+  PublishTrackLifecycleEvents(world, result);
+  PublishExclusionEvents(world, result);
+  AdaptDetections(result);
+}
 
+void RirSensorComponent::PublishRecognitionEvents(
+    World& world, const rir::RirCycleResult& result) {
   // 识别结论：确认态周期计数（冒烟下限）+ 进入确认态的迁移事件（关键事件，
   // 不逐周期重复）。
   bool any_confirmed = false;
@@ -243,6 +257,10 @@ void RirSensorComponent::Step(World& world, double dt_sec) {
     ++confirmed_recognition_outputs_;
   }
 
+}
+
+void RirSensorComponent::PublishDesignationEvent(
+    World& world, const rir::RirCycleResult& result) {
   // 指定任务终态沿事件：designated_target_id 从非零归零 = 任务结束。结束语义按
   // 回退成因区分——kAcquisitionTimeout 为窗口耗尽作废；无回退标志为识别达成
   // 完成（成功完成不置 designation_reverted_to_scan，该标志仅缺席/超时使用）。
@@ -267,6 +285,10 @@ void RirSensorComponent::Step(World& world, double dt_sec) {
   }
   prev_designated_target_id_ = result.designated_target_id;
 
+}
+
+void RirSensorComponent::PublishTrackLifecycleEvents(
+    World& world, const rir::RirCycleResult& result) {
   // 航迹生命周期事件（规则 10）：首确认/丢失/指定任务作废沿写关键事件——纯日志，
   // 不发 World 信号（与 rir_recognition/rir_designation 一致）；kUpdated 为周期性
   // 重复事件、kNotTracked 为默认关闭的诊断事件，均不落盘。
@@ -327,6 +349,10 @@ void RirSensorComponent::Step(World& world, double dt_sec) {
     }
   }
 
+}
+
+void RirSensorComponent::PublishExclusionEvents(
+    World& world, const rir::RirCycleResult& result) {
   // 排除原因跨周期差分事件（规则 13e）：纯诊断观测，仅落事件日志（不发 World
   // 信号——不驱动融合/威胁等下游组件）。A1（原因稳定）不产事件，天然适配 KEY
   // 事件模式（边界事件 A2/A3/A4 逐条落盘，无刷屏）。
@@ -372,6 +398,9 @@ void RirSensorComponent::Step(World& world, double dt_sec) {
     }
   }
 
+}
+
+void RirSensorComponent::AdaptDetections(const rir::RirCycleResult& result) {
   // 特征量测（出口①）→ 泛型探测记录（源通道 kRirSourceId；含 sensor_origin
   // 时进融合三维方位滤波，East→North 方位换算归适配器）。键空间统一在组件层
   // 完成：出口①只带库内 association_key（去真值化纪律），而其余源用外部目标

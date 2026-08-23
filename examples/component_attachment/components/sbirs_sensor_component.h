@@ -25,6 +25,8 @@
 
 namespace component_attachment {
 
+struct DemoSceneState;  // scene_types.h（头文件仅引用，实现文件含入）
+
 /**
  * @brief SBIRS 传感器组件：天基红外会话驱动 + 探测生命周期事件转发。
  *
@@ -89,6 +91,16 @@ class SbirsSensorComponent : public Component {
 
   /// 调试视图中文人读行写入（三模式分支见 .cpp；宏选择见 logger/logger.h）。
   void LogDebugView(const sbirs_sensor::session::SbirsOutputDebugView& view);
+  /// 周期输入组装：天基平台状态 + ECI 场景目标（消费方每周期注入共享场景状态）。
+  sbirs_sensor::session::SbirsCycleInput BuildCycleInput(const DemoSceneState& scene,
+                                                  double dt_sec) const;
+  /// 探测生命周期事件发布（首发现/更新/coasting/丢失 → World 信号 + 事件日志）。
+  void PublishDetectionEvents(World& world, const DemoSceneState& scene,
+                             const sbirs_sensor::session::SbirsCycleResult& result);
+  /// 排除原因跨周期差分事件（纯诊断观测，仅落事件日志）。
+  void PublishExclusionEvents(World& world);
+  /// 探测记录 → 泛型探测记录（源通道 kSbirsSourceId，无身份键 0）。
+  void AdaptDetections(const sbirs_sensor::session::SbirsCycleResult& result);
 #if defined(CA_VIEW_LOG_MODE_DELTA)
   /// 模式二（跨周期状态增量）用：上一周期状态表（target_id → status）。
   std::unordered_map<std::uint64_t, sbirs_sensor::session::SbirsDebugTargetStatus>

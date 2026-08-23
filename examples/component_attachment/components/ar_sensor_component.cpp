@@ -259,6 +259,24 @@ void ArSensorComponent::LogDebugView(
 #endif  // CA_VIEW_LOG_MODE_*
 }
 
+airborne_radar::session::ArCycleInput ArSensorComponent::BuildCycleInput(
+    const FlightComponent& flight, const DemoSceneState& scene, double dt_sec) const {
+  airborne_radar::session::ArCycleInput input;
+  input.cycle_index = static_cast<std::uint32_t>(scene.cycle);
+  input.cycle_start_time_s = scene.t_sec;
+  input.dt_sec = dt_sec;
+  airborne_radar::session::ArPlatformInput pose;
+  pose.platform_entity_id = platform_entity_id_;
+  ResolvePlatformEcef(flight.position(), flight.heading_deg(), flight.speed_mps(),
+                      &pose.platform_position_ecef_m, &pose.platform_velocity_mps);
+  input.platform = pose;
+  input.targets = BuildArEnuTargets(scene.world_targets, pose.platform_position_ecef_m);
+  input.interference =
+      BuildArInterferenceFromRfWorld(scene.rf_world, platform_entity_id_, transmitter_equipment_id_,
+                                     scene.t_sec, dt_sec, static_cast<std::uint64_t>(scene.cycle));
+  return input;
+}
+
 void ArSensorComponent::Step(World& world, double dt_sec) {
   detections_.clear();
 
@@ -276,19 +294,7 @@ void ArSensorComponent::Step(World& world, double dt_sec) {
   // 周期输入：世界目标事实由消费方每周期写入共享场景状态。
   const auto& scene = static_cast<const DemoSceneState&>(world.scene_state());
   auto& mutable_scene = static_cast<DemoSceneState&>(world.scene_state());
-  airborne_radar::session::ArCycleInput input;
-  input.cycle_index = static_cast<std::uint32_t>(scene.cycle);
-  input.cycle_start_time_s = scene.t_sec;
-  input.dt_sec = dt_sec;
-  airborne_radar::session::ArPlatformInput pose;
-  pose.platform_entity_id = platform_entity_id_;
-  ResolvePlatformEcef(flight->position(), flight->heading_deg(), flight->speed_mps(),
-                      &pose.platform_position_ecef_m, &pose.platform_velocity_mps);
-  input.platform = pose;
-  input.targets = BuildArEnuTargets(scene.world_targets, pose.platform_position_ecef_m);
-  input.interference =
-      BuildArInterferenceFromRfWorld(scene.rf_world, platform_entity_id_, transmitter_equipment_id_,
-                                     scene.t_sec, dt_sec, static_cast<std::uint64_t>(scene.cycle));
+  const airborne_radar::session::ArCycleInput input = BuildCycleInput(*flight, scene, dt_sec);
 
   const airborne_radar::session::ArCycleResult result = session_.StepWithResult(input);
   // 规则 12 落盘示范：每周期构建调试视图快照（拒绝周期为 kCycleNotCompleted，
@@ -304,6 +310,24 @@ void ArSensorComponent::Step(World& world, double dt_sec) {
   last_track_attributions_ = result.track_attributions;
   PublishEquipmentEmissions(&mutable_scene, result.emission_frame);
 
+  PublishDesignationEvent(world, result);
+
+  // 事件转发与探测适配统一用外部轨迹帧（雷达局部坐标 → ECEF 已在
+  // ArCycleOutputAdapter 边界转换；内部帧为 TrackStateSnapshot，无 ECEF）。
+  airborne_radar::session::ArExternalTrackOutputFrame external_frame;
+  if (!airborne_radar::session::ArCycleOutputAdapter::Build(input.platform,
+                                                            result.output_frame,
+                                                            &external_frame)) {
+    return;  // 坐标适配失败：本周期无探测
+  }
+
+  PublishTrackLifecycleEvents(world, scene, external_frame);
+  PublishExclusionEvents(world);
+  AdaptDetections(external_frame);
+}
+
+void ArSensorComponent::PublishDesignationEvent(
+    World& world, const airborne_radar::session::ArCycleResult& result) {
   // STT 指定任务沿事件（与 RIR 组件 rir_designation 同形）：designated_target_id
   // 非零归零沿 = 任务终态——回退标志区分超时作废与正常结束；无标志归零为
   // 指定目标航迹确认后的锁定解除（外部清除/任务完成）。锁定生效沿（0→非零）
@@ -337,15 +361,11 @@ void ArSensorComponent::Step(World& world, double dt_sec) {
   }
   prev_designated_target_id_ = result.designated_target_id;
 
-  // 事件转发与探测适配统一用外部轨迹帧（雷达局部坐标 → ECEF 已在
-  // ArCycleOutputAdapter 边界转换；内部帧为 TrackStateSnapshot，无 ECEF）。
-  airborne_radar::session::ArExternalTrackOutputFrame external_frame;
-  if (!airborne_radar::session::ArCycleOutputAdapter::Build(input.platform,
-                                                            result.output_frame,
-                                                            &external_frame)) {
-    return;  // 坐标适配失败：本周期无探测
-  }
+}
 
+void ArSensorComponent::PublishTrackLifecycleEvents(
+    World& world, const DemoSceneState& scene,
+    const airborne_radar::session::ArExternalTrackOutputFrame& external_frame) {
   // 库内 recorder 已按跨周期状态差分产出本周期事件（首确认/失跟），组件仅做
   // 映射转发（kUpdated 不转发——示例 AR 信号只关心边界事件）；掉轨后重捕自动
   // 重新产生 kFirstConfirmed。事件目标 ID 优先外部原始目标标识（1001/1002），
@@ -398,6 +418,9 @@ void ArSensorComponent::Step(World& world, double dt_sec) {
     }
   }
 
+}
+
+void ArSensorComponent::PublishExclusionEvents(World& world) {
   // 排除原因跨周期差分事件（规则 13e）：纯诊断观测，仅落事件日志（不发 World
   // 信号——不驱动融合/威胁等下游组件）。A1（原因稳定）不产事件，天然适配 KEY
   // 事件模式（边界事件 A2/A3/A4 逐条落盘，无刷屏）。
@@ -450,8 +473,13 @@ void ArSensorComponent::Step(World& world, double dt_sec) {
     }
   }
 
+}
+
+void ArSensorComponent::AdaptDetections(
+    const airborne_radar::session::ArExternalTrackOutputFrame& external_frame) {
   detections_ = fusion::AdaptArTracksToDetectionRecords(
       fusion::kArSourceId, external_frame);
 }
+
 
 }  // namespace component_attachment

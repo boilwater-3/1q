@@ -1,4 +1,4 @@
-# 场景系统（scenes/）
+﻿# 场景系统（scenes/）
 
 每个场景一个子目录 `<name>/<name>.json`（场景描述）+ `<name>.md`（预期事件表归档）。
 场景文件即配置记录（git 跟踪），新场景只加子目录 + JSON + 预期表，不改代码。
@@ -172,7 +172,8 @@ lon 120.0~120.02（约 1.93 km 东西），扫描航向 0（线沿东西）、�
 | `fusion` | 否 | `position_radius_m`（1000）、`bearing_beamwidth_deg`（5）、`feature_threshold`（0）、`window_size`（10）、`max_missed_cycles`（5）、`source_weights[]`（空 = 全 1.0） |
 | `high_threat_confidence` | 否 | 决策门限（3.0） |
 | `sensors` | 否 | 机载传感器挂载：`ar`/`esr`/`eos`/`sbirs`/`sar`（全 true）。`false` 则不挂该组件，不写该通道视图/排除原因。RIR/ECM 仍用各自 `enabled`；ECM 还要求 `esr=true` |
-| `rir` | 否 | RIR 地基识别雷达站点块：`enabled`（false）、`site{lat_deg,lon_deg,alt_m}`（站点 LLA = 雷达局部 ENU 原点，缺省 30/120/0）、`designated_target_id`（0 = 无指定任务）、`designation_duration_cycles`（0 = 无限期窗口）；enabled 时整机挂载独立地基实体（先于平台创建），识别库经编译定义注入 |
+| `rir` | 否 | RIR 地基识别雷达站点块：`enabled`（false）、`site{lat_deg,lon_deg,alt_m}`（站点 LLA = 雷达局部 ENU 原点，缺省 30/120/0）；enabled 时整机挂载独立地基实体（先于平台创建），识别库经编译定义注入。指定识别任务不再随场景配置——经 `commands[]` 指令或威胁闭环运行期下发 |
+| `commands[]` | 否 | 运行期指令脚本（外部指挥系统代理）：`cycle`（**必填** ≥ 1，下发周期）、`kind`（`designate` 指定识别+锁定 / `engage` 交战 / `clear_designation` 清除指定，缺省 designate）、`target_id`（**designate/engage 必填**，须命中 `targets[].id`）、`duration_cycles`（0 = 无限期窗口）。主循环每周期 world.Step 前派发 → 指令事件 → CommandRouter 键解析 → 传感器运行期补丁（AR 切 STT 指定 + RIR 指定识别）；与威胁自动闭环（DecisionListener 的 `ENGAGE_HIGH_THREAT`）共用同一指令入口 |
 | `smoke` | 否 | 冒烟下限：`min_key_events`/`min_sbirs_events`/`min_sar_products`/`min_fused_targets`（全 1；零产出场景显式置 0）、`min_rir_recognition_outputs`（0；RIR 确认态周期数下限） |
 
 原 demo_config 内硬编码的 EOS/SAR 业务覆写已迁入场景数据（`eos_scan`/`sar` 块，
@@ -191,11 +192,11 @@ lon 120.0~120.02（约 1.93 km 东西），扫描航向 0（线沿东西）、�
 | `target_maneuver_evasion` | 目标大机动：跟踪保持（AR 失跟需探测断链） | 通过（1 项预期修正） |
 | `sbirs_altitude_snr_1000km` | SBIRS 高度专项：链路 1/R² 标度 + 门限边界 | 通过（1 项预期修正） |
 | `sbirs_wfov_nfov_handover` | SBIRS 宽窄交接专项：连续命中门（2）→ NFOV 捕获跟踪 + `[SbirsAccept]` 验收事件流消费示范（七类事件全出现） | 通过 |
-| `rir_ground_site_recognition` | RIR 地基站点专项：四维特征识别链（RCS+运动真值）+ 指定任务状态机 + 特征量测进五源融合 | 通过 |
+| `rir_ground_site_recognition` | RIR 地基站点专项：四维特征识别链（RCS+运动真值）+ 运行期指令下发的指定任务（cycle 30 designate 1001 → 识别达成回扫）+ 特征量测进五源融合 | 通过 |
 | `rir_long_range_scan` | RIR 远距探测专项：甲方链路参数下 3400 km / 0.025 m² 与 8550 km / 1 m² 目标穿过 220°×(2°–90°) 扫描体积 | 通过 |
 | `patrol_area_scan` | 区域巡逻专项：coverage 块规划航路 + 循环巡逻（巡逻中四通道探测保持） | 通过 |
 | `fleet_patrol_multi_zone` | 多机区域巡逻专项：3 机各自区域任务（platforms[]）+ 区域内空中/地面目标 + 契约 v2 多机可视化 | 通过（运动学冒烟 + **FD 600 周期复核**：三机 jsbsim、循环重启 5 次、SAR 起飞段 1 产品） |
 | `fleet_area_division` | 编队切分专项（多边形）：顶层单个 `mission_area` 自动切 3 条等宽条带 + 逐机自动航路 + **同机场起飞**分工覆盖 | 通过（**FD 600 周期**：条带边界 29.990/29.999/30.008/30.017 无缝、扫描线纬度与手算逐点吻合、循环重启 9 次） |
 | `fleet_area_division_circle` | 编队切分专项（圆形）：单个圆形 `mission_area` 自动切同心环（主机 2000 m / 僚机 1000 m）+ **同机场起飞**逐机盘旋 | 通过（**FD 400 周期**：环半径与手算吻合、`orbit_rings` 由切分接管、SAR 起飞段 1 产品） |
 | `fleet_area_division_irregular` | 编队切分专项（不规则凹多边形）：单个 L 形 `mission_area` 自动切 3 条带（矩形/六边形/矩形）+ 逐机自动航路 + **同机场起飞** | 通过（**FD 600 周期**：六边形条带与手算逐点吻合、浮点边界伪重复顶点已修复、循环重启 7 次） |
-| `threat_multi_target` | 威胁评估专项：三目标威胁分排序 + 等级映射 + 威胁→决策指令链 | 通过 |
+| `threat_multi_target` | 威胁评估专项：三目标威胁分排序 + 等级映射 + 威胁→指令→AR STT 锁定闭环（cycle 1 指令 → cycle 2 锁定生效） | 通过 |

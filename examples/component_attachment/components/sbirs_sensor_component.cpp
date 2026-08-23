@@ -298,6 +298,23 @@ void SbirsSensorComponent::LogDebugView(
 #endif  // CA_VIEW_LOG_MODE_*
 }
 
+sbirs_sensor::session::SbirsCycleInput SbirsSensorComponent::BuildCycleInput(
+    const DemoSceneState& scene, double dt_sec) const {
+  sbirs_sensor::session::SbirsCycleInput input;
+  input.cycle_index = static_cast<std::uint32_t>(scene.cycle);
+  input.dt_sec = static_cast<float>(dt_sec);
+  input.has_satellite_position = true;
+  input.satellite_position_ecef_m = scene.sbirs_satellite_position_ecef_m;
+  input.has_satellite_velocity_ecef_m_per_s = true;
+  input.satellite_velocity_ecef_m_per_s = scene.sbirs_satellite_velocity_ecef_m_per_s;
+  input.has_satellite_attitude = true;
+  input.satellite_attitude_eci_body_deg = scene.sbirs_satellite_attitude_eci_body_deg;
+  input.utc_julian_day = scene.sbirs_utc_julian_day;  // ECI 输出参考系（UTC 儒略日）
+  input.scene = scene.sbirs_targets;
+
+  return input;
+}
+
 void SbirsSensorComponent::Step(World& world, double dt_sec) {
   detections_.clear();
 
@@ -314,19 +331,7 @@ void SbirsSensorComponent::Step(World& world, double dt_sec) {
   }
 
   const auto& scene = static_cast<const DemoSceneState&>(world.scene_state());
-
-  // 天基平台（卫星）位置/速度由消费方每周期注入共享场景状态（世界模型驱动）。
-  sbirs_sensor::session::SbirsCycleInput input;
-  input.cycle_index = static_cast<std::uint32_t>(scene.cycle);
-  input.dt_sec = static_cast<float>(dt_sec);
-  input.has_satellite_position = true;
-  input.satellite_position_ecef_m = scene.sbirs_satellite_position_ecef_m;
-  input.has_satellite_velocity_ecef_m_per_s = true;
-  input.satellite_velocity_ecef_m_per_s = scene.sbirs_satellite_velocity_ecef_m_per_s;
-  input.has_satellite_attitude = true;
-  input.satellite_attitude_eci_body_deg = scene.sbirs_satellite_attitude_eci_body_deg;
-  input.utc_julian_day = scene.sbirs_utc_julian_day;  // ECI 输出参考系（UTC 儒略日）
-  input.scene = scene.sbirs_targets;
+  const sbirs_sensor::session::SbirsCycleInput input = BuildCycleInput(scene, dt_sec);
 
   const std::chrono::steady_clock::time_point step_begin = std::chrono::steady_clock::now();
   const sbirs_sensor::session::SbirsCycleResult result = session_.StepWithResult(input);
@@ -345,7 +350,14 @@ void SbirsSensorComponent::Step(World& world, double dt_sec) {
   if (result.status != sbirs_sensor::session::SbirsCycleStatus::kCompleted) {
     return;  // 周期被拒绝：本周期无探测
   }
+  PublishDetectionEvents(world, scene, result);
+  PublishExclusionEvents(world);
+  AdaptDetections(result);
+}
 
+void SbirsSensorComponent::PublishDetectionEvents(
+    World& world, const DemoSceneState& scene,
+    const sbirs_sensor::session::SbirsCycleResult& result) {
   // 库内 recorder 已按跨周期状态差分产出本周期事件（首发现/更新/coasting/丢失）。
   // recorder 事件无方位/探测 ID 字段：非丢失事件从本周期输出帧按归属目标回查；
   // 丢失事件目标不在帧内，字段留默认。kNotDetected 诊断事件未开启，显式跳过。
@@ -439,6 +451,9 @@ void SbirsSensorComponent::Step(World& world, double dt_sec) {
     world.signals().on_sbirs_detection(sbirs_event);
   }
 
+}
+
+void SbirsSensorComponent::PublishExclusionEvents(World& world) {
   // 排除原因跨周期差分事件（规则 13e）：纯诊断观测，仅落事件日志（不发 World
   // 信号——不驱动融合/威胁等下游组件）。SBIRS 排除涵盖遮挡/距离带/视场/SNR 四门，
   // 差分键为 (code,cause) 组合对——遮挡↔距离带切换（同为 kNone、code 不同）亦产事件。
@@ -491,8 +506,14 @@ void SbirsSensorComponent::Step(World& world, double dt_sec) {
     }
   }
 
+}
+
+void SbirsSensorComponent::AdaptDetections(
+    const sbirs_sensor::session::SbirsCycleResult& result) {
+  const auto& records = result.output_frame.detections;
   detections_ = fusion::AdaptSbirsDetectionsToDetectionRecords(
       fusion::kSbirsSourceId, records);
 }
+
 
 }  // namespace component_attachment

@@ -264,6 +264,29 @@ void EosSensorComponent::LogDebugView(
 #endif  // CA_VIEW_LOG_MODE_*
 }
 
+bool EosSensorComponent::BuildCycleInput(const FlightComponent& flight,
+                                          const DemoSceneState& scene, double dt_sec,
+                                          electro_optical_sensor::session::EosCycleInput* input) const {
+  // 平台 ECEF（零姿态：与 AR/ESR 共享同一平台局部坐标系）+ ENU 场景目标直填。
+  oneq::coordinate::EcefPositionM platform_ecef;
+  oneq::coordinate::EcefVelocityMps platform_vel;
+  ResolvePlatformEcef(flight.position(), flight.heading_deg(), flight.speed_mps(),
+                      &platform_ecef, &platform_vel);
+  oneq::coordinate::LlaPositionDegM platform_lla;
+  if (!oneq::coordinate::TryEcefToLla(platform_ecef, &platform_lla)) {
+    return false;  // 平台锚点失败：本周期不产生探测
+  }
+
+  electro_optical_sensor::session::EosCycleInput& assembled = *input;
+  assembled.cycle_index = static_cast<std::uint32_t>(scene.cycle);
+  assembled.dt_sec = static_cast<float>(dt_sec);
+  assembled.platform_altitude_m = static_cast<float>(platform_lla.altitude_m);
+  assembled.platform_attitude_deg = {};
+  assembled.scene = BuildEosEnuTargets(scene.world_targets, platform_ecef);
+
+  return true;
+}
+
 void EosSensorComponent::Step(World& world, double dt_sec) {
   detections_.clear();
 
@@ -280,23 +303,10 @@ void EosSensorComponent::Step(World& world, double dt_sec) {
   }
 
   const auto& scene = static_cast<const DemoSceneState&>(world.scene_state());
-
-  // 平台 ECEF（零姿态：与 AR/ESR 共享同一平台局部坐标系）+ ENU 场景目标直填。
-  oneq::coordinate::EcefPositionM platform_ecef;
-  oneq::coordinate::EcefVelocityMps platform_vel;
-  ResolvePlatformEcef(flight->position(), flight->heading_deg(), flight->speed_mps(),
-                      &platform_ecef, &platform_vel);
-  oneq::coordinate::LlaPositionDegM platform_lla;
-  if (!oneq::coordinate::TryEcefToLla(platform_ecef, &platform_lla)) {
+  electro_optical_sensor::session::EosCycleInput input;
+  if (!BuildCycleInput(*flight, scene, dt_sec, &input)) {
     return;  // 平台锚点失败：本周期不产生探测
   }
-
-  electro_optical_sensor::session::EosCycleInput input;
-  input.cycle_index = static_cast<std::uint32_t>(scene.cycle);
-  input.dt_sec = static_cast<float>(dt_sec);
-  input.platform_altitude_m = static_cast<float>(platform_lla.altitude_m);
-  input.platform_attitude_deg = {};
-  input.scene = BuildEosEnuTargets(scene.world_targets, platform_ecef);
 
   const electro_optical_sensor::session::EosCycleResult result = session_.StepWithResult(input);
   scan_azimuth_deg_ = result.output_frame.scan_azimuth_deg;  // 扫描方位随周期结果刷新（拒绝周期为空帧 → 0）
@@ -308,7 +318,14 @@ void EosSensorComponent::Step(World& world, double dt_sec) {
   if (result.status != electro_optical_sensor::session::EosCycleStatus::kCompleted) {
     return;  // 周期被拒绝：本周期无探测
   }
+  PublishDetectionEvents(world, scene, result);
+  PublishExclusionEvents(world);
+  AdaptDetections(result);
+}
 
+void EosSensorComponent::PublishDetectionEvents(
+    World& world, const DemoSceneState& scene,
+    const electro_optical_sensor::session::EosCycleResult& result) {
   // 库内 recorder 已按跨周期状态差分产出本周期事件（首发现/更新/丢失）。recorder
   // 事件无方位/探测 ID 字段：非丢失事件从本周期输出帧按归属目标回查；丢失事件
   // 目标不在帧内，字段留默认。kNotDetected 诊断事件未开启，显式跳过（防御）。
@@ -378,6 +395,9 @@ void EosSensorComponent::Step(World& world, double dt_sec) {
     world.signals().on_eos_detection(eos_event);
   }
 
+}
+
+void EosSensorComponent::PublishExclusionEvents(World& world) {
   // 排除原因跨周期差分事件（规则 13e）：纯诊断观测，仅落事件日志（不发 World
   // 信号——不驱动融合/威胁等下游组件）。EOS 单一视场门排除（eos.target_out_of_fov），
   // A3 由越界轴变化（az/el/both）驱动。
@@ -430,8 +450,14 @@ void EosSensorComponent::Step(World& world, double dt_sec) {
     }
   }
 
+}
+
+void EosSensorComponent::AdaptDetections(
+    const electro_optical_sensor::session::EosCycleResult& result) {
+  const auto& records = result.output_frame.detections;
   detections_ = fusion::AdaptEosDetectionsToDetectionRecords(
       fusion::kEosSourceId, records);
 }
+
 
 }  // namespace component_attachment

@@ -25,6 +25,9 @@
 
 namespace component_attachment {
 
+class FlightComponent;  // components/flight_component.h（头文件仅引用，实现文件含入）
+struct DemoSceneState;  // scene_types.h（同上）
+
 /**
  * @brief EOS 传感器组件：光电会话驱动 + 探测生命周期事件转发。
  *
@@ -91,6 +94,18 @@ class EosSensorComponent : public Component {
 
   /// 调试视图中文人读行写入（三模式分支见 .cpp；宏选择见 logger/logger.h）。
   void LogDebugView(const electro_optical_sensor::session::EosOutputDebugView& view);
+  /// 周期输入组装：平台锚点（ECEF→LLA，失败返回 false）+ ENU 场景目标直填。
+  bool BuildCycleInput(const FlightComponent& flight, const DemoSceneState& scene,
+                       double dt_sec,
+                       electro_optical_sensor::session::EosCycleInput* input) const;
+  /// 探测生命周期事件发布（首发现/更新/丢失 → World 信号 + 事件日志）。
+  void PublishDetectionEvents(
+      World& world, const DemoSceneState& scene,
+      const electro_optical_sensor::session::EosCycleResult& result);
+  /// 排除原因跨周期差分事件（纯诊断观测，仅落事件日志）。
+  void PublishExclusionEvents(World& world);
+  /// 探测记录 → 泛型探测记录（源通道 kEosSourceId，无身份键 0）。
+  void AdaptDetections(const electro_optical_sensor::session::EosCycleResult& result);
 #if defined(CA_VIEW_LOG_MODE_DELTA)
   /// 模式二（跨周期状态增量）用：上一周期状态表（target_id → status）。
   std::unordered_map<std::uint64_t, electro_optical_sensor::session::EosDebugTargetStatus>

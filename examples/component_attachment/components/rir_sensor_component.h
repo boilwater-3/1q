@@ -30,6 +30,8 @@
 
 namespace component_attachment {
 
+struct DemoSceneState;  // scene_types.h（头文件仅引用，实现文件含入）
+
 /// RIR 地基站点实体名（main 创建实体与 FusionComponent 跨实体聚合共用）。
 // C++14：namespace 作用域 constexpr 自带内部链接（inline 变量为 C++17 特性）。
 constexpr char kRirSiteEntityName[] = "rir_ground_site";
@@ -86,6 +88,23 @@ class RirSensorComponent : public Component {
   /// 视图行三模式落盘（密度由编译期宏门控；纯观测）。
   void LogDebugView(World& world,
                     const remote_identification_radar::session::RirOutputDebugView& view);
+  /// 周期输入组装：站点 ECEF + 共享场景目标 + RF 世界投影（供 StepWithResult）。
+  remote_identification_radar::session::RirCycleInput BuildCycleInput(
+      const DemoSceneState& scene, double dt_sec) const;
+  /// 识别结论迁移事件（进入确认态沿）+ 确认态周期计数（冒烟下限）。
+  void PublishRecognitionEvents(
+      World& world, const remote_identification_radar::session::RirCycleResult& result);
+  /// 指定任务终态沿事件（designated_target_id 归零沿区分识别达成/窗口耗尽）。
+  void PublishDesignationEvent(
+      World& world, const remote_identification_radar::session::RirCycleResult& result);
+  /// 航迹生命周期事件转发（首确认/丢失/指定作废沿；kUpdated/kNotTracked 不落盘）。
+  void PublishTrackLifecycleEvents(
+      World& world, const remote_identification_radar::session::RirCycleResult& result);
+  /// 排除原因跨周期差分事件（纯诊断观测，仅落事件日志）。
+  void PublishExclusionEvents(
+      World& world, const remote_identification_radar::session::RirCycleResult& result);
+  /// 特征量测 → 泛型探测记录 + 归属表键重写（库内键 → 外部目标 ID 并键融合）。
+  void AdaptDetections(const remote_identification_radar::session::RirCycleResult& result);
 
   // 观测投影记录器（规则 10/11）：声明在 session_ 之前——析构顺序保证
   // "recorder 生命周期长于 Session 注册期"（Session 持非拥有裸指针）。

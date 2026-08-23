@@ -56,6 +56,14 @@ class ThreatComponent : public Component {
   std::size_t high_threat_count_{0U};
   /** @brief 上一周期各目标威胁等级（升级判定；示例层跨周期状态）。 */
   std::unordered_map<std::uint64_t, threat_assessment::ThreatLevel> prev_levels_{};
+  std::size_t last_level_up_count_{0U}; /**< 本周期升级事件数（视图摘要行用） */
+
+  /// 输入组装：融合目标主集合 + AR 调试视图按键补充属性侧（速度/距离/RCS）。
+  std::vector<threat_assessment::ThreatEvaluationInput> BuildEvaluationInputs() const;
+  /// 等级升级判定（首见按低威胁计）+ 威胁更新事件发布（升级沿写关键事件）。
+  void PublishThreatEvents(World& world);
+  /// 每周期威胁态势视图摘要行（等级分布 + 最高威胁目标）。
+  void LogThreatView(World& world);
 };
 
 }  // namespace component_attachment

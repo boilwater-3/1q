@@ -72,6 +72,25 @@ EsrSensorComponent::ApplyRuntimeConfigWithResult(
   return result;
 }
 
+electronic_surveillance_radar::session::EsrCycleInput EsrSensorComponent::BuildCycleInput(
+    const FlightComponent& flight, const DemoSceneState& scene, double dt_sec) const {
+  electronic_surveillance_radar::session::EsrCycleInput input;
+  input.cycle_index = static_cast<std::uint32_t>(scene.cycle);
+  input.cycle_start_time_s = scene.t_sec;
+  input.dt_sec = static_cast<float>(dt_sec);
+  input.platform_entity_id = 1U;  // 平台实体标识（本示例单平台）
+  input.has_platform_ecef_kinematics = true;
+  ResolvePlatformEcef(flight.position(), flight.heading_deg(), flight.speed_mps(),
+                      &input.platform_position_ecef_m, &input.platform_velocity_ecef_mps);
+  // RF 场景包络必须与本周期权威时间一致（含空帧亦须填齐）。
+  input.rf_emissions.world_cycle_index = input.cycle_index;
+  input.rf_emissions.window_start_time_s = input.cycle_start_time_s;
+  input.rf_emissions.window_duration_s = input.dt_sec;
+  input.rf_emissions.emissions = scene.rf_world.emissions;  // RF-WORLD（脚本源 + 装备发射）
+
+  return input;
+}
+
 void EsrSensorComponent::Step(World& world, double dt_sec) {
   detections_.clear();
 
@@ -86,19 +105,8 @@ void EsrSensorComponent::Step(World& world, double dt_sec) {
   }
 
   const auto& scene = static_cast<const DemoSceneState&>(world.scene_state());
-  electronic_surveillance_radar::session::EsrCycleInput input;
-  input.cycle_index = static_cast<std::uint32_t>(scene.cycle);
-  input.cycle_start_time_s = scene.t_sec;
-  input.dt_sec = static_cast<float>(dt_sec);
-  input.platform_entity_id = 1U;  // 平台实体标识（本示例单平台）
-  input.has_platform_ecef_kinematics = true;
-  ResolvePlatformEcef(flight->position(), flight->heading_deg(), flight->speed_mps(),
-                      &input.platform_position_ecef_m, &input.platform_velocity_ecef_mps);
-  // RF 场景包络必须与本周期权威时间一致（含空帧亦须填齐）。
-  input.rf_emissions.world_cycle_index = input.cycle_index;
-  input.rf_emissions.window_start_time_s = input.cycle_start_time_s;
-  input.rf_emissions.window_duration_s = input.dt_sec;
-  input.rf_emissions.emissions = scene.rf_world.emissions;  // RF-WORLD（脚本源 + 装备发射）
+  const electronic_surveillance_radar::session::EsrCycleInput input =
+      BuildCycleInput(*flight, scene, dt_sec);
 
   const electronic_surveillance_radar::session::EsrCycleResult result = session_.StepWithResult(input);
   scan_azimuth_deg_ = result.output_frame.scan_azimuth_deg;  // 扫描方位随周期结果刷新（拒绝周期为空帧 → 0）
@@ -112,6 +120,13 @@ void EsrSensorComponent::Step(World& world, double dt_sec) {
   last_completed_cycle_index_ = static_cast<std::uint32_t>(scene.cycle);
   has_last_completed_output_ = true;
 
+  PublishHypothesisEvents(world, scene);
+  PublishExclusionEvents(world);
+  AdaptDetections();
+}
+
+void EsrSensorComponent::PublishHypothesisEvents(World& world,
+                                                 const DemoSceneState& scene) {
   const auto& hypotheses = last_hypotheses_;
   for (const auto& hypothesis : hypotheses) {
     if (hypothesis.hypothesis_id == 0U) {
@@ -145,6 +160,9 @@ void EsrSensorComponent::Step(World& world, double dt_sec) {
     world.signals().on_emitter_hypothesis(event);
   }
 
+}
+
+void EsrSensorComponent::PublishExclusionEvents(World& world) {
   // 排除原因跨周期差分事件（规则 13e）：纯诊断观测，仅落事件日志（不发 World
   // 信号——不驱动融合/威胁等下游组件）。ESR 无 target_id，以发射源标识
   // （platform/equipment/emission 三元组）为实体关联键。差分键为 (code,cause)
@@ -216,8 +234,11 @@ void EsrSensorComponent::Step(World& world, double dt_sec) {
     }
   }
 
+}
+
+void EsrSensorComponent::AdaptDetections() {
   detections_ = fusion::AdaptEsrHypothesesToDetectionRecords(
-      fusion::kEsrSourceId, hypotheses);
+      fusion::kEsrSourceId, last_hypotheses_);
 }
 
 }  // namespace component_attachment

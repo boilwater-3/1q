@@ -15,6 +15,7 @@
 
 #include "1q/airborne_radar/config/ArRuntimeConfigPatch.h"
 #include "1q/airborne_radar/session/ArSession.h"
+#include "1q/airborne_radar/session/ArCycleOutputAdapter.h"
 #include "1q/airborne_radar/session/ArExclusionCauseRecorder.h"
 #include "1q/airborne_radar/session/ArOutputTypes.h"
 #include "1q/airborne_radar/session/ArTrackLifecycleRecorder.h"
@@ -25,6 +26,9 @@
 #include "logger/logger_modes.h"
 
 namespace component_attachment {
+
+class FlightComponent;  // components/flight_component.h（头文件仅引用，实现文件含入）
+struct DemoSceneState;  // scene_types.h（同上）
 
 /**
  * @brief AR 传感器组件：雷达会话驱动 + 轨迹生命周期事件转发。
@@ -105,6 +109,21 @@ class ArSensorComponent : public Component {
   /// 调试视图中文人读行写入（三模式分支见 .cpp；宏选择见 logger/logger.h）。
   void LogDebugView(const airborne_radar::session::ArTrackOutputDebugView& view,
                     const oneq::coordinate::LlaPositionDegM* origin_lla);
+  /// 周期输入组装：平台运动学（Flight）+ ENU 目标 + RF 干扰投影（供 StepWithResult）。
+  airborne_radar::session::ArCycleInput BuildCycleInput(const FlightComponent& flight,
+                                                        const DemoSceneState& scene,
+                                                        double dt_sec) const;
+  /// STT 指定任务沿事件（锁定生效沿/终态归零沿，见 .cpp 注释）。
+  void PublishDesignationEvent(World& world,
+                               const airborne_radar::session::ArCycleResult& result);
+  /// 轨迹生命周期事件转发（首确认/失跟 → World 信号 + 事件日志；kUpdated 不转发）。
+  void PublishTrackLifecycleEvents(
+      World& world, const DemoSceneState& scene,
+      const airborne_radar::session::ArExternalTrackOutputFrame& external_frame);
+  /// 排除原因跨周期差分事件（纯诊断观测，仅落事件日志）。
+  void PublishExclusionEvents(World& world);
+  /// 已发布轨迹 → 泛型探测记录（源通道 kArSourceId；失跟轨迹不入融合）。
+  void AdaptDetections(const airborne_radar::session::ArExternalTrackOutputFrame& external_frame);
 #if defined(CA_VIEW_LOG_MODE_DELTA)
   /// 模式二（跨周期状态增量）用：上一周期状态表（external_target_id → status）。
   std::unordered_map<std::uint64_t, airborne_radar::session::ArDebugTrackStatus>

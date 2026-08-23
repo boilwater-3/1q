@@ -21,6 +21,9 @@
 
 namespace component_attachment {
 
+class FlightComponent;  // components/flight_component.h（头文件仅引用，实现文件含入）
+struct DemoSceneState;  // scene_types.h（同上）
+
 /**
  * @brief ESR 传感器组件：侦察会话驱动 + 假设事件发布。
  *
@@ -100,6 +103,16 @@ class EsrSensorComponent : public Component {
   std::uint64_t last_batch_id_{0U};
   std::uint32_t last_completed_cycle_index_{0U};
   bool has_last_completed_output_{false};
+
+  /// 周期输入组装：平台运动学（Flight）+ RF-WORLD 发射包络（供 StepWithResult）。
+  electronic_surveillance_radar::session::EsrCycleInput BuildCycleInput(
+      const FlightComponent& flight, const DemoSceneState& scene, double dt_sec) const;
+  /// 辐射源假设事件逐条发布（World 信号 + 事件日志；库内键 0 不发布）。
+  void PublishHypothesisEvents(World& world, const DemoSceneState& scene);
+  /// 排除原因跨周期差分事件（纯诊断观测，仅落事件日志）。
+  void PublishExclusionEvents(World& world);
+  /// 辐射源假设 → 泛型探测记录（源通道 kEsrSourceId）。
+  void AdaptDetections();
 };
 
 }  // namespace component_attachment

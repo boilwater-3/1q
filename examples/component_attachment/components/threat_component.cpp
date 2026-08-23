@@ -43,12 +43,8 @@ const char* ThreatLevelName(threat_assessment::ThreatLevel level) {
 ThreatComponent::ThreatComponent(const threat_assessment::ThreatEvaluatorConfig& config)
     : evaluator_(config) {}
 
-void ThreatComponent::Step(World& world, double dt_sec) {
-  (void)dt_sec;
-  if (host_ == nullptr) {
-    return;  // 未挂载：无威胁评估
-  }
-
+std::vector<threat_assessment::ThreatEvaluationInput> ThreatComponent::BuildEvaluationInputs()
+    const {
   // 输入组装：融合目标为主集合（证据侧），AR 调试视图按键补充属性侧。
   const auto* fusion = host_->Find<FusionComponent>();
   const auto* ar = host_->Find<ArSensorComponent>();
@@ -89,7 +85,17 @@ void ThreatComponent::Step(World& world, double dt_sec) {
       inputs.push_back(input);
     }
   }
+  return inputs;
+}
 
+void ThreatComponent::Step(World& world, double dt_sec) {
+  (void)dt_sec;
+  if (host_ == nullptr) {
+    return;  // 未挂载：无威胁评估
+  }
+
+  const std::vector<threat_assessment::ThreatEvaluationInput> inputs =
+      BuildEvaluationInputs();
   // 评估（纯函数式；无输入时输出为空）。
   results_ = evaluator_.Evaluate(inputs);
   high_threat_count_ = 0U;
@@ -99,6 +105,12 @@ void ThreatComponent::Step(World& world, double dt_sec) {
     }
   }
 
+
+  PublishThreatEvents(world);
+  LogThreatView(world);
+}
+
+void ThreatComponent::PublishThreatEvents(World& world) {
   // 等级升级判定（首见按低威胁计）+ 威胁更新事件发布。
   std::size_t level_up_count = 0U;
   for (const threat_assessment::ThreatResult& result : results_) {
@@ -144,6 +156,10 @@ void ThreatComponent::Step(World& world, double dt_sec) {
     world.signals().on_threat_updated(event);
   }
 
+  last_level_up_count_ = level_up_count;
+}
+
+void ThreatComponent::LogThreatView(World& world) {
   // 视图摘要行（每周期一行；默认跨周期增量模式下仍恒写——威胁态势每周期变化）。
   std::size_t medium_count = 0U;
   std::size_t low_count = 0U;
@@ -191,11 +207,11 @@ void ThreatComponent::Step(World& world, double dt_sec) {
         ":" +
         std::to_string(top_score) +
         " 升级=" +
-        std::to_string(level_up_count);
+        std::to_string(last_level_up_count_);
     CA_LOG_VIEW("threat", "周期={} 目标={} 高={} 中={} 低={} 最高=键{}:{:.2f} 升级={}",
                 world.scene_state().cycle, results_.size(), high_threat_count_,
                 medium_count, low_count, static_cast<unsigned long long>(top_key),
-                top_score, level_up_count);
+                top_score, last_level_up_count_);
   }
 }
 
