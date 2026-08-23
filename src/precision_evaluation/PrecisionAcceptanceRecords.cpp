@@ -86,7 +86,7 @@ void WritePrecisionKeyMetrics(const PrecisionEvaluationReport& report,
   } else {
     content += " 位置误差95%CI=无";
   }
-  content += " 误差源贡献率=无";
+  // 误差源贡献率按 2026-08-22 甲方批注「不需要，删了」移除（无分源灵敏度模型）。
   PRECISION_EVAL_ITEM(0.0f, 0U, "关键精度指标", content);
 }
 
