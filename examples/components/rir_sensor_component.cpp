@@ -109,7 +109,7 @@ const char* DebugTargetStatusName(rir::RirDebugTargetStatus status) {
   return "未知";
 }
 
-/// 排除主因 → 中文名（人读事件行，规则 13b/13e）。
+/// 排除主因 → 中文名（人读事件行）。
 const char* ExclusionCauseName(rir::RirIssueCause cause) {
   switch (cause) {
     case rir::RirIssueCause::kNone:
@@ -152,14 +152,18 @@ RirSensorComponent::RirSensorComponent(
       recognition_dwell_sec_(recognition_dwell_sec) {
   // 站点固定：ECEF 解析一次，逐周期作为特征量测 sensor_origin 提供。
   oneq::coordinate::TryLlaToEcef(site_origin_, &site_ecef_);
-  // 观测投影记录器（规则 10/11）：StepWithResult 内部自动喂，组件只读事件。
+  // 生命周期/排除差分记录器：StepWithResult 内部自动喂，组件只读事件。
   session_.AttachTrackLifecycleRecorder(&lifecycle_);
   session_.AttachExclusionCauseRecorder(&exclusion_);
 }
 
 bool RirSensorComponent::TryApplyRuntimeConfig(
     const remote_identification_radar::config::RirRuntimeConfigPatch& patch) {
-  return session_.TryApplyRuntimeConfig(patch);
+  const bool applied = session_.TryApplyRuntimeConfig(patch);
+  if (applied && patch.has_sensor_enabled) {
+    powered_on_ = patch.sensor_enabled;  // 电源状态由补丁唯一维护（组件层电源门控）
+  }
+  return applied;
 }
 
 rir::RirCycleInput RirSensorComponent::BuildCycleInput(const AppSceneState& scene,
@@ -169,7 +173,11 @@ rir::RirCycleInput RirSensorComponent::BuildCycleInput(const AppSceneState& scen
   input.dt_sec = dt_sec;
   input.sim_time_sec = static_cast<float>(scene.t_sec);
   input.platform_position = site_ecef_;
-  input.scene_targets = scene.rir_targets;  // 站点局部 ENU + 识别特征真值（消费方注入）
+  // 世界 ECEF 真值 → 站点局部 ENU + 识别特征真值铺样的转换写法见
+  // scenes/scene_script.cpp 的 MakeRirSceneTargets（app/runner.cpp 每周期注入）。
+  input.scene_targets = scene.rir_targets;
+  // RF 世界是全装备共享的（含本传感器自己的发射）：会话要的是"外部电磁环境"，
+  // 故先剔除自身 platform_id 的发射再喂入（自己不观测自己的发射）。
   input.rf_scene = BuildExternalRfScene(scene.rf_world, sensor_platform_id_, scene.t_sec,
                                         static_cast<double>(recognition_dwell_sec_),
                                         static_cast<std::uint64_t>(scene.cycle));
@@ -180,13 +188,15 @@ void RirSensorComponent::Step(World& world, double dt_sec) {
   detections_.clear();
 
   if (!powered_on_) {
-    // 关机：不驱动会话；视图重置为空快照仍写一行（与 AR 组件同形）。
+    // 关机：不驱动会话；视图重置为空快照再走一遍写入（摘要模式写一行空摘要，
+    // 模式一/二天然静默）。
     last_debug_view_ = rir::RirOutputDebugView{};
     LogDebugView(world, last_debug_view_);
     return;
   }
-  const auto& scene = static_cast<const AppSceneState&>(world.scene_state());
-  auto& mutable_scene = static_cast<AppSceneState&>(world.scene_state());
+  // 共享场景状态（World 只存基类引用，实际类型为 AppSceneState）：本组件从中
+  // 读世界真值组输入，也向其写回射频发射，故直接取可变引用。
+  auto& scene = static_cast<AppSceneState&>(world.scene_state());
 
   const rir::RirCycleInput input = BuildCycleInput(scene, dt_sec);
 
@@ -197,32 +207,36 @@ void RirSensorComponent::Step(World& world, double dt_sec) {
                           app::SteadyElapsedMs(step_begin));
     step_timing_logged_ = true;
   }
-  // 规则 12 落盘示范：每周期构建调试视图快照（拒绝/关机周期为 kCycleNotCompleted，
-  // 含规则 13b kInfo 排除诊断），经 LogDebugView 按三模式写视图行。
+  // 调试视图快照每周期都要构建：它是下方视图行的数据源（日志写多少由三密度
+  // 模式宏门控，与快照构建无关；被拒绝周期为 kCycleNotCompleted 行）。
   last_debug_view_ = rir::RirOutputDebugViewBuilder::Build(input, result);
   LogDebugView(world, last_debug_view_);
   if (result.status != rir::RirCycleStatus::kCompleted) {
     return;  // 周期被拒绝：本周期无量测/结论
   }
-  PublishEquipmentEmissions(&mutable_scene, result.emission_frame);
-  PublishRecognitionEvents(world, result);
-  PublishDesignationEvent(world, result);
-  PublishTrackLifecycleEvents(world, result);
-  PublishExclusionEvents(world, result);
-  AdaptDetections(result);
+  // 周期成功，按序发布本周期产物：
+  PublishEquipmentEmissions(&scene, result.emission_frame);  // 射频发射 → 共享 RF 世界
+  PublishRecognitionEvents(world, result);                   // 识别结论确认沿 → 事件日志
+  PublishDesignationEvent(world, result);                    // 指定任务终态沿 → 事件日志
+  PublishTrackLifecycleEvents(world, result);                // 航迹首确认/丢失/作废沿 → 事件日志
+  PublishExclusionEvents(world, result);                     // 排除原因变化沿 → 事件日志
+  AdaptDetections(result);                                   // 特征量测 → 融合探测记录
 }
 
 void RirSensorComponent::PublishRecognitionEvents(
     World& world, const rir::RirCycleResult& result) {
-  // 识别结论：确认态周期计数（冒烟下限）+ 进入确认态的迁移事件（关键事件，
-  // 不逐周期重复）。
+  // 逐航迹识别结论：与本组件记录的上一周期状态比对，"非确认 → 确认"的迁移沿
+  // 写一条关键事件（确认态持续期间不逐周期重复）；任一航迹确认则本周期计入
+  // 确认周期数（冒烟下限用）。
   bool any_confirmed = false;
   for (const auto& output : result.output_frame.recognition_outputs) {
     const rir::RirRecognitionState state = output.result.state;
+    // 确认态 = 大类确认/型号确认两种终态。
     const bool confirmed =
         state == rir::RirRecognitionState::kCategoryConfirmed ||
         state == rir::RirRecognitionState::kModelConfirmed;
     any_confirmed = any_confirmed || confirmed;
+    // 上一周期状态查表：首次进入确认才发事件。
     const auto it = prev_recognition_states_.find(output.association_key);
     const bool was_confirmed =
         it != prev_recognition_states_.end() &&
@@ -289,9 +303,8 @@ void RirSensorComponent::PublishDesignationEvent(
 
 void RirSensorComponent::PublishTrackLifecycleEvents(
     World& world, const rir::RirCycleResult& result) {
-  // 航迹生命周期事件（规则 10）：首确认/丢失/指定任务作废沿写关键事件——纯日志，
-  // 不发 World 信号（与 rir_recognition/rir_designation 一致）；kUpdated 为周期性
-  // 重复事件、kNotTracked 为默认关闭的诊断事件，均不落盘。
+  // 航迹生命周期沿事件（首确认/丢失/指定作废）→ 仅事件日志；kUpdated 为周期性
+  // 重复事件、kNotTracked 为诊断事件，均不落盘。
   for (const auto& event : lifecycle_.GetLastEvents()) {
     switch (event.kind) {
       case rir::RirTrackLifecycleEventKind::kFirstConfirmed: {
@@ -353,9 +366,8 @@ void RirSensorComponent::PublishTrackLifecycleEvents(
 
 void RirSensorComponent::PublishExclusionEvents(
     World& world, const rir::RirCycleResult& result) {
-  // 排除原因跨周期差分事件（规则 13e）：纯诊断观测，仅落事件日志（不发 World
-  // 信号——不驱动融合/威胁等下游组件）。A1（原因稳定）不产事件，天然适配 KEY
-  // 事件模式（边界事件 A2/A3/A4 逐条落盘，无刷屏）。
+  // 排除原因跨周期差分沿（进入/变化/退出）→ 仅事件日志，不发 World 信号；
+  // 原因稳定不产事件，故无刷屏。
   for (const auto& event : exclusion_.GetLastEvents()) {
     if (event.kind == rir::RirExclusionCauseEventKind::kEntered) {
       // 与下方写入行同内容：纯 std::string/std::to_string 拼接的日志字符串，供集成方直接搬入己方日志（示例自身不消费）。
@@ -401,11 +413,9 @@ void RirSensorComponent::PublishExclusionEvents(
 }
 
 void RirSensorComponent::AdaptDetections(const rir::RirCycleResult& result) {
-  // 特征量测（出口①）→ 泛型探测记录（源通道 kRirSourceId；含 sensor_origin
-  // 时进融合三维方位滤波，East→North 方位换算归适配器）。键空间统一在组件层
-  // 完成：出口①只带库内 association_key（去真值化纪律），而其余源用外部目标
-  // ID 直挂——按结果层归属视图（track_attributions）把库内键重写为外部 ID，
-  // RIR 量测即并入与机载传感器同键的融合航迹；无归属（ID=0）的记录保留库内键。
+  // 特征量测 → 统一探测记录挂到 detections()；融合组件每周期直接来取（示例内是
+  // 组件引用拉取；集成方对应把记录发给融合组件的消息）。键按归属表从库内键重写
+  // 为外部目标 ID，与其它源同键后才会并进同一条融合航迹；无归属记录保留库内键。
   rir::RirFeatureMeasurementFrame frame;
   frame.input_cycle_index = result.output_frame.input_cycle_index;
   frame.batch_id = result.output_frame.batch_id;
@@ -427,17 +437,24 @@ void RirSensorComponent::AdaptDetections(const rir::RirCycleResult& result) {
 }
 
 void RirSensorComponent::LogDebugView(World& world, const rir::RirOutputDebugView& view) {
-  // 视图行来自标准投影 DebugView（规则 12）：逐目标状态枚举 + 识别诊断 + 排除
-  // 诊断；密度三模式由编译期宏门控（纯观测，不影响会话执行与信号）。
+  // 视图行写入：三种密度模式编译期三选一（CMake -DCA_VIEW_LOG_MODE=… 或改
+  // logger/logger_modes.h；未选中的分支不参与编译）。纯观测，不影响会话与信号。
+  // 各模式输出示例：
+  //   模式一 nonnominal（只写异常目标行；全部正常时整周期静默不写，防刷屏）：
+  //     周期=5 目标=1002 状态=无航迹 斜距=9000m
+  //   模式二 delta（只写状态有变化的目标行；无变化时整周期静默不写，防刷屏）：
+  //     周期=5 目标=1001 状态=已确认
+  //   模式三 summary（默认；每周期恰好一行完整摘要）：
+  //     周期=1 完成=是 航迹=1 确认=否 指定=无 驻留中心=(-110.0°,85.0°)
+  //     目标=[1001 候选(F-16C) 积累中 置信0.00 位置LLA=(…) 速度=250.0,
+  //     1002 无航迹(BGM-109) 斜距=9000m 速度=0.0] 问题=[无]
 #if defined(CA_VIEW_LOG_MODE_NONNOMINAL)
-  // 模式一：只写非标称目标（非已确认），全标称写一行"全部正常"。
-  std::uint32_t non_nominal = 0U;
+  // 模式一：只写非标称目标（非已确认）行；全部正常时本周期静默不写（防刷屏）。
   for (const auto& state : view.targets) {
     if (state.external_target_id == 0U ||
         state.status == rir::RirDebugTargetStatus::kConfirmed) {
       continue;
     }
-    ++non_nominal;
     oneq::coordinate::LlaPositionDegM lla;
     const bool have_lla =
         state.has_track && TryEnuMetersToLla(state.position_enu_x_m, state.position_enu_y_m,
@@ -466,17 +483,8 @@ void RirSensorComponent::LogDebugView(World& world, const rir::RirOutputDebugVie
                   DebugTargetStatusName(state.status), state.slant_range_m);
     }
   }
-  if (non_nominal == 0U) {
-    // 与下方写入行同内容：纯 std::string/std::to_string 拼接的日志字符串，供集成方直接搬入己方日志（示例自身不消费）。
-    const std::string rir_view_log =
-        std::string("周期=") + std::to_string(view.input_cycle_index) + " 全部正常（" +
-        std::to_string(view.targets.size()) + " 个目标航迹均已确认）";
-    CA_LOG_VIEW("rir", "周期={} 全部正常（{} 个目标航迹均已确认）", view.input_cycle_index,
-                view.targets.size());
-  }
 #elif defined(CA_VIEW_LOG_MODE_DELTA)
-  // 模式二：只写状态与上一周期不同的目标行，无变化写一行"无状态变化"。
-  std::uint32_t changed = 0U;
+  // 模式二：只写状态与上一周期不同的目标行；无变化时本周期静默不写（防刷屏）。
   for (const auto& state : view.targets) {
     if (state.external_target_id == 0U) {
       continue;
@@ -487,7 +495,6 @@ void RirSensorComponent::LogDebugView(World& world, const rir::RirOutputDebugVie
     if (!first_or_changed) {
       continue;
     }
-    ++changed;
     // 与下方写入行同内容：纯 std::string/std::to_string 拼接的日志字符串，供集成方直接搬入己方日志（示例自身不消费）。
     const std::string rir_view_log =
         std::string("周期=") + std::to_string(view.input_cycle_index) + " 目标=" +
@@ -497,14 +504,10 @@ void RirSensorComponent::LogDebugView(World& world, const rir::RirOutputDebugVie
                 static_cast<unsigned long long>(state.external_target_id),
                 DebugTargetStatusName(state.status));
   }
-  if (changed == 0U) {
-    // 与下方写入行同内容：纯 std::string/std::to_string 拼接的日志字符串，供集成方直接搬入己方日志（示例自身不消费）。
-    const std::string rir_view_log =
-        std::string("周期=") + std::to_string(view.input_cycle_index) + " 无状态变化";
-    CA_LOG_VIEW("rir", "周期={} 无状态变化", view.input_cycle_index);
-  }
 #else
   // 模式三：每周期恰好一行完整摘要（含指定任务镜像与排除诊断问题列表）。
+  // 逐目标片段累积（"ID 状态(型号) 识别 置信 位置/斜距 速度"），拼进下方摘要行
+  // 的 目标=[…] 字段随行写日志——不是独立日志行，故无独立的搬用串。
   std::string target_parts;
   std::size_t track_count = 0U;
   bool any_confirmed = false;

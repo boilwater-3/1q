@@ -1,12 +1,6 @@
 ﻿/**
  * @file rir_sensor_component.h
  * @brief 自定义实体-组件示例：RIR（远程识别雷达）地基站点组件。
- *
- * 组件封装 remote_identification_radar 会话：挂载在独立的地基站点实体上
- * （非机载平台——S 波段识别雷达的物理摆放；先于平台实体创建保证融合读同周期
- * 量测）。每周期从共享场景状态读取站点局部 ENU 场景目标（含识别特征真值）
- * 驱动会话；识别结论状态迁移、指定任务生命周期经集成端事件日志输出，特征
- * 量测适配为泛型探测记录（fusion 源通道 kRirSourceId=5）供融合聚合。
  */
 
 #ifndef EXAMPLES_COMPONENT_ATTACHMENT_COMPONENTS_RIR_SENSOR_COMPONENT_H_
@@ -38,11 +32,6 @@ constexpr char kRirSiteEntityName[] = "rir_ground_site";
 
 /**
  * @brief RIR 地基站点传感器组件：识别会话驱动 + 识别/指定任务事件 + 融合量测。
- *
- * 会话经 RirSession::Create(config) 构造后移动进组件（PImpl 可移动）。站点为
- * 固定 LLA（构造时解析 ECEF，逐周期作为 platform_position 提供特征量测
- * sensor_origin）；场景目标真值（站点局部 ENU + 识别特征）由消费方每周期注入
- * AppSceneState::rir_targets。
  */
 class RirSensorComponent : public Component {
  public:
@@ -73,13 +62,13 @@ class RirSensorComponent : public Component {
   bool TryApplyRuntimeConfig(
       const remote_identification_radar::config::RirRuntimeConfigPatch& patch);
 
-  /** @brief 当前电源状态（关机时组件不驱动会话）。 */
+  /** @brief 当前电源状态（由 sensor_enabled 补丁唯一维护；关机时组件不驱动会话）。 */
   bool powered_on() const { return powered_on_; }
 
   /** @brief 累计识别结论输出数（冒烟断言：确认态结论按周期计数）。 */
   std::uint32_t confirmed_recognition_outputs() const { return confirmed_recognition_outputs_; }
 
-  /** @brief 最近周期目标输出调试视图（规则 12；关机周期重置为空视图）。 */
+  /** @brief 最近周期调试视图快照（关机周期重置为空视图）。 */
   const remote_identification_radar::session::RirOutputDebugView& LastDebugView() const {
     return last_debug_view_;
   }
@@ -106,31 +95,35 @@ class RirSensorComponent : public Component {
   /// 特征量测 → 泛型探测记录 + 归属表键重写（库内键 → 外部目标 ID 并键融合）。
   void AdaptDetections(const remote_identification_radar::session::RirCycleResult& result);
 
-  // 观测投影记录器（规则 10/11）：声明在 session_ 之前——析构顺序保证
+  // 生命周期/排除差分记录器：声明在 session_ 之前——析构顺序保证
   // "recorder 生命周期长于 Session 注册期"（Session 持非拥有裸指针）。
   remote_identification_radar::session::RirTrackLifecycleRecorder lifecycle_{};
   remote_identification_radar::session::RirExclusionCauseRecorder exclusion_{};
   remote_identification_radar::session::RirSession session_;
   Entity* host_{nullptr};
-  oneq::coordinate::LlaPositionDegM site_origin_{};   /**< 站点 LLA（ENU 原点） */
-  oneq::coordinate::EcefPositionM site_ecef_{};       /**< 站点 ECEF（构造时解析一次） */
-  std::uint64_t sensor_platform_id_{0U};              /**< RF scene 平台身份（排除自身发射） */
-  float recognition_dwell_sec_{0.05f};                /**< 识别驻留窗口（rf_scene 时间对齐） */
-  std::vector<fusion::DetectionRecord> detections_{};
-  bool powered_on_{true};
-  std::uint32_t confirmed_recognition_outputs_{0U};
-  /// 上一周期逐航迹识别状态（状态迁移事件判定：accumulating → confirmed）。
-  std::unordered_map<std::uint64_t, remote_identification_radar::session::RirRecognitionState>
-      prev_recognition_states_{};
-  std::uint64_t prev_designated_target_id_{0U}; /**< 上一周期指定目标 ID（终态沿事件判定；0 = 无任务） */
-  bool step_timing_logged_{false};        /**< 单步执行时间是否已写入示例日志 */
-  remote_identification_radar::session::RirOutputDebugView last_debug_view_{}; /**< 最近周期视图 */
+
+  oneq::coordinate::LlaPositionDegM site_origin_{};  /**< 站点 LLA（ENU 原点与逆变换锚点） */
+  oneq::coordinate::EcefPositionM site_ecef_{};      /**< 站点 ECEF（构造时由 origin 解析一次） */
+  std::uint64_t sensor_platform_id_{0U};             /**< 本传感器在 RF 世界的平台身份（剔除自身发射用） */
+  float recognition_dwell_sec_{0.05f};               /**< 单次识别驻留时长（mission 配置，s）：每周期喂给会话的 RF 发射窗口长度 */
+
+  std::vector<fusion::DetectionRecord> detections_{};  /**< 本周期融合探测记录（每周期重写；融合组件拉取） */
+  remote_identification_radar::session::RirOutputDebugView
+      last_debug_view_{};  /**< 本周期调试视图快照（每周期重写；视图行数据源；关机周期重置为空） */
+
+  std::unordered_map<std::uint64_t,
+                     remote_identification_radar::session::RirRecognitionState>
+      prev_recognition_states_{};          /**< 上一周期逐航迹识别状态（确认沿事件判定） */
+  std::uint64_t prev_designated_target_id_{0U};  /**< 上一周期指定目标 ID（终态沿事件判定；0 = 无任务） */
 #if defined(CA_VIEW_LOG_MODE_DELTA)
-  /// 视图模式二（跨周期增量）：上一周期逐目标调试状态（首次出现视为变化；
-  /// 表只增不减，目标集长期收缩时调用方可按需清理——示例保持简单，不清理）。
-  std::unordered_map<std::uint64_t, remote_identification_radar::session::RirDebugTargetStatus>
-      prev_target_status_{};
+  std::unordered_map<std::uint64_t,
+                     remote_identification_radar::session::RirDebugTargetStatus>
+      prev_target_status_{};  /**< 视图模式二：上一周期逐目标调试状态（表只增不减，示例不清理） */
 #endif
+
+  bool powered_on_{true};  /**< 电源状态（由 sensor_enabled 补丁唯一维护） */
+  bool step_timing_logged_{false};  /**< 单步执行时间是否已写入示例日志（只写首个周期） */
+  std::uint32_t confirmed_recognition_outputs_{0U};  /**< 有确认结论的周期数（冒烟下限断言用） */
 };
 
 }  // namespace component_attachment
