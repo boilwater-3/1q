@@ -66,5 +66,6 @@ min_key_events=1 / min_sbirs_events=10 / min_sar_products=1 / min_fused_targets=
 `wfov_hit_gate` 落记录）、cycle 5 第二次命中（2/2）进入调度并同周期捕获；1002
 同形态（cycle 22/23）。捕获后 NFOV 通道锁定跟踪，焦平面脱靶量按 x=f·tanΔaz
 映射输出米 + 像素双口径。验收量只经日志通道、不进公开输出结构（模块非目标 10
-口径不变）；本场景焦平面/命中门字段经 `sbirs_satellite` 场景块覆写，装载路径
-sbirs.json → LoadSbirsHardware/LoadSbirsScheduler → ApplySceneOverrides。
+口径不变）；本场景焦平面/命中门字段在 `session_config.sbirs`（hardware.focal_length_m /
+detector_pixel_pitch_m / policy.scheduler.wide_to_narrow_required_consecutive_hits=2），
+装载路径 LoadSbirsHardware/LoadSbirsScheduler（场景 JSON 自持，模板源 examples/basic_config/sbirs.json）。
