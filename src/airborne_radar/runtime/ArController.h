@@ -33,7 +33,7 @@ namespace extension {
 /**
  * @brief ArController 运行态快照，用于失败回滚等场景的整快照捕获/恢复。
  * @note owner_identity 标识捕获方实例，RestoreRuntimeState 会拒绝跨实例恢复；
- *       schema_version 用于校验快照格式兼容性（8：识别状态随远程识别雷达拆分迁出）。
+ *       schema_version 用于校验快照格式兼容性（9：决策观测袋随规则 15f 移除）。
  */
 struct ArControllerRuntimeState {
   const void* owner_identity{nullptr};
@@ -52,8 +52,6 @@ struct ArControllerRuntimeState {
   std::vector<session::TacticalProposal> pending_internal_proposals{};
   bool has_pending_external_override{false};
   session::ExternalDecisionOverride pending_external_override{};
-  bool has_latest_decision_observation{false};
-  session::DecisionObservation latest_decision_observation{};
   session::DecisionControlSource last_applied_decision_source{
       session::DecisionControlSource::kNone};
   std::uint32_t last_applied_decision_cycle_index{0U};
@@ -148,12 +146,6 @@ class ArController {
    * @return 最近一次周期的 signal pipeline 终止原因；正常执行时为 kNone。
    */
   session::SignalCycleAbortReason GetLastSignalCycleAbortReason() const;
-
-  /** @brief 获取最近成功周期发布的决策观测。 */
-  const session::DecisionObservation& GetLatestDecisionObservation() const;
-
-  /** @brief 当前是否存在可供外部模块响应的决策观测。 */
-  bool HasLatestDecisionObservation() const;
 
   /** @brief 提交外部 profile 覆盖（整包替换值，绕过 TacticalProposal 管线与 hold/cooldown）。 */
   session::ExternalDecisionSubmitStatus SubmitExternalDecision(

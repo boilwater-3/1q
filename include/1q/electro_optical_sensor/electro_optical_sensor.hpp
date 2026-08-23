@@ -2,7 +2,7 @@
  * @file electro_optical_sensor.hpp
  * @brief 光电传感器模块稳定会话入口。
  * @note 输出类型请直接使用 `session/EosOutputTypes.h`；
- *       trace/replay 工具头按需单独包含。
+ *       Recording/Replay 工具头按需单独包含。
  */
 
 #ifndef ONEQ_ELECTRO_OPTICAL_SENSOR_ELECTRO_OPTICAL_SENSOR_HPP_

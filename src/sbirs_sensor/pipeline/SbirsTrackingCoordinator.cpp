@@ -4,6 +4,7 @@
 #include <limits>
 
 #include "sbirs_sensor/foundation/SbirsGeometry.h"
+#include "common/numerics/Constants.h"
 
 namespace sbirs_sensor {
 namespace pipeline {
@@ -109,8 +110,8 @@ SbirsTrackingUpdateResult SbirsTrackingCoordinator::CorrectTarget(
                                          elevation_deg, range_m,
                                          relative_angular_rate_deg_per_sec);
   tracking::SbirsMeasurementVector measurement_rad;
-  const float deg2rad = 0.0174532925f;
-  measurement_rad << bearing.azimuth_deg * deg2rad, bearing.elevation_deg * deg2rad;
+  measurement_rad << oneq::common::numerics::DegToRad(bearing.azimuth_deg),
+      oneq::common::numerics::DegToRad(bearing.elevation_deg);
   const tracking::SbirsMeasurementCovariance measurement_covariance =
       tracking::BuildMeasurementCovariance(policy.error_model, range_m, elevation_deg,
                                            relative_angular_rate_deg_per_sec);

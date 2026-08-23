@@ -1,6 +1,6 @@
 ---
 Status: active
-Last-reviewed: 2026-08-03
+Last-reviewed: 2026-08-23
 Authority: EOS 设计权威入口
 Answers: EOS 模块是什么、和谁交互、设计文档怎么导航
 ---
@@ -8,7 +8,7 @@ Answers: EOS 模块是什么、和谁交互、设计文档怎么导航
 # EOS 设计
 
 `electro_optical_sensor` 模块负责光电传感器的配置、单周期输入、环境/大气建模、红外与可见光探测、
-融合输出、trace/replay、调试视图和生命周期事件。对外提供稳定 `EosSession` 门面；foundation 物理
+融合输出、Recording/Replay、调试视图和生命周期事件。对外提供稳定 `EosSession` 门面；foundation 物理
 算法、pipeline、controller、环境模型保持 internal。
 
 EOS 的心智模型是**光电探测流水线**：

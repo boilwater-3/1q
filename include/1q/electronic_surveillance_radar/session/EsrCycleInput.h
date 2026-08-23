@@ -20,10 +20,9 @@ struct ONEQ_API EsrCycleInput {
   std::uint32_t cycle_index{0U};     /**< 当前周期号 */
   double cycle_start_time_s{0.0};    /**< 当前周期绝对 world-time 起点（单位：s）。 */
   float dt_sec{1.0f};                /**< 当前周期步长（单位：s） */
-  std::uint64_t platform_entity_id{0U}; /**< 接收平台实体标识；用于同平台 RF 路径判定。 */
-  bool has_platform_ecef_kinematics{false}; /**< 是否提供工程 RF 链路所需的 ECEF 运动学。 */
-  oneq::coordinate::EcefPositionM platform_position_ecef_m{}; /**< 接收平台 ECEF 位置（m）。 */
-  oneq::coordinate::EcefVelocityMps platform_velocity_ecef_mps{}; /**< 接收平台 ECEF 速度（m/s）。 */
+  std::uint64_t platform_entity_id{0U}; /**< 接收平台实体标识；用于同平台 RF 路径判定（必填非零）。 */
+  oneq::coordinate::EcefPositionM platform_position_ecef_m{}; /**< 接收平台 ECEF 位置（m，必填：有限且可定位）。 */
+  oneq::coordinate::EcefVelocityMps platform_velocity_ecef_mps{}; /**< 接收平台 ECEF 速度（m/s，必填：有限；零向量合法）。 */
   oneq::coordinate::EulerAnglesDeg platform_attitude_deg{}; /**< 接收设备姿态（局部 yaw/pitch/roll，单位：deg）。 */
   oneq::electromagnetics::RfEmissionFrame rf_emissions{}; /**< 当前周期全部实际 RF 发射。其 envelope（world_cycle_index/window_start_time_s/window_duration_s）须与本周期权威时间一致，含空帧亦须填齐。 */
 };

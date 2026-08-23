@@ -1,6 +1,6 @@
 ﻿/**
  * @file area_division_test.cpp
- * @brief 编队区域切分（examples/component_attachment/area_division.*）单元测试。
+ * @brief 编队区域切分（examples/scenes/area_division.*）单元测试。
  *
  * 覆盖：多边形等宽条带切分（跨度/扫描线并集/航向旋转）、圆形同心环切分
  * （环半径序列 + 每机单环）、单机整区原样返回、非法输入报错。断言全部为
@@ -20,10 +20,10 @@
 
 #include "1q/coordinate/position_transform.h"
 #include "1q/navigation/AreaCoveragePlanner.h"
-#include "area_division.h"
+#include "scenes/area_division.h"
 
 namespace component_attachment {
-namespace demo {
+namespace app {
 namespace {
 
 using oneq::coordinate::EcefPositionM;
@@ -450,5 +450,5 @@ TEST(AreaDivisionTest, InvalidInputsFail) {
 }
 
 }  // namespace
-}  // namespace demo
+}  // namespace app
 }  // namespace component_attachment

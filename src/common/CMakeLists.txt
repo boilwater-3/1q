@@ -2,10 +2,10 @@
 
 set(ONEQ_COMMON_SOURCES
     atmosphere/AtmospherePhysics.cpp
+    atmosphere/PropagationPhysicsImpl.cpp
     atmosphere/StandardAtmosphere.cpp
     electromagnetics/RfLinkBudget.cpp
     electromagnetics/RfScene.cpp
-    environment/PropagationPhysicsImpl.cpp
     geometry/BoresightChain.cpp
     geometry/GeometryTransform.cpp
     coordinate/PositionTransform.cpp
@@ -17,12 +17,13 @@ set(ONEQ_COMMON_SOURCES
     optimization/LapjvSolver.cpp
     radar/RadarEquations.cpp
     radar/DetectionCellResolver.cpp
+    radar/MtiMtdAcceptanceBank.cpp
     radar/StatisticalCfarDetector.cpp
     radar/VegetationClutterModel.cpp
     rcs/RcsPhysics.cpp
     replay/ReplayTrace.cpp
-    trace/TraceSink.cpp
     timing/TimingRegimeModel.cpp
+    logging/AcceptanceFileLog.cpp
 )
 
 # 内置文件日志后端（PROJECT_LOG_* 的 Windows 落盘实现）：总开关 OFF 时不编译。

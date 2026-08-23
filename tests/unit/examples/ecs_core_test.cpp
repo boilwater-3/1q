@@ -1,6 +1,6 @@
 ﻿/**
  * @file ecs_core_test.cpp
- * @brief 自定义实体-组件核心（examples/component_attachment/core/）单元测试。
+ * @brief 自定义实体-组件核心（examples/core/）单元测试。
  *
  * 覆盖：实体挂载/卸载生命周期钩子调用序、类型化组件访问、挂载序与
  * 实体创建序步进、共享场景状态引用、以及组件经 Boost.Signals2 信号

@@ -1,6 +1,6 @@
 ---
 Status: active
-Last-reviewed: 2026-08-20
+Last-reviewed: 2026-08-23
 Authority: sbirs_sensor 数据流、Public API 边界、时序与状态所有权
 Answers: SBIRS 的分层架构、数据如何流动、runtime patch 如何迁移状态、Public API 边界在哪
 ---
@@ -18,7 +18,7 @@ Answers: SBIRS 的分层架构、数据如何流动、runtime patch 如何迁移
 |---|---|
 | `sbirs_sensor.hpp` | 模块聚合入口；只聚合稳定 public API，不暴露 foundation/pipeline/runtime/state-machine 内部类型 |
 | `config/` | `SbirsSessionConfig`、runtime patch、semantic builder、config validation；条件五域（hardware / mission / orientation / policy / environment；orientation 为静态安装指向范本） |
-| `session/` | `SbirsSession`、cycle input/result、scene target、output types、adapter、trace/replay、debug/lifecycle |
+| `session/` | `SbirsSession`、cycle input/result、scene target、output types、adapter、Recording/Replay、debug/lifecycle |
 
 SBIRS 不在公开头文件中暴露 `electro_optical_sensor`、`Eos*` 或 `1q/electro_optical_sensor/...`。EOS 仅作为
 foundation 物理算法的迁移参考，不构成 SBIRS 的对外集成依赖。
@@ -32,7 +32,7 @@ foundation 物理算法的迁移参考，不构成 SBIRS 的对外集成依赖�
 | `environment/` | 环境模型与气象衰减 |
 | `pipeline/` | WFOV/NFOV 编排、首次捕获、调度与估计跟踪运行态 |
 | `runtime/` | controller、config mapper、runtime config resolver |
-| `session/` | public session 装配、输入输出适配、trace/replay、debug/lifecycle |
+| `session/` | public session 装配、输入输出适配、Recording/Replay、debug/lifecycle |
 
 ## 与 EOS 的关系：派生 + 独立
 
@@ -51,7 +51,7 @@ flowchart TB
     Entry["sbirs_sensor.hpp"]
     Config["config/*\nWFOV/NFOV 硬件 / 任务 / 策略 / 环境"]
     SessionApi["session/*\nSbirsSession / CycleInput / CycleResult"]
-    Tools["Trace / Replay / Debug / Lifecycle"]
+    Tools["Recording / Replay / Debug / Lifecycle"]
   end
 
   subgraph Session["Session orchestration"]
@@ -221,8 +221,8 @@ flowchart LR
   subgraph Output["Output"]
     Raw["SbirsOutputFrame"]
     Result["SbirsCycleResult"]
-    Trace["Trace / Replay"]
-    Accept["[SbirsAccept] 验收日志\n（编译期开关，默认 OFF）"]
+    Trace["Recording / Replay"]
+    Accept["sbirs_acceptance.log\n（编译期开关，默认 OFF）"]
   end
 
   Config --> Internal
@@ -252,11 +252,11 @@ flowchart LR
   Sched --> Accept
 ```
 
-**验收日志旁路（2026-08-18）**：`[SbirsAccept]` 事件流（`SBIRS_ACCEPTANCE_LOG`，CMake 开关
+**验收日志旁路（2026-08-22）**：`SBIRS_ACCEPTANCE_ITEM`（CMake 开关
 `ONEQ_ENABLE_SBIRS_ACCEPTANCE_LOG` 默认 OFF）从各阶段旁路读取中间量（覆盖区投影消费
 Frame 几何、疑似目标/信号能量/角定位误差消费 WFOV discovery、捕获判决与通道协同消费
-Handoff/Sched、焦平面脱靶量与跟踪段角定位误差消费 Track 指向/输出），经 `PROJECT_LOG_INFO`
-落盘，**不回流任何输出结构**。
+Handoff/Sched、焦平面脱靶量与跟踪段角定位误差消费 Track 指向/输出），写入
+`sbirs_acceptance.log`（四段同一行），**不回流任何输出结构**、不进 `1q_library.log`。
 跨周期状态新增 `wfov_consecutive_hits`（宽窄切换连续命中计数表，进 `SbirsPipelineSnapshot`
 capture/restore）。
 

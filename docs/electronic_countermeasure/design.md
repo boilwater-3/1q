@@ -1,7 +1,7 @@
 # Electronic Countermeasure 当前设计
 
 Status: active
-Last-reviewed: 2026-08-20
+Last-reviewed: 2026-08-23
 Authority: current electronic_countermeasure module design
 RF-Interference-Architecture: frozen target; AR/ESR/ECM RF v2 implemented (per-module status in each design.md)
 
@@ -24,11 +24,11 @@ flowchart LR
   Raw --> AR["AR(N).interference"]
   Session --> Result["EcmCycleResult\n模式 / 决策原因 / 热状态"]
   Raw --> ESR2["ESR(N).rf_emissions 当前统一 RF 接收"]
-  Session -.-> Trace["Trace / Replay\n输入出处和累积调度状态"]
+  Session -.-> Trace["Recording / Replay\n输入出处和累积调度状态"]
 ```
 
 公共面只提供 `EcmSessionConfig`、runtime patch、`EcmCycleInput`、`EcmCycleResult`、ESR adapter 和
-trace/replay 门面，不公开 planner SPI。raw output 是公共 RF v2 `RfEmissionFrame`，可直接赋给
+Recording/Replay 门面，不公开 planner SPI。raw output 是公共 RF v2 `RfEmissionFrame`，可直接赋给
 `ArCycleInput::interference`；资源选择原因、truth-assisted 归属和预期调度语义只进入 result/debug。
 
 `EcmSession::StepWithResult()` 把校验、调度和发布合在一次原子调用中。ECM 不等待 AR/ESR 回调，
@@ -147,7 +147,7 @@ schema 端到端往返。注:快照恢复侧的嵌套 observation / 重复 ID / 
 - 不实现新的转发、DRFM 或成功概率模型。
 - 不把 truth ID 引入 sensor-driven 输入或 raw emission。
 - 不让 ECM 计算接收功率、J/S、J/N 或传感器受扰判决。
-- 增加技术、修改滑行/资源/热语义或 snapshot 所有权时，必须同步 unit、trace/replay、跨模块集成和本文证据。
+- 增加技术、修改滑行/资源/热语义或 snapshot 所有权时，必须同步 unit、Recording/Replay、跨模块集成和本文证据。
 
 ## 6. 欺骗干扰
 

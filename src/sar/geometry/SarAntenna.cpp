@@ -2,14 +2,15 @@
 #include "sar/geometry/SarGeometry.h"
 
 #include <cmath>
+#include "common/numerics/Constants.h"
 
 namespace sar {
 namespace geometry {
 
 namespace {
 
-constexpr double kPi = 3.141592653589793238462643383279502884;
-constexpr double kHalfPi = kPi * 0.5;
+using oneq::common::numerics::kPi;
+using oneq::common::numerics::kHalfPi;
 constexpr double kFourPi = kPi * 4.0;
 
 }  // namespace

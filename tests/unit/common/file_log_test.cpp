@@ -1,6 +1,6 @@
 ﻿// 文件日志后端单测：oneq::logging 迷你 sink + 格式化引擎 + PROJECT_LOG_* 宏路由。
 //
-// 仅当 PROJECT_LOG_BACKEND_FILE=1（ONEQ_ENABLE_FILE_LOG=ON，Windows 默认）时
+// 仅当 PROJECT_LOG_BACKEND_FILE=1（ONEQ_ENABLE_FILE_LOG=ON，默认 OFF）时
 // 本文件编译为真实测试；否则为空 TU（守卫与库编译在 Unit.cmake 中同步）。
 //
 // 测试使用 CWD 下的固定文件名，串行 ctest 无冲突；SetUp/TearDown 清理。
@@ -200,9 +200,9 @@ TEST_F(FileLogTest, LazyOpenUsesExplicitPath) {
   oneq::logging::LogInfo("lazy first write");
   ASSERT_TRUE(oneq::logging::IsFileLogOpen());
   oneq::logging::CloseFileLog();
-  // 懒打开走默认路径（CWD/1q_library.log，ONEQ_FILE_LOG_PATH），非测试路径。
+  // 懒打开走默认路径（CWD/log/，ONEQ_FILE_LOG_PATH），非测试路径。
   EXPECT_TRUE(ReadAll().empty());
-  std::remove("1q_library.log");
+  std::remove("log/1q_library.log");
 }
 
 }  // namespace

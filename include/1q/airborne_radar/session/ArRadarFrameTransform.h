@@ -14,7 +14,6 @@
 #include "1q/airborne_radar/session/ArSceneTypes.h"
 #include "1q/api.hpp"
 #include "1q/coordinate/types.h"
-#include "1q/foundation/pose_types.h"
 
 namespace airborne_radar {
 namespace session {
@@ -46,7 +45,7 @@ enum class ONEQ_API ArCoordinateStatus { kOk = 0, kNullOutput, kCoordinateTransf
 ONEQ_API bool TryMakeArPoseFromPlatform(const ArPlatformInput& input,
                                         const oneq::coordinate::EulerAnglesDeg& mount_angles_deg,
                                         oneq::coordinate::LocalFrameReference* reference,
-                                        oneq::foundation::Vector3f* radar_local_velocity_mps,
+                                        oneq::coordinate::Vector3d* radar_local_velocity_mps,
                                         ArCoordinateStatus* status = nullptr);
 
 /**
@@ -55,7 +54,7 @@ ONEQ_API bool TryMakeArPoseFromPlatform(const ArPlatformInput& input,
  */
 ONEQ_API bool TryMakeArTargetFromEnu(const ArTargetInput& target_input,
                                      const oneq::coordinate::LocalFrameReference& reference,
-                                     oneq::foundation::Vector3f radar_local_velocity_mps,
+                                     oneq::coordinate::Vector3d radar_local_velocity_mps,
                                      ArSceneTarget* target, ArCoordinateStatus* status = nullptr);
 
 }  // namespace session

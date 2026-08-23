@@ -1,6 +1,6 @@
 ---
 Status: active
-Last-reviewed: 2026-08-17
+Last-reviewed: 2026-08-23
 Authority: target_inference 模块级边界、非目标与变更规则
 Answers: target_inference 有哪些边界、哪些刻意不实现、变更规则
 ---
@@ -20,7 +20,7 @@ Answers: target_inference 有哪些边界、哪些刻意不实现、变更规则
 ## 非目标
 
 1. 不做关联/滤波（估计层职责）；不做威胁评分（决策层职责）。
-2. 不建 Session/周期/事件总线形态；不接入 trace/replay 框架（纯函数面）。
+2. 不建 Session/周期/事件总线形态；不接入 Recording/Replay 框架（纯函数面）。
 3. 不建模助推段动力学——发射点定义为回推弹道与地表交点（或速度停机门），
    助推段燃烧模型为后续冻结项。
 4. 不做 IMM/多假设弹道模型、不做在线参数辨识（弹道系数为配置输入非估计量）。

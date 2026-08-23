@@ -22,7 +22,9 @@ inline void LoadRirSessionConfig(const examples::JsonValue& root,
     config->sensor_platform_id =
         static_cast<std::uint64_t>(root["sensor_platform_id"].AsInt());
   }
-  config->sensor_enabled = root["sensor_enabled"].AsBool();
+  if (root.Has("sensor_enabled")) {
+    config->sensor_enabled = root["sensor_enabled"].AsBool();
+  }
 }
 
 /// Load a config::RirSessionConfig from a JSON file.

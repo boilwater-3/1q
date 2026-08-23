@@ -64,10 +64,10 @@ TEST(SarSessionRuntimeConfigTest, EmptyPatchRejectedAndSessionStaysHealthy) {
   // 会话不受影响：仍可正常执行 RDA 成像。
   const session::SarCycleResult result = session.StepWithResult(MakeInput());
   EXPECT_EQ(result.status, session::SarCycleStatus::kCompleted);
-  EXPECT_TRUE(result.output_frame.has_l1_image);
+  EXPECT_TRUE(result.product.output_frame.has_l1_image);
 }
 
-TEST(SarSessionRuntimeConfigTest, RetainRawPhaseHistoryWithoutRawEchoRejected) {
+TEST(SarSessionRuntimeConfigTest, L1ImagingWithoutRawEchoRejected) {
   // 无 L1 依赖的 RDA 配置：raw_echo 默认开启，可正常步进（completed_stage=kNone）。
   config::SarSessionConfig config = MakeSmallRdaConfig();
   config.policy.enable_l1_rda_imaging = false;
@@ -80,19 +80,19 @@ TEST(SarSessionRuntimeConfigTest, RetainRawPhaseHistoryWithoutRawEchoRejected) {
   EXPECT_TRUE(session.TryApplyRuntimeConfig(close_raw));
   const session::SarCycleResult after_close = session.StepWithResult(MakeInput());
   EXPECT_EQ(after_close.status, session::SarCycleStatus::kCompleted);
-  EXPECT_FALSE(after_close.output_frame.has_raw_echo);
+  EXPECT_FALSE(after_close.product.output_frame.has_raw_echo);
 
-  // 第二步：retain_raw_phase_history 依赖 raw echo，应被 resolver 拒绝。
-  config::SarRuntimeConfigPatch retain_history;
-  retain_history.has_retain_raw_phase_history = true;
-  retain_history.retain_raw_phase_history = true;
-  EXPECT_FALSE(session.TryApplyRuntimeConfig(retain_history));
+  // 第二步：enable_l1_rda_imaging 依赖 raw echo，应被 resolver 拒绝。
+  config::SarRuntimeConfigPatch enable_l1;
+  enable_l1.has_enable_l1_rda_imaging = true;
+  enable_l1.enable_l1_rda_imaging = true;
+  EXPECT_FALSE(session.TryApplyRuntimeConfig(enable_l1));
 
   // 拒绝后 runtime_config 未被污染：步进行为与"从未应用被拒补丁"一致。
   const session::SarCycleResult after_reject = session.StepWithResult(MakeInput(2U));
   EXPECT_EQ(after_reject.status, session::SarCycleStatus::kCompleted);
-  EXPECT_FALSE(after_reject.output_frame.has_raw_echo);
-  EXPECT_EQ(after_reject.output_frame.completed_stage, session::SarProcessingStage::kNone);
+  EXPECT_FALSE(after_reject.product.output_frame.has_raw_echo);
+  EXPECT_EQ(after_reject.product.output_frame.completed_stage, session::SarProcessingStage::kNone);
 }
 
 }  // namespace

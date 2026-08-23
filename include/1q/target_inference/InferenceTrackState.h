@@ -24,7 +24,8 @@ enum class ONEQ_API InferenceTargetCategory : std::uint8_t {
   kFighter = 2,   /**< 战斗机。 */
   kBomber = 3,    /**< 轰炸机。 */
   kMissile = 4,   /**< 导弹。 */
-  kUav = 5,       /**< 无人机。 */
+  /* kUav = 5 已移除（2026-08-22 甲方裁定，产品不识别无人机）：槽位 5 保留
+     不复用（加性扩展、不重排），先验恒零、永不为 argmax。 */
   kOther = 6,     /**< 其它。 */
   kUnknown = 7    /**< 未知。 */
 };
@@ -39,6 +40,8 @@ constexpr std::size_t kInferenceCategoryCount = 8U;
  */
 struct ONEQ_API InferenceTrackState {
   std::uint64_t key{0U};                  /**< 航迹库内键（透传，用于输出对齐）。 */
+  double sim_time_sec{0.0};               /**< 采样仿真时间（单位：s；0 = 调用方未提供）。 */
+  std::uint32_t input_cycle_index{0U};    /**< 采样周期号（0 = 调用方未提供）。 */
   oneq::coordinate::EcefPositionM position{}; /**< ECEF 位置（单位：m）。 */
   std::array<double, 3U> velocity_ecef_m_per_s{{0.0, 0.0, 0.0}}; /**< ECEF 速度（单位：m/s）。 */
   bool has_covariance{false};             /**< 是否携带状态协方差（影响误差预算出口）。 */

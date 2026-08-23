@@ -2,7 +2,7 @@
 Status: active
 Authority: 非规定性记录（不构成契约约束）
 Lifecycle: 条目有结论后回写 contract.md 或 design.md 并从本文删除；不保留已收敛条目
-Last-reviewed: 2026-08-21
+Last-reviewed: 2026-08-23
 ---
 
 # 跨模块开放议题
@@ -20,15 +20,14 @@ Last-reviewed: 2026-08-21
 
 | ID | 域 | 主题 | 一句话 | Status |
 |---|---|---|---|---|
-| COMMON-OQ-1 | common | Windows/MSVC 全链验收 | presets/.bat 仅未验收脚手架，CI 只跑 macOS | needs-evidence |
-| COMMON-OQ-7 | common | 双 cycle_index 冗余 | 非执行周期 input_cycle_index 保留输入号，output_frame.cycle_index 为0 | open |
+| COMMON-OQ-1 | common | Windows 全链 CI 验收缺口 | 本机构建/交付已成治理事实；CI 仅 macOS、依赖引导无校验 | open |
 | COMMON-OQ-8 | common | 周期时间/窗口静默拒绝 | 三类不同性质的拒绝门被并列；空帧 envelope 语义 AR/ESR 分裂 | open |
 | COMMON-OQ-9 | common | RIR 补丁提交策略归类 | 暂存+下周期批量提交、无 resolver 校验、恒 true，不符现有二分类 | open |
+| COMMON-OQ-10 | common | examples 会话配置三处同构维护 | 模板 + 16 场景 JSON + loader 键映射靠人工同步，字段变更漏一处即静默失配 | open |
 | SAR-OQ-1 | sar | RDA 性能数字是否重测 | /O2 实测数字来自旧档位，需确认是否随真发布档更新 | open |
 | SAR-OQ-2 | sar | 脉冲环缓冲 O(1) 去重契约 | 依赖严格递增不变量，文档无 push 复杂度断言 | open |
 | AR-OQ-2 | airborne_radar | 集成层 rf-world 干扰接线 | examples 从共享 rf-world 派生 interference，模块文档未述 | open |
 | ESR-OQ-4 | electronic_surveillance_radar | 扫描采样点数上限截断 | 超 131072 点截断丢弃窗口末端，是否产品认可 | open |
-| RIR-OQ-2 | remote_identification_radar | 非执行周期输出帧周期号语义 | input_cycle_index/batch_id 保留输入号、载荷空，未用归零约定 | open |
 | RIR-OQ-3 | remote_identification_radar | inconsistent_platform_position 疑似死码 | 头文件有、代码无产生点，是否删除 | open |
 | AR-OQ-1 | airborne_radar | 假目标鉴别跨域命名双轨 | 观测域枚举 vs 量测域 bool | open |
 | ESR-OQ-1 | electronic_surveillance_radar | 压制干扰感知与 ECCM 链路缺失 | 死字段 + 无结构化观测 + 无 ECCM | open |
@@ -41,57 +40,32 @@ Last-reviewed: 2026-08-21
 | RIR-OQ-1 | remote_identification_radar | 特征量测保真度边界 | 真值×效能约束转换，非加噪量测 | open |
 | TARGET-OQ-1 | target-layer | AR 估计/推演职责前置 | 消费级航迹产品 + 识别结论回填 public 输出 | open |
 | TARGET-OQ-2 | target-layer | ESR 威胁等级进 public 输出 | threat_level 由传感器生产并被 ECM 下游消费 | open |
-| TARGET-OQ-3 | target-layer | SBIRS Estimated 后验外发 | 滤波后验角度作为 raw output 检测记录 | open |
 
 ## Common 非阻塞边界
 
-### COMMON-OQ-1：Windows/MSVC 全链支持验收
+### COMMON-OQ-1：Windows 全链支持的 CI 验收缺口
 
-- **现状**：仓库存在 Windows Conan/no-Conan presets 和 `scripts/fetch_third_party.bat`，但当前 CI 只在
-  macOS 运行。该脚本还存在两个未验收风险点：
-  1. 下载来源含 GitLab/archives.boost.io，非锁定 GitHub。
-  2. 未对下载内容做 hash 校验。
+- **现状**：Windows 构建与交付已是治理事实（2026-08 核验）：
+  1. v141 preset（`VisualStudio.15.0-amd64`，Conan）为 Windows 本机构建主线（AGENTS.md/README 记载）。
+  2. VS2015 no-Conan（`VisualStudio.14.0-amd64-none` / `1q_log_vs2015`）为交付层真实路径：
+     运行手册 `docs/practice/windows_local_build.md`（零修改 consumer 镜像 + 零 C4819 +
+     验收行为判据）。
+  3. 依赖引导 `scripts/fetch_third_party.bat` 存在两个风险点：下载来源含 GitLab/archives.boost.io
+     （非锁定 GitHub）；未对下载内容做 hash 校验。
+  4. CI（ci.yml / nightly.yml）仍仅 macOS runner。
   [evidence: scripts/fetch_third_party.bat]
-  2026-08 进展（未改变验收状态）：v141 preset（`VisualStudio.15.0-amd64`，Conan）已在 README/CLAUDE.md
-  记载为 Windows 构建主线——库与 examples 可在 Windows 构建运行（集成日志走文件后端）；VS2015 与
-  no-Conan 路径仍为脚手架。
+  [evidence: docs/practice/windows_local_build.md]
 - **后果**：
-  1. 外部读者可能据 presets 或 `.bat` 误判 Windows 已受支持。
-  2. 无校验的下载链在真实 Windows runner 上不可重复，无法证明 configure/build/install/consumer 闭环。
-- **待决问题**：如何实现已冻结的 Windows shell/GitHub bootstrap，并在不依赖 Windows Conan 的前提下形成
-  可重复的依赖、configure、build、install 和外部 consumer 闭环。另：README.md（2026-08 起）称 v141 为
-  Windows 构建主线（mainline），而本条目与 docs/practice/build_and_test_governance.md 仍把 Windows presets
-  列为未验收脚手架——两处措辞的正式对齐（升级 README 为正式支持声明，或把治理规则修订为承认 v141
-  本机主线）亦属待决。
-- **当前边界**：这些 presets 和脚本只视为未验收脚手架。不得在文档中宣称 Windows 已受支持，也不得把
-  Conan 路径自动提升为正式 Windows 方案。文档现按"v141 为本机主线、但非正式支持声明"表述
-  （CI 仍仅 macOS）；README 与治理规则措辞未对齐。
-- **再进入条件 (Stage A)**：提交锁定版本/提交与下载校验矩阵，提供 shell bootstrap 原型，并在真实
-  Windows runner 上依次证明 configure、Debug/Release build、install、独立 consumer build/run；随后再决定
-  保留、删除或重命名现有 presets 与 `.bat` 入口。
-
-### COMMON-OQ-7：CycleResult.input_cycle_index 与 OutputFrame.cycle_index 冗余
-
-- **现状**：五模块 `CycleResult` 均同时携带 `input_cycle_index`（本次输入周期号）与内嵌
-  `OutputFrame.cycle_index`。两者关系随周期成败而变：
-  1. 成功路径：两者均取自 `input.cycle_index`，数值恒等。
-  2. 非执行路径（COMMON-OQ-5 已统一为不复用）：`output_frame.cycle_index` 保持默认 `0`、
-     `input_cycle_index` 为本次输入号，二者分歧。
-  [evidence: include/1q/electro_optical_sensor/session/EosCycleResult.h]
-  RIR（2026-08 并入会话契约）为第三形态：输出帧周期号字段亦名 `input_cycle_index`，成功与非执行
-  周期两字段恒同取本次输入号（非执行周期输出帧仅载荷为空）——未采用"失败归零"，冗余以同名恒等
-  形态存在。
-  [evidence: include/1q/remote_identification_radar/session/RirCycleResult.h]
-  [evidence: include/1q/remote_identification_radar/session/RirOutputTypes.h]
-- **后果**：
-  1. 双字段在成功路径冗余、在失败路径语义分裂，阅读者需判断何时相等何时分歧。
-  2. 去重与周期失败语义耦合，无法独立处理。
-- **待决问题**：
-  1. 是否移除 `input_cycle_index`、统一用 `output_frame.cycle_index`。
-  2. 或反向统一为仅保留 `input_cycle_index`。
-- **当前边界**：五模块保留双字段。非执行周期中 `input_cycle_index` 承载"本次失败周期的归属号"语义，
-  `output_frame.cycle_index` 为默认 `0`，不可简单删除。
-- **再进入条件 (Stage A)**：评估单一周期号字段的可行性及其对 trace/replay 归属的影响。
+  1. 本机交付流程已受治理，但依赖→configure→build→install→consumer 全链未在任何 Windows
+     CI runner 上证明，回归靠人工。
+  2. 无校验的下载链不可重复——同一脚本在不同时间/网络可能拉到不同内容。
+- **待决问题**：是否为 Windows 引入 CI runner（或 nightly 一档）固化全链验收；
+  `fetch_third_party.bat` 是否升级为锁定来源 + hash 校验矩阵。
+- **当前边界**：Windows 支持按现有治理文档表述（v141 本机主线、VS2015 交付层）；
+  不得宣称 Windows 全链有 CI 验收，也不得宣称依赖引导可重复。
+- **再进入条件 (Stage A)**：Windows 交付出现一次因依赖漂移或环境差异导致的不可复现失败，
+  或交付节奏要求自动化回归时，先提交锁定版本/哈希矩阵与 runner 方案，再决定 presets 与
+  `.bat` 入口的保留形态。
 
 ### COMMON-OQ-8：周期输入时间/窗口字段无统一契约，违反时静默拒绝
 
@@ -117,7 +91,7 @@ Last-reviewed: 2026-08-21
   清单后）的 `RirSession::TryApplyRuntimeConfig` 为"暂存 + 下一成功周期边界整批提交"，且不做 resolver
   校验、恒返回 `true`——既不属于事务性提交，也不属于立即提交，与"patch 必须经 resolver 校验"的条款
   冲突。分类表现无 RIR 行。
-  [evidence: src/remote_identification_radar/session/RirSession.cpp:315]
+  [evidence: src/remote_identification_radar/session/RirSession.cpp]
   [evidence: docs/common/session_contract.md §运行期配置提交策略]
 - **后果**：会话契约的分类表缺 RIR 一行；RIR 补丁仅暂存不校验，无效补丁会静默排入下一成功周期，
   调用方无即时反馈。分类规则（"归属由状态空间决定"）未表述 RIR 这种"仅暂存、无校验、无失败路径"的形态。
@@ -128,6 +102,22 @@ Last-reviewed: 2026-08-21
 - **再进入条件 (Stage A)**：会话契约下一轮修订（或 RIR 补丁路径新增真实校验/失败处理）时，
   先冻结 RIR 分类与校验契约，再更新 `session_contract.md` 与本文条目。
 
+### COMMON-OQ-10：examples 会话配置三处同构维护（模板 / 场景 JSON / loader）
+
+- **现状**：session_config"挂载即全量"口径落地后，同一份传感器配置结构存在三处同构拷贝，靠人工同步。
+  1. `examples/basic_config/` 六域模板（batch_validation 夹具同源引用同一批文件）。
+  2. 16 个场景 JSON 的 `session_config` 子块（模板整份拷贝后按场景改值）。
+  3. `examples/common/config_loaders/` 的叶子键映射（决定读哪些键、缺键回落库默认）。
+  [evidence: examples/basic_config]
+- **后果**：传感器配置字段增删改需要人工同步模板 + 16 份场景 JSON + loader 映射；
+  漏一处要么静默失配（缺键回落库默认值），要么场景间隐性漂移；副本完备性目前只能靠人工审计确认。
+- **待决问题**：是否将"场景自持全量副本"收敛为单源机制——运行期模板 ⊕ 场景覆写、
+  脚本生成场景 JSON、CI 键树校验三者的取舍或组合。
+- **当前边界**：保持 schema v2 挂载即全量口径与 16 份全量副本不变；不得在机制定论前
+  引入"部分字段块"混用形态。
+- **再进入条件 (Stage A)**：下一次传感器配置字段增删改需触及超过 5 份 JSON，
+  或发现任一场景 `session_config` 键树与模板漂移。
+
 ## Airborne Radar 非阻塞边界
 
 ### AR-OQ-2：集成层 rf-world 干扰接线是否补入模块文档
@@ -135,7 +125,7 @@ Last-reviewed: 2026-08-21
 - **现状**：`examples/component_attachment` 集成层把 ECM 等发射设备发布的 `RfEmissionFrame` 汇入共享
   rf-world（`rf_world_broker.h`），再经 `BuildArInterferenceFromRfWorld` 组装 `ArCycleInput::interference`
   （排除自身平台发射设备）。AR 模块契约本身仍以 `ArCycleInput::interference` 接收 `RfEmissionFrame`，未变。
-  [evidence: examples/component_attachment/components/ar_sensor_component.cpp:178]
+  [evidence: examples/components/ar_sensor_component.cpp]
 - **后果**：AR 的四个模块设计文档均不引用 examples 层，该集成先例只存在于演示层；未来集成方从模块文档
   无法得知"干扰可从共享 rf-world 派生"的现成编排路径。
 - **待决问题**：是否在 AR 的 data-flow.md（或 common/rf_architecture.md）补一段集成先例说明，把
@@ -213,7 +203,7 @@ Last-reviewed: 2026-08-21
 - **现状**：`ScanPatternGenerator` 单轴波位序列改为按整数步数计数采样（b869da22）后，
   `kMaxScanPointsPerAxis = 131072U`；超出上限时序列**截断保留前 131072 个点**（丢弃扫描窗口末端，
   不做加密重采样）。
-  [evidence: src/electronic_surveillance_radar/pipeline/ScanPatternGenerator.h:24]
+  [evidence: src/electronic_surveillance_radar/pipeline/ScanPatternGenerator.h]
 - **后果**：极小步进 + 大窗口时消费方会静默丢失窗口末端的波位覆盖，且无显式告警；文档已按现状
   如实描述截断语义（boundaries.md scan_rate_hz 节）。
 - **待决问题**：上限值与"截断丢弃末端"是否为产品认可行为——是否需要显式告警，或改为对超限配置报错拒绝。
@@ -318,27 +308,12 @@ Last-reviewed: 2026-08-21
 
 ## Remote Identification Radar 非阻塞边界
 
-### RIR-OQ-2：非执行周期输出帧的周期号语义
-
-- **现状**：RIR 输出帧周期号字段亦名 `input_cycle_index`；关机/校验拒绝周期仍写入本次输入周期号
-  `input_cycle_index` 与下一个批次号 `batch_id`（载荷为空），未采用五模块"失败归零"约定
-  （`output_frame.cycle_index = 0`）。与 COMMON-OQ-7 的三形态记录相关但独立。
-  [evidence: src/remote_identification_radar/session/RirSession.cpp:199]
-  [evidence: include/1q/remote_identification_radar/session/RirOutputTypes.h]
-- **后果**：RIR 非执行周期输出帧携带"本次输入号"语义，与五模块读 RIR 结果（或反向）的调用方预期
-  不一致，跨模块读代码需辨别两套周期号语义。
-- **待决问题**：RIR 是否统一为五模块"失败归零"约定（或统一字段命名），还是保留"成功与非执行周期
-  均取本次输入号、载荷为空"的现状并作为 RIR 特有语义固化。
-- **当前边界**：session_contract.md 规则 8 已为 RIR 加例外说明；现状为"字段同名恒等、非执行周期载荷为空"。
-  不得在未裁定前宣称 RIR 与五模块周期语义相同。
-- **再进入条件 (Stage A)**：COMMON-OQ-7 单一周期号字段评估启动时，一并裁定 RIR 的命名与归零语义。
-
 ### RIR-OQ-3：inconsistent_platform_position 疑似死码
 
 - **现状**：`RirIssueCodes.h` 登记 `rir.validation.inconsistent_platform_position`（平台位置一致性校验），
   但 28ca2edf 后 `platform_position` 必填、`has_platform_position = false` 语义消失，全仓无该码产生点，
   @brief 亦陈旧。issue_codes.md 按"头文件为单一事实来源"如实收录。
-  [evidence: include/1q/remote_identification_radar/session/RirIssueCodes.h:49]
+  [evidence: include/1q/remote_identification_radar/session/RirIssueCodes.h]
 - **后果**：issue 码表收录了代码永不产生的码；保留死码会让阅读者误以为存在平台位置一致性校验路径。
 - **待决问题**：该常量与注释是否在代码侧删除（或修订 @brief 为预留），以及 issue_codes.md 是否同步
   移除对应行。
@@ -406,43 +381,3 @@ Last-reviewed: 2026-08-21
   不得零碎单独修改。
 
 ### TARGET-OQ-2：ESR 威胁等级进 public 输出（ECM 下游消费）
-
-- **现状**：`EmitterHypothesis.threat_level`（public DTO 字段）由
-  `HypothesisAssociator::InferThreatFromCluster`（模式+SNR 启发式）计算并对外发布；ECM 侧
-  `EcmEsrAdapter` 消费该字段二次计分为调度排序输入。同一关联器内的 `InferModeFromCluster`
-  （PRI/脉宽→工作模式）与假设关联/生命周期（最小费用流指派 + 指数混合平滑）也在传感器内。
-  [evidence: include/1q/electronic_surveillance_radar/session/EmitterHypothesis.h]
-  [evidence: src/electronic_surveillance_radar/pipeline/HypothesisAssociator.cpp]
-  [evidence: src/electronic_countermeasure/EcmEsrAdapter.cpp]
-- **后果**：决策层产品（威胁等级）由传感器生产并进入 public 输出，违反分层契约规则 2；ECM
-  调度输入依赖传感器的越层字段，形成越层消费链。模式推断与假设平滑的归属存在语义争议（可
-  辩护为 ESM 量测语义标注 / ESM 产品形态）。
-- **待决问题**：`threat_level` 是否从 public DTO 退出（破坏性公共 API 变更，需冻结迁移契约；
-  ECM 调度输入改由 threat_assessment 或调用方供给）；ESM 假设管理（关联/生命周期/平滑）是否
-  作为合法 ESM 产品形态保留。
-- **当前边界**：`threat_level` 为冻结公共 API，不追溯回改；处置前 ESM 假设管理保留现状，
-  不得新增同类威胁语义字段。
-- **再进入条件 (Stage A)**：ESR 公共 API 修订立项时，提交 `threat_level` 迁移契约（含 ECM
-  消费路径改造与 replay 兼容性裁定）。
-
-### TARGET-OQ-3：SBIRS Estimated 模式滤波后验作为 raw output
-
-- **现状**：Estimated 模式下滤波后验投影角度直接作为 `SbirsOutputFrame` raw 检测记录输出
-  （boundaries.md 输出规则 4 冻结）；6 维后验状态与协方差不外发，attribution 仅诊断。与
-  SBIRS-OQ-4（真值初始化）相关但独立。
-  [evidence: src/sbirs_sensor/pipeline/SbirsPipeline.cpp]
-  [evidence: docs/sbirs_sensor/boundaries.md 输出规则 4]
-- **后果**：消费方在 raw output 拿到的是跨周期滤波平滑后的角度（信息聚合估计）而非单周期量测
-  事实；fusion 直接消费该角度时被动消费平滑估计，其量测噪声模型假设与实际内容不一致。
-- **待决问题**：Estimated 输出语义是否改为"带噪量测 + 后验仅内部门控"，或维持"滤波后验即
-  传感器报告值"的装备语义并在适配层标注来源。
-- **当前边界**：维持 boundaries.md 规则 4；不外发协方差/速度/航迹族；Sensor-like 模式已是
-  带误差量测形态。
-- **再进入条件 (Stage A)**：估计层轨迹滤波立项、需要以 SBIRS 量测噪声模型构造 R 矩阵时，
-  先盘点 Estimated 输出的消费路径并给出噪声语义失配证据。
-- **证据（2026-08-17，P0 落地）**：characterization 实测确认 Estimated raw output 为滤波
-  后验（std 0.317° vs Sensor-like 0.379°，逐周期差分 >10× 更平滑，lag-1 自相关 0.942）；
-  附带发现 Sensor-like 亦携带共模姿态/轨道偏差（自相关 0.909，std 远大于配置 σ）。建议
-  裁定：维持规则 4 装备语义；估计层默认消费 Sensor-like 且 R 含共模偏差项；正式裁定随
-  指标签认冻结。见 target_domain_p0_p1_decision_2026-08-17.md §4.1。
-  [evidence: tests/unit/sbirs_sensor/sbirs_estimated_semantics_characterization_test]

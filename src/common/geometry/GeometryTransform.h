@@ -8,14 +8,14 @@
 
 #include <Eigen/Core>
 
-#include "1q/foundation/pose_types.h"
+#include "1q/coordinate/types.h"
 
 namespace oneq {
 namespace common {
 namespace geometry {
 
-using Vector3f = oneq::foundation::Vector3f;
-using EulerAnglesDeg = oneq::foundation::EulerAnglesDeg;
+using Vector3d = oneq::coordinate::Vector3d;
+using EulerAnglesDeg = oneq::coordinate::EulerAnglesDeg;
 
 /**
  * @brief AzimuthElevationDeg 描述方位/俯仰角（单位：度）。
@@ -88,7 +88,7 @@ Eigen::Matrix3f BuildRotationMatrix(const EulerAnglesDeg& euler_deg);
  * @param[in] local_attitude_deg 局部坐标相对稳定参考系的姿态角。
  * @return 局部坐标系下的向量。
  */
-Vector3f RotateVectorToLocalFrame(const Vector3f& world_vector,
+Vector3d RotateVectorToLocalFrame(const Vector3d& world_vector,
                                   const EulerAnglesDeg& local_attitude_deg);
 
 /**
@@ -98,9 +98,9 @@ Vector3f RotateVectorToLocalFrame(const Vector3f& world_vector,
  * @param[in] target_position_m 目标位置（单位：m）。
  * @return 观测机体系下的方位/俯仰角。
  */
-AzimuthElevationDeg ComputeRelativeLineOfSightAzEl(const Vector3f& observer_position_m,
+AzimuthElevationDeg ComputeRelativeLineOfSightAzEl(const Vector3d& observer_position_m,
                                                    const EulerAnglesDeg& observer_attitude_deg,
-                                                   const Vector3f& target_position_m);
+                                                   const Vector3d& target_position_m);
 
 /**
  * @brief 将稳定参考系下的期望波束指向逆变换到挂架坐标系。

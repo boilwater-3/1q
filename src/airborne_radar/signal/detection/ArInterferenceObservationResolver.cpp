@@ -19,7 +19,7 @@ namespace signal {
 namespace detection {
 namespace {
 
-constexpr double kRadiansToDegrees = 57.2957795130823208768;
+using oneq::common::numerics::RadToDeg;
 
 bool LocalFrameIsUsable(const oneq::coordinate::LocalFrameReference& frame) {
   // LlaPositionDegM 无 IsFinite 重载，显式检查有限性。
@@ -63,8 +63,8 @@ bool TryEcefPositionToRadarLocalAngles(const oneq::coordinate::EcefPositionM& em
   // 局部系方位/俯仰口径与 TargetLookResolver::Resolve 一致：
   //   az = atan2(local.y, local.x)，el = atan2(local.z, hypot(local.x, local.y))。
   const double horizontal = std::hypot(local.x, local.y);
-  *azimuth_deg = std::atan2(local.y, local.x) * kRadiansToDegrees;
-  *elevation_deg = std::atan2(local.z, horizontal) * kRadiansToDegrees;
+  *azimuth_deg = RadToDeg(std::atan2(local.y, local.x));
+  *elevation_deg = RadToDeg(std::atan2(local.z, horizontal));
   return true;
 }
 
@@ -258,8 +258,8 @@ bool TryResolveArInterferenceObservations(
       return false;
     }
     observation.estimated_slant_range_m = perturbed_range_m;
-    observation.estimated_bearing_azimuth_deg = std::atan2(y, x) * kRadiansToDegrees;
-    observation.estimated_bearing_elevation_deg = std::asin(z / range_m) * kRadiansToDegrees;
+    observation.estimated_bearing_azimuth_deg = RadToDeg(std::atan2(y, x));
+    observation.estimated_bearing_elevation_deg = RadToDeg(std::asin(z / range_m));
     // 雷达局部系方位（与目标 look angle 同系）。无可用 pose 时留零，由下游回退并告警。
     if (frame_usable) {
       double local_az_deg = 0.0;
@@ -296,7 +296,7 @@ bool TryResolveArInterferenceObservations(
         std::max(-1.0, std::min(1.0, direction_x * receiver.antenna.boresight_ecef.x +
                                          direction_y * receiver.antenna.boresight_ecef.y +
                                          direction_z * receiver.antenna.boresight_ecef.z));
-    observation.estimated_off_boresight_deg = std::acos(boresight_dot) * kRadiansToDegrees;
+    observation.estimated_off_boresight_deg = RadToDeg(std::acos(boresight_dot));
     const double transmit_center_frequency_hz = CenterFrequencyHz(emission->waveform);
     const double arrival_center_frequency_hz = transmit_center_frequency_hz + link.doppler_shift_hz;
     if (!std::isfinite(arrival_center_frequency_hz) || arrival_center_frequency_hz <= 0.0 ||

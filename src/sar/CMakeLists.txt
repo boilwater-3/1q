@@ -19,7 +19,7 @@ oneq_add_component(sar_core SOURCES ${SAR_CORE_SOURCES})
 # standalone so this remains safe even when callers increase the Unity batch size.
 set_source_files_properties(
     "${_sar_sources_root}/sar/session/SarReplayFlatbufferCodec.cpp"
-    "${_sar_sources_root}/sar/session/SarTraceSession.cpp"
+    "${_sar_sources_root}/sar/session/SarRecordingSession.cpp"
     PROPERTIES SKIP_UNITY_BUILD_INCLUSION ON)
 target_link_libraries(sar_core PRIVATE flatbuffers::flatbuffers)
 if(SAR_ENGINE_SOURCES)

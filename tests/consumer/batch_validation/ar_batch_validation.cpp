@@ -32,7 +32,7 @@
 #include "1q/airborne_radar/config/ArRuntimeConfigPatch.h"
 #include "1q/airborne_radar/session/ArReplaySession.h"
 #include "1q/airborne_radar/session/ArSession.h"
-#include "1q/airborne_radar/session/ArTraceSession.h"
+#include "1q/airborne_radar/session/ArRecordingSession.h"
 #include "1q/coordinate/position_transform.h"
 #include "1q/coordinate/scene_transform.h"
 #include "1q/coordinate/types.h"
@@ -292,7 +292,7 @@ struct BatchCycleResult {
   bool designation_reverted_to_tws{false};
 };
 
-BatchCycleResult RunBatchCycle(ar_session::ArTraceSession* session,
+BatchCycleResult RunBatchCycle(ar_session::ArRecordingSession* session,
                                const ar_session::ArCycleInput& input,
                                const ar_config::ArSessionConfig& config,
                                bool include_pulsed_jammer) {
@@ -417,12 +417,12 @@ ScenarioSummary RunArScenario(const ArCase& c, const ar_config::ArSessionConfig&
   bool saw_stt_designation_revert = false;
   std::size_t replay_operation_count = 0U;
 
-  // 录制 scope：TraceSession + 所有 Prepare/Complete/Abandon 操作包在内，结尾 Flush。
+  // 录制 scope：RecordingSession + 所有 Prepare/Complete/Abandon 操作包在内，结尾 Flush。
   {
-    ar_session::ArTraceSessionOptions options;
+    ar_session::ArRecordingSessionOptions options;
     options.replay_writer = replay_writer;
-    options.trace_config_on_construct = true;
-    ar_session::ArTraceSession session(config, options);
+    options.record_config_on_construct = true;
+    ar_session::ArRecordingSession session(config, options);
 
     const char* previous_phase = nullptr;
     for (std::uint32_t i = 0; i < cycle_count; ++i) {
@@ -514,7 +514,7 @@ ScenarioSummary RunArScenario(const ArCase& c, const ar_config::ArSessionConfig&
                    m.max_jammer_to_noise_db, m.confirmed, m.tentative, m.lost);
     }
     replay_writer->Flush();
-  }  // TraceSession 析构
+  }  // RecordingSession 析构
 
   // ---- 聚合场景级指标（仅统计 completed 周期，warmup 后为"稳态"窗口）----
   for (const auto& m : metrics) {

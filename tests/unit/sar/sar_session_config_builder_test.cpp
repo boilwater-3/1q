@@ -151,17 +151,6 @@ TEST(SarSessionConfigValidationTest, PassesOnHealthyBuiltConfig) {
   EXPECT_TRUE(issues.empty());
 }
 
-TEST(SarSessionConfigValidationTest, RejectsRawHistoryWithoutRawEcho) {
-  SarSessionConfig config;
-  config.policy.enable_raw_echo_generation = false;
-  config.policy.retain_raw_phase_history = true;
-  const session::SarIssueList issues = ValidateSarSessionConfig(config);
-  ASSERT_FALSE(issues.empty());
-  EXPECT_TRUE(std::any_of(issues.begin(), issues.end(), [](const session::SarIssue& issue) {
-    return issue.code == "sar.validation.retain_raw_history_requires_raw_echo";
-  }));
-}
-
 TEST(SarSessionConfigValidationTest, RejectsInvalidSquintLimit) {
   for (double value : {-1.0, 90.0, std::numeric_limits<double>::quiet_NaN(),
                        std::numeric_limits<double>::infinity()}) {

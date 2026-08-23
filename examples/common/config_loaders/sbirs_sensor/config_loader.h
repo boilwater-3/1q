@@ -18,7 +18,9 @@ inline void LoadSbirsSessionConfig(
   LoadSbirsMission(root["mission"], &config->mission);
   LoadSbirsPolicy(root["policy"], &config->policy);
   LoadSbirsEnvironment(root["environment"], &config->environment);
-  config->sensor_enabled = root["sensor_enabled"].AsBool();
+  if (root.Has("sensor_enabled")) {
+    config->sensor_enabled = root["sensor_enabled"].AsBool();
+  }
 }
 
 /// Load a config::SbirsSessionConfig from a JSON file.

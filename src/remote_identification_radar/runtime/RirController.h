@@ -60,10 +60,20 @@ class RirController {
    * @param[in] batch_id 本周期会话内部批号（由 RirSession 分配）。
    * @param[in] dwell_center_deg 本周期驻留波束中心（库内驻留调度器给定：
    *            扫描波位或指定识别目标指向；雷达局部 ENU 系，deg）。
+   * @param[in] steerable_volume_deg 搜索角域裁剪用可扫描体积（az 相对
+   *            scan_center、el 绝对，deg）；缺省无界 = 不裁剪（直连调用方
+   *            与既有行为兼容）。
+   * @param[in] scan_center_deg 转台当前朝向（ENU az/el，deg）。
+   * @note 2026-08-22 甲方批注「设定方位俯仰进行扫描」：视线角出体积的场景
+   *       目标不入检测候选集（与指定识别目标驻留门同口径）。
    */
   void RunCycle(const session::RirCycleInput& input, session::RirOutputFrame* output_frame,
                 std::uint64_t batch_id,
                 const config::RirAzimuthElevationDeg& dwell_center_deg =
+                    config::RirAzimuthElevationDeg(),
+                const config::RirAzimuthElevationLimitsDeg& steerable_volume_deg =
+                    config::RirAzimuthElevationLimitsDeg{-180.0f, 180.0f, -90.0f, 90.0f},
+                const config::RirAzimuthElevationDeg& scan_center_deg =
                     config::RirAzimuthElevationDeg());
 
   /** @brief 最近周期是否发布了识别效能摘要。 */
@@ -79,6 +89,15 @@ class RirController {
    */
   const std::vector<session::RirTrackAttributionRecord>& LatestTrackAttributions() const {
     return last_track_attributions_;
+  }
+
+  /**
+   * @brief 最近周期按目标门控排除诊断（规则 13b kInfo 执行期条目）。
+   * @note 纯观测（不改变周期语义）；每目标每周期至多一条，链上第一门优先；
+   *       供 RirSession 并入完成周期 result.issues，供排除差分记录器消费。
+   */
+  const session::RirIssueList& LatestExecutionIssues() const {
+    return last_execution_issues_;
   }
 
   /** @brief 最近周期实际 RIR 发射帧（`kIdentify` 且 RF 链成功时非空）。 */
@@ -99,6 +118,9 @@ class RirController {
 
   /** @brief 当前检测随机种子（供 replay 状态溯源）。 */
   std::uint32_t DetectionRandomSeed() const { return detection_random_seed_; }
+
+  /** @brief 最近一次识别库加载耗时（毫秒）；未加载过为 0。 */
+  double LastDatabaseLoadMs() const { return last_database_load_ms_; }
 
  private:
   struct RirResolvedRfCycle {
@@ -175,12 +197,14 @@ class RirController {
 
   std::unique_ptr<recognition::RirFeatureDatabase> database_{};
   std::string database_path_{};
+  double last_database_load_ms_{0.0};
   recognition::RirTracker tracker_{};
 
   session::RirRecognitionCycleSummary latest_summary_{};
   bool has_latest_summary_{false};
   std::vector<tracking::RirTrackState> last_track_snapshots_{}; /**< 上一周期航迹快照（任务判定用）。 */
   std::vector<session::RirTrackAttributionRecord> last_track_attributions_{}; /**< 最近周期归属视图。 */
+  session::RirIssueList last_execution_issues_{}; /**< 最近周期按目标排除诊断（规则 13b）。 */
   oneq::electromagnetics::RfEmissionFrame last_emission_frame_{}; /**< 最近周期实际发射。 */
 };
 

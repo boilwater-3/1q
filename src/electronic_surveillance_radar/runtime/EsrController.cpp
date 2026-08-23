@@ -9,7 +9,7 @@
 #include "1q/electronic_surveillance_radar/session/EsrInputValidation.h"
 #include "1q/electronic_surveillance_radar/session/EsrIssueCodes.h"
 #include "common/logging/ProjectLog.h"
-#include "common/runtime/RuntimeCycleExecutor.h"
+#include "1q/foundation/RuntimeCycleExecutor.h"
 
 namespace electronic_surveillance_radar {
 namespace extension {
@@ -81,7 +81,7 @@ struct EsrController::Impl {
 
   pipeline::InterceptPipeline& pipeline;
   environment::IEsrEnvironmentService& environment_service;
-  oneq::common::runtime::RuntimeCycleState<session::EsrOutputFrame> runtime_state{};
+  oneq::foundation::RuntimeCycleState<session::EsrOutputFrame> runtime_state{};
   session::EsrPipelineAbortReason last_abort_reason{session::EsrPipelineAbortReason::kNone};
   session::EsrIssueList latest_issues{}; /**< 正常周期按发射源排除的 kInfo 诊断（规则 13b）。 */
   session::EsrCycleResult latest_result{}; /**< 最近一次周期的聚合结果缓存（COMMON-OQ-9 直通装配）。 */
@@ -94,8 +94,8 @@ EsrController::EsrController(pipeline::InterceptPipeline& pipeline,
 EsrController::~EsrController() = default;
 
 void EsrController::RunOnce(const session::EsrCycleInput& input) {
-  const oneq::common::runtime::RuntimeCycleStamp stamp =
-      oneq::common::runtime::MakeRuntimeCycleStamp(
+  const oneq::foundation::RuntimeCycleStamp stamp =
+      oneq::foundation::MakeRuntimeCycleStamp(
           input.cycle_index, impl_->runtime_state.next_batch_id);
 
   // 校验（COMMON-OQ-9：issues 直通装配，不经校验缓存）

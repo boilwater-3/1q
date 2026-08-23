@@ -85,6 +85,16 @@ RirIssueList ValidateRirSceneTargets(const RirSceneTargetList& targets) {
                   location + ".polarization_rcs_samples",
                   "Polarization RCS sample fields must be finite.");
       }
+      if (sample.has_cross_pol && !IsFinite(sample.cross_rcs_dbsm)) {
+        PushIssue(&issues, RirIssueSeverity::kError, codes::kNonFiniteTargetField,
+                  location + ".polarization_rcs_samples",
+                  "Cross-pol RCS must be finite when has_cross_pol is true.");
+      }
+      if (sample.has_phase_vv && !IsFinite(sample.phase_vv_rel_hh_deg)) {
+        PushIssue(&issues, RirIssueSeverity::kError, codes::kNonFiniteTargetField,
+                  location + ".polarization_rcs_samples",
+                  "HH-VV phase must be finite when has_phase_vv is true.");
+      }
     }
     for (const RirRangeRcsScatterer& scatterer : target.range_rcs_scatterers) {
       if (!IsFinite(scatterer.range_offset_m) || !IsFinite(scatterer.rcs_dbsm) ||

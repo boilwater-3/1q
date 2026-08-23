@@ -46,11 +46,10 @@ set(AR_SESSION_HEADERS
     "airborne_radar/session/ArTrackLifecycleRecorder.h"
     "airborne_radar/session/ArTrackOutputDebugView.h"
     "airborne_radar/session/ArSession.h"
-    "airborne_radar/session/ArTraceSession.h"
+    "airborne_radar/session/ArRecordingSession.h"
     "airborne_radar/session/ArCommand.h"
     "airborne_radar/session/ArControlProfile.h"
     "airborne_radar/session/DecisionControlTypes.h"
-    "airborne_radar/session/DecisionInputFrame.h"
     "airborne_radar/session/TrackStateSnapshot.h"
 )
 
@@ -92,7 +91,7 @@ set(EOS_SESSION_HEADERS
     "electro_optical_sensor/session/EosPlatformEcefPose.h"
     "electro_optical_sensor/session/EosSceneTypes.h"
     "electro_optical_sensor/session/EosSession.h"
-    "electro_optical_sensor/session/EosTraceSession.h"
+    "electro_optical_sensor/session/EosRecordingSession.h"
     "electro_optical_sensor/session/EosReplaySession.h"
 )
 
@@ -128,7 +127,7 @@ set(SBIRS_SESSION_HEADERS
     "sbirs_sensor/session/SbirsReplaySession.h"
     "sbirs_sensor/session/SbirsSceneTypes.h"
     "sbirs_sensor/session/SbirsSession.h"
-    "sbirs_sensor/session/SbirsTraceSession.h"
+    "sbirs_sensor/session/SbirsRecordingSession.h"
 )
 
 set(ESR_MODULE_ENTRY_HEADERS
@@ -161,7 +160,7 @@ set(ESR_SESSION_HEADERS
     "electronic_surveillance_radar/session/EsrIssueCodes.h"
     "electronic_surveillance_radar/session/EsrOutputTypes.h"
     "electronic_surveillance_radar/session/EsrSession.h"
-    "electronic_surveillance_radar/session/EsrTraceSession.h"
+    "electronic_surveillance_radar/session/EsrRecordingSession.h"
     "electronic_surveillance_radar/session/EsrReplaySession.h"
 )
 
@@ -235,7 +234,7 @@ set(ECM_HEADERS
     "electronic_countermeasure/EcmEsrAdapter.h"
     "electronic_countermeasure/EcmReplaySession.h"
     "electronic_countermeasure/EcmSession.h"
-    "electronic_countermeasure/EcmTraceSession.h"
+    "electronic_countermeasure/EcmRecordingSession.h"
     "electronic_countermeasure/EcmTypes.h"
 )
 
@@ -264,7 +263,7 @@ set(SAR_SESSION_HEADERS
     "sar/session/SarProductLifecycleRecorder.h"
     "sar/session/SarReplaySession.h"
     "sar/session/SarSession.h"
-    "sar/session/SarTraceSession.h"
+    "sar/session/SarRecordingSession.h"
 )
 
 # ── 远程识别雷达（RIR）推荐公开主路径（五域 + 会话 + 统一入口） ──
@@ -286,13 +285,18 @@ set(RIR_PUBLIC_PRIMARY_HEADERS
 set(RIR_SESSION_HEADERS
     "remote_identification_radar/session/RirCycleInput.h"
     "remote_identification_radar/session/RirCycleResult.h"
+    "remote_identification_radar/session/RirExclusionCauseRecorder.h"
     "remote_identification_radar/session/RirFeatureMeasurementTypes.h"
     "remote_identification_radar/session/RirInputValidation.h"
     "remote_identification_radar/session/RirIssueCodes.h"
+    "remote_identification_radar/session/RirOutputDebugView.h"
     "remote_identification_radar/session/RirOutputTypes.h"
     "remote_identification_radar/session/RirRecognitionResult.h"
+    "remote_identification_radar/session/RirRecordingSession.h"
+    "remote_identification_radar/session/RirReplaySession.h"
     "remote_identification_radar/session/RirSceneTypes.h"
     "remote_identification_radar/session/RirSession.h"
+    "remote_identification_radar/session/RirTrackLifecycleRecorder.h"
 )
 
 set(COORDINATE_HEADERS
@@ -305,12 +309,11 @@ set(COORDINATE_HEADERS
 )
 
 set(FOUNDATION_HEADERS
-    "foundation/pose_types.h"
+    "foundation/RuntimeCycleExecutor.h"
     "foundation/scan_schedule_types.h"
     "foundation/SensorContract.h"
     "foundation/validation_types.h"
     "replay/ReplayTrace.h"
-    "trace/TraceSink.h"
 )
 
 set(EXPECTED_PUBLIC_HEADERS
@@ -407,7 +410,7 @@ set(MODULE_ENTRY_HEADERS_WITH_EXPLICIT_TOOLING
 
 foreach(HEADER IN LISTS MODULE_ENTRY_HEADERS_WITH_EXPLICIT_TOOLING)
   file(READ "${PUBLIC_INCLUDE_DIR}/${HEADER}" MODULE_ENTRY_HEADER_CONTENT)
-  if(MODULE_ENTRY_HEADER_CONTENT MATCHES "#[ \t]*include[ \t]*[\"<][^\n]*(TraceSession|ReplaySession|DebugView|LifecycleRecorder)\\.h")
+  if(MODULE_ENTRY_HEADER_CONTENT MATCHES "#[ \t]*include[ \t]*[\"<][^\n]*(RecordingSession|ReplaySession|DebugView|LifecycleRecorder)\\.h")
     message(FATAL_ERROR
             "Module entry header must not aggregate observability tooling: ${HEADER}")
   endif()

@@ -14,13 +14,14 @@
 #include "sar/imaging/SarRda.h"
 #include "sar/session/SarDiagnosticUtils.h"
 #include "sar/signal/SarWaveform.h"
+#include "common/numerics/Constants.h"
 
 namespace sar {
 namespace session {
 
 namespace {
 
-constexpr double kSpeedOfLightMps = 299792458.0;
+using oneq::common::numerics::kLightSpeed;
 
 bool CopyFocusedImage(const signal::ComplexMatrix& source, SarFocusedImageSource image_source,
                       SarFocusedImage* output) {
@@ -120,24 +121,24 @@ bool ExecuteL1RdaImaging(const config::SarSessionConfig& config,
     return false;
   }
   if (!ExportFocusedImage(config.policy, image.image, SarFocusedImageSource::kL1Rda,
-                          &result->focused_image)) {
+                          &result->product.focused_image)) {
     RecordAbort(result, SarPipelineAbortReason::kPipelineExecutionFailed,
                 codes::kRdaPublicImageExportFailed,
                 "SAR RDA image could not be converted to the public focused-image payload.");
     return false;
   }
   const std::size_t peak_index = imaging::FindPeakIndex(image.image);
-  result->output_frame.phase_reference_mode = SarPhaseReferenceMode::kCenterBroadside;
-  result->output_frame.image_quality_mainlobe_method = SarMainlobeEstimationMethod::k3dB;
-  result->output_frame.range_width_3db_bins = image.diagnostics.range_width_3db_bins;
-  result->output_frame.azimuth_width_3db_bins = image.diagnostics.azimuth_width_3db_bins;
-  result->output_frame.range_resolution_3db_m = image.diagnostics.range_resolution_3db_m;
-  result->output_frame.azimuth_resolution_3db_m = image.diagnostics.azimuth_resolution_3db_m;
-  result->output_frame.image_entropy_nats = image.diagnostics.image_entropy_nats;
-  result->output_frame.image_contrast = image.diagnostics.image_contrast;
-  result->output_frame.has_image_quality_metrics = true;
-  result->output_frame.image_resolution_m_valid = image.diagnostics.resolution_m_valid;
-  result->output_frame.phase_reference_applied = image.diagnostics.phase_reference_applied;
+  result->product.output_frame.phase_reference_mode = SarPhaseReferenceMode::kCenterBroadside;
+  result->product.output_frame.image_quality_mainlobe_method = SarMainlobeEstimationMethod::k3dB;
+  result->product.output_frame.range_width_3db_bins = image.diagnostics.range_width_3db_bins;
+  result->product.output_frame.azimuth_width_3db_bins = image.diagnostics.azimuth_width_3db_bins;
+  result->product.output_frame.range_resolution_3db_m = image.diagnostics.range_resolution_3db_m;
+  result->product.output_frame.azimuth_resolution_3db_m = image.diagnostics.azimuth_resolution_3db_m;
+  result->product.output_frame.image_entropy_nats = image.diagnostics.image_entropy_nats;
+  result->product.output_frame.image_contrast = image.diagnostics.image_contrast;
+  result->product.output_frame.has_image_quality_metrics = true;
+  result->product.output_frame.image_resolution_m_valid = image.diagnostics.resolution_m_valid;
+  result->product.output_frame.phase_reference_applied = image.diagnostics.phase_reference_applied;
   result->issues.push_back(MakeInfoDiagnostic(
       codes::kRdaPeak,
       "SAR RDA peak index " + std::to_string(peak_index) +
@@ -162,8 +163,8 @@ bool ExecuteL1RdaImaging(const config::SarSessionConfig& config,
           std::to_string(image.diagnostics.azimuth_resolution_3db_m) +
           ", image_entropy_nats=" + std::to_string(image.diagnostics.image_entropy_nats) +
           ", image_contrast=" + std::to_string(image.diagnostics.image_contrast)));
-  result->output_frame.completed_stage = SarProcessingStage::kL1RdaImage;
-  result->output_frame.has_l1_image = true;
+  result->product.output_frame.completed_stage = SarProcessingStage::kL1RdaImage;
+  result->product.output_frame.has_l1_image = true;
   return true;
 }
 
@@ -188,7 +189,7 @@ bool ExecuteL3BpImaging(const config::SarSessionConfig& config,
   bp_config.grid.azimuth_spacing_m = config.mission.platform_speed_mps /
                                      config.hardware.pulse_repetition_frequency_hz;
   bp_config.grid.range_spacing_m =
-      kSpeedOfLightMps / (2.0 * config.hardware.sample_rate_hz);
+      kLightSpeed / (2.0 * config.hardware.sample_rate_hz);
   bp_config.grid.azimuth_start_m =
       -0.5 * static_cast<double>(bp_config.grid.azimuth_pixel_count - 1U) *
       bp_config.grid.azimuth_spacing_m;
@@ -199,22 +200,22 @@ bool ExecuteL3BpImaging(const config::SarSessionConfig& config,
     return false;
   }
   if (!ExportFocusedImage(config.policy, image.image, SarFocusedImageSource::kL3Bp,
-                          &result->focused_image)) {
+                          &result->product.focused_image)) {
     RecordAbort(result, SarPipelineAbortReason::kPipelineExecutionFailed,
                 codes::kL3BpPublicImageExportFailed,
                 "SAR BP image could not be converted to the public focused-image payload.");
     return false;
   }
   const imaging::ImageQualityMetrics quality = imaging::EvaluateImageQuality(image.image);
-  result->output_frame.phase_reference_mode = SarPhaseReferenceMode::kNative;
-  result->output_frame.image_quality_mainlobe_method = SarMainlobeEstimationMethod::k3dB;
-  result->output_frame.range_width_3db_bins = quality.range_width_3db_bins;
-  result->output_frame.azimuth_width_3db_bins = quality.azimuth_width_3db_bins;
-  result->output_frame.image_entropy_nats = quality.entropy_nats;
-  result->output_frame.image_contrast = quality.image_contrast;
-  result->output_frame.has_image_quality_metrics = quality.valid;
-  result->output_frame.image_resolution_m_valid = false;
-  result->output_frame.phase_reference_applied = false;
+  result->product.output_frame.phase_reference_mode = SarPhaseReferenceMode::kNative;
+  result->product.output_frame.image_quality_mainlobe_method = SarMainlobeEstimationMethod::k3dB;
+  result->product.output_frame.range_width_3db_bins = quality.range_width_3db_bins;
+  result->product.output_frame.azimuth_width_3db_bins = quality.azimuth_width_3db_bins;
+  result->product.output_frame.image_entropy_nats = quality.entropy_nats;
+  result->product.output_frame.image_contrast = quality.image_contrast;
+  result->product.output_frame.has_image_quality_metrics = quality.valid;
+  result->product.output_frame.image_resolution_m_valid = false;
+  result->product.output_frame.phase_reference_applied = false;
   result->issues.push_back(MakeInfoDiagnostic(
       codes::kBpPeak, "SAR BP peak_row=" + std::to_string(quality.peak_row) +
                          ", peak_col=" + std::to_string(quality.peak_col) +
@@ -222,8 +223,8 @@ bool ExecuteL3BpImaging(const config::SarSessionConfig& config,
   result->issues.push_back(
       MakeInfoDiagnostic(codes::kBpTraversal,
                          "SAR BP traversal=" + image.diagnostics.traversal_order));
-  result->output_frame.completed_stage = SarProcessingStage::kL3BpImage;
-  result->output_frame.has_l3_bp_image = true;
+  result->product.output_frame.completed_stage = SarProcessingStage::kL3BpImage;
+  result->product.output_frame.has_l3_bp_image = true;
   return true;
 }
 

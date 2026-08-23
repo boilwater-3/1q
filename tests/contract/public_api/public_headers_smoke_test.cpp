@@ -26,11 +26,10 @@
 #include "1q/airborne_radar/session/ArInputValidation.h"
 #include "1q/airborne_radar/session/ArOutputTypes.h"
 #include "1q/airborne_radar/session/ArSession.h"
-#include "1q/airborne_radar/session/ArTraceSession.h"
+#include "1q/airborne_radar/session/ArRecordingSession.h"
 #include "1q/airborne_radar/session/ArTrackLifecycleRecorder.h"
 #include "1q/airborne_radar/session/ArTrackOutputDebugView.h"
 #include "1q/airborne_radar/session/DecisionControlTypes.h"
-#include "1q/airborne_radar/session/DecisionInputFrame.h"
 #include "1q/airborne_radar/session/TrackStateSnapshot.h"
 #include "1q/api.hpp"
 #include "1q/coordinate/attitude_transform.h"
@@ -40,7 +39,7 @@
 #include "1q/electronic_countermeasure/EcmEsrAdapter.h"
 #include "1q/electronic_countermeasure/EcmReplaySession.h"
 #include "1q/electronic_countermeasure/EcmSession.h"
-#include "1q/electronic_countermeasure/EcmTraceSession.h"
+#include "1q/electronic_countermeasure/EcmRecordingSession.h"
 #include "1q/electronic_countermeasure/EcmTypes.h"
 #include "1q/electro_optical_sensor/config/EosEnvironmentConfig.h"
 #include "1q/electro_optical_sensor/config/EosProfileConstants.h"
@@ -55,7 +54,7 @@
 #include "1q/electro_optical_sensor/session/EosOutputDebugView.h"
 #include "1q/electro_optical_sensor/session/EosOutputTypes.h"
 #include "1q/electro_optical_sensor/session/EosSession.h"
-#include "1q/electro_optical_sensor/session/EosTraceSession.h"
+#include "1q/electro_optical_sensor/session/EosRecordingSession.h"
 #include "1q/electronic_surveillance_radar/config/EsrEnvironmentConfig.h"
 #include "1q/electronic_surveillance_radar/config/EsrProfileConstants.h"
 #include "1q/electronic_surveillance_radar/config/EsrRuntimeConfigPatch.h"
@@ -64,9 +63,9 @@
 #include "1q/electronic_surveillance_radar/session/EsrCycleInput.h"
 #include "1q/electronic_surveillance_radar/session/EsrInputValidation.h"
 #include "1q/electronic_surveillance_radar/session/EsrSession.h"
-#include "1q/electronic_surveillance_radar/session/EsrTraceSession.h"
+#include "1q/electronic_surveillance_radar/session/EsrRecordingSession.h"
 #include "1q/environment/AtmosphericTypes.h"
-#include "1q/foundation/pose_types.h"
+#include "1q/foundation/RuntimeCycleExecutor.h"
 #include "1q/foundation/scan_schedule_types.h"
 #include "1q/sar/config/SarEnvironmentConfig.h"
 #include "1q/sar/config/SarHardwareConfig.h"
@@ -83,7 +82,7 @@
 #include "1q/sar/session/SarProductLifecycleRecorder.h"
 #include "1q/sar/session/SarReplaySession.h"
 #include "1q/sar/session/SarSession.h"
-#include "1q/sar/session/SarTraceSession.h"
+#include "1q/sar/session/SarRecordingSession.h"
 #include "1q/sbirs_sensor/config/SbirsRuntimeConfigPatch.h"
 #include "1q/sbirs_sensor/config/SbirsSessionConfig.h"
 #include "1q/sbirs_sensor/config/sbirs_sensor_config.hpp"
@@ -98,8 +97,17 @@
 #include "1q/sbirs_sensor/session/SbirsOutputTypes.h"
 #include "1q/sbirs_sensor/session/SbirsReplaySession.h"
 #include "1q/sbirs_sensor/session/SbirsSession.h"
-#include "1q/sbirs_sensor/session/SbirsTraceSession.h"
-#include "1q/trace/TraceSink.h"
+#include "1q/sbirs_sensor/session/SbirsRecordingSession.h"
+#include "1q/remote_identification_radar/config/RirRuntimeConfigPatch.h"
+#include "1q/remote_identification_radar/config/RirSessionConfig.h"
+#include "1q/remote_identification_radar/config/remote_identification_radar_config.hpp"
+#include "1q/remote_identification_radar/remote_identification_radar.hpp"
+#include "1q/remote_identification_radar/session/RirCycleInput.h"
+#include "1q/remote_identification_radar/session/RirCycleResult.h"
+#include "1q/remote_identification_radar/session/RirInputValidation.h"
+#include "1q/remote_identification_radar/session/RirRecordingSession.h"
+#include "1q/remote_identification_radar/session/RirReplaySession.h"
+#include "1q/remote_identification_radar/session/RirSession.h"
 
 using ArSession = airborne_radar::session::ArSession;
 using ArConfig = airborne_radar::config::ArSessionConfig;
@@ -140,6 +148,17 @@ static_assert(
                      std::declval<const sbirs_sensor::config::SbirsSessionConfig&>()))>::value,
     "SbirsSession::Create must return SbirsSession");
 
+static_assert(
+    !std::is_constructible<remote_identification_radar::session::RirSession,
+                           remote_identification_radar::config::RirSessionConfig>::value,
+    "RirSession direct construction must be disabled");
+static_assert(
+    std::is_same<
+        remote_identification_radar::session::RirSession,
+        decltype(remote_identification_radar::session::RirSession::Create(
+            std::declval<const remote_identification_radar::config::RirSessionConfig&>()))>::value,
+    "RirSession::Create must return RirSession");
+
 namespace airborne_radar {
 namespace {
 
@@ -165,8 +184,8 @@ TEST(PublicHeadersSmokeTest, StablePublicSurfaceSupportsMinimalUsage) {
   EXPECT_FALSE(session::HasValidationError(issues));
 
   session::ArSession session = session::ArSession::Create(session_config);
-  session::ArTraceSession trace_session(session_config,
-                                        session::ArTraceSessionOptions{nullptr, false});
+  session::ArRecordingSession trace_session(session_config,
+                                        session::ArRecordingSessionOptions{});
   config::ArRuntimeConfigPatch runtime_patch;
   runtime_patch.has_work_mode = true;
   runtime_patch.work_mode = config::ArWorkMode::kTas;
@@ -313,7 +332,6 @@ TEST(PublicHeadersSmokeTest, EsrPublicSurfaceSupportsMinimalUsage) {
   input.cycle_index = 4U;
   input.dt_sec = 1.0f;
   input.platform_entity_id = 100U;
-  input.has_platform_ecef_kinematics = true;
   input.platform_position_ecef_m.x_m = 6378137.0;
   input.rf_emissions.world_cycle_index = input.cycle_index;
   input.rf_emissions.window_start_time_s = input.cycle_start_time_s;
@@ -328,7 +346,7 @@ TEST(PublicHeadersSmokeTest, EsrPublicSurfaceSupportsMinimalUsage) {
   runtime_patch.work_mode = config::EsrWorkMode::kRwr;
   (void)session.TryApplyRuntimeConfig(runtime_patch);
   const session::EsrCycleResult result = session.StepWithResult(input);
-  session::EsrTraceSession trace_session(session_config, session::EsrTraceSessionOptions{});
+  session::EsrRecordingSession trace_session(session_config, session::EsrRecordingSessionOptions{});
   const session::EsrCycleResult trace_result = trace_session.StepWithResult(input);
 
   EXPECT_GE(result.output_frame.observation_output.observations.size(), 0U);
@@ -386,7 +404,7 @@ TEST(PublicHeadersSmokeTest, EosPublicSurfaceSupportsMinimalUsage) {
   runtime_patch.frame_rate_hz = 15.0f;
   (void)session.TryApplyRuntimeConfig(runtime_patch);
   const ::electro_optical_sensor::session::EosCycleResult result = session.StepWithResult(input);
-  session::EosTraceSession trace_session(session_config, session::EosTraceSessionOptions{});
+  session::EosRecordingSession trace_session(session_config, session::EosRecordingSessionOptions{});
   const ::electro_optical_sensor::session::EosCycleResult trace_result =
       trace_session.StepWithResult(input);
   EXPECT_EQ(result.status, ::electro_optical_sensor::session::EosCycleStatus::kCompleted);
@@ -447,26 +465,26 @@ TEST(PublicHeadersSmokeTest, SarPublicSurfaceSupportsMinimalUsage) {
 
   session::SarSession session = session::SarSession::Create(session_config);
   config::SarRuntimeConfigPatch patch;
-  patch.has_retain_raw_phase_history = true;
-  patch.retain_raw_phase_history = true;
+  patch.has_retain_focused_image = true;
+  patch.retain_focused_image = true;
   EXPECT_TRUE(session.TryApplyRuntimeConfig(patch));
 
   const session::SarCycleResult result = session.StepWithResult(input);
   EXPECT_EQ(result.status, session::SarCycleStatus::kCompleted)
       << static_cast<int>(result.abort_reason);
-  EXPECT_EQ(result.output_frame.range_sample_count, 64U);
-  EXPECT_TRUE(result.output_frame.has_raw_echo);
-  EXPECT_TRUE(result.output_frame.has_range_compressed_echo);
-  EXPECT_TRUE(result.output_frame.has_l1_image);
-  EXPECT_FALSE(result.output_frame.has_l3_bp_image);
-  EXPECT_EQ(result.focused_image.source, session::SarFocusedImageSource::kL1Rda);
-  EXPECT_EQ(result.focused_image.row_count, 9U);
-  EXPECT_EQ(result.focused_image.column_count, 64U);
-  EXPECT_EQ(result.focused_image.real_values.size(), 9U * 64U);
-  EXPECT_EQ(result.focused_image.imaginary_values.size(), 9U * 64U);
-  EXPECT_FALSE(result.focused_image.is_placeholder);
+  EXPECT_EQ(result.product.output_frame.range_sample_count, 64U);
+  EXPECT_TRUE(result.product.output_frame.has_raw_echo);
+  EXPECT_TRUE(result.product.output_frame.has_range_compressed_echo);
+  EXPECT_TRUE(result.product.output_frame.has_l1_image);
+  EXPECT_FALSE(result.product.output_frame.has_l3_bp_image);
+  EXPECT_EQ(result.product.focused_image.source, session::SarFocusedImageSource::kL1Rda);
+  EXPECT_EQ(result.product.focused_image.row_count, 9U);
+  EXPECT_EQ(result.product.focused_image.column_count, 64U);
+  EXPECT_EQ(result.product.focused_image.real_values.size(), 9U * 64U);
+  EXPECT_EQ(result.product.focused_image.imaginary_values.size(), 9U * 64U);
+  EXPECT_FALSE(result.product.focused_image.is_placeholder);
 
-  session::SarTraceSession trace_session(session::SarSession::Create(session_config));
+  session::SarRecordingSession trace_session(session::SarSession::Create(session_config));
   const session::SarCycleResult trace_result = trace_session.StepWithResult(input);
   EXPECT_EQ(trace_result.status, session::SarCycleStatus::kCompleted);
 
@@ -476,3 +494,41 @@ TEST(PublicHeadersSmokeTest, SarPublicSurfaceSupportsMinimalUsage) {
 
 }  // namespace
 }  // namespace sar
+
+namespace remote_identification_radar {
+namespace {
+
+TEST(PublicHeadersSmokeTest, RirPublicSurfaceSupportsMinimalUsage) {
+  config::RirSessionConfig session_config;
+  session_config.mission.work_mode = config::RirWorkMode::kIdentify;
+  session_config.policy.detection.gate_mode = config::RirDetectionGateMode::kSnrFallback;
+  session_config.policy.lifecycle.confirm_hits = 1U;
+
+  session::RirCycleInput input;
+  input.input_cycle_index = 1U;
+  input.dt_sec = 0.5;
+  input.sim_time_sec = 0.0f;
+  oneq::coordinate::LlaPositionDegM origin_lla;
+  origin_lla.latitude_deg = 30.0;
+  origin_lla.longitude_deg = 120.0;
+  origin_lla.altitude_m = 1000.0;
+  ASSERT_TRUE(oneq::coordinate::TryLlaToEcef(origin_lla, &input.platform_position));
+
+  const session::RirIssueList issues =
+      session::ValidateRirCycleInput(input, session_config.mission.recognition_dwell_sec);
+  EXPECT_FALSE(session::HasValidationError(issues));
+
+  session::RirSession session = session::RirSession::Create(session_config);
+  session::RirRecordingSession recording_session(session_config,
+                                                session::RirRecordingSessionOptions{});
+  const session::RirCycleResult result = session.StepWithResult(input);
+  const session::RirCycleResult recorded = recording_session.StepWithResult(input);
+  EXPECT_EQ(result.status, session::RirCycleStatus::kCompleted);
+  EXPECT_EQ(recorded.status, session::RirCycleStatus::kCompleted);
+
+  session::RirReplaySessionResult replay_result;
+  EXPECT_FALSE(replay_result.ok);
+}
+
+}  // namespace
+}  // namespace remote_identification_radar

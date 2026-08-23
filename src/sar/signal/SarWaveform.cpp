@@ -3,14 +3,15 @@
 #include <algorithm>
 #include <cmath>
 #include <limits>
+#include "common/numerics/Constants.h"
 
 namespace sar {
 namespace signal {
 
 namespace {
 
-constexpr double kPi = 3.141592653589793238462643383279502884;
-constexpr double kSpeedOfLightMps = 299792458.0;
+using oneq::common::numerics::kPi;
+using oneq::common::numerics::kLightSpeed;
 constexpr double kTiny = 1.0e-30;
 
 std::size_t NextPowerOfTwo(std::size_t value) {
@@ -144,7 +145,7 @@ bool RangeCompress(const ComplexVector& input, const ComplexVector& matched_filt
   }
 
   result->full_convolution = full_convolution;
-  result->range_bin_spacing_m = kSpeedOfLightMps / (2.0 * sample_rate_hz);
+  result->range_bin_spacing_m = kLightSpeed / (2.0 * sample_rate_hz);
   result->full_peak_index = FindPeakIndex(full_convolution);
   result->aligned_peak_index = (result->full_peak_index >= matched_filter.size() - 1U)
                                    ? (result->full_peak_index - (matched_filter.size() - 1U))

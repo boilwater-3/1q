@@ -1,0 +1,386 @@
+{
+  "name": "rir_jammed_scan",
+  "cycles": 400,
+  "dt_sec": 1.0,
+  "log_dir": "rir_jammed_scan",
+  "platform": {
+    "origin_lat_deg": 30.0,
+    "origin_lon_deg": 120.0,
+    "origin_alt_m": 0.0,
+    "initial_heading_deg": 90.0,
+    "cruise_altitude_m": 400.0,
+    "cruise_speed_mps": 50.0,
+    "waypoints": [
+      {
+        "lat_deg": 30.0,
+        "lon_deg": 120.05,
+        "alt_m": 400.0,
+        "speed_mps": 50.0,
+        "radius_m": 500.0
+      },
+      {
+        "lat_deg": 30.0,
+        "lon_deg": 120.1,
+        "alt_m": 400.0,
+        "speed_mps": 50.0,
+        "radius_m": 500.0
+      },
+      {
+        "lat_deg": 30.0,
+        "lon_deg": 120.15,
+        "alt_m": 400.0,
+        "speed_mps": 50.0,
+        "radius_m": 500.0
+      }
+    ]
+  },
+  "targets": [
+    {
+      "id": 1001,
+      "azimuth_deg": 90.0,
+      "range_m": 3194955.0,
+      "altitude_m": 1162868.0,
+      "v_east_mps": 0.0,
+      "v_north_mps": 2500.0,
+      "temperature_k": 520.0,
+      "rcs_m2": 0.025,
+      "projected_area_m2": 2.0,
+      "radiant_intensity_w_per_sr": 0.0,
+      "emitter_center_frequency_hz": 0.0,
+      "rir": {
+        "rcs_dbsm": -16.0206,
+        "pol_ch1_dbsm": -16.0,
+        "pol_ch2_dbsm": -19.0,
+        "pol_cross_dbsm": -26.0,
+        "pol_phase_vv_deg": 30.0,
+        "truth_model": "RCS-0.025",
+        "scatterers": [
+          {
+            "offset_m": 0.0,
+            "rcs_dbsm": -16.0
+          },
+          {
+            "offset_m": 6.0,
+            "rcs_dbsm": -16.0
+          },
+          {
+            "offset_m": 12.0,
+            "rcs_dbsm": -16.0
+          }
+        ]
+      }
+    },
+    {
+      "id": 1002,
+      "azimuth_deg": 90.0,
+      "range_m": 8034372.0,
+      "altitude_m": 2924272.0,
+      "v_east_mps": 0.0,
+      "v_north_mps": 6287.0,
+      "temperature_k": 300.0,
+      "rcs_m2": 1.0,
+      "projected_area_m2": 10.0,
+      "radiant_intensity_w_per_sr": 0.0,
+      "emitter_center_frequency_hz": 0.0,
+      "rir": {
+        "rcs_dbsm": 0.0,
+        "pol_ch1_dbsm": 0.0,
+        "pol_ch2_dbsm": -3.0,
+        "pol_cross_dbsm": -10.0,
+        "pol_phase_vv_deg": 20.0,
+        "truth_model": "RCS-1.0",
+        "scatterers": [
+          {
+            "offset_m": 0.0,
+            "rcs_dbsm": 0.0
+          },
+          {
+            "offset_m": 8.0,
+            "rcs_dbsm": 0.0
+          },
+          {
+            "offset_m": 16.0,
+            "rcs_dbsm": 0.0
+          }
+        ]
+      }
+    }
+  ],
+  "esr": {
+    "peak_gain_dbi": 30.0,
+    "bandwidth_hz": 2000000.0,
+    "peak_power_w": 50000000.0,
+    "pulse_width_s": 1e-06,
+    "pri_s": 0.001,
+    "pulse_count": 200,
+    "timing_seed": 42
+  },
+  "sbirs_satellite": {
+    "altitude_m": 500000.0
+  },
+  "sensors": {
+    "ar": false,
+    "esr": true,
+    "eos": false,
+    "sbirs": false,
+    "sar": false
+  },
+  "rir": {
+    "enabled": true,
+    "site": {
+      "lat_deg": 30.0,
+      "lon_deg": 120.0,
+      "alt_m": 0.0
+    },
+    "designated_target_id": 0,
+    "designation_duration_cycles": 0
+  },
+  "high_threat_confidence": 3.0,
+  "smoke": {
+    "min_key_events": 0,
+    "min_sbirs_events": 0,
+    "min_sar_products": 0,
+    "min_fused_targets": 1,
+    "min_rir_recognition_outputs": 0
+  },
+  "ecm": {
+    "enabled": true
+  },
+  "session_config": {
+    "esr": {
+      "hardware": {
+        "receiver_band_lower_hz": 230000000.0,
+        "receiver_band_upper_hz": 100000000000.0,
+        "receiver_sensitivity_w": 1e-12,
+        "integrated_receive_loss_db": 0.0,
+        "beam_az_width_deg": 120.0,
+        "beam_el_width_deg": 40.0,
+        "az_scan_range_deg": 120.0,
+        "el_scan_range_deg": 20.0,
+        "antenna_peak_gain_dbi": 20.0,
+        "antenna_sidelobe_level_db": -30.0,
+        "antenna_backlobe_level_db": -40.0,
+        "cross_polarization_isolation_db": 20.0,
+        "minimum_far_field_range_m": 1.0,
+        "maximum_linear_input_power_w": 0.001
+      },
+      "orientation": {
+        "antenna_mount_az_deg": 0.0,
+        "antenna_mount_el_deg": 0.0
+      },
+      "mission": {
+        "work_mode": "kEsm",
+        "scan": {
+          "scan_center_az_deg": 0.0,
+          "scan_center_el_deg": 0.0,
+          "scan_rate_hz": 1.0,
+          "scan_start_position": "kLeftTop",
+          "scan_sequence": "kAzimuthFirst",
+          "use_explicit_scan_bounds": false,
+          "scan_start_az_deg": -60.0,
+          "scan_end_az_deg": 60.0,
+          "scan_start_el_deg": -10.0,
+          "scan_end_el_deg": 10.0
+        }
+      },
+      "policy": {
+        "detection": {
+          "profile": "kBalanced",
+          "use_profile_defaults": true,
+          "minimum_snr_db": 6.0,
+          "pfa": 1e-06,
+          "pulse_count": 8,
+          "threshold_scale": 1.0,
+          "enable_statistical_detection": true
+        }
+      },
+      "environment": {
+        "scenario_config": {
+          "preset": "kStandard",
+          "atmospheric_physics": {
+            "enable_physical_model": false,
+            "pressure_hpa": 1013.25,
+            "temperature_k": 288.15,
+            "relative_humidity": 0.5
+          }
+        }
+      },
+      "sensor_enabled": true
+    },
+    "rir": {
+      "hardware": {
+        "transmitter": {
+          "equipment_id": 1,
+          "peak_power_w": 582000.0,
+          "frequency_hz": 3000000000.0,
+          "bandwidth_hz": 4500000.0,
+          "pulse_width_s": 0.016,
+          "prf_hz": 10.0,
+          "transmit_loss_db": 3.5,
+          "maximum_peak_power_w": 582000.0,
+          "maximum_duty_cycle": 0.5,
+          "maximum_pulse_energy_j": 10000.0,
+          "frequency_plan_hz": [
+            3000000000.0
+          ]
+        },
+        "antenna": {
+          "main_beam_gain_db": 52.0,
+          "nominal_az_beamwidth_deg": 4.0,
+          "nominal_el_beamwidth_deg": 4.0,
+          "antenna_length_m": 0.0,
+          "antenna_width_m": 0.0,
+          "pattern": {
+            "model_type": "kGaussianMainLobe",
+            "max_sidelobe_level_db": -20.0,
+            "backlobe_level_db": -35.0,
+            "scan_loss_coeff_db_per_deg2": 0.0,
+            "max_scan_loss_db": 6.0,
+            "boresight_offset_deg": {
+              "az_deg": 0.0,
+              "el_deg": 0.0
+            }
+          },
+          "enable_directional_pattern": false
+        },
+        "receiver": {
+          "equipment_id": 2,
+          "noise_figure_db": 4.0,
+          "receive_loss_db": 2.0,
+          "cross_polarization_isolation_db": 30.0,
+          "minimum_far_field_range_m": 1.0,
+          "has_co_site_isolation": false,
+          "co_site_isolation_db": 0.0,
+          "maximum_linear_input_power_w": 0.001,
+          "preselector_bandwidth_hz": 20000000.0,
+          "interference_observation_jn_gate_db": 6.0,
+          "scene_polarization": "kHorizontal",
+          "co_site_paths": [
+            {
+              "transmitter_equipment_id": 1,
+              "receiver_equipment_id": 2,
+              "isolation_db": 120.0
+            }
+          ]
+        },
+        "signal_processing": {
+          "target_processing_gain_db": 0.0,
+          "noise_processing_gain_db": 0.0,
+          "clutter_suppression_gain_db": 0.0,
+          "jamming_suppression_gain_db": 0.0
+        },
+        "rcs_physics": {
+          "enable_physical_rcs": false,
+          "physics_mix_ratio": 0.0,
+          "cylinder_weight": 0.5,
+          "min_equivalent_radius_m": 0.05,
+          "max_equivalent_radius_m": 5.0,
+          "min_rcs_m2": 0.01,
+          "max_rcs_m2": 1000.0,
+          "bistatic_psi_offset_deg": 5.0
+        }
+      },
+      "sensor_platform_id": 2,
+      "orientation": {
+        "steerable_volume_deg": {
+          "az_min_deg": -110.0,
+          "az_max_deg": 110.0,
+          "el_min_deg": 2.0,
+          "el_max_deg": 85.0
+        }
+      },
+      "mission": {
+        "work_mode": "kIdentify",
+        "scan_center_deg": {
+          "az_deg": 0.0,
+          "el_deg": 0.0
+        },
+        "max_range_m": 9000000.0,
+        "recognition_dwell_sec": 0.1,
+        "scan": {
+          "scan_start_position": "kLeftTop",
+          "scan_sequence": "kAzimuthFirst",
+          "step_scale": 1.0
+        }
+      },
+      "policy": {
+        "detection": {
+          "cfar_pfa": 1e-06,
+          "min_snr_db": -10.0,
+          "min_detection_margin_db": -2.0,
+          "pulse_count": 1,
+          "random_seed": 42,
+          "gate_mode": "kSnrFallback"
+        },
+        "association": {
+          "distance_gate_sigma": 6.0
+        },
+        "tracking": {
+          "kalman_noise_diff_coeff": 30.0,
+          "kalman_measurement_noise_std": 300.0
+        },
+        "lifecycle": {
+          "confirm_hits": 3,
+          "max_miss_before_lost": 4,
+          "max_lost_cycles": 5,
+          "enable_imm_lifecycle": true,
+          "model_count_hint": 2
+        },
+        "recognition": {
+          "enabled": true,
+          "min_confirmed_hits": 1,
+          "accumulation_window_sec": 10.0,
+          "min_observation_count": 1,
+          "acceptance_score": 0.6,
+          "minimum_margin": 0.05,
+          "result_hold_sec": 30.0,
+          "feature_weights": {
+            "rcs_weight": 0.25,
+            "motion_weight": 0.25,
+            "polarization_weight": 0.25,
+            "range_profile_weight": 0.25
+          },
+          "database_path": "remote_identification_radar/target_feature_database_v1.1.db"
+        }
+      },
+      "environment": {
+        "enable_environment_effects": false,
+        "weather_attenuation_db": 0.0,
+        "vegetation_scatter_physics": {
+          "cover_profile": "kDisabled",
+          "enable_physical_model": false
+        },
+        "atmospheric_physics": {
+          "enable_physical_model": false,
+          "pressure_hpa": 1013.25,
+          "temperature_k": 288.15,
+          "relative_humidity": 0.5
+        }
+      },
+      "sensor_enabled": true
+    },
+    "ecm": {
+      "transmitter_equipment_id": 101,
+      "channel_count": 1,
+      "maximum_total_transmit_power_w": 1000.0,
+      "maximum_channel_transmit_power_w": 1000.0,
+      "default_technique": "kSpot"
+    },
+    "fusion": {
+      "position_radius_m": 50000.0,
+      "bearing_beamwidth_deg": 8.0,
+      "feature_threshold": 0.0,
+      "window_size": 10,
+      "max_missed_cycles": 5,
+      "source_weights": [
+        0.0,
+        1.0,
+        0.8,
+        0.6,
+        0.5,
+        0.6
+      ]
+    },
+    "threat": {}
+  }
+}

@@ -43,9 +43,9 @@ Last-reviewed: 2026-08-19
   `Summarize()` 聚合五指标并求 AHP 权重与综合分（矩阵非法 → `ahp_valid=false`、综合分 0，
   不静默退化；**零证据=零分**：count=0 的指标 rmse 按 +∞ 进评分，得 0 分拖低综合，
   不因空序列 rmse=0 而得满分）。
-- **日志事件**（`[PrecisionEval]` 前缀，开关 `ONEQ_ENABLE_PRECISION_EVALUATION_LOG` 默认
-  OFF）：`angular_error` / `dual_sat_fix` / `velocity_error` / `keypoint_error`（逐周期
-  样本）、`metric_summary` / `ahp_score`（Summarize 时）。仅人读验收材料，非机器契约。
+- **日志**（`precision_acceptance.log`，开关 `ONEQ_ENABLE_PRECISION_EVALUATION_LOG` 默认
+  OFF）：四段同一行写入关键精度指标与层次分析法；CEP50 / 95% CI 仅日志派生，不进报告
+  结构。仅人读验收材料，非机器契约。
 - **配置保证**（会话构造时统一生效，调用方无须自查）：`fusion.enable_track_filtering`
   强制 true；双星源通道 id 互异（B 星撞 A 星 id 时 +100）；`inference_interval_cycles`
   钳制 ≥1。

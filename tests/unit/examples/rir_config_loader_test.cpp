@@ -24,7 +24,8 @@ TEST(RirConfigLoaderTest, LoadsDeliveredSessionJson) {
   EXPECT_EQ(config.policy.detection.gate_mode,
             remote_identification_radar::config::RirDetectionGateMode::kSnrFallback);
   EXPECT_TRUE(config.policy.recognition.enabled);
-  EXPECT_EQ(config.policy.lifecycle.confirm_hits, 1U);
+  // 5852e0d4 调参：confirm_hits 1 -> 3（单孤点量测不再直接确认出重复航迹）。
+  EXPECT_EQ(config.policy.lifecycle.confirm_hits, 3U);
   EXPECT_EQ(config.policy.recognition.min_confirmed_hits, 1U);
   EXPECT_EQ(config.policy.recognition.min_observation_count, 1U);
   EXPECT_FLOAT_EQ(config.policy.recognition.acceptance_score, 0.6f);

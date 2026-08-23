@@ -1,6 +1,7 @@
 ---
 Status: draft
 Date: 2026-08-15
+Progress: 迁移主体（阶段 1 → 2-C → 跟踪升级 N1-N7 → 阶段 3/3b common 化）已全部完成（2026-08-21）；余量仅为暂缓议题（见 §5）
 Baseline: `feature/remote-identification-radar-phase1` @ `67947078`
 Authority: RIR 迁移唯一状态与下一步迁移计算文档
 Supersedes:
@@ -13,7 +14,7 @@ Related-Authority:
   - 阶段 3b 执行：`docs/review/common_consolidation_execution_plan_2026-08-21.md`
 ---
 
-# RIR 迁移状态与下一步迁移计算（唯一迁移文档）
+# RIR 迁移状态（唯一迁移文档，主体已完成）
 
 本文件是当前分支关于 RIR 迁移的**唯一状态与计划文档**。历史阶段计划已归档删除，
 后续所有迁移决策、范围变更与执行进度只在此文件登记。
@@ -38,7 +39,7 @@ Related-Authority:
 | 2-M | 检测链与环境子集迁移 | 完成 | M1 `e6e073b9`、M2 `87bd2ae1`、M3 `99b53792`、M4 `f28cb874`、M5 `950625ed`、M6 `e66d5293` |
 | 2-T | 轻量跟踪子集 | 完成 | T4 `6fa38268`/`2020f739`、T1 `0b3e8d70`、T2 `79bef1d6`、T3 `ce995bda` |
 | 2-S | 自持化重构 | 完成 | 核心 `c09dd870`、四件套文档 `7809e5d6`、进度登记 `c38d59f9`、注释清理 `1d7f6eb5` |
-| 2-C | AR 侧识别耦合收尾删除 | 完成 | `1ac346ca`（按耦合审计 §3/§9 全清单：识别实现目录/public 头/Controller-Session-Pipeline 胶合/replay fbs 表与 codec/测试 SQLite 接线/文档四件套与 i18n 收敛；`ArWorkMode` 值域收紧为 kStby/kTas/kTws/kStt，replay 工作模式上界 kStt，`airborne_engine` 解除 SQLite 链接；replay 字节兼容断裂按审计 §7.1 接受，一次性无兼容层） |
+| 2-C | AR 侧识别耦合收尾删除 | 完成 | `1ac346ca`（按耦合审计全清单：识别实现目录/public 头/Controller-Session-Pipeline 胶合/replay fbs 表与 codec/测试 SQLite 接线/文档四件套与 i18n 收敛；`ArWorkMode` 值域收紧为 kStby/kTas/kTws/kStt，replay 工作模式上界 kStt，`airborne_engine` 解除 SQLite 链接；replay 字节兼容断裂按审计裁定接受，一次性无兼容层） |
 | 跟踪升级 N1-N7 | LAPJV/航迹池/IMM（突破 2-T 轻量边界） | 完成 | N1+N2 `46e495dd`（RirLapjvSolver + 方阵代价矩阵全局最优指派）；N3 `93bd3a4f`（RirTrackPool + generation 复用代次）；N4+N5 `6bfca646`（RirImmFilter 包装 common ImmFilter + 生命周期双路径）；N6+N7 public policy IMM 开关接线 + 四件套文档改写 |
 | 阶段 3 | common 化收敛与四域归位 | 完成 | 四域归位见 §5；common 化（LAPJV/雷达方程/方向图）已完成并落 `src/common/`，评估见 `common_consolidation_assessment_2026-08-15.md`，执行计划见 `common_consolidation_execution_plan_2026-08-15.md` |
 | 阶段 3b | 可直接提取项 common 化（大气/RCS 混合/检测账本/CFAR/冻结波束/航迹栈） | 完成 | 审核推翻 #4/#5/#7：见 `ar_rir_shared_capability_extract_audit_2026-08-21.md`；执行见 `common_consolidation_execution_plan_2026-08-21.md` |
@@ -63,16 +64,12 @@ Related-Authority:
 | D-A8（新增） | 天气衰减口径 | 调用方提供 `weather_attenuation_db`；RIR 不迁/不自研天气物理模型，只叠加到传播损耗 |
 | D-A9（新增） | 跟踪波束/成波 | 暂缓议题，不进入当前迁移计算；未来需先确定“驻留波束调度”与“beamforming 效能级口径”边界 |
 
-## 3. 下一步迁移计算：跟踪能力升级（2-T 边界突破）
+## 3. 跟踪能力升级计算（N1-N7，已执行，备查）
 
-### 3.1 目标
+> 本计算已于 2026-08-15 执行完毕（§1 行「跟踪升级 N1-N7」）；原目标与实施顺序
+> 段落收口删除，AR 来源 → 落点映射表保留备查。
 
-- 多目标跟踪由“最近邻唯一分配”升级为**全局最优关联**；
-- 航迹对象由 `std::map` 值语义升级为**航迹池 + 复用代次**；
-- 单模型 CV KF 升级为 **CV KF / IMM 双路径**；
-- 现有识别消费闭包字段（`association_key/status/hit_count/位置/速度/加速度/uncertainty`）不变。
-
-### 3.2 迁移项与 AR 来源
+### 3.1 迁移项与 AR 来源
 
 | 步 | 内容 | AR 来源 | 落点 |
 |---|---|---|---|
@@ -84,19 +81,9 @@ Related-Authority:
 | N6 | 策略/配置/校验/replay | AR `LifecycleConfig::enable_imm_lifecycle/model_count_hint`、`TrackingConfig` | `RirPolicyConfig` 增 IMM 开关/模型数提示；配置校验与 replay 状态同步 |
 | N7 | 测试迁移 | `ar_signal_association_test`、`ar_track_lifecycle_test`、IMM 测试 | `rir_track_associator_test`、`rir_track_lifecycle_test`、新增 `rir_track_pool_test`、`rir_imm_tracking_test` |
 
-### 3.3 实施顺序与验证边界
-
-1. N1+N2：先落地 LAPJV 并保持现有关联 API；验证多目标全局最优分配、门控拒绝、键单调不回收。
-2. N3：航迹池接入生命周期；验证复用 `track_id` 递增、`generation` 递增、重复释放拒绝。
-3. N4+N5：IMM 路径接入；验证高机动目标切换后位置/速度连续、未启用时与 CV KF 数值一致。
-4. N6+N7：策略与 replay 闭合；更新场景测试与文档四件套。
-
-每步验收：
-- `unit::remote_identification_radar`
-- `integration::remote_identification_radar`
-- `replay::remote_identification_radar`
-- `integration::cross_domain`（当前为多模型场景）
-- 公共头/契约 guards 不回归
+每步验收以 `unit::remote_identification_radar` / `integration::remote_identification_radar` /
+`replay::remote_identification_radar` / `integration::cross_domain` 与公共头/契约
+guards 出口核对（全部通过，见 §1 验证基线）。
 
 ## 4. 天气衰减：调用方输入口径
 
@@ -131,7 +118,7 @@ Related-Authority:
 - **暂缓议题**：跟踪波束/成波、再入目标专项物理模型（气动/等离子/RCS 剖面）、
   全天候天气物理模型。
 
-## 6. 验收标准
+## 6. 验收标准（已全部达成）
 
 1. RIR include 闭包无 AR 头，公共面无 `RirTrackFeed*` 残留。
 2. 多目标关联为 LAPJV 全局最优；门限拒绝与未分配语义正确。

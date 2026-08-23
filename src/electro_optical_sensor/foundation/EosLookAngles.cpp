@@ -32,10 +32,10 @@ bool TryResolveEosLookAngles(double position_x, double position_y, double positi
   // 安装角/失准配置，链路仅含平台姿态（Body->ENU），方位/仰角语义与直接 atan2 提取
   // 一致；退化判定（模长下限）与斜距输出留在本层（模块策略）。
   const oneq::common::geometry::BoresightChain chain(
-      oneq::foundation::EulerAnglesDeg(platform_attitude_deg.yaw_deg,
+      oneq::coordinate::EulerAnglesDeg(platform_attitude_deg.yaw_deg,
                                        platform_attitude_deg.pitch_deg,
                                        platform_attitude_deg.roll_deg),
-      oneq::foundation::EulerAnglesDeg());
+      oneq::coordinate::EulerAnglesDeg());
   const oneq::coordinate::Vector3d enu_position(position_x, position_y, position_z);
   *range_m = static_cast<float>(range);
   chain.SensorAzElOfReferenceVector(enu_position, azimuth_deg, elevation_deg);

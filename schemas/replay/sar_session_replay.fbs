@@ -2,6 +2,10 @@
 // SAR 模块 replay FlatBuffers schema：session_config 与 runtime_config_patch 载荷。
 //
 // file_identifier: SARS (SAR Session)
+//
+// 2026-08 规则 15e 落地：SarPolicyConfig / SarRuntimeConfigPatch 中段收回
+// retain_raw_phase_history 字段（field ID 前移，非表尾加性变更）。codec 自此写入并校验
+// file_identifier：无标识符的旧轨迹被显式拒绝，不会被同名标识按新布局静默误读。
 
 namespace sar.replay;
 
@@ -47,7 +51,6 @@ table SarPolicyConfig {
   enable_raw_echo_generation: bool;
   enable_l1_rda_imaging: bool;
   enable_diagnostics: bool;
-  retain_raw_phase_history: bool;
   retain_focused_image: bool;
   max_allowed_squint_angle_deg: double;
   minimum_snr_db: double;
@@ -79,8 +82,6 @@ table SarRuntimeConfigPatch {
   enable_raw_echo_generation: bool;
   has_enable_l1_rda_imaging: bool;
   enable_l1_rda_imaging: bool;
-  has_retain_raw_phase_history: bool;
-  retain_raw_phase_history: bool;
   has_retain_focused_image: bool;
   retain_focused_image: bool;
   has_minimum_snr_db: bool;

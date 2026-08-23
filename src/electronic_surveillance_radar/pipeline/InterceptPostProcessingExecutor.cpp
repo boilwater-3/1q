@@ -11,7 +11,7 @@
 
 #include "common/logging/ProjectLog.h"
 #include "common/numerics/SpectralNumerics.h"
-#include "electronic_surveillance_radar/environment/EsrSharedUtils.h"
+#include "common/numerics/ClampUtils.h"
 #include "electronic_surveillance_radar/pipeline/ObservationFeatureEncoder.h"
 
 namespace electronic_surveillance_radar {
@@ -25,7 +25,8 @@ namespace {
  * @return 置信度，范围 [0, 1]。
  */
 double ComputeObservationConfidence(double snr_db) {
-  const float snr_score = utils::Clamp01(static_cast<float>((snr_db + 5.0) / 30.0));
+  const float snr_score =
+      oneq::common::numerics::Clamp01(static_cast<float>((snr_db + 5.0) / 30.0));
   return static_cast<double>(snr_score);
 }
 
@@ -109,8 +110,8 @@ void PopulateClusterSpectralSummary(
   total_power = std::max(total_power, 1.0e-12);
   max_power = std::max(max_power, 1.0e-12);
 
-  const double occupancy_floor =
-      static_cast<double>(utils::Clamp01(spectral_config.occupancy_peak_floor_ratio)) * max_power;
+  const double occupancy_floor = static_cast<double>(
+      oneq::common::numerics::Clamp01(spectral_config.occupancy_peak_floor_ratio)) * max_power;
   std::size_t occupied_bins = 0U;
   for (std::size_t i = 0; i < power_spectrum.size(); ++i) {
     if (power_spectrum[i] >= occupancy_floor) {
@@ -215,7 +216,7 @@ ClusterSummary BuildClusterSummary(
   summary.pri_std_s = mean_pri_std_s * inv_count_d;
   summary.pulse_width_std_s = mean_pulse_width_std_s * inv_count_d;
   summary.confidence_score =
-      utils::Clamp01(static_cast<float>(confidence_acc * inv_count_d));
+      oneq::common::numerics::Clamp01(static_cast<float>(confidence_acc * inv_count_d));
   summary.representative_index = representative;
   PopulateClusterSpectralSummary(cluster_indices, records, spectral_config, &summary);
   return summary;

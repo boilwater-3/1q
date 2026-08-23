@@ -2,13 +2,14 @@
 
 #include <algorithm>
 #include <cmath>
+#include "common/numerics/Constants.h"
 
 namespace sar {
 namespace imaging {
 
 namespace {
 
-constexpr double kSpeedOfLightMps = 299792458.0;
+using oneq::common::numerics::kLightSpeed;
 
 }  // namespace
 
@@ -54,7 +55,7 @@ bool DiagnoseOmegaKReducedRangeAxis(
   diagnostics->relative_delay_spacing_s =
       1.0 / (static_cast<double>(diagnostics->sample_count) * spacing_hz);
   diagnostics->relative_range_spacing_m =
-      0.5 * kSpeedOfLightMps * diagnostics->relative_delay_spacing_s;
+      0.5 * kLightSpeed * diagnostics->relative_delay_spacing_s;
   diagnostics->relative_delays_s.reserve(diagnostics->sample_count);
   for (std::size_t index = 0U; index < diagnostics->sample_count; ++index) {
     diagnostics->relative_delays_s.push_back(

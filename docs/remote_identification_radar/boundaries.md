@@ -1,6 +1,6 @@
 ---
 Status: active
-Last-reviewed: 2026-08-21
+Last-reviewed: 2026-08-23
 Authority: RIR 模块级边界、非目标与设计变更规则
 Answers: RIR 有哪些模块级禁令与边界、哪些非目标、单位纪律与失败降级契约
 ---
@@ -30,6 +30,14 @@ RIR 是与机载雷达（AR）**相互独立的另一部雷达装备**，不是 
   转台朝向平移归一化，或指定识别任务限位执行）派生，控制器只消费并信任
   给定值（见下方驻留指向契约）。
   RIR 不驱动任何外部雷达波束。
+- **搜索角域裁剪（2026-08-22 甲方批注「设定方位俯仰进行扫描」）**：检测候选集
+  按可扫描体积裁剪——视线角出体积（az 相对 `scan_center`、el 绝对，与指定目标
+  驻留门同口径单源 `internal/RirScanVolume.h`）的场景目标不入检测候选集；
+  此前“遍历全部场景目标、波位只改方向图”的软门控行为废弃。`scan_center`
+  运行期补丁即「设定方位俯仰」；直连 `RirController::RunCycle` 的调用方
+  默认不裁剪（显式传体积才启用）。出界目标逐周期落
+  `rir.target_outside_search_volume` kInfo 排除诊断（规则 13b，携带视线角与
+  角域窗口），目标消失可归因、不静默；航迹按既有失跟语义自然消退。
 - **自持检测链（阶段 2-S 已接线；跟踪升级 2-T N1-N7 已完成）**：需求所列九项
   信号链能力（天线方向图仿真、回波/干扰/噪声功率计算、四项处理增益、恒虚警
   检测）界定为 **RIR 自持检测链**（检测 → LAPJV 全局最优关联 → CV KF/IMM
@@ -47,11 +55,10 @@ RIR 遵守 `docs/common/contract.md` 与 `docs/common/session_contract.md`：
    `RirController`、识别内部类型不通过 public header 暴露。
 2. 会话配置直接赋值 `RirSessionConfig`；运行期热更新直接写 `RirRuntimeConfigPatch`
    （显式 `has_*`）；不提供 ConfigBuilder。
-3. 输出遵守两通道 + 可选投影模型：产品通道（`RirOutputFrame`）、信封通道
-   （`RirCycleResult`，含 `emission_frame` 与 `track_attributions`）、观测投影分离。
-   目标列表型三类投影（DebugView / Lifecycle / ExclusionCause）为观测完备必选；
-   字段冻结见 `docs/review/rir_observability_projections_freeze_2026-08-21.md`
-   （实现未齐前规则 10/11/13b/13e 对 RIR 为空洞条款）。
+3. 输出遵守分层周期记录 + 可选投影（规则 15）：产品层 `RirOutputFrame`；副作用
+   `emission_frame`；仿真附件 `track_attributions`。落地前仍为扁平 `RirCycleResult`。
+   目标列表型三类投影为观测完备必选；字段冻结见
+   `docs/review/rir_observability_projections_freeze_2026-08-21.md`。
 4. 周期语义：非执行周期不复用上一帧；校验拒绝 `kRejectedInvalidInput` +
    明细 issues；关机 `kPoweredOff` 只推进世界时间；统一问题列表
    （规则 14，`RirIssueList`，code 前缀 `rir.validation.*`）。
@@ -73,7 +80,7 @@ RIR 遵守 `docs/common/contract.md` 与 `docs/common/session_contract.md`：
 3. 暴露内部识别类型为 public SPI；process-wide 识别全局状态。
 4. 战斗级跟踪之外的关联决策/战术决策：RIR 自持跟踪为 **LAPJV 全局最优关联 +
    CV KF/IMM 双路径滤波 + 池化生命周期**（2026-08-15 跟踪升级 N1-N7 已落地；
-   IMM 为 confirmed 命中激活，`enable_imm_lifecycle` 缺省关闭）。战术决策、
+   IMM 为 confirmed 命中激活，`enable_imm_lifecycle` 缺省开启）。战术决策、
    ECCM、对外点迹/航迹输出仍否决；检测判决不解释为对外
    "目标发现"事件，检测量测不出 public 面。
 5. 波束控制：RIR 消费库内驻留调度器派生的波束指向，但不通过本模块 API 控制、
@@ -134,11 +141,11 @@ RIR 遵守 `docs/common/contract.md` 与 `docs/common/session_contract.md`：
    `enable_physical_model=true` 时驻留链路预算按每目标真实几何计算大气物理附加损耗
    （common 大气单源）；默认关闭零回归。k 因子为运行期派生量
    （`ResolveEffectiveKFactor`），不进配置。
-7. **归属视图（`RirCycleResult.track_attributions`，信封通道）**：库内键 ↔ 场景
+7. **归属视图（`RirCycleResult.track_attributions`，仿真附件层）**：库内键 ↔ 场景
    真值目标对照（`external_target_id`/`target_name`）+ 最小航迹诊断
    （hit_count/滤波 ENU 位置/速度）；覆盖本周期全部航迹快照
-   （tentative/confirmed/lost，与出口②同循环）；**不进 `RirOutputFrame` 产品通道**
-   （两通道纪律，与 SBIRS detection_attributions 同通道同纪律）；非执行周期（校验
+   （tentative/confirmed/lost，与出口②同循环）；**不进 `RirOutputFrame` 产品层**
+   （规则 15，与 SBIRS detection_attributions 同纪律）；非执行周期（校验
    拒绝/关机/中止）返回空列表且不推进状态。归属为航迹级（RIR 产品粒度即航迹级，
    不做逐检测级归属）。
 8. **replay 加性扩展**：输出帧加特征量测向量、结果表加归属向量与
@@ -224,6 +231,7 @@ RIR 遵守 `docs/common/contract.md` 与 `docs/common/session_contract.md`：
 
 1. **F1 双通道极化**：场景目标 `polarization_rcs_samples`（dBsm）经同一雷达方程
    与 SNR 噪声底派生；通道定义（H/V）由数据库固定（meta `polarization_channels`）。
+   可选 `cross_rcs_dbsm` / `phase_vv_rel_hh_deg` 仅验收旁路消费（须 `has_*`），不进提取器。
 2. **F2 距离像相干叠加**：仅消费场景侧 `range_rcs_scatterers` 真值列表；散射中心级
    峰值判定为效能级简化（粗距离单元下不合并峰标识，仅投影能量）。
 
@@ -238,21 +246,19 @@ RIR 遵守 `docs/common/contract.md` 与 `docs/common/session_contract.md`：
 - 加载期只读读取器，运行期不持有 SQLite 连接。
 - 版本策略：`schema_version` 为 `major.minor`；major 破坏性变更加载器拒绝。
 
-## 验收信息日志（`[RirAccept]` 事件流，2026-08-20）
+## 验收信息日志（`rir_acceptance.log`，2026-08-22）
 
-CMake 开关 `ONEQ_ENABLE_RIR_ACCEPTANCE_LOG`（默认 OFF）门控的编译期专用日志宏
-`RIR_ACCEPTANCE_LOG`（`src/remote_identification_radar/runtime/RirAcceptanceLog.h`），
-把需求映射 3.2.2 章节的验收量按周期经 `PROJECT_LOG_INFO` 输出。已接线事件：
-`detection_cell`（方向图增益/四功率/脉压增益/SINR/SNR/Pd/判决）、`interference_link`
-（逐源干扰功率）、`association`/`association_match`/`association_missed`（关联结果）、
-`track`（航迹全量状态含 6×6 协方差）、`measurement`（四维特征量测）、`recognition`
-（识别结论）、`schedule`（驻留计数与效能摘要）、`beam_pattern`/`beam_pattern_wave`
-（波位排列表，mission / scan_center 配置变更后重发）、`beam_scan`（逐周期波束中心与来源）。
-边界：与 SBIRS `[SbirsAccept]` 同性质——**仅人读验收材料，不属于三写、不进公开输出/
-replay**；关闭时宏与派生计算一并编译剪除，零开销、行为逐位不变。缺失子项（航向、
-舰船/车辆类型、MTI/MTD 通道级量、事件类型分类计数细化）经 2026-08-20 验收裁定
-不新增，对应注释已落在各类型定义处，见
-`docs/review/acceptance_output_inventory_2026-08-20.md` §5/§6。
+CMake 开关 `ONEQ_ENABLE_RIR_ACCEPTANCE_LOG`（默认 OFF）门控。开启后按验收项写入
+`rir_acceptance.log`（四段同一行），三维方向图另写 `rir_antenna_pattern.csv`。
+不进 `1q_library.log`，也不把融合/推演/精度抄进本文件。关闭时宏与派生计算一并
+编译剪除，零开销、行为逐位不变。项表与「不能输出」字段见
+`docs/review/acceptance_item_catalog_2026-08-22.md`。边界：仅人读验收材料，
+不属于三写、不进公开输出/replay。交付日志一条原文指标一行，`[验收项：]` 用原文
+指标名；内容只写数值或 `无`/`暂无`，不标注派生/未进/占位。公式与旁路边界见
+`docs/review/rir_mti_mtd_acceptance_sidecar_freeze_2026-08-22.md`、
+`docs/review/rir_polarization_l2_acceptance_sidecar_freeze_2026-08-22.md`、
+`docs/review/rir_acceptance_remaining_metrics_sidecar_freeze_2026-08-22.md`。
+缺交叉极化或 HH–VV 相位、无链路干扰通道写 `无`，不回退对角实矩阵、不均分冒充。
 
 ## 设计变更规则
 
@@ -261,7 +267,7 @@ replay**；关闭时宏与派生计算一并编译剪除，零开销、行为逐
 2. 任何新增 runtime patch 字段，明确整域/叶子归属并接入提交语义。
 3. 观测构造/提取/匹配/判定语义变化，必须同步 algorithms.md 与
    `tests/unit|integration/remote_identification_radar/` 对应测试。
-4. 输出字段变化保持两通道与可选投影分离；replay 表变更评估字节兼容。
+4. 输出字段变化保持分层周期记录与可选投影分离（规则 15）；replay 表变更评估字节兼容。
 5. 输入面/RF/环境字段变化须同步 `RirInputValidation` 新 issue code、契约白名单
    与场景测试；不再存在 AR 航迹供给契约。
 6. 验证范围：`unit::remote_identification_radar`、`integration::remote_identification_radar`、

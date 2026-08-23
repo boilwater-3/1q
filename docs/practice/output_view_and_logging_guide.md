@@ -1,17 +1,32 @@
 # 输出视图与日志体系使用教程（component_attachment）
 
 Status: active
-Last-reviewed: 2026-08-21
-Authority: 两通道+可选投影输出模型（docs/common/session_contract.md §两通道 + 可选投影输出模型；
-  旧称三层）与集成端日志设施（examples/component_attachment/logger/README.md）
+Last-reviewed: 2026-08-23
+Authority: 可观测性单源四件事（docs/common/session_contract.md）+ 分层周期记录与投影输出模型 +
+  集成端日志设施（examples/logger/README.md）
 适用读者: 对"输出视图 / 两种日志 / 三模式"感到困惑的仓库开发者与外部集成方
 
 > 本教程是**教学性导航**，不是契约文档。契约权威仍是 `docs/common/session_contract.md`
-> （规则 12/13b/13e 等）与 `examples/component_attachment/logger/README.md`；
-> 源码事实以 `examples/component_attachment/` 为准，本文只负责把这些概念串成一条
+> （可观测性单源 / 规则 12/13b/13e）与 `examples/logger/README.md`；
+> 源码事实以 `examples/` 为准，本文只负责把这些概念串成一条
 > 可理解的主线。
 
-## 0. 三个概念，一句话回答
+## 0. 调用方只记四件事
+
+库可观测性只有四件事（`session_contract.md`「可观测性单源」）。示例层的视图/事件日志是第五件
+教学示范，不是库 API。
+
+| 你要记住的 | 入口 | 一句话 |
+| --- | --- | --- |
+| **周期记录** | `StepWithResult()` → 分层 `*CycleResult` | 一次生产：执行 / 产品 / 副作用 / 仿真附件（规则 15） |
+| **投影** | DebugView / Lifecycle / ExclusionCause | 记录的视图，不是第二套事实；Attach 与否零行为改变 |
+| **Replay** | `*RecordingSession` + `ReplayTraceWriter` | 库内唯一周期落盘；按层编码；回放入口 `ReplayXxxTrace()` |
+| **`PROJECT_LOG`** | 库内人读旁路 | 默认关闭；状态判断禁止解析日志 |
+
+需要复现实验时包一层 Recording 包装器。人读摘要由调用方从 `CycleResult` 自己写；示例中文事件
+只活在 `examples/`。验收文件（`*acceptance.log`）也不是库可观测性 API。
+
+下面三个词是**示例教程**用语，用来解释 `component_attachment` 怎么把信封/投影转成自己的日志：
 
 | 你感到困惑的词 | 它到底指什么 | 一句话 |
 | --- | --- | --- |
@@ -19,24 +34,25 @@ Authority: 两通道+可选投影输出模型（docs/common/session_contract.md 
 | **两种日志** | 库内部日志 vs 集成端日志 | 一个写给"调试库算法"的人看（英文、带级别），一个写给"检查仿真行为"的人看（中文、事件/视图分文件） |
 | **三个模式** | 视图三模式 + 事件三模式 | 每周期数据都会产生，**落盘多少、怎么落**由编译期宏决定：视图控制密度（异常/变化/摘要），事件控制粒度（关键/聚合/全量） |
 
-三者关系一句话：**库每次仿真周期必出两通道（产品帧 + 信封结果），目标列表型再拼可选投影
-（DebugView / 生命周期 / 排除差分）；示例示范"集成方怎么把投影转成自己的日志"——转写时用两种
-日志，各自有三档密度可选。**
+三者关系一句话：**库每次仿真周期生产一份分层周期记录；目标列表型再拼可选投影
+（DebugView / 生命周期 / 排除差分）；示例示范"集成方怎么把投影转成自己的日志"。**
 
 ---
 
-## 1. 两通道 + 投影：先搞清"输出视图"指什么
+## 1. 分层记录 + 投影：先搞清"输出视图"指什么
 
-有 Session 的传感器模块每次 `Step` 都产出**两个必选通道**，并按产品形态选装观测投影
-（`docs/common/session_contract.md` §两通道 + 可选投影输出模型；旧称 L1/L2/L3）：
+有 Session 的传感器模块每次 `StepWithResult` 产出**一份分层周期记录**，并按产品形态选装观测投影
+（`docs/common/session_contract.md` 规则 15；旧称两通道 / L1/L2/L3）：
 
-| 通道/投影 | 旧称 | 入口 | 责任 | 谁消费 |
-| --- | --- | --- | --- | --- |
-| **产品通道** | L1 | `Step()` → `*OutputFrame` | 真实传感器/产品输出 | 业务逻辑（融合、跟踪） |
-| **信封通道** | L2 | `StepWithResult()` → `*CycleResult` | 输出帧 + 执行状态 + 校验 + 诊断 + **issues**；可含归属对照 | 状态判断（`status == kCompleted`） |
-| **观测投影** | L3 | `*OutputDebugViewBuilder` / `*LifecycleRecorder` / `*ExclusionCauseRecorder` | 人读快照、生命周期事件、排除差分、输入回填 | 调用方落盘/观测 |
+| 层/投影 | 入口 | 责任 | 谁消费 |
+| --- | --- | --- | --- |
+| **产品** | `Step()`（糖） | 真实传感器/产品输出（SAR 含聚焦图像） | 业务逻辑（融合、跟踪、成像） |
+| **周期记录** | `StepWithResult()` | 执行状态 + 产品 + 副作用 + 仿真附件 | 状态判断（`status == kCompleted`） |
+| **观测投影** | DebugView / Lifecycle / ExclusionCause | 人读快照、生命周期事件、排除差分 | 调用方落盘/观测 |
 
-**"输出视图" = DebugView 投影**（不是信封里的归属对照表）。它每周期由
+落地前 `*CycleResult` 仍扁平，且 SAR `Step()` 还拿不到图像——以规则 15 为准，不以当前头文件为准。
+
+**"输出视图" = DebugView 投影**（不是仿真附件层的归属对照表）。它每周期由
 `*OutputDebugViewBuilder::Build(input, result)` 构造——无状态快照：只把本周期"逐目标状态
 （AR/RIR 航迹态；EOS/SBIRS 检测态）+ 结构化量值 + 规则 13b 排除诊断"装进一个 struct。
 
@@ -50,9 +66,9 @@ Authority: 两通道+可选投影输出模型（docs/common/session_contract.md 
 
 示例中每个有 DebugView 的组件（AR/EOS/SBIRS 目标列表型 + SAR 阶段型）把视图暴露为
 `LastDebugView()`（最近周期快照，关机清零），并在 `Step` 内直写中文人读行（详见下节）。
-ESR 库内无 DebugView，不适用视图落盘；RIR 三类投影契约已冻结、**实现未齐**——组件暂用
-信封 `track_attributions` 自拼摘要行（见
-`docs/review/rir_observability_projections_freeze_2026-08-21.md`）；ECM 同形自拼；推演组件读
+RIR 三类投影已落地（2026-08-22，`RirOutputDebugViewBuilder` / `RirTrackLifecycleRecorder` /
+`RirExclusionCauseRecorder`），组件同样经 `LastDebugView()` + recorder 事件写视图/事件行；
+ESR 库内无 DebugView，不适用视图落盘；ECM 同形自拼；推演组件读
 融合运动学估计直写关键点摘要行（详见 §3 通道 B）。
 
 ---
@@ -129,6 +145,8 @@ SAR squint 拒绝等）；`integration_*.log` 回答"**仿真世界里发生了�
 | `ecm_jamming` | ECM 干扰决策下发（技术/决策数/功率；干扰发射经 rf-world 传播，不发 World 信号） | `CA_LOG_EVENT` | 否 |
 | `rir_recognition` | RIR 识别结论确认态沿（状态迁移到确认时逐条） | `CA_LOG_EVENT` | 否 |
 | `rir_designation` | RIR 指定任务终态沿（识别达成完成/窗口耗尽作废） | `CA_LOG_EVENT` | 否 |
+| `rir_track_confirmed` / `rir_track_lost` | RIR 航迹首确认/丢失（生命周期 recorder） | `CA_LOG_EVENT` | 否 |
+| `rir_designation_dropped` | RIR 指定任务作废/回扫终态（生命周期 recorder，镜像 revert_reason） | `CA_LOG_EVENT` | 否 |
 | `patrol_loop_restart` | 巡逻循环重启（**纯日志，无信号**） | `CA_LOG_EVENT` | 否 |
 | `exclusion_cause` | 排除原因跨周期变化（**纯诊断，无信号**） | `CA_LOG_EVENT` | 否 |
 
@@ -209,9 +227,9 @@ SAR squint 拒绝等）；`integration_*.log` 回答"**仿真世界里发生了�
 ### 通道 B：视图日志 → `integration_views.log`
 
 记录**"每周期目标状态长什么样"**：AR/EOS/SBIRS 各组件每周期一行（或几行，取决于视图模式）
-目标状态明细 + 排除诊断；SAR 为阶段型摘要行；Threat 组件也有每周期视图行；RIR（航迹归置
-摘要）、ECM（干扰发射状态）与推演（关键点/类型概率，读融合运动学估计）组件各每周期直写
-自有摘要行。由 `CA_LOG_VIEW` 宏在组件 `Step` 内直写（字符串归属组件）：
+目标状态明细 + 排除诊断；SAR 为阶段型摘要行；Threat 组件也有每周期视图行；RIR（标准投影
+DebugView，航迹状态枚举 + 识别诊断）、ECM（干扰发射状态）与推演（关键点/类型概率，读融合运动学估计）
+组件各每周期直写自有摘要行。由 `CA_LOG_VIEW` 宏在组件 `Step` 内直写（字符串归属组件）：
 
 ```
 [视图:ar] 周期=5 完成=是 目标=[1001 已确认(RCS 2.20m²), 1002 候选(RCS 1.40m²)] 问题=[ar.target_snr_below_threshold 目标信噪比低于门限]
@@ -219,7 +237,7 @@ SAR squint 拒绝等）；`integration_*.log` 回答"**仿真世界里发生了�
 [视图:sbirs] 周期=5 执行=是 目标=[1001 已检测(方位120.0° 俯仰-89.0°)] 问题=[sbirs.target_out_of_wfov 目标宽视场外（不在 WFOV 扫描覆盖内）。]
 [视图:sar] 周期=5 执行=是 阶段=L1 RDA 图像 L1图像=有 L3图像=无 聚焦=有 信噪比=2.3dB 目标数=2 问题=[无]
 [视图:threat] 周期=5 目标=2 高=1 中=0 低=1 最高=键1001:7.20 升级=是
-[视图:rir] 航迹=1 确认=是 指定=执行中 驻留中心=(359.8°,45.2°) [目标=1001(F-16C) 位置ENU=(-11500.0,320.0,400.0) 速度=250.0]
+[视图:rir] 航迹=1 确认=是 指定=执行中 驻留中心=(359.8°,45.2°) [目标=1001(F-16C) 位置LLA=(29.89680,119.88000,400) 速度=250.0]
 [视图:ecm] 周期=5 状态=已执行 发射数=1 ESR批次=4
 [视图:inference] 键=1001 类型=2 p=0.65 发射=(30.102,120.015) t=-320s σ=850m 落点=时域外
 ```
@@ -409,9 +427,11 @@ SAR 是**集体成像模型**，没有逐目标状态（探测/跟踪语义）�
 
 同理，SAR **无排除诊断**（规则 13b 空洞条款），问题列表多为阶段诊断。
 
-RIR / ECM / 推演（inference）与威胁（threat）的视图行同属**摘要型**（每周期恒写、无目标级
-三模式分支）：RIR/ECM 库内无 DebugView，组件以自有结果结构直写；推演行读融合运动学估计、
-威胁行读融合态势，均为每周期单行摘要。
+ECM / 推演（inference）与威胁（threat）的视图行同属**摘要型**（每周期恒写、无目标级
+三模式分支）：ECM 库内无 DebugView，组件以自有结果结构直写；推演行读融合运动学估计、
+威胁行读融合态势，均为每周期单行摘要。RIR 自 2026-08-22 起为目标列表型（库内
+`RirOutputDebugView`，无航迹目标回填输入斜距/视线角），与 AR/EOS/SBIRS 同样适用目标级
+三模式落盘；其摘要行保留 航迹=/确认=/指定=/驻留中心= 汇总令牌。
 
 ---
 
@@ -431,7 +451,7 @@ cmake --build --preset llvm-ninja-release-local --target component_attachment_de
 
 ### 途径二：源码调试时（与 CMake 途径互斥）
 
-编辑 `examples/component_attachment/logger/logger_modes.h` 底部的注释区，每次只取消注释
+编辑 `examples/logger/logger_modes.h` 底部的注释区，每次只取消注释
 一个视图模式 + 一个事件模式，重新编译：
 
 ```cpp
@@ -455,9 +475,12 @@ cmake --preset llvm-ninja-release-local -DENABLE_EXAMPLES=ON
 cmake --build --preset llvm-ninja-release-local --target component_attachment_demo
 ./build/llvm-ninja-release-local/bin/component_attachment_demo \
     [--scene <path>] [--cycles <n>] [--output-dir <dir>]
+# 每场景可执行（主开发路径；日志默认落 examples/log/<场景 log_dir>/）：
+cmake --build --preset llvm-ninja-release-local --target <scene_name>
+./build/llvm-ninja-release-local/bin/<scene_name> [--cycles <n>]
 ```
 
-默认输出到 `examples/component_attachment/log/`：
+默认输出到 `examples/log/`：
 
 | 文件 | 内容 | 属于哪套 |
 | --- | --- | --- |
@@ -531,21 +554,26 @@ AR/EOS/ESR/RIR/SAR/SBIRS）。
 `result.issues`（按 `location.kind == kSceneEntity` 关联实体）做原料，但两者一静一动，
 分别落在 `integration_views.log`（视图行）与 `integration_events.log`（事件行）两个文件。
 
+**Q8：库会不会再写一份 JSON / FlexBuffers 观测文件？**
+不会。周期落盘只有 Replay（`*RecordingSession` + `ReplayTraceWriter`）。调用方若要把
+DebugView 存成自己的 JSON，那是集成方文件，不是库可观测性 API。
+
 ---
 
 ## 11. 关键文件索引（想深入时按此查）
 
 | 想看什么 | 看哪 |
 | --- | --- |
-| 两通道+投影输出模型契约（规则 12/13b/13e；旧称三层） | `docs/common/session_contract.md` §两通道 + 可选投影输出模型 |
-| 日志设施主体与宏定义 | `examples/component_attachment/logger/logger.h`（`CA_LOG_EVENT*`/`CA_LOG_VIEW`） |
-| 模式选择区（宏兜底默认值） | `examples/component_attachment/logger/logger_modes.h` |
-| issue code → 中文名查表 | `examples/component_attachment/logger/logger_i18n.h` |
+| 可观测性单源（周期记录 / 投影 / Replay / PROJECT_LOG） | `docs/common/session_contract.md` §可观测性单源 |
+| 分层周期记录（规则 15） | `docs/common/session_contract.md` §分层周期记录 + 可选投影 |
+| 日志设施主体与宏定义 | `examples/logger/logger.h`（`CA_LOG_EVENT*`/`CA_LOG_VIEW`） |
+| 模式选择区（宏兜底默认值） | `examples/logger/logger_modes.h` |
+| issue code → 中文名查表 | `examples/logger/logger_i18n.h` |
 | 视图三模式落盘分支实现 | 各组件 `LogDebugView()`（`ar/eos/sbirs_sensor_component.cpp`） |
 | 排除原因差分事件（13e）库头与示例 | `include/1q/<module>/session/*ExclusionCauseRecorder.h` + 各组件 `Step` 末尾的 `exclusion_.GetLastEvents()` 循环 |
-| 事件三模式实现（聚合/计数） | `examples/component_attachment/logger/logger.cpp` |
-| 模式 CMake 门控 | `examples/component_attachment/CMakeLists.txt` |
-| 场景数据与预期事件表 | `examples/component_attachment/scenes/README.md` |
+| 事件三模式实现（聚合/计数） | `examples/logger/logger.cpp` |
+| 模式 CMake 门控 | `examples/CMakeLists.txt` |
+| 场景数据与预期事件表 | `examples/scenes/README.md` |
 
 ## 变更规则
 

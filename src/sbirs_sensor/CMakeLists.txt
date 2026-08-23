@@ -10,6 +10,7 @@ set(SBIRS_ENGINE_SOURCES
     pipeline/SbirsCuePredictor.cpp
     pipeline/SbirsEciScene.cpp
     pipeline/SbirsPipeline.cpp
+    pipeline/SbirsAcceptanceRecords.cpp
     pipeline/SbirsNfovAcquisition.cpp
     pipeline/SbirsNfovScheduler.cpp
     pipeline/SbirsPointingActuator.cpp
@@ -28,7 +29,7 @@ set(SBIRS_CORE_SOURCES
     session/SbirsExclusionCauseRecorder.cpp
     session/SbirsDiagnosticUtils.cpp
     session/SbirsReplayFlatbufferCodec.cpp
-    session/SbirsTraceSession.cpp
+    session/SbirsRecordingSession.cpp
     session/SbirsReplaySession.cpp
     session/SbirsExternalInputAdapter.cpp
     session/SbirsExternalOutputAdapter.cpp
@@ -41,9 +42,10 @@ set(SBIRS_CORE_SOURCES
 
 oneq_add_component(sbirs_engine SOURCES ${SBIRS_ENGINE_SOURCES})
 oneq_add_component(sbirs_core SOURCES ${SBIRS_CORE_SOURCES})
-# SBIRS 验收信息日志（[SbirsAccept] 事件流）：仅 sbirs_engine 内部消费（SbirsAcceptanceLog.h）。
+# SBIRS 验收信息日志：写入 sbirs_acceptance.log。engine 出周期物理量，core 出生命周期事件。
 if(ONEQ_ENABLE_SBIRS_ACCEPTANCE_LOG)
     target_compile_definitions(sbirs_engine PRIVATE ONEQ_ENABLE_SBIRS_ACCEPTANCE_LOG=1)
+    target_compile_definitions(sbirs_core PRIVATE ONEQ_ENABLE_SBIRS_ACCEPTANCE_LOG=1)
 endif()
 # Keep file-local detection lookup helpers in separate translation units under
 # Unity Build; the recorder and debug-view builder use identical local names.

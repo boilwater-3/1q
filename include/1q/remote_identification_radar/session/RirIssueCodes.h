@@ -120,6 +120,29 @@ constexpr char kAntennaElGeometryInvalid[] = "rir.validation.antenna_el_geometry
 /** @brief RCS 物理参数非法。 */
 constexpr char kRcsPhysicsInvalid[] = "rir.validation.rcs_physics_invalid";
 
+// ===== 执行中止诊断（规则 9 三写）=====
+
+/** @brief 设备关机（非执行周期中止）。 */
+constexpr char kSensorPoweredOff[] = "rir.sensor_powered_off";
+
+// ===== 周期执行按目标门控排除诊断（"rir.target_<snake_case>"，规则 13b）=====
+
+/** @brief 目标视线角出可扫描体积，不入搜索候选集（角域裁剪最早门；
+ *         az 相对 scan_center、el 绝对；具体门 cause=kNone）。 */
+constexpr char kTargetOutsideSearchVolume[] = "rir.target_outside_search_volume";
+
+/** @brief 检测准入门未过（聚合门：SNR/检测器判决；携带门内归因主因）。 */
+constexpr char kTargetDetectionGate[] = "rir.target_detection_gate";
+
+/** @brief 目标斜距超识别最大作用距离（识别链距离门，检测/跟踪不受影响）。 */
+constexpr char kTargetBeyondRecognitionRange[] = "rir.target_beyond_recognition_range";
+
+/** @brief 本周期非识别工作模式，不建识别观测（STBY 全局模式门）。 */
+constexpr char kTargetModeNotIdentify[] = "rir.target_mode_not_identify";
+
+/** @brief 特征库缺失或加载失败，特征链空（识别积累保持）。 */
+constexpr char kTargetNoFeatureDatabase[] = "rir.target_no_feature_database";
+
 }  // namespace codes
 }  // namespace session
 }  // namespace remote_identification_radar

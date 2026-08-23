@@ -13,6 +13,7 @@
 #include <vector>
 
 #include "1q/api.hpp"
+#include "1q/foundation/validation_types.h"
 #include "1q/remote_identification_radar/session/RirFeatureMeasurementTypes.h"
 #include "1q/remote_identification_radar/session/RirRecognitionResult.h"
 
@@ -34,6 +35,20 @@ enum class ONEQ_API RirIssuePhase : std::uint8_t {
 };
 
 /**
+ * @brief RirIssueCause 门内归因主因（规则 13b 门内归因条款）。
+ * @note 形态对齐 AR `ArIssueCause`：聚合门（如 SNR 检测门）排除时标识导致门
+ *       失败的物理链路主因（对参考态损失 dB 最大者）；具体门可保持 kNone。
+ */
+enum class ONEQ_API RirIssueCause : std::uint8_t {
+  kNone = 0,          /**< 无归因（具体门排除或非排除诊断）。 */
+  kDistanceLimited,   /**< 距离衰减（4·r_db）主导门失败。 */
+  kBeamLimited,       /**< 波束偏轴/方向图衰减主导门失败。 */
+  kNoiseLimited,      /**< 噪声底（热噪声/杂波/干扰/大气）主导门失败。 */
+  kRcsLimited,        /**< 目标 RCS 主导门失败。 */
+  kUnknown            /**< 无法判定主因。 */
+};
+
+/**
  * @brief RirIssue 描述单周期问题条目（统一问题列表模型，session_contract.md 规则 14）。
  */
 struct ONEQ_API RirIssue {
@@ -42,6 +57,8 @@ struct ONEQ_API RirIssue {
   std::string code{};   /**< 细粒度代码，形如 "rir.validation.<snake_case>"。 */
   std::string field{};  /**< 定位字段路径（可选）。 */
   std::string message{}; /**< 人读描述（英文）。 */
+  oneq::foundation::ValidationLocation location{}; /**< 可选定位；kind==kGlobal 表示无定位。 */
+  RirIssueCause cause{RirIssueCause::kNone}; /**< 可选归因；仅排除诊断使用（规则 13b）。 */
 };
 
 /** @brief RirIssueList 单周期统一问题列表。 */
@@ -75,6 +92,17 @@ struct ONEQ_API RirOutputFrame {
 };
 
 /**
+ * @brief RirTrackLifecycleStatus 航迹生命周期状态公共枚举。
+ * @note 镜像内部 `tracking::RirTrackStatus` 取值（加性扩展不得重排）；归属记录
+ *       经 `track_status` 透出，供观测投影（DebugView/Lifecycle）消费，不进产品帧。
+ */
+enum class ONEQ_API RirTrackLifecycleStatus : std::uint8_t {
+  kTentative = 0, /**< 候选航迹，尚未达到确认阈值。 */
+  kConfirmed = 1, /**< 已确认航迹，可参与识别积累。 */
+  kLost = 2       /**< 丢失航迹，等待短时重捕获。 */
+};
+
+/**
  * @brief RirTrackAttributionRecord 航迹归属记录（库内键 ↔ 场景真值目标对照）。
  * @note 仅供结构化结果/调试层消费，不得混入 RirOutputFrame 产品层（三层纪律，
  *       与 SBIRS detection_attributions 同层同纪律）；识别结论本体不在此重复
@@ -84,6 +112,7 @@ struct ONEQ_API RirTrackAttributionRecord {
   std::uint64_t association_key{0U}; /**< RIR 内部航迹关联键。 */
   std::uint64_t external_target_id{0U}; /**< 场景真值目标 ID（0 = 未提供）。 */
   std::string target_name{};             /**< 场景真值目标名。 */
+  RirTrackLifecycleStatus track_status{RirTrackLifecycleStatus::kTentative}; /**< 航迹生命周期状态。 */
   std::uint32_t hit_count{0U};           /**< 航迹累计命中数。 */
   double position_enu_x_m{0.0};          /**< 滤波位置 ENU x（m）。 */
   double position_enu_y_m{0.0};          /**< 滤波位置 ENU y（m）。 */

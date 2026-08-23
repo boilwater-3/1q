@@ -13,19 +13,21 @@
 #include "sar/session/SarImagingExecutor.h"
 #include "sar/session/SarRawHistoryBuilder.h"
 #include "sar/signal/SarWaveform.h"
+#include "common/numerics/Constants.h"
 
 namespace sar {
 namespace pipeline {
 
 namespace {
+using oneq::common::numerics::DegToRad;
+using oneq::common::numerics::RadToDeg;
 
 constexpr std::uint32_t kPipelineRuntimeStateSchemaVersion = 1U;
 constexpr double kEarthRadiusM = 6378137.0;
-constexpr double kRadiansToDegrees = 180.0 / 3.141592653589793238462643383279502884;
 
 bool HasDegenerateImagePeak(const session::SarCycleResult& result,
                             const session::SarCycleInput& input) {
-  if (result.focused_image.is_placeholder) {
+  if (result.product.focused_image.is_placeholder) {
     return false;
   }
   if (input.point_targets.empty()) {
@@ -33,14 +35,16 @@ bool HasDegenerateImagePeak(const session::SarCycleResult& result,
   }
   // focused_image 是两个独立 vector 的公共 DTO；长度不一致时无法判定峰值退化，
   // 保守跳过检测而不是越界读取 imaginary_values。
-  if (result.focused_image.real_values.size() != result.focused_image.imaginary_values.size()) {
+  if (result.product.focused_image.real_values.size() !=
+      result.product.focused_image.imaginary_values.size()) {
     return false;
   }
-  if (result.output_frame.has_l1_image || result.output_frame.has_l3_bp_image) {
-    for (std::size_t i = 0U; i < result.focused_image.real_values.size(); ++i) {
+  if (result.product.output_frame.has_l1_image || result.product.output_frame.has_l3_bp_image) {
+    for (std::size_t i = 0U; i < result.product.focused_image.real_values.size(); ++i) {
       const double power =
-          result.focused_image.real_values[i] * result.focused_image.real_values[i] +
-          result.focused_image.imaginary_values[i] * result.focused_image.imaginary_values[i];
+          result.product.focused_image.real_values[i] * result.product.focused_image.real_values[i] +
+          result.product.focused_image.imaginary_values[i] *
+              result.product.focused_image.imaginary_values[i];
       if (power > 0.0) {
         return false;
       }
@@ -48,23 +52,6 @@ bool HasDegenerateImagePeak(const session::SarCycleResult& result,
     return true;
   }
   return false;
-}
-
-void ExportRawPhaseHistory(const signal::ComplexMatrix& raw_history,
-                           session::SarRawPhaseHistorySource source,
-                           session::SarRawPhaseHistory* output) {
-  if (output == nullptr) {
-    return;
-  }
-  output->source = source;
-  output->pulse_count = static_cast<std::uint32_t>(raw_history.rows);
-  output->samples_per_pulse = static_cast<std::uint32_t>(raw_history.cols);
-  output->i_values.reserve(raw_history.values.size());
-  output->q_values.reserve(raw_history.values.size());
-  for (const signal::ComplexSample& sample : raw_history.values) {
-    output->i_values.push_back(sample.real());
-    output->q_values.push_back(sample.imag());
-  }
 }
 
 /**
@@ -97,19 +84,18 @@ double ComputeSquintAngleDeg(const geometry::PlatformPulseState& pulse,
       std::abs((pulse.velocity_x_mps * los_x + pulse.velocity_y_mps * los_y +
                 pulse.velocity_z_mps * los_z) /
                (speed * range));
-  return std::asin(std::min(1.0, along_track_cosine)) * kRadiansToDegrees;
+  return RadToDeg(std::asin(std::min(1.0, along_track_cosine)));
 }
 
 geometry::PlatformPulseState BuildCurrentPlatformPulse(
     const config::SarMissionConfig& mission, const session::SarPlatformState& platform) {
-  const double degrees_to_radians = 1.0 / kRadiansToDegrees;
-  const double reference_latitude_rad = mission.scene_center_latitude_deg * degrees_to_radians;
+  const double reference_latitude_rad = DegToRad(mission.scene_center_latitude_deg);
   geometry::PlatformPulseState pulse;
   pulse.position_m.x_m =
-      (platform.longitude_deg - mission.scene_center_longitude_deg) * degrees_to_radians *
+      oneq::common::numerics::DegToRad(platform.longitude_deg - mission.scene_center_longitude_deg) *
       std::cos(reference_latitude_rad) * kEarthRadiusM;
   pulse.position_m.y_m =
-      (platform.latitude_deg - mission.scene_center_latitude_deg) * degrees_to_radians *
+      oneq::common::numerics::DegToRad(platform.latitude_deg - mission.scene_center_latitude_deg) *
       kEarthRadiusM;
   pulse.position_m.z_m = platform.altitude_m - mission.scene_center_altitude_m;
   pulse.velocity_x_mps = platform.velocity_east_mps;
@@ -229,11 +215,8 @@ bool SarProcessingPipeline::RunCycle(const config::SarSessionConfig& config,
   }
 
   signal::ComplexMatrix raw_history;
-  session::SarRawPhaseHistorySource raw_history_source =
-      session::SarRawPhaseHistorySource::kNone;
   if (config.policy.enable_raw_echo_generation) {
     if (session::HasExternalRawIq(input)) {
-      raw_history_source = session::SarRawPhaseHistorySource::kExternalRawIq;
       if (!session::BuildExternalRawIqHistory(config, input, &raw_history,
                                               &impl_->ideal_trajectory_buffer,
                                               &impl_->actual_trajectory_buffer, result)) {
@@ -243,8 +226,10 @@ bool SarProcessingPipeline::RunCycle(const config::SarSessionConfig& config,
           session::codes::kExternalRawIqSnrUnavailable,
           "External raw IQ is already receiver-domain data; hardware link budget and minimum "
           "SNR gating are not reapplied without signal/noise metadata."));
+      // 外部 IQ 是接收机域数据，无可估 SNR：以不可估计值标记 raw echo 阶段。
+      session::MarkRawEchoStage(&result->product.output_frame,
+                                -std::numeric_limits<double>::infinity());
     } else {
-      raw_history_source = session::SarRawPhaseHistorySource::kInternallyGenerated;
       double estimated_snr_db = -std::numeric_limits<double>::infinity();
       if (!session::BuildRawPulseHistory(
               config, input, waveform.samples, &impl_->raw_pulse_buffer, &impl_->next_pulse_id,
@@ -254,17 +239,13 @@ bool SarProcessingPipeline::RunCycle(const config::SarSessionConfig& config,
               trajectory_prepared ? &prebuilt_actual_pulses : nullptr)) {
         return false;
       }
-      session::MarkRawEchoStage(&result->output_frame, estimated_snr_db);
+      session::MarkRawEchoStage(&result->product.output_frame, estimated_snr_db);
       if (std::isfinite(estimated_snr_db) && estimated_snr_db < config.policy.minimum_snr_db) {
         session::RecordAbort(result, session::SarPipelineAbortReason::kPipelineExecutionFailed,
                              session::codes::kSnrBelowMinimum,
                              "SAR estimated SNR is below the configured minimum valid SNR.");
         return false;
       }
-    }
-    if (raw_history_source == session::SarRawPhaseHistorySource::kExternalRawIq) {
-      session::MarkRawEchoStage(&result->output_frame,
-                                -std::numeric_limits<double>::infinity());
     }
   }
   if (config.policy.enable_l1_rda_imaging) {
@@ -273,14 +254,14 @@ bool SarProcessingPipeline::RunCycle(const config::SarSessionConfig& config,
                                       impl_->actual_trajectory_buffer, result)) {
       return false;
     }
-    result->output_frame.has_range_compressed_echo = true;
+    result->product.output_frame.has_range_compressed_echo = true;
   }
   if (config.policy.enable_l3_bp_imaging) {
     if (!session::ExecuteL3BpImaging(config, raw_history, matched_filter,
                                      impl_->actual_trajectory_buffer, result)) {
       return false;
     }
-    result->output_frame.has_range_compressed_echo = true;
+    result->product.output_frame.has_range_compressed_echo = true;
   }
 
   if (HasDegenerateImagePeak(*result, input)) {
@@ -292,18 +273,16 @@ bool SarProcessingPipeline::RunCycle(const config::SarSessionConfig& config,
     return false;
   }
 
-  if (config.policy.retain_raw_phase_history) {
-    ExportRawPhaseHistory(raw_history, raw_history_source, &result->raw_phase_history);
-  }
-
   // 中译：周期执行摘要（周期号、完成处理阶段、L1/L3 成像标志、估计信噪比、场景目标数）。
   // 标识：规则 13a 周期级执行摘要日志——每周期 SAR 处理概况与成像产出，
   //       供宏观核对"零产品"排查；仅人读，不用于状态判断（规则 3）。
   PROJECT_LOG_INFO("[SarPipeline] cycle_index={} completed_stage={} has_l1={} has_l3={} "
                    "estimated_snr_db={:.2f} targets={}",
-                   input.cycle_index, static_cast<int>(result->output_frame.completed_stage),
-                   result->output_frame.has_l1_image, result->output_frame.has_l3_bp_image,
-                   result->output_frame.estimated_snr_db, input.point_targets.size());
+                   input.cycle_index,
+                   static_cast<int>(result->product.output_frame.completed_stage),
+                   result->product.output_frame.has_l1_image,
+                   result->product.output_frame.has_l3_bp_image,
+                   result->product.output_frame.estimated_snr_db, input.point_targets.size());
 
   result->status = session::SarCycleStatus::kCompleted;
   return true;

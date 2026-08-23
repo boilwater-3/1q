@@ -17,6 +17,7 @@
 #include "1q/replay/ReplayTrace.h"
 #include "airborne_radar/session/ArReplayFlatbufferCodec.h"
 #include "airborne_radar/session/ArReplayCycleRecord.h"
+#include "flatbuffers/flatbuffers.h"
 
 namespace airborne_radar {
 namespace session {
@@ -311,9 +312,6 @@ TEST(ArReplayCodecRoundtripTest, SingleCycleRecordPreservesResultAndState) {
   record.result.control_profile.version = 4U;
   record.result.association_quality_metrics.matched_count = 5U;
   record.result.association_quality_metrics.match_rate = 0.75f;
-  record.result.has_decision_observation = true;
-  record.result.decision_observation.input_frame.cycle_index = 81U;
-  record.result.decision_observation.input_frame.batch_id = 82U;
   record.result.applied_decision_source = DecisionControlSource::kExternal;
   // STT 指定航迹状态字段往返锚点（防 decode 漏读）。
   record.result.effective_work_mode = config::ArWorkMode::kStt;
@@ -356,8 +354,6 @@ TEST(ArReplayCodecRoundtripTest, SingleCycleRecordPreservesResultAndState) {
   EXPECT_EQ(decoded_issue.field, "rcs");
   EXPECT_EQ(decoded_issue.cause, ArIssueCause::kRcsLimited);
   EXPECT_EQ(decoded.result.association_quality_metrics.matched_count, 5U);
-  EXPECT_TRUE(decoded.result.has_decision_observation);
-  EXPECT_EQ(decoded.result.decision_observation.input_frame.batch_id, 82U);
   EXPECT_EQ(decoded.result.effective_work_mode, config::ArWorkMode::kStt);
   EXPECT_TRUE(decoded.result.designation_active);
   EXPECT_EQ(decoded.result.designated_target_id, 9001U);
@@ -539,6 +535,24 @@ TEST(ArReplayCodecRoundtripTest, InterferenceObservationRejectsUnknownWaveformKi
 // ===========================================================================
 // Decode 失败路径（null output / 空 payload / 损坏 payload）
 // ===========================================================================
+
+TEST(ArReplayCodecRoundtripTest, CycleRecordRejectsPayloadWithoutFileIdentifier) {
+  // 规则 15f 落地收回了 ArCycleResultV3 中段字段：抹掉 file_identifier "ARC3" 模拟落地前的
+  // 旧 record（彼时 record 面未写入标识符），必须显式拒绝而非按前移后的 field ID 静默错读。
+  ArCycleReplayRecord record;
+  record.session_state.next_emission_id = 34U;
+  std::string encoded = EncodeCycleReplayRecordFlatbuffer(record);
+  ASSERT_GE(encoded.size(), 8U);
+  const char* identifier = flatbuffers::GetBufferIdentifier(encoded.data());
+  encoded[static_cast<std::size_t>(identifier - encoded.data())] = 'X';
+  encoded[static_cast<std::size_t>(identifier - encoded.data()) + 1U] = 'X';
+  encoded[static_cast<std::size_t>(identifier - encoded.data()) + 2U] = 'X';
+  encoded[static_cast<std::size_t>(identifier - encoded.data()) + 3U] = 'X';
+  ArCycleReplayRecord decoded;
+  std::string error;
+  EXPECT_FALSE(DecodeCycleReplayRecordFlatbuffer(encoded, &decoded, &error));
+  EXPECT_FALSE(error.empty());
+}
 
 TEST(ArReplayCodecRoundtripTest, DecodeSessionConfigRejectsNullAndCorrupted) {
   std::string error;

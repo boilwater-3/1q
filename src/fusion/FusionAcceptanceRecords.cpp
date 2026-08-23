@@ -1,0 +1,294 @@
+﻿/**
+ * @file FusionAcceptanceRecords.cpp
+ * @brief 融合验收行：多传感器跟踪 / 接力可写子集 / 协同融合 / UKF。
+ */
+
+#include "fusion/FusionAcceptanceRecords.h"
+
+#include <cmath>
+#include <map>
+#include <set>
+#include <string>
+#include <utility>
+
+#include "1q/coordinate/position_transform.h"
+#include "common/logging/AcceptanceText.h"
+#include "fusion/FusionAcceptanceLog.h"
+
+namespace fusion {
+namespace {
+
+using oneq::logging::FormatF;
+using oneq::logging::FormatCov6x6;
+using oneq::logging::FormatCovDiag6;
+using oneq::logging::FormatVec3;
+using oneq::logging::CovarianceTrace6;
+
+struct LastVel {
+  double vx{0.0};
+  double vy{0.0};
+  double vz{0.0};
+  bool valid{false};
+};
+
+std::map<std::uint64_t, LastVel>& LastVelocities() {
+  static std::map<std::uint64_t, LastVel> values;
+  return values;
+}
+
+/**
+ * @brief （航迹键, 源）视线角采样状态（会话内累计，仿 LastVelocities 先例）。
+ * @note 2026-08-22 甲方批注：剩余覆盖时间以「(视场宽度 − 已扫过角) ÷ 滑窗
+ *       最小二乘角速率」的简易外推估计（自该源首见该航迹起累计扫过角）；
+ *       库内无接力协议。
+ */
+struct RelaySight {
+  double az_deg{0.0};        /**< 最近一次方位角（deg，原始缠绕值）。 */
+  double el_deg{0.0};        /**< 最近一次俯仰角（deg）。 */
+  std::uint64_t cycle{0U};   /**< 最近采样周期号。 */
+  double unwrapped_az_deg{0.0}; /**< 自首见累计解缠方位（deg，扫过角分子用）。 */
+  double first_el_deg{0.0};  /**< 首见俯仰角（扫过角俯仰分量锚点）。 */
+  std::vector<RelayAngularSample> window; /**< 最近采样滑窗（最小二乘角速率用）。 */
+  bool valid{false};         /**< 已收到首个方位样本。 */
+};
+
+/** @brief 接力角速率滑窗长度（逐拍差分噪声均摊；方法常数见目录条目）。 */
+constexpr std::size_t kRelayWindowSamples = 8U;
+
+std::map<std::pair<std::uint64_t, std::uint32_t>, RelaySight>& RelaySights() {
+  static std::map<std::pair<std::uint64_t, std::uint32_t>, RelaySight> values;
+  return values;
+}
+
+std::string ChannelNames(const FusedTarget& track) {
+  std::set<std::uint32_t> ids;
+  for (const ChannelMeasurement& channel : track.channels) {
+    ids.insert(channel.source_id);
+  }
+  std::string text;
+  for (std::uint32_t id : ids) {
+    if (!text.empty()) {
+      text += "+";
+    }
+    text += "源" + std::to_string(id);
+  }
+  return text.empty() ? std::string("无") : text;
+}
+
+}  // namespace
+
+double WrappedAzimuthDeltaDeg(double az_from_deg, double az_to_deg) {
+  double delta = std::fmod(az_to_deg - az_from_deg, 360.0);
+  if (delta <= -180.0) {
+    delta += 360.0;
+  } else if (delta > 180.0) {
+    delta -= 360.0;
+  }
+  return delta;
+}
+
+double LeastSquaresAngularSpeedDegPerSec(const std::vector<RelayAngularSample>& samples) {
+  // 需 ≥2 个不同时刻采样；时间跨度为零（同拍重复）不可估。
+  if (samples.size() < 2U) {
+    return -1.0;
+  }
+  const double t0 = samples.front().time_sec;
+  double sum_t = 0.0;
+  double sum_tt = 0.0;
+  double sum_az = 0.0;
+  double sum_el = 0.0;
+  double sum_t_az = 0.0;
+  double sum_t_el = 0.0;
+  double unwrapped_az = 0.0;
+  double prev_az = samples.front().az_deg;
+  for (std::size_t i = 0U; i < samples.size(); ++i) {
+    const double t = samples[i].time_sec - t0;
+    // 逐差分解缠：跨 ±180 缠绕不产生 360° 假差分。
+    unwrapped_az += WrappedAzimuthDeltaDeg(prev_az, samples[i].az_deg);
+    prev_az = samples[i].az_deg;
+    sum_t += t;
+    sum_tt += t * t;
+    sum_az += unwrapped_az;
+    sum_el += samples[i].el_deg;
+    sum_t_az += t * unwrapped_az;
+    sum_t_el += t * samples[i].el_deg;
+  }
+  const double n = static_cast<double>(samples.size());
+  const double det = n * sum_tt - sum_t * sum_t;
+  if (det <= 0.0) {
+    return -1.0;  // 全部同拍（时间跨度为零）。
+  }
+  const double slope_az = (n * sum_t_az - sum_t * sum_az) / det;
+  const double slope_el = (n * sum_t_el - sum_t * sum_el) / det;
+  return std::sqrt(slope_az * slope_az + slope_el * slope_el);
+}
+
+double RelayRemainingCoverageSec(double fov_width_deg, double swept_deg,
+                                 double omega_deg_per_s) {
+  if (fov_width_deg <= 0.0 || omega_deg_per_s <= 0.0 || swept_deg < 0.0) {
+    return -1.0;
+  }
+  const double remaining = (fov_width_deg - swept_deg) / omega_deg_per_s;
+  return remaining > 0.0 ? remaining : 0.0;
+}
+
+void WriteFusionAcceptance(std::uint32_t cycle, const std::vector<FusedTarget>& tracks,
+                           bool filtering_enabled, const FusionConfig& config) {
+  if (!FUSION_ACCEPTANCE_LOG_ENABLED()) {
+    return;
+  }
+  // 行前缀仿真时间 = 周期 × 周期时长（此前隐含 dt=1s，按配置单源修正）。
+  const float sim_time =
+      static_cast<float>(static_cast<double>(cycle) * config.track_cycle_period_sec);
+  const std::uint64_t cycle_u64 = static_cast<std::uint64_t>(cycle);
+  if (tracks.empty()) {
+    FUSION_ACCEPTANCE_ITEM(sim_time, cycle, "多传感器目标跟踪", "暂无");
+    FUSION_ACCEPTANCE_ITEM(sim_time, cycle, "协同探测信息融合", "暂无");
+    return;
+  }
+
+  std::string multi = "本周期航迹数=" + std::to_string(tracks.size());
+  for (const FusedTarget& track : tracks) {
+    oneq::coordinate::EcefPositionM ecef{};
+    const bool have_ecef = track.has_kinematic_estimate &&
+                           oneq::coordinate::TryLlaToEcef(track.kinematic_estimate.position, &ecef);
+    std::string content = "航迹键=" + std::to_string(track.key);
+    if (have_ecef) {
+      content += " ECEF位置m=" + FormatVec3(ecef.x_m, ecef.y_m, ecef.z_m, 1);
+    } else {
+      content += " ECEF位置m=无";
+    }
+    if (track.has_kinematic_estimate) {
+      content += " 协方差对角=" + FormatCovDiag6(track.kinematic_estimate.covariance_ecef);
+    } else {
+      content += " 协方差对角=无";
+    }
+    FUSION_ACCEPTANCE_ITEM(sim_time, cycle, "多传感器目标跟踪", content);
+
+    const auto& vel = track.kinematic_estimate.velocity_ecef_m_per_s;
+    LastVel& prev = LastVelocities()[track.key];
+    double ax = 0.0;
+    double ay = 0.0;
+    double az = 0.0;
+    if (prev.valid) {
+      ax = vel[0] - prev.vx;
+      ay = vel[1] - prev.vy;
+      az = vel[2] - prev.vz;
+    }
+    const double speed = std::sqrt(vel[0] * vel[0] + vel[1] * vel[1] + vel[2] * vel[2]);
+    const double acc = std::sqrt(ax * ax + ay * ay + az * az);
+    prev.vx = vel[0];
+    prev.vy = vel[1];
+    prev.vz = vel[2];
+    prev.valid = track.has_kinematic_estimate;
+
+    std::string relay = "目标键=" + std::to_string(track.key);
+    relay += " 位置LLA=(";
+    relay += FormatF(track.kinematic_estimate.position.latitude_deg, 6) + ",";
+    relay += FormatF(track.kinematic_estimate.position.longitude_deg, 6) + ",";
+    relay += FormatF(track.kinematic_estimate.position.altitude_m, 1) + ")";
+    relay += " 速度模=" + FormatF(speed, 3) + "m/s";
+    relay += " 加速度模=" + FormatF(acc, 3) + "m/s²";
+    relay += " 预测航路点=无";
+    relay += " 融合航迹数=" + std::to_string(tracks.size());
+    relay += " 置信度=" + FormatF(track.confidence, 3);
+
+    // 接力三项（2026-08-22 甲方批注）：逐方位源以「(视场宽度 − 自首见累计扫过角)
+    // ÷ 滑窗最小二乘角速率」外推剩余覆盖；取最早离开的源为接力对象。
+    const double t_sec =
+        static_cast<double>(cycle_u64) * config.track_cycle_period_sec;
+    std::uint32_t exit_source = 0U;
+    double min_remaining_sec = -1.0;
+    for (const ChannelMeasurement& channel : track.channels) {
+      if (!channel.has_bearing) {
+        continue;
+      }
+      RelaySight& sight = RelaySights()[{track.key, channel.source_id}];
+      double remaining = -1.0;
+      if (sight.valid && cycle_u64 > sight.cycle) {
+        // 自首见累计解缠扫过角：方位逐差分归一（跨 ±180 不假跳 360°），俯仰直线差。
+        sight.unwrapped_az_deg +=
+            WrappedAzimuthDeltaDeg(sight.az_deg, channel.bearing_az_deg);
+        const double swept_el_deg = channel.bearing_el_deg - sight.first_el_deg;
+        const double swept_deg = std::sqrt(sight.unwrapped_az_deg * sight.unwrapped_az_deg +
+                                           swept_el_deg * swept_el_deg);
+        sight.window.push_back({t_sec, channel.bearing_az_deg, channel.bearing_el_deg});
+        if (sight.window.size() > kRelayWindowSamples) {
+          sight.window.erase(sight.window.begin());
+        }
+        const double omega_deg_per_s = LeastSquaresAngularSpeedDegPerSec(sight.window);
+        remaining =
+            RelayRemainingCoverageSec(config.relay_fov_width_deg, swept_deg, omega_deg_per_s);
+      } else if (!sight.valid) {
+        sight.first_el_deg = channel.bearing_el_deg;
+        sight.unwrapped_az_deg = 0.0;
+        sight.window.push_back({t_sec, channel.bearing_az_deg, channel.bearing_el_deg});
+      }
+      if (remaining >= 0.0 && (min_remaining_sec < 0.0 || remaining < min_remaining_sec)) {
+        min_remaining_sec = remaining;
+        exit_source = channel.source_id;
+      }
+      sight.az_deg = channel.bearing_az_deg;
+      sight.el_deg = channel.bearing_el_deg;
+      sight.cycle = cycle_u64;
+      sight.valid = true;
+    }
+
+    // 交接对象：同航迹上滑窗内仍有量测的其他源（取量测数最多者）；无则如实写无。
+    std::uint32_t takeover_source = 0U;
+    std::size_t takeover_samples = 0U;
+    if (exit_source != 0U) {
+      for (const ChannelMeasurement& channel : track.channels) {
+        if (channel.source_id == exit_source || channel.sample_count == 0U) {
+          continue;
+        }
+        if (channel.sample_count > takeover_samples) {
+          takeover_samples = channel.sample_count;
+          takeover_source = channel.source_id;
+        }
+      }
+    }
+
+    if (exit_source != 0U) {
+      relay += " 剩余覆盖时间=" + FormatF(min_remaining_sec, 1) + "s(源" +
+               std::to_string(exit_source) + ")";
+      relay += " 接力计划=源" + std::to_string(exit_source) + "预计" +
+               FormatF(min_remaining_sec, 1) + "s离开视场";
+      if (takeover_source != 0U) {
+        relay += " 交接指令=源" + std::to_string(exit_source) + "→源" +
+                 std::to_string(takeover_source) + "@T+" + FormatF(min_remaining_sec, 1) + "s";
+      } else {
+        relay += " 交接指令=无";
+      }
+    } else {
+      relay += " 剩余覆盖时间=无 接力计划=无 交接指令=无";
+    }
+    FUSION_ACCEPTANCE_ITEM(sim_time, cycle, "多传感器接力跟踪", relay);
+
+    if (filtering_enabled && track.has_kinematic_estimate) {
+      std::string ukf = "位置LLA=(";
+      ukf += FormatF(track.kinematic_estimate.position.latitude_deg, 6) + ",";
+      ukf += FormatF(track.kinematic_estimate.position.longitude_deg, 6) + ",";
+      ukf += FormatF(track.kinematic_estimate.position.altitude_m, 1) + ")";
+      if (have_ecef) {
+        ukf += " ECEF位置m=" + FormatVec3(ecef.x_m, ecef.y_m, ecef.z_m, 1);
+      } else {
+        ukf += " ECEF位置m=无";
+      }
+      ukf += " 速度m/s=" + FormatVec3(vel[0], vel[1], vel[2], 3);
+      ukf += " 加速度m/s²=" + FormatVec3(ax, ay, az, 3);
+      ukf += " 协方差迹=" + FormatF(CovarianceTrace6(track.kinematic_estimate.covariance_ecef), 2);
+      ukf += " 位置估计误差=无";
+      ukf += " 完整协方差=" + FormatCov6x6(track.kinematic_estimate.covariance_ecef);
+      FUSION_ACCEPTANCE_ITEM(sim_time, cycle, "UKF滤波", ukf);
+    }
+  }
+
+  std::string collab = "参与通道=" + ChannelNames(tracks.front());
+  collab += " 通道数=" + std::to_string(tracks.front().channels.size());
+  collab += " 融合置信度=" + FormatF(tracks.front().confidence, 3);
+  collab += " 融合目标数=" + std::to_string(tracks.size());
+  FUSION_ACCEPTANCE_ITEM(sim_time, cycle, "协同探测信息融合", collab);
+}
+
+}  // namespace fusion

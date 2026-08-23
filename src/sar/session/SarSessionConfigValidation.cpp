@@ -81,12 +81,6 @@ session::SarIssueList ValidateSarSessionConfig(const config::SarSessionConfig& c
          "mission.desired_azimuth_resolution_m",
          "Desired azimuth resolution must be positive.");
   }
-  if (config.policy.retain_raw_phase_history &&
-      !config.policy.enable_raw_echo_generation) {
-    push(session::codes::kRetainRawHistoryRequiresRawEcho,
-         "policy.retain_raw_phase_history / enable_raw_echo_generation",
-         "Retaining raw phase history requires raw echo generation.");
-  }
   if (!std::isfinite(config.policy.max_allowed_squint_angle_deg) ||
       config.policy.max_allowed_squint_angle_deg < 0.0 ||
       config.policy.max_allowed_squint_angle_deg >= 90.0) {

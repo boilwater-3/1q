@@ -7,13 +7,14 @@
 #include <limits>
 #include <set>
 #include <utility>
+#include "common/numerics/Constants.h"
 
 namespace oneq {
 namespace electromagnetics {
 namespace {
 
-constexpr double kPi = 3.14159265358979323846;
-constexpr double kSpeedOfLightMps = 299792458.0;
+using oneq::common::numerics::kPi;
+using oneq::common::numerics::kLightSpeed;
 constexpr double kLinearCircularLossDb = 3.010299956639812;
 
 bool IsFinite(double value) { return std::isfinite(value); }
@@ -317,7 +318,7 @@ bool TryEvaluateRfLink(const RfEmission& emission, const RfReceiverSite& receive
     if (is_co_site) {
       total_loss_db += candidate.co_site_isolation_db;
     } else {
-      const double wavelength_m = kSpeedOfLightMps / segment.center_frequency_hz;
+      const double wavelength_m = kLightSpeed / segment.center_frequency_hz;
       const double path_ratio = 4.0 * kPi * path_length_m / wavelength_m;
       if (!IsFinite(path_ratio) || path_ratio <= 0.0) {
         return false;

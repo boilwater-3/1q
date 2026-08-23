@@ -20,7 +20,7 @@
 
 > 开发期工具可使用 `src/` 内部头与 JSBSim 模型头（如 takeoff_land_csv
 > 读取起落架/推进器状态）——这是模块开发期验证形态的合法需求，不代表
-> 消费方集成方式；消费方集成参考见 `examples/component_attachment/`。
+> 消费方集成方式；消费方集成参考见 `examples/`。
 
 ## 工具清单
 

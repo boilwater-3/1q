@@ -2,7 +2,7 @@
 
 ## 会话核心
 - EsrSession.h — 主会话门面（PIMPL），提供 Step/StepWithResult/TryApplyRuntimeConfig
-- EsrTraceSession.h — 跟踪会话（录制模式）
+- EsrRecordingSession.h — Replay 记录包装会话
 - EsrReplaySession.h — 回放会话（重放模式）
 
 ## 周期 IO

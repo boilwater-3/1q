@@ -10,7 +10,7 @@ Last-reviewed: 2026-08-20
 - 本模块是**评估层**：消费各层公开产品（SBIRS 会话输出、fusion 航迹、target_inference
   推演关键点）与场景真值，产出误差样本、汇总指标与 AHP 评分。
 - **真值止于本层**（分层契约）：真值只用于对照，不回写、不下发任何产品层；评估结果
-  只进报告结构与 `[PrecisionEval]` 验收日志（编译期开关 `ONEQ_ENABLE_PRECISION_EVALUATION_LOG`，
+  只进报告结构与 `precision_acceptance.log`（编译期开关 `ONEQ_ENABLE_PRECISION_EVALUATION_LOG`，
   默认 OFF 零开销），不改变任何被评估链路的行为。
 - 依赖方向自上而下单向引用（评估层 → 传感器/估计/推演公开头），符合分层契约方向。
 
@@ -20,14 +20,15 @@ Last-reviewed: 2026-08-20
 - 编排会话（`PrecisionEvaluationSession`，已落地）：每周期输入双星星历 + 真值目标列表；
   输出逐周期误差样本与全程报告；内部强制 `fusion.enable_track_filtering=true`
   （速度/位置误差样本依赖）。
-- 集成参考示例：`examples/precision_evaluation/`（独立可执行 `precision_evaluation_demo`，
+- 集成参考示例：`examples/scenes/sbirs_dual_sat_fix/（场景可执行）/`（独立可执行 `precision_evaluation_demo`，
   硬编码双目标演示几何——一降一升弹道供落点/发射点样本；无 JSON 配置与日志设施依赖，
   与 component_attachment 组件形态无关）。
 
 ## 非目标
 
 1. **椭球地球模型**：与全仓库一致使用圆球/既有坐标库口径。
-2. **CEP/置信区间/误差椭圆**：本轮只做 mean/RMSE/P95/max（需求正文未点名 CEP）。
+2. **CEP/置信区间/误差椭圆**：报告结构只做 mean/RMSE/P95/max。验收日志另写派生量
+   CEP50=`0.5887×水平RMSE`、95% CI=`mean±1.96×RMSE/√n`（圆高斯近似），不进报告 DTO。
 3. **推演模型偏差评估**：落点/发射点"对真值"= 与"真值状态经同一推演引擎"的关键点之差，
    衡量状态误差传播，不含弹道模型自身偏差（口径见 algorithms.md）。
 4. **不回写、不接管**：不修改任何被评估模块的行为或输出结构；评估失败（如 AHP 矩阵

@@ -15,21 +15,18 @@ SbirsCycleInputBuilder& SbirsCycleInputBuilder::WithDeltaTimeSec(float dt_sec) {
 
 SbirsCycleInputBuilder& SbirsCycleInputBuilder::WithSatellitePosition(
     const SbirsVector3M& position_ecef_m) {
-  input_.has_satellite_position = true;
   input_.satellite_position_ecef_m = position_ecef_m;
   return *this;
 }
 
 SbirsCycleInputBuilder& SbirsCycleInputBuilder::WithSatelliteVelocity(
     const SbirsVector3M& velocity_ecef_m_per_s) {
-  input_.has_satellite_velocity_ecef_m_per_s = true;
   input_.satellite_velocity_ecef_m_per_s = velocity_ecef_m_per_s;
   return *this;
 }
 
 SbirsCycleInputBuilder& SbirsCycleInputBuilder::WithSatelliteAttitude(
     const SbirsEulerAnglesDeg& attitude_eci_body_deg) {
-  input_.has_satellite_attitude = true;
   input_.satellite_attitude_eci_body_deg = attitude_eci_body_deg;
   return *this;
 }

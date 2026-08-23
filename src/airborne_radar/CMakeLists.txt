@@ -64,7 +64,7 @@ set(AIRBORNE_CORE_SOURCES
     environment/PropagationModel.cpp
     session/ArReplayFlatbufferCodec.cpp
     session/ArDiagnosticUtils.cpp
-    session/ArTraceSession.cpp
+    session/ArRecordingSession.cpp
 )
 
 oneq_add_component(airborne_engine SOURCES ${AIRBORNE_ENGINE_SOURCES})

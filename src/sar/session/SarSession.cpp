@@ -45,8 +45,10 @@ SarSession SarSession::CreateWithDiagnostics(const config::SarSessionConfig& con
   return Create(config);
 }
 
-SarOutputFrame SarSession::Step(const SarCycleInput& input) {
-  return StepWithResult(input).output_frame;
+SarCycleProduct SarSession::Step(const SarCycleInput& input) {
+  // 规则 15c：产品层从同一份周期记录移动取出，非第二份副本。
+  SarCycleResult result = StepWithResult(input);
+  return std::move(result.product);
 }
 
 SarCycleResult SarSession::StepWithResult(const SarCycleInput& input) {

@@ -1,6 +1,7 @@
 ---
-Status: draft
+Status: final
 Date: 2026-08-21
+Completed: 2026-08-21（阶段 3b 已由 `e702de90` 执行完毕；四个边界结论与推翻表为现行判定记录）
 Authority: AR/RIR 共享能力现实映射审核结论与阶段 3b common 化决策记录。
 Related-Authority:
   - 阶段 3 评估（被本文件对 #4/#5/#7 分类推翻）：`common_consolidation_assessment_2026-08-15.md`

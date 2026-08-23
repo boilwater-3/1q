@@ -18,7 +18,7 @@
 #include "1q/airborne_radar/session/ArCycleResult.h"
 #include "1q/airborne_radar/session/ArSceneTypes.h"
 #include "1q/airborne_radar/session/ArSession.h"
-#include "1q/airborne_radar/session/DecisionInputFrame.h"
+#include "airborne_radar/decision/DecisionInputFrame.h"
 #include "1q/airborne_radar/session/TrackStateSnapshot.h"
 #include "airborne_radar/environment/EnvironmentService.h"
 #include "airborne_radar/runtime/ArController.h"
@@ -183,12 +183,12 @@ TEST_F(CoreControllerTest, DefaultLifecyclePathBuildsTentativeDecisionFrameOnFir
       0U);
   EXPECT_FALSE(
       session::CountTracksByStatus(latest_output_frame, session::TrackStatus::kLost) > 0U);
-  const session::DecisionInputFrame& decision_frame =
-      controller.GetLatestDecisionObservation().input_frame;
-  ASSERT_EQ(decision_frame.tracks.size(), 1U);
-  EXPECT_EQ(decision_frame.tracks[0].status, session::TrackStatus::kTentative);
-  EXPECT_EQ(decision_frame.tracks[0].association_key,
-            latest_output_frame.tracks[0].association_key);
+  // 15f：观测袋已移除，pending 窗口存在性改经唯一 public 决策缝验证——
+  // 成功周期后 SubmitExternalDecision 应被接受（kAccepted）。
+  session::ExternalDecisionOverride override_decision;
+  override_decision.profile.agility_frequency_hop_phase = 1;
+  EXPECT_EQ(controller.SubmitExternalDecision(std::move(override_decision)),
+            session::ExternalDecisionSubmitStatus::kAccepted);
 }
 
 TEST_F(CoreControllerTest, PublicOutputReaderApiExposesLatestTrackOutputFrame) {

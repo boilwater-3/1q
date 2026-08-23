@@ -2,14 +2,15 @@
 
 #include <algorithm>
 #include <cmath>
+#include "common/numerics/Constants.h"
 
 namespace sar {
 namespace imaging {
 
 namespace {
 
-constexpr double kPi = 3.141592653589793238462643383279502884;
-constexpr double kSpeedOfLightMps = 299792458.0;
+using oneq::common::numerics::kPi;
+using oneq::common::numerics::kLightSpeed;
 
 signal::ComplexSample InterpolateLinear(const signal::ComplexMatrix& matrix, std::size_t row,
                                         double source_col, std::size_t* out_of_bounds_samples) {
@@ -47,7 +48,7 @@ bool ApplyFirstOrderMotionCompensation(
                              signal::ComplexSample(0.0, 0.0));
   *diagnostics = MotionCompensationDiagnostics{};
   double range_error_squared_sum = 0.0;
-  const double wavelength_m = kSpeedOfLightMps / config.carrier_frequency_hz;
+  const double wavelength_m = kLightSpeed / config.carrier_frequency_hz;
 
   for (std::size_t row = 0U; row < actual_raw_pulse_history.rows; ++row) {
     const double ideal_range_m =
@@ -56,7 +57,7 @@ bool ApplyFirstOrderMotionCompensation(
         geometry::Distance(actual_trajectory[row].position_m, config.reference_point_m);
     const double range_error_m = actual_range_m - ideal_range_m;
     const double envelope_shift_bins =
-        2.0 * range_error_m * config.sample_rate_hz / kSpeedOfLightMps;
+        2.0 * range_error_m * config.sample_rate_hz / kLightSpeed;
     const double phase = 4.0 * kPi * range_error_m / wavelength_m;
     const signal::ComplexSample phase_correction(std::cos(phase), std::sin(phase));
 

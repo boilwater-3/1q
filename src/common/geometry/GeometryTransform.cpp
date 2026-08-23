@@ -87,7 +87,7 @@ Eigen::Matrix3f BuildRotationMatrix(const EulerAnglesDeg& euler_deg) {
   return rotation;
 }
 
-Vector3f RotateVectorToLocalFrame(const Vector3f& world_vector,
+Vector3d RotateVectorToLocalFrame(const Vector3d& world_vector,
                                   const EulerAnglesDeg& local_attitude_deg) {
   const Eigen::Matrix3f rotation = BuildRotationMatrix(local_attitude_deg);
   const Eigen::Vector3f input_vector(static_cast<float>(world_vector.x),
@@ -95,16 +95,16 @@ Vector3f RotateVectorToLocalFrame(const Vector3f& world_vector,
                                      static_cast<float>(world_vector.z));
   const Eigen::Vector3f local_vector = rotation.transpose() * input_vector;
 
-  Vector3f rotated;
+  Vector3d rotated;
   rotated.x = local_vector.x();
   rotated.y = local_vector.y();
   rotated.z = local_vector.z();
   return rotated;
 }
 
-AzimuthElevationDeg ComputeRelativeLineOfSightAzEl(const Vector3f& observer_position_m,
+AzimuthElevationDeg ComputeRelativeLineOfSightAzEl(const Vector3d& observer_position_m,
                                                    const EulerAnglesDeg& observer_attitude_deg,
-                                                   const Vector3f& target_position_m) {
+                                                   const Vector3d& target_position_m) {
   Eigen::Vector3f line_of_sight_world(
       static_cast<float>(target_position_m.x - observer_position_m.x),
       static_cast<float>(target_position_m.y - observer_position_m.y),
@@ -115,11 +115,11 @@ AzimuthElevationDeg ComputeRelativeLineOfSightAzEl(const Vector3f& observer_posi
   }
   line_of_sight_world /= norm;
 
-  Vector3f normalized_world_vector;
+  Vector3d normalized_world_vector;
   normalized_world_vector.x = line_of_sight_world.x();
   normalized_world_vector.y = line_of_sight_world.y();
   normalized_world_vector.z = line_of_sight_world.z();
-  const Vector3f observer_frame_vector =
+  const Vector3d observer_frame_vector =
       RotateVectorToLocalFrame(normalized_world_vector, observer_attitude_deg);
   return UnitVectorToAzimuthElevation(Eigen::Vector3f(static_cast<float>(observer_frame_vector.x),
                                                       static_cast<float>(observer_frame_vector.y),

@@ -4,15 +4,16 @@
 #include <cmath>
 #include <tuple>
 #include <utility>
+#include "common/numerics/Constants.h"
 
 namespace oneq {
 namespace common {
 namespace radar {
 namespace {
 
-constexpr double kSpeedOfLightMps = 299792458.0;
-constexpr double kBoltzmannJPerK = 1.380649e-23;
-constexpr double kPi = 3.14159265358979323846;
+using oneq::common::numerics::kLightSpeed;
+using oneq::common::numerics::kBoltzmann;
+using oneq::common::numerics::kPi;
 constexpr double kLinearFloor = 1.0e-300;
 constexpr std::uint32_t kRepresentativePulseLimit = 8U;
 constexpr std::uint32_t kSamplesPerEchoGate = 5U;
@@ -213,7 +214,7 @@ bool TryResolveDetectionCell(
   }
 
   DetectionCellResult candidate;
-  const double wavelength_m = kSpeedOfLightMps / own_waveform.center_frequency_hz;
+  const double wavelength_m = kLightSpeed / own_waveform.center_frequency_hz;
   const double antenna_gain_linear = std::pow(10.0, config.one_way_antenna_gain_dbi / 10.0);
   const double total_loss_linear = std::pow(
       10.0, (config.receiver_loss_db + target.two_way_additional_propagation_loss_db) / 10.0);
@@ -223,14 +224,14 @@ bool TryResolveDetectionCell(
   candidate.echo_power_w = own_waveform.transmit_power_w * antenna_gain_linear *
                            antenna_gain_linear * wavelength_m * wavelength_m * target.rcs_m2 /
                            (geometric_denominator * total_loss_linear);
-  candidate.echo_delay_s = 2.0 * target.range_m / kSpeedOfLightMps;
+  candidate.echo_delay_s = 2.0 * target.range_m / kLightSpeed;
   candidate.two_way_doppler_shift_hz =
       2.0 * own_waveform.center_frequency_hz * target.closing_radial_velocity_mps /
-      kSpeedOfLightMps;
+      kLightSpeed;
   candidate.pulse_compression_gain =
       std::max(1.0, config.matched_filter_bandwidth_hz * own_waveform.pulse_width_s);
   const double noise_figure_linear = std::pow(10.0, config.receiver_noise_figure_db / 10.0);
-  candidate.thermal_noise_power_w = kBoltzmannJPerK * config.reference_temperature_k *
+  candidate.thermal_noise_power_w = kBoltzmann * config.reference_temperature_k *
                                     config.matched_filter_bandwidth_hz * noise_figure_linear;
   if (!TryCountAvailableEchoPulses(
           own_waveform, candidate.echo_delay_s,

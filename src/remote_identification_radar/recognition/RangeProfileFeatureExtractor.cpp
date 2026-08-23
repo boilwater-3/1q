@@ -10,13 +10,15 @@
 #include <functional>
 #include <limits>
 #include <vector>
+#include "common/numerics/Constants.h"
 
 namespace remote_identification_radar {
 namespace recognition {
 
 namespace {
 
-constexpr float kSpeedOfLightMps = 2.99792458e8f;
+using oneq::common::numerics::kLightSpeed;
+constexpr float kSpeedOfLightFloat = static_cast<float>(kLightSpeed);
 /** @brief 能量集中率前 K 峰计数。 */
 constexpr std::uint32_t kConcentrationPeakCount = 3U;
 /** @brief 最小峰间距（m）：低于该间距的相邻散射中心合并计数。 */
@@ -37,7 +39,7 @@ RirRangeProfileObservation RirRangeProfileFeatureExtractor::Extract(
       !std::isfinite(snr_db)) {
     return observation;
   }
-  const float resolution_m = kSpeedOfLightMps / (2.0f * bandwidth_hz);
+  const float resolution_m = kSpeedOfLightFloat / (2.0f * bandwidth_hz);
   if (max_range_resolution_m > 0.0f && resolution_m > max_range_resolution_m) {
     return observation;  // 分辨率不满足数据库要求 → 维度无效
   }

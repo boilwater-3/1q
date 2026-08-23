@@ -691,11 +691,11 @@ TEST(SbirsSessionIntegrationTest, CueLatencyAccountsForSatelliteDisplacementDuri
   EXPECT_EQ(run_capture_failure_count(Vector(0.0, 7500.0, 0.0)), 1U);
 }
 
-// 卫星速度必填（合同指标 2）：缺失即整周期校验拒绝，空帧 + error 级 issue。
+// 卫星速度必填（合同指标 2）：非有限即整周期校验拒绝，空帧 + error 级 issue。
 TEST(SbirsSessionIntegrationTest, MissingSatelliteVelocityRejectsCycle) {
   SbirsSession session = SbirsSession::Create(MakeSessionConfig());
   SbirsCycleInput input = MakeBaseInput();
-  input.has_satellite_velocity_ecef_m_per_s = false;  // 故意缺失必填速度
+  input.satellite_velocity_ecef_m_per_s.x = NAN;  // 注入非有限必填速度
 
   const SbirsCycleResult result = session.StepWithResult(input);
   EXPECT_EQ(result.status, SbirsCycleStatus::kRejectedInvalidInput);
@@ -711,11 +711,11 @@ TEST(SbirsSessionIntegrationTest, MissingSatelliteVelocityRejectsCycle) {
   EXPECT_TRUE(found_code);
 }
 
-// 卫星姿态必填（阶段 2 指向合成链）：缺失即整周期校验拒绝，空帧 + error 级 issue。
+// 卫星姿态必填（阶段 2 指向合成链）：非有限即整周期校验拒绝，空帧 + error 级 issue。
 TEST(SbirsSessionIntegrationTest, MissingSatelliteAttitudeRejectsCycle) {
   SbirsSession session = SbirsSession::Create(MakeSessionConfig());
   SbirsCycleInput input = MakeBaseInput();
-  input.has_satellite_attitude = false;  // 故意缺失必填姿态
+  input.satellite_attitude_eci_body_deg.yaw_deg = NAN;  // 注入非有限必填姿态
 
   const SbirsCycleResult result = session.StepWithResult(input);
   EXPECT_EQ(result.status, SbirsCycleStatus::kRejectedInvalidInput);

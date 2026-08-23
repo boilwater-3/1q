@@ -2,11 +2,11 @@
  * @file ProjectLog.h
  * @brief 定义项目统一的日志宏门面，按编译期后端开关在三种实现之间切换：
  *
- *  - PROJECT_LOG_BACKEND_SPDLOG=1（Unix 默认）：转发到 spdlog 默认 logger；
- *  - PROJECT_LOG_BACKEND_FILE=1（Windows 默认，spdlog 关闭时的替代）：转发到
- *    库内内置文件日志后端 ProjectFileLog，落盘 CWD/1q_library.log
+ *  - PROJECT_LOG_BACKEND_SPDLOG=1（macOS 且 ONEQ_ENABLE_FILE_LOG=ON）：转发到 spdlog 默认 logger；
+ *  - PROJECT_LOG_BACKEND_FILE=1（无 spdlog 且 ONEQ_ENABLE_FILE_LOG=ON）：转发到
+ *    库内内置文件日志后端 ProjectFileLog，默认落盘 <cwd>/log/
  *    （路径可用 OpenFileLog / 环境变量 ONEQ_FILE_LOG_PATH / 宏 ONEQ_FILE_LOG_PATH 覆盖）；
- *  - 两者皆 0：全部展开为空操作，完全消除日志开销（ONEQ_ENABLE_FILE_LOG=OFF 时）。
+ *  - 两者皆 0（默认，含 Windows）：全部展开为空操作（ONEQ_ENABLE_FILE_LOG=OFF）。
  *
  * 三个分支的宏名与签名完全一致，调用点无感知；spdlog 分支优先于文件分支。
  * @note 本头仅提供宏，不包含可链接符号；文件后端的可链接符号在 ProjectFileLog.cpp。

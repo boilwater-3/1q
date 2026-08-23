@@ -1,12 +1,13 @@
 ﻿#include "sbirs_sensor/pipeline/SbirsPointingDisturbance.h"
 
 #include <cmath>
+#include "common/numerics/Constants.h"
 
 namespace sbirs_sensor {
 namespace pipeline {
 namespace {
 
-constexpr double kPi = 3.141592653589793238462643383279502884;
+using oneq::common::numerics::kPi;
 
 bool IsFinite(const SbirsGaussMarkovSnapshot& snapshot) {
   return std::isfinite(snapshot.azimuth_deg) && std::isfinite(snapshot.elevation_deg) &&

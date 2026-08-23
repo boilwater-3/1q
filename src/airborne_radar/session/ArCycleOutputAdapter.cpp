@@ -13,7 +13,7 @@ bool ArCycleOutputAdapter::Build(const ArPlatformInput& platform,
   }
 
   oneq::coordinate::LocalFrameReference reference;
-  oneq::foundation::Vector3f radar_local_velocity;
+  oneq::coordinate::Vector3d radar_local_velocity;
   const oneq::coordinate::EulerAnglesDeg zero_mount{};
   if (!TryMakeArPoseFromPlatform(platform, zero_mount, &reference, &radar_local_velocity)) {
     return false;
@@ -22,7 +22,7 @@ bool ArCycleOutputAdapter::Build(const ArPlatformInput& platform,
 }
 
 bool ArCycleOutputAdapter::Build(const oneq::coordinate::LocalFrameReference& reference,
-                                 oneq::foundation::Vector3f radar_local_velocity_mps,
+                                 oneq::coordinate::Vector3d radar_local_velocity_mps,
                                  const TrackOutputFrame& frame,
                                  ArExternalTrackOutputFrame* output) {
   if (output == nullptr) {

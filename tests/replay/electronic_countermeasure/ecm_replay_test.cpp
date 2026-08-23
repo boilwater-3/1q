@@ -13,7 +13,7 @@
 #include <string>
 
 #include "1q/electronic_countermeasure/EcmReplaySession.h"
-#include "1q/electronic_countermeasure/EcmTraceSession.h"
+#include "1q/electronic_countermeasure/EcmRecordingSession.h"
 #include "1q/replay/ReplayTrace.h"
 #include "electronic_countermeasure/EcmReplayFlatbufferCodec.h"
 #include "support/oneq_test_temp_dir.h"
@@ -95,9 +95,9 @@ TEST(EcmReplaySessionTest, MultiCycleTraceReplaysDeterministically) {
         new oneq::replay::ReplayTraceWriter(trace_dir, manifest, true));
     config::EcmSessionConfig config;
     config.default_technique = EcmTechnique::kSweep;
-    EcmTraceSessionOptions options;
+    EcmRecordingSessionOptions options;
     options.replay_writer = writer;
-    EcmTraceSession session(config, options);
+    EcmRecordingSession session(config, options);
     EXPECT_EQ(session.StepWithResult(MakeInput(2U, true)).status, EcmCycleStatus::kExecuted);
     EXPECT_EQ(session.StepWithResult(MakeInput(3U, false)).status, EcmCycleStatus::kExecuted);
     config::EcmRuntimeConfigPatch patch;

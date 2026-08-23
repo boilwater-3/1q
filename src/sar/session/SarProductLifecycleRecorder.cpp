@@ -34,9 +34,9 @@ SarProductLifecycleEvent MakeEvent(const SarCycleResult& result, SarProductLifec
   event.cycle_index = result.input_cycle_index;
   event.kind = kind;
   event.reason = reason;
-  event.completed_stage = result.output_frame.completed_stage;
+  event.completed_stage = result.product.output_frame.completed_stage;
   event.abort_reason = AbortReasonToDiagnosticCode(result.abort_reason);
-  event.estimated_snr_db = result.output_frame.estimated_snr_db;
+  event.estimated_snr_db = result.product.output_frame.estimated_snr_db;
   return event;
 }
 
@@ -48,7 +48,7 @@ SarProductLifecycleRecorder::SarProductLifecycleRecorder(SarProductLifecycleReco
 std::vector<SarProductLifecycleEvent> SarProductLifecycleRecorder::Update(const SarCycleResult& result) {
   std::vector<SarProductLifecycleEvent> events;
   if (result.status == SarCycleStatus::kCompleted) {
-    const bool has_product = HasImageProduct(result.output_frame);
+    const bool has_product = HasImageProduct(result.product.output_frame);
     if (HasErrorIssue(result.issues)) {
       events.push_back(
           MakeEvent(result, SarProductLifecycleEventKind::kProcessingFailed, InferFailureReason(result)));

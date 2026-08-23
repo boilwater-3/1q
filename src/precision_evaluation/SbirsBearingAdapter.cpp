@@ -81,6 +81,7 @@ std::vector<fusion::DetectionRecord> AdaptSbirsResultToDetectionRecords(
     fusion::DetectionRecord record;
     record.key = attribution_entry->second->target_id;
     record.source_id = source_id;
+    record.verdict = 1.0;  // 已发布的检测视为有效探测（与官方适配器口径一致）
     record.has_bearing = true;
     record.bearing_az_deg =
         std::atan2(east / horizontal_norm, north / horizontal_norm) * 180.0 / 3.14159265358979323846;

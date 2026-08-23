@@ -170,11 +170,12 @@ TEST_F(RirUsMilitaryRecognitionScenarioTest, CruiseMissileScenarioRecognizesBgm1
   EXPECT_GE(outcome.last_confidence, 0.15f);
 }
 
-// S4 无人机识别：MQ-9A 剖面（78 m/s、7600 m、-12 dBsm）。
+// S4 无人机剖面：MQ-9A（78 m/s、7600 m、-12 dBsm）。2026-08-22 甲方裁定移除
+// 无人机识别——大类按 kUnknown 断言；型号匹配与置信度不受影响。
 // 实测（2026-08-04 校准）：best≈0.82、margin≈0.46、conf≈0.33。
-TEST_F(RirUsMilitaryRecognitionScenarioTest, UavScenarioRecognizesMq9A) {
+TEST_F(RirUsMilitaryRecognitionScenarioTest, UavScenarioMapsToUnknown) {
   const ScenarioOutcome outcome = RunSingleTargetScenario(78.0f, AltitudeOffsetFor(7600.0f), -12.0f,
-                                                          "MQ-9A", RirRecognitionCategory::kUav);
+                                                          "MQ-9A", RirRecognitionCategory::kUnknown);
   EXPECT_GE(outcome.confirmed_cycles, 4U);
   EXPECT_GE(outcome.correct_cycles, outcome.confirmed_cycles * 7U / 10U);
   EXPECT_EQ(outcome.category_correct_cycles, outcome.confirmed_cycles);
@@ -221,7 +222,7 @@ TEST_F(RirUsMilitaryRecognitionScenarioTest, MixedFighterAndMissileKeepFullAccur
 // 实测（2026-08-04 校准）：conf(MQ-9A)≈0.33、conf(AGM-86C)≈0.20。
 TEST_F(RirUsMilitaryRecognitionScenarioTest, ConfidenceClearSeparationExceedsAmbiguity) {
   const ScenarioOutcome clear = RunSingleTargetScenario(78.0f, AltitudeOffsetFor(7600.0f), -12.0f,
-                                                        "MQ-9A", RirRecognitionCategory::kUav);
+                                                        "MQ-9A", RirRecognitionCategory::kUnknown);
   const ScenarioOutcome ambiguous = RunSingleTargetScenario(
       246.0f, AltitudeOffsetFor(40.0f), -5.0f, "AGM-86C", RirRecognitionCategory::kMissile);
   EXPECT_GT(clear.last_confidence, ambiguous.last_confidence);
@@ -269,10 +270,10 @@ INSTANTIATE_TEST_SUITE_P(
         RecognitionTargetSpec{"BGM-109", 255.0f, 40.0f, -10.0f, RirRecognitionCategory::kMissile},
         RecognitionTargetSpec{"AGM-158A", 240.0f, 80.0f, -25.0f, RirRecognitionCategory::kMissile},
         RecognitionTargetSpec{"AGM-86C", 246.0f, 40.0f, -5.0f, RirRecognitionCategory::kMissile},
-        RecognitionTargetSpec{"MQ-9A", 78.0f, 7600.0f, -12.0f, RirRecognitionCategory::kUav},
-        RecognitionTargetSpec{"RQ-4B", 159.0f, 18000.0f, -5.0f, RirRecognitionCategory::kUav},
-        RecognitionTargetSpec{"MQ-4C", 160.0f, 16500.0f, -6.0f, RirRecognitionCategory::kUav},
-        RecognitionTargetSpec{"MQ-1C", 60.0f, 4800.0f, -15.0f, RirRecognitionCategory::kUav}));
+        RecognitionTargetSpec{"MQ-9A", 78.0f, 7600.0f, -12.0f, RirRecognitionCategory::kUnknown},
+        RecognitionTargetSpec{"RQ-4B", 159.0f, 18000.0f, -5.0f, RirRecognitionCategory::kUnknown},
+        RecognitionTargetSpec{"MQ-4C", 160.0f, 16500.0f, -6.0f, RirRecognitionCategory::kUnknown},
+        RecognitionTargetSpec{"MQ-1C", 60.0f, 4800.0f, -15.0f, RirRecognitionCategory::kUnknown}));
 
 }  // namespace
 }  // namespace tests

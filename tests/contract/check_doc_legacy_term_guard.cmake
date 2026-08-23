@@ -65,7 +65,7 @@ if(VIOLATIONS)
         "${_err}"
         "这些术语对应的 API 已收口:\n"
         "  - SessionFactory 工厂类 → Session::Create / CreateWithDiagnostics 静态成员\n"
-        "  - AR 同步决策注入 SPI → DecisionObservation / SubmitExternalDecision\n"
+        "  - AR 同步决策注入 SPI → SubmitExternalDecision（DecisionObservation 观测袋已按规则 15f 删除）\n"
         "  - Eos/Sar/Esr SessionFactory → 已删除(ghost 类)\n\n"
         "修复:将规范性文档中的旧入口同步为当前 API。\n"
         "若是历史审查记录,不应常驻当前 docs 结构;请压缩为 history.md 结论或从 git 历史追溯。")

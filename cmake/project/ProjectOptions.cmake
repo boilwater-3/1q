@@ -80,48 +80,71 @@ else()
     message(STATUS "flight_dynamic module: disabled (set -DONEQ_ENABLE_FLIGHT_DYNAMIC=ON to enable)")
 endif()
 
-# 库内内置文件日志后端（ProjectFileLog）：Windows 上 spdlog 关闭时承载
-# PROJECT_LOG_* 落盘 CWD/1q_library.log；Unix 上默认休眠但可测（SPDLOG 分支优先）。
-# 总开关关闭时宏回到空操作且 sink 不编译。
-option(ONEQ_ENABLE_FILE_LOG "Enable built-in file logging backend (used when spdlog is unavailable)" ON)
+# 库内部调试日志总闸（PROJECT_LOG_* → 1q_library.log）。默认关闭。
+# Windows 保持关闭；macOS 排库算法时才 -DONEQ_ENABLE_FILE_LOG=ON（接 spdlog）。
+# 关闭时宏空操作，sink 不编译。
+option(ONEQ_ENABLE_FILE_LOG "Enable library debug file log (1q_library.log); default OFF" OFF)
 if(ONEQ_ENABLE_FILE_LOG)
     message(STATUS "file log backend: ENABLED (ProjectFileLog)")
 else()
     message(STATUS "file log backend: disabled (PROJECT_LOG_* are no-ops)")
 endif()
 
-# SBIRS 验收信息日志（[SbirsAccept] 事件流）：开启后 sbirs_sensor 按周期输出
-# WFOV 地面覆盖区/驻留时间、疑似目标与信号能量、宽窄切换连续命中、NFOV 捕获/跟踪、
-# 焦平面脱靶量与通道协同事件（需求映射 3.2.1.3 章节验收量）。默认关闭：
-# 宏与派生计算一并剪除，零开销。
+# 分层验收文件日志（默认关闭；宏与派生计算一并剪除）。开启后各层写自己的
+# 验收文件（四段同一行），不进 1q_library.log，也不跨层抄示意行。
 option(ONEQ_ENABLE_SBIRS_ACCEPTANCE_LOG
-    "Emit SBIRS acceptance information logs (ground footprint, dwell time, signal energy, focal-plane offsets, handover counters)" OFF)
+    "Write sbirs_acceptance.log (IR detect / WFOV-NFOV / lifecycle / IR angle error)" OFF)
 if(ONEQ_ENABLE_SBIRS_ACCEPTANCE_LOG)
-    message(STATUS "sbirs acceptance log: ENABLED ([SbirsAccept] events via PROJECT_LOG_INFO)")
+    message(STATUS "sbirs acceptance log: ENABLED (sbirs_acceptance.log)")
 else()
     message(STATUS "sbirs acceptance log: disabled (set -DONEQ_ENABLE_SBIRS_ACCEPTANCE_LOG=ON to enable)")
 endif()
 
-# RIR 验收信息日志（[RirAccept] 事件流）：开启后 remote_identification_radar 按周期
-# 输出检测链 SNR/SINR/Pd 与回波/噪声/干扰/杂波功率、波位扫描序列、角距量测、跟踪
-# 滤波/关联状态、识别特征与结论、驻留调度统计（需求映射 3.2.2 章节验收量）。默认
-# 关闭：宏与派生计算一并剪除，零开销。宏基础设施已就绪，调用点按验收输出统计清单
-# （docs/review/acceptance_output_inventory_2026-08-20.md）逐项接线。
 option(ONEQ_ENABLE_RIR_ACCEPTANCE_LOG
-    "Emit RIR acceptance information logs (detection powers/SNR, beam scan sequence, measurements, track states, recognition conclusions, dwell statistics)" OFF)
+    "Write rir_acceptance.log and rir_antenna_pattern.csv" OFF)
 if(ONEQ_ENABLE_RIR_ACCEPTANCE_LOG)
-    message(STATUS "rir acceptance log: ENABLED ([RirAccept] events via PROJECT_LOG_INFO)")
+    message(STATUS "rir acceptance log: ENABLED (rir_acceptance.log)")
 else()
     message(STATUS "rir acceptance log: disabled (set -DONEQ_ENABLE_RIR_ACCEPTANCE_LOG=ON to enable)")
 endif()
 
-# 精度评估验收日志（[PrecisionEval] 事件流）：开启后评估会话逐周期输出红外角度误差、
-# 双星交会位置误差、速度误差、落点/发射点预测误差样本与 AHP 综合评分（需求映射
-# 3.2.1.6.3 章节）。默认关闭：宏与派生计算一并剪除，零开销。
+option(ONEQ_ENABLE_FUSION_ACCEPTANCE_LOG
+    "Write fusion_acceptance.log (fused tracks / UKF / handover writable subset)" OFF)
+if(ONEQ_ENABLE_FUSION_ACCEPTANCE_LOG)
+    message(STATUS "fusion acceptance log: ENABLED (fusion_acceptance.log)")
+else()
+    message(STATUS "fusion acceptance log: disabled (set -DONEQ_ENABLE_FUSION_ACCEPTANCE_LOG=ON to enable)")
+endif()
+
+option(ONEQ_ENABLE_INFERENCE_ACCEPTANCE_LOG
+    "Write inference_acceptance.log (trajectory / impact / launch)" OFF)
+if(ONEQ_ENABLE_INFERENCE_ACCEPTANCE_LOG)
+    message(STATUS "inference acceptance log: ENABLED (inference_acceptance.log)")
+else()
+    message(STATUS "inference acceptance log: disabled (set -DONEQ_ENABLE_INFERENCE_ACCEPTANCE_LOG=ON to enable)")
+endif()
+
 option(ONEQ_ENABLE_PRECISION_EVALUATION_LOG
-    "Emit precision evaluation logs (angular errors, dual-sat fix, velocity and key-point errors, AHP score)" OFF)
+    "Write precision_acceptance.log (key metrics / AHP)" OFF)
 if(ONEQ_ENABLE_PRECISION_EVALUATION_LOG)
-    message(STATUS "precision evaluation log: ENABLED ([PrecisionEval] events via PROJECT_LOG_INFO)")
+    message(STATUS "precision evaluation log: ENABLED (precision_acceptance.log)")
 else()
     message(STATUS "precision evaluation log: disabled (set -DONEQ_ENABLE_PRECISION_EVALUATION_LOG=ON to enable)")
 endif()
+
+# 集成方用 CMake 指定日志目录（编进库的默认落盘路径）。
+# 空 = 进程当前目录下的 log/。文件名仍按层固定；运行时环境变量可再覆盖单文件。
+set(ONEQ_LOG_DIR "" CACHE PATH
+    "Directory for library debug and acceptance log files (empty = <cwd>/log)")
+if(ONEQ_LOG_DIR)
+    file(TO_CMAKE_PATH "${ONEQ_LOG_DIR}" ONEQ_LOG_DIR_NORMALIZED)
+    string(REGEX REPLACE "/+$" "" ONEQ_LOG_DIR_NORMALIZED "${ONEQ_LOG_DIR_NORMALIZED}")
+    message(STATUS "log dir: ${ONEQ_LOG_DIR_NORMALIZED} (-DONEQ_LOG_DIR)")
+else()
+    set(ONEQ_LOG_DIR_NORMALIZED "log")
+    message(STATUS "log dir: <cwd>/log (set -DONEQ_LOG_DIR=<dir> to pin)")
+endif()
+
+function(oneq_log_file out_var filename)
+    set("${out_var}" "${ONEQ_LOG_DIR_NORMALIZED}/${filename}" PARENT_SCOPE)
+endfunction()

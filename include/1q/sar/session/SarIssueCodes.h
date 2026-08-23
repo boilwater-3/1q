@@ -91,10 +91,6 @@ constexpr char kRangeSampleCountZero[] = "sar.validation.range_sample_count_zero
 constexpr char kDesiredResolutionNotPositive[] =
     "sar.validation.desired_resolution_not_positive";
 
-/** @brief 保留原始相位历史需要启用回波生成。 */
-constexpr char kRetainRawHistoryRequiresRawEcho[] =
-    "sar.validation.retain_raw_history_requires_raw_echo";
-
 /** @brief 最大允许斜视角非法（须有限且在 [0, 90) 度）。 */
 constexpr char kSquintAngleInvalid[] = "sar.validation.squint_angle_invalid";
 

@@ -28,7 +28,7 @@ set(EOS_CORE_SOURCES
     runtime/EosRuntimeConfigResolver.cpp
     session/EosSessionCompositionRoot.cpp
     session/EosSession.cpp
-    session/EosTraceSession.cpp
+    session/EosRecordingSession.cpp
     session/EosReplaySession.cpp
     session/EosDiagnosticUtils.cpp
     session/EosReplayFlatbufferCodec.cpp

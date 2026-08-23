@@ -3,14 +3,15 @@
 #include <algorithm>
 #include <cmath>
 #include <complex>
+#include "common/numerics/Constants.h"
 
 namespace sar {
 namespace imaging {
 
 namespace {
 
-constexpr double kPi = 3.141592653589793238462643383279502884;
-constexpr double kSpeedOfLightMps = 299792458.0;
+using oneq::common::numerics::kPi;
+using oneq::common::numerics::kLightSpeed;
 
 bool IsValidMatrix(const signal::ComplexMatrix& image) {
   return image.rows > 0U && image.cols > 0U && image.values.size() == image.rows * image.cols;
@@ -58,7 +59,7 @@ bool ApplyBroadsideCenterPhaseReference(const PhaseReferenceConfig& config,
     return false;
   }
 
-  const double wavelength_m = kSpeedOfLightMps / config.carrier_frequency_hz;
+  const double wavelength_m = kLightSpeed / config.carrier_frequency_hz;
   const double center_row = 0.5 * static_cast<double>(image->rows - 1U);
   bool first_phase = true;
   for (std::size_t row = 0U; row < image->rows; ++row) {

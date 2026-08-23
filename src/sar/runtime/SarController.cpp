@@ -105,8 +105,8 @@ void SarController::RunOnce(const session::SarCycleInput& input) {
   }
 
   // 所有前置校验通过后才写入输出帧元数据，确保失败周期输出严格为默认空帧。
-  result.output_frame.cycle_index = input.cycle_index;
-  session::InitializeOutputFrameMetadata(impl_->runtime_config, &result.output_frame);
+  result.product.output_frame.cycle_index = input.cycle_index;
+  session::InitializeOutputFrameMetadata(impl_->runtime_config, &result.product.output_frame);
 
   const pipeline::SarProcessingPipelineRuntimeState pipeline_state =
       impl_->pipeline.CaptureRuntimeState();

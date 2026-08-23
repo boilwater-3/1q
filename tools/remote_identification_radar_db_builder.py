@@ -3,8 +3,8 @@
 
 用法：
   python3 tools/remote_identification_radar_db_builder.py \\
-      --input examples/configs/remote_identification_radar/recognition_database_input.json \\
-      --output examples/configs/remote_identification_radar/target_feature_database_v1.1.db
+      --input examples/basic_config/remote_identification_radar/recognition_database_input.json \\
+      --output examples/basic_config/remote_identification_radar/target_feature_database_v1.1.db
 
 输入为设计文档 §7.3 格式 JSON（含 units/display_name/created_utc/aspect 区间）；
 输出为通过加载器同级校验的 SQLite 库文件。DDL 读取唯一事实源

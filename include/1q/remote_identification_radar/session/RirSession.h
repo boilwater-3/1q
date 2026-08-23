@@ -28,6 +28,9 @@ struct RirRuntimeConfigPatch;
 namespace remote_identification_radar {
 namespace session {
 
+class RirTrackLifecycleRecorder;
+class RirExclusionCauseRecorder;
+
 /**
  * @brief RirSession 提供"一步一帧"的外部接入门面。
  */
@@ -65,11 +68,37 @@ class ONEQ_API RirSession {
    */
   bool TryApplyRuntimeConfig(const config::RirRuntimeConfigPatch& patch);
 
+  /**
+   * @brief 注册航迹生命周期记录器（规则 10/11）。
+   *
+   * Session 在 `StepWithResult()`/`Step()` 内部自动调用 `Update()`，调用方无需
+   * （也不应）手动调用；注册与否不影响 `Step()`/`StepWithResult()` 的返回值
+   * 和执行语义（纯观测工具，零行为改变）。
+   *
+   * @param[in] recorder 生命周期记录器；传入 nullptr 解除注册。
+   * @note Session 持有非拥有裸指针，调用方须保证 recorder 生命周期长于注册期。
+   */
+  void AttachTrackLifecycleRecorder(RirTrackLifecycleRecorder* recorder) noexcept;
+
+  /**
+   * @brief 注册排除原因差分记录器（规则 10/11/13e）。
+   *
+   * 与 `AttachTrackLifecycleRecorder` 独立并列：各自注册、各自驱动、各自
+   * `GetLastEvents()` 通道，互不影响。非执行周期两记录器均不推进内部状态。
+   *
+   * @param[in] recorder 排除原因差分记录器；传入 nullptr 解除注册。
+   * @note Session 持有非拥有裸指针，调用方须保证 recorder 生命周期长于注册期。
+   */
+  void AttachExclusionCauseRecorder(RirExclusionCauseRecorder* recorder) noexcept;
+
   /** @brief 最近周期是否发布了识别效能摘要。 */
   bool HasLatestRecognitionSummary() const;
 
   /** @brief 获取最近周期识别效能摘要。 */
   const RirRecognitionCycleSummary& GetLatestRecognitionSummary() const;
+
+  /** @brief 最近一次识别库加载耗时（毫秒）；未加载过为 0。 */
+  double LastRecognitionDatabaseLoadMs() const;
 
   /** @brief 使用四域配置创建会话（推荐入口，信任路径，不做配置校验）。 */
   static RirSession Create(const config::RirSessionConfig& config = {});

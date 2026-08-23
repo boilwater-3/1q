@@ -8,8 +8,7 @@
  * 事后由各模块的 ReplayXxxTrace(trace_dir) 做确定性回归（分叉检测）。
  *
  * @par 关键约定
- * - 回放要求传 ReplayTraceWriter（不是 TraceSink）。TraceSink 产出的二进制帧
- *   文件是调试用流，不能被 ReplayXxxTrace 回放。
+ * - 回放要求传 ReplayTraceWriter。库内周期落盘只有 Replay 目录。
  * - manifest.module 必须精确等于模块字符串常量，否则回放兼容性检查失败。
  * - 回放前必须 replay_writer->Flush()，且建议 writer 先析构（文件句柄释放）。
  */
@@ -41,7 +40,7 @@ struct ModuleName {
  * @param[in] module_name   模块字符串（取 ModuleName::kXxx 常量）。
  * @param[in] trace_id      本次批量运行的唯一 trace 标识（如 "ar-batch-20260702"）。
  * @param[in] scenario_id   本场景标识（如 "ar_r15km_rcs5_n3"）。
- * @return 共享持有的 ReplayTraceWriter（传给 XxxTraceSessionOptions::replay_writer）。
+ * @return 共享持有的 ReplayTraceWriter（传给 XxxRecordingSessionOptions::replay_writer）。
  *
  * @note overwrite=true 会清空重建目录，避免残留事件干扰。其余 manifest 字段
  *       用默认值（schema_version=1, serializer_version 已默认 flatbuffers-v1）。

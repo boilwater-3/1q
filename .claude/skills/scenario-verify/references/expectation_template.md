@@ -63,5 +63,5 @@ min_key_events / min_sbirs_events / min_sar_products / min_fused_targets = …
 ---
 ---
 
-完整填好的范例见场景归档 `examples/component_attachment/scenes/baseline_takeoff_east/baseline_takeoff_east.md`
+完整填好的范例见场景归档 `examples/scenes/baseline_takeoff_east/baseline_takeoff_east.md`
 （基线试跑样本，含实测数据与判定列）。

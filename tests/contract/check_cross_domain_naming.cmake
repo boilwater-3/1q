@@ -3,7 +3,7 @@
 #
 # 本检查对"已统一"的项做 HARD 阻断（回退即 FATAL_ERROR）。这些项都经历过跨域
 # 统一改造，再次出现旧名意味着回归：
-#   1) 四域 Session/TraceSession 的 Step()/StepWithResult() 签名不得带 session::/
+#   1) 四域 Session/RecordingSession 的 Step()/StepWithResult() 签名不得带 session::/
 #      ::域::session:: 限定（维度2 统一为裸名）。
 #   2) AR 工作模式不得再用 work_sub_mode 字段名或 RadarWorkSubMode enum 类型名
 #      或 WithRadarWorkSubMode/WithRadarWork* 建造方法名（P2-b 统一为 work_mode /

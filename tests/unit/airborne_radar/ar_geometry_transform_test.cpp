@@ -28,14 +28,14 @@ TEST(GeometryTransformTest, BuildRotationMatrixRotatesBodyXAxisByYaw) {
 }
 
 TEST(GeometryTransformTest, RotateVectorToLocalFrameUsesInverseFrameRotation) {
-  Vector3f world_vector;
+  Vector3d world_vector;
   world_vector.x = 0.0f;
   world_vector.y = 10.0f;
   world_vector.z = 0.0f;
   EulerAnglesDeg local_attitude_deg;
   local_attitude_deg.yaw_deg = 90.0f;
 
-  const Vector3f local_vector = RotateVectorToLocalFrame(world_vector, local_attitude_deg);
+  const Vector3d local_vector = RotateVectorToLocalFrame(world_vector, local_attitude_deg);
 
   EXPECT_NEAR(local_vector.x, 10.0f, 1.0e-5f);
   EXPECT_NEAR(local_vector.y, 0.0f, 1.0e-5f);
@@ -87,11 +87,11 @@ TEST(GeometryTransformTest, IntersectAndClampFollowLegacyWindowRules) {
 }
 
 TEST(GeometryTransformTest, ZeroAttitudeLineOfSightMatchesWorldFrameAngles) {
-  Vector3f observer_position_m;
+  Vector3d observer_position_m;
   observer_position_m.x = 0.0f;
   observer_position_m.y = 0.0f;
   observer_position_m.z = 0.0f;
-  Vector3f target_position_m;
+  Vector3d target_position_m;
   target_position_m.x = 100.0f;
   target_position_m.y = 100.0f;
   target_position_m.z = 100.0f;
@@ -107,13 +107,13 @@ TEST(GeometryTransformTest, ZeroAttitudeLineOfSightMatchesWorldFrameAngles) {
 }
 
 TEST(GeometryTransformTest, NonZeroYawChangesRelativeLineOfSightFrame) {
-  Vector3f observer_position_m;
+  Vector3d observer_position_m;
   observer_position_m.x = 0.0f;
   observer_position_m.y = 0.0f;
   observer_position_m.z = 0.0f;
   EulerAnglesDeg observer_attitude_deg;
   observer_attitude_deg.yaw_deg = 90.0f;
-  Vector3f target_position_m;
+  Vector3d target_position_m;
   target_position_m.x = 0.0f;
   target_position_m.y = 100.0f;
   target_position_m.z = 0.0f;

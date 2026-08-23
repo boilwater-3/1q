@@ -116,13 +116,13 @@ AR 的 `ar_seq_tws_stt_tws` 使用 STT 指定航迹跟随语义（方案 A）：
 
 ## 关键技术点
 
-### 用 TraceSession 录制可回放 trace
+### 用 RecordingSession 录制可回放目录
 
-批量程序直接用 `XxxTraceSession(config, options)`（而非 `<Module>Module` 包装类，
-后者内部用普通 Session 无法录制可回放 trace）。`options.replay_writer` 指向由
+批量程序直接用 `XxxRecordingSession(config, options)`（而非 `<Module>Module` 包装类，
+后者内部用普通 Session 无法录制可回放目录）。`options.replay_writer` 指向由
 `batch_validation::MakeReplayWriter` 创建的 `ReplayTraceWriter`：
 
-- `TraceSession` 内部在构造时自动写 `session_config`，每次 `StepWithResult` 自动写
+- `RecordingSession` 内部在构造时自动写 `session_config`，每次 `StepWithResult` 自动写
   `cycle_input` + `cycle_output`，`TryApplyRuntimeConfig` 时写 `runtime_config_patch`，
   校验失败时写 `failure_marker`。无需手动 `WriteEvent`。
 - 回放前必须 `replay_writer->Flush()`，且建议 writer 先析构（文件句柄释放）。

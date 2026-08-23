@@ -14,7 +14,6 @@
 #include "1q/airborne_radar/session/TrackStateSnapshot.h"
 #include "1q/api.hpp"
 #include "1q/coordinate/types.h"
-#include "1q/foundation/pose_types.h"
 
 namespace airborne_radar {
 namespace session {
@@ -52,7 +51,7 @@ using ArExternalTrackKinematicsList = std::vector<ArExternalTrackKinematics>;
  */
 ONEQ_API bool TryMakeExternalTrackFromSnapshot(const session::TrackStateSnapshot& snapshot,
                                                const oneq::coordinate::LocalFrameReference& reference,
-                                               oneq::foundation::Vector3f radar_local_velocity_mps,
+                                               oneq::coordinate::Vector3d radar_local_velocity_mps,
                                                ArExternalTrackKinematics* output);
 
 

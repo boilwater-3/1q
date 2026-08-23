@@ -17,7 +17,6 @@
 #include "1q/electro_optical_sensor/session/EosCycleInput.h"
 #include "1q/electro_optical_sensor/session/EosCycleResult.h"
 #include "1q/electro_optical_sensor/session/EosSceneTypes.h"
-#include "1q/foundation/pose_types.h"
 #include "electro_optical_sensor/runtime/EosPipelineConfigMapper.h"
 #include "electro_optical_sensor/session/EosReplayFlatbufferCodec.h"
 #include "electro_optical_sensor/session/generated/eos_session_replay_generated.h"

@@ -82,10 +82,26 @@ TEST(SarPublicApiConvenienceTest, StepWithResultProducesL1RdaImageProduct) {
   session::SarSession session = session::SarSession::Create(MakeMinimalConfig());
   const session::SarCycleResult result = session.StepWithResult(MakeMinimalInput());
 
-  EXPECT_TRUE(result.output_frame.has_raw_echo);
-  EXPECT_TRUE(result.output_frame.has_range_compressed_echo);
-  EXPECT_TRUE(result.output_frame.has_l1_image);
-  EXPECT_EQ(result.output_frame.completed_stage, session::SarProcessingStage::kL1RdaImage);
+  EXPECT_TRUE(result.product.output_frame.has_raw_echo);
+  EXPECT_TRUE(result.product.output_frame.has_range_compressed_echo);
+  EXPECT_TRUE(result.product.output_frame.has_l1_image);
+  EXPECT_EQ(result.product.output_frame.completed_stage, session::SarProcessingStage::kL1RdaImage);
+}
+
+// 规则 15e：聚焦图像是产品，Step() 必须能拿到图像（成功路径 guard；
+// 失败路径空载荷由下方 StepReturnsEmptyFrameOnValidationFailureAfterSuccess 锁定）。
+TEST(SarPublicApiConvenienceTest, StepReturnsFocusedImageProductOnCompletedCycle) {
+  session::SarSession session = session::SarSession::Create(MakeMinimalConfig());
+  const session::SarCycleProduct product = session.Step(MakeMinimalInput());
+
+  EXPECT_EQ(product.output_frame.cycle_index, 1U);
+  EXPECT_TRUE(product.output_frame.has_l1_image);
+  EXPECT_EQ(product.output_frame.completed_stage, session::SarProcessingStage::kL1RdaImage);
+  EXPECT_EQ(product.focused_image.source, session::SarFocusedImageSource::kL1Rda);
+  EXPECT_EQ(product.focused_image.row_count, 9U);
+  EXPECT_EQ(product.focused_image.column_count, 64U);
+  EXPECT_FALSE(product.focused_image.is_placeholder);
+  EXPECT_EQ(product.focused_image.real_values.size(), 9U * 64U);
 }
 
 TEST(SarPublicApiConvenienceTest, ProductDebugViewAndLifecycleRecorderAreReachable) {
@@ -127,12 +143,14 @@ TEST(SarPublicApiConvenienceTest, StepReturnsEmptyFrameOnValidationFailureAfterS
 
   const session::SarCycleResult failed_result = session.StepWithResult(invalid_input);
   EXPECT_NE(failed_result.status, session::SarCycleStatus::kCompleted);
-  EXPECT_EQ(failed_result.output_frame.cycle_index, 0U);
+  EXPECT_EQ(failed_result.product.output_frame.cycle_index, 0U);
 
-  // Step() 与 StepWithResult().output_frame 一致，均为空帧。
-  const session::SarOutputFrame step_frame = session.Step(invalid_input);
-  EXPECT_EQ(step_frame.cycle_index, 0U);
-  EXPECT_EQ(step_frame.cycle_index, failed_result.output_frame.cycle_index);
+  // Step() 与 StepWithResult().product 一致，均为空载荷（规则 15c：同一记录取出）。
+  const session::SarCycleProduct step_product = session.Step(invalid_input);
+  EXPECT_EQ(step_product.output_frame.cycle_index, 0U);
+  EXPECT_EQ(step_product.output_frame.cycle_index,
+            failed_result.product.output_frame.cycle_index);
+  EXPECT_EQ(step_product.focused_image.source, failed_result.product.focused_image.source);
 }
 
 }  // namespace tests

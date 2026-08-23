@@ -233,6 +233,7 @@ table RirTrackAttributionRecordV2 {
   position_enu_y_m:double;
   position_enu_z_m:double;
   speed_m_per_s:double;
+  track_status:ubyte = 0;  // RirTrackLifecycleStatus（加性，默认 kTentative）
 }
 
 table RirCycleResultV2 {
@@ -264,3 +265,61 @@ table RirCycleReplayRecordV2 {
 
 root_type RirCycleReplayRecordV2;
 file_identifier "RIR2";
+
+// ===== 周期输入载荷（cycle_input 事件；2026-08-23）=====
+// 与 include/1q/remote_identification_radar/session/RirSceneTypes.h 及
+// RirCycleInput.h 字段一一对应。RirCycleInput 不是本 schema 的 root_type：
+// 编码时不写 file_identifier，解码侧用 GetRoot<RirCycleInput> + Verifier 校验
+// （与 EOS/SAR 同口径），root_type 与 "RIR2" 标识保持不变。
+
+table RirAspectRcsSample {
+  aspect_az_deg:float;
+  aspect_el_deg:float;
+  rcs_dbsm:float;
+}
+
+table RirPolarizationRcsSample {
+  aspect_az_deg:float;
+  aspect_el_deg:float;
+  channel_1_rcs_dbsm:float;
+  channel_2_rcs_dbsm:float;
+  cross_rcs_dbsm:float;
+  phase_vv_rel_hh_deg:float;
+  has_cross_pol:bool;
+  has_phase_vv:bool;
+}
+
+table RirRangeRcsScatterer {
+  range_offset_m:float;
+  rcs_dbsm:float;
+  channel_1_rcs_dbsm:float;
+  channel_2_rcs_dbsm:float;
+  phase_deg:float;
+  fluctuation_std_db:float;
+}
+
+table RirSceneTarget {
+  external_target_id:ulong;
+  target_name:string;
+  position_x:float;
+  position_y:float;
+  position_z:float;
+  velocity_x:float;
+  velocity_y:float;
+  velocity_z:float;
+  rcs:float;
+  range_m:float;
+  target_swerling_type:ubyte;  // RirSwerlingType（0-4）
+  aspect_rcs_samples:[RirAspectRcsSample];
+  polarization_rcs_samples:[RirPolarizationRcsSample];
+  range_rcs_scatterers:[RirRangeRcsScatterer];
+}
+
+table RirCycleInput {
+  input_cycle_index:uint;
+  dt_sec:double;
+  sim_time_sec:float;
+  platform_position:Vector3d;
+  scene_targets:[RirSceneTarget];
+  rf_scene:RfSceneFrameV2;
+}

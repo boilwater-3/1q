@@ -71,19 +71,20 @@ Answers: SAR 用了哪些算法、各自实现到什么地步、边界在哪、�
 - **证据**：[evidence: tests/unit/sar/sar_session_pipeline_test]
 - **证据**：[evidence: tests/replay/sar/sar_replay_codec_roundtrip_test]
 
-## retain_raw_phase_history 与 focused_image 的 replay 契约
+## 周期记录 replay 契约（规则 15e 已落地：嵌套 product，无 IQ）
 
-- **意图**：`retain_raw_phase_history` 控制结构化 `SarCycleResult` 是否返回本次实际用于成像的完整孔径；
-  `focused_image` 是 replay 权威输出。
+- **意图**：Replay 的 `cycle_output` 唯一 payload 是 `SarCycleResult`——执行层字段
+  （`input_cycle_index`/`issues`/`abort_reason`/`status`）+ 嵌套 `product`（`SarCycleProduct` =
+  `SarOutputFrame` 元数据 + `SarFocusedImage`）。原始相位历史（IQ）已彻底出记录。
 - **实现边界**：
-  1. 关闭 `retain_raw_phase_history` 时不复制矩阵，`raw_phase_history` 为空且 source 为 `kNone`。
-  2. 开启时必须同时启用 raw echo generation，否则 session 初始化和 runtime patch 均拒绝。
-  3. 内部生成标记 `kInternallyGenerated`；external raw IQ 标记 `kExternalRawIq`，I/Q 顺序和值保持输入。
-  4. 这两个产品属于结构化执行结果，不进入 `SarOutputFrame`；失败周期不发布未完成孔径。
-- **反直觉点**：cycle-result replay 以精确值比较全部字段，任一像素变化必须报告 divergence；Replay 的
-  `cycle_output` 唯一 payload 是 `SarCycleResult`，不接受缺少 focused image 的 standalone
-  `SarOutputFrame` 兼容路径。codec 先构造并验证完整局部结果，成功后才一次提交，失败不得部分覆盖
-  调用方输出。
+  1. `retain_raw_phase_history` 配置与 `SarRawPhaseHistory` 载荷已删除；session 校验、
+     runtime patch、schema、codec 均无该字段。
+  2. 外部 raw IQ 输入仍无条件编码进 `cycle_input`（含 I/Q 与双轨迹），回放可完整重算。
+  3. 内部生成孔径由 replay 按同配置确定性重算，不落盘第二份矩阵。
+  4. 成像链 IQ 回放按需另表落盘，待真实消费者出现再建。
+- **反直觉点**：cycle-result replay 以精确值比较全部字段（含嵌套 product 的每个像素），任一像素变化
+  必须报告 divergence；不接受缺少 focused image 的 standalone `SarOutputFrame` 兼容路径。codec 先构造
+  并验证完整局部结果，成功后才一次提交，失败不得部分覆盖调用方输出。
 - **证据**：[evidence: tests/replay/sar/sar_replay_codec_roundtrip_test]
 - **证据**：[evidence: tests/replay/sar/sar_replay_session_test]
 

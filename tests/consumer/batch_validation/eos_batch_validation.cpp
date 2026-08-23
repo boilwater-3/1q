@@ -3,7 +3,7 @@
  * @brief 光电传感器（EOS）批量场景验证。
  *
  * @par 目标
- * 通过公开 Session 接口（EosTraceSession + 手填 EosCycleInput）对 EOS 模块做多场景
+ * 通过公开 Session 接口（EosRecordingSession + 手填 EosCycleInput）对 EOS 模块做多场景
  * 参数扫描，验证其在不同目标距离 / 红外对比度 / 光照条件下的泛用性：
  *   - 采集周期级 CSV（检出数、融合/红外/可见光 SNR 分布）+ 场景汇总 CSV。
  *   - 软断言：高红外对比度场景检出率 ≥ 低对比度；夜间可见光 SNR 显著低于红外；
@@ -37,7 +37,7 @@
 #include "1q/electro_optical_sensor/session/EosReplaySession.h"
 #include "1q/electro_optical_sensor/session/EosSceneTypes.h"
 #include "1q/electro_optical_sensor/session/EosSession.h"
-#include "1q/electro_optical_sensor/session/EosTraceSession.h"
+#include "1q/electro_optical_sensor/session/EosRecordingSession.h"
 #include "1q/coordinate/scene_transform.h"
 
 #include "batch_assertions.h"
@@ -392,10 +392,10 @@ ScenarioSummary RunEosScenario(const EosCase& c, const eos_config::EosSessionCon
   double recovery_ir = 0.0;
 
   {
-    eos_session::EosTraceSessionOptions options;
+    eos_session::EosRecordingSessionOptions options;
     options.replay_writer = replay_writer;
-    options.trace_config_on_construct = true;
-    eos_session::EosTraceSession session(config, options);
+    options.record_config_on_construct = true;
+    eos_session::EosRecordingSession session(config, options);
 
     const char* previous_phase = nullptr;
     for (std::uint32_t i = 0; i < cycle_count; ++i) {

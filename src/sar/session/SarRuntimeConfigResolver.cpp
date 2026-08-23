@@ -9,9 +9,8 @@ namespace {
 
 bool HasRequestedUpdate(const config::SarRuntimeConfigPatch& patch) {
   return patch.has_enable_raw_echo_generation ||
-         patch.has_enable_l1_rda_imaging || patch.has_retain_raw_phase_history ||
-         patch.has_retain_focused_image || patch.has_minimum_snr_db ||
-         patch.has_sensor_enabled;
+         patch.has_enable_l1_rda_imaging || patch.has_retain_focused_image ||
+         patch.has_minimum_snr_db || patch.has_sensor_enabled;
 }
 
 SarRuntimeConfigResolveResult RejectPatch(const config::SarSessionConfig& current_config,
@@ -55,10 +54,6 @@ SarRuntimeConfigResolveResult ResolveSarRuntimeConfigPatch(
     resolved.next_config.policy.enable_l1_rda_imaging = patch.enable_l1_rda_imaging;
     resolved.policy_changed = true;
   }
-  if (patch.has_retain_raw_phase_history) {
-    resolved.next_config.policy.retain_raw_phase_history = patch.retain_raw_phase_history;
-    resolved.policy_changed = true;
-  }
   if (patch.has_retain_focused_image) {
     resolved.next_config.policy.retain_focused_image = patch.retain_focused_image;
     resolved.policy_changed = true;
@@ -79,15 +74,6 @@ SarRuntimeConfigResolveResult ResolveSarRuntimeConfigPatch(
         "[SarSession] Rejecting patch: enable_l1_rda_imaging requires raw echo generation.");
     return RejectPatch(current_config, true);
   }
-  if (resolved.next_config.policy.retain_raw_phase_history &&
-      !resolved.next_config.policy.enable_raw_echo_generation) {
-    // 中译：拒绝补丁：保留原始相位历史必须同时启用原始回波生成。
-    // 标识：依赖校验——保留相位依赖回波生成，未满足时补丁整体拒绝。
-    PROJECT_LOG_ERROR(
-        "[SarSession] Rejecting patch: retain_raw_phase_history requires "
-        "enable_raw_echo_generation.");
-    return RejectPatch(current_config, true);
-  }
 
   resolved.has_requested_update = has_requested_update;
   if (has_requested_update) {
@@ -96,11 +82,10 @@ SarRuntimeConfigResolveResult ResolveSarRuntimeConfigPatch(
     //       用于确认运行期变更已生效；无补丁时不输出。
     PROJECT_LOG_INFO(
         "[SarSession] runtime config patch applied: raw_echo={} "
-        "l1_rda={} retain_raw={} retain_image={} min_snr_db={} has_sensor_enabled={}",
+        "l1_rda={} retain_image={} min_snr_db={} has_sensor_enabled={}",
         patch.has_enable_raw_echo_generation,
-        patch.has_enable_l1_rda_imaging, patch.has_retain_raw_phase_history,
-        patch.has_retain_focused_image, patch.has_minimum_snr_db,
-        patch.has_sensor_enabled);
+        patch.has_enable_l1_rda_imaging, patch.has_retain_focused_image,
+        patch.has_minimum_snr_db, patch.has_sensor_enabled);
   }
   return resolved;
 }

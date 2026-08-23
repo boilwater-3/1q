@@ -3,7 +3,7 @@
 // @file rir_recognition_example_database_test.cpp
 // @brief 验证提交入库的示例识别基线可被加载（建库工具生成物端到端）。
 //
-// 示例库 examples/configs/recognition/target_feature_database_v1.1.db 由
+// 示例库 examples/basic_config/remote_identification_radar/target_feature_database_v1.1.db 由
 // tools/recognition_db_builder.py 从 recognition_database_input.json 生成；
 // 本用例证明 工具 → 权威 DDL → 加载器 全链路一致。
 // 库内容：6 类别（弹道/临近空间/战斗机/轰炸机/导弹/无人机）、17 型号

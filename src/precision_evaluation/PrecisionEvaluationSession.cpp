@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <limits>
 #include <map>
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -21,13 +22,15 @@
 #include "1q/target_inference/InferenceTrackState.h"
 #include "1q/target_inference/TargetInferenceEngine.h"
 #include "precision_evaluation/PrecisionEvaluationLog.h"
+#include "precision_evaluation/PrecisionAcceptanceRecords.h"
 #include "precision_evaluation/SbirsBearingAdapter.h"
+#include "common/numerics/Constants.h"
 
 namespace precision_evaluation {
 namespace {
 
-const double kPi = 3.14159265358979323846;
-const double kRadToDeg = 180.0 / kPi;
+using oneq::common::numerics::kPi;
+using oneq::common::numerics::RadToDeg;
 
 // 方位角最短角差（deg）：结果落在 (-180, 180]。
 float WrapAzimuthDeltaDeg(double a_deg, double b_deg) {
@@ -146,6 +149,11 @@ struct PrecisionEvaluationSession::Impl {
   std::vector<double> velocity_series;  // 速度矢量误差模长，m/s
   std::vector<double> impact_series;    // 落点误差，m
   std::vector<double> launch_series;    // 发射点误差，m
+  std::vector<double> az_err_series;
+  std::vector<double> el_err_series;
+  std::vector<double> east_err_series;
+  std::vector<double> north_err_series;
+  std::vector<double> up_err_series;
   std::map<std::uint64_t, TruthKeyPoints> truth_keypoints;
   std::uint32_t cycles_since_inference{0U};
 };
@@ -172,13 +180,10 @@ sbirs_sensor::session::SbirsCycleInput BuildSatelliteCycleInput(
   input.cycle_index = cycle_index;
   input.dt_sec = dt_sec;
   input.utc_julian_day = utc_julian_day;
-  input.has_satellite_position = true;
   input.satellite_position_ecef_m = sbirs_sensor::session::SbirsVector3M{
       satellite_position.x_m, satellite_position.y_m, satellite_position.z_m};
-  input.has_satellite_velocity_ecef_m_per_s = true;
   input.satellite_velocity_ecef_m_per_s = sbirs_sensor::session::SbirsVector3M{
       satellite_velocity.x_mps, satellite_velocity.y_mps, satellite_velocity.z_mps};
-  input.has_satellite_attitude = true;
   input.satellite_attitude_eci_body_deg = sbirs_sensor::session::SbirsEulerAnglesDeg{
       yaw_deg, pitch_deg, roll_deg};
   input.scene.reserve(truth_targets.size());
@@ -296,24 +301,25 @@ PrecisionEvaluationCycleResult PrecisionEvaluationSession::Step(
       sample.cycle_index = cycle_index;
       sample.satellite_index = satellite_index;
       sample.azimuth_error_deg =
-          WrapAzimuthDeltaDeg(static_cast<double>(entry.second->azimuth_rad) * kRadToDeg,
-                              truth_az_rad * kRadToDeg);
+          WrapAzimuthDeltaDeg(RadToDeg(static_cast<double>(entry.second->azimuth_rad)),
+                              RadToDeg(truth_az_rad));
       sample.elevation_error_deg =
-          static_cast<float>(static_cast<double>(entry.second->elevation_rad) * kRadToDeg -
-                             truth_el_rad * kRadToDeg);
+          static_cast<float>(RadToDeg(static_cast<double>(entry.second->elevation_rad)) -
+                             RadToDeg(truth_el_rad));
       cycle_result.angular.push_back(sample);
       impl_->angular_series.push_back(
           std::hypot(static_cast<double>(sample.azimuth_error_deg),
                      static_cast<double>(sample.elevation_error_deg)));
+      impl_->az_err_series.push_back(sample.azimuth_error_deg);
+      impl_->el_err_series.push_back(sample.elevation_error_deg);
       if (PRECISION_EVAL_LOG_ENABLED()) {
-        // 中译：红外定位角度误差样本（周期、目标键、卫星序号、方位/俯仰角误差）。
-        // 标识：验收日志 angular_error——3.2.1.6.3"红外对目标的定位角度误差"证据，
-        //       输出角与真值角同 ECI 参考系直接相减（方位最短角差）。
-        PRECISION_EVAL_LOG(
-            "event=angular_error cycle_index={} target_id={} satellite={} az_error_deg={:.6f} "
-            "el_error_deg={:.6f}",
-            cycle_index, sample.key, satellite_index, sample.azimuth_error_deg,
-            sample.elevation_error_deg);
+        // 中译：红外定位角度误差样本，写入精度验收文件。
+        // 标识：关键精度指标的测角分项来源。
+        PRECISION_EVAL_ITEM(
+            0.0f, cycle_index, "关键精度指标",
+            "目标键=" + std::to_string(sample.key) + " 方位测角误差=" +
+                std::to_string(sample.azimuth_error_deg) + "° 俯仰测角误差=" +
+                std::to_string(sample.elevation_error_deg) + "°");
       }
     }
   };
@@ -360,13 +366,16 @@ PrecisionEvaluationCycleResult PrecisionEvaluationSession::Step(
     cycle_result.dual_sat.push_back(sample);
     impl_->dual_sat_series.push_back(sample.position_error_m);
     if (PRECISION_EVAL_LOG_ENABLED()) {
-      // 中译：双星交会定位误差样本（周期、目标键、交会位置误差、两视线几何残差）。
-      // 标识：验收日志 dual_sat_fix——3.2.1.6.3"双星定位的位置误差"证据；残差是
-      //       交会虚实指示（几何构型），与对真值的位置误差分开记录。
-      PRECISION_EVAL_LOG(
-          "event=dual_sat_fix cycle_index={} target_id={} position_error_m={:.3f} "
-          "los_residual_m={:.3f}",
-          cycle_index, sample.key, sample.position_error_m, sample.los_residual_m);
+      oneq::coordinate::LlaPositionDegM origin;
+      oneq::coordinate::EnuPositionM est_enu;
+      oneq::coordinate::EnuPositionM truth_enu;
+      if (oneq::coordinate::TryEcefToLla(truth_entry->second->position_ecef_m, &origin) &&
+          oneq::coordinate::TryEcefToEnu(fix_position, origin, &est_enu) &&
+          oneq::coordinate::TryEcefToEnu(truth_entry->second->position_ecef_m, origin, &truth_enu)) {
+        impl_->east_err_series.push_back(est_enu.east_m - truth_enu.east_m);
+        impl_->north_err_series.push_back(est_enu.north_m - truth_enu.north_m);
+        impl_->up_err_series.push_back(est_enu.up_m - truth_enu.up_m);
+      }
     }
   }
 
@@ -407,15 +416,6 @@ PrecisionEvaluationCycleResult PrecisionEvaluationSession::Step(
     sample.position_error_m = DistanceM(estimated_position, truth->position_ecef_m);
     cycle_result.velocity.push_back(sample);
     impl_->velocity_series.push_back(sample.velocity_error_m_per_s);
-    if (PRECISION_EVAL_LOG_ENABLED()) {
-      // 中译：速度误差样本（周期、目标键、融合速度误差；航迹位置误差为附注字段）。
-      // 标识：验收日志 velocity_error——3.2.1.6.3"速度误差"证据；估计源为融合逐航迹
-      //       滤波（评估会话强制 enable_track_filtering=true）。
-      PRECISION_EVAL_LOG(
-          "event=velocity_error cycle_index={} target_id={} velocity_error_mps={:.4f} "
-          "position_error_m={:.3f}",
-          cycle_index, sample.key, sample.velocity_error_m_per_s, sample.position_error_m);
-    }
   }
 
   // ⑤ 按间隔以估计状态与真值状态分别推演 → 落点/发射点预测误差。
@@ -500,19 +500,6 @@ PrecisionEvaluationCycleResult PrecisionEvaluationSession::Step(
           if (sample.has_launch) {
             impl_->launch_series.push_back(sample.launch_error_m);
           }
-          if (PRECISION_EVAL_LOG_ENABLED()) {
-            // 中译：关键点预测误差样本（周期、目标键、落点/发射点误差；无对应预测的
-            //       项省略）。
-            // 标识：验收日志 keypoint_error——3.2.1.6.3"落点/发射点预测误差"证据；
-            //       口径=估计状态与真值状态经同一推演引擎的关键点之差（状态误差
-            //       传播，不含弹道模型偏差）。
-            PRECISION_EVAL_LOG(
-                "event=keypoint_error cycle_index={} target_id={} has_impact={} impact_error_m={} "
-                "has_launch={} launch_error_m={}",
-                cycle_index, sample.key, sample.has_impact,
-                sample.has_impact ? sample.impact_error_m : 0.0, sample.has_launch,
-                sample.has_launch ? sample.launch_error_m : 0.0);
-          }
         }
       }
     }
@@ -545,12 +532,9 @@ PrecisionEvaluationReport PrecisionEvaluationSession::Summarize() const {
       impl_->config.reference_error_launch_m};
   AhpEvaluation ahp;
   if (!TryEvaluateAhp(impl_->config.ahp, &ahp)) {
-    // 判断矩阵非法：显式置无效，综合分保持 0，不静默退化为等权。
     report.ahp_valid = false;
     if (PRECISION_EVAL_LOG_ENABLED()) {
-      // 中译：AHP 判断矩阵非法，综合评分不可用（各指标汇总仍有效）。
-      // 标识：验收日志 ahp_score 的失败分支——须重标定判断矩阵后重跑评估。
-      PRECISION_EVAL_LOG("event=ahp_score valid=false reason=invalid_judgment_matrix");
+      WritePrecisionAhp(report);
     }
     return report;
   }
@@ -558,32 +542,9 @@ PrecisionEvaluationReport PrecisionEvaluationSession::Summarize() const {
   report.ahp_valid = true;
   ComposePrecisionScore(ahp.weights, rmse, references, &report);
   if (PRECISION_EVAL_LOG_ENABLED()) {
-    // 中译：五指标汇总（样本数、均值、RMSE、P95、最大值，依次为角度/双星/速度/
-    //       落点/发射点）。
-    // 标识：验收日志 metric_summary——3.2.1.6.3.1"关键精度指标提取"证据。
-    PRECISION_EVAL_LOG(
-        "event=metric_summary angular={{{}/{:.4f}/{:.4f}/{:.4f}/{:.4f}}} "
-        "dual_sat={{{}/{:.1f}/{:.1f}/{:.1f}/{:.1f}}} "
-        "velocity={{{}/{:.3f}/{:.3f}/{:.3f}/{:.3f}}} "
-        "impact={{{}/{:.1f}/{:.1f}/{:.1f}/{:.1f}}} launch={{{}/{:.1f}/{:.1f}/{:.1f}/{:.1f}}}",
-        report.metrics[0].count, report.metrics[0].mean, report.metrics[0].rmse,
-        report.metrics[0].p95, report.metrics[0].max, report.metrics[1].count,
-        report.metrics[1].mean, report.metrics[1].rmse, report.metrics[1].p95,
-        report.metrics[1].max, report.metrics[2].count, report.metrics[2].mean,
-        report.metrics[2].rmse, report.metrics[2].p95, report.metrics[2].max,
-        report.metrics[3].count, report.metrics[3].mean, report.metrics[3].rmse,
-        report.metrics[3].p95, report.metrics[3].max, report.metrics[4].count,
-        report.metrics[4].mean, report.metrics[4].rmse, report.metrics[4].p95,
-        report.metrics[4].max);
-    // 中译：AHP 综合评分（五指标权重、最大特征值、CI/CR 一致性、逐指标贡献与总分）。
-    // 标识：验收日志 ahp_score——3.2.1.6.3.2"层次分析法"指标体系证据；CR>0.1 时
-    //       is_consistent=false，权重仍输出但须提示重标定判断矩阵。
-    PRECISION_EVAL_LOG(
-        "event=ahp_score valid=true weights={{{:.4f},{:.4f},{:.4f},{:.4f},{:.4f}}} "
-        "lambda_max={:.6f} ci={:.6f} cr={:.6f} consistent={} composite={:.4f}",
-        ahp.weights[0], ahp.weights[1], ahp.weights[2], ahp.weights[3], ahp.weights[4],
-        ahp.lambda_max, ahp.consistency_index, ahp.consistency_ratio, ahp.is_consistent,
-        report.composite_score);
+    WritePrecisionKeyMetrics(report, impl_->east_err_series, impl_->north_err_series,
+                             impl_->up_err_series, impl_->az_err_series, impl_->el_err_series);
+    WritePrecisionAhp(report);
   }
   return report;
 }

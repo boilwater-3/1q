@@ -74,17 +74,29 @@ inline oneq::foundation::ScanSequence ScanSequenceFromString(const std::string& 
 
 inline void LoadRirAzEl(const examples::JsonValue& j, rir_cfg::RirAzimuthElevationDeg* v) {
   if (j.IsNull()) return;
-  v->az_deg = static_cast<float>(j["az_deg"].AsDouble());
-  v->el_deg = static_cast<float>(j["el_deg"].AsDouble());
+  if (j.Has("az_deg")) {
+    v->az_deg = static_cast<float>(j["az_deg"].AsDouble());
+  }
+  if (j.Has("el_deg")) {
+    v->el_deg = static_cast<float>(j["el_deg"].AsDouble());
+  }
 }
 
 inline void LoadRirAzElLimits(const examples::JsonValue& j,
                               rir_cfg::RirAzimuthElevationLimitsDeg* v) {
   if (j.IsNull()) return;
-  v->az_min_deg = static_cast<float>(j["az_min_deg"].AsDouble());
-  v->az_max_deg = static_cast<float>(j["az_max_deg"].AsDouble());
-  v->el_min_deg = static_cast<float>(j["el_min_deg"].AsDouble());
-  v->el_max_deg = static_cast<float>(j["el_max_deg"].AsDouble());
+  if (j.Has("az_min_deg")) {
+    v->az_min_deg = static_cast<float>(j["az_min_deg"].AsDouble());
+  }
+  if (j.Has("az_max_deg")) {
+    v->az_max_deg = static_cast<float>(j["az_max_deg"].AsDouble());
+  }
+  if (j.Has("el_min_deg")) {
+    v->el_min_deg = static_cast<float>(j["el_min_deg"].AsDouble());
+  }
+  if (j.Has("el_max_deg")) {
+    v->el_max_deg = static_cast<float>(j["el_max_deg"].AsDouble());
+  }
 }
 
 }  // namespace examples

@@ -9,7 +9,7 @@
 #include <vector>
 
 #include "airborne_radar/decision/ControlReducerTypes.h"
-#include "1q/airborne_radar/session/DecisionInputFrame.h"
+#include "airborne_radar/decision/DecisionInputFrame.h"
 #include "airborne_radar/decision/EccmEvaluator.h"
 #include "airborne_radar/decision/LpiEvaluator.h"
 #include "airborne_radar/decision/TacticalDecisionTypes.h"

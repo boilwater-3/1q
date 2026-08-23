@@ -1,6 +1,6 @@
 ---
 Status: active
-Last-reviewed: 2026-08-20
+Last-reviewed: 2026-08-22
 Authority: fusion 设计权威入口
 Answers: fusion 是什么、关联键策略为何冻结为纯库内身份键、设计文档怎么导航
 ---
@@ -8,7 +8,7 @@ Answers: fusion 是什么、关联键策略为何冻结为纯库内身份键、�
 # Fusion 设计
 
 `fusion` 是**目标域估计层算法面**（contract.md §目标处理分层契约）：多源关联 + 置信度
-融合 + 逐航迹无迹滤波（2026-08-17 P2 起，`enable_track_filtering` 默认关闭）。它把异构
+融合 + 逐航迹无迹滤波（2026-08-17 P2 起落地，`enable_track_filtering` **默认开启**）。它把异构
 探测记录（泛型：位置/方位/特征向量/判决值/质量/库内身份键/可选量测原点与噪声）聚合为
 融合目标态势（各源探测状态、融合置信度、航迹生命周期、可选运动学估计含协方差）。
 

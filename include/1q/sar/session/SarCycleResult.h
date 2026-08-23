@@ -73,13 +73,6 @@ enum class SarIssuePhase : std::uint8_t {
  */
 enum class SarFocusedImageSource { kNone = 0, kL1Rda = 1, kL3Bp = 2 };
 
-/** @brief 原始相位历史的执行来源。 */
-enum class SarRawPhaseHistorySource {
-  kNone = 0,
-  kInternallyGenerated = 1,
-  kExternalRawIq = 2
-};
-
 /**
  * @brief SAR 聚焦图像相位参考摘要。
  */
@@ -133,22 +126,10 @@ struct ONEQ_API SarFocusedImage {
 };
 
 /**
- * @brief 实际进入本周期处理链的完整孔径原始相位历史。
- * @note I/Q 向量均为 pulse-major 行主序，长度必须等于
- *       `pulse_count * samples_per_pulse`。
- */
-struct ONEQ_API SarRawPhaseHistory {
-  SarRawPhaseHistorySource source{SarRawPhaseHistorySource::kNone};
-  std::uint32_t pulse_count{0U};
-  std::uint32_t samples_per_pulse{0U};
-  std::vector<double> i_values{};
-  std::vector<double> q_values{};
-};
-
-/**
  * @brief SAR 输出帧元数据。
  * @note `range_sample_count`、`azimuth_pulse_count`、`center_slant_range_m` 是配置回显
- *       （从 `SarMissionConfig` 拷贝），非测量值。
+ *       （从 `SarMissionConfig` 拷贝），非测量值。本结构是产品载荷内的
+ *       trivially_copyable 元数据子结构（规则 15e），不携带图像本体。
  */
 struct ONEQ_API SarOutputFrame {
   std::uint32_t cycle_index{0U};
@@ -175,16 +156,26 @@ struct ONEQ_API SarOutputFrame {
 };
 
 /**
- * @brief SAR 单周期聚合结果。
- * @note `output_frame`、`focused_image` 与质量指标只有在 `status == kCompleted`
- *       时才代表本周期有效计算结果；非执行周期返回默认空帧，不复用上一有效输出，
- *       不能按真实零值参与统计。
+ * @brief SAR 单周期产品载荷（规则 15e：聚焦图像是产品）。
+ * @note 由 `SarOutputFrame` 标量元数据（trivially_copyable 子结构）与聚焦图像本体组成。
+ *       仅 `status == kCompleted` 时代表本周期有效计算产品；非执行周期为空载荷
+ *       （默认元数据 + 无来源图像），不复用上一有效输出，不能按真实零值参与统计。
+ *       原始相位历史（IQ）不进产品与周期记录（规则 15e）；成像链回放按需另表落盘。
+ */
+struct ONEQ_API SarCycleProduct {
+  SarOutputFrame output_frame{};
+  SarFocusedImage focused_image{};
+};
+
+/**
+ * @brief SAR 单周期聚合结果（分层周期记录，规则 15：执行层 + 产品层）。
+ * @note 执行层字段（`input_cycle_index` / `status` / `issues` / `abort_reason`）
+ *       描述本周期执行事实；产品层 `product` 只有在 `status == kCompleted`
+ *       时才代表本周期有效计算结果。
  */
 struct ONEQ_API SarCycleResult {
   std::uint32_t input_cycle_index{0U};
-  SarOutputFrame output_frame{};
-  SarFocusedImage focused_image{};
-  SarRawPhaseHistory raw_phase_history{};
+  SarCycleProduct product{};
   SarIssueList issues{}; /**< 统一问题列表（规则 14）：校验问题（kInputValidation）与执行诊断 */
   SarCycleStatus status{SarCycleStatus::kRejectedInvalidInput};
   SarPipelineAbortReason abort_reason{SarPipelineAbortReason::kNone};

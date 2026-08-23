@@ -11,10 +11,8 @@
 #include "math/FGLocation.h"
 #include "models/FGPropagate.h"
 #include "models/FGPropulsion.h"
+#include "common/numerics/Constants.h"
 
-#ifndef M_PI
-#define M_PI 3.14159265358979323846
-#endif
 
 namespace oneq {
 namespace flight_dynamic {
@@ -299,7 +297,7 @@ void ApplyXmlRollLimitOverride(adapter::JsbsimAdapter& adapter, AircraftControlP
     return;
   }
 
-  profile->max_roll_angle_deg = roll_lim_rad * 180.0 / M_PI * kSustainedTurnFactor;
+  profile->max_roll_angle_deg = oneq::common::numerics::RadToDeg(roll_lim_rad) * kSustainedTurnFactor;
 }
 
 // Set rotation/takeoff parameters based on pitch moment of inertia.
@@ -774,11 +772,11 @@ void Autopilot::UpdatePitchChannel() {
       target_pitch *= (1.0 - speed_deficit);
     }
 
-    double max_pitch_rad = control_profile_.max_pitch_command_deg * M_PI / 180.0;
+    double max_pitch_rad = oneq::common::numerics::DegToRad(control_profile_.max_pitch_command_deg);
     target_pitch = Clamp(target_pitch, -max_pitch_rad, max_pitch_rad);
   } else if (pitch_hold_) {
     pitch_control_active = true;
-    target_pitch = target_pitch_deg_ * M_PI / 180.0;
+    target_pitch = oneq::common::numerics::DegToRad(target_pitch_deg_);
 
     // Speed protection (L2): reduce pitch if speed is too low.
     // This prevents stall when thrust is insufficient to maintain speed

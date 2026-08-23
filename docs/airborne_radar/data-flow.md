@@ -1,6 +1,6 @@
 ---
 Status: active
-Last-reviewed: 2026-08-20
+Last-reviewed: 2026-08-23
 Authority: AR 数据流、Public API 边界、时序与状态所有权
 Answers: AR 的分层架构、数据如何流动、Public API 边界在哪、输出/调试/归属边界、跨周期状态归谁所有
 ---
@@ -18,11 +18,12 @@ Answers: AR 的分层架构、数据如何流动、Public API 边界在哪、输
 |---|---|
 | `airborne_radar.hpp` | 模块聚合入口；聚合稳定 public API，不暴露内部 signal/environment/runtime 类型 |
 | `config/` | `ArSessionConfig` 条件五域配置、runtime patch、语义常量表（`ArProfileConstants.h`）、薄封装 builder、validation |
-| `session/` | `ArSession`、cycle input/result、scene target、output types、trace/replay、debug/lifecycle、decision DTO |
+| `session/` | `ArSession`、cycle input/result、scene target、output types、Recording/Replay、debug/lifecycle、decision DTO |
 
-Public 决策 DTO 只包含 `DecisionObservation`、`ExternalDecisionOverride`、`ExternalDecisionSubmitStatus` 和
-`DecisionControlSource`。默认算法使用的 `TargetCategory`、`TacticalMode`、`TacticalStateStore` 和
-`TacticalDecisionResult` 位于 `src/airborne_radar/decision/`，不属于安装边界。
+Public 决策 DTO 只包含 `ExternalDecisionOverride`、`ExternalDecisionSubmitStatus` 和
+`DecisionControlSource`（规则 15f 已落地）。`DecisionObservation` 结构已删除；
+`DecisionInputFrame` 移至 `src/airborne_radar/decision/`，不再是 public 头。默认算法使用的 `TargetCategory`、`TacticalMode`、
+`TacticalStateStore` 和 `TacticalDecisionResult` 位于 `src/airborne_radar/decision/`，不属于安装边界。
 
 内部实现位于 `src/airborne_radar/`（`config/mapping`、`environment`、`signal/{detection,pipeline,association,tracking}`、
 `decision`、`runtime`、`session`、`output`）；逐目录职责读代码，本文只标注边界——`signal/tracking` 生产路径
@@ -36,8 +37,8 @@ flowchart TB
     Entry["airborne_radar.hpp\n稳定聚合入口"]
     Config["config/*\nHardware / Mission / Orientation / Policy / Environment\nRuntimePatch / Builder / Validation"]
     SessionApi["session/*\nArSession / ArCycleInput / ArCycleResult\nTrackOutputFrame / SceneTarget"]
-    DecisionSeam["DecisionObservation / ExternalDecisionOverride\n步间外部决策 seam"]
-    Tools["Trace / Replay / Debug / Lifecycle\n追踪 / 回放 / 调试 / 生命周期"]
+    DecisionSeam["SubmitExternalDecision\n唯一 public 决策缝"]
+    Tools["Recording / Replay / Debug / Lifecycle\n追踪 / 回放 / 调试 / 生命周期"]
   end
 
   subgraph Session["Session orchestration / 会话编排层"]
@@ -154,10 +155,10 @@ sequenceDiagram
       Pipe-->>Controller: SignalCycleResult + DecisionInputFrame\n信号结果与决策帧
       Controller->>Decision: Evaluate(frame, state_store)\n评估战术决策
       Decision-->>Controller: TacticalDecisionResult\n当前分类与下一周期 internal baseline
-      Controller->>Controller: stage baseline + observation\n暂存 baseline 与观测
+      Controller->>Controller: stage pending internal baseline\n暂存下一拍内部基线
       Session->>Session: assemble ArCycleResult from controller/context/pipeline\n组装周期结果
-      Session-->>Caller: ArCycleResult + DecisionObservation\n输出结果和决策观测
-      Caller->>Caller: external Evaluate(observation)\n同进程外部评估
+      Session-->>Caller: ArCycleResult（分层周期记录；15f 观测袋已移除）
+      Caller->>Caller: 可选：外部评估（读产品航迹 + 干扰 + control_profile）
       Caller->>Session: SubmitExternalDecision(override)\n在下一次 Step 前提交
     end
   end
@@ -174,7 +175,7 @@ flowchart LR
     Cycle["ArCycleInput\n平台姿态 / 高度 / 目标 / 干扰"]
     Patch["ArRuntimeConfigPatch\n运行期工程参数 / 自然环境"]
     Rf["RfEmissionFrame\n外部 RF 干扰"]
-    Observation["DecisionObservation\n本周期输入帧 + 实际 profile"]
+    Observation["产品航迹 + 干扰观测 + control_profile\n（外部决策读周期记录，不另复印）"]
     Response["ExternalDecisionOverride\n下一周期完整 profile 覆盖值"]
   end
 
@@ -200,7 +201,7 @@ flowchart LR
 
   subgraph Output["Output / 输出"]
     TrackOut["TrackOutputFrame\n系统侧航迹输出"]
-    Result["ArCycleResult\n执行状态 / commands / metrics / decision provenance"]
+    Result["ArCycleResult\n执行 / 产品 / 发射副作用 / 闭环 provenance"]
     Debug["Debug / Lifecycle / Replay\nArReplayCycleRecord / 调试 / 生命周期 / 回放"]
   end
 
@@ -251,7 +252,7 @@ flowchart TB
     Debug["ArTrackOutputDebugView\n人读排查视图"]
     Lifecycle["ArTrackLifecycleRecorder\nconfirmed / lost / recycled"]
     ExclusionCause["ArExclusionCauseRecorder\n排除原因跨周期差分\n(进入/变化/退出)"]
-    Replay["ArTraceSession / ArReplaySession\n回放输入输出、决策状态和失败标记"]
+    Replay["ArRecordingSession / ArReplaySession\n回放输入输出、决策状态和失败标记"]
   end
 
   Tracks --> Frame
@@ -284,7 +285,7 @@ flowchart LR
   Result["ArCycleResult\neffective_work_mode / designation_*\n（每周期状态指示）"]
   View["ArTrackOutputDebugView\n转写同名字段"]
   Recorder["ArTrackLifecycleRecorder\nkDesignationDropped（回退转换沿）"]
-  Replay["ArTraceSession / ArReplaySession\npatch 与周期结果新字段"]
+  Replay["ArRecordingSession / ArReplaySession\npatch 与周期结果新字段"]
 
   Patch --> State
   State --> Resolve
@@ -364,7 +365,7 @@ flowchart LR
 trace 因果顺序 `cycle_output(N) → decision_input(override profile) → cycle_input(N+1) → cycle_output(N+1)`。
 `cycle_output` 使用内部 `ArReplayCycleRecord`（public result + `ArDecisionReplayState`）；内部决策按 live 路径
 重新计算并逐字段比较 pending internal baseline、实际采用 proposal、来源 cycle/batch、reducer 计数、
-observation 和最终 profile，不支持旧 `ArCycleResult` replay 输出格式。
+最终 profile，不落盘第二份航迹观测袋（规则 15f 已落地：schema 与 codec 均无观测袋）。
 指定指令生命周期阶段（designation_phase/deadline）为派生跨周期状态，不进 replay session state
 快照：全量重放（patch 流 + 周期输入）由 cycle_index 驱动可复现；若未来引入"从第 N 周期恢复"，
 需同步纳入会话状态。

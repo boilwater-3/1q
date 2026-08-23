@@ -106,11 +106,14 @@
         {
             "name": "1q_log_vs2015",
             "displayName": "1q acceptance logs (VS2015 x64, no Conan)",
-            "description": "VisualStudio.14.0-amd64-none variant with SBIRS/RIR acceptance information logs ON by default ([SbirsAccept]/[RirAccept] event streams to 1q_library.log; docs/review/acceptance_output_inventory_2026-08-20.md). Run scripts/fetch_third_party.bat first. VS2015+Conan is not viable on this machine: CMake 4.3.1 emits v145 toolset requirements that MSBuild v140 cannot satisfy (flatbuffers recipe build fails).",
+            "description": "VisualStudio.14.0-amd64-none variant with all five per-layer acceptance files ON by default (sbirs/rir/fusion/inference/precision_acceptance.log; docs/review/acceptance_item_catalog_2026-08-22.md). Run scripts/fetch_third_party.bat first. VS2015+Conan is not viable on this machine: CMake 4.3.1 emits v145 toolset requirements that MSBuild v140 cannot satisfy (flatbuffers recipe build fails).",
             "inherits": "VisualStudio.14.0-amd64-none",
             "cacheVariables": {
                 "ONEQ_ENABLE_SBIRS_ACCEPTANCE_LOG": "ON",
-                "ONEQ_ENABLE_RIR_ACCEPTANCE_LOG": "ON"
+                "ONEQ_ENABLE_RIR_ACCEPTANCE_LOG": "ON",
+                "ONEQ_ENABLE_FUSION_ACCEPTANCE_LOG": "ON",
+                "ONEQ_ENABLE_INFERENCE_ACCEPTANCE_LOG": "ON",
+                "ONEQ_ENABLE_PRECISION_EVALUATION_LOG": "ON"
             }
         },
         {

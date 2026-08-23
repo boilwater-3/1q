@@ -1,6 +1,6 @@
 ---
 Status: active
-Last-reviewed: 2026-08-20
+Last-reviewed: 2026-08-23
 Authority: RIR 设计权威入口
 Answers: 远程识别雷达模块是什么、和谁交互、设计文档怎么导航
 ---
@@ -14,14 +14,14 @@ Answers: 远程识别雷达模块是什么、和谁交互、设计文档怎么�
 RIR 是与机载雷达（AR）**相互独立的另一部雷达装备**，不是 AR 的工作模式或子能力。
 本模块由 AR 内被耦合的远程识别子系统（kLrr）解耦而来（2026-08-15 审计：
 `docs/review/ar_remote_identification_radar_coupling_audit_2026-08-15.md`；
-迁移状态与下一步计算：`docs/review/remote_identification_radar_migration_status_2026-08-15.md`）。
+迁移状态（主体已完成，余暂缓议题）：`docs/review/remote_identification_radar_migration_status_2026-08-15.md`）。
 
 ## 模块定位要点
 
 1. **独立装备**：自带 hardware 域（发射机/天线/接收机/RCS 物理/信号处理增益），
    自持检测（方向图/分项 SINR 账本/统计级 CFAR）、LAPJV 全局最优关联、CV KF/IMM
    双路径滤波与池化生命周期（跟踪升级 N1-N7 已落地）；
-   独立输入输出与 replay（trace 事件流为阶段 2 评估项）。与 AR 无任何模块间
+   独立输入输出与 Recording/Replay 落盘。与 AR 无任何模块间
    协作接口，不 include 任何 AR 头，不消费任何 AR 输出（阶段 2-S 已删除
    RirTrackFeed 供给面）。
 2. **输入面**：`RirCycleInput` 提供周期戳、必填平台 ECEF（
@@ -39,7 +39,7 @@ RIR 是与机载雷达（AR）**相互独立的另一部雷达装备**，不是 
    （`RirFeatureMeasurementRecord`：四维特征 + 逐维质量 + 有效掩码 + 库内键 +
    视线角/效能上下文 + 平台位置，语义=真值×效能约束转换的仿真量测）。
    归属视图（`RirTrackAttributionRecord`：库内键 ↔ 真值目标对照 + 最小航迹诊断）
-   经 `RirCycleResult.track_attributions` 暴露（信封通道，不进产品通道）。与 AR 威胁
+   经 `RirCycleResult.track_attributions` 暴露（仿真附件层，不进产品层）。与 AR 威胁
    分类相互独立，不进任何决策帧；指定识别任务状态（`designated_target_id`/
    `designation_*`/`dwell_center_deg`）经 `RirCycleResult` 逐周期暴露。
    fusion 侧由 `AdaptRirFeatureMeasurementsToDetectionRecords` 消费出口①。

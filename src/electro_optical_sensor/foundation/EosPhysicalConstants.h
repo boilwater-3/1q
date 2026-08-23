@@ -6,11 +6,13 @@
 #ifndef ELECTRO_OPTICAL_SENSOR_FOUNDATION_EOS_PHYSICAL_CONSTANTS_H_
 #define ELECTRO_OPTICAL_SENSOR_FOUNDATION_EOS_PHYSICAL_CONSTANTS_H_
 
+#include "common/numerics/Constants.h"
+
 namespace electro_optical_sensor {
 namespace foundation {
 namespace constants {
 
-constexpr float kPi = 3.14159265358979323846f; /**< 圆周率常量（float 精度） */
+constexpr float kPi = static_cast<float>(oneq::common::numerics::kPi); /**< 圆周率常量（float 精度，派生自公共数值单一源） */
 
 }  // namespace constants
 }  // namespace foundation

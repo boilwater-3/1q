@@ -295,6 +295,7 @@ TEST(RirReplayCodecRoundtripTest, TrackAttributionsRoundtripPreserved) {
   first.association_key = 1U;
   first.external_target_id = 7U;
   first.target_name = "truth-a";
+  first.track_status = session::RirTrackLifecycleStatus::kConfirmed;
   first.hit_count = 3U;
   first.position_enu_x_m = 5000.5;
   first.position_enu_y_m = -12.25;
@@ -305,6 +306,7 @@ TEST(RirReplayCodecRoundtripTest, TrackAttributionsRoundtripPreserved) {
   session::RirTrackAttributionRecord second;
   second.association_key = 2U;
   second.external_target_id = 0U;  // 真值未提供路径。
+  second.track_status = session::RirTrackLifecycleStatus::kLost;
   second.hit_count = 1U;
   second.speed_m_per_s = 0.0;
   record.result.track_attributions.push_back(second);
@@ -320,6 +322,8 @@ TEST(RirReplayCodecRoundtripTest, TrackAttributionsRoundtripPreserved) {
   EXPECT_EQ(decoded.result.track_attributions[0].association_key, 1U);
   EXPECT_EQ(decoded.result.track_attributions[0].external_target_id, 7U);
   EXPECT_EQ(decoded.result.track_attributions[0].target_name, "truth-a");
+  EXPECT_EQ(decoded.result.track_attributions[0].track_status,
+            session::RirTrackLifecycleStatus::kConfirmed);
   EXPECT_EQ(decoded.result.track_attributions[0].hit_count, 3U);
   EXPECT_DOUBLE_EQ(decoded.result.track_attributions[0].position_enu_x_m, 5000.5);
   EXPECT_DOUBLE_EQ(decoded.result.track_attributions[0].position_enu_y_m, -12.25);
@@ -327,6 +331,8 @@ TEST(RirReplayCodecRoundtripTest, TrackAttributionsRoundtripPreserved) {
   EXPECT_DOUBLE_EQ(decoded.result.track_attributions[0].speed_m_per_s, 150.5);
   EXPECT_EQ(decoded.result.track_attributions[1].association_key, 2U);
   EXPECT_EQ(decoded.result.track_attributions[1].external_target_id, 0U);
+  EXPECT_EQ(decoded.result.track_attributions[1].track_status,
+            session::RirTrackLifecycleStatus::kLost);
   EXPECT_TRUE(decoded.result.track_attributions[1].target_name.empty());
 }
 

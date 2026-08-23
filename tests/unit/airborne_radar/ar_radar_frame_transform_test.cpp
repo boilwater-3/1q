@@ -63,7 +63,7 @@ const EulerAnglesDeg kZeroMount{0.0, 0.0, 0.0};
 TEST(ArRadarFrameTransformTest, ValidPoseConvertsToFrameAndVelocity) {
   ArPlatformInput input = MakeValidPoseInput();
   LocalFrameReference reference;
-  oneq::foundation::Vector3f velocity;
+  oneq::coordinate::Vector3d velocity;
   ArCoordinateStatus status;
 
   ASSERT_TRUE(TryMakeArPoseFromPlatform(input, kZeroMount, &reference, &velocity, &status));
@@ -83,7 +83,7 @@ TEST(ArRadarFrameTransformTest, NullOutputsReturnFalseWithStatus) {
 TEST(ArRadarFrameTransformTest, NullStatusDoesNotCrash) {
   ArPlatformInput input = MakeValidPoseInput();
   LocalFrameReference reference;
-  oneq::foundation::Vector3f velocity;
+  oneq::coordinate::Vector3d velocity;
   EXPECT_TRUE(TryMakeArPoseFromPlatform(input, kZeroMount, &reference, &velocity, nullptr));
 }
 
@@ -91,7 +91,7 @@ TEST(ArRadarFrameTransformTest, InvalidEcefPositionReturnsTransformFail) {
   ArPlatformInput input = MakeValidPoseInput();
   input.platform_position_ecef_m = EcefPositionM{0.0, 0.0, 0.0};  // 原点 → norm=0
   LocalFrameReference reference;
-  oneq::foundation::Vector3f velocity;
+  oneq::coordinate::Vector3d velocity;
   ArCoordinateStatus status;
   EXPECT_FALSE(TryMakeArPoseFromPlatform(input, kZeroMount, &reference, &velocity, &status));
   EXPECT_EQ(status, ArCoordinateStatus::kCoordinateTransformFail);
@@ -101,7 +101,7 @@ TEST(ArRadarFrameTransformTest, NonFiniteVelocityUsesZeroVelocity) {
   ArPlatformInput input = MakeValidPoseInput();
   input.platform_velocity_mps.x_mps = std::numeric_limits<double>::quiet_NaN();
   LocalFrameReference reference;
-  oneq::foundation::Vector3f velocity;
+  oneq::coordinate::Vector3d velocity;
   ArCoordinateStatus status;
   // 非有限速度不导致失败，而是退化为零速度
   ASSERT_TRUE(TryMakeArPoseFromPlatform(input, kZeroMount, &reference, &velocity, &status));
@@ -118,7 +118,7 @@ TEST(ArRadarFrameTransformTest, ValidEnuTargetWithZeroAttitudePreservesGeometry)
   ArPlatformInput pose_input = MakeValidPoseInput();
   pose_input.platform_attitude_deg = EulerAnglesDeg{0.0, 0.0, 0.0};
   LocalFrameReference reference;
-  oneq::foundation::Vector3f velocity;
+  oneq::coordinate::Vector3d velocity;
   ASSERT_TRUE(TryMakeArPoseFromPlatform(pose_input, kZeroMount, &reference, &velocity,
                                                   nullptr));
 
@@ -158,7 +158,7 @@ TEST(ArRadarFrameTransformTest, EnuTargetRotationPreservesNormAndSubtractsPlatfo
   // 平台零速度：相对速度 = 目标 ENU 速度旋入雷达体系，模长保持
   pose_input.platform_velocity_mps = EcefVelocityMps{};
   LocalFrameReference reference;
-  oneq::foundation::Vector3f velocity;
+  oneq::coordinate::Vector3d velocity;
   ASSERT_TRUE(TryMakeArPoseFromPlatform(pose_input, kZeroMount, &reference, &velocity,
                                                   nullptr));
   EXPECT_EQ(velocity.x, 0.0f);
@@ -192,7 +192,7 @@ TEST(ArRadarFrameTransformTest, EnuTargetRotationPreservesNormAndSubtractsPlatfo
 TEST(ArRadarFrameTransformTest, NullEnuTargetReturnsFalse) {
   ArTargetInput target_input;
   LocalFrameReference reference;
-  oneq::foundation::Vector3f radar_vel;
+  oneq::coordinate::Vector3d radar_vel;
   ArCoordinateStatus status;
   EXPECT_FALSE(TryMakeArTargetFromEnu(target_input, reference, radar_vel, nullptr, &status));
   EXPECT_EQ(status, ArCoordinateStatus::kNullOutput);
@@ -203,7 +203,7 @@ TEST(ArRadarFrameTransformTest, NonFiniteEnuPositionReturnsTransformFail) {
   target_input.position_x = std::numeric_limits<float>::quiet_NaN();
   target_input.velocity_x = 10.0f;
   LocalFrameReference reference;
-  oneq::foundation::Vector3f radar_vel;
+  oneq::coordinate::Vector3d radar_vel;
   ArSceneTarget target;
   ArCoordinateStatus status;
   EXPECT_FALSE(TryMakeArTargetFromEnu(target_input, reference, radar_vel, &target, &status));
@@ -214,7 +214,7 @@ TEST(ArRadarFrameTransformTest, NonFiniteEnuVelocityReturnsTransformFail) {
   ArTargetInput target_input;
   target_input.velocity_z = std::numeric_limits<float>::infinity();
   LocalFrameReference reference;
-  oneq::foundation::Vector3f radar_vel;
+  oneq::coordinate::Vector3d radar_vel;
   ArSceneTarget target;
   ArCoordinateStatus status;
   EXPECT_FALSE(TryMakeArTargetFromEnu(target_input, reference, radar_vel, &target, &status));
@@ -225,7 +225,7 @@ TEST(ArRadarFrameTransformTest, NonFiniteRadarVelocityReturnsTransformFail) {
   ArTargetInput target_input;
   target_input.velocity_x = 10.0f;
   LocalFrameReference reference;
-  oneq::foundation::Vector3f radar_vel;
+  oneq::coordinate::Vector3d radar_vel;
   radar_vel.x = std::numeric_limits<float>::quiet_NaN();
   ArSceneTarget target;
   ArCoordinateStatus status;

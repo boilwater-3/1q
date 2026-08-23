@@ -11,6 +11,7 @@
  *  - 全路径不抛异常（项目无异常纪律），失败只降级不中断调用方。
  */
 
+#include "common/logging/LogDirectory.h"
 #include "common/logging/ProjectFileLog.h"
 
 #include <atomic>
@@ -24,7 +25,7 @@
 
 // 编译期默认日志路径（CMake 在 ProjectTargets.cmake 注入；此处兜底）。
 #ifndef ONEQ_FILE_LOG_PATH
-#define ONEQ_FILE_LOG_PATH "1q_library.log"
+#define ONEQ_FILE_LOG_PATH "log/1q_library.log"
 #endif
 
 namespace oneq {
@@ -139,6 +140,7 @@ class Sink {
       stream_.flush();
       stream_.close();
     }
+    oneq::logging::EnsureParentDirectory(path);
     stream_.open(path, std::ios::out | std::ios::app | std::ios::binary);
     if (stream_.is_open()) {
       open_failed_ = false;

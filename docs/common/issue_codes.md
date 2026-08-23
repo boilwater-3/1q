@@ -1,6 +1,6 @@
 ---
 Status: active
-Last-reviewed: 2026-08-20
+Last-reviewed: 2026-08-23
 ---
 
 # Issue Code 目录（六模块总表）
@@ -183,7 +183,6 @@ Last-reviewed: 2026-08-20
 | `sar.validation.range_sample_count_zero` | 输入校验 | 距离向采样数为零。 |
 | `sar.validation.rda_requires_raw_echo` | 输入校验 | RDA 成像需要启用回波生成。 |
 | `sar.validation.rda_size_gate` | 输入校验 | RDA 尺寸超出批准运行门限（性能批准前限制场景规模）。 |
-| `sar.validation.retain_raw_history_requires_raw_echo` | 输入校验 | 保留原始相位历史需要启用回波生成。 |
 | `sar.validation.sample_rate_not_positive` | 输入校验 | 采样率非正。 |
 | `sar.validation.sample_window_too_small_for_pulse` | 输入校验 | 距离采样窗口容不下完整 LFM 脉冲。 |
 | `sar.validation.squint_angle_invalid` | 输入校验 | 最大允许斜视角非法（须有限且在 [0, 90) 度）。 |
@@ -240,11 +239,16 @@ Last-reviewed: 2026-08-20
 
 ## remote_identification_radar（远程识别雷达）
 
-> 当前全部 code 为输入/配置校验问题（`rir.validation.<snake_case>`）；模块尚无
-> 执行诊断类 code。
+> 输入/配置校验问题（`rir.validation.<snake_case>`）、执行期按目标门控排除诊断
+> （`rir.target_<snake_case>`，规则 13b）与执行中止细码（`rir.sensor_powered_off`，规则 9）三类。
 
 | code | 类型 | 中文含义 |
 |---|---|---|
+| `rir.sensor_powered_off` | 执行/外部输入诊断 | 设备关机（非执行周期中止）。 |
+| `rir.target_beyond_recognition_range` | 执行排除 | 目标斜距超识别最大作用距离（识别链距离门，检测/跟踪不受影响）。 |
+| `rir.target_detection_gate` | 执行排除 | 检测准入门未过（聚合门：SNR/检测器判决；携带门内归因主因）。 |
+| `rir.target_mode_not_identify` | 执行排除 | 本周期非识别工作模式，不建识别观测（STBY 全局模式门）。 |
+| `rir.target_no_feature_database` | 执行排除 | 特征库缺失或加载失败，特征链空（识别积累保持）。 |
 | `rir.validation.antenna_az_geometry_invalid` | 输入校验 | 天线方位几何非法（波束宽度或孔径无效）。 |
 | `rir.validation.antenna_el_geometry_invalid` | 输入校验 | 天线俯仰几何非法。 |
 | `rir.validation.association_policy_invalid` | 输入校验 | 关联策略非法（波门 sigma 非正）。 |

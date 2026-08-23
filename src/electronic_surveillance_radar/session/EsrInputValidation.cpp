@@ -40,7 +40,7 @@ void ValidatePlatform(const EsrCycleInput& input, EsrIssueList* issues) {
         oneq::foundation::ValidationLocationKind::kPlatform, static_cast<std::size_t>(-1),
         "platform", "platform attitude must contain only finite values"));
   }
-  if (!input.has_platform_ecef_kinematics || input.platform_entity_id == 0U ||
+  if (input.platform_entity_id == 0U ||
       !IsFinite(input.platform_position_ecef_m.x_m) ||
       !IsFinite(input.platform_position_ecef_m.y_m) ||
       !IsFinite(input.platform_position_ecef_m.z_m) ||

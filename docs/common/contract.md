@@ -1,12 +1,12 @@
 # 跨模块契约
 
 Status: active
-Last-reviewed: 2026-08-21
+Last-reviewed: 2026-08-23
 Authority: common contract for all modules
 RF-Interference-Architecture: frozen target; AR/ESR/ECM/RIR RF v2 implemented (per-module status in each design.md)
 
-本文合并原顶层 public API customization、session config builder、两通道+可选投影输出可观测性
-（旧称三层）和文档治理契约。模块级文档不得与本文冲突。
+本文合并原顶层 public API customization、session config builder、分层周期记录+可选投影可观测性
+（旧称两通道/三层）和文档治理契约。模块级文档不得与本文冲突。
 
 ## 证据优先开发模式
 
@@ -18,7 +18,7 @@ RF-Interference-Architecture: frozen target; AR/ESR/ECM/RIR RF v2 implemented (p
 1. 先判定，再契约，再实现。
 2. Stage A 未得到 `pass` 或 `narrow` 判定时，不进入生产代码实现。
 3. Stage B 前必须冻结实现契约，明确允许范围、禁止范围、行为边界、验收条件和非目标。
-4. 实现只能覆盖已被证据证明的最小边界；不得借机扩大 public API、跨模块抽象、schema、trace/replay 或兼容层。
+4. 实现只能覆盖已被证据证明的最小边界；不得借机扩大 public API、跨模块抽象、schema、Replay 落盘或兼容层。
 5. 验收失败时回到证据矩阵重新拆分原因；不得通过放宽阈值、扩大 skip 或弱化测试制造通过。
 
 具体 evidence matrix、契约模板、输出格式和回写要求由 repo skill 维护；公共契约只规定该流程是高风险开发的默认门禁。
@@ -46,9 +46,9 @@ RF-Interference-Architecture: frozen target; AR/ESR/ECM/RIR RF v2 implemented (p
 [evidence: tests/contract/sbirs_sensor/sbirs_public_api_convenience_test.cpp::CreateWithDiagnosticsReportsIssues]
 - `*CycleInput`、scene target/emitter/point target 等单周期输入 DTO。
 - `*OutputFrame`、`*CycleResult` 等输出和结构化执行结果 DTO。
-- trace/replay、debug view、lifecycle recorder 等已经形成外部消费合同的工具。
+- Replay 落盘、debug view、lifecycle recorder 等已经形成外部消费合同的工具。
 
-业务模块 public 类型使用模块所有权前缀：`Ar*`、`Eos*`、`Esr*`、`Rir*`、`Sar*`、`Sbirs*`。领域术语不受该规则机械约束，例如 `radar_cross_section`、`RadarEquations` 这类物理概念可保留领域名；但 session/config/cycle/result/adapter/trace/replay/debug/lifecycle 等 public DTO 和门面不得把通用领域词误用为模块前缀。
+业务模块 public 类型使用模块所有权前缀：`Ar*`、`Eos*`、`Esr*`、`Rir*`、`Sar*`、`Sbirs*`。领域术语不受该规则机械约束，例如 `radar_cross_section`、`RadarEquations` 这类物理概念可保留领域名；但 session/config/cycle/result/adapter/replay/debug/lifecycle 等 public DTO 和门面不得把通用领域词误用为模块前缀。
 
 默认禁止公开：
 
@@ -193,12 +193,14 @@ fail closed，且失败不得修改调用方输出。
 public API 分为两类，二者都受 public boundary、install manifest 和 consumer 测试保护：
 
 1. **核心运行面**：模块聚合入口、config、input、session、raw output 与 cycle result。它定义调用方驱动模型和消费仿真结果的稳定语义。
-2. **观测工具面**：trace/replay、debug view、lifecycle recorder 及其结果 DTO。它用于诊断、复现和人读归属，不能反向改变核心运行面、raw output 或控制行为。
+2. **观测工具面**：Replay 落盘、周期记录派生投影（debug view / lifecycle recorder /
+   exclusion cause）及其结果 DTO。它用于诊断、复现和人读归属，不能反向改变核心运行面、
+   raw output 或控制行为。库内周期持久化只允许 `ReplayTraceWriter`。
 
-观测工具面的新增字段或事件必须保持两通道与可选投影分离（旧称三层输出分离），并同步
-schema/codec、对应 replay/trace 测试和 consumer 测试；删除或重命名已公开工具仍属于
-public API 变更，必须先冻结兼容迁移契约。详见 `session_contract.md`「两通道 + 可选投影
-输出模型」。
+观测工具面的新增字段或事件必须保持分层周期记录与可选投影分离（规则 15），并同步
+schema/codec、对应 replay 测试和 consumer 测试；删除或重命名已公开工具仍属于
+public API 变更，必须先冻结兼容迁移契约。详见 `session_contract.md`「分层周期记录 + 可选投影」
+与「可观测性单源」。
 
 ## 目标处理分层契约
 
@@ -260,7 +262,7 @@ public API 变更，必须先冻结兼容迁移契约。详见 `session_contract
 `src/common/` 同时容纳两类实现，目录位置本身不决定 C++ 命名空间：
 
 - 已由 `include/1q/<domain>/` 公开的领域 API 实现使用对应 public 命名空间，例如
-  `oneq::coordinate`、`oneq::replay`、`oneq::trace`。
+  `oneq::coordinate`、`oneq::replay`。
 - 只在库内部跨模块复用的设施使用 `oneq::common::<domain>`，不构成 public API。
 
 规则：
@@ -268,7 +270,7 @@ public API 变更，必须先冻结兼容迁移契约。详见 `session_contract
 1. `src/common/` 下的类型必须能追溯到 public 领域头或明确的 `oneq::common::<domain>` 所有权；
    不得仅因目录名把 public-domain implementation 改入 `oneq::common`。
 2. 跨模块共享工具不得放在 `oneq::internal::*` 或
-   `oneq::trace::internal` 这类模糊内部命名空间中。
+   `oneq::common::internal` 这类模糊内部命名空间中。
 3. 不得为 `oneq::common::*` 工具新增 `oneq::internal::*` dual-alias 或
    兼容 using 块；迁移期 alias 只能作为同一批次内的临时编译过渡，最终提交前必须删除。
 4. `namespace internal` 只可用于测试或翻译单元局部辅助语义；跨文件、跨模块消费的
@@ -301,11 +303,12 @@ public API 变更，必须先冻结兼容迁移契约。详见 `session_contract
       batch/帧。
    b. **关机等合法非执行状态用独立 reason**（如 `kSensorPoweredOff`），不得映射成 output
       contract violation。
-   c. **五模块统一不复用**：非执行周期（校验失败/关机/执行 abort）的 `Step()` 与
-      `*CycleResult.output_frame` 一律返回默认空帧，永不复用上一有效输出。
+   c. **统一不复用**：非执行周期（校验失败/关机/执行 abort）的产品层一律为空载荷，永不复用上一有效输出。
+      执行层保留本次输入周期号（`session_contract.md` 规则 15d）。
       `reused_previous_output` 字段、以及支撑复用的 `latest_output`/`previous_output`/
       `has_latest_output`/`has_previous_output` cache 字段已全部删除。
-   d. **reason 数值向后兼容**：新增 reason 以显式数值追加，保留已有 replay/trace 中既有数值语义。
+      落地前现状：空产品帧的 `cycle_index` 仍可能为 0，属待迁移实现。
+   d. **reason 数值向后兼容**：新增 reason 以显式数值追加，保留已有 Replay 记录中既有数值语义。
    e. **Lifecycle recorder 边界**：不得把非执行周期（`status != kCompleted`）解释为目标丢失或未检测；
       非执行周期不产生 lifecycle 事件，也不推进其累积状态。
    [evidence: tests/contract/airborne_radar/ar_public_api_convenience_test.cpp::StepReturnsEmptyFrameOnValidationFailure]
@@ -314,11 +317,11 @@ public API 变更，必须先冻结兼容迁移契约。详见 `session_contract
    [evidence: tests/contract/sar/sar_public_api_convenience_test.cpp::StepReturnsEmptyFrameOnValidationFailureAfterSuccess]
    [evidence: tests/contract/sbirs_sensor/sbirs_public_api_convenience_test.cpp::StepReturnsEmptyFrameOnValidationFailureAfterSuccess]
 
-4. **外部输入解析与 trace 读取必须有上限与完整性校验。** 自研解析器（如 JSON）必须有最大嵌套深度限制、顶层 value 后的 EOF 校验与转义完整性校验。trace/replay 文件读取必须在读入前检查大小上限（与写入侧守卫对齐）。磁盘写失败必须检查流状态并记录，不得静默丢失。
+4. **外部输入解析与 Replay 记录读取必须有上限与完整性校验。** 自研解析器（如 JSON）必须有最大嵌套深度限制、顶层 value 后的 EOF 校验与转义完整性校验。Replay 目录读取必须在读入前检查大小上限（与写入侧守卫对齐）。磁盘写失败必须检查流状态并记录，不得静默丢失。
 
-   failure marker 是 trace 中一个可报告的失败边界，不是 replay 的终止符。回放必须记录 marker，
+   failure marker 是 Replay 记录中一个可报告的失败边界，不是回放的终止符。回放必须记录 marker，
    继续应用并比较其后的有效输入/输出，使"有效 -> 拒绝 -> 恢复"整段都进入确定性比较；只有
-   divergence、损坏记录或不兼容模块等真正无法继续解释 trace 的错误才终止回放。
+   divergence、损坏记录或不兼容模块等真正无法继续解释记录的错误才终止回放。
    [evidence: tests/replay/airborne_radar/ar_rf_trace_session_test.cpp::ArRfTraceSessionTest.RejectedCycleAndSameCycleRetryReplayExactly]
    [evidence: tests/replay/electro_optical_sensor/eos_replay_session_test.cpp::EosReplaySessionTest.ReplayEosTraceContinuesAfterFailureMarker]
    [evidence: tests/replay/electronic_surveillance_radar/esr_replay_session_test.cpp::EsrReplaySessionTest.ReplayEsrTraceContinuesAfterFailureMarker]
@@ -347,9 +350,10 @@ public API 变更，必须先冻结兼容迁移契约。详见 `session_contract
 - Session composition ownership（`Impl` 所有权边界、AR 决策 seam）
 - 运行期配置提交策略（事务性提交 vs 立即提交的分类表 + 各模块归属判定规则）
 - 电源状态单源契约（`sensor_enabled` 唯一来源、`has_sensor_enabled` 唯一入口，六模块统一，RIR 建模即遵守）
-- 两通道 + 可选投影输出模型（产品 `OutputFrame` / 信封 `CycleResult` / 可选 DebugView·Lifecycle·ExclusionCause；旧称三层；失败语义不变）
+- 分层周期记录 + 可选投影（规则 15：一次生产、按层组合；`Step()` 是产品糖；失败时产品空载荷；旧称两通道/三层）
+- 可观测性单源（生产者唯一、投影只读周期记录、Replay 按层落盘、`PROJECT_LOG` 人读旁路；产品形态齐套表）
 - 统一问题列表模型（`*IssueList` 单一列表 + `phase` 来源标签 + 可选定位；输入校验不设平行字段，见 session_contract.md 规则 14）
-- Replay 与 trace 语义（结构化比较状态、TraceSink vs ReplayTraceWriter、codec 边界、runtime patch trace）
+- Replay 持久化语义（结构化比较状态、`ReplayTraceWriter` 单落盘、codec 边界、runtime patch 记录）
 
 ## 工程治理规则（指针）
 
@@ -387,7 +391,7 @@ CMake 工程边界（target 作用域、Windows 验收）和测试架构（type�
 `common/` 只允许保留六份文档：
 
 - `contract.md` —— 公共契约（规定性：所有模块必须遵守的规则）。
-- `session_contract.md` —— 有 Session 的传感器模块的统一会话契约（会话配置直接赋值、Session 组合所有权、运行期配置提交、电源单源、两通道+可选投影输出、Replay/trace 语义）。
+- `session_contract.md` —— 有 Session 的传感器模块的统一会话契约（会话配置直接赋值、Session 组合所有权、运行期配置提交、电源单源、分层周期记录+可选投影、可观测性单源、Replay 持久化语义）。
 - `open_questions.md` —— 跨模块架构观察与待决项（非规定性：记录调查中发现但尚未定论的议题，不构成契约约束）。条目推进到有结论时，应回写为契约规则（进 contract.md）或模块设计（进对应 design.md），并从 open_questions.md 移除。
 - `rf_architecture.md` —— AR/ESR/ECM/RIR 公共 RF 工程架构设计描述（provenance、单周期交换时序、接收机影响分层）。
 - `issue_codes.md` —— 各模块 issue code 注册表的人读辅助目录（由各模块 `<Module>IssueCodes.h` 的 `@brief` 提取生成；机器消费以公开头文件常量为唯一事实来源）。

@@ -14,12 +14,15 @@
 
 #include "1q/coordinate/types.h"
 #include "1q/electromagnetics/RfScene.h"
+#include "common/replay/ReplayFlatbufferCodecSupport.h"
 #include "remote_identification_radar/session/generated/rir_replay_generated.h"
+#include "remote_identification_radar/session/generated/rir_session_replay_generated.h"
 
 namespace remote_identification_radar {
 namespace session {
 
 namespace fb = oneq::replay::remote_identification_radar::fb;
+namespace cfb = oneq::replay::remote_identification_radar::session::fb;
 
 namespace {
 
@@ -213,7 +216,7 @@ bool DecodeRecognitionResult(const fb::RirRecognitionResultV1* value, RirRecogni
   if (state_raw < static_cast<int>(RirRecognitionState::kDisabled) ||
       state_raw > static_cast<int>(RirRecognitionState::kStale) ||
       category_raw < static_cast<int>(RirRecognitionCategory::kBallistic) ||
-      category_raw > static_cast<int>(RirRecognitionCategory::kUav)) {
+      category_raw > static_cast<int>(RirRecognitionCategory::kMissile)) {
     return false;
   }
   out->state = static_cast<RirRecognitionState>(state_raw);
@@ -340,7 +343,8 @@ flatbuffers::Offset<fb::RirTrackAttributionRecordV2> EncodeTrackAttribution(
   return fb::CreateRirTrackAttributionRecordV2(
       *builder, value.association_key, value.external_target_id,
       builder->CreateString(value.target_name), value.hit_count, value.position_enu_x_m,
-      value.position_enu_y_m, value.position_enu_z_m, value.speed_m_per_s);
+      value.position_enu_y_m, value.position_enu_z_m, value.speed_m_per_s,
+      static_cast<std::uint8_t>(value.track_status));
 }
 
 void DecodeTrackAttribution(const fb::RirTrackAttributionRecordV2* value,
@@ -353,6 +357,7 @@ void DecodeTrackAttribution(const fb::RirTrackAttributionRecordV2* value,
   if (value->target_name() != nullptr) {
     out->target_name = value->target_name()->str();
   }
+  out->track_status = static_cast<RirTrackLifecycleStatus>(value->track_status());
   out->hit_count = value->hit_count();
   out->position_enu_x_m = value->position_enu_x_m();
   out->position_enu_y_m = value->position_enu_y_m();
@@ -399,6 +404,442 @@ void DecodeSummary(const fb::RirRecognitionCycleSummaryV2* value, RirRecognition
     out->dwell_budget.executed_dwell_count = value->dwell_budget()->executed_dwell_count();
     out->dwell_budget.dwell_budget_sec = value->dwell_budget()->dwell_budget_sec();
     out->dwell_budget.dwell_consumed_sec = value->dwell_budget()->dwell_consumed_sec();
+  }
+}
+
+// ===== 周期输入（rir_replay.fbs 的 RirCycleInput 及其场景目标表）=====
+
+flatbuffers::Offset<fb::RirSceneTarget> EncodeSceneTarget(
+    flatbuffers::FlatBufferBuilder* builder, const RirSceneTarget& value) {
+  const flatbuffers::Offset<flatbuffers::String> target_name =
+      builder->CreateString(value.target_name);
+
+  std::vector<flatbuffers::Offset<fb::RirAspectRcsSample>> aspect_samples;
+  aspect_samples.reserve(value.aspect_rcs_samples.size());
+  for (std::size_t i = 0U; i < value.aspect_rcs_samples.size(); ++i) {
+    const RirAspectRcsSample& sample = value.aspect_rcs_samples[i];
+    aspect_samples.push_back(fb::CreateRirAspectRcsSample(
+        *builder, sample.aspect_az_deg, sample.aspect_el_deg, sample.rcs_dbsm));
+  }
+  std::vector<flatbuffers::Offset<fb::RirPolarizationRcsSample>> polarization_samples;
+  polarization_samples.reserve(value.polarization_rcs_samples.size());
+  for (std::size_t i = 0U; i < value.polarization_rcs_samples.size(); ++i) {
+    const RirPolarizationRcsSample& sample = value.polarization_rcs_samples[i];
+    polarization_samples.push_back(fb::CreateRirPolarizationRcsSample(
+        *builder, sample.aspect_az_deg, sample.aspect_el_deg, sample.channel_1_rcs_dbsm,
+        sample.channel_2_rcs_dbsm, sample.cross_rcs_dbsm, sample.phase_vv_rel_hh_deg,
+        sample.has_cross_pol, sample.has_phase_vv));
+  }
+  std::vector<flatbuffers::Offset<fb::RirRangeRcsScatterer>> scatterers;
+  scatterers.reserve(value.range_rcs_scatterers.size());
+  for (std::size_t i = 0U; i < value.range_rcs_scatterers.size(); ++i) {
+    const RirRangeRcsScatterer& scatterer = value.range_rcs_scatterers[i];
+    scatterers.push_back(fb::CreateRirRangeRcsScatterer(
+        *builder, scatterer.range_offset_m, scatterer.rcs_dbsm, scatterer.channel_1_rcs_dbsm,
+        scatterer.channel_2_rcs_dbsm, scatterer.phase_deg, scatterer.fluctuation_std_db));
+  }
+
+  return fb::CreateRirSceneTarget(
+      *builder, value.external_target_id, target_name, value.position_x, value.position_y,
+      value.position_z, value.velocity_x, value.velocity_y, value.velocity_z, value.rcs,
+      value.range_m, static_cast<std::uint8_t>(value.target_swerling_type),
+      builder->CreateVector(aspect_samples), builder->CreateVector(polarization_samples),
+      builder->CreateVector(scatterers));
+}
+
+bool DecodeSceneTarget(const fb::RirSceneTarget* value, RirSceneTarget* out) {
+  if (value == nullptr) {
+    return false;
+  }
+  const std::uint8_t swerling_raw = value->target_swerling_type();
+  if (swerling_raw > static_cast<std::uint8_t>(RirSwerlingType::kSwerling4)) {
+    return false;
+  }
+  out->external_target_id = value->external_target_id();
+  if (value->target_name() != nullptr) {
+    out->target_name = value->target_name()->str();
+  }
+  out->position_x = value->position_x();
+  out->position_y = value->position_y();
+  out->position_z = value->position_z();
+  out->velocity_x = value->velocity_x();
+  out->velocity_y = value->velocity_y();
+  out->velocity_z = value->velocity_z();
+  out->rcs = value->rcs();
+  out->range_m = value->range_m();
+  out->target_swerling_type = static_cast<RirSwerlingType>(swerling_raw);
+  if (value->aspect_rcs_samples() != nullptr) {
+    out->aspect_rcs_samples.reserve(value->aspect_rcs_samples()->size());
+    for (const fb::RirAspectRcsSample* sample : *value->aspect_rcs_samples()) {
+      if (sample == nullptr) {
+        continue;
+      }
+      RirAspectRcsSample decoded;
+      decoded.aspect_az_deg = sample->aspect_az_deg();
+      decoded.aspect_el_deg = sample->aspect_el_deg();
+      decoded.rcs_dbsm = sample->rcs_dbsm();
+      out->aspect_rcs_samples.push_back(decoded);
+    }
+  }
+  if (value->polarization_rcs_samples() != nullptr) {
+    out->polarization_rcs_samples.reserve(value->polarization_rcs_samples()->size());
+    for (const fb::RirPolarizationRcsSample* sample : *value->polarization_rcs_samples()) {
+      if (sample == nullptr) {
+        continue;
+      }
+      RirPolarizationRcsSample decoded;
+      decoded.aspect_az_deg = sample->aspect_az_deg();
+      decoded.aspect_el_deg = sample->aspect_el_deg();
+      decoded.channel_1_rcs_dbsm = sample->channel_1_rcs_dbsm();
+      decoded.channel_2_rcs_dbsm = sample->channel_2_rcs_dbsm();
+      decoded.cross_rcs_dbsm = sample->cross_rcs_dbsm();
+      decoded.phase_vv_rel_hh_deg = sample->phase_vv_rel_hh_deg();
+      decoded.has_cross_pol = sample->has_cross_pol();
+      decoded.has_phase_vv = sample->has_phase_vv();
+      out->polarization_rcs_samples.push_back(decoded);
+    }
+  }
+  if (value->range_rcs_scatterers() != nullptr) {
+    out->range_rcs_scatterers.reserve(value->range_rcs_scatterers()->size());
+    for (const fb::RirRangeRcsScatterer* scatterer : *value->range_rcs_scatterers()) {
+      if (scatterer == nullptr) {
+        continue;
+      }
+      RirRangeRcsScatterer decoded;
+      decoded.range_offset_m = scatterer->range_offset_m();
+      decoded.rcs_dbsm = scatterer->rcs_dbsm();
+      decoded.channel_1_rcs_dbsm = scatterer->channel_1_rcs_dbsm();
+      decoded.channel_2_rcs_dbsm = scatterer->channel_2_rcs_dbsm();
+      decoded.phase_deg = scatterer->phase_deg();
+      decoded.fluctuation_std_db = scatterer->fluctuation_std_db();
+      out->range_rcs_scatterers.push_back(decoded);
+    }
+  }
+  return true;
+}
+
+// ===== 会话配置与运行期补丁（rir_session_replay.fbs）=====
+
+flatbuffers::Offset<cfb::RirAzimuthElevationDeg> EncodeAzEl(
+    flatbuffers::FlatBufferBuilder* builder, const config::RirAzimuthElevationDeg& value) {
+  return cfb::CreateRirAzimuthElevationDeg(*builder, value.az_deg, value.el_deg);
+}
+
+void DecodeAzEl(const cfb::RirAzimuthElevationDeg* value, config::RirAzimuthElevationDeg* out) {
+  if (value == nullptr) {
+    return;
+  }
+  out->az_deg = value->az_deg();
+  out->el_deg = value->el_deg();
+}
+
+flatbuffers::Offset<cfb::RirHardwareConfig> EncodeHardwareConfig(
+    flatbuffers::FlatBufferBuilder* builder, const config::RirHardwareConfig& value) {
+  const flatbuffers::Offset<cfb::RirTransmitterConfig> transmitter =
+      cfb::CreateRirTransmitterConfig(
+          *builder, value.transmitter.equipment_id, value.transmitter.peak_power_w,
+          value.transmitter.frequency_hz, value.transmitter.bandwidth_hz,
+          value.transmitter.pulse_width_s, value.transmitter.prf_hz,
+          value.transmitter.transmit_loss_db, value.transmitter.maximum_peak_power_w,
+          value.transmitter.maximum_duty_cycle, value.transmitter.maximum_pulse_energy_j,
+          builder->CreateVector(value.transmitter.frequency_plan_hz));
+
+  const flatbuffers::Offset<cfb::RirAntennaPatternConfig> pattern =
+      cfb::CreateRirAntennaPatternConfig(
+          *builder, static_cast<int>(value.antenna.pattern.model_type),
+          value.antenna.pattern.max_sidelobe_level_db,
+          value.antenna.pattern.backlobe_level_db,
+          value.antenna.pattern.scan_loss_coeff_db_per_deg2,
+          value.antenna.pattern.max_scan_loss_db,
+          EncodeAzEl(builder, value.antenna.pattern.boresight_offset_deg));
+  const flatbuffers::Offset<cfb::RirAntennaConfig> antenna = cfb::CreateRirAntennaConfig(
+      *builder, value.antenna.main_beam_gain_db, value.antenna.nominal_az_beamwidth_deg,
+      value.antenna.nominal_el_beamwidth_deg, value.antenna.antenna_length_m,
+      value.antenna.antenna_width_m, pattern, value.antenna.enable_directional_pattern);
+
+  std::vector<flatbuffers::Offset<cfb::RirCoSiteIsolationPath>> co_site_paths;
+  co_site_paths.reserve(value.receiver.co_site_paths.size());
+  for (std::size_t i = 0U; i < value.receiver.co_site_paths.size(); ++i) {
+    const oneq::electromagnetics::RfCoSiteIsolationPath& path = value.receiver.co_site_paths[i];
+    co_site_paths.push_back(cfb::CreateRirCoSiteIsolationPath(
+        *builder, path.transmitter_equipment_id, path.receiver_equipment_id, path.isolation_db));
+  }
+  const flatbuffers::Offset<cfb::RirReceiverConfig> receiver = cfb::CreateRirReceiverConfig(
+      *builder, value.receiver.equipment_id, value.receiver.noise_figure_db,
+      value.receiver.receive_loss_db, value.receiver.cross_polarization_isolation_db,
+      value.receiver.minimum_far_field_range_m, value.receiver.has_co_site_isolation,
+      value.receiver.co_site_isolation_db, value.receiver.maximum_linear_input_power_w,
+      value.receiver.preselector_bandwidth_hz,
+      value.receiver.interference_observation_jn_gate_db,
+      static_cast<int>(value.receiver.scene_polarization),
+      builder->CreateVector(co_site_paths));
+
+  const flatbuffers::Offset<cfb::RirRcsPhysicsConfig> rcs_physics =
+      cfb::CreateRirRcsPhysicsConfig(
+          *builder, value.rcs_physics.enable_physical_rcs, value.rcs_physics.physics_mix_ratio,
+          value.rcs_physics.cylinder_weight, value.rcs_physics.min_equivalent_radius_m,
+          value.rcs_physics.max_equivalent_radius_m, value.rcs_physics.min_rcs_m2,
+          value.rcs_physics.max_rcs_m2, value.rcs_physics.bistatic_psi_offset_deg);
+  const flatbuffers::Offset<cfb::RirSignalProcessingConfig> signal_processing =
+      cfb::CreateRirSignalProcessingConfig(
+          *builder, value.signal_processing.target_processing_gain_db,
+          value.signal_processing.noise_processing_gain_db,
+          value.signal_processing.clutter_suppression_gain_db,
+          value.signal_processing.jamming_suppression_gain_db);
+
+  return cfb::CreateRirHardwareConfig(*builder, transmitter, antenna, receiver, rcs_physics,
+                                      signal_processing);
+}
+
+void DecodeHardwareConfig(const cfb::RirHardwareConfig* value, config::RirHardwareConfig* out) {
+  if (value == nullptr) {
+    return;
+  }
+  if (value->transmitter() != nullptr) {
+    const cfb::RirTransmitterConfig* transmitter = value->transmitter();
+    out->transmitter.equipment_id = transmitter->equipment_id();
+    out->transmitter.peak_power_w = transmitter->peak_power_w();
+    out->transmitter.frequency_hz = transmitter->frequency_hz();
+    out->transmitter.bandwidth_hz = transmitter->bandwidth_hz();
+    out->transmitter.pulse_width_s = transmitter->pulse_width_s();
+    out->transmitter.prf_hz = transmitter->prf_hz();
+    out->transmitter.transmit_loss_db = transmitter->transmit_loss_db();
+    out->transmitter.maximum_peak_power_w = transmitter->maximum_peak_power_w();
+    out->transmitter.maximum_duty_cycle = transmitter->maximum_duty_cycle();
+    out->transmitter.maximum_pulse_energy_j = transmitter->maximum_pulse_energy_j();
+    out->transmitter.frequency_plan_hz.clear();
+    if (transmitter->frequency_plan_hz() != nullptr) {
+      out->transmitter.frequency_plan_hz.reserve(transmitter->frequency_plan_hz()->size());
+      for (flatbuffers::uoffset_t i = 0U; i < transmitter->frequency_plan_hz()->size(); ++i) {
+        out->transmitter.frequency_plan_hz.push_back(
+            transmitter->frequency_plan_hz()->Get(i));
+      }
+    }
+  }
+  if (value->antenna() != nullptr) {
+    const cfb::RirAntennaConfig* antenna = value->antenna();
+    out->antenna.main_beam_gain_db = antenna->main_beam_gain_db();
+    out->antenna.nominal_az_beamwidth_deg = antenna->nominal_az_beamwidth_deg();
+    out->antenna.nominal_el_beamwidth_deg = antenna->nominal_el_beamwidth_deg();
+    out->antenna.antenna_length_m = antenna->antenna_length_m();
+    out->antenna.antenna_width_m = antenna->antenna_width_m();
+    out->antenna.enable_directional_pattern = antenna->enable_directional_pattern();
+    if (antenna->pattern() != nullptr) {
+      const cfb::RirAntennaPatternConfig* pattern = antenna->pattern();
+      out->antenna.pattern.model_type =
+          static_cast<config::hardware::RirAntennaPatternModelType>(pattern->model_type());
+      out->antenna.pattern.max_sidelobe_level_db = pattern->max_sidelobe_level_db();
+      out->antenna.pattern.backlobe_level_db = pattern->backlobe_level_db();
+      out->antenna.pattern.scan_loss_coeff_db_per_deg2 =
+          pattern->scan_loss_coeff_db_per_deg2();
+      out->antenna.pattern.max_scan_loss_db = pattern->max_scan_loss_db();
+      DecodeAzEl(pattern->boresight_offset_deg(), &out->antenna.pattern.boresight_offset_deg);
+    }
+  }
+  if (value->receiver() != nullptr) {
+    const cfb::RirReceiverConfig* receiver = value->receiver();
+    out->receiver.equipment_id = receiver->equipment_id();
+    out->receiver.noise_figure_db = receiver->noise_figure_db();
+    out->receiver.receive_loss_db = receiver->receive_loss_db();
+    out->receiver.cross_polarization_isolation_db =
+        receiver->cross_polarization_isolation_db();
+    out->receiver.minimum_far_field_range_m = receiver->minimum_far_field_range_m();
+    out->receiver.has_co_site_isolation = receiver->has_co_site_isolation();
+    out->receiver.co_site_isolation_db = receiver->co_site_isolation_db();
+    out->receiver.maximum_linear_input_power_w = receiver->maximum_linear_input_power_w();
+    out->receiver.preselector_bandwidth_hz = receiver->preselector_bandwidth_hz();
+    out->receiver.interference_observation_jn_gate_db =
+        receiver->interference_observation_jn_gate_db();
+    out->receiver.scene_polarization =
+        static_cast<oneq::electromagnetics::RfScenePolarization>(receiver->scene_polarization());
+    out->receiver.co_site_paths.clear();
+    if (receiver->co_site_paths() != nullptr) {
+      out->receiver.co_site_paths.reserve(receiver->co_site_paths()->size());
+      for (const cfb::RirCoSiteIsolationPath* path : *receiver->co_site_paths()) {
+        if (path == nullptr) {
+          continue;
+        }
+        out->receiver.co_site_paths.push_back(oneq::electromagnetics::RfCoSiteIsolationPath(
+            path->transmitter_equipment_id(), path->receiver_equipment_id(),
+            path->isolation_db()));
+      }
+    }
+  }
+  if (value->rcs_physics() != nullptr) {
+    const cfb::RirRcsPhysicsConfig* rcs_physics = value->rcs_physics();
+    out->rcs_physics.enable_physical_rcs = rcs_physics->enable_physical_rcs();
+    out->rcs_physics.physics_mix_ratio = rcs_physics->physics_mix_ratio();
+    out->rcs_physics.cylinder_weight = rcs_physics->cylinder_weight();
+    out->rcs_physics.min_equivalent_radius_m = rcs_physics->min_equivalent_radius_m();
+    out->rcs_physics.max_equivalent_radius_m = rcs_physics->max_equivalent_radius_m();
+    out->rcs_physics.min_rcs_m2 = rcs_physics->min_rcs_m2();
+    out->rcs_physics.max_rcs_m2 = rcs_physics->max_rcs_m2();
+    out->rcs_physics.bistatic_psi_offset_deg = rcs_physics->bistatic_psi_offset_deg();
+  }
+  if (value->signal_processing() != nullptr) {
+    const cfb::RirSignalProcessingConfig* signal_processing = value->signal_processing();
+    out->signal_processing.target_processing_gain_db =
+        signal_processing->target_processing_gain_db();
+    out->signal_processing.noise_processing_gain_db =
+        signal_processing->noise_processing_gain_db();
+    out->signal_processing.clutter_suppression_gain_db =
+        signal_processing->clutter_suppression_gain_db();
+    out->signal_processing.jamming_suppression_gain_db =
+        signal_processing->jamming_suppression_gain_db();
+  }
+}
+
+flatbuffers::Offset<cfb::RirMissionConfig> EncodeMissionConfig(
+    flatbuffers::FlatBufferBuilder* builder, const config::RirMissionConfig& value) {
+  const flatbuffers::Offset<cfb::RirScanConfig> scan = cfb::CreateRirScanConfig(
+      *builder, static_cast<int>(value.scan.scan_start_position),
+      static_cast<int>(value.scan.scan_sequence), value.scan.step_scale);
+  return cfb::CreateRirMissionConfig(*builder, static_cast<int>(value.work_mode),
+                                     EncodeAzEl(builder, value.scan_center_deg),
+                                     value.max_range_m, value.recognition_dwell_sec, scan);
+}
+
+void DecodeMissionConfig(const cfb::RirMissionConfig* value, config::RirMissionConfig* out) {
+  if (value == nullptr) {
+    return;
+  }
+  out->work_mode = static_cast<config::RirWorkMode>(value->work_mode());
+  DecodeAzEl(value->scan_center_deg(), &out->scan_center_deg);
+  out->max_range_m = value->max_range_m();
+  out->recognition_dwell_sec = value->recognition_dwell_sec();
+  if (value->scan() != nullptr) {
+    out->scan.scan_start_position =
+        static_cast<oneq::foundation::ScanStartPosition>(value->scan()->scan_start_position());
+    out->scan.scan_sequence =
+        static_cast<oneq::foundation::ScanSequence>(value->scan()->scan_sequence());
+    out->scan.step_scale = value->scan()->step_scale();
+  }
+}
+
+flatbuffers::Offset<cfb::RirPolicyConfig> EncodePolicyConfig(
+    flatbuffers::FlatBufferBuilder* builder, const config::RirPolicyConfig& value) {
+  const flatbuffers::Offset<cfb::RirDetectionPolicyConfig> detection =
+      cfb::CreateRirDetectionPolicyConfig(
+          *builder, value.detection.cfar_pfa, value.detection.min_snr_db,
+          value.detection.min_detection_margin_db, value.detection.pulse_count,
+          value.detection.random_seed, static_cast<int>(value.detection.gate_mode));
+  const flatbuffers::Offset<cfb::RirAssociationPolicyConfig> association =
+      cfb::CreateRirAssociationPolicyConfig(*builder, value.association.distance_gate_sigma);
+  const flatbuffers::Offset<cfb::RirTrackingPolicyConfig> tracking =
+      cfb::CreateRirTrackingPolicyConfig(*builder, value.tracking.kalman_noise_diff_coeff,
+                                         value.tracking.kalman_measurement_noise_std);
+  const flatbuffers::Offset<cfb::RirLifecyclePolicyConfig> lifecycle =
+      cfb::CreateRirLifecyclePolicyConfig(
+          *builder, value.lifecycle.confirm_hits, value.lifecycle.max_miss_before_lost,
+          value.lifecycle.max_lost_cycles, value.lifecycle.enable_imm_lifecycle,
+          value.lifecycle.model_count_hint);
+  const flatbuffers::Offset<cfb::RirRecognitionFeatureWeights> feature_weights =
+      cfb::CreateRirRecognitionFeatureWeights(
+          *builder, value.recognition.feature_weights.rcs_weight,
+          value.recognition.feature_weights.motion_weight,
+          value.recognition.feature_weights.polarization_weight,
+          value.recognition.feature_weights.range_profile_weight);
+  const flatbuffers::Offset<cfb::RirRecognitionPolicy> recognition =
+      cfb::CreateRirRecognitionPolicy(
+          *builder, value.recognition.enabled, value.recognition.min_confirmed_hits,
+          value.recognition.accumulation_window_sec, value.recognition.min_observation_count,
+          value.recognition.acceptance_score, value.recognition.minimum_margin,
+          value.recognition.result_hold_sec, feature_weights,
+          builder->CreateString(value.recognition.database_path));
+  return cfb::CreateRirPolicyConfig(*builder, detection, association, tracking, lifecycle,
+                                    recognition);
+}
+
+void DecodePolicyConfig(const cfb::RirPolicyConfig* value, config::RirPolicyConfig* out) {
+  if (value == nullptr) {
+    return;
+  }
+  if (value->detection() != nullptr) {
+    const cfb::RirDetectionPolicyConfig* detection = value->detection();
+    out->detection.cfar_pfa = detection->cfar_pfa();
+    out->detection.min_snr_db = detection->min_snr_db();
+    out->detection.min_detection_margin_db = detection->min_detection_margin_db();
+    out->detection.pulse_count = detection->pulse_count();
+    out->detection.random_seed = detection->random_seed();
+    out->detection.gate_mode =
+        static_cast<config::detection::RirDetectionGateMode>(detection->gate_mode());
+  }
+  if (value->association() != nullptr) {
+    out->association.distance_gate_sigma = value->association()->distance_gate_sigma();
+  }
+  if (value->tracking() != nullptr) {
+    out->tracking.kalman_noise_diff_coeff = value->tracking()->kalman_noise_diff_coeff();
+    out->tracking.kalman_measurement_noise_std =
+        value->tracking()->kalman_measurement_noise_std();
+  }
+  if (value->lifecycle() != nullptr) {
+    const cfb::RirLifecyclePolicyConfig* lifecycle = value->lifecycle();
+    out->lifecycle.confirm_hits = lifecycle->confirm_hits();
+    out->lifecycle.max_miss_before_lost = lifecycle->max_miss_before_lost();
+    out->lifecycle.max_lost_cycles = lifecycle->max_lost_cycles();
+    out->lifecycle.enable_imm_lifecycle = lifecycle->enable_imm_lifecycle();
+    out->lifecycle.model_count_hint = lifecycle->model_count_hint();
+  }
+  if (value->recognition() != nullptr) {
+    const cfb::RirRecognitionPolicy* recognition = value->recognition();
+    out->recognition.enabled = recognition->enabled();
+    out->recognition.min_confirmed_hits = recognition->min_confirmed_hits();
+    out->recognition.accumulation_window_sec = recognition->accumulation_window_sec();
+    out->recognition.min_observation_count = recognition->min_observation_count();
+    out->recognition.acceptance_score = recognition->acceptance_score();
+    out->recognition.minimum_margin = recognition->minimum_margin();
+    out->recognition.result_hold_sec = recognition->result_hold_sec();
+    if (recognition->feature_weights() != nullptr) {
+      out->recognition.feature_weights.rcs_weight =
+          recognition->feature_weights()->rcs_weight();
+      out->recognition.feature_weights.motion_weight =
+          recognition->feature_weights()->motion_weight();
+      out->recognition.feature_weights.polarization_weight =
+          recognition->feature_weights()->polarization_weight();
+      out->recognition.feature_weights.range_profile_weight =
+          recognition->feature_weights()->range_profile_weight();
+    }
+    out->recognition.database_path =
+        recognition->database_path() != nullptr ? recognition->database_path()->str() : "";
+  }
+}
+
+flatbuffers::Offset<cfb::RirEnvironmentConfig> EncodeEnvironmentConfig(
+    flatbuffers::FlatBufferBuilder* builder, const config::RirEnvironmentConfig& value) {
+  const flatbuffers::Offset<cfb::RirVegetationScatterPhysicsConfig> vegetation =
+      cfb::CreateRirVegetationScatterPhysicsConfig(
+          *builder, static_cast<int>(value.vegetation_scatter_physics.cover_profile),
+          value.vegetation_scatter_physics.enable_physical_model);
+  const flatbuffers::Offset<cfb::RirAtmosphericObservation> atmospheric =
+      cfb::CreateRirAtmosphericObservation(
+          *builder, value.atmospheric_physics.enable_physical_model,
+          value.atmospheric_physics.pressure_hpa, value.atmospheric_physics.temperature_k,
+          value.atmospheric_physics.relative_humidity);
+  return cfb::CreateRirEnvironmentConfig(*builder, value.enable_environment_effects,
+                                         value.weather_attenuation_db, vegetation, atmospheric);
+}
+
+void DecodeEnvironmentConfig(const cfb::RirEnvironmentConfig* value,
+                             config::RirEnvironmentConfig* out) {
+  if (value == nullptr) {
+    return;
+  }
+  out->enable_environment_effects = value->enable_environment_effects();
+  out->weather_attenuation_db = value->weather_attenuation_db();
+  if (value->vegetation_scatter_physics() != nullptr) {
+    out->vegetation_scatter_physics.cover_profile =
+        static_cast<config::RirVegetationCoverProfile>(
+            value->vegetation_scatter_physics()->cover_profile());
+    out->vegetation_scatter_physics.enable_physical_model =
+        value->vegetation_scatter_physics()->enable_physical_model();
+  }
+  if (value->atmospheric_physics() != nullptr) {
+    out->atmospheric_physics.enable_physical_model =
+        value->atmospheric_physics()->enable_physical_model();
+    out->atmospheric_physics.pressure_hpa = value->atmospheric_physics()->pressure_hpa();
+    out->atmospheric_physics.temperature_k = value->atmospheric_physics()->temperature_k();
+    out->atmospheric_physics.relative_humidity =
+        value->atmospheric_physics()->relative_humidity();
   }
 }
 
@@ -588,6 +1029,238 @@ bool DecodeCycleReplayRecordFlatbuffer(const std::string& payload_bytes,
 
   *record = std::move(candidate);
   return true;
+}
+
+std::string EncodeRirCycleInput(const RirCycleInput& input) {
+  flatbuffers::FlatBufferBuilder builder(1024);
+  std::vector<flatbuffers::Offset<fb::RirSceneTarget>> scene_targets;
+  scene_targets.reserve(input.scene_targets.size());
+  for (std::size_t i = 0U; i < input.scene_targets.size(); ++i) {
+    scene_targets.push_back(EncodeSceneTarget(&builder, input.scene_targets[i]));
+  }
+  const flatbuffers::Offset<fb::RirCycleInput> root = fb::CreateRirCycleInput(
+      builder, input.input_cycle_index, input.dt_sec, input.sim_time_sec,
+      EncodeRfV2Position(&builder, input.platform_position),
+      builder.CreateVector(scene_targets), EncodeRfV2Scene(&builder, input.rf_scene));
+  // RirCycleInput 不是 rir_replay.fbs 的 root_type：不写 file_identifier，
+  // 解码侧以 GetRoot<RirCycleInput> + Verifier 校验（与 EOS/SAR 同口径）。
+  builder.Finish(root);
+  return oneq::common::replay::CopyFinishedFlatbuffer(builder);
+}
+
+bool DecodeRirCycleInput(const std::string& payload_bytes, RirCycleInput* input,
+                         std::string* error) {
+  if (input == nullptr) {
+    if (error != nullptr) {
+      *error = "input output must be non-null";
+    }
+    return false;
+  }
+  if (payload_bytes.empty()) {
+    if (error != nullptr) {
+      *error = "empty RirCycleInput flatbuffers payload";
+    }
+    return false;
+  }
+  const std::uint8_t* payload = reinterpret_cast<const std::uint8_t*>(payload_bytes.data());
+  flatbuffers::Verifier verifier(payload, payload_bytes.size());
+  if (!verifier.VerifyBuffer<fb::RirCycleInput>()) {
+    if (error != nullptr) {
+      *error = "flatbuffer verification failed for RirCycleInput";
+    }
+    return false;
+  }
+  const fb::RirCycleInput* root = flatbuffers::GetRoot<fb::RirCycleInput>(payload);
+  if (root == nullptr) {
+    if (error != nullptr) {
+      *error = "RirCycleInput root table missing";
+    }
+    return false;
+  }
+  RirCycleInput candidate;
+  candidate.input_cycle_index = root->input_cycle_index();
+  candidate.dt_sec = root->dt_sec();
+  candidate.sim_time_sec = root->sim_time_sec();
+  candidate.platform_position = DecodeRfV2Position(root->platform_position());
+  if (root->scene_targets() != nullptr) {
+    candidate.scene_targets.reserve(root->scene_targets()->size());
+    for (const fb::RirSceneTarget* target : *root->scene_targets()) {
+      RirSceneTarget decoded;
+      if (!DecodeSceneTarget(target, &decoded)) {
+        if (error != nullptr) {
+          *error = "invalid RirCycleInput scene target";
+        }
+        return false;
+      }
+      candidate.scene_targets.push_back(decoded);
+    }
+  }
+  candidate.rf_scene = DecodeRfV2Scene(root->rf_scene());
+  *input = candidate;
+  return true;
+}
+
+std::string EncodeRirSessionConfig(const config::RirSessionConfig& config) {
+  flatbuffers::FlatBufferBuilder builder(1024);
+  const flatbuffers::Offset<cfb::RirHardwareConfig> hardware =
+      EncodeHardwareConfig(&builder, config.hardware);
+  const flatbuffers::Offset<cfb::RirOrientationConfig> orientation =
+      cfb::CreateRirOrientationConfig(
+          builder,
+          cfb::CreateRirAzimuthElevationLimitsDeg(
+              builder, config.orientation.steerable_volume_deg.az_min_deg,
+              config.orientation.steerable_volume_deg.az_max_deg,
+              config.orientation.steerable_volume_deg.el_min_deg,
+              config.orientation.steerable_volume_deg.el_max_deg));
+  const flatbuffers::Offset<cfb::RirMissionConfig> mission =
+      EncodeMissionConfig(&builder, config.mission);
+  const flatbuffers::Offset<cfb::RirPolicyConfig> policy =
+      EncodePolicyConfig(&builder, config.policy);
+  const flatbuffers::Offset<cfb::RirEnvironmentConfig> environment =
+      EncodeEnvironmentConfig(&builder, config.environment);
+  const flatbuffers::Offset<cfb::RirSessionConfig> root = cfb::CreateRirSessionConfig(
+      builder, hardware, orientation, mission, policy, environment, config.sensor_platform_id,
+      config.sensor_enabled);
+  builder.Finish(root, cfb::RirSessionConfigIdentifier());
+  return oneq::common::replay::CopyFinishedFlatbuffer(builder);
+}
+
+bool DecodeRirSessionConfig(const std::string& payload_bytes, config::RirSessionConfig* config,
+                            std::string* error) {
+  if (config == nullptr) {
+    if (error != nullptr) {
+      *error = "config output must be non-null";
+    }
+    return false;
+  }
+  if (payload_bytes.empty()) {
+    if (error != nullptr) {
+      *error = "empty RirSessionConfig flatbuffers payload";
+    }
+    return false;
+  }
+  const std::uint8_t* payload = reinterpret_cast<const std::uint8_t*>(payload_bytes.data());
+  flatbuffers::Verifier verifier(payload, payload_bytes.size());
+  if (!cfb::VerifyRirSessionConfigBuffer(verifier)) {
+    if (error != nullptr) {
+      *error = "flatbuffer verification failed for RirSessionConfig";
+    }
+    return false;
+  }
+  const cfb::RirSessionConfig* root = cfb::GetRirSessionConfig(payload);
+  if (root == nullptr) {
+    if (error != nullptr) {
+      *error = "RirSessionConfig root table missing";
+    }
+    return false;
+  }
+  config::RirSessionConfig candidate;
+  DecodeHardwareConfig(root->hardware(), &candidate.hardware);
+  if (root->orientation() != nullptr &&
+      root->orientation()->steerable_volume_deg() != nullptr) {
+    const cfb::RirAzimuthElevationLimitsDeg* limits =
+        root->orientation()->steerable_volume_deg();
+    candidate.orientation.steerable_volume_deg.az_min_deg = limits->az_min_deg();
+    candidate.orientation.steerable_volume_deg.az_max_deg = limits->az_max_deg();
+    candidate.orientation.steerable_volume_deg.el_min_deg = limits->el_min_deg();
+    candidate.orientation.steerable_volume_deg.el_max_deg = limits->el_max_deg();
+  }
+  DecodeMissionConfig(root->mission(), &candidate.mission);
+  DecodePolicyConfig(root->policy(), &candidate.policy);
+  DecodeEnvironmentConfig(root->environment(), &candidate.environment);
+  candidate.sensor_platform_id = root->sensor_platform_id();
+  candidate.sensor_enabled = root->sensor_enabled();
+  *config = candidate;
+  return true;
+}
+
+std::string EncodeRirRuntimeConfigPatch(const config::RirRuntimeConfigPatch& patch) {
+  flatbuffers::FlatBufferBuilder builder(1024);
+  const flatbuffers::Offset<cfb::RirMissionConfig> mission =
+      EncodeMissionConfig(&builder, patch.mission);
+  const flatbuffers::Offset<cfb::RirAzimuthElevationDeg> scan_center =
+      EncodeAzEl(&builder, patch.scan_center_deg);
+  const flatbuffers::Offset<cfb::RirPolicyConfig> policy =
+      EncodePolicyConfig(&builder, patch.policy);
+  const flatbuffers::Offset<cfb::RirEnvironmentConfig> environment =
+      EncodeEnvironmentConfig(&builder, patch.environment);
+  const flatbuffers::Offset<cfb::RirRuntimeConfigPatch> root =
+      cfb::CreateRirRuntimeConfigPatch(
+          builder, patch.has_mission, mission, patch.has_work_mode,
+          static_cast<int>(patch.work_mode), patch.has_scan_center, scan_center,
+          patch.has_policy, policy, patch.has_environment, environment,
+          patch.has_sensor_enabled, patch.sensor_enabled, patch.has_designated_target_id,
+          patch.designated_external_target_id, patch.has_designation_duration_cycles,
+          patch.designation_duration_cycles);
+  builder.Finish(root);
+  return oneq::common::replay::CopyFinishedFlatbuffer(builder);
+}
+
+bool DecodeRirRuntimeConfigPatch(const std::string& payload_bytes,
+                                 config::RirRuntimeConfigPatch* patch, std::string* error) {
+  if (patch == nullptr) {
+    if (error != nullptr) {
+      *error = "patch output must be non-null";
+    }
+    return false;
+  }
+  if (payload_bytes.empty()) {
+    if (error != nullptr) {
+      *error = "empty RirRuntimeConfigPatch flatbuffers payload";
+    }
+    return false;
+  }
+  const std::uint8_t* payload = reinterpret_cast<const std::uint8_t*>(payload_bytes.data());
+  flatbuffers::Verifier verifier(payload, payload_bytes.size());
+  if (!verifier.VerifyBuffer<cfb::RirRuntimeConfigPatch>()) {
+    if (error != nullptr) {
+      *error = "flatbuffer verification failed for RirRuntimeConfigPatch";
+    }
+    return false;
+  }
+  const cfb::RirRuntimeConfigPatch* root =
+      flatbuffers::GetRoot<cfb::RirRuntimeConfigPatch>(payload);
+  if (root == nullptr) {
+    if (error != nullptr) {
+      *error = "RirRuntimeConfigPatch root table missing";
+    }
+    return false;
+  }
+  config::RirRuntimeConfigPatch candidate;
+  candidate.has_mission = root->has_mission();
+  DecodeMissionConfig(root->mission(), &candidate.mission);
+  candidate.has_work_mode = root->has_work_mode();
+  candidate.work_mode = static_cast<config::RirWorkMode>(root->work_mode());
+  candidate.has_scan_center = root->has_scan_center();
+  DecodeAzEl(root->scan_center_deg(), &candidate.scan_center_deg);
+  candidate.has_policy = root->has_policy();
+  DecodePolicyConfig(root->policy(), &candidate.policy);
+  candidate.has_environment = root->has_environment();
+  DecodeEnvironmentConfig(root->environment(), &candidate.environment);
+  candidate.has_sensor_enabled = root->has_sensor_enabled();
+  candidate.sensor_enabled = root->sensor_enabled();
+  candidate.has_designated_target_id = root->has_designated_target_id();
+  candidate.designated_external_target_id = root->designated_external_target_id();
+  candidate.has_designation_duration_cycles = root->has_designation_duration_cycles();
+  candidate.designation_duration_cycles = root->designation_duration_cycles();
+  *patch = candidate;
+  return true;
+}
+
+std::string EncodeRirFailureMarker(const oneq::replay::ReplayTraceFailure& failure) {
+  flatbuffers::FlatBufferBuilder builder(512);
+  const flatbuffers::Offset<cfb::RirFailureMarker> root = cfb::CreateRirFailureMarkerDirect(
+      builder, failure.error_code.c_str(), failure.message.c_str(), failure.location.c_str(),
+      failure.has_cycle_index, failure.cycle_index, failure.has_sim_time_sec,
+      failure.sim_time_sec, failure.diagnostics_payload.c_str(), false, 0U);
+  builder.Finish(root);
+  return oneq::common::replay::CopyFinishedFlatbuffer(builder);
+}
+
+bool DecodeRirFailureMarker(const std::string& payload_bytes,
+                            oneq::replay::ReplayTraceFailure* failure, std::string* error) {
+  return oneq::common::replay::DecodeFailureMarkerPayload<cfb::RirFailureMarker>(
+      payload_bytes, failure, error);
 }
 
 }  // namespace session

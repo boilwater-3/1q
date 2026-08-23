@@ -2,12 +2,13 @@
 
 #include <algorithm>
 #include <cmath>
+#include "common/numerics/Constants.h"
 
 namespace sbirs_sensor {
 namespace foundation {
 namespace {
 
-const double kPi = 3.14159265358979323846;
+using oneq::common::numerics::kPi;
 
 }  // namespace
 

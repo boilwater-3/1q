@@ -13,18 +13,18 @@
 
 #include "1q/airborne_radar/airborne_radar.hpp"
 #include "1q/airborne_radar/session/ArReplaySession.h"
-#include "1q/airborne_radar/session/ArTraceSession.h"
+#include "1q/airborne_radar/session/ArRecordingSession.h"
 #include "1q/coordinate/position_transform.h"
 #include "1q/coordinate/scene_transform.h"
 #include "1q/coordinate/velocity_transform.h"
 #include "1q/electro_optical_sensor/electro_optical_sensor.hpp"
 #include "1q/electro_optical_sensor/session/EosReplaySession.h"
-#include "1q/electro_optical_sensor/session/EosTraceSession.h"
+#include "1q/electro_optical_sensor/session/EosRecordingSession.h"
 #include "1q/electronic_countermeasure/EcmEsrAdapter.h"
 #include "1q/electronic_countermeasure/EcmSession.h"
 #include "1q/electronic_surveillance_radar/electronic_surveillance_radar.hpp"
 #include "1q/electronic_surveillance_radar/session/EsrReplaySession.h"
-#include "1q/electronic_surveillance_radar/session/EsrTraceSession.h"
+#include "1q/electronic_surveillance_radar/session/EsrRecordingSession.h"
 #include "1q/replay/ReplayTrace.h"
 #include "support/eos_enu_scene_helpers.h"
 #include "support/oneq_test_temp_dir.h"
@@ -184,7 +184,7 @@ oneq::electromagnetics::RfEmissionFrame MakeNoiseInterferenceFrame(
   return frame;
 }
 
-ArRfTestCycleResult RunArCycle(ar_session::ArTraceSession* session,
+ArRfTestCycleResult RunArCycle(ar_session::ArRecordingSession* session,
                                const ArRfTestCycleInput& input) {
   ArRfTestCycleResult result;
   if (session == nullptr || !input.valid) {
@@ -249,7 +249,6 @@ esr_session::EsrCycleInput BuildEsrInput(const WorldState& ws, float dt, std::ui
   input.cycle_start_time_s = static_cast<double>(cycle_index - 1U) * dt;
   input.dt_sec = dt;
   input.platform_entity_id = 7001U;
-  input.has_platform_ecef_kinematics = true;
   input.platform_position_ecef_m = ws.platform_pos;
   input.platform_velocity_ecef_mps = ws.platform_vel;
   input.rf_emissions.world_cycle_index = cycle_index;
@@ -508,7 +507,7 @@ TEST(MultiModelScenarioTest, AirToAirHeadOn) {
   const float dt = 1.0f;
   const std::uint32_t num_cycles = 30;
 
-  // AR TraceSession
+  // AR RecordingSession
   const std::string ar_trace = MakeTempTraceDir("multi-scene1-ar");
   oneq::replay::ReplayTraceManifest ar_manifest;
   ar_manifest.trace_id = "scene1-air-to-air";
@@ -517,12 +516,12 @@ TEST(MultiModelScenarioTest, AirToAirHeadOn) {
 
   std::shared_ptr<oneq::replay::ReplayTraceWriter> ar_writer(
       new oneq::replay::ReplayTraceWriter(ar_trace, ar_manifest, true));
-  ar_session::ArTraceSessionOptions ar_opts;
+  ar_session::ArRecordingSessionOptions ar_opts;
   ar_opts.replay_writer = ar_writer;
-  ar_opts.trace_config_on_construct = true;
-  ar_session::ArTraceSession ar_session(MakeArConfigAirToAir(), ar_opts);
+  ar_opts.record_config_on_construct = true;
+  ar_session::ArRecordingSession ar_session(MakeArConfigAirToAir(), ar_opts);
 
-  // EOS TraceSession
+  // EOS RecordingSession
   const std::string eos_trace = MakeTempTraceDir("multi-scene1-eos");
   oneq::replay::ReplayTraceManifest eos_manifest;
   eos_manifest.trace_id = "scene1-air-to-air";
@@ -531,12 +530,12 @@ TEST(MultiModelScenarioTest, AirToAirHeadOn) {
 
   std::shared_ptr<oneq::replay::ReplayTraceWriter> eos_writer(
       new oneq::replay::ReplayTraceWriter(eos_trace, eos_manifest, true));
-  eos_session::EosTraceSessionOptions eos_opts;
+  eos_session::EosRecordingSessionOptions eos_opts;
   eos_opts.replay_writer = eos_writer;
-  eos_opts.trace_config_on_construct = true;
-  eos_session::EosTraceSession eos_session(MakeEosConfigAirToAir(), eos_opts);
+  eos_opts.record_config_on_construct = true;
+  eos_session::EosRecordingSession eos_session(MakeEosConfigAirToAir(), eos_opts);
 
-  // ESR TraceSession
+  // ESR RecordingSession
   const std::string esr_trace = MakeTempTraceDir("multi-scene1-esr");
   oneq::replay::ReplayTraceManifest esr_manifest;
   esr_manifest.trace_id = "scene1-air-to-air";
@@ -545,10 +544,10 @@ TEST(MultiModelScenarioTest, AirToAirHeadOn) {
 
   std::shared_ptr<oneq::replay::ReplayTraceWriter> esr_writer(
       new oneq::replay::ReplayTraceWriter(esr_trace, esr_manifest, true));
-  esr_session::EsrTraceSessionOptions esr_opts;
+  esr_session::EsrRecordingSessionOptions esr_opts;
   esr_opts.replay_writer = esr_writer;
-  esr_opts.trace_config_on_construct = true;
-  esr_session::EsrTraceSession esr_trace_sess(MakeEsrConfigAirToAir(), esr_opts);
+  esr_opts.record_config_on_construct = true;
+  esr_session::EsrRecordingSession esr_trace_sess(MakeEsrConfigAirToAir(), esr_opts);
 
 
 
@@ -726,10 +725,10 @@ TEST(MultiModelScenarioTest, AirToGroundLookDown) {
   ar_mf.scenario_id = "look-down";
 
   auto ar_wr = std::make_shared<oneq::replay::ReplayTraceWriter>(ar_trace, ar_mf, true);
-  ar_session::ArTraceSessionOptions ar_opts;
+  ar_session::ArRecordingSessionOptions ar_opts;
   ar_opts.replay_writer = ar_wr;
-  ar_opts.trace_config_on_construct = true;
-  ar_session::ArTraceSession ar_sess(MakeArConfigAirToGround(), ar_opts);
+  ar_opts.record_config_on_construct = true;
+  ar_session::ArRecordingSession ar_sess(MakeArConfigAirToGround(), ar_opts);
 
   const std::string eos_trace = MakeTempTraceDir("multi-scene2-eos");
   oneq::replay::ReplayTraceManifest eos_mf;
@@ -738,10 +737,10 @@ TEST(MultiModelScenarioTest, AirToGroundLookDown) {
   eos_mf.scenario_id = "look-down";
 
   auto eos_wr = std::make_shared<oneq::replay::ReplayTraceWriter>(eos_trace, eos_mf, true);
-  eos_session::EosTraceSessionOptions eos_opts;
+  eos_session::EosRecordingSessionOptions eos_opts;
   eos_opts.replay_writer = eos_wr;
-  eos_opts.trace_config_on_construct = true;
-  eos_session::EosTraceSession eos_sess(MakeEosConfigAirToGround(), eos_opts);
+  eos_opts.record_config_on_construct = true;
+  eos_session::EosRecordingSession eos_sess(MakeEosConfigAirToGround(), eos_opts);
 
   const std::string esr_trace = MakeTempTraceDir("multi-scene2-esr");
   oneq::replay::ReplayTraceManifest esr_mf;
@@ -750,10 +749,10 @@ TEST(MultiModelScenarioTest, AirToGroundLookDown) {
   esr_mf.scenario_id = "look-down";
 
   auto esr_wr = std::make_shared<oneq::replay::ReplayTraceWriter>(esr_trace, esr_mf, true);
-  esr_session::EsrTraceSessionOptions esr_opts;
+  esr_session::EsrRecordingSessionOptions esr_opts;
   esr_opts.replay_writer = esr_wr;
-  esr_opts.trace_config_on_construct = true;
-  esr_session::EsrTraceSession esr_sess(MakeEsrConfigAirToGround(), esr_opts);
+  esr_opts.record_config_on_construct = true;
+  esr_session::EsrRecordingSession esr_sess(MakeEsrConfigAirToGround(), esr_opts);
 
 
 
@@ -922,10 +921,10 @@ TEST(MultiModelScenarioTest, DenseFormationAndJamming) {
   ar_mf.scenario_id = "jamming";
 
   auto ar_wr = std::make_shared<oneq::replay::ReplayTraceWriter>(ar_trace, ar_mf, true);
-  ar_session::ArTraceSessionOptions ar_opts;
+  ar_session::ArRecordingSessionOptions ar_opts;
   ar_opts.replay_writer = ar_wr;
-  ar_opts.trace_config_on_construct = true;
-  ar_session::ArTraceSession ar_sess(ar_cfg, ar_opts);
+  ar_opts.record_config_on_construct = true;
+  ar_session::ArRecordingSession ar_sess(ar_cfg, ar_opts);
 
   const std::string eos_trace = MakeTempTraceDir("multi-scene3-eos");
   oneq::replay::ReplayTraceManifest eos_mf;
@@ -934,14 +933,14 @@ TEST(MultiModelScenarioTest, DenseFormationAndJamming) {
   eos_mf.scenario_id = "jamming";
 
   auto eos_wr = std::make_shared<oneq::replay::ReplayTraceWriter>(eos_trace, eos_mf, true);
-  eos_session::EosTraceSessionOptions eos_opts;
+  eos_session::EosRecordingSessionOptions eos_opts;
   eos_opts.replay_writer = eos_wr;
-  eos_opts.trace_config_on_construct = true;
+  eos_opts.record_config_on_construct = true;
 
   // EOS 纯红外模式（夜间）
   eos_config::EosSessionConfig eos_cfg = MakeEosConfigAirToAir();
   eos_cfg.mission.work_mode = eos::config::EosWorkMode::kInfraredOnly;
-  eos_session::EosTraceSession eos_sess(eos_cfg, eos_opts);
+  eos_session::EosRecordingSession eos_sess(eos_cfg, eos_opts);
 
   const std::string esr_trace = MakeTempTraceDir("multi-scene3-esr");
   oneq::replay::ReplayTraceManifest esr_mf;
@@ -950,10 +949,10 @@ TEST(MultiModelScenarioTest, DenseFormationAndJamming) {
   esr_mf.scenario_id = "jamming";
 
   auto esr_wr = std::make_shared<oneq::replay::ReplayTraceWriter>(esr_trace, esr_mf, true);
-  esr_session::EsrTraceSessionOptions esr_opts;
+  esr_session::EsrRecordingSessionOptions esr_opts;
   esr_opts.replay_writer = esr_wr;
-  esr_opts.trace_config_on_construct = true;
-  esr_session::EsrTraceSession esr_sess(MakeEsrConfigAirToAir(), esr_opts);
+  esr_opts.record_config_on_construct = true;
+  esr_session::EsrRecordingSession esr_sess(MakeEsrConfigAirToAir(), esr_opts);
 
   // AR 自然环境与外部 RF 发射事实分离；目标 B 的伴随干扰由 RF frame 表达。
 
@@ -1088,10 +1087,10 @@ TEST(MultiModelScenarioTest, ZeroDopplerCrossing) {
   ar_mf.scenario_id = "crossing";
 
   auto ar_wr = std::make_shared<oneq::replay::ReplayTraceWriter>(ar_trace, ar_mf, true);
-  ar_session::ArTraceSessionOptions ar_opts;
+  ar_session::ArRecordingSessionOptions ar_opts;
   ar_opts.replay_writer = ar_wr;
-  ar_opts.trace_config_on_construct = true;
-  ar_session::ArTraceSession ar_sess(MakeArConfigAirToAir(), ar_opts);
+  ar_opts.record_config_on_construct = true;
+  ar_session::ArRecordingSession ar_sess(MakeArConfigAirToAir(), ar_opts);
 
   const std::string eos_trace = MakeTempTraceDir("multi-scene4-eos");
   oneq::replay::ReplayTraceManifest eos_mf;
@@ -1100,10 +1099,10 @@ TEST(MultiModelScenarioTest, ZeroDopplerCrossing) {
   eos_mf.scenario_id = "crossing";
 
   auto eos_wr = std::make_shared<oneq::replay::ReplayTraceWriter>(eos_trace, eos_mf, true);
-  eos_session::EosTraceSessionOptions eos_opts;
+  eos_session::EosRecordingSessionOptions eos_opts;
   eos_opts.replay_writer = eos_wr;
-  eos_opts.trace_config_on_construct = true;
-  eos_session::EosTraceSession eos_sess(MakeEosConfigAirToAir(), eos_opts);
+  eos_opts.record_config_on_construct = true;
+  eos_session::EosRecordingSession eos_sess(MakeEosConfigAirToAir(), eos_opts);
 
   const std::string esr_trace = MakeTempTraceDir("multi-scene4-esr");
   oneq::replay::ReplayTraceManifest esr_mf;
@@ -1112,10 +1111,10 @@ TEST(MultiModelScenarioTest, ZeroDopplerCrossing) {
   esr_mf.scenario_id = "crossing";
 
   auto esr_wr = std::make_shared<oneq::replay::ReplayTraceWriter>(esr_trace, esr_mf, true);
-  esr_session::EsrTraceSessionOptions esr_opts;
+  esr_session::EsrRecordingSessionOptions esr_opts;
   esr_opts.replay_writer = esr_wr;
-  esr_opts.trace_config_on_construct = true;
-  esr_session::EsrTraceSession esr_sess(MakeEsrConfigAirToAir(), esr_opts);
+  esr_opts.record_config_on_construct = true;
+  esr_session::EsrRecordingSession esr_sess(MakeEsrConfigAirToAir(), esr_opts);
 
 
 
@@ -1268,7 +1267,7 @@ TEST(MultiModelScenarioTest, SensorDrivenEcmUsesPreviousSuccessfulEsrFrame) {
   ar_config::ArSessionConfig ar_config = MakeArConfigAirToAir();
   ar_config.hardware.receiver.co_site_paths.push_back(
       {ecm_config.transmitter_equipment_id, ar_config.hardware.receiver.equipment_id, 100.0});
-  ar_session::ArTraceSession ar(ar_config, ar_session::ArTraceSessionOptions{nullptr, false});
+  ar_session::ArRecordingSession ar(ar_config, ar_session::ArRecordingSessionOptions{});
 
   ArRfTestCycleInput ar_input =
       BuildArInput(world, 1.0f, source_esr_cycle + 1U);
@@ -1369,7 +1368,7 @@ TEST(MultiModelScenarioTest, EcmDeceptionFalseTargetReachesArAndTriggersEccm) {
   ar_config::ArSessionConfig ar_config = MakeArConfigAirToAir();
   ar_config.hardware.receiver.co_site_paths.push_back(
       {ecm_config.transmitter_equipment_id, ar_config.hardware.receiver.equipment_id, 100.0});
-  ar_session::ArTraceSession ar(ar_config, ar_session::ArTraceSessionOptions{nullptr, false});
+  ar_session::ArRecordingSession ar(ar_config, ar_session::ArRecordingSessionOptions{});
 
 
   // 第 1 周期：验证 AR 产生 kLikelyFalseTarget 干扰观测。

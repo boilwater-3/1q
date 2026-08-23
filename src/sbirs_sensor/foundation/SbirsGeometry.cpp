@@ -4,14 +4,15 @@
 #include <cmath>
 
 #include "1q/coordinate/inertial_transform.h"
+#include "common/numerics/Constants.h"
 
 namespace sbirs_sensor {
 namespace foundation {
 namespace {
 
-const double kPi = 3.14159265358979323846;
-const double kRadToDeg = 180.0 / kPi;
-const double kDegToRad = kPi / 180.0;
+using oneq::common::numerics::kPi;
+using oneq::common::numerics::DegToRad;
+using oneq::common::numerics::RadToDeg;
 
 double Clamp(double value, double low, double high) { return std::max(low, std::min(high, value)); }
 
@@ -45,7 +46,7 @@ session::SbirsVector3M Unit(const session::SbirsVector3M& value) {
 }
 
 float ComputeAzimuthDeg(const session::SbirsVector3M& los) {
-  return static_cast<float>(std::atan2(los.y, los.x) * kRadToDeg);
+  return static_cast<float>(RadToDeg(std::atan2(los.y, los.x)));
 }
 
 float ComputeElevationDeg(const session::SbirsVector3M& los) {
@@ -53,17 +54,17 @@ float ComputeElevationDeg(const session::SbirsVector3M& los) {
   if (range <= 0.0) {
     return 0.0f;
   }
-  return static_cast<float>(std::asin(Clamp(los.z / range, -1.0, 1.0)) * kRadToDeg);
+  return static_cast<float>(RadToDeg(std::asin(Clamp(los.z / range, -1.0, 1.0))));
 }
 
 float AngularSeparationDeg(float az_a_deg, float el_a_deg, float az_b_deg, float el_b_deg) {
-  const double az_a = az_a_deg * kDegToRad;
-  const double el_a = el_a_deg * kDegToRad;
-  const double az_b = az_b_deg * kDegToRad;
-  const double el_b = el_b_deg * kDegToRad;
+  const double az_a = DegToRad(az_a_deg);
+  const double el_a = DegToRad(el_a_deg);
+  const double az_b = DegToRad(az_b_deg);
+  const double el_b = DegToRad(el_b_deg);
   const double dot =
       std::sin(el_a) * std::sin(el_b) + std::cos(el_a) * std::cos(el_b) * std::cos(az_a - az_b);
-  return static_cast<float>(std::acos(Clamp(dot, -1.0, 1.0)) * kRadToDeg);
+  return static_cast<float>(RadToDeg(std::acos(Clamp(dot, -1.0, 1.0))));
 }
 
 float ComputeRelativeAngularRateDegPerSec(const session::SbirsVector3M& relative_position_m,
@@ -80,7 +81,7 @@ float ComputeRelativeAngularRateDegPerSec(const session::SbirsVector3M& relative
   perp.y = relative_velocity_m_per_s.y - radial_speed * u.y;
   perp.z = relative_velocity_m_per_s.z - radial_speed * u.z;
   const double perp_norm = Norm(perp);
-  return static_cast<float>(perp_norm / range * kRadToDeg);
+  return static_cast<float>(RadToDeg(perp_norm / range));
 }
 
 double ComputeEarthOccultationMarginM(const session::SbirsVector3M& satellite_position_ecef_m,
@@ -151,8 +152,8 @@ void ComputeGeocentricLatLonDeg(const session::SbirsVector3M& position_ecef_m,
     }
     return;
   }
-  *latitude_deg = std::asin(Clamp(position_ecef_m.z / radius, -1.0, 1.0)) * kRadToDeg;
-  *longitude_deg = std::atan2(position_ecef_m.y, position_ecef_m.x) * kRadToDeg;
+  *latitude_deg = RadToDeg(std::asin(Clamp(position_ecef_m.z / radius, -1.0, 1.0)));
+  *longitude_deg = RadToDeg(std::atan2(position_ecef_m.y, position_ecef_m.x));
 }
 
 bool TryComputeGroundIntersectionLatLonDeg(const session::SbirsVector3M& satellite_position_eci_m,
@@ -185,8 +186,8 @@ bool ComputeFocalPlaneOffset(double focal_length_m, double pixel_pitch_m, float 
   if (offset == nullptr || focal_length_m <= 0.0 || pixel_pitch_m <= 0.0) {
     return false;
   }
-  offset->x_m = focal_length_m * std::tan(static_cast<double>(delta_az_deg) * kDegToRad);
-  offset->y_m = focal_length_m * std::tan(static_cast<double>(delta_el_deg) * kDegToRad);
+  offset->x_m = focal_length_m * std::tan(DegToRad(static_cast<double>(delta_az_deg)));
+  offset->y_m = focal_length_m * std::tan(DegToRad(static_cast<double>(delta_el_deg)));
   offset->x_pixels = offset->x_m / pixel_pitch_m;
   offset->y_pixels = offset->y_m / pixel_pitch_m;
   return true;

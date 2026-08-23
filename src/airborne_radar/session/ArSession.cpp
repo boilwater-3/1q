@@ -33,6 +33,7 @@
 #include "airborne_radar/signal/pipeline/SignalPipeline.h"
 #include "common/logging/ProjectLog.h"
 #include "common/validation/ValidationUtils.h"
+#include "common/numerics/Constants.h"
 
 namespace airborne_radar {
 namespace session {
@@ -287,10 +288,6 @@ struct ArSession::Impl {
       result.control_profile = RadarContext().GetLatestControlProfile();
     }
     result.association_quality_metrics = SignalPipeline().GetLastAssociationQualityMetrics();
-    result.has_decision_observation = completed.has_decision_observation;
-    if (result.has_decision_observation) {
-      result.decision_observation = completed.decision_observation;
-    }
     FillAppliedDecisionMetadata(result);
     // STT 指定航迹状态回填（派生规则见 BuildSttDesignationCycleState；指令
     // 生命周期阶段为会话级状态，由 RunCycle prepare 推进，见 AdvanceDesignationPhase）：
@@ -589,7 +586,7 @@ struct ArSession::Impl {
     }
 
     oneq::coordinate::LocalFrameReference reference;
-    oneq::foundation::Vector3f radar_local_velocity;
+    oneq::coordinate::Vector3d radar_local_velocity;
     const config::mapping::RuntimeConfigState& next_operating_state =
         has_pending_runtime_update ? pending_runtime_state : runtime_state;
     const config::ArEffectiveOrientationConfig& orientation_config =
@@ -917,12 +914,12 @@ struct ArSession::Impl {
       const signal::detection::ArRfFrontEndResult& front_end,
       std::vector<ArInterferenceObservation>* interference_observations,
       signal::detection::ArDeceptionMeasurementCandidateList* deception_candidates) {
-    constexpr double kBoltzmannJPerK = 1.380649e-23;
+    using oneq::common::numerics::kBoltzmann;
     constexpr double kReferenceTemperatureK = 290.0;
     const config::engineering::DetectionConfig& detection =
         runtime_state.execution_config.detection.engineering;
     const double thermal_noise_power_w =
-        kBoltzmannJPerK * kReferenceTemperatureK *
+        kBoltzmann * kReferenceTemperatureK *
         static_cast<double>(detection.transmitter.bandwidth_hz) *
         std::pow(10.0, static_cast<double>(detection.receiver.noise_figure_db) / 10.0);
     // 为干扰观测构造雷达局部坐标系：原点 LLA + 合成姿态（平台姿态+挂架角），
@@ -1087,10 +1084,6 @@ struct ArSession::Impl {
     result.output_frame = execution_result.output_frame;
     // 规则 13b：正常执行周期按目标排除的 kInfo 诊断转写（abort 路径不变）。
     result.issues = execution_result.issues;
-    result.has_decision_observation = Controller().HasLatestDecisionObservation();
-    if (result.has_decision_observation) {
-      result.decision_observation = Controller().GetLatestDecisionObservation();
-    }
     prepared_ledger_.ClearPrepared();
     return result;
   }

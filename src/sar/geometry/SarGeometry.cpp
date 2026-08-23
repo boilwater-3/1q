@@ -4,13 +4,14 @@
 #include <cmath>
 #include <limits>
 #include <random>
+#include "common/numerics/Constants.h"
 
 namespace sar {
 namespace geometry {
 
 namespace {
 
-constexpr double kPi = 3.141592653589793238462643383279502884;
+using oneq::common::numerics::kPi;
 
 bool IsFinite(const LocalPoint& point) {
   return std::isfinite(point.x_m) && std::isfinite(point.y_m) && std::isfinite(point.z_m);

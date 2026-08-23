@@ -52,21 +52,18 @@ bool SarOutputFrameEqual(const SarOutputFrame& left, const SarOutputFrame& right
 
 bool SarCycleResultEqual(const SarCycleResult& left, const SarCycleResult& right) {
   if (left.input_cycle_index != right.input_cycle_index ||
-      !SarOutputFrameEqual(left.output_frame, right.output_frame) ||
+      !SarOutputFrameEqual(left.product.output_frame, right.product.output_frame) ||
       left.issues.size() != right.issues.size() ||
       left.abort_reason != right.abort_reason ||
       left.status != right.status ||
-      left.focused_image.source != right.focused_image.source ||
-      left.focused_image.row_count != right.focused_image.row_count ||
-      left.focused_image.column_count != right.focused_image.column_count ||
-      left.focused_image.real_values != right.focused_image.real_values ||
-      left.focused_image.imaginary_values != right.focused_image.imaginary_values ||
-      left.focused_image.is_placeholder != right.focused_image.is_placeholder ||
-      left.raw_phase_history.source != right.raw_phase_history.source ||
-      left.raw_phase_history.pulse_count != right.raw_phase_history.pulse_count ||
-      left.raw_phase_history.samples_per_pulse != right.raw_phase_history.samples_per_pulse ||
-      left.raw_phase_history.i_values != right.raw_phase_history.i_values ||
-      left.raw_phase_history.q_values != right.raw_phase_history.q_values) {
+      left.product.focused_image.source != right.product.focused_image.source ||
+      left.product.focused_image.row_count != right.product.focused_image.row_count ||
+      left.product.focused_image.column_count != right.product.focused_image.column_count ||
+      left.product.focused_image.real_values != right.product.focused_image.real_values ||
+      left.product.focused_image.imaginary_values !=
+          right.product.focused_image.imaginary_values ||
+      left.product.focused_image.is_placeholder !=
+          right.product.focused_image.is_placeholder) {
     return false;
   }
   for (std::size_t i = 0U; i < left.issues.size(); ++i) {

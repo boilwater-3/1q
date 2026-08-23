@@ -33,7 +33,7 @@ if(TARGET ${PROJECT_NAME}_remote_identification_radar_integration_tests)
     # 示例识别基线路径（建库工具生成物，提交入库）。
     target_compile_definitions(${PROJECT_NAME}_remote_identification_radar_integration_tests
         PRIVATE
-        "ONEQ_RIR_EXAMPLE_DATABASE_PATH=\"${CMAKE_SOURCE_DIR}/examples/configs/remote_identification_radar/target_feature_database_v1.1.db\"")
+        "ONEQ_RIR_EXAMPLE_DATABASE_PATH=\"${CMAKE_SOURCE_DIR}/examples/basic_config/remote_identification_radar/target_feature_database_v1.1.db\"")
 endif()
 
 if(ONEQ_ENABLE_FLIGHT_DYNAMIC AND TARGET ${PROJECT_NAME}_cross_domain_integration_tests)

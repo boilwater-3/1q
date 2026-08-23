@@ -1,6 +1,6 @@
 ---
 Status: active
-Last-reviewed: 2026-08-20
+Last-reviewed: 2026-08-23
 Authority: SAR 数据流、Public API 边界、时序与状态所有权
 Answers: SAR 的分层架构、数据如何流动、Public API 边界在哪、跨周期状态归谁所有
 ---
@@ -18,9 +18,9 @@ Answers: SAR 的分层架构、数据如何流动、Public API 边界在哪、�
 |---|---|
 | `sar.hpp` | 收窄后的稳定会话便利入口；只聚合 config、cycle input/result、input adapter、input validation 和 `SarSession` |
 | `config/` | `SarSessionConfig` 四域配置、语义常量表（`SarProfileConstants.h`）、薄封装 builder、runtime patch、配置校验 |
-| `session/` | `SarSession`、`SarCycleInput`、`SarCycleResult`、输入适配、trace/replay、debug/lifecycle |
+| `session/` | `SarSession`、`SarCycleInput`、`SarCycleResult`、输入适配、Recording/Replay、debug/lifecycle |
 
-`sar.hpp` 不是 SAR 全量 public header 汇总。trace/replay、debug view、lifecycle recorder 等工具头按需
+`sar.hpp` 不是 SAR 全量 public header 汇总。Recording/Replay、debug view、lifecycle recorder 等工具头按需
 单独包含；算法部件和聚焦中间态不通过 `sar.hpp` 暴露。
 
 内部实现位于 `src/sar/`：
@@ -34,7 +34,7 @@ Answers: SAR 的分层架构、数据如何流动、Public API 边界在哪、�
 | `pipeline/` | `SarProcessingPipeline`（raw history 构造、LFM/匹配滤波、L1/L3 imaging、退化图像检测） |
 | `imaging/` | RDA、BP/GBP、MoCo、phase reference、quality、Omega-K、Spotlight、ScanSAR、Multilook、PGA/CSA evidence |
 | `calibration/` | 辐射定标后处理 |
-| `session/` | `SarSession`（对外门面）、`SarSessionCompositionRoot`（统一装配）、输入校验、trace/replay |
+| `session/` | `SarSession`（对外门面）、`SarSessionCompositionRoot`（统一装配）、输入校验、Recording/Replay |
 | `output/` | Binary / sidecar / HDF5 条件输出 |
 
 `src/sar/SarSources.cmake` 是 SAR 源清单的集中入口。新增生产源必须进入该清单，并通过 SAR C++11/
@@ -48,7 +48,7 @@ flowchart TB
     Entry["sar.hpp\n稳定会话便利入口"]
     Config["config/*\n会话配置 / 运行期补丁"]
     Input["session input/result\n单周期输入 / 结果 / 输出帧"]
-    Tools["optional tools\nTrace / Replay / 调试视图 / 生命周期"]
+    Tools["optional tools\nRecording / Replay / 调试视图 / 生命周期"]
   end
 
   subgraph Session["Session orchestration\n会话编排层"]
@@ -89,7 +89,7 @@ flowchart TB
 
 读图方式：
 1. 新调用方从 `sar.hpp`、`SarSessionConfig`、`SarCycleInput` 和 `SarSession` 开始。
-2. 需要记录或回放时，再单独包含 trace/replay 头。
+2. 需要记录或回放时，再单独包含 Recording/Replay 头。
 3. `SarSessionCompositionRoot` 只在创建阶段装配并转移 Pipeline/Controller 所有权；它不参与周期调度。
 4. 周期执行由 `SarSession` 委托 `SarController`，再由 Controller 调度 Pipeline。
 5. `src/sar/imaging` 等目录可以被内部测试直接覆盖，但不构成 public customization surface。
@@ -156,7 +156,7 @@ flowchart LR
   subgraph Output["输出层"]
     Frame["SarOutputFrame\n系统产品摘要"]
     Result["SarCycleResult\n执行状态 / 诊断 / focused image"]
-    Observability["Trace / Replay / Debug view"]
+    Observability["Recording / Replay / Debug view"]
   end
 
   Config -. "CreateWithDiagnostics only" .-> ConfigCheck
@@ -241,8 +241,9 @@ flowchart TB
 会话不保留"上一有效输出"缓存——非执行周期（校验失败/执行 abort/设备关机）的输出帧严格不复用
 （见 boundaries.md 非执行周期契约）。
 
-`Step()` 只返回 `SarOutputFrame`；`StepWithResult()` 返回结构化执行状态、abort reason、diagnostics 和
-focused image。日志不作为状态判断依据。
+已落地（规则 15e）：`Step()` 返回产品 `SarCycleProduct`（元数据 + 聚焦图像，同一周期记录移动取出）；
+`StepWithResult()` 返回执行层 + `product` 的 `SarCycleResult`。IQ 不进记录。
+日志不作为状态判断依据。
 
 ### 内部轨迹分层
 

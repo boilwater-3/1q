@@ -14,6 +14,8 @@
 
 #include <cmath>
 
+#include "common/numerics/Constants.h"
+
 namespace sar {
 namespace signal {
 
@@ -24,8 +26,8 @@ namespace signal {
  * @return 归一化到 [-π, π] 的弧度。
  */
 inline double WrapPhase(double phase_rad) {
-  constexpr double kTwoPi = 6.283185307179586476925286766559;
-  constexpr double kPi = 3.141592653589793238462643383279503;
+  using oneq::common::numerics::kPi;
+  using oneq::common::numerics::kTwoPi;
   double normalized = std::fmod(phase_rad, kTwoPi);
   if (normalized > kPi) {
     normalized -= kTwoPi;

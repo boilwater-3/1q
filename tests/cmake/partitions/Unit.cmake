@@ -52,17 +52,16 @@ if(_oneq_unit_examples)
     # 因 spdlog 排除的 ecs/scene_data/scene_script 测试随双后端一并恢复）。
     set(_oneq_examples_extra
         "${CMAKE_SOURCE_DIR}/examples/common/json_reader.cpp"
-        "${CMAKE_SOURCE_DIR}/examples/component_attachment/area_division.cpp"
-        "${CMAKE_SOURCE_DIR}/examples/component_attachment/scene_data.cpp"
-        "${CMAKE_SOURCE_DIR}/examples/component_attachment/demo_config.cpp"
-        "${CMAKE_SOURCE_DIR}/examples/component_attachment/scene_script.cpp"
-        "${CMAKE_SOURCE_DIR}/examples/component_attachment/components/ar_sensor_component.cpp"
-        "${CMAKE_SOURCE_DIR}/examples/component_attachment/components/esr_sensor_component.cpp"
-        "${CMAKE_SOURCE_DIR}/examples/component_attachment/components/eos_sensor_component.cpp"
-        "${CMAKE_SOURCE_DIR}/examples/component_attachment/components/sbirs_sensor_component.cpp"
-        "${CMAKE_SOURCE_DIR}/examples/component_attachment/components/sar_sensor_component.cpp"
-        "${CMAKE_SOURCE_DIR}/examples/component_attachment/components/flight_component.cpp"
-        "${CMAKE_SOURCE_DIR}/examples/component_attachment/logger/logger.cpp")
+        "${CMAKE_SOURCE_DIR}/examples/scenes/area_division.cpp"
+        "${CMAKE_SOURCE_DIR}/examples/scenes/scene_data.cpp"
+        "${CMAKE_SOURCE_DIR}/examples/scenes/scene_script.cpp"
+        "${CMAKE_SOURCE_DIR}/examples/components/ar_sensor_component.cpp"
+        "${CMAKE_SOURCE_DIR}/examples/components/esr_sensor_component.cpp"
+        "${CMAKE_SOURCE_DIR}/examples/components/eos_sensor_component.cpp"
+        "${CMAKE_SOURCE_DIR}/examples/components/sbirs_sensor_component.cpp"
+        "${CMAKE_SOURCE_DIR}/examples/components/sar_sensor_component.cpp"
+        "${CMAKE_SOURCE_DIR}/examples/components/flight_component.cpp"
+        "${CMAKE_SOURCE_DIR}/examples/logger/logger.cpp")
     set(_oneq_examples_link_libs "")
     if(PROJECT_ENABLE_SPDLOG)
         list(APPEND _oneq_examples_link_libs ${PROJECT_SPDLOG_TARGET})
@@ -73,17 +72,18 @@ if(_oneq_unit_examples)
         TIMEOUT 60
         INCLUDE_DIRS "${CMAKE_SOURCE_DIR}/examples/common"
                      "${CMAKE_SOURCE_DIR}/tests/consumer/batch_validation"
-                     "${CMAKE_SOURCE_DIR}/examples/component_attachment"
+                     "${CMAKE_SOURCE_DIR}/examples"
         EXTRA_SOURCES ${_oneq_examples_extra}
         COMPILE_DEFS "CA_LOG_BACKEND_SPDLOG=$<BOOL:${PROJECT_ENABLE_SPDLOG}>"
+                     "CA_LIBRARY_FILE_LOG=$<BOOL:${ONEQ_ENABLE_FILE_LOG}>"
         LINK_LIBS ${_oneq_examples_link_libs})
-    # demo_config.cpp（场景覆写应用）需要 examples/configs 路径宏与 RIR 识别库
-    # 路径，与 component_attachment demo 目标同源注入。
+    # scenes/scene_data.cpp（session_config 加载 + RIR 识别库路径解析）需要
+    # examples/basic_config 路径宏，与 examples_core 目标同源注入。
     target_compile_definitions(${PROJECT_NAME}_examples_unit_tests PRIVATE
-        SCENE_CONFIG_DIR="${CMAKE_SOURCE_DIR}/examples/configs"
-        CA_RIR_DATABASE_PATH="${CMAKE_SOURCE_DIR}/examples/configs/remote_identification_radar/target_feature_database_v1.1.db")
+        SCENE_CONFIG_DIR="${CMAKE_SOURCE_DIR}/examples/basic_config"
+        CA_RIR_DATABASE_PATH="${CMAKE_SOURCE_DIR}/examples/basic_config/remote_identification_radar/target_feature_database_v1.1.db")
     if(ONEQ_ENABLE_FLIGHT_DYNAMIC)
-        # 飞行组件 FD 路径（与 examples/component_attachment/CMakeLists.txt 对称）：
+        # 飞行组件 FD 路径（与 examples/CMakeLists.txt 对称）：
         # 静态库不传递依赖，需显式链接 JSBSim；c172x 数据根注入。
         if(DEFINED ONEQ_JSBSIM_DATA_ROOT_DIR AND NOT ONEQ_JSBSIM_DATA_ROOT_DIR STREQUAL "")
             set(_oneq_examples_fd_root "${ONEQ_JSBSIM_DATA_ROOT_DIR}")

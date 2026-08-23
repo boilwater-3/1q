@@ -265,37 +265,6 @@ TEST(SbirsInputValidationTest, HigherFrameRateAllowsTighterDtSec) {
   EXPECT_FALSE(sbirs_sensor::session::HasValidationError(issues_10hz));
 }
 
-// 卫星速度必填（合同指标 2）：缺失即拒绝，code 为 invalid_satellite_velocity。
-TEST(SbirsInputValidationTest, RejectsMissingSatelliteVelocity) {
-  sbirs_sensor::session::SbirsSceneTarget target;
-  target.target_id = 1U;
-  target.position_ecef_m = Vector(8000000.0, 0.0, 0.0);
-  target.radiant_intensity_w_per_sr = 1.0e4;
-
-  const sbirs_sensor::session::SbirsCycleInput input =
-      sbirs_sensor::session::SbirsCycleInputBuilder()
-          .WithCycleIndex(1U)
-          .WithDeltaTimeSec(1.0f)
-          .WithUtcJulianDay(2451544.2230698913)  // GMST≈0：ECI≡ECEF
-          .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
-          // 故意不调用 WithSatelliteVelocity。
-          .AddTarget(target)
-          .Build();
-
-  const sbirs_sensor::session::SbirsIssueList issues =
-      sbirs_sensor::session::ValidateSbirsCycleInput(input, 10.0f);
-  EXPECT_TRUE(sbirs_sensor::session::HasValidationError(issues));
-  bool found_code = false;
-  for (const auto& issue : issues) {
-    EXPECT_EQ(issue.phase, sbirs_sensor::session::SbirsIssuePhase::kInputValidation);
-    if (issue.code == sbirs_sensor::session::codes::kInvalidSatelliteVelocity) {
-      found_code = true;
-      EXPECT_EQ(issue.severity, sbirs_sensor::session::SbirsIssueSeverity::kError);
-    }
-  }
-  EXPECT_TRUE(found_code);
-}
-
 // ECEF 零速度合法（GEO 卫星在 ECEF 中静止）。
 TEST(SbirsInputValidationTest, AcceptsZeroSatelliteVelocity) {
   sbirs_sensor::session::SbirsSceneTarget target;
@@ -341,37 +310,6 @@ TEST(SbirsInputValidationTest, RejectsNonFiniteSatelliteVelocity) {
   for (const auto& issue : issues) {
     if (issue.code == sbirs_sensor::session::codes::kInvalidSatelliteVelocity) {
       found_code = true;
-    }
-  }
-  EXPECT_TRUE(found_code);
-}
-
-TEST(SbirsInputValidationTest, RejectsMissingSatelliteAttitude) {
-  sbirs_sensor::session::SbirsSceneTarget target;
-  target.target_id = 1U;
-  target.position_ecef_m = Vector(8000000.0, 0.0, 0.0);
-  target.radiant_intensity_w_per_sr = 1.0e4;
-
-  const sbirs_sensor::session::SbirsCycleInput input =
-      sbirs_sensor::session::SbirsCycleInputBuilder()
-          .WithCycleIndex(1U)
-          .WithDeltaTimeSec(1.0f)
-          .WithUtcJulianDay(2451544.2230698913)  // GMST≈0：ECI≡ECEF
-          .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
-          .WithSatelliteVelocity(sbirs_sensor::session::SbirsVector3M{})
-          // 故意不调用 WithSatelliteAttitude。
-          .AddTarget(target)
-          .Build();
-
-  const sbirs_sensor::session::SbirsIssueList issues =
-      sbirs_sensor::session::ValidateSbirsCycleInput(input, 10.0f);
-  EXPECT_TRUE(sbirs_sensor::session::HasValidationError(issues));
-  bool found_code = false;
-  for (const auto& issue : issues) {
-    EXPECT_EQ(issue.phase, sbirs_sensor::session::SbirsIssuePhase::kInputValidation);
-    if (issue.code == sbirs_sensor::session::codes::kInvalidSatelliteAttitude) {
-      found_code = true;
-      EXPECT_EQ(issue.severity, sbirs_sensor::session::SbirsIssueSeverity::kError);
     }
   }
   EXPECT_TRUE(found_code);

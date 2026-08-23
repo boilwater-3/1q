@@ -18,7 +18,7 @@
 #include "1q/electro_optical_sensor/session/EosCycleInput.h"
 #include "1q/electro_optical_sensor/session/EosCycleResult.h"
 #include "1q/electro_optical_sensor/session/EosReplaySession.h"
-#include "1q/electro_optical_sensor/session/EosTraceSession.h"
+#include "1q/electro_optical_sensor/session/EosRecordingSession.h"
 #include "1q/replay/ReplayTrace.h"
 #include "electro_optical_sensor/session/EosReplayFlatbufferCodec.h"
 #include "support/oneq_test_temp_dir.h"
@@ -57,10 +57,10 @@ TEST(EosReplaySessionTest, ReplayEosTraceRoundtrip) {
     config.policy.detection.detection_sensitivity_w = 0.8e-12f;
     config.policy.detection.visible_reference_irradiance_w_m2 = 700.0f;
 
-    EosTraceSessionOptions options;
+    EosRecordingSessionOptions options;
     options.replay_writer = replay_writer;
-    options.trace_config_on_construct = true;
-    EosTraceSession session(config, options);
+    options.record_config_on_construct = true;
+    EosRecordingSession session(config, options);
 
     EosCycleInput input;
     input.cycle_index = 1U;
@@ -92,10 +92,10 @@ TEST(EosReplaySessionTest, ReplayInitialPoweredOffTraceRoundtrip) {
         new oneq::replay::ReplayTraceWriter(trace_dir, manifest, true));
     config::EosSessionConfig config;
     config.sensor_enabled = false;
-    EosTraceSessionOptions options;
+    EosRecordingSessionOptions options;
     options.replay_writer = replay_writer;
-    options.trace_config_on_construct = true;
-    EosTraceSession session(config, options);
+    options.record_config_on_construct = true;
+    EosRecordingSession session(config, options);
 
     EosCycleInput input;
     input.cycle_index = 1U;
@@ -210,10 +210,10 @@ TEST(EosReplaySessionTest, ReplayEosTraceContinuesAfterFailureMarker) {
         new oneq::replay::ReplayTraceWriter(trace_dir, manifest, true));
 
     config::EosSessionConfig config;
-    EosTraceSessionOptions options;
+    EosRecordingSessionOptions options;
     options.replay_writer = replay_writer;
-    options.trace_config_on_construct = true;
-    EosTraceSession session(config, options);
+    options.record_config_on_construct = true;
+    EosRecordingSession session(config, options);
 
     EosCycleInput input;
     input.cycle_index = 1U;
@@ -279,6 +279,41 @@ TEST(EosReplaySessionTest, ReplayEosTraceRejectsTrailingCycleInput) {
   const EosReplaySessionResult replay_result = ReplayEosTrace(trace_dir);
   EXPECT_FALSE(replay_result.ok);
   EXPECT_NE(replay_result.first_error.find("pending cycle_input"), std::string::npos);
+}
+
+TEST(EosRecordingSessionTest, ValidationFailureUsesInputCycleIndex) {
+  const std::string trace_dir = MakeTempTracePath("oneq-eos-validation");
+  oneq::replay::ReplayTraceManifest manifest;
+  manifest.trace_id = "eos-validation";
+  manifest.module = "electro_optical_sensor";
+  const auto writer = std::shared_ptr<oneq::replay::ReplayTraceWriter>(
+      new oneq::replay::ReplayTraceWriter(trace_dir, manifest, true));
+  EosRecordingSessionOptions options;
+  options.replay_writer = writer;
+  EosRecordingSession traced(config::EosSessionConfig{}, options);
+  EosCycleInput input;
+  input.cycle_index = 77U;
+  input.dt_sec = -1.0f;
+  (void)traced.StepWithResult(input);
+  ASSERT_EQ(writer->Flush(), oneq::replay::ReplayTraceWriteStatus::kSuccess);
+
+  oneq::replay::ReplayTraceReader reader(trace_dir);
+  oneq::replay::ReplayTraceReadEvent event;
+  bool saw_rejected_output = false;
+  while (reader.ReadNextEvent(&event) == oneq::replay::ReplayTraceReadStatus::kEvent) {
+    if (event.event_type != "cycle_output") {
+      continue;
+    }
+    EosCycleResult result;
+    ASSERT_TRUE(DecodeEosCycleResult(event.payload_bytes, &result));
+    if (HasValidationError(result.issues)) {
+      saw_rejected_output = true;
+      EXPECT_TRUE(event.has_cycle_index);
+      EXPECT_EQ(event.cycle_index, 77U);
+      EXPECT_EQ(result.input_cycle_index, 77U);
+    }
+  }
+  EXPECT_TRUE(saw_rejected_output);
 }
 
 }  // namespace tests

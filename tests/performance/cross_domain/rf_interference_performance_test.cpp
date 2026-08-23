@@ -25,6 +25,8 @@
 #endif
 
 #include "1q/airborne_radar/airborne_radar.hpp"
+#include "1q/coordinate/position_transform.h"
+#include "1q/coordinate/scene_transform.h"
 #include "1q/electromagnetics/RfScene.h"
 #include "1q/electronic_surveillance_radar/electronic_surveillance_radar.hpp"
 
@@ -217,7 +219,6 @@ esr_session::EsrCycleInput MakeEsrInput() {
   esr_session::EsrCycleInput input;
   input.dt_sec = 1.0f;
   input.platform_entity_id = 1U;
-  input.has_platform_ecef_kinematics = true;
   input.platform_position_ecef_m.x_m = 6378137.0;
   return input;
 }

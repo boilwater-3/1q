@@ -6,13 +6,14 @@
 #include <set>
 #include <tuple>
 #include <utility>
+#include "common/numerics/Constants.h"
 
 namespace oneq {
 namespace electromagnetics {
 namespace {
 
-constexpr double kPi = 3.14159265358979323846;
-constexpr double kSpeedOfLightMps = 299792458.0;
+using oneq::common::numerics::kPi;
+using oneq::common::numerics::kLightSpeed;
 constexpr double kLinearCircularLossDb = 3.010299956639812;
 constexpr std::uint32_t kMaximumPulseCount = 1000000U;
 constexpr std::size_t kSweepIntegrationSlices = 1024U;
@@ -579,7 +580,7 @@ bool TryEvaluateRfIncidentLink(const RfSceneEmission& emission,
   candidate.receiver_equipment_id = receiver.equipment_id;
   candidate.is_co_site = is_co_site;
   candidate.path_length_m = path_length_m;
-  candidate.propagation_delay_s = is_co_site ? 0.0 : path_length_m / kSpeedOfLightMps;
+  candidate.propagation_delay_s = is_co_site ? 0.0 : path_length_m / kLightSpeed;
   candidate.additional_propagation_loss_db = config.additional_propagation_loss_db;
   candidate.receiver_system_loss_db = receiver.receiver_system_loss_db;
 
@@ -614,8 +615,8 @@ bool TryEvaluateRfIncidentLink(const RfSceneEmission& emission,
     const double separation_rate = relative_velocity_x * direction.x +
                                    relative_velocity_y * direction.y +
                                    relative_velocity_z * direction.z;
-    candidate.doppler_shift_hz = -nominal_carrier_hz * separation_rate / kSpeedOfLightMps;
-    const double wavelength_m = kSpeedOfLightMps / nominal_carrier_hz;
+    candidate.doppler_shift_hz = -nominal_carrier_hz * separation_rate / kLightSpeed;
+    const double wavelength_m = kLightSpeed / nominal_carrier_hz;
     const double path_ratio = 4.0 * kPi * path_length_m / wavelength_m;
     if (!IsFinite(path_ratio) || path_ratio <= 0.0) {
       return false;

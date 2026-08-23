@@ -67,6 +67,9 @@ struct StepWithResultReturnMatches {
  *   ONEQ_SENSOR_SESSION_CONTRACT(EosSession, EosCycleInput,
  *                                EosOutputFrame, EosCycleResult);
  *
+ * SAR 产品层例外（规则 15c/15e）：Step 返回 SarCycleProduct（元数据 + 聚焦图像），
+ * 而非裸 *OutputFrame；产品由同一份周期记录移动取出，不是第二份副本。
+ *
  * 注意：宏参数需为当前命名空间下可见的类型名；若跨命名空间调用，
  * 请传入全限定名。该宏不定义符号，仅产生两条 static_assert，
  * 在优化构建中被完全消除。

@@ -4,7 +4,6 @@
 
 ## 决策域
 - DecisionControlTypes.h — 决策观测、外部 profile 覆盖值、提交状态和控制来源；proposal/directive 抽象已收口为内部实现
-- DecisionInputFrame.h — 单周期决策输入帧（关联/探测质量摘要 + 轨迹快照）
 - TrackStateSnapshot.h — 轨迹快照 DTO（位置/速度/加速度/RCS/航迹状态）
 
 ## 控制域
@@ -27,7 +26,7 @@
 ## 会话
 - [ArSession](ArSession.h) — 主会话（PIMPL，静态工厂 Create；通过 SubmitExternalDecision 提交步间 profile 覆盖值）
 - [ArReplaySession](ArReplaySession.h) — 回放会话
-- [ArTraceSession](ArTraceSession.h) — 跟踪会话
+- [ArRecordingSession](ArRecordingSession.h) — Replay 记录包装会话
 
 ## 基础类型
 - [ArInputValidation](ArInputValidation.h) — 输入校验

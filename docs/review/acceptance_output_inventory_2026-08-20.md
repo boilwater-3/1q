@@ -62,7 +62,7 @@ Status: draft
 
 | 验收项 | 结论 | 现状与证据 |
 |---|---|---|
-| 多传感器目标跟踪（ECEF 位置+协方差） | A+D | `FusedKinematicEstimate{position(LLA), velocity_ecef, covariance_ecef[36]}`（`include/1q/fusion/FusedTarget.h:51-55`，填充 `FusionEngine.cpp:683-703`）；缺 ECEF 位置向量本体（公开面是 LLA）；受 `enable_track_filtering`（默认 false，`FusionConfig.h:31`）门控 |
+| 多传感器目标跟踪（ECEF 位置+协方差） | A+D | `FusedKinematicEstimate{position(LLA), velocity_ecef, covariance_ecef[36]}`（`include/1q/fusion/FusedTarget.h:51-55`，填充 `FusionEngine.cpp:683-703`）；缺 ECEF 位置向量本体（公开面是 LLA）；受 `enable_track_filtering`（默认 true，`FusionConfig.h`）门控 |
 | 多传感器接力跟踪 | A+D+E | 位置/速度/融合航迹=上述；加速度仅单传感器出口（AR `TrackStateSnapshot.h:46-50`）；**剩余覆盖时间、接力计划、交接指令全仓未实现**（grep `接力|handover|relay` 无多传感器协议命中） |
 | 协同探测信息融合 | A | `FusedTarget.channels`（分源样本数/判决/质量/位置）+ `confidence`（`FusedTarget.h:22-32,62-63`，`FusionEngine.cpp:471-480`）；库内无日志，示例层有 `CA_LOG_EVENT`（`examples/.../fusion_component.cpp:92-111`） |
 | UKF 滤波 | A+D | 开关 `enable_track_filtering` 开启后输出位置/速度/ECEF 6×6 协方差（同上）；对真值估计误差在 `[PrecisionEval]`（`velocity_error` 事件）；CV 6 维无加速度 |

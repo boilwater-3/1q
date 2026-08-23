@@ -27,8 +27,8 @@ struct ONEQ_API FusionConfig {
   std::size_t max_missed_cycles{5U};   /**< 失跟删除周期数（连续无量测超过该值删除航迹） */
   std::vector<double> source_weights{}; /**< 按 source_id 索引的源权重（空或缺项 = 1.0） */
 
-  // ---- 航迹滤波（P2，默认关闭：零回退门） ----
-  bool enable_track_filtering{false};        /**< 是否启用逐航迹无迹滤波（关闭时行为与 P2 前一致） */
+  // ---- 航迹滤波（默认开启；置 false 时行为与 P2 前关联/置信度一致） ----
+  bool enable_track_filtering{true};         /**< 是否启用逐航迹无迹滤波（关闭时无运动学估计） */
   double track_cycle_period_sec{1.0};        /**< 周期时长（滤波 dt = 周期差 × 该值，单位：s） */
   double track_process_noise{1.0};           /**< CV 过程噪声扩散系数 q（common/estimation 语义） */
   double track_initial_position_std_m{2000.0};      /**< 位置记录起始先验 1-σ（单位：m） */
@@ -38,6 +38,12 @@ struct ONEQ_API FusionConfig {
   double default_position_noise_std_m{50.0};        /**< 位置量测噪声默认 1-σ（单位：m） */
   double default_bearing_noise_sigma_rad{2.0e-4};   /**< 方位量测噪声默认 1-σ（单位：rad，az/el 同 σ） */
   std::size_t confirm_hits{3U};              /**< 航迹确认门：累计命中数达该值转 confirmed */
+
+  // ---- 接力覆盖估算（验收行派生量；库内无接力协议） ----
+  /** 接力覆盖估算用视场角宽度（单位：deg；业务层按场景覆写）。
+   *  验收行按「视场宽度 ÷ 视线角速率 = 覆盖时长」简易外推剩余覆盖时间；
+   *  默认 20° 对应示例 SBIRS 宽场。 */
+  double relay_fov_width_deg{20.0};
 };
 
 }  // namespace fusion

@@ -9,9 +9,14 @@
 #include <algorithm>
 #include <cmath>
 
+#include "common/numerics/Constants.h"
+
 namespace oneq {
 namespace common {
 namespace radar {
+
+using oneq::common::numerics::DegToRad;
+
 namespace antenna_pattern_internal {
 
 inline float ClampFloat(float value, float min_value, float max_value) {
@@ -160,16 +165,14 @@ inline float ComputeMainLobeAttenuationDb(const AntennaPatternConfig& config,
       return 3.0f * (normalized_az * normalized_az + normalized_el * normalized_el);
 
     case AntennaPatternModelType::kCosinePower: {
-      const float kDeg2Rad = 3.14159265358979f / 180.0f;
-      const float az_offset_rad =
+      const float az_offset_rad = DegToRad(
           antenna_pattern_internal::ClampFloat(
               antenna_pattern_internal::NormalizeAzimuthDeltaDeg(offset_deg.delta_az_deg), -89.9f,
-              89.9f) *
-          kDeg2Rad;
+              89.9f));
       const float el_offset_rad =
-          antenna_pattern_internal::ClampFloat(offset_deg.delta_el_deg, -89.9f, 89.9f) * kDeg2Rad;
-      const float az_half_bw_rad = half_az_beamwidth_deg * kDeg2Rad;
-      const float el_half_bw_rad = half_el_beamwidth_deg * kDeg2Rad;
+          DegToRad(antenna_pattern_internal::ClampFloat(offset_deg.delta_el_deg, -89.9f, 89.9f));
+      const float az_half_bw_rad = DegToRad(half_az_beamwidth_deg);
+      const float el_half_bw_rad = DegToRad(half_el_beamwidth_deg);
       const float az_denominator =
           std::log(antenna_pattern_internal::ClampLowerBound(std::cos(az_half_bw_rad), 1e-6f));
       const float el_denominator =
@@ -187,9 +190,8 @@ inline float ComputeMainLobeAttenuationDb(const AntennaPatternConfig& config,
     case AntennaPatternModelType::kSincPattern: {
       float attenuation_db = 0.0f;
       if (antenna_az_length_m > 0.0f && wavelength_m > 0.0f) {
-        const float kDeg2Rad = 3.14159265358979f / 180.0f;
-        const float az_offset_rad =
-            antenna_pattern_internal::NormalizeAzimuthDeltaDeg(offset_deg.delta_az_deg) * kDeg2Rad;
+        const float az_offset_rad = DegToRad(
+            antenna_pattern_internal::NormalizeAzimuthDeltaDeg(offset_deg.delta_az_deg));
         const float arg =
             3.14159265358979f * antenna_az_length_m * std::sin(az_offset_rad) / wavelength_m;
         const float sinc_val = (std::fabs(arg) < 1e-6f) ? 1.0f : std::sin(arg) / arg;
@@ -198,8 +200,7 @@ inline float ComputeMainLobeAttenuationDb(const AntennaPatternConfig& config,
         attenuation_db += -20.0f * std::log10(safe_val);
       }
       if (antenna_el_width_m > 0.0f && wavelength_m > 0.0f) {
-        const float kDeg2Rad = 3.14159265358979f / 180.0f;
-        const float el_offset_rad = offset_deg.delta_el_deg * kDeg2Rad;
+        const float el_offset_rad = DegToRad(offset_deg.delta_el_deg);
         const float arg =
             3.14159265358979f * antenna_el_width_m * std::sin(el_offset_rad) / wavelength_m;
         const float sinc_val = (std::fabs(arg) < 1e-6f) ? 1.0f : std::sin(arg) / arg;

@@ -66,7 +66,7 @@
 可执行套件（验证框架，2026-08-10 由 `examples/batch_validation` 迁入）。它们以
 `batch_validation::<domain>` 注册并携带 `batch_validation` 与 domain label，不产生新的
 `tests/` 源码 type，也不把 199 个 sweep 重复纳入 CTest。该框架单向依赖 examples 层
-共享便利层（`config_loaders` / `json_reader`）与 `examples/configs/` 配置 JSON。
+共享便利层（`config_loaders` / `json_reader`）与 `examples/basic_config/` 配置 JSON。
 
 每个 `*_test.cpp` 必须只注册到一个分区。`TestRegistry.cmake` 会在 configure 时
 拒绝 orphan 或重复归属；不要用重复编译让同一源文件同时承担 unit、replay 或

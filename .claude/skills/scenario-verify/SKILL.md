@@ -1,14 +1,15 @@
 ---
 name: scenario-verify
-description: Scenario-driven verification of 1Q simulation library modules through the examples/component_attachment integration demo. Use whenever the user wants to 拟定/设计战场场景, 用场景验证模块正确性, 写预期事件表, or debug why 探测不上/没有检测/融合不对/指令没下发 — deciding whether a failure is a library bug, a scenario design problem, or a wrong expectation. Covers scene JSON authoring (scenes/), expectation tables, log triage (integration_events.log / integration_views.log / 1q_library.log), and regression closure. Also use when iterating scenario suites to verify AR / ESR / EOS / SBIRS / SAR / fusion / flight behavior end-to-end.
+description: Scenario-driven verification of 1Q simulation library modules through the examples scene suite. Use whenever the user wants to 拟定/设计战场场景, 用场景验证模块正确性, 写预期事件表, or debug why 探测不上/没有检测/融合不对/指令没下发 — deciding whether a failure is a library bug, a scenario design problem, or a wrong expectation. Covers scene JSON authoring (scenes/, schema v2 with self-contained session_config + log_dir), per-scene executables, expectation tables, log triage (integration_events.log / integration_views.log / 1q_library.log), and regression closure. Also use when iterating scenario suites to verify AR / ESR / EOS / SBIRS / SAR / fusion / flight behavior end-to-end.
 ---
 
 # Scenario Verify — 场景驱动的集成级验证工作流
 
 ## 定位与边界
 
-用**场景**（战场原型 → 可判定几何）驱动 `examples/component_attachment` 演示，验证
-1Q 库模块在**集成链路**（探测 → 融合 → 决策）上的正确性。与既有资产的分工：
+用**场景**（战场原型 → 可判定几何）驱动 examples 场景栈（ECS 组件集成 + 每场景
+独立可执行），验证 1Q 库模块在**集成链路**（探测 → 融合 → 决策）上的正确性。
+与既有资产的分工：
 
 - `tests/consumer/batch_validation`（230 场景）验证**库级单会话**参数扫描/跨周期序列——本
   skill 的"库问题最小复现"复用其模式，但不重复其工作；
@@ -20,18 +21,21 @@ description: Scenario-driven verification of 1Q simulation library modules throu
 
 ## 前置条件
 
-- `examples/component_attachment` demo 已构建（release preset；场景验证用
-  `llvm-ninja-release-local`，FD 开关按场景需要，见步骤 5）；
-- 场景文件目录 `examples/component_attachment/scenes/`（git 跟踪，场景即配置记录）；
+- examples 场景栈已构建（release preset；场景验证用 `llvm-ninja-release-local` 或
+  `examples-release-local`，FD 开关按场景需要，见步骤 5）；
+- 场景目录 `examples/scenes/<name>/` 三件套：`<name>.json` + `<name>.md`（预期表）+
+  `main.cpp`（薄入口）——**每场景一个同名可执行**（CMake 自动发现；
+  `ONEQ_EXAMPLE_SCENES=all|none|名列表` 选建）；
 - 日志三文件：`integration_events.log`（事件行）/ `integration_views.log`（视图行）/
-  `1q_library.log`（库内部日志）——每场景独立输出目录（`--output-dir`）。
+  `1q_library.log`（库内部日志）——落在本场景声明的输出目录（默认
+  `examples/log/<log_dir>/`；**禁止临时目录，运行期硬拒**）。
 
 ## 工作流
 
 ### 1. 确认被测通道与场景意图
 
-- 读 `examples/component_attachment/README.md`（场景设计/周期语义/已知行为记载）、
-  `scenes/` 现有场景、`docs/common/contract.md` 相关章节；
+- 读 `examples/scenes/README.md`（场景设计/周期语义/schema v2 权威）、现有场景、
+  `docs/common/contract.md` 相关章节；
 - **声明三要素**（写进预期表，缺一不可）：
   - 被测通道：AR / ESR / EOS / SBIRS / SAR / Fusion / Flight 之一或组合；
   - 被测行为：探测成立 / 跟踪生命周期 / 分选聚簇 / 成像窗口 / 融合关联 / 决策链 /
@@ -48,8 +52,12 @@ description: Scenario-driven verification of 1Q simulation library modules throu
 - **边界条件检查**（写预期表前必做）：被测通道的 `docs/<module>/boundaries.md` veto
   阈值——EOS 距离窗 ≈ 高度/sin(俯仰角)、SAR squint ≤ 门限、SBIRS 目标在 FOV 内、
   ESR 中心频率分离、AR 径向速度/距离门；
-- 写场景 JSON：`scenes/<name>/<name>.json`（schema 见 README「场景描述文件」节；几何字段
-  必填、调参字段可省——缺省值 = 基线行为）。场景文件即**配置记录**，随预期表归档；
+- 写场景 JSON：`scenes/<name>/<name>.json`（schema v2 见 scenes/README.md「场景描述
+  文件」节）。**场景自持配置（挂载即全量）**：挂载通道必带 `session_config.<通道>`
+  子块——从 `examples/basic_config/<域>.json` 模板整份拷贝再改参；未挂载通道禁止携带。
+  必填顶层键：`log_dir`（本场景日志目录，相对 `examples/log/`）。新建场景目录同时放
+  `main.cpp` 薄入口（拷任一现有场景改文件头注释即可，CMake 自动收录）。场景文件即
+  **配置记录**，随预期表归档；
 - 手算**几何先验**作为独立预期（例：目标纬度 ≈ 平台纬度 + range/111 km；EOS 距离窗
   ≈ 高度/sin(min/max 俯仰)；SBIRS 星下点 el = asin(z/r)）——用于 L3 核对。
 
@@ -62,14 +70,15 @@ description: Scenario-driven verification of 1Q simulation library modules throu
   误判为事件缺失；
 - 区分**按设计拒绝**（SAR squint 拒绝、EOS 扫描间隙导致的"首发现→丢失"交替、SBIRS
   视场外）与**意外失败**——按设计拒绝写进预期表作为"预期出现"项；
-- 零产出场景（如无目标）显式把场景 `smoke` 块下限置 0，否则 ctest 冒烟会红。
+- 零产出场景（如无目标）显式把场景 `smoke` 块下限置 0，否则场景可执行冒烟会红。
 
 ### 4. 参数配置
 
-- 场景 JSON 覆盖的层：平台飞行脚本 / 目标脚本 / ESR 波形 / 天基平台 / EOS 扫描 /
-  SAR 任务几何与链路 / 融合配置 / 决策门限 / 冒烟下限；
-- 会话基线配置（`examples/configs/*.json`）一般不动；场景级的业务调参进场景文件
-  （`eos_scan`/`sar` 块经 `ApplySceneOverrides` 应用）；
+- 场景 JSON 覆盖的层：平台飞行脚本 / 目标脚本 / ESR 波形真值 / 天基平台几何 /
+  **session_config（六域传感器 + ECM + 融合 + 威胁，挂载即全量）** / 决策门限 /
+  冒烟下限 / log_dir；
+- 会话模板（`examples/basic_config/*.json`）一般不动——场景调参进本场景的
+  session_config 子块（拷模板后改）；
 - 日志模式（编译期宏，见 `logger/logger_modes.h`）：默认 `delta + key`；需要全量事件时
   `-DCA_EVENT_LOG_MODE=all`（重 configure + 编译一次）；预期表核对适合 `summary` 视图。
   模式切换记录在预期表"运行配置"栏。
@@ -77,20 +86,25 @@ description: Scenario-driven verification of 1Q simulation library modules throu
 ### 5. 运行与采集
 
 ```bash
-# 构建（场景文件改动无需重编译；代码改动才需要）
-cmake --build --preset llvm-ninja-release-local --target component_attachment_demo
-# 运行（每场景独立输出目录；--cycles 可缩短 triage 迭代）
-./build/llvm-ninja-release-local/bin/component_attachment_demo \
-    --scene examples/component_attachment/scenes/<name>/<name>.json \
-    --output-dir /tmp/1q/scenes/<name>
+# 构建（JSON 改动无需重编译；新增场景目录后重跑 configure 让 CMake 收录）
+cmake --preset examples-release-local --target <scene_name>
+# 运行（每场景一个可执行；日志默认落 examples/log/<log_dir>/，--cycles 可缩短 triage 迭代）
+./build/examples-release-local/bin/<scene_name> [--cycles 120]
+# 调试覆盖输出目录（仅允许非临时目录——/tmp 等会被运行期硬拒）
+./build/examples-release-local/bin/<scene_name> --output-dir build/scene-debug/<name>
+# 跑任意场景 JSON（通用 runner，兼容入口）
+./build/examples-release-local/bin/component_attachment_demo --scene examples/scenes/<name>/<name>.json
 ```
 
-- **确定性**：场景内种子固定（ESR `timing_seed`、SBIRS/SAR JSON 种子）→ 同场景
-  同输出，可重复取证；
+- **确定性**：场景内种子固定（ESR `timing_seed`、SBIRS/SAR session_config 种子）→
+  同场景同输出，可重复取证；
+- **输出位置强制**：场景 JSON 的 `log_dir` 声明日志落点（相对 `examples/log/`）；
+  `--output-dir` 仅作非临时目录的调试覆盖，落 `/tmp`、`/var/tmp`、`TMPDIR` 会被拒绝
+  退出（证据目录需可追溯）；
 - **FD 模式**：默认验证模式 FD 关（运动学回退，几何干净可手算先验）；FD 专项
   （起飞/转弯/机动）再开 `ONEQ_ENABLE_FLIGHT_DYNAMIC`——注意 FD 起飞段平台向西北
   爬升（README 记载 hdg 293°→358°），EOS 探测 cycle 101 才成立，属预期；
-- 单跑 demo（约 20 s），不要全量 ctest 并行（饿死超时是环境负载问题，非回归）。
+- 单跑场景（约 20 s），不要全量 ctest 并行（饿死超时是环境负载问题，非回归）。
 
 ### 6. 日志验证与三分类判定
 
@@ -128,19 +142,20 @@ cmake --build --preset llvm-ninja-release-local --target component_attachment_de
 ## 命令速查
 
 ```bash
-# 单测（场景加载器/组件层）
-./build/llvm-ninja-release-local/bin/1q_examples_unit_tests --gtest_filter='SceneDataTest.*'
+# 单测（场景加载器/组件层，含 session_config 挂载即全量校验）
+./build/examples-release-local/bin/1q_examples_unit_tests --gtest_filter='SceneDataTest.*'
+ctest --preset examples-release-local -R "unit::examples"
 
-# 冒烟（ctest，模式无关断言）
-ctest --preset llvm-ninja-release-local -R "examples::component_attachment_demo"
+# 场景可执行选建（configure 期）
+cmake --preset examples-release-local -DONEQ_EXAMPLE_SCENES=none            # 全不建
+cmake --preset examples-release-local -DONEQ_EXAMPLE_SCENES="rir_jammed_scan;baseline_takeoff_east"
 
 # 日志模式切换（重 configure + 编译）
-cmake --preset llvm-ninja-release-local -DCA_EVENT_LOG_MODE=all -DCA_VIEW_LOG_MODE=summary
+cmake --preset examples-release-local -DCA_EVENT_LOG_MODE=all -DCA_VIEW_LOG_MODE=summary
 
-# 常用统计（预期表核对）
-grep -c "事件:eos_detection" log/<name>/integration_events.log
-grep "视图:sar" log/<name>/integration_views.log | grep -c "L1图像=有"   # 成像周期数
-grep -oP "fused=\d+" log/<name>/console.txt | sort -t= -k2 -rn | head -1  # 融合峰值
+# 常用统计（预期表核对；日志在 examples/log/<log_dir>/ 或 --output-dir 指定目录）
+grep -c "事件:eos_detection" <dir>/integration_events.log
+grep "视图:sar" <dir>/integration_views.log | grep -c "L1图像=有"   # 成像周期数
 ```
 
 ## 参考文档
@@ -150,6 +165,8 @@ grep -oP "fused=\d+" log/<name>/console.txt | sort -t= -k2 -rn | head -1  # 融�
 - [references/expectation_template.md](references/expectation_template.md) — 预期事件表
   模板 + 基线场景填好的试跑样本
 - [references/triage_guide.md](references/triage_guide.md) — 症状 → 日志 → 判定规则表
-- `examples/component_attachment/README.md` — demo 结构、场景设计记载、日志模式说明
+- `examples/README.md` — 示例层总览（目录/构建/运行）
+- `examples/scenes/README.md` — 场景 JSON schema v2 权威（session_config 挂载即全量 +
+  log_dir）与场景设计记载
 - `docs/common/contract.md` — 跨模块契约（运行期配置提交策略等）
 - 模块边界阈值：`docs/<module>/boundaries.md`（veto 量化阈值）

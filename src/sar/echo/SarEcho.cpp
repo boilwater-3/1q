@@ -5,14 +5,15 @@
 
 #include "sar/geometry/SarAntenna.h"
 #include "sar/signal/SarAngleWrap.h"
+#include "common/numerics/Constants.h"
 
 namespace sar {
 namespace echo {
 
 namespace {
 
-constexpr double kPi = 3.141592653589793238462643383279502884;
-constexpr double kSpeedOfLightMps = 299792458.0;
+using oneq::common::numerics::kPi;
+using oneq::common::numerics::kLightSpeed;
 constexpr double kFractionalDelayThreshold = 1e-12;
 
 bool IsValid(const RawEchoConfig& config, const signal::ComplexVector& transmit_waveform) {
@@ -59,7 +60,7 @@ bool GeneratePointTargetRawEcho(const RawEchoConfig& config,
   result->distributed_clutter_mean_power = 0.0;
   result->has_clipping = false;
 
-  const double wavelength_m = kSpeedOfLightMps / config.carrier_frequency_hz;
+  const double wavelength_m = kLightSpeed / config.carrier_frequency_hz;
   for (std::size_t target_index = 0U; target_index < targets.size(); ++target_index) {
     const PointTarget& target = targets[target_index];
     const double slant_range_m = geometry::Distance(platform.position_m, target.position_m);
@@ -67,7 +68,7 @@ bool GeneratePointTargetRawEcho(const RawEchoConfig& config,
       continue;
     }
 
-    const double two_way_delay_s = 2.0 * slant_range_m / kSpeedOfLightMps;
+    const double two_way_delay_s = 2.0 * slant_range_m / kLightSpeed;
     const double delay_samples = two_way_delay_s * config.sample_rate_hz;
     const std::size_t delay_sample_index =
         static_cast<std::size_t>(std::llround(delay_samples));
@@ -142,7 +143,7 @@ bool GeneratePointTargetRawEchoWithAntenna(const RawEchoConfig& config,
   result->distributed_clutter_mean_power = 0.0;
   result->has_clipping = false;
 
-  const double wavelength_m = kSpeedOfLightMps / config.carrier_frequency_hz;
+  const double wavelength_m = kLightSpeed / config.carrier_frequency_hz;
   const double boresight_rad = antenna_config.beam_state.boresight_azimuth_rad;
   for (std::size_t target_index = 0U; target_index < targets.size(); ++target_index) {
     const PointTarget& target = targets[target_index];
@@ -151,7 +152,7 @@ bool GeneratePointTargetRawEchoWithAntenna(const RawEchoConfig& config,
       continue;
     }
 
-    const double two_way_delay_s = 2.0 * slant_range_m / kSpeedOfLightMps;
+    const double two_way_delay_s = 2.0 * slant_range_m / kLightSpeed;
     const double delay_samples = two_way_delay_s * config.sample_rate_hz;
     const std::size_t delay_sample_index =
         static_cast<std::size_t>(std::llround(delay_samples));
@@ -241,7 +242,7 @@ bool GeneratePointTargetRawEchoWithElevationGate(
                            gate_config.burst_state.near_range_m > 0.0 &&
                            gate_config.burst_state.far_range_m > gate_config.burst_state.near_range_m;
 
-  const double wavelength_m = kSpeedOfLightMps / config.carrier_frequency_hz;
+  const double wavelength_m = kLightSpeed / config.carrier_frequency_hz;
   for (std::size_t target_index = 0U; target_index < targets.size(); ++target_index) {
     const PointTarget& target = targets[target_index];
     const double slant_range_m = geometry::Distance(platform.position_m, target.position_m);
@@ -252,7 +253,7 @@ bool GeneratePointTargetRawEchoWithElevationGate(
     EchoTargetDiagnostic diagnostic;
     diagnostic.target_index = target_index;
     diagnostic.slant_range_m = slant_range_m;
-    diagnostic.two_way_delay_s = 2.0 * slant_range_m / kSpeedOfLightMps;
+    diagnostic.two_way_delay_s = 2.0 * slant_range_m / kLightSpeed;
     diagnostic.delay_sample_index =
         static_cast<std::size_t>(std::llround(diagnostic.two_way_delay_s * config.sample_rate_hz));
     diagnostic.fractional_delay_samples =
@@ -449,7 +450,7 @@ bool GenerateClutterScene(const RawEchoConfig& config,
                                ? scene.clutter_cell_area_m2
                                : spacing * spacing;
 
-  const double wavelength_m = kSpeedOfLightMps / config.carrier_frequency_hz;
+  const double wavelength_m = kLightSpeed / config.carrier_frequency_hz;
   const double boresight_rad = use_antenna ? antenna_config->beam_state.boresight_azimuth_rad : 0.0;
   signal::ComplexVector clutter_samples(config.range_sample_count,
                                         signal::ComplexSample(0.0, 0.0));
@@ -496,7 +497,7 @@ bool GenerateClutterScene(const RawEchoConfig& config,
         continue;
       }
 
-      const double two_way_delay_s = 2.0 * slant_range_m / kSpeedOfLightMps;
+      const double two_way_delay_s = 2.0 * slant_range_m / kLightSpeed;
       const double delay_samples = two_way_delay_s * config.sample_rate_hz;
       const std::size_t delay_sample_index =
           static_cast<std::size_t>(std::llround(delay_samples));
