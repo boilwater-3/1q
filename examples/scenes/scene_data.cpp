@@ -724,8 +724,9 @@ void ResolveRirDatabasePath(remote_identification_radar::config::RirSessionConfi
 /// MakeDefaultEcmConfig 数据化）。
 bool LoadSessionConfigs(const examples::JsonValue& root, const SceneData& scene,
                         SceneSessionConfigs* configs, std::string* error) {
-  // ECM 演示基线默认（原 MakeDefaultEcmConfig 无条件赋值的 v1 行为等价）：
-  // 未挂载场景同样持有该装备参数；挂载场景由 session_config.ecm 覆写。
+  // ECM 字段级缺省基线（scenes/README 口径 101/1/1000/1000/kSpot）：仅作下方
+  // session_config.ecm 部分字段的回落值。ECM 配置的唯一消费者是挂载门控的
+  // AR co-site 隔离 push（runner），未挂载场景无人读取（摘除本块不影响其输出）。
   configs->ecm.transmitter_equipment_id = 101U;
   configs->ecm.channel_count = 1U;
   configs->ecm.maximum_total_transmit_power_w = 1000.0;
