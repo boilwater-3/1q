@@ -1,11 +1,6 @@
 ﻿/**
  * @file fusion_component.h
  * @brief 自定义实体-组件示例：融合组件。
- *
- * 组件封装 fusion 模块引擎：每周期经 host_ 类型化聚合同实体三个传感器
- * 组件的本周期探测记录（挂载序保证传感器先于融合步进），一次
- * FusionEngine::Update 更新态势；新/消失目标计数随 FusionUpdatedEvent
- * 发布（跨周期通知）。
  */
 
 #ifndef EXAMPLES_COMPONENT_ATTACHMENT_COMPONENTS_FUSION_COMPONENT_H_
@@ -22,9 +17,6 @@ namespace component_attachment {
 
 /**
  * @brief 融合组件：多源探测聚合 + 融合态势更新。
- *
- * 引擎经 std::make_unique<FusionEngine>(config) 构造后移动进组件。
- * targets() 为当前融合目标态势（按 key 升序），供 demo 消费。
  *
  * @note 运行时修改：本组件不提供运行时参数修改入口——fusion 模块参数为
  * 会话级不可变（库内无 RuntimeConfigPatch 设计，FusionEngine 仅构造时

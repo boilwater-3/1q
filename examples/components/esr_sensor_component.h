@@ -1,10 +1,6 @@
 ﻿/**
  * @file esr_sensor_component.h
  * @brief 自定义实体-组件示例：ESR（电子侦察）传感器组件。
- *
- * 组件封装 electronic_surveillance_radar 模块会话：每周期驱动 EsrSession，
- * 辐射源假设适配为融合探测记录（方位 + 射频特征）存自身状态；每条新
- * 假设经 World 信号发布 EmitterHypothesisEvent（跨周期通知）。
  */
 
 #ifndef EXAMPLES_COMPONENT_ATTACHMENT_COMPONENTS_ESR_SENSOR_COMPONENT_H_
@@ -26,10 +22,6 @@ struct AppSceneState;  // core/scene_types.h（同上）
 
 /**
  * @brief ESR 传感器组件：侦察会话驱动 + 假设事件发布。
- *
- * 会话经 EsrSession::Create(config) 构造后移动进组件（PImpl 可移动）。
- * detections() 为本周期适配后的泛型探测记录（假设键 ≠ 0），
- * FusionComponent 按挂载序在其后 Step 时聚合。
  */
 class EsrSensorComponent : public Component {
  public:
@@ -96,13 +88,16 @@ class EsrSensorComponent : public Component {
   electronic_surveillance_radar::session::EsrExclusionCauseRecorder exclusion_{}; /**< 排除原因跨周期差分事件源 */
   electronic_surveillance_radar::session::EsrSession session_;
   Entity* host_{nullptr};
-  std::vector<fusion::DetectionRecord> detections_{};
-  bool powered_on_{true};     /**< 电源状态（由 sensor_enabled 补丁唯一维护；关机时组件不驱动会话） */
+
   float scan_azimuth_deg_{0.0f}; /**< 最近周期波束中心方位角（deg，随周期结果刷新） */
-  electronic_surveillance_radar::session::EmitterHypothesisList last_hypotheses_{};
-  std::uint64_t last_batch_id_{0U};
-  std::uint32_t last_completed_cycle_index_{0U};
-  bool has_last_completed_output_{false};
+
+  std::vector<fusion::DetectionRecord> detections_{};  /**< 本周期融合探测记录（每周期重写；融合组件拉取） */
+  electronic_surveillance_radar::session::EmitterHypothesisList last_hypotheses_{}; /**< 上一成功周期辐射源假设（供 ECM sensor-driven 输入） */
+  std::uint64_t last_batch_id_{0U};                 /**< 上一成功周期 batch_id（ECM fresh-frame 判据） */
+  std::uint32_t last_completed_cycle_index_{0U};    /**< 上一成功周期世界周期号（0 = 尚无成功输出） */
+  bool has_last_completed_output_{false};           /**< 是否至少完成过一个成功周期 */
+
+  bool powered_on_{true}; /**< 电源状态（由 sensor_enabled 补丁唯一维护；关机时不驱动会话） */
 
   /// 周期输入组装：平台运动学（Flight）+ RF-WORLD 发射包络（供 StepWithResult）。
   electronic_surveillance_radar::session::EsrCycleInput BuildCycleInput(

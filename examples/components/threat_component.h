@@ -1,12 +1,6 @@
 ﻿/**
  * @file threat_component.h
  * @brief 自定义实体-组件示例：威胁评估组件。
- *
- * 组件封装 threat_assessment 模块评估器：每周期聚合同实体融合组件输出
- * （FusedTarget：融合置信度）与 AR 传感器组件调试视图（运动学/RCS 快照），
- * 按目标键组装威胁输入帧，一次 ThreatEvaluator::Evaluate 输出威胁分/等级；
- * 等级升级（含首见即高威胁）经威胁更新信号发布，视图摘要每周期直写
- * 集成端日志。挂载序在 Fusion 之后（融合先步进）。
  */
 
 #ifndef EXAMPLES_COMPONENT_ATTACHMENT_COMPONENTS_THREAT_COMPONENT_H_
@@ -26,14 +20,7 @@ namespace component_attachment {
 /**
  * @brief 威胁评估组件：融合态势 + 运动学 → 威胁分/等级。
  *
- * 评估器经构造函数注入配置（默认 = ThreatEvaluatorConfig 默认值）。每周期以
- * 融合目标为主集合组装输入帧（AR 调试视图按键补充速度/距离/RCS；示例层数据源
- * 无加速度与类型概率字段 → 按属性缺失处理），Evaluate 后：
- * - 等级相对上一周期升级（首见按低威胁计）→ 威胁升级关键事件；
- * - 每目标发布 ThreatUpdatedEvent（跨周期通知）；
- * - 每周期视图摘要行直写集成端日志（[视图:threat]）。
- *
- * @note 与库内算法面的边界：本组件只做"组装 + 消费 + 事件化"，评估逻辑全在
+ *  * @note 与库内算法面的边界：本组件只做"组装 + 消费 + 事件化"，评估逻辑全在
  *       threat_assessment 模块；跨周期记忆（升级判定）属示例层职责。
  */
 class ThreatComponent : public Component {

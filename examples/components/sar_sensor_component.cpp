@@ -6,7 +6,7 @@
  *    姿态零假设，示例简化），点目标真值取自共享场景状态，驱动 SarSession；
  * 2. 产品事件（产出/持续/丢失/失败）由库内 SarProductLifecycleRecorder 差分
  *    产出，组件转发为 SarProductEvent（kNoProduct 诊断事件不发布）；
- * 3. 产品调试视图（阶段型，规则 12）每周期构建，直写中文人读摘要行到集成端
+ * 3. 产品调试视图（阶段型）每周期构建，直写中文人读摘要行到集成端
  *    日志（SAR 无逐目标状态，不适用目标级三模式落盘）。
  */
 
@@ -89,7 +89,9 @@ bool SarSensorComponent::TryApplyRuntimeConfig(
   return applied;
 }
 
-// 阶段型调试视图摘要行（SAR 无逐目标状态，仅单行摘要；规则 12 落盘示范）。
+// 阶段型调试视图摘要行（SAR 无逐目标状态，仅单行摘要）。
+// 人读行示例：周期=400 执行=否 阶段=无 L1图像=无 L3图像=无 聚焦=无 信噪比=0.0dB
+//   目标数=2 问题=[sar.squint_angle_exceeds_limit 孔径斜视角超出配置成像限制。]
 void SarSensorComponent::LogDebugView(const sar::session::SarProductDebugView& view) {
   const std::string issues_text = app::FormatIssueText(view.issues);
   // 与下方写入行同内容：纯 std::string/std::to_string 拼接的日志字符串，供集成方直接搬入己方日志（示例自身不消费）。
@@ -154,9 +156,8 @@ void SarSensorComponent::Step(World& world, double dt_sec) {
   input.point_targets = scene.sar_point_targets;
 
   const sar::session::SarCycleResult result = session_.StepWithResult(input);
-  // 规则 12 落盘示范：每周期构建阶段型调试视图快照（拒绝周期为对应快照，含
-  // 规则 13b kInfo/kWarning 诊断），供调用方结构化持久化；本示例直写中文人读
-  // 摘要行（SAR 为阶段型视图，不适用目标级三模式落盘）。
+  // 调试视图快照每周期都要构建：它是下方摘要行的数据源（SAR 为阶段型视图，
+  // 不适用目标级三密度模式，恒为每周期一行摘要）。
   last_debug_view_ = sar::session::SarProductDebugViewBuilder::Build(input, result);
   LogDebugView(last_debug_view_);
   if (result.status != sar::session::SarCycleStatus::kCompleted) {

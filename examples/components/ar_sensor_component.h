@@ -1,9 +1,6 @@
 ﻿/**
  * @file ar_sensor_component.h
  * @brief 自定义实体-组件示例：AR（机载雷达）传感器组件。
- *
- * 组件封装 airborne_radar 模块会话：驱动 ArSession 产出探测记录；轨迹生命周期
- * 事件（首确认/失跟）由库内 recorder 差分产出，组件仅转发为 World 信号。
  */
 
 #ifndef EXAMPLES_COMPONENT_ATTACHMENT_COMPONENTS_AR_SENSOR_COMPONENT_H_
@@ -32,11 +29,6 @@ struct AppSceneState;  // core/scene_types.h（同上）
 
 /**
  * @brief AR 传感器组件：雷达会话驱动 + 轨迹生命周期事件转发。
- *
- * 会话经 ArSession::Create(config) 构造后移动进组件（PImpl 可移动），
- * 构造内把库内 ArTrackLifecycleRecorder 挂到会话上（首确认/失跟事件源，
- * 替代集成侧自研状态判定）。detections() 为本周期适配后的泛型探测记录
- * （已发布轨迹快照，跳过 kLost），FusionComponent 按挂载序在其后 Step 时聚合。
  */
 class ArSensorComponent : public Component {
  public:
@@ -58,13 +50,7 @@ class ArSensorComponent : public Component {
   bool powered_on() const { return powered_on_; }
 
   /**
-   * @brief 最近周期调试视图快照（规则 12 落盘示范）。
-   *
-   * Step 每周期经 ArTrackOutputDebugViewBuilder::Build 回填（含按目标状态与
-   * 规则 13b kInfo 排除诊断），供调用方结构化持久化到自己的日志/事件系统；
-   * 本示例每周期直写人读摘要行到集成端日志（logger/logger.h 的 CA_LOG_VIEW）。
-   * @return 最近周期调试视图；关机周期清零（无有效周期），拒绝周期为
-   *         kCycleNotCompleted 快照。
+   * @brief 最近周期调试视图快照（关机周期清零，拒绝周期为 kCycleNotCompleted）。
    */
   const airborne_radar::session::ArTrackOutputDebugView& LastDebugView() const {
     return last_debug_view_;
@@ -98,15 +84,24 @@ class ArSensorComponent : public Component {
   airborne_radar::session::ArExclusionCauseRecorder exclusion_{}; /**< 排除原因跨周期差分事件源 */
   airborne_radar::session::ArSession session_;
   Entity* host_{nullptr};
-  std::vector<fusion::DetectionRecord> detections_{};
-  bool powered_on_{true}; /**< 电源状态（由 sensor_enabled 补丁唯一维护；关机时组件不驱动会话） */
-  std::uint64_t prev_designated_target_id_{0U}; /**< 上一周期指定目标 ID（锁定生效/终态沿事件判定；0 = 无指定） */
-  airborne_radar::session::ArTrackOutputDebugView last_debug_view_{}; /**< 最近周期调试视图快照（规则 12 落盘） */
-  std::vector<airborne_radar::session::ArTrackAttributionRecord> last_track_attributions_{}; /**< 最近成功周期航迹归属表（指令路由器键翻译） */
-  std::uint64_t platform_entity_id_{1U};          /**< RF platform_id（rf_world 派生干扰时排除本机发射链） */
-  std::uint64_t transmitter_equipment_id_{1U};  /**< 本机发射 equipment_id（与 hardware.transmitter 一致） */
 
-  /// 调试视图中文人读行写入（三模式分支见 .cpp；宏选择见 logger/logger.h）。
+  std::uint64_t platform_entity_id_{1U};         /**< RF platform_id（rf_world 派生干扰时排除本机发射链） */
+  std::uint64_t transmitter_equipment_id_{1U};   /**< 本机发射 equipment_id（与 hardware.transmitter 一致） */
+
+  std::vector<fusion::DetectionRecord> detections_{};  /**< 本周期融合探测记录（每周期重写；融合组件拉取） */
+  airborne_radar::session::ArTrackOutputDebugView last_debug_view_{};  /**< 本周期调试视图快照（视图行数据源） */
+  std::vector<airborne_radar::session::ArTrackAttributionRecord> last_track_attributions_{}; /**< 最近成功周期航迹归属表（指令路由器键翻译） */
+
+  std::uint64_t prev_designated_target_id_{0U}; /**< 上一周期指定目标 ID（锁定生效/终态沿事件判定；0 = 无指定） */
+#if defined(CA_VIEW_LOG_MODE_DELTA)
+  /// 视图模式二：上一周期逐目标调试状态（首次出现视为变化；表只增不减，示例不清理）。
+  std::unordered_map<std::uint64_t, airborne_radar::session::ArDebugTrackStatus>
+      prev_track_status_{};
+#endif
+
+  bool powered_on_{true}; /**< 电源状态（由 sensor_enabled 补丁唯一维护；关机时不驱动会话） */
+
+  /// 调试视图中文人读行写入（三模式分支见 .cpp；宏选择见 logger/logger_modes.h）。
   void LogDebugView(const airborne_radar::session::ArTrackOutputDebugView& view,
                     const oneq::coordinate::LlaPositionDegM* origin_lla);
   /// 周期输入组装：平台运动学（Flight）+ ENU 目标 + RF 干扰投影（供 StepWithResult）。
@@ -124,11 +119,6 @@ class ArSensorComponent : public Component {
   void PublishExclusionEvents(World& world);
   /// 已发布轨迹 → 泛型探测记录（源通道 kArSourceId；失跟轨迹不入融合）。
   void AdaptDetections(const airborne_radar::session::ArExternalTrackOutputFrame& external_frame);
-#if defined(CA_VIEW_LOG_MODE_DELTA)
-  /// 模式二（跨周期状态增量）用：上一周期状态表（external_target_id → status）。
-  std::unordered_map<std::uint64_t, airborne_radar::session::ArDebugTrackStatus>
-      prev_track_status_{};
-#endif
 };
 
 }  // namespace component_attachment

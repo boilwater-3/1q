@@ -16,7 +16,7 @@ Authority: 甲方集成验证清单；两个核心场景（`rir_long_range_scan`
 1. **库会话（session/engine）是真正的产品**。`1q.lib` 里每个仿真模块暴露一个会话
    或引擎类（如 `RirSession`、`FusionEngine`）。它们是纯 C++ 对象，不依赖任何
    框架——你每周期喂数据、调一次 `Step`，它返回结果。验收文件也由库内写出。
-2. **示例组件只是"会话的壳"**。`examples/component_attachment` 用一个 50 行的
+2. **示例组件只是"会话的壳"**。`examples/`（core + components）用一个 50 行的
    `Component` 基类 + World + Boost.Signals2 演示"怎么把会话挂进实体-组件框架"。
    甲方有自己的框架和事件机制，**壳可以自己写，会话直接用**。
 3. **验收文件是交付判据**。每层一份中文日志（四段同一行，见 §7），甲方按原文

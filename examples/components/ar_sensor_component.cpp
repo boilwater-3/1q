@@ -46,7 +46,7 @@ const char* ArTrackStatusName(airborne_radar::session::ArDebugTrackStatus status
   return "未知";
 }
 
-/// 排除原因门内归因 → 中文名（人读日志，规则 13b 门内归因条款）。
+/// 排除主因 → 中文名（人读事件行）。
 const char* ArExclusionCauseName(airborne_radar::session::ArIssueCause cause) {
   switch (cause) {
     case airborne_radar::session::ArIssueCause::kNone:
@@ -130,19 +130,25 @@ bool ArSensorComponent::TryApplyRuntimeConfig(
   return applied;
 }
 
-// 视图行写入（三模式，宏门控——未选中的模式不参与编译，见 logger/logger.h 模式选择
-// 区）。DebugView 每周期都构建，落多少、怎么落由集成方按需求选择。
+// 视图行写入：三种密度模式编译期三选一（CMake -DCA_VIEW_LOG_MODE=… 或改
+// logger/logger_modes.h；未选中的分支不参与编译）。纯观测，不影响会话与信号。
+// 各模式输出示例：
+//   模式一 nonnominal（只写异常目标行；全部正常时整周期静默不写，防刷屏）：
+//     周期=5 目标=1001 状态=候选 位置LLA=(29.74956,128.13653,4000) 速度=250.0m/s
+//   模式二 delta（只写状态有变化的目标行；无变化时整周期静默不写，防刷屏）：
+//     周期=5 目标=1001 状态=已确认
+//   模式三 summary（默认；每周期恰好一行完整摘要）：
+//     周期=400 完成=是 目标=[1001 不在输出(RCS 1.20m²), 1002 不在输出(RCS 0.10m²)]
+//     问题=[ar.target_snr_below_threshold 目标信噪比低于门限…]
 void ArSensorComponent::LogDebugView(
     const airborne_radar::session::ArTrackOutputDebugView& view,
     const oneq::coordinate::LlaPositionDegM* origin_lla) {
 #if defined(CA_VIEW_LOG_MODE_NONNOMINAL)
-  // 模式一（只落非标称行）：跳过已确认（标称）目标，日志量 ∝ 异常数。
-  std::size_t non_nominal = 0U;
+  // 模式一：只写非标称目标（非已确认）行；全部正常时本周期静默不写（防刷屏）。
   for (const auto& track : view.tracks) {
     if (track.status == airborne_radar::session::ArDebugTrackStatus::kConfirmed) {
       continue;
     }
-    ++non_nominal;
     oneq::coordinate::LlaPositionDegM lla;
     const bool have_lla =
         origin_lla != nullptr &&
@@ -188,25 +194,12 @@ void ArSensorComponent::LogDebugView(
                   ArTrackStatusName(track.status), track.speed);
     }
   }
-  if (non_nominal == 0U) {
-    // 与下方写入行同内容：纯 std::string/std::to_string 拼接的日志字符串，供集成方直接搬入己方日志（示例自身不消费）。
-    const std::string ar_view_log_3 =
-        std::string("周期=") +
-        std::to_string(view.world_cycle_index) +
-        " 全部正常（" +
-        std::to_string(view.tracks.size()) +
-        " 个目标均已确认）";
-    CA_LOG_VIEW("ar", "周期={} 全部正常（{} 个目标均已确认）", view.world_cycle_index,
-                view.tracks.size());
-  }
 #elif defined(CA_VIEW_LOG_MODE_DELTA)
-  // 模式二（跨周期状态增量）：上一周期状态表由组件持有（external_target_id →
-  // status），首次出现视为变化；表只增不减，目标集长期收缩时调用方可按需清理。
-  std::size_t changed = 0U;
+  // 模式二：只写状态与上一周期不同的目标行（上一周期状态表由组件持有，首次
+  // 出现视为变化；表只增不减，示例不清理）；无变化时静默不写（防刷屏）。
   for (const auto& track : view.tracks) {
     const auto it = prev_track_status_.find(track.external_target_id);
     if (it == prev_track_status_.end() || it->second != track.status) {
-      ++changed;
       // 与下方写入行同内容：纯 std::string/std::to_string 拼接的日志字符串，供集成方直接搬入己方日志（示例自身不消费）。
       const std::string ar_view_log_4 =
           std::string("周期=") +
@@ -220,14 +213,6 @@ void ArSensorComponent::LogDebugView(
                   ArTrackStatusName(track.status));
     }
     prev_track_status_[track.external_target_id] = track.status;
-  }
-  if (changed == 0U) {
-    // 与下方写入行同内容：纯 std::string/std::to_string 拼接的日志字符串，供集成方直接搬入己方日志（示例自身不消费）。
-    const std::string ar_view_log_5 =
-        std::string("周期=") +
-        std::to_string(view.world_cycle_index) +
-        " 无状态变化";
-    CA_LOG_VIEW("ar", "周期={} 无状态变化", view.world_cycle_index);
   }
 #else  // CA_VIEW_LOG_MODE_SUMMARY（默认）
   // 模式三（每周期摘要行）：目标状态明细带结构化量值（input 回填 RCS，未
@@ -291,15 +276,14 @@ void ArSensorComponent::Step(World& world, double dt_sec) {
     return;  // 无平台动力学（空场景）：不产生探测
   }
 
-  // 周期输入：世界目标事实由消费方每周期写入共享场景状态。
-  const auto& scene = static_cast<const AppSceneState&>(world.scene_state());
-  auto& mutable_scene = static_cast<AppSceneState&>(world.scene_state());
+  // 共享场景状态（World 只存基类引用，实际类型为 AppSceneState）：本组件从中
+  // 读世界真值组输入，也向其写回射频发射，故直接取可变引用。
+  auto& scene = static_cast<AppSceneState&>(world.scene_state());
   const airborne_radar::session::ArCycleInput input = BuildCycleInput(*flight, scene, dt_sec);
 
   const airborne_radar::session::ArCycleResult result = session_.StepWithResult(input);
-  // 规则 12 落盘示范：每周期构建调试视图快照（拒绝周期为 kCycleNotCompleted，
-  // 含规则 13b kInfo 排除诊断），供调用方结构化持久化；本示例经 LogDebugView
-  // 直写中文人读行（三模式由集成方按需选择）。
+  // 调试视图快照每周期都要构建：它是下方视图行的数据源（日志写多少由三密度
+  // 模式宏门控，与快照构建无关；被拒绝周期为 kCycleNotCompleted 行）。
   last_debug_view_ = airborne_radar::session::ArTrackOutputDebugViewBuilder::Build(input, result);
   const oneq::coordinate::LlaPositionDegM origin = flight->position();
   LogDebugView(last_debug_view_, &origin);
@@ -308,9 +292,8 @@ void ArSensorComponent::Step(World& world, double dt_sec) {
   }
   // 航迹归属对照表（指令路由器把融合键翻译为外部目标 ID 的权威来源）。
   last_track_attributions_ = result.track_attributions;
-  PublishEquipmentEmissions(&mutable_scene, result.emission_frame);
-
-  PublishDesignationEvent(world, result);
+  PublishEquipmentEmissions(&scene, result.emission_frame);  // 射频发射 → 共享 RF 世界
+  PublishDesignationEvent(world, result);                    // STT 指定任务沿 → 事件日志
 
   // 事件转发与探测适配统一用外部轨迹帧（雷达局部坐标 → ECEF 已在
   // ArCycleOutputAdapter 边界转换；内部帧为 TrackStateSnapshot，无 ECEF）。
@@ -321,9 +304,9 @@ void ArSensorComponent::Step(World& world, double dt_sec) {
     return;  // 坐标适配失败：本周期无探测
   }
 
-  PublishTrackLifecycleEvents(world, scene, external_frame);
-  PublishExclusionEvents(world);
-  AdaptDetections(external_frame);
+  PublishTrackLifecycleEvents(world, scene, external_frame);  // 航迹首确认/失跟 → 信号+事件日志
+  PublishExclusionEvents(world);                              // 排除原因变化沿 → 事件日志
+  AdaptDetections(external_frame);                            // 已发布轨迹 → 融合探测记录
 }
 
 void ArSensorComponent::PublishDesignationEvent(
@@ -421,9 +404,8 @@ void ArSensorComponent::PublishTrackLifecycleEvents(
 }
 
 void ArSensorComponent::PublishExclusionEvents(World& world) {
-  // 排除原因跨周期差分事件（规则 13e）：纯诊断观测，仅落事件日志（不发 World
-  // 信号——不驱动融合/威胁等下游组件）。A1（原因稳定）不产事件，天然适配 KEY
-  // 事件模式（边界事件 A2/A3/A4 逐条落盘，无刷屏）。
+  // 排除原因跨周期差分沿（进入/变化/退出）→ 仅事件日志，不发 World 信号；
+  // 原因稳定不产事件，故无刷屏。
   for (const auto& event : exclusion_.GetLastEvents()) {
     const std::uint64_t event_target_id = event.external_target_id;
     if (event.kind == airborne_radar::session::ArExclusionCauseEventKind::kEntered) {

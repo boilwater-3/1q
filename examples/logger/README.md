@@ -61,7 +61,7 @@ world.signals().on_target_confirmed(confirmed);
 集成方替换该设施即接入自己的日志系统；单元测试不初始化日志设施，宏调用静默跳过
 （no-op）。
 
-**调试视图落盘在组件内直写**（规则 12）：各传感器组件（AR/EOS/SBIRS/SAR）的 `Step`
+**调试视图落盘在组件内直写**：各传感器组件（AR/EOS/SBIRS/SAR/RIR）的 `Step`
 在构建 `LastDebugView()` 后直写中文人读行到集成端视图日志（`integration_views.log`）——
 日志给人读，示例不做结构化落盘：`session_contract.md` 规则 12 的"调用方结构化持久化
 DebugView"由外部集成方接入自己的日志/事件系统实现，结构化格式与字段布局由调用方自定
@@ -92,8 +92,8 @@ DebugView 每周期都会产生，落盘多少、怎么落由集成方决定—�
 
 | 模式 | 宏 | 行为 |
 | --- | --- | --- |
-| 视图模式一（只落非标称行） | `CA_VIEW_LOG_MODE_NONNOMINAL` | 每周期只把非标称目标（AR 非 `kConfirmed`；EOS/SBIRS 非 `kDetected`）逐行写日志，全标称时写一行"全部正常"；日志量 ∝ 异常数 |
-| 视图模式二（跨周期状态增量） | `CA_VIEW_LOG_MODE_DELTA` | 只写状态与上一周期不同的目标行；无变化时写一行"无状态变化" |
+| 视图模式一（只落非标称行） | `CA_VIEW_LOG_MODE_NONNOMINAL` | 每周期只把非标称目标（AR 非 `kConfirmed`；EOS/SBIRS 非 `kDetected`）逐行写日志，全标称时整周期静默（防刷屏）；日志量 ∝ 异常数 |
+| 视图模式二（跨周期状态增量） | `CA_VIEW_LOG_MODE_DELTA` | 只写状态与上一周期不同的目标行；无变化时整周期静默（防刷屏） |
 | 视图模式三（每周期摘要行，**默认**） | `CA_VIEW_LOG_MODE_SUMMARY` | 每周期一行中文摘要；实际落盘再按 `周期 % view_log_every_cycles == 0` 过滤 |
 | 事件模式一（只记关键事件，**默认**） | `CA_EVENT_LOG_MODE_KEY` | `CA_LOG_EVENT` 逐条落盘，`CA_LOG_EVENT_DUP`（周期性重复事件）不落盘 |
 | 事件模式二（周期聚合） | `CA_EVENT_LOG_MODE_AGGREGATE` | 每周期把全部事件聚合为一行（`[事件聚合] 周期=N 事件数=M [中文名×次数, ...]`） |

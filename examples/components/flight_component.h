@@ -1,18 +1,6 @@
 ﻿/**
  * @file flight_component.h
  * @brief 自定义实体-组件示例：飞行组件（六自由度机动 + 航点跟随）。
- *
- * 组件封装 flight_dynamic 模块：ONEQ_CA_FLIGHT_DYNAMIC_ENABLED 定义时
- * （CMake 按 ONEQ_ENABLE_FLIGHT_DYNAMIC 注入）接入 JSBSim 六自由度真实
- * 飞行仿真（c172x，子步进 10 ms）。机动逻辑从起飞开始设计（参照
- * FlightManager.h Step(dt) 的 @note 集成契约）：初始地面
- * 静止（不做空中配平，do_trim=false），机动队列 = kTakeoff（滑跑→抬轮→
- * 爬升到巡航高度）→ 航路点巡航 → kLand；关闭或初始化失败（aircraft
- * 数据缺失）时回退运动学近似（模拟起飞爬升 + 巡航直线）。
- *
- * FD 头经不透明持有者（.cpp 内定义）隔离，本头文件对 FD 零依赖。
- * 每周期推进后发布 PlatformStateEvent；航点完成判定（几何距离 ≤ 到达
- * 半径）时发布 WaypointReachedEvent 并推进 next_index。
  */
 
 #ifndef EXAMPLES_COMPONENT_ATTACHMENT_COMPONENTS_FLIGHT_COMPONENT_H_
@@ -107,13 +95,14 @@ class FlightComponent : public Component {
   void CheckWaypointArrival(World& world, double t_sec);
   void AdvanceKinematicsFallback(double dt_sec);
 
-  oneq::coordinate::LlaPositionDegM position_{};
-  double heading_deg_{0.0};
-  double speed_mps_{0.0};
-  double cruise_altitude_m_{0.0};
-  std::vector<navigation::RoutePoint> route_{};
-  std::size_t next_index_{0U};
-  bool loop_route_{false};
+  oneq::coordinate::LlaPositionDegM position_{};  /**< 平台当前位置（度制 LLA） */
+  double heading_deg_{0.0};      /**< 平台航向（deg，北偏东） */
+  double speed_mps_{0.0};        /**< 平台速度（m/s） */
+  double cruise_altitude_m_{0.0}; /**< 巡航高度（m，起飞爬升目标） */
+
+  std::vector<navigation::RoutePoint> route_{};  /**< 巡航/巡逻航路（相邻航点直线航段） */
+  std::size_t next_index_{0U};    /**< 下一航点索引 */
+  bool loop_route_{false};        /**< 循环巡逻（航路耗尽后回绕首航点） */
   /// FD 模式航点完成事件消费游标（GetWaypointEvents 按完成顺序追加；
   /// Reset 重建清空事件记录后回落归零）。
   std::size_t waypoint_events_consumed_{0U};

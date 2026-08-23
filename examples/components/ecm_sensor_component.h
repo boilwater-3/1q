@@ -1,10 +1,6 @@
 ﻿/**
  * @file ecm_sensor_component.h
  * @brief 自定义实体-组件示例：ECM（电子对抗）组件。
- *
- * 封装 EcmSession：每周期读同实体 ESR 组件上一成功周期的去真值化假设，
- * 调度压制/欺骗干扰并将 emission_frame 发布到 RF-WORLD（供 AR/ESR/RIR 消费）。
- * 须挂载在 ESR 之后、AR 之前（挂载序 = 步进序）。
  */
 
 #ifndef EXAMPLES_COMPONENT_ATTACHMENT_COMPONENTS_ECM_SENSOR_COMPONENT_H_
@@ -25,9 +21,6 @@ constexpr std::uint64_t kPlatformEntityId = 1U;
 
 /**
  * @brief ECM 组件：ESR 驱动干扰调度 + RF-WORLD 发布。
- *
- * 会话经 EcmSession::Create(config) 构造后移动进组件。Find<EsrSensorComponent>()
- * 读取 ESR 缓存假设；成功执行时将 emission_frame 追加到 AppSceneState::rf_world。
  */
 class EcmSensorComponent : public Component {
  public:
@@ -50,9 +43,10 @@ class EcmSensorComponent : public Component {
  private:
   electronic_countermeasure::session::EcmSession session_;
   Entity* host_{nullptr};
-  bool powered_on_{true};
-  std::uint32_t executed_cycle_count_{0U};
-  std::uint64_t last_submitted_esr_batch_id_{0U};
+
+  bool powered_on_{true};  /**< 电源状态（关机时组件不驱动会话） */
+  std::uint32_t executed_cycle_count_{0U};  /**< 累计成功发射周期数（冒烟断言） */
+  std::uint64_t last_submitted_esr_batch_id_{0U};  /**< 已提交给会话的最新 ESR 批次（防重复消费） */
 };
 
 }  // namespace component_attachment

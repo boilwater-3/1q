@@ -23,7 +23,7 @@ namespace component_attachment {
 
 namespace {
 
-/// 排除原因门内归因 → 中文名（人读日志，规则 13b 门内归因条款）。
+/// 排除主因 → 中文名（人读事件行）。
 const char* EsrExclusionCauseName(electronic_surveillance_radar::session::EsrIssueCause cause) {
   switch (cause) {
     case electronic_surveillance_radar::session::EsrIssueCause::kNone:
@@ -120,9 +120,9 @@ void EsrSensorComponent::Step(World& world, double dt_sec) {
   last_completed_cycle_index_ = static_cast<std::uint32_t>(scene.cycle);
   has_last_completed_output_ = true;
 
-  PublishHypothesisEvents(world, scene);
-  PublishExclusionEvents(world);
-  AdaptDetections();
+  PublishHypothesisEvents(world, scene);  // 辐射源假设沿 → 信号+事件日志（周期性重复）
+  PublishExclusionEvents(world);          // 排除原因变化沿 → 事件日志
+  AdaptDetections();                      // 假设 → 融合探测记录
 }
 
 void EsrSensorComponent::PublishHypothesisEvents(World& world,
@@ -163,8 +163,8 @@ void EsrSensorComponent::PublishHypothesisEvents(World& world,
 }
 
 void EsrSensorComponent::PublishExclusionEvents(World& world) {
-  // 排除原因跨周期差分事件（规则 13e）：纯诊断观测，仅落事件日志（不发 World
-  // 信号——不驱动融合/威胁等下游组件）。ESR 无 target_id，以发射源标识
+  // 排除原因跨周期差分沿（进入/变化/退出）→ 仅事件日志，不发 World 信号；
+  // 原因稳定不产事件，故无刷屏。ESR 无 target_id，以发射源标识
   // （platform/equipment/emission 三元组）为实体关联键。差分键为 (code,cause)
   // 组合对——co-site↔zero-power 切换（kNone→细分 cause）亦产事件。
   for (const auto& event : exclusion_.GetLastEvents()) {

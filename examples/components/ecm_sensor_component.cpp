@@ -1,6 +1,10 @@
 ﻿/**
  * @file ecm_sensor_component.cpp
  * @brief ECM 组件实现（ESR 假设驱动 + RF-WORLD 发布）。
+ *
+ * 每周期读同实体 ESR 组件上一成功周期的去真值化假设（按 batch_id 防重复
+ * 消费），调度压制/欺骗干扰，成功执行时将 emission_frame 发布到共享 RF 世界
+ * （供 AR/ESR/RIR 消费）；须挂载在 ESR 之后、AR 之前（挂载序 = 步进序）。
  */
 
 #include "ecm_sensor_component.h"
@@ -66,8 +70,9 @@ void EcmSensorComponent::Step(World& world, double dt_sec) {
     return;
   }
 
-  const auto& scene = static_cast<const AppSceneState&>(world.scene_state());
-  auto& mutable_scene = static_cast<AppSceneState&>(world.scene_state());
+  // 共享场景状态（World 只存基类引用，实际类型为 AppSceneState）：读真值组输入，
+  // 也向其写回射频发射，故直接取可变引用。
+  auto& scene = static_cast<AppSceneState&>(world.scene_state());
 
   ecm::session::EcmCycleInput input;
   input.cycle_index = static_cast<std::uint32_t>(scene.cycle);
@@ -123,7 +128,7 @@ void EcmSensorComponent::Step(World& world, double dt_sec) {
                    EcmTechniqueName(result.decisions.front().technique),
                    result.decisions.size(), result.decisions.front().allocated_power_w);
     }
-    PublishEquipmentEmissions(&mutable_scene, result.emission_frame);
+    PublishEquipmentEmissions(&scene, result.emission_frame);  // 射频发射 → 共享 RF 世界
   }
 }
 

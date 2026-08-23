@@ -1,10 +1,6 @@
 ﻿/**
  * @file eos_sensor_component.h
  * @brief 自定义实体-组件示例：EOS（光电）传感器组件。
- *
- * 组件封装 electro_optical_sensor 模块会话：驱动 EosSession 产出探测记录（无
- * 身份仅方位通道）；探测生命周期事件（首发现/更新/丢失）由库内 recorder 差分
- * 产出，组件转发为 World 信号。
  */
 
 #ifndef EXAMPLES_COMPONENT_ATTACHMENT_COMPONENTS_EOS_SENSOR_COMPONENT_H_
@@ -30,10 +26,6 @@ struct AppSceneState;  // core/scene_types.h（同上）
 
 /**
  * @brief EOS 传感器组件：光电会话驱动 + 探测生命周期事件转发。
- *
- * 会话经 EosSession::Create(config) 构造后移动进组件（PImpl 可移动）。
- * detections() 为本周期适配后的泛型探测记录（key=0，仅方位），
- * FusionComponent 按挂载序在其后 Step 时聚合。
  */
 class EosSensorComponent : public Component {
  public:
@@ -57,13 +49,7 @@ class EosSensorComponent : public Component {
   float scan_azimuth_deg() const { return scan_azimuth_deg_; }
 
   /**
-   * @brief 最近周期调试视图快照（规则 12 落盘示范）。
-   *
-   * Step 每周期经 EosOutputDebugViewBuilder::Build 回填（含按目标状态与
-   * 规则 13b kInfo 排除诊断），供调用方结构化持久化到自己的日志/事件系统；
-   * 本示例每周期直写人读摘要行到集成端日志（logger/logger.h 的 CA_LOG_VIEW）。
-   * @return 最近周期调试视图；关机周期清零（无有效周期），拒绝周期为
-   *         kCycleNotExecuted 快照。
+   * @brief 最近周期调试视图快照（关机周期清零，拒绝周期为 kCycleNotExecuted）。
    */
   const electro_optical_sensor::session::EosOutputDebugView& LastDebugView() const {
     return last_debug_view_;
@@ -87,12 +73,21 @@ class EosSensorComponent : public Component {
   electro_optical_sensor::session::EosExclusionCauseRecorder exclusion_{}; /**< 排除原因跨周期差分事件源 */
   electro_optical_sensor::session::EosSession session_;
   Entity* host_{nullptr};
-  std::vector<fusion::DetectionRecord> detections_{};
-  bool powered_on_{true};     /**< 电源状态（由 sensor_enabled 补丁唯一维护；关机时组件不驱动会话） */
-  float scan_azimuth_deg_{0.0f}; /**< 最近周期波束中心方位角（deg，随周期结果刷新） */
-  electro_optical_sensor::session::EosOutputDebugView last_debug_view_{}; /**< 最近周期调试视图快照（规则 12 落盘） */
 
-  /// 调试视图中文人读行写入（三模式分支见 .cpp；宏选择见 logger/logger.h）。
+  float scan_azimuth_deg_{0.0f}; /**< 最近周期波束中心方位角（deg，随周期结果刷新） */
+
+  std::vector<fusion::DetectionRecord> detections_{};  /**< 本周期融合探测记录（每周期重写；融合组件拉取） */
+  electro_optical_sensor::session::EosOutputDebugView last_debug_view_{};  /**< 本周期调试视图快照（视图行数据源） */
+
+#if defined(CA_VIEW_LOG_MODE_DELTA)
+  /// 视图模式二：上一周期逐目标调试状态（首次出现视为变化；表只增不减，示例不清理）。
+  std::unordered_map<std::uint64_t, electro_optical_sensor::session::EosDebugTargetStatus>
+      prev_target_status_{};
+#endif
+
+  bool powered_on_{true}; /**< 电源状态（由 sensor_enabled 补丁唯一维护；关机时不驱动会话） */
+
+  /// 调试视图中文人读行写入（三模式分支见 .cpp；宏选择见 logger/logger_modes.h）。
   void LogDebugView(const electro_optical_sensor::session::EosOutputDebugView& view);
   /// 周期输入组装：平台锚点（ECEF→LLA，失败返回 false）+ ENU 场景目标直填。
   bool BuildCycleInput(const FlightComponent& flight, const AppSceneState& scene,
@@ -106,11 +101,6 @@ class EosSensorComponent : public Component {
   void PublishExclusionEvents(World& world);
   /// 探测记录 → 泛型探测记录（源通道 kEosSourceId，无身份键 0）。
   void AdaptDetections(const electro_optical_sensor::session::EosCycleResult& result);
-#if defined(CA_VIEW_LOG_MODE_DELTA)
-  /// 模式二（跨周期状态增量）用：上一周期状态表（target_id → status）。
-  std::unordered_map<std::uint64_t, electro_optical_sensor::session::EosDebugTargetStatus>
-      prev_target_status_{};
-#endif
 };
 
 }  // namespace component_attachment

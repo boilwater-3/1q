@@ -148,7 +148,7 @@ const char* SbirsTargetStatusName(sbirs_sensor::session::SbirsDebugTargetStatus 
   return "未知";
 }
 
-/// 排除原因门内归因 → 中文名（人读日志，规则 13b 门内归因条款）。
+/// 排除主因 → 中文名（人读事件行）。
 const char* SbirsExclusionCauseName(sbirs_sensor::session::SbirsIssueCause cause) {
   switch (cause) {
     case sbirs_sensor::session::SbirsIssueCause::kNone:
@@ -192,18 +192,24 @@ bool SbirsSensorComponent::TryApplyRuntimeConfig(
   return applied;
 }
 
-// 视图行写入（三模式，宏门控——未选中的模式不参与编译，见 logger/logger.h 模式选择
-// 区）。DebugView 每周期都构建，落多少、怎么落由集成方按需求选择。
+// 视图行写入：三种密度模式编译期三选一（CMake -DCA_VIEW_LOG_MODE=… 或改
+// logger/logger_modes.h；未选中的分支不参与编译）。纯观测，不影响会话与信号。
+// 各模式输出示例：
+//   模式一 nonnominal（只写异常目标行；全部正常时整周期静默不写，防刷屏）：
+//     周期=5 目标=1001 状态=不在视场 方位(ECI)=209.2° 仰角(ECI)=-89.3°
+//   模式二 delta（只写状态有变化的目标行；无变化时整周期静默不写，防刷屏）：
+//     周期=5 目标=1001 状态=已检测
+//   模式三 summary（默认；每周期恰好一行完整摘要）：
+//     周期=400 执行=是 目标=[1001 不在输出(方位209.2° 俯仰-89.3°),
+//     1002 不在输出(方位29.2° 俯仰-89.3°)] 问题=[sbirs.target_out_of_wfov …]
 void SbirsSensorComponent::LogDebugView(
     const sbirs_sensor::session::SbirsOutputDebugView& view) {
 #if defined(CA_VIEW_LOG_MODE_NONNOMINAL)
-  // 模式一（只落非标称行）：跳过已检测（标称）目标，日志量 ∝ 异常数。
-  std::size_t non_nominal = 0U;
+  // 模式一：只写非标称目标（非已检测）行；全部正常时本周期静默不写（防刷屏）。
   for (const auto& target : view.targets) {
     if (target.status == sbirs_sensor::session::SbirsDebugTargetStatus::kDetected) {
       continue;
     }
-    ++non_nominal;
     // 2026-08 正式变更：库内方位/俯仰输出为 ECI 极坐标弧度；示例按可读性转
     // 度显示。距离仅存在于库内诊断字段（estimated_range_m，仅归属目标有值），
     // 非标称行不再展示距离（被动红外测距无物理依据，见 docs/common/contract.md）。
@@ -225,25 +231,12 @@ void SbirsSensorComponent::LogDebugView(
                 SbirsTargetStatusName(target.status), target.azimuth_rad * kRadToDeg,
                 target.elevation_rad * kRadToDeg);
   }
-  if (non_nominal == 0U) {
-    // 与下方写入行同内容：纯 std::string/std::to_string 拼接的日志字符串，供集成方直接搬入己方日志（示例自身不消费）。
-    const std::string sbirs_view_log_2 =
-        std::string("周期=") +
-        std::to_string(view.input_cycle_index) +
-        " 全部正常（" +
-        std::to_string(view.targets.size()) +
-        " 个目标均已检测）";
-    CA_LOG_VIEW("sbirs", "周期={} 全部正常（{} 个目标均已检测）", view.input_cycle_index,
-                view.targets.size());
-  }
 #elif defined(CA_VIEW_LOG_MODE_DELTA)
-  // 模式二（跨周期状态增量）：上一周期状态表由组件持有（target_id → status），
-  // 首次出现视为变化；表只增不减，目标集长期收缩时调用方可按需清理。
-  std::size_t changed = 0U;
+  // 模式二：只写状态与上一周期不同的目标行（上一周期状态表由组件持有，首次
+  // 出现视为变化；表只增不减，示例不清理）；无变化时静默不写（防刷屏）。
   for (const auto& target : view.targets) {
     const auto it = prev_target_status_.find(target.target_id);
     if (it == prev_target_status_.end() || it->second != target.status) {
-      ++changed;
       // 与下方写入行同内容：纯 std::string/std::to_string 拼接的日志字符串，供集成方直接搬入己方日志（示例自身不消费）。
       const std::string sbirs_view_log_3 =
           std::string("周期=") +
@@ -257,14 +250,6 @@ void SbirsSensorComponent::LogDebugView(
                   SbirsTargetStatusName(target.status));
     }
     prev_target_status_[target.target_id] = target.status;
-  }
-  if (changed == 0U) {
-    // 与下方写入行同内容：纯 std::string/std::to_string 拼接的日志字符串，供集成方直接搬入己方日志（示例自身不消费）。
-    const std::string sbirs_view_log_4 =
-        std::string("周期=") +
-        std::to_string(view.input_cycle_index) +
-        " 无状态变化";
-    CA_LOG_VIEW("sbirs", "周期={} 无状态变化", view.input_cycle_index);
   }
 #else  // CA_VIEW_LOG_MODE_SUMMARY（默认）
   // 模式三（每周期摘要行）：目标状态明细带结构化量值（input 回填，未检测也
@@ -342,17 +327,16 @@ void SbirsSensorComponent::Step(World& world, double dt_sec) {
   }
   // 扫描方位随周期结果刷新（拒绝周期为空帧 → 0）；库内为 ECI 弧度，组件转度显示。
   scan_azimuth_deg_ = result.output_frame.scan_azimuth_rad * kRadToDeg;
-  // 规则 12 落盘示范：每周期构建调试视图快照（拒绝周期为 kCycleNotExecuted，
-  // 含规则 13b kInfo 排除诊断），供调用方结构化持久化；本示例经 LogDebugView
-  // 直写中文人读行（三模式由集成方按需选择）。
+  // 调试视图快照每周期都要构建：它是下方视图行的数据源（日志写多少由三密度
+  // 模式宏门控，与快照构建无关；被拒绝周期为 kCycleNotExecuted 行）。
   last_debug_view_ = sbirs_sensor::session::SbirsOutputDebugViewBuilder::Build(input, result);
   LogDebugView(last_debug_view_);
   if (result.status != sbirs_sensor::session::SbirsCycleStatus::kCompleted) {
     return;  // 周期被拒绝：本周期无探测
   }
-  PublishDetectionEvents(world, scene, result);
-  PublishExclusionEvents(world);
-  AdaptDetections(result);
+  PublishDetectionEvents(world, scene, result);  // 探测生命周期沿 → 信号+事件日志
+  PublishExclusionEvents(world);                 // 排除原因变化沿 → 事件日志
+  AdaptDetections(result);                       // 探测记录 → 融合探测记录
 }
 
 void SbirsSensorComponent::PublishDetectionEvents(
@@ -454,8 +438,8 @@ void SbirsSensorComponent::PublishDetectionEvents(
 }
 
 void SbirsSensorComponent::PublishExclusionEvents(World& world) {
-  // 排除原因跨周期差分事件（规则 13e）：纯诊断观测，仅落事件日志（不发 World
-  // 信号——不驱动融合/威胁等下游组件）。SBIRS 排除涵盖遮挡/距离带/视场/SNR 四门，
+  // 排除原因跨周期差分沿（进入/变化/退出）→ 仅事件日志，不发 World 信号；
+  // 原因稳定不产事件，故无刷屏。SBIRS 排除涵盖遮挡/距离带/视场/SNR 四门，
   // 差分键为 (code,cause) 组合对——遮挡↔距离带切换（同为 kNone、code 不同）亦产事件。
   for (const auto& event : exclusion_.GetLastEvents()) {
     const std::uint64_t event_target_id = event.target_id;
