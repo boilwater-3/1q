@@ -4,7 +4,7 @@
 
 | 项 | 值 |
 | --- | --- |
-| 场景文件 | `examples/precision_evaluation/scenes/sbirs_dual_sat_fix/sbirs_dual_sat_fix.json` |
+| 场景文件 | `examples/scenes/sbirs_dual_sat_fix/sbirs_dual_sat_fix.json` |
 | 宿主 | `precision_evaluation_demo`（评估层编排，不进 `component_attachment`） |
 | 场景意图 | 被测通道：精度评估 + 内部双 SBIRS + 融合 + 推演。交会与 AHP 写 `precision_acceptance.log`；红外/融合/推演验收写同目录三份文件。几何是评估配方（SNR 门 0.001），宽窄交接专项仍看 `sbirs_wfov_nfov_handover` |
 | 构建模式 | release |
@@ -40,7 +40,7 @@ scripts/1q.sh build VisualStudio.15.0-amd64-release --target precision_evaluatio
 # 不要从 WSL 传 /mnt/d 的 --output-dir（Windows exe 会吃掉路径）
 ```
 
-默认输出目录：`examples/precision_evaluation/log/sbirs_dual_sat_fix/`
+默认输出目录：`examples/log/sbirs_dual_sat_fix/`
 （`precision/sbirs/fusion/inference_acceptance.log`，git 忽略）。
 
 2026-08-22 本机已开四开关并跑 60 周期，四份文件均写出：

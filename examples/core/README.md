@@ -1,4 +1,4 @@
-# 自定义实体-组件示例（component_attachment）
+# 自定义实体-组件示例（core/ + components/）
 
 消费方业务层的集成参考示例：**自定义实体-组件**开发——不依赖 ECS 开源库，
 用组件基类 + 挂载 + 事件库实现完整的感知→决策链路。
@@ -9,15 +9,17 @@
 
 1. `core/component.h` — 组件基类（虚接口，50 行）
 2. `core/world.h` — 世界（实体注册表 + 步进 + 事件信号）
-3. `component_attachment_demo.cpp` — 主程序（装配 + 编排 + 收尾，看 main 即可）
-4. `scenes/baseline_takeoff_east/baseline_takeoff_east.json` — 基线场景（改它就能跑不同场景）
+3. `app/runner.cpp` — 运行体（装配 + 编排 + 收尾，RunScene 为全部场景可执行共用）
+4. `scenes/baseline_takeoff_east/` — 基线场景三件套（JSON + MD 期望表 + main.cpp 薄入口，改 JSON 就能跑不同参数）
 
 **运行**：
 
 ```bash
 cmake --preset llvm-ninja-release-local -DENABLE_EXAMPLES=ON [-DONEQ_ENABLE_FLIGHT_DYNAMIC=ON]
-cmake --build --preset llvm-ninja-release-local --target component_attachment_demo
-./build/llvm-ninja-release-local/bin/component_attachment_demo [--scene <path>] [--cycles <n>] [--output-dir <dir>]
+cmake --build --preset examples-release-local --target baseline_takeoff_east
+./build/examples-release-local/bin/baseline_takeoff_east [--cycles <n>]   # 日志落 examples/log/<log_dir>/
+# 通用 runner（任意场景 JSON，兼容入口）：
+./build/examples-release-local/bin/component_attachment_demo [--scene <path>] [--cycles <n>] [--output-dir <dir>]
 ```
 
 默认跑基线场景（400 周期），产物落在 `log/`（见"输出"节）。
@@ -41,7 +43,7 @@ SAR 为图像产品通道（无探测输出，不入融合，发布产品生命�
 ## 目录结构
 
 ```
-examples/component_attachment/
+examples/
 ├── core/                            自定义 ECS 核心（纯头文件）
 │   ├── component.h                  组件基类（虚接口 + 生命周期钩子）
 │   ├── entity.h                     实体（组件挂载容器，挂载序 = 步进序）
@@ -61,23 +63,28 @@ examples/component_attachment/
 │   ├── sar_sensor_component.h/.cpp  SarSensorComponent：合成孔径雷达产品（不入融合）
 │   ├── rir_sensor_component.h/.cpp  RirSensorComponent：地基识别雷达（场景可选，第 5 融合通道）
 │   ├── fusion_component.h/.cpp      FusionComponent：多源融合引擎
-│   └── threat_component.h/.cpp      ThreatComponent：威胁评估
-├── scenes/                          场景描述文件（每场景一子目录；详见 scenes/README.md）
-│   └── <name>/<name>.json + <name>.md
-├── component_attachment_demo.cpp    主程序（装配与编排：场景文件加载 + 实体/会话创建 + 周期循环 + 查询演示 + 冒烟断言）
-├── demo_config.h/.cpp               演示常量 + 六会话配置加载（JSON 基线，含 remote_identification_radar.json）
-├── scene_data.h/.cpp                场景描述（scenes/*.json → SceneData + 业务覆写应用；
-│                                    coverage 块经 AreaCoveragePlanner 规划巡逻航路；
-│                                    mission_area 块经 area_division 切分后逐机规划）
-├── area_division.h/.cpp             编队区域切分算法（example 业务层：单个覆盖区域 →
-│                                    每机子区域，多边形 = 等宽条带、圆形 = 同心环）
-├── scene_script.h/.cpp              世界模型目标真值脚本（场景目标脚本 → ECEF 状态 → 四通道周期真值 + 推进）
-├── scene_types.h                    DemoSceneState：共享场景状态（真值注入）
-├── sensor_utils.h                   平台坐标转换（ECEF 解析）
-├── demo_output.h/.cpp               输出落盘与事件消费（DemoOutputs 平台轨迹 CSV / DecisionListener 事件链）
-├── CMakeLists.txt
-└── README.md
-```
+│   ├── threat_component.h/.cpp      ThreatComponent：威胁评估
+│   └── sensor_utils.h               平台坐标转换（ECEF 解析）
+├── app/                             装配层
+│   ├── runner.h/.cpp                RunScene 运行体（场景加载→装配→周期循环→摘要+冒烟，
+│   │                                 全部场景可执行与通用 runner 共用）
+│   ├── main.cpp                     通用 runner 入口（component_attachment_demo，--scene 任意场景）
+│   ├── outputs.h/.cpp               可视化 CSV 落盘（AppOutputs：轨迹/真值/航路/区域）
+│   ├── command_routing.h/.cpp       事件消费（DecisionListener 决策链 + CommandRouter 指令路由）
+│   ├── fs_compat.h / output_dir.h   filesystem 别名 / 输出目录策略（临时区硬拒）
+│   └── README.md → 见上级 examples/README.md
+├── scenes/                          场景集（schema 权威见 scenes/README.md）
+│   ├── scene_data.h/.cpp            场景描述加载（scenes/*.json → SceneData +
+│   │                                 SceneSessionConfigs：session_config 挂载即全量；
+│   │                                 coverage 块经 AreaCoveragePlanner 规划巡逻航路；
+│   │                                 mission_area 块经 area_division 切分后逐机规划）
+│   ├── scene_script.h/.cpp          世界模型目标真值脚本（场景目标脚本 → ECEF 状态 → 四通道周期真值 + 推进）
+│   ├── area_division.h/.cpp         编队区域切分算法（example 业务层：单个覆盖区域 →
+│   │                                 每机子区域，多边形 = 等宽条带、圆形 = 同心环）
+│   └── <name>/{<name>.json + <name>.md + main.cpp}   每场景目录（薄入口 → 场景可执行）
+├── core/                            本目录（ECS 内核）+ scene_types.h（AppSceneState 共享场景状态）
+├── basic_config/                    六域 session 配置模板 + RIR 识别库资产
+└── CMakeLists.txt（examples 根：examples_core 静态库 + 场景可执行自动发现 + 兼容目标）
 
 > 传感器输出 → 融合探测记录的边界适配由库内官方适配器
 > `fusion/SensorAdapters.h` 承担（四个 `Adapt*ToDetectionRecords` 函数 + 源通道
@@ -115,7 +122,7 @@ class Component {
 - `World` 是实体注册表：`CreateEntity(name)`（创建序 = 步进序）、
   `FindEntity(name)`、`Step(dt)` 顺序步进全部实体、`signals()` 事件通道。
 - **共享场景状态**（跨实体上下文）：`SceneState` 基类（cycle/t_sec），
-  消费方继承扩展（`DemoSceneState` 增加四通道世界真值 + 天基平台位置 + SAR
+  消费方继承扩展（`AppSceneState` 增加四通道世界真值 + 天基平台位置 + SAR
   点目标），每周期更新、组件读取。
 
 ### 事件机制（core/signals.h + events.h）
@@ -250,8 +257,10 @@ SAR 为阶段型摘要行）——日志给人读，结构化持久化由外部�
 
 ```bash
 cmake --preset llvm-ninja-release-local -DENABLE_EXAMPLES=ON [-DONEQ_ENABLE_FLIGHT_DYNAMIC=ON]
-cmake --build --preset llvm-ninja-release-local --target component_attachment_demo
-./build/llvm-ninja-release-local/bin/component_attachment_demo [--scene <path>] [--cycles <n>] [--output-dir <dir>]
+cmake --build --preset examples-release-local --target baseline_takeoff_east
+./build/examples-release-local/bin/baseline_takeoff_east [--cycles <n>]   # 日志落 examples/log/<log_dir>/
+# 通用 runner（任意场景 JSON，兼容入口）：
+./build/examples-release-local/bin/component_attachment_demo [--scene <path>] [--cycles <n>] [--output-dir <dir>]
 ```
 
 - `--scene <path>`：场景描述文件（默认 `scenes/baseline_takeoff_east/baseline_takeoff_east.json`，路径由
@@ -260,7 +269,7 @@ cmake --build --preset llvm-ninja-release-local --target component_attachment_de
 - `--view-every <n>`：视图摘要间隔（`周期 % n == 0` 才写；覆盖场景
   `view_log_every_cycles`，默认 1 = 每周期一行）；
 - `--output-dir <dir>`：输出目录（日志 + CSV + 各层验收文件）。默认
-  `examples/component_attachment/log/<场景名>/`（例如 `rir_long_range_scan`），
+  `examples/log/<场景名>/`（例如 `rir_long_range_scan`），
   不传则按场景钉死，避免 `rir_acceptance.log` 落到运行目录。显式传入则用该路径。
   运行时产物不入版本控制，见 .gitignore；
 - 视图默认摘要模式；密度用 `--view-every` / 场景 `view_log_every_cycles`。
@@ -272,7 +281,7 @@ cmake --build --preset llvm-ninja-release-local --target component_attachment_de
 - FD 开启时输出 `FlightComponent` 的六自由度机动日志（JSBSim），关闭/失败时
   打印回退告警并走运动学路径。
 - 本示例依赖 spdlog（conanfile 非 Windows 依赖），Windows 构建不纳入
-  （examples/component_attachment/CMakeLists.txt 门控）。
+  （examples/CMakeLists.txt 门控）。
 
 ## 输出
 
@@ -297,7 +306,7 @@ cmake --build --preset llvm-ninja-release-local --target component_attachment_de
   机动入口在 FD 可用/不可用时的返回语义）+ 状态查询与调试视图单测（开关机/
   扫描方位、AR/EOS/SBIRS/SAR 四通道 `LastDebugView()` 逐目标/阶段型状态与
   13b kInfo 排除诊断、关机清零、SBIRS 关机冻结相位）；
-- ctest `examples::component_attachment_demo`：demo 冒烟（400 周期 + 日志/CSV
+- 示例冒烟不进 ctest（场景可执行自带冒烟断言，exit code 即结果；400 周期 + 日志/CSV
   落盘 + 最小产出断言：关键事件 ≥ 1、SBIRS 关键探测事件 ≥ 1、SAR 关键产品事件
   ≥ 1、融合目标 ≥ 1、平台轨迹行数 = 周期数、视图行数按 `view_log_every_cycles`
   求余后的拍数断言；未挂传感器不计入视图/排除原因）。

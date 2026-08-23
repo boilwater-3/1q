@@ -13,7 +13,7 @@
  * 1. CMake 构建时控制（推荐，无需改源码）：cmake 传
  *    -DCA_VIEW_LOG_MODE=summary|nonnominal|delta
  *    -DCA_EVENT_LOG_MODE=all|key|aggregate
- *    （见 examples/component_attachment/CMakeLists.txt；不传则用下方源码默认）；
+ *    （见 examples/CMakeLists.txt；不传则用下方源码默认）；
  * 2. 调试时直接改本文件：取消注释对应宏（每次只留一个）。
  */
 

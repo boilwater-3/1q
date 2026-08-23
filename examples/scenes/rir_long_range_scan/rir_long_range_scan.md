@@ -13,7 +13,7 @@
 
 ## 链路与配置说明
 
-甲方给出的可填参数已写入 `examples/configs/remote_identification_radar.json`：
+甲方给出的可填参数已写入 `examples/basic_config/remote_identification_radar.json`：
 
 | 甲方量 | 填入字段 | 值 |
 | --- | --- | --- |
@@ -90,12 +90,12 @@ min_rir_recognition_outputs=0（机载未挂，排除原因不再充关键事件
 | 多模型并行加载 | 1 | `暂无` | 按设计不能写 |
 
 example 事件行与 `rir_acceptance.log` 默认都在
-`examples/component_attachment/log/rir_long_range_scan/`。
+`examples/log/rir_long_range_scan/`。
 
 ## 结论
 
 **判定：通过**（探测能力成立；雷达验收能写项已落盘）。运行产物在
-`examples/component_attachment/log/rir_long_range_scan/`（git 忽略）。
+`examples/log/rir_long_range_scan/`（git 忽略）。
 
 两点附带观察（不否定“能探测”）：
 

@@ -30,9 +30,9 @@ Authority: 甲方集成验证清单；两个核心场景（`rir_long_range_scan`
 | 静态库 | `lib/1q.lib` | 全部模块（Release，五层验收开关已 ON） |
 | 二进制依赖 | `lib/sqlite3_vendor.lib`、`lib/zlibstatic.lib` | 链接 `1q.lib` 时一并链上 |
 | boost 头 | `third_party/boost/` | **仅示例组件层的事件库（signals2）需要**；只用会话（场景 B / 自写组件壳）不需要 |
-| 识别特征库 | `src/configs/remote_identification_radar/target_feature_database_v1.1.db` | RIR 型号识别交付库（SQLite） |
-| 配置基线 | `src/configs/*.json` | 六会话默认配置（含 `remote_identification_radar.json`，甲方链路参数已填） |
-| 示例源码 | `src/component_attachment/`、`src/precision_evaluation/`、`src/common/`、`src/configs/` | 零改动可编译的集成参考（两个 demo 的完整实现） |
+| 识别特征库 | `src/basic_config/remote_identification_radar/target_feature_database_v1.1.db` | RIR 型号识别交付库（SQLite） |
+| 配置模板 | `src/basic_config/*.json` | 六域基础 session 模板（含 `remote_identification_radar.json`，甲方链路参数已填；场景自持配置的拷贝源） |
+| 示例源码 | `src/`（core/components/app/scenes/logger/basic_config/common 七目录） | 零改动可编译的集成参考（场景可执行集 + 通用 runner 的完整实现） |
 
 **编译口径**（VS2015 交付档）：C++11、x64、**全链不 `/utf-8`**（头文件自带 BOM，
 cl 自动按 UTF-8 解码；这正是交付验证要证明的约束）。工程定义参考

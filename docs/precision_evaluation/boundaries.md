@@ -20,7 +20,7 @@ Last-reviewed: 2026-08-20
 - 编排会话（`PrecisionEvaluationSession`，已落地）：每周期输入双星星历 + 真值目标列表；
   输出逐周期误差样本与全程报告；内部强制 `fusion.enable_track_filtering=true`
   （速度/位置误差样本依赖）。
-- 集成参考示例：`examples/precision_evaluation/`（独立可执行 `precision_evaluation_demo`，
+- 集成参考示例：`examples/scenes/sbirs_dual_sat_fix/（场景可执行）/`（独立可执行 `precision_evaluation_demo`，
   硬编码双目标演示几何——一降一升弹道供落点/发射点样本；无 JSON 配置与日志设施依赖，
   与 component_attachment 组件形态无关）。
 

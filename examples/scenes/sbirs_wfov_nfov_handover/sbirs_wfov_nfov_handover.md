@@ -28,8 +28,8 @@ cmake --preset llvm-ninja-release-local -DENABLE_EXAMPLES=ON \
       -DONEQ_ENABLE_SBIRS_ACCEPTANCE_LOG=ON
 cmake --build --preset llvm-ninja-release-local --target component_attachment_demo
 ./build/llvm-ninja-release-local/bin/component_attachment_demo \
-    --scene examples/component_attachment/scenes/sbirs_wfov_nfov_handover/sbirs_wfov_nfov_handover.json
-grep "SbirsAccept" examples/component_attachment/log/1q_library.log | head
+    --scene examples/scenes/sbirs_wfov_nfov_handover/sbirs_wfov_nfov_handover.json
+grep "SbirsAccept" examples/log/1q_library.log | head
 ```
 
 七类事件（全在本场景出现）：

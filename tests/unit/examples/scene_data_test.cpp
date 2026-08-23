@@ -1,6 +1,6 @@
 ﻿/**
  * @file scene_data_test.cpp
- * @brief 场景描述加载器（examples/component_attachment/scene_data.*）单元测试。
+ * @brief 场景描述加载器（examples/scenes/scene_data.*）单元测试。
  *
  * 覆盖：基线场景解析（全字段）、缺省块回退、必填几何字段校验、畸形 JSON
  * 报错、空目标数组（"无目标"场景）、session_config 挂载即全量校验。

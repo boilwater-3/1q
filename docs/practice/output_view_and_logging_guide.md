@@ -3,12 +3,12 @@
 Status: active
 Last-reviewed: 2026-08-23
 Authority: 可观测性单源四件事（docs/common/session_contract.md）+ 分层周期记录与投影输出模型 +
-  集成端日志设施（examples/component_attachment/logger/README.md）
+  集成端日志设施（examples/logger/README.md）
 适用读者: 对"输出视图 / 两种日志 / 三模式"感到困惑的仓库开发者与外部集成方
 
 > 本教程是**教学性导航**，不是契约文档。契约权威仍是 `docs/common/session_contract.md`
-> （可观测性单源 / 规则 12/13b/13e）与 `examples/component_attachment/logger/README.md`；
-> 源码事实以 `examples/component_attachment/` 为准，本文只负责把这些概念串成一条
+> （可观测性单源 / 规则 12/13b/13e）与 `examples/logger/README.md`；
+> 源码事实以 `examples/` 为准，本文只负责把这些概念串成一条
 > 可理解的主线。
 
 ## 0. 调用方只记四件事
@@ -451,7 +451,7 @@ cmake --build --preset llvm-ninja-release-local --target component_attachment_de
 
 ### 途径二：源码调试时（与 CMake 途径互斥）
 
-编辑 `examples/component_attachment/logger/logger_modes.h` 底部的注释区，每次只取消注释
+编辑 `examples/logger/logger_modes.h` 底部的注释区，每次只取消注释
 一个视图模式 + 一个事件模式，重新编译：
 
 ```cpp
@@ -475,9 +475,12 @@ cmake --preset llvm-ninja-release-local -DENABLE_EXAMPLES=ON
 cmake --build --preset llvm-ninja-release-local --target component_attachment_demo
 ./build/llvm-ninja-release-local/bin/component_attachment_demo \
     [--scene <path>] [--cycles <n>] [--output-dir <dir>]
+# 每场景可执行（主开发路径；日志默认落 examples/log/<场景 log_dir>/）：
+cmake --build --preset llvm-ninja-release-local --target <scene_name>
+./build/llvm-ninja-release-local/bin/<scene_name> [--cycles <n>]
 ```
 
-默认输出到 `examples/component_attachment/log/`：
+默认输出到 `examples/log/`：
 
 | 文件 | 内容 | 属于哪套 |
 | --- | --- | --- |
@@ -563,14 +566,14 @@ DebugView 存成自己的 JSON，那是集成方文件，不是库可观测性 A
 | --- | --- |
 | 可观测性单源（周期记录 / 投影 / Replay / PROJECT_LOG） | `docs/common/session_contract.md` §可观测性单源 |
 | 分层周期记录（规则 15） | `docs/common/session_contract.md` §分层周期记录 + 可选投影 |
-| 日志设施主体与宏定义 | `examples/component_attachment/logger/logger.h`（`CA_LOG_EVENT*`/`CA_LOG_VIEW`） |
-| 模式选择区（宏兜底默认值） | `examples/component_attachment/logger/logger_modes.h` |
-| issue code → 中文名查表 | `examples/component_attachment/logger/logger_i18n.h` |
+| 日志设施主体与宏定义 | `examples/logger/logger.h`（`CA_LOG_EVENT*`/`CA_LOG_VIEW`） |
+| 模式选择区（宏兜底默认值） | `examples/logger/logger_modes.h` |
+| issue code → 中文名查表 | `examples/logger/logger_i18n.h` |
 | 视图三模式落盘分支实现 | 各组件 `LogDebugView()`（`ar/eos/sbirs_sensor_component.cpp`） |
 | 排除原因差分事件（13e）库头与示例 | `include/1q/<module>/session/*ExclusionCauseRecorder.h` + 各组件 `Step` 末尾的 `exclusion_.GetLastEvents()` 循环 |
-| 事件三模式实现（聚合/计数） | `examples/component_attachment/logger/logger.cpp` |
-| 模式 CMake 门控 | `examples/component_attachment/CMakeLists.txt` |
-| 场景数据与预期事件表 | `examples/component_attachment/scenes/README.md` |
+| 事件三模式实现（聚合/计数） | `examples/logger/logger.cpp` |
+| 模式 CMake 门控 | `examples/CMakeLists.txt` |
+| 场景数据与预期事件表 | `examples/scenes/README.md` |
 
 ## 变更规则
 

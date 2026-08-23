@@ -1,6 +1,6 @@
 ﻿/**
  * @file area_division_test.cpp
- * @brief 编队区域切分（examples/component_attachment/area_division.*）单元测试。
+ * @brief 编队区域切分（examples/scenes/area_division.*）单元测试。
  *
  * 覆盖：多边形等宽条带切分（跨度/扫描线并集/航向旋转）、圆形同心环切分
  * （环半径序列 + 每机单环）、单机整区原样返回、非法输入报错。断言全部为

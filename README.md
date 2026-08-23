@@ -71,9 +71,9 @@ Full dual-platform instructions: see the Build and Test section of `CLAUDE.md`; 
 
 `examples/` is the **consumer integration reference** (how to write a program that links against the library, using only the public `include/` surface):
 
-- `examples/component_attachment/`: consumer integration reference example — currently mounts AR/ESR/EOS/SBIRS/SAR sensor components + fusion + threat assessment + multi-aircraft formations, driven by scene JSON (including the multi-aircraft area-patrol `fleet_patrol_multi_zone` scene).
+- `examples/{core,components,app,scenes,logger,basic_config}/`: the scene suite — one executable per scene (`scenes/<name>/main.cpp`), mounting AR/ESR/EOS/SBIRS/SAR sensor components + fusion + threat assessment + multi-aircraft formations, driven by self-contained scene JSON (`session_config` + `log_dir` per scene; e.g. the multi-aircraft area-patrol `fleet_patrol_multi_zone` scene).
 - `examples/common/`: example-layer shared convenience layer (`json_reader` + six-domain `config_loaders/` + the `viz/` shared visualization viewer; not part of the library public surface).
-- `examples/configs/`: cross-module shared configuration samples.
+- `examples/basic_config/`: cross-module shared configuration samples.
 
 Validation and development-time tooling has moved out of examples (role separation): the multi-scene batch validation framework lives in `tests/consumer/batch_validation/`; flight-dynamics development trajectory tools in `tests/unit/flight_dynamic/fd_tools/`.
 

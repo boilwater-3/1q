@@ -1,6 +1,6 @@
 ﻿/**
  * @file scene_script_test.cpp
- * @brief 世界模型目标真值脚本（examples/component_attachment/scene_script.*）
+ * @brief 世界模型目标真值脚本（examples/scenes/scene_script.*）
  * 单元测试。
  *
  * 覆盖：目标脚本 → ECEF 状态（id/外观/辐射源频率随真值流转）、变速机动

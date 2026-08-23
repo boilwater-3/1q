@@ -108,7 +108,7 @@ Last-reviewed: 2026-08-23
 - **现状**：`examples/component_attachment` 集成层把 ECM 等发射设备发布的 `RfEmissionFrame` 汇入共享
   rf-world（`rf_world_broker.h`），再经 `BuildArInterferenceFromRfWorld` 组装 `ArCycleInput::interference`
   （排除自身平台发射设备）。AR 模块契约本身仍以 `ArCycleInput::interference` 接收 `RfEmissionFrame`，未变。
-  [evidence: examples/component_attachment/components/ar_sensor_component.cpp]
+  [evidence: examples/components/ar_sensor_component.cpp]
 - **后果**：AR 的四个模块设计文档均不引用 examples 层，该集成先例只存在于演示层；未来集成方从模块文档
   无法得知"干扰可从共享 rf-world 派生"的现成编排路径。
 - **待决问题**：是否在 AR 的 data-flow.md（或 common/rf_architecture.md）补一段集成先例说明，把
