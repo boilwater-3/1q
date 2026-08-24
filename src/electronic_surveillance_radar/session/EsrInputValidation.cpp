@@ -48,9 +48,9 @@ void ValidatePlatform(const EsrCycleInput& input, EsrIssueList* issues) {
       !IsFinite(input.platform_velocity_ecef_mps.y_mps) ||
       !IsFinite(input.platform_velocity_ecef_mps.z_mps)) {
     issues->push_back(MakeIssue(
-        EsrIssueSeverity::kError, codes::kInvalidRfEmissionFrame,
+        EsrIssueSeverity::kError, codes::kInvalidPlatformKinematics,
         oneq::foundation::ValidationLocationKind::kPlatform, static_cast<std::size_t>(-1),
-        "platform_entity_id/platform_ecef_kinematics",
+        "platform_entity_id/platform_position_ecef_m/platform_velocity_ecef_mps",
         "RF reception requires a non-zero platform identity and finite ECEF kinematics"));
     return;
   }

@@ -66,6 +66,11 @@ class RirUsMilitaryRecognitionScenarioTest : public ::testing::Test {
     cfg.policy.recognition.acceptance_score = 0.6f;
     cfg.policy.recognition.minimum_margin = 0.05f;
     cfg.policy.recognition.result_hold_sec = 1.0f;
+    // 场景几何为近距高仰角（如战斗机 5 km 斜距 62° 仰角），超出默认可扫描体积
+    // （el ±30°）会被体积裁剪正当排除（2026-08-22 起语义）。本测试聚焦识别链路，
+    // 显式放宽体积；体积裁剪语义由库单测与场景级测试覆盖。
+    cfg.orientation.steerable_volume_deg.el_min_deg = -85.0f;
+    cfg.orientation.steerable_volume_deg.el_max_deg = 85.0f;
     return cfg;
   }
 
@@ -120,7 +125,13 @@ class RirUsMilitaryRecognitionScenarioTest : public ::testing::Test {
       AppendTarget(&input, 77U, speed_mps, altitude_offset_m, rcs_dbsm, truth_name);
       const RirCycleResult result = radar.StepWithResult(input);
       EXPECT_EQ(result.status, RirCycleStatus::kCompleted);
-      EXPECT_EQ(result.output_frame.recognition_outputs.size(), 1U);
+      // 航迹缺失时提前返回：继续读 front() 是空引用崩溃（本函数非 void，不能用
+      // ASSERT_*）；计数保持 0 让外层期望如实失败。
+      if (result.output_frame.recognition_outputs.size() != 1U) {
+        ADD_FAILURE() << "cycle " << cycle << ": recognition_outputs.size()="
+                      << result.output_frame.recognition_outputs.size();
+        return outcome;
+      }
       const auto& output = result.output_frame.recognition_outputs.front();
       if (output.result.state == RirRecognitionState::kCategoryConfirmed ||
           output.result.state == RirRecognitionState::kModelConfirmed) {

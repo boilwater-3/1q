@@ -39,10 +39,18 @@ TEST(EsrInputValidationTest, RejectsFrameOutsideCycleWindow) {
 TEST(EsrInputValidationTest, RejectsMissingReceiverIdentityOrNonFiniteKinematics) {
   EsrCycleInput input = MakeValidInput();
   input.platform_entity_id = 0U;  // 非零平台标识必填
-  EXPECT_TRUE(HasValidationError(ValidateEsrCycleInput(input)));
+  // 2026-08-24 起平台身份/运动学问题挂专属码 invalid_platform_kinematics
+  // （此前复用 invalid_rf_emission_frame）。
+  const EsrIssueList identity_issues = ValidateEsrCycleInput(input);
+  EXPECT_TRUE(HasValidationError(identity_issues));
+  ASSERT_FALSE(identity_issues.empty());
+  EXPECT_EQ(identity_issues.front().code, "esr.validation.invalid_platform_kinematics");
   input = MakeValidInput();
   input.platform_velocity_ecef_mps.x_mps = std::numeric_limits<double>::quiet_NaN();
-  EXPECT_TRUE(HasValidationError(ValidateEsrCycleInput(input)));
+  const EsrIssueList finite_issues = ValidateEsrCycleInput(input);
+  EXPECT_TRUE(HasValidationError(finite_issues));
+  ASSERT_FALSE(finite_issues.empty());
+  EXPECT_EQ(finite_issues.front().code, "esr.validation.invalid_platform_kinematics");
 }
 
 TEST(EsrInputValidationTest, RejectsUnlocatablePlatformEcef) {

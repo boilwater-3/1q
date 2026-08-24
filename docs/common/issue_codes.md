@@ -103,7 +103,8 @@ Last-reviewed: 2026-08-23
 | `esr.validation.explicit_scan_bounds_not_finite` | 输入校验 | 显式扫描边界含非有限数值。 |
 | `esr.validation.invalid_cycle_delta_time` | 输入校验 | 周期步长非法（<= 0）。 |
 | `esr.validation.invalid_cycle_start_time` | 输入校验 | 周期起始时刻非有限值。 |
-| `esr.validation.invalid_rf_emission_frame` | 输入校验 | RF 发射帧非法（不匹配周期窗口或平台身份/ECEF 运动学无效）。 |
+| `esr.validation.invalid_platform_kinematics` | 输入校验 | 平台身份/ECEF 运动学无效（实体标识为零或位置/速度含非有限值；2026-08-24 起从 invalid_rf_emission_frame 拆出）。 |
+| `esr.validation.invalid_rf_emission_frame` | 输入校验 | RF 发射帧非法（不匹配周期窗口）。 |
 | `esr.validation.mission_enum_invalid` | 输入校验 | 任务枚举无效（工作模式/扫描起始位/扫描序列须为已知值）。 |
 | `esr.validation.non_finite_cycle_delta_time` | 输入校验 | 周期步长非有限值。 |
 | `esr.validation.non_finite_platform_numeric_field` | 输入校验 | 平台姿态角含非有限数值。 |
