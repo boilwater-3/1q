@@ -49,11 +49,12 @@ void AppOutputs::RecordPlatformRow(std::uint32_t cycle, double t_sec,
                                     std::uint32_t aircraft_id,
                                     const FlightComponent& flight) {
   platform_csv_.WriteRow(
-      CA_FMT_FORMAT(
-          "{},{:.2f},{},{:.7f},{:.7f},{:.1f},{:.1f},{:.1f},{},{}", cycle, t_sec, aircraft_id,
-          flight.position().latitude_deg, flight.position().longitude_deg,
-          flight.position().altitude_m, flight.heading_deg(), flight.speed_mps(),
-          flight.next_waypoint_index(), flight.route().size()) +
+      std::to_string(cycle) + "," + Fmt(t_sec, 2) + "," + std::to_string(aircraft_id) +
+      "," + Fmt(flight.position().latitude_deg, 7) + "," +
+      Fmt(flight.position().longitude_deg, 7) + "," +
+      Fmt(flight.position().altitude_m, 1) + "," + Fmt(flight.heading_deg(), 1) + "," +
+      Fmt(flight.speed_mps(), 1) + "," + std::to_string(flight.next_waypoint_index()) +
+      "," + std::to_string(flight.route().size()) +
       "," + (flight.fd_active() ? "jsbsim" : "kinematic"));
   ++platform_rows_;
 }
@@ -64,9 +65,10 @@ void AppOutputs::RecordTruthRow(std::uint32_t cycle, double t_sec,
   if (!oneq::coordinate::TryEcefToLla(target.position, &lla)) {
     return;  // ECEF 非法：跳过该目标本周期（真值脚本不应触发）
   }
-  truth_csv_.WriteRow(CA_FMT_FORMAT(
-      "{},{:.2f},{},{},{:.7f},{:.7f},{:.1f},{:.2f}", cycle, t_sec, target.id, target.type,
-      lla.latitude_deg, lla.longitude_deg, lla.altitude_m, target.rcs));
+  truth_csv_.WriteRow(
+      std::to_string(cycle) + "," + Fmt(t_sec, 2) + "," + std::to_string(target.id) + "," +
+      target.type + "," + Fmt(lla.latitude_deg, 7) + "," + Fmt(lla.longitude_deg, 7) + "," +
+      Fmt(lla.altitude_m, 1) + "," + Fmt(target.rcs, 2));
 }
 
 void AppOutputs::RecordZones(const std::string& name,
@@ -90,9 +92,11 @@ void AppOutputs::RecordRoute(std::uint32_t aircraft_id,
                               const std::vector<navigation::RoutePoint>& route) {
   for (std::size_t i = 0U; i < route.size(); ++i) {
     const auto& wp = route[i];
-    route_csv_.WriteRow(CA_FMT_FORMAT(
-        "{},{},{:.7f},{:.7f},{:.1f},{:.1f},{:.1f}", aircraft_id, i, wp.position.latitude_deg,
-        wp.position.longitude_deg, wp.position.altitude_m, wp.speed_mps, wp.radius_m));
+    route_csv_.WriteRow(
+        std::to_string(aircraft_id) + "," + std::to_string(i) + "," +
+        Fmt(wp.position.latitude_deg, 7) + "," + Fmt(wp.position.longitude_deg, 7) + "," +
+        Fmt(wp.position.altitude_m, 1) + "," + Fmt(wp.speed_mps, 1) + "," +
+        Fmt(wp.radius_m, 1));
   }
 }
 

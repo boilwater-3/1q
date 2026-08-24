@@ -225,10 +225,11 @@ void EosSensorComponent::LogDebugView(
     if (!targets_text.empty()) {
       targets_text += ", ";
     }
-    targets_text += CA_FMT_FORMAT("{} {}(方位{:.1f}° 俯仰{:.1f}° 距离{:.1f}km)",
-                                  target.target_id, EosTargetStatusName(target.status),
-                                  target.azimuth_deg, target.elevation_deg,
-                                  target.range_m / 1000.0);
+    targets_text += std::to_string(target.target_id) +
+                    std::string(" ") + EosTargetStatusName(target.status) + "(方位" +
+                    std::to_string(target.azimuth_deg) + "° 俯仰" +
+                    std::to_string(target.elevation_deg) + "° 距离" +
+                    std::to_string(target.range_m / 1000.0) + "km)";
   }
   const std::string issues_text = app::FormatIssueText(view.issues);
   // 与下方写入行同内容：纯 std::string/std::to_string 拼接的日志字符串，供集成方直接搬入己方日志（示例自身不消费）。
@@ -273,8 +274,6 @@ bool EosSensorComponent::BuildCycleInput(const FlightComponent& flight,
 }
 
 void EosSensorComponent::Step(World& world, double dt_sec) {
-  detections_.clear();
-
   if (!powered_on_) {
     scan_azimuth_deg_ = 0.0f;  // 关机：不驱动会话，角度无有效值（清零）
     last_debug_view_ = electro_optical_sensor::session::EosOutputDebugView{};  // 关机：调试视图清零（无有效周期）
@@ -287,7 +286,9 @@ void EosSensorComponent::Step(World& world, double dt_sec) {
     return;  // 无平台动力学（空场景）：不产生探测
   }
 
-  const auto& scene = static_cast<const AppSceneState&>(world.scene_state());
+  // 共享场景状态（World 只存基类引用，实际类型为 AppSceneState）：读真值组输入，
+  // 也向其探测池写适配记录，故直接取可变引用。
+  auto& scene = static_cast<AppSceneState&>(world.scene_state());
   electro_optical_sensor::session::EosCycleInput input;
   if (!BuildCycleInput(*flight, scene, dt_sec, &input)) {
     return;  // 平台锚点失败：本周期不产生探测
@@ -304,7 +305,7 @@ void EosSensorComponent::Step(World& world, double dt_sec) {
   }
   PublishDetectionEvents(world, scene, result);  // 探测生命周期沿 → 信号+事件日志
   PublishExclusionEvents(world);                 // 排除原因变化沿 → 事件日志
-  AdaptDetections(result);                       // 探测记录 → 融合探测记录
+  AdaptDetections(scene, result);                // 探测记录 → 共享探测池
 }
 
 void EosSensorComponent::PublishDetectionEvents(
@@ -437,10 +438,13 @@ void EosSensorComponent::PublishExclusionEvents(World& world) {
 }
 
 void EosSensorComponent::AdaptDetections(
-    const electro_optical_sensor::session::EosCycleResult& result) {
+    AppSceneState& scene, const electro_optical_sensor::session::EosCycleResult& result) {
+  // 探测记录 → 泛型探测记录写共享探测池（融合组件聚合读；集成方对应把记录
+  // 消息推给融合组件）。
   const auto& records = result.output_frame.detections;
-  detections_ = fusion::AdaptEosDetectionsToDetectionRecords(
-      fusion::kEosSourceId, records);
+  const std::vector<fusion::DetectionRecord> adapted =
+      fusion::AdaptEosDetectionsToDetectionRecords(fusion::kEosSourceId, records);
+  scene.detection_pool.insert(scene.detection_pool.end(), adapted.begin(), adapted.end());
 }
 
 

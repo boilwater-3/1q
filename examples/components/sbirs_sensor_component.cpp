@@ -183,6 +183,21 @@ SbirsSensorComponent::SbirsSensorComponent(sbirs_sensor::session::SbirsSession s
   session_.AttachExclusionCauseRecorder(&exclusion_);
 }
 
+SbirsSensorComponent::SbirsSensorComponent(
+    sbirs_sensor::session::SbirsSession session, std::uint32_t ground_station_source_id,
+    sbirs_sensor::session::SbirsVector3M position_ecef_m,
+    sbirs_sensor::session::SbirsVector3M velocity_ecef_m_per_s,
+    sbirs_sensor::session::SbirsEulerAnglesDeg attitude_eci_body_deg)
+    : session_(std::move(session)),
+      ground_station_source_id_(ground_station_source_id),
+      use_own_satellite_pose_(true),
+      own_position_ecef_m_(position_ecef_m),
+      own_velocity_ecef_m_per_s_(velocity_ecef_m_per_s),
+      own_attitude_eci_body_deg_(attitude_eci_body_deg) {
+  session_.AttachDetectionLifecycleRecorder(&lifecycle_);
+  session_.AttachExclusionCauseRecorder(&exclusion_);
+}
+
 bool SbirsSensorComponent::TryApplyRuntimeConfig(
     const sbirs_sensor::config::SbirsRuntimeConfigPatch& patch) {
   const bool applied = session_.TryApplyRuntimeConfig(patch);
@@ -259,10 +274,10 @@ void SbirsSensorComponent::LogDebugView(
     if (!targets_text.empty()) {
       targets_text += ", ";
     }
-    targets_text += CA_FMT_FORMAT("{} {}(方位{:.1f}° 俯仰{:.1f}°)",
-                                  target.target_id, SbirsTargetStatusName(target.status),
-                                  target.azimuth_rad * kRadToDeg,
-                                  target.elevation_rad * kRadToDeg);
+    targets_text += std::to_string(target.target_id) +
+                    std::string(" ") + SbirsTargetStatusName(target.status) + "(方位" +
+                    std::to_string(target.azimuth_rad * kRadToDeg) + "° 俯仰" +
+                    std::to_string(target.elevation_rad * kRadToDeg) + "°)";
   }
   const std::string issues_text = app::FormatIssueText(view.issues);
   // 与下方写入行同内容：纯 std::string/std::to_string 拼接的日志字符串，供集成方直接搬入己方日志（示例自身不消费）。
@@ -288,9 +303,15 @@ sbirs_sensor::session::SbirsCycleInput SbirsSensorComponent::BuildCycleInput(
   sbirs_sensor::session::SbirsCycleInput input;
   input.cycle_index = static_cast<std::uint32_t>(scene.cycle);
   input.dt_sec = static_cast<float>(dt_sec);
-  input.satellite_position_ecef_m = scene.sbirs_satellite_position_ecef_m;
-  input.satellite_velocity_ecef_m_per_s = scene.sbirs_satellite_velocity_ecef_m_per_s;
-  input.satellite_attitude_eci_body_deg = scene.sbirs_satellite_attitude_eci_body_deg;
+  if (use_own_satellite_pose_) {
+    input.satellite_position_ecef_m = own_position_ecef_m_;
+    input.satellite_velocity_ecef_m_per_s = own_velocity_ecef_m_per_s_;
+    input.satellite_attitude_eci_body_deg = own_attitude_eci_body_deg_;
+  } else {
+    input.satellite_position_ecef_m = scene.sbirs_satellite_position_ecef_m;
+    input.satellite_velocity_ecef_m_per_s = scene.sbirs_satellite_velocity_ecef_m_per_s;
+    input.satellite_attitude_eci_body_deg = scene.sbirs_satellite_attitude_eci_body_deg;
+  }
   input.utc_julian_day = scene.sbirs_utc_julian_day;  // ECI 输出参考系（UTC 儒略日）
   input.scene = scene.sbirs_targets;
 
@@ -298,8 +319,6 @@ sbirs_sensor::session::SbirsCycleInput SbirsSensorComponent::BuildCycleInput(
 }
 
 void SbirsSensorComponent::Step(World& world, double dt_sec) {
-  detections_.clear();
-
   if (!powered_on_) {
     scan_azimuth_deg_ = 0.0f;  // 关机：不驱动会话，角度无有效值（清零）
     last_debug_view_ = sbirs_sensor::session::SbirsOutputDebugView{};  // 关机：调试视图清零（无有效周期）
@@ -308,11 +327,13 @@ void SbirsSensorComponent::Step(World& world, double dt_sec) {
   }
 
   const FlightComponent* flight = host_ != nullptr ? host_->Find<FlightComponent>() : nullptr;
-  if (flight == nullptr) {
-    return;  // 无平台动力学（空场景）：不产生探测
+  if (!use_own_satellite_pose_ && flight == nullptr) {
+    return;  // 机载挂载且无平台动力学：不产生探测；卫星实体自持星历，不走这条
   }
 
-  const auto& scene = static_cast<const AppSceneState&>(world.scene_state());
+  // 共享场景状态（World 只存基类引用，实际类型为 AppSceneState）：读真值组输入，
+  // 也向其探测池写适配记录，故直接取可变引用。
+  auto& scene = static_cast<AppSceneState&>(world.scene_state());
   const sbirs_sensor::session::SbirsCycleInput input = BuildCycleInput(scene, dt_sec);
 
   const std::chrono::steady_clock::time_point step_begin = std::chrono::steady_clock::now();
@@ -333,7 +354,11 @@ void SbirsSensorComponent::Step(World& world, double dt_sec) {
   }
   PublishDetectionEvents(world, scene, result);  // 探测生命周期沿 → 信号+事件日志
   PublishExclusionEvents(world);                 // 排除原因变化沿 → 事件日志
-  AdaptDetections(result);                       // 探测记录 → 融合探测记录
+  if (ground_station_source_id_ != 0U) {
+    PublishToGroundStation(scene, result);  // 探测帧 → 地面站收件箱
+  } else {
+    AdaptDetections(scene, result);  // 探测记录 → 共享探测池
+  }
 }
 
 void SbirsSensorComponent::PublishDetectionEvents(
@@ -490,10 +515,22 @@ void SbirsSensorComponent::PublishExclusionEvents(World& world) {
 }
 
 void SbirsSensorComponent::AdaptDetections(
-    const sbirs_sensor::session::SbirsCycleResult& result) {
+    AppSceneState& scene, const sbirs_sensor::session::SbirsCycleResult& result) {
+  // 探测记录 → 泛型探测记录写共享探测池（融合组件聚合读；集成方对应把记录
+  // 消息推给融合组件）。
   const auto& records = result.output_frame.detections;
-  detections_ = fusion::AdaptSbirsDetectionsToDetectionRecords(
-      fusion::kSbirsSourceId, records);
+  const std::vector<fusion::DetectionRecord> adapted =
+      fusion::AdaptSbirsDetectionsToDetectionRecords(fusion::kSbirsSourceId, records);
+  scene.detection_pool.insert(scene.detection_pool.end(), adapted.begin(), adapted.end());
+}
+
+void SbirsSensorComponent::PublishToGroundStation(
+    AppSceneState& scene, const sbirs_sensor::session::SbirsCycleResult& result) {
+  SbirsGroundStationFrame frame;
+  frame.source_id = ground_station_source_id_;
+  frame.satellite_position_ecef_m = own_position_ecef_m_;
+  frame.result = result;
+  scene.sbirs_ground_station_inbox.push_back(frame);
 }
 
 

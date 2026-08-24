@@ -31,7 +31,7 @@ struct ONEQ_API EvaluationTruthTarget {
 
 /**
  * @brief 双星星历输入（每周期）：两颗卫星的 ECEF 位置/速度与 ECI 姿态。
- * @note 两颗卫星各驱动一个独立的 SBIRS 会话（同目标场景、同 GMST 时刻）。
+ * @note 两颗卫星由各自实体驱动独立 SBIRS 会话；本结构只提供交会几何与评估对照用的星历。
  */
 struct ONEQ_API DualSatEphemerisInput {
   oneq::coordinate::EcefPositionM satellite_a_position_ecef_m{};   /**< 主星位置（ECEF，m） */

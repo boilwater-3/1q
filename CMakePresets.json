@@ -154,6 +154,7 @@
             "cacheVariables": {
                 "CMAKE_CXX_STANDARD": "11",
                 "BUILD_SHARED_LIBS": "OFF",
+                "ENABLE_TESTING": "OFF",
                 "ENABLE_INSTALL": "ON"
             }
         }

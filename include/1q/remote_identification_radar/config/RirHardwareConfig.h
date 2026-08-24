@@ -58,6 +58,12 @@ struct ONEQ_API RirAzimuthElevationLimitsDeg {
   float az_max_deg{60.0f};  /**< 方位最大扫描角（单位：度）。 */
   float el_min_deg{-30.0f}; /**< 俯仰最小扫描角（单位：度）。 */
   float el_max_deg{30.0f};  /**< 俯仰最大扫描角（单位：度）。 */
+
+  RirAzimuthElevationLimitsDeg() = default;
+  RirAzimuthElevationLimitsDeg(float az_min_deg_in, float az_max_deg_in,
+                               float el_min_deg_in, float el_max_deg_in)
+      : az_min_deg(az_min_deg_in), az_max_deg(az_max_deg_in),
+        el_min_deg(el_min_deg_in), el_max_deg(el_max_deg_in) {}
 };
 
 namespace hardware {

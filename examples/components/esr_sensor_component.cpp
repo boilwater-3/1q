@@ -91,8 +91,6 @@ electronic_surveillance_radar::session::EsrCycleInput EsrSensorComponent::BuildC
 }
 
 void EsrSensorComponent::Step(World& world, double dt_sec) {
-  detections_.clear();
-
   if (!powered_on_) {
     scan_azimuth_deg_ = 0.0f;  // 关机：不驱动会话，角度无有效值（清零）
     return;
@@ -103,7 +101,9 @@ void EsrSensorComponent::Step(World& world, double dt_sec) {
     return;  // 无平台动力学（空场景）：不产生探测
   }
 
-  const auto& scene = static_cast<const AppSceneState&>(world.scene_state());
+  // 共享场景状态（World 只存基类引用，实际类型为 AppSceneState）：读真值组
+  // 输入，也向其探测池写适配记录，故直接取可变引用。
+  auto& scene = static_cast<AppSceneState&>(world.scene_state());
   const electronic_surveillance_radar::session::EsrCycleInput input =
       BuildCycleInput(*flight, scene, dt_sec);
 
@@ -120,8 +120,9 @@ void EsrSensorComponent::Step(World& world, double dt_sec) {
   has_last_completed_output_ = true;
 
   PublishHypothesisEvents(world, scene);  // 辐射源假设沿 → 信号+事件日志（周期性重复）
+  PublishScanEvent(world, scene);         // 假设集快照 → 信号（ECM sensor-driven 输入）
   PublishExclusionEvents(world);          // 排除原因变化沿 → 事件日志
-  AdaptDetections();                      // 假设 → 融合探测记录
+  AdaptDetections(scene);                 // 假设 → 共享探测池
 }
 
 void EsrSensorComponent::PublishHypothesisEvents(World& world,
@@ -136,8 +137,8 @@ void EsrSensorComponent::PublishHypothesisEvents(World& world,
     event.hypothesis_id = hypothesis.hypothesis_id;
     event.bearing_az_deg = hypothesis.bearing_az_deg;
     event.confidence = hypothesis.confidence;
-    event.mode = hypothesis.mode;
-    event.threat_level = hypothesis.threat_level;
+    event.mode = static_cast<EventEmitterMode>(hypothesis.mode);
+    event.threat_level = static_cast<EventThreatLevel>(hypothesis.threat_level);
     // 假设事件每周期重复（目标恒在时）：事件模式一下不落盘（信号照常发布）。
     // 与下方写入行同内容：纯 std::string/std::to_string 拼接的日志字符串，供集成方直接搬入己方日志（示例自身不消费）。
     const std::string emitter_hypothesis_event_log =
@@ -235,9 +236,45 @@ void EsrSensorComponent::PublishExclusionEvents(World& world) {
 
 }
 
-void EsrSensorComponent::AdaptDetections() {
-  detections_ = fusion::AdaptEsrHypothesesToDetectionRecords(
-      fusion::kEsrSourceId, last_hypotheses_);
+void EsrSensorComponent::PublishScanEvent(World& world, const AppSceneState& scene) {
+  // 假设集快照事件（每成功周期全量）：sensor-driven 消费方（ECM）订阅本事件
+  // 取当前假设集与批次号，不依赖 ESR 组件方法。库内枚举/结构展平为事件
+  // 契约的镜像枚举/数值字段；消费方需要库类型时在本地重建（防腐层归消费方）。
+  EsrScanUpdatedEvent event;
+  event.cycle = scene.cycle;
+  event.batch_id = last_batch_id_;
+  event.hypotheses.reserve(last_hypotheses_.size());
+  for (const auto& hypothesis : last_hypotheses_) {
+    EsrHypothesisData data;
+    data.hypothesis_id = hypothesis.hypothesis_id;
+    data.candidate_classes = hypothesis.candidate_classes;
+    data.mode = static_cast<EventEmitterMode>(hypothesis.mode);
+    data.threat_level = static_cast<EventThreatLevel>(hypothesis.threat_level);
+    data.bearing_az_deg = hypothesis.bearing_az_deg;
+    data.bearing_el_deg = hypothesis.bearing_el_deg;
+    data.bearing_std_deg = hypothesis.bearing_std_deg;
+    data.estimated_center_frequency_hz = hypothesis.estimated_center_frequency_hz;
+    data.estimated_bandwidth_hz = hypothesis.estimated_bandwidth_hz;
+    data.estimated_pri_s = hypothesis.estimated_pri_s;
+    data.estimated_pulse_width_s = hypothesis.estimated_pulse_width_s;
+    data.center_frequency_std_hz = hypothesis.center_frequency_std_hz;
+    data.bandwidth_std_hz = hypothesis.bandwidth_std_hz;
+    data.pri_std_s = hypothesis.pri_std_s;
+    data.pulse_width_std_s = hypothesis.pulse_width_std_s;
+    data.confidence = hypothesis.confidence;
+    data.last_seen_cycle = hypothesis.last_seen_cycle;
+    data.waveform_class = static_cast<std::uint8_t>(hypothesis.waveform_class);
+    event.hypotheses.push_back(data);
+  }
+  world.signals().on_esr_scan_updated(event);
+}
+
+void EsrSensorComponent::AdaptDetections(AppSceneState& scene) {
+  // 辐射源假设 → 泛型探测记录写共享探测池（融合组件聚合读；集成方对应把
+  // 记录消息推给融合组件）。
+  const std::vector<fusion::DetectionRecord> records =
+      fusion::AdaptEsrHypothesesToDetectionRecords(fusion::kEsrSourceId, last_hypotheses_);
+  scene.detection_pool.insert(scene.detection_pool.end(), records.begin(), records.end());
 }
 
 }  // namespace component_attachment

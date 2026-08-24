@@ -371,13 +371,15 @@ void FlightComponent::Step(World& world, double dt_sec) {
   CheckWaypointArrival(world, world.scene_state().t_sec);
 #endif
 
-  // 发布平台状态事件（传感器/日志订阅）。
+  // 发布平台状态事件（传感器/日志订阅；事件为集成契约，坐标字段展平为数值）。
   PlatformStateEvent event;
   event.cycle = world.scene_state().cycle;
   event.t_sec = world.scene_state().t_sec;
   oneq::coordinate::EcefPositionM ecef;
   if (oneq::coordinate::TryLlaToEcef(position_, &ecef)) {
-    event.position_ecef_m = ecef;
+    event.position_ecef_x_m = ecef.x_m;
+    event.position_ecef_y_m = ecef.y_m;
+    event.position_ecef_z_m = ecef.z_m;
   }
   event.altitude_m = position_.altitude_m;
   event.heading_deg = heading_deg_;
@@ -388,9 +390,9 @@ void FlightComponent::Step(World& world, double dt_sec) {
   // 与下方写入行同内容：纯 std::string/std::to_string 拼接的日志字符串，供集成方直接搬入己方日志（示例自身不消费）。
   const std::string platform_state_event_log =
       std::string("位置=(") +
-      std::to_string(event.position_ecef_m.x_m) +
+      std::to_string(event.position_ecef_x_m) +
       "," +
-      std::to_string(event.position_ecef_m.y_m) +
+      std::to_string(event.position_ecef_y_m) +
       "," +
       std::to_string(event.altitude_m) +
       ")m 航向=" +
@@ -402,7 +404,7 @@ void FlightComponent::Step(World& world, double dt_sec) {
       "/" +
       std::to_string(event.waypoint_count);
   CA_LOG_EVENT_DUP(world, "platform_state", "位置=({:.4f},{:.4f},{:.1f})m 航向={:.1f}° 速度={:.1f}m/s 航点={}/{}",
-                   event.position_ecef_m.x_m, event.position_ecef_m.y_m, event.altitude_m,
+                   event.position_ecef_x_m, event.position_ecef_y_m, event.altitude_m,
                    event.heading_deg, event.speed_mps, event.waypoint_index, event.waypoint_count);
   world.signals().on_platform_state(event);
 }

@@ -1,38 +1,69 @@
 ﻿/**
  * @file events.h
- * @brief 自定义实体-组件示例：组件间通信的事件类型集合。
+ * @brief 自定义实体-组件示例：组件间通信的事件类型集合（集成契约）。
  *
- * 事件为纯数据结构（无逻辑、无虚函数），作为组件间通信的协议载荷：
- * 组件经 World 的信号（Boost.Signals2，见 signals.h）发布，消费方订阅。
- * 周期内同步数据聚合（如融合读传感器探测）用同实体组件的类型化访问，
- * 跨周期通知/记录走事件——两种通信形态在本示例中同时演示。
+ * 事件是集成契约：本头文件零 1q 库依赖（仅 C++ 标准库），集成方模块不含
+ * 库头即可订阅/发布。事件为纯数据结构（无逻辑、无虚函数）；库内枚举/结构
+ * 由发布方展平为镜像枚举或原始数值字段，需要喂库 API 的消费方在本地把
+ * 字段重建为库类型（防腐层归消费方）。
+ *
+ * 组件交互规则：host_->Find<T>() 仅允许取本平台机动组件（FlightComponent，
+ * 传感器读平台位姿）；其余跨模块交互一律走本文件事件（Boost.Signals2 多播，
+ * 见 signals.h）或共享场景状态黑板（探测池/RF 世界，见 core/scene_types.h；
+ * 集成方对应消息推送/共享总线）。
  */
 
 #ifndef EXAMPLES_COMPONENT_ATTACHMENT_CORE_EVENTS_H_
 #define EXAMPLES_COMPONENT_ATTACHMENT_CORE_EVENTS_H_
 
+#include <array>
+#include <cstddef>
 #include <cstdint>
 #include <string>
 #include <utility>
 #include <vector>
 
-#include "1q/coordinate/types.h"
-#include "1q/electronic_surveillance_radar/session/EmitterHypothesis.h"
-#include "1q/sar/session/SarCycleResult.h"
-#include "1q/threat_assessment/ThreatResult.h"
-
 namespace component_attachment {
+
+/**
+ * @brief 威胁等级镜像枚举（值同 threat_assessment::ThreatLevel 与 esr
+ *        EsrThreatLevel：低 < 中 < 高，供升级判定比较）。
+ */
+enum class EventThreatLevel : std::uint8_t {
+  kLow = 0,    /**< 低威胁 */
+  kMedium = 1, /**< 中威胁 */
+  kHigh = 2    /**< 高威胁 */
+};
+
+/** @brief 辐射源工作模式镜像枚举（值同 esr EsrEmitterMode）。 */
+enum class EventEmitterMode : std::uint8_t {
+  kUnknown = 0,              /**< 未知模式 */
+  kSearch = 1,               /**< 搜索模式 */
+  kTracking = 2,             /**< 跟踪模式 */
+  kGuidance = 3,             /**< 制导模式 */
+  kContinuousIllumination = 4 /**< 连续波照射 */
+};
+
+/** @brief SAR 处理阶段镜像枚举（值同 sar SarProcessingStage）。 */
+enum class EventSarStage : std::uint8_t {
+  kNone = 0,      /**< 无 */
+  kRawEcho = 1,   /**< 原始回波 */
+  kL1RdaImage = 2, /**< L1 距离多普勒图像 */
+  kL3BpImage = 3  /**< L3 后处理图像 */
+};
 
 /** @brief 平台状态事件：FlightComponent 每周期推进后发布。 */
 struct PlatformStateEvent {
-  std::uint64_t cycle{0U};                     /**< 世界周期号 */
-  double t_sec{0.0};                           /**< 周期绝对时间（s） */
-  oneq::coordinate::EcefPositionM position_ecef_m{}; /**< 平台位置（ECEF，m） */
-  double altitude_m{0.0};                      /**< 海拔（m） */
-  double heading_deg{0.0};                     /**< 航向（deg，北偏东） */
-  double speed_mps{0.0};                       /**< 速度（m/s） */
-  std::size_t waypoint_index{0U};              /**< 下一航点索引 */
-  std::size_t waypoint_count{0U};              /**< 航点总数 */
+  std::uint64_t cycle{0U};              /**< 世界周期号 */
+  double t_sec{0.0};                    /**< 周期绝对时间（s） */
+  double position_ecef_x_m{0.0};        /**< 平台位置（ECEF X，m） */
+  double position_ecef_y_m{0.0};        /**< 平台位置（ECEF Y，m） */
+  double position_ecef_z_m{0.0};        /**< 平台位置（ECEF Z，m） */
+  double altitude_m{0.0};               /**< 海拔（m） */
+  double heading_deg{0.0};              /**< 航向（deg，北偏东） */
+  double speed_mps{0.0};                /**< 速度（m/s） */
+  std::size_t waypoint_index{0U};       /**< 下一航点索引 */
+  std::size_t waypoint_count{0U};       /**< 航点总数 */
 };
 
 /** @brief 航点到达事件：FlightComponent 在航点完成判定时发布。 */
@@ -44,9 +75,11 @@ struct WaypointReachedEvent {
 
 /** @brief AR 目标首确认事件（源：库内 ArTrackLifecycleRecorder 的 kFirstConfirmed）。 */
 struct TargetConfirmedEvent {
-  std::uint64_t cycle{0U};                   /**< 世界周期号 */
-  std::uint64_t target_id{0U};               /**< 外部目标 ID（关联键） */
-  oneq::coordinate::LlaPositionDegM position{}; /**< 目标位置（度制 LLA） */
+  std::uint64_t cycle{0U};      /**< 世界周期号 */
+  std::uint64_t target_id{0U};  /**< 外部目标 ID（关联键） */
+  double latitude_deg{0.0};     /**< 目标位置纬度（deg） */
+  double longitude_deg{0.0};    /**< 目标位置经度（deg） */
+  double altitude_m{0.0};       /**< 目标位置海拔（m） */
 };
 
 /** @brief AR 目标失跟事件（源：库内 ArTrackLifecycleRecorder 的 kLost）。 */
@@ -56,16 +89,71 @@ struct TargetLostEvent {
   std::string reason{};        /**< 失跟原因（可读文本） */
 };
 
-/** @brief ESR 辐射源假设事件：每条新假设发布一次。 */
+/**
+ * @brief AR 航迹逐周期状态事件：属性侧输入（威胁评估等消费方订阅）。
+ *
+ * 每成功周期逐在跟航迹发布（association_key 与融合键对齐——FusedTarget.key
+ * 源自 AR association_key 适配）；速度/RCS/位置为 AR 调试视图展平值。
+ */
+struct ArTrackStateEvent {
+  std::uint64_t cycle{0U};            /**< 世界周期号 */
+  std::uint64_t association_key{0U};  /**< AR 库内航迹键（与融合键同键空间） */
+  double speed_m_per_s{0.0};          /**< 航迹速度（m/s） */
+  double rcs_m2{0.0};                 /**< 航迹 RCS（m²） */
+  double position_x_m{0.0};           /**< 航迹位置（平台局部系 X，m；距离取模长） */
+  double position_y_m{0.0};           /**< 航迹位置（平台局部系 Y，m） */
+  double position_z_m{0.0};           /**< 航迹位置（平台局部系 Z，m） */
+};
+
+/**
+ * @brief ESR 辐射源假设事件：每条新假设发布一次（人读/集成通知粒度）。
+ */
 struct EmitterHypothesisEvent {
-  std::uint64_t cycle{0U};                                           /**< 世界周期号 */
-  std::uint64_t hypothesis_id{0U};                                   /**< 假设标识 */
-  double bearing_az_deg{0.0};                                        /**< 方位线方位角（deg） */
-  double confidence{0.0};                                            /**< 假设置信度 [0,1] */
-  electronic_surveillance_radar::session::EsrEmitterMode mode{       /**< 工作模式假设 */
-      electronic_surveillance_radar::session::EsrEmitterMode::kUnknown};
-  electronic_surveillance_radar::session::EsrThreatLevel threat_level{ /**< 威胁等级 */
-      electronic_surveillance_radar::session::EsrThreatLevel::kLow};
+  std::uint64_t cycle{0U};                           /**< 世界周期号 */
+  std::uint64_t hypothesis_id{0U};                   /**< 假设标识 */
+  double bearing_az_deg{0.0};                        /**< 方位线方位角（deg） */
+  double confidence{0.0};                            /**< 假设置信度 [0,1] */
+  EventEmitterMode mode{EventEmitterMode::kUnknown}; /**< 工作模式假设（镜像枚举） */
+  EventThreatLevel threat_level{EventThreatLevel::kLow}; /**< 威胁等级（镜像枚举） */
+};
+
+/**
+ * @brief ESR 辐射源假设数据（纯数据镜像，字段同库内 EmitterHypothesis）。
+ *
+ * ESR 每成功周期经 EsrScanUpdatedEvent 全量发布；需要库类型的消费方（如
+ * ECM 适配器）在本地重建 EmitterHypothesis 后喂库 API。
+ */
+struct EsrHypothesisData {
+  std::uint64_t hypothesis_id{0U};               /**< 假设记录唯一标识 */
+  std::vector<std::string> candidate_classes{};  /**< 候选类别列表（按置信度降序） */
+  EventEmitterMode mode{EventEmitterMode::kUnknown}; /**< 工作模式假设（镜像枚举） */
+  EventThreatLevel threat_level{EventThreatLevel::kLow}; /**< 威胁等级（镜像枚举） */
+  float bearing_az_deg{0.0f};                    /**< 方位线方位角（deg） */
+  float bearing_el_deg{0.0f};                    /**< 方位线俯仰角（deg） */
+  float bearing_std_deg{0.0f};                   /**< 方位测量标准差（deg） */
+  double estimated_center_frequency_hz{0.0};     /**< 估计中心频率（Hz） */
+  double estimated_bandwidth_hz{0.0};            /**< 估计占用带宽（Hz） */
+  double estimated_pri_s{0.0};                   /**< 估计脉冲重复间隔（s） */
+  double estimated_pulse_width_s{0.0};           /**< 估计脉宽（s） */
+  double center_frequency_std_hz{0.0};           /**< 中心频率估计标准差（Hz） */
+  double bandwidth_std_hz{0.0};                  /**< 带宽估计标准差（Hz） */
+  double pri_std_s{0.0};                         /**< PRI 估计标准差（s） */
+  double pulse_width_std_s{0.0};                 /**< 脉宽估计标准差（s） */
+  float confidence{0.0f};                        /**< 假设置信度 [0,1] */
+  std::uint32_t last_seen_cycle{0U};             /**< 最近命中周期号 */
+  std::uint8_t waveform_class{0U};               /**< 波形类别整数值（同 EsrWaveformClass：0 脉冲/1 连续/2 扫频/3 噪声） */
+};
+
+/**
+ * @brief ESR 假设集快照事件：每成功周期发布一次全量假设列表。
+ *
+ * sensor-driven 消费方（ECM）订阅本事件取当前假设集与批次号（fresh-frame
+ * provenance），替代对 ESR 组件方法的直接调用。
+ */
+struct EsrScanUpdatedEvent {
+  std::uint64_t cycle{0U};   /**< 完成周期号 */
+  std::uint64_t batch_id{0U}; /**< 成功批次号（非 0；fresh-frame 溯源） */
+  std::vector<EsrHypothesisData> hypotheses{}; /**< 全量假设（去真值化） */
 };
 
 /** @brief EOS 探测事件类型（生命周期语义，源为库内 EosDetectionLifecycleRecorder）。 */
@@ -85,7 +173,12 @@ struct EosDetectionEvent {
   double az_deg{0.0};                     /**< 探测方位（deg，平台局部系；kLost 时为 0） */
 };
 
-/** @brief 融合态势更新事件：FusionComponent 每周期更新后发布。 */
+/**
+ * @brief 融合态势更新事件：FusionComponent 每周期更新后逐目标发布。
+ *
+ * 运动学估计字段展平自 fusion::FusedKinematicEstimate（协方差 6×6 ECEF 行
+ * 主序 [x,vx,y,vy,z,vz]）；has_kinematic_estimate 为 false 时估计字段无效。
+ */
 struct FusionUpdatedEvent {
   std::uint64_t cycle{0U};                  /**< 世界周期号 */
   std::uint64_t key{0U};                    /**< 融合目标键 */
@@ -93,12 +186,31 @@ struct FusionUpdatedEvent {
   std::vector<std::pair<std::uint32_t, std::size_t>> channels{}; /**< (源通道, 样本数) 列表 */
   std::size_t new_targets{0U};              /**< 本周期新目标数 */
   std::size_t lost_targets{0U};             /**< 本周期消失目标数 */
+  bool has_kinematic_estimate{false};       /**< 是否携带运动学估计（滤波未启用/未起始/坐标回写失败时为 false） */
+  double latitude_deg{0.0};                 /**< 位置估计纬度（deg；估计无效时无效） */
+  double longitude_deg{0.0};                /**< 位置估计经度（deg） */
+  double altitude_m{0.0};                   /**< 位置估计海拔（m） */
+  std::array<double, 3U> velocity_ecef_m_per_s{{0.0, 0.0, 0.0}}; /**< ECEF 速度（m/s） */
+  std::array<double, 36U> covariance_ecef{}; /**< 6×6 ECEF 协方差（行主序 [x,vx,y,vy,z,vz]） */
 };
 
-/** @brief 威胁评估更新事件：ThreatComponent 每周期评估后逐目标发布。 */
+/**
+ * @brief 威胁评估更新事件：ThreatComponent 每周期评估后逐目标发布。
+ *
+ * 字段展平自 threat_assessment::ThreatResult（等级为镜像枚举、贡献分解为
+ * 平铺数值）；威胁分 [0,1]，六项贡献之和 = 威胁分（权重和为 1 时）。
+ */
 struct ThreatUpdatedEvent {
-  std::uint64_t cycle{0U};  /**< 世界周期号 */
-  threat_assessment::ThreatResult result{}; /**< 评估结果（键/威胁分/等级/贡献分解，组合而非复制） */
+  std::uint64_t cycle{0U};                        /**< 世界周期号 */
+  std::uint64_t key{0U};                          /**< 目标库内键（与融合键对齐） */
+  double threat_score{0.0};                       /**< 威胁分 [0,1] */
+  EventThreatLevel level{EventThreatLevel::kLow}; /**< 威胁等级（镜像枚举） */
+  double contribution_range{0.0};                 /**< 距离贡献 */
+  double contribution_speed{0.0};                  /**< 速度贡献 */
+  double contribution_acceleration{0.0};          /**< 加速度贡献 */
+  double contribution_rcs{0.0};                   /**< RCS 贡献 */
+  double contribution_target_probability{0.0};    /**< 类型概率贡献 */
+  double contribution_fusion_confidence{0.0};     /**< 融合置信度贡献 */
 };
 
 /** @brief SBIRS 探测事件类型（生命周期语义，源为库内 SbirsDetectionLifecycleRecorder）。 */
@@ -151,8 +263,7 @@ enum class SarProductEventKind {
 struct SarProductEvent {
   std::uint64_t cycle{0U};                              /**< 世界周期号 */
   SarProductEventKind kind{SarProductEventKind::kProductSustained}; /**< 事件类型 */
-  sar::session::SarProcessingStage stage{               /**< 本周期完成处理阶段 */
-      sar::session::SarProcessingStage::kNone};
+  EventSarStage stage{EventSarStage::kNone};            /**< 本周期完成处理阶段（镜像枚举） */
   double estimated_snr_db{0.0};                         /**< 估计 SNR（dB） */
   std::string abort_reason{};                           /**< 中止原因（kProcessingFailed 时非空） */
 };

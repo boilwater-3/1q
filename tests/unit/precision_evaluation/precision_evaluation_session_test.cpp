@@ -1,15 +1,19 @@
 ﻿#include <gtest/gtest.h>
 
 #include <cmath>
+#include <cstdint>
 #include <vector>
 
 #include "1q/coordinate/inertial_transform.h"
 #include "1q/coordinate/position_transform.h"
 #include "1q/fusion/DetectionRecord.h"
+#include "1q/fusion/FusionEngine.h"
 #include "1q/precision_evaluation/PrecisionEvaluationSession.h"
 #include "1q/precision_evaluation/PrecisionEvaluationTypes.h"
+#include "1q/precision_evaluation/SbirsBearingAdapter.h"
+#include "1q/sbirs_sensor/session/SbirsCycleInput.h"
 #include "1q/sbirs_sensor/session/SbirsCycleResult.h"
-#include "precision_evaluation/SbirsBearingAdapter.h"
+#include "1q/sbirs_sensor/session/SbirsSession.h"
 
 namespace {
 
@@ -69,20 +73,90 @@ pe::DualSatEphemerisInput DualSatEphemeris() {
   return ephemeris;
 }
 
+sbirs_sensor::session::SbirsCycleInput BuildSatelliteCycleInput(
+    std::uint32_t cycle_index, const oneq::coordinate::EcefPositionM& satellite_position,
+    const oneq::coordinate::EcefVelocityMps& satellite_velocity, double yaw_deg, double pitch_deg,
+    double roll_deg, const std::vector<pe::EvaluationTruthTarget>& truth_targets) {
+  sbirs_sensor::session::SbirsCycleInput input;
+  input.cycle_index = cycle_index;
+  input.dt_sec = 1.0f;
+  input.utc_julian_day = kUtcJulianDay;
+  input.satellite_position_ecef_m = sbirs_sensor::session::SbirsVector3M{
+      satellite_position.x_m, satellite_position.y_m, satellite_position.z_m};
+  input.satellite_velocity_ecef_m_per_s = sbirs_sensor::session::SbirsVector3M{
+      satellite_velocity.x_mps, satellite_velocity.y_mps, satellite_velocity.z_mps};
+  input.satellite_attitude_eci_body_deg =
+      sbirs_sensor::session::SbirsEulerAnglesDeg{yaw_deg, pitch_deg, roll_deg};
+  input.scene.reserve(truth_targets.size());
+  for (std::size_t i = 0U; i < truth_targets.size(); ++i) {
+    const pe::EvaluationTruthTarget& truth = truth_targets[i];
+    sbirs_sensor::session::SbirsSceneTarget scene_target;
+    scene_target.target_id = truth.key;
+    scene_target.target_name = "eval_truth";
+    scene_target.position_ecef_m = sbirs_sensor::session::SbirsVector3M{
+        truth.position_ecef_m.x_m, truth.position_ecef_m.y_m, truth.position_ecef_m.z_m};
+    scene_target.radiant_intensity_w_per_sr = truth.radiant_intensity_w_per_sr;
+    scene_target.active = truth.active;
+    scene_target.has_velocity_ecef_m_per_s = truth.has_velocity;
+    scene_target.velocity_ecef_m_per_s = sbirs_sensor::session::SbirsVector3M{
+        truth.velocity_ecef_m_per_s.x_mps, truth.velocity_ecef_m_per_s.y_mps,
+        truth.velocity_ecef_m_per_s.z_mps};
+    input.scene.push_back(scene_target);
+  }
+  return input;
+}
+
 class PrecisionEvaluationSessionRunner {
  public:
   explicit PrecisionEvaluationSessionRunner(const pe::PrecisionEvaluationConfig& config)
-      : session_(config) {}
+      : session_(config),
+        satellite_a_(sbirs_sensor::session::SbirsSession::Create(config.satellite_a)),
+        satellite_b_(sbirs_sensor::session::SbirsSession::Create(config.satellite_b)),
+        fusion_engine_(MakeFusionConfig(config)),
+        source_a_(config.satellite_a_source_id),
+        source_b_(config.satellite_b_source_id) {
+    if (source_b_ == source_a_) {
+      source_b_ = source_a_ + 100U;
+    }
+  }
 
   pe::PrecisionEvaluationReport Run(std::uint32_t cycle_count,
                                     pe::EvaluationTruthTarget truth = DescendingTarget()) {
+    const pe::DualSatEphemerisInput ephemeris = DualSatEphemeris();
     for (std::uint32_t cycle = 1U; cycle <= cycle_count; ++cycle) {
       // 真值弹道逐周期推进（位置 += 速度·dt）：真值状态必须自洽，否则融合会正确地
       // 收敛到静止目标、落点推演超时域。
       truth.position_ecef_m.x_m += truth.velocity_ecef_m_per_s.x_mps;
       truth.position_ecef_m.y_m += truth.velocity_ecef_m_per_s.y_mps;
       truth.position_ecef_m.z_m += truth.velocity_ecef_m_per_s.z_mps;
-      last_cycle_result_ = session_.Step(cycle, 1.0f, kUtcJulianDay, DualSatEphemeris(), {truth});
+      const std::vector<pe::EvaluationTruthTarget> truths{truth};
+      const sbirs_sensor::session::SbirsCycleResult result_a = satellite_a_.StepWithResult(
+          BuildSatelliteCycleInput(cycle, ephemeris.satellite_a_position_ecef_m,
+                                   ephemeris.satellite_a_velocity_ecef_m_per_s,
+                                   ephemeris.satellite_a_attitude_yaw_deg,
+                                   ephemeris.satellite_a_attitude_pitch_deg,
+                                   ephemeris.satellite_a_attitude_roll_deg, truths));
+      const sbirs_sensor::session::SbirsCycleResult result_b = satellite_b_.StepWithResult(
+          BuildSatelliteCycleInput(cycle, ephemeris.satellite_b_position_ecef_m,
+                                   ephemeris.satellite_b_velocity_ecef_m_per_s,
+                                   ephemeris.satellite_b_attitude_yaw_deg,
+                                   ephemeris.satellite_b_attitude_pitch_deg,
+                                   ephemeris.satellite_b_attitude_roll_deg, truths));
+      double gmst_rad = 0.0;
+      if (!oneq::coordinate::TryComputeGmstRad(kUtcJulianDay, &gmst_rad)) {
+        last_cycle_result_ = pe::PrecisionEvaluationCycleResult{};
+        continue;
+      }
+      std::vector<fusion::DetectionRecord> records =
+          pe::AdaptSbirsResultToDetectionRecords(result_a, ephemeris.satellite_a_position_ecef_m,
+                                                 gmst_rad, source_a_);
+      const std::vector<fusion::DetectionRecord> records_b =
+          pe::AdaptSbirsResultToDetectionRecords(result_b, ephemeris.satellite_b_position_ecef_m,
+                                                 gmst_rad, source_b_);
+      records.insert(records.end(), records_b.begin(), records_b.end());
+      const std::vector<fusion::FusedTarget> tracks = fusion_engine_.Update(records, cycle);
+      last_cycle_result_ =
+          session_.Step(cycle, 1.0f, kUtcJulianDay, ephemeris, truths, result_a, result_b, tracks);
     }
     return session_.Summarize();
   }
@@ -90,7 +164,18 @@ class PrecisionEvaluationSessionRunner {
   const pe::PrecisionEvaluationCycleResult& last_cycle_result() const { return last_cycle_result_; }
 
  private:
+  static fusion::FusionConfig MakeFusionConfig(const pe::PrecisionEvaluationConfig& config) {
+    fusion::FusionConfig fusion = config.fusion;
+    fusion.enable_track_filtering = true;
+    return fusion;
+  }
+
   pe::PrecisionEvaluationSession session_;
+  sbirs_sensor::session::SbirsSession satellite_a_;
+  sbirs_sensor::session::SbirsSession satellite_b_;
+  fusion::FusionEngine fusion_engine_;
+  std::uint32_t source_a_{4U};
+  std::uint32_t source_b_{104U};
   pe::PrecisionEvaluationCycleResult last_cycle_result_;
 };
 
@@ -162,8 +247,9 @@ TEST(PrecisionEvaluationSessionTest, EmptyTruthYieldsZeroEvidenceAndZeroComposit
   // 空真值：无样本、不崩溃；零证据 = 零分（无样本指标按 0 分计入综合，不因
   // count=0 → rmse=0 而得满分）。
   pe::PrecisionEvaluationSession session(EvaluationConfig());
-  const pe::PrecisionEvaluationCycleResult empty =
-      session.Step(1U, 1.0f, kUtcJulianDay, DualSatEphemeris(), {});
+  const pe::PrecisionEvaluationCycleResult empty = session.Step(
+      1U, 1.0f, kUtcJulianDay, DualSatEphemeris(), {}, sbirs_sensor::session::SbirsCycleResult{},
+      sbirs_sensor::session::SbirsCycleResult{}, {});
   EXPECT_TRUE(empty.angular.empty());
   EXPECT_TRUE(empty.dual_sat.empty());
   EXPECT_TRUE(empty.velocity.empty());
@@ -243,7 +329,7 @@ TEST(SbirsBearingAdapterTest, EciBearingMapsToSatelliteLocalEnu) {
 
   const oneq::coordinate::EcefPositionM satellite(7.0e6, 0.0, 0.0);
   const std::vector<fusion::DetectionRecord> records =
-      precision_evaluation::internal::AdaptSbirsResultToDetectionRecords(result, satellite, 0.0,
+      precision_evaluation::AdaptSbirsResultToDetectionRecords(result, satellite, 0.0,
                                                                          7U);
   ASSERT_EQ(records.size(), 1U);
   const fusion::DetectionRecord& record = records.front();
@@ -262,7 +348,7 @@ TEST(SbirsBearingAdapterTest, EciBearingMapsToSatelliteLocalEnu) {
 
   // 非执行周期（关机/待机）显式空返回，不产出量测。
   result.status = sbirs_sensor::session::SbirsCycleStatus::kPoweredOff;
-  EXPECT_TRUE(precision_evaluation::internal::AdaptSbirsResultToDetectionRecords(result, satellite,
+  EXPECT_TRUE(precision_evaluation::AdaptSbirsResultToDetectionRecords(result, satellite,
                                                                                 0.0, 7U)
                   .empty());
 }

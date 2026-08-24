@@ -222,8 +222,9 @@ void ArSensorComponent::LogDebugView(
     if (!tracks_text.empty()) {
       tracks_text += ", ";
     }
-    tracks_text += CA_FMT_FORMAT("{} {}(RCS {:.2f}m²)", track.external_target_id,
-                                 ArTrackStatusName(track.status), track.rcs);
+    tracks_text += std::to_string(track.external_target_id) +
+                   std::string(" ") + ArTrackStatusName(track.status) + "(RCS " +
+                   std::to_string(track.rcs) + "m²)";
   }
   const std::string issues_text = app::FormatIssueText(view.issues);
   // 与下方写入行同内容：纯 std::string/std::to_string 拼接的日志字符串，供集成方直接搬入己方日志（示例自身不消费）。
@@ -263,11 +264,10 @@ airborne_radar::session::ArCycleInput ArSensorComponent::BuildCycleInput(
 }
 
 void ArSensorComponent::Step(World& world, double dt_sec) {
-  detections_.clear();
-
   if (!powered_on_) {
     last_debug_view_ = airborne_radar::session::ArTrackOutputDebugView{};  // 关机：调试视图清零（无有效周期）
     LogDebugView(last_debug_view_, nullptr);
+    PublishTrackStateEvents(world, last_debug_view_);  // 空视图 → 无在跟航迹事件（消费方本周期无属性输入）
     return;  // 关机：组件不驱动会话（设备不工作），本周期无探测
   }
 
@@ -287,6 +287,7 @@ void ArSensorComponent::Step(World& world, double dt_sec) {
   last_debug_view_ = airborne_radar::session::ArTrackOutputDebugViewBuilder::Build(input, result);
   const oneq::coordinate::LlaPositionDegM origin = flight->position();
   LogDebugView(last_debug_view_, &origin);
+  PublishTrackStateEvents(world, last_debug_view_);  // 航迹属性逐周期事件（威胁评估订阅）
   if (result.status != airborne_radar::session::ArCycleStatus::kCompleted) {
     return;  // 周期被拒绝：本周期无探测
   }
@@ -306,7 +307,28 @@ void ArSensorComponent::Step(World& world, double dt_sec) {
 
   PublishTrackLifecycleEvents(world, scene, external_frame);  // 航迹首确认/失跟 → 信号+事件日志
   PublishExclusionEvents(world);                              // 排除原因变化沿 → 事件日志
-  AdaptDetections(external_frame);                            // 已发布轨迹 → 融合探测记录
+  AdaptDetections(scene, external_frame);                     // 已发布轨迹 → 共享探测池
+}
+
+void ArSensorComponent::PublishTrackStateEvents(
+    World& world, const airborne_radar::session::ArTrackOutputDebugView& view) {
+  // AR 航迹逐周期状态事件：逐在跟航迹展平速度/RCS/位置（属性侧输入，威胁
+  // 评估订阅缓存；消费方不依赖 AR 组件方法）。association_key 与融合键同键
+  // 空间（FusedTarget.key 源自 AR association_key 适配）。
+  for (const auto& track : view.tracks) {
+    if (!track.has_track || track.association_key == 0U) {
+      continue;
+    }
+    ArTrackStateEvent event;
+    event.cycle = view.world_cycle_index;
+    event.association_key = track.association_key;
+    event.speed_m_per_s = track.speed;
+    event.rcs_m2 = track.rcs;
+    event.position_x_m = track.position_x;
+    event.position_y_m = track.position_y;
+    event.position_z_m = track.position_z;
+    world.signals().on_ar_track_state(event);
+  }
 }
 
 void ArSensorComponent::PublishDesignationEvent(
@@ -362,12 +384,14 @@ void ArSensorComponent::PublishTrackLifecycleEvents(
       confirmed.cycle = scene.cycle;
       confirmed.target_id = event_target_id;
       // recorder 事件无位置字段：从本周期帧内同关联键轨迹取回（事件来自本周期
-      // 帧，键必命中）。
+      // 帧，键必命中）；事件为集成契约，LLA 展平为数值字段。
       for (const auto& track : external_frame.tracks) {
         if (track.association_key == event.association_key) {
           oneq::coordinate::LlaPositionDegM lla;
           if (oneq::coordinate::TryEcefToLla(track.target_position_ecef_m, &lla)) {
-            confirmed.position = lla;
+            confirmed.latitude_deg = lla.latitude_deg;
+            confirmed.longitude_deg = lla.longitude_deg;
+            confirmed.altitude_m = lla.altitude_m;
           }
           break;
         }
@@ -377,13 +401,13 @@ void ArSensorComponent::PublishTrackLifecycleEvents(
           std::string("目标=") +
           std::to_string(static_cast<unsigned long long>(confirmed.target_id)) +
           " 位置=(" +
-          std::to_string(confirmed.position.latitude_deg) +
+          std::to_string(confirmed.latitude_deg) +
           "," +
-          std::to_string(confirmed.position.longitude_deg) +
+          std::to_string(confirmed.longitude_deg) +
           ")";
       CA_LOG_EVENT(world, "target_confirmed", "目标={} 位置=({:.5f},{:.5f})",
                    static_cast<unsigned long long>(confirmed.target_id),
-                   confirmed.position.latitude_deg, confirmed.position.longitude_deg);
+                   confirmed.latitude_deg, confirmed.longitude_deg);
       world.signals().on_target_confirmed(confirmed);
     } else if (event.kind == airborne_radar::session::ArTrackLifecycleEventKind::kLost) {
       TargetLostEvent lost;
@@ -458,9 +482,13 @@ void ArSensorComponent::PublishExclusionEvents(World& world) {
 }
 
 void ArSensorComponent::AdaptDetections(
+    AppSceneState& scene,
     const airborne_radar::session::ArExternalTrackOutputFrame& external_frame) {
-  detections_ = fusion::AdaptArTracksToDetectionRecords(
-      fusion::kArSourceId, external_frame);
+  // 已发布轨迹 → 泛型探测记录写共享探测池（融合组件聚合读；集成方对应把
+  // 记录消息推给融合组件）。
+  const std::vector<fusion::DetectionRecord> records =
+      fusion::AdaptArTracksToDetectionRecords(fusion::kArSourceId, external_frame);
+  scene.detection_pool.insert(scene.detection_pool.end(), records.begin(), records.end());
 }
 
 
