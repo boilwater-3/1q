@@ -43,16 +43,15 @@ cl 自动按 UTF-8 解码；这正是交付验证要证明的约束）。工程�
 
 | | 场景 A：`rir_long_range_scan` | 场景 B：`sbirs_dual_sat_fix` |
 | --- | --- | --- |
-| 宿主 | `component_attachment_demo`（实体-组件模式） | `precision_evaluation_demo`（会话级编排，无组件） |
+| 宿主 | `component_attachment_demo`（实体-组件模式） | `precision_evaluation_demo`（两卫星实体 + 地面站融合组件） |
 | 被测 | RIR 远距探测/跟踪/识别/调度 + 融并 + 推演 + 威胁 | 双星红外交会 + 融合 + 推演 + **精度评估（五项误差 + AHP）** |
 | 周期 | 400 × 1 s（场景 JSON 里改） | 60 × 1 s |
-| 集成形态 | 挂 5 类组件（§4） | 只建 1 个 `PrecisionEvaluationSession`（§6） |
+| 集成形态 | 挂 5 类组件（§4） | 卫星实体挂 SBIRS；地面站挂 `FusionComponent`（内含 `FusionEngine` + `PrecisionEvaluationSession`）（§6） |
 | 验收文件 | `rir_acceptance.log`（5.2 万行）+ `rir_antenna_pattern.csv` + `rir_scan_pattern.csv` + `fusion/inference_acceptance.log` | `precision/sbirs/fusion/inference_acceptance.log` 四份 |
 | 集成端日志 | `integration_events.log`（含三个计时验收行）+ `integration_views.log`（rir 400 / inference 800 / threat 400 行） | 无（结果打 stdout + 写验收文件） |
 | 冒烟判据 | demo 退出码 0（航迹≥2、融合≥1、视图/CSV 行数达标） | demo 退出码 0（五指标有样本、AHP 合法、60/60 周期双星交会） |
 
-场景 B 是**最短路径**：不涉及组件/事件，先做它把编译链接和验收文件通路打通；
-场景 A 才需要组件挂载与事件接线。
+场景 B 走两卫星实体 + 地面站融合组件；场景 A 才需要机载传感器挂载与事件接线。
 
 ## 3. 验收开关与日志路径（先打通这个）
 
@@ -161,26 +160,31 @@ integration_views.log：[视图:rir]（航迹+位置LLA）→ [视图:inference]
 雷达链路参数在 `configs/remote_identification_radar.json`（甲方参数与配套上限
 对照表见场景 `.md`——峰值功率/脉宽/PRF/最大距离/驻留窗六项必须一起改）。
 
-## 6. 场景 B：需要集成什么（无组件、无事件）
+## 6. 场景 B：需要集成什么（两卫星实体 + 地面站）
 
-`PrecisionEvaluationSession` **内部自持整链**（双 SBIRS 会话 + 融合(强制逐航迹
-滤波) + 按间隔推演），不进组件框架、不发布事件。集成方只有三件事：
+两颗卫星各自 `SbirsSession::StepWithResult`，探测帧写入地面站收件箱；地面站
+`FusionComponent` 内做适配、`FusionEngine::Update`，并挂 `PrecisionEvaluationSession`
+对照真值打分。集成方：
 
 ```cpp
-// 1) 构造：几何/门限来自 scenes/sbirs_dual_sat_fix/sbirs_dual_sat_fix.json
-pe::PrecisionEvaluationSession session(config);
+// 1) 两卫星实体 + 地面站实体（融合引擎强制开逐航迹滤波）
+world.CreateEntity("satellite_a").Attach(sbirs_a);
+world.CreateEntity("satellite_b").Attach(sbirs_b);
+ground_station.Attach(FusionComponent(engine, evaluation_session, source_a, source_b));
 
-// 2) 每周期：调用方自己推进真值（评估会话不拥有真值），再 Step
+// 2) 每周期：调用方自己推进真值，写入星历/真值后 World::Step
 for (cycle = 1..60) {
   for (auto& t : truth) t.position += t.velocity * dt;   // p += v·dt
-  auto result = session.Step(cycle, dt, utc_julian_day, ephemeris, truth);
+  fusion->SetEvaluationInputs(ephemeris, truth);
+  world.Step(dt);
+  const auto& result = fusion->last_evaluation();
   // result.dual_sat / angular / velocity / keypoints 直接读
 }
-// 3) 结束：一次 Summarize → 五指标 mean/RMSE/P95/max + AHP 综合分
-auto report = session.Summarize();
+// 3) 结束：一次 SummarizeEvaluation → 五指标 mean/RMSE/P95/max + AHP 综合分
+auto report = fusion->SummarizeEvaluation();
 ```
 
-验收文件（precision/sbirs/fusion/inference 四份）由会话内部写出，路径钉法同 §3。
+验收文件（precision/sbirs/fusion/inference 四份）由库会话写出，路径钉法同 §3。
 冒烟判据照 demo：`all_metrics_sampled && ahp_valid && 0 < composite ≤ 1 &&
 dual_sat_cycles > 0`。
 

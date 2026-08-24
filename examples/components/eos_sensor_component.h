@@ -15,7 +15,6 @@
 #include "1q/electro_optical_sensor/session/EosExclusionCauseRecorder.h"
 #include "1q/electro_optical_sensor/session/EosOutputDebugView.h"
 #include "1q/electro_optical_sensor/session/EosSession.h"
-#include "1q/fusion/DetectionRecord.h"
 #include "core/component.h"
 #include "logger/logger_modes.h"
 
@@ -38,9 +37,6 @@ class EosSensorComponent : public Component {
   const char* Name() const override { return "EosSensor"; }
   void OnAttach(Entity& host) override { host_ = &host; }
   void Step(World& world, double dt_sec) override;
-
-  /** @brief 本周期适配后的泛型探测记录（融合聚合读）。 */
-  const std::vector<fusion::DetectionRecord>& detections() const { return detections_; }
 
   /** @brief 当前电源状态（由 sensor_enabled 补丁唯一维护；未步进前默认 true，关机时组件不驱动会话）。 */
   bool powered_on() const { return powered_on_; }
@@ -76,7 +72,6 @@ class EosSensorComponent : public Component {
 
   float scan_azimuth_deg_{0.0f}; /**< 最近周期波束中心方位角（deg，随周期结果刷新） */
 
-  std::vector<fusion::DetectionRecord> detections_{};  /**< 本周期融合探测记录（每周期重写；融合组件拉取） */
   electro_optical_sensor::session::EosOutputDebugView last_debug_view_{};  /**< 本周期调试视图快照（视图行数据源） */
 
 #if defined(CA_VIEW_LOG_MODE_DELTA)
@@ -100,7 +95,8 @@ class EosSensorComponent : public Component {
   /// 排除原因跨周期差分事件（纯诊断观测，仅落事件日志）。
   void PublishExclusionEvents(World& world);
   /// 探测记录 → 泛型探测记录（源通道 kEosSourceId，无身份键 0）。
-  void AdaptDetections(const electro_optical_sensor::session::EosCycleResult& result);
+  void AdaptDetections(AppSceneState& scene,
+                       const electro_optical_sensor::session::EosCycleResult& result);
 };
 
 }  // namespace component_attachment

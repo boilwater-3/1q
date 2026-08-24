@@ -18,10 +18,11 @@ namespace precision_evaluation {
 
 /**
  * @brief 精度评估会话配置。
- * @details 聚合被评估链路（双星 SBIRS 传感器 + fusion 估计 + target_inference 推演）
- *          与指标体系（AHP 判断矩阵 + 归一化参考误差）。评估会话内部强制
- *          `fusion.enable_track_filtering = true`（速度/位置误差样本依赖逐航迹滤波；
- *          默认关的融合无运动学估计），调用方无需自行设置。
+ * @details 聚合被评估链路的配置袋（双星 SBIRS 会话配置 + fusion 估计 +
+ *          target_inference 推演）与指标体系（AHP 判断矩阵 + 归一化参考误差）。
+ *          评估会话本身只消费 inference / AHP / 参考误差；双星会话与
+ *          FusionEngine 由地面站融合组件装配。地面站构造融合引擎时应
+ *          `fusion.enable_track_filtering = true`（速度/位置误差样本依赖逐航迹滤波）。
  * @note 参考误差默认值为演示口径（角度 0.05°、双星 10 km、速度 100 m/s、落点 10 km、
  *       发射点 20 km）：score = ref/(ref+rmse)，rmse=ref 时得 0.5 分。正式验收标定
  *       前按装备指标替换（见 docs/precision_evaluation/algorithms.md）。

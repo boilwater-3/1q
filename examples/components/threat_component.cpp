@@ -2,25 +2,26 @@
  * @file threat_component.cpp
  * @brief 威胁评估组件实现（融合态势 + 运动学 → 威胁分/等级 + 升级事件）。
  *
- * 1. 以融合目标为主集合，AR 调试视图按键（association_key == FusedTarget.key）
- *    补充属性侧字段（速度/距离/RCS）；
+ * 1. 订阅融合态势事件（证据侧主集合）与 AR 航迹状态事件（属性侧补充：
+ *    速度/距离/RCS，association_key == FusedTarget.key 对齐），逐目标缓存
+ *    ——不调用融合/AR 组件方法（集成方同走事件机制）；
  * 2. 示例层数据源无加速度与类型概率字段 → 按属性缺失（NaN）传入，评估器
  *    归一化 0 贡献（threat_assessment 边界语义，见 docs/threat_assessment/）；
- * 3. 等级升级（首见按低威胁计）→ 关键事件；每目标发布威胁更新信号；
- *    每周期视图摘要直写集成端日志。
+ * 3. 等级升级（首见按低威胁计）→ 关键事件；每目标发布威胁更新信号（事件
+ *    为集成契约，库内结果展平为镜像枚举/数值字段）；每周期视图摘要直写
+ *    集成端日志。
  */
 
 #include "threat_component.h"
 
+#include <algorithm>
 #include <cmath>
 #include <limits>
+#include <vector>
 
-#include "1q/airborne_radar/session/ArTrackOutputDebugView.h"
 #include "core/events.h"
 #include "core/world.h"
 #include "logger/logger.h"
-#include "ar_sensor_component.h"
-#include "fusion_component.h"
 
 namespace component_attachment {
 
@@ -43,59 +44,79 @@ const char* ThreatLevelName(threat_assessment::ThreatLevel level) {
 ThreatComponent::ThreatComponent(const threat_assessment::ThreatEvaluatorConfig& config)
     : evaluator_(config) {}
 
-std::vector<threat_assessment::ThreatEvaluationInput> ThreatComponent::BuildEvaluationInputs()
-    const {
-  // 输入组装：融合目标为主集合（证据侧），AR 调试视图按键补充属性侧。
-  const auto* fusion = host_->Find<FusionComponent>();
-  const auto* ar = host_->Find<ArSensorComponent>();
+void ThreatComponent::OnFusionUpdated(const FusionUpdatedEvent& event) {
+  FusionSnapshot& snapshot = fusion_by_key_[event.key];
+  snapshot.cycle = event.cycle;
+  snapshot.confidence = event.confidence;
+}
+
+void ThreatComponent::OnArTrackState(const ArTrackStateEvent& event) {
+  ArTrackSnapshot& snapshot = ar_tracks_by_key_[event.association_key];
+  snapshot.cycle = event.cycle;
+  snapshot.speed_m_per_s = event.speed_m_per_s;
+  snapshot.rcs_m2 = event.rcs_m2;
+  snapshot.position_x_m = event.position_x_m;
+  snapshot.position_y_m = event.position_y_m;
+  snapshot.position_z_m = event.position_z_m;
+}
+
+std::vector<threat_assessment::ThreatEvaluationInput> ThreatComponent::BuildEvaluationInputs(
+    std::uint64_t cycle) const {
+  // 输入组装：融合态势缓存为主集合（证据侧，本周期新鲜条目），AR 航迹缓存
+  // 按键补充属性侧（AR/融合组件挂载序在前，同周期事件先于本组件 Step 到达）。
+  std::vector<std::uint64_t> keys;  // key 升序（与融合态势输出序一致，评估序确定）
+  keys.reserve(fusion_by_key_.size());
+  for (const auto& entry : fusion_by_key_) {
+    keys.push_back(entry.first);
+  }
+  std::sort(keys.begin(), keys.end());
+
   std::vector<threat_assessment::ThreatEvaluationInput> inputs;
-  if (fusion != nullptr) {
-    inputs.reserve(fusion->targets().size());
-    const airborne_radar::session::ArTrackOutputDebugView& ar_view =
-        ar != nullptr ? ar->LastDebugView() : airborne_radar::session::ArTrackOutputDebugView{};
-
-    for (const fusion::FusedTarget& fused : fusion->targets()) {
-      threat_assessment::ThreatEvaluationInput input;
-      input.key = fused.key;
-      input.fusion_confidence = static_cast<float>(fused.confidence);
-
-      // 属性侧：AR 视图匹配（FusedTarget.key 源自 AR association_key 适配）。
-      bool has_track = false;
-      for (const auto& track : ar_view.tracks) {
-        if (track.has_track && track.association_key == fused.key) {
-          input.speed = track.speed;
-          input.rcs = track.rcs;
-          input.range_m = std::sqrt(track.position_x * track.position_x +
-                                    track.position_y * track.position_y +
-                                    track.position_z * track.position_z);
-          has_track = true;
-          break;
-        }
-      }
-      // 无 AR 匹配：运动学属性按缺失传入（距离 0 是合法满分，缺失必须显式 NaN）。
-      if (!has_track) {
-        input.speed = std::numeric_limits<float>::quiet_NaN();
-        input.range_m = std::numeric_limits<float>::quiet_NaN();
-        input.rcs = std::numeric_limits<float>::quiet_NaN();
-      }
-      // 示例层数据源无加速度/类型概率字段：按属性缺失处理。
-      input.acceleration = std::numeric_limits<float>::quiet_NaN();
-      input.target_probability = std::numeric_limits<float>::quiet_NaN();
-
-      inputs.push_back(input);
+  for (const std::uint64_t key : keys) {
+    const FusionSnapshot& fused = fusion_by_key_.at(key);
+    if (fused.cycle != cycle) {
+      continue;  // 本周期融合未发布（目标已消失）：非评估输入
     }
+    threat_assessment::ThreatEvaluationInput input;
+    input.key = key;
+    input.fusion_confidence = static_cast<float>(fused.confidence);
+
+    // 属性侧：AR 航迹缓存按键匹配（FusedTarget.key 源自 AR association_key 适配）。
+    const auto track_it = ar_tracks_by_key_.find(key);
+    if (track_it != ar_tracks_by_key_.end() && track_it->second.cycle == cycle) {
+      const ArTrackSnapshot& track = track_it->second;
+      input.speed = static_cast<float>(track.speed_m_per_s);
+      input.rcs = static_cast<float>(track.rcs_m2);
+      input.range_m = std::sqrt(track.position_x_m * track.position_x_m +
+                                track.position_y_m * track.position_y_m +
+                                track.position_z_m * track.position_z_m);
+    } else {
+      // 无 AR 匹配：运动学属性按缺失传入（距离 0 是合法满分，缺失必须显式 NaN）。
+      input.speed = std::numeric_limits<float>::quiet_NaN();
+      input.range_m = std::numeric_limits<float>::quiet_NaN();
+      input.rcs = std::numeric_limits<float>::quiet_NaN();
+    }
+    // 示例层数据源无加速度/类型概率字段：按属性缺失处理。
+    input.acceleration = std::numeric_limits<float>::quiet_NaN();
+    input.target_probability = std::numeric_limits<float>::quiet_NaN();
+
+    inputs.push_back(input);
   }
   return inputs;
 }
 
 void ThreatComponent::Step(World& world, double dt_sec) {
   (void)dt_sec;
-  if (host_ == nullptr) {
-    return;  // 未挂载：无威胁评估
+  // 事件接线（首次 Step 惰性连接；scoped_connection 随组件析构自动断开）。
+  if (!fusion_connection_.connected()) {
+    fusion_connection_ = world.signals().on_fusion_updated.connect(
+        [this](const FusionUpdatedEvent& event) { OnFusionUpdated(event); });
+    ar_track_connection_ = world.signals().on_ar_track_state.connect(
+        [this](const ArTrackStateEvent& event) { OnArTrackState(event); });
   }
 
   const std::vector<threat_assessment::ThreatEvaluationInput> inputs =
-      BuildEvaluationInputs();
+      BuildEvaluationInputs(world.scene_state().cycle);
   // 评估（纯函数式；无输入时输出为空）。
   results_ = evaluator_.Evaluate(inputs);
   high_threat_count_ = 0U;
@@ -105,13 +126,13 @@ void ThreatComponent::Step(World& world, double dt_sec) {
     }
   }
 
-
   PublishThreatEvents(world);
   LogThreatView(world);
 }
 
 void ThreatComponent::PublishThreatEvents(World& world) {
-  // 等级升级判定（首见按低威胁计）+ 威胁更新事件发布。
+  // 等级升级判定（首见按低威胁计）+ 威胁更新事件发布（库内结果展平为
+  // 集成契约字段：镜像枚举 + 贡献分解数值）。
   std::size_t level_up_count = 0U;
   for (const threat_assessment::ThreatResult& result : results_) {
     const auto prev = prev_levels_.find(result.key);
@@ -152,7 +173,15 @@ void ThreatComponent::PublishThreatEvents(World& world) {
 
     ThreatUpdatedEvent event;
     event.cycle = world.scene_state().cycle;
-    event.result = result;
+    event.key = result.key;
+    event.threat_score = result.threat_score;
+    event.level = static_cast<EventThreatLevel>(result.level);
+    event.contribution_range = result.contributions.range;
+    event.contribution_speed = result.contributions.speed;
+    event.contribution_acceleration = result.contributions.acceleration;
+    event.contribution_rcs = result.contributions.rcs;
+    event.contribution_target_probability = result.contributions.target_probability;
+    event.contribution_fusion_confidence = result.contributions.fusion_confidence;
     world.signals().on_threat_updated(event);
   }
 

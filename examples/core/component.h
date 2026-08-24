@@ -18,8 +18,10 @@ class World;
  * @brief 组件基类：模块逻辑的挂载单元。
  *
  * 子类实现 Name（类型标识）与 Step（周期推进）；OnAttach 时保存宿主
- * 实体引用（经 host_.Find<T>() 类型化访问同实体组件，供周期内同步数据
- * 聚合）；跨周期通知/记录经 World 的信号发布事件（见 signals.h）。
+ * 实体引用。组件交互规则（见 core/events.h）：host_.Find<T>() 仅允许取
+ * 本平台机动组件（FlightComponent，读平台位姿）；其余跨模块交互一律走
+ * World 信号事件（见 signals.h）或共享场景状态黑板（探测池/RF 世界，
+ * 见 core/scene_types.h）。
  */
 class Component {
  public:

@@ -11,7 +11,6 @@
 #include <vector>
 
 #include "1q/coordinate/types.h"
-#include "1q/fusion/DetectionRecord.h"
 #include "1q/remote_identification_radar/config/RirRuntimeConfigPatch.h"
 #include "1q/remote_identification_radar/session/RirCycleResult.h"
 #include "1q/remote_identification_radar/session/RirExclusionCauseRecorder.h"
@@ -46,9 +45,6 @@ class RirSensorComponent : public Component {
   const char* Name() const override { return "RirSensor"; }
   void OnAttach(Entity& host) override { host_ = &host; }
   void Step(World& world, double dt_sec) override;
-
-  /** @brief 本周期适配后的泛型探测记录（融合聚合读；源通道 kRirSourceId）。 */
-  const std::vector<fusion::DetectionRecord>& detections() const { return detections_; }
 
   /**
    * @brief 运行时修改入口：包装 RirSession::TryApplyRuntimeConfig。
@@ -92,8 +88,9 @@ class RirSensorComponent : public Component {
   /// 排除原因跨周期差分事件（纯诊断观测，仅落事件日志）。
   void PublishExclusionEvents(
       World& world, const remote_identification_radar::session::RirCycleResult& result);
-  /// 特征量测 → 泛型探测记录 + 归属表键重写（库内键 → 外部目标 ID 并键融合）。
-  void AdaptDetections(const remote_identification_radar::session::RirCycleResult& result);
+  /// 特征量测 → 泛型探测记录写共享探测池 + 归属表键重写（库内键 → 外部目标 ID 并键融合）。
+  void AdaptDetections(AppSceneState& scene,
+                       const remote_identification_radar::session::RirCycleResult& result);
 
   // 生命周期/排除差分记录器：声明在 session_ 之前——析构顺序保证
   // "recorder 生命周期长于 Session 注册期"（Session 持非拥有裸指针）。
@@ -107,9 +104,8 @@ class RirSensorComponent : public Component {
   std::uint64_t sensor_platform_id_{0U};             /**< 本传感器在 RF 世界的平台身份（剔除自身发射用） */
   float recognition_dwell_sec_{0.05f};               /**< 单次识别驻留时长（mission 配置，s）：每周期喂给会话的 RF 发射窗口长度 */
 
-  std::vector<fusion::DetectionRecord> detections_{};  /**< 本周期融合探测记录（每周期重写；融合组件拉取） */
   remote_identification_radar::session::RirOutputDebugView
-      last_debug_view_{};  /**< 本周期调试视图快照（每周期重写；视图行数据源；关机周期重置为空） */
+  last_debug_view_{};  /**< 本周期调试视图快照（每周期重写；视图行数据源；关机周期重置为空） */
 
   std::unordered_map<std::uint64_t,
                      remote_identification_radar::session::RirRecognitionState>

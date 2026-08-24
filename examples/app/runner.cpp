@@ -345,6 +345,9 @@ int RunScene(const std::string& scene_path, const RunOptions& options) {
     scene.sbirs_targets = app::MakeSbirsTargetInputs(target_states);
     scene.sbirs_utc_julian_day = scene_data.sbirs_utc_julian_day;  // SBIRS ECI 输出参考系（UTC 儒略日）
     scene.sar_point_targets = app::MakeSarPointTargets(target_states);
+    // 探测池黑板周期边界：本周期各源组件 Step 内写入、融合组件步进时聚合读。
+    scene.detection_pool.clear();
+    scene.sbirs_ground_station_inbox.clear();
     if (rir_site != nullptr) {
       // RIR 场景目标：世界 ECEF → 站点局部 ENU（含识别特征真值铺样）。
       scene.rir_targets = app::MakeRirSceneTargets(target_states, scene_data.rir_site_origin);

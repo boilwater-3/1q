@@ -185,8 +185,6 @@ rir::RirCycleInput RirSensorComponent::BuildCycleInput(const AppSceneState& scen
 }
 
 void RirSensorComponent::Step(World& world, double dt_sec) {
-  detections_.clear();
-
   if (!powered_on_) {
     // 关机：不驱动会话；视图重置为空快照再走一遍写入（摘要模式写一行空摘要，
     // 模式一/二天然静默）。
@@ -220,7 +218,7 @@ void RirSensorComponent::Step(World& world, double dt_sec) {
   PublishDesignationEvent(world, result);                    // 指定任务终态沿 → 事件日志
   PublishTrackLifecycleEvents(world, result);                // 航迹首确认/丢失/作废沿 → 事件日志
   PublishExclusionEvents(world, result);                     // 排除原因变化沿 → 事件日志
-  AdaptDetections(result);                                   // 特征量测 → 融合探测记录
+  AdaptDetections(scene, result);                            // 特征量测 → 共享探测池
 }
 
 void RirSensorComponent::PublishRecognitionEvents(
@@ -412,28 +410,31 @@ void RirSensorComponent::PublishExclusionEvents(
 
 }
 
-void RirSensorComponent::AdaptDetections(const rir::RirCycleResult& result) {
-  // 特征量测 → 统一探测记录挂到 detections()；融合组件每周期直接来取（示例内是
-  // 组件引用拉取；集成方对应把记录发给融合组件的消息）。键按归属表从库内键重写
-  // 为外部目标 ID，与其它源同键后才会并进同一条融合航迹；无归属记录保留库内键。
+void RirSensorComponent::AdaptDetections(AppSceneState& scene,
+                                         const rir::RirCycleResult& result) {
+  // 特征量测 → 统一探测记录写共享探测池（融合组件聚合读；集成方对应把记录
+  // 发给融合组件的消息）。键按归属表从库内键重写为外部目标 ID，与其它源同键
+  // 后才会并进同一条融合航迹；无归属记录保留库内键。
   rir::RirFeatureMeasurementFrame frame;
   frame.input_cycle_index = result.output_frame.input_cycle_index;
   frame.batch_id = result.output_frame.batch_id;
   frame.records = result.output_frame.feature_measurements;
-  detections_ = fusion::AdaptRirFeatureMeasurementsToDetectionRecords(
-      fusion::kRirSourceId, frame);
+  std::vector<fusion::DetectionRecord> records =
+      fusion::AdaptRirFeatureMeasurementsToDetectionRecords(
+          fusion::kRirSourceId, frame);
   std::unordered_map<std::uint64_t, std::uint64_t> key_to_external;
   for (const auto& attribution : result.track_attributions) {
     if (attribution.external_target_id != 0U) {
       key_to_external[attribution.association_key] = attribution.external_target_id;
     }
   }
-  for (auto& record : detections_) {
+  for (auto& record : records) {
     const auto it = key_to_external.find(record.key);
     if (it != key_to_external.end()) {
       record.key = it->second;
     }
   }
+  scene.detection_pool.insert(scene.detection_pool.end(), records.begin(), records.end());
 }
 
 void RirSensorComponent::LogDebugView(World& world, const rir::RirOutputDebugView& view) {
@@ -507,7 +508,8 @@ void RirSensorComponent::LogDebugView(World& world, const rir::RirOutputDebugVie
 #else
   // 模式三：每周期恰好一行完整摘要（含指定任务镜像与排除诊断问题列表）。
   // 逐目标片段累积（"ID 状态(型号) 识别 置信 位置/斜距 速度"），拼进下方摘要行
-  // 的 目标=[…] 字段随行写日志——不是独立日志行，故无独立的搬用串。
+  // 的 目标=[…] 字段随行写日志——片段拼接与摘要行同为纯 std::string/std::to_string
+  // 写法，集成方可整段搬入己方日志组装（数值为 std::to_string 缺省精度）。
   std::string target_parts;
   std::size_t track_count = 0U;
   bool any_confirmed = false;
@@ -520,24 +522,25 @@ void RirSensorComponent::LogDebugView(World& world, const rir::RirOutputDebugVie
     if (!target_parts.empty()) {
       target_parts += ", ";
     }
-    std::string part = CA_FMT_FORMAT(
-        "{} {}({})", static_cast<unsigned long long>(state.external_target_id),
-        DebugTargetStatusName(state.status),
-        state.target_name.empty() ? "-" : state.target_name);
+    std::string part =
+        std::to_string(static_cast<unsigned long long>(state.external_target_id)) +
+        std::string(" ") + DebugTargetStatusName(state.status) + "(" +
+        (state.target_name.empty() ? "-" : state.target_name) + ")";
     if (state.has_recognition_output) {
-      part += CA_FMT_FORMAT(" {} 置信{:.2f}", RecognitionStateName(state.recognition_state),
-                            state.confidence);
+      part += std::string(" ") + RecognitionStateName(state.recognition_state) +
+              " 置信" + std::to_string(state.confidence);
     }
     oneq::coordinate::LlaPositionDegM lla;
     if (state.has_track &&
         TryEnuMetersToLla(state.position_enu_x_m, state.position_enu_y_m,
                           state.position_enu_z_m, site_origin_, &lla)) {
-      part += CA_FMT_FORMAT(" 位置LLA=({:.5f},{:.5f},{:.0f})", lla.latitude_deg,
-                            lla.longitude_deg, lla.altitude_m);
+      part += std::string(" 位置LLA=(") + std::to_string(lla.latitude_deg) + "," +
+              std::to_string(lla.longitude_deg) + "," +
+              std::to_string(lla.altitude_m) + ")";
     } else {
-      part += CA_FMT_FORMAT(" 斜距={:.0f}m", state.slant_range_m);
+      part += std::string(" 斜距=") + std::to_string(state.slant_range_m) + "m";
     }
-    part += CA_FMT_FORMAT(" 速度={:.1f}", state.speed_m_per_s);
+    part += std::string(" 速度=") + std::to_string(state.speed_m_per_s);
     target_parts += part;
   }
   const std::string issues_text = app::FormatIssueText(view.issues);

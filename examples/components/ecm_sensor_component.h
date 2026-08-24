@@ -10,6 +10,7 @@
 
 #include "1q/electronic_countermeasure/EcmSession.h"
 #include "core/component.h"
+#include "core/signals.h"
 
 namespace component_attachment {
 
@@ -47,6 +48,8 @@ class EcmSensorComponent : public Component {
   bool powered_on_{true};  /**< 电源状态（关机时组件不驱动会话） */
   std::uint32_t executed_cycle_count_{0U};  /**< 累计成功发射周期数（冒烟断言） */
   std::uint64_t last_submitted_esr_batch_id_{0U};  /**< 已提交给会话的最新 ESR 批次（防重复消费） */
+  EsrScanUpdatedEvent esr_scan_{};  /**< 最近一次 ESR 假设集事件缓存（batch_id 为 0 = 尚无成功扫描） */
+  boost::signals2::scoped_connection esr_connection_{}; /**< ESR 假设集信号订阅（首次 Step 惰性连接） */
 };
 
 }  // namespace component_attachment

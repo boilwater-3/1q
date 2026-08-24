@@ -173,7 +173,9 @@ void SarSensorComponent::Step(World& world, double dt_sec) {
     SarProductEvent product;
     product.cycle = scene.cycle;
     product.kind = ToAppKind(event.kind);
-    product.stage = event.completed_stage;
+    // 事件为集成契约：阶段库枚举展平为镜像枚举（值一致）；日志中文名仍按库枚举映射。
+    const sar::session::SarProcessingStage stage = event.completed_stage;
+    product.stage = static_cast<EventSarStage>(stage);
     product.estimated_snr_db = event.estimated_snr_db;
     product.abort_reason = event.abort_reason;
     if (product.kind == SarProductEventKind::kProductSustained) {
@@ -183,14 +185,14 @@ void SarSensorComponent::Step(World& world, double dt_sec) {
           std::string("类型=") +
           (SarEventKindName(product.kind)) +
           " 阶段=" +
-          (SarStageName(product.stage)) +
+          (SarStageName(stage)) +
           " 信噪比=" +
           std::to_string(product.estimated_snr_db) +
           "dB" +
           (product.abort_reason.empty() ? "" : " 中止原因=") +
           (product.abort_reason.c_str());
       CA_LOG_EVENT_DUP(world, "sar_product", "类型={} 阶段={} 信噪比={:.1f}dB{}{}",
-                       SarEventKindName(product.kind), SarStageName(product.stage),
+                       SarEventKindName(product.kind), SarStageName(stage),
                        product.estimated_snr_db,
                        product.abort_reason.empty() ? "" : " 中止原因=",
                        product.abort_reason.c_str());
@@ -200,14 +202,14 @@ void SarSensorComponent::Step(World& world, double dt_sec) {
           std::string("类型=") +
           (SarEventKindName(product.kind)) +
           " 阶段=" +
-          (SarStageName(product.stage)) +
+          (SarStageName(stage)) +
           " 信噪比=" +
           std::to_string(product.estimated_snr_db) +
           "dB" +
           (product.abort_reason.empty() ? "" : " 中止原因=") +
           (product.abort_reason.c_str());
       CA_LOG_EVENT(world, "sar_product", "类型={} 阶段={} 信噪比={:.1f}dB{}{}",
-                   SarEventKindName(product.kind), SarStageName(product.stage),
+                   SarEventKindName(product.kind), SarStageName(stage),
                    product.estimated_snr_db,
                    product.abort_reason.empty() ? "" : " 中止原因=",
                    product.abort_reason.c_str());

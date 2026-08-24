@@ -215,6 +215,7 @@ set(PRECISION_EVALUATION_HEADERS
     "precision_evaluation/PrecisionEvaluationMetrics.h"
     "precision_evaluation/PrecisionEvaluationSession.h"
     "precision_evaluation/PrecisionEvaluationTypes.h"
+    "precision_evaluation/SbirsBearingAdapter.h"
     "precision_evaluation/precision_evaluation.hpp"
 )
 

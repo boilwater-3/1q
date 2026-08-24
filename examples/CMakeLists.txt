@@ -16,8 +16,8 @@
 #   common/      examples 与 tests 共享便利层（JSON 解析 / CSV / 配置加载器 /
 #                可视化查看器），不属于 oneq 库的 public surface（库内部不
 #                消费 JSON；见 OQ-7 收口记录）
-# 精度评估场景（scenes/sbirs_dual_sat_fix/）为评估层编排（自持双星 + 融合 +
-# 推演整链），独立 main；兼容目标 precision_evaluation_demo 与之同源。
+# 精度评估场景（scenes/sbirs_dual_sat_fix/）走 ECS：两卫星实体 + 地面站融合组件
+# （内挂评估会话）；兼容目标 precision_evaluation_demo 与之同源。
 
 if(NOT TARGET ${PROJECT_ALIAS})
     message(FATAL_ERROR "${PROJECT_ALIAS} target not found. Ensure src/CMakeLists.txt is processed first")
@@ -176,7 +176,7 @@ endif()
 
 foreach(_scene IN LISTS _oneq_selected_scenes)
     if(_scene STREQUAL "sbirs_dual_sat_fix")
-        continue()  # 精度评估场景走下方独立接线（评估层栈，非 examples_core）
+        continue()  # 精度评估场景走下方接线（链 examples_core，地面站融合组件）
     endif()
     add_executable(${_scene} scenes/${_scene}/main.cpp)
     target_link_libraries(${_scene} PRIVATE examples_core)
@@ -189,11 +189,7 @@ endforeach()
 # 场景输出目录（默认 examples/log/<场景名>/）。
 if(sbirs_dual_sat_fix IN_LIST _oneq_selected_scenes)
     add_executable(sbirs_dual_sat_fix scenes/sbirs_dual_sat_fix/main.cpp)
-    target_link_libraries(sbirs_dual_sat_fix PRIVATE ${PROJECT_ALIAS})
-    target_include_directories(sbirs_dual_sat_fix PRIVATE
-        "${CMAKE_CURRENT_SOURCE_DIR}"
-        "${ONEQ_EXAMPLE_COMMON_DIR}")
-    target_sources(sbirs_dual_sat_fix PRIVATE ${ONEQ_EXAMPLE_COMMON_SOURCES})
+    target_link_libraries(sbirs_dual_sat_fix PRIVATE examples_core)
     target_compile_definitions(sbirs_dual_sat_fix PRIVATE
         ONEQ_SCENE_JSON="${CMAKE_CURRENT_SOURCE_DIR}/scenes/sbirs_dual_sat_fix/sbirs_dual_sat_fix.json"
         PE_DEFAULT_OUTPUT_DIR="${CMAKE_SOURCE_DIR}/examples/log"
@@ -201,11 +197,7 @@ if(sbirs_dual_sat_fix IN_LIST _oneq_selected_scenes)
 endif()
 
 add_executable(precision_evaluation_demo scenes/sbirs_dual_sat_fix/main.cpp)
-target_link_libraries(precision_evaluation_demo PRIVATE ${PROJECT_ALIAS})
-target_include_directories(precision_evaluation_demo PRIVATE
-    "${CMAKE_CURRENT_SOURCE_DIR}"
-    "${ONEQ_EXAMPLE_COMMON_DIR}")
-target_sources(precision_evaluation_demo PRIVATE ${ONEQ_EXAMPLE_COMMON_SOURCES})
+target_link_libraries(precision_evaluation_demo PRIVATE examples_core)
 target_compile_definitions(precision_evaluation_demo PRIVATE
     ONEQ_SCENE_JSON="${CMAKE_CURRENT_SOURCE_DIR}/scenes/sbirs_dual_sat_fix/sbirs_dual_sat_fix.json"
     PE_DEFAULT_OUTPUT_DIR="${CMAKE_SOURCE_DIR}/examples/log"

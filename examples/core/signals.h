@@ -34,8 +34,12 @@ struct Signals {
   boost::signals2::signal<void(const TargetConfirmedEvent&)> on_target_confirmed;
   /** @brief AR 目标失跟。 */
   boost::signals2::signal<void(const TargetLostEvent&)> on_target_lost;
+  /** @brief AR 航迹逐周期状态（威胁评估属性侧输入）。 */
+  boost::signals2::signal<void(const ArTrackStateEvent&)> on_ar_track_state;
   /** @brief ESR 辐射源假设。 */
   boost::signals2::signal<void(const EmitterHypothesisEvent&)> on_emitter_hypothesis;
+  /** @brief ESR 假设集快照（每成功周期全量；ECM sensor-driven 输入）。 */
+  boost::signals2::signal<void(const EsrScanUpdatedEvent&)> on_esr_scan_updated;
   /** @brief EOS 探测。 */
   boost::signals2::signal<void(const EosDetectionEvent&)> on_eos_detection;
   /** @brief SBIRS 探测。 */

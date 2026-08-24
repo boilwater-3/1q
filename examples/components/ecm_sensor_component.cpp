@@ -2,16 +2,18 @@
  * @file ecm_sensor_component.cpp
  * @brief ECM 组件实现（ESR 假设驱动 + RF-WORLD 发布）。
  *
- * 每周期读同实体 ESR 组件上一成功周期的去真值化假设（按 batch_id 防重复
- * 消费），调度压制/欺骗干扰，成功执行时将 emission_frame 发布到共享 RF 世界
- * （供 AR/ESR/RIR 消费）；须挂载在 ESR 之后、AR 之前（挂载序 = 步进序）。
+ * 订阅 ESR 假设集快照事件（on_esr_scan_updated，每成功周期全量去真值化
+ * 假设 + batch_id；按 batch_id 防重复消费），本地重建库类型喂 sensor-driven
+ * 适配器——不调用 ESR 组件方法（集成方同走事件机制）。调度压制/欺骗干扰，
+ * 成功执行时将 emission_frame 发布到共享 RF 世界（供 AR/ESR/RIR 消费）；
+ * 须挂载在 ESR 之后、AR 之前（挂载序 = 步进序）。
  */
 
 #include "ecm_sensor_component.h"
 
 #include "1q/electronic_countermeasure/EcmEsrAdapter.h"
+#include "1q/electronic_surveillance_radar/session/EmitterObservation.h"
 #include "core/world.h"
-#include "esr_sensor_component.h"
 #include "flight_component.h"
 #include "logger/logger.h"
 #include "core/rf_world_broker.h"
@@ -64,10 +66,15 @@ void EcmSensorComponent::Step(World& world, double dt_sec) {
     return;
   }
 
+  // 事件接线（首次 Step 惰性连接；scoped_connection 随组件析构自动断开）。
+  if (!esr_connection_.connected()) {
+    esr_connection_ = world.signals().on_esr_scan_updated.connect(
+        [this](const EsrScanUpdatedEvent& event) { esr_scan_ = event; });
+  }
+
   const FlightComponent* flight = host_ != nullptr ? host_->Find<FlightComponent>() : nullptr;
-  const EsrSensorComponent* esr = host_ != nullptr ? host_->Find<EsrSensorComponent>() : nullptr;
-  if (flight == nullptr || esr == nullptr) {
-    return;
+  if (flight == nullptr) {
+    return;  // 无平台动力学（空场景）：不发射
   }
 
   // 共享场景状态（World 只存基类引用，实际类型为 AppSceneState）：读真值组输入，
@@ -83,15 +90,47 @@ void EcmSensorComponent::Step(World& world, double dt_sec) {
   ResolvePlatformEcef(flight->position(), flight->heading_deg(), flight->speed_mps(),
                       &input.platform_position_ecef_m, &input.platform_velocity_ecef_mps);
 
-  if (esr->has_last_completed_output() &&
-      esr->last_completed_cycle_index() == static_cast<std::uint32_t>(scene.cycle) &&
-      esr->last_batch_id() > last_submitted_esr_batch_id_) {
+  // ESR 假设集事件缓存（ESR 挂载序在前，同周期事件先于本组件 Step 到达）：
+  // 本周期新鲜 + 批次递增才消费；事件展平字段在此重建库类型喂适配器
+  // （防腐层归消费方）。
+  if (esr_scan_.batch_id != 0U &&
+      esr_scan_.cycle == scene.cycle &&
+      esr_scan_.batch_id > last_submitted_esr_batch_id_) {
+    electronic_surveillance_radar::session::EmitterHypothesisList hypotheses;
+    hypotheses.reserve(esr_scan_.hypotheses.size());
+    for (const auto& data : esr_scan_.hypotheses) {
+      electronic_surveillance_radar::session::EmitterHypothesis hypothesis;
+      hypothesis.hypothesis_id = data.hypothesis_id;
+      hypothesis.candidate_classes = data.candidate_classes;
+      hypothesis.mode = static_cast<electronic_surveillance_radar::session::EsrEmitterMode>(
+          data.mode);
+      hypothesis.threat_level =
+          static_cast<electronic_surveillance_radar::session::EsrThreatLevel>(
+              data.threat_level);
+      hypothesis.bearing_az_deg = data.bearing_az_deg;
+      hypothesis.bearing_el_deg = data.bearing_el_deg;
+      hypothesis.bearing_std_deg = data.bearing_std_deg;
+      hypothesis.estimated_center_frequency_hz = data.estimated_center_frequency_hz;
+      hypothesis.estimated_bandwidth_hz = data.estimated_bandwidth_hz;
+      hypothesis.estimated_pri_s = data.estimated_pri_s;
+      hypothesis.estimated_pulse_width_s = data.estimated_pulse_width_s;
+      hypothesis.center_frequency_std_hz = data.center_frequency_std_hz;
+      hypothesis.bandwidth_std_hz = data.bandwidth_std_hz;
+      hypothesis.pri_std_s = data.pri_std_s;
+      hypothesis.pulse_width_std_s = data.pulse_width_std_s;
+      hypothesis.confidence = data.confidence;
+      hypothesis.last_seen_cycle = data.last_seen_cycle;
+      hypothesis.waveform_class =
+          static_cast<electronic_surveillance_radar::session::EsrWaveformClass>(
+              data.waveform_class);
+      hypotheses.push_back(hypothesis);
+    }
     ecm::session::EcmSensorObservationFrame sensor_frame;
-    if (ecm::session::TryBuildEcmSensorObservationFrame(esr->last_hypotheses(),
-                                                        esr->last_batch_id(), &sensor_frame)) {
+    if (ecm::session::TryBuildEcmSensorObservationFrame(hypotheses, esr_scan_.batch_id,
+                                                        &sensor_frame)) {
       input.has_sensor_observation_frame = true;
       input.sensor_observation_frame = sensor_frame;
-      last_submitted_esr_batch_id_ = esr->last_batch_id();
+      last_submitted_esr_batch_id_ = esr_scan_.batch_id;
     }
   }
 

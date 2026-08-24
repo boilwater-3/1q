@@ -12,7 +12,6 @@
 #include "1q/electronic_surveillance_radar/session/EsrExclusionCauseRecorder.h"
 #include "1q/electronic_surveillance_radar/session/EsrSession.h"
 #include "1q/electronic_surveillance_radar/session/EmitterHypothesis.h"
-#include "1q/fusion/DetectionRecord.h"
 #include "core/component.h"
 
 namespace component_attachment {
@@ -35,28 +34,11 @@ class EsrSensorComponent : public Component {
   void OnAttach(Entity& host) override { host_ = &host; }
   void Step(World& world, double dt_sec) override;
 
-  /** @brief 本周期适配后的泛型探测记录（融合聚合读）。 */
-  const std::vector<fusion::DetectionRecord>& detections() const { return detections_; }
-
   /** @brief 当前电源状态（由 sensor_enabled 补丁唯一维护；未步进前默认 true，关机时组件不驱动会话）。 */
   bool powered_on() const { return powered_on_; }
 
   /** @brief 最近周期波束中心方位角（单位：deg，平台系；仅开机且 kCompleted 周期有效，其余为 0）。 */
   float scan_azimuth_deg() const { return scan_azimuth_deg_; }
-
-  /** @brief 上一成功周期的辐射源假设（供 ECM 组件 sensor-driven 输入）。 */
-  const electronic_surveillance_radar::session::EmitterHypothesisList& last_hypotheses() const {
-    return last_hypotheses_;
-  }
-
-  /** @brief 上一成功周期 output batch_id（ECM fresh-frame provenance）。 */
-  std::uint64_t last_batch_id() const { return last_batch_id_; }
-
-  /** @brief 是否至少完成过一个成功周期（hypotheses/batch_id 有效）。 */
-  bool has_last_completed_output() const { return has_last_completed_output_; }
-
-  /** @brief 上一成功周期对应的世界周期号（0 = 尚无成功输出）。 */
-  std::uint32_t last_completed_cycle_index() const { return last_completed_cycle_index_; }
 
   /**
    * @brief 运行时修改入口：包装 EsrSession::TryApplyRuntimeConfig。
@@ -91,9 +73,8 @@ class EsrSensorComponent : public Component {
 
   float scan_azimuth_deg_{0.0f}; /**< 最近周期波束中心方位角（deg，随周期结果刷新） */
 
-  std::vector<fusion::DetectionRecord> detections_{};  /**< 本周期融合探测记录（每周期重写；融合组件拉取） */
-  electronic_surveillance_radar::session::EmitterHypothesisList last_hypotheses_{}; /**< 上一成功周期辐射源假设（供 ECM sensor-driven 输入） */
-  std::uint64_t last_batch_id_{0U};                 /**< 上一成功周期 batch_id（ECM fresh-frame 判据） */
+  electronic_surveillance_radar::session::EmitterHypothesisList last_hypotheses_{}; /**< 上一成功周期辐射源假设（假设集事件/探测适配数据源） */
+  std::uint64_t last_batch_id_{0U};                 /**< 上一成功周期 batch_id（假设集事件 fresh-frame 判据） */
   std::uint32_t last_completed_cycle_index_{0U};    /**< 上一成功周期世界周期号（0 = 尚无成功输出） */
   bool has_last_completed_output_{false};           /**< 是否至少完成过一个成功周期 */
 
@@ -104,10 +85,12 @@ class EsrSensorComponent : public Component {
       const FlightComponent& flight, const AppSceneState& scene, double dt_sec) const;
   /// 辐射源假设事件逐条发布（World 信号 + 事件日志；库内键 0 不发布）。
   void PublishHypothesisEvents(World& world, const AppSceneState& scene);
+  /// 假设集快照事件发布（每成功周期全量展平 → on_esr_scan_updated；ECM 订阅）。
+  void PublishScanEvent(World& world, const AppSceneState& scene);
   /// 排除原因跨周期差分事件（纯诊断观测，仅落事件日志）。
   void PublishExclusionEvents(World& world);
-  /// 辐射源假设 → 泛型探测记录（源通道 kEsrSourceId）。
-  void AdaptDetections();
+  /// 辐射源假设 → 泛型探测记录写共享探测池（源通道 kEsrSourceId）。
+  void AdaptDetections(AppSceneState& scene);
 };
 
 }  // namespace component_attachment

@@ -12,18 +12,17 @@
 
 #include "1q/coordinate/inertial_transform.h"
 #include "1q/coordinate/position_transform.h"
-#include "1q/fusion/FusionEngine.h"
 #include "1q/fusion/FusedTarget.h"
 #include "1q/precision_evaluation/AhpEvaluator.h"
 #include "1q/precision_evaluation/DualLosFix.h"
 #include "1q/precision_evaluation/PrecisionEvaluationMetrics.h"
-#include "1q/sbirs_sensor/session/SbirsSession.h"
+#include "1q/precision_evaluation/SbirsBearingAdapter.h"
+#include "1q/sbirs_sensor/session/SbirsCycleResult.h"
 #include "1q/target_inference/InferenceResult.h"
 #include "1q/target_inference/InferenceTrackState.h"
 #include "1q/target_inference/TargetInferenceEngine.h"
 #include "precision_evaluation/PrecisionEvaluationLog.h"
 #include "precision_evaluation/PrecisionAcceptanceRecords.h"
-#include "precision_evaluation/SbirsBearingAdapter.h"
 #include "common/numerics/Constants.h"
 
 namespace precision_evaluation {
@@ -118,13 +117,8 @@ struct TruthKeyPoints {
 }  // namespace
 
 struct PrecisionEvaluationSession::Impl {
-  // 评估侧配置语义统一在此保证：融合强制开逐航迹滤波（速度/位置误差样本依赖）、
-  // 双星源通道互异（逐源统计）、推演间隔 ≥1。调用方无须自查。
+  // 推演间隔 ≥1。双星会话与融合引擎由地面站组件持有，本会话只对照产品。
   static PrecisionEvaluationConfig MakeEffectiveConfig(PrecisionEvaluationConfig config) {
-    config.fusion.enable_track_filtering = true;
-    if (config.satellite_b_source_id == config.satellite_a_source_id) {
-      config.satellite_b_source_id = config.satellite_a_source_id + 100U;
-    }
     if (config.inference_interval_cycles == 0U) {
       config.inference_interval_cycles = 1U;
     }
@@ -132,16 +126,9 @@ struct PrecisionEvaluationSession::Impl {
   }
 
   explicit Impl(const PrecisionEvaluationConfig& evaluation_config)
-      : config(MakeEffectiveConfig(evaluation_config)),
-        satellite_a(sbirs_sensor::session::SbirsSession::Create(config.satellite_a)),
-        satellite_b(sbirs_sensor::session::SbirsSession::Create(config.satellite_b)),
-        fusion_engine(config.fusion),
-        inference_engine(config.inference) {}
+      : config(MakeEffectiveConfig(evaluation_config)), inference_engine(config.inference) {}
 
   PrecisionEvaluationConfig config;
-  sbirs_sensor::session::SbirsSession satellite_a;
-  sbirs_sensor::session::SbirsSession satellite_b;
-  fusion::FusionEngine fusion_engine;
   target_inference::TargetInferenceEngine inference_engine;
 
   std::vector<double> angular_series;   // hypot(az_err, el_err)，deg
@@ -168,47 +155,14 @@ PrecisionEvaluationSession::PrecisionEvaluationSession(PrecisionEvaluationSessio
 PrecisionEvaluationSession& PrecisionEvaluationSession::operator=(
     PrecisionEvaluationSession&&) noexcept = default;
 
-namespace {
-
-// 构造单星 SBIRS 周期输入（真值场景 → SbirsSceneTarget；星历从 ephemeris 按序取）。
-sbirs_sensor::session::SbirsCycleInput BuildSatelliteCycleInput(
-    std::uint32_t cycle_index, float dt_sec, double utc_julian_day,
-    const oneq::coordinate::EcefPositionM& satellite_position,
-    const oneq::coordinate::EcefVelocityMps& satellite_velocity, double yaw_deg, double pitch_deg,
-    double roll_deg, const std::vector<EvaluationTruthTarget>& truth_targets) {
-  sbirs_sensor::session::SbirsCycleInput input;
-  input.cycle_index = cycle_index;
-  input.dt_sec = dt_sec;
-  input.utc_julian_day = utc_julian_day;
-  input.satellite_position_ecef_m = sbirs_sensor::session::SbirsVector3M{
-      satellite_position.x_m, satellite_position.y_m, satellite_position.z_m};
-  input.satellite_velocity_ecef_m_per_s = sbirs_sensor::session::SbirsVector3M{
-      satellite_velocity.x_mps, satellite_velocity.y_mps, satellite_velocity.z_mps};
-  input.satellite_attitude_eci_body_deg = sbirs_sensor::session::SbirsEulerAnglesDeg{
-      yaw_deg, pitch_deg, roll_deg};
-  input.scene.reserve(truth_targets.size());
-  for (const EvaluationTruthTarget& truth : truth_targets) {
-    sbirs_sensor::session::SbirsSceneTarget scene_target;
-    scene_target.target_id = truth.key;
-    scene_target.target_name = "eval_truth";
-    scene_target.position_ecef_m = sbirs_sensor::session::SbirsVector3M{
-        truth.position_ecef_m.x_m, truth.position_ecef_m.y_m, truth.position_ecef_m.z_m};
-    scene_target.radiant_intensity_w_per_sr = truth.radiant_intensity_w_per_sr;
-    scene_target.active = truth.active;
-    scene_target.has_velocity_ecef_m_per_s = truth.has_velocity;
-    scene_target.velocity_ecef_m_per_s = sbirs_sensor::session::SbirsVector3M{
-        truth.velocity_ecef_m_per_s.x_mps, truth.velocity_ecef_m_per_s.y_mps,
-        truth.velocity_ecef_m_per_s.z_mps};
-    input.scene.push_back(scene_target);
-  }
-  return input;
-}
-
-}  // namespace
-
 PrecisionEvaluationCycleResult PrecisionEvaluationSession::Step(
     std::uint32_t cycle_index, float dt_sec, double utc_julian_day,
-    const DualSatEphemerisInput& ephemeris, const std::vector<EvaluationTruthTarget>& truth_targets) {
+    const DualSatEphemerisInput& ephemeris,
+    const std::vector<EvaluationTruthTarget>& truth_targets,
+    const sbirs_sensor::session::SbirsCycleResult& result_a,
+    const sbirs_sensor::session::SbirsCycleResult& result_b,
+    const std::vector<fusion::FusedTarget>& tracks) {
+  (void)dt_sec;
   PrecisionEvaluationCycleResult cycle_result;
   cycle_result.cycle_index = cycle_index;
   double gmst_rad = 0.0;
@@ -223,22 +177,6 @@ PrecisionEvaluationCycleResult PrecisionEvaluationSession::Step(
   for (const EvaluationTruthTarget& truth : truth_targets) {
     truth_by_key[truth.key] = &truth;
   }
-
-  // ① 双星 SBIRS 周期。
-  const sbirs_sensor::session::SbirsCycleInput input_a =
-      BuildSatelliteCycleInput(cycle_index, dt_sec, utc_julian_day, ephemeris.satellite_a_position_ecef_m,
-                               ephemeris.satellite_a_velocity_ecef_m_per_s,
-                               ephemeris.satellite_a_attitude_yaw_deg,
-                               ephemeris.satellite_a_attitude_pitch_deg,
-                               ephemeris.satellite_a_attitude_roll_deg, truth_targets);
-  const sbirs_sensor::session::SbirsCycleInput input_b =
-      BuildSatelliteCycleInput(cycle_index, dt_sec, utc_julian_day, ephemeris.satellite_b_position_ecef_m,
-                               ephemeris.satellite_b_velocity_ecef_m_per_s,
-                               ephemeris.satellite_b_attitude_yaw_deg,
-                               ephemeris.satellite_b_attitude_pitch_deg,
-                               ephemeris.satellite_b_attitude_roll_deg, truth_targets);
-  const sbirs_sensor::session::SbirsCycleResult result_a = impl_->satellite_a.StepWithResult(input_a);
-  const sbirs_sensor::session::SbirsCycleResult result_b = impl_->satellite_b.StepWithResult(input_b);
 
   // 归属索引：detection_id → target_id（每星独立建立）。
   const auto build_attribution_index =
@@ -340,12 +278,12 @@ PrecisionEvaluationCycleResult PrecisionEvaluationSession::Step(
     oneq::coordinate::Vector3d direction_a_ecef;
     oneq::coordinate::Vector3d direction_b_ecef;
     if (!TryRotateEciDirectionToEcef(
-            internal::EciDirectionFromAzimuthElevationRad(
+            EciDirectionFromAzimuthElevationRad(
                 static_cast<double>(detection_a->azimuth_rad),
                 static_cast<double>(detection_a->elevation_rad)),
             gmst_rad, &direction_a_ecef) ||
         !TryRotateEciDirectionToEcef(
-            internal::EciDirectionFromAzimuthElevationRad(
+            EciDirectionFromAzimuthElevationRad(
                 static_cast<double>(detection_b_entry->second->azimuth_rad),
                 static_cast<double>(detection_b_entry->second->elevation_rad)),
             gmst_rad, &direction_b_ecef)) {
@@ -379,17 +317,7 @@ PrecisionEvaluationCycleResult PrecisionEvaluationSession::Step(
     }
   }
 
-  // ④ 双星检测经 ENU 适配进融合 → 逐航迹运动学估计 → 速度误差（附位置误差）。
-  std::vector<fusion::DetectionRecord> fusion_records =
-      internal::AdaptSbirsResultToDetectionRecords(
-          result_a, ephemeris.satellite_a_position_ecef_m, gmst_rad,
-          impl_->config.satellite_a_source_id);
-  const std::vector<fusion::DetectionRecord> records_b = internal::AdaptSbirsResultToDetectionRecords(
-      result_b, ephemeris.satellite_b_position_ecef_m, gmst_rad,
-      impl_->config.satellite_b_source_id);
-  fusion_records.insert(fusion_records.end(), records_b.begin(), records_b.end());
-  const std::vector<fusion::FusedTarget> tracks =
-      impl_->fusion_engine.Update(fusion_records, cycle_index);
+  // ④ 融合航迹（调用方已 Update）→ 速度误差（附位置误差）。
   std::map<std::uint64_t, const fusion::FusedTarget*> track_by_key;
   for (const fusion::FusedTarget& track : tracks) {
     track_by_key[track.key] = &track;

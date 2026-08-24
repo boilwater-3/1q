@@ -12,5 +12,6 @@
 #include "1q/precision_evaluation/PrecisionEvaluationMetrics.h"
 #include "1q/precision_evaluation/PrecisionEvaluationSession.h"
 #include "1q/precision_evaluation/PrecisionEvaluationTypes.h"
+#include "1q/precision_evaluation/SbirsBearingAdapter.h"
 
 #endif  // ONEQ_PRECISION_EVALUATION_PRECISION_EVALUATION_HPP_

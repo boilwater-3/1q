@@ -18,7 +18,6 @@
 #include "1q/airborne_radar/session/ArTrackLifecycleRecorder.h"
 #include "1q/airborne_radar/session/ArTrackOutputDebugView.h"
 #include "1q/coordinate/types.h"
-#include "1q/fusion/DetectionRecord.h"
 #include "core/component.h"
 #include "logger/logger_modes.h"
 
@@ -42,9 +41,6 @@ class ArSensorComponent : public Component {
   const char* Name() const override { return "ArSensor"; }
   void OnAttach(Entity& host) override { host_ = &host; }
   void Step(World& world, double dt_sec) override;
-
-  /** @brief 本周期适配后的泛型探测记录（融合聚合读）。 */
-  const std::vector<fusion::DetectionRecord>& detections() const { return detections_; }
 
   /** @brief 当前电源状态（由 sensor_enabled 补丁唯一维护；未步进前默认 true，关机时组件不驱动会话）。 */
   bool powered_on() const { return powered_on_; }
@@ -88,7 +84,6 @@ class ArSensorComponent : public Component {
   std::uint64_t platform_entity_id_{1U};         /**< RF platform_id（rf_world 派生干扰时排除本机发射链） */
   std::uint64_t transmitter_equipment_id_{1U};   /**< 本机发射 equipment_id（与 hardware.transmitter 一致） */
 
-  std::vector<fusion::DetectionRecord> detections_{};  /**< 本周期融合探测记录（每周期重写；融合组件拉取） */
   airborne_radar::session::ArTrackOutputDebugView last_debug_view_{};  /**< 本周期调试视图快照（视图行数据源） */
   std::vector<airborne_radar::session::ArTrackAttributionRecord> last_track_attributions_{}; /**< 最近成功周期航迹归属表（指令路由器键翻译） */
 
@@ -117,8 +112,12 @@ class ArSensorComponent : public Component {
       const airborne_radar::session::ArExternalTrackOutputFrame& external_frame);
   /// 排除原因跨周期差分事件（纯诊断观测，仅落事件日志）。
   void PublishExclusionEvents(World& world);
-  /// 已发布轨迹 → 泛型探测记录（源通道 kArSourceId；失跟轨迹不入融合）。
-  void AdaptDetections(const airborne_radar::session::ArExternalTrackOutputFrame& external_frame);
+  /// AR 航迹逐周期状态事件（速度/RCS/位置展平 → on_ar_track_state；威胁评估订阅）。
+  void PublishTrackStateEvents(World& world,
+                               const airborne_radar::session::ArTrackOutputDebugView& view);
+  /// 已发布轨迹 → 泛型探测记录写共享探测池（源通道 kArSourceId；失跟轨迹不入融合）。
+  void AdaptDetections(AppSceneState& scene,
+                       const airborne_radar::session::ArExternalTrackOutputFrame& external_frame);
 };
 
 }  // namespace component_attachment

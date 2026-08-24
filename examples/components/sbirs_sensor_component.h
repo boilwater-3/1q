@@ -10,7 +10,6 @@
 #include <unordered_map>
 #include <vector>
 
-#include "1q/fusion/DetectionRecord.h"
 #include "1q/sbirs_sensor/config/SbirsRuntimeConfigPatch.h"
 #include "1q/sbirs_sensor/session/SbirsDetectionLifecycleRecorder.h"
 #include "1q/sbirs_sensor/session/SbirsExclusionCauseRecorder.h"
@@ -29,6 +28,15 @@ struct AppSceneState;  // core/scene_types.h（头文件仅引用，实现文件
 class SbirsSensorComponent : public Component {
  public:
   explicit SbirsSensorComponent(sbirs_sensor::session::SbirsSession session);
+  /**
+   * @brief 卫星实体：自持星历，探测帧写给地面站收件箱（不写探测池）。
+   * @param[in] ground_station_source_id 融合源通道（主星 4 / 辅星 104）
+   */
+  SbirsSensorComponent(sbirs_sensor::session::SbirsSession session,
+                       std::uint32_t ground_station_source_id,
+                       sbirs_sensor::session::SbirsVector3M position_ecef_m,
+                       sbirs_sensor::session::SbirsVector3M velocity_ecef_m_per_s,
+                       sbirs_sensor::session::SbirsEulerAnglesDeg attitude_eci_body_deg);
   ~SbirsSensorComponent() override = default;
 
   SbirsSensorComponent(const SbirsSensorComponent&) = delete;
@@ -39,8 +47,6 @@ class SbirsSensorComponent : public Component {
   void Step(World& world, double dt_sec) override;
 
   /** @brief 本周期适配后的泛型探测记录（融合聚合读）。 */
-  const std::vector<fusion::DetectionRecord>& detections() const { return detections_; }
-
   /** @brief 当前电源状态（由 sensor_enabled 补丁唯一维护；未步进前默认 true，关机时组件不驱动会话）。 */
   bool powered_on() const { return powered_on_; }
 
@@ -73,7 +79,6 @@ class SbirsSensorComponent : public Component {
 
   float scan_azimuth_deg_{0.0f}; /**< 最近周期波束中心方位角（deg，ECI 极坐标——库内弧度，组件转度显示） */
 
-  std::vector<fusion::DetectionRecord> detections_{};  /**< 本周期融合探测记录（每周期重写；融合组件拉取） */
   sbirs_sensor::session::SbirsOutputDebugView last_debug_view_{};  /**< 本周期调试视图快照（视图行数据源） */
 
 #if defined(CA_VIEW_LOG_MODE_DELTA)
@@ -84,6 +89,11 @@ class SbirsSensorComponent : public Component {
 
   bool powered_on_{true}; /**< 电源状态（由 sensor_enabled 补丁唯一维护；关机时不驱动会话） */
   bool step_timing_logged_{false}; /**< 单步执行时间是否已写入示例日志（只写首个周期） */
+  std::uint32_t ground_station_source_id_{0U}; /**< 非 0：探测帧写地面站收件箱，不写探测池 */
+  bool use_own_satellite_pose_{false}; /**< 真：用本实体星历，不要求同实体 Flight */
+  sbirs_sensor::session::SbirsVector3M own_position_ecef_m_{}; /**< 本实体卫星 ECEF 位置（m） */
+  sbirs_sensor::session::SbirsVector3M own_velocity_ecef_m_per_s_{}; /**< 本实体卫星 ECEF 速度（m/s） */
+  sbirs_sensor::session::SbirsEulerAnglesDeg own_attitude_eci_body_deg_{}; /**< 本实体卫星姿态（Body→ECI，deg） */
 
   /// 调试视图中文人读行写入（三模式分支见 .cpp；宏选择见 logger/logger_modes.h）。
   void LogDebugView(const sbirs_sensor::session::SbirsOutputDebugView& view);
@@ -96,7 +106,11 @@ class SbirsSensorComponent : public Component {
   /// 排除原因跨周期差分事件（纯诊断观测，仅落事件日志）。
   void PublishExclusionEvents(World& world);
   /// 探测记录 → 泛型探测记录（源通道 kSbirsSourceId，无身份键 0）。
-  void AdaptDetections(const sbirs_sensor::session::SbirsCycleResult& result);
+  void AdaptDetections(AppSceneState& scene,
+                       const sbirs_sensor::session::SbirsCycleResult& result);
+  /// 探测帧 → 地面站收件箱（双星实体用；融合组件来取并适配）。
+  void PublishToGroundStation(AppSceneState& scene,
+                              const sbirs_sensor::session::SbirsCycleResult& result);
 };
 
 }  // namespace component_attachment

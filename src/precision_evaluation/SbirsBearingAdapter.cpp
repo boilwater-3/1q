@@ -1,4 +1,4 @@
-﻿#include "precision_evaluation/SbirsBearingAdapter.h"
+﻿#include "1q/precision_evaluation/SbirsBearingAdapter.h"
 
 #include <algorithm>
 #include <cmath>
@@ -8,7 +8,6 @@
 #include "1q/coordinate/position_transform.h"
 
 namespace precision_evaluation {
-namespace internal {
 
 oneq::coordinate::Vector3d EciDirectionFromAzimuthElevationRad(double azimuth_rad,
                                                                double elevation_rad) {
@@ -98,5 +97,4 @@ std::vector<fusion::DetectionRecord> AdaptSbirsResultToDetectionRecords(
   return records;
 }
 
-}  // namespace internal
 }  // namespace precision_evaluation

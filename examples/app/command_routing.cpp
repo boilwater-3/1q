@@ -34,12 +34,12 @@ DecisionListener::DecisionListener(World& world, double high_threat_confidence)
   // 融合键（target_key），CommandRouter 翻译为外部目标 ID 后下发 AR STT
   // 锁定 + RIR 指定识别（决策 → 行动的闭环执行段）。
   world_.signals().on_threat_updated.connect([this](const ThreatUpdatedEvent& e) {
-    if (e.result.level == threat_assessment::ThreatLevel::kHigh && !issued_) {
+    if (e.level == EventThreatLevel::kHigh && !issued_) {
       issued_ = true;
       CommandIssuedEvent command;
       command.cycle = e.cycle;
       command.kind = CommandKind::kEngageHighThreat;
-      command.target_key = e.result.key;
+      command.target_key = e.key;
       command.command = "ENGAGE_HIGH_THREAT";
       // 中译：高威胁目标键 {} 触发交战指令（威胁分 {:.2f}）。
       // 标识：威胁→决策指令链——威胁等级 HIGH 首次出现即下发一次指令，
@@ -49,13 +49,13 @@ DecisionListener::DecisionListener(World& world, double high_threat_confidence)
           std::string("指令=") +
           (command.command.c_str()) +
           " 键=" +
-          std::to_string(static_cast<unsigned long long>(e.result.key)) +
+          std::to_string(static_cast<unsigned long long>(e.key)) +
           " 威胁分=" +
-          std::to_string(e.result.threat_score);
+          std::to_string(e.threat_score);
       CA_LOG_EVENT(world_, "command_issued", "指令={} 键={} 威胁分={:.2f}",
                    command.command.c_str(),
-                   static_cast<unsigned long long>(e.result.key),
-                   e.result.threat_score);
+                   static_cast<unsigned long long>(e.key),
+                   e.threat_score);
       world_.signals().on_command_issued(command);
     }
   });

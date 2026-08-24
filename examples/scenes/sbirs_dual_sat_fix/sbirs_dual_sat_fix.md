@@ -5,7 +5,7 @@
 | 项 | 值 |
 | --- | --- |
 | 场景文件 | `examples/scenes/sbirs_dual_sat_fix/sbirs_dual_sat_fix.json` |
-| 宿主 | `precision_evaluation_demo`（评估层编排，不进 `component_attachment`） |
+| 宿主 | 两卫星实体 + 地面站 `FusionComponent`（内挂 `FusionEngine` 与 `PrecisionEvaluationSession`） |
 | 场景意图 | 被测通道：精度评估 + 内部双 SBIRS + 融合 + 推演。交会与 AHP 写 `precision_acceptance.log`；红外/融合/推演验收写同目录三份文件。几何是评估配方（SNR 门 0.001），宽窄交接专项仍看 `sbirs_wfov_nfov_handover` |
 | 构建模式 | release |
 | 运行日期 | 2026-08-22 |
