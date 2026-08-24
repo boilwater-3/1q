@@ -19,6 +19,10 @@ struct RelayAngularSample {
   double time_sec{0.0}; /**< 采样时刻（s）。 */
   double az_deg{0.0};   /**< 方位角（deg，可跨 ±180 缠绕）。 */
   double el_deg{0.0};   /**< 俯仰角（deg，不缠绕）。 */
+
+  RelayAngularSample() = default;
+  RelayAngularSample(double time_sec_in, double az_deg_in, double el_deg_in)
+      : time_sec(time_sec_in), az_deg(az_deg_in), el_deg(el_deg_in) {}
 };
 
 /**
