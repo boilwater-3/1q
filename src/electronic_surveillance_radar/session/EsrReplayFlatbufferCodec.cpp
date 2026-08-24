@@ -247,13 +247,13 @@ std::string EncodeEsrCycleInput(const EsrCycleInput& v) {
   b.add_platform_attitude_deg(&platform_attitude);
   b.add_cycle_start_time_s(v.cycle_start_time_s);
   b.add_rf_emissions(rf_emissions);
-  fbb.Finish(b.Finish());
+  fbb.Finish(b.Finish(), kEsrReplayFileIdentifier);
   return oneq::common::replay::CopyFinishedFlatbuffer(fbb);
 }
 
 bool DecodeEsrCycleInput(const std::string& bytes, EsrCycleInput* out) {
   flatbuffers::Verifier ver(reinterpret_cast<const uint8_t*>(bytes.data()), bytes.size());
-  if (!ver.VerifyBuffer<esr::replay::EsrCycleInput>()) {
+  if (!ver.VerifyBuffer<esr::replay::EsrCycleInput>(kEsrReplayFileIdentifier)) {
     return false;
   }
   const auto* fb = flatbuffers::GetRoot<esr::replay::EsrCycleInput>(bytes.data());
@@ -448,7 +448,7 @@ bool PopulateOutputFrame(const esr::replay::EsrOutputFrame* fb,
 
 std::string EncodeEsrOutputFrame(const session::EsrOutputFrame& v) {
   flatbuffers::FlatBufferBuilder fbb(512);
-  fbb.Finish(CreateEsrOutputFrameTable(fbb, v));
+  fbb.Finish(CreateEsrOutputFrameTable(fbb, v), kEsrReplayFileIdentifier);
   return oneq::common::replay::CopyFinishedFlatbuffer(fbb);
 }
 
@@ -457,7 +457,7 @@ bool DecodeEsrOutputFrame(const std::string& bytes, session::EsrOutputFrame* out
     return false;
   }
   flatbuffers::Verifier ver(reinterpret_cast<const uint8_t*>(bytes.data()), bytes.size());
-  if (!ver.VerifyBuffer<esr::replay::EsrOutputFrame>()) {
+  if (!ver.VerifyBuffer<esr::replay::EsrOutputFrame>(kEsrReplayFileIdentifier)) {
     return false;
   }
   session::EsrOutputFrame candidate;
@@ -488,7 +488,7 @@ std::string EncodeEsrCycleResult(const EsrCycleResult& v) {
   const auto issues_fb = fbb.CreateVector(issues);
   fbb.Finish(esr::replay::CreateEsrCycleResult(
       fbb, v.input_cycle_index, frame, static_cast<int32_t>(v.status),
-      static_cast<int32_t>(v.abort_reason), issues_fb));
+      static_cast<int32_t>(v.abort_reason), issues_fb), kEsrReplayFileIdentifier);
   return oneq::common::replay::CopyFinishedFlatbuffer(fbb);
 }
 
@@ -497,7 +497,7 @@ bool DecodeEsrCycleResult(const std::string& bytes, EsrCycleResult* out) {
     return false;
   }
   flatbuffers::Verifier ver(reinterpret_cast<const uint8_t*>(bytes.data()), bytes.size());
-  if (!ver.VerifyBuffer<esr::replay::EsrCycleResult>()) {
+  if (!ver.VerifyBuffer<esr::replay::EsrCycleResult>(kEsrReplayFileIdentifier)) {
     return false;
   }
   const auto* fb = flatbuffers::GetRoot<esr::replay::EsrCycleResult>(bytes.data());
@@ -624,7 +624,7 @@ std::string EncodeEsrSessionConfig(const config::EsrSessionConfig& v) {
   env_builder.add_atmospheric_observation(atm_obs);
   auto env = env_builder.Finish();
   fbb.Finish(esr::replay::CreateEsrSessionConfig(fbb, hw, mission, orientation, policy, env,
-                                                 v.sensor_enabled));
+                                                 v.sensor_enabled), kEsrReplayFileIdentifier);
   return oneq::common::replay::CopyFinishedFlatbuffer(fbb);
 }
 
@@ -633,7 +633,7 @@ bool DecodeEsrSessionConfig(const std::string& bytes, config::EsrSessionConfig* 
     return false;
   }
   flatbuffers::Verifier ver(reinterpret_cast<const uint8_t*>(bytes.data()), bytes.size());
-  if (!ver.VerifyBuffer<esr::replay::EsrSessionConfig>()) {
+  if (!ver.VerifyBuffer<esr::replay::EsrSessionConfig>(kEsrReplayFileIdentifier)) {
     return false;
   }
   config::EsrSessionConfig* destination = out;
@@ -796,7 +796,7 @@ std::string EncodeEsrRuntimeConfigPatch(const config::EsrRuntimeConfigPatch& v) 
       v.has_explicit_scan_bounds, sb.scan_start_az_deg, v.has_explicit_scan_bounds,
       sb.scan_end_az_deg, v.has_explicit_scan_bounds, sb.scan_start_el_deg,
       v.has_explicit_scan_bounds, sb.scan_end_el_deg, v.has_mission, mission, v.has_policy, policy,
-      v.has_environment, env_patch));
+      v.has_environment, env_patch), kEsrReplayFileIdentifier);
   return oneq::common::replay::CopyFinishedFlatbuffer(fbb);
 }
 
@@ -805,7 +805,7 @@ bool DecodeEsrRuntimeConfigPatch(const std::string& bytes, config::EsrRuntimeCon
     return false;
   }
   flatbuffers::Verifier ver(reinterpret_cast<const uint8_t*>(bytes.data()), bytes.size());
-  if (!ver.VerifyBuffer<esr::replay::EsrRuntimeConfigPatch>()) {
+  if (!ver.VerifyBuffer<esr::replay::EsrRuntimeConfigPatch>(kEsrReplayFileIdentifier)) {
     return false;
   }
   config::EsrRuntimeConfigPatch* destination = out;
@@ -909,7 +909,7 @@ std::string EncodeEsrRuntimeConfigPatchEvent(
       fbb, static_cast<std::int32_t>(result.status),
       result.has_requested_update, result.applied);
   fbb.Finish(esr::replay::CreateEsrRuntimeConfigPatchEvent(
-      fbb, patch_payload, apply_result));
+      fbb, patch_payload, apply_result), kEsrReplayFileIdentifier);
   return oneq::common::replay::CopyFinishedFlatbuffer(fbb);
 }
 
@@ -921,7 +921,7 @@ bool DecodeEsrRuntimeConfigPatchEvent(
   }
   flatbuffers::Verifier verifier(
       reinterpret_cast<const std::uint8_t*>(bytes.data()), bytes.size());
-  if (!verifier.VerifyBuffer<esr::replay::EsrRuntimeConfigPatchEvent>()) {
+  if (!verifier.VerifyBuffer<esr::replay::EsrRuntimeConfigPatchEvent>(kEsrReplayFileIdentifier)) {
     return false;
   }
   const esr::replay::EsrRuntimeConfigPatchEvent* event =

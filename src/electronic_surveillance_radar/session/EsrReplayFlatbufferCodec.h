@@ -19,6 +19,14 @@ namespace electronic_surveillance_radar {
 namespace session {
 
 /**
+ * @brief 回放负载版本标识（2026-08-24 起写入并校验）。
+ * @note Encode 写入、Decode 校验：此前编码的负载不带标识符，与任何异源负载
+ *       一并按标识符不符显式拒绝，避免跨版本/异源静默误解码（对齐 SBIRS
+ *       SBI3 护栏先例）。
+ */
+constexpr char kEsrReplayFileIdentifier[] = "ESRC";
+
+/**
  * @brief 将 EsrCycleInput 序列化为 FlatBuffers payload。
  * @param[in] value 待序列化的单周期输入。
  * @return 编码后的二进制字符串。

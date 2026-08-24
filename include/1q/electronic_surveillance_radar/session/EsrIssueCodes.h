@@ -17,8 +17,11 @@ namespace codes {
 constexpr char kNonFinitePlatformNumericField[] =
     "esr.validation.non_finite_platform_numeric_field";
 
-/** @brief RF 发射帧非法（不匹配周期窗口或平台身份/ECEF 运动学无效）。 */
+/** @brief RF 发射帧非法（不匹配周期窗口）。 */
 constexpr char kInvalidRfEmissionFrame[] = "esr.validation.invalid_rf_emission_frame";
+
+/** @brief 平台身份/ECEF 运动学无效（实体标识为零或位置/速度含非有限值）。 */
+constexpr char kInvalidPlatformKinematics[] = "esr.validation.invalid_platform_kinematics";
 
 /** @brief 平台 ECEF 不可定位（无法转换为有效 WGS84 LLA）。 */
 constexpr char kUnlocatablePlatformEcef[] = "esr.validation.unlocatable_platform_ecef";

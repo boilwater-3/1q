@@ -46,6 +46,23 @@ TEST(EsrReplayCodecRoundtripTest, CycleInputPreservesRfV2Frame) {
             oneq::electromagnetics::RfSceneWaveformKind::kPulseTrain);
 }
 
+// 标识符护栏（2026-08-24 起）：encode 写入 "ESRC"，无标识符（历史负载形态）与
+// 异源标识符的缓冲必须显式拒绝，不得静默误解码。标识符位于字节 [4,8)。
+TEST(EsrReplayCodecRoundtripTest, DecodeRejectsMissingOrForeignIdentifierBuffers) {
+  const std::string encoded = EncodeEsrCycleInput(MakeInput());
+  ASSERT_GE(encoded.size(), 8U);
+  EsrCycleInput decoded;
+  EXPECT_TRUE(DecodeEsrCycleInput(encoded, &decoded));
+
+  std::string legacy = encoded;
+  legacy.erase(4U, 4U);  // 抹掉标识符 = 历史无标识符录制形态
+  EXPECT_FALSE(DecodeEsrCycleInput(legacy, &decoded));
+
+  std::string foreign = encoded;
+  foreign.replace(4U, 4U, "XXXX");
+  EXPECT_FALSE(DecodeEsrCycleInput(foreign, &decoded));
+}
+
 TEST(EsrReplayCodecRoundtripTest, CycleResultPreservesExplicitStatus) {
   EsrCycleResult result;
   result.input_cycle_index = 7U;
@@ -135,7 +152,9 @@ TEST(EsrReplayCodecRoundtripTest,
   const auto observation_output = output_builder.Finish();
   const auto root = esr::replay::CreateEsrOutputFrame(
       builder, 1U, 2U, 0.0f, observation_output, 0);
-  builder.Finish(root);
+  // 2026-08-24 起 decode 校验标识符：手构负载须带 ESRC，用例才能测到各自目标
+  // 语义（未知枚举拒绝 / 缺字段默认），而非被标识符护栏先行拒绝。
+  builder.Finish(root, kEsrReplayFileIdentifier);
   const std::string bytes(
       reinterpret_cast<const char*>(builder.GetBufferPointer()),
       builder.GetSize());
@@ -313,7 +332,9 @@ TEST(EsrReplayCodecRoundtripTest,
   const auto observation_output = output_builder.Finish();
   const auto root = esr::replay::CreateEsrOutputFrame(
       builder, 1U, 2U, 0.0f, observation_output, 0);
-  builder.Finish(root);
+  // 2026-08-24 起 decode 校验标识符：手构负载须带 ESRC，用例才能测到各自目标
+  // 语义（未知枚举拒绝 / 缺字段默认），而非被标识符护栏先行拒绝。
+  builder.Finish(root, kEsrReplayFileIdentifier);
   const std::string bytes(
       reinterpret_cast<const char*>(builder.GetBufferPointer()),
       builder.GetSize());
@@ -346,7 +367,9 @@ TEST(EsrReplayCodecRoundtripTest,
   const auto observation_output = output_builder.Finish();
   const auto root = esr::replay::CreateEsrOutputFrame(
       builder, 1U, 2U, 0.0f, observation_output, 0);
-  builder.Finish(root);
+  // 2026-08-24 起 decode 校验标识符：手构负载须带 ESRC，用例才能测到各自目标
+  // 语义（未知枚举拒绝 / 缺字段默认），而非被标识符护栏先行拒绝。
+  builder.Finish(root, kEsrReplayFileIdentifier);
   const std::string bytes(
       reinterpret_cast<const char*>(builder.GetBufferPointer()),
       builder.GetSize());
