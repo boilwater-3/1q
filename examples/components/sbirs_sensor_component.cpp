@@ -187,9 +187,11 @@ SbirsSensorComponent::SbirsSensorComponent(
     sbirs_sensor::session::SbirsSession session, std::uint32_t ground_station_source_id,
     sbirs_sensor::session::SbirsVector3M position_ecef_m,
     sbirs_sensor::session::SbirsVector3M velocity_ecef_m_per_s,
-    sbirs_sensor::session::SbirsEulerAnglesDeg attitude_eci_body_deg)
+    sbirs_sensor::session::SbirsEulerAnglesDeg attitude_eci_body_deg,
+    SbirsGroundDeliveryMode ground_delivery)
     : session_(std::move(session)),
       ground_station_source_id_(ground_station_source_id),
+      ground_delivery_(ground_delivery),
       use_own_satellite_pose_(true),
       own_position_ecef_m_(position_ecef_m),
       own_velocity_ecef_m_per_s_(velocity_ecef_m_per_s),
@@ -355,9 +357,9 @@ void SbirsSensorComponent::Step(World& world, double dt_sec) {
   PublishDetectionEvents(world, scene, result);  // 探测生命周期沿 → 信号+事件日志
   PublishExclusionEvents(world);                 // 排除原因变化沿 → 事件日志
   if (ground_station_source_id_ != 0U) {
-    PublishToGroundStation(scene, result);  // 探测帧 → 地面站收件箱
+    PublishToGroundStation(world, scene, result);
   } else {
-    AdaptDetections(scene, result);  // 探测记录 → 共享探测池
+    AdaptDetections(scene, result);
   }
 }
 
@@ -525,7 +527,31 @@ void SbirsSensorComponent::AdaptDetections(
 }
 
 void SbirsSensorComponent::PublishToGroundStation(
-    AppSceneState& scene, const sbirs_sensor::session::SbirsCycleResult& result) {
+    World& world, AppSceneState& scene,
+    const sbirs_sensor::session::SbirsCycleResult& result) {
+  if (ground_delivery_ == SbirsGroundDeliveryMode::kMessage) {
+    SbirsFrameSubmittedEvent event;
+    event.cycle = scene.cycle;
+    event.source_id = ground_station_source_id_;
+    event.satellite_ecef_x_m = own_position_ecef_m_.x;
+    event.satellite_ecef_y_m = own_position_ecef_m_.y;
+    event.satellite_ecef_z_m = own_position_ecef_m_.z;
+    for (const auto& record : result.output_frame.detections) {
+      if (!record.detected) {
+        continue;
+      }
+      SbirsBearingSample sample;
+      sample.detection_id = record.detection_id;
+      sample.target_id =
+          AttributionTargetId(record.detection_id, result.detection_attributions);
+      sample.azimuth_rad = record.azimuth_rad;
+      sample.elevation_rad = record.elevation_rad;
+      sample.infrared_snr_linear = record.infrared_snr_linear;
+      event.detections.push_back(sample);
+    }
+    world.signals().on_sbirs_frame_submitted(event);
+    return;
+  }
   SbirsGroundStationFrame frame;
   frame.source_id = ground_station_source_id_;
   frame.satellite_position_ecef_m = own_position_ecef_m_;

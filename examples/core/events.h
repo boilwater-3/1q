@@ -285,6 +285,67 @@ struct CommandIssuedEvent {
   std::string command{};        /**< 指令描述（可读文本） */
 };
 
+/**
+ * @brief 融合探测样本（纯数据镜像，字段同库内 fusion::DetectionRecord）。
+ *
+ * 机载/地基传感器把已适配探测展平后经 DetectionBatchSubmittedEvent 发给地面站；
+ * 需要喂 FusionEngine 的消费方在本地重建 DetectionRecord。
+ */
+struct FusionDetectionSample {
+  std::uint64_t key{0U};                 /**< 库内身份键（0 = 无身份） */
+  std::uint32_t source_id{0U};           /**< 融合源通道 */
+  bool has_position{false};              /**< 是否携带位置量测 */
+  double latitude_deg{0.0};              /**< 位置纬度（deg） */
+  double longitude_deg{0.0};             /**< 位置经度（deg） */
+  double altitude_m{0.0};                /**< 位置海拔（m） */
+  bool has_bearing{false};               /**< 是否携带方位量测 */
+  double bearing_az_deg{0.0};            /**< 方位角（deg） */
+  double bearing_el_deg{0.0};            /**< 俯仰角（deg） */
+  bool has_sensor_origin{false};         /**< 是否携带量测原点 */
+  double origin_latitude_deg{0.0};       /**< 量测原点纬度（deg） */
+  double origin_longitude_deg{0.0};      /**< 量测原点经度（deg） */
+  double origin_altitude_m{0.0};         /**< 量测原点海拔（m） */
+  bool has_bearing_noise{false};         /**< 是否携带方位噪声 1-σ */
+  double bearing_noise_sigma_rad{0.0};   /**< 方位轴 1-σ（rad） */
+  double verdict{0.0};                   /**< 判决值 */
+  double quality{0.0};                   /**< 探测质量 [0,1] */
+};
+
+/** @brief 探测记录批次提交：传感器 → 地面站融合（已适配样本，可空）。 */
+struct DetectionBatchSubmittedEvent {
+  std::uint64_t cycle{0U}; /**< 世界周期号 */
+  std::uint32_t source_id{0U}; /**< 融合源通道 */
+  std::vector<FusionDetectionSample> records{}; /**< 本批次探测样本 */
+};
+
+/**
+ * @brief SBIRS 过门探测样本（纯数据镜像：检测角 + 归属目标键）。
+ *
+ * 卫星侧把本周期过门检测展平后发给地面站；地面站再建库类型做方位适配。
+ * 方位/俯仰为 ECI 极坐标（rad），与 SBIRS 输出约定一致。
+ */
+struct SbirsBearingSample {
+  std::uint64_t detection_id{0U};  /**< 本帧检测记录标识 */
+  std::uint64_t target_id{0U};     /**< 归属目标 ID（无归属为 0，地面站跳过） */
+  float azimuth_rad{0.0f};         /**< 方位角（ECI 极坐标，rad） */
+  float elevation_rad{0.0f};       /**< 仰角（ECI 极坐标，rad） */
+  float infrared_snr_linear{0.0f}; /**< 红外通道线性 SNR */
+};
+
+/**
+ * @brief 卫星 SBIRS 探测帧提交：任一颗星 → 地面站（星群 N 颗，每星一条）。
+ *
+ * 不携带库内周期结果；地面站按 source_id 区分卫星，本周期可收任意数量。
+ */
+struct SbirsFrameSubmittedEvent {
+  std::uint64_t cycle{0U};           /**< 世界周期号 */
+  std::uint32_t source_id{0U};       /**< 融合源通道（每星互异） */
+  double satellite_ecef_x_m{0.0};    /**< 该星 ECEF X（m） */
+  double satellite_ecef_y_m{0.0};    /**< 该星 ECEF Y（m） */
+  double satellite_ecef_z_m{0.0};    /**< 该星 ECEF Z（m） */
+  std::vector<SbirsBearingSample> detections{}; /**< 本周期过门探测（可空） */
+};
+
 }  // namespace component_attachment
 
 #endif  // EXAMPLES_COMPONENT_ATTACHMENT_CORE_EVENTS_H_

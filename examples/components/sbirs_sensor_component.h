@@ -22,6 +22,12 @@ namespace component_attachment {
 
 struct AppSceneState;  // core/scene_types.h（头文件仅引用，实现文件含入）
 
+/** @brief 卫星探测帧投递方式（ground_station_source_id 非 0 时生效）。 */
+enum class SbirsGroundDeliveryMode {
+  kSharedBlackboard = 0, /**< 写 AppSceneState.sbirs_ground_station_inbox */
+  kMessage = 1           /**< 发 on_sbirs_frame_submitted */
+};
+
 /**
  * @brief SBIRS 传感器组件：天基红外会话驱动 + 探测生命周期事件转发。
  */
@@ -29,14 +35,16 @@ class SbirsSensorComponent : public Component {
  public:
   explicit SbirsSensorComponent(sbirs_sensor::session::SbirsSession session);
   /**
-   * @brief 卫星实体：自持星历，探测帧写给地面站收件箱（不写探测池）。
-   * @param[in] ground_station_source_id 融合源通道（主星 4 / 辅星 104）
+   * @brief 卫星实体：自持星历，探测帧投递地面站（不写探测池）。
+   * @param[in] ground_station_source_id 融合源通道（每星互异）
    */
   SbirsSensorComponent(sbirs_sensor::session::SbirsSession session,
                        std::uint32_t ground_station_source_id,
                        sbirs_sensor::session::SbirsVector3M position_ecef_m,
                        sbirs_sensor::session::SbirsVector3M velocity_ecef_m_per_s,
-                       sbirs_sensor::session::SbirsEulerAnglesDeg attitude_eci_body_deg);
+                       sbirs_sensor::session::SbirsEulerAnglesDeg attitude_eci_body_deg,
+                       SbirsGroundDeliveryMode ground_delivery =
+                           SbirsGroundDeliveryMode::kSharedBlackboard);
   ~SbirsSensorComponent() override = default;
 
   SbirsSensorComponent(const SbirsSensorComponent&) = delete;
@@ -89,7 +97,8 @@ class SbirsSensorComponent : public Component {
 
   bool powered_on_{true}; /**< 电源状态（由 sensor_enabled 补丁唯一维护；关机时不驱动会话） */
   bool step_timing_logged_{false}; /**< 单步执行时间是否已写入示例日志（只写首个周期） */
-  std::uint32_t ground_station_source_id_{0U}; /**< 非 0：探测帧写地面站收件箱，不写探测池 */
+  std::uint32_t ground_station_source_id_{0U}; /**< 非 0：探测帧投递地面站，不写探测池 */
+  SbirsGroundDeliveryMode ground_delivery_{SbirsGroundDeliveryMode::kSharedBlackboard};
   bool use_own_satellite_pose_{false}; /**< 真：用本实体星历，不要求同实体 Flight */
   sbirs_sensor::session::SbirsVector3M own_position_ecef_m_{}; /**< 本实体卫星 ECEF 位置（m） */
   sbirs_sensor::session::SbirsVector3M own_velocity_ecef_m_per_s_{}; /**< 本实体卫星 ECEF 速度（m/s） */
@@ -108,8 +117,8 @@ class SbirsSensorComponent : public Component {
   /// 探测记录 → 泛型探测记录（源通道 kSbirsSourceId，无身份键 0）。
   void AdaptDetections(AppSceneState& scene,
                        const sbirs_sensor::session::SbirsCycleResult& result);
-  /// 探测帧 → 地面站收件箱（双星实体用；融合组件来取并适配）。
-  void PublishToGroundStation(AppSceneState& scene,
+  /// 探测帧 → 地面站（黑板或 on_sbirs_frame_submitted 消息）。
+  void PublishToGroundStation(World& world, AppSceneState& scene,
                               const sbirs_sensor::session::SbirsCycleResult& result);
 };
 

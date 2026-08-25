@@ -52,6 +52,10 @@ struct Signals {
   boost::signals2::signal<void(const ThreatUpdatedEvent&)> on_threat_updated;
   /** @brief 决策指令下发（决策侧订阅融合事件后转发）。 */
   boost::signals2::signal<void(const CommandIssuedEvent&)> on_command_issued;
+  /** @brief 探测记录批次提交（传感器 → 地面站融合收件箱）。 */
+  boost::signals2::signal<void(const DetectionBatchSubmittedEvent&)> on_detection_batch_submitted;
+  /** @brief SBIRS 探测帧提交（任一颗星 → 地面站；本周期可多条）。 */
+  boost::signals2::signal<void(const SbirsFrameSubmittedEvent&)> on_sbirs_frame_submitted;
 };
 
 }  // namespace component_attachment
