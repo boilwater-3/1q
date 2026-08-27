@@ -18,85 +18,116 @@ Authority: 非规范性记录；结论以 docs/common/contract.md、docs/common/
 
 ## §0 背景与待裁定的问题
 
-1、触发：用户给出用例 16「基于标准卡尔曼滤波的目标状态估计」——对天基红外连续方位/俯仰点迹做线性滤波，输出视线角及其变化率，不估三维位置。
-2、当前生产 Estimated 跟踪是 6 维 ECI 位置/速度的扩展卡尔曼滤波（EKF：对非线性量测做局部线性化的卡尔曼滤波），量测是非线性 az/el，闭环指向由估计三维位置反算视线。
+1、触发：用户下达甲方用例 16「基于标准卡尔曼滤波的目标状态估计」——对天基红外连续方位/俯仰点迹做线性标准卡尔曼滤波，输出滤波后的方位、俯仰及其变化率；明确不输出三维位置/速度。
+2、现状：SBIRS 生产 Estimated 跟踪默认是 6 维 ECI 位置/速度的扩展卡尔曼滤波（EKF；对非线性量测在当前点做一阶近似后再走卡尔曼更新），量测是非线性视线角，输出再从估计三维位置反算方位/俯仰。
 - **证据**：[evidence: docs/sbirs_sensor/algorithms.md]
 - **证据**：[evidence: src/sbirs_sensor/tracking/SbirsTrackingTypes.h]
 - **证据**：[evidence: src/sbirs_sensor/pipeline/SbirsTrackingCoordinator.cpp]
+- **证据**：[evidence: include/1q/sbirs_sensor/config/SbirsPolicyConfig.h]::SbirsEstimatedTrackingBackend
 
-术语：标准卡尔曼滤波 = 状态转移和量测都是线性矩阵的 KF；视线角 = 卫星看目标的方位/俯仰；变化率 = 这两个角对时间的导数。
+术语：标准卡尔曼滤波 = 状态转移和量测都是线性矩阵乘法时的卡尔曼滤波（预测 x̂=Fx，量测 z=Hx）。
+术语：扩展卡尔曼滤波（EKF）= 量测或动力学非线性时，在当前估计点求导数（Jacobian）再套卡尔曼公式。
+术语：视线角 = 卫星看向目标的方位角和俯仰角；被动红外测得到角，测不到距离。
+术语：变化率 = 方位角、俯仰角随时间的快慢（°/s 或 rad/s）。
 
 ### 待裁定项（四问）
 
-1、**F1 用例 16 与生产估计器不是同一算法**：冻结「当前 EKF 不满足用例 16」。
-   能证明：生产状态是 6 维笛卡尔 CV，量测 h(x) 非线性；用例要线性 KF、状态停在角+角速度。
-   能否定：生产路径已经是对 [az, el, 变化率] 的线性 KF。
+1、**F1 用例 16 与生产估计器不是同一能力**：冻结「当前默认 EKF 不满足用例 16 的线性角度域标准 KF」。
+   能证明：生产状态是 6 维 ECI `[x,vx,y,vy,z,vz]`，量测 `h(x)` 为非线性 az/el；用例要线性滤 `[az, ω_az, el, ω_el]`。
+   能否定：生产路径已经是角度+变化率的线性 KF（与代码不符）。
    最小范围：新增实验后端，不改默认 EKF。
 
-2、**F2 不得替换默认 EKF**：冻结「实验 opt-in，默认仍 kEkf」。
-   能证明：NFOV 命令由估计三维位置反算 LOS；IMM/replay/校验只认 kEkf/kImm。
-   能否定：闭环已经只吃滤波角度，替换无契约风险。
-   最小范围：新后端显式配置才走；默认与回归网不变。
+2、**F2 不得替换生产默认 EKF**：冻结「实验后端 opt-in；默认仍 `kEkf`」。
+   能证明：NFOV 闭环用估计三维位置反算 LOS 驱动指向；默认 `estimated_backend=kEkf`；校验只认 `kEkf`/`kImm`。
+   能否定：指向与输出已只依赖角度、替换无契约风险（与代码不符）。
+   最小范围：加 `estimated_backend` 枚举值；场景默认不变。
 
-3、**F3 状态必须停在视线角及其变化率**：冻结「标准 KF 不得宣称唯一确定三维位置/速度」。
-   能证明：用例 16.4 写明单星角度缺距离；当前 6 维均值靠真值初始化（SBIRS-OQ-4）。
-   能否定：仅靠标准 KF + 角度点迹即可唯一还原三维。
-   最小范围：实验状态 [az, ω_az, el, ω_el]；指向若接入则直接用滤波角。
+3、**F3 状态必须停在视线角及其变化率**：冻结「标准 KF 后验不是三维位置/速度；单星角度不能用线性 KF 唯一确定三维」。
+   能证明：用例 16.4 明文禁止；当前三维均值靠真值初始化（SBIRS-OQ-4）。
+   能否定：仅凭 az/el 线性 KF 能唯一还原三维（与可观测性及开放议题不符）。
+   最小范围：实验状态 `[az, ω_az, el, ω_el]`；指向命令直接用滤波角，不经三维。
 
-4、**F4 第一刀不改 raw output 契约**：冻结「变化率先留在滤波器状态/单测，不进 SbirsDetectionRecord」。
-   能证明：公开检测记录只有 az/el/SNR；boundaries 禁止把内部量塞进 raw output。
-   能否定：用例 16.2 的变化率必须作为客户主输出才能验收。
-   最小范围：不改 `SbirsDetectionRecord` / replay schema；变化率由单测读后验。
+4、**F4 第一刀不改公开 raw output**：冻结「变化率先留在滤波器状态和单测；不给 `SbirsDetectionRecord` 加角速度字段」。
+   能证明：raw output 只有 `azimuth_rad`/`elevation_rad`；模块边界禁止把内部量塞进 raw output。
+   能否定：消费方合同已要求 raw 带变化率（本次用例未给出公开 DTO 变更单）。
+   最小范围：公开检测记录仍只报滤波后 az/el；变化率走测试与内部状态。
 
-5、**F5 不能把现成 6/3 线性 KF 工具直接当角度滤波器**：冻结「误接会得到零 H / 单位阵 F」。
-   能证明：`KalmanPredictor` 只在 6 维建 CV；`BuildPositionMeasurementMatrix` 只在 6×3 填位置提取。
-   能否定：4×2 实例化已提供角度 CV 的 F 和 H。
-   最小范围：SBIRS 内自备 4 维角度 CV 的 F/H；不改 common 的 6/3 专用路径。
+5、**F5 不得把现有 6 维笛卡尔线性 KF 工具直接当成角度 KF**：冻结「误接 `KalmanPredictor`/`KalmanUpdater` 的 6/3 专用 F/H 会静默得到错误估计器」。
+   能证明：CV 的 F/Q 仅 `kStateDim==6`；位置提取 H 仅 `6×3`；其它维度 F=I、Q=0、H=0。
+   能否定：公共线性 KF 已支持 4 维角度 CV 与 2 维角度 H（与代码不符）。
+   最小范围：SBIRS 内自备 4 维角度 F/H；不改公共 6 维笛卡尔路径。
 
-6、**F6 CuePredictor 不是用例 16**：冻结「两点差分 cue 不能顶替标准 KF」。
-   能证明：CuePredictor 无协方差、无量测更新，只服务 WFOV→NFOV 延迟补偿。
-   能否定：它已经输出带平滑的角度航迹并驱动 NFOV 持续跟踪。
-   最小范围：保留 cue；实验 KF 另接 Estimated 跟踪。
+6、**F6 CuePredictor 不是用例 16**：冻结「两点角度差分只服务 WFOV→NFOV cue，不是带协方差的标准 KF 航迹」。
+   能证明：CuePredictor 无 P/Q/R、无更新公式，只保留上一拍角度。
+   能否定：CuePredictor 已输出滤波平滑航迹并进 Estimated 闭环（与代码不符）。
+   最小范围：CuePredictor 不动；另写角度标准 KF。
+
+7、**F7 方位角过零是真实风险**：冻结「线性角度 KF 必须对方位新息做最短弧（环绕），否则过 0/2π 会当成大跳变」。
+   能证明：raw az 范围 `[0,2π)`；CuePredictor 已对方位差做 `NormalizeAzimuth`；笛卡尔 EKF 无此问题。
+   能否定：实验量测改用不环绕的无界角（当前输出契约不是这样）。
+   最小范围：实验更新器方位新息走最短弧；俯仰钳制在 `[-π/2, π/2]`。
 
 ## §1 证据矩阵
 
 | 待裁定项 | 假设（要证明什么） | 证据来源 | 探针/测试（已执行） | 通过条件 | 否定条件 | 建议判定 |
 |---|---|---|---|---|---|---|
-| F1 用例 16 与生产估计器不是同一算法 | 生产是 6 维 ECI CV + 非线性 az/el 的 EKF，不是角度域线性 KF | `SbirsTrackingTypes.h`；`algorithms.md` EKF 节；`SbirsEstimatedTrackingBackend` | 1、读 facade：状态 6 维、量测 2 维，「h(x) 非线性，走 EKF」，别名 `EkfPredictor`/`EkfUpdater`。2、读算法登记：EKF 与 IMM(EKF) 为 live；SRIF/UDKF/CKF 为 evaluation only。3、读枚举：只有 `kEkf`/`kImm`，默认 `kEkf`。4、读校验：其它 backend 值报 `kInvalidEstimatedTrackingBackend` | 生产路径不是「角+角速度」线性 KF | 生产已对 [az,el,变化率] 做线性更新 | pass |
-| F2 不得替换默认 EKF | 替换会改 NFOV 指向闭环和公开后端契约 | `SbirsTrackingCoordinator.cpp`；`SbirsPipeline.cpp`；replay codec | 1、读 `BuildPredictionResult`：从 `mean(0,2,4)` 取三维位置，减卫星位置得 LOS，再算 az/el。2、读 pipeline NFOV 跟踪：命令取 `PredictTarget` 的输出角（即三维反算）。3、读校验与 FlatBuffer：backend 只允许 EKF/IMM | 默认替换会改指向来源与配置/回放契约 | 指向已直接用滤波角且配置不暴露 backend | narrow |
-| F3 状态必须停在视线角及其变化率 | 单星角度 + 标准 KF 不能唯一确定三维；当前 6 维可跑是因为真值播种 | 用例 16.4；`open_questions.md` SBIRS-OQ-4；coordinator 初始化 | 1、读 SBIRS-OQ-4：首次捕获用场景真值位置/速度初始化滤波均值，后续才用带误差角度。2、读 coordinator：correct 后仍用三维均值反算输出角。3、用例边界表：不直接输出三维位置/速度/加速度 | 实验后验不得当作三维位置；命令若接入则用滤波 az/el | 有独立距离量测使三维对标准 KF 可观 | pass |
-| F4 第一刀不改 raw output 契约 | 变化率是用例输出，但当前客户主输出没有该字段 | `SbirsOutputTypes.h`；`SbirsOutputDebugView.h`；`boundaries.md` 输出规则 | 1、读 `SbirsDetectionRecord`：字段为 detection_id、az、el、SNR、stage、detected。2、读 DebugView 目标快照：同样无角速度。3、读 boundaries：归属/调试不得混入 raw output | 实验验收用单测读滤波器后验即可 | 用户裁定变化率必须进公开检测记录 | narrow |
-| F5 不能误接 6/3 线性 KF 工具 | `KalmanPredictor`/`KalmanUpdater` 的 CV 与 H 只服务 6 维位置提取 | `KalmanPredictor.h`；`IKalmanUpdater.h` | 1、读 `BuildTransitionMatrix`/`BuildProcessNoise`：仅 `kStateDim==6` 填 CV；其它维 F=I、Q=0。2、读 `BuildPositionMeasurementMatrix`：仅 6×3 填 H(0,0)/H(1,2)/H(2,4)；其它维零矩阵。3、SBIRS 现用 `EkfUpdater<6,2>`，不走该 H | 4×2 直接实例化得不到角度 CV | 公共工具已为 4×2 角度布局提供 F/H | pass |
-| F6 CuePredictor 不是用例 16 | 现有角度两点外推无滤波、不进 Estimated 航迹 | `SbirsCuePredictor.cpp`；`algorithms.md` Cue 预测 | 1、读 `Update`：第二拍用方位差/dt 当角速度，按 cue 延迟外推命令。2、无协方差、无 R、无 Kalman 增益。3、pipeline 只在 WFOV 候选生成 NFOV 命令时调用，NFOV 持续跟踪走 coordinator | cue 不能替代标准 KF 航迹 | cue 已对 NFOV 跟踪做滤波平滑 | pass |
+| F1 用例 16 与生产估计器不是同一能力 | 生产是 6 维 ECI CV + 非线性 az/el 量测的 EKF；用例 16 要线性标准 KF，状态为视线角及其变化率 | `algorithms.md` EKF 登记；`SbirsTrackingTypes.h` 6/2 EKF 别名；`SbirsAngleMeasurementModel` 注释「h(x) 非线性，走 EKF」 | 1、读算法登记表：EKF「6 维 CV 状态 / 2 维角度量测的扩展卡尔曼滤波」，生产可用。2、读 `SbirsEkfPredictor`/`SbirsEkfUpdater` 别名指向 `EkfPredictor`/`EkfUpdater`。3、读 `SbirsTrackingCoordinator`：非 IMM 分支构造 `SbirsEkfPredictor`/`SbirsEkfUpdater`。4、读 `estimated_backend` 仅 `kEkf`/`kImm`，默认 `kEkf`。5、全库 `src/sbirs_sensor` 无 `KalmanUpdater` 实例化 | 生产路径确认是非线性角度量测 EKF，不是角度域线性 KF | 生产已是 `[az,ω_az,el,ω_el]` 线性 KF | pass |
+| F2 不得替换生产默认 EKF | 替换会改 NFOV 指向闭环与默认配置契约；实验必须 opt-in | `SbirsPipeline` Estimated 用预测 az/el 驱动 ATP；`BuildPredictionResult` 从 6 维位置反算 LOS；校验只认两枚举 | 1、读 `PredictTarget`：EKF 预测后 `BuildPredictionResult` 取 `mean(0/2/4)` 当三维位置，减卫星位置得 LOS，再算 az/el。2、读 pipeline NFOV 跟踪：`command_azimuth_deg = prediction.output_azimuth_deg`。3、读 `ValidateSbirsSessionConfig`：backend 不是 `kEkf`/`kImm` 即校验错误。4、读 `examples/basic_config/sbirs.json`：`"estimated_backend": "kEkf"`。5、读算法「滤波后端选型」：EKF 当前默认；IMM 显式配置 | 默认与闭环依赖 6 维 EKF；新后端只能新增、不能顶替默认 | 指向已只吃角度状态、默认可整体换成线性 KF（与代码不符） | narrow |
+| F3 状态必须停在视线角及其变化率 | 单星被动红外只有角度；线性 KF 不能唯一确定三维；当前三维均值来自真值初始化 | 用例 16.4；`SBIRS-OQ-4`；`SbirsTrackingCoordinator` 输出从三维位置反算 | 1、读 `open_questions.md` SBIRS-OQ-4：首次捕获用场景真值 ECEF 位置/速度初始化滤波均值，后续才用带误差角度。2、读 `algorithms.md`：反直觉点写明不得描述为完全无真值辅助的真实载荷跟踪器。3、读 `CorrectTarget`：后验仍 6 维，输出 az/el 由估计位置相对卫星 LOS 计算。4、用例 16.4：输出视线角及其变化状态，不直接输出三维位置、速度和加速度 | 实验后验只含角与角速率；禁止把标准 KF 后验当作三维位置 | 能证明仅凭连续 az/el 线性 KF 可唯一还原三维（与 OQ-4 及用例 16.4 冲突） | pass |
+| F4 第一刀不改公开 raw output | 用例要变化率，但公开检测记录与调试视图都没有角速度字段；改 raw output 是公开契约 | `SbirsDetectionRecord`；`SbirsDebugTargetState`；`boundaries.md` 输出规则 | 1、读 `SbirsDetectionRecord`：字段为 `detection_id`/`azimuth_rad`/`elevation_rad`/`infrared_snr_linear`/`observation_stage`/`detected`，无 rate。2、读 `SbirsDebugTargetState`：同样只有 az/el。3、读 `boundaries.md`：仿真归属与内部状态不得混入 `SbirsOutputFrame`。4、`include/1q/sbirs_sensor` 无 `azimuth_rate`/`elevation_rate` 公开字段 | 实验第一刀不扩公开 DTO；变化率由滤波器状态与单测覆盖 | 已有公开角速度字段或合同要求必须改 raw（本次未给出） | narrow |
+| F5 不得误接 6 维笛卡尔线性 KF 工具 | 公共 `KalmanPredictor`/`KalmanUpdater` 只实现 6 维位置 CV 与 3 维位置提取；4 维角度实例化会得到 F=I、Q=0、H=0 | `KalmanPredictor.h`；`IKalmanUpdater.h`；AR/RIR 均实例化 `<6,3>` | 1、读 `BuildTransitionMatrix`：仅 `kStateDim==6` 写 `F(0,1)/F(2,3)/F(4,5)=dt`，否则单位阵。2、读 `BuildProcessNoise`：仅 6 维写 Q，否则零矩阵。3、读 `BuildPositionMeasurementMatrix`：仅 `6×3` 置 `H(0,0)/H(1,2)/H(2,4)=1`，否则零矩阵。4、读 AR/RIR：`KalmanPredictor<6,3>` + `KalmanUpdater<6,3>`。5、SBIRS IMM 指针类型是 `<6,2>` 的 EKF，不是线性 `KalmanUpdater` | 实验必须自备 4 维角度 F 与 2 维角度 H；禁止改公共 6 维笛卡尔行为 | 公共线性 KF 已对 4/2 角度布局提供 CV 与 H（与代码不符） | pass |
+| F6 CuePredictor 不是用例 16 | Cue 是无协方差的两点角度外推，只补偿 WFOV→NFOV 延迟，不进 Estimated 滤波 | `SbirsCuePredictor`；`algorithms.md` Cue 预测 | 1、读 `SbirsCuePredictor::Update`：有上一拍则 `ω=(θ_k-θ_{k-1})/dt`，命令 `θ+ω·latency`；只存上一拍 az/el。2、无协方差、无 K、无 Joseph 更新。3、读 pipeline：cue 用于调度候选 `command_azimuth_deg`；NFOV 持续跟踪走 `tracking_coordinator_`。4、算法登记「Cue 预测」与「EKF 滤波跟踪」分列 | CuePredictor 保持 cue 用途；用例 16 另写标准 KF | CuePredictor 已是带 P 的标准 KF 并驱动 Estimated 输出（与代码不符） | pass |
+| F7 方位角过零是真实风险 | 公开 az ∈ `[0,2π)`；线性新息 `z-Hx` 在过零处可到近 2π；笛卡尔 EKF 无此问题 | `SbirsDetectionRecord` az 范围；CuePredictor 已归一化方位差 | 1、读检测记录注释：az `[0,2π)`，el `[-π/2,π/2]`。2、读 `SbirsCuePredictor.cpp`：`NormalizeAzimuth` 把方位差折到 `[-180,180]` 再除以 dt。3、读 `EkfUpdater`：新息 `measurement - h(x)`，h 由 LOS 算 az/el，无最短弧（EKF 状态在笛卡尔，过零不表现为状态跳变）。4、推理：4 维角度状态把 az 当实数，不过最短弧则过零一次会把新息看成近 360° 机动 | 实验更新器方位新息必须最短弧；俯仰钳制 | 实验改用不环绕角定义且与现有 `[0,2π)` 输出契约一致（当前不是） | pass |
 
 ## §2 判定汇总与待裁定问题
 
 ### 建议判定
 
-1、**F1 pass**：生产是 6 维 ECI EKF，用例 16 要角度域线性 KF，缺口成立。
-2、**F2 narrow**：实验后端 opt-in；默认 kEkf、IMM、TruthAssisted 不动。
-3、**F3 pass**：实验状态为 [az, ω_az, el, ω_el]；禁止把后验当三维位置。
-4、**F4 narrow**：第一刀不改 `SbirsDetectionRecord`；变化率由单测断言。
-5、**F5 pass**：SBIRS 内写 4 维角度 CV；不改 common 6/3 专用 F/H。
-6、**F6 pass**：CuePredictor 保持 cue 用途，不升级成该滤波器。
+1、**F1 pass**：生产是 6 维 ECI EKF，不是用例 16 的角度域线性标准 KF。
+2、**F2 narrow**：只加实验后端；默认 `kEkf`、既有场景、IMM 路径不变。
+3、**F3 pass**：实验状态为 `[az, ω_az, el, ω_el]`；标准 KF 后验不得当作三维位置。
+4、**F4 narrow**：第一刀不改 `SbirsDetectionRecord`；变化率留在滤波器状态与单测。
+5、**F5 pass**：禁止把公共 6/3 线性 KF 工具直接实例化成角度滤波器；SBIRS 内自备 4 维 F/H。
+6、**F6 pass**：CuePredictor 不动。
+7、**F7 pass**：方位新息做最短弧。
 
 ### 推理（非探针直接值）
 
-1、推理：方位角跨 0/2π 时，线性新息会把环绕当成大机动；实验更新必须用最短弧（wrap）处理方位新息。
-2、推理：俯仰近 ±90° 时角度 CV 几何变差；GEO 对地凝视主工作区远离该奇异，第一刀可用特征化测试钉住、不先做球坐标流形滤波。
+1、推理：在角度域线性化之后，量测矩阵 H 提取 `[az, el]`，预测 F 为两轴恒速，这时才是用例 16 所说的「标准卡尔曼滤波」。
+2、推理：GEO 卫星看助推段目标时，视线角速度缓慢变化，4 维 CV 在短弧上可滤波平滑；长弧机动仍会 NIS 升高，与现有 NIS 丢锁语义兼容。
+3、推理：第一刀不把变化率写入 raw output，仍可用滤波后 az/el 作为 Estimated 检测记录，满足用例「滤波后的方位角、俯仰角」；变化率由单测读后验状态覆盖「及其变化率」。
 
 ### 建议 Stage B 范围（用户裁定前不写入 §3）
 
-1、允许：`src/sbirs_sensor/tracking/` 新增 4 维角度 CV 线性预测/更新（Joseph 形式）；coordinator 增加显式 backend 分支；`tests/unit/sbirs_sensor/` 新基线（常速率视线、噪声平滑、方位 wrap）；`docs/sbirs_sensor/algorithms.md` 登记为 evaluation/experimental。
-2、禁止：改默认 `kEkf`；改 `SbirsDetectionRecord` / DebugView / replay schema；改 common `KalmanPredictor`/`BuildPositionMeasurementMatrix` 的 6/3 行为；替换 CuePredictor；把滤波后验还原成三维位置去驱动物理门或 SNR。
-3、行为：量测为带误差 az/el（弧度）；预测 `x ← F x`，F 为两轴 CV；更新 `z − Hx` 中方位走最短弧；输出角取后验 az/el，变化率取后验 ω。
-4、验收：新单测；既有 `unit::sbirs_sensor` 在默认 EKF 下回归。
+1、允许：
+   1. `src/sbirs_sensor/tracking/` 新增 4 维角度 CV 线性预测/更新（Joseph 协方差）。
+   2. `SbirsTrackingCoordinator` 增加实验后端分支。
+   3. `SbirsEstimatedTrackingBackend` 增加 opt-in 枚举（建议名 `kAngleCvKf`），校验/JSON/replay 同步识别。
+   4. `tests/unit/sbirs_sensor/` 新增角度标准 KF 单测（预测、更新、方位环绕、角速率可观测）。
+   5. `docs/sbirs_sensor/algorithms.md` 登记实验后端（非默认）。
+2、禁止：
+   1. 改默认 `kEkf`、既有场景 JSON、IMM。
+   2. 改 `SbirsDetectionRecord` / DebugView / 验收 raw 字段。
+   3. 改公共 `KalmanPredictor`/`KalmanUpdater` 的 6 维笛卡尔专用 F/H。
+   4. 用真值三维位置初始化实验滤波器均值（避免把 OQ-4 简化搬进新后端）。
+   5. 把标准 KF 后验解释为三维位置/速度。
+3、行为：
+   1. 输入：带时标的 az/el 点迹（弧度）与动态 R。
+   2. 状态：`[az, ω_az, el, ω_el]`。
+   3. 预测：两轴线性 CV；更新：`z=Hx`，方位新息最短弧，Joseph 形式 P。
+   4. 初始化：首拍用当前角度、变化率置 0；第二拍可用角度差给变化率先验（与 Cue 两点同构，但是带 P）。
+   5. 选中该后端时：NFOV 命令与 Estimated 输出 az/el 直接取滤波角，不经三维 LOS。
+4、验收：
+   1. 新单测：常值角速度轨迹，滤波 az/el RMSE 低于量测噪声；ω 收敛；过零新息不爆。
+   2. `unit::sbirs_sensor` 默认 EKF 回归仍通过。
+   3. 配置非法 backend 仍被校验拒绝；`kAngleCvKf` 合法。
 
 ### 需要用户拍板
 
-1、第一刀变化率是否可以只进单测、不进公开检测记录（F4）。
-2、实验后端是加 `SbirsEstimatedTrackingBackend` 新枚举值，还是第一刀只在单测里接线、暂不进 pipeline。
-3、NFOV 指向在实验 backend 下是否改为直接用滤波 az/el（不再经三维位置反算）。
+1、F1–F7 建议判定是否采纳。
+2、实验后端是否接入 `SbirsTrackingCoordinator`（opt-in），还是第一刀只做可单测的跟踪库、不接 pipeline。
+3、初始化是否禁止真值三维（F3/建议范围第 2.4 条），还是允许与现有 EKF 一样 truth-seeded。
+4、变化率是否必须在本实验进入公开检测记录（若必须，则 F4 从 narrow 改为另开公开契约冻结项）。
 
 ## §3 冻结契约（用户讨论结束后填写）
 
@@ -110,7 +141,7 @@ Authority: 非规范性记录；结论以 docs/common/contract.md、docs/common/
 
 ## 修订记录
 
-1、2026-08-27：初始化 Stage A 矩阵（来源：用户用例 16 + 仓库探针）。
+1、修订 1（2026-08-27）：脚本初始化骨架；填入 F1–F7 建议判定。来源：用户下达用例 16，并确认在 `evidence/sbirs-angle-standard-kf` 上继续 Stage A。
 
 ## §4 运行记录（Stage C 后填写）
 
