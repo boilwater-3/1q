@@ -97,6 +97,10 @@ function(oneq_add_component target)
 
     # OBJECT 库：编译为独立目标文件，最终由公共库 target 聚合链接。
     add_library("${target}" OBJECT ${component_sources})
+    # Eigen 为 header-only；链入以便 PCH（Eigen/Core）与各 TU 解析共用 include 路径。
+    if(TARGET Eigen3::Eigen)
+        target_link_libraries("${target}" PRIVATE Eigen3::Eigen)
+    endif()
     # 四类 include 路径：src（模块互引）、生成头目录、公共 include、FlatBuffers 生成头。
     target_include_directories("${target}" PRIVATE
         "${CMAKE_SOURCE_DIR}/src"

@@ -40,6 +40,10 @@ function(apply_precompiled_headers)
             <optional>
             <variant>)
     endif()
+    # Eigen/Core：header-only，PCH 可摊销重复解析成本（Windows v141 日常 preset 默认 ENABLE_PCH=ON）。
+    if(TARGET Eigen3::Eigen)
+        list(APPEND _oneq_pch_headers <Eigen/Core>)
+    endif()
 
     foreach(_target IN LISTS ARG_TARGETS)
         if(NOT TARGET "${_target}")

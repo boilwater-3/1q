@@ -127,7 +127,8 @@
                 "CMAKE_CXX_STANDARD": "17",
                 "BUILD_SHARED_LIBS": "OFF",
                 "ENABLE_TESTING": "ON",
-                "ENABLE_INSTALL": "ON"
+                "ENABLE_INSTALL": "ON",
+                "ENABLE_PCH": "ON"
             }
         },
         {
