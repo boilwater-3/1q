@@ -69,7 +69,8 @@ target_link_libraries(examples_core PUBLIC
     Boost::boost)
 # spdlog：集成端日志后端（logger.h 的 CA_LOG_EVENT / CA_LOG_VIEW），仅平台启用
 # 时链接；Windows 文件后端分支只依赖标准库。示例源含中文 UTF-8 串字面量，
-# MSVC 的 /utf-8 经 core 的 INTERFACE 选项（CompilerMSVC.cmake）随链接传播。
+# 依赖源文件 UTF-8 BOM；编译/链接选项与库目标一样走
+# oneq_apply_target_configuration（无 /utf-8）。
 if(PROJECT_ENABLE_SPDLOG)
     target_link_libraries(examples_core PUBLIC ${PROJECT_SPDLOG_TARGET})
 endif()
@@ -143,6 +144,7 @@ add_executable(component_attachment_demo app/main.cpp)
 target_link_libraries(component_attachment_demo PRIVATE examples_core)
 target_compile_definitions(component_attachment_demo PRIVATE
     CA_SCENE_DIR="${CMAKE_SOURCE_DIR}/examples/scenes")
+set(_oneq_example_targets examples_core component_attachment_demo)
 
 # ---------------------------------------------------------------------------
 # 每场景可执行（主开发路径）：scenes/<name>/main.cpp 薄入口自动发现——新建
@@ -176,13 +178,15 @@ else()
 endif()
 
 foreach(_scene IN LISTS _oneq_selected_scenes)
-    if(_scene STREQUAL "sbirs_dual_sat_fix" OR _scene STREQUAL "sbirs_dual_sat_fix_messages")
+    if(_scene STREQUAL "sbirs_dual_sat_fix" OR _scene STREQUAL "sbirs_dual_sat_fix_messages"
+        OR _scene STREQUAL "sbirs_geo_triple_angle_kf")
         continue()  # 精度评估场景走下方接线（链 examples_core，地面站融合组件）
     endif()
     add_executable(${_scene} scenes/${_scene}/main.cpp)
     target_link_libraries(${_scene} PRIVATE examples_core)
     target_compile_definitions(${_scene} PRIVATE
         ONEQ_SCENE_JSON="${CMAKE_CURRENT_SOURCE_DIR}/scenes/${_scene}/${_scene}.json")
+    list(APPEND _oneq_example_targets ${_scene})
 endforeach()
 
 # 精度评估场景可执行 + 兼容目标 precision_evaluation_demo（同源同行为）：
@@ -195,6 +199,7 @@ if(sbirs_dual_sat_fix IN_LIST _oneq_selected_scenes)
         ONEQ_SCENE_JSON="${CMAKE_CURRENT_SOURCE_DIR}/scenes/sbirs_dual_sat_fix/sbirs_dual_sat_fix.json"
         PE_DEFAULT_OUTPUT_DIR="${CMAKE_SOURCE_DIR}/examples/log"
         PE_ACCEPTANCE_LOG_ENABLED=$<BOOL:${ONEQ_ENABLE_PRECISION_EVALUATION_LOG}>)
+    list(APPEND _oneq_example_targets sbirs_dual_sat_fix)
 endif()
 
 if(sbirs_dual_sat_fix_messages IN_LIST _oneq_selected_scenes)
@@ -204,6 +209,17 @@ if(sbirs_dual_sat_fix_messages IN_LIST _oneq_selected_scenes)
         ONEQ_SCENE_JSON="${CMAKE_CURRENT_SOURCE_DIR}/scenes/sbirs_dual_sat_fix_messages/sbirs_dual_sat_fix_messages.json"
         PE_DEFAULT_OUTPUT_DIR="${CMAKE_SOURCE_DIR}/examples/log"
         PE_ACCEPTANCE_LOG_ENABLED=$<BOOL:${ONEQ_ENABLE_PRECISION_EVALUATION_LOG}>)
+    list(APPEND _oneq_example_targets sbirs_dual_sat_fix_messages)
+endif()
+
+if(sbirs_geo_triple_angle_kf IN_LIST _oneq_selected_scenes)
+    add_executable(sbirs_geo_triple_angle_kf scenes/sbirs_geo_triple_angle_kf/main.cpp)
+    target_link_libraries(sbirs_geo_triple_angle_kf PRIVATE examples_core)
+    target_compile_definitions(sbirs_geo_triple_angle_kf PRIVATE
+        ONEQ_SCENE_JSON="${CMAKE_CURRENT_SOURCE_DIR}/scenes/sbirs_geo_triple_angle_kf/sbirs_geo_triple_angle_kf.json"
+        PE_DEFAULT_OUTPUT_DIR="${CMAKE_SOURCE_DIR}/examples/log"
+        PE_ACCEPTANCE_LOG_ENABLED=$<BOOL:${ONEQ_ENABLE_PRECISION_EVALUATION_LOG}>)
+    list(APPEND _oneq_example_targets sbirs_geo_triple_angle_kf)
 endif()
 
 add_executable(precision_evaluation_demo scenes/sbirs_dual_sat_fix/main.cpp)
@@ -212,6 +228,9 @@ target_compile_definitions(precision_evaluation_demo PRIVATE
     ONEQ_SCENE_JSON="${CMAKE_CURRENT_SOURCE_DIR}/scenes/sbirs_dual_sat_fix/sbirs_dual_sat_fix.json"
     PE_DEFAULT_OUTPUT_DIR="${CMAKE_SOURCE_DIR}/examples/log"
     PE_ACCEPTANCE_LOG_ENABLED=$<BOOL:${ONEQ_ENABLE_PRECISION_EVALUATION_LOG}>)
+list(APPEND _oneq_example_targets precision_evaluation_demo)
+oneq_apply_target_configuration(TARGETS ${_oneq_example_targets})
+unset(_oneq_example_targets)
 
 if(NOT ONEQ_ENABLE_PRECISION_EVALUATION_LOG)
     message(STATUS "precision_evaluation: ONEQ_ENABLE_PRECISION_EVALUATION_LOG=OFF -> no "

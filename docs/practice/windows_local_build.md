@@ -56,10 +56,19 @@ binaryDir 是 `build/llvm-ninja-release`（无 `-local` 后缀的历史遗留）
    `1q.sh` 能 exec 到 Windows `cmake.exe`/`ctest.exe`。真正的失败态是 `ctest=NOT FOUND`
    或误用 Linux `/usr/bin/ctest` 去跑 VisualStudio 测试树。
 2. **doctor**：见上；失败先修 PATH / `ONEQ_CMAKE_ROOT`，不要换业务代码碰运气。
-3. **BOM**：带中文注释的 `.h/.cpp` 缺 UTF-8 BOM → C4819/C1083 类问题。
+3. **Eigen C4127 / SolveTriangular「卡住」**：v141 + `/W4` 会把 Eigen 模板里的常量
+   `if` 打成 C4127，并附带 `SolveTriangular.h` / `GeneralBlockPanelKernel.h` 的模板
+   实例化 note。日志可到数十万行，MSBuild 看起来像死锁，其实是警告洪流。
+   `cmake/compilers/CompilerMSVC.cmake` 已对走 `oneq_apply_target_configuration`
+   的 MSVC 目标（库组件、测试、示例）关 C4127 并定义
+   `EIGEN_PERMANENTLY_DISABLE_STUPID_WARNINGS`。改完 CMake 后需一次 reconfigure，
+   不必改业务代码。改编译选项会触发全量重编；且 VS preset 的 `jobs` 与 cl `/MP`
+   叠乘会过订阅（12 核上 jobs=12 再每个工程 `/MP` 打满核，表现为构建极慢）。
+   `VisualStudio.15.0-amd64-*` 的 jobs 已改为 4。日常只改业务 cpp 走增量，不要反复 configure。
+4. **BOM**：带中文注释的 `.h/.cpp` 缺 UTF-8 BOM → C4819/C1083 类问题。
    pre-commit 钩子会在提交时自动补齐；**禁止**删中文注释来消 C4819。
-4. **陈旧产物/文件锁**：见下节。
-5. 最后才是编译错误本身。
+5. **陈旧产物/文件锁**：见下节。
+6. 最后才是编译错误本身。
 
 ## 陈旧增量产物 / 文件锁
 

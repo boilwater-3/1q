@@ -1559,12 +1559,12 @@ TEST(SbirsPipelineTest, ImmMultiTargetUpdatesMatchIndependentRunsAndInputOrder) 
   sbirs_sensor::pipeline::SbirsTrackingCoordinator only_first;
   sbirs_sensor::pipeline::SbirsTrackingCoordinator only_second;
   sbirs_sensor::pipeline::SbirsTrackingCoordinator reversed;
-  joint.InitializeTarget(1U, first, config.policy.tracking);
-  joint.InitializeTarget(2U, second, config.policy.tracking);
-  only_first.InitializeTarget(1U, first, config.policy.tracking);
-  only_second.InitializeTarget(2U, second, config.policy.tracking);
-  reversed.InitializeTarget(2U, second, config.policy.tracking);
-  reversed.InitializeTarget(1U, first, config.policy.tracking);
+  joint.InitializeTarget(1U, first, config.policy.tracking, 0.0f, 0.0f);
+  joint.InitializeTarget(2U, second, config.policy.tracking, 0.0f, 0.0f);
+  only_first.InitializeTarget(1U, first, config.policy.tracking, 0.0f, 0.0f);
+  only_second.InitializeTarget(2U, second, config.policy.tracking, 0.0f, 0.0f);
+  reversed.InitializeTarget(2U, second, config.policy.tracking, 0.0f, 0.0f);
+  reversed.InitializeTarget(1U, first, config.policy.tracking, 0.0f, 0.0f);
 
   sbirs_sensor::foundation::SbirsRandomSource joint_random(1U);
   sbirs_sensor::foundation::SbirsRandomSource first_random(1U);

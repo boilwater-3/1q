@@ -30,7 +30,7 @@ enum class SbirsTargetState {
   kAwaitingNfovAcquisition, /**< 已被调度器选为首次捕获目标，本周期执行 NFOV 首次捕获 */
   kStrictTruthAssistedTracking, /**< 真值 LOS 驱动并输出精确真值 */
   kSensorLikeTruthAssistedTracking, /**< 真值 LOS 驱动并输出带误差观测 */
-  kEstimatedTracking,       /**< EKF/IMM 滤波测量跟踪 */
+  kEstimatedTracking,       /**< EKF/IMM/角度标准 KF 滤波测量跟踪 */
   kLost                     /**< 目标从输入场景消失或传感器关闭 */
 };
 
@@ -53,7 +53,9 @@ struct SbirsPipelineSnapshot {
   std::uint32_t estimated_measurement_random_state{1U}; /**< Estimated 校正量测随机状态 */
   std::uint32_t sensor_like_output_random_state{1U}; /**< Sensor-like 输出随机状态 */
   std::map<std::uint64_t, tracking::SbirsGaussianState>
-      filter_states{}; /**< EKF 滤波状态表（kEstimatedTracking 目标的均值+协方差） */
+      filter_states{}; /**< EKF 滤波状态表（kEstimatedTracking 且非 kAngleCvKf 的均值+协方差） */
+  std::map<std::uint64_t, tracking::SbirsAngleCvGaussianState>
+      angle_kf_states{}; /**< 实验角度 CV 线性 KF 状态表（kAngleCvKf） */
   std::map<std::uint64_t, unsigned int> nis_gate_exceeded_counts{}; /**< EKF NIS 连续超限计数 */
   bool imm_active{false}; /**< 当前 snapshot 是否使用 IMM 模式 */
   std::map<std::uint64_t, tracking::SbirsImmSnapshot> imm_snapshots{}; /**< IMM 滤波状态表 */

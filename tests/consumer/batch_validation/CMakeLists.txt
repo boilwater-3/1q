@@ -87,3 +87,10 @@ if(BUILD_TESTING)
     oneq_add_batch_sequence_test(sar sar_batch_validation)
     oneq_add_batch_sequence_test(sbirs_sensor sbirs_batch_validation)
 endif()
+
+oneq_apply_target_configuration(TARGETS
+    ar_batch_validation
+    eos_batch_validation
+    esr_batch_validation
+    sar_batch_validation
+    sbirs_batch_validation)

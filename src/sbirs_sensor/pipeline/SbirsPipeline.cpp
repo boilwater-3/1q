@@ -275,6 +275,10 @@ bool IsFiniteGaussianState(const tracking::SbirsGaussianState& state) {
   return state.mean.allFinite() && state.covariance.allFinite();
 }
 
+bool IsFiniteGaussianState(const tracking::SbirsAngleCvGaussianState& state) {
+  return state.mean.allFinite() && state.covariance.allFinite();
+}
+
 bool IsValidTrackingSnapshot(const SbirsPipelineSnapshot& snapshot,
                              const config::SbirsTrackingConfig& tracking_config) {
   if (!std::isfinite(snapshot.scan_phase_deg) || snapshot.scan_row_index < 0 ||
@@ -311,17 +315,36 @@ bool IsValidTrackingSnapshot(const SbirsPipelineSnapshot& snapshot,
         return false;
     }
   }
-  if (snapshot.filter_states.size() != estimated_target_ids.size() ||
-      snapshot.nis_gate_exceeded_counts.size() != estimated_target_ids.size()) {
+  const bool angle_cv_backend =
+      tracking_config.estimated_backend == config::SbirsEstimatedTrackingBackend::kAngleCvKf;
+  if (angle_cv_backend) {
+    if (snapshot.filter_states.size() != 0U ||
+        snapshot.angle_kf_states.size() != estimated_target_ids.size() ||
+        snapshot.nis_gate_exceeded_counts.size() != estimated_target_ids.size()) {
+      return false;
+    }
+  } else if (snapshot.filter_states.size() != estimated_target_ids.size() ||
+             snapshot.angle_kf_states.size() != 0U ||
+             snapshot.nis_gate_exceeded_counts.size() != estimated_target_ids.size()) {
     return false;
   }
   const std::size_t expected_model_count = tracking_config.imm_model_noise_diff_coeffs.empty()
                                                ? 2U
                                                : tracking_config.imm_model_noise_diff_coeffs.size();
   for (const std::uint64_t target_id : estimated_target_ids) {
+    if (snapshot.nis_gate_exceeded_counts.count(target_id) == 0U) {
+      return false;
+    }
+    if (angle_cv_backend) {
+      const auto angle_filter = snapshot.angle_kf_states.find(target_id);
+      if (angle_filter == snapshot.angle_kf_states.end() ||
+          !IsFiniteGaussianState(angle_filter->second)) {
+        return false;
+      }
+      continue;
+    }
     const auto filter = snapshot.filter_states.find(target_id);
-    if (filter == snapshot.filter_states.end() || !IsFiniteGaussianState(filter->second) ||
-        snapshot.nis_gate_exceeded_counts.count(target_id) == 0U) {
+    if (filter == snapshot.filter_states.end() || !IsFiniteGaussianState(filter->second)) {
       return false;
     }
     if (tracking_config.estimated_backend != config::SbirsEstimatedTrackingBackend::kImm) {
@@ -1046,8 +1069,9 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
           !tracking_gate_passed && !lost_due_to_tracking_gate;
 
       bool lost_due_to_estimation_nis = false;
+      SbirsTrackingUpdateResult tracking_result;
       if (tracking_gate_passed && estimated_tracking) {
-        const SbirsTrackingUpdateResult tracking_result = tracking_coordinator_.CorrectTarget(
+        tracking_result = tracking_coordinator_.CorrectTarget(
             target.target_id, policy, &estimated_measurement_random_source_, azimuth_deg,
             elevation_deg, range_m,
             omega_deg_per_sec_cached, satellite_position_eci_m);
@@ -1125,6 +1149,15 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
                              elevation_deg, policy.error_model.orbit_sigma_deg,
                              policy.error_model.attitude_sigma_deg,
                              policy.error_model.fov_sigma_deg);
+        if (tracking_result.has_angle_rate) {
+          // 中译：角度域 KF 后验（滤波方位/俯仰及其变化率）；不进公开检测记录。
+          // 标识：实验后端 kAngleCvKf 的用例 16 状态估计验收行。
+          WriteSbirsAngleStateEstimate(
+              sim_time_sec, input.cycle_index, target.target_id,
+              tracking_result.output_azimuth_deg, tracking_result.output_elevation_deg,
+              tracking_result.azimuth_rate_rad_per_s * 57.29577951308232,
+              tracking_result.elevation_rate_rad_per_s * 57.29577951308232);
+        }
       }
       result.detections.push_back(detection);
       continue;
@@ -1522,7 +1555,9 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
         target_states_[target_id] = SbirsTargetState::kSensorLikeTruthAssistedTracking;
       }
       if (use_estimated) {
-        tracking_coordinator_.InitializeTarget(target_id, *selected.target, policy.tracking);
+        tracking_coordinator_.InitializeTarget(target_id, *selected.target, policy.tracking,
+                                               selected.measured_azimuth_deg,
+                                               selected.measured_elevation_deg);
       }
       SbirsPipelineDetection detection;
       detection.record.detection_id = next_detection_id_++;
@@ -1729,6 +1764,7 @@ SbirsPipelineSnapshot SbirsPipeline::CaptureRuntimeState() const {
   snapshot.cue_predictor = cue_predictor_.Capture();
   const SbirsTrackingRuntimeState tracking_state = tracking_coordinator_.CaptureRuntimeState();
   snapshot.filter_states = tracking_state.filter_states;
+  snapshot.angle_kf_states = tracking_state.angle_kf_states;
   snapshot.nis_gate_exceeded_counts = tracking_state.nis_gate_exceeded_counts;
   snapshot.imm_active = tracking_state.imm_active;
   snapshot.imm_snapshots = tracking_state.imm_snapshots;
@@ -1812,6 +1848,7 @@ bool SbirsPipeline::RestoreRuntimeState(const SbirsPipelineSnapshot& snapshot) {
   }
   SbirsTrackingRuntimeState tracking_state;
   tracking_state.filter_states = snapshot.filter_states;
+  tracking_state.angle_kf_states = snapshot.angle_kf_states;
   tracking_state.nis_gate_exceeded_counts = snapshot.nis_gate_exceeded_counts;
   tracking_state.imm_active = snapshot.imm_active;
   tracking_state.imm_snapshots = snapshot.imm_snapshots;

@@ -47,6 +47,8 @@ SbirsEstimatedTrackingBackendFromString(const std::string& s) {
     return sbirs_sensor::config::SbirsEstimatedTrackingBackend::kEkf;
   if (s == "kImm")
     return sbirs_sensor::config::SbirsEstimatedTrackingBackend::kImm;
+  if (s == "kAngleCvKf")
+    return sbirs_sensor::config::SbirsEstimatedTrackingBackend::kAngleCvKf;
   return sbirs_sensor::config::SbirsEstimatedTrackingBackend::kEkf;
 }
 

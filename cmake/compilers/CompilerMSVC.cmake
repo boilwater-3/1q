@@ -35,15 +35,21 @@ function(apply_msvc_options)
             /Zc:referenceBinding)  # 禁止临时量绑定到非 const 左值引用（标准要求）
     endif()
 
-	    foreach(_target IN LISTS ARG_TARGETS)
-	        if(NOT TARGET "${_target}")
-	            message(FATAL_ERROR "Compiler target does not exist: ${_target}")
-	        endif()
-	        target_compile_options("${_target}" PRIVATE ${_msvc_common_compile_options})
+    foreach(_target IN LISTS ARG_TARGETS)
+        if(NOT TARGET "${_target}")
+            message(FATAL_ERROR "Compiler target does not exist: ${_target}")
+        endif()
+        target_compile_options("${_target}" PRIVATE ${_msvc_common_compile_options})
+        # Eigen 的 warning(push) 只盖住头文件解析；pop 之后本 TU 实例化 LLT/三角求解
+        # 时 C4127 会重新打开。永久宏让实例化阶段也保持关闭。
+        target_compile_definitions("${_target}" PRIVATE EIGEN_PERMANENTLY_DISABLE_STUPID_WARNINGS)
         if(ARG_ENABLE_WARNINGS)
             target_compile_options("${_target}" PRIVATE
                 /W4      # 最高信息级别警告（启用绝大多数警告，含 C4xxx 系列）
                 /WX-     # 警告不视为错误（保留告警但允许编译继续）
+                /wd4127  # Eigen 模板 if(Size==N) 在 /W4 下发 C4127，并附带
+                         # SolveTriangular 等「正在编译类模板」note 洪流，
+                         # v141 上单 TU 可刷满日志、表现为构建卡住
                 /w14242  # 从 size_t 隐式截断转换（如 sizeof 结果赋给 int）
                 /w14254  # 运算符转换可能导致数据丢失
                 /w14263  # 成员函数签名与基类虚函数不一致（虚表未覆盖）

@@ -718,6 +718,17 @@ TEST(SbirsReplayCodecRoundtripTest, SessionConfigPreservesImmTrackingFields) {
   EXPECT_FLOAT_EQ(decoded.policy.tracking.imm_model_noise_diff_coeffs[2], 200.0f);
 }
 
+TEST(SbirsReplayCodecRoundtripTest, SessionConfigPreservesAngleCvKfBackend) {
+  SbirsSessionConfig config;
+  config.policy.tracking.estimated_backend = config::SbirsEstimatedTrackingBackend::kAngleCvKf;
+
+  const std::string encoded = EncodeSbirsSessionConfig(config);
+  SbirsSessionConfig decoded;
+  ASSERT_TRUE(DecodeSbirsSessionConfig(encoded, &decoded));
+  EXPECT_EQ(decoded.policy.tracking.estimated_backend,
+            config::SbirsEstimatedTrackingBackend::kAngleCvKf);
+}
+
 }  // namespace tests
 }  // namespace session
 }  // namespace sbirs_sensor
