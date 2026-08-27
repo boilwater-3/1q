@@ -1,7 +1,7 @@
 # Windows 本机构建注记（v141）
 
 Status: active
-Last-reviewed: 2026-08-21
+Last-reviewed: 2026-08-27
 Authority: local build environment, delivery tier runbook
 
 CLAUDE.md 只保留命令流；本文件承载 Windows 本机开发的环境说明、排障顺序、
@@ -84,6 +84,42 @@ binaryDir 是 `build/llvm-ninja-release`（无 `-local` 后缀的历史遗留）
 - 写 `.obj` 报 `Permission denied`：先解除 IDE/杀毒占用（Defender 排除见上），
   不要当逻辑 bug。
 - `integration::airborne_radar` 0xc0000409 是独立的既有问题，与本节无关。
+
+## Eigen 编译耗时与日常优化
+
+Eigen 是 header-only：没有 `.lib` 可链接，**每个包含 estimation 模板的 `.cpp`
+都要在 TU 内解析并实例化 Eigen 模板**（LLT / SolveTriangular 等）。日志里路径
+总是 `conan2/.../eigen3/...`，看起来像「在编 Eigen 库」，实际是在编你的 TU。
+
+### 日常命令（短期）
+
+1. **Release preset**：日常验证用 `VisualStudio.15.0-amd64-release`，不用 Debug
+   （Debug 的 `/Od` + `/RTC1` 会显著拖慢 Eigen 模板编译）。
+2. **精准 `--target`**：只编当前模块测试/示例，不要裸 `cmake --build`（默认
+   `ALL_BUILD` ≈ 全解决方案）：
+   ```bash
+   scripts/1q.sh build VisualStudio.15.0-amd64-release --target 1q_fusion_unit_tests
+   scripts/1q.sh test VisualStudio.15.0-amd64-release -R "unit::fusion"
+   ```
+3. **少动 `src/common/` 与 `include/1q/` 头**：`common/estimation/*.h`（如
+   `EkfFilter.h`）被 fusion / sbirs / rir / airborne_radar 等多模块引用；改一行
+   会级联重编所有 include 链上的 TU。业务改动优先留在模块 `src/<module>/*.cpp`。
+4. **不要反复 `configure`**：仅依赖/CMake 变更后跑；改 CMake 编译选项会触发一次
+   全量重编。
+5. **区分「检查」与「重编」**：增量有效时，第二次 build 应在数秒内结束，日志无
+   `编译源文件 xxx.cpp`；若仍出现大量 cl 输出，先查是否改了 common 头或刚 configure。
+
+### 已启用的构建加速（中 / 长期）
+
+| 措施 | 作用 |
+|---|---|
+| `ENABLE_PCH=ON`（`VisualStudio.15.0-amd64` preset 默认） | 预编译 `<Eigen/Core>` + 常用 STL，减少重复头解析 |
+| `src/common/estimation/EstimationInstantiations.cpp` | 对 **6×3 / 6×2** 的 Kalman/EKF/UKF/IMM 做显式实例化，`extern template` 阻止其它 TU 重复实例化 LLT |
+| `/wd4127` + `EIGEN_PERMANENTLY_DISABLE_STUPID_WARNINGS` | 避免 Eigen 模板 warning/note 洪流拖慢 MSBuild |
+
+显式实例化**不覆盖**单测里的其它维度（如 4×2）；那些 TU 仍本地实例化，不影响测试。
+
+PCH 或显式实例化清单变更后需一次 reconfigure + 全量重编；之后恢复增量。
 
 ## VS2015 交付档（客户集成）
 

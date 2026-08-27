@@ -63,6 +63,16 @@ scripts/1q.sh build VisualStudio.15.0-amd64-release --target 1q_<module>_unit_te
 scripts/1q.sh test VisualStudio.15.0-amd64-release -R "unit::<module>"
 ```
 
+**Incremental build & Eigen (recommended daily practice):**
+
+- **Release preset only** for routine dev (`VisualStudio.15.0-amd64-release`); Debug (`/Od` + `/RTC1`) is much slower on Eigen-heavy TUs.
+- **Always pass `--target`** (e.g. `1q_fusion_unit_tests`); bare `cmake --build` builds `ALL_BUILD` (~full solution).
+- **Avoid touching `src/common/` and `include/1q/` headers** unless necessary — e.g. `common/estimation/EkfFilter.h` is included across fusion / sbirs / rir / AR; one edit cascades to many TUs. Prefer changes in `src/<module>/*.cpp`.
+- **Do not re-run `configure`** except after dependency or CMake changes; it triggers a one-time full rebuild.
+- **Sanity check**: a no-op second build should finish in seconds with no `编译源文件 xxx.cpp` lines; long MSBuild logs of `*.vcxproj ->` alone are up-to-date checks, not full recompiles.
+- **Repo accelerators** (Windows v141 preset): `ENABLE_PCH=ON` precompiles `<Eigen/Core>` + common STL; `src/common/estimation/EstimationInstantiations.cpp` explicitly instantiates **6×3 / 6×2** Kalman/EKF/UKF/IMM (`extern template` elsewhere). Other test-only dimensions (e.g. 4×2) still instantiate locally in test TUs.
+- Full troubleshooting and delivery notes: `docs/practice/windows_local_build.md` (section **Eigen 编译耗时与日常优化**).
+
 ### Delivery tier (VS2015 customer integration)
 
 - Contract: C++11 + UTF-8 BOM on every tracked C/C++ file + no `/utf-8` anywhere — customers compile our headers inside their own VS2015 TUs with no extra flags.
