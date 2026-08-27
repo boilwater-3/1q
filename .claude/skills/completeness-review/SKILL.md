@@ -333,6 +333,8 @@ git merge --no-ff feature/<name> -m "merge: <brief summary>"
 git branch -d feature/<name>
 ```
 
+For an evidence-first change the implementation branch is `feat/<topic>` (not `feature/<name>`). Merge that, then delete **both** process branches (`feat/<topic>` and `evidence/<topic>`). See `evidence-first-freeze-contract` Close-out.
+
 Use `--no-ff` to preserve the feature branch as a distinct history marker. If the branch was pushed to
 remote, also run:
 
@@ -340,6 +342,8 @@ remote, also run:
 git push origin main
 git push origin --delete feature/<name>
 ```
+
+Do not push unless the user asks.
 
 **After merge, verify the merge result** (the merge itself can introduce resolution errors):
 

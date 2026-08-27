@@ -117,8 +117,9 @@ Each module keeps a design-doc set — `design.md` (navigation entry) + `boundar
 - Plain-language bias: user-facing text favors plain language, terms explained on first use; readability outranks brevity; code comments and normative contracts keep full precision.
 
 **Branching**
-- SessionStart hook prompts on `main`; pre-commit safety net auto-creates `feature/auto-<timestamp>` on `main`/`master`.
-- Naming: `feature/<short-description>` in kebab-case; merge into `main` with `--no-ff` only after user approval; delete the branch after merge.
+- Evidence-first work uses `evidence/<topic>` then `feat/<topic>` (see `.claude/skills/evidence-first-freeze-contract`). After the user asks to merge: `git merge --no-ff feat/<topic>` into `main`, then delete **both** process branches.
+- Other feature work: `feature/<short-description>` in kebab-case; merge into `main` with `--no-ff` only after user approval; delete the branch after merge.
+- Pre-commit does **not** auto-create `feature/auto-*` on `main`/`master`.
 
 **Commits**
 - Conventional Commits: `type(scope): description` — types `feat`/`fix`/`refactor`/`test`/`docs`/`chore`/`perf`; scope = primary module; imperative, lowercase.

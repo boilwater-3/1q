@@ -6,6 +6,6 @@ branch=$(git branch --show-current 2>/dev/null || true)
 
 if [ "$branch" = "main" ] || [ "$branch" = "master" ]; then
   cat <<'EOF'
-{"systemMessage": "📍 On **main**. If this is a read-only discussion, ignore. For any code change: enter plan mode, create `feature/<topic>` when the plan is approved. (Safety net: committing on main auto-creates a timestamped feature branch — prefer a semantic name via plan mode.)"}
+{"systemMessage": "📍 On **main**. If this is a read-only discussion, ignore. For any code change: enter plan mode. Evidence-first work uses `evidence/<topic>` then `feat/<topic>`; other work uses `feature/<topic>` when the plan is approved. After the user asks to merge: `--no-ff` into `main` and delete the process branches."}
 EOF
 fi

@@ -1,13 +1,13 @@
 ---
 name: evidence-first-freeze-contract
-description: Use when Codex is asked to plan, review, freeze, or implement high-risk algorithm or architecture changes where evidence should precede implementation. Trigger for SAR/ESR/EOS/radar/flight-dynamic modules, "冻结项", "证据矩阵", "先证明再实现", "证据矩阵交付", "Stage A 文档", "evidence 分支", gen_stage_a_doc, design gates, risky refactors, or cases where rejecting implementation is an acceptable outcome.
+description: Use when Codex is asked to plan, review, freeze, or implement high-risk algorithm or architecture changes where evidence should precede implementation. Trigger for SAR/ESR/EOS/radar/flight-dynamic modules, "冻结项", "证据矩阵", "先证明再实现", "证据矩阵交付", "Stage A 文档", "evidence 分支", gen_stage_a_doc, design gates, risky refactors, merging evidence/feat into main, deleting process branches, or cases where rejecting implementation is an acceptable outcome.
 ---
 
 # Evidence-First Freeze Contract
 
 Use this skill to prevent "implement first, justify later" behavior in high-risk technical work. The core rule is: Stage A builds an evidence matrix; Stage B implementation is allowed only if the evidence proves the need and scope. Evidence rejection is a valid final result.
 
-The flow has a fixed shape: Stage A is delivered as a dated repo document initialized by `scripts/gen_stage_a_doc.py` and committed on a new `evidence/<topic>` branch; after the user closes the discussion, implementation runs on a `feat/<topic>` branch forked from it; Stage C writes durable conclusions into the authority docs and only a run record back into the matrix document.
+The flow has a fixed shape: Stage A is delivered as a dated repo document initialized by `scripts/gen_stage_a_doc.py` and committed on a new `evidence/<topic>` branch; after the user closes the discussion, implementation runs on a `feat/<topic>` branch forked from it; Stage C writes durable conclusions into the authority docs and only a run record back into the matrix document. After the user asks to merge, `--no-ff` the feat branch into `main` and delete both process branches (`feat/<topic>` and `evidence/<topic>`).
 
 This skill is the executable workflow for `docs/common/contract.md` section "证据优先开发模式". The contract defines the mandatory gate; this skill defines how to run it.
 
@@ -43,6 +43,7 @@ For every freeze item, answer four questions before editing production code:
 3. Contract Freeze: append the frozen contract to the same document before any production-code edit.
 4. Stage B: fork `feat/<topic>` from `evidence/<topic>` and implement only the frozen scope.
 5. Stage C: verify, write durable conclusions into the authority docs, append the run record to the matrix document.
+6. Close-out (only after the user asks to merge): `git merge --no-ff feat/<topic>` into `main`, then delete both process branches. Do not push unless asked.
 
 ## Stage A: Evidence Matrix
 
@@ -135,6 +136,23 @@ Rules:
 
 1. Never mix matrix-document edits and production-code edits in one commit.
 2. Implementation must not re-litigate the matrix: if implementation disproves the contract, stop, return to Stage A, and record the new evidence as a revision on the evidence branch.
+
+### Close-out: merge to main and delete process branches
+
+`evidence/<topic>` and `feat/<topic>` are process branches. After Stage C and **only when the user asks to merge**, they must not stay around.
+
+```bash
+git checkout main
+git merge --no-ff feat/<topic> -m "merge: <brief summary>"
+git branch -d feat/<topic>
+git branch -d evidence/<topic>
+```
+
+- Use `--no-ff` so the feat history stays a distinct merge commit.
+- Delete **both** process branches. `evidence/<topic>` is an ancestor of `feat/<topic>` after a normal fork, so both are fully contained in `main` after the merge; `git branch -d` should succeed.
+- Do not push `main` or delete remote branches unless the user asks.
+- Do not recreate `feature/auto-*` on `main`. The pre-commit hook no longer auto-branches on `main`/`master`.
+- If Stage A ended in all `reject`/`defer` (no feat branch) and the user wants the rejection record on `main`: merge `evidence/<topic>` instead, then `git branch -d evidence/<topic>`.
 
 ## Contract Freeze
 

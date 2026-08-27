@@ -22,7 +22,7 @@ if ! _oneq_path_has "${ONEQ_ROOT}/scripts"; then
   export PATH="${ONEQ_ROOT}/scripts:${PATH}"
 fi
 
-# .githooks/pre-commit 自愈激活（幂等；BOM 自动补齐 + completeness 门禁 + main 安全网）
+# .githooks/pre-commit 自愈激活（幂等；BOM 自动补齐 + completeness 门禁）
 if [[ -d "${ONEQ_ROOT}/.githooks" ]] && git -C "${ONEQ_ROOT}" rev-parse --git-dir >/dev/null 2>&1; then
   _oneq_hooks="$(git -C "${ONEQ_ROOT}" config --get core.hooksPath || true)"
   if [[ "${_oneq_hooks}" != ".githooks" ]]; then
