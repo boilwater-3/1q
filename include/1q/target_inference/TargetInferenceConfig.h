@@ -6,6 +6,8 @@
 #ifndef ONEQ_TARGET_INFERENCE_TARGET_INFERENCE_CONFIG_H_
 #define ONEQ_TARGET_INFERENCE_TARGET_INFERENCE_CONFIG_H_
 
+#include <string>
+
 #include "1q/api.hpp"
 
 namespace target_inference {
@@ -27,6 +29,9 @@ struct ONEQ_API TargetInferenceConfig {
   double kinematic_type_weight{0.5};         /**< 运动学先验 vs 外部证据的融合权重。 */
   double high_energy_speed_threshold_m_per_s{1200.0}; /**< 高能量速度门（单位：m/s）。 */
   double high_altitude_threshold_m{30000.0}; /**< 高空门（单位：m）。 */
+  /** 落点预报分发通道名（如事件信号名）。装配层接好外发通道后填入，验收行据此写
+   *  「分发状态=已发布(事件<通道名>)」；留空 = 未接外发，写「已封装待分发」。 */
+  std::string impact_distribution_channel{};
 };
 
 }  // namespace target_inference

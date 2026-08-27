@@ -649,6 +649,8 @@ bool RirController::TryBuildMeasurement(
   // 标量速度观测（与 AR filtered_feature.observed_speed 同位）：速度向量为零时
   // 生命周期速度种子按 (observed_speed, 0, 0) 回退的基准。
   built.observed_speed = built.velocity.norm();
+  // 评审 2026-08-26 条15：检测概率透传进关联量测（验收旁路字段，不进关联方程）。
+  built.detection_pd = detection.detection_prob;
   built.rcs = target.rcs;
   built.measurement_covariance = MakeCartesianMeasurementCovariance(
       target, measurement_error.range_error_std_m, measurement_error.angle_error_std_rad);
@@ -844,7 +846,9 @@ void RirController::RunCycle(const session::RirCycleInput& input,
       WriteRirSearchDetections(input.sim_time_sec, input.input_cycle_index, dwell_center_deg.az_deg,
                                dwell_center_deg.el_deg, steerable_volume_deg, scan_center_deg,
                                g_acceptance_found_targets);
-      WriteRirAssociation(input.sim_time_sec, input.input_cycle_index, association);
+      const float gate_sigma = std::max(0.0f, policy_.association.distance_gate_sigma);
+      WriteRirAssociation(input.sim_time_sec, input.input_cycle_index, association, platform_lla,
+                          static_cast<double>(gate_sigma * gate_sigma));
     }
 
     track_snapshots = lifecycle_->BuildTrackSnapshots();
@@ -928,8 +932,7 @@ void RirController::RunCycle(const session::RirCycleInput& input,
       }
       WriteRirSchedule(input.sim_time_sec, input.input_cycle_index, scheduled_count, executed_count,
                        latest_summary_.dwell_budget.dwell_budget_sec,
-                       latest_summary_.dwell_budget.dwell_consumed_sec, 1U, confirmed,
-                       latest_summary_.participating_track_count);
+                       latest_summary_.dwell_budget.dwell_consumed_sec, 1U, confirmed);
     }
   } else {
     track_snapshots = lifecycle_->BuildTrackSnapshots();
@@ -990,7 +993,8 @@ void RirController::RunCycle(const session::RirCycleInput& input,
       }
       WriteRirTrackAndId(input.sim_time_sec, input.input_cycle_index, track, result, features,
                          polarization_samples, latest_summary_.has_ground_truth,
-                         static_cast<double>(latest_summary_.category_accuracy), &imm_weights);
+                         static_cast<double>(latest_summary_.category_accuracy), &imm_weights,
+                         input.platform_position);
     }
     // 归属视图与出口②同循环产出（全部航迹快照：tentative/confirmed/lost）。
     session::RirTrackAttributionRecord attribution;

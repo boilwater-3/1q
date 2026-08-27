@@ -109,6 +109,21 @@ inline float NormalizeAzimuthDeltaDeg(float delta_az_deg) {
 }
 
 /**
+ * @brief 归一化 sinc² 方向图在主瓣外的连续延拓衰减（评审 2026-08-26 条14）。
+ * @param[in] u 离轴角 / 半功率半宽（u=1 即主瓣边界，u>1 为副瓣区）。
+ * @return 衰减（dB）。自变量缩放使 u=1 处恰为 -3.01dB（与主瓣半功率宽口径对齐，
+ *         门内高斯/抛物线模型在边界同为 3dB，衔接连续）；第一零点 u≈2.26。
+ */
+inline float SincSquaredContinuationDb(float u) {
+  const float safe_u = antenna_pattern_internal::ClampLowerBound(std::fabs(u), 1.0e-3f);
+  const float arg = 1.3915587238f * safe_u;  // sin(x)/x = 1/√2 的解 x≈1.39156。
+  const float sinc_val = (std::fabs(arg) < 1.0e-6f) ? 1.0f : std::sin(arg) / arg;
+  const float linear =
+      antenna_pattern_internal::ClampLowerBound(std::fabs(sinc_val) * std::fabs(sinc_val), 1.0e-6f);
+  return -10.0f * std::log(linear) * 0.4342944819032518f;  // -10·log10(·)。
+}
+
+/**
  * @brief 判断离轴角是否进入后瓣区域。
  * @param[in] offset_deg 目标相对当前波束中心的离轴角。
  * @return 任一轴绝对离轴角超过 90 度时返回 true。
@@ -268,7 +283,31 @@ inline AntennaPatternSample EvaluateAntennaPattern(
     return sample;
   }
 
-  sample.gain_dbi = peak_gain_dbi + config.max_sidelobe_level_db - sample.scan_loss_db;
+  // 评审 2026-08-26 条14：门外不再恒定副瓣电平——sinc² 副瓣包络连续延拓（-3dB
+  // 点与主瓣半功率宽对齐），并以 max_sidelobe_level_db 作副瓣包络下限（增益不超
+  // 峰值+副瓣电平）；配置了物理孔径的 sinc² 模式按孔径公式全域延拓。主瓣内各
+  // 模型不变（门内边界同为 3dB，衔接连续）。
+  float sidelobe_attenuation_db = 0.0f;
+  if (config.model_type == AntennaPatternModelType::kSincPattern &&
+      (antenna_az_length_m > 0.0f || antenna_el_width_m > 0.0f) && wavelength_m > 0.0f) {
+    sidelobe_attenuation_db = sample.main_lobe_attenuation_db;
+  } else {
+    const float half_az_beamwidth_deg =
+        0.5f * antenna_pattern_internal::ClampLowerBound(beamwidth_deg.az_beamwidth_deg, 1e-3f);
+    const float half_el_beamwidth_deg =
+        0.5f * antenna_pattern_internal::ClampLowerBound(beamwidth_deg.el_beamwidth_deg, 1e-3f);
+    const float normalized_az =
+        std::fabs(antenna_pattern_internal::NormalizeAzimuthDeltaDeg(offset_deg.delta_az_deg)) /
+        half_az_beamwidth_deg;
+    const float normalized_el = std::fabs(offset_deg.delta_el_deg) / half_el_beamwidth_deg;
+    sidelobe_attenuation_db =
+        antenna_pattern_internal::SincSquaredContinuationDb(normalized_az) +
+        antenna_pattern_internal::SincSquaredContinuationDb(normalized_el);
+  }
+  const float sidelobe_floor_db = -config.max_sidelobe_level_db;  // 电平为负 dB，取反即下限。
+  sample.main_lobe_attenuation_db =
+      std::max(sidelobe_attenuation_db, sidelobe_floor_db);
+  sample.gain_dbi = peak_gain_dbi - sample.main_lobe_attenuation_db - sample.scan_loss_db;
   return sample;
 }
 

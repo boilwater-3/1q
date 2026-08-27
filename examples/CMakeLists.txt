@@ -49,6 +49,7 @@ add_library(examples_core STATIC
     components/sar_sensor_component.cpp
     components/rir_sensor_component.cpp
     components/fusion_component.cpp
+    components/ground_station_fusion_component.cpp
     components/inference_component.cpp
     components/threat_component.cpp
     logger/logger.cpp
@@ -175,7 +176,7 @@ else()
 endif()
 
 foreach(_scene IN LISTS _oneq_selected_scenes)
-    if(_scene STREQUAL "sbirs_dual_sat_fix")
+    if(_scene STREQUAL "sbirs_dual_sat_fix" OR _scene STREQUAL "sbirs_dual_sat_fix_messages")
         continue()  # 精度评估场景走下方接线（链 examples_core，地面站融合组件）
     endif()
     add_executable(${_scene} scenes/${_scene}/main.cpp)
@@ -192,6 +193,15 @@ if(sbirs_dual_sat_fix IN_LIST _oneq_selected_scenes)
     target_link_libraries(sbirs_dual_sat_fix PRIVATE examples_core)
     target_compile_definitions(sbirs_dual_sat_fix PRIVATE
         ONEQ_SCENE_JSON="${CMAKE_CURRENT_SOURCE_DIR}/scenes/sbirs_dual_sat_fix/sbirs_dual_sat_fix.json"
+        PE_DEFAULT_OUTPUT_DIR="${CMAKE_SOURCE_DIR}/examples/log"
+        PE_ACCEPTANCE_LOG_ENABLED=$<BOOL:${ONEQ_ENABLE_PRECISION_EVALUATION_LOG}>)
+endif()
+
+if(sbirs_dual_sat_fix_messages IN_LIST _oneq_selected_scenes)
+    add_executable(sbirs_dual_sat_fix_messages scenes/sbirs_dual_sat_fix_messages/main.cpp)
+    target_link_libraries(sbirs_dual_sat_fix_messages PRIVATE examples_core)
+    target_compile_definitions(sbirs_dual_sat_fix_messages PRIVATE
+        ONEQ_SCENE_JSON="${CMAKE_CURRENT_SOURCE_DIR}/scenes/sbirs_dual_sat_fix_messages/sbirs_dual_sat_fix_messages.json"
         PE_DEFAULT_OUTPUT_DIR="${CMAKE_SOURCE_DIR}/examples/log"
         PE_ACCEPTANCE_LOG_ENABLED=$<BOOL:${ONEQ_ENABLE_PRECISION_EVALUATION_LOG}>)
 endif()

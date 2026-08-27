@@ -94,6 +94,29 @@ double MeanValidDimensionQuality(
   return valid_count > 0 ? quality_sum / static_cast<double>(valid_count) : 0.0;
 }
 
+/// 斜距 + 雷达局部 ENU 视线角 → 东-北-天（ComputeLookAngles 的逆：
+/// az 自东 atan2(north, east)，el 出地平 atan2(up, hypot)）。
+bool TryLookRangeToEnu(float look_az_deg, float look_el_deg, float range_m,
+                       oneq::coordinate::EnuPositionM* enu) {
+  const double range = static_cast<double>(range_m);
+  if (enu == nullptr || !std::isfinite(range) || range <= 0.0) {
+    return false;
+  }
+  const double az_rad =
+      oneq::common::numerics::DegToRad(static_cast<double>(look_az_deg));
+  const double el_rad =
+      oneq::common::numerics::DegToRad(static_cast<double>(look_el_deg));
+  if (!std::isfinite(az_rad) || !std::isfinite(el_rad)) {
+    return false;
+  }
+  const double cos_el = std::cos(el_rad);
+  enu->east_m = range * cos_el * std::cos(az_rad);
+  enu->north_m = range * cos_el * std::sin(az_rad);
+  enu->up_m = range * std::sin(el_rad);
+  return std::isfinite(enu->east_m) && std::isfinite(enu->north_m) &&
+         std::isfinite(enu->up_m);
+}
+
 }  // namespace
 
 std::vector<DetectionRecord> AdaptArTracksToDetectionRecords(
@@ -225,10 +248,20 @@ std::vector<DetectionRecord> AdaptRirFeatureMeasurementsToDetectionRecords(
       const oneq::coordinate::EcefPositionM origin(
           measurement.platform_position.x_m, measurement.platform_position.y_m,
           measurement.platform_position.z_m);
-      oneq::coordinate::LlaPositionDegM lla;
-      if (oneq::coordinate::TryEcefToLla(origin, &lla)) {
+      oneq::coordinate::LlaPositionDegM origin_lla;
+      if (oneq::coordinate::TryEcefToLla(origin, &origin_lla)) {
         detection.has_sensor_origin = true;
-        detection.sensor_origin = lla;  // 参与三维方位滤波通道
+        detection.sensor_origin = origin_lla;  // 参与三维方位滤波通道
+        oneq::coordinate::EnuPositionM enu;
+        oneq::coordinate::EcefPositionM target_ecef;
+        oneq::coordinate::LlaPositionDegM target_lla;
+        if (TryLookRangeToEnu(measurement.look_az_deg, measurement.look_el_deg,
+                              measurement.range_m, &enu) &&
+            oneq::coordinate::TryEnuToEcef(enu, origin_lla, &target_ecef) &&
+            oneq::coordinate::TryEcefToLla(target_ecef, &target_lla)) {
+          detection.has_position = true;
+          detection.position = target_lla;
+        }  // 斜距非法或换算失败：维持仅方位+原点
       }  // 转换失败退化为无原点记录（AR 先例）
     }
     detections.push_back(detection);

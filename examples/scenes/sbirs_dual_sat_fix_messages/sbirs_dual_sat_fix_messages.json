@@ -1,0 +1,86 @@
+{
+  "name": "sbirs_dual_sat_fix_messages",
+  "cycles": 80,
+  "dt_sec": 1.0,
+  "log_dir": "sbirs_dual_sat_fix_messages",
+  "utc_julian_day": 2451544.2230698913,
+  "inference_horizon_sec": 1200.0,
+  "fusion": {
+    "track_bearing_init_range_m": 36000000.0,
+    "track_bearing_init_range_std_m": 8000000.0,
+    "relay_fov_width_deg": 24.0
+  },
+  "satellites": [
+    {
+      "id": "A",
+      "source_id": 4,
+      "position_lla_deg_m": [0.0, -25.212457, 35778820.868343],
+      "velocity_ecef_mps": [0.0, 0.0, 0.0],
+      "scan_start_az_deg": 154.8,
+      "scan_center_el_deg": 0.0,
+      "scan_span_deg": 30.0,
+      "scan_rate_deg_per_sec": 0.0,
+      "wide_field_fov_az_deg": 24.0,
+      "wide_field_fov_el_deg": 24.0,
+      "narrow_field_fov_az_deg": 8.0,
+      "narrow_field_fov_el_deg": 8.0,
+      "max_concurrent_nfov_locks": 2,
+      "wide_min_snr_linear": 0.001,
+      "narrow_min_snr_linear": 0.001,
+      "noise_equivalent_power_w": 1e-18,
+      "integration_time_sec": 1.0
+    },
+    {
+      "id": "B",
+      "source_id": 104,
+      "position_lla_deg_m": [0.0, -145.212457, 35778821.146480],
+      "velocity_ecef_mps": [0.0, 0.0, 0.0],
+      "scan_start_az_deg": 34.8,
+      "scan_center_el_deg": 0.0,
+      "scan_span_deg": 30.0,
+      "scan_rate_deg_per_sec": 0.0,
+      "wide_field_fov_az_deg": 24.0,
+      "wide_field_fov_el_deg": 24.0,
+      "narrow_field_fov_az_deg": 8.0,
+      "narrow_field_fov_el_deg": 8.0,
+      "max_concurrent_nfov_locks": 2,
+      "wide_min_snr_linear": 0.001,
+      "narrow_min_snr_linear": 0.001,
+      "noise_equivalent_power_w": 1e-18,
+      "integration_time_sec": 1.0
+    },
+    {
+      "id": "C",
+      "source_id": 204,
+      "position_lla_deg_m": [0.0, 94.787543, 35778821.003790],
+      "velocity_ecef_mps": [0.0, 0.0, 0.0],
+      "scan_start_az_deg": 274.8,
+      "scan_center_el_deg": 0.0,
+      "scan_span_deg": 30.0,
+      "scan_rate_deg_per_sec": 0.0,
+      "wide_field_fov_az_deg": 24.0,
+      "wide_field_fov_el_deg": 24.0,
+      "narrow_field_fov_az_deg": 8.0,
+      "narrow_field_fov_el_deg": 8.0,
+      "max_concurrent_nfov_locks": 2,
+      "wide_min_snr_linear": 0.001,
+      "narrow_min_snr_linear": 0.001,
+      "noise_equivalent_power_w": 1e-18,
+      "integration_time_sec": 1.0
+    }
+  ],
+  "targets": [
+    {
+      "key": 1,
+      "position_lla_deg_m": [15.0, -85.0, 600000.0],
+      "velocity_enu_mps": [300.0, -1800.0, 80.0],
+      "radiant_intensity_w_per_sr": 100000000.0
+    },
+    {
+      "key": 2,
+      "position_lla_deg_m": [10.0, 35.0, 500000.0],
+      "velocity_enu_mps": [-200.0, 1600.0, 60.0],
+      "radiant_intensity_w_per_sr": 100000000.0
+    }
+  ]
+}

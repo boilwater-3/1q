@@ -11,6 +11,7 @@
 #include <vector>
 
 #include "1q/electromagnetics/RfScene.h"
+#include "1q/coordinate/types.h"
 #include "1q/remote_identification_radar/config/RirHardwareConfig.h"
 #include "1q/remote_identification_radar/session/RirSceneTypes.h"
 #include "common/radar/AntennaPatternRuntime.h"
@@ -73,8 +74,14 @@ void WriteRirSearchDetections(float sim_time_sec, std::uint32_t cycle, float bea
                               const config::RirAzimuthElevationDeg& scan_center_deg,
                               const std::string& found_targets);
 
+/**
+ * @param[in] platform_lla 平台 LLA（雷达局部 ENU 的绝对锚点；量测位置 LLA 换算用）。
+ * @param[in] gate_threshold 关联波门（马氏距离² 门限，无量纲；行内量纲说明用）。
+ */
 void WriteRirAssociation(float sim_time_sec, std::uint32_t cycle,
-                         const tracking::RirAssociationResult& association);
+                         const tracking::RirAssociationResult& association,
+                         const oneq::coordinate::LlaPositionDegM& platform_lla,
+                         double gate_threshold);
 
 void WriteRirClusterCount(float sim_time_sec, std::uint32_t cycle,
                           const std::vector<tracking::RirTrackState>& tracks);
@@ -92,17 +99,22 @@ void WriteRirClusterCount(float sim_time_sec, std::uint32_t cycle,
 bool TryLookPolarFromEnuM(float east_m, float north_m, float up_m, float* range_m, float* az_deg,
                           float* el_deg);
 
-void WriteRirTrackAndId(float sim_time_sec, std::uint32_t cycle, const tracking::RirTrackState& track,
+/**
+ * @param[in] platform_ecef 平台 ECEF 位置（雷达局部 ENU 的绝对锚点；航迹位置
+ *            ECEF/LLA 换算用——评审 2026-08-26 条17：ENU 字段替换为 ECEF/LLA）。
+ */
+void WriteRirTrackAndId(float sim_time_sec, std::uint32_t cycle,
+                        const tracking::RirTrackState& track,
                         const session::RirRecognitionResult* result,
                         const session::RirFeatureMeasurementRecord* features,
                         const std::vector<session::RirPolarizationRcsSample>* polarization_samples,
                         bool has_truth, double category_accuracy,
-                        const std::vector<float>* imm_weights);
+                        const std::vector<float>* imm_weights,
+                        const oneq::coordinate::EcefPositionM& platform_ecef);
 
 void WriteRirSchedule(float sim_time_sec, std::uint32_t cycle, std::uint32_t planned,
                       std::uint32_t executed, float budget_sec, float consumed_sec,
-                      std::uint32_t search_count, std::uint32_t track_count,
-                      std::uint32_t ident_count);
+                      std::uint32_t search_count, std::uint32_t track_count);
 
 void WriteRirOncePerSession(float sim_time_sec, std::uint32_t cycle);
 void WriteRirCycleRunCount(float sim_time_sec, std::uint32_t cycle);

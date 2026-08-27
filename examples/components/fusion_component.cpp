@@ -32,9 +32,11 @@ oneq::coordinate::EcefPositionM ToEcef(
 
 }  // namespace
 
+// engine：调用方构造后移入；示例见 main 地面站 Attach（scene.config.fusion → FusionEngine）。
 FusionComponent::FusionComponent(std::unique_ptr<fusion::FusionEngine> engine)
     : engine_(std::move(engine)) {}
 
+// engine / evaluation / source_id：main 挂载前构造或取自 scene.config（见 sbirs_dual_sat_fix/main.cpp）。
 FusionComponent::FusionComponent(
     std::unique_ptr<fusion::FusionEngine> engine,
     std::unique_ptr<precision_evaluation::PrecisionEvaluationSession> evaluation,

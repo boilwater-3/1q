@@ -26,9 +26,9 @@
 
 namespace component_attachment {
 
-/** @brief 卫星实体写给地面站的本周期探测帧（示例内黑板；集成方对应消息推送）。 */
+/** @brief 卫星写给地面站的本周期探测帧（示例内黑板；集成方对应消息推送）。 */
 struct SbirsGroundStationFrame {
-  std::uint32_t source_id{0U}; /**< 融合源通道（主星 4、辅星 104） */
+  std::uint32_t source_id{0U}; /**< 融合源通道（每星互异） */
   sbirs_sensor::session::SbirsVector3M satellite_position_ecef_m{}; /**< 该星 ECEF 位置（m） */
   sbirs_sensor::session::SbirsCycleResult result{}; /**< 本周期探测帧 + 归属 */
 };
@@ -42,7 +42,7 @@ struct AppSceneState : SceneState {
   oneq::electromagnetics::RfSceneFrame rf_world{}; /**< 本周期 RF-WORLD（脚本源 + 上周期/同周期装备发射） */
   oneq::electromagnetics::RfEmissionFrame pending_equipment_emissions{}; /**< 本周期收集、下周期初注入 rf_world */
   std::vector<fusion::DetectionRecord> detection_pool{}; /**< 本周期各源适配探测记录黑板（传感器写、融合读；集成方对应把记录消息推给融合组件） */
-  std::vector<SbirsGroundStationFrame> sbirs_ground_station_inbox{}; /**< 双星探测帧收件箱：卫星实体写、地面站融合组件读 */
+  std::vector<SbirsGroundStationFrame> sbirs_ground_station_inbox{}; /**< 星群探测帧收件箱：各卫星写、地面站融合读 */
   sbirs_sensor::session::SbirsVector3M sbirs_satellite_position_ecef_m{}; /**< 天基平台（卫星）ECEF 位置 */
   sbirs_sensor::session::SbirsVector3M sbirs_satellite_velocity_ecef_m_per_s{}; /**< 天基平台（卫星）ECEF 速度（必填；演示合成静止卫星，缺省零向量合法） */
   sbirs_sensor::session::SbirsEulerAnglesDeg sbirs_satellite_attitude_eci_body_deg{}; /**< 天基平台（卫星）姿态（Z-Y-X，Body->ECI；必填，缺省零欧拉 = 体轴对齐 ECI） */

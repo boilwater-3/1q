@@ -1,6 +1,6 @@
 ---
 name: open-questions-doc-standard
-description: Use when creating, editing, auditing, or restructuring docs/common/open_questions.md — the 1Q repo registry of unresolved cross-module architecture questions. Trigger for "开放议题"、"open question"、"OQ 条目"、"open_questions.md 重构"、"已收敛条目迁移"、"议题索引表"、registering a Class D open question after a harden-1q-simulation-module review, or deciding whether a settled item must leave open_questions.md for contract.md/design.md. Enforces the frontmatter block, the status index table, the 5-field entry template (现状/后果/待决问题/当前边界/再进入条件), the evidence-at-file-level rule, and the "settled entries are deleted, not archived" lifecycle.
+description: Use when creating, editing, auditing, or restructuring docs/common/open_questions.md — the 1Q repo registry of unresolved cross-module architecture questions. Trigger for "开放议题"、"open question"、"OQ 条目"、"open_questions.md 重构"、"已收敛条目迁移"、"议题索引表"、registering a Class D open question (useful but unproven capability) after a review or audit, or deciding whether a settled item must leave open_questions.md for contract.md/design.md. Enforces the frontmatter block, the status index table, the 5-field entry template (现状/后果/待决问题/当前边界/再进入条件), the evidence-at-file-level rule, and the "settled entries are deleted, not archived" lifecycle.
 ---
 
 # Open Questions Doc Standard
@@ -8,9 +8,8 @@ description: Use when creating, editing, auditing, or restructuring docs/common/
 Define and enforce the structure of `docs/common/open_questions.md`. This file is the
 repo's only registry of unresolved, non-normative architecture observations — questions found
 during investigation that have **not** yet earned a place in `contract.md` (rules) or a module
-`design.md` (design). It is the parking lot for `harden-1q-simulation-module` Class D items
-("useful but unproven capability") and for cross-module design disagreements awaiting a Stage A
-trigger.
+`design.md` (design). It is the parking lot for Class D findings ("useful but unproven
+capability") and for cross-module design disagreements awaiting a Stage A trigger.
 
 The authority that scopes this file is `docs/common/contract.md` §文档结构: `common/open_questions.md`
 records "调查中发现但尚未定论的议题，不构成契约约束". This skill defines how such an entry is written,
@@ -22,7 +21,7 @@ indexed, and eventually retired.
   or counter-intuitive behavior that is not yet a defect worth fixing.
 - Restructuring or auditing `open_questions.md` (the file reads as a changelog, entries use
   inconsistent fields, settled items are still present).
-- Registering a `harden-1q-simulation-module` Class D item with evidence, current boundary, and a
+- Registering a Class D item (useful but unproven capability) with evidence, current boundary, and a
   measurable re-entry condition.
 - Deciding whether an entry has converged and must be migrated out (to `contract.md` or `design.md`).
 - Reviewing a PR that adds or edits an OQ entry — check it against the 5-field template and the
@@ -133,7 +132,7 @@ Field guidance:
   Phrased as a prohibition ("不得宣称…") or a hold ("保持现有…").
 - **再进入条件 (Stage A)** — the objective trigger that reopens the question. Tie it to a real
   event (second consumer hit, integration requirement, measurable failure), not to "when we have
-  time". This is the gate `harden-1q-simulation-module` step 8 asks for.
+  time". This is the re-entry gate the `evidence-first-freeze-contract` workflow requires.
 
 Keep each entry under roughly 15 lines. If an entry grows past that, it is carrying history
 (审查结论、迁移记录、与其他 OQ 关联) that belongs in `contract.md`/`design.md` or in git history,

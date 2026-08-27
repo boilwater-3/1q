@@ -67,6 +67,7 @@ struct BurnoutTrackerState {
  * @param[in,out] state 单航迹累计状态（调用方按航迹键持有）。
  * @param[in] position/velocity_ecef 本采样 ECEF 状态；t_sec 采样仿真时间。
  * @param[in] earth_mu_m3_per_s2 地球引力参数（m³/s²，配置单源；重力尺度 μ/r² 由此推导）。
+ * @param[in] velocity_sigma_m 速度观测 1-σ（m/s；0 = 调用方无协方差信息，不设防）。
  * @return 本采样后的相态。
  * @note 助推采样双通道（任一命中）：|Δv|/Δt > 2.5·μ/r²（推力远超重力，滤波噪声
  *       几 m/s 够不着），或 ε 逐拍上涨超 1e-4·μ/r（噪声尺度）且连续 ≥2 拍（防抖）。
@@ -77,17 +78,24 @@ struct BurnoutTrackerState {
  *       判窗口外。物理依据：无阻力滑行 dε/dt = 0。阈值与边界见
  *       algorithms.md「关机点判定」；相态为当拍最优证据结论，后续证据出现时按
  *       周期改判。
+ * @note 评审 2026-08-27 条3 速度 σ 护栏：velocity_sigma_m ≥ 5 m/s（kBurnout-
+ *       VelocitySigmaM，方法常数，依据：加速判别门 2.5g≈20 m/s² 在 1s 步长下
+ *       需速度噪声远低于此）时不推进任何状态、返回观测中——仅方位/弱可观测
+ *       航迹的速度欠估计收敛缓升与助推特征动力学不可分，判了必是假关机。
  */
 BurnoutPhase UpdateBurnoutTracker(BurnoutTrackerState& state,
                                   const oneq::coordinate::EcefPositionM& position,
                                   const std::array<double, 3U>& velocity_ecef_m_per_s,
-                                  double t_sec, double earth_mu_m3_per_s2);
+                                  double t_sec, double earth_mu_m3_per_s2,
+                                  double velocity_sigma_m = 0.0);
 
 /**
  * @brief 推演验收行写入。μ 与地球半径取引擎配置（TargetInferenceConfig 单源）。
+ * @note results 以非 const 传入：关机点确认分支把敏度传播得到的关机点 1-σ 回填
+ *       到 `TrajectoryPrediction::burnout_position_sigma_m`（评审 2026-08-26 条10）。
  */
 void WriteInferenceAcceptance(const std::vector<InferenceTrackState>& tracks,
-                              const std::vector<TargetInferenceResult>& results,
+                              std::vector<TargetInferenceResult>& results,
                               const TargetInferenceConfig& config);
 
 }  // namespace target_inference

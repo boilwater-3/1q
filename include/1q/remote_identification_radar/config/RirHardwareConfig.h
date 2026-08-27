@@ -101,9 +101,12 @@ struct ONEQ_API RirAntennaConfig {
   float nominal_el_beamwidth_deg{
       4.0f}; /**< 名义俯仰波束宽度；正值直接生效，0 表示从有效物理孔径推导。 */
   float antenna_length_m{
-      0.0f}; /**< 物理方位孔径尺寸；正值参与波束推导和 sinc² 模式，0 表示未配置。 */
+      1.2f}; /**< 物理方位孔径尺寸；正值参与波束推导和 sinc² 模式，0 表示未配置。
+                 默认 1.2 m：S 波段（3 GHz，λ≈0.1 m）均匀孔径对应半功率波束宽约
+                 0.886·λ/L≈4.2°，与名义波束宽度 4° 同量级（评审 2026-08-26 条14）。 */
   float antenna_width_m{
-      0.0f}; /**< 物理俯仰孔径尺寸；正值参与波束推导和 sinc² 模式，0 表示未配置。 */
+      1.2f}; /**< 物理俯仰孔径尺寸；正值参与波束推导和 sinc² 模式，0 表示未配置。
+                  默认 1.2 m（口径同 antenna_length_m）。 */
   RirAntennaPatternConfig pattern{};         /**< 方向图参数。 */
   bool enable_directional_pattern{false}; /**< 是否启用离轴方向图评估。 */
 };

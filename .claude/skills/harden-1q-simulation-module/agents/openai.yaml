@@ -1,4 +1,0 @@
-interface:
-  display_name: "1Q Simulation Module Hardening"
-  short_description: "Evidence-led module repair and contract closure"
-  default_prompt: "Use $harden-1q-simulation-module to audit and harden a 1Q simulation module from evidence through validated contract closure."

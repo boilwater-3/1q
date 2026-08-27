@@ -173,23 +173,55 @@ const char* SbirsExclusionCauseName(sbirs_sensor::session::SbirsIssueCause cause
   return "未知主因";
 }
 
+/// [0,1] 夹取（质量归一化用；与库内 SensorAdapters 同口径）。
+double Clamp01(double value) {
+  if (value < 0.0) {
+    return 0.0;
+  }
+  if (value > 1.0) {
+    return 1.0;
+  }
+  return value;
+}
+
+/// SBIRS 过门探测 → 示例融合探测样本（消息路径；字段同库内默认适配器）。
+FusionDetectionSample ToFusionDetectionSample(
+    const sbirs_sensor::output::SbirsDetectionRecord& record) {
+  FusionDetectionSample sample;
+  sample.key = 0U;
+  sample.source_id = fusion::kSbirsSourceId;
+  sample.has_bearing = true;
+  sample.bearing_az_deg = record.azimuth_rad * kRadToDeg;
+  sample.bearing_el_deg = record.elevation_rad * kRadToDeg;
+  sample.verdict = 1.0;
+  sample.quality = Clamp01(static_cast<double>(record.infrared_snr_linear) / 4.0);
+  return sample;
+}
+
 }  // namespace
 
-SbirsSensorComponent::SbirsSensorComponent(sbirs_sensor::session::SbirsSession session)
-    : session_(std::move(session)) {
+// session：调用方构造后移入；示例见 main 卫星 Attach（scene.config → SbirsSession::Create）。
+SbirsSensorComponent::SbirsSensorComponent(
+    sbirs_sensor::session::SbirsSession session,
+    DetectionDeliveryMode detection_delivery)
+    : session_(std::move(session)), detection_delivery_(detection_delivery) {
   // 探测生命周期事件由库内 recorder 承担（StepWithResult 内部自动喂）。
   session_.AttachDetectionLifecycleRecorder(&lifecycle_);
   // 排除原因跨周期差分事件由库内 recorder 承担（与 lifecycle recorder 独立并列）。
   session_.AttachExclusionCauseRecorder(&exclusion_);
 }
 
+// session / source_id / 星历姿态：main 挂载前从 scene.config 与 ephemeris 段组装后移入
+// （见 sbirs_dual_sat_fix_messages/main.cpp 卫星 Attach）。
 SbirsSensorComponent::SbirsSensorComponent(
     sbirs_sensor::session::SbirsSession session, std::uint32_t ground_station_source_id,
     sbirs_sensor::session::SbirsVector3M position_ecef_m,
     sbirs_sensor::session::SbirsVector3M velocity_ecef_m_per_s,
-    sbirs_sensor::session::SbirsEulerAnglesDeg attitude_eci_body_deg)
+    sbirs_sensor::session::SbirsEulerAnglesDeg attitude_eci_body_deg,
+    SbirsGroundDeliveryMode ground_delivery)
     : session_(std::move(session)),
       ground_station_source_id_(ground_station_source_id),
+      ground_delivery_(ground_delivery),
       use_own_satellite_pose_(true),
       own_position_ecef_m_(position_ecef_m),
       own_velocity_ecef_m_per_s_(velocity_ecef_m_per_s),
@@ -355,9 +387,9 @@ void SbirsSensorComponent::Step(World& world, double dt_sec) {
   PublishDetectionEvents(world, scene, result);  // 探测生命周期沿 → 信号+事件日志
   PublishExclusionEvents(world);                 // 排除原因变化沿 → 事件日志
   if (ground_station_source_id_ != 0U) {
-    PublishToGroundStation(scene, result);  // 探测帧 → 地面站收件箱
+    PublishToGroundStation(world, scene, result);
   } else {
-    AdaptDetections(scene, result);  // 探测记录 → 共享探测池
+    AdaptDetections(world, scene, result);
   }
 }
 
@@ -515,17 +547,57 @@ void SbirsSensorComponent::PublishExclusionEvents(World& world) {
 }
 
 void SbirsSensorComponent::AdaptDetections(
-    AppSceneState& scene, const sbirs_sensor::session::SbirsCycleResult& result) {
-  // 探测记录 → 泛型探测记录写共享探测池（融合组件聚合读；集成方对应把记录
-  // 消息推给融合组件）。
+    World& world, AppSceneState& scene,
+    const sbirs_sensor::session::SbirsCycleResult& result) {
   const auto& records = result.output_frame.detections;
+  if (detection_delivery_ == DetectionDeliveryMode::kMessage) {
+    // 消息路径：展平为基础类型后发 on_detection_batch_submitted（地面站融合
+    // 订阅重建库类型；集成方对应把样本推给融合组件的消息）。
+    DetectionBatchSubmittedEvent event;
+    event.cycle = scene.cycle;
+    event.source_id = fusion::kSbirsSourceId;
+    for (const auto& record : records) {
+      if (!record.detected) {
+        continue;
+      }
+      event.records.push_back(ToFusionDetectionSample(record));
+    }
+    world.signals().on_detection_batch_submitted(event);
+    return;
+  }
+  // 黑板路径：库内适配器 → 共享探测池（FusionComponent 聚合读；集成方对应
+  // 把记录消息推给融合组件）。
   const std::vector<fusion::DetectionRecord> adapted =
       fusion::AdaptSbirsDetectionsToDetectionRecords(fusion::kSbirsSourceId, records);
   scene.detection_pool.insert(scene.detection_pool.end(), adapted.begin(), adapted.end());
 }
 
 void SbirsSensorComponent::PublishToGroundStation(
-    AppSceneState& scene, const sbirs_sensor::session::SbirsCycleResult& result) {
+    World& world, AppSceneState& scene,
+    const sbirs_sensor::session::SbirsCycleResult& result) {
+  if (ground_delivery_ == SbirsGroundDeliveryMode::kMessage) {
+    SbirsFrameSubmittedEvent event;
+    event.cycle = scene.cycle;
+    event.source_id = ground_station_source_id_;
+    event.satellite_ecef_x_m = own_position_ecef_m_.x;
+    event.satellite_ecef_y_m = own_position_ecef_m_.y;
+    event.satellite_ecef_z_m = own_position_ecef_m_.z;
+    for (const auto& record : result.output_frame.detections) {
+      if (!record.detected) {
+        continue;
+      }
+      SbirsBearingSample sample;
+      sample.detection_id = record.detection_id;
+      sample.target_id =
+          AttributionTargetId(record.detection_id, result.detection_attributions);
+      sample.azimuth_rad = record.azimuth_rad;
+      sample.elevation_rad = record.elevation_rad;
+      sample.infrared_snr_linear = record.infrared_snr_linear;
+      event.detections.push_back(sample);
+    }
+    world.signals().on_sbirs_frame_submitted(event);
+    return;
+  }
   SbirsGroundStationFrame frame;
   frame.source_id = ground_station_source_id_;
   frame.satellite_position_ecef_m = own_position_ecef_m_;

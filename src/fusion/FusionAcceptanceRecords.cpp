@@ -60,6 +60,11 @@ std::map<std::pair<std::uint64_t, std::uint32_t>, RelaySight>& RelaySights() {
   return values;
 }
 
+// 源句柄统一输出「实体<source_id>」（与融合通道 source_id 一致）。
+std::string SourceLabel(std::uint32_t source_id) {
+  return "实体" + std::to_string(source_id);
+}
+
 std::string ChannelNames(const FusedTarget& track) {
   std::set<std::uint32_t> ids;
   for (const ChannelMeasurement& channel : track.channels) {
@@ -70,7 +75,7 @@ std::string ChannelNames(const FusedTarget& track) {
     if (!text.empty()) {
       text += "+";
     }
-    text += "源" + std::to_string(id);
+    text += SourceLabel(id);
   }
   return text.empty() ? std::string("无") : text;
 }
@@ -250,13 +255,14 @@ void WriteFusionAcceptance(std::uint32_t cycle, const std::vector<FusedTarget>& 
     }
 
     if (exit_source != 0U) {
-      relay += " 剩余覆盖时间=" + FormatF(min_remaining_sec, 1) + "s(源" +
-               std::to_string(exit_source) + ")";
-      relay += " 接力计划=源" + std::to_string(exit_source) + "预计" +
+      relay += " 剩余覆盖时间=" + FormatF(min_remaining_sec, 1) + "s(" +
+               SourceLabel(exit_source) + ")";
+      relay += " 接力计划=" + SourceLabel(exit_source) + "预计" +
                FormatF(min_remaining_sec, 1) + "s离开视场";
       if (takeover_source != 0U) {
-        relay += " 交接指令=源" + std::to_string(exit_source) + "→源" +
-                 std::to_string(takeover_source) + "@T+" + FormatF(min_remaining_sec, 1) + "s";
+        relay += " 交接指令=" + SourceLabel(exit_source) + "(剩余" +
+                 FormatF(min_remaining_sec, 1) + "s离场)→" +
+                 SourceLabel(takeover_source) + "接管";
       } else {
         relay += " 交接指令=无";
       }
@@ -278,17 +284,40 @@ void WriteFusionAcceptance(std::uint32_t cycle, const std::vector<FusedTarget>& 
       ukf += " 速度m/s=" + FormatVec3(vel[0], vel[1], vel[2], 3);
       ukf += " 加速度m/s²=" + FormatVec3(ax, ay, az, 3);
       ukf += " 协方差迹=" + FormatF(CovarianceTrace6(track.kinematic_estimate.covariance_ecef), 2);
-      ukf += " 位置估计误差=无";
       ukf += " 完整协方差=" + FormatCov6x6(track.kinematic_estimate.covariance_ecef);
       FUSION_ACCEPTANCE_ITEM(sim_time, cycle, "UKF滤波", ukf);
     }
   }
 
-  std::string collab = "参与通道=" + ChannelNames(tracks.front());
-  collab += " 通道数=" + std::to_string(tracks.front().channels.size());
-  collab += " 融合置信度=" + FormatF(tracks.front().confidence, 3);
-  collab += " 融合目标数=" + std::to_string(tracks.size());
-  FUSION_ACCEPTANCE_ITEM(sim_time, cycle, "协同探测信息融合", collab);
+  // 评审 2026-08-26 条5 + 2026-08-27 条1：协同融合信息逐目标一行（原单行只取首
+  // 航迹，句柄整场恒定、无法区分目标）；删除滑窗字样，行内列出融合定位 LLA 与
+  // 各源测向信息（方位/俯仰为该源最近一拍视线角）。
+  for (const FusedTarget& track : tracks) {
+    std::string collab = "目标键=" + std::to_string(track.key);
+    collab += " 参与通道=" + ChannelNames(track);
+    if (track.has_kinematic_estimate) {
+      collab += " 定位LLA=(" + FormatF(track.kinematic_estimate.position.latitude_deg, 6) +
+                "," + FormatF(track.kinematic_estimate.position.longitude_deg, 6) + "," +
+                FormatF(track.kinematic_estimate.position.altitude_m, 1) + ")";
+    } else {
+      collab += " 定位LLA=暂无(滤波未起始)";
+    }
+    std::string bearings;
+    for (const ChannelMeasurement& channel : track.channels) {
+      if (!channel.has_bearing) {
+        continue;
+      }
+      if (!bearings.empty()) {
+        bearings += ";";
+      }
+      bearings += SourceLabel(channel.source_id) + "(方位" +
+                  FormatF(channel.bearing_az_deg, 3) + "°/俯仰" +
+                  FormatF(channel.bearing_el_deg, 3) + "°)";
+    }
+    collab += bearings.empty() ? " 测向信息=无方位量测" : " 测向信息=[" + bearings + "]";
+    collab += " 融合目标数=" + std::to_string(tracks.size());
+    FUSION_ACCEPTANCE_ITEM(sim_time, cycle, "协同探测信息融合", collab);
+  }
 }
 
 }  // namespace fusion

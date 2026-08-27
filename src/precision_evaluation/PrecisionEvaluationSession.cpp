@@ -133,6 +133,7 @@ struct PrecisionEvaluationSession::Impl {
 
   std::vector<double> angular_series;   // hypot(az_err, el_err)，deg
   std::vector<double> dual_sat_series;  // 交会位置误差，m
+  std::vector<double> slant_range_series;  // 交会解斜距误差（|主星−交会|−|主星−真值|），m
   std::vector<double> velocity_series;  // 速度矢量误差模长，m/s
   std::vector<double> impact_series;    // 落点误差，m
   std::vector<double> launch_series;    // 发射点误差，m
@@ -301,8 +302,14 @@ PrecisionEvaluationCycleResult PrecisionEvaluationSession::Step(
     sample.cycle_index = cycle_index;
     sample.position_error_m = DistanceM(fix_position, truth_entry->second->position_ecef_m);
     sample.los_residual_m = residual_m;
+    // 评审 2026-08-26 条13：与目标的距离误差（斜距）——交会解到主星距离 vs 真值到
+    // 主星距离之差（SBIRS 无源测角无真实测距，此为交会解可得的真实口径）。
+    sample.slant_range_error_m =
+        DistanceM(ephemeris.satellite_a_position_ecef_m, fix_position) -
+        DistanceM(ephemeris.satellite_a_position_ecef_m, truth_entry->second->position_ecef_m);
     cycle_result.dual_sat.push_back(sample);
     impl_->dual_sat_series.push_back(sample.position_error_m);
+    impl_->slant_range_series.push_back(sample.slant_range_error_m);
     if (PRECISION_EVAL_LOG_ENABLED()) {
       oneq::coordinate::LlaPositionDegM origin;
       oneq::coordinate::EnuPositionM est_enu;
@@ -344,6 +351,15 @@ PrecisionEvaluationCycleResult PrecisionEvaluationSession::Step(
     sample.position_error_m = DistanceM(estimated_position, truth->position_ecef_m);
     cycle_result.velocity.push_back(sample);
     impl_->velocity_series.push_back(sample.velocity_error_m_per_s);
+    if (PRECISION_EVAL_LOG_ENABLED()) {
+      // 评审 2026-08-26 条6：UKF 位置估计误差落精度层（真值对照只在评估层合法；
+      // 融合层 UKF 行已按「没有对照就不输出」删除该字段）。
+      PRECISION_EVAL_ITEM(
+          0.0f, cycle_index, "关键精度指标",
+          "目标键=" + std::to_string(sample.key) + " 航迹位置误差=" +
+              std::to_string(sample.position_error_m) + "m 速度误差=" +
+              std::to_string(sample.velocity_error_m_per_s) + "m/s");
+    }
   }
 
   // ⑤ 按间隔以估计状态与真值状态分别推演 → 落点/发射点预测误差。
@@ -358,12 +374,15 @@ PrecisionEvaluationCycleResult PrecisionEvaluationSession::Step(
       }
       target_inference::InferenceTrackState truth_state;
       truth_state.key = truth_entry.first;
+      truth_state.sim_time_sec =
+          static_cast<double>(cycle_index) * static_cast<double>(dt_sec);
+      truth_state.input_cycle_index = cycle_index;
       truth_state.position = truth_entry.second->position_ecef_m;
       truth_state.velocity_ecef_m_per_s = {{truth_entry.second->velocity_ecef_m_per_s.x_mps,
                                             truth_entry.second->velocity_ecef_m_per_s.y_mps,
                                             truth_entry.second->velocity_ecef_m_per_s.z_mps}};
       const std::vector<target_inference::TargetInferenceResult> truth_results =
-          impl_->inference_engine.Infer({truth_state});
+          impl_->inference_engine.Infer({truth_state}, false);
       if (!truth_results.empty()) {
         const target_inference::TrajectoryPrediction& trajectory = truth_results.front().trajectory;
         // 关键点 LLA→ECEF 失败视为无关键点（与其余分支的守卫口径一致）。
@@ -384,6 +403,10 @@ PrecisionEvaluationCycleResult PrecisionEvaluationSession::Step(
       }
       target_inference::InferenceTrackState state;
       state.key = track_entry.first;
+      // 行前缀与关机状态机的时间基准：不填则验收行恒 周期=0/时间=0，且关机
+      // 状态机 dt=0（加速度通道失效）——评审验证时发现的缺陷，随条9/10 一并修。
+      state.sim_time_sec = static_cast<double>(cycle_index) * static_cast<double>(dt_sec);
+      state.input_cycle_index = cycle_index;
       oneq::coordinate::EcefPositionM estimated_position;
       if (!TryLlaToEcefPosition(track_entry.second->kinematic_estimate.position, &estimated_position)) {
         continue;
@@ -429,6 +452,18 @@ PrecisionEvaluationCycleResult PrecisionEvaluationSession::Step(
             impl_->launch_series.push_back(sample.launch_error_m);
           }
         }
+        // 评审 2026-08-26 条12：落点预报外发样本（有落点解的估计航迹，装配层据此
+        // 发布事件；真值对照推演已抑制验收写出，不产生外发样本）。
+        if (trajectory.has_impact) {
+          ImpactForecastSample forecast;
+          forecast.key = estimate_result.key;
+          forecast.cycle_index = cycle_index;
+          forecast.impact_point = trajectory.impact_point;
+          forecast.impact_position_sigma_m = trajectory.impact_position_sigma_m;
+          forecast.has_burnout_sigma = trajectory.has_burnout_sigma;
+          forecast.burnout_position_sigma_m = trajectory.burnout_position_sigma_m;
+          cycle_result.forecasts.push_back(forecast);
+        }
       }
     }
   }
@@ -471,7 +506,8 @@ PrecisionEvaluationReport PrecisionEvaluationSession::Summarize() const {
   ComposePrecisionScore(ahp.weights, rmse, references, &report);
   if (PRECISION_EVAL_LOG_ENABLED()) {
     WritePrecisionKeyMetrics(report, impl_->east_err_series, impl_->north_err_series,
-                             impl_->up_err_series, impl_->az_err_series, impl_->el_err_series);
+                             impl_->up_err_series, impl_->az_err_series, impl_->el_err_series,
+                             impl_->slant_range_series);
     WritePrecisionAhp(report);
   }
   return report;
