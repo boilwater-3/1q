@@ -310,6 +310,20 @@ void WriteSbirsAngleError(const void* instance_key, float sim_time_sec, std::uin
   SBIRS_ACCEPTANCE_ITEM(sim_time_sec, cycle, "红外系统测角误差", perf);
 }
 
+void WriteSbirsAngleStateEstimate(float sim_time_sec, std::uint32_t cycle, std::uint64_t target_id,
+                                  double azimuth_deg, double elevation_deg,
+                                  double azimuth_rate_deg_per_s, double elevation_rate_deg_per_s) {
+  if (!SBIRS_ACCEPTANCE_LOG_ENABLED()) {
+    return;
+  }
+  std::string content = "目标ID=" + std::to_string(target_id);
+  content += " 滤波方位=" + FormatF(azimuth_deg, 6) + "°";
+  content += " 滤波俯仰=" + FormatF(elevation_deg, 6) + "°";
+  content += " 方位变化率=" + FormatF(azimuth_rate_deg_per_s, 8) + "°/s";
+  content += " 俯仰变化率=" + FormatF(elevation_rate_deg_per_s, 8) + "°/s";
+  SBIRS_ACCEPTANCE_ITEM(sim_time_sec, cycle, "目标角度状态估计", content);
+}
+
 void WriteSbirsLifecycleEvents(float sim_time_sec, std::uint32_t cycle,
                                const std::vector<session::SbirsDetectionLifecycleEvent>& events,
                                const session::SbirsCycleInput& input) {

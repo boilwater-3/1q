@@ -76,6 +76,9 @@ class GroundStationFusionComponent : public Component {
     return last_evaluation_;
   }
 
+  /** @brief 本周期已收卫星帧（World::Step 之后、下次 BeginCycle 之前有效）。 */
+  const std::vector<SbirsFrameSubmittedEvent>& last_sbirs_frames() const { return sbirs_inbox_; }
+
   precision_evaluation::PrecisionEvaluationReport SummarizeEvaluation() const;
 
  private:

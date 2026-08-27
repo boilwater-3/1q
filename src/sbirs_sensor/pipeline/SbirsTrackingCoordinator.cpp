@@ -21,11 +21,34 @@ float ComputeNormalizedInnovationSquared(const tracking::SbirsKalmanUpdateResult
   return update_result.innovation.dot(solved);
 }
 
+float ComputeNormalizedInnovationSquared(const tracking::SbirsAngleCvUpdateResult& update_result) {
+  const Eigen::LLT<tracking::SbirsMeasurementCovariance> llt(update_result.innovation_covariance);
+  if (llt.info() != Eigen::Success) {
+    return std::numeric_limits<float>::infinity();
+  }
+  const tracking::SbirsMeasurementVector solved = llt.solve(update_result.innovation);
+  return update_result.innovation.dot(solved);
+}
+
 }  // namespace
 
 void SbirsTrackingCoordinator::InitializeTarget(std::uint64_t target_id,
                                                 const SbirsEciSceneTarget& target,
-                                                const config::SbirsTrackingConfig& tracking) {
+                                                const config::SbirsTrackingConfig& tracking,
+                                                float measured_azimuth_deg,
+                                                float measured_elevation_deg) {
+  nis_gate_exceeded_counts_[target_id] = 0U;
+  if (tracking.estimated_backend == config::SbirsEstimatedTrackingBackend::kAngleCvKf) {
+    const float azimuth_rad = oneq::common::numerics::DegToRad(measured_azimuth_deg);
+    const float elevation_rad = oneq::common::numerics::DegToRad(measured_elevation_deg);
+    angle_kf_states_[target_id] = tracking::MakeInitialAngleCvState(azimuth_rad, elevation_rad);
+    filter_states_.erase(target_id);
+    imm_snapshots_.erase(target_id);
+    imm_filters_by_target_.erase(target_id);
+    (void)target;
+    return;
+  }
+
   tracking::SbirsGaussianState initial_state;
   initial_state.mean(0) = static_cast<float>(target.position_eci_m.x);
   initial_state.mean(2) = static_cast<float>(target.position_eci_m.y);
@@ -46,7 +69,7 @@ void SbirsTrackingCoordinator::InitializeTarget(std::uint64_t target_id,
   initial_state.covariance(4, 4) = pos_var;
   initial_state.covariance(5, 5) = vel_var;
   filter_states_[target_id] = initial_state;
-  nis_gate_exceeded_counts_[target_id] = 0U;
+  angle_kf_states_.erase(target_id);
   if (tracking.estimated_backend != config::SbirsEstimatedTrackingBackend::kImm) {
     return;
   }
@@ -70,6 +93,18 @@ SbirsTrackingUpdateResult SbirsTrackingCoordinator::Update(
 SbirsTrackingPredictionResult SbirsTrackingCoordinator::PredictTarget(
     std::uint64_t target_id, const config::SbirsPolicyConfig& policy, float dt_sec,
     const session::SbirsVector3M& satellite_position_eci_m) {
+  if (policy.tracking.estimated_backend == config::SbirsEstimatedTrackingBackend::kAngleCvKf) {
+    auto state_it = angle_kf_states_.find(target_id);
+    if (state_it == angle_kf_states_.end()) {
+      return SbirsTrackingPredictionResult{};
+    }
+    ::oneq::common::estimation::KalmanPredictorConfig predictor_config;
+    predictor_config.noise_diff_coeff = policy.tracking.process_noise_diff_coeff;
+    const tracking::SbirsAngleCvPredictor predictor(predictor_config);
+    state_it->second = predictor.Predict(state_it->second, dt_sec);
+    return BuildAnglePredictionResult(state_it->second);
+  }
+
   tracking::SbirsGaussianState predicted;
   if (policy.tracking.estimated_backend == config::SbirsEstimatedTrackingBackend::kImm) {
     if (!imm_initialized_) {
@@ -117,6 +152,32 @@ SbirsTrackingUpdateResult SbirsTrackingCoordinator::CorrectTarget(
                                            relative_angular_rate_deg_per_sec);
 
   tracking::SbirsGaussianState combined;
+  if (policy.tracking.estimated_backend == config::SbirsEstimatedTrackingBackend::kAngleCvKf) {
+    auto state_it = angle_kf_states_.find(target_id);
+    if (state_it == angle_kf_states_.end()) {
+      return result;
+    }
+    const tracking::SbirsAngleCvUpdater updater;
+    const tracking::SbirsAngleCvUpdateResult update_result =
+        updater.Update(state_it->second, measurement_rad, measurement_covariance);
+    state_it->second = update_result.posterior;
+    result.has_estimation_nis = true;
+    result.estimation_nis = ComputeNormalizedInnovationSquared(update_result);
+    result.estimation_nis_gate_exceeded = result.estimation_nis > kSbirsNisChiSquare2Dof95;
+    if (policy.tracking.nis_gate_loss_cycles > 0U && result.estimation_nis_gate_exceeded) {
+      const unsigned int exceeded_count = ++nis_gate_exceeded_counts_[target_id];
+      result.lost_due_to_estimation_nis = exceeded_count >= policy.tracking.nis_gate_loss_cycles;
+    } else {
+      nis_gate_exceeded_counts_[target_id] = 0U;
+    }
+    const SbirsTrackingPredictionResult angles = BuildAnglePredictionResult(state_it->second);
+    result.output_azimuth_deg = angles.output_azimuth_deg;
+    result.output_elevation_deg = angles.output_elevation_deg;
+    result.has_angle_rate = true;
+    result.azimuth_rate_rad_per_s = state_it->second.mean(1);
+    result.elevation_rate_rad_per_s = state_it->second.mean(3);
+    return result;
+  }
   if (policy.tracking.estimated_backend == config::SbirsEstimatedTrackingBackend::kImm) {
     auto filter_it = imm_filters_by_target_.find(target_id);
     for (auto& measurement_model : imm_measurement_models_) {
@@ -182,8 +243,17 @@ SbirsTrackingPredictionResult SbirsTrackingCoordinator::BuildPredictionResult(
   return result;
 }
 
+SbirsTrackingPredictionResult SbirsTrackingCoordinator::BuildAnglePredictionResult(
+    const tracking::SbirsAngleCvGaussianState& state) {
+  SbirsTrackingPredictionResult result;
+  result.output_azimuth_deg = oneq::common::numerics::RadToDeg(state.mean(0));
+  result.output_elevation_deg = oneq::common::numerics::RadToDeg(state.mean(2));
+  return result;
+}
+
 void SbirsTrackingCoordinator::ReleaseTarget(std::uint64_t target_id) {
   filter_states_.erase(target_id);
+  angle_kf_states_.erase(target_id);
   nis_gate_exceeded_counts_.erase(target_id);
   imm_filters_by_target_.erase(target_id);
   imm_snapshots_.erase(target_id);
@@ -197,6 +267,7 @@ void SbirsTrackingCoordinator::ResetNisGateCounts() {
 
 void SbirsTrackingCoordinator::ClearForStandby() {
   filter_states_.clear();
+  angle_kf_states_.clear();
   nis_gate_exceeded_counts_.clear();
   imm_filters_by_target_.clear();
   imm_snapshots_.clear();
@@ -206,6 +277,7 @@ void SbirsTrackingCoordinator::ClearForStandby() {
 SbirsTrackingRuntimeState SbirsTrackingCoordinator::CaptureRuntimeState() const {
   SbirsTrackingRuntimeState state;
   state.filter_states = filter_states_;
+  state.angle_kf_states = angle_kf_states_;
   state.nis_gate_exceeded_counts = nis_gate_exceeded_counts_;
   state.imm_active = imm_initialized_;
   state.imm_snapshots = imm_snapshots_;
@@ -221,6 +293,7 @@ SbirsTrackingRuntimeState SbirsTrackingCoordinator::CaptureRuntimeState() const 
 
 void SbirsTrackingCoordinator::RestoreRuntimeState(const SbirsTrackingRuntimeState& state) {
   filter_states_ = state.filter_states;
+  angle_kf_states_ = state.angle_kf_states;
   nis_gate_exceeded_counts_ = state.nis_gate_exceeded_counts;
   imm_filters_by_target_.clear();
   imm_snapshots_ = state.imm_snapshots;

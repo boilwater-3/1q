@@ -1,6 +1,6 @@
 ---
 Status: active
-Last-reviewed: 2026-08-21
+Last-reviewed: 2026-08-27
 Authority: sbirs_sensor 算法登记与实现边界
 Answers: SBIRS 用了哪些算法、各自实现到什么地步、边界在哪、哪些刻意不实现
 ---
@@ -22,6 +22,7 @@ Answers: SBIRS 用了哪些算法、各自实现到什么地步、边界在哪�
 | NFOV 持续跟踪 | 捕获后闭环 ATP + 几何/SNR 门 + 滤波/真值驱动 | 生产可用 | [evidence: tests/unit/sbirs_sensor/sbirs_pipeline_test] |
 | EKF 滤波跟踪 | 6 维 CV 状态 / 2 维角度量测的扩展卡尔曼滤波 | 生产可用 | [evidence: tests/unit/sbirs_sensor/sbirs_ekf_baseline_test] |
 | IMM(EKF) 滤波 | 多模型交互，全场景 RMSE 改善 28-55% | 生产可用 | [evidence: tests/unit/sbirs_sensor/sbirs_imm_evaluation_test] |
+| 角度域线性 KF（实验） | 4 维 [az, ω_az, el, ω_el] 标准卡尔曼滤波；opt-in，默认不启用 | 实验接线 | [evidence: tests/unit/sbirs_sensor/sbirs_angle_cv_kf_test] |
 | Cue 预测 | 角度域两点 CV 提前量补偿 cue 延迟 | 生产可用 | [evidence: tests/unit/sbirs_sensor/sbirs_cue_predictor_test] |
 | NFOV 资源调度 | 多通道并发锁定，按 SNR/距离/target_id 排序 | 生产可用 | [evidence: tests/unit/sbirs_sensor/sbirs_scheduler_test] |
 | 地球遮挡门控 | 有限线段射线-地球球体判别穿地视线 | 生产可用 | [evidence: tests/unit/sbirs_sensor/sbirs_foundation_test] |
@@ -287,12 +288,13 @@ Answers: SBIRS 用了哪些算法、各自实现到什么地步、边界在哪�
 
 ## 滤波后端选型
 
-当前接线 EKF 和 IMM(EKF) 两个生产后端，由 `estimated_backend` 选择。顶层模式与估计后端是两个正交枚举。
+当前接线 EKF、IMM(EKF) 与实验性角度域线性 KF 三个后端，由 `estimated_backend` 选择。顶层模式与估计后端是两个正交枚举。
 
 | 后端 | 生产状态 | 当前阻塞 | 重新进入门 |
 |------|:---:|------|------|
 | EKF | live | — | 当前默认 |
 | IMM(EKF) | live | — | 显式配置；全场景 RMSE 改善 28-55% |
+| AngleCvKf | experimental | 公开检测记录不含变化率；单星角度不估三维 | 显式 `kAngleCvKf`；用例 16 角度+变化率状态 |
 | SRIF | evaluation only | 线性 H helper 对 6D/2D 量测不兼容 | 先支持非线性量测，再证明 covariance/LLT 可复现失稳 |
 | UDKF | evaluation only | 绑定线性 H；UD 分解不解决非线性量测 | 先提供 6D/2D 非线性接口和优于 EKF 的证据 |
 | CKF | evaluation only | 仓库没有实现 | 提供 Jacobian 近似误差超门的场景矩阵和独立实现验证 |
@@ -303,6 +305,19 @@ Answers: SBIRS 用了哪些算法、各自实现到什么地步、边界在哪�
   3. **可解释性**：工程评审需能追溯到具体后端与参数。
 
 [evidence: tests/unit/sbirs_sensor/sbirs_imm_evaluation_test]
+[evidence: tests/unit/sbirs_sensor/sbirs_angle_cv_kf_test]
+
+### 角度域线性标准 KF（实验，`kAngleCvKf`）
+
+- **意图**：对连续方位/俯仰点迹做线性标准卡尔曼滤波，估计视线角及其变化率（用例 16）。
+- **实现边界**：
+  1. 状态 `[az, ω_az, el, ω_el]`（弧度）；量测线性提取 `[az, el]`；方位新息最短弧。
+  2. 默认仍为 EKF；仅显式配置 `estimated_backend=kAngleCvKf` 时进入。
+  3. 初始化只用当前角度点迹，变化率置 0；禁止场景真值三维位置/速度写入均值。
+  4. 选中时 NFOV 命令与 Estimated 输出 az/el 直接取滤波角，不经三维 LOS。
+  5. 公开 `SbirsDetectionRecord` 仍只报滤波后 az/el，不报变化率。
+- **反直觉点**：这不是把现有 6 维 ECI EKF 换成另一种非线性滤波器；状态空间停在角度，因为单星被动红外用线性 KF 不能唯一确定三维。
+- **证据**：[evidence: tests/unit/sbirs_sensor/sbirs_angle_cv_kf_test]
 
 ## NFOV 资源调度
 

@@ -178,7 +178,8 @@ else()
 endif()
 
 foreach(_scene IN LISTS _oneq_selected_scenes)
-    if(_scene STREQUAL "sbirs_dual_sat_fix" OR _scene STREQUAL "sbirs_dual_sat_fix_messages")
+    if(_scene STREQUAL "sbirs_dual_sat_fix" OR _scene STREQUAL "sbirs_dual_sat_fix_messages"
+        OR _scene STREQUAL "sbirs_geo_triple_angle_kf")
         continue()  # 精度评估场景走下方接线（链 examples_core，地面站融合组件）
     endif()
     add_executable(${_scene} scenes/${_scene}/main.cpp)
@@ -209,6 +210,16 @@ if(sbirs_dual_sat_fix_messages IN_LIST _oneq_selected_scenes)
         PE_DEFAULT_OUTPUT_DIR="${CMAKE_SOURCE_DIR}/examples/log"
         PE_ACCEPTANCE_LOG_ENABLED=$<BOOL:${ONEQ_ENABLE_PRECISION_EVALUATION_LOG}>)
     list(APPEND _oneq_example_targets sbirs_dual_sat_fix_messages)
+endif()
+
+if(sbirs_geo_triple_angle_kf IN_LIST _oneq_selected_scenes)
+    add_executable(sbirs_geo_triple_angle_kf scenes/sbirs_geo_triple_angle_kf/main.cpp)
+    target_link_libraries(sbirs_geo_triple_angle_kf PRIVATE examples_core)
+    target_compile_definitions(sbirs_geo_triple_angle_kf PRIVATE
+        ONEQ_SCENE_JSON="${CMAKE_CURRENT_SOURCE_DIR}/scenes/sbirs_geo_triple_angle_kf/sbirs_geo_triple_angle_kf.json"
+        PE_DEFAULT_OUTPUT_DIR="${CMAKE_SOURCE_DIR}/examples/log"
+        PE_ACCEPTANCE_LOG_ENABLED=$<BOOL:${ONEQ_ENABLE_PRECISION_EVALUATION_LOG}>)
+    list(APPEND _oneq_example_targets sbirs_geo_triple_angle_kf)
 endif()
 
 add_executable(precision_evaluation_demo scenes/sbirs_dual_sat_fix/main.cpp)

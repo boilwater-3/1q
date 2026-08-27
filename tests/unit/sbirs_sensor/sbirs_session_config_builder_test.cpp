@@ -118,6 +118,14 @@ TEST(SbirsSessionConfigValidationTest, PointingDefaultsAreProductionValues) {
   EXPECT_FLOAT_EQ(disturbance.channel_vibration_amplitude_deg, 0.0f);
 }
 
+TEST(SbirsSessionConfigValidationTest, AcceptsAngleCvKfBackend) {
+  sbirs_sensor::config::SbirsSessionConfig config;
+  config.policy.tracking.estimated_backend =
+      sbirs_sensor::config::SbirsEstimatedTrackingBackend::kAngleCvKf;
+  EXPECT_FALSE(ContainsCode(sbirs_sensor::config::ValidateSbirsSessionConfig(config),
+                            "sbirs.validation.invalid_estimated_tracking_backend"));
+}
+
 TEST(SbirsSessionConfigValidationTest, RejectsUnknownTrackingEnums) {
   sbirs_sensor::config::SbirsSessionConfig config;
   config.policy.tracking.tracking_mode =

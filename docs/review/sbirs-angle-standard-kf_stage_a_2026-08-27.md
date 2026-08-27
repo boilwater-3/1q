@@ -1,5 +1,5 @@
 ---
-Status: frozen
+Status: final
 Date: 2026-08-27
 Review-Baseline: `evidence/sbirs-angle-standard-kf` @ `6a2dae95`
 Authority: 非规范性记录；结论以 docs/common/contract.md、docs/common/session_contract.md
@@ -185,12 +185,27 @@ Non-goals:
 
 1、修订 1（2026-08-27）：脚本初始化骨架；填入 F1–F7 建议判定。来源：用户下达用例 16，并确认在 `evidence/sbirs-angle-standard-kf` 上继续 Stage A。
 2、修订 2（2026-08-27）：用户裁定 F1–F7 采纳、接入 coordinator、禁止真值三维初始化、本轮不写公开变化率；冻结 §3。
+3、修订 3（2026-08-27）：Stage B 接线完成；§4 填入验证结果；权威结论已回写 `algorithms.md`。
 
-## §4 运行记录（Stage C 后填写）
+## §4 运行记录
 
-<!-- 1、实现范围。
-2、验证命令与结果。
-3、权威回写去向：哪个结论写进了哪个文件。
-4、残留风险。
-5、后续冻结项。
--->
+1、实现范围：
+   1. `src/sbirs_sensor/tracking/SbirsAngleCvKalman.h`：4 维角度 CV 线性预测/更新（Joseph P，方位最短弧）。
+   2. `SbirsTrackingCoordinator` / `SbirsPipeline`：opt-in `kAngleCvKf` 分支与 snapshot 表；初始化只用测量角。
+   3. 枚举 / JSON / 校验 / replay 识别 `kAngleCvKf`；默认仍 `kEkf`。
+   4. 单测 `sbirs_angle_cv_kf_test.cpp`；场景 JSON 未改。
+- **证据**：[evidence: src/sbirs_sensor/tracking/SbirsAngleCvKalman.h]
+- **证据**：[evidence: tests/unit/sbirs_sensor/sbirs_angle_cv_kf_test.cpp]
+2、验证命令与结果：
+   1. `scripts/1q.sh build VisualStudio.15.0-amd64-release --target 1q_sbirs_sensor_unit_tests`：pass
+   2. `scripts/1q.sh test VisualStudio.15.0-amd64-release -R "unit::sbirs_sensor"`：pass
+   3. `SbirsAngleCvKfTest.*` 6 项：pass（预测、更新、过零、RMSE+ω、禁止真值三维 init、pipeline opt-in）
+   4. `scripts/1q.sh test VisualStudio.15.0-amd64-release -R "replay::sbirs_sensor"`：pass
+3、权威回写去向：实验后端登记、选型表、实现边界写入 `docs/sbirs_sensor/algorithms.md`；本文件只记本次运行。
+- **证据**：[evidence: docs/sbirs_sensor/algorithms.md]
+4、残留风险：
+   1. 变化率仍不在公开 `SbirsDetectionRecord`（F4）。
+   2. 长弧机动时 4 维 CV 会 NIS 升高，与现有 NIS 丢锁语义兼容，未做场景 RMSE 对比（契约本轮不做）。
+5、后续冻结项：
+   1. 若合同要求公开角速度字段，另开 Stage A，禁止静默扩 raw output。
+   2. 若要用该后端做场景验收，另证 GEO 点迹 RMSE，不改默认 `kEkf`。

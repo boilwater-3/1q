@@ -84,7 +84,8 @@ enum class ONEQ_API SbirsTrackingMode {
 /** @brief Estimated 跟踪模式采用的生产估计后端。 */
 enum class ONEQ_API SbirsEstimatedTrackingBackend {
   kEkf = 0, /**< 单 EKF 后端 */
-  kImm      /**< IMM(EKF) 后端 */
+  kImm,     /**< IMM(EKF) 后端 */
+  kAngleCvKf /**< 实验：4 维角度 CV 线性标准 KF；非默认 */
 };
 
 /**
@@ -95,7 +96,7 @@ enum class ONEQ_API SbirsEstimatedTrackingBackend {
 struct ONEQ_API SbirsTrackingConfig {
   SbirsTrackingMode tracking_mode{SbirsTrackingMode::kEstimated};
   SbirsEstimatedTrackingBackend estimated_backend{SbirsEstimatedTrackingBackend::kEkf};
-  float process_noise_diff_coeff{1.0f};        /**< 过程噪声扩散系数 q（CV 模型加速度白噪声强度） */
+  float process_noise_diff_coeff{1.0f}; /**< 过程噪声扩散系数 q。EKF/IMM：CV 加速度白噪声（m²/s³）；kAngleCvKf：视线角加速度白噪声（rad²/s³） */
   float initial_position_std_m{1000.0f};       /**< 初始位置 1-σ（米），构造 P0 位置对角元 */
   float initial_velocity_std_m_per_s{100.0f};  /**< 初始速度 1-σ（m/s），构造 P0 速度对角元 */
   unsigned int nis_gate_loss_cycles{0U}; /**< 连续 NIS 超过 2 维 95% 门限后丢锁的周期数；0 表示禁用 */

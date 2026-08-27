@@ -32,6 +32,11 @@ void WriteSbirsAngleError(const void* instance_key, float sim_time_sec, std::uin
                           double truth_el_deg, float sigma_orbit_deg, float sigma_attitude_deg,
                           float sigma_fov_deg);
 
+// kAngleCvKf 后验：滤波方位/俯仰及其变化率。不进公开检测记录（F4）。
+void WriteSbirsAngleStateEstimate(float sim_time_sec, std::uint32_t cycle, std::uint64_t target_id,
+                                  double azimuth_deg, double elevation_deg,
+                                  double azimuth_rate_deg_per_s, double elevation_rate_deg_per_s);
+
 void WriteSbirsLifecycleEvents(float sim_time_sec, std::uint32_t cycle,
                                const std::vector<session::SbirsDetectionLifecycleEvent>& events,
                                const session::SbirsCycleInput& input);

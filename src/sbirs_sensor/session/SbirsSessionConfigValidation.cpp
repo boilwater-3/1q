@@ -265,7 +265,8 @@ session::SbirsIssueList ValidateSbirsSessionConfig(const SbirsSessionConfig& con
     AddError(session::codes::kInvalidTrackingMode, "tracking mode is invalid", &issues);
   }
   if (tracking.estimated_backend != SbirsEstimatedTrackingBackend::kEkf &&
-      tracking.estimated_backend != SbirsEstimatedTrackingBackend::kImm) {
+      tracking.estimated_backend != SbirsEstimatedTrackingBackend::kImm &&
+      tracking.estimated_backend != SbirsEstimatedTrackingBackend::kAngleCvKf) {
     AddError(session::codes::kInvalidEstimatedTrackingBackend,
              "estimated tracking backend is invalid", &issues);
   }

@@ -352,7 +352,9 @@ bool DecodePolicyConfig(const sbirs::replay::SbirsPolicyConfig* fb,
         (estimated_backend !=
              static_cast<std::int32_t>(config::SbirsEstimatedTrackingBackend::kEkf) &&
          estimated_backend !=
-             static_cast<std::int32_t>(config::SbirsEstimatedTrackingBackend::kImm))) {
+             static_cast<std::int32_t>(config::SbirsEstimatedTrackingBackend::kImm) &&
+         estimated_backend !=
+             static_cast<std::int32_t>(config::SbirsEstimatedTrackingBackend::kAngleCvKf))) {
       return false;
     }
     out->tracking.tracking_mode = static_cast<config::SbirsTrackingMode>(tracking_mode);
