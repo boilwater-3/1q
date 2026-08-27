@@ -296,6 +296,11 @@ class EkfUpdater final : public IKalmanUpdater<kStateDim, kMeasurementDim> {
   MeasurementCovariance R_;                 /**< 静态量测噪声协方差 */
 };
 
+extern template class EkfPredictor<6, 3>;
+extern template class EkfPredictor<6, 2>;
+extern template class EkfUpdater<6, 3>;
+extern template class EkfUpdater<6, 2>;
+
 }  // namespace estimation
 }  // namespace common
 }  // namespace oneq

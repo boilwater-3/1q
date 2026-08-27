@@ -136,6 +136,9 @@ class KalmanPredictor final : public IKalmanPredictor<kStateDim, kMeasurementDim
   KalmanPredictorConfig config_{}; /**< 当前配置。 */
 };
 
+extern template class KalmanPredictor<6, 3>;
+extern template class KalmanPredictor<6, 2>;
+
 }  // namespace estimation
 }  // namespace common
 }  // namespace oneq

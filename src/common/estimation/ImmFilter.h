@@ -486,6 +486,9 @@ class ImmFilter {
   GaussianStateT combined_state_;               /**< 组合后的最终状态。 */
 };
 
+extern template class ImmFilter<6, 3>;
+extern template class ImmFilter<6, 2>;
+
 }  // namespace estimation
 }  // namespace common
 }  // namespace oneq

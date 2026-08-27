@@ -101,6 +101,9 @@ class UnscentedPredictor final : public IKalmanPredictor<kStateDim, kMeasurement
   UnscentedPredictorConfig config_{};     /**< 配置参数 */
 };
 
+extern template class UnscentedPredictor<6, 3>;
+extern template class UnscentedPredictor<6, 2>;
+
 }  // namespace estimation
 }  // namespace common
 }  // namespace oneq

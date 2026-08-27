@@ -103,6 +103,9 @@ class KalmanUpdater final : public IKalmanUpdater<kStateDim, kMeasurementDim> {
   MeasurementCovariance R_;      /**< 量测噪声协方差 R。 */
 };
 
+extern template class KalmanUpdater<6, 3>;
+extern template class KalmanUpdater<6, 2>;
+
 }  // namespace estimation
 }  // namespace common
 }  // namespace oneq
