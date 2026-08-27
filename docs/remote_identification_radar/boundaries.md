@@ -1,6 +1,6 @@
 ---
 Status: active
-Last-reviewed: 2026-08-23
+Last-reviewed: 2026-08-27
 Authority: RIR 模块级边界、非目标与设计变更规则
 Answers: RIR 有哪些模块级禁令与边界、哪些非目标、单位纪律与失败降级契约
 ---
@@ -127,12 +127,13 @@ RIR 遵守 `docs/common/contract.md` 与 `docs/common/session_contract.md`：
    不虚构。全维无效记录不产生。
 4. **方位角参考系**：出口① `look_az_deg` 自 +x（东）起量（雷达局部 ENU），与
    fusion 自北约定不同——east→north 换算归 fusion 适配器，库内不做跨系转换。
+   斜距+视线角+平台原点在适配器内还原 `has_position`（失败维持仅方位+原点）。
 5. **平台位置输入**（`oneq::coordinate::EcefPositionM`，ECEF 米制，**必填**）：
    fail-closed——分量须有限且模长 > 0（地心非法，否则
    `rir.validation.invalid_platform_position` 整周期拒绝），且须可转换为合法 LLA。
    语义为场景 radar-local ENU 的绝对锚点（不改变场景目标 ENU 语义），透传到
    出口①记录（成功执行周期 `has_platform_position=true`），fusion 适配器换算
-   LLA 填 sensor_origin。`batch_id` 由 `RirSession` 内部自增分配（成功执行周期
+   LLA 填 sensor_origin，斜距有效时再填位置量测。`batch_id` 由 `RirSession` 内部自增分配（成功执行周期
    后递增），输出帧/特征量测/replay 仍暴露批号供 fusion 溯源。
 6. **环境事实**（`RirEnvironmentConfig`）：会话初始化 + `RirRuntimeConfigPatch.has_environment`
    整域覆盖；**禁止**经 `RirCycleInput` 周期携带。`enable_environment_effects=false`

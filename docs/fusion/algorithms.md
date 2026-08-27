@@ -1,6 +1,6 @@
 ---
 Status: active
-Last-reviewed: 2026-08-22
+Last-reviewed: 2026-08-27
 Authority: fusion 算法清单与实现边界
 Answers: 每个融合算法怎么实现、边界在哪、反直觉点是什么
 ---
@@ -76,18 +76,23 @@ Answers: 每个融合算法怎么实现、边界在哪、反直觉点是什么
 加速度 m/s² / log10 转弯半径 / 极化三量 dB / 距离像长度 m / 峰数 / 峰能集中度），
 **无效维填 0**（NaN 禁止——毒化欧氏门）、有效性以帧内 valid_feature_mask 为权威；
 方位通道做 east→north 参考换算（az = wrap(90° − look_az)）。**观测原点**（2026-08-18
-修订 1/1a）：输入周期携带平台位置（ECEF 米制，可选字段）时，适配器经 TryEcefToLla
-换算填 has_sensor_origin + origin（AR 适配器先例；换算失败退化为无原点记录）→
-记录参与三维方位滤波；未携带时仅关联 + 特征门（与无原点 SBIRS 记录同状态）。
+修订 1/1a）：输入周期携带平台位置（ECEF 米制）时，适配器经 TryEcefToLla 换算填
+has_sensor_origin + origin（失败退化为无原点记录）→ 记录可参与三维方位滤波。
+**位置通道**（2026-08-27，`docs/review/rir-adapter-position_stage_a_2026-08-27.md`）：
+斜距有限且 >0 且原点换算成功时，按 `ComputeLookAngles` 逆运算（自东 az、出地平 el）
+还原东-北-天，再 TryEnuToEcef→TryEcefToLla 填 has_position；失败维持仅方位+原点。
+位置与方位并存（滤波位置优先，方位留给跨源仅方位关联）；量测噪声走
+`default_position_noise_std_m`（默认 50 m，与 AR 同路径）。未携带原点时仅关联 + 特征门。
 已知近似：0 填对欧氏特征门引入失真，mask-aware 门升级为后续冻结项；跨源维度不一致
 （ESR 4 维 vs RIR 11 维）维持"门不约束"既有语义。
 
 ### 实现边界
 
 - AR 位置 ECEF→LLA（`TryEcefToLla`），转换失败退化为仅身份键记录（`has_position=false`）。
+- RIR 位置由斜距+自东视线角+平台原点还原（`TryEnuToEcef`→`TryEcefToLla`），失败维持仅方位+原点。
 - ESR 射频特征归一化到可比尺度（GHz/MHz/ms/µs），供特征门限启用。
 - 归一化基准固化为库默认（示例场景验证过的业务决策），不做配置参数（YAGNI）。
-  [evidence: tests/unit/fusion/sensor_adapters_test.cpp 14 用例全分支覆盖]
+  [evidence: tests/unit/fusion/sensor_adapters_test.cpp]
 
 ## 输出语义
 

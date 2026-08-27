@@ -1,5 +1,5 @@
 ---
-Status: frozen
+Status: final
 Date: 2026-08-27
 Review-Baseline: `evidence/rir-adapter-position` @ `0d03c957`
 Authority: 非规范性记录；结论以 docs/common/contract.md、docs/common/session_contract.md
@@ -142,11 +142,15 @@ Non-goals:
 3、坚持 50 m 默认；失败则停工回 Stage A。
 4、§3 按上表冻结。
 
-## §4 运行记录（Stage C 后填写）
+## §4 运行记录
 
-<!-- 1、实现范围。
-2、验证命令与结果。
-3、权威回写去向：哪个结论写进了哪个文件。
-4、残留风险。
-5、后续冻结项。
--->
+1、实现范围：`AdaptRirFeatureMeasurementsToDetectionRecords` 按 `ComputeLookAngles` 逆运算还原东-北-天，再 ECEF→LLA 填 `has_position`；方位/特征/原点映射不变。
+- **证据**：[evidence: src/fusion/SensorAdapters.cpp]::TryLookRangeToEnu
+2、验证命令与结果：
+   - `scripts/1q.sh build VisualStudio.15.0-amd64-release --target 1q_fusion_unit_tests`：pass
+   - `scripts/1q.sh test VisualStudio.15.0-amd64-release -R "unit::fusion"`：pass（含还原、退化、σ_v < 5 m/s 门闩）
+3、权威回写去向：
+   - 适配器位置映射 → `docs/fusion/algorithms.md`
+   - 出口①自东视线角 + 适配器还原位置 → `docs/remote_identification_radar/algorithms.md`、`docs/remote_identification_radar/boundaries.md`
+4、残留风险：`rir_boost_burnout` 场景目录尚无 `main.cpp`，未做场景级关机确认演示；库内门闩已证 50 m 路径 σ_v < 5 m/s。
+5、后续冻结项：记录级位置噪声 / 极坐标量测模型（算法文档已登记）；mask-aware 特征门（F4 旧项）。

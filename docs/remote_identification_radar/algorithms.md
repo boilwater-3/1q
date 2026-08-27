@@ -1,6 +1,6 @@
 ---
 Status: active
-Last-reviewed: 2026-08-22
+Last-reviewed: 2026-08-27
 Authority: RIR 算法登记与实现边界
 Answers: RIR 每个算法做什么、实现边界在哪、哪些反直觉、哪些刻意不做
 ---
@@ -83,7 +83,8 @@ RIR 自持链路生产的内部航迹，不再消费外部航迹供给。
     里根本没有该键的记录（透出原则：只透出实际构建的观测）。
 12. **出口①方位角自东起量**：`look_az_deg` 沿用内部 ENU 约定（az 自 +x 东起量），
     与 fusion 方位通道自北约定不同——换算归 `AdaptRirFeatureMeasurementsToDetectionRecords`
-    （wrap(90° − az)），库内不做跨系转换。
+    （wrap(90° − az)），库内不做跨系转换。适配器同时用斜距+视线角+平台原点还原融合
+    位置量测（失败维持仅方位+原点；2026-08-27 rir-adapter-position）。
 
 ## 非目标（刻意不实现的算法）
 
