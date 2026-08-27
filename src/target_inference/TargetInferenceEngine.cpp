@@ -174,6 +174,11 @@ TargetInferenceEngine::~TargetInferenceEngine() = default;
 
 std::vector<TargetInferenceResult> TargetInferenceEngine::Infer(
     const std::vector<InferenceTrackState>& tracks) const {
+  return Infer(tracks, true);
+}
+
+std::vector<TargetInferenceResult> TargetInferenceEngine::Infer(
+    const std::vector<InferenceTrackState>& tracks, bool write_acceptance) const {
   std::vector<TargetInferenceResult> results;
   results.reserve(tracks.size());
 
@@ -418,10 +423,91 @@ std::vector<TargetInferenceResult> TargetInferenceEngine::Infer(
 
     results.push_back(std::move(result));
   }
-  if (INFERENCE_ACCEPTANCE_LOG_ENABLED()) {
+  if (write_acceptance && INFERENCE_ACCEPTANCE_LOG_ENABLED()) {
     WriteInferenceAcceptance(tracks, results, config_);
   }
   return results;
+}
+
+double TargetInferenceEngine::PositionSigmaAt(const InferenceTrackState& track,
+                                              double time_offset_sec,
+                                              const TargetInferenceConfig& config) {
+  if (!track.has_covariance || !std::isfinite(time_offset_sec)) {
+    return 0.0;
+  }
+  const double dt = std::max(config.integration_step_sec, 0.01);
+  const RvState input_state = MakeRvState(track);
+  if (!StateIsFinite(input_state)) {
+    return 0.0;
+  }
+  /* 与落点 1-σ 同框架的 6 扰动对角简化：把标称与 6 个扰动态积分到同一时刻偏移
+     （Rk4Step 支持负 dt，可回推到关机时刻早于当前拍的场景），位置敏度行
+     h_ij = (perturbed.r_i − nominal.r_i)/eps_j，方差 ≈ Σ_j Σ_i h_ij²·P_jj。 */
+  auto propagate_to = [&config, dt](const RvState& start, double duration, RvState* out) {
+    RvState state = start;
+    double t = 0.0;
+    const double sign = duration >= 0.0 ? 1.0 : -1.0;
+    const double magnitude = std::fabs(duration);
+    while (t < magnitude) {
+      const double step = std::min(dt, magnitude - t);
+      state = Rk4Step(state, sign * step, config);
+      t += step;
+      if (!StateIsFinite(state)) {
+        return false;
+      }
+    }
+    *out = state;
+    return true;
+  };
+  RvState nominal{};
+  if (!propagate_to(input_state, time_offset_sec, &nominal)) {
+    return 0.0;
+  }
+  const std::array<double, 6U> eps{100.0, 1.0, 100.0, 1.0, 100.0, 1.0};
+  double variance = 0.0;
+  for (std::size_t j = 0U; j < 6U; ++j) {
+    RvState perturbed = input_state;
+    if (j % 2U == 0U) {
+      perturbed.r[j / 2U] += eps[j];
+    } else {
+      perturbed.v[j / 2U] += eps[j];
+    }
+    RvState perturbed_out{};
+    if (!propagate_to(perturbed, time_offset_sec, &perturbed_out)) {
+      continue;
+    }
+    for (std::size_t i = 0U; i < 3U; ++i) {
+      const double h = (perturbed_out.r[i] - nominal.r[i]) / eps[j];
+      variance += h * h * track.covariance_ecef[j * 6U + j];
+    }
+  }
+  return std::sqrt(std::max(variance, 0.0));
+}
+
+bool TargetInferenceEngine::PositionAt(const InferenceTrackState& track, double time_offset_sec,
+                                       const TargetInferenceConfig& config,
+                                       oneq::coordinate::LlaPositionDegM* out_lla) {
+  if (out_lla == nullptr || !std::isfinite(time_offset_sec)) {
+    return false;
+  }
+  const RvState input_state = MakeRvState(track);
+  if (!StateIsFinite(input_state)) {
+    return false;
+  }
+  const double dt = std::max(config.integration_step_sec, 0.01);
+  RvState state = input_state;
+  double t = 0.0;
+  const double sign = time_offset_sec >= 0.0 ? 1.0 : -1.0;
+  const double magnitude = std::fabs(time_offset_sec);
+  while (t < magnitude) {
+    const double step = std::min(dt, magnitude - t);
+    state = Rk4Step(state, sign * step, config);
+    t += step;
+    if (!StateIsFinite(state)) {
+      return false;
+    }
+  }
+  return ToLla(state, out_lla);
 }
 
 }  // namespace target_inference

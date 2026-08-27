@@ -211,6 +211,39 @@ TEST(TargetInferenceEngineTest, BurnoutSlowRiseThenDeclineConfirmsMidWindowPeak)
   EXPECT_DOUBLE_EQ(state.time_sec, 5.0);
 }
 
+TEST(TargetInferenceEngineTest, BurnoutVelocitySigmaGateKeepsObserving) {
+  // 评审 2026-08-27 条3：速度观测 σ ≥ 5 m/s（仅方位/弱可观测航迹）时状态机不
+  // 推进——速度欠估计的收敛缓升与助推特征动力学不可分（实测 dε≈1.4e5 J/kg/拍
+  // ≫ 门限 5.7e3），判了必是假关机；σ 恢复雷达级后从头累积、正常确认。
+  const oneq::coordinate::EcefPositionM pos = BurnoutTestPosition();
+  const std::array<double, 3U> v0{{0.0, 1500.0, 0.0}};
+  const double boost_dv = 3.0 * kBurnoutGravity;  // 3g > 2.5g 加速度门
+  const std::array<double, 3U> v1 = BurnoutBoostStep(v0, boost_dv);
+  const std::array<double, 3U> v2 = BurnoutBoostStep(v1, boost_dv);
+  const std::array<double, 3U> v3 = BurnoutCoastStep(v2, 1.0);
+  const std::array<double, 3U> v4 = BurnoutCoastStep(v3, 1.0);
+  BurnoutTrackerState gated;
+  EXPECT_EQ(UpdateBurnoutTracker(gated, pos, v0, 0.0, kEarthMu, 20.0),
+            BurnoutPhase::kObserving);
+  EXPECT_EQ(UpdateBurnoutTracker(gated, pos, v1, 1.0, kEarthMu, 20.0),
+            BurnoutPhase::kObserving);
+  EXPECT_EQ(UpdateBurnoutTracker(gated, pos, v2, 2.0, kEarthMu, 20.0),
+            BurnoutPhase::kObserving);
+  EXPECT_EQ(UpdateBurnoutTracker(gated, pos, v3, 3.0, kEarthMu, 20.0),
+            BurnoutPhase::kObserving);
+  EXPECT_EQ(UpdateBurnoutTracker(gated, pos, v4, 4.0, kEarthMu, 20.0),
+            BurnoutPhase::kObserving);
+  EXPECT_FALSE(gated.valid);  // 状态未推进：恢复后从头累积，无残留锚点。
+  // 同样的助推-滑行序列在 σ_v=1 m/s（雷达级跟踪）下正常确认。
+  BurnoutTrackerState armed;
+  EXPECT_EQ(UpdateBurnoutTracker(armed, pos, v0, 5.0, kEarthMu, 1.0), BurnoutPhase::kObserving);
+  EXPECT_EQ(UpdateBurnoutTracker(armed, pos, v1, 6.0, kEarthMu, 1.0), BurnoutPhase::kBoosting);
+  EXPECT_EQ(UpdateBurnoutTracker(armed, pos, v2, 7.0, kEarthMu, 1.0), BurnoutPhase::kBoosting);
+  EXPECT_EQ(UpdateBurnoutTracker(armed, pos, v3, 8.0, kEarthMu, 1.0), BurnoutPhase::kBoosting);
+  EXPECT_EQ(UpdateBurnoutTracker(armed, pos, v4, 9.0, kEarthMu, 1.0), BurnoutPhase::kConfirmed);
+  EXPECT_DOUBLE_EQ(armed.time_sec, 7.0);
+}
+
 TEST(TargetInferenceEngineTest, BallisticPredictionConservesEnergy) {
   TargetInferenceEngine engine(TargetInferenceConfig{});
   const auto results = engine.Infer({MakeBallisticMidcourse()});

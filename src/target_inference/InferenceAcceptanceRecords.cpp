@@ -10,6 +10,7 @@
 #include <string>
 
 #include "1q/coordinate/position_transform.h"
+#include "1q/target_inference/TargetInferenceEngine.h"
 #include "common/logging/AcceptanceText.h"
 #include "target_inference/InferenceAcceptanceLog.h"
 
@@ -76,22 +77,31 @@ double SpecificMechanicalEnergyJPerKg(const oneq::coordinate::EcefPositionM& pos
 BurnoutPhase UpdateBurnoutTracker(BurnoutTrackerState& state,
                                   const oneq::coordinate::EcefPositionM& position,
                                   const std::array<double, 3U>& velocity_ecef_m_per_s,
-                                  double t_sec, double earth_mu_m3_per_s2) {
+                                  double t_sec, double earth_mu_m3_per_s2,
+                                  double velocity_sigma_m) {
   // 方法常数（尺度均由 μ/r 推导，不新造物理常数；依据见 algorithms.md「关机点判定」）：
   // 推力典型几倍重力、滤波速度噪声仅几 m/s，2.5 倍重力门两不相扰；逐拍能量门取
   // 噪声尺度 1e-4·μ/r（高于 v·δv 噪声、低于缓升段单拍增量，防把慢推力误判平稳），
   // 累计下降门沿用旧口径 1e-3·μ/r；防抖/确认/窗口拍数为噪声与果断性折中。
+  // 速度 σ 护栏（评审 2026-08-27 条3）：5 m/s——加速度门 2.5·μ/r² 在 1s 步长下
+  // 折合 Δv≈20 m/s，速度噪声需低于其 1/4 才不至于把噪声当助推。
   constexpr double kBoostAccelGravityScale = 2.5;
   constexpr double kEnergyStepScale = 1.0e-4;
   constexpr double kEnergyDeclineScale = 1.0e-3;
   constexpr std::uint32_t kRiseDebounceSamples = 2U;
   constexpr std::uint32_t kCoastConfirmSamples = 2U;
   constexpr std::uint32_t kFlatWindowSamples = 5U;
+  constexpr double kBurnoutVelocitySigmaM = 5.0;
 
   const double radius = std::sqrt(position.x_m * position.x_m + position.y_m * position.y_m +
                                   position.z_m * position.z_m);
   if (radius <= 0.0) {
     return BurnoutPhase::kObserving;  // 不可用采样不推进状态（调用方以半径守卫另行写行）。
+  }
+  if (velocity_sigma_m >= kBurnoutVelocitySigmaM) {
+    // 弱可观测（如仅方位融合）航迹：不推进助推/峰值/相态状态（状态原样保留，
+    // 精度恢复后从头累积），相态如实停观测中。
+    return BurnoutPhase::kObserving;
   }
   const double speed = std::sqrt(
       velocity_ecef_m_per_s[0] * velocity_ecef_m_per_s[0] +
@@ -190,15 +200,16 @@ BurnoutPhase UpdateBurnoutTracker(BurnoutTrackerState& state,
 }
 
 void WriteInferenceAcceptance(const std::vector<InferenceTrackState>& tracks,
-                              const std::vector<TargetInferenceResult>& results,
+                              std::vector<TargetInferenceResult>& results,
                               const TargetInferenceConfig& config) {
   if (!INFERENCE_ACCEPTANCE_LOG_ENABLED()) {
     return;
   }
 
   // 关机点预测（2026-08-22 甲方批注「判断其势能+动能最大的地方」）：助推-滑行
-  // 状态机逐航迹判定（双通道助推判别，见 UpdateBurnoutTracker）；行内不带方法
-  // 标注，公式与阈值见验收目录条目与 algorithms.md。
+  // 状态机逐航迹判定（双通道助推判别，见 UpdateBurnoutTracker）。
+  // 评审 2026-08-26 条9：行内只保留关机点时刻与关机点坐标（未确认分支统一写
+  // 「正在模拟计算」）；状态/能量峰值/当时速度/机械能峰值/发射时刻锚不再输出。
   if (tracks.empty()) {
     INFERENCE_ACCEPTANCE_ITEM(0.0f, 0U, "关机点预测", "暂无");
   }
@@ -215,51 +226,52 @@ void WriteInferenceAcceptance(const std::vector<InferenceTrackState>& tracks,
       continue;
     }
     BurnoutTrackerState& state = BurnoutTrackers()[track.key];
+    // 评审 2026-08-27 条3：速度观测 σ 护栏——仅方位/弱可观测航迹的速度欠估计在
+    // 滤波收敛期呈持续缓升（实测 dε≈1.4e5 J/kg/拍 ≫ 门限 5.7e3），与助推特征
+    // 动力学不可分；σ_v 未达雷达级跟踪精度时状态机不推进（先前表现为关机时刻
+    // 恒冻结在收敛暂态的早期假峰值，如 42.0s/18.0s/8.0s），如实写正在模拟计算。
+    double velocity_sigma_m = 0.0;
+    if (track.has_covariance) {
+      const double var_v = (track.covariance_ecef[7U] + track.covariance_ecef[21U] +
+                            track.covariance_ecef[35U]) / 3.0;
+      velocity_sigma_m = std::sqrt(std::max(var_v, 0.0));
+    }
     const BurnoutPhase phase =
         UpdateBurnoutTracker(state, track.position, track.velocity_ecef_m_per_s,
-                             track.sim_time_sec, config.earth_mu_m3_per_s2);
+                             track.sim_time_sec, config.earth_mu_m3_per_s2,
+                             velocity_sigma_m);
     std::string burnout = "目标键=" + std::to_string(track.key);
-    switch (phase) {
-      case BurnoutPhase::kBoosting:
-        burnout += " 状态=助推中 能量峰值=" + FormatF(state.energy_j_per_kg, 0) + "J/kg@" +
-                   FormatF(state.time_sec, 1) + "s";
-        break;
-      case BurnoutPhase::kConfirmed: {
-        burnout += " 状态=已确认";
-        burnout += " 关机时刻=" + FormatF(state.time_sec, 1) + "s";
-        // 关机点输出经纬高（LLA，库内 TryEcefToLla 换算）：与落点/发射点行同风格，
-        // 高度即椭球高（m）。
-        oneq::coordinate::LlaPositionDegM peak_lla{};
-        if (oneq::coordinate::TryEcefToLla(state.position, &peak_lla)) {
-          burnout += " 关机点经纬高=" + FormatVec3(peak_lla.latitude_deg,
+    if (phase == BurnoutPhase::kConfirmed) {
+      burnout += " 关机点时刻=" + FormatF(state.time_sec, 1) + "s";
+      // 关机点输出经纬高（LLA，库内 TryEcefToLla 换算）：与落点/发射点行同风格，
+      // 高度即椭球高（m）。
+      oneq::coordinate::LlaPositionDegM peak_lla{};
+      if (oneq::coordinate::TryEcefToLla(state.position, &peak_lla)) {
+        burnout += " 关机点经纬高=" + FormatVec3(peak_lla.latitude_deg,
                                                   peak_lla.longitude_deg,
                                                   peak_lla.altitude_m, 3);
-        } else {
-          burnout += " 关机点经纬高=无";
-        }
-        burnout += " 当时速度=" + FormatF(state.speed_mps, 1) + "m/s";
-        burnout += " 机械能峰值=" + FormatF(state.energy_j_per_kg, 0) + "J/kg";
-        break;
+      } else {
+        burnout += " 关机点经纬高=无";
       }
-      case BurnoutPhase::kBeforeTrackStart:
-        burnout += " 状态=关机点早于跟踪起点 能量自首采样即下降 峰值=" +
-                   FormatF(state.energy_j_per_kg, 0) + "J/kg@" + FormatF(state.time_sec, 1) + "s";
-        break;
-      case BurnoutPhase::kBeforeWindow:
-        burnout += " 状态=关机点在观测窗口外 未观测到助推段 能量=" +
-                   FormatF(state.energy_j_per_kg, 0) + "J/kg(自首采样平稳)";
-        // 发射时刻锚（库内发射点回推已有量）：夹逼关机 ∈ (发射时刻, 跟踪起点)。
-        if (i < results.size() && results[i].trajectory.valid &&
-            results[i].trajectory.has_launch) {
-          burnout += " 预测发射时刻相对t=" +
-                     FormatF(results[i].trajectory.launch_time_offset_sec, 1) + "s";
+      // 评审 2026-08-26 条10 + 2026-08-27 条3：关机点 1-σ = 当前协方差敏度传播
+      // 到关机时刻（引擎静态敏度面），随行输出并回填 API 字段供发布行使用；
+      // 无协方差/传播失败时如实写无。
+      std::string burnout_sigma_text = "无";
+      if (i < results.size() && track.has_covariance) {
+        const double burnout_offset_sec = state.time_sec - track.sim_time_sec;
+        const double burnout_sigma =
+            TargetInferenceEngine::PositionSigmaAt(track, burnout_offset_sec, config);
+        if (burnout_sigma > 0.0) {
+          results[i].trajectory.has_burnout_sigma = true;
+          results[i].trajectory.burnout_position_sigma_m = burnout_sigma;
+          burnout_sigma_text = FormatF(burnout_sigma, 1) + "m";
         }
-        break;
-      case BurnoutPhase::kObserving:
-      default:
-        burnout += " 状态=观测中 能量峰值=" + FormatF(state.energy_j_per_kg, 0) + "J/kg@" +
-                   FormatF(state.time_sec, 1) + "s";
-        break;
+      }
+      burnout += " 关机点误差1σ=" + burnout_sigma_text;
+    } else {
+      // 观测中/助推中/窗口外/早于跟踪起点：关机点尚未确认，统一写正在模拟计算。
+      burnout += " 关机点时刻=正在模拟计算";
+      burnout += " 关机点经纬高=正在模拟计算";
     }
     INFERENCE_ACCEPTANCE_ITEM(row_sim_time, row_cycle, "关机点预测", burnout);
   }
@@ -274,15 +286,47 @@ void WriteInferenceAcceptance(const std::vector<InferenceTrackState>& tracks,
     if (!traj.valid) {
       continue;
     }
-    double horizon0 = 0.0;
-    double horizon1 = 0.0;
-    if (!traj.waypoints.empty()) {
-      horizon0 = traj.waypoints.front().time_offset_sec;
-      horizon1 = traj.waypoints.back().time_offset_sec;
+    // 评审 2026-08-26 条7：预报时段固定为当前周期时刻起 10s（记录层裁剪，引擎
+    // 时域不动——落点解算依赖完整时域）；航路点点数只统计 10s 内的点。
+    constexpr double kForecastWindowSec = 10.0;
+    std::size_t waypoints_in_window = 0U;
+    for (const InferenceWaypoint& waypoint : traj.waypoints) {
+      if (waypoint.time_offset_sec <= kForecastWindowSec) {
+        ++waypoints_in_window;
+      }
     }
     const double sigma = traj.impact_position_sigma_m;
-    std::string forecast = "航路点点数=" + std::to_string(traj.waypoints.size());
-    forecast += " 预报时段=[" + FormatF(horizon0, 1) + "," + FormatF(horizon1, 1) + "]s";
+    std::string forecast = "航路点点数=" + std::to_string(waypoints_in_window);
+    forecast += " 预报时段=[0.0," + FormatF(kForecastWindowSec, 1) + "]s";
+    // 评审 2026-08-27 条2：预测列表给出 10 个 LLA 预测点（每 1s 一点，泛式代表
+    // 未来 10s 轨迹）；点值由引擎 RK4 标称传播取（与航路点/落点同动力学），某点
+    // 传播失败则列表截断到已得点位。
+    if (i < tracks.size()) {
+      std::string points;
+      for (int k = 1; k <= 10; ++k) {
+        oneq::coordinate::LlaPositionDegM point_lla{};
+        if (!TargetInferenceEngine::PositionAt(tracks[i], static_cast<double>(k), config,
+                                               &point_lla)) {
+          break;
+        }
+        if (!points.empty()) {
+          points += ";";
+        }
+        points += "+" + std::to_string(k) + "s:" + FormatVec3(point_lla.latitude_deg,
+                                                              point_lla.longitude_deg,
+                                                              point_lla.altitude_m, 3);
+      }
+      forecast += points.empty() ? " 预测点LLA=无"
+                                 : " 预测点LLA=[" + points + "]";
+    }
+    if (i < tracks.size()) {
+      oneq::coordinate::LlaPositionDegM current_lla{};
+      if (oneq::coordinate::TryEcefToLla(tracks[i].position, &current_lla)) {
+        forecast += " 当前位置经纬高=" + FormatVec3(current_lla.latitude_deg,
+                                                     current_lla.longitude_deg,
+                                                     current_lla.altitude_m, 3);
+      }
+    }
     if (traj.has_impact) {
       forecast += " 落点经纬高=" + FormatVec3(traj.impact_point.latitude_deg,
                                               traj.impact_point.longitude_deg,
@@ -301,19 +345,28 @@ void WriteInferenceAcceptance(const std::vector<InferenceTrackState>& tracks,
                                                           traj.impact_point.altitude_m, 3);
       INFERENCE_ACCEPTANCE_ITEM(row_sim_time, row_cycle, "落点预测", impact);
 
+      // 评审 2026-08-26 条10：误差口径改为关机点误差（关机点 1-σ，敏度传播；
+      // 关机点未确认/无协方差时如实写无）。条12：封装去掉「明文:」实现细节前缀，
+      // 分发状态不再暴露落盘细节——配置了分发通道名写已发布，否则已封装待分发。
+      const bool has_burnout_sigma = traj.has_burnout_sigma;
+      const double publish_sigma = has_burnout_sigma ? traj.burnout_position_sigma_m : 0.0;
+      const std::string sigma_text =
+          has_burnout_sigma ? FormatF(publish_sigma, 1) + "m" : std::string("无");
       std::string publish = "弹道模型=无推力弹道外推";
       publish += " 预测落点=" + FormatVec3(traj.impact_point.latitude_deg,
                                            traj.impact_point.longitude_deg,
                                            traj.impact_point.altitude_m, 3);
-      publish += " 误差1σ=" + FormatF(sigma, 1) + "m";
+      publish += " 关机点误差1σ=" + sigma_text;
       publish += " 置信度=0.68";
-      // 甲方 2026-08-22 批注「写明文」：库内无标准编解码与发布订阅——封装按
-      // 明文报文原样写出（字段自包含），分发状态如实标注明文落盘、未外发。
-      publish += " 标准化封装=明文:[落点预报|落点=" +
+      publish += " 标准化封装=[落点预报|落点=" +
                  FormatVec3(traj.impact_point.latitude_deg, traj.impact_point.longitude_deg,
                             traj.impact_point.altitude_m, 3) +
-                 "|1σ=" + FormatF(sigma, 1) + "m|置信度=0.68]";
-      publish += " 分发状态=明文落盘未外发";
+                 "|关机点误差1σ=" + sigma_text + "|置信度=0.68]";
+      if (config.impact_distribution_channel.empty()) {
+        publish += " 分发状态=已封装待分发";
+      } else {
+        publish += " 分发状态=已发布(事件" + config.impact_distribution_channel + ")";
+      }
       INFERENCE_ACCEPTANCE_ITEM(row_sim_time, row_cycle, "落点预报与信息发布", publish);
     }
 
@@ -322,9 +375,10 @@ void WriteInferenceAcceptance(const std::vector<InferenceTrackState>& tracks,
       double b = 0.0;
       double az = 0.0;
       HorizontalEllipseFromCov(traj.launch_covariance_ecef, &a, &b, &az);
-      std::string launch = "预测发射时刻相对t=" + FormatF(traj.launch_time_offset_sec, 1) + "s";
-      launch += " 地理位置=" + FormatVec3(traj.launch_point.latitude_deg, traj.launch_point.longitude_deg,
-                                          traj.launch_point.altitude_m, 3);
+      // 评审 2026-08-26 条8：发射时刻字段删除，行首直接输出地理位置。
+      std::string launch = "地理位置=" + FormatVec3(traj.launch_point.latitude_deg,
+                                                    traj.launch_point.longitude_deg,
+                                                    traj.launch_point.altitude_m, 3);
       launch += " 位置误差1σ=" + FormatF(traj.launch_position_sigma_m, 1) + "m";
       launch += " 椭圆半长/半短/方位=(" + FormatF(a, 1) + "m," + FormatF(b, 1) + "m," +
                 FormatF(az, 1) + "°)";

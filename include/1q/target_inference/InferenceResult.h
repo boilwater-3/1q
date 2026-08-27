@@ -42,6 +42,8 @@ struct ONEQ_API TrajectoryPrediction {
   double launch_time_offset_sec{0.0};  /**< 发射点时间偏移（负值=过去，单位：s）。 */
   double launch_position_sigma_m{0.0}; /**< 发射点 1-σ（单位：m）。 */
   std::array<double, 36U> launch_covariance_ecef{}; /**< 发射点 6×6 协方差（行主序 [x,vx,y,vy,z,vz]）。 */
+  bool has_burnout_sigma{false};     /**< 是否携带关机点 1-σ（验收旁路按敏度传播填写）。 */
+  double burnout_position_sigma_m{0.0}; /**< 关机点 1-σ（单位：m；当前协方差传播到关机时刻）。 */
 };
 
 /**
