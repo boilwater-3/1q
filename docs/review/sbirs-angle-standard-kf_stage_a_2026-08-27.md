@@ -1,5 +1,5 @@
 ---
-Status: draft
+Status: frozen
 Date: 2026-08-27
 Review-Baseline: `evidence/sbirs-angle-standard-kf` @ `6a2dae95`
 Authority: 非规范性记录；结论以 docs/common/contract.md、docs/common/session_contract.md
@@ -122,26 +122,69 @@ Authority: 非规范性记录；结论以 docs/common/contract.md、docs/common/
    2. `unit::sbirs_sensor` 默认 EKF 回归仍通过。
    3. 配置非法 backend 仍被校验拒绝；`kAngleCvKf` 合法。
 
-### 需要用户拍板
+### 用户裁定（2026-08-27）
 
-1、F1–F7 建议判定是否采纳。
-2、实验后端是否接入 `SbirsTrackingCoordinator`（opt-in），还是第一刀只做可单测的跟踪库、不接 pipeline。
-3、初始化是否禁止真值三维（F3/建议范围第 2.4 条），还是允许与现有 EKF 一样 truth-seeded。
-4、变化率是否必须在本实验进入公开检测记录（若必须，则 F4 从 narrow 改为另开公开契约冻结项）。
+1、F1–F7 全部采纳。
+2、实验后端接入 `SbirsTrackingCoordinator`（配置选中才走，默认 EKF 不变）。
+3、禁止用真值三维位置初始化实验滤波器均值。
+4、本轮不把变化率写入公开检测记录。
 
-## §3 冻结契约（用户讨论结束后填写）
+## §3 冻结契约
 
-<!-- 一行一项：
-1、允许范围：模块/目录、类/函数、测试与文档。
-2、明确禁止范围：公开头文件、跨模块类型、schema/回放、测试阈值、兼容层。
-3、行为边界：输入、输出、错误回退、生命周期。
-4、验收门：构建、聚焦测试、契约测试、特征化测试。
-5、非目标。
--->
+Proven requirement:
+- SBIRS Estimated 跟踪增加实验性角度域线性标准卡尔曼滤波后端；默认仍为 6 维 ECI EKF。
+- 状态为视线方位/俯仰及其变化率；后验不得当作三维位置或速度。
+- 禁止用场景真值三维位置/速度初始化该后端。
+
+Allowed scope:
+- Modules/directories:
+  - `src/sbirs_sensor/tracking/`
+  - `src/sbirs_sensor/pipeline/SbirsTrackingCoordinator.*`
+  - `src/sbirs_sensor/pipeline/SbirsPipeline.*`（仅接线与 snapshot 中实验状态表）
+  - `src/sbirs_sensor/session/`（校验、replay 枚举编解码）
+  - `include/1q/sbirs_sensor/config/SbirsPolicyConfig.h`（仅新增 opt-in 枚举值）
+  - `examples/common/config_loaders/sbirs_sensor/`（识别新枚举；不改场景默认）
+  - `tests/unit/sbirs_sensor/`、`tests/replay/sbirs_sensor/`（枚举 roundtrip）
+  - `docs/sbirs_sensor/algorithms.md`（登记实验后端，非默认）
+- Classes/functions:
+  - 4 维角度 CV 线性预测/更新（Joseph 协方差）
+  - `SbirsTrackingCoordinator` 实验后端分支
+  - `SbirsEstimatedTrackingBackend::kAngleCvKf`
+- Tests/docs:
+  - 常值角速度轨迹：滤波 az/el RMSE 低于量测噪声；ω 收敛；方位过零新息不爆
+  - 默认 `kEkf` 回归仍通过
+  - 非法 backend 仍拒绝；`kAngleCvKf` 合法
+
+Explicitly out of scope:
+- Public headers: 不改 `SbirsDetectionRecord`、DebugView、验收 raw 字段
+- Cross-module types: 不改公共 `KalmanPredictor`/`KalmanUpdater` 的 6 维笛卡尔 F/H
+- Schema/trace/replay: 只同步识别新枚举；不新增公开角速度字段
+- Test thresholds/skips: 不放宽既有 EKF/IMM 阈值
+- Compatibility layers: 不替换默认后端；不改既有场景 JSON；不动 CuePredictor；不动 IMM
+
+Behavior boundary:
+- Inputs: 带时标的 az/el（弧度）与动态 R
+- Outputs: Estimated 检测记录仍只报滤波后 az/el；变化率留在滤波器状态与单测
+- Errors/fallback: LLT 失败则后验=预测；方位新息最短弧；俯仰钳制 `[-π/2, π/2]`
+- Lifecycle/debug/trace: 首拍用当前角度、变化率置 0（带 P）；第二拍可用角度差给变化率先验；选中该后端时 NFOV 命令与输出 az/el 直接取滤波角，不经三维 LOS
+- Init: 禁止真值三维位置/速度写入实验滤波器均值
+
+Acceptance gates:
+- Build: 聚焦 `1q_sbirs_sensor_unit_tests`
+- Focused tests: 新角度 KF 单测 + `unit::sbirs_sensor`
+- Contract tests: 配置校验与 replay 枚举 roundtrip 覆盖 `kAngleCvKf`
+- Characterization tests: 本轮不做场景 RMSE 对比（不改默认场景）
+
+Non-goals:
+- 替换生产默认 EKF/IMM
+- 单星角度标准 KF 输出三维位置/速度/加速度
+- 把变化率写入公开检测记录
+- 推广公共线性 KF 到任意维度
 
 ## 修订记录
 
 1、修订 1（2026-08-27）：脚本初始化骨架；填入 F1–F7 建议判定。来源：用户下达用例 16，并确认在 `evidence/sbirs-angle-standard-kf` 上继续 Stage A。
+2、修订 2（2026-08-27）：用户裁定 F1–F7 采纳、接入 coordinator、禁止真值三维初始化、本轮不写公开变化率；冻结 §3。
 
 ## §4 运行记录（Stage C 后填写）
 
