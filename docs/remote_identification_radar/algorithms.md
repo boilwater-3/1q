@@ -14,6 +14,7 @@ RIR 自持链路生产的内部航迹，不再消费外部航迹供给。
 
 | 算法 | 位置 | 输入 → 输出 | 边界与反直觉点 |
 |---|---|---|---|
+| 地球遮挡门控 | `runtime/RirController.cpp` → `common/geometry/EarthOccultation` | 平台 ECEF + 目标 ENU 还原 ECEF → 穿地则排除（不入检测候选） | 有限弦-圆球，R=6371 km，相切算遮挡；k 因子不进本门；排在可扫描体积与 SNR 之前；ENU→ECEF 失败则跳过本门 |
 | 波束状态解析 | `dwell/RirBeamControl.h` → `common/radar/FrozenBeamResolve.h` | 驻留调度给定波束中心 + 目标视线角 + 天线配置 → 有效宽度/指向/单程增益 | 冻结变体 common 单源（`normalize_azimuth_delta=true`）；调度器给指向、RIR 信指向；视线角有效性 = 位置范数 > 0.1 m；无效回退主瓣峰值增益 |
 | 自发射构建 | `dwell/RirEmissionFactory.cpp` | hardware + 周期上下文 → `RfSceneEmission` | 无 ECCM；功率包络钳制；ECEF 波束指向；载频由频率计划/周期索引解析；驻留窗脉冲数按 ceil(窗/PRI) 计（AR PrepareRfCycle 同口径），下限 1 — **可提取核心，阶段 3b 未迁** |
 | 接收机状态 | `dwell/RirReceiverStateBuilder.cpp` | 自发射 + hardware → `RirReceiverOperatingState` | 与 AR 同口径 RF 接收机参数；供前端聚合与 detection cell — **可提取核心，阶段 3b 未迁** |
@@ -95,6 +96,7 @@ RIR 自持链路生产的内部航迹，不再消费外部航迹供给。
    `docs/review/remote_identification_radar_migration_status_2026-08-15.md`）。
 5. 对外点迹/量测输出、外部雷达波束控制接口；驻留指向由库内驻留调度器派生且
    仅库内消费，不向任何外部雷达（含 AR）输出或反馈波束控制。
+6. 地球椭球/地形/电波视距（4/3 k 因子）遮挡——本门为圆球几何通视；k 只进大气损耗。
 
 ## 证据
 
@@ -113,7 +115,9 @@ RIR 自持链路生产的内部航迹，不再消费外部航迹供给。
   （出口①字段透出/平台位置双路径/透出原则/会话级拒绝周期）、
   `rir_track_attribution_test.cpp`（键↔真值映射/全快照覆盖/非执行周期空列表）、
   `rir_platform_position_validation_test.cpp`（fail-closed 与存在性一致性）
-- 提取器与门控：`tests/unit/remote_identification_radar/rir_recognition_feature_test.cpp`
+- 提取器与门控：`tests/unit/remote_identification_radar/rir_recognition_feature_test.cpp`、
+  `rir_search_sector_test.cpp`、`rir_earth_occultation_test.cpp`（地球遮挡硬门）；
+  判定核 `tests/unit/common/common_earth_occultation_test.cpp`
 - 匹配与库契约：`tests/unit/remote_identification_radar/rir_recognition_database_test.cpp`
 - 场景/型号效能：`tests/integration/remote_identification_radar/`
 - replay V2：`tests/replay/remote_identification_radar/rir_replay_codec_roundtrip_test.cpp`

@@ -1,6 +1,6 @@
 ---
 Status: active
-Last-reviewed: 2026-08-23
+Last-reviewed: 2026-08-27
 Authority: RIR 数据流与状态所有权
 Answers: RIR 单周期数据怎么流、状态归谁持有、内部航迹如何生产与消费
 ---
@@ -80,6 +80,9 @@ flowchart TB
      `ComputeEffectiveTargetRcsM2`（AR 同口径）写入 detection cell 目标；
    - 驻留候选排序：未识别优先 + 斜距次近（消费上一周期内部航迹结论；
      只决定候选顺序，不生成波束指向）；
+   - **地球遮挡门控（2026-08-27）**：平台 ECEF + 目标 ENU 还原 ECEF 后做有限弦-
+     圆球判定（`common/geometry/EarthOccultation`，R=6371 km，相切算遮挡）；
+     穿地目标不入候选并落 `rir.target_earth_occulted`（规则 13b）；还原失败跳过本门；
    - **搜索角域裁剪（2026-08-22 甲方批注「设定方位俯仰进行扫描」）**：
      检测候选集 = 视线角落在可扫描体积内的场景目标（az 相对 `scan_center`
      归一化、el 绝对，`internal/RirScanVolume.h` 与指定目标驻留门单源同口径）；
