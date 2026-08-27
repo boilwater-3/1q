@@ -273,7 +273,8 @@ void WriteRirDetectionChain(const RirDetectionAcceptInput& input) {
   const double coherent_db = ToDb(static_cast<double>(std::max(1U, pulses)));
   const double noise_db = static_cast<double>(input.gains.noise_processing_gain_db);
   const double clutter_db = static_cast<double>(input.gains.clutter_suppression_gain_db);
-  const double pc_noise = thermal * std::max(pc, 0.0);
+  // 脉压增益只作用于相干回波；热噪声按匹配滤波带宽计，不再乘 B·τ。
+  // 杂波/干扰行同样输出 cell 分项功率，不乘脉压。
   const double mti_residual = clutter_db <= 0.0 ? clutter : clutter / FromDb(clutter_db);
   oneq::common::radar::MtiMtdAcceptanceResult bank;
   const bool has_bank = TryBuildAcceptanceBank(input, &bank);
@@ -299,12 +300,12 @@ void WriteRirDetectionChain(const RirDetectionAcceptInput& input) {
   EmitOrNone(t, cycle, "MTD增益", id_sp, has_bank,
              has_bank ? FormatF(bank.mtd_gain_db, 3) + "dB" : std::string());
 
-  Emit(t, cycle, "脉冲压缩后的噪声功率", id_sp + FormatSci(pc_noise) + "W");
+  Emit(t, cycle, "脉冲压缩后的噪声功率", id_sp + FormatSci(thermal) + "W");
   EmitOrNone(t, cycle, "各多普勒滤波器通道噪声功率", id_sp, has_bank,
              has_bank ? FormatChannelWatts(bank.noise_w) + "W" : std::string());
   EmitOrNone(t, cycle, "MTD等效噪声功率", id_sp, has_bank,
              has_bank ? FormatSci(bank.mtd_equivalent_noise_w) + "W" : std::string());
-  Emit(t, cycle, "噪声总增益", id_sp + FormatF(pc_db + noise_db, 3) + "dB");
+  Emit(t, cycle, "噪声总增益", id_sp + FormatF(noise_db, 3) + "dB");
 
   Emit(t, cycle, "MTI处理后杂波剩余功率",
        id_sp + FormatSci(has_bank ? bank.mti_residual_clutter_w : mti_residual) + "W");
