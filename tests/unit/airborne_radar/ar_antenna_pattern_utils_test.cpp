@@ -122,8 +122,10 @@ TEST(AntennaPatternUtilsTest, OutsideMainLobeUsesSidelobeFloor) {
   beamwidth.az_beamwidth_deg = 4.0f;
   beamwidth.el_beamwidth_deg = 4.0f;
 
+  // 近副瓣区（评审 2026-08-26 条14 sinc² 包络延拓）：u_az = 3/2 = 1.5，包络衰减
+  // ≈7.6dB < 18dB → 钳制在最大旁瓣电平（峰值 − 18 = 12 dBi）。
   AntennaLookOffsetDeg sidelobe_offset_deg;
-  sidelobe_offset_deg.delta_az_deg = 10.0f;
+  sidelobe_offset_deg.delta_az_deg = 3.0f;
   config::AzimuthElevationDeg beam_pointing_deg;
   const AntennaPatternSample sample = EvaluateAntennaPattern(peak_gain_dbi, config, beamwidth,
                                                              sidelobe_offset_deg, beam_pointing_deg);
@@ -131,6 +133,14 @@ TEST(AntennaPatternUtilsTest, OutsideMainLobeUsesSidelobeFloor) {
   EXPECT_FALSE(sample.inside_main_lobe);
   EXPECT_FALSE(sample.inside_back_lobe);
   EXPECT_FLOAT_EQ(sample.gain_dbi, 12.0f);
+
+  // 零陷区：u_az = 10/2 = 5，sinc² 衰减 > 18dB → 严格低于钳制电平。
+  AntennaLookOffsetDeg null_offset_deg;
+  null_offset_deg.delta_az_deg = 10.0f;
+  const AntennaPatternSample null_sample =
+      EvaluateAntennaPattern(peak_gain_dbi, config, beamwidth, null_offset_deg, beam_pointing_deg);
+  EXPECT_FALSE(null_sample.inside_main_lobe);
+  EXPECT_LT(null_sample.gain_dbi, peak_gain_dbi + config.max_sidelobe_level_db - 1.0f);
 }
 
 TEST(AntennaPatternUtilsTest, BackLobeUsesConfiguredBacklobeLevel) {
