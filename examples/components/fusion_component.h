@@ -23,9 +23,20 @@ namespace component_attachment {
  */
 class FusionComponent : public Component {
  public:
+  /**
+   * @brief 仅融合引擎（无精度评估叠加）。
+   * @param[in] engine 调用方构造后移入的融合引擎（示例：main 读取场景 JSON 的 fusion 段，
+   *            `new FusionEngine(scene.config.fusion)`）。
+   */
   explicit FusionComponent(std::unique_ptr<fusion::FusionEngine> engine);
   /**
    * @brief 地面站：融合引擎 + 评估会话（双星探测帧在本组件内适配后 Update）。
+   * @param[in] engine 同单参构造（场景 JSON fusion 段 → FusionEngine）。
+   * @param[in] evaluation 调用方构造后移入的评估会话（示例：main 用场景 JSON session_config
+   *            `new PrecisionEvaluationSession(scene.config)`）。
+   * @param[in] satellite_a_source_id 主星融合源通道（示例：scene.config.satellite_a_source_id）。
+   * @param[in] satellite_b_source_id 辅星融合源通道（示例：scene.config.satellite_b_source_id；
+   *            与主星相同时组件内自动 +100）。
    */
   FusionComponent(std::unique_ptr<fusion::FusionEngine> engine,
                   std::unique_ptr<precision_evaluation::PrecisionEvaluationSession> evaluation,
@@ -41,7 +52,11 @@ class FusionComponent : public Component {
   /** @brief 当前融合目标态势（按 key 升序；app 层汇总读，组件间走事件）。 */
   const std::vector<fusion::FusedTarget>& targets() const { return targets_; }
 
-  /** @brief 本周期评估对照用的星历与真值（地面站场景在 World::Step 前写入）。 */
+  /**
+   * @brief 写入本周期评估对照输入（每周期 World::Step 前由 main 注入）。
+   * @param[in] ephemeris 场景 JSON ephemeris 段（双星星历，挂载后不变）。
+   * @param[in] truth 场景 JSON truth 段（main 每周期按 dt 推进弹道后传入）。
+   */
   void SetEvaluationInputs(const precision_evaluation::DualSatEphemerisInput& ephemeris,
                            const std::vector<precision_evaluation::EvaluationTruthTarget>& truth);
 

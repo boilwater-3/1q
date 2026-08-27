@@ -27,11 +27,22 @@ class World;
  */
 class GroundStationFusionComponent : public Component {
  public:
+  /**
+   * @brief 仅融合引擎（无精度评估叠加）。
+   * @param[in] engine 融合引擎所有权（main 创建 FusionEngine 后 std::move 传入）。
+   *            本场景见 sbirs_dual_sat_fix_messages/main.cpp：config.fusion 来自
+   *            PrecisionEvaluationConfig 库默认值（JSON 无 fusion 字段）；通用 runner
+   *            场景则读 session_config.fusion。
+   */
   explicit GroundStationFusionComponent(std::unique_ptr<fusion::FusionEngine> engine);
   /**
    * @brief 融合引擎 + 精度评估会话。
-   * @param[in] evaluation_source_ids 评估叠加用的两颗星源通道（库内交会 API 仍是双星）；
-   *            融合本身按 inbox 里本周期全部卫星处理，不限两颗。
+   * @param[in] engine 同上（本场景 JSON 无 fusion，用 config.fusion 库默认）。
+   * @param[in] evaluation 评估会话所有权（main 用 scene.config 创建；JSON 填
+   *            satellites[] / targets[] / inference_horizon_sec 等，见 LoadScene）。
+   * @param[in] evaluation_source_ids 双星评估 source_id（本场景用 config 默认
+   *            4 / 104，JSON 无此字段；主辅冲突时 main 给辅星 +100）。
+   *            融合 inbox 仍处理本周期全部卫星，不限两颗。
    */
   GroundStationFusionComponent(
       std::unique_ptr<fusion::FusionEngine> engine,
@@ -48,10 +59,18 @@ class GroundStationFusionComponent : public Component {
   /** @brief 新周期开始前清空收件箱并确保信号已连接（须在 World::Step 之前调用）。 */
   void BeginCycle(World& world, std::uint64_t cycle);
 
+  /**
+   * @brief 写入本周期评估对照输入（每周期 World::Step 前由 main 注入）。
+   * @param[in] ephemeris 双星星历（本场景由 JSON satellites[] 装入 scene.ephemeris）。
+   * @param[in] truth 真值目标（本场景由 JSON targets[] 装入 scene.truth，main 每周期推进）。
+   */
   void SetEvaluationInputs(const precision_evaluation::DualSatEphemerisInput& ephemeris,
                            const std::vector<precision_evaluation::EvaluationTruthTarget>& truth);
 
   const std::vector<fusion::FusedTarget>& targets() const { return targets_; }
+
+  /** @brief 本周期已收卫星帧数（World::Step 之后、下次 BeginCycle 之前有效）。 */
+  std::size_t last_sbirs_frame_count() const { return sbirs_inbox_.size(); }
 
   const precision_evaluation::PrecisionEvaluationCycleResult& last_evaluation() const {
     return last_evaluation_;

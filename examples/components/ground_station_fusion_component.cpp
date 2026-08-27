@@ -91,10 +91,18 @@ const SbirsFrameSubmittedEvent* FindFrameBySource(
 
 }  // namespace
 
+// 本组件不自己 new FusionEngine；main 用 scene.config.fusion 创建后 std::move 移入。
+// 注意：sbirs_dual_sat_fix_messages.json 里没有 fusion 字段——config.fusion 是
+// FusionConfig 结构体默认值（position_radius_m=1000 等，见 FusionConfig.h）；
+// main 仅额外设 enable_track_filtering=true（与默认一致）。
 GroundStationFusionComponent::GroundStationFusionComponent(
     std::unique_ptr<fusion::FusionEngine> engine)
     : engine_(std::move(engine)) {}
 
+// 三个参数都在 main 里事先创建好，再 std::move 移入（见 main.cpp ground_station.Attach）：
+//   engine — FusionEngine(scene.config.fusion)，来源见上（JSON 无 fusion 字段）；
+//   evaluation — PrecisionEvaluationSession(scene.config)，JSON 填 satellites[]/targets[] 等；
+//   evaluation_source_ids — {4, 104}，来自 PrecisionEvaluationConfig 默认，JSON 无此字段。
 GroundStationFusionComponent::GroundStationFusionComponent(
     std::unique_ptr<fusion::FusionEngine> engine,
     std::unique_ptr<precision_evaluation::PrecisionEvaluationSession> evaluation,
@@ -198,6 +206,20 @@ void GroundStationFusionComponent::Step(World& world, double dt_sec) {
     last_evaluation_ = evaluation_->Step(
         static_cast<std::uint32_t>(cycle), static_cast<float>(dt_sec), scene.sbirs_utc_julian_day,
         evaluation_ephemeris_, evaluation_truth_, result_a, result_b, fused);
+    // 评审 2026-08-26 条12：落点预报真外发——评估周期里有落点解的估计航迹逐条
+    // 以事件发布（订阅方经 on_impact_forecast_published 消费）。
+    for (const precision_evaluation::ImpactForecastSample& forecast : last_evaluation_.forecasts) {
+      ImpactForecastEvent event;
+      event.cycle = cycle;
+      event.key = forecast.key;
+      event.impact_latitude_deg = forecast.impact_point.latitude_deg;
+      event.impact_longitude_deg = forecast.impact_point.longitude_deg;
+      event.impact_altitude_m = forecast.impact_point.altitude_m;
+      event.impact_position_sigma_m = forecast.impact_position_sigma_m;
+      event.has_burnout_sigma = forecast.has_burnout_sigma;
+      event.burnout_position_sigma_m = forecast.burnout_position_sigma_m;
+      world.signals().on_impact_forecast_published(event);
+    }
   }
 
   std::size_t new_count = 0U;

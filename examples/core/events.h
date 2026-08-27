@@ -346,6 +346,24 @@ struct SbirsFrameSubmittedEvent {
   std::vector<SbirsBearingSample> detections{}; /**< 本周期过门探测（可空） */
 };
 
+/**
+ * @brief 落点预报外发：地面站融合枢纽 → 订阅方（评审 2026-08-26 条12 真外发通道）。
+ *
+ * 载荷自包含（展平 LLA + 误差 1-σ），订阅方无需回查库内对象；每周期每有落点解
+ * 的估计航迹一条。
+ */
+struct ImpactForecastEvent {
+  std::uint64_t cycle{0U};       /**< 世界周期号 */
+  std::uint64_t key{0U};         /**< 目标键 */
+  double impact_latitude_deg{0.0};  /**< 预测落点纬度（deg） */
+  double impact_longitude_deg{0.0}; /**< 预测落点经度（deg） */
+  double impact_altitude_m{0.0};    /**< 预测落点高度（m） */
+  double impact_position_sigma_m{0.0}; /**< 落点 1-σ（m） */
+  bool has_burnout_sigma{false};  /**< 是否携带关机点 1-σ */
+  double burnout_position_sigma_m{0.0}; /**< 关机点 1-σ（m） */
+  double confidence{0.68};        /**< 置信度 */
+};
+
 }  // namespace component_attachment
 
 #endif  // EXAMPLES_COMPONENT_ATTACHMENT_CORE_EVENTS_H_

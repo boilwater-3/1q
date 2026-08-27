@@ -28,15 +28,36 @@ enum class SbirsGroundDeliveryMode {
   kMessage = 1           /**< 发 on_sbirs_frame_submitted */
 };
 
+/** @brief 机载/单站探测记录投递方式（ground_station_source_id 为 0 时生效）。 */
+enum class DetectionDeliveryMode {
+  kSharedBlackboard = 0, /**< 写 AppSceneState.detection_pool */
+  kMessage = 1           /**< 发 on_detection_batch_submitted */
+};
+
 /**
  * @brief SBIRS 传感器组件：天基红外会话驱动 + 探测生命周期事件转发。
  */
 class SbirsSensorComponent : public Component {
  public:
-  explicit SbirsSensorComponent(sbirs_sensor::session::SbirsSession session);
+  /**
+   * @brief 机载/地面单站：会话由调用方构造后移入（示例：main 用默认或场景 JSON 配置
+   *            `SbirsSession::Create(...)`）。
+   * @param[in] session 调用方构造的 SBIRS 会话实例。
+   * @param[in] detection_delivery 探测记录投递方式（示例：消息场景取 kMessage）。
+   */
+  explicit SbirsSensorComponent(
+      sbirs_sensor::session::SbirsSession session,
+      DetectionDeliveryMode detection_delivery = DetectionDeliveryMode::kSharedBlackboard);
   /**
    * @brief 卫星实体：自持星历，探测帧投递地面站（不写探测池）。
-   * @param[in] ground_station_source_id 融合源通道（每星互异）
+   * @param[in] session 同单参构造（示例：main 用 scene.config.satellite_a/b
+   *            `SbirsSession::Create(...)`）。
+   * @param[in] ground_station_source_id 融合源通道（示例：scene.config.satellite_*_source_id，
+   *            每星互异）。
+   * @param[in] position_ecef_m 初始 ECEF 位置（示例：scene JSON ephemeris 段，挂载后不变）。
+   * @param[in] velocity_ecef_m_per_s 初始 ECEF 速度（同上 ephemeris 段）。
+   * @param[in] attitude_eci_body_deg 初始 ECI 体轴姿态（同上 ephemeris 段）。
+   * @param[in] ground_delivery 探测帧投递方式（示例：消息场景取 kMessage）。
    */
   SbirsSensorComponent(sbirs_sensor::session::SbirsSession session,
                        std::uint32_t ground_station_source_id,
@@ -99,6 +120,7 @@ class SbirsSensorComponent : public Component {
   bool step_timing_logged_{false}; /**< 单步执行时间是否已写入示例日志（只写首个周期） */
   std::uint32_t ground_station_source_id_{0U}; /**< 非 0：探测帧投递地面站，不写探测池 */
   SbirsGroundDeliveryMode ground_delivery_{SbirsGroundDeliveryMode::kSharedBlackboard};
+  DetectionDeliveryMode detection_delivery_{DetectionDeliveryMode::kSharedBlackboard};
   bool use_own_satellite_pose_{false}; /**< 真：用本实体星历，不要求同实体 Flight */
   sbirs_sensor::session::SbirsVector3M own_position_ecef_m_{}; /**< 本实体卫星 ECEF 位置（m） */
   sbirs_sensor::session::SbirsVector3M own_velocity_ecef_m_per_s_{}; /**< 本实体卫星 ECEF 速度（m/s） */
@@ -114,8 +136,8 @@ class SbirsSensorComponent : public Component {
                              const sbirs_sensor::session::SbirsCycleResult& result);
   /// 排除原因跨周期差分事件（纯诊断观测，仅落事件日志）。
   void PublishExclusionEvents(World& world);
-  /// 探测记录 → 泛型探测记录（源通道 kSbirsSourceId，无身份键 0）。
-  void AdaptDetections(AppSceneState& scene,
+  /// 探测记录 → 融合探测池或 on_detection_batch_submitted（源通道 kSbirsSourceId）。
+  void AdaptDetections(World& world, AppSceneState& scene,
                        const sbirs_sensor::session::SbirsCycleResult& result);
   /// 探测帧 → 地面站（黑板或 on_sbirs_frame_submitted 消息）。
   void PublishToGroundStation(World& world, AppSceneState& scene,

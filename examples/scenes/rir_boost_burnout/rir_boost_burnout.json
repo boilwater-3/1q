@@ -1,0 +1,381 @@
+{
+  "name": "rir_boost_burnout",
+  "cycles": 200,
+  "dt_sec": 1.0,
+  "log_dir": "rir_boost_burnout",
+  "platform": {
+    "origin_lat_deg": 30.0,
+    "origin_lon_deg": 120.0,
+    "origin_alt_m": 0.0,
+    "initial_heading_deg": 90.0,
+    "cruise_altitude_m": 400.0,
+    "cruise_speed_mps": 50.0,
+    "waypoints": [
+      {
+        "lat_deg": 30.0,
+        "lon_deg": 120.05,
+        "alt_m": 400.0,
+        "speed_mps": 50.0,
+        "radius_m": 500.0
+      },
+      {
+        "lat_deg": 30.0,
+        "lon_deg": 120.1,
+        "alt_m": 400.0,
+        "speed_mps": 50.0,
+        "radius_m": 500.0
+      },
+      {
+        "lat_deg": 30.0,
+        "lon_deg": 120.15,
+        "alt_m": 400.0,
+        "speed_mps": 50.0,
+        "radius_m": 500.0
+      }
+    ]
+  },
+  "targets": [
+    {
+      "id": 2001,
+      "azimuth_deg": 90.0,
+      "range_m": 2000000.0,
+      "altitude_m": 800000.0,
+      "v_east_mps": 0.0,
+      "v_north_mps": 1000.0,
+      "temperature_k": 520.0,
+      "rcs_m2": 10.0,
+      "projected_area_m2": 2.0,
+      "radiant_intensity_w_per_sr": 0.0,
+      "emitter_center_frequency_hz": 0.0,
+      "maneuvers": [
+        {
+          "start_cycle": 51,
+          "v_east_mps": 0.0,
+          "v_north_mps": 1040.0
+        },
+        {
+          "start_cycle": 52,
+          "v_east_mps": 0.0,
+          "v_north_mps": 1080.0
+        },
+        {
+          "start_cycle": 53,
+          "v_east_mps": 0.0,
+          "v_north_mps": 1120.0
+        },
+        {
+          "start_cycle": 54,
+          "v_east_mps": 0.0,
+          "v_north_mps": 1160.0
+        },
+        {
+          "start_cycle": 55,
+          "v_east_mps": 0.0,
+          "v_north_mps": 1200.0
+        },
+        {
+          "start_cycle": 56,
+          "v_east_mps": 0.0,
+          "v_north_mps": 1240.0
+        },
+        {
+          "start_cycle": 57,
+          "v_east_mps": 0.0,
+          "v_north_mps": 1280.0
+        },
+        {
+          "start_cycle": 58,
+          "v_east_mps": 0.0,
+          "v_north_mps": 1320.0
+        },
+        {
+          "start_cycle": 59,
+          "v_east_mps": 0.0,
+          "v_north_mps": 1360.0
+        },
+        {
+          "start_cycle": 60,
+          "v_east_mps": 0.0,
+          "v_north_mps": 1400.0
+        },
+        {
+          "start_cycle": 61,
+          "v_east_mps": 0.0,
+          "v_north_mps": 1440.0
+        },
+        {
+          "start_cycle": 62,
+          "v_east_mps": 0.0,
+          "v_north_mps": 1480.0
+        },
+        {
+          "start_cycle": 63,
+          "v_east_mps": 0.0,
+          "v_north_mps": 1520.0
+        },
+        {
+          "start_cycle": 64,
+          "v_east_mps": 0.0,
+          "v_north_mps": 1560.0
+        },
+        {
+          "start_cycle": 65,
+          "v_east_mps": 0.0,
+          "v_north_mps": 1600.0
+        },
+        {
+          "start_cycle": 66,
+          "v_east_mps": 0.0,
+          "v_north_mps": 1640.0
+        },
+        {
+          "start_cycle": 67,
+          "v_east_mps": 0.0,
+          "v_north_mps": 1680.0
+        },
+        {
+          "start_cycle": 68,
+          "v_east_mps": 0.0,
+          "v_north_mps": 1720.0
+        },
+        {
+          "start_cycle": 69,
+          "v_east_mps": 0.0,
+          "v_north_mps": 1760.0
+        },
+        {
+          "start_cycle": 70,
+          "v_east_mps": 0.0,
+          "v_north_mps": 1800.0
+        },
+        {
+          "start_cycle": 71,
+          "v_east_mps": 0.0,
+          "v_north_mps": 1740.0
+        },
+        {
+          "start_cycle": 72,
+          "v_east_mps": 0.0,
+          "v_north_mps": 1680.0
+        },
+        {
+          "start_cycle": 73,
+          "v_east_mps": 0.0,
+          "v_north_mps": 1620.0
+        }
+      ],
+      "rir": {
+        "rcs_dbsm": 10.0,
+        "scatterers": [
+          {
+            "offset_m": 0.0,
+            "rcs_dbsm": 10.0
+          },
+          {
+            "offset_m": 6.0,
+            "rcs_dbsm": 8.0
+          },
+          {
+            "offset_m": 12.0,
+            "rcs_dbsm": 6.0
+          }
+        ]
+      }
+    }
+  ],
+  "sensors": {
+    "ar": false,
+    "esr": false,
+    "eos": false,
+    "sbirs": false,
+    "sar": false
+  },
+  "rir": {
+    "enabled": true,
+    "site": {
+      "lat_deg": 30.0,
+      "lon_deg": 120.0,
+      "alt_m": 0.0
+    },
+    "designated_target_id": 0,
+    "designation_duration_cycles": 0
+  },
+  "high_threat_confidence": 3.0,
+  "smoke": {
+    "min_key_events": 0,
+    "min_sbirs_events": 0,
+    "min_sar_products": 0,
+    "min_fused_targets": 1,
+    "min_rir_recognition_outputs": 0
+  },
+  "session_config": {
+    "rir": {
+      "hardware": {
+        "transmitter": {
+          "equipment_id": 1,
+          "peak_power_w": 582000.0,
+          "frequency_hz": 3000000000.0,
+          "bandwidth_hz": 4500000.0,
+          "pulse_width_s": 0.016,
+          "prf_hz": 10.0,
+          "transmit_loss_db": 3.5,
+          "maximum_peak_power_w": 582000.0,
+          "maximum_duty_cycle": 0.5,
+          "maximum_pulse_energy_j": 10000.0,
+          "frequency_plan_hz": [
+            3000000000.0
+          ]
+        },
+        "antenna": {
+          "main_beam_gain_db": 52.0,
+          "nominal_az_beamwidth_deg": 4.0,
+          "nominal_el_beamwidth_deg": 4.0,
+          "antenna_length_m": 1.2,
+          "antenna_width_m": 1.2,
+          "pattern": {
+            "model_type": "kGaussianMainLobe",
+            "max_sidelobe_level_db": -20.0,
+            "backlobe_level_db": -35.0,
+            "scan_loss_coeff_db_per_deg2": 0.0,
+            "max_scan_loss_db": 6.0,
+            "boresight_offset_deg": {
+              "az_deg": 0.0,
+              "el_deg": 0.0
+            }
+          },
+          "enable_directional_pattern": false
+        },
+        "receiver": {
+          "equipment_id": 2,
+          "noise_figure_db": 4.0,
+          "receive_loss_db": 2.0,
+          "cross_polarization_isolation_db": 30.0,
+          "minimum_far_field_range_m": 1.0,
+          "has_co_site_isolation": false,
+          "co_site_isolation_db": 0.0,
+          "maximum_linear_input_power_w": 0.001,
+          "preselector_bandwidth_hz": 20000000.0,
+          "interference_observation_jn_gate_db": 6.0,
+          "scene_polarization": "kHorizontal",
+          "co_site_paths": [
+            {
+              "transmitter_equipment_id": 1,
+              "receiver_equipment_id": 2,
+              "isolation_db": 120.0
+            }
+          ]
+        },
+        "signal_processing": {
+          "target_processing_gain_db": 0.0,
+          "noise_processing_gain_db": 0.0,
+          "clutter_suppression_gain_db": 0.0,
+          "jamming_suppression_gain_db": 0.0
+        },
+        "rcs_physics": {
+          "enable_physical_rcs": false,
+          "physics_mix_ratio": 0.0,
+          "cylinder_weight": 0.5,
+          "min_equivalent_radius_m": 0.05,
+          "max_equivalent_radius_m": 5.0,
+          "min_rcs_m2": 0.01,
+          "max_rcs_m2": 1000.0,
+          "bistatic_psi_offset_deg": 5.0
+        }
+      },
+      "sensor_platform_id": 2,
+      "orientation": {
+        "steerable_volume_deg": {
+          "az_min_deg": -110.0,
+          "az_max_deg": 110.0,
+          "el_min_deg": 2.0,
+          "el_max_deg": 85.0
+        }
+      },
+      "mission": {
+        "work_mode": "kIdentify",
+        "scan_center_deg": {
+          "az_deg": 0.0,
+          "el_deg": 0.0
+        },
+        "max_range_m": 9000000.0,
+        "recognition_dwell_sec": 0.1,
+        "scan": {
+          "scan_start_position": "kLeftTop",
+          "scan_sequence": "kAzimuthFirst",
+          "step_scale": 1.0
+        }
+      },
+      "policy": {
+        "detection": {
+          "cfar_pfa": 1e-06,
+          "min_snr_db": -10.0,
+          "min_detection_margin_db": -2.0,
+          "pulse_count": 1,
+          "random_seed": 42,
+          "gate_mode": "kSnrFallback"
+        },
+        "association": {
+          "distance_gate_sigma": 6.0
+        },
+        "tracking": {
+          "kalman_noise_diff_coeff": 30.0,
+          "kalman_measurement_noise_std": 300.0
+        },
+        "lifecycle": {
+          "confirm_hits": 3,
+          "max_miss_before_lost": 4,
+          "max_lost_cycles": 5,
+          "enable_imm_lifecycle": true,
+          "model_count_hint": 2
+        },
+        "recognition": {
+          "enabled": true,
+          "min_confirmed_hits": 1,
+          "accumulation_window_sec": 10.0,
+          "min_observation_count": 1,
+          "acceptance_score": 0.6,
+          "minimum_margin": 0.05,
+          "result_hold_sec": 30.0,
+          "feature_weights": {
+            "rcs_weight": 0.25,
+            "motion_weight": 0.25,
+            "polarization_weight": 0.25,
+            "range_profile_weight": 0.25
+          },
+          "database_path": "remote_identification_radar/target_feature_database_v1.1.db"
+        }
+      },
+      "environment": {
+        "enable_environment_effects": false,
+        "weather_attenuation_db": 0.0,
+        "vegetation_scatter_physics": {
+          "cover_profile": "kDisabled",
+          "enable_physical_model": false
+        },
+        "atmospheric_physics": {
+          "enable_physical_model": false,
+          "pressure_hpa": 1013.25,
+          "temperature_k": 288.15,
+          "relative_humidity": 0.5
+        }
+      },
+      "sensor_enabled": true
+    },
+    "fusion": {
+      "position_radius_m": 50000.0,
+      "bearing_beamwidth_deg": 8.0,
+      "feature_threshold": 0.0,
+      "window_size": 10,
+      "max_missed_cycles": 5,
+      "source_weights": [
+        0.0,
+        1.0,
+        0.8,
+        0.6,
+        0.5,
+        0.6
+      ]
+    },
+    "threat": {}
+  }
+}
