@@ -353,8 +353,6 @@ void WriteSbirsLifecycleEvents(float sim_time_sec, std::uint32_t cycle,
       content += " 位置ECEF=" + FormatVec3(found->second->position_ecef_m.x,
                                            found->second->position_ecef_m.y,
                                            found->second->position_ecef_m.z, 1);
-    } else {
-      content += " 位置ECEF=无";
     }
     SBIRS_ACCEPTANCE_ITEM(sim_time_sec, cycle, "特殊事件监测与提示", content);
   }
@@ -373,7 +371,6 @@ void WriteSbirsOncePerSession(float sim_time_sec, std::uint32_t cycle) {
   // integration_events.log 的同名验收项（模块=SBIRS）。
   SBIRS_ACCEPTANCE_ITEM(sim_time_sec, cycle, "初始化时间",
                         "见integration_events.log[验收项：初始化时间]（模块=SBIRS）");
-  SBIRS_ACCEPTANCE_ITEM(sim_time_sec, cycle, "单步执行时间", "暂无");
   SBIRS_ACCEPTANCE_ITEM(sim_time_sec, cycle, "典型场景和总仿真次数",
                         "场景=本会话 场景数=1 总仿真周期=结束时回写");
   SBIRS_ACCEPTANCE_ITEM(sim_time_sec, cycle, "组件模型参数性能", "见红外系统测角误差");

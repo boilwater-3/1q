@@ -79,17 +79,15 @@ void WritePrecisionKeyMetrics(const PrecisionEvaluationReport& report,
 
   std::string content = "东/北/天RMSE=" + FormatVec3(east_rmse, north_rmse, up_rmse, 1) + "m";
   content += " 距离RMSE=" + FormatF(range_rmse, 1) + "m";
-  // 评审 2026-08-26 条13：与目标的距离误差（交会解斜距误差 RMSE；双星场景才有样本，
-  // 无样本写无——不与上面的交会三维位置 RMSE 混同）。
-  content += slant_range_m.empty() ? " 斜距RMSE=无" : " 斜距RMSE=" + FormatF(slant_rmse, 1) + "m";
+  if (!slant_range_m.empty()) {
+    content += " 斜距RMSE=" + FormatF(slant_rmse, 1) + "m";
+  }
   content += " 方位/俯仰RMSE=" + FormatPairDeg(az_rmse, el_rmse, 4) + "°";
   content += " 合成RMSE=" + FormatF(composite_rmse, 1) + "m";
   content += " CEP50=" + FormatF(cep50, 1) + "m";
   if (n > 0U) {
     content += " 位置误差95%CI=[" + FormatF(mean_range - ci_half, 1) + "," +
                FormatF(mean_range + ci_half, 1) + "]m";
-  } else {
-    content += " 位置误差95%CI=无";
   }
   // 误差源贡献率按 2026-08-22 甲方批注「不需要，删了」移除（无分源灵敏度模型）。
   PRECISION_EVAL_ITEM(0.0f, 0U, "关键精度指标", content);
@@ -100,7 +98,6 @@ void WritePrecisionAhp(const PrecisionEvaluationReport& report) {
     return;
   }
   if (!report.ahp_valid) {
-    PRECISION_EVAL_ITEM(0.0f, 0U, "层次分析法", "暂无");
     return;
   }
   std::string weights = "(";
@@ -138,7 +135,6 @@ void WritePrecisionAhp(const PrecisionEvaluationReport& report) {
   content += std::string(" 等级=") + GradeOf(report.composite_score);
   content += " 贡献排序=" + rank;
   content += " CR=" + FormatF(report.ahp.consistency_ratio, 3);
-  content += " 独立多层树=无";
   PRECISION_EVAL_ITEM(0.0f, 0U, "层次分析法", content);
 }
 

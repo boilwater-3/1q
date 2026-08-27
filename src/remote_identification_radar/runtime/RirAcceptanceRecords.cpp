@@ -38,6 +38,7 @@ namespace remote_identification_radar {
 namespace runtime {
 namespace {
 
+using oneq::logging::AppendField;
 using oneq::logging::FormatF;
 using oneq::logging::FormatPairDeg;
 using oneq::logging::FormatSci;
@@ -62,7 +63,7 @@ const char* CategoryName(int category) {
     case static_cast<int>(RirRecognitionCategory::kMissile):
       return "导弹";
     default:
-      return "无";
+      return "";
   }
 }
 
@@ -171,17 +172,20 @@ void Emit(float sim_time_sec, std::uint32_t cycle, const char* item, const std::
 
 void EmitOrNone(float sim_time_sec, std::uint32_t cycle, const char* item, const std::string& prefix,
                 bool ok, const std::string& value) {
-  Emit(sim_time_sec, cycle, item, prefix + (ok ? value : std::string("无")));
+  if (!ok) {
+    return;
+  }
+  Emit(sim_time_sec, cycle, item, prefix + value);
 }
 
-/** 航迹 ENU → 验收斜距/方位/俯仰；无效位置保持「无」。 */
+/** 航迹 ENU → 验收斜距/方位/俯仰；无效位置返回空串（调用方省略字段）。 */
 std::string FormatTrackLookPolar(const tracking::RirTrackState& track) {
   float range_m = 0.0f;
   float az_deg = 0.0f;
   float el_deg = 0.0f;
   if (!TryLookPolarFromEnuM(track.position.x(), track.position.y(), track.position.z(), &range_m,
                             &az_deg, &el_deg)) {
-    return "斜距=无 方位/俯仰=无";
+    return std::string();
   }
   return "斜距=" + FormatF(range_m, 1) + "m 方位/俯仰=" + FormatPairDeg(az_deg, el_deg, 3) + "°";
 }
@@ -364,7 +368,6 @@ void WriteRirInterferenceLinks(
     return;
   }
   if (links.empty()) {
-    RIR_ACCEPTANCE_ITEM(sim_time_sec, cycle, "干扰功率计算", "干扰源=无 到达雷达功率=0.000W");
     return;
   }
   for (const oneq::electromagnetics::RfIncidentLinkResult& link : links) {
@@ -439,8 +442,6 @@ void WriteRirAssociation(float sim_time_sec, std::uint32_t cycle,
         content += ",位置LLA=(" + FormatF(measurement_lla.latitude_deg, 6) + "," +
                    FormatF(measurement_lla.longitude_deg, 6) + "," +
                    FormatF(measurement_lla.altitude_m, 1) + ")m";
-      } else {
-        content += ",位置LLA=无";
       }
       content += ",检测概率=" + FormatF(measurement.detection_pd, 4) + ")";
       content += measurement.matched_existing_track
@@ -515,7 +516,7 @@ void WriteRirTrackAndId(float sim_time_sec, std::uint32_t cycle, const tracking:
                                                  : std::string(CategoryName(category));
   const std::string polar = FormatTrackLookPolar(track);
   // 评审 2026-08-26 条17：ENU 字段替换为 ECEF/LLA（平台 ECEF 为雷达局部 ENU 的
-  // 绝对锚点；锚点或换算失败时如实写无）。速度/加速度按 ENU→ECEF 旋转矩阵换算。
+  // 绝对锚点；锚点或换算失败时省略对应字段）。速度/加速度按 ENU→ECEF 旋转矩阵换算。
   oneq::coordinate::LlaPositionDegM platform_lla;
   oneq::coordinate::EcefPositionM pos_ecef;
   oneq::coordinate::LlaPositionDegM pos_lla;
@@ -542,53 +543,50 @@ void WriteRirTrackAndId(float sim_time_sec, std::uint32_t cycle, const tracking:
         oneq::coordinate::TryEnuToEcefVelocity(vel_enu, platform_lla, &vel_ecef) &&
         oneq::coordinate::TryEnuToEcefVelocity(acc_enu, platform_lla, &acc_ecef);
   }
-  const std::string pos_ecef_text =
-      have_frame ? FormatVec3(pos_ecef.x_m, pos_ecef.y_m, pos_ecef.z_m, 1) : std::string("无");
-  const std::string pos_lla_text =
-      have_frame
-          ? FormatVec3(pos_lla.latitude_deg, pos_lla.longitude_deg, pos_lla.altitude_m, 6)
-          : std::string("无");
-  const std::string next_ecef_text =
-      have_frame ? FormatVec3(next_ecef.x_m, next_ecef.y_m, next_ecef.z_m, 1) : std::string("无");
-  const std::string next_lla_text =
-      have_frame
-          ? FormatVec3(next_lla.latitude_deg, next_lla.longitude_deg, next_lla.altitude_m, 6)
-          : std::string("无");
-  const std::string vel_ecef_text =
-      have_frame ? FormatVec3(vel_ecef.x_mps, vel_ecef.y_mps, vel_ecef.z_mps, 3) : std::string("无");
-  const std::string acc_ecef_text =
-      have_frame ? FormatVec3(acc_ecef.x_mps, acc_ecef.y_mps, acc_ecef.z_mps, 4) : std::string("无");
   std::string measure = "目标ID=" + std::to_string(track.external_target_id);
-  measure += " " + polar;
+  if (!polar.empty()) {
+    measure += " " + polar;
+  }
   measure += " 高度=" + FormatF(track.position.z(), 1) + "m";
   measure += " 速度=" + FormatF(track.speed, 3) + "m/s";
   measure += " 航向=" + FormatF(heading, 2) + "°";
   measure += " 加速度=" + FormatVec3(track.acceleration.x(), track.acceleration.y(),
                                      track.acceleration.z(), 4) +
              "m/s²";
-  measure += " 飞机类型=" + category_text;
   Emit(sim_time_sec, cycle, "目标测量角度与距离", measure);
   Emit(sim_time_sec, cycle, "角度和距离测量", measure);
 
   std::string reentry = "航迹=" + std::to_string(track.association_key);
   reentry += " 目标ID=" + std::to_string(track.external_target_id);
   reentry += std::string(" 状态=") + TrackStatusText(track.status);
-  reentry += " " + polar;
+  if (!polar.empty()) {
+    reentry += " " + polar;
+  }
   reentry += " 高度=" + FormatF(track.position.z(), 1) + "m";
   reentry += " 速度=" + FormatF(track.speed, 3) + "m/s";
   reentry += " 航向=" + FormatF(heading, 2) + "°";
-  reentry += " 加速度ECEF=" + acc_ecef_text + "m/s²";
+  if (have_frame) {
+    reentry += " 加速度ECEF=" +
+               FormatVec3(acc_ecef.x_mps, acc_ecef.y_mps, acc_ecef.z_mps, 4) + "m/s²";
+  }
   Emit(sim_time_sec, cycle, "典型/再入目标跟踪", reentry);
   Emit(sim_time_sec, cycle, "多目标跟踪", reentry);
 
   const tracking::RirStateCovariance& cov = track.gaussian_state.covariance;
   std::string filter = "航迹=" + std::to_string(track.association_key);
-  filter += " 当前ECEF=" + pos_ecef_text + "m";
-  filter += " 当前LLA=" + pos_lla_text;
-  filter += " 下一时刻预测ECEF=" + next_ecef_text + "m";
-  filter += " 下一时刻预测LLA=" + next_lla_text;
-  filter += " 速度ECEF=" + vel_ecef_text + "m/s";
-  filter += " 加速度ECEF=" + acc_ecef_text + "m/s²";
+  if (have_frame) {
+    filter += " 当前ECEF=" + FormatVec3(pos_ecef.x_m, pos_ecef.y_m, pos_ecef.z_m, 1) + "m";
+    filter += " 当前LLA=" +
+              FormatVec3(pos_lla.latitude_deg, pos_lla.longitude_deg, pos_lla.altitude_m, 6);
+    filter += " 下一时刻预测ECEF=" + FormatVec3(next_ecef.x_m, next_ecef.y_m, next_ecef.z_m, 1) +
+              "m";
+    filter += " 下一时刻预测LLA=" +
+              FormatVec3(next_lla.latitude_deg, next_lla.longitude_deg, next_lla.altitude_m, 6);
+    filter += " 速度ECEF=" +
+              FormatVec3(vel_ecef.x_mps, vel_ecef.y_mps, vel_ecef.z_mps, 3) + "m/s";
+    filter += " 加速度ECEF=" +
+              FormatVec3(acc_ecef.x_mps, acc_ecef.y_mps, acc_ecef.z_mps, 4) + "m/s²";
+  }
   filter += " 协方差迹=" + FormatF(static_cast<double>(track.EstimationUncertaintyTrace()), 2);
   filter += " 完整协方差=[";
   for (int row = 0; row < 6; ++row) {
@@ -603,11 +601,21 @@ void WriteRirTrackAndId(float sim_time_sec, std::uint32_t cycle, const tracking:
     }
   }
   filter += "]";
-  Emit(sim_time_sec, cycle, "目标位置速度加速度估计",
-       "航迹=" + std::to_string(track.association_key) + " 当前ECEF=" + pos_ecef_text +
-           "m 当前LLA=" + pos_lla_text + " 下一时刻预测ECEF=" + next_ecef_text +
-           "m 下一时刻预测LLA=" + next_lla_text + " 速度ECEF=" + vel_ecef_text +
-           "m/s 加速度ECEF=" + acc_ecef_text + "m/s²");
+  std::string kinematic = "航迹=" + std::to_string(track.association_key);
+  if (have_frame) {
+    kinematic += " 当前ECEF=" + FormatVec3(pos_ecef.x_m, pos_ecef.y_m, pos_ecef.z_m, 1) + "m";
+    kinematic += " 当前LLA=" +
+                 FormatVec3(pos_lla.latitude_deg, pos_lla.longitude_deg, pos_lla.altitude_m, 6);
+    kinematic += " 下一时刻预测ECEF=" + FormatVec3(next_ecef.x_m, next_ecef.y_m, next_ecef.z_m, 1) +
+                  "m";
+    kinematic += " 下一时刻预测LLA=" +
+                  FormatVec3(next_lla.latitude_deg, next_lla.longitude_deg, next_lla.altitude_m, 6);
+    kinematic += " 速度ECEF=" +
+                  FormatVec3(vel_ecef.x_mps, vel_ecef.y_mps, vel_ecef.z_mps, 3) + "m/s";
+    kinematic += " 加速度ECEF=" +
+                  FormatVec3(acc_ecef.x_mps, acc_ecef.y_mps, acc_ecef.z_mps, 4) + "m/s²";
+  }
+  Emit(sim_time_sec, cycle, "目标位置速度加速度估计", kinematic);
   const std::string cov_text = filter.substr(filter.find("完整协方差="));
   Emit(sim_time_sec, cycle, "目标状态协方差",
        "航迹=" + std::to_string(track.association_key) + " " + cov_text);
@@ -622,20 +630,15 @@ void WriteRirTrackAndId(float sim_time_sec, std::uint32_t cycle, const tracking:
     }
     weights += "]";
     Emit(sim_time_sec, cycle, "IMM模型权重", weights);
-  } else {
-    Emit(sim_time_sec, cycle, "IMM模型权重",
-         "航迹=" + std::to_string(track.association_key) + " 无");
   }
 
   std::string id_text = "航迹=" + std::to_string(track.association_key);
   id_text += " 目标ID=" + std::to_string(track.external_target_id);
   if (result != nullptr) {
     id_text += " 状态=" + std::to_string(static_cast<int>(result->state));
-    id_text += " 大类=" + category_text;
-    id_text += " 型号=" + (result->target_model.empty() ? std::string("无") : result->target_model);
+    AppendField(id_text, "大类", category_text);
+    AppendField(id_text, "型号", result->target_model);
     id_text += " 置信度=" + FormatF(static_cast<double>(result->confidence), 4);
-  } else {
-    id_text += " 无";
   }
   Emit(sim_time_sec, cycle, "独立目标识别器结论", id_text);
 
@@ -741,7 +744,6 @@ void WriteRirOncePerSession(float sim_time_sec, std::uint32_t cycle) {
   // integration_events.log 的同名验收项（模块=RIR）。
   Emit(sim_time_sec, cycle, "初始化时间",
        "见integration_events.log[验收项：初始化时间]（模块=RIR）");
-  Emit(sim_time_sec, cycle, "单步执行时间", "暂无");
   Emit(sim_time_sec, cycle, "单个模型加载时间",
        "见integration_events.log[验收项：单个模型加载时间]（模块=RIR）");
   Emit(sim_time_sec, cycle, "多模型并行加载",
@@ -780,9 +782,6 @@ void WriteRirBeamScan(float sim_time_sec, std::uint32_t cycle,
     table += " 下一波位=" + FormatPairDeg(pattern[next].az_deg, pattern[next].el_deg, 3) + "°";
     Emit(sim_time_sec, cycle, "波位排列表", table);
     Emit(sim_time_sec, cycle, "扫描轨迹序列", table);
-  } else {
-    Emit(sim_time_sec, cycle, "波位排列表", "无");
-    Emit(sim_time_sec, cycle, "扫描轨迹序列", "无");
   }
 }
 

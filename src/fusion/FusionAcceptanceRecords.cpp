@@ -18,6 +18,7 @@
 namespace fusion {
 namespace {
 
+using oneq::logging::AppendField;
 using oneq::logging::FormatF;
 using oneq::logging::FormatCov6x6;
 using oneq::logging::FormatCovDiag6;
@@ -77,7 +78,7 @@ std::string ChannelNames(const FusedTarget& track) {
     }
     text += SourceLabel(id);
   }
-  return text.empty() ? std::string("无") : text;
+  return text;
 }
 
 }  // namespace
@@ -147,8 +148,6 @@ void WriteFusionAcceptance(std::uint32_t cycle, const std::vector<FusedTarget>& 
       static_cast<float>(static_cast<double>(cycle) * config.track_cycle_period_sec);
   const std::uint64_t cycle_u64 = static_cast<std::uint64_t>(cycle);
   if (tracks.empty()) {
-    FUSION_ACCEPTANCE_ITEM(sim_time, cycle, "多传感器目标跟踪", "暂无");
-    FUSION_ACCEPTANCE_ITEM(sim_time, cycle, "协同探测信息融合", "暂无");
     return;
   }
 
@@ -160,13 +159,9 @@ void WriteFusionAcceptance(std::uint32_t cycle, const std::vector<FusedTarget>& 
     std::string content = "航迹键=" + std::to_string(track.key);
     if (have_ecef) {
       content += " ECEF位置m=" + FormatVec3(ecef.x_m, ecef.y_m, ecef.z_m, 1);
-    } else {
-      content += " ECEF位置m=无";
     }
     if (track.has_kinematic_estimate) {
       content += " 协方差对角=" + FormatCovDiag6(track.kinematic_estimate.covariance_ecef);
-    } else {
-      content += " 协方差对角=无";
     }
     FUSION_ACCEPTANCE_ITEM(sim_time, cycle, "多传感器目标跟踪", content);
 
@@ -194,7 +189,6 @@ void WriteFusionAcceptance(std::uint32_t cycle, const std::vector<FusedTarget>& 
     relay += FormatF(track.kinematic_estimate.position.altitude_m, 1) + ")";
     relay += " 速度模=" + FormatF(speed, 3) + "m/s";
     relay += " 加速度模=" + FormatF(acc, 3) + "m/s²";
-    relay += " 预测航路点=无";
     relay += " 融合航迹数=" + std::to_string(tracks.size());
     relay += " 置信度=" + FormatF(track.confidence, 3);
 
@@ -263,11 +257,7 @@ void WriteFusionAcceptance(std::uint32_t cycle, const std::vector<FusedTarget>& 
         relay += " 交接指令=" + SourceLabel(exit_source) + "(剩余" +
                  FormatF(min_remaining_sec, 1) + "s离场)→" +
                  SourceLabel(takeover_source) + "接管";
-      } else {
-        relay += " 交接指令=无";
       }
-    } else {
-      relay += " 剩余覆盖时间=无 接力计划=无 交接指令=无";
     }
     FUSION_ACCEPTANCE_ITEM(sim_time, cycle, "多传感器接力跟踪", relay);
 
@@ -278,8 +268,6 @@ void WriteFusionAcceptance(std::uint32_t cycle, const std::vector<FusedTarget>& 
       ukf += FormatF(track.kinematic_estimate.position.altitude_m, 1) + ")";
       if (have_ecef) {
         ukf += " ECEF位置m=" + FormatVec3(ecef.x_m, ecef.y_m, ecef.z_m, 1);
-      } else {
-        ukf += " ECEF位置m=无";
       }
       ukf += " 速度m/s=" + FormatVec3(vel[0], vel[1], vel[2], 3);
       ukf += " 加速度m/s²=" + FormatVec3(ax, ay, az, 3);
@@ -294,13 +282,11 @@ void WriteFusionAcceptance(std::uint32_t cycle, const std::vector<FusedTarget>& 
   // 各源测向信息（方位/俯仰为该源最近一拍视线角）。
   for (const FusedTarget& track : tracks) {
     std::string collab = "目标键=" + std::to_string(track.key);
-    collab += " 参与通道=" + ChannelNames(track);
+    AppendField(collab, "参与通道", ChannelNames(track));
     if (track.has_kinematic_estimate) {
       collab += " 定位LLA=(" + FormatF(track.kinematic_estimate.position.latitude_deg, 6) +
                 "," + FormatF(track.kinematic_estimate.position.longitude_deg, 6) + "," +
                 FormatF(track.kinematic_estimate.position.altitude_m, 1) + ")";
-    } else {
-      collab += " 定位LLA=暂无(滤波未起始)";
     }
     std::string bearings;
     for (const ChannelMeasurement& channel : track.channels) {
@@ -314,7 +300,9 @@ void WriteFusionAcceptance(std::uint32_t cycle, const std::vector<FusedTarget>& 
                   FormatF(channel.bearing_az_deg, 3) + "°/俯仰" +
                   FormatF(channel.bearing_el_deg, 3) + "°)";
     }
-    collab += bearings.empty() ? " 测向信息=无方位量测" : " 测向信息=[" + bearings + "]";
+    if (!bearings.empty()) {
+      collab += " 测向信息=[" + bearings + "]";
+    }
     collab += " 融合目标数=" + std::to_string(tracks.size());
     FUSION_ACCEPTANCE_ITEM(sim_time, cycle, "协同探测信息融合", collab);
   }

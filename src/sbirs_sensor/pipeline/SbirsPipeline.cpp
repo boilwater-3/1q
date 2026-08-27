@@ -702,7 +702,7 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
                               std::to_string(nfov_scheduler_.LockedCount()) + "/" +
                               std::to_string(nfov_scheduler_.max_locks()) + " 释放目标=" +
                               std::to_string(target_id) + " 原因=" + reason +
-                              " 门失败=" + std::to_string(gate_failures) + " 按威胁等级抢占=无");
+                              " 门失败=" + std::to_string(gate_failures));
   };
 
   const SbirsPointingDisturbanceParameters disturbance_parameters =
@@ -1131,15 +1131,13 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
         const double el_err =
             static_cast<float>(detection.record.elevation_rad * 57.29577951308232) - elevation_deg;
         std::string nfov = "目标ID=" + std::to_string(target.target_id);
-        nfov += " 脱靶量m=(";
-        nfov += focal_valid ? oneq::logging::FormatF(focal_offset.x_m, 6) : std::string("无");
-        nfov += ",";
-        nfov += focal_valid ? oneq::logging::FormatF(focal_offset.y_m, 6) : std::string("无");
-        nfov += ") 脱靶量像素=(";
-        nfov += focal_valid ? oneq::logging::FormatF(focal_offset.x_pixels, 2) : std::string("无");
-        nfov += ",";
-        nfov += focal_valid ? oneq::logging::FormatF(focal_offset.y_pixels, 2) : std::string("无");
-        nfov += ") 跟踪状态=";
+        if (focal_valid) {
+          nfov += " 脱靶量m=(" + oneq::logging::FormatF(focal_offset.x_m, 6) + "," +
+                  oneq::logging::FormatF(focal_offset.y_m, 6) + ")";
+          nfov += " 脱靶量像素=(" + oneq::logging::FormatF(focal_offset.x_pixels, 2) + "," +
+                  oneq::logging::FormatF(focal_offset.y_pixels, 2) + ")";
+        }
+        nfov += " 跟踪状态=";
         nfov += detection.attribution.nfov_tracking_coasting ? "滑行" : "跟踪";
         nfov += " 信号能量=" + oneq::logging::FormatSci(signal_energy_j) + "J";
         nfov += " SNR=" + oneq::logging::FormatF(snr, 3);
@@ -1711,7 +1709,6 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
     collab += " 跳过=[" + skipped_text + "]";
     collab += nfov_scheduler_.LockedCount() >= nfov_scheduler_.max_locks() ? " 资源满=是"
                                                                           : " 资源满=否";
-    collab += " 按威胁等级抢占=无";
     SBIRS_ACCEPTANCE_ITEM(sim_time_sec, input.cycle_index, "协同工作机制", collab);
   }
 

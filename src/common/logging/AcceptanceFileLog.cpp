@@ -12,6 +12,16 @@
 #include <mutex>
 #include <string>
 
+#if defined(_MSC_VER)
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
+#endif
+
 #ifndef ONEQ_SBIRS_ACCEPTANCE_LOG_PATH
 #define ONEQ_SBIRS_ACCEPTANCE_LOG_PATH "log/sbirs_acceptance.log"
 #endif
@@ -31,6 +41,42 @@
 namespace oneq {
 namespace logging {
 namespace {
+
+#if defined(_MSC_VER)
+// MSVC 窄字符串字面量为系统 ANSI（中文 Windows 常为 GBK）；验收日志统一落 UTF-8，
+// 便于 rg/编辑器按 UTF-8 检索，且不依赖 /utf-8 编译选项。
+std::string NarrowSystemToUtf8(const std::string& text) {
+  if (text.empty()) {
+    return text;
+  }
+  const int wide_len =
+      MultiByteToWideChar(CP_ACP, MB_ERR_INVALID_CHARS, text.data(),
+                          static_cast<int>(text.size()), nullptr, 0);
+  if (wide_len <= 0) {
+    return text;
+  }
+  std::wstring wide(static_cast<std::size_t>(wide_len), L'\0');
+  MultiByteToWideChar(CP_ACP, MB_ERR_INVALID_CHARS, text.data(),
+                      static_cast<int>(text.size()), &wide[0], wide_len);
+  const int utf8_len = WideCharToMultiByte(CP_UTF8, WC_ERR_INVALID_CHARS, wide.data(), wide_len,
+                                           nullptr, 0, nullptr, nullptr);
+  if (utf8_len <= 0) {
+    return text;
+  }
+  std::string utf8(static_cast<std::size_t>(utf8_len), '\0');
+  WideCharToMultiByte(CP_UTF8, WC_ERR_INVALID_CHARS, wide.data(), wide_len, &utf8[0], utf8_len,
+                      nullptr, nullptr);
+  return utf8;
+}
+#endif
+
+std::string EncodeAcceptanceText(const std::string& text) {
+#if defined(_MSC_VER)
+  return NarrowSystemToUtf8(text);
+#else
+  return text;
+#endif
+}
 
 const char* EnvName(AcceptanceChannel channel) {
   switch (channel) {
@@ -142,8 +188,9 @@ class ChannelSink {
     if (!stream_.is_open()) {
       return;
     }
-    stream_ << text;
-    if (text[text.size() - 1U] != '\n') {
+    const std::string encoded = EncodeAcceptanceText(text);
+    stream_ << encoded;
+    if (encoded[encoded.size() - 1U] != '\n') {
       stream_ << '\n';
     }
   }

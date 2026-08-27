@@ -211,7 +211,7 @@ void WriteInferenceAcceptance(const std::vector<InferenceTrackState>& tracks,
   // 评审 2026-08-26 条9：行内只保留关机点时刻与关机点坐标（未确认分支统一写
   // 「正在模拟计算」）；状态/能量峰值/当时速度/机械能峰值/发射时刻锚不再输出。
   if (tracks.empty()) {
-    INFERENCE_ACCEPTANCE_ITEM(0.0f, 0U, "关机点预测", "暂无");
+    return;
   }
   for (std::size_t i = 0U; i < tracks.size(); ++i) {
     const InferenceTrackState& track = tracks[i];
@@ -250,13 +250,9 @@ void WriteInferenceAcceptance(const std::vector<InferenceTrackState>& tracks,
         burnout += " 关机点经纬高=" + FormatVec3(peak_lla.latitude_deg,
                                                   peak_lla.longitude_deg,
                                                   peak_lla.altitude_m, 3);
-      } else {
-        burnout += " 关机点经纬高=无";
       }
       // 评审 2026-08-26 条10 + 2026-08-27 条3：关机点 1-σ = 当前协方差敏度传播
-      // 到关机时刻（引擎静态敏度面），随行输出并回填 API 字段供发布行使用；
-      // 无协方差/传播失败时如实写无。
-      std::string burnout_sigma_text = "无";
+      // 到关机时刻（引擎静态敏度面），随行输出并回填 API 字段供发布行使用。
       if (i < results.size() && track.has_covariance) {
         const double burnout_offset_sec = state.time_sec - track.sim_time_sec;
         const double burnout_sigma =
@@ -264,10 +260,9 @@ void WriteInferenceAcceptance(const std::vector<InferenceTrackState>& tracks,
         if (burnout_sigma > 0.0) {
           results[i].trajectory.has_burnout_sigma = true;
           results[i].trajectory.burnout_position_sigma_m = burnout_sigma;
-          burnout_sigma_text = FormatF(burnout_sigma, 1) + "m";
+          burnout += " 关机点误差1σ=" + FormatF(burnout_sigma, 1) + "m";
         }
       }
-      burnout += " 关机点误差1σ=" + burnout_sigma_text;
     } else {
       // 观测中/助推中/窗口外/早于跟踪起点：关机点尚未确认，统一写正在模拟计算。
       burnout += " 关机点时刻=正在模拟计算";
@@ -316,8 +311,9 @@ void WriteInferenceAcceptance(const std::vector<InferenceTrackState>& tracks,
                                                               point_lla.longitude_deg,
                                                               point_lla.altitude_m, 3);
       }
-      forecast += points.empty() ? " 预测点LLA=无"
-                                 : " 预测点LLA=[" + points + "]";
+      if (!points.empty()) {
+        forecast += " 预测点LLA=[" + points + "]";
+      }
     }
     if (i < tracks.size()) {
       oneq::coordinate::LlaPositionDegM current_lla{};
@@ -333,9 +329,6 @@ void WriteInferenceAcceptance(const std::vector<InferenceTrackState>& tracks,
                                               traj.impact_point.altitude_m, 3);
       forecast += " 误差椭圆半长/半短/方位=(" + FormatF(sigma, 1) + "m," + FormatF(sigma, 1) +
                   "m,0°)";
-    } else {
-      forecast += " 落点经纬高=无";
-      forecast += " 误差椭圆半长/半短/方位=无";
     }
     INFERENCE_ACCEPTANCE_ITEM(row_sim_time, row_cycle, "目标轨迹预报", forecast);
 
@@ -351,17 +344,22 @@ void WriteInferenceAcceptance(const std::vector<InferenceTrackState>& tracks,
       const bool has_burnout_sigma = traj.has_burnout_sigma;
       const double publish_sigma = has_burnout_sigma ? traj.burnout_position_sigma_m : 0.0;
       const std::string sigma_text =
-          has_burnout_sigma ? FormatF(publish_sigma, 1) + "m" : std::string("无");
+          has_burnout_sigma ? FormatF(publish_sigma, 1) + "m" : std::string();
       std::string publish = "弹道模型=无推力弹道外推";
       publish += " 预测落点=" + FormatVec3(traj.impact_point.latitude_deg,
                                            traj.impact_point.longitude_deg,
                                            traj.impact_point.altitude_m, 3);
-      publish += " 关机点误差1σ=" + sigma_text;
+      if (!sigma_text.empty()) {
+        publish += " 关机点误差1σ=" + sigma_text;
+      }
       publish += " 置信度=0.68";
       publish += " 标准化封装=[落点预报|落点=" +
                  FormatVec3(traj.impact_point.latitude_deg, traj.impact_point.longitude_deg,
-                            traj.impact_point.altitude_m, 3) +
-                 "|关机点误差1σ=" + sigma_text + "|置信度=0.68]";
+                            traj.impact_point.altitude_m, 3);
+      if (!sigma_text.empty()) {
+        publish += "|关机点误差1σ=" + sigma_text;
+      }
+      publish += "|置信度=0.68]";
       if (config.impact_distribution_channel.empty()) {
         publish += " 分发状态=已封装待分发";
       } else {

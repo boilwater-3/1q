@@ -13,7 +13,7 @@
 namespace oneq {
 namespace logging {
 
-/** 拼出验收日志一行。item 为人读验收项名；content 为验收内容（无则写「暂无」）。 */
+/** 拼出验收日志一行。item 为人读验收项名；content 为验收内容（无数据时调用方省略整行）。 */
 inline std::string FormatAcceptanceLine(float sim_time_sec, std::uint32_t cycle, const char* item,
                                         const std::string& content) {
   char time_buf[32];

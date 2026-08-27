@@ -89,6 +89,25 @@ inline std::string FormatCov6x6(const std::array<double, 36U>& cov) {
   return text;
 }
 
+/** 有值才追加「 标签=值」；值为空则跳过该字段。 */
+inline void AppendField(std::string& text, const char* label, const std::string& value) {
+  if (value.empty()) {
+    return;
+  }
+  text += " ";
+  text += label;
+  text += "=";
+  text += value;
+}
+
+/** 条件成立才追加片段（片段通常以空格开头）。 */
+inline void AppendFragment(std::string& text, bool ok, const std::string& fragment) {
+  if (!ok) {
+    return;
+  }
+  text += fragment;
+}
+
 }  // namespace logging
 }  // namespace oneq
 
