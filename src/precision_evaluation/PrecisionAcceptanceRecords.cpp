@@ -56,7 +56,8 @@ const char* MetricName(std::size_t index) {
 void WritePrecisionKeyMetrics(const PrecisionEvaluationReport& report,
                               const std::vector<double>& east_m, const std::vector<double>& north_m,
                               const std::vector<double>& up_m, const std::vector<double>& az_deg,
-                              const std::vector<double>& el_deg) {
+                              const std::vector<double>& el_deg,
+                              const std::vector<double>& slant_range_m) {
   if (!PRECISION_EVAL_LOG_ENABLED()) {
     return;
   }
@@ -67,6 +68,7 @@ void WritePrecisionKeyMetrics(const PrecisionEvaluationReport& report,
   const double range_rmse = report.metrics[static_cast<std::size_t>(PrecisionMetric::kDualSatFix)].rmse;
   const double az_rmse = RmseOf(az_deg);
   const double el_rmse = RmseOf(el_deg);
+  const double slant_rmse = RmseOf(slant_range_m);
   const double composite_rmse =
       std::sqrt(east_rmse * east_rmse + north_rmse * north_rmse + up_rmse * up_rmse);
   const double cep50 = 0.5887 * horiz_rmse;
@@ -77,6 +79,9 @@ void WritePrecisionKeyMetrics(const PrecisionEvaluationReport& report,
 
   std::string content = "东/北/天RMSE=" + FormatVec3(east_rmse, north_rmse, up_rmse, 1) + "m";
   content += " 距离RMSE=" + FormatF(range_rmse, 1) + "m";
+  // 评审 2026-08-26 条13：与目标的距离误差（交会解斜距误差 RMSE；双星场景才有样本，
+  // 无样本写无——不与上面的交会三维位置 RMSE 混同）。
+  content += slant_range_m.empty() ? " 斜距RMSE=无" : " 斜距RMSE=" + FormatF(slant_rmse, 1) + "m";
   content += " 方位/俯仰RMSE=" + FormatPairDeg(az_rmse, el_rmse, 4) + "°";
   content += " 合成RMSE=" + FormatF(composite_rmse, 1) + "m";
   content += " CEP50=" + FormatF(cep50, 1) + "m";

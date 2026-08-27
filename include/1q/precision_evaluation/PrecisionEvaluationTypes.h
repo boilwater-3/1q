@@ -100,6 +100,7 @@ struct ONEQ_API DualSatFixSample {
   std::uint32_t cycle_index{0U};
   double position_error_m{0.0}; /**< 交会位置与真值位置的三维距离 */
   double los_residual_m{0.0};   /**< 两视线异面直线最近距离（几何残差，越小说明交会越"实"） */
+  double slant_range_error_m{0.0}; /**< 斜距误差：|主星−交会解| − |主星−真值|（评审 2026-08-26 条13） */
 };
 
 /** @brief 速度误差样本（估计层航迹 vs 真值；附位置误差供参考，不进 AHP）。 */
@@ -120,13 +121,24 @@ struct ONEQ_API KeyPointErrorSample {
   double launch_error_m{0.0};   /**< 估计状态发射点与真值状态发射点的三维距离 */
 };
 
-/** @brief 单周期评估结果（四类误差样本 + 周期号）。 */
+/** @brief 落点预报外发样本（评审 2026-08-26 条12：装配层据此外发事件）。 */
+struct ONEQ_API ImpactForecastSample {
+  std::uint64_t key{0U};              /**< 目标键 */
+  std::uint32_t cycle_index{0U};      /**< 周期号 */
+  oneq::coordinate::LlaPositionDegM impact_point{}; /**< 预测落点（度制 LLA） */
+  double impact_position_sigma_m{0.0}; /**< 落点 1-σ（m） */
+  bool has_burnout_sigma{false};      /**< 是否携带关机点 1-σ */
+  double burnout_position_sigma_m{0.0}; /**< 关机点 1-σ（m） */
+};
+
+/** @brief 单周期评估结果（四类误差样本 + 外发样本 + 周期号）。 */
 struct ONEQ_API PrecisionEvaluationCycleResult {
   std::uint32_t cycle_index{0U};            /**< 周期号 */
   std::vector<AngularErrorSample> angular{};   /**< 角度误差样本 */
   std::vector<DualSatFixSample> dual_sat{};    /**< 双星交会样本 */
   std::vector<VelocityErrorSample> velocity{}; /**< 速度误差样本 */
   std::vector<KeyPointErrorSample> keypoints{}; /**< 关键点误差样本 */
+  std::vector<ImpactForecastSample> forecasts{}; /**< 落点预报外发样本（有落点解的估计航迹） */
 };
 
 /** @brief 全程精度评估报告（五指标汇总 + AHP 权重/一致性 + 综合评分）。 */
