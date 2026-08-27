@@ -213,14 +213,14 @@
             "displayName": "VS2026 v141 (VS2017-era) - Debug",
             "configurePreset": "VisualStudio.15.0-amd64",
             "configuration": "Debug",
-            "jobs": 12
+            "jobs": 4
         },
         {
             "name": "VisualStudio.15.0-amd64-release",
             "displayName": "VS2026 v141 (VS2017-era) - Release",
             "configurePreset": "VisualStudio.15.0-amd64",
             "configuration": "Release",
-            "jobs": 12
+            "jobs": 4
         }
     ],
     "testPresets": [
