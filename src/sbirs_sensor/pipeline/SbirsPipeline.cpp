@@ -6,6 +6,7 @@
 #include <set>
 #include <string>
 
+#include "common/geometry/EarthOccultation.h"
 #include "common/logging/AcceptanceText.h"
 #include "common/logging/ProjectLog.h"
 #include "common/numerics/Constants.h"
@@ -28,7 +29,7 @@ namespace sbirs_sensor {
 namespace pipeline {
 namespace {
 
-const double kEarthRadiusM = 6371000.0;
+const double kEarthRadiusM = oneq::common::geometry::kMeanEarthRadiusM;
 
 // 规则 13b：正常执行周期按目标门控排除的 kInfo 诊断码（不属于三写，仅承载排查信息）。
 // code 引用 SbirsIssueCodes.h 注册表常量。

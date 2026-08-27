@@ -60,6 +60,7 @@ float ComputeRelativeAngularRateDegPerSec(const session::SbirsVector3M& relative
  * @param[in] earth_radius_m 地球半径，单位 m
  * @return 视线在卫星到目标的有限线段内穿过地球球体返回 true，否则返回 false
  * @note 仅做球体相交判定，不负责地形、云图或三维大气廓线。
+ *       判定核在 `oneq::common::geometry::IsEarthOcculted`（相切视为遮挡）。
  */
 bool IsEarthOcculted(const session::SbirsVector3M& satellite_position_ecef_m,
                      const session::SbirsVector3M& target_position_ecef_m, double earth_radius_m);
@@ -72,6 +73,7 @@ bool IsEarthOcculted(const session::SbirsVector3M& satellite_position_ecef_m,
  * @return 视线最近接近距离 − 地球半径，单位 m；负值表示遮挡深度（视线穿过球体），
  *         正值表示余量；无有效相交几何时返回 earth_radius_m（视为无遮挡）。
  * @note 与 IsEarthOcculted 同几何判定，仅额外返回数值余量供排除诊断携带。
+ *       判定核在 `oneq::common::geometry::ComputeEarthOccultationMarginM`。
  */
 double ComputeEarthOccultationMarginM(const session::SbirsVector3M& satellite_position_ecef_m,
                                       const session::SbirsVector3M& target_position_ecef_m,

@@ -36,8 +36,14 @@ RIR 是与机载雷达（AR）**相互独立的另一部雷达装备**，不是 
   此前“遍历全部场景目标、波位只改方向图”的软门控行为废弃。`scan_center`
   运行期补丁即「设定方位俯仰」；直连 `RirController::RunCycle` 的调用方
   默认不裁剪（显式传体积才启用）。出界目标逐周期落
-  `rir.target_outside_search_volume` kInfo 排除诊断（规则 13b，携带视线角与
-  角域窗口），目标消失可归因、不静默；航迹按既有失跟语义自然消退。
+   `rir.target_outside_search_volume` kInfo 排除诊断（规则 13b，携带视线角与
+   角域窗口），目标消失可归因、不静默；航迹按既有失跟语义自然消退。
+- **地球遮挡门控（2026-08-27）**：检测候选在角域裁剪之前做有限弦-地球圆球判定
+  （半径 6371 km，相切算遮挡，与 SBIRS 同口径；判定核 `common/geometry/EarthOccultation`）。
+  平台 ECEF + 目标雷达局部 ENU 经 `TryEnuToEcef` 还原目标 ECEF；穿地目标不入检测
+  候选，落 `rir.target_earth_occulted` kInfo（`cause=kNone`，message 带遮挡余量）。
+  k 因子不进本门（只服务大气损耗）。ENU 还原失败则跳过本门，不伪装成遮挡。
+  不负责地形、椭球或电波视距。
 - **自持检测链（阶段 2-S 已接线；跟踪升级 2-T N1-N7 已完成）**：需求所列九项
   信号链能力（天线方向图仿真、回波/干扰/噪声功率计算、四项处理增益、恒虚警
   检测）界定为 **RIR 自持检测链**（检测 → LAPJV 全局最优关联 → CV KF/IMM
@@ -88,6 +94,7 @@ RIR 遵守 `docs/common/contract.md` 与 `docs/common/session_contract.md`：
 6. 出口①的保真度升级（特征物理化：加噪/电磁散射链，RIR-OQ-1）、fusion 特征门
    mask-aware 升级、识别链模块内解耦——均非本次范围，各自为独立后续冻结项
    （登记见 `docs/review/rir_dual_product_stage_a_2026-08-18.md` §6）。
+7. 地球椭球遮挡、地形通视、电波视距（4/3 k 因子）——几何门为圆球有限弦，k 只进大气损耗。
 
 ## 单位纪律
 

@@ -248,8 +248,10 @@ Last-reviewed: 2026-08-23
 | `rir.sensor_powered_off` | 执行/外部输入诊断 | 设备关机（非执行周期中止）。 |
 | `rir.target_beyond_recognition_range` | 执行排除 | 目标斜距超识别最大作用距离（识别链距离门，检测/跟踪不受影响）。 |
 | `rir.target_detection_gate` | 执行排除 | 检测准入门未过（聚合门：SNR/检测器判决；携带门内归因主因）。 |
+| `rir.target_earth_occulted` | 执行排除 | 目标视线被地球圆球遮挡（有限弦穿地，相切算遮挡）。 |
 | `rir.target_mode_not_identify` | 执行排除 | 本周期非识别工作模式，不建识别观测（STBY 全局模式门）。 |
 | `rir.target_no_feature_database` | 执行排除 | 特征库缺失或加载失败，特征链空（识别积累保持）。 |
+| `rir.target_outside_search_volume` | 执行排除 | 目标视线角出可扫描体积（角域裁剪）。 |
 | `rir.validation.antenna_az_geometry_invalid` | 输入校验 | 天线方位几何非法（波束宽度或孔径无效）。 |
 | `rir.validation.antenna_el_geometry_invalid` | 输入校验 | 天线俯仰几何非法。 |
 | `rir.validation.association_policy_invalid` | 输入校验 | 关联策略非法（波门 sigma 非正）。 |

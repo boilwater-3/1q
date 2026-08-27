@@ -4,6 +4,8 @@
 #include <cmath>
 
 #include "1q/coordinate/inertial_transform.h"
+#include "1q/coordinate/types.h"
+#include "common/geometry/EarthOccultation.h"
 #include "common/numerics/Constants.h"
 
 namespace sbirs_sensor {
@@ -87,26 +89,22 @@ float ComputeRelativeAngularRateDegPerSec(const session::SbirsVector3M& relative
 double ComputeEarthOccultationMarginM(const session::SbirsVector3M& satellite_position_ecef_m,
                                       const session::SbirsVector3M& target_position_ecef_m,
                                       double earth_radius_m) {
-  const session::SbirsVector3M los = Subtract(target_position_ecef_m, satellite_position_ecef_m);
-  const double range = Norm(los);
-  if (range <= 0.0 || earth_radius_m <= 0.0) {
-    return earth_radius_m;
-  }
-  const session::SbirsVector3M u = Unit(los);
-  const double s_closest = -Dot(satellite_position_ecef_m, u);
-  if (s_closest <= 0.0 || s_closest >= range) {
-    return earth_radius_m;
-  }
-  const double sat_norm_sq = Dot(satellite_position_ecef_m, satellite_position_ecef_m);
-  const double closest_sq = sat_norm_sq - s_closest * s_closest;
-  return std::sqrt(std::max(closest_sq, 0.0)) - earth_radius_m;
+  const oneq::coordinate::EcefPositionM observer(satellite_position_ecef_m.x,
+                                                 satellite_position_ecef_m.y,
+                                                 satellite_position_ecef_m.z);
+  const oneq::coordinate::EcefPositionM target(target_position_ecef_m.x, target_position_ecef_m.y,
+                                               target_position_ecef_m.z);
+  return oneq::common::geometry::ComputeEarthOccultationMarginM(observer, target, earth_radius_m);
 }
 
 bool IsEarthOcculted(const session::SbirsVector3M& satellite_position_ecef_m,
                      const session::SbirsVector3M& target_position_ecef_m, double earth_radius_m) {
-  // 相切（margin == 0）视为遮挡：与原 closest_sq <= r² 判定语义一致。
-  return ComputeEarthOccultationMarginM(satellite_position_ecef_m, target_position_ecef_m,
-                                        earth_radius_m) <= 0.0;
+  const oneq::coordinate::EcefPositionM observer(satellite_position_ecef_m.x,
+                                                 satellite_position_ecef_m.y,
+                                                 satellite_position_ecef_m.z);
+  const oneq::coordinate::EcefPositionM target(target_position_ecef_m.x, target_position_ecef_m.y,
+                                               target_position_ecef_m.z);
+  return oneq::common::geometry::IsEarthOcculted(observer, target, earth_radius_m);
 }
 
 bool TryIntersectRayWithSphere(const session::SbirsVector3M& origin_m,

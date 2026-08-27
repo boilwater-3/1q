@@ -25,7 +25,7 @@ Answers: SBIRS 用了哪些算法、各自实现到什么地步、边界在哪�
 | 角度域线性 KF（实验） | 4 维 [az, ω_az, el, ω_el] 标准卡尔曼滤波；opt-in，默认不启用 | 实验接线 | [evidence: tests/unit/sbirs_sensor/sbirs_angle_cv_kf_test] |
 | Cue 预测 | 角度域两点 CV 提前量补偿 cue 延迟 | 生产可用 | [evidence: tests/unit/sbirs_sensor/sbirs_cue_predictor_test] |
 | NFOV 资源调度 | 多通道并发锁定，按 SNR/距离/target_id 排序 | 生产可用 | [evidence: tests/unit/sbirs_sensor/sbirs_scheduler_test] |
-| 地球遮挡门控 | 有限线段射线-地球球体判别穿地视线 | 生产可用 | [evidence: tests/unit/sbirs_sensor/sbirs_foundation_test] |
+| 地球遮挡门控 | 有限线段射线-地球球体判别穿地视线；判定核在 `common/geometry/EarthOccultation`，本模块薄封装 | 生产可用 | [evidence: tests/unit/sbirs_sensor/sbirs_foundation_test] [evidence: tests/unit/common/common_earth_occultation_test] |
 | Foundation 物理链路 | 辐射强度/透过率/接收功率/噪声/SNR 标量链 | 生产可用 | [evidence: tests/unit/sbirs_sensor/sbirs_foundation_test] |
 | 当前时刻最大探测距离 | WFOV 检测门限反解 d_max(t)=sqrt(I·A·τ_opt·τ_eff·η·t/(N·SNR_th))，逐目标进归属层 | 生产可用 | [evidence: tests/unit/sbirs_sensor/sbirs_radiative_transfer_test] |
 | 气象衰减 | 查表+加权叠加得透过率衰减因子 | 生产可用 | [evidence: tests/unit/sbirs_sensor/sbirs_environment_model_test] |
@@ -360,6 +360,8 @@ Answers: SBIRS 用了哪些算法、各自实现到什么地步、边界在哪�
 - **意图**：天基传感器视线穿过地球时目标不可观测；WFOV 搜索前的必要几何门控。
 - **实现边界**：
   1. 实现使用有限线段射线-地球球体判定（不用无限射线近似），避免方向符号误用。
+     判定核在 `oneq::common::geometry`（`IsEarthOcculted` / `ComputeEarthOccultationMarginM`），
+     SBIRS `SbirsGeometry` 为薄封装。
   2. 地球遮挡在 WFOV FOV 门控和范围门控**之前**执行，避免对穿地视线做无意义 SNR 计算。
   3. 该门控是帧级（遮挡角只依赖卫星位置）与目标级（夹角依赖目标视线方向）的混合。
   4. 只回答 LOS 是否穿过地球球体，不负责地形、云图、临边散射或三维大气廓线。

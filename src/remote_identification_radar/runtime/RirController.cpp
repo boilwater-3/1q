@@ -15,6 +15,8 @@
 #include <utility>
 #include <vector>
 
+#include "common/atmosphere/AtmospherePhysics.h"
+#include "common/geometry/EarthOccultation.h"
 #include "common/logging/AcceptanceText.h"
 #include "common/logging/ProjectLog.h"
 #include "common/numerics/Constants.h"
@@ -22,7 +24,6 @@
 #include "1q/coordinate/position_transform.h"
 #include "1q/environment/AtmosphericTypes.h"
 #include "1q/remote_identification_radar/session/RirIssueCodes.h"
-#include "common/atmosphere/AtmospherePhysics.h"
 #include "remote_identification_radar/dwell/RirBeamControl.h"
 #include "remote_identification_radar/dwell/RirEffectiveRcs.h"
 #include "remote_identification_radar/dwell/RirEmissionFactory.h"
@@ -696,7 +697,9 @@ void RirController::RunCycle(const session::RirCycleInput& input,
 
   float platform_altitude_m = 0.0f;
   oneq::coordinate::LlaPositionDegM platform_lla;
-  if (oneq::coordinate::TryEcefToLla(input.platform_position, &platform_lla)) {
+  const bool has_platform_lla =
+      oneq::coordinate::TryEcefToLla(input.platform_position, &platform_lla);
+  if (has_platform_lla) {
     platform_altitude_m = static_cast<float>(platform_lla.altitude_m);
   }
 
@@ -739,6 +742,29 @@ void RirController::RunCycle(const session::RirCycleInput& input,
         continue;
       }
       scene_by_id[target.external_target_id] = &target;
+      // 地球遮挡（有限弦-圆球，与 SBIRS 同口径）：穿地视线不入检测候选，
+      // 排在可扫描体积与 SNR 之前。ENU→ECEF 失败则跳过本门，不伪装成遮挡。
+      if (has_platform_lla) {
+        const Eigen::Vector3f position = PositionOf(target);
+        const oneq::coordinate::EnuPositionM enu(static_cast<double>(position.x()),
+                                                 static_cast<double>(position.y()),
+                                                 static_cast<double>(position.z()));
+        oneq::coordinate::EcefPositionM target_ecef;
+        if (oneq::coordinate::TryEnuToEcef(enu, platform_lla, &target_ecef) &&
+            oneq::common::geometry::IsEarthOcculted(input.platform_position, target_ecef,
+                                                   oneq::common::geometry::kMeanEarthRadiusM)) {
+          const double occultation_margin_m =
+              oneq::common::geometry::ComputeEarthOccultationMarginM(
+                  input.platform_position, target_ecef, oneq::common::geometry::kMeanEarthRadiusM);
+          last_execution_issues_.push_back(RirMakeExclusionIssue(
+              session::codes::kTargetEarthOcculted,
+              "target_id=" + std::to_string(target.external_target_id) +
+                  "; LOS from platform occulted by Earth; occultation_margin_m=" +
+                  std::to_string(static_cast<long long>(occultation_margin_m)),
+              session::RirIssueCause::kNone, i));
+          continue;
+        }
+      }
       // 2026-08-22 甲方批注「设定方位俯仰进行扫描」：搜索候选集按可扫描体积
       // 裁剪（az 相对 scan_center、el 绝对；与指定识别目标驻留门同口径）——
       // 视线角出角域的目标不入检测候选，不再依赖方向图衰减软门控。
