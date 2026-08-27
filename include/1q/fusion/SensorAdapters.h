@@ -87,7 +87,7 @@ ONEQ_API std::vector<DetectionRecord> AdaptSbirsDetectionsToDetectionRecords(
 
 /**
  * @brief 把 RIR 特征量测帧（双产品出口①）适配为融合探测记录
- *        （key=库内航迹键，方位 + 11 维特征 + 可选观测原点）。
+ *        （key=库内航迹键，方位 + 位置 + 11 维特征 + 可选观测原点）。
  * @param[in] source_id 源通道标识（通常传 kRirSourceId）。
  * @param[in] frame RIR 周期特征量测帧（出口①，调用方从输出帧组装）。
  * @return 探测记录列表；跳过全维无效与键 0 记录；方位做 east→north 参考换算
@@ -96,7 +96,9 @@ ONEQ_API std::vector<DetectionRecord> AdaptSbirsDetectionsToDetectionRecords(
  *         valid_feature_mask 为权威有效性；0 填失真为 F4 已知近似）；质量 =
  *         有效维质量等权均值（feature_weights 配置口径，缺省等权）；携带
  *         平台位置时 ECEF→LLA 填 sensor_origin（失败退化为无原点记录，AR
- *         先例）→ 该记录参与三维方位滤波通道。
+ *         先例）；斜距有限且 >0 且原点换算成功时，按自东视线角逆运算还原
+ *         东-北-天再 ECEF→LLA 填 has_position（失败维持仅方位+原点）。
+ *         位置与方位并存：滤波位置优先，方位留给跨源仅方位关联。
  */
 ONEQ_API std::vector<DetectionRecord> AdaptRirFeatureMeasurementsToDetectionRecords(
     std::uint32_t source_id,

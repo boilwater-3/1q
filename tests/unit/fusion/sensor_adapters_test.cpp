@@ -6,12 +6,14 @@
 // 覆盖五传感器适配函数：正常映射全字段、跳过规则（AR kLost / ESR
 // hypothesis_id==0 / EOS-SBIRS detected==false / RIR 全维无效或键 0）、
 // 质量归一化夹取、AR ECEF 转换失败退化分支、RIR 11 维布局与 east→north
-// 换算、source_id 透传、空输入 → 空输出。
+// 换算、RIR 斜距+视线角+原点还原位置、source_id 透传、空输入 → 空输出。
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <cmath>
 #include <cstdint>
+#include <limits>
 #include <vector>
 
 #include "1q/airborne_radar/session/ArCycleOutputAdapter.h"
@@ -19,6 +21,7 @@
 #include "1q/coordinate/position_transform.h"
 #include "1q/electro_optical_sensor/session/EosOutputTypes.h"
 #include "1q/electronic_surveillance_radar/session/EmitterHypothesis.h"
+#include "1q/fusion/FusionEngine.h"
 #include "1q/fusion/SensorAdapters.h"
 #include "1q/sbirs_sensor/session/SbirsOutputTypes.h"
 
@@ -476,8 +479,144 @@ TEST(SensorAdaptersTest, RirSensorOriginFromPlatformPositionAndDegradeOnFailure)
   EXPECT_NEAR(detections[0].sensor_origin.latitude_deg, 30.0, 1e-4);
   EXPECT_NEAR(detections[0].sensor_origin.longitude_deg, 120.0, 1e-4);
   EXPECT_NEAR(detections[0].sensor_origin.altitude_m, 400.0, 1e-1);
+  EXPECT_FALSE(detections[0].has_position);  // 缺省斜距 0：有原点无位置
   EXPECT_FALSE(detections[1].has_sensor_origin);
+  EXPECT_FALSE(detections[1].has_position);
   EXPECT_FALSE(detections[2].has_sensor_origin);
+  EXPECT_FALSE(detections[2].has_position);
+}
+
+TEST(SensorAdaptersTest, RirPositionFromLookRangeAndOrigin) {
+  // ComputeLookAngles 逆运算：east=3000、north=4000、up=2000 → az/el/range。
+  constexpr double kDegPerRad = 180.0 / 3.14159265358979323846;
+  const oneq::coordinate::LlaPositionDegM origin_lla(30.0, 120.0, 400.0);
+  const oneq::coordinate::EnuPositionM enu(3000.0, 4000.0, 2000.0);
+  oneq::coordinate::EcefPositionM expected_ecef;
+  ASSERT_TRUE(oneq::coordinate::TryEnuToEcef(enu, origin_lla, &expected_ecef));
+
+  const double range_m =
+      std::sqrt(enu.east_m * enu.east_m + enu.north_m * enu.north_m + enu.up_m * enu.up_m);
+  const double horiz = std::sqrt(enu.east_m * enu.east_m + enu.north_m * enu.north_m);
+  const float look_az_deg = static_cast<float>(std::atan2(enu.north_m, enu.east_m) * kDegPerRad);
+  const float look_el_deg = static_cast<float>(std::atan2(enu.up_m, horiz) * kDegPerRad);
+
+  rir::RirFeatureMeasurementRecord record = MakeRirMeasurement(7U);
+  record.has_platform_position = true;
+  const oneq::coordinate::EcefPositionM origin_ecef = MakeEcefFromLla(30.0, 120.0, 400.0);
+  record.platform_position.x_m = origin_ecef.x_m;
+  record.platform_position.y_m = origin_ecef.y_m;
+  record.platform_position.z_m = origin_ecef.z_m;
+  record.look_az_deg = look_az_deg;
+  record.look_el_deg = look_el_deg;
+  record.range_m = static_cast<float>(range_m);
+
+  rir::RirFeatureMeasurementFrame frame;
+  frame.records.push_back(record);
+  const std::vector<DetectionRecord> detections =
+      AdaptRirFeatureMeasurementsToDetectionRecords(kRirSourceId, frame);
+
+  ASSERT_EQ(detections.size(), 1U);
+  EXPECT_TRUE(detections[0].has_position);
+  EXPECT_TRUE(detections[0].has_bearing);
+  EXPECT_TRUE(detections[0].has_sensor_origin);
+  EXPECT_NEAR(detections[0].bearing_az_deg, 90.0 - static_cast<double>(look_az_deg), 1e-3);
+  EXPECT_NEAR(detections[0].bearing_el_deg, static_cast<double>(look_el_deg), 1e-4);
+
+  oneq::coordinate::EcefPositionM got_ecef;
+  ASSERT_TRUE(oneq::coordinate::TryLlaToEcef(detections[0].position, &got_ecef));
+  EXPECT_NEAR(got_ecef.x_m, expected_ecef.x_m, 1.0);
+  EXPECT_NEAR(got_ecef.y_m, expected_ecef.y_m, 1.0);
+  EXPECT_NEAR(got_ecef.z_m, expected_ecef.z_m, 1.0);
+}
+
+TEST(SensorAdaptersTest, RirPositionDegradesWhenRangeOrOriginUnusable) {
+  const oneq::coordinate::EcefPositionM origin_ecef = MakeEcefFromLla(30.0, 120.0, 400.0);
+
+  rir::RirFeatureMeasurementRecord zero_range = MakeRirMeasurement(7U);
+  zero_range.has_platform_position = true;
+  zero_range.platform_position.x_m = origin_ecef.x_m;
+  zero_range.platform_position.y_m = origin_ecef.y_m;
+  zero_range.platform_position.z_m = origin_ecef.z_m;
+  zero_range.range_m = 0.0f;
+
+  rir::RirFeatureMeasurementRecord negative_range = zero_range;
+  negative_range.association_key = 8U;
+  negative_range.range_m = -100.0f;
+
+  rir::RirFeatureMeasurementRecord nan_range = zero_range;
+  nan_range.association_key = 9U;
+  nan_range.range_m = std::numeric_limits<float>::quiet_NaN();
+
+  rir::RirFeatureMeasurementRecord no_origin = MakeRirMeasurement(10U);
+  no_origin.range_m = 5000.0f;
+
+  rir::RirFeatureMeasurementRecord geocenter = MakeRirMeasurement(11U);
+  geocenter.has_platform_position = true;
+  geocenter.range_m = 5000.0f;
+
+  rir::RirFeatureMeasurementFrame frame;
+  frame.records.push_back(zero_range);
+  frame.records.push_back(negative_range);
+  frame.records.push_back(nan_range);
+  frame.records.push_back(no_origin);
+  frame.records.push_back(geocenter);
+
+  const std::vector<DetectionRecord> detections =
+      AdaptRirFeatureMeasurementsToDetectionRecords(kRirSourceId, frame);
+
+  ASSERT_EQ(detections.size(), 5U);
+  EXPECT_TRUE(detections[0].has_sensor_origin);
+  EXPECT_FALSE(detections[0].has_position);
+  EXPECT_TRUE(detections[0].has_bearing);
+  EXPECT_FALSE(detections[1].has_position);
+  EXPECT_FALSE(detections[2].has_position);
+  EXPECT_FALSE(detections[3].has_sensor_origin);
+  EXPECT_FALSE(detections[3].has_position);
+  EXPECT_FALSE(detections[4].has_sensor_origin);
+  EXPECT_FALSE(detections[4].has_position);
+}
+
+TEST(SensorAdaptersTest, RirAdaptedPositionDropsVelocitySigmaBelowBurnoutGate) {
+  FusionConfig config;
+  config.enable_track_filtering = true;
+  config.track_cycle_period_sec = 1.0;
+  FusionEngine engine(config);
+
+  const oneq::coordinate::EcefPositionM origin_ecef = MakeEcefFromLla(30.0, 120.0, 400.0);
+  constexpr double kEast0 = 10000.0;
+  constexpr double kNorth0 = 0.0;
+  constexpr double kUp0 = 5000.0;
+  constexpr double kNorthSpeed = 200.0;
+  constexpr double kDegPerRad = 180.0 / 3.14159265358979323846;
+  double velocity_sigma_m = 1.0e9;
+  for (std::uint64_t cycle = 1U; cycle <= 40U; ++cycle) {
+    const double t = static_cast<double>(cycle - 1U);
+    const oneq::coordinate::EnuPositionM enu(kEast0, kNorth0 + kNorthSpeed * t, kUp0);
+    const double range_m =
+        std::sqrt(enu.east_m * enu.east_m + enu.north_m * enu.north_m + enu.up_m * enu.up_m);
+    const double horiz = std::sqrt(enu.east_m * enu.east_m + enu.north_m * enu.north_m);
+    rir::RirFeatureMeasurementRecord record = MakeRirMeasurement(7U);
+    record.has_platform_position = true;
+    record.platform_position.x_m = origin_ecef.x_m;
+    record.platform_position.y_m = origin_ecef.y_m;
+    record.platform_position.z_m = origin_ecef.z_m;
+    record.look_az_deg = static_cast<float>(std::atan2(enu.north_m, enu.east_m) * kDegPerRad);
+    record.look_el_deg = static_cast<float>(std::atan2(enu.up_m, horiz) * kDegPerRad);
+    record.range_m = static_cast<float>(range_m);
+    rir::RirFeatureMeasurementFrame frame;
+    frame.records.push_back(record);
+    const auto detections =
+        AdaptRirFeatureMeasurementsToDetectionRecords(kRirSourceId, frame);
+    ASSERT_EQ(detections.size(), 1U);
+    ASSERT_TRUE(detections[0].has_position);
+    const auto tracks = engine.Update(detections, cycle);
+    ASSERT_EQ(tracks.size(), 1U);
+    ASSERT_TRUE(tracks.front().has_kinematic_estimate);
+    const auto& cov = tracks.front().kinematic_estimate.covariance_ecef;
+    const double var_v = (cov[7U] + cov[21U] + cov[35U]) / 3.0;
+    velocity_sigma_m = std::sqrt(std::max(var_v, 0.0));
+  }
+  EXPECT_LT(velocity_sigma_m, 5.0) << "RIR 位置通道应把 σ_v 降到关机护栏以下";
 }
 
 TEST(SensorAdaptersTest, RirSourceIdAndEmptyInput) {
