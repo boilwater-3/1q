@@ -12,6 +12,8 @@
 #include <string>
 #include <vector>
 
+#include "1q/coordinate/position_transform.h"
+#include "1q/coordinate/velocity_transform.h"
 #include "1q/remote_identification_radar/session/RirFeatureMeasurementTypes.h"
 #include "1q/remote_identification_radar/session/RirRecognitionResult.h"
 #include "common/logging/AcceptanceText.h"
@@ -404,13 +406,47 @@ void WriteRirSearchDetections(float sim_time_sec, std::uint32_t cycle, float bea
 }
 
 void WriteRirAssociation(float sim_time_sec, std::uint32_t cycle,
-                         const tracking::RirAssociationResult& association) {
+                         const tracking::RirAssociationResult& association,
+                         const oneq::coordinate::LlaPositionDegM& platform_lla,
+                         double gate_threshold) {
   if (!RIR_ACCEPTANCE_LOG_ENABLED()) {
     return;
   }
   std::string content = "新量测=" + std::to_string(association.measurements.size());
   content += " 配到已有航迹=" + std::to_string(association.matches.size());
   content += " 未配上=" + std::to_string(association.missed_track_keys.size());
+  // 条16：马氏代价写明口径与波门（紧跟计数，避免括号误挂到量测明细尾部）。
+  content += "（马氏距离²=νᵀS⁻¹ν，无量纲，波门=" + FormatF(gate_threshold, 1) + "）";
+  // 评审 2026-08-26 条15：逐量测明细（目标ID、位置 LLA、检测概率、关联结果——
+  // 完整描述不简写）。
+  if (!association.measurements.empty()) {
+    content += " 量测明细：";
+    for (std::size_t i = 0U; i < association.measurements.size(); ++i) {
+      if (i != 0U) {
+        content += "；";
+      }
+      const tracking::RirTrackMeasurement& measurement = association.measurements[i];
+      content += "量测" + std::to_string(measurement.source_index);
+      content += "(目标ID=" + std::to_string(measurement.external_target_id);
+      oneq::coordinate::EcefPositionM measurement_ecef;
+      oneq::coordinate::LlaPositionDegM measurement_lla;
+      if (oneq::coordinate::TryEnuToEcef(
+              oneq::coordinate::EnuPositionM(measurement.position.x(), measurement.position.y(),
+                                             measurement.position.z()),
+              platform_lla, &measurement_ecef) &&
+          oneq::coordinate::TryEcefToLla(measurement_ecef, &measurement_lla)) {
+        content += ",位置LLA=(" + FormatF(measurement_lla.latitude_deg, 6) + "," +
+                   FormatF(measurement_lla.longitude_deg, 6) + "," +
+                   FormatF(measurement_lla.altitude_m, 1) + ")m";
+      } else {
+        content += ",位置LLA=无";
+      }
+      content += ",检测概率=" + FormatF(measurement.detection_pd, 4) + ")";
+      content += measurement.matched_existing_track
+                     ? " 关联结果=配到已有航迹" + std::to_string(measurement.association_key)
+                     : " 关联结果=未配到任何已有航迹";
+    }
+  }
   if (!association.matches.empty()) {
     content += " 命中：";
     for (std::size_t i = 0; i < association.matches.size(); ++i) {
@@ -419,7 +455,8 @@ void WriteRirAssociation(float sim_time_sec, std::uint32_t cycle,
       }
       const tracking::RirAssociationMatch& match = association.matches[i];
       content += "航迹" + std::to_string(match.association_key) + "←量测" +
-                 std::to_string(match.source_index) + " 代价=" + FormatF(match.cost, 4);
+                 std::to_string(match.source_index) + " 马氏距离²=" +
+                 FormatF(match.cost, 4);
     }
   }
   Emit(sim_time_sec, cycle, "航迹关联", content);
@@ -463,18 +500,63 @@ void WriteRirTrackAndId(float sim_time_sec, std::uint32_t cycle, const tracking:
                         const session::RirFeatureMeasurementRecord* features,
                         const std::vector<session::RirPolarizationRcsSample>* polarization_samples,
                         bool has_truth, double category_accuracy,
-                        const std::vector<float>* imm_weights) {
+                        const std::vector<float>* imm_weights,
+                        const oneq::coordinate::EcefPositionM& platform_ecef) {
   if (!RIR_ACCEPTANCE_LOG_ENABLED()) {
     return;
   }
   const double heading = HeadingDeg(track.velocity.x(), track.velocity.y());
   const double dt = 1.0;
-  const std::string next_pos =
-      FormatVec3(track.position.x() + track.velocity.x() * dt,
-                 track.position.y() + track.velocity.y() * dt,
-                 track.position.z() + track.velocity.z() * dt, 1);
   const int category = result != nullptr ? static_cast<int>(result->target_category) : -1;
+  // 评审 2026-08-26 条19/20：不输出「大类枚举N(名)」外壳，直接给中文名；未识别
+  // （result 缺失/类别未知且无识别结果）写「未识别」。
+  const std::string category_text = category < 0 ? std::string("未识别")
+                                                 : std::string(CategoryName(category));
   const std::string polar = FormatTrackLookPolar(track);
+  // 评审 2026-08-26 条17：ENU 字段替换为 ECEF/LLA（平台 ECEF 为雷达局部 ENU 的
+  // 绝对锚点；锚点或换算失败时如实写无）。速度/加速度按 ENU→ECEF 旋转矩阵换算。
+  oneq::coordinate::LlaPositionDegM platform_lla;
+  oneq::coordinate::EcefPositionM pos_ecef;
+  oneq::coordinate::LlaPositionDegM pos_lla;
+  oneq::coordinate::EcefPositionM next_ecef;
+  oneq::coordinate::LlaPositionDegM next_lla;
+  oneq::coordinate::EcefVelocityMps vel_ecef;
+  oneq::coordinate::EcefVelocityMps acc_ecef;
+  bool have_frame = false;
+  if (oneq::coordinate::TryEcefToLla(platform_ecef, &platform_lla)) {
+    const oneq::coordinate::EnuPositionM pos_enu(track.position.x(), track.position.y(),
+                                                 track.position.z());
+    const oneq::coordinate::EnuPositionM next_enu(
+        track.position.x() + track.velocity.x() * dt, track.position.y() + track.velocity.y() * dt,
+        track.position.z() + track.velocity.z() * dt);
+    const oneq::coordinate::EnuVelocityMps vel_enu(track.velocity.x(), track.velocity.y(),
+                                                   track.velocity.z());
+    const oneq::coordinate::EnuVelocityMps acc_enu(track.acceleration.x(), track.acceleration.y(),
+                                                   track.acceleration.z());
+    have_frame =
+        oneq::coordinate::TryEnuToEcef(pos_enu, platform_lla, &pos_ecef) &&
+        oneq::coordinate::TryEcefToLla(pos_ecef, &pos_lla) &&
+        oneq::coordinate::TryEnuToEcef(next_enu, platform_lla, &next_ecef) &&
+        oneq::coordinate::TryEcefToLla(next_ecef, &next_lla) &&
+        oneq::coordinate::TryEnuToEcefVelocity(vel_enu, platform_lla, &vel_ecef) &&
+        oneq::coordinate::TryEnuToEcefVelocity(acc_enu, platform_lla, &acc_ecef);
+  }
+  const std::string pos_ecef_text =
+      have_frame ? FormatVec3(pos_ecef.x_m, pos_ecef.y_m, pos_ecef.z_m, 1) : std::string("无");
+  const std::string pos_lla_text =
+      have_frame
+          ? FormatVec3(pos_lla.latitude_deg, pos_lla.longitude_deg, pos_lla.altitude_m, 6)
+          : std::string("无");
+  const std::string next_ecef_text =
+      have_frame ? FormatVec3(next_ecef.x_m, next_ecef.y_m, next_ecef.z_m, 1) : std::string("无");
+  const std::string next_lla_text =
+      have_frame
+          ? FormatVec3(next_lla.latitude_deg, next_lla.longitude_deg, next_lla.altitude_m, 6)
+          : std::string("无");
+  const std::string vel_ecef_text =
+      have_frame ? FormatVec3(vel_ecef.x_mps, vel_ecef.y_mps, vel_ecef.z_mps, 3) : std::string("无");
+  const std::string acc_ecef_text =
+      have_frame ? FormatVec3(acc_ecef.x_mps, acc_ecef.y_mps, acc_ecef.z_mps, 4) : std::string("无");
   std::string measure = "目标ID=" + std::to_string(track.external_target_id);
   measure += " " + polar;
   measure += " 高度=" + FormatF(track.position.z(), 1) + "m";
@@ -483,7 +565,7 @@ void WriteRirTrackAndId(float sim_time_sec, std::uint32_t cycle, const tracking:
   measure += " 加速度=" + FormatVec3(track.acceleration.x(), track.acceleration.y(),
                                      track.acceleration.z(), 4) +
              "m/s²";
-  measure += " 飞机类型=识别大类枚举" + std::to_string(category) + "(" + CategoryName(category) + ")";
+  measure += " 飞机类型=" + category_text;
   Emit(sim_time_sec, cycle, "目标测量角度与距离", measure);
   Emit(sim_time_sec, cycle, "角度和距离测量", measure);
 
@@ -494,16 +576,18 @@ void WriteRirTrackAndId(float sim_time_sec, std::uint32_t cycle, const tracking:
   reentry += " 高度=" + FormatF(track.position.z(), 1) + "m";
   reentry += " 速度=" + FormatF(track.speed, 3) + "m/s";
   reentry += " 航向=" + FormatF(heading, 2) + "°";
-  reentry += " 加速度=" + FormatVec3(track.acceleration.x(), track.acceleration.y(),
-                                     track.acceleration.z(), 4) +
-             "m/s²";
+  reentry += " 加速度ECEF=" + acc_ecef_text + "m/s²";
   Emit(sim_time_sec, cycle, "典型/再入目标跟踪", reentry);
   Emit(sim_time_sec, cycle, "多目标跟踪", reentry);
 
   const tracking::RirStateCovariance& cov = track.gaussian_state.covariance;
   std::string filter = "航迹=" + std::to_string(track.association_key);
-  filter += " 当前ENU m=" + FormatVec3(track.position.x(), track.position.y(), track.position.z(), 1);
-  filter += " 下一时刻预测ENU m=" + next_pos;
+  filter += " 当前ECEF=" + pos_ecef_text + "m";
+  filter += " 当前LLA=" + pos_lla_text;
+  filter += " 下一时刻预测ECEF=" + next_ecef_text + "m";
+  filter += " 下一时刻预测LLA=" + next_lla_text;
+  filter += " 速度ECEF=" + vel_ecef_text + "m/s";
+  filter += " 加速度ECEF=" + acc_ecef_text + "m/s²";
   filter += " 协方差迹=" + FormatF(static_cast<double>(track.EstimationUncertaintyTrace()), 2);
   filter += " 完整协方差=[";
   for (int row = 0; row < 6; ++row) {
@@ -519,9 +603,10 @@ void WriteRirTrackAndId(float sim_time_sec, std::uint32_t cycle, const tracking:
   }
   filter += "]";
   Emit(sim_time_sec, cycle, "目标位置速度加速度估计",
-       "航迹=" + std::to_string(track.association_key) + " 当前ENU m=" +
-           FormatVec3(track.position.x(), track.position.y(), track.position.z(), 1) +
-           " 下一时刻预测ENU m=" + next_pos);
+       "航迹=" + std::to_string(track.association_key) + " 当前ECEF=" + pos_ecef_text +
+           "m 当前LLA=" + pos_lla_text + " 下一时刻预测ECEF=" + next_ecef_text +
+           "m 下一时刻预测LLA=" + next_lla_text + " 速度ECEF=" + vel_ecef_text +
+           "m/s 加速度ECEF=" + acc_ecef_text + "m/s²");
   const std::string cov_text = filter.substr(filter.find("完整协方差="));
   Emit(sim_time_sec, cycle, "目标状态协方差",
        "航迹=" + std::to_string(track.association_key) + " " + cov_text);
@@ -545,9 +630,7 @@ void WriteRirTrackAndId(float sim_time_sec, std::uint32_t cycle, const tracking:
   id_text += " 目标ID=" + std::to_string(track.external_target_id);
   if (result != nullptr) {
     id_text += " 状态=" + std::to_string(static_cast<int>(result->state));
-    const int result_category = static_cast<int>(result->target_category);
-    id_text += " 大类枚举=" + std::to_string(result_category) + "(" +
-               CategoryName(result_category) + ")";
+    id_text += " 大类=" + category_text;
     id_text += " 型号=" + (result->target_model.empty() ? std::string("无") : result->target_model);
     id_text += " 置信度=" + FormatF(static_cast<double>(result->confidence), 4);
   } else {
@@ -560,30 +643,33 @@ void WriteRirTrackAndId(float sim_time_sec, std::uint32_t cycle, const tracking:
     std::string motion_text = "航迹=" + std::to_string(track.association_key);
     motion_text += " 速度=" + FormatF(motion.speed_m_per_s, 3) + "m/s";
     motion_text += " 高度=" + FormatF(motion.altitude_m, 1) + "m";
+    // 评审 2026-08-26 条18：补斜距与方位/俯仰（features 自带视线几何量）。
+    motion_text += " 斜距=" + FormatF(features->range_m, 1) + "m";
+    motion_text += " 方位/俯仰=" + FormatPairDeg(features->look_az_deg, features->look_el_deg, 3) +
+                   "°";
     motion_text += std::string(" 近似直线=") + YesNo(motion.is_straight);
-    motion_text += " 目标类别=大类枚举" + std::to_string(category) + "(" + CategoryName(category) + ")";
+    motion_text += " 目标类别=" + category_text;
     Emit(sim_time_sec, cycle, "运动特征处理", motion_text);
     Emit(sim_time_sec, cycle, "目标类别", motion_text);
 
     const auto& rcs = features->features.rcs;
     std::string rcs_text = "航迹=" + std::to_string(track.association_key);
     rcs_text += " RCS均值/标准差=" + FormatF(rcs.mean_dbsm, 3) + "/" + FormatF(rcs.std_db, 3) + "dBsm";
-    rcs_text += " 目标类别=大类枚举" + std::to_string(category) + "(" + CategoryName(category) + ")";
+    rcs_text += " 目标类别=" + category_text;
     Emit(sim_time_sec, cycle, "RCS统计特征处理", rcs_text);
 
     const auto& pol = features->features.polarization;
     std::string pol_text = "航迹=" + std::to_string(track.association_key);
     pol_text += " 极化差/相对/和=" +
                 FormatVec3(pol.energy_difference_db, pol.relative_difference_db, pol.energy_sum_db, 3);
-    pol_text += " 目标类别=大类枚举" + std::to_string(category) + "(" + CategoryName(category) + ")";
+    pol_text += " 目标类别=" + category_text;
     pol_text += " 置信度=" + FormatF(result != nullptr ? result->confidence : 0.0, 4);
     if (has_truth) {
       pol_text += " 正确识别率=" + FormatF(category_accuracy, 4);
     }
     Emit(sim_time_sec, cycle, "极化特征解算", pol_text);
     Emit(sim_time_sec, cycle, "目标类型",
-         "航迹=" + std::to_string(track.association_key) + " 目标类别=大类枚举" +
-             std::to_string(category) +
+         "航迹=" + std::to_string(track.association_key) + " 目标类别=" + category_text +
              " 置信度=" + FormatF(result != nullptr ? result->confidence : 0.0, 4));
     PolarizationAcceptanceSResult derived;
     const bool has_s =
@@ -614,30 +700,28 @@ void WriteRirTrackAndId(float sim_time_sec, std::uint32_t cycle, const tracking:
              " 能量集中=" + FormatF(rp.peak_energy_concentration, 3) +
              " 分辨率=" + FormatF(rp.resolution_m, 3) + "m");
     Emit(sim_time_sec, cycle, "识别类别",
-         rp_id + "识别类型=大类枚举" + std::to_string(category) +
+         rp_id + "识别类型=" + category_text +
              " 置信度=" + FormatF(result != nullptr ? result->confidence : 0.0, 4));
     Emit(sim_time_sec, cycle, "宽带一维像特征解算", rp_text +
-                                                         " 识别类型=大类枚举" +
-                                                         std::to_string(category) + " 置信度=" +
+                                                         " 识别类型=" + category_text + " 置信度=" +
                                                          FormatF(result != nullptr ? result->confidence : 0.0, 4));
   }
 }
 
+// 评审 2026-08-26 条21：调度只应有搜索/跟踪两类事件（「识别」不是独立驻留模式，
+// 识别在 kIdentify 模式内顺带执行），识别计数与列表段删除。
 void WriteRirSchedule(float sim_time_sec, std::uint32_t cycle, std::uint32_t planned,
                       std::uint32_t executed, float budget_sec, float consumed_sec,
-                      std::uint32_t search_count, std::uint32_t track_count,
-                      std::uint32_t ident_count) {
+                      std::uint32_t search_count, std::uint32_t track_count) {
   if (!RIR_ACCEPTANCE_LOG_ENABLED()) {
     return;
   }
   std::string content = "计划驻留/实际执行=" + std::to_string(planned) + "/" + std::to_string(executed);
   content += " 搜索=" + std::to_string(search_count);
   content += " 跟踪=" + std::to_string(track_count);
-  content += " 识别=" + std::to_string(ident_count);
   content += " 预算/已耗时=" + FormatF(budget_sec, 3) + "/" + FormatF(consumed_sec, 3) + "s";
   const std::string events = "[搜索×" + std::to_string(search_count) + ",跟踪×" +
-                             std::to_string(track_count) + ",识别×" + std::to_string(ident_count) +
-                             "]";
+                             std::to_string(track_count) + "]";
   Emit(sim_time_sec, cycle, "各类事件的实际执行列表", events);
   Emit(sim_time_sec, cycle, "扫描调度信息", content);
   Emit(sim_time_sec, cycle, "调度策略", content);
@@ -652,10 +736,15 @@ void WriteRirOncePerSession(float sim_time_sec, std::uint32_t cycle) {
     return;
   }
   written = true;
-  Emit(sim_time_sec, cycle, "初始化时间", "暂无");
+  // 评审 2026-08-26 条22（方案B）：库内不做墙钟计时，真实初始化/加载耗时在示例层
+  // integration_events.log 的同名验收项（模块=RIR）。
+  Emit(sim_time_sec, cycle, "初始化时间",
+       "见integration_events.log[验收项：初始化时间]（模块=RIR）");
   Emit(sim_time_sec, cycle, "单步执行时间", "暂无");
-  Emit(sim_time_sec, cycle, "单个模型加载时间", "暂无");
-  Emit(sim_time_sec, cycle, "多模型并行加载", "暂无");
+  Emit(sim_time_sec, cycle, "单个模型加载时间",
+       "见integration_events.log[验收项：单个模型加载时间]（模块=RIR）");
+  Emit(sim_time_sec, cycle, "多模型并行加载",
+       "见integration_events.log[验收项：多模型并行加载]（模块=RIR）");
   Emit(sim_time_sec, cycle, "典型场景和总仿真次数", "场景=本会话 场景数=1 总仿真周期=结束时回写");
 }
 
@@ -710,16 +799,24 @@ bool TryExportRirAntennaPatternCsv(const config::hardware::RirAntennaConfig& ant
   beamwidth.az_beamwidth_deg = antenna.nominal_az_beamwidth_deg;
   beamwidth.el_beamwidth_deg = antenna.nominal_el_beamwidth_deg;
   config::RirAzimuthElevationDeg pointing(0.0f, 0.0f);
-  const float step = 2.0f;
-  for (float az = -90.0f; az <= 90.0f + 0.5f * step; az += step) {
-    for (float el = -90.0f; el <= 90.0f + 0.5f * step; el += step) {
+  // 评审 2026-08-26 条14：网格随波束宽度自适应（主瓣 ≥16 点、前几个副瓣可辨；
+  // 旧 2° 步进下 4° 主瓣只有 2×2 点，主副瓣形状都画不出）。范围取 ±5·波束宽
+  // （封顶 ±90°），覆盖主瓣 + 数个副瓣环；主瓣外由 sinc² 连续延拓 + 副瓣电平
+  // 钳制产生起伏结构（见 AntennaPatternRuntime.h）。
+  const float bw_az = std::max(0.5f, antenna.nominal_az_beamwidth_deg);
+  const float bw_el = std::max(0.5f, antenna.nominal_el_beamwidth_deg);
+  const float step = std::max(0.05f, std::min(bw_az, bw_el) / 20.0f);
+  const float span_az = std::min(90.0f, 5.0f * bw_az);
+  const float span_el = std::min(90.0f, 5.0f * bw_el);
+  for (float az = -span_az; az <= span_az + 0.5f * step; az += step) {
+    for (float el = -span_el; el <= span_el + 0.5f * step; el += step) {
       dwell::RirAntennaLookOffsetDeg offset;
       offset.delta_az_deg = az;
       offset.delta_el_deg = el;
       const dwell::RirAntennaPatternSample sample = dwell::RirEvaluateAntennaPattern(
           antenna.main_beam_gain_db, antenna.pattern, beamwidth, offset, pointing,
           antenna.antenna_length_m, antenna.antenna_width_m, 0.0f);
-      out << FormatF(az, 1) << "," << FormatF(el, 1) << "," << FormatF(sample.gain_dbi, 3) << "\n";
+      out << FormatF(az, 2) << "," << FormatF(el, 2) << "," << FormatF(sample.gain_dbi, 3) << "\n";
     }
   }
   return true;

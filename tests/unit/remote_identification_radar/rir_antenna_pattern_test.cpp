@@ -82,14 +82,24 @@ TEST(RirAntennaPatternTest, HalfBeamwidthEdge_AtThreeDb) {
   }
 }
 
-/// @brief 主瓣外旁瓣区增益 = 峰值 + 最大旁瓣电平 - 扫描损失。
+/// @brief 主瓣外副瓣区（评审 2026-08-26 条14）：sinc² 包络连续延拓并以最大旁瓣
+/// 电平钳制——近副瓣区（包络高于电平）增益 = 峰值 + 最大旁瓣电平；零陷区增益
+/// 严格低于该电平（主副瓣结构可辨，不再恒定平台）。
 TEST(RirAntennaPatternTest, SideLobe_UsesMaxSidelobeLevel) {
   const RirAntennaConfig ant = MakeAntenna(RirAntennaPatternModelType::kGaussianMainLobe);
-  const auto sample = RirEvaluateAntennaPattern(
+  // 近副瓣区：u_az = 2.4/1.5 = 1.6，sinc² 衰减 ≈8.9dB < 20dB → 钳制在电平上。
+  const auto shelf = RirEvaluateAntennaPattern(
+      ant.main_beam_gain_db, ant.pattern, RirAntennaPatternBeamwidthDeg{3.0f, 3.0f},
+      RirAntennaLookOffsetDeg{2.4f, 0.0f}, config::RirAzimuthElevationDeg{0.0f, 0.0f});
+  EXPECT_FALSE(shelf.inside_main_lobe);
+  EXPECT_NEAR(shelf.gain_dbi, ant.main_beam_gain_db + ant.pattern.max_sidelobe_level_db, 1e-3f);
+  // 零陷区：u_az = 10/1.5 ≈ 6.67，sinc² 衰减 >20dB → 低于钳制电平。
+  const auto null_region = RirEvaluateAntennaPattern(
       ant.main_beam_gain_db, ant.pattern, RirAntennaPatternBeamwidthDeg{3.0f, 3.0f},
       RirAntennaLookOffsetDeg{10.0f, 0.0f}, config::RirAzimuthElevationDeg{0.0f, 0.0f});
-  EXPECT_FALSE(sample.inside_main_lobe);
-  EXPECT_NEAR(sample.gain_dbi, ant.main_beam_gain_db + ant.pattern.max_sidelobe_level_db, 1e-3f);
+  EXPECT_FALSE(null_region.inside_main_lobe);
+  EXPECT_LT(null_region.gain_dbi,
+            ant.main_beam_gain_db + ant.pattern.max_sidelobe_level_db - 1.0f);
 }
 
 /// @brief 后瓣（离轴 > 90°）增益 = 峰值 + 后瓣电平 - 扫描损失。

@@ -228,8 +228,8 @@
           "main_beam_gain_db": 52.0,
           "nominal_az_beamwidth_deg": 4.0,
           "nominal_el_beamwidth_deg": 4.0,
-          "antenna_length_m": 0.0,
-          "antenna_width_m": 0.0,
+          "antenna_length_m": 1.2,
+          "antenna_width_m": 1.2,
           "pattern": {
             "model_type": "kGaussianMainLobe",
             "max_sidelobe_level_db": -20.0,
