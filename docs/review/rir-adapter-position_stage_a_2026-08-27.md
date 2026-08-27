@@ -1,5 +1,5 @@
 ---
-Status: draft
+Status: frozen
 Date: 2026-08-27
 Review-Baseline: `evidence/rir-adapter-position` @ `0d03c957`
 Authority: 非规范性记录；结论以 docs/common/contract.md、docs/common/session_contract.md
@@ -84,26 +84,63 @@ Authority: 非规范性记录；结论以 docs/common/contract.md、docs/common/
 3、行为：斜距有限且 >0、平台原点 ECEF→LLA 成功时，按 `ComputeLookAngles` 的逆运算还原局部 ENU，再 `TryEnuToEcef`→`TryEcefToLla` 填 `has_position`；失败则维持今日仅方位+原点。方位/特征/原点映射不变。
 4、验收：`unit::fusion` 适配器新用例（还原精度、斜距非法/无原点/地心退化、`has_position` 与方位并存）；`unit::remote_identification_radar` 回归；Stage B 后用 `rir_boost_burnout` 看 σ_v 是否落到护栏下、关机确认分支是否出现。
 
-### 请用户拍板
+### 用户裁定（2026-08-27）
 
-1、F1–F5 五条建议判定是否全部采纳？
-2、Stage B 是否收在适配器（F3），还是改为出口①增发航迹 ECEF（更像 AR，但要改公开类型）？
-3、F5：本次是否坚持 50 m 默认？若坚持，Stage B 场景若 σ_v 仍 ≥ 5 m/s 则停工回 Stage A，不开「顺便改 q/`R`」。
-4、讨论结束后是否按上表冻结 §3，再从本分支 fork `feat/rir-adapter-position`？
+1、F1–F5 全部采纳。
+2、Stage B 只改适配器，不给出口①加航迹 ECEF。
+3、坚持融合默认 50 m 位置噪声；场景若 σ_v 仍 ≥ 5 m/s 则停工回 Stage A，不改过程噪声、不开极坐标量测模型。
+4、冻结 §3，随后 fork `feat/rir-adapter-position`。
 
-## §3 冻结契约（用户讨论结束后填写）
+## §3 冻结契约
 
-<!-- 一行一项：
-1、允许范围：模块/目录、类/函数、测试与文档。
-2、明确禁止范围：公开头文件、跨模块类型、schema/回放、测试阈值、兼容层。
-3、行为边界：输入、输出、错误回退、生命周期。
-4、验收门：构建、聚焦测试、契约测试、特征化测试。
-5、非目标。
--->
+Proven requirement:
+- RIR 特征出口适配器必须把已有斜距还原成融合位置量测，使 RIR 走位置通道而非仅方位。
+
+Allowed scope:
+- Modules/directories:
+  - `src/fusion/SensorAdapters.cpp`
+  - `include/1q/fusion/SensorAdapters.h`（仅注释）
+  - `tests/unit/fusion/sensor_adapters_test.cpp`
+  - `docs/fusion/algorithms.md`、`docs/remote_identification_radar/algorithms.md`（适配器映射句）
+- Classes/functions:
+  - `fusion::AdaptRirFeatureMeasurementsToDetectionRecords`
+- Tests/docs:
+  - 适配器单测：还原精度、斜距非法/无原点/地心退化、位置与方位并存
+  - 权威回写仅适配器映射语义；矩阵 §4 只记本次运行
+
+Explicitly out of scope:
+- Public headers: `DetectionRecord`、出口① `RirFeatureMeasurementTypes`、`FusionConfig` 字段零变更
+- Cross-module types: 不改 `FusionEngine` 更新器、关机护栏、RIR 控制器/航迹
+- Schema/trace/replay: 零变更
+- Test thresholds/skips: 不放宽既有阈值；不改 `unit::remote_identification_radar` 期望除非回归失败
+- Compatibility layers: 不新增公开适配函数、不新增坐标公共 API
+
+Behavior boundary:
+- Inputs: 出口①记录的 `range_m`、`look_az_deg`/`look_el_deg`（雷达局部东-北-天，方位自东）、`has_platform_position` + `platform_position`（地心地固，米）
+- Outputs: 斜距有限且 >0、平台原点 ECEF→LLA 成功时，按 `ComputeLookAngles` 逆运算还原东-北-天，再 `TryEnuToEcef`→`TryEcefToLla` 填 `has_position` + `position`（经纬高）
+- Errors/fallback: 斜距非正/非有限、无平台原点、原点或位置换算失败 → `has_position=false`，方位/特征/原点映射维持现状
+- Lifecycle/debug/trace: 方位 east→north、11 维特征、`sensor_origin` 映射不变；位置与方位并存；量测噪声走 `FusionConfig::default_position_noise_std_m`（默认 50 m）
+
+Acceptance gates:
+- Build: `1q_fusion_unit_tests`（VisualStudio.15.0-amd64-release）
+- Focused tests: `unit::fusion` 全绿，含新还原/退化用例
+- Contract tests: 无新契约面；既有 `sensor_adapters_test` 方位/特征/原点用例不回退
+- Characterization tests: `rir_boost_burnout` 融合航迹速度观测 σ < 5 m/s 且关机确认分支出现；若 σ ≥ 5 m/s 停工回 Stage A
+
+Non-goals:
+- 出口①增发航迹 ECEF
+- 融合极坐标量测模型 / 记录级位置噪声
+- 改过程噪声 q、关机护栏 5 m/s、默认 50 m
+- 示例组件改调用路径（已调用本适配器）
 
 ## 修订记录
 
-（尚无。用户裁定后按编号追加，不静默改写矩阵建议判定。）
+### 修订 1（2026-08-27，用户指令）
+
+1、F1–F5 建议判定全部采纳。
+2、实现边界 = 适配器，不扩出口①。
+3、坚持 50 m 默认；失败则停工回 Stage A。
+4、§3 按上表冻结。
 
 ## §4 运行记录（Stage C 后填写）
 
