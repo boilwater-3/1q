@@ -9,6 +9,7 @@
 #include "common/logging/AcceptanceText.h"
 #include "common/logging/ProjectLog.h"
 #include "common/numerics/Constants.h"
+#include "common/radar/RadarEquations.h"
 #include "1q/coordinate/inertial_transform.h"
 #include "1q/coordinate/position_transform.h"
 #include "1q/sbirs_sensor/session/SbirsIssueCodes.h"
@@ -830,8 +831,10 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
     const double sat_range = std::sqrt(input.satellite_position_ecef_m.x * input.satellite_position_ecef_m.x +
                                        input.satellite_position_ecef_m.y * input.satellite_position_ecef_m.y +
                                        input.satellite_position_ecef_m.z * input.satellite_position_ecef_m.z);
-    WriteSbirsOrbitSample(sim_time_sec, input.cycle_index, policy.error_model.orbit_sigma_deg,
-                          sat_range, input.satellite_position_ecef_m);
+    WriteSbirsOrbitSample(this, sim_time_sec, input.cycle_index,
+                          policy.error_model.orbit_sigma_deg, sat_range,
+                          policy.error_model.nav_position_sigma_m,
+                          input.satellite_position_ecef_m);
     WriteSbirsOncePerSession(sim_time_sec, input.cycle_index);
     WriteSbirsCycleRunCount(sim_time_sec, input.cycle_index);
   }
@@ -1116,10 +1119,12 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
         nfov += " 信号能量=" + oneq::logging::FormatSci(signal_energy_j) + "J";
         nfov += " SNR=" + oneq::logging::FormatF(snr, 3);
         SBIRS_ACCEPTANCE_ITEM(sim_time_sec, input.cycle_index, "窄视场跟踪探测", nfov);
-        WriteSbirsAngleError(sim_time_sec, input.cycle_index, target.target_id, az_err, el_err,
-                             detection.record.azimuth_rad * 57.29577951308232,
+        WriteSbirsAngleError(this, sim_time_sec, input.cycle_index, target.target_id, az_err,
+                             el_err, detection.record.azimuth_rad * 57.29577951308232,
                              detection.record.elevation_rad * 57.29577951308232, azimuth_deg,
-                             elevation_deg);
+                             elevation_deg, policy.error_model.orbit_sigma_deg,
+                             policy.error_model.attitude_sigma_deg,
+                             policy.error_model.fov_sigma_deg);
       }
       result.detections.push_back(detection);
       continue;
@@ -1286,10 +1291,23 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
       energy += " 目标ID=" + std::to_string(target.target_id);
       energy += " 接收功率=" + oneq::logging::FormatSci(received_power_w) + "W";
       energy += " 信号能量=" + oneq::logging::FormatSci(signal_energy_j) + "J";
+      // 评审 2026-08-26 条2：补 SNR 与探测概率——Pd 复用雷达公共层 Marcum Q 模型
+      // （Swerling0 单脉冲），Pfa 由宽场门限系数 k 按高斯尾部 Pfa=0.5·erfc(k/√2) 反推。
+      energy += " SNR=" + oneq::logging::FormatF(snr, 3);
+      const double snr_db_wide = 10.0 * std::log10(std::max(snr, 1.0e-12));
+      const double pfa_wide =
+          0.5 * std::erfc(static_cast<double>(policy.detection.wide_min_snr_linear) /
+                          std::sqrt(2.0));
+      const double pd_wide = oneq::common::radar::RadarEquations::ComputeDetectionProbability(
+          static_cast<float>(snr_db_wide), static_cast<float>(pfa_wide),
+          oneq::common::radar::SwerlingModel::kSwerling0, 1);
+      energy += " 探测概率=" + oneq::logging::FormatF(pd_wide, 4);
       SBIRS_ACCEPTANCE_ITEM(sim_time_sec, input.cycle_index, "大幅面扫描与探测", energy);
-      WriteSbirsAngleError(sim_time_sec, input.cycle_index, target.target_id, az_err, el_err,
+      WriteSbirsAngleError(this, sim_time_sec, input.cycle_index, target.target_id, az_err, el_err,
                            candidate.measured_azimuth_deg, candidate.measured_elevation_deg,
-                           azimuth_deg, elevation_deg);
+                           azimuth_deg, elevation_deg, policy.error_model.orbit_sigma_deg,
+                           policy.error_model.attitude_sigma_deg,
+                           policy.error_model.fov_sigma_deg);
       const int required_hits =
           std::max(1, policy.scheduler.wide_to_narrow_required_consecutive_hits);
       std::string joint = "宽场疑似=[" + std::to_string(target.target_id) + "]";
@@ -1301,6 +1319,20 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
     if (target_states_[target.target_id] != SbirsTargetState::kAwaitingNfovAcquisition) {
       target_states_[target.target_id] = SbirsTargetState::kWideCandidate;
     }
+  }
+
+  // 评审 2026-08-26 条3：宽场疑似目标完整列表（逐目标行只写单个 ID，此处汇总一行）。
+  if (SBIRS_ACCEPTANCE_LOG_ENABLED() && !candidates.empty()) {
+    std::string suspect_ids;
+    for (const SbirsCandidate& candidate : candidates) {
+      if (!suspect_ids.empty()) {
+        suspect_ids += ",";
+      }
+      suspect_ids += std::to_string(candidate.target->target_id);
+    }
+    std::string joint_list = "宽场疑似列表=[" + suspect_ids +
+                             "] 数量=" + std::to_string(candidates.size());
+    SBIRS_ACCEPTANCE_ITEM(sim_time_sec, input.cycle_index, "宽窄视场联合探测", joint_list);
   }
 
   if (mission.work_mode == config::SbirsWorkMode::kWideSearch) {

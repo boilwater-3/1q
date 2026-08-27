@@ -20,13 +20,17 @@ namespace pipeline {
 void WriteSbirsInstallMatrices(const oneq::coordinate::EulerAnglesDeg& mount_deg,
                                const oneq::coordinate::EulerAnglesDeg& misalignment_deg);
 
-void WriteSbirsOrbitSample(float sim_time_sec, std::uint32_t cycle, float orbit_sigma_deg,
-                           double reference_range_m,
+// instance_key：管线实例指针（每星一份），用于会话级统计按卫星分离，避免双星混计。
+void WriteSbirsOrbitSample(const void* instance_key, float sim_time_sec, std::uint32_t cycle,
+                           float orbit_sigma_deg, double reference_range_m,
+                           float nav_position_sigma_m,
                            const session::SbirsVector3M& satellite_ecef);
 
-void WriteSbirsAngleError(float sim_time_sec, std::uint32_t cycle, std::uint64_t target_id,
-                          double az_error_deg, double el_error_deg, double measured_az_deg,
-                          double measured_el_deg, double truth_az_deg, double truth_el_deg);
+void WriteSbirsAngleError(const void* instance_key, float sim_time_sec, std::uint32_t cycle,
+                          std::uint64_t target_id, double az_error_deg, double el_error_deg,
+                          double measured_az_deg, double measured_el_deg, double truth_az_deg,
+                          double truth_el_deg, float sigma_orbit_deg, float sigma_attitude_deg,
+                          float sigma_fov_deg);
 
 void WriteSbirsLifecycleEvents(float sim_time_sec, std::uint32_t cycle,
                                const std::vector<session::SbirsDetectionLifecycleEvent>& events,
