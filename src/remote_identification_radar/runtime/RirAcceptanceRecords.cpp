@@ -598,16 +598,6 @@ void WriteRirTrackAndId(float sim_time_sec, std::uint32_t cycle,
   Emit(sim_time_sec, cycle, "根据目标RCS实时计算目标探测结果功能测试",
        "目标ID=" + std::to_string(track.external_target_id) + " " + motion);
 
-  std::string id_text = "航迹=" + std::to_string(track.association_key);
-  id_text += " 目标ID=" + std::to_string(track.external_target_id);
-  if (result != nullptr) {
-    id_text += " 状态=" + std::to_string(static_cast<int>(result->state));
-    AppendField(id_text, "大类", category_text);
-    AppendField(id_text, "型号", result->target_model);
-    id_text += " 置信度=" + FormatF(static_cast<double>(result->confidence), 4);
-  }
-  Emit(sim_time_sec, cycle, "独立目标识别器结论", id_text);
-
   if (features != nullptr) {
     // 第44项 运动特征处理：判定条件（速度/高度/加速度/近似直线）在前，目标类别在后；
     // 斜距/方位俯仰不是运动分类条件，不写。特征维度未有效（刚建轨未累积样本）时
@@ -714,12 +704,12 @@ void WriteRirOncePerSession(float sim_time_sec, std::uint32_t cycle) {
   // 评审 2026-08-26 条22（方案B）：库内不做墙钟计时，真实初始化/加载耗时在示例层
   // integration_events.log 的同名验收项（模块=RIR）。场景数/总仿真周期由示例层
   // 结束时回写（第54项），库内不再写占位行。
-  Emit(sim_time_sec, cycle, "初始化时间",
-       "见integration_events.log[验收项：初始化时间性能测试]（模块=RIR）");
-  Emit(sim_time_sec, cycle, "单个模型加载时间",
-       "见integration_events.log[验收项：单个模型加载时间性能测试]（模块=RIR）");
-  Emit(sim_time_sec, cycle, "多模型并行加载",
-       "见integration_events.log[验收项：多个模型并行加载性能测试]（模块=RIR）");
+  Emit(sim_time_sec, cycle, "初始化时间性能测试",
+       "见integration_events.log（模块=RIR）");
+  Emit(sim_time_sec, cycle, "单个模型加载时间性能测试",
+       "见integration_events.log（模块=RIR）");
+  Emit(sim_time_sec, cycle, "多个模型并行加载性能测试",
+       "见integration_events.log（模块=RIR）");
 }
 
 void WriteRirCycleRunCount(float sim_time_sec, std::uint32_t cycle) {

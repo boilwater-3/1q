@@ -446,9 +446,8 @@ void WriteSbirsOncePerSession(float sim_time_sec, std::uint32_t cycle) {
   // 评审 2026-08-26 条22（方案B）：库内不做墙钟计时，真实初始化耗时在示例层
   // integration_events.log 的同名验收项（模块=SBIRS）。场景数/总仿真周期由示例层
   // 结束时回写（第54项），库内不再写占位行。
-  SBIRS_ACCEPTANCE_ITEM(sim_time_sec, cycle, "初始化时间",
-                        "见integration_events.log[验收项：初始化时间性能测试]（模块=SBIRS）");
-  SBIRS_ACCEPTANCE_ITEM(sim_time_sec, cycle, "组件模型参数性能", "见红外系统测角误差");
+  SBIRS_ACCEPTANCE_ITEM(sim_time_sec, cycle, "初始化时间性能测试",
+                        "见integration_events.log（模块=SBIRS）");
 }
 
 void WriteSbirsCycleRunCount(float sim_time_sec, std::uint32_t cycle) {

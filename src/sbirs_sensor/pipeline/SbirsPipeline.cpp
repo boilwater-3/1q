@@ -680,15 +680,10 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
     if (!SBIRS_ACCEPTANCE_LOG_ENABLED() || !nfov_scheduler_.IsLocked(target_id)) {
       return;
     }
-    // 中译：窄视场通道释放事件（目标编号、通道号、释放原因、门连续失败计数）。
-    // 标识：验收日志 E7——宽窄协同的"释放回宽场"分支证据（门失败丢锁/NIS 丢锁/
-    //       指向超时/捕获失败/目标消失），仅人读验收材料，不参与状态判断。
-    SBIRS_ACCEPTANCE_ITEM(sim_time_sec, input.cycle_index, "协同工作机制",
-                          std::string("选中目标=[] 锁定=") +
-                              std::to_string(nfov_scheduler_.LockedCount()) + "/" +
-                              std::to_string(nfov_scheduler_.max_locks()) + " 释放目标=" +
-                              std::to_string(target_id) + " 原因=" + reason +
-                              " 门失败=" + std::to_string(gate_failures));
+    // 验收日志 E7 内容由「特殊事件监测与提示功能测试」与「窄视场跟踪探测功能测试」
+    // 覆盖（释放原因经事件行/滑行标志承载）；不再单独输出「协同工作机制」诊断行。
+    (void)reason;
+    (void)gate_failures;
   };
 
   const SbirsPointingDisturbanceParameters disturbance_parameters =
@@ -1690,13 +1685,8 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
         skipped_text += std::to_string(target_id);
       }
     }
-    std::string collab = "选中目标=[" + selected_text + "]";
-    collab += " 锁定=" + std::to_string(nfov_scheduler_.LockedCount()) + "/" +
-              std::to_string(nfov_scheduler_.max_locks());
-    collab += " 跳过=[" + skipped_text + "]";
-    collab += nfov_scheduler_.LockedCount() >= nfov_scheduler_.max_locks() ? " 资源满=是"
-                                                                          : " 资源满=否";
-    SBIRS_ACCEPTANCE_ITEM(sim_time_sec, input.cycle_index, "协同工作机制", collab);
+    // 调度选中/锁定/跳过为内部诊断（规范「宽窄视场联合探测功能测试」已覆盖），
+    // 不再单独输出「协同工作机制」行。
   }
 
   // 通道已满（无并发余量）时，未被选中的 WFOV 候选标记为调度跳过。
