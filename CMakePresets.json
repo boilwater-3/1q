@@ -89,7 +89,8 @@
             "architecture": "x64",
             "cacheVariables": {
                 "PACKAGE_MANAGER": "conan",
-                "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/build/${presetName}/build/generators/conan_toolchain.cmake"
+                "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/build/${presetName}/build/generators/conan_toolchain.cmake",
+                "ENABLE_PCH": "ON"
             }
         },
         {
@@ -128,8 +129,7 @@
                 "CMAKE_CXX_STANDARD": "17",
                 "BUILD_SHARED_LIBS": "OFF",
                 "ENABLE_TESTING": "ON",
-                "ENABLE_INSTALL": "ON",
-                "ENABLE_PCH": "ON"
+                "ENABLE_INSTALL": "ON"
             }
         },
         {
@@ -144,7 +144,8 @@
             "toolset": "host=x64",
             "architecture": "x64",
             "cacheVariables": {
-                "PACKAGE_MANAGER": "none"
+                "PACKAGE_MANAGER": "none",
+                "ENABLE_PCH": "ON"
             }
         },
         {
@@ -163,6 +164,11 @@
     ],
     "buildPresets": [
         {
+            "name": "windows-build-base",
+            "hidden": true,
+            "jobs": 4
+        },
+        {
             "name": "llvm-ninja-debug",
             "configurePreset": "llvm-ninja-debug"
         },
@@ -177,52 +183,58 @@
         {
             "name": "VisualStudio.14.0-amd64-debug",
             "displayName": "Visual Studio 14 2015 (x64) - Debug",
+            "inherits": "windows-build-base",
             "configurePreset": "VisualStudio.14.0-amd64",
             "configuration": "Debug"
         },
         {
             "name": "VisualStudio.14.0-amd64-release",
             "displayName": "Visual Studio 14 2015 (x64) - Release",
+            "inherits": "windows-build-base",
             "configurePreset": "VisualStudio.14.0-amd64",
             "configuration": "Release"
         },
         {
             "name": "1q_log_vs2015-debug",
             "displayName": "1q acceptance logs (VS2015 x64) - Debug",
+            "inherits": "windows-build-base",
             "configurePreset": "1q_log_vs2015",
             "configuration": "Debug"
         },
         {
             "name": "1q_log_vs2015-release",
             "displayName": "1q acceptance logs (VS2015 x64) - Release",
+            "inherits": "windows-build-base",
             "configurePreset": "1q_log_vs2015",
             "configuration": "Release"
         },
         {
             "name": "VisualStudio.14.0-amd64-none-debug",
             "displayName": "Visual Studio 14 2015 (x64, no Conan) - Debug",
+            "inherits": "windows-build-base",
             "configurePreset": "VisualStudio.14.0-amd64-none",
             "configuration": "Debug"
         },
         {
             "name": "VisualStudio.14.0-amd64-none-release",
             "displayName": "Visual Studio 14 2015 (x64, no Conan) - Release",
+            "inherits": "windows-build-base",
             "configurePreset": "VisualStudio.14.0-amd64-none",
             "configuration": "Release"
         },
         {
             "name": "VisualStudio.15.0-amd64-debug",
             "displayName": "VS2026 v141 (VS2017-era) - Debug",
+            "inherits": "windows-build-base",
             "configurePreset": "VisualStudio.15.0-amd64",
-            "configuration": "Debug",
-            "jobs": 4
+            "configuration": "Debug"
         },
         {
             "name": "VisualStudio.15.0-amd64-release",
             "displayName": "VS2026 v141 (VS2017-era) - Release",
+            "inherits": "windows-build-base",
             "configurePreset": "VisualStudio.15.0-amd64",
-            "configuration": "Release",
-            "jobs": 4
+            "configuration": "Release"
         }
     ],
     "testPresets": [
