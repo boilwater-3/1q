@@ -330,6 +330,9 @@ struct SbirsBearingSample {
   float azimuth_rad{0.0f};         /**< 方位角（ECI 极坐标，rad） */
   float elevation_rad{0.0f};       /**< 仰角（ECI 极坐标，rad） */
   float infrared_snr_linear{0.0f}; /**< 红外通道线性 SNR */
+  bool has_focal_plane_offset{false}; /**< 是否携带 NFOV 焦平面脱靶量（验收判定标准 第26项 数据源） */
+  float focal_plane_offset_x_m{0.0f}; /**< 焦平面脱靶量 x（m） */
+  float focal_plane_offset_y_m{0.0f}; /**< 焦平面脱靶量 y（m） */
 };
 
 /**

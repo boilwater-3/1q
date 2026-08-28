@@ -1284,8 +1284,10 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
       const double az_err = AzimuthDelta(candidate.measured_azimuth_deg, azimuth_deg);
       const double el_err = candidate.measured_elevation_deg - elevation_deg;
       const double kDegToRad = 0.017453292519943295;
-      // 第5项 探测角度计算：实体相对卫星的方位/俯仰（ECI、弧度制）。
-      std::string angle = "目标ID=" + std::to_string(target.target_id);
+      // 第5项 探测角度计算：实体相对卫星的方位/俯仰（ECI、弧度制；身份字段
+      // 相对卫星ID= 随行——§0 身份规则，双星场景可辨哪颗星）。
+      std::string angle = "相对卫星ID=" + std::to_string(satellite_entity_id_);
+      angle += " 目标ID=" + std::to_string(target.target_id);
       angle += " 量测方位/俯仰(ECI)=(" +
                oneq::logging::FormatF(candidate.measured_azimuth_deg * kDegToRad, 8) + "," +
                oneq::logging::FormatF(candidate.measured_elevation_deg * kDegToRad, 8) + ")rad";

@@ -607,6 +607,18 @@ void SbirsSensorComponent::PublishToGroundStation(
       sample.azimuth_rad = record.azimuth_rad;
       sample.elevation_rad = record.elevation_rad;
       sample.infrared_snr_linear = record.infrared_snr_linear;
+      // 焦平面脱靶量随消息透出（归属记录携带；精度评估层第26项 消费）。
+      for (const auto& attribution : result.detection_attributions) {
+        if (attribution.detection_id != record.detection_id) {
+          continue;
+        }
+        if (attribution.has_focal_plane_offset) {
+          sample.has_focal_plane_offset = true;
+          sample.focal_plane_offset_x_m = attribution.focal_plane_offset_x_m;
+          sample.focal_plane_offset_y_m = attribution.focal_plane_offset_y_m;
+        }
+        break;
+      }
       event.detections.push_back(sample);
     }
     world.signals().on_sbirs_frame_submitted(event);

@@ -69,6 +69,11 @@ sbirs_sensor::session::SbirsCycleResult RebuildSbirsCycleResult(
     sbirs_sensor::attribution::SbirsDetectionAttributionRecord attribution;
     attribution.detection_id = sample.detection_id;
     attribution.target_id = sample.target_id;
+    if (sample.has_focal_plane_offset) {
+      attribution.has_focal_plane_offset = true;
+      attribution.focal_plane_offset_x_m = sample.focal_plane_offset_x_m;
+      attribution.focal_plane_offset_y_m = sample.focal_plane_offset_y_m;
+    }
     result.detection_attributions.push_back(attribution);
   }
   return result;
