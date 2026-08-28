@@ -6,6 +6,7 @@
 #ifndef ONEQ_TARGET_INFERENCE_TARGET_INFERENCE_CONFIG_H_
 #define ONEQ_TARGET_INFERENCE_TARGET_INFERENCE_CONFIG_H_
 
+#include <cstdint>
 #include <string>
 
 #include "1q/api.hpp"
@@ -30,8 +31,13 @@ struct ONEQ_API TargetInferenceConfig {
   double high_energy_speed_threshold_m_per_s{1200.0}; /**< 高能量速度门（单位：m/s）。 */
   double high_altitude_threshold_m{30000.0}; /**< 高空门（单位：m）。 */
   /** 落点预报分发通道名（如事件信号名）。装配层接好外发通道后填入，验收行据此写
-   *  「分发状态=已发布(事件<通道名>)」；留空 = 未接外发，写「已封装待分发」。 */
+   *  「分发状态=已发布」；留空 = 未接外发，写「已封装待分发」。 */
   std::string impact_distribution_channel{};
+  /** 落点预报分发来源实体 ID（验收判定标准 第25项：发布方实体 ID，不用通道名代替；
+   *  0 = 装配层未标注，已发布行省略该字段）。 */
+  std::uint64_t impact_distribution_source_id{0U};
+  /** 落点预报分发对象实体 ID（接收方；0 = 未标注，省略）。 */
+  std::uint64_t impact_distribution_target_id{0U};
 };
 
 }  // namespace target_inference

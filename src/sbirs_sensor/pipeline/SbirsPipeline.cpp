@@ -1094,20 +1094,26 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
         pointing_coordinator_.ReleaseTarget(target.target_id);
         tracking_coordinator_.ReleaseTarget(target.target_id);
       }
+      // 焦平面脱靶量：目标传感器系角与实际指向角的逐轴差经 f·tan 映射（米+像素）；
+      // 焦距/像元间距非正时（配置校验已拦截）跳过。随归属记录透出（验收判定标准
+      // 第26项 脱靶量数据源，精度评估层消费），验收行在此复用同一份计算。
+      foundation::SbirsFocalPlaneOffset focal_offset;
+      const bool focal_valid = foundation::ComputeFocalPlaneOffset(
+          hw.focal_length_m, hw.detector_pixel_pitch_m,
+          AzimuthDelta(sensor_azimuth_deg, actual_pointing_azimuth_deg),
+          sensor_elevation_deg - actual_pointing_elevation_deg, &focal_offset);
+      if (focal_valid) {
+        detection.attribution.has_focal_plane_offset = true;
+        detection.attribution.focal_plane_offset_x_m = focal_offset.x_m;
+        detection.attribution.focal_plane_offset_y_m = focal_offset.y_m;
+      }
       if (SBIRS_ACCEPTANCE_LOG_ENABLED()) {
-        // 焦平面脱靶量：目标传感器系角与实际指向角的逐轴差经 f·tan 映射（米+像素）；
-        // 焦距/像元间距非正时（配置校验已拦截）跳过该字段。
         // 中译：窄视场跟踪事件（目标编号、通道、跟踪模式、实际指向与目标角、指向误差、
         //       焦平面脱靶量、输出角定位角度误差、SNR 与信号能量、几何/SNR 门结果、
         //       失败计数、滑行标志、NIS）。
         // 标识：验收日志 E5——3.2.1.3.2.3"焦平面脱靶量、跟踪状态、目标信号能量与 SNR"、
         //       3.2.1.6.3 红外定位角度误差（跟踪段）证据；输出角误差在滤波/误差注入
         //       全部完成后取最终输出角 − 真值角（方位最短角差）。
-        foundation::SbirsFocalPlaneOffset focal_offset;
-        const bool focal_valid = foundation::ComputeFocalPlaneOffset(
-            hw.focal_length_m, hw.detector_pixel_pitch_m,
-            AzimuthDelta(sensor_azimuth_deg, actual_pointing_azimuth_deg),
-            sensor_elevation_deg - actual_pointing_elevation_deg, &focal_offset);
         const double az_err = AzimuthDelta(
             static_cast<float>(detection.record.azimuth_rad * 57.29577951308232), azimuth_deg);
         const double el_err =
@@ -1137,13 +1143,10 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
         joint_track += " SNR=" + oneq::logging::FormatF(snr, 3);
         SBIRS_ACCEPTANCE_ITEM(sim_time_sec, input.cycle_index, "宽窄视场联合探测功能测试",
                               joint_track);
-        WriteSbirsAngleError(this, satellite_entity_id_, sim_time_sec, input.cycle_index,
+        WriteSbirsAngleError(satellite_entity_id_, sim_time_sec, input.cycle_index,
                              target.target_id, az_err, el_err,
                              detection.record.azimuth_rad * 57.29577951308232,
-                             detection.record.elevation_rad * 57.29577951308232, azimuth_deg,
-                             elevation_deg, policy.error_model.orbit_sigma_deg,
-                             policy.error_model.attitude_sigma_deg,
-                             policy.error_model.fov_sigma_deg);
+                             detection.record.elevation_rad * 57.29577951308232);
         if (tracking_result.has_angle_rate) {
           // 中译：角度域 KF 后验（滤波方位/俯仰及其变化率）；不进公开检测记录。
           // 标识：实验后端 kAngleCvKf 的用例 16 状态估计验收行。
@@ -1280,13 +1283,6 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
       // 带误差量测角 − 真值角（方位最短角差）。
       const double az_err = AzimuthDelta(candidate.measured_azimuth_deg, azimuth_deg);
       const double el_err = candidate.measured_elevation_deg - elevation_deg;
-      session::SbirsVector3M ecef = target.position_eci_m;
-      for (const session::SbirsSceneTarget& source : input.scene) {
-        if (source.target_id == target.target_id) {
-          ecef = source.position_ecef_m;
-          break;
-        }
-      }
       const double kDegToRad = 0.017453292519943295;
       // 第5项 探测角度计算：实体相对卫星的方位/俯仰（ECI、弧度制）。
       std::string angle = "目标ID=" + std::to_string(target.target_id);
@@ -1299,24 +1295,13 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
       dmax += " 目标ID=" + std::to_string(target.target_id);
       dmax += " 相对卫星最大探测距离=" + oneq::logging::FormatF(max_detection_range_m, 1) + "m";
       SBIRS_ACCEPTANCE_ITEM(sim_time_sec, input.cycle_index, "最大探测距离计算功能测试", dmax);
-      // 第7项 目标可探测性与动态参数：位置（LLA）、相对卫星斜距、角度（ECI rad）
-      // 与红外可探测性。
-      std::string dyn = "相对卫星ID=" + std::to_string(satellite_entity_id_);
-      dyn += " 目标ID=" + std::to_string(target.target_id);
-      oneq::coordinate::LlaPositionDegM target_lla{};
-      if (oneq::coordinate::TryEcefToLla(
-              oneq::coordinate::EcefPositionM(ecef.x, ecef.y, ecef.z), &target_lla)) {
-        dyn += " 位置LLA=(" + oneq::logging::FormatF(target_lla.latitude_deg, 6) + "," +
-               oneq::logging::FormatF(target_lla.longitude_deg, 6) + "," +
-               oneq::logging::FormatF(target_lla.altitude_m, 1) + ")";
-      }
-      dyn += " 相对卫星斜距=" + oneq::logging::FormatF(range_m, 1) + "m";
-      dyn += " 量测方位/俯仰(ECI)=(" +
-             oneq::logging::FormatF(candidate.measured_azimuth_deg * kDegToRad, 8) + "," +
-             oneq::logging::FormatF(candidate.measured_elevation_deg * kDegToRad, 8) + ")rad";
-      dyn += " 红外可探测=是";
-      SBIRS_ACCEPTANCE_ITEM(sim_time_sec, input.cycle_index, "目标可探测性与动态参数生成功能测试",
-                            dyn);
+      // 第7项（修改）目标可探测性与动态参数：双星定位时同一目标单行（位置 LLA +
+      // 两颗相对卫星ID/斜距/量测角），单星候选行顺延——注册表见
+      // SbirsAcceptanceRecords.cpp（WriteSbirsTargetDetectability）。
+      WriteSbirsTargetDetectability(
+          satellite_entity_id_, sim_time_sec, input.cycle_index, target.target_id, range_m,
+          candidate.measured_azimuth_deg * kDegToRad, candidate.measured_elevation_deg * kDegToRad,
+          satellite_ecef.x_m, satellite_ecef.y_m, satellite_ecef.z_m, gmst_rad);
       // 第11项 红外预警卫星大幅面扫描与探测：扫描幅宽（ECI rad）/目标辐射能量链/
       // SNR/探测概率/检测标志（评审 2026-08-26 条2：Pd 复用雷达公共层 Marcum Q 模型
       // （Swerling0 单脉冲），Pfa 由宽场门限系数 k 按高斯尾部 Pfa=0.5·erfc(k/√2) 反推）。
@@ -1339,12 +1324,9 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
       energy += " 检测标志=是";
       SBIRS_ACCEPTANCE_ITEM(sim_time_sec, input.cycle_index, "红外预警卫星大幅面扫描与探测功能测试",
                             energy);
-      WriteSbirsAngleError(this, satellite_entity_id_, sim_time_sec, input.cycle_index,
+      WriteSbirsAngleError(satellite_entity_id_, sim_time_sec, input.cycle_index,
                            target.target_id, az_err, el_err, candidate.measured_azimuth_deg,
-                           candidate.measured_elevation_deg, azimuth_deg, elevation_deg,
-                           policy.error_model.orbit_sigma_deg,
-                           policy.error_model.attitude_sigma_deg,
-                           policy.error_model.fov_sigma_deg);
+                           candidate.measured_elevation_deg);
     }
     if (target_states_[target.target_id] != SbirsTargetState::kAwaitingNfovAcquisition) {
       target_states_[target.target_id] = SbirsTargetState::kWideCandidate;

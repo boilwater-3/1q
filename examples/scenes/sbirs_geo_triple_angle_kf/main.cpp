@@ -540,6 +540,13 @@ int main(int argc, char* argv[]) {
   evaluation_source_ids.push_back(scene.satellites[0].source_id);
   evaluation_source_ids.push_back(scene.satellites[1].source_id);
 
+  // 实体先建：分发来源/对象实体 ID 在引擎构造前注入推演配置（验收判定标准
+  // 第25项·修改：已发布行须写实体 ID 对，不用通道名/角色名代替）。
+  component_attachment::Entity& ground_station = world.CreateEntity("ground_station");
+  component_attachment::Entity& impact_receiver = world.CreateEntity("impact_receiver");
+  scene.config.inference.impact_distribution_source_id = ground_station.id();
+  scene.config.inference.impact_distribution_target_id = impact_receiver.id();
+
   // 评审 2026-08-26 条22（方案B）：融合/精度会话初始化墙钟写 integration_events.log
   // （库内验收文件的「初始化时间」行指引到此处）。
   const auto fusion_create_begin = std::chrono::steady_clock::now();
@@ -547,16 +554,15 @@ int main(int argc, char* argv[]) {
       new fusion::FusionEngine(scene.config.fusion));
   const double fusion_create_ms =
       component_attachment::app::SteadyElapsedMs(fusion_create_begin);
-  component_attachment::app::LogAcceptanceMs(0U, 0.0, "初始化时间", "Fusion", fusion_create_ms);
+  component_attachment::app::LogAcceptanceMs(0U, 0.0, "初始化时间性能测试", "Fusion", fusion_create_ms);
   const auto precision_create_begin = std::chrono::steady_clock::now();
   std::unique_ptr<pe::PrecisionEvaluationSession> precision_session(
       new pe::PrecisionEvaluationSession(scene.config));
   const double precision_create_ms =
       component_attachment::app::SteadyElapsedMs(precision_create_begin);
-  component_attachment::app::LogAcceptanceMs(0U, 0.0, "初始化时间", "Precision",
+  component_attachment::app::LogAcceptanceMs(0U, 0.0, "初始化时间性能测试", "Precision",
                                              precision_create_ms);
 
-  component_attachment::Entity& ground_station = world.CreateEntity("ground_station");
   ground_station.Attach(
       std::unique_ptr<component_attachment::GroundStationFusionComponent>(
           new component_attachment::GroundStationFusionComponent(std::move(fusion_engine),
@@ -566,10 +572,11 @@ int main(int argc, char* argv[]) {
       ground_station.Find<component_attachment::GroundStationFusionComponent>();
 
   // 评审 2026-08-26 条12：订阅落点预报外发事件，收件回执写 integration_events.log
-  // （验证分发链路真实可达，非仅日志口径）。
+  // （验证分发链路真实可达，非仅日志口径；接收方为 impact_receiver 实体）。
+  const std::uint64_t impact_receiver_id = impact_receiver.id();
   boost::signals2::scoped_connection impact_connection =
       world.signals().on_impact_forecast_published.connect(
-          [](const component_attachment::ImpactForecastEvent& event) {
+          [impact_receiver_id](const component_attachment::ImpactForecastEvent& event) {
             component_attachment::app::LogEvent(
                 event.cycle, static_cast<double>(event.cycle), "impact_forecast",
                 "目标键=" + std::to_string(event.key) + " 落点LLA=(" +
@@ -579,7 +586,8 @@ int main(int argc, char* argv[]) {
                     std::to_string(event.impact_position_sigma_m) + "m 关机点1σ=" +
                     (event.has_burnout_sigma ? std::to_string(event.burnout_position_sigma_m) + "m"
                                              : std::string("无")) +
-                    " 置信度=" + std::to_string(event.confidence));
+                    " 置信度=" + std::to_string(event.confidence) +
+                    " 分发对象ID=" + std::to_string(impact_receiver_id));
           });
 
   std::cout << "sbirs_geo_triple_angle_kf: " << scene_path << ", " << scene.cycles
@@ -675,6 +683,10 @@ int main(int argc, char* argv[]) {
   const pe::PrecisionEvaluationReport report = fusion->SummarizeEvaluation();
   PrintReport(report);
   std::cout << "dual_sat_cycles=" << dual_sat_cycles << "/" << scene.cycles << "\n";
+  // 验收判定标准 第54项：场景数/总仿真周期由示例层结束时回写。
+  component_attachment::app::LogAcceptanceText(
+      0U, 0.0, "可支持连续运行次数性能测试",
+      std::string("场景数=1 总仿真周期=") + std::to_string(scene.cycles));
   component_attachment::app::FlushIntegrationLog();
 
   // 自检：五指标均有样本、AHP 矩阵合法求解、综合分 ∈ (0,1]，且周期内有双星交会。

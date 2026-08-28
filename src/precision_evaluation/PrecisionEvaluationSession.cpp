@@ -133,15 +133,11 @@ struct PrecisionEvaluationSession::Impl {
 
   std::vector<double> angular_series;   // hypot(az_err, el_err)，deg
   std::vector<double> dual_sat_series;  // 交会位置误差，m
-  std::vector<double> slant_range_series;  // 交会解斜距误差（|主星−交会|−|主星−真值|），m
   std::vector<double> velocity_series;  // 速度矢量误差模长，m/s
   std::vector<double> impact_series;    // 落点误差，m
   std::vector<double> launch_series;    // 发射点误差，m
-  std::vector<double> az_err_series;
-  std::vector<double> el_err_series;
-  std::vector<double> east_err_series;
-  std::vector<double> north_err_series;
-  std::vector<double> up_err_series;
+  // 验收判定标准 第26项：逐目标最新一拍误差快照（误差本身，非统计）。
+  std::map<std::uint64_t, TargetKeyErrorSnapshot> latest_errors;
   std::map<std::uint64_t, TruthKeyPoints> truth_keypoints;
   std::uint32_t cycles_since_inference{0U};
 };
@@ -218,6 +214,34 @@ PrecisionEvaluationCycleResult PrecisionEvaluationSession::Step(
   const std::map<std::uint64_t, const sbirs_sensor::output::SbirsDetectionRecord*> detected_b =
       collect_detections_by_target(result_b, attribution_b);
 
+  // 第26项 脱靶量：NFOV 焦平面脱靶量经归属记录透出（每星独立，后写覆盖先写——
+  // 双星同周期均有跟踪段时取后处理星的一拍）。
+  const auto collect_focal_by_target =
+      [](const sbirs_sensor::session::SbirsCycleResult& result,
+         std::map<std::uint64_t, std::pair<float, float>>* out) {
+        if (result.status != sbirs_sensor::session::SbirsCycleStatus::kCompleted) {
+          return;
+        }
+        for (const sbirs_sensor::attribution::SbirsDetectionAttributionRecord& attribution :
+             result.detection_attributions) {
+          if (!attribution.has_focal_plane_offset) {
+            continue;
+          }
+          (*out)[attribution.target_id] = std::make_pair(attribution.focal_plane_offset_x_m,
+                                                         attribution.focal_plane_offset_y_m);
+        }
+      };
+  std::map<std::uint64_t, std::pair<float, float>> focal_by_target;
+  collect_focal_by_target(result_a, &focal_by_target);
+  collect_focal_by_target(result_b, &focal_by_target);
+  for (const auto& focal_entry : focal_by_target) {
+    TargetKeyErrorSnapshot& snapshot = impl_->latest_errors[focal_entry.first];
+    snapshot.last_cycle = cycle_index;
+    snapshot.has_focal = true;
+    snapshot.focal_x_m = focal_entry.second.first;
+    snapshot.focal_y_m = focal_entry.second.second;
+  }
+
   // ② 红外定位角度误差（各星输出角 vs 真值角）。
   const auto accumulate_angular = [&](const std::map<std::uint64_t,
                                                   const sbirs_sensor::output::SbirsDetectionRecord*>&
@@ -249,17 +273,12 @@ PrecisionEvaluationCycleResult PrecisionEvaluationSession::Step(
       impl_->angular_series.push_back(
           std::hypot(static_cast<double>(sample.azimuth_error_deg),
                      static_cast<double>(sample.elevation_error_deg)));
-      impl_->az_err_series.push_back(sample.azimuth_error_deg);
-      impl_->el_err_series.push_back(sample.elevation_error_deg);
-      if (PRECISION_EVAL_LOG_ENABLED()) {
-        // 中译：红外定位角度误差样本，写入精度验收文件。
-        // 标识：关键精度指标的测角分项来源。
-        PRECISION_EVAL_ITEM(
-            0.0f, cycle_index, "关键精度指标",
-            "目标键=" + std::to_string(sample.key) + " 方位测角误差=" +
-                std::to_string(sample.azimuth_error_deg) + "° 俯仰测角误差=" +
-                std::to_string(sample.elevation_error_deg) + "°");
-      }
+      // 第26项：最新一拍测角误差（写 Summarize 的逐目标行，不再逐样本落盘）。
+      TargetKeyErrorSnapshot& snapshot = impl_->latest_errors[entry.first];
+      snapshot.last_cycle = cycle_index;
+      snapshot.has_angular = true;
+      snapshot.az_error_deg = sample.azimuth_error_deg;
+      snapshot.el_error_deg = sample.elevation_error_deg;
     }
   };
   accumulate_angular(detected_a, ephemeris.satellite_a_position_ecef_m, 0);
@@ -309,19 +328,15 @@ PrecisionEvaluationCycleResult PrecisionEvaluationSession::Step(
         DistanceM(ephemeris.satellite_a_position_ecef_m, truth_entry->second->position_ecef_m);
     cycle_result.dual_sat.push_back(sample);
     impl_->dual_sat_series.push_back(sample.position_error_m);
-    impl_->slant_range_series.push_back(sample.slant_range_error_m);
-    if (PRECISION_EVAL_LOG_ENABLED()) {
-      oneq::coordinate::LlaPositionDegM origin;
-      oneq::coordinate::EnuPositionM est_enu;
-      oneq::coordinate::EnuPositionM truth_enu;
-      if (oneq::coordinate::TryEcefToLla(truth_entry->second->position_ecef_m, &origin) &&
-          oneq::coordinate::TryEcefToEnu(fix_position, origin, &est_enu) &&
-          oneq::coordinate::TryEcefToEnu(truth_entry->second->position_ecef_m, origin, &truth_enu)) {
-        impl_->east_err_series.push_back(est_enu.east_m - truth_enu.east_m);
-        impl_->north_err_series.push_back(est_enu.north_m - truth_enu.north_m);
-        impl_->up_err_series.push_back(est_enu.up_m - truth_enu.up_m);
-      }
-    }
+    // 第26项：最新一拍交会位置误差 ECEF 向量与距离误差（Summarize 逐目标行）。
+    TargetKeyErrorSnapshot& snapshot = impl_->latest_errors[entry.first];
+    snapshot.last_cycle = cycle_index;
+    snapshot.has_ecef = true;
+    snapshot.ecef_error_m[0] = fix_position.x_m - truth_entry->second->position_ecef_m.x_m;
+    snapshot.ecef_error_m[1] = fix_position.y_m - truth_entry->second->position_ecef_m.y_m;
+    snapshot.ecef_error_m[2] = fix_position.z_m - truth_entry->second->position_ecef_m.z_m;
+    snapshot.has_slant_range = true;
+    snapshot.slant_range_error_m = sample.slant_range_error_m;
   }
 
   // ④ 融合航迹（调用方已 Update）→ 速度误差（附位置误差）。
@@ -351,15 +366,6 @@ PrecisionEvaluationCycleResult PrecisionEvaluationSession::Step(
     sample.position_error_m = DistanceM(estimated_position, truth->position_ecef_m);
     cycle_result.velocity.push_back(sample);
     impl_->velocity_series.push_back(sample.velocity_error_m_per_s);
-    if (PRECISION_EVAL_LOG_ENABLED()) {
-      // 评审 2026-08-26 条6：UKF 位置估计误差落精度层（真值对照只在评估层合法；
-      // 融合层 UKF 行已按「没有对照就不输出」删除该字段）。
-      PRECISION_EVAL_ITEM(
-          0.0f, cycle_index, "关键精度指标",
-          "目标键=" + std::to_string(sample.key) + " 航迹位置误差=" +
-              std::to_string(sample.position_error_m) + "m 速度误差=" +
-              std::to_string(sample.velocity_error_m_per_s) + "m/s");
-    }
   }
 
   // ⑤ 按间隔以估计状态与真值状态分别推演 → 落点/发射点预测误差。
@@ -505,9 +511,7 @@ PrecisionEvaluationReport PrecisionEvaluationSession::Summarize() const {
   report.ahp_valid = true;
   ComposePrecisionScore(ahp.weights, rmse, references, &report);
   if (PRECISION_EVAL_LOG_ENABLED()) {
-    WritePrecisionKeyMetrics(report, impl_->east_err_series, impl_->north_err_series,
-                             impl_->up_err_series, impl_->az_err_series, impl_->el_err_series,
-                             impl_->slant_range_series);
+    WritePrecisionKeyMetrics(impl_->latest_errors);
     WritePrecisionAhp(report);
   }
   return report;

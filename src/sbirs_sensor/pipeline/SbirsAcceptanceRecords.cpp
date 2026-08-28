@@ -7,11 +7,14 @@
 
 #include <cmath>
 #include <cstdint>
+#include <iterator>
 #include <map>
 #include <string>
 #include <vector>
 
 #include "1q/coordinate/attitude_transform.h"
+#include "1q/coordinate/inertial_transform.h"
+#include "1q/coordinate/position_transform.h"
 #include "1q/coordinate/types.h"
 #include "1q/sbirs_sensor/session/SbirsCycleInput.h"
 #include "common/logging/AcceptanceText.h"
@@ -37,23 +40,25 @@ oneq::coordinate::RotationMatrix3d ComposeMountAndMisalignment(
                                    oneq::coordinate::Inverse(oneq::coordinate::BuildRotationMatrix(misalign)));
 }
 
-struct AngleAcc {
-  int n{0};
-  double sum_az{0.0};
-  double sum_el{0.0};
-  double sumsq_az{0.0};
-  double sumsq_el{0.0};
-  double max_az{0.0};
-  double max_el{0.0};
+/** @brief 第7项可探测性行待定条目（单星候选顺延至确定无第二星再落盘）。 */
+struct DetectabilityEntry {
+  std::uint32_t satellite_id{0U};
+  float sim_time_sec{0.0f};
+  std::uint32_t cycle{0U};
+  double slant_range_m{0.0};
+  double measured_az_rad{0.0};
+  double measured_el_rad{0.0};
+  double satellite_ecef_m[3]{0.0, 0.0, 0.0};
+  double gmst_rad{0.0};
 };
 
-std::map<const void*, AngleAcc>& AngleAccs() {
-  static std::map<const void*, AngleAcc> accs;
-  return accs;
-}
-
-AngleAcc& Angle(const void* instance_key) {
-  return AngleAccs()[instance_key];
+// 待定表：周期 → 目标ID → 卫星ID → 条目（双星齐备即刻成行，单星顺延）。
+std::map<std::uint32_t, std::map<std::uint64_t, std::map<std::uint32_t, DetectabilityEntry>>>&
+DetectabilityPending() {
+  static std::map<std::uint32_t,
+                  std::map<std::uint64_t, std::map<std::uint32_t, DetectabilityEntry>>>
+      pending;
+  return pending;
 }
 
 double HashUnit(std::uint32_t cycle, std::uint32_t salt) {
@@ -214,12 +219,9 @@ void WriteSbirsOrbitSample(std::uint32_t satellite_id, float sim_time_sec, std::
   SBIRS_ACCEPTANCE_ITEM(sim_time_sec, cycle, "卫星自身定位误差功能测试", nav);
 }
 
-void WriteSbirsAngleError(const void* instance_key, std::uint32_t satellite_id,
-                          float sim_time_sec, std::uint32_t cycle,
+void WriteSbirsAngleError(std::uint32_t satellite_id, float sim_time_sec, std::uint32_t cycle,
                           std::uint64_t target_id, double az_error_deg, double el_error_deg,
-                          double measured_az_deg, double measured_el_deg, double truth_az_deg,
-                          double truth_el_deg, float sigma_orbit_deg, float sigma_attitude_deg,
-                          float sigma_fov_deg) {
+                          double measured_az_deg, double measured_el_deg) {
   if (!SBIRS_ACCEPTANCE_LOG_ENABLED()) {
     return;
   }
@@ -231,33 +233,154 @@ void WriteSbirsAngleError(const void* instance_key, std::uint32_t satellite_id,
   content += " 测角残差方位/俯仰(ECI)=(" + FormatF(az_error_deg * kDegToRad, 8) + "," +
              FormatF(el_error_deg * kDegToRad, 8) + ")rad";
   SBIRS_ACCEPTANCE_ITEM(sim_time_sec, cycle, "红外载荷角误差功能测试", content);
-  // 评审 2026-08-26 条24：统计按管线实例（每星）分离，双星同进程不再混计；
-  // 行内标注 σ 三分项配置来源，便于评审核对量级。（红外系统测角误差性能测试行，
-  // 验收判定标准 第55项。）
-  AngleAcc& acc = Angle(instance_key);
-  ++acc.n;
-  acc.sum_az += az_error_deg;
-  acc.sum_el += el_error_deg;
-  acc.sumsq_az += az_error_deg * az_error_deg;
-  acc.sumsq_el += el_error_deg * el_error_deg;
-  acc.max_az = std::max(acc.max_az, std::fabs(az_error_deg));
-  acc.max_el = std::max(acc.max_el, std::fabs(el_error_deg));
-  std::string perf = "目标ID=" + std::to_string(target_id);
+  // 规范口径（验收判定标准 第55项）：只写测量方位/俯仰与偏差（测量−真值），
+  // 不写真值、会话 RMSE、σ 来源。
+  std::string perf = "相对卫星ID=" + std::to_string(satellite_id);
+  perf += " 目标ID=" + std::to_string(target_id);
   perf += " 测量方位/俯仰=" + FormatPairDeg(measured_az_deg, measured_el_deg, 3) + "°";
-  perf += " 真值=" + FormatPairDeg(truth_az_deg, truth_el_deg, 3) + "°";
   perf += " 偏差az/el=" + FormatPairDeg(az_error_deg, el_error_deg, 6) + "°";
-  if (acc.n > 0) {
-    perf += " 本星会话RMSE az/el=" +
-            FormatPairDeg(std::sqrt(acc.sumsq_az / static_cast<double>(acc.n)),
-                          std::sqrt(acc.sumsq_el / static_cast<double>(acc.n)), 6) +
-            "°";
+  SBIRS_ACCEPTANCE_ITEM(sim_time_sec, cycle, "红外系统测角误差性能测试", perf);
+}
+
+namespace {
+
+// ECI 方位/俯仰（rad）→ ECEF 单位向量（方向随位置同旋转，旋转线性保模长）。
+bool TryEciAzElToEcefDirection(double az_rad, double el_rad, double gmst_rad, double* dx,
+                               double* dy, double* dz) {
+  const double cos_el = std::cos(el_rad);
+  oneq::coordinate::EcefPositionM rotated;
+  const oneq::coordinate::EciPositionM direction(cos_el * std::cos(az_rad),
+                                                 cos_el * std::sin(az_rad), std::sin(el_rad));
+  if (!oneq::coordinate::TryEciToEcef(direction, gmst_rad, &rotated)) {
+    return false;
   }
-  // σ 标注 6 位小数：甲方 2026-08-27 指标（红外系统测角误差 ≤3 μrad =
-  // 0.000172°）下默认 σ 在 1e-4° 量级，3 位小数会全舍成 0.000 造成「参数为零
-  // 但误差非零」的误读。
-  perf += " σ来源(轨道/姿态/视场)=" + FormatF(sigma_orbit_deg, 6) + "/" +
-          FormatF(sigma_attitude_deg, 6) + "/" + FormatF(sigma_fov_deg, 6) + "°";
-  SBIRS_ACCEPTANCE_ITEM(sim_time_sec, cycle, "红外系统测角误差", perf);
+  *dx = rotated.x_m;
+  *dy = rotated.y_m;
+  *dz = rotated.z_m;
+  return true;
+}
+
+// 双视线最近交会（ECEF）：两射线最近点取中点；平行/退化返回 false。
+bool TryDualLosMidpointEcef(const DetectabilityEntry& a, const DetectabilityEntry& b,
+                            double* x_m, double* y_m, double* z_m) {
+  double dax = 0.0;
+  double day = 0.0;
+  double daz = 0.0;
+  double dbx = 0.0;
+  double dby = 0.0;
+  double dbz = 0.0;
+  if (!TryEciAzElToEcefDirection(a.measured_az_rad, a.measured_el_rad, a.gmst_rad, &dax, &day,
+                                  &daz) ||
+      !TryEciAzElToEcefDirection(b.measured_az_rad, b.measured_el_rad, b.gmst_rad, &dbx, &dby,
+                                 &dbz)) {
+    return false;
+  }
+  const double wx = a.satellite_ecef_m[0] - b.satellite_ecef_m[0];
+  const double wy = a.satellite_ecef_m[1] - b.satellite_ecef_m[1];
+  const double wz = a.satellite_ecef_m[2] - b.satellite_ecef_m[2];
+  const double aa = dax * dax + day * day + daz * daz;
+  const double bb = dax * dbx + day * dby + daz * dbz;
+  const double cc = dbx * dbx + dby * dby + dbz * dbz;
+  const double dd = dax * wx + day * wy + daz * wz;
+  const double ee = dbx * wx + dby * wy + dbz * wz;
+  const double denom = aa * cc - bb * bb;
+  if (std::fabs(denom) < 1.0e-12) {
+    return false;
+  }
+  const double t = (bb * ee - cc * dd) / denom;
+  const double s = (aa * ee - bb * dd) / denom;
+  *x_m = 0.5 * (a.satellite_ecef_m[0] + t * dax + b.satellite_ecef_m[0] + s * dbx);
+  *y_m = 0.5 * (a.satellite_ecef_m[1] + t * day + b.satellite_ecef_m[1] + s * dby);
+  *z_m = 0.5 * (a.satellite_ecef_m[2] + t * daz + b.satellite_ecef_m[2] + s * dbz);
+  return true;
+}
+
+// 成行：目标ID [+位置LLA（仅双星定位）] + 逐星（相对卫星ID/斜距/量测角）+ 红外可探测。
+void EmitDetectabilityLine(std::uint64_t target_id,
+                           const std::map<std::uint32_t, DetectabilityEntry>& entries) {
+  if (entries.empty()) {
+    return;
+  }
+  const DetectabilityEntry& first = entries.begin()->second;
+  std::string content = "目标ID=" + std::to_string(target_id);
+  if (entries.size() >= 2U) {
+    // 位置 LLA 只在双星定位时写出：前两颗星（按卫星ID序）量测视线最近交会中点。
+    const auto it_b = std::next(entries.begin());
+    double x_m = 0.0;
+    double y_m = 0.0;
+    double z_m = 0.0;
+    oneq::coordinate::LlaPositionDegM fix_lla{};
+    if (TryDualLosMidpointEcef(first, it_b->second, &x_m, &y_m, &z_m) &&
+        oneq::coordinate::TryEcefToLla(oneq::coordinate::EcefPositionM(x_m, y_m, z_m),
+                                       &fix_lla)) {
+      content += " 位置LLA=(" + FormatF(fix_lla.latitude_deg, 6) + "," +
+                 FormatF(fix_lla.longitude_deg, 6) + "," + FormatF(fix_lla.altitude_m, 1) + ")";
+    }
+  }
+  for (const auto& sat_entry : entries) {
+    const DetectabilityEntry& entry = sat_entry.second;
+    content += " 相对卫星ID=" + std::to_string(entry.satellite_id);
+    content += " 相对卫星斜距=" + FormatF(entry.slant_range_m, 1) + "m";
+    content += " 量测方位/俯仰(ECI)=(" + FormatF(entry.measured_az_rad, 8) + "," +
+               FormatF(entry.measured_el_rad, 8) + ")rad";
+  }
+  content += " 红外可探测=是";
+  SBIRS_ACCEPTANCE_ITEM(first.sim_time_sec, first.cycle, "目标可探测性与动态参数生成功能测试",
+                        content);
+}
+
+}  // namespace
+
+void WriteSbirsTargetDetectability(std::uint32_t satellite_entity_id, float sim_time_sec,
+                                   std::uint32_t cycle, std::uint64_t target_id,
+                                   double slant_range_m, double measured_az_rad,
+                                   double measured_el_rad, double satellite_ecef_x_m,
+                                   double satellite_ecef_y_m, double satellite_ecef_z_m,
+                                   double gmst_rad) {
+  if (!SBIRS_ACCEPTANCE_LOG_ENABLED()) {
+    return;
+  }
+  auto& pending = DetectabilityPending();
+  // 旧周期条目已不可能再等来第二颗星：先顺延落盘。
+  for (auto it = pending.begin(); it != pending.end() && it->first < cycle;) {
+    for (auto& target_entry : it->second) {
+      EmitDetectabilityLine(target_entry.first, target_entry.second);
+    }
+    it = pending.erase(it);
+  }
+  DetectabilityEntry entry;
+  entry.satellite_id = satellite_entity_id;
+  entry.sim_time_sec = sim_time_sec;
+  entry.cycle = cycle;
+  entry.slant_range_m = slant_range_m;
+  entry.measured_az_rad = measured_az_rad;
+  entry.measured_el_rad = measured_el_rad;
+  entry.satellite_ecef_m[0] = satellite_ecef_x_m;
+  entry.satellite_ecef_m[1] = satellite_ecef_y_m;
+  entry.satellite_ecef_m[2] = satellite_ecef_z_m;
+  entry.gmst_rad = gmst_rad;
+  auto& target_entries = pending[cycle][target_id];
+  target_entries[satellite_entity_id] = entry;
+  if (target_entries.size() >= 2U) {
+    EmitDetectabilityLine(target_id, target_entries);
+    pending[cycle].erase(target_id);
+    if (pending[cycle].empty()) {
+      pending.erase(cycle);
+    }
+  }
+}
+
+void FlushSbirsDetectabilityPending() {
+  if (!SBIRS_ACCEPTANCE_LOG_ENABLED()) {
+    return;
+  }
+  auto& pending = DetectabilityPending();
+  for (auto& cycle_entry : pending) {
+    for (auto& target_entry : cycle_entry.second) {
+      EmitDetectabilityLine(target_entry.first, target_entry.second);
+    }
+  }
+  pending.clear();
 }
 
 void WriteSbirsAngleStateEstimate(float sim_time_sec, std::uint32_t cycle, std::uint64_t target_id,
@@ -321,11 +444,10 @@ void WriteSbirsOncePerSession(float sim_time_sec, std::uint32_t cycle) {
   }
   written = true;
   // 评审 2026-08-26 条22（方案B）：库内不做墙钟计时，真实初始化耗时在示例层
-  // integration_events.log 的同名验收项（模块=SBIRS）。
+  // integration_events.log 的同名验收项（模块=SBIRS）。场景数/总仿真周期由示例层
+  // 结束时回写（第54项），库内不再写占位行。
   SBIRS_ACCEPTANCE_ITEM(sim_time_sec, cycle, "初始化时间",
-                        "见integration_events.log[验收项：初始化时间]（模块=SBIRS）");
-  SBIRS_ACCEPTANCE_ITEM(sim_time_sec, cycle, "典型场景和总仿真次数",
-                        "场景=本会话 场景数=1 总仿真周期=结束时回写");
+                        "见integration_events.log[验收项：初始化时间性能测试]（模块=SBIRS）");
   SBIRS_ACCEPTANCE_ITEM(sim_time_sec, cycle, "组件模型参数性能", "见红外系统测角误差");
 }
 
@@ -333,8 +455,9 @@ void WriteSbirsCycleRunCount(float sim_time_sec, std::uint32_t cycle) {
   if (!SBIRS_ACCEPTANCE_LOG_ENABLED()) {
     return;
   }
+  // 验收判定标准 第54项：运行次数与运行状态。
   std::string content = "本会话已运行周期=" + std::to_string(cycle) + " 状态=正常";
-  SBIRS_ACCEPTANCE_ITEM(sim_time_sec, cycle, "连续运行次数", content);
+  SBIRS_ACCEPTANCE_ITEM(sim_time_sec, cycle, "可支持连续运行次数性能测试", content);
 }
 
 }  // namespace pipeline

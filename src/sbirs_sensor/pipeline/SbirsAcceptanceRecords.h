@@ -28,12 +28,22 @@ void WriteSbirsOrbitSample(std::uint32_t satellite_id, float sim_time_sec, std::
                            float nav_position_sigma_m,
                            const session::SbirsVector3M& satellite_ecef);
 
-void WriteSbirsAngleError(const void* instance_key, std::uint32_t satellite_id,
-                          float sim_time_sec, std::uint32_t cycle,
+void WriteSbirsAngleError(std::uint32_t satellite_id, float sim_time_sec, std::uint32_t cycle,
                           std::uint64_t target_id, double az_error_deg, double el_error_deg,
-                          double measured_az_deg, double measured_el_deg, double truth_az_deg,
-                          double truth_el_deg, float sigma_orbit_deg, float sigma_attitude_deg,
-                          float sigma_fov_deg);
+                          double measured_az_deg, double measured_el_deg);
+
+// 验收判定标准 第7项（修改）：目标可探测性与动态参数——双星定位时同一目标单行
+//（位置 LLA 只在该情况下写出，两颗相对卫星ID/斜距/量测角同行）；单星候选行待
+// 同周期无第二星时顺延到下一周期首次写出时落盘。会话结束须调 Flush补齐尾拍。
+void WriteSbirsTargetDetectability(std::uint32_t satellite_entity_id, float sim_time_sec,
+                                   std::uint32_t cycle, std::uint64_t target_id,
+                                   double slant_range_m, double measured_az_rad,
+                                   double measured_el_rad, double satellite_ecef_x_m,
+                                   double satellite_ecef_y_m, double satellite_ecef_z_m,
+                                   double gmst_rad);
+
+// 落盘所有待定可探测性行（会话结束时调用，补最后一拍的顺延行）。
+void FlushSbirsDetectabilityPending();
 
 // kAngleCvKf 后验：滤波方位/俯仰及其变化率。不进公开检测记录（F4）。
 void WriteSbirsAngleStateEstimate(float sim_time_sec, std::uint32_t cycle, std::uint64_t target_id,

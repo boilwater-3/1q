@@ -163,10 +163,6 @@ int RunScene(const std::string& scene_path, const RunOptions& options) {
   // 实体按创建序步进：站点先于平台
   // 创建，其本周期特征量测在平台融合组件 Step 时已就绪（同周期聚合，无跨
   // 周期滞后）。
-  // 验收行（多模型并行加载）的装配段墙钟起点：从这里到威胁组件挂载完毕
-  // 覆盖全部模块会话创建（库内无并行加载实现，真实加载状态由 example 层给出）。
-  const std::chrono::steady_clock::time_point models_load_begin =
-      std::chrono::steady_clock::now();
   ca::Entity* rir_site = nullptr;
   if (scene_data.rir_enabled) {
     rir_site = &world.CreateEntity(ca::kRirSiteEntityName);
@@ -175,8 +171,8 @@ int RunScene(const std::string& scene_path, const RunOptions& options) {
     remote_identification_radar::session::RirSession rir_session =
         remote_identification_radar::session::RirSession::Create(configs.rir);
     const double rir_create_ms = app::SteadyElapsedMs(rir_create_begin);
-    app::LogAcceptanceMs(0, 0.0, "初始化时间", "RIR", rir_create_ms);
-    app::LogAcceptanceMs(0, 0.0, "单个模型加载时间", "RIR",
+    app::LogAcceptanceMs(0, 0.0, "初始化时间性能测试", "RIR", rir_create_ms);
+    app::LogAcceptanceMs(0, 0.0, "单个模型加载时间性能测试", "RIR",
                           rir_session.LastRecognitionDatabaseLoadMs());
     rir_site->Attach(std::make_unique<ca::RirSensorComponent>(
         std::move(rir_session), scene_data.rir_site_origin, configs.rir.sensor_platform_id,
@@ -218,7 +214,7 @@ int RunScene(const std::string& scene_path, const RunOptions& options) {
         std::chrono::steady_clock::now();
     sbirs_sensor::session::SbirsSession sbirs_session =
         sbirs_sensor::session::SbirsSession::Create(configs.sbirs);
-    app::LogAcceptanceMs(0, 0.0, "初始化时间", "SBIRS",
+    app::LogAcceptanceMs(0, 0.0, "初始化时间性能测试", "SBIRS",
                           app::SteadyElapsedMs(sbirs_create_begin));
     platform.Attach(std::make_unique<ca::SbirsSensorComponent>(std::move(sbirs_session)));
   }
@@ -243,8 +239,8 @@ int RunScene(const std::string& scene_path, const RunOptions& options) {
   // 挂载序在 Fusion 之后：威胁组件每周期读融合输出与 AR 调试视图组装输入。
   platform.Attach(std::make_unique<ca::ThreatComponent>(configs.threat));
 
-  // 验收行（多模型并行加载）：初始化结束时显示动态库（模块）加载完毕——
-  // 按实际挂载的模块列清单 + 装配段真实墙钟，写入 integration_events.log。
+  // 验收行（多个模型并行加载）：初始化结束时显示动态库（模块）加载完毕——
+  // 按实际挂载的模块列清单，写入 integration_events.log。
   {
     std::vector<const char*> loaded_models;
     if (scene_data.rir_enabled) {
@@ -278,11 +274,12 @@ int RunScene(const std::string& scene_path, const RunOptions& options) {
       }
       model_names += name;
     }
+    // 验收判定标准 第53项：多个模型并行加载——只写加载状态（模块清单）；
+    // 装配墙钟与第 50–52 项计时口径重复，不写。
     app::LogAcceptanceText(
-        0, 0.0, "多模型并行加载",
-        CA_FMT_FORMAT("动态库加载完毕 模块数={} 模块=[{}] 装配墙钟={:.3f}ms",
-                      loaded_models.size(), model_names,
-                      app::SteadyElapsedMs(models_load_begin)));
+        0, 0.0, "多个模型并行加载性能测试",
+        CA_FMT_FORMAT("动态库加载完毕 模块数={} 模块=[{}]",
+                      loaded_models.size(), model_names));
   }
 
   // 事件接线：决策监听器（订阅融合信号，门限来自场景）+ 指令路由器（订阅
@@ -424,6 +421,12 @@ int RunScene(const std::string& scene_path, const RunOptions& options) {
     // 消费方世界模型推进（在 Step 之后；周期号用于应用变速机动表）。
     app::AdvanceTargetStates(target_states, cycle, scene_data.dt_sec, platform_origin);
   }
+
+  // 验收判定标准 第54项：场景数/总仿真周期——库内会话无法在首周期知道总周期数，
+  // 由示例层结束时回写真实值。
+  app::LogAcceptanceText(
+      0U, 0.0, "可支持连续运行次数性能测试",
+      CA_FMT_FORMAT("场景数={} 总仿真周期={}", 1U, num_cycles));
 
   app::FlushIntegrationLog();
   outputs.Flush();

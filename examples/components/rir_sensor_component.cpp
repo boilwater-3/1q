@@ -201,7 +201,7 @@ void RirSensorComponent::Step(World& world, double dt_sec) {
   const std::chrono::steady_clock::time_point step_begin = std::chrono::steady_clock::now();
   const rir::RirCycleResult result = session_.StepWithResult(input);
   if (!step_timing_logged_) {
-    app::LogAcceptanceMs(scene.cycle, scene.t_sec, "单步执行时间", "RIR",
+    app::LogAcceptanceMs(scene.cycle, scene.t_sec, "单步执行时间性能测试", "RIR",
                           app::SteadyElapsedMs(step_begin));
     step_timing_logged_ = true;
   }

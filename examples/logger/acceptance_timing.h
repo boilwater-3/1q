@@ -21,15 +21,17 @@ inline double SteadyElapsedMs(const std::chrono::steady_clock::time_point& begin
 
 inline void LogAcceptanceMs(std::uint64_t cycle, double t_sec, const char* item,
                             const char* module, double ms) {
+  // 行格式对齐 §0（验收判定标准）：方括号直接写测试项名，不写「验收项：」与
+  // 「验收内容：」前缀。
   LogEvent(cycle, t_sec, "acceptance",
-           CA_FMT_FORMAT("[验收项：{}] 验收内容：{:.3f}ms 模块={}", item, ms, module));
+           CA_FMT_FORMAT("[{}] {:.3f}ms 模块={}", item, ms, module));
 }
 
 /// 非计时的验收行（文本内容，如加载完毕状态行），与 LogAcceptanceMs 同一落盘格式。
 inline void LogAcceptanceText(std::uint64_t cycle, double t_sec, const char* item,
                               const std::string& text) {
   LogEvent(cycle, t_sec, "acceptance",
-           CA_FMT_FORMAT("[验收项：{}] 验收内容：{}", item, text));
+           CA_FMT_FORMAT("[{}] {}", item, text));
 }
 
 }  // namespace app

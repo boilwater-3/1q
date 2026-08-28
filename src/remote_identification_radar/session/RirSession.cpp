@@ -368,10 +368,10 @@ RirCycleResult RirSession::Impl::RunCycle(const RirCycleInput& input) {
         BuildAbsoluteScanWaves(config);
     const std::string csv_path = runtime::ResolveRirAntennaPatternCsvPath();
     runtime::TryExportRirAntennaPatternCsv(config.hardware.antenna, csv_path.c_str());
-    runtime::WriteRirAntennaPatternSummary(input.sim_time_sec, input.input_cycle_index,
+    runtime::WriteRirAntennaPatternSummary(config.sensor_platform_id, input.sim_time_sec,
+                                           input.input_cycle_index,
                                            config.hardware.antenna.main_beam_gain_db,
-                                           beamwidth.az_beamwidth_deg, beamwidth.el_beamwidth_deg,
-                                           csv_path);
+                                           beamwidth.az_beamwidth_deg, beamwidth.el_beamwidth_deg);
     runtime::WriteRirOncePerSession(input.sim_time_sec, input.input_cycle_index);
     acceptance_scan_pattern_logged = true;
     (void)pattern;
@@ -379,8 +379,9 @@ RirCycleResult RirSession::Impl::RunCycle(const RirCycleInput& input) {
   if (RIR_ACCEPTANCE_LOG_ENABLED()) {
     const std::vector<oneq::common::radar::AzimuthElevationDeg> pattern =
         BuildAbsoluteScanWaves(config);
-    runtime::WriteRirBeamScan(input.sim_time_sec, input.input_cycle_index, pattern,
-                              dwell_center.az_deg, dwell_center.el_deg, dwelling_on_target);
+    runtime::WriteRirBeamScan(config.sensor_platform_id, input.sim_time_sec,
+                              input.input_cycle_index, pattern, dwell_center.az_deg,
+                              dwell_center.el_deg, dwelling_on_target);
     runtime::WriteRirCycleRunCount(input.sim_time_sec, input.input_cycle_index);
   }
 

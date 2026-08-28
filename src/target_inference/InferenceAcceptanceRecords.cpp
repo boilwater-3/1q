@@ -344,8 +344,8 @@ void WriteInferenceAcceptance(const std::vector<InferenceTrackState>& tracks,
       // 评审 2026-08-26 条10：误差口径改为关机点误差（关机点 1-σ，敏度传播；
       // 关机点未确认/无协方差时如实写无）。条12：分发状态不暴露落盘细节——配置了
       // 分发通道名写已发布，否则已封装待分发。
-      // 验收判定标准 第25项：不写 弹道模型/标准化封装 字段；预测落点+误差+置信度+
-      // 分发状态，另附目标键。
+      // 验收判定标准 第25项（修改）：不写 弹道模型/标准化封装/硬编码置信度占位；
+      // 分发状态=已发布 须随 分发来源ID/分发对象ID（装配层标注的实体 ID）。
       const bool has_burnout_sigma = traj.has_burnout_sigma;
       const double publish_sigma = has_burnout_sigma ? traj.burnout_position_sigma_m : 0.0;
       const std::string sigma_text =
@@ -357,11 +357,16 @@ void WriteInferenceAcceptance(const std::vector<InferenceTrackState>& tracks,
       if (!sigma_text.empty()) {
         publish += " 关机点误差1σ=" + sigma_text;
       }
-      publish += " 置信度=0.68";
       if (config.impact_distribution_channel.empty()) {
         publish += " 分发状态=已封装待分发";
       } else {
-        publish += " 分发状态=已发布(" + config.impact_distribution_channel + ")";
+        publish += " 分发状态=已发布";
+        if (config.impact_distribution_source_id != 0U) {
+          publish += " 分发来源ID=" + std::to_string(config.impact_distribution_source_id);
+        }
+        if (config.impact_distribution_target_id != 0U) {
+          publish += " 分发对象ID=" + std::to_string(config.impact_distribution_target_id);
+        }
       }
       INFERENCE_ACCEPTANCE_ITEM(row_sim_time, row_cycle, "落点预报与信息分发功能测试", publish);
     }
@@ -372,11 +377,12 @@ void WriteInferenceAcceptance(const std::vector<InferenceTrackState>& tracks,
       double az = 0.0;
       HorizontalEllipseFromCov(traj.launch_covariance_ecef, &a, &b, &az);
       // 评审 2026-08-26 条8：发射时刻字段删除，行首直接输出地理位置。
-      // 验收判定标准 第22项：地理位置+位置误差1σ+误差椭圆（不写硬编码占位置信度）。
+      // 验收判定标准 第22项（修改）：键名对齐规范「预测发射点地理位置」；位置误差1σ
+      // + 误差椭圆（不写硬编码占位置信度）。
       std::string launch = "目标键=" + std::to_string(i < tracks.size() ? tracks[i].key : 0U);
-      launch += " 地理位置=" + FormatVec3(traj.launch_point.latitude_deg,
-                                          traj.launch_point.longitude_deg,
-                                          traj.launch_point.altitude_m, 3);
+      launch += " 预测发射点地理位置=" + FormatVec3(traj.launch_point.latitude_deg,
+                                                   traj.launch_point.longitude_deg,
+                                                   traj.launch_point.altitude_m, 3);
       launch += " 位置误差1σ=" + FormatF(traj.launch_position_sigma_m, 1) + "m";
       launch += " 误差椭圆半长/半短/方位=(" + FormatF(a, 1) + "m," + FormatF(b, 1) + "m," +
                 FormatF(az, 1) + "°)";

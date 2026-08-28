@@ -95,6 +95,9 @@ struct ONEQ_API SbirsDetectionAttributionRecord {
   bool nfov_snr_gate_passed{false};          /**< 目标是否通过既有 NFOV SNR 门 */
   unsigned int nfov_tracking_gate_failure_count{0U}; /**< 连续 NFOV 跟踪门失败计数 */
   bool nfov_tracking_coasting{false}; /**< 本周期无有效 NFOV 量测但尚未正式丢锁 */
+  bool has_focal_plane_offset{false}; /**< 是否包含焦平面脱靶量（NFOV 跟踪段；验收判定标准 第26项 脱靶量数据源） */
+  float focal_plane_offset_x_m{0.0f}; /**< 焦平面脱靶量 x（m，仅归属/诊断层） */
+  float focal_plane_offset_y_m{0.0f}; /**< 焦平面脱靶量 y（m，仅归属/诊断层） */
 };
 
 /** @brief 归属记录列表。 */

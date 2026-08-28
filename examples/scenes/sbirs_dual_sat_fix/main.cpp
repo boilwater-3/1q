@@ -35,6 +35,7 @@
 #include "core/scene_types.h"
 #include "core/world.h"
 #include "logger/logger.h"
+#include "logger/acceptance_timing.h"
 #include "logger/acceptance_paths.h"
 
 namespace pe = precision_evaluation;
@@ -463,6 +464,10 @@ int main(int argc, char* argv[]) {
   const pe::PrecisionEvaluationReport report = fusion->SummarizeEvaluation();
   PrintReport(report);
   std::cout << "dual_sat_cycles=" << dual_sat_cycles << "/" << scene.cycles << "\n";
+  // 验收判定标准 第54项：场景数/总仿真周期由示例层结束时回写。
+  component_attachment::app::LogAcceptanceText(
+      0U, 0.0, "可支持连续运行次数性能测试",
+      std::string("场景数=1 总仿真周期=") + std::to_string(scene.cycles));
   component_attachment::app::FlushIntegrationLog();
 
   // 自检：五指标均有样本、AHP 矩阵合法求解、综合分 ∈ (0,1]，且周期内有双星交会。

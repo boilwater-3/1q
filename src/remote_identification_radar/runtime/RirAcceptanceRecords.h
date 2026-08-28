@@ -32,9 +32,23 @@ struct RirFeatureMeasurementRecord;
 
 namespace runtime {
 
+/** @brief 航迹对应真值上下文（验收判定标准 第38/42/47项：量测/估计误差与散射中心）。 */
+struct RirTrackTruthContext {
+  bool has_look{false};        /**< 真值视线极坐标可用（ENU 自 +x 东起量）。 */
+  float truth_range_m{0.0f};   /**< 真值斜距（m）。 */
+  float truth_az_deg{0.0f};    /**< 真值方位角（deg）。 */
+  float truth_el_deg{0.0f};    /**< 真值俯仰角（deg）。 */
+  bool has_ecef{false};        /**< 真值 ECEF 位置/速度可用（滤波误差指标用）。 */
+  oneq::coordinate::EcefPositionM position_ecef{};
+  oneq::coordinate::EcefVelocityMps velocity_ecef{};
+  /** 第47项散射中心：场景距离像真值输入（库内特征提取只出统计量，无逐中心量测）。 */
+  const std::vector<session::RirRangeRcsScatterer>* scatterers{nullptr};
+};
+
 struct RirDetectionAcceptInput {
   float sim_time_sec{0.0f};
   std::uint32_t cycle{0U};
+  std::uint64_t radar_id{1U};  /**< 雷达实体 ID（验收行 雷达ID= 标注）。 */
   std::uint64_t target_id{0U};
   float range_m{0.0f};
   float look_az_deg{0.0f};
@@ -59,8 +73,8 @@ struct RirDetectionAcceptInput {
 std::string ResolveRirAntennaPatternCsvPath();
 std::string ResolveRirScanPatternCsvPath();
 
-void WriteRirAntennaPatternSummary(float sim_time_sec, std::uint32_t cycle, float peak_gain_dbi,
-                                   float bw_az_deg, float bw_el_deg, const std::string& csv_path);
+void WriteRirAntennaPatternSummary(std::uint64_t radar_id, float sim_time_sec, std::uint32_t cycle,
+                                   float peak_gain_dbi, float bw_az_deg, float bw_el_deg);
 
 void WriteRirDetectionChain(const RirDetectionAcceptInput& input);
 
@@ -68,10 +82,8 @@ void WriteRirInterferenceLinks(
     float sim_time_sec, std::uint32_t cycle,
     const std::vector<oneq::electromagnetics::RfIncidentLinkResult>& links);
 
-void WriteRirSearchDetections(float sim_time_sec, std::uint32_t cycle, float beam_az_deg,
-                              float beam_el_deg,
-                              const config::RirAzimuthElevationLimitsDeg& search_volume_deg,
-                              const config::RirAzimuthElevationDeg& scan_center_deg,
+void WriteRirSearchDetections(std::uint64_t radar_id, float sim_time_sec, std::uint32_t cycle,
+                              float beam_az_deg, float beam_el_deg,
                               const std::string& found_targets);
 
 /**
@@ -102,6 +114,7 @@ bool TryLookPolarFromEnuM(float east_m, float north_m, float up_m, float* range_
 /**
  * @param[in] platform_ecef 平台 ECEF 位置（雷达局部 ENU 的绝对锚点；航迹位置
  *            ECEF/LLA 换算用——评审 2026-08-26 条17：ENU 字段替换为 ECEF/LLA）。
+ * @param[in] truth 对应场景真值上下文（可空指针 = 无真值，误差统计行省略）。
  */
 void WriteRirTrackAndId(float sim_time_sec, std::uint32_t cycle,
                         const tracking::RirTrackState& track,
@@ -110,15 +123,16 @@ void WriteRirTrackAndId(float sim_time_sec, std::uint32_t cycle,
                         const std::vector<session::RirPolarizationRcsSample>* polarization_samples,
                         bool has_truth, double category_accuracy,
                         const std::vector<float>* imm_weights,
-                        const oneq::coordinate::EcefPositionM& platform_ecef);
+                        const oneq::coordinate::EcefPositionM& platform_ecef,
+                        const RirTrackTruthContext* truth);
 
-void WriteRirSchedule(float sim_time_sec, std::uint32_t cycle, std::uint32_t planned,
-                      std::uint32_t executed, float budget_sec, float consumed_sec,
-                      std::uint32_t search_count, std::uint32_t track_count);
+void WriteRirSchedule(std::uint64_t radar_id, float sim_time_sec, std::uint32_t cycle,
+                      std::uint32_t planned, std::uint32_t executed, float budget_sec,
+                      float consumed_sec, std::uint32_t search_count, std::uint32_t track_count);
 
 void WriteRirOncePerSession(float sim_time_sec, std::uint32_t cycle);
 void WriteRirCycleRunCount(float sim_time_sec, std::uint32_t cycle);
-void WriteRirBeamScan(float sim_time_sec, std::uint32_t cycle,
+void WriteRirBeamScan(std::uint64_t radar_id, float sim_time_sec, std::uint32_t cycle,
                       const std::vector<oneq::common::radar::AzimuthElevationDeg>& pattern,
                       float az_deg, float el_deg, bool designate);
 

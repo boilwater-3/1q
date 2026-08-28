@@ -22,6 +22,7 @@
 #include "common/numerics/Constants.h"
 #include "common/radar/VegetationClutterModel.h"
 #include "1q/coordinate/position_transform.h"
+#include "1q/coordinate/velocity_transform.h"
 #include "1q/environment/AtmosphericTypes.h"
 #include "1q/remote_identification_radar/session/RirIssueCodes.h"
 #include "remote_identification_radar/dwell/RirBeamControl.h"
@@ -567,6 +568,7 @@ bool RirController::TryBuildMeasurement(
     RirDetectionAcceptInput snap;
     snap.sim_time_sec = input.sim_time_sec;
     snap.cycle = input.input_cycle_index;
+    snap.radar_id = sensor_platform_id_;
     snap.target_id = target.external_target_id;
     snap.range_m = slant_range_m;
     snap.look_az_deg = look_az_deg;
@@ -628,16 +630,6 @@ bool RirController::TryBuildMeasurement(
         cause, source_index));
     return false;
   }
-  if (RIR_ACCEPTANCE_LOG_ENABLED()) {
-    if (!g_acceptance_found_targets.empty()) {
-      g_acceptance_found_targets += "; ";
-    }
-    g_acceptance_found_targets +=
-        "ID=" + std::to_string(target.external_target_id) + " 斜距=" +
-        std::to_string(static_cast<int>(slant_range_m)) + "m Pd=" +
-        oneq::logging::FormatF(detection.detection_prob, 5);
-  }
-
   const dwell::RirMeasurementErrorState measurement_error =
       dwell::RirMeasurementErrorModel::Compute(detection.snr_db, beam_state.effective_beamwidth_deg,
                                                hardware_.transmitter.bandwidth_hz);
@@ -661,6 +653,25 @@ bool RirController::TryBuildMeasurement(
     *measurement = built;
   } else {
     *measurement = SampleMeasurementPosition(built);
+  }
+  // 验收判定标准 第37项（检测与量测信息）：逐检测目标串接——量测斜距与量测方位/
+  // 俯仰取采样后的量测位置（6 dB 回退模式量测位置即真值）；Pd 归第 36 项，不写。
+  if (RIR_ACCEPTANCE_LOG_ENABLED()) {
+    float measured_range_m = 0.0f;
+    float measured_az_deg = 0.0f;
+    float measured_el_deg = 0.0f;
+    if (runtime::TryLookPolarFromEnuM(measurement->position.x(), measurement->position.y(),
+                                      measurement->position.z(), &measured_range_m,
+                                      &measured_az_deg, &measured_el_deg)) {
+      if (!g_acceptance_found_targets.empty()) {
+        g_acceptance_found_targets += "; ";
+      }
+      g_acceptance_found_targets +=
+          "ID=" + std::to_string(target.external_target_id) + " 斜距=" +
+          oneq::logging::FormatF(measured_range_m, 1) + "m 量测方位/俯仰=(" +
+          oneq::logging::FormatF(measured_az_deg, 3) + "," +
+          oneq::logging::FormatF(measured_el_deg, 3) + ")°";
+    }
   }
   return true;
 }
@@ -869,8 +880,8 @@ void RirController::RunCycle(const session::RirCycleInput& input,
     // 验收事件 association（3.2.2.3.1.1）：全局最优关联结果——命中对（键/量测
     // 索引/马氏代价）与漏检航迹键（量测清单经 detection_cell 事件逐目标留痕）。
     if (RIR_ACCEPTANCE_LOG_ENABLED()) {
-      WriteRirSearchDetections(input.sim_time_sec, input.input_cycle_index, dwell_center_deg.az_deg,
-                               dwell_center_deg.el_deg, steerable_volume_deg, scan_center_deg,
+      WriteRirSearchDetections(sensor_platform_id_, input.sim_time_sec, input.input_cycle_index,
+                               dwell_center_deg.az_deg, dwell_center_deg.el_deg,
                                g_acceptance_found_targets);
       const float gate_sigma = std::max(0.0f, policy_.association.distance_gate_sigma);
       WriteRirAssociation(input.sim_time_sec, input.input_cycle_index, association, platform_lla,
@@ -956,7 +967,8 @@ void RirController::RunCycle(const session::RirCycleInput& input,
           ++confirmed;
         }
       }
-      WriteRirSchedule(input.sim_time_sec, input.input_cycle_index, scheduled_count, executed_count,
+      WriteRirSchedule(sensor_platform_id_, input.sim_time_sec, input.input_cycle_index,
+                       scheduled_count, executed_count,
                        latest_summary_.dwell_budget.dwell_budget_sec,
                        latest_summary_.dwell_budget.dwell_consumed_sec, 1U, confirmed);
     }
@@ -1017,10 +1029,45 @@ void RirController::RunCycle(const session::RirCycleInput& input,
           }
         }
       }
+      // 真值上下文（验收判定标准 第38/42/47项）：视线极坐标 + ECEF 位置/速度 +
+      // 距离像散射中心（场景输入）。
+      runtime::RirTrackTruthContext truth_context;
+      const session::RirSceneTarget* truth_target = nullptr;
+      for (const session::RirSceneTarget& scene_target : input.scene_targets) {
+        if (scene_target.external_target_id == track.external_target_id) {
+          truth_target = &scene_target;
+          break;
+        }
+      }
+      if (truth_target != nullptr) {
+        float truth_range_m = 0.0f;
+        float truth_az_deg = 0.0f;
+        float truth_el_deg = 0.0f;
+        ComputeLookAngles(*truth_target, &truth_az_deg, &truth_el_deg, &truth_range_m);
+        truth_context.has_look = true;
+        truth_context.truth_range_m = truth_range_m;
+        truth_context.truth_az_deg = truth_az_deg;
+        truth_context.truth_el_deg = truth_el_deg;
+        if (has_platform_lla) {
+          const Eigen::Vector3f truth_pos_enu = PositionOf(*truth_target);
+          const oneq::coordinate::EnuPositionM truth_enu(truth_pos_enu.x(), truth_pos_enu.y(),
+                                                         truth_pos_enu.z());
+          const oneq::coordinate::EnuVelocityMps truth_vel_enu(
+              truth_target->velocity_x, truth_target->velocity_y, truth_target->velocity_z);
+          if (oneq::coordinate::TryEnuToEcef(truth_enu, platform_lla,
+                                             &truth_context.position_ecef) &&
+              oneq::coordinate::TryEnuToEcefVelocity(truth_vel_enu, platform_lla,
+                                                     &truth_context.velocity_ecef)) {
+            truth_context.has_ecef = true;
+          }
+        }
+        truth_context.scatterers = &truth_target->range_rcs_scatterers;
+      }
       WriteRirTrackAndId(input.sim_time_sec, input.input_cycle_index, track, result, features,
                          polarization_samples, latest_summary_.has_ground_truth,
                          static_cast<double>(latest_summary_.category_accuracy), &imm_weights,
-                         input.platform_position);
+                         input.platform_position,
+                         truth_target != nullptr ? &truth_context : nullptr);
     }
     // 归属视图与出口②同循环产出（全部航迹快照：tentative/confirmed/lost）。
     session::RirTrackAttributionRecord attribution;
@@ -1036,13 +1083,10 @@ void RirController::RunCycle(const session::RirCycleInput& input,
     last_track_attributions_.push_back(attribution);
   }
   if (RIR_ACCEPTANCE_LOG_ENABLED()) {
-    std::string multi = "本周期航迹数=" + std::to_string(track_snapshots.size());
-    std::size_t index = 1U;
-    for (const tracking::RirTrackState& track : track_snapshots) {
-      multi += " 航迹" + std::to_string(index) + "→目标" + std::to_string(track.external_target_id);
-      ++index;
-    }
-    RIR_ACCEPTANCE_ITEM(input.sim_time_sec, input.input_cycle_index, "多目标跟踪", multi);
+    // 验收判定标准 第40项：本周期航迹数汇总行（逐航迹定位/运动行在
+    // WriteRirTrackAndId 内按项名写出）。
+    RIR_ACCEPTANCE_ITEM(input.sim_time_sec, input.input_cycle_index, "多目标跟踪功能测试",
+                        "本周期航迹数=" + std::to_string(track_snapshots.size()));
   }
 }
 

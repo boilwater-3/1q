@@ -26,7 +26,7 @@ TEST_F(AcceptanceRecordFormatTest, FourFieldLineShape) {
   const std::string line =
       oneq::logging::FormatAcceptanceLine(1.0f, 1U, "最大探测距离", "目标ID=1001 相对卫星最大探测距离=4500000.0m");
   EXPECT_EQ(line,
-            "仿真时间=1.000s 仿真周期=1 [最大探测距离] 验收内容：目标ID=1001 "
+            "仿真时间=1.000s 仿真周期=1 [最大探测距离] 目标ID=1001 "
             "相对卫星最大探测距离=4500000.0m");
 }
 

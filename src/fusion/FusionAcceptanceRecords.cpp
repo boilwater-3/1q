@@ -73,6 +73,12 @@ std::map<std::pair<std::uint64_t, std::uint32_t>, AngleKfState>& AngleKfStates()
   return values;
 }
 
+/** @brief 会话已知源集合（跨航迹累计）：单星接力星候选全集（库内无轨道/视场模型）。 */
+std::set<std::uint32_t>& KnownSources() {
+  static std::set<std::uint32_t> values;
+  return values;
+}
+
 // 源句柄统一输出「实体<source_id>」（与融合通道 source_id 一致）。
 std::string SourceLabel(std::uint32_t source_id) {
   return "实体" + std::to_string(source_id);
@@ -162,8 +168,14 @@ void WriteFusionAcceptance(std::uint32_t cycle, const std::vector<FusedTarget>& 
   if (tracks.empty()) {
     return;
   }
+  // 会话已知源注册（验收判定标准 第16项·修改：单星跟踪也写接力计划/交接指令，
+  // 接力星自会话源全集选取——本星离场后星座内其他源即候选）。
+  for (const FusedTarget& track : tracks) {
+    for (const ChannelMeasurement& channel : track.channels) {
+      KnownSources().insert(channel.source_id);
+    }
+  }
 
-  std::string multi = "本周期航迹数=" + std::to_string(tracks.size());
   for (const FusedTarget& track : tracks) {
     oneq::coordinate::EcefPositionM ecef{};
     const bool have_ecef = track.has_kinematic_estimate &&
@@ -195,39 +207,23 @@ void WriteFusionAcceptance(std::uint32_t cycle, const std::vector<FusedTarget>& 
     prev.valid = track.has_kinematic_estimate;
 
     std::string relay = "目标键=" + std::to_string(track.key);
-    relay += " 位置LLA=(";
-    relay += FormatF(track.kinematic_estimate.position.latitude_deg, 6) + ",";
-    relay += FormatF(track.kinematic_estimate.position.longitude_deg, 6) + ",";
-    relay += FormatF(track.kinematic_estimate.position.altitude_m, 1) + ")";
-    relay += " 速度模=" + FormatF(speed, 3) + "m/s";
-    relay += " 加速度模=" + FormatF(acc, 3) + "m/s²";
-    // 预测目标的运动轨迹（验收判定标准 第16项）：由滤波后 ECEF 位置/速度做匀速
-    // 线性外推（+10s/+20s/+30s 航路点，换算 LLA；外推口径随行标注）。
-    if (track.has_kinematic_estimate && have_ecef) {
-      const double vel_ecef[3] = {vel[0], vel[1], vel[2]};
-      std::string waypoints;
-      for (int offset_s = 10; offset_s <= 30; offset_s += 10) {
-        const oneq::coordinate::EcefPositionM future(
-            ecef.x_m + vel_ecef[0] * offset_s, ecef.y_m + vel_ecef[1] * offset_s,
-            ecef.z_m + vel_ecef[2] * offset_s);
-        oneq::coordinate::LlaPositionDegM future_lla{};
-        if (!oneq::coordinate::TryEcefToLla(future, &future_lla)) {
-          break;
-        }
-        if (!waypoints.empty()) {
-          waypoints += ";";
-        }
-        waypoints += "+" + std::to_string(offset_s) + "s:(" +
-                     FormatF(future_lla.latitude_deg, 6) + "," +
-                     FormatF(future_lla.longitude_deg, 6) + "," +
-                     FormatF(future_lla.altitude_m, 1) + ")";
-      }
-      if (!waypoints.empty()) {
-        relay += " 预测轨迹(匀速线性外推)=[" + waypoints + "]";
+    // 验收判定标准 第16项（修改）：位置/速度/加速度即融合跟踪结果——仅当本航迹
+    // 确有多源融合（滑窗内 ≥2 个通道有量测）时写「多源数据融合后的目标跟踪结果=」，
+    // 单星跟踪不写该字段（红外单星只测向，运动学估计不构成多源融合结果）。
+    std::size_t active_channels = 0U;
+    for (const ChannelMeasurement& channel : track.channels) {
+      if (channel.sample_count > 0U) {
+        ++active_channels;
       }
     }
-    relay += " 融合航迹数=" + std::to_string(tracks.size());
-    relay += " 置信度=" + FormatF(track.confidence, 3);
+    if (active_channels >= 2U && track.has_kinematic_estimate) {
+      relay += " 多源数据融合后的目标跟踪结果=位置LLA=(";
+      relay += FormatF(track.kinematic_estimate.position.latitude_deg, 6) + ",";
+      relay += FormatF(track.kinematic_estimate.position.longitude_deg, 6) + ",";
+      relay += FormatF(track.kinematic_estimate.position.altitude_m, 1) + ")";
+      relay += " 速度模=" + FormatF(speed, 3) + "m/s";
+      relay += " 加速度模=" + FormatF(acc, 3) + "m/s^2";
+    }
 
     // 接力三项（2026-08-22 甲方批注）：逐方位源以「(视场宽度 − 自首见累计扫过角)
     // ÷ 滑窗最小二乘角速率」外推剩余覆盖；取最早离开的源为接力对象。
@@ -270,7 +266,9 @@ void WriteFusionAcceptance(std::uint32_t cycle, const std::vector<FusedTarget>& 
       sight.valid = true;
     }
 
-    // 交接对象：同航迹上滑窗内仍有量测的其他源（取量测数最多者）；无则如实写无。
+    // 交接对象（验收判定标准 第16项·修改）：优先同航迹当前仍有量测的其他源；
+    // 单星跟踪时自会话已知源全集选取——先取曾测过本航迹的源（接力链成员），
+    // 否则取编号最小的其他源。库内无轨道/视场模型，不做视场归属几何判定。
     std::uint32_t takeover_source = 0U;
     std::size_t takeover_samples = 0U;
     if (exit_source != 0U) {
@@ -283,17 +281,32 @@ void WriteFusionAcceptance(std::uint32_t cycle, const std::vector<FusedTarget>& 
           takeover_source = channel.source_id;
         }
       }
+      if (takeover_source == 0U) {
+        for (const std::uint32_t source : KnownSources()) {
+          if (source == exit_source) {
+            continue;
+          }
+          if (RelaySights().count({track.key, source}) != 0U) {
+            takeover_source = source;
+            break;
+          }
+          if (takeover_source == 0U) {
+            takeover_source = source;
+          }
+        }
+      }
     }
 
     if (exit_source != 0U) {
-      relay += " 剩余覆盖时间=" + FormatF(min_remaining_sec, 1) + "s(" +
-               SourceLabel(exit_source) + ")";
-      relay += " 接力计划=" + SourceLabel(exit_source) + "预计" +
+      relay += " 剩余覆盖时间=" + FormatF(min_remaining_sec, 1) + "s(卫星ID=" +
+               std::to_string(exit_source) + ")";
+      relay += " 接力计划=卫星ID=" + std::to_string(exit_source) + "预计" +
                FormatF(min_remaining_sec, 1) + "s离开视场";
       if (takeover_source != 0U) {
-        relay += " 交接指令=" + SourceLabel(exit_source) + "(剩余" +
-                 FormatF(min_remaining_sec, 1) + "s离场)→" +
-                 SourceLabel(takeover_source) + "接管";
+        relay += " 接力卫星ID=" + std::to_string(takeover_source);
+        relay += " 交接指令=卫星ID=" + std::to_string(exit_source) + "(剩余" +
+                 FormatF(min_remaining_sec, 1) + "s离场)→卫星ID=" +
+                 std::to_string(takeover_source) + "接管";
       }
     }
     FUSION_ACCEPTANCE_ITEM(sim_time, cycle, "多传感器接力跟踪功能测试", relay);
@@ -307,7 +320,7 @@ void WriteFusionAcceptance(std::uint32_t cycle, const std::vector<FusedTarget>& 
         ukf += " ECEF位置m=" + FormatVec3(ecef.x_m, ecef.y_m, ecef.z_m, 1);
       }
       ukf += " 速度m/s=" + FormatVec3(vel[0], vel[1], vel[2], 3);
-      ukf += " 加速度m/s²=" + FormatVec3(ax, ay, az, 3);
+      ukf += " 加速度m/s^2=" + FormatVec3(ax, ay, az, 3);
       ukf += " 协方差迹=" + FormatF(CovarianceTrace6(track.kinematic_estimate.covariance_ecef), 2);
       ukf += " 完整协方差=" + FormatCov6x6(track.kinematic_estimate.covariance_ecef);
       FUSION_ACCEPTANCE_ITEM(sim_time, cycle, "UKF滤波", ukf);
