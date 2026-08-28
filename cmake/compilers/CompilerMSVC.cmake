@@ -42,7 +42,12 @@ function(apply_msvc_options)
         target_compile_options("${_target}" PRIVATE ${_msvc_common_compile_options})
         # Eigen 的 warning(push) 只盖住头文件解析；pop 之后本 TU 实例化 LLT/三角求解
         # 时 C4127 会重新打开。永久宏让实例化阶段也保持关闭。
-        target_compile_definitions("${_target}" PRIVATE EIGEN_PERMANENTLY_DISABLE_STUPID_WARNINGS)
+        # _USE_MATH_DEFINES：MSVC 下 M_PI 等常量需要它，且必须在首个 <cmath> 之前
+        # 生效。PCH 强制预包含标准头，TU 内再 #define 已晚（include guard 已触发），
+        # 故升为 target 编译定义，让 PCH 与 TU 命令行一致。
+        target_compile_definitions("${_target}" PRIVATE
+            EIGEN_PERMANENTLY_DISABLE_STUPID_WARNINGS
+            _USE_MATH_DEFINES)
         if(ARG_ENABLE_WARNINGS)
             target_compile_options("${_target}" PRIVATE
                 /W4      # 最高信息级别警告（启用绝大多数警告，含 C4xxx 系列）

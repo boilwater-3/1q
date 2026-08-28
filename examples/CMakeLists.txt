@@ -16,8 +16,8 @@
 #   common/      examples 与 tests 共享便利层（JSON 解析 / CSV / 配置加载器 /
 #                可视化查看器），不属于 oneq 库的 public surface（库内部不
 #                消费 JSON；见 OQ-7 收口记录）
-# 精度评估场景（scenes/sbirs_dual_sat_fix/）走 ECS：两卫星实体 + 地面站融合组件
-# （内挂评估会话）；兼容目标 precision_evaluation_demo 与之同源。
+# 精度评估场景（scenes/sbirs_triple_sat_fix_messages/）走 ECS：三星卫星实体 +
+# 消息机制地面站融合组件（内挂评估会话）；兼容目标 precision_evaluation_demo 与之同源。
 
 if(NOT TARGET ${PROJECT_ALIAS})
     message(FATAL_ERROR "${PROJECT_ALIAS} target not found. Ensure src/CMakeLists.txt is processed first")
@@ -183,8 +183,7 @@ else()
 endif()
 
 foreach(_scene IN LISTS _oneq_selected_scenes)
-    if(_scene STREQUAL "sbirs_dual_sat_fix" OR _scene STREQUAL "sbirs_dual_sat_fix_messages"
-        OR _scene STREQUAL "sbirs_geo_triple_angle_kf")
+    if(_scene STREQUAL "sbirs_triple_sat_fix_messages")
         continue()  # 精度评估场景走下方接线（链 examples_core，地面站融合组件）
     endif()
     add_executable(${_scene} scenes/${_scene}/main.cpp)
@@ -195,42 +194,22 @@ foreach(_scene IN LISTS _oneq_selected_scenes)
 endforeach()
 
 # 精度评估场景可执行 + 兼容目标 precision_evaluation_demo（同源同行为）：
-# 双星 SBIRS + 融合 + 推演的真值对照五项误差 + AHP 综合评分；验收文件钉到
-# 场景输出目录（默认 examples/log/<场景名>/）。
-if(sbirs_dual_sat_fix IN_LIST _oneq_selected_scenes)
-    add_executable(sbirs_dual_sat_fix scenes/sbirs_dual_sat_fix/main.cpp)
-    target_link_libraries(sbirs_dual_sat_fix PRIVATE examples_core)
-    target_compile_definitions(sbirs_dual_sat_fix PRIVATE
-        ONEQ_SCENE_JSON="${CMAKE_CURRENT_SOURCE_DIR}/scenes/sbirs_dual_sat_fix/sbirs_dual_sat_fix.json"
+# 三星 SBIRS + 消息投递地面站融合 + 推演的真值对照五项误差 + AHP 综合评分；
+# 验收文件钉到场景输出目录（默认 examples/log/<场景名>/）。
+if(sbirs_triple_sat_fix_messages IN_LIST _oneq_selected_scenes)
+    add_executable(sbirs_triple_sat_fix_messages scenes/sbirs_triple_sat_fix_messages/main.cpp)
+    target_link_libraries(sbirs_triple_sat_fix_messages PRIVATE examples_core)
+    target_compile_definitions(sbirs_triple_sat_fix_messages PRIVATE
+        ONEQ_SCENE_JSON="${CMAKE_CURRENT_SOURCE_DIR}/scenes/sbirs_triple_sat_fix_messages/sbirs_triple_sat_fix_messages.json"
         PE_DEFAULT_OUTPUT_DIR="${CMAKE_SOURCE_DIR}/examples/log"
         PE_ACCEPTANCE_LOG_ENABLED=$<BOOL:${ONEQ_ENABLE_PRECISION_EVALUATION_LOG}>)
-    list(APPEND _oneq_example_targets sbirs_dual_sat_fix)
+    list(APPEND _oneq_example_targets sbirs_triple_sat_fix_messages)
 endif()
 
-if(sbirs_dual_sat_fix_messages IN_LIST _oneq_selected_scenes)
-    add_executable(sbirs_dual_sat_fix_messages scenes/sbirs_dual_sat_fix_messages/main.cpp)
-    target_link_libraries(sbirs_dual_sat_fix_messages PRIVATE examples_core)
-    target_compile_definitions(sbirs_dual_sat_fix_messages PRIVATE
-        ONEQ_SCENE_JSON="${CMAKE_CURRENT_SOURCE_DIR}/scenes/sbirs_dual_sat_fix_messages/sbirs_dual_sat_fix_messages.json"
-        PE_DEFAULT_OUTPUT_DIR="${CMAKE_SOURCE_DIR}/examples/log"
-        PE_ACCEPTANCE_LOG_ENABLED=$<BOOL:${ONEQ_ENABLE_PRECISION_EVALUATION_LOG}>)
-    list(APPEND _oneq_example_targets sbirs_dual_sat_fix_messages)
-endif()
-
-if(sbirs_geo_triple_angle_kf IN_LIST _oneq_selected_scenes)
-    add_executable(sbirs_geo_triple_angle_kf scenes/sbirs_geo_triple_angle_kf/main.cpp)
-    target_link_libraries(sbirs_geo_triple_angle_kf PRIVATE examples_core)
-    target_compile_definitions(sbirs_geo_triple_angle_kf PRIVATE
-        ONEQ_SCENE_JSON="${CMAKE_CURRENT_SOURCE_DIR}/scenes/sbirs_geo_triple_angle_kf/sbirs_geo_triple_angle_kf.json"
-        PE_DEFAULT_OUTPUT_DIR="${CMAKE_SOURCE_DIR}/examples/log"
-        PE_ACCEPTANCE_LOG_ENABLED=$<BOOL:${ONEQ_ENABLE_PRECISION_EVALUATION_LOG}>)
-    list(APPEND _oneq_example_targets sbirs_geo_triple_angle_kf)
-endif()
-
-add_executable(precision_evaluation_demo scenes/sbirs_dual_sat_fix/main.cpp)
+add_executable(precision_evaluation_demo scenes/sbirs_triple_sat_fix_messages/main.cpp)
 target_link_libraries(precision_evaluation_demo PRIVATE examples_core)
 target_compile_definitions(precision_evaluation_demo PRIVATE
-    ONEQ_SCENE_JSON="${CMAKE_CURRENT_SOURCE_DIR}/scenes/sbirs_dual_sat_fix/sbirs_dual_sat_fix.json"
+    ONEQ_SCENE_JSON="${CMAKE_CURRENT_SOURCE_DIR}/scenes/sbirs_triple_sat_fix_messages/sbirs_triple_sat_fix_messages.json"
     PE_DEFAULT_OUTPUT_DIR="${CMAKE_SOURCE_DIR}/examples/log"
     PE_ACCEPTANCE_LOG_ENABLED=$<BOOL:${ONEQ_ENABLE_PRECISION_EVALUATION_LOG}>)
 list(APPEND _oneq_example_targets precision_evaluation_demo)
