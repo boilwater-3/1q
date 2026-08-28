@@ -31,18 +31,4 @@ if [[ -d "${ONEQ_ROOT}/.githooks" ]] && git -C "${ONEQ_ROOT}" rev-parse --git-di
 fi
 unset _oneq_hooks
 
-if [[ -z "${ONEQ_GIT_BASH_ACTIVATED:-}" ]]; then
-  export ONEQ_GIT_BASH_ACTIVATED=1
-  if command -v cmake >/dev/null 2>&1; then
-    echo "[1q] Git Bash 环境就绪：cmake=$(command -v cmake)"
-  else
-    echo "[1q] 警告：仍未找到 cmake；可设置 ONEQ_CMAKE_ROOT 后重新 source" >&2
-  fi
-  if [[ -n "${ONEQ_REAL_CMAKE:-}" ]]; then
-    echo "[1q] ONEQ_REAL_CMAKE=${ONEQ_REAL_CMAKE}"
-  fi
-  echo "[1q] 构建请用：scripts/1q.sh build VisualStudio.15.0-amd64-release [--target ...]"
-  echo "[1q] 测试请用：scripts/1q.sh test VisualStudio.15.0-amd64-release -R 'unit::<module>'"
-fi
-
 unset _SCRIPT_DIR _oneq_path_has
