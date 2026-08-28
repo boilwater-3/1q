@@ -21,7 +21,7 @@ flowchart TB
   subgraph Rir["remote_identification_radar 模块"]
     Input["RirCycleInput\n（周期戳 + 平台 ECEF + 场景 + RF）"]
     Session["RirSession\n（校验/补丁提交/任务生命周期/驻留调度）"]
-    ScanKernel["common ScanScheduleRuntime\n（相对体积波位 + center 平移/归一化）"]
+    ScanKernel["common ScanScheduleRuntime\n（子窗∩体积波位 + center 平移/归一化）"]
     Controller["RirController\n（检测 → 量测误差 → 关联/滤波/生命周期）"]
     RfFrontEnd["RF 物理链（库内）\n（RirEmissionFactory / RirReceiverStateBuilder /\nRirRfFrontEndResolver → incident links）"]
     Detector["RirSignalDetector / RirDetectionCellResolver"]
@@ -31,7 +31,7 @@ flowchart TB
     Extract["四特征提取器\n（RCS/运动/极化/距离像）"]
     Tracker["RirTracker\n（多周期积累 + 判定）"]
     Matcher["RirMatcher × RirFeatureDatabase\n（只读内存基线）"]
-    Result["RirCycleResult\n（输出帧 + 摘要 + emission_frame +\ndesignation_* / dwell_center + 归属视图）"]
+    Result["RirCycleResult\n（输出帧 + 摘要 + emission_frame +\ndesignation_* / dwell_center /\nmax_detected_slant_range_m + 归属视图）"]
     Replay["RirRecordingSession +\nReplayRirTrace"]
   end
 
@@ -72,7 +72,8 @@ flowchart TB
    指定识别任务字段）→ `RirController::UpdateRuntime` / `UpdateEnvironment`。
 4. **指定识别任务推进 + 驻留调度**（`RirSession`）：任务生命周期逐周期推进
    （kNone → kPending → kAcquired | kExpired，镜像 AR 骨架）；驻留中心 =
-   任务窗口内指定目标视线角（在体积内），否则相对体积 + scan_center 扫描波位。
+   任务窗口内指定目标视线角（在体积内），否则「子窗 ∩ 体积」搜索扇区 + scan_center
+   扫描波位。
 5. **自持链路执行**：`kIdentify` 门控整链：
    - **RF 物理链**（库内）：`ResolveRfCycle` 构建自发射（`RirEmissionFactory`）+
      接收机状态（`RirReceiverStateBuilder`）→ 合并 `rf_scene` 外部 emission →
@@ -83,11 +84,13 @@ flowchart TB
    - **地球遮挡门控（2026-08-27）**：平台 ECEF + 目标 ENU 还原 ECEF 后做有限弦-
      圆球判定（`common/geometry/EarthOccultation`，R=6371 km，相切算遮挡）；
      穿地目标不入候选并落 `rir.target_earth_occulted`（规则 13b）；还原失败跳过本门；
-   - **搜索角域裁剪（2026-08-22 甲方批注「设定方位俯仰进行扫描」）**：
-     检测候选集 = 视线角落在可扫描体积内的场景目标（az 相对 `scan_center`
-     归一化、el 绝对，`internal/RirScanVolume.h` 与指定目标驻留门单源同口径）；
-     角域外目标不入候选并落 `rir.target_outside_search_volume` 排除诊断
-     （规则 13b），`scan_center` 运行期补丁即「设定方位俯仰」；
+   - **搜索角域裁剪（2026-08-22 甲方批注「设定方位俯仰进行扫描」+「任务范围由用户指定」）**：
+     检测候选集 = 视线角落在**实际搜索扇区**（`mission.scan_window_deg` ∩
+     `orientation.steerable_volume_deg`，`internal/IntersectScanSector`）内的场景目标
+     （az 相对 `scan_center` 归一化、el 绝对，`internal/RirScanVolume.h` 与指定目标
+     驻留门单源同口径）；被指定的目标在体积内豁免子窗。扇区外目标不入候选并落
+     `rir.target_outside_search_volume` 排除诊断（规则 13b，区分出体积/出子窗两类门），
+     `scan_center` 运行期补丁即「设定方位俯仰」；
    - 波束状态：消费驻留调度显式给定的波束中心（雷达局部 ENU 系，
      `az ∈ [-180, 180]`、`el ∈ [-90, 90]`），与同帧目标视线角相减求离轴增益；
      方向图关闭或无有效视线角时回退主瓣峰值（契约见 boundaries.md）；

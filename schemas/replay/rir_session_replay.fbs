@@ -131,6 +131,7 @@ table RirMissionConfig {
   max_range_m:float;
   recognition_dwell_sec:float;
   scan:RirScanConfig;
+  scan_window_deg:RirAzimuthElevationLimitsDeg;  // 任务扫描子窗（缺省无界=不收窄）
 }
 
 // ---- policy 域 ----

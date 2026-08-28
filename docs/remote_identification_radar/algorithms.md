@@ -30,7 +30,8 @@ RIR 自持链路生产的内部航迹，不再消费外部航迹供给。
 | IMM 双路径 | `tracking/RirImmFilter.cpp` | 量测/失配 + 先验状态 → 组合后验 | 数值核 common `ImmFilter<6,3>`；缺省双模型 CV {1.0, 10.0} 对数等距；对角 0.95 转移；confirmed 命中激活、失配仅预测；命中更新走逐量测动态 R（与 AR 同口径，缺省量测噪声不参与数值）；UpdateConfig 在线热同步既有运行态（每模型 q/转移矩阵，AR SyncRuntimeTuning 同口径；模型数变化丢弃运行态、下次 confirmed 命中惰性重建）；缺省开启 |
 | 航迹池与生命周期 | `tracking/RirTrackPool.cpp` → `common/tracking/ObjectPool`；`RirTrackLifecycle` → `TrackLifecyclePromote` | 关联量测 + 周期上下文 → 内部航迹 | 池/PromoteState FSM common；RIR 无 `kRecycled` 中间态（回收即 erase）；双重释放拒绝 |
 | 驻留排序 | `runtime/RirController.cpp` | 上一周期内部航迹结论 + 场景目标 → 驻留候选顺序 | 未识别优先 + 斜距次近；威胁等级输入不参与；只决定候选顺序，不生成波束指向 |
-| 驻留调度（库内） | `session/RirSession.cpp` + `common/radar/ScanScheduleRuntime.h` | 相对体积 + scan_center + 指定任务状态 + 场景目标 → 本周期驻留波束中心 | 相对限位建波位 → center 平移 → 方位归一化；指定任务限位执行（越界 kOutsideSteerableVolume）；非法体积/步长回退 scan_center；验收旁路另写 `rir_scan_pattern.csv`（未进指向） |
+| 驻留调度（库内） | `session/RirSession.cpp` + `common/radar/ScanScheduleRuntime.h` | 实际搜索扇区（子窗∩体积）+ scan_center + 指定任务状态 + 场景目标 → 本周期驻留波束中心 | 实际搜索扇区 = `mission.scan_window_deg` ∩ `orientation.steerable_volume_deg`（`internal/IntersectScanSector`），在其相对限位建波位 → center 平移 → 方位归一化；指定任务限位执行以体积为界（越界 kOutsideSteerableVolume），指定目标豁免子窗；非法体积/步长/空交集回退 scan_center；验收旁路另写 `rir_scan_pattern.csv`（未进指向） |
+| 实际有效目标最大斜距 | `runtime/RirController.cpp` | 本周期入候选并成航迹的目标斜距 → `RirCycleResult.max_detected_slant_range_m` | 持航迹目标最大输入几何斜距；区别于 `mission.max_range_m`（径向粗筛门）——反映 SNR 链路预算下实际探测距离；无航迹为 0，出扇区目标不计入 |
 | 指定识别任务（限时锁定） | `session/RirSession.cpp` | 指定（目标 ID + 窗口周期数）→ 任务生命周期（kPending/kAcquired/kExpired） | 镜像 AR designation 骨架；识别达成即任务完成回扫描（识别是离散结论，不持续跟随）；窗口耗尽作废（kAcquisitionTimeout） |
 | 观测构造 | `recognition/RecognitionObservationBuilder.cpp` | 场景目标真值 + 内部航迹 + `RirObservationContext` → `RirFeatureSet` | 驻留质量因子作用于 RCS/极化/距离像（运动除外）；场景真值不得直接产生结论 |
 | RCS 特征 | `recognition/RcsFeatureExtractor.cpp` | 视角样本 + 视线角 + SNR → `RirRcsObservation` | **最近邻插值不强制覆盖**；SNR < 6 dB 维度无效；覆盖下限由匹配阶段判定 |
@@ -71,10 +72,12 @@ RIR 自持链路生产的内部航迹，不再消费外部航迹供给。
    实际离轴角衰减，这是“调度器给指向、RIR 信指向”的可见后果。目标位置退化
    （范数 ≤ 0.1 m）时视线角无效，增益回退主瓣峰值（az=0/el=0 兜底角不做离轴衰减，
    AR 同口径）。
-9. **相对体积 + 转台朝向**：空闲驻留波位在 `orientation.steerable_volume_deg`
-   相对限位上由 common 内核构建，再经 `mission.scan_center_deg` 平移并方位归一化；
-   默认体积 ±60/±30 + center (0,0) 与重构前绝对限位逐位等价；跨界扇区通过 center
-   表达。指定任务越出体积时回扫描（`kOutsideSteerableVolume`），转台重新瞄准后恢复。
+9. **实际搜索扇区 + 转台朝向**：空闲驻留波位在**实际搜索扇区**
+   （`mission.scan_window_deg` ∩ `orientation.steerable_volume_deg`）相对限位上由 common
+   内核构建，再经 `mission.scan_center_deg` 平移并方位归一化；子窗缺省无界时交集退化为
+   体积，默认体积 ±60/±30 + center (0,0) 与重构前绝对限位逐位等价；跨界扇区通过 center
+   表达。检测候选按实际搜索扇区裁剪（指定目标在体积内豁免子窗）；指定任务越出**体积**
+   时回扫描（`kOutsideSteerableVolume`），转台重新瞄准后恢复。
 10. **识别达成即任务完成**：指定识别任务在识别状态达 `kCategoryConfirmed`/
     `kModelConfirmed` 后即完成（下一周期指定清零、回到扫描），不做持续跟随——
     与 AR（捕获后持续跟随航迹）的差异源于识别是离散结论而非连续跟踪。

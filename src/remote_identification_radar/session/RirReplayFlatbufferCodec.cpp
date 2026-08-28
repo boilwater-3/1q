@@ -520,6 +520,12 @@ bool DecodeSceneTarget(const fb::RirSceneTarget* value, RirSceneTarget* out) {
 
 // ===== 会话配置与运行期补丁（rir_session_replay.fbs）=====
 
+flatbuffers::Offset<cfb::RirAzimuthElevationLimitsDeg> EncodeAzElLimits(
+    flatbuffers::FlatBufferBuilder* builder, const config::RirAzimuthElevationLimitsDeg& value) {
+  return cfb::CreateRirAzimuthElevationLimitsDeg(*builder, value.az_min_deg, value.az_max_deg,
+                                                 value.el_min_deg, value.el_max_deg);
+}
+
 flatbuffers::Offset<cfb::RirAzimuthElevationDeg> EncodeAzEl(
     flatbuffers::FlatBufferBuilder* builder, const config::RirAzimuthElevationDeg& value) {
   return cfb::CreateRirAzimuthElevationDeg(*builder, value.az_deg, value.el_deg);
@@ -696,7 +702,8 @@ flatbuffers::Offset<cfb::RirMissionConfig> EncodeMissionConfig(
       static_cast<int>(value.scan.scan_sequence), value.scan.step_scale);
   return cfb::CreateRirMissionConfig(*builder, static_cast<int>(value.work_mode),
                                      EncodeAzEl(builder, value.scan_center_deg),
-                                     value.max_range_m, value.recognition_dwell_sec, scan);
+                                     value.max_range_m, value.recognition_dwell_sec, scan,
+                                     EncodeAzElLimits(builder, value.scan_window_deg));
 }
 
 void DecodeMissionConfig(const cfb::RirMissionConfig* value, config::RirMissionConfig* out) {
@@ -713,6 +720,14 @@ void DecodeMissionConfig(const cfb::RirMissionConfig* value, config::RirMissionC
     out->scan.scan_sequence =
         static_cast<oneq::foundation::ScanSequence>(value->scan()->scan_sequence());
     out->scan.step_scale = value->scan()->step_scale();
+  }
+  // 任务扫描子窗（加性字段）：旧回放无此表时保留默认无界，语义不回归。
+  if (value->scan_window_deg() != nullptr) {
+    const cfb::RirAzimuthElevationLimitsDeg* window = value->scan_window_deg();
+    out->scan_window_deg.az_min_deg = window->az_min_deg();
+    out->scan_window_deg.az_max_deg = window->az_max_deg();
+    out->scan_window_deg.el_min_deg = window->el_min_deg();
+    out->scan_window_deg.el_max_deg = window->el_max_deg();
   }
 }
 

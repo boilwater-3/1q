@@ -189,6 +189,7 @@ void RirSensorComponent::Step(World& world, double dt_sec) {
     // 关机：不驱动会话；视图重置为空快照再走一遍写入（摘要模式写一行空摘要，
     // 模式一/二天然静默）。
     last_debug_view_ = rir::RirOutputDebugView{};
+    last_max_detected_slant_range_m_ = 0.0f;
     LogDebugView(world, last_debug_view_);
     return;
   }
@@ -208,6 +209,8 @@ void RirSensorComponent::Step(World& world, double dt_sec) {
   // 调试视图快照每周期都要构建：它是下方视图行的数据源（日志写多少由三密度
   // 模式宏门控，与快照构建无关；被拒绝周期为 kCycleNotCompleted 行）。
   last_debug_view_ = rir::RirOutputDebugViewBuilder::Build(input, result);
+  // 库上报本周期「实际有效目标最大斜距」（供可视化区分粗筛门 max_range_m）。
+  last_max_detected_slant_range_m_ = result.max_detected_slant_range_m;
   LogDebugView(world, last_debug_view_);
   if (result.status != rir::RirCycleStatus::kCompleted) {
     return;  // 周期被拒绝：本周期无量测/结论
