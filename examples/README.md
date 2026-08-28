@@ -16,7 +16,9 @@ cmake --build --preset examples-release-local --target rir_jammed_scan   # 构�
 # 想跑任意场景 JSON：通用 runner
 ./build/examples-release-local/bin/component_attachment_demo --scene examples/scenes/<name>/<name>.json
 # 可视化
-python3 examples/common/viz/build_viewer.py examples/log/<name>          # 单文件 HTML 查看器
+python3 examples/common/viz/build_viewer.py examples/log/<name>          # 通用单文件 HTML 查看器
+# RIR 扫描-识别专用查看器（LLA 俯视 + 扫描扇区 + 进入扫描范围→探测→确认航迹→识别连线 + 斜距/高度剖面）
+python3 examples/common/viz/rir_scan_viewer.py examples/log/rir_ground_site_recognition
 ```
 
 场景可执行选建（configure 期）：`-DONEQ_EXAMPLE_SCENES=all|none|"名1;名2"`

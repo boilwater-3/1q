@@ -323,6 +323,14 @@ int RunScene(const std::string& scene_path, const RunOptions& options) {
     }
   }
 
+  // RIR 站点几何落盘（一次；仅 RIR 场景）：站点 LLA + 扫描体积 + 最大作用距离，
+  // 供 rir_scan_viewer 画扫描扇区。逐周期目标状态在循环内落 rir_targets.csv。
+  ca::RirSensorComponent* rir_viz_src =
+      rir_site != nullptr ? rir_site->Find<ca::RirSensorComponent>() : nullptr;
+  if (rir_viz_src != nullptr) {
+    outputs.RecordRirSite(scene_data.rir_site_origin, configs.rir);
+  }
+
   std::vector<app::TargetEcefState> target_states =
       app::MakeTargetStates(scene_data.targets, platform_origin);
 
@@ -415,6 +423,13 @@ int RunScene(const std::string& scene_path, const RunOptions& options) {
     for (const auto& target : target_states) {
       outputs.RecordTruthRow(cycle, scene.t_sec, target);
     }
+    // RIR 逐周期逐目标状态落盘（仅 RIR 场景）：取组件本周期调试视图快照，
+    // 逐目标视线方位/俯仰、斜距、航迹状态、识别结论 → rir_targets.csv。
+    if (rir_viz_src != nullptr) {
+      outputs.RecordRirCycle(cycle, scene.t_sec, scene_data.rir_site_origin,
+                             rir_viz_src->LastDebugView(),
+                             rir_viz_src->LastMaxDetectedSlantRangeM());
+    }
     // 调试视图落盘由各传感器组件在 Step 内直写（取视图 → 人读摘要行 → 集成
     // 端日志；见 logger/logger.h 的 CA_LOG_VIEW），主程序不再收拢。
 
@@ -464,7 +479,8 @@ int RunScene(const std::string& scene_path, const RunOptions& options) {
             << "log output -> " << output_dir
             << " (integration_events.log / integration_views.log / "
                "*_acceptance.log / rir_antenna_pattern.csv / rir_scan_pattern.csv / "
-               "platform_track.csv / target_truth.csv / route_plan.csv / zones.csv)\n";
+               "platform_track.csv / target_truth.csv / route_plan.csv / zones.csv"
+            << (rir_viz_src != nullptr ? " / rir_site.csv / rir_targets.csv" : "") << ")\n";
 
   // 外置查询演示：按实体名/类型查找平台实体，读取各传感器开关机与当前扫描
   // 方位（查询逻辑 = 组件 const getter；外部系统选定实体后按名/ID 拉取

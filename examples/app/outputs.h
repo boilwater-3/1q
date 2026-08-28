@@ -15,11 +15,15 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <memory>
 #include <string>
 #include <vector>
 
+#include "1q/coordinate/types.h"
 #include "1q/navigation/CoverageArea.h"
 #include "1q/navigation/RoutePoint.h"
+#include "1q/remote_identification_radar/config/RirSessionConfig.h"
+#include "1q/remote_identification_radar/session/RirOutputDebugView.h"
 #include "csv_writer.h"
 #include "components/flight_component.h"
 #include "scenes/scene_script.h"
@@ -57,6 +61,28 @@ class AppOutputs {
   void RecordRoute(std::uint32_t aircraft_id,
                    const std::vector<navigation::RoutePoint>& route);
 
+  /**
+   * @brief RIR 站点几何落盘（一次；仅 RIR 场景调用，惰性创建 rir_site.csv）。
+   *
+   * 写站点 LLA + 扫描体积（转台朝向 scan_center + 相对可扫描限位 + 绝对俯仰域）
+   * + 最大作用距离，供 rir_scan_viewer 画扫描扇区。站点 origin 缓存供
+   * RecordRirCycle 做 ENU→LLA。
+   */
+  void RecordRirSite(const oneq::coordinate::LlaPositionDegM& site_origin,
+                     const remote_identification_radar::config::RirSessionConfig& rir_config);
+
+  /**
+   * @brief RIR 逐周期逐目标状态落盘（每周期一次；仅 RIR 场景，惰性创建
+   * rir_targets.csv）。数据源为组件本周期调试视图快照 LastDebugView()：逐目标
+   * 视线方位/俯仰、斜距、航迹状态、识别结论；有航迹时 ENU→LLA 填目标位置。
+   * max_detected_slant_range_m 为库上报本周期「实际有效目标最大斜距」
+   * （RirCycleResult），逐目标行重复落盘，供查看器区分粗筛门 max_range_m。
+   */
+  void RecordRirCycle(std::uint32_t cycle, double t_sec,
+                      const oneq::coordinate::LlaPositionDegM& site_origin,
+                      const remote_identification_radar::session::RirOutputDebugView& view,
+                      float max_detected_slant_range_m);
+
   /** @brief 全部输出流刷盘（结束前调用）。 */
   void Flush();
 
@@ -68,6 +94,10 @@ class AppOutputs {
   examples::CsvWriter truth_csv_;
   examples::CsvWriter zones_csv_;
   examples::CsvWriter route_csv_;
+  // RIR 输出惰性创建：非 RIR 场景不产生 rir_site.csv / rir_targets.csv。
+  std::unique_ptr<examples::CsvWriter> rir_site_csv_;
+  std::unique_ptr<examples::CsvWriter> rir_targets_csv_;
+  std::string output_dir_;
   std::size_t platform_rows_{0U};
 };
 

@@ -56,6 +56,15 @@ struct ONEQ_API RirMissionConfig {
   float max_range_m{300000.0f};              /**< 识别任务最大作用距离（m），>0。 */
   float recognition_dwell_sec{0.05f};        /**< 单次识别驻留时间（s），>0。 */
   RirScanConfig scan{};                      /**< 扫描策略（库内驻留调度器消费）。 */
+  /**
+   * @brief [可外部调整] 任务扫描子窗：用户指定的作战搜索扇区（az 相对 scan_center、
+   *        el 绝对，deg）。默认无界 [-180,180]×[-90,90] = 不额外收窄。
+   *
+   * 与 `orientation.steerable_volume_deg`（硬件最大可扫描体积）分层：实际搜索扇区 =
+   * scan_window ∩ steerable_volume——扫描波位在此扇区内推进，搜索态检测候选按此裁剪。
+   * 落在子窗外、仍在 steerable_volume 内的目标仅在被「指定识别」时豁免子窗裁剪。
+   */
+  RirAzimuthElevationLimitsDeg scan_window_deg{-180.0f, 180.0f, -90.0f, 90.0f};
 };
 
 }  // namespace config

@@ -695,10 +695,12 @@ recognition::RirObservationContext RirController::MakeObservationContext(
 }
 
 void RirController::RunCycle(const session::RirCycleInput& input,
-                             session::RirOutputFrame* output_frame, std::uint64_t batch_id,
-                             const config::RirAzimuthElevationDeg& dwell_center_deg,
-                             const config::RirAzimuthElevationLimitsDeg& steerable_volume_deg,
-                             const config::RirAzimuthElevationDeg& scan_center_deg) {
+                            session::RirOutputFrame* output_frame, std::uint64_t batch_id,
+                            const config::RirAzimuthElevationDeg& dwell_center_deg,
+                            const config::RirAzimuthElevationLimitsDeg& steerable_volume_deg,
+                            const config::RirAzimuthElevationDeg& scan_center_deg,
+                            const config::RirAzimuthElevationLimitsDeg& scan_window_deg,
+                            std::uint64_t designated_external_target_id) {
   const bool in_identify = work_mode_ == config::RirWorkMode::kIdentify;
   if (recognition_mode_active_ && !in_identify) {
     tracker_.ExitRecognitionMode();
@@ -721,6 +723,8 @@ void RirController::RunCycle(const session::RirCycleInput& input,
   last_track_attributions_.clear();
   last_execution_issues_.clear();
   last_emission_frame_ = {};
+  // 实际有效目标最大斜距按周期重置：非 kIdentify / 无航迹周期回填 0。
+  last_max_detected_slant_range_m_ = 0.0f;
 
   std::vector<tracking::RirTrackState> track_snapshots;
   if (in_identify) {
@@ -746,7 +750,12 @@ void RirController::RunCycle(const session::RirCycleInput& input,
     }
 
     std::unordered_map<std::uint64_t, const session::RirSceneTarget*> scene_by_id;
+    std::unordered_map<std::uint64_t, float> slant_by_target_id;
     std::vector<std::size_t> candidate_indices;
+    // 实际搜索扇区 = 任务扫描子窗 ∩ 硬件可扫描体积（子窗缺省无界时等于体积，
+    // 与既有行为兼容）。搜索态候选按此扇区裁剪；指定识别目标在硬件体积内豁免子窗。
+    const config::RirAzimuthElevationLimitsDeg search_sector =
+        internal::IntersectScanSector(scan_window_deg, steerable_volume_deg);
     for (std::size_t i = 0U; i < input.scene_targets.size(); ++i) {
       const session::RirSceneTarget& target = input.scene_targets[i];
       if (target.external_target_id == 0U) {
@@ -776,31 +785,48 @@ void RirController::RunCycle(const session::RirCycleInput& input,
           continue;
         }
       }
-      // 2026-08-22 甲方批注「设定方位俯仰进行扫描」：搜索候选集按可扫描体积
-      // 裁剪（az 相对 scan_center、el 绝对；与指定识别目标驻留门同口径）——
-      // 视线角出角域的目标不入检测候选，不再依赖方向图衰减软门控。
+      // 2026-08-22 甲方批注「设定方位俯仰进行扫描」+「任务范围由用户指定」：
+      // 搜索候选集按实际搜索扇区裁剪（az 相对 scan_center、el 绝对）——视线角出扇区
+      // 的目标不入检测候选，不再依赖方向图衰减软门控。
       float look_az_deg = 0.0f;
       float look_el_deg = 0.0f;
       float slant_range_m = 0.0f;
       ComputeLookAngles(target, &look_az_deg, &look_el_deg, &slant_range_m);
       const config::RirAzimuthElevationDeg look{look_az_deg, look_el_deg};
-      if (!internal::TargetWithinSteerableVolume(look, steerable_volume_deg, scan_center_deg)) {
+      const bool in_hardware =
+          internal::TargetWithinSteerableVolume(look, steerable_volume_deg, scan_center_deg);
+      const bool in_search =
+          internal::TargetWithinSteerableVolume(look, search_sector, scan_center_deg);
+      const bool is_designated = designated_external_target_id != 0U &&
+                                 target.external_target_id == designated_external_target_id;
+      if (!(in_search || (is_designated && in_hardware))) {
         // 规则 13b：角域裁剪排除 → kInfo 诊断（不属于三写，仅承载排查信息）。
-        // 出界目标不入检测候选、航迹按失跟语义自然消退，发码使"目标消失"可归因
-        // （此前为静默 continue）。具体门 cause=kNone，az 相对 scan_center、el 绝对。
+        // 出界目标不入检测候选、航迹按失跟语义自然消退，发码使"目标消失"可归因。
+        // 区分两类门：出硬件体积（steerable volume）/ 在体积内但出任务子窗（scan window）。
+        const std::string exclusion_detail =
+            !in_hardware
+                ? ("target_id=" + std::to_string(target.external_target_id) +
+                   "; look_az_deg=" + RirFormatFloat(look.az_deg) +
+                   " look_el_deg=" + RirFormatFloat(look.el_deg) +
+                   " outside steerable volume az_rel_deg=[" +
+                   RirFormatFloat(steerable_volume_deg.az_min_deg) + "," +
+                   RirFormatFloat(steerable_volume_deg.az_max_deg) + "] el_deg=[" +
+                   RirFormatFloat(steerable_volume_deg.el_min_deg) + "," +
+                   RirFormatFloat(steerable_volume_deg.el_max_deg) + "]")
+                : ("target_id=" + std::to_string(target.external_target_id) +
+                   "; look_az_deg=" + RirFormatFloat(look.az_deg) +
+                   " look_el_deg=" + RirFormatFloat(look.el_deg) +
+                   " outside mission scan window az_rel_deg=[" +
+                   RirFormatFloat(search_sector.az_min_deg) + "," +
+                   RirFormatFloat(search_sector.az_max_deg) + "] el_deg=[" +
+                   RirFormatFloat(search_sector.el_min_deg) + "," +
+                   RirFormatFloat(search_sector.el_max_deg) + "]");
         last_execution_issues_.push_back(RirMakeExclusionIssue(
-            session::codes::kTargetOutsideSearchVolume,
-            "target_id=" + std::to_string(target.external_target_id) +
-                "; look_az_deg=" + RirFormatFloat(look.az_deg) +
-                " look_el_deg=" + RirFormatFloat(look.el_deg) +
-                " outside steerable volume az_rel_deg=[" +
-                RirFormatFloat(steerable_volume_deg.az_min_deg) + "," +
-                RirFormatFloat(steerable_volume_deg.az_max_deg) + "] el_deg=[" +
-                RirFormatFloat(steerable_volume_deg.el_min_deg) + "," +
-                RirFormatFloat(steerable_volume_deg.el_max_deg) + "]",
+            session::codes::kTargetOutsideSearchVolume, exclusion_detail,
             session::RirIssueCause::kNone, i));
         continue;
       }
+      slant_by_target_id[target.external_target_id] = slant_range_m;
       candidate_indices.push_back(i);
     }
 
@@ -889,6 +915,16 @@ void RirController::RunCycle(const session::RirCycleInput& input,
     }
 
     track_snapshots = lifecycle_->BuildTrackSnapshots();
+
+    // 实际有效目标最大斜距：本周期持航迹目标的最大输入几何斜距（给外部判断实际
+    // 探测距离；仅统计本周期入检测候选且成航迹的目标，出扇区目标不计入）。
+    for (const tracking::RirTrackState& track : track_snapshots) {
+      const auto slant_found = slant_by_target_id.find(track.external_target_id);
+      if (slant_found != slant_by_target_id.end() &&
+          slant_found->second > last_max_detected_slant_range_m_) {
+        last_max_detected_slant_range_m_ = slant_found->second;
+      }
+    }
 
     // 验收事件 cluster（2026-08-22 甲方批注）：集群目标数量 = 确认航迹数
     // （计数口径；非检测条数）。

@@ -30,20 +30,32 @@ RIR 是与机载雷达（AR）**相互独立的另一部雷达装备**，不是 
   转台朝向平移归一化，或指定识别任务限位执行）派生，控制器只消费并信任
   给定值（见下方驻留指向契约）。
   RIR 不驱动任何外部雷达波束。
-- **搜索角域裁剪（2026-08-22 甲方批注「设定方位俯仰进行扫描」）**：检测候选集
-  按可扫描体积裁剪——视线角出体积（az 相对 `scan_center`、el 绝对，与指定目标
-  驻留门同口径单源 `internal/RirScanVolume.h`）的场景目标不入检测候选集；
-  此前“遍历全部场景目标、波位只改方向图”的软门控行为废弃。`scan_center`
-  运行期补丁即「设定方位俯仰」；直连 `RirController::RunCycle` 的调用方
-  默认不裁剪（显式传体积才启用）。出界目标逐周期落
-   `rir.target_outside_search_volume` kInfo 排除诊断（规则 13b，携带视线角与
-   角域窗口），目标消失可归因、不静默；航迹按既有失跟语义自然消退。
+- **搜索角域裁剪（2026-08-22 甲方批注「设定方位俯仰进行扫描」+「任务范围由用户指定」）**：
+  检测候选集按**实际搜索扇区** = `mission.scan_window_deg`（任务扫描子窗，用户指定的
+  作战搜索扇区）∩ `orientation.steerable_volume_deg`（硬件最大可扫描体积）裁剪——视线角
+  出扇区（az 相对 `scan_center`、el 绝对，交集单源 `internal/IntersectScanSector`；
+  角域判定单源 `internal/RirScanVolume.h`）的场景目标不入检测候选集；此前“遍历全部
+  场景目标、波位只改方向图”的软门控行为废弃。**分层语义**：`steerable_volume` 为硬件
+  最大界限（也是扫描波位与指定目标驻留的最终边界）；`scan_window` 为其内的作战搜索
+  扇区，缺省无界 [-180,180]×[-90,90] 时交集退化为体积（与既有行为兼容）。扫描波位在
+  实际搜索扇区内推进（`RirSession::BuildAbsoluteScanWaves`）。**指定豁免**：被
+  `designated_external_target_id` 指定的目标即便落在子窗外，只要仍在 `steerable_volume`
+  内即豁免子窗裁剪（算子显式指派高于常规搜索扇区）。`scan_center` 运行期补丁即
+  「设定方位俯仰」；直连 `RirController::RunCycle` 的调用方默认不裁剪（子窗/体积均缺省
+  无界）。出界目标逐周期落 `rir.target_outside_search_volume` kInfo 排除诊断（规则 13b，
+  区分「出硬件体积」与「在体积内但出任务子窗」两类门，携带视线角与角域窗口），目标
+  消失可归因、不静默；航迹按既有失跟语义自然消退。
 - **地球遮挡门控（2026-08-27）**：检测候选在角域裁剪之前做有限弦-地球圆球判定
   （半径 6371 km，相切算遮挡，与 SBIRS 同口径；判定核 `common/geometry/EarthOccultation`）。
   平台 ECEF + 目标雷达局部 ENU 经 `TryEnuToEcef` 还原目标 ECEF；穿地目标不入检测
   候选，落 `rir.target_earth_occulted` kInfo（`cause=kNone`，message 带遮挡余量）。
   k 因子不进本门（只服务大气损耗）。ENU 还原失败则跳过本门，不伪装成遮挡。
   不负责地形、椭球或电波视距。
+- **实际有效目标最大斜距（外部探测距离观测口径）**：`RirCycleResult` 新增
+  `max_detected_slant_range_m`——本周期持有航迹的目标里最大输入几何斜距。它与
+  `mission.max_range_m`（径向粗筛门，仅过滤超远候选）语义不同，反映 SNR 链路预算下真正
+  成航迹的目标能达到的最远斜距，供外部集成方判断“实际探测距离”。本周期无航迹为 0；
+  仅统计入检测候选（在实际搜索扇区内或被指定）且成航迹的目标，出扇区目标不计入。
 - **自持检测链（阶段 2-S 已接线；跟踪升级 2-T N1-N7 已完成）**：需求所列九项
   信号链能力（天线方向图仿真、回波/干扰/噪声功率计算、四项处理增益、恒虚警
   检测）界定为 **RIR 自持检测链**（检测 → LAPJV 全局最优关联 → CV KF/IMM
@@ -161,10 +173,11 @@ RIR 遵守 `docs/common/contract.md` 与 `docs/common/session_contract.md`：
 
 ## 驻留指向跨模块契约（库内驻留调度器：相对体积 + 转台朝向 + 指定任务限位）
 
-波束指向的来源是**库内驻留调度器**（`RirSession` 每周期派生）：common 内核在
-`orientation.steerable_volume_deg`（阵面相对 az、绝对 el）上建波位，再经
-`mission.scan_center_deg` 平移并方位归一化；无指定任务时按该序列推进；指定识别
-任务窗口内对准指定目标（目标在场景且在体积内）。RIR 消费侧只信任并消费给定波束中心。
+波束指向的来源是**库内驻留调度器**（`RirSession` 每周期派生）：common 内核在**实际搜索
+扇区** = `mission.scan_window_deg` ∩ `orientation.steerable_volume_deg`（阵面相对 az、
+绝对 el）上建波位，再经 `mission.scan_center_deg` 平移并方位归一化；无指定任务时按该序列
+推进；指定识别任务窗口内对准指定目标（目标在场景且在 `steerable_volume` 内，指定豁免
+子窗）。RIR 消费侧只信任并消费给定波束中心。
 
 1. **来源与所有权**：`RirSession::StepWithResult` 每周期解析驻留中心
    （`RirCycleResult::dwell_center_deg`）：
@@ -180,8 +193,10 @@ RIR 遵守 `docs/common/contract.md` 与 `docs/common/session_contract.md`：
    定义在雷达局部 ENU 右手坐标系，与 `RirSceneTarget::position_x/y/z` 同帧：
    `az_deg = atan2(y, x)`，调度器输出前归一化到 `(-180, 180]`；
    `el_deg = atan2(z, sqrt(x²+y²))`，合法域 [-90, 90]。
-4. **可扫描体积语义**：`steerable_volume_deg.az_*` 相对 `scan_center_deg.az`；
+4. **可扫描体积 / 任务子窗语义**：`steerable_volume_deg.az_*` 相对 `scan_center_deg.az`；
    `el_*` 为绝对俯仰域（ENU）。跨界扇区（如朝南 ±110°）通过 center 平移 + 归一化表达。
+   `mission.scan_window_deg` 同口径（相对 az、绝对 el），是体积内的作战搜索扇区，缺省
+   无界=不收窄；实际搜索扇区取二者逐轴交集，指定目标在体积内豁免子窗。
 5. **目标视线角同帧**：RIR 计算目标视线角必须使用与指向角完全相同的坐标系和公式。
 
 ## 指定识别任务（限时锁定，镜像 AR designation 语义）

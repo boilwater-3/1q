@@ -69,6 +69,13 @@ class RirSensorComponent : public Component {
     return last_debug_view_;
   }
 
+  /**
+   * @brief 最近周期库上报「实际有效目标最大斜距」（m）。
+   * @note 取自 RirCycleResult.max_detected_slant_range_m；关机/无航迹周期为 0。
+   *       供可视化落盘区分 mission.max_range_m 径向粗筛门与实际探测距离。
+   */
+  float LastMaxDetectedSlantRangeM() const { return last_max_detected_slant_range_m_; }
+
  private:
   /// 视图行三模式落盘（密度由编译期宏门控；纯观测）。
   void LogDebugView(World& world,
@@ -106,6 +113,7 @@ class RirSensorComponent : public Component {
 
   remote_identification_radar::session::RirOutputDebugView
   last_debug_view_{};  /**< 本周期调试视图快照（每周期重写；视图行数据源；关机周期重置为空） */
+  float last_max_detected_slant_range_m_{0.0f};  /**< 本周期库上报实际有效目标最大斜距（m；关机/无航迹为 0） */
 
   std::unordered_map<std::uint64_t,
                      remote_identification_radar::session::RirRecognitionState>

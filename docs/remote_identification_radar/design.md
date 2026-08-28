@@ -41,13 +41,17 @@ RIR 是与机载雷达（AR）**相互独立的另一部雷达装备**，不是 
    归属视图（`RirTrackAttributionRecord`：库内键 ↔ 真值目标对照 + 最小航迹诊断）
    经 `RirCycleResult.track_attributions` 暴露（仿真附件层，不进产品层）。与 AR 威胁
    分类相互独立，不进任何决策帧；指定识别任务状态（`designated_target_id`/
-   `designation_*`/`dwell_center_deg`）经 `RirCycleResult` 逐周期暴露。
+   `designation_*`/`dwell_center_deg`）与**实际有效目标最大斜距**
+   （`max_detected_slant_range_m`：本周期持航迹目标最大输入斜距，供外部判断实际探测距离，
+   区别于 `mission.max_range_m` 径向粗筛门）经 `RirCycleResult` 逐周期暴露。
    fusion 侧由 `AdaptRirFeatureMeasurementsToDetectionRecords` 消费出口①。
 4. **配置**：五域（hardware/orientation/mission/policy/environment）；policy 域承载
    检测/关联/跟踪/生命周期/识别策略，运行期补丁整域提交；识别作用距离/驻留
-   四域归位（任务域）；`orientation.steerable_volume_deg` 承载阵面相对可扫描体积，
-   `mission.scan_center_deg` 承载转台朝向（可补丁）；扫描步进/起点/顺序与指定识别任务
-   （目标 ID + 限时窗口）随 mission/patch 配置，库内驻留调度器消费。
+   四域归位（任务域）；`orientation.steerable_volume_deg` 承载阵面相对可扫描体积（硬件
+   最大界限），`mission.scan_center_deg` 承载转台朝向（可补丁），`mission.scan_window_deg`
+   承载用户指定的任务扫描子窗（作战搜索扇区，缺省无界；实际搜索扇区 = 子窗 ∩ 体积）；
+   扫描步进/起点/顺序与指定识别任务（目标 ID + 限时窗口）随 mission/patch 配置，库内
+   驻留调度器消费。
 5. **数据**：特征数据库为只读 SQLite 基线（schema v1.1，权威 DDL 单源随迁），
    运行期不持有连接；单位纪律：场景 `rcs` 为 m²（SNR 门控），识别 RCS 特征与
    数据库一律 dBsm。

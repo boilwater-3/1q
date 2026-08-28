@@ -149,12 +149,15 @@ std::vector<oneq::common::radar::AzimuthElevationDeg> BuildAbsoluteScanWaves(
   const dwell::RirEffectiveBeamwidthDeg beamwidth =
       dwell::RirResolveEffectiveBeamwidth(config.hardware.antenna);
   const config::RirScanConfig& scan = config.mission.scan;
-  const config::RirAzimuthElevationLimitsDeg& volume = config.orientation.steerable_volume_deg;
+  // 实际搜索扇区 = 任务扫描子窗 ∩ 硬件可扫描体积（子窗缺省无界时退化为体积）：
+  // 扫描波位仅在该扇区内推进（甲方「任务范围由用户指定」）。
+  const config::RirAzimuthElevationLimitsDeg sector = internal::IntersectScanSector(
+      config.mission.scan_window_deg, config.orientation.steerable_volume_deg);
   const float az_step = beamwidth.az_beamwidth_deg * scan.step_scale;
   const float el_step = beamwidth.el_beamwidth_deg * scan.step_scale;
   const std::vector<oneq::common::radar::AzimuthElevationDeg> relative_pattern =
       oneq::common::radar::BuildScanPattern(
-          volume.az_min_deg, volume.az_max_deg, volume.el_min_deg, volume.el_max_deg, az_step,
+          sector.az_min_deg, sector.az_max_deg, sector.el_min_deg, sector.el_max_deg, az_step,
           el_step, scan.scan_start_position, scan.scan_sequence);
   std::vector<oneq::common::radar::AzimuthElevationDeg> absolute_pattern;
   absolute_pattern.reserve(relative_pattern.size());
@@ -385,10 +388,12 @@ RirCycleResult RirSession::Impl::RunCycle(const RirCycleInput& input) {
     runtime::WriteRirCycleRunCount(input.sim_time_sec, input.input_cycle_index);
   }
 
-  // 搜索角域（体积 + 转台朝向）随驻留中心一并下发：检测候选集按此裁剪
-  // （2026-08-22 甲方批注「设定方位俯仰进行扫描」）。
+  // 搜索角域随驻留中心一并下发：硬件体积 + 转台朝向 + 任务扫描子窗 + 指定目标 ID；
+  // 检测候选集按「子窗 ∩ 体积」裁剪，指定目标在体积内豁免子窗（2026-08-22 甲方
+  // 批注「设定方位俯仰进行扫描」+「任务范围由用户指定」）。
   controller.RunCycle(input, &result.output_frame, next_batch_id, dwell_center,
-                      config.orientation.steerable_volume_deg, config.mission.scan_center_deg);
+                      config.orientation.steerable_volume_deg, config.mission.scan_center_deg,
+                      config.mission.scan_window_deg, designated_external_target_id);
   result.status = RirCycleStatus::kCompleted;
   result.abort_reason = RirCycleAbortReason::kNone;
   ++next_batch_id;
@@ -424,6 +429,9 @@ RirCycleResult RirSession::Impl::RunCycle(const RirCycleInput& input) {
     result.designation_revert_reason = session::RirDesignationRevertReason::kNone;
   }
   result.dwell_center_deg = dwell_center;
+  // 实际有效目标最大斜距（本周期持航迹目标最大输入斜距）：给外部判断实际探测距离，
+  // 与 max_range_m 径向粗筛门区分。
+  result.max_detected_slant_range_m = controller.LastMaxDetectedSlantRangeM();
   return result;
 }
 

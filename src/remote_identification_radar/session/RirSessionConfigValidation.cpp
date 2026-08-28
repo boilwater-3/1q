@@ -254,6 +254,21 @@ session::RirIssueList ValidateRirSessionConfig(const RirSessionConfig& config) {
     }
   }
 
+  // 任务扫描子窗（用户指定作战搜索扇区）：az 相对域 [-180,180]、el 绝对域 [-90,90]，
+  // 且逐轴有序（min ≤ max）。缺省无界满足约束；实际搜索扇区为其与体积的交集。
+  {
+    const RirAzimuthElevationLimitsDeg& window = mission.scan_window_deg;
+    if (!IsFinite(window.az_min_deg) || !IsFinite(window.az_max_deg) ||
+        !IsFinite(window.el_min_deg) || !IsFinite(window.el_max_deg) ||
+        window.az_min_deg > window.az_max_deg || window.el_min_deg > window.el_max_deg ||
+        window.az_min_deg < -180.0f || window.az_max_deg > 180.0f ||
+        window.el_min_deg < -90.0f || window.el_max_deg > 90.0f) {
+      PushIssue(&issues, session::codes::kScanStrategyInvalid, "mission.scan_window_deg",
+                "Mission scan window limits must be finite, ordered, az in [-180,180] relative "
+                "domain and el in [-90,90].");
+    }
+  }
+
   // 可扫描体积（orientation 第五域）：az 相对域 [-180,180]、el 绝对域 [-90,90]。
   {
     const RirAzimuthElevationLimitsDeg& volume = config.orientation.steerable_volume_deg;

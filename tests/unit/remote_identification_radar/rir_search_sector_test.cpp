@@ -198,6 +198,80 @@ TEST(RirSearchSectorTest, OutsideVolumeTargetCarriesExclusionIssue) {
   }
 }
 
+// ---------------------------------------------------------------------------
+// 6) 任务扫描子窗：体积内但出子窗的目标被裁剪（未指定），并带子窗排除诊断
+// ---------------------------------------------------------------------------
+
+TEST(RirSearchSectorTest, ScanWindowExcludesInVolumeTarget) {
+  const RirSceneTarget target = MakeTarget(9007U);  // az=0°、默认体积 ±60 内
+  config::RirSessionConfig config = MakeIdentifyConfig();
+  // 任务子窗 az [30,60]：目标 az=0 出子窗，但仍在硬件体积 ±60 内。
+  config.mission.scan_window_deg =
+      config::RirAzimuthElevationLimitsDeg{30.0f, 60.0f, -90.0f, 90.0f};
+  RirSession session = RirSession::Create(config);
+  for (std::uint32_t cycle = 1U; cycle <= 6U; ++cycle) {
+    const RirCycleResult result = session.StepWithResult(MakeInput(cycle, {target}));
+    ASSERT_EQ(result.status, session::RirCycleStatus::kCompleted);
+    EXPECT_FALSE(HasAttributionFor(result, target.external_target_id))
+        << "出任务子窗（体积内）的未指定目标不应入检测候选集";
+    const session::RirIssue* excluded =
+        FindIssue(result, session::codes::kTargetOutsideSearchVolume, target.external_target_id);
+    ASSERT_NE(excluded, nullptr) << "出子窗目标应携带排除诊断";
+    EXPECT_NE(excluded->message.find("mission scan window"), std::string::npos)
+        << "诊断应指明是任务子窗门（区别于硬件体积门）";
+  }
+}
+
+// ---------------------------------------------------------------------------
+// 7) 指定豁免：出子窗但在体积内的指定目标仍被检出
+// ---------------------------------------------------------------------------
+
+TEST(RirSearchSectorTest, DesignatedTargetExemptFromScanWindow) {
+  const RirSceneTarget target = MakeTarget(9008U);  // az=0°，出下述子窗、在体积内
+  config::RirSessionConfig config = MakeIdentifyConfig();
+  config.mission.scan_window_deg =
+      config::RirAzimuthElevationLimitsDeg{30.0f, 60.0f, -90.0f, 90.0f};
+  RirSession session = RirSession::Create(config);
+  // 指定该目标：即便出子窗，只要在体积内即豁免子窗裁剪。
+  config::RirRuntimeConfigPatch designate;
+  designate.has_designated_target_id = true;
+  designate.designated_external_target_id = target.external_target_id;
+  designate.has_designation_duration_cycles = true;
+  designate.designation_duration_cycles = 20U;
+  ASSERT_TRUE(session.TryApplyRuntimeConfig(designate));
+  bool seen = false;
+  for (std::uint32_t cycle = 1U; cycle <= 6U; ++cycle) {
+    const RirCycleResult result = session.StepWithResult(MakeInput(cycle, {target}));
+    ASSERT_EQ(result.status, session::RirCycleStatus::kCompleted);
+    seen = seen || HasAttributionFor(result, target.external_target_id);
+  }
+  EXPECT_TRUE(seen) << "被指定的目标出子窗（体积内）应豁免子窗、照常检出";
+}
+
+// ---------------------------------------------------------------------------
+// 8) 实际有效目标最大斜距：持航迹时回填目标斜距；无航迹周期为 0
+// ---------------------------------------------------------------------------
+
+TEST(RirSearchSectorTest, MaxDetectedSlantRangeReflectsTrackedTarget) {
+  const RirSceneTarget target = MakeTarget(9009U);  // 体积内，range≈10198 m
+  RirSession session = RirSession::Create(MakeIdentifyConfig());
+  float observed_max = 0.0f;
+  for (std::uint32_t cycle = 1U; cycle <= 6U; ++cycle) {
+    const RirCycleResult result = session.StepWithResult(MakeInput(cycle, {target}));
+    ASSERT_EQ(result.status, session::RirCycleStatus::kCompleted);
+    if (HasAttributionFor(result, target.external_target_id)) {
+      observed_max = result.max_detected_slant_range_m;
+    }
+  }
+  EXPECT_NEAR(observed_max, target.range_m, 1.0f)
+      << "持航迹周期应回填目标输入几何斜距";
+
+  // 无目标周期：无航迹，最大斜距回 0（区别于 max_range_m 粗筛门）。
+  const RirCycleResult empty = session.StepWithResult(MakeInput(7U, {}));
+  ASSERT_EQ(empty.status, session::RirCycleStatus::kCompleted);
+  EXPECT_EQ(empty.max_detected_slant_range_m, 0.0f) << "无航迹周期最大斜距应为 0";
+}
+
 }  // namespace
 }  // namespace tests
 }  // namespace remote_identification_radar

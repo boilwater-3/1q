@@ -68,6 +68,15 @@ struct ONEQ_API RirCycleResult {
   RirDesignationRevertReason designation_revert_reason{RirDesignationRevertReason::kNone};
   /** @brief 本周期驻留波束中心（扫描波位或指定目标指向；雷达局部 az/el，deg）。 */
   config::RirAzimuthElevationDeg dwell_center_deg{};
+
+  /**
+   * @brief 本周期「实际有效目标最大斜距」（m）：本周期持有航迹的目标里最大输入几何斜距。
+   *
+   * 与 `mission.max_range_m`（径向粗筛门，仅过滤超远候选）语义不同：本量反映
+   * SNR 链路预算下真正被探到/成航迹的目标能达到的最远斜距，是给外部集成方
+   * 判断「实际探测距离」的观测口径。本周期无任何航迹时为 0。
+   */
+  float max_detected_slant_range_m{0.0f};
 };
 
 }  // namespace session

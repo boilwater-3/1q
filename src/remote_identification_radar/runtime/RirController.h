@@ -60,12 +60,18 @@ class RirController {
    * @param[in] batch_id 本周期会话内部批号（由 RirSession 分配）。
    * @param[in] dwell_center_deg 本周期驻留波束中心（库内驻留调度器给定：
    *            扫描波位或指定识别目标指向；雷达局部 ENU 系，deg）。
-   * @param[in] steerable_volume_deg 搜索角域裁剪用可扫描体积（az 相对
-   *            scan_center、el 绝对，deg）；缺省无界 = 不裁剪（直连调用方
-   *            与既有行为兼容）。
+   * @param[in] steerable_volume_deg 硬件最大可扫描体积（az 相对 scan_center、
+   *            el 绝对，deg）；缺省无界 = 不裁剪（直连调用方与既有行为兼容）。
+   *            指定识别目标的驻留/探测门始终以此为界。
    * @param[in] scan_center_deg 转台当前朝向（ENU az/el，deg）。
-   * @note 2026-08-22 甲方批注「设定方位俯仰进行扫描」：视线角出体积的场景
-   *       目标不入检测候选集（与指定识别目标驻留门同口径）。
+   * @param[in] scan_window_deg 任务扫描子窗（用户指定的作战搜索扇区，az 相对
+   *            scan_center、el 绝对，deg）；缺省无界 = 不额外收窄。实际搜索扇区
+   *            = scan_window ∩ steerable_volume：搜索态检测候选按此裁剪。
+   * @param[in] designated_external_target_id 当前指定识别目标外部 ID（0 = 无）。
+   *            该目标即便落在 scan_window 外，只要仍在 steerable_volume 内即豁免
+   *            子窗裁剪（算子显式指派高于常规搜索扇区）。
+   * @note 2026-08-22 甲方批注「设定方位俯仰进行扫描」：视线角出扇区的场景目标
+   *       不入检测候选集（与指定识别目标驻留门同口径）。
    */
   void RunCycle(const session::RirCycleInput& input, session::RirOutputFrame* output_frame,
                 std::uint64_t batch_id,
@@ -74,7 +80,10 @@ class RirController {
                 const config::RirAzimuthElevationLimitsDeg& steerable_volume_deg =
                     config::RirAzimuthElevationLimitsDeg{-180.0f, 180.0f, -90.0f, 90.0f},
                 const config::RirAzimuthElevationDeg& scan_center_deg =
-                    config::RirAzimuthElevationDeg());
+                    config::RirAzimuthElevationDeg(),
+                const config::RirAzimuthElevationLimitsDeg& scan_window_deg =
+                    config::RirAzimuthElevationLimitsDeg{-180.0f, 180.0f, -90.0f, 90.0f},
+                std::uint64_t designated_external_target_id = 0U);
 
   /** @brief 最近周期是否发布了识别效能摘要。 */
   bool HasLatestSummary() const { return has_latest_summary_; }
@@ -104,6 +113,13 @@ class RirController {
   const oneq::electromagnetics::RfEmissionFrame& LatestEmissionFrame() const {
     return last_emission_frame_;
   }
+
+  /**
+   * @brief 最近周期「实际有效目标最大斜距」（m）：本周期持有航迹的目标里最大输入几何斜距。
+   * @note 供 RirSession 回填 result.max_detected_slant_range_m；本周期无航迹为 0，
+   *       非 kIdentify / 早退周期为 0（RunCycle 入口重置）。
+   */
+  float LastMaxDetectedSlantRangeM() const { return last_max_detected_slant_range_m_; }
 
   /**
    * @brief 指定外部目标是否已达识别结论（上一周期口径，供任务生命周期推进）。
@@ -206,6 +222,7 @@ class RirController {
   std::vector<session::RirTrackAttributionRecord> last_track_attributions_{}; /**< 最近周期归属视图。 */
   session::RirIssueList last_execution_issues_{}; /**< 最近周期按目标排除诊断（规则 13b）。 */
   oneq::electromagnetics::RfEmissionFrame last_emission_frame_{}; /**< 最近周期实际发射。 */
+  float last_max_detected_slant_range_m_{0.0f}; /**< 最近周期持航迹目标最大输入斜距（m）。 */
 };
 
 }  // namespace runtime

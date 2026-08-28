@@ -31,6 +31,25 @@ inline bool TargetWithinSteerableVolume(
          look.el_deg >= volume.el_min_deg && look.el_deg <= volume.el_max_deg;
 }
 
+/**
+ * @brief 实际搜索扇区 = 任务扫描子窗 ∩ 硬件可扫描体积（逐轴取交，az 相对、el 绝对）。
+ * @param[in] window 任务扫描子窗（用户指定作战搜索扇区；缺省无界即不收窄）。
+ * @param[in] volume 硬件最大可扫描体积。
+ * @return 逐轴交集限位；子窗缺省无界时结果等于 volume（既有行为兼容）。
+ * @note 交集可能为空（min > max）；空扇区在扫描内核（BuildScanPattern）与候选
+ *       裁剪处按「无波位/无候选」自然退化，不额外抛错（校验层已拒非法子窗）。
+ */
+inline config::RirAzimuthElevationLimitsDeg IntersectScanSector(
+    const config::RirAzimuthElevationLimitsDeg& window,
+    const config::RirAzimuthElevationLimitsDeg& volume) {
+  config::RirAzimuthElevationLimitsDeg sector;
+  sector.az_min_deg = window.az_min_deg > volume.az_min_deg ? window.az_min_deg : volume.az_min_deg;
+  sector.az_max_deg = window.az_max_deg < volume.az_max_deg ? window.az_max_deg : volume.az_max_deg;
+  sector.el_min_deg = window.el_min_deg > volume.el_min_deg ? window.el_min_deg : volume.el_min_deg;
+  sector.el_max_deg = window.el_max_deg < volume.el_max_deg ? window.el_max_deg : volume.el_max_deg;
+  return sector;
+}
+
 }  // namespace internal
 }  // namespace remote_identification_radar
 

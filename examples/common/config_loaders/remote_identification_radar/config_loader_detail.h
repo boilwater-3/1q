@@ -235,6 +235,8 @@ inline void LoadRirMission(const examples::JsonValue& j, rir_cfg::RirMissionConf
   if (j.Has("recognition_dwell_sec")) {
     v->recognition_dwell_sec = static_cast<float>(j["recognition_dwell_sec"].AsDouble());
   }
+  // 任务扫描子窗（用户指定作战搜索扇区）；缺省保持无界 [-180,180]×[-90,90]。
+  LoadRirAzElLimits(j["scan_window_deg"], &v->scan_window_deg);
   LoadRirScan(j["scan"], &v->scan);
 }
 
