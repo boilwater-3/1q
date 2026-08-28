@@ -1,5 +1,5 @@
 ---
-Status: draft（待评审冻结）
+Status: implemented（2026-08-28 场景三件套落地，运行验证回填见 §7）
 Date: 2026-08-28
 Authority: 场景设计（rir_ground_site_recognition 重新指定）
 Sources:
@@ -205,3 +205,5 @@ RIR 现有硬件参数（52 dBi、S 波段 3 GHz、峰值 582 kW、脉宽 16 ms�
 | 日期 | 修订 | 状态 |
 |---|---|---|
 | 2026-08-28 | 初稿：数据清洗（用户 4 裁定）+ 场景设计（弹道弧线模型、站点几何、识别库扩展、预期事件） | draft |
+| 2026-08-28 | 落地：ballistic 目标类型（examples/scenes/ballistic_trajectory.*，三约束闭式解 + Kepler 解析推进，WGS84 实际半径非对称近似）、BALLISTIC_EXAMPLE_B 入库（18 型号）、场景 JSON/md 重写、单测（设计表锚点 + 构造闭合）。实现裁定三条：① §4.1 方位窗"中心 200°"为真北参考，RIR 内部 look az 为东参考（atan2(north,east)），场景 JSON 编码 scan_center az = −110°（数值验证：5 目标真方位沿 292°→111° 单调递减扫过 200°，窗 ±92° 全覆盖，每目标扇区内 ≥901 周期）；② platform 块 loader 必填，按 §4.1 回退方案置于站点位置（速度 0）；③ §6.4 驻留冲突经代码侦察排除——`enable_directional_pattern=false` 回退主瓣峰值，检测为扇区制（扇区内候选逐周期等增益检测），按主案 cycle 1 ×5 designate | implemented |
+| 2026-08-28 | 运行验证回填：探测/跟踪/融合通道全达标（5 目标首探测周期 750/807/760/817/807，与 §3.2 窗口 ±3 s 吻合；fused=5；指定 5 条全执行）。§6.2 模板回填已执行：BALLISTIC_EXAMPLE_B 运动模板按 RIR 航迹实测分布校准（速度 4900±350、高度 1.00e6±3.5e5、加速度 14±3.5——原设计值按真实海拔设定，实测"高度"特征口径不符）。**遗留两项库级缺陷**（识别结论类别错误： bomber/missile 交替而非 BALLISTIC，待专项轮次）：① `MotionFeatureExtractor` 的 altitude 特征 = platform_altitude + ECEF position.z()（地心系 Z 坐标，北纬站址 ≈ 6.3e6 m），非大地高，任何模板 altitude 维永不匹配（单测 rir_recognition_feature_test.cpp:86-104 钉死了该语义）；② 航迹估计不确定度迹随弹道弧线膨胀（周期 820 后 P 迹 1.7e4→2.35e6），运动维度质量 = 10000/(10000+迹) 坍缩至 0.004，识别退化为纯 RCS 匹配（−10 dBsm 模板并列，置信度钉死 0.18-0.20，类别在并列模板间漂移）。冒烟下限 min_rir_recognition_outputs 修正为 1300：组件计数器是"任一航迹确认的周期数"（联合语义，实测 1375 = 各目标确认窗并集），原 §5 的 2500（5×500 加和）语义不可达；逐目标确认时长 887-1329 周期均 ≥500，设计意图（每目标持续确认 ≥500 周期）满足 | implemented |
