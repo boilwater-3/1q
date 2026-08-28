@@ -60,6 +60,8 @@ class ThreatComponent : public Component {
   void OnFusionUpdated(const FusionUpdatedEvent& event);
   /// AR 航迹状态事件回调（逐航迹缓存）。
   void OnArTrackState(const ArTrackStateEvent& event);
+  /// 信号惰性连接（首次 Step 接线；scoped_connection 随组件析构断开）。
+  void EnsureSignalConnections(World& world);
 
   threat_assessment::ThreatEvaluator evaluator_; /**< 评估器（纯函数式，无跨周期状态） */
   std::unordered_map<std::uint64_t, FusionSnapshot> fusion_by_key_{}; /**< 证据侧缓存 */

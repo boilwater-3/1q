@@ -61,6 +61,8 @@ class InferenceComponent : public Component {
 
   /// 融合态势事件回调（逐目标缓存；周期号供 Step 新鲜度过滤）。
   void OnFusionUpdated(const FusionUpdatedEvent& event);
+  /// 信号惰性连接（首次 Step 接线；scoped_connection 随组件析构断开）。
+  void EnsureSignalConnections(World& world);
 
   target_inference::TargetInferenceEngine engine_; /**< 推演引擎（纯函数式）。 */
   std::unordered_map<std::uint64_t, KinematicSnapshot>

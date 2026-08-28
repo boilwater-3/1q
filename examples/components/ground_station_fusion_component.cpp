@@ -17,6 +17,7 @@
 #include "1q/fusion/DetectionRecord.h"
 #include "1q/precision_evaluation/SbirsBearingAdapter.h"
 #include "1q/sbirs_sensor/session/SbirsCycleResult.h"
+#include "core/fusion_detection_bridge.h"
 #include "core/scene_types.h"
 #include "core/world.h"
 #include "logger/logger.h"
@@ -24,30 +25,6 @@
 namespace component_attachment {
 
 namespace {
-
-fusion::DetectionRecord ToDetectionRecord(const FusionDetectionSample& sample) {
-  fusion::DetectionRecord record;
-  record.key = sample.key;
-  record.source_id = sample.source_id;
-  record.has_position = sample.has_position;
-  if (sample.has_position) {
-    record.position = oneq::coordinate::LlaPositionDegM(
-        sample.latitude_deg, sample.longitude_deg, sample.altitude_m);
-  }
-  record.has_bearing = sample.has_bearing;
-  record.bearing_az_deg = sample.bearing_az_deg;
-  record.bearing_el_deg = sample.bearing_el_deg;
-  record.has_sensor_origin = sample.has_sensor_origin;
-  if (sample.has_sensor_origin) {
-    record.sensor_origin = oneq::coordinate::LlaPositionDegM(
-        sample.origin_latitude_deg, sample.origin_longitude_deg, sample.origin_altitude_m);
-  }
-  record.has_bearing_noise = sample.has_bearing_noise;
-  record.bearing_noise_sigma_rad = sample.bearing_noise_sigma_rad;
-  record.verdict = sample.verdict;
-  record.quality = sample.quality;
-  return record;
-}
 
 sbirs_sensor::session::SbirsCycleResult RebuildSbirsCycleResult(
     const SbirsFrameSubmittedEvent& event) {

@@ -17,6 +17,7 @@
 #include "1q/coordinate/scene_transform.h"
 #include "1q/fusion/SensorAdapters.h"
 #include "core/events.h"
+#include "core/fusion_detection_bridge.h"
 #include "logger/logger.h"
 #include "logger/logger_i18n.h"
 #include "flight_component.h"
@@ -108,10 +109,12 @@ std::vector<airborne_radar::session::ArTargetInput> BuildArEnuTargets(
 
 ArSensorComponent::ArSensorComponent(airborne_radar::session::ArSession session,
                                      std::uint64_t platform_entity_id,
-                                     std::uint64_t transmitter_equipment_id)
+                                     std::uint64_t transmitter_equipment_id,
+                                     DetectionDeliveryMode detection_delivery)
     : session_(std::move(session)),
       platform_entity_id_(platform_entity_id),
-      transmitter_equipment_id_(transmitter_equipment_id) {
+      transmitter_equipment_id_(transmitter_equipment_id),
+      detection_delivery_(detection_delivery) {
   // 轨迹生命周期事件由库内 recorder 承担（StepWithResult 内部自动喂）。
   session_.AttachTrackLifecycleRecorder(&lifecycle_);
   // 排除原因跨周期差分事件由库内 recorder 承担（与 lifecycle recorder 独立并列）。
@@ -307,7 +310,7 @@ void ArSensorComponent::Step(World& world, double dt_sec) {
 
   PublishTrackLifecycleEvents(world, scene, external_frame);  // 航迹首确认/失跟 → 信号+事件日志
   PublishExclusionEvents(world);                              // 排除原因变化沿 → 事件日志
-  AdaptDetections(scene, external_frame);                     // 已发布轨迹 → 共享探测池
+  AdaptDetections(world, scene, external_frame);             // 已发布轨迹 → 共享探测池或消息
 }
 
 void ArSensorComponent::PublishTrackStateEvents(
@@ -482,12 +485,24 @@ void ArSensorComponent::PublishExclusionEvents(World& world) {
 }
 
 void ArSensorComponent::AdaptDetections(
-    AppSceneState& scene,
+    World& world, AppSceneState& scene,
     const airborne_radar::session::ArExternalTrackOutputFrame& external_frame) {
-  // 已发布轨迹 → 泛型探测记录写共享探测池（融合组件聚合读；集成方对应把
-  // 记录消息推给融合组件）。
   const std::vector<fusion::DetectionRecord> records =
       fusion::AdaptArTracksToDetectionRecords(fusion::kArSourceId, external_frame);
+  if (detection_delivery_ == DetectionDeliveryMode::kMessage) {
+    // 消息路径：展平为基础类型后发 on_detection_batch_submitted（融合组件
+    // 订阅重建库类型；集成方对应把样本推给融合组件的消息）。
+    DetectionBatchSubmittedEvent event;
+    event.cycle = scene.cycle;
+    event.source_id = fusion::kArSourceId;
+    for (const auto& record : records) {
+      event.records.push_back(ToFusionDetectionSample(record));
+    }
+    world.signals().on_detection_batch_submitted(event);
+    return;
+  }
+  // 黑板路径：库内适配器 → 共享探测池（FusionComponent 聚合读；集成方对应
+  // 把记录消息推给融合组件）。
   scene.detection_pool.insert(scene.detection_pool.end(), records.begin(), records.end());
 }
 

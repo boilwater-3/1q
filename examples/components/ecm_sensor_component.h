@@ -50,6 +50,9 @@ class EcmSensorComponent : public Component {
   std::uint64_t last_submitted_esr_batch_id_{0U};  /**< 已提交给会话的最新 ESR 批次（防重复消费） */
   EsrScanUpdatedEvent esr_scan_{};  /**< 最近一次 ESR 假设集事件缓存（batch_id 为 0 = 尚无成功扫描） */
   boost::signals2::scoped_connection esr_connection_{}; /**< ESR 假设集信号订阅（首次 Step 惰性连接） */
+
+  void OnEsrScanUpdated(const EsrScanUpdatedEvent& event);
+  void EnsureSignalConnections(World& world);
 };
 
 }  // namespace component_attachment

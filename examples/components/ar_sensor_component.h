@@ -19,6 +19,7 @@
 #include "1q/airborne_radar/session/ArTrackOutputDebugView.h"
 #include "1q/coordinate/types.h"
 #include "core/component.h"
+#include "core/detection_delivery.h"
 #include "logger/logger_modes.h"
 
 namespace component_attachment {
@@ -32,7 +33,8 @@ struct AppSceneState;  // core/scene_types.h（同上）
 class ArSensorComponent : public Component {
  public:
   ArSensorComponent(airborne_radar::session::ArSession session, std::uint64_t platform_entity_id,
-                    std::uint64_t transmitter_equipment_id);
+                    std::uint64_t transmitter_equipment_id,
+                    DetectionDeliveryMode detection_delivery = DetectionDeliveryMode::kSharedBlackboard);
   ~ArSensorComponent() override = default;
 
   ArSensorComponent(const ArSensorComponent&) = delete;
@@ -95,6 +97,7 @@ class ArSensorComponent : public Component {
 #endif
 
   bool powered_on_{true}; /**< 电源状态（由 sensor_enabled 补丁唯一维护；关机时不驱动会话） */
+  DetectionDeliveryMode detection_delivery_{DetectionDeliveryMode::kSharedBlackboard};
 
   /// 调试视图中文人读行写入（三模式分支见 .cpp；宏选择见 logger/logger_modes.h）。
   void LogDebugView(const airborne_radar::session::ArTrackOutputDebugView& view,
@@ -115,8 +118,8 @@ class ArSensorComponent : public Component {
   /// AR 航迹逐周期状态事件（速度/RCS/位置展平 → on_ar_track_state；威胁评估订阅）。
   void PublishTrackStateEvents(World& world,
                                const airborne_radar::session::ArTrackOutputDebugView& view);
-  /// 已发布轨迹 → 泛型探测记录写共享探测池（源通道 kArSourceId；失跟轨迹不入融合）。
-  void AdaptDetections(AppSceneState& scene,
+  /// 已发布轨迹 → 泛型探测记录写共享探测池或 on_detection_batch_submitted（源通道 kArSourceId；失跟轨迹不入融合）。
+  void AdaptDetections(World& world, AppSceneState& scene,
                        const airborne_radar::session::ArExternalTrackOutputFrame& external_frame);
 };
 

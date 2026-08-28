@@ -48,6 +48,8 @@ cmake --install "build/${preset}"   # packaging only
 
 Use `scripts/1q.sh` from Git Bash or WSL. `doctor` must show Windows `cmake=` / `ctest=` paths. Do not point a Linux-native cmake at `VisualStudio.*` presets. Build only the needed target; BOM is auto-fixed by the pre-commit hook. After public-header layout changes, batch SEH `0xc0000005` / spurious `bad_alloc` → `scripts/1q.sh clean-stale VisualStudio.15.0-amd64 <module>`, then rebuild.
 
+Bootstrap/configure **once per preset** (or after dependency / CMake changes only). **`1q.sh build` never implicit-reconfigures**: if CMake inputs are newer than `generate.stamp`, build fails and tells you to run `configure` explicitly. Switching presets requires matching configure/build families yourself (e.g. configure `VisualStudio.15.0-amd64`, build/test `VisualStudio.15.0-amd64-release`) — do not reuse another preset's build tree. Base preset sets `CMAKE_SUPPRESS_REGENERATION=ON` so VS/MSBuild does not silently re-run cmake during build.
+
 One-time:
 
 ```bash
@@ -68,7 +70,7 @@ scripts/1q.sh test VisualStudio.15.0-amd64-release -R "unit::<module>"
 - **Release preset only** for routine dev (`VisualStudio.15.0-amd64-release`); Debug (`/Od` + `/RTC1`) is much slower on Eigen-heavy TUs.
 - **Always pass `--target`** (e.g. `1q_fusion_unit_tests`); bare `cmake --build` builds `ALL_BUILD` (~full solution).
 - **Avoid touching `src/common/` and `include/1q/` headers** unless necessary — e.g. `common/estimation/EkfFilter.h` is included across fusion / sbirs / rir / AR; one edit cascades to many TUs. Prefer changes in `src/<module>/*.cpp`.
-- **Do not re-run `configure`** except after dependency or CMake changes; it triggers a one-time full rebuild.
+- **Do not re-run `configure`** except after dependency or CMake changes; it triggers a one-time full rebuild. If build fails with stale CMake inputs, run `scripts/1q.sh configure VisualStudio.15.0-amd64` explicitly (expected full rebuild), then resume incremental builds.
 - **Sanity check**: a no-op second build should finish in seconds with no `编译源文件 xxx.cpp` lines; long MSBuild logs of `*.vcxproj ->` alone are up-to-date checks, not full recompiles.
 - **Repo accelerators** (Windows v141 preset): `ENABLE_PCH=ON` precompiles `<Eigen/Core>` + common STL; `src/common/estimation/EstimationInstantiations.cpp` explicitly instantiates **6×3 / 6×2** Kalman/EKF/UKF/IMM (`extern template` elsewhere). Other test-only dimensions (e.g. 4×2) still instantiate locally in test TUs.
 - Full troubleshooting and delivery notes: `docs/practice/windows_local_build.md` (section **Eigen 编译耗时与日常优化**).

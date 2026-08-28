@@ -19,6 +19,7 @@
 #include "1q/remote_identification_radar/session/RirSession.h"
 #include "1q/remote_identification_radar/session/RirTrackLifecycleRecorder.h"
 #include "core/component.h"
+#include "core/detection_delivery.h"
 #include "logger/logger_modes.h"
 
 namespace component_attachment {
@@ -36,7 +37,8 @@ class RirSensorComponent : public Component {
  public:
   RirSensorComponent(remote_identification_radar::session::RirSession session,
                      const oneq::coordinate::LlaPositionDegM& site_origin,
-                     std::uint64_t sensor_platform_id, float recognition_dwell_sec);
+                     std::uint64_t sensor_platform_id, float recognition_dwell_sec,
+                     DetectionDeliveryMode detection_delivery = DetectionDeliveryMode::kSharedBlackboard);
   ~RirSensorComponent() override = default;
 
   RirSensorComponent(const RirSensorComponent&) = delete;
@@ -95,8 +97,8 @@ class RirSensorComponent : public Component {
   /// 排除原因跨周期差分事件（纯诊断观测，仅落事件日志）。
   void PublishExclusionEvents(
       World& world, const remote_identification_radar::session::RirCycleResult& result);
-  /// 特征量测 → 泛型探测记录写共享探测池 + 归属表键重写（库内键 → 外部目标 ID 并键融合）。
-  void AdaptDetections(AppSceneState& scene,
+  /// 特征量测 → 泛型探测记录写共享探测池或 on_detection_batch_submitted + 归属表键重写（库内键 → 外部目标 ID 并键融合）。
+  void AdaptDetections(World& world, AppSceneState& scene,
                        const remote_identification_radar::session::RirCycleResult& result);
 
   // 生命周期/排除差分记录器：声明在 session_ 之前——析构顺序保证
@@ -126,6 +128,7 @@ class RirSensorComponent : public Component {
 #endif
 
   bool powered_on_{true};  /**< 电源状态（由 sensor_enabled 补丁唯一维护） */
+  DetectionDeliveryMode detection_delivery_{DetectionDeliveryMode::kSharedBlackboard};
   bool step_timing_logged_{false};  /**< 单步执行时间是否已写入示例日志（只写首个周期） */
   std::uint32_t confirmed_recognition_outputs_{0U};  /**< 有确认结论的周期数（冒烟下限断言用） */
 };

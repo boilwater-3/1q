@@ -18,6 +18,7 @@
 #include "1q/electro_optical_sensor/session/EosSceneTypes.h"
 #include "1q/fusion/SensorAdapters.h"
 #include "core/events.h"
+#include "core/fusion_detection_bridge.h"
 #include "logger/logger.h"
 #include "logger/logger_i18n.h"
 #include "flight_component.h"
@@ -145,8 +146,9 @@ const char* EosExclusionCauseName(electro_optical_sensor::session::EosIssueCause
 
 }  // namespace
 
-EosSensorComponent::EosSensorComponent(electro_optical_sensor::session::EosSession session)
-    : session_(std::move(session)) {
+EosSensorComponent::EosSensorComponent(electro_optical_sensor::session::EosSession session,
+                                       DetectionDeliveryMode detection_delivery)
+    : session_(std::move(session)), detection_delivery_(detection_delivery) {
   // 探测生命周期事件由库内 recorder 承担（StepWithResult 内部自动喂）。
   session_.AttachDetectionLifecycleRecorder(&lifecycle_);
   // 排除原因跨周期差分事件由库内 recorder 承担（与 lifecycle recorder 独立并列）。
@@ -305,7 +307,7 @@ void EosSensorComponent::Step(World& world, double dt_sec) {
   }
   PublishDetectionEvents(world, scene, result);  // 探测生命周期沿 → 信号+事件日志
   PublishExclusionEvents(world);                 // 排除原因变化沿 → 事件日志
-  AdaptDetections(scene, result);                // 探测记录 → 共享探测池
+  AdaptDetections(world, scene, result);                // 探测记录 → 共享探测池或消息
 }
 
 void EosSensorComponent::PublishDetectionEvents(
@@ -438,13 +440,26 @@ void EosSensorComponent::PublishExclusionEvents(World& world) {
 }
 
 void EosSensorComponent::AdaptDetections(
-    AppSceneState& scene, const electro_optical_sensor::session::EosCycleResult& result) {
-  // 探测记录 → 泛型探测记录写共享探测池（融合组件聚合读；集成方对应把记录
-  // 消息推给融合组件）。
-  const auto& records = result.output_frame.detections;
-  const std::vector<fusion::DetectionRecord> adapted =
-      fusion::AdaptEosDetectionsToDetectionRecords(fusion::kEosSourceId, records);
-  scene.detection_pool.insert(scene.detection_pool.end(), adapted.begin(), adapted.end());
+    World& world, AppSceneState& scene,
+    const electro_optical_sensor::session::EosCycleResult& result) {
+  const auto& detections = result.output_frame.detections;
+  const std::vector<fusion::DetectionRecord> records =
+      fusion::AdaptEosDetectionsToDetectionRecords(fusion::kEosSourceId, detections);
+  if (detection_delivery_ == DetectionDeliveryMode::kMessage) {
+    // 消息路径：展平为基础类型后发 on_detection_batch_submitted（融合组件
+    // 订阅重建库类型；集成方对应把样本推给融合组件的消息）。
+    DetectionBatchSubmittedEvent event;
+    event.cycle = scene.cycle;
+    event.source_id = fusion::kEosSourceId;
+    for (const auto& record : records) {
+      event.records.push_back(ToFusionDetectionSample(record));
+    }
+    world.signals().on_detection_batch_submitted(event);
+    return;
+  }
+  // 黑板路径：库内适配器 → 共享探测池（FusionComponent 聚合读；集成方对应
+  // 把记录消息推给融合组件）。
+  scene.detection_pool.insert(scene.detection_pool.end(), records.begin(), records.end());
 }
 
 

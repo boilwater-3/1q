@@ -105,15 +105,20 @@ std::vector<threat_assessment::ThreatEvaluationInput> ThreatComponent::BuildEval
   return inputs;
 }
 
-void ThreatComponent::Step(World& world, double dt_sec) {
-  (void)dt_sec;
-  // 事件接线（首次 Step 惰性连接；scoped_connection 随组件析构自动断开）。
+void ThreatComponent::EnsureSignalConnections(World& world) {
   if (!fusion_connection_.connected()) {
     fusion_connection_ = world.signals().on_fusion_updated.connect(
         [this](const FusionUpdatedEvent& event) { OnFusionUpdated(event); });
+  }
+  if (!ar_track_connection_.connected()) {
     ar_track_connection_ = world.signals().on_ar_track_state.connect(
         [this](const ArTrackStateEvent& event) { OnArTrackState(event); });
   }
+}
+
+void ThreatComponent::Step(World& world, double dt_sec) {
+  (void)dt_sec;
+  EnsureSignalConnections(world);
 
   const std::vector<threat_assessment::ThreatEvaluationInput> inputs =
       BuildEvaluationInputs(world.scene_state().cycle);

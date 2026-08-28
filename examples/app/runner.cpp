@@ -293,6 +293,7 @@ int RunScene(const std::string& scene_path, const RunOptions& options) {
       rir_site != nullptr ? rir_site->Find<ca::RirSensorComponent>() : nullptr,
       scene_data.targets);
   app::AppOutputs outputs(output_dir);
+  ca::FusionComponent* fusion_component = platform.Find<ca::FusionComponent>();
 
   // 多机编队：主平台（platform 块，挂传感器/融合）+ 从机（platforms[] 数组，
   // 纯飞行）。每架飞行器各自的航路/区域任务 = "不同指令"；aircraft_id =
@@ -402,12 +403,15 @@ int RunScene(const std::string& scene_path, const RunOptions& options) {
       world.signals().on_command_issued(command);
     }
 
+    if (fusion_component != nullptr) {
+      fusion_component->BeginCycle(world, cycle);
+    }
     world.Step(scene_data.dt_sec);  // 步进序：Flight → ESR → [ECM] → AR → EOS → … → Fusion
 
     // 周期摘要 + 平台轨迹/调试视图落盘（多机：主平台 + 每架从机一行，
     // aircraft_id 区分；目标真值每目标一行，entity_type 透出空中/地面）。
     const auto* flight = platform.Find<ca::FlightComponent>();
-    const auto* fusion = platform.Find<ca::FusionComponent>();
+    const auto* fusion = fusion_component;
     max_fused_targets = std::max(max_fused_targets, fusion->targets().size());
     std::cout << "cycle=" << cycle
               << " plat[alt=" << flight->position().altitude_m

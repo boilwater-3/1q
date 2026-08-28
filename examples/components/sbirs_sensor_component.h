@@ -16,6 +16,7 @@
 #include "1q/sbirs_sensor/session/SbirsOutputDebugView.h"
 #include "1q/sbirs_sensor/session/SbirsSession.h"
 #include "core/component.h"
+#include "core/detection_delivery.h"
 #include "logger/logger_modes.h"
 
 namespace component_attachment {
@@ -26,12 +27,6 @@ struct AppSceneState;  // core/scene_types.h（头文件仅引用，实现文件
 enum class SbirsGroundDeliveryMode {
   kSharedBlackboard = 0, /**< 写 AppSceneState.sbirs_ground_station_inbox */
   kMessage = 1           /**< 发 on_sbirs_frame_submitted */
-};
-
-/** @brief 机载/单站探测记录投递方式（ground_station_source_id 为 0 时生效）。 */
-enum class DetectionDeliveryMode {
-  kSharedBlackboard = 0, /**< 写 AppSceneState.detection_pool */
-  kMessage = 1           /**< 发 on_detection_batch_submitted */
 };
 
 /**

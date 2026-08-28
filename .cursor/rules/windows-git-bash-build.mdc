@@ -25,6 +25,7 @@ scripts/1q.sh doctor
 ## 标准命令（一律走 preset / 1q.sh；同 preset 先 build 再 test）
 
 bootstrap/configure **只在首次或依赖/CMake 变更后跑**——重跑 configure 会打破增量状态、触发大重建。
+**`1q.sh build` 禁止隐式 reconfigure**：CMake 输入比 `generate.stamp` 新时 build 直接失败，须先 `configure` 对应 preset；切换 preset 须自己选对 configure/build 族（例 `VisualStudio.15.0-amd64` + `-release`）。
 日常只编需要的 target（全解决方案 119 个工程，很少需要全编）：
 
 ```bash

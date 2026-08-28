@@ -21,6 +21,8 @@
 
 #include "1q/coordinate/position_transform.h"
 #include "1q/fusion/SensorAdapters.h"
+#include "core/events.h"
+#include "core/fusion_detection_bridge.h"
 #include "1q/remote_identification_radar/session/RirCycleInput.h"
 #include "logger/acceptance_timing.h"
 #include "core/world.h"
@@ -145,11 +147,13 @@ const char* TrackStatusName(rir::RirTrackLifecycleStatus status) {
 
 RirSensorComponent::RirSensorComponent(
     rir::RirSession session, const oneq::coordinate::LlaPositionDegM& site_origin,
-    std::uint64_t sensor_platform_id, float recognition_dwell_sec)
+    std::uint64_t sensor_platform_id, float recognition_dwell_sec,
+    DetectionDeliveryMode detection_delivery)
     : session_(std::move(session)),
       site_origin_(site_origin),
       sensor_platform_id_(sensor_platform_id),
-      recognition_dwell_sec_(recognition_dwell_sec) {
+      recognition_dwell_sec_(recognition_dwell_sec),
+      detection_delivery_(detection_delivery) {
   // 站点固定：ECEF 解析一次，逐周期作为特征量测 sensor_origin 提供。
   oneq::coordinate::TryLlaToEcef(site_origin_, &site_ecef_);
   // 生命周期/排除差分记录器：StepWithResult 内部自动喂，组件只读事件。
@@ -221,7 +225,7 @@ void RirSensorComponent::Step(World& world, double dt_sec) {
   PublishDesignationEvent(world, result);                    // 指定任务终态沿 → 事件日志
   PublishTrackLifecycleEvents(world, result);                // 航迹首确认/丢失/作废沿 → 事件日志
   PublishExclusionEvents(world, result);                     // 排除原因变化沿 → 事件日志
-  AdaptDetections(scene, result);                            // 特征量测 → 共享探测池
+  AdaptDetections(world, scene, result);                            // 特征量测 → 共享探测池或消息
 }
 
 void RirSensorComponent::PublishRecognitionEvents(
@@ -413,18 +417,16 @@ void RirSensorComponent::PublishExclusionEvents(
 
 }
 
-void RirSensorComponent::AdaptDetections(AppSceneState& scene,
-                                         const rir::RirCycleResult& result) {
-  // 特征量测 → 统一探测记录写共享探测池（融合组件聚合读；集成方对应把记录
-  // 发给融合组件的消息）。键按归属表从库内键重写为外部目标 ID，与其它源同键
-  // 后才会并进同一条融合航迹；无归属记录保留库内键。
+void RirSensorComponent::AdaptDetections(
+    World& world, AppSceneState& scene, const rir::RirCycleResult& result) {
+  // 特征量测 → 统一探测记录（键按归属表从库内键重写为外部目标 ID，与其它源同键
+  // 后才会并进同一条融合航迹；无归属记录保留库内键）。
   rir::RirFeatureMeasurementFrame frame;
   frame.input_cycle_index = result.output_frame.input_cycle_index;
   frame.batch_id = result.output_frame.batch_id;
   frame.records = result.output_frame.feature_measurements;
   std::vector<fusion::DetectionRecord> records =
-      fusion::AdaptRirFeatureMeasurementsToDetectionRecords(
-          fusion::kRirSourceId, frame);
+      fusion::AdaptRirFeatureMeasurementsToDetectionRecords(fusion::kRirSourceId, frame);
   std::unordered_map<std::uint64_t, std::uint64_t> key_to_external;
   for (const auto& attribution : result.track_attributions) {
     if (attribution.external_target_id != 0U) {
@@ -437,6 +439,20 @@ void RirSensorComponent::AdaptDetections(AppSceneState& scene,
       record.key = it->second;
     }
   }
+  if (detection_delivery_ == DetectionDeliveryMode::kMessage) {
+    // 消息路径：展平为基础类型后发 on_detection_batch_submitted（融合组件
+    // 订阅重建库类型；集成方对应把样本推给融合组件的消息）。
+    DetectionBatchSubmittedEvent event;
+    event.cycle = scene.cycle;
+    event.source_id = fusion::kRirSourceId;
+    for (const auto& record : records) {
+      event.records.push_back(ToFusionDetectionSample(record));
+    }
+    world.signals().on_detection_batch_submitted(event);
+    return;
+  }
+  // 黑板路径：库内适配器 → 共享探测池（FusionComponent 聚合读；集成方对应
+  // 把记录消息推给融合组件）。
   scene.detection_pool.insert(scene.detection_pool.end(), records.begin(), records.end());
 }
 

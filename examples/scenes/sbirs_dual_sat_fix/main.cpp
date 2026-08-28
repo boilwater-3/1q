@@ -450,6 +450,7 @@ int main(int argc, char* argv[]) {
     app_scene.sbirs_ground_station_inbox.clear();
     fusion->SetEvaluationInputs(scene.ephemeris, scene.truth);
     component_attachment::app::BeginViewLogCycle(cycle);
+    fusion->BeginCycle(world, cycle);
     world.Step(static_cast<double>(scene.dt_sec));
     const pe::PrecisionEvaluationCycleResult& result = fusion->last_evaluation();
     if (!result.dual_sat.empty()) {

@@ -16,6 +16,7 @@
 
 #include "1q/coordinate/inertial_transform.h"
 #include "1q/precision_evaluation/SbirsBearingAdapter.h"
+#include "core/fusion_detection_bridge.h"
 #include "core/events.h"
 #include "core/scene_types.h"
 #include "core/world.h"
@@ -64,14 +65,40 @@ precision_evaluation::PrecisionEvaluationReport FusionComponent::SummarizeEvalua
   return evaluation_->Summarize();
 }
 
+void FusionComponent::BeginCycle(World& world, std::uint64_t cycle) {
+  EnsureSignalConnections(world);
+  inbox_cycle_ = cycle;
+  detection_inbox_.clear();
+}
+
+void FusionComponent::EnsureSignalConnections(World& world) {
+  if (!detection_batch_connection_.connected()) {
+    detection_batch_connection_ = world.signals().on_detection_batch_submitted.connect(
+        [this](const DetectionBatchSubmittedEvent& event) { OnDetectionBatchSubmitted(event); });
+  }
+}
+
+void FusionComponent::OnDetectionBatchSubmitted(const DetectionBatchSubmittedEvent& event) {
+  if (event.cycle != inbox_cycle_) {
+    return;
+  }
+  detection_inbox_.insert(detection_inbox_.end(), event.records.begin(), event.records.end());
+}
+
 void FusionComponent::Step(World& world, double dt_sec) {
   (void)dt_sec;
   if (engine_ == nullptr) {
     return;  // 无引擎：无融合
   }
 
+  EnsureSignalConnections(world);
+
   auto& scene = static_cast<AppSceneState&>(world.scene_state());
   std::vector<fusion::DetectionRecord> fusion_records = scene.detection_pool;
+  fusion_records.reserve(fusion_records.size() + detection_inbox_.size());
+  for (const FusionDetectionSample& sample : detection_inbox_) {
+    fusion_records.push_back(ToDetectionRecord(sample));
+  }
 
   double gmst_rad = 0.0;
   const bool have_gmst =

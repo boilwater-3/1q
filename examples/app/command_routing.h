@@ -34,9 +34,15 @@ class DecisionListener {
   bool issued() const { return issued_; }
 
  private:
+  void OnFusionUpdated(const FusionUpdatedEvent& event);
+  void OnThreatUpdated(const ThreatUpdatedEvent& event);
+  void EnsureSignalConnections();
+
   World& world_;
   double high_threat_confidence_{3.0};
   bool issued_{false};
+  boost::signals2::scoped_connection fusion_connection_{};
+  boost::signals2::scoped_connection threat_connection_{};
 };
 
 /**
@@ -76,6 +82,7 @@ class CommandRouter {
 
  private:
   void OnCommand(const CommandIssuedEvent& event);
+  void EnsureSignalConnections();
   std::uint64_t ResolveExternalTargetId(std::uint64_t target_key) const;
 
   World& world_;
@@ -85,6 +92,23 @@ class CommandRouter {
   boost::signals2::scoped_connection connection_{};
   std::uint32_t executed_{0U};
   std::uint32_t dropped_{0U};
+};
+
+/**
+ * @brief 落点预报分发回执监听器：订阅 on_impact_forecast_published，写集成端
+ *        事件日志（验证分发链路可达；接收方 ID 由构造注入）。
+ */
+class ImpactForecastReceiptListener {
+ public:
+  ImpactForecastReceiptListener(World& world, std::uint64_t receiver_entity_id);
+
+ private:
+  void OnImpactForecastPublished(const ImpactForecastEvent& event);
+  void EnsureSignalConnections();
+
+  World& world_;
+  std::uint64_t receiver_entity_id_{0U};
+  boost::signals2::scoped_connection impact_forecast_connection_{};
 };
 
 }  // namespace app

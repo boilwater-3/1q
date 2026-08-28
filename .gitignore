@@ -109,3 +109,7 @@ scripts/1q_env.local.sh
 
 # 示例运行时日志/CSV/验收文件产物（统一默认输出目录 examples/log/）
 examples/log/
+
+# python bytecode
+__pycache__/
+*.pyc

@@ -105,7 +105,10 @@ Eigen 是 header-only：没有 `.lib` 可链接，**每个包含 estimation 模�
    `EkfFilter.h`）被 fusion / sbirs / rir / airborne_radar 等多模块引用；改一行
    会级联重编所有 include 链上的 TU。业务改动优先留在模块 `src/<module>/*.cpp`。
 4. **不要反复 `configure`**：仅依赖/CMake 变更后跑；改 CMake 编译选项会触发一次
-   全量重编。
+   全量重编。`1q.sh build` **禁止隐式 reconfigure**——若 CMake 输入比
+   `generate.stamp` 新，build 会失败并提示先 `scripts/1q.sh configure <preset>`；
+   切换 preset 时必须 configure 对应的 configure_preset（例：build
+   `VisualStudio.15.0-amd64-release` 对应 configure `VisualStudio.15.0-amd64`）。
 5. **区分「检查」与「重编」**：增量有效时，第二次 build 应在数秒内结束，日志无
    `编译源文件 xxx.cpp`；若仍出现大量 cl 输出，先查是否改了 common 头或刚 configure。
 

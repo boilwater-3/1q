@@ -15,6 +15,7 @@
 #include <string>
 #include <vector>
 
+#include "app/command_routing.h"
 #include "app/fs_compat.h"
 
 #include "1q/coordinate/position_transform.h"
@@ -559,22 +560,9 @@ int main(int argc, char* argv[]) {
 
   // 评审 2026-08-26 条12：订阅落点预报外发事件，收件回执写 integration_events.log
   // （验证分发链路真实可达，非仅日志口径；接收方为 impact_receiver 实体）。
-  const std::uint64_t impact_receiver_id = impact_receiver.id();
-  boost::signals2::scoped_connection impact_connection =
-      world.signals().on_impact_forecast_published.connect(
-          [impact_receiver_id](const component_attachment::ImpactForecastEvent& event) {
-            component_attachment::app::LogEvent(
-                event.cycle, static_cast<double>(event.cycle), "impact_forecast",
-                "目标键=" + std::to_string(event.key) + " 落点LLA=(" +
-                    std::to_string(event.impact_latitude_deg) + "," +
-                    std::to_string(event.impact_longitude_deg) + "," +
-                    std::to_string(event.impact_altitude_m) + ") 落点1σ=" +
-                    std::to_string(event.impact_position_sigma_m) + "m 关机点1σ=" +
-                    (event.has_burnout_sigma ? std::to_string(event.burnout_position_sigma_m) + "m"
-                                             : std::string("无")) +
-                    " 置信度=" + std::to_string(event.confidence) +
-                    " 分发对象ID=" + std::to_string(impact_receiver_id));
-          });
+  component_attachment::app::ImpactForecastReceiptListener impact_receipt(
+      world, static_cast<std::uint64_t>(impact_receiver.id()));
+  (void)impact_receipt;
 
   std::cout << "sbirs_dual_sat_fix_messages: " << scene_path << ", " << scene.cycles
             << " cycles x " << scene.dt_sec << " s, satellites=" << scene.satellites.size()

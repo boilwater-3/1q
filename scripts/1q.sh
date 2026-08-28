@@ -29,6 +29,9 @@ usage() {
 configure_preset 例：VisualStudio.15.0-amd64
 build/test preset 例：VisualStudio.15.0-amd64-release | VisualStudio.15.0-amd64-debug
 
+build 禁止隐式 reconfigure：CMake/依赖变更后须先 configure 对应 preset，再 build。
+切换 preset 时 configure/build/test 三者的 preset 族必须一致（例：15.0-amd64 / 15.0-amd64-release）。
+
 首次使用：source scripts/activate_1q_git_bash.sh
 EOF
 }
@@ -114,6 +117,9 @@ case "${cmd}" in
       extra+=("$1")
       shift
     done
+    # shellcheck source=lib/1q_build_guard.sh
+    source "${SCRIPT_DIR}/lib/1q_build_guard.sh"
+    _oneq_run_build_guard "${preset}" || exit 1
     exec cmake --build --preset "${preset}" "${extra[@]}"
     ;;
   test)

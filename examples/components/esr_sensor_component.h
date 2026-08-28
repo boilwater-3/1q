@@ -13,6 +13,7 @@
 #include "1q/electronic_surveillance_radar/session/EsrSession.h"
 #include "1q/electronic_surveillance_radar/session/EmitterHypothesis.h"
 #include "core/component.h"
+#include "core/detection_delivery.h"
 
 namespace component_attachment {
 
@@ -24,7 +25,9 @@ struct AppSceneState;  // core/scene_types.h（同上）
  */
 class EsrSensorComponent : public Component {
  public:
-  explicit EsrSensorComponent(electronic_surveillance_radar::session::EsrSession session);
+  explicit EsrSensorComponent(
+      electronic_surveillance_radar::session::EsrSession session,
+      DetectionDeliveryMode detection_delivery = DetectionDeliveryMode::kSharedBlackboard);
   ~EsrSensorComponent() override = default;
 
   EsrSensorComponent(const EsrSensorComponent&) = delete;
@@ -79,6 +82,7 @@ class EsrSensorComponent : public Component {
   bool has_last_completed_output_{false};           /**< 是否至少完成过一个成功周期 */
 
   bool powered_on_{true}; /**< 电源状态（由 sensor_enabled 补丁唯一维护；关机时不驱动会话） */
+  DetectionDeliveryMode detection_delivery_{DetectionDeliveryMode::kSharedBlackboard};
 
   /// 周期输入组装：平台运动学（Flight）+ RF-WORLD 发射包络（供 StepWithResult）。
   electronic_surveillance_radar::session::EsrCycleInput BuildCycleInput(
@@ -89,8 +93,8 @@ class EsrSensorComponent : public Component {
   void PublishScanEvent(World& world, const AppSceneState& scene);
   /// 排除原因跨周期差分事件（纯诊断观测，仅落事件日志）。
   void PublishExclusionEvents(World& world);
-  /// 辐射源假设 → 泛型探测记录写共享探测池（源通道 kEsrSourceId）。
-  void AdaptDetections(AppSceneState& scene);
+  /// 辐射源假设 → 泛型探测记录写共享探测池或 on_detection_batch_submitted（源通道 kEsrSourceId）。
+  void AdaptDetections(World& world, AppSceneState& scene);
 };
 
 }  // namespace component_attachment

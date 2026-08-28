@@ -61,16 +61,23 @@ const char* EcmTechniqueName(ecm::EcmTechnique technique) {
 EcmSensorComponent::EcmSensorComponent(ecm::session::EcmSession session)
     : session_(std::move(session)) {}
 
+void EcmSensorComponent::OnEsrScanUpdated(const EsrScanUpdatedEvent& event) {
+  esr_scan_ = event;
+}
+
+void EcmSensorComponent::EnsureSignalConnections(World& world) {
+  if (!esr_connection_.connected()) {
+    esr_connection_ = world.signals().on_esr_scan_updated.connect(
+        [this](const EsrScanUpdatedEvent& event) { OnEsrScanUpdated(event); });
+  }
+}
+
 void EcmSensorComponent::Step(World& world, double dt_sec) {
   if (!powered_on_) {
     return;
   }
 
-  // 事件接线（首次 Step 惰性连接；scoped_connection 随组件析构自动断开）。
-  if (!esr_connection_.connected()) {
-    esr_connection_ = world.signals().on_esr_scan_updated.connect(
-        [this](const EsrScanUpdatedEvent& event) { esr_scan_ = event; });
-  }
+  EnsureSignalConnections(world);
 
   const FlightComponent* flight = host_ != nullptr ? host_->Find<FlightComponent>() : nullptr;
   if (flight == nullptr) {

@@ -14,51 +14,65 @@ namespace app {
 
 DecisionListener::DecisionListener(World& world, double high_threat_confidence)
     : world_(world), high_threat_confidence_(high_threat_confidence) {
-  world_.signals().on_fusion_updated.connect([this](const FusionUpdatedEvent& e) {
-    if (e.confidence >= high_threat_confidence_ && !issued_) {
-      issued_ = true;
-      CommandIssuedEvent command;
-      command.cycle = e.cycle;
-      command.kind = CommandKind::kEnableAntiFalseTarget;
-      command.command = "ENABLE_ANTI_FALSE_TARGET_DISCRIMINATION";
-      // 与下方写入行同内容：纯 std::string/std::to_string 拼接的日志字符串，供集成方直接搬入己方日志（示例自身不消费）。
-      const std::string command_issued_event_log =
-          std::string("指令=") +
-          (command.command.c_str());
-      CA_LOG_EVENT(world_, "command_issued", "指令={}", command.command.c_str());
-      world_.signals().on_command_issued(command);
-    }
-  });
+  EnsureSignalConnections();
+}
+
+void DecisionListener::EnsureSignalConnections() {
+  if (!fusion_connection_.connected()) {
+    fusion_connection_ = world_.signals().on_fusion_updated.connect(
+        [this](const FusionUpdatedEvent& event) { OnFusionUpdated(event); });
+  }
+  if (!threat_connection_.connected()) {
+    threat_connection_ = world_.signals().on_threat_updated.connect(
+        [this](const ThreatUpdatedEvent& event) { OnThreatUpdated(event); });
+  }
+}
+
+void DecisionListener::OnFusionUpdated(const FusionUpdatedEvent& event) {
+  if (event.confidence >= high_threat_confidence_ && !issued_) {
+    issued_ = true;
+    CommandIssuedEvent command;
+    command.cycle = event.cycle;
+    command.kind = CommandKind::kEnableAntiFalseTarget;
+    command.command = "ENABLE_ANTI_FALSE_TARGET_DISCRIMINATION";
+    // 与下方写入行同内容：纯 std::string/std::to_string 拼接的日志字符串，供集成方直接搬入己方日志（示例自身不消费）。
+    const std::string command_issued_event_log =
+        std::string("指令=") +
+        (command.command.c_str());
+    CA_LOG_EVENT(world_, "command_issued", "指令={}", command.command.c_str());
+    world_.signals().on_command_issued(command);
+  }
+}
+
+void DecisionListener::OnThreatUpdated(const ThreatUpdatedEvent& event) {
   // 威胁链路：威胁等级 HIGH 首次出现即触发指令（门限 = 评估器 HIGH 阈值；
   // 升级关键事件由 ThreatComponent 直写，此处消费信号补决策指令）。指令带
   // 融合键（target_key），CommandRouter 翻译为外部目标 ID 后下发 AR STT
   // 锁定 + RIR 指定识别（决策 → 行动的闭环执行段）。
-  world_.signals().on_threat_updated.connect([this](const ThreatUpdatedEvent& e) {
-    if (e.level == EventThreatLevel::kHigh && !issued_) {
-      issued_ = true;
-      CommandIssuedEvent command;
-      command.cycle = e.cycle;
-      command.kind = CommandKind::kEngageHighThreat;
-      command.target_key = e.key;
-      command.command = "ENGAGE_HIGH_THREAT";
-      // 中译：高威胁目标键 {} 触发交战指令（威胁分 {:.2f}）。
-      // 标识：威胁→决策指令链——威胁等级 HIGH 首次出现即下发一次指令，
-      //       与融合置信度门限指令互斥（issued_ 共享）。
-      // 与下方写入行同内容：纯 std::string/std::to_string 拼接的日志字符串，供集成方直接搬入己方日志（示例自身不消费）。
-      const std::string command_issued_event_log_2 =
-          std::string("指令=") +
-          (command.command.c_str()) +
-          " 键=" +
-          std::to_string(static_cast<unsigned long long>(e.key)) +
-          " 威胁分=" +
-          std::to_string(e.threat_score);
-      CA_LOG_EVENT(world_, "command_issued", "指令={} 键={} 威胁分={:.2f}",
-                   command.command.c_str(),
-                   static_cast<unsigned long long>(e.key),
-                   e.threat_score);
-      world_.signals().on_command_issued(command);
-    }
-  });
+  if (event.level == EventThreatLevel::kHigh && !issued_) {
+    issued_ = true;
+    CommandIssuedEvent command;
+    command.cycle = event.cycle;
+    command.kind = CommandKind::kEngageHighThreat;
+    command.target_key = event.key;
+    command.command = "ENGAGE_HIGH_THREAT";
+    // 中译：高威胁目标键 {} 触发交战指令（威胁分 {:.2f}）。
+    // 标识：威胁→决策指令链——威胁等级 HIGH 首次出现即下发一次指令，
+    //       与融合置信度门限指令互斥（issued_ 共享）。
+    // 与下方写入行同内容：纯 std::string/std::to_string 拼接的日志字符串，供集成方直接搬入己方日志（示例自身不消费）。
+    const std::string command_issued_event_log_2 =
+        std::string("指令=") +
+        (command.command.c_str()) +
+        " 键=" +
+        std::to_string(static_cast<unsigned long long>(event.key)) +
+        " 威胁分=" +
+        std::to_string(event.threat_score);
+    CA_LOG_EVENT(world_, "command_issued", "指令={} 键={} 威胁分={:.2f}",
+                 command.command.c_str(),
+                 static_cast<unsigned long long>(event.key),
+                 event.threat_score);
+    world_.signals().on_command_issued(command);
+  }
 }
 
 CommandRouter::CommandRouter(World& world, ArSensorComponent* ar, RirSensorComponent* rir,
@@ -68,8 +82,42 @@ CommandRouter::CommandRouter(World& world, ArSensorComponent* ar, RirSensorCompo
   for (const auto& target : scene_targets) {
     scene_target_ids_.push_back(static_cast<std::uint64_t>(target.id));
   }
-  connection_ = world_.signals().on_command_issued.connect(
-      [this](const CommandIssuedEvent& event) { OnCommand(event); });
+  EnsureSignalConnections();
+}
+
+void CommandRouter::EnsureSignalConnections() {
+  if (!connection_.connected()) {
+    connection_ = world_.signals().on_command_issued.connect(
+        [this](const CommandIssuedEvent& event) { OnCommand(event); });
+  }
+}
+
+ImpactForecastReceiptListener::ImpactForecastReceiptListener(World& world,
+                                                             std::uint64_t receiver_entity_id)
+    : world_(world), receiver_entity_id_(receiver_entity_id) {
+  EnsureSignalConnections();
+}
+
+void ImpactForecastReceiptListener::EnsureSignalConnections() {
+  if (!impact_forecast_connection_.connected()) {
+    impact_forecast_connection_ = world_.signals().on_impact_forecast_published.connect(
+        [this](const ImpactForecastEvent& event) { OnImpactForecastPublished(event); });
+  }
+}
+
+void ImpactForecastReceiptListener::OnImpactForecastPublished(
+    const ImpactForecastEvent& event) {
+  LogEvent(
+      event.cycle, static_cast<double>(event.cycle), "impact_forecast",
+      "目标键=" + std::to_string(event.key) + " 落点LLA=(" +
+          std::to_string(event.impact_latitude_deg) + "," +
+          std::to_string(event.impact_longitude_deg) + "," +
+          std::to_string(event.impact_altitude_m) + ") 落点1σ=" +
+          std::to_string(event.impact_position_sigma_m) + "m 关机点1σ=" +
+          (event.has_burnout_sigma ? std::to_string(event.burnout_position_sigma_m) + "m"
+                                   : std::string("无")) +
+          " 置信度=" + std::to_string(event.confidence) +
+          " 分发对象ID=" + std::to_string(receiver_entity_id_));
 }
 
 std::uint64_t CommandRouter::ResolveExternalTargetId(std::uint64_t target_key) const {

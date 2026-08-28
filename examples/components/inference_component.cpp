@@ -40,13 +40,16 @@ void InferenceComponent::OnFusionUpdated(const FusionUpdatedEvent& event) {
   snapshot.covariance_ecef = event.covariance_ecef;
 }
 
-void InferenceComponent::Step(World& world, double dt_sec) {
-  (void)dt_sec;
-  // 事件接线（首次 Step 惰性连接；scoped_connection 随组件析构自动断开）。
+void InferenceComponent::EnsureSignalConnections(World& world) {
   if (!fusion_connection_.connected()) {
     fusion_connection_ = world.signals().on_fusion_updated.connect(
         [this](const FusionUpdatedEvent& event) { OnFusionUpdated(event); });
   }
+}
+
+void InferenceComponent::Step(World& world, double dt_sec) {
+  (void)dt_sec;
+  EnsureSignalConnections(world);
 
   // key 升序遍历（与融合态势输出序一致，结果序确定）；仅用本周期新鲜条目。
   std::vector<std::uint64_t> keys;

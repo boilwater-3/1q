@@ -16,6 +16,7 @@
 #include "1q/electro_optical_sensor/session/EosOutputDebugView.h"
 #include "1q/electro_optical_sensor/session/EosSession.h"
 #include "core/component.h"
+#include "core/detection_delivery.h"
 #include "logger/logger_modes.h"
 
 namespace component_attachment {
@@ -28,7 +29,9 @@ struct AppSceneState;  // core/scene_types.h（同上）
  */
 class EosSensorComponent : public Component {
  public:
-  explicit EosSensorComponent(electro_optical_sensor::session::EosSession session);
+  explicit EosSensorComponent(
+      electro_optical_sensor::session::EosSession session,
+      DetectionDeliveryMode detection_delivery = DetectionDeliveryMode::kSharedBlackboard);
   ~EosSensorComponent() override = default;
 
   EosSensorComponent(const EosSensorComponent&) = delete;
@@ -81,6 +84,7 @@ class EosSensorComponent : public Component {
 #endif
 
   bool powered_on_{true}; /**< 电源状态（由 sensor_enabled 补丁唯一维护；关机时不驱动会话） */
+  DetectionDeliveryMode detection_delivery_{DetectionDeliveryMode::kSharedBlackboard};
 
   /// 调试视图中文人读行写入（三模式分支见 .cpp；宏选择见 logger/logger_modes.h）。
   void LogDebugView(const electro_optical_sensor::session::EosOutputDebugView& view);
@@ -94,8 +98,8 @@ class EosSensorComponent : public Component {
       const electro_optical_sensor::session::EosCycleResult& result);
   /// 排除原因跨周期差分事件（纯诊断观测，仅落事件日志）。
   void PublishExclusionEvents(World& world);
-  /// 探测记录 → 泛型探测记录（源通道 kEosSourceId，无身份键 0）。
-  void AdaptDetections(AppSceneState& scene,
+  /// 探测记录 → 泛型探测记录写共享探测池或 on_detection_batch_submitted（源通道 kEosSourceId，无身份键 0）。
+  void AdaptDetections(World& world, AppSceneState& scene,
                        const electro_optical_sensor::session::EosCycleResult& result);
 };
 

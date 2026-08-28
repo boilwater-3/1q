@@ -15,6 +15,8 @@
 #include "1q/precision_evaluation/PrecisionEvaluationSession.h"
 #include "1q/precision_evaluation/PrecisionEvaluationTypes.h"
 #include "core/component.h"
+#include "core/events.h"
+#include "core/signals.h"
 
 namespace component_attachment {
 
@@ -49,6 +51,9 @@ class FusionComponent : public Component {
   const char* Name() const override { return "Fusion"; }
   void Step(World& world, double dt_sec) override;
 
+  /** @brief 新周期开始前清空消息收件箱并确保信号已连接（须在 World::Step 之前调用）。 */
+  void BeginCycle(World& world, std::uint64_t cycle);
+
   /** @brief 当前融合目标态势（按 key 升序；app 层汇总读，组件间走事件）。 */
   const std::vector<fusion::FusedTarget>& targets() const { return targets_; }
 
@@ -69,8 +74,15 @@ class FusionComponent : public Component {
   precision_evaluation::PrecisionEvaluationReport SummarizeEvaluation() const;
 
  private:
+  void EnsureSignalConnections(World& world);
+  void OnDetectionBatchSubmitted(const DetectionBatchSubmittedEvent& event);
+
   std::unique_ptr<fusion::FusionEngine> engine_;
   std::vector<fusion::FusedTarget> targets_{};
+
+  std::uint64_t inbox_cycle_{0U};
+  std::vector<FusionDetectionSample> detection_inbox_{};
+  boost::signals2::scoped_connection detection_batch_connection_{};
 
   std::unique_ptr<precision_evaluation::PrecisionEvaluationSession> evaluation_;
   std::uint32_t satellite_a_source_id_{4U}; /**< 主星融合源通道 */
