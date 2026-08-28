@@ -1,72 +1,100 @@
 {
   "name": "rir_ground_site_recognition",
-  "cycles": 400,
+  "cycles": 2300,
   "dt_sec": 1.0,
   "log_dir": "rir_ground_site_recognition",
   "platform": {
-    "origin_lat_deg": 30.0,
-    "origin_lon_deg": 120.0,
+    "origin_lat_deg": 64.2878,
+    "origin_lon_deg": -149.1746,
     "origin_alt_m": 0.0,
-    "initial_heading_deg": 90.0,
-    "cruise_altitude_m": 400.0,
-    "cruise_speed_mps": 50.0,
-    "waypoints": [
-      {
-        "lat_deg": 30.0,
-        "lon_deg": 120.05,
-        "alt_m": 400.0,
-        "speed_mps": 50.0,
-        "radius_m": 500.0
-      },
-      {
-        "lat_deg": 30.0,
-        "lon_deg": 120.1,
-        "alt_m": 400.0,
-        "speed_mps": 50.0,
-        "radius_m": 500.0
-      },
-      {
-        "lat_deg": 30.0,
-        "lon_deg": 120.15,
-        "alt_m": 400.0,
-        "speed_mps": 50.0,
-        "radius_m": 500.0
-      }
-    ]
+    "initial_heading_deg": 0.0,
+    "cruise_altitude_m": 0.0,
+    "cruise_speed_mps": 0.0
   },
   "targets": [
     {
-      "id": 1001,
-      "azimuth_deg": 90.0,
-      "range_m": 6000.0,
-      "altitude_m": 10500.0,
-      "v_east_mps": 250.0,
-      "v_north_mps": 0.0,
-      "temperature_k": 520.0,
-      "rcs_m2": 1.2,
-      "projected_area_m2": 18.0,
-      "radiant_intensity_w_per_sr": 3819.864,
-      "emitter_center_frequency_hz": 9500000000.0,
+      "id": 208,
+      "type": "ballistic",
+      "start_lla_deg_m": [43.195964, 122.728481, 0.0],
+      "end_lla_deg_m": [45.311723, -121.221318, 0.0],
+      "max_alt_m": 1663185.661,
+      "max_alt_time_s": 1247.0,
+      "rcs_m2": 0.1,
+      "projected_area_m2": 1.0,
+      "temperature_k": 600.0,
+      "radiant_intensity_w_per_sr": 300.0,
+      "emitter_center_frequency_hz": 0.0,
       "rir": {
-        "rcs_dbsm": 0.8,
-        "truth_model": "F-16C"
+        "rcs_dbsm": -10.0,
+        "truth_model": "BALLISTIC_EXAMPLE_B"
       }
     },
     {
-      "id": 1002,
-      "azimuth_deg": 45.0,
-      "range_m": 9000.0,
-      "altitude_m": 40.0,
-      "v_east_mps": 255.0,
-      "v_north_mps": 0.0,
-      "temperature_k": 300.0,
+      "id": 210,
+      "type": "ballistic",
+      "start_lla_deg_m": [39.447564, 119.579139, 0.0],
+      "end_lla_deg_m": [46.152929, -122.022365, 0.0],
+      "max_alt_m": 1684257.510,
+      "max_alt_time_s": 1257.0,
       "rcs_m2": 0.1,
-      "projected_area_m2": 2.0,
-      "radiant_intensity_w_per_sr": 4113.916,
-      "emitter_center_frequency_hz": 10000000000.0,
+      "projected_area_m2": 1.0,
+      "temperature_k": 600.0,
+      "radiant_intensity_w_per_sr": 300.0,
+      "emitter_center_frequency_hz": 0.0,
       "rir": {
         "rcs_dbsm": -10.0,
-        "truth_model": "BGM-109"
+        "truth_model": "BALLISTIC_EXAMPLE_B"
+      }
+    },
+    {
+      "id": 227,
+      "type": "ballistic",
+      "start_lla_deg_m": [43.325190, 121.543133, 0.0],
+      "end_lla_deg_m": [54.693469, -121.170652, 0.0],
+      "max_alt_m": 1561662.676,
+      "max_alt_time_s": 1172.0,
+      "rcs_m2": 0.1,
+      "projected_area_m2": 1.0,
+      "temperature_k": 600.0,
+      "radiant_intensity_w_per_sr": 300.0,
+      "emitter_center_frequency_hz": 0.0,
+      "rir": {
+        "rcs_dbsm": -10.0,
+        "truth_model": "BALLISTIC_EXAMPLE_B"
+      }
+    },
+    {
+      "id": 231,
+      "type": "ballistic",
+      "start_lla_deg_m": [39.462958, 119.052750, 0.0],
+      "end_lla_deg_m": [55.468404, -122.139840, 0.0],
+      "max_alt_m": 1580833.855,
+      "max_alt_time_s": 1181.0,
+      "rcs_m2": 0.1,
+      "projected_area_m2": 1.0,
+      "temperature_k": 600.0,
+      "radiant_intensity_w_per_sr": 300.0,
+      "emitter_center_frequency_hz": 0.0,
+      "rir": {
+        "rcs_dbsm": -10.0,
+        "truth_model": "BALLISTIC_EXAMPLE_B"
+      }
+    },
+    {
+      "id": 249,
+      "type": "ballistic",
+      "start_lla_deg_m": [39.448106, 119.578338, 0.0],
+      "end_lla_deg_m": [46.152929, -122.022365, 0.0],
+      "max_alt_m": 1684257.510,
+      "max_alt_time_s": 1257.0,
+      "rcs_m2": 0.1,
+      "projected_area_m2": 1.0,
+      "temperature_k": 600.0,
+      "radiant_intensity_w_per_sr": 300.0,
+      "emitter_center_frequency_hz": 0.0,
+      "rir": {
+        "rcs_dbsm": -10.0,
+        "truth_model": "BALLISTIC_EXAMPLE_B"
       }
     }
   ],
@@ -85,26 +113,50 @@
   "rir": {
     "enabled": true,
     "site": {
-      "lat_deg": 30.0,
-      "lon_deg": 120.0,
+      "lat_deg": 64.2878,
+      "lon_deg": -149.1746,
       "alt_m": 0.0
     }
   },
   "high_threat_confidence": 3.0,
   "commands": [
     {
-      "cycle": 30,
+      "cycle": 1,
       "kind": "designate",
-      "target_id": 1001,
+      "target_id": 208,
+      "duration_cycles": 0
+    },
+    {
+      "cycle": 1,
+      "kind": "designate",
+      "target_id": 210,
+      "duration_cycles": 0
+    },
+    {
+      "cycle": 1,
+      "kind": "designate",
+      "target_id": 227,
+      "duration_cycles": 0
+    },
+    {
+      "cycle": 1,
+      "kind": "designate",
+      "target_id": 231,
+      "duration_cycles": 0
+    },
+    {
+      "cycle": 1,
+      "kind": "designate",
+      "target_id": 249,
       "duration_cycles": 0
     }
   ],
   "smoke": {
-    "min_key_events": 1,
-    "min_sbirs_events": 1,
-    "min_sar_products": 1,
-    "min_fused_targets": 1,
-    "min_rir_recognition_outputs": 50
+    "min_key_events": 5,
+    "min_sbirs_events": 0,
+    "min_sar_products": 0,
+    "min_fused_targets": 5,
+    "min_rir_recognition_outputs": 1300
   },
   "session_config": {
     "ar": {
@@ -560,13 +612,13 @@
           "az_min_deg": -110.0,
           "az_max_deg": 110.0,
           "el_min_deg": 2.0,
-          "el_max_deg": 85.0
+          "el_max_deg": 90.0
         }
       },
       "mission": {
         "work_mode": "kIdentify",
         "scan_center_deg": {
-          "az_deg": 0.0,
+          "az_deg": -110.0,
           "el_deg": 0.0
         },
         "max_range_m": 9000000.0,
@@ -577,10 +629,10 @@
           "step_scale": 1.0
         },
         "scan_window_deg": {
-          "az_min_deg": -40.0,
-          "az_max_deg": 40.0,
+          "az_min_deg": -92.0,
+          "az_max_deg": 92.0,
           "el_min_deg": 2.0,
-          "el_max_deg": 75.0
+          "el_max_deg": 90.0
         }
       },
       "policy": {
