@@ -87,8 +87,10 @@ struct ScriptedCommand {
 /// 中心频率随真值流转到各通道转换函数，转换函数不再按数组下标回查脚本）。
 struct ScriptedTarget {
   std::uint32_t id{0U};                     /**< 外部目标标识（AR/ESR/EOS/SBIRS/SAR 共用） */
-  std::string type{"air"};                  /**< 实体类型（"air" 空中 / "ground" 地面；
-                                                 ground = 静止近地运动学点，可视化区分标注） */
+  std::string type{"air"};                  /**< 实体类型（"air" 空中 / "ground" 地面 /
+                                                 "ballistic" 弹道；ground = 静止近地运动学点，
+                                                 ballistic = 二体椭圆弹道弧线，见
+                                                 scenes/ballistic_trajectory.h） */
   double azimuth_deg{0.0};                  /**< 真方位（北偏东，deg） */
   double range_m{0.0};                      /**< 斜距（m） */
   double altitude_m{0.0};                   /**< 目标高度（m；与平台巡航高度解耦） */
@@ -100,6 +102,15 @@ struct ScriptedTarget {
   double radiant_intensity_w_per_sr{0.0};   /**< 目标辐射强度（SBIRS 外观，W/sr；已折算温度/发射率/投影面积） */
   double emitter_center_frequency_hz{0.0};  /**< ESR 辐射源中心频率（Hz；≤0 = 该目标不配辐射源） */
   std::vector<TargetManeuver> maneuvers{};  /**< 变速机动表（可选；start_cycle 严格递增） */
+
+  // 弹道目标脚本（type == "ballistic" 专用；与 ENU 几何字段 azimuth_deg/
+  // range_m/altitude_m/v_east_mps/v_north_mps/maneuvers 互斥，加载器校验）：
+  // 起止 LLA + 顶高 + 顶高时刻三/四约束闭式解二体椭圆（客户句柄号作目标 id）。
+  bool is_ballistic{false};                 /**< 是否弹道类型（type == "ballistic"） */
+  oneq::coordinate::LlaPositionDegM start_lla{}; /**< 发射点 LLA（deg, deg, m；发射场坪） */
+  oneq::coordinate::LlaPositionDegM end_lla{};   /**< 落点 LLA（deg, deg, m） */
+  double max_alt_m{0.0};                    /**< 弹道顶高（m；数据 max_alt） */
+  double max_alt_time_s{0.0};               /**< 数据顶高时刻（s；场景时间轴锚点） */
 
   // RIR 识别特征真值（可选块，has_rir_features=false 时该目标对 RIR 只供标量
   // RCS、无识别结论——四维特征中仅探测链可用）：标量值由组件铺均匀视角网格

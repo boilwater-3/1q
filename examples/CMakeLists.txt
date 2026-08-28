@@ -39,6 +39,7 @@ add_library(examples_core STATIC
     app/runner.cpp
     scenes/scene_data.cpp
     scenes/area_division.cpp
+    scenes/ballistic_trajectory.cpp
     scenes/scene_script.cpp
     components/flight_component.cpp
     components/esr_sensor_component.cpp

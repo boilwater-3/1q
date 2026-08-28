@@ -53,6 +53,7 @@ if(_oneq_unit_examples)
     set(_oneq_examples_extra
         "${CMAKE_SOURCE_DIR}/examples/common/json_reader.cpp"
         "${CMAKE_SOURCE_DIR}/examples/scenes/area_division.cpp"
+        "${CMAKE_SOURCE_DIR}/examples/scenes/ballistic_trajectory.cpp"
         "${CMAKE_SOURCE_DIR}/examples/scenes/scene_data.cpp"
         "${CMAKE_SOURCE_DIR}/examples/scenes/scene_script.cpp"
         "${CMAKE_SOURCE_DIR}/examples/components/ar_sensor_component.cpp"

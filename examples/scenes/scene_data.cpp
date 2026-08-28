@@ -11,6 +11,7 @@
 
 #include "1q/navigation/AreaCoveragePlanner.h"
 #include "scenes/area_division.h"
+#include "scenes/ballistic_trajectory.h"
 #include "json_reader.h"
 #include "config_loaders/airborne_radar/config_loader.h"
 #include "config_loaders/electro_optical/config_loader.h"
@@ -59,6 +60,31 @@ bool RequireGeometry(const examples::JsonValue& value, const std::string& block,
     *error = "missing required field \"" + std::string(key) + "\" in \"" + block + "\"";
     return false;
   }
+  return true;
+}
+
+/// 弹道 LLA 数组 [纬度 deg, 经度 deg, 高度 m]（targets[].start/end_lla_deg_m）：
+/// 长度 3 且元素全为数值，否则置 error。
+bool ParseLlaArray(const examples::JsonValue& value, const std::string& block,
+                   oneq::coordinate::LlaPositionDegM* lla, std::string* error) {
+  if (value.IsNull() || value.type() != examples::JsonValue::kArray) {
+    *error = "\"" + block + "\" must be an array [lat_deg, lon_deg, alt_m]";
+    return false;
+  }
+  if (value.Size() != 3U) {
+    *error = "\"" + block + "\" must have exactly 3 elements [lat_deg, lon_deg, alt_m]";
+    return false;
+  }
+  double elements[3] = {0.0, 0.0, 0.0};
+  for (std::size_t k = 0U; k < 3U; ++k) {
+    const examples::JsonValue::Type type = value[k].type();
+    if (type != examples::JsonValue::kInt && type != examples::JsonValue::kDouble) {
+      *error = "\"" + block + "\" element " + std::to_string(k) + " must be a number";
+      return false;
+    }
+    elements[k] = value[k].AsDouble();
+  }
+  *lla = oneq::coordinate::LlaPositionDegM(elements[0], elements[1], elements[2]);
   return true;
 }
 
@@ -449,27 +475,80 @@ bool ParseSceneBody(const examples::JsonValue& root, SceneData* scene,
   }
   for (std::size_t i = 0U; i < targets.Size(); ++i) {
     const examples::JsonValue& t = targets[i];
-    for (const char* key : {"id", "azimuth_deg", "range_m", "altitude_m", "rcs_m2"}) {
+    for (const char* key : {"id", "rcs_m2"}) {
       if (!RequireGeometry(t, "targets[" + std::to_string(i) + "]", key, error)) {
         return false;
       }
     }
     ScriptedTarget target;
     target.id = static_cast<std::uint32_t>(t["id"].AsInt());
-    // 实体类型（可选）："air"（缺省）/"ground"（地面目标 = 静止近地运动学点）。
+    // 实体类型（可选）："air"（缺省）/"ground"（地面目标 = 静止近地运动学点）/
+    // "ballistic"（二体椭圆弹道弧线：起止 LLA + 顶高 + 顶高时刻，见
+    // scenes/ballistic_trajectory.h）。
     if (t["type"].IsString()) {
       const std::string type = t["type"].AsString();
-      if (type != "air" && type != "ground") {
-        *error = "targets[" + std::to_string(i) + "].type must be \"air\" or \"ground\"";
+      if (type != "air" && type != "ground" && type != "ballistic") {
+        *error = "targets[" + std::to_string(i) +
+                 "].type must be \"air\", \"ground\" or \"ballistic\"";
         return false;
       }
       target.type = type;
     }
-    target.azimuth_deg = t["azimuth_deg"].AsDouble();
-    target.range_m = t["range_m"].AsDouble();
-    target.altitude_m = t["altitude_m"].AsDouble();
-    target.v_east_mps = ReadDouble(t, "v_east_mps", 0.0);
-    target.v_north_mps = ReadDouble(t, "v_north_mps", 0.0);
+    target.is_ballistic = target.type == "ballistic";
+    if (target.is_ballistic) {
+      // 弹道条目：四键必填；与 ENU 几何/机动表字段互斥（同时出现必是脚本
+      // 语义冲突，报错而非静默忽略，避免"写了但不生效"）。
+      for (const char* key : {"start_lla_deg_m", "end_lla_deg_m", "max_alt_m",
+                              "max_alt_time_s"}) {
+        if (!RequireGeometry(t, "targets[" + std::to_string(i) + "]", key, error)) {
+          return false;
+        }
+      }
+      for (const char* key : {"azimuth_deg", "range_m", "altitude_m", "v_east_mps",
+                              "v_north_mps", "maneuvers"}) {
+        if (t.Has(key)) {
+          *error = "targets[" + std::to_string(i) + "] (ballistic) must not set \"" +
+                   key + "\" (mutually exclusive with the LLA trajectory fields)";
+          return false;
+        }
+      }
+      if (!ParseLlaArray(t["start_lla_deg_m"],
+                         "targets[" + std::to_string(i) + "].start_lla_deg_m",
+                         &target.start_lla, error) ||
+          !ParseLlaArray(t["end_lla_deg_m"],
+                         "targets[" + std::to_string(i) + "].end_lla_deg_m",
+                         &target.end_lla, error)) {
+        return false;
+      }
+      target.max_alt_m = t["max_alt_m"].AsDouble();
+      target.max_alt_time_s = t["max_alt_time_s"].AsDouble();
+      if (!(target.max_alt_m > 0.0) || !(target.max_alt_time_s > 0.0)) {
+        *error = "targets[" + std::to_string(i) +
+                 "] (ballistic) max_alt_m and max_alt_time_s must be > 0";
+        return false;
+      }
+      // 加载期可解性校验（起落点可转 ECEF、互不重合/对跖、顶点高于两端点）：
+      // 把轨道数据错误拦在场景加载报错通道，不留到运行时静默降级。
+      BallisticTrajectory probe;
+      if (!SolveBallisticTrajectory(target.start_lla, target.end_lla, target.max_alt_m,
+                                    target.max_alt_time_s, &probe)) {
+        *error = "targets[" + std::to_string(i) +
+                 "] (ballistic): trajectory solve failed (distinct, non-antipodal "
+                 "start/end with apogee above both endpoints is required)";
+        return false;
+      }
+    } else {
+      for (const char* key : {"azimuth_deg", "range_m", "altitude_m"}) {
+        if (!RequireGeometry(t, "targets[" + std::to_string(i) + "]", key, error)) {
+          return false;
+        }
+      }
+      target.azimuth_deg = t["azimuth_deg"].AsDouble();
+      target.range_m = t["range_m"].AsDouble();
+      target.altitude_m = t["altitude_m"].AsDouble();
+      target.v_east_mps = ReadDouble(t, "v_east_mps", 0.0);
+      target.v_north_mps = ReadDouble(t, "v_north_mps", 0.0);
+    }
     target.temperature_k = ReadDouble(t, "temperature_k", 0.0);
     target.rcs = t["rcs_m2"].AsDouble();
     target.projected_area_m2 = ReadDouble(t, "projected_area_m2", 0.0);

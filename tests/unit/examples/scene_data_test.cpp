@@ -1069,3 +1069,95 @@ TEST(SceneDataTest, MissionAreaWithoutWingmenFails) {
   EXPECT_FALSE(app::LoadSceneData(file.path().string().c_str(), &scene, &error));
   EXPECT_NE(error.find("requires"), std::string::npos);
 }
+
+TEST(SceneDataTest, ParsesBallisticTarget) {
+  // 弹道条目：LLA 数组 [lat, lon, alt] + 顶高/顶高时刻；与 208 号目标同值
+  // （设计文档 §4.2 schema 示例）。
+  const app::SceneData scene = LoadOk(R"json({
+    "platform": {"origin_lat_deg": 64.2878, "origin_lon_deg": -149.1746},
+    "targets": [
+      {"id": 208, "type": "ballistic",
+       "start_lla_deg_m": [43.195964, 122.728481, 0.0],
+       "end_lla_deg_m": [45.311723, -121.221318, 0.0],
+       "max_alt_m": 1663185.661, "max_alt_time_s": 1247.0,
+       "rcs_m2": 0.1, "projected_area_m2": 1.0, "temperature_k": 600.0,
+       "radiant_intensity_w_per_sr": 300.0, "emitter_center_frequency_hz": 0.0,
+       "rir": {"rcs_dbsm": -10.0, "truth_model": "BALLISTIC_EXAMPLE_B"}}
+    ]
+  })json");
+  ASSERT_EQ(scene.targets.size(), 1U);
+  const app::ScriptedTarget& target = scene.targets[0];
+  EXPECT_TRUE(target.is_ballistic);
+  EXPECT_EQ(target.type, "ballistic");
+  EXPECT_EQ(target.id, 208U);
+  EXPECT_DOUBLE_EQ(target.start_lla.latitude_deg, 43.195964);
+  EXPECT_DOUBLE_EQ(target.start_lla.longitude_deg, 122.728481);
+  EXPECT_DOUBLE_EQ(target.end_lla.latitude_deg, 45.311723);
+  EXPECT_DOUBLE_EQ(target.end_lla.longitude_deg, -121.221318);
+  EXPECT_DOUBLE_EQ(target.max_alt_m, 1663185.661);
+  EXPECT_DOUBLE_EQ(target.max_alt_time_s, 1247.0);
+  EXPECT_DOUBLE_EQ(target.rcs, 0.1);
+  EXPECT_TRUE(target.has_rir_features);
+  EXPECT_EQ(target.rir_truth_model, "BALLISTIC_EXAMPLE_B");
+}
+
+TEST(SceneDataTest, BallisticMutuallyExclusiveFieldsFail) {
+  app::SceneData scene;
+  std::string error;
+  // ENU 几何字段与弹道互斥：azimuth_deg 出现即报错。
+  ScopedSceneFile azimuth(R"json({
+    "platform": {"origin_lat_deg": 64.2878, "origin_lon_deg": -149.1746},
+    "targets": [{"id": 208, "type": "ballistic", "azimuth_deg": 90.0,
+                 "start_lla_deg_m": [43.195964, 122.728481, 0.0],
+                 "end_lla_deg_m": [45.311723, -121.221318, 0.0],
+                 "max_alt_m": 1663185.661, "max_alt_time_s": 1247.0, "rcs_m2": 0.1}]
+  })json");
+  EXPECT_FALSE(app::LoadSceneData(azimuth.path().string().c_str(), &scene, &error));
+  EXPECT_NE(error.find("azimuth_deg"), std::string::npos);
+  // 机动表与弹道互斥。
+  ScopedSceneFile maneuvers(R"json({
+    "platform": {"origin_lat_deg": 64.2878, "origin_lon_deg": -149.1746},
+    "targets": [{"id": 208, "type": "ballistic",
+                 "start_lla_deg_m": [43.195964, 122.728481, 0.0],
+                 "end_lla_deg_m": [45.311723, -121.221318, 0.0],
+                 "max_alt_m": 1663185.661, "max_alt_time_s": 1247.0, "rcs_m2": 0.1,
+                 "maneuvers": [{"start_cycle": 10, "v_east_mps": 5.0}]}]
+  })json");
+  EXPECT_FALSE(app::LoadSceneData(maneuvers.path().string().c_str(), &scene, &error));
+  EXPECT_NE(error.find("maneuvers"), std::string::npos);
+}
+
+TEST(SceneDataTest, BallisticMissingOrMalformedFieldsFail) {
+  app::SceneData scene;
+  std::string error;
+  // 缺顶高时刻（必填弹道几何）。
+  ScopedSceneFile missing(R"json({
+    "platform": {"origin_lat_deg": 64.2878, "origin_lon_deg": -149.1746},
+    "targets": [{"id": 208, "type": "ballistic",
+                 "start_lla_deg_m": [43.195964, 122.728481, 0.0],
+                 "end_lla_deg_m": [45.311723, -121.221318, 0.0],
+                 "max_alt_m": 1663185.661, "rcs_m2": 0.1}]
+  })json");
+  EXPECT_FALSE(app::LoadSceneData(missing.path().string().c_str(), &scene, &error));
+  EXPECT_NE(error.find("max_alt_time_s"), std::string::npos);
+  // LLA 数组长度不为 3。
+  ScopedSceneFile short_lla(R"json({
+    "platform": {"origin_lat_deg": 64.2878, "origin_lon_deg": -149.1746},
+    "targets": [{"id": 208, "type": "ballistic",
+                 "start_lla_deg_m": [43.195964, 122.728481],
+                 "end_lla_deg_m": [45.311723, -121.221318, 0.0],
+                 "max_alt_m": 1663185.661, "max_alt_time_s": 1247.0, "rcs_m2": 0.1}]
+  })json");
+  EXPECT_FALSE(app::LoadSceneData(short_lla.path().string().c_str(), &scene, &error));
+  EXPECT_NE(error.find("start_lla_deg_m"), std::string::npos);
+  // 起落点重合：轨道不可解，加载期报错。
+  ScopedSceneFile degenerate(R"json({
+    "platform": {"origin_lat_deg": 64.2878, "origin_lon_deg": -149.1746},
+    "targets": [{"id": 208, "type": "ballistic",
+                 "start_lla_deg_m": [43.195964, 122.728481, 0.0],
+                 "end_lla_deg_m": [43.195964, 122.728481, 0.0],
+                 "max_alt_m": 1663185.661, "max_alt_time_s": 1247.0, "rcs_m2": 0.1}]
+  })json");
+  EXPECT_FALSE(app::LoadSceneData(degenerate.path().string().c_str(), &scene, &error));
+  EXPECT_NE(error.find("ballistic"), std::string::npos);
+}

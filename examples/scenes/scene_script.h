@@ -18,6 +18,7 @@
 #include "1q/remote_identification_radar/session/RirSceneTypes.h"
 #include "1q/sar/session/SarCycleInput.h"
 #include "1q/sbirs_sensor/session/SbirsSceneTypes.h"
+#include "scenes/ballistic_trajectory.h"
 #include "scenes/scene_data.h"
 
 namespace component_attachment {
@@ -47,6 +48,8 @@ struct TargetEcefState {
   std::string rir_truth_model{};           /**< 真值型号名（人读 + 识别准确率统计） */
   std::vector<RirScattererScript> rir_scatterers{}; /**< 距离向散射中心脚本 */
   std::vector<TargetManeuver> maneuvers{}; /**< 变速机动表（从脚本拷贝，推进时按周期查表） */
+  BallisticTrajectory ballistic{};         /**< 弹道轨道（is_ballistic 时有效；加载时
+                                                闭式求解，推进时按绝对时间解析求值） */
 };
 
 /// 目标脚本 → ECEF 状态（方位/距离/高度经库内 ENU 偏移函数投影到 ECEF，

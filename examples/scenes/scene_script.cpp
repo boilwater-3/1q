@@ -25,24 +25,37 @@ std::vector<TargetEcefState> MakeTargetStates(
     TargetEcefState state;
     state.id = entry.id;
     state.type = entry.type;
-    oneq::coordinate::EnuPositionM offset;
-    // 目标脚本（方位/距离/高度）→ ENU 水平偏移；高度由场景文件显式给出
-    // （TryBearingRangeToEnuOffset 清零 up，须在此重设）。投影必然成功，
-    // 失败时位置留默认零向量。
-    if (oneq::coordinate::TryBearingRangeToEnuOffset(entry.azimuth_deg, entry.range_m,
-                                                     &offset)) {
-      offset.up_m = entry.altitude_m;
-      oneq::coordinate::EcefPositionM target;
-      if (oneq::coordinate::TryEnuToEcef(offset, platform_origin, &target)) {
-        state.position = target;
+    if (entry.is_ballistic) {
+      // 弹道条目：加载时闭式解二体椭圆（起止 LLA + 顶高 + 顶高时刻），初始
+      // 状态 = 场景时刻 0（助推段：静止于发射点）。场景加载已在解析期校验过
+      // 可解性，此处失败属防御分支：退化为静止于发射点（有物理意义的降级，
+      // 不留零坐标）。不参与后续 ENU 方位/斜距投影（ENU 字段与弹道互斥）。
+      if (!SolveBallisticTrajectory(entry.start_lla, entry.end_lla, entry.max_alt_m,
+                                    entry.max_alt_time_s, &state.ballistic)) {
+        oneq::coordinate::TryLlaToEcef(entry.start_lla, &state.position);
+      } else {
+        PropagateBallistic(state.ballistic, 0.0, &state.position, &state.velocity);
       }
+    } else {
+      oneq::coordinate::EnuPositionM offset;
+      // 目标脚本（方位/距离/高度）→ ENU 水平偏移；高度由场景文件显式给出
+      // （TryBearingRangeToEnuOffset 清零 up，须在此重设）。投影必然成功，
+      // 失败时位置留默认零向量。
+      if (oneq::coordinate::TryBearingRangeToEnuOffset(entry.azimuth_deg, entry.range_m,
+                                                       &offset)) {
+        offset.up_m = entry.altitude_m;
+        oneq::coordinate::EcefPositionM target;
+        if (oneq::coordinate::TryEnuToEcef(offset, platform_origin, &target)) {
+          state.position = target;
+        }
+      }
+      oneq::coordinate::EnuVelocityMps enu_velocity;
+      enu_velocity.east_mps = entry.v_east_mps;
+      enu_velocity.north_mps = entry.v_north_mps;
+      enu_velocity.up_mps = 0.0;
+      // 脚本输入合法（有限/非负），投影必然成功；失败时 velocity 留默认零向量。
+      oneq::coordinate::TryEnuToEcefVelocity(enu_velocity, platform_origin, &state.velocity);
     }
-    oneq::coordinate::EnuVelocityMps enu_velocity;
-    enu_velocity.east_mps = entry.v_east_mps;
-    enu_velocity.north_mps = entry.v_north_mps;
-    enu_velocity.up_mps = 0.0;
-    // 脚本输入合法（有限/非负），投影必然成功；失败时 velocity 留默认零向量。
-    oneq::coordinate::TryEnuToEcefVelocity(enu_velocity, platform_origin, &state.velocity);
     state.rcs = static_cast<float>(entry.rcs);
     state.temperature_k = static_cast<float>(entry.temperature_k);
     state.projected_area_m2 = static_cast<float>(entry.projected_area_m2);
@@ -210,6 +223,13 @@ void AdvanceTargetStates(std::vector<TargetEcefState>& states, std::uint32_t cyc
                          double dt_s,
                          const oneq::coordinate::LlaPositionDegM& platform_origin) {
   for (auto& state : states) {
+    if (state.ballistic.valid) {
+      // 弹道目标：按绝对场景时刻 t = cycle·dt 解析求值（助推段占位 / Kepler
+      // 弧段），不累积不漂移；机动表与 ENU 语义和弹道互斥，不适用。
+      PropagateBallistic(state.ballistic, static_cast<double>(cycle) * dt_s,
+                         &state.position, &state.velocity);
+      continue;
+    }
     // 变速机动：start_cycle 严格递增（加载器校验），逐条对比取生效条目。
     for (const auto& maneuver : state.maneuvers) {
       if (maneuver.start_cycle == cycle) {
