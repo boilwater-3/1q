@@ -26,7 +26,8 @@ inline std::string FormatAcceptanceLine(float sim_time_sec, std::uint32_t cycle,
   char cycle_buf[16];
   std::snprintf(cycle_buf, sizeof(cycle_buf), "%u", cycle);
   line += cycle_buf;
-  line += " [验收项：";
+  // 规范行格式（验收判定标准 §0）：方括号内为规范测试项名称，不写「验收项」三字。
+  line += " [";
   line += (item != nullptr ? item : "");
   line += "] 验收内容：";
   line += content;

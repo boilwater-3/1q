@@ -37,18 +37,6 @@ oneq::coordinate::RotationMatrix3d ComposeMountAndMisalignment(
                                    oneq::coordinate::Inverse(oneq::coordinate::BuildRotationMatrix(misalign)));
 }
 
-struct OrbitAcc {
-  int n{0};
-  double sum_err{0.0};
-  double sumsq_err{0.0};
-  double sum_c0{0.0};  /**< 分量0累计（东；真值ECEF缺失时为X）。 */
-  double sum_c1{0.0};  /**< 分量1累计（北；真值ECEF缺失时为Y）。 */
-  double sum_c2{0.0};  /**< 分量2累计（天/径向；真值ECEF缺失时为Z）。 */
-  double sumsq_c0{0.0};
-  double sumsq_c1{0.0};
-  double sumsq_c2{0.0};
-};
-
 struct AngleAcc {
   int n{0};
   double sum_az{0.0};
@@ -59,18 +47,9 @@ struct AngleAcc {
   double max_el{0.0};
 };
 
-std::map<const void*, OrbitAcc>& OrbitAccs() {
-  static std::map<const void*, OrbitAcc> accs;
-  return accs;
-}
-
 std::map<const void*, AngleAcc>& AngleAccs() {
   static std::map<const void*, AngleAcc> accs;
   return accs;
-}
-
-OrbitAcc& Orbit(const void* instance_key) {
-  return OrbitAccs()[instance_key];
 }
 
 AngleAcc& Angle(const void* instance_key) {
@@ -130,7 +109,8 @@ const char* StageName(const session::SbirsDetectionLifecycleEvent& event) {
 
 }  // namespace
 
-void WriteSbirsInstallMatrices(const oneq::coordinate::EulerAnglesDeg& mount_deg,
+void WriteSbirsInstallMatrices(std::uint32_t satellite_id,
+                               const oneq::coordinate::EulerAnglesDeg& mount_deg,
                                const oneq::coordinate::EulerAnglesDeg& misalignment_deg) {
   if (!SBIRS_ACCEPTANCE_LOG_ENABLED()) {
     return;
@@ -140,17 +120,16 @@ void WriteSbirsInstallMatrices(const oneq::coordinate::EulerAnglesDeg& mount_deg
       oneq::coordinate::BuildRotationMatrix(misalignment_deg);
   const oneq::coordinate::RotationMatrix3d r_actual =
       ComposeMountAndMisalignment(mount_deg, misalignment_deg);
-  std::string content = "传感器安装R=" + FormatRotation(r_mount);
-  content += " 失准R=" + FormatRotation(r_mis);
+  // 规范口径（验收判定标准 第10项）：只写理想指向R/实际指向R/安装误差矩阵R + 卫星ID，
+  // 不输出失准角欧拉角字段。
+  std::string content = "卫星ID=" + std::to_string(satellite_id);
+  content += " 理想指向R=" + FormatRotation(r_mount);
   content += " 实际指向R=" + FormatRotation(r_actual);
-  content += " 失准角yaw/pitch/roll=";
-  content += FormatVec3(misalignment_deg.yaw_deg, misalignment_deg.pitch_deg,
-                        misalignment_deg.roll_deg, 4);
-  content += "°";
-  SBIRS_ACCEPTANCE_ITEM(0.0f, 0U, "安装矩阵误差", content);
+  content += " 安装误差矩阵R=" + FormatRotation(r_mis);
+  SBIRS_ACCEPTANCE_ITEM(0.0f, 0U, "安装矩阵误差功能测试", content);
 }
 
-void WriteSbirsOrbitSample(const void* instance_key, float sim_time_sec, std::uint32_t cycle,
+void WriteSbirsOrbitSample(std::uint32_t satellite_id, float sim_time_sec, std::uint32_t cycle,
                            float orbit_sigma_deg, double reference_range_m,
                            float nav_position_sigma_m,
                            const session::SbirsVector3M& satellite_ecef) {
@@ -168,21 +147,19 @@ void WriteSbirsOrbitSample(const void* instance_key, float sim_time_sec, std::ui
   const double el = sigma * SampleNormal(cycle, 29U + sat_salt);
   const double range = reference_range_m > 0.0 ? reference_range_m : 40000000.0;
 
-  // 评审 2026-08-26 条1 + 2026-08-27 条4：卫星自身定位误差 = 导航定位误差统计
-  // （东/北由轨道角抽样弧长映射 + 径向按导航 σ 独立抽样；轨道角 σ 为 0 的场景
-  // 仍有径向分量，不再整行恒 0——旧版只统计轨道角 σ×参考距离的横向位移）。
+  // 定位误差抽样口径（评审 2026-08-26 条1 + 2026-08-27 条4）：东/北 = 轨道角抽样
+  // 弧长映射（轨道角 σ 为 0 的场景仍有径向分量），天 = 径向按导航 σ 独立抽样；
   // 真值（传入 ECEF）不可用时退化为按导航 σ 三维随机抽样（分量记 X/Y/Z）。
   const double r_norm = std::sqrt(satellite_ecef.x * satellite_ecef.x +
                                   satellite_ecef.y * satellite_ecef.y +
                                   satellite_ecef.z * satellite_ecef.z);
   const double radial = nav_sigma * SampleNormal(cycle, 47U + sat_salt);
-  bool have_truth_ecef = r_norm > 0.0;
+  const bool have_truth_ecef = r_norm > 0.0;
   double dx;
   double dy;
   double dz;
   if (have_truth_ecef) {
     const double kDegToRad = 0.017453292519943295;
-    // ENU 分量（统计行直用）：东/北 = 轨道角抽样弧长，天 = 径向抽样。
     dx = az * kDegToRad * range;
     dy = el * kDegToRad * range;
     dz = radial;
@@ -193,40 +170,11 @@ void WriteSbirsOrbitSample(const void* instance_key, float sim_time_sec, std::ui
   }
   const double err_norm = std::sqrt(dx * dx + dy * dy + dz * dz);
 
-  OrbitAcc& acc = Orbit(instance_key);
-  ++acc.n;
-  acc.sum_err += err_norm;
-  acc.sumsq_err += err_norm * err_norm;
-  acc.sum_c0 += dx;
-  acc.sum_c1 += dy;
-  acc.sum_c2 += dz;
-  acc.sumsq_c0 += dx * dx;
-  acc.sumsq_c1 += dy * dy;
-  acc.sumsq_c2 += dz * dz;
-  const double mean_err = acc.sum_err / static_cast<double>(acc.n);
-  const double rms_err = std::sqrt(acc.sumsq_err / static_cast<double>(acc.n));
-  const double var0 = acc.sumsq_c0 / static_cast<double>(acc.n) -
-                      (acc.sum_c0 / static_cast<double>(acc.n)) * (acc.sum_c0 / static_cast<double>(acc.n));
-  const double var1 = acc.sumsq_c1 / static_cast<double>(acc.n) -
-                      (acc.sum_c1 / static_cast<double>(acc.n)) * (acc.sum_c1 / static_cast<double>(acc.n));
-  const double var2 = acc.sumsq_c2 / static_cast<double>(acc.n) -
-                      (acc.sum_c2 / static_cast<double>(acc.n)) * (acc.sum_c2 / static_cast<double>(acc.n));
-  const char* comp_label = have_truth_ecef ? "东/北/天" : "X/Y/Z";
-  std::string content = "本拍导航误差(";
-  content += comp_label;
-  content += ")=(" + FormatF(dx, 1) + "," + FormatF(dy, 1) + "," + FormatF(dz, 1) + ")m";
-  content += " |误差|=" + FormatF(err_norm, 1) + "m";
-  content += " 本会话累计n=" + std::to_string(acc.n);
-  content += " |误差|均值=" + FormatF(mean_err, 1) + "m |误差|RMS=" + FormatF(rms_err, 1) + "m";
-  content += " 分量σ(";
-  content += comp_label;
-  content += ")=(" + FormatF(std::sqrt(std::max(var0, 0.0)), 1) + "," +
-             FormatF(std::sqrt(std::max(var1, 0.0)), 1) + "," +
-             FormatF(std::sqrt(std::max(var2, 0.0)), 1) + ")m";
-  SBIRS_ACCEPTANCE_ITEM(sim_time_sec, cycle, "卫星自身定位误差", content);
-
+  // 规范口径（验收判定标准 第8项）：只写真值ECEF/实际ECEF/定位误差ECEF/模长 + 卫星ID；
+  // 不输出东/北/天统计、会话 n、均值/RMS、分量 σ 与口径说明。
+  std::string nav = "卫星ID=" + std::to_string(satellite_id);
   if (have_truth_ecef) {
-    // ECEF 误差向量 = ENU 分量经本地东北天基旋转合成。
+    // ECEF 误差向量 = ENU 分量经本地东北天基旋转合成；实际 ECEF = 真值 + 误差向量。
     const double up_x = satellite_ecef.x / r_norm;
     const double up_y = satellite_ecef.y / r_norm;
     const double up_z = satellite_ecef.z / r_norm;
@@ -249,28 +197,25 @@ void WriteSbirsOrbitSample(const void* instance_key, float sim_time_sec, std::ui
     const double vec_x = dx * east_x + dy * north_x + dz * up_x;
     const double vec_y = dx * east_y + dy * north_y + dz * up_y;
     const double vec_z = dy * north_z + dz * up_z;
-    std::string nav = "真值ECEF=";
+    nav += " 真值ECEF=";
     nav += FormatVec3(satellite_ecef.x, satellite_ecef.y, satellite_ecef.z, 1);
-    nav += "m 错误三维ECEF=";
+    nav += "m 实际ECEF=";
     nav += FormatVec3(satellite_ecef.x + vec_x, satellite_ecef.y + vec_y,
                       satellite_ecef.z + vec_z, 1);
-    nav += "m 误差向量=(" + FormatF(vec_x, 1) + "," + FormatF(vec_y, 1) + "," +
-           FormatF(vec_z, 1) + ")m |误差|=" + FormatF(err_norm, 1);
-    nav += "m 口径=抽样角经参考距离弧长映射至本地水平面(东/北)+径向按导航σ" +
-           FormatF(nav_sigma, 1) + "m抽样";
-    SBIRS_ACCEPTANCE_ITEM(sim_time_sec, cycle, "卫星ECEF三维导航定位误差", nav);
+    nav += "m 定位误差ECEF=(" + FormatF(vec_x, 1) + "," + FormatF(vec_y, 1) + "," +
+           FormatF(vec_z, 1) + ")m";
   } else {
-    // 传入 ECEF 不可用：仅给出按导航 σ 三维抽样的误差向量（评审条1「假设找不到
-    // 则使用传入的ECEF进行随机数」——此处连传入 ECEF 都缺失，位置字段如实记不可用）。
-    std::string nav = "真值ECEF=不可用 错误三维ECEF=不可用";
-    nav += " 误差向量=(" + FormatF(dx, 1) + "," + FormatF(dy, 1) + "," + FormatF(dz, 1) +
-           ")m |误差|=" + FormatF(err_norm, 1);
-    nav += "m 口径=卫星位置不可用,按导航σ" + FormatF(nav_sigma, 1) + "m三维随机抽样";
-    SBIRS_ACCEPTANCE_ITEM(sim_time_sec, cycle, "卫星ECEF三维导航定位误差", nav);
+    // 传入 ECEF 不可用：位置字段如实记不可用，误差向量按导航 σ 三维抽样。
+    nav += " 真值ECEF=不可用 实际ECEF=不可用";
+    nav += " 定位误差ECEF=(" + FormatF(dx, 1) + "," + FormatF(dy, 1) + "," + FormatF(dz, 1) +
+           ")m";
   }
+  nav += " |定位误差|=" + FormatF(err_norm, 1) + "m";
+  SBIRS_ACCEPTANCE_ITEM(sim_time_sec, cycle, "卫星自身定位误差功能测试", nav);
 }
 
-void WriteSbirsAngleError(const void* instance_key, float sim_time_sec, std::uint32_t cycle,
+void WriteSbirsAngleError(const void* instance_key, std::uint32_t satellite_id,
+                          float sim_time_sec, std::uint32_t cycle,
                           std::uint64_t target_id, double az_error_deg, double el_error_deg,
                           double measured_az_deg, double measured_el_deg, double truth_az_deg,
                           double truth_el_deg, float sigma_orbit_deg, float sigma_attitude_deg,
@@ -278,8 +223,17 @@ void WriteSbirsAngleError(const void* instance_key, float sim_time_sec, std::uin
   if (!SBIRS_ACCEPTANCE_LOG_ENABLED()) {
     return;
   }
+  constexpr double kDegToRad = 0.017453292519943295;
+  // 规范口径（验收判定标准 第9项）：只写 ECI 测角残差（量测−真值，rad）+
+  // 相对卫星ID/目标ID；测量/真值角本身、会话 RMSE、σ 来源不写进本项。
+  std::string content = "相对卫星ID=" + std::to_string(satellite_id);
+  content += " 目标ID=" + std::to_string(target_id);
+  content += " 测角残差方位/俯仰(ECI)=(" + FormatF(az_error_deg * kDegToRad, 8) + "," +
+             FormatF(el_error_deg * kDegToRad, 8) + ")rad";
+  SBIRS_ACCEPTANCE_ITEM(sim_time_sec, cycle, "红外载荷角误差功能测试", content);
   // 评审 2026-08-26 条24：统计按管线实例（每星）分离，双星同进程不再混计；
-  // 行内标注 σ 三分项配置来源，便于评审核对量级。
+  // 行内标注 σ 三分项配置来源，便于评审核对量级。（红外系统测角误差性能测试行，
+  // 验收判定标准 第55项。）
   AngleAcc& acc = Angle(instance_key);
   ++acc.n;
   acc.sum_az += az_error_deg;
@@ -288,10 +242,6 @@ void WriteSbirsAngleError(const void* instance_key, float sim_time_sec, std::uin
   acc.sumsq_el += el_error_deg * el_error_deg;
   acc.max_az = std::max(acc.max_az, std::fabs(az_error_deg));
   acc.max_el = std::max(acc.max_el, std::fabs(el_error_deg));
-  std::string content = "目标ID=" + std::to_string(target_id);
-  content += " 方位测角误差=" + FormatF(az_error_deg, 6) + "°";
-  content += " 俯仰测角误差=" + FormatF(el_error_deg, 6) + "°";
-  SBIRS_ACCEPTANCE_ITEM(sim_time_sec, cycle, "红外载荷测角误差", content);
   std::string perf = "目标ID=" + std::to_string(target_id);
   perf += " 测量方位/俯仰=" + FormatPairDeg(measured_az_deg, measured_el_deg, 3) + "°";
   perf += " 真值=" + FormatPairDeg(truth_az_deg, truth_el_deg, 3) + "°";
@@ -324,7 +274,8 @@ void WriteSbirsAngleStateEstimate(float sim_time_sec, std::uint32_t cycle, std::
   SBIRS_ACCEPTANCE_ITEM(sim_time_sec, cycle, "目标角度状态估计", content);
 }
 
-void WriteSbirsLifecycleEvents(float sim_time_sec, std::uint32_t cycle,
+void WriteSbirsLifecycleEvents(std::uint32_t satellite_id, float sim_time_sec,
+                               std::uint32_t cycle,
                                const std::vector<session::SbirsDetectionLifecycleEvent>& events,
                                const session::SbirsCycleInput& input) {
   if (!SBIRS_ACCEPTANCE_LOG_ENABLED()) {
@@ -339,12 +290,14 @@ void WriteSbirsLifecycleEvents(float sim_time_sec, std::uint32_t cycle,
     if (name == nullptr) {
       continue;
     }
-    std::string content = "等级=" + std::to_string(EventLevel(event.kind));
-    content += " 目标ID=" + std::to_string(event.target_id);
-    content += " 事件=";
+    // 规范口径（验收判定标准 第24项）：「验收内容：」后首字段为 事件=，随后卫星ID/
+    // 等级/目标ID/阶段/时间/位置（评审 2026-08-26 条11：事件行标注观测阶段，区分
+    // 宽场首次探测与窄场（捕获/跟踪）首次探测）。
+    std::string content = "事件=";
     content += name;
-    // 评审 2026-08-26 条11：事件行标注观测阶段，区分宽场首次探测与窄场（捕获/
-    // 跟踪）首次探测。
+    content += " 卫星ID=" + std::to_string(satellite_id);
+    content += " 等级=" + std::to_string(EventLevel(event.kind));
+    content += " 目标ID=" + std::to_string(event.target_id);
     content += " 阶段=";
     content += StageName(event);
     content += " 时间=" + FormatF(static_cast<double>(sim_time_sec), 3) + "s";
@@ -354,7 +307,7 @@ void WriteSbirsLifecycleEvents(float sim_time_sec, std::uint32_t cycle,
                                            found->second->position_ecef_m.y,
                                            found->second->position_ecef_m.z, 1);
     }
-    SBIRS_ACCEPTANCE_ITEM(sim_time_sec, cycle, "特殊事件监测与提示", content);
+    SBIRS_ACCEPTANCE_ITEM(sim_time_sec, cycle, "特殊事件监测与提示功能测试", content);
   }
 }
 

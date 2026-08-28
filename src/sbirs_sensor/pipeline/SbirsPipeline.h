@@ -99,6 +99,16 @@ class SbirsPipeline {
   void ApplyConfig(const config::SbirsInternalExecutionConfig& config,
                    const runtime::SbirsRuntimeConfigImpact& impact);
   /**
+   * @brief 标注本管线实例的卫星实体/融合源 ID（仅进验收日志行的 卫星ID=/相对卫星ID= 字段）。
+   * @note 双星同文件写 sbirs_acceptance.log 时靠该 ID 区分行归属哪颗卫星；默认 0 表示
+   *       调用方未标注，行内如实写 0。不影响任何计算路径。
+   */
+  void SetSatelliteEntityId(std::uint32_t satellite_entity_id) {
+    satellite_entity_id_ = satellite_entity_id;
+  }
+  /** @brief 本管线实例的卫星实体/融合源 ID（验收标注用；默认 0）。 */
+  std::uint32_t satellite_entity_id() const { return satellite_entity_id_; }
+  /**
    * @brief 执行一个仿真周期的探测流水线。
    * @param[in] input 单周期输入
    * @return 本周期 pipeline 结果
@@ -118,6 +128,8 @@ class SbirsPipeline {
   config::SbirsInternalExecutionConfig config_{};
   float scan_phase_deg_{0.0f};
   int scan_row_index_{0}; /**< 当前 WFOV 俯仰栅格行索引，范围 [0, row_count) */
+  std::uint32_t satellite_entity_id_{0U}; /**< 卫星实体/融合源 ID（验收行标注用，不影响计算） */
+  bool install_matrices_acceptance_pending_{true}; /**< 安装矩阵验收行待写（构造/ApplyConfig 置位，首个执行周期写出） */
   session::SbirsEulerAnglesDeg misalignment_total_deg_{}; /**< 运行期安装失准角总量（构造/ApplyConfig 一次抽取） */
   std::uint64_t next_detection_id_{1U};
   std::map<std::uint64_t, SbirsTargetState> target_states_{};

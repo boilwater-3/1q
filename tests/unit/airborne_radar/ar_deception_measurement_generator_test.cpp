@@ -6,8 +6,6 @@
  * 候选量测由 resolver 生成（带物理 provenance），关联键由关联引擎分配。
  */
 
-// MSVC 需在首次包含 <cmath> 前定义 _USE_MATH_DEFINES 才有 M_PI（gtest.h 内部已含 <cmath>）。
-#define _USE_MATH_DEFINES
 #include <gtest/gtest.h>
 
 #include <cstddef>
@@ -23,6 +21,7 @@
 #include "airborne_radar/signal/pipeline/CycleExecutor.h"
 #include "airborne_radar/signal/pipeline/DeceptionMeasurementGenerator.h"
 #include "airborne_radar/signal/pipeline/SignalCycleInput.h"
+#include "common/numerics/Constants.h"
 
 namespace airborne_radar {
 namespace signal {
@@ -44,8 +43,8 @@ detection::ArDeceptionMeasurementCandidate MakeCandidate(std::uint64_t obs_id,
   c.jammer_to_noise_db = 30.0;
   c.used_local_bearings = true;
   // 方位 45°、俯仰 10°、视距 20000m 的笛卡尔位置。
-  const double az_rad = 45.0 * M_PI / 180.0;
-  const double el_rad = 10.0 * M_PI / 180.0;
+  const double az_rad = oneq::common::numerics::DegToRad(45.0);
+  const double el_rad = oneq::common::numerics::DegToRad(10.0);
   const double cos_el = std::cos(el_rad);
   const double range_m = 20000.0;
   c.position = Eigen::Vector3f(

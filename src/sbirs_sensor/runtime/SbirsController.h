@@ -35,6 +35,10 @@ class SbirsController {
    */
   void ApplyConfig(const config::SbirsInternalExecutionConfig& config,
                    const SbirsRuntimeConfigImpact& impact);
+  /** @brief 标注卫星实体/融合源 ID（透传 pipeline，仅进验收日志行）。 */
+  void SetSatelliteEntityId(std::uint32_t satellite_entity_id) {
+    pipeline_.SetSatelliteEntityId(satellite_entity_id);
+  }
   /**
    * @brief 执行一个周期：校验输入、推进 pipeline、生成结构化结果。
    * @param[in] input 单周期输入

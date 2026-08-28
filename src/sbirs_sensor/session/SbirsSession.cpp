@@ -19,6 +19,7 @@ struct SbirsSession::Impl {
   std::unique_ptr<runtime::SbirsController> controller{};
   SbirsDetectionLifecycleRecorder* lifecycle_recorder{nullptr};
   SbirsExclusionCauseRecorder* exclusion_cause_recorder{nullptr};
+  std::uint32_t satellite_entity_id{0U}; /**< 验收行标注用（卫星ID=/相对卫星ID=）。 */
 };
 
 SbirsSession::SbirsSession() : impl_(new Impl) {
@@ -42,7 +43,8 @@ SbirsCycleResult SbirsSession::StepWithResult(const SbirsCycleInput& input) {
         impl_->lifecycle_recorder->Update(input, result);
     if (SBIRS_ACCEPTANCE_LOG_ENABLED()) {
       const float sim_time_sec = static_cast<float>(input.cycle_index) * input.dt_sec;
-      pipeline::WriteSbirsLifecycleEvents(sim_time_sec, input.cycle_index, events, input);
+      pipeline::WriteSbirsLifecycleEvents(impl_->satellite_entity_id, sim_time_sec,
+                                          input.cycle_index, events, input);
     }
   }
   if (impl_->exclusion_cause_recorder != nullptr) {
@@ -57,6 +59,11 @@ void SbirsSession::AttachDetectionLifecycleRecorder(SbirsDetectionLifecycleRecor
 
 void SbirsSession::AttachExclusionCauseRecorder(SbirsExclusionCauseRecorder* recorder) noexcept {
   impl_->exclusion_cause_recorder = recorder;
+}
+
+void SbirsSession::SetSatelliteEntityId(std::uint32_t satellite_entity_id) noexcept {
+  impl_->satellite_entity_id = satellite_entity_id;
+  impl_->controller->SetSatelliteEntityId(satellite_entity_id);
 }
 
 bool SbirsSession::TryApplyRuntimeConfig(const config::SbirsRuntimeConfigPatch& patch) {

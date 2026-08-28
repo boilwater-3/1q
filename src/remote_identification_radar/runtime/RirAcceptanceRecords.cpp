@@ -474,6 +474,8 @@ void WriteRirClusterCount(float sim_time_sec, std::uint32_t cycle,
   // 集群目标数量 = 确认航迹数（身份去重后的在跟目标数，非检测条数——
   // 「检测条数不得顶替集群规模」原裁定由本批注按计数口径覆盖）。同时给出
   // 待确认/丢失计数作上下文；无确认航迹时如实写 0。
+  // 验收判定标准 第19项：被跟踪对象明细按状态分列（航迹→目标ID），
+  // 空列表省略；external_target_id 为 0（未知）时目标写「未知」。
   std::size_t confirmed = 0U;
   std::size_t tentative = 0U;
   std::size_t lost = 0U;
@@ -490,11 +492,52 @@ void WriteRirClusterCount(float sim_time_sec, std::uint32_t cycle,
         break;
     }
   }
+  std::string confirmed_ids;
+  std::size_t index = 0U;
+  std::string active_list;
+  std::string lost_list;
+  for (const tracking::RirTrackState& track : tracks) {
+    ++index;
+    const std::string target_text =
+        track.external_target_id == 0U ? std::string("未知")
+                                       : std::to_string(track.external_target_id);
+    if (track.status == tracking::RirTrackStatus::kConfirmed && track.external_target_id != 0U) {
+      if (!confirmed_ids.empty()) {
+        confirmed_ids += ",";
+      }
+      confirmed_ids += std::to_string(track.external_target_id);
+    }
+    const char* status_text = track.status == tracking::RirTrackStatus::kConfirmed ? "确认"
+                              : track.status == tracking::RirTrackStatus::kTentative ? "待确认"
+                                                                                     : "丢失";
+    const std::string entry = "航迹" + std::to_string(index) + "→目标" + target_text + "(" +
+                              status_text + ");";
+    if (track.status == tracking::RirTrackStatus::kLost) {
+      lost_list += entry;
+    } else {
+      active_list += entry;
+    }
+  }
+  if (!active_list.empty()) {
+    active_list.pop_back();  // 去掉行尾分号
+  }
+  if (!lost_list.empty()) {
+    lost_list.pop_back();
+  }
   std::string content = "集群目标数量=" + std::to_string(confirmed);
   content += " 在跟=" + std::to_string(confirmed + tentative);
   content += " 待确认=" + std::to_string(tentative);
   content += " 丢失=" + std::to_string(lost);
-  Emit(sim_time_sec, cycle, "集群目标识别", content);
+  if (!confirmed_ids.empty()) {
+    content += " 确认目标ID=[" + confirmed_ids + "]";
+  }
+  if (!active_list.empty()) {
+    content += " 在跟列表=" + active_list;
+  }
+  if (!lost_list.empty()) {
+    content += " 丢失列表=" + lost_list;
+  }
+  Emit(sim_time_sec, cycle, "规模目标识别功能测试", content);
 }
 
 void WriteRirTrackAndId(float sim_time_sec, std::uint32_t cycle, const tracking::RirTrackState& track,

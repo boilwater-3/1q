@@ -134,8 +134,8 @@ inline void ComputeLeavesParamEq_ymm8r4(const TreeScattererState& state, float v
  * 策略由调用方在传入 frequency_hz 前完成。
  */
 struct RcsPhysicsParams {
-  bool enable_physical_rcs{false};
-  float physics_mix_ratio{0.0f};
+  bool enable_physical_rcs{true};  // 默认开启物理 RCS 估计。
+  float physics_mix_ratio{1.0f};   // 物理估计占比 [0,1]；1=完全物理估计，与扫描无关。
   float cylinder_weight{0.7f};
   float min_equivalent_radius_m{0.05f};
   float max_equivalent_radius_m{5.0f};
@@ -150,7 +150,8 @@ struct RcsPhysicsParams {
  * @param[in] input_rcs_m2 场景输入 RCS（m²）。
  * @param[in] frequency_hz 载频（Hz）；非正时返回 input_rcs_m2。
  * @param[in] look_az_deg / look_el_deg 视线角（deg）；has_look_angles=false 时按 0。
- * @param[in] params 混合参数。
+ * @param[in] params 混合参数。`physics_mix_ratio` 是物理估计与输入 RCS 的线性混合比
+ *            （0=只用输入值，1=完全物理估计），与扫描调度无关。
  * @return 混合后有效 RCS（m²）。
  */
 float ComputeMixedPhysicalRcsM2(float input_rcs_m2, float frequency_hz, float look_az_deg,

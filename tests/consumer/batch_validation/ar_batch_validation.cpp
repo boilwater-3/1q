@@ -233,8 +233,7 @@ std::vector<ar_session::ArTargetInput> MakeTargets(const ArCase& c,
 }
 
 /// 按场景调整 config：
-///   - 强制启用物理探测链 + 物理 RCS 估计，使目标距离 / RCS / SNR 阈值真正驱动探测结果。
-///     （示例配置默认关闭物理探测，导致所有目标被确定性检出，无法体现距离/RCS 差异。）
+///   - 显式锁定物理 RCS 估计（enable=true、mix=1），使目标距离 / RCS / SNR 阈值真正驱动探测结果。
 ///   - 若场景指定 min_snr_db 覆盖，则覆盖探测门限。
 ///
 /// @note 这些都是 ArSessionConfig 对外公开的字段，属于本框架正常使用的配置面。

@@ -15,8 +15,8 @@
     },
     "antenna": {
       "main_beam_gain_db": 52.0,
-      "nominal_az_beamwidth_deg": 4.0,
-      "nominal_el_beamwidth_deg": 4.0,
+      "nominal_az_beamwidth_deg": 0.8,
+      "nominal_el_beamwidth_deg": 0.8,
       "antenna_length_m": 1.2,
       "antenna_width_m": 1.2,
       "pattern": {
@@ -52,8 +52,8 @@
       "jamming_suppression_gain_db": 0.0
     },
     "rcs_physics": {
-      "enable_physical_rcs": false,
-      "physics_mix_ratio": 0.0,
+      "enable_physical_rcs": true,
+      "physics_mix_ratio": 1.0,
       "cylinder_weight": 0.5,
       "min_equivalent_radius_m": 0.05,
       "max_equivalent_radius_m": 5.0,

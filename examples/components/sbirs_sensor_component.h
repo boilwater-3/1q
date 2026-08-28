@@ -72,7 +72,7 @@ class SbirsSensorComponent : public Component {
   SbirsSensorComponent& operator=(const SbirsSensorComponent&) = delete;
 
   const char* Name() const override { return "SbirsSensor"; }
-  void OnAttach(Entity& host) override { host_ = &host; }
+  void OnAttach(Entity& host) override;
   void Step(World& world, double dt_sec) override;
 
   /** @brief 本周期适配后的泛型探测记录（融合聚合读）。 */

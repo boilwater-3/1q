@@ -36,6 +36,13 @@ inline std::string FormatF(double value, int precision) {
     case 5:
       std::snprintf(buf, sizeof(buf), "%.5f", value);
       break;
+    case 7:
+      std::snprintf(buf, sizeof(buf), "%.7f", value);
+      break;
+    case 8:
+      // 弧度制小量（如 μrad 级测角残差 ≈1e-6 rad）需要 8 位小数才有有效数字。
+      std::snprintf(buf, sizeof(buf), "%.8f", value);
+      break;
     default:
       std::snprintf(buf, sizeof(buf), "%.6f", value);
       break;

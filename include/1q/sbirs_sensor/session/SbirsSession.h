@@ -58,6 +58,13 @@ class ONEQ_API SbirsSession {
   bool TryApplyRuntimeConfig(const config::SbirsRuntimeConfigPatch& patch);
 
   /**
+   * @brief 标注本会话卫星实体/融合源 ID（仅进验收日志行的 卫星ID=/相对卫星ID= 字段）。
+   * @param[in] satellite_entity_id 场景实体/融合源 ID；双星场景各星互异（如 4 与 104）。
+   * @note 不影响任何计算路径；未标注时验收行如实写 0。
+   */
+  void SetSatelliteEntityId(std::uint32_t satellite_entity_id) noexcept;
+
+  /**
    * @brief 注册探测生命周期记录器，由 Session 在每个周期自动驱动。
    *
    * 注册后，`StepWithResult()` 和 `Step()` 内部在 CycleResult 构建完成后自动调用

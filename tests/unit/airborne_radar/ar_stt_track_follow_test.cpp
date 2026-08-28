@@ -57,6 +57,8 @@ config::ArSessionConfig MakeDetectionFocusedConfig() {
   cfg.policy.detection = config::profiles::kDetectionPriorityDetection;
   cfg.policy.tracking = config::profiles::kFastAssociationTracking;
   cfg.policy.lifecycle = config::profiles::kFastConfirmLifecycle;
+  cfg.hardware.rcs_physics.enable_physical_rcs = false;
+  cfg.hardware.rcs_physics.physics_mix_ratio = 0.0f;
   return cfg;
 }
 

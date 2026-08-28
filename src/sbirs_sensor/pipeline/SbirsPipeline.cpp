@@ -433,16 +433,7 @@ SbirsPipeline::SbirsPipeline(const config::SbirsInternalExecutionConfig& config)
       estimated_measurement_random_source_(DeriveMeasurementSeed(
           config.session.policy.error_model.random_seed, kEstimatedMeasurementDomain)),
       sensor_like_output_random_source_(DeriveMeasurementSeed(
-          config.session.policy.error_model.random_seed, kSensorLikeOutputDomain)) {
-  // 验收项「安装矩阵误差」：安装角 / 失准角派生三套矩阵；构造与 ApplyConfig 同种子确定性重抽。
-  if (SBIRS_ACCEPTANCE_LOG_ENABLED()) {
-    WriteSbirsInstallMatrices(
-        config.session.orientation.mount_angles_deg,
-        oneq::coordinate::EulerAnglesDeg(misalignment_total_deg_.yaw_deg,
-                                         misalignment_total_deg_.pitch_deg,
-                                         misalignment_total_deg_.roll_deg));
-  }
-}
+          config.session.policy.error_model.random_seed, kSensorLikeOutputDomain)) {}
 
 void SbirsPipeline::ApplyConfig(const config::SbirsInternalExecutionConfig& config,
                                 const runtime::SbirsRuntimeConfigImpact& impact) {
@@ -452,15 +443,10 @@ void SbirsPipeline::ApplyConfig(const config::SbirsInternalExecutionConfig& conf
   config_ = config;
   // 阶段 3：安装失准为静态配置（不进运行期 patch），每次应用配置时确定性重抽
   // 运行期失准角总量——配置不变时同种子重抽产生同值（行为不变），配置变时即刻生效。
-  misalignment_total_deg_ = DrawMisalignmentTotal(config_.session.orientation.misalignment);
-  // 验收项「安装矩阵误差」：配置重抽后的失准角与三套矩阵。
-  if (SBIRS_ACCEPTANCE_LOG_ENABLED()) {
-    WriteSbirsInstallMatrices(
-        config_.session.orientation.mount_angles_deg,
-        oneq::coordinate::EulerAnglesDeg(misalignment_total_deg_.yaw_deg,
-                                         misalignment_total_deg_.pitch_deg,
-                                         misalignment_total_deg_.roll_deg));
-  }
+  misalignment_total_deg_ = DrawMisalignmentTotal(config.session.orientation.misalignment);
+  // 验收项「安装矩阵误差功能测试」：配置重抽后矩阵变化，下一执行周期重写一行
+  //（写入时卫星实体 ID 可能已由调用方标注，故不在此处直接写）。
+  install_matrices_acceptance_pending_ = true;
   if (impact.scan_sector_changed) {
     const float candidate_phase =
         ScanPhaseForAzimuth(config_.session.mission, previous_scan_azimuth_deg);
@@ -827,35 +813,31 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
       }
       return text;
     }();
-    std::string graze_text;
-    if (center_valid) {
-      oneq::coordinate::LlaPositionDegM lla(center_lat_deg, center_lon_deg, 0.0);
-      oneq::coordinate::EcefPositionM sat_ecef(input.satellite_position_ecef_m.x,
-                                               input.satellite_position_ecef_m.y,
-                                               input.satellite_position_ecef_m.z);
-      oneq::coordinate::EnuPositionM sat_enu;
-      if (oneq::coordinate::TryEcefToEnu(sat_ecef, lla, &sat_enu)) {
-        const double horiz = std::hypot(sat_enu.east_m, sat_enu.north_m);
-        const double graze_deg = std::atan2(sat_enu.up_m, std::max(horiz, 1.0e-6)) * 57.29577951308232;
-        graze_text = oneq::logging::FormatF(graze_deg, 3) + "°";
-      }
-    }
-    if (graze_text.empty()) {
-      graze_text = oneq::logging::FormatF(actual_scan_elevation_sensor_deg, 3) +
-                   "°（无地面交点，记视场中心俯仰）";
-    }
     std::string footprint = "覆盖四角经纬=[" + corners_csv + "] 中心=(" + center_text +
                             ") 驻留=" + oneq::logging::FormatF(dwell_s, 3) + "s";
-    SBIRS_ACCEPTANCE_ITEM(sim_time_sec, input.cycle_index, "宽视场扫描探测", footprint);
-    std::string scan_w = "扫描幅宽az/el=(" +
-                         oneq::logging::FormatF(mission.wide_field_fov_az_deg, 3) + "," +
-                         oneq::logging::FormatF(mission.wide_field_fov_el_deg, 3) + ")° 扫描掠角=" +
-                         graze_text;
-    SBIRS_ACCEPTANCE_ITEM(sim_time_sec, input.cycle_index, "大幅面扫描与探测", scan_w);
+    // 规范口径（验收判定标准 第12项）：地面覆盖区域坐标与驻留时间 + 卫星ID。
+    std::string wfov_row = "卫星ID=" + std::to_string(satellite_entity_id_) + " " + footprint;
+    SBIRS_ACCEPTANCE_ITEM(sim_time_sec, input.cycle_index, "宽视场扫描探测功能测试", wfov_row);
+    // 规范口径（验收判定标准 第14项·其一）：宽视场扫描覆盖区域与第 12 项同数据、
+    // 按本项分行重写。
+    std::string joint_cover = "卫星ID=" + std::to_string(satellite_entity_id_) +
+                              " 宽视场扫描覆盖区域=" + footprint;
+    SBIRS_ACCEPTANCE_ITEM(sim_time_sec, input.cycle_index, "宽窄视场联合探测功能测试",
+                          joint_cover);
+    if (install_matrices_acceptance_pending_) {
+      // 验收项「安装矩阵误差功能测试」（第10项）：首个执行周期写一次（周期 0 语义；
+      // ApplyConfig 重抽失准后置位重写）。卫星 ID 此时已可被调用方标注。
+      WriteSbirsInstallMatrices(
+          satellite_entity_id_, config_.session.orientation.mount_angles_deg,
+          oneq::coordinate::EulerAnglesDeg(misalignment_total_deg_.yaw_deg,
+                                           misalignment_total_deg_.pitch_deg,
+                                           misalignment_total_deg_.roll_deg));
+      install_matrices_acceptance_pending_ = false;
+    }
     const double sat_range = std::sqrt(input.satellite_position_ecef_m.x * input.satellite_position_ecef_m.x +
                                        input.satellite_position_ecef_m.y * input.satellite_position_ecef_m.y +
                                        input.satellite_position_ecef_m.z * input.satellite_position_ecef_m.z);
-    WriteSbirsOrbitSample(this, sim_time_sec, input.cycle_index,
+    WriteSbirsOrbitSample(satellite_entity_id_, sim_time_sec, input.cycle_index,
                           policy.error_model.orbit_sigma_deg, sat_range,
                           policy.error_model.nav_position_sigma_m,
                           input.satellite_position_ecef_m);
@@ -1130,7 +1112,8 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
             static_cast<float>(detection.record.azimuth_rad * 57.29577951308232), azimuth_deg);
         const double el_err =
             static_cast<float>(detection.record.elevation_rad * 57.29577951308232) - elevation_deg;
-        std::string nfov = "目标ID=" + std::to_string(target.target_id);
+        std::string nfov = "卫星ID=" + std::to_string(satellite_entity_id_);
+        nfov += " 目标ID=" + std::to_string(target.target_id);
         if (focal_valid) {
           nfov += " 脱靶量m=(" + oneq::logging::FormatF(focal_offset.x_m, 6) + "," +
                   oneq::logging::FormatF(focal_offset.y_m, 6) + ")";
@@ -1141,9 +1124,22 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
         nfov += detection.attribution.nfov_tracking_coasting ? "滑行" : "跟踪";
         nfov += " 信号能量=" + oneq::logging::FormatSci(signal_energy_j) + "J";
         nfov += " SNR=" + oneq::logging::FormatF(snr, 3);
-        SBIRS_ACCEPTANCE_ITEM(sim_time_sec, input.cycle_index, "窄视场跟踪探测", nfov);
-        WriteSbirsAngleError(this, sim_time_sec, input.cycle_index, target.target_id, az_err,
-                             el_err, detection.record.azimuth_rad * 57.29577951308232,
+        SBIRS_ACCEPTANCE_ITEM(sim_time_sec, input.cycle_index, "窄视场跟踪探测功能测试", nfov);
+        // 规范口径（验收判定标准 第14项·其三）：窄视场精确状态序列——同一目标逐周期
+        // 的窄场角（ECI rad）、跟踪状态与 SNR。
+        std::string joint_track = "卫星ID=" + std::to_string(satellite_entity_id_);
+        joint_track += " 目标ID=" + std::to_string(target.target_id);
+        joint_track += " 窄场方位/俯仰(ECI)=(" +
+                       oneq::logging::FormatF(detection.record.azimuth_rad, 8) + "," +
+                       oneq::logging::FormatF(detection.record.elevation_rad, 8) + ")rad";
+        joint_track += " 跟踪状态=";
+        joint_track += detection.attribution.nfov_tracking_coasting ? "滑行" : "跟踪";
+        joint_track += " SNR=" + oneq::logging::FormatF(snr, 3);
+        SBIRS_ACCEPTANCE_ITEM(sim_time_sec, input.cycle_index, "宽窄视场联合探测功能测试",
+                              joint_track);
+        WriteSbirsAngleError(this, satellite_entity_id_, sim_time_sec, input.cycle_index,
+                             target.target_id, az_err, el_err,
+                             detection.record.azimuth_rad * 57.29577951308232,
                              detection.record.elevation_rad * 57.29577951308232, azimuth_deg,
                              elevation_deg, policy.error_model.orbit_sigma_deg,
                              policy.error_model.attitude_sigma_deg,
@@ -1277,20 +1273,13 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
     candidates.push_back(candidate);
     // 宽窄切换前置条件（3.2.1.3.2.1）：WFOV 四门全部通过计一次连续命中；
     // 门失败/目标消失分支已清零，进入跟踪时在捕获处清零。
-    const unsigned int consecutive_hits = ++wfov_consecutive_hits_[target.target_id];
+    ++wfov_consecutive_hits_[target.target_id];
     if (SBIRS_ACCEPTANCE_LOG_ENABLED()) {
-      // 中译：宽视场疑似目标事件（目标编号、真值与带误差量测角、定位角度误差、距离、
-      //       SNR、最大探测距离、接收功率与信号能量、视线角速度、cue 提前指向命令角、
-      //       cue 延迟、延迟后真值角、连续命中计数与所需阈值）。
-      // 标识：验收日志 E2——3.2.1.3.2"宽场疑似目标列表/目标信号能量"、3.2.1.3.2.1
-      //       cue 参数与连续命中、3.2.1.3.2.2 宽场检测、3.2.1.6.3 红外定位角度误差
-      //       证据（az/el_error = 带误差量测角 − 真值角，方位最短角差）。
+      // 中译：宽视场疑似目标事件（量测角/定位误差/距离/SNR/能量/最大探测距离/LLA）。
+      // 标识：验收日志 E2——验收判定标准 第5/6/7/11项 逐目标行；az/el_error =
+      // 带误差量测角 − 真值角（方位最短角差）。
       const double az_err = AzimuthDelta(candidate.measured_azimuth_deg, azimuth_deg);
       const double el_err = candidate.measured_elevation_deg - elevation_deg;
-      const double nfov_d_max = foundation::ComputeMaxDetectionRangeM(
-          target.radiant_intensity_w_per_sr, hw.optical_aperture_m, hw.optical_transmission,
-          transmittance, hw.detector_quantum_efficiency, hw.integration_time_sec,
-          effective_noise_w, policy.detection.narrow_min_snr_linear);
       session::SbirsVector3M ecef = target.position_eci_m;
       for (const session::SbirsSceneTarget& source : input.scene) {
         if (source.target_id == target.target_id) {
@@ -1298,33 +1287,46 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
           break;
         }
       }
-      std::string dmax = "目标ID=" + std::to_string(target.target_id);
+      const double kDegToRad = 0.017453292519943295;
+      // 第5项 探测角度计算：实体相对卫星的方位/俯仰（ECI、弧度制）。
+      std::string angle = "目标ID=" + std::to_string(target.target_id);
+      angle += " 量测方位/俯仰(ECI)=(" +
+               oneq::logging::FormatF(candidate.measured_azimuth_deg * kDegToRad, 8) + "," +
+               oneq::logging::FormatF(candidate.measured_elevation_deg * kDegToRad, 8) + ")rad";
+      SBIRS_ACCEPTANCE_ITEM(sim_time_sec, input.cycle_index, "探测角度计算功能测试", angle);
+      // 第6项 最大探测距离：相对哪颗卫星的最大探测距离（相对卫星ID）。
+      std::string dmax = "相对卫星ID=" + std::to_string(satellite_entity_id_);
+      dmax += " 目标ID=" + std::to_string(target.target_id);
       dmax += " 相对卫星最大探测距离=" + oneq::logging::FormatF(max_detection_range_m, 1) + "m";
-      dmax += " 窄场最大探测距离=" + oneq::logging::FormatF(nfov_d_max, 1) + "m";
-      SBIRS_ACCEPTANCE_ITEM(sim_time_sec, input.cycle_index, "最大探测距离", dmax);
-      std::string dyn = "目标ID=" + std::to_string(target.target_id);
-      dyn += " ECEF位置m=" + oneq::logging::FormatVec3(ecef.x, ecef.y, ecef.z, 1);
-      dyn += " 斜距=" + oneq::logging::FormatF(range_m, 1) + "m";
-      dyn += " 真值方位/俯仰=" + oneq::logging::FormatPairDeg(azimuth_deg, elevation_deg, 3) + "°";
-      dyn += " 量测方位/俯仰=" +
-             oneq::logging::FormatPairDeg(candidate.measured_azimuth_deg,
-                                          candidate.measured_elevation_deg, 3) +
-             "°";
-      dyn += " 探测器系方位/俯仰=" +
-             oneq::logging::FormatPairDeg(sensor_azimuth_deg, sensor_elevation_deg, 3) + "°";
-      dyn += " 相对角速度=" +
-             oneq::logging::FormatF(candidate.relative_angular_rate_deg_per_sec, 4) + "°/s";
-      dyn += " SNR=" + oneq::logging::FormatF(snr, 3);
+      SBIRS_ACCEPTANCE_ITEM(sim_time_sec, input.cycle_index, "最大探测距离计算功能测试", dmax);
+      // 第7项 目标可探测性与动态参数：位置（LLA）、相对卫星斜距、角度（ECI rad）
+      // 与红外可探测性。
+      std::string dyn = "相对卫星ID=" + std::to_string(satellite_entity_id_);
+      dyn += " 目标ID=" + std::to_string(target.target_id);
+      oneq::coordinate::LlaPositionDegM target_lla{};
+      if (oneq::coordinate::TryEcefToLla(
+              oneq::coordinate::EcefPositionM(ecef.x, ecef.y, ecef.z), &target_lla)) {
+        dyn += " 位置LLA=(" + oneq::logging::FormatF(target_lla.latitude_deg, 6) + "," +
+               oneq::logging::FormatF(target_lla.longitude_deg, 6) + "," +
+               oneq::logging::FormatF(target_lla.altitude_m, 1) + ")";
+      }
+      dyn += " 相对卫星斜距=" + oneq::logging::FormatF(range_m, 1) + "m";
+      dyn += " 量测方位/俯仰(ECI)=(" +
+             oneq::logging::FormatF(candidate.measured_azimuth_deg * kDegToRad, 8) + "," +
+             oneq::logging::FormatF(candidate.measured_elevation_deg * kDegToRad, 8) + ")rad";
       dyn += " 红外可探测=是";
-      SBIRS_ACCEPTANCE_ITEM(sim_time_sec, input.cycle_index, "目标可探测性与动态参数", dyn);
-      std::string energy = "扫描幅宽az/el=(" +
-                           oneq::logging::FormatF(mission.wide_field_fov_az_deg, 3) + "," +
-                           oneq::logging::FormatF(mission.wide_field_fov_el_deg, 3) + ")°";
+      SBIRS_ACCEPTANCE_ITEM(sim_time_sec, input.cycle_index, "目标可探测性与动态参数生成功能测试",
+                            dyn);
+      // 第11项 红外预警卫星大幅面扫描与探测：扫描幅宽（ECI rad）/目标辐射能量链/
+      // SNR/探测概率/检测标志（评审 2026-08-26 条2：Pd 复用雷达公共层 Marcum Q 模型
+      // （Swerling0 单脉冲），Pfa 由宽场门限系数 k 按高斯尾部 Pfa=0.5·erfc(k/√2) 反推）。
+      std::string energy = "卫星ID=" + std::to_string(satellite_entity_id_);
+      energy += " 扫描幅宽az/el(ECI)=(" +
+                oneq::logging::FormatF(mission.wide_field_fov_az_deg * kDegToRad, 6) + "," +
+                oneq::logging::FormatF(mission.wide_field_fov_el_deg * kDegToRad, 6) + ")rad";
       energy += " 目标ID=" + std::to_string(target.target_id);
       energy += " 接收功率=" + oneq::logging::FormatSci(received_power_w) + "W";
       energy += " 信号能量=" + oneq::logging::FormatSci(signal_energy_j) + "J";
-      // 评审 2026-08-26 条2：补 SNR 与探测概率——Pd 复用雷达公共层 Marcum Q 模型
-      // （Swerling0 单脉冲），Pfa 由宽场门限系数 k 按高斯尾部 Pfa=0.5·erfc(k/√2) 反推。
       energy += " SNR=" + oneq::logging::FormatF(snr, 3);
       const double snr_db_wide = 10.0 * std::log10(std::max(snr, 1.0e-12));
       const double pfa_wide =
@@ -1334,26 +1336,23 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
           static_cast<float>(snr_db_wide), static_cast<float>(pfa_wide),
           oneq::common::radar::SwerlingModel::kSwerling0, 1);
       energy += " 探测概率=" + oneq::logging::FormatF(pd_wide, 4);
-      SBIRS_ACCEPTANCE_ITEM(sim_time_sec, input.cycle_index, "大幅面扫描与探测", energy);
-      WriteSbirsAngleError(this, sim_time_sec, input.cycle_index, target.target_id, az_err, el_err,
-                           candidate.measured_azimuth_deg, candidate.measured_elevation_deg,
-                           azimuth_deg, elevation_deg, policy.error_model.orbit_sigma_deg,
+      energy += " 检测标志=是";
+      SBIRS_ACCEPTANCE_ITEM(sim_time_sec, input.cycle_index, "红外预警卫星大幅面扫描与探测功能测试",
+                            energy);
+      WriteSbirsAngleError(this, satellite_entity_id_, sim_time_sec, input.cycle_index,
+                           target.target_id, az_err, el_err, candidate.measured_azimuth_deg,
+                           candidate.measured_elevation_deg, azimuth_deg, elevation_deg,
+                           policy.error_model.orbit_sigma_deg,
                            policy.error_model.attitude_sigma_deg,
                            policy.error_model.fov_sigma_deg);
-      const int required_hits =
-          std::max(1, policy.scheduler.wide_to_narrow_required_consecutive_hits);
-      std::string joint = "宽场疑似=[" + std::to_string(target.target_id) + "]";
-      joint += " 连续命中=" + std::to_string(consecutive_hits) + "/" + std::to_string(required_hits);
-      joint += consecutive_hits >= static_cast<unsigned int>(required_hits) ? " 序列确认=达标"
-                                                                           : " 序列确认=未达标";
-      SBIRS_ACCEPTANCE_ITEM(sim_time_sec, input.cycle_index, "宽窄视场联合探测", joint);
     }
     if (target_states_[target.target_id] != SbirsTargetState::kAwaitingNfovAcquisition) {
       target_states_[target.target_id] = SbirsTargetState::kWideCandidate;
     }
   }
 
-  // 评审 2026-08-26 条3：宽场疑似目标完整列表（逐目标行只写单个 ID，此处汇总一行）。
+  // 评审 2026-08-26 条3 + 验收判定标准 第14项·其二：宽场疑似目标完整列表（规范口径：
+  // 只写 卫星ID 与列表，不写 连续命中/序列确认）。
   if (SBIRS_ACCEPTANCE_LOG_ENABLED() && !candidates.empty()) {
     std::string suspect_ids;
     for (const SbirsCandidate& candidate : candidates) {
@@ -1362,9 +1361,10 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
       }
       suspect_ids += std::to_string(candidate.target->target_id);
     }
-    std::string joint_list = "宽场疑似列表=[" + suspect_ids +
-                             "] 数量=" + std::to_string(candidates.size());
-    SBIRS_ACCEPTANCE_ITEM(sim_time_sec, input.cycle_index, "宽窄视场联合探测", joint_list);
+    std::string joint_list = "卫星ID=" + std::to_string(satellite_entity_id_) +
+                             " 宽场疑似列表=[" + suspect_ids + "]";
+    SBIRS_ACCEPTANCE_ITEM(sim_time_sec, input.cycle_index, "宽窄视场联合探测功能测试",
+                          joint_list);
   }
 
   if (mission.work_mode == config::SbirsWorkMode::kWideSearch) {
@@ -1447,12 +1447,18 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
     processed_target_ids.insert(target_id);
     if (pointing_result.status == SbirsPointingAdvanceStatus::kSlewing) {
       if (SBIRS_ACCEPTANCE_LOG_ENABLED()) {
-        // 中译：窄视场首次捕获事件——转向中（目标编号、通道、命令角、SNR）。
-        // 标识：验收日志 E4——3.2.1.3.2.1 NFOV 指向/捕获过程的"转向"中间态证据。
+        // 中译：窄视场首次捕获事件——转向中（卫星、目标、通道、窄场指向命令角、SNR）。
+        // 标识：验收日志 E4——3.2.1.3.2.1 NFOV 指向/捕获过程的"转向"中间态证据；
+        //       窄场角按规范口径写 ECI 弧度（cue 预测命令角）。
+        constexpr double kDegToRad = 0.017453292519943295;
         SBIRS_ACCEPTANCE_ITEM(
-            sim_time_sec, input.cycle_index, "宽窄视场联合探测",
-            "宽场疑似=[" + std::to_string(target_id) + "] 窄场通道=" + std::to_string(channel_id) +
-                " 捕获=转向中 SNR=" + oneq::logging::FormatF(selected.snr, 3));
+            sim_time_sec, input.cycle_index, "宽窄视场联合探测功能测试",
+            "卫星ID=" + std::to_string(satellite_entity_id_) + " 目标ID=" +
+                std::to_string(target_id) + " 窄场通道=" + std::to_string(channel_id) +
+                " 捕获=转向中 窄场方位/俯仰(ECI)=(" +
+                oneq::logging::FormatF(selected.command_azimuth_deg * kDegToRad, 8) + "," +
+                oneq::logging::FormatF(selected.command_elevation_deg * kDegToRad, 8) +
+                ")rad SNR=" + oneq::logging::FormatF(selected.snr, 3));
       }
       append_wfov_detection(selected, channel_id);
       return;
@@ -1463,11 +1469,12 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
       target_states_[target_id] = SbirsTargetState::kWideCandidate;
       blocked_target_ids.insert(target_id);
       if (SBIRS_ACCEPTANCE_LOG_ENABLED()) {
-        // 中译：窄视场首次捕获事件——指向超时失败（目标编号、通道、命令角）。
+        // 中译：窄视场首次捕获事件——指向超时失败（卫星、目标、通道）。
         // 标识：验收日志 E4——3.2.1.3.2.1 指向超时回退证据（与 E7 release 成对）。
-        SBIRS_ACCEPTANCE_ITEM(sim_time_sec, input.cycle_index, "宽窄视场联合探测",
-                              "宽场疑似=[" + std::to_string(target_id) +
-                                  "] 窄场通道=" + std::to_string(channel_id) + " 捕获=超时失败");
+        SBIRS_ACCEPTANCE_ITEM(sim_time_sec, input.cycle_index, "宽窄视场联合探测功能测试",
+                              "卫星ID=" + std::to_string(satellite_entity_id_) +
+                                  " 目标ID=" + std::to_string(target_id) +
+                                  " 窄场通道=" + std::to_string(channel_id) + " 捕获=超时失败");
       }
       append_acquisition_failure(selected, channel_id,
                                  attribution::SbirsCaptureFailureReason::kNfovPointingTimeout);
@@ -1480,11 +1487,12 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
       target_states_[target_id] = SbirsTargetState::kWideCandidate;
       blocked_target_ids.insert(target_id);
       if (SBIRS_ACCEPTANCE_LOG_ENABLED()) {
-        // 中译：窄视场首次捕获事件——指向被拒失败（目标编号、通道、命令角）。
+        // 中译：窄视场首次捕获事件——指向被拒失败（卫星、目标、通道）。
         // 标识：验收日志 E4——3.2.1.3.2.1 指向拒绝回退证据（与 E7 release 成对）。
-        SBIRS_ACCEPTANCE_ITEM(sim_time_sec, input.cycle_index, "宽窄视场联合探测",
-                              "宽场疑似=[" + std::to_string(target_id) +
-                                  "] 窄场通道=" + std::to_string(channel_id) + " 捕获=指向被拒");
+        SBIRS_ACCEPTANCE_ITEM(sim_time_sec, input.cycle_index, "宽窄视场联合探测功能测试",
+                              "卫星ID=" + std::to_string(satellite_entity_id_) +
+                                  " 目标ID=" + std::to_string(target_id) +
+                                  " 窄场通道=" + std::to_string(channel_id) + " 捕获=指向被拒");
       }
       append_acquisition_failure(selected, channel_id,
                                  attribution::SbirsCaptureFailureReason::kNfovAcquisitionFailed);
@@ -1519,14 +1527,17 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
     acquisition_request.minimum_snr_linear = policy.detection.narrow_min_snr_linear;
     const bool captured = IsNfovAcquisitionEligible(acquisition_request);
     if (SBIRS_ACCEPTANCE_LOG_ENABLED()) {
-      // 几何门余量计算保留在捕获判定函数内；此处只写捕获结论。
+      // 几何门余量计算保留在捕获判定函数内；此处只写捕获结论（窄场角按规范口径写
+      // ECI 弧度——cue 预测命令角）。
+      constexpr double kDegToRad = 0.017453292519943295;
       SBIRS_ACCEPTANCE_ITEM(
-          sim_time_sec, input.cycle_index, "宽窄视场联合探测",
-          "宽场疑似=[" + std::to_string(target_id) + "] 窄场通道=" + std::to_string(channel_id) +
-              " 捕获=" + std::string(captured ? "成功" : "失败") + " 窄场方位/俯仰=" +
-              oneq::logging::FormatPairDeg(acquisition_request.command_azimuth_deg,
-                                           acquisition_request.command_elevation_deg, 3) +
-              "° SNR=" + oneq::logging::FormatF(selected.snr, 3));
+          sim_time_sec, input.cycle_index, "宽窄视场联合探测功能测试",
+          "卫星ID=" + std::to_string(satellite_entity_id_) + " 目标ID=" +
+              std::to_string(target_id) + " 窄场通道=" + std::to_string(channel_id) +
+              " 捕获=" + std::string(captured ? "成功" : "失败") + " 窄场方位/俯仰(ECI)=(" +
+              oneq::logging::FormatF(selected.command_azimuth_deg * kDegToRad, 8) + "," +
+              oneq::logging::FormatF(selected.command_elevation_deg * kDegToRad, 8) + ")rad SNR=" +
+              oneq::logging::FormatF(selected.snr, 3));
     }
     if (captured) {
       if (!pointing_coordinator_.PromoteToTracking(target_id)) {
@@ -1637,16 +1648,8 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
         hits_entry == wfov_consecutive_hits_.end() ? 0 : static_cast<int>(hits_entry->second);
     if (consecutive_hits < required_consecutive_hits) {
       hit_gate_blocked_ids.insert(target_id);
-      if (SBIRS_ACCEPTANCE_LOG_ENABLED()) {
-        // 中译：宽窄切换命中门事件（目标编号、当前连续命中数、所需阈值）。
-        // 标识：验收日志 E3——3.2.1.3.2.1"宽窄切换连续检测计数器"作为切换前置
-        //       条件的证据；被挡下的目标本周期保持宽场候选，不进入 NFOV 调度。
-        SBIRS_ACCEPTANCE_ITEM(
-            sim_time_sec, input.cycle_index, "宽窄视场联合探测",
-            "宽场疑似=[" + std::to_string(target_id) + "] 连续命中=" +
-                std::to_string(consecutive_hits) + "/" + std::to_string(required_consecutive_hits) +
-                " 序列确认=未达标");
-      }
+      // 规范口径（验收判定标准 第14项）：不写 连续命中/序列确认 字段；被命中门挡下
+      // 的目标本周期保持宽场候选，不进入 NFOV 调度（E3 计数行已按规范删除）。
       continue;
     }
     new_candidates.push_back(candidate);

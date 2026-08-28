@@ -19,7 +19,7 @@ RIR 自持链路生产的内部航迹，不再消费外部航迹供给。
 | 自发射构建 | `dwell/RirEmissionFactory.cpp` | hardware + 周期上下文 → `RfSceneEmission` | 无 ECCM；功率包络钳制；ECEF 波束指向；载频由频率计划/周期索引解析；驻留窗脉冲数按 ceil(窗/PRI) 计（AR PrepareRfCycle 同口径），下限 1 — **可提取核心，阶段 3b 未迁** |
 | 接收机状态 | `dwell/RirReceiverStateBuilder.cpp` | 自发射 + hardware → `RirReceiverOperatingState` | 与 AR 同口径 RF 接收机参数；供前端聚合与 detection cell — **可提取核心，阶段 3b 未迁** |
 | RF 前端求解 | `dwell/RirRfFrontEndResolver.cpp` | 合并场景（外部 + 自发射）+ 接收机 → incident links | 按 emission_id 排序；饱和标志独立暴露；集成方只供外部 emission |
-| 有效 RCS | `dwell/RirEffectiveRcs.cpp` → `common/rcs/RcsPhysics`（`ComputeMixedPhysicalRcsM2`） | 场景目标 + 视线角 + `rcs_physics` → m² | 混合编排 common 单源；`carrier_hz<=0` 返回 input RCS（RIR 模块侧策略）；写入 detection cell 目标 `rcs_m2` |
+| 有效 RCS | `dwell/RirEffectiveRcs.cpp` → `common/rcs/RcsPhysics`（`ComputeMixedPhysicalRcsM2`） | 场景目标 + 视线角 + `rcs_physics` → m² | 混合编排 common 单源；默认开启且 mix=1（随视线角/载频变，非扫描）；`enable=false` 或 mix=0 或 `carrier_hz<=0` 回退 input RCS；写入 detection cell 目标 `rcs_m2` |
 | 逐目标大气物理损耗 | `runtime/RirController.cpp` → `common/atmosphere`（`ComputeTargetAtmosphericPhysicsLossDb`） | 周期载频 + 平台/目标几何 + 气象观测 → 大气附加损耗 dB | common 标量胶水；enable/k_factor 留模块侧；叠加进全局植被/天气损耗；`enable_physical_model=false`（默认）时为 0 |
 | 检测单元求解 | `dwell/RirDetectionCellResolver.cpp` → `common/radar/DetectionCellResolver` | 目标回波事实 + 库内 incident links + 增益偏置 → 分项 SINR 账本 | common 单源；RIR 恒 `anti_rgpo=false`；四增益缺省 0 dB；杂波瓦经 `ComputeEquivalentClutterNoiseW` |
 | 验收旁路 MTI/MTD | `common/radar/MtiMtdAcceptanceBank` ← `RirAcceptanceRecords` | cell 功率 + PRF/载频 + 可选干扰单音 → 8 路派生与 MTI/MTD 增益 | **不进 SINR/Pd/航迹**；N=8、2 脉冲、σ_v=0.25 m/s 核内常量；无链路多普勒则干扰通道写 `无`；关验收开关时不求值 |

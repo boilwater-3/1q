@@ -26,7 +26,7 @@ TEST_F(AcceptanceRecordFormatTest, FourFieldLineShape) {
   const std::string line =
       oneq::logging::FormatAcceptanceLine(1.0f, 1U, "最大探测距离", "目标ID=1001 相对卫星最大探测距离=4500000.0m");
   EXPECT_EQ(line,
-            "仿真时间=1.000s 仿真周期=1 [验收项：最大探测距离] 验收内容：目标ID=1001 "
+            "仿真时间=1.000s 仿真周期=1 [最大探测距离] 验收内容：目标ID=1001 "
             "相对卫星最大探测距离=4500000.0m");
 }
 
@@ -42,10 +42,10 @@ TEST_F(AcceptanceRecordFormatTest, WriteAndReadFile) {
   std::ifstream in(kTestPath, std::ios::binary);
   std::string content((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
 #if defined(_MSC_VER)
-  EXPECT_NE(content.find(u8"[验收项：初始化时间]"), std::string::npos);
+  EXPECT_NE(content.find(u8"[初始化时间]"), std::string::npos);
   EXPECT_NE(content.find(u8"integration_events"), std::string::npos);
 #else
-  EXPECT_NE(content.find("[验收项：初始化时间]"), std::string::npos);
+  EXPECT_NE(content.find("[初始化时间]"), std::string::npos);
   EXPECT_NE(content.find("integration_events"), std::string::npos);
 #endif
 }
@@ -70,9 +70,9 @@ TEST_F(AcceptanceRecordFormatTest, FirstOpenTruncatesThenReopenAppends) {
                           std::istreambuf_iterator<char>());
   EXPECT_EQ(after_first.find("STALE_ROW_FROM_PREVIOUS_PROCESS"), std::string::npos);
 #if defined(_MSC_VER)
-  EXPECT_NE(after_first.find(u8"[验收项：首开行]"), std::string::npos);
+  EXPECT_NE(after_first.find(u8"[首开行]"), std::string::npos);
 #else
-  EXPECT_NE(after_first.find("[验收项：首开行]"), std::string::npos);
+  EXPECT_NE(after_first.find("[首开行]"), std::string::npos);
 #endif
 
   oneq::logging::OpenAcceptanceLog(ch, rerun_path);
@@ -84,11 +84,11 @@ TEST_F(AcceptanceRecordFormatTest, FirstOpenTruncatesThenReopenAppends) {
   std::string after_reopen((std::istreambuf_iterator<char>(second)),
                            std::istreambuf_iterator<char>());
 #if defined(_MSC_VER)
-  EXPECT_NE(after_reopen.find(u8"[验收项：首开行]"), std::string::npos);
-  EXPECT_NE(after_reopen.find(u8"[验收项：重开行]"), std::string::npos);
+  EXPECT_NE(after_reopen.find(u8"[首开行]"), std::string::npos);
+  EXPECT_NE(after_reopen.find(u8"[重开行]"), std::string::npos);
 #else
-  EXPECT_NE(after_reopen.find("[验收项：首开行]"), std::string::npos);
-  EXPECT_NE(after_reopen.find("[验收项：重开行]"), std::string::npos);
+  EXPECT_NE(after_reopen.find("[首开行]"), std::string::npos);
+  EXPECT_NE(after_reopen.find("[重开行]"), std::string::npos);
 #endif
   std::remove(rerun_path);
 }

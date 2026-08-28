@@ -228,6 +228,11 @@ SbirsSensorComponent::SbirsSensorComponent(
       own_attitude_eci_body_deg_(attitude_eci_body_deg) {
   session_.AttachDetectionLifecycleRecorder(&lifecycle_);
   session_.AttachExclusionCauseRecorder(&exclusion_);
+  // 验收行卫星标注（验收判定标准 第6/7/8/…项 卫星ID=/相对卫星ID=）：卫星实体用
+  // 融合源通道 ID（双星场景互异，如 4 与 104），与探测帧投递地面站的源同号。
+  if (ground_station_source_id_ != 0U) {
+    session_.SetSatelliteEntityId(ground_station_source_id_);
+  }
 }
 
 bool SbirsSensorComponent::TryApplyRuntimeConfig(
@@ -237,6 +242,15 @@ bool SbirsSensorComponent::TryApplyRuntimeConfig(
     powered_on_ = patch.sensor_enabled;  // 电源状态由补丁唯一维护（组件层电源门控）
   }
   return applied;
+}
+
+void SbirsSensorComponent::OnAttach(Entity& host) {
+  host_ = &host;
+  // 单站挂载（无融合源 ID）时以宿主实体 ID 标注验收行 卫星ID=（卫星变体构造时
+  // 已按融合源 ID 标注，此处不覆盖）。
+  if (ground_station_source_id_ == 0U) {
+    session_.SetSatelliteEntityId(static_cast<std::uint32_t>(host.id()));
+  }
 }
 
 // 视图行写入：三种密度模式编译期三选一（CMake -DCA_VIEW_LOG_MODE=… 或改

@@ -221,7 +221,7 @@ void WriteInferenceAcceptance(const std::vector<InferenceTrackState>& tracks,
                                     track.position.y_m * track.position.y_m +
                                     track.position.z_m * track.position.z_m);
     if (radius <= 0.0) {
-      INFERENCE_ACCEPTANCE_ITEM(row_sim_time, row_cycle, "关机点预测",
+      INFERENCE_ACCEPTANCE_ITEM(row_sim_time, row_cycle, "关机点预测功能测试",
                                 "目标键=" + std::to_string(track.key) + " 位置不可用");
       continue;
     }
@@ -268,7 +268,7 @@ void WriteInferenceAcceptance(const std::vector<InferenceTrackState>& tracks,
       burnout += " 关机点时刻=正在模拟计算";
       burnout += " 关机点经纬高=正在模拟计算";
     }
-    INFERENCE_ACCEPTANCE_ITEM(row_sim_time, row_cycle, "关机点预测", burnout);
+    INFERENCE_ACCEPTANCE_ITEM(row_sim_time, row_cycle, "关机点预测功能测试", burnout);
   }
 
   for (std::size_t i = 0U; i < results.size(); ++i) {
@@ -291,7 +291,9 @@ void WriteInferenceAcceptance(const std::vector<InferenceTrackState>& tracks,
       }
     }
     const double sigma = traj.impact_position_sigma_m;
-    std::string forecast = "航路点点数=" + std::to_string(waypoints_in_window);
+    // 验收判定标准 第20项：目标键随行（10s 预报轨迹与预测落点同条）。
+    std::string forecast = "目标键=" + std::to_string(i < tracks.size() ? tracks[i].key : 0U);
+    forecast += " 航路点点数=" + std::to_string(waypoints_in_window);
     forecast += " 预报时段=[0.0," + FormatF(kForecastWindowSec, 1) + "]s";
     // 评审 2026-08-27 条2：预测列表给出 10 个 LLA 预测点（每 1s 一点，泛式代表
     // 未来 10s 轨迹）；点值由引擎 RK4 标称传播取（与航路点/落点同动力学），某点
@@ -330,22 +332,25 @@ void WriteInferenceAcceptance(const std::vector<InferenceTrackState>& tracks,
       forecast += " 误差椭圆半长/半短/方位=(" + FormatF(sigma, 1) + "m," + FormatF(sigma, 1) +
                   "m,0°)";
     }
-    INFERENCE_ACCEPTANCE_ITEM(row_sim_time, row_cycle, "目标轨迹预报", forecast);
+    INFERENCE_ACCEPTANCE_ITEM(row_sim_time, row_cycle, "目标轨迹预报功能测试", forecast);
 
     if (traj.has_impact) {
-      std::string impact = "初步落点经纬高=" + FormatVec3(traj.impact_point.latitude_deg,
-                                                          traj.impact_point.longitude_deg,
-                                                          traj.impact_point.altitude_m, 3);
-      INFERENCE_ACCEPTANCE_ITEM(row_sim_time, row_cycle, "落点预测", impact);
+      std::string impact = "目标键=" + std::to_string(i < tracks.size() ? tracks[i].key : 0U);
+      impact += " 初步落点经纬高=" + FormatVec3(traj.impact_point.latitude_deg,
+                                                traj.impact_point.longitude_deg,
+                                                traj.impact_point.altitude_m, 3);
+      INFERENCE_ACCEPTANCE_ITEM(row_sim_time, row_cycle, "落点预测功能测试", impact);
 
       // 评审 2026-08-26 条10：误差口径改为关机点误差（关机点 1-σ，敏度传播；
-      // 关机点未确认/无协方差时如实写无）。条12：封装去掉「明文:」实现细节前缀，
-      // 分发状态不再暴露落盘细节——配置了分发通道名写已发布，否则已封装待分发。
+      // 关机点未确认/无协方差时如实写无）。条12：分发状态不暴露落盘细节——配置了
+      // 分发通道名写已发布，否则已封装待分发。
+      // 验收判定标准 第25项：不写 弹道模型/标准化封装 字段；预测落点+误差+置信度+
+      // 分发状态，另附目标键。
       const bool has_burnout_sigma = traj.has_burnout_sigma;
       const double publish_sigma = has_burnout_sigma ? traj.burnout_position_sigma_m : 0.0;
       const std::string sigma_text =
           has_burnout_sigma ? FormatF(publish_sigma, 1) + "m" : std::string();
-      std::string publish = "弹道模型=无推力弹道外推";
+      std::string publish = "目标键=" + std::to_string(i < tracks.size() ? tracks[i].key : 0U);
       publish += " 预测落点=" + FormatVec3(traj.impact_point.latitude_deg,
                                            traj.impact_point.longitude_deg,
                                            traj.impact_point.altitude_m, 3);
@@ -353,19 +358,12 @@ void WriteInferenceAcceptance(const std::vector<InferenceTrackState>& tracks,
         publish += " 关机点误差1σ=" + sigma_text;
       }
       publish += " 置信度=0.68";
-      publish += " 标准化封装=[落点预报|落点=" +
-                 FormatVec3(traj.impact_point.latitude_deg, traj.impact_point.longitude_deg,
-                            traj.impact_point.altitude_m, 3);
-      if (!sigma_text.empty()) {
-        publish += "|关机点误差1σ=" + sigma_text;
-      }
-      publish += "|置信度=0.68]";
       if (config.impact_distribution_channel.empty()) {
         publish += " 分发状态=已封装待分发";
       } else {
-        publish += " 分发状态=已发布(事件" + config.impact_distribution_channel + ")";
+        publish += " 分发状态=已发布(" + config.impact_distribution_channel + ")";
       }
-      INFERENCE_ACCEPTANCE_ITEM(row_sim_time, row_cycle, "落点预报与信息发布", publish);
+      INFERENCE_ACCEPTANCE_ITEM(row_sim_time, row_cycle, "落点预报与信息分发功能测试", publish);
     }
 
     if (traj.has_launch) {
@@ -374,14 +372,15 @@ void WriteInferenceAcceptance(const std::vector<InferenceTrackState>& tracks,
       double az = 0.0;
       HorizontalEllipseFromCov(traj.launch_covariance_ecef, &a, &b, &az);
       // 评审 2026-08-26 条8：发射时刻字段删除，行首直接输出地理位置。
-      std::string launch = "地理位置=" + FormatVec3(traj.launch_point.latitude_deg,
-                                                    traj.launch_point.longitude_deg,
-                                                    traj.launch_point.altitude_m, 3);
+      // 验收判定标准 第22项：地理位置+位置误差1σ+误差椭圆（不写硬编码占位置信度）。
+      std::string launch = "目标键=" + std::to_string(i < tracks.size() ? tracks[i].key : 0U);
+      launch += " 地理位置=" + FormatVec3(traj.launch_point.latitude_deg,
+                                          traj.launch_point.longitude_deg,
+                                          traj.launch_point.altitude_m, 3);
       launch += " 位置误差1σ=" + FormatF(traj.launch_position_sigma_m, 1) + "m";
-      launch += " 椭圆半长/半短/方位=(" + FormatF(a, 1) + "m," + FormatF(b, 1) + "m," +
+      launch += " 误差椭圆半长/半短/方位=(" + FormatF(a, 1) + "m," + FormatF(b, 1) + "m," +
                 FormatF(az, 1) + "°)";
-      launch += " 置信度=0.68";
-      INFERENCE_ACCEPTANCE_ITEM(row_sim_time, row_cycle, "发射点预测", launch);
+      INFERENCE_ACCEPTANCE_ITEM(row_sim_time, row_cycle, "发射点预测功能测试", launch);
     }
 
     if (i < tracks.size()) {
@@ -397,10 +396,18 @@ void WriteInferenceAcceptance(const std::vector<InferenceTrackState>& tracks,
             (track.velocity_ecef_m_per_s[2] - prev.vz) * (track.velocity_ecef_m_per_s[2] - prev.vz));
         const double rel = dv / std::max(speed, 1.0);
         if (rel > 0.2) {
-          std::string event = "等级=3 目标键=" + std::to_string(track.key);
-          event += " 事件=轨迹突变 相对Δv=" + FormatF(rel, 3);
-          event += " 位置ECEF=" + FormatVec3(track.position.x_m, track.position.y_m, track.position.z_m, 1);
-          INFERENCE_ACCEPTANCE_ITEM(row_sim_time, row_cycle, "特殊事件监测与提示", event);
+          // 规范口径（验收判定标准 第24项·轨迹突变）：「验收内容：」后首字段为 事件=，
+          // 位置写 LLA（推演侧事件与 SBIRS 侧同项名分行）。
+          std::string event = "事件=轨迹突变";
+          event += " 目标键=" + std::to_string(track.key);
+          event += " 等级=3 相对Δv=" + FormatF(rel, 3);
+          oneq::coordinate::LlaPositionDegM event_lla{};
+          if (oneq::coordinate::TryEcefToLla(track.position, &event_lla)) {
+            event += " 位置LLA=" + FormatVec3(event_lla.latitude_deg, event_lla.longitude_deg,
+                                             event_lla.altitude_m, 3);
+          }
+          INFERENCE_ACCEPTANCE_ITEM(row_sim_time, row_cycle, "特殊事件监测与提示功能测试",
+                                    event);
         }
       }
       prev.vx = track.velocity_ecef_m_per_s[0];

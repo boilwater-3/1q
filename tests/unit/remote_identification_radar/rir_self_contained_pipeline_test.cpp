@@ -32,7 +32,10 @@ RirController MakeFallbackController() {
   policy.detection.gate_mode = config::RirDetectionGateMode::kSnrFallback;
   policy.lifecycle.confirm_hits = 1U;
   RirController controller;
-  controller.SetHardware(config::RirHardwareConfig{});
+  config::RirHardwareConfig hardware;
+  hardware.rcs_physics.enable_physical_rcs = false;
+  hardware.rcs_physics.physics_mix_ratio = 0.0f;
+  controller.SetHardware(hardware);
   controller.UpdateRuntime(MakeMission(config::RirWorkMode::kIdentify), policy);
   return controller;
 }
@@ -83,7 +86,10 @@ TEST(RirSelfContainedPipelineTest, DetectorGateRejectsUndetectableTarget) {
   policy.detection.random_seed = 42U;
   policy.lifecycle.confirm_hits = 1U;
   RirController controller;
-  controller.SetHardware(config::RirHardwareConfig{});
+  config::RirHardwareConfig hardware;
+  hardware.rcs_physics.enable_physical_rcs = false;
+  hardware.rcs_physics.physics_mix_ratio = 0.0f;
+  controller.SetHardware(hardware);
   controller.UpdateRuntime(MakeMission(config::RirWorkMode::kIdentify), policy);
 
   RirOutputFrame frame;
@@ -126,7 +132,10 @@ TEST(RirSelfContainedPipelineTest, ImmPolicyReachesLifecycleAndKeepsTrackStable)
   policy.lifecycle.enable_imm_lifecycle = true;  // N6：public policy IMM 开关
   policy.lifecycle.model_count_hint = 2U;
   RirController controller;
-  controller.SetHardware(config::RirHardwareConfig{});
+  config::RirHardwareConfig hardware;
+  hardware.rcs_physics.enable_physical_rcs = false;
+  hardware.rcs_physics.physics_mix_ratio = 0.0f;
+  controller.SetHardware(hardware);
   controller.UpdateRuntime(MakeMission(config::RirWorkMode::kIdentify), policy);
 
   std::uint64_t key = 0U;

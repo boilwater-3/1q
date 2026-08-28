@@ -14,6 +14,7 @@
 #include "1q/coordinate/position_transform.h"
 #include "common/logging/AcceptanceText.h"
 #include "fusion/FusionAcceptanceLog.h"
+#include "sbirs_sensor/tracking/SbirsAngleCvKalman.h"
 
 namespace fusion {
 namespace {
@@ -58,6 +59,17 @@ constexpr std::size_t kRelayWindowSamples = 8U;
 
 std::map<std::pair<std::uint64_t, std::uint32_t>, RelaySight>& RelaySights() {
   static std::map<std::pair<std::uint64_t, std::uint32_t>, RelaySight> values;
+  return values;
+}
+
+/** @brief (航迹键, 源) 角度域标准 KF 滤波状态（会话内累计，第18项验收行）。 */
+struct AngleKfState {
+  sbirs_sensor::tracking::SbirsAngleCvGaussianState state{};
+  bool valid{false};
+};
+
+std::map<std::pair<std::uint64_t, std::uint32_t>, AngleKfState>& AngleKfStates() {
+  static std::map<std::pair<std::uint64_t, std::uint32_t>, AngleKfState> values;
   return values;
 }
 
@@ -163,7 +175,7 @@ void WriteFusionAcceptance(std::uint32_t cycle, const std::vector<FusedTarget>& 
     if (track.has_kinematic_estimate) {
       content += " 协方差对角=" + FormatCovDiag6(track.kinematic_estimate.covariance_ecef);
     }
-    FUSION_ACCEPTANCE_ITEM(sim_time, cycle, "多传感器目标跟踪", content);
+    FUSION_ACCEPTANCE_ITEM(sim_time, cycle, "多传感器目标跟踪功能测试", content);
 
     const auto& vel = track.kinematic_estimate.velocity_ecef_m_per_s;
     LastVel& prev = LastVelocities()[track.key];
@@ -189,6 +201,31 @@ void WriteFusionAcceptance(std::uint32_t cycle, const std::vector<FusedTarget>& 
     relay += FormatF(track.kinematic_estimate.position.altitude_m, 1) + ")";
     relay += " 速度模=" + FormatF(speed, 3) + "m/s";
     relay += " 加速度模=" + FormatF(acc, 3) + "m/s²";
+    // 预测目标的运动轨迹（验收判定标准 第16项）：由滤波后 ECEF 位置/速度做匀速
+    // 线性外推（+10s/+20s/+30s 航路点，换算 LLA；外推口径随行标注）。
+    if (track.has_kinematic_estimate && have_ecef) {
+      const double vel_ecef[3] = {vel[0], vel[1], vel[2]};
+      std::string waypoints;
+      for (int offset_s = 10; offset_s <= 30; offset_s += 10) {
+        const oneq::coordinate::EcefPositionM future(
+            ecef.x_m + vel_ecef[0] * offset_s, ecef.y_m + vel_ecef[1] * offset_s,
+            ecef.z_m + vel_ecef[2] * offset_s);
+        oneq::coordinate::LlaPositionDegM future_lla{};
+        if (!oneq::coordinate::TryEcefToLla(future, &future_lla)) {
+          break;
+        }
+        if (!waypoints.empty()) {
+          waypoints += ";";
+        }
+        waypoints += "+" + std::to_string(offset_s) + "s:(" +
+                     FormatF(future_lla.latitude_deg, 6) + "," +
+                     FormatF(future_lla.longitude_deg, 6) + "," +
+                     FormatF(future_lla.altitude_m, 1) + ")";
+      }
+      if (!waypoints.empty()) {
+        relay += " 预测轨迹(匀速线性外推)=[" + waypoints + "]";
+      }
+    }
     relay += " 融合航迹数=" + std::to_string(tracks.size());
     relay += " 置信度=" + FormatF(track.confidence, 3);
 
@@ -259,7 +296,7 @@ void WriteFusionAcceptance(std::uint32_t cycle, const std::vector<FusedTarget>& 
                  SourceLabel(takeover_source) + "接管";
       }
     }
-    FUSION_ACCEPTANCE_ITEM(sim_time, cycle, "多传感器接力跟踪", relay);
+    FUSION_ACCEPTANCE_ITEM(sim_time, cycle, "多传感器接力跟踪功能测试", relay);
 
     if (filtering_enabled && track.has_kinematic_estimate) {
       std::string ukf = "位置LLA=(";
@@ -304,7 +341,50 @@ void WriteFusionAcceptance(std::uint32_t cycle, const std::vector<FusedTarget>& 
       collab += " 测向信息=[" + bearings + "]";
     }
     collab += " 融合目标数=" + std::to_string(tracks.size());
-    FUSION_ACCEPTANCE_ITEM(sim_time, cycle, "协同探测信息融合", collab);
+    FUSION_ACCEPTANCE_ITEM(sim_time, cycle, "协同探测信息融合功能测试", collab);
+  }
+
+  // 标准卡尔曼滤波（验收判定标准 第18项）：对逐源视线角（方位/俯仰，源本地北东天
+  // 参考的量测）做 4 维 [az, ω_az, el, ω_el] 线性标准 KF——估计器与 SBIRS 实验后端
+  // kAngleCvKf 同口径（F=CV、Q=连续白噪声加速度离散化、R 取融合配置
+  // default_bearing_noise_sigma_rad）；输出滤波后方位/俯仰及其变化率，逐周期一行
+  // 构成连续时刻的平滑视线估计。
+  for (const FusedTarget& track : tracks) {
+    for (const ChannelMeasurement& channel : track.channels) {
+      if (!channel.has_bearing) {
+        continue;
+      }
+      constexpr double kDegToRad = 0.017453292519943295;
+      const auto channel_key = std::make_pair(track.key, channel.source_id);
+      AngleKfState& kf = AngleKfStates()[channel_key];
+      const double dt_sec = config.track_cycle_period_sec;
+      if (!kf.valid) {
+        kf.state = sbirs_sensor::tracking::MakeInitialAngleCvState(
+            static_cast<float>(channel.bearing_az_deg * kDegToRad),
+            static_cast<float>(channel.bearing_el_deg * kDegToRad));
+        kf.valid = true;
+      } else {
+        const sbirs_sensor::tracking::SbirsAngleCvPredictor predictor;
+        const sbirs_sensor::tracking::SbirsAngleCvGaussianState predicted =
+            predictor.Predict(kf.state, static_cast<float>(dt_sec));
+        sbirs_sensor::tracking::SbirsAngleCvGaussianState::MeasurementVector measurement;
+        measurement(0) = static_cast<float>(channel.bearing_az_deg * kDegToRad);
+        measurement(1) = static_cast<float>(channel.bearing_el_deg * kDegToRad);
+        const sbirs_sensor::tracking::SbirsAngleCvGaussianState::MeasurementCovariance noise =
+            sbirs_sensor::tracking::SbirsAngleCvGaussianState::MeasurementCovariance::Identity() *
+            static_cast<float>(config.default_bearing_noise_sigma_rad *
+                               config.default_bearing_noise_sigma_rad);
+        const sbirs_sensor::tracking::SbirsAngleCvUpdater updater;
+        kf.state = updater.Update(predicted, measurement, noise).posterior;
+      }
+      std::string std_kf = "目标键=" + std::to_string(track.key);
+      std_kf += " 源=" + SourceLabel(channel.source_id);
+      std_kf += " 滤波方位/俯仰=(" + FormatF(kf.state.mean(0), 6) + "," +
+                FormatF(kf.state.mean(2), 6) + ")rad";
+      std_kf += " 方位变化率=" + FormatF(kf.state.mean(1), 8) + "rad/s";
+      std_kf += " 俯仰变化率=" + FormatF(kf.state.mean(3), 8) + "rad/s";
+      FUSION_ACCEPTANCE_ITEM(sim_time, cycle, "标准卡尔曼滤波功能测试", std_kf);
+    }
   }
 }
 

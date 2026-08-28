@@ -154,8 +154,8 @@ struct ONEQ_API RirTransmitterConfig {
  * @brief RCS 物理建模参数（副本：airborne_radar::config::detection::RcsPhysicsConfig）。
  */
 struct ONEQ_API RirRcsPhysicsConfig {
-  bool enable_physical_rcs{false};      /**< 是否启用物理 RCS 估计。 */
-  float physics_mix_ratio{0.0f};        /**< 物理估计与经验值的混合比例。 */
+  bool enable_physical_rcs{true};       /**< 是否启用物理 RCS 估计；默认开启。 */
+  float physics_mix_ratio{1.0f};        /**< 物理估计占比 [0,1]：0=只用场景输入 RCS，1=完全物理估计。与扫描无关。 */
   float cylinder_weight{0.5f};          /**< 圆柱散射模型权重。 */
   float min_equivalent_radius_m{0.05f}; /**< 等效半径下界。 */
   float max_equivalent_radius_m{5.0f};  /**< 等效半径上界。 */

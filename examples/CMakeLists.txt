@@ -64,6 +64,11 @@ endif()
 target_include_directories(examples_core PUBLIC
     "${CMAKE_CURRENT_SOURCE_DIR}"
     "${ONEQ_EXAMPLE_COMMON_DIR}")
+# Eigen header-only 链入：oneq_apply_target_configuration 的 PCH（Eigen/Core）需要
+# include 路径（与 oneq_add_component 各组件同法）。
+if(TARGET Eigen3::Eigen)
+    target_link_libraries(examples_core PUBLIC Eigen3::Eigen)
+endif()
 target_link_libraries(examples_core PUBLIC
     ${PROJECT_ALIAS}
     Boost::boost)

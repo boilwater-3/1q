@@ -305,7 +305,7 @@ IMM 命中更新与 CV KF 路径、关联门控同口径：消费逐量测动态
 `batch_validation::airborne_radar` 在公开 Session 边界执行六类跨周期序列：同 RCS 双目标交叉、干扰加入/清除、
 TWS→STT→TWS、关机恢复、无效输入恢复和混合非法 runtime patch。
 
-1. 场景必须显式启用物理探测、物理 RCS 与 `physics_mix_ratio=1`。
+1. 库默认已开启物理 RCS 且 `physics_mix_ratio=1`；batch 仍显式赋值锁定口径。
 2. 硬契约（影响退出码）：目标身份连续、patch 原子性、非执行周期 lifecycle 静默、failure marker 后完整 replay。
 3. warning/error 观测项（不影响退出码）：距离/RCS 等物理趋势。
 4. 场景 ID 与运行方式由 `tests/consumer/batch_validation/README.md` 维护。
