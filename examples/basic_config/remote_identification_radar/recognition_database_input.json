@@ -68,6 +68,47 @@
       ]
     },
     {
+      "model_id": "BALLISTIC_EXAMPLE_B",
+      "category_id": "BALLISTIC",
+      "display_name": "弹道中段目标示例 B（ICBM 级过极点）",
+      "prior": 1.0,
+      "profiles": [
+        {
+          "profile_id": "nominal",
+          "applicability": {
+            "min_snr_db": 6.0,
+            "max_range_resolution_m": 50.0,
+            "aspect_az_deg": [-180.0, 180.0],
+            "aspect_el_deg": [-90.0, 90.0]
+          },
+          "rcs": {
+            "mean_dbsm": -10.0,
+            "std_db": 3.0,
+            "azimuth_variation_db": 4.0,
+            "elevation_variation_db": 3.0,
+            "minimum_aspect_coverage_deg": 15.0
+          },
+          "motion": {
+            "speed_mps": {"mean": 4900.0, "std": 350.0},
+            "altitude_m": {"mean": 1000000.0, "std": 350000.0},
+            "acceleration_mps2": {"mean": 14.0, "std": 3.5},
+            "turn_radius_m": {"mean_log10": 6.3, "std_log10": 0.3}
+          },
+          "polarization": {
+            "energy_difference_db": {"mean": 2.0, "std": 1.5},
+            "relative_difference_db": {"mean": -6.0, "std": 2.0},
+            "energy_sum_db": {"mean": 5.0, "std": 4.0}
+          },
+          "range_profile": {
+            "length_m": {"mean": 2.5, "std": 0.5},
+            "peak_count": {"mean": 1.5, "std": 0.5},
+            "peak_energy_concentration": {"mean": 0.8, "std": 0.1},
+            "minimum_bandwidth_hz": 3000000.0
+          }
+        }
+      ]
+    },
+    {
       "model_id": "NEAR_SPACE_EXAMPLE_A",
       "category_id": "NEAR_SPACE",
       "display_name": "临近空间目标示例 A",

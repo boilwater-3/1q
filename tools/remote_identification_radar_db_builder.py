@@ -24,7 +24,7 @@ from pathlib import Path
 
 SCHEMA_PATH = (
     Path(__file__).resolve().parent.parent
-    / "schemas" / "recognition" / "recognition_feature_database.sql"
+    / "schemas" / "remote_identification_radar" / "recognition_feature_database.sql"
 )
 
 REQUIRED_UNITS = [

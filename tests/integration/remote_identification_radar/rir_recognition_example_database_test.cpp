@@ -6,8 +6,8 @@
 // 示例库 examples/basic_config/remote_identification_radar/target_feature_database_v1.1.db 由
 // tools/recognition_db_builder.py 从 recognition_database_input.json 生成；
 // 本用例证明 工具 → 权威 DDL → 加载器 全链路一致。
-// 库内容：6 类别（弹道/临近空间/战斗机/轰炸机/导弹/无人机）、17 型号
-// （含 15 个常见美方型号，公开估算参数，非敏感占位数据）。
+// 库内容：6 类别（弹道/临近空间/战斗机/轰炸机/导弹/无人机）、18 型号
+// （含 15 个常见美方型号 + 弹道中段模板 BALLISTIC_EXAMPLE_B，公开估算参数，非敏感占位数据）。
 
 #include <gtest/gtest.h>
 
@@ -50,7 +50,7 @@ TEST(RecognitionExampleDatabaseTest, LoadsCommittedExampleDatabase) {
   // 自描述字段（display_name / aspect）与模板数据往返保真。
   ASSERT_EQ(database.categories().size(), 6U);
   EXPECT_EQ(database.categories()[0].display_name, u8"弹道目标");
-  ASSERT_EQ(database.models().size(), 17U);
+  ASSERT_EQ(database.models().size(), 18U);
   EXPECT_EQ(database.models()[0].display_name, u8"弹道目标示例 A");
   const auto& profile = database.models()[0].profiles.front();
   EXPECT_FLOAT_EQ(profile.aspect_az_min_deg, -180.0f);
@@ -88,6 +88,15 @@ TEST(RecognitionExampleDatabaseTest, LoadsCommittedExampleDatabase) {
   ASSERT_NE(mq9, nullptr);
   EXPECT_EQ(mq9->category_id, "UAV");
   EXPECT_FLOAT_EQ(mq9->profiles.front().motion.speed_mps.mean, 78.0f);
+
+  // 弹道中段模板 B（2026-08-28 新增）：ICBM 级过极点中段窗口观测统计。
+  const RirModel* ballisticB = FindModel(database, "BALLISTIC_EXAMPLE_B");
+  ASSERT_NE(ballisticB, nullptr);
+  EXPECT_EQ(ballisticB->category_id, "BALLISTIC");
+  EXPECT_FLOAT_EQ(ballisticB->profiles.front().motion.speed_mps.mean, 4900.0f);
+  EXPECT_FLOAT_EQ(ballisticB->profiles.front().motion.altitude_m.mean, 1000000.0f);
+  EXPECT_FLOAT_EQ(ballisticB->profiles.front().rcs.mean_dbsm, -10.0f);
+  EXPECT_FLOAT_EQ(ballisticB->profiles.front().max_range_resolution_m, 50.0f);
 
   // 新条目 gate 字段保持 NULL 语义（不触发 gating；min_snr_db 除外）。
   EXPECT_FLOAT_EQ(f16->profiles.front().max_range_resolution_m, 0.0f);
