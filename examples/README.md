@@ -4,15 +4,15 @@
 组件封装 + app 装配运行体 + scenes 场景集。**主开发路径是每场景独立可执行**
 （`scenes/<name>/main.cpp` 薄入口，场景 JSON 由编译宏钉死）；对外兼容目标
 `component_attachment_demo`（通用 runner，`--scene` 跑任意场景）与
-`precision_evaluation_demo`（= 精度评估场景 `sbirs_dual_sat_fix` 的同源目标）保持原名。
+`precision_evaluation_demo`（= 精度评估场景 `sbirs_triple_sat_fix_messages` 的同源目标）保持原名。
 
 ## 快速开始
 
 ```bash
 cmake --preset examples-release-local            # 一次性 configure（含示例）
-cmake --build --preset examples-release-local --target rir_jammed_scan   # 构建某场景
-./build/examples-release-local/bin/rir_jammed_scan                        # 运行（日志落 examples/log/rir_jammed_scan/）
-./build/examples-release-local/bin/rir_jammed_scan --cycles 120          # 缩短迭代
+cmake --build --preset examples-release-local --target rir_ground_site_recognition   # 构建某场景
+./build/examples-release-local/bin/rir_ground_site_recognition                        # 运行（日志落 examples/log/rir_ground_site_recognition/）
+./build/examples-release-local/bin/rir_ground_site_recognition --cycles 120          # 缩短迭代
 # 想跑任意场景 JSON：通用 runner
 ./build/examples-release-local/bin/component_attachment_demo --scene examples/scenes/<name>/<name>.json
 # 可视化

@@ -1,17 +1,13 @@
 ﻿/**
- * @file sbirs_dual_sat_fix/main.cpp
- * @brief 精度评估场景可执行（需求 3.2.1.6.3：五项定位误差 + AHP 综合评分）。
+ * @file sbirs_triple_sat_fix_messages/main.cpp
+ * @brief 三颗地球静止轨道卫星覆盖 + 消息机制地面站融合。
  *
- * 两个卫星实体各挂 SBIRS 组件，地面站实体挂融合组件（内含 FusionEngine +
- * PrecisionEvaluationSession）。每周期：调用方推进真值 → 卫星探测帧写入收件箱
- * → 地面站适配（源 4 / 源 104）后 FusionEngine::Update，再对照真值打分。
- * 场景由 ONEQ_SCENE_JSON 钉死（本目录 sbirs_dual_sat_fix.json）；兼容目标
- * precision_evaluation_demo 与本可执行同源。
- *
- * 运行：sbirs_dual_sat_fix / precision_evaluation_demo [--scene <path>] [--cycles <n>] [--output-dir <dir>]
+ * 卫星经 on_sbirs_frame_submitted 投递，地面站 GroundStationFusionComponent
+ * 订阅收件箱后融合。精度评估交会仍只用前两颗星（库 API 是双视线）。
  */
 
 #include <cmath>
+#include <chrono>
 #include <cstdint>
 #include <cstdlib>
 #include <iostream>
@@ -19,9 +15,12 @@
 #include <string>
 #include <vector>
 
+#include "app/command_routing.h"
 #include "app/fs_compat.h"
 
+#include "1q/coordinate/position_transform.h"
 #include "1q/coordinate/types.h"
+#include "1q/coordinate/velocity_transform.h"
 #include "1q/fusion/FusionEngine.h"
 #include "1q/precision_evaluation/PrecisionEvaluationConfig.h"
 #include "1q/precision_evaluation/PrecisionEvaluationSession.h"
@@ -30,13 +29,13 @@
 #include "1q/sbirs_sensor/session/SbirsSession.h"
 #include "json_reader.h"
 #include "app/output_dir.h"
-#include "components/fusion_component.h"
+#include "components/ground_station_fusion_component.h"
 #include "components/sbirs_sensor_component.h"
 #include "core/scene_types.h"
 #include "core/world.h"
 #include "logger/logger.h"
-#include "logger/acceptance_timing.h"
 #include "logger/acceptance_paths.h"
+#include "logger/acceptance_timing.h"
 
 namespace pe = precision_evaluation;
 
@@ -44,11 +43,22 @@ namespace {
 
 #ifndef ONEQ_SCENE_JSON
 #define ONEQ_SCENE_JSON \
-  "examples/scenes/sbirs_dual_sat_fix/sbirs_dual_sat_fix.json"
+  "examples/scenes/sbirs_triple_sat_fix_messages/sbirs_triple_sat_fix_messages.json"
 #endif
 #ifndef PE_DEFAULT_OUTPUT_DIR
 #define PE_DEFAULT_OUTPUT_DIR "examples/log"
 #endif
+
+struct LoadedSatellite {
+  std::string id{};
+  std::uint32_t source_id{0U};
+  sbirs_sensor::config::SbirsSessionConfig config{};
+  oneq::coordinate::EcefPositionM position_ecef_m{};
+  oneq::coordinate::EcefVelocityMps velocity_ecef_m_per_s{};
+  double attitude_yaw_deg{0.0};
+  double attitude_pitch_deg{0.0};
+  double attitude_roll_deg{0.0};
+};
 
 struct LoadedScene {
   std::uint32_t cycles{60U};
@@ -57,6 +67,7 @@ struct LoadedScene {
   double utc_julian_day{2451544.2230698913};
   pe::PrecisionEvaluationConfig config{};
   pe::DualSatEphemerisInput ephemeris{};
+  std::vector<LoadedSatellite> satellites{};
   std::vector<pe::EvaluationTruthTarget> truth{};
 };
 
@@ -69,6 +80,22 @@ bool ReadVec3(const examples::JsonValue& value, double* x, double* y, double* z,
   *x = value[static_cast<std::size_t>(0)].AsDouble();
   *y = value[static_cast<std::size_t>(1)].AsDouble();
   *z = value[static_cast<std::size_t>(2)].AsDouble();
+  return true;
+}
+
+bool ReadLla(const examples::JsonValue& value, oneq::coordinate::LlaPositionDegM* lla,
+             const char* name, std::string* error) {
+  double lat_deg = 0.0;
+  double lon_deg = 0.0;
+  double alt_m = 0.0;
+  if (!ReadVec3(value, &lat_deg, &lon_deg, &alt_m, name, error)) {
+    return false;
+  }
+  *lla = oneq::coordinate::LlaPositionDegM(lat_deg, lon_deg, alt_m);
+  if (!oneq::coordinate::IsValid(*lla)) {
+    *error = std::string(name) + " is not a valid LLA [lat_deg, lon_deg, alt_m]";
+    return false;
+  }
   return true;
 }
 
@@ -106,6 +133,13 @@ sbirs_sensor::config::SbirsSessionConfig LoadSatelliteConfig(const examples::Jso
       block.Has("narrow_field_fov_el_deg")
           ? static_cast<float>(block["narrow_field_fov_el_deg"].AsDouble())
           : 5.0f;
+  if (block.Has("scan_center_el_deg")) {
+    config.mission.scan_center_el_deg = static_cast<float>(block["scan_center_el_deg"].AsDouble());
+  }
+  if (block.Has("max_concurrent_nfov_locks")) {
+    config.policy.scheduler.max_concurrent_nfov_locks =
+        static_cast<int>(block["max_concurrent_nfov_locks"].AsInt());
+  }
   config.policy.detection.wide_min_snr_linear =
       block.Has("wide_min_snr_linear")
           ? static_cast<float>(block["wide_min_snr_linear"].AsDouble())
@@ -120,14 +154,26 @@ sbirs_sensor::config::SbirsSessionConfig LoadSatelliteConfig(const examples::Jso
 bool LoadEphemerisSat(const examples::JsonValue& block, oneq::coordinate::EcefPositionM* position,
                       oneq::coordinate::EcefVelocityMps* velocity, std::string* error,
                       const char* tag) {
-  double px = 0.0;
-  double py = 0.0;
-  double pz = 0.0;
-  if (!ReadVec3(block["position_ecef_m"], &px, &py, &pz,
-                (std::string(tag) + ".position_ecef_m").c_str(), error)) {
-    return false;
+  if (block.Has("position_lla_deg_m")) {
+    oneq::coordinate::LlaPositionDegM lla;
+    if (!ReadLla(block["position_lla_deg_m"], &lla,
+                 (std::string(tag) + ".position_lla_deg_m").c_str(), error)) {
+      return false;
+    }
+    if (!oneq::coordinate::TryLlaToEcef(lla, position)) {
+      *error = std::string(tag) + ".position_lla_deg_m could not be converted to ECEF";
+      return false;
+    }
+  } else {
+    double px = 0.0;
+    double py = 0.0;
+    double pz = 0.0;
+    if (!ReadVec3(block["position_ecef_m"], &px, &py, &pz,
+                  (std::string(tag) + ".position_ecef_m").c_str(), error)) {
+      return false;
+    }
+    *position = oneq::coordinate::EcefPositionM(px, py, pz);
   }
-  *position = oneq::coordinate::EcefPositionM(px, py, pz);
   if (block.Has("velocity_ecef_mps")) {
     double vx = 0.0;
     double vy = 0.0;
@@ -176,26 +222,73 @@ bool LoadScene(const char* path, LoadedScene* scene, std::string* error) {
   } else {
     scene->config.inference.prediction_horizon_sec = 1200.0;
   }
+  if (root.Has("fusion")) {
+    const examples::JsonValue& fusion = root["fusion"];
+    if (fusion.Has("track_bearing_init_range_m")) {
+      scene->config.fusion.track_bearing_init_range_m =
+          fusion["track_bearing_init_range_m"].AsDouble();
+    }
+    if (fusion.Has("track_bearing_init_range_std_m")) {
+      scene->config.fusion.track_bearing_init_range_std_m =
+          fusion["track_bearing_init_range_std_m"].AsDouble();
+    }
+    if (fusion.Has("relay_fov_width_deg")) {
+      scene->config.fusion.relay_fov_width_deg = fusion["relay_fov_width_deg"].AsDouble();
+    }
+  }
 
   const examples::JsonValue& satellites = root["satellites"];
-  if (satellites.IsNull() || satellites.Size() != 2U) {
-    *error = "satellites must be an array of two objects (A then B)";
+  if (satellites.IsNull() || satellites.Size() < 2U) {
+    *error = "satellites must be an array of at least two objects (first two used for PE)";
     return false;
   }
-  scene->config.satellite_a = LoadSatelliteConfig(satellites[static_cast<std::size_t>(0)]);
-  scene->config.satellite_b = LoadSatelliteConfig(satellites[static_cast<std::size_t>(1)]);
-  if (!LoadEphemerisSat(satellites[static_cast<std::size_t>(0)],
-                        &scene->ephemeris.satellite_a_position_ecef_m,
-                        &scene->ephemeris.satellite_a_velocity_ecef_m_per_s, error,
-                        "satellites[0]")) {
-    return false;
+  scene->satellites.clear();
+  scene->satellites.reserve(satellites.Size());
+  for (std::size_t i = 0U; i < satellites.Size(); ++i) {
+    const examples::JsonValue& block = satellites[i];
+    LoadedSatellite sat;
+    sat.id = block.Has("id") ? block["id"].AsString() : ("sat" + std::to_string(i));
+    sat.source_id = block.Has("source_id")
+                        ? static_cast<std::uint32_t>(block["source_id"].AsInt())
+                        : (4U + static_cast<std::uint32_t>(i) * 100U);
+    sat.config = LoadSatelliteConfig(block);
+    if (!LoadEphemerisSat(block, &sat.position_ecef_m, &sat.velocity_ecef_m_per_s, error,
+                          ("satellites[" + std::to_string(i) + "]").c_str())) {
+      return false;
+    }
+    if (block.Has("attitude_yaw_deg")) {
+      sat.attitude_yaw_deg = block["attitude_yaw_deg"].AsDouble();
+    }
+    if (block.Has("attitude_pitch_deg")) {
+      sat.attitude_pitch_deg = block["attitude_pitch_deg"].AsDouble();
+    }
+    if (block.Has("attitude_roll_deg")) {
+      sat.attitude_roll_deg = block["attitude_roll_deg"].AsDouble();
+    }
+    scene->satellites.push_back(sat);
   }
-  if (!LoadEphemerisSat(satellites[static_cast<std::size_t>(1)],
-                        &scene->ephemeris.satellite_b_position_ecef_m,
-                        &scene->ephemeris.satellite_b_velocity_ecef_m_per_s, error,
-                        "satellites[1]")) {
-    return false;
+  for (std::size_t i = 0U; i < scene->satellites.size(); ++i) {
+    for (std::size_t j = i + 1U; j < scene->satellites.size(); ++j) {
+      if (scene->satellites[i].source_id == scene->satellites[j].source_id) {
+        *error = "satellites[].source_id must be unique";
+        return false;
+      }
+    }
   }
+  scene->config.satellite_a = scene->satellites[0].config;
+  scene->config.satellite_b = scene->satellites[1].config;
+  scene->config.satellite_a_source_id = scene->satellites[0].source_id;
+  scene->config.satellite_b_source_id = scene->satellites[1].source_id;
+  scene->ephemeris.satellite_a_position_ecef_m = scene->satellites[0].position_ecef_m;
+  scene->ephemeris.satellite_a_velocity_ecef_m_per_s = scene->satellites[0].velocity_ecef_m_per_s;
+  scene->ephemeris.satellite_a_attitude_yaw_deg = scene->satellites[0].attitude_yaw_deg;
+  scene->ephemeris.satellite_a_attitude_pitch_deg = scene->satellites[0].attitude_pitch_deg;
+  scene->ephemeris.satellite_a_attitude_roll_deg = scene->satellites[0].attitude_roll_deg;
+  scene->ephemeris.satellite_b_position_ecef_m = scene->satellites[1].position_ecef_m;
+  scene->ephemeris.satellite_b_velocity_ecef_m_per_s = scene->satellites[1].velocity_ecef_m_per_s;
+  scene->ephemeris.satellite_b_attitude_yaw_deg = scene->satellites[1].attitude_yaw_deg;
+  scene->ephemeris.satellite_b_attitude_pitch_deg = scene->satellites[1].attitude_pitch_deg;
+  scene->ephemeris.satellite_b_attitude_roll_deg = scene->satellites[1].attitude_roll_deg;
 
   const examples::JsonValue& targets = root["targets"];
   if (targets.IsNull() || targets.Size() == 0U) {
@@ -207,14 +300,48 @@ bool LoadScene(const char* path, LoadedScene* scene, std::string* error) {
     const examples::JsonValue& block = targets[i];
     pe::EvaluationTruthTarget truth;
     truth.key = static_cast<std::uint64_t>(block["key"].AsInt());
-    double px = 0.0;
-    double py = 0.0;
-    double pz = 0.0;
-    if (!ReadVec3(block["position_ecef_m"], &px, &py, &pz, "targets[].position_ecef_m", error)) {
-      return false;
+    oneq::coordinate::LlaPositionDegM target_lla;
+    bool have_lla = false;
+    if (block.Has("position_lla_deg_m")) {
+      if (!ReadLla(block["position_lla_deg_m"], &target_lla, "targets[].position_lla_deg_m",
+                   error)) {
+        return false;
+      }
+      if (!oneq::coordinate::TryLlaToEcef(target_lla, &truth.position_ecef_m)) {
+        *error = "targets[].position_lla_deg_m could not be converted to ECEF";
+        return false;
+      }
+      have_lla = true;
+    } else {
+      double px = 0.0;
+      double py = 0.0;
+      double pz = 0.0;
+      if (!ReadVec3(block["position_ecef_m"], &px, &py, &pz, "targets[].position_ecef_m", error)) {
+        return false;
+      }
+      truth.position_ecef_m = oneq::coordinate::EcefPositionM(px, py, pz);
     }
-    truth.position_ecef_m = oneq::coordinate::EcefPositionM(px, py, pz);
-    if (block.Has("velocity_ecef_mps")) {
+    if (block.Has("velocity_enu_mps")) {
+      double ve = 0.0;
+      double vn = 0.0;
+      double vu = 0.0;
+      if (!ReadVec3(block["velocity_enu_mps"], &ve, &vn, &vu, "targets[].velocity_enu_mps",
+                    error)) {
+        return false;
+      }
+      if (!have_lla &&
+          !oneq::coordinate::TryEcefToLla(truth.position_ecef_m, &target_lla)) {
+        *error = "targets[].velocity_enu_mps needs a convertible position for ENU axes";
+        return false;
+      }
+      const oneq::coordinate::EnuVelocityMps enu_velocity(ve, vn, vu);
+      if (!oneq::coordinate::TryEnuToEcefVelocity(enu_velocity, target_lla,
+                                                  &truth.velocity_ecef_m_per_s)) {
+        *error = "targets[].velocity_enu_mps could not be converted to ECEF";
+        return false;
+      }
+      truth.has_velocity = true;
+    } else if (block.Has("velocity_ecef_mps")) {
       double vx = 0.0;
       double vy = 0.0;
       double vz = 0.0;
@@ -373,64 +500,81 @@ int main(int argc, char* argv[]) {
 #endif
 
   scene.config.fusion.enable_track_filtering = true;
-  std::uint32_t source_a = scene.config.satellite_a_source_id;
-  std::uint32_t source_b = scene.config.satellite_b_source_id;
-  if (source_b == source_a) {
-    source_b = source_a + 100U;
-  }
+  // 评审 2026-08-26 条12：装配层接好落点预报外发事件（on_impact_forecast_published），
+  // 推演验收行据此写「分发状态=已发布(事件…)」。
+  scene.config.inference.impact_distribution_channel = "on_impact_forecast_published";
 
   component_attachment::AppSceneState app_scene;
   app_scene.sbirs_utc_julian_day = scene.utc_julian_day;
   component_attachment::World world(app_scene);
 
-  const sbirs_sensor::session::SbirsVector3M pose_a(
-      scene.ephemeris.satellite_a_position_ecef_m.x_m,
-      scene.ephemeris.satellite_a_position_ecef_m.y_m,
-      scene.ephemeris.satellite_a_position_ecef_m.z_m);
-  const sbirs_sensor::session::SbirsVector3M vel_a(
-      scene.ephemeris.satellite_a_velocity_ecef_m_per_s.x_mps,
-      scene.ephemeris.satellite_a_velocity_ecef_m_per_s.y_mps,
-      scene.ephemeris.satellite_a_velocity_ecef_m_per_s.z_mps);
-  const sbirs_sensor::session::SbirsEulerAnglesDeg att_a(
-      scene.ephemeris.satellite_a_attitude_yaw_deg, scene.ephemeris.satellite_a_attitude_pitch_deg,
-      scene.ephemeris.satellite_a_attitude_roll_deg);
-  const sbirs_sensor::session::SbirsVector3M pose_b(
-      scene.ephemeris.satellite_b_position_ecef_m.x_m,
-      scene.ephemeris.satellite_b_position_ecef_m.y_m,
-      scene.ephemeris.satellite_b_position_ecef_m.z_m);
-  const sbirs_sensor::session::SbirsVector3M vel_b(
-      scene.ephemeris.satellite_b_velocity_ecef_m_per_s.x_mps,
-      scene.ephemeris.satellite_b_velocity_ecef_m_per_s.y_mps,
-      scene.ephemeris.satellite_b_velocity_ecef_m_per_s.z_mps);
-  const sbirs_sensor::session::SbirsEulerAnglesDeg att_b(
-      scene.ephemeris.satellite_b_attitude_yaw_deg, scene.ephemeris.satellite_b_attitude_pitch_deg,
-      scene.ephemeris.satellite_b_attitude_roll_deg);
+  for (std::size_t i = 0U; i < scene.satellites.size(); ++i) {
+    const LoadedSatellite& sat = scene.satellites[i];
+    const sbirs_sensor::session::SbirsVector3M pose(sat.position_ecef_m.x_m, sat.position_ecef_m.y_m,
+                                                    sat.position_ecef_m.z_m);
+    const sbirs_sensor::session::SbirsVector3M vel(sat.velocity_ecef_m_per_s.x_mps,
+                                                   sat.velocity_ecef_m_per_s.y_mps,
+                                                   sat.velocity_ecef_m_per_s.z_mps);
+    const sbirs_sensor::session::SbirsEulerAnglesDeg att(
+        sat.attitude_yaw_deg, sat.attitude_pitch_deg, sat.attitude_roll_deg);
+    component_attachment::Entity& entity = world.CreateEntity("satellite_" + sat.id);
+    entity.Attach(std::unique_ptr<component_attachment::SbirsSensorComponent>(
+        new component_attachment::SbirsSensorComponent(
+            sbirs_sensor::session::SbirsSession::Create(sat.config), sat.source_id, pose, vel, att,
+            component_attachment::SbirsGroundDeliveryMode::kMessage)));
+  }
+  std::vector<std::uint32_t> evaluation_source_ids;
+  evaluation_source_ids.push_back(scene.satellites[0].source_id);
+  evaluation_source_ids.push_back(scene.satellites[1].source_id);
 
-  component_attachment::Entity& satellite_a = world.CreateEntity("satellite_a");
-  satellite_a.Attach(std::unique_ptr<component_attachment::SbirsSensorComponent>(
-      new component_attachment::SbirsSensorComponent(
-          sbirs_sensor::session::SbirsSession::Create(scene.config.satellite_a), source_a, pose_a,
-          vel_a, att_a)));
-  component_attachment::Entity& satellite_b = world.CreateEntity("satellite_b");
-  satellite_b.Attach(std::unique_ptr<component_attachment::SbirsSensorComponent>(
-      new component_attachment::SbirsSensorComponent(
-          sbirs_sensor::session::SbirsSession::Create(scene.config.satellite_b), source_b, pose_b,
-          vel_b, att_b)));
-
+  // 实体先建：分发来源/对象实体 ID 在引擎构造前注入推演配置（验收判定标准
+  // 第25项·修改：已发布行须写实体 ID 对，不用通道名/角色名代替）。
   component_attachment::Entity& ground_station = world.CreateEntity("ground_station");
-  ground_station.Attach(std::unique_ptr<component_attachment::FusionComponent>(
-      new component_attachment::FusionComponent(
-          std::unique_ptr<fusion::FusionEngine>(new fusion::FusionEngine(scene.config.fusion)),
-          std::unique_ptr<pe::PrecisionEvaluationSession>(
-              new pe::PrecisionEvaluationSession(scene.config)),
-          source_a, source_b)));
-  component_attachment::FusionComponent* fusion =
-      ground_station.Find<component_attachment::FusionComponent>();
+  component_attachment::Entity& impact_receiver = world.CreateEntity("impact_receiver");
+  scene.config.inference.impact_distribution_source_id = ground_station.id();
+  scene.config.inference.impact_distribution_target_id = impact_receiver.id();
 
-  std::cout << "precision_evaluation demo: " << scene_path << ", " << scene.cycles << " cycles x "
-            << scene.dt_sec << " s\n"
+  // 评审 2026-08-26 条22（方案B）：融合/精度会话初始化墙钟写 integration_events.log
+  // （库内验收文件的「初始化时间」行指引到此处）。
+  const auto fusion_create_begin = std::chrono::steady_clock::now();
+  std::unique_ptr<fusion::FusionEngine> fusion_engine(
+      new fusion::FusionEngine(scene.config.fusion));
+  const double fusion_create_ms =
+      component_attachment::app::SteadyElapsedMs(fusion_create_begin);
+  component_attachment::app::LogAcceptanceMs(0U, 0.0, "初始化时间性能测试", "Fusion", fusion_create_ms);
+  const auto precision_create_begin = std::chrono::steady_clock::now();
+  std::unique_ptr<pe::PrecisionEvaluationSession> precision_session(
+      new pe::PrecisionEvaluationSession(scene.config));
+  const double precision_create_ms =
+      component_attachment::app::SteadyElapsedMs(precision_create_begin);
+  component_attachment::app::LogAcceptanceMs(0U, 0.0, "初始化时间性能测试", "Precision",
+                                             precision_create_ms);
+
+  ground_station.Attach(
+      std::unique_ptr<component_attachment::GroundStationFusionComponent>(
+          new component_attachment::GroundStationFusionComponent(std::move(fusion_engine),
+                                                                 std::move(precision_session),
+                                                                 evaluation_source_ids)));
+  component_attachment::GroundStationFusionComponent* fusion =
+      ground_station.Find<component_attachment::GroundStationFusionComponent>();
+
+  // 评审 2026-08-26 条12：订阅落点预报外发事件，收件回执写 integration_events.log
+  // （验证分发链路真实可达，非仅日志口径；接收方为 impact_receiver 实体）。
+  component_attachment::app::ImpactForecastReceiptListener impact_receipt(
+      world, static_cast<std::uint64_t>(impact_receiver.id()));
+  (void)impact_receipt;
+
+  std::cout << "sbirs_triple_sat_fix_messages: " << scene_path << ", " << scene.cycles
+            << " cycles x " << scene.dt_sec << " s, satellites=" << scene.satellites.size()
+            << " GEO (ground-station message delivery)\n"
             << "acceptance logs -> " << output_dir
             << " (precision/sbirs/fusion/inference_acceptance.log)\n";
+  for (std::size_t i = 0U; i < scene.satellites.size(); ++i) {
+    const LoadedSatellite& sat = scene.satellites[i];
+    std::cout << "  sat " << sat.id << " source_id=" << sat.source_id << " ecef=("
+              << sat.position_ecef_m.x_m << "," << sat.position_ecef_m.y_m << ","
+              << sat.position_ecef_m.z_m << ")\n";
+  }
   std::uint32_t dual_sat_cycles = 0U;
   for (std::uint32_t cycle = 1U; cycle <= scene.cycles; ++cycle) {
     // 真值弹道由调用方推进（评估会话不拥有真值；同单测约定 p += v·dt）。
@@ -446,20 +590,37 @@ int main(int argc, char* argv[]) {
     app_scene.cycle = cycle;
     app_scene.t_sec = static_cast<double>(cycle) * static_cast<double>(scene.dt_sec);
     app_scene.sbirs_targets = MakeSbirsTargets(scene.truth);
-    app_scene.detection_pool.clear();
-    app_scene.sbirs_ground_station_inbox.clear();
+    fusion->BeginCycle(world, cycle);
     fusion->SetEvaluationInputs(scene.ephemeris, scene.truth);
     component_attachment::app::BeginViewLogCycle(cycle);
-    fusion->BeginCycle(world, cycle);
     world.Step(static_cast<double>(scene.dt_sec));
     const pe::PrecisionEvaluationCycleResult& result = fusion->last_evaluation();
     if (!result.dual_sat.empty()) {
       ++dual_sat_cycles;
     }
-    std::cout << "cycle=" << cycle << " angular=" << result.angular.size()
+    std::cout << "cycle=" << cycle << " inbox_sats=" << fusion->last_sbirs_frame_count()
+              << " fused=" << fusion->targets().size() << " angular=" << result.angular.size()
               << " dual_sat=" << result.dual_sat.size()
               << " velocity=" << result.velocity.size()
-              << " keypoints=" << result.keypoints.size() << "\n";
+              << " keypoints=" << result.keypoints.size();
+    if (!fusion->targets().empty()) {
+      std::cout << " channels=";
+      for (std::size_t t = 0U; t < fusion->targets().size(); ++t) {
+        const fusion::FusedTarget& target = fusion->targets()[t];
+        if (t > 0U) {
+          std::cout << " | ";
+        }
+        std::cout << "k" << target.key << "[";
+        for (std::size_t c = 0U; c < target.channels.size(); ++c) {
+          if (c > 0U) {
+            std::cout << ",";
+          }
+          std::cout << target.channels[c].source_id << ":" << target.channels[c].sample_count;
+        }
+        std::cout << "]";
+      }
+    }
+    std::cout << "\n";
   }
 
   const pe::PrecisionEvaluationReport report = fusion->SummarizeEvaluation();

@@ -1,4 +1,4 @@
-# 场景预期表：sbirs_dual_sat_fix_messages（三星 GEO + 消息机制地面站）
+# 场景预期表：sbirs_triple_sat_fix_messages（三星 GEO + 消息机制地面站）
 
 ## 场景意图
 
@@ -9,7 +9,7 @@
 | 验证深度 | L2 预期表（周期窗 + 通道组成）+ L3 几何先验（遮挡 / 星下点视场） |
 | 构建模式 | Windows v141 release；FD 无关 |
 | 日志模式 | 默认 summary / key |
-| 输出目录 | `examples/log/sbirs_dual_sat_fix_messages/` |
+| 输出目录 | `examples/log/sbirs_triple_sat_fix_messages/` |
 
 ## 几何
 
@@ -72,11 +72,11 @@ World::Step:
 
 ```bash
 source scripts/activate_1q_git_bash.sh
-scripts/1q.sh build VisualStudio.15.0-amd64-release --target sbirs_dual_sat_fix_messages
-./build/VisualStudio.15.0-amd64/Release/bin/sbirs_dual_sat_fix_messages.exe
+scripts/1q.sh build VisualStudio.15.0-amd64-release --target sbirs_triple_sat_fix_messages
+./build/VisualStudio.15.0-amd64/Release/bin/sbirs_triple_sat_fix_messages.exe
 ```
 
-输出：`examples/log/sbirs_dual_sat_fix_messages/`
+输出：`examples/log/sbirs_triple_sat_fix_messages/`
 
 ## 结论
 

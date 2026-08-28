@@ -30,7 +30,7 @@ class GroundStationFusionComponent : public Component {
   /**
    * @brief 仅融合引擎（无精度评估叠加）。
    * @param[in] engine 融合引擎所有权（main 创建 FusionEngine 后 std::move 传入）。
-   *            本场景见 sbirs_dual_sat_fix_messages/main.cpp：config.fusion 来自
+   *            本场景见 sbirs_triple_sat_fix_messages/main.cpp：config.fusion 来自
    *            PrecisionEvaluationConfig 库默认值（JSON 无 fusion 字段）；通用 runner
    *            场景则读 session_config.fusion。
    */

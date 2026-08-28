@@ -19,7 +19,7 @@ Answers: 精度评估模块是什么、在五层架构里站在哪、设计文�
 完整内容见同目录 [boundaries.md](boundaries.md)（边界与非目标）与
 [algorithms.md](algorithms.md)（算法登记、公式与口径）；编排会话与日志事件在
 algorithms.md 与代码内注释中描述（暂不设 data-flow.md，同 target_inference 先例，
-待跨周期状态复杂化后再引入）。集成参考示例见 `examples/scenes/sbirs_dual_sat_fix/`
-（两卫星实体 + 地面站融合组件挂评估会话）。
+待跨周期状态复杂化后再引入）。集成参考示例见 `examples/scenes/sbirs_triple_sat_fix_messages/`
+（三星实体 + 消息机制地面站融合组件挂评估会话）。
 
 跨模块公共规则见 `docs/common/contract.md`（分层契约表含评估层行）。

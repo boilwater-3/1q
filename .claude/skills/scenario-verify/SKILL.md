@@ -148,7 +148,7 @@ ctest --preset examples-release-local -R "unit::examples"
 
 # 场景可执行选建（configure 期）
 cmake --preset examples-release-local -DONEQ_EXAMPLE_SCENES=none            # 全不建
-cmake --preset examples-release-local -DONEQ_EXAMPLE_SCENES="rir_jammed_scan;baseline_takeoff_east"
+cmake --preset examples-release-local -DONEQ_EXAMPLE_SCENES="rir_ground_site_recognition;baseline_takeoff_east"
 
 # 日志模式切换（重 configure + 编译）
 cmake --preset examples-release-local -DCA_EVENT_LOG_MODE=all -DCA_VIEW_LOG_MODE=summary

@@ -37,7 +37,7 @@ oneq::coordinate::EcefPositionM ToEcef(
 FusionComponent::FusionComponent(std::unique_ptr<fusion::FusionEngine> engine)
     : engine_(std::move(engine)) {}
 
-// engine / evaluation / source_id：main 挂载前构造或取自 scene.config（见 sbirs_dual_sat_fix/main.cpp）。
+// engine / evaluation / source_id：main 挂载前构造或取自 scene.config（见 sbirs_triple_sat_fix_messages/main.cpp）。
 FusionComponent::FusionComponent(
     std::unique_ptr<fusion::FusionEngine> engine,
     std::unique_ptr<precision_evaluation::PrecisionEvaluationSession> evaluation,

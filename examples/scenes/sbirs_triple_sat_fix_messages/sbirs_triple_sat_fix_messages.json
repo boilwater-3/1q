@@ -1,8 +1,8 @@
 {
-  "name": "sbirs_geo_triple_angle_kf",
+  "name": "sbirs_triple_sat_fix_messages",
   "cycles": 80,
   "dt_sec": 1.0,
-  "log_dir": "sbirs_geo_triple_angle_kf",
+  "log_dir": "sbirs_triple_sat_fix_messages",
   "utc_julian_day": 2451544.2230698913,
   "inference_horizon_sec": 1200.0,
   "fusion": {
@@ -28,10 +28,7 @@
       "wide_min_snr_linear": 0.001,
       "narrow_min_snr_linear": 0.001,
       "noise_equivalent_power_w": 1e-18,
-      "integration_time_sec": 1.0,
-      "tracking_mode": "kEstimated",
-      "estimated_backend": "kAngleCvKf",
-      "process_noise_diff_coeff": 1e-8
+      "integration_time_sec": 1.0
     },
     {
       "id": "B",
@@ -50,10 +47,7 @@
       "wide_min_snr_linear": 0.001,
       "narrow_min_snr_linear": 0.001,
       "noise_equivalent_power_w": 1e-18,
-      "integration_time_sec": 1.0,
-      "tracking_mode": "kEstimated",
-      "estimated_backend": "kAngleCvKf",
-      "process_noise_diff_coeff": 1e-8
+      "integration_time_sec": 1.0
     },
     {
       "id": "C",
@@ -72,10 +66,7 @@
       "wide_min_snr_linear": 0.001,
       "narrow_min_snr_linear": 0.001,
       "noise_equivalent_power_w": 1e-18,
-      "integration_time_sec": 1.0,
-      "tracking_mode": "kEstimated",
-      "estimated_backend": "kAngleCvKf",
-      "process_noise_diff_coeff": 1e-8
+      "integration_time_sec": 1.0
     }
   ],
   "targets": [

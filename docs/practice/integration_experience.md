@@ -8,7 +8,7 @@ Authority: examples 集成实践（component_entt EnTT 模式 + component_attach
 > `examples/batch_validation/` 与 `examples/flight_dynamic/`（现
 > `tests/unit/flight_dynamic/fd_tools/`）也已迁出 examples——examples 层收敛为消费方
 > 集成参考角色（examples 场景栈：core/components/app/scenes），验证/开发期工具归位 `tests/`。
-> （2026-08-19 补记：examples 层新增评估层独立示例 `examples/scenes/sbirs_dual_sat_fix/（场景可执行）/`
+> （2026-08-19 补记：examples 层新增评估层独立示例 `examples/scenes/sbirs_triple_sat_fix_messages/（场景可执行，2026-08-28 由 sbirs_dual_sat_fix_messages 更名）/`
 > （硬编码演示几何，非 component_attachment 组件形态），消费方参考示例不再唯一，
 > 但"验证/开发期工具归位 tests/"的结论不变。）
 > 本文记录的是当时的集成复盘结论，作为历史经验保留。

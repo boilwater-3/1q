@@ -269,7 +269,7 @@ cmake --build --preset examples-release-local --target baseline_takeoff_east
 - `--view-every <n>`：视图摘要间隔（`周期 % n == 0` 才写；覆盖场景
   `view_log_every_cycles`，默认 1 = 每周期一行）；
 - `--output-dir <dir>`：输出目录（日志 + CSV + 各层验收文件）。默认
-  `examples/log/<场景名>/`（例如 `rir_long_range_scan`），
+  `examples/log/<场景名>/`（例如 `rir_ground_site_recognition`），
   不传则按场景钉死，避免 `rir_acceptance.log` 落到运行目录。显式传入则用该路径。
   运行时产物不入版本控制，见 .gitignore；
 - 视图默认摘要模式；密度用 `--view-every` / 场景 `view_log_every_cycles`。

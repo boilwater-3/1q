@@ -20,8 +20,8 @@ Last-reviewed: 2026-08-20
 - 编排会话（`PrecisionEvaluationSession`）：每周期输入双星 SBIRS 周期结果 + 融合航迹
   + 星历 + 真值；输出逐周期误差样本与全程报告。不驱动传感器、不握 `FusionEngine`。
   地面站融合组件装配引擎时应 `fusion.enable_track_filtering=true`（速度/位置误差样本依赖）。
-- 集成参考示例：`examples/scenes/sbirs_dual_sat_fix/`（两卫星实体 + 地面站挂载融合组件，
-  组件内持 `FusionEngine` 与 `PrecisionEvaluationSession`）。
+- 集成参考示例：`examples/scenes/sbirs_triple_sat_fix_messages/`（三星实体 + 消息机制地面站
+  挂载融合组件，组件内持 `FusionEngine` 与 `PrecisionEvaluationSession`）。
 
 ## 非目标
 

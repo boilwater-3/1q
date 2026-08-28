@@ -212,7 +212,7 @@ SbirsSensorComponent::SbirsSensorComponent(
 }
 
 // session / source_id / 星历姿态：main 挂载前从 scene.config 与 ephemeris 段组装后移入
-// （见 sbirs_dual_sat_fix_messages/main.cpp 卫星 Attach）。
+// （见 sbirs_triple_sat_fix_messages/main.cpp 卫星 Attach）。
 SbirsSensorComponent::SbirsSensorComponent(
     sbirs_sensor::session::SbirsSession session, std::uint32_t ground_station_source_id,
     sbirs_sensor::session::SbirsVector3M position_ecef_m,

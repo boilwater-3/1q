@@ -1,7 +1,7 @@
 ---
 Status: active
 Date: 2026-08-22
-Authority: 甲方集成验证清单；两个核心场景（`rir_long_range_scan` / `sbirs_dual_sat_fix`）的组件挂载、调用序、事件接线与验收核验。场景几何与配置权威见各场景 `.md`；库 API 权威见 `include/1q/`。
+Authority: 甲方集成验证清单；两个保留场景（`rir_ground_site_recognition` / `sbirs_triple_sat_fix_messages`）的组件挂载、调用序、事件接线与验收核验。场景几何与配置权威见各场景 `.md`；库 API 权威见 `include/1q/`。
 ---
 
 # 甲方集成验证清单（两个核心场景）
@@ -10,6 +10,12 @@ Authority: 甲方集成验证清单；两个核心场景（`rir_long_range_scan`
 的效果，需要集成哪些组件、按什么顺序调用、接哪些事件、最后核对什么。假设甲方的
 宿主工程**也是实体-组件模式、也有自己的事件机制**——本文所有"组件/事件"都给出
 「我们示例怎么做 → 甲方框架里对应怎么做」的映射，不要求照搬示例的 World/Boost.Signals2。
+
+> **2026-08-28 场景集精简注**：原两个核心场景（`rir_long_range_scan` /
+> `sbirs_dual_sat_fix`）已从场景集移除，本文改为以保留场景
+> `rir_ground_site_recognition` / `sbirs_triple_sat_fix_messages` 为参照。
+> §4–§6 的组件挂载/调用序/事件接线通用；§7 的行数基线为精简前的实测值，
+> 保留场景的逐项行数基线待重跑后更新。
 
 ## 0. 先建立三个概念
 
@@ -41,17 +47,17 @@ cl 自动按 UTF-8 解码；这正是交付验证要证明的约束）。工程�
 
 ## 2. 两个核心场景一览
 
-| | 场景 A：`rir_long_range_scan` | 场景 B：`sbirs_dual_sat_fix` |
+| | 场景 A：`rir_ground_site_recognition` | 场景 B：`sbirs_triple_sat_fix_messages` |
 | --- | --- | --- |
-| 宿主 | `component_attachment_demo`（实体-组件模式） | `precision_evaluation_demo`（两卫星实体 + 地面站融合组件） |
-| 被测 | RIR 远距探测/跟踪/识别/调度 + 融并 + 推演 + 威胁 | 双星红外交会 + 融合 + 推演 + **精度评估（五项误差 + AHP）** |
-| 周期 | 400 × 1 s（场景 JSON 里改） | 60 × 1 s |
-| 集成形态 | 挂 5 类组件（§4） | 卫星实体挂 SBIRS；地面站挂 `FusionComponent`（内含 `FusionEngine` + `PrecisionEvaluationSession`）（§6） |
-| 验收文件 | `rir_acceptance.log`（5.2 万行）+ `rir_antenna_pattern.csv` + `rir_scan_pattern.csv` + `fusion/inference_acceptance.log` | `precision/sbirs/fusion/inference_acceptance.log` 四份 |
-| 集成端日志 | `integration_events.log`（含三个计时验收行）+ `integration_views.log`（rir 400 / inference 800 / threat 400 行） | 无（结果打 stdout + 写验收文件） |
-| 冒烟判据 | demo 退出码 0（航迹≥2、融合≥1、视图/CSV 行数达标） | demo 退出码 0（五指标有样本、AHP 合法、60/60 周期双星交会） |
+| 宿主 | `rir_ground_site_recognition`（场景可执行；同源也可用 `component_attachment_demo --scene`） | `sbirs_triple_sat_fix_messages` / `precision_evaluation_demo`（三星实体 + 消息机制地面站融合组件） |
+| 被测 | RIR 地基站点识别链（RCS+运动真值四维特征）+ 运行期指令指定任务 + 特征量测进五源融合 + 推演 + 威胁 | 三星 GEO 红外交会 + 消息投递地面站融合 + 推演 + **精度评估（五项误差 + AHP）** |
+| 周期 | 400 × 1 s（场景 JSON 里改） | 80 × 1 s |
+| 集成形态 | 挂 5 类组件（§4） | 三卫星实体挂 SBIRS（`kMessage` 投递）；地面站挂 `GroundStationFusionComponent`（内含 `FusionEngine` + `PrecisionEvaluationSession`）（§6） |
+| 验收文件 | `rir_acceptance.log` + `rir_antenna_pattern.csv` + `rir_scan_pattern.csv` + `fusion/inference_acceptance.log` | `precision/sbirs/fusion/inference_acceptance.log` 四份 |
+| 集成端日志 | `integration_events.log` + `integration_views.log`（rir/inference/threat 视图行） | `integration_events.log` / `integration_views.log`（消息投递与回执事件） |
+| 冒烟判据 | demo 退出码 0（航迹≥2、融合≥1、视图/CSV 行数达标） | demo 退出码 0（五指标有样本、AHP 合法、`dual_sat_cycles>0`） |
 
-场景 B 走两卫星实体 + 地面站融合组件；场景 A 才需要机载传感器挂载与事件接线。
+场景 B 走三卫星实体 + 消息机制地面站融合组件；场景 A 才需要机载传感器挂载与事件接线。
 
 ## 3. 验收开关与日志路径（先打通这个）
 
@@ -156,24 +162,26 @@ integration_views.log：[视图:rir]（航迹+位置LLA）→ [视图:inference]
    RIR 航迹 ≥2；平台轨迹 CSV 行数 = 周期数；视图行数按 `--view-every` 求余达标。
 
 **场景参数从哪来**：目标/航路/开关/融合权重全在
-`scenes/rir_long_range_scan/rir_long_range_scan.json`（改 JSON 不改代码）；
+`scenes/rir_ground_site_recognition/rir_ground_site_recognition.json`（改 JSON 不改代码）；
 雷达链路参数在 `configs/remote_identification_radar.json`（甲方参数与配套上限
 对照表见场景 `.md`——峰值功率/脉宽/PRF/最大距离/驻留窗六项必须一起改）。
 
-## 6. 场景 B：需要集成什么（两卫星实体 + 地面站）
+## 6. 场景 B：需要集成什么（三星实体 + 消息机制地面站）
 
-两颗卫星各自 `SbirsSession::StepWithResult`，探测帧写入地面站收件箱；地面站
-`FusionComponent` 内做适配、`FusionEngine::Update`，并挂 `PrecisionEvaluationSession`
-对照真值打分。集成方：
+三颗卫星各自 `SbirsSession::StepWithResult`，探测帧经 `on_sbirs_frame_submitted`
+消息投递（`kMessage` 投递模式）写入地面站收件箱；地面站
+`GroundStationFusionComponent` 内做适配、`FusionEngine::Update`，并挂
+`PrecisionEvaluationSession` 对照真值打分。集成方：
 
 ```cpp
-// 1) 两卫星实体 + 地面站实体（融合引擎强制开逐航迹滤波）
-world.CreateEntity("satellite_a").Attach(sbirs_a);
+// 1) 三卫星实体 + 地面站实体（消息投递；融合引擎强制开逐航迹滤波）
+world.CreateEntity("satellite_a").Attach(sbirs_a);  // 投递模式 kMessage
 world.CreateEntity("satellite_b").Attach(sbirs_b);
-ground_station.Attach(FusionComponent(engine, evaluation_session, source_a, source_b));
+world.CreateEntity("satellite_c").Attach(sbirs_c);
+ground_station.Attach(GroundStationFusionComponent(engine, evaluation_session, src_a, src_b));
 
 // 2) 每周期：调用方自己推进真值，写入星历/真值后 World::Step
-for (cycle = 1..60) {
+for (cycle = 1..80) {
   for (auto& t : truth) t.position += t.velocity * dt;   // p += v·dt
   fusion->SetEvaluationInputs(ephemeris, truth);
   world.Step(dt);
@@ -186,7 +194,8 @@ auto report = fusion->SummarizeEvaluation();
 
 验收文件（precision/sbirs/fusion/inference 四份）由库会话写出，路径钉法同 §3。
 冒烟判据照 demo：`all_metrics_sampled && ahp_valid && 0 < composite ≤ 1 &&
-dual_sat_cycles > 0`。
+dual_sat_cycles > 0`（精度评估交会只用前两颗星——库 API 双视线边界，第三星
+进融合不进交会指标）。
 
 ## 7. 验收核验清单（跑完逐项勾）
 
@@ -196,22 +205,23 @@ dual_sat_cycles > 0`。
 仿真时间=1.000s 仿真周期=1 [验收项：MTD增益] 验收内容：目标ID=1001 6.021dB
 ```
 
-场景 A（400 周期，本机实测基线）：
+场景 A（400 周期；行数基线为 2026-08-28 场景精简前的实测，保留场景逐项
+数值待重跑后更新）：
 
 - [ ] demo 退出码 0
-- [ ] `rir_acceptance.log` 存在且约 5.2 万行，全部含 `[验收项：`
-- [ ] `[验收项：目标测量角度与距离]` 约 1282 行，**无一行 `斜距=无`**（3400/8550 km 量级）
+- [ ] `rir_acceptance.log` 存在且全为 `[验收项：` 行（含 `[规模目标识别功能测试]` 等改名后项名）
+- [ ] `[验收项：目标测量角度与距离]` 有行，**无一行 `斜距=无`**
 - [ ] `[验收项：IMM模型权重]`、`[验收项：独立目标识别器结论]`、`[验收项：极化特征解算]`、`[验收项：散射中心和轮廓特征]` 均有行
 - [ ] `rir_antenna_pattern.csv`、`rir_scan_pattern.csv` 存在
 - [ ] `integration_events.log` 含三行计时：`初始化时间`/`单步执行时间`/`单个模型加载时间`（模块=RIR）
-- [ ] `integration_views.log`：`[视图:rir]`≈400、`[视图:inference]`≈800、`[视图:threat]`≈400 行
+- [ ] `integration_views.log`：`[视图:rir]`≈400 行量级、`[视图:inference]`/`[视图:threat]` 同步
 - [ ] `platform_track.csv` 行数 = 周期数；`target_truth/route_plan/zones.csv` 存在
 - [ ] `fusion_acceptance.log`、`inference_acceptance.log` 有四段行（RIR 源通道 5 并键）
 
-场景 B（60 周期，本机实测基线）：
+场景 B（80 周期；基线同理待重跑更新）：
 
-- [ ] demo 退出码 0；stdout 末行 `dual_sat_cycles=60/60`
-- [ ] 四份验收文件齐：`precision`（~240 行）、`sbirs`（~1800）、`fusion`（~420）、`inference`（~370）
+- [ ] demo 退出码 0；stdout 末行 `dual_sat_cycles=N/80`（N>0 即过冒烟）
+- [ ] 四份验收文件齐：`precision`/`sbirs`/`fusion`/`inference`
 - [ ] `[验收项：层次分析法]` 一行：综合分/等级/CR 有数；`[验收项：关键精度指标]` 有逐周期行 + 汇总行
 - [ ] `[验收项：关机点预测]` = `暂无`（按设计，无推力模型）；`集群目标识别` 不落盘（按设计）
 - [ ] 行数不是硬门控——判据是**文件齐 + 项名齐 + 冒烟过**
@@ -219,7 +229,7 @@ dual_sat_cycles > 0`。
 搜索示例（Windows，验收文件为 ANSI/GBK 编码）：
 
 ```bat
-findstr /C:"[验收项：UKF滤波]" log\sbirs_dual_sat_fix\fusion_acceptance.log
+findstr /C:"[验收项：UKF滤波]" log\sbirs_triple_sat_fix_messages\fusion_acceptance.log
 ```
 
 ## 8. 已知限制与坑（集成前读一遍）
@@ -239,9 +249,9 @@ findstr /C:"[验收项：UKF滤波]" log\sbirs_dual_sat_fix\fusion_acceptance.lo
 7. **RIR 型号确认在本场景不是门控**：交付特征库无 `RCS-0.025`/`RCS-1.0` 型号，
    综合分 ~0.10、全程无型号确认是**预期行为**（验识别确认用
    `rir_ground_site_recognition` 专项场景）。
-8. **场景 B 的几何是评估配方**（SNR 门 0.001、双星静止 7000 km）：宽视场四角
+8. **场景 B 的几何是评估配方**（SNR 门 0.001、三星静止 7000 km）：宽视场四角
    `miss`、最大探测距离 1e10 m 量级是配方产物，**不要当装备指标**；宽窄交接
-   专项看 `sbirs_wfov_nfov_handover`。
+   专项（原 `sbirs_wfov_nfov_handover`）已随 2026-08-28 场景集精简移除。
 
 ## 附：事件信号全集（示例层，供甲方映射自己的事件机制）
 

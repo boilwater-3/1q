@@ -74,7 +74,7 @@ const SbirsFrameSubmittedEvent* FindFrameBySource(
 }  // namespace
 
 // 本组件不自己 new FusionEngine；main 用 scene.config.fusion 创建后 std::move 移入。
-// 注意：sbirs_dual_sat_fix_messages.json 里没有 fusion 字段——config.fusion 是
+// 注意：sbirs_triple_sat_fix_messages.json 里没有 fusion 字段——config.fusion 是
 // FusionConfig 结构体默认值（position_radius_m=1000 等，见 FusionConfig.h）；
 // main 仅额外设 enable_track_filtering=true（与默认一致）。
 GroundStationFusionComponent::GroundStationFusionComponent(
