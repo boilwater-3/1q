@@ -143,7 +143,11 @@ TEST(RirFeatureMeasurementTest, RecordCarriesObservationGeometryAndContext) {
   policy.recognition.enabled = true;
   policy.recognition.database_path = database_path;
   runtime::RirController controller;
-  controller.SetHardware(config::RirHardwareConfig{});
+  config::RirHardwareConfig hardware_default;
+  // 主瓣覆盖门放宽：默认 4° 波束会拦截离轴合成目标，本文件不测波束覆盖门。
+  hardware_default.antenna.nominal_az_beamwidth_deg = 160.0f;
+  hardware_default.antenna.nominal_el_beamwidth_deg = 160.0f;
+  controller.SetHardware(hardware_default);
   controller.UpdateRuntime(MakeIdentifyMission(), policy);
 
   session::RirOutputFrame frame;
@@ -199,7 +203,11 @@ TEST(RirFeatureMeasurementTest, PlatformPositionAlwaysPresent) {
   policy.recognition.enabled = true;
   policy.recognition.database_path = database_path;
   runtime::RirController controller;
-  controller.SetHardware(config::RirHardwareConfig{});
+  config::RirHardwareConfig hardware_default;
+  // 主瓣覆盖门放宽：默认 4° 波束会拦截离轴合成目标，本文件不测波束覆盖门。
+  hardware_default.antenna.nominal_az_beamwidth_deg = 160.0f;
+  hardware_default.antenna.nominal_el_beamwidth_deg = 160.0f;
+  controller.SetHardware(hardware_default);
   controller.UpdateRuntime(MakeIdentifyMission(), policy);
 
   RirCycleInput with_position = MakeInput(1U, MakeFeaturedTarget());
@@ -228,7 +236,11 @@ TEST(RirFeatureMeasurementTest, FeaturelessTargetProducesNoRecord) {
   config::RirPolicyConfig policy = MakeFallbackPolicy();
   policy.lifecycle.confirm_hits = 5U;  // 单周期 tentative → 运动维无效。
   runtime::RirController controller;
-  controller.SetHardware(config::RirHardwareConfig{});
+  config::RirHardwareConfig hardware_default;
+  // 主瓣覆盖门放宽：默认 4° 波束会拦截离轴合成目标，本文件不测波束覆盖门。
+  hardware_default.antenna.nominal_az_beamwidth_deg = 160.0f;
+  hardware_default.antenna.nominal_el_beamwidth_deg = 160.0f;
+  controller.SetHardware(hardware_default);
   controller.UpdateRuntime(MakeIdentifyMission(), policy);
 
   RirSceneTarget target;
@@ -254,6 +266,9 @@ TEST(RirFeatureMeasurementTest, SessionEmitsFeatureMeasurementsAndRejectsCleanly
   config.mission.work_mode = config::RirWorkMode::kIdentify;
   config.policy.detection.gate_mode = config::RirDetectionGateMode::kSnrFallback;
   config.policy.lifecycle.confirm_hits = 1U;
+  // 主瓣覆盖门放宽：本文件聚焦特征量测记录内容，不测波束覆盖门（门限=半功率宽）。
+  config.hardware.antenna.nominal_az_beamwidth_deg = 160.0f;
+  config.hardware.antenna.nominal_el_beamwidth_deg = 160.0f;
   config.policy.recognition.enabled = true;
   config.policy.recognition.database_path = database_path;
   RirSession session = RirSession::Create(config);
@@ -285,7 +300,11 @@ TEST(RirFeatureMeasurementTest, ShortDwellObservationStillEmitted) {
   policy.recognition.enabled = true;
   policy.recognition.database_path = database_path;
   runtime::RirController controller;
-  controller.SetHardware(config::RirHardwareConfig{});
+  config::RirHardwareConfig hardware_default;
+  // 主瓣覆盖门放宽：默认 4° 波束会拦截离轴合成目标，本文件不测波束覆盖门。
+  hardware_default.antenna.nominal_az_beamwidth_deg = 160.0f;
+  hardware_default.antenna.nominal_el_beamwidth_deg = 160.0f;
+  controller.SetHardware(hardware_default);
   controller.UpdateRuntime(mission, policy);
 
   // 提高检测 RCS 保证短驻留下 SNR 仍过 6 dB 特征门（检测 SNR 与特征提取共用）。
@@ -321,7 +340,11 @@ TEST(RirFeatureMeasurementTest, RangeGatedTargetProducesNoFeatureRecord) {
   policy.recognition.enabled = true;
   policy.recognition.database_path = database_path;
   runtime::RirController controller;
-  controller.SetHardware(config::RirHardwareConfig{});
+  config::RirHardwareConfig hardware_default;
+  // 主瓣覆盖门放宽：默认 4° 波束会拦截离轴合成目标，本文件不测波束覆盖门。
+  hardware_default.antenna.nominal_az_beamwidth_deg = 160.0f;
+  hardware_default.antenna.nominal_el_beamwidth_deg = 160.0f;
+  controller.SetHardware(hardware_default);
   controller.UpdateRuntime(mission, policy);
 
   session::RirOutputFrame frame;

@@ -40,7 +40,6 @@ RirAntennaConfig MakeAntenna(RirAntennaPatternModelType model) {
   ant.pattern.model_type = model;
   ant.pattern.max_sidelobe_level_db = -20.0f;
   ant.pattern.backlobe_level_db = -35.0f;
-  ant.enable_directional_pattern = true;
   return ant;
 }
 
@@ -163,16 +162,6 @@ TEST(RirBeamControlTest, EffectiveBeamwidth_NominalThenAperture) {
   // θ_bw = λ/L = 0.025 rad ≈ 1.432°
   EXPECT_NEAR(bw.az_beamwidth_deg, 0.025f / kDeg2Rad, 1e-3f);
   EXPECT_NEAR(bw.el_beamwidth_deg, 3.0f, 1e-4f);
-}
-
-/// @brief enable_directional_pattern=false 回退主瓣峰值（阶段 1 旧行为）。
-TEST(RirBeamControlTest, DirectionalPatternDisabled_FallsBackToPeakGain) {
-  RirAntennaConfig ant = MakeAntenna(RirAntennaPatternModelType::kGaussianMainLobe);
-  ant.enable_directional_pattern = false;
-  const auto state =
-      RirResolveBeamStateForPointing(ant, config::RirAzimuthElevationDeg{0.0f, 0.0f}, 45.0f, 0.0f,
-                                     true, 0.1f);
-  EXPECT_FLOAT_EQ(state.one_way_antenna_gain_db, ant.main_beam_gain_db);
 }
 
 /// @brief 无有效视线角时同样回退主瓣峰值。

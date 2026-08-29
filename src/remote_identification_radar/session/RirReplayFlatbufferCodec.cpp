@@ -561,7 +561,7 @@ flatbuffers::Offset<cfb::RirHardwareConfig> EncodeHardwareConfig(
   const flatbuffers::Offset<cfb::RirAntennaConfig> antenna = cfb::CreateRirAntennaConfig(
       *builder, value.antenna.main_beam_gain_db, value.antenna.nominal_az_beamwidth_deg,
       value.antenna.nominal_el_beamwidth_deg, value.antenna.antenna_length_m,
-      value.antenna.antenna_width_m, pattern, value.antenna.enable_directional_pattern);
+      value.antenna.antenna_width_m, pattern);
 
   std::vector<flatbuffers::Offset<cfb::RirCoSiteIsolationPath>> co_site_paths;
   co_site_paths.reserve(value.receiver.co_site_paths.size());
@@ -629,7 +629,6 @@ void DecodeHardwareConfig(const cfb::RirHardwareConfig* value, config::RirHardwa
     out->antenna.nominal_el_beamwidth_deg = antenna->nominal_el_beamwidth_deg();
     out->antenna.antenna_length_m = antenna->antenna_length_m();
     out->antenna.antenna_width_m = antenna->antenna_width_m();
-    out->antenna.enable_directional_pattern = antenna->enable_directional_pattern();
     if (antenna->pattern() != nullptr) {
       const cfb::RirAntennaPatternConfig* pattern = antenna->pattern();
       out->antenna.pattern.model_type =

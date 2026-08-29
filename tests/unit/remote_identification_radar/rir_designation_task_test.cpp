@@ -244,7 +244,6 @@ TEST(RirDesignationTaskTest, AbsentTargetReportsNotRecognizedAndDwellsOnScan) {
 // 偏离目标（离轴衰减压低 SNR）则门控拒绝——验证调度器指向真正驱动增益。
 TEST(RirDesignationTaskTest, DwellCenterDrivesOffAxisGainWhenDirectionalPatternEnabled) {
   config::RirHardwareConfig hardware;
-  hardware.antenna.enable_directional_pattern = true;
   config::RirPolicyConfig policy;
   policy.detection.gate_mode = config::RirDetectionGateMode::kSnrFallback;
   policy.lifecycle.confirm_hits = 1U;
@@ -396,7 +395,6 @@ TEST(RirDesignationTaskTest, RecognitionAchievementCompletesTaskAndReturnsToScan
 
 TEST(RirDesignationTaskTest, OffAxisGainUsesNormalizedAzimuthDeltaNearWrapBoundary) {
   config::RirHardwareConfig hardware;
-  hardware.antenna.enable_directional_pattern = true;
   const config::RirAzimuthElevationDeg beam_pointing{179.0f, 0.0f};
   const float look_az = -179.0f;
   const float look_el = 0.0f;

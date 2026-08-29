@@ -8,7 +8,10 @@
  *   - 无平台姿态/稳定模式安装系指向解算：RIR 驻留指向由驻留调度显式给定，
  *     本文件只消费给定值（调度器给指向、RIR 信指向），见下方指向契约；
  *   - 保留：有效波束宽度两级回退（nominal → λ/L 物理推导）、
- *     离轴角 → 方向图增益链路、enable_directional_pattern=false 回退主瓣峰值。
+ *     离轴角 → 方向图增益链路、无视线角退化输入回退主瓣峰值。
+ *     （2026-08-29 架构还债：enable_directional_pattern 开关已删除，RIR 离轴
+ *     方向图恒开——探测与波束指向耦合；common 输入结构保留该字段供 AR 使用，
+ *     RIR 侧恒传 true。）
  *
  * 驻留指向契约（冻结）：
  *   - 来源：调用方驻留调度器显式给定波束中心；RIR 不生成指向、不按目标位置
@@ -79,7 +82,7 @@ inline RirResolvedBeamState RirResolveBeamStateForPointing(
 
   oneq::common::radar::FrozenBeamResolveInputs inputs;
   inputs.main_beam_gain_db = antenna_config.main_beam_gain_db;
-  inputs.enable_directional_pattern = antenna_config.enable_directional_pattern;
+  inputs.enable_directional_pattern = true;  // RIR 方向图恒开（开关已删，AR 侧仍保留该入参）。
   inputs.pattern = rir_antenna_pattern_adapter::ToCommonPatternConfig(antenna_config.pattern);
   inputs.effective_beamwidth_deg = state.effective_beamwidth_deg;
   inputs.beam_pointing_az_deg = beam_pointing_deg.az_deg;

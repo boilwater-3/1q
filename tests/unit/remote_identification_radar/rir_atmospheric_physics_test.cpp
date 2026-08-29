@@ -158,7 +158,11 @@ float RunCycleSnrDb(const config::RirEnvironmentConfig* environment,
   policy.recognition.enabled = true;
   policy.recognition.database_path = database_path;
   runtime::RirController controller;
-  controller.SetHardware(config::RirHardwareConfig{});
+  config::RirHardwareConfig hardware;
+  // 主瓣覆盖门放宽：本文件聚焦大气损耗差分，不测波束覆盖门（门限=半功率宽）。
+  hardware.antenna.nominal_az_beamwidth_deg = 160.0f;
+  hardware.antenna.nominal_el_beamwidth_deg = 160.0f;
+  controller.SetHardware(hardware);
   config::RirMissionConfig mission;
   mission.work_mode = config::RirWorkMode::kIdentify;
   controller.UpdateRuntime(mission, policy);

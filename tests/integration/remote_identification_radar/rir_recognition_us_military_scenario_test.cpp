@@ -58,6 +58,17 @@ class RirUsMilitaryRecognitionScenarioTest : public ::testing::Test {
     config::RirSessionConfig cfg;
     cfg.mission.work_mode = config::RirWorkMode::kIdentify;
     cfg.policy.lifecycle.confirm_hits = 1U;
+    // 主瓣覆盖门放宽：本文件聚焦识别效能场景，不测波束覆盖门。波束取 200°
+    // （半宽 100°）：体积放宽到 el ±85° 后波位表横跨全扇区，而场景目标仰角
+    // 跨 −10°~+62°，160° 波束（半宽 80°）盖不住最远角差，目标永不被照到。
+    cfg.hardware.antenna.nominal_az_beamwidth_deg = 200.0f;
+    cfg.hardware.antenna.nominal_el_beamwidth_deg = 200.0f;
+    // 增益同步 +10 dB：宽波束下离轴角差仍带来 ~4 dB 方向图衰减，掠海导弹
+    // 剖面（低 RCS + 负仰角）的 SNR 余量会被压破 6 dB 回退门。
+    cfg.hardware.antenna.main_beam_gain_db = 45.0f;
+    // 波位步长与波束宽度解耦：步长=波束宽度×step_scale，不压小 step_scale
+    // 的话 200° 波束会让波位表退化成 4 个角点（扫描覆盖名存实亡）。
+    cfg.mission.scan.step_scale = 0.02f;
     cfg.policy.detection.gate_mode = config::RirDetectionGateMode::kSnrFallback;
     cfg.policy.recognition.enabled = true;
     cfg.policy.recognition.database_path = ONEQ_RIR_EXAMPLE_DATABASE_PATH;
@@ -71,6 +82,10 @@ class RirUsMilitaryRecognitionScenarioTest : public ::testing::Test {
     // 显式放宽体积；体积裁剪语义由库单测与场景级测试覆盖。
     cfg.orientation.steerable_volume_deg.el_min_deg = -85.0f;
     cfg.orientation.steerable_volume_deg.el_max_deg = 85.0f;
+    // 方位体积同步收窄：波位表随体积生成，全向体积会让波位 0 远离目标
+    // （方位差 180° 超出放宽后的主瓣覆盖门），目标永不被照到。
+    cfg.orientation.steerable_volume_deg.az_min_deg = -60.0f;
+    cfg.orientation.steerable_volume_deg.az_max_deg = 60.0f;
     return cfg;
   }
 

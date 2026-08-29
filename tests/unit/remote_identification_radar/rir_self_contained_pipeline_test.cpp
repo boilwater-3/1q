@@ -35,6 +35,9 @@ RirController MakeFallbackController() {
   config::RirHardwareConfig hardware;
   hardware.rcs_physics.enable_physical_rcs = false;
   hardware.rcs_physics.physics_mix_ratio = 0.0f;
+  // 主瓣覆盖门放宽：本文件聚焦链路级联与驻留预算摘要，不测波束覆盖门。
+  hardware.antenna.nominal_az_beamwidth_deg = 160.0f;
+  hardware.antenna.nominal_el_beamwidth_deg = 160.0f;
   controller.SetHardware(hardware);
   controller.UpdateRuntime(MakeMission(config::RirWorkMode::kIdentify), policy);
   return controller;
@@ -89,6 +92,9 @@ TEST(RirSelfContainedPipelineTest, DetectorGateRejectsUndetectableTarget) {
   config::RirHardwareConfig hardware;
   hardware.rcs_physics.enable_physical_rcs = false;
   hardware.rcs_physics.physics_mix_ratio = 0.0f;
+  // 主瓣覆盖门放宽：本文件聚焦链路级联与驻留预算摘要，不测波束覆盖门。
+  hardware.antenna.nominal_az_beamwidth_deg = 160.0f;
+  hardware.antenna.nominal_el_beamwidth_deg = 160.0f;
   controller.SetHardware(hardware);
   controller.UpdateRuntime(MakeMission(config::RirWorkMode::kIdentify), policy);
 
@@ -135,6 +141,9 @@ TEST(RirSelfContainedPipelineTest, ImmPolicyReachesLifecycleAndKeepsTrackStable)
   config::RirHardwareConfig hardware;
   hardware.rcs_physics.enable_physical_rcs = false;
   hardware.rcs_physics.physics_mix_ratio = 0.0f;
+  // 主瓣覆盖门放宽：本文件聚焦链路级联与驻留预算摘要，不测波束覆盖门。
+  hardware.antenna.nominal_az_beamwidth_deg = 160.0f;
+  hardware.antenna.nominal_el_beamwidth_deg = 160.0f;
   controller.SetHardware(hardware);
   controller.UpdateRuntime(MakeMission(config::RirWorkMode::kIdentify), policy);
 

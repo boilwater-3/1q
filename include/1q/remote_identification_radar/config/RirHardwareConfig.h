@@ -108,7 +108,8 @@ struct ONEQ_API RirAntennaConfig {
       1.2f}; /**< 物理俯仰孔径尺寸；正值参与波束推导和 sinc² 模式，0 表示未配置。
                   默认 1.2 m（口径同 antenna_length_m）。 */
   RirAntennaPatternConfig pattern{};         /**< 方向图参数。 */
-  bool enable_directional_pattern{false}; /**< 是否启用离轴方向图评估。 */
+  // 与 AR 副本的刻意差异：无 enable_directional_pattern 开关。RIR 离轴方向图恒开
+  // （探测与波束指向耦合）；无视线角的退化输入回退主瓣峰值（见 RirBeamControl.h）。
 };
 
 /**

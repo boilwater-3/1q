@@ -67,7 +67,6 @@ table RirAntennaConfig {
   antenna_length_m:float;
   antenna_width_m:float;
   pattern:RirAntennaPatternConfig;
-  enable_directional_pattern:bool;
 }
 
 table RirReceiverConfig {

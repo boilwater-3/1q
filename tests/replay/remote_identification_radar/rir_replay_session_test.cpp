@@ -135,7 +135,6 @@ TEST(RirReplaySessionTest, ConfigAndInputPayloadsRoundtripByteExact) {
   config.hardware.transmitter.equipment_id = 11U;
   config.hardware.transmitter.bandwidth_hz = 9.0e6f;
   config.hardware.transmitter.frequency_plan_hz.push_back(3.2e9);
-  config.hardware.antenna.enable_directional_pattern = true;
   config.hardware.antenna.pattern.model_type =
       config::hardware::RirAntennaPatternModelType::kSincPattern;
   config.hardware.antenna.pattern.boresight_offset_deg.az_deg = 3.5f;

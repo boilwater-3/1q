@@ -134,6 +134,10 @@ constexpr char kTargetEarthOcculted[] = "rir.target_earth_occulted";
  *         az 相对 scan_center、el 绝对；具体门 cause=kNone）。 */
 constexpr char kTargetOutsideSearchVolume[] = "rir.target_outside_search_volume";
 
+/** @brief 目标在搜索扇区内但不被本周期驻留主瓣覆盖（"探测⟺波束照到"硬门，
+ *         门限=有效波束宽度半功率宽；方向图恒开的配套语义；cause=kNone）。 */
+constexpr char kTargetOutsideBeamCoverage[] = "rir.target_outside_beam_coverage";
+
 /** @brief 检测准入门未过（聚合门：SNR/检测器判决；携带门内归因主因）。 */
 constexpr char kTargetDetectionGate[] = "rir.target_detection_gate";
 

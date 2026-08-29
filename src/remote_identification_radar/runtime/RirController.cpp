@@ -43,6 +43,9 @@ namespace {
 
 constexpr float kSnrFallbackGateDb = 6.0f;
 constexpr float kCovarianceFloorM2 = 1.0e-6f;
+// 主瓣覆盖门系数：门限=有效波束宽度（半功率宽）×该系数。恒为 1.0 且不设配置项
+// （2026-08-29 还债原则：方向图/覆盖门语义唯一，不再新增同类开关）。
+constexpr float kMainLobeGateBeamwidthScale = 1.0f;
 std::string g_acceptance_found_targets;
 
 internal::RirSwerlingModel ToInternalSwerling(session::RirSwerlingType type) {
@@ -472,17 +475,13 @@ bool RirController::TryBuildMeasurement(
                                  ? static_cast<float>(oneq::common::numerics::kLightSpeed) /
                                        carrier_hz
                                  : 0.0f;
-  dwell::RirResolvedBeamState beam_state;
-  beam_state.one_way_antenna_gain_db = hardware_.antenna.main_beam_gain_db;
-  beam_state.effective_beamwidth_deg =
-      dwell::RirResolveEffectiveBeamwidth(hardware_.antenna, wavelength_m);
-  if (hardware_.antenna.enable_directional_pattern && has_look_angles) {
-    // 库内驻留调度器给定波束中心：目标离轴增益按（目标视线角 - 驻留中心）衰减
-    // （与 AR 冻结指向链路同口径；enable_directional_pattern=false 时回退主瓣峰值）。
-    beam_state = dwell::RirResolveBeamStateForPointing(hardware_.antenna, dwell_center_deg,
-                                                       look_az_deg, look_el_deg, true,
-                                                       wavelength_m);
-  }
+  // 方向图恒开（2026-08-29 架构还债：删除 enable_directional_pattern 死选项）：
+  // 库内驻留调度器给定波束中心，目标离轴增益按（目标视线角 - 驻留中心）衰减
+  // （与 AR 冻结指向链路同口径）；无视线角（位置范数 ≤0.1 m 的退化输入）由
+  // common 回退主瓣峰值。
+  const dwell::RirResolvedBeamState beam_state = dwell::RirResolveBeamStateForPointing(
+      hardware_.antenna, dwell_center_deg, look_az_deg, look_el_deg, has_look_angles,
+      wavelength_m);
 
   dwell::RirTargetReturn target_return;
   target_return.rcs_m2 = target.rcs;
@@ -756,6 +755,22 @@ void RirController::RunCycle(const session::RirCycleInput& input,
     // 与既有行为兼容）。搜索态候选按此扇区裁剪；指定识别目标在硬件体积内豁免子窗。
     const config::RirAzimuthElevationLimitsDeg search_sector =
         internal::IntersectScanSector(scan_window_deg, steerable_volume_deg);
+    // 主瓣覆盖门半宽（半功率宽×系数，驻留指向每轴各开这么宽）：与方向图同一
+    // 波束宽度源（有效波束宽度，nominal → λ/L 物理推导），且同一载频口径
+    // （与 TryBuildMeasurement 一致：规划频率优先，兜底发射频率）。
+    const float gate_carrier_hz = rf_cycle.carrier_hz > 0.0f
+                                      ? rf_cycle.carrier_hz
+                                      : hardware_.transmitter.frequency_hz;
+    const float gate_wavelength_m =
+        gate_carrier_hz > 0.0f
+            ? static_cast<float>(oneq::common::numerics::kLightSpeed) / gate_carrier_hz
+            : 0.0f;
+    const dwell::RirEffectiveBeamwidthDeg gate_beamwidth =
+        dwell::RirResolveEffectiveBeamwidth(hardware_.antenna, gate_wavelength_m);
+    const float main_lobe_half_az_deg =
+        0.5f * kMainLobeGateBeamwidthScale * gate_beamwidth.az_beamwidth_deg;
+    const float main_lobe_half_el_deg =
+        0.5f * kMainLobeGateBeamwidthScale * gate_beamwidth.el_beamwidth_deg;
     for (std::size_t i = 0U; i < input.scene_targets.size(); ++i) {
       const session::RirSceneTarget& target = input.scene_targets[i];
       if (target.external_target_id == 0U) {
@@ -823,6 +838,31 @@ void RirController::RunCycle(const session::RirCycleInput& input,
                    RirFormatFloat(search_sector.el_max_deg) + "]");
         last_execution_issues_.push_back(RirMakeExclusionIssue(
             session::codes::kTargetOutsideSearchVolume, exclusion_detail,
+            session::RirIssueCause::kNone, i));
+        continue;
+      }
+      // 探测⟺波束照到（2026-08-29 还债：方向图恒开的配套硬门）：扇区内候选还须
+      // 落在本周期驻留指向的主瓣内，否则不入候选并发排除诊断。方位差经环绕归一；
+      // 退化判定与 TryBuildMeasurement 同口径（按原始位置范数，PositionOf 的
+      // range_m 兜底角不是真实视线），退化输入跳过本门，与峰值回退口径一致。
+      const Eigen::Vector3f gate_position(target.position_x, target.position_y,
+                                          target.position_z);
+      const bool degenerate_look = gate_position.norm() <= 0.1f;
+      const float coverage_az_delta_deg = std::fabs(oneq::common::radar::NormalizeAzimuthDeltaDeg(
+          look.az_deg - dwell_center_deg.az_deg));
+      const float coverage_el_delta_deg = std::fabs(look.el_deg - dwell_center_deg.el_deg);
+      if (!degenerate_look && (coverage_az_delta_deg > main_lobe_half_az_deg ||
+                               coverage_el_delta_deg > main_lobe_half_el_deg)) {
+        last_execution_issues_.push_back(RirMakeExclusionIssue(
+            session::codes::kTargetOutsideBeamCoverage,
+            "target_id=" + std::to_string(target.external_target_id) +
+                "; look_az_deg=" + RirFormatFloat(look.az_deg) +
+                " look_el_deg=" + RirFormatFloat(look.el_deg) +
+                " outside main lobe of dwell (az_deg=" +
+                RirFormatFloat(dwell_center_deg.az_deg) +
+                " el_deg=" + RirFormatFloat(dwell_center_deg.el_deg) +
+                "); half-power gate az_deg=" + RirFormatFloat(main_lobe_half_az_deg) +
+                " el_deg=" + RirFormatFloat(main_lobe_half_el_deg),
             session::RirIssueCause::kNone, i));
         continue;
       }

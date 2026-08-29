@@ -39,6 +39,9 @@ config::RirSessionConfig MakeIdentifyConfig() {
   // 6 dB 回退门控：目标易被准入，聚焦角域裁剪行为（与指定任务测试同口径）。
   config.policy.detection.gate_mode = config::RirDetectionGateMode::kSnrFallback;
   config.policy.lifecycle.confirm_hits = 1U;
+  // 主瓣覆盖门放宽：本文件聚焦角域扇区/体积裁剪，不测波束覆盖门（门限=半功率宽）。
+  config.hardware.antenna.nominal_az_beamwidth_deg = 160.0f;
+  config.hardware.antenna.nominal_el_beamwidth_deg = 160.0f;
   return config;
 }
 

@@ -82,6 +82,9 @@ config::RirSessionConfig MakeIdentifyConfig() {
   config.mission.work_mode = config::RirWorkMode::kIdentify;
   config.policy.detection.gate_mode = config::RirDetectionGateMode::kSnrFallback;
   config.policy.lifecycle.confirm_hits = 1U;
+  // 主瓣覆盖门放宽：本文件聚焦排除诊断与记录器接线，不测波束覆盖门（门限=半功率宽）。
+  config.hardware.antenna.nominal_az_beamwidth_deg = 160.0f;
+  config.hardware.antenna.nominal_el_beamwidth_deg = 160.0f;
   return config;
 }
 

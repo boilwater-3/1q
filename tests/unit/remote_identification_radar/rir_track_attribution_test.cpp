@@ -69,7 +69,11 @@ RirCycleInput MakeInput(std::uint32_t cycle, const std::vector<RirSceneTarget>& 
 /// @brief 全部航迹快照产出归属：键↔真值一一映射、携带最小诊断、按键升序。
 TEST(RirTrackAttributionTest, AttributionMapsKeysToTruthTargets) {
   runtime::RirController controller;
-  controller.SetHardware(config::RirHardwareConfig{});
+  config::RirHardwareConfig hardware_default;
+  // 主瓣覆盖门放宽：默认 4° 波束会拦截离轴合成目标，本文件不测波束覆盖门。
+  hardware_default.antenna.nominal_az_beamwidth_deg = 160.0f;
+  hardware_default.antenna.nominal_el_beamwidth_deg = 160.0f;
+  controller.SetHardware(hardware_default);
   controller.UpdateRuntime(MakeIdentifyMission(), MakeFallbackPolicy());
 
   std::vector<RirSceneTarget> targets;
@@ -108,7 +112,11 @@ TEST(RirTrackAttributionTest, AttributionMapsKeysToTruthTargets) {
 /// @brief 归属不依赖特征库：无数据库的周期同样携带归属（航迹链独立）。
 TEST(RirTrackAttributionTest, AttributionPresentWithoutDatabase) {
   runtime::RirController controller;
-  controller.SetHardware(config::RirHardwareConfig{});
+  config::RirHardwareConfig hardware_default;
+  // 主瓣覆盖门放宽：默认 4° 波束会拦截离轴合成目标，本文件不测波束覆盖门。
+  hardware_default.antenna.nominal_az_beamwidth_deg = 160.0f;
+  hardware_default.antenna.nominal_el_beamwidth_deg = 160.0f;
+  controller.SetHardware(hardware_default);
   controller.UpdateRuntime(MakeIdentifyMission(), MakeFallbackPolicy());
 
   std::vector<RirSceneTarget> targets;
@@ -127,6 +135,9 @@ TEST(RirTrackAttributionTest, SessionBackfillsAttributionOnCompletedCycle) {
   config.mission.work_mode = config::RirWorkMode::kIdentify;
   config.policy.detection.gate_mode = config::RirDetectionGateMode::kSnrFallback;
   config.policy.lifecycle.confirm_hits = 1U;
+  // 主瓣覆盖门放宽：本文件聚焦航迹-真值归因，不测波束覆盖门（门限=半功率宽）。
+  config.hardware.antenna.nominal_az_beamwidth_deg = 160.0f;
+  config.hardware.antenna.nominal_el_beamwidth_deg = 160.0f;
   RirSession session = RirSession::Create(config);
 
   std::vector<RirSceneTarget> targets;
@@ -147,6 +158,9 @@ TEST(RirTrackAttributionTest, NonExecutedCyclesReturnEmptyAttribution) {
   config.mission.work_mode = config::RirWorkMode::kIdentify;
   config.policy.detection.gate_mode = config::RirDetectionGateMode::kSnrFallback;
   config.policy.lifecycle.confirm_hits = 1U;
+  // 主瓣覆盖门放宽：本文件聚焦航迹-真值归因，不测波束覆盖门（门限=半功率宽）。
+  config.hardware.antenna.nominal_az_beamwidth_deg = 160.0f;
+  config.hardware.antenna.nominal_el_beamwidth_deg = 160.0f;
   RirSession session = RirSession::Create(config);
 
   std::vector<RirSceneTarget> targets;

@@ -91,9 +91,6 @@ inline void LoadRirAntenna(const examples::JsonValue& j, rir_cfg::hardware::RirA
     v->antenna_width_m = static_cast<float>(j["antenna_width_m"].AsDouble());
   }
   LoadRirAntennaPattern(j["pattern"], &v->pattern);
-  if (j.Has("enable_directional_pattern")) {
-    v->enable_directional_pattern = j["enable_directional_pattern"].AsBool();
-  }
 }
 
 inline void LoadRirReceiver(const examples::JsonValue& j,

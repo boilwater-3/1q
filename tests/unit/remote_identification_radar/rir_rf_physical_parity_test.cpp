@@ -77,7 +77,8 @@ ar::config::engineering::DetectionConfig ToArDetectionConfig(
   detection.antenna.pattern.max_sidelobe_level_db =
       hardware.antenna.pattern.max_sidelobe_level_db;
   detection.antenna.pattern.backlobe_level_db = hardware.antenna.pattern.backlobe_level_db;
-  detection.antenna.enable_directional_pattern = hardware.antenna.enable_directional_pattern;
+  // RIR 侧方向图恒开（开关已删），AR 对比口径显式置 true。
+  detection.antenna.enable_directional_pattern = true;
 
   detection.receiver.equipment_id = hardware.receiver.equipment_id;
   detection.receiver.noise_figure_db = hardware.receiver.noise_figure_db;

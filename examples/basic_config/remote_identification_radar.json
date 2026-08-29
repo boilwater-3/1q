@@ -26,8 +26,7 @@
         "scan_loss_coeff_db_per_deg2": 0.0,
         "max_scan_loss_db": 6.0,
         "boresight_offset_deg": {"az_deg": 0.0, "el_deg": 0.0}
-      },
-      "enable_directional_pattern": false
+      }
     },
     "receiver": {
       "equipment_id": 2,

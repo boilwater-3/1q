@@ -69,6 +69,11 @@ class RirRecognitionScenarioTest : public ::testing::Test {
     config::RirSessionConfig cfg;
     cfg.mission.work_mode = config::RirWorkMode::kIdentify;
     cfg.policy.lifecycle.confirm_hits = 1U;
+    // 主瓣覆盖门放宽：本文件聚焦识别效能场景，不测波束覆盖门（门限=半功率宽）。
+    cfg.hardware.antenna.nominal_az_beamwidth_deg = 160.0f;
+    cfg.hardware.antenna.nominal_el_beamwidth_deg = 160.0f;
+    // 步长与波束宽度解耦（否则 160° 波束让波位表退化成角点，覆盖碰运气）。
+    cfg.mission.scan.step_scale = 0.02f;
     cfg.policy.detection.gate_mode = config::RirDetectionGateMode::kSnrFallback;
     cfg.policy.recognition.enabled = true;
     cfg.policy.recognition.database_path = database_path_;
