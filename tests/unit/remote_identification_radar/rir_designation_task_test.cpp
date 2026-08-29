@@ -170,7 +170,11 @@ TEST(RirDesignationTaskTest, WindowExpiryReportsAcquisitionTimeoutAndReturnsToSc
 // ---------------------------------------------------------------------------
 
 TEST(RirDesignationTaskTest, IdleDwellCenterFollowsScanStrategy) {
-  const config::RirSessionConfig session_config = MakeIdentifyConfig();
+  config::RirSessionConfig session_config = MakeIdentifyConfig();
+  // TAS（2026-08-29）：每周期驻留数 = floor(dt/dwell)。取 dwell=0.25s 使除法
+  // 精确（dt 0.5 → 每周期 2 个搜索波位，波位游标每周期推进 2）；结果层主驻留
+  // 指向 = 周期首个搜索波位 pattern[((cycle-1)*2) % size]。
+  session_config.mission.recognition_dwell_sec = 0.25f;
   RirSession session = RirSession::Create(session_config);
   const RirSceneTarget target = MakeTarget(9002U);
 
@@ -184,9 +188,10 @@ TEST(RirDesignationTaskTest, IdleDwellCenterFollowsScanStrategy) {
     ASSERT_EQ(result.status, session::RirCycleStatus::kCompleted);
     EXPECT_EQ(result.designated_target_id, 0U);
     EXPECT_FALSE(result.designation_active);
-    // 驻留中心 = common 扫描内核当前周期波位（与 AR 同一扫描策略口径）。
-    const oneq::common::radar::AzimuthElevationDeg& wave =
-        pattern[static_cast<std::size_t>((cycle - 1U) % pattern.size())];
+    // 驻留中心 = 周期首个搜索波位（游标按每周期 2 个波位推进，与 AR 同一扫描内核）。
+    const std::size_t wave_index =
+        static_cast<std::size_t>(((cycle - 1U) * 2U) % pattern.size());
+    const oneq::common::radar::AzimuthElevationDeg& wave = pattern[wave_index];
     EXPECT_NEAR(result.dwell_center_deg.az_deg, wave.az_deg, 1.0e-4f);
     EXPECT_NEAR(result.dwell_center_deg.el_deg, wave.el_deg, 1.0e-4f);
     if (cycle > 1U) {
@@ -451,6 +456,9 @@ TEST(RirDesignationTaskTest, CrossBoundaryScanPatternStaysWithinLegalAzimuth) {
   session_config.orientation.steerable_volume_deg.az_max_deg = 60.0f;
   // 大步长保证数周期内同时覆盖 +170 侧与跨界负方位，避免默认密网格前 12 拍全在正侧。
   session_config.mission.scan.step_scale = 15.0f;
+  // TAS（2026-08-29）：dwell=0.25s 使每周期驻留数 = floor(0.5/0.25) = 2（除法精确），
+  // 波位游标每周期推进 2；pattern.size() 与 2 互质（size=3）→ 全表仍被遍历。
+  session_config.mission.recognition_dwell_sec = 0.25f;
   const std::vector<oneq::common::radar::AzimuthElevationDeg> pattern =
       BuildExpectedAbsoluteScanPattern(session_config);
   ASSERT_FALSE(pattern.empty());
@@ -467,8 +475,10 @@ TEST(RirDesignationTaskTest, CrossBoundaryScanPatternStaysWithinLegalAzimuth) {
     EXPECT_LE(result.dwell_center_deg.az_deg, 180.0f);
     has_high_az = has_high_az || result.dwell_center_deg.az_deg > 100.0f;
     has_low_az = has_low_az || result.dwell_center_deg.az_deg < -100.0f;
-    const oneq::common::radar::AzimuthElevationDeg& wave =
-        pattern[static_cast<std::size_t>((cycle - 1U) % pattern.size())];
+    // 周期主驻留指向 = 周期首个搜索波位（游标每周期推进 2）。
+    const std::size_t wave_index =
+        static_cast<std::size_t>(((cycle - 1U) * 2U) % pattern.size());
+    const oneq::common::radar::AzimuthElevationDeg& wave = pattern[wave_index];
     EXPECT_NEAR(result.dwell_center_deg.az_deg, wave.az_deg, 1.0e-4f);
     EXPECT_NEAR(result.dwell_center_deg.el_deg, wave.el_deg, 1.0e-4f);
   }
@@ -493,7 +503,7 @@ TEST(RirDesignationTaskTest, ScanCenterPatchAppliesOnNextSuccessfulCycle) {
   const std::vector<oneq::common::radar::AzimuthElevationDeg> shifted =
       BuildExpectedAbsoluteScanPattern(session_config);
   ASSERT_FALSE(shifted.empty());
-  const std::size_t cycle_index = 1U;  // 周期 2 → 第 (2-1) 个波位
+  const std::size_t cycle_index = 0U;  // TAS：scan_center 补丁重置波位游标 → 首个波位。
   EXPECT_NEAR(after.dwell_center_deg.az_deg, shifted[cycle_index].az_deg, 1.0e-4f);
   EXPECT_NEAR(after.dwell_center_deg.el_deg, shifted[cycle_index].el_deg, 1.0e-4f);
   EXPECT_FALSE(IsWithinTolerance(before.dwell_center_deg, after.dwell_center_deg, 1.0e-3f));

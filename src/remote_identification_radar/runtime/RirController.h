@@ -15,6 +15,7 @@
 #include <random>
 #include <string>
 #include <unordered_map>
+#include <vector>
 
 #include "1q/remote_identification_radar/config/RirHardwareConfig.h"
 #include "1q/remote_identification_radar/config/RirMissionConfig.h"
@@ -32,6 +33,27 @@
 
 namespace remote_identification_radar {
 namespace runtime {
+
+/**
+ * @brief 驻留种类（2026-08-29 TAS 边搜边跟调度语义）。
+ */
+enum class RirDwellKind {
+  kSearch = 0,    /**< 搜索波位（扫描光栅推进）。 */
+  kDesignate = 1, /**< 指定识别目标驻留（算子导引，真值指向语义）。 */
+  kTrack = 2      /**< 确认航迹跟踪驻留（库内航迹预测指向）。 */
+};
+
+/**
+ * @brief 单驻留计划条目：一个周期内波束的一次指向。
+ * @note 周期驻留计划由 RirSession 组装（指定 → 确认航迹 → 搜索填充），
+ *       控制器逐驻留执行"主瓣覆盖门 + 量测构造"，量测汇入同一周期批次。
+ */
+struct RirDwellPlan {
+  config::RirAzimuthElevationDeg pointing_deg{}; /**< 驻留波束中心（ENU，deg）。 */
+  RirDwellKind kind{RirDwellKind::kSearch};      /**< 驻留种类。 */
+  std::uint64_t external_target_id{0U};          /**< kDesignate/kTrack 的目标 ID；kSearch 为 0。 */
+  std::size_t scan_pattern_index{0U};            /**< kSearch 的波位表序号（验收日志用；其他种类为 0）。 */
+};
 
 /**
  * @brief RirController 调度自持检测-跟踪-识别链路。
@@ -84,6 +106,35 @@ class RirController {
                 const config::RirAzimuthElevationLimitsDeg& scan_window_deg =
                     config::RirAzimuthElevationLimitsDeg{-180.0f, 180.0f, -90.0f, 90.0f},
                 std::uint64_t designated_external_target_id = 0U);
+
+  /**
+   * @brief 执行一个自持识别周期（多驻留计划版，TAS 边搜边跟）。
+   * @param[in] dwell_plan 本周期驻留计划（逐条目独立执行主瓣覆盖门+量测构造；
+   *            同目标同周期被多个驻留照到时首条目胜出）。上一周期全部确认航迹
+   *            目标（与其是否入本周期计划无关——预算不足未获跟踪驻留者也然）
+   *            连同指定目标，在硬件体积内豁免扫描子窗裁剪（跟踪连续性高于
+   *            搜索子窗）。
+   * @note 其余参数语义同单驻留重载；RF 发射链按计划首条目指向解析（每周期
+   *       一条发射记录的既有口径不变）。
+   */
+  void RunCycle(const session::RirCycleInput& input, session::RirOutputFrame* output_frame,
+                std::uint64_t batch_id, const std::vector<RirDwellPlan>& dwell_plan,
+                const config::RirAzimuthElevationLimitsDeg& steerable_volume_deg =
+                    config::RirAzimuthElevationLimitsDeg{-180.0f, 180.0f, -90.0f, 90.0f},
+                const config::RirAzimuthElevationDeg& scan_center_deg =
+                    config::RirAzimuthElevationDeg(),
+                const config::RirAzimuthElevationLimitsDeg& scan_window_deg =
+                    config::RirAzimuthElevationLimitsDeg{-180.0f, 180.0f, -90.0f, 90.0f},
+                std::uint64_t designated_external_target_id = 0U);
+
+  /**
+   * @brief 收集确认航迹的跟踪驻留请求（库内航迹预测指向，不消费场景真值）。
+   * @param[in] max_count 上限（会话按周期驻留预算裁剪）。
+   * @param[in] predict_dt_sec 预测时移（s）：末量测位置 + 速度 × 时移。
+   * @return 跟踪驻留计划（kTrack 条目；至多 max_count 条）。
+   */
+  std::vector<RirDwellPlan> CollectTrackDwellRequests(std::size_t max_count,
+                                                      float predict_dt_sec) const;
 
   /** @brief 最近周期是否发布了识别效能摘要。 */
   bool HasLatestSummary() const { return has_latest_summary_; }
@@ -178,6 +229,10 @@ class RirController {
   /** @brief 计算目标视线角。 */
   static void ComputeLookAngles(const session::RirSceneTarget& target, float* look_az_deg,
                                 float* look_el_deg, float* slant_range_m);
+
+  /** @brief 计算平台相对位置（ENU 直角坐标，m）的视线角。 */
+  static void LookAnglesFromPosition(const Eigen::Vector3f& position, float* look_az_deg,
+                                     float* look_el_deg);
 
   /** @brief 由距离/角度量测误差构造笛卡尔量测协方差。 */
   static tracking::RirMeasurementCovariance MakeCartesianMeasurementCovariance(

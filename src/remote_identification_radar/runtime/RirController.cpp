@@ -335,6 +335,39 @@ void RirController::ComputeLookAngles(const session::RirSceneTarget& target, flo
   *slant_range_m = target.range_m > 0.0f ? target.range_m : position.norm();
 }
 
+void RirController::LookAnglesFromPosition(const Eigen::Vector3f& position, float* look_az_deg,
+                                           float* look_el_deg) {
+  const float range_hypot = std::sqrt(position.x() * position.x() + position.y() * position.y());
+  *look_az_deg = oneq::common::numerics::RadToDeg(std::atan2(position.y(), position.x()));
+  *look_el_deg = oneq::common::numerics::RadToDeg(std::atan2(position.z(), range_hypot));
+}
+
+std::vector<RirDwellPlan> RirController::CollectTrackDwellRequests(std::size_t max_count,
+                                                                   float predict_dt_sec) const {
+  std::vector<RirDwellPlan> requests;
+  if (max_count == 0U) {
+    return requests;
+  }
+  for (const tracking::RirTrackState& track : last_track_snapshots_) {
+    if (requests.size() >= max_count) {
+      break;
+    }
+    if (track.status != tracking::RirTrackStatus::kConfirmed ||
+        track.external_target_id == 0U) {
+      continue;
+    }
+    // 库内航迹预测指向：末量测位置 + 速度 × 预测时移（不消费场景真值，
+    // 与 designate 的外部导引语义刻意区分——跟踪是雷达自己的闭环）。
+    const Eigen::Vector3f predicted = track.position + track.velocity * predict_dt_sec;
+    RirDwellPlan dwell;
+    LookAnglesFromPosition(predicted, &dwell.pointing_deg.az_deg, &dwell.pointing_deg.el_deg);
+    dwell.kind = RirDwellKind::kTrack;
+    dwell.external_target_id = track.external_target_id;
+    requests.push_back(dwell);
+  }
+  return requests;
+}
+
 tracking::RirMeasurementCovariance RirController::MakeCartesianMeasurementCovariance(
     const session::RirSceneTarget& target, float range_std_m, float angle_std_rad) {
   const Eigen::Vector3f position = PositionOf(target);
@@ -700,6 +733,25 @@ void RirController::RunCycle(const session::RirCycleInput& input,
                             const config::RirAzimuthElevationDeg& scan_center_deg,
                             const config::RirAzimuthElevationLimitsDeg& scan_window_deg,
                             std::uint64_t designated_external_target_id) {
+  // 单驻留重载 = 单条目搜索驻留计划（直连调用方与既有行为兼容）。
+  std::vector<RirDwellPlan> single_dwell_plan(1U);
+  single_dwell_plan.front().pointing_deg = dwell_center_deg;
+  RunCycle(input, output_frame, batch_id, single_dwell_plan, steerable_volume_deg,
+           scan_center_deg, scan_window_deg, designated_external_target_id);
+}
+
+void RirController::RunCycle(const session::RirCycleInput& input,
+                            session::RirOutputFrame* output_frame, std::uint64_t batch_id,
+                            const std::vector<RirDwellPlan>& dwell_plan,
+                            const config::RirAzimuthElevationLimitsDeg& steerable_volume_deg,
+                            const config::RirAzimuthElevationDeg& scan_center_deg,
+                            const config::RirAzimuthElevationLimitsDeg& scan_window_deg,
+                            std::uint64_t designated_external_target_id) {
+  // TAS 防御：空计划退化为单条目缺省指向搜索驻留（既有兜底语义不变）。
+  static const std::vector<RirDwellPlan> kFallbackPlan(1U);
+  const std::vector<RirDwellPlan>& plan = dwell_plan.empty() ? kFallbackPlan : dwell_plan;
+  // RF 发射链按计划首条目指向解析（每周期一条发射记录的既有口径不变）。
+  const config::RirAzimuthElevationDeg& dwell_center_deg = plan.front().pointing_deg;
   const bool in_identify = work_mode_ == config::RirWorkMode::kIdentify;
   if (recognition_mode_active_ && !in_identify) {
     tracker_.ExitRecognitionMode();
@@ -748,11 +800,33 @@ void RirController::RunCycle(const session::RirCycleInput& input,
       WriteRirInterferenceLinks(input.sim_time_sec, input.input_cycle_index, rf_cycle.incident_links);
     }
 
+    // 上一周期航迹快照先行（子窗豁免判定与候选排序同源消费）。
+    const std::vector<tracking::RirTrackState> prior_tracks = lifecycle_->BuildTrackSnapshots();
+    std::unordered_map<std::uint64_t, std::uint32_t> recognition_rank_by_target_id;
+    std::unordered_map<std::uint64_t, std::uint32_t> confirmed_track_by_target;
+    for (const tracking::RirTrackState& track : prior_tracks) {
+      const session::RirRecognitionResult* result = tracker_.FindResult(track.association_key);
+      const bool recognized =
+          result != nullptr && (result->state == session::RirRecognitionState::kCategoryConfirmed ||
+                                result->state == session::RirRecognitionState::kModelConfirmed);
+      recognition_rank_by_target_id[track.external_target_id] = recognized ? 1U : 0U;
+      if (track.status == tracking::RirTrackStatus::kConfirmed) {
+        confirmed_track_by_target[track.external_target_id] = 1U;
+      }
+    }
+
     std::unordered_map<std::uint64_t, const session::RirSceneTarget*> scene_by_id;
     std::unordered_map<std::uint64_t, float> slant_by_target_id;
-    std::vector<std::size_t> candidate_indices;
+    // 候选条目：场景索引 + 缓存的视线角/退化标志（主瓣覆盖门在逐驻留循环内判定）。
+    struct RirCandidate {
+      std::size_t source_index;
+      config::RirAzimuthElevationDeg look;
+      char degenerate;
+    };
+    std::vector<RirCandidate> candidates;
     // 实际搜索扇区 = 任务扫描子窗 ∩ 硬件可扫描体积（子窗缺省无界时等于体积，
-    // 与既有行为兼容）。搜索态候选按此扇区裁剪；指定识别目标在硬件体积内豁免子窗。
+    // 与既有行为兼容）。搜索态候选按此扇区裁剪；指定识别目标与确认航迹目标
+    // 在硬件体积内豁免子窗（跟踪连续性高于搜索子窗，2026-08-29 TAS）。
     const config::RirAzimuthElevationLimitsDeg search_sector =
         internal::IntersectScanSector(scan_window_deg, steerable_volume_deg);
     // 主瓣覆盖门半宽（半功率宽×系数，驻留指向每轴各开这么宽）：与方向图同一
@@ -814,7 +888,9 @@ void RirController::RunCycle(const session::RirCycleInput& input,
           internal::TargetWithinSteerableVolume(look, search_sector, scan_center_deg);
       const bool is_designated = designated_external_target_id != 0U &&
                                  target.external_target_id == designated_external_target_id;
-      if (!(in_search || (is_designated && in_hardware))) {
+      const bool has_confirmed_track =
+          confirmed_track_by_target.count(target.external_target_id) != 0U;
+      if (!(in_search || ((is_designated || has_confirmed_track) && in_hardware))) {
         // 规则 13b：角域裁剪排除 → kInfo 诊断（不属于三写，仅承载排查信息）。
         // 出界目标不入检测候选、航迹按失跟语义自然消退，发码使"目标消失"可归因。
         // 区分两类门：出硬件体积（steerable volume）/ 在体积内但出任务子窗（scan window）。
@@ -841,98 +917,113 @@ void RirController::RunCycle(const session::RirCycleInput& input,
             session::RirIssueCause::kNone, i));
         continue;
       }
-      // 探测⟺波束照到（2026-08-29 还债：方向图恒开的配套硬门）：扇区内候选还须
-      // 落在本周期驻留指向的主瓣内，否则不入候选并发排除诊断。方位差经环绕归一；
       // 退化判定与 TryBuildMeasurement 同口径（按原始位置范数，PositionOf 的
-      // range_m 兜底角不是真实视线），退化输入跳过本门，与峰值回退口径一致。
+      // range_m 兜底角不是真实视线）；主瓣覆盖门在逐驻留循环内判定。
       const Eigen::Vector3f gate_position(target.position_x, target.position_y,
                                           target.position_z);
-      const bool degenerate_look = gate_position.norm() <= 0.1f;
-      const float coverage_az_delta_deg = std::fabs(oneq::common::radar::NormalizeAzimuthDeltaDeg(
-          look.az_deg - dwell_center_deg.az_deg));
-      const float coverage_el_delta_deg = std::fabs(look.el_deg - dwell_center_deg.el_deg);
-      if (!degenerate_look && (coverage_az_delta_deg > main_lobe_half_az_deg ||
-                               coverage_el_delta_deg > main_lobe_half_el_deg)) {
-        last_execution_issues_.push_back(RirMakeExclusionIssue(
-            session::codes::kTargetOutsideBeamCoverage,
-            "target_id=" + std::to_string(target.external_target_id) +
-                "; look_az_deg=" + RirFormatFloat(look.az_deg) +
-                " look_el_deg=" + RirFormatFloat(look.el_deg) +
-                " outside main lobe of dwell (az_deg=" +
-                RirFormatFloat(dwell_center_deg.az_deg) +
-                " el_deg=" + RirFormatFloat(dwell_center_deg.el_deg) +
-                "); half-power gate az_deg=" + RirFormatFloat(main_lobe_half_az_deg) +
-                " el_deg=" + RirFormatFloat(main_lobe_half_el_deg),
-            session::RirIssueCause::kNone, i));
-        continue;
-      }
       slant_by_target_id[target.external_target_id] = slant_range_m;
-      candidate_indices.push_back(i);
+      RirCandidate candidate;
+      candidate.source_index = i;
+      candidate.look = look;
+      candidate.degenerate = gate_position.norm() <= 0.1f ? 1 : 0;
+      candidates.push_back(candidate);
     }
 
-    const std::vector<tracking::RirTrackState> prior_tracks = lifecycle_->BuildTrackSnapshots();
-    std::unordered_map<std::uint64_t, std::uint32_t> recognition_rank_by_target_id;
-    for (const tracking::RirTrackState& track : prior_tracks) {
-      const session::RirRecognitionResult* result = tracker_.FindResult(track.association_key);
-      const bool recognized =
-          result != nullptr && (result->state == session::RirRecognitionState::kCategoryConfirmed ||
-                                result->state == session::RirRecognitionState::kModelConfirmed);
-      recognition_rank_by_target_id[track.external_target_id] = recognized ? 1U : 0U;
-    }
     std::sort(
-        candidate_indices.begin(), candidate_indices.end(),
-        [&](std::size_t lhs_index, std::size_t rhs_index) {
-          const session::RirSceneTarget& lhs = input.scene_targets[lhs_index];
-          const session::RirSceneTarget& rhs = input.scene_targets[rhs_index];
-          const std::uint32_t lhs_rank = recognition_rank_by_target_id[lhs.external_target_id];
-          const std::uint32_t rhs_rank = recognition_rank_by_target_id[rhs.external_target_id];
+        candidates.begin(), candidates.end(),
+        [&](const RirCandidate& lhs, const RirCandidate& rhs) {
+          const session::RirSceneTarget& lhs_target = input.scene_targets[lhs.source_index];
+          const session::RirSceneTarget& rhs_target = input.scene_targets[rhs.source_index];
+          const std::uint32_t lhs_rank =
+              recognition_rank_by_target_id[lhs_target.external_target_id];
+          const std::uint32_t rhs_rank =
+              recognition_rank_by_target_id[rhs_target.external_target_id];
           if (lhs_rank != rhs_rank) {
             return lhs_rank < rhs_rank;
           }
-          const float lhs_range = lhs.range_m > 0.0f ? lhs.range_m : PositionOf(lhs).norm();
-          const float rhs_range = rhs.range_m > 0.0f ? rhs.range_m : PositionOf(rhs).norm();
+          const float lhs_range =
+              lhs_target.range_m > 0.0f ? lhs_target.range_m : PositionOf(lhs_target).norm();
+          const float rhs_range =
+              rhs_target.range_m > 0.0f ? rhs_target.range_m : PositionOf(rhs_target).norm();
           return lhs_range < rhs_range;
         });
 
     std::vector<tracking::RirTrackMeasurement> measurements;
     std::unordered_map<std::uint64_t, float> snr_by_target_id;
     const float dwell_sec = mission_.recognition_dwell_sec;
-    const std::uint32_t scheduled_count = static_cast<std::uint32_t>(candidate_indices.size());
+    // 驻留预算按计划计（2026-08-29 TAS：口径从"逐候选"改为"逐驻留"）：
+    // scheduled/executed = 本周期计划/实际执行的驻留条目数。
+    const std::uint32_t scheduled_count = static_cast<std::uint32_t>(plan.size());
     std::uint32_t executed_count = 0U;
-    for (const std::size_t target_index : candidate_indices) {
-      tracking::RirTrackMeasurement measurement;
-      float snr_db = 0.0f;
-      if (!TryBuildMeasurement(input.scene_targets[target_index], target_index, platform_altitude_m,
-                               propagation_loss_db, clutter_power_w, input, dwell_center_deg,
-                               rf_cycle, &measurement, &snr_db)) {
-        continue;
-      }
-      // 规则 13b：检测通过后的识别链门控诊断（每目标至多一条，链上第一门优先；
-      // 检测门失败已在 TryBuildMeasurement 内落诊断）。
-      if (database_ == nullptr) {
-        last_execution_issues_.push_back(RirMakeExclusionIssue(
-            session::codes::kTargetNoFeatureDatabase,
-            "target_id=" + std::to_string(input.scene_targets[target_index].external_target_id) +
-                "; feature database unavailable, recognition held",
-            session::RirIssueCause::kNone, target_index));
-      } else {
-        float look_az_deg = 0.0f;
-        float look_el_deg = 0.0f;
-        float slant_range_m = 0.0f;
-        ComputeLookAngles(input.scene_targets[target_index], &look_az_deg, &look_el_deg,
-                          &slant_range_m);
-        if (slant_range_m > mission_.max_range_m) {
+    // 逐目标覆盖记账：候选被任一驻留照到即尝试量测（首驻留胜出，不重复尝试）；
+    // 从未被照到的候选在循环后发主瓣覆盖排除诊断。
+    std::vector<char> candidate_covered(candidates.size(), 0);
+    for (const RirDwellPlan& dwell : plan) {
+      // 每条计划驻留都实际驻留（波束照射与候选是否过检测门无关）。
+      ++executed_count;
+      for (std::size_t k = 0U; k < candidates.size(); ++k) {
+        if (candidate_covered[k] != 0U) {
+          continue;  // 首驻留胜出（同目标同周期不重复量测）。
+        }
+        const RirCandidate& candidate = candidates[k];
+        const session::RirSceneTarget& target = input.scene_targets[candidate.source_index];
+        // 主瓣覆盖门（探测⟺波束照到，2026-08-29 还债）：方位差经环绕归一；
+        // 退化输入（无真实视线角）跳过本门，与峰值回退口径一致。
+        if (candidate.degenerate == 0) {
+          const float coverage_az_delta_deg =
+              std::fabs(oneq::common::radar::NormalizeAzimuthDeltaDeg(
+                  candidate.look.az_deg - dwell.pointing_deg.az_deg));
+          const float coverage_el_delta_deg =
+              std::fabs(candidate.look.el_deg - dwell.pointing_deg.el_deg);
+          if (coverage_az_delta_deg > main_lobe_half_az_deg ||
+              coverage_el_delta_deg > main_lobe_half_el_deg) {
+            continue;
+          }
+        }
+        candidate_covered[k] = 1;
+        tracking::RirTrackMeasurement measurement;
+        float snr_db = 0.0f;
+        if (!TryBuildMeasurement(target, candidate.source_index, platform_altitude_m,
+                                 propagation_loss_db, clutter_power_w, input, dwell.pointing_deg,
+                                 rf_cycle, &measurement, &snr_db)) {
+          continue;
+        }
+        // 规则 13b：检测通过后的识别链门控诊断（每目标至多一条，链上第一门优先；
+        // 检测门失败已在 TryBuildMeasurement 内落诊断；斜距用裁剪期缓存）。
+        if (database_ == nullptr) {
+          last_execution_issues_.push_back(RirMakeExclusionIssue(
+              session::codes::kTargetNoFeatureDatabase,
+              "target_id=" + std::to_string(target.external_target_id) +
+                  "; feature database unavailable, recognition held",
+              session::RirIssueCause::kNone, candidate.source_index));
+        } else if (slant_by_target_id.count(target.external_target_id) != 0U &&
+                   slant_by_target_id[target.external_target_id] > mission_.max_range_m) {
           last_execution_issues_.push_back(RirMakeExclusionIssue(
               session::codes::kTargetBeyondRecognitionRange,
-              "target_id=" + std::to_string(input.scene_targets[target_index].external_target_id) +
-                  "; slant_range_m=" + RirFormatFloat(slant_range_m) + " beyond max_range_m=" +
-                  RirFormatFloat(mission_.max_range_m),
-              session::RirIssueCause::kNone, target_index));
+              "target_id=" + std::to_string(target.external_target_id) +
+                  "; slant_range_m=" + RirFormatFloat(slant_by_target_id[target.external_target_id]) +
+                  " beyond max_range_m=" + RirFormatFloat(mission_.max_range_m),
+              session::RirIssueCause::kNone, candidate.source_index));
         }
+        snr_by_target_id[measurement.external_target_id] = snr_db;
+        measurements.push_back(measurement);
       }
-      snr_by_target_id[measurement.external_target_id] = snr_db;
-      measurements.push_back(measurement);
-      ++executed_count;
+    }
+    // 从未被任何驻留照到的候选：主瓣覆盖排除诊断（每目标每周期至多一条，规则 13b）。
+    for (std::size_t k = 0U; k < candidates.size(); ++k) {
+      if (candidate_covered[k] != 0U || candidates[k].degenerate != 0) {
+        continue;
+      }
+      const session::RirSceneTarget& target = input.scene_targets[candidates[k].source_index];
+      last_execution_issues_.push_back(RirMakeExclusionIssue(
+          session::codes::kTargetOutsideBeamCoverage,
+          "target_id=" + std::to_string(target.external_target_id) +
+              "; look_az_deg=" + RirFormatFloat(candidates[k].look.az_deg) +
+              " look_el_deg=" + RirFormatFloat(candidates[k].look.el_deg) +
+              " outside main lobe of all dwells this cycle; half-power gate az_deg=" +
+              RirFormatFloat(main_lobe_half_az_deg) +
+              " el_deg=" + RirFormatFloat(main_lobe_half_el_deg),
+          session::RirIssueCause::kNone, candidates[k].source_index));
     }
 
     const tracking::RirAssociationResult association = associator_.Associate(
@@ -1033,9 +1124,9 @@ void RirController::RunCycle(const session::RirCycleInput& input,
         static_cast<float>(executed_count) * dwell_sec;
     has_latest_summary_ = true;
 
-    // 验收事件 schedule（3.2.2.4.2.2）：驻留执行计数与识别效能摘要。口径：
-    // scheduled=非零 ID 场景目标数、executed=检测准入门通过数（事后统计，
-    // 非调度器准入）；事件类型分类计数为既有口径所能提供的粒度。
+    // 验收事件 schedule（3.2.2.4.2.2）：驻留执行计数与识别效能摘要。口径
+    // （2026-08-29 TAS）：scheduled=本周期计划驻留数、executed=实际执行驻留数，
+    // 按搜索/指定/跟踪分项计数；事件类型分类计数为既有口径所能提供的粒度。
     if (RIR_ACCEPTANCE_LOG_ENABLED()) {
       std::uint32_t confirmed = 0U;
       for (const tracking::RirTrackState& track : track_snapshots) {
@@ -1043,10 +1134,23 @@ void RirController::RunCycle(const session::RirCycleInput& input,
           ++confirmed;
         }
       }
+      std::uint32_t planned_search = 0U;
+      std::uint32_t planned_designate = 0U;
+      std::uint32_t planned_track = 0U;
+      for (const RirDwellPlan& dwell : plan) {
+        if (dwell.kind == RirDwellKind::kSearch) {
+          ++planned_search;
+        } else if (dwell.kind == RirDwellKind::kDesignate) {
+          ++planned_designate;
+        } else {
+          ++planned_track;
+        }
+      }
       WriteRirSchedule(sensor_platform_id_, input.sim_time_sec, input.input_cycle_index,
                        scheduled_count, executed_count,
                        latest_summary_.dwell_budget.dwell_budget_sec,
-                       latest_summary_.dwell_budget.dwell_consumed_sec, 1U, confirmed);
+                       latest_summary_.dwell_budget.dwell_consumed_sec, planned_search,
+                       planned_designate, planned_track, confirmed);
     }
   } else {
     track_snapshots = lifecycle_->BuildTrackSnapshots();

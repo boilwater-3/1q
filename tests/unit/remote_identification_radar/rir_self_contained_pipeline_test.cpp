@@ -102,8 +102,10 @@ TEST(RirSelfContainedPipelineTest, DetectorGateRejectsUndetectableTarget) {
   controller.RunCycle(MakeInput(1U, 300000.0f, 0.1f), &frame, 1U);
   EXPECT_TRUE(frame.recognition_outputs.empty());
   EXPECT_EQ(controller.GetLatestSummary().dwell_budget.scheduled_dwell_count, 1U);
-  EXPECT_EQ(controller.GetLatestSummary().dwell_budget.executed_dwell_count, 0U);
-  EXPECT_FLOAT_EQ(controller.GetLatestSummary().dwell_budget.dwell_consumed_sec, 0.0f);
+  // TAS 预算口径（2026-08-29）：executed=实际执行的驻留数——波束照常驻留，
+  // 目标未过检测门只影响量测产出，不影响驻留计时。
+  EXPECT_EQ(controller.GetLatestSummary().dwell_budget.executed_dwell_count, 1U);
+  EXPECT_FLOAT_EQ(controller.GetLatestSummary().dwell_budget.dwell_consumed_sec, 0.05f);
 }
 
 /// @brief kStby 门控整链：不检测不建轨，但已有内部航迹仍回填识别结论。

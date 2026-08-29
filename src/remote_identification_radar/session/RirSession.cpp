@@ -9,7 +9,9 @@
 
 #include "1q/remote_identification_radar/session/RirSession.h"
 
+#include <algorithm>
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
 #include <utility>
 #include <vector>
@@ -171,25 +173,6 @@ std::vector<oneq::common::radar::AzimuthElevationDeg> BuildAbsoluteScanWaves(
   return absolute_pattern;
 }
 
-/**
- * @brief 扫描策略波位（相对体积 + center 平移 + 方位归一化；非法体积/步长回退 scan_center）。
- * @note 第 N 周期取第 (N-1) % size 个波位。
- */
-config::RirAzimuthElevationDeg ResolveScanWavePosition(const config::RirSessionConfig& config,
-                                                       std::uint32_t cycle_index) {
-  const std::vector<oneq::common::radar::AzimuthElevationDeg> pattern =
-      BuildAbsoluteScanWaves(config);
-  if (pattern.empty()) {
-    return config.mission.scan_center_deg;
-  }
-  const std::uint64_t zero_based_cycle =
-      cycle_index > 0U ? static_cast<std::uint64_t>(cycle_index - 1U) : 0U;
-  const oneq::common::radar::AzimuthElevationDeg& wave =
-      pattern[static_cast<std::size_t>(zero_based_cycle %
-                                       static_cast<std::uint64_t>(pattern.size()))];
-  return config::RirAzimuthElevationDeg{wave.az_deg, wave.el_deg};
-}
-
 }  // namespace
 
 struct RirSession::Impl {
@@ -206,6 +189,8 @@ struct RirSession::Impl {
   std::uint64_t next_batch_id{1U};
   // [RirAccept] 波位排列表已按当前扫描配置输出（mission 配置变更后重置重发）。
   bool acceptance_scan_pattern_logged{false};
+  // [TAS] 搜索波位游标（运行态；按实际搜索驻留数推进，mission 配置变更后归零）。
+  std::size_t scan_wave_cursor_{0U};
   // 观测投影记录器（规则 10/11）：非拥有裸指针，nullptr = 未注册。
   RirTrackLifecycleRecorder* lifecycle_recorder{nullptr};
   RirExclusionCauseRecorder* exclusion_cause_recorder{nullptr};
@@ -296,6 +281,7 @@ RirCycleResult RirSession::Impl::RunCycle(const RirCycleInput& input) {
     if (patch.has_mission) {
       config.mission = patch.mission;
       acceptance_scan_pattern_logged = false;
+      scan_wave_cursor_ = 0U;  // 波位表随 mission 变更重建，游标同步归零。
     }
     if (patch.has_work_mode) {
       config.mission.work_mode = patch.work_mode;
@@ -303,6 +289,7 @@ RirCycleResult RirSession::Impl::RunCycle(const RirCycleInput& input) {
     if (patch.has_scan_center) {
       config.mission.scan_center_deg = patch.scan_center_deg;
       acceptance_scan_pattern_logged = false;
+      scan_wave_cursor_ = 0U;  // 波位表随转台朝向平移，游标语义重置。
     }
     if (patch.has_policy) {
       config.policy = patch.policy;
@@ -358,40 +345,84 @@ RirCycleResult RirSession::Impl::RunCycle(const RirCycleInput& input) {
                                             config.mission.scan_center_deg);
   const bool dwelling_on_target =
       advance.phase == RirDesignationPhase::kPending && target_in_volume;
-  const config::RirAzimuthElevationDeg dwell_center =
-      dwelling_on_target ? TargetLookAngles(*designated_target)
-                         : ResolveScanWavePosition(config, input.input_cycle_index);
+
+  // 周期驻留计划（2026-08-29 TAS 边搜边跟）：① 指定驻留（算子导引，语义不变）
+  // → ② 确认航迹跟踪驻留（库内航迹预测；保底 1 个搜索槽）→ ③ 搜索波位按运行态
+  // 游标填充。无航迹/无指定周期退化为整周期搜索：游标每周期 +1 ≡ 既有
+  // "第 N 周期取第 (N-1)%size 个波位"口径。
+  const float dwell_sec = config.mission.recognition_dwell_sec;
+  std::size_t max_dwells = 1U;
+  if (input.dt_sec > 0.0 && dwell_sec > 0.0f) {
+    // 浮点容差取整：0.5/0.05f = 9.9999… 必须入到 10，否则默认配置系统性少排
+    // 一个驻留（消耗 0.45s ≠ 周期 0.5s）；非整除组合 floor 语义不变。
+    const double dwell_quota =
+        std::floor(input.dt_sec / static_cast<double>(dwell_sec) + 1.0e-6);
+    max_dwells = std::max<std::size_t>(1U, static_cast<std::size_t>(dwell_quota));
+  }
+  std::vector<runtime::RirDwellPlan> dwell_plan;
+  if (dwelling_on_target) {
+    runtime::RirDwellPlan designate_dwell;
+    designate_dwell.pointing_deg = TargetLookAngles(*designated_target);
+    designate_dwell.kind = runtime::RirDwellKind::kDesignate;
+    designate_dwell.external_target_id = designated_external_target_id;
+    dwell_plan.push_back(designate_dwell);
+  }
+  if (max_dwells > dwell_plan.size() + 1U) {
+    std::vector<runtime::RirDwellPlan> track_dwells = controller.CollectTrackDwellRequests(
+        max_dwells - dwell_plan.size() - 1U, static_cast<float>(input.dt_sec));
+    dwell_plan.insert(dwell_plan.end(), track_dwells.begin(), track_dwells.end());
+  }
+  const std::vector<oneq::common::radar::AzimuthElevationDeg> scan_pattern =
+      BuildAbsoluteScanWaves(config);
+  while (dwell_plan.size() < max_dwells) {
+    runtime::RirDwellPlan search_dwell;
+    if (!scan_pattern.empty()) {
+      scan_wave_cursor_ %= scan_pattern.size();
+      const oneq::common::radar::AzimuthElevationDeg& wave = scan_pattern[scan_wave_cursor_];
+      search_dwell.pointing_deg = config::RirAzimuthElevationDeg{wave.az_deg, wave.el_deg};
+      search_dwell.scan_pattern_index = scan_wave_cursor_;
+      scan_wave_cursor_ = (scan_wave_cursor_ + 1U) % scan_pattern.size();
+    } else {
+      search_dwell.pointing_deg = config.mission.scan_center_deg;
+    }
+    dwell_plan.push_back(search_dwell);
+  }
+  // 结果层主驻留指向：首个非跟踪驻留（指定优先，其次搜索）——与单驻留时代语义对齐。
+  config::RirAzimuthElevationDeg dwell_center = config.mission.scan_center_deg;
+  for (const runtime::RirDwellPlan& dwell : dwell_plan) {
+    if (dwell.kind != runtime::RirDwellKind::kTrack) {
+      dwell_center = dwell.pointing_deg;
+      break;
+    }
+  }
 
   // 验收事件 beam_pattern（3.2.2.4.2.1）：完整波位排列表按当前扫描配置一次性
   // 输出（与逐周期取位同源；mission/orientation 配置变更后重发）。
   if (RIR_ACCEPTANCE_LOG_ENABLED() && !acceptance_scan_pattern_logged) {
     const dwell::RirEffectiveBeamwidthDeg beamwidth =
         dwell::RirResolveEffectiveBeamwidth(config.hardware.antenna);
-    const std::vector<oneq::common::radar::AzimuthElevationDeg> pattern =
-        BuildAbsoluteScanWaves(config);
     const std::string csv_path = runtime::ResolveRirAntennaPatternCsvPath();
     runtime::TryExportRirAntennaPatternCsv(config.hardware.antenna, csv_path.c_str());
+    const std::string scan_csv_path = runtime::ResolveRirScanPatternCsvPath();
+    runtime::TryExportRirScanPatternCsv(scan_pattern, scan_csv_path.c_str());
     runtime::WriteRirAntennaPatternSummary(config.sensor_platform_id, input.sim_time_sec,
                                            input.input_cycle_index,
                                            config.hardware.antenna.main_beam_gain_db,
                                            beamwidth.az_beamwidth_deg, beamwidth.el_beamwidth_deg);
     runtime::WriteRirOncePerSession(input.sim_time_sec, input.input_cycle_index);
     acceptance_scan_pattern_logged = true;
-    (void)pattern;
   }
   if (RIR_ACCEPTANCE_LOG_ENABLED()) {
-    const std::vector<oneq::common::radar::AzimuthElevationDeg> pattern =
-        BuildAbsoluteScanWaves(config);
-    runtime::WriteRirBeamScan(config.sensor_platform_id, input.sim_time_sec,
-                              input.input_cycle_index, pattern, dwell_center.az_deg,
-                              dwell_center.el_deg, dwelling_on_target);
+    runtime::WriteRirDwellScan(config.sensor_platform_id, input.sim_time_sec,
+                               input.input_cycle_index, dwell_plan);
     runtime::WriteRirCycleRunCount(input.sim_time_sec, input.input_cycle_index);
   }
 
-  // 搜索角域随驻留中心一并下发：硬件体积 + 转台朝向 + 任务扫描子窗 + 指定目标 ID；
-  // 检测候选集按「子窗 ∩ 体积」裁剪，指定目标在体积内豁免子窗（2026-08-22 甲方
-  // 批注「设定方位俯仰进行扫描」+「任务范围由用户指定」）。
-  controller.RunCycle(input, &result.output_frame, next_batch_id, dwell_center,
+  // 搜索角域随驻留计划一并下发：硬件体积 + 转台朝向 + 任务扫描子窗 + 指定目标 ID；
+  // 检测候选集按「子窗 ∩ 体积」裁剪，指定目标与确认航迹目标在体积内豁免子窗
+  // （2026-08-22 甲方批注「设定方位俯仰进行扫描」+「任务范围由用户指定」；
+  // 2026-08-29 TAS 跟踪连续性豁免）。
+  controller.RunCycle(input, &result.output_frame, next_batch_id, dwell_plan,
                       config.orientation.steerable_volume_deg, config.mission.scan_center_deg,
                       config.mission.scan_window_deg, designated_external_target_id);
   result.status = RirCycleStatus::kCompleted;

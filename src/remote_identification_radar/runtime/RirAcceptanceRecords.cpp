@@ -23,6 +23,7 @@
 #include "common/radar/RadarEquations.h"
 #include "remote_identification_radar/dwell/RirAntennaPatternRuntime.h"
 #include "remote_identification_radar/runtime/PolarizationAcceptanceS.h"
+#include "remote_identification_radar/runtime/RirController.h"
 #include "remote_identification_radar/runtime/RirAcceptanceLog.h"
 #include "remote_identification_radar/tracking/RirTrackAssociator.h"
 #include "remote_identification_radar/tracking/RirTrackTypes.h"
@@ -676,20 +677,25 @@ void WriteRirTrackAndId(float sim_time_sec, std::uint32_t cycle,
 // 识别在 kIdentify 模式内顺带执行），识别计数与列表段删除。
 void WriteRirSchedule(std::uint64_t radar_id, float sim_time_sec, std::uint32_t cycle,
                       std::uint32_t planned, std::uint32_t executed, float budget_sec,
-                      float consumed_sec, std::uint32_t search_count, std::uint32_t track_count) {
+                      float consumed_sec, std::uint32_t search_count,
+                      std::uint32_t designate_count, std::uint32_t track_count,
+                      std::uint32_t confirmed_tracks) {
   if (!RIR_ACCEPTANCE_LOG_ENABLED()) {
     return;
   }
-  // 验收判定标准 第37项·其二：扫描调度信息（计划驻留/实际执行/搜索/跟踪/预算）。
+  // 验收判定标准 第37项·其二：扫描调度信息（计划驻留/实际执行/搜索/指定/跟踪/预算；
+  // 2026-08-29 TAS：计划/执行口径改为逐驻留条目数）。
   Emit(sim_time_sec, cycle, "对指定空域进行搜索功能测试",
        "雷达ID=" + std::to_string(radar_id) + " 扫描调度信息=计划驻留/实际执行=" +
            std::to_string(planned) + "/" + std::to_string(executed) + " 搜索=" +
-           std::to_string(search_count) + " 跟踪=" + std::to_string(track_count) +
+           std::to_string(search_count) + " 指定=" + std::to_string(designate_count) +
+           " 跟踪=" + std::to_string(track_count) +
            " 预算/已耗时=" + FormatF(budget_sec, 3) + "/" + FormatF(consumed_sec, 3) + "s");
   // 验收判定标准 第49项：调度策略——各类事件的实际执行数量列表。
   Emit(sim_time_sec, cycle, "调度策略功能测试",
        "雷达ID=" + std::to_string(radar_id) + " [搜索×" + std::to_string(search_count) +
-           ",跟踪×" + std::to_string(track_count) + "]");
+           ",指定×" + std::to_string(designate_count) + ",跟踪×" + std::to_string(track_count) +
+           ",确认航迹×" + std::to_string(confirmed_tracks) + "]");
 }
 
 void WriteRirOncePerSession(float sim_time_sec, std::uint32_t cycle) {
@@ -721,27 +727,31 @@ void WriteRirCycleRunCount(float sim_time_sec, std::uint32_t cycle) {
                       "本会话已运行周期=" + std::to_string(cycle) + " 状态=正常");
 }
 
-void WriteRirBeamScan(std::uint64_t radar_id, float sim_time_sec, std::uint32_t cycle,
-                      const std::vector<oneq::common::radar::AzimuthElevationDeg>& pattern,
-                      float az_deg, float el_deg, bool designate) {
+void WriteRirDwellScan(std::uint64_t radar_id, float sim_time_sec, std::uint32_t cycle,
+                       const std::vector<RirDwellPlan>& dwell_plan) {
   if (!RIR_ACCEPTANCE_LOG_ENABLED()) {
     return;
   }
-  const std::string csv_path = ResolveRirScanPatternCsvPath();
-  // 波位排列表全量在 CSV（TryExportRirScanPatternCsv）；库内行失败不阻断，仅省略。
-  (void)TryExportRirScanPatternCsv(pattern, csv_path.c_str());
-  // 验收判定标准 第48项：日志一行只写本周期波位（CSV 存表）；下一波位/总数/模式
-  // 为库内检索用字段，不在本行。
-  if (!pattern.empty()) {
-    const std::uint64_t zero_based =
-        cycle > 0U ? static_cast<std::uint64_t>(cycle - 1U) : 0U;
-    const std::size_t index =
-        static_cast<std::size_t>(zero_based % static_cast<std::uint64_t>(pattern.size()));
-    Emit(sim_time_sec, cycle, "波束扫描功能测试",
-         "雷达ID=" + std::to_string(radar_id) + " 本周期序号=" + std::to_string(index) +
-             " 波位=" + FormatPairDeg(pattern[index].az_deg, pattern[index].el_deg, 3) + "°");
+  // 验收判定标准 第48项：逐驻留波束指向行（2026-08-29 TAS：一周期多驻留）。
+  // 搜索驻留保"本周期序号/波位"既有字段语义（每条搜索驻留一行，序号=波位表游标）；
+  // 指定/跟踪驻留带种类与目标 ID 标记（下一波位/总数/模式为库内检索用字段，不在行内）。
+  for (const RirDwellPlan& dwell : dwell_plan) {
+    if (dwell.kind == RirDwellKind::kSearch) {
+      Emit(sim_time_sec, cycle, "波束扫描功能测试",
+           "雷达ID=" + std::to_string(radar_id) +
+               " 本周期序号=" + std::to_string(dwell.scan_pattern_index) +
+               " 波位=" + FormatPairDeg(dwell.pointing_deg.az_deg, dwell.pointing_deg.el_deg, 3) +
+               "°");
+    } else {
+      const char* kind_text =
+          dwell.kind == RirDwellKind::kDesignate ? "指定驻留" : "跟踪驻留";
+      Emit(sim_time_sec, cycle, "波束扫描功能测试",
+           "雷达ID=" + std::to_string(radar_id) + " 驻留种类=" + kind_text +
+               " 目标ID=" + std::to_string(dwell.external_target_id) +
+               " 指向=" + FormatPairDeg(dwell.pointing_deg.az_deg, dwell.pointing_deg.el_deg, 3) +
+               "°");
+    }
   }
-  (void)designate;
 }
 
 bool TryExportRirAntennaPatternCsv(const config::hardware::RirAntennaConfig& antenna,

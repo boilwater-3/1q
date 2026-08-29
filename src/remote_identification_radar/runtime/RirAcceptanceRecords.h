@@ -32,6 +32,8 @@ struct RirFeatureMeasurementRecord;
 
 namespace runtime {
 
+struct RirDwellPlan;  /**< 前置声明：逐驻留验收行消费（完整定义见 RirController.h）。 */
+
 /** @brief 航迹对应真值上下文（验收判定标准 第38/42/47项：量测/估计误差与散射中心）。 */
 struct RirTrackTruthContext {
   bool has_look{false};        /**< 真值视线极坐标可用（ENU 自 +x 东起量）。 */
@@ -128,13 +130,20 @@ void WriteRirTrackAndId(float sim_time_sec, std::uint32_t cycle,
 
 void WriteRirSchedule(std::uint64_t radar_id, float sim_time_sec, std::uint32_t cycle,
                       std::uint32_t planned, std::uint32_t executed, float budget_sec,
-                      float consumed_sec, std::uint32_t search_count, std::uint32_t track_count);
+                      float consumed_sec, std::uint32_t search_count,
+                      std::uint32_t designate_count, std::uint32_t track_count,
+                      std::uint32_t confirmed_tracks);
 
 void WriteRirOncePerSession(float sim_time_sec, std::uint32_t cycle);
 void WriteRirCycleRunCount(float sim_time_sec, std::uint32_t cycle);
-void WriteRirBeamScan(std::uint64_t radar_id, float sim_time_sec, std::uint32_t cycle,
-                      const std::vector<oneq::common::radar::AzimuthElevationDeg>& pattern,
-                      float az_deg, float el_deg, bool designate);
+
+/**
+ * @brief 验收判定标准 第48项：逐驻留波束指向行（2026-08-29 TAS：一周期多驻留）。
+ * @note 搜索驻留每条一行（保"本周期序号/波位"既有字段语义）；指定/跟踪驻留
+ *       各一行，带驻留种类与目标 ID 标记。
+ */
+void WriteRirDwellScan(std::uint64_t radar_id, float sim_time_sec, std::uint32_t cycle,
+                       const std::vector<RirDwellPlan>& dwell_plan);
 
 bool TryExportRirAntennaPatternCsv(const config::hardware::RirAntennaConfig& antenna,
                                    const char* path);

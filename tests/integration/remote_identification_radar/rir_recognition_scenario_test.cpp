@@ -284,7 +284,9 @@ TEST_F(RirRecognitionScenarioTest, MissionPatchUpdatesRangeAndDwell) {
   config::RirMissionConfig mission;
   mission.work_mode = config::RirWorkMode::kIdentify;
   mission.max_range_m = 100000.0f;
-  mission.recognition_dwell_sec = 0.1f;
+  // TAS（2026-08-29）：驻留消耗 = 每周期驻留数 × 时长；取 0.25s 使
+  // floor(0.5/0.25)=2（除法精确）→ 消耗 0.5s。
+  mission.recognition_dwell_sec = 0.25f;
   config::RirRuntimeConfigPatch patch;
   patch.has_mission = true;
   patch.mission = mission;
@@ -295,7 +297,7 @@ TEST_F(RirRecognitionScenarioTest, MissionPatchUpdatesRangeAndDwell) {
   const RirCycleResult result = radar.StepWithResult(input);
   ASSERT_EQ(result.status, RirCycleStatus::kCompleted);
   ASSERT_TRUE(result.has_recognition_summary);
-  EXPECT_FLOAT_EQ(result.recognition_summary.dwell_budget.dwell_consumed_sec, 0.1f);
+  EXPECT_FLOAT_EQ(result.recognition_summary.dwell_budget.dwell_consumed_sec, 0.5f);
 }
 
 }  // namespace
