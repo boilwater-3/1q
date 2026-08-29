@@ -255,6 +255,7 @@ Last-reviewed: 2026-08-23
 | `rir.target_outside_beam_coverage` | 执行排除 | 目标在搜索扇区内但不被本周期驻留主瓣覆盖（"探测⟺波束照到"硬门，门限=有效波束宽度半功率宽；2026-08-29 方向图恒开配套语义）。 |
 | `rir.validation.antenna_az_geometry_invalid` | 输入校验 | 天线方位几何非法（波束宽度或孔径无效）。 |
 | `rir.validation.antenna_el_geometry_invalid` | 输入校验 | 天线俯仰几何非法。 |
+| `rir.validation.antenna_gain_beamwidth_inconsistent` | 输入校验 | 天线峰值增益与名义波束宽度物理不相容（G≈26000/(az°·el°)，容差 3 dB）。 |
 | `rir.validation.association_policy_invalid` | 输入校验 | 关联策略非法（波门 sigma 非正）。 |
 | `rir.validation.detection_policy_invalid` | 输入校验 | 检测策略非法（Pfa/门限/脉冲数/种子）。 |
 | `rir.validation.duplicate_external_target_id` | 输入校验 | 场景中外部目标 ID 重复。 |

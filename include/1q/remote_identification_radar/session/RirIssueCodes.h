@@ -117,6 +117,11 @@ constexpr char kAntennaAzGeometryInvalid[] = "rir.validation.antenna_az_geometry
 /** @brief 天线俯仰几何非法。 */
 constexpr char kAntennaElGeometryInvalid[] = "rir.validation.antenna_el_geometry_invalid";
 
+/** @brief 天线峰值增益与名义波束宽度物理不相容（G_dBi ≈ 10·log10(26000/(az°·el°))，
+ *         容差 3 dB；2026-08-29 还债 B5：两数互不校验会让回波预算虚高）。 */
+constexpr char kAntennaGainBeamwidthInconsistent[] =
+    "rir.validation.antenna_gain_beamwidth_inconsistent";
+
 /** @brief RCS 物理参数非法。 */
 constexpr char kRcsPhysicsInvalid[] = "rir.validation.rcs_physics_invalid";
 

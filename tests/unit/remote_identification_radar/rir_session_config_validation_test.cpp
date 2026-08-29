@@ -63,6 +63,33 @@ TEST(RirSessionConfigValidationTest, RejectsInvalidTransmitterFrequency) {
   EXPECT_TRUE(HasCode(issues, session::codes::kFrequencyPlanInvalid));
 }
 
+/// @brief 增益-波束宽度物理一致（B5 还债校验）：46 dBi 配 0.8°×0.8°（期望 46.1）过门。
+TEST(RirSessionConfigValidationTest, AcceptsPhysicallyConsistentGainAndBeamwidth) {
+  RirSessionConfig session_config;
+  session_config.hardware.antenna.main_beam_gain_db = 46.0f;
+  session_config.hardware.antenna.nominal_az_beamwidth_deg = 0.8f;
+  session_config.hardware.antenna.nominal_el_beamwidth_deg = 0.8f;
+  EXPECT_FALSE(HasCode(ValidateRirSessionConfig(session_config),
+                        session::codes::kAntennaGainBeamwidthInconsistent));
+}
+
+/// @brief 增益-波束宽度物理矛盾：52 dBi 配 0.8°×0.8°（期望 46.1，差 5.9 > 3 dB）被拦。
+TEST(RirSessionConfigValidationTest, RejectsInconsistentGainAndBeamwidth) {
+  RirSessionConfig session_config;
+  session_config.hardware.antenna.main_beam_gain_db = 52.0f;
+  session_config.hardware.antenna.nominal_az_beamwidth_deg = 0.8f;
+  session_config.hardware.antenna.nominal_el_beamwidth_deg = 0.8f;
+  EXPECT_TRUE(HasCode(ValidateRirSessionConfig(session_config),
+                      session::codes::kAntennaGainBeamwidthInconsistent));
+}
+
+/// @brief 默认档案（35 dBi 配 4°×4°，期望 32.1，差 2.9 dB）在 3 dB 容差内过门。
+TEST(RirSessionConfigValidationTest, DefaultProfileGainWithinTolerance) {
+  RirSessionConfig session_config;
+  EXPECT_FALSE(HasCode(ValidateRirSessionConfig(session_config),
+                        session::codes::kAntennaGainBeamwidthInconsistent));
+}
+
 TEST(RirSessionConfigValidationTest, ValidatesTransmitterEnvelopeAndIdentity) {
   RirSessionConfig session_config;
   session_config.hardware.transmitter.frequency_plan_hz = {3.0e9, 3.1e9};

@@ -121,34 +121,34 @@
   "high_threat_confidence": 3.0,
   "commands": [
     {
-      "cycle": 1,
+      "cycle": 751,
       "kind": "designate",
       "target_id": 208,
-      "duration_cycles": 0
+      "duration_cycles": 60
     },
     {
-      "cycle": 1,
-      "kind": "designate",
-      "target_id": 210,
-      "duration_cycles": 0
-    },
-    {
-      "cycle": 1,
+      "cycle": 761,
       "kind": "designate",
       "target_id": 227,
-      "duration_cycles": 0
+      "duration_cycles": 60
     },
     {
-      "cycle": 1,
+      "cycle": 808,
       "kind": "designate",
-      "target_id": 231,
-      "duration_cycles": 0
+      "target_id": 210,
+      "duration_cycles": 60
     },
     {
-      "cycle": 1,
+      "cycle": 824,
       "kind": "designate",
       "target_id": 249,
-      "duration_cycles": 0
+      "duration_cycles": 60
+    },
+    {
+      "cycle": 840,
+      "kind": "designate",
+      "target_id": 231,
+      "duration_cycles": 60
     }
   ],
   "smoke": {
@@ -551,11 +551,11 @@
           ]
         },
         "antenna": {
-          "main_beam_gain_db": 52.0,
-          "nominal_az_beamwidth_deg": 4.0,
-          "nominal_el_beamwidth_deg": 4.0,
-          "antenna_length_m": 1.2,
-          "antenna_width_m": 1.2,
+          "main_beam_gain_db": 46.0,
+          "nominal_az_beamwidth_deg": 0.8,
+          "nominal_el_beamwidth_deg": 0.8,
+          "antenna_length_m": 8.75,
+          "antenna_width_m": 8.75,
           "pattern": {
             "model_type": "kGaussianMainLobe",
             "max_sidelobe_level_db": -20.0,
@@ -623,15 +623,15 @@
         "max_range_m": 9000000.0,
         "recognition_dwell_sec": 0.1,
         "scan": {
-          "scan_start_position": "kLeftTop",
+          "scan_start_position": "kLeftBottom",
           "scan_sequence": "kAzimuthFirst",
-          "step_scale": 1.0
+          "step_scale": 2.0
         },
         "scan_window_deg": {
           "az_min_deg": -92.0,
           "az_max_deg": 92.0,
           "el_min_deg": 2.0,
-          "el_max_deg": 90.0
+          "el_max_deg": 6.0
         }
       },
       "policy": {

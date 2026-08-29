@@ -161,6 +161,25 @@ void ValidateRirHardwareConfig(const RirHardwareConfig& hardware, session::RirIs
               "Elevation beamwidth requires a positive nominal value or a valid physical aperture.");
   }
 
+  // 增益-波束宽度物理一致性（2026-08-29 还债 B5）：增益与波束宽度是一枚硬币的
+  // 两面（经验式 G_dBi ≈ 10·log10(26000/(az°·el°))，η≈0.5~0.7），各自合法但互相
+  // 矛盾的天线会让回波预算虚高（52 dBi 配 4° 波束曾虚高 ~40 dB）。名义波束宽度
+  // 均为正时校验，容差 3 dB；走孔径推导的配置不在此校验（几何校验已覆盖孔径）。
+  if (antenna.nominal_az_beamwidth_deg > 0.0f && antenna.nominal_el_beamwidth_deg > 0.0f) {
+    const float beamwidth_product_deg2 =
+        antenna.nominal_az_beamwidth_deg * antenna.nominal_el_beamwidth_deg;
+    if (IsFinite(beamwidth_product_deg2) && beamwidth_product_deg2 > 0.0f &&
+        IsFinite(antenna.main_beam_gain_db)) {
+      const float consistent_gain_dbi = 10.0f * std::log10(26000.0f / beamwidth_product_deg2);
+      if (std::fabs(antenna.main_beam_gain_db - consistent_gain_dbi) > 3.0f) {
+        PushIssue(issues, session::codes::kAntennaGainBeamwidthInconsistent,
+                  "hardware.antenna.main_beam_gain_db / nominal_{az,el}_beamwidth_deg",
+                  "Antenna peak gain must be physically consistent with the nominal beamwidths "
+                  "(G_dBi ~= 10*log10(26000/(az_deg*el_deg)), tolerance 3 dB).");
+      }
+    }
+  }
+
   if (!oneq::common::validation::IsFinite(rcs_physics.physics_mix_ratio) ||
       rcs_physics.physics_mix_ratio < 0.0f || rcs_physics.physics_mix_ratio > 1.0f ||
       !oneq::common::validation::IsFinite(rcs_physics.cylinder_weight) ||

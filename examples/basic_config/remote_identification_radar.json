@@ -14,7 +14,7 @@
       "frequency_plan_hz": [3000000000.0]
     },
     "antenna": {
-      "main_beam_gain_db": 52.0,
+      "main_beam_gain_db": 46.0,
       "nominal_az_beamwidth_deg": 0.8,
       "nominal_el_beamwidth_deg": 0.8,
       "antenna_length_m": 1.2,
