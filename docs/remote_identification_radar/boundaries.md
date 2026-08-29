@@ -185,10 +185,13 @@ RIR 遵守 `docs/common/contract.md` 与 `docs/common/session_contract.md`：
      relative_wave.az)` + 绝对 el（相对体积 el 轴）；
    - 指定识别任务窗口内（`kPending`）且目标在场景且在体积内：驻留中心 = 目标视线角；
    - 非法体积/步长：扫描波位回退 `scan_center`（转台指向基准）。
-2. **信任边界**：RIR 不判断给定指向是否朝向目标。`enable_directional_pattern=true`
-   且有有效目标视线角时，方位离轴差经 `NormalizeAzimuthDeltaDeg` 折算后求方向图增益；
-   指向偏离目标就按实际离轴衰减执行，不静默修正。方向图关闭或无有效视线角时
-   回退主瓣峰值增益（阶段 1 缺省兼容）。
+2. **信任边界**：RIR 不判断给定指向是否朝向目标。方向图恒开（2026-08-29 还债：
+   `enable_directional_pattern` 开关已删除，探测与波束指向耦合）：有有效目标视线角时，
+   方位离轴差经 `NormalizeAzimuthDeltaDeg` 折算后求方向图增益；指向偏离目标就按实际
+   离轴衰减执行，不静默修正。无有效视线角（位置范数 ≤ 0.1 m 的退化输入）回退主瓣
+   峰值增益。配套主瓣覆盖门：扇区内候选须落在本周期驻留指向半功率宽内才入检测候选集
+   （"探测⟺波束照到"，未照到发 `rir.target_outside_beam_coverage`）；确认航迹目标与
+   指定目标在硬件体积内豁免扫描子窗（TAS 跟踪连续性，跟踪驻留指向为库内航迹预测）。
 3. **角度含义与范围**：波束中心类型为 `config::RirAzimuthElevationDeg`（单位：度），
    定义在雷达局部 ENU 右手坐标系，与 `RirSceneTarget::position_x/y/z` 同帧：
    `az_deg = atan2(y, x)`，调度器输出前归一化到 `(-180, 180]`；
