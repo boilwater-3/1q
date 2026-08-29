@@ -64,7 +64,6 @@ RirCycleInput MakeCycleInput(std::uint32_t cycle) {
   target.position_z = 2000.0f;
   target.velocity_x = 100.0f;
   target.rcs = 5.0f;
-  target.range_m = 5385.16f;
   target.aspect_rcs_samples.push_back(RirAspectRcsSample{});
   target.polarization_rcs_samples.push_back(RirPolarizationRcsSample{});
   target.range_rcs_scatterers.push_back(RirRangeRcsScatterer{});
@@ -134,26 +133,21 @@ TEST(RirReplaySessionTest, ConfigAndInputPayloadsRoundtripByteExact) {
   config.sensor_enabled = false;
   config.hardware.transmitter.equipment_id = 11U;
   config.hardware.transmitter.bandwidth_hz = 9.0e6f;
-  config.hardware.transmitter.frequency_plan_hz.push_back(3.2e9);
-  config.hardware.antenna.pattern.model_type =
+  config.hardware.antenna.model_type =
       config::hardware::RirAntennaPatternModelType::kSincPattern;
-  config.hardware.antenna.pattern.boresight_offset_deg.az_deg = 3.5f;
-  config.hardware.receiver.has_co_site_isolation = true;
-  config.hardware.receiver.co_site_paths.push_back(
-      oneq::electromagnetics::RfCoSiteIsolationPath(1U, 2U, 95.5));
+  config.hardware.antenna.boresight_offset_deg.az_deg = 3.5f;
   config.hardware.receiver.scene_polarization =
       oneq::electromagnetics::RfScenePolarization::kVertical;
   config.hardware.rcs_physics.enable_physical_rcs = true;
   config.hardware.signal_processing.target_processing_gain_db = 2.5f;
-  config.orientation.steerable_volume_deg.az_min_deg = -45.0f;
-  config.mission.scan.scan_sequence = oneq::foundation::ScanSequence::kElevationFirst;
+  config.orientation.az_min_deg = -45.0f;
+  config.mission.scan_sequence = oneq::foundation::ScanSequence::kElevationFirst;
   config.mission.scan_center_deg.el_deg = 6.0f;
   config.policy.detection.random_seed = 77U;
   config.policy.tracking.kalman_noise_diff_coeff = 2.0f;
   config.policy.recognition.enabled = true;
   config.policy.recognition.database_path = "features.sqlite";
-  config.environment.enable_environment_effects = true;
-  config.environment.vegetation_scatter_physics.cover_profile =
+  config.environment.vegetation_cover_profile =
       config::RirVegetationCoverProfile::kDeciduousForest;
   config.environment.atmospheric_physics.enable_physical_model = true;
 

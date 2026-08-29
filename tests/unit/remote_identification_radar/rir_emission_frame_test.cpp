@@ -30,7 +30,6 @@ RirCycleInput MakeInput(std::uint32_t cycle) {
   target.external_target_id = 9U;
   target.position_x = 8000.0f;
   target.rcs = 2.0f;
-  target.range_m = 8000.0f;
   input.scene_targets.push_back(target);
   return input;
 }

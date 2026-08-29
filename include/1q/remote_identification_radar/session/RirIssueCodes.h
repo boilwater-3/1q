@@ -12,8 +12,6 @@ namespace remote_identification_radar {
 namespace session {
 namespace codes {
 
-// ===== 周期输入校验问题（"rir.validation.<snake_case>"）=====
-
 /** @brief 周期步长非有限值。 */
 constexpr char kNonFiniteCycleDeltaTime[] = "rir.validation.non_finite_cycle_delta_time";
 
@@ -23,10 +21,10 @@ constexpr char kInvalidCycleDeltaTime[] = "rir.validation.invalid_cycle_delta_ti
 /** @brief 周期序号非法（为 0）。 */
 constexpr char kInvalidCycleIndex[] = "rir.validation.invalid_cycle_index";
 
-/** @brief 目标含非有限数值字段（位置/RCS/斜距/真值样本）。 */
+/** @brief 目标含非有限数值字段（位置/RCS/真值样本）。 */
 constexpr char kNonFiniteTargetField[] = "rir.validation.non_finite_target_field";
 
-/** @brief 目标斜距 <= 0 且无笛卡尔位置（二者须至少一为正）。 */
+/** @brief 目标无非零笛卡尔位置。 */
 constexpr char kMissingRangeAndCartesianPosition[] =
     "rir.validation.missing_range_and_cartesian_position";
 
@@ -49,8 +47,6 @@ constexpr char kInvalidPlatformPosition[] = "rir.validation.invalid_platform_pos
 constexpr char kInconsistentPlatformPosition[] =
     "rir.validation.inconsistent_platform_position";
 
-// ===== 配置校验问题（"rir.validation.<snake_case>"）=====
-
 /** @brief 识别特征权重非法（须有限、在 [0, 1] 且总和为 1）。 */
 constexpr char kRecognitionWeightsInvalid[] = "rir.validation.recognition_weights_invalid";
 
@@ -71,7 +67,7 @@ constexpr char kRecognitionTimeRangeInvalid[] = "rir.validation.recognition_time
 /** @brief 扫描策略非法（步长系数须为正）。 */
 constexpr char kScanStrategyInvalid[] = "rir.validation.scan_strategy_invalid";
 
-/** @brief 可扫描体积非法（orientation.steerable_volume_deg 须有限有序且在合法域）。 */
+/** @brief 可扫描体积非法（orientation 须有限有序且在合法域）。 */
 constexpr char kSteerableVolumeInvalid[] = "rir.validation.steerable_volume_invalid";
 
 /** @brief 转台朝向非法（mission.scan_center_deg 须有限且在合法域）。 */
@@ -124,8 +120,6 @@ constexpr char kAntennaGainBeamwidthInconsistent[] =
 
 /** @brief RCS 物理参数非法。 */
 constexpr char kRcsPhysicsInvalid[] = "rir.validation.rcs_physics_invalid";
-
-// ===== 执行中止诊断（规则 9 三写）=====
 
 /** @brief 设备关机（非执行周期中止）。 */
 constexpr char kSensorPoweredOff[] = "rir.sensor_powered_off";

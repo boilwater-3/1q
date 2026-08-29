@@ -2,6 +2,13 @@
 
 namespace remote_identification_radar {
 namespace dwell {
+namespace {
+
+constexpr double kDefaultPreselectorBandwidthHz = 20.0e6;
+constexpr double kDefaultMinimumFarFieldRangeM = 1.0;
+constexpr double kDefaultCoSiteIsolationDb = 120.0;
+
+}  // namespace
 
 RirReceiverOperatingState RirReceiverStateBuilder::Build(
     const RirRfCycleInput& input, const oneq::electromagnetics::RfSceneEmission& emission,
@@ -20,11 +27,12 @@ RirReceiverOperatingState RirReceiverStateBuilder::Build(
   receiver_state.window_start_time_s = input.window_start_time_s;
   receiver_state.window_duration_s = input.window_duration_s;
   receiver_state.center_frequency_hz = carrier_hz;
-  receiver_state.bandwidth_hz = static_cast<double>(receiver.preselector_bandwidth_hz);
+  // 预选带宽 / 远场下限 / 同平台隔离：库内默认，不暴露为公开配置。
+  receiver_state.bandwidth_hz = kDefaultPreselectorBandwidthHz;
   receiver_state.receiver_system_loss_db = static_cast<double>(receiver.receive_loss_db);
-  receiver_state.minimum_far_field_range_m =
-      static_cast<double>(receiver.minimum_far_field_range_m);
-  receiver_state.co_site_paths = receiver.co_site_paths;
+  receiver_state.minimum_far_field_range_m = kDefaultMinimumFarFieldRangeM;
+  receiver_state.co_site_paths = {oneq::electromagnetics::RfCoSiteIsolationPath(
+      transmitter.equipment_id, receiver.equipment_id, kDefaultCoSiteIsolationDb)};
   operating_state.beam_pointing_deg = input.beam_pointing_deg;
   operating_state.matched_filter_bandwidth_hz = static_cast<double>(transmitter.bandwidth_hz);
   operating_state.receiver_noise_figure_db = static_cast<double>(receiver.noise_figure_db);

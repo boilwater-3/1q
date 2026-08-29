@@ -53,10 +53,9 @@ RirIssueList ValidateRirSceneTargets(const RirSceneTargetList& targets) {
     const std::string location = "scene_targets[" + std::to_string(i) + "]";
     if (!IsFinite(target.position_x) || !IsFinite(target.position_y) ||
         !IsFinite(target.position_z) || !IsFinite(target.velocity_x) ||
-        !IsFinite(target.velocity_y) || !IsFinite(target.velocity_z) || !IsFinite(target.rcs) ||
-        !IsFinite(target.range_m)) {
+        !IsFinite(target.velocity_y) || !IsFinite(target.velocity_z) || !IsFinite(target.rcs)) {
       PushIssue(&issues, RirIssueSeverity::kError, codes::kNonFiniteTargetField, location,
-                "Scene target position/velocity/RCS/range must be finite.");
+                "Scene target position/velocity/RCS must be finite.");
     }
     if (target.target_swerling_type < RirSwerlingType::kSwerling0 ||
         target.target_swerling_type > RirSwerlingType::kSwerling4) {
@@ -66,9 +65,9 @@ RirIssueList ValidateRirSceneTargets(const RirSceneTargetList& targets) {
     }
     const bool has_position =
         target.position_x != 0.0f || target.position_y != 0.0f || target.position_z != 0.0f;
-    if (target.range_m <= 0.0f && !has_position) {
+    if (!has_position) {
       PushIssue(&issues, RirIssueSeverity::kError, codes::kMissingRangeAndCartesianPosition,
-                location, "Scene target must carry positive range or non-zero cartesian position.");
+                location, "Scene target must carry non-zero cartesian position.");
     }
     // 真值样本有限性（识别专用特征输入）。
     for (const RirAspectRcsSample& sample : target.aspect_rcs_samples) {

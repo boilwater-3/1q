@@ -1,11 +1,6 @@
 ﻿/**
  * @file RirPolicyConfig.h
  * @brief 远程识别雷达策略域主配置类型。
- *
- * 自持检测/关联/跟踪/生命周期与识别策略的主头文件。
- * 识别字段集合自阶段 1 平移；阶段 2-S 增加检测门控、最近邻关联、单目标 KF
- * 与计数生命周期策略。识别任务作用距离与驻留参数已归位 mission 域
- * （RirMissionConfig::max_range_m / recognition_dwell_sec）。
  */
 
 #ifndef ONEQ_REMOTE_IDENTIFICATION_RADAR_CONFIG_RIR_POLICY_CONFIG_H_
@@ -94,30 +89,18 @@ struct ONEQ_API RirRecognitionFeatureWeights {
 
 /**
  * @brief RirRecognitionPolicy 远程目标识别策略配置。
- *
- * 默认关闭（enabled=false），需显式启用。运行期可经
- * `RirRuntimeConfigPatch::has_policy` 整域覆盖提交修改。
+ * @note 默认关闭；运行期可经 `RirRuntimeConfigPatch::has_policy` 整域覆盖。
  */
 struct ONEQ_API RirRecognitionPolicy {
   bool enabled{false}; /**< 识别能力总开关（默认关闭）。 */
-
-  /** 积累与确认 */
   std::uint32_t min_confirmed_hits{5U};    /**< 允许正式识别所需最小确认命中数（≥1）。 */
   float accumulation_window_sec{10.0f};    /**< 单航迹特征滑动积累窗口（s），必须 ≥ dt_sec。 */
   std::uint32_t min_observation_count{3U}; /**< 允许输出型号所需最小有效观测数（≥1）。 */
-
-  /** 判定门限 */
   float acceptance_score{0.70f}; /**< 型号确认的最低综合得分，[0, 1]。 */
   float minimum_margin{0.10f};   /**< 第一、第二候选的最低得分差，[0, 1]。 */
-
-  /** 时间约束 */
   float result_hold_sec{30.0f}; /**< 退出模式或短时特征缺失后的结论保持时间（s），≥0。 */
-
-  /** 权重 */
-  RirRecognitionFeatureWeights feature_weights{};
-
-  /** 数据库 */
-  std::string database_path{}; /**< 特征数据库 SQLite 文件路径；空串表示未配置。 */
+  RirRecognitionFeatureWeights feature_weights{}; /**< 四类特征权重。 */
+  std::string database_path{}; /**< 特征数据库 SQLite 路径；空串表示未配置。 */
 };
 
 /**

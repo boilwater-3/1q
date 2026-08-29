@@ -59,16 +59,16 @@ inline oneq::common::radar::AntennaLookOffsetDeg ToCommonLookOffset(
 }
 
 inline oneq::common::radar::AntennaPatternConfig ToCommonPatternConfig(
-    const config::hardware::RirAntennaPatternConfig& config) {
+    const config::hardware::RirAntennaConfig& antenna) {
   oneq::common::radar::AntennaPatternConfig common_config;
   common_config.model_type = static_cast<oneq::common::radar::AntennaPatternModelType>(
-      static_cast<int>(config.model_type));
-  common_config.max_sidelobe_level_db = config.max_sidelobe_level_db;
-  common_config.backlobe_level_db = config.backlobe_level_db;
-  common_config.scan_loss_coeff_db_per_deg2 = config.scan_loss_coeff_db_per_deg2;
-  common_config.max_scan_loss_db = config.max_scan_loss_db;
-  common_config.boresight_offset_deg.az_deg = config.boresight_offset_deg.az_deg;
-  common_config.boresight_offset_deg.el_deg = config.boresight_offset_deg.el_deg;
+      static_cast<int>(antenna.model_type));
+  common_config.max_sidelobe_level_db = antenna.max_sidelobe_level_db;
+  common_config.backlobe_level_db = antenna.backlobe_level_db;
+  common_config.scan_loss_coeff_db_per_deg2 = antenna.scan_loss_coeff_db_per_deg2;
+  common_config.max_scan_loss_db = antenna.max_scan_loss_db;
+  common_config.boresight_offset_deg.az_deg = antenna.boresight_offset_deg.az_deg;
+  common_config.boresight_offset_deg.el_deg = antenna.boresight_offset_deg.el_deg;
   return common_config;
 }
 
@@ -99,36 +99,34 @@ inline bool RirIsInsideMainLobe(const RirAntennaPatternBeamwidthDeg& beamwidth_d
 }
 
 inline float RirComputeMainLobeAttenuationDb(
-    const config::hardware::RirAntennaPatternConfig& config,
+    const config::hardware::RirAntennaConfig& antenna,
     const RirAntennaPatternBeamwidthDeg& beamwidth_deg, const RirAntennaLookOffsetDeg& offset_deg,
-    float antenna_az_length_m = 0.0f, float antenna_el_width_m = 0.0f,
     float wavelength_m = 0.0f) {
   return oneq::common::radar::ComputeMainLobeAttenuationDb(
-      rir_antenna_pattern_adapter::ToCommonPatternConfig(config),
+      rir_antenna_pattern_adapter::ToCommonPatternConfig(antenna),
       rir_antenna_pattern_adapter::ToCommonBeamwidth(beamwidth_deg),
-      rir_antenna_pattern_adapter::ToCommonLookOffset(offset_deg), antenna_az_length_m,
-      antenna_el_width_m, wavelength_m);
+      rir_antenna_pattern_adapter::ToCommonLookOffset(offset_deg), antenna.antenna_length_m,
+      antenna.antenna_width_m, wavelength_m);
 }
 
-inline float RirComputeScanLossDb(const config::hardware::RirAntennaPatternConfig& config,
+inline float RirComputeScanLossDb(const config::hardware::RirAntennaConfig& antenna,
                                   const config::RirAzimuthElevationDeg& beam_pointing_deg) {
   return oneq::common::radar::ComputeScanLossDb(
-      rir_antenna_pattern_adapter::ToCommonPatternConfig(config),
+      rir_antenna_pattern_adapter::ToCommonPatternConfig(antenna),
       rir_antenna_pattern_adapter::ToCommonPointing(beam_pointing_deg));
 }
 
 inline RirAntennaPatternSample RirEvaluateAntennaPattern(
-    float peak_gain_dbi, const config::hardware::RirAntennaPatternConfig& config,
+    const config::hardware::RirAntennaConfig& antenna,
     const RirAntennaPatternBeamwidthDeg& beamwidth_deg, const RirAntennaLookOffsetDeg& offset_deg,
-    const config::RirAzimuthElevationDeg& beam_pointing_deg, float antenna_az_length_m = 0.0f,
-    float antenna_el_width_m = 0.0f, float wavelength_m = 0.0f) {
+    const config::RirAzimuthElevationDeg& beam_pointing_deg, float wavelength_m = 0.0f) {
   return rir_antenna_pattern_adapter::FromCommonSample(
       oneq::common::radar::EvaluateAntennaPattern(
-          peak_gain_dbi, rir_antenna_pattern_adapter::ToCommonPatternConfig(config),
+          antenna.main_beam_gain_db, rir_antenna_pattern_adapter::ToCommonPatternConfig(antenna),
           rir_antenna_pattern_adapter::ToCommonBeamwidth(beamwidth_deg),
           rir_antenna_pattern_adapter::ToCommonLookOffset(offset_deg),
-          rir_antenna_pattern_adapter::ToCommonPointing(beam_pointing_deg), antenna_az_length_m,
-          antenna_el_width_m, wavelength_m));
+          rir_antenna_pattern_adapter::ToCommonPointing(beam_pointing_deg),
+          antenna.antenna_length_m, antenna.antenna_width_m, wavelength_m));
 }
 
 }  // namespace dwell

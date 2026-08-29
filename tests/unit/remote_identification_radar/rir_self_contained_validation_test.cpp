@@ -31,7 +31,6 @@ RirCycleInput MakeValidInput() {
   RirSceneTarget target;
   target.external_target_id = 7U;
   target.position_x = 5000.0f;
-  target.range_m = 5000.0f;
   target.rcs = 1.0f;
   input.scene_targets.push_back(target);
   return input;
@@ -95,7 +94,6 @@ TEST(RirSelfContainedValidationTest, SceneTargetMotionAndSwerlingFieldsAreValida
 
 TEST(RirSelfContainedValidationTest, EnvironmentAndRfSceneInputsAreValidated) {
   config::RirSessionConfig session_config;
-  session_config.environment.enable_environment_effects = true;
   session_config.environment.weather_attenuation_db = -1.0f;
   const auto env_issues = config::ValidateRirSessionConfig(session_config);
   EXPECT_TRUE(HasCode(env_issues, session::codes::kInvalidEnvironmentSnapshot));

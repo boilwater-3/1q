@@ -40,7 +40,6 @@ RirSceneTarget MakeTarget(std::uint64_t id, const char* name, float position_x) 
   target.target_name = name;
   target.position_x = position_x;
   target.position_z = 2000.0f;
-  target.range_m = std::sqrt(position_x * position_x + 2000.0f * 2000.0f);
   return target;
 }
 

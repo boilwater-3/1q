@@ -64,7 +64,6 @@ RirSceneTarget MakeTarget(std::uint64_t id, float up_m) {
   target.position_x = 10000.0f;
   target.position_z = up_m;
   target.rcs = 0.5f;
-  target.range_m = std::sqrt(10000.0f * 10000.0f + up_m * up_m);
   return target;
 }
 
@@ -133,7 +132,7 @@ TEST(RirTrackDwellSchedulerTest, TrackDwellExemptFromScanSubWindow) {
   config.policy.lifecycle.confirm_hits = 1U;
   config.hardware = MakeWideBeamHardware();
   // 步长与波束宽度解耦（否则宽波束让波位表退化成角点）。
-  config.mission.scan.step_scale = 0.02f;
+  config.mission.step_scale = 0.02f;
   // 子窗压到低仰角带：周期 2 的目标（el 约 11.3°）出子窗、在硬件体积内。
   config.mission.scan_window_deg.el_min_deg = 2.0f;
   config.mission.scan_window_deg.el_max_deg = 4.0f;
@@ -144,7 +143,6 @@ TEST(RirTrackDwellSchedulerTest, TrackDwellExemptFromScanSubWindow) {
   ASSERT_FALSE(first.track_attributions.empty()) << "子窗内目标应先被检出建轨";
 
   target.position_z = 2000.0f;  // 周期 2：目标升到 el 约 11.3°（出子窗）。
-  target.range_m = std::sqrt(10000.0f * 10000.0f + 2000.0f * 2000.0f);
   const RirCycleResult second = session.StepWithResult(MakeInput(2U, {target}));
   ASSERT_EQ(second.status, session::RirCycleStatus::kCompleted);
   // 跟踪驻留照到出窗目标：既无子窗排除诊断，也无主瓣覆盖排除诊断。
@@ -170,7 +168,7 @@ TEST(RirTrackDwellSchedulerTest, DwellBudgetCappedAndSearchBackfills) {
   config.policy.detection.gate_mode = config::RirDetectionGateMode::kSnrFallback;
   config.policy.lifecycle.confirm_hits = 1U;
   config.hardware = MakeWideBeamHardware();
-  config.mission.scan.step_scale = 0.02f;
+  config.mission.step_scale = 0.02f;
   // TAS：dwell=0.25s 使每周期驻留数 = floor(0.5/0.25) = 2（除法精确，好断言）。
   config.mission.recognition_dwell_sec = 0.25f;
   RirSession session = RirSession::Create(config);

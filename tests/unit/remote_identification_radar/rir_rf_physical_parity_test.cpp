@@ -62,10 +62,13 @@ ar::config::engineering::DetectionConfig ToArDetectionConfig(
   detection.transmitter.pulse_width_s = hardware.transmitter.pulse_width_s;
   detection.transmitter.prf_hz = hardware.transmitter.prf_hz;
   detection.transmitter.transmit_loss_db = hardware.transmitter.transmit_loss_db;
-  detection.transmitter.maximum_peak_power_w = hardware.transmitter.maximum_peak_power_w;
-  detection.transmitter.maximum_duty_cycle = hardware.transmitter.maximum_duty_cycle;
-  detection.transmitter.maximum_pulse_energy_j = hardware.transmitter.maximum_pulse_energy_j;
-  detection.transmitter.frequency_plan_hz = hardware.transmitter.frequency_plan_hz;
+  // RIR 已内收包络/载频表；AR 对比侧用工作点推导等价上限，保证钳位不改功率。
+  detection.transmitter.maximum_peak_power_w = hardware.transmitter.peak_power_w;
+  detection.transmitter.maximum_duty_cycle = 1.0f;
+  detection.transmitter.maximum_pulse_energy_j =
+      hardware.transmitter.peak_power_w * hardware.transmitter.pulse_width_s;
+  detection.transmitter.frequency_plan_hz = {
+      static_cast<double>(hardware.transmitter.frequency_hz)};
   detection.transmitter.equipment_id = hardware.transmitter.equipment_id;
 
   detection.antenna.main_beam_gain_db = hardware.antenna.main_beam_gain_db;
@@ -73,10 +76,9 @@ ar::config::engineering::DetectionConfig ToArDetectionConfig(
   detection.antenna.nominal_el_beamwidth_deg = hardware.antenna.nominal_el_beamwidth_deg;
   detection.antenna.pattern.model_type =
       static_cast<ar::config::engineering::AntennaPatternModelType>(
-          hardware.antenna.pattern.model_type);
-  detection.antenna.pattern.max_sidelobe_level_db =
-      hardware.antenna.pattern.max_sidelobe_level_db;
-  detection.antenna.pattern.backlobe_level_db = hardware.antenna.pattern.backlobe_level_db;
+          hardware.antenna.model_type);
+  detection.antenna.pattern.max_sidelobe_level_db = hardware.antenna.max_sidelobe_level_db;
+  detection.antenna.pattern.backlobe_level_db = hardware.antenna.backlobe_level_db;
   // RIR 侧方向图恒开（开关已删），AR 对比口径显式置 true。
   detection.antenna.enable_directional_pattern = true;
 
@@ -85,13 +87,11 @@ ar::config::engineering::DetectionConfig ToArDetectionConfig(
   detection.receiver.receive_loss_db = hardware.receiver.receive_loss_db;
   detection.receiver.cross_polarization_isolation_db =
       hardware.receiver.cross_polarization_isolation_db;
-  detection.receiver.minimum_far_field_range_m = hardware.receiver.minimum_far_field_range_m;
-  detection.receiver.has_co_site_isolation = hardware.receiver.has_co_site_isolation;
-  detection.receiver.co_site_isolation_db = hardware.receiver.co_site_isolation_db;
   detection.receiver.maximum_linear_input_power_w = hardware.receiver.maximum_linear_input_power_w;
-  detection.receiver.preselector_bandwidth_hz = hardware.receiver.preselector_bandwidth_hz;
+  detection.receiver.preselector_bandwidth_hz = 20.0e6f;
   detection.receiver.scene_polarization = hardware.receiver.scene_polarization;
-  detection.receiver.co_site_paths = hardware.receiver.co_site_paths;
+  detection.receiver.co_site_paths = {{hardware.transmitter.equipment_id,
+                                       hardware.receiver.equipment_id, 120.0}};
 
   detection.signal_processing.target_processing_gain_db =
       hardware.signal_processing.target_processing_gain_db;
@@ -307,7 +307,6 @@ class RirRfPhysicalParityTest : public ::testing::Test {
     hardware_.transmitter.prf_hz = 300.0f;
     hardware_.transmitter.bandwidth_hz = 4.5e6f;
     hardware_.transmitter.frequency_hz = 3.0e9f;
-    hardware_.transmitter.frequency_plan_hz = {3.0e9};
     hardware_.antenna.main_beam_gain_db = 35.0f;
     FillSharedCycleInputs(&rir_input_, &ar_input_);
     ar_detection_ = ToArDetectionConfig(hardware_);

@@ -25,10 +25,11 @@ struct RirPropagationResult {
 };
 
 /**
- * @brief RirEnvironmentSceneState 当前周期环境场景事实（植被散射输入）。
+ * @brief RirEnvironmentSceneState 当前周期环境场景事实（植被覆盖档位）。
  */
 struct RirEnvironmentSceneState {
-  config::RirVegetationScatterPhysicsConfig vegetation_scatter_physics{};
+  config::RirVegetationCoverProfile vegetation_cover_profile{
+      config::RirVegetationCoverProfile::kDisabled};
 };
 
 /**
@@ -38,7 +39,7 @@ class RirPropagationModel {
  public:
   /**
    * @brief 根据场景状态计算传播与杂波输出。
-   * @param[in] scene_state 当前周期场景状态（含植被覆盖物理量）。
+   * @param[in] scene_state 当前周期场景状态（含植被覆盖档位）。
    * @return 包含传播损耗与杂波功率的 RirPropagationResult。
    * @note 逐目标大气物理损耗由驻留链路预算按真实目标几何计算
    *       （`RirController::ComputeTargetAtmosphericLossDb`，common 大气单源），

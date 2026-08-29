@@ -1,12 +1,6 @@
 ﻿/**
  * @file RirRecognitionResult.h
  * @brief 远程目标识别结果与周期摘要类型。
- *
- * 识别结论为独立输出模型，与机载雷达威胁分类（AR `TrackStateSnapshot::target_type`）
- * 相互独立，不共享字段或权重。
- *
- * @note 枚举取值顺序与 `ArRecognitionResult.h`（审计基线 96de367c）完全一致，
- *       保证阶段 1 等价性对比测试与 replay 语义的直映射。
  */
 
 #ifndef ONEQ_REMOTE_IDENTIFICATION_RADAR_SESSION_RIR_RECOGNITION_RESULT_H_
@@ -34,11 +28,6 @@ enum class ONEQ_API RirRecognitionState : std::uint8_t {
 
 /**
  * @brief RirRecognitionCategory 识别目标大类。
- * @note 取值加性扩展（不重排既有值），旧 Recording/Replay 字节兼容。
- * @note 无舰船/车辆类型——2026-08-20 验收输出统计裁定不新增
- *       （docs/review/acceptance_output_inventory_2026-08-20.md §4.5/§6）。
- * @note 无无人机类型——2026-08-22 甲方裁定移除（原 kUav=7 弃用）；库内
- *       UAV 型号经类别映射按 kUnknown 输出，型号识别不受影响。
  */
 enum class ONEQ_API RirRecognitionCategory : std::uint8_t {
   kBallistic = 0, /**< 弹道目标。 */

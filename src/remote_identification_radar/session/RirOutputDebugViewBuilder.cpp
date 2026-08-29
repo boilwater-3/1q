@@ -48,25 +48,16 @@ const RirTrackRecognitionOutput* FindRecognitionOutput(
 }
 
 // 输入几何回填（规则 12）：斜距/视线角自输入 ENU 位置推导，与库内
-// RirController::ComputeLookAngles 同口径（range_m>0 优先，位置零向量兜底东向）。
+// RirController::ComputeLookAngles 同口径。
 void FillInputGeometry(const RirSceneTarget& target, RirDebugTargetState* state) {
-  double position_x = static_cast<double>(target.position_x);
-  double position_y = static_cast<double>(target.position_y);
-  double position_z = static_cast<double>(target.position_z);
-  const double squared_norm = position_x * position_x + position_y * position_y +
-                              position_z * position_z;
-  if (squared_norm <= 0.0) {
-    position_x = static_cast<double>(target.range_m);
-    position_y = 0.0;
-    position_z = 0.0;
-  }
+  const double position_x = static_cast<double>(target.position_x);
+  const double position_y = static_cast<double>(target.position_y);
+  const double position_z = static_cast<double>(target.position_z);
   const double horizontal = std::sqrt(position_x * position_x + position_y * position_y);
   state->look_az_deg = RirRadToDeg(std::atan2(position_y, position_x));
   state->look_el_deg = RirRadToDeg(std::atan2(position_z, horizontal));
-  state->slant_range_m = target.range_m > 0.0f
-                             ? static_cast<double>(target.range_m)
-                             : std::sqrt(squared_norm > 0.0 ? squared_norm
-                                                            : position_x * position_x);
+  state->slant_range_m =
+      std::sqrt(position_x * position_x + position_y * position_y + position_z * position_z);
 }
 
 RirDebugTargetState BuildDebugTargetState(const RirSceneTarget& target,

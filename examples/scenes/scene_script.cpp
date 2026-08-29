@@ -176,10 +176,6 @@ std::vector<remote_identification_radar::session::RirSceneTarget> MakeRirSceneTa
     target.velocity_y = static_cast<float>(enu.velocity_enu_mps.north_mps);
     target.velocity_z = static_cast<float>(enu.velocity_enu_mps.up_mps);
     target.rcs = state.rcs;
-    target.range_m = static_cast<float>(std::sqrt(
-        enu.position_enu_m.east_m * enu.position_enu_m.east_m +
-        enu.position_enu_m.north_m * enu.position_enu_m.north_m +
-        enu.position_enu_m.up_m * enu.position_enu_m.up_m));
     target.target_swerling_type = rir::RirSwerlingType::kSwerling0;
     if (state.has_rir_features) {
       // 特征真值铺样（仿集成测试配方）：视角网格方位 ±5°/步 5°、俯仰 5°~30°/步

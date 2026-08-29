@@ -57,8 +57,8 @@ RIR 自持链路生产的内部航迹，不再消费外部航迹供给。
 3. **RF 链回退**：`ResolveRfCycle` 失败（hardware 不完整/前端饱和等）或 detection cell
    求解失败时，传播损耗/杂波/干扰仍按环境配置注入，但检测 SNR 回退阶段 1 旧公式
    口径；RF 链成功时走分项 SINR 账本（含外部 `rf_scene` 干扰）。环境杂波
-   （`enable_environment_effects=true`）按"相对热噪底的 dB"换算为等效瓦数
-   （common 单源，与 AR 同口径）——植被基线 3 dB 即 2 倍热噪，不是 2 W。
+   （`vegetation_cover_profile≠kDisabled`）按"相对热噪底的 dB"换算为等效瓦数
+   （common 单源）——植被基线 3 dB 即 2 倍热噪，不是 2 W。
 4. **第一个 profile 报告**：`feature_scores` 分项报告用型号的第一个 profile
    （`profiles.front()`），而非实际命中得分的 profile——多 profile 型号的分项
    报告可能与判定所用 profile 不一致（判定路径本身正确）。

@@ -83,7 +83,7 @@ inline RirResolvedBeamState RirResolveBeamStateForPointing(
   oneq::common::radar::FrozenBeamResolveInputs inputs;
   inputs.main_beam_gain_db = antenna_config.main_beam_gain_db;
   inputs.enable_directional_pattern = true;  // RIR 方向图恒开（开关已删，AR 侧仍保留该入参）。
-  inputs.pattern = rir_antenna_pattern_adapter::ToCommonPatternConfig(antenna_config.pattern);
+  inputs.pattern = rir_antenna_pattern_adapter::ToCommonPatternConfig(antenna_config);
   inputs.effective_beamwidth_deg = state.effective_beamwidth_deg;
   inputs.beam_pointing_az_deg = beam_pointing_deg.az_deg;
   inputs.beam_pointing_el_deg = beam_pointing_deg.el_deg;

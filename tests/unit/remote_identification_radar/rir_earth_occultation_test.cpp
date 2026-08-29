@@ -51,7 +51,6 @@ RirSceneTarget MakeNearTarget(std::uint64_t id) {
   target.position_x = 10000.0f;
   target.position_z = 2000.0f;
   target.rcs = 0.5f;
-  target.range_m = std::sqrt(10000.0f * 10000.0f + 2000.0f * 2000.0f);
   return target;
 }
 
@@ -75,10 +74,6 @@ RirSceneTarget MakeAntipodeTarget(std::uint64_t id) {
   target.position_y = static_cast<float>(enu.north_m);
   target.position_z = static_cast<float>(enu.up_m);
   target.rcs = 10.0f;
-  const float range = std::sqrt(target.position_x * target.position_x +
-                                target.position_y * target.position_y +
-                                target.position_z * target.position_z);
-  target.range_m = range;
   return target;
 }
 
@@ -129,8 +124,8 @@ TEST(RirEarthOccultationTest, NearTargetIsDetected) {
 TEST(RirEarthOccultationTest, AntipodeTargetIsExcludedWithOccultedIssue) {
   const RirSceneTarget target = MakeAntipodeTarget(9102U);
   config::RirSessionConfig config = MakeIdentifyConfig();
-  config.orientation.steerable_volume_deg.el_min_deg = -90.0f;
-  config.orientation.steerable_volume_deg.el_max_deg = 90.0f;
+  config.orientation.el_min_deg = -90.0f;
+  config.orientation.el_max_deg = 90.0f;
   RirSession session = RirSession::Create(config);
   for (std::uint32_t cycle = 1U; cycle <= 4U; ++cycle) {
     const RirCycleResult result = session.StepWithResult(MakeInput(cycle, {target}));

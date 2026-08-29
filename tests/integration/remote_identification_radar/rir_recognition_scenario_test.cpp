@@ -73,7 +73,7 @@ class RirRecognitionScenarioTest : public ::testing::Test {
     cfg.hardware.antenna.nominal_az_beamwidth_deg = 160.0f;
     cfg.hardware.antenna.nominal_el_beamwidth_deg = 160.0f;
     // 步长与波束宽度解耦（否则 160° 波束让波位表退化成角点，覆盖碰运气）。
-    cfg.mission.scan.step_scale = 0.02f;
+    cfg.mission.step_scale = 0.02f;
     cfg.policy.detection.gate_mode = config::RirDetectionGateMode::kSnrFallback;
     cfg.policy.recognition.enabled = true;
     cfg.policy.recognition.database_path = database_path_;
@@ -93,7 +93,6 @@ class RirRecognitionScenarioTest : public ::testing::Test {
     target.position_x = 5000.0f + speed_mps * static_cast<float>(input->input_cycle_index - 1U) *
                                       static_cast<float>(input->dt_sec);
     target.position_z = altitude_offset_m;
-    target.range_m = 5000.0f + speed_mps * static_cast<float>(input->input_cycle_index - 1U) *
                                    static_cast<float>(input->dt_sec);
     target.rcs = 5.0f;
     // 视角网格（方位 ±5°，俯仰 5°~30°），RCS 恒为模板值。

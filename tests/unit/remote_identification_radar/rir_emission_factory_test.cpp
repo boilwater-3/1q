@@ -1,7 +1,7 @@
 ﻿// Copyright 2026. All Rights Reserved.
 //
 // @file rir_emission_factory_test.cpp
-// @brief 验证 RIR 自发射构造（包络钳位、ECEF boresight、载频计划）。
+// @brief 验证 RIR 自发射构造（载频、ECEF boresight、无效指向拒绝）。
 
 #include <gtest/gtest.h>
 
@@ -33,21 +33,17 @@ RirRfCycleInput MakeDefaultRfInput() {
   return input;
 }
 
-TEST(RirEmissionFactoryTest, ResolveCarrierHzUsesFrequencyPlanByCycleIndex) {
+TEST(RirEmissionFactoryTest, ResolveCarrierHzUsesWorkingFrequency) {
   RirHardwareConfig hardware;
-  hardware.transmitter.frequency_hz = 3.0e9f;
-  hardware.transmitter.frequency_plan_hz = {3.0e9, 3.1e9, 3.2e9};
-  EXPECT_DOUBLE_EQ(RirEmissionFactory::ResolveCarrierHz(hardware.transmitter, 0U), 3.0e9);
-  EXPECT_DOUBLE_EQ(RirEmissionFactory::ResolveCarrierHz(hardware.transmitter, 1U), 3.1e9);
-  EXPECT_DOUBLE_EQ(RirEmissionFactory::ResolveCarrierHz(hardware.transmitter, 4U), 3.1e9);
+  hardware.transmitter.frequency_hz = 3.1e9f;
+  EXPECT_DOUBLE_EQ(RirEmissionFactory::ResolveCarrierHz(hardware.transmitter, 0U), 3.1e9);
+  EXPECT_DOUBLE_EQ(RirEmissionFactory::ResolveCarrierHz(hardware.transmitter, 7U), 3.1e9);
 }
 
-TEST(RirEmissionFactoryTest, ClampsPeakPowerToHardwareEnvelope) {
+TEST(RirEmissionFactoryTest, BuildsEmissionWithBoresightAndIdentity) {
   RirHardwareConfig hardware;
-  hardware.transmitter.maximum_peak_power_w = 5.0e5f;
-  hardware.transmitter.peak_power_w = 1.0e6f;
+  hardware.transmitter.peak_power_w = 5.0e5f;
   hardware.transmitter.pulse_width_s = 13e-6f;
-  hardware.transmitter.maximum_pulse_energy_j = 100.0f;
 
   const RirRfCycleInput input = MakeDefaultRfInput();
   oneq::electromagnetics::RfSceneEmission emission;

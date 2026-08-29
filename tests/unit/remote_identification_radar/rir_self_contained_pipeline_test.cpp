@@ -56,7 +56,6 @@ RirCycleInput MakeInput(std::uint32_t cycle, float range_m, float rcs_m2) {
   target.position_z = 2000.0f;
   target.velocity_x = 100.0f;
   target.rcs = rcs_m2;
-  target.range_m = range_m;
   input.scene_targets.push_back(target);
   return input;
 }
@@ -172,10 +171,7 @@ TEST(RirSelfContainedPipelineTest, ImmPolicyReachesLifecycleAndKeepsTrackStable)
 ///        SNR 崩塌约 136 dB，检测全灭——本用例锁死该回归。
 TEST(RirSelfContainedPipelineTest, EnvironmentEffectsKeepTargetDetectable) {
   config::RirEnvironmentConfig environment;
-  environment.enable_environment_effects = true;
-  environment.vegetation_scatter_physics.cover_profile =
-      config::RirVegetationCoverProfile::kTropicalDense;
-  environment.vegetation_scatter_physics.enable_physical_model = true;
+  environment.vegetation_cover_profile = config::RirVegetationCoverProfile::kTropicalDense;
   environment.weather_attenuation_db = 0.0f;
 
   RirController controller = MakeFallbackController();

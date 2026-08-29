@@ -442,9 +442,8 @@ flatbuffers::Offset<fb::RirSceneTarget> EncodeSceneTarget(
   return fb::CreateRirSceneTarget(
       *builder, value.external_target_id, target_name, value.position_x, value.position_y,
       value.position_z, value.velocity_x, value.velocity_y, value.velocity_z, value.rcs,
-      value.range_m, static_cast<std::uint8_t>(value.target_swerling_type),
-      builder->CreateVector(aspect_samples), builder->CreateVector(polarization_samples),
-      builder->CreateVector(scatterers));
+      static_cast<std::uint8_t>(value.target_swerling_type), builder->CreateVector(aspect_samples),
+      builder->CreateVector(polarization_samples), builder->CreateVector(scatterers));
 }
 
 bool DecodeSceneTarget(const fb::RirSceneTarget* value, RirSceneTarget* out) {
@@ -466,7 +465,6 @@ bool DecodeSceneTarget(const fb::RirSceneTarget* value, RirSceneTarget* out) {
   out->velocity_y = value->velocity_y();
   out->velocity_z = value->velocity_z();
   out->rcs = value->rcs();
-  out->range_m = value->range_m();
   out->target_swerling_type = static_cast<RirSwerlingType>(swerling_raw);
   if (value->aspect_rcs_samples() != nullptr) {
     out->aspect_rcs_samples.reserve(value->aspect_rcs_samples()->size());
@@ -539,6 +537,17 @@ void DecodeAzEl(const cfb::RirAzimuthElevationDeg* value, config::RirAzimuthElev
   out->el_deg = value->el_deg();
 }
 
+void DecodeAzElLimits(const cfb::RirAzimuthElevationLimitsDeg* value,
+                      config::RirAzimuthElevationLimitsDeg* out) {
+  if (value == nullptr) {
+    return;
+  }
+  out->az_min_deg = value->az_min_deg();
+  out->az_max_deg = value->az_max_deg();
+  out->el_min_deg = value->el_min_deg();
+  out->el_max_deg = value->el_max_deg();
+}
+
 flatbuffers::Offset<cfb::RirHardwareConfig> EncodeHardwareConfig(
     flatbuffers::FlatBufferBuilder* builder, const config::RirHardwareConfig& value) {
   const flatbuffers::Offset<cfb::RirTransmitterConfig> transmitter =
@@ -546,39 +555,22 @@ flatbuffers::Offset<cfb::RirHardwareConfig> EncodeHardwareConfig(
           *builder, value.transmitter.equipment_id, value.transmitter.peak_power_w,
           value.transmitter.frequency_hz, value.transmitter.bandwidth_hz,
           value.transmitter.pulse_width_s, value.transmitter.prf_hz,
-          value.transmitter.transmit_loss_db, value.transmitter.maximum_peak_power_w,
-          value.transmitter.maximum_duty_cycle, value.transmitter.maximum_pulse_energy_j,
-          builder->CreateVector(value.transmitter.frequency_plan_hz));
+          value.transmitter.transmit_loss_db);
 
-  const flatbuffers::Offset<cfb::RirAntennaPatternConfig> pattern =
-      cfb::CreateRirAntennaPatternConfig(
-          *builder, static_cast<int>(value.antenna.pattern.model_type),
-          value.antenna.pattern.max_sidelobe_level_db,
-          value.antenna.pattern.backlobe_level_db,
-          value.antenna.pattern.scan_loss_coeff_db_per_deg2,
-          value.antenna.pattern.max_scan_loss_db,
-          EncodeAzEl(builder, value.antenna.pattern.boresight_offset_deg));
   const flatbuffers::Offset<cfb::RirAntennaConfig> antenna = cfb::CreateRirAntennaConfig(
       *builder, value.antenna.main_beam_gain_db, value.antenna.nominal_az_beamwidth_deg,
       value.antenna.nominal_el_beamwidth_deg, value.antenna.antenna_length_m,
-      value.antenna.antenna_width_m, pattern);
+      value.antenna.antenna_width_m, static_cast<int>(value.antenna.model_type),
+      value.antenna.max_sidelobe_level_db, value.antenna.backlobe_level_db,
+      value.antenna.scan_loss_coeff_db_per_deg2, value.antenna.max_scan_loss_db,
+      EncodeAzEl(builder, value.antenna.boresight_offset_deg));
 
-  std::vector<flatbuffers::Offset<cfb::RirCoSiteIsolationPath>> co_site_paths;
-  co_site_paths.reserve(value.receiver.co_site_paths.size());
-  for (std::size_t i = 0U; i < value.receiver.co_site_paths.size(); ++i) {
-    const oneq::electromagnetics::RfCoSiteIsolationPath& path = value.receiver.co_site_paths[i];
-    co_site_paths.push_back(cfb::CreateRirCoSiteIsolationPath(
-        *builder, path.transmitter_equipment_id, path.receiver_equipment_id, path.isolation_db));
-  }
   const flatbuffers::Offset<cfb::RirReceiverConfig> receiver = cfb::CreateRirReceiverConfig(
       *builder, value.receiver.equipment_id, value.receiver.noise_figure_db,
       value.receiver.receive_loss_db, value.receiver.cross_polarization_isolation_db,
-      value.receiver.minimum_far_field_range_m, value.receiver.has_co_site_isolation,
-      value.receiver.co_site_isolation_db, value.receiver.maximum_linear_input_power_w,
-      value.receiver.preselector_bandwidth_hz,
+      value.receiver.maximum_linear_input_power_w,
       value.receiver.interference_observation_jn_gate_db,
-      static_cast<int>(value.receiver.scene_polarization),
-      builder->CreateVector(co_site_paths));
+      static_cast<int>(value.receiver.scene_polarization));
 
   const flatbuffers::Offset<cfb::RirRcsPhysicsConfig> rcs_physics =
       cfb::CreateRirRcsPhysicsConfig(
@@ -610,17 +602,6 @@ void DecodeHardwareConfig(const cfb::RirHardwareConfig* value, config::RirHardwa
     out->transmitter.pulse_width_s = transmitter->pulse_width_s();
     out->transmitter.prf_hz = transmitter->prf_hz();
     out->transmitter.transmit_loss_db = transmitter->transmit_loss_db();
-    out->transmitter.maximum_peak_power_w = transmitter->maximum_peak_power_w();
-    out->transmitter.maximum_duty_cycle = transmitter->maximum_duty_cycle();
-    out->transmitter.maximum_pulse_energy_j = transmitter->maximum_pulse_energy_j();
-    out->transmitter.frequency_plan_hz.clear();
-    if (transmitter->frequency_plan_hz() != nullptr) {
-      out->transmitter.frequency_plan_hz.reserve(transmitter->frequency_plan_hz()->size());
-      for (flatbuffers::uoffset_t i = 0U; i < transmitter->frequency_plan_hz()->size(); ++i) {
-        out->transmitter.frequency_plan_hz.push_back(
-            transmitter->frequency_plan_hz()->Get(i));
-      }
-    }
   }
   if (value->antenna() != nullptr) {
     const cfb::RirAntennaConfig* antenna = value->antenna();
@@ -629,17 +610,13 @@ void DecodeHardwareConfig(const cfb::RirHardwareConfig* value, config::RirHardwa
     out->antenna.nominal_el_beamwidth_deg = antenna->nominal_el_beamwidth_deg();
     out->antenna.antenna_length_m = antenna->antenna_length_m();
     out->antenna.antenna_width_m = antenna->antenna_width_m();
-    if (antenna->pattern() != nullptr) {
-      const cfb::RirAntennaPatternConfig* pattern = antenna->pattern();
-      out->antenna.pattern.model_type =
-          static_cast<config::hardware::RirAntennaPatternModelType>(pattern->model_type());
-      out->antenna.pattern.max_sidelobe_level_db = pattern->max_sidelobe_level_db();
-      out->antenna.pattern.backlobe_level_db = pattern->backlobe_level_db();
-      out->antenna.pattern.scan_loss_coeff_db_per_deg2 =
-          pattern->scan_loss_coeff_db_per_deg2();
-      out->antenna.pattern.max_scan_loss_db = pattern->max_scan_loss_db();
-      DecodeAzEl(pattern->boresight_offset_deg(), &out->antenna.pattern.boresight_offset_deg);
-    }
+    out->antenna.model_type =
+        static_cast<config::hardware::RirAntennaPatternModelType>(antenna->model_type());
+    out->antenna.max_sidelobe_level_db = antenna->max_sidelobe_level_db();
+    out->antenna.backlobe_level_db = antenna->backlobe_level_db();
+    out->antenna.scan_loss_coeff_db_per_deg2 = antenna->scan_loss_coeff_db_per_deg2();
+    out->antenna.max_scan_loss_db = antenna->max_scan_loss_db();
+    DecodeAzEl(antenna->boresight_offset_deg(), &out->antenna.boresight_offset_deg);
   }
   if (value->receiver() != nullptr) {
     const cfb::RirReceiverConfig* receiver = value->receiver();
@@ -648,27 +625,11 @@ void DecodeHardwareConfig(const cfb::RirHardwareConfig* value, config::RirHardwa
     out->receiver.receive_loss_db = receiver->receive_loss_db();
     out->receiver.cross_polarization_isolation_db =
         receiver->cross_polarization_isolation_db();
-    out->receiver.minimum_far_field_range_m = receiver->minimum_far_field_range_m();
-    out->receiver.has_co_site_isolation = receiver->has_co_site_isolation();
-    out->receiver.co_site_isolation_db = receiver->co_site_isolation_db();
     out->receiver.maximum_linear_input_power_w = receiver->maximum_linear_input_power_w();
-    out->receiver.preselector_bandwidth_hz = receiver->preselector_bandwidth_hz();
     out->receiver.interference_observation_jn_gate_db =
         receiver->interference_observation_jn_gate_db();
     out->receiver.scene_polarization =
         static_cast<oneq::electromagnetics::RfScenePolarization>(receiver->scene_polarization());
-    out->receiver.co_site_paths.clear();
-    if (receiver->co_site_paths() != nullptr) {
-      out->receiver.co_site_paths.reserve(receiver->co_site_paths()->size());
-      for (const cfb::RirCoSiteIsolationPath* path : *receiver->co_site_paths()) {
-        if (path == nullptr) {
-          continue;
-        }
-        out->receiver.co_site_paths.push_back(oneq::electromagnetics::RfCoSiteIsolationPath(
-            path->transmitter_equipment_id(), path->receiver_equipment_id(),
-            path->isolation_db()));
-      }
-    }
   }
   if (value->rcs_physics() != nullptr) {
     const cfb::RirRcsPhysicsConfig* rcs_physics = value->rcs_physics();
@@ -696,13 +657,11 @@ void DecodeHardwareConfig(const cfb::RirHardwareConfig* value, config::RirHardwa
 
 flatbuffers::Offset<cfb::RirMissionConfig> EncodeMissionConfig(
     flatbuffers::FlatBufferBuilder* builder, const config::RirMissionConfig& value) {
-  const flatbuffers::Offset<cfb::RirScanConfig> scan = cfb::CreateRirScanConfig(
-      *builder, static_cast<int>(value.scan.scan_start_position),
-      static_cast<int>(value.scan.scan_sequence), value.scan.step_scale);
-  return cfb::CreateRirMissionConfig(*builder, static_cast<int>(value.work_mode),
-                                     EncodeAzEl(builder, value.scan_center_deg),
-                                     value.max_range_m, value.recognition_dwell_sec, scan,
-                                     EncodeAzElLimits(builder, value.scan_window_deg));
+  return cfb::CreateRirMissionConfig(
+      *builder, static_cast<int>(value.work_mode), EncodeAzEl(builder, value.scan_center_deg),
+      value.max_range_m, value.recognition_dwell_sec,
+      static_cast<int>(value.scan_start_position), static_cast<int>(value.scan_sequence),
+      value.step_scale, EncodeAzElLimits(builder, value.scan_window_deg));
 }
 
 void DecodeMissionConfig(const cfb::RirMissionConfig* value, config::RirMissionConfig* out) {
@@ -713,13 +672,10 @@ void DecodeMissionConfig(const cfb::RirMissionConfig* value, config::RirMissionC
   DecodeAzEl(value->scan_center_deg(), &out->scan_center_deg);
   out->max_range_m = value->max_range_m();
   out->recognition_dwell_sec = value->recognition_dwell_sec();
-  if (value->scan() != nullptr) {
-    out->scan.scan_start_position =
-        static_cast<oneq::foundation::ScanStartPosition>(value->scan()->scan_start_position());
-    out->scan.scan_sequence =
-        static_cast<oneq::foundation::ScanSequence>(value->scan()->scan_sequence());
-    out->scan.step_scale = value->scan()->step_scale();
-  }
+  out->scan_start_position =
+      static_cast<oneq::foundation::ScanStartPosition>(value->scan_start_position());
+  out->scan_sequence = static_cast<oneq::foundation::ScanSequence>(value->scan_sequence());
+  out->step_scale = value->step_scale();
   // 任务扫描子窗（加性字段）：旧回放无此表时保留默认无界，语义不回归。
   if (value->scan_window_deg() != nullptr) {
     const cfb::RirAzimuthElevationLimitsDeg* window = value->scan_window_deg();
@@ -820,17 +776,14 @@ void DecodePolicyConfig(const cfb::RirPolicyConfig* value, config::RirPolicyConf
 
 flatbuffers::Offset<cfb::RirEnvironmentConfig> EncodeEnvironmentConfig(
     flatbuffers::FlatBufferBuilder* builder, const config::RirEnvironmentConfig& value) {
-  const flatbuffers::Offset<cfb::RirVegetationScatterPhysicsConfig> vegetation =
-      cfb::CreateRirVegetationScatterPhysicsConfig(
-          *builder, static_cast<int>(value.vegetation_scatter_physics.cover_profile),
-          value.vegetation_scatter_physics.enable_physical_model);
   const flatbuffers::Offset<cfb::RirAtmosphericObservation> atmospheric =
       cfb::CreateRirAtmosphericObservation(
           *builder, value.atmospheric_physics.enable_physical_model,
           value.atmospheric_physics.pressure_hpa, value.atmospheric_physics.temperature_k,
           value.atmospheric_physics.relative_humidity);
-  return cfb::CreateRirEnvironmentConfig(*builder, value.enable_environment_effects,
-                                         value.weather_attenuation_db, vegetation, atmospheric);
+  return cfb::CreateRirEnvironmentConfig(
+      *builder, value.weather_attenuation_db,
+      static_cast<int>(value.vegetation_cover_profile), atmospheric);
 }
 
 void DecodeEnvironmentConfig(const cfb::RirEnvironmentConfig* value,
@@ -838,15 +791,9 @@ void DecodeEnvironmentConfig(const cfb::RirEnvironmentConfig* value,
   if (value == nullptr) {
     return;
   }
-  out->enable_environment_effects = value->enable_environment_effects();
   out->weather_attenuation_db = value->weather_attenuation_db();
-  if (value->vegetation_scatter_physics() != nullptr) {
-    out->vegetation_scatter_physics.cover_profile =
-        static_cast<config::RirVegetationCoverProfile>(
-            value->vegetation_scatter_physics()->cover_profile());
-    out->vegetation_scatter_physics.enable_physical_model =
-        value->vegetation_scatter_physics()->enable_physical_model();
-  }
+  out->vegetation_cover_profile =
+      static_cast<config::RirVegetationCoverProfile>(value->vegetation_cover_profile());
   if (value->atmospheric_physics() != nullptr) {
     out->atmospheric_physics.enable_physical_model =
         value->atmospheric_physics()->enable_physical_model();
@@ -1118,14 +1065,8 @@ std::string EncodeRirSessionConfig(const config::RirSessionConfig& config) {
   flatbuffers::FlatBufferBuilder builder(1024);
   const flatbuffers::Offset<cfb::RirHardwareConfig> hardware =
       EncodeHardwareConfig(&builder, config.hardware);
-  const flatbuffers::Offset<cfb::RirOrientationConfig> orientation =
-      cfb::CreateRirOrientationConfig(
-          builder,
-          cfb::CreateRirAzimuthElevationLimitsDeg(
-              builder, config.orientation.steerable_volume_deg.az_min_deg,
-              config.orientation.steerable_volume_deg.az_max_deg,
-              config.orientation.steerable_volume_deg.el_min_deg,
-              config.orientation.steerable_volume_deg.el_max_deg));
+  const flatbuffers::Offset<cfb::RirAzimuthElevationLimitsDeg> orientation =
+      EncodeAzElLimits(&builder, config.orientation);
   const flatbuffers::Offset<cfb::RirMissionConfig> mission =
       EncodeMissionConfig(&builder, config.mission);
   const flatbuffers::Offset<cfb::RirPolicyConfig> policy =
@@ -1170,14 +1111,8 @@ bool DecodeRirSessionConfig(const std::string& payload_bytes, config::RirSession
   }
   config::RirSessionConfig candidate;
   DecodeHardwareConfig(root->hardware(), &candidate.hardware);
-  if (root->orientation() != nullptr &&
-      root->orientation()->steerable_volume_deg() != nullptr) {
-    const cfb::RirAzimuthElevationLimitsDeg* limits =
-        root->orientation()->steerable_volume_deg();
-    candidate.orientation.steerable_volume_deg.az_min_deg = limits->az_min_deg();
-    candidate.orientation.steerable_volume_deg.az_max_deg = limits->az_max_deg();
-    candidate.orientation.steerable_volume_deg.el_min_deg = limits->el_min_deg();
-    candidate.orientation.steerable_volume_deg.el_max_deg = limits->el_max_deg();
+  if (root->orientation() != nullptr) {
+    DecodeAzElLimits(root->orientation(), &candidate.orientation);
   }
   DecodeMissionConfig(root->mission(), &candidate.mission);
   DecodePolicyConfig(root->policy(), &candidate.policy);

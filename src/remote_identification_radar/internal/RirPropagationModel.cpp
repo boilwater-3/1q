@@ -32,10 +32,12 @@ oneq::common::radar::VegetationCoverProfile ToCommonProfile(
 }
 
 oneq::common::radar::VegetationScatterPhysicsConfig ToCommonConfig(
-    const config::RirVegetationScatterPhysicsConfig& config) {
+    config::RirVegetationCoverProfile profile) {
   oneq::common::radar::VegetationScatterPhysicsConfig common_config;
-  common_config.cover_profile = ToCommonProfile(config.cover_profile);
-  common_config.enable_physical_model = config.enable_physical_model;
+  common_config.cover_profile = ToCommonProfile(profile);
+  // 档位非 kDisabled 即启用植被物理；与公开配置的单一开关语义对齐。
+  common_config.enable_physical_model =
+      profile != config::RirVegetationCoverProfile::kDisabled;
   return common_config;
 }
 
@@ -45,7 +47,7 @@ RirPropagationResult RirPropagationModel::Evaluate(
     const RirEnvironmentSceneState& scene_state) const {
   const oneq::common::radar::PropagationClutterResult common_result =
       oneq::common::radar::EvaluatePropagationClutter(
-          ToCommonConfig(scene_state.vegetation_scatter_physics));
+          ToCommonConfig(scene_state.vegetation_cover_profile));
   RirPropagationResult result;
   result.propagation_loss_db = common_result.propagation_loss_db;
   result.clutter_power_db = common_result.clutter_power_db;

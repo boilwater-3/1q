@@ -173,7 +173,7 @@ void AppOutputs::RecordRirSite(
         "az_min_deg,az_max_deg,el_min_deg,el_max_deg,max_range_m,"
         "scan_win_az_min_deg,scan_win_az_max_deg,scan_win_el_min_deg,scan_win_el_max_deg"));
   }
-  const auto& volume = rir_config.orientation.steerable_volume_deg;
+  const auto& volume = rir_config.orientation;
   const auto& mission = rir_config.mission;
   // 硬件最大可扫描体积（az/el 限位）+ 任务扫描子窗（用户指定作战搜索扇区，相对
   // scan_center 的 az、绝对 el）：查看器据此画「最大扇面」与「任务扇面」两个区域。

@@ -1,12 +1,6 @@
 ﻿/**
  * @file RirFeatureMeasurementTypes.h
  * @brief 特征量测帧公开类型（双产品出口①）。
- *
- * 冻结契约：docs/review/rir_dual_product_stage_a_2026-08-18.md §3.1。
- * 仿真保真度语义（RIR-OQ-1）：特征量测为"场景真值特征经效能约束
- * （SNR/视角覆盖/带宽/驻留）转换的仿真量测"，不是加噪量测——角度无噪声、
- * RCS 均值无偏（std_db 为 SNR 推定不确定度）；不得当作统计真实量测使用。
- * 保真度升级（特征物理化）为独立后续冻结项。
  */
 
 #ifndef ONEQ_REMOTE_IDENTIFICATION_RADAR_SESSION_RIR_FEATURE_MEASUREMENT_TYPES_H_
@@ -86,11 +80,7 @@ struct ONEQ_API RirFeatureObservations {
 };
 
 /**
- * @brief RirFeatureMeasurementRecord 单周期单航迹特征量测记录（出口①）。
- * @note 只携带库内键（association_key），不携带场景真值标识（去真值化纪律，
- *       契约规则 5）；真值映射见结果层 RirTrackAttributionRecord。
- * @note look_az_deg 为雷达局部 ENU 方位角，自 +x（东）起量——与 fusion 侧
- *       自北约定不同，跨系换算归 fusion 适配器（east→north）。
+ * @brief RirFeatureMeasurementRecord 单周期单航迹特征量测记录
  */
 struct ONEQ_API RirFeatureMeasurementRecord {
   std::uint64_t association_key{0U}; /**< RIR 内部航迹关联键（库内键透传）。 */

@@ -44,13 +44,8 @@ bool TryResolveEcefBoresight(const RirRfCycleInput& input,
 }  // namespace
 
 double RirEmissionFactory::ResolveCarrierHz(
-    const config::hardware::RirTransmitterConfig& transmitter, std::uint32_t cycle_index) {
-  if (transmitter.frequency_plan_hz.empty()) {
-    return static_cast<double>(transmitter.frequency_hz);
-  }
-  const std::size_t index =
-      static_cast<std::size_t>(cycle_index) % transmitter.frequency_plan_hz.size();
-  return transmitter.frequency_plan_hz[index];
+    const config::hardware::RirTransmitterConfig& transmitter, std::uint32_t /*cycle_index*/) {
+  return static_cast<double>(transmitter.frequency_hz);
 }
 
 bool RirEmissionFactory::TryBuildEmission(
@@ -76,21 +71,14 @@ bool RirEmissionFactory::TryBuildEmission(
   emission->antenna.peak_gain_dbi = static_cast<double>(antenna.main_beam_gain_db);
   emission->antenna.half_power_beamwidth_deg = static_cast<double>(
       std::max(antenna.nominal_az_beamwidth_deg, antenna.nominal_el_beamwidth_deg));
-  emission->antenna.sidelobe_level_db = static_cast<double>(antenna.pattern.max_sidelobe_level_db);
-  emission->antenna.backlobe_level_db = static_cast<double>(antenna.pattern.backlobe_level_db);
+  emission->antenna.sidelobe_level_db = static_cast<double>(antenna.max_sidelobe_level_db);
+  emission->antenna.backlobe_level_db = static_cast<double>(antenna.backlobe_level_db);
   emission->antenna.cross_polarization_isolation_db =
       static_cast<double>(receiver.cross_polarization_isolation_db);
   emission->polarization = receiver.scene_polarization;
 
-  const double requested_peak_power_w = static_cast<double>(transmitter.peak_power_w);
-  const double energy_limited_peak_power_w =
-      static_cast<double>(transmitter.maximum_pulse_energy_j) /
-      static_cast<double>(transmitter.pulse_width_s);
-  const double actual_peak_power_w =
-      std::min({requested_peak_power_w, static_cast<double>(transmitter.maximum_peak_power_w),
-                energy_limited_peak_power_w});
   const double radiated_peak_power_w =
-      actual_peak_power_w *
+      static_cast<double>(transmitter.peak_power_w) *
       std::pow(10.0, -static_cast<double>(transmitter.transmit_loss_db) / 10.0);
   return oneq::electromagnetics::TryCreateRfPulseTrainWaveform(
       input.window_start_time_s, carrier_hz, static_cast<double>(transmitter.bandwidth_hz),

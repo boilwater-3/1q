@@ -783,8 +783,7 @@ bool TryExportRirAntennaPatternCsv(const config::hardware::RirAntennaConfig& ant
       offset.delta_az_deg = az;
       offset.delta_el_deg = el;
       const dwell::RirAntennaPatternSample sample = dwell::RirEvaluateAntennaPattern(
-          antenna.main_beam_gain_db, antenna.pattern, beamwidth, offset, pointing,
-          antenna.antenna_length_m, antenna.antenna_width_m, 0.0f);
+          antenna, beamwidth, offset, pointing, 0.0f);
       out << FormatF(az, 2) << "," << FormatF(el, 2) << "," << FormatF(sample.gain_dbi, 3) << "\n";
     }
   }

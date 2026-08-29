@@ -92,20 +92,18 @@ TEST(RirSessionConfigValidationTest, DefaultProfileGainWithinTolerance) {
 
 TEST(RirSessionConfigValidationTest, ValidatesTransmitterEnvelopeAndIdentity) {
   RirSessionConfig session_config;
-  session_config.hardware.transmitter.frequency_plan_hz = {3.0e9, 3.1e9};
-  EXPECT_FALSE(HasCode(ValidateRirSessionConfig(session_config),
-                        session::codes::kFrequencyPlanInvalid));
-
-  session_config.hardware.transmitter.frequency_plan_hz = {3.1e9};
-  EXPECT_TRUE(HasCode(ValidateRirSessionConfig(session_config),
-                       session::codes::kFrequencyPlanInvalid));
-
-  session_config.hardware.transmitter.frequency_plan_hz = {3.0e9};
-  session_config.hardware.transmitter.maximum_peak_power_w = 5.0e5f;
+  session_config.hardware.transmitter.peak_power_w = -1.0f;
   EXPECT_TRUE(HasCode(ValidateRirSessionConfig(session_config),
                        session::codes::kTransmitterOperatingEnvelopeInvalid));
 
-  session_config.hardware.transmitter.maximum_peak_power_w = 1.2e6f;
+  session_config.hardware.transmitter.peak_power_w = 1.0e6f;
+  session_config.hardware.transmitter.pulse_width_s = 1.0f;
+  session_config.hardware.transmitter.prf_hz = 2.0f;  // duty = 2 > 1
+  EXPECT_TRUE(HasCode(ValidateRirSessionConfig(session_config),
+                       session::codes::kTransmitterOperatingEnvelopeInvalid));
+
+  session_config.hardware.transmitter.pulse_width_s = 13e-6f;
+  session_config.hardware.transmitter.prf_hz = 300.0f;
   session_config.hardware.receiver.equipment_id =
       session_config.hardware.transmitter.equipment_id;
   EXPECT_TRUE(HasCode(ValidateRirSessionConfig(session_config),

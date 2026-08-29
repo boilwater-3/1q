@@ -85,7 +85,6 @@ RirSceneTarget MakeFeaturedTarget() {
   target.position_z = 2000.0f;
   target.velocity_x = 100.0f;
   target.rcs = 5.0f;
-  target.range_m = std::sqrt(5000.0f * 5000.0f + 2000.0f * 2000.0f);
   // 视角网格覆盖 (az=0, el≈21.8°)，RCS 恒为 -3 dBsm。
   for (float az = -5.0f; az <= 5.0f; az += 5.0f) {
     for (float el = 5.0f; el <= 30.0f; el += 10.0f) {
@@ -164,7 +163,10 @@ TEST(RirFeatureMeasurementTest, RecordCarriesObservationGeometryAndContext) {
   const RirSceneTarget target = MakeFeaturedTarget();
   EXPECT_NEAR(record.look_az_deg, 0.0f, 1.0e-3f);
   EXPECT_NEAR(record.look_el_deg, std::atan2(2000.0f, 5000.0f) * 180.0f / kPi, 1.0e-3f);
-  EXPECT_FLOAT_EQ(record.range_m, target.range_m);
+  EXPECT_FLOAT_EQ(record.range_m,
+                std::sqrt(target.position_x * target.position_x +
+                          target.position_y * target.position_y +
+                          target.position_z * target.position_z));
 
   // 效能上下文：驻留与带宽来自任务/硬件缺省（0.05 s / 4.5 MHz）。
   EXPECT_FLOAT_EQ(record.dwell_sec, 0.05f);
@@ -248,7 +250,6 @@ TEST(RirFeatureMeasurementTest, FeaturelessTargetProducesNoRecord) {
   target.position_x = 5000.0f;
   target.position_z = 2000.0f;
   target.rcs = 5.0f;
-  target.range_m = 5385.1648f;
 
   session::RirOutputFrame frame;
   controller.RunCycle(MakeInput(1U, target), &frame, 1U);

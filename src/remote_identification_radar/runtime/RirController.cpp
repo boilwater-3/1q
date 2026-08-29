@@ -65,11 +65,7 @@ internal::RirSwerlingModel ToInternalSwerling(session::RirSwerlingType type) {
 }
 
 Eigen::Vector3f PositionOf(const session::RirSceneTarget& target) {
-  const Eigen::Vector3f position(target.position_x, target.position_y, target.position_z);
-  if (position.squaredNorm() > 0.0f) {
-    return position;
-  }
-  return Eigen::Vector3f(target.range_m, 0.0f, 0.0f);
+  return Eigen::Vector3f(target.position_x, target.position_y, target.position_z);
 }
 
 /** @brief 内部航迹生命周期状态 → 公开枚举镜像（归属记录透出，观测投影消费）。 */
@@ -290,16 +286,17 @@ void RirController::UpdateEnvironment(const config::RirEnvironmentConfig& enviro
 }
 
 void RirController::ResolveEnvironment(float* propagation_loss_db, float* clutter_power_w) const {
-  *propagation_loss_db = 0.0f;
+  // weather_attenuation_db == 0 表示无天气附加损耗。
+  *propagation_loss_db = environment_.weather_attenuation_db;
   *clutter_power_w = 0.0f;
-  if (!environment_.enable_environment_effects) {
+  if (environment_.vegetation_cover_profile ==
+      config::RirVegetationCoverProfile::kDisabled) {
     return;
   }
   internal::RirEnvironmentSceneState scene_state;
-  scene_state.vegetation_scatter_physics = environment_.vegetation_scatter_physics;
+  scene_state.vegetation_cover_profile = environment_.vegetation_cover_profile;
   const internal::RirPropagationResult propagation = propagation_model_.Evaluate(scene_state);
-  *propagation_loss_db =
-      propagation.propagation_loss_db + environment_.weather_attenuation_db;
+  *propagation_loss_db += propagation.propagation_loss_db;
   // clutter_power_db 是相对热噪底的 dB（CNR 口径，与 AR 同口径单源换算），
   // 不得解释为绝对 dBW。
   const float thermal_noise_w = internal::RirRadarEquations::ComputeThermalNoisePower_W(
@@ -332,7 +329,7 @@ void RirController::ComputeLookAngles(const session::RirSceneTarget& target, flo
   const float range_hypot = std::sqrt(position.x() * position.x() + position.y() * position.y());
   *look_az_deg = oneq::common::numerics::RadToDeg(std::atan2(position.y(), position.x()));
   *look_el_deg = oneq::common::numerics::RadToDeg(std::atan2(position.z(), range_hypot));
-  *slant_range_m = target.range_m > 0.0f ? target.range_m : position.norm();
+  *slant_range_m = position.norm();
 }
 
 void RirController::LookAnglesFromPosition(const Eigen::Vector3f& position, float* look_az_deg,
@@ -491,8 +488,8 @@ bool RirController::TryBuildMeasurement(
   float slant_range_m = 0.0f;
   ComputeLookAngles(target, &look_az_deg, &look_el_deg, &slant_range_m);
 
-  // 与 AR TargetLookResolver 同口径：位置范数 ≤0.1 m 时视线角无效（range_m 兜底
-  // 得到的 az=0/el=0 不是真实视线）→ 方向图增益回退主瓣峰值，而非按兜底角离轴衰减。
+  // 与 AR TargetLookResolver 同口径：位置范数 ≤0.1 m 时视线角无效
+  // （零位附近 az/el 不稳定）→ 方向图增益回退主瓣峰值。
   const Eigen::Vector3f raw_position(target.position_x, target.position_y, target.position_z);
   const bool has_look_angles = raw_position.norm() > 0.1f;
   const float carrier_hz =
@@ -917,8 +914,8 @@ void RirController::RunCycle(const session::RirCycleInput& input,
             session::RirIssueCause::kNone, i));
         continue;
       }
-      // 退化判定与 TryBuildMeasurement 同口径（按原始位置范数，PositionOf 的
-      // range_m 兜底角不是真实视线）；主瓣覆盖门在逐驻留循环内判定。
+      // 退化判定与 TryBuildMeasurement 同口径（按原始位置范数）；
+      // 主瓣覆盖门在逐驻留循环内判定。
       const Eigen::Vector3f gate_position(target.position_x, target.position_y,
                                           target.position_z);
       slant_by_target_id[target.external_target_id] = slant_range_m;
@@ -941,10 +938,8 @@ void RirController::RunCycle(const session::RirCycleInput& input,
           if (lhs_rank != rhs_rank) {
             return lhs_rank < rhs_rank;
           }
-          const float lhs_range =
-              lhs_target.range_m > 0.0f ? lhs_target.range_m : PositionOf(lhs_target).norm();
-          const float rhs_range =
-              rhs_target.range_m > 0.0f ? rhs_target.range_m : PositionOf(rhs_target).norm();
+          const float lhs_range = PositionOf(lhs_target).norm();
+          const float rhs_range = PositionOf(rhs_target).norm();
           return lhs_range < rhs_range;
         });
 

@@ -308,7 +308,6 @@ table RirSceneTarget {
   velocity_y:float;
   velocity_z:float;
   rcs:float;
-  range_m:float;
   target_swerling_type:ubyte;  // RirSwerlingType（0-4）
   aspect_rcs_samples:[RirAspectRcsSample];
   polarization_rcs_samples:[RirPolarizationRcsSample];

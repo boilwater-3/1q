@@ -52,7 +52,6 @@ RirSceneTarget MakeDetectableTarget(std::uint64_t id, const char* name) {
   target.position_x = 5000.0f;
   target.position_z = 2000.0f;
   target.rcs = 5.0f;
-  target.range_m = std::sqrt(5000.0f * 5000.0f + 2000.0f * 2000.0f);
   return target;
 }
 
@@ -63,7 +62,6 @@ RirSceneTarget MakeUndetectableTarget(std::uint64_t id) {
   target.position_x = 300000.0f;
   target.position_z = 2000.0f;
   target.rcs = 0.01f;
-  target.range_m = 300000.0f;
   return target;
 }
 

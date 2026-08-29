@@ -48,9 +48,14 @@
 
 ### 物理链路提示
 
-AR 始终使用物理探测链。`airborne_radar.json` / `remote_identification_radar.json`
-默认开启 `rcs_physics.enable_physical_rcs`，并将 `physics_mix_ratio` 设为 `1.0`
+AR 始终使用物理探测链。`airborne_radar.json` 默认开启
+`rcs_physics.enable_physical_rcs`，并将 `physics_mix_ratio` 设为 `1.0`
 （完全物理估计：有效 RCS 随视线角与载频变化，不是扫描参数）。
+
+RIR 的 `remote_identification_radar.json` 默认**关闭**
+`rcs_physics.enable_physical_rcs`（2026-08-29 审计裁定）：探测 RCS 用场景声明值，
+与设计 SNR 表对账口径一致；需要视角相关 RCS 行为的场景显式开启（开启后探测 RCS
+不再等于声明值，见 docs/review/rir_ballistic_scene_log_audit_2026-08-29.md A2）。
 
 `sar.json` 的 `sample_rate_hz`、`pulse_width_s` 与 `range_sample_count` 必须满足
 `ceil(pulse_width_s * sample_rate_hz) <= range_sample_count`。当前示例配置已按

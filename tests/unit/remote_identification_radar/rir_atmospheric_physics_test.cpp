@@ -108,7 +108,6 @@ RirSceneTarget MakeFeaturedTarget() {
   target.position_z = 2000.0f;
   target.velocity_x = 100.0f;
   target.rcs = 5.0f;
-  target.range_m = std::sqrt(5000.0f * 5000.0f + 2000.0f * 2000.0f);
   for (float az = -5.0f; az <= 5.0f; az += 5.0f) {
     for (float el = 5.0f; el <= 30.0f; el += 10.0f) {
       session::RirAspectRcsSample aspect;
@@ -187,13 +186,14 @@ TEST(RirAtmosphericPhysicsTest, AtmosphericLossLowersSnrWhenEnabled) {
   // 基线：环境效果全关（默认）。
   const float snr_env_off = RunCycleSnrDb(nullptr, database_path);
 
-  // 环境效果开、大气物理关：只有植被基线（6.5 dB 损耗 + 3 dB 杂波）。
+  // 植被档开启、大气物理关：传播/杂波路径生效。
   config::RirEnvironmentConfig env_without_atmosphere;
-  env_without_atmosphere.enable_environment_effects = true;
+  env_without_atmosphere.vegetation_cover_profile =
+      config::RirVegetationCoverProfile::kOpenGrassland;
   const float snr_env_on_atmosphere_off =
       RunCycleSnrDb(&env_without_atmosphere, database_path);
 
-  // 环境效果开、大气物理开（湿热大气）：在植被基线之上再叠加逐目标大气损耗。
+  // 植被档开启、大气物理开（湿热大气）：在植被路径之上再叠加逐目标大气损耗。
   config::RirEnvironmentConfig env_with_atmosphere = env_without_atmosphere;
   env_with_atmosphere.atmospheric_physics.enable_physical_model = true;
   env_with_atmosphere.atmospheric_physics.pressure_hpa = 950.0f;

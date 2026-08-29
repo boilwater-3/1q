@@ -31,12 +31,6 @@ table RirAzimuthElevationLimitsDeg {
 
 // ---- hardware 域 ----
 
-table RirCoSiteIsolationPath {
-  transmitter_equipment_id:ulong;
-  receiver_equipment_id:ulong;
-  isolation_db:double;
-}
-
 table RirTransmitterConfig {
   equipment_id:ulong;
   peak_power_w:float;
@@ -45,19 +39,6 @@ table RirTransmitterConfig {
   pulse_width_s:float;
   prf_hz:float;
   transmit_loss_db:float;
-  maximum_peak_power_w:float;
-  maximum_duty_cycle:float;
-  maximum_pulse_energy_j:float;
-  frequency_plan_hz:[double];
-}
-
-table RirAntennaPatternConfig {
-  model_type:int;  // RirAntennaPatternModelType
-  max_sidelobe_level_db:float;
-  backlobe_level_db:float;
-  scan_loss_coeff_db_per_deg2:float;
-  max_scan_loss_db:float;
-  boresight_offset_deg:RirAzimuthElevationDeg;
 }
 
 table RirAntennaConfig {
@@ -66,7 +47,12 @@ table RirAntennaConfig {
   nominal_el_beamwidth_deg:float;
   antenna_length_m:float;
   antenna_width_m:float;
-  pattern:RirAntennaPatternConfig;
+  model_type:int;  // RirAntennaPatternModelType
+  max_sidelobe_level_db:float;
+  backlobe_level_db:float;
+  scan_loss_coeff_db_per_deg2:float;
+  max_scan_loss_db:float;
+  boresight_offset_deg:RirAzimuthElevationDeg;
 }
 
 table RirReceiverConfig {
@@ -74,14 +60,9 @@ table RirReceiverConfig {
   noise_figure_db:float;
   receive_loss_db:float;
   cross_polarization_isolation_db:float;
-  minimum_far_field_range_m:float;
-  has_co_site_isolation:bool;
-  co_site_isolation_db:float;
   maximum_linear_input_power_w:float;
-  preselector_bandwidth_hz:float;
   interference_observation_jn_gate_db:float;
   scene_polarization:int;  // oneq::electromagnetics::RfScenePolarization
-  co_site_paths:[RirCoSiteIsolationPath];
 }
 
 table RirRcsPhysicsConfig {
@@ -111,25 +92,18 @@ table RirHardwareConfig {
 }
 
 // ---- orientation 域 ----
-
-table RirOrientationConfig {
-  steerable_volume_deg:RirAzimuthElevationLimitsDeg;
-}
+// 直接为可扫描体积限位（阵面相对 az、绝对 el）；无额外外壳表。
 
 // ---- mission 域 ----
-
-table RirScanConfig {
-  scan_start_position:int;  // oneq::foundation::ScanStartPosition
-  scan_sequence:int;        // oneq::foundation::ScanSequence
-  step_scale:float;
-}
 
 table RirMissionConfig {
   work_mode:int;  // RirWorkMode
   scan_center_deg:RirAzimuthElevationDeg;
   max_range_m:float;
   recognition_dwell_sec:float;
-  scan:RirScanConfig;
+  scan_start_position:int;  // oneq::foundation::ScanStartPosition
+  scan_sequence:int;        // oneq::foundation::ScanSequence
+  step_scale:float;
   scan_window_deg:RirAzimuthElevationLimitsDeg;  // 任务扫描子窗（缺省无界=不收窄）
 }
 
@@ -197,15 +171,9 @@ table RirAtmosphericObservation {
   relative_humidity:float;
 }
 
-table RirVegetationScatterPhysicsConfig {
-  cover_profile:int;  // RirVegetationCoverProfile
-  enable_physical_model:bool;
-}
-
 table RirEnvironmentConfig {
-  enable_environment_effects:bool;
   weather_attenuation_db:float;
-  vegetation_scatter_physics:RirVegetationScatterPhysicsConfig;
+  vegetation_cover_profile:int;  // RirVegetationCoverProfile；kDisabled=0 表示关闭
   atmospheric_physics:RirAtmosphericObservation;
 }
 
@@ -213,7 +181,7 @@ table RirEnvironmentConfig {
 
 table RirSessionConfig {
   hardware:RirHardwareConfig;
-  orientation:RirOrientationConfig;
+  orientation:RirAzimuthElevationLimitsDeg;
   mission:RirMissionConfig;
   policy:RirPolicyConfig;
   environment:RirEnvironmentConfig;

@@ -33,10 +33,10 @@ TEST(RirConfigLoaderTest, LoadsDeliveredSessionJson) {
   EXPECT_EQ(config.policy.recognition.database_path,
             "remote_identification_radar/target_feature_database_v1.1.db");
   EXPECT_TRUE(config.sensor_enabled);
-  EXPECT_FLOAT_EQ(config.orientation.steerable_volume_deg.az_min_deg, -110.0f);
-  EXPECT_FLOAT_EQ(config.orientation.steerable_volume_deg.az_max_deg, 110.0f);
-  EXPECT_FLOAT_EQ(config.orientation.steerable_volume_deg.el_min_deg, 2.0f);
-  EXPECT_FLOAT_EQ(config.orientation.steerable_volume_deg.el_max_deg, 85.0f);
+  EXPECT_FLOAT_EQ(config.orientation.az_min_deg, -110.0f);
+  EXPECT_FLOAT_EQ(config.orientation.az_max_deg, 110.0f);
+  EXPECT_FLOAT_EQ(config.orientation.el_min_deg, 2.0f);
+  EXPECT_FLOAT_EQ(config.orientation.el_max_deg, 85.0f);
   EXPECT_FLOAT_EQ(config.mission.scan_center_deg.az_deg, 0.0f);
   EXPECT_FLOAT_EQ(config.mission.scan_center_deg.el_deg, 0.0f);
 }

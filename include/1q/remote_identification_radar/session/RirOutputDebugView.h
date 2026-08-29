@@ -2,10 +2,7 @@
  * @file RirOutputDebugView.h
  * @brief 远程识别雷达目标输出调试视图类型集合。
  *
- * 目标输出调试视图（开发可读逐目标状态合成）的主头文件。观测投影契约见
- * docs/review/rir_observability_projections_freeze_2026-08-21.md §3.2：
- * 按输入场景目标表顺序逐行合成（含本周期无航迹的目标），消费信封归属对照
- * 与识别结论，不回流产品帧。
+ * 目标输出调试视图（开发可读逐目标状态合成）
  */
 
 #ifndef ONEQ_REMOTE_IDENTIFICATION_RADAR_SESSION_RIR_OUTPUT_DEBUG_VIEW_H_

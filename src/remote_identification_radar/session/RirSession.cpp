@@ -126,16 +126,11 @@ const session::RirSceneTarget* FindSceneTarget(const session::RirSceneTargetList
   return nullptr;
 }
 
-/** @brief 目标视线角（与 RirController::ComputeLookAngles 同口径；位置退化用 range_m）。 */
+/** @brief 目标视线角（与 RirController::ComputeLookAngles 同口径）。 */
 config::RirAzimuthElevationDeg TargetLookAngles(const session::RirSceneTarget& target) {
-  float px = target.position_x;
-  float py = target.position_y;
-  float pz = target.position_z;
-  if (std::sqrt(px * px + py * py + pz * pz) <= 0.0f) {
-    px = target.range_m;
-    py = 0.0f;
-    pz = 0.0f;
-  }
+  const float px = target.position_x;
+  const float py = target.position_y;
+  const float pz = target.position_z;
   const float range_hypot = std::sqrt(px * px + py * py);
   config::RirAzimuthElevationDeg look;
   look.az_deg = oneq::common::numerics::RadToDeg(std::atan2(py, px));
@@ -150,17 +145,17 @@ std::vector<oneq::common::radar::AzimuthElevationDeg> BuildAbsoluteScanWaves(
     const config::RirSessionConfig& config) {
   const dwell::RirEffectiveBeamwidthDeg beamwidth =
       dwell::RirResolveEffectiveBeamwidth(config.hardware.antenna);
-  const config::RirScanConfig& scan = config.mission.scan;
+  const config::RirMissionConfig& mission = config.mission;
   // 实际搜索扇区 = 任务扫描子窗 ∩ 硬件可扫描体积（子窗缺省无界时退化为体积）：
   // 扫描波位仅在该扇区内推进（甲方「任务范围由用户指定」）。
   const config::RirAzimuthElevationLimitsDeg sector = internal::IntersectScanSector(
-      config.mission.scan_window_deg, config.orientation.steerable_volume_deg);
-  const float az_step = beamwidth.az_beamwidth_deg * scan.step_scale;
-  const float el_step = beamwidth.el_beamwidth_deg * scan.step_scale;
+      mission.scan_window_deg, config.orientation);
+  const float az_step = beamwidth.az_beamwidth_deg * mission.step_scale;
+  const float el_step = beamwidth.el_beamwidth_deg * mission.step_scale;
   const std::vector<oneq::common::radar::AzimuthElevationDeg> relative_pattern =
       oneq::common::radar::BuildScanPattern(
           sector.az_min_deg, sector.az_max_deg, sector.el_min_deg, sector.el_max_deg, az_step,
-          el_step, scan.scan_start_position, scan.scan_sequence);
+          el_step, mission.scan_start_position, mission.scan_sequence);
   std::vector<oneq::common::radar::AzimuthElevationDeg> absolute_pattern;
   absolute_pattern.reserve(relative_pattern.size());
   const config::RirAzimuthElevationDeg& center = config.mission.scan_center_deg;
@@ -341,7 +336,7 @@ RirCycleResult RirSession::Impl::RunCycle(const RirCycleInput& input) {
   const bool target_in_volume =
       target_in_scene &&
       internal::TargetWithinSteerableVolume(TargetLookAngles(*designated_target),
-                                            config.orientation.steerable_volume_deg,
+                                            config.orientation,
                                             config.mission.scan_center_deg);
   const bool dwelling_on_target =
       advance.phase == RirDesignationPhase::kPending && target_in_volume;
@@ -423,7 +418,7 @@ RirCycleResult RirSession::Impl::RunCycle(const RirCycleInput& input) {
   // （2026-08-22 甲方批注「设定方位俯仰进行扫描」+「任务范围由用户指定」；
   // 2026-08-29 TAS 跟踪连续性豁免）。
   controller.RunCycle(input, &result.output_frame, next_batch_id, dwell_plan,
-                      config.orientation.steerable_volume_deg, config.mission.scan_center_deg,
+                      config.orientation, config.mission.scan_center_deg,
                       config.mission.scan_window_deg, designated_external_target_id);
   result.status = RirCycleStatus::kCompleted;
   result.abort_reason = RirCycleAbortReason::kNone;

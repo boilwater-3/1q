@@ -1,10 +1,9 @@
 ﻿/**
  * @file RirExclusionCauseRecorder.h
- * @brief 远程识别雷达排除原因跨周期差分记录器（规则 13b 排除诊断的差分观测）。
+ * @brief 远程识别雷达排除原因跨周期差分记录器。
  *
  * 对持续被排除的目标，当其排除原因（code + cause 组合对）跨周期变化时产生结构化事件，
  * 与既有航迹生命周期事件并列（独立 recorder、独立 `GetLastEvents()` 通道）。
- * 观测投影契约见 docs/review/rir_observability_projections_freeze_2026-08-21.md §3.4。
  */
 
 #ifndef ONEQ_REMOTE_IDENTIFICATION_RADAR_SESSION_RIR_EXCLUSION_CAUSE_RECORDER_H_
@@ -50,23 +49,7 @@ struct ONEQ_API RirExclusionCauseEvent {
   RirIssueCause current_cause{RirIssueCause::kNone};  /**< 本执行周期排除主因 */
 };
 
-/**
- * @brief 排除原因跨周期差分记录器。
- *
- * 转换检测状态机（非数据存储）：累积状态刻意最小化为每目标上一执行周期的
- * (code,cause) 组合对（无条目 = 上周未被排除）。非 completed 周期不产生事件，
- * 也不推进记录器状态（与既有 `RirTrackLifecycleRecorder` 语义一致）。
- *
- * 差分键为 (code,cause) 组合对（而非纯 cause）：避免"同为 kNone 的具体门切换
- * 盲区"（RIR 多门：检测门/识别距离门/模式门/特征库门）。
- *
- * 纯观测：只读 `result.issues`（按 `location.kind == kSceneEntity` 关联目标），
- * 不改变 `*CycleStatus`、排除诊断、DebugView 状态语义（规则 13c 边界延续）。
- * 私有状态（含 unordered_map）与判定逻辑见 .cpp，避免在 public header 暴露实现细节。
- *
- * @note 单目标单周期多条排除 issue 的假设：RIR 执行链每目标每周期至多落一条
- *       排除诊断（链上第一门优先），取按 location 命中的第一条。
- */
+/** @brief 排除原因跨周期差分记录器。 */
 class ONEQ_API RirExclusionCauseRecorder {
  public:
   RirExclusionCauseRecorder();

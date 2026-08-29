@@ -53,7 +53,6 @@ RirSceneTarget MakeTarget(std::uint64_t id) {
   target.position_x = 10000.0f;
   target.position_z = 2000.0f;
   target.rcs = 0.5f;
-  target.range_m = std::sqrt(10000.0f * 10000.0f + 2000.0f * 2000.0f);
   return target;
 }
 
@@ -111,7 +110,7 @@ TEST(RirSearchSectorTest, InVolumeTargetIsDetected) {
 TEST(RirSearchSectorTest, ElevationOutsideVolumeIsExcluded) {
   const RirSceneTarget target = MakeTarget(9002U);  // el≈11.3°
   config::RirSessionConfig config = MakeIdentifyConfig();
-  config.orientation.steerable_volume_deg.el_max_deg = 5.0f;  // 目标俯仰出界
+  config.orientation.el_max_deg = 5.0f;  // 目标俯仰出界
   RirSession session = RirSession::Create(config);
   for (std::uint32_t cycle = 1U; cycle <= 6U; ++cycle) {
     const RirCycleResult result = session.StepWithResult(MakeInput(cycle, {target}));
@@ -128,8 +127,8 @@ TEST(RirSearchSectorTest, ElevationOutsideVolumeIsExcluded) {
 TEST(RirSearchSectorTest, AzimuthOutsideVolumeIsExcluded) {
   const RirSceneTarget target = MakeTarget(9003U);  // az=0°
   config::RirSessionConfig config = MakeIdentifyConfig();
-  config.orientation.steerable_volume_deg.az_min_deg = 30.0f;  // 窗口 [30,60]：目标出界
-  config.orientation.steerable_volume_deg.az_max_deg = 60.0f;
+  config.orientation.az_min_deg = 30.0f;  // 窗口 [30,60]：目标出界
+  config.orientation.az_max_deg = 60.0f;
   RirSession session = RirSession::Create(config);
   for (std::uint32_t cycle = 1U; cycle <= 6U; ++cycle) {
     const RirCycleResult result = session.StepWithResult(MakeInput(cycle, {target}));
@@ -146,8 +145,8 @@ TEST(RirSearchSectorTest, AzimuthOutsideVolumeIsExcluded) {
 TEST(RirSearchSectorTest, RuntimeScanCenterMovesWindow) {
   const RirSceneTarget target = MakeTarget(9004U);  // az=0°
   config::RirSessionConfig config = MakeIdentifyConfig();
-  config.orientation.steerable_volume_deg.az_min_deg = -10.0f;
-  config.orientation.steerable_volume_deg.az_max_deg = 10.0f;
+  config.orientation.az_min_deg = -10.0f;
+  config.orientation.az_max_deg = 10.0f;
   RirSession session = RirSession::Create(config);
 
   // 初始 scan_center az=90：目标相对方位 -90，出界。
@@ -182,7 +181,6 @@ TEST(RirSearchSectorTest, OutsideVolumeTargetCarriesExclusionIssue) {
   RirSceneTarget in_volume = MakeTarget(9005U);  // az=0°、el≈11.3°，默认体积内
   RirSceneTarget out_volume = MakeTarget(9006U);  // el=45°，出默认体积 el 上界 30°
   out_volume.position_z = 10000.0f;
-  out_volume.range_m = std::sqrt(10000.0f * 10000.0f + 10000.0f * 10000.0f);
   config::RirSessionConfig config = MakeIdentifyConfig();  // 默认体积 ±60/[-30,30]
   RirSession session = RirSession::Create(config);
   for (std::uint32_t cycle = 1U; cycle <= 3U; ++cycle) {
@@ -266,7 +264,11 @@ TEST(RirSearchSectorTest, MaxDetectedSlantRangeReflectsTrackedTarget) {
       observed_max = result.max_detected_slant_range_m;
     }
   }
-  EXPECT_NEAR(observed_max, target.range_m, 1.0f)
+  EXPECT_NEAR(observed_max,
+              std::sqrt(target.position_x * target.position_x +
+                        target.position_y * target.position_y +
+                        target.position_z * target.position_z),
+              1.0f)
       << "持航迹周期应回填目标输入几何斜距";
 
   // 无目标周期：无航迹，最大斜距回 0（区别于 max_range_m 粗筛门）。

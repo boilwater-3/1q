@@ -68,7 +68,7 @@ class RirUsMilitaryRecognitionScenarioTest : public ::testing::Test {
     cfg.hardware.antenna.main_beam_gain_db = 45.0f;
     // 波位步长与波束宽度解耦：步长=波束宽度×step_scale，不压小 step_scale
     // 的话 200° 波束会让波位表退化成 4 个角点（扫描覆盖名存实亡）。
-    cfg.mission.scan.step_scale = 0.02f;
+    cfg.mission.step_scale = 0.02f;
     cfg.policy.detection.gate_mode = config::RirDetectionGateMode::kSnrFallback;
     cfg.policy.recognition.enabled = true;
     cfg.policy.recognition.database_path = ONEQ_RIR_EXAMPLE_DATABASE_PATH;
@@ -80,12 +80,12 @@ class RirUsMilitaryRecognitionScenarioTest : public ::testing::Test {
     // 场景几何为近距高仰角（如战斗机 5 km 斜距 62° 仰角），超出默认可扫描体积
     // （el ±30°）会被体积裁剪正当排除（2026-08-22 起语义）。本测试聚焦识别链路，
     // 显式放宽体积；体积裁剪语义由库单测与场景级测试覆盖。
-    cfg.orientation.steerable_volume_deg.el_min_deg = -85.0f;
-    cfg.orientation.steerable_volume_deg.el_max_deg = 85.0f;
+    cfg.orientation.el_min_deg = -85.0f;
+    cfg.orientation.el_max_deg = 85.0f;
     // 方位体积同步收窄：波位表随体积生成，全向体积会让波位 0 远离目标
     // （方位差 180° 超出放宽后的主瓣覆盖门），目标永不被照到。
-    cfg.orientation.steerable_volume_deg.az_min_deg = -60.0f;
-    cfg.orientation.steerable_volume_deg.az_max_deg = 60.0f;
+    cfg.orientation.az_min_deg = -60.0f;
+    cfg.orientation.az_max_deg = 60.0f;
     return cfg;
   }
 
@@ -97,7 +97,6 @@ class RirUsMilitaryRecognitionScenarioTest : public ::testing::Test {
     target.position_x = 5000.0f + speed_mps * static_cast<float>(input->input_cycle_index - 1U) *
                                       static_cast<float>(input->dt_sec);
     target.position_z = altitude_offset_m;
-    target.range_m = 5000.0f + speed_mps * static_cast<float>(input->input_cycle_index - 1U) *
                                    static_cast<float>(input->dt_sec);
     target.rcs = 5.0f;
     // 视角网格（方位 ±5°，俯仰 5°~30°），RCS 恒为模板值。

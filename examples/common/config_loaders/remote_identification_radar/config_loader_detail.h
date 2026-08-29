@@ -33,44 +33,6 @@ inline void LoadRirTransmitter(const examples::JsonValue& j,
   if (j.Has("transmit_loss_db")) {
     v->transmit_loss_db = static_cast<float>(j["transmit_loss_db"].AsDouble());
   }
-  if (j.Has("maximum_peak_power_w")) {
-    v->maximum_peak_power_w = static_cast<float>(j["maximum_peak_power_w"].AsDouble());
-  }
-  if (j.Has("maximum_duty_cycle")) {
-    v->maximum_duty_cycle = static_cast<float>(j["maximum_duty_cycle"].AsDouble());
-  }
-  if (j.Has("maximum_pulse_energy_j")) {
-    v->maximum_pulse_energy_j = static_cast<float>(j["maximum_pulse_energy_j"].AsDouble());
-  }
-  const examples::JsonValue& plan = j["frequency_plan_hz"];
-  if (!plan.IsNull() && plan.type() == examples::JsonValue::kArray) {
-    v->frequency_plan_hz.clear();
-    for (std::size_t i = 0U; i < plan.Size(); ++i) {
-      v->frequency_plan_hz.push_back(plan[i].AsDouble());
-    }
-  }
-}
-
-inline void LoadRirAntennaPattern(const examples::JsonValue& j,
-                                  rir_cfg::hardware::RirAntennaPatternConfig* v) {
-  if (j.IsNull()) return;
-  if (j.Has("model_type")) {
-    v->model_type = RirAntennaPatternModelTypeFromString(j["model_type"].AsString());
-  }
-  if (j.Has("max_sidelobe_level_db")) {
-    v->max_sidelobe_level_db = static_cast<float>(j["max_sidelobe_level_db"].AsDouble());
-  }
-  if (j.Has("backlobe_level_db")) {
-    v->backlobe_level_db = static_cast<float>(j["backlobe_level_db"].AsDouble());
-  }
-  if (j.Has("scan_loss_coeff_db_per_deg2")) {
-    v->scan_loss_coeff_db_per_deg2 =
-        static_cast<float>(j["scan_loss_coeff_db_per_deg2"].AsDouble());
-  }
-  if (j.Has("max_scan_loss_db")) {
-    v->max_scan_loss_db = static_cast<float>(j["max_scan_loss_db"].AsDouble());
-  }
-  LoadRirAzEl(j["boresight_offset_deg"], &v->boresight_offset_deg);
 }
 
 inline void LoadRirAntenna(const examples::JsonValue& j, rir_cfg::hardware::RirAntennaConfig* v) {
@@ -90,7 +52,23 @@ inline void LoadRirAntenna(const examples::JsonValue& j, rir_cfg::hardware::RirA
   if (j.Has("antenna_width_m")) {
     v->antenna_width_m = static_cast<float>(j["antenna_width_m"].AsDouble());
   }
-  LoadRirAntennaPattern(j["pattern"], &v->pattern);
+  if (j.Has("model_type")) {
+    v->model_type = RirAntennaPatternModelTypeFromString(j["model_type"].AsString());
+  }
+  if (j.Has("max_sidelobe_level_db")) {
+    v->max_sidelobe_level_db = static_cast<float>(j["max_sidelobe_level_db"].AsDouble());
+  }
+  if (j.Has("backlobe_level_db")) {
+    v->backlobe_level_db = static_cast<float>(j["backlobe_level_db"].AsDouble());
+  }
+  if (j.Has("scan_loss_coeff_db_per_deg2")) {
+    v->scan_loss_coeff_db_per_deg2 =
+        static_cast<float>(j["scan_loss_coeff_db_per_deg2"].AsDouble());
+  }
+  if (j.Has("max_scan_loss_db")) {
+    v->max_scan_loss_db = static_cast<float>(j["max_scan_loss_db"].AsDouble());
+  }
+  LoadRirAzEl(j["boresight_offset_deg"], &v->boresight_offset_deg);
 }
 
 inline void LoadRirReceiver(const examples::JsonValue& j,
@@ -109,21 +87,9 @@ inline void LoadRirReceiver(const examples::JsonValue& j,
     v->cross_polarization_isolation_db =
         static_cast<float>(j["cross_polarization_isolation_db"].AsDouble());
   }
-  if (j.Has("minimum_far_field_range_m")) {
-    v->minimum_far_field_range_m = static_cast<float>(j["minimum_far_field_range_m"].AsDouble());
-  }
-  if (j.Has("has_co_site_isolation")) {
-    v->has_co_site_isolation = j["has_co_site_isolation"].AsBool();
-  }
-  if (j.Has("co_site_isolation_db")) {
-    v->co_site_isolation_db = static_cast<float>(j["co_site_isolation_db"].AsDouble());
-  }
   if (j.Has("maximum_linear_input_power_w")) {
     v->maximum_linear_input_power_w =
         static_cast<float>(j["maximum_linear_input_power_w"].AsDouble());
-  }
-  if (j.Has("preselector_bandwidth_hz")) {
-    v->preselector_bandwidth_hz = static_cast<float>(j["preselector_bandwidth_hz"].AsDouble());
   }
   if (j.Has("interference_observation_jn_gate_db")) {
     v->interference_observation_jn_gate_db =
@@ -131,17 +97,6 @@ inline void LoadRirReceiver(const examples::JsonValue& j,
   }
   if (j.Has("scene_polarization")) {
     v->scene_polarization = RfScenePolarizationFromString(j["scene_polarization"].AsString());
-  }
-  const examples::JsonValue& paths = j["co_site_paths"];
-  if (!paths.IsNull() && paths.type() == examples::JsonValue::kArray) {
-    v->co_site_paths.clear();
-    for (std::size_t i = 0U; i < paths.Size(); ++i) {
-      const examples::JsonValue& path = paths[i];
-      v->co_site_paths.emplace_back(
-          static_cast<std::uint64_t>(path["transmitter_equipment_id"].AsInt()),
-          static_cast<std::uint64_t>(path["receiver_equipment_id"].AsInt()),
-          path["isolation_db"].AsDouble());
-    }
   }
 }
 
@@ -202,22 +157,9 @@ inline void LoadRirHardware(const examples::JsonValue& j, rir_cfg::RirHardwareCo
   LoadRirSignalProcessing(j["signal_processing"], &v->signal_processing);
 }
 
-inline void LoadRirScan(const examples::JsonValue& j, rir_cfg::RirScanConfig* v) {
-  if (j.IsNull()) return;
-  if (j.Has("scan_start_position")) {
-    v->scan_start_position = ScanStartPositionFromString(j["scan_start_position"].AsString());
-  }
-  if (j.Has("scan_sequence")) {
-    v->scan_sequence = ScanSequenceFromString(j["scan_sequence"].AsString());
-  }
-  if (j.Has("step_scale")) {
-    v->step_scale = static_cast<float>(j["step_scale"].AsDouble());
-  }
-}
-
 inline void LoadRirOrientation(const examples::JsonValue& j, rir_cfg::RirOrientationConfig* v) {
   if (j.IsNull()) return;
-  LoadRirAzElLimits(j["steerable_volume_deg"], &v->steerable_volume_deg);
+  LoadRirAzElLimits(j, v);
 }
 
 inline void LoadRirMission(const examples::JsonValue& j, rir_cfg::RirMissionConfig* v) {
@@ -232,9 +174,17 @@ inline void LoadRirMission(const examples::JsonValue& j, rir_cfg::RirMissionConf
   if (j.Has("recognition_dwell_sec")) {
     v->recognition_dwell_sec = static_cast<float>(j["recognition_dwell_sec"].AsDouble());
   }
+  if (j.Has("scan_start_position")) {
+    v->scan_start_position = ScanStartPositionFromString(j["scan_start_position"].AsString());
+  }
+  if (j.Has("scan_sequence")) {
+    v->scan_sequence = ScanSequenceFromString(j["scan_sequence"].AsString());
+  }
+  if (j.Has("step_scale")) {
+    v->step_scale = static_cast<float>(j["step_scale"].AsDouble());
+  }
   // 任务扫描子窗（用户指定作战搜索扇区）；缺省保持无界 [-180,180]×[-90,90]。
   LoadRirAzElLimits(j["scan_window_deg"], &v->scan_window_deg);
-  LoadRirScan(j["scan"], &v->scan);
 }
 
 inline void LoadRirDetectionPolicy(const examples::JsonValue& j,
@@ -356,17 +306,6 @@ inline void LoadRirPolicy(const examples::JsonValue& j, rir_cfg::RirPolicyConfig
   LoadRirRecognitionPolicy(j["recognition"], &v->recognition);
 }
 
-inline void LoadRirVegetationScatterPhysics(const examples::JsonValue& j,
-                                            rir_cfg::RirVegetationScatterPhysicsConfig* v) {
-  if (j.IsNull()) return;
-  if (j.Has("cover_profile")) {
-    v->cover_profile = RirVegetationCoverProfileFromString(j["cover_profile"].AsString());
-  }
-  if (j.Has("enable_physical_model")) {
-    v->enable_physical_model = j["enable_physical_model"].AsBool();
-  }
-}
-
 inline void LoadRirAtmosphericPhysics(const examples::JsonValue& j,
                                       oneq::environment::AtmosphericObservation* v) {
   if (j.IsNull()) return;
@@ -386,14 +325,13 @@ inline void LoadRirAtmosphericPhysics(const examples::JsonValue& j,
 
 inline void LoadRirEnvironment(const examples::JsonValue& j, rir_cfg::RirEnvironmentConfig* v) {
   if (j.IsNull()) return;
-  if (j.Has("enable_environment_effects")) {
-    v->enable_environment_effects = j["enable_environment_effects"].AsBool();
-  }
   if (j.Has("weather_attenuation_db")) {
     v->weather_attenuation_db = static_cast<float>(j["weather_attenuation_db"].AsDouble());
   }
-  LoadRirVegetationScatterPhysics(j["vegetation_scatter_physics"],
-                                  &v->vegetation_scatter_physics);
+  if (j.Has("vegetation_cover_profile")) {
+    v->vegetation_cover_profile =
+        RirVegetationCoverProfileFromString(j["vegetation_cover_profile"].AsString());
+  }
   LoadRirAtmosphericPhysics(j["atmospheric_physics"], &v->atmospheric_physics);
 }
 

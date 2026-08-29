@@ -57,7 +57,6 @@ RirSceneTarget MakeTarget(std::uint64_t id, float velocity_x_mps = 0.0f) {
   target.position_z = 2000.0f;
   target.velocity_x = velocity_x_mps;
   target.rcs = 0.5f;  // ≈ -3 dBsm（与识别库模板一致）
-  target.range_m = std::sqrt(10000.0f * 10000.0f + 2000.0f * 2000.0f);
   return target;
 }
 
@@ -102,14 +101,15 @@ std::vector<oneq::common::radar::AzimuthElevationDeg> BuildExpectedAbsoluteScanP
     const config::RirSessionConfig& session_config) {
   const dwell::RirEffectiveBeamwidthDeg beamwidth =
       dwell::RirResolveEffectiveBeamwidth(session_config.hardware.antenna);
-  const config::RirScanConfig& scan = session_config.mission.scan;
+  const config::RirMissionConfig& mission = session_config.mission;
   const config::RirAzimuthElevationLimitsDeg& volume =
-      session_config.orientation.steerable_volume_deg;
+      session_config.orientation;
   const std::vector<oneq::common::radar::AzimuthElevationDeg> relative_pattern =
       oneq::common::radar::BuildScanPattern(
           volume.az_min_deg, volume.az_max_deg, volume.el_min_deg, volume.el_max_deg,
-          beamwidth.az_beamwidth_deg * scan.step_scale, beamwidth.el_beamwidth_deg * scan.step_scale,
-          scan.scan_start_position, scan.scan_sequence);
+          beamwidth.az_beamwidth_deg * mission.step_scale,
+          beamwidth.el_beamwidth_deg * mission.step_scale, mission.scan_start_position,
+          mission.scan_sequence);
   std::vector<oneq::common::radar::AzimuthElevationDeg> absolute_pattern;
   absolute_pattern.reserve(relative_pattern.size());
   const config::RirAzimuthElevationDeg& center = session_config.mission.scan_center_deg;
@@ -424,7 +424,6 @@ TEST(RirDesignationTaskTest, DesignationOutsideVolumeRevertsUntilScanCenterPatch
   target.position_y = 200.0f;
   target.position_z = 500.0f;
   target.rcs = 0.5f;
-  target.range_m = std::sqrt(target.position_x * target.position_x +
                              target.position_y * target.position_y +
                              target.position_z * target.position_z);
 
@@ -452,10 +451,10 @@ TEST(RirDesignationTaskTest, DesignationOutsideVolumeRevertsUntilScanCenterPatch
 TEST(RirDesignationTaskTest, CrossBoundaryScanPatternStaysWithinLegalAzimuth) {
   config::RirSessionConfig session_config = MakeIdentifyConfig();
   session_config.mission.scan_center_deg = config::RirAzimuthElevationDeg{170.0f, 0.0f};
-  session_config.orientation.steerable_volume_deg.az_min_deg = -60.0f;
-  session_config.orientation.steerable_volume_deg.az_max_deg = 60.0f;
+  session_config.orientation.az_min_deg = -60.0f;
+  session_config.orientation.az_max_deg = 60.0f;
   // 大步长保证数周期内同时覆盖 +170 侧与跨界负方位，避免默认密网格前 12 拍全在正侧。
-  session_config.mission.scan.step_scale = 15.0f;
+  session_config.mission.step_scale = 15.0f;
   // TAS（2026-08-29）：dwell=0.25s 使每周期驻留数 = floor(0.5/0.25) = 2（除法精确），
   // 波位游标每周期推进 2；pattern.size() 与 2 互质（size=3）→ 全表仍被遍历。
   session_config.mission.recognition_dwell_sec = 0.25f;
@@ -519,17 +518,18 @@ TEST(RirDesignationTaskTest, ScanCenterPatchAppliesOnNextSuccessfulCycle) {
 TEST(RirDesignationTaskTest, DefaultConfigScanPatternMatchesPreRefactorAbsoluteLimits) {
   config::RirSessionConfig session_config = MakeIdentifyConfig();
   session_config.mission.scan_center_deg = config::RirAzimuthElevationDeg{};
-  session_config.orientation.steerable_volume_deg = config::RirAzimuthElevationLimitsDeg{};
+  session_config.orientation = config::RirAzimuthElevationLimitsDeg{};
   const dwell::RirEffectiveBeamwidthDeg beamwidth =
       dwell::RirResolveEffectiveBeamwidth(session_config.hardware.antenna);
-  const config::RirScanConfig& scan = session_config.mission.scan;
+  const config::RirMissionConfig& mission = session_config.mission;
   const config::RirAzimuthElevationLimitsDeg& volume =
-      session_config.orientation.steerable_volume_deg;
+      session_config.orientation;
   const std::vector<oneq::common::radar::AzimuthElevationDeg> legacy =
       oneq::common::radar::BuildScanPattern(
           volume.az_min_deg, volume.az_max_deg, volume.el_min_deg, volume.el_max_deg,
-          beamwidth.az_beamwidth_deg * scan.step_scale, beamwidth.el_beamwidth_deg * scan.step_scale,
-          scan.scan_start_position, scan.scan_sequence);
+          beamwidth.az_beamwidth_deg * mission.step_scale,
+          beamwidth.el_beamwidth_deg * mission.step_scale, mission.scan_start_position,
+          mission.scan_sequence);
   const std::vector<oneq::common::radar::AzimuthElevationDeg> current =
       BuildExpectedAbsoluteScanPattern(session_config);
   ASSERT_EQ(legacy.size(), current.size());

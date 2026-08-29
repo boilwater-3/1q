@@ -34,7 +34,6 @@ RirCycleInput MakeValidInput() {
   target.position_x = 5000.0f;
   target.position_z = 2000.0f;
   target.rcs = 1.0f;
-  target.range_m = 5000.0f;
   input.scene_targets.push_back(target);
   return input;
 }

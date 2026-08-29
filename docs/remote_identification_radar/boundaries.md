@@ -155,11 +155,11 @@ RIR 遵守 `docs/common/contract.md` 与 `docs/common/session_contract.md`：
    LLA 填 sensor_origin，斜距有效时再填位置量测。`batch_id` 由 `RirSession` 内部自增分配（成功执行周期
    后递增），输出帧/特征量测/replay 仍暴露批号供 fusion 溯源。
 6. **环境事实**（`RirEnvironmentConfig`）：会话初始化 + `RirRuntimeConfigPatch.has_environment`
-   整域覆盖；**禁止**经 `RirCycleInput` 周期携带。`enable_environment_effects=false`
-   （默认）时传播/杂波退化到阶段 1 旧 SNR 口径。`atmospheric_physics`（气象观测，
-   复用 `oneq::environment::AtmosphericObservation`，与 AR 同源）为场景事实输入：
-   `enable_physical_model=true` 时驻留链路预算按每目标真实几何计算大气物理附加损耗
-   （common 大气单源）；默认关闭零回归。k 因子为运行期派生量
+   整域覆盖；**禁止**经 `RirCycleInput` 周期携带。`vegetation_cover_profile=kDisabled`
+   且 `weather_attenuation_db=0`（默认）时传播/杂波退化到阶段 1 旧 SNR 口径。
+   `atmospheric_physics`（气象观测，复用 `oneq::environment::AtmosphericObservation`）
+   为场景事实输入：`enable_physical_model=true` 时驻留链路预算按每目标真实几何计算
+   大气物理附加损耗（common 大气单源）；默认关闭零回归。k 因子为运行期派生量
    （`ResolveEffectiveKFactor`），不进配置。
 7. **归属视图（`RirCycleResult.track_attributions`，仿真附件层）**：库内键 ↔ 场景
    真值目标对照（`external_target_id`/`target_name`）+ 最小航迹诊断

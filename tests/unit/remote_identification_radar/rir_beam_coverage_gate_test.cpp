@@ -59,7 +59,6 @@ RirSceneTarget MakeTarget(std::uint64_t id, float look_az_deg) {
   target.position_y = range_hypot_m * std::sin(az_rad);
   target.position_z = 2000.0f;
   target.rcs = 0.5f;
-  target.range_m = std::sqrt(range_hypot_m * range_hypot_m + 2000.0f * 2000.0f);
   return target;
 }
 

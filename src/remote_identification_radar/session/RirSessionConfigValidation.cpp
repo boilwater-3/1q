@@ -41,12 +41,11 @@ void ValidateRirEnvironmentConfig(const RirEnvironmentConfig& environment,
               (prefix + "weather_attenuation_db").c_str(),
               "Weather attenuation must be finite and non-negative.");
   }
-  const RirVegetationCoverProfile cover =
-      environment.vegetation_scatter_physics.cover_profile;
+  const RirVegetationCoverProfile cover = environment.vegetation_cover_profile;
   if (cover < RirVegetationCoverProfile::kDisabled ||
       cover > RirVegetationCoverProfile::kTropicalDense) {
     PushIssue(issues, session::codes::kInvalidEnvironmentSnapshot,
-              (prefix + "vegetation_scatter_physics.cover_profile").c_str(),
+              (prefix + "vegetation_cover_profile").c_str(),
               "Vegetation cover profile must be a valid enum value.");
   }
   const RirAtmosphericPhysicsConfig& atmospheric = environment.atmospheric_physics;
@@ -74,35 +73,17 @@ void ValidateRirHardwareConfig(const RirHardwareConfig& hardware, session::RirIs
               "hardware.transmitter.frequency_hz",
               "Transmitter frequency must be finite and positive.");
   }
-  bool frequency_plan_valid = !transmitter.frequency_plan_hz.empty();
-  bool contains_initial_frequency = false;
-  for (double frequency_hz : transmitter.frequency_plan_hz) {
-    frequency_plan_valid = frequency_plan_valid &&
-                           oneq::common::validation::IsFinite(frequency_hz) && frequency_hz > 0.0;
-    contains_initial_frequency =
-        contains_initial_frequency || frequency_hz == static_cast<double>(transmitter_frequency_hz);
-  }
-  if (!frequency_plan_valid || !contains_initial_frequency) {
-    PushIssue(issues, session::codes::kFrequencyPlanInvalid,
-              "hardware.transmitter.frequency_plan_hz",
-              "Frequency plan must contain finite positive values and the initial carrier.");
-  }
   const double duty_cycle =
       static_cast<double>(transmitter.pulse_width_s) * static_cast<double>(transmitter.prf_hz);
-  const double pulse_energy_j = static_cast<double>(transmitter.peak_power_w) *
-                                static_cast<double>(transmitter.pulse_width_s);
   if (!oneq::common::validation::IsFinite(transmitter.peak_power_w) ||
-      !oneq::common::validation::IsFinite(transmitter.maximum_peak_power_w) ||
-      !oneq::common::validation::IsFinite(transmitter.maximum_duty_cycle) ||
-      !oneq::common::validation::IsFinite(transmitter.maximum_pulse_energy_j) ||
-      transmitter.peak_power_w <= 0.0f || transmitter.maximum_peak_power_w <= 0.0f ||
-      transmitter.peak_power_w > transmitter.maximum_peak_power_w ||
-      transmitter.maximum_duty_cycle <= 0.0f || transmitter.maximum_duty_cycle > 1.0f ||
-      duty_cycle <= 0.0 || duty_cycle > transmitter.maximum_duty_cycle ||
-      transmitter.maximum_pulse_energy_j <= 0.0f ||
-      pulse_energy_j > transmitter.maximum_pulse_energy_j) {
+      transmitter.peak_power_w <= 0.0f ||
+      !oneq::common::validation::IsFinite(transmitter.pulse_width_s) ||
+      transmitter.pulse_width_s <= 0.0f || !oneq::common::validation::IsFinite(transmitter.prf_hz) ||
+      transmitter.prf_hz <= 0.0f || !IsFinite(static_cast<float>(duty_cycle)) || duty_cycle <= 0.0 ||
+      duty_cycle > 1.0 || !IsFinite(transmitter.transmit_loss_db) ||
+      transmitter.transmit_loss_db < 0.0f) {
     PushIssue(issues, session::codes::kTransmitterOperatingEnvelopeInvalid, "hardware.transmitter",
-              "Transmitter power, duty cycle and pulse energy must stay inside hardware limits.");
+              "Transmitter peak power, pulse width, PRF and duty cycle must be valid.");
   }
   if (transmitter.equipment_id == 0U || receiver.equipment_id == 0U ||
       transmitter.equipment_id == receiver.equipment_id) {
@@ -111,29 +92,11 @@ void ValidateRirHardwareConfig(const RirHardwareConfig& hardware, session::RirIs
   }
   if (!oneq::common::validation::IsFinite(receiver.cross_polarization_isolation_db) ||
       receiver.cross_polarization_isolation_db < 0.0f ||
-      !oneq::common::validation::IsFinite(receiver.minimum_far_field_range_m) ||
-      receiver.minimum_far_field_range_m <= 0.0f ||
-      (receiver.has_co_site_isolation &&
-       (!oneq::common::validation::IsFinite(receiver.co_site_isolation_db) ||
-        receiver.co_site_isolation_db < 0.0f)) ||
       !oneq::common::validation::IsFinite(receiver.maximum_linear_input_power_w) ||
       receiver.maximum_linear_input_power_w <= 0.0f ||
-      !oneq::common::validation::IsFinite(receiver.preselector_bandwidth_hz) ||
-      receiver.preselector_bandwidth_hz <= 0.0f ||
       !oneq::common::validation::IsFinite(receiver.interference_observation_jn_gate_db)) {
     PushIssue(issues, session::codes::kReceiverRfHardwareInvalid, "hardware.receiver",
-              "Receiver RF isolation, far-field range and linear input limit must be valid.");
-  }
-  for (const auto& path : receiver.co_site_paths) {
-    if (path.transmitter_equipment_id == 0U ||
-        path.receiver_equipment_id != receiver.equipment_id ||
-        path.transmitter_equipment_id == path.receiver_equipment_id ||
-        !oneq::common::validation::IsFinite(path.isolation_db) || path.isolation_db < 0.0) {
-      PushIssue(issues, session::codes::kReceiverRfHardwareInvalid,
-                "hardware.receiver.co_site_paths",
-                "Each co-site path must be a valid directed path into the receiver equipment.");
-      break;
-    }
+              "Receiver RF isolation and linear input limit must be valid.");
   }
 
   const auto axis_geometry_valid = [transmitter_frequency_hz](float nominal_beamwidth_deg,
@@ -265,12 +228,9 @@ session::RirIssueList ValidateRirSessionConfig(const RirSessionConfig& config) {
   }
 
   // 扫描策略（库内驻留调度器）：步长系数有限且为正。
-  {
-    const RirScanConfig& scan = mission.scan;
-    if (!IsFinite(scan.step_scale) || scan.step_scale <= 0.0f) {
-      PushIssue(&issues, session::codes::kScanStrategyInvalid, "mission.scan",
-                "Scan step scale must be finite and positive.");
-    }
+  if (!IsFinite(mission.step_scale) || mission.step_scale <= 0.0f) {
+    PushIssue(&issues, session::codes::kScanStrategyInvalid, "mission.step_scale",
+              "Scan step scale must be finite and positive.");
   }
 
   // 任务扫描子窗（用户指定作战搜索扇区）：az 相对域 [-180,180]、el 绝对域 [-90,90]，
@@ -290,14 +250,14 @@ session::RirIssueList ValidateRirSessionConfig(const RirSessionConfig& config) {
 
   // 可扫描体积（orientation 第五域）：az 相对域 [-180,180]、el 绝对域 [-90,90]。
   {
-    const RirAzimuthElevationLimitsDeg& volume = config.orientation.steerable_volume_deg;
+    const RirAzimuthElevationLimitsDeg& volume = config.orientation;
     if (!IsFinite(volume.az_min_deg) || !IsFinite(volume.az_max_deg) ||
         !IsFinite(volume.el_min_deg) || !IsFinite(volume.el_max_deg) ||
         volume.az_min_deg > volume.az_max_deg || volume.el_min_deg > volume.el_max_deg ||
         volume.az_min_deg < -180.0f || volume.az_max_deg > 180.0f ||
         volume.el_min_deg < -90.0f || volume.el_max_deg > 90.0f) {
       PushIssue(&issues, session::codes::kSteerableVolumeInvalid,
-                "orientation.steerable_volume_deg",
+                "orientation",
                 "Steerable volume limits must be finite, ordered, az in [-180,180] relative "
                 "domain and el in [-90,90].");
     }
