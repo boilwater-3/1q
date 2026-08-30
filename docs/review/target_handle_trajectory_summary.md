@@ -1,3 +1,9 @@
+---
+Status: final
+Date: 2026-08-28
+Note: 客户 testInfoOutput 目标数据快照（rir_ballistic_scene_design_2026-08-28 的数据源）。
+---
+
 # 目标句柄轨迹汇总（testInfoOutput）
 
 来源：`testInfoOutput` 调试输出（`size=12`）。经度/纬度单位为度，高度单位为米，速度单位为 m/s。

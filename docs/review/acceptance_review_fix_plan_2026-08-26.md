@@ -1,5 +1,6 @@
 ---
-Status: implemented（2026-08-26：24 条已全部按批注裁定实施并双场景验证通过，
+Status: final
+Completed: 2026-08-26（24 条已全部按批注裁定实施并双场景验证通过，
   逐条证据见 docs/review/acceptance_review_verification_report_2026-08-26.md；
   条23 按批注暂缓）
 Date: 2026-08-26
