@@ -67,10 +67,6 @@ float RirRadarEquations::ComputeThermalNoisePower_W(
                                                                           rx.noise_figure_db);
 }
 
-float RirRadarEquations::ComputeIntegrationGain(int pulse_count) {
-  return oneq::common::radar::RadarEquations::ComputeIntegrationGain(pulse_count);
-}
-
 float RirRadarEquations::ComputeRangeErrorStdDev(float snr_db, float bandwidth_hz) {
   return oneq::common::radar::RadarEquations::ComputeRangeErrorStdDev(snr_db, bandwidth_hz);
 }

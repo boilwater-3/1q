@@ -75,12 +75,6 @@ TEST(RirRadarEquationsTest, NoisePower_BoltzmannFormula) {
   EXPECT_NEAR(noise_w, 8.0e-15f, 1e-16f);
 }
 
-/// @brief 当前统一采用线性脉冲积累：增益 = N。
-TEST(RirRadarEquationsTest, AccGain_PulseCountLinear) {
-  const float gain = RirRadarEquations::ComputeIntegrationGain(16);
-  EXPECT_FLOAT_EQ(gain, 16.0f);
-}
-
 /// @brief 判决逻辑应先将 Pd 钳位到 [0,1]，越界输入与边界输入等价。
 TEST(RirRadarEquationsTest, ThresholdDecision_ClampsOutOfRangePd) {
   std::mt19937 rng_negative(2026u);
@@ -100,8 +94,8 @@ TEST(RirRadarEquationsTest, ThresholdDecision_ClampsOutOfRangePd) {
 TEST(RirRadarEquationsTest, RangeStdDev_HighSNR) {
   // SNR=20dB, BW=1MHz
   const float std_dev = RirRadarEquations::ComputeRangeErrorStdDev(20.0f, 1e6f);
-  // δ_R = c/(2B) = 150m, σ = 0.5*150/√100 + 20 = 7.5 + 20 = 27.5m
-  EXPECT_NEAR(std_dev, 27.5f, 0.5f);
+  // δ_R = c/(2B) = 150m, σ = 0.5*150/√100 = 7.5m（纯随机项；20m 偏置已拆至均值侧）
+  EXPECT_NEAR(std_dev, 7.5f, 0.5f);
 }
 
 /// @brief 低信噪比下测距方差放大。

@@ -128,9 +128,12 @@ void WriteRirTrackAndId(float sim_time_sec, std::uint32_t cycle,
                         const oneq::coordinate::EcefPositionM& platform_ecef,
                         const RirTrackTruthContext* truth);
 
+/**
+ * @brief 验收判定标准 第37项·其二：扫描调度信息行（搜索/指定/跟踪分项计数 +
+ *        预算/已耗时；2026-08-30 核查 9.1 删除恒等的计划/实际驻留数字段）。
+ */
 void WriteRirSchedule(std::uint64_t radar_id, float sim_time_sec, std::uint32_t cycle,
-                      std::uint32_t planned, std::uint32_t executed, float budget_sec,
-                      float consumed_sec, std::uint32_t search_count,
+                      float budget_sec, float consumed_sec, std::uint32_t search_count,
                       std::uint32_t designate_count, std::uint32_t track_count,
                       std::uint32_t confirmed_tracks);
 

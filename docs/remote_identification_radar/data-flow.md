@@ -113,8 +113,10 @@ flowchart TB
 6. **输出装配（双产品）**：逐内部航迹结论回填 `RirOutputFrame::recognition_outputs`
    （按关联键升序，出口②）；特征量测记录回填 `feature_measurements`（出口①：
    采集观测 × 观测上下文 + 平台位置，透出原则——识别链未构建观测的周期为空）；
-   `RirCycleResult::emission_frame` 在 `kIdentify` 且 RF 链成功时携带本周期实际
-   发射（供编排层汇集 RF scene，与 AR 同契约）；同循环构建归属视图缓存（`RirController::LatestTrackAttributions`），会话在
+   `RirCycleResult::emission_frame` 在 `kIdentify` 且 RF 链成功时携带本周期
+   逐驻留实际发射（2026-08-30 核查 9.2：一驻留一条、指向=该驻留波位、
+   emission_id 帧内唯一，单驻留周期恰一条；接收侧聚合语义不变，
+   供编排层汇集 RF scene，与 AR 同契约）；同循环构建归属视图缓存（`RirController::LatestTrackAttributions`），会话在
    kCompleted 后回填 `RirCycleResult::track_attributions`；非执行周期产品层与
    归属层均为空（五模块统一规则）。`RirRecognitionCycleSummary` 含识别统计、
    真值准确率与驻留预算摘要。

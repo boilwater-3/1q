@@ -128,7 +128,8 @@ TEST(RadarEquationsTest, ThresholdDecision_ClampsOutOfRangePd) {
 TEST(RadarEquationsTest, RangeStdDev_HighSNR) {
   // SNR=20dB, BW=1MHz
   const float std_dev = RadarEquations::ComputeRangeErrorStdDev(20.0f, 1e6f);
-  // δ_R = c/(2B) = 150m, σ = 0.5*150/√100 + 20 = 7.5 + 20 = 27.5m
+  // δ_R = c/(2B) = 150m, σ = 0.5*150/√100 + 20 = 27.5m——AR 适配层暂持旧合成口径
+  // （std 含 20m 偏置，common 已拆分、AR 待专场对齐，见 algorithms.md 2026-08-30）
   EXPECT_NEAR(std_dev, 27.5f, 0.5f);
 }
 

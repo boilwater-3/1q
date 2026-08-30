@@ -43,8 +43,20 @@ class MeasurementErrorModel {
             oneq::common::numerics::DegToRad(effective_beamwidth_deg.az_beamwidth_deg),
             oneq::common::numerics::DegToRad(effective_beamwidth_deg.el_beamwidth_deg));
     MeasurementErrorState state;
-    state.range_error_std_m = common_state.range_error_std_m;
-    state.angle_error_std_rad = common_state.angle_error_std_rad;
+    // AR 暂持旧合成口径（std 含系统偏差）：common 已于 2026-08-30 拆分 bias/std
+    // （RIR 专场），此处加回偏置、bias 字段置 0 以保持拆分前行为不变，待 AR 专场
+    // 对齐（欠账登记 docs/airborne_radar/algorithms.md）。低 SNR 下限分支
+    // （snr_db < -10 dB，与 common 内部 kMinSnrDb 同源耦合）拆分前本就不含偏置，
+    // 不加，保证全 SNR 域逐值一致。
+    if (effective_snr_db >= -10.0) {
+      state.range_error_std_m =
+          common_state.range_error_std_m + common_state.range_bias_m;
+      state.angle_error_std_rad =
+          common_state.angle_error_std_rad + common_state.angle_bias_rad;
+    } else {
+      state.range_error_std_m = common_state.range_error_std_m;
+      state.angle_error_std_rad = common_state.angle_error_std_rad;
+    }
     return state;
   }
 
@@ -57,9 +69,17 @@ class MeasurementErrorModel {
    */
   static float ComputeEquivalentAngleErrorStdDev(float snr_db,
                                                  const EffectiveBeamwidthDeg& beamwidth_deg) {
-    return oneq::common::radar::ComputeEquivalentAngleErrorStdDev(
-        snr_db, oneq::common::numerics::DegToRad(beamwidth_deg.az_beamwidth_deg),
-        oneq::common::numerics::DegToRad(beamwidth_deg.el_beamwidth_deg));
+    // 同上：仅随机项分支（snr >= -10 dB）加回两轴 bw/30 的 RMS 合成偏置。
+    const float random_std =
+        oneq::common::radar::ComputeEquivalentAngleErrorStdDev(
+            snr_db, oneq::common::numerics::DegToRad(beamwidth_deg.az_beamwidth_deg),
+            oneq::common::numerics::DegToRad(beamwidth_deg.el_beamwidth_deg));
+    if (snr_db < -10.0f) {
+      return random_std;
+    }
+    return random_std + oneq::common::radar::ComputeEquivalentAngleMeasurementBiasRad(
+                            oneq::common::numerics::DegToRad(beamwidth_deg.az_beamwidth_deg),
+                            oneq::common::numerics::DegToRad(beamwidth_deg.el_beamwidth_deg));
   }
 };
 

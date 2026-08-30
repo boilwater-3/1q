@@ -219,7 +219,10 @@ RirMatchResult RirMatcher::QueryBestMatch(
   std::sort(model_scores.begin(), model_scores.end(),
             [](const ModelScore& lhs, const ModelScore& rhs) { return lhs.score > rhs.score; });
 
-  // 大类分数：其下型号未归一化分数之和。
+  // 大类分数：大类内最佳型号的得分（2026-08-30 核查 8.3：由"其下型号分数之和"
+  // 改判——求和让型号多的大类天然占优；取 max 后大类竞争与成员数量解耦）。
+  // model_scores 已按分数降序，大类首个命中即其最佳型号；std::max 显式表达
+  // "取最佳"语义（不依赖排序不变式）。
   struct CategoryScore {
     std::string category_id;
     float score{0.0f};
@@ -229,7 +232,7 @@ RirMatchResult RirMatcher::QueryBestMatch(
     bool found = false;
     for (std::size_t c = 0U; c < category_scores.size(); ++c) {
       if (category_scores[c].category_id == model_scores[i].category_id) {
-        category_scores[c].score += model_scores[i].score;
+        category_scores[c].score = std::max(category_scores[c].score, model_scores[i].score);
         found = true;
         break;
       }

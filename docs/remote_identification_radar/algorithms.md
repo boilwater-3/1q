@@ -1,6 +1,6 @@
 ---
 Status: active
-Last-reviewed: 2026-08-27
+Last-reviewed: 2026-08-30
 Authority: RIR 算法登记与实现边界
 Answers: RIR 每个算法做什么、实现边界在哪、哪些反直觉、哪些刻意不做
 ---
@@ -24,7 +24,7 @@ RIR 自持链路生产的内部航迹，不再消费外部航迹供给。
 | 检测单元求解 | `dwell/RirDetectionCellResolver.cpp` → `common/radar/DetectionCellResolver` | 目标回波事实 + 库内 incident links + 增益偏置 → 分项 SINR 账本 | common 单源；RIR 恒 `anti_rgpo=false`；四增益缺省 0 dB、均经 [0, 40] dB 钳位（`DetectionCellResolver.cpp:20,24-27`）；`noise_processing_gain_db` 语义为乘性抬高噪声底（进分母乘热噪，`DetectionCellResolver.cpp:257`），与其余三项（目标增益乘分子 `:262`、干扰/杂波抑制除分母项 `:258-259`）方向不对称——配置按「正值=劣化」理解；杂波瓦经 `ComputeEquivalentClutterNoiseW` |
 | 验收旁路 MTI/MTD | `common/radar/MtiMtdAcceptanceBank` ← `RirAcceptanceRecords` | cell 功率 + PRF/载频 + 可选干扰单音 → 8 路派生与 MTI/MTD 增益 | **不进 SINR/Pd/航迹**；N=8、2 脉冲、σ_v=0.25 m/s 核内常量；无链路多普勒则干扰通道写 `无`；关验收开关时不求值 |
 | 统计级 CFAR | `dwell/RirSignalDetector.cpp` → `common/radar/StatisticalCfarDetector` | SNR + Swerling + Pfa → Pd → 蒙特卡洛判决 | 判决编排 common；不是 CA-CFAR；生效积累脉冲数 = min(`policy.detection.pulse_count`, 驻留窗内可容脉冲)——检测单元路径按接收窗内回波可达数截断（`DetectionCellResolver.cpp:236-239`），默认驻留 0.05 s（`RirMissionConfig.h:32`）× PRF 300 Hz（`RirHardwareConfig.h:107`）窗内可容 15、policy 缺省 10（`RirPolicyConfig.h:32`）→ 生效 10，相对驻留积累能力损失约 1.8 dB（10·log10(15/10)）；**6 dB 真值回退门不在本类**（`RirController` 仿真脚手架） |
-| 量测误差 | `dwell/RirMeasurementErrorModel.h` | SNR + 波束宽度 + 带宽 → 距离/角度标准差 | 输入 SNR = 单脉冲判决 SINR + 10·log10(N) 积累折算（N=生效积累脉冲数，cell 取窗口截断值/回退取 policy；2026-08-30 修复旧口径直接喂单脉冲致误差偏大 √N）；距离偏置 20 m；角度两轴 RMS 合成；只供内部关联/滤波 |
+| 量测误差 | `dwell/RirMeasurementErrorModel.h` | SNR + 波束宽度 + 带宽 → 距离/角度标准差 + 偏置 | 输入 SNR = 单脉冲判决 SINR + 10·log10(N) 积累折算（N=生效积累脉冲数，cell 取窗口截断值/回退取 policy；2026-08-30 修复旧口径直接喂单脉冲致误差偏大 √N）；2026-08-30 bias/std 拆分：std 只含随机项，距离偏置 20 m 沿视线、角偏 bw÷30 逐轴正偏（施加在量测均值侧——检测器门控模式采样前平移量测位置，SnrFallback 真值口径不施加，与不采样噪声同层级简化）；角度两轴 RMS 合成（std 与 bias 同口径）；只供内部关联/滤波 |
 | LAPJV 全局最优关联 | `tracking/RirTrackAssociator.cpp` + `common/tracking/GatedSquareAssignment.h` + `RirLapjvSolver` | 检测量测 + 航迹种子 → 关联键/命中/新键 | 方阵增广核 common；马氏平方波门（缺省 9）；键单调不回收复用 |
 | 单目标 KF | `tracking/RirTrackFilter.cpp` | 量测 + 先验状态 → 预测/更新后验 | 6 维 CV 状态；动态 R 更新；LLT 失败跳过更新；q/std 下限 0.001 钳制（AR SignalComponentFactory 工厂同口径） |
 | IMM 双路径 | `tracking/RirImmFilter.cpp` | 量测/失配 + 先验状态 → 组合后验 | 数值核 common `ImmFilter<6,3>`；缺省双模型 CV 对数等距、以配置 `kalman_noise_diff_coeff` 为低端锚点（q=1 退化为 {1.0, 10.0}）；对角 0.95 转移；confirmed 命中激活、失配仅预测；命中更新走逐量测动态 R（与 AR 同口径，缺省量测噪声不参与数值）；UpdateConfig 在线热同步既有运行态（每模型 q/转移矩阵，AR SyncRuntimeTuning 同口径；模型数变化丢弃运行态、下次 confirmed 命中惰性重建）；缺省开启 |
@@ -40,11 +40,11 @@ RIR 自持链路生产的内部航迹，不再消费外部航迹供给。
 | 极化验收旁路（L2） | `runtime/PolarizationAcceptanceS.cpp` | 最近邻样本（须 `has_cross_pol` 与 `has_phase_vv`）→ Span / `|det(S)|` / 去极化 / Graves ψτ | 只写 `rir_acceptance.log`，**未进识别**；缺 `has_*` 写暂无，不回退 L1 |
 | 距离像特征（F2） | `recognition/RangeProfileFeatureExtractor.cpp` | 散射中心列表 + 带宽 + SNR → `RirRangeProfileObservation` | 分辨率 c/(2B) 超上限维度无效；粗单元不合并峰标识 |
 | 数据库加载 | `recognition/RecognitionFeatureDatabase.cpp` | SQLite 文件 → 全量内存模板 | schema v1.1 自描述校验；运行期无连接；units `rcs != 'dBsm'` 拒绝 |
-| 匹配 | `recognition/RecognitionMatcher.cpp` | 特征集 + profile 适用条件 → 候选排序/大类分数 | `s = exp(-0.5·z²)`；质量 0 维度不进分子分母；类别得分 = 成员型号未归一化之和 |
+| 匹配 | `recognition/RecognitionMatcher.cpp` | 特征集 + profile 适用条件 → 候选排序/大类分数 | `s = exp(-0.5·z²)`；质量 0 维度不进分子分母；类别得分 = 大类内最佳型号得分（2026-08-30 核查 8.3：由成员求和改判，成员数量不加分） |
 | 积累判定 | `recognition/RecognitionTracker.cpp` | 逐周期观测 → 结论状态机 | 分数 ≥ `acceptance_score` 且 margin 足且有效维度 ≥ 2 → `kModelConfirmed`；运动不能单独确认型号 |
 | 特征量测帧组装（出口①透出，Stage B） | `runtime/RirController.cpp` + `recognition/RecognitionTracker.cpp`（UpdateCycle 采集出参） | 本周期有效特征观测 × 观测上下文 + 平台位置 → `RirFeatureMeasurementRecord` | 透出原则：只透出识别链实际构建且 mask ≠ 0 的观测（透出点在积累质量门之前——质量门只挡积累）；全维无效不产生；无库/超距/非识别模式周期帧为空；字段同值透出无换算 |
 | 归属视图组装（Stage B） | `runtime/RirController.cpp` | 本周期航迹快照 → `RirTrackAttributionRecord`（键↔真值 + hit/位置/速度诊断） | 与出口②同循环覆盖全部快照（tentative/confirmed/lost）；结果层产品，不进输出帧；非执行周期空列表 |
-| 发射帧组装（emission_frame，RF 链） | `runtime/RirController.cpp`（`ResolveRfCycle` 解析成功时） | 本周期自发射 → `RfEmissionFrame`（经 `RirCycleResult::emission_frame`） | `kIdentify` 且 RF 链解析成功时携带本周期实际发射（与 AR 同契约，供编排层汇集 RF scene）；解析失败为空帧，不虚构 |
+| 发射帧组装（emission_frame，RF 链） | `runtime/RirController.cpp`（`ResolveRfCycle` 解析成功时） | 逐驻留自发射 → `RfEmissionFrame`（经 `RirCycleResult::emission_frame`） | `kIdentify` 且 RF 链解析成功时携带本周期**全部驻留**的实际发射（2026-08-30 核查 9.2：逐驻留一条，指向=该驻留波位，emission_id 帧内唯一化——首驻留保持周期号、其余高位标志编码；接收链仍按首驻留周期级一次求解；与 AR 同契约，供编排层汇集 RF scene）；解析失败为空帧，不虚构 |
 
 ## 反直觉点
 

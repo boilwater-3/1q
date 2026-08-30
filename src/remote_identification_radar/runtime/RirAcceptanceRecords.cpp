@@ -678,18 +678,17 @@ void WriteRirTrackAndId(float sim_time_sec, std::uint32_t cycle,
 // 评审 2026-08-26 条21：调度只应有搜索/跟踪两类事件（「识别」不是独立驻留模式，
 // 识别在 kIdentify 模式内顺带执行），识别计数与列表段删除。
 void WriteRirSchedule(std::uint64_t radar_id, float sim_time_sec, std::uint32_t cycle,
-                      std::uint32_t planned, std::uint32_t executed, float budget_sec,
-                      float consumed_sec, std::uint32_t search_count,
+                      float budget_sec, float consumed_sec, std::uint32_t search_count,
                       std::uint32_t designate_count, std::uint32_t track_count,
                       std::uint32_t confirmed_tracks) {
   if (!RIR_ACCEPTANCE_LOG_ENABLED()) {
     return;
   }
-  // 验收判定标准 第37项·其二：扫描调度信息（计划驻留/实际执行/搜索/指定/跟踪/预算；
-  // 2026-08-29 TAS：计划/执行口径改为逐驻留条目数）。
+  // 验收判定标准 第37项·其二：扫描调度信息（搜索/指定/跟踪/预算/已耗时；
+  // 2026-08-30 核查 9.1：删除"计划驻留/实际执行"字段——库内逐驻留执行，实际数
+  // 恒等于计划数，无信息量；按类分项计数与时间预算保留）。
   Emit(sim_time_sec, cycle, "对指定空域进行搜索功能测试",
-       "雷达ID=" + std::to_string(radar_id) + " 扫描调度信息=计划驻留/实际执行=" +
-           std::to_string(planned) + "/" + std::to_string(executed) + " 搜索=" +
+       "雷达ID=" + std::to_string(radar_id) + " 扫描调度信息=搜索=" +
            std::to_string(search_count) + " 指定=" + std::to_string(designate_count) +
            " 跟踪=" + std::to_string(track_count) +
            " 预算/已耗时=" + FormatF(budget_sec, 3) + "/" + FormatF(consumed_sec, 3) + "s");

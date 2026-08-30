@@ -17,10 +17,14 @@ namespace dwell {
 
 /**
  * @brief RirMeasurementErrorState 表示当前探测的测量误差结果。
+ * @note 口径（2026-08-30 拆分）：std 字段只含随机项；固定系统偏置（未标定残差）
+ *       单独由 bias 字段承载，应施加在量测均值侧而非并入随机 std。
  */
 struct RirMeasurementErrorState {
-  float range_error_std_m{0.0f};   /**< 距离测量标准差（米）。 */
-  float angle_error_std_rad{0.0f}; /**< 方位/俯仰合成的等效角度测量标准差（弧度）。 */
+  float range_error_std_m{0.0f};   /**< 距离测量随机标准差（米，不含固定偏置）。 */
+  float angle_error_std_rad{0.0f}; /**< 方位/俯仰合成的等效角度测量随机标准差（弧度，不含固定偏置）。 */
+  float range_bias_m{0.0f};        /**< 距离测量固定系统偏置（米），施加在量测均值侧。 */
+  float angle_bias_rad{0.0f};      /**< 方位/俯仰合成的等效角度固定系统偏置（弧度），施加在量测均值侧。 */
 };
 
 /**
@@ -33,7 +37,8 @@ class RirMeasurementErrorModel {
    * @param effective_snr_db 等效积累后的信噪比（dB）。
    * @param effective_beamwidth_deg 生效波束宽度（度）。
    * @param bandwidth_hz 发射机信号带宽（Hz）。
-   * @return 测量误差结果。
+   * @return 测量误差结果（std 字段为纯随机项；bias 字段为固定系统偏置，
+   *         与 common 单源同步拆出，施加在量测均值侧）。
    */
   static RirMeasurementErrorState Compute(float effective_snr_db,
                                           const RirEffectiveBeamwidthDeg& effective_beamwidth_deg,
@@ -46,15 +51,17 @@ class RirMeasurementErrorModel {
     RirMeasurementErrorState state;
     state.range_error_std_m = common_state.range_error_std_m;
     state.angle_error_std_rad = common_state.angle_error_std_rad;
+    state.range_bias_m = common_state.range_bias_m;
+    state.angle_bias_rad = common_state.angle_bias_rad;
     return state;
   }
 
  private:
   /**
-   * @brief 根据有效方位/俯仰波束宽度计算等效角度测量标准差。
+   * @brief 根据有效方位/俯仰波束宽度计算等效角度测量随机标准差。
    * @param snr_db 等效积累后的信噪比（dB）。
    * @param beamwidth_deg 已解析的有效方位/俯仰波束宽度。
-   * @return 横向各向同性量测模型使用的等效角度标准差（弧度）。
+   * @return 横向各向同性量测模型使用的等效角度标准差（弧度，纯随机项，不含固定偏置）。
    */
   static float ComputeEquivalentAngleErrorStdDev(
       float snr_db, const RirEffectiveBeamwidthDeg& beamwidth_deg) {
