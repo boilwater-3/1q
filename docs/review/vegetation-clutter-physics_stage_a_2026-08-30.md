@@ -55,6 +55,12 @@ Authority: 非规范性记录；结论以 docs/common/contract.md、docs/common/
    2、新模型落在 `src/remote_identification_radar/internal/`，AR 保留既有 stub 不同步改——是否认可；
    3、σ₀ 档位表定位为"量级正确、非实测标定"的简化口径（数值参考同仓 SAR 先例与公开文献 S 波段量级），是否接受；
    4、行为语义变化确认：启用植被后杂波按目标几何逐目标求解（远距/高仰角目标噪底更低），替代现在的会话级常数——这是期望的物理行为。
+7、方案对比（修订 1 探针，已执行；由用户评审项 4 时提出"是否移除植被相关逻辑"触发）：
+   1、移除方案改动面：公开头 [evidence: include/1q/remote_identification_radar/config/RirEnvironmentConfig.h]（枚举+字段）；回放编解码 [evidence: src/remote_identification_radar/session/RirReplayFlatbufferCodec.cpp] 环境段序列化植被档位，删字段须按失败闭合标识符纪律 bump 标识符并补拒绝测试；examples 基础配置、加载器与场景 JSON；四份 RIR 单测；
+   2、移除的连锁死配置：植被是杂波分项唯一环境源，删除后 [evidence: include/1q/remote_identification_radar/config/RirHardwareConfig.h] ::clutter_suppression_gain_db（MTI 增益，回放/验收记录/配置校验三处消费）失配，按干净边界须一并删除，公开面再扩；
+   3、最小物理模型方案改动面：仅 `src/remote_identification_radar/internal/` 新模型、`RirPropagationModel` 内部换源、控制器逐目标注入、四份单测更新；公开 API/回放 schema/示例配置零改动；
+   4、推理：零漂移证据对两方案作用相反——它使"建"更便宜（无验收风险），而"删"的成本在公开面与回放纪律，与档位是否被场景使用无关；
+   5、保留的领域理由：地基探无人机雷达低仰角观测物理上存在地杂波；检测 SINR 分项账本已设杂波通道与 MTI 增益，删源将使该通道永久为零。
 
 ## §3 冻结契约（用户讨论结束后填写）
 
@@ -69,6 +75,8 @@ Authority: 非规范性记录；结论以 docs/common/contract.md、docs/common/
 ## 修订记录
 
 <!-- 编号条目（修订 1、修订 2……）：日期、裁定内容、来源（用户指令/新证据）；不静默改写既有条目。 -->
+
+1、修订 1（2026-08-30）：用户评审项 4 时提出"进一步考虑是否移除植被相关逻辑"；补充移除方案与最小物理模型方案的改动面对比（§2 第 7 条），方向裁定待用户拍板。同日用户已裁定：五项判定与最小边界认可（common stub 保留给 AR、新模型落 RIR 内部、损耗链 defer）；σ₀ 简化口径接受。
 
 ## §4 运行记录（Stage C 后填写）
 
