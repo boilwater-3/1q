@@ -1,5 +1,5 @@
 ---
-Status: frozen
+Status: final
 Date: 2026-08-30
 Review-Baseline: `evidence/vegetation-clutter-physics` @ `164825ee`
 Authority: 非规范性记录；结论以 docs/common/contract.md、docs/common/session_contract.md
@@ -134,9 +134,40 @@ Authority: 非规范性记录；结论以 docs/common/contract.md、docs/common/
 
 ## §4 运行记录（Stage C 后填写）
 
-<!-- 1、实现范围。
-2、验证命令与结果。
-3、权威回写去向：哪个结论写进了哪个文件。
-4、残留风险。
-5、后续冻结项。
--->
+1、实现范围：
+   1、新增 `src/remote_identification_radar/internal/RirSurfaceClutterModel.h/.cpp`
+      （σ₀ 档位表+杂波区几何+雷达方程逐目标主瓣杂波；评审后补擦地角上钳 89°，
+      防超宽波束 cosψ 变号）；
+   2、`RirPropagationModel` 收缩为传播损耗层（common stub 保留供 AR）；
+   3、`RirController` 逐目标接线：`ResolveTargetClutterPowerW` 按目标几何求解，
+      检测 cell/回退检测器/排除归因三点消费，kDisabled 恒 0 与旧口径逐位一致；
+   4、测试：`rir_propagation_model_test` 重写为损耗专用；新增
+      `rir_surface_clutter_model_test` 特征化 10 用例（σ₀ 档位序/擦地角几何/
+      距离衰减/频率响应/退化输入免疫含波束宽度非正/确定性/量级带）；
+      大气与管线测试由 160° 全向波束改 20°/10° 并显式指定驻留中心（原宽波束
+      依赖已随旧口径失效）。
+2、验证命令与结果：
+   - `cmake --build --preset llvm-ninja-release-local`: pass
+   - `ctest -R "unit::remote_identification_radar"`: pass（239 用例，含新增特征化）
+   - `ctest -R "unit::common"`: pass（common 未改动回归确认）
+   - `ctest -R "integration::remote_identification_radar"`: pass
+   - `ctest -R "contract::remote_identification_radar|contract::public_api"`: pass
+   - code-review 车道：0 阻断；2 中项（文档未回写→本记录前已完成；擦地角上钳→已修）
+     2 低项（波束宽度退化用例→已补；23.6° 注释勘误→已修）
+3、权威回写去向：
+   - `docs/remote_identification_radar/algorithms.md`：RF 链回退口径改逐目标
+     杂波模型描述 + 证据行补特征化测试；
+   - `docs/remote_identification_radar/boundaries.md`：阶段 3 清单"植被杂波"改
+     "植被传播损耗"；环境事实段补杂波物理模型边界；
+   - `docs/remote_identification_radar/data-flow.md`：检测 bullet 补逐目标杂波
+     数据流（`ResolveTargetClutterPowerW` → `RirSurfaceClutterModel`）。
+4、残留风险：
+   - σ₀ 档位表为 S 波段量级声明值，非实测标定（用户裁定接受）；
+   - 主瓣离地为硬截断，无波束边缘渐变（声明简化）；
+   - 传播损耗链 6.5 dB 恒定（defer 项 5，后续冻结项）；
+   - 超宽俯仰波束（如 160° 全向档）杂波开启时物理上巨量主瓣杂波，上钳 89° 兜底，
+     场景配置应使用物理自洽的波束宽度。
+5、后续冻结项：
+   - 植被双程衰减随档位/频率分层（原 defer 项 5 的探针）；
+   - AR 侧迁移逐目标杂波模型评估；
+   - σ₀ 实测标定数据引入。
