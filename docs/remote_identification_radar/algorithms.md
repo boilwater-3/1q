@@ -16,21 +16,21 @@ RIR 自持链路生产的内部航迹，不再消费外部航迹供给。
 |---|---|---|---|
 | 地球遮挡门控 | `runtime/RirController.cpp` → `common/geometry/EarthOccultation` | 平台 ECEF + 目标 ENU 还原 ECEF → 穿地则排除（不入检测候选） | 有限弦-圆球，R=6371 km，相切算遮挡；k 因子不进本门；排在可扫描体积与 SNR 之前；ENU→ECEF 失败则跳过本门 |
 | 波束状态解析 | `dwell/RirBeamControl.h` → `common/radar/FrozenBeamResolve.h` | 驻留调度给定波束中心 + 目标视线角 + 天线配置 → 有效宽度/指向/单程增益 | 冻结变体 common 单源（`normalize_azimuth_delta=true`）；调度器给指向、RIR 信指向；视线角有效性 = 位置范数 > 0.1 m；无效回退主瓣峰值增益 |
-| 自发射构建 | `dwell/RirEmissionFactory.cpp` | hardware + 周期上下文 → `RfSceneEmission` | 无 ECCM；功率包络钳制；ECEF 波束指向；载频由频率计划/周期索引解析；驻留窗脉冲数按 ceil(窗/PRI) 计（AR PrepareRfCycle 同口径），下限 1 — **可提取核心，阶段 3b 未迁** |
+| 自发射构建 | `dwell/RirEmissionFactory.cpp` | hardware + 周期上下文 → `RfSceneEmission` | 无 ECCM；功率包络钳制；ECEF 波束指向；载频固定取 `transmitter.frequency_hz`（`RirEmissionFactory.cpp:46-49` 的 `ResolveCarrierHz` 忽略周期索引）——频率计划/跳频未实现、周期索引暂不参与解析；驻留窗脉冲数按 ceil(窗/PRI) 计（AR PrepareRfCycle 同口径），下限 1 — **可提取核心，阶段 3b 未迁** |
 | 接收机状态 | `dwell/RirReceiverStateBuilder.cpp` | 自发射 + hardware → `RirReceiverOperatingState` | 与 AR 同口径 RF 接收机参数；供前端聚合与 detection cell — **可提取核心，阶段 3b 未迁** |
 | RF 前端求解 | `dwell/RirRfFrontEndResolver.cpp` | 合并场景（外部 + 自发射）+ 接收机 → incident links | 按 emission_id 排序；饱和标志独立暴露；集成方只供外部 emission |
 | 有效 RCS | `dwell/RirEffectiveRcs.cpp` → `common/rcs/RcsPhysics`（`ComputeMixedPhysicalRcsM2`） | 场景目标 + 视线角 + `rcs_physics` → m² | 混合编排 common 单源；默认开启且 mix=1（随视线角/载频变，非扫描）；`enable=false` 或 mix=0 或 `carrier_hz<=0` 回退 input RCS；写入 detection cell 目标 `rcs_m2` |
 | 逐目标大气物理损耗 | `runtime/RirController.cpp` → `common/atmosphere`（`ComputeTargetAtmosphericPhysicsLossDb`） | 周期载频 + 平台/目标几何 + 气象观测 → 大气附加损耗 dB | common 标量胶水；enable/k_factor 留模块侧；叠加进全局植被/天气损耗；`enable_physical_model=false`（默认）时为 0 |
-| 检测单元求解 | `dwell/RirDetectionCellResolver.cpp` → `common/radar/DetectionCellResolver` | 目标回波事实 + 库内 incident links + 增益偏置 → 分项 SINR 账本 | common 单源；RIR 恒 `anti_rgpo=false`；四增益缺省 0 dB；杂波瓦经 `ComputeEquivalentClutterNoiseW` |
+| 检测单元求解 | `dwell/RirDetectionCellResolver.cpp` → `common/radar/DetectionCellResolver` | 目标回波事实 + 库内 incident links + 增益偏置 → 分项 SINR 账本 | common 单源；RIR 恒 `anti_rgpo=false`；四增益缺省 0 dB、均经 [0, 40] dB 钳位（`DetectionCellResolver.cpp:20,24-27`）；`noise_processing_gain_db` 语义为乘性抬高噪声底（进分母乘热噪，`DetectionCellResolver.cpp:257`），与其余三项（目标增益乘分子 `:262`、干扰/杂波抑制除分母项 `:258-259`）方向不对称——配置按「正值=劣化」理解；杂波瓦经 `ComputeEquivalentClutterNoiseW` |
 | 验收旁路 MTI/MTD | `common/radar/MtiMtdAcceptanceBank` ← `RirAcceptanceRecords` | cell 功率 + PRF/载频 + 可选干扰单音 → 8 路派生与 MTI/MTD 增益 | **不进 SINR/Pd/航迹**；N=8、2 脉冲、σ_v=0.25 m/s 核内常量；无链路多普勒则干扰通道写 `无`；关验收开关时不求值 |
-| 统计级 CFAR | `dwell/RirSignalDetector.cpp` → `common/radar/StatisticalCfarDetector` | SNR + Swerling + Pfa → Pd → 蒙特卡洛判决 | 判决编排 common；不是 CA-CFAR；**6 dB 真值回退门不在本类**（`RirController` 仿真脚手架） |
-| 量测误差 | `dwell/RirMeasurementErrorModel.h` | SNR + 波束宽度 + 带宽 → 距离/角度标准差 | 距离偏置 20 m；角度两轴 RMS 合成；只供内部关联/滤波 |
+| 统计级 CFAR | `dwell/RirSignalDetector.cpp` → `common/radar/StatisticalCfarDetector` | SNR + Swerling + Pfa → Pd → 蒙特卡洛判决 | 判决编排 common；不是 CA-CFAR；生效积累脉冲数 = min(`policy.detection.pulse_count`, 驻留窗内可容脉冲)——检测单元路径按接收窗内回波可达数截断（`DetectionCellResolver.cpp:236-239`），默认驻留 0.05 s（`RirMissionConfig.h:32`）× PRF 300 Hz（`RirHardwareConfig.h:107`）窗内可容 15、policy 缺省 10（`RirPolicyConfig.h:32`）→ 生效 10，相对驻留积累能力损失约 1.8 dB（10·log10(15/10)）；**6 dB 真值回退门不在本类**（`RirController` 仿真脚手架） |
+| 量测误差 | `dwell/RirMeasurementErrorModel.h` | SNR + 波束宽度 + 带宽 → 距离/角度标准差 | 输入 SNR = 单脉冲判决 SINR + 10·log10(N) 积累折算（N=生效积累脉冲数，cell 取窗口截断值/回退取 policy；2026-08-30 修复旧口径直接喂单脉冲致误差偏大 √N）；距离偏置 20 m；角度两轴 RMS 合成；只供内部关联/滤波 |
 | LAPJV 全局最优关联 | `tracking/RirTrackAssociator.cpp` + `common/tracking/GatedSquareAssignment.h` + `RirLapjvSolver` | 检测量测 + 航迹种子 → 关联键/命中/新键 | 方阵增广核 common；马氏平方波门（缺省 9）；键单调不回收复用 |
 | 单目标 KF | `tracking/RirTrackFilter.cpp` | 量测 + 先验状态 → 预测/更新后验 | 6 维 CV 状态；动态 R 更新；LLT 失败跳过更新；q/std 下限 0.001 钳制（AR SignalComponentFactory 工厂同口径） |
 | IMM 双路径 | `tracking/RirImmFilter.cpp` | 量测/失配 + 先验状态 → 组合后验 | 数值核 common `ImmFilter<6,3>`；缺省双模型 CV 对数等距、以配置 `kalman_noise_diff_coeff` 为低端锚点（q=1 退化为 {1.0, 10.0}）；对角 0.95 转移；confirmed 命中激活、失配仅预测；命中更新走逐量测动态 R（与 AR 同口径，缺省量测噪声不参与数值）；UpdateConfig 在线热同步既有运行态（每模型 q/转移矩阵，AR SyncRuntimeTuning 同口径；模型数变化丢弃运行态、下次 confirmed 命中惰性重建）；缺省开启 |
 | 航迹池与生命周期 | `tracking/RirTrackPool.cpp` → `common/tracking/ObjectPool`；`RirTrackLifecycle` → `TrackLifecyclePromote` | 关联量测 + 周期上下文 → 内部航迹 | 池/PromoteState FSM common；RIR 无 `kRecycled` 中间态（回收即 erase）；双重释放拒绝 |
 | 驻留排序 | `runtime/RirController.cpp` | 上一周期内部航迹结论 + 场景目标 → 驻留候选顺序 | 未识别优先 + 斜距次近；威胁等级输入不参与；只决定候选顺序，不生成波束指向 |
-| 驻留调度（库内） | `session/RirSession.cpp` + `common/radar/ScanScheduleRuntime.h` | 实际搜索扇区（子窗∩体积）+ scan_center + 指定任务状态 + 场景目标 → 本周期驻留波束中心 | 实际搜索扇区 = `mission.scan_window_deg` ∩ `orientation.steerable_volume_deg`（`internal/IntersectScanSector`），在其相对限位建波位 → center 平移 → 方位归一化；指定任务限位执行以体积为界（越界 kOutsideSteerableVolume），指定目标豁免子窗；非法体积/步长/空交集回退 scan_center；验收旁路另写 `rir_scan_pattern.csv`（未进指向） |
+| 驻留调度（库内） | `session/RirSession.cpp` + `common/radar/ScanScheduleRuntime.h` | 实际搜索扇区（子窗∩体积）+ scan_center + 指定任务状态 + 场景目标 → 本周期驻留波束中心 | 实际搜索扇区 = `mission.scan_window_deg` ∩ `orientation.steerable_volume_deg`（`internal/IntersectScanSector`），在其相对限位建波位 → center 平移 → 方位归一化（common `BuildScanPattern` 每轴采样上限 4096、超出截断，`ScanScheduleRuntime.h:84,98`）；扫描步长波束宽与检测门同口径（λ=c/f 两级回退 nominal→λ/L，2026-08-30 修复扫描链缺波长致 nominal=0 配置静默空表）；指定任务限位执行以体积为界（越界 kOutsideSteerableVolume），指定目标豁免子窗；非法体积/步长/空交集回退 scan_center；验收旁路另写 `rir_scan_pattern.csv`（未进指向） |
 | 实际有效目标最大斜距 | `runtime/RirController.cpp` | 本周期入候选并成航迹的目标斜距 → `RirCycleResult.max_detected_slant_range_m` | 持航迹目标最大输入几何斜距；区别于 `mission.max_range_m`（径向粗筛门）——反映 SNR 链路预算下实际探测距离；无航迹为 0，出扇区目标不计入 |
 | 指定识别任务（限时锁定） | `session/RirSession.cpp` | 指定（目标 ID + 窗口周期数）→ 任务生命周期（kPending/kAcquired/kExpired） | 镜像 AR designation 骨架；识别达成即任务完成回扫描（识别是离散结论，不持续跟随）；窗口耗尽作废（kAcquisitionTimeout） |
 | 观测构造 | `recognition/RecognitionObservationBuilder.cpp` | 场景目标真值 + 内部航迹 + `RirObservationContext` → `RirFeatureSet` | 驻留质量因子作用于 RCS/极化/距离像（运动除外）；场景真值不得直接产生结论 |
@@ -58,17 +58,31 @@ RIR 自持链路生产的内部航迹，不再消费外部航迹供给。
    速度种子只用于（重）初始化，不进入差分基准，也不再写入航迹状态（2026-08-29
    审计修正：旧口径以本周期种子为基准，输出实为滤波速度滞后误差，方向与真值
    加速度相反、量级虚高，并曾透传进识别运动特征）。
-3. **RF 链回退**：`ResolveRfCycle` 失败（hardware 不完整/前端饱和等）或 detection cell
-   求解失败时，传播损耗/杂波/干扰仍按环境配置注入，但检测 SNR 回退阶段 1 旧公式
-   口径；RF 链成功时走分项 SINR 账本（含外部 `rf_scene` 干扰）。环境杂波
+3. **RF 链回退与回波能量基准（2026-08-30 统一）**：`ResolveRfCycle` 失败（hardware
+   不完整等）或 detection cell 求解失败时，传播损耗/杂波仍按环境配置注入，但检测
+   SNR 回退阶段 1 旧公式口径，且回退路径 `env.jam_noise_w` 恒 0
+   （`RirController.cpp` 回退分支硬编码，不注入干扰）、不施四项处理增益/抑制——
+   抗干扰能力仅检测单元路径具备，用回退口径评估抗干扰场景会高估门限；RF 链成功时
+   走分项 SINR 账本（含外部 `rf_scene` 干扰）。**回波能量基准统一为 B·τ 脉压口径**
+   （2026-08-30 裁定物理正确优先）：杂波等效噪声与回退路径目标回波均在 common
+   参考脉宽方程（τ/13µs 能量缩放）之上叠加 `ComputePulseCompressionGainDb` =
+   10·log10(max(1, B·τ))，与检测单元分子的脉压增益同基准——净修正量
+   10·log10(B·13µs) 与 τ 无关（默认 B=4.5 MHz ≈ +17.67 dB）；修正前目标/杂波比
+   曾恒差 B·13µs 倍（杂波被相对低估）。接收前端饱和（周期级，入射总功率越
+   `maximum_linear_input_power_w`）为致盲语义：该周期全部目标不产生检测，记
+   `kTargetReceiverFrontEndSaturated` 排除诊断。环境杂波
    （`vegetation_cover_profile≠kDisabled`）为逐目标主瓣地杂波最小物理模型
    （`RirSurfaceClutterModel`）：擦地角取主瓣俯仰半波束宽减目标仰角（主瓣离地
    归零），杂波面积取脉冲/波束限制较小者（距离单元 c/2B），σ₀ 按植被档位查表
    并随 sinψ 一阶折算，杂波回波走与目标同一雷达方程（2026-08-30 替换旧的
-   会话级恒定 CNR 口径；σ₀ 表为 S 波段量级声明值，非实测标定）。
-4. **第一个 profile 报告**：`feature_scores` 分项报告用型号的第一个 profile
-   （`profiles.front()`），而非实际命中得分的 profile——多 profile 型号的分项
-   报告可能与判定所用 profile 不一致（判定路径本身正确）。
+   会话级恒定 CNR 口径；σ₀ 表为 S 波段量级声明值，非实测标定）；该杂波回波按
+   主瓣峰值增益近似（走 `RirRadarEquations::ComputeEchoPower_dBW` 用
+   `main_beam_gain_db`），而同一 SINR 账本中目标回波用逐目标离轴增益——斜视
+   驻留时杂波恒按主瓣中心增益估计，该口径差为已知近似。
+4. **分项相似度按实际命中 profile 报告**：`feature_scores` 分项报告用判定
+   实际得分的 profile（`RirMatchResult::best_profile_index` 传递、
+   `RecognitionTracker` 消费；库热替换致下标越界时回退首 profile；
+   2026-08-30 修复旧的 `profiles.front()` 恒取首个口径）。
 5. **单候选 margin 恒过**：单候选时 `runner_up_score == 0`，margin 检查恒过。
 6. **RCS 最近邻**：视角覆盖判定完全由数据库 profile 的
    `minimum_aspect_coverage_deg` 承担——样本网格仅需非空即产生 RCS 观测。

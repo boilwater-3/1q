@@ -28,7 +28,7 @@ enum class ONEQ_API RirDetectionGateMode {
 struct ONEQ_API RirDetectionPolicyConfig {
   float cfar_pfa{1e-6f};                /**< 统计级 CFAR 虚警概率。 */
   float min_snr_db{-10.0f};             /**< SNR 硬截断下限。 */
-  float min_detection_margin_db{-2.0f}; /**< 检测可靠性裕量门限。 */
+  float min_detection_margin_db{-2.0f}; /**< 绝对 SNR 第二道下限（dB）：蒙特卡洛判决通过后仍低于该值判不检测；非相对 min_snr_db 的余量。 */
   int pulse_count{10};                  /**< 默认检测积累脉冲数。 */
   std::uint32_t random_seed{42U};       /**< 检测/量测误差随机种子（replay 状态）。 */
   RirDetectionGateMode gate_mode{RirDetectionGateMode::kDetectorGate}; /**< 目标进入门控模式。 */

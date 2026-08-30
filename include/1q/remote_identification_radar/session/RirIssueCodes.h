@@ -67,6 +67,11 @@ constexpr char kRecognitionTimeRangeInvalid[] = "rir.validation.recognition_time
 /** @brief 扫描策略非法（步长系数须为正）。 */
 constexpr char kScanStrategyInvalid[] = "rir.validation.scan_strategy_invalid";
 
+/** @brief 扫描波位单轴采样数超内核上限（4096），波位表会被静默截断；
+ *         需加大步长（step_scale/波束宽）或缩小扫描扇区。 */
+constexpr char kScanWaveAxisSamplesTruncated[] =
+    "rir.validation.scan_wave_axis_samples_truncated";
+
 /** @brief 可扫描体积非法（orientation 须有限有序且在合法域）。 */
 constexpr char kSteerableVolumeInvalid[] = "rir.validation.steerable_volume_invalid";
 
@@ -118,6 +123,11 @@ constexpr char kAntennaElGeometryInvalid[] = "rir.validation.antenna_el_geometry
 constexpr char kAntennaGainBeamwidthInconsistent[] =
     "rir.validation.antenna_gain_beamwidth_inconsistent";
 
+/** @brief 标称波束宽度与孔径 λ/L 推导值交叉矛盾（相对偏差 > 50%；
+ *         波束宽与孔径是一枚硬币的两面，矛盾配置使波位步长与检测门口径分叉）。 */
+constexpr char kAntennaBeamwidthApertureInconsistent[] =
+    "rir.validation.antenna_beamwidth_aperture_inconsistent";
+
 /** @brief RCS 物理参数非法。 */
 constexpr char kRcsPhysicsInvalid[] = "rir.validation.rcs_physics_invalid";
 
@@ -136,6 +146,11 @@ constexpr char kTargetOutsideSearchVolume[] = "rir.target_outside_search_volume"
 /** @brief 目标在搜索扇区内但不被本周期驻留主瓣覆盖（"探测⟺波束照到"硬门，
  *         门限=有效波束宽度半功率宽；方向图恒开的配套语义；cause=kNone）。 */
 constexpr char kTargetOutsideBeamCoverage[] = "rir.target_outside_beam_coverage";
+
+/** @brief 接收前端饱和周期致盲（周期级门：全部入射链聚合功率超接收线性上限，
+ *         本周期全部目标不做检测判决；排在检测准入门之前，cause=kNone）。 */
+constexpr char kTargetReceiverFrontEndSaturated[] =
+    "rir.target_receiver_front_end_saturated";
 
 /** @brief 检测准入门未过（聚合门：SNR/检测器判决；携带门内归因主因）。 */
 constexpr char kTargetDetectionGate[] = "rir.target_detection_gate";

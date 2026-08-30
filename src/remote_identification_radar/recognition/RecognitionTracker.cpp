@@ -332,8 +332,13 @@ void RirTracker::UpdateCycle(
         }
       }
       if (best_model != nullptr && !best_model->profiles.empty()) {
-        const std::array<float, 4> similarities =
-            RirMatcher::ComputeFeatureSimilarities(aggregate, best_model->profiles.front());
+        // 分项相似度比对实际得分的 profile（QueryBestMatch 对各 profile 取 max，
+        // front 未必是得分的那个）；下标越界（库热替换后模型变短）防御回退 front。
+        const std::size_t best_profile_index =
+            match.best_profile_index < best_model->profiles.size() ? match.best_profile_index
+                                                                   : 0U;
+        const std::array<float, 4> similarities = RirMatcher::ComputeFeatureSimilarities(
+            aggregate, best_model->profiles[best_profile_index]);
         judgement.feature_scores.rcs_similarity = similarities[0];
         judgement.feature_scores.motion_similarity = similarities[1];
         judgement.feature_scores.polarization_similarity = similarities[2];

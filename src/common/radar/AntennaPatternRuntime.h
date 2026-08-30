@@ -30,7 +30,6 @@ inline float ClampFloat(float value, float min_value, float max_value) {
  */
 enum class AntennaPatternModelType {
   kGaussianMainLobe = 0,  /**< 高斯主瓣近似。 */
-  kParabolicMainLobe = 1, /**< 抛物线主瓣近似。 */
   kCosinePower = 2,       /**< 余弦幂方向图近似。 */
   kSincPattern = 3        /**< sinc² 方向图（均匀孔径理论解，需物理孔径尺寸）。 */
 };
@@ -112,7 +111,7 @@ inline float NormalizeAzimuthDeltaDeg(float delta_az_deg) {
  * @brief 归一化 sinc² 方向图在主瓣外的连续延拓衰减（评审 2026-08-26 条14）。
  * @param[in] u 离轴角 / 半功率半宽（u=1 即主瓣边界，u>1 为副瓣区）。
  * @return 衰减（dB）。自变量缩放使 u=1 处恰为 -3.01dB（与主瓣半功率宽口径对齐，
- *         门内高斯/抛物线模型在边界同为 3dB，衔接连续）；第一零点 u≈2.26。
+ *         门内各模型在边界同为 3dB，衔接连续）；第一零点 u≈2.26。
  */
 inline float SincSquaredContinuationDb(float u) {
   const float safe_u = antenna_pattern_internal::ClampLowerBound(std::fabs(u), 1.0e-3f);
@@ -176,9 +175,6 @@ inline float ComputeMainLobeAttenuationDb(const AntennaPatternConfig& config,
   const float normalized_el = std::fabs(offset_deg.delta_el_deg) / half_el_beamwidth_deg;
 
   switch (config.model_type) {
-    case AntennaPatternModelType::kParabolicMainLobe:
-      return 3.0f * (normalized_az * normalized_az + normalized_el * normalized_el);
-
     case AntennaPatternModelType::kCosinePower: {
       const float az_offset_rad = DegToRad(
           antenna_pattern_internal::ClampFloat(

@@ -143,8 +143,17 @@ config::RirAzimuthElevationDeg TargetLookAngles(const session::RirSceneTarget& t
 /** @brief 由相对可扫描体积 + scan_center 构建绝对 ENU 波位序列。 */
 std::vector<oneq::common::radar::AzimuthElevationDeg> BuildAbsoluteScanWaves(
     const config::RirSessionConfig& config) {
+  // 波束宽度解析波长（λ = c/f）：与 RirController 检测门的 gate_wavelength_m 同源
+  // 同口径（λ/L 孔径推导；检测门规划频率优先、兜底发射频率，此处为配置期构建，
+  // 直接取发射频率）。不传波长时 nominal 波束宽为 0 的配置会解析出 0 步长，
+  // BuildScanPattern 对步长 <= 0 返回空表，扫描静默退化。
+  const float scan_wavelength_m =
+      config.hardware.transmitter.frequency_hz > 0.0f
+          ? static_cast<float>(oneq::common::numerics::kLightSpeed) /
+                config.hardware.transmitter.frequency_hz
+          : 0.0f;  // 频率无效时传 0：保持既有「无孔径推导」回退。
   const dwell::RirEffectiveBeamwidthDeg beamwidth =
-      dwell::RirResolveEffectiveBeamwidth(config.hardware.antenna);
+      dwell::RirResolveEffectiveBeamwidth(config.hardware.antenna, scan_wavelength_m);
   const config::RirMissionConfig& mission = config.mission;
   // 实际搜索扇区 = 任务扫描子窗 ∩ 硬件可扫描体积（子窗缺省无界时退化为体积）：
   // 扫描波位仅在该扇区内推进（甲方「任务范围由用户指定」）。
@@ -394,8 +403,15 @@ RirCycleResult RirSession::Impl::RunCycle(const RirCycleInput& input) {
   // 验收事件 beam_pattern（3.2.2.4.2.1）：完整波位排列表按当前扫描配置一次性
   // 输出（与逐周期取位同源；mission/orientation 配置变更后重发）。
   if (RIR_ACCEPTANCE_LOG_ENABLED() && !acceptance_scan_pattern_logged) {
-    const dwell::RirEffectiveBeamwidthDeg beamwidth =
-        dwell::RirResolveEffectiveBeamwidth(config.hardware.antenna);
+    // 摘要波束宽与扫描波位/检测门同口径（λ = c/f，λ/L 孔径推导；见
+    // BuildAbsoluteScanWaves 与 RirController gate_wavelength_m）。
+    const float summary_wavelength_m =
+        config.hardware.transmitter.frequency_hz > 0.0f
+            ? static_cast<float>(oneq::common::numerics::kLightSpeed) /
+                  config.hardware.transmitter.frequency_hz
+            : 0.0f;
+    const dwell::RirEffectiveBeamwidthDeg beamwidth = dwell::RirResolveEffectiveBeamwidth(
+        config.hardware.antenna, summary_wavelength_m);
     const std::string csv_path = runtime::ResolveRirAntennaPatternCsvPath();
     runtime::TryExportRirAntennaPatternCsv(config.hardware.antenna, csv_path.c_str());
     const std::string scan_csv_path = runtime::ResolveRirScanPatternCsvPath();

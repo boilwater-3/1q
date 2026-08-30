@@ -537,6 +537,53 @@ TEST(RirDesignationTaskTest, DefaultConfigScanPatternMatchesPreRefactorAbsoluteL
   }
 }
 
+/// @brief nominal 波束宽为 0（委托孔径 λ/L 推导）时扫描波位序列仍应非空：
+///        波长由发射频率解析（λ = c/f，与检测门 gate_wavelength_m 同口径）；
+///        修复前波长缺省 0 → 步长解析为 0 → BuildScanPattern 返回空表，
+///        驻留中心静默退化为 scan_center。
+TEST(RirDesignationTaskTest, ApertureDerivedBeamwidthYieldsNonEmptyScanPattern) {
+  config::RirSessionConfig session_config = MakeIdentifyConfig();
+  // 名义波束宽置 0、孔径保留默认 1.2 m、发射频率默认 3 GHz（λ≈0.1 m）：
+  // 有效波束宽 = RadToDeg(λ/L) ≈ 4.77°，扫描步长由此推导。
+  session_config.hardware.antenna.nominal_az_beamwidth_deg = 0.0f;
+  session_config.hardware.antenna.nominal_el_beamwidth_deg = 0.0f;
+  const float wavelength_m =
+      static_cast<float>(oneq::common::numerics::kLightSpeed) /
+      session_config.hardware.transmitter.frequency_hz;
+  const dwell::RirEffectiveBeamwidthDeg beamwidth =
+      dwell::RirResolveEffectiveBeamwidth(session_config.hardware.antenna, wavelength_m);
+  ASSERT_GT(beamwidth.az_beamwidth_deg, 0.0f);
+  ASSERT_GT(beamwidth.el_beamwidth_deg, 0.0f);
+  const config::RirMissionConfig& mission = session_config.mission;
+  // 默认 scan_window 无界：实际扇区 = orientation（与既有测试口径一致，取体积）。
+  const config::RirAzimuthElevationLimitsDeg& volume = session_config.orientation;
+  const std::vector<oneq::common::radar::AzimuthElevationDeg> expected =
+      oneq::common::radar::BuildScanPattern(
+          volume.az_min_deg, volume.az_max_deg, volume.el_min_deg, volume.el_max_deg,
+          beamwidth.az_beamwidth_deg * mission.step_scale,
+          beamwidth.el_beamwidth_deg * mission.step_scale, mission.scan_start_position,
+          mission.scan_sequence);
+  ASSERT_FALSE(expected.empty()) << "孔径推导波束宽下扫描波位表不应为空";
+
+  // 不指定、无航迹：整周期搜索，每周期驻留配额 floor(dt/dwell) 个波位被消耗，
+  // 首驻留中心 = 波位表游标处条目（修复前空表 → 退化为 scan_center=(0,0)）。
+  const double input_dt_sec = 0.5;
+  const std::size_t dwells_per_cycle = static_cast<std::size_t>(
+      std::floor(input_dt_sec / static_cast<double>(mission.recognition_dwell_sec) + 1.0e-6));
+  ASSERT_LT(dwells_per_cycle, expected.size());
+  RirSession session = RirSession::Create(session_config);
+  for (std::uint32_t cycle = 1U; cycle <= 2U; ++cycle) {
+    const RirCycleResult result = session.StepWithResult(MakeInput(cycle, {}));
+    ASSERT_EQ(result.status, session::RirCycleStatus::kCompleted);
+    const std::size_t wave_index =
+        static_cast<std::size_t>(cycle - 1U) * dwells_per_cycle;
+    EXPECT_NEAR(result.dwell_center_deg.az_deg, expected[wave_index].az_deg, 1.0e-4f)
+        << "周期 " << cycle << " 驻留中心应取扫描波位表条目 " << wave_index;
+    EXPECT_NEAR(result.dwell_center_deg.el_deg, expected[wave_index].el_deg, 1.0e-4f)
+        << "周期 " << cycle << " 驻留中心应取扫描波位表条目 " << wave_index;
+  }
+}
+
 }  // namespace
 }  // namespace tests
 }  // namespace remote_identification_radar

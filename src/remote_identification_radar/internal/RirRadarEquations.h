@@ -62,6 +62,22 @@ struct RirRadarEquations {
                                     float range_m, float propagation_loss_db);
 
   /**
+   * @brief 脉压（匹配滤波）能量增益 10·log10(max(1, B·τ))，单位 dB。
+   *
+   * 物理：回波与噪声经同一匹配滤波，信号能量按 B·τ 相干积累、噪声底按 B
+   * 线性抬升，故匹配滤波后单脉冲 SNR 口径 = 峰值雷达方程回波 × B·τ /
+   * (kT·B·NF)。相对 common 雷达方程内置的 τ/13µs 参考能量缩放，本增益的
+   * 净修正量 = +10·log10(B·13µs)（与 τ 无关），把消费侧回波能量对齐到与
+   * 检测单元路径（common DetectionCellResolver 的 max(1, B_matched·τ)）
+   * 相同的 B·τ 基准。
+   * @param tx 发射机参数（取带宽 B 与脉宽 τ）
+   * @return 脉压能量增益（dB）；B·τ ≤ 1 或 B/τ 非法（非正/非有限）时返回 0。
+   * @note 本函数是 RIR 消费层（杂波模型/回退探测回波）对 B·τ 口径的对齐
+   *       单源，不改 common 单源行为。
+   */
+  static float ComputePulseCompressionGainDb(const config::hardware::RirTransmitterConfig& tx);
+
+  /**
    * @brief 接收机热噪声功率底: N₀ = k·T₀·B·F。
    * T₀ = 290K (IEEE 标准参考温度)。
    * @param tx 发射机参数（取带宽）

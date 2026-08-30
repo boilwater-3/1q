@@ -249,12 +249,14 @@ Last-reviewed: 2026-08-23
 | `rir.target_beyond_recognition_range` | 执行排除 | 目标斜距超识别最大作用距离（识别链距离门，检测/跟踪不受影响）。 |
 | `rir.target_detection_gate` | 执行排除 | 检测准入门未过（聚合门：SNR/检测器判决；携带门内归因主因）。 |
 | `rir.target_earth_occulted` | 执行排除 | 目标视线被地球圆球遮挡（有限弦穿地，相切算遮挡）。 |
+| `rir.target_receiver_front_end_saturated` | 执行排除 | 接收前端饱和周期致盲（周期级门：入射总功率越接收线性上限，本周期全部目标不做检测判决；排在检测准入门之前）。
 | `rir.target_mode_not_identify` | 执行排除 | 本周期非识别工作模式，不建识别观测（STBY 全局模式门）。 |
 | `rir.target_no_feature_database` | 执行排除 | 特征库缺失或加载失败，特征链空（识别积累保持）。 |
 | `rir.target_outside_search_volume` | 执行排除 | 目标视线角出可扫描体积（角域裁剪）。 |
 | `rir.target_outside_beam_coverage` | 执行排除 | 目标在搜索扇区内但不被本周期驻留主瓣覆盖（"探测⟺波束照到"硬门，门限=有效波束宽度半功率宽；2026-08-29 方向图恒开配套语义）。 |
 | `rir.validation.antenna_az_geometry_invalid` | 输入校验 | 天线方位几何非法（波束宽度或孔径无效）。 |
 | `rir.validation.antenna_el_geometry_invalid` | 输入校验 | 天线俯仰几何非法。 |
+| `rir.validation.antenna_beamwidth_aperture_inconsistent` | 输入校验 | 标称波束宽度与孔径 λ/L 推导值交叉矛盾（相对偏差 > 50%）。
 | `rir.validation.antenna_gain_beamwidth_inconsistent` | 输入校验 | 天线峰值增益与名义波束宽度物理不相容（G≈26000/(az°·el°)，容差 3 dB）。 |
 | `rir.validation.association_policy_invalid` | 输入校验 | 关联策略非法（波门 sigma 非正）。 |
 | `rir.validation.detection_policy_invalid` | 输入校验 | 检测策略非法（Pfa/门限/脉冲数/种子）。 |
@@ -280,6 +282,7 @@ Last-reviewed: 2026-08-23
 | `rir.validation.recognition_time_range_invalid` | 输入校验 | 识别时间范围非法（保持时间须非负；最大距离/驻留/累积窗口须有限且为正）。 |
 | `rir.validation.recognition_weights_invalid` | 输入校验 | 识别特征权重非法（须有限、在 [0, 1] 且总和为 1）。 |
 | `rir.validation.scan_strategy_invalid` | 输入校验 | 扫描策略非法（限位须有限有序且在合法域 az∈[-180,180]、el∈[-90,90]；步长系数须为正）。 |
+| `rir.validation.scan_wave_axis_samples_truncated` | 输入校验 | 扫描波位单轴采样数超内核上限（4096），波位表会被截断；需加大步长或缩小扇区。
 | `rir.validation.sensor_platform_id_invalid` | 输入校验 | 传感器平台身份非法（须非零）。 |
 | `rir.validation.signal_processing_gains_invalid` | 输入校验 | 信号处理增益偏置非法（四偏置须有限且在 [0, 40] dB）。 |
 | `rir.validation.tracking_policy_invalid` | 输入校验 | 跟踪策略非法（KF 噪声参数非正）。 |

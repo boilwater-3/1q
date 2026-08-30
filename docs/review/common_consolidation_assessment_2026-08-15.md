@@ -56,7 +56,7 @@ AR 与 RIR 之间存在一批"同形副本"。本文件逐项判定每份副本�
 |---|---|---|---|---|---|
 | 1 | LAPJV 指派求解器 | `signal/association/LapjvSolver.*` | `tracking/RirLapjvSolver.*` | 物理恒等式（纯算法，与雷达无关） | **收敛（最高优先）** |
 | 2 | 雷达方程全集（回波/噪声/积累/误差/Pd/门限） | `signal/detection/RadarEquations.*` | `internal/RirRadarEquations.*` | 物理恒等式 + 配置类型适配 | **收敛** |
-| 3 | 天线方向图 4 模型（高斯/抛物线/余弦幂/sinc² + 扫描损失/旁瓣/后瓣） | `signal/detection/AntennaPatternRuntime.h` | `dwell/RirAntennaPatternRuntime.h` | 物理恒等式 + 配置类型适配 | **收敛** |
+| 3 | 天线方向图 3 模型（高斯/余弦幂/sinc² + 扫描损失/旁瓣/后瓣） | `signal/detection/AntennaPatternRuntime.h` | `dwell/RirAntennaPatternRuntime.h` | 物理恒等式 + 配置类型适配 | **收敛** |
 | 4 | 检测单元求解 + 干扰时频聚合 | `signal/detection/ArDetectionCellResolver.*` | `dwell/RirDetectionCellResolver.*` | 物理账本 + ECCM bool 钩子 | **收敛（阶段 3b）** — 旧「不动」已推翻 |
 | 5 | 统计级 CFAR 判决器 | `signal/detection/SignalDetector.*` | `dwell/RirSignalDetector.*` | 统计判决编排 + 策略标量 | **收敛（阶段 3b）** — 旧「不动」已推翻 |
 | 6 | 传播/杂波模型子集 | `environment/PropagationModel.*` | `internal/RirPropagationModel.*` | 物理恒等式 + 场景配置适配 | **已执行（第二阶段）** |

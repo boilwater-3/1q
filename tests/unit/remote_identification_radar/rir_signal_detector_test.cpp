@@ -6,9 +6,11 @@
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <cmath>
 #include <random>
 
+#include "common/numerics/Constants.h"
 #include "remote_identification_radar/dwell/RirSignalDetector.h"
 #include "remote_identification_radar/internal/RirRadarEquations.h"
 
@@ -108,8 +110,10 @@ TEST(RirSignalDetectorTest, JammingIncreasesNoise) {
   EXPECT_LT(jammed.snr_db, clean.snr_db);
 }
 
-/// @brief 同能量下带宽加倍 → 噪声底抬升 → SNR 下降（B 与 τ 的能量折算）。
-TEST(RirSignalDetectorTest, WiderBandwidthReducesSnrWithSameEnergyInputs) {
+/// @brief 同能量（同峰值功率/同 τ）下带宽 ×4：热噪底 ×B，脉压增益同步 ×B
+///        （B·τ ≥ 1 区），匹配滤波后单脉冲 SNR 不变（SNR = E/N₀ 口径）。
+/// @note B·τ 脉压口径裁定前的旧口径下该差值为 +6.0206 dB（仅热噪底抬升）。
+TEST(RirSignalDetectorTest, WiderBandwidthKeepsMatchedFilterSnrAtSameEnergy) {
   RirDetectorConfig narrow;
   narrow.transmitter.bandwidth_hz = 1.0e6f;
   narrow.transmitter.pulse_width_s = 13.0e-6f;
@@ -117,7 +121,7 @@ TEST(RirSignalDetectorTest, WiderBandwidthReducesSnrWithSameEnergyInputs) {
   detector_narrow.SetRandomSeed(42u);
 
   RirDetectorConfig wide = narrow;
-  wide.transmitter.bandwidth_hz = 4.0e6f;  // 带宽 ×4 → 噪声底 ×4
+  wide.transmitter.bandwidth_hz = 4.0e6f;  // 带宽 ×4 → 噪声底 ×4、脉压增益 ×4
   RirSignalDetector detector_wide(wide);
   detector_wide.SetRandomSeed(42u);
 
@@ -130,17 +134,87 @@ TEST(RirSignalDetectorTest, WiderBandwidthReducesSnrWithSameEnergyInputs) {
   const RirDetectionResult r_narrow = detector_narrow.Detect(target, env);
   const RirDetectionResult r_wide = detector_wide.Detect(target, env);
 
-  EXPECT_NEAR(r_narrow.snr_db - r_wide.snr_db, 6.0206f, 1.0e-3f);
+  EXPECT_NEAR(r_narrow.snr_db - r_wide.snr_db, 0.0f, 1.0e-3f);
+}
+
+/// @brief 回退路径手算恒等式（B·τ 脉压口径裁定）：snr_db =
+///        10·log10(峰值方程回波 × B·τ / (kT·B·NF + 杂波 + 干扰))；
+///        独立双精度复算全链路（含 common τ/13µs 参考能量缩放），容差 1e-3。
+TEST(RirSignalDetectorTest, DetectSnrMatchesPeakEquationTimesBtOverNoiseBudget) {
+  struct HandComputedBudget {
+    double echo_power_dbw;
+    double snr_db;
+  };
+  const auto hand_compute = [](const RirDetectorConfig& config,
+                               const RirTargetReturn& target,
+                               const RirEnvironmentNoise& env) {
+    const double pi = oneq::common::numerics::kPi;
+    const double wavelength_m =
+        oneq::common::numerics::kLightSpeed / config.transmitter.frequency_hz;
+    const double antenna_gain_linear =
+        std::pow(10.0, config.antenna.main_beam_gain_db / 10.0);
+    const double total_loss_db = config.transmitter.transmit_loss_db +
+                                 env.propagation_loss_db + config.receiver.receive_loss_db;
+    const double total_loss_linear = std::pow(10.0, total_loss_db / 10.0);
+    const double time_bandwidth_product =
+        static_cast<double>(config.transmitter.bandwidth_hz) * config.transmitter.pulse_width_s;
+    const double echo_w =
+        config.transmitter.peak_power_w * antenna_gain_linear * antenna_gain_linear *
+        wavelength_m * wavelength_m * target.rcs_m2 *
+        (config.transmitter.pulse_width_s / 13.0e-6) * std::max(1.0, time_bandwidth_product) /
+        (std::pow(4.0 * pi, 3.0) * std::pow(static_cast<double>(target.range_m), 4.0) *
+         total_loss_linear);
+    const double thermal_noise_w =
+        oneq::common::numerics::kBoltzmann * 290.0 * config.transmitter.bandwidth_hz *
+        std::pow(10.0, config.receiver.noise_figure_db / 10.0);
+    HandComputedBudget budget;
+    budget.echo_power_dbw = 10.0 * std::log10(echo_w);
+    budget.snr_db = 10.0 * std::log10(echo_w / (thermal_noise_w + env.clutter_noise_w +
+                                                env.jam_noise_w));
+    return budget;
+  };
+
+  RirTargetReturn target;
+  target.rcs_m2 = 5.0f;
+  target.range_m = 80000.0f;
+  RirEnvironmentNoise env;
+  env.propagation_loss_db = 4.5f;
+  env.clutter_noise_w = 3.0e-13f;
+  env.jam_noise_w = 2.0e-13f;
+
+  // 默认参数（B=4.5 MHz, τ=13 µs → B·τ=58.5，参考能量缩放恰为 1）。
+  const RirDetectorConfig config;
+  RirSignalDetector detector(config);
+  detector.SetRandomSeed(42u);
+  const RirDetectionResult result = detector.Detect(target, env);
+  const HandComputedBudget expected = hand_compute(config, target, env);
+  EXPECT_NEAR(result.snr_db, expected.snr_db, 1.0e-3);
+  EXPECT_NEAR(result.echo_power_dbw, expected.echo_power_dbw, 1.0e-3);
+
+  // 非默认带宽/脉宽（B=2 MHz, τ=26 µs → B·τ=52）：τ/13µs 参考缩放与
+  // max(1, B·τ) 增益同时激活，验证修正公式形状而非单一默认点。
+  RirDetectorConfig wide_pulse = config;
+  wide_pulse.transmitter.bandwidth_hz = 2.0e6f;
+  wide_pulse.transmitter.pulse_width_s = 26.0e-6f;
+  RirSignalDetector wide_pulse_detector(wide_pulse);
+  wide_pulse_detector.SetRandomSeed(42u);
+  const RirDetectionResult wide_result = wide_pulse_detector.Detect(target, env);
+  const HandComputedBudget wide_expected = hand_compute(wide_pulse, target, env);
+  EXPECT_NEAR(wide_result.snr_db, wide_expected.snr_db, 1.0e-3);
+  EXPECT_NEAR(wide_result.echo_power_dbw, wide_expected.echo_power_dbw, 1.0e-3);
 }
 
 /// @brief 同 SNR 下脉冲数 N=8 的 Pd 高于 N=1。
+/// @note B·τ 脉压口径裁定后回退 SNR 抬升 +10·log10(B·τ)（默认 +17.67 dB），
+///       原 RCS=10 m² 会把 Pd 推到饱和区（N=1 与 N=8 均 ≈1）；按同倍数
+///       （÷58.5 ≈ 0.17 m²）调回 Pd 对 SNR 的敏感区，保持用例意图不变。
 TEST(RirSignalDetectorTest, HigherPulseCountYieldsHigherPd) {
   const RirDetectorConfig config;
   RirSignalDetector detector(config);
   detector.SetRandomSeed(42u);
 
   RirTargetReturn target;
-  target.rcs_m2 = 10.0f;
+  target.rcs_m2 = 0.17f;
   target.range_m = 120000.0f;
   RirEnvironmentNoise env;
   env.propagation_loss_db = 3.0f;

@@ -44,14 +44,14 @@ RirAntennaConfig MakeAntenna(RirAntennaPatternModelType model) {
 }
 
 // ===========================================================================
-// 方向图评估（4 模型 × 边界区域）
+// 方向图评估（3 模型 × 边界区域）
 // ===========================================================================
 
 /// @brief 轴向目标（离轴 0）增益 = 峰值 - 扫描损失（所有模型）。
 TEST(RirAntennaPatternTest, OnAxis_GainEqualsPeakMinusScanLoss) {
   const RirAntennaPatternModelType models[] = {
       RirAntennaPatternModelType::kGaussianMainLobe,
-      RirAntennaPatternModelType::kParabolicMainLobe, RirAntennaPatternModelType::kCosinePower,
+      RirAntennaPatternModelType::kCosinePower,
       RirAntennaPatternModelType::kSincPattern};
   for (auto model : models) {
     const RirAntennaConfig ant = MakeAntenna(model);
@@ -65,11 +65,10 @@ TEST(RirAntennaPatternTest, OnAxis_GainEqualsPeakMinusScanLoss) {
   }
 }
 
-/// @brief 半功率波束边缘（离轴 = 半宽）衰减约 3 dB（高斯/抛物线模型）。
+/// @brief 半功率波束边缘（离轴 = 半宽）衰减约 3 dB（高斯模型）。
 TEST(RirAntennaPatternTest, HalfBeamwidthEdge_AtThreeDb) {
   const RirAntennaPatternModelType quadratic[] = {
-      RirAntennaPatternModelType::kGaussianMainLobe,
-      RirAntennaPatternModelType::kParabolicMainLobe};
+      RirAntennaPatternModelType::kGaussianMainLobe};
   for (auto model : quadratic) {
     const RirAntennaConfig ant = MakeAntenna(model);
     const auto sample = RirEvaluateAntennaPattern(

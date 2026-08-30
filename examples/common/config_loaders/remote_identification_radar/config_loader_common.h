@@ -28,7 +28,6 @@ inline rir_cfg::hardware::RirAntennaPatternModelType RirAntennaPatternModelTypeF
     const std::string& s) {
   using namespace rir_cfg::hardware;
   if (s == "kGaussianMainLobe") return RirAntennaPatternModelType::kGaussianMainLobe;
-  if (s == "kParabolicMainLobe") return RirAntennaPatternModelType::kParabolicMainLobe;
   if (s == "kCosinePower") return RirAntennaPatternModelType::kCosinePower;
   if (s == "kSincPattern") return RirAntennaPatternModelType::kSincPattern;
   return RirAntennaPatternModelType::kGaussianMainLobe;

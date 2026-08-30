@@ -99,11 +99,16 @@ float RirSurfaceClutterModel::EvaluateClutterNoiseW(const RirSurfaceClutterInput
                                10.0f * std::log10(clutter_area_m2);
   const float clutter_rcs_m2 = std::pow(10.0f, clutter_rcs_db / 10.0f);
 
-  // 主瓣杂波回波走与目标同一雷达方程（主瓣峰值增益近似），CNR 经统一
-  // 单源换算回瓦（保留 ±120 dB 相对钳制口径）。
-  const float clutter_echo_dbw = RirRadarEquations::ComputeEchoPower_dBW(
-      input.transmitter, input.antenna, clutter_rcs_m2, input.range_m,
-      input.propagation_loss_db);
+  // 主瓣杂波回波走与目标同一雷达方程（主瓣峰值增益近似），再叠加脉压能量
+  // 增益 max(1, B·τ)：杂波与目标经同一匹配滤波，等效杂波噪声按脉压能量
+  // 基准折算。相对 common 参考脉宽基准的修正量为 +10·log10(B·13µs)（与 τ
+  // 无关），把杂波对齐到与检测单元路径目标分子一致的 B·τ 口径，避免同一
+  // SINR 账本内分子/分母双口径。CNR 经统一单源换算回瓦（保留 ±120 dB
+  // 相对钳制口径）。
+  const float clutter_echo_dbw =
+      RirRadarEquations::ComputeEchoPower_dBW(input.transmitter, input.antenna, clutter_rcs_m2,
+                                              input.range_m, input.propagation_loss_db) +
+      RirRadarEquations::ComputePulseCompressionGainDb(input.transmitter);
   const float cnr_db =
       clutter_echo_dbw - 10.0f * std::log10(input.thermal_noise_w);
   return oneq::common::radar::ComputeEquivalentClutterNoiseW(input.thermal_noise_w, cnr_db);

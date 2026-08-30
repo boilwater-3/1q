@@ -39,6 +39,9 @@ struct RirMatchResult {
   float runner_up_score{0.0f};  /**< 第二候选先验加权分数。 */
   float confidence{0.0f};       /**< 第一候选在全部候选中的归一化置信度，[0, 1]。 */
   std::uint8_t used_feature_mask{0U}; /**< 实际参与融合的维度掩码。 */
+  /** 第一候选得分的 profile 下标（型号得分取其下所有适用 profile 的最高分，
+   * front 未必是得分的那个；分项相似度输出应比对该下标处的模板）。 */
+  std::size_t best_profile_index{0U};
 };
 
 /**

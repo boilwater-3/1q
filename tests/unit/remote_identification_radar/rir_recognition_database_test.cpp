@@ -5,12 +5,17 @@
 
 #include <gtest/gtest.h>
 
+#include <array>
 #include <cmath>
 #include <string>
+#include <unordered_map>
+#include <vector>
 
 #include "RirSqliteTestUtil.h"
 #include "remote_identification_radar/recognition/RecognitionFeatureDatabase.h"
 #include "remote_identification_radar/recognition/RecognitionMatcher.h"
+#include "remote_identification_radar/recognition/RecognitionObservationBuilder.h"
+#include "remote_identification_radar/recognition/RecognitionTracker.h"
 #include "remote_identification_radar/recognition/RecognitionTypes.h"
 
 namespace remote_identification_radar {
@@ -77,6 +82,39 @@ INSERT INTO meta VALUES
 INSERT INTO units VALUES
   ('rcs','dBsm'),('speed','m/s'),('altitude','m'),('acceleration','m/s2'),
   ('turn_radius','m'),('polarization','dB'),('range','m');
+)sql";
+
+// 单型号双 profile 库：仅 RCS 模板 mean 分离（front=-3 / second=+9，同 std），
+// 其余模板两组相同——用于验证型号得分取 profile max 时 best_profile_index
+// 指向实际得分的 profile，分项相似度与它比对。
+constexpr const char* kTwoProfileDatabaseSql = R"sql(
+INSERT INTO meta VALUES
+  ('schema_version','1.1'),
+  ('database_id','two-profile-probe'),
+  ('version','1.0.0'),
+  ('created_utc','2026-08-30T00:00:00Z'),
+  ('polarization_channels','H,V'),
+  ('polarization_energy_reference','range_propagation_antenna_compensated');
+INSERT INTO units VALUES
+  ('rcs','dBsm'),('speed','m/s'),('altitude','m'),('acceleration','m/s2'),
+  ('turn_radius','m'),('polarization','dB'),('range','m');
+INSERT INTO categories VALUES ('BALLISTIC','弹道目标',0.5);
+INSERT INTO models VALUES ('TWO_PROFILE','BALLISTIC','双模板型号',1.0);
+INSERT INTO profiles VALUES
+  ('front','TWO_PROFILE',6.0,NULL,NULL,NULL,NULL,NULL),
+  ('second','TWO_PROFILE',6.0,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO rcs_templates VALUES
+  ('front','TWO_PROFILE',-3.0,2.0,NULL,NULL,NULL),
+  ('second','TWO_PROFILE',9.0,2.0,NULL,NULL,NULL);
+INSERT INTO motion_templates VALUES
+  ('front','TWO_PROFILE',1800.0,300.0,50000.0,12000.0,12.0,6.0,6.0,0.5),
+  ('second','TWO_PROFILE',1800.0,300.0,50000.0,12000.0,12.0,6.0,6.0,0.5);
+INSERT INTO polarization_templates VALUES
+  ('front','TWO_PROFILE',2.0,1.5,-6.0,2.0,5.0,4.0),
+  ('second','TWO_PROFILE',2.0,1.5,-6.0,2.0,5.0,4.0);
+INSERT INTO range_profile_templates VALUES
+  ('front','TWO_PROFILE',8.0,2.0,3.0,1.0,0.75,0.10,NULL),
+  ('second','TWO_PROFILE',8.0,2.0,3.0,1.0,0.75,0.10,NULL);
 )sql";
 
 RirFeatureDatabase LoadValidDatabase() {
@@ -385,6 +423,87 @@ TEST(RirMatcherTest, EmptyDatabaseReturnsEmptyResultWithoutCrash) {
   EXPECT_FALSE(result.has_candidates);
   EXPECT_TRUE(result.candidates.empty());
   EXPECT_TRUE(result.best_model_id.empty());
+}
+
+/// @brief 型号得分取其下各 profile 的 max：非 front profile 得分时
+///        best_profile_index 应指向它，且识别结论的分项相似度与该 profile
+///        比对（修复前恒比 profiles.front()，输出不代表真实最佳匹配）。
+TEST(RirMatcherTest, BestProfileIndexTracksScoringProfileAndFeedsSimilarities) {
+  const std::string path = WriteTempSqlite(
+      "ar_recognition_two_profile.db",
+      std::string(kRecognitionSchemaSql) + kTwoProfileDatabaseSql);
+  RirFeatureDatabase database;
+  std::string error;
+  ASSERT_TRUE(RirFeatureDatabase::Load(path, &database, &error)) << error;
+  ASSERT_EQ(database.models().size(), 1U);
+  ASSERT_EQ(database.models()[0].profiles.size(), 2U);
+  ASSERT_FLOAT_EQ(database.models()[0].profiles.front().rcs.mean_dbsm, -3.0f);
+  ASSERT_FLOAT_EQ(database.models()[0].profiles[1].rcs.mean_dbsm, 9.0f);
+
+  // 1) 匹配器层：RCS 观测贴合 second（+9 dBsm）→ argmax 下标为 1。
+  RirFeatureSet features;
+  features.rcs.valid = true;
+  features.rcs.mean_dbsm = 9.0f;
+  features.rcs.quality = 1.0f;
+  features.valid_feature_mask = 0x01U;
+  RirObservationContext context;
+  context.snr_db = 20.0f;
+  context.range_m = 100000.0f;
+  const RirMatchResult match = RirMatcher::QueryBestMatch(features, context, database);
+  ASSERT_TRUE(match.has_candidates);
+  EXPECT_EQ(match.best_model_id, "TWO_PROFILE");
+  EXPECT_EQ(match.best_profile_index, 1U) << "得分 profile 应为 second（下标 1）";
+
+  // 2) 积累判定层：识别结论的 RCS 相似度等于与 second profile 的比对结果。
+  session::RirSceneTarget target;
+  target.aspect_rcs_samples.push_back({-30.0f, 5.0f, 9.0f});  // 贴合 second 模板
+  tracking::RirTrackState track;
+  track.association_key = 1U;
+  track.status = tracking::RirTrackStatus::kConfirmed;
+  track.hit_count = 3U;
+  track.speed = 100.0f;
+  track.velocity.x() = 100.0f;
+  recognition::RirObservationContext observation_context;
+  observation_context.snr_db = 20.0f;
+  observation_context.bandwidth_hz = 3.0e6f;
+  observation_context.range_m = 100000.0f;
+  observation_context.dwell_sec = 0.05f;
+  observation_context.look_az_deg = -30.0f;
+  observation_context.look_el_deg = 5.0f;
+  // 与 Tracker 内部同口径构建单条观测（单样本窗口聚合 = 原观测本身）。
+  const RirFeatureSet built = recognition::RirObservationBuilder::Build(
+      target, track, observation_context);
+  ASSERT_TRUE(built.rcs.valid);
+
+  recognition::RirTracker tracker;
+  recognition::RirTracker::Options options;
+  options.min_confirmed_hits = 1U;
+  options.min_observation_count = 1U;
+  options.accumulation_window_sec = 10.0f;
+  options.acceptance_score = 0.6f;
+  options.minimum_margin = 0.05f;
+  options.result_hold_sec = 10.0f;
+  options.max_range_m = 1.0e6f;
+  tracker.SetOptions(options);
+  const std::vector<tracking::RirTrackState> track_list = {track};
+  std::unordered_map<std::uint64_t, recognition::RirTracker::TrackObservationInput>
+      observations;
+  recognition::RirTracker::TrackObservationInput input;
+  input.target = &target;
+  input.context = observation_context;
+  observations[1U] = input;
+  tracker.UpdateCycle(track_list, observations, database, {}, 1.0f, 1U, 1U);
+  const session::RirRecognitionResult* result = tracker.FindResult(1U);
+  ASSERT_NE(result, nullptr);
+
+  const std::array<float, 4> versus_second = RirMatcher::ComputeFeatureSimilarities(
+      built, database.models()[0].profiles[1]);
+  const std::array<float, 4> versus_front = RirMatcher::ComputeFeatureSimilarities(
+      built, database.models()[0].profiles.front());
+  EXPECT_LT(versus_front[0], 0.2f) << "front profile 应与观测显著不匹配（可区分性前提）";
+  EXPECT_NEAR(result->feature_scores.rcs_similarity, versus_second[0], 1.0e-5f)
+      << "分项相似度应与实际得分的 second profile（下标 1）比对";
+  EXPECT_GT(result->feature_scores.rcs_similarity, 0.8f);
 }
 
 }  // namespace

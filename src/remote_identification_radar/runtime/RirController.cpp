@@ -500,6 +500,22 @@ bool RirController::TryBuildMeasurement(
   if (measurement == nullptr || snr_db == nullptr) {
     return false;
   }
+  // 接收前端饱和周期致盲（核查 5.2 裁定）：饱和由 RirRfFrontEndResolver 周期级
+  // 判定（本接收窗全部入射链聚合功率 > receiver.maximum_linear_input_power_w，
+  // 含自发射同平台耦合）——越限后前端失真/致盲，本周期所有目标不做检测判决。
+  // 规则 13b：链上第一门优先，饱和门排在 SNR 检测门之前；每目标每周期至多这一条。
+  if (rf_cycle.receiver_saturated) {
+    // 中译：接收前端饱和周期致盲——线性区越限，本周期全部目标直接按门控排除，不再检测。
+    // 标识：RirController::TryBuildMeasurement 饱和门；替代旧口径"仅告警仍照常判决"。
+    PROJECT_LOG_WARN("[RirController] receiver front-end saturated at cycle={}; detection blinded",
+                     input.input_cycle_index);
+    last_execution_issues_.push_back(RirMakeExclusionIssue(
+        session::codes::kTargetReceiverFrontEndSaturated,
+        "target_id=" + std::to_string(target.external_target_id) +
+            "; receiver front-end saturated, all detections blinded this cycle",
+        session::RirIssueCause::kNone, source_index));
+    return false;
+  }
   float look_az_deg = 0.0f;
   float look_el_deg = 0.0f;
   float slant_range_m = 0.0f;
@@ -545,13 +561,13 @@ bool RirController::TryBuildMeasurement(
   dwell::RirDetectionResult detection;
   dwell::RirDetectionCellResult cell;
   bool resolved_cell = false;
+  // 量测误差模型的积累脉冲数 N：detection cell 路径 = 接收窗截断后的
+  // cell.effective_pulse_count；回退路径 = 传给 Detect 的同一 pulse_count。
+  // detection.snr_db 两条路径均为单脉冲口径（common StatisticalCfarDetector），
+  // N 只折算进误差模型输入，不改写 SNR 透出值，也不影响 Pd（CFAR 内部已按
+  // pulse_count 积累）。
+  std::uint32_t integration_pulse_count = 1U;
   if (rf_cycle.resolved) {
-    if (rf_cycle.receiver_saturated) {
-      // 中译：接收前端饱和，detection cell 可能失真，仍尝试求解并在失败时回退。
-      // 标识：RF 前端线性区越界——饱和标志为 true 时记录 WARN。
-      PROJECT_LOG_WARN("[RirController] receiver front-end saturated at cycle={}",
-                       input.input_cycle_index);
-    }
     dwell::RirDetectionCellConfig cell_config;
     cell_config.own_transmit_waveform = rf_cycle.own_transmit_waveform;
     cell_config.receive_window_start_time_s = static_cast<double>(input.sim_time_sec);
@@ -593,6 +609,9 @@ bool RirController::TryBuildMeasurement(
       target_return.rcs_m2 = static_cast<float>(cell_target.rcs_m2);
       detection = detector_->DetectResolvedCell(target_return, cell);
       resolved_cell = true;
+      // 生效积累脉冲数 = 接收窗截断后的可用回波脉冲数（TryCountAvailableEchoPulses
+      // 输出）；下限 1 防御零脉冲退化输入（后续 10·log10(N) 折算无意义）。
+      integration_pulse_count = std::max(1U, cell.effective_pulse_count);
     } else {
       // 中译：detection cell 求解失败，回退效能级检测路径。
       // 标识：数值/输入保护——RF 分解失败时不丢目标，按旧口径继续判决。
@@ -602,12 +621,14 @@ bool RirController::TryBuildMeasurement(
   }
 
   if (!resolved_cell) {
+    const int fallback_pulse_count = std::max(1, policy_.detection.pulse_count);
     dwell::RirEnvironmentNoise env;
     env.propagation_loss_db = total_propagation_loss_db;
     env.clutter_noise_w = clutter_power_w;
     env.jam_noise_w = 0.0f;
     detection = detector_->Detect(target_return, env, beam_state.one_way_antenna_gain_db,
-                                  std::max(1, policy_.detection.pulse_count));
+                                  fallback_pulse_count);
+    integration_pulse_count = static_cast<std::uint32_t>(fallback_pulse_count);
   }
 
   *snr_db = detection.snr_db;
@@ -683,8 +704,15 @@ bool RirController::TryBuildMeasurement(
         cause, source_index));
     return false;
   }
+  // 误差模型输入口径（核查 6.1 裁定）：模型期望"等效积累后"信噪比，而
+  // detection.snr_db 是单脉冲 SINR/SNR → 输入 = 单脉冲值 + 10·log10(N) 积累折算
+  // （N=生效积累脉冲数，两分支填充见 integration_pulse_count）。旧口径直传单脉冲
+  // 值，角度/距离误差偏大约 √N（N=10 时 3.2 倍）。
+  const float integrated_snr_db =
+      detection.snr_db + 10.0f * std::log10(static_cast<float>(integration_pulse_count));
   const dwell::RirMeasurementErrorState measurement_error =
-      dwell::RirMeasurementErrorModel::Compute(detection.snr_db, beam_state.effective_beamwidth_deg,
+      dwell::RirMeasurementErrorModel::Compute(integrated_snr_db,
+                                               beam_state.effective_beamwidth_deg,
                                                hardware_.transmitter.bandwidth_hz);
   tracking::RirTrackMeasurement built;
   built.source_index = source_index;

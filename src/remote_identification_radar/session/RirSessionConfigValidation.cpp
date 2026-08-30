@@ -13,7 +13,11 @@
 #include <cmath>
 
 #include "1q/remote_identification_radar/session/RirIssueCodes.h"
+#include "common/numerics/Constants.h"
+#include "common/radar/BeamwidthResolution.h"
 #include "common/validation/ValidationUtils.h"
+#include "remote_identification_radar/dwell/RirBeamControl.h"
+#include "remote_identification_radar/internal/RirScanVolume.h"
 
 namespace remote_identification_radar {
 namespace config {
@@ -31,6 +35,31 @@ void PushIssue(session::RirIssueList* issues, const char* code, const char* fiel
   issue.field = field;
   issue.message = message;
   issues->push_back(issue);
+}
+
+/**
+ * @brief 标称波束宽 ↔ 孔径交叉一致性（核查 1.1 可修部分）。
+ * @note 波束宽与孔径互为因果（θ ≈ λ/L，与 DeriveBeamwidthFromApertureRad 同
+ *       公式）；两数各自合法但互相矛盾时，扫描步长（用 nominal）与检测门/
+ *       驻留门（λ/L 推导）口径分叉。仅当双边齐全（nominal>0、孔径>0、波长>0）
+ *       才校验；阈值 50% 的依据：默认配置 4.0° vs 推导 4.77°（差 19%）与交付
+ *       场景 0.4° vs 0.327°（差 18%）都必须放行，50% 只拦截真矛盾。
+ */
+void ValidateBeamwidthApertureConsistency(float nominal_beamwidth_deg, float aperture_m,
+                                          float wavelength_m, const char* axis_field,
+                                          session::RirIssueList* issues) {
+  if (!(nominal_beamwidth_deg > 0.0f) || !(aperture_m > 0.0f) || !(wavelength_m > 0.0f)) {
+    return;  // 双边不齐全不校验（单边配置由几何校验覆盖；非有限值比较自然为假）。
+  }
+  const float expected_deg =
+      oneq::common::numerics::RadToDeg(oneq::common::radar::DeriveBeamwidthFromApertureRad(
+          aperture_m, wavelength_m));
+  if (expected_deg > 0.0f &&
+      std::fabs(nominal_beamwidth_deg - expected_deg) / expected_deg > 0.5f) {
+    PushIssue(issues, session::codes::kAntennaBeamwidthApertureInconsistent, axis_field,
+              "Antenna nominal beamwidth must be consistent with the physical aperture "
+              "(theta_deg ~= RadToDeg(wavelength / aperture), relative tolerance 50%).");
+  }
 }
 
 void ValidateRirEnvironmentConfig(const RirEnvironmentConfig& environment,
@@ -140,6 +169,20 @@ void ValidateRirHardwareConfig(const RirHardwareConfig& hardware, session::RirIs
                   "(G_dBi ~= 10*log10(26000/(az_deg*el_deg)), tolerance 3 dB).");
       }
     }
+  }
+
+  // 标称波束宽 ↔ 孔径交叉一致性：波长 λ = c/f（与 RirSession 扫描波位、
+  // RirController 检测门的孔径推导同源同口径）；az/el 两轴共用同一 issue code。
+  if (oneq::common::validation::IsFinite(transmitter_frequency_hz) &&
+      transmitter_frequency_hz > 0.0f) {
+    const float wavelength_m =
+        static_cast<float>(oneq::common::numerics::kLightSpeed) / transmitter_frequency_hz;
+    ValidateBeamwidthApertureConsistency(
+        antenna.nominal_az_beamwidth_deg, antenna.antenna_length_m, wavelength_m,
+        "hardware.antenna.nominal_az_beamwidth_deg / antenna_length_m", issues);
+    ValidateBeamwidthApertureConsistency(
+        antenna.nominal_el_beamwidth_deg, antenna.antenna_width_m, wavelength_m,
+        "hardware.antenna.nominal_el_beamwidth_deg / antenna_width_m", issues);
   }
 
   if (!oneq::common::validation::IsFinite(rcs_physics.physics_mix_ratio) ||
@@ -269,6 +312,44 @@ session::RirIssueList ValidateRirSessionConfig(const RirSessionConfig& config) {
         center.az_deg > 180.0f || center.el_deg < -90.0f || center.el_deg > 90.0f) {
       PushIssue(&issues, session::codes::kScanCenterInvalid, "mission.scan_center_deg",
                 "Scan center must be finite with az in [-180,180] and el in [-90,90].");
+    }
+  }
+
+  // 扫描波位单轴采样数上限（核查 2.1）：与 RirSession BuildAbsoluteScanWaves
+  // 同口径估算每轴波位数——扇区 = 任务扫描子窗 ∩ 硬件可扫描体积，步长 =
+  // 有效波束宽（nominal → λ/L 孔径推导，波长 λ = c/f）× step_scale。任一轴
+  // 期望采样数超过扫描内核上限（BuildScanPattern 每轴 4096，超出静默截断）
+  // 即在配置期拦截，提示加大步长或缩小扇区；空扇区/零步长由其他校验负责。
+  {
+    // 与 common/radar/ScanScheduleRuntime.h BuildScanPattern 的 kMaxAxisSamples 同值。
+    constexpr double kMaxScanAxisSamples = 4096.0;
+    const float frequency_hz = config.hardware.transmitter.frequency_hz;
+    const float wavelength_m =
+        IsFinite(frequency_hz) && frequency_hz > 0.0f
+            ? static_cast<float>(oneq::common::numerics::kLightSpeed) / frequency_hz
+            : 0.0f;
+    const dwell::RirEffectiveBeamwidthDeg beamwidth =
+        dwell::RirResolveEffectiveBeamwidth(config.hardware.antenna, wavelength_m);
+    const float az_step_deg = beamwidth.az_beamwidth_deg * mission.step_scale;
+    const float el_step_deg = beamwidth.el_beamwidth_deg * mission.step_scale;
+    const RirAzimuthElevationLimitsDeg sector =
+        internal::IntersectScanSector(mission.scan_window_deg, config.orientation);
+    const auto axis_samples_exceeds = [kMaxScanAxisSamples](float min_deg, float max_deg,
+                                                            float step_deg) {
+      if (!(min_deg <= max_deg) || !(step_deg > 0.0f)) {
+        return false;
+      }
+      // 与内核 BuildScanPattern 的步进边界同口径（循环条件含 0.5·step 半步容差），
+      // 避免在半步边界上比内核早拦一格。
+      const double samples = std::floor((max_deg - min_deg) / step_deg + 0.5) + 1.0;
+      return samples > kMaxScanAxisSamples;
+    };
+    if (axis_samples_exceeds(sector.az_min_deg, sector.az_max_deg, az_step_deg) ||
+        axis_samples_exceeds(sector.el_min_deg, sector.el_max_deg, el_step_deg)) {
+      PushIssue(&issues, session::codes::kScanWaveAxisSamplesTruncated,
+                "mission.scan_window_deg / orientation / step_scale",
+                "Scan wave samples per axis would exceed the kernel limit of 4096 and the "
+                "pattern gets silently truncated; enlarge the step or narrow the sector.");
     }
   }
 

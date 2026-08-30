@@ -53,7 +53,7 @@ Authority: 能力边界界定报告。对远程识别雷达需求文档所列九
 
 | # | 需求能力 | AR 现状（位置） | RIR 现状 | common 现状 |
 |---|---|---|---|---|
-| 1 | 天线方向图仿真 | `signal/detection/AntennaPatternRuntime.h`（4 主瓣模型：高斯/抛物线/余弦幂/sinc²；扫描损失、旁瓣/后瓣电平、主瓣判定；header-only 纯函数）+ `BeamControlResolver.h`（有效波束宽度推导、安装系指向、离轴角→增益） | **配置已随迁未消费**：`RirHardwareConfig.h:47-72` 含 `RirAntennaPatternConfig`（模型/旁瓣/后瓣/扫描损失/孔径尺寸）与 `enable_directional_pattern`；`ComputeSnrDb` 固定用 `main_beam_gain_db` | 无 |
+| 1 | 天线方向图仿真 | `signal/detection/AntennaPatternRuntime.h`（3 主瓣模型：高斯/余弦幂/sinc²；扫描损失、旁瓣/后瓣电平、主瓣判定；header-only 纯函数）+ `BeamControlResolver.h`（有效波束宽度推导、安装系指向、离轴角→增益） | **配置已随迁未消费**：`RirHardwareConfig.h:47-72` 含 `RirAntennaPatternConfig`（模型/旁瓣/后瓣/扫描损失/孔径尺寸）与 `enable_directional_pattern`；`ComputeSnrDb` 固定用 `main_beam_gain_db` | 无 |
 | 2 | 回波功率计算 | `RadarEquations.h:34-51`（对数域 + 单脉冲能量语义）+ `ArDetectionCellResolver.cpp:212-214`（线性域 + 时延/多普勒） | ✅ `RirRadarEquations.h:33-48` 副本；调用点 `RirController.cpp:54` 传播损耗硬编码 0 | 无（阶段 3 common 化候选，计划 R2） |
 | 3 | 干扰功率计算 | 功率求解单源在 common（下列）；AR 持有单元聚合 `ArDetectionCellResolver.cpp:67-169`（目标单元时频重叠聚合、抗 RGPO 减半）与 `ArInterferenceObservationResolver`（J/N 门观测，AR 接收链语义） | ❌ 无；随迁字段 `RirReceiverConfig.interference_observation_jn_gate_db` 已于 2026-08-30 删除（本表裁定其属 AR 接收链语义、RIR 未立项消费），会话回放标识符随之 RIRC→RIRD | ✅ `1q/electromagnetics/RfScene.h:142-176` incident link 功率（`received_power_before_overlap_w`）、`TryEvaluateRfArrivalActivity`、`TryAggregateRfIncidentPower` |
 | 4 | 接收机噪声功率计算 | `RadarEquations.h:53-60`（N₀=k·T₀·B·F）；检测单元口径用匹配滤波带宽（`ArDetectionCellResolver.cpp:221-223`） | ✅ `RirRadarEquations.h:51-58` 副本（带宽取发射 `bandwidth_hz`） | 无 |

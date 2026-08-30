@@ -159,6 +159,7 @@ RirMatchResult RirMatcher::QueryBestMatch(
     std::string model_id;
     std::string category_id;
     float score{0.0f};
+    std::size_t best_profile_index{0U};
   };
   std::vector<ModelScore> model_scores;
   model_scores.reserve(database.models().size());
@@ -166,6 +167,7 @@ RirMatchResult RirMatcher::QueryBestMatch(
   for (std::size_t m = 0U; m < database.models().size(); ++m) {
     const RirModel& model = database.models()[m];
     float best_profile_score = 0.0f;
+    std::size_t best_profile_index = 0U;
     for (std::size_t p = 0U; p < model.profiles.size(); ++p) {
       const RirModelProfile& profile = model.profiles[p];
       if (!Applicable(profile, features, context)) {
@@ -192,7 +194,13 @@ RirMatchResult RirMatcher::QueryBestMatch(
         quality_sum += base_weights[d] * qualities[d];
       }
       if (quality_sum > 0.0f) {
-        best_profile_score = std::max(best_profile_score, weighted_sum / quality_sum);
+        const float profile_score = weighted_sum / quality_sum;
+        // 记录 argmax 下标：front 未必是得分的 profile，分项相似度需按它比对
+        //（与既有 std::max 口径一致，平分保留先出现的 profile）。
+        if (profile_score > best_profile_score) {
+          best_profile_score = profile_score;
+          best_profile_index = p;
+        }
       }
     }
     if (best_profile_score > 0.0f) {
@@ -200,6 +208,7 @@ RirMatchResult RirMatcher::QueryBestMatch(
       entry.model_id = model.model_id;
       entry.category_id = model.category_id;
       entry.score = best_profile_score * model.prior;
+      entry.best_profile_index = best_profile_index;
       model_scores.push_back(std::move(entry));
     }
   }
@@ -257,6 +266,7 @@ RirMatchResult RirMatcher::QueryBestMatch(
   result.best_model_id = model_scores.front().model_id;
   result.best_category_id = model_scores.front().category_id;
   result.best_score = model_scores.front().score;
+  result.best_profile_index = model_scores.front().best_profile_index;
   if (model_scores.size() >= 2U) {
     result.runner_up_score = model_scores[1].score;
   }

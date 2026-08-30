@@ -52,7 +52,6 @@ namespace hardware {
  */
 enum class ONEQ_API RirAntennaPatternModelType {
   kGaussianMainLobe = 0,  /**< 高斯主瓣近似。 */
-  kParabolicMainLobe = 1, /**< 抛物线主瓣近似。 */
   kCosinePower = 2,       /**< 余弦幂方向图近似。 */
   kSincPattern = 3        /**< sinc² 方向图（均匀孔径理论解，需物理孔径尺寸）。 */
 };

@@ -9,6 +9,7 @@
 #include <cstdint>
 
 #include "1q/remote_identification_radar/session/RirCycleInput.h"
+#include "1q/remote_identification_radar/session/RirIssueCodes.h"
 #include "RirCycleInputTestUtil.h"
 #include "remote_identification_radar/runtime/RirController.h"
 
@@ -194,6 +195,56 @@ TEST(RirSelfContainedPipelineTest, EnvironmentEffectsKeepTargetDetectable) {
   controller.RunCycle(MakeInput(1U, 5000.0f, 5.0f), &frame, 1U, TestDwellCenter());
   ASSERT_EQ(frame.recognition_outputs.size(), 1U);
   EXPECT_EQ(controller.GetLatestSummary().dwell_budget.executed_dwell_count, 1U);
+}
+
+/// @brief 接收前端饱和周期致盲（核查 5.2）：接收线性上限压到极低（1e-15 W）→
+///        自发射同平台耦合入射必越限 → 本周期全部目标不产生检测，逐目标落
+///        kTargetReceiverFrontEndSaturated 排除诊断（饱和门先于 SNR 检测门，
+///        旧口径仅 WARN 后照常判决）。
+TEST(RirSelfContainedPipelineTest, ReceiverSaturationBlindsCycleDetections) {
+  config::RirPolicyConfig policy;
+  policy.detection.gate_mode = config::RirDetectionGateMode::kSnrFallback;
+  policy.lifecycle.confirm_hits = 1U;
+  RirController controller;
+  config::RirHardwareConfig hardware;
+  hardware.rcs_physics.enable_physical_rcs = false;
+  hardware.rcs_physics.physics_mix_ratio = 0.0f;
+  hardware.antenna.nominal_az_beamwidth_deg = 20.0f;
+  hardware.antenna.nominal_el_beamwidth_deg = 10.0f;
+  // 线性接收上限压到 1e-15 W：入射聚合功率（自发射同平台 120 dB 隔离后仍有
+  // 1e-11 W 量级）必越限 → receiver_saturated=true。
+  hardware.receiver.maximum_linear_input_power_w = 1.0e-15f;
+  controller.SetHardware(hardware);
+  controller.UpdateRuntime(MakeMission(config::RirWorkMode::kIdentify), policy);
+
+  RirOutputFrame frame;
+  controller.RunCycle(MakeInput(1U, 5000.0f, 5.0f), &frame, 1U, TestDwellCenter());
+
+  // 饱和周期致盲：无航迹、无归属；检测链物理分项照常驻留（预算语义不变）。
+  EXPECT_TRUE(frame.recognition_outputs.empty());
+  EXPECT_TRUE(controller.LatestTrackAttributions().empty());
+  EXPECT_EQ(controller.GetLatestSummary().dwell_budget.executed_dwell_count, 1U);
+
+  // 规则 13b：每目标每周期至多一条、链上第一门优先——本周期唯一排除诊断为饱和门。
+  const session::RirIssueList& issues = controller.LatestExecutionIssues();
+  ASSERT_EQ(issues.size(), 1U);
+  EXPECT_EQ(issues[0].code, session::codes::kTargetReceiverFrontEndSaturated);
+  EXPECT_EQ(issues[0].severity, session::RirIssueSeverity::kInfo);
+  EXPECT_EQ(issues[0].cause, session::RirIssueCause::kNone);
+  EXPECT_EQ(issues[0].location.entity_index, 0U);
+}
+
+/// @brief 默认线性上限（1e-3 W）不越限：检测链不受饱和门影响（回归——同输入
+///        在默认配置下照常建轨，且不产生饱和排除诊断）。
+TEST(RirSelfContainedPipelineTest, DefaultLinearLimitKeepsDetectionLink) {
+  RirController controller = MakeFallbackController();
+
+  RirOutputFrame frame;
+  controller.RunCycle(MakeInput(1U, 5000.0f, 5.0f), &frame, 1U, TestDwellCenter());
+  ASSERT_EQ(frame.recognition_outputs.size(), 1U);
+  for (const session::RirIssue& issue : controller.LatestExecutionIssues()) {
+    EXPECT_NE(issue.code, session::codes::kTargetReceiverFrontEndSaturated);
+  }
 }
 
 }  // namespace
