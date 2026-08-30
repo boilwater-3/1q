@@ -158,9 +158,10 @@ float RunCycleSnrDb(const config::RirEnvironmentConfig* environment,
   policy.recognition.database_path = database_path;
   runtime::RirController controller;
   config::RirHardwareConfig hardware;
-  // 主瓣覆盖门放宽：本文件聚焦大气损耗差分，不测波束覆盖门（门限=半功率宽）。
-  hardware.antenna.nominal_az_beamwidth_deg = 160.0f;
-  hardware.antenna.nominal_el_beamwidth_deg = 160.0f;
+  // 波束 20°/10°：单目标驻留指向下覆盖门可过，且目标仰角（≈21.8°）高于半俯仰
+  // 波束宽（5°）——主瓣物理离地，杂波为零，大气差分不被地杂波污染。
+  hardware.antenna.nominal_az_beamwidth_deg = 20.0f;
+  hardware.antenna.nominal_el_beamwidth_deg = 10.0f;
   controller.SetHardware(hardware);
   config::RirMissionConfig mission;
   mission.work_mode = config::RirWorkMode::kIdentify;
@@ -170,7 +171,10 @@ float RunCycleSnrDb(const config::RirEnvironmentConfig* environment,
   }
 
   session::RirOutputFrame frame;
-  controller.RunCycle(MakeInput(1U), &frame, 9U);
+  // 驻留中心对准目标视线角（(5000,0,2000) → el≈21.8°）：窄波束需主瓣照到目标；
+  // 目标仰角高于半俯仰波束宽（5°）→ 主瓣离地，地杂波为零，大气差分不被污染。
+  controller.RunCycle(MakeInput(1U), &frame, 9U,
+                      config::RirAzimuthElevationDeg{0.0f, 21.8f});
   EXPECT_EQ(frame.feature_measurements.size(), 1U);
   return frame.feature_measurements[0].snr_db;
 }

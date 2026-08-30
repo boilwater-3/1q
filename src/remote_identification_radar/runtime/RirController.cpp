@@ -20,7 +20,6 @@
 #include "common/logging/AcceptanceText.h"
 #include "common/logging/ProjectLog.h"
 #include "common/numerics/Constants.h"
-#include "common/radar/VegetationClutterModel.h"
 #include "1q/coordinate/position_transform.h"
 #include "1q/coordinate/velocity_transform.h"
 #include "1q/environment/AtmosphericTypes.h"
@@ -285,10 +284,9 @@ void RirController::UpdateEnvironment(const config::RirEnvironmentConfig& enviro
       environment.atmospheric_physics);
 }
 
-void RirController::ResolveEnvironment(float* propagation_loss_db, float* clutter_power_w) const {
+void RirController::ResolveEnvironment(float* propagation_loss_db) const {
   // weather_attenuation_db == 0 表示无天气附加损耗。
   *propagation_loss_db = environment_.weather_attenuation_db;
-  *clutter_power_w = 0.0f;
   if (environment_.vegetation_cover_profile ==
       config::RirVegetationCoverProfile::kDisabled) {
     return;
@@ -297,12 +295,32 @@ void RirController::ResolveEnvironment(float* propagation_loss_db, float* clutte
   scene_state.vegetation_cover_profile = environment_.vegetation_cover_profile;
   const internal::RirPropagationResult propagation = propagation_model_.Evaluate(scene_state);
   *propagation_loss_db += propagation.propagation_loss_db;
-  // clutter_power_db 是相对热噪底的 dB（CNR 口径，与 AR 同口径单源换算），
-  // 不得解释为绝对 dBW。
-  const float thermal_noise_w = internal::RirRadarEquations::ComputeThermalNoisePower_W(
+}
+
+float RirController::ResolveTargetClutterPowerW(float look_el_deg, float slant_range_m,
+                                                float total_propagation_loss_db,
+                                                float carrier_hz,
+                                                float bandwidth_hz) const {
+  if (environment_.vegetation_cover_profile ==
+      config::RirVegetationCoverProfile::kDisabled) {
+    return 0.0f;
+  }
+  internal::RirSurfaceClutterInput clutter_input;
+  clutter_input.vegetation_cover_profile = environment_.vegetation_cover_profile;
+  clutter_input.transmitter = hardware_.transmitter;
+  // 与回波链同口径：规划载频优先，非正回退发射机频率；带宽取匹配滤波带宽
+  //（与检测单元一致），决定杂波距离单元 c/(2B)。
+  clutter_input.transmitter.frequency_hz =
+      carrier_hz > 0.0f ? carrier_hz : hardware_.transmitter.frequency_hz;
+  clutter_input.transmitter.bandwidth_hz =
+      bandwidth_hz > 0.0f ? bandwidth_hz : hardware_.transmitter.bandwidth_hz;
+  clutter_input.antenna = hardware_.antenna;
+  clutter_input.propagation_loss_db = total_propagation_loss_db;
+  clutter_input.range_m = slant_range_m;
+  clutter_input.look_el_deg = look_el_deg;
+  clutter_input.thermal_noise_w = internal::RirRadarEquations::ComputeThermalNoisePower_W(
       hardware_.transmitter, hardware_.receiver);
-  *clutter_power_w = oneq::common::radar::ComputeEquivalentClutterNoiseW(
-      thermal_noise_w, propagation.clutter_power_db);
+  return surface_clutter_model_.EvaluateClutterNoiseW(clutter_input);
 }
 
 float RirController::ComputeTargetAtmosphericLossDb(float carrier_hz, float platform_altitude_m,
@@ -477,7 +495,7 @@ RirController::RirResolvedRfCycle RirController::ResolveRfCycle(
 
 bool RirController::TryBuildMeasurement(
     const session::RirSceneTarget& target, std::size_t source_index, float platform_altitude_m,
-    float propagation_loss_db, float clutter_power_w, const session::RirCycleInput& input,
+    float propagation_loss_db, const session::RirCycleInput& input,
     const config::RirAzimuthElevationDeg& dwell_center_deg, const RirResolvedRfCycle& rf_cycle,
     tracking::RirTrackMeasurement* measurement, float* snr_db) {
   if (measurement == nullptr || snr_db == nullptr) {
@@ -499,6 +517,13 @@ bool RirController::TryBuildMeasurement(
       carrier_hz, platform_altitude_m, look_el_deg, has_look_angles, slant_range_m,
       PositionOf(target).z());
   const float total_propagation_loss_db = propagation_loss_db + atmospheric_loss_db;
+  // 逐目标主瓣地杂波（植被开启时）：按目标几何（斜距/俯仰擦地）与雷达参数
+  // 物理求解，替代旧会话级常数；与检测单元杂波分项同注入点。
+  const float clutter_power_w = ResolveTargetClutterPowerW(
+      look_el_deg, slant_range_m, total_propagation_loss_db, carrier_hz,
+      rf_cycle.resolved
+          ? static_cast<float>(rf_cycle.own_transmit_waveform.occupied_bandwidth_hz)
+          : hardware_.transmitter.bandwidth_hz);
   // 与 AR DetectionExecution 同口径：主路径与回退分支波长同源——回退分支的有效
   // 波束宽度同样经 λ/L 物理推导（结果喂量测误差模型）；载频非正时不启用物理推导。
   const float wavelength_m = carrier_hz > 0.0f
@@ -777,8 +802,7 @@ void RirController::RunCycle(const session::RirCycleInput& input,
   std::vector<tracking::RirTrackState> track_snapshots;
   if (in_identify) {
     float propagation_loss_db = 0.0f;
-    float clutter_power_w = 0.0f;
-    ResolveEnvironment(&propagation_loss_db, &clutter_power_w);
+    ResolveEnvironment(&propagation_loss_db);
 
     const RirResolvedRfCycle rf_cycle = ResolveRfCycle(input, dwell_center_deg);
     if (rf_cycle.resolved) {
@@ -979,7 +1003,7 @@ void RirController::RunCycle(const session::RirCycleInput& input,
         tracking::RirTrackMeasurement measurement;
         float snr_db = 0.0f;
         if (!TryBuildMeasurement(target, candidate.source_index, platform_altitude_m,
-                                 propagation_loss_db, clutter_power_w, input, dwell.pointing_deg,
+                                 propagation_loss_db, input, dwell.pointing_deg,
                                  rf_cycle, &measurement, &snr_db)) {
           continue;
         }

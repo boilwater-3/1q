@@ -5,6 +5,7 @@
 set(RIR_ENGINE_SOURCES
     internal/RirRadarEquations.cpp
     internal/RirPropagationModel.cpp
+    internal/RirSurfaceClutterModel.cpp
     dwell/RirDetectionCellResolver.cpp
     dwell/RirEffectiveRcs.cpp
     dwell/RirEmissionFactory.cpp

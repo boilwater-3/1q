@@ -35,12 +35,20 @@ RirController MakeFallbackController() {
   config::RirHardwareConfig hardware;
   hardware.rcs_physics.enable_physical_rcs = false;
   hardware.rcs_physics.physics_mix_ratio = 0.0f;
-  // 主瓣覆盖门放宽：本文件聚焦链路级联与驻留预算摘要，不测波束覆盖门。
-  hardware.antenna.nominal_az_beamwidth_deg = 160.0f;
-  hardware.antenna.nominal_el_beamwidth_deg = 160.0f;
+  // 波束 20°/10°：单目标驻留指向下覆盖门可过（本文件聚焦链路级联与驻留预算摘要，
+  // 不测覆盖门本身）；目标仰角（≈21.8°）高于半俯仰波束宽（5°），主瓣离地零杂波，
+  // 地杂波物理由 rir_surface_clutter_model_test 专项锁定。
+  hardware.antenna.nominal_az_beamwidth_deg = 20.0f;
+  hardware.antenna.nominal_el_beamwidth_deg = 10.0f;
   controller.SetHardware(hardware);
   controller.UpdateRuntime(MakeMission(config::RirWorkMode::kIdentify), policy);
   return controller;
+}
+
+/// @brief 驻留中心对准测试目标方向（(5000,0,2000) → el≈21.8°）：窄波束需主瓣照到；
+/// 目标仰角高于半俯仰波束宽（5°）→ 主瓣离地零杂波，链路断言不被地杂波污染。
+config::RirAzimuthElevationDeg TestDwellCenter() {
+  return config::RirAzimuthElevationDeg{0.0f, 21.8f};
 }
 
 RirCycleInput MakeInput(std::uint32_t cycle, float range_m, float rcs_m2) {
@@ -65,7 +73,7 @@ TEST(RirSelfContainedPipelineTest, SnrFallbackBuildsInternalTrackAndDwellSummary
   RirController controller = MakeFallbackController();
 
   RirOutputFrame first;
-  controller.RunCycle(MakeInput(1U, 5000.0f, 5.0f), &first, 1U);
+  controller.RunCycle(MakeInput(1U, 5000.0f, 5.0f), &first, 1U, TestDwellCenter());
   EXPECT_EQ(first.recognition_outputs.size(), 1U);
   EXPECT_EQ(first.recognition_outputs[0].association_key, 1U);
   EXPECT_TRUE(controller.HasLatestSummary());
@@ -74,7 +82,7 @@ TEST(RirSelfContainedPipelineTest, SnrFallbackBuildsInternalTrackAndDwellSummary
   EXPECT_FLOAT_EQ(controller.GetLatestSummary().dwell_budget.dwell_consumed_sec, 0.05f);
 
   RirOutputFrame second;
-  controller.RunCycle(MakeInput(2U, 5100.0f, 5.0f), &second, 2U);
+  controller.RunCycle(MakeInput(2U, 5100.0f, 5.0f), &second, 2U, TestDwellCenter());
   // 关联键保持稳定（自持身份），不会因外部供给重分配而新建。
   ASSERT_EQ(second.recognition_outputs.size(), 1U);
   EXPECT_EQ(second.recognition_outputs[0].association_key, 1U);
@@ -91,14 +99,16 @@ TEST(RirSelfContainedPipelineTest, DetectorGateRejectsUndetectableTarget) {
   config::RirHardwareConfig hardware;
   hardware.rcs_physics.enable_physical_rcs = false;
   hardware.rcs_physics.physics_mix_ratio = 0.0f;
-  // 主瓣覆盖门放宽：本文件聚焦链路级联与驻留预算摘要，不测波束覆盖门。
-  hardware.antenna.nominal_az_beamwidth_deg = 160.0f;
-  hardware.antenna.nominal_el_beamwidth_deg = 160.0f;
+  // 波束 20°/10°：单目标驻留指向下覆盖门可过（本文件聚焦链路级联与驻留预算摘要，
+  // 不测覆盖门本身）；目标仰角（≈21.8°）高于半俯仰波束宽（5°），主瓣离地零杂波，
+  // 地杂波物理由 rir_surface_clutter_model_test 专项锁定。
+  hardware.antenna.nominal_az_beamwidth_deg = 20.0f;
+  hardware.antenna.nominal_el_beamwidth_deg = 10.0f;
   controller.SetHardware(hardware);
   controller.UpdateRuntime(MakeMission(config::RirWorkMode::kIdentify), policy);
 
   RirOutputFrame frame;
-  controller.RunCycle(MakeInput(1U, 300000.0f, 0.1f), &frame, 1U);
+  controller.RunCycle(MakeInput(1U, 300000.0f, 0.1f), &frame, 1U, TestDwellCenter());
   EXPECT_TRUE(frame.recognition_outputs.empty());
   EXPECT_EQ(controller.GetLatestSummary().dwell_budget.scheduled_dwell_count, 1U);
   // TAS 预算口径（2026-08-29）：executed=实际执行的驻留数——波束照常驻留，
@@ -111,7 +121,7 @@ TEST(RirSelfContainedPipelineTest, DetectorGateRejectsUndetectableTarget) {
 TEST(RirSelfContainedPipelineTest, StandbyDoesNotAdvanceSelfContainedChain) {
   RirController controller = MakeFallbackController();
   RirOutputFrame first;
-  controller.RunCycle(MakeInput(1U, 5000.0f, 5.0f), &first, 1U);
+  controller.RunCycle(MakeInput(1U, 5000.0f, 5.0f), &first, 1U, TestDwellCenter());
   ASSERT_EQ(first.recognition_outputs.size(), 1U);
 
   config::RirPolicyConfig stby_policy;
@@ -122,7 +132,7 @@ TEST(RirSelfContainedPipelineTest, StandbyDoesNotAdvanceSelfContainedChain) {
   RirCycleInput standby_input = MakeInput(2U, 6000.0f, 5.0f);
   standby_input.scene_targets[0].external_target_id = 8U;  // 新目标也不应触发检测建轨。
   RirOutputFrame standby_frame;
-  controller.RunCycle(standby_input, &standby_frame, 2U);
+  controller.RunCycle(standby_input, &standby_frame, 2U, TestDwellCenter());
   ASSERT_EQ(standby_frame.recognition_outputs.size(), 1U);
   EXPECT_EQ(standby_frame.recognition_outputs[0].association_key, 1U);
   EXPECT_EQ(controller.GetLatestSummary().dwell_budget.scheduled_dwell_count, 0U);
@@ -142,9 +152,11 @@ TEST(RirSelfContainedPipelineTest, ImmPolicyReachesLifecycleAndKeepsTrackStable)
   config::RirHardwareConfig hardware;
   hardware.rcs_physics.enable_physical_rcs = false;
   hardware.rcs_physics.physics_mix_ratio = 0.0f;
-  // 主瓣覆盖门放宽：本文件聚焦链路级联与驻留预算摘要，不测波束覆盖门。
-  hardware.antenna.nominal_az_beamwidth_deg = 160.0f;
-  hardware.antenna.nominal_el_beamwidth_deg = 160.0f;
+  // 波束 20°/10°：单目标驻留指向下覆盖门可过（本文件聚焦链路级联与驻留预算摘要，
+  // 不测覆盖门本身）；目标仰角（≈21.8°）高于半俯仰波束宽（5°），主瓣离地零杂波，
+  // 地杂波物理由 rir_surface_clutter_model_test 专项锁定。
+  hardware.antenna.nominal_az_beamwidth_deg = 20.0f;
+  hardware.antenna.nominal_el_beamwidth_deg = 10.0f;
   controller.SetHardware(hardware);
   controller.UpdateRuntime(MakeMission(config::RirWorkMode::kIdentify), policy);
 
@@ -153,7 +165,7 @@ TEST(RirSelfContainedPipelineTest, ImmPolicyReachesLifecycleAndKeepsTrackStable)
     RirOutputFrame frame;
     // 位移与速度种子一致（100 m/s × dt 0.5 s = 50 m/周期），保证门内持续命中。
     controller.RunCycle(MakeInput(cycle, 5000.0f + 50.0f * static_cast<float>(cycle - 1U), 5.0f),
-                        &frame, static_cast<std::uint64_t>(cycle));
+                        &frame, static_cast<std::uint64_t>(cycle), TestDwellCenter());
     // 周期 3 起 confirmed 命中走 IMM 路径：链路不因 IMM 挂载而中断。
     ASSERT_EQ(frame.recognition_outputs.size(), 1U);
     if (key == 0U) {
@@ -166,9 +178,10 @@ TEST(RirSelfContainedPipelineTest, ImmPolicyReachesLifecycleAndKeepsTrackStable)
   EXPECT_NE(key, 0U);
 }
 
-/// @brief 环境效果开启（热带密林）：杂波按"相对热噪 dB"换算（与 AR 同口径），
-///        6 dB 回退门下目标仍可检测建轨。修复前杂波被按绝对 dBW 读出 ~2 W，
-///        SNR 崩塌约 136 dB，检测全灭——本用例锁死该回归。
+/// @brief 环境效果开启（热带密林）：植被恒定传播损耗生效，6 dB 回退门下目标
+///        仍可检测建轨。历史回归：杂波曾被按绝对 dBW 读出 ~2 W，SNR 崩塌约
+///        136 dB，检测全灭——本用例锁死"环境开启不摧毁检测链"。目标仰角
+///        （≈21.8°）高于半俯仰波束宽，逐目标地杂波为主瓣离地零输出。
 TEST(RirSelfContainedPipelineTest, EnvironmentEffectsKeepTargetDetectable) {
   config::RirEnvironmentConfig environment;
   environment.vegetation_cover_profile = config::RirVegetationCoverProfile::kTropicalDense;
@@ -178,7 +191,7 @@ TEST(RirSelfContainedPipelineTest, EnvironmentEffectsKeepTargetDetectable) {
   controller.UpdateEnvironment(environment);
 
   RirOutputFrame frame;
-  controller.RunCycle(MakeInput(1U, 5000.0f, 5.0f), &frame, 1U);
+  controller.RunCycle(MakeInput(1U, 5000.0f, 5.0f), &frame, 1U, TestDwellCenter());
   ASSERT_EQ(frame.recognition_outputs.size(), 1U);
   EXPECT_EQ(controller.GetLatestSummary().dwell_budget.executed_dwell_count, 1U);
 }

@@ -26,6 +26,7 @@
 #include "remote_identification_radar/dwell/RirSignalDetector.h"
 #include "remote_identification_radar/internal/RirPropagationModel.h"
 #include "remote_identification_radar/internal/RirRadarEquations.h"
+#include "remote_identification_radar/internal/RirSurfaceClutterModel.h"
 #include "remote_identification_radar/recognition/RecognitionFeatureDatabase.h"
 #include "remote_identification_radar/recognition/RecognitionTracker.h"
 #include "remote_identification_radar/tracking/RirTrackAssociator.h"
@@ -208,7 +209,16 @@ class RirController {
                                     const config::RirAzimuthElevationDeg& dwell_center_deg) const;
 
   /** @brief 环境事实解析：未启用环境效应时退化到阶段 1 旧口径。 */
-  void ResolveEnvironment(float* propagation_loss_db, float* clutter_power_w) const;
+  void ResolveEnvironment(float* propagation_loss_db) const;
+
+  /**
+   * @brief 逐目标主瓣地杂波等效噪声功率（植被开启时物理求解，关闭恒 0）。
+   * @param[in] carrier_hz 周期有效载频（规划频率优先，回退发射机频率）。
+   * @param[in] bandwidth_hz 匹配滤波带宽（决定杂波距离单元 c/(2B)）。
+   */
+  float ResolveTargetClutterPowerW(float look_el_deg, float slant_range_m,
+                                   float total_propagation_loss_db, float carrier_hz,
+                                   float bandwidth_hz) const;
 
   /**
    * @brief 逐目标大气物理附加损耗（common 大气单源，与 AR 同口径）。
@@ -221,7 +231,7 @@ class RirController {
   /** @brief 单个目标检测与量测构造；未通过门控返回空 optional 语义（out=false）。 */
   bool TryBuildMeasurement(const session::RirSceneTarget& target, std::size_t source_index,
                            float platform_altitude_m, float propagation_loss_db,
-                           float clutter_power_w, const session::RirCycleInput& input,
+                           const session::RirCycleInput& input,
                            const config::RirAzimuthElevationDeg& dwell_center_deg,
                            const RirResolvedRfCycle& rf_cycle,
                            tracking::RirTrackMeasurement* measurement, float* snr_db);
@@ -264,6 +274,7 @@ class RirController {
   // 池化生命周期管理器不可拷贝，经 unique_ptr 持有以保持控制器可移动。
   std::unique_ptr<tracking::RirTrackLifecycle> lifecycle_{new tracking::RirTrackLifecycle()};
   internal::RirPropagationModel propagation_model_{};
+  internal::RirSurfaceClutterModel surface_clutter_model_{};
   std::mt19937 measurement_rng_{42U};
 
   std::unique_ptr<recognition::RirFeatureDatabase> database_{};
