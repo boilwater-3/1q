@@ -65,7 +65,6 @@ struct RirTrackMeasurement {
   bool matched_existing_track{false};                /**< 是否命中既有航迹。 */
   Eigen::Vector3f position{Eigen::Vector3f::Zero()}; /**< 量测位置（m）。 */
   Eigen::Vector3f velocity{Eigen::Vector3f::Zero()}; /**< 速度种子（m/s）。 */
-  float observed_speed{0.0f}; /**< 标量速度观测（m/s）；速度向量为零时生命周期速度种子的回退基准（AR filtered_feature.observed_speed 同位）。 */
   float detection_pd{0.0f};   /**< 本量测的检测概率 Pd（检测链透传；验收旁路用，不进关联方程）。 */
   float rcs{0.0f};                                   /**< 目标估计 RCS（m²）。 */
   RirMeasurementCovariance measurement_covariance{
@@ -76,8 +75,10 @@ struct RirTrackMeasurement {
  * @brief RirTrackState 内部航迹状态。
  *
  * 运动学位置/速度与高斯状态同源：从 `gaussian_state.mean` 按
- * [x, vx, y, vy, z, vz] 布局回写。加速度沿用 AR 子集口径：hit 时为
- * KF 后验速度与本周期速度种子之差/dt，miss 时 CV 外推保持速度、加速度归零。
+ * [x, vx, y, vy, z, vz] 布局回写。加速度为滤波后验速度的周期间差分
+ * （物理加速度口径）：hit 时以上周期后验速度为基准、按距上次命中的实际
+ * 经过时间折算（滑行周期后重命中不膨胀），(重)置周期（建轨/失跟重捕）
+ * 无差分基准、显式置零，miss 时 CV 外推保持速度、加速度归零。
  */
 struct RirTrackState {
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW

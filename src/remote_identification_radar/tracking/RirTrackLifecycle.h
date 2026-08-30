@@ -147,7 +147,7 @@ class RirTrackLifecycle {
   void ApplyGaussianState(RirTrackState* track, const RirGaussianState& state,
                           const Eigen::Vector3f& previous_velocity, float dt_sec) const;
   void ApplyHitFilter(RirTrackState* track, const RirTrackMeasurement& measurement,
-                      RirTrackStatus status_before, float dt_sec,
+                      RirTrackStatus status_before, float dt_sec, float acceleration_dt_sec,
                       RirImmFilter* imm_filter) const;
   void ApplyMissPredict(RirTrackState* track, const Eigen::Vector3f& previous_velocity,
                         float dt_sec, RirImmFilter* imm_filter) const;

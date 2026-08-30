@@ -157,6 +157,14 @@ void RirTrackLifecycle::Update(const RirCycleContext& cycle,
 
     if (work_item.kind == WorkItemKind::kHit) {
       const RirTrackMeasurement& measurement = *work_item.measurement;
+      // 加速度差分时间基准=距上次命中的实际经过时间：滑行（失配）周期 CV 外推
+      // 速度不变，重命中差分须按 (周期差)·dt 折算，否则机动目标加速度按单周期
+      // dt 膨胀；新航迹/重置周期无差分基准，该值在重置分支被显式置零覆盖。
+      float acceleration_dt_sec = cycle.dt_sec;
+      if (cycle.cycle_index > track.last_update_cycle) {
+        acceleration_dt_sec =
+            static_cast<float>(cycle.cycle_index - track.last_update_cycle) * cycle.dt_sec;
+      }
       track.last_update_cycle = cycle.cycle_index;
       track.hit_count += 1U;
       track.miss_count = 0U;
@@ -168,17 +176,13 @@ void RirTrackLifecycle::Update(const RirCycleContext& cycle,
       if (!measurement.target_name.empty()) {
         track.target_name = measurement.target_name;
       }
-      // 先写入本周期速度种子，再执行 KF 更新；加速度为滤波修正/新息速度差。
-      // 速度向量为零时与 AR 同口径以标量速度沿 +x 回填（速度种子为场景真值向量时
-      // 回退值退化为零向量，保留口径以防未来独立标量速度源接入后 hit 加速度基准分叉）。
-      track.velocity = measurement.velocity != Eigen::Vector3f::Zero()
-                           ? measurement.velocity
-                           : Eigen::Vector3f(measurement.observed_speed, 0.0f, 0.0f);
       track.rcs = measurement.rcs;
 
       PromoteState(&track, cycle.cycle_index, true);
+      // track.velocity 在此仍持有上周期后验速度（速度唯一来源是滤波后验，速度种子
+      // 不写入状态）：ApplyHitFilter 以其为基准做周期间差分得到物理加速度。
       ApplyHitFilter(&track, measurement, work_item.status_before, cycle.dt_sec,
-                     work_item.imm_filter);
+                     acceleration_dt_sec, work_item.imm_filter);
     } else {
       const bool should_recycle = PromoteState(&track, cycle.cycle_index, false);
       if (should_recycle) {
@@ -383,30 +387,41 @@ void RirTrackLifecycle::ApplyGaussianState(RirTrackState* track, const RirGaussi
 
 void RirTrackLifecycle::ApplyHitFilter(RirTrackState* track, const RirTrackMeasurement& measurement,
                                        RirTrackStatus status_before, float dt_sec,
+                                       float acceleration_dt_sec,
                                        RirImmFilter* imm_filter) const {
-  // 与 AR 子集一致：加速度 = KF 后验速度与本周期速度种子的差/dt。
-  const Eigen::Vector3f velocity_before_filter = track->velocity;
+  // 加速度 = 滤波后验速度的周期间差分（物理加速度口径）：差分基准取进更新前的
+  // 上周期后验速度（按值留存，避免与 ApplyGaussianState 内的回写别名），分母取
+  // 距上次命中的实际经过时间（滑行周期后重命中不按单周期 dt 膨胀）。(重)置周期
+  // （建轨/失跟重捕）滤波速度以量测速度种子重初始化，无上周期后验可差分 → 置零。
+  const Eigen::Vector3f velocity_before_update = track->velocity;
   const bool reset_filter_on_hit =
       !measurement.matched_existing_track || status_before == RirTrackStatus::kLost;
   if (imm_filter != nullptr && imm_filter->IsValid()) {
     if (reset_filter_on_hit) {
       // 防御分支（confirmed-only 激活策略下不可达）：IMM 命中重置退化为 CV 初始化，
       // 与 AR ApplyKalmanHitUpdate 同构。
-      ApplyGaussianState(track, filter_.Initialize(measurement), velocity_before_filter, dt_sec);
+      ApplyGaussianState(track, filter_.Initialize(measurement), velocity_before_update,
+                         acceleration_dt_sec);
+      track->acceleration.setZero();
+      track->acceleration_mps2 = 0.0f;
       return;
     }
     imm_filter->Process(measurement.position, dt_sec, measurement.measurement_covariance);
-    ApplyGaussianState(track, imm_filter->GetCombinedState(), velocity_before_filter, dt_sec);
+    ApplyGaussianState(track, imm_filter->GetCombinedState(), velocity_before_update,
+                       acceleration_dt_sec);
     return;
   }
   if (reset_filter_on_hit) {
-    ApplyGaussianState(track, filter_.Initialize(measurement), velocity_before_filter, dt_sec);
+    ApplyGaussianState(track, filter_.Initialize(measurement), velocity_before_update,
+                       acceleration_dt_sec);
+    track->acceleration.setZero();
+    track->acceleration_mps2 = 0.0f;
     return;
   }
 
   const RirGaussianState predicted = filter_.Predict(track->gaussian_state, dt_sec);
   const RirKalmanUpdateResult update_result = filter_.Update(predicted, measurement);
-  ApplyGaussianState(track, update_result.posterior, velocity_before_filter, dt_sec);
+  ApplyGaussianState(track, update_result.posterior, velocity_before_update, acceleration_dt_sec);
 }
 
 void RirTrackLifecycle::ApplyMissPredict(RirTrackState* track,

@@ -693,9 +693,6 @@ bool RirController::TryBuildMeasurement(
   built.target_name = target.target_name;
   built.position = PositionOf(target);
   built.velocity = Eigen::Vector3f(target.velocity_x, target.velocity_y, target.velocity_z);
-  // 标量速度观测（与 AR filtered_feature.observed_speed 同位）：速度向量为零时
-  // 生命周期速度种子按 (observed_speed, 0, 0) 回退的基准。
-  built.observed_speed = built.velocity.norm();
   // 评审 2026-08-26 条15：检测概率透传进关联量测（验收旁路字段，不进关联方程）。
   built.detection_pd = detection.detection_prob;
   built.rcs = target.rcs;
