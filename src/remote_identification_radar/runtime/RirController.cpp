@@ -752,7 +752,10 @@ bool RirController::TryBuildMeasurement(
   built.external_target_id = target.external_target_id;
   built.target_name = target.target_name;
   built.position = PositionOf(target);
-  built.velocity = Eigen::Vector3f(target.velocity_x, target.velocity_y, target.velocity_z);
+  // 去真值化（rir-tracking-realism 契约）：雷达单次检测无速度量测通道，旧口径的
+  // 真值速度种子属泄漏；滤波速度唯一来源为后验收敛。字段保留填零（公开面与回放
+  // 兼容，契约修订 1 第 4 条）。
+  built.velocity = Eigen::Vector3f::Zero();
   // 评审 2026-08-26 条15：检测概率透传进关联量测（验收旁路字段，不进关联方程）。
   built.detection_pd = detection.detection_prob;
   built.rcs = target.rcs;

@@ -34,7 +34,10 @@ RirTrackMeasurement MakeMeasurement(float px, float py, float pz, float vx, floa
 /// @brief 初始状态布局 [x, vx, y, vy, z, vz]，协方差对角为配置初值。
 TEST(RirTrackFilterTest, InitializeUsesCvLayoutAndConfiguredVariance) {
   RirTrackFilterConfig config;
-  config.initial_state_variance = 25.0f;
+  // 位置先验与速度先验取不同量级（16 与 5²=25）：位置/速度分置写反时四条对角
+  // 断言必须失败——特征化测试要能钉住分置结构本身。
+  config.initial_state_variance = 16.0f;
+  config.initial_velocity_std_mps = 5.0f;
   const RirTrackFilter filter(config);
 
   const RirGaussianState state =
@@ -45,8 +48,14 @@ TEST(RirTrackFilterTest, InitializeUsesCvLayoutAndConfiguredVariance) {
   EXPECT_FLOAT_EQ(state.mean(3), 2.0f);
   EXPECT_FLOAT_EQ(state.mean(4), 30.0f);
   EXPECT_FLOAT_EQ(state.mean(5), 3.0f);
-  EXPECT_FLOAT_EQ(state.covariance(0, 0), 25.0f);
+  // 结构化初始协方差（2026-08-31 去真值化）：位置项=位置先验，速度项=速度无知
+  // 先验（生产调用方速度均值传零；本用例验证传入种子仍作均值、先验按配置分置）。
+  EXPECT_FLOAT_EQ(state.covariance(0, 0), 16.0f);
+  EXPECT_FLOAT_EQ(state.covariance(2, 2), 16.0f);
+  EXPECT_FLOAT_EQ(state.covariance(4, 4), 16.0f);
+  EXPECT_FLOAT_EQ(state.covariance(1, 1), 25.0f);
   EXPECT_FLOAT_EQ(state.covariance(3, 3), 25.0f);
+  EXPECT_FLOAT_EQ(state.covariance(5, 5), 25.0f);
   EXPECT_FLOAT_EQ(state.covariance(0, 1), 0.0f);
 }
 
