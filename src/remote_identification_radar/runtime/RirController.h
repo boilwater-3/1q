@@ -115,8 +115,9 @@ class RirController {
    *            目标（与其是否入本周期计划无关——预算不足未获跟踪驻留者也然）
    *            连同指定目标，在硬件体积内豁免扫描子窗裁剪（跟踪连续性高于
    *            搜索子窗）。
-   * @note 其余参数语义同单驻留重载；RF 发射链按计划首条目指向解析（每周期
-   *       一条发射记录的既有口径不变）。
+   * @note 其余参数语义同单驻留重载；RF 接收链按计划首条目指向周期级解析一次
+   *       （接收侧聚合语义不变），发射记录逐驻留透出（`emission_frame`
+   *       一条驻留一条，多驻留周期不再只记首波位——核查 9.2）。
    */
   void RunCycle(const session::RirCycleInput& input, session::RirOutputFrame* output_frame,
                 std::uint64_t batch_id, const std::vector<RirDwellPlan>& dwell_plan,
@@ -161,7 +162,8 @@ class RirController {
     return last_execution_issues_;
   }
 
-  /** @brief 最近周期实际 RIR 发射帧（`kIdentify` 且 RF 链成功时非空）。 */
+  /** @brief 最近周期实际 RIR 发射帧（`kIdentify` 且 RF 链成功时非空；
+   *         逐驻留一条记录，多驻留周期携带全部驻留发射）。 */
   const oneq::electromagnetics::RfEmissionFrame& LatestEmissionFrame() const {
     return last_emission_frame_;
   }
@@ -200,6 +202,8 @@ class RirController {
     bool receiver_saturated{false};
     oneq::electromagnetics::RfEmissionIdentity own_emission_identity{};
     oneq::electromagnetics::RfSceneEmission own_emission{};
+    /** 逐驻留发射记录（首条 = own_emission；接收链仍按首驻留周期级一次求解）。 */
+    std::vector<oneq::electromagnetics::RfSceneEmission> per_dwell_emissions{};
     std::vector<oneq::electromagnetics::RfIncidentLinkResult> incident_links{};
     oneq::electromagnetics::RfWaveformSchedule own_transmit_waveform{};
     float carrier_hz{0.0f};
@@ -208,9 +212,14 @@ class RirController {
   /** @brief 检测器配置装配。 */
   dwell::RirDetectorConfig MakeDetectorConfig() const;
 
-  /** @brief 解析本周期 RF 前端（自发射 + 可选外部 scene）。 */
+  /**
+   * @brief 解析本周期 RF 前端（自发射 + 可选外部 scene）与逐驻留发射记录。
+   * @note 接收侧（饱和/入射链/波形/身份）按计划首驻留指向周期级求解一次
+   *       （聚合语义）；发射记录逐驻留构建（首条复用周期级自发射，其余驻留
+   *       同工厂路径、指向换该驻留、emission_id 唯一化——核查 9.2）。
+   */
   RirResolvedRfCycle ResolveRfCycle(const session::RirCycleInput& input,
-                                    const config::RirAzimuthElevationDeg& dwell_center_deg) const;
+                                    const std::vector<RirDwellPlan>& plan) const;
 
   /** @brief 环境事实解析：未启用环境效应时退化到阶段 1 旧口径。 */
   void ResolveEnvironment(float* propagation_loss_db) const;

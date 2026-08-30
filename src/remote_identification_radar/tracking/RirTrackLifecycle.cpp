@@ -394,7 +394,8 @@ void RirTrackLifecycle::ApplyHitFilter(RirTrackState* track, const RirTrackMeasu
   // 加速度 = 滤波后验速度的周期间差分（物理加速度口径）：差分基准取进更新前的
   // 上周期后验速度（按值留存，避免与 ApplyGaussianState 内的回写别名），分母取
   // 距上次命中的实际经过时间（滑行周期后重命中不按单周期 dt 膨胀）。(重)置周期
-  // （建轨/失跟重捕）滤波速度以量测速度种子重初始化，无上周期后验可差分 → 置零。
+  // （建轨/失跟重捕）滤波以零速均值 + 速度无知先验重初始化（2026-08-31 去真值
+  // 种子；速度唯一来源是滤波后验，重捕后速度重新收敛）。
   const Eigen::Vector3f velocity_before_update = track->velocity;
   const bool reset_filter_on_hit =
       !measurement.matched_existing_track || status_before == RirTrackStatus::kLost;

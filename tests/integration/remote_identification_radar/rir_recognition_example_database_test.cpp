@@ -89,12 +89,15 @@ TEST(RecognitionExampleDatabaseTest, LoadsCommittedExampleDatabase) {
   EXPECT_EQ(mq9->category_id, "UAV");
   EXPECT_FLOAT_EQ(mq9->profiles.front().motion.speed_mps.mean, 78.0f);
 
-  // 弹道中段模板 B（2026-08-28 新增）：ICBM 级过极点中段窗口观测统计。
+  // 弹道中段模板 B（2026-08-28 新增；2026-08-31 rir-tracking-realism 修订 2 按弹道
+  // 场景目标实测特征校准：高度 1.0e6→1.4e6 m，加速度/速度散布见库源 json）。
   const RirModel* ballisticB = FindModel(database, "BALLISTIC_EXAMPLE_B");
   ASSERT_NE(ballisticB, nullptr);
   EXPECT_EQ(ballisticB->category_id, "BALLISTIC");
   EXPECT_FLOAT_EQ(ballisticB->profiles.front().motion.speed_mps.mean, 4900.0f);
-  EXPECT_FLOAT_EQ(ballisticB->profiles.front().motion.altitude_m.mean, 1000000.0f);
+  EXPECT_FLOAT_EQ(ballisticB->profiles.front().motion.speed_mps.std, 500.0f);
+  EXPECT_FLOAT_EQ(ballisticB->profiles.front().motion.altitude_m.mean, 1400000.0f);
+  EXPECT_FLOAT_EQ(ballisticB->profiles.front().motion.acceleration_mps2.mean, 7.5f);
   EXPECT_FLOAT_EQ(ballisticB->profiles.front().rcs.mean_dbsm, -10.0f);
   EXPECT_FLOAT_EQ(ballisticB->profiles.front().max_range_resolution_m, 50.0f);
 

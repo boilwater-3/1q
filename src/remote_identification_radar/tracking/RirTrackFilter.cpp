@@ -54,7 +54,19 @@ RirGaussianState RirTrackFilter::Initialize(const Eigen::Vector3f& position,
   mean(4) = position.z();
   mean(5) = velocity.z();
 
-  RirStateCovariance covariance = RirStateCovariance::Identity() * config_.initial_state_variance;
+  // 诚实初始化（rir-tracking-realism 契约）：位置项=位置先验，速度项=速度无知
+  // 先验——去真值种子后速度未知性须显式建模；先验越大建轨期门越宽、收敛后自然
+  // 收紧（门自适应来源，无需按航迹年龄特判）。
+  RirStateCovariance covariance = RirStateCovariance::Zero();
+  const float position_variance = config_.initial_state_variance;
+  const float velocity_variance =
+      config_.initial_velocity_std_mps * config_.initial_velocity_std_mps;
+  covariance(0, 0) = position_variance;
+  covariance(2, 2) = position_variance;
+  covariance(4, 4) = position_variance;
+  covariance(1, 1) = velocity_variance;
+  covariance(3, 3) = velocity_variance;
+  covariance(5, 5) = velocity_variance;
   return RirGaussianState(mean, covariance);
 }
 

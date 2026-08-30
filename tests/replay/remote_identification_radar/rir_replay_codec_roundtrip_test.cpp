@@ -337,6 +337,8 @@ TEST(RirReplayCodecRoundtripTest, TrackAttributionsRoundtripPreserved) {
 }
 
 /// @brief emission_frame 全字段往返（加性 V2 扩展；旧记录缺字段解码为空帧）。
+///        两条 emission（2026-08-30 核查 9.2：多驻留周期逐驻留记录）验证
+///        数组语义无损——无需 bump 回放标识符（emissions 本就是向量字段）。
 TEST(RirReplayCodecRoundtripTest, EmissionFrameRoundtripPreserved) {
   RirCycleReplayRecord record;
   record.result.status = RirCycleStatus::kCompleted;
@@ -364,6 +366,12 @@ TEST(RirReplayCodecRoundtripTest, EmissionFrameRoundtripPreserved) {
   emission.waveform.pulse_width_s = 1.3e-5;
   emission.waveform.pulse_repetition_interval_s = 1.0 / 300.0;
   record.result.emission_frame.emissions.push_back(emission);
+  // 第二条：同发射机第二驻留（唯一 emission_id + 不同指向）。
+  emission.identity.emission_id = 9223372036854775811ULL;
+  emission.antenna.boresight_ecef.x = 0.6;
+  emission.antenna.boresight_ecef.y = 0.0;
+  emission.antenna.boresight_ecef.z = 0.8;
+  record.result.emission_frame.emissions.push_back(emission);
 
   const std::string encoded = session::EncodeCycleReplayRecordFlatbuffer(record);
   ASSERT_FALSE(encoded.empty());
@@ -375,15 +383,19 @@ TEST(RirReplayCodecRoundtripTest, EmissionFrameRoundtripPreserved) {
   EXPECT_EQ(decoded.result.emission_frame.world_cycle_index, 12U);
   EXPECT_DOUBLE_EQ(decoded.result.emission_frame.window_start_time_s, 5.5);
   EXPECT_DOUBLE_EQ(decoded.result.emission_frame.window_duration_s, 0.05);
-  ASSERT_EQ(decoded.result.emission_frame.emissions.size(), 1U);
-  EXPECT_EQ(decoded.result.emission_frame.emissions.front().identity.platform_id, 2U);
-  EXPECT_EQ(decoded.result.emission_frame.emissions.front().identity.equipment_id, 1U);
-  EXPECT_EQ(decoded.result.emission_frame.emissions.front().identity.emission_id, 7U);
-  EXPECT_DOUBLE_EQ(decoded.result.emission_frame.emissions.front().position_ecef_m.x_m, 1000.0);
-  EXPECT_DOUBLE_EQ(decoded.result.emission_frame.emissions.front().waveform.transmit_power_w,
+  ASSERT_EQ(decoded.result.emission_frame.emissions.size(), 2U);
+  EXPECT_EQ(decoded.result.emission_frame.emissions[0].identity.platform_id, 2U);
+  EXPECT_EQ(decoded.result.emission_frame.emissions[0].identity.equipment_id, 1U);
+  EXPECT_EQ(decoded.result.emission_frame.emissions[0].identity.emission_id, 7U);
+  EXPECT_DOUBLE_EQ(decoded.result.emission_frame.emissions[0].position_ecef_m.x_m, 1000.0);
+  EXPECT_DOUBLE_EQ(decoded.result.emission_frame.emissions[0].waveform.transmit_power_w,
                    1.0e6);
-  EXPECT_EQ(decoded.result.emission_frame.emissions.front().waveform.kind,
+  EXPECT_EQ(decoded.result.emission_frame.emissions[0].waveform.kind,
             oneq::electromagnetics::RfSceneWaveformKind::kPulseTrain);
+  EXPECT_EQ(decoded.result.emission_frame.emissions[1].identity.emission_id,
+            9223372036854775811ULL)
+      << "逐驻留唯一化的大 emission_id 应无损往返";
+  EXPECT_DOUBLE_EQ(decoded.result.emission_frame.emissions[1].antenna.boresight_ecef.z, 0.8);
 }
 
 /// @brief 空 emission_frame 往返（加性 V2 扩展默认值）。

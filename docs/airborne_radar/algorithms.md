@@ -1,6 +1,6 @@
 ---
 Status: active
-Last-reviewed: 2026-08-21
+Last-reviewed: 2026-08-30
 Authority: AR 算法登记与实现边界
 Answers: AR 用了哪些算法/部件、各自实现到什么地步、边界在哪、哪些刻意不实现
 ---
@@ -156,7 +156,14 @@ detection toggle 或启发式 pass。
      得到 Pd；Monte Carlo 只采样检测事件。四增益偏置缺省全 0 dB，逐位等于保守账本；
      脉压与积累增益永远自动派生，不得手填进偏置。
   6. **可靠性裕量门限**：Monte Carlo 判决后若 `snr_db < min_detection_margin_db` 则强制 `detected = false`；
-     该门限作为后验安全网独立于 Pd/Monte Carlo 路径。`detection_margin_db` 输出语义为相对裕量而非原始 SNR。
+     该门作为后验安全网独立于 Pd/Monte Carlo 路径。`detection_margin_db` 输出语义为相对裕量而非原始 SNR。
+- **量测误差模型 bias/std 拆分欠账（2026-08-30，RIR 专场）**：common 量测误差模型
+  （`common/radar/MeasurementErrorModel.h`）已把经验偏置项从随机 std 中拆出为显式 bias 字段
+  （距离 +20 m 常数、角度波束宽度/30；固定系统偏置应施加在量测均值侧，而非当作随机抖动并入 std）。
+  **AR 适配层暂持旧合成口径**：`signal/detection/RadarEquations.cpp` 与
+  `signal/detection/MeasurementErrorModel.h` 在透传 common 时把偏置加回 std（bias 字段置 0），
+  AR 行为与拆分前逐值一致（单测/batch 关联连续性验证通过）；待 AR 专场决定是否对齐
+  「std 纯随机 + bias 进量测均值」口径。
 - **反直觉点（两个噪声基准，不得混用）**：
   - **前端 J/N 门控基准**：`k·T·transmitter.bandwidth_hz·noise_figure`（发射带宽），判断某条外部
     emission 是否过 `interference_observation_jn_gate_db` 被记录为可观测干扰。注意此处用的是

@@ -220,6 +220,8 @@ TEST_F(RirUsMilitaryRecognitionScenarioTest, MissileFamilyAmbiguityStaysWithinCa
 }
 
 // S6 跨类隔离：同帧双目标（战斗机 + 巡航导弹），类别/型号正确率 100%。
+// 2026-08-31 去真值速度种子（rir-tracking-realism）：建轨首两拍速度无知先验
+// 爬坡、运动特征未收敛，识别结论不强断言；第 3 拍起速度收敛恢复全对断言。
 TEST_F(RirUsMilitaryRecognitionScenarioTest, MixedFighterAndMissileKeepFullAccuracy) {
   RirSession radar = RirSession::Create(MakeScenarioConfig());
   const std::uint32_t kCycles = 5U;
@@ -230,6 +232,9 @@ TEST_F(RirUsMilitaryRecognitionScenarioTest, MixedFighterAndMissileKeepFullAccur
     const RirCycleResult result = radar.StepWithResult(input);
     ASSERT_EQ(result.status, RirCycleStatus::kCompleted);
     ASSERT_EQ(result.output_frame.recognition_outputs.size(), 2U);
+    if (cycle < 3U) {
+      continue;  // 速度爬坡期：只断言链路成活，不判识别结论。
+    }
     EXPECT_TRUE(result.has_recognition_summary);
     EXPECT_TRUE(result.recognition_summary.has_ground_truth);
     EXPECT_EQ(result.recognition_summary.category_accuracy, 1.0f);

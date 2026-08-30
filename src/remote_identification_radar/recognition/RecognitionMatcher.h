@@ -32,7 +32,7 @@ struct RirMatchResult {
   bool has_candidates{false};  /**< 是否有任何模型参与匹配。 */
   std::vector<RirCandidate> candidates{}; /**< 按得分降序。 */
   std::vector<std::pair<std::string, float>>
-      category_scores{}; /**< category_id → 其下型号未归一化分数之和（降序）。 */
+      category_scores{}; /**< category_id → 大类内最佳型号得分（降序）。 */
   std::string best_model_id{};
   std::string best_category_id{};
   float best_score{0.0f};       /**< 第一候选先验加权分数。 */
@@ -50,8 +50,8 @@ struct RirMatchResult {
  * 相似度：连续特征 z = |x - mean| / std，s = exp(-0.5·z²)。
  * 动态加权：score = Σ w(d)·q(d)·s(d) / Σ w(d)·q(d)，质量 0 的维度
  * 不参与分子也不参与分母。型号取适用 profile 的最高分并乘以先验；
- * 大类分数为其下型号未归一化分数之和；置信度为第一候选分数在全部
- * 候选分数和中的占比。
+ * 大类分数取大类内最佳型号的得分（成员数量不加分）；置信度为第一候选
+ * 分数在全部候选分数和中的占比。
  */
 class RirMatcher {
  public:

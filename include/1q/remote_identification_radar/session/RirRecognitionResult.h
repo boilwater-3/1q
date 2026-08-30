@@ -89,8 +89,8 @@ struct ONEQ_API RirRecognitionResult {
  *       且成功积累的目标数为准（未识别优先 + 斜距次近，D-A5）。
  */
 struct ONEQ_API RirDwellBudgetSummary {
-  std::uint32_t scheduled_dwell_count{0U}; /**< 本周期计划驻留目标数。 */
-  std::uint32_t executed_dwell_count{0U};  /**< 本周期实际执行驻留目标数。 */
+  std::uint32_t scheduled_dwell_count{0U}; /**< 本周期计划驻留条目数（TAS 逐驻留计划）。 */
+  std::uint32_t executed_dwell_count{0U};  /**< 本周期实际执行驻留条目数（库内逐驻留执行恒等于计划数）。 */
   float dwell_budget_sec{0.0f};            /**< 本周期驻留时间预算（s）。 */
   float dwell_consumed_sec{0.0f};          /**< 本周期实际消耗驻留时间（s）。 */
 };

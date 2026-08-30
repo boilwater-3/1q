@@ -13,6 +13,25 @@ namespace common {
 namespace radar {
 
 /**
+ * @brief 距离量测固定系统偏置（未标定残差），单位：米。
+ * @note 口径：固定系统偏置应施加在量测均值侧，而非并入随机 std；2026-08-30 从
+ *       ComputeRangeErrorStdDev 的标准差中拆出（此前被当作随机抖动加进 std，物理
+ *       不正确）。来源口径不变：工程实测数据拟合，含系统偏置与量化误差等固定分量。
+ */
+constexpr float kRangeMeasurementBiasM = 20.0f;
+
+/**
+ * @brief 角度量测固定系统偏置（未标定残差），单位：弧度。
+ * @param beamwidth_rad 波束宽度（弧度）。
+ * @return 波束宽度的 1/30（随波束宽度变化；单脉冲测角工程经验口径）。
+ * @note 口径：固定系统偏置应施加在量测均值侧，而非并入随机 std；2026-08-30 从
+ *       ComputeAngleErrorStdDev 的标准差中拆出。
+ */
+inline float ComputeAngleMeasurementBiasRad(float beamwidth_rad) {
+  return beamwidth_rad / 30.0f;
+}
+
+/**
  * @brief 目标雷达散射截面起伏统计模型（通用枚举）。
  */
 enum class SwerlingModel {
@@ -83,21 +102,27 @@ struct RadarEquations {
   static float ComputeIntegrationGain(int pulse_count);
 
   /**
-   * @brief 测距标准差 σ_R (m)。
-   * 工程近似: σ_R ≈ 0.5·δ_R / √(SNR_linear) + bias，
+   * @brief 测距随机标准差 σ_R (m)。
+   * 工程近似: σ_R ≈ 0.5·δ_R / √(SNR_linear)，
    * 其中 δ_R = c/(2B) 为距离分辨力。
+   * 固定系统偏置（kRangeMeasurementBiasM）不并入本值，应由消费方施加在量测均值侧
+   * （2026-08-30 从 std 中拆出）；snr_db < -10 dB 下限分支返回 1.5777·δ_R，
+   * 同样只含随机项的既有形态。
    * @param snr_db    信噪比 (dB)
    * @param bandwidth_hz 信号带宽 (Hz)
-   * @return 距离测量标准差 (m)
+   * @return 距离测量随机标准差（不含固定偏置）(m)
    */
   static float ComputeRangeErrorStdDev(float snr_db, float bandwidth_hz);
 
   /**
-   * @brief 测角标准差 σ_θ (rad)。
-   * 工程近似: σ_θ ≈ 0.317·θ_bw / √(SNR_linear) + θ_bw/30。
+   * @brief 测角随机标准差 σ_θ (rad)。
+   * 工程近似: σ_θ ≈ 0.317·θ_bw / √(SNR_linear)。
+   * 固定系统偏置（θ_bw/30，见 ComputeAngleMeasurementBiasRad）不并入本值，
+   * 应由消费方施加在量测均值侧（2026-08-30 从 std 中拆出）；snr_db < -10 dB
+   * 下限分支返回 θ_bw，同样只含随机项的既有形态。
    * @param snr_db         信噪比 (dB)
    * @param beamwidth_rad  波束宽度 (rad)
-   * @return 角度测量标准差 (rad)
+   * @return 角度测量随机标准差（不含固定偏置）(rad)
    */
   static float ComputeAngleErrorStdDev(float snr_db, float beamwidth_rad);
 

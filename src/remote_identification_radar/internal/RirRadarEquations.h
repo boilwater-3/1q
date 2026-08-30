@@ -88,16 +88,9 @@ struct RirRadarEquations {
                                           const config::hardware::RirReceiverConfig& rx);
 
   /**
-   * @brief 脉冲积累增益因子。
-   * 当前统一采用线性脉冲积累语义: G = N。
-   * @param pulse_count 积累脉冲数
-   * @return 积累增益因子（线性值）
-   */
-  static float ComputeIntegrationGain(int pulse_count);
-
-  /**
    * @brief 测距标准差 σ_R (m)。
-   * 工程近似: σ_R ≈ 0.5·δ_R / √(SNR_linear) + bias，
+   * 工程近似: σ_R ≈ 0.5·δ_R / √(SNR_linear)（纯随机项；
+   * 2026-08-30 拆分后系统偏差经 kRangeMeasurementBiasM 施加在均值侧），
    * 其中 δ_R = c/(2B) 为距离分辨力。
    * @param snr_db    信噪比 (dB)
    * @param bandwidth_hz 信号带宽 (Hz)
@@ -107,7 +100,8 @@ struct RirRadarEquations {
 
   /**
    * @brief 测角标准差 σ_θ (rad)。
-   * 工程近似: σ_θ ≈ 0.317·θ_bw / √(SNR_linear) + θ_bw/30。
+   * 工程近似: σ_θ ≈ 0.317·θ_bw / √(SNR_linear)（纯随机项；角偏 θ_bw/30
+   * 已拆至 ComputeAngleMeasurementBiasRad 均值侧）。
    * @param snr_db         信噪比 (dB)
    * @param beamwidth_rad  波束宽度 (rad)
    * @return 角度测量标准差 (rad)

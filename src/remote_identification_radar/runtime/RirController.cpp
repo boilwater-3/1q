@@ -45,6 +45,21 @@ constexpr float kCovarianceFloorM2 = 1.0e-6f;
 // 主瓣覆盖门系数：门限=有效波束宽度（半功率宽）×该系数。恒为 1.0 且不设配置项
 // （2026-08-29 还债原则：方向图/覆盖门语义唯一，不再新增同类开关）。
 constexpr float kMainLobeGateBeamwidthScale = 1.0f;
+
+// 多驻留发射记录的 emission_id 唯一化（核查 9.2）：RfSceneFrame 契约要求帧内
+// identity 唯一（TryValidateRfSceneFrame 拒绝重复），编排层把本帧汇入全球 RF
+// scene 供 ESR 等消费，同帧多条同 id 会让下游整帧校验失败。首驻留保持既有
+// emission_id=cycle_index（单驻留周期与历史记录逐字节一致）；第 i 条驻留
+// (i≥1) 以高位标志位 + (cycle_index << 32) | i 编码——与 uint32 周期号空间
+// 不相交、帧内唯一，且是周期号的确定性函数（replay 无需额外会话状态，与 AR
+// 的 next_emission_id 台账路线刻意区分）。(cycle, i) 的全局单射以
+// cycle_index < 2^31、dwell_index < 2^32 为前提（现实计数远不可达）。
+std::uint64_t SecondaryDwellEmissionId(std::uint32_t cycle_index, std::size_t dwell_index) {
+  constexpr std::uint64_t kDwellEmissionIdFlag = 1ULL << 63;
+  return kDwellEmissionIdFlag | (static_cast<std::uint64_t>(cycle_index) << 32) |
+         static_cast<std::uint64_t>(dwell_index);
+}
+
 std::string g_acceptance_found_targets;
 
 internal::RirSwerlingModel ToInternalSwerling(session::RirSwerlingType type) {
@@ -432,10 +447,9 @@ tracking::RirTrackMeasurement RirController::SampleMeasurementPosition(
 }
 
 RirController::RirResolvedRfCycle RirController::ResolveRfCycle(
-    const session::RirCycleInput& input,
-    const config::RirAzimuthElevationDeg& dwell_center_deg) const {
+    const session::RirCycleInput& input, const std::vector<RirDwellPlan>& plan) const {
   RirResolvedRfCycle resolved;
-  if (sensor_platform_id_ == 0U || hardware_.transmitter.prf_hz <= 0.0f) {
+  if (plan.empty() || sensor_platform_id_ == 0U || hardware_.transmitter.prf_hz <= 0.0f) {
     return resolved;
   }
 
@@ -444,7 +458,9 @@ RirController::RirResolvedRfCycle RirController::ResolveRfCycle(
   rf_input.platform_position_ecef_m = input.platform_position;
   rf_input.window_start_time_s = static_cast<double>(input.sim_time_sec);
   rf_input.window_duration_s = static_cast<double>(mission_.recognition_dwell_sec);
-  rf_input.beam_pointing_deg = dwell_center_deg;
+  // 接收链（饱和/入射链/波形/身份）按计划首驻留指向周期级解析一次——
+  // 接收侧聚合语义不变（核查 9.2 只改发射记录的逐驻留透出）。
+  rf_input.beam_pointing_deg = plan.front().pointing_deg;
 
   const double carrier_hz =
       dwell::RirEmissionFactory::ResolveCarrierHz(hardware_.transmitter, input.input_cycle_index);
@@ -468,6 +484,23 @@ RirController::RirResolvedRfCycle RirController::ResolveRfCycle(
   resolved.own_emission = own_emission;
   resolved.own_transmit_waveform = own_emission.waveform;
   resolved.carrier_hz = static_cast<float>(carrier_hz);
+
+  // 发射记录逐驻留（核查 9.2）：一周期多驻留必须对外完整输出（否则下游只见
+  // 首波位）。首条复用周期级 own_emission；其余驻留经同一工厂构建路径生成
+  // （波形/功率/极化/时序种子与首条同源同值，仅指向换该驻留、emission_id
+  // 唯一化）。单条构建失败只少记该驻留，不影响接收链与检测判决。
+  resolved.per_dwell_emissions.push_back(own_emission);
+  for (std::size_t i = 1U; i < plan.size(); ++i) {
+    dwell::RirRfCycleInput dwell_input = rf_input;
+    dwell_input.beam_pointing_deg = plan[i].pointing_deg;
+    oneq::electromagnetics::RfSceneEmission dwell_emission;
+    if (dwell::RirEmissionFactory::TryBuildEmission(
+            dwell_input, hardware_, SecondaryDwellEmissionId(input.input_cycle_index, i),
+            carrier_hz, pri_s, pulse_count, static_cast<std::uint64_t>(detection_random_seed_),
+            static_cast<std::uint64_t>(input.input_cycle_index), &dwell_emission)) {
+      resolved.per_dwell_emissions.push_back(dwell_emission);
+    }
+  }
 
   const dwell::RirReceiverOperatingState receiver_state =
       dwell::RirReceiverStateBuilder::Build(rf_input, own_emission, hardware_, carrier_hz);
@@ -719,7 +752,10 @@ bool RirController::TryBuildMeasurement(
   built.external_target_id = target.external_target_id;
   built.target_name = target.target_name;
   built.position = PositionOf(target);
-  built.velocity = Eigen::Vector3f(target.velocity_x, target.velocity_y, target.velocity_z);
+  // 去真值化（rir-tracking-realism 契约）：雷达单次检测无速度量测通道，旧口径的
+  // 真值速度种子属泄漏；滤波速度唯一来源为后验收敛。字段保留填零（公开面与回放
+  // 兼容，契约修订 1 第 4 条）。
+  built.velocity = Eigen::Vector3f::Zero();
   // 评审 2026-08-26 条15：检测概率透传进关联量测（验收旁路字段，不进关联方程）。
   built.detection_pd = detection.detection_prob;
   built.rcs = target.rcs;
@@ -730,6 +766,29 @@ bool RirController::TryBuildMeasurement(
   if (policy_.detection.gate_mode == config::RirDetectionGateMode::kSnrFallback) {
     *measurement = built;
   } else {
+    // 系统偏差施加（核查 6.2 拆分裁定）：偏置属均值侧而非协方差——采样前把量测
+    // 位置沿视线 +20 m（kRangeMeasurementBiasM）、角偏 bw/30 逐轴正偏的横向位移
+    // 平移固定量（未标定系统残差，方向取正）；SnrFallback 真值口径不施加（与不
+    // 采样噪声同层级简化）。退化输入（无视线角）跳过，与峰值回退口径一致。
+    if (has_look_angles) {
+      const float bias_az_rad =
+          oneq::common::radar::ComputeAngleMeasurementBiasRad(oneq::common::numerics::DegToRad(
+              beam_state.effective_beamwidth_deg.az_beamwidth_deg));
+      const float bias_el_rad =
+          oneq::common::radar::ComputeAngleMeasurementBiasRad(oneq::common::numerics::DegToRad(
+              beam_state.effective_beamwidth_deg.el_beamwidth_deg));
+      const float az_rad = oneq::common::numerics::DegToRad(look_az_deg);
+      const float el_rad = oneq::common::numerics::DegToRad(look_el_deg);
+      const Eigen::Vector3f u(std::cos(el_rad) * std::cos(az_rad),
+                              std::cos(el_rad) * std::sin(az_rad), std::sin(el_rad));
+      const Eigen::Vector3f e_az(-std::sin(az_rad), std::cos(az_rad), 0.0f);
+      const Eigen::Vector3f e_el(-std::sin(el_rad) * std::cos(az_rad),
+                                 -std::sin(el_rad) * std::sin(az_rad), std::cos(el_rad));
+      built.position +=
+          oneq::common::radar::kRangeMeasurementBiasM * u +
+          (slant_range_m * std::cos(el_rad) * bias_az_rad) * e_az +
+          (slant_range_m * bias_el_rad) * e_el;
+    }
     *measurement = SampleMeasurementPosition(built);
   }
   // 验收判定标准 第37项（检测与量测信息）：逐检测目标串接——量测斜距与量测方位/
@@ -796,7 +855,8 @@ void RirController::RunCycle(const session::RirCycleInput& input,
   // TAS 防御：空计划退化为单条目缺省指向搜索驻留（既有兜底语义不变）。
   static const std::vector<RirDwellPlan> kFallbackPlan(1U);
   const std::vector<RirDwellPlan>& plan = dwell_plan.empty() ? kFallbackPlan : dwell_plan;
-  // RF 发射链按计划首条目指向解析（每周期一条发射记录的既有口径不变）。
+  // 验收"指向"行与接收链回退口径按计划首条目；发射记录逐驻留
+  //（见 ResolveRfCycle / last_emission_frame_，核查 9.2）。
   const config::RirAzimuthElevationDeg& dwell_center_deg = plan.front().pointing_deg;
   const bool in_identify = work_mode_ == config::RirWorkMode::kIdentify;
   if (recognition_mode_active_ && !in_identify) {
@@ -828,13 +888,15 @@ void RirController::RunCycle(const session::RirCycleInput& input,
     float propagation_loss_db = 0.0f;
     ResolveEnvironment(&propagation_loss_db);
 
-    const RirResolvedRfCycle rf_cycle = ResolveRfCycle(input, dwell_center_deg);
+    const RirResolvedRfCycle rf_cycle = ResolveRfCycle(input, plan);
     if (rf_cycle.resolved) {
       last_emission_frame_.world_cycle_index = input.input_cycle_index;
       last_emission_frame_.window_start_time_s = static_cast<double>(input.sim_time_sec);
       last_emission_frame_.window_duration_s =
           static_cast<double>(mission_.recognition_dwell_sec);
-      last_emission_frame_.emissions.push_back(rf_cycle.own_emission);
+      // 逐驻留发射记录（核查 9.2）：窗口字段语义不变，emissions 携带本周期
+      // 全部驻留的发射（单驻留周期仍恰一条，与历史行为一致）。
+      last_emission_frame_.emissions = rf_cycle.per_dwell_emissions;
     }
 
     // 验收事件 interference_link（3.2.2.1.1.3）：逐干扰源到达接收端的入射功率
@@ -1167,9 +1229,9 @@ void RirController::RunCycle(const session::RirCycleInput& input,
         static_cast<float>(executed_count) * dwell_sec;
     has_latest_summary_ = true;
 
-    // 验收事件 schedule（3.2.2.4.2.2）：驻留执行计数与识别效能摘要。口径
-    // （2026-08-29 TAS）：scheduled=本周期计划驻留数、executed=实际执行驻留数，
-    // 按搜索/指定/跟踪分项计数；事件类型分类计数为既有口径所能提供的粒度。
+    // 验收事件 schedule（3.2.2.4.2.2）：驻留调度摘要（按搜索/指定/跟踪分项计数 +
+    // 时间预算；2026-08-30 核查 9.1：计划/实际驻留数恒等，验收行不再输出该组数字，
+    // 计数仍写入 dwell_budget 摘要与 replay 记录）。
     if (RIR_ACCEPTANCE_LOG_ENABLED()) {
       std::uint32_t confirmed = 0U;
       for (const tracking::RirTrackState& track : track_snapshots) {
@@ -1190,7 +1252,6 @@ void RirController::RunCycle(const session::RirCycleInput& input,
         }
       }
       WriteRirSchedule(sensor_platform_id_, input.sim_time_sec, input.input_cycle_index,
-                       scheduled_count, executed_count,
                        latest_summary_.dwell_budget.dwell_budget_sec,
                        latest_summary_.dwell_budget.dwell_consumed_sec, planned_search,
                        planned_designate, planned_track, confirmed);

@@ -5,6 +5,7 @@
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <array>
 #include <cmath>
 #include <string>
@@ -115,6 +116,55 @@ INSERT INTO polarization_templates VALUES
 INSERT INTO range_profile_templates VALUES
   ('front','TWO_PROFILE',8.0,2.0,3.0,1.0,0.75,0.10,NULL),
   ('second','TWO_PROFILE',8.0,2.0,3.0,1.0,0.75,0.10,NULL);
+)sql";
+
+// 型号数悬殊两类库（核查 8.3）：CAT_MANY 3 型号共享 RCS 模板（std=1，mean=z_0.5，
+// 观测 RCS=0 时各得分 0.5），CAT_SINGLE 1 型号模板 mean=z_0.6（得分 0.6）。
+// 旧"大类=成员求和"口径下 CAT_MANY=1.5 胜；新"大类=成员最佳"口径下
+// CAT_SINGLE=0.6 胜。z_0.5=√(-2·ln0.5)，z_0.6=√(-2·ln0.6)。
+constexpr const char* kSkewedCategoryDatabaseSql = R"sql(
+INSERT INTO meta VALUES
+  ('schema_version','1.1'),
+  ('database_id','skewed-category-probe'),
+  ('version','1.0.0'),
+  ('created_utc','2026-08-30T00:00:00Z'),
+  ('polarization_channels','H,V'),
+  ('polarization_energy_reference','range_propagation_antenna_compensated');
+INSERT INTO units VALUES
+  ('rcs','dBsm'),('speed','m/s'),('altitude','m'),('acceleration','m/s2'),
+  ('turn_radius','m'),('polarization','dB'),('range','m');
+INSERT INTO categories VALUES
+  ('CAT_MANY','多型号大类',0.5), ('CAT_SINGLE','单型号大类',0.5);
+INSERT INTO models VALUES
+  ('MANY_A','CAT_MANY','多型号A',1.0),
+  ('MANY_B','CAT_MANY','多型号B',1.0),
+  ('MANY_C','CAT_MANY','多型号C',1.0),
+  ('SINGLE_X','CAT_SINGLE','单型号X',1.0);
+INSERT INTO profiles VALUES
+  ('nominal','MANY_A',6.0,NULL,NULL,NULL,NULL,NULL),
+  ('nominal','MANY_B',6.0,NULL,NULL,NULL,NULL,NULL),
+  ('nominal','MANY_C',6.0,NULL,NULL,NULL,NULL,NULL),
+  ('nominal','SINGLE_X',6.0,NULL,NULL,NULL,NULL,NULL);
+INSERT INTO rcs_templates VALUES
+  ('nominal','MANY_A',1.17741,1.0,NULL,NULL,NULL),
+  ('nominal','MANY_B',1.17741,1.0,NULL,NULL,NULL),
+  ('nominal','MANY_C',1.17741,1.0,NULL,NULL,NULL),
+  ('nominal','SINGLE_X',1.01077,1.0,NULL,NULL,NULL);
+INSERT INTO motion_templates VALUES
+  ('nominal','MANY_A',1800.0,300.0,50000.0,12000.0,12.0,6.0,6.0,0.5),
+  ('nominal','MANY_B',1800.0,300.0,50000.0,12000.0,12.0,6.0,6.0,0.5),
+  ('nominal','MANY_C',1800.0,300.0,50000.0,12000.0,12.0,6.0,6.0,0.5),
+  ('nominal','SINGLE_X',1800.0,300.0,50000.0,12000.0,12.0,6.0,6.0,0.5);
+INSERT INTO polarization_templates VALUES
+  ('nominal','MANY_A',2.0,1.5,-6.0,2.0,5.0,4.0),
+  ('nominal','MANY_B',2.0,1.5,-6.0,2.0,5.0,4.0),
+  ('nominal','MANY_C',2.0,1.5,-6.0,2.0,5.0,4.0),
+  ('nominal','SINGLE_X',2.0,1.5,-6.0,2.0,5.0,4.0);
+INSERT INTO range_profile_templates VALUES
+  ('nominal','MANY_A',8.0,2.0,3.0,1.0,0.75,0.10,NULL),
+  ('nominal','MANY_B',8.0,2.0,3.0,1.0,0.75,0.10,NULL),
+  ('nominal','MANY_C',8.0,2.0,3.0,1.0,0.75,0.10,NULL),
+  ('nominal','SINGLE_X',8.0,2.0,3.0,1.0,0.75,0.10,NULL);
 )sql";
 
 RirFeatureDatabase LoadValidDatabase() {
@@ -367,7 +417,10 @@ TEST(RirMatcherTest, PriorOrdersEqualSimilarityCandidates) {
   EXPECT_NEAR(result.candidates[0].score / result.candidates[1].score, 2.0f, 0.1f);
 }
 
-TEST(RirMatcherTest, CategoryScoreSumsModelScores) {
+/// @brief 大类得分 = 大类内最佳型号得分（核查 8.3：由求和改判，成员数量
+///        不再给大类加分）。基线库 BALLISTIC 两型号（1.0/0.5）——旧求和口径
+///        大类分 1.5，新口径应为最佳型号分 1.0。
+TEST(RirMatcherTest, CategoryScoreTakesBestModelScore) {
   const RirFeatureDatabase database = LoadValidDatabase();
   const RirFeatureSet features = MakeFeaturesAtTemplate(database, 0U);
   RirObservationContext context;
@@ -379,14 +432,55 @@ TEST(RirMatcherTest, CategoryScoreSumsModelScores) {
 
   ASSERT_TRUE(result.has_candidates);
   ASSERT_EQ(result.category_scores.size(), 2U);
+  float ballistic_best = 0.0f;
   float ballistic_sum = 0.0f;
   for (const auto& candidate : result.candidates) {
     if (candidate.category_id == "BALLISTIC") {
+      ballistic_best = std::max(ballistic_best, candidate.score);
       ballistic_sum += candidate.score;
     }
   }
-  EXPECT_NEAR(result.category_scores[0].second, ballistic_sum, 0.001f);
-  EXPECT_EQ(result.category_scores[0].first, "BALLISTIC");
+  ASSERT_EQ(result.category_scores[0].first, "BALLISTIC");
+  EXPECT_NEAR(result.category_scores[0].second, ballistic_best, 0.001f)
+      << "大类得分应取大类内最佳型号得分";
+  EXPECT_GT(ballistic_sum, ballistic_best)
+      << " BALLISTIC 含两型号时求和口径分数更高——本断言钉死新口径不是求和";
+}
+
+/// @brief 型号数悬殊的两类：CAT_MANY 3 型号（各 0.5，旧求和 1.5）vs
+///        CAT_SINGLE 1 型号（0.6）——新口径下单型号大类应胜出。
+TEST(RirMatcherTest, CategoryScoreIndependentOfModelCount) {
+  const std::string path = WriteTempSqlite(
+      "ar_recognition_skewed_category.db",
+      std::string(kRecognitionSchemaSql) + kSkewedCategoryDatabaseSql);
+  RirFeatureDatabase database;
+  std::string error;
+  ASSERT_TRUE(RirFeatureDatabase::Load(path, &database, &error)) << error;
+  ASSERT_EQ(database.models().size(), 4U);
+
+  // 仅 RCS 维度有效，观测均值 0：MANY_* 相似度 0.5、SINGLE_X 相似度 0.6
+  //（模板 mean=√(-2·ln s)、std=1，先验均为 1）。
+  RirFeatureSet features;
+  features.rcs.valid = true;
+  features.rcs.mean_dbsm = 0.0f;
+  features.rcs.quality = 1.0f;
+  features.valid_feature_mask = 0x01U;
+  RirObservationContext context;
+  context.snr_db = 20.0f;
+  context.range_m = 100000.0f;
+
+  const RirMatchResult result =
+      RirMatcher::QueryBestMatch(features, context, database);
+
+  ASSERT_TRUE(result.has_candidates);
+  ASSERT_EQ(result.category_scores.size(), 2U);
+  EXPECT_EQ(result.category_scores[0].first, "CAT_SINGLE")
+      << "单型号大类（最佳 0.6）应胜过多型号大类（最佳 0.5）";
+  EXPECT_NEAR(result.category_scores[0].second, 0.6f, 0.001f);
+  EXPECT_EQ(result.category_scores[1].first, "CAT_MANY");
+  EXPECT_NEAR(result.category_scores[1].second, 0.5f, 0.001f)
+      << "多型号大类得分应为其最佳型号 0.5（旧求和口径为 1.5）";
+  EXPECT_EQ(result.best_category_id, "CAT_SINGLE");
 }
 
 TEST(RirMatcherTest, ZeroQualityDimensionIsExcludedFromDenominator) {

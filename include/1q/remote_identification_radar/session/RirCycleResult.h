@@ -40,8 +40,9 @@ enum class RirDesignationRevertReason : std::uint8_t {
 /**
  * @brief RirCycleResult 描述单周期执行后的聚合结果。
  * @note 只有 `status == kCompleted` 携带识别输出；拒绝周期不复用上一帧。
- *       `kIdentify` 且 RF 链解析成功时，`emission_frame` 携带本周期实际 RIR 发射
- *       （供编排层汇集全球 RF scene；与 AR `ArCycleResult::emission_frame` 同契约）。
+ *       `kIdentify` 且 RF 链解析成功时，`emission_frame` 携带本周期全部驻留的
+ *       实际 RIR 发射（逐驻留一条，指向 = 该驻留波位，单驻留周期恰一条；
+ *       供编排层汇集全球 RF scene；与 AR `ArCycleResult::emission_frame` 同契约）。
  */
 struct ONEQ_API RirCycleResult {
   std::uint32_t input_cycle_index{0U}; /**< 本次调用输入周期号，用于失败结果与 trace 归属 */

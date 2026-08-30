@@ -149,10 +149,9 @@ float RadarEquations::ComputeRangeErrorStdDev(float snr_db, float bandwidth_hz) 
     return range_resolution * 1.5777f;
   }
   const float snr_linear = DbToLinear(snr_db);
-  const float std_dev = 0.5f * range_resolution / std::sqrt(snr_linear);
-  // 经验偏置项，包含系统偏置、量化误差等固定分量，来源于工程实测数据拟合。
-  const float kRangeBias_m = 20.0f;
-  return std_dev + kRangeBias_m;
+  // 纯随机项：固定系统偏置 kRangeMeasurementBiasM（20 m，工程实测数据拟合的
+  // 系统偏置/量化误差等固定分量）已于 2026-08-30 拆出，由消费方施加在量测均值侧。
+  return 0.5f * range_resolution / std::sqrt(snr_linear);
 }
 
 float RadarEquations::ComputeAngleErrorStdDev(float snr_db, float beamwidth_rad) {
@@ -161,10 +160,9 @@ float RadarEquations::ComputeAngleErrorStdDev(float snr_db, float beamwidth_rad)
     return beamwidth_rad;
   }
   const float snr_linear = DbToLinear(snr_db);
-  const float std_dev = 0.317f * beamwidth_rad / std::sqrt(snr_linear);
-  // 经验偏置项，波束宽度的 1/30，来源于单脉冲测角工程经验。
-  const float angle_bias = beamwidth_rad / 30.0f;
-  return std_dev + angle_bias;
+  // 纯随机项：固定系统偏置 θ_bw/30（见 ComputeAngleMeasurementBiasRad）已于
+  // 2026-08-30 拆出，由消费方施加在量测均值侧。
+  return 0.317f * beamwidth_rad / std::sqrt(snr_linear);
 }
 
 double RadarEquations::ComputeThreshold(double pfa, int num_pulses) {

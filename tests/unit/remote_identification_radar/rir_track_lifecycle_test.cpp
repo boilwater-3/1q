@@ -71,14 +71,17 @@ TEST(RirTrackLifecycleTest, ConfirmsTrackAfterConfiguredHits) {
   ASSERT_EQ(snapshots.size(), 1U);
   EXPECT_EQ(snapshots[0].status, RirTrackStatus::kConfirmed);
   EXPECT_EQ(snapshots[0].hit_count, 2U);
-  // 量测仅更新位置；速度经 KF 交叉协方差从先验 3 m/s 向后验约 1.5025 m/s 修正。
-  EXPECT_NEAR(snapshots[0].velocity.x(), 1.50248f, 0.01f);
-  EXPECT_NEAR(snapshots[0].speed, 1.50248f, 0.01f);
-  // 加速度 = 后验速度的周期间差分：本周期后验 1.5025 − 上周期后验 3.0（速度种子
-  // 不参与差分基准，速度种子从 3 改到 4 不影响加速度）。
-  EXPECT_NEAR(snapshots[0].acceleration_mps2, 1.49752f, 0.01f);
+  // 去真值化后速度证据只来自位置差分：两拍位置相同 → 后验速度≈0（速度无知先验
+  // 9e6 m²/s² 下量测主导；旧断言 1.5025 依赖真值速度种子 3 m/s + 小速度方差）。
+  EXPECT_NEAR(snapshots[0].velocity.x(), 0.0f, 0.01f);
+  EXPECT_NEAR(snapshots[0].speed, 0.0f, 0.01f);
+  // 加速度 = 后验速度的周期间差分：首拍种子 3（测试 helper 显式传入）→ 本拍 ≈0，
+  // 差分 ≈ −3 m/s²；量测速度字段从 3 改到 4 不影响（种子不参与第二拍证据）。
+  EXPECT_NEAR(snapshots[0].acceleration_mps2, 3.0f, 0.05f);
   EXPECT_EQ(snapshots[0].external_target_id, 7001U);
   EXPECT_EQ(snapshots[0].target_name, "target-a");
+  // EstimationUncertaintyTrace 只累加位置分块（初始 3×100=300，速度无知先验
+  // 不进该口径）；两拍后位置迹收敛至个位数量级，保持紧界。
   EXPECT_LT(snapshots[0].EstimationUncertaintyTrace(), 300.0f);
 }
 

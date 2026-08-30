@@ -351,6 +351,28 @@ void RirTracker::UpdateCycle(
       const bool margin_ok = margin >= options_.minimum_margin;
       const bool dimensions_ok = valid_dimensions >= kMinValidDimensionsForModel && !motion_only;
       if (judgement.best_score < options_.acceptance_score) {
+        // 中译：识别综合得分跌破接受门、结论翻转为未识别——沿触发记录得分与
+        // （注：仅覆盖本判定路径；无候选/聚合全维无效路径进入 unknown 不打点，刻意收窄）
+        // 四维相似度/质量快照，供识别链排查（每航迹仅在进入未识别的翻转沿打一条）。
+        // 标识：状态语义=kUnknown 进入沿；触发条件=best_score<acceptance_score，
+        // 分项数值反映当拍窗口聚合后的特征匹配形态。
+        if (state.result.state != session::RirRecognitionState::kUnknown) {
+          PROJECT_LOG_INFO(
+              "[RecognitionTracker] key={} fell below acceptance: best={:.3f} "
+              "runner_up={:.3f} model={} sims=(rcs={:.3f},motion={:.3f},pol={:.3f},rp={:.3f}) "
+              "qualities=({:.3f},{:.3f},{:.3f},{:.3f}) valid_dims={} obs={} "
+              "motion_obs=(v={:.0f},alt={:.0f},a={:.2f},straight={})",
+              key, judgement.best_score, judgement.runner_up_score, match.best_model_id,
+              judgement.feature_scores.rcs_similarity,
+              judgement.feature_scores.motion_similarity,
+              judgement.feature_scores.polarization_similarity,
+              judgement.feature_scores.range_profile_similarity, aggregate.rcs.quality,
+              aggregate.motion.quality, aggregate.polarization.quality,
+              aggregate.range_profile.quality, valid_dimensions,
+              state.observation_count, aggregate.motion.speed_mps,
+              aggregate.motion.altitude_m, aggregate.motion.acceleration_mps2,
+              aggregate.motion.is_straight ? 1 : 0);
+        }
         judgement.state = session::RirRecognitionState::kUnknown;
       } else if (margin_ok && dimensions_ok) {
         judgement.state = session::RirRecognitionState::kModelConfirmed;

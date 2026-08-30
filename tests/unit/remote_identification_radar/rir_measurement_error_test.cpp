@@ -29,8 +29,10 @@ using dwell::RirMeasurementErrorModel;
 TEST(RirMeasurementErrorModelTest, HighSnrSmallErrors) {
   const auto state = RirMeasurementErrorModel::Compute(20.0f, RirEffectiveBeamwidthDeg{3.0f, 3.0f},
                                                        1.0e6f);
-  EXPECT_NEAR(state.range_error_std_m, 27.5f, 0.5f);  // 0.5·150/10 + 20
+  EXPECT_NEAR(state.range_error_std_m, 7.5f, 0.5f);  // 0.5·150/10 纯随机项
   EXPECT_LT(state.angle_error_std_rad, 0.01f);
+  EXPECT_NEAR(state.range_bias_m, 20.0f, 1e-4f);  // 偏置拆至均值侧
+  EXPECT_NEAR(state.angle_bias_rad, oneq::common::numerics::DegToRad(3.0f) / 30.0f, 1e-6f);
 }
 
 /// @brief 俯仰波束宽度加宽 → 等效角度标准差增大。
@@ -228,21 +230,26 @@ TEST(RirMeasurementErrorCalibrationTest, ErrorModelInputIncludesIntegrationGain)
   const dwell::RirMeasurementErrorState error_ten = RirMeasurementErrorModel::Compute(
       snr_single_db + 10.0f, beamwidth, hardware.transmitter.bandwidth_hz);
 
-  // 反解：误差向量 = 首周期归属位置 − 真值（滤波初始化=采样量测位置）。
+  // 反解：误差向量 = 首周期归属位置 − 真值 − 系统偏差（滤波初始化=采样量测位置；
+  // 偏差 2026-08-30 拆分后施加在量测均值侧、为常量不随 N 缩放，须扣除才能校准
+  // 随机 std 的 N 比值。视线 (0°,0°) → bias = (20 m, R·bw/30, R·bw/30) 三轴正交）。
+  const float bias_lateral_m = 20000.0f * oneq::common::numerics::DegToRad(4.0f) / 30.0f;
+  const Eigen::Vector3f measurement_bias(oneq::common::radar::kRangeMeasurementBiasM,
+                                         bias_lateral_m, bias_lateral_m);
   const Eigen::Vector3f error_one_vec(
       static_cast<float>(controller_one.LatestTrackAttributions()[0].position_enu_x_m) -
-          target.position_x,
+          target.position_x - measurement_bias.x(),
       static_cast<float>(controller_one.LatestTrackAttributions()[0].position_enu_y_m) -
-          target.position_y,
+          target.position_y - measurement_bias.y(),
       static_cast<float>(controller_one.LatestTrackAttributions()[0].position_enu_z_m) -
-          target.position_z);
+          target.position_z - measurement_bias.z());
   const Eigen::Vector3f error_ten_vec(
       static_cast<float>(controller_ten.LatestTrackAttributions()[0].position_enu_x_m) -
-          target.position_x,
+          target.position_x - measurement_bias.x(),
       static_cast<float>(controller_ten.LatestTrackAttributions()[0].position_enu_y_m) -
-          target.position_y,
+          target.position_y - measurement_bias.y(),
       static_cast<float>(controller_ten.LatestTrackAttributions()[0].position_enu_z_m) -
-          target.position_z);
+          target.position_z - measurement_bias.z());
 
   // x 轴=距离项比值，y/z 轴=角度项比值（同种子噪声向量约去；容差吸收协方差
   // 数值地板 1e-6 m² 的二阶影响）。旧口径（直传单脉冲 SNR）比值恒为 1。

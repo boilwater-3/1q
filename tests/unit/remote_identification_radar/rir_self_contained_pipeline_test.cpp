@@ -11,6 +11,7 @@
 #include "1q/remote_identification_radar/session/RirCycleInput.h"
 #include "1q/remote_identification_radar/session/RirIssueCodes.h"
 #include "RirCycleInputTestUtil.h"
+#include "common/numerics/Constants.h"
 #include "remote_identification_radar/runtime/RirController.h"
 
 namespace remote_identification_radar {
@@ -83,7 +84,9 @@ TEST(RirSelfContainedPipelineTest, SnrFallbackBuildsInternalTrackAndDwellSummary
   EXPECT_FLOAT_EQ(controller.GetLatestSummary().dwell_budget.dwell_consumed_sec, 0.05f);
 
   RirOutputFrame second;
-  controller.RunCycle(MakeInput(2U, 5100.0f, 5.0f), &second, 2U, TestDwellCenter());
+  // 匀速自洽位移：velocity_x=100 × dt=0.5 → 50 m（量测协方差拆出 20 m 偏置垫底后
+  // 随机 std 显著缩小、关联门收紧，输入运动须与 CV 模型一致才能考察关联稳定性）。
+  controller.RunCycle(MakeInput(2U, 5050.0f, 5.0f), &second, 2U, TestDwellCenter());
   // 关联键保持稳定（自持身份），不会因外部供给重分配而新建。
   ASSERT_EQ(second.recognition_outputs.size(), 1U);
   EXPECT_EQ(second.recognition_outputs[0].association_key, 1U);
@@ -116,6 +119,53 @@ TEST(RirSelfContainedPipelineTest, DetectorGateRejectsUndetectableTarget) {
   // 目标未过检测门只影响量测产出，不影响驻留计时。
   EXPECT_EQ(controller.GetLatestSummary().dwell_budget.executed_dwell_count, 1U);
   EXPECT_FLOAT_EQ(controller.GetLatestSummary().dwell_budget.dwell_consumed_sec, 0.05f);
+}
+
+/// @brief 检测器门控：量测位置含固定系统偏差（均值侧施加，非协方差）。
+TEST(RirSelfContainedPipelineTest, DetectorGateAppliesMeasurementBiasToPosition) {
+  config::RirPolicyConfig policy;
+  policy.detection.gate_mode = config::RirDetectionGateMode::kDetectorGate;
+  policy.detection.random_seed = 42U;
+  policy.lifecycle.confirm_hits = 1U;
+  RirController controller;
+  config::RirHardwareConfig hardware;
+  hardware.rcs_physics.enable_physical_rcs = false;
+  hardware.rcs_physics.physics_mix_ratio = 0.0f;
+  hardware.antenna.nominal_az_beamwidth_deg = 20.0f;
+  hardware.antenna.nominal_el_beamwidth_deg = 10.0f;
+  controller.SetHardware(hardware);
+  controller.UpdateRuntime(MakeMission(config::RirWorkMode::kIdentify), policy);
+
+  RirOutputFrame frame;
+  const float pos_x = 5000.0f;
+  const float pos_z = 2000.0f;
+  const float rcs_m2 = 5000.0f;  // 高 SNR：随机采样 std << 偏置，量测-真值由偏置主导。
+  controller.RunCycle(MakeInput(1U, pos_x, rcs_m2), &frame, 1U, TestDwellCenter());
+  const std::vector<session::RirTrackAttributionRecord> attributions =
+      controller.LatestTrackAttributions();
+  ASSERT_EQ(attributions.size(), 1U);
+  // 手算偏置向量（视线 +20 m；az 偏 20°/30、el 偏 10°/30 的横向位移）：
+  // el≈21.8°、az=0 → u=(cos el,0,sin el)、e_az=(0,1,0)、e_el=(-sin el,0,cos el)。
+  const double el = oneq::common::numerics::DegToRad(21.8);
+  const double range = std::sqrt(5000.0 * 5000.0 + 2000.0 * 2000.0);
+  const double az_bias_m =
+      range * std::cos(el) * oneq::common::numerics::DegToRad(20.0) / 30.0;
+  const double el_bias_m = range * oneq::common::numerics::DegToRad(10.0) / 30.0;
+  const double expected[3] = {20.0 * std::cos(el) - el_bias_m * std::sin(el), az_bias_m,
+                              20.0 * std::sin(el) + el_bias_m * std::cos(el)};
+  const double offset[3] = {attributions[0].position_enu_x_m - pos_x,
+                            attributions[0].position_enu_y_m,
+                            attributions[0].position_enu_z_m - pos_z};
+  const double offset_norm = std::sqrt(offset[0] * offset[0] + offset[1] * offset[1] +
+                                       offset[2] * offset[2]);
+  const double expected_norm =
+      std::sqrt(expected[0] * expected[0] + expected[1] * expected[1] +
+                expected[2] * expected[2]);
+  const double dot = offset[0] * expected[0] + offset[1] * expected[1] +
+                     offset[2] * expected[2];
+  // 高 SNR 下随机采样（米级以下）远小于偏置（数十米级）：模长与方向双重判定。
+  EXPECT_NEAR(offset_norm, expected_norm, 3.0);
+  EXPECT_GT(dot / (offset_norm * expected_norm), 0.98);
 }
 
 /// @brief kStby 门控整链：不检测不建轨，但已有内部航迹仍回填识别结论。

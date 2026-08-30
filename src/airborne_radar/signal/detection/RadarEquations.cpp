@@ -57,12 +57,24 @@ float RadarEquations::ComputeIntegrationGain(int pulse_count) {
   return oneq::common::radar::RadarEquations::ComputeIntegrationGain(pulse_count);
 }
 
+// AR 暂持旧合成口径（std 含系统偏差）：common 已于 2026-08-30 拆分 bias/std
+// （RIR 专场），AR 适配层在随机项之上加回偏置以保持拆分前行为不变，待 AR 专场
+// 对齐（欠账登记 docs/airborne_radar/algorithms.md）。低 SNR 下限分支
+// （snr_db < -10 dB，与 common 内部 kMinSnrDb 同源耦合）拆分前本就不含偏置、
+// 提前返回，因此该分支不加，保证全 SNR 域逐值一致。
 float RadarEquations::ComputeRangeErrorStdDev(float snr_db, float bandwidth_hz) {
-  return oneq::common::radar::RadarEquations::ComputeRangeErrorStdDev(snr_db, bandwidth_hz);
+  const float random_std =
+      oneq::common::radar::RadarEquations::ComputeRangeErrorStdDev(snr_db, bandwidth_hz);
+  return snr_db < -10.0f ? random_std
+                         : random_std + oneq::common::radar::kRangeMeasurementBiasM;
 }
 
 float RadarEquations::ComputeAngleErrorStdDev(float snr_db, float beamwidth_rad) {
-  return oneq::common::radar::RadarEquations::ComputeAngleErrorStdDev(snr_db, beamwidth_rad);
+  const float random_std =
+      oneq::common::radar::RadarEquations::ComputeAngleErrorStdDev(snr_db, beamwidth_rad);
+  return snr_db < -10.0f
+             ? random_std
+             : random_std + oneq::common::radar::ComputeAngleMeasurementBiasRad(beamwidth_rad);
 }
 
 double RadarEquations::ComputeThreshold(double pfa, int num_pulses) {
