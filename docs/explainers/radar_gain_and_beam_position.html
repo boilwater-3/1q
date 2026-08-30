@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>雷达「增益」与「波位」图解（Canvas 示例）</title>
+<style>
+  body { background:#f2f4f7; margin:0; padding:28px 16px 60px;
+         font-family:"Microsoft YaHei","PingFang SC",sans-serif; color:#26303b; }
+  .wrap { max-width:1040px; margin:0 auto; }
+  h1 { font-size:26px; text-align:center; margin:8px 0 4px; }
+  .intro { text-align:center; color:#5a6675; margin:0 0 26px; font-size:15px; }
+  .card { background:#fff; border-radius:12px; padding:20px 24px 16px; margin:0 0 26px;
+          box-shadow:0 2px 8px rgba(30,40,60,.08); }
+  .card h2 { font-size:19px; margin:0 0 4px; }
+  .card h2 .no { color:#1a6fb5; margin-right:8px; }
+  .card canvas { display:block; margin:8px auto 4px; max-width:100%; }
+  .cap { color:#5a6675; font-size:14px; line-height:1.8; margin:8px 4px 0; }
+  .cap b { color:#26303b; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>雷达「增益」与「波位」图解</h1>
+  <p class="intro">五张图讲两个概念：增益管「每个波位看多远、看多清」，波位网格管「整个扇区有没有漏缝」。</p>
+
+  <div class="card">
+    <h2><span class="no">图 1</span>灯泡 vs 手电筒：增益就是「聚光倍数」</h2>
+    <canvas id="c1"></canvas>
+    <p class="cap"><b>怎么读：</b>左边的灯泡把能量朝四面八方均匀撒，哪个方向都不亮；右边的手电筒把同样的能量攥成一股，
+    正前方就亮了 N 倍——这个倍数用 dB 表示：<b>增益 = 10·log₁₀(N)</b>。10 dB = 10 倍、20 dB = 100 倍、
+    <b>35 dB ≈ 3162 倍（你项目 main_beam_gain_db 的默认值）</b>。注意手电筒也会漏光：侧面、背后漏出的那一点点，
+    就是后文方向图里的「旁瓣」和「后瓣」。</p>
+  </div>
+
+  <div class="card">
+    <h2><span class="no">图 2</span>天线方向图：主瓣、旁瓣、后瓣与波束宽度</h2>
+    <canvas id="c2"></canvas>
+    <p class="cap"><b>怎么读：</b>把天线朝 360° 各个方向「照多亮」画在一张极坐标图上：0° 是天线正前方，
+    越靠圆心的方向越暗。正前方那根细长的尖刺是<b>主瓣</b>（峰值增益 35 dB）；主瓣两侧漏出来小包是<b>旁瓣</b>（约 −20 dB，
+    比主瓣暗 100 倍）；正后方的小包是<b>后瓣</b>（约 −35 dB）。目标偏离波束中心多少度，就按这张图打多少折扣——
+    所以扫描时目标必须落在某个波位的「亮区」里。</p>
+  </div>
+
+  <div class="card">
+    <h2><span class="no">图 3</span>现实中的三只「手电筒」：锅大 / 频率高 → 波束窄 → 增益高</h2>
+    <canvas id="c3"></canvas>
+    <p class="cap"><b>怎么读：</b>增益和波束宽度是一枚硬币的两面，现实里没有魔法：<b>要么口径大（锅大），要么频率高（波长短）</b>。
+    汽车雷达天线只有指甲盖大，靠 77 GHz 的高频率也能聚光；深空网络 70 米大锅增益约 74 dB，波束只有约 0.04°
+    （比图里画的还细得多，图中锥角未按真实比例），所以能接住 240 多亿公里外旅行者 1 号的微弱信号。
+    你项目的 1.2 m 天线 @ 3 GHz ↔ 35 dB / 4°，正是空管雷达、战斗机雷达的量级。</p>
+  </div>
+
+  <div class="card">
+    <h2><span class="no">图 4</span>波位与蛇形扫描：波束挨个停、逐格犁完整个扇区</h2>
+    <canvas id="c4"></canvas>
+    <p class="cap"><b>怎么读：</b>这张图是把<b>扇区</b>——雷达负责盯的角度范围（方位角 × 俯仰角）——摊平成的一张「角度地图」：横轴是方位角、纵轴是俯仰角，每个格子代表一个方向，而不是一块地。波束只有约 4° 宽，一次照不满整个扇区，所以要先把扇区划分成网格，每个交叉点就是一个<b>波位</b>。
+    雷达按「一行扫完蛇形折返」的顺序逐个指向（实机术语 raster scan，
+    对应你项目 BuildScanPattern 的起点 / 蛇形顺序参数）；在每个波位上停一小会儿发射脉冲、等回波，
+    这段停留叫<b>驻留</b>。图中示意步长取 15°；真实波束 4° 宽时，铺满 −60°~+60° / −30°~+30° 的扇区
+    约需 31×16 ≈ <b>500 个波位</b>——波位是稀缺资源，格铺得越密，扫完一圈越慢。</p>
+  </div>
+
+  <div class="card">
+    <h2><span class="no">图 5</span>覆盖衔接 vs 漏缝：步长为什么 ≈ 一个波束宽度</h2>
+    <canvas id="c5"></canvas>
+    <p class="cap"><b>怎么读：</b>俯视图下每个波位照亮一块圆形「光斑」。左图步长等于波束宽度 B，相邻光斑刚好接上，
+    扇区内任何位置都能被足够亮的光照到；右图步长拉到 2B，光斑之间露出缝——目标 ★ 恰好在缝里时只被光斑边缘扫到，
+    增益按方向图掉下一大截，回波太弱就可能<b>漏检</b>。你项目新增的「波束覆盖门限」测试，
+    验证的正是「目标必须落在足够亮的覆盖范围内」这条现实铁律。</p>
+  </div>
+</div>
+
+<script>
+"use strict";
+function setup(id, w, h) {
+  const c = document.getElementById(id);
+  const dpr = window.devicePixelRatio || 1;
+  c.width = w * dpr; c.height = h * dpr;
+  c.style.width = w + "px"; c.style.height = h + "px";
+  const ctx = c.getContext("2d");
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  return ctx;
+}
+function label(ctx, text, x, y, opts) {
+  opts = opts || {};
+  ctx.font = (opts.bold ? "bold " : "") + (opts.size || 13) + "px 'Microsoft YaHei',sans-serif";
+  ctx.fillStyle = opts.color || "#26303b";
+  ctx.textAlign = opts.align || "left";
+  ctx.textBaseline = opts.baseline || "alphabetic";
+  ctx.fillText(text, x, y);
+}
+function line(ctx, x1, y1, x2, y2, color, width, dash) {
+  ctx.save();
+  ctx.strokeStyle = color || "#8a93a0"; ctx.lineWidth = width || 1;
+  if (dash) ctx.setLineDash(dash);
+  ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+  ctx.restore();
+}
+function arrow(ctx, x1, y1, x2, y2, color) {
+  line(ctx, x1, y1, x2, y2, color || "#c05621", 1.2);
+  const ang = Math.atan2(y2 - y1, x2 - x1), s = 7;
+  ctx.beginPath();
+  ctx.moveTo(x2, y2);
+  ctx.lineTo(x2 - s * Math.cos(ang - 0.4), y2 - s * Math.sin(ang - 0.4));
+  ctx.lineTo(x2 - s * Math.cos(ang + 0.4), y2 - s * Math.sin(ang + 0.4));
+  ctx.closePath();
+  ctx.fillStyle = color || "#c05621"; ctx.fill();
+}
+
+/* ---------- 图 1：灯泡 vs 手电筒 ---------- */
+(function () {
+  const ctx = setup("c1", 960, 380);
+  // 左：灯泡
+  const bx = 240, by = 185;
+  for (let i = 0; i < 24; i++) {
+    const a = (i / 24) * Math.PI * 2;
+    const g = ctx.createLinearGradient(bx, by, bx + Math.cos(a) * 100, by + Math.sin(a) * 100);
+    g.addColorStop(0, "rgba(250,190,40,0.55)"); g.addColorStop(1, "rgba(250,190,40,0)");
+    ctx.strokeStyle = g; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.moveTo(bx, by);
+    ctx.lineTo(bx + Math.cos(a) * 100, by + Math.sin(a) * 100); ctx.stroke();
+  }
+  ctx.beginPath(); ctx.arc(bx, by, 16, 0, Math.PI * 2);
+  ctx.fillStyle = "#ffd24a"; ctx.fill(); ctx.strokeStyle = "#c99a1e"; ctx.stroke();
+  label(ctx, "灯泡：能量朝四面八方均匀散", bx, 320, { bold: true, size: 15, align: "center" });
+  label(ctx, "每个方向都只分到一点点（基准 0 dB）", bx, 344, { size: 13, color: "#5a6675", align: "center" });
+
+  // 右：手电筒
+  const fx = 640, fy = 185;
+  const half = 12 * Math.PI / 180, L = 250;
+  const g2 = ctx.createRadialGradient(fx, fy, 4, fx, fy, L);
+  g2.addColorStop(0, "rgba(255,205,60,0.95)"); g2.addColorStop(1, "rgba(255,205,60,0.05)");
+  ctx.beginPath();
+  ctx.moveTo(fx, fy);
+  ctx.lineTo(fx + L * Math.cos(-half), fy + L * Math.sin(-half));
+  ctx.lineTo(fx + L * Math.cos(half), fy + L * Math.sin(half));
+  ctx.closePath(); ctx.fillStyle = g2; ctx.fill();
+  line(ctx, fx, fy, fx + L * Math.cos(-half), fy + L * Math.sin(-half), "#d9a514", 1.5);
+  line(ctx, fx, fy, fx + L * Math.cos(half), fy + L * Math.sin(half), "#d9a514", 1.5);
+  // 漏光：旁瓣 / 后瓣
+  ctx.fillStyle = "rgba(255,205,60,0.13)";
+  [[-35, 62], [35, 62], [180, 42]].forEach(function (p) {
+    const a = p[0] * Math.PI / 180, l = p[1], w = 0.09;
+    ctx.beginPath(); ctx.moveTo(fx, fy);
+    ctx.lineTo(fx + l * Math.cos(a - w), fy + l * Math.sin(a - w));
+    ctx.lineTo(fx + l * Math.cos(a + w), fy + l * Math.sin(a + w));
+    ctx.closePath(); ctx.fill();
+  });
+  ctx.fillStyle = "#4a5560"; ctx.fillRect(fx - 46, fy - 13, 46, 26);
+  ctx.fillRect(fx - 52, fy - 17, 8, 34);
+  ctx.beginPath(); ctx.arc(fx + 2, fy, 17, -Math.PI / 2, Math.PI / 2);
+  ctx.fillStyle = "#e8c96a"; ctx.fill();
+  label(ctx, "手电筒：能量攥成一股", 790, 320, { bold: true, size: 15, align: "center" });
+  label(ctx, "正前方亮 N 倍 → 增益 10·log₁₀(N) dB", 790, 344, { size: 13, color: "#5a6675", align: "center" });
+  label(ctx, "漏出去的一点点 = 旁瓣 / 后瓣", 790, 364, { size: 12, color: "#8a93a0", align: "center" });
+  label(ctx, "35 dB ≈ 3162 倍（你项目主瓣峰值增益 main_beam_gain_db）", 480, 36, { bold: true, size: 14, align: "center", color: "#1a6fb5" });
+})();
+
+/* ---------- 图 2：方向图（极坐标） ---------- */
+(function () {
+  const ctx = setup("c2", 960, 560);
+  const cx = 500, cy = 300, R = 210, FLOOR = 45;
+  function patDb(t) {
+    const a = Math.abs(t);
+    let v = -12.04 * Math.pow(a / 4, 2);           // 高斯主瓣，全宽 4°
+    [[35, -21, 10], [70, -27, 12], [100, -25, 12], [140, -30, 14], [180, -35, 22]]
+      .forEach(function (L) {
+        const cand = L[1] - 12 * Math.pow((a - L[0]) / L[2], 2);
+        if (cand > v) v = cand;
+      });
+    return Math.max(v, -FLOOR);
+  }
+  function pt(t) {
+    const r = Math.max(0.02, (patDb(t) + FLOOR) / FLOOR) * R;
+    const rad = t * Math.PI / 180;
+    return [cx + r * Math.cos(rad), cy - r * Math.sin(rad)];
+  }
+  // dB 同心环 + 刻度
+  ctx.strokeStyle = "#d5dbe2"; ctx.lineWidth = 1;
+  for (let d = -10; d >= -40; d -= 10) {
+    const r = (d + FLOOR) / FLOOR * R;
+    ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.stroke();
+    label(ctx, d + " dB", cx + 4, cy - r - 4, { size: 11, color: "#9aa3ad" });
+  }
+  for (let t = 0; t < 360; t += 30) {
+    const rad = t * Math.PI / 180;
+    line(ctx, cx, cy, cx + R * Math.cos(rad), cy - R * Math.sin(rad), "#e6eaee", 1);
+  }
+  ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.strokeStyle = "#b8c0c9"; ctx.stroke();
+  // 方向图主体
+  ctx.beginPath();
+  for (let t = 0; t <= 360; t += 0.5) {
+    const p = pt(t);
+    if (t === 0) ctx.moveTo(p[0], p[1]); else ctx.lineTo(p[0], p[1]);
+  }
+  ctx.closePath();
+  ctx.fillStyle = "rgba(26,111,181,0.28)"; ctx.fill();
+  ctx.strokeStyle = "#1a6fb5"; ctx.lineWidth = 1.6; ctx.stroke();
+  // 方位刻字
+  label(ctx, "0° 正前方", cx + R + 10, cy + 4, { size: 12, color: "#5a6675" });
+  label(ctx, "90°", cx - 12, cy - R - 8, { size: 12, color: "#5a6675" });
+  label(ctx, "180° 正后方", cx - R - 84, cy + 4, { size: 12, color: "#5a6675" });
+  label(ctx, "270°", cx - 12, cy + R + 18, { size: 12, color: "#5a6675" });
+  // 天线小图标
+  ctx.fillStyle = "#4a5560";
+  ctx.beginPath(); ctx.moveTo(cx - 14, cy); ctx.lineTo(cx + 6, cy - 9); ctx.lineTo(cx + 6, cy + 9);
+  ctx.closePath(); ctx.fill();
+  // 注释
+  arrow(ctx, cx + 205, cy - 60, cx + 160, cy - 12);
+  label(ctx, "主瓣：正前方最亮（35 dB 峰值）", cx + 208, cy - 66, { bold: true, size: 14 });
+  const sp = pt(35);
+  arrow(ctx, 640, 130, sp[0] + 4, sp[1] - 4);
+  label(ctx, "旁瓣：侧面漏光（约 −20 dB）", 642, 126, { size: 13 });
+  const bp = pt(180);
+  arrow(ctx, 320, 372, bp[0] - 6, bp[1] + 8);
+  label(ctx, "后瓣：背后漏光（约 −35 dB）", 232, 392, { size: 13 });
+  // 主瓣放大 inset
+  const ix = 148, iy = 116, ir = 82;
+  ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(ix, iy, ir, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = "#c05621"; ctx.lineWidth = 1.4; ctx.stroke();
+  const apex = [ix - 58, iy], hw = 14 * Math.PI / 180, IL = 128;
+  ctx.beginPath(); ctx.moveTo(apex[0], apex[1]);
+  ctx.lineTo(apex[0] + IL * Math.cos(-hw), apex[1] + IL * Math.sin(-hw));
+  ctx.lineTo(apex[0] + IL * Math.cos(hw), apex[1] + IL * Math.sin(hw));
+  ctx.closePath(); ctx.fillStyle = "rgba(255,205,60,0.6)"; ctx.fill();
+  line(ctx, apex[0], apex[1], apex[0] + IL * Math.cos(-hw), apex[1] + IL * Math.sin(-hw), "#d9a514", 1.2);
+  line(ctx, apex[0], apex[1], apex[0] + IL * Math.cos(hw), apex[1] + IL * Math.sin(hw), "#d9a514", 1.2);
+  label(ctx, "±2°", apex[0] + 52, iy + 4, { size: 12, bold: true, color: "#c05621" });
+  label(ctx, "主瓣放大（角度夸大）：", ix, iy + ir + 18, { size: 12, align: "center", color: "#5a6675" });
+  label(ctx, "半功率波束宽度 ≈ 4°，即功率掉到一半的宽度", ix, iy + ir + 35, { size: 12, align: "center", color: "#5a6675" });
+  label(ctx, "读法：外圈 0 dB → 圆心 −45 dB，越靠圆心的方向越暗。主瓣模型为高斯近似（kGaussianMainLobe）。", 30, 546, { size: 12, color: "#8a93a0" });
+})();
+
+/* ---------- 图 3：三只现实手电筒 ---------- */
+(function () {
+  const ctx = setup("c3", 960, 400);
+  const ground = 252;
+  line(ctx, 30, ground, 930, ground, "#c4ccd4", 1.5);
+  function cone(ax, ay, halfDeg, L, alpha) {
+    const h = halfDeg * Math.PI / 180;
+    const g = ctx.createLinearGradient(ax, ay, ax, ay - L);
+    g.addColorStop(0, "rgba(255,205,60," + alpha + ")");
+    g.addColorStop(1, "rgba(255,205,60,0.02)");
+    ctx.beginPath(); ctx.moveTo(ax, ay);
+    ctx.lineTo(ax - L * Math.tan(h), ay - L); ctx.lineTo(ax + L * Math.tan(h), ay - L);
+    ctx.closePath(); ctx.fillStyle = g; ctx.fill();
+    line(ctx, ax, ay, ax - L * Math.tan(h), ay - L, "#d9a514", 1.2);
+    line(ctx, ax, ay, ax + L * Math.tan(h), ay - L, "#d9a514", 1.2);
+  }
+  function title(x, t) { label(ctx, t, x, 52, { bold: true, size: 15, align: "center" }); }
+  // ① 汽车雷达
+  cone(170, ground - 12, 16, 130, 0.5);
+  ctx.fillStyle = "#37404a"; ctx.fillRect(155, ground - 12, 30, 12);
+  label(ctx, "10°*", 196, ground - 96, { size: 12, color: "#c05621", bold: true });
+  title(170, "汽车毫米波雷达");
+  label(ctx, "天线：指甲盖大小", 170, 288, { size: 13, align: "center", color: "#5a6675" });
+  label(ctx, "77 GHz（波长仅 4 mm）", 170, 308, { size: 13, align: "center", color: "#5a6675" });
+  label(ctx, "增益约 22 dB · 波束约 10°", 170, 328, { bold: true, size: 13, align: "center" });
+  // ② 1.2 m 平板（项目同款量级）
+  cone(480, ground - 10, 3.2, 160, 0.5);
+  ctx.fillStyle = "#7c8894"; ctx.fillRect(435, ground - 10, 90, 10);
+  line(ctx, 480, ground, 480, ground - 10 - 0, "#7c8894", 6);
+  label(ctx, "4°", 500, ground - 92, { size: 12, color: "#c05621", bold: true });
+  title(480, "空管 / 战斗机级（你项目同款量级）");
+  label(ctx, "口径 1.2 m 平板 @ 3 GHz", 480, 288, { size: 13, align: "center", color: "#5a6675" });
+  label(ctx, "增益 35 dB · 波束约 4°", 480, 308, { bold: true, size: 13, align: "center" });
+  label(ctx, "看两三百公里靠的就是它", 480, 328, { size: 12, align: "center", color: "#8a93a0" });
+  // ③ 深空网络 70 m 大锅
+  ctx.strokeStyle = "#5b6771"; ctx.lineWidth = 9;
+  ctx.beginPath(); ctx.moveTo(738, ground - 18); ctx.quadraticCurveTo(790, ground + 6, 842, ground - 18); ctx.stroke();
+  ctx.lineWidth = 4; line(ctx, 790, ground, 790, ground - 14, "#5b6771", 4);
+  line(ctx, 790, ground - 20, 788, ground - 178, "#d9a514", 1.4, [5, 4]);
+  line(ctx, 790, ground - 20, 792, ground - 178, "#d9a514", 1.4, [5, 4]);
+  label(ctx, "0.04°", 802, ground - 130, { size: 12, color: "#c05621", bold: true });
+  title(790, "深空网络 70 m 大锅");
+  label(ctx, "口径 70 m 抛物面 @ 8.4 GHz", 790, 288, { size: 13, align: "center", color: "#5a6675" });
+  label(ctx, "增益约 74 dB · 波束约 0.04°", 790, 308, { bold: true, size: 13, align: "center" });
+  label(ctx, "接住旅行者 1 号 240 亿公里外的信号", 790, 328, { size: 12, align: "center", color: "#8a93a0" });
+  label(ctx, "* 锥角为示意、未按真实比例（0.04° 画不出来）｜规律：要么锅大、要么频率高——增益没有魔法", 480, 382, { size: 13, align: "center", color: "#8a93a0" });
+})();
+
+/* ---------- 图 4：波位网格 + 蛇形扫描动画 ---------- */
+(function () {
+  const ctx = setup("c4", 960, 560);
+  const X0 = 140, X1 = 880, Y0 = 90, Y1 = 390;
+  const X = function (az) { return X0 + (az + 60) / 120 * (X1 - X0); };
+  const Y = function (el) { return Y0 + (30 - el) / 60 * (Y1 - Y0); };
+  const azs = [], els = [30, 15, 0, -15, -30];
+  for (let a = -60; a <= 60; a += 15) azs.push(a);
+  const order = [];
+  els.forEach(function (el, r) {
+    const row = azs.slice();
+    if (r % 2 === 1) row.reverse();
+    row.forEach(function (az) { order.push([az, el]); });
+  });
+  const N = order.length;
+  // 坐标轴
+  line(ctx, X0, Y1 + 14, X1, Y1 + 14, "#8a93a0", 1.5);
+  for (let a = -60; a <= 60; a += 30) {
+    line(ctx, X(a), Y1 + 14, X(a), Y1 + 19, "#8a93a0", 1.2);
+    label(ctx, (a > 0 ? "+" : "") + a + "°", X(a), Y1 + 36, { size: 12, align: "center", color: "#5a6675" });
+  }
+  label(ctx, "方位角 az", X0 + (X1 - X0) / 2, Y1 + 58, { size: 13, align: "center", color: "#5a6675" });
+  line(ctx, X0 - 14, Y0, X0 - 14, Y1, "#8a93a0", 1.5);
+  els.forEach(function (el) {
+    line(ctx, X0 - 19, Y(el), X0 - 14, Y(el), "#8a93a0", 1.2);
+    label(ctx, (el > 0 ? "+" : "") + el + "°", X0 - 26, Y(el) + 4, { size: 12, align: "right", color: "#5a6675" });
+  });
+  label(ctx, "俯仰角 el", X0 - 26, Y0 - 14, { size: 13, align: "right", color: "#5a6675" });
+  // 蛇形路径
+  ctx.save(); ctx.strokeStyle = "#b6bec7"; ctx.lineWidth = 1.2; ctx.setLineDash([6, 5]);
+  ctx.beginPath();
+  order.forEach(function (p, i) {
+    if (i === 0) ctx.moveTo(X(p[0]), Y(p[1])); else ctx.lineTo(X(p[0]), Y(p[1]));
+  });
+  ctx.stroke(); ctx.restore();
+  // 天线 + 波束
+  const ax = (X0 + X1) / 2, ay = 486;
+  function drawBeam(target) {
+    const tx = X(target[0]), ty = Y(target[1]);
+    const dx = tx - ax, dy = ty - ay, len = Math.hypot(dx, dy);
+    const w = 9, px = -dy / len * w, py = dx / len * w;
+    ctx.beginPath();
+    ctx.moveTo(ax, ay); ctx.lineTo(tx + px, ty + py); ctx.lineTo(tx - px, ty - py);
+    ctx.closePath(); ctx.fillStyle = "rgba(255,190,60,0.35)"; ctx.fill();
+  }
+  // 图例与说明
+  label(ctx, "绿 = 已扫完      红 = 正在驻留（发脉冲→等回波）      灰 = 还没轮到      虚线 = 蛇形扫法，一行扫完折返", X0, Y1 + 82, { size: 13, color: "#5a6675" });
+  label(ctx, "示意步长 15°；真实波束 4° 宽时，铺满同一扇区约需 31×16 ≈ 500 个波位——波位是稀缺资源，格越密扫得越慢。", X0, Y1 + 106, { size: 13, color: "#8a93a0" });
+  // 天线图标
+  function drawAntenna() {
+    ctx.fillStyle = "#37404a";
+    ctx.beginPath(); ctx.moveTo(ax - 16, ay + 14); ctx.lineTo(ax + 14, ay - 2); ctx.lineTo(ax + 14, ay + 14);
+    ctx.closePath(); ctx.fill();
+    ctx.fillRect(ax - 4, ay + 14, 12, 8);
+  }
+  const t0 = performance.now();
+  const STEP_MS = 620;
+  function frame(now) {
+    try {
+      window.__fig4LastFrameAt = now || performance.now();
+      const idx = Math.floor((now - t0) / STEP_MS) % N;
+      const cur = order[idx] || order[0];
+      ctx.clearRect(0, 0, 960, 560);
+      // 重画静态部分（坐标轴/路径/文字）
+      redrawStatic();
+      // 波束（当前）
+      drawBeam(cur);
+      drawAntenna();
+      // 点
+      order.forEach(function (p, i) {
+        const x = X(p[0]), y = Y(p[1]);
+        ctx.beginPath(); ctx.arc(x, y, 6, 0, Math.PI * 2);
+        ctx.fillStyle = i < idx ? "#2e9e5b" : (p === cur ? "#e0483e" : "#b8bec7");
+        ctx.fill();
+        if (p === cur) {
+          const pulse = 9 + 3 * Math.sin((now || 0) / 160);
+          ctx.beginPath(); ctx.arc(x, y, pulse, 0, Math.PI * 2);
+          ctx.strokeStyle = "rgba(224,72,62,0.6)"; ctx.lineWidth = 2; ctx.stroke();
+        }
+      });
+      label(ctx, "第 " + (idx + 1) + " / " + N + " 个波位 · 驻留中（az " + cur[0] + "°, el " + cur[1] + "°）",
+        X1, 66, { bold: true, size: 15, align: "right", color: "#c0392b" });
+      label(ctx, "扫描扇区 az −60°~+60° × el −30°~+30°（示意网格）", X0, 66, { size: 13, color: "#5a6675" });
+    } catch (e) {
+      window.__fig4Error = (e && (e.stack || e.message)) || String(e);
+    } finally {
+      requestAnimationFrame(frame);
+    }
+  }
+  function redrawStatic() {
+    line(ctx, X0, Y1 + 14, X1, Y1 + 14, "#8a93a0", 1.5);
+    for (let a = -60; a <= 60; a += 30) {
+      line(ctx, X(a), Y1 + 14, X(a), Y1 + 19, "#8a93a0", 1.2);
+      label(ctx, (a > 0 ? "+" : "") + a + "°", X(a), Y1 + 36, { size: 12, align: "center", color: "#5a6675" });
+    }
+    label(ctx, "方位角 az", X0 + (X1 - X0) / 2, Y1 + 58, { size: 13, align: "center", color: "#5a6675" });
+    line(ctx, X0 - 14, Y0, X0 - 14, Y1, "#8a93a0", 1.5);
+    els.forEach(function (el) {
+      line(ctx, X0 - 19, Y(el), X0 - 14, Y(el), "#8a93a0", 1.2);
+      label(ctx, (el > 0 ? "+" : "") + el + "°", X0 - 26, Y(el) + 4, { size: 12, align: "right", color: "#5a6675" });
+    });
+    label(ctx, "俯仰角 el", X0 - 26, Y0 - 14, { size: 13, align: "right", color: "#5a6675" });
+    ctx.save(); ctx.strokeStyle = "#b6bec7"; ctx.lineWidth = 1.2; ctx.setLineDash([6, 5]);
+    ctx.beginPath();
+    order.forEach(function (p, i) {
+      if (i === 0) ctx.moveTo(X(p[0]), Y(p[1])); else ctx.lineTo(X(p[0]), Y(p[1]));
+    });
+    ctx.stroke(); ctx.restore();
+    label(ctx, "绿 = 已扫完      红 = 正在驻留（发脉冲→等回波）      灰 = 还没轮到      虚线 = 蛇形扫法，一行扫完折返", X0, Y1 + 82, { size: 13, color: "#5a6675" });
+    label(ctx, "示意步长 15°；真实波束 4° 宽时，铺满同一扇区约需 31×16 ≈ 500 个波位——波位是稀缺资源，格越密扫得越慢。", X0, Y1 + 106, { size: 13, color: "#8a93a0" });
+  }
+  requestAnimationFrame(frame);
+  // 后备驱动：个别嵌入环境会暂停 requestAnimationFrame，此时用定时器推进动画
+  setInterval(function () {
+    if (performance.now() - (window.__fig4LastFrameAt || 0) > 500) {
+      frame(performance.now());
+    }
+  }, 250);
+})();
+
+/* ---------- 图 5：覆盖衔接 vs 漏缝 ---------- */
+(function () {
+  const ctx = setup("c5", 960, 340);
+  const r = 36, cy = 178;
+  function scene(x0, stepK, ok) {
+    const base = x0 + 130, spacing = stepK * 2 * r, count = ok ? 4 : 3;
+    label(ctx, ok ? "步长 s = 波束宽度 B：光斑刚好接上 ✓" : "步长 s = 2×波束宽度：露出缝 ✗",
+      x0 + 10, 56, { bold: true, size: 15, color: ok ? "#1f7a43" : "#b03a2e" });
+    // 雷达图标
+    ctx.fillStyle = "#37404a";
+    ctx.beginPath(); ctx.moveTo(x0 + 60, cy + 10); ctx.lineTo(x0 + 86, cy - 10); ctx.lineTo(x0 + 86, cy + 10);
+    ctx.closePath(); ctx.fill();
+    line(ctx, x0 + 86, cy, x0 + 118, cy, "#d9a514", 1.4, [4, 3]);
+    // 光斑：步长 s = B 时光斑直径 B = 2r，圆心相距 2r → 相切；s = 2B → 圆心相距 4r → 露缝
+    for (let k = 0; k < count; k++) {
+      const cxx = base + k * spacing;
+      ctx.beginPath(); ctx.arc(cxx, cy, r, 0, Math.PI * 2);
+      ctx.fillStyle = "rgba(70,130,200,0.16)"; ctx.fill();
+      ctx.strokeStyle = "#4a7fc4"; ctx.lineWidth = 1.3; ctx.stroke();
+    }
+    // 目标：左 = 正好落在下一个波位中心（照得最亮）；右 = 落在两光斑之间的缝里
+    const sx = base + spacing / 2;
+    ctx.font = "22px sans-serif"; ctx.textAlign = "center";
+    ctx.fillStyle = ok ? "#1f7a43" : "#e67e22";
+    ctx.fillText("★", sx, cy + 8);
+    if (!ok) {
+      ctx.setLineDash([3, 3]); ctx.strokeStyle = "#e67e22"; ctx.lineWidth = 1.2;
+      ctx.beginPath(); ctx.arc(sx, cy, 22, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]);
+    }
+    // 标注：波束宽度 B（一个光斑的直径）与步长 s（相邻波位圆心间距）
+    line(ctx, base - r, 238, base + r, 238, "#4a7fc4", 1.4);
+    line(ctx, base - r, 233, base - r, 243, "#4a7fc4", 1.4);
+    line(ctx, base + r, 233, base + r, 243, "#4a7fc4", 1.4);
+    label(ctx, "波束宽度 B", base, 228, { size: 12, align: "center", color: "#3b6ea8" });
+    const by = 268, bcol = ok ? "#1f7a43" : "#b03a2e";
+    line(ctx, base, by, base + spacing, by, bcol, 1.4);
+    line(ctx, base, by - 5, base, by + 5, bcol, 1.4);
+    line(ctx, base + spacing, by - 5, base + spacing, by + 5, bcol, 1.4);
+    label(ctx, ok ? "步长 s = B" : "步长 s = 2B", base + spacing / 2, by + 20, { size: 12, align: "center", color: bcol, bold: true });
+  }
+  scene(20, 1, true);
+  line(ctx, 490, 40, 490, 320, "#dde2e8", 1.5);
+  scene(510, 2, false);
+  label(ctx, "目标 ★ 被光斑中心照到 → 增益足 → 看得清", 250, 316, { size: 13, align: "center", color: "#5a6675" });
+  label(ctx, "目标 ★ 落在缝里，只被光斑边缘扫到 → 增益掉一大截 → 回波弱，可能漏检", 735, 316, { size: 13, align: "center", color: "#5a6675" });
+})();
+
+/* 单图模式：#fig=N 时只显示第 N 张卡片（用于逐张导出/截图） */
+if (location.hash.indexOf("#fig=") === 0) {
+  const n = parseInt(location.hash.slice(5), 10) || 0;
+  document.querySelectorAll("h1, .intro").forEach(function (el) { el.style.display = "none"; });
+  document.querySelectorAll(".card").forEach(function (card, i) {
+    if (i !== n - 1) card.style.display = "none";
+  });
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RIR 模块设计详解（深度版）</title>
+<style>
+  body { background:#f2f4f7; margin:0; padding:28px 16px 60px;
+         font-family:"Microsoft YaHei","PingFang SC",sans-serif; color:#26303b; }
+  .wrap { max-width:1060px; margin:0 auto; }
+  h1 { font-size:26px; text-align:center; margin:8px 0 4px; }
+  .intro { text-align:center; color:#5a6675; margin:0 0 26px; font-size:15px; }
+  .card { background:#fff; border-radius:12px; padding:20px 24px 16px; margin:0 0 26px;
+          box-shadow:0 2px 8px rgba(30,40,60,.08); }
+  .card h2 { font-size:19px; margin:0 0 4px; }
+  .card h2 .no { color:#1a6fb5; margin-right:8px; }
+  .card canvas { display:block; margin:8px auto 4px; max-width:100%; }
+  .cap { color:#3d4854; font-size:14px; line-height:1.9; margin:8px 4px 0; }
+  .cap b { color:#26303b; }
+  .cap .code { color:#1a6fb5; font-family:Consolas,monospace; font-size:13px; }
+  .anchor { color:#8a93a0; font-size:12.5px; margin:6px 4px 0; font-family:Consolas,monospace; }
+  table { border-collapse:collapse; font-size:12.5px; margin:10px 4px 4px; width:100%; }
+  th, td { border:1px solid #d5dbe2; padding:5px 9px; text-align:left; vertical-align:top; line-height:1.6; }
+  th { background:#eef3f8; }
+  .fix { background:#fff8e6; border-left:4px solid #e6a817; padding:8px 12px; margin:10px 4px 0;
+         font-size:13.5px; line-height:1.8; border-radius:0 6px 6px 0; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>RIR 模块设计详解</h1>
+  <p class="intro">九张图 + 账本式讲解，目标是把「为什么这么设计」讲透。所有数字、门限、规则编号都来自真实代码，附文件锚点。</p>
+
+  <div class="card">
+    <h2><span class="no">图 1</span>模块边界：哨兵收到什么、交出什么、不管什么</h2>
+    <canvas id="d1"></canvas>
+    <p class="cap"><b>设计第一原则：RIR 是一台被仿真到物理层的雷达，不是一条假数据流水线。</b>它对外的接口窄而清晰：</p>
+    <p class="cap"><b>输入（RirCycleInput，每帧一次）：</b>① 场景目标表——注意里面带着三组<b>识别特征真值</b>：视角 RCS 样本（目标朝不同角度时的反光曲线）、HH/VV 双通道极化样本、距离向散射中心列表（一维距离像的唯一来源），外加 Swerling 起伏类型；② 平台 ECEF 位置 + 周期步长 dt + 仿真时间；③ 外部射频场景（平台上别的设备在发什么，用于干扰计算）。</p>
+    <p class="cap"><b>输出（RirOutputFrame + RirCycleResult）：</b>两个产品出口——<b>出口②识别结论</b>（逐航迹的状态/大类/型号/置信度）和<b>出口①特征量测</b>（供外部建库训练用的"雷达看到的目标指纹"，按契约规则 5 <b>去真值化</b>：只带库内键，不带目标真名）；外加发射帧、问题清单 issues、效能摘要、航迹归属对照（仅供调试，不进产品帧）、指定任务五字段。</p>
+    <p class="cap"><b>不管什么：</b>不做融合、不做打击决策、不管理画面显示。它就是哨兵本体：看、记、认。</p>
+    <p class="anchor">锚点：include/1q/remote_identification_radar/session/RirCycleInput.h · RirOutputTypes.h · RirFeatureMeasurementTypes.h:5-9（效能级语义 RIR-OQ-1）</p>
+  </div>
+
+  <div class="card">
+    <h2><span class="no">图 2</span>一帧的九步生命：Step() 内部到底按什么顺序做事</h2>
+    <canvas id="d2"></canvas>
+    <p class="cap"><b>怎么读：</b>RirSession::StepWithResult() 是唯一入口，内部 RunCycle() 严格按九步走。三个设计决策值得注意：</p>
+    <p class="cap">① <b>故障要"干脆"</b>：电源关着 → kPoweredOff；输入非法 → kRejectedInvalidInput 并把校验明细原样带回。两种情况下都<b>返回默认空帧、绝不复用上一帧的输出</b>——宁可空，不给旧数据冒充新数据的机会。跟踪器的内部状态也<b>不被触碰</b>（非执行周期，recorder 空转不推进）。<b>status 字段是结果有效性的唯一真相</b>，只有 kCompleted 才携带识别输出。</p>
+    <p class="cap">② <b>补丁在"成功周期边界"原子提交</b>：运行期配置补丁先暂存，等下一个成功周期的第 3 步一次性生效，且"先整域后叶子"。改任务域/扫描中心会顺手重置搜索游标。不能改的：硬件域、可扫描体积、平台 ID——天线装在哪是焊死的，想换得重建会话。（诚实备注：头文件注释说"无效补丁返回 false"，实现目前恒返回 true，是一处注释与实现的已知差异。）</p>
+    <p class="cap">③ <b>指定识别任务是个会话级状态机</b> kNone→kPending→kAcquired|kExpired：算子点名后开一个限时窗口（或无限期）；"是否已认出来"用的是<b>上一周期</b>的航迹快照——刻意滞后一拍，避免同帧内自己说服自己；认出来（kAcquired 终态）或超时（kExpired，作废沿）都会让波束回归搜索。</p>
+    <p class="anchor">锚点：src/remote_identification_radar/session/RirSession.cpp:240-467（RunCycle 九步）· RirSession.cpp:43-107（指定状态机）</p>
+  </div>
+
+  <div class="card">
+    <h2><span class="no">图 3</span>配置五大域：出勤前把话说清楚，什么能临场改</h2>
+    <canvas id="d3"></canvas>
+    <p class="cap">五大域各管一摊，边界是刻意切开的：<b>硬件域</b>管物理能力（1 MW 峰值、3 GHz、带宽 4.5 MHz、增益 35 dBi、4° 波束、噪声系数 4 dB）；<b>任务域</b>管这一班干什么（最大作用距离 300 km、单驻留 0.05 s、扫描子窗、步长系数）；<b>策略域</b>管"多确定才肯下结论"（检测 Pfa=1e-6、关联波门 3σ、生命周期 3/2/5、识别门限 acceptance_score=0.70）——它是全模块<b>调参最密集</b>的域；<b>环境域</b>只装外部事实（天气损耗、气压温度湿度、植被档位），设计上禁止掺调参项；<b>姿态域</b>只有一项：可扫描体积 ±60°/±30°，焊死不改。</p>
+    <p class="cap">另有一组<b>档位常量</b>（RirProfileConstants）：一键换装。比如"远程识别硬件档"直接给 2 MW / 9.5 GHz / 带宽 100 MHz——带宽 100 MHz 意味着距离像分辨率 c/(2B)=1.5 米，比默认档的 33 米细 22 倍；"优先跟踪识别策略档"把识别门槛整体调松（acceptance_score 0.60、最少观测 2 次）。换档即换一台雷达的性情。</p>
+    <table>
+      <tr><th>域</th><th>一句话职责</th><th>代表性参数（默认值）</th></tr>
+      <tr><td>硬件</td><td>物理能力，焊死</td><td>峰值功率 1e6 W · 频率 3e9 Hz · 带宽 4.5e6 Hz · 脉宽 13 μs · PRF 300 · 增益 35 dBi · 波束 4°×4° · NF 4 dB</td></tr>
+      <tr><td>任务</td><td>这一班的目标</td><td>max_range_m 300000 · recognition_dwell_sec 0.05 · scan.step_scale 1.0 · scan_window 默认无界</td></tr>
+      <tr><td>策略</td><td>判决的松紧</td><td>cfar_pfa 1e-6 · gate_sigma 3.0 · confirm_hits 3/max_miss 2/max_lost 5 · acceptance_score 0.70 · margin 0.10 · 权重各 0.25</td></tr>
+      <tr><td>环境</td><td>外部事实，零调参</td><td>weather_attenuation_db 0 · 大气(气压/温度/湿度) · 植被档 6 选 1</td></tr>
+      <tr><td>姿态</td><td>安装指向能力</td><td>steerable_volume_deg ±60°/±30°（az 相对阵面、el 绝对）</td></tr>
+    </table>
+    <p class="cap">校验层会拒绝约 22 类非法配置（权重和≠1、频率计划不含初始载频、占空比超 0.10、增益与波束宽度物理不一致等），每条都有专属 issue code——<b>坏配置在门口就被拦下，且给出人能读懂的原因</b>。</p>
+    <p class="anchor">锚点：config/RirMissionConfig.h · RirPolicyConfig.h · RirEnvironmentConfig.h · RirOrientationConfig.h · RirProfileConstants.h · RirSessionConfigValidation.cpp:202-378</p>
+  </div>
+
+  <div class="card">
+    <h2><span class="no">图 4</span>驻留计划：一帧的时间预算怎么排</h2>
+    <canvas id="d4"></canvas>
+    <p class="cap"><b>预算公式：</b>max_dwells = floor(dt_sec ÷ recognition_dwell_sec + 1e-6)。默认 dt=0.5 s、单驻留 0.05 s → <b>一帧 10 个波束停顿</b>（+1e-6 是浮点容差，防止 0.5/0.05=9.999… 被砍成 9）。</p>
+    <p class="cap"><b>填充顺序体现优先级：</b>① 指定目标在场景里且视线在可扫描体积内 → 排 1 个 kDesignate，指向用真值视线角（算子说看哪就看哪）；② 剩余配额里由控制器给已确认航迹排 kTrack——注意指向是<b>库内航迹预测</b>（位置+速度×dt 外推），刻意不消费真值，跟踪必须靠自己的估计活着；③ 至少保底 1 个搜索槽，其余按<b>游标循环</b>取扫描波位表填满。</p>
+    <p class="cap"><b>波位表本身是一次性铺好的：</b>实际搜索扇区 = 任务子窗 ∩ 硬件可扫描体积（逐轴取交），交给公共扫描内核 BuildScanPattern 铺网格——步长 = 生效波束宽度 × step_scale（4°×1.0，想要更密的 TAS 覆盖可把系数调到 0.5），支持四角起步 + 蛇形往返，每轴上限 4096 点。铺好的相对波位再加转台朝向平移、方位归一化成绝对指向。补丁改了任务域或转台朝向，游标归零重扫。</p>
+    <p class="cap">结果层报的"主驻留指向 dwell_center"取第一个非跟踪驻留——指定优先，其次搜索。</p>
+    <p class="anchor">锚点：RirSession.cpp:336-397（组装）· RirSession.cpp:149-174（波位表）· RirController.cpp:345-369（跟踪驻留请求）· src/common/radar/ScanScheduleRuntime.h:86-169</p>
+  </div>
+
+  <div class="card">
+    <h2><span class="no">图 5</span>三道门：一个目标从"在场景里"到"被照到"要过的关卡</h2>
+    <canvas id="d5"></canvas>
+    <p class="cap">驻留执行前，候选目标先过三道门，<b>链上第一门优先、每目标每周期只记一条诊断</b>（规则 13b）：</p>
+    <p class="cap"><b>门 1 地球遮挡（几何最早判）</b>：目标视线与半径 6371 km 的地球圆球做有限弦判定，相切即算遮挡。低轨/远程场景下弹道目标飞到地球背面，雷达物理上无能为力——这道门就是"诚实承认看不见"。</p>
+    <p class="cap"><b>门 2 角域</b>：视线角要在可扫描体积内（转台转向 + ±60°/±30°）。另有一条精巧的<b>豁免规则</b>：指定目标和已有确认航迹的目标，只要在硬件体积内，就豁免任务扫描子窗——<b>跟踪连续性高于搜索范围</b>，别因为子窗设窄了把正在跟的目标弄丢。</p>
+    <p class="cap"><b>门 3 主瓣覆盖</b>：每轴 |离角| ≤ 半功率半宽（4° 波束 → ±2°）。目标在扇区里，但如果这一帧的 10 个驻留没有一个照到它，落 kTargetOutsideBeamCoverage 诊断——<b>没被照亮就没有回波，这是光学诚实</b>。同一目标被多个驻留照到时首驻留胜出，不重复算账。三种驻留种类在覆盖门与量测构造上完全同权，种类只决定"指向从哪来"。</p>
+    <p class="cap">过三门才进入量测构造；出局的每目标一条 kInfo 级诊断（不改周期状态），供上层的差分记录器捕捉"进排除/换原因/出排除"三类沿事件。</p>
+    <p class="anchor">锚点：RirController.cpp:848-1027（三门与驻留循环）· RirScanVolume.h:24-51 · src/common/geometry/EarthOccultation.cpp（R=6371 km）</p>
+  </div>
+
+  <div class="card">
+    <h2><span class="no">图 6</span>喊与听：SNR 账本，一笔一笔算到判决</h2>
+    <canvas id="d6"></canvas>
+    <p class="cap"><b>被照亮之后，物理链开始记账。</b>发射端：载频按频率计划轮询（cycle_index 取模）；驻留 0.05 s ÷ PRI 3.33 ms → 发 <b>15 个脉冲</b>；功率取三级上限的最小值（配置 1 MW、硬件顶 1.2 MW、单脉冲能量 20 J ÷ 脉宽），再乘发射损耗折成实际辐射功率。</p>
+    <p class="cap"><b>账本主体（雷达方程）：</b>回波功率 ∝ Pt × <b>G²（增益按双程计两次）</b> × λ² × σ ÷ (4π)³ ÷ R⁴ ÷ 损耗。300 km 处仅 R⁴ 一项就是约 −219 dB——这就是为什么增益 35 dBi 这么值钱：双程 70 dB 几乎是唯一能对抗距离稀释的大项。σ（RCS）不是直接抄场景值：按视角用圆柱/双站/平板物理模型混合估计（mix=1.0 完全物理），双站角还带 5° 偏移补偿。</p>
+    <p class="cap"><b>两条计算路径：</b>主路径 detection-cell 走完整 SINR 账——含<b>脉压增益 B·τ = 4.5 MHz×13 μs=58.5（+17.7 dB）</b>、外部干扰按时频重叠聚合、杂波、热噪 k·T₀·B·F（290 K、NF 4 dB），四项处理增益偏置各自钳 [0,40] dB 且<b>禁止手填派生量防双算</b>；解析失败自动回退效能级路径（只有雷达方程+多脉冲联合检测概率）。</p>
+    <p class="cap"><b>判决是统计实验，不是一刀切：</b>SNR 低于 −10 dB 直接判看不见 → 否则按 Swerling 模型算 N 脉冲联合检测概率 Pd → <b>真掷一次骰子</b>（mt19937，种子 42——种子进会话状态快照，这就是回放能逐字节复现的原因）→ 判过了但 SNR 不足 −2 dB 裕量还要撤销。另设 <b>kSnrFallback 门控模式</b>：SNR≥6 dB 直接过、量测位置取真值——那是旧口径的快速通道，默认 kDetectorGate 走完整统计判决且量测位置按协方差采样加噪。</p>
+    <p class="cap">没过门的候选，按"哪一项损失贡献最大"归因主因：<b>距离受限 / 波束受限 / 噪声受限 / RCS 受限</b>四选一——这就是验收时你能看到"这个目标为什么没探到"答案的地方。</p>
+    <p class="anchor">锚点：RirController.cpp:481-709（TryBuildMeasurement）· src/common/radar/RadarEquations.cpp:92-119 · DetectionCellResolver.cpp:186-271 · StatisticalCfarDetector.cpp:21-78 · RcsPhysics.cpp:120-167</p>
+  </div>
+
+  <div class="card">
+    <h2><span class="no">图 7</span>跟踪：从孤立点迹到稳定航迹的三层加工</h2>
+    <canvas id="d7"></canvas>
+    <p class="cap"><b>第一层 关联——"这个点是谁的"。</b>代价不是欧氏距离，是<b>归一化马氏距离平方</b> d²=(z−Hx̂)ᵀS⁻¹(z−Hx̂)，S 里含预测协方差和这一帧的动态量测噪声（信噪比越低 R 越大，弱目标的点更不被信任）。门限 3σ 即 d²≤9。配对不用贪心而用 <b>LAPJV 全局最优指派</b>：矩阵补哑行列（哑代价恰等于门限 9.0），航迹数≠点迹数、甚至全部出波门的退化情形都天然有解——<b>宁可本周期不配，也不强行错配</b>。没配上点的量测领取新键（从 1 单调递增、永不复用）；没被点命中的航迹记一次失配。</p>
+    <p class="cap"><b>第二层 滤波——"它到底在哪、往哪飞"。</b>卡尔曼滤波状态 6 维 [x,vx,y,vy,z,vz] 匀速模型，观测是笛卡尔位置（极坐标误差先经雅可比转成笛卡尔协方差），过程噪声 q=1.0 m/s²，后验协方差用 Joseph 形式保数值稳定。其上套 <b>IMM 交互多模型</b>：两个不同过程噪声的 CV 模型 q={1,10}，马尔可夫自保持 0.95——目标稳飞时低噪声模型权重高、输出平滑；开始机动时高噪声模型预测更贴量测、似然更高，几个周期内权重自动转移。<b>只有 confirmed 航迹才启用 IMM</b>，丢失重捕一律回到 CV 重置——省算力，也避免拿机动猜失去真目标。</p>
+    <p class="cap"><b>第三层 生命周期——"什么时候信、什么时候放弃"。</b>3 命中确认（防噪声鬼影立档）、连续 2 次失配转丢失（失配周期靠外推"脑补"）、丢失保留 5 周期等待重捕（重捕直接回 confirmed）、超时回收进对象池（池预热 128、缓存上限 4096，槽位 generation 代次 +1 防旧引用误用）。回收航迹但<b>关联键永不复用</b>——识别层因此不需要处理"同键换人"的歧义。</p>
+    <p class="anchor">锚点：tracking/RirTrackTypes.h · RirTrackAssociator.cpp:48-249 · src/common/tracking/GatedSquareAssignment.h:26-80 · RirImmFilter.cpp:20-59 · src/common/estimation/ImmFilter.h:148-166 · RirTrackLifecycle.cpp:108-222 · src/common/tracking/TrackLifecyclePromote.h:48-89</p>
+  </div>
+
+  <div class="card">
+    <h2><span class="no">图 8</span>识别：量指纹、翻档案、多帧投票</h2>
+    <canvas id="d8"></canvas>
+    <p class="cap"><b>四个特派员各量什么（全部是"真值经效能约束转换的派生量"，不是加噪量测）：</b></p>
+    <table>
+      <tr><th>特征</th><th>量的东西</th><th>关键公式/门限</th></tr>
+      <tr><td>距离像</td><td>结构轮廓：长度、峰数、能量集中率（前 3 峰占比）</td><td>分辨率 c/(2B)=33.3 m；峰判定=线性功率≥噪声门、峰间距≥0.5 m；无散射中心真值则整维无效</td></tr>
+      <tr><td>RCS</td><td>当前视角的均值 dBsm（视角样本最近邻插值）</td><td>std_db=3/√SNR；SNR&lt;6 dB 整维无效</td></tr>
+      <tr><td>运动</td><td>速度、绝对高度、加速度、转弯半径（log10 域比对）</td><td>横向加速度&lt;0.01 m/s² 判直线；质量=10000/(10000+协方差迹)——滤波越自信分越高；只认 confirmed 航迹</td></tr>
+      <tr><td>极化</td><td>HH/VV 能量差、相对差、能量和（参考距离 100 km 归一）</td><td>同样 SNR≥6 dB 门槛</td></tr>
+    </table>
+    <p class="cap">三个被动维还乘一个<b>驻留质量因子 dwell/0.05s</b>——驻留被压短，指纹就变糊，分数诚实打折。攒下的观测进 <b>10 秒滑动窗口</b>聚合（运动取中位数抗野值，其余取均值），然后翻档案库。</p>
+    <p class="cap"><b>档案库是 SQLite（schema v1.1）</b>，不是拍脑袋数组：meta/units/大类/型号/适用剖面（最低 SNR、最低带宽、视角覆盖范围）+ 四组模板（mean±std）。库里现成 18 个型号——从 BALLISTIC_EXAMPLE_A（1800±300 m/s、高 50 km、−3 dBsm、长 8 m）、BALLISTIC_EXAMPLE_B（ICBM 级：4900 m/s、百万米高度、−10 dBsm）到 F-22A（RCS 低至 −37 dBsm）、B-2A、MQ-9A，数值来源是公开渠道估算。</p>
+    <p class="cap"><b>打分与判定：</b>单子项相似度 s=exp(−0.5·((x−mean)/std)²)，维内等权平均，维间按"权重×质量"加权融合，型号分再乘先验，confidence=最高分÷全部候选分之和。确认型号要同时满足：<b>确认命中≥5、有效观测≥3、最高分≥0.70、与第二名分差≥0.10、有效维≥2 且运动不能单独定型号</b>——五道锁，防止"运动像导弹就说是导弹"。分≥0.70 但条件不齐 → 只确认大类；最高分&lt;0.70 → kUnknown；30 秒没新观测 → kStale 过期。按甲方裁定，UAV 库条目不再映射专属大类，落 kUnknown 但不影响型号识别。</p>
+    <p class="anchor">锚点：recognition/ 四个 *FeatureExtractor.cpp · RecognitionFeatureDatabase.cpp:257-697 · RecognitionMatcher.cpp:17-265 · RecognitionTracker.cpp:214-370 · examples/basic_config/remote_identification_radar/recognition_database_input.json</p>
+  </div>
+
+  <div class="card">
+    <h2><span class="no">图 9</span>记录、回放与验收：哨兵的执法记录仪</h2>
+    <canvas id="d9"></canvas>
+    <p class="cap"><b>录制（行车记录仪）：</b>RirRecordingSession 包装会话，把四类事件按序落盘——构造时的 session_config、每帧的 cycle_input、执行后的 cycle_output（结果+会话状态快照：当前激活库版本 + 检测随机种子 42）、临场补丁 runtime_config_patch。编码是 FlatBuffer，文件标识 "RIR2"/"RIRC"，公开配置字段全部写入真实值、不依赖解码端默认值。</p>
+    <p class="cap"><b>回放（当庭对质）：</b>ReplayRirTrace 按 same session_config 重建会话 → 同序应用补丁 → 同输入逐帧重执行 → 把结果<b>重新编码后与录制字节逐字节比对</b>。一致=复现成功；不一致先报"识别输出条目数分叉"（最敏感的分叉信号）。能字节级复现的秘密就两条：<b>随机性全部种子化</b>（种子 42 随会话状态快照保存）+ <b>编码确定性</b>。任何一次代码改动若改变了行为，回放立刻报警——这是全模块最硬的一道回归防线。</p>
+    <p class="cap"><b>验收日志（体检报告）：</b>编译开关打开后写 log/rir_acceptance.log（可用环境变量改路径），行格式四段式「仿真时间=… 仿真周期=N [验收判定标准第N项] 内容」。覆盖第 19/28-49/54 项：天线方向图（附 CSV 明细）、回波/噪声/增益/CFAR 检测链拆项、指定空域搜索、航迹关联、规模目标、逐航迹跟踪滤波（含 6×6 协方差）、四特征解算、调度策略（[搜索×n 指定×n 跟踪×n]）、连续运行计数。你们平时逐条核对的 acceptance 轮次，就是这些行。</p>
+    <p class="cap"><b>可观测性三板斧的分工：</b>issues（机器键+人读文本+归因+实体定位，规则 13b/14）回答"这个目标这帧为什么没进输出"；排除原因差分记录器回答"排除状态什么时候变的"（Entered/Changed/Exited 三类沿）；生命周期记录器回答"航迹什么时候确认/丢失"（规则 10：会话自动驱动；规则 11：注册与否零行为改变）。</p>
+    <p class="anchor">锚点：session/RirRecordingSession.cpp · RirReplaySession.cpp:97-193（字节比对）· RirReplayFlatbufferCodec.cpp:862-937 · schemas/replay/rir_replay.fbs · runtime/RirAcceptanceRecords.cpp · src/common/logging/AcceptanceFileLog.cpp:28-95</p>
+  </div>
+
+  <div class="card">
+    <h2><span class="no">图 10</span>贯穿全模块的六条设计纪律</h2>
+    <canvas id="d10"></canvas>
+    <p class="cap"><b>① 数值单源 common，RIR 只做薄适配。</b>方向图、雷达方程、CFAR、扫描调度、地球遮挡、大气衰减、LAPJV 的数值内核全部在 src/common/，机载雷达 AR 与 RIR 共用同一套公式——两个模块不会各算各的物理。<b>② 去真值化纪律（契约规则 5）。</b>出口①的特征量测只带库内键不带目标真名——下游拿到的数据理论上可以交给外部建库，不泄漏"标准答案"。<b>③ 保守账本防双算。</b>脉压 B·τ、积累 N 这类派生增益永远自动计算，配置里的四个增益偏置只允许填"额外"项，校验会拦下想填 40 dB 侥幸过门的人。</p>
+    <p class="cap"><b>④ 效能级派生语义诚实声明（RIR-OQ-1）。</b>特征量测不是"真值+噪声"的表演，而是真值经 SNR/距离/带宽/驻留/视角覆盖约束转换的结果——维度何时有效、质量多高，本身携带信息。<b>⑤ 枚举与 AR 逐位对齐。</b>状态、大类等枚举取值顺序刻意一致，回放与跨模块映射可以直写。<b>⑥ 观测与行为分离（规则 10/11/13b/14）。</b>记录器、诊断、归属视图全部是旁路，注册与否、开关与否，一丝一毫都不改变执行语义——观测工具说谎的风险被结构性排除。</p>
+    <p class="cap">另外三条事实避免误会：<b>RIR 没有烧穿（burn-through）机制</b>——"被干扰时加大功率顶回去"是机载 AR 的 ECCM 能力，RIR 发射工厂无功率控制档（1.2 MW 上限字段就是为将来移植预留的）；仿真里的"boost burnout"演示指的是<b>导弹助推段关机点</b>，同名不同义。<b>干扰观测的 J/N 6 dB 门在 RIR 执行链中未消费</b>（仅配置校验与回放承载，发布语义属 AR）。<b>接收机饱和</b>（总入射功率超 1 mW 线性区）只告警不中止——哨兵被晃了眼会喊出来，但不会撂挑子。</p>
+    <p class="anchor">锚点：docs/common/session_contract.md（规则 5/9/10/11/13b/14）· RirEmissionFactory.h:21-22（无 ECCM 档）· RirController.cpp:528-533（饱和仅 WARN）· RecognitionTypes.h:5-7</p>
+  </div>
+</div>
+
+<script>
+"use strict";
+window.addEventListener("error", function (e) {
+  window.__scriptError = e.message + " (line " + e.lineno + ")";
+});
+function setup(id, w, h) {
+  const c = document.getElementById(id);
+  const dpr = window.devicePixelRatio || 1;
+  c.width = w * dpr; c.height = h * dpr;
+  c.style.width = w + "px"; c.style.height = h + "px";
+  const ctx = c.getContext("2d");
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  return ctx;
+}
+function label(ctx, text, x, y, opts) {
+  opts = opts || {};
+  ctx.font = (opts.bold ? "bold " : "") + (opts.size || 13) + "px 'Microsoft YaHei',sans-serif";
+  ctx.fillStyle = opts.color || "#26303b";
+  ctx.textAlign = opts.align || "left";
+  ctx.textBaseline = opts.baseline || "alphabetic";
+  ctx.fillText(text, x, y);
+}
+function line(ctx, x1, y1, x2, y2, color, width, dash) {
+  ctx.save();
+  ctx.strokeStyle = color || "#8a93a0"; ctx.lineWidth = width || 1;
+  if (dash) ctx.setLineDash(dash);
+  ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+  ctx.restore();
+}
+function arrow(ctx, x1, y1, x2, y2, color, width) {
+  line(ctx, x1, y1, x2, y2, color || "#5a6675", width || 1.6);
+  const ang = Math.atan2(y2 - y1, x2 - x1), s = 8;
+  ctx.beginPath();
+  ctx.moveTo(x2, y2);
+  ctx.lineTo(x2 - s * Math.cos(ang - 0.4), y2 - s * Math.sin(ang - 0.4));
+  ctx.lineTo(x2 - s * Math.cos(ang + 0.4), y2 - s * Math.sin(ang + 0.4));
+  ctx.closePath();
+  ctx.fillStyle = color || "#5a6675"; ctx.fill();
+}
+function box(ctx, x, y, w, h, fill, stroke, r) {
+  r = r === undefined ? 10 : r;
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+  ctx.fillStyle = fill; ctx.fill();
+  ctx.strokeStyle = stroke || "#9db8cc"; ctx.lineWidth = 1.5; ctx.stroke();
+}
+/* 动画驱动：requestAnimationFrame 被环境暂停时用定时器兜底 */
+const ticker = (function () {
+  const subs = [];
+  let last = 0;
+  function fire(t) { last = t; for (let i = 0; i < subs.length; i++) subs[i](t); }
+  function frame(now) { fire(now || performance.now()); requestAnimationFrame(frame); }
+  requestAnimationFrame(frame);
+  setInterval(function () {
+    const t = performance.now();
+    if (t - last > 400) fire(t);
+  }, 200);
+  return { on: function (f) { subs.push(f); } };
+})();
+
+/* ---------- 图 1：模块边界 ---------- */
+(function () {
+  const ctx = setup("d1", 960, 400);
+  // 中央：RIR
+  box(ctx, 330, 100, 300, 220, "#eef4fa", "#1a6fb5", 14);
+  label(ctx, "RIR 哨兵本体", 480, 132, { bold: true, size: 16, align: "center", color: "#1a6fb5" });
+  const rooms = [
+    ["会话 · 排班", 350, 150], ["物理链 · 喊与听", 500, 150],
+    ["跟踪 · 连点成线", 350, 218], ["识别 · 翻档案", 500, 218]
+  ];
+  rooms.forEach(function (r) {
+    box(ctx, r[1], r[2], 130, 50, "#fff", "#9db8cc", 8);
+    label(ctx, r[0], r[1] + 65, r[2] + 30, { size: 12, align: "center" });
+  });
+  label(ctx, "RirSession → RirController", 480, 288, { size: 11, align: "center", color: "#9aa3ad" });
+  // 左：输入
+  const ins = [
+    ["场景目标表（含真值）", "视角RCS样本 · HH/VV极化样本", "距离向散射中心（距离像来源）", 62],
+    ["平台位置 ECEF", "周期步长 dt + 仿真时间", "", 172],
+    ["外部射频场景", "别的设备在发什么（算干扰）", "", 268]
+  ];
+  ins.forEach(function (o) {
+    box(ctx, 20, o[3], 240, 86, "#f6f8f5", "#8fae8f");
+    label(ctx, o[0], 140, o[3] + 24, { bold: true, size: 13, align: "center", color: "#2e6b2e" });
+    if (o[1]) label(ctx, o[1], 140, o[3] + 46, { size: 11.5, align: "center", color: "#5a6675" });
+    if (o[2]) label(ctx, o[2], 140, o[3] + 64, { size: 11.5, align: "center", color: "#5a6675" });
+    arrow(ctx, 262, o[3] + 43, 326, o[3] + 43 > 300 ? 290 : 180, "#2e6b2e");
+  });
+  // 右：输出
+  const outs = [
+    ["出口② 识别结论", "状态/大类/型号/置信度", 92],
+    ["出口① 特征量测", "目标指纹（去真值化，规则5）", 192],
+    ["发射帧 · 问题清单 · 摘要", "航迹归属（仅调试）", 292]
+  ];
+  outs.forEach(function (o) {
+    box(ctx, 700, o[2], 240, 80, "#fdf6ee", "#c99a5b");
+    label(ctx, o[0], 820, o[2] + 30, { bold: true, size: 13, align: "center", color: "#8a5a1e" });
+    label(ctx, o[1], 820, o[2] + 54, { size: 11.5, align: "center", color: "#5a6675" });
+    arrow(ctx, 632, o[2] + 40, 696, o[2] + 40, "#8a5a1e");
+  });
+  label(ctx, "不管：融合 / 打击决策 / 显示 —— 哨兵只看、记、认", 480, 362, { size: 13, align: "center", color: "#8a93a0" });
+  // 底部记录
+  box(ctx, 330, 336, 300, 0, "rgba(0,0,0,0)", "rgba(0,0,0,0)", 0);
+})();
+
+/* ---------- 图 2：一帧九步（动画高亮） ---------- */
+(function () {
+  const ctx = setup("d2", 960, 560);
+  const steps = [
+    ["第 0 步 · 电源门", "关机 → status=kPoweredOff，不碰跟踪器，立即返回"],
+    ["第 1 步 · 输入校验", "dt≤0 / 目标ID重复 / 非有限值 → kRejectedInvalidInput + 明细，绝不复用上一帧"],
+    ["第 2 步 · 运行期补丁提交", "暂存的补丁在成功周期边界原子生效；改任务域/扫描中心则搜索游标归零"],
+    ["第 3 步 · 指定任务状态机", "kNone→kPending→kAcquired|kExpired；判「认出来没」用上一周期快照（滞后一拍）"],
+    ["第 4 步 · 驻留计划组装", "预算=floor(dt/0.05s)；顺序：指定(真值指向)→跟踪(预测指向)→搜索(游标循环)"],
+    ["第 5 步 · 验收日志", "方向图CSV/波位表CSV一次性导出；逐周期写驻留扫描行"],
+    ["第 6 步 · RirController.RunCycle", "逐驻留：三道门→量测构造(SNR账本+CFAR)→关联→滤波→识别积累"],
+    ["第 7 步 · 结果回填", "摘要/归属/发射帧/issues；只有 status=kCompleted 才携带识别输出"],
+    ["第 8 步 · recorder 驱动", "生命周期/排除原因记录器由会话自动调用（规则10），零行为改变（规则11）"]
+  ];
+  function draw2(sel) {
+    ctx.clearRect(0, 0, 960, 560);
+    steps.forEach(function (s, i) {
+      const y = 18 + i * 58;
+      const active = i === sel;
+      box(ctx, 30, y, 540, 46, active ? "#e8f1fb" : "#f4f8fc", active ? "#1a6fb5" : "#9db8cc", 8);
+      label(ctx, s[0], 46, y + 20, { bold: true, size: 13.5, color: active ? "#1a6fb5" : "#26303b" });
+      label(ctx, s[1], 46, y + 38, { size: 11.5, color: "#3d4854" });
+      if (i < steps.length - 1) arrow(ctx, 300, y + 46, 300, y + 56, "#9db8cc", 1.4);
+    });
+    // 右侧要点
+    box(ctx, 600, 60, 330, 200, "#fff9f0", "#d9a514");
+    label(ctx, "为什么故障要「干脆」？", 616, 88, { bold: true, size: 14, color: "#a07114" });
+    label(ctx, "关机/非法帧 → 返回默认空帧，", 616, 114, { size: 12.5 });
+    label(ctx, "绝不复用上一帧输出——宁可空，", 616, 134, { size: 12.5 });
+    label(ctx, "也不让旧数据冒充新数据。", 616, 154, { size: 12.5 });
+    label(ctx, "status 是有效性的唯一真相：", 616, 186, { size: 12.5, bold: true });
+    label(ctx, "只有 kCompleted 携带识别输出。", 616, 206, { size: 12.5 });
+    label(ctx, "非执行周期：跟踪器不被触碰，", 616, 232, { size: 12.5, color: "#5a6675" });
+    label(ctx, "recorder 空转不推进状态。", 616, 250, { size: 12.5, color: "#5a6675" });
+    box(ctx, 600, 300, 330, 150, "#f2f8f2", "#2e9e5b");
+    label(ctx, "运行期补丁规则", 616, 328, { bold: true, size: 14, color: "#1f7a43" });
+    label(ctx, "可改：任务/策略/环境/工作模式/", 616, 354, { size: 12.5 });
+    label(ctx, "扫描中心/电源/指定目标与时限", 616, 374, { size: 12.5 });
+    label(ctx, "不可改：硬件/可扫描体积/平台ID", 616, 398, { size: 12.5, color: "#b03a2e" });
+    label(ctx, "（焊死的，换要重建会话）", 616, 418, { size: 12, color: "#8a93a0" });
+    label(ctx, "诚实备注：注释称无效补丁返回 false，", 616, 440, { size: 11, color: "#8a93a0" });
+  }
+  function tick(t) { draw2(Math.floor(t / 900) % 9); }
+  draw2(0);
+  ticker.on(tick);
+})();
+
+/* ---------- 图 3：五大域 ---------- */
+(function () {
+  const ctx = setup("d3", 960, 340);
+  const domains = [
+    ["硬件域", "焊死的物理能力", "1 MW · 3 GHz · 4.5 MHz", "35 dBi · 4° · NF 4 dB", 20],
+    ["任务域", "这一班干什么", "最大距离 300 km", "驻留 0.05 s · 步长系数 1.0", 212],
+    ["策略域", "判决松紧（调参最多）", "Pfa 1e-6 · 波门 3σ", "acceptance_score 0.70", 404],
+    ["环境域", "外部事实·零调参", "天气损耗 · 气压温湿", "植被档 6 选 1", 596],
+    ["姿态域", "安装能力·静态", "可扫描体积", "±60° / ±30°", 788]
+  ];
+  domains.forEach(function (d) {
+    box(ctx, d[4], 30, 152, 110, "#f4f8fc");
+    label(ctx, d[0], d[4] + 76, 56, { bold: true, size: 14, align: "center", color: "#1a6fb5" });
+    label(ctx, d[1], d[4] + 76, 78, { size: 11.5, align: "center", color: "#5a6675" });
+    label(ctx, d[2], d[4] + 76, 102, { size: 11, align: "center" });
+    label(ctx, d[3], d[4] + 76, 120, { size: 11, align: "center" });
+  });
+  box(ctx, 20, 170, 460, 90, "#fdf8ef", "#d9a514");
+  label(ctx, "档位常量：一键换装", 250, 196, { bold: true, size: 14, align: "center", color: "#a07114" });
+  label(ctx, "远程识别硬件档：2 MW · 9.5 GHz · 带宽 100 MHz", 250, 220, { size: 12.5, align: "center" });
+  label(ctx, "→ 距离像分辨率 1.5 m（默认档 33 m 的 1/22）", 250, 240, { size: 12.5, align: "center", color: "#5a6675" });
+  box(ctx, 500, 170, 440, 90, "#f2f8f2", "#2e9e5b");
+  label(ctx, "优先跟踪识别策略档：门槛整体调松", 720, 196, { bold: true, size: 14, align: "center", color: "#1f7a43" });
+  label(ctx, "acceptance_score 0.70→0.60 · 最少观测 3→2", 720, 220, { size: 12.5, align: "center" });
+  label(ctx, "确认命中 5→3 · 结论保持 30→10 s", 720, 240, { size: 12.5, align: "center" });
+  label(ctx, "校验层在门口拦下 22 类非法配置（权重和≠1、增益与波束宽度物理不一致、占空比超 0.10……），每条带专属 issue code——坏配置进不了门，且原因人能读懂。", 20, 296, { size: 13, color: "#5a6675" });
+  label(ctx, "临场只能改：任务/策略/环境/工作模式/扫描中心/电源/指定目标——硬件与可扫描体积焊死（图2）。", 20, 322, { size: 13, color: "#8a93a0" });
+})();
+
+/* ---------- 图 4：驻留计划 ---------- */
+(function () {
+  const ctx = setup("d4", 960, 380);
+  label(ctx, "时间预算：max_dwells = floor(dt ÷ 0.05s)  →  默认一帧 10 个驻留", 30, 36, { bold: true, size: 14.5 });
+  // 左：优先级
+  const pri = [
+    { t: "① 指定识别 kDesignate", l: "算子点名 + 在体积内才排；指向=真值视线角", c: "#e67e22", y: 60 },
+    { t: "② 跟踪驻留 kTrack", l: "指向=库内航迹预测(位置+速度×dt)，刻意不消费真值", c: "#1a6fb5", y: 128 },
+    { t: "③ 搜索波位 kSearch", l: "至少保底 1 槽；游标循环取波位表填满", c: "#2e9e5b", y: 196 }
+  ];
+  pri.forEach(function (p) {
+    box(ctx, 30, p.y, 430, 56, "#fafbfc", p.c);
+    label(ctx, p.t, 46, p.y + 23, { bold: true, size: 13.5, color: p.c });
+    label(ctx, p.l, 46, p.y + 43, { size: 12 });
+  });
+  label(ctx, "「服务生先伺候点菜的、再看老顾客、剩余时间发菜单」", 30, 286, { size: 12.5, color: "#8a93a0" });
+  // 右：波位表流水线
+  label(ctx, "扫描波位表（一次性铺好，游标循环取用）", 500, 60, { bold: true, size: 14 });
+  const flow = [
+    ["实际扇区 = 任务子窗 ∩ 可扫描体积", 92],
+    ["BuildScanPattern：步长=4°×step_scale，蛇形，每轴≤4096 点", 148],
+    ["相对波位 + 转台朝向平移 + 方位归一化 → 绝对指向", 204],
+    ["游标每用一次 +1 取模循环；补丁改任务/朝向 → 游标归零", 260]
+  ];
+  flow.forEach(function (f, i) {
+    box(ctx, 500, f[1], 430, 44, "#f4f8fc");
+    label(ctx, (i + 1) + ". " + f[0], 516, f[1] + 27, { size: 12.5 });
+    if (i < flow.length - 1) arrow(ctx, 715, f[1] + 44, 715, f[1] + 56, "#9db8cc", 1.4);
+  });
+  arrow(ctx, 460, 224, 496, 224, "#2e9e5b");
+  label(ctx, "结果层 dwell_center = 第一个非跟踪驻留（指定优先，其次搜索）", 30, 344, { size: 13, color: "#5a6675" });
+  label(ctx, "波位是稀缺资源：一帧只 10 格，三类驻留抢同一份预算。", 30, 366, { size: 13, color: "#8a93a0" });
+})();
+
+/* ---------- 图 5：三道门 ---------- */
+(function () {
+  const ctx = setup("d5", 960, 400);
+  label(ctx, "候选目标（在场景里 ≠ 能被看见）", 30, 40, { bold: true, size: 14.5 });
+  const gates = [
+    ["门 1 · 地球遮挡", "视线 vs 半径 6371 km 圆球，有限弦判定，相切即遮挡", "几何最先判：目标在地球背面，物理上就是看不见", "#b03a2e", 80],
+    ["门 2 · 角域", "要在可扫描体积内（转台±60°/±30°）；", "豁免规则：指定目标与确认航迹目标在硬件体积内 → 豁免任务子窗（跟住 > 搜索范围）", "#a07114", 168],
+    ["门 3 · 主瓣覆盖", "每轴 |离角| ≤ 半功率半宽（4° 波束 → ±2°）", "整帧无驻留照到 → kTargetOutsideBeamCoverage；多驻留照到首驻留胜出", "#1a6fb5", 256]
+  ];
+  gates.forEach(function (g) {
+    box(ctx, 150, g[4], 640, 72, "#fafbfc", g[3]);
+    label(ctx, g[0], 170, g[4] + 27, { bold: true, size: 14, color: g[3] });
+    label(ctx, g[1], 170, g[4] + 48, { size: 12.5 });
+    label(ctx, g[2], 170, g[4] + 65, { size: 12, color: "#5a6675" });
+    arrow(ctx, 794, g[4] + 36, 808, g[4] + 36, g[3]);
+    if (g[4] < 256) arrow(ctx, 470, g[4] + 72, 470, g[4] + 88, "#5a6675");
+    label(ctx, "✗ 出局→诊断", 814, g[4] + 40, { size: 11.5, color: g[3] });
+  });
+  label(ctx, "▼ 过三门才进量测构造（喊与听，见下一张）", 470, 356, { bold: true, size: 13.5, align: "center", color: "#1f7a43" });
+  label(ctx, "规则 13b：链上第一门优先，每目标每周期只记一条；差分记录器捕捉 进排除/换原因/出排除 三类沿。", 30, 386, { size: 12.5, color: "#8a93a0" });
+})();
+
+/* ---------- 图 6：SNR 账本（动画光点） ---------- */
+(function () {
+  const ctx = setup("d6", 960, 470);
+  const rows = [
+    ["+ 发射功率", "峰值 1 MW（60 dBW）", 0],
+    ["+ 天线增益 ×2（双程）", "35 dBi ×2 = +70 dB——对抗距离稀释的最大本钱", 1],
+    ["− 距离稀释 R⁴", "300 km ≈ −219 dB；再扣 (4π)³ ≈ −33 dB、λ² ≈ −20 dB", 0],
+    ["± 目标反射 σ", "物理 RCS：圆柱/双站/平板混合（视角相关），例弹头 −10 dBsm", 1],
+    ["+ 脉压增益 B·τ", "4.5 MHz × 13 μs = 58.5 → +17.7 dB；积累按 N 脉冲联合 Pd", 0],
+    ["− 各种损耗", "发射 3.5 dB + 接收 2 dB + 大气（Blake 氧/水汽模型）+ 天气", 0],
+    ["− 噪声底", "热噪 k·T₀·B·F（290K, NF 4 dB）+ 杂波 + 干扰（按时频重叠聚合）", 1]
+  ];
+  function draw6(t) {
+    ctx.clearRect(0, 0, 960, 470);
+    label(ctx, "SNR 账本：回波功率 → 信噪比（以默认配置、300 km 弹头为例）", 30, 34, { bold: true, size: 14.5 });
+    rows.forEach(function (r, i) {
+      const y = 52 + i * 40;
+      box(ctx, 30, y, 560, 34, i % 2 ? "#f4f8fc" : "#fafbfc", "#d5dbe2", 6);
+      label(ctx, r[0], 44, y + 22, { bold: true, size: 12.5, color: r[0][0] === "−" ? "#b03a2e" : (r[0][0] === "+" ? "#1f7a43" : "#26303b") });
+      label(ctx, r[1], 260, y + 22, { size: 11.5, color: "#5a6675" });
+    });
+    // 判决流水（右）
+    box(ctx, 620, 52, 320, 232, "#f4f8fc");
+    label(ctx, "判决流水（CFAR）", 780, 78, { bold: true, size: 14, align: "center", color: "#1a6fb5" });
+    const j = [
+      "SNR < −10 dB → 直接判看不见",
+      "按 Swerling 模型算 N 脉冲联合 Pd",
+      "真掷一次骰子（种子 42，可复现）",
+      "判过但 SNR<−2 dB 裕量 → 撤销"
+    ];
+    j.forEach(function (s, i) {
+      label(ctx, (i + 1) + ". " + s, 640, 108 + i * 30, { size: 12.5 });
+      if (i < 3) arrow(ctx, 652, 114 + i * 30, 652, 122 + i * 30, "#9db8cc", 1.3);
+    });
+    box(ctx, 620, 300, 150, 64, "#eaf6ee", "#1f7a43");
+    label(ctx, "✓ 过门", 695, 326, { bold: true, size: 13, align: "center", color: "#1f7a43" });
+    label(ctx, "生成点迹", 695, 346, { size: 12, align: "center" });
+    box(ctx, 790, 300, 150, 64, "#fdf1ee", "#b03a2e");
+    label(ctx, "✗ 没过", 865, 326, { bold: true, size: 13, align: "center", color: "#b03a2e" });
+    label(ctx, "归因主因(右)", 865, 346, { size: 12, align: "center" });
+    label(ctx, "没过门时按四因素损失 dB 最大者归因：", 620, 396, { size: 12.5 });
+    label(ctx, "距离受限 / 波束受限 / 噪声受限 / RCS 受限", 620, 416, { size: 12.5, bold: true, color: "#c05621" });
+    label(ctx, "—— 「这个目标为什么没探到」的现成答案。", 620, 436, { size: 12, color: "#8a93a0" });
+    label(ctx, "两条路径：detection-cell 完整 SINR 账（主），失败自动回退效能级雷达方程。", 30, 388, { size: 12.5, color: "#5a6675" });
+    label(ctx, "门控 kDetectorGate（默认）：量测按协方差采样加噪；", 30, 410, { size: 12.5, color: "#5a6675" });
+    label(ctx, "kSnrFallback：SNR≥6 dB 直过、量测=真值（旧口径）。", 30, 432, { size: 12.5, color: "#5a6675" });
+    label(ctx, "禁止把派生增益（B·τ、N）手填进偏置——防双算。", 30, 454, { size: 12.5, color: "#b03a2e", bold: true });
+    // 光点沿账本行下移
+    const idx = Math.floor(t / 500) % rows.length;
+    const y = 52 + idx * 40;
+    ctx.beginPath(); ctx.arc(596, y + 17, 5, 0, Math.PI * 2);
+    ctx.fillStyle = "rgba(255,170,40,0.95)"; ctx.fill();
+  }
+  ticker.on(draw6);
+})();
+
+/* ---------- 图 7：跟踪 ---------- */
+(function () {
+  const ctx = setup("d7", 960, 480);
+  // 左：关联
+  label(ctx, "关联：马氏门 + 全局最优指派", 30, 36, { bold: true, size: 14.5, color: "#1a6fb5" });
+  const ex = 190, ey = 150;
+  ctx.beginPath(); ctx.ellipse(ex, ey, 92, 62, 0, 0, Math.PI * 2);
+  ctx.fillStyle = "rgba(26,111,181,0.07)"; ctx.fill();
+  ctx.strokeStyle = "#1a6fb5"; ctx.lineWidth = 1.6; ctx.stroke();
+  label(ctx, "预测位置（外推）", ex, ey + 4, { size: 11.5, align: "center", color: "#1a6fb5" });
+  ctx.beginPath(); ctx.arc(ex + 30, ey - 18, 6, 0, Math.PI * 2); ctx.fillStyle = "#2e9e5b"; ctx.fill();
+  ctx.beginPath(); ctx.arc(ex - 44, ey + 22, 6, 0, Math.PI * 2); ctx.fillStyle = "#2e9e5b"; ctx.fill();
+  label(ctx, "门内 d²≤9（3σ）：配对", ex + 46, ey - 34, { size: 12, color: "#1f7a43" });
+  ctx.beginPath(); ctx.arc(ex + 130, ey + 40, 6, 0, Math.PI * 2);
+  ctx.fillStyle = "#fff"; ctx.fill(); ctx.strokeStyle = "#8a93a0"; ctx.lineWidth = 2; ctx.stroke();
+  label(ctx, "门外：领取新键 → 新建候选航迹", ex + 82, ey + 66, { size: 12, color: "#8a93a0" });
+  label(ctx, "代价=归一化马氏距离²（含动态量测噪声 R：", 30, 262, { size: 12.5 });
+  label(ctx, "信噪比越低 R 越大，弱目标的点更不被信任）", 30, 282, { size: 12.5 });
+  label(ctx, "配对不用贪心，用 LAPJV 全局最优；哑列代价=门限值 9.0 ——", 30, 308, { size: 12.5 });
+  label(ctx, "航迹数≠点迹数、全出波门都天然有解：宁可本周期不配，不强配。", 30, 328, { size: 12.5 });
+  label(ctx, "没配上点的航迹记一次失配；键从 1 单调分配、永不复用。", 30, 354, { size: 12.5, color: "#5a6675" });
+  // 右：状态机
+  label(ctx, "生命周期状态机（默认 3 / 2 / 5）", 620, 36, { bold: true, size: 14.5, color: "#1a6fb5" });
+  box(ctx, 620, 56, 140, 46, "#fdf6ee", "#c99a5b");
+  label(ctx, "kTentative", 690, 78, { bold: true, size: 13, align: "center", color: "#8a5a1e" });
+  label(ctx, "候选·未确认", 690, 94, { size: 11, align: "center" });
+  box(ctx, 620, 160, 140, 46, "#eaf6ee", "#1f7a43");
+  label(ctx, "kConfirmed", 690, 182, { bold: true, size: 13, align: "center", color: "#1f7a43" });
+  label(ctx, "确认·启用IMM", 690, 198, { size: 11, align: "center" });
+  box(ctx, 620, 264, 140, 46, "#fdf1ee", "#b03a2e");
+  label(ctx, "kLost", 690, 286, { bold: true, size: 13, align: "center", color: "#b03a2e" });
+  label(ctx, "丢失·外推等待", 690, 302, { size: 11, align: "center" });
+  arrow(ctx, 690, 102, 690, 156, "#1f7a43");
+  label(ctx, "累计 3 命中", 700, 132, { size: 12, color: "#1f7a43" });
+  arrow(ctx, 690, 206, 690, 260, "#b03a2e");
+  label(ctx, "连续 miss>2", 700, 236, { size: 12, color: "#b03a2e" });
+  arrow(ctx, 610, 287, 560, 287, "#8a93a0");
+  arrow(ctx, 560, 287, 560, 79, "#8a93a0");
+  arrow(ctx, 560, 79, 616, 79, "#1f7a43");
+  label(ctx, "重捕命中→直接回", 766, 250, { size: 12, color: "#1f7a43" });
+  label(ctx, "confirmed（CV重置）", 766, 268, { size: 12, color: "#1f7a43" });
+  label(ctx, "失配周期：IMM/KF 仅预测外推（脑补），位置继续走。", 620, 340, { size: 12.5, color: "#5a6675" });
+  label(ctx, "回收：generation+1 防旧引用；关联键永不复用，", 620, 364, { size: 12.5, color: "#5a6675" });
+  label(ctx, "识别层因此不用处理「同键换人」；航迹池预热 128。", 620, 384, { size: 12.5, color: "#5a6675" });
+  // 底部：KF/IMM
+  box(ctx, 30, 396, 900, 68, "#f4f8fc");
+  label(ctx, "滤波：KF 状态 6 维 [x,vx,y,vy,z,vz] 匀速模型 · q=1.0 m/s² · 缺省量测σ=10 m · Joseph 形式保稳定；", 46, 422, { size: 12.5 });
+  label(ctx, "IMM = 两个不同过程噪声的 CV 模型 q={1,10}，自保持 0.95：稳飞时平滑、机动时权重自动转向高噪声模型；仅 confirmed 航迹启用，重捕一律 CV 重置。", 46, 446, { size: 12.5 });
+})();
+
+/* ---------- 图 8：识别 ---------- */
+(function () {
+  const ctx = setup("d8", 960, 470);
+  // 左：判定流程
+  label(ctx, "判定流程（五道锁）", 30, 34, { bold: true, size: 14.5, color: "#1a6fb5" });
+  const cond = [
+    ["确认命中 ≥ 5 ？", "且有效观测 ≥ 3（10 s 滑窗聚合）"],
+    ["最高分 ≥ 0.70 ？", "否则 → kUnknown（只是没认出来）"],
+    ["与第二名分差 ≥ 0.10 ？", "防「两个模板都半像」的模糊判决"],
+    ["有效维 ≥ 2 且非仅运动？", "运动不能单独定型号（防误判）"]
+  ];
+  cond.forEach(function (c, i) {
+    box(ctx, 30, 50 + i * 62, 430, 50, "#f4f8fc");
+    label(ctx, (i + 1) + ". " + c[0], 46, 50 + i * 62 + 21, { bold: true, size: 13 });
+    label(ctx, c[1], 46, 50 + i * 62 + 40, { size: 11.5, color: "#5a6675" });
+    label(ctx, "是 ↓", 250, 50 + i * 62 + 60, { size: 11.5, color: "#1f7a43", align: "center" });
+  });
+  box(ctx, 30, 310, 430, 56, "#eaf6ee", "#1f7a43");
+  label(ctx, "✓ kModelConfirmed：型号确认（如 BALLISTIC_EXAMPLE_B）", 46, 334, { bold: true, size: 12.5, color: "#1f7a43" });
+  label(ctx, "任一不满足但分数够 → kCategoryConfirmed（只认大类）", 46, 354, { size: 12 });
+  label(ctx, "30 s 无新观测 → kStale 过期；退出识别模式清积累、结论进保持期。", 30, 392, { size: 12.5, color: "#5a6675" });
+  label(ctx, "打分：单子项 s=exp(−0.5·((x−mean)/std)²)，维内等权，", 30, 424, { size: 12.5 });
+  label(ctx, "维间按 权重×质量 加权融合（默认四维各 0.25），型号分×先验，confidence=最高分÷总分。", 30, 444, { size: 12.5 });
+  // 右：特征与库
+  label(ctx, "四个特派员量的「指纹」", 520, 34, { bold: true, size: 14.5, color: "#1a6fb5" });
+  const feats = [
+    ["距离像（c/(2B)=33.3 m 分辨率）", "长度 · 峰数(间距≥0.5 m) · 前3峰能量集中率"],
+    ["RCS（视角最近邻插值，dBsm）", "不确定度 std=3/√SNR；SNR<6 dB 整维无效"],
+    ["运动（只认 confirmed 航迹）", "速度 · 绝对高度 · 加速度 · 转弯半径(log10)"],
+    ["极化（HH/VV 双通道）", "能量差 · 相对差 · 能量和(100 km 归一)"]
+  ];
+  feats.forEach(function (f, i) {
+    box(ctx, 520, 48 + i * 56, 420, 46, "#f4f8fc");
+    label(ctx, f[0], 536, 48 + i * 56 + 19, { bold: true, size: 12.5 });
+    label(ctx, f[1], 536, 48 + i * 56 + 38, { size: 11.5, color: "#5a6675" });
+  });
+    label(ctx, "被动三维乘驻留质量因子 dwell/0.05s——驻留压短，指纹变糊。", 520, 286, { size: 12.5, color: "#5a6675" });
+  box(ctx, 520, 302, 420, 96, "#fdf8ef", "#d9a514");
+  label(ctx, "档案库 = SQLite v1.1（18 个现成型号）", 730, 328, { bold: true, size: 13.5, align: "center", color: "#a07114" });
+  label(ctx, "BALLISTIC_EXAMPLE_A：1800 m/s · 50 km 高 · −3 dBsm · 长 8 m", 730, 352, { size: 12, align: "center" });
+  label(ctx, "BALLISTIC_EXAMPLE_B：4900 m/s · 百万米高 · −10 dBsm", 730, 372, { size: 12, align: "center" });
+  label(ctx, "F-22A：RCS −37 dBsm ｜ 甲方裁定：UAV 条目落 kUnknown", 730, 392, { size: 12, align: "center" });
+  label(ctx, "库加载即全量校验；失败保留旧库、识别降级。", 520, 424, { size: 12, color: "#8a93a0" });
+  label(ctx, "观测语义：特征=真值经 SNR/带宽/驻留/视角约束的派生量。", 520, 450, { size: 12, color: "#8a93a0" });
+})();
+
+/* ---------- 图 9：记录与回放 ---------- */
+(function () {
+  const ctx = setup("d9", 960, 340);
+  label(ctx, "录制：四类事件按序落盘（FlatBuffer，标识 RIR2/RIRC）", 30, 36, { bold: true, size: 14.5 });
+  const ev = [
+    ["session_config", "五域配置快照", "#1a6fb5", 70],
+    ["cycle_input", "每帧输入", "#2e9e5b", 130],
+    ["cycle_output", "结果+状态快照(库版本+种子42)", "#e67e22", 190],
+    ["runtime_config_patch", "临场补丁", "#8a5a1e", 250]
+  ];
+  ev.forEach(function (e) {
+    box(ctx, 30, e[3], 250, 46, "#fafbfc", e[2]);
+    label(ctx, e[0], 46, e[3] + 20, { bold: true, size: 12.5, color: e[2] });
+    label(ctx, e[1], 46, e[3] + 38, { size: 11.5, color: "#5a6675" });
+  });
+  label(ctx, "按时间顺序交错：帧输入→帧输出 成对出现，补丁插在中间。", 300, 152, { size: 12.5, color: "#5a6675" });
+  label(ctx, "能逐字节复现的秘密：", 300, 196, { bold: true, size: 13.5, color: "#1a6fb5" });
+  label(ctx, "① 随机性全部种子化（种子 42 随状态快照保存）；", 300, 220, { size: 12.5 });
+  label(ctx, "② 编码确定性（字段总写真实值，不依赖解码端默认）。", 300, 244, { size: 12.5 });
+  label(ctx, "回放 = 当庭对质：", 300, 284, { bold: true, size: 13.5, color: "#1a6fb5" });
+  label(ctx, "同配置重建会话 → 同输入重执行 → 重新编码 →", 300, 308, { size: 12.5 });
+  label(ctx, "与录制字节逐字节比对；分叉先报「识别输出条目数」。", 300, 330, { size: 12.5 });
+  box(ctx, 620, 70, 320, 220, "#f4f8fc");
+  label(ctx, "可观测性三板斧分工", 780, 98, { bold: true, size: 14, align: "center", color: "#1a6fb5" });
+  label(ctx, "issues（规则13b/14）:", 640, 128, { bold: true, size: 12.5 });
+  label(ctx, "这个目标这帧为什么没进输出", 656, 146, { size: 12 });
+  label(ctx, "排除原因差分记录器:", 640, 176, { bold: true, size: 12.5 });
+  label(ctx, "排除状态何时变（进/换原因/出）", 656, 194, { size: 12 });
+  label(ctx, "生命周期记录器（规则10/11）:", 640, 224, { bold: true, size: 12.5 });
+  label(ctx, "航迹何时确认/丢失/指定作废", 656, 242, { size: 12 });
+  label(ctx, "验收日志 log/rir_acceptance.log 四段行：", 640, 270, { size: 12, color: "#5a6675" });
+  label(ctx, "「仿真时间=… 周期=N [第N项] 内容」", 656, 286, { size: 12, color: "#5a6675" });
+  label(ctx, "观测工具全部旁路：注册与否，零行为改变。", 620, 320, { size: 12.5, color: "#8a93a0" });
+})();
+
+/* ---------- 图 10：设计纪律 ---------- */
+(function () {
+  const ctx = setup("d10", 960, 400);
+  const rules = [
+    { t: "① 数值单源 common", b1: "方向图/雷达方程/CFAR/扫描/遮挡/大气/LAPJV 内核在 src/common/，", b2: "机载 AR 与 RIR 共用同一套物理，不会各算各的。", c: "#1a6fb5", x: 20, y: 20 },
+    { t: "② 去真值化（规则5）", b1: "出口①特征量测只带库内键不带真名——", b2: "下游可拿去建库训练，不泄漏标准答案。", c: "#1a6fb5", x: 500, y: 20 },
+    { t: "③ 保守账本防双算", b1: "B·τ、N 等派生增益自动算，偏置只许填「额外」项；", b2: "想填 40 dB 侥幸过门会被校验拦下。", c: "#1f7a43", x: 20, y: 120 },
+    { t: "④ 效能级派生语义（RIR-OQ-1）", b1: "特征是「真值经 SNR/距离/带宽/驻留/视角约束的转换」；", b2: "维度何时有效、质量多高，本身携带信息。", c: "#1f7a43", x: 500, y: 120 },
+    { t: "⑤ 枚举与 AR 逐位对齐", b1: "状态/大类取值顺序刻意一致，", b2: "回放与跨模块映射直写不换算。", c: "#8a5a1e", x: 20, y: 220 },
+    { t: "⑥ 观测与行为分离", b1: "规则 9 三写 / 10 自动驱动 / 11 裸指针 / 13b 排除诊断 / 14 单一列表；", b2: "记录器、归属视图全是旁路，永不改变执行语义。", c: "#8a5a1e", x: 500, y: 220 }
+  ];
+  rules.forEach(function (r) {
+    box(ctx, r.x, r.y, 440, 84, "#fafbfc", r.c);
+    label(ctx, r.t, r.x + 18, r.y + 26, { bold: true, size: 13.5, color: r.c });
+    label(ctx, r.b1, r.x + 18, r.y + 50, { size: 11.8 });
+    label(ctx, r.b2, r.x + 18, r.y + 68, { size: 11.8 });
+  });
+  // 纠错区
+  box(ctx, 20, 320, 920, 66, "#fff8e6", "#e6a817");
+  label(ctx, "三个容易误会的实事求是：", 40, 342, { bold: true, size: 13, color: "#8a5a1e" });
+  label(ctx, "RIR 没有「烧穿」加大功率机制（那是机载 AR 的 ECCM；1.2 MW 上限字段是预留）；仿真里的 boost burnout 演示指导弹「助推段关机点」，同名不同义。", 40, 362, { size: 12 });
+  label(ctx, "干扰观测 J/N 6 dB 门在 RIR 执行链未消费（属 AR）；接收机饱和只告警不中止——哨兵被晃了眼会喊出来，但不会撂挑子。", 40, 380, { size: 12 });
+})();
+
+/* 单图模式：#fig=N 时只显示第 N 张卡片 */
+if (location.hash.indexOf("#fig=") === 0) {
+  const n = parseInt(location.hash.slice(5), 10) || 0;
+  document.querySelectorAll("h1, .intro").forEach(function (el) { el.style.display = "none"; });
+  document.querySelectorAll(".card").forEach(function (card, i) {
+    if (i !== n - 1) card.style.display = "none";
+  });
+}
+</script>
+</body>
+</html>

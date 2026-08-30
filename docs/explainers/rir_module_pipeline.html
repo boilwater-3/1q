@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RIR 模块图解：哨兵的一班岗</title>
+<style>
+  body { background:#f2f4f7; margin:0; padding:28px 16px 60px;
+         font-family:"Microsoft YaHei","PingFang SC",sans-serif; color:#26303b; }
+  .wrap { max-width:1040px; margin:0 auto; }
+  h1 { font-size:26px; text-align:center; margin:8px 0 4px; }
+  .intro { text-align:center; color:#5a6675; margin:0 0 26px; font-size:15px; }
+  .card { background:#fff; border-radius:12px; padding:20px 24px 16px; margin:0 0 26px;
+          box-shadow:0 2px 8px rgba(30,40,60,.08); }
+  .card h2 { font-size:19px; margin:0 0 4px; }
+  .card h2 .no { color:#1a6fb5; margin-right:8px; }
+  .card canvas { display:block; margin:8px auto 4px; max-width:100%; }
+  .cap { color:#5a6675; font-size:14px; line-height:1.8; margin:8px 4px 0; }
+  .cap b { color:#26303b; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>RIR 模块图解：哨兵的一班岗</h1>
+  <p class="intro">按工作顺序走完一个识别周期：排班 → 喊与听 → 跟踪 → 识别 → 交班。前一张页面的「增益 / 波位」概念在这里全部变成代码。</p>
+
+  <div class="card">
+    <h2><span class="no">图 1</span>一步一帧：一个识别周期的四站流水线</h2>
+    <canvas id="r1"></canvas>
+    <p class="cap"><b>怎么读：</b>这是哨兵的一班岗总览。外部每个周期喂一次输入（<b>RirCycleInput</b>：这一帧的场景目标 + 平台姿态），
+    <b>RirSession.Step()</b> 内部按四站流水线走完：先排班（波束指哪）、再逐驻留喊与听（物理链）、然后认人（跟踪 + 识别）、最后交班（输出帧交给融合，
+    同时录制回放、写验收日志），随后进入下一帧循环。主持三堂课的是 <b>RirController</b>。</p>
+  </div>
+
+  <div class="card">
+    <h2><span class="no">图 2</span>排班表：三类驻留怎么分波束时间</h2>
+    <canvas id="r2"></canvas>
+    <p class="cap"><b>怎么读：</b>每个周期先组装驻留计划（<b>RirDwellPlan</b>），优先级固定：① <b>指定识别</b>——算子点名"看那个目标"，波束直接指过去
+    （kDesignate，你弹道场景的入口，引导式搜索）；② <b>跟踪驻留</b>——对库里已确认的航迹按预测位置回望一眼，防止跟丢（kTrack）；
+    ③ <b>搜索波位</b>——剩余时间按蛇形光栅犁地找新目标（kSearch，就是前面"波位网格"那张图）。扫描区上移动的游标演示一个周期内波束依次造访每个驻留。</p>
+  </div>
+
+  <div class="card">
+    <h2><span class="no">图 3</span>喊与听：一个驻留里的完整物理链</h2>
+    <canvas id="r3"></canvas>
+    <p class="cap"><b>怎么读：</b>这是"回波过门限才算探测到"的代码化身。上路：发射脉冲（峰值 1 MW、脉宽 13 μs，<b>RirEmissionFactory</b>）→
+    穿过大气被吃掉一截能量（传播模型，还要查地球曲率会不会把目标挡住）→ 砸到目标，只有 RCS 那么大的"反光面积"弹回一小部分。
+    下路（回波）：接收机收到微弱回波 → <b>雷达方程把 SNR 账本算清</b>（+功率 +增益 −距离稀释 −各种损耗，<b>RirRadarEquations</b>）→
+    CFAR 判决：信噪比过门限才算探测到、生成点迹交给跟踪；没过门限，这一格等于没看见。移动的光点演示能量走完全程。</p>
+  </div>
+
+  <div class="card">
+    <h2><span class="no">图 4</span>从点迹到航迹：连点成线，丢一帧别慌</h2>
+    <canvas id="r4"></canvas>
+    <p class="cap"><b>怎么读：</b>探测产出的只是一个个孤立的点迹。跟踪层做三件事：<b>关联</b>——用最优指派（LAPJV 求解器）判断哪个点属于哪个目标；
+    <b>滤波</b>——IMM/KF 把抖动的点修成平滑航迹；<b>生命周期</b>——连续命中若干帧才"建档"确认（防止把噪声鬼影当目标），
+    中间丢一帧就按航迹外推"脑补"顶上，连续丢失多帧才"销档"（不轻易放弃真目标）。动画演示目标飞过扇区时点迹逐帧累积成航迹。</p>
+  </div>
+
+  <div class="card">
+    <h2><span class="no">图 5</span>识别积累：四个特派员量特征，多帧投票过门限</h2>
+    <canvas id="r5"></canvas>
+    <p class="cap"><b>怎么读：</b>识别层派四个"特派员"从回波里量特征：<b>距离像</b>（结构轮廓，分辨率由带宽 c/(2B) 决定）、<b>RCS</b>（块头）、
+    <b>运动</b>（速度/高度变化姿态）、<b>极化</b>（表面材质）——拼成一组"指纹"去档案库（<b>RecognitionFeatureDatabase</b> 模板库）比对打分
+    （<b>RecognitionMatcher</b>）。单帧分数低很正常，<b>RecognitionTracker</b> 做多帧积累投票：置信度一路爬升，
+    越过识别门限（acceptance_score）那一帧才正式上报"认出来了"。右图楼梯就是逐帧攒置信度的过程（数值为示意）。</p>
+  </div>
+</div>
+
+<script>
+"use strict";
+function setup(id, w, h) {
+  const c = document.getElementById(id);
+  const dpr = window.devicePixelRatio || 1;
+  c.width = w * dpr; c.height = h * dpr;
+  c.style.width = w + "px"; c.style.height = h + "px";
+  const ctx = c.getContext("2d");
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  return ctx;
+}
+function label(ctx, text, x, y, opts) {
+  opts = opts || {};
+  ctx.font = (opts.bold ? "bold " : "") + (opts.size || 13) + "px 'Microsoft YaHei',sans-serif";
+  ctx.fillStyle = opts.color || "#26303b";
+  ctx.textAlign = opts.align || "left";
+  ctx.textBaseline = opts.baseline || "alphabetic";
+  ctx.fillText(text, x, y);
+}
+function line(ctx, x1, y1, x2, y2, color, width, dash) {
+  ctx.save();
+  ctx.strokeStyle = color || "#8a93a0"; ctx.lineWidth = width || 1;
+  if (dash) ctx.setLineDash(dash);
+  ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+  ctx.restore();
+}
+function arrow(ctx, x1, y1, x2, y2, color, width) {
+  line(ctx, x1, y1, x2, y2, color || "#5a6675", width || 1.6);
+  const ang = Math.atan2(y2 - y1, x2 - x1), s = 8;
+  ctx.beginPath();
+  ctx.moveTo(x2, y2);
+  ctx.lineTo(x2 - s * Math.cos(ang - 0.4), y2 - s * Math.sin(ang - 0.4));
+  ctx.lineTo(x2 - s * Math.cos(ang + 0.4), y2 - s * Math.sin(ang + 0.4));
+  ctx.closePath();
+  ctx.fillStyle = color || "#5a6675"; ctx.fill();
+}
+function box(ctx, x, y, w, h, fill, stroke) {
+  const r = 10;
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+  ctx.fillStyle = fill; ctx.fill();
+  ctx.strokeStyle = stroke || "#9db8cc"; ctx.lineWidth = 1.5; ctx.stroke();
+}
+/* 动画驱动：requestAnimationFrame 被环境暂停时用定时器兜底 */
+const ticker = (function () {
+  const subs = [];
+  let last = 0;
+  function fire(t) { last = t; for (let i = 0; i < subs.length; i++) subs[i](t); }
+  function frame(now) { fire(now || performance.now()); requestAnimationFrame(frame); }
+  requestAnimationFrame(frame);
+  setInterval(function () {
+    const t = performance.now();
+    if (t - last > 400) fire(t);
+  }, 200);
+  return { on: function (f) { subs.push(f); } };
+})();
+
+/* ---------- 图 1：四站流水线 ---------- */
+(function () {
+  const ctx = setup("r1", 960, 310);
+  function station(x, title, sub, lines) {
+    box(ctx, x, 70, 195, 120, "#f4f8fc");
+    label(ctx, title, x + 97, 100, { bold: true, size: 15, align: "center", color: "#1a6fb5" });
+    label(ctx, sub, x + 97, 124, { size: 12, align: "center", color: "#5a6675" });
+    lines.forEach(function (t, i) {
+      label(ctx, t, x + 97, 150 + i * 18, { size: 12, align: "center" });
+    });
+  }
+  label(ctx, "每帧喂入：场景目标 + 平台姿态（RirCycleInput）", 30, 36, { size: 13, color: "#5a6675" });
+  line(ctx, 100, 44, 127, 66, "#8a93a0", 1.4);
+  station(30, "① 排班", "驻留计划 RirDwellPlan", ["优先：指定识别 → 跟踪", "剩余时间：搜索填充", "（服务生排波位）"]);
+  station(270, "② 喊与听", "物理链 · 逐驻留执行", ["发射→传播→反射→接收", "雷达方程算 SNR 账本", "CFAR 过门限才算探测"]);
+  station(510, "③ 认人", "跟踪 + 识别", ["点迹配对连成航迹", "量特征、翻档案库", "多帧积累投票"]);
+  station(750, "④ 交班", "输出与记录", ["识别结果帧给融合", "录制回放（行车记录仪）", "验收日志（体检报告）"]);
+  arrow(ctx, 225, 130, 266, 130);
+  arrow(ctx, 465, 130, 506, 130);
+  arrow(ctx, 705, 130, 746, 130);
+  line(ctx, 847, 190, 847, 245, "#8a93a0", 1.4);
+  line(ctx, 847, 245, 127, 245, "#8a93a0", 1.4);
+  arrow(ctx, 127, 245, 127, 194);
+  label(ctx, "下一帧：一步一帧循环（RirSession.Step，支持运行期配置补丁）", 487, 268, { size: 13, align: "center", color: "#5a6675" });
+})();
+
+/* ---------- 图 2：驻留排班表 ---------- */
+(function () {
+  const ctx = setup("r2", 960, 350);
+  const X0 = 80, W = 800, Y0 = 110, H = 56;
+  const kinds = [
+    { n: 2, color: "#e67e22", name: "指定" },
+    { n: 4, color: "#1a6fb5", name: "跟踪" },
+    { n: 18, color: "#2e9e5b", name: "搜索" }
+  ];
+  const total = kinds.reduce(function (s, k) { return s + k.n; }, 0);
+  // 展开成驻留序列
+  const seq = [];
+  kinds.forEach(function (k) { for (let i = 0; i < k.n; i++) seq.push(k); });
+  let x = X0;
+  const bounds = [];
+  kinds.forEach(function (k) {
+    const w = W * k.n / total;
+    bounds.push({ x: x, w: w, k: k });
+    x += w;
+  });
+  function draw() {
+    ctx.clearRect(0, 0, 960, 350);
+    label(ctx, "一个识别周期的时间预算（示意：24 个波位，先重点后犁地）", 30, 44, { bold: true, size: 15 });
+    bounds.forEach(function (b) {
+      ctx.fillStyle = b.k.color;
+      ctx.fillRect(b.x, Y0, b.w - 2, H);
+      const t = b.k.name + "×" + b.k.n;
+      label(ctx, t, b.x + b.w / 2, Y0 + 34, { size: b.w > 90 ? 14 : 12, align: "center", color: "#fff", bold: true });
+    });
+    label(ctx, "时间 →", X0 + W + 8, Y0 + 34, { size: 12, color: "#8a93a0" });
+    // 游标（当前驻留）
+    const idx = Math.floor(performance.now() / 350) % seq.length;
+    let px = 0, acc = 0;
+    for (let i = 0; i < bounds.length; i++) {
+      if (idx < acc + bounds[i].k.n) { px = bounds[i].x + (idx - acc + 0.5) * (bounds[i].w / bounds[i].k.n); break; }
+      acc += bounds[i].k.n;
+    }
+    line(ctx, px, Y0 - 14, px, Y0 + H + 14, "#37404a", 2);
+    ctx.beginPath(); ctx.moveTo(px, Y0 - 14); ctx.lineTo(px - 6, Y0 - 26); ctx.lineTo(px + 6, Y0 - 26);
+    ctx.closePath(); ctx.fillStyle = "#37404a"; ctx.fill();
+    const cx = Math.min(810, Math.max(150, px));
+    label(ctx, "波束当前驻留 #" + (idx + 1) + "（" + seq[idx].name + "）", cx, Y0 - 34, { bold: true, size: 13, align: "center", color: "#37404a" });
+    // 三张说明卡
+    const cards = [
+      { x: 80, c: "#e67e22", t: "① 指定识别（kDesignate）", l1: "算子点名「看那个目标」，波束", l2: "直接指过去——弹道场景的入口" },
+      { x: 370, c: "#1a6fb5", t: "② 跟踪驻留（kTrack）", l1: "已确认航迹按预测位置回望", l2: "一眼，防止跟丢" },
+      { x: 660, c: "#2e9e5b", t: "③ 搜索波位（kSearch）", l1: "剩余时间按蛇形光栅犁地，", l2: "找新目标（波位网格那张图）" }
+    ];
+    cards.forEach(function (c) {
+      box(ctx, c.x, 215, 260, 96, "#fafbfc");
+      ctx.fillStyle = c.c; ctx.fillRect(c.x, 215, 260, 6);
+      label(ctx, c.t, c.x + 14, 246, { bold: true, size: 13, color: c.c });
+      label(ctx, c.l1, c.x + 14, 270, { size: 12 });
+      label(ctx, c.l2, c.x + 14, 289, { size: 12 });
+    });
+    label(ctx, "排班规则：先重点、后跟进、再犁地——波位是稀缺资源，一帧只这么多时间。", 80, 340, { size: 13, color: "#8a93a0" });
+  }
+  draw();
+  ticker.on(draw);
+})();
+
+/* ---------- 图 3：单驻留物理链 ---------- */
+(function () {
+  const ctx = setup("r3", 960, 470);
+  const topY = 90, botY = 280, BW = 190, BH = 90;
+  function node(x, y, title, l1, l2, code) {
+    box(ctx, x, y, BW, BH, "#f4f8fc");
+    label(ctx, title, x + BW / 2, y + 26, { bold: true, size: 14, align: "center", color: "#1a6fb5" });
+    label(ctx, l1, x + BW / 2, y + 50, { size: 11.5, align: "center" });
+    label(ctx, l2, x + BW / 2, y + 67, { size: 11.5, align: "center" });
+    if (code) label(ctx, code, x + BW / 2, y + BH - 7, { size: 10.5, align: "center", color: "#9aa3ad" });
+  }
+  // 上路：发射 → 大气 → 目标
+  node(40, topY, "① 发射脉冲", "峰值 1 MW · 脉宽 13 μs", "朝波位方向喊一嗓子", "RirEmissionFactory");
+  node(290, topY, "② 大气传播", "能量被大气吃掉一截", "地球曲率可能挡住目标", "RirPropagationModel");
+  node(540, topY, "③ 目标反射", "只有 RCS 大小的「反光", "面积」弹回一小部分", "RirEffectiveRcs");
+  arrow(ctx, 232, topY + BH / 2, 286, topY + BH / 2);
+  arrow(ctx, 482, topY + BH / 2, 536, topY + BH / 2);
+  // 回波路径
+  line(ctx, 635, topY + BH, 635, 230, "#8a93a0", 1.4);
+  line(ctx, 635, 230, 135, 230, "#8a93a0", 1.4);
+  arrow(ctx, 135, 230, 135, botY - 4);
+  label(ctx, "回波：微弱、混在噪声里", 400, 222, { size: 13, align: "center", color: "#c05621", bold: true });
+  // 下路：接收 → 账本 → 判决
+  node(40, botY, "④ 接收", "回波淹没在噪声里，", "几乎分不出来", "RirRfFrontEndResolver");
+  node(290, botY, "⑤ 雷达方程 = SNR 账本", "+功率 +增益 −距离稀释", "−各种损耗 → 信噪比", "RirRadarEquations");
+  node(540, botY, "⑥ CFAR 判决", "信噪比过门限吗？", "", "RirSignalDetector");
+  arrow(ctx, 232, botY + BH / 2, 286, botY + BH / 2);
+  arrow(ctx, 482, botY + BH / 2, 536, botY + BH / 2);
+  // 结果
+  box(ctx, 800, 258, 140, 70, "#eaf6ee", "#1f7a43");
+  label(ctx, "✓ 过门限", 870, 284, { bold: true, size: 13, align: "center", color: "#1f7a43" });
+  label(ctx, "生成点迹", 870, 304, { size: 12, align: "center" });
+  label(ctx, "交给跟踪层", 870, 320, { size: 12, align: "center" });
+  box(ctx, 800, 350, 140, 70, "#fdf1ee", "#b03a2e");
+  label(ctx, "✗ 没过", 870, 376, { bold: true, size: 13, align: "center", color: "#b03a2e" });
+  label(ctx, "这一格等于", 870, 396, { size: 12, align: "center" });
+  label(ctx, "没看见", 870, 412, { size: 12, align: "center" });
+  arrow(ctx, 732, botY + 40, 796, 293, "#1f7a43");
+  arrow(ctx, 732, botY + 50, 796, 385, "#b03a2e");
+  label(ctx, "探测 ≠ 识别：点迹只是「这里有个东西」，是谁要靠后面认。", 40, 452, { size: 13, color: "#8a93a0" });
+  // 能量光点动画
+  const path = [
+    [135, topY + BH / 2], [735, topY + BH / 2],
+    [635, topY + BH], [635, 230], [135, 230], [135, botY],
+    [135, botY + BH / 2], [735, botY + BH / 2], [796, 293]
+  ];
+  const segs = []; let L = 0;
+  for (let i = 0; i < path.length - 1; i++) {
+    const dx = path[i + 1][0] - path[i][0], dy = path[i + 1][1] - path[i][1];
+    const l = Math.hypot(dx, dy);
+    segs.push({ a: path[i], b: path[i + 1], l: l, acc: L });
+    L += l;
+  }
+  function draw3(t) {
+    const dist = (t / 6) % (L + 260); // 速度 + 停顿
+    ctx.clearRect(0, 0, 960, 470);
+    redraw3();
+    if (dist < L) {
+      let d = dist;
+      for (const s of segs) {
+        if (d <= s.l) {
+          const k = d / s.l;
+          const px = s.a[0] + (s.b[0] - s.a[0]) * k;
+          const py = s.a[1] + (s.b[1] - s.a[1]) * k;
+          ctx.beginPath(); ctx.arc(px, py, 6, 0, Math.PI * 2);
+          ctx.fillStyle = "rgba(255,170,40,0.95)"; ctx.fill();
+          ctx.beginPath(); ctx.arc(px, py, 11, 0, Math.PI * 2);
+          ctx.strokeStyle = "rgba(255,170,40,0.4)"; ctx.lineWidth = 2; ctx.stroke();
+          break;
+        }
+        d -= s.l;
+      }
+    }
+  }
+  function redraw3() {
+    node(40, topY, "① 发射脉冲", "峰值 1 MW · 脉宽 13 μs", "朝波位方向喊一嗓子", "RirEmissionFactory");
+    node(290, topY, "② 大气传播", "能量被大气吃掉一截", "地球曲率可能挡住目标", "RirPropagationModel");
+    node(540, topY, "③ 目标反射", "只有 RCS 大小的「反光", "面积」弹回一小部分", "RirEffectiveRcs");
+    arrow(ctx, 232, topY + BH / 2, 286, topY + BH / 2);
+    arrow(ctx, 482, topY + BH / 2, 536, topY + BH / 2);
+    line(ctx, 635, topY + BH, 635, 230, "#8a93a0", 1.4);
+    line(ctx, 635, 230, 135, 230, "#8a93a0", 1.4);
+    arrow(ctx, 135, 230, 135, botY - 4);
+    label(ctx, "回波：微弱、混在噪声里", 400, 222, { size: 13, align: "center", color: "#c05621", bold: true });
+    node(40, botY, "④ 接收", "回波淹没在噪声里，", "几乎分不出来", "RirRfFrontEndResolver");
+    node(290, botY, "⑤ 雷达方程 = SNR 账本", "+功率 +增益 −距离稀释", "−各种损耗 → 信噪比", "RirRadarEquations");
+    node(540, botY, "⑥ CFAR 判决", "信噪比过门限吗？", "", "RirSignalDetector");
+    arrow(ctx, 232, botY + BH / 2, 286, botY + BH / 2);
+    arrow(ctx, 482, botY + BH / 2, 536, botY + BH / 2);
+    box(ctx, 800, 258, 140, 70, "#eaf6ee", "#1f7a43");
+    label(ctx, "✓ 过门限", 870, 284, { bold: true, size: 13, align: "center", color: "#1f7a43" });
+    label(ctx, "生成点迹", 870, 304, { size: 12, align: "center" });
+    label(ctx, "交给跟踪层", 870, 320, { size: 12, align: "center" });
+    box(ctx, 800, 350, 140, 70, "#fdf1ee", "#b03a2e");
+    label(ctx, "✗ 没过", 870, 376, { bold: true, size: 13, align: "center", color: "#b03a2e" });
+    label(ctx, "这一格等于", 870, 396, { size: 12, align: "center" });
+    label(ctx, "没看见", 870, 412, { size: 12, align: "center" });
+    arrow(ctx, 732, botY + 40, 796, 293, "#1f7a43");
+    arrow(ctx, 732, botY + 50, 796, 385, "#b03a2e");
+    label(ctx, "探测 ≠ 识别：点迹只是「这里有个东西」，是谁要靠后面认。", 40, 452, { size: 13, color: "#8a93a0" });
+  }
+  ticker.on(draw3);
+})();
+
+/* ---------- 图 4：点迹成航迹 ---------- */
+(function () {
+  const ctx = setup("r4", 960, 460);
+  const A = [250, 320], C = [560, 150], B = [880, 90];
+  function bez(t) {
+    const u = 1 - t;
+    return [u * u * A[0] + 2 * u * t * C[0] + t * t * B[0],
+            u * u * A[1] + 2 * u * t * C[1] + t * t * B[1]];
+  }
+  const ts = [0.05, 0.13, 0.21, 0.29, 0.37, 0.45, 0.53, 0.61, 0.69, 0.77, 0.85, 0.93];
+  const MISS = 8; // 第 9 个点漏检
+  function draw4(now) {
+    const step = Math.floor(now / 600) % (ts.length + 4); // 末尾停 2 拍
+    ctx.clearRect(0, 0, 960, 460);
+    // 真实轨迹
+    ctx.save(); ctx.strokeStyle = "#c4ccd4"; ctx.lineWidth = 1.6; ctx.setLineDash([7, 6]);
+    ctx.beginPath();
+    for (let i = 0; i <= 40; i++) {
+      const p = bez(i / 40);
+      if (i === 0) ctx.moveTo(p[0], p[1]); else ctx.lineTo(p[0], p[1]);
+    }
+    ctx.stroke(); ctx.restore();
+    label(ctx, "目标真实轨迹（示意）", 690, 66, { size: 12, color: "#9aa3ad" });
+    // 雷达
+    ctx.fillStyle = "#37404a";
+    ctx.beginPath(); ctx.moveTo(58, 392); ctx.lineTo(96, 372); ctx.lineTo(96, 392); ctx.closePath(); ctx.fill();
+    ctx.fillRect(70, 392, 14, 10);
+    label(ctx, "识别雷达", 77, 422, { size: 12, align: "center" });
+    label(ctx, "扇区里的目标飞过，雷达隔一阵照它一次", 260, 422, { size: 13, color: "#5a6675" });
+    // 点迹
+    let confirmed = false;
+    for (let i = 0; i < ts.length && i <= step; i++) {
+      if (i === MISS) {
+        const p = bez(ts[i]);
+        ctx.setLineDash([4, 3]); ctx.strokeStyle = "#b03a2e"; ctx.lineWidth = 1.3;
+        ctx.beginPath(); ctx.arc(p[0], p[1], 13, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]);
+        continue;
+      }
+      const p = bez(ts[i]);
+      const cand = i < 3;
+      ctx.beginPath(); ctx.arc(p[0], p[1], 7, 0, Math.PI * 2);
+      if (cand) {
+        ctx.fillStyle = "rgba(255,255,255,0.9)"; ctx.fill();
+        ctx.strokeStyle = "#8a93a0"; ctx.lineWidth = 2; ctx.stroke();
+      } else {
+        ctx.fillStyle = "#2e9e5b"; ctx.fill();
+      }
+    }
+    // 注释
+    if (step >= 3) {
+      const p4 = bez(ts[3]);
+      label(ctx, "连续命中 3 帧 → 建档确认", p4[0] + 16, p4[1] - 14, { size: 12.5, color: "#1f7a43", bold: true });
+    }
+    if (step >= MISS) {
+      const pm = bez(ts[MISS]);
+      label(ctx, "漏检一帧 → 航迹外推「脑补」，不轻易销档", pm[0] - 20, pm[1] + 38, { size: 12.5, color: "#b03a2e", bold: true });
+    }
+    // 当前波束锥
+    const ci = Math.min(step, ts.length - 1);
+    const cp = bez(ts[ci]);
+    const rx = 77, ry = 378;
+    ctx.beginPath();
+    ctx.moveTo(rx, ry); ctx.lineTo(cp[0], cp[1] - 10); ctx.lineTo(cp[0], cp[1] + 10);
+    ctx.closePath();
+    ctx.fillStyle = "rgba(255,190,60,0.28)"; ctx.fill();
+    // 图例
+    ctx.beginPath(); ctx.arc(80, 442, 6, 0, Math.PI * 2);
+    ctx.fillStyle = "rgba(255,255,255,0.9)"; ctx.fill();
+    ctx.strokeStyle = "#8a93a0"; ctx.lineWidth = 2; ctx.stroke();
+    label(ctx, "候选点（还没确认）", 94, 446, { size: 12.5, color: "#5a6675" });
+    ctx.beginPath(); ctx.arc(250, 442, 6, 0, Math.PI * 2);
+    ctx.fillStyle = "#2e9e5b"; ctx.fill();
+    label(ctx, "确认航迹的点", 264, 446, { size: 12.5, color: "#5a6675" });
+    label(ctx, "红圈虚线 = 漏检时靠外推顶上（RirTrackLifecycle）", 396, 446, { size: 12.5, color: "#5a6675" });
+  }
+  ticker.on(draw4);
+})();
+
+/* ---------- 图 5：识别积累投票 ---------- */
+(function () {
+  const ctx = setup("r5", 960, 420);
+  const feats = [
+    ["距离像", "结构轮廓（带宽 c/(2B) 定分辨率）"],
+    ["RCS", "块头大小"],
+    ["运动", "速度 / 高度变化姿态"],
+    ["极化", "表面材质特性"]
+  ];
+  const scores = [0.18, 0.32, 0.45, 0.55, 0.62, 0.70, 0.78, 0.83, 0.86, 0.88];
+  const TH = 0.75, PASS = 6; // 第 7 帧过门限
+  const CX = 560, CY = 60, CW = 340, CH = 270;
+  function draw5(now) {
+    const fi = Math.floor(now / 450) % (scores.length + 3);
+    ctx.clearRect(0, 0, 960, 420);
+    label(ctx, "四个特征特派员（recognition/）", 40, 48, { bold: true, size: 14, color: "#1a6fb5" });
+    feats.forEach(function (f, i) {
+      const y = 70 + i * 64;
+      box(ctx, 40, y, 210, 54, "#f4f8fc");
+      label(ctx, f[0], 56, y + 23, { bold: true, size: 13.5 });
+      label(ctx, f[1], 56, y + 42, { size: 11.5, color: "#5a6675" });
+      arrow(ctx, 252, y + 27, 296, 185 - (1.5 - i) * 18);
+    });
+    box(ctx, 300, 130, 200, 110, "#fdf8ef", "#d9a514");
+    label(ctx, "档案库比对打分", 400, 162, { bold: true, size: 14, align: "center", color: "#a07114" });
+    label(ctx, "模板库：弹道目标 etc.", 400, 188, { size: 12, align: "center" });
+    label(ctx, "RecognitionMatcher", 400, 208, { size: 11, align: "center", color: "#9aa3ad" });
+    label(ctx, "每帧输出一个置信度", 400, 228, { size: 11.5, align: "center", color: "#5a6675" });
+    arrow(ctx, 502, 185, 556, 185);
+    // 置信度楼梯
+    label(ctx, "逐帧攒置信度（示意数值）", CX, 40, { bold: true, size: 14 });
+    line(ctx, CX, CY, CX, CY + CH, "#8a93a0", 1.5);
+    line(ctx, CX, CY + CH, CX + CW, CY + CH, "#8a93a0", 1.5);
+    [0.25, 0.5, 0.75].forEach(function (v) {
+      const y = CY + CH * (1 - v);
+      line(ctx, CX, y, CX + CW, y, "#e6eaee", 1);
+      label(ctx, v.toFixed(2), CX - 6, y + 4, { size: 11, align: "right", color: "#9aa3ad" });
+    });
+    const thY = CY + CH * (1 - TH);
+    ctx.save(); ctx.strokeStyle = "#b03a2e"; ctx.lineWidth = 1.6; ctx.setLineDash([7, 5]);
+    line(ctx, CX, thY, CX + CW, thY, "#b03a2e", 1.6, [7, 5]);
+    ctx.restore();
+    label(ctx, "识别门限 acceptance_score", CX + CW, thY - 8, { size: 12, align: "right", color: "#b03a2e", bold: true });
+    const slot = CW / scores.length;
+    const show = Math.min(fi, scores.length);
+    for (let i = 0; i < show; i++) {
+      const bh = CH * scores[i];
+      const bx = CX + i * slot + 6;
+      ctx.fillStyle = scores[i] >= TH ? "#2e9e5b" : "#7fb2d9";
+      ctx.fillRect(bx, CY + CH - bh, slot - 12, bh);
+      label(ctx, String(i + 1), CX + i * slot + slot / 2, CY + CH + 16, { size: 11, align: "center", color: "#9aa3ad" });
+    }
+    if (show > PASS) {
+      const px = CX + PASS * slot + slot / 2;
+      const py = CY + CH * (1 - scores[PASS]) - 16;
+      ctx.font = "18px sans-serif"; ctx.textAlign = "center"; ctx.fillStyle = "#c0392b";
+      ctx.fillText("★", px, py);
+    }
+    if (show >= scores.length) {
+      label(ctx, "第 7 帧过门限 → 上报「弹道目标」", CX + CW / 2, CY + 18, { bold: true, size: 13, align: "center", color: "#1f7a43" });
+    }
+    label(ctx, "单帧分低很正常——多帧积累投票（RecognitionTracker），攒够了才认。", CX, CY + CH + 42, { size: 13, align: "left", color: "#5a6675" });
+    label(ctx, "过门限之前：跟踪层照常跟住它，只是「还没认出来是谁」。", CX, CY + CH + 64, { size: 13, align: "left", color: "#8a93a0" });
+  }
+  ticker.on(draw5);
+})();
+
+/* 单图模式：#fig=N 时只显示第 N 张卡片（用于逐张导出/截图） */
+if (location.hash.indexOf("#fig=") === 0) {
+  const n = parseInt(location.hash.slice(5), 10) || 0;
+  document.querySelectorAll("h1, .intro").forEach(function (el) { el.style.display = "none"; });
+  document.querySelectorAll(".card").forEach(function (card, i) {
+    if (i !== n - 1) card.style.display = "none";
+  });
+}
+</script>
+</body>
+</html>
