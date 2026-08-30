@@ -1,5 +1,5 @@
 ---
-Status: draft
+Status: frozen
 Date: 2026-08-31
 Review-Baseline: `evidence/rir-tracking-realism` @ `d23d13cb`
 Authority: 非规范性记录；结论以 docs/common/contract.md、docs/common/session_contract.md
@@ -56,19 +56,46 @@ Authority: 非规范性记录；结论以 docs/common/contract.md、docs/common/
 3、真实化后弹道场景基线若无法完全回到 1362（诚实世界更难，重捕爬坡真实存在），冒烟门槛 1300 是否允许按新世界重标（届时带数据回来裁定）——先留问题，Stage C 一并回答。
 4、量测 velocity 字段本身：去真值后建议保留字段（填零）以稳定初始化签名与回放兼容，不做公开面删除——是否认可。
 
-## §3 冻结契约（用户讨论结束后填写）
+## §3 冻结契约
 
-<!-- 一行一项：
-1、允许范围：模块/目录、类/函数、测试与文档。
-2、明确禁止范围：公开头文件、跨模块类型、schema/回放、测试阈值、兼容层。
-3、行为边界：输入、输出、错误回退、生命周期。
-4、验收门：构建、聚焦测试、契约测试、特征化测试。
-5、非目标。
--->
+已证明的需求：
+1、量测 velocity 字段不得携带场景真值速度进滤波（真值泄漏，项 1 pass）。
+2、识别运动特征质量公式的参考方差按新口径世界重校准（项 3 pass）。
+3、新航迹初始化采用零速均值 + 速度无知先验 + 位置/速度结构化协方差（项 2 narrow 最小集）。
+
+允许范围：
+- 模块/目录：src/remote_identification_radar/（tracking/、runtime/、recognition/）、tests/unit/remote_identification_radar/、docs/remote_identification_radar/
+- 类/函数：RirTrackFilterConfig（加 initial_velocity_std_mps）、RirTrackFilter::Initialize（结构化协方差）、RirController 量测组装（velocity 置零）、MotionFeatureExtractor 质量参考方差（内部常量重标定）、对应单测
+- 测试/文档：上述单测新增/更新；docs/remote_identification_radar/algorithms.md 同步口径
+
+明确禁止范围：
+- 公开头文件：include/1q/ 不改（RirTrackMeasurement 结构不动、velocity 字段保留填零；识别质量参考以内部常量承载不加配置）
+- 跨模块：common/、AR、SAR 及其他模块不动
+- schema/回放：不动
+- 测试阈值/跳过：不放宽
+- 兼容层：不加
+
+行为边界：
+- 输入：场景/配置面不变（速度先验用缺省 3000 m/s，场景 json 如需覆盖走既有 tracking 配置段）
+- 输出：航迹速度首几拍从零收敛（真实爬坡期）；识别确认周期数变化，验收目标 ≥1300
+- 生命周期：建轨/失跟重捕后速度重新收敛（诚实语义，预期确认数低于旧作弊口径属正常）
+
+验收门：
+- 构建：llvm-ninja-release-local 零错误
+- 聚焦测试：ctest -R "unit::remote_identification_radar" 全绿
+- 全量：67 项全绿
+- 场景：弹道场景 rir_ground_site_recognition 识别确认周期 ≥1300；若诚实口径下达不到，带数据回 Stage A 裁定门槛重标（用户已预授权此路径）
+- 新增特征化测试：初始化不消费量测速度、协方差结构（位置/速度分置）、质量公式新口径
+
+非目标：
+- 关联门年龄特判代码（项 4 narrow：诚实先验实测不够时才回 Stage A 重议）
+- 过程噪声 q 校准（项 5 defer）
+- AR 侧同类问题对齐（用户已裁定 AR 后续专场）
+- 识别接受门 acceptance_score 阈值调整（除非场景数据证明必要——属回 Stage A 事项）
 
 ## 修订记录
 
-<!-- 编号条目（修订 1、修订 2……）：日期、裁定内容、来源（用户指令/新证据）；不静默改写既有条目。 -->
+修订 1、2026-08-31，用户对 §2 四个待裁定问题全部认可：1) 速度无知先验缺省 3000 m/s、场景可配；2) 质量重校准目标=确认数 ≥1300 且运动质量分布回旧世界形态，数值 Stage B 实验定；3) 诚实口径下达不到 1362 时冒烟门槛 1300 允许带数据回来重标；4) 量测 velocity 字段保留填零，不做公开面删除。来源：用户指令（会话裁定）。
 
 ## §4 运行记录（Stage C 后填写）
 
