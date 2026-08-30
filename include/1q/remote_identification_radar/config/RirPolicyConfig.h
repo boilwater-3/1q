@@ -51,7 +51,6 @@ namespace tracking {
 /** @brief 单目标 KF 跟踪策略（阶段 2-S S2）。 */
 struct ONEQ_API RirTrackingPolicyConfig {
   float kalman_noise_diff_coeff{1.0f};       /**< 连续白噪声加速度扩散系数 q（m/s²）。 */
-  float kalman_measurement_noise_std{10.0f}; /**< 缺省量测噪声标准差（m）。 */
 };
 
 }  // namespace tracking

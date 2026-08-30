@@ -693,8 +693,7 @@ flatbuffers::Offset<cfb::RirPolicyConfig> EncodePolicyConfig(
   const flatbuffers::Offset<cfb::RirAssociationPolicyConfig> association =
       cfb::CreateRirAssociationPolicyConfig(*builder, value.association.distance_gate_sigma);
   const flatbuffers::Offset<cfb::RirTrackingPolicyConfig> tracking =
-      cfb::CreateRirTrackingPolicyConfig(*builder, value.tracking.kalman_noise_diff_coeff,
-                                         value.tracking.kalman_measurement_noise_std);
+      cfb::CreateRirTrackingPolicyConfig(*builder, value.tracking.kalman_noise_diff_coeff);
   const flatbuffers::Offset<cfb::RirLifecyclePolicyConfig> lifecycle =
       cfb::CreateRirLifecyclePolicyConfig(
           *builder, value.lifecycle.confirm_hits, value.lifecycle.max_miss_before_lost,
@@ -736,8 +735,6 @@ void DecodePolicyConfig(const cfb::RirPolicyConfig* value, config::RirPolicyConf
   }
   if (value->tracking() != nullptr) {
     out->tracking.kalman_noise_diff_coeff = value->tracking()->kalman_noise_diff_coeff();
-    out->tracking.kalman_measurement_noise_std =
-        value->tracking()->kalman_measurement_noise_std();
   }
   if (value->lifecycle() != nullptr) {
     const cfb::RirLifecyclePolicyConfig* lifecycle = value->lifecycle();

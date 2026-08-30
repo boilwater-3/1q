@@ -292,14 +292,12 @@ session::RirIssueList ValidateRirSessionConfig(const RirSessionConfig& config) {
     }
   }
 
-  // 跟踪策略：KF 噪声参数有限且 > 0。
+  // 跟踪策略：KF 过程噪声参数有限且 > 0。
   {
     const RirTrackingPolicyConfig& tracking = config.policy.tracking;
-    if (!IsFinite(tracking.kalman_noise_diff_coeff) || tracking.kalman_noise_diff_coeff <= 0.0f ||
-        !IsFinite(tracking.kalman_measurement_noise_std) ||
-        tracking.kalman_measurement_noise_std <= 0.0f) {
+    if (!IsFinite(tracking.kalman_noise_diff_coeff) || tracking.kalman_noise_diff_coeff <= 0.0f) {
       PushIssue(&issues, session::codes::kTrackingPolicyInvalid, "policy.tracking",
-                "Kalman process/measurement noise parameters must be finite and positive.");
+                "Kalman process noise parameter must be finite and positive.");
     }
   }
 

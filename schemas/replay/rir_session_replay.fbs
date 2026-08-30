@@ -11,7 +11,7 @@
 // 所有标量字段使用 schema 默认值 0/false，编码侧总是写入真实值：解码后与 C++
 // 结构体默认值无关，回放建会话与录制会话逐字段一致。
 //
-// file_identifier: RIRD (RIR Config)
+// file_identifier: RIRE (RIR Config)
 
 namespace oneq.replay.remote_identification_radar.session.fb;
 
@@ -123,7 +123,6 @@ table RirAssociationPolicyConfig {
 
 table RirTrackingPolicyConfig {
   kalman_noise_diff_coeff:float;
-  kalman_measurement_noise_std:float;
 }
 
 table RirLifecyclePolicyConfig {
@@ -192,7 +191,10 @@ root_type RirSessionConfig;
 // v2（2026-08-30）：RirReceiverConfig 删除随迁未消费的 interference_observation_jn_gate_db
 // （J/N 门观测是 AR 接收链语义，RIR 未立项），scene_polarization 槽位前移——与此前
 // "RIRC" 载荷互不兼容，标识符升 RIRD 防静默误解码；项目未上线，无兼容分支。
-file_identifier "RIRD";
+// v3（2026-08-30）：RirTrackingPolicyConfig 删除全链未消费的 kalman_measurement_noise_std
+// （RIR 量测噪声恒走 SNR 误差模型动态 R，缺省 R 回退永不触发），标识符升 RIRE；
+// 项目未上线，无兼容分支。
+file_identifier "RIRE";
 
 // ---- runtime_config_patch 载荷 ----
 

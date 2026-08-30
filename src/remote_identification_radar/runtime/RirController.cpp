@@ -235,14 +235,12 @@ void RirController::UpdateRuntime(const config::RirMissionConfig& mission,
   lifecycle_config.model_count_hint = policy_.lifecycle.model_count_hint;
   tracking::RirTrackFilterConfig filter_config;
   filter_config.process_noise_diff_coeff = policy_.tracking.kalman_noise_diff_coeff;
-  filter_config.default_measurement_noise_std = policy_.tracking.kalman_measurement_noise_std;
   lifecycle_->UpdateConfig(lifecycle_config, filter_config);
 
   tracking::RirAssociationConfig association_config;
   const float sigma = std::max(0.0f, policy_.association.distance_gate_sigma);
   association_config.gate_threshold = sigma * sigma;
   association_config.kalman_noise_diff_coeff = policy_.tracking.kalman_noise_diff_coeff;
-  association_config.default_measurement_noise_std = policy_.tracking.kalman_measurement_noise_std;
   associator_.UpdateConfig(association_config);
 
   if (detector_ == nullptr) {

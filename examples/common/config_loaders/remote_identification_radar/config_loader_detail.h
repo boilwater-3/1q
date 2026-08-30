@@ -220,10 +220,6 @@ inline void LoadRirTrackingPolicy(const examples::JsonValue& j,
   if (j.Has("kalman_noise_diff_coeff")) {
     v->kalman_noise_diff_coeff = static_cast<float>(j["kalman_noise_diff_coeff"].AsDouble());
   }
-  if (j.Has("kalman_measurement_noise_std")) {
-    v->kalman_measurement_noise_std =
-        static_cast<float>(j["kalman_measurement_noise_std"].AsDouble());
-  }
 }
 
 inline void LoadRirLifecyclePolicy(const examples::JsonValue& j,
