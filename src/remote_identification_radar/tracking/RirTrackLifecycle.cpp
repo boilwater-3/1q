@@ -25,17 +25,18 @@ constexpr std::uint64_t kUnassociatedKey = 0U;
 constexpr float kMinimumAccelerationDtSec = 1.0e-6f;
 
 /**
- * @brief 对数等距 IMM 模型噪声差异系数（与 RirImmFilter 缺省口径同源：
- *        10^(i/(N-1))，低噪声到高噪声排列）。
+ * @brief 对数等距 IMM 模型噪声差异系数：以配置 q 为低端锚点，按
+ *        q·10^(i/(N-1)) 排列（低噪声到高噪声）；配置 q=1 时退化为
+ *        与 AR 缺省口径同源的 {1, 10, ...}。
  */
-std::vector<float> BuildDefaultImmNoiseDiffCoeffs(std::uint32_t model_count_hint) {
+std::vector<float> BuildImmNoiseDiffCoeffs(std::uint32_t model_count_hint, float base_q) {
   const std::size_t model_count =
       static_cast<std::size_t>(model_count_hint < 2U ? 2U : model_count_hint);
   std::vector<float> coeffs;
   coeffs.reserve(model_count);
   for (std::size_t i = 0U; i < model_count; ++i) {
-    coeffs.push_back(std::pow(10.0f, static_cast<float>(i) /
-                                         static_cast<float>(model_count - 1U)));
+    coeffs.push_back(base_q * std::pow(10.0f, static_cast<float>(i) /
+                                                   static_cast<float>(model_count - 1U)));
   }
   return coeffs;
 }
@@ -43,7 +44,7 @@ std::vector<float> BuildDefaultImmNoiseDiffCoeffs(std::uint32_t model_count_hint
 }  // namespace
 
 RirTrackLifecycle::RirTrackLifecycle(RirLifecycleConfig config, RirTrackFilterConfig filter_config)
-    : lifecycle_config_(config), filter_(filter_config),
+    : lifecycle_config_(config), filter_config_(filter_config), filter_(filter_config),
       imm_enabled_(config.enable_imm_lifecycle) {}
 
 void RirTrackLifecycle::Update(const RirCycleContext& cycle,
@@ -283,6 +284,7 @@ void RirTrackLifecycle::Reset() {
 void RirTrackLifecycle::UpdateConfig(RirLifecycleConfig lifecycle_config,
                                      RirTrackFilterConfig filter_config) {
   lifecycle_config_ = lifecycle_config;
+  filter_config_ = filter_config;
   imm_enabled_ = lifecycle_config.enable_imm_lifecycle;
   filter_.UpdateConfig(filter_config);
 
@@ -458,7 +460,8 @@ RirImmFilter::Config RirTrackLifecycle::BuildImmFilterConfig() const {
   RirImmFilter::Config imm_config;
   const std::uint32_t model_count_hint =
       lifecycle_config_.model_count_hint < 2U ? 2U : lifecycle_config_.model_count_hint;
-  imm_config.model_noise_diff_coeffs = BuildDefaultImmNoiseDiffCoeffs(model_count_hint);
+  imm_config.model_noise_diff_coeffs =
+      BuildImmNoiseDiffCoeffs(model_count_hint, filter_config_.process_noise_diff_coeff);
   imm_config.transition_diagonal_probability = 0.95f;
   return imm_config;
 }

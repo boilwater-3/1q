@@ -114,6 +114,20 @@ TEST(RirMotionFeatureExtractorTest, UnconfirmedTrackIsInvalid) {
   EXPECT_FALSE(observation.valid);
 }
 
+/// @brief 质量因子按三轴均值归一化：输入迹为三轴之和，参考方差 (100 m)² 是每轴
+///        口径——迹 30000（每轴均值 10000 = (100 m)²）应得质量 0.5。
+TEST(RirMotionFeatureExtractorTest, QualityNormalizesTracePerAxis) {
+  RirTrackState snapshot;
+  snapshot.status = RirTrackStatus::kConfirmed;
+  snapshot.speed = 250.0f;
+  snapshot.velocity.x() = 250.0f;
+
+  const recognition::RirMotionObservation observation =
+      recognition::RirMotionFeatureExtractor::Extract(snapshot, 0.0f, 30000.0f);
+  ASSERT_TRUE(observation.valid);
+  EXPECT_FLOAT_EQ(observation.quality, 0.5f);
+}
+
 TEST(RirPolarizationFeatureExtractorTest, MissingChannelInvalidatesDimension) {
   // 任一通道 RCS 缺失（样本列表为空）→ 维度无效。
   std::vector<RirPolarizationRcsSample> samples;

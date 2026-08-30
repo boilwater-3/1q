@@ -190,6 +190,10 @@ class RirController {
   /** @brief 最近一次识别库加载耗时（毫秒）；未加载过为 0。 */
   double LastDatabaseLoadMs() const { return last_database_load_ms_; }
 
+  /** @brief 由距离/角度量测误差构造笛卡尔量测协方差（纯函数；测试/诊断消费）。 */
+  static tracking::RirMeasurementCovariance MakeCartesianMeasurementCovariance(
+      const session::RirSceneTarget& target, float range_std_m, float angle_std_rad);
+
  private:
   struct RirResolvedRfCycle {
     bool resolved{false};
@@ -243,10 +247,6 @@ class RirController {
   /** @brief 计算平台相对位置（ENU 直角坐标，m）的视线角。 */
   static void LookAnglesFromPosition(const Eigen::Vector3f& position, float* look_az_deg,
                                      float* look_el_deg);
-
-  /** @brief 由距离/角度量测误差构造笛卡尔量测协方差。 */
-  static tracking::RirMeasurementCovariance MakeCartesianMeasurementCovariance(
-      const session::RirSceneTarget& target, float range_std_m, float angle_std_rad);
 
   /** @brief 在笛卡尔量测协方差下采样量测位置。 */
   tracking::RirTrackMeasurement SampleMeasurementPosition(

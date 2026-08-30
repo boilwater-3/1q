@@ -18,6 +18,7 @@ namespace {
 using tracking::RirCycleContext;
 using tracking::RirLifecycleConfig;
 using tracking::RirMeasurementCovariance;
+using tracking::RirTrackFilterConfig;
 using tracking::RirTrackLifecycle;
 using tracking::RirTrackMeasurement;
 using tracking::RirTrackSeed;
@@ -271,6 +272,25 @@ TEST(RirTrackLifecycleTest, AccelerationIsPosteriorVelocityFiniteDifference) {
 
   // 收敛：差分加速度逼近真值 4 m/s²，方向为正（旧种子差口径为负向虚高）。
   EXPECT_NEAR(lifecycle.FindTrack(9U)->acceleration.x(), 4.0f, 1.5f);
+}
+
+/// @brief IMM 模型集锚定滤波配置 q：模型 q = 配置 q 的对数等距张成
+///        （q=30 → {30, 300}），配置不再被缺省 {1,10} 覆盖（审计 A5）。
+TEST(RirTrackLifecycleTest, ImmModelSetAnchorsConfiguredProcessNoise) {
+  RirLifecycleConfig config;
+  config.confirm_hits = 1U;
+  RirTrackFilterConfig filter_config;
+  filter_config.process_noise_diff_coeff = 30.0f;
+  RirTrackLifecycle lifecycle(config, filter_config);
+
+  lifecycle.Update(MakeCycle(1U, 3001U), {MakeMeasurement(7U, 0.0f, 5.0f)});
+  lifecycle.Update(MakeCycle(2U, 3002U), {MakeMeasurement(7U, 5.0f, 5.0f, true)});
+
+  const tracking::RirImmFilter* imm = lifecycle.FindImmFilter(7U);
+  ASSERT_NE(imm, nullptr);
+  ASSERT_EQ(imm->ModelCount(), 2U);
+  EXPECT_NEAR(imm->model_noise_diff_coeffs()[0], 30.0f, 1e-3f);
+  EXPECT_NEAR(imm->model_noise_diff_coeffs()[1], 300.0f, 1e-3f);
 }
 
 /// @brief 滑行（失配）后重命中：加速度差分按距上次命中的实际经过时间

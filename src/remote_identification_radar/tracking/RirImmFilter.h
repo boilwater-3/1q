@@ -56,6 +56,9 @@ class RirImmFilter {
   /** @return 模型数；惰性状态为 0。 */
   std::size_t ModelCount() const { return filter_ != nullptr ? model_count_ : 0U; }
 
+  /** @return 各模型 CV 过程噪声差异系数（低噪声到高噪声；诊断/测试消费）。 */
+  const std::vector<float>& model_noise_diff_coeffs() const { return model_noise_diff_coeffs_; }
+
   /**
    * @brief 以初始高斯状态播种各模型分支（权重保持当前值）。
    * @param initial_state 初始状态（新航迹/滤波重置时刻的 CV 初始化）。
@@ -93,6 +96,7 @@ class RirImmFilter {
 
  private:
   std::size_t model_count_{0U};
+  std::vector<float> model_noise_diff_coeffs_{}; /**< 解析后的各模型 q（含缺省回填）。 */
   std::vector<::oneq::common::estimation::KalmanPredictor<6, 3>> predictors_{};
   std::vector<::oneq::common::estimation::KalmanUpdater<6, 3>> updaters_{};
   std::unique_ptr<ImmFilterT> filter_{};

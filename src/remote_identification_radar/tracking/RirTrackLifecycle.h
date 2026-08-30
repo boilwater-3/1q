@@ -170,6 +170,7 @@ class RirTrackLifecycle {
   void RecycleTrack(RirTrackState* track);
 
   RirLifecycleConfig lifecycle_config_{};
+  RirTrackFilterConfig filter_config_{}; /**< 滤波器配置副本（IMM 模型集锚定其 q）。 */
   RirTrackFilter filter_;
   RirTrackPool pool_{};
   std::map<std::uint64_t, RirTrackState*> tracks_;

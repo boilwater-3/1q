@@ -392,16 +392,17 @@ tracking::RirMeasurementCovariance RirController::MakeCartesianMeasurementCovari
 
   Eigen::Matrix3f jacobian = Eigen::Matrix3f::Zero();
   if (range_hypot > 1.0f) {
-    const float range_sq = range_m * range_m;
+    // 列含义：∂ENU/∂(r, az, el)。仰角列=(−xz/rh, −yz/rh, rh)，模长=斜距 r
+    // （m/rad）；历史实现整列多除 r²，仰角贡献按 1/r⁴ 坍缩（审计 A4）。
     jacobian(0, 0) = position.x() / range_m;
     jacobian(0, 1) = -position.y();
-    jacobian(0, 2) = -position.x() * position.z() / (range_sq * range_hypot);
+    jacobian(0, 2) = -position.x() * position.z() / range_hypot;
     jacobian(1, 0) = position.y() / range_m;
     jacobian(1, 1) = position.x();
-    jacobian(1, 2) = -position.y() * position.z() / (range_sq * range_hypot);
+    jacobian(1, 2) = -position.y() * position.z() / range_hypot;
     jacobian(2, 0) = position.z() / range_m;
     jacobian(2, 1) = 0.0f;
-    jacobian(2, 2) = range_hypot / range_sq;
+    jacobian(2, 2) = range_hypot;
   } else {
     jacobian(0, 0) = position.x() / range_m;
     jacobian(0, 2) = position.x() / range_m;

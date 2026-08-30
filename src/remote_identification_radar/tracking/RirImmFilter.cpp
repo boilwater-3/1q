@@ -57,6 +57,7 @@ RirImmFilter::RirImmFilter(const Config& config) {
     model_count_ = 0U;
     return;
   }
+  model_noise_diff_coeffs_ = coeffs;
 
   const std::size_t model_count = coeffs.size();
   predictors_.resize(model_count);
@@ -133,6 +134,7 @@ bool RirImmFilter::UpdateRuntimeTuning(const Config& config) {
     predictor_ptrs.push_back(&predictors_[i]);
     updater_ptrs.push_back(&updaters_[i]);
   }
+  model_noise_diff_coeffs_ = coeffs;
   return filter_->UpdateRuntimeTuning(
       BuildImmConfig(config.transition_diagonal_probability, model_count_), predictor_ptrs,
       updater_ptrs);

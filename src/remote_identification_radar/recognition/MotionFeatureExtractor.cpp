@@ -52,8 +52,9 @@ RirMotionObservation RirMotionFeatureExtractor::Extract(const tracking::RirTrack
   }
 
   // 质量因子：估计不确定度越小质量越高（D2：P 的 position 分块迹作本源信号）。
-  const float uncertainty_norm = std::max(0.0f, estimation_uncertainty_trace);
-  observation.quality = Clamp01(10000.0f / (10000.0f + uncertainty_norm));
+  // 迹按三轴取均值归一化到每轴方差，与参考方差 (100 m)² 量纲口径一致。
+  const float per_axis_variance = std::max(0.0f, estimation_uncertainty_trace) / 3.0f;
+  observation.quality = Clamp01(10000.0f / (10000.0f + per_axis_variance));
   return observation;
 }
 
