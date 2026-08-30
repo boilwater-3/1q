@@ -289,15 +289,17 @@ void WriteRirDetectionChain(const RirDetectionAcceptInput& input) {
              has_bank ? FormatSci(bank.mtd_equivalent_noise_w) + "W" : std::string());
   Emit(t, cycle, "噪声增益功能测试", id_sp + "噪声总增益=" + FormatF(noise_db, 3) + "dB");
 
-  // 验收判定标准 第34项：杂波——只写 MTI 剩余与 MTD 通道分布（抑制比/总抑制
-  // 增益为派生量，不写）。
-  if (input.has_cell) {
+  // 验收判定标准 第34项：杂波——植被 kDisabled（clutter_power_w=0）时整条省略；
+  // 有杂波时只写 MTI 剩余与 MTD 通道分布（抑制比/总抑制增益为派生量，不写）。
+  const bool has_clutter = input.has_cell && clutter > 0.0;
+  if (has_clutter) {
     Emit(t, cycle, "杂波信号处理增益功能测试",
          id_sp + "MTI处理后杂波剩余功率=" +
              FormatSci(has_bank ? bank.mti_residual_clutter_w : mti_residual) + "W");
   }
   EmitOrNone(t, cycle, "杂波信号处理增益功能测试", id_sp + "MTD各多普勒通道杂波剩余功率分布=",
-             has_bank, has_bank ? FormatChannelWatts(bank.clutter_w) + "W" : std::string());
+             has_clutter && has_bank,
+             has_clutter && has_bank ? FormatChannelWatts(bank.clutter_w) + "W" : std::string());
 
   // 验收判定标准 第35项：干扰——只写 MTI 剩余与 MTD 通道分布；无外部干扰单音时
   // 整条省略（抑制比/总抑制增益不写；CFAR 统计归第 36 项）。
