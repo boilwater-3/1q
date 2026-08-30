@@ -569,13 +569,13 @@
           "scene_polarization": "kHorizontal"
         },
         "signal_processing": {
-          "target_processing_gain_db": 0.0,
-          "noise_processing_gain_db": 0.0,
-          "clutter_suppression_gain_db": 0.0,
-          "jamming_suppression_gain_db": 0.0
+          "target_processing_gain_db": 3.0,
+          "noise_processing_gain_db": 1.0,
+          "clutter_suppression_gain_db": 10.0,
+          "jamming_suppression_gain_db": 8.0
         },
         "rcs_physics": {
-          "enable_physical_rcs": true,
+          "enable_physical_rcs": false,
           "physics_mix_ratio": 1.0,
           "cylinder_weight": 0.5,
           "min_equivalent_radius_m": 0.05,
