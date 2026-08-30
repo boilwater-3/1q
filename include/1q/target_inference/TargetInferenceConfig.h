@@ -16,7 +16,10 @@ namespace target_inference {
 /**
  * @brief 目标推演配置。
  * @note 弹道模型为中心引力 + 可选指数大气阻力（ballistic coefficient ≤ 0 关闭）；
- *       助推段未建模——发射点定义为回推弹道与地表交点（见 algorithms.md 边界）。
+ *       助推段未建模——发射点定义为回推弹道的大气界面停机点（回推状态高度
+ *       降至 launch_atmosphere_interface_altitude_m 即停机；关机前目标不 estimable，
+ *       停机点即"助推段上界"估计），发射点 1σ 含随回推时长线性增长的模型误差项
+ *       （见 algorithms.md 边界）。
  */
 struct ONEQ_API TargetInferenceConfig {
   double earth_mu_m3_per_s2{3.986004418e14}; /**< 地球引力参数（单位：m³/s²）。 */
@@ -26,6 +29,8 @@ struct ONEQ_API TargetInferenceConfig {
   double waypoint_interval_sec{10.0};        /**< 航迹点输出间隔（单位：s）。 */
   double launch_speed_threshold_m_per_s{30.0}; /**< 回推速度停机门（单位：m/s）。 */
   double launch_max_backtrack_sec{900.0};    /**< 回推时长上限（单位：s）。 */
+  double launch_atmosphere_interface_altitude_m{100000.0}; /**< 回推大气界面停机高度（单位：m）；回推状态地心高低于该值即停机，发射点估计=停机点（助推段未建模的物理停机门）。 */
+  double launch_model_error_rate_m_per_s{50.0}; /**< 发射点模型误差增长率（单位：m/s）；1σ 主项=该速率×回推时长（助推段/模型未建模误差随回推时长增长）。 */
   double drag_ballistic_coefficient_m2_per_kg{0.0}; /**< 弹道系数（≤ 0 关闭阻力）。 */
   double kinematic_type_weight{0.5};         /**< 运动学先验 vs 外部证据的融合权重。 */
   double high_energy_speed_threshold_m_per_s{1200.0}; /**< 高能量速度门（单位：m/s）。 */

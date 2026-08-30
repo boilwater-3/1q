@@ -243,7 +243,8 @@ std::vector<TargetInferenceResult> TargetInferenceEngine::Infer(
         }
       }
 
-      /* ---- 发射点回推（地表交点或速度停机门；助推段未建模） ---- */
+      /* ---- 发射点回推（大气界面停机门/地表交点/速度停机门；助推段未建模，
+              停机点即"助推段上界"估计） ---- */
       auto backtrack = [this, dt](const RvState& start, double* elapsed, bool* hit_surface) {
         RvState state = start;
         double t = 0.0;
@@ -267,6 +268,13 @@ std::vector<TargetInferenceResult> TargetInferenceEngine::Infer(
             *hit_surface = true;
             *elapsed = -(t + frac * dt);
             return launch;
+          }
+          // 大气界面停机门：回推状态地心高降至界面高度即停——继续回推将进入
+          // 助推段（推力未建模），弹道外推发散（审计 A7）。
+          if (r_next - config_.earth_radius_m <=
+              config_.launch_atmosphere_interface_altitude_m) {
+            *elapsed = -(t + dt);
+            return next;
           }
           if (Norm3(next.v) <= config_.launch_speed_threshold_m_per_s) {
             *elapsed = -(t + dt);
@@ -330,15 +338,22 @@ std::vector<TargetInferenceResult> TargetInferenceEngine::Infer(
                 (perturbed_out[i] - nominal_out[i]) / (perturbed_in[j] - nominal_in[j]);
           }
         }
-        /* launch_cov = J·P·Jᵀ；取位置对角最大者为 1-σ。 */
+        /* launch_cov = J·P·Jᵀ；位置对角再叠加随回推时长线性增长的模型误差主项
+           （助推段/模型未建模误差：σ_model = rate × 回推时长，审计 A7）。 */
         std::array<double, 36U> jt{};
         for (std::size_t i = 0U; i < 6U; ++i) {
           for (std::size_t j = 0U; j < 6U; ++j) {
             jt[j * 6U + i] = sensitivity[i * 6U + j];
           }
         }
-        const std::array<double, 36U> launch_cov =
+        std::array<double, 36U> launch_cov =
             Multiply6x6(Multiply6x6(sensitivity, track.covariance_ecef), jt);
+        const double model_variance =
+            config_.launch_model_error_rate_m_per_s * config_.launch_model_error_rate_m_per_s *
+            launch_elapsed * launch_elapsed;
+        for (std::size_t i = 0U; i < 6U; i += 2U) {
+          launch_cov[i * 6U + i] += model_variance;
+        }
         result.trajectory.launch_covariance_ecef = launch_cov;
         double max_position_variance = 0.0;
         for (std::size_t i = 0U; i < 6U; i += 2U) {

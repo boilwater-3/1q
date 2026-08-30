@@ -265,7 +265,7 @@ TEST(TargetInferenceEngineTest, BallisticPredictionConservesEnergy) {
   }
 }
 
-TEST(TargetInferenceEngineTest, LaunchBacktrackReachesGroundAndImpactResolves) {
+TEST(TargetInferenceEngineTest, LaunchBacktrackStopsAtAtmosphereInterfaceAndImpactResolves) {
   // 150 km + 1.5 km/s 水平的椭圆弹道落 地表约需 600+ s：测试时域放宽到 900 s。
   TargetInferenceConfig config;
   config.prediction_horizon_sec = 900.0;
@@ -276,8 +276,20 @@ TEST(TargetInferenceEngineTest, LaunchBacktrackReachesGroundAndImpactResolves) {
 
   ASSERT_TRUE(trajectory.has_launch);
   EXPECT_LT(trajectory.launch_time_offset_sec, 0.0);
-  EXPECT_NEAR(trajectory.launch_point.altitude_m, 0.0, 5000.0)
-      << "launch point should sit on the surface";
+  // 大气界面停机门（缺省 100 km）：助推段未建模，回推到界面即停，
+  // 发射点估计=停机点（"助推段上界"），不再回推到地表。
+  EXPECT_NEAR(trajectory.launch_point.altitude_m,
+              config.launch_atmosphere_interface_altitude_m, 5000.0)
+      << "launch estimate should stop at the atmosphere interface";
+
+  // 关停机门（界面高度 ≤ 0）恢复旧口径：回推到地表交点。
+  TargetInferenceConfig surface_config = config;
+  surface_config.launch_atmosphere_interface_altitude_m = 0.0;
+  TargetInferenceEngine surface_engine(surface_config);
+  const auto surface_results = surface_engine.Infer({MakeBallisticMidcourse()});
+  ASSERT_TRUE(surface_results.front().trajectory.has_launch);
+  EXPECT_NEAR(surface_results.front().trajectory.launch_point.altitude_m, 0.0, 5000.0)
+      << "gate disabled: back-prop must reach the surface as before";
 
   // 中段水平速度 1.5 km/s @150 km：弧长远大于地平线盲区，预测时域内应出落点。
   EXPECT_TRUE(trajectory.has_impact);
@@ -285,6 +297,37 @@ TEST(TargetInferenceEngineTest, LaunchBacktrackReachesGroundAndImpactResolves) {
     EXPECT_GT(trajectory.impact_time_offset_sec, 0.0);
     EXPECT_NEAR(trajectory.impact_point.altitude_m, 0.0, 5000.0);
   }
+}
+
+TEST(TargetInferenceEngineTest, LaunchBacktrackInputBelowInterfaceStopsImmediately) {
+  TargetInferenceEngine engine(TargetInferenceConfig{});
+  InferenceTrackState low = MakeBallisticMidcourse();
+  low.position = oneq::coordinate::EcefPositionM(kEarthRadiusM + 50000.0, 0.0, 0.0);
+  low.velocity_ecef_m_per_s = {0.0, 800.0, 0.0};
+
+  const auto results = engine.Infer({low});
+  ASSERT_TRUE(results.front().trajectory.valid);
+  ASSERT_TRUE(results.front().trajectory.has_launch);
+  // 输入已在界面以下（关机前/低空）：回推一步即停，停机点仍在输入附近。
+  EXPECT_NEAR(results.front().trajectory.launch_point.altitude_m, 50000.0, 10000.0);
+}
+
+TEST(TargetInferenceEngineTest, LaunchSigmaGrowsWithLookbackModelTerm) {
+  TargetInferenceConfig no_growth;
+  no_growth.launch_model_error_rate_m_per_s = 0.0;
+  TargetInferenceEngine engine_plain(no_growth);
+  TargetInferenceEngine engine_growth(TargetInferenceConfig{});
+  const auto plain = engine_plain.Infer({WithCovariance(MakeBallisticMidcourse(), 100.0, 1.0)});
+  const auto grown = engine_growth.Infer({WithCovariance(MakeBallisticMidcourse(), 100.0, 1.0)});
+  ASSERT_TRUE(plain.front().trajectory.has_uncertainty);
+  ASSERT_TRUE(grown.front().trajectory.has_uncertainty);
+
+  // 模型误差项 = rate × 回推时长：缺省 50 m/s × 界面停机回推时长，
+  // 1σ 必须显著大于仅 J·P·Jᵀ 的预算（审计 A7：1σ 不再恒定虚小）。
+  EXPECT_GT(grown.front().trajectory.launch_position_sigma_m,
+            plain.front().trajectory.launch_position_sigma_m)
+      << "model-error term must inflate the launch budget";
+  EXPECT_GT(grown.front().trajectory.launch_position_sigma_m, 1000.0);
 }
 
 TEST(TargetInferenceEngineTest, UncertaintyBudgetScalesWithInputCovariance) {
