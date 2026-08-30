@@ -56,12 +56,14 @@ class DecisionListener {
  *  - kEngageHighThreat / kDesignateTarget：AR 切 STT + 指定目标（限时窗口），
  *    RIR（若挂载）同步指定识别；
  *  - kClearDesignation：两传感器清除指定，AR 回扫描模式（示例配置基线 kTas）；
- *  - kEnableAntiFalseTarget：纯日志演示（无库接口，路由器不执行）。
+ *  - kEnableAntiFalseTarget：纯日志演示（无库接口），路由器以"受理"终态收口
+ *    （command_executed 处置=受理），计入执行数。
  *
  * 键解析（融合键 → 外部目标 ID）：融合键直挂场景目标 ID（RIR 通道/场景脚本
  * 指令）直接用；否则为 AR 内部 association_key，经 AR 组件最近成功周期的
  * 航迹归属表（last_track_attributions）翻译；均失败则记 command_dropped
- * 事件跳过（守已知边界，不做兜底猜测）。
+ * 事件跳过（守已知边界，不做兜底猜测）。任意指令必有终态沿：
+ * 指令下发数 = 执行数 + 丢弃数。
  */
 class CommandRouter {
  public:
@@ -74,7 +76,7 @@ class CommandRouter {
   CommandRouter(World& world, ArSensorComponent* ar, RirSensorComponent* rir,
                 const std::vector<ScriptedTarget>& scene_targets);
 
-  /** @brief 已执行指令数（下发补丁的；结束摘要用）。 */
+  /** @brief 已执行指令数（下发补丁或演示受理的；结束摘要用）。 */
   std::uint32_t executed_count() const { return executed_; }
 
   /** @brief 未执行指令数（键无法解析或无传感器可下发）。 */

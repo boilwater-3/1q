@@ -140,8 +140,19 @@ std::uint64_t CommandRouter::ResolveExternalTargetId(std::uint64_t target_key) c
 
 void CommandRouter::OnCommand(const CommandIssuedEvent& event) {
   switch (event.kind) {
-    case CommandKind::kEnableAntiFalseTarget:
-      return;  // 纯日志演示指令：无库运行期接口，路由器不执行
+    case CommandKind::kEnableAntiFalseTarget: {
+      // 纯日志演示指令（无库运行期接口）：路由器以"受理"终态收口并计入执行数，
+      // 保证 指令下发数 = 执行数 + 丢弃数 恒闭合（不留无终态沿的指令）。
+      ++executed_;
+      // 与下方写入行同内容：纯 std::string/std::to_string 拼接的日志字符串，供集成方直接搬入己方日志（示例自身不消费）。
+      const std::string command_executed_event_log =
+          std::string("指令=") +
+          (event.command.c_str()) +
+          " 处置=受理(纯日志演示,无库接口)";
+      CA_LOG_EVENT(world_, "command_executed", "指令={} 处置=受理(纯日志演示,无库接口)",
+                   event.command.c_str());
+      return;
+    }
     case CommandKind::kEngageHighThreat:
     case CommandKind::kDesignateTarget: {
       const std::uint64_t external_id = ResolveExternalTargetId(event.target_key);
