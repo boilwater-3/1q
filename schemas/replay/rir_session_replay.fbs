@@ -11,7 +11,7 @@
 // 所有标量字段使用 schema 默认值 0/false，编码侧总是写入真实值：解码后与 C++
 // 结构体默认值无关，回放建会话与录制会话逐字段一致。
 //
-// file_identifier: RIRC (RIR Config)
+// file_identifier: RIRD (RIR Config)
 
 namespace oneq.replay.remote_identification_radar.session.fb;
 
@@ -61,7 +61,6 @@ table RirReceiverConfig {
   receive_loss_db:float;
   cross_polarization_isolation_db:float;
   maximum_linear_input_power_w:float;
-  interference_observation_jn_gate_db:float;
   scene_polarization:int;  // oneq::electromagnetics::RfScenePolarization
 }
 
@@ -190,7 +189,10 @@ table RirSessionConfig {
 }
 
 root_type RirSessionConfig;
-file_identifier "RIRC";
+// v2（2026-08-30）：RirReceiverConfig 删除随迁未消费的 interference_observation_jn_gate_db
+// （J/N 门观测是 AR 接收链语义，RIR 未立项），scene_polarization 槽位前移——与此前
+// "RIRC" 载荷互不兼容，标识符升 RIRD 防静默误解码；项目未上线，无兼容分支。
+file_identifier "RIRD";
 
 // ---- runtime_config_patch 载荷 ----
 

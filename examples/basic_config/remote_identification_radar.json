@@ -28,7 +28,6 @@
       "receive_loss_db": 2.0,
       "cross_polarization_isolation_db": 30.0,
       "maximum_linear_input_power_w": 0.001,
-      "interference_observation_jn_gate_db": 6.0,
       "scene_polarization": "kHorizontal"
     },
     "signal_processing": {

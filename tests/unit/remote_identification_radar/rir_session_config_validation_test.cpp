@@ -116,7 +116,7 @@ TEST(RirSessionConfigValidationTest, ValidatesReceiverRfHardwareBoundary) {
                        session::codes::kReceiverRfHardwareInvalid));
 
   session_config.hardware.receiver.maximum_linear_input_power_w = 1.0e-3f;
-  session_config.hardware.receiver.interference_observation_jn_gate_db =
+  session_config.hardware.receiver.cross_polarization_isolation_db =
       std::numeric_limits<float>::quiet_NaN();
   EXPECT_TRUE(HasCode(ValidateRirSessionConfig(session_config),
                        session::codes::kReceiverRfHardwareInvalid));

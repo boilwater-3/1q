@@ -93,8 +93,7 @@ void ValidateRirHardwareConfig(const RirHardwareConfig& hardware, session::RirIs
   if (!oneq::common::validation::IsFinite(receiver.cross_polarization_isolation_db) ||
       receiver.cross_polarization_isolation_db < 0.0f ||
       !oneq::common::validation::IsFinite(receiver.maximum_linear_input_power_w) ||
-      receiver.maximum_linear_input_power_w <= 0.0f ||
-      !oneq::common::validation::IsFinite(receiver.interference_observation_jn_gate_db)) {
+      receiver.maximum_linear_input_power_w <= 0.0f) {
     PushIssue(issues, session::codes::kReceiverRfHardwareInvalid, "hardware.receiver",
               "Receiver RF isolation and linear input limit must be valid.");
   }

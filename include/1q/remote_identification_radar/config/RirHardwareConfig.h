@@ -91,7 +91,6 @@ struct ONEQ_API RirReceiverConfig {
   float receive_loss_db{2.0f};    /**< 接收链路损耗。 */
   float cross_polarization_isolation_db{30.0f}; /**< 正交极化隔离（dB）。 */
   float maximum_linear_input_power_w{1.0e-3f};  /**< 线性接收上限（W）。 */
-  float interference_observation_jn_gate_db{6.0f}; /**< 干扰观测发布 J/N 门限（dB）。 */
   oneq::electromagnetics::RfScenePolarization scene_polarization{
       oneq::electromagnetics::RfScenePolarization::kHorizontal}; /**< RF v2 接收极化。 */
 };
