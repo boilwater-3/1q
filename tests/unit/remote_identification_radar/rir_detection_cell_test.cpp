@@ -307,6 +307,48 @@ TEST(RirDetectionCellTest, ScanStrategyRejectedByConfigValidation) {
   EXPECT_TRUE(issues.empty());
 }
 
+/// @brief 甲方探测距离硬指标（2026-08-30 口径）：峰值功率 582 kW、天线增益 52 dBi、
+///        脉宽 16 ms、积累 1 脉冲下——3400 km 探测 0.025 m²、8550 km 探测 1 m²。
+///        两指标点为未计外部干扰的底数，干净链路须高出 6 dB kSnrFallback 判决门
+///        ≥3 dB（干扰余量）。参数镜像弹道场景发射/接收链（3 GHz、B=4.5 MHz、
+///        发射损耗 3.5 dB、接收损耗 2 dB、噪系数 4 dB、产品缺省处理增益 3/1/10/8）。
+TEST(RirDetectionCellTest, CustomerDetectionRangeRequirementsHoldWithMargin) {
+  // 辐射峰值功率 = 582 kW 扣 3.5 dB 发射损耗（与 RirEmissionFactory 同口径）。
+  const double radiated_peak_power_w = 582.0e3 * std::pow(10.0, -3.5 / 10.0);
+
+  RirDetectionCellConfig config;
+  ASSERT_TRUE(oneq::electromagnetics::TryCreateRfPulseTrainWaveform(
+      0.0, 3.0e9, 4.5e6, radiated_peak_power_w, 0.016, 0.1, 1U, 0.0, 1U, 0U,
+      &config.own_transmit_waveform));
+  config.receive_window_start_time_s = 0.0;
+  config.receive_window_duration_s = 1.0;
+  config.matched_filter_bandwidth_hz = 4.5e6;
+  config.one_way_antenna_gain_dbi = 52.0;
+  config.receiver_loss_db = 2.0;
+  config.receiver_noise_figure_db = 4.0;
+
+  struct SpecPoint {
+    double range_m;
+    double rcs_m2;
+  };
+  const SpecPoint spec_points[] = {{3.4e6, 0.025}, {8.55e6, 1.0}};
+  for (const SpecPoint& point : spec_points) {
+    RirDetectionCellTarget target;
+    target.range_m = point.range_m;
+    target.rcs_m2 = point.rcs_m2;
+    target.closing_radial_velocity_mps = 1000.0;
+    target.effective_pulse_count = 1U;
+
+    RirDetectionCellResult cell;
+    ASSERT_TRUE(TryResolveRirDetectionCell(config, target, kOwnIdentity, {}, 0.0, &cell))
+        << "range=" << point.range_m;
+    // 判决门 6 dB + 3 dB 外部干扰余量。
+    EXPECT_GE(cell.processed_single_pulse_sinr_db, 9.0)
+        << "range=" << point.range_m << " rcs=" << point.rcs_m2
+        << " sinr_db=" << cell.processed_single_pulse_sinr_db;
+  }
+}
+
 }  // namespace
 }  // namespace tests
 }  // namespace remote_identification_radar
