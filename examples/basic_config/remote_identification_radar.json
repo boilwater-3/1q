@@ -10,11 +10,11 @@
       "transmit_loss_db": 3.5
     },
     "antenna": {
-      "main_beam_gain_db": 46.0,
-      "nominal_az_beamwidth_deg": 0.8,
-      "nominal_el_beamwidth_deg": 0.8,
-      "antenna_length_m": 1.2,
-      "antenna_width_m": 1.2,
+      "main_beam_gain_db": 52.0,
+      "nominal_az_beamwidth_deg": 0.4,
+      "nominal_el_beamwidth_deg": 0.4,
+      "antenna_length_m": 17.5,
+      "antenna_width_m": 17.5,
       "model_type": "kGaussianMainLobe",
       "max_sidelobe_level_db": -20.0,
       "backlobe_level_db": -35.0,
