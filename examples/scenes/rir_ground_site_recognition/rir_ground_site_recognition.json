@@ -156,7 +156,7 @@
     "min_sbirs_events": 0,
     "min_sar_products": 0,
     "min_fused_targets": 5,
-    "min_rir_recognition_outputs": 1300
+    "min_rir_recognition_outputs": 700
   },
   "session_config": {
     "ar": {

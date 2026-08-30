@@ -178,11 +178,14 @@ std::vector<remote_identification_radar::session::RirSceneTarget> MakeRirSceneTa
     target.rcs = state.rcs;
     target.target_swerling_type = rir::RirSwerlingType::kSwerling0;
     if (state.has_rir_features) {
-      // 特征真值铺样（仿集成测试配方）：视角网格方位 ±5°/步 5°、俯仰 5°~30°/步
-      // 10°，RCS 恒为脚本标量；散射器逐条透传。极化仅在场景显式给值时铺样——
-      // 缺省 0 dBsm 不是"未提供"（合法物理值），无值硬铺会把错误极化维带进
-      // 识别匹配（实测拖低综合分致长时间无法确认）。
-      for (float az = -5.0f; az <= 5.0f; az += 5.0f) {
+      // 特征真值铺样（仿集成测试配方）：视角网格方位 ±10°/步 5°、俯仰 5°~30°/步
+      // 10°，RCS 恒为脚本标量；散射器逐条透传。方位 ±5°（跨度 10°）时特征库
+      // 带视角覆盖门槛的模板（如 BALLISTIC_EXAMPLE_B 要求 15°）的 RCS 维被判
+      // 无效、best 落到无门槛干扰模板上贴门漂移（2026-08-31 rir-tracking-realism
+      // 修订 2 定位）；扩到 ±10°（跨度 20°）覆盖门槛。极化仅在场景显式给值时
+      // 铺样——缺省 0 dBsm 不是"未提供"（合法物理值），无值硬铺会把错误极化维
+      // 带进识别匹配（实测拖低综合分致长时间无法确认）。
+      for (float az = -10.0f; az <= 10.0f; az += 5.0f) {
         for (float el = 5.0f; el <= 30.0f; el += 10.0f) {
           rir::RirAspectRcsSample aspect;
           aspect.aspect_az_deg = az;
