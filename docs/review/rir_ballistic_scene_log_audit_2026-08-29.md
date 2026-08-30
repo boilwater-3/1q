@@ -1,5 +1,6 @@
 ---
-Status: audit-complete（三路子代理交叉审计，发现未经修复）
+Status: final
+Completed: 2026-08-29（三路子代理交叉审计完成；审计发现尚未修复，修复另行跟踪）
 Date: 2026-08-29
 Scope: rir_ground_site_recognition 2300 周期记录运行全量日志（弹道场景首次落地验证）
 Method: 三路子代理分域审计（RIR 探测物理链 / 跟踪滤波与运动学 / 其他通道与跨文件一致性），关键指控经人工代码复核（量测协方差雅可比 RirController.cpp:335-362 已亲验属实）

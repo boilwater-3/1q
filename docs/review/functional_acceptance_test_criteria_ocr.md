@@ -1,5 +1,6 @@
 ---
-Status: reference
+Status: final
+Role: reference（验收判定标准 OCR 存档，内容随源截图冻结）
 Date: 2026-08-27
 Source: 用户提供的验收测试规范截图（OCR 整理）
 Retrieval: 2026-08-27 对照 `src/**/AcceptanceRecords*.cpp`、`acceptance_log_mapping_2026-08-24.md`

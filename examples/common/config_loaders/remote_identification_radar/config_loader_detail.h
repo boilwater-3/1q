@@ -91,10 +91,6 @@ inline void LoadRirReceiver(const examples::JsonValue& j,
     v->maximum_linear_input_power_w =
         static_cast<float>(j["maximum_linear_input_power_w"].AsDouble());
   }
-  if (j.Has("interference_observation_jn_gate_db")) {
-    v->interference_observation_jn_gate_db =
-        static_cast<float>(j["interference_observation_jn_gate_db"].AsDouble());
-  }
   if (j.Has("scene_polarization")) {
     v->scene_polarization = RfScenePolarizationFromString(j["scene_polarization"].AsString());
   }

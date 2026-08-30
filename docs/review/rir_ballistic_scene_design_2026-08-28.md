@@ -1,5 +1,6 @@
 ---
-Status: implemented（2026-08-28 场景三件套落地，运行验证回填见 §7）
+Status: final
+Completed: 2026-08-28（场景三件套落地，运行验证回填见 §7）
 Date: 2026-08-28
 Authority: 场景设计（rir_ground_site_recognition 重新指定）
 Sources:

@@ -7,6 +7,7 @@
 #   - common uses the approved common-document set (contract.md + open_questions.md + usage.md)
 #   - review uses draft Markdown files only, with no nested directory tree
 #   - practice holds flat active-status Markdown for engineering/infra topics
+#   - explainers holds flat HTML explainer pages (canvas figures); no content rules yet
 #   - top-level loose Markdown files and legacy archive/migration folders do not reappear
 #
 # Per docs/common/contract.md §文档结构, each business module keeps a design-doc
@@ -45,7 +46,8 @@ set(ALLOWED_DOC_DIRS
     "sbirs_sensor"
     "threat_assessment"
     "target_inference"
-    "precision_evaluation")
+    "precision_evaluation"
+    "explainers")
 
 set(BUSINESS_MODULE_DIRS
     "airborne_radar"

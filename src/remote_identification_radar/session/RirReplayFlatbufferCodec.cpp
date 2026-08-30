@@ -569,7 +569,6 @@ flatbuffers::Offset<cfb::RirHardwareConfig> EncodeHardwareConfig(
       *builder, value.receiver.equipment_id, value.receiver.noise_figure_db,
       value.receiver.receive_loss_db, value.receiver.cross_polarization_isolation_db,
       value.receiver.maximum_linear_input_power_w,
-      value.receiver.interference_observation_jn_gate_db,
       static_cast<int>(value.receiver.scene_polarization));
 
   const flatbuffers::Offset<cfb::RirRcsPhysicsConfig> rcs_physics =
@@ -626,8 +625,6 @@ void DecodeHardwareConfig(const cfb::RirHardwareConfig* value, config::RirHardwa
     out->receiver.cross_polarization_isolation_db =
         receiver->cross_polarization_isolation_db();
     out->receiver.maximum_linear_input_power_w = receiver->maximum_linear_input_power_w();
-    out->receiver.interference_observation_jn_gate_db =
-        receiver->interference_observation_jn_gate_db();
     out->receiver.scene_polarization =
         static_cast<oneq::electromagnetics::RfScenePolarization>(receiver->scene_polarization());
   }

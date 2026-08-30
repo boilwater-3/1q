@@ -44,7 +44,6 @@ set(ENVELOPE_ATTRIBUTION_HEADERS
     "electro_optical_sensor/session/EosOutputTypes.h"
     "remote_identification_radar/session/RirCycleResult.h"
     "remote_identification_radar/session/RirExclusionCauseRecorder.h"
-    "remote_identification_radar/session/RirFeatureMeasurementTypes.h"
     "remote_identification_radar/session/RirOutputDebugView.h"
     "remote_identification_radar/session/RirOutputTypes.h"
     "remote_identification_radar/session/RirTrackLifecycleRecorder.h"

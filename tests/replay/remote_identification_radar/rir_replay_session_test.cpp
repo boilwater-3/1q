@@ -203,6 +203,20 @@ TEST(RirReplaySessionTest, ConfigAndInputPayloadsRoundtripByteExact) {
   EXPECT_DOUBLE_EQ(decoded_input.platform_position.x_m, input.platform_position.x_m);
 }
 
+/// @brief 会话配置载荷拒绝旧 "RIRC" 标识符：v2（2026-08-30）receiver 表槽位前移，
+///        标识符升 RIRD，旧录制必须显式拒绝而非静默误读。
+TEST(RirReplaySessionTest, SessionConfigDecodeRejectsLegacyIdentifier) {
+  const std::string encoded = EncodeRirSessionConfig(MakeIdentifyConfig());
+  ASSERT_GE(encoded.size(), 8U);
+
+  std::string legacy_identifier = encoded;
+  legacy_identifier.replace(4U, 4U, "RIRC");  // v1 标识符（receiver 表仍含 jn_gate 槽位）
+  config::RirSessionConfig decoded;
+  std::string error;
+  EXPECT_FALSE(DecodeRirSessionConfig(legacy_identifier, &decoded, &error));
+  EXPECT_FALSE(error.empty());
+}
+
 }  // namespace
 }  // namespace session
 }  // namespace remote_identification_radar
