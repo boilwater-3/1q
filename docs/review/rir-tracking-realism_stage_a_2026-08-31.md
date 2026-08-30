@@ -97,6 +97,8 @@ Authority: 非规范性记录；结论以 docs/common/contract.md、docs/common/
 
 修订 1、2026-08-31，用户对 §2 四个待裁定问题全部认可：1) 速度无知先验缺省 3000 m/s、场景可配；2) 质量重校准目标=确认数 ≥1300 且运动质量分布回旧世界形态，数值 Stage B 实验定；3) 诚实口径下达不到 1362 时冒烟门槛 1300 允许带数据回来重标；4) 量测 velocity 字段保留填零，不做公开面删除。来源：用户指令（会话裁定）。
 
+修订 2、2026-08-31，Stage B 实现证伪项 3 原方案并改道：诊断日志（识别翻转沿，RecognitionTracker 新增正式 INFO）显示病灶为「场景目标与特征库匹配脆弱」——极化/距离像两维恒无效（目标无散射中心数据）、RCS 相似度 1.0 匹配的是 B-2A 干扰模板、运动相似度仅 0.16，加权总分 0.599-0.600 贴着接受门 0.600 运行（历史调参产物）；参考方差重校准方向推演均不利（0.58）或以压低拖累维换分数（0.73，不除脆弱）。库内本有 BALLISTIC_EXAMPLE_B 模板（rcs=-10±3、speed=4900±350 均与目标匹配）但其加速度 14±3.5 对目标实际 6.3-6.6 m/s² 差 2σ、高度均值 1e6 m 对目标中位 1.48e6 m 差近 3σ。用户裁定方向 A：修特征库模板参数使其覆盖场景弹道目标真实特征（治本），不做参考方差重校准、不调接受门。契约允许范围相应扩展：examples/basic_config/remote_identification_radar/recognition_database_input.json 与再生 target_feature_database_v1.1.db（经 tools/remote_identification_radar_db_builder.py）。来源：新证据（翻转沿诊断）+ 用户指令（裁定 A）。
+
 ## §4 运行记录（Stage C 后填写）
 
 <!-- 1、实现范围。
