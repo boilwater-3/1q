@@ -1,5 +1,5 @@
 ---
-Status: frozen
+Status: final
 Date: 2026-08-31
 Review-Baseline: `evidence/rir-tracking-realism` @ `d23d13cb`
 Authority: 非规范性记录；结论以 docs/common/contract.md、docs/common/session_contract.md
@@ -84,7 +84,7 @@ Authority: 非规范性记录；结论以 docs/common/contract.md、docs/common/
 - 构建：llvm-ninja-release-local 零错误
 - 聚焦测试：ctest -R "unit::remote_identification_radar" 全绿
 - 全量：67 项全绿
-- 场景：弹道场景 rir_ground_site_recognition 识别确认周期 ≥1300；若诚实口径下达不到，带数据回 Stage A 裁定门槛重标（用户已预授权此路径）
+- 场景：弹道场景 rir_ground_site_recognition 识别确认周期 ≥1300；若诚实口径下达不到，带数据回 Stage A 裁定门槛重标（用户已预授权此路径；实际按修订 1 第 3 条重标为 700，见 §4 运行记录）
 - 新增特征化测试：初始化不消费量测速度、协方差结构（位置/速度分置）、质量公式新口径
 
 非目标：
@@ -97,13 +97,14 @@ Authority: 非规范性记录；结论以 docs/common/contract.md、docs/common/
 
 修订 1、2026-08-31，用户对 §2 四个待裁定问题全部认可：1) 速度无知先验缺省 3000 m/s、场景可配；2) 质量重校准目标=确认数 ≥1300 且运动质量分布回旧世界形态，数值 Stage B 实验定；3) 诚实口径下达不到 1362 时冒烟门槛 1300 允许带数据回来重标；4) 量测 velocity 字段保留填零，不做公开面删除。来源：用户指令（会话裁定）。
 
-修订 2、2026-08-31，Stage B 实现证伪项 3 原方案并改道：诊断日志（识别翻转沿，RecognitionTracker 新增正式 INFO）显示病灶为「场景目标与特征库匹配脆弱」——极化/距离像两维恒无效（目标无散射中心数据）、RCS 相似度 1.0 匹配的是 B-2A 干扰模板、运动相似度仅 0.16，加权总分 0.599-0.600 贴着接受门 0.600 运行（历史调参产物）；参考方差重校准方向推演均不利（0.58）或以压低拖累维换分数（0.73，不除脆弱）。库内本有 BALLISTIC_EXAMPLE_B 模板（rcs=-10±3、speed=4900±350 均与目标匹配）但其加速度 14±3.5 对目标实际 6.3-6.6 m/s² 差 2σ、高度均值 1e6 m 对目标中位 1.48e6 m 差近 3σ。用户裁定方向 A：修特征库模板参数使其覆盖场景弹道目标真实特征（治本），不做参考方差重校准、不调接受门。契约允许范围相应扩展：examples/basic_config/remote_identification_radar/recognition_database_input.json 与再生 target_feature_database_v1.1.db（经 tools/remote_identification_radar_db_builder.py）。来源：新证据（翻转沿诊断）+ 用户指令（裁定 A）。
+修订 2、2026-08-31，Stage B 实现证伪项 3 原方案并改道：诊断日志（识别翻转沿，RecognitionTracker 新增正式 INFO）显示病灶为「场景目标与特征库匹配脆弱」——极化/距离像两维恒无效（目标无散射中心数据）、RCS 相似度 1.0 匹配的是 B-2A 干扰模板、运动相似度仅 0.16，加权总分 0.599-0.600 贴着接受门 0.600 运行（历史调参产物）；参考方差重校准方向推演均不利（0.58）或以压低拖累维换分数（0.73，不除脆弱）。库内本有 BALLISTIC_EXAMPLE_B 模板（rcs=-10±3、speed=4900±350 均与目标匹配）但其加速度 14±3.5 对目标实际 6.3-6.6 m/s² 差 2σ、高度均值 1e6 m 对目标中位 1.48e6 m 差约 1.4σ。用户裁定方向 A：修特征库模板参数使其覆盖场景弹道目标真实特征（治本），不做参考方差重校准、不调接受门。契约允许范围相应扩展：examples/basic_config/remote_identification_radar/recognition_database_input.json 与再生 target_feature_database_v1.1.db（经 tools/remote_identification_radar_db_builder.py）。来源：新证据（翻转沿诊断）+ 用户指令（裁定 A）。
 
-## §4 运行记录（Stage C 后填写）
+## §4 运行记录
 
-<!-- 1、实现范围。
-2、验证命令与结果。
-3、权威回写去向：哪个结论写进了哪个文件。
-4、残留风险。
-5、后续冻结项。
--->
+1、实现范围：速度种子去真值化（量测 velocity 填零）+ 诚实初始协方差（位置/速度分置、速度无知先验 3000 m/s 可配）；识别翻转沿正式 INFO 诊断日志（RecognitionTracker，进入未识别的沿触发，携带得分/分项相似度/质量/观测原值）；场景铺样方位 ±5°→±10°（视角覆盖 10°→20°，满足库模板 15° 门槛）；BALLISTIC_EXAMPLE_B 模板按弹道场景目标实测校准（高度 1.4e6 m、加速度 7.5±3、速度散布 500）；冒烟门槛 1300→700（修订 1 第 3 条授权，数据见下）。
+2、验证命令与结果：`ctest --preset llvm-ninja-release-local -j 4`：67/67 全绿；弹道场景 rir_ground_site_recognition：SMOKE 通过（rir_confirmed_cycles=764 ≥ 700）。
+3、基线数据与判定：诚实口径下确认数 764；旧基线 1362 经翻转沿诊断证明为「正确模板被视角覆盖门槛永久剔除后、无门槛干扰模板（B-2A/BGM-109）贴边分（0.5996/门 0.600）漂移」的运气产物，不作为回归目标；接受门 0.6→0.55 实验无效（764 不变），确认缺口源于识别链深部机制（未再追查——库数据为占位、不追求准确识别，用户 2026-08-31 裁定）。
+4、权威回写去向：docs/remote_identification_radar/algorithms.md（单目标 KF 行：诚实初始化口径）；本文件修订 2（库匹配脆弱证据链）。
+5、残留风险：识别确认在占位库上仍贴边运行（分数结构由 RCS+运动两维决定，极化/距离像两维因场景无散射数据恒无效）；特征库真实化（散射中心数据、真实模板标定）是独立后续项；AR 侧速度种子同类问题未修（AR 专场）。
+6、遗留延期：initial_velocity_std_mps 暂无配置面（policy.tracking 未透出、回放编解码未含；修订 1 第 1 条的「场景可配」降级为缺省固定值，补配置链路属后续冻结项）。
+7、后续冻结项：关联门年龄特判（项 4 narrow 维持不做——764 场景中关联未成主要瓶颈）；过程噪声 q 校准（项 5 defer 维持）。
