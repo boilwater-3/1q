@@ -84,7 +84,7 @@ RIR 遵守 `docs/common/contract.md` 与 `docs/common/session_contract.md`：
    `RirRuntimeConfigPatch::has_sensor_enabled`（COMMON-OQ-4 对齐）。
 6. 跨域形状契约：`ONEQ_SENSOR_SESSION_CONTRACT` 锚定
    `RirSession::Step/StepWithResult` 签名。
-7. 阶段 3 / 3b common 化：LAPJV / 雷达方程 / 天线方向图 / 植被杂波 / 大气胶水 /
+7. 阶段 3 / 3b common 化：LAPJV / 雷达方程 / 天线方向图 / 植被传播损耗 / 大气胶水 /
    RCS 混合 / 检测单元账本 / 统计级 CFAR 编排 / 冻结波束 / 航迹池·关联核·生命周期
    计数已收敛到 `src/common/`，RIR 保留薄适配层，不引入 AR 头。发射/接收「可提取
    核心」与 6 dB 真值回退门留模块侧（见
@@ -157,6 +157,10 @@ RIR 遵守 `docs/common/contract.md` 与 `docs/common/session_contract.md`：
 6. **环境事实**（`RirEnvironmentConfig`）：会话初始化 + `RirRuntimeConfigPatch.has_environment`
    整域覆盖；**禁止**经 `RirCycleInput` 周期携带。`vegetation_cover_profile=kDisabled`
    且 `weather_attenuation_db=0`（默认）时传播/杂波退化到阶段 1 旧 SNR 口径。
+   植被档非 `kDisabled` 时：传播损耗沿用 common 恒定基线（AR 同口径，损耗链
+   物理化为后续冻结项）；杂波为模块内逐目标主瓣地杂波物理模型
+   （`internal/RirSurfaceClutterModel`，σ₀ 档位表+杂波区几何+雷达方程，
+   响应载频/斜距/擦地角），不再使用 common 杂波 stub。
    `atmospheric_physics`（气象观测，复用 `oneq::environment::AtmosphericObservation`）
    为场景事实输入：`enable_physical_model=true` 时驻留链路预算按每目标真实几何计算
    大气物理附加损耗（common 大气单源）；默认关闭零回归。k 因子为运行期派生量

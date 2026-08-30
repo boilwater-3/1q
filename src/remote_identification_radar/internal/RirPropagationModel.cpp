@@ -1,6 +1,6 @@
 ﻿/**
  * @file RirPropagationModel.cpp
- * @brief RIR 环境层传播/杂波模型薄适配层（common 单源）。
+ * @brief RIR 环境层传播损耗薄适配层（common 单源）。
  */
 
 #include "remote_identification_radar/internal/RirPropagationModel.h"
@@ -50,7 +50,6 @@ RirPropagationResult RirPropagationModel::Evaluate(
           ToCommonConfig(scene_state.vegetation_cover_profile));
   RirPropagationResult result;
   result.propagation_loss_db = common_result.propagation_loss_db;
-  result.clutter_power_db = common_result.clutter_power_db;
   return result;
 }
 

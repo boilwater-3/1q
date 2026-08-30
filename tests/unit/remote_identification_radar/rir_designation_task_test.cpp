@@ -424,8 +424,6 @@ TEST(RirDesignationTaskTest, DesignationOutsideVolumeRevertsUntilScanCenterPatch
   target.position_y = 200.0f;
   target.position_z = 500.0f;
   target.rcs = 0.5f;
-                             target.position_y * target.position_y +
-                             target.position_z * target.position_z);
 
   ASSERT_TRUE(session.TryApplyRuntimeConfig(MakeDesignationPatch(target.external_target_id, 10U)));
 

@@ -57,8 +57,11 @@ RIR 自持链路生产的内部航迹，不再消费外部航迹供给。
 3. **RF 链回退**：`ResolveRfCycle` 失败（hardware 不完整/前端饱和等）或 detection cell
    求解失败时，传播损耗/杂波/干扰仍按环境配置注入，但检测 SNR 回退阶段 1 旧公式
    口径；RF 链成功时走分项 SINR 账本（含外部 `rf_scene` 干扰）。环境杂波
-   （`vegetation_cover_profile≠kDisabled`）按"相对热噪底的 dB"换算为等效瓦数
-   （common 单源）——植被基线 3 dB 即 2 倍热噪，不是 2 W。
+   （`vegetation_cover_profile≠kDisabled`）为逐目标主瓣地杂波最小物理模型
+   （`RirSurfaceClutterModel`）：擦地角取主瓣俯仰半波束宽减目标仰角（主瓣离地
+   归零），杂波面积取脉冲/波束限制较小者（距离单元 c/2B），σ₀ 按植被档位查表
+   并随 sinψ 一阶折算，杂波回波走与目标同一雷达方程（2026-08-30 替换旧的
+   会话级恒定 CNR 口径；σ₀ 表为 S 波段量级声明值，非实测标定）。
 4. **第一个 profile 报告**：`feature_scores` 分项报告用型号的第一个 profile
    （`profiles.front()`），而非实际命中得分的 profile——多 profile 型号的分项
    报告可能与判定所用 profile 不一致（判定路径本身正确）。
@@ -109,7 +112,8 @@ RIR 自持链路生产的内部航迹，不再消费外部航迹供给。
   `rir_measurement_error_test.cpp`、`rir_track_associator_test.cpp`、
   `rir_track_filter_test.cpp`、`rir_track_lifecycle_test.cpp`
 - 大气物理链与环境杂波口径：`tests/unit/remote_identification_radar/rir_atmospheric_physics_test.cpp`
-  （配置合同/校验负例/开关闭差分）
+  （配置合同/校验负例/开关闭差分）、`rir_surface_clutter_model_test.cpp`
+  （逐目标杂波特征化：σ₀ 档位序/擦地角几何/距离衰减/频率响应/退化输入免疫）
 - 自持链路与输入面：`tests/unit/remote_identification_radar/rir_self_contained_pipeline_test.cpp`、
   `rir_self_contained_validation_test.cpp`、`rir_emission_factory_test.cpp`、
   `rir_receiver_state_builder_test.cpp`、`rir_rf_front_end_resolver_test.cpp`、

@@ -32,6 +32,12 @@ RirDetectionCellConfig MakeConfig() {
   config.one_way_antenna_gain_dbi = 35.0;
   config.receiver_loss_db = 2.0;
   config.receiver_noise_figure_db = 4.0;
+  // 偏置测试以零增益为基线：signal_processing 缺省 3/1/10/8 dB（RIR 产品缺省）
+  // 会吃掉偏置差，须显式清零。
+  config.signal_processing.target_processing_gain_db = 0.0f;
+  config.signal_processing.noise_processing_gain_db = 0.0f;
+  config.signal_processing.clutter_suppression_gain_db = 0.0f;
+  config.signal_processing.jamming_suppression_gain_db = 0.0f;
   return config;
 }
 
@@ -248,8 +254,8 @@ TEST(RirDetectionCellTest, ScanStrategyRejectedByConfigValidation) {
   config::RirSessionConfig session_config;
 
   // 体积方位乱序。
-  session_config.orientation.steerable_volume_deg.az_min_deg = 30.0f;
-  session_config.orientation.steerable_volume_deg.az_max_deg = -30.0f;
+  session_config.orientation.az_min_deg = 30.0f;
+  session_config.orientation.az_max_deg = -30.0f;
   session::RirIssueList issues = config::ValidateRirSessionConfig(session_config);
   bool found = false;
   for (const auto& issue : issues) {
@@ -260,8 +266,8 @@ TEST(RirDetectionCellTest, ScanStrategyRejectedByConfigValidation) {
   EXPECT_TRUE(found);
 
   // 体积方位越相对域（az > 180）。
-  session_config.orientation.steerable_volume_deg.az_min_deg = -60.0f;
-  session_config.orientation.steerable_volume_deg.az_max_deg = 200.0f;
+  session_config.orientation.az_min_deg = -60.0f;
+  session_config.orientation.az_max_deg = 200.0f;
   issues = config::ValidateRirSessionConfig(session_config);
   found = false;
   for (const auto& issue : issues) {
@@ -272,7 +278,7 @@ TEST(RirDetectionCellTest, ScanStrategyRejectedByConfigValidation) {
   EXPECT_TRUE(found);
 
   // 转台朝向越域。
-  session_config.orientation.steerable_volume_deg.az_max_deg = 60.0f;
+  session_config.orientation.az_max_deg = 60.0f;
   session_config.mission.scan_center_deg.az_deg = 200.0f;
   issues = config::ValidateRirSessionConfig(session_config);
   found = false;
@@ -285,7 +291,7 @@ TEST(RirDetectionCellTest, ScanStrategyRejectedByConfigValidation) {
 
   // 步长系数非正。
   session_config.mission.scan_center_deg.az_deg = 0.0f;
-  session_config.mission.scan.step_scale = 0.0f;
+  session_config.mission.step_scale = 0.0f;
   issues = config::ValidateRirSessionConfig(session_config);
   found = false;
   for (const auto& issue : issues) {
@@ -296,7 +302,7 @@ TEST(RirDetectionCellTest, ScanStrategyRejectedByConfigValidation) {
   EXPECT_TRUE(found);
 
   // 默认扫描配置合法。
-  session_config.mission.scan.step_scale = 1.0f;
+  session_config.mission.step_scale = 1.0f;
   issues = config::ValidateRirSessionConfig(session_config);
   EXPECT_TRUE(issues.empty());
 }

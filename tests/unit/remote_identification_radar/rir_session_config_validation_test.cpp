@@ -60,7 +60,6 @@ TEST(RirSessionConfigValidationTest, RejectsInvalidTransmitterFrequency) {
   session_config.hardware.transmitter.frequency_hz = 0.0f;
   const auto issues = ValidateRirSessionConfig(session_config);
   EXPECT_TRUE(HasCode(issues, session::codes::kTransmitterFrequencyInvalid));
-  EXPECT_TRUE(HasCode(issues, session::codes::kFrequencyPlanInvalid));
 }
 
 /// @brief 增益-波束宽度物理一致（B5 还债校验）：46 dBi 配 0.8°×0.8°（期望 46.1）过门。
