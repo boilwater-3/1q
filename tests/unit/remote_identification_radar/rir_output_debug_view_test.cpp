@@ -124,7 +124,8 @@ TEST(RirOutputDebugViewTest, UntrackedTargetBackfillsInputGeometry) {
   EXPECT_FALSE(state.has_track);
   EXPECT_EQ(state.association_key, 0U);
   // 输入几何回填：斜距 = √(3000² + 2000²)，az=0°（正东），el=atan2(2000, 3000)。
-  EXPECT_NEAR(state.slant_range_m, std::sqrt(3000.0f * 3000.0f + 2000.0f * 2000.0f), 1e-6);
+  // 斜距现由 ENU 位置双精度推导：float 字面量舍入差 ~6e-6 @3600 m，容差 1e-4。
+  EXPECT_NEAR(state.slant_range_m, std::sqrt(3000.0f * 3000.0f + 2000.0f * 2000.0f), 1e-4);
   EXPECT_NEAR(state.look_az_deg, 0.0, 1e-6);
   EXPECT_NEAR(state.look_el_deg, 57.29577951308232 * std::atan2(2000.0, 3000.0), 1e-6);
   EXPECT_FALSE(state.has_recognition_output);
