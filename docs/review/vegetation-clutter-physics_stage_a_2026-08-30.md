@@ -1,5 +1,5 @@
 ---
-Status: draft
+Status: frozen
 Date: 2026-08-30
 Review-Baseline: `evidence/vegetation-clutter-physics` @ `164825ee`
 Authority: 非规范性记录；结论以 docs/common/contract.md、docs/common/session_contract.md
@@ -64,13 +64,67 @@ Authority: 非规范性记录；结论以 docs/common/contract.md、docs/common/
 
 ## §3 冻结契约（用户讨论结束后填写）
 
-<!-- 一行一项：
-1、允许范围：模块/目录、类/函数、测试与文档。
-2、明确禁止范围：公开头文件、跨模块类型、schema/回放、测试阈值、兼容层。
-3、行为边界：输入、输出、错误回退、生命周期。
-4、验收门：构建、聚焦测试、契约测试、特征化测试。
-5、非目标。
--->
+### Frozen Contract
+
+修订 1 裁定后冻结（2026-08-30）：用户裁定"建最小物理模型"、五项判定与最小边界认可、
+σ₀ 简化口径接受。
+
+已证明的需求：
+- RIR 植被杂波对档位细分无数值响应（<0.1 dB）且不含频率/距离/擦地角通道；
+  新最小物理模型须使杂波按"σ₀×杂波区面积+雷达方程"逐目标求解并响应这三类自变量。
+
+允许范围：
+- 模块/目录：仅 `src/remote_identification_radar/`。
+- 新增：`internal/RirSurfaceClutterModel.h/.cpp`（σ₀ 档位表+杂波区几何+CNR 求解）。
+- 修改：`internal/RirPropagationModel.h/.cpp`（结果收缩为仅传播损耗）；
+  `runtime/RirController.h/.cpp`（会话级杂波常数灌入改为逐目标求解）；
+  模块 `CMakeLists.txt`（登记新源文件）。
+- 测试：重写 `tests/unit/remote_identification_radar/rir_propagation_model_test.cpp`；
+  新增 `rir_surface_clutter_model_test.cpp` 特征化测试；
+  按数值漂移更新 `rir_atmospheric_physics_test.cpp`、`rir_self_contained_pipeline_test.cpp`；
+  不改 `tests/unit/common/`。
+- 文档：`docs/remote_identification_radar/algorithms.md`、`boundaries.md`、`data-flow.md`
+  杂波口径段落；本矩阵 §4 运行记录。
+
+明确禁止范围：
+- 公开头文件 `include/1q/remote_identification_radar/**`（枚举/字段/回放 schema 原样）；
+- `src/common/` 与 AR 模块（既有 stub 原样供 AR 使用）；
+- 传播损耗链（6.5 dB 恒定构成，defer 项 5）；
+- `examples/` 场景与加载器；
+- σ₀ 实测标定（按"量级正确、非实测标定"简化口径落地并在注释声明）。
+
+行为边界：
+- 输入：植被档位、发射机（有效载频/匹配滤波带宽）、天线（主瓣增益+有效波束宽度，
+  经既有 `RirResolveEffectiveBeamwidth` 两级回退解析）、全链路双程传播损耗
+  （天气+植被恒定+逐目标大气物理）、目标斜距与俯仰视线角、接收机热噪功率。
+- 物理：擦地角 ψ = θel/2 − look_el（主瓣俯仰半波束宽减目标俯仰视线角），下限 1°；
+  look_el ≥ θel/2（主瓣完全离地）→ 杂波 0 W；
+  杂波区面积 A = min(R·θaz·δR/cosψ, R²·θaz·θel/sinψ)，δR = c/(2B)（脉压后距离单元，
+  与测距误差模型 δ_R 口径同源）；
+  σ₀(ψ) = σ₀表 + 10·log10(sinψ/sin10°)，σ₀表（dB，S 波段量级声明值）：
+  草地 −28 / 稀疏林地 −22 / 落叶林 −18 / 针叶林 −16 / 热带密林 −14；
+  杂波回波经 `RirRadarEquations::ComputeEchoPower_dBW`（主瓣峰值增益，主瓣杂波近似）；
+  频率响应由雷达方程 λ² 项自然进入；σ₀ 视为与频段无关（声明简化）。
+- 输出：逐目标杂波等效噪声瓦（经 `ComputeEquivalentClutterNoiseW` 单源换算，
+  保留 ±120 dB 相对钳制口径）。
+- 错误/回退：kDisabled → 0 W（行为不变）；斜距 ≤0、热噪非正、载频/带宽非正、
+  波束宽度解析非正 → 0 W 免疫退化输入。
+- 生命周期/调试：无新增日志；验收记录与回放消费口径不变（配置字段未动）。
+
+验收门：
+- 构建：本机 release preset 串行构建成功。
+- 聚焦测试：`ctest -R "unit::remote_identification_radar"` 全绿；
+  `ctest -R "unit::common"` 全绿（common 未改动的回归确认）。
+- 契约测试：contract 层存在 RIR 用例时一并全绿。
+- 特征化测试：档位序（σ₀ 表序 → CNR 同序）、几何响应（地平线强/主瓣离地为 0）、
+  距离响应（脉冲限制区 CNR 随距离下降）、关断=0、确定性；
+  植被关闭场景零漂移（`EnvironmentEffectsKeepTargetDetectable` 等回归语义保持）。
+
+非目标：
+- 旁瓣杂波、方向图加权的杂波积分、多普勒谱杂波模型（MTI 增益维持标量配置）；
+- AR 迁移新模型（后续冻结项再评估）；
+- 植被双程衰减随档位/频率分层（defer 项 5 后续探针）；
+- 主瓣离地硬截断的波束边缘渐变（声明简化）。
 
 ## 修订记录
 
