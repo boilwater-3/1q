@@ -30,6 +30,16 @@ inline sbirs_sensor::config::SbirsScanDirection SbirsScanDirectionFromString(
   return sbirs_sensor::config::SbirsScanDirection::kIncreasingAzimuth;
 }
 
+// 方位基准（2026-08-31）：kEciAbsolute = scan_start_az_deg 为 ECI 绝对方位（默认，
+// 兼容既有 JSON）；kNadirRelative = 相对星下点方位的带符号偏移（0 = 正对星下点，
+// 免推算）。未知串回落绝对模式（与其它枚举助手同策略）。
+inline sbirs_sensor::config::SbirsScanAzimuthReference SbirsScanAzimuthReferenceFromString(
+    const std::string& s) {
+  if (s == "kNadirRelative")
+    return sbirs_sensor::config::SbirsScanAzimuthReference::kNadirRelative;
+  return sbirs_sensor::config::SbirsScanAzimuthReference::kEciAbsolute;
+}
+
 inline sbirs_sensor::config::SbirsTrackingMode SbirsTrackingModeFromString(
     const std::string& s) {
   if (s == "kEstimated")

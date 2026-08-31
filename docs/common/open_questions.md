@@ -37,6 +37,7 @@ Last-reviewed: 2026-08-23
 | SBIRS-OQ-2 | sbirs_sensor | 分阶段误差统计共享参数 | 三用途共享一组角度/距离统计 | open |
 | SBIRS-OQ-3 | sbirs_sensor | 多目标随机样本与输入顺序 | 全局用途流，无 target 不变性 | open |
 | SBIRS-OQ-4 | sbirs_sensor | Estimated 航迹真值初始化 | 首捕用真值位置/速度初始化滤波均值 | open |
+| SBIRS-OQ-5 | sbirs_sensor | 俯仰中心手工配置与基准 nadir 化 | scan_center_el 仍需手填；非 GEO 轨道星下点俯仰漂移会配错且无告警 | open |
 | RIR-OQ-1 | remote_identification_radar | 特征量测保真度边界 | 真值×效能约束转换，非加噪量测 | open |
 | TARGET-OQ-1 | target-layer | AR 估计/推演职责前置 | 消费级航迹产品 + 识别结论回填 public 输出 | open |
 | TARGET-OQ-2 | target-layer | ESR 威胁等级进 public 输出 | threat_level 由传感器生产并被 ECM 下游消费 | open |
@@ -278,6 +279,22 @@ Last-reviewed: 2026-08-23
   无真值辅助的真实载荷跟踪器。
 - **再进入条件 (Stage A)**：先定义被动角度不可观测距离的初始化先验、收敛时间和失败判据，并提供与当前方案
   的捕获率、位置协方差、丢锁率及 replay 对比证据，再决定是否替换。
+
+### SBIRS-OQ-5：俯仰中心手工配置与基准 nadir 化
+
+- **现状**：扫描方位已有双基准（kEciAbsolute 绝对 ECI / kNadirRelative 相对星下点偏移，2026-08-31），
+  但俯仰中心 `scan_center_el_deg` 仍只能手工填绝对值；config 校验无"视场是否对着地球"的几何告警
+  （方位基准裁决时方案 1 告警被 defer）。
+  [evidence: include/1q/sbirs_sensor/config/SbirsMissionConfig.h]
+  [evidence: docs/review/sbirs-nadir-stare-mode_stage_a_2026-08-31.md]
+- **后果**：GEO 赤道轨道下星下点俯仰恒 ≈0，手填 0 恰为正确值，无痛点；非 GEO（倾斜/低轨）轨道下
+  星下点俯仰 = −asin(z/|r|) 随位置漂移（可达数十度），手填值会持续偏离且无告警，复现"方位抄数配错"
+  的同型故障。
+- **待决问题**：俯仰是否引入与方位同款的 nadir 基准（管线已有卫星 ECI 位置，公式现成）；是否一并补
+  方案 1 的"扇区不含地球盘"启动告警（绝对模式无锚，收敛不适用，告警是唯一防护）。
+- **当前边界**：nadir 模式跨度收敛的可见窗公式按 el=0（赤道）近似；行 el 远离星下点俯仰时窗宽偏宽
+  （行内仍可能扫空天），属本条登记范围内的已知近似。
+- **再进入条件 (Stage A)**：出现非 GEO 轨道的 SBIRS 集成需求，或 el 误配导致"看不到目标"的真实案例。
 
 ## SAR 非阻塞边界
 

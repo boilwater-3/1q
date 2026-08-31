@@ -102,6 +102,41 @@ TEST(SbirsSessionConfigValidationTest, ValidatesCircularScanContract) {
                            "sbirs.validation.invalid_scan_direction"));
 }
 
+TEST(SbirsSessionConfigValidationTest, ValidatesNadirAzimuthReferenceContract) {
+  // nadir 基准（2026-08-31）：scan_start_az_deg 语义切换为相对星下点方位的带符号
+  // 偏移，合法域 (-360, 360)；eci_absolute（默认）维持 [0, 360) 既有约定。
+  sbirs_sensor::config::SbirsSessionConfig config;
+  config.mission.scan_azimuth_reference =
+      sbirs_sensor::config::SbirsScanAzimuthReference::kNadirRelative;
+  config.mission.scan_start_az_deg = 0.0f;   // 0 = 正对星下点
+  EXPECT_TRUE(sbirs_sensor::config::ValidateSbirsSessionConfig(config).empty());
+
+  config.mission.scan_start_az_deg = -15.0f;  // 带符号偏移合法
+  EXPECT_TRUE(sbirs_sensor::config::ValidateSbirsSessionConfig(config).empty());
+
+  config.mission.scan_start_az_deg = 360.0f;
+  EXPECT_TRUE(ContainsCode(sbirs_sensor::config::ValidateSbirsSessionConfig(config),
+                           "sbirs.validation.invalid_scan_start_azimuth"));
+  config.mission.scan_start_az_deg = -360.0f;
+  EXPECT_TRUE(ContainsCode(sbirs_sensor::config::ValidateSbirsSessionConfig(config),
+                           "sbirs.validation.invalid_scan_start_azimuth"));
+
+  // 绝对基准不放宽：负值与 ≥360 仍非法（防基准切换悄悄改变既有域）。
+  config.mission.scan_azimuth_reference =
+      sbirs_sensor::config::SbirsScanAzimuthReference::kEciAbsolute;
+  config.mission.scan_start_az_deg = -15.0f;
+  EXPECT_TRUE(ContainsCode(sbirs_sensor::config::ValidateSbirsSessionConfig(config),
+                           "sbirs.validation.invalid_scan_start_azimuth"));
+  config.mission.scan_start_az_deg = 0.0f;
+  EXPECT_TRUE(sbirs_sensor::config::ValidateSbirsSessionConfig(config).empty());
+
+  // 基准枚举本身须合法（review 修订：越界枚举不得静默退化绝对模式）。
+  config.mission.scan_azimuth_reference =
+      static_cast<sbirs_sensor::config::SbirsScanAzimuthReference>(99);
+  EXPECT_TRUE(ContainsCode(sbirs_sensor::config::ValidateSbirsSessionConfig(config),
+                           "sbirs.validation.invalid_scan_azimuth_reference"));
+}
+
 TEST(SbirsSessionConfigValidationTest, PointingDefaultsAreProductionValues) {
   const sbirs_sensor::config::SbirsMissionConfig mission;
   const sbirs_sensor::config::SbirsTrackingConfig tracking;

@@ -87,6 +87,10 @@ inline void LoadSbirsMission(const examples::JsonValue& j,
   if (j.Has("scan_direction")) {
     v->scan_direction = SbirsScanDirectionFromString(j["scan_direction"].AsString());
   }
+  if (j.Has("scan_azimuth_reference")) {
+    v->scan_azimuth_reference =
+        SbirsScanAzimuthReferenceFromString(j["scan_azimuth_reference"].AsString());
+  }
   if (j.Has("scan_center_el_deg")) {
     v->scan_center_el_deg = static_cast<float>(j["scan_center_el_deg"].AsDouble());
   }

@@ -18,6 +18,14 @@ enum class ONEQ_API SbirsWorkMode { kStandby = 0, kWideSearch, kSearchAndStare }
 enum class ONEQ_API SbirsScanDirection { kIncreasingAzimuth = 0, kDecreasingAzimuth };
 
 /**
+ * @brief 扫描方位基准：ECI 绝对方位（默认，行为不变）或相对星下点方位的偏移。
+ * @note nadir 模式下 scan_start_az_deg 是相对星下点方位的带符号偏移（deg），
+ *       星下点方位 = atan2(-eci_y, -eci_x) 逐周期由卫星当前位置现算；
+ *       偏移 0 + 速率 0 即视场钉在星下点（GEO 星下点凝视的免推算配置）。
+ */
+enum class ONEQ_API SbirsScanAzimuthReference { kEciAbsolute = 0, kNadirRelative };
+
+/**
  * @brief SBIRS-inspired 任务与视场参数。
  * @note 纯数据类型 (POD)。WFOV/NFOV 视场、扫描范围与速率、距离门控和帧率共同定义
  *       pipeline 几何门控与扫描相位推进；凝视相关参数仅在 NFOV 通道生效。
@@ -34,6 +42,11 @@ struct ONEQ_API SbirsMissionConfig {
   float scan_start_az_deg{300.0f};                        /**< WFOV 扫描方位起点（ECI 方位，单位 deg，[0, 360)） */
   float scan_span_deg{120.0f}; /**< WFOV 有向扫描跨度，范围 (0, 360] deg */
   SbirsScanDirection scan_direction{SbirsScanDirection::kIncreasingAzimuth}; /**< WFOV 扫描方向 */
+  // 方位基准（2026-08-31）：kEciAbsolute 时 scan_start_az_deg 语义同上（ECI 绝对方位，
+  // 既有行为逐位不变）；kNadirRelative 时为相对星下点方位的带符号偏移（合法域
+  // (-360, 360)，0 = 正对星下点），有效起点 = normalize(星下点方位 + 偏移) 逐周期现算。
+  SbirsScanAzimuthReference scan_azimuth_reference{
+      SbirsScanAzimuthReference::kEciAbsolute}; /**< WFOV 扫描方位基准（绝对 ECI / 相对星下点） */
   float scan_center_el_deg{0.0f};                          /**< WFOV 扫描中心俯仰角，单位 deg */
   // 2-D 俯仰栅格（阶段 4）：与既有方位环扫正交组合；span=0 默认 = 既有单行模式
   // （行中心恒为 scan_center_el_deg，历史行为逐位不变）。行中心 el 与 scan_center_el

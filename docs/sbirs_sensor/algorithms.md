@@ -33,7 +33,7 @@ Answers: SBIRS 用了哪些算法、各自实现到什么地步、边界在哪�
 | 时间相关指向扰动 | 整星共模 + 逐通道 GM + 振动的 Gauss-Markov | 生产可用 | [evidence: tests/unit/sbirs_sensor/sbirs_pointing_disturbance_test] |
 | 安装指向与稳定链 | 卫星姿态(Body→ECI)∘安装角(Body→Sensor)∘扫描指向合成实际光轴；体/惯性双稳定；传感器系限位；纯几何引擎在公共域 `src/common/geometry/BoresightChain` | 生产可用（阶段 2，2026-08-17） | [evidence: tests/unit/sbirs_sensor/sbirs_boresight_chain_test]、[evidence: tests/unit/common/common_boresight_chain_test] |
 | 安装失准误差模型 | 安装失准（常值偏置 + 运行期一次随机抽取的常值微扰）合成进 boresight 链影响实际光轴与门控；与量测域误差及时变扰动谱正交 | 生产可用（阶段 3，2026-08-17） | [evidence: tests/unit/sbirs_sensor/sbirs_boresight_chain_test]、[evidence: tests/unit/common/common_boresight_chain_test]、[evidence: tests/unit/sbirs_sensor/sbirs_pipeline_test] |
-| 2-D 俯仰栅格扫描 | 俯仰栅格（el 起止+步进角）与方位环扫正交组合；锯齿单向推进、行内相位与既有一致、行末回绕；输出行中心 ECI 俯仰 | 生产可用（阶段 4，2026-08-17） | [evidence: tests/unit/sbirs_sensor/sbirs_pipeline_test] |
+| 2-D 俯仰栅格扫描 | 俯仰栅格（el 起止+步进角）与方位往复扫正交组合（2026-08-31 起牛耕式到边反向）；输出行中心 ECI 俯仰 | 生产可用（2026-08-31 往复化） | [evidence: tests/unit/sbirs_sensor/sbirs_pipeline_test] |
 | ECEF→ECI 旋转（GMST） | 周期入口按 UTC 儒略日算 GMST，把卫星/目标位置与卫星/目标速度（含 ω×r 输运项）旋到 ECI | 生产可用（共享域 1q/coordinate/inertial_transform.h，仅 SBIRS 消费） | [evidence: tests/unit/sbirs_sensor/sbirs_eci_transform_test] |
 | WFOV 地面覆盖区投影 | 实际扫描中心 ±半视场四角经指向链到 ECI，与地球圆球交会（最近正根），交点旋回 ECEF 取地心经纬度；指向太空的角记 miss | 生产可用（仅验收日志消费，2026-08-18） | [evidence: tests/unit/sbirs_sensor/sbirs_foundation_test] |
 | 焦平面脱靶量映射 | 目标相对 NFOV 指向中心的逐轴角差经 x=f·tan(Δaz)、y=f·tan(Δel) 映射为米/像素脱靶量 | 生产可用（仅验收日志消费，2026-08-18） | [evidence: tests/unit/sbirs_sensor/sbirs_foundation_test] |
@@ -175,13 +175,29 @@ Answers: SBIRS 用了哪些算法、各自实现到什么地步、边界在哪�
   7. 2-D 俯仰栅格（阶段 4 起）：`scan_el_start_deg/scan_el_span_deg/scan_el_step_deg` 与既有
      方位环扫正交组合；`scan_el_span_deg=0` 默认单行模式（行中心恒为 `scan_center_el_deg`，
      既有行为逐位不变）。行数 = `1 + floor(span/step)`，行中心 = `el_start + row·step`；
-     锯齿单向推进——每行从方位起点同向扫描，行内相位跨过 `scan_span` 时行索引步进、方位
-     相位归零，行末回绕。校验强制 `step ≤ wide_field_fov_el_deg`（无隙覆盖预算）；全幅面
-     完成时间 ≈ `row_count × span/scan_rate` 秒。输出 `scan_elevation_rad` 为当前行中心
+     往复牛耕推进（2026-08-31 起替代锯齿）——每行到边反向，行内相位过 `scan_span`
+     （有效跨度）时行索引步进，行末回绕；`scan_direction` 语义 = 初始行进方向。
+     校验强制 `step ≤ wide_field_fov_el_deg`（无隙覆盖预算）；全幅面完成时间 ≈
+     `row_count × span/scan_rate` 秒。输出 `scan_elevation_rad` 为当前行中心
      合成光轴的 ECI 俯仰（与 `scan_azimuth_rad` 同参考系）。
+  8. 扫描方位基准（2026-08-31 起）：`scan_azimuth_reference` 选择 `scan_start_az_deg` 的
+     语义——`kEciAbsolute`（默认）为 ECI 绝对方位 [0,360)，既有行为逐位不变；
+     `kNadirRelative` 为相对星下点方位的带符号偏移 (-360,360)，有效起点 =
+     normalize(星下点方位 + 偏移)，星下点方位 = atan2(-y,-x) 由当周期卫星 ECI 位置现算
+     （GEO 恒定；动轨道随位置漂移）。偏移 0 + 速率 0 = 视场钉在星下点的免推算凝视配置。
+     nadir 基准下 config 期跳过方位弧段限位静态检查（有效起点运行期才知），俯仰与限位
+     合法性检查保留；span/rate/direction/el 语义不变。
+  9. 往复扫描与跨度收敛（2026-08-31 起）：方位在 [起点, 起点+有效跨度] 内到边反射
+     （行程坐标 ∈ [0, 2·有效跨度) 折叠，去程/回程腿；相位→方位映射两腿同为
+     起点+dir·相位，反向由相位动态体现）。rate=0 时腿恒初始方向——凝视行为逐位不变。
+     nadir 模式每周期按"配置扇区 ∩ 地球可见窗"裁剪有效跨度：可见窗 = 星下点方位
+     ±(asin(R/|r|) + wfov_az/2)（R=6371km 与遮挡判定同口径；el=0 赤道近似，行 el 偏离
+     星下点俯仰的窗宽细化登记于 SBIRS-OQ-5），相位原点恒为配置起点、只裁远端；交集为空
+     （扇区整段不对地球）不收敛——属指向错配，防护归 SBIRS-OQ-5 告警登记。绝对模式
+     无锚不收敛。
 - **反直觉点（扇区 patch 的相位处理）**：扇区 patch 后，当前绝对方位仍位于新有向半开区间时重算 phase
-  并保持指向，否则 phase 归零转到新起点；2-D 栅格 patch 下旧行中心 el 映射到新栅格最近行
-  （不在新栅格内则归零行）；rate-only patch 保持 phase。从 SearchAndStare 切入时释放
+  并保持指向（腿方向保留），否则 phase 归零转到新起点且腿复位初始方向；2-D 栅格 patch 下旧行中心 el
+  映射到新栅格最近行（不在新栅格内则归零行）；rate-only patch 保持 phase。从 SearchAndStare 切入时释放
   NFOV/pointing/filter 绑定但**保留** scan phase、测量随机流和已有 WFOV cue 历史。
 - **证据**：[evidence: tests/unit/sbirs_sensor/sbirs_pipeline_test]
 
