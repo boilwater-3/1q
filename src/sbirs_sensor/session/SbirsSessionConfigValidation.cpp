@@ -76,6 +76,13 @@ session::SbirsIssueList ValidateSbirsSessionConfig(const SbirsSessionConfig& con
       config.mission.scan_direction != SbirsScanDirection::kDecreasingAzimuth) {
     AddError(session::codes::kInvalidScanDirection, "mission scan direction is invalid", &issues);
   }
+  // 方位基准枚举合法性（2026-08-31，review 修订）：直接构造 struct 塞越界枚举会被拒，
+  // 不能静默退化为绝对模式（与 scan_direction 同款检查）。
+  if (config.mission.scan_azimuth_reference != SbirsScanAzimuthReference::kEciAbsolute &&
+      config.mission.scan_azimuth_reference != SbirsScanAzimuthReference::kNadirRelative) {
+    AddError(session::codes::kInvalidScanAzimuthReference,
+             "mission scan azimuth reference is invalid", &issues);
+  }
   if (config.mission.max_range_m <= config.mission.min_range_m ||
       config.mission.min_range_m < 0.0f) {
     AddError(session::codes::kInvalidRangeGate,

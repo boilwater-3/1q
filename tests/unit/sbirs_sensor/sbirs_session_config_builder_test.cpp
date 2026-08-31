@@ -129,6 +129,12 @@ TEST(SbirsSessionConfigValidationTest, ValidatesNadirAzimuthReferenceContract) {
                            "sbirs.validation.invalid_scan_start_azimuth"));
   config.mission.scan_start_az_deg = 0.0f;
   EXPECT_TRUE(sbirs_sensor::config::ValidateSbirsSessionConfig(config).empty());
+
+  // 基准枚举本身须合法（review 修订：越界枚举不得静默退化绝对模式）。
+  config.mission.scan_azimuth_reference =
+      static_cast<sbirs_sensor::config::SbirsScanAzimuthReference>(99);
+  EXPECT_TRUE(ContainsCode(sbirs_sensor::config::ValidateSbirsSessionConfig(config),
+                           "sbirs.validation.invalid_scan_azimuth_reference"));
 }
 
 TEST(SbirsSessionConfigValidationTest, PointingDefaultsAreProductionValues) {

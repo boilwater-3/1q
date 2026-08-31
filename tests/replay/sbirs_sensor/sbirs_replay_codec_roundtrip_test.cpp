@@ -69,10 +69,12 @@ std::string EncodeSessionConfigWithRawScanDirection(std::int32_t scan_direction)
 }
 
 // nadir 方位基准（2026-08-31）：raw 非法基准值走与 scan_direction 同款原子拒绝路径。
+// schema 中 scan_azimuth_reference 追加在表尾，位置参数须填满前序字段后落到末位。
 std::string EncodeSessionConfigWithRawAzimuthReference(std::int32_t azimuth_reference) {
   flatbuffers::FlatBufferBuilder builder(128U);
   const auto mission = sbirs::replay::CreateSbirsMissionConfig(
-      builder, 0, 20.0f, 20.0f, 2.0f, 2.0f, -60.0f, 120.0f, 0, azimuth_reference);
+      builder, 0, 20.0f, 20.0f, 2.0f, 2.0f, -60.0f, 120.0f, 0, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f,
+      0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 30.0f, 0.01f, azimuth_reference);
   builder.Finish(sbirs::replay::CreateSbirsSessionConfig(builder, 0, mission, 0, 0),
                   kSbirsReplayFileIdentifier);
   return std::string(reinterpret_cast<const char*>(builder.GetBufferPointer()), builder.GetSize());

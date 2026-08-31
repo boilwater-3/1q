@@ -39,7 +39,9 @@ enum class SbirsTargetState {
  * @note 包含扫描相位、目标状态表、NFOV 多通道调度状态、随机源状态与 EKF 滤波状态表。
  */
 struct SbirsPipelineSnapshot {
-  float scan_phase_deg{0.0f};          /**< 当前 WFOV 有向扫描相位（行内方位相位），范围 [0, span) deg */
+  float scan_phase_deg{0.0f};          /**< 当前 WFOV 有向扫描相位（行内方位相位，往复腿内距起点的距离），范围 [0, span) deg */
+  bool scan_leg_forward{true};         /**< 往复腿方向：true=起点→终点（scan_direction 初始方向），false=回程 */
+  float scan_azimuth_base_deg{0.0f};   /**< 最近执行周期的方位基准（nadir=星下点方位；absolute=0），ApplyConfig 重锚用 */
   int scan_row_index{0};               /**< 当前 WFOV 俯仰栅格行索引，范围 [0, row_count) */
   float misalignment_yaw_deg{0.0f};    /**< 运行期安装失准角总量（常值偏置 + 一次随机抽取），deg */
   float misalignment_pitch_deg{0.0f};  /**< 运行期安装失准角总量 pitch，deg */
@@ -130,6 +132,13 @@ class SbirsPipeline {
   // 扫描方位基准（2026-08-31）：kEciAbsolute 恒 0；kNadirRelative 为最近一次执行
   // 周期算出的星下点 ECI 方位（deg），ApplyConfig 相位重锚与 Execute 指向共用。
   float scan_azimuth_base_deg_{0.0f};
+  // 往复腿方向（2026-08-31）：真实扫描机构到边反向（牛耕式）；true = 沿 scan_direction
+  // 初始方向，false = 回程。rate=0 时恒为初始方向（凝视行为逐位不变）。
+  bool scan_leg_forward_{true};
+  // 有效扫描跨度（2026-08-31）：nadir 模式收敛 min(span, 2(asin(R/|r|)+wfov_az/2))
+  // （超出地球盘可见范围的扫描无效）；绝对模式 = 配置跨度。每执行周期更新。
+  float scan_wrap_span_deg_{0.0f};
+  float last_logged_wrap_span_deg_{-1.0f};  /**< 收敛日志去重（值变化越过阈值才打） */
   int scan_row_index_{0}; /**< 当前 WFOV 俯仰栅格行索引，范围 [0, row_count) */
   std::uint32_t satellite_entity_id_{0U}; /**< 卫星实体/融合源 ID（验收行标注用，不影响计算） */
   bool install_matrices_acceptance_pending_{true}; /**< 安装矩阵验收行待写（构造/ApplyConfig 置位，首个执行周期写出） */

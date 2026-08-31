@@ -183,20 +183,28 @@ float ToEciElevationRad(float elevation_deg) {
 // 方位基准说明（2026-08-31）：azimuth_base_deg 在 kEciAbsolute 下恒 0（历史行为
 // 逐位不变）；kNadirRelative 下为星下点 ECI 方位（deg），由 Execute 按当周期卫星
 // 位置现算并经成员传递（ApplyConfig 相位重锚复用最近一次的基准）。
-float ScanAzimuth(const config::SbirsMissionConfig& mission, float phase_deg,
-                  float azimuth_base_deg) {
-  const float direction =
-      mission.scan_direction == config::SbirsScanDirection::kIncreasingAzimuth ? 1.0f : -1.0f;
-  return NormalizeAzimuth(azimuth_base_deg + mission.scan_start_az_deg + direction * phase_deg);
+// start_deg 为有效扫描起点（绝对模式 = scan_start_az_deg；nadir 模式 = 收敛裁剪后
+// 的有效偏移）；direction_sign 为配置 scan_direction 的带符号方向。
+// 往复式（2026-08-31）：回程由相位动态（行程折叠反射）体现，相位→方位映射在两腿
+// 上同为 start + dir·phase——到边反向走，而不是符号翻转。
+float ScanAzimuth(float start_deg, float phase_deg, float azimuth_base_deg,
+                  float direction_sign) {
+  return NormalizeAzimuth(azimuth_base_deg + start_deg + direction_sign * phase_deg);
 }
 
-float ScanPhaseForAzimuth(const config::SbirsMissionConfig& mission, float azimuth_deg,
-                          float azimuth_base_deg) {
-  const float start_deg = NormalizeAzimuth(azimuth_base_deg + mission.scan_start_az_deg);
-  if (mission.scan_direction == config::SbirsScanDirection::kIncreasingAzimuth) {
-    return PositiveModulo(azimuth_deg - start_deg, 360.0f);
+float ScanPhaseForAzimuth(float start_deg, float azimuth_deg, float azimuth_base_deg,
+                          bool increasing) {
+  const float base_start_deg =
+      azimuth_base_deg == 0.0f ? start_deg : NormalizeAzimuth(azimuth_base_deg + start_deg);
+  if (increasing) {
+    return PositiveModulo(azimuth_deg - base_start_deg, 360.0f);
   }
-  return PositiveModulo(start_deg - azimuth_deg, 360.0f);
+  return PositiveModulo(base_start_deg - azimuth_deg, 360.0f);
+}
+
+// 配置扫描方向 → 带符号方向号（+1 递增 / −1 递减）。
+float ConfigDirectionSign(const config::SbirsMissionConfig& mission) {
+  return mission.scan_direction == config::SbirsScanDirection::kIncreasingAzimuth ? 1.0f : -1.0f;
 }
 
 // 2-D 俯仰栅格（阶段 4）：span=0 默认单行模式（行数=1，行中心恒为 scan_center_el_deg，
@@ -430,6 +438,7 @@ session::SbirsEulerAnglesDeg DrawMisalignmentTotal(
 
 SbirsPipeline::SbirsPipeline(const config::SbirsInternalExecutionConfig& config)
     : config_(config),
+      scan_wrap_span_deg_(config.session.mission.scan_span_deg),
       misalignment_total_deg_(DrawMisalignmentTotal(config.session.orientation.misalignment)),
       nfov_scheduler_(config.session.policy.scheduler.max_concurrent_nfov_locks),
       pointing_coordinator_(config.session.policy.scheduler.max_concurrent_nfov_locks,
@@ -444,7 +453,8 @@ SbirsPipeline::SbirsPipeline(const config::SbirsInternalExecutionConfig& config)
 void SbirsPipeline::ApplyConfig(const config::SbirsInternalExecutionConfig& config,
                                 const runtime::SbirsRuntimeConfigImpact& impact) {
   const float previous_scan_azimuth_deg =
-      ScanAzimuth(config_.session.mission, scan_phase_deg_, scan_azimuth_base_deg_);
+      ScanAzimuth(config_.session.mission.scan_start_az_deg, scan_phase_deg_,
+                  scan_azimuth_base_deg_, ConfigDirectionSign(config_.session.mission));
   // 阶段 4：记录旧栅格当前行中心 el，供新栅格重锚行索引。
   const float previous_row_center_el_deg = RowCenterEl(config_.session.mission, scan_row_index_);
   config_ = config;
@@ -455,13 +465,20 @@ void SbirsPipeline::ApplyConfig(const config::SbirsInternalExecutionConfig& conf
   //（写入时卫星实体 ID 可能已由调用方标注，故不在此处直接写）。
   install_matrices_acceptance_pending_ = true;
   if (impact.scan_sector_changed) {
-    const float candidate_phase =
-        ScanPhaseForAzimuth(config_.session.mission, previous_scan_azimuth_deg,
-                            scan_azimuth_base_deg_);
+    const float candidate_phase = ScanPhaseForAzimuth(
+        config_.session.mission.scan_start_az_deg, previous_scan_azimuth_deg,
+        scan_azimuth_base_deg_,
+        config_.session.mission.scan_direction ==
+            config::SbirsScanDirection::kIncreasingAzimuth);
     scan_phase_deg_ = config_.session.mission.scan_span_deg == 360.0f ||
                               candidate_phase < config_.session.mission.scan_span_deg
                           ? candidate_phase
                           : 0.0f;
+    // 往复腿（2026-08-31）：重锚进新扇区保留腿方向；相位归零（旧方位不在新扇区）
+    // 时腿复位为初始方向——scan_direction 语义 = 初始行进方向。
+    if (scan_phase_deg_ == 0.0f) {
+      scan_leg_forward_ = true;
+    }
     // 行重锚（阶段 4）：旧行中心 el 映射到新栅格最近行；新栅格为单行模式
     // （span=0）或旧 el 不在新栅格 [el_start, el_start+span] 内时归零行。
     const int new_row_count = ScanRowCount(config_.session.mission);
@@ -604,11 +621,53 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
   // GEO 恒定；动轨道随位置漂移，配置免推算（契约见 docs/review/
   // sbirs-nadir-stare-mode_stage_a_2026-08-31.md）。
   float scan_azimuth_base_deg = 0.0f;
+  scan_wrap_span_deg_ = mission.scan_span_deg;
   if (mission.scan_azimuth_reference == config::SbirsScanAzimuthReference::kNadirRelative) {
     const session::SbirsVector3M nadir_direction{-satellite_position_eci_m.x,
                                                  -satellite_position_eci_m.y,
                                                  -satellite_position_eci_m.z};
     scan_azimuth_base_deg = foundation::ComputeAzimuthDeg(nadir_direction);
+    // 跨度收敛（2026-08-31，修订 1——按"配置扇区 ∩ 地球可见窗"裁剪）：地球盘角半径
+    // ρ=asin(R/|r|)（kEarthRadiusM 与遮挡判定同口径），可见窗 = 星下点方位 ±(ρ +
+    // wfov_az/2)（扇区边缘视场外缘仍压着地球盘）。相位原点恒为配置起点（扇区与可见窗
+    // 必含起点才可裁剪），只裁远端：扫描超窗部分对空天扫，无探测意义。绝对模式无锚，
+    // 不收敛。扇区整段在窗外 = 指向性错配，属登记的俯仰/告警开放问题，不在此收敛。
+    const double satellite_radius_m = foundation::Norm(satellite_position_eci_m);
+    const double earth_disk_half_angle_deg =
+        satellite_radius_m > kEarthRadiusM
+            ? oneq::common::numerics::RadToDeg(
+                  std::asin(std::min(1.0, kEarthRadiusM / satellite_radius_m)))
+            : 90.0;
+    const float useful_half_deg = static_cast<float>(
+        earth_disk_half_angle_deg + 0.5 * mission.wide_field_fov_az_deg);
+    const float sector_lo_deg =
+        ConfigDirectionSign(mission) > 0.0f
+            ? mission.scan_start_az_deg
+            : mission.scan_start_az_deg - mission.scan_span_deg;
+    const float sector_hi_deg =
+        ConfigDirectionSign(mission) > 0.0f
+            ? mission.scan_start_az_deg + mission.scan_span_deg
+            : mission.scan_start_az_deg;
+    const float clipped_lo_deg = std::max(sector_lo_deg, -useful_half_deg);
+    const float clipped_hi_deg = std::min(sector_hi_deg, useful_half_deg);
+    if (clipped_hi_deg > clipped_lo_deg &&
+        (clipped_hi_deg - clipped_lo_deg) <
+            mission.scan_span_deg - 1.0e-4f) {
+      scan_wrap_span_deg_ = clipped_hi_deg - clipped_lo_deg;
+      if (std::fabs(scan_wrap_span_deg_ - last_logged_wrap_span_deg_) > 0.05f) {
+        PROJECT_LOG_INFO(
+            "[SbirsPipeline] scan span converged to earth disk: configured={:.2f} -> "
+            "effective={:.2f} (rho={:.2f} wfov_az={:.2f})",
+            mission.scan_span_deg, scan_wrap_span_deg_, earth_disk_half_angle_deg,
+            mission.wide_field_fov_az_deg);
+        last_logged_wrap_span_deg_ = scan_wrap_span_deg_;
+      }
+    }
+    // 有效跨度收缩（位置漂移）使相位越界 → 归零重锚，腿复位初始方向。
+    if (scan_phase_deg_ >= scan_wrap_span_deg_) {
+      scan_phase_deg_ = 0.0f;
+      scan_leg_forward_ = true;
+    }
   }
   scan_azimuth_base_deg_ = scan_azimuth_base_deg;
 
@@ -625,13 +684,17 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
   // 不随姿态/安装变化；2-D 栅格（阶段 4）下俯仰为当前行中心 el。
   const auto nominal_scan_eci_angles_rad = [&]() -> std::pair<float, float> {
     const float scan_elevation_deg = RowCenterEl(mission, scan_row_index_);
+    const float direction_sign = ConfigDirectionSign(mission);
     if (boresight_chain.IsIdentity()) {
-      return std::make_pair(ToEciAzimuthRad(ScanAzimuth(mission, scan_phase_deg_,
-                                                        scan_azimuth_base_deg)),
+      return std::make_pair(ToEciAzimuthRad(ScanAzimuth(mission.scan_start_az_deg,
+                                                        scan_phase_deg_,
+                                                        scan_azimuth_base_deg, direction_sign)),
                             ToEciElevationRad(scan_elevation_deg));
     }
     const session::SbirsVector3M eci_los = boresight_chain.EciLosOfSensorPointing(
-        ScanAzimuth(mission, scan_phase_deg_, scan_azimuth_base_deg), scan_elevation_deg);
+        ScanAzimuth(mission.scan_start_az_deg, scan_phase_deg_, scan_azimuth_base_deg,
+                    direction_sign),
+        scan_elevation_deg);
     return std::make_pair(ToEciAzimuthRad(foundation::ComputeAzimuthDeg(eci_los)),
                           ToEciElevationRad(foundation::ComputeElevationDeg(eci_los)));
   };
@@ -727,22 +790,32 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
     return result;
   }
 
-  // 2-D 栅格推进（阶段 4）：行内方位相位推进与既有完全同式（float 域
-  // phase + rate·dt 后 PositiveModulo 到 [0, span)，逐位不变）；相位跨过 span 时
-  // 行索引按 floor(advance/span) 步进并回绕（row_count=1 单行模式下 row_advance
-  // 恒 0，行为与既有逐位一致）。
+  // 往复式扫描推进（2026-08-31，牛耕式）：相位沿"行程坐标" travel ∈ [0, 2·wrap_span)
+  // 推进 rate·dt 后折叠——去程 [0, span) 正走、回程 [span, 2span) 反走，到边反射
+  // 而非跳回起点（真实扫描机构行为；锯齿→往复的行为替换，契约见 docs/review/
+  // sbirs-scan-realism_stage_a_2026-08-31.md）。栅格行进=每次过界步进一行
+  // （crossings 计数与既有节奏同值：dt·rate=k·span 时相位/行序列与锯齿逐位重合）。
+  // rate=0 时 travel 恒 0、腿恒初始方向——凝视行为逐位不变。
   const int row_count = ScanRowCount(mission);
-  const float advanced_phase =
-      scan_phase_deg_ + mission.scan_rate_deg_per_sec * std::max(0.0f, input.dt_sec);
+  const float wrap_span = scan_wrap_span_deg_;
+  const float prev_travel =
+      scan_leg_forward_ ? scan_phase_deg_ : 2.0f * wrap_span - scan_phase_deg_;
+  const float advanced_travel =
+      prev_travel + mission.scan_rate_deg_per_sec * std::max(0.0f, input.dt_sec);
   const int row_advance =
-      static_cast<int>(std::floor(static_cast<double>(advanced_phase) /
-                                  static_cast<double>(mission.scan_span_deg)));
-  scan_phase_deg_ = PositiveModulo(advanced_phase, mission.scan_span_deg);
+      static_cast<int>(std::floor(static_cast<double>(advanced_travel) /
+                                  static_cast<double>(wrap_span))) -
+      static_cast<int>(std::floor(static_cast<double>(prev_travel) /
+                                  static_cast<double>(wrap_span)));
+  const float folded_travel = std::fmod(advanced_travel, 2.0f * wrap_span);
+  scan_leg_forward_ = folded_travel < wrap_span;
+  scan_phase_deg_ = scan_leg_forward_ ? folded_travel : 2.0f * wrap_span - folded_travel;
   if (row_advance > 0 && row_count > 1) {
     scan_row_index_ = (scan_row_index_ + row_advance) % row_count;
   }
   const float scan_azimuth_deg =
-      ScanAzimuth(mission, scan_phase_deg_, scan_azimuth_base_deg);
+      ScanAzimuth(mission.scan_start_az_deg, scan_phase_deg_, scan_azimuth_base_deg,
+                  ConfigDirectionSign(mission));
   const std::pair<float, float> nominal_angles = nominal_scan_eci_angles_rad();
   result.scan_azimuth_rad = nominal_angles.first;
   result.scan_elevation_rad = nominal_angles.second;
@@ -1747,6 +1820,8 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
 SbirsPipelineSnapshot SbirsPipeline::CaptureRuntimeState() const {
   SbirsPipelineSnapshot snapshot;
   snapshot.scan_phase_deg = scan_phase_deg_;
+  snapshot.scan_leg_forward = scan_leg_forward_;
+  snapshot.scan_azimuth_base_deg = scan_azimuth_base_deg_;
   snapshot.scan_row_index = scan_row_index_;
   snapshot.misalignment_yaw_deg = static_cast<float>(misalignment_total_deg_.yaw_deg);
   snapshot.misalignment_pitch_deg = static_cast<float>(misalignment_total_deg_.pitch_deg);
@@ -1851,6 +1926,8 @@ bool SbirsPipeline::RestoreRuntimeState(const SbirsPipelineSnapshot& snapshot) {
   tracking_state.imm_active = snapshot.imm_active;
   tracking_state.imm_snapshots = snapshot.imm_snapshots;
   scan_phase_deg_ = snapshot.scan_phase_deg;
+  scan_leg_forward_ = snapshot.scan_leg_forward;
+  scan_azimuth_base_deg_ = snapshot.scan_azimuth_base_deg;
   scan_row_index_ = snapshot.scan_row_index;
   misalignment_total_deg_.yaw_deg = snapshot.misalignment_yaw_deg;
   misalignment_total_deg_.pitch_deg = snapshot.misalignment_pitch_deg;

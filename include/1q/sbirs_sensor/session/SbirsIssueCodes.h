@@ -61,6 +61,10 @@ constexpr char kInvalidScanSpan[] = "sbirs.validation.invalid_scan_span";
 /** @brief 扫描方向非法。 */
 constexpr char kInvalidScanDirection[] = "sbirs.validation.invalid_scan_direction";
 
+/** @brief 扫描方位基准非法（须为 kEciAbsolute 或 kNadirRelative，2026-08-31）。 */
+constexpr char kInvalidScanAzimuthReference[] =
+    "sbirs.validation.invalid_scan_azimuth_reference";
+
 /** @brief 距离门非法（min/max 未有序或为负）。 */
 constexpr char kInvalidRangeGate[] = "sbirs.validation.invalid_range_gate";
 

@@ -2505,4 +2505,135 @@ TEST(SbirsPipelineTest, NadirOffsetZeroEqualsAbsoluteStartAtNadirAzimuth) {
   ASSERT_FALSE(absolute_result.detections.empty());
 }
 
+// --- 往复式扫描 + 跨度收敛（2026-08-31，sbirs-scan-realism）---
+
+TEST(SbirsPipelineTest, PingPongSweepReversesAtSpanBoundary) {
+  // 往复式：rate=1°/s、span=10°、dt=6 → 行程 6/12/18/24(折 4)。方位序列应为
+  // 6°→8°→2°→4°（去程到边后反向），无锯齿式瞬时跳回；相位 ∈ [0, span)。
+  sbirs_sensor::config::SbirsSessionConfig config = PipelineConfig();
+  config.mission.scan_start_az_deg = 0.0f;
+  config.mission.scan_span_deg = 10.0f;
+  config.mission.scan_rate_deg_per_sec = 1.0f;
+  sbirs_sensor::pipeline::SbirsPipeline pipeline(
+      sbirs_sensor::runtime::MapSessionToInternal(config));
+  const auto run_cycle = [&](std::uint32_t index, float dt_sec) {
+    sbirs_sensor::session::SbirsCycleInput input =
+        sbirs_sensor::session::SbirsCycleInputBuilder()
+            .WithCycleIndex(index)
+            .WithDeltaTimeSec(dt_sec)
+            .WithUtcJulianDay(2451544.2230698913)  // GMST≈0：ECI≡ECEF
+            .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
+            .WithSatelliteVelocity(sbirs_sensor::session::SbirsVector3M{})
+            .WithSatelliteAttitude(sbirs_sensor::session::SbirsEulerAnglesDeg{})
+            .AddTarget(HotTargetAtAngles(1U, 0.0, 0.0))
+            .Build();
+    return pipeline.RunCycle(input);
+  };
+  const auto az_deg = [](const sbirs_sensor::pipeline::SbirsPipelineResult& r) {
+    return r.scan_azimuth_rad * 180.0 / kPi;
+  };
+  // 周期 1：行程 6（去程）→ az 6。
+  EXPECT_NEAR(az_deg(run_cycle(1U, 6.0f)), 6.0, 1.0e-4);
+  // 周期 2：行程 12 过界反射 → az 8（回程），不是锯齿的 2。
+  EXPECT_NEAR(az_deg(run_cycle(2U, 6.0f)), 8.0, 1.0e-4);
+  // 周期 3：行程 18 → az 2（回程续走）。
+  EXPECT_NEAR(az_deg(run_cycle(3U, 6.0f)), 2.0, 1.0e-4);
+  // 周期 4：行程 24 折 4（再过界，回到去程）→ az 4。
+  EXPECT_NEAR(az_deg(run_cycle(4U, 6.0f)), 4.0, 1.0e-4);
+  const auto snapshot = pipeline.CaptureRuntimeState();
+  EXPECT_GE(snapshot.scan_phase_deg, 0.0f);
+  EXPECT_LT(snapshot.scan_phase_deg, config.mission.scan_span_deg);
+}
+
+TEST(SbirsPipelineTest, PingPongSnapshotRestoresLegDirection) {
+  // 快照契约：腿方向随快照往返——回程态恢复后继续反向走，而非复位去程。
+  sbirs_sensor::config::SbirsSessionConfig config = PipelineConfig();
+  config.mission.scan_start_az_deg = 0.0f;
+  config.mission.scan_span_deg = 10.0f;
+  config.mission.scan_rate_deg_per_sec = 1.0f;
+  sbirs_sensor::pipeline::SbirsPipeline pipeline(
+      sbirs_sensor::runtime::MapSessionToInternal(config));
+  const auto run_cycle = [&](std::uint32_t index, float dt_sec) {
+    sbirs_sensor::session::SbirsCycleInput input =
+        sbirs_sensor::session::SbirsCycleInputBuilder()
+            .WithCycleIndex(index)
+            .WithDeltaTimeSec(dt_sec)
+            .WithUtcJulianDay(2451544.2230698913)  // GMST≈0：ECI≡ECEF
+            .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
+            .WithSatelliteVelocity(sbirs_sensor::session::SbirsVector3M{})
+            .WithSatelliteAttitude(sbirs_sensor::session::SbirsEulerAnglesDeg{})
+            .AddTarget(HotTargetAtAngles(1U, 0.0, 0.0))
+            .Build();
+    return pipeline.RunCycle(input);
+  };
+  run_cycle(1U, 1.0f);  // 行程 1（去程）
+  ASSERT_TRUE(pipeline.CaptureRuntimeState().scan_leg_forward);
+  run_cycle(2U, 11.0f);  // 行程 12 过界 → 回程，相位 8
+  const sbirs_sensor::pipeline::SbirsPipelineSnapshot snapshot =
+      pipeline.CaptureRuntimeState();
+  EXPECT_FALSE(snapshot.scan_leg_forward);
+  sbirs_sensor::pipeline::SbirsPipeline restored(
+      sbirs_sensor::runtime::MapSessionToInternal(config));
+  ASSERT_TRUE(restored.RestoreRuntimeState(snapshot));
+  // 恢复后 dt=2：行程 12+2=14 → 相位 6（回程续走）；若腿错误复位去程则行程 8+2=10 → 相位 10。
+  const sbirs_sensor::pipeline::SbirsPipelineResult next = restored.RunCycle(
+      sbirs_sensor::session::SbirsCycleInputBuilder()
+          .WithCycleIndex(3U)
+          .WithDeltaTimeSec(2.0f)
+          .WithUtcJulianDay(2451544.2230698913)
+          .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
+          .WithSatelliteVelocity(sbirs_sensor::session::SbirsVector3M{})
+          .WithSatelliteAttitude(sbirs_sensor::session::SbirsEulerAnglesDeg{})
+          .AddTarget(HotTargetAtAngles(1U, 0.0, 0.0))
+          .Build());
+  EXPECT_NEAR(next.scan_azimuth_rad * 180.0 / kPi, 6.0, 1.0e-4);
+}
+
+TEST(SbirsPipelineTest, NadirSpanConvergesToEarthDisk) {
+  // 收敛（按"配置扇区 ∩ 地球可见窗"裁剪）：GEO 位形（|r|=42164km，+x 轴，GMST≈0 →
+  // 星下点方位 180°），nadir 偏移 0、span=360、rate=10、wfov=24、递增方向 → 扇区
+  // [0°,360°] ∩ 可见窗 [−20.69°,+20.69°] = [0°,20.69°]，有效跨度 20.69。全程方位
+  // 限制在星下点 +[0,20.69]，相位以有效跨度回绕（到边反向），配置 360 不整圈扫。
+  sbirs_sensor::config::SbirsSessionConfig config = PipelineConfig();
+  config.mission.work_mode = sbirs_sensor::config::SbirsWorkMode::kWideSearch;
+  config.mission.scan_azimuth_reference =
+      sbirs_sensor::config::SbirsScanAzimuthReference::kNadirRelative;
+  config.mission.scan_start_az_deg = 0.0f;
+  config.mission.scan_span_deg = 360.0f;
+  config.mission.scan_rate_deg_per_sec = 10.0f;
+  config.mission.wide_field_fov_az_deg = 24.0f;
+  sbirs_sensor::pipeline::SbirsPipeline pipeline(
+      sbirs_sensor::runtime::MapSessionToInternal(config));
+  const auto run_cycle = [&](std::uint32_t index) {
+    sbirs_sensor::session::SbirsCycleInput input =
+        sbirs_sensor::session::SbirsCycleInputBuilder()
+            .WithCycleIndex(index)
+            .WithDeltaTimeSec(1.0f)
+            .WithUtcJulianDay(2451544.2230698913)  // GMST≈0：ECI≡ECEF
+            .WithSatellitePosition(Vector(42164000.0, 0.0, 0.0))
+            .WithSatelliteVelocity(sbirs_sensor::session::SbirsVector3M{})
+            .WithSatelliteAttitude(sbirs_sensor::session::SbirsEulerAnglesDeg{})
+            .Build();
+    return pipeline.RunCycle(input);
+  };
+  const double rho_deg = std::asin(6371.0 / 42164.0) * 180.0 / kPi;   // ≈ 8.69°
+  const double useful_half_deg = rho_deg + 12.0;                      // ≈ 20.69°
+  double last_offset_deg = 0.0;
+  bool saw_return_leg = false;
+  for (std::uint32_t cycle = 1U; cycle <= 12U; ++cycle) {
+    const sbirs_sensor::pipeline::SbirsPipelineResult result = run_cycle(cycle);
+    const double az_deg = result.scan_azimuth_rad * 180.0 / kPi;
+    double offset = az_deg - 180.0;
+    if (offset > 180.0) offset -= 360.0;
+    if (offset < -180.0) offset += 360.0;
+    EXPECT_LE(offset, useful_half_deg + 0.01) << "cycle " << cycle;
+    EXPECT_GE(offset, -useful_half_deg - 0.01) << "cycle " << cycle;
+    if (offset < last_offset_deg - 0.5) saw_return_leg = true;  // 方位回头 = 回程
+    last_offset_deg = offset;
+  }
+  EXPECT_TRUE(saw_return_leg);  // 12s×10°/s=120° 行程 ≫ 2×20.69 必见回程
+  EXPECT_LT(pipeline.CaptureRuntimeState().scan_phase_deg,
+            static_cast<float>(useful_half_deg) + 0.1f);
+}
+
 }  // namespace
