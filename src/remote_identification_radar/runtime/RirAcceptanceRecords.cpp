@@ -768,16 +768,16 @@ bool TryExportRirAntennaPatternCsv(const config::hardware::RirAntennaConfig& ant
   beamwidth.az_beamwidth_deg = antenna.nominal_az_beamwidth_deg;
   beamwidth.el_beamwidth_deg = antenna.nominal_el_beamwidth_deg;
   config::RirAzimuthElevationDeg pointing(0.0f, 0.0f);
-  // 评审 2026-08-26 条14：网格随波束宽度自适应（主瓣 ≥16 点、前几个副瓣可辨；
-  // 旧 2° 步进下 4° 主瓣只有 2×2 点，主副瓣形状都画不出）。范围取 ±5·波束宽
-  // （封顶 ±90°），覆盖主瓣 + 数个副瓣环；主瓣外由 sinc² 连续延拓 + 副瓣电平
-  // 钳制产生起伏结构（见 AntennaPatternRuntime.h）。
-  const float bw_az = std::max(0.5f, antenna.nominal_az_beamwidth_deg);
-  const float bw_el = std::max(0.5f, antenna.nominal_el_beamwidth_deg);
-  const float step = std::max(0.05f, std::min(bw_az, bw_el) / 20.0f);
-  const float span_az = std::min(90.0f, 5.0f * bw_az);
-  const float span_el = std::min(90.0f, 5.0f * bw_el);
-  for (float az = -span_az; az <= span_az + 0.5f * step; az += step) {
+  // 2026-08-31 用户裁定：全向网格 az 0–360° × el −90–90°（az/el 正好无冗余覆盖
+  // 全空间；主瓣/副瓣/尾瓣全落在数据内），步长 = 波束宽度（不再用 bw/20 高密度；
+  // 下限 0.1° 防窄束配置行数爆炸）。主瓣峰值点 (0,0) 始终在格点上。旧 ±5·bw
+  // 自适应网格见评审 2026-08-26 条14（已废止）；同日修订：el 初版 ±180° 有
+  // 方向冗余，收敛为 ±90°。
+  const float step = std::max(0.1f, std::min(antenna.nominal_az_beamwidth_deg,
+                                             antenna.nominal_el_beamwidth_deg));
+  const float span_az = 360.0f;
+  const float span_el = 90.0f;
+  for (float az = 0.0f; az <= span_az + 0.5f * step; az += step) {
     for (float el = -span_el; el <= span_el + 0.5f * step; el += step) {
       dwell::RirAntennaLookOffsetDeg offset;
       offset.delta_az_deg = az;
