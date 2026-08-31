@@ -733,24 +733,23 @@ void WriteRirDwellScan(std::uint64_t radar_id, float sim_time_sec, std::uint32_t
   if (!RIR_ACCEPTANCE_LOG_ENABLED()) {
     return;
   }
-  // 验收判定标准 第48项：逐驻留波束指向行（2026-08-29 TAS：一周期多驻留）。
-  // 搜索驻留保"本周期序号/波位"既有字段语义（每条搜索驻留一行，序号=波位表游标）；
-  // 指定/跟踪驻留带种类与目标 ID 标记（下一波位/总数/模式为库内检索用字段，不在行内）。
+  // 验收判定标准 第48项：逐驻留扫描轨迹序号（2026-08-29 TAS：一周期多驻留）。
+  // 波位排列表/扫描轨迹全量在 rir_scan_pattern.csv（index,az_deg,el_deg）；日志不再
+  // 重复当前波束指向，搜索驻留只写本周期序号（=波位表游标，可索引 CSV）。
+  // 指定/跟踪驻留带种类与目标 ID 标记。
+  const std::string scan_csv_path = ResolveRirScanPatternCsvPath();
   for (const RirDwellPlan& dwell : dwell_plan) {
     if (dwell.kind == RirDwellKind::kSearch) {
       Emit(sim_time_sec, cycle, "波束扫描功能测试",
            "雷达ID=" + std::to_string(radar_id) +
                " 本周期序号=" + std::to_string(dwell.scan_pattern_index) +
-               " 波位=" + FormatPairDeg(dwell.pointing_deg.az_deg, dwell.pointing_deg.el_deg, 3) +
-               "°");
+               " 波位排列表已输出至" + scan_csv_path);
     } else {
       const char* kind_text =
           dwell.kind == RirDwellKind::kDesignate ? "指定驻留" : "跟踪驻留";
       Emit(sim_time_sec, cycle, "波束扫描功能测试",
            "雷达ID=" + std::to_string(radar_id) + " 驻留种类=" + kind_text +
-               " 目标ID=" + std::to_string(dwell.external_target_id) +
-               " 指向=" + FormatPairDeg(dwell.pointing_deg.az_deg, dwell.pointing_deg.el_deg, 3) +
-               "°");
+               " 目标ID=" + std::to_string(dwell.external_target_id));
     }
   }
 }
