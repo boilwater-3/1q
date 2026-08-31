@@ -119,6 +119,13 @@ sbirs_sensor::config::SbirsSessionConfig LoadSatelliteConfig(const examples::Jso
           : 1.0f;
   config.mission.work_mode = sbirs_sensor::config::SbirsWorkMode::kSearchAndStare;
   config.mission.scan_start_az_deg = static_cast<float>(block["scan_start_az_deg"].AsDouble());
+  // 方位基准（2026-08-31）：kNadirRelative 时 scan_start_az_deg 语义 = 相对星下点
+  // 偏移（0 = 正对星下点，免推算）；缺省 kEciAbsolute 维持既有绝对方位语义。
+  if (block.Has("scan_azimuth_reference") &&
+      block["scan_azimuth_reference"].AsString() == "kNadirRelative") {
+    config.mission.scan_azimuth_reference =
+        sbirs_sensor::config::SbirsScanAzimuthReference::kNadirRelative;
+  }
   config.mission.scan_span_deg =
       block.Has("scan_span_deg") ? static_cast<float>(block["scan_span_deg"].AsDouble()) : 11.0f;
   config.mission.scan_rate_deg_per_sec =
@@ -559,11 +566,27 @@ int main(int argc, char* argv[]) {
                                    "slant_range_error_m");
   for (std::size_t i = 0U; i < scene.satellites.size(); ++i) {
     const LoadedSatellite& sat = scene.satellites[i];
+    // scan_center_az_deg 导出"有效绝对方位"（查看器按它画视场锥）：nadir 基准下 =
+    // 星下点 ECI 方位 + 偏移（星下点方位 = atan2(-y,-x)，卫星 ECEF 旋 ECI 同 gmst）；
+    // 绝对基准下 = scan_start_az_deg 原值。
+    double effective_start_az_deg = sat.config.mission.scan_start_az_deg;
+    if (sat.config.mission.scan_azimuth_reference ==
+        sbirs_sensor::config::SbirsScanAzimuthReference::kNadirRelative) {
+      const double cg = std::cos(gmst_rad), sg = std::sin(gmst_rad);
+      const double eci_x = cg * sat.position_ecef_m.x_m - sg * sat.position_ecef_m.y_m;
+      const double eci_y = sg * sat.position_ecef_m.x_m + cg * sat.position_ecef_m.y_m;
+      const double nadir_az_deg =
+          std::atan2(-eci_y, -eci_x) * 180.0 / 3.14159265358979323846;
+      effective_start_az_deg = nadir_az_deg +
+          static_cast<double>(sat.config.mission.scan_start_az_deg);
+    }
+    while (effective_start_az_deg < 0.0) effective_start_az_deg += 360.0;
+    while (effective_start_az_deg >= 360.0) effective_start_az_deg -= 360.0;
     char row[512];
     std::snprintf(row, sizeof(row), "%s,%u,%.3f,%.3f,%.3f,%.9f,%.2f,%.2f,%.1f,%.1f,%.1f,%.1f",
                   sat.id.c_str(), sat.source_id, sat.position_ecef_m.x_m,
                   sat.position_ecef_m.y_m, sat.position_ecef_m.z_m, gmst_rad,
-                  static_cast<double>(sat.config.mission.scan_start_az_deg),
+                  effective_start_az_deg,
                   static_cast<double>(sat.config.mission.scan_center_el_deg),
                   static_cast<double>(sat.config.mission.wide_field_fov_az_deg),
                   static_cast<double>(sat.config.mission.wide_field_fov_el_deg),
