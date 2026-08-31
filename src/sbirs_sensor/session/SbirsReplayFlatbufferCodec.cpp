@@ -176,6 +176,7 @@ flatbuffers::Offset<sbirs::replay::SbirsMissionConfig> EncodeMissionConfig(
       fbb, static_cast<std::int32_t>(value.work_mode), value.wide_field_fov_az_deg,
       value.wide_field_fov_el_deg, value.narrow_field_fov_az_deg, value.narrow_field_fov_el_deg,
       value.scan_start_az_deg, value.scan_span_deg, static_cast<std::int32_t>(value.scan_direction),
+      static_cast<std::int32_t>(value.scan_azimuth_reference),
       value.scan_center_el_deg, value.scan_el_start_deg, value.scan_el_span_deg,
       value.scan_el_step_deg, value.scan_rate_deg_per_sec, value.min_range_m, value.max_range_m,
       value.frame_rate_hz, value.narrow_cue_latency_s, value.narrow_pointing_settle_error_deg,
@@ -188,7 +189,11 @@ bool DecodeMissionConfig(const sbirs::replay::SbirsMissionConfig* fb,
       (fb->scan_direction() !=
            static_cast<std::int32_t>(config::SbirsScanDirection::kIncreasingAzimuth) &&
        fb->scan_direction() !=
-           static_cast<std::int32_t>(config::SbirsScanDirection::kDecreasingAzimuth))) {
+           static_cast<std::int32_t>(config::SbirsScanDirection::kDecreasingAzimuth)) ||
+      (fb->scan_azimuth_reference() !=
+           static_cast<std::int32_t>(config::SbirsScanAzimuthReference::kEciAbsolute) &&
+       fb->scan_azimuth_reference() !=
+           static_cast<std::int32_t>(config::SbirsScanAzimuthReference::kNadirRelative))) {
     return false;
   }
   config::SbirsMissionConfig decoded;
@@ -200,6 +205,8 @@ bool DecodeMissionConfig(const sbirs::replay::SbirsMissionConfig* fb,
   decoded.scan_start_az_deg = fb->scan_start_az_deg();
   decoded.scan_span_deg = fb->scan_span_deg();
   decoded.scan_direction = static_cast<config::SbirsScanDirection>(fb->scan_direction());
+  decoded.scan_azimuth_reference =
+      static_cast<config::SbirsScanAzimuthReference>(fb->scan_azimuth_reference());
   decoded.scan_center_el_deg = fb->scan_center_el_deg();
   decoded.scan_el_start_deg = fb->scan_el_start_deg();
   decoded.scan_el_span_deg = fb->scan_el_span_deg();

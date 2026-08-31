@@ -127,6 +127,9 @@ class SbirsPipeline {
  private:
   config::SbirsInternalExecutionConfig config_{};
   float scan_phase_deg_{0.0f};
+  // 扫描方位基准（2026-08-31）：kEciAbsolute 恒 0；kNadirRelative 为最近一次执行
+  // 周期算出的星下点 ECI 方位（deg），ApplyConfig 相位重锚与 Execute 指向共用。
+  float scan_azimuth_base_deg_{0.0f};
   int scan_row_index_{0}; /**< 当前 WFOV 俯仰栅格行索引，范围 [0, row_count) */
   std::uint32_t satellite_entity_id_{0U}; /**< 卫星实体/融合源 ID（验收行标注用，不影响计算） */
   bool install_matrices_acceptance_pending_{true}; /**< 安装矩阵验收行待写（构造/ApplyConfig 置位，首个执行周期写出） */

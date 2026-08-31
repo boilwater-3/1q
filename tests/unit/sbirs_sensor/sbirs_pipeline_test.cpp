@@ -2440,4 +2440,69 @@ TEST(SbirsPipelineTest, ElevationRasterSectorPatchReanchorsRow) {
   EXPECT_EQ(pipeline.CaptureRuntimeState().scan_row_index, 0);
 }
 
+// --- nadir 方位基准（2026-08-31）---
+// 几何约定：卫星在 (7e6, 0, 0)，GMST≈0（ECI≡ECEF）→ 星下点方位 = 180°；
+// 星下点方向目标取 (6.5e6, 0, 0)（地表上方约 129 km，视距 5e5 m，无遮挡）。
+sbirs_sensor::config::SbirsSessionConfig NadirStareConfig(float start_offset_deg) {
+  sbirs_sensor::config::SbirsSessionConfig config = PipelineConfig();
+  config.mission.scan_azimuth_reference =
+      sbirs_sensor::config::SbirsScanAzimuthReference::kNadirRelative;
+  config.mission.scan_start_az_deg = start_offset_deg;
+  config.mission.scan_span_deg = 20.0f;
+  config.mission.scan_rate_deg_per_sec = 0.0f;  // 凝视：相位恒 0
+  config.mission.wide_field_fov_az_deg = 20.0f;
+  config.mission.wide_field_fov_el_deg = 20.0f;
+  return config;
+}
+
+sbirs_sensor::session::SbirsCycleInput NadirInput() {
+  sbirs_sensor::session::SbirsSceneTarget target = HotTarget(11U, 0.0);
+  target.position_ecef_m = Vector(6500000.0, 0.0, 0.0);
+  return sbirs_sensor::session::SbirsCycleInputBuilder()
+      .WithCycleIndex(1U)
+      .WithDeltaTimeSec(1.0f)
+      .WithUtcJulianDay(2451544.2230698913)  // GMST≈0：ECI≡ECEF
+      .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
+      .WithSatelliteVelocity(sbirs_sensor::session::SbirsVector3M{})
+      .WithSatelliteAttitude(sbirs_sensor::session::SbirsEulerAnglesDeg{})
+      .AddTarget(target)
+      .Build();
+}
+
+TEST(SbirsPipelineTest, NadirStareOffsetZeroDetectsSubSatelliteTarget) {
+  // 偏移 0 + 速率 0 = 视场钉在星下点方位（180°），正下方目标应被检出。
+  sbirs_sensor::pipeline::SbirsPipeline pipeline(
+      sbirs_sensor::runtime::MapSessionToInternal(NadirStareConfig(0.0f)));
+  const sbirs_sensor::pipeline::SbirsPipelineResult result = pipeline.RunCycle(NadirInput());
+  ASSERT_FALSE(result.detections.empty());
+  EXPECT_TRUE(result.detections.front().record.detected);
+}
+
+TEST(SbirsPipelineTest, NadirStareOffsetNinetyDegreesMissesTarget) {
+  // 偏移 90° → 有效指向 270°，目标在 180°，Δaz=90° 超半视场 10° → 门控排除。
+  sbirs_sensor::pipeline::SbirsPipeline pipeline(
+      sbirs_sensor::runtime::MapSessionToInternal(NadirStareConfig(90.0f)));
+  const sbirs_sensor::pipeline::SbirsPipelineResult result = pipeline.RunCycle(NadirInput());
+  EXPECT_TRUE(result.detections.empty());
+}
+
+TEST(SbirsPipelineTest, NadirOffsetZeroEqualsAbsoluteStartAtNadirAzimuth) {
+  // 等价性：nadir 偏移 0 ≡ 绝对起点 180°（该几何下的星下点方位），扫描方位一致。
+  sbirs_sensor::config::SbirsSessionConfig absolute = NadirStareConfig(0.0f);
+  absolute.mission.scan_azimuth_reference =
+      sbirs_sensor::config::SbirsScanAzimuthReference::kEciAbsolute;
+  absolute.mission.scan_start_az_deg = 180.0f;
+  sbirs_sensor::pipeline::SbirsPipeline nadir_pipeline(
+      sbirs_sensor::runtime::MapSessionToInternal(NadirStareConfig(0.0f)));
+  sbirs_sensor::pipeline::SbirsPipeline absolute_pipeline(
+      sbirs_sensor::runtime::MapSessionToInternal(absolute));
+  const sbirs_sensor::pipeline::SbirsPipelineResult nadir_result =
+      nadir_pipeline.RunCycle(NadirInput());
+  const sbirs_sensor::pipeline::SbirsPipelineResult absolute_result =
+      absolute_pipeline.RunCycle(NadirInput());
+  EXPECT_NEAR(nadir_result.scan_azimuth_rad, absolute_result.scan_azimuth_rad, 1.0e-5);
+  ASSERT_FALSE(nadir_result.detections.empty());
+  ASSERT_FALSE(absolute_result.detections.empty());
+}
+
 }  // namespace

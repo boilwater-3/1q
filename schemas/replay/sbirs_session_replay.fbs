@@ -27,6 +27,8 @@ table SbirsMissionConfig {
   scan_start_az_deg: float;
   scan_span_deg: float;
   scan_direction: int32;
+  // 0 = kEciAbsolute（默认），1 = kNadirRelative（相对星下点偏移）。
+  scan_azimuth_reference: int32 = 0;
   scan_center_el_deg: float;
   scan_el_start_deg: float = 0.0;
   scan_el_span_deg: float = 0.0;

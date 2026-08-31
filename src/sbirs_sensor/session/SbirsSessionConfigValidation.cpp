@@ -50,11 +50,22 @@ session::SbirsIssueList ValidateSbirsSessionConfig(const SbirsSessionConfig& con
              &issues);
   }
   // ECI 方位角约定（2026-08 正式变更）：扫描起始方位为 ECI 极坐标 az，
-  // 取值范围 [0, 360)。
+  // 取值范围 [0, 360)。nadir 基准（2026-08-31）：scan_start_az_deg 语义切换为
+  // 相对星下点方位的带符号偏移，合法域 (-360, 360)；两域互斥，按基准分别校验。
+  const bool nadir_referenced =
+      config.mission.scan_azimuth_reference == SbirsScanAzimuthReference::kNadirRelative;
   if (!std::isfinite(config.mission.scan_start_az_deg) ||
-      config.mission.scan_start_az_deg < 0.0f || config.mission.scan_start_az_deg >= 360.0f) {
+      (nadir_referenced
+           ? (config.mission.scan_start_az_deg <= -360.0f ||
+              config.mission.scan_start_az_deg >= 360.0f)
+           : (config.mission.scan_start_az_deg < 0.0f ||
+              config.mission.scan_start_az_deg >= 360.0f))) {
     AddError(session::codes::kInvalidScanStartAzimuth,
-             "mission scan start azimuth must be finite and in [0, 360)", &issues);
+             nadir_referenced
+                 ? "mission scan start offset must be finite and in (-360, 360) when "
+                   "nadir-referenced"
+                 : "mission scan start azimuth must be finite and in [0, 360)",
+             &issues);
   }
   if (!std::isfinite(config.mission.scan_span_deg) || config.mission.scan_span_deg <= 0.0f ||
       config.mission.scan_span_deg > 360.0f) {
@@ -155,9 +166,14 @@ session::SbirsIssueList ValidateSbirsSessionConfig(const SbirsSessionConfig& con
       sensor_limits.el_min_deg <= sensor_limits.el_max_deg &&
       sensor_limits.az_min_deg >= -180.0f && sensor_limits.az_max_deg <= 180.0f &&
       sensor_limits.el_min_deg >= -90.0f && sensor_limits.el_max_deg <= 90.0f;
-  const bool scan_params_valid = std::isfinite(config.mission.scan_start_az_deg) &&
-                                 config.mission.scan_start_az_deg >= 0.0f &&
-                                 config.mission.scan_start_az_deg < 360.0f &&
+  const bool start_domain_ok =
+      std::isfinite(config.mission.scan_start_az_deg) &&
+      (nadir_referenced
+           ? (config.mission.scan_start_az_deg > -360.0f &&
+              config.mission.scan_start_az_deg < 360.0f)
+           : (config.mission.scan_start_az_deg >= 0.0f &&
+              config.mission.scan_start_az_deg < 360.0f));
+  const bool scan_params_valid = start_domain_ok &&
                                  std::isfinite(config.mission.scan_span_deg) &&
                                  config.mission.scan_span_deg > 0.0f &&
                                  config.mission.scan_span_deg <= 360.0f &&
@@ -170,14 +186,16 @@ session::SbirsIssueList ValidateSbirsSessionConfig(const SbirsSessionConfig& con
   if (sensor_limits_valid && scan_params_valid) {
     const float kEps = 1.0e-4f;
     const float az_window_deg = sensor_limits.az_max_deg - sensor_limits.az_min_deg;
-    float start_symmetric_deg =
-        std::fmod(config.mission.scan_start_az_deg + 180.0f, 360.0f);
-    if (start_symmetric_deg < 0.0f) {
-      start_symmetric_deg += 360.0f;
-    }
-    start_symmetric_deg -= 180.0f;
-    bool az_path_ok = az_window_deg >= 360.0f - kEps;
+    // nadir 基准的有效起点 = 星下点方位 + 偏移，依赖运行期卫星位置，config 期无法
+    // 静态判弧段越限（阶段裁定：跳过方位弧段检查，俯仰检查保留；全开窗口本就放行）。
+    bool az_path_ok = az_window_deg >= 360.0f - kEps || nadir_referenced;
     if (!az_path_ok) {
+      float start_symmetric_deg =
+          std::fmod(config.mission.scan_start_az_deg + 180.0f, 360.0f);
+      if (start_symmetric_deg < 0.0f) {
+        start_symmetric_deg += 360.0f;
+      }
+      start_symmetric_deg -= 180.0f;
       float lifted_start_deg = start_symmetric_deg;
       if (lifted_start_deg < sensor_limits.az_min_deg) {
         lifted_start_deg += 360.0f;

@@ -36,6 +36,8 @@ SbirsRuntimeConfigImpact ClassifyImpact(const config::SbirsSessionConfig& previo
       previous.mission.scan_start_az_deg != next.mission.scan_start_az_deg ||
       previous.mission.scan_span_deg != next.mission.scan_span_deg ||
       previous.mission.scan_direction != next.mission.scan_direction ||
+      // 方位基准切换（eci_absolute ↔ nadir_relative）同样改变有效起点，走扇区重锚。
+      previous.mission.scan_azimuth_reference != next.mission.scan_azimuth_reference ||
       previous.mission.scan_el_start_deg != next.mission.scan_el_start_deg ||
       previous.mission.scan_el_span_deg != next.mission.scan_el_span_deg ||
       previous.mission.scan_el_step_deg != next.mission.scan_el_step_deg;

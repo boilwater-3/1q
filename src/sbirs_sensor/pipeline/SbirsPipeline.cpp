@@ -180,17 +180,23 @@ float ToEciElevationRad(float elevation_deg) {
   return oneq::common::numerics::DegToRad(clamped);
 }
 
-float ScanAzimuth(const config::SbirsMissionConfig& mission, float phase_deg) {
+// 方位基准说明（2026-08-31）：azimuth_base_deg 在 kEciAbsolute 下恒 0（历史行为
+// 逐位不变）；kNadirRelative 下为星下点 ECI 方位（deg），由 Execute 按当周期卫星
+// 位置现算并经成员传递（ApplyConfig 相位重锚复用最近一次的基准）。
+float ScanAzimuth(const config::SbirsMissionConfig& mission, float phase_deg,
+                  float azimuth_base_deg) {
   const float direction =
       mission.scan_direction == config::SbirsScanDirection::kIncreasingAzimuth ? 1.0f : -1.0f;
-  return NormalizeAzimuth(mission.scan_start_az_deg + direction * phase_deg);
+  return NormalizeAzimuth(azimuth_base_deg + mission.scan_start_az_deg + direction * phase_deg);
 }
 
-float ScanPhaseForAzimuth(const config::SbirsMissionConfig& mission, float azimuth_deg) {
+float ScanPhaseForAzimuth(const config::SbirsMissionConfig& mission, float azimuth_deg,
+                          float azimuth_base_deg) {
+  const float start_deg = NormalizeAzimuth(azimuth_base_deg + mission.scan_start_az_deg);
   if (mission.scan_direction == config::SbirsScanDirection::kIncreasingAzimuth) {
-    return PositiveModulo(azimuth_deg - mission.scan_start_az_deg, 360.0f);
+    return PositiveModulo(azimuth_deg - start_deg, 360.0f);
   }
-  return PositiveModulo(mission.scan_start_az_deg - azimuth_deg, 360.0f);
+  return PositiveModulo(start_deg - azimuth_deg, 360.0f);
 }
 
 // 2-D 俯仰栅格（阶段 4）：span=0 默认单行模式（行数=1，行中心恒为 scan_center_el_deg，
@@ -437,7 +443,8 @@ SbirsPipeline::SbirsPipeline(const config::SbirsInternalExecutionConfig& config)
 
 void SbirsPipeline::ApplyConfig(const config::SbirsInternalExecutionConfig& config,
                                 const runtime::SbirsRuntimeConfigImpact& impact) {
-  const float previous_scan_azimuth_deg = ScanAzimuth(config_.session.mission, scan_phase_deg_);
+  const float previous_scan_azimuth_deg =
+      ScanAzimuth(config_.session.mission, scan_phase_deg_, scan_azimuth_base_deg_);
   // 阶段 4：记录旧栅格当前行中心 el，供新栅格重锚行索引。
   const float previous_row_center_el_deg = RowCenterEl(config_.session.mission, scan_row_index_);
   config_ = config;
@@ -449,7 +456,8 @@ void SbirsPipeline::ApplyConfig(const config::SbirsInternalExecutionConfig& conf
   install_matrices_acceptance_pending_ = true;
   if (impact.scan_sector_changed) {
     const float candidate_phase =
-        ScanPhaseForAzimuth(config_.session.mission, previous_scan_azimuth_deg);
+        ScanPhaseForAzimuth(config_.session.mission, previous_scan_azimuth_deg,
+                            scan_azimuth_base_deg_);
     scan_phase_deg_ = config_.session.mission.scan_span_deg == 360.0f ||
                               candidate_phase < config_.session.mission.scan_span_deg
                           ? candidate_phase
@@ -571,6 +579,39 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
   const config::SbirsEnvironmentConfig& environment_config = config_.session.environment;
   const float sim_time_sec = static_cast<float>(input.cycle_index) * input.dt_sec;
 
+  // ECI 输出参考系（2026-08 正式变更）：本周期时刻的 GMST 把卫星与目标位置/速度
+  // 从 ECEF 旋转到 ECI（J2000 平赤道面），下游 LOS/az/el/遮挡/SNR/EKF 全部在 ECI
+  // 中执行；速度含 ω×r 输运项（见 1q/coordinate/inertial_transform.h）。目标侧
+  // 旋转结果存入诚实命名的 SbirsEciSceneTarget（position_eci_m 等）。
+  // 输入校验已保证 utc_julian_day 正有限；防御性回退 GMST=0 仅防不可达路径。
+  // （2026-08-31 提升到指向合成之前：待机路径的名义扫描中心也要用方位基准。）
+  double gmst_rad = 0.0;
+  if (!oneq::coordinate::TryComputeGmstRad(input.utc_julian_day, &gmst_rad)) {
+    gmst_rad = 0.0;
+  }
+  const oneq::coordinate::EcefPositionM satellite_ecef(
+      input.satellite_position_ecef_m.x, input.satellite_position_ecef_m.y,
+      input.satellite_position_ecef_m.z);
+  oneq::coordinate::EciPositionM satellite_eci;
+  if (!oneq::coordinate::TryEcefToEci(satellite_ecef, gmst_rad, &satellite_eci)) {
+    satellite_eci = oneq::coordinate::EciPositionM(satellite_ecef.x_m, satellite_ecef.y_m,
+                                                   satellite_ecef.z_m);
+  }
+  const session::SbirsVector3M satellite_position_eci_m{
+      satellite_eci.x_m, satellite_eci.y_m, satellite_eci.z_m};
+  // 方位基准（2026-08-31）：kEciAbsolute 基准恒 0（行为逐位不变）；kNadirRelative
+  // 星下点方位 = atan2(-y, -x)（-卫星位置向量），由当周期位置现算并落成员——
+  // GEO 恒定；动轨道随位置漂移，配置免推算（契约见 docs/review/
+  // sbirs-nadir-stare-mode_stage_a_2026-08-31.md）。
+  float scan_azimuth_base_deg = 0.0f;
+  if (mission.scan_azimuth_reference == config::SbirsScanAzimuthReference::kNadirRelative) {
+    const session::SbirsVector3M nadir_direction{-satellite_position_eci_m.x,
+                                                 -satellite_position_eci_m.y,
+                                                 -satellite_position_eci_m.z};
+    scan_azimuth_base_deg = foundation::ComputeAzimuthDeg(nadir_direction);
+  }
+  scan_azimuth_base_deg_ = scan_azimuth_base_deg;
+
   // 指向合成链（阶段 2/3）：每周期由卫星姿态（Body->ECI）与安装角（Body->Sensor）
   // 及运行期安装失准角总量构建。默认零姿态 + 零安装角 + 零失准下为恒等变换
   // （IsIdentity），全部门控与输出与历史逐位一致。
@@ -585,12 +626,12 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
   const auto nominal_scan_eci_angles_rad = [&]() -> std::pair<float, float> {
     const float scan_elevation_deg = RowCenterEl(mission, scan_row_index_);
     if (boresight_chain.IsIdentity()) {
-      return std::make_pair(ToEciAzimuthRad(ScanAzimuth(mission, scan_phase_deg_)),
+      return std::make_pair(ToEciAzimuthRad(ScanAzimuth(mission, scan_phase_deg_,
+                                                        scan_azimuth_base_deg)),
                             ToEciElevationRad(scan_elevation_deg));
     }
-    const session::SbirsVector3M eci_los =
-        boresight_chain.EciLosOfSensorPointing(ScanAzimuth(mission, scan_phase_deg_),
-                                               scan_elevation_deg);
+    const session::SbirsVector3M eci_los = boresight_chain.EciLosOfSensorPointing(
+        ScanAzimuth(mission, scan_phase_deg_, scan_azimuth_base_deg), scan_elevation_deg);
     return std::make_pair(ToEciAzimuthRad(foundation::ComputeAzimuthDeg(eci_los)),
                           ToEciElevationRad(foundation::ComputeElevationDeg(eci_los)));
   };
@@ -610,30 +651,11 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
 
   result.executed = true;
 
-  // ECI 输出参考系（2026-08 正式变更）：本周期时刻的 GMST 把卫星与目标位置/速度
-  // 从 ECEF 旋转到 ECI（J2000 平赤道面），下游 LOS/az/el/遮挡/SNR/EKF 全部在 ECI
-  // 中执行；速度含 ω×r 输运项（见 1q/coordinate/inertial_transform.h）。目标侧
-  // 旋转结果存入诚实命名的 SbirsEciSceneTarget（position_eci_m 等）。
-  // 输入校验已保证 utc_julian_day 正有限；防御性回退 GMST=0 仅防不可达路径。
-  double gmst_rad = 0.0;
-  if (!oneq::coordinate::TryComputeGmstRad(input.utc_julian_day, &gmst_rad)) {
-    gmst_rad = 0.0;
-  }
   std::vector<SbirsEciSceneTarget> eci_scene;
   eci_scene.reserve(input.scene.size());
   for (const session::SbirsSceneTarget& target : input.scene) {
     eci_scene.push_back(RotateSceneTargetToEci(target, gmst_rad));
   }
-  const oneq::coordinate::EcefPositionM satellite_ecef(
-      input.satellite_position_ecef_m.x, input.satellite_position_ecef_m.y,
-      input.satellite_position_ecef_m.z);
-  oneq::coordinate::EciPositionM satellite_eci;
-  if (!oneq::coordinate::TryEcefToEci(satellite_ecef, gmst_rad, &satellite_eci)) {
-    satellite_eci = oneq::coordinate::EciPositionM(satellite_ecef.x_m, satellite_ecef.y_m,
-                                                   satellite_ecef.z_m);
-  }
-  const session::SbirsVector3M satellite_position_eci_m{
-      satellite_eci.x_m, satellite_eci.y_m, satellite_eci.z_m};
   // 卫星速度旋入 ECI（与目标侧 RotateSceneTargetToEci 同法，含 ω×r 输运项）；
   // 旋换失败走与位置相同的防御性回退（保留原分量）。
   const oneq::coordinate::EcefVelocityMps satellite_velocity_ecef(
@@ -719,7 +741,8 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
   if (row_advance > 0 && row_count > 1) {
     scan_row_index_ = (scan_row_index_ + row_advance) % row_count;
   }
-  const float scan_azimuth_deg = ScanAzimuth(mission, scan_phase_deg_);
+  const float scan_azimuth_deg =
+      ScanAzimuth(mission, scan_phase_deg_, scan_azimuth_base_deg);
   const std::pair<float, float> nominal_angles = nominal_scan_eci_angles_rad();
   result.scan_azimuth_rad = nominal_angles.first;
   result.scan_elevation_rad = nominal_angles.second;

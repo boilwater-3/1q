@@ -68,6 +68,16 @@ std::string EncodeSessionConfigWithRawScanDirection(std::int32_t scan_direction)
   return std::string(reinterpret_cast<const char*>(builder.GetBufferPointer()), builder.GetSize());
 }
 
+// nadir 方位基准（2026-08-31）：raw 非法基准值走与 scan_direction 同款原子拒绝路径。
+std::string EncodeSessionConfigWithRawAzimuthReference(std::int32_t azimuth_reference) {
+  flatbuffers::FlatBufferBuilder builder(128U);
+  const auto mission = sbirs::replay::CreateSbirsMissionConfig(
+      builder, 0, 20.0f, 20.0f, 2.0f, 2.0f, -60.0f, 120.0f, 0, azimuth_reference);
+  builder.Finish(sbirs::replay::CreateSbirsSessionConfig(builder, 0, mission, 0, 0),
+                  kSbirsReplayFileIdentifier);
+  return std::string(reinterpret_cast<const char*>(builder.GetBufferPointer()), builder.GetSize());
+}
+
 std::string EncodeSessionConfigWithRawTrackingEnums(std::int32_t tracking_mode,
                                                     std::int32_t estimated_backend) {
   flatbuffers::FlatBufferBuilder builder(128U);
@@ -327,6 +337,8 @@ TEST(SbirsReplayCodecRoundtripTest, SessionConfigPreservesAllDomains) {
   config.mission.scan_start_az_deg = 170.0f;
   config.mission.scan_span_deg = 45.0f;
   config.mission.scan_direction = SbirsScanDirection::kDecreasingAzimuth;
+  // nadir 方位基准（2026-08-31）：非默认值防 decode 漏读。
+  config.mission.scan_azimuth_reference = config::SbirsScanAzimuthReference::kNadirRelative;
   config.mission.scan_center_el_deg = 6.0f;
   config.mission.scan_el_start_deg = -10.0f;  // 阶段 4 俯仰栅格：非默认值防 decode 漏读
   config.mission.scan_el_span_deg = 20.0f;
@@ -387,6 +399,8 @@ TEST(SbirsReplayCodecRoundtripTest, SessionConfigPreservesAllDomains) {
   EXPECT_FLOAT_EQ(decoded.mission.scan_start_az_deg, 170.0f);
   EXPECT_FLOAT_EQ(decoded.mission.scan_span_deg, 45.0f);
   EXPECT_EQ(decoded.mission.scan_direction, SbirsScanDirection::kDecreasingAzimuth);
+  EXPECT_EQ(decoded.mission.scan_azimuth_reference,
+            config::SbirsScanAzimuthReference::kNadirRelative);
   EXPECT_FLOAT_EQ(decoded.mission.scan_center_el_deg, 6.0f);
   EXPECT_FLOAT_EQ(decoded.mission.scan_el_start_deg, -10.0f);
   EXPECT_FLOAT_EQ(decoded.mission.scan_el_span_deg, 20.0f);
@@ -608,6 +622,16 @@ TEST(SbirsReplayCodecRoundtripTest, DecodeSessionConfigRejectsUnknownScanDirecti
   EXPECT_FALSE(DecodeSbirsSessionConfig(EncodeSessionConfigWithRawScanDirection(99), &config));
   EXPECT_FLOAT_EQ(config.mission.scan_start_az_deg, 12.0f);
   EXPECT_FLOAT_EQ(config.mission.scan_span_deg, 34.0f);
+}
+
+TEST(SbirsReplayCodecRoundtripTest, DecodeSessionConfigRejectsUnknownAzimuthReferenceAtomically) {
+  SbirsSessionConfig config;
+  config.mission.scan_start_az_deg = 12.0f;
+  config.mission.scan_azimuth_reference = config::SbirsScanAzimuthReference::kNadirRelative;
+  EXPECT_FALSE(DecodeSbirsSessionConfig(EncodeSessionConfigWithRawAzimuthReference(99), &config));
+  EXPECT_FLOAT_EQ(config.mission.scan_start_az_deg, 12.0f);
+  EXPECT_EQ(config.mission.scan_azimuth_reference,
+            config::SbirsScanAzimuthReference::kNadirRelative);
 }
 
 TEST(SbirsReplayCodecRoundtripTest, DecodeSessionConfigRejectsUnknownTrackingEnumsAtomically) {
