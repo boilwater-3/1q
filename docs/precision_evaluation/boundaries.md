@@ -1,6 +1,6 @@
 ---
 Status: active
-Last-reviewed: 2026-08-20
+Last-reviewed: 2026-08-31
 ---
 
 # 精度评估模块边界
@@ -20,6 +20,9 @@ Last-reviewed: 2026-08-20
 - 编排会话（`PrecisionEvaluationSession`）：每周期输入双星 SBIRS 周期结果 + 融合航迹
   + 星历 + 真值；输出逐周期误差样本与全程报告。不驱动传感器、不握 `FusionEngine`。
   地面站融合组件装配引擎时应 `fusion.enable_track_filtering=true`（速度/位置误差样本依赖）。
+- 双星配对窗（`dual_sat_pair_window_cycles`）是**编排会话的消费规则**：交会原语
+  `TryComputeDualLosFixM` 时间无关（纯几何，收两条视线），窗宽只决定哪些检出对进交会；
+  默认 0 = 严格同周期（历史行为），改窗宽不改原语、不改传感器/融合产品。
 - 集成参考示例：`examples/scenes/sbirs_triple_sat_fix_messages/`（三星实体 + 消息机制地面站
   挂载融合组件，组件内持 `FusionEngine` 与 `PrecisionEvaluationSession`）。
 

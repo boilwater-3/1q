@@ -1,5 +1,5 @@
 ---
-Status: draft
+Status: final
 Date: 2026-08-31
 Review-Baseline: `evidence/sbirs-dual-sat-timing` @ `49a4da81`
 Authority: 非规范性记录；结论以 docs/common/contract.md、docs/common/session_contract.md
@@ -121,9 +121,30 @@ Authority: 非规范性记录；结论以 docs/common/contract.md、docs/common/
 
 ## §4 运行记录（Stage C 后填写）
 
-<!-- 1、实现范围。
-2、验证命令与结果。
-3、权威回写去向：哪个结论写进了哪个文件。
-4、残留风险。
-5、后续冻结项。
--->
+1、实现范围：
+1、`PrecisionEvaluationConfig` 增 `dual_sat_pair_window_cycles`（默认 0 = 严格同周期，历史行为）[evidence: include/1q/precision_evaluation/PrecisionEvaluationConfig.h]。
+2、`PrecisionEvaluationSession` 双星交会改为锚点缓存 + 窗口配对：每星逐目标缓存最近检出及测量周期锚点（卫星位置 + GMST），窗内配对、两视线各锚定各自测量周期、每目标每周期至多一条样本 [evidence: src/precision_evaluation/PrecisionEvaluationSession.cpp] ::Step。
+3、示例场景切扫描模式：三颗星速率 0→6°/s（往复、nadir 基准），场景声明配对窗 1；main.cpp 解析 `precision.dual_sat_pair_window_cycles` [evidence: examples/scenes/sbirs_triple_sat_fix_messages/sbirs_triple_sat_fix_messages.json]。
+4、聚焦测试 4 项（窗 0 逐位不变、窗内跨周期配对 + 锚定正确性、超窗丢弃、窗内同周期非回归）[evidence: tests/unit/precision_evaluation/precision_evaluation_session_test.cpp]。
+
+2、验证命令与结果（Release，VisualStudio.15.0-amd64）：
+1、`1q_precision_evaluation_unit_tests`：26/26 pass（含新增 4 项；既有 22 项默认窗 0 零改动）。
+2、回归：sbirs unit 263/263、replay 38/38、contract 14/14、integration 29/29、fusion 61/61、examples 134/134、public API 8/8、cross-domain 6/6 全 pass。
+3、场景冒烟：`sbirs_triple_sat_fix_messages.exe` exit=0。
+4、特征化（修订 2 接受重建）：扫描态新基线 综合分 0.430377、dual_sat_cycles=74/80、交会 RMSE 85 m；与探针 B（同参数无窗字段）逐位一致，证明窗宽 1 在跟踪在环配置下无行为漂移；缺失 6 周期为 B 星捕获起始几何延迟（期间 B 星无检出）。旧基线 0.447267/80/80（凝视态）作废，历史评审记录不回改。
+
+3、权威回写去向：
+1、窗口配对语义 + 偏差口径 + 反直觉点 → `docs/precision_evaluation/algorithms.md`。
+2、"配对窗是编排会话消费规则、原语不动" → `docs/precision_evaluation/boundaries.md`。
+3、SBIRS-OQ-6（量测时间戳 + 扫描初始相位缺失，含 WFOV 外发门控边界）与 FUSION-OQ-1（亚周期时间对齐缺失）→ `docs/common/open_questions.md`。
+4、扫描态几何/预期事件表/特征化 → `examples/scenes/sbirs_triple_sat_fix_messages/sbirs_triple_sat_fix_messages.md`。
+
+4、残留风险：
+1、量测仍为整秒抽帧产物：窗口配对的时间基准是周期号，不是测量时刻；"穿越时刻"信息缺失登记在 SBIRS-OQ-6，本议题不解决。
+2、跨周期样本含目标运动偏差（速度×周期差），口径已写入 algorithms.md；场景窗宽 1、目标 ~1.8 km/s 时偏差上限 ~1.8 km，远小于 10 km 参考误差，当前不影响评分形态。
+3、kSearchAndStare 下 WFOV 扫描检测无独立外发通道（探针 C 实证）：捕获不可达时量测断供而非降频，属场景配置选择范围外的库行为，已随 SBIRS-OQ-6 边界登记。
+
+5、后续冻结项：
+1、SBIRS-OQ-6：传感器量测时间戳 + 扫描穿越语义 + 初始相位字段（再进入=扫描模式进正式验收需亚周期精度，或多星异步扫描集成需求）。
+2、FUSION-OQ-1：DetectionRecord 时间字段 + 逐航迹滤波按量测时刻推进（再进入=随 SBIRS-OQ-6 立项）。
+3、极区大椭圆轨道补覆盖（本议题 defer 项）：再进入=非 GEO 轨道集成需求。
