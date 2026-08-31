@@ -251,6 +251,19 @@ bool LoadScene(const char* path, LoadedScene* scene, std::string* error) {
       scene->config.fusion.relay_fov_width_deg = fusion["relay_fov_width_deg"].AsDouble();
     }
   }
+  // 双星配对窗（扫描模式时间语义）：窗宽 0 = 严格同周期交会（历史行为）；
+  // 场景开扫描后按"地面按时刻融合"口径放宽为窗内配对（时间基准=周期号抽帧时刻）。
+  if (root.Has("precision")) {
+    const examples::JsonValue& precision = root["precision"];
+    if (precision.Has("dual_sat_pair_window_cycles")) {
+      const std::int64_t window = precision["dual_sat_pair_window_cycles"].AsInt();
+      if (window < 0) {
+        *error = "precision.dual_sat_pair_window_cycles must be >= 0";
+        return false;
+      }
+      scene->config.dual_sat_pair_window_cycles = static_cast<std::uint32_t>(window);
+    }
+  }
 
   const examples::JsonValue& satellites = root["satellites"];
   if (satellites.IsNull() || satellites.Size() < 2U) {
