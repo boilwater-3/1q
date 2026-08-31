@@ -14,8 +14,9 @@ sbirs_orbit_viewer.py — SBIRS 卫星场景三维可视化查看器。
   python3 sbirs_orbit_viewer.py --check <log_dir>   # 几何复算校验（不生成 HTML）
 
 <log_dir> 为场景输出目录（examples/log/sbirs_triple_sat_fix_messages/），
-须含场景 exe 落盘的五份 CSV：
-  sbirs_sats.csv      —— 卫星静态几何（ECEF + 视场角 + ECI↔ECEF 旋转角 gmst）
+须含场景 exe 落盘的六份 CSV：
+  sbirs_sats.csv      —— 卫星静态几何（ECEF + 视场角 + 扫描参数 + 星下点方位）
+  sbirs_scan.csv      —— 每周期每星 WFOV 扫描中心方位（ECI 绝对方位 + 星下点相对方位）
   sbirs_truth.csv     —— 目标真值逐周期 ECEF 轨迹
   sbirs_los.csv       —— 每周期每星逐目标视线状态/测角/SNR（库调试视图快照）
   sbirs_fused.csv     —— 融合航迹（LLA 后验已由 exe 转 ECEF）
@@ -52,7 +53,10 @@ COLOR_EARTH_FILL = "#0d1f33"
 CSV_HEADERS = {
     "sbirs_sats.csv": ("sat_id,source_id,ecef_x_m,ecef_y_m,ecef_z_m,gmst_rad,"
                        "scan_center_az_deg,scan_center_el_deg,wfov_az_deg,wfov_el_deg,"
-                       "nfov_az_deg,nfov_el_deg"),
+                       "nfov_az_deg,nfov_el_deg,scan_span_deg,scan_rate_deg_per_sec,"
+                       "nadir_az_deg"),
+    "sbirs_scan.csv": ("cycle,t_sec,source_id,sat_id,scan_azimuth_deg,scan_rel_deg,"
+                       "nadir_az_deg,scan_span_deg,wfov_az_deg"),
     "sbirs_truth.csv": "cycle,t_sec,target_id,ecef_x_m,ecef_y_m,ecef_z_m",
     "sbirs_los.csv": ("cycle,t_sec,source_id,target_id,present_in_input,status,"
                       "az_rad,el_rad,snr_linear,estimated_range_m"),
@@ -177,8 +181,13 @@ def closest_point_of_lines(p1, d1, p2, d2):
 # 数据装配
 # ═══════════════════════════════════════════════════════════════════
 
+def wrap_deg360(deg):
+    """角度归一化到 [0, 360)。"""
+    return deg % 360.0
+
+
 def build_data(log_dir):
-    """读取五份 CSV，装配查看器 JSON（含交会点复算）。缺失文件抛 RuntimeError。"""
+    """读取六份 CSV，装配查看器 JSON（含交会点复算）。缺失文件抛 RuntimeError。"""
     rows_by_name = {}
     for name in CSV_HEADERS:
         rows = load_csv(log_dir.rstrip("/") + "/" + name)
@@ -199,8 +208,27 @@ def build_data(log_dir):
             "scanAz": f(r, "scan_center_az_deg"), "scanEl": f(r, "scan_center_el_deg"),
             "wfovAz": f(r, "wfov_az_deg"), "wfovEl": f(r, "wfov_el_deg"),
             "nfovAz": f(r, "nfov_az_deg"), "nfovEl": f(r, "nfov_el_deg"),
+            "scanSpan": f(r, "scan_span_deg") or 30.0,
+            "scanRate": f(r, "scan_rate_deg_per_sec") or 6.0,
+            "nadirAz": f(r, "nadir_az_deg"),
             "color": SAT_PALETTE[i % len(SAT_PALETTE)],
         })
+
+    scan = []
+    scan_by_cs = {}
+    for r in rows_by_name["sbirs_scan.csv"]:
+        c = to_int(r, "cycle")
+        sid = to_int(r, "source_id")
+        entry = {
+            "c": c, "sid": sid, "satId": r.get("sat_id", ""),
+            "scanAz": f(r, "scan_azimuth_deg"),
+            "scanRel": f(r, "scan_rel_deg"),
+            "nadirAz": f(r, "nadir_az_deg"),
+            "scanSpan": f(r, "scan_span_deg"),
+            "wfovAz": f(r, "wfov_az_deg"),
+        }
+        scan.append(entry)
+        scan_by_cs[(c, sid)] = entry
 
     cycles = 0
     truth = {}
@@ -288,14 +316,30 @@ def build_data(log_dir):
         truth_p_m = [c * 1000.0 for c in truth_p]
         e["margin"] = occult_margin_m(sat_p_m, truth_p_m) / 1000.0
 
+    # 每星每目标星下点相对方位（供扫描条带面板标注目标位置）。
+    for e in los:
+        e["targetRel"] = None
+        if not e["present"]:
+            continue
+        truth_p = truth_by_cycle_key.get((e["c"], e["tid"]))
+        sat = sat_by_sid.get(e["sid"])
+        if truth_p is None or sat is None:
+            continue
+        los_dir = unit(sub(truth_p, sat["p"]))
+        az_geo, _ = ecef_dir_to_eci_az_el(los_dir, gmst)
+        nadir = sat.get("nadirAz")
+        if nadir is None:
+            continue
+        e["targetRel"] = wrap_deg360(math.degrees(az_geo) - nadir)
+
     meta = {
         "cycles": cycles,
         "gmst": gmst,
         "earthR": EARTH_RADIUS_M / 1000.0,
         "evalPair": [sats[0]["sid"], sats[1]["sid"]],
     }
-    return {"meta": meta, "sats": sats, "truth": truth, "los": los, "fused": fused,
-            "fix": fix}
+    return {"meta": meta, "sats": sats, "scan": scan, "truth": truth, "los": los,
+            "fused": fused, "fix": fix}
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -434,6 +478,12 @@ HTML_TEMPLATE = """<!DOCTYPE html>
   .layers label {{ display:flex; align-items:center; gap:3px; cursor:pointer; font-size:12.5px; }}
   .swatch {{ width:10px; height:10px; border-radius:2px; display:inline-block; }}
   #stage {{ position:relative; }}
+  #scanPanel {{ margin-bottom:12px; }}
+  #scanPanel h2 {{ font-size:13px; margin:0 0 8px; color:#aebdd2; font-weight:600; }}
+  #cvScan {{ display:block; width:100%; height:240px; border-radius:6px; background:#0a0f16; }}
+  .scan-legend {{ display:flex; flex-wrap:wrap; gap:14px; font-size:11.5px; color:var(--muted); margin-top:6px; }}
+  .scan-legend span {{ display:inline-flex; align-items:center; gap:5px; }}
+  .scan-legend i {{ width:18px; height:10px; border-radius:2px; display:inline-block; }}
   canvas {{ display:block; border-radius:6px; background:#0a0f16; cursor:grab; }}
   canvas:active {{ cursor:grabbing; }}
   .tooltip {{ position:fixed; display:none; pointer-events:none; background:rgba(15,20,27,.95);
@@ -478,6 +528,20 @@ HTML_TEMPLATE = """<!DOCTYPE html>
   </div>
 </div>
 
+<div class="panel" id="scanPanel">
+  <h2>星下点相对方位扫描（WFOV 往复扫 · 播放可见条带移动）</h2>
+  <canvas id="cvScan" width="{canvas_w}" height="240"></canvas>
+  <div class="scan-legend">
+    <span><i style="background:#1a3348;border:1px solid #2a4a62"></i>扫描范围 0°–scan_span</span>
+    <span><i style="background:rgba(255,165,0,.35);border:1px solid #ff9800"></i>当前 WFOV 足印</span>
+    <span><i style="background:#63c98a;border-radius:50%"></i>目标在足印内且检出</span>
+    <span><i style="background:#8393a8;border-radius:50%"></i>目标在场未检出</span>
+    <span><i style="background:#e0705a;border-radius:50%"></i>目标被地球遮挡</span>
+  </div>
+  <div class="hint">横轴 = 相对星下点的 ECI 方位偏移（°）；橙框随周期移动（scan_rate=6°/s，scan_span=30° 往复）。
+    点击播放或拖周期滑块观察扫描。</div>
+</div>
+
 <div class="panel" id="stage">
   <canvas id="cv3d" width="{canvas_w}" height="{canvas_h}"></canvas>
 </div>
@@ -519,6 +583,9 @@ for (const e of FUSED) (FUSED_BY_C[e.c] = FUSED_BY_C[e.c] || []).push(e);
 const FIX = DATA.fix || [];
 const FIX_BY_CK = {{}};
 for (const e of FIX) FIX_BY_CK[e.c + ":" + e.key] = e;
+const SCAN = DATA.scan || [];
+const SCAN_BY_CS = {{}};
+for (const e of SCAN) SCAN_BY_CS[e.c + ":" + e.sid] = e;
 const EARTH_R = META.earthR;
 const GEO_R = SATS.length ? Math.hypot(SATS[0].p[0], SATS[0].p[1], SATS[0].p[2]) : 42164.0;
 const COLOR_EARTH_GRID = "{COLOR_EARTH_GRID}";
@@ -634,28 +701,140 @@ const GRID = (() => {{
   return rings;
 }})();
 
-/* ═══════════════ 视场锥足印（每星一次缓存） ═══════════════
-   光轴 = 星→地心（星下点凝视，场景 scan_center_el = 0 即指向地心）；
-   圆锥半角 = 宽视场 az/el 半张角的大者（方形视场的内接圆近似）。 */
-const FOV_CONES = SATS.map(s => {
-  const axis = vunit(vscale(s.p, -1));
-  const half = Math.max(s.wfovAz, s.wfovEl) / 2 * Math.PI / 180;
-  // 与光轴正交的两个基向量。
-  let u = Math.abs(axis[2]) < 0.9 ? [0,0,1] : [1,0,0];
+/* ═══════════════ 视场锥（随周期扫描方位旋转） ═══════════════ */
+function bearingToEcefDir(azRad, elRad) {{
+  const dx = Math.cos(elRad) * Math.cos(azRad);
+  const dy = Math.cos(elRad) * Math.sin(azRad);
+  const dz = Math.sin(elRad);
+  const gmst = META.gmst || 0;
+  const c = Math.cos(gmst), s = Math.sin(gmst);
+  return vunit([c * dx + s * dy, -s * dx + c * dy, dz]);
+}}
+function scanStateFor(sat, c) {{
+  const row = SCAN_BY_CS[c + ":" + sat.sid];
+  if (row && row.scanAz !== null) {{
+    return {{
+      scanAz: row.scanAz, scanRel: row.scanRel || 0,
+      scanSpan: row.scanSpan || sat.scanSpan || 30,
+      wfovAz: row.wfovAz || sat.wfovAz || 24,
+    }};
+  }}
+  return {{
+    scanAz: sat.scanAz, scanRel: 0,
+    scanSpan: sat.scanSpan || 30, wfovAz: sat.wfovAz || 24,
+  }};
+}}
+function buildFovCone(sat, scanAzDeg) {{
+  const elRad = (sat.scanEl || 0) * Math.PI / 180;
+  const axis = bearingToEcefDir(scanAzDeg * Math.PI / 180, elRad);
+  const half = Math.max(sat.wfovAz, sat.wfovEl) / 2 * Math.PI / 180;
+  let u = Math.abs(axis[2]) < 0.9 ? [0, 0, 1] : [1, 0, 0];
   const e1 = vunit(vcross(u, axis));
   const e2 = vunit(vcross(axis, e1));
   const rays = [];
   for (let k = 0; k < 12; k++) {{
     const ph = k / 12 * 2 * Math.PI;
     const dir = vunit([
-      axis[0]*Math.cos(half) + (e1[0]*Math.cos(ph) + e2[0]*Math.sin(ph))*Math.sin(half),
-      axis[1]*Math.cos(half) + (e1[1]*Math.cos(ph) + e2[1]*Math.sin(ph))*Math.sin(half),
-      axis[2]*Math.cos(half) + (e1[2]*Math.cos(ph) + e2[2]*Math.sin(ph))*Math.sin(half),
+      axis[0] * Math.cos(half) + (e1[0] * Math.cos(ph) + e2[0] * Math.sin(ph)) * Math.sin(half),
+      axis[1] * Math.cos(half) + (e1[1] * Math.cos(ph) + e2[1] * Math.sin(ph)) * Math.sin(half),
+      axis[2] * Math.cos(half) + (e1[2] * Math.cos(ph) + e2[2] * Math.sin(ph)) * Math.sin(half),
     ]);
-    rays.push({{dir, hit: raySphere(s.p, dir, EARTH_R)}});
+    rays.push({{dir, hit: raySphere(sat.p, dir, EARTH_R)}});
   }}
-  return {{sat: s, rays}};
-});
+  return {{sat, rays}};
+}}
+
+/* ═══════════════ 扫描条带面板（2D） ═══════════════ */
+const cvScan = document.getElementById("cvScan");
+const ctxScan = cvScan.getContext("2d");
+function renderScanPanel() {{
+  const W = cvScan.width, H = cvScan.height;
+  ctxScan.clearRect(0, 0, W, H);
+  const rowH = Math.floor((H - 16) / Math.max(1, SATS.length));
+  const padL = 52, padR = 16, padTop = 8;
+  for (let si = 0; si < SATS.length; si++) {{
+    const sat = SATS[si];
+    const st = scanStateFor(sat, cycle);
+    const span = st.scanSpan || 30;
+    const wfov = st.wfovAz || 24;
+    const margin = Math.max(6, wfov * 0.35);
+    const xMin = -margin, xMax = span + margin, xRange = xMax - xMin;
+    const y0 = padTop + si * rowH + 4;
+    const yMid = y0 + rowH / 2 - 6;
+    const barH = Math.min(36, rowH - 14);
+    const xMap = deg => padL + (deg - xMin) / xRange * (W - padL - padR);
+    // 行标签
+    ctxScan.fillStyle = sat.color;
+    ctxScan.font = "bold 12px sans-serif";
+    ctxScan.fillText("星 " + sat.id, 8, yMid + 4);
+    ctxScan.fillStyle = "#8393a8";
+    ctxScan.font = "10px sans-serif";
+    ctxScan.fillText(fmt(st.scanRel, 1) + "°", 8, yMid + 16);
+    // 轨道底
+    ctxScan.fillStyle = "#14202c";
+    ctxScan.fillRect(padL, yMid - barH / 2, W - padL - padR, barH);
+    // 扫描范围 [0, span]
+    ctxScan.fillStyle = "rgba(45, 90, 120, 0.55)";
+    ctxScan.fillRect(xMap(0), yMid - barH / 2, xMap(span) - xMap(0), barH);
+    ctxScan.strokeStyle = "#3d6a8f";
+    ctxScan.lineWidth = 1;
+    ctxScan.strokeRect(xMap(0), yMid - barH / 2, xMap(span) - xMap(0), barH);
+    // 扫描轨迹（截至当前周期）
+    ctxScan.strokeStyle = sat.color;
+    ctxScan.globalAlpha = 0.35;
+    ctxScan.lineWidth = 1.5;
+    ctxScan.beginPath();
+    let started = false;
+    for (let c = 1; c <= cycle; c++) {{
+      const hist = scanStateFor(sat, c);
+      const px = xMap(hist.scanRel);
+      if (!started) {{ ctxScan.moveTo(px, yMid); started = true; }}
+      else ctxScan.lineTo(px, yMid);
+    }}
+    ctxScan.stroke();
+    ctxScan.globalAlpha = 1;
+    // 当前 WFOV 足印
+    const rel = st.scanRel;
+    const halfW = wfov / 2;
+    const boxL = xMap(rel - halfW), boxR = xMap(rel + halfW);
+    ctxScan.fillStyle = "rgba(255, 152, 0, 0.28)";
+    ctxScan.fillRect(boxL, yMid - barH / 2, boxR - boxL, barH);
+    ctxScan.strokeStyle = "#ff9800";
+    ctxScan.lineWidth = 2;
+    ctxScan.strokeRect(boxL, yMid - barH / 2, boxR - boxL, barH);
+    // 扫描中心线
+    ctxScan.strokeStyle = "#ffb74d";
+    ctxScan.lineWidth = 1.5;
+    ctxScan.beginPath();
+    ctxScan.moveTo(xMap(rel), yMid - barH / 2 - 2);
+    ctxScan.lineTo(xMap(rel), yMid + barH / 2 + 2);
+    ctxScan.stroke();
+    // 目标点
+    for (const e of (LOS_BY_C[cycle] || [])) {{
+      if (e.sid !== sat.sid || !e.present || e.targetRel === null) continue;
+      const tx = xMap(e.targetRel);
+      const occulted = e.margin !== null && e.margin < 0;
+      const inFov = Math.abs(e.targetRel - rel) <= halfW;
+      const detected = e.status === "detected";
+      ctxScan.beginPath();
+      ctxScan.arc(tx, yMid, detected ? 5 : 4, 0, 2 * Math.PI);
+      if (detected) ctxScan.fillStyle = "#63c98a";
+      else if (occulted) ctxScan.fillStyle = "#e0705a";
+      else ctxScan.fillStyle = inFov ? "#aab8c8" : "#5a6573";
+      ctxScan.fill();
+      ctxScan.strokeStyle = detected ? "#fff" : "#33404f";
+      ctxScan.lineWidth = 1;
+      ctxScan.stroke();
+    }}
+    // 刻度
+    ctxScan.fillStyle = "#5a6573";
+    ctxScan.font = "9px sans-serif";
+    for (const tick of [0, span / 2, span]) {{
+      const tx = xMap(tick);
+      ctxScan.fillText(String(Math.round(tick)), tx - 4, yMid + barH / 2 + 12);
+    }}
+  }}
+}}
 
 /* ═══════════════ 悬停命中列表（每帧重建） ═══════════════ */
 let hitTargets = [];
@@ -711,9 +890,11 @@ function render() {{
     }}
   }}
 
-  // —— 视场锥：母线（星→球面足印）+ 足印闭合圈 ——
+  // —— 视场锥：母线（星→球面足印）+ 足印闭合圈（随当前周期扫描方位） ——
   if (layerOn("fov")) {{
-    for (const cone of FOV_CONES) {{
+    for (const s of SATS) {{
+      const st = scanStateFor(s, cycle);
+      const cone = buildFovCone(s, st.scanAz);
       ctx.strokeStyle = cone.sat.color; ctx.globalAlpha = 0.32; ctx.lineWidth = 0.9;
       for (const ray of cone.rays) if (ray.hit) drawSegment(cone.sat.p, ray.hit);
       ctx.globalAlpha = 0.55; ctx.setLineDash([4, 4]);
@@ -841,7 +1022,9 @@ function render() {{
     ctx.strokeStyle = "#fff"; ctx.lineWidth = 1;
     ctx.strokeRect(q.x - 4, q.y - 4, 8, 8);
     hitTargets.push({{x:q.x, y:q.y, r:9, tip:
-      `卫星 ${{s.id}}（源 ${{s.sid}}）\\nGEO 半径 ${{fmt(GEO_R,0)}} km\\n扫描中心 az ${{fmt(s.scanAz,1)}}° el ${{fmt(s.scanEl,1)}}°\\n宽视场 ${{fmt(s.wfovAz,0)}}°×${{fmt(s.wfovEl,0)}}°（锥为内接圆近似）`}});
+      `卫星 ${{s.id}}（源 ${{s.sid}}）\\nGEO 半径 ${{fmt(GEO_R,0)}} km\\n` +
+      `扫描中心 az ${{fmt(scanStateFor(s, cycle).scanAz, 2)}}°（相对星下点 ${{fmt(scanStateFor(s, cycle).scanRel, 2)}}°）\\n` +
+      `宽视场 ${{fmt(s.wfovAz,0)}}°×${{fmt(s.wfovEl,0)}}° · 扫描 ${{fmt(s.scanSpan,0)}}° @ ${{fmt(s.scanRate,0)}}°/s`}});
     if (layerOn("labels")) {{
       ctx.fillStyle = s.color; ctx.font = "12px sans-serif";
       ctx.fillText(`星 ${{s.id}}`, q.x + 8, q.y - 6);
@@ -1018,7 +1201,7 @@ function setCycle(c) {{
   cycle = Math.max(1, Math.min(N, c));
   document.getElementById("cycleSlider").value = cycle;
   document.getElementById("cycleReadout").textContent = `cycle ${{cycle}} / ${{N}}`;
-  render(); renderLosTable(); renderFixChart();
+  render(); renderScanPanel(); renderLosTable(); renderFixChart();
 }}
 function play() {{
   if (playing) return;
@@ -1112,7 +1295,7 @@ def main():
                     len(data["sats"]), sat_ids, cycles,
                     "/".join(sorted(data["truth"].keys())), eval_ids[0], eval_ids[1],
                     html.escape(args.data_dir)))
-    title = "%d 周期 · %d 星" % (cycles, len(data["sats"]))
+    title = "%d 周期 · %d 星 · 扫描可视化" % (cycles, len(data["sats"]))
 
     template = HTML_TEMPLATE.replace("{{", "{").replace("}}", "}")
     page = (

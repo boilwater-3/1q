@@ -334,6 +334,11 @@ int RunScene(const std::string& scene_path, const RunOptions& options) {
 
   std::vector<app::TargetEcefState> target_states =
       app::MakeTargetStates(scene_data.targets, platform_origin);
+  // start_cycle>1：主循环从绝对周期 N 起算，此前真值按脚本快进到 N−1（弹道
+  // 用 t=(cycle·dt) 解析求值，不逐步累积）。
+  for (std::uint32_t warmup = 1U; warmup < scene_data.start_cycle; ++warmup) {
+    app::AdvanceTargetStates(target_states, warmup, scene_data.dt_sec, platform_origin);
+  }
 
   std::size_t max_fused_targets = 0U;
   // 天基平台（卫星）位置：凝视模式，固定于目标群质心正上方 + 场景高度
@@ -341,7 +346,8 @@ int RunScene(const std::string& scene_path, const RunOptions& options) {
   // 输入仍为 ECEF，库内按 GMST 旋转到 ECI，全向扫描 span 360° + 下视
   // el −90° 覆盖，GMST 平移不影响探测；消费方每周期注入世界模型）。
   // 无目标时保持上一周期位置（初始零向量 = 场景占位）。
-  for (std::uint32_t cycle = 1U; cycle <= num_cycles; ++cycle) {
+  const std::uint32_t end_cycle = scene_data.start_cycle + num_cycles - 1U;
+  for (std::uint32_t cycle = scene_data.start_cycle; cycle <= end_cycle; ++cycle) {
     app::BeginViewLogCycle(cycle);
     // 消费方每周期注入共享场景状态（周期号/时间/四通道世界真值）。
     scene.cycle = cycle;
@@ -408,16 +414,12 @@ int RunScene(const std::string& scene_path, const RunOptions& options) {
     }
     world.Step(scene_data.dt_sec);  // 步进序：Flight → ESR → [ECM] → AR → EOS → … → Fusion
 
-    // 周期摘要 + 平台轨迹/调试视图落盘（多机：主平台 + 每架从机一行，
-    // aircraft_id 区分；目标真值每目标一行，entity_type 透出空中/地面）。
+    // 平台轨迹/调试视图落盘（多机：主平台 + 每架从机一行，aircraft_id 区分；
+    // 目标真值每目标一行，entity_type 透出空中/地面）。主循环不打印周期行，
+    // 避免长跑场景（如 RIR 1560 周期）刷屏终端；结束摘要见下方 Summary。
     const auto* flight = platform.Find<ca::FlightComponent>();
     const auto* fusion = fusion_component;
     max_fused_targets = std::max(max_fused_targets, fusion->targets().size());
-    std::cout << "cycle=" << cycle
-              << " plat[alt=" << flight->position().altitude_m
-              << " hdg=" << flight->heading_deg() << " spd=" << flight->speed_mps()
-              << " wp=" << flight->next_waypoint_index() << "/" << flight->route().size() << "]"
-              << " fused=" << fusion->targets().size() << "\n";
     outputs.RecordPlatformRow(cycle, scene.t_sec, 1U, *flight);
     for (std::size_t i = 0U; i < wingmen.size(); ++i) {
       const auto* wing_flight = wingmen[i]->Find<ca::FlightComponent>();
@@ -455,6 +457,9 @@ int RunScene(const std::string& scene_path, const RunOptions& options) {
   std::cout << "\n=== Component Attachment Summary ===\n"
             << "scene=" << scene_data.name
             << " cycles=" << num_cycles
+            << (scene_data.start_cycle > 1U
+                    ? " start_cycle=" + std::to_string(scene_data.start_cycle)
+                    : "")
             << " view_every=" << view_every
             << " aircraft=" << aircraft_count
             << " entities=" << world.entity_count()

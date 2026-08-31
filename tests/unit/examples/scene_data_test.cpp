@@ -1161,3 +1161,32 @@ TEST(SceneDataTest, BallisticMissingOrMalformedFieldsFail) {
   EXPECT_FALSE(app::LoadSceneData(degenerate.path().string().c_str(), &scene, &error));
   EXPECT_NE(error.find("ballistic"), std::string::npos);
 }
+
+TEST(SceneDataTest, StartCycleDefaultsAndParses) {
+  const app::SceneData baseline = LoadOk(kBaselineSceneJson);
+  EXPECT_EQ(baseline.start_cycle, 1U);
+
+  ScopedSceneFile with_start(R"json({
+    "log_dir": "t",
+    "platform": {"origin_lat_deg": 30.0, "origin_lon_deg": 120.0},
+    "targets": [],
+    "session_config": {"fusion": {}, "threat": {}},
+    "start_cycle": 740,
+    "cycles": 100
+  })json");
+  app::SceneData scene;
+  std::string error;
+  ASSERT_TRUE(app::LoadSceneData(with_start.path().string().c_str(), &scene, &error)) << error;
+  EXPECT_EQ(scene.start_cycle, 740U);
+  EXPECT_EQ(scene.cycles, 100U);
+
+  ScopedSceneFile invalid_start(R"json({
+    "log_dir": "t",
+    "platform": {"origin_lat_deg": 30.0, "origin_lon_deg": 120.0},
+    "targets": [],
+    "session_config": {"fusion": {}, "threat": {}},
+    "start_cycle": 0
+  })json");
+  EXPECT_FALSE(app::LoadSceneData(invalid_start.path().string().c_str(), &scene, &error));
+  EXPECT_NE(error.find("start_cycle"), std::string::npos);
+}

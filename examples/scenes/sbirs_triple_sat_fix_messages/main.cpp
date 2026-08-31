@@ -5,8 +5,8 @@
  * 卫星经 on_sbirs_frame_submitted 投递，地面站 GroundStationFusionComponent
  * 订阅收件箱后融合。精度评估交会仍只用前两颗星（库 API 是双视线）。
  *
- * 每周期落盘五份 CSV（sbirs_sats / sbirs_truth / sbirs_los / sbirs_fused /
- * sbirs_dual_fix，与验收日志同目录），供 examples/common/viz/
+ * 每周期落盘六份 CSV（sbirs_sats / sbirs_scan / sbirs_truth / sbirs_los /
+ * sbirs_fused / sbirs_dual_fix，与验收日志同目录），供 examples/common/viz/
  * sbirs_orbit_viewer.py 构建离线三维查看器：卫星几何与视场锥、真值轨迹、
  * 每星逐目标视线状态（检测/被地球遮挡）、融合航迹与双星交会误差。
  */
@@ -565,7 +565,12 @@ int main(int argc, char* argv[]) {
   examples::CsvWriter sats_csv(
       output_dir + "/sbirs_sats.csv",
       "sat_id,source_id,ecef_x_m,ecef_y_m,ecef_z_m,gmst_rad,scan_center_az_deg,"
-      "scan_center_el_deg,wfov_az_deg,wfov_el_deg,nfov_az_deg,nfov_el_deg");
+      "scan_center_el_deg,wfov_az_deg,wfov_el_deg,nfov_az_deg,nfov_el_deg,"
+      "scan_span_deg,scan_rate_deg_per_sec,nadir_az_deg");
+  examples::CsvWriter scan_csv(
+      output_dir + "/sbirs_scan.csv",
+      "cycle,t_sec,source_id,sat_id,scan_azimuth_deg,scan_rel_deg,nadir_az_deg,"
+      "scan_span_deg,wfov_az_deg");
   examples::CsvWriter truth_csv(output_dir + "/sbirs_truth.csv",
                                 "cycle,t_sec,target_id,ecef_x_m,ecef_y_m,ecef_z_m");
   examples::CsvWriter los_csv(output_dir + "/sbirs_los.csv",
@@ -595,8 +600,19 @@ int main(int argc, char* argv[]) {
     }
     while (effective_start_az_deg < 0.0) effective_start_az_deg += 360.0;
     while (effective_start_az_deg >= 360.0) effective_start_az_deg -= 360.0;
-    char row[512];
-    std::snprintf(row, sizeof(row), "%s,%u,%.3f,%.3f,%.3f,%.9f,%.2f,%.2f,%.1f,%.1f,%.1f,%.1f",
+    double nadir_az_deg = effective_start_az_deg -
+        static_cast<double>(sat.config.mission.scan_start_az_deg);
+    if (sat.config.mission.scan_azimuth_reference !=
+        sbirs_sensor::config::SbirsScanAzimuthReference::kNadirRelative) {
+      const double cg = std::cos(gmst_rad), sg = std::sin(gmst_rad);
+      const double eci_x = cg * sat.position_ecef_m.x_m - sg * sat.position_ecef_m.y_m;
+      const double eci_y = sg * sat.position_ecef_m.x_m + cg * sat.position_ecef_m.y_m;
+      nadir_az_deg = std::atan2(-eci_y, -eci_x) * 180.0 / 3.14159265358979323846;
+    }
+    while (nadir_az_deg < 0.0) nadir_az_deg += 360.0;
+    while (nadir_az_deg >= 360.0) nadir_az_deg -= 360.0;
+    char row[640];
+    std::snprintf(row, sizeof(row), "%s,%u,%.3f,%.3f,%.3f,%.9f,%.2f,%.2f,%.1f,%.1f,%.1f,%.1f,%.1f,%.1f,%.2f",
                   sat.id.c_str(), sat.source_id, sat.position_ecef_m.x_m,
                   sat.position_ecef_m.y_m, sat.position_ecef_m.z_m, gmst_rad,
                   effective_start_az_deg,
@@ -604,7 +620,10 @@ int main(int argc, char* argv[]) {
                   static_cast<double>(sat.config.mission.wide_field_fov_az_deg),
                   static_cast<double>(sat.config.mission.wide_field_fov_el_deg),
                   static_cast<double>(sat.config.mission.narrow_field_fov_az_deg),
-                  static_cast<double>(sat.config.mission.narrow_field_fov_el_deg));
+                  static_cast<double>(sat.config.mission.narrow_field_fov_el_deg),
+                  static_cast<double>(sat.config.mission.scan_span_deg),
+                  static_cast<double>(sat.config.mission.scan_rate_deg_per_sec),
+                  nadir_az_deg);
     sats_csv.WriteRow(row);
   }
 
@@ -737,6 +756,26 @@ int main(int argc, char* argv[]) {
       truth_csv.WriteRow(row);
     }
     for (std::size_t s = 0U; s < sbirs_components.size(); ++s) {
+      const LoadedSatellite& sat = scene.satellites[s];
+      const double scan_az_deg =
+          static_cast<double>(sbirs_components[s]->scan_azimuth_deg());
+      const double cg = std::cos(gmst_rad), sg = std::sin(gmst_rad);
+      const double eci_x = cg * sat.position_ecef_m.x_m - sg * sat.position_ecef_m.y_m;
+      const double eci_y = sg * sat.position_ecef_m.x_m + cg * sat.position_ecef_m.y_m;
+      double nadir_az_deg =
+          std::atan2(-eci_y, -eci_x) * 180.0 / 3.14159265358979323846;
+      while (nadir_az_deg < 0.0) nadir_az_deg += 360.0;
+      while (nadir_az_deg >= 360.0) nadir_az_deg -= 360.0;
+      double scan_rel_deg = scan_az_deg - nadir_az_deg;
+      while (scan_rel_deg < 0.0) scan_rel_deg += 360.0;
+      while (scan_rel_deg >= 360.0) scan_rel_deg -= 360.0;
+      char scan_row[320];
+      std::snprintf(scan_row, sizeof(scan_row),
+                    "%u,%.3f,%u,%s,%.4f,%.4f,%.2f,%.1f,%.1f", cycle, app_scene.t_sec,
+                    sat.source_id, sat.id.c_str(), scan_az_deg, scan_rel_deg, nadir_az_deg,
+                    static_cast<double>(sat.config.mission.scan_span_deg),
+                    static_cast<double>(sat.config.mission.wide_field_fov_az_deg));
+      scan_csv.WriteRow(scan_row);
       const sbirs_sensor::session::SbirsOutputDebugView& view =
           sbirs_components[s]->LastDebugView();
       for (std::size_t t = 0U; t < view.targets.size(); ++t) {
@@ -799,12 +838,13 @@ int main(int argc, char* argv[]) {
   component_attachment::app::FlushIntegrationLog();
   // 3D 可视化 CSV 刷盘在析构前显式完成（CsvWriter 析构亦会关闭，双保险）。
   sats_csv.Flush();
+  scan_csv.Flush();
   truth_csv.Flush();
   los_csv.Flush();
   fused_csv.Flush();
   dual_fix_csv.Flush();
   std::cout << "3D viewer CSV -> " << output_dir
-            << " (sbirs_sats/truth/los/fused/dual_fix.csv; viewer: "
+            << " (sbirs_sats/scan/truth/los/fused/dual_fix.csv; viewer: "
                "examples/common/viz/sbirs_orbit_viewer.py)\n";
 
   // 自检：五指标均有样本、AHP 矩阵合法求解、综合分 ∈ (0,1]，且周期内有双星交会。

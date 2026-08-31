@@ -1,6 +1,7 @@
 {
   "name": "rir_ground_site_recognition",
-  "cycles": 2300,
+  "start_cycle": 740,
+  "cycles": 1560,
   "dt_sec": 1.0,
   "log_dir": "rir_ground_site_recognition",
   "platform": {
@@ -599,7 +600,7 @@
           "el_deg": 0.0
         },
         "max_range_m": 9000000.0,
-        "recognition_dwell_sec": 0.1,
+        "recognition_dwell_sec": 0.05,
         "scan_start_position": "kLeftBottom",
         "scan_sequence": "kAzimuthFirst",
         "step_scale": 2.0,

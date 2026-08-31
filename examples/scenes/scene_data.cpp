@@ -329,6 +329,14 @@ bool ParseSceneBody(const examples::JsonValue& root, SceneData* scene,
     }
     out.cycles = static_cast<std::uint32_t>(cycles);
   }
+  if (root["start_cycle"].IsInt()) {
+    const std::int64_t start = root["start_cycle"].AsInt();
+    if (start <= 0) {
+      *error = "invalid \"start_cycle\": must be > 0";
+      return false;
+    }
+    out.start_cycle = static_cast<std::uint32_t>(start);
+  }
   if (root["view_log_every_cycles"].IsInt()) {
     const std::int64_t every = root["view_log_every_cycles"].AsInt();
     if (every <= 0) {
@@ -737,7 +745,7 @@ bool ParseSceneBody(const examples::JsonValue& root, SceneData* scene,
 bool ValidateFullLoadExtras(const examples::JsonValue& root, SceneData* scene,
                             std::string* error) {
   static const char* kAllowedKeys[] = {
-      "name",  "cycles", "dt_sec", "view_log_every_cycles", "platform",
+      "name",  "cycles", "start_cycle", "dt_sec", "view_log_every_cycles", "platform",
       "platforms", "mission_area", "targets", "esr", "sbirs_satellite",
       "sensors", "rir", "ecm", "commands", "high_threat_confidence",
       "smoke", "session_config", "log_dir"};

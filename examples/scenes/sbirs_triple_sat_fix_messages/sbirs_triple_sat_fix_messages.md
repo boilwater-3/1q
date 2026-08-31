@@ -90,16 +90,18 @@ scripts/1q.sh build VisualStudio.15.0-amd64-release --target sbirs_triple_sat_fi
 
 ## 三维可视化
 
-场景 exe 运行时同步落盘五份几何 CSV（与验收日志同目录）：`sbirs_sats`
-（卫星 ECEF + 视场角 + ECI↔ECEF 旋转角）、`sbirs_truth`（真值轨迹）、
+场景 exe 运行时同步落盘六份几何 CSV（与验收日志同目录）：`sbirs_sats`
+（卫星 ECEF + 视场角 + 扫描参数 + 星下点方位）、`sbirs_scan`（每周期每星
+WFOV 扫描中心方位，供扫描条带动画）、`sbirs_truth`（真值轨迹）、
 `sbirs_los`（每星逐目标视线状态/测角/SNR，取组件调试视图快照）、
 `sbirs_fused`（融合航迹，LLA 后验已转 ECEF）、`sbirs_dual_fix`（双星交会
 误差样本）。
 
 ```bash
 python3 examples/common/viz/sbirs_orbit_viewer.py examples/log/sbirs_triple_sat_fix_messages
-# 生成的 HTML 离线自包含（拖拽旋转 / 滚轮缩放 / 时间轴播放 / 图层开关），
-# 交会点由两星测角视线几何复算，--check 封口测角与交会复算同库一致：
+# 生成的 HTML 离线自包含：顶部「星下点相对方位扫描」条带（橙框 = WFOV 足印随周期移动）+
+# 下方 3D 视场锥随扫描方位旋转；拖拽旋转 / 滚轮缩放 / 时间轴播放 / 图层开关。
+# --check 封口测角与交会复算同库一致：
 python3 examples/common/viz/sbirs_orbit_viewer.py --check examples/log/sbirs_triple_sat_fix_messages
 ```
 

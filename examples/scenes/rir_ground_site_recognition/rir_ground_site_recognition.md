@@ -9,6 +9,8 @@
 | 设计依据 | `docs/review/rir_ballistic_scene_design_2026-08-28.md`（客户 testInfoOutput 12 句柄清洗后 5 弹道目标：208/210/227/231/249，ID 沿用客户句柄号）+ `docs/review/target_handle_trajectory_summary.md`；2026-08-29 探测架构还债（方向图恒开/主瓣覆盖门/TAS 跟踪驻留/增益-波束自洽，见设计文档 §7 修订行与 `docs/review/rir_ballistic_scene_log_audit_2026-08-29.md` A1/B5） |
 | 构建模式 | release（运动学回退） |
 | 日志模式 | delta + key（默认） |
+| 时间窗口 | `start_cycle=740`（跳过助推/远距空窗；绝对周期号不变，designate 仍在 751 起） |
+| 扫描加速 | `recognition_dwell_sec` 0.1→0.05（每周期 20 驻留，围栏刷新 ≈23 周期） |
 | 目标设定 | 5 个弹道中段目标（ICBM 级，过极点，顶高 1562–1684 km，极速 6818–6965 m/s）：两段式时间基准——助推段 [0, t_bo) 保持发射点（速度 0→v_bo 线性爬升，地球遮挡不可见），t ≥ t_bo 按闭式二体椭圆解析推进（Kepler 方程牛顿求解，t_bo = 数据顶高时刻 − 拟合顶高时刻，逐目标 258–284 s）；RCS 0.1 m²（−10 dBsm）、投影面积 1 m²、辐射强度 300 W/sr（中段弱红外）、无辐射源 |
 | 运行日期 | 2026-08-28（弹道重指定首轮）；2026-08-29（波束制探测架构重跑，本表实测） |
 
