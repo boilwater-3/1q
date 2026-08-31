@@ -78,6 +78,21 @@ scripts/1q.sh build VisualStudio.15.0-amd64-release --target sbirs_triple_sat_fi
 
 输出：`examples/log/sbirs_triple_sat_fix_messages/`
 
+## 三维可视化
+
+场景 exe 运行时同步落盘五份几何 CSV（与验收日志同目录）：`sbirs_sats`
+（卫星 ECEF + 视场角 + ECI↔ECEF 旋转角）、`sbirs_truth`（真值轨迹）、
+`sbirs_los`（每星逐目标视线状态/测角/SNR，取组件调试视图快照）、
+`sbirs_fused`（融合航迹，LLA 后验已转 ECEF）、`sbirs_dual_fix`（双星交会
+误差样本）。
+
+```bash
+python3 examples/common/viz/sbirs_orbit_viewer.py examples/log/sbirs_triple_sat_fix_messages
+# 生成的 HTML 离线自包含（拖拽旋转 / 滚轮缩放 / 时间轴播放 / 图层开关），
+# 交会点由两星测角视线几何复算，--check 封口测角与交会复算同库一致：
+python3 examples/common/viz/sbirs_orbit_viewer.py --check examples/log/sbirs_triple_sat_fix_messages
+```
+
 ## 结论
 
 **判定：通过（位置确认成立）。** 三星 GEO 覆盖 + 两两重叠区双星交会按设计工作；地球遮挡导致的「第三星看不到」是预期。综合分被落点/发射点拖低，不代表交会失败。

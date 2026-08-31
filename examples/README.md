@@ -19,6 +19,8 @@ cmake --build --preset examples-release-local --target rir_ground_site_recogniti
 python3 examples/common/viz/build_viewer.py examples/log/<name>          # 通用单文件 HTML 查看器
 # RIR 扫描-识别专用查看器（LLA 俯视 + 扫描扇区 + 进入扫描范围→探测→确认航迹→识别连线 + 斜距/高度剖面）
 python3 examples/common/viz/rir_scan_viewer.py examples/log/rir_ground_site_recognition
+# SBIRS 卫星场景三维查看器（ECEF 地球线框 + GEO 视场锥 + 视线/遮挡 + 双星交会复算，拖拽旋转/滚轮缩放）
+python3 examples/common/viz/sbirs_orbit_viewer.py examples/log/sbirs_triple_sat_fix_messages
 ```
 
 场景可执行选建（configure 期）：`-DONEQ_EXAMPLE_SCENES=all|none|"名1;名2"`

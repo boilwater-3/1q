@@ -1,9 +1,14 @@
 ﻿/**
  * @file sbirs_triple_sat_fix_messages/main.cpp
- * @brief 三颗地球静止轨道卫星覆盖 + 消息机制地面站融合。
+ * @brief 三颗地球静止轨道卫星覆盖 + 消息机制地面站融合；末尾导出 3D 可视化 CSV。
  *
  * 卫星经 on_sbirs_frame_submitted 投递，地面站 GroundStationFusionComponent
  * 订阅收件箱后融合。精度评估交会仍只用前两颗星（库 API 是双视线）。
+ *
+ * 每周期落盘五份 CSV（sbirs_sats / sbirs_truth / sbirs_los / sbirs_fused /
+ * sbirs_dual_fix，与验收日志同目录），供 examples/common/viz/
+ * sbirs_orbit_viewer.py 构建离线三维查看器：卫星几何与视场锥、真值轨迹、
+ * 每星逐目标视线状态（检测/被地球遮挡）、融合航迹与双星交会误差。
  */
 
 #include <cmath>
@@ -18,16 +23,19 @@
 #include "app/command_routing.h"
 #include "app/fs_compat.h"
 
+#include "1q/coordinate/inertial_transform.h"
 #include "1q/coordinate/position_transform.h"
 #include "1q/coordinate/types.h"
 #include "1q/coordinate/velocity_transform.h"
 #include "1q/fusion/FusionEngine.h"
+#include "1q/fusion/FusedTarget.h"
 #include "1q/precision_evaluation/PrecisionEvaluationConfig.h"
 #include "1q/precision_evaluation/PrecisionEvaluationSession.h"
 #include "1q/precision_evaluation/PrecisionEvaluationTypes.h"
 #include "1q/sbirs_sensor/config/SbirsSessionConfig.h"
 #include "1q/sbirs_sensor/session/SbirsSession.h"
 #include "json_reader.h"
+#include "csv_writer.h"
 #include "app/output_dir.h"
 #include "components/ground_station_fusion_component.h"
 #include "components/sbirs_sensor_component.h"
@@ -377,6 +385,24 @@ const char* MetricName(pe::PrecisionMetric metric) {
   return "unknown";
 }
 
+// 调试状态枚举 → CSV 字符串（sbirs_los.csv 的 status 列；查看器按词着色：
+// detected = 画视线，not_in_output = 目标在场但该星看不到，多数是被地球挡住）。
+const char* DebugStatusName(sbirs_sensor::session::SbirsDebugTargetStatus status) {
+  switch (status) {
+    case sbirs_sensor::session::SbirsDebugTargetStatus::kDetected:
+      return "detected";
+    case sbirs_sensor::session::SbirsDebugTargetStatus::kObservedBelowThreshold:
+      return "below_threshold";
+    case sbirs_sensor::session::SbirsDebugTargetStatus::kCoasting:
+      return "coasting";
+    case sbirs_sensor::session::SbirsDebugTargetStatus::kNotInOutput:
+      return "not_in_output";
+    case sbirs_sensor::session::SbirsDebugTargetStatus::kCycleNotExecuted:
+      return "not_executed";
+  }
+  return "unknown";
+}
+
 void PrintReport(const pe::PrecisionEvaluationReport& report) {
   std::cout << "\n=== Precision Evaluation Report ===\n";
   std::cout << "metric               count          mean          rmse           p95           max\n";
@@ -508,6 +534,46 @@ int main(int argc, char* argv[]) {
   app_scene.sbirs_utc_julian_day = scene.utc_julian_day;
   component_attachment::World world(app_scene);
 
+  // 3D 可视化 CSV 落盘：与验收日志同目录，查看器 sbirs_orbit_viewer.py 消费。
+  // gmst_rad 为 ECI↔ECEF 旋转角（场景儒略日固定 → 全程不变，随 sats.csv 导出
+  // 一次，查看器用它把测角视线从 ECI 极坐标转回 ECEF 画线）。
+  double gmst_rad = 0.0;
+  if (!oneq::coordinate::TryComputeGmstRad(scene.utc_julian_day, &gmst_rad)) {
+    std::cerr << "Failed to compute GMST from utc_julian_day=" << scene.utc_julian_day << "\n";
+    return 1;
+  }
+  examples::CsvWriter sats_csv(
+      output_dir + "/sbirs_sats.csv",
+      "sat_id,source_id,ecef_x_m,ecef_y_m,ecef_z_m,gmst_rad,scan_center_az_deg,"
+      "scan_center_el_deg,wfov_az_deg,wfov_el_deg,nfov_az_deg,nfov_el_deg");
+  examples::CsvWriter truth_csv(output_dir + "/sbirs_truth.csv",
+                                "cycle,t_sec,target_id,ecef_x_m,ecef_y_m,ecef_z_m");
+  examples::CsvWriter los_csv(output_dir + "/sbirs_los.csv",
+                              "cycle,t_sec,source_id,target_id,present_in_input,status,"
+                              "az_rad,el_rad,snr_linear,estimated_range_m");
+  examples::CsvWriter fused_csv(output_dir + "/sbirs_fused.csv",
+                                "cycle,t_sec,key,lifecycle,confidence,has_position,"
+                                "ecef_x_m,ecef_y_m,ecef_z_m,channels");
+  examples::CsvWriter dual_fix_csv(output_dir + "/sbirs_dual_fix.csv",
+                                   "cycle,t_sec,key,position_error_m,los_residual_m,"
+                                   "slant_range_error_m");
+  for (std::size_t i = 0U; i < scene.satellites.size(); ++i) {
+    const LoadedSatellite& sat = scene.satellites[i];
+    char row[512];
+    std::snprintf(row, sizeof(row), "%s,%u,%.3f,%.3f,%.3f,%.9f,%.2f,%.2f,%.1f,%.1f,%.1f,%.1f",
+                  sat.id.c_str(), sat.source_id, sat.position_ecef_m.x_m,
+                  sat.position_ecef_m.y_m, sat.position_ecef_m.z_m, gmst_rad,
+                  static_cast<double>(sat.config.mission.scan_start_az_deg),
+                  static_cast<double>(sat.config.mission.scan_center_el_deg),
+                  static_cast<double>(sat.config.mission.wide_field_fov_az_deg),
+                  static_cast<double>(sat.config.mission.wide_field_fov_el_deg),
+                  static_cast<double>(sat.config.mission.narrow_field_fov_az_deg),
+                  static_cast<double>(sat.config.mission.narrow_field_fov_el_deg));
+    sats_csv.WriteRow(row);
+  }
+
+  std::vector<component_attachment::SbirsSensorComponent*> sbirs_components;
+  sbirs_components.reserve(scene.satellites.size());
   for (std::size_t i = 0U; i < scene.satellites.size(); ++i) {
     const LoadedSatellite& sat = scene.satellites[i];
     const sbirs_sensor::session::SbirsVector3M pose(sat.position_ecef_m.x_m, sat.position_ecef_m.y_m,
@@ -522,6 +588,7 @@ int main(int argc, char* argv[]) {
         new component_attachment::SbirsSensorComponent(
             sbirs_sensor::session::SbirsSession::Create(sat.config), sat.source_id, pose, vel, att,
             component_attachment::SbirsGroundDeliveryMode::kMessage)));
+    sbirs_components.push_back(entity.Find<component_attachment::SbirsSensorComponent>());
   }
   std::vector<std::uint32_t> evaluation_source_ids;
   evaluation_source_ids.push_back(scene.satellites[0].source_id);
@@ -621,6 +688,69 @@ int main(int argc, char* argv[]) {
       }
     }
     std::cout << "\n";
+
+    // 3D 可视化落盘（本周期四表）：真值轨迹（推进后的当前位置）、每星逐目标
+    // 视线状态（取各卫星组件的调试视图快照）、融合航迹（LLA 后验转 ECEF 统一
+    // 口径）、双星交会误差样本。
+    for (std::size_t i = 0U; i < scene.truth.size(); ++i) {
+      const pe::EvaluationTruthTarget& target = scene.truth[i];
+      char row[256];
+      std::snprintf(row, sizeof(row), "%u,%.3f,%llu,%.3f,%.3f,%.3f", cycle, app_scene.t_sec,
+                    static_cast<unsigned long long>(target.key), target.position_ecef_m.x_m,
+                    target.position_ecef_m.y_m, target.position_ecef_m.z_m);
+      truth_csv.WriteRow(row);
+    }
+    for (std::size_t s = 0U; s < sbirs_components.size(); ++s) {
+      const sbirs_sensor::session::SbirsOutputDebugView& view =
+          sbirs_components[s]->LastDebugView();
+      for (std::size_t t = 0U; t < view.targets.size(); ++t) {
+        const sbirs_sensor::session::SbirsDebugTargetState& target = view.targets[t];
+        char row[320];
+        std::snprintf(row, sizeof(row), "%u,%.3f,%u,%llu,%d,%s,%.9f,%.9f,%.6g,%.3f", cycle,
+                      app_scene.t_sec, scene.satellites[s].source_id,
+                      static_cast<unsigned long long>(target.target_id),
+                      target.present_in_input ? 1 : 0, DebugStatusName(target.status),
+                      static_cast<double>(target.azimuth_rad),
+                      static_cast<double>(target.elevation_rad),
+                      static_cast<double>(target.infrared_snr_linear),
+                      static_cast<double>(target.estimated_range_m));
+        los_csv.WriteRow(row);
+      }
+    }
+    for (std::size_t t = 0U; t < fusion->targets().size(); ++t) {
+      const fusion::FusedTarget& target = fusion->targets()[t];
+      oneq::coordinate::EcefPositionM fused_ecef;
+      const bool has_position =
+          target.has_kinematic_estimate &&
+          oneq::coordinate::TryLlaToEcef(target.kinematic_estimate.position, &fused_ecef);
+      std::string channels;
+      for (std::size_t c = 0U; c < target.channels.size(); ++c) {
+        if (c > 0U) {
+          channels += "|";
+        }
+        channels += std::to_string(target.channels[c].source_id) + ":" +
+                    std::to_string(target.channels[c].sample_count);
+      }
+      char row[384];
+      std::snprintf(row, sizeof(row), "%u,%.3f,%llu,%s,%.6f,%d,%.3f,%.3f,%.3f,%s", cycle,
+                    app_scene.t_sec, static_cast<unsigned long long>(target.key),
+                    target.lifecycle == fusion::FusedTrackLifecycle::kConfirmed
+                        ? "confirmed"
+                        : (target.lifecycle == fusion::FusedTrackLifecycle::kCoasting
+                               ? "coasting"
+                               : "tentative"),
+                    target.confidence, has_position ? 1 : 0, fused_ecef.x_m, fused_ecef.y_m,
+                    fused_ecef.z_m, channels.c_str());
+      fused_csv.WriteRow(row);
+    }
+    for (std::size_t i = 0U; i < result.dual_sat.size(); ++i) {
+      const pe::DualSatFixSample& sample = result.dual_sat[i];
+      char row[256];
+      std::snprintf(row, sizeof(row), "%u,%.3f,%llu,%.3f,%.3f,%.3f", cycle, app_scene.t_sec,
+                    static_cast<unsigned long long>(sample.key), sample.position_error_m,
+                    sample.los_residual_m, sample.slant_range_error_m);
+      dual_fix_csv.WriteRow(row);
+    }
   }
 
   const pe::PrecisionEvaluationReport report = fusion->SummarizeEvaluation();
@@ -631,6 +761,15 @@ int main(int argc, char* argv[]) {
       0U, 0.0, "可支持连续运行次数性能测试",
       std::string("场景数=1 总仿真周期=") + std::to_string(scene.cycles));
   component_attachment::app::FlushIntegrationLog();
+  // 3D 可视化 CSV 刷盘在析构前显式完成（CsvWriter 析构亦会关闭，双保险）。
+  sats_csv.Flush();
+  truth_csv.Flush();
+  los_csv.Flush();
+  fused_csv.Flush();
+  dual_fix_csv.Flush();
+  std::cout << "3D viewer CSV -> " << output_dir
+            << " (sbirs_sats/truth/los/fused/dual_fix.csv; viewer: "
+               "examples/common/viz/sbirs_orbit_viewer.py)\n";
 
   // 自检：五指标均有样本、AHP 矩阵合法求解、综合分 ∈ (0,1]，且周期内有双星交会。
   if (!report.all_metrics_sampled || !report.ahp_valid || !(report.composite_score > 0.0) ||
