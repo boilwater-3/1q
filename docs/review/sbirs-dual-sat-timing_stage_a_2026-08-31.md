@@ -68,17 +68,56 @@ Authority: 非规范性记录；结论以 docs/common/contract.md、docs/common/
 
 ## §3 冻结契约（用户讨论结束后填写）
 
-<!-- 一行一项：
-1、允许范围：模块/目录、类/函数、测试与文档。
-2、明确禁止范围：公开头文件、跨模块类型、schema/回放、测试阈值、兼容层。
-3、行为边界：输入、输出、错误回退、生命周期。
-4、验收门：构建、聚焦测试、契约测试、特征化测试。
-5、非目标。
--->
+### 已证明的需求
+
+1、甲方需要扫描模式双星定位场景示例；扫描机构已实现，场景层速率开启 + 评估口径适配一次做完（修订 1）。
+2、评估配对缺"按时间窗对齐"语义：现状只有"严格同周期"，双星检出错开一个周期即丢样本，与"地面按时刻融合"的现实链路不对应。
+3、扫描态重新特征化被接受（修订 2）：旧基线（综合分 0.447267、dual_sat 80/80）随场景切换失效，历史评审记录不回改。
+4、时间语义本轮只进融合/评估层（修订 3）：周期号为时间基准，评估配对放宽为时间窗；传感器输出层不加时间戳。
+
+### 允许范围
+
+1、公开头一处增量：[evidence: include/1q/precision_evaluation/PrecisionEvaluationConfig.h] 加字段 `dual_sat_pair_window_cycles`（默认 0 = 严格同周期，零行为变化）。
+2、[evidence: src/precision_evaluation/PrecisionEvaluationSession.cpp] ::Step/Impl：窗口内跨周期配对——缓存每星逐目标最新检出及该周期锚点（卫星位置 + GMST），窗内配对、各视线锚定各自测量周期。
+3、测试：[evidence: tests/unit/precision_evaluation/precision_evaluation_session_test.cpp] 加聚焦测试（窗 0 逐位不变、窗内配对、超窗丢弃、跨周期锚定正确）。
+4、示例场景：[evidence: examples/scenes/sbirs_triple_sat_fix_messages/sbirs_triple_sat_fix_messages.json] 三颗星速率 0→6；同目录 main.cpp 解析窗宽字段进评估配置；同目录说明文档同步。
+5、文档：[evidence: docs/precision_evaluation/algorithms.md] 与 boundaries.md 增窗口语义与偏差口径；[evidence: docs/common/open_questions.md] 登记传感器量测时间戳缺口与融合亚秒对齐两项开放问题。
+
+### 明确禁止范围
+
+1、传感器输出 DTO（SbirsDetectionRecord 等）不加时间字段；replay schema/编解码不动。
+2、FusionEngine 与 DetectionRecord 不动。
+3、`TryComputeDualLosFixM` 原语不动（时间无关纯几何）。
+4、不加星间相位协同、不加扫描初始相位配置字段。
+5、WFOV 外发门控与 kWideSearch 行为不动。
+6、不降测试阈值；场景特征化按裁定重建，不弱化库内断言。
+
+### 行为边界
+
+1、输入：窗宽 0 = 现行为；窗宽 W>0 = 同目标双星检出相差不超过 W 个周期可配对。
+2、输出：样本归属当前周期；两视线各锚定各自测量周期的卫星位置与 GMST；位置误差对照当前周期真值；每目标每周期至多一条双星样本。
+3、错误回退：几何不可解（平行/出参空）与现有分支一致丢弃；缓存按目标滚动更新，不跨会话持久。
+4、口径：跨周期样本天然含两测量间隔的目标运动偏差（速度×周期差），解算不做真值修正，口径说明写进 algorithms.md。
+
+### 验收门
+
+1、构建：1q_lib + precision_evaluation 测试目标 + 场景目标。
+2、聚焦测试：窗口配对四项全过。
+3、回归：既有 precision_evaluation 单测默认窗 0 零改动全绿。
+4、场景：冒烟通过；扫描态新特征化基线（综合分 + dual_sat_cycles）记入 §4。
+
+### 非目标
+
+1、传感器层扫描穿越时刻时间戳（登记开放问题，再进入=扫描模式进正式验收需要亚周期精度）。
+2、融合层亚秒时间对齐（同登记）。
+3、极区 HEO 布局（defer）。
+4、星间相位协同（reject）。
 
 ## 修订记录
 
-<!-- 编号条目（修订 1、修订 2……）：日期、裁定内容、来源（用户指令/新证据）；不静默改写既有条目。 -->
+修订 1（2026-08-31，用户指令）：Stage B 形态裁定"一次性做完"——扫描场景示例与评估窗口配对语义在本议题一并落地，不拆分议题。
+修订 2（2026-08-31，用户指令）：接受扫描场景重新特征化——综合分 0.447267 与 dual_sat 80/80 基线随场景切换失效；历史评审文档（nadir-stare/scan-realism）中的特征化记录为当时事实，不回改。
+修订 3（2026-08-31，用户指令）：时间语义裁定"先融合/评估层"——周期号为时间基准、评估配对放宽为时间窗；传感器输出层本轮不加时间戳，缺口登记开放问题。
 
 ## §4 运行记录（Stage C 后填写）
 
