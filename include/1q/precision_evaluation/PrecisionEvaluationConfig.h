@@ -42,6 +42,15 @@ struct ONEQ_API PrecisionEvaluationConfig {
 
   std::uint32_t inference_interval_cycles{1U}; /**< 关键点推演间隔（周期数；≥1） */
 
+  /** @brief 双星交会配对窗（周期数）。
+   *  @details 0 = 严格同周期双检出才交会（历史行为）；W>0 = 同目标双星检出的周期号
+   *           相差不超过 W 即可配对（对应"地面按时刻融合"的时间对齐环节，时间基准为
+   *           周期号抽帧时刻）。跨周期样本的两视线各锚定各自测量周期的卫星位置与
+   *           GMST，误差对照配对完成周期真值，天然含两测量间隔的目标运动偏差
+   *           （口径见 docs/precision_evaluation/algorithms.md）。
+   */
+  std::uint32_t dual_sat_pair_window_cycles{0U};
+
   // 双星进融合的源通道标识：A 星沿用 SensorAdapters 的 SBIRS 源 id（4），B 星用
   // 独立 id（104）保证逐源通道统计；两值不得相等（构造时校验，相等则 B 星 +100）。
   std::uint32_t satellite_a_source_id{4U};

@@ -114,6 +114,17 @@ struct TruthKeyPoints {
   oneq::coordinate::EcefPositionM launch_ecef{};
 };
 
+/** @brief 双星检出锚点：最近一次检出的测角与其测量周期锚点（卫星位置 + GMST）。
+ *  窗口配对时两视线各锚定各自测量周期，对应"按时刻融合"的时间对齐口径。 */
+struct DualSatDetectionAnchor {
+  bool valid{false};
+  std::uint32_t cycle_index{0U};
+  float azimuth_rad{0.0f};
+  float elevation_rad{0.0f};
+  oneq::coordinate::EcefPositionM satellite_position_ecef_m{};
+  double gmst_rad{0.0};
+};
+
 }  // namespace
 
 struct PrecisionEvaluationSession::Impl {
@@ -139,6 +150,9 @@ struct PrecisionEvaluationSession::Impl {
   // 验收判定标准 第26项：逐目标最新一拍误差快照（误差本身，非统计）。
   std::map<std::uint64_t, TargetKeyErrorSnapshot> latest_errors;
   std::map<std::uint64_t, TruthKeyPoints> truth_keypoints;
+  // 双星检出锚点缓存（窗口配对用）：每星逐目标最近一次检出及其测量周期锚点。
+  std::map<std::uint64_t, DualSatDetectionAnchor> last_anchor_a;
+  std::map<std::uint64_t, DualSatDetectionAnchor> last_anchor_b;
   std::uint32_t cycles_since_inference{0U};
 };
 
@@ -284,52 +298,84 @@ PrecisionEvaluationCycleResult PrecisionEvaluationSession::Step(
   accumulate_angular(detected_a, ephemeris.satellite_a_position_ecef_m, 0);
   accumulate_angular(detected_b, ephemeris.satellite_b_position_ecef_m, 1);
 
-  // ③ 双星双视线交会（同周期两星同目标均检出）。
-  for (const auto& entry : detected_a) {
-    const auto detection_a = entry.second;
-    const auto detection_b_entry = detected_b.find(entry.first);
-    if (detection_b_entry == detected_b.end()) {
+  // ③ 双星双视线交会（同目标双检出；配对窗 = dual_sat_pair_window_cycles）。
+  // 锚点缓存：每星逐目标最近检出连同其测量周期锚点（卫星位置 + GMST）。窗内
+  // 配对时两视线各锚定各自测量周期——对应现实"地面按时刻融合"的时间对齐环节
+  // （时间基准为周期号抽帧时刻）；窗宽 0 退化为严格同周期（历史行为）。
+  const auto refresh_anchors =
+      [&](const std::map<std::uint64_t,
+                         const sbirs_sensor::output::SbirsDetectionRecord*>& detected,
+          const oneq::coordinate::EcefPositionM& satellite_position,
+          std::map<std::uint64_t, DualSatDetectionAnchor>* anchors) {
+        for (const auto& detected_entry : detected) {
+          DualSatDetectionAnchor& anchor = (*anchors)[detected_entry.first];
+          anchor.valid = true;
+          anchor.cycle_index = cycle_index;
+          anchor.azimuth_rad = detected_entry.second->azimuth_rad;
+          anchor.elevation_rad = detected_entry.second->elevation_rad;
+          anchor.satellite_position_ecef_m = satellite_position;
+          anchor.gmst_rad = gmst_rad;
+        }
+      };
+  refresh_anchors(detected_a, ephemeris.satellite_a_position_ecef_m, &impl_->last_anchor_a);
+  refresh_anchors(detected_b, ephemeris.satellite_b_position_ecef_m, &impl_->last_anchor_b);
+  for (const auto& anchor_entry : impl_->last_anchor_a) {
+    const DualSatDetectionAnchor& anchor_a = anchor_entry.second;
+    if (!anchor_a.valid) {
       continue;
     }
-    const auto truth_entry = truth_by_key.find(entry.first);
+    const auto anchor_b_entry = impl_->last_anchor_b.find(anchor_entry.first);
+    if (anchor_b_entry == impl_->last_anchor_b.end() || !anchor_b_entry->second.valid) {
+      continue;
+    }
+    const DualSatDetectionAnchor& anchor_b = anchor_b_entry->second;
+    // 每目标每周期至多一条样本：仅当至少一侧为本周期新检出时输出（避免旧锚点
+    // 重复配对；窗宽 0 时该条件蕴含两侧均为本周期，与历史行为一致）。
+    if (anchor_a.cycle_index != cycle_index && anchor_b.cycle_index != cycle_index) {
+      continue;
+    }
+    const std::uint32_t newer_cycle = std::max(anchor_a.cycle_index, anchor_b.cycle_index);
+    const std::uint32_t older_cycle = std::min(anchor_a.cycle_index, anchor_b.cycle_index);
+    if (newer_cycle - older_cycle > impl_->config.dual_sat_pair_window_cycles) {
+      continue;
+    }
+    const auto truth_entry = truth_by_key.find(anchor_entry.first);
     if (truth_entry == truth_by_key.end()) {
       continue;
     }
     oneq::coordinate::Vector3d direction_a_ecef;
     oneq::coordinate::Vector3d direction_b_ecef;
     if (!TryRotateEciDirectionToEcef(
-            EciDirectionFromAzimuthElevationRad(
-                static_cast<double>(detection_a->azimuth_rad),
-                static_cast<double>(detection_a->elevation_rad)),
-            gmst_rad, &direction_a_ecef) ||
+            EciDirectionFromAzimuthElevationRad(static_cast<double>(anchor_a.azimuth_rad),
+                                                static_cast<double>(anchor_a.elevation_rad)),
+            anchor_a.gmst_rad, &direction_a_ecef) ||
         !TryRotateEciDirectionToEcef(
-            EciDirectionFromAzimuthElevationRad(
-                static_cast<double>(detection_b_entry->second->azimuth_rad),
-                static_cast<double>(detection_b_entry->second->elevation_rad)),
-            gmst_rad, &direction_b_ecef)) {
+            EciDirectionFromAzimuthElevationRad(static_cast<double>(anchor_b.azimuth_rad),
+                                                static_cast<double>(anchor_b.elevation_rad)),
+            anchor_b.gmst_rad, &direction_b_ecef)) {
       continue;
     }
     oneq::coordinate::EcefPositionM fix_position;
     double residual_m = 0.0;
-    if (!TryComputeDualLosFixM(ephemeris.satellite_a_position_ecef_m, direction_a_ecef,
-                               ephemeris.satellite_b_position_ecef_m, direction_b_ecef,
+    if (!TryComputeDualLosFixM(anchor_a.satellite_position_ecef_m, direction_a_ecef,
+                               anchor_b.satellite_position_ecef_m, direction_b_ecef,
                                &fix_position, &residual_m)) {
       continue;
     }
     DualSatFixSample sample;
-    sample.key = entry.first;
+    sample.key = anchor_entry.first;
     sample.cycle_index = cycle_index;
     sample.position_error_m = DistanceM(fix_position, truth_entry->second->position_ecef_m);
     sample.los_residual_m = residual_m;
     // 评审 2026-08-26 条13：与目标的距离误差（斜距）——交会解到主星距离 vs 真值到
     // 主星距离之差（SBIRS 无源测角无真实测距，此为交会解可得的真实口径）。
     sample.slant_range_error_m =
-        DistanceM(ephemeris.satellite_a_position_ecef_m, fix_position) -
-        DistanceM(ephemeris.satellite_a_position_ecef_m, truth_entry->second->position_ecef_m);
+        DistanceM(anchor_a.satellite_position_ecef_m, fix_position) -
+        DistanceM(anchor_a.satellite_position_ecef_m, truth_entry->second->position_ecef_m);
     cycle_result.dual_sat.push_back(sample);
     impl_->dual_sat_series.push_back(sample.position_error_m);
     // 第26项：最新一拍交会位置误差 ECEF 向量与距离误差（Summarize 逐目标行）。
-    TargetKeyErrorSnapshot& snapshot = impl_->latest_errors[entry.first];
+    TargetKeyErrorSnapshot& snapshot = impl_->latest_errors[anchor_entry.first];
     snapshot.last_cycle = cycle_index;
     snapshot.has_ecef = true;
     snapshot.ecef_error_m[0] = fix_position.x_m - truth_entry->second->position_ecef_m.x_m;

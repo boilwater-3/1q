@@ -304,6 +304,201 @@ TEST(PrecisionEvaluationSessionTest, AscendingTargetYieldsLaunchPointSamples) {
   EXPECT_TRUE(runner.last_cycle_result().keypoints.back().has_launch);
 }
 
+// --- 双星窗口配对（dual_sat_pair_window_cycles）聚焦测试 ---
+// 合成检出直打 Step：几何为 A 星 (7e6,0,0)、B 星 (0,7e6,0)、静止真值目标 (8e6,6e6,0)；
+// 测角零噪声（视线精确指向真值），交会解误差应为浮点噪声量级。
+
+sbirs_sensor::session::SbirsCycleResult SingleDetectionResult(double az_rad, double el_rad) {
+  sbirs_sensor::session::SbirsCycleResult result;
+  result.status = sbirs_sensor::session::SbirsCycleStatus::kCompleted;
+  sbirs_sensor::output::SbirsDetectionRecord detection;
+  detection.detection_id = 1U;
+  detection.azimuth_rad = static_cast<float>(az_rad);
+  detection.elevation_rad = static_cast<float>(el_rad);
+  detection.detected = true;
+  result.output_frame.detections.push_back(detection);
+  sbirs_sensor::attribution::SbirsDetectionAttributionRecord attribution;
+  attribution.detection_id = 1U;
+  attribution.target_id = 7U;
+  result.detection_attributions.push_back(attribution);
+  return result;
+}
+
+// 卫星→目标 ECI 极坐标角（与 SBIRS 输出角同参考系；GMST 旋入后取 atan2/asin）。
+bool TryLosAzElRad(const oneq::coordinate::EcefPositionM& satellite,
+                   const oneq::coordinate::EcefPositionM& target, double gmst_rad, double* az_rad,
+                   double* el_rad) {
+  oneq::coordinate::EciPositionM satellite_eci;
+  oneq::coordinate::EciPositionM target_eci;
+  if (!oneq::coordinate::TryEcefToEci(satellite, gmst_rad, &satellite_eci) ||
+      !oneq::coordinate::TryEcefToEci(target, gmst_rad, &target_eci)) {
+    return false;
+  }
+  const double los_x = target_eci.x_m - satellite_eci.x_m;
+  const double los_y = target_eci.y_m - satellite_eci.y_m;
+  const double los_z = target_eci.z_m - satellite_eci.z_m;
+  const double range = std::sqrt(los_x * los_x + los_y * los_y + los_z * los_z);
+  if (range <= 0.0) {
+    return false;
+  }
+  double az = std::atan2(los_y, los_x);
+  if (az < 0.0) {
+    az += 2.0 * kPi;
+  }
+  *az_rad = az;
+  *el_rad = std::asin(los_z / range);
+  return true;
+}
+
+pe::EvaluationTruthTarget StaticWindowTarget() {
+  pe::EvaluationTruthTarget truth;
+  truth.key = 7U;
+  truth.position_ecef_m = oneq::coordinate::EcefPositionM(8.0e6, 6.0e6, 0.0);
+  return truth;
+}
+
+TEST(PrecisionEvaluationSessionTest, DualSatPairWindowZeroKeepsStrictSameCycle) {
+  // 窗 0（默认）：A 星周期 1 检出、B 星周期 2 检出 → 不配对（历史行为逐位保留）。
+  pe::PrecisionEvaluationSession session({});
+  double gmst_rad = 0.0;
+  ASSERT_TRUE(oneq::coordinate::TryComputeGmstRad(kUtcJulianDay, &gmst_rad));
+  const oneq::coordinate::EcefPositionM sat_a(7.0e6, 0.0, 0.0);
+  const oneq::coordinate::EcefPositionM sat_b(0.0, 7.0e6, 0.0);
+  const pe::EvaluationTruthTarget truth = StaticWindowTarget();
+  double az_a = 0.0;
+  double el_a = 0.0;
+  double az_b = 0.0;
+  double el_b = 0.0;
+  ASSERT_TRUE(TryLosAzElRad(sat_a, truth.position_ecef_m, gmst_rad, &az_a, &el_a));
+  ASSERT_TRUE(TryLosAzElRad(sat_b, truth.position_ecef_m, gmst_rad, &az_b, &el_b));
+  pe::DualSatEphemerisInput ephemeris;
+  ephemeris.satellite_a_position_ecef_m = sat_a;
+  ephemeris.satellite_b_position_ecef_m = sat_b;
+  const std::vector<pe::EvaluationTruthTarget> truths{truth};
+  const sbirs_sensor::session::SbirsCycleResult empty_result{};
+
+  const pe::PrecisionEvaluationCycleResult cycle1 =
+      session.Step(1U, 1.0f, kUtcJulianDay, ephemeris, truths,
+                   SingleDetectionResult(az_a, el_a), empty_result, {});
+  EXPECT_TRUE(cycle1.dual_sat.empty());
+  const pe::PrecisionEvaluationCycleResult cycle2 =
+      session.Step(2U, 1.0f, kUtcJulianDay, ephemeris, truths, empty_result,
+                   SingleDetectionResult(az_b, el_b), {});
+  EXPECT_TRUE(cycle2.dual_sat.empty());
+}
+
+TEST(PrecisionEvaluationSessionTest, DualSatPairWindowPairsCrossCycleAnchoredAtMeasurementCycle) {
+  // 窗 2：A 星周期 1 检出、B 星周期 2 检出 → 窗内配对；A 星视线锚定周期 1 的卫星
+  // 位置——周期 2 星历把 A 星移走 500 km，若误用当前周期位置则交会解偏离真值
+  // ~百公里量级；锚定正确时零噪声视线精确交于真值。
+  pe::PrecisionEvaluationConfig config;
+  config.dual_sat_pair_window_cycles = 2U;
+  pe::PrecisionEvaluationSession session(config);
+  double gmst_rad = 0.0;
+  ASSERT_TRUE(oneq::coordinate::TryComputeGmstRad(kUtcJulianDay, &gmst_rad));
+  const oneq::coordinate::EcefPositionM sat_a_cycle1(7.0e6, 0.0, 0.0);
+  const oneq::coordinate::EcefPositionM sat_a_cycle2(7.0e6, 5.0e5, 0.0);  // A 星移动 500 km
+  const oneq::coordinate::EcefPositionM sat_b(0.0, 7.0e6, 0.0);
+  const pe::EvaluationTruthTarget truth = StaticWindowTarget();
+  double az_a = 0.0;
+  double el_a = 0.0;
+  double az_b = 0.0;
+  double el_b = 0.0;
+  ASSERT_TRUE(TryLosAzElRad(sat_a_cycle1, truth.position_ecef_m, gmst_rad, &az_a, &el_a));
+  ASSERT_TRUE(TryLosAzElRad(sat_b, truth.position_ecef_m, gmst_rad, &az_b, &el_b));
+  const std::vector<pe::EvaluationTruthTarget> truths{truth};
+  const sbirs_sensor::session::SbirsCycleResult empty_result{};
+
+  pe::DualSatEphemerisInput ephemeris_cycle1;
+  ephemeris_cycle1.satellite_a_position_ecef_m = sat_a_cycle1;
+  ephemeris_cycle1.satellite_b_position_ecef_m = sat_b;
+  const pe::PrecisionEvaluationCycleResult cycle1 =
+      session.Step(1U, 1.0f, kUtcJulianDay, ephemeris_cycle1, truths,
+                   SingleDetectionResult(az_a, el_a), empty_result, {});
+  EXPECT_TRUE(cycle1.dual_sat.empty());  // B 星尚无检出
+
+  pe::DualSatEphemerisInput ephemeris_cycle2;
+  ephemeris_cycle2.satellite_a_position_ecef_m = sat_a_cycle2;
+  ephemeris_cycle2.satellite_b_position_ecef_m = sat_b;
+  const pe::PrecisionEvaluationCycleResult cycle2 =
+      session.Step(2U, 1.0f, kUtcJulianDay, ephemeris_cycle2, truths, empty_result,
+                   SingleDetectionResult(az_b, el_b), {});
+  ASSERT_EQ(cycle2.dual_sat.size(), 1U);
+  EXPECT_EQ(cycle2.dual_sat.front().cycle_index, 2U);
+  EXPECT_LT(cycle2.dual_sat.front().position_error_m, 50.0);  // 锚定测量周期位置
+
+  // 周期 3 两侧均无新检出：旧锚点不重复配对。
+  const pe::PrecisionEvaluationCycleResult cycle3 =
+      session.Step(3U, 1.0f, kUtcJulianDay, ephemeris_cycle2, truths, empty_result,
+                   empty_result, {});
+  EXPECT_TRUE(cycle3.dual_sat.empty());
+}
+
+TEST(PrecisionEvaluationSessionTest, DualSatPairWindowRejectsBeyondWindow) {
+  // 窗 1：A 星周期 1、B 星周期 4 检出（相差 3 > 1）→ 不配对。
+  pe::PrecisionEvaluationConfig config;
+  config.dual_sat_pair_window_cycles = 1U;
+  pe::PrecisionEvaluationSession session(config);
+  double gmst_rad = 0.0;
+  ASSERT_TRUE(oneq::coordinate::TryComputeGmstRad(kUtcJulianDay, &gmst_rad));
+  const oneq::coordinate::EcefPositionM sat_a(7.0e6, 0.0, 0.0);
+  const oneq::coordinate::EcefPositionM sat_b(0.0, 7.0e6, 0.0);
+  const pe::EvaluationTruthTarget truth = StaticWindowTarget();
+  double az_a = 0.0;
+  double el_a = 0.0;
+  double az_b = 0.0;
+  double el_b = 0.0;
+  ASSERT_TRUE(TryLosAzElRad(sat_a, truth.position_ecef_m, gmst_rad, &az_a, &el_a));
+  ASSERT_TRUE(TryLosAzElRad(sat_b, truth.position_ecef_m, gmst_rad, &az_b, &el_b));
+  pe::DualSatEphemerisInput ephemeris;
+  ephemeris.satellite_a_position_ecef_m = sat_a;
+  ephemeris.satellite_b_position_ecef_m = sat_b;
+  const std::vector<pe::EvaluationTruthTarget> truths{truth};
+  const sbirs_sensor::session::SbirsCycleResult empty_result{};
+
+  const pe::PrecisionEvaluationCycleResult cycle1 =
+      session.Step(1U, 1.0f, kUtcJulianDay, ephemeris, truths,
+                   SingleDetectionResult(az_a, el_a), empty_result, {});
+  EXPECT_TRUE(cycle1.dual_sat.empty());
+  for (std::uint32_t cycle = 2U; cycle <= 3U; ++cycle) {
+    const pe::PrecisionEvaluationCycleResult mid = session.Step(
+        cycle, 1.0f, kUtcJulianDay, ephemeris, truths, empty_result, empty_result, {});
+    EXPECT_TRUE(mid.dual_sat.empty());
+  }
+  const pe::PrecisionEvaluationCycleResult cycle4 =
+      session.Step(4U, 1.0f, kUtcJulianDay, ephemeris, truths, empty_result,
+                   SingleDetectionResult(az_b, el_b), {});
+  EXPECT_TRUE(cycle4.dual_sat.empty());  // Δ=3 超窗
+}
+
+TEST(PrecisionEvaluationSessionTest, DualSatSameCyclePairingPersistsWithWindow) {
+  // 窗 2 下同周期双检出：照常输出且零噪声误差为浮点噪声量级（窗内非回归）。
+  pe::PrecisionEvaluationConfig config;
+  config.dual_sat_pair_window_cycles = 2U;
+  pe::PrecisionEvaluationSession session(config);
+  double gmst_rad = 0.0;
+  ASSERT_TRUE(oneq::coordinate::TryComputeGmstRad(kUtcJulianDay, &gmst_rad));
+  const oneq::coordinate::EcefPositionM sat_a(7.0e6, 0.0, 0.0);
+  const oneq::coordinate::EcefPositionM sat_b(0.0, 7.0e6, 0.0);
+  const pe::EvaluationTruthTarget truth = StaticWindowTarget();
+  double az_a = 0.0;
+  double el_a = 0.0;
+  double az_b = 0.0;
+  double el_b = 0.0;
+  ASSERT_TRUE(TryLosAzElRad(sat_a, truth.position_ecef_m, gmst_rad, &az_a, &el_a));
+  ASSERT_TRUE(TryLosAzElRad(sat_b, truth.position_ecef_m, gmst_rad, &az_b, &el_b));
+  pe::DualSatEphemerisInput ephemeris;
+  ephemeris.satellite_a_position_ecef_m = sat_a;
+  ephemeris.satellite_b_position_ecef_m = sat_b;
+  const std::vector<pe::EvaluationTruthTarget> truths{truth};
+
+  const pe::PrecisionEvaluationCycleResult cycle1 =
+      session.Step(1U, 1.0f, kUtcJulianDay, ephemeris, truths, SingleDetectionResult(az_a, el_a),
+                   SingleDetectionResult(az_b, el_b), {});
+  ASSERT_EQ(cycle1.dual_sat.size(), 1U);
+  EXPECT_LT(cycle1.dual_sat.front().position_error_m, 50.0);
+}
+
 // --- SBIRS→fusion 适配器几何往返（评估侧跨系对齐的专项验证） ---
 
 TEST(SbirsBearingAdapterTest, EciBearingMapsToSatelliteLocalEnu) {
