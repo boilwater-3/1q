@@ -95,6 +95,7 @@ Authority: 非规范性记录；结论以 docs/common/contract.md、docs/common/
 
 修订 1（2026-08-31，用户指令）：裁定执行方案 2（意图式方位基准）；"目前项目没上线，该处理处理干净" → 不做兼容层与迁移垫片。默认值仍取 eci_absolute 并非兼容层，而是两种并存语义之一的取值选择：它使场景集与验收基线零联动改动，属最小实现原则。
 修订 2（2026-08-31，用户指令）：基于 evidence 技能开始执行方案 2（触发本 Stage A）。
+修订 3（2026-08-31，审查后修正）：completeness-review Lane-1（1 中 5 低）落地修正 4 项——replay schema 字段移表尾（旧缓冲 vtable 槽位错位，中危）；ScanPhaseForAzimuth 绝对模式跳过归一化（1 ulp 逐位）；快照补方位基准；校验补枚举合法性（新 code kInvalidScanAzimuthReference，同时了结"新增 issue code"的契约字面）。修正落在 feat/sbirs-scan-realism 分支搭车提交。低危残留：examples 场景 main.cpp 自制装载器不解析新键（场景保持绝对模式暂无影响，随 COMMON-OQ-10 处理）。
 
 ## §4 运行记录（Stage C 后填写）
 

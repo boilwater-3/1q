@@ -1,5 +1,5 @@
 ---
-Status: frozen
+Status: final
 Date: 2026-08-31
 Review-Baseline: `evidence/sbirs-scan-realism` @ `9cbab98a`
 Authority: 非规范性记录；结论以 docs/common/contract.md、docs/common/session_contract.md
@@ -86,8 +86,19 @@ Authority: 非规范性记录；结论以 docs/common/contract.md、docs/common/
 
 ## 修订记录
 
-修订 1（2026-08-31，用户指令）：裁定"改成往复式扫描，这才符合现实；按真实的进行设计"——锯齿→往复，作为行为替换（项目未上线，无兼容层）。
-修订 2（2026-08-31，用户指令）：裁定"填 360° 不能直接扫 360°，超出后地球不在扫描区域内，该值应被收敛"——nadir 模式收敛到 2(ρ+wfov_az/2)。
-修订 3（2026-08-31，用户指令）：裁定"俯仰中心这个需要登记"——登记 docs/common/open_questions.md，不实现。
+修订 1（2026-08-31，实现期新证据）：冻结公式 `min(span, 2(ρ+wfov_az/2))` 不完备——偏移≠−span/2 时（如偏移 0）按该式裁后扇区远端仍有半程扫空天。细化为"配置扇区 ∩ 可见窗 [−(ρ+w/2), +(ρ+w/2)]"裁剪：相位原点恒为配置起点（扇区与窗交集非空时必含起点侧端点），只裁远端；交集为空（扇区整段不对地球）不收敛，归 SBIRS-OQ-5 告警登记。修订 2（2026-08-31，实现期新证据）：往复式方位映射不得翻符号——回程由相位动态（行程折叠反射）体现，相位→方位两腿同为 起点+dir·相位；若按腿翻符号会把回程画到扇区外。
+修订 3（2026-08-31，用户指令）：裁定"改成往复式扫描，这才符合现实；按真实的进行设计"——锯齿→往复，作为行为替换（项目未上线，无兼容层）。
+修订 4（2026-08-31，用户指令）：裁定"填 360° 不能直接扫 360°，超出后地球不在扫描区域内，该值应被收敛"——nadir 模式收敛（细化见修订 1）。
+修订 5（2026-08-31，用户指令）：裁定"俯仰中心这个需要登记"——已登记 docs/common/open_questions.md SBIRS-OQ-5，不实现。
 
 ## §4 运行记录（Stage C 后填写）
+
+1、实现范围：管线往复式推进（行程坐标 ∈ [0,2·有效跨度) 折叠反射、去/回程腿状态、牛耕式行进=每次过界步进一行）；nadir 模式跨度收敛（"配置扇区 ∩ 地球可见窗"裁剪，修订 1 细化，收敛值变化打 PROJECT_LOG_INFO）；快照新增腿方向与方位基准字段并随 Capture/Restore 往返；ApplyConfig 扇区重锚保留腿、相位归零时腿复位。同分支搭车落地 nadir 轮 completeness-review（Lane-1）修正 4 项：replay schema 字段移表尾（恢复旧缓冲 vtable 布局）、ScanPhaseForAzimuth 绝对模式逐位一致（跳过归一化）、快照补方位基准、校验补方位基准枚举合法性（新 issue code kInvalidScanAzimuthReference）。
+2、验证命令与结果：
+   1、`cmake --build ... 1q_lib` + 四个 sbirs 测试目标: pass。
+   2、新增聚焦测试 3 项全过：PingPongSweepReversesAtSpanBoundary（6°→8°→2°→4° 反射无跳变）、PingPongSnapshotRestoresLegDirection（回程态恢复后续走 6° 非复位 10°）、NadirSpanConvergesToEarthDisk（GEO span=360 → 方位全程 ⊂ 星下点 +[0,20.69]，12 周期内必见回程）；校验测试补枚举非法用例过。
+   3、全量套件：sbirs unit 263/263、replay 38/38、contract 14/14、integration 29/29、cross-domain 6/6、public API 8/8 全 pass（既有栅格/重访测试零改动通过——数值序列与往复式重合的探针结论被实测证实）。
+   4、特征化：场景综合分 0.447267、dual_sat_cycles=80/80 逐位不变（rate=0 凝视下往复与收敛均不可见）。
+3、权威回写去向：往复语义+收敛公式+限位/告警边界 → `docs/sbirs_sensor/algorithms.md` WFOV 搜索边界第 7/9 条与算法登记表；俯仰基准登记 → `docs/common/open_questions.md` SBIRS-OQ-5。
+4、残留风险：可见窗按 el=0 赤道近似，行 el 偏离星下点俯仰时窗宽偏宽（SBIRS-OQ-5 范围）；绝对模式无告警防护（同登记）；examples 场景 main.cpp 自制装载器不解析 scan_azimuth_reference（场景保持绝对模式暂无影响，属 nadir 轮审查低危残留，随 COMMON-OQ-10 三处同构维护一并处理）。
+5、后续冻结项：SBIRS-OQ-5（俯仰基准 nadir 化 + 方案1 告警）触发条件：非 GEO 轨道集成需求或 el 误配真实案例。
