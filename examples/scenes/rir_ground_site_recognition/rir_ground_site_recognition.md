@@ -5,7 +5,7 @@
 | 项 | 值 |
 | --- | --- |
 | 场景文件 | `scenes/rir_ground_site_recognition/rir_ground_site_recognition.json` |
-| 场景意图 | 被测通道：RIR（主）+ Fusion（SBIRS/SAR/AR/EOS 挂载弱预期）；被测行为：S 波段地基识别雷达对极地过顶弹道中段目标的四维特征识别链（新增 `type: "ballistic"` 二体椭圆弹道弧线目标 × 5）+ 运行期指定任务 + 特征量测进多源融合（五源） |
+| 场景意图 | 被测通道：RIR（主）+ ESR（辐射源作为干扰进入）+ Fusion；被测行为：S 波段地基识别雷达对极地过顶弹道中段目标的四维特征识别链（新增 `type: "ballistic"` 二体椭圆弹道弧线目标 × 5）+ 运行期指定任务 + 特征量测进融合（RIR 位置 + ESR 方位；2026-08-31 清场：SBIRS/SAR/AR/EOS 不再挂载，下表五源口径为 2026-08-29 实测存档） |
 | 设计依据 | `docs/review/rir_ballistic_scene_design_2026-08-28.md`（客户 testInfoOutput 12 句柄清洗后 5 弹道目标：208/210/227/231/249，ID 沿用客户句柄号）+ `docs/review/target_handle_trajectory_summary.md`；2026-08-29 探测架构还债（方向图恒开/主瓣覆盖门/TAS 跟踪驻留/增益-波束自洽，见设计文档 §7 修订行与 `docs/review/rir_ballistic_scene_log_audit_2026-08-29.md` A1/B5） |
 | 构建模式 | release（运动学回退） |
 | 日志模式 | delta + key（默认） |
@@ -79,7 +79,7 @@
 | RIR | 确认态持续 | 各目标被照窗内 | 每目标 ≥500 周期 | ≥2500（加和口径） | 1319 / 1306 / 846 / 839 / 1306（227/231 顶点断轨后不重捕，见结论 3；逐目标仍 ≥500） | 通过 |
 | RIR | 确认类别 = 弹道目标/BALLISTIC_EXAMPLE_B | 同上 | — | 5 | **类别=轰炸机/导弹交替（库缺陷，见结论 1/2）** | **未通过（库问题）** |
 | Fusion | RIR 特征量测并键（源通道 5） | 与 RIR 被照窗一致 | 峰值 5 | ≥5 | max_fused=5（smoke 过门） | 通过 |
-| SBIRS | 中段弱红外探测（300 W/sr） | 待验证 | 弱预期，不设下限 | — | 0 事件（弱于预期，下限 0 未红） | 通过（按设计不设限） |
+| SBIRS | 中段弱红外探测（300 W/sr） | 待验证 | 弱预期，不设下限 | — | 0 事件（弱于预期，下限 0 未红） | 通过（按设计不设限；2026-08-31 起整通道不挂载） |
 | 静止目标 | 零误检（场景内无该目标） | — | 日志审计无静止目标航迹 | 0 | 目标集仅 5 弹道句柄，零误检 | 通过 |
 
 ## 冒烟下限
@@ -132,3 +132,20 @@ min_rir_recognition_outputs=1300（波束制重跑实测 **1364**，exit=0 通�
    而非物理不可见，见审计 A6）。
 7. 运行前旧日志已备份：首轮 `examples/log/rir_ground_site_recognition_backup_20260828_pre_ballistic/`、
    波束制重跑前 `examples/log/rir_ground_site_recognition_backup_20260829_pre_beammode/`。
+8. **2026-08-31 传感器清场（用户裁定：本场景只测 RIR 相关功能）**：顶层新增
+   `sensors` 块，仅 `esr: true`（辐射源作为干扰进入，ESR 侦收链保留：目标辐射源
+   经顶层 `esr` 块 → RF 世界 → ESR 侦收）；`ar/eos/sbirs/sar` 摘除，对应
+   `session_config` 子块与顶层 `sbirs_satellite` 死块一并删除（loader 规则：未挂载
+   通道禁止携带配置）。清场动机：此前五传感器因 `scene_data.h` 默认全挂载而空转
+   （AR 每周期 `runtime_preparation_failed` 写未完成视图行）；SBIRS 演示归
+   `sbirs_triple_sat_fix_messages` 场景。清场前日志备份：
+   `examples/log/rir_ground_site_recognition_backup_20260831_pre_sensor_cleanup/`。
+   另注：`min_rir_recognition_outputs` JSON 实际值 700 与上文 1300 口径不一致
+   （改动前已如此；清场后重跑实测 confirmed_cycles=764，过 700 门，1300 口径
+   在 start_cycle=740 裁窗下不可达，定值待用户裁定）。
+   清场后重跑（2026-08-31 19:15，exit=0 smoke 全过）：模块
+   `[RIR,ESR,Fusion,Inference,Threat]`、融合目标 5/5（键 208/210/227/231/249）、
+   ar/eos/sbirs/sar 视图与事件全零、exclusion_cause 495→34（SBIRS WFOV 噪声
+   随通道摘除消失）。ESR 保留但零侦收事件（五目标
+   `emitter_center_frequency_hz=0` 发射静默，清场前同样为零；若需辐射源作为
+   干扰实际进入，需另行给目标设定 ESR 频段内的辐射频率）。
