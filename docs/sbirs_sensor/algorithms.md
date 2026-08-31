@@ -179,6 +179,13 @@ Answers: SBIRS 用了哪些算法、各自实现到什么地步、边界在哪�
      相位归零，行末回绕。校验强制 `step ≤ wide_field_fov_el_deg`（无隙覆盖预算）；全幅面
      完成时间 ≈ `row_count × span/scan_rate` 秒。输出 `scan_elevation_rad` 为当前行中心
      合成光轴的 ECI 俯仰（与 `scan_azimuth_rad` 同参考系）。
+  8. 扫描方位基准（2026-08-31 起）：`scan_azimuth_reference` 选择 `scan_start_az_deg` 的
+     语义——`kEciAbsolute`（默认）为 ECI 绝对方位 [0,360)，既有行为逐位不变；
+     `kNadirRelative` 为相对星下点方位的带符号偏移 (-360,360)，有效起点 =
+     normalize(星下点方位 + 偏移)，星下点方位 = atan2(-y,-x) 由当周期卫星 ECI 位置现算
+     （GEO 恒定；动轨道随位置漂移）。偏移 0 + 速率 0 = 视场钉在星下点的免推算凝视配置。
+     nadir 基准下 config 期跳过方位弧段限位静态检查（有效起点运行期才知），俯仰与限位
+     合法性检查保留；span/rate/direction/el 语义不变。
 - **反直觉点（扇区 patch 的相位处理）**：扇区 patch 后，当前绝对方位仍位于新有向半开区间时重算 phase
   并保持指向，否则 phase 归零转到新起点；2-D 栅格 patch 下旧行中心 el 映射到新栅格最近行
   （不在新栅格内则归零行）；rate-only patch 保持 phase。从 SearchAndStare 切入时释放

@@ -1,5 +1,5 @@
 ---
-Status: frozen
+Status: final
 Date: 2026-08-31
 Review-Baseline: `evidence/sbirs-nadir-stare-mode` @ `8badb255`
 Authority: 非规范性记录；结论以 docs/common/contract.md、docs/common/session_contract.md
@@ -98,9 +98,12 @@ Authority: 非规范性记录；结论以 docs/common/contract.md、docs/common/
 
 ## §4 运行记录（Stage C 后填写）
 
-<!-- 1、实现范围。
-2、验证命令与结果。
-3、权威回写去向：哪个结论写进了哪个文件。
-4、残留风险。
-5、后续冻结项。
--->
+1、实现范围：按冻结契约全量落地——`SbirsMissionConfig` 新增 `SbirsScanAzimuthReference` 枚举与 `scan_azimuth_reference` 字段（默认 kEciAbsolute）；配置校验双域分支（nadir 偏移域 (-360,360)，绝对域 [0,360) 维持）；管线每周期现算星下点方位基准（gmst+卫星 ECI 已有计算提升复用，无新增输入）；ApplyConfig 相位重锚带基准；运行时热更变更集纳入基准切换；replay schema/编解码新字段（raw 非法值原子拒绝）；examples JSON 装载器新枚举串。
+2、验证命令与结果：
+   1、`cmake --build ... --target 1q_lib`: pass（无告警级错误）。
+   2、`1q_sbirs_sensor_unit_tests.exe --gtest_filter=*Nadir*`: 5/5 pass（偏移 0 检出星下点目标、偏移 90° 门控排除、nadir 0° ≡ 绝对 180° 等价、校验双域契约）。
+   3、全量 sbirs 套件：unit 260/260、replay 38/38（含新字段往返与非法枚举原子拒绝）、contract 14/14、integration 29/29 全 pass。
+   4、特征化：`sbirs_triple_sat_fix_messages.exe` 综合分 0.447267、dual_sat_cycles=80/80，与改动前逐位一致（eci_absolute 默认零行为变化）。
+3、权威回写去向：扫描方位基准语义（双域定义、现算公式、限位检查边界、免推算凝视配方）→ `docs/sbirs_sensor/algorithms.md` WFOV 搜索实现边界第 8 条。
+4、残留风险：nadir 基准下 config 期无法静态校验方位弧段越限（运行期才知道有效起点），极端限位窗口 + nadir 的组合要到运行期钳制才暴露；俯仰基准未 nadir 化，非 GEO 高倾角轨道的星下点俯仰仍需手工配 el。
+5、后续冻结项：1、el 误配真实案例出现时再立方案 1 告警冻结项（本轮 defer）。2、俯仰基准 nadir 化（非目标，需求出现再立项）。
