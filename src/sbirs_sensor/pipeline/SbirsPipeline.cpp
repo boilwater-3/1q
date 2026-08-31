@@ -1144,11 +1144,25 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
 
       bool lost_due_to_estimation_nis = false;
       SbirsTrackingUpdateResult tracking_result;
+      // 高刷新率帧数（2026-08-31 窄场高精度建模）：NFOV 跟踪段每周期 frame_rate_hz×dt
+      // 帧独立量测融合（随机 1-σ 1/√N），归属层透出帧数与单帧/融合 σ。
+      const int nfov_frame_count =
+          std::max(1, static_cast<int>(std::lround(static_cast<double>(
+                          mission.frame_rate_hz) * static_cast<double>(input.dt_sec))));
+      const double nfov_frame_sigma_deg =
+          foundation::ResolveEffectiveAngularSigmaDeg(policy.error_model);
+      const double nfov_fused_sigma_deg =
+          nfov_frame_sigma_deg / std::sqrt(static_cast<double>(nfov_frame_count));
+      detection.attribution.nfov_frame_count = nfov_frame_count;
+      detection.attribution.nfov_frame_sigma_deg =
+          static_cast<float>(nfov_frame_sigma_deg);
+      detection.attribution.nfov_fused_sigma_deg =
+          static_cast<float>(nfov_fused_sigma_deg);
       if (tracking_gate_passed && estimated_tracking) {
         tracking_result = tracking_coordinator_.CorrectTarget(
             target.target_id, policy, &estimated_measurement_random_source_, azimuth_deg,
             elevation_deg, range_m,
-            omega_deg_per_sec_cached, satellite_position_eci_m);
+            omega_deg_per_sec_cached, satellite_position_eci_m, nfov_frame_count);
         detection.record.azimuth_rad = ToEciAzimuthRad(tracking_result.output_azimuth_deg);
         detection.record.elevation_rad = ToEciElevationRad(tracking_result.output_elevation_deg);
         detection.attribution.has_estimation_nis = tracking_result.has_estimation_nis;
@@ -1159,12 +1173,14 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
         detection.record.detected = !lost_due_to_estimation_nis;
       } else if (tracking_gate_passed &&
                  state == SbirsTargetState::kSensorLikeTruthAssistedTracking) {
-        const foundation::SbirsErrorBearing bearing = foundation::ApplyAngularErrorModel(
-            policy.error_model, &sensor_like_output_random_source_, azimuth_deg, elevation_deg,
-            range_m, omega_deg_per_sec_cached);
-        detection.record.azimuth_rad = ToEciAzimuthRad(bearing.azimuth_deg);
-        detection.record.elevation_rad = ToEciElevationRad(bearing.elevation_deg);
-        detection.attribution.estimated_range_m = static_cast<float>(bearing.range_m);
+        const foundation::SbirsFusedBearingResult fused_bearing =
+            foundation::ApplyAngularErrorModelFused(
+                policy.error_model, &sensor_like_output_random_source_, azimuth_deg, elevation_deg,
+                range_m, omega_deg_per_sec_cached, nfov_frame_count);
+        detection.record.azimuth_rad = ToEciAzimuthRad(fused_bearing.bearing.azimuth_deg);
+        detection.record.elevation_rad = ToEciElevationRad(fused_bearing.bearing.elevation_deg);
+        detection.attribution.estimated_range_m =
+            static_cast<float>(fused_bearing.bearing.range_m);
       } else if (!tracking_gate_passed && estimated_tracking) {
         tracking_coordinator_.MarkMeasurementUnavailable(target.target_id);
       }
@@ -1221,6 +1237,10 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
         nfov += detection.attribution.nfov_tracking_coasting ? "滑行" : "跟踪";
         nfov += " 信号能量=" + oneq::logging::FormatSci(signal_energy_j) + "J";
         nfov += " SNR=" + oneq::logging::FormatF(snr, 3);
+        // 高刷新率高精度数据输出（2026-08-31 建模）：每周期帧数 + 单帧/融合 1-σ。
+        nfov += " 帧数=" + std::to_string(nfov_frame_count);
+        nfov += " 单帧σ=" + oneq::logging::FormatSci(nfov_frame_sigma_deg) + "deg";
+        nfov += " 融合σ=" + oneq::logging::FormatSci(nfov_fused_sigma_deg) + "deg";
         SBIRS_ACCEPTANCE_ITEM(sim_time_sec, input.cycle_index, "窄视场跟踪探测功能测试", nfov);
         // 规范口径（验收判定标准 第14项·其三）：窄视场精确状态序列——同一目标逐周期
         // 的窄场角（ECI rad）、跟踪状态与 SNR。

@@ -54,6 +54,52 @@ TEST(SbirsErrorModelTest, CaptureRestoreResumesRandomSequence) {
   EXPECT_FLOAT_EQ(first.azimuth_deg, replayed.azimuth_deg);
 }
 
+// --- 高刷新率多帧融合（2026-08-31 窄场高精度数据输出建模） ---
+
+TEST(SbirsErrorModelTest, FusedSingleFrameMatchesSingleDrawPath) {
+  // frame_count<=1 融合路径与既有单帧路径逐位一致（历史行为不回归）。
+  sbirs_sensor::config::SbirsErrorModelConfig model;
+  model.fov_sigma_deg = 0.05f;
+  sbirs_sensor::foundation::SbirsRandomSource a(7U);
+  sbirs_sensor::foundation::SbirsRandomSource b(7U);
+  const sbirs_sensor::foundation::SbirsFusedBearingResult fused =
+      sbirs_sensor::foundation::ApplyAngularErrorModelFused(model, &a, 10.0f, 5.0f, 1.0e6, 0.0f, 1);
+  const sbirs_sensor::foundation::SbirsErrorBearing single =
+      sbirs_sensor::foundation::ApplyAngularErrorModel(model, &b, 10.0f, 5.0f, 1.0e6, 0.0f);
+  EXPECT_FLOAT_EQ(fused.bearing.azimuth_deg, single.azimuth_deg);
+  EXPECT_FLOAT_EQ(fused.bearing.elevation_deg, single.elevation_deg);
+  EXPECT_NEAR(fused.frame_sigma_deg, 0.05, 1.0e-6);
+  EXPECT_NEAR(fused.fused_sigma_deg, 0.05, 1.0e-6);
+}
+
+TEST(SbirsErrorModelTest, FusedSigmaScalesWithFrameCount) {
+  // N 帧融合：σ_fused = σ_frame/√N；无随机分量时确定性偏差照常、σ 恒 0。
+  sbirs_sensor::config::SbirsErrorModelConfig model;
+  model.fov_sigma_deg = 0.1f;
+  sbirs_sensor::foundation::SbirsRandomSource random(3U);
+  const sbirs_sensor::foundation::SbirsFusedBearingResult fused =
+      sbirs_sensor::foundation::ApplyAngularErrorModelFused(model, &random, 359.9995f, 5.0f,
+                                                            1.0e6, 0.0f, 16);
+  EXPECT_NEAR(fused.frame_sigma_deg, 0.1, 1.0e-6);
+  EXPECT_NEAR(fused.fused_sigma_deg, 0.1 / 4.0, 1.0e-7);
+  // 方位均值走最短角差：真值贴 0°/360° 环绕点，融合值不得被折叠拉偏 > 单帧 σ。
+  const double az_wrapped =
+      fused.bearing.azimuth_deg < 180.0 ? fused.bearing.azimuth_deg + 360.0
+                                        : fused.bearing.azimuth_deg;
+  EXPECT_NEAR(az_wrapped, 359.9995, 0.1);
+
+  sbirs_sensor::config::SbirsErrorModelConfig zero_model;
+  zero_model.orbit_sigma_deg = 0.0f;
+  zero_model.attitude_sigma_deg = 0.0f;
+  zero_model.fov_sigma_deg = 0.0f;
+  sbirs_sensor::foundation::SbirsRandomSource zero_random(3U);
+  const sbirs_sensor::foundation::SbirsFusedBearingResult zero_fused =
+      sbirs_sensor::foundation::ApplyAngularErrorModelFused(zero_model, &zero_random, 10.0f, 5.0f,
+                                                            1.0e6, 0.0f, 16);
+  EXPECT_DOUBLE_EQ(zero_fused.frame_sigma_deg, 0.0);
+  EXPECT_DOUBLE_EQ(zero_fused.fused_sigma_deg, 0.0);
+}
+
 TEST(SbirsErrorModelTest, RefractionDecreasesWithRange) {
   // 折射角随距离增大而减小（design 2.10 Δθ_refr = 1.5e-6 / (d·cosβ)）。
   const double near_ref = sbirs_sensor::foundation::RefractionErrorDeg(1.0e5, 30.0f);

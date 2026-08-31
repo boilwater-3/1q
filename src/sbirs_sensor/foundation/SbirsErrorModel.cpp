@@ -101,5 +101,57 @@ SbirsErrorBearing ApplyAngularErrorModel(const config::SbirsErrorModelConfig& mo
   return bearing;
 }
 
+namespace {
+
+/// 角度差折叠到 (−180°, 180°]（方位均值走最短角差，防 0°/360° 环绕错均值）。
+double Wrap180Deg(double delta_deg) {
+  double wrapped = std::fmod(delta_deg + 180.0, 360.0);
+  if (wrapped < 0.0) {
+    wrapped += 360.0;
+  }
+  return wrapped - 180.0;
+}
+
+}  // namespace
+
+SbirsFusedBearingResult ApplyAngularErrorModelFused(
+    const config::SbirsErrorModelConfig& model, SbirsRandomSource* random, float true_azimuth_deg,
+    float true_elevation_deg, double true_range_m, float relative_angular_rate_deg_per_sec,
+    int frame_count) {
+  SbirsFusedBearingResult result;
+  const double sigma_deg = ResolveEffectiveAngularSigmaDeg(model);
+  result.frame_sigma_deg = sigma_deg;
+  if (frame_count <= 1 || sigma_deg <= 0.0 || random == nullptr) {
+    // 单帧/无随机分量：与既有单帧路径逐位一致（确定性偏差照常施加）。
+    result.bearing = ApplyAngularErrorModel(model, random, true_azimuth_deg, true_elevation_deg,
+                                            true_range_m, relative_angular_rate_deg_per_sec);
+    result.fused_sigma_deg = sigma_deg;
+    return result;
+  }
+  // N 帧独立抽样：方位以首帧为基准走最短角差累加，俯仰算术均值；
+  // 折射/滞后为确定性公共偏差，叠加一次；距离误差保持单帧口径。
+  double azimuth_delta_sum = 0.0;
+  double elevation_sum = 0.0;
+  for (int frame = 0; frame < frame_count; ++frame) {
+    const double az_error = sigma_deg * random->NextStandardNormal();
+    const double el_error = sigma_deg * random->NextStandardNormal();
+    azimuth_delta_sum += Wrap180Deg(az_error);
+    elevation_sum += el_error;
+  }
+  const double refraction = RefractionErrorDeg(true_range_m, true_elevation_deg);
+  const double lag = DynamicLagErrorDeg(relative_angular_rate_deg_per_sec, model.detector_bandwidth_hz);
+  result.bearing.azimuth_deg = static_cast<float>(
+      static_cast<double>(true_azimuth_deg) + azimuth_delta_sum / frame_count + refraction + lag);
+  result.bearing.elevation_deg = static_cast<float>(
+      static_cast<double>(true_elevation_deg) + elevation_sum / frame_count + refraction + lag);
+  double range_factor = 0.0;
+  if (model.range_fraction_sigma > 0.0f && random != nullptr) {
+    range_factor = model.range_fraction_sigma * random->NextStandardNormal();
+  }
+  result.bearing.range_m = true_range_m * (1.0 + range_factor);
+  result.fused_sigma_deg = sigma_deg / std::sqrt(static_cast<double>(frame_count));
+  return result;
+}
+
 }  // namespace foundation
 }  // namespace sbirs_sensor

@@ -66,7 +66,8 @@ class SbirsTrackingCoordinator {
       std::uint64_t target_id, const config::SbirsPolicyConfig& policy,
       foundation::SbirsRandomSource* random_source, float azimuth_deg, float elevation_deg,
       double range_m, float relative_angular_rate_deg_per_sec,
-      const session::SbirsVector3M& satellite_position_eci_m);
+      const session::SbirsVector3M& satellite_position_eci_m,
+      int frame_count = 1);
   void MarkMeasurementUnavailable(std::uint64_t target_id);
   SbirsTrackingUpdateResult Update(std::uint64_t target_id,
                                    const config::SbirsPolicyConfig& policy,

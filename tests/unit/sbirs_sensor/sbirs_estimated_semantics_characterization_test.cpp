@@ -52,6 +52,10 @@ config::SbirsSessionConfig MakeSessionConfig(config::SbirsTrackingMode mode) {
   config.mission.scan_start_az_deg = 359.0f;
   config.mission.scan_span_deg = 11.0f;
   config.mission.scan_rate_deg_per_sec = 1.0f;
+  // 表征基线保持单帧量测口径（frame_rate×dt=1 帧）：本测试对照"滤波平滑 vs 逐帧
+  // 独立噪声"的语义，多帧融合（高刷新建模，2026-08-31）会把对照侧方差一并压低，
+  // 使门 1 失去区分度；多帧特性由 sbirs_error_model_test 融合用例覆盖。
+  config.mission.frame_rate_hz = 1.0f;
   config.mission.wide_field_fov_az_deg = 20.0f;
   config.mission.wide_field_fov_el_deg = 20.0f;
   config.mission.narrow_field_fov_az_deg = 5.0f;

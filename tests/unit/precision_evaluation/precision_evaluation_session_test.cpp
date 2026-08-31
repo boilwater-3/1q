@@ -315,6 +315,10 @@ sbirs_sensor::session::SbirsCycleResult SingleDetectionResult(double az_rad, dou
   detection.detection_id = 1U;
   detection.azimuth_rad = static_cast<float>(az_rad);
   detection.elevation_rad = static_cast<float>(el_rad);
+  // 2026-08-31 裁定口径：双星定位仅收窄场数据——合成检出按窄场跟踪阶段喂入
+  //（宽场阶段记录在会话聚合处被剔除，见 WideStageDetectionExcludedFromDualSat）。
+  detection.observation_stage =
+      sbirs_sensor::output::SbirsObservationStage::kNarrowFieldTrack;
   detection.detected = true;
   result.output_frame.detections.push_back(detection);
   sbirs_sensor::attribution::SbirsDetectionAttributionRecord attribution;
@@ -497,6 +501,40 @@ TEST(PrecisionEvaluationSessionTest, DualSatSameCyclePairingPersistsWithWindow) 
                    SingleDetectionResult(az_b, el_b), {});
   ASSERT_EQ(cycle1.dual_sat.size(), 1U);
   EXPECT_LT(cycle1.dual_sat.front().position_error_m, 50.0);
+}
+
+// --- 2026-08-31 裁定：双星定位仅收窄场数据（宽场粗测角只承担引导） ---
+
+TEST(PrecisionEvaluationSessionTest, WideStageDetectionExcludedFromDualSat) {
+  // 同周期双星几何完备，但两侧均为宽场搜索阶段记录：交会不得产出。
+  pe::PrecisionEvaluationConfig config;
+  config.dual_sat_pair_window_cycles = 1U;
+  pe::PrecisionEvaluationSession session(config);
+  double gmst_rad = 0.0;
+  ASSERT_TRUE(oneq::coordinate::TryComputeGmstRad(kUtcJulianDay, &gmst_rad));
+  const oneq::coordinate::EcefPositionM sat_a(7.0e6, 0.0, 0.0);
+  const oneq::coordinate::EcefPositionM sat_b(0.0, 7.0e6, 0.0);
+  const pe::EvaluationTruthTarget truth = StaticWindowTarget();
+  double az_a = 0.0;
+  double el_a = 0.0;
+  double az_b = 0.0;
+  double el_b = 0.0;
+  ASSERT_TRUE(TryLosAzElRad(sat_a, truth.position_ecef_m, gmst_rad, &az_a, &el_a));
+  ASSERT_TRUE(TryLosAzElRad(sat_b, truth.position_ecef_m, gmst_rad, &az_b, &el_b));
+  sbirs_sensor::session::SbirsCycleResult result_a = SingleDetectionResult(az_a, el_a);
+  sbirs_sensor::session::SbirsCycleResult result_b = SingleDetectionResult(az_b, el_b);
+  // 降级回宽场搜索阶段（其余逐位不变）。
+  result_a.output_frame.detections.front().observation_stage =
+      sbirs_sensor::output::SbirsObservationStage::kWideFieldSearch;
+  result_b.output_frame.detections.front().observation_stage =
+      sbirs_sensor::output::SbirsObservationStage::kWideFieldSearch;
+  pe::DualSatEphemerisInput ephemeris;
+  ephemeris.satellite_a_position_ecef_m = sat_a;
+  ephemeris.satellite_b_position_ecef_m = sat_b;
+  const std::vector<pe::EvaluationTruthTarget> truths{truth};
+  const pe::PrecisionEvaluationCycleResult cycle1 =
+      session.Step(1U, 1.0f, kUtcJulianDay, ephemeris, truths, result_a, result_b, {});
+  EXPECT_TRUE(cycle1.dual_sat.empty());
 }
 
 // --- SBIRS→fusion 适配器几何往返（评估侧跨系对齐的专项验证） ---

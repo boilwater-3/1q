@@ -60,6 +60,18 @@ struct SbirsErrorBearing {
 };
 
 /**
+ * @brief 高刷新率多帧融合量测结果（窄视场跟踪高精度数据输出建模，2026-08-31）。
+ * @details N 帧独立角误差抽样取均值（方位走最短角差累加，防 0°/360° 环绕），
+ *          随机分量 1-σ 按 1/√N 衰减；折射/动态滞后为确定性公共偏差不参与衰减；
+ *          距离乘法误差保持单次抽样口径（融合针对角量测）。
+ */
+struct SbirsFusedBearingResult {
+  SbirsErrorBearing bearing;     /**< 融合后带误差量测（含确定性偏差） */
+  double frame_sigma_deg{0.0};   /**< 单帧角噪声 1-σ（误差模型 RSS 合成值），单位 deg */
+  double fused_sigma_deg{0.0};   /**< 融合后角噪声 1-σ = 单帧/√N，单位 deg */
+};
+
+/**
  * @brief 解析当前配置实际生效的角度高斯 1-σ（单位 deg）。
  * @details 按 RSS 合成 orbit/attitude/fov；三项均为零时返回零。
  * @param[in] model 误差模型配置。
@@ -81,6 +93,18 @@ double ResolveEffectiveAngularSigmaDeg(const config::SbirsErrorModelConfig& mode
 SbirsErrorBearing ApplyAngularErrorModel(
     const config::SbirsErrorModelConfig& model, SbirsRandomSource* random, float true_azimuth_deg,
     float true_elevation_deg, double true_range_m, float relative_angular_rate_deg_per_sec);
+
+/**
+ * @brief 高刷新率多帧融合量测（窄视场跟踪）：N 帧独立抽样融合为单周期量测。
+ * @param[in] frame_count 每周期帧数（≤1 时退化为单帧路径，行为与
+ *            ApplyAngularErrorModel 一致）
+ * @return 融合量测 + 单帧/融合 1-σ（供归属层透出与量测协方差缩放）
+ * @note 融合只作用于角度随机分量；确定性偏差（折射/滞后）与距离误差不衰减。
+ */
+SbirsFusedBearingResult ApplyAngularErrorModelFused(
+    const config::SbirsErrorModelConfig& model, SbirsRandomSource* random, float true_azimuth_deg,
+    float true_elevation_deg, double true_range_m, float relative_angular_rate_deg_per_sec,
+    int frame_count);
 
 /**
  * @brief 2.10 大气折射误差（红外波段近似）：Δθ_refr = 1.5e-6 / (d·cosβ)，单位 deg。

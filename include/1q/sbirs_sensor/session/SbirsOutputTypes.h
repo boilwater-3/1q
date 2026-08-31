@@ -89,6 +89,9 @@ struct ONEQ_API SbirsDetectionAttributionRecord {
   float estimation_nis{0.0f};               /**< EKF 归一化新息平方，仅归属/诊断层 */
   bool estimation_nis_gate_exceeded{false}; /**< EKF NIS 是否超过 2 维 95% 门限 */
   int nfov_channel_id{-1}; /**< NFOV 通道编号；-1 表示 WFOV/未占用 NFOV 资源（仅归属/诊断层） */
+  int nfov_frame_count{0};          /**< 本周期 NFOV 多帧采样帧数（高刷新率建模；0 = 单帧/非 NFOV，仅归属/诊断层） */
+  float nfov_frame_sigma_deg{0.0f}; /**< NFOV 单帧角噪声 1-σ（deg；误差模型 RSS 合成值，仅归属/诊断层） */
+  float nfov_fused_sigma_deg{0.0f}; /**< NFOV 多帧融合后角噪声 1-σ（deg = 单帧/√帧数，仅归属/诊断层） */
   bool has_nfov_tracking_diagnostics{false}; /**< 是否包含闭环 NFOV 跟踪门诊断 */
   float nfov_pointing_error_deg{0.0f};       /**< 有效光轴中心与目标真值 LOS 角距 */
   bool nfov_geometry_gate_passed{false};     /**< 目标是否位于实际 NFOV 矩形窗口内 */

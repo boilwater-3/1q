@@ -203,6 +203,9 @@ PrecisionEvaluationCycleResult PrecisionEvaluationSession::Step(
   const std::map<std::uint64_t, std::uint64_t> attribution_b = build_attribution_index(result_b);
 
   // 每星按目标聚合检出记录（角度误差 + 双星交会共用）。
+  // 2026-08-31 用户裁定：双星定位仅基于窄视场数据（宽场粗测角只承担引导，不进
+  // 交会）——宽场搜索阶段记录（kWideFieldSearch）在聚合处即剔除；窄场捕获/跟踪
+  // 两个阶段均属窄视场量测，保留。
   const auto collect_detections_by_target =
       [](const sbirs_sensor::session::SbirsCycleResult& result,
          const std::map<std::uint64_t, std::uint64_t>& attribution_index) {
@@ -213,6 +216,10 @@ PrecisionEvaluationCycleResult PrecisionEvaluationSession::Step(
         for (const sbirs_sensor::output::SbirsDetectionRecord& detection :
              result.output_frame.detections) {
           if (!detection.detected) {
+            continue;
+          }
+          if (detection.observation_stage ==
+              sbirs_sensor::output::SbirsObservationStage::kWideFieldSearch) {
             continue;
           }
           const auto entry = attribution_index.find(detection.detection_id);

@@ -132,6 +132,29 @@ sbirs_sensor::config::SbirsSessionConfig LoadSatelliteConfig(const examples::Jso
       block.Has("scan_rate_deg_per_sec")
           ? static_cast<float>(block["scan_rate_deg_per_sec"].AsDouble())
           : 1.0f;
+  // 2-D 俯仰栅格（库内阶段 4；缺省 span=0 = 单行模式，行为不变）。
+  config.mission.scan_el_start_deg =
+      block.Has("scan_el_start_deg")
+          ? static_cast<float>(block["scan_el_start_deg"].AsDouble())
+          : config.mission.scan_el_start_deg;
+  config.mission.scan_el_span_deg =
+      block.Has("scan_el_span_deg")
+          ? static_cast<float>(block["scan_el_span_deg"].AsDouble())
+          : config.mission.scan_el_span_deg;
+  config.mission.scan_el_step_deg =
+      block.Has("scan_el_step_deg")
+          ? static_cast<float>(block["scan_el_step_deg"].AsDouble())
+          : config.mission.scan_el_step_deg;
+  config.mission.frame_rate_hz =
+      block.Has("frame_rate_hz")
+          ? static_cast<float>(block["frame_rate_hz"].AsDouble())
+          : config.mission.frame_rate_hz;
+  // 窄场单帧角噪声 1-σ（高刷新率多帧融合建模：N = frame_rate_hz×dt 帧融合，
+  // 随机 1-σ 1/√N；宽场共用同一误差模型，见 md 口径说明）。
+  config.policy.error_model.fov_sigma_deg =
+      block.Has("fov_sigma_deg")
+          ? static_cast<float>(block["fov_sigma_deg"].AsDouble())
+          : config.policy.error_model.fov_sigma_deg;
   config.mission.wide_field_fov_az_deg =
       block.Has("wide_field_fov_az_deg")
           ? static_cast<float>(block["wide_field_fov_az_deg"].AsDouble())

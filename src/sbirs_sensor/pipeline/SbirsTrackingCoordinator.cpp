@@ -138,18 +138,23 @@ SbirsTrackingUpdateResult SbirsTrackingCoordinator::CorrectTarget(
     std::uint64_t target_id, const config::SbirsPolicyConfig& policy,
     foundation::SbirsRandomSource* random_source, float azimuth_deg, float elevation_deg,
     double range_m, float relative_angular_rate_deg_per_sec,
-    const session::SbirsVector3M& satellite_position_eci_m) {
+    const session::SbirsVector3M& satellite_position_eci_m, int frame_count) {
   SbirsTrackingUpdateResult result;
-  const foundation::SbirsErrorBearing bearing =
-      foundation::ApplyAngularErrorModel(policy.error_model, random_source, azimuth_deg,
-                                         elevation_deg, range_m,
-                                         relative_angular_rate_deg_per_sec);
+  // 高刷新率多帧融合（2026-08-31 窄场建模）：N 帧独立抽样融合为单周期量测，
+  // 随机 1-σ 与量测协方差按 1/N 缩放；frame_count<=1 与既有单帧路径逐位一致。
+  const foundation::SbirsFusedBearingResult fused = foundation::ApplyAngularErrorModelFused(
+      policy.error_model, random_source, azimuth_deg, elevation_deg, range_m,
+      relative_angular_rate_deg_per_sec, frame_count);
+  const foundation::SbirsErrorBearing& bearing = fused.bearing;
   tracking::SbirsMeasurementVector measurement_rad;
   measurement_rad << oneq::common::numerics::DegToRad(bearing.azimuth_deg),
       oneq::common::numerics::DegToRad(bearing.elevation_deg);
-  const tracking::SbirsMeasurementCovariance measurement_covariance =
+  tracking::SbirsMeasurementCovariance measurement_covariance =
       tracking::BuildMeasurementCovariance(policy.error_model, range_m, elevation_deg,
                                            relative_angular_rate_deg_per_sec);
+  if (frame_count > 1) {
+    measurement_covariance /= static_cast<float>(frame_count);
+  }
 
   tracking::SbirsGaussianState combined;
   if (policy.tracking.estimated_backend == config::SbirsEstimatedTrackingBackend::kAngleCvKf) {

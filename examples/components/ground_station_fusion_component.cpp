@@ -39,6 +39,21 @@ sbirs_sensor::session::SbirsCycleResult RebuildSbirsCycleResult(
     detection.elevation_rad = sample.elevation_rad;
     detection.infrared_snr_linear = sample.infrared_snr_linear;
     detection.detected = true;
+    // 观测阶段回填（消息平铺 → 库枚举；双星定位仅收窄场数据的过滤依据）。
+    switch (sample.observation_stage) {
+      case 1:
+        detection.observation_stage =
+            sbirs_sensor::output::SbirsObservationStage::kNarrowFieldAcquisition;
+        break;
+      case 2:
+        detection.observation_stage =
+            sbirs_sensor::output::SbirsObservationStage::kNarrowFieldTrack;
+        break;
+      default:
+        detection.observation_stage =
+            sbirs_sensor::output::SbirsObservationStage::kWideFieldSearch;
+        break;
+    }
     result.output_frame.detections.push_back(detection);
     if (sample.target_id == 0U) {
       continue;
