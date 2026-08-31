@@ -110,6 +110,8 @@ struct ONEQ_API RirTrackAttributionRecord {
   double position_enu_y_m{0.0};          /**< 滤波位置 ENU y（m）。 */
   double position_enu_z_m{0.0};          /**< 滤波位置 ENU z（m）。 */
   double speed_m_per_s{0.0};             /**< 滤波速度模长（m/s）。 */
+  bool has_cycle_detection_snr{false};   /**< 本周期检测链是否产出 SNR（单脉冲口径，dB）。 */
+  float cycle_detection_snr_db{0.0f};    /**< 本周期检测 SNR（dB）；未检出时无效。 */
 };
 
 }  // namespace session

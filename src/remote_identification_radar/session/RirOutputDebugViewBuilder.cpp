@@ -99,6 +99,10 @@ RirDebugTargetState BuildDebugTargetState(const RirSceneTarget& target,
     state.confidence = recognition->result.confidence;
     state.observation_count = recognition->result.observation_count;
   }
+  if (attribution->has_cycle_detection_snr) {
+    state.has_cycle_detection_snr = true;
+    state.cycle_detection_snr_db = static_cast<double>(attribution->cycle_detection_snr_db);
+  }
   return state;
 }
 

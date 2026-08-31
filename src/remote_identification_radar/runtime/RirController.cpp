@@ -882,6 +882,7 @@ void RirController::RunCycle(const session::RirCycleInput& input,
   last_emission_frame_ = {};
   // 实际有效目标最大斜距按周期重置：非 kIdentify / 无航迹周期回填 0。
   last_max_detected_slant_range_m_ = 0.0f;
+  last_cycle_snr_by_target_id_.clear();
 
   std::vector<tracking::RirTrackState> track_snapshots;
   if (in_identify) {
@@ -1054,7 +1055,6 @@ void RirController::RunCycle(const session::RirCycleInput& input,
         });
 
     std::vector<tracking::RirTrackMeasurement> measurements;
-    std::unordered_map<std::uint64_t, float> snr_by_target_id;
     const float dwell_sec = mission_.recognition_dwell_sec;
     // 驻留预算按计划计（2026-08-29 TAS：口径从"逐候选"改为"逐驻留"）：
     // scheduled/executed = 本周期计划/实际执行的驻留条目数。
@@ -1110,7 +1110,7 @@ void RirController::RunCycle(const session::RirCycleInput& input,
                   " beyond max_range_m=" + RirFormatFloat(mission_.max_range_m),
               session::RirIssueCause::kNone, candidate.source_index));
         }
-        snr_by_target_id[measurement.external_target_id] = snr_db;
+        last_cycle_snr_by_target_id_[measurement.external_target_id] = snr_db;
         measurements.push_back(measurement);
       }
     }
@@ -1176,8 +1176,8 @@ void RirController::RunCycle(const session::RirCycleInput& input,
         continue;
       }
       float snr_db = 0.0f;
-      const auto snr_found = snr_by_target_id.find(track.external_target_id);
-      if (snr_found != snr_by_target_id.end()) {
+      const auto snr_found = last_cycle_snr_by_target_id_.find(track.external_target_id);
+      if (snr_found != last_cycle_snr_by_target_id_.end()) {
         snr_db = snr_found->second;
       }
       recognition::RirTracker::TrackObservationInput observation;
@@ -1364,6 +1364,11 @@ void RirController::RunCycle(const session::RirCycleInput& input,
     attribution.position_enu_y_m = static_cast<double>(track.position.y());
     attribution.position_enu_z_m = static_cast<double>(track.position.z());
     attribution.speed_m_per_s = static_cast<double>(track.speed);
+    const auto cycle_snr_found = last_cycle_snr_by_target_id_.find(track.external_target_id);
+    if (cycle_snr_found != last_cycle_snr_by_target_id_.end()) {
+      attribution.has_cycle_detection_snr = true;
+      attribution.cycle_detection_snr_db = cycle_snr_found->second;
+    }
     last_track_attributions_.push_back(attribution);
   }
   if (RIR_ACCEPTANCE_LOG_ENABLED()) {

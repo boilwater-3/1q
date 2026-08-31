@@ -199,7 +199,7 @@ void AppOutputs::RecordRirCycle(std::uint32_t cycle, double t_sec,
         "look_az_deg,look_el_deg,slant_range_m,pos_lat_deg,pos_lon_deg,pos_alt_m,"
         "speed_mps,recognition_state,target_category,target_model,confidence,"
         "designation_active,dwell_center_az_deg,dwell_center_el_deg,"
-        "cycle_max_detected_slant_m"));
+        "cycle_max_detected_slant_m,cycle_snr_db"));
   }
   const std::string dwell_az = Fmt(view.dwell_center_deg.az_deg, 2);
   const std::string dwell_el = Fmt(view.dwell_center_deg.el_deg, 2);
@@ -223,6 +223,8 @@ void AppOutputs::RecordRirCycle(std::uint32_t cycle, double t_sec,
       pos_lon = Fmt(lla.longitude_deg, 7);
       pos_alt = Fmt(lla.altitude_m, 1);
     }
+    const std::string cycle_snr =
+        state.has_cycle_detection_snr ? Fmt(state.cycle_detection_snr_db, 1) : std::string();
     rir_targets_csv_->WriteRow(
         std::to_string(cycle) + "," + Fmt(t_sec, 2) + "," +
         std::to_string(static_cast<unsigned long long>(state.external_target_id)) + "," +
@@ -235,7 +237,7 @@ void AppOutputs::RecordRirCycle(std::uint32_t cycle, double t_sec,
         RirCategoryToken(state.target_category) + "," +
         examples::EscapeCsvField(state.target_model) + "," +
         Fmt(static_cast<double>(state.confidence), 3) + "," + designation_active + "," +
-        dwell_az + "," + dwell_el + "," + cycle_max_slant);
+        dwell_az + "," + dwell_el + "," + cycle_max_slant + "," + cycle_snr);
   }
 }
 

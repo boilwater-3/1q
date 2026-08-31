@@ -840,7 +840,7 @@ EXPECTED_HEADERS = {
                        "look_az_deg,look_el_deg,slant_range_m,pos_lat_deg,pos_lon_deg,pos_alt_m,"
                        "speed_mps,recognition_state,target_category,target_model,confidence,"
                        "designation_active,dwell_center_az_deg,dwell_center_el_deg,"
-                       "cycle_max_detected_slant_m",
+                       "cycle_max_detected_slant_m,cycle_snr_db",
     "target_truth.csv": "cycle,t_sec,target_id,entity_type,lat_deg,lon_deg,alt_m,rcs",
 }
 

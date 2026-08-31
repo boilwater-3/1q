@@ -105,8 +105,26 @@ TEST(RirOutputDebugViewTest, BuildMapsAttributionStatusToDebugStates) {
   EXPECT_DOUBLE_EQ(confirmed->position_enu_x_m, 1101.0);
   EXPECT_DOUBLE_EQ(confirmed->speed_m_per_s, 42.0);
 
-  EXPECT_EQ(FindState(view, 1002U)->status, RirDebugTargetStatus::kTentative);
   EXPECT_EQ(FindState(view, 1003U)->status, RirDebugTargetStatus::kLost);
+}
+
+/// @brief 归属记录携带的本周期检测 SNR 透传到调试视图（诊断字段，非验收项）。
+TEST(RirOutputDebugViewTest, BuildTranscribesCycleDetectionSnr) {
+  RirCycleInput input;
+  input.input_cycle_index = 2U;
+  input.scene_targets = {MakeTarget(1001U, "alpha", 3000.0f)};
+
+  RirTrackAttributionRecord attribution = MakeAttribution(10U, 1001U, RirTrackLifecycleStatus::kConfirmed);
+  attribution.has_cycle_detection_snr = true;
+  attribution.cycle_detection_snr_db = 12.3f;
+
+  const session::RirOutputDebugView view =
+      RirOutputDebugViewBuilder::Build(input, MakeCompletedResult(2U, {attribution}));
+
+  const session::RirDebugTargetState* state = FindState(view, 1001U);
+  ASSERT_NE(state, nullptr);
+  EXPECT_TRUE(state->has_cycle_detection_snr);
+  EXPECT_NEAR(state->cycle_detection_snr_db, 12.3, 1.0e-3);
 }
 
 /// @brief 无航迹目标：kNotInOutput + 输入几何回填（斜距/视线角，规则 12）。

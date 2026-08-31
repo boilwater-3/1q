@@ -15,6 +15,7 @@
 #include "rir_sensor_component.h"
 
 #include <chrono>
+#include <cstdio>
 #include <cstdint>
 #include <string>
 #include <unordered_map>
@@ -141,6 +142,16 @@ const char* TrackStatusName(rir::RirTrackLifecycleStatus status) {
       return "丢失";
   }
   return "未知";
+}
+
+/// 本周期检测 SNR 后缀（单脉冲口径）；未检出时返回空串。
+std::string FormatCycleSnrSuffix(const rir::RirDebugTargetState& state) {
+  if (!state.has_cycle_detection_snr) {
+    return std::string();
+  }
+  char buffer[32];
+  std::snprintf(buffer, sizeof(buffer), " SNR=%.1fdB", state.cycle_detection_snr_db);
+  return buffer;
 }
 
 }  // namespace
@@ -463,10 +474,10 @@ void RirSensorComponent::LogDebugView(World& world, const rir::RirOutputDebugVie
   //   模式一 nonnominal（只写异常目标行；全部正常时整周期静默不写，防刷屏）：
   //     周期=5 目标=1002 状态=无航迹 斜距=9000m
   //   模式二 delta（只写状态有变化的目标行；无变化时整周期静默不写，防刷屏）：
-  //     周期=5 目标=1001 状态=已确认
+  //     周期=5 目标=1001 状态=已确认 SNR=12.3dB
   //   模式三 summary（默认；每周期恰好一行完整摘要）：
   //     周期=1 完成=是 航迹=1 确认=否 指定=无 驻留中心=(-110.0°,85.0°)
-  //     目标=[1001 候选(F-16C) 积累中 置信0.00 位置LLA=(…) 速度=250.0,
+  //     目标=[1001 候选(F-16C) 积累中 置信0.00 位置LLA=(…) 速度=250.0 SNR=12.3dB,
   //     1002 无航迹(BGM-109) 斜距=9000m 速度=0.0] 问题=[无]
 #if defined(CA_VIEW_LOG_MODE_NONNOMINAL)
   // 模式一：只写非标称目标（非已确认）行；全部正常时本周期静默不写（防刷屏）。
@@ -479,28 +490,29 @@ void RirSensorComponent::LogDebugView(World& world, const rir::RirOutputDebugVie
     const bool have_lla =
         state.has_track && TryEnuMetersToLla(state.position_enu_x_m, state.position_enu_y_m,
                                              state.position_enu_z_m, site_origin_, &lla);
+    const std::string snr_suffix = FormatCycleSnrSuffix(state);
     if (have_lla) {
       // 与下方写入行同内容：纯 std::string/std::to_string 拼接的日志字符串，供集成方直接搬入己方日志（示例自身不消费）。
       const std::string rir_view_log =
           std::string("周期=") + std::to_string(view.input_cycle_index) + " 目标=" +
           std::to_string(static_cast<unsigned long long>(state.external_target_id)) +
           " 状态=" + (DebugTargetStatusName(state.status)) + " 位置LLA=有" + " 速度=" +
-          std::to_string(state.speed_m_per_s);
-      CA_LOG_VIEW("rir", "周期={} 目标={} 状态={} 位置LLA=({:.5f},{:.5f},{:.0f}) 速度={:.1f}",
+          std::to_string(state.speed_m_per_s) + snr_suffix;
+      CA_LOG_VIEW("rir", "周期={} 目标={} 状态={} 位置LLA=({:.5f},{:.5f},{:.0f}) 速度={:.1f}{}",
                   view.input_cycle_index,
                   static_cast<unsigned long long>(state.external_target_id),
                   DebugTargetStatusName(state.status), lla.latitude_deg, lla.longitude_deg,
-                  lla.altitude_m, state.speed_m_per_s);
+                  lla.altitude_m, state.speed_m_per_s, snr_suffix);
     } else {
       // 与下方写入行同内容：纯 std::string/std::to_string 拼接的日志字符串，供集成方直接搬入己方日志（示例自身不消费）。
       const std::string rir_view_log =
           std::string("周期=") + std::to_string(view.input_cycle_index) + " 目标=" +
           std::to_string(static_cast<unsigned long long>(state.external_target_id)) +
           " 状态=" + (DebugTargetStatusName(state.status)) + " 斜距=" +
-          std::to_string(state.slant_range_m);
-      CA_LOG_VIEW("rir", "周期={} 目标={} 状态={} 斜距={:.0f}m", view.input_cycle_index,
+          std::to_string(state.slant_range_m) + snr_suffix;
+      CA_LOG_VIEW("rir", "周期={} 目标={} 状态={} 斜距={:.0f}m{}", view.input_cycle_index,
                   static_cast<unsigned long long>(state.external_target_id),
-                  DebugTargetStatusName(state.status), state.slant_range_m);
+                  DebugTargetStatusName(state.status), state.slant_range_m, snr_suffix);
     }
   }
 #elif defined(CA_VIEW_LOG_MODE_DELTA)
@@ -516,13 +528,14 @@ void RirSensorComponent::LogDebugView(World& world, const rir::RirOutputDebugVie
       continue;
     }
     // 与下方写入行同内容：纯 std::string/std::to_string 拼接的日志字符串，供集成方直接搬入己方日志（示例自身不消费）。
+    const std::string snr_suffix = FormatCycleSnrSuffix(state);
     const std::string rir_view_log =
         std::string("周期=") + std::to_string(view.input_cycle_index) + " 目标=" +
         std::to_string(static_cast<unsigned long long>(state.external_target_id)) + " 状态=" +
-        (DebugTargetStatusName(state.status));
-    CA_LOG_VIEW("rir", "周期={} 目标={} 状态={}", view.input_cycle_index,
+        (DebugTargetStatusName(state.status)) + snr_suffix;
+    CA_LOG_VIEW("rir", "周期={} 目标={} 状态={}{}", view.input_cycle_index,
                 static_cast<unsigned long long>(state.external_target_id),
-                DebugTargetStatusName(state.status));
+                DebugTargetStatusName(state.status), snr_suffix);
   }
 #else
   // 模式三：每周期恰好一行完整摘要（含指定任务镜像与排除诊断问题列表）。
@@ -560,6 +573,7 @@ void RirSensorComponent::LogDebugView(World& world, const rir::RirOutputDebugVie
       part += std::string(" 斜距=") + std::to_string(state.slant_range_m) + "m";
     }
     part += std::string(" 速度=") + std::to_string(state.speed_m_per_s);
+    part += FormatCycleSnrSuffix(state);
     target_parts += part;
   }
   const std::string issues_text = app::FormatIssueText(view.issues);

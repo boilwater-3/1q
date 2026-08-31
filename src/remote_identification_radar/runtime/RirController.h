@@ -298,6 +298,8 @@ class RirController {
   session::RirIssueList last_execution_issues_{}; /**< 最近周期按目标排除诊断（规则 13b）。 */
   oneq::electromagnetics::RfEmissionFrame last_emission_frame_{}; /**< 最近周期实际发射。 */
   float last_max_detected_slant_range_m_{0.0f}; /**< 最近周期持航迹目标最大输入斜距（m）。 */
+  /** 本周期逐目标检测 SNR（单脉冲口径）；归属视图与调试视图透出，非验收统计项。 */
+  std::unordered_map<std::uint64_t, float> last_cycle_snr_by_target_id_{};
 };
 
 }  // namespace runtime

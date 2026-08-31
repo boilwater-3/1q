@@ -57,6 +57,8 @@ struct ONEQ_API RirDebugTargetState {
   std::string target_model{};                                  /**< 识别型号（未确认为空） */
   float confidence{0.0f};                                      /**< 识别置信度，[0, 1] */
   std::uint32_t observation_count{0U};                         /**< 识别证据积累量 */
+  bool has_cycle_detection_snr{false}; /**< 本周期检测链是否产出 SNR（单脉冲口径，dB）。 */
+  double cycle_detection_snr_db{0.0};  /**< 本周期检测 SNR（dB）；未检出时无效。 */
 };
 
 /**
