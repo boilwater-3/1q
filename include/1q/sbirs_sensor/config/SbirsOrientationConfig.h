@@ -62,6 +62,10 @@ struct ONEQ_API SbirsMisalignmentModel {
  * @note 静态基准组合关系（对齐 ArOrientationConfig 头注释）：
  *       actual_boresight = attitude(Body->ECI) ∘ mount(Body->Sensor)
  *                          ∘ misalignment⁻¹ ∘ scan(传感器系)。
+ * @note 本结构体默认全零安装/全零失准（库内几何/单测逐位不变）。示例与场景
+ *       JSON 加载层另有非零默认集 SbirsOrientationDefaults()
+ *       （examples config_loader_detail.h，验收演示误差参数）：JSON 缺键时
+ *       继承该默认集，与本结构体默认无关。
  * @note 本结构为初始化静态配置，不进入运行期 RuntimeConfigPatch；
  *       扫描参数（scan_start_az/span/el）的参考系由 stabilization_mode 决定
  *       （体稳定=传感器系；惯性稳定=ECI 参考定义）。

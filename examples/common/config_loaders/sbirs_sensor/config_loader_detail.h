@@ -7,7 +7,77 @@
 
 namespace examples {
 
+// -- euler / vec helpers -----------------------------------------------------
+
+// [yaw_deg, pitch_deg, roll_deg] 三元数组 → 欧拉角；非三元数组返回 false（缺字段
+// 时调用方直接跳过，保持库默认，与其它可选字段 Has 门控同策略）。
+inline bool LoadEulerAnglesDegArray(const examples::JsonValue& j,
+                                    oneq::coordinate::EulerAnglesDeg* v) {
+  if (j.IsNull() || j.type() != examples::JsonValue::kArray || j.Size() < 3) return false;
+  v->yaw_deg = static_cast<float>(j[static_cast<std::size_t>(0)].AsDouble());
+  v->pitch_deg = static_cast<float>(j[static_cast<std::size_t>(1)].AsDouble());
+  v->roll_deg = static_cast<float>(j[static_cast<std::size_t>(2)].AsDouble());
+  return true;
+}
+
 // -- struct loaders ----------------------------------------------------------
+
+// 安装指向域加载器默认集（2026-09-01，源自 sbirs_triple_sat_fix_messages 验收演示
+// 参数提升为默认）：名义安装角 (1.0, 0.5, -0.5)°、常值失准偏置 (0.10, -0.05, 0.02)°、
+// 失准随机微扰 1-σ 0.02°（种子 7）；稳定方式/限位沿库默认（体稳定、全开）。
+// 字面量带 f 后缀：与 JSON 解析路径 static_cast<float> 逐位一致，保证缺键继承与
+// 显式写键产生相同日志。库结构体 SbirsOrientationConfig 默认仍为全零——单测/库内
+// 几何不受影响，默认集只作用于 JSON 加载层。
+inline sbirs_sensor::config::SbirsOrientationConfig SbirsOrientationDefaults() {
+  sbirs_sensor::config::SbirsOrientationConfig v;
+  v.mount_angles_deg = oneq::coordinate::EulerAnglesDeg(1.0f, 0.5f, -0.5f);
+  v.misalignment.bias_deg = oneq::coordinate::EulerAnglesDeg(0.10f, -0.05f, 0.02f);
+  v.misalignment.random_sigma_deg = 0.02f;
+  v.misalignment.random_seed = 7U;
+  return v;
+}
+
+// 安装指向域（SbirsOrientationConfig）：缺段/缺键继承 SbirsOrientationDefaults()
+// 默认集，写了的键逐一覆盖。键清单：
+// mount_angles_deg=[yaw,pitch,roll] 安装角；misalignment_bias_deg=[yaw,pitch,roll]
+// 常值失准偏置；misalignment_random_sigma_deg 运行期一次抽取的微扰 1-σ；
+// misalignment_random_seed 微扰种子；stabilization_mode 枚举串；
+// sensor_scan_limits_deg=[az_min,az_max,el_min,el_max] 传感器系扫描限位。
+// 既支持 config_loader.h 的嵌套 "orientation" 段，也支持场景逐星扁平块直接调用。
+inline void LoadSbirsOrientation(const examples::JsonValue& j,
+                                 sbirs_sensor::config::SbirsOrientationConfig* v) {
+  *v = SbirsOrientationDefaults();
+  if (j.IsNull()) return;
+  if (j.Has("mount_angles_deg")) {
+    LoadEulerAnglesDegArray(j["mount_angles_deg"], &v->mount_angles_deg);
+  }
+  if (j.Has("misalignment_bias_deg")) {
+    LoadEulerAnglesDegArray(j["misalignment_bias_deg"], &v->misalignment.bias_deg);
+  }
+  if (j.Has("misalignment_random_sigma_deg")) {
+    v->misalignment.random_sigma_deg =
+        static_cast<float>(j["misalignment_random_sigma_deg"].AsDouble());
+  }
+  if (j.Has("misalignment_random_seed")) {
+    v->misalignment.random_seed =
+        static_cast<std::uint32_t>(j["misalignment_random_seed"].AsInt());
+  }
+  if (j.Has("stabilization_mode")) {
+    v->stabilization_mode =
+        SbirsStabilizationModeFromString(j["stabilization_mode"].AsString());
+  }
+  const examples::JsonValue& limits = j["sensor_scan_limits_deg"];
+  if (!limits.IsNull() && limits.type() == examples::JsonValue::kArray && limits.Size() >= 4) {
+    v->sensor_scan_limits_deg.az_min_deg =
+        static_cast<float>(limits[static_cast<std::size_t>(0)].AsDouble());
+    v->sensor_scan_limits_deg.az_max_deg =
+        static_cast<float>(limits[static_cast<std::size_t>(1)].AsDouble());
+    v->sensor_scan_limits_deg.el_min_deg =
+        static_cast<float>(limits[static_cast<std::size_t>(2)].AsDouble());
+    v->sensor_scan_limits_deg.el_max_deg =
+        static_cast<float>(limits[static_cast<std::size_t>(3)].AsDouble());
+  }
+}
 
 inline void LoadSbirsHardware(const examples::JsonValue& j,
                               sbirs_sensor::config::SbirsHardwareConfig* v) {
