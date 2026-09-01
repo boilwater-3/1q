@@ -1,6 +1,6 @@
 ﻿/**
  * @file SbirsNfovScheduler.h
- * @brief NFOV 多通道资源调度器：候选排序、通道分配与释放。
+ * @brief NFOV 锁定集合管理：候选排序与锁定/释放。
  */
 
 #ifndef ONEQ_SRC_SBIRS_SENSOR_PIPELINE_SBIRS_NFOV_SCHEDULER_H_
@@ -41,72 +41,64 @@ struct SbirsCandidate {
 };
 
 /**
- * @brief NFOV 资源调度器快照，用于 pipeline validated checkpoint 与确定性 continuation。
- * @note 仅包含目标→通道的分配关系；滤波/IMM 状态由 pipeline 各自管理。
+ * @brief NFOV 锁定集合快照，用于 pipeline validated checkpoint 与确定性 continuation。
+ * @note 仅包含目标→引导来源的集合关系；滤波/IMM 状态由 pipeline 各自管理。
  */
 struct SbirsNfovSchedulerSnapshot {
-  std::map<std::uint64_t, int> target_to_channel{}; ///< 已锁定目标 ID 到 NFOV 通道编号的映射 */
+  std::map<std::uint64_t, int> target_to_cue_source{}; ///< 锁定目标 ID 到引导来源星 ID 的映射（-1=自星宽场）
 };
 
 /**
- * @brief NFOV 多通道资源调度器。
- * @details 在 `max_concurrent_locks` 上限内，按 design 2.6 优先级规则
- *          （SNR 降序 → 距离升序 → target_id 升序）从 WFOV 候选中选取目标进入首次捕获，
- *          并为每个被锁定的目标分配一个 NFOV 通道编号。通道编号采用最小可用编号分配、
- *          释放后回收，保证相同输入下分配结果确定（replay 可复现）。
+ * @brief NFOV 锁定集合管理器（单镜筒，2026-09-02）。
+ * @details 窄场只有一个镜筒：锁定集合无配置上限，容量由单镜筒分时轮转的物理涌现——
+ *          转场占用窗口、轮转周期超过跟踪门容忍的目标自动丢锁（见 pointing/pipeline）。
+ *          新目标按 design 2.6 优先级规则（SNR 降序 → 距离升序 → target_id 升序）
+ *          从 WFOV 候选中选取进入首次捕获队列；map 有序保证相同输入下集合遍历
+ *          确定（replay 可复现）。
  */
 class SbirsNfovScheduler {
  public:
-  /**
-   * @brief 构造调度器。
-   * @param[in] max_concurrent_locks 最大并发 NFOV 锁定通道数（>=1）
-   */
-  explicit SbirsNfovScheduler(int max_concurrent_locks);
+  /** @brief 构造调度器。 */
+  SbirsNfovScheduler() = default;
 
-  /** @return 最大并发 NFOV 锁定通道数。 */
-  int max_locks() const { return max_locks_; }
-
-  /** @return 当前已锁定（占用 NFOV 通道）的目标数。 */
-  std::size_t LockedCount() const { return target_to_channel_.size(); }
+  /** @return 当前锁定集合大小。 */
+  std::size_t LockedCount() const { return target_to_cue_source_.size(); }
 
   /**
-   * @brief 按优先级排序候选，并在通道余量内选出可进入首次捕获的目标。
+   * @brief 按优先级排序候选，选出可进入首次捕获的目标（无并发截断）。
    * @param[in,out] candidates WFOV 候选列表（就地排序，稳定规则保证 replay 可复现）
-   * @return 本周期可进入首次捕获的候选指针列表（按优先级排序，受通道上限截断）
-   * @note 已锁定目标的候选不会重复入选；通道满时返回空。
+   * @return 可进入首次捕获的候选指针列表（按优先级排序；已锁定目标不重复入选）
    */
   std::vector<const SbirsCandidate*> SelectForAcquisition(std::vector<SbirsCandidate>& candidates);
 
-  /** @return 目标是否已占用 NFOV 通道。 */
+  /** @return 目标是否在锁定集合内。 */
   bool IsLocked(std::uint64_t target_id) const;
 
   /**
-   * @brief 为目标分配一个 NFOV 通道编号。
+   * @brief 将目标加入锁定集合。
    * @param[in] target_id 待锁定的目标 ID
    * @param[in] cue_source_satellite_entity_id 引导来源星 ID（-1=自星宽场引导；cross-cue
-   *            锁定后随通道持久记录，Release/Clear 单点清除，供归属层"引导来源"标记）
-   * @return 分配到的通道编号（>=0）；通道已满或目标已锁定时返回 -1
+   *            锁定后随集合持久记录，Release/Clear 单点清除，供归属层"引导来源"标记）
+   * @return 加入成功（已在集合内时幂等返回 true）
    */
-  int Acquire(std::uint64_t target_id, int cue_source_satellite_entity_id = -1);
+  bool Acquire(std::uint64_t target_id, int cue_source_satellite_entity_id = -1);
 
   /**
-   * @brief 释放目标占用的 NFOV 通道（目标消失、NIS 丢锁或传感器进入 standby）。
+   * @brief 将目标移出锁定集合（目标消失、门丢锁或传感器进入 standby）。
    * @param[in] target_id 待释放的目标 ID
    */
   void Release(std::uint64_t target_id);
 
   /**
-   * @return 目标占用的 NFOV 通道编号；未占用时返回 -1。
-   */
-  int ChannelOf(std::uint64_t target_id) const;
-
-  /**
-   * @brief 目标锁定时的引导来源星 ID（cross-cue 归属标记）。
+   * @return 目标锁定时的引导来源星 ID（cross-cue 归属标记）。
    * @return 引导来源星 ID；-1=自星宽场引导或目标未锁定。
    */
   int CueSourceOf(std::uint64_t target_id) const;
 
-  /** @brief 清空所有通道分配（standby / 重置）。 */
+  /** @return 锁定集合内全部目标 ID（map 有序，升序）。 */
+  std::vector<std::uint64_t> LockedTargetIds() const;
+
+  /** @brief 清空锁定集合（standby / 重置）。 */
   void Clear();
 
   /** @return 当前调度状态快照，用于 pipeline checkpoint 与状态恢复测试。 */
@@ -119,10 +111,6 @@ class SbirsNfovScheduler {
   void Restore(const SbirsNfovSchedulerSnapshot& snapshot);
 
  private:
-  int max_locks_{1};
-  std::map<std::uint64_t, int> target_to_channel_{};
-  // 引导来源星（cross-cue，2026-09-01）：与通道同生命周期（Acquire 写入、Release/Clear
-  // 清除）；只进归属/调试层，不参与排序。回放从不注入 cue，快照不含本表（恢复后全 -1）。
   std::map<std::uint64_t, int> target_to_cue_source_{};
 };
 

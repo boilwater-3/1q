@@ -23,11 +23,8 @@ struct SbirsRuntimeConfigImpact {
   bool retag_truth_tracks{false};
   config::SbirsTrackingMode previous_tracking_mode{config::SbirsTrackingMode::kEstimated};
   config::SbirsTrackingMode next_tracking_mode{config::SbirsTrackingMode::kEstimated};
-  bool nfov_channel_count_changed{false};
   bool clear_for_inactive{false};
   bool clear_for_wide_search{false};
-  int previous_nfov_channel_count{1};
-  int next_nfov_channel_count{1};
 };
 
 }  // namespace runtime

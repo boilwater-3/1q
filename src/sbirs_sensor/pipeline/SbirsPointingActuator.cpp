@@ -104,6 +104,7 @@ bool SbirsPointingActuator::Step(const session::SbirsVector3M& command_los, doub
   }
 
   const double angle_rad = AngularDistanceRad(state_.current_los, normalized_command);
+  const double angle_deg = angle_rad * 180.0 / kPi;
   const double max_step_rad = config.max_slew_rate_deg_per_sec * dt_sec * kPi / 180.0;
   session::SbirsVector3M next_los = normalized_command;
   if (angle_rad > max_step_rad) {
@@ -116,6 +117,14 @@ bool SbirsPointingActuator::Step(const session::SbirsVector3M& command_los, doub
   }
   const double remaining_angle_deg = AngularDistanceRad(next_los, normalized_command) * 180.0 / kPi;
 
+  // 单镜筒分时轮转（2026-09-02）：本步稳定时长 = 周期内"进入稳定容差后"的剩余时间。
+  // 转动耗时按 (夹角 − 容差)/转速 计，进入容差后的微调视作已稳定可积分；全程转不完
+  // 则稳定时长为 0（该周期帧作废）。
+  const double slew_sec =
+      std::max(0.0, (angle_deg - static_cast<double>(config.settle_tolerance_deg)) /
+                        static_cast<double>(config.max_slew_rate_deg_per_sec));
+  const double settled_duration_sec = std::max(0.0, dt_sec - slew_sec);
+
   SbirsPointingActuatorSnapshot next_state;
   next_state.current_los = next_los;
   next_state.command_los = normalized_command;
@@ -125,6 +134,7 @@ bool SbirsPointingActuator::Step(const session::SbirsVector3M& command_los, doub
   result->current_los = next_los;
   result->remaining_angle_deg = remaining_angle_deg;
   result->settled = next_state.settled;
+  result->settled_duration_sec = settled_duration_sec;
   return true;
 }
 

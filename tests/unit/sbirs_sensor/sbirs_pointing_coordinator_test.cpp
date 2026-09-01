@@ -25,105 +25,122 @@ void ExpectVectorNear(const session::SbirsVector3M& actual, const session::Sbirs
   EXPECT_NEAR(actual.z, expected.z, tolerance);
 }
 
-TEST(SbirsPointingCoordinatorTest, ReservesChannelAndAdvancesWithRateLimit) {
-  SbirsPointingCoordinator coordinator(1);
-  ASSERT_TRUE(coordinator.Reserve(0, 7U, Vector(1.0, 0.0, 0.0)));
+TEST(SbirsPointingCoordinatorTest, InitializesOnceAndAdvancesWithRateLimit) {
+  SbirsPointingCoordinator coordinator;
+  ASSERT_TRUE(coordinator.EnsureActuatorInitialized(Vector(1.0, 0.0, 0.0)));
+  // 已初始化后幂等：后续 Initialize 不改写镜筒视线。
+  ASSERT_TRUE(coordinator.EnsureActuatorInitialized(Vector(0.0, 1.0, 0.0)));
 
   const SbirsPointingAdvanceResult result =
-      coordinator.Advance(0, 7U, Vector(0.0, 1.0, 0.0), 1.0, Config(30.0));
+      coordinator.AdvanceAcquisition(7U, Vector(0.0, 1.0, 0.0), 1.0, Config(30.0));
 
   EXPECT_EQ(result.status, SbirsPointingAdvanceStatus::kSlewing);
   EXPECT_NEAR(result.remaining_angle_deg, 60.0, 1.0e-9);
-  EXPECT_EQ(coordinator.ChannelOf(7U), 0);
+  EXPECT_NEAR(result.settled_duration_sec, 0.0, 1.0e-9);
+}
+
+TEST(SbirsPointingCoordinatorTest, SettledDurationCountsStareTimeAfterSlew) {
+  SbirsPointingCoordinator coordinator;
+  ASSERT_TRUE(coordinator.EnsureActuatorInitialized(Vector(1.0, 0.0, 0.0)));
+
+  // 转动 10° @30°/s：slew ≈ (10−0.01)/30 s，周期 1 s 内剩余为稳定时长。
+  const SbirsPointingAdvanceResult result =
+      coordinator.AdvanceAcquisition(7U, Vector(std::cos(10.0 * M_PI / 180.0),
+                                                std::sin(10.0 * M_PI / 180.0), 0.0),
+                                     1.0, Config(30.0));
+  ASSERT_EQ(result.status, SbirsPointingAdvanceStatus::kSettled);
+  EXPECT_NEAR(result.settled_duration_sec, 1.0 - (10.0 - 0.01) / 30.0, 1.0e-6);
 }
 
 TEST(SbirsPointingCoordinatorTest, UpdatedCommandContinuesFromCurrentLos) {
-  SbirsPointingCoordinator coordinator(1);
-  ASSERT_TRUE(coordinator.Reserve(0, 1U, Vector(1.0, 0.0, 0.0)));
-  ASSERT_EQ(coordinator.Advance(0, 1U, Vector(0.0, 1.0, 0.0), 1.0, Config()).status,
+  SbirsPointingCoordinator coordinator;
+  ASSERT_TRUE(coordinator.EnsureActuatorInitialized(Vector(1.0, 0.0, 0.0)));
+  ASSERT_EQ(coordinator.AdvanceAcquisition(1U, Vector(0.0, 1.0, 0.0), 1.0, Config()).status,
             SbirsPointingAdvanceStatus::kSlewing);
 
   const SbirsPointingAdvanceResult result =
-      coordinator.Advance(0, 1U, Vector(0.0, 0.0, 1.0), 1.0, Config());
+      coordinator.AdvanceTracking(Vector(0.0, 0.0, 1.0), 1.0, Config());
 
   EXPECT_EQ(result.status, SbirsPointingAdvanceStatus::kSlewing);
   EXPECT_GT(result.current_los.z, 0.0);
   EXPECT_GT(result.current_los.y, 0.0);
 }
 
-TEST(SbirsPointingCoordinatorTest, ChannelsRemainIsolated) {
-  SbirsPointingCoordinator coordinator(2);
-  ASSERT_TRUE(coordinator.Reserve(0, 10U, Vector(1.0, 0.0, 0.0)));
-  ASSERT_TRUE(coordinator.Reserve(1, 20U, Vector(0.0, 1.0, 0.0)));
-  coordinator.Advance(1, 20U, Vector(0.0, 0.0, 1.0), 0.5, Config());
-  coordinator.Advance(0, 10U, Vector(0.0, 1.0, 0.0), 0.5, Config());
-
-  const SbirsPointingCoordinatorSnapshot snapshot = coordinator.Capture();
-  EXPECT_EQ(snapshot.channels[0].target_id, 10U);
-  EXPECT_EQ(snapshot.channels[1].target_id, 20U);
-  EXPECT_NE(snapshot.channels[0].actuator.current_los.x,
-            snapshot.channels[1].actuator.current_los.x);
-}
-
-TEST(SbirsPointingCoordinatorTest, ReleaseKeepsLosAndClearResetsIt) {
-  SbirsPointingCoordinator coordinator(1, 41U);
+TEST(SbirsPointingCoordinatorTest, ReleaseKeepsSharedLosAndClearResetsIt) {
+  SbirsPointingCoordinator coordinator(41U);
   SbirsPointingDisturbanceParameters disturbance_parameters;
   disturbance_parameters.channel_pointing_sigma_deg = 0.1;
   disturbance_parameters.channel_pointing_correlation_time_s = 1.0;
   ASSERT_TRUE(coordinator.AdvanceDisturbance(0.1, disturbance_parameters));
   const double released_disturbance =
       coordinator.Capture().disturbance.channels[0].gauss_markov.azimuth_deg;
-  ASSERT_TRUE(coordinator.Reserve(0, 1U, Vector(1.0, 0.0, 0.0)));
-  coordinator.Advance(0, 1U, Vector(0.0, 1.0, 0.0), 1.0, Config());
-  const session::SbirsVector3M released_los =
-      coordinator.Capture().channels[0].actuator.current_los;
+  ASSERT_TRUE(coordinator.EnsureActuatorInitialized(Vector(1.0, 0.0, 0.0)));
+  coordinator.AdvanceAcquisition(1U, Vector(0.0, 1.0, 0.0), 1.0, Config());
+  const session::SbirsVector3M released_los = coordinator.Capture().actuator.current_los;
   ASSERT_TRUE(coordinator.ReleaseTarget(1U));
   EXPECT_DOUBLE_EQ(coordinator.Capture().disturbance.channels[0].gauss_markov.azimuth_deg,
                    released_disturbance);
-  ASSERT_TRUE(coordinator.Reserve(0, 2U, Vector(0.0, 0.0, 1.0)));
-  ExpectVectorNear(coordinator.Capture().channels[0].actuator.current_los, released_los);
+  // 单镜筒：释放目标只清簿记，镜筒视线保持（下一目标从当前位置续转）。
+  ExpectVectorNear(coordinator.Capture().actuator.current_los, released_los);
+  EXPECT_TRUE(coordinator.Capture().actuator.initialized);
 
   coordinator.Clear();
-  EXPECT_FALSE(coordinator.Capture().channels[0].actuator.initialized);
-  EXPECT_FALSE(coordinator.IsTargetBound(2U));
+  EXPECT_FALSE(coordinator.Capture().actuator.initialized);
+  EXPECT_TRUE(coordinator.Capture().acquisition_wait_sec.empty());
+  EXPECT_TRUE(coordinator.Capture().tracking_gate_failure_counts.empty());
   EXPECT_DOUBLE_EQ(coordinator.Capture().disturbance.channels[0].gauss_markov.azimuth_deg, 0.0);
 }
 
-TEST(SbirsPointingCoordinatorTest, MovingCommandTimesOutAndReleasesBinding) {
-  SbirsPointingCoordinator coordinator(1);
-  ASSERT_TRUE(coordinator.Reserve(0, 9U, Vector(1.0, 0.0, 0.0)));
+TEST(SbirsPointingCoordinatorTest, MovingCommandTimesOutAndClearsAcquisitionWait) {
+  SbirsPointingCoordinator coordinator;
+  ASSERT_TRUE(coordinator.EnsureActuatorInitialized(Vector(1.0, 0.0, 0.0)));
   SbirsPointingAdvanceResult result;
   for (int step = 0; step < 4; ++step) {
-    const session::SbirsVector3M current = coordinator.Capture().channels[0].actuator.current_los;
-    result =
-        coordinator.Advance(0, 9U, Vector(-current.x, -current.y, -current.z), 0.5, Config(90.0));
+    const session::SbirsVector3M current = coordinator.Capture().actuator.current_los;
+    result = coordinator.AdvanceAcquisition(9U, Vector(-current.x, -current.y, -current.z), 0.5,
+                                            Config(90.0));
   }
 
   EXPECT_EQ(result.status, SbirsPointingAdvanceStatus::kTimedOut);
-  EXPECT_FALSE(coordinator.IsTargetBound(9U));
-  EXPECT_TRUE(coordinator.Capture().channels[0].actuator.initialized);
+  EXPECT_EQ(coordinator.Capture().acquisition_wait_sec.count(9U), 0U);
+  EXPECT_TRUE(coordinator.Capture().actuator.initialized);
+}
+
+TEST(SbirsPointingCoordinatorTest, AcquisitionWaitIsPerTarget) {
+  SbirsPointingCoordinator coordinator;
+  ASSERT_TRUE(coordinator.EnsureActuatorInitialized(Vector(1.0, 0.0, 0.0)));
+  coordinator.AdvanceAcquisition(1U, Vector(0.0, 1.0, 0.0), 0.5, Config(1.0));
+  coordinator.AdvanceAcquisition(2U, Vector(0.0, -1.0, 0.0), 0.5, Config(1.0));
+
+  const SbirsPointingCoordinatorSnapshot snapshot = coordinator.Capture();
+  ASSERT_EQ(snapshot.acquisition_wait_sec.size(), 2U);
+  EXPECT_DOUBLE_EQ(snapshot.acquisition_wait_sec.at(1U), 0.5);
+  EXPECT_DOUBLE_EQ(snapshot.acquisition_wait_sec.at(2U), 0.5);
+
+  ASSERT_TRUE(coordinator.PromoteToTracking(1U));
+  EXPECT_EQ(coordinator.Capture().acquisition_wait_sec.size(), 1U);
 }
 
 TEST(SbirsPointingCoordinatorTest, CaptureRestorePreservesContinuation) {
-  SbirsPointingCoordinator uninterrupted(1, 43U);
+  SbirsPointingCoordinator uninterrupted(43U);
   SbirsPointingDisturbanceParameters disturbance_parameters;
   disturbance_parameters.common_attitude_sigma_deg = 0.1;
   disturbance_parameters.channel_pointing_sigma_deg = 0.2;
   ASSERT_TRUE(uninterrupted.AdvanceDisturbance(0.1, disturbance_parameters));
-  ASSERT_TRUE(uninterrupted.Reserve(0, 4U, Vector(1.0, 0.0, 0.0)));
-  uninterrupted.Advance(0, 4U, Vector(0.0, 1.0, 0.0), 0.5, Config());
+  ASSERT_TRUE(uninterrupted.EnsureActuatorInitialized(Vector(1.0, 0.0, 0.0)));
+  uninterrupted.AdvanceAcquisition(4U, Vector(0.0, 1.0, 0.0), 0.5, Config());
   const SbirsPointingCoordinatorSnapshot snapshot = uninterrupted.Capture();
-  SbirsPointingCoordinator restored(1);
+  SbirsPointingCoordinator restored;
   ASSERT_TRUE(restored.Restore(snapshot));
   ASSERT_TRUE(uninterrupted.AdvanceDisturbance(0.2, disturbance_parameters));
   ASSERT_TRUE(restored.AdvanceDisturbance(0.2, disturbance_parameters));
 
   const SbirsPointingAdvanceResult expected =
-      uninterrupted.Advance(0, 4U, Vector(0.0, 0.0, 1.0), 0.5, Config());
+      uninterrupted.AdvanceTracking(Vector(0.0, 0.0, 1.0), 0.5, Config());
   const SbirsPointingAdvanceResult actual =
-      restored.Advance(0, 4U, Vector(0.0, 0.0, 1.0), 0.5, Config());
+      restored.AdvanceTracking(Vector(0.0, 0.0, 1.0), 0.5, Config());
   EXPECT_EQ(actual.status, expected.status);
-  EXPECT_DOUBLE_EQ(actual.elapsed_wait_sec, expected.elapsed_wait_sec);
+  EXPECT_DOUBLE_EQ(actual.current_los.x, expected.current_los.x);
   ExpectVectorNear(actual.current_los, expected.current_los);
   EXPECT_DOUBLE_EQ(restored.Capture().disturbance.common.azimuth_deg,
                    uninterrupted.Capture().disturbance.common.azimuth_deg);
@@ -131,70 +148,37 @@ TEST(SbirsPointingCoordinatorTest, CaptureRestorePreservesContinuation) {
                    uninterrupted.Capture().disturbance.channels[0].gauss_markov.azimuth_deg);
 }
 
-TEST(SbirsPointingCoordinatorTest, CommonModeIsSharedAndChannelResidualsAreIndependent) {
-  SbirsPointingCoordinator coordinator(2, 47U);
-  SbirsPointingDisturbanceParameters parameters;
-  parameters.common_attitude_sigma_deg = 0.1;
-  parameters.channel_pointing_sigma_deg = 0.2;
-  ASSERT_TRUE(coordinator.AdvanceDisturbance(0.1, parameters));
-  SbirsPointingDisturbanceSample first;
-  SbirsPointingDisturbanceSample second;
-  ASSERT_TRUE(coordinator.DisturbanceSample(0, parameters, &first));
-  ASSERT_TRUE(coordinator.DisturbanceSample(1, parameters, &second));
-  EXPECT_DOUBLE_EQ(first.common.azimuth_deg, second.common.azimuth_deg);
-  EXPECT_DOUBLE_EQ(first.common.elevation_deg, second.common.elevation_deg);
-  EXPECT_NE(first.channel.azimuth_deg, second.channel.azimuth_deg);
-}
-
-TEST(SbirsPointingCoordinatorTest, TrackingAdvanceKeepsBindingWithoutAcquisitionTimeout) {
-  SbirsPointingCoordinator coordinator(1);
-  ASSERT_TRUE(coordinator.Reserve(0, 4U, Vector(1.0, 0.0, 0.0)));
-  ASSERT_TRUE(coordinator.PromoteToTracking(4U));
-
-  for (int step = 0; step < 5; ++step) {
-    const SbirsPointingAdvanceResult result = coordinator.AdvanceTracking(
-        0, 4U, Vector(0.0, 1.0, 0.0), 0.5, Config(30.0));
-    EXPECT_NE(result.status, SbirsPointingAdvanceStatus::kTimedOut);
-  }
-
-  EXPECT_EQ(coordinator.ChannelOf(4U), 0);
-  EXPECT_DOUBLE_EQ(coordinator.Capture().channels[0].elapsed_wait_sec, 0.0);
-}
-
 TEST(SbirsPointingCoordinatorTest, TrackingGateCountResetsAndRoundtrips) {
-  SbirsPointingCoordinator coordinator(1);
-  ASSERT_TRUE(coordinator.Reserve(0, 8U, Vector(1.0, 0.0, 0.0)));
-  ASSERT_TRUE(coordinator.PromoteToTracking(8U));
+  SbirsPointingCoordinator coordinator;
+  ASSERT_TRUE(coordinator.EnsureActuatorInitialized(Vector(1.0, 0.0, 0.0)));
   EXPECT_EQ(coordinator.RecordTrackingGateResult(8U, false), 1U);
   EXPECT_EQ(coordinator.RecordTrackingGateResult(8U, false), 2U);
 
   const SbirsPointingCoordinatorSnapshot snapshot = coordinator.Capture();
-  ASSERT_EQ(snapshot.channels[0].tracking_gate_failure_count, 2U);
-  SbirsPointingCoordinator restored(1);
+  ASSERT_EQ(snapshot.tracking_gate_failure_counts.at(8U), 2U);
+  SbirsPointingCoordinator restored;
   ASSERT_TRUE(restored.Restore(snapshot));
   EXPECT_EQ(restored.RecordTrackingGateResult(8U, true), 0U);
-  EXPECT_EQ(restored.Capture().channels[0].tracking_gate_failure_count, 0U);
+  EXPECT_EQ(restored.Capture().tracking_gate_failure_counts.at(8U), 0U);
 }
 
 TEST(SbirsPointingCoordinatorTest, InvalidSnapshotIsRejectedAtomically) {
-  SbirsPointingCoordinator coordinator(2);
-  ASSERT_TRUE(coordinator.Reserve(0, 3U, Vector(1.0, 0.0, 0.0)));
+  SbirsPointingCoordinator coordinator;
+  ASSERT_TRUE(coordinator.EnsureActuatorInitialized(Vector(1.0, 0.0, 0.0)));
+  coordinator.AdvanceAcquisition(3U, Vector(0.0, 1.0, 0.0), 1.0, Config());
   const SbirsPointingCoordinatorSnapshot before = coordinator.Capture();
-  SbirsPointingCoordinatorSnapshot invalid = before;
-  invalid.channels[1].channel_id = 1;
-  invalid.channels[1].has_bound_target = true;
-  invalid.channels[1].target_id = 3U;
-  invalid.channels[1].elapsed_wait_sec = std::numeric_limits<double>::infinity();
-  invalid.channels[1].tracking_gate_failure_count = 1U;
-  invalid.channels[1].actuator.initialized = true;
-  invalid.channels[1].actuator.current_los = Vector(0.0, 1.0, 0.0);
-  invalid.channels[1].actuator.command_los = Vector(0.0, 1.0, 0.0);
-  invalid.disturbance.channels[1].elapsed_time_s = std::numeric_limits<double>::quiet_NaN();
 
+  SbirsPointingCoordinatorSnapshot invalid = before;
+  invalid.acquisition_wait_sec[3U] = std::numeric_limits<double>::infinity();
   EXPECT_FALSE(coordinator.Restore(invalid));
+
+  invalid = before;
+  invalid.actuator_initialized = true;
+  invalid.actuator.initialized = false;
+  EXPECT_FALSE(coordinator.Restore(invalid));
+
   const SbirsPointingCoordinatorSnapshot after = coordinator.Capture();
-  EXPECT_EQ(after.channels[0].target_id, before.channels[0].target_id);
-  ExpectVectorNear(after.channels[0].actuator.current_los, before.channels[0].actuator.current_los);
+  ExpectVectorNear(after.actuator.current_los, before.actuator.current_los);
   EXPECT_EQ(after.disturbance.common.random_state, before.disturbance.common.random_state);
 }
 

@@ -28,7 +28,7 @@ namespace pipeline {
 enum class SbirsTargetState {
   kUndetected = 0,          /**< 初始或目标未被任何视场发现 */
   kWideCandidate,           /**< WFOV 已发现，等待 NFOV 资源调度 */
-  kAwaitingNfovAcquisition, /**< 已被调度器选为首次捕获目标，本周期执行 NFOV 首次捕获 */
+  kAwaitingNfovAcquisition, /**< 已入 NFOV 锁定集合，等待轮转窗口执行首次捕获 */
   kStrictTruthAssistedTracking, /**< 真值 LOS 驱动并输出精确真值 */
   kSensorLikeTruthAssistedTracking, /**< 真值 LOS 驱动并输出带误差观测 */
   kEstimatedTracking,       /**< EKF/IMM/角度标准 KF 滤波测量跟踪 */
@@ -37,7 +37,7 @@ enum class SbirsTargetState {
 
 /**
  * @brief pipeline 运行期状态快照，用于 validated checkpoint 与确定性 continuation。
- * @note 包含扫描相位、目标状态表、NFOV 多通道调度状态、随机源状态与 EKF 滤波状态表。
+ * @note 包含扫描相位、目标状态表、NFOV 锁定集合与轮转步进、随机源状态与 EKF 滤波状态表。
  */
 struct SbirsPipelineSnapshot {
   float scan_phase_deg{0.0f};          /**< 当前 WFOV 有向扫描相位（行内方位相位，往复腿内距起点的距离），范围 [0, span) deg */
@@ -51,7 +51,8 @@ struct SbirsPipelineSnapshot {
   std::map<std::uint64_t, SbirsTargetState>
       target_states{};                         /**< 各目标状态表（按 target_id 索引） */
   std::map<std::uint64_t, unsigned int> wfov_consecutive_hits{}; /**< WFOV 连续命中计数表（宽窄切换前置条件） */
-  SbirsNfovSchedulerSnapshot nfov_scheduler{}; /**< NFOV 多通道调度状态（目标→通道分配） */
+  SbirsNfovSchedulerSnapshot nfov_scheduler{}; /**< NFOV 锁定集合状态（目标→引导来源） */
+  std::uint64_t nfov_rotation_step{0U}; /**< 单镜筒轮转步进（每执行周期 +1；决定服务目标选择） */
   std::uint32_t wfov_measurement_random_state{1U}; /**< WFOV/cue 量测随机状态 */
   std::uint32_t estimated_measurement_random_state{1U}; /**< Estimated 校正量测随机状态 */
   std::uint32_t sensor_like_output_random_state{1U}; /**< Sensor-like 输出随机状态 */
@@ -63,7 +64,7 @@ struct SbirsPipelineSnapshot {
   bool imm_active{false}; /**< 当前 snapshot 是否使用 IMM 模式 */
   std::map<std::uint64_t, tracking::SbirsImmSnapshot> imm_snapshots{}; /**< IMM 滤波状态表 */
   SbirsCuePredictorSnapshot cue_predictor{};               /**< 测量驱动 cue predictor 逐目标历史 */
-  SbirsPointingCoordinatorSnapshot pointing_coordinator{}; /**< 逐 NFOV 通道 ATP 状态 */
+  SbirsPointingCoordinatorSnapshot pointing_coordinator{}; /**< 单镜筒 NFOV ATP 状态（共享执行器+逐目标簿记） */
 };
 
 /** @brief 单条 pipeline 内部检测结果，组合原始记录与归属。 */
@@ -165,8 +166,11 @@ class SbirsPipeline {
   // 星间 cross-cue 运行期队列（2026-09-01）：周期之间注入、RunCycle 开始时消费并清空；
   // 不进快照（回放从不注入），非法消息消费时丢弃并计 issue。
   std::vector<session::SbirsExternalCue> pending_external_cues_{};
-  SbirsNfovScheduler nfov_scheduler_;              // NFOV 多通道资源调度器
-  SbirsPointingCoordinator pointing_coordinator_;  // NFOV 逐通道 ATP 执行状态
+  SbirsNfovScheduler nfov_scheduler_;              // NFOV 锁定集合管理器（无配置上限，容量物理涌现）
+  SbirsPointingCoordinator pointing_coordinator_;  // NFOV 单镜筒 ATP 执行状态（共享执行器）
+  // 单镜筒轮转步进（2026-09-02）：每执行周期在非空锁定集合上 +1，服务目标 =
+  // 有序锁定集合[step % size]，确定性轮转（replay 可复现）。
+  std::uint64_t nfov_rotation_step_{0U};
   foundation::SbirsRandomSource wfov_measurement_random_source_;
   foundation::SbirsRandomSource estimated_measurement_random_source_;
   foundation::SbirsRandomSource sensor_like_output_random_source_;

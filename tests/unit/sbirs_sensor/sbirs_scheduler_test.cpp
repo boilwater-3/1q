@@ -66,63 +66,76 @@ TEST(SbirsSchedulerTest, TargetIdBreaksOtherwiseEqualCandidateTie) {
   EXPECT_EQ(result.detections.front().attribution.target_id, 3U);
 }
 
-// 多通道：max=2 时，三个候选中按优先级（SNR 降序）选出前两个进入捕获。
-TEST(SbirsSchedulerTest, MultiChannelLocksUpToMaxTargets) {
-  sbirs_sensor::pipeline::SbirsNfovScheduler scheduler(2);
+// 单镜筒锁定集合：无并发上限，候选全部入选，顺序按优先级（SNR 降序 → 距离升序 →
+// ID 升序）——容量由轮转物理涌现，不再由调度器截断。
+TEST(SbirsSchedulerTest, SelectsAllCandidatesInPriorityOrderWithoutCap) {
+  sbirs_sensor::pipeline::SbirsNfovScheduler scheduler;
   std::vector<sbirs_sensor::pipeline::SbirsCandidate> candidates = {
       MakeCandidate(1U, 100.0, 1.0e6),
       MakeCandidate(2U, 300.0, 1.0e6),
       MakeCandidate(3U, 200.0, 1.0e6),
+      MakeCandidate(4U, 300.0, 2.0e6),  // SNR 并列 2 号，距离更远 → 排后
   };
   const auto selected = scheduler.SelectForAcquisition(candidates);
-  ASSERT_EQ(selected.size(), 2U);
-  EXPECT_EQ(selected[0]->target->target_id, 2U);  // 最高 SNR
-  EXPECT_EQ(selected[1]->target->target_id, 3U);  // 次高 SNR
+  ASSERT_EQ(selected.size(), 4U);
+  EXPECT_EQ(selected[0]->target->target_id, 2U);
+  EXPECT_EQ(selected[1]->target->target_id, 4U);
+  EXPECT_EQ(selected[2]->target->target_id, 3U);
+  EXPECT_EQ(selected[3]->target->target_id, 1U);
 }
 
-// 通道满时 SelectForAcquisition 返回空，未选中的候选由 pipeline 标记 kSchedulerSkipped。
-TEST(SbirsSchedulerTest, SelectForAcquisitionEmptyWhenChannelsFull) {
-  sbirs_sensor::pipeline::SbirsNfovScheduler scheduler(1);
-  ASSERT_EQ(scheduler.Acquire(1U), 0);  // 占用唯一通道
+// 已锁定目标不重复入选。
+TEST(SbirsSchedulerTest, LockedTargetsAreExcludedFromSelection) {
+  sbirs_sensor::pipeline::SbirsNfovScheduler scheduler;
+  ASSERT_TRUE(scheduler.Acquire(2U));
   std::vector<sbirs_sensor::pipeline::SbirsCandidate> candidates = {
-      MakeCandidate(2U, 100.0, 1.0e6),
+      MakeCandidate(1U, 100.0, 1.0e6),
+      MakeCandidate(2U, 300.0, 1.0e6),
   };
   const auto selected = scheduler.SelectForAcquisition(candidates);
-  EXPECT_TRUE(selected.empty());
+  ASSERT_EQ(selected.size(), 1U);
+  EXPECT_EQ(selected[0]->target->target_id, 1U);
 }
 
-// channel_id 采用最小可用编号分配，释放后回收。
-TEST(SbirsSchedulerTest, ChannelIdReusedAfterRelease) {
-  sbirs_sensor::pipeline::SbirsNfovScheduler scheduler(3);
-  EXPECT_EQ(scheduler.Acquire(10U), 0);
-  EXPECT_EQ(scheduler.Acquire(20U), 1);
-  EXPECT_EQ(scheduler.Acquire(30U), 2);
-  EXPECT_EQ(scheduler.Acquire(40U), -1);  // 已满
-  scheduler.Release(20U);
-  EXPECT_EQ(scheduler.Acquire(40U), 1);  // 回收最小空闲编号 1
-}
-
-// Acquire 对已锁定目标返回原通道（幂等），不重复分配。
-TEST(SbirsSchedulerTest, AcquireIdempotentForLockedTarget) {
-  sbirs_sensor::pipeline::SbirsNfovScheduler scheduler(2);
-  EXPECT_EQ(scheduler.Acquire(1U), 0);
-  EXPECT_EQ(scheduler.Acquire(1U), 0);  // 重复 Acquire 返回同一通道
+// Acquire 幂等；cue 来源随锁定记录，Release/Clear 单点清除。
+TEST(SbirsSchedulerTest, AcquireIsIdempotentAndCueSourcePersists) {
+  sbirs_sensor::pipeline::SbirsNfovScheduler scheduler;
+  EXPECT_TRUE(scheduler.Acquire(1U));
+  EXPECT_TRUE(scheduler.Acquire(1U, 104));  // 幂等：不重复入集合
   EXPECT_EQ(scheduler.LockedCount(), 1U);
+  EXPECT_EQ(scheduler.CueSourceOf(1U), 104);
+
+  EXPECT_TRUE(scheduler.Acquire(2U));
+  EXPECT_EQ(scheduler.CueSourceOf(2U), -1);
+
+  scheduler.Release(1U);
+  EXPECT_FALSE(scheduler.IsLocked(1U));
+  EXPECT_EQ(scheduler.CueSourceOf(1U), -1);
+  EXPECT_TRUE(scheduler.IsLocked(2U));
+
+  scheduler.Clear();
+  EXPECT_EQ(scheduler.LockedCount(), 0U);
 }
 
-// ChannelOf 对未锁定目标返回 -1；Capture/Restore 往返保持分配关系。
-TEST(SbirsSchedulerTest, ChannelOfAndCaptureRestoreRoundtrip) {
-  sbirs_sensor::pipeline::SbirsNfovScheduler scheduler(2);
-  EXPECT_EQ(scheduler.ChannelOf(1U), -1);
-  scheduler.Acquire(1U);
-  scheduler.Acquire(2U);
+// LockedTargetIds 升序（轮转服务顺序的确定性基础）；Capture/Restore 往返保持集合。
+TEST(SbirsSchedulerTest, LockedTargetIdsSortedAndCaptureRestoreRoundtrip) {
+  sbirs_sensor::pipeline::SbirsNfovScheduler scheduler;
+  scheduler.Acquire(30U, 204);
+  scheduler.Acquire(10U);
+  scheduler.Acquire(20U);
+
+  const auto ids = scheduler.LockedTargetIds();
+  ASSERT_EQ(ids.size(), 3U);
+  EXPECT_EQ(ids[0], 10U);
+  EXPECT_EQ(ids[1], 20U);
+  EXPECT_EQ(ids[2], 30U);
 
   const auto snapshot = scheduler.Capture();
-  sbirs_sensor::pipeline::SbirsNfovScheduler restored(2);
+  sbirs_sensor::pipeline::SbirsNfovScheduler restored;
   restored.Restore(snapshot);
-  EXPECT_EQ(restored.ChannelOf(1U), 0);
-  EXPECT_EQ(restored.ChannelOf(2U), 1);
-  EXPECT_EQ(restored.LockedCount(), 2U);
+  EXPECT_EQ(restored.LockedCount(), 3U);
+  EXPECT_EQ(restored.CueSourceOf(30U), 204);
+  EXPECT_TRUE(restored.IsLocked(10U));
 }
 
 }  // namespace
