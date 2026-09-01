@@ -35,6 +35,7 @@
 #include "1q/sbirs_sensor/config/SbirsSessionConfig.h"
 #include "1q/sbirs_sensor/session/SbirsSession.h"
 #include "json_reader.h"
+#include "config_loaders/sbirs_sensor/config_loader.h"
 #include "csv_writer.h"
 #include "app/output_dir.h"
 #include "components/ground_station_fusion_component.h"
@@ -186,6 +187,10 @@ sbirs_sensor::config::SbirsSessionConfig LoadSatelliteConfig(const examples::Jso
       block.Has("narrow_min_snr_linear")
           ? static_cast<float>(block["narrow_min_snr_linear"].AsDouble())
           : 0.001f;
+  // 安装指向域（第10项验收行数据源）：安装角/失准/限位/稳定方式。缺段/缺键继承
+  // 加载器默认集 SbirsOrientationDefaults()（验收演示误差参数，非全零）；写了的
+  // 键逐一覆盖（如 B/C 星互异安装角）。库结构体默认仍为全零，单测不受影响。
+  LoadSbirsOrientation(block, &config.orientation);
   return config;
 }
 

@@ -16,6 +16,7 @@ inline void LoadSbirsSessionConfig(
     sbirs_sensor::config::SbirsSessionConfig* config) {
   LoadSbirsHardware(root["hardware"], &config->hardware);
   LoadSbirsMission(root["mission"], &config->mission);
+  LoadSbirsOrientation(root["orientation"], &config->orientation);
   LoadSbirsPolicy(root["policy"], &config->policy);
   LoadSbirsEnvironment(root["environment"], &config->environment);
   if (root.Has("sensor_enabled")) {
