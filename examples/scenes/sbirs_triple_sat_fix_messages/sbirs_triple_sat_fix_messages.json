@@ -131,7 +131,7 @@
         -1800.0,
         80.0
       ],
-      "radiant_intensity_w_per_sr": 100000000.0
+      "radiant_intensity_w_per_sr": 10000.0
     },
     {
       "key": 2,
@@ -145,7 +145,7 @@
         1600.0,
         60.0
       ],
-      "radiant_intensity_w_per_sr": 100000000.0
+      "radiant_intensity_w_per_sr": 10000.0
     }
   ]
 }
