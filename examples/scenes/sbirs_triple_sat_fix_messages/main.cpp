@@ -67,6 +67,7 @@ struct LoadedSatellite {
   double attitude_yaw_deg{0.0};
   double attitude_pitch_deg{0.0};
   double attitude_roll_deg{0.0};
+  bool cross_cue{false};  // 星间递话开关（2026-09-01 契约：默认关；true=递话+受话）
 };
 
 struct LoadedScene {
@@ -308,6 +309,7 @@ bool LoadScene(const char* path, LoadedScene* scene, std::string* error) {
                         ? static_cast<std::uint32_t>(block["source_id"].AsInt())
                         : (4U + static_cast<std::uint32_t>(i) * 100U);
     sat.config = LoadSatelliteConfig(block);
+    sat.cross_cue = block.Has("cross_cue") && block["cross_cue"].AsBool();
     if (!LoadEphemerisSat(block, &sat.position_ecef_m, &sat.velocity_ecef_m_per_s, error,
                           ("satellites[" + std::to_string(i) + "]").c_str())) {
       return false;
@@ -672,6 +674,9 @@ int main(int argc, char* argv[]) {
             sbirs_sensor::session::SbirsSession::Create(sat.config), sat.source_id, pose, vel, att,
             component_attachment::SbirsGroundDeliveryMode::kMessage)));
     sbirs_components.push_back(entity.Find<component_attachment::SbirsSensorComponent>());
+    if (sat.cross_cue) {
+      sbirs_components.back()->SetCrossCueEnabled(true);  // cross-cue 常开（JSON cross_cue）
+    }
   }
   std::vector<std::uint32_t> evaluation_source_ids;
   evaluation_source_ids.push_back(scene.satellites[0].source_id);

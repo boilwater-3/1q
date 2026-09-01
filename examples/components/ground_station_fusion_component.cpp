@@ -113,6 +113,12 @@ void GroundStationFusionComponent::BeginCycle(World& world, std::uint64_t cycle)
   inbox_cycle_ = cycle;
   detection_inbox_.clear();
   sbirs_inbox_.clear();
+  // cross-cue 冲刷：上一周期各星发的递话在本周期开头广播（各星忽略自己发的，
+  // 本周期步进前注入 → 递话内容固定滞后一个周期）。
+  for (const SbirsCrossCueEvent& event : cross_cue_relay_buffer_) {
+    world.signals().on_sbirs_cross_cue_relay(event);
+  }
+  cross_cue_relay_buffer_.clear();
 }
 
 void GroundStationFusionComponent::SetEvaluationInputs(
@@ -139,6 +145,10 @@ void GroundStationFusionComponent::EnsureSignalConnections(World& world) {
     sbirs_frame_connection_ = world.signals().on_sbirs_frame_submitted.connect(
         [this](const SbirsFrameSubmittedEvent& event) { OnSbirsFrameSubmitted(event); });
   }
+  if (!cross_cue_connection_.connected()) {
+    cross_cue_connection_ = world.signals().on_sbirs_cross_cue.connect(
+        [this](const SbirsCrossCueEvent& event) { OnSbirsCrossCue(event); });
+  }
 }
 
 void GroundStationFusionComponent::OnDetectionBatchSubmitted(
@@ -154,6 +164,12 @@ void GroundStationFusionComponent::OnSbirsFrameSubmitted(const SbirsFrameSubmitt
     return;
   }
   sbirs_inbox_.push_back(event);
+}
+
+void GroundStationFusionComponent::OnSbirsCrossCue(const SbirsCrossCueEvent& event) {
+  // 星→地→星（2026-09-01 裁定 1）：地面站只做存储转发，不解析不改写；
+  // 转发在下一周期 BeginCycle 冲刷（递话固定迟到一周期，受话星按周期门消费）。
+  cross_cue_relay_buffer_.push_back(event);
 }
 
 void GroundStationFusionComponent::Step(World& world, double dt_sec) {
