@@ -363,7 +363,6 @@ TEST(SbirsReplayCodecRoundtripTest, SessionConfigPreservesAllDomains) {
   config.policy.pointing_disturbance.channel_vibration_amplitude_deg = 0.04f;
   config.policy.pointing_disturbance.channel_vibration_frequency_hz = 4.0f;
   config.policy.pointing_disturbance.random_seed = 43U;
-  config.policy.scheduler.max_concurrent_nfov_locks = 3;
   config.policy.scheduler.wide_to_narrow_required_consecutive_hits = 2;  // 宽窄切换前置条件
   config.policy.tracking.tracking_mode = config::SbirsTrackingMode::kStrictTruthAssisted;
   config.policy.tracking.estimated_backend = config::SbirsEstimatedTrackingBackend::kEkf;
@@ -422,7 +421,6 @@ TEST(SbirsReplayCodecRoundtripTest, SessionConfigPreservesAllDomains) {
   EXPECT_FLOAT_EQ(decoded.policy.pointing_disturbance.channel_vibration_amplitude_deg, 0.04f);
   EXPECT_FLOAT_EQ(decoded.policy.pointing_disturbance.channel_vibration_frequency_hz, 4.0f);
   EXPECT_EQ(decoded.policy.pointing_disturbance.random_seed, 43U);
-  EXPECT_EQ(decoded.policy.scheduler.max_concurrent_nfov_locks, 3);
   EXPECT_EQ(decoded.policy.scheduler.wide_to_narrow_required_consecutive_hits, 2);
   EXPECT_FLOAT_EQ(decoded.hardware.focal_length_m, 1.8f);
   EXPECT_FLOAT_EQ(decoded.hardware.detector_pixel_pitch_m, 25.0e-6f);
@@ -687,6 +685,12 @@ TEST(SbirsReplayCodecRoundtripTest, DecodeRejectsLegacyOrForeignIdentifierBuffer
   std::string v2_identifier = encoded;
   v2_identifier.replace(4U, 4U, "SBI2");  // v2 标识符（含 has_* 槽位的旧表）
   EXPECT_FALSE(DecodeSbirsCycleInput(v2_identifier, &legacy_decoded));
+
+  std::string v3_identifier = encoded;
+  // v3 标识符（多通道调度配置时代的旧表）；v4（2026-09-02 单镜筒化删
+  // max_concurrent_nfov_locks）起 SBI3 同属被拒的旧版本载荷。
+  v3_identifier.replace(4U, 4U, "SBI3");
+  EXPECT_FALSE(DecodeSbirsCycleInput(v3_identifier, &legacy_decoded));
 
   // 其余 sbirs replay 负载同样受护栏保护：篡改标识符后拒绝。
   SbirsOutputFrame frame;

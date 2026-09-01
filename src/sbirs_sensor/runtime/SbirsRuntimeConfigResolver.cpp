@@ -72,10 +72,6 @@ SbirsRuntimeConfigImpact ClassifyImpact(const config::SbirsSessionConfig& previo
       previous.policy.tracking.estimated_backend != next.policy.tracking.estimated_backend ||
       previous.policy.tracking.imm_model_noise_diff_coeffs !=
           next.policy.tracking.imm_model_noise_diff_coeffs;
-  impact.previous_nfov_channel_count = previous.policy.scheduler.max_concurrent_nfov_locks;
-  impact.next_nfov_channel_count = next.policy.scheduler.max_concurrent_nfov_locks;
-  impact.nfov_channel_count_changed =
-      impact.previous_nfov_channel_count != impact.next_nfov_channel_count;
 
   const bool previous_inactive =
       !previous.sensor_enabled || previous.mission.work_mode == config::SbirsWorkMode::kStandby;

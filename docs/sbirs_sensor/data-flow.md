@@ -72,10 +72,10 @@ flowchart TB
     Wfov["WFOV channel\n扫描发现 + 带误差位置"]
     StateMachine["Target-state logic\n7 状态机"]
     Cue["SbirsCuePredictor"]
-    Pointing["SbirsPointingCoordinator\n逐通道限速 ATP"]
+    Pointing["SbirsPointingCoordinator\n单镜筒限速 ATP + 轮转簿记"]
     NfovFirst["NFOV first acquisition"]
     NfovTrack["NFOV closed-loop tracking"]
-    Scheduler["SbirsNfovScheduler\n多通道资源分配"]
+    Scheduler["SbirsNfovScheduler\n锁定集合 + 入列排序"]
   end
 
   subgraph Foundation["Foundation algorithms（参照 EOS）"]
@@ -135,8 +135,8 @@ sequenceDiagram
       Pipeline->>Pipeline: WFOV scan: range/FOV/radiometry/noise/SNR
       Pipeline->>SM: update target state
       alt first acquisition candidate
-        SM-->>Pipeline: reserve channel, AwaitingNfovAcquisition
-        Pipeline->>Pipeline: update cue + advance rate-limited ATP
+        SM-->>Pipeline: enter lock set, AwaitingNfovAcquisition
+        Pipeline->>Pipeline: rotation window: update cue + advance shared rate-limited ATP
         alt ATP settled
           Pipeline->>Pipeline: NFOV acquisition: actuator LOS + window + SNR gate
           alt success
@@ -171,11 +171,10 @@ resolver 按旧、新配置的字段差异生成内部 impact；相同值 patch 
 | 初始化协方差 | 所有既有航迹 | 只影响后续新航迹 |
 | measurement seed / pointing seed | 另一随机流；pointing seed 还保留绑定和 actuator LOS | 分别只重启所属随机流/扰动 epoch |
 | EKF/IMM 结构 | 非估计状态 | 释放不兼容 estimated track，后续允许重捕获 |
-| NFOV 通道扩/缩容 | 低编号通道及其绑定/actuator/filter | 扩容新增空闲高编号；缩容确定性释放越界目标 |
 | standby / power-off | scan phase；未改 seed 的测量随机流 | 清空 target、cue、NFOV、pointing、tracking |
 
-通道数/pointing 的多组件迁移先构造临时 scheduler 和 coordinator，验证保留映射一致后再整体替换；这属于
-pipeline 内部原子状态替换，不虚构 session rollback。
+单镜筒化（2026-09-02）：`max_concurrent_nfov_locks` 已删除，无"通道扩/缩容"迁移；pointing seed 变更
+仅重启扰动流（镜筒视线与逐目标簿记保持），无多组件协调替换。
 
 [evidence: tests/unit/sbirs_sensor/sbirs_runtime_config_resolver_test]
 [evidence: tests/unit/sbirs_sensor/sbirs_pipeline_test]

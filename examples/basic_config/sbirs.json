@@ -56,7 +56,6 @@
       "random_seed": 1
     },
     "scheduler": {
-      "max_concurrent_nfov_locks": 1,
       "wide_to_narrow_required_consecutive_hits": 1
     },
     "tracking": {

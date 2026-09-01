@@ -276,9 +276,9 @@ inline void LoadSbirsPointingDisturbance(
 inline void LoadSbirsScheduler(const examples::JsonValue& j,
                                sbirs_sensor::config::SbirsSchedulerConfig* v) {
   if (j.IsNull()) return;
-  if (j.Has("max_concurrent_nfov_locks")) {
-    v->max_concurrent_nfov_locks = static_cast<int>(j["max_concurrent_nfov_locks"].AsInt());
-  }
+  // max_concurrent_nfov_locks 已删除（2026-09-02 单镜筒化）：一颗星只有一个窄场镜筒，
+  // 可同时保持的精跟条数由分时轮转物理涌现，不再可配置；残留键按本装载器忽略
+  // 未知键的既有策略静默跳过（多星场景装载器对残留键显式拒绝并给出错误）。
   // 宽→窄切换连续命中门（可选；缺省保持库默认 1 = 单次命中即调度，与既有
   // 行为逐位一致）。
   if (j.Has("wide_to_narrow_required_consecutive_hits")) {

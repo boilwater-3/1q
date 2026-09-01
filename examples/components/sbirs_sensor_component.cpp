@@ -505,6 +505,9 @@ void SbirsSensorComponent::PublishDetectionEvents(
         }
       }
     }
+    const float snr_db = (sbirs_event.infrared_snr_linear > 0.0f)
+        ? static_cast<float>(10.0 * std::log10(static_cast<double>(sbirs_event.infrared_snr_linear)))
+        : -100.0f;
     if (sbirs_event.kind == SbirsDetectionEventKind::kUpdated) {
       // 更新类事件每周期重复：事件模式一下不落盘（信号照常发布）。
       // 与下方写入行同内容：纯 std::string/std::to_string 拼接的日志字符串，供集成方直接搬入己方日志（示例自身不消费）。
@@ -515,17 +518,17 @@ void SbirsSensorComponent::PublishDetectionEvents(
           std::to_string(static_cast<unsigned long long>(sbirs_event.detection_id)) +
           " 目标=" +
           std::to_string(static_cast<unsigned long long>(sbirs_event.target_id)) +
-          " 信噪比(线性)=" +
-          std::to_string(sbirs_event.infrared_snr_linear) +
-          " 方位=" +
+          " 信噪比(dB)=" +
+          std::to_string(snr_db) +
+          "dB 方位=" +
           std::to_string(sbirs_event.az_deg) +
           "°";
       CA_LOG_EVENT_DUP(world, "sbirs_detection",
-                       "类型={} 探测ID={} 目标={} 信噪比(线性)={:.1f} 方位={:.1f}°",
+                       "类型={} 探测ID={} 目标={} 信噪比(dB)={:.1f}dB 方位={:.1f}°",
                        SbirsEventKindName(sbirs_event.kind),
                        static_cast<unsigned long long>(sbirs_event.detection_id),
                        static_cast<unsigned long long>(sbirs_event.target_id),
-                       sbirs_event.infrared_snr_linear, sbirs_event.az_deg);
+                       snr_db, sbirs_event.az_deg);
     } else if (sbirs_event.kind == SbirsDetectionEventKind::kLost) {
       // 丢失事件携带细分原因（视场外/调度跳过/门失败…），区分扫描间隙与真丢失。
       // 与下方写入行同内容：纯 std::string/std::to_string 拼接的日志字符串，供集成方直接搬入己方日志（示例自身不消费）。
@@ -536,17 +539,17 @@ void SbirsSensorComponent::PublishDetectionEvents(
           std::to_string(static_cast<unsigned long long>(sbirs_event.detection_id)) +
           " 目标=" +
           std::to_string(static_cast<unsigned long long>(sbirs_event.target_id)) +
-          " 信噪比(线性)=" +
-          std::to_string(sbirs_event.infrared_snr_linear) +
-          " 方位=" +
+          " 信噪比(dB)=" +
+          std::to_string(snr_db) +
+          "dB 方位=" +
           std::to_string(sbirs_event.az_deg) +
           "°";
       CA_LOG_EVENT(world, "sbirs_detection",
-                   "类型=丢失({}) 探测ID={} 目标={} 信噪比(线性)={:.1f} 方位={:.1f}°",
+                   "类型=丢失({}) 探测ID={} 目标={} 信噪比(dB)={:.1f}dB 方位={:.1f}°",
                    LossReasonName(sbirs_event.reason),
                    static_cast<unsigned long long>(sbirs_event.detection_id),
                    static_cast<unsigned long long>(sbirs_event.target_id),
-                   sbirs_event.infrared_snr_linear, sbirs_event.az_deg);
+                   snr_db, sbirs_event.az_deg);
     } else {
       // 与下方写入行同内容：纯 std::string/std::to_string 拼接的日志字符串，供集成方直接搬入己方日志（示例自身不消费）。
       const std::string sbirs_detection_event_log_3 =
@@ -556,17 +559,17 @@ void SbirsSensorComponent::PublishDetectionEvents(
           std::to_string(static_cast<unsigned long long>(sbirs_event.detection_id)) +
           " 目标=" +
           std::to_string(static_cast<unsigned long long>(sbirs_event.target_id)) +
-          " 信噪比(线性)=" +
-          std::to_string(sbirs_event.infrared_snr_linear) +
-          " 方位=" +
+          " 信噪比(dB)=" +
+          std::to_string(snr_db) +
+          "dB 方位=" +
           std::to_string(sbirs_event.az_deg) +
           "°";
       CA_LOG_EVENT(world, "sbirs_detection",
-                   "类型={} 探测ID={} 目标={} 信噪比(线性)={:.1f} 方位={:.1f}°",
+                   "类型={} 探测ID={} 目标={} 信噪比(dB)={:.1f}dB 方位={:.1f}°",
                    SbirsEventKindName(sbirs_event.kind),
                    static_cast<unsigned long long>(sbirs_event.detection_id),
                    static_cast<unsigned long long>(sbirs_event.target_id),
-                   sbirs_event.infrared_snr_linear, sbirs_event.az_deg);
+                   snr_db, sbirs_event.az_deg);
     }
     world.signals().on_sbirs_detection(sbirs_event);
   }

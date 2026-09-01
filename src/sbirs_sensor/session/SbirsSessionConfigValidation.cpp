@@ -275,10 +275,6 @@ session::SbirsIssueList ValidateSbirsSessionConfig(const SbirsSessionConfig& con
              "pointing disturbance vibration frequency must be positive when amplitude is non-zero",
              &issues);
   }
-  if (config.policy.scheduler.max_concurrent_nfov_locks < 1) {
-    AddError(session::codes::kInvalidSchedulerNfovLocks,
-             "scheduler max_concurrent_nfov_locks must be at least 1", &issues);
-  }
   if (config.policy.scheduler.wide_to_narrow_required_consecutive_hits < 1) {
     AddError(session::codes::kInvalidWideToNarrowRequiredHits,
              "scheduler wide_to_narrow_required_consecutive_hits must be at least 1", &issues);

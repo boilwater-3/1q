@@ -1,6 +1,7 @@
 ﻿/**
- * @file sbirs_triple_sat_fix_messages/main.cpp
- * @brief 三颗地球静止轨道卫星覆盖 + 消息机制地面站融合；末尾导出 3D 可视化 CSV。
+ * @file sbirs_inframe_dual_target/main.cpp
+ * @brief 同框双目标验证场景（派生自 sbirs_triple_sat_fix_messages，main 同源）：
+ *        单镜筒分时轮转下的同帧免费多跟读数验证；末尾导出 3D 可视化 CSV。
  *
  * 卫星经 on_sbirs_frame_submitted 投递，地面站 GroundStationFusionComponent
  * 订阅收件箱后融合。精度评估交会仍只用前两颗星（库 API 是双视线）。
@@ -52,7 +53,7 @@ namespace {
 
 #ifndef ONEQ_SCENE_JSON
 #define ONEQ_SCENE_JSON \
-  "examples/scenes/sbirs_triple_sat_fix_messages/sbirs_triple_sat_fix_messages.json"
+  "examples/scenes/sbirs_inframe_dual_target/sbirs_inframe_dual_target.json"
 #endif
 #ifndef PE_DEFAULT_OUTPUT_DIR
 #define PE_DEFAULT_OUTPUT_DIR "examples/log"
@@ -723,7 +724,7 @@ int main(int argc, char* argv[]) {
       world, static_cast<std::uint64_t>(impact_receiver.id()));
   (void)impact_receipt;
 
-  std::cout << "sbirs_triple_sat_fix_messages: " << scene_path << ", " << scene.cycles
+  std::cout << "sbirs_inframe_dual_target: " << scene_path << ", " << scene.cycles
             << " cycles x " << scene.dt_sec << " s, satellites=" << scene.satellites.size()
             << " GEO (ground-station message delivery)\n"
             << "acceptance logs -> " << output_dir

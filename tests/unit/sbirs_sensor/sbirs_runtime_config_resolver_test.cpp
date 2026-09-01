@@ -61,7 +61,6 @@ TEST(SbirsRuntimeConfigResolverTest, SameValueMissionPatchIsValidWithoutMigratio
   EXPECT_FALSE(resolved.impact.release_estimated_tracks);
   EXPECT_FALSE(resolved.impact.release_incompatible_tracks);
   EXPECT_FALSE(resolved.impact.retag_truth_tracks);
-  EXPECT_FALSE(resolved.impact.nfov_channel_count_changed);
   EXPECT_FALSE(resolved.impact.clear_for_inactive);
   EXPECT_FALSE(resolved.impact.clear_for_wide_search);
 }
@@ -111,7 +110,6 @@ TEST(SbirsRuntimeConfigResolverTest, ClassifiesIndependentStateMigrationGroups) 
   next.policy.tracking.process_noise_diff_coeff = 2.0f;
   next.policy.tracking.estimated_backend =
       sbirs_sensor::config::SbirsEstimatedTrackingBackend::kImm;
-  next.policy.scheduler.max_concurrent_nfov_locks = 2;
 
   sbirs_sensor::config::SbirsRuntimeConfigPatch patch;
   patch.has_mission = true;
@@ -127,9 +125,6 @@ TEST(SbirsRuntimeConfigResolverTest, ClassifiesIndependentStateMigrationGroups) 
   EXPECT_TRUE(resolved.impact.reset_nfov_gate_failure_counts);
   EXPECT_TRUE(resolved.impact.restart_pointing_disturbance);
   EXPECT_TRUE(resolved.impact.release_estimated_tracks);
-  EXPECT_TRUE(resolved.impact.nfov_channel_count_changed);
-  EXPECT_EQ(resolved.impact.previous_nfov_channel_count, 1);
-  EXPECT_EQ(resolved.impact.next_nfov_channel_count, 2);
 }
 
 TEST(SbirsRuntimeConfigResolverTest, EnvironmentAndScanRatePreserveAccumulatedState) {
@@ -150,7 +145,6 @@ TEST(SbirsRuntimeConfigResolverTest, EnvironmentAndScanRatePreserveAccumulatedSt
   EXPECT_FALSE(resolved.impact.reset_nfov_gate_failure_counts);
   EXPECT_FALSE(resolved.impact.restart_pointing_disturbance);
   EXPECT_FALSE(resolved.impact.release_estimated_tracks);
-  EXPECT_FALSE(resolved.impact.nfov_channel_count_changed);
 }
 
 TEST(SbirsRuntimeConfigResolverTest, ElevationRasterChangeClassifiesAsScanSector) {

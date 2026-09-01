@@ -122,9 +122,6 @@ sbirs_config::SbirsSessionConfig MakeConfig(const SbirsCase* scenario = nullptr)
   config.policy.error_model.range_fraction_sigma = 0.0f;
   config.policy.error_model.attitude_sigma_deg = 0.0f;
   if (scenario != nullptr) {
-    if (scenario->scenario_id == "sbirs_seq_two_target_crossing_two_locks") {
-      config.policy.scheduler.max_concurrent_nfov_locks = 2;
-    }
     if (scenario->scenario_id == "sbirs_seq_boost_maneuver_nis_reacquire") {
       config.policy.tracking.nis_gate_loss_cycles = 2U;
       config.policy.tracking.process_noise_diff_coeff = 0.01f;
@@ -250,8 +247,7 @@ ScenarioSummary RunScenario(const SbirsCase& scenario, const std::string& output
     sbirs_session::SbirsRecordingSession session(MakeConfig(&scenario), options);
     const std::uint32_t cycle_count = CycleCount(scenario);
     std::size_t nonexecuted_count = 0U;
-    bool channels_unique = true;
-    std::size_t max_nfov_channels = 0U;
+    std::size_t max_nfov_targets_per_cycle = 0U;
     std::set<std::uint64_t> nfov_target_ids;
     bool saw_nis_exceeded = false;
     bool saw_nis_loss = false;
@@ -278,29 +274,25 @@ ScenarioSummary RunScenario(const SbirsCase& scenario, const std::string& output
         patch.scan_rate_deg_per_sec = 2.0f;
         patch.has_policy = true;
         patch.policy = MakeConfig(&scenario).policy;
-        patch.policy.scheduler.max_concurrent_nfov_locks = 2;
         (void)session.TryApplyRuntimeConfig(patch);
       }
       const sbirs_session::SbirsCycleResult result =
           session.StepWithResult(MakeInput(scenario, cycle));
       if (result.status == sbirs_session::SbirsCycleStatus::kCompleted) ++summary.executed_cycles;
       else ++nonexecuted_count;
-      std::set<int> cycle_channels;
+      std::set<std::uint64_t> cycle_nfov_targets;
       for (std::size_t i = 0; i < result.detection_attributions.size(); ++i) {
         const auto& attribution = result.detection_attributions[i];
-        const int channel = attribution.nfov_channel_id;
         saw_nis_exceeded = saw_nis_exceeded || attribution.estimation_nis_gate_exceeded;
         saw_nis_loss = saw_nis_loss ||
                        attribution.capture_failure_reason ==
                            sbirs_sensor::attribution::SbirsCaptureFailureReason::kEstimationNisGateLost;
-        if (channel < 0) continue;
-        cycle_channels.insert(channel);
+        if (attribution.nfov_channel_id < 0) continue;
+        cycle_nfov_targets.insert(attribution.target_id);
         nfov_target_ids.insert(attribution.target_id);
-        for (std::size_t j = i + 1U; j < result.detection_attributions.size(); ++j) {
-          if (result.detection_attributions[j].nfov_channel_id == channel) channels_unique = false;
-        }
       }
-      max_nfov_channels = std::max(max_nfov_channels, cycle_channels.size());
+      max_nfov_targets_per_cycle =
+          std::max(max_nfov_targets_per_cycle, cycle_nfov_targets.size());
       if (cycle >= 5U && cycle <= 8U) {
         interruption_detections += result.output_frame.detections.size();
       } else if (cycle >= 9U) {
@@ -336,16 +328,14 @@ ScenarioSummary RunScenario(const SbirsCase& scenario, const std::string& output
       checks.Add(scenario.scenario_id, "recovery", cycle_count, "expected_nonexecuted_cycles",
                  std::to_string(expected_nonexecuted), std::to_string(nonexecuted_count),
                  expected_nonexecuted == nonexecuted_count);
-      checks.Add(scenario.scenario_id, "recovery", cycle_count, "nfov_channels_unique", "unique",
-                 channels_unique ? "unique" : "duplicate", channels_unique);
       if (scenario.scenario_id == "sbirs_seq_two_target_crossing_two_locks") {
-        checks.Add(scenario.scenario_id, "interruption", 8U, "two_nfov_channels_used", "2",
-                   std::to_string(max_nfov_channels), max_nfov_channels == 2U);
+        // 单镜筒（2026-09-02）：同帧双目标同周期都可被 NFOV 服务（窗口+同帧搭车），
+        // 单周期最多服务的不同目标数用于确认双目标均已进入窄场。
+        checks.Add(scenario.scenario_id, "interruption", 8U, "two_nfov_targets_served", ">=2",
+                   std::to_string(max_nfov_targets_per_cycle), max_nfov_targets_per_cycle >= 2U);
         checks.Add(scenario.scenario_id, "recovery", cycle_count, "two_targets_locked", "2",
                    std::to_string(nfov_target_ids.size()), nfov_target_ids.size() == 2U);
       } else if (scenario.scenario_id == "sbirs_seq_three_target_one_lock_handoff") {
-        checks.Add(scenario.scenario_id, "interruption", 8U, "single_channel_limit", "1",
-                   std::to_string(max_nfov_channels), max_nfov_channels <= 1U);
         checks.Add(scenario.scenario_id, "recovery", cycle_count, "handoff_reaches_multiple_targets",
                    ">=2", std::to_string(nfov_target_ids.size()), nfov_target_ids.size() >= 2U);
       } else if (scenario.scenario_id == "sbirs_seq_boost_maneuver_nis_reacquire") {

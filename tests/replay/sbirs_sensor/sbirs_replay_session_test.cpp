@@ -320,7 +320,6 @@ TEST(SbirsReplaySessionTest, ReplayPreservesNisLossAndReacquisitionDiagnostics) 
 
 TEST(SbirsReplaySessionTest, ReplayPreservesMultiTargetImmTracking) {
   sbirs_sensor::config::SbirsSessionConfig config = Config();
-  config.policy.scheduler.max_concurrent_nfov_locks = 2;
   config.policy.tracking.estimated_backend =
       sbirs_sensor::config::SbirsEstimatedTrackingBackend::kImm;
   config.policy.tracking.imm_model_noise_diff_coeffs = {0.5f, 80.0f};
@@ -438,14 +437,15 @@ TEST(SbirsReplaySessionTest, ReplayPreservesMultiCycleSlewAndRuntimeMissionPatch
   EXPECT_FALSE(replay_result.playback.divergence_found);
 }
 
-TEST(SbirsReplaySessionTest, ReplayPreservesDualChannelPointingTimeout) {
+TEST(SbirsReplaySessionTest, ReplayPreservesSingleTelescopePointingTimeout) {
+  // 单镜筒（2026-09-02）：唯一镜筒追逐每周期换边的目标（1°/s 转速追不上），捕获
+  // 等待累计到 180°/1°/s=180s 超时；回放逐位复现。
   sbirs_sensor::config::SbirsSessionConfig config = Config();
   config.mission.scan_start_az_deg = 0.0f;
   config.mission.scan_span_deg = 20.0f;
   config.mission.scan_rate_deg_per_sec = 0.0f;
   config.mission.wide_field_fov_az_deg = 30.0f;
   config.mission.narrow_pointing_max_slew_rate_deg_per_sec = 1.0f;
-  config.policy.scheduler.max_concurrent_nfov_locks = 2;
   const std::string trace_dir = MakeTempTracePath("oneq-sbirs-replay-atp-timeout");
   {
     std::shared_ptr<oneq::replay::ReplayTraceWriter> replay_writer(
@@ -457,13 +457,13 @@ TEST(SbirsReplaySessionTest, ReplayPreservesDualChannelPointingTimeout) {
     sbirs_sensor::session::SbirsCycleResult result;
     for (std::uint32_t cycle = 1U; cycle <= 180U; ++cycle) {
       const double offset_y_m = cycle % 2U == 0U ? -176326.9807 : 176326.9807;
-      result = session.StepWithResult(PointingInput(cycle, offset_y_m, true));
+      result = session.StepWithResult(PointingInput(cycle, offset_y_m, false));
     }
     EXPECT_TRUE(result.output_frame.detections.empty());
-    ASSERT_EQ(result.detection_attributions.size(), 2U);
+    ASSERT_EQ(result.detection_attributions.size(), 1U);
     for (const sbirs_sensor::attribution::SbirsDetectionAttributionRecord& attribution :
          result.detection_attributions) {
-      EXPECT_GE(attribution.nfov_channel_id, 0);
+      EXPECT_EQ(attribution.nfov_channel_id, 0);
       EXPECT_EQ(attribution.capture_failure_reason,
                 sbirs_sensor::attribution::SbirsCaptureFailureReason::kNfovPointingTimeout);
     }
@@ -478,9 +478,8 @@ TEST(SbirsReplaySessionTest, ReplayPreservesDualChannelPointingTimeout) {
   EXPECT_FALSE(replay_result.playback.divergence_found);
 }
 
-TEST(SbirsReplaySessionTest, ReplayPreservesChannelShrinkAndWideSearchRoundTrip) {
+TEST(SbirsReplaySessionTest, ReplayPreservesDisturbanceRestartAndWideSearchRoundTrip) {
   sbirs_sensor::config::SbirsSessionConfig config = Config();
-  config.policy.scheduler.max_concurrent_nfov_locks = 2;
   const std::string trace_dir = MakeTempTracePath("oneq-sbirs-replay-runtime-migration");
   {
     std::shared_ptr<oneq::replay::ReplayTraceWriter> replay_writer(
@@ -491,7 +490,9 @@ TEST(SbirsReplaySessionTest, ReplayPreservesChannelShrinkAndWideSearchRoundTrip)
     sbirs_sensor::session::SbirsRecordingSession session(config, options);
     session.StepWithResult(ImmMultiTargetInput(1U));
 
-    config.policy.scheduler.max_concurrent_nfov_locks = 1;
+    // 单镜筒（2026-09-02）：通道数重配已随 max_concurrent_nfov_locks 删除；
+    // runtime policy patch 以指向扰动种子重启为代表（镜筒视线与簿记保持）。
+    config.policy.pointing_disturbance.random_seed = 17U;
     {
       sbirs_sensor::config::SbirsRuntimeConfigPatch policy_patch;
       policy_patch.has_policy = true;
@@ -573,7 +574,6 @@ TEST(SbirsReplaySessionTest, ReplayPreservesPointingDisturbanceAndRuntimePolicyP
   sbirs_sensor::config::SbirsSessionConfig config = Config();
   config.mission.narrow_field_fov_az_deg = 10.0f;
   config.mission.narrow_field_fov_el_deg = 10.0f;
-  config.policy.scheduler.max_concurrent_nfov_locks = 2;
   config.policy.pointing_disturbance.common_attitude_sigma_deg = 0.05f;
   config.policy.pointing_disturbance.common_attitude_correlation_time_s = 2.0f;
   config.policy.pointing_disturbance.channel_pointing_sigma_deg = 0.1f;

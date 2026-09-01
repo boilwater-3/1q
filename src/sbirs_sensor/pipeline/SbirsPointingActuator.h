@@ -30,6 +30,7 @@ struct SbirsPointingActuatorResult {
   session::SbirsVector3M current_los{};
   double remaining_angle_deg{0.0};
   bool settled{false};
+  double settled_duration_sec{0.0};  /**< 本步内到达指令角后剩余的稳定时长（转动期间为 0） */
 };
 
 /**

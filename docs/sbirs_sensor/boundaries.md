@@ -101,7 +101,7 @@ recorder 只遍历当前周期 `input.scene`，目标从输入消失时其排除
    和诊断距离；三者均记录明确 `tracking_source`。
 4. NFOV 持续跟踪且门通过：Estimated 输出滤波后验，Strict 输出真值，Sensor-like 输出带误差观测。
 5. NFOV 单周期门失败但未达丢锁阈值：raw output 无记录；attribution/debug/lifecycle 标记 `Coasting`
-   并保留通道。
+   并保持锁定（单镜筒轮转下分离目标轮空周期即此态，帧数记 0）。
 6. NFOV 门连续失败达阈值：raw output 无记录；result attribution 携带 `kNfovTrackingGateLost` 并释放锁定。
 7. NFOV 首次捕获失败或 pointing timeout：raw output 不含失败记录；result attribution 携带
    `kNfovAcquisitionFailed` 或 `kNfovPointingTimeout`。
@@ -145,7 +145,8 @@ status/stage/reason/coasting/gate 语义派生，不直接公开 internal `Sbirs
    与 lifecycle reason，进 replay。
 3. 闭环跟踪诊断（实际光轴误差、几何/SNR 门状态、连续失败计数、coasting 标志）：进 attribution/debug/
    lifecycle/replay。
-4. `nfov_channel_id`：NFOV 通道编号（-1 表示 WFOV/未占用）；进 attribution/lifecycle/debug，进 replay。
+4. `nfov_channel_id`：单镜筒编号（2026-09-02 单镜筒化后窄场相关行恒 0，-1 表示 WFOV/未占用；
+   字段保留以稳定 replay 表与既有消费者）；进 attribution/lifecycle/debug，进 replay。
 5. cross-cue 诊断字段（2026-09-01，契约 docs/review/sbirs-cross-cue_stage_a_2026-09-01.md）：
    `cue_source_satellite_entity_id`（引导来源星，-1=自星宽场，随调度器通道持久、释放清除）、
    `measured_range_m`（误差模型距离，宽场段=candidate.measured_range_m，cross-cue 递话数据源）、
@@ -160,18 +161,19 @@ status/stage/reason/coasting/gate 语义派生，不直接公开 internal `Sbirs
 
 ## 专项序列验证边界
 
-`batch_validation::sbirs_sensor` 覆盖双目标双锁、三目标单锁交接、持续机动引发 NIS 丢锁与重捕获、
-带横向速度的 cue latency、地球遮挡再现、standby 任务重定向和无效输入恢复。
+`batch_validation::sbirs_sensor` 覆盖双目标同帧双锁（单镜筒窗口+同帧搭车）、三目标轮转交接、
+持续机动引发 NIS 丢锁与重捕获、带横向速度的 cue latency、地球遮挡再现、standby 任务重定向和
+无效输入恢复。
 
 影响退出码的硬检查：
 1. 预期未执行周期数。
-2. 单周期 NFOV 通道唯一性。
-3. 场景特定的通道/目标数量与中断-恢复结果。
+2. 单周期 NFOV 服务目标集合一致性。
+3. 场景特定的轮转/目标数量与中断-恢复结果。
 4. NIS 超门/丢锁/重捕获事件。
 5. `replay_complete` 和 `failure_marker_count`。
 
-batch 未直接证明通道跨周期稳定映射、无效输入前零 mutation、恢复后滤波/通道连续性或与 clean session
-等价；这些性质只能由对应的 unit/integration/replay 测试作为证据。红外链路物理趋势仍为 warning。
+batch 未直接证明锁定集合跨周期稳定映射、无效输入前零 mutation、恢复后滤波/锁定连续性或与 clean
+session 等价；这些性质只能由对应的 unit/integration/replay 测试作为证据。红外链路物理趋势仍为 warning。
 
 ## 能力决策与重新进入门
 
@@ -180,11 +182,11 @@ batch 未直接证明通道跨周期稳定映射、无效输入前零 mutation�
 
 | 能力 | 当前决策 | 证据或重新进入 Stage A 的必要条件 |
 |---|---|---|
-| 捕获后闭环 ATP 跟踪 | implemented | 已按逐通道状态接线；predict→advance→gate→correct、coasting、丢锁、snapshot/replay 均有测试证据 |
-| 时间相关姿态抖动与指向误差 | implemented | 已接入共模 WFOV/NFOV 与逐通道 NFOV；零幅默认，不等同完整整星控制器 |
+| 捕获后闭环 ATP 跟踪 | implemented | 单镜筒共享执行器接线（2026-09-02 单镜筒化）；predict→advance→gate→correct、coasting、丢锁、snapshot/replay 均有测试证据 |
+| 时间相关姿态抖动与指向误差 | implemented | 已接入共模 WFOV/NFOV 与单通道 NFOV（0 号，单镜筒）；零幅默认，不等同完整整星控制器 |
 | CA cue predictor | reject for wiring | 标称噪声和较长 latency 下放大误差、降低捕获率（73.91%→41.30%），未通过零回退门；不得接入 config/schema/pipeline |
 | 简化整星姿态动力学与执行机构约束 | defer | 必须先给出当前角度域模型无法满足的可复现失败和误差预算，再冻结共享平台姿态与逐通道光轴所有权 |
-| 多通道机械耦合与共享姿态资源 | defer | 必须证明独立 LOS 假设导致可观测错误，并具备确定性仲裁、失败归属和 snapshot/replay 验收矩阵 |
+| 多通道机械耦合与共享姿态资源 | implemented（单镜筒化，2026-09-02） | 独立 LOS 假设的可复现错误已坐实（三星场景分离 17.2° 双目标被同星双锁，几何+日志双探针；冻结契约 docs/review/sbirs-nfov-shared-pointing_stage_a_2026-09-02.md）后收口：窄场收敛为单执行器分时轮转 + 同帧免费多跟，`max_concurrent_nfov_locks` 删除，可保持精跟条数由跟踪门物理涌现；确定性轮转/失败归属/snapshot/replay 均有测试证据 |
 | 探测器像元、背景杂波与图像帧 | defer outside current product boundary | 仅在产品目标转为图像检测/TBD/NCC 且具备 PSF/MTF、焦距、像元几何、背景和独立物理真值时重开；归属独立 imaging 子系统 |
 | 验收信息日志（`opir_acceptance.log`） | implemented（编译期门控） | `ONEQ_ENABLE_OPIR_ACCEPTANCE_LOG` 默认 OFF 零开销；开启后写四段中文验收行，不进 `1q_library.log` |
 | WGS84 椭球地面投影 | reject（保持圆球单口径） | 覆盖区投影与遮挡判定共用 `kEarthRadiusM` 圆球；引入椭球须先给出双地球模型口径分叉的可复现验收失败 |
@@ -206,8 +208,9 @@ batch 未直接证明通道跨周期稳定映射、无效输入前零 mutation�
    形态为只读 NIS 诊断 + 人工看报告改配置。
 4. **Otsu/DBSCAN 多目标聚类**：按 `target_id` 独立维护状态机，不做自适应阈值分割或聚类。理由：
    聚类针对图像级检测点，当前目标来自输入场景的显式目标列表。
-5. **完整整星姿态系统 / CA / 6D-9D 搜索 / 轨道预测 / 通道机械耦合**：捕获后 tracking 已使用实际
-   actuator LOS 门控，但不扩展为完整整星姿态动力学（见能力决策表 defer 项）。
+5. **完整整星姿态系统 / CA / 6D-9D 搜索 / 轨道预测**：捕获后 tracking 已使用实际
+   actuator LOS 门控，但不扩展为完整整星姿态动力学（见能力决策表 defer 项）。多通道机械耦合已由
+   单镜筒化消解（2026-09-02，窄场只有一个镜筒，不再存在"多镜筒耦合"问题）。
 6. 不暴露用户自定义 pipeline、controller、状态机、环境模型或 foundation algorithm 类型。
 7. 不把仿真目标 ID/name 混入 `SbirsOutputFrame` 的 raw detection。
 8. 不把 debug view、lifecycle 或 replay 当作 1q 仿真传感器主输出。

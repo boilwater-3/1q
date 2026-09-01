@@ -118,6 +118,7 @@ set(SBIRS_SESSION_HEADERS
     "sbirs_sensor/session/SbirsCycleResult.h"
     "sbirs_sensor/session/SbirsDetectionLifecycleRecorder.h"
     "sbirs_sensor/session/SbirsExclusionCauseRecorder.h"
+    "sbirs_sensor/session/SbirsExternalCue.h"
     "sbirs_sensor/session/SbirsExternalInputAdapter.h"
     "sbirs_sensor/session/SbirsExternalOutputAdapter.h"
     "sbirs_sensor/session/SbirsInputValidation.h"
