@@ -1,4 +1,4 @@
----
+﻿---
 Status: active
 Last-reviewed: 2026-08-23
 Authority: sbirs_sensor 模块级边界、非目标、能力决策与变更规则
@@ -146,6 +146,12 @@ status/stage/reason/coasting/gate 语义派生，不直接公开 internal `Sbirs
 3. 闭环跟踪诊断（实际光轴误差、几何/SNR 门状态、连续失败计数、coasting 标志）：进 attribution/debug/
    lifecycle/replay。
 4. `nfov_channel_id`：NFOV 通道编号（-1 表示 WFOV/未占用）；进 attribution/lifecycle/debug，进 replay。
+5. cross-cue 诊断字段（2026-09-01，契约 docs/review/sbirs-cross-cue_stage_a_2026-09-01.md）：
+   `cue_source_satellite_entity_id`（引导来源星，-1=自星宽场，随调度器通道持久、释放清除）、
+   `measured_range_m`（误差模型距离，宽场段=candidate.measured_range_m，cross-cue 递话数据源）、
+   `SbirsCycleResult.wide_cue_measurements`（每周期宽场候选带误差量测，组件据此构造递话）；
+   三者均仅归属/调试面，不进 raw output、不进验收日志行；外部引导消息经运行时注入
+   `SbirsSession::SubmitExternalCue`，不进每帧输入、不进回放（回放从不注入，快照不含该队列）。
 
 `SbirsCycleResult.abort_reason` 解码只接受当前枚举中的 `kNone` 与 `kValidationRejected`；未知数值在修改
 输出前拒绝，已删除的 reason 不提供 replay 数值兼容路径。
