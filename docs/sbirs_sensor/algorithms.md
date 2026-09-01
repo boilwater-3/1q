@@ -18,19 +18,19 @@ Answers: SBIRS 用了哪些算法、各自实现到什么地步、边界在哪�
 | 目标状态机 | 7 状态管理 WFOV 发现→NFOV 捕获→持续跟踪全过程 | 生产可用 | [evidence: tests/unit/sbirs_sensor/sbirs_state_machine_test] |
 | WFOV 扫描搜索 | 推进扫描相位，执行几何/SNR 门控，输出带误差位置 | 生产可用 | [evidence: tests/unit/sbirs_sensor/sbirs_pipeline_test] |
 | NFOV 首次捕获 | WFOV cue 生成指向，限速 ATP 稳定后窗口+SNR 判捕获 | 生产可用 | [evidence: tests/unit/sbirs_sensor/sbirs_pipeline_test] |
-| 逐通道 ATP | 按 NFOV 通道保存光轴，限速推进，判定 settled/timeout | 生产可用 | [evidence: tests/unit/sbirs_sensor/sbirs_pointing_coordinator_test] |
+| 单镜筒 ATP | 全星共享一个光轴执行器（限速推进、settled/timeout、稳定时长），逐目标簿记捕获等待与门失败计数 | 生产可用 | [evidence: tests/unit/sbirs_sensor/sbirs_pointing_coordinator_test] |
 | NFOV 持续跟踪 | 捕获后闭环 ATP + 几何/SNR 门 + 滤波/真值驱动 | 生产可用 | [evidence: tests/unit/sbirs_sensor/sbirs_pipeline_test] |
 | EKF 滤波跟踪 | 6 维 CV 状态 / 2 维角度量测的扩展卡尔曼滤波 | 生产可用 | [evidence: tests/unit/sbirs_sensor/sbirs_ekf_baseline_test] |
 | IMM(EKF) 滤波 | 多模型交互，全场景 RMSE 改善 28-55% | 生产可用 | [evidence: tests/unit/sbirs_sensor/sbirs_imm_evaluation_test] |
 | 角度域线性 KF（实验） | 4 维 [az, ω_az, el, ω_el] 标准卡尔曼滤波；opt-in，默认不启用 | 实验接线 | [evidence: tests/unit/sbirs_sensor/sbirs_angle_cv_kf_test] |
 | Cue 预测 | 角度域两点 CV 提前量补偿 cue 延迟 | 生产可用 | [evidence: tests/unit/sbirs_sensor/sbirs_cue_predictor_test] |
-| NFOV 资源调度 | 多通道并发锁定，按 SNR/距离/target_id 排序 | 生产可用 | [evidence: tests/unit/sbirs_sensor/sbirs_scheduler_test] |
+| NFOV 锁定集合与分时轮转 | 无配置上限锁定集合（优先级排序入列），固定顺序轮转服务；可保持精跟条数由跟踪门物理涌现 | 生产可用 | [evidence: tests/unit/sbirs_sensor/sbirs_scheduler_test] |
 | 地球遮挡门控 | 有限线段射线-地球球体判别穿地视线；判定核在 `common/geometry/EarthOccultation`，本模块薄封装 | 生产可用 | [evidence: tests/unit/sbirs_sensor/sbirs_foundation_test] [evidence: tests/unit/common/common_earth_occultation_test] |
 | Foundation 物理链路 | 辐射强度/透过率/接收功率/噪声/SNR 标量链 | 生产可用 | [evidence: tests/unit/sbirs_sensor/sbirs_foundation_test] |
 | 当前时刻最大探测距离 | WFOV 检测门限反解 d_max(t)=sqrt(I·A·τ_opt·τ_eff·η·t/(N·SNR_th))，逐目标进归属层 | 生产可用 | [evidence: tests/unit/sbirs_sensor/sbirs_radiative_transfer_test] |
 | 气象衰减 | 查表+加权叠加得透过率衰减因子 | 生产可用 | [evidence: tests/unit/sbirs_sensor/sbirs_environment_model_test] |
 | 误差模型 | 5 类误差（轨道/姿态/视场高斯 + 折射/滞后确定性；滞后随相对视线角速度 v_t−v_sat） | 生产可用 | [evidence: tests/unit/sbirs_sensor/sbirs_error_model_test] |
-| 时间相关指向扰动 | 整星共模 + 逐通道 GM + 振动的 Gauss-Markov | 生产可用 | [evidence: tests/unit/sbirs_sensor/sbirs_pointing_disturbance_test] |
+| 时间相关指向扰动 | 整星共模 + 单通道 GM + 振动的 Gauss-Markov（单镜筒：通道扰动仅 0 号一份） | 生产可用 | [evidence: tests/unit/sbirs_sensor/sbirs_pointing_disturbance_test] |
 | 安装指向与稳定链 | 卫星姿态(Body→ECI)∘安装角(Body→Sensor)∘扫描指向合成实际光轴；体/惯性双稳定；传感器系限位；纯几何引擎在公共域 `src/common/geometry/BoresightChain` | 生产可用（阶段 2，2026-08-17） | [evidence: tests/unit/sbirs_sensor/sbirs_boresight_chain_test]、[evidence: tests/unit/common/common_boresight_chain_test] |
 | 安装失准误差模型 | 安装失准（常值偏置 + 运行期一次随机抽取的常值微扰）合成进 boresight 链影响实际光轴与门控；与量测域误差及时变扰动谱正交 | 生产可用（阶段 3，2026-08-17） | [evidence: tests/unit/sbirs_sensor/sbirs_boresight_chain_test]、[evidence: tests/unit/common/common_boresight_chain_test]、[evidence: tests/unit/sbirs_sensor/sbirs_pipeline_test] |
 | 2-D 俯仰栅格扫描 | 俯仰栅格（el 起止+步进角）与方位往复扫正交组合（2026-08-31 起牛耕式到边反向）；输出行中心 ECI 俯仰 | 生产可用（2026-08-31 往复化） | [evidence: tests/unit/sbirs_sensor/sbirs_pipeline_test] |
@@ -127,7 +127,7 @@ Answers: SBIRS 用了哪些算法、各自实现到什么地步、边界在哪�
 |---|---|---|
 | `Undetected` | 初始或未被任何视场发现 | 不输出 |
 | `WideCandidate` | WFOV 已发现，等待 NFOV 调度 | WFOV 检测记录 |
-| `AwaitingNfovAcquisition` | 已预留 NFOV 通道，推进 cue 和 ATP | slewing 时输出 WFOV；settled 后视捕获结果 |
+| `AwaitingNfovAcquisition` | 已入 NFOV 锁定集合，等待轮转窗口推进 cue 和 ATP | 轮空周期输出 WFOV；本窗口 settled 后视捕获结果 |
 | `StrictTruthAssistedTracking` | 真值 LOS 驱动闭环 ATP | 捕获成功起输出真值；失视时 coasting |
 | `SensorLikeTruthAssistedTracking` | 真值 LOS 驱动，成功观测用独立误差流 | 门通过时输出带误差角度/诊断距离 |
 | `EstimatedTracking` | EKF/IMM 预测 LOS 驱动，门通过后才消费量测 | 门通过时输出滤波估计；失视时预测 coasting |
@@ -140,7 +140,9 @@ Answers: SBIRS 用了哪些算法、各自实现到什么地步、边界在哪�
   3. 捕获失败不是独立状态；失败转移回 `WideCandidate` 并清除交接上下文。
   4. 三个 tracking 状态→`WideCandidate` 的丢锁条件：几何或 SNR 门连续失败达
      `nfov_tracking_gate_loss_cycles`（默认 2）。
-  5. `max_concurrent_nfov_locks > 1` 时多个目标可同时处于捕获/跟踪状态，各占独立 NFOV 通道。
+  5. 单镜筒分时轮转（2026-09-02）：多个目标可同时处于捕获/跟踪状态（锁定集合无配置上限），
+     但每周期镜筒只服务一个方向；分离目标轮空周期记门失败，连续超过
+     `nfov_tracking_gate_loss_cycles` 即丢锁——可保持精跟条数由此物理涌现。
   6. 状态机是跨周期累积状态；snapshot/restore 由 pipeline 自身拥有，mutation 前验证全部 cross-owned
      状态后原子恢复。
 - **反直觉点**：两个真值辅助态的命令来源均是真值，但实际 actuator LOS、NFOV 窗口与 SNR 门同样决定
@@ -152,7 +154,7 @@ Answers: SBIRS 用了哪些算法、各自实现到什么地步、边界在哪�
 | 起点 → 终点 | 触发条件 |
 |---|---|
 | `Undetected` → `WideCandidate` | WFOV 视场内且 SNR ≥ 门限 |
-| `WideCandidate` → `AwaitingNfovAcquisition` | 空闲 NFOV 通道且优先级胜出 |
+| `WideCandidate` → `AwaitingNfovAcquisition` | 连续命中达标即入锁定集合（单镜筒无并发截断） |
 | `AwaitingNfovAcquisition` 自循环 | ATP 未 settled 且等待 < `180°/max_slew_rate` |
 | `AwaitingNfovAcquisition` → Truth/Estimated | ATP settled 后窗口覆盖延迟真值 LOS + SNR 达标 |
 | `AwaitingNfovAcquisition` → `WideCandidate` | 窗口/SNR 失败或 ATP timeout |
@@ -247,18 +249,23 @@ Answers: SBIRS 用了哪些算法、各自实现到什么地步、边界在哪�
 - **验证**：8.7° 宽场 + cross_cue 场景 双星配对 0/80 → 79/80，composite 0.226→0.408，
   冒烟通过；24° 基线（默认关）逐位不回归（74/80、0.431）；单测 267 全绿。
 
-## 逐通道 ATP（光轴执行）
+## 单镜筒 ATP（光轴执行，2026-09-02 单镜筒化）
 
-- **意图**：`SbirsPointingActuator` 把光轴表示为单位 LOS 向量，沿球面最短路径限速推进。
+- **意图**：`SbirsPointingActuator` 把光轴表示为单位 LOS 向量，沿球面最短路径限速推进；窄场只有
+  一个镜筒——全星共享一个执行器，由轮转仲裁决定本周期服务于谁。
 - **实现边界**：
   1. 限速 `narrow_pointing_max_slew_rate_deg_per_sec × dt`；一步可到达时直接落到命令向量，禁止过冲。
   2. `narrow_pointing_settle_tolerance_deg` 判断 settled（默认 0.01 deg）；速率默认 30 deg/s。ATP 始终启用。
   3. settled 后施加静态 `narrow_pointing_settle_error_deg`——这是与速率/容差独立的第三个物理量。
-  4. coordinator 以 `channel_id` 持有 actuator、绑定目标、捕获等待时间和跟踪门连续失败计数。
-  5. 未 settled 且累计等待达 `180°/max_slew_rate` 时产生 `kNfovPointingTimeout`，释放资源并禁止同周期重调度。
-  6. 首次捕获成功后不释放绑定，而是清零捕获等待并晋级为 tracking。
-- **反直觉点（释放语义）**：普通释放只解除目标绑定并保留末次 LOS；standby 才清空全部通道运行态。
-  每周期先推进已有 awaiting 目标，再调度新候选，因此释放的容量可在同周期供其他目标使用。
+  4. 本步稳定时长 `settled_duration_sec = dt − (夹角−容差)/转速`：转动期间帧作废，稳定后按剩余
+     时长计帧（`帧数 = round(frame_rate_hz × settled_duration)`）；一步转不完则该周期帧数为 0。
+  5. coordinator 持有唯一 actuator + 逐目标簿记（捕获等待时长、跟踪门连续失败计数）；锁定集合与
+     簿记归属一致（快照校验拒绝不一致恢复）。
+  6. 未 settled 且该目标累计等待达 `180°/max_slew_rate` 时产生 `kNfovPointingTimeout`，释放锁定并
+     禁止同周期重调度。
+  7. 首次捕获成功后清零捕获等待并晋级为 tracking。
+- **反直觉点（释放语义）**：普通释放只清逐目标簿记，镜筒视线保持原位（下一目标从当前位置续转）；
+  standby 才清空执行器与全部簿记。等待轮转窗口的 Awaiting 目标本周期不推进镜筒、不累计等待。
 - **证据**：[evidence: tests/unit/sbirs_sensor/sbirs_pointing_coordinator_test]
 - **证据**：[evidence: tests/unit/sbirs_sensor/sbirs_pointing_actuator_test]
 
@@ -267,7 +274,8 @@ Answers: SBIRS 用了哪些算法、各自实现到什么地步、边界在哪�
 - **意图**：捕获成功后，三种互斥模式共享同一条闭环可见性链：命令 LOS → actuator 限速推进 → 有效 NFOV
   中心 → 几何门 + SNR 门。
 - **实现边界**：
-  1. 单周期门失败不产生 raw 量测，进入 `Coasting` 诊断并保持通道。
+  1. 单周期门失败（含轮转轮空/转动期间帧数为 0）不产生 raw 量测，进入 `Coasting` 诊断并保持锁定；
+     窄场行 `帧数=0`、融合 σ 记 0（单帧 σ 为硬件性质照常输出）。
   2. 连续失败达 `nfov_tracking_gate_loss_cycles`（默认 2，必须 ≥1）才正式丢锁。
   3. 三个 tracking 状态→`WideCandidate` 时输出 `kNfovTrackingGateLost` 并释放 scheduler/ATP/滤波状态。
   4. runtime Strict↔Sensor-like 原地转换并保留 NFOV 锁；任一 Truth↔Estimated 释放不兼容跟踪状态。
@@ -352,24 +360,30 @@ Answers: SBIRS 用了哪些算法、各自实现到什么地步、边界在哪�
 - **反直觉点**：这不是把现有 6 维 ECI EKF 换成另一种非线性滤波器；状态空间停在角度，因为单星被动红外用线性 KF 不能唯一确定三维。
 - **证据**：[evidence: tests/unit/sbirs_sensor/sbirs_angle_cv_kf_test]
 
-## NFOV 资源调度
+## NFOV 锁定集合与分时轮转（2026-09-02 单镜筒化）
 
-- **意图**：`max_concurrent_nfov_locks` 个并发 NFOV 通道，每个通道独立凝视锁定一个目标（默认 1 退化单目标）。
+- **意图**：窄场只有一个镜筒——锁定集合无配置上限（`max_concurrent_nfov_locks` 已删除），每周期按
+  固定顺序轮转服务一个目标；**同帧免费多跟**：当前视场内的其余锁定目标共享同一批稳定帧被同时量测，
+  帧数不随同帧目标数摊薄。可同时保持的精跟条数不再可配置，由轮转物理涌现：分离目标轮空周期记门
+  失败，连续超过 `nfov_tracking_gate_loss_cycles` 即丢锁释放（默认 2 → 稳态约容纳 2 个分离目标）。
 - **实现边界**：
-  1. 新目标被选中时分配**最小可用编号**，ATP slewing 与捕获期间保持预留。
-  2. 编号分配确定性：相同输入在 replay 中产生相同的目标→通道映射。
+  1. 新候选入列即入锁定集合（无并发截断）；优先级排序只决定入列顺序。
+  2. 轮转服务顺序 = 有序锁定集合 `[rotation_step % size]`，每执行周期步进 +1；相同输入产生相同
+     轮转序列（replay 逐位可复现，rotation_step 进快照）。
   3. 调度器不读取仿真目标名称，只使用状态、SNR、距离和 `target_id`。
-  4. `nfov_channel_id` 仅进 attribution 调试层，不进 raw output。
+  4. `nfov_channel_id` 仅进 attribution 调试层（单镜筒下窄场相关行恒 0），不进 raw output。
   5. **切换前置条件（2026-08-18）**：新候选进入调度须先满足连续 WFOV 命中门
      `hits >= wide_to_narrow_required_consecutive_hits`（默认 1 行为不变；见"验收派生量"
      节第 5 条）；已锁定/等待捕获目标不受该门影响。
-- **优先级规则**：
-  1. 已锁定目标优先级最高（持续占用各自通道）。
+  6. **同帧免转动捕获**：已在当前窄视场内的 Awaiting 候选不占用轮转窗口，立即用当前实际指向尝试
+     捕获（镜筒不动）。
+- **优先级规则**（入列顺序；轮转服务按 ID 升序固定顺序）：
+  1. 已锁定目标保持在集合内（不受新候选影响）。
   2. 新候选按 WFOV IR SNR 从高到低。
   3. SNR 相同按距离从近到远。
   4. 仍相同按 `target_id` 从小到大。
 - **证据**：[evidence: tests/unit/sbirs_sensor/sbirs_scheduler_test]
-- **证据**：[evidence: tests/unit/sbirs_sensor/sbirs_pipeline_test]（连续命中门控行为）
+- **证据**：[evidence: tests/unit/sbirs_sensor/sbirs_pipeline_test]（连续命中门控与轮转/同帧行为）
 
 ## ECEF→ECI 惯性旋转（GMST）
 
@@ -500,10 +514,10 @@ Answers: SBIRS 用了哪些算法、各自实现到什么地步、边界在哪�
 
 - **意图**：`SbirsPointingDisturbance` 建模实际光轴扰动——区别于量测域的 `attitude_sigma_deg`。
 - **实现边界**：
-  1. 两类随机状态采用一阶 Gauss-Markov 精确离散：共模项同周期移动 WFOV 和所有 NFOV 中心；通道项只
-     移动对应 NFOV。
-  2. 共模状态每个 pipeline 一份；通道状态按物理 `channel_id` 持有，不按目标持有。
-  3. 空闲通道仍随仿真时间推进；普通 release/rebind 和无关字段 patch 不重置。
+  1. 两类随机状态采用一阶 Gauss-Markov 精确离散：共模项同周期移动 WFOV 和 NFOV 中心；通道项只
+     移动 NFOV（单镜筒：仅 0 号一份，不再按目标/通道区分）。
+  2. 共模状态每个 pipeline 一份；通道状态单份（0 号），不按目标持有。
+  3. 无目标时仍随仿真时间推进；普通 release/rebind 和无关字段 patch 不重置。
   4. 全部幅值默认 0；没有可追溯设备参数时不提供仓库级非零"真实 SBIRS"常数。
   5. 当前是**传感器系角度坐标系**的小角度扰动（阶段 2 起：WFOV 共模叠加在传感器系扫描中心、
      NFOV 经链转换后叠加在传感器系指向），不含刚体姿态、角速度控制、反作用轮、饱和或机械耦合。
