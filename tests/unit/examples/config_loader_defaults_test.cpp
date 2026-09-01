@@ -92,6 +92,24 @@ TEST_F(ConfigLoaderDefaultsTest, SbirsEmptyRootKeepsPoweredOnAndFocalDefaults) {
   EXPECT_TRUE(config.sensor_enabled);
   EXPECT_FLOAT_EQ(config.hardware.focal_length_m, 2.0f);
   EXPECT_FLOAT_EQ(config.hardware.detector_pixel_pitch_m, 3.0e-5f);
+  EXPECT_FLOAT_EQ(config.mission.scan_el_start_deg, 0.0f);
+  EXPECT_FLOAT_EQ(config.mission.scan_el_span_deg, 0.0f);
+  EXPECT_FLOAT_EQ(config.mission.scan_el_step_deg, 1.0f);
+  EXPECT_FLOAT_EQ(config.policy.error_model.nav_position_sigma_m, 50.0f);
+}
+
+TEST_F(ConfigLoaderDefaultsTest, SbirsMissionElevationGridAndNavSigmaLoadFromJson) {
+  ASSERT_TRUE(LoadJson(
+      "{\"mission\": {\"scan_el_start_deg\": -2.0, \"scan_el_span_deg\": 4.0,"
+      " \"scan_el_step_deg\": 0.5},"
+      " \"policy\": {\"error_model\": {\"nav_position_sigma_m\": 25.0}}}"));
+  sbirs_sensor::config::SbirsSessionConfig config;
+  std::string error;
+  ASSERT_TRUE(LoadSbirsSessionConfigFromFile(kTestJsonPath, &config, &error)) << error;
+  EXPECT_FLOAT_EQ(config.mission.scan_el_start_deg, -2.0f);
+  EXPECT_FLOAT_EQ(config.mission.scan_el_span_deg, 4.0f);
+  EXPECT_FLOAT_EQ(config.mission.scan_el_step_deg, 0.5f);
+  EXPECT_FLOAT_EQ(config.policy.error_model.nav_position_sigma_m, 25.0f);
 }
 
 TEST_F(ConfigLoaderDefaultsTest, RirEmptyRootKeepsPoweredOn) {

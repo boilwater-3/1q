@@ -164,6 +164,15 @@ inline void LoadSbirsMission(const examples::JsonValue& j,
   if (j.Has("scan_center_el_deg")) {
     v->scan_center_el_deg = static_cast<float>(j["scan_center_el_deg"].AsDouble());
   }
+  if (j.Has("scan_el_start_deg")) {
+    v->scan_el_start_deg = static_cast<float>(j["scan_el_start_deg"].AsDouble());
+  }
+  if (j.Has("scan_el_span_deg")) {
+    v->scan_el_span_deg = static_cast<float>(j["scan_el_span_deg"].AsDouble());
+  }
+  if (j.Has("scan_el_step_deg")) {
+    v->scan_el_step_deg = static_cast<float>(j["scan_el_step_deg"].AsDouble());
+  }
   if (j.Has("scan_rate_deg_per_sec")) {
     v->scan_rate_deg_per_sec = static_cast<float>(j["scan_rate_deg_per_sec"].AsDouble());
   }
@@ -225,6 +234,9 @@ inline void LoadSbirsErrorModel(const examples::JsonValue& j,
   }
   if (j.Has("detector_bandwidth_hz")) {
     v->detector_bandwidth_hz = static_cast<float>(j["detector_bandwidth_hz"].AsDouble());
+  }
+  if (j.Has("nav_position_sigma_m")) {
+    v->nav_position_sigma_m = static_cast<float>(j["nav_position_sigma_m"].AsDouble());
   }
 }
 
