@@ -2636,4 +2636,84 @@ TEST(SbirsPipelineTest, NadirSpanConvergesToEarthDisk) {
             static_cast<float>(useful_half_deg) + 0.1f);
 }
 
+TEST(SbirsPipelineTest, ExternalCueGuidesOutOfWfovTargetIntoNfov) {
+  // cross-cue（2026-09-01）：目标在本星宽场扫描带外 → 无 cue 时 out_of_wfov 排除；
+  // 注入外部引导（来源星带误差测角+距离，修订 5 运行时注入）→ 外部候选进同池调度
+  // → 窄场捕获 → 归属标记引导来源星 ID（修订 4 同池同规则，来源只记录）。
+  const sbirs_sensor::config::SbirsSessionConfig config = PipelineConfig();
+  sbirs_sensor::pipeline::SbirsPipeline pipeline(
+      sbirs_sensor::runtime::MapSessionToInternal(config));
+
+  // 本星 ECEF (7000000,0,0)，GMST≈0 → ECI≡ECEF；扫描带中心近方位 0°，目标在 77°。
+  sbirs_sensor::session::SbirsCycleInput input =
+      sbirs_sensor::session::SbirsCycleInputBuilder()
+          .WithCycleIndex(1U)
+          .WithDeltaTimeSec(1.0f)
+          .WithUtcJulianDay(2451544.2230698913)
+          .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
+          .WithSatelliteVelocity(sbirs_sensor::session::SbirsVector3M{})
+          .WithSatelliteAttitude(sbirs_sensor::session::SbirsEulerAnglesDeg{})
+          .AddTarget(HotTarget(1U, 4500000.0))
+          .Build();
+
+  // 1) 无 cue：目标在宽场外，走排除路径（不产生候选）。
+  {
+    sbirs_sensor::pipeline::SbirsPipelineResult result = pipeline.RunCycle(input);
+    EXPECT_NE(FindIssue(result, "sbirs.target_out_of_wfov"), nullptr);
+    EXPECT_TRUE(result.detections.empty());
+  }
+
+  // 2) 注入外部引导：来源星 ECEF (6000000,1000000,0) 看到同一目标（真值 ECEF
+  //    (8000000,4500000,0)），LOS 方位≈60.25°、俯仰 0°、距离≈4.03e6 m。
+  sbirs_sensor::session::SbirsExternalCue cue;
+  cue.target_id = 1U;
+  cue.source_satellite_entity_id = 104U;
+  cue.source_position_ecef_m = Vector(6000000.0, 1000000.0, 0.0);
+  cue.azimuth_deg = 60.2551f;
+  cue.elevation_deg = 0.0f;
+  cue.range_m = 4031129.0;
+  pipeline.SubmitExternalCue(cue);
+  {
+    sbirs_sensor::pipeline::SbirsPipelineResult result = pipeline.RunCycle(input);
+    // 外部候选进调度并窄场捕获：输出帧至少一条检测，归属带来源星 ID。
+    EXPECT_FALSE(result.detections.empty());
+    bool saw_cue_sourced = false;
+    for (const sbirs_sensor::pipeline::SbirsPipelineDetection& detection : result.detections) {
+      if (detection.attribution.target_id == 1U &&
+          detection.attribution.cue_source_satellite_entity_id == 104) {
+        saw_cue_sourced = true;
+      }
+    }
+    EXPECT_TRUE(saw_cue_sourced);
+  }
+}
+
+TEST(SbirsPipelineTest, ExternalCueInvalidIsDroppedWithIssue) {
+  // 非法 cue（非正距离）：注入点消费时整条丢弃并计 kInfo issue，不影响其余目标。
+  const sbirs_sensor::config::SbirsSessionConfig config = PipelineConfig();
+  sbirs_sensor::pipeline::SbirsPipeline pipeline(
+      sbirs_sensor::runtime::MapSessionToInternal(config));
+  sbirs_sensor::session::SbirsCycleInput input =
+      sbirs_sensor::session::SbirsCycleInputBuilder()
+          .WithCycleIndex(1U)
+          .WithDeltaTimeSec(1.0f)
+          .WithUtcJulianDay(2451544.2230698913)
+          .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
+          .WithSatelliteVelocity(sbirs_sensor::session::SbirsVector3M{})
+          .WithSatelliteAttitude(sbirs_sensor::session::SbirsEulerAnglesDeg{})
+          .AddTarget(HotTarget(1U, 4500000.0))
+          .Build();
+  sbirs_sensor::session::SbirsExternalCue bad_cue;
+  bad_cue.target_id = 1U;
+  bad_cue.source_satellite_entity_id = 104U;
+  bad_cue.source_position_ecef_m = Vector(6000000.0, 1000000.0, 0.0);
+  bad_cue.azimuth_deg = 60.2551f;
+  bad_cue.elevation_deg = 0.0f;
+  bad_cue.range_m = -1.0;  // 非正距离
+  pipeline.SubmitExternalCue(bad_cue);
+  sbirs_sensor::pipeline::SbirsPipelineResult result = pipeline.RunCycle(input);
+  EXPECT_NE(FindIssue(result, "sbirs.external_cue_invalid"), nullptr);
+  EXPECT_TRUE(result.detections.empty());
+}
+
 }  // namespace
