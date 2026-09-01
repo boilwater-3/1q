@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>SBIRS 扫描参数图解 — 起点 / 跨度 / 速率 / 俯仰 / 视场</title>
+<style>
+  :root { --bg:#10151c; --panel:#171e27; --ink:#dce4ee; --muted:#8393a8; --line:#242e3b; }
+  * { box-sizing:border-box; }
+  body { margin:0; padding:14px 18px; background:var(--bg); color:var(--ink);
+         font:14px/1.6 -apple-system,"PingFang SC","Helvetica Neue",Arial,sans-serif; }
+  h1 { font-size:17px; margin:0 0 4px; }
+  h2 { font-size:14px; margin:0 0 8px; color:#aebdd2; }
+  .sub { color:var(--muted); font-size:12.5px; margin-bottom:10px; }
+  .panel { background:var(--panel); border:1px solid var(--line); border-radius:8px;
+           padding:12px 14px; margin-bottom:14px; }
+  #err { display:none; color:#ff8a70; font-size:13px; padding:8px 12px; margin-bottom:12px;
+         border:1px solid #a04b3a; border-radius:6px; background:#241512; }
+  canvas { display:block; width:100%; height:auto; border-radius:6px; background:#0e141d; }
+  .ctrl { display:flex; flex-wrap:wrap; gap:14px; align-items:center; margin:8px 0 2px;
+          font-size:12.5px; color:var(--muted); }
+  .ctrl label b { color:var(--ink); font-weight:600; }
+  input[type=range] { width:190px; vertical-align:middle; }
+  .btn { padding:3px 12px; border:1px solid #3a4757; border-radius:5px; background:#1d2632;
+         color:var(--ink); cursor:pointer; font-size:12.5px; }
+  .btn:hover { background:#26313f; }
+  .btn.active { background:#2b6cb0; border-color:#2b6cb0; color:#fff; }
+  .legend { font-size:12px; color:var(--muted); margin-top:6px; }
+  .sw { display:inline-block; width:12px; height:12px; border-radius:3px; vertical-align:-1px; margin-right:4px; }
+  #elStatus { margin-top:8px; font-size:13px; }
+  .ok { color:#63c98a; } .bad { color:#e0705a; }
+  .qa { margin:0 0 6px; } .qa b { color:#a8d3ff; }
+</style>
+</head>
+<body>
+<h1>SBIRS 扫描参数图解 — 灯、转盘与光锥</h1>
+<div class="sub">把五个指向参数画成"装在转盘上的探照灯"，拖滑块看每个参数怎么改变那束光。数据纯属示意，比例未按真实。</div>
+<div id="err"></div>
+
+<div class="panel">
+  <h2>先回答：scan_start_az_deg 明明能算出来，为什么还要人填？</h2>
+  <p class="qa"><b>因为"该看哪"是任务决策，不是技术推算。</b>库只提供"云台 + 镜头"（按指令转动、按光学探测），
+  它不知道——也不应该知道——你的卫星摆在哪个经度、目标会从哪片天飞来。这些只有做任务规划的人（也就是集成它的你）才有答案。</p>
+  <p class="qa"><b>更根本的一条：传感器模型不许"开天眼"。</b>如果库替你自动把视场对准目标，就等于用真值作弊——
+  真实卫星的扫描方案是发射前由地面规划好写进去的，仿真要还原的正是这个流程：瞄准是<b>输入</b>，不是推导。</p>
+  <p class="qa">三星场景里的 154.8° 那组数，就是当年"场景作者"先定好三星摆哪、目标飞哪，再反算出来填进 JSON 的。
+  你集成时扮演的就是这个角色——为自己的几何，填自己的数。</p>
+</div>
+
+<div class="panel">
+  <h2>俯视图 — 方位角一族：起点 start / 跨度 span / 速率 rate / 视场宽 wfov</h2>
+  <canvas id="top" width="880" height="500"></canvas>
+  <div class="ctrl">
+    <button class="btn" id="playTop">⏸ 暂停</button>
+    <label>方位起点 <b id="vStart">165</b>° <input id="sStart" type="range" min="0" max="359" value="165"></label>
+    <label>扫描跨度 <b id="vSpan">30</b>° <input id="sSpan" type="range" min="5" max="360" value="30"></label>
+    <label>视场宽 <b id="vFov">24</b>° <input id="sFov" type="range" min="6" max="60" value="24"></label>
+    <label>速率
+      <select id="sRate">
+        <option value="0" selected>0（凝视·钉死）</option>
+        <option value="6">6 °/s</option>
+        <option value="12">12 °/s</option>
+        <option value="30">30 °/s</option>
+      </select>
+    </label>
+    <button class="btn" id="presetScene">三星场景（凝视）</button>
+    <button class="btn" id="presetPatrol">整圈巡逻</button>
+  </div>
+  <div class="legend">
+    <span class="sw" style="background:rgba(255,200,80,.25);border:1px solid rgba(255,200,80,.6)"></span>扫描扇区（span）＝灯巡逻的范围
+    　
+    <span class="sw" style="background:rgba(99,164,255,.4);border:1px solid #63a4ff"></span>瞬时视场（wfov）＝这一帧真正看到的窗口
+    　
+    <span class="sw" style="background:#0d1f33;border:1px solid #3d6a8f"></span>地球
+    　
+    <span style="color:#8fa8c4">— —</span> GEO 轨道（俯视）
+  </div>
+  <div class="legend" id="topReadout"></div>
+</div>
+
+<div class="panel">
+  <h2>侧视图 — 俯仰角 scan_center_el_deg（抬头 / 低头）</h2>
+  <canvas id="side" width="880" height="330"></canvas>
+  <div class="ctrl">
+    <label>俯仰中心 <b id="vEl">0</b>° <input id="sEl" type="range" min="-90" max="60" value="0"></label>
+    <label>视场高（俯仰向窗口宽）<b id="vFovEl">24</b>° <input id="sFovEl" type="range" min="6" max="60" value="24"></label>
+    <span style="color:var(--muted)">el=0 平看赤道面 · el=-90 朝地心（basic_config 就是 -90）</span>
+  </div>
+  <div id="elStatus"></div>
+</div>
+
+<script>
+window.onerror = function (msg) {
+  var e = document.getElementById("err");
+  e.style.display = "block";
+  e.textContent = "页面脚本出错（请把此行截图给助手）：" + msg;
+  return false;
+};
+(function init() {
+  "use strict";
+  var $ = function (id) { return document.getElementById(id); };
+  var topCv = $("top"), sideCv = $("side");
+  var tctx = topCv.getContext("2d"), sctx = sideCv.getContext("2d");
+  var state = { start: 165, span: 30, wfov: 24, rate: 0, phase: 0, legForward: true,
+                playing: true, el: 0, fovEl: 24, lastFrame: 0 };
+
+  /* ---------- 俯视图 ---------- */
+  var TC = { cx: 400, cy: 260, rEarth: 62, rGeo: 195, satAz: 0 };
+  function drawTop(now) {
+    var W = topCv.width, H = topCv.height;
+    tctx.fillStyle = "#0e141d";
+    tctx.fillRect(0, 0, W, H);
+    var cx = TC.cx, cy = TC.cy;
+
+    // ECI 坐标轴
+    tctx.strokeStyle = "#2a3a4d"; tctx.lineWidth = 1;
+    tctx.beginPath(); tctx.moveTo(20, cy); tctx.lineTo(W - 20, cy); tctx.stroke();
+    tctx.beginPath(); tctx.moveTo(cx, 20); tctx.lineTo(cx, H - 20); tctx.stroke();
+    tctx.fillStyle = "#54677e"; tctx.font = "11px sans-serif";
+    tctx.fillText("ECI +x", W - 62, cy + 14);
+    tctx.fillText("ECI +y", cx + 6, 32);
+
+    // GEO 轨道（虚线圆）
+    tctx.setLineDash([4, 4]); tctx.strokeStyle = "#3d5570";
+    tctx.beginPath(); tctx.arc(cx, cy, TC.rGeo, 0, Math.PI * 2); tctx.stroke();
+    tctx.setLineDash([]);
+    tctx.fillStyle = "#54677e";
+    tctx.fillText("GEO 轨道", cx + TC.rGeo - 60, cy - TC.rGeo - 6);
+
+    // 地球
+    tctx.fillStyle = "#0d1f33"; tctx.strokeStyle = "#3d6a8f"; tctx.lineWidth = 1.5;
+    tctx.beginPath(); tctx.arc(cx, cy, TC.rEarth, 0, Math.PI * 2); tctx.fill(); tctx.stroke();
+    tctx.fillStyle = "#8fa8c4";
+    tctx.fillText("地球", cx - 12, cy + 4);
+
+    // 卫星（放在方位 0°，即右侧）
+    var sx = cx + Math.cos(TC.satAz) * TC.rGeo, sy = cy - Math.sin(TC.satAz) * TC.rGeo;
+    tctx.fillStyle = "#1f77b4";
+    tctx.fillRect(sx - 5, sy - 5, 10, 10);
+    tctx.fillStyle = "#dce4ee";
+    tctx.fillText("卫星", sx + 10, sy + 4);
+
+    var azCur = norm360(state.start + state.phase);
+    var half = state.wfov / 2;
+
+    // 扇区（span）：从 start 到 start+span（长度按画布边界裁剪）
+    var secLen = Math.min(
+      clipLen(sx, sy, rad(norm360(state.start)), 330),
+      clipLen(sx, sy, rad(norm360(state.start + state.span)), 330));
+    drawWedge(tctx, sx, sy, state.start, state.span, secLen,
+              "rgba(255,200,80,0.10)", "rgba(255,200,80,0.55)");
+    // 起点刻度线
+    tctx.strokeStyle = "rgba(255,200,80,0.9)"; tctx.lineWidth = 1.5;
+    tctx.beginPath(); tctx.moveTo(sx, sy);
+    tctx.lineTo(sx + Math.cos(rad(state.start)) * 90, sy - Math.sin(rad(state.start)) * 90);
+    tctx.stroke();
+    tctx.fillStyle = "#ffd47f";
+    tctx.fillText("起点 " + Math.round(norm360(state.start)) + "°",
+                  sx + Math.cos(rad(state.start)) * 96 - 20, sy - Math.sin(rad(state.start)) * 96);
+
+    // 瞬时视场（wfov 宽的光束）
+    var beamLen = beamLengthTop(sx, sy, rad(azCur));
+    drawWedge(tctx, sx, sy, azCur - half, state.wfov, beamLen,
+              "rgba(99,164,255,0.28)", "#63a4ff");
+
+    // 当前方位读数
+    tctx.fillStyle = "#a8d3ff"; tctx.font = "12px sans-serif";
+    tctx.fillText("当前指向 " + azCur.toFixed(1) + "°",
+                  sx + Math.cos(rad(azCur)) * (beamLen + 8) - 40,
+                  sy - Math.sin(rad(azCur)) * (beamLen + 8));
+    // 画布内左上角状态
+    tctx.fillStyle = state.rate === 0 ? "#ffd47f" : "#a8d3ff";
+    tctx.fillText(state.rate === 0 ? "速率 = 0：钉死在起点（凝视），扇区只是“户口”不是巡逻范围"
+                                   : "速率 = " + state.rate + " °/s：光束在扇区内往复扫（到边反向，2026-08-31 起与库一致）",
+                  24, 28);
+    $("topReadout").textContent = "扇区 " + Math.round(norm360(state.start)) + "° → "
+      + Math.round(norm360(state.start + state.span)) + "°（跨度 " + Math.round(state.span)
+      + "°）　·　当前指向 " + azCur.toFixed(1) + "°　·　视场宽 " + Math.round(state.wfov) + "°";
+  }
+  function drawWedge(ctx, x, y, azDeg, widthDeg, len, fill, stroke) {
+    var a0 = rad(azDeg), a1 = rad(azDeg + widthDeg);
+    ctx.beginPath(); ctx.moveTo(x, y);
+    ctx.arc(x, y, len, -a1, -a0);   // canvas y 翻转 → 逆时针角取负
+    ctx.closePath();
+    ctx.fillStyle = fill; ctx.fill();
+    ctx.strokeStyle = stroke; ctx.lineWidth = 1.2; ctx.stroke();
+  }
+  function clipLen(x, y, thetaRad, maxLen) {
+    var W = topCv.width, H = topCv.height, m = 18;
+    var c = Math.cos(thetaRad), s = -Math.sin(thetaRad);
+    var t = maxLen;
+    if (c > 1e-6) t = Math.min(t, (W - m - x) / c);
+    if (c < -1e-6) t = Math.min(t, (m - x) / c);
+    if (s > 1e-6) t = Math.min(t, (H - m - y) / s);
+    if (s < -1e-6) t = Math.min(t, (m - y) / s);
+    return Math.max(40, t);
+  }
+  function beamLengthTop(x, y, thetaRad) {
+    // 光束到地球圆的相交长度（示意：命中则停在地球表面）
+    var dx = Math.cos(thetaRad), dy = -Math.sin(thetaRad);
+    var fx = x - TC.cx, fy = y - TC.cy;
+    var b = fx * dx + fy * dy;
+    var c = fx * fx + fy * fy - TC.rEarth * TC.rEarth;
+    var disc = b * b - c;
+    if (disc > 0) {
+      var t = -b - Math.sqrt(disc);
+      if (t > 0) return t;
+    }
+    return clipLen(x, y, thetaRad, 340);
+  }
+
+  /* ---------- 侧视图 ---------- */
+  var SC = { cx: 440, cy: 160, rEarth: 56, rGeo: 195, tdx: 42, tdy: -24 };
+  function drawSide() {
+    var W = sideCv.width, H = sideCv.height;
+    sctx.fillStyle = "#0e141d"; sctx.fillRect(0, 0, W, H);
+    var cx = SC.cx, cy = SC.cy;
+
+    // 赤道面（水平线）
+    sctx.strokeStyle = "#2a3a4d"; sctx.lineWidth = 1;
+    sctx.beginPath(); sctx.moveTo(24, cy); sctx.lineTo(W - 24, cy); sctx.stroke();
+    sctx.fillStyle = "#54677e"; sctx.font = "11px sans-serif";
+    sctx.fillText("赤道面（el=0 的基准面）", 26, cy - 8);
+
+    // 地球 + 地心方向线
+    sctx.fillStyle = "#0d1f33"; sctx.strokeStyle = "#3d6a8f"; sctx.lineWidth = 1.5;
+    sctx.beginPath(); sctx.arc(cx, cy, SC.rEarth, 0, Math.PI * 2); sctx.fill(); sctx.stroke();
+    sctx.fillStyle = "#8fa8c4"; sctx.fillText("地球", cx - 12, cy + 4);
+
+    var sx = cx + SC.rGeo, sy = cy;
+    sctx.fillStyle = "#1f77b4"; sctx.fillRect(sx - 5, sy - 5, 10, 10);
+    sctx.fillStyle = "#dce4ee"; sctx.fillText("卫星", sx + 10, sy + 4);
+
+    // el 刻度：0 / -45 / -90（画布 y 向下：负仰角朝下、正仰角朝上）
+    sctx.strokeStyle = "#33475e";
+    [[0, "el=0 平看"], [-45, ""], [-90, "el=-90 朝地心"]].forEach(function (tk) {
+      var e = rad(tk[0]);
+      var ex = sx - Math.cos(e) * 150, ey = sy - Math.sin(e) * 150;
+      sctx.beginPath(); sctx.moveTo(sx, sy); sctx.lineTo(ex, ey); sctx.stroke();
+      if (tk[1]) {
+        sctx.fillStyle = "#54677e";
+        sctx.fillText(tk[1], ex + (tk[0] === 0 ? 4 : -34), ey + (tk[0] === 0 ? -6 : 14));
+      }
+    });
+
+    // 目标（在赤道面上方）
+    var tx = cx + SC.tdx, ty = cy + SC.tdy;
+    var elTarget = Math.atan2(sy - ty, sx - tx) * 180 / Math.PI;   // 从卫星看目标的仰角
+    sctx.fillStyle = "#d62728";
+    sctx.beginPath(); sctx.arc(tx, ty, 4, 0, Math.PI * 2); sctx.fill();
+    sctx.fillStyle = "#e8928a";
+    sctx.fillText("目标（略微高于赤道面）", tx - 40, ty - 10);
+
+    // 俯仰窗口（el 中心 ± fovEl/2）；光束朝左（指向地球），画布参数角 = 180°+el
+    var half = state.fovEl / 2;
+    var lenHit = beamLengthSide(sx, sy, rad(state.el));
+    var e0 = rad(state.el - half), e1 = rad(state.el + half);
+    sctx.beginPath(); sctx.moveTo(sx, sy);
+    sctx.arc(sx, sy, Math.max(lenHit, 120), rad(180) + e0, rad(180) + e1);
+    sctx.closePath();
+    sctx.fillStyle = "rgba(99,164,255,0.22)"; sctx.fill();
+    sctx.strokeStyle = "#63a4ff"; sctx.lineWidth = 1.2; sctx.stroke();
+    var lx = sx - Math.cos(rad(state.el)) * 130,
+        ly = Math.min(Math.max(sy - Math.sin(rad(state.el)) * 130 - 10, 16), 300);
+    sctx.fillStyle = "#a8d3ff"; sctx.font = "12px sans-serif";
+    sctx.fillText("俯仰窗口 " + (state.el - half).toFixed(0) + "° ~ " + (state.el + half).toFixed(0) + "°",
+                  Math.min(lx, 560), ly);
+
+    var inWin = Math.abs(elTarget - state.el) <= half;
+    $("elStatus").innerHTML = "从卫星看，目标的俯仰角约 <b>+" + elTarget.toFixed(1) + "°</b>；窗口中心 "
+      + "<b>" + state.el + "°</b> ± 半宽 " + half.toFixed(0) + "° → "
+      + (inWin ? '<span class="ok">目标在俯仰窗口内 ✓（方位也对了就能看见）</span>'
+               : '<span class="bad">目标在俯仰窗口外 ✗ → not_in_output，看不见</span>');
+  }
+  function beamLengthSide(x, y, eRad) {
+    var dx = -Math.cos(eRad), dy = -Math.sin(eRad);   // 朝左；正仰角朝上（画布 y 向下）
+    var fx = x - SC.cx, fy = y - SC.cy;
+    var b = fx * dx + fy * dy;
+    var c = fx * fx + fy * fy - SC.rEarth * SC.rEarth;
+    var disc = b * b - c;
+    if (disc > 0) {
+      var t = -b - Math.sqrt(disc);
+      if (t > 0) return t;
+    }
+    return 360;
+  }
+  function rad2deg(d) { return d * 180 / Math.PI; }
+
+  /* ---------- 公共小工具 ---------- */
+  function rad(d) { return d * Math.PI / 180; }
+  function norm360(a) { return ((a % 360) + 360) % 360; }
+
+  /* ---------- 控件 ---------- */
+  function bindRange(id, out, key, redraw) {
+    $(id).addEventListener("input", function () {
+      state[key] = parseFloat(this.value);
+      $(out).textContent = Math.round(state[key]);
+      redraw();
+    });
+  }
+  bindRange("sStart", "vStart", "start", drawAll);
+  bindRange("sSpan", "vSpan", "span", drawAll);
+  bindRange("sFov", "vFov", "wfov", drawAll);
+  bindRange("sEl", "vEl", "el", drawAll);
+  bindRange("sFovEl", "vFovEl", "fovEl", drawAll);
+  $("sRate").addEventListener("change", function () {
+    state.rate = parseFloat(this.value); drawAll();
+  });
+  $("playTop").addEventListener("click", function () {
+    state.playing = !state.playing;
+    this.textContent = state.playing ? "⏸ 暂停" : "▶ 播放";
+    this.classList.toggle("active", !state.playing);
+  });
+  $("presetScene").addEventListener("click", function () {
+    Object.assign(state, { start: 165, span: 30, wfov: 24, rate: 0, phase: 0, legForward: true });
+    syncInputs(); drawAll();
+  });
+  $("presetPatrol").addEventListener("click", function () {
+    Object.assign(state, { start: 165, span: 360, wfov: 24, rate: 12, phase: 0, legForward: true });
+    syncInputs(); drawAll();
+  });
+  function syncInputs() {
+    $("sStart").value = state.start; $("vStart").textContent = Math.round(state.start);
+    $("sSpan").value = state.span; $("vSpan").textContent = Math.round(state.span);
+    $("sFov").value = state.wfov; $("vFov").textContent = Math.round(state.wfov);
+    $("sRate").value = String(state.rate);
+  }
+
+  /* ---------- 动画（rAF + 兜底 ticker） ---------- */
+  function tick(now) {
+    if (state.playing && state.rate > 0) {
+      var dt = Math.min(0.1, (now - state.lastFrame) / 1000 || 0.016);
+      // 往复式（2026-08-31 起与库一致）：行程 ∈ [0, 2·span) 折叠反射——去程正走、
+      // 回程反走，到边反向而非跳回起点；相位 = 距起点距离（两腿同映射）。
+      var travel = (state.legForward ? state.phase : 2 * state.span - state.phase)
+                 + state.rate * dt;
+      var folded = travel % (2 * state.span);
+      state.legForward = folded < state.span;
+      state.phase = state.legForward ? folded : 2 * state.span - folded;
+    }
+    state.lastFrame = now;
+    drawAll();
+    requestAnimationFrame(tick);
+  }
+  function drawAll() { drawTop(state.lastFrame); drawSide(); }
+  requestAnimationFrame(tick);
+  setInterval(function () {
+    if (performance.now() - state.lastFrame > 700) drawAll();   // rAF 停摆兜底
+  }, 350);
+})();
+</script>
+</body>
+</html>
