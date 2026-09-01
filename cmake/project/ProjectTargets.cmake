@@ -119,7 +119,7 @@ function(oneq_add_component target)
     # 打开时：有 spdlog（macOS）走 spdlog；无 spdlog（Windows）走 ProjectFileLog。
     # 落盘目录由 ONEQ_LOG_DIR 编进默认路径（空则 <cwd>/log/）。
     oneq_log_file(_oneq_file_log_path "1q_library.log")
-    oneq_log_file(_oneq_sbirs_accept_path "sbirs_acceptance.log")
+    oneq_log_file(_oneq_opir_accept_path "opir_acceptance.log")
     oneq_log_file(_oneq_rir_accept_path "rir_acceptance.log")
     oneq_log_file(_oneq_fusion_accept_path "fusion_acceptance.log")
     oneq_log_file(_oneq_inference_accept_path "inference_acceptance.log")
@@ -130,7 +130,7 @@ function(oneq_add_component target)
         PROJECT_LOG_BACKEND_SPDLOG=$<AND:$<BOOL:${PROJECT_ENABLE_SPDLOG}>,$<BOOL:${ONEQ_ENABLE_FILE_LOG}>>
         PROJECT_LOG_BACKEND_FILE=$<AND:$<BOOL:${ONEQ_ENABLE_FILE_LOG}>,$<NOT:$<BOOL:${PROJECT_ENABLE_SPDLOG}>>>
         ONEQ_FILE_LOG_PATH=\"${_oneq_file_log_path}\"
-        ONEQ_SBIRS_ACCEPTANCE_LOG_PATH=\"${_oneq_sbirs_accept_path}\"
+        ONEQ_OPIR_ACCEPTANCE_LOG_PATH=\"${_oneq_opir_accept_path}\"
         ONEQ_RIR_ACCEPTANCE_LOG_PATH=\"${_oneq_rir_accept_path}\"
         ONEQ_FUSION_ACCEPTANCE_LOG_PATH=\"${_oneq_fusion_accept_path}\"
         ONEQ_INFERENCE_ACCEPTANCE_LOG_PATH=\"${_oneq_inference_accept_path}\"

@@ -404,12 +404,12 @@ Answers: SBIRS 用了哪些算法、各自实现到什么地步、边界在哪�
      ECI 几何；旋转保模长与球体相交语义，门控结果与帧无关。
 - **证据**：[evidence: tests/unit/sbirs_sensor/sbirs_foundation_test]
 
-## 验收派生量（`sbirs_acceptance.log`，2026-08-22）
+## 验收派生量（`opir_acceptance.log`，2026-08-22）
 
 - **意图**：满足需求映射 3.2.1.3 章节（OPIR 宽视场扫描探测与窄视场跟踪探测）与
   3.2.1.6.3 角定位误差的验收信息
   输出：把管线中间量与少量新增派生量经 `SBIRS_ACCEPTANCE_ITEM`（CMake 开关
-  `ONEQ_ENABLE_SBIRS_ACCEPTANCE_LOG`，默认 OFF）写入 `sbirs_acceptance.log`，
+  `ONEQ_ENABLE_OPIR_ACCEPTANCE_LOG`，默认 OFF）写入 `opir_acceptance.log`，
   四段同一行，人读验收材料。项表见 `docs/review/acceptance_item_catalog_2026-08-22.md`。
 - **派生量与公式**：
   1. **WFOV 地面覆盖区**：实际扫描中心（传感器系，含共模扰动与限位钳制）± 半视场共 4 角，

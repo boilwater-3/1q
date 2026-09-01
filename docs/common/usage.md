@@ -94,7 +94,7 @@ CMake toolchain/dependency 文件。它没有 `build()`、`package()` 或 `packa
 | `ONEQ_ENABLE_FLIGHT_DYNAMIC` | OFF | 构建 flight_dynamic 模块及其专属测试/示例 |
 | `ONEQ_ENABLE_FILE_LOG` | OFF | 库内部调试日志总闸。关闭时空操作。Windows 保持关闭；macOS 排库算法时才 `-DONEQ_ENABLE_FILE_LOG=ON` |
 | `ONEQ_LOG_DIR` | 空 | 库调试日志、验收文件、RIR 天线/波位 CSV 的默认目录。空 = 进程当前目录下的 `log/`。集成方 configure 时 `-DONEQ_LOG_DIR=<dir>`，不要在源码里写死路径 |
-| `ONEQ_ENABLE_SBIRS_ACCEPTANCE_LOG` | OFF | 开启后写 `sbirs_acceptance.log`（红外探测、宽窄视场、生命周期、红外测角；四段同一行）；关闭时宏与派生计算一并剪除 |
+| `ONEQ_ENABLE_OPIR_ACCEPTANCE_LOG` | OFF | 开启后写 `opir_acceptance.log`（红外探测、宽窄视场、生命周期、红外测角；四段同一行）；关闭时宏与派生计算一并剪除 |
 | `ONEQ_ENABLE_RIR_ACCEPTANCE_LOG` | OFF | 开启后写 `rir_acceptance.log` 与 `rir_antenna_pattern.csv`（雷达探测/跟踪识别/调度）；关闭时零开销 |
 | `ONEQ_ENABLE_FUSION_ACCEPTANCE_LOG` | OFF | 开启后写 `fusion_acceptance.log`（融合航迹、可写的接力子集、UKF）；关闭时零开销 |
 | `ONEQ_ENABLE_INFERENCE_ACCEPTANCE_LOG` | OFF | 开启后写 `inference_acceptance.log`（轨迹/落点/发射点）；关闭时零开销 |
@@ -103,7 +103,7 @@ CMake toolchain/dependency 文件。它没有 `build()`、`package()` 或 `packa
 选项的最终值以所选 preset 与 configure 命令覆盖后的 CMake cache 为准。
 
 组合 preset：`1q_log_vs2015`（VS2015 x64，无 Conan）继承 `VisualStudio.14.0-amd64-none`
-并**默认开启** `ONEQ_ENABLE_SBIRS_ACCEPTANCE_LOG` 与
+并**默认开启** `ONEQ_ENABLE_OPIR_ACCEPTANCE_LOG` 与
 `ONEQ_ENABLE_RIR_ACCEPTANCE_LOG`（验收日志一键配置：先跑一次
 `scripts\fetch_third_party.bat` 拉取依赖源码，然后 `cmake --preset 1q_log_vs2015` →
 `cmake --build --preset 1q_log_vs2015-release`，验收行写入 `ONEQ_LOG_DIR`

@@ -410,7 +410,7 @@ void SbirsSensorComponent::Step(World& world, double dt_sec) {
   const std::chrono::steady_clock::time_point step_begin = std::chrono::steady_clock::now();
   const sbirs_sensor::session::SbirsCycleResult result = session_.StepWithResult(input);
   if (!step_timing_logged_) {
-    app::LogAcceptanceMs(scene.cycle, scene.t_sec, "单步执行时间性能测试", "SBIRS",
+    app::LogAcceptanceMs(scene.cycle, scene.t_sec, "单步执行时间性能测试", "OPIR",
                           app::SteadyElapsedMs(step_begin));
     step_timing_logged_ = true;
   }

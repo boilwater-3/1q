@@ -1,8 +1,8 @@
 ﻿/**
  * @file SbirsAcceptanceLog.h
- * @brief SBIRS 验收日志宏：按项写入 sbirs_acceptance.log（四段同一行）。
+ * @brief OPIR 验收日志宏：按项写入 opir_acceptance.log（四段同一行）。
  *
- * 编译期由 `ONEQ_ENABLE_SBIRS_ACCEPTANCE_LOG` 门控（默认 OFF）。
+ * 编译期由 `ONEQ_ENABLE_OPIR_ACCEPTANCE_LOG` 门控（默认 OFF）。
  * 开启后写入独立验收文件，不进 1q_library.log。关闭时宏与派生计算一并剪除。
  */
 
@@ -12,11 +12,11 @@
 #include "common/logging/AcceptanceFileLog.h"
 #include "common/logging/AcceptanceRecordFormat.h"
 
-#if defined(ONEQ_ENABLE_SBIRS_ACCEPTANCE_LOG) && ONEQ_ENABLE_SBIRS_ACCEPTANCE_LOG
+#if defined(ONEQ_ENABLE_OPIR_ACCEPTANCE_LOG) && ONEQ_ENABLE_OPIR_ACCEPTANCE_LOG
 
 #define SBIRS_ACCEPTANCE_LOG_ENABLED() true
 #define SBIRS_ACCEPTANCE_RECORD(text) \
-  ::oneq::logging::WriteAcceptanceLog(::oneq::logging::AcceptanceChannel::kSbirs, (text))
+  ::oneq::logging::WriteAcceptanceLog(::oneq::logging::AcceptanceChannel::kOpir, (text))
 #define SBIRS_ACCEPTANCE_ITEM(sim_time, cycle, item, content) \
   SBIRS_ACCEPTANCE_RECORD(                                    \
       ::oneq::logging::FormatAcceptanceLine((sim_time), (cycle), (item), (content)))

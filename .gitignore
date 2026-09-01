@@ -8,7 +8,7 @@
 1q_library.log
 
 # 分层验收日志运行产物（ONEQ_ENABLE_*_ACCEPTANCE_LOG）
-sbirs_acceptance.log
+opir_acceptance.log
 rir_acceptance.log
 fusion_acceptance.log
 inference_acceptance.log

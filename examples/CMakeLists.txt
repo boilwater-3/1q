@@ -140,10 +140,10 @@ endif()
 # ---------------------------------------------------------------------------
 # 通用 runner（对外 target 名保持不变）：--scene 跑任意场景 JSON；装配与执行
 # 与场景可执行共用 examples_core 内的 RunScene。
-# 验收日志通道提示：SBIRS 宽窄视场验收量写入 sbirs_acceptance.log，开关为库编译期选项。
-if(NOT ONEQ_ENABLE_SBIRS_ACCEPTANCE_LOG)
-    message(STATUS "examples: ONEQ_ENABLE_SBIRS_ACCEPTANCE_LOG=OFF -> no "
-        "sbirs_acceptance.log; reconfigure with -DONEQ_ENABLE_SBIRS_ACCEPTANCE_LOG=ON")
+# 验收日志通道提示：OPIR 宽窄视场验收量写入 opir_acceptance.log，开关为库编译期选项。
+if(NOT ONEQ_ENABLE_OPIR_ACCEPTANCE_LOG)
+    message(STATUS "examples: ONEQ_ENABLE_OPIR_ACCEPTANCE_LOG=OFF -> no "
+        "opir_acceptance.log; reconfigure with -DONEQ_ENABLE_OPIR_ACCEPTANCE_LOG=ON")
 endif()
 
 add_executable(component_attachment_demo app/main.cpp)
@@ -221,11 +221,11 @@ if(NOT ONEQ_ENABLE_PRECISION_EVALUATION_LOG)
     message(STATUS "precision_evaluation: ONEQ_ENABLE_PRECISION_EVALUATION_LOG=OFF -> no "
         "precision_acceptance.log; reconfigure with -DONEQ_ENABLE_PRECISION_EVALUATION_LOG=ON")
 endif()
-if(NOT ONEQ_ENABLE_SBIRS_ACCEPTANCE_LOG OR NOT ONEQ_ENABLE_FUSION_ACCEPTANCE_LOG
+if(NOT ONEQ_ENABLE_OPIR_ACCEPTANCE_LOG OR NOT ONEQ_ENABLE_FUSION_ACCEPTANCE_LOG
     OR NOT ONEQ_ENABLE_INFERENCE_ACCEPTANCE_LOG)
     message(STATUS "precision_evaluation: also enable "
-        "ONEQ_ENABLE_SBIRS_ACCEPTANCE_LOG / FUSION / INFERENCE for "
-        "sbirs/fusion/inference_acceptance.log under the scene output dir")
+        "ONEQ_ENABLE_OPIR_ACCEPTANCE_LOG / FUSION / INFERENCE for "
+        "opir/fusion/inference_acceptance.log under the scene output dir")
 endif()
 
 # 示例冒烟不进 ctest（示例是集成参考而非测试门禁，release 全量跑 ~25 s、

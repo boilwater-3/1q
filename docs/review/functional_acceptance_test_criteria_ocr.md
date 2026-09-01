@@ -15,7 +15,7 @@ Note: OCR 文件名与仓库落盘对照见 §0；开关默认 OFF，需 CMake `
 
 | OCR / 规范文件名 | 仓库实际路径 | 编译开关 |
 |---|---|---|
-| `Sbirs_acceptance.log` / `SatelliteTarget.log` | `log/sbirs_acceptance.log` | `ONEQ_ENABLE_SBIRS_ACCEPTANCE_LOG` |
+| `Opir_acceptance.log` / `SatelliteTarget.log` | `log/opir_acceptance.log` | `ONEQ_ENABLE_OPIR_ACCEPTANCE_LOG` |
 | `Fusion_acceptance.log`（第 11–14 项） | 同上（红外宽窄视场，**不在** fusion 文件） | 同上 |
 | `Fusion_acceptance.log`（第 15–18 项） | `log/fusion_acceptance.log` | `ONEQ_ENABLE_FUSION_ACCEPTANCE_LOG` |
 | `Rir_acceptance.log` / `RadarSingalProcessingDateFlow.log` | `log/rir_acceptance.log` | `ONEQ_ENABLE_RIR_ACCEPTANCE_LOG` |
@@ -116,12 +116,12 @@ Note: OCR 文件名与仓库落盘对照见 §0；开关默认 OFF，需 CMake `
 
 - `Sbirs_acceptance.log` 文件中能够记录实体相对卫星的**方位角和俯仰角**（**ECI 坐标、弧度制**）信息视为通过，否则视为不通过。
 
-- **证据矩阵**（2026-08-27 检索，对照现有代码与 `log/sbirs_acceptance.log`）：
+- **证据矩阵**（2026-08-27 检索，对照现有代码与 `log/opir_acceptance.log`）：
 
   | 维度 | 能否输出 | 说明 |
   |---|---|---|
   | 参考系 | **部分符合** | `真值方位/俯仰`、`量测方位/俯仰` 来自 ECI 视线 `los = target_eci − sat_eci`，经 `ComputeAzimuthDeg/ComputeElevationDeg`（ECI 极坐标，非探测器局部系）。`探测器系方位/俯仰` 为 **Body→Sensor 链旋转后的传感器系角**，**不是**本条要求的 ECI 角。 |
-  | 单位 | **不符合** | 验收行写 **度（°）**，未写 **rad**。公开主输出 `SbirsDetectionRecord::azimuth_rad/elevation_rad` 已是 ECI 弧度（az∈[0, 2π)、el∈[-π/2, π/2]），但**不进** `sbirs_acceptance.log`。 |
+  | 单位 | **不符合** | 验收行写 **度（°）**，未写 **rad**。公开主输出 `SbirsDetectionRecord::azimuth_rad/elevation_rad` 已是 ECI 弧度（az∈[0, 2π)、el∈[-π/2, π/2]），但**不进** `opir_acceptance.log`。 |
   | 相对卫星标识 | **符合** | `相对卫星ID=` 随行（2026-08-28 核对后补齐）。 |
   | 多目标 A/B/C | **符合** | 每个过 WFOV 距离/视场/SNR 门的候选目标各写一行，`目标ID=` 区分；未过门目标无该行。 |
   | 验收项名 | **无独立项** | 尚无 `[探测角度计算功能测试]`；角度合并在 `[验收项：目标可探测性与动态参数]`。 |
@@ -139,7 +139,7 @@ Note: OCR 文件名与仓库落盘对照见 §0；开关默认 OFF，需 CMake `
 
 ---
 
-## 二、卫星目标探测（OCR：`SatelliteTarget.log` → `log/sbirs_acceptance.log`）
+## 二、卫星目标探测（OCR：`SatelliteTarget.log` → `log/opir_acceptance.log`）
 
 ### 6. 最大探测距离计算功能测试
 
@@ -156,7 +156,7 @@ Note: OCR 文件名与仓库落盘对照见 §0；开关默认 OFF，需 CMake `
   | 附加字段 | **超出规范** | 同条另写 `窄场最大探测距离`（窄场参数重算），规范仅要求最大探测距离。 |
   | 多目标 | **符合** | 每个过 WFOV 门的候选各一行，`目标ID=` 区分。 |
   | 验收项名 | **部分符合** | 库内 `[验收项：最大探测距离]`，尚无 `[最大探测距离计算功能测试]`。 |
-  | 日志文件 | **部分符合** | 落盘 `log/sbirs_acceptance.log`（非 OCR 名 `SatelliteTarget.log`）。 |
+  | 日志文件 | **部分符合** | 落盘 `log/opir_acceptance.log`（非 OCR 名 `SatelliteTarget.log`）。 |
 
 - **实现**（如何写出 §0 示例行；本次仅文档，不改代码）：
   - **时机**：`SbirsPipeline.cpp` WFOV 候选过门后，与 `目标可探测性与动态参数` 同循环，逐目标一行。
@@ -185,7 +185,7 @@ Note: OCR 文件名与仓库落盘对照见 §0；开关默认 OFF，需 CMake `
   | 红外可探测性 | **符合** | `红外可探测=是`（行只写过门候选）。 |
   | 双星定位 | **部分符合** | 规范示例：位置+两星 ID+两斜距写同一行。库内仍每星一行，且无第二颗星的 ID/斜距。 |
   | 验收项名 | **部分符合** | 库内 `[验收项：目标可探测性与动态参数]`，尚无 `[目标可探测性与动态参数生成功能测试]`。 |
-  | 日志文件 | **部分符合** | 落盘 `log/sbirs_acceptance.log`（非 OCR 名 `SatelliteTarget.log`）。 |
+  | 日志文件 | **部分符合** | 落盘 `log/opir_acceptance.log`（非 OCR 名 `SatelliteTarget.log`）。 |
 
 - **实现**（如何写出 §0 示例行；本次仅文档，不改代码）：
   - **时机**：同第 6 项 WFOV 过门；**双星定位**时同一目标写**一行**（位置只在此情况下出现），不得每星拆行。
@@ -213,7 +213,7 @@ Note: OCR 文件名与仓库落盘对照见 §0；开关默认 OFF，需 CMake `
   | 卫星标识 | **不符合** | 单行未写 `卫星ID=`；双星靠分实例/分文件区分。 |
   | 写入频率 | **符合** | 每周期（`WriteSbirsOrbitSample`）；按卫星实例分账。 |
   | 验收项名 | **部分符合** | 库内拆为两项 `[卫星自身定位误差]` / `[卫星ECEF三维导航定位误差]`，尚无 `[卫星自身定位误差功能测试]`。 |
-  | 日志文件 | **部分符合** | 落盘 `log/sbirs_acceptance.log`（非 OCR 名 `SatelliteTarget.log`）。 |
+  | 日志文件 | **部分符合** | 落盘 `log/opir_acceptance.log`（非 OCR 名 `SatelliteTarget.log`）。 |
 
 - **实现**（如何写出 §0 示例行；本次仅文档，不改代码）：
   - **时机**：`SbirsPipeline.cpp` 每周期调用 `WriteSbirsOrbitSample`（`SbirsAcceptanceRecords.cpp`）。
@@ -241,7 +241,7 @@ Note: OCR 文件名与仓库落盘对照见 §0；开关默认 OFF，需 CMake `
   | 多余字段 | **超出规范** | 同函数另写 `[验收项：红外系统测角误差]`（测量/真值/偏差/RMS/σ 来源），本条不应输出。 |
   | 写入频率 | **符合** | WFOV 过门与 NFOV 跟踪路径均调用 `WriteSbirsAngleError`；逐目标、逐周期。 |
   | 验收项名 | **部分符合** | 库内 `[验收项：红外载荷测角误差]`，尚无 `[红外载荷角误差功能测试]`。 |
-  | 日志文件 | **部分符合** | 落盘 `log/sbirs_acceptance.log`（非 OCR 名 `SatelliteTarget.log`）。 |
+  | 日志文件 | **部分符合** | 落盘 `log/opir_acceptance.log`（非 OCR 名 `SatelliteTarget.log`）。 |
 
 - **实现**（如何写出 §0 示例行；本次仅文档，不改代码）：
   - **时机**：`SbirsPipeline.cpp` WFOV/NFOV 路径，量测角与 ECI 真值角已算后调用 `WriteSbirsAngleError`。
@@ -271,7 +271,7 @@ Note: OCR 文件名与仓库落盘对照见 §0；开关默认 OFF，需 CMake `
   | 卫星标识 | **不符合** | 会话首行无 `卫星ID=`；双星靠分实例各写一条。 |
   | 写入频率 | **符合** | 构造/`ApplyConfig` 时写一次（周期 0）；**标识行全会话一条**，安装矩阵不随周期变。 |
   | 验收项名 | **部分符合** | 库内 `[验收项：安装矩阵误差]`，尚无 `[安装矩阵误差功能测试]`。 |
-  | 日志文件 | **部分符合** | 落盘 `log/sbirs_acceptance.log`（非 OCR 名 `SatelliteTarget.log`）。 |
+  | 日志文件 | **部分符合** | 落盘 `log/opir_acceptance.log`（非 OCR 名 `SatelliteTarget.log`）。 |
 
 - **实现**（如何写出 §0 示例行；本次仅文档，不改代码）：
   - **时机**：`SbirsPipeline` 构造或 `ApplyConfig` 重抽失准角后调用 `WriteSbirsInstallMatrices`（`SbirsAcceptanceRecords.cpp`）。
@@ -286,9 +286,9 @@ Note: OCR 文件名与仓库落盘对照见 §0；开关默认 OFF，需 CMake `
 
 ## 三、融合与跟踪
 
-> OCR 将第 **11–14** 项写在 `Fusion_acceptance.log`；仓库实际落在 **`log/sbirs_acceptance.log`**（红外宽窄视场层）。第 **15–18** 项在 **`log/fusion_acceptance.log`**。
+> OCR 将第 **11–14** 项写在 `Fusion_acceptance.log`；仓库实际落在 **`log/opir_acceptance.log`**（红外宽窄视场层）。第 **15–18** 项在 **`log/fusion_acceptance.log`**。
 
-### 11. 红外预警卫星大幅面扫描与探测（`log/sbirs_acceptance.log`）
+### 11. 红外预警卫星大幅面扫描与探测（`log/opir_acceptance.log`）
 
 - **当前修改后情况：完成。逐目标行 `[红外预警卫星大幅面扫描与探测功能测试]`：`卫星ID= 扫描幅宽az/el(ECI)=(…)rad 目标ID= 接收功率=…W 信号能量=…J SNR=… 探测概率=… 检测标志=是`；原逐周期"扫描幅宽+扫描掠角"独立行（超出规范）已删。**
 
@@ -306,7 +306,7 @@ Note: OCR 文件名与仓库落盘对照见 §0；开关默认 OFF，需 CMake `
   | 扫描幅宽单位 | **不符合** | 库内 `扫描幅宽az/el=(…,…)°`（度）；规范要求 **ECI 弧度制**。 |
   | 检测标志 | **部分符合** | 无独立 `检测标志=` 字段；过门候选隐含可探测，未单独写是/否。 |
   | 卫星标识 | **不符合** | 无 `卫星ID=`。 |
-  | 验收项名/文件 | **部分符合** | 库内 `[大幅面扫描与探测]`；落盘 `sbirs_acceptance.log`（非 OCR `Fusion_acceptance.log`）。 |
+  | 验收项名/文件 | **部分符合** | 库内 `[大幅面扫描与探测]`；落盘 `opir_acceptance.log`（非 OCR `Fusion_acceptance.log`）。 |
 
 - **实现**（如何写出 §0 示例行；本次仅文档，不改代码）：
   - **时机**：WFOV 过门逐目标写一行；周期首行可另写扫描幅宽摘要。
@@ -316,7 +316,7 @@ Note: OCR 文件名与仓库落盘对照见 §0；开关默认 OFF，需 CMake `
     仿真时间=1.000s 仿真周期=1 [红外预警卫星大幅面扫描与探测功能测试] 卫星ID=4 扫描幅宽az/el(ECI)=(0.349,0.349)rad 目标ID=1001 接收功率=1.2e-14W 信号能量=1.2e-16J SNR=8.210 探测概率=0.8520 检测标志=是
     ```
 
-### 12. 宽视场扫描探测功能测试（`log/sbirs_acceptance.log`）
+### 12. 宽视场扫描探测功能测试（`log/opir_acceptance.log`）
 
 - **当前修改后情况：完成。改名 `[宽视场扫描探测功能测试]`，行首加 `卫星ID=`；覆盖四角/中心/驻留字段维持。**
 
@@ -329,7 +329,7 @@ Note: OCR 文件名与仓库落盘对照见 §0；开关默认 OFF，需 CMake `
   |---|---|---|
   | 覆盖区坐标/驻留 | **符合** | `[验收项：宽视场扫描探测]` 含 `覆盖四角经纬`、`中心`、`驻留`（s）；指向太空记 `miss`。 |
   | 卫星标识 | **不符合** | 无 `卫星ID=`。 |
-  | 验收项名/文件 | **部分符合** | 库内 `[宽视场扫描探测]`；落盘 `sbirs_acceptance.log`。 |
+  | 验收项名/文件 | **部分符合** | 库内 `[宽视场扫描探测]`；落盘 `opir_acceptance.log`。 |
 
 - **实现**（如何写出 §0 示例行；本次仅文档，不改代码）：
   - **时机**：每周期 WFOV footprint 计算后写一行。
@@ -339,7 +339,7 @@ Note: OCR 文件名与仓库落盘对照见 §0；开关默认 OFF，需 CMake `
     仿真时间=1.000s 仿真周期=1 [宽视场扫描探测功能测试] 卫星ID=4 覆盖四角经纬=[31.20,120.10;31.20,121.40;30.10,121.40;30.10,120.10] 中心=(30.65,120.75) 驻留=2.000s
     ```
 
-### 13. 窄视场跟踪探测功能测试（`log/sbirs_acceptance.log`）（修改）
+### 13. 窄视场跟踪探测功能测试（`log/opir_acceptance.log`）（修改）
 
 - **当前修改后情况：完成。改名 `[窄视场跟踪探测功能测试]`，行首加 `卫星ID=`；脱靶量/跟踪状态/信号能量/SNR 字段维持。**
 
@@ -354,7 +354,7 @@ Note: OCR 文件名与仓库落盘对照见 §0；开关默认 OFF，需 CMake `
   |---|---|---|
   | 脱靶量/状态/能量/SNR | **符合** | `[验收项：窄视场跟踪探测]` 含 `脱靶量m/像素`、`跟踪状态`、`信号能量`、`SNR`。 |
   | 卫星标识 | **不符合** | 无 `卫星ID=`。 |
-  | 验收项名/文件 | **部分符合** | 库内 `[窄视场跟踪探测]`；落盘 `sbirs_acceptance.log`。 |
+  | 验收项名/文件 | **部分符合** | 库内 `[窄视场跟踪探测]`；落盘 `opir_acceptance.log`。 |
 
 - **实现**（如何写出 §0 示例行；本次仅文档，不改代码）：
   - **时机**：NFOV 跟踪路径，逐目标、逐周期。
@@ -370,7 +370,7 @@ Note: OCR 文件名与仓库落盘对照见 §0；开关默认 OFF，需 CMake `
   双星定位同日裁定**仅基于窄场数据**（宽场粗测角只承担引导，在精度评估会话聚合处
   剔除宽场阶段记录）。
 
-### 14. 宽窄视场联合探测功能测试（`log/sbirs_acceptance.log`）
+### 14. 宽窄视场联合探测功能测试（`log/opir_acceptance.log`）
 
 - **当前修改后情况：完成。按规范三条分行：①`宽视场扫描覆盖区域=…`（周期行）②`宽场疑似列表=[…]`（候选汇总行，`数量=` 超出规范已删）③窄场状态行 `窄场方位/俯仰(ECI)=(…)rad 跟踪状态=… SNR=…`（跟踪逐目标行 + 捕获事件行同项名）；`连续命中/序列确认` 超出规范字段及 E3 计数行已删。**
 
@@ -387,7 +387,7 @@ Note: OCR 文件名与仓库落盘对照见 §0；开关默认 OFF，需 CMake `
   | 窄视场精确状态序列 | **部分符合** | 捕获/跟踪行含窄场角、SNR、捕获/跟踪状态；**无**独立逐拍序列字段；库内窄场角为 **度**，规范要 **ECI rad**。 |
   | 多余字段 | **超出规范** | 库内另写 `连续命中=n/门限`、`序列确认=达标/未达标`（宽场确认逻辑），规范三条未要求。 |
   | 卫星标识 | **不符合** | 无 `卫星ID=`。 |
-  | 验收项名/文件 | **部分符合** | 库内 `[宽窄视场联合探测]`；落盘 `sbirs_acceptance.log`。 |
+  | 验收项名/文件 | **部分符合** | 库内 `[宽窄视场联合探测]`；落盘 `opir_acceptance.log`。 |
 
 - **实现**（如何写出 §0 示例行；本次仅文档，不改代码）：
   - **时机**：三条规范字段**分行**写——覆盖区（周期首行）、疑似列表（候选汇总）、窄场状态（NFOV 捕获/跟踪逐目标）。
@@ -613,7 +613,7 @@ Note: OCR 文件名与仓库落盘对照见 §0；开关默认 OFF，需 CMake `
 
   | 维度 | 能否输出 | 说明 |
   |---|---|---|
-  | 首次探测/中断 | **符合** | `sbirs_acceptance.log` `[特殊事件监测与提示]`：等级、目标ID、事件、阶段、时间、位置ECEF。 |
+  | 首次探测/中断 | **符合** | `opir_acceptance.log` `[特殊事件监测与提示]`：等级、目标ID、事件、阶段、时间、位置ECEF。 |
   | 轨迹突变 | **部分符合** | `inference_acceptance.log` 同名项：等级=3、相对Δv、位置ECEF（规范要 **LLA**）；**事件**应写在方括号后第一字段。 |
   | 卫星标识 | **不符合** | SBIRS 事件行无 `卫星ID=`。 |
 
@@ -1346,7 +1346,7 @@ Note: OCR 文件名与仓库落盘对照见 §0；开关默认 OFF，需 CMake `
     仿真时间=0.000s 仿真周期=0 [可支持连续运行次数性能测试] 场景数=1 总仿真周期=10
     ```
 
-### 55. 红外系统测角误差性能测试（`log/sbirs_acceptance.log`）
+### 55. 红外系统测角误差性能测试（`log/opir_acceptance.log`）
 - **当前修改后情况：完成。改名 `[红外系统测角误差性能测试]`，行首加 `相对卫星ID= 目标ID=`；只写测量方位/俯仰与偏差az/el（测量−真值）；真值、本星会话RMSE、σ来源已删。**
 
 - `Sbirs_acceptance.log` 文件中能够记录红外系统**测量角度值**，并能够计算测量值与真实值得到**偏差**视为通过，否则视为不通过。
@@ -1372,7 +1372,7 @@ Note: OCR 文件名与仓库落盘对照见 §0；开关默认 OFF，需 CMake `
 
 | 日志文件（OCR） | 仓库路径 | 涉及测试项 |
 |---|---|---|
-| `Sbirs_acceptance.log` / `SatelliteTarget.log` | `log/sbirs_acceptance.log` | 5–10, 11–14, 24, 54–55（1–4 不输出） |
+| `Opir_acceptance.log` / `SatelliteTarget.log` | `log/opir_acceptance.log` | 5–10, 11–14, 24, 54–55（1–4 不输出） |
 | `Fusion_acceptance.log` | `log/fusion_acceptance.log` | 15–18 |
 | `Rir_acceptance.log` / `RadarSingalProcessingDateFlow.log` | `log/rir_acceptance.log` | 19, 28–47, 49, 54 |
 | `inference_acceptance.log` | `log/inference_acceptance.log` | 20–25, 24（轨迹突变） |

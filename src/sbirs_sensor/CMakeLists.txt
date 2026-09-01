@@ -42,10 +42,10 @@ set(SBIRS_CORE_SOURCES
 
 oneq_add_component(sbirs_engine SOURCES ${SBIRS_ENGINE_SOURCES})
 oneq_add_component(sbirs_core SOURCES ${SBIRS_CORE_SOURCES})
-# SBIRS 验收信息日志：写入 sbirs_acceptance.log。engine 出周期物理量，core 出生命周期事件。
-if(ONEQ_ENABLE_SBIRS_ACCEPTANCE_LOG)
-    target_compile_definitions(sbirs_engine PRIVATE ONEQ_ENABLE_SBIRS_ACCEPTANCE_LOG=1)
-    target_compile_definitions(sbirs_core PRIVATE ONEQ_ENABLE_SBIRS_ACCEPTANCE_LOG=1)
+# OPIR 验收信息日志：写入 opir_acceptance.log。engine 出周期物理量，core 出生命周期事件。
+if(ONEQ_ENABLE_OPIR_ACCEPTANCE_LOG)
+    target_compile_definitions(sbirs_engine PRIVATE ONEQ_ENABLE_OPIR_ACCEPTANCE_LOG=1)
+    target_compile_definitions(sbirs_core PRIVATE ONEQ_ENABLE_OPIR_ACCEPTANCE_LOG=1)
 endif()
 # Keep file-local detection lookup helpers in separate translation units under
 # Unity Build; the recorder and debug-view builder use identical local names.
