@@ -1,5 +1,5 @@
 ---
-Status: draft
+Status: frozen
 Date: 2026-08-31
 Review-Baseline: `evidence/sbirs-wfov-coverage-clip` @ `d4ca33b0`
 Authority: 非规范性记录；结论以 docs/common/contract.md、docs/common/session_contract.md
@@ -62,17 +62,46 @@ SbirsPipeline 覆盖区写出段。
 
 ## §3 冻结契约（用户讨论结束后填写）
 
-<!-- 一行一项：
-1、允许范围：模块/目录、类/函数、测试与文档。
-2、明确禁止范围：公开头文件、跨模块类型、schema/回放、测试阈值、兼容层。
-3、行为边界：输入、输出、错误回退、生命周期。
-4、验收门：构建、聚焦测试、契约测试、特征化测试。
-5、非目标。
--->
+### Frozen Contract
+
+Proven requirement:
+- 1、俯仰视场 ≥ 盘高 2ρ 是预警覆盖的物理要求；12° 俯仰视场对纬度 ≳40° 目标构成结构性盲区。
+- 2、俯仰全盘高架构下几何四角恒在盘外，"四角"覆盖区表示恒不可用；需求原文为"地面覆盖区域坐标"。
+- 3、覆盖区仅走验收日志通道，字段无代码/测试消费方，格式可安全变更。
+
+Allowed scope:
+- Modules/directories: `src/sbirs_sensor/pipeline/`、`examples/scenes/sbirs_triple_sat_fix_messages/`、`docs/sbirs_sensor/`、`docs/review/`。
+- Classes/functions: `SbirsPipeline.cpp` 覆盖区写出段（第 12/14 验收项两处 `SBIRS_ACCEPTANCE_ITEM` 及其前置角点计算）；新增文件内静态采样辅助函数。
+- Tests/docs: `docs/sbirs_sensor/algorithms.md` 覆盖区口径行；`docs/review/functional_acceptance_test_criteria_ocr.md` 第 12/14 项修订；场景 md 同步。
+
+Explicitly out of scope:
+- Public headers: `include/1q` 一律不动。
+- Cross-module types: `SbirsOutputFrame`/融合/推演类型不变。
+- Schema/trace/replay: 不动。
+- Test thresholds/skips: 不降阈值、不扩跳过。
+- Compatibility layers: 不保留旧四角字段（验收日志为内部诊断通道，默认关闭）。
+
+Behavior boundary:
+- Inputs: 与现有一致——实际扫描中心传感器系 az/el（含共模扰动与限位钳制）、±半视场、指向链、卫星 ECI 位置、GMST、`kEarthRadiusM`。
+- Outputs: 第 12 项行 `卫星ID=N 覆盖区域=纬[最小,最大] 经[最小,最大] 中心=(lat,lon) 驻留=X.XXXs`；第 14 项行 `宽视场扫描覆盖区域=` 后接同内容；中心沿用现有交会与 `miss` 语义；视场与盘无交时写 `覆盖区域=miss`。
+- Errors/fallback: 采样点逐点调用既有 `TryComputeGroundIntersectionLatLonDeg`；单点失败跳过；全部失败按无交处理。
+- Lifecycle/debug/trace: 仅验收日志通道（`ONEQ_ENABLE_SBIRS_ACCEPTANCE_LOG`），不进公开输出。
+
+Acceptance gates:
+- Build: `cmake --build --preset llvm-ninja-release-local`（库 + `sbirs_triple_sat_fix_messages`）。
+- Focused tests: `ctest --preset llvm-ninja-release-local -R "unit::sbirs_sensor"` 全过。
+- Contract tests: 场景复跑 `dual_sat_cycles ≥ 76`、捕获 4/4 不回退。
+- Characterization tests: 新日志每行覆盖区均有纬/经包络（扇区盘内 + 俯仰 24° 下交集恒非空），中心 240/240 落盘，无四角字段残留。
+
+Non-goals:
+- 反子午线经度环绕处理、椭球地球、交集多边形（只给包络）、扫描机构与跨度收敛逻辑变更、其他场景迁移。
 
 ## 修订记录
 
-<!-- 编号条目（修订 1、修订 2……）：日期、裁定内容、来源（用户指令/新证据）；不静默改写既有条目。 -->
+- 修订 1（2026-08-31，用户裁定）：覆盖区新格式采用范围框（纬/经包络 + 中心 + 驻留）。
+- 修订 2（2026-08-31，用户裁定）：俯仰视场恢复 24°（与 DSP 式历史口径一致）。
+- 修订 3（2026-08-31，用户裁定）：`functional_acceptance_test_criteria_ocr.md` 第 12/14 项同步修订。
+- 修订 4（2026-08-31，用户裁定）：交集计算采用视场矩形边界 az/el 采样 + 复用 `TryComputeGroundIntersectionLatLonDeg`，不引入解析裁剪。
 
 ## §4 运行记录（Stage C 后填写）
 
