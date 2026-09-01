@@ -69,6 +69,11 @@ Authority: 非规范性记录；结论以 docs/common/contract.md、docs/common/
 2、改为会话层运行时注入：新增公开 POD `SbirsExternalCue` 与 `SbirsSession::SubmitExternalCue` 注入接口；组件在收到地面站转发后、下一周期步进前调用；管线挂运行期队列，周期开始时消费（消费后清空，未消费不跨周期残留语义由注入节拍保证）。
 3、附带收益：回放/快照路径零接触（快照不含该队列，回放从不注入即逐位一致）；`SbirsInputValidation` 帧校验面不动；非法 cue 在注入点丢弃并计 issue（kInfo）。
 
+修订 6（2026-09-01，实现期新证据，Stage B 记录）：
+1、缺口：裁定 2 要求递话携带"带误差距离"，但归属层 `estimated_range_m` 在宽场段填的是真值距离（`candidate.range_m`），带误差的 `measured_range_m` 只存在于库内候选，消息路径（组件→事件→他星）拿不到。
+2、处置：归属记录（`SbirsOutputTypes.h` 同一结构）补一个诊断字段 `measured_range_m`（误差模型距离，仅归属/诊断层），宽场段填充 `candidate.measured_range_m`；组件层 stage-0 记录据此构造递话距离。属 §3"归属/调试"允许面的加法，非新模块。
+3、既有语义不改：`estimated_range_m` 各处含义维持原样（宽场=真值、窄场=融合估计），不做语义清洗（超出本契约）。
+
 ## §3 冻结契约（用户讨论结束后填写）
 
 <!-- 一行一项：
