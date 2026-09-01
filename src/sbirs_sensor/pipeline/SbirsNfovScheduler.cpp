@@ -22,7 +22,7 @@ int SbirsNfovScheduler::ChannelOf(std::uint64_t target_id) const {
   return it == target_to_channel_.end() ? -1 : it->second;
 }
 
-int SbirsNfovScheduler::Acquire(std::uint64_t target_id) {
+int SbirsNfovScheduler::Acquire(std::uint64_t target_id, int cue_source_satellite_entity_id) {
   if (IsLocked(target_id)) {
     return ChannelOf(target_id);
   }
@@ -41,17 +41,27 @@ int SbirsNfovScheduler::Acquire(std::uint64_t target_id) {
     }
     if (!occupied) {
       target_to_channel_[target_id] = channel;
+      target_to_cue_source_[target_id] = cue_source_satellite_entity_id;
       return channel;
     }
   }
   return -1;  // 不可达：余量检查保证有空闲通道
 }
 
-void SbirsNfovScheduler::Release(std::uint64_t target_id) {
-  target_to_channel_.erase(target_id);
+int SbirsNfovScheduler::CueSourceOf(std::uint64_t target_id) const {
+  const auto it = target_to_cue_source_.find(target_id);
+  return it == target_to_cue_source_.end() ? -1 : it->second;
 }
 
-void SbirsNfovScheduler::Clear() { target_to_channel_.clear(); }
+void SbirsNfovScheduler::Release(std::uint64_t target_id) {
+  target_to_channel_.erase(target_id);
+  target_to_cue_source_.erase(target_id);
+}
+
+void SbirsNfovScheduler::Clear() {
+  target_to_channel_.clear();
+  target_to_cue_source_.clear();
+}
 
 std::vector<const SbirsCandidate*> SbirsNfovScheduler::SelectForAcquisition(
     std::vector<SbirsCandidate>& candidates) {

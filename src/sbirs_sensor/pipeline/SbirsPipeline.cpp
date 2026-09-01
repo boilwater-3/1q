@@ -589,6 +589,14 @@ void SbirsPipeline::ApplyConfig(const config::SbirsInternalExecutionConfig& conf
   }
 }
 
+// 星间 cross-cue 消息诊断码（2026-09-01）：非法引导消息丢弃时计入 issues 的 kInfo 码。
+// 管线局部常量：不进公开码表（include/1q 冻结面，见 sbirs-cross-cue 契约 out-of-scope）。
+constexpr char kExternalCueInvalid[] = "sbirs.external_cue_invalid";
+
+void SbirsPipeline::SubmitExternalCue(const session::SbirsExternalCue& cue) {
+  pending_external_cues_.push_back(cue);
+}
+
 SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& input) {
   SbirsPipelineResult result;
   const config::SbirsMissionConfig& mission = config_.session.mission;
@@ -950,6 +958,112 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
   for (const session::SbirsSceneTarget& target : input.scene) {
     present_target_ids.insert(target.target_id);
   }
+  // 星间 cross-cue（2026-09-01）：消费运行期注入的引导消息（修订 5：不进每帧输入）。
+  // 合法性：目标须在本周期场景内、角度有限、距离为正；非法整条丢弃并计 kInfo issue。
+  // 同目标多条取最后一条（同源逐周期刷新）；来源星 ECEF 按当周期 GMST 旋入 ECI。
+  std::map<std::uint64_t, session::SbirsExternalCue> external_cue_by_target;
+  std::map<std::uint64_t, session::SbirsVector3M> external_source_eci_by_target;
+  for (const session::SbirsExternalCue& cue : pending_external_cues_) {
+    const bool finite_bearing =
+        std::isfinite(cue.azimuth_deg) && std::isfinite(cue.elevation_deg);
+    if (!finite_bearing || !(cue.range_m > 0.0) ||
+        present_target_ids.count(cue.target_id) == 0U) {
+      result.issues.push_back(MakeExclusionIssue(
+          kExternalCueInvalid,
+          "dropped external cue: target_id=" + std::to_string(cue.target_id) +
+              " source_satellite_entity_id=" +
+              std::to_string(cue.source_satellite_entity_id) +
+              " range_m=" + std::to_string(static_cast<std::int64_t>(cue.range_m)),
+          session::SbirsIssueCause::kNone, -1));
+      continue;
+    }
+    const oneq::coordinate::EcefPositionM source_ecef{
+        cue.source_position_ecef_m.x, cue.source_position_ecef_m.y,
+        cue.source_position_ecef_m.z};
+    oneq::coordinate::EciPositionM source_eci;
+    if (!oneq::coordinate::TryEcefToEci(source_ecef, gmst_rad, &source_eci)) {
+      result.issues.push_back(MakeExclusionIssue(
+          kExternalCueInvalid,
+          "dropped external cue: source ECEF->ECI rotation failed, target_id=" +
+              std::to_string(cue.target_id),
+          session::SbirsIssueCause::kNone, -1));
+      continue;
+    }
+    external_cue_by_target[cue.target_id] = cue;
+    external_source_eci_by_target[cue.target_id] =
+        session::SbirsVector3M{source_eci.x_m, source_eci.y_m, source_eci.z_m};
+  }
+  pending_external_cues_.clear();
+  // 外部候选构造（cross-cue）：自星宽场门失败但有外部引导的目标由此进同一候选池。
+  // 三角化只用来源星带误差量测链（测角+距离+来源星位置），不触目标真值；连续命中
+  // 计数、调度排序（SNR↓→距离↑→ID↑，修订 4 同池同规则）与 NFOV 捕获/跟踪门全部
+  // 复用既有路径；引导来源只随候选/调度器记录，不进验收日志行。
+  const auto make_external_cue_candidate = [&](const SbirsEciSceneTarget& target,
+                                               float azimuth_deg, float elevation_deg,
+                                               double range_m, double snr,
+                                               double max_detection_range_m,
+                                               float omega_deg_per_sec) {
+    const session::SbirsExternalCue& cue = external_cue_by_target.at(target.target_id);
+    const session::SbirsVector3M& source_eci =
+        external_source_eci_by_target.at(target.target_id);
+    SbirsCandidate candidate;
+    candidate.target = &target;
+    candidate.azimuth_deg = azimuth_deg;
+    candidate.elevation_deg = elevation_deg;
+    candidate.range_m = range_m;
+    candidate.max_detection_range_m = max_detection_range_m;
+    const session::SbirsVector3M source_los = LosFromAzimuthElevation(cue.azimuth_deg,
+                                                                      cue.elevation_deg);
+    const session::SbirsVector3M target_est{
+        source_eci.x + source_los.x * cue.range_m, source_eci.y + source_los.y * cue.range_m,
+        source_eci.z + source_los.z * cue.range_m};
+    const session::SbirsVector3M own_los_est =
+        foundation::Subtract(target_est, satellite_position_eci_m);
+    candidate.measured_azimuth_deg = foundation::ComputeAzimuthDeg(own_los_est);
+    candidate.measured_elevation_deg = foundation::ComputeElevationDeg(own_los_est);
+    candidate.measured_range_m = foundation::Norm(own_los_est);
+    candidate.relative_angular_rate_deg_per_sec = omega_deg_per_sec;
+    candidate.cue_source_satellite_entity_id =
+        static_cast<int>(cue.source_satellite_entity_id);
+    // 与自星路径同款：本星视角三角化测角喂 cue 预测器（外推 narrow_cue_latency_s）。
+    const SbirsCuePrediction cue_prediction = cue_predictor_.Update(
+        target.target_id, candidate.measured_azimuth_deg, candidate.measured_elevation_deg,
+        input.dt_sec, mission.narrow_cue_latency_s);
+    candidate.command_azimuth_deg = cue_prediction.command_azimuth_deg;
+    candidate.command_elevation_deg = cue_prediction.command_elevation_deg;
+    const float cue_latency_s = mission.narrow_cue_latency_s;
+    if (cue_latency_s > 0.0f) {
+      session::SbirsVector3M predicted_position;
+      predicted_position.x = target.position_eci_m.x;
+      predicted_position.y = target.position_eci_m.y;
+      predicted_position.z = target.position_eci_m.z;
+      if (target.has_velocity_eci_m_per_s) {
+        predicted_position.x += target.velocity_eci_m_per_s.x * cue_latency_s;
+        predicted_position.y += target.velocity_eci_m_per_s.y * cue_latency_s;
+        predicted_position.z += target.velocity_eci_m_per_s.z * cue_latency_s;
+      }
+      session::SbirsVector3M predicted_satellite_position;
+      predicted_satellite_position.x =
+          satellite_position_eci_m.x + satellite_velocity_eci_m.x * cue_latency_s;
+      predicted_satellite_position.y =
+          satellite_position_eci_m.y + satellite_velocity_eci_m.y * cue_latency_s;
+      predicted_satellite_position.z =
+          satellite_position_eci_m.z + satellite_velocity_eci_m.z * cue_latency_s;
+      const session::SbirsVector3M predicted_los =
+          foundation::Subtract(predicted_position, predicted_satellite_position);
+      candidate.delayed_truth_azimuth_deg = foundation::ComputeAzimuthDeg(predicted_los);
+      candidate.delayed_truth_elevation_deg = foundation::ComputeElevationDeg(predicted_los);
+    } else {
+      candidate.delayed_truth_azimuth_deg = azimuth_deg;
+      candidate.delayed_truth_elevation_deg = elevation_deg;
+    }
+    candidate.snr = snr;
+    candidates.push_back(candidate);
+    ++wfov_consecutive_hits_[target.target_id];
+    if (target_states_[target.target_id] != SbirsTargetState::kAwaitingNfovAcquisition) {
+      target_states_[target.target_id] = SbirsTargetState::kWideCandidate;
+    }
+  };
   for (std::map<std::uint64_t, SbirsTargetState>::value_type& target_state : target_states_) {
     if (present_target_ids.count(target_state.first) == 0U) {
       log_acceptance_release(target_state.first, "scene_absent", 0U);
@@ -1131,6 +1245,8 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
       detection.attribution.estimated_range_m = static_cast<float>(range_m);
       detection.attribution.max_detection_range_m = static_cast<float>(max_detection_range_m);
       detection.attribution.tracking_source = TrackingSourceForState(state);
+      detection.attribution.cue_source_satellite_entity_id =
+          nfov_scheduler_.CueSourceOf(target.target_id);
       detection.attribution.nfov_channel_id = channel_id;
       detection.attribution.has_nfov_tracking_diagnostics = true;
       detection.attribution.nfov_pointing_error_deg = foundation::AngularSeparationDeg(
@@ -1273,6 +1389,13 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
     }
 
     if (!in_wfov) {
+      // cross-cue 旁路（2026-09-01）：自星宽场几何门外但有外部引导 → 构造外部候选，
+      // 不走排除/释放（修订 3 条 1：发现星自家链路不变，此处只补受话星路径）。
+      if (external_cue_by_target.count(target.target_id) != 0U) {
+        make_external_cue_candidate(target, azimuth_deg, elevation_deg, range_m, snr,
+                                    max_detection_range_m, omega_deg_per_sec_cached);
+        continue;
+      }
       // 规则 13b：视场排除 → kInfo 诊断（不属于三写，仅承载排查信息）。
       // 门内归因：视场门按越界轴细分（az/el/both），并补相对扫描中心的差值
       //（与 InRectangularFov 同基准、同参考系：传感器系；半视场为门限）。
@@ -1309,6 +1432,13 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
       continue;
     }
     if (snr < policy.detection.wide_min_snr_linear) {
+      // cross-cue 旁路（2026-09-01）：自星宽场 SNR 门外但有外部引导 → 构造外部候选。
+      // （外部路径的 SNR 语义：候选优先级仍用物理真值链 SNR；捕获门在 NFOV 段另判。）
+      if (external_cue_by_target.count(target.target_id) != 0U) {
+        make_external_cue_candidate(target, azimuth_deg, elevation_deg, range_m, snr,
+                                    max_detection_range_m, omega_deg_per_sec_cached);
+        continue;
+      }
       // 规则 13b：WFOV SNR 门排除 → kInfo 诊断（不属于三写，仅承载排查信息）。
       // 门内归因：SNR 门为聚合门，反事实判定主因（见 ClassifyWfovSnrExclusionCause；
       // signature_required 已在循环外计算）。
@@ -1385,6 +1515,12 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
     }
     candidate.snr = snr;
     candidates.push_back(candidate);
+    // cross-cue 外发数据源（修订 7）：本星自星宽场候选的带误差量测（与 E2 宽场疑似
+    // 事件同源同量测）。外部引导候选不重复进此列表（受话不递话）。
+    result.wide_cue_measurements.push_back(
+        session::SbirsWideCueMeasurement{target.target_id, candidate.measured_azimuth_deg,
+                                         candidate.measured_elevation_deg,
+                                         candidate.measured_range_m});
     // 宽窄切换前置条件（3.2.1.3.2.1）：WFOV 四门全部通过计一次连续命中；
     // 门失败/目标消失分支已清零，进入跟踪时在捕获处清零。
     ++wfov_consecutive_hits_[target.target_id];
@@ -1451,6 +1587,9 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
   if (SBIRS_ACCEPTANCE_LOG_ENABLED() && !candidates.empty()) {
     std::string suspect_ids;
     for (const SbirsCandidate& candidate : candidates) {
+      if (candidate.cue_source_satellite_entity_id >= 0) {
+        continue;  // cross-cue 外部候选不是本星宽场检出，不进宽场疑似列表（验收行口径不变）
+      }
       if (!suspect_ids.empty()) {
         suspect_ids += ",";
       }
@@ -1475,8 +1614,11 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
       detection.attribution.target_id = candidate.target->target_id;
       detection.attribution.target_name = candidate.target->target_name;
       detection.attribution.estimated_range_m = static_cast<float>(candidate.range_m);
+      detection.attribution.measured_range_m = static_cast<float>(candidate.measured_range_m);
       detection.attribution.max_detection_range_m =
           static_cast<float>(candidate.max_detection_range_m);
+      detection.attribution.cue_source_satellite_entity_id =
+          candidate.cue_source_satellite_entity_id;
       detection.attribution.nfov_channel_id = -1;
       result.detections.push_back(detection);
     }
@@ -1502,6 +1644,9 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
     detection.attribution.target_id = candidate.target->target_id;
     detection.attribution.target_name = candidate.target->target_name;
     detection.attribution.estimated_range_m = static_cast<float>(candidate.range_m);
+    detection.attribution.measured_range_m = static_cast<float>(candidate.measured_range_m);
+    detection.attribution.cue_source_satellite_entity_id =
+        candidate.cue_source_satellite_entity_id;
     detection.attribution.nfov_channel_id = channel_id;
     result.detections.push_back(detection);
   };
@@ -1518,6 +1663,8 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
     detection.attribution.target_id = candidate.target->target_id;
     detection.attribution.target_name = candidate.target->target_name;
     detection.attribution.estimated_range_m = static_cast<float>(candidate.range_m);
+    detection.attribution.cue_source_satellite_entity_id =
+        candidate.cue_source_satellite_entity_id;
     detection.attribution.nfov_channel_id = channel_id;
     detection.attribution.capture_failure_reason = reason;
     result.detections.push_back(detection);
@@ -1753,7 +1900,8 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
       nfov_scheduler_.SelectForAcquisition(new_candidates);
   for (const SbirsCandidate* selected : selected_candidates) {
     const std::uint64_t target_id = selected->target->target_id;
-    const int channel_id = nfov_scheduler_.Acquire(target_id);
+    const int channel_id =
+        nfov_scheduler_.Acquire(target_id, selected->cue_source_satellite_entity_id);
     if (channel_id < 0 ||
         !pointing_coordinator_.Reserve(
             channel_id, target_id,

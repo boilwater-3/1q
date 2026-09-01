@@ -101,6 +101,12 @@ struct ONEQ_API SbirsDetectionAttributionRecord {
   bool has_focal_plane_offset{false}; /**< 是否包含焦平面脱靶量（NFOV 跟踪段；验收判定标准 第26项 脱靶量数据源） */
   float focal_plane_offset_x_m{0.0f}; /**< 焦平面脱靶量 x（m，仅归属/诊断层） */
   float focal_plane_offset_y_m{0.0f}; /**< 焦平面脱靶量 y（m，仅归属/诊断层） */
+  int cue_source_satellite_entity_id{-1}; /**< 引导来源星 ID（cross-cue，2026-09-01；-1=自星宽场
+                                               引导；锁定后随调度器通道持久、释放清除；只进
+                                               归属/调试层，不进验收日志行，不参与调度排序） */
+  float measured_range_m{0.0f}; /**< 误差模型距离（带误差；修订 6：宽场段=candidate.measured_range_m，
+                                     消息路径 cross-cue 递话数据源；与 estimated_range_m（宽场=真值/
+                                     窄场=融合估计）语义并存，仅归属/诊断层） */
 };
 
 /** @brief 归属记录列表。 */

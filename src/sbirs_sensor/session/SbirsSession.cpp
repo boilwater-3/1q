@@ -81,6 +81,10 @@ bool SbirsSession::TryApplyRuntimeConfig(const config::SbirsRuntimeConfigPatch& 
   return true;
 }
 
+void SbirsSession::SubmitExternalCue(const SbirsExternalCue& cue) {
+  impl_->controller->SubmitExternalCue(cue);
+}
+
 SbirsSession SbirsSession::Create(const config::SbirsSessionConfig& config) {
   std::unique_ptr<Impl> impl(new Impl);
   impl->config = config;

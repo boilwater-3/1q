@@ -46,6 +46,11 @@ class SbirsController {
    */
   session::SbirsCycleResult RunOnce(const session::SbirsCycleInput& input);
 
+  /** @brief 运行时注入星间 cross-cue 引导消息（透传 pipeline，周期之间调用）。 */
+  void SubmitExternalCue(const session::SbirsExternalCue& cue) {
+    pipeline_.SubmitExternalCue(cue);
+  }
+
  private:
   pipeline::SbirsPipeline pipeline_;
   float frame_rate_hz_{};
