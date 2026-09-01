@@ -56,6 +56,10 @@ struct Signals {
   boost::signals2::signal<void(const DetectionBatchSubmittedEvent&)> on_detection_batch_submitted;
   /** @brief SBIRS 探测帧提交（任一颗星 → 地面站；本周期可多条）。 */
   boost::signals2::signal<void(const SbirsFrameSubmittedEvent&)> on_sbirs_frame_submitted;
+  /** @brief 星间 cross-cue 递话（卫星 → 地面站，cross_cue 开启的星发）。 */
+  boost::signals2::signal<void(const SbirsCrossCueEvent&)> on_sbirs_cross_cue;
+  /** @brief cross-cue 转发（地面站 → 全体卫星；各星忽略自己发的，下一周期消费）。 */
+  boost::signals2::signal<void(const SbirsCrossCueEvent&)> on_sbirs_cross_cue_relay;
   /** @brief 落点预报外发（地面站融合枢纽 → 订阅方；评审 2026-08-26 条12）。 */
   boost::signals2::signal<void(const ImpactForecastEvent&)> on_impact_forecast_published;
 };

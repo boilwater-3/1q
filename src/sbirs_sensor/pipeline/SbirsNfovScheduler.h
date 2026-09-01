@@ -37,6 +37,7 @@ struct SbirsCandidate {
   double max_detection_range_m{0.0}; ///< 当前时刻最大探测距离（WFOV 门限反解，归属层诊断用）
   float relative_angular_rate_deg_per_sec{0.0f}; ///< 相对视线角速度（v_target−v_satellite 推导），Sensor-like 成功观测的动态滞后输入
   double snr{0.0};
+  int cue_source_satellite_entity_id{-1}; ///< 引导来源星 ID（-1=自星宽场；cross-cue 候选填来源星，只记录不参与排序）
 };
 
 /**
@@ -82,9 +83,11 @@ class SbirsNfovScheduler {
   /**
    * @brief 为目标分配一个 NFOV 通道编号。
    * @param[in] target_id 待锁定的目标 ID
+   * @param[in] cue_source_satellite_entity_id 引导来源星 ID（-1=自星宽场引导；cross-cue
+   *            锁定后随通道持久记录，Release/Clear 单点清除，供归属层"引导来源"标记）
    * @return 分配到的通道编号（>=0）；通道已满或目标已锁定时返回 -1
    */
-  int Acquire(std::uint64_t target_id);
+  int Acquire(std::uint64_t target_id, int cue_source_satellite_entity_id = -1);
 
   /**
    * @brief 释放目标占用的 NFOV 通道（目标消失、NIS 丢锁或传感器进入 standby）。
@@ -96,6 +99,12 @@ class SbirsNfovScheduler {
    * @return 目标占用的 NFOV 通道编号；未占用时返回 -1。
    */
   int ChannelOf(std::uint64_t target_id) const;
+
+  /**
+   * @brief 目标锁定时的引导来源星 ID（cross-cue 归属标记）。
+   * @return 引导来源星 ID；-1=自星宽场引导或目标未锁定。
+   */
+  int CueSourceOf(std::uint64_t target_id) const;
 
   /** @brief 清空所有通道分配（standby / 重置）。 */
   void Clear();
@@ -112,6 +121,9 @@ class SbirsNfovScheduler {
  private:
   int max_locks_{1};
   std::map<std::uint64_t, int> target_to_channel_{};
+  // 引导来源星（cross-cue，2026-09-01）：与通道同生命周期（Acquire 写入、Release/Clear
+  // 清除）；只进归属/调试层，不参与排序。回放从不注入 cue，快照不含本表（恢复后全 -1）。
+  std::map<std::uint64_t, int> target_to_cue_source_{};
 };
 
 }  // namespace pipeline

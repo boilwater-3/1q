@@ -17,6 +17,7 @@
 #include "1q/sbirs_sensor/session/SbirsSession.h"
 #include "core/component.h"
 #include "core/detection_delivery.h"
+#include "core/signals.h"
 #include "logger/logger_modes.h"
 
 namespace component_attachment {
@@ -93,6 +94,15 @@ class SbirsSensorComponent : public Component {
    */
   bool TryApplyRuntimeConfig(const sbirs_sensor::config::SbirsRuntimeConfigPatch& patch);
 
+  /**
+   * @brief 开关星间 cross-cue（交叉提示）：开 = 本星每周期把自星宽场检出外发递话，
+   *        并接收他星递话在下一周期注入会话（星→地→星，修订 1 拓扑）。
+   * @note 默认关；场景 JSON cross_cue 键经 main 装配时调用。
+   */
+  void SetCrossCueEnabled(bool enabled) { cross_cue_enabled_ = enabled; }
+  /** @return cross-cue 是否开启。 */
+  bool cross_cue_enabled() const { return cross_cue_enabled_; }
+
  private:
   // lifecycle_/exclusion_ 声明在 session_ 之前：析构逆序时 session_ 先析构（其析构不
   // 触达 recorder 指针），满足"recorder 生命周期长于 Session 注册期"约束。
@@ -137,6 +147,15 @@ class SbirsSensorComponent : public Component {
   /// 探测帧 → 地面站（黑板或 on_sbirs_frame_submitted 消息）。
   void PublishToGroundStation(World& world, AppSceneState& scene,
                               const sbirs_sensor::session::SbirsCycleResult& result);
+  /// cross-cue：地面站转发收件（懒连接信号；忽略自己发的，按收到周期暂存）。
+  void EnsureCrossCueRelayConnection(World& world);
+  /// cross-cue：本星宽场检出 → on_sbirs_cross_cue（裁定 2 口径：测角+带误差距离）。
+  void PublishCrossCue(World& world, const AppSceneState& scene,
+                       const sbirs_sensor::session::SbirsCycleResult& result);
+
+  bool cross_cue_enabled_{false}; /**< cross-cue 开关（默认关；场景 JSON cross_cue） */
+  boost::signals2::scoped_connection cross_cue_relay_connection_; /**< 转发信号连接 */
+  std::vector<SbirsCrossCueEvent> stashed_cue_events_; /**< 已收未消费的转发消息（含收到周期） */
 };
 
 }  // namespace component_attachment

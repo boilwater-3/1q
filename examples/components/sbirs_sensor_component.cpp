@@ -380,6 +380,31 @@ void SbirsSensorComponent::Step(World& world, double dt_sec) {
   // 共享场景状态（World 只存基类引用，实际类型为 AppSceneState）：读真值组输入，
   // 也向其探测池写适配记录，故直接取可变引用。
   auto& scene = static_cast<AppSceneState&>(world.scene_state());
+  // cross-cue（2026-09-01）：先接线转发信号，再把"上一周期及更早收到"的递话注入
+  // 会话（星→地→星固定一周期延迟：本周期收到的要等下一周期才消费）。
+  EnsureCrossCueRelayConnection(world);
+  if (cross_cue_enabled_) {
+    const double kRadToDeg = 57.2957795130823;
+    for (const SbirsCrossCueEvent& event : stashed_cue_events_) {
+      if (event.cycle >= scene.cycle) {
+        continue;  // 本周期才收到的：下一周期再消费
+      }
+      for (const SbirsCrossCueItem& item : event.cues) {
+        sbirs_sensor::session::SbirsExternalCue cue;
+        cue.target_id = item.target_id;
+        cue.source_satellite_entity_id = event.source_satellite_entity_id;
+        cue.source_position_ecef_m.x = event.satellite_ecef_x_m;
+        cue.source_position_ecef_m.y = event.satellite_ecef_y_m;
+        cue.source_position_ecef_m.z = event.satellite_ecef_z_m;
+        cue.azimuth_deg = static_cast<float>(item.azimuth_rad * kRadToDeg);
+        cue.elevation_deg = static_cast<float>(item.elevation_rad * kRadToDeg);
+        cue.range_m = item.range_m;
+        cue.cycle_index = static_cast<std::uint32_t>(event.cycle);
+        session_.SubmitExternalCue(cue);
+      }
+    }
+    stashed_cue_events_.clear();
+  }
   const sbirs_sensor::session::SbirsCycleInput input = BuildCycleInput(scene, dt_sec);
 
   const std::chrono::steady_clock::time_point step_begin = std::chrono::steady_clock::now();
@@ -404,6 +429,49 @@ void SbirsSensorComponent::Step(World& world, double dt_sec) {
     PublishToGroundStation(world, scene, result);
   } else {
     AdaptDetections(world, scene, result);
+  }
+  if (cross_cue_enabled_) {
+    PublishCrossCue(world, scene, result);
+  }
+}
+
+void SbirsSensorComponent::EnsureCrossCueRelayConnection(World& world) {
+  if (cross_cue_enabled_ && !cross_cue_relay_connection_.connected()) {
+    cross_cue_relay_connection_ = world.signals().on_sbirs_cross_cue_relay.connect(
+        [this](const SbirsCrossCueEvent& event) {
+          if (event.source_satellite_entity_id == ground_station_source_id_) {
+            return;  // 自己发的：不回灌
+          }
+          stashed_cue_events_.push_back(event);
+        });
+  }
+}
+
+void SbirsSensorComponent::PublishCrossCue(
+    World& world, const AppSceneState& scene,
+    const sbirs_sensor::session::SbirsCycleResult& result) {
+  // ECI 测角 + 误差模型距离）；窄场精测不外发（修订 3 条 4：精测刷新不做）。
+  SbirsCrossCueEvent event;
+  event.cycle = scene.cycle;
+  event.source_satellite_entity_id = ground_station_source_id_;
+  event.satellite_ecef_x_m = own_position_ecef_m_.x;
+  event.satellite_ecef_y_m = own_position_ecef_m_.y;
+  event.satellite_ecef_z_m = own_position_ecef_m_.z;
+  constexpr double kRadPerDeg = 0.017453292519943295;
+  for (const sbirs_sensor::session::SbirsWideCueMeasurement& m :
+       result.wide_cue_measurements) {
+    if (m.target_id == 0U || !(m.measured_range_m > 0.0)) {
+      continue;  // 无归属或无有效距离：不递话
+    }
+    SbirsCrossCueItem item;
+    item.target_id = m.target_id;
+    item.azimuth_rad = static_cast<float>(m.azimuth_deg * kRadPerDeg);
+    item.elevation_rad = static_cast<float>(m.elevation_deg * kRadPerDeg);
+    item.range_m = m.measured_range_m;
+    event.cues.push_back(item);
+  }
+  if (!event.cues.empty()) {
+    world.signals().on_sbirs_cross_cue(event);
   }
 }
 

@@ -12,6 +12,7 @@
 
 #include "1q/sbirs_sensor/session/SbirsCycleInput.h"
 #include "1q/sbirs_sensor/session/SbirsCycleResult.h"
+#include "1q/sbirs_sensor/session/SbirsExternalCue.h"
 #include "sbirs_sensor/config/SbirsInternalExecutionConfig.h"
 #include "sbirs_sensor/foundation/SbirsErrorModel.h"
 #include "sbirs_sensor/pipeline/SbirsCuePredictor.h"
@@ -77,6 +78,8 @@ struct SbirsPipelineResult {
   float scan_elevation_rad{0.0f};      /**< 本周期扫描中心俯仰角（ECI 极坐标，单位 rad，[-π/2, π/2]；2-D 栅格下为当前行中心） */
   std::vector<SbirsPipelineDetection> detections{}; /**< 检测列表 */
   bool executed{false};                             /**< 核心 pipeline 是否实际执行（非关机/待机） */
+  std::vector<session::SbirsWideCueMeasurement> wide_cue_measurements{}; /**< 宽场候选量测
+      （cross-cue 外发数据源，修订 7；controller 组装 SbirsCycleResult 时透传） */
   session::SbirsIssueList issues{};  /**< 正常执行周期按目标排除的 kInfo 诊断（规则 13b），经 controller 转写进 SbirsCycleResult */
 };
 
@@ -117,6 +120,15 @@ class SbirsPipeline {
    */
   SbirsPipelineResult RunCycle(const session::SbirsCycleInput& input);
 
+  /**
+   * @brief 运行时注入一条星间 cross-cue 引导消息（修订 5：不进每帧输入）。
+   * @param[in] cue 引导消息（来源星宽场带误差测角+距离+来源星 ECEF 位置）
+   * @note 消息入运行期队列，下一次 `RunCycle` 开始时消费（消费后清空）；非法消息
+   *       （非有限角度/非正距离/未知目标键）消费时丢弃并计 kInfo issue。队列不属于
+   *       快照：回放路径从不注入，恢复后逐位一致。
+   */
+  void SubmitExternalCue(const session::SbirsExternalCue& cue);
+
   /** @return 当前运行期状态快照，用于 validated checkpoint 与状态恢复测试。 */
   SbirsPipelineSnapshot CaptureRuntimeState() const;
   /**
@@ -150,6 +162,9 @@ class SbirsPipeline {
   // 阈值 policy.scheduler.wide_to_narrow_required_consecutive_hits（默认 1 = 单次命中
   // 即可调度，与既有行为逐位一致）。
   std::map<std::uint64_t, unsigned int> wfov_consecutive_hits_{};
+  // 星间 cross-cue 运行期队列（2026-09-01）：周期之间注入、RunCycle 开始时消费并清空；
+  // 不进快照（回放从不注入），非法消息消费时丢弃并计 issue。
+  std::vector<session::SbirsExternalCue> pending_external_cues_{};
   SbirsNfovScheduler nfov_scheduler_;              // NFOV 多通道资源调度器
   SbirsPointingCoordinator pointing_coordinator_;  // NFOV 逐通道 ATP 执行状态
   foundation::SbirsRandomSource wfov_measurement_random_source_;

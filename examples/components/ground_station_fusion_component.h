@@ -85,6 +85,7 @@ class GroundStationFusionComponent : public Component {
   void EnsureSignalConnections(World& world);
   void OnDetectionBatchSubmitted(const DetectionBatchSubmittedEvent& event);
   void OnSbirsFrameSubmitted(const SbirsFrameSubmittedEvent& event);
+  void OnSbirsCrossCue(const SbirsCrossCueEvent& event);
 
   std::unique_ptr<fusion::FusionEngine> engine_;
   std::vector<fusion::FusedTarget> targets_{};
@@ -101,6 +102,8 @@ class GroundStationFusionComponent : public Component {
 
   boost::signals2::scoped_connection detection_batch_connection_{};
   boost::signals2::scoped_connection sbirs_frame_connection_{};
+  boost::signals2::scoped_connection cross_cue_connection_{}; /**< cross-cue 收件连接 */
+  std::vector<SbirsCrossCueEvent> cross_cue_relay_buffer_{}; /**< 已收待转发递话（BeginCycle 冲刷） */
 };
 
 }  // namespace component_attachment
