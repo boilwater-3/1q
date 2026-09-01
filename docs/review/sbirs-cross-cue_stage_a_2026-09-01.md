@@ -1,5 +1,5 @@
----
-Status: frozen
+﻿---
+Status: final
 Date: 2026-09-01
 Review-Baseline: `evidence/sbirs-cross-cue` @ `7a2e4f58`
 Authority: 非规范性记录；结论以 docs/common/contract.md、docs/common/session_contract.md
@@ -140,16 +140,22 @@ Non-goals：
 3、建议：同池同规则（统一 SNR↓→距离↑→ID↑），"引导来源"只作记录不参与排序。
 4、Stage B 可选项（不进契约）：发现星窄场锁定后用精测刷新递话，提高伴星指向精度。
 
-## §4 运行记录（Stage C 后填写）
+## §4 运行记录
 
-<!-- 1、实现范围。
-2、验证命令与结果。
-3、权威回写去向：哪个结论写进了哪个文件。
-4、残留风险。
-5、后续冻结项。
--->
-
-修订 7（2026-09-01，实现期新证据，Stage B 记录）：
-1、缺口：cross-cue 外发需要"本星宽场候选的量测（带误差测角+带误差距离）"，但宽场候选被调度选中后其量测无输出出口（输出帧只有窄场捕获/跟踪记录；调试视图同源也无宽场候选状态）。
-2、处置（允许面扩展）：`SbirsCycleResult` 新增诊断列表 `wide_cue_measurements`（target_id + ECI 带误差 az/el + measured_range_m，仅归属/调试面，不进验收行）；管线在自星宽场候选创建处填充；组件 `PublishCrossCue` 据此外发。基线（无消费者）行为零变化。
-3、外发口径不变：只递宽场量测（发现即递话），窄场精测刷新仍不做（修订 3 条 4）。
+1、实现范围：库内（`SbirsExternalCue` POD + `SbirsSession::SubmitExternalCue` 运行时注入、
+   pipeline 外部候选构造（三角化/同池调度/来源标记/宽场量测透出）、调度器 cue 来源记录、
+   attribution 新增 `cue_source_satellite_entity_id`/`measured_range_m`/`wide_cue_measurements`）；
+   组件层（星→地→星事件链 + `cross_cue` 场景开关）；场景（8.7° 宽场 + 三星 cross_cue 常开）；
+   测试（2 个新单测）。
+2、验证命令与结果：
+   - 构建：`cmake --build ... --target sbirs_triple_sat_fix_messages`: pass（零警告）
+   - 单测：`1q_sbirs_sensor_unit_tests.exe`: pass（267 全绿，含 2 个新 cross-cue 用例）
+   - 8.7° 场景：`sbirs_triple_sat_fix_messages.exe`: pass（dual_sat 79/80 对照 0/80，
+     composite 0.226→0.408，冒烟通过）
+   - 24° 基线回归（--scene 原 JSON，cross_cue 默认关）: pass（74/80、0.431243 与基线逐位一致）
+3、权威回写去向：`docs/sbirs_sensor/algorithms.md`（cross-cue 算法节）、
+   `docs/sbirs_sensor/boundaries.md`（归属字段边界 5）、场景 md（试验记录更新）。
+4、残留风险：递话固定滞后一周期（星→地→星存储转发）；跨星递话距离为误差模型距离，
+   0.1% 量级误差折受话星视线角 <0.1°，远小于窄场半角；非法 cue 丢弃不重试；
+   `estimated_range_m` 真值/融合双语义未清洗（超出本契约）。
+5、后续冻结项：无（项 4 条件式判定已由 Stage B 实测满足）。
