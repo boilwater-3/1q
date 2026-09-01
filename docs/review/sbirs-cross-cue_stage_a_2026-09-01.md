@@ -1,5 +1,5 @@
 ---
-Status: draft
+Status: frozen
 Date: 2026-09-01
 Review-Baseline: `evidence/sbirs-cross-cue` @ `7a2e4f58`
 Authority: 非规范性记录；结论以 docs/common/contract.md、docs/common/session_contract.md
@@ -61,6 +61,9 @@ Authority: 非规范性记录；结论以 docs/common/contract.md、docs/common/
 3、验证载体：先在现行 24° 场景加"默认关"的 cross-cue 开关验证链路（现行为零变化），窄视场（8.7°）场景重启另行触发？建议前者。
 4、"引导来源"是否需要出现在验收日志行内（涉及规范 OCR 口径变更）？建议不进验收行，仅 debug/归属记录。
 
+修订 4（2026-09-01，用户指令，关闭全部待裁定点）：
+1、通道仲裁：自星引导与他星递话目标同池同规则，统一按现行 SNR↓→距离↑→ID↑ 排序；"引导来源"只记录，不参与排序。
+
 ## §3 冻结契约（用户讨论结束后填写）
 
 <!-- 一行一项：
@@ -70,6 +73,42 @@ Authority: 非规范性记录；结论以 docs/common/contract.md、docs/common/
 4、验收门：构建、聚焦测试、契约测试、特征化测试。
 5、非目标。
 -->
+
+Proven requirement：
+- 窄视场（8.7°）路线的时间断链由"两星无法在配对窗内同时产出窄场数据"导致；星间递话（cross-cue）引导使受话星窄场直接转头，闭合该断链。
+
+Allowed scope：
+- 库内输入面：`include/1q/sbirs_sensor/session/SbirsCycleInput.h` 新增 `SbirsExternalCue`（目标键+来源星实体 ID+来源星 ECI 位置+ECI 视线角+带误差距离+周期号）与默认空的 `external_cues` 列表；`SbirsExternalInputAdapter` 的 `MakeSbirsCycleInput` 加可选参数（默认空，既有调用逐位不变）；`SbirsInputValidation` 对新字段的有限性/正距离校验。
+- 库内消费：`src/sbirs_sensor/pipeline/` 目标循环中，自星宽场门失败但本周期有外部引导的目标改为构造外部候选（按裁定 2 三角化：来源星位置+距离×视线方向 → 目标 ECI 位置 → 本星视线角）；`SbirsCandidate`（`SbirsNfovScheduler.h`）加 `cue_source_satellite_entity_id`（-1=自星宽场）；外部候选与自星候选进同一调度池，统一 SNR↓→距离↑→ID↑（修订 4）；连续命中计数按外部引导到达累计；NFOV 捕获/跟踪/丢锁门全部复用既有逻辑（真值落窄场+窄场 SNR 门，物理真值链路不放松）。
+- 归属/调试：`SbirsOutputDebugViewBuilder` 与检测生命周期记录加"引导来源"标记；验收日志行格式零改动（修订 1 条 3）。
+- 组件层：`examples/core/events.h` 新增 cross-cue 事件；`examples/components/sbirs_sensor_component` 每周期外发自星宽场量测（ECI 视线角+带误差距离+自身 ECI 位置）并在周期输入前注入收到的事件；`examples/components/ground_station_fusion_component` 转发（星→地→星，修订 1 条 1）。
+- 场景：`examples/scenes/sbirs_triple_sat_fix_messages` 宽场改 8.7°、cross-cue 常开（修订 2），俯仰栅格键按需启用（库内已有解析）；场景 md 同步。
+- 测试：外部候选三角化与同池排序、默认空输入逐位不变、来源标记落 debug 的聚焦测试；场景冒烟。
+
+Explicitly out of scope：
+- 公开头文件：除 `SbirsCycleInput.h` 的上述加法外，任何 `include/1q` 改动（含 fusion/precision_evaluation 接口）。
+- 跨模块类型：不为 cue 新建跨模块公共类型或兼容层。
+- schema/回放：`SbirsReplayFlatbufferCodec` 不扩 schema；外部引导为组合层运行期输入，回放快照保持 cue 空。
+- 测试阈值/skip：不放宽任何既有门限。
+- 配对窗：`dual_sat_pair_window_cycles` 维持 1。
+- 发现星自家链路：WFOV→NFOV 自星引导行为零改动（修订 3 条 1）。
+
+Behavior boundary：
+- 输入：`external_cues` 默认空 → 全部行为与现状逐位一致；非空时仅影响列内目标的候选构造路径。
+- 输出：检测记录/验收行字段与格式不变；debug/归属记录多一个来源标记。
+- 错误回退：非法 cue（非有限/非正距离/未知目标键）整条丢弃并计 issue（kInfo），不影响其余目标。
+- 生命周期：外部引导目标丢锁后回候选态，需再次收到引导才重入调度；standby/关机清空。
+
+Acceptance gates：
+- 构建：全量构建零警告回归。
+- 聚焦测试：新增单测 + sbirs_sensor 既有测试全绿（基线 379+）。
+- 契约测试：`external_cues` 空输入下与基线输出逐位一致（特征化测试钉住）。
+- 场景门：8.7° 场景重跑，双星窄场配对 >0（对照失败基线 0/80）且冒烟通过；24° 基线场景行为不回归。
+
+Non-goals：
+- 窄场锁定后用精测刷新递话（修订 3 条 4，Stage B 可选项，不做）。
+- 排班式相位协同、配对窗放宽（已 reject）。
+- 真实 SBIRS 全协议仿真（消息内容仅限裁定 2 口径）。
 
 ## 修订记录
 
