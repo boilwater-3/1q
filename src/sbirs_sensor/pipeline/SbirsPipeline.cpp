@@ -933,7 +933,6 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
     WriteSbirsCycleRunCount(sim_time_sec, input.cycle_index);
   }
 
-  const float transmittance = environment::ResolveEffectiveTransmittance(environment_config);
   // 门内归因目标无关量（仅依赖硬件/门限配置，循环外计算一次）：有效噪声与达标所需签名 =
   // wide_min·噪声/积分时间（见 ClassifyWfovSnrExclusionCause）。
   const config::SbirsHardwareConfig& hw = config_.session.hardware;
@@ -1140,16 +1139,21 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
     float sensor_azimuth_deg = 0.0f;
     float sensor_elevation_deg = 0.0f;
     boresight_chain.SensorAzElOfEciVector(los, &sensor_azimuth_deg, &sensor_elevation_deg);
+    // 壳段气团（冻结契约 2026-09-02）：逐目标 τ_geo = τ_eff^X，X = 视线在大气壳内的
+    // 穿壳弦长÷垂直壳厚（100 km）；纯空间路径 X=0 → τ=1（不穿大气不再扣衰减）。
+    const float path_transmittance = environment::ResolveGeometricTransmittance(
+        environment_config, satellite_position_eci_m, target.position_eci_m);
     // 接收功率/信号能量中间变量透出（验收日志 E2/E5 消费；不影响 SNR 数值）。
     double received_power_w = 0.0;
     double signal_energy_j = 0.0;
-    const double snr =
-        ComputeSnr(config_, target, range_m, transmittance, &received_power_w, &signal_energy_j);
-    // 当前时刻最大探测距离（WFOV 门限反解）：随本周期 τ_eff/噪声快照与目标辐射强度
-    // 变化，进归属层诊断（不进 raw output）；SNR 门失败目标写入 issue 消息。
+    const double snr = ComputeSnr(config_, target, range_m, path_transmittance,
+                                  &received_power_w, &signal_energy_j);
+    // 当前时刻最大探测距离（WFOV 门限反解）：随本周期噪声快照、目标辐射强度与逐目标
+    // 路径透过率 τ_geo（壳段气团）变化，进归属层诊断（不进 raw output）；SNR 门失败
+    // 目标写入 issue 消息。
     const double max_detection_range_m = foundation::ComputeMaxDetectionRangeM(
         target.radiant_intensity_w_per_sr, hw.optical_aperture_m, hw.optical_transmission,
-        transmittance, hw.detector_quantum_efficiency, hw.integration_time_sec,
+        path_transmittance, hw.detector_quantum_efficiency, hw.integration_time_sec,
         effective_noise_w, policy.detection.wide_min_snr_linear);
     if (SBIRS_ACCEPTANCE_LOG_ENABLED()) {
       // 中译：本星本周期对该目标的最大探测距离 d_max（米）。目标已进窄场锁定、由他星
@@ -1258,14 +1262,14 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
       // signature_required 已在循环外计算）。
       const double signature_actual = std::max(0.0, target.radiant_intensity_w_per_sr);
       const session::SbirsIssueCause snr_cause = ClassifyWfovSnrExclusionCause(
-          range_m, transmittance, signature_actual, snr_signature_required);
+          range_m, path_transmittance, signature_actual, snr_signature_required);
       result.issues.push_back(MakeExclusionIssue(
           session::codes::kTargetSnrBelowThreshold,
           "target_id=" + std::to_string(target.target_id) +
               "; snr_linear=" + FormatSnr(snr) + " below wide_min=" +
               FormatSnr(policy.detection.wide_min_snr_linear) + " range_m=" +
               std::to_string(static_cast<std::int64_t>(range_m)) + " transmittance=" +
-              FormatSnr(transmittance) + " d_max_m=" +
+              FormatSnr(path_transmittance) + " d_max_m=" +
               std::to_string(static_cast<std::int64_t>(max_detection_range_m)),
           snr_cause,
           static_cast<std::ptrdiff_t>(target_idx)));
