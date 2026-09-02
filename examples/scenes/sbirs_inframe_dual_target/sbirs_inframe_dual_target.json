@@ -39,7 +39,7 @@
       "narrow_field_fov_el_deg": 8.0,
       "wide_min_snr_linear": 0.001,
       "narrow_min_snr_linear": 0.001,
-      "noise_equivalent_power_w": 1e-18,
+      "noise_equivalent_power_w": 1e-14,
       "integration_time_sec": 1.0,
       "frame_rate_hz": 10.0,
       "fov_sigma_deg": 0.0001
@@ -74,7 +74,7 @@
       "narrow_field_fov_el_deg": 8.0,
       "wide_min_snr_linear": 0.001,
       "narrow_min_snr_linear": 0.001,
-      "noise_equivalent_power_w": 1e-18,
+      "noise_equivalent_power_w": 1e-14,
       "integration_time_sec": 1.0,
       "frame_rate_hz": 10.0,
       "fov_sigma_deg": 0.0001
@@ -109,7 +109,7 @@
       "narrow_field_fov_el_deg": 8.0,
       "wide_min_snr_linear": 0.001,
       "narrow_min_snr_linear": 0.001,
-      "noise_equivalent_power_w": 1e-18,
+      "noise_equivalent_power_w": 1e-14,
       "integration_time_sec": 1.0,
       "frame_rate_hz": 10.0,
       "fov_sigma_deg": 0.0001
