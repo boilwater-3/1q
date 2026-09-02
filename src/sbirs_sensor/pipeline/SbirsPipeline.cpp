@@ -1331,10 +1331,13 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
     candidates.push_back(candidate);
     // cross-cue 外发数据源（修订 7）：本星自星宽场候选的带误差量测（与 E2 宽场疑似
     // 事件同源同量测）。外部引导候选不重复进此列表（受话不递话）。
-    result.wide_cue_measurements.push_back(
-        session::SbirsWideCueMeasurement{target.target_id, candidate.measured_azimuth_deg,
-                                         candidate.measured_elevation_deg,
-                                         candidate.measured_range_m});
+    // VS2015/C++11：带 NSDMI 的结构体非聚合，逐成员赋值（同组件层 SbirsExternalCue）。
+    session::SbirsWideCueMeasurement wide_cue_measurement;
+    wide_cue_measurement.target_id = target.target_id;
+    wide_cue_measurement.azimuth_deg = candidate.measured_azimuth_deg;
+    wide_cue_measurement.elevation_deg = candidate.measured_elevation_deg;
+    wide_cue_measurement.measured_range_m = candidate.measured_range_m;
+    result.wide_cue_measurements.push_back(wide_cue_measurement);
     // 宽窄切换前置条件（3.2.1.3.2.1）：WFOV 四门全部通过计一次连续命中；
     // 门失败/目标消失分支已清零，进入跟踪时在捕获处清零。
     ++wfov_consecutive_hits_[target.target_id];
