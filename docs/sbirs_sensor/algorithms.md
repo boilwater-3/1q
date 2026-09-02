@@ -478,6 +478,14 @@ Answers: SBIRS 用了哪些算法、各自实现到什么地步、边界在哪�
      （`SbirsDetectionAttributionRecord::max_detection_range_m`），不进 raw output；
      NFOV 门限版可由消费方按 `d_max·sqrt(wide_min/narrow_min)` 推导；SNR 门失败目标的
      issue 消息附带 d_max 数值（人读）。
+  8. 噪声口径（2026-09-02 修订，冻结契约 sbirs-noise-realistic-snr）：各分量统一
+     "积分时间内噪声能量"分母（SNR = P_sig·t_int/N_eff），合成
+     `N_eff = sqrt((NEP·t)² + N_photon² + N_thermal² + (N_readout·t)²)`；
+     `N_photon = sqrt(P_bg·t·E_ph)`，`P_bg = L_bg·A_ap·τ_opt·Ω_pixel`（Ω_pixel=(像元间距/
+     焦距)²，E_ph=hc/λ_center 波段中心单色近似）；NEP 直接计入 RSS（非仅回退项）；热项
+     仅探测器温度 >0 计入（显式选配，默认 0）；背景亮度默认 2.0 W/(sr·m²)（地球 MWIR
+     典型，0=关闭光子项）。历史口径（光子项 1 sr 等效视场、缺 E_ph、热项默认 80 K 独占）
+     使 SNR 比真实背景限制系统低约 4 个数量级，已废弃。
 - **反直觉点**：只有独立成像模型同时具备 PSF/MTF、焦距与像元几何时，才可冻结其物理效应并增加结果
   测试；不得先加占位字段再用任意归一化系数伪装生效。
 - **证据**：[evidence: tests/unit/sbirs_sensor/sbirs_foundation_test]

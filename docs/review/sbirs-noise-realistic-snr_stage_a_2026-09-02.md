@@ -104,9 +104,26 @@ Authority: 非规范性记录；结论以 docs/common/contract.md、docs/common/
 
 ## §4 运行记录（Stage C 后填写）
 
-<!-- 1、实现范围。
-2、验证命令与结果。
-3、权威回写去向：哪个结论写进了哪个文件。
-4、残留风险。
-5、后续冻结项。
--->
+1、实现范围：
+1、src/common/numerics/Constants.h：新增普朗克常数 kPlanck（光速 kLightSpeed 已有）。
+2、src/sbirs_sensor/foundation/SbirsNoiseModel.{h,cpp}：光子项改闭式 √(P_bg·t·E_ph)（P_bg=L·A·τ_opt·Ω_pixel，Ω=(pitch/f)²，E_ph=hc/λ_center）；NEP 直接计入 RSS；各分量统一能量分母口径（热项 √(4k_BT·t)、读出 ×t、NEP·t）；头注释同步。
+3、include/1q/sbirs_sensor/config/SbirsHardwareConfig.h：仅两处默认值（背景亮度 0→2.0、温度 80→0）与注释，零结构变更（修订 2/3）。
+4、tests/unit/sbirs_sensor/sbirs_noise_model_test.cpp：重写 6 例（全退化回退下限、NEP 恒入 RSS、光子闭式核对锚点 1.87e-15、像元间距 ×2→光子 ×2、热项选配、读出主导）。
+
+2、验证命令与结果：
+1、`1q_sbirs_sensor_unit_tests.exe`：273/273 全绿。
+2、旗舰场景重跑：dual_sat_cycles=79/80 不回归；composite score=0.37613 与改前逐位一致（精度评估层无感，与矩阵推理一致）。
+3、新口径读数与闭式预测对齐：SNR=25.811 dB（预测 25.8，线性 382）；探测概率=1.0000；d_max=24,225,437,989.6 m（预测 24,225,627,376，偏差 8e-6）；接收功率 7.141e-13 W 不变（只动噪声侧）。
+
+3、权威回写去向：
+1、docs/sbirs_sensor/algorithms.md："Foundation 物理链路"新增第 8 条噪声口径全式与历史口径废弃说明。
+2、include/1q/sbirs_sensor/config/SbirsHardwareConfig.h 默认值与注释本身即契约载体（修订 2/3）。
+
+4、残留风险：
+1、EOS 模块噪声仍是旧口径（复制分叉），跨模块统一另立议题。
+2、E_ph 波段中心单色近似未做波段积分；背景亮度不随视轴（地球/冷空）变化——均为非目标，需要时另立冻结项。
+3、d_max 数值（2.42e10 m）远超任务距离带，语义上仅是"门限反解诊断量"，集成方读数时注意勿当作战术指标。
+
+5、后续冻结项：
+1、EOS/SBIRS 噪声口径跨模块统一。
+2、背景亮度随视轴（地球盘/冷空/临边）差异化与波段积分 E_ph。
