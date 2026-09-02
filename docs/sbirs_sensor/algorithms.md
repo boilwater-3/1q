@@ -472,8 +472,9 @@ Answers: SBIRS 用了哪些算法、各自实现到什么地步、边界在哪�
      和各自检测门限表达。
   6. 复制自 EOS 的算法允许按天基场景修正常数和几何输入，但必须保持调用面由 `SbirsPipeline` 统一编排。
   7. 当前时刻最大探测距离（合同指标 4，2026-08-17 起）：信号 ∝ 1/d² 且噪声不含距离项，
-     由 WFOV 检测门限闭式反解 `d_max = sqrt(I·A_ap·τ_opt·τ_eff·η·t_int/(N_eff·SNR_th))`；
-     τ_eff 与 N_eff 取当前周期快照，故逐目标、逐周期变化。输出进归属/诊断层
+     由 WFOV 检测门限闭式反解 `d_max = sqrt(I·A_ap·τ_opt·τ_geo·η·t_int/(N_eff·SNR_th))`；
+     τ_geo = τ_eff^X 为逐目标几何路径透过率（壳段气团，见"气象衰减模型"节），
+     N_eff 取当前周期快照，故逐目标、逐周期变化。输出进归属/诊断层
      （`SbirsDetectionAttributionRecord::max_detection_range_m`），不进 raw output；
      NFOV 门限版可由消费方按 `d_max·sqrt(wide_min/narrow_min)` 推导；SNR 门失败目标的
      issue 消息附带 d_max 数值（人读）。
@@ -492,7 +493,13 @@ Answers: SBIRS 用了哪些算法、各自实现到什么地步、边界在哪�
   3. `A_total ∈ [0,1]`，作用于 `τ_eff = τ·(1-A_total)`，只在透过率维度合成一次。
   4. 第一版使用查表和加权叠加，不接入 MODTRAN/LOWTRAN 或三维天气场。
   5. `base_atmospheric_transmittance` 是可标定标量，不声称实现 Beer-Lambert 廓线。
+  6. 壳段气团几何修正（2026-09-02 冻结契约，纯空间路径不扣大气衰减）：逐目标
+     `τ_geo = τ_eff^X`，气团因子 `X` = 视线在球对称大气壳（地球平均半径 +100 km 壳顶）
+     内的穿壳弦长 ÷ 垂直壳厚，夹取 [0,10]（低仰角防发散）；纯空间路径 `X=0 → τ=1`，
+     地面目标正对天顶 `X=1`（与垂直穿过大气的基准向后兼容）；穿地路径由遮挡门先行
+     排除，不进气团函数。SNR/d_max/衰减归因链全部改用 τ_geo。
 - **证据**：[evidence: tests/unit/sbirs_sensor/sbirs_environment_model_test]
+- **证据**：[evidence: tests/unit/sbirs_sensor/sbirs_pipeline_test]
 
 ## 误差模型（WFOV 带误差位置）
 

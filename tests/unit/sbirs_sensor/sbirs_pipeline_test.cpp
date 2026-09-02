@@ -1979,13 +1979,15 @@ TEST(SbirsPipelineTest, AttributionCarriesCurrentInstantMaxDetectionRange) {
   ASSERT_FALSE(result.detections.empty());
 
   // 期望值由模块各单测覆盖的组成函数独立拼出（透过率/噪声/反解）。
-  const float transmittance = sbirs_sensor::environment::ResolveEffectiveTransmittance(
-      config.environment);
+  // 星目双端均在壳外（7000/8000 km > 壳顶 6471 km，近地点=卫星 629 km 高）：
+  // 壳段气团 X=0 → τ_geo=1（纯空间路径不扣大气，2026-09-02 冻结契约）。
+  const float transmittance_geo = sbirs_sensor::environment::ResolveGeometricTransmittance(
+      config.environment, Vector(7000000.0, 0.0, 0.0), Vector(8000000.0, 0.0, 0.0));
   const double effective_noise_w = sbirs_sensor::foundation::ResolveEffectiveNoiseW(
       config.hardware, sbirs_sensor::foundation::ComputeBackgroundNoiseStatistics(config.hardware));
   const double expected_d_max = sbirs_sensor::foundation::ComputeMaxDetectionRangeM(
       1.0e8, config.hardware.optical_aperture_m, config.hardware.optical_transmission,
-      transmittance, config.hardware.detector_quantum_efficiency,
+      transmittance_geo, config.hardware.detector_quantum_efficiency,
       config.hardware.integration_time_sec, effective_noise_w,
       config.policy.detection.wide_min_snr_linear);
   EXPECT_GT(expected_d_max, 0.0);
@@ -1996,13 +1998,18 @@ TEST(SbirsPipelineTest, AttributionCarriesCurrentInstantMaxDetectionRange) {
 }
 
 // 气象恶化（雾）→ τ_eff 下降 → 同一目标 d_max 变小（d_max 随周期环境快照变化）。
+// 目标置于大气壳内（79 km 高，r=6450 km < 壳顶 6471 km）：视线穿壳，τ_geo=τ_eff^X
+// 随天气变化；扫描窗挪到方位 175° 盖住天底方向的视线（X=0.21，穿壳弦 21 km）。
 TEST(SbirsPipelineTest, MaxDetectionRangeShrinksUnderFog) {
   const auto run_first_attribution_d_max = [](
                                               sbirs_sensor::config::SbirsWeatherType weather) {
     sbirs_sensor::config::SbirsSessionConfig config = PipelineConfig();
     config.environment.weather_type = weather;
+    config.mission.scan_start_az_deg = 175.0f;  // 视线方位 180°（天底）需入扫描窗
     sbirs_sensor::pipeline::SbirsPipeline pipeline(
         sbirs_sensor::runtime::MapSessionToInternal(config));
+    sbirs_sensor::session::SbirsSceneTarget shell_target = HotTarget(7U, 0.0);
+    shell_target.position_ecef_m = Vector(6450000.0, 0.0, 0.0);
     const sbirs_sensor::session::SbirsCycleInput input =
         sbirs_sensor::session::SbirsCycleInputBuilder()
             .WithCycleIndex(1U)
@@ -2010,7 +2017,7 @@ TEST(SbirsPipelineTest, MaxDetectionRangeShrinksUnderFog) {
             .WithUtcJulianDay(2451544.2230698913)  // GMST≈0：ECI≡ECEF
             .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
             .WithSatelliteVelocity(Vector(0.0, 0.0, 0.0)).WithSatelliteAttitude(sbirs_sensor::session::SbirsEulerAnglesDeg{})
-            .AddTarget(HotTarget(7U, 0.0))
+            .AddTarget(shell_target)
             .Build();
     const sbirs_sensor::pipeline::SbirsPipelineResult result = pipeline.RunCycle(input);
     EXPECT_FALSE(result.detections.empty());
