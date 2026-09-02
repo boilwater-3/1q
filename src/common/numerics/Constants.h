@@ -25,6 +25,9 @@ constexpr double kLightSpeed = 299792458.0;
 /** @brief 玻尔兹曼常数 (J/K)，CODATA 2019 */
 constexpr double kBoltzmann = 1.380649e-23;
 
+/** @brief 普朗克常数 (J·s)，CODATA 2019 */
+constexpr double kPlanck = 6.62607015e-34;
+
 /**
  * @brief 角度（deg）转弧度（rad）。
  * @tparam T 标量类型。

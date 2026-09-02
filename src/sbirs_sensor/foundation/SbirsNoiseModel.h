@@ -1,14 +1,16 @@
 ﻿/**
  * @file SbirsNoiseModel.h
- * @brief SBIRS-inspired 红外噪声分解（design 2.8）。
+ * @brief SBIRS-inspired 红外噪声分解（design 2.8；口径修订 2026-09-02）。
  *
- * 将原 NEP 标量分解为光子噪声、热噪声、读出噪声三项 RMS 合成：
- *   N_total = sqrt(N_photon² + N_thermal² + N_readout²)
+ * 噪声分母统一"积分时间内噪声能量"口径，供 SNR = P_sig·t_int / N_eff 使用：
+ *   N_total = sqrt((NEP·t)² + N_photon² + N_thermal² + (N_readout·t)²)
  * 其中：
- *   - 光子噪声：背景辐射在探测器上产生的信号散粒噪声。
- *   - 热噪声：探测器工作温度相关的 Johnson 噪声等效功率。
- *   - 读出噪声：读出电路等效噪声（W）。
- * 若三项背景/热/读出参数均为 0（默认），退化为单一 NEP 标量，保持向后兼容。
+ *   - 探测器 NEP：noise_equivalent_power_w 直接计入合成（而非仅回退项）。
+ *   - 光子噪声：√(P_bg·t·E_ph)，P_bg=背景亮度×孔径×光学透过率×像元视场
+ *     （Ω=(像元间距/焦距)²），E_ph=hc/λ_center（波段中心单色近似）。
+ *   - 热噪声：显式选配——仅探测器温度 > 0 计入（默认 0 关闭），√(4 k_B T t)。
+ *   - 读出噪声：readout_noise_rms_w × t_int。
+ * 全部分量退化（NEP=0 且三项全关）时回退 NEP 标量下限 1e-18。
  */
 
 #ifndef ONEQ_SRC_SBIRS_SENSOR_FOUNDATION_SBIRS_NOISE_MODEL_H_
@@ -21,32 +23,33 @@ namespace foundation {
 
 /**
  * @brief 噪声分量统计（design 2.8 ComputeBackgroundNoiseStatistics）。
- * @note 内部数据结构，承载光子/热/读出三项 RMS 及其合成总噪声。
+ * @note 内部数据结构。各分量与合成总噪声均为"积分时间内噪声能量"口径
+ *       （SNR=P_sig·t_int/N_eff 的分母），字段名沿用 *_w。
  */
 struct SbirsNoiseStatistics {
-  double photon_noise_w{0.0};    /**< 光子（散粒）噪声 RMS，单位 W */
-  double thermal_noise_w{0.0};   /**< 热噪声 RMS，单位 W */
-  double readout_noise_w{0.0};   /**< 读出噪声 RMS，单位 W */
-  double total_noise_w{0.0};     /**< 三项 RMS 合成总噪声，单位 W */
+  double photon_noise_w{0.0};    /**< 光子（散粒）噪声分量，能量分母口径 */
+  double thermal_noise_w{0.0};   /**< 热噪声分量（仅温度>0 时非零），能量分母口径 */
+  double readout_noise_w{0.0};   /**< 读出噪声分量（RMS×t_int），能量分母口径 */
+  double total_noise_w{0.0};     /**< NEP+光子+热+读出 RSS 合成，能量分母口径 */
 };
 
 /**
  * @brief 计算背景噪声统计。
  *
- * 背景辐射经孔径与积分时间转换为光子噪声；热噪声由探测器温度与带宽估算；
- * 读出噪声取硬件 readout_noise_rms_w。三者均方根合成得 total_noise_w。
+ * 光子噪声由背景亮度、孔径、光学透过率、像元视场与波段中心光子能量按散粒统计
+ * 合成；探测器 NEP 直接计入 RSS；热噪声仅温度>0 计入；读出噪声按积分时间折算。
  * @param[in] hardware 硬件配置
  * @return 噪声分量统计
  */
 SbirsNoiseStatistics ComputeBackgroundNoiseStatistics(const config::SbirsHardwareConfig& hardware);
 
 /**
- * @brief 由噪声统计与硬件 NEP 取大，得到有效噪声（W）。
+ * @brief 得到有效噪声分母（能量分母口径，SNR=P_sig·t_int/N_eff）。
  *
- * 当背景/热/读出参数为默认 0 时，total_noise_w 为 0，回退到 NEP，保持向后兼容。
- * @param[in] hardware 硬件配置（取 NEP）
+ * total_noise_w > 0 时直接返回；全部分量退化时回退 max(1e-18, NEP) 保证分母恒正。
+ * @param[in] hardware 硬件配置（取 NEP 作回退）
  * @param[in] statistics 噪声分量统计
- * @return 有效噪声，单位 W
+ * @return 有效噪声分母
  */
 double ResolveEffectiveNoiseW(const config::SbirsHardwareConfig& hardware,
                               const SbirsNoiseStatistics& statistics);
