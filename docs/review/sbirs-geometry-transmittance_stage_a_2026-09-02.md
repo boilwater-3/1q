@@ -103,9 +103,26 @@ Authority: 非规范性记录；结论以 docs/common/contract.md、docs/common/
 
 ## §4 运行记录（Stage C 后填写）
 
-<!-- 1、实现范围。
-2、验证命令与结果。
-3、权威回写去向：哪个结论写进了哪个文件。
-4、残留风险。
-5、后续冻结项。
--->
+1、实现范围：
+1、environment 层新增 `ComputeShellAirmassFactor`（穿壳弦长÷垂直壳厚，夹取 [0,10]）与 `ResolveGeometricTransmittance`（τ_geo=τ_eff^X）。
+2、管线逐目标 τ_geo 替换每周期共用 τ：SNR/d_max/SNR 门归因与 issue 消息共 4 处用点；删除每周期 `transmittance` 变量。
+3、单测：环境层新增 5 例（纯空间 X=0、地面天顶 X=1、壳内目标 X<1、掠壳封顶 10、退化输入）；管线测试 2 例改为新口径拼装（雾天测试目标移入壳内 79 km 高、扫描窗挪至方位 175°）。
+4、公共头 include/1q 零变更（契约允许范围核实）。
+
+2、验证命令与结果：
+1、`cmake --build ... --target 1q_sbirs_sensor_unit_tests --config Release`：构建通过。
+2、`1q_sbirs_sensor_unit_tests.exe`：271/271 全绿（含新增 5 例与改写 2 例）。
+3、`1q_sbirs_sensor_contract_tests.exe`：14/14；`1q_sbirs_sensor_integration_tests.exe`：29/29。
+4、旗舰场景 `sbirs_triple_sat_fix_messages.exe` 重跑：dual_sat_cycles=79/80 不回归；d_max 320 行全等 128617668.4 m，与闭式预测 114606933.3/√0.794=128617670.8 一致（浮点尾差 2.4 ppm）；四对存活路径 X=0（目标 507~614 km 高于壳顶），被排除两对恰为穿地遮挡对，与矩阵预判吻合。
+
+3、权威回写去向：
+1、docs/sbirs_sensor/algorithms.md："Foundation 物理链路"第 7 条 d_max 公式 τ_eff→τ_geo；"气象衰减模型"新增第 6 条壳段气团几何修正全口径。
+2、docs/sbirs_sensor/boundaries.md：1b 条 d_max 依赖项改为逐目标 τ_geo（壳段气团）。
+
+4、残留风险：
+1、SNR/接收功率绝对数值仍挂在简化噪声链（80 K 热噪声标量 N_eff≈6.6e-11 W，背景亮度/读出默认 0）：对真实背景限制系统低约 4 个数量级；检测门 0.001 与 d_max 均按该链标定，场景判定自洽（用户 2026-09-02 确认该口径并知悉量级估算：真实同型目标 1 秒积分 SNR 约 130/21 dB、10 ms 驻留约 13/11 dB）。
+2、验收日志 SNR 表示法此前已由线性改为 dB（用户确认），跨版本日志数值不可直接对比；旧日志 85.301 为旧链路线性值。
+
+5、后续冻结项：
+1、噪声口径真实化：背景辐射亮度 + 像元等效视场进入光子噪声（替代 1 sr 标量简化/热噪声兜底），使 SNR 落入真实量级——独立冻结项，未启动。
+2、d_max 时间动态：弹道目标穿大气场景与/或动态环境模型（修订 3 裁定本次不做）。
