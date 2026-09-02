@@ -2,7 +2,6 @@
 
 #include <algorithm>
 #include <cmath>
-#include <limits>
 #include "common/geometry/EarthOccultation.h"
 
 namespace sbirs_sensor {
@@ -63,10 +62,9 @@ double ComputeShellAirmassFactor(const session::SbirsVector3M& satellite_positio
                    target_position_eci_m.z * target_position_eci_m.z - shell_radius * shell_radius;
   double in_shell_fraction = 0.0;  // 段长落在壳内的比例
   const double discriminant = b * b - 4.0 * a * c;
-  if (discriminant <= 0.0) {
-    // 与壳顶球无实交点：整段同侧。目标在壳内则整段计长（卫星同在壳内的极端情形）。
-    in_shell_fraction = c < 0.0 ? 1.0 : 0.0;
-  } else {
+  if (discriminant > 0.0) {
+    // 目标在壳内（c<0）时两根异号，s_lo 夹到 0、s_hi 取出壳根 → 部分弦；
+    // 双端在壳外时两根同号，仅当都落在 [0,1] 内才有穿壳段（横穿大气壳的掠射路径）。
     const double sqrt_disc = std::sqrt(discriminant);
     const double s_lo = std::max(0.0, (-b - sqrt_disc) / (2.0 * a));
     const double s_hi = std::min(1.0, (-b + sqrt_disc) / (2.0 * a));
@@ -74,6 +72,7 @@ double ComputeShellAirmassFactor(const session::SbirsVector3M& satellite_positio
       in_shell_fraction = s_hi - s_lo;
     }
   }
+  // 判别式 ≤ 0：段与壳顶球无实交点（相切或整段在壳外侧）→ 穿壳弦为 0。
   const double chord_m = in_shell_fraction * segment_length;
   const double factor = chord_m / kAtmosphereShellThicknessM;
   return std::max(0.0, std::min(kMaxShellAirmassFactor, factor));
