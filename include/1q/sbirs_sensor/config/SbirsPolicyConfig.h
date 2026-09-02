@@ -61,8 +61,9 @@ struct ONEQ_API SbirsPointingDisturbanceConfig {
  * @brief NFOV 资源调度器配置（单镜筒，2026-09-02 起）。
  * @note 窄场只有一个镜筒（单执行器分时轮转）：可同时保持的精跟条数不再可配置——
  *       由轮转物理涌现（分离目标轮空超过跟踪门容忍即丢锁）。历史配置项
- *       `max_concurrent_nfov_locks` 已删除（等效多镜筒的虚构能力），场景配置出现
- *       该键由示例层配置装载拒绝。
+ *       `max_concurrent_nfov_locks` 已删除（等效多镜筒的虚构能力）。场景 JSON 残留
+ *       该键：sbirs 场景装载器显式拒绝报错；通用装载器（examples config_loader）
+ *       按忽略未知键的既有策略静默跳过。
  */
 struct ONEQ_API SbirsSchedulerConfig {
   /**
