@@ -1,540 +1,318 @@
-﻿---
+---
 Status: active
-Last-reviewed: 2026-08-27
-Authority: sbirs_sensor 算法登记与实现边界
-Answers: SBIRS 用了哪些算法、各自实现到什么地步、边界在哪、哪些刻意不实现
+Last-reviewed: 2026-09-03
+Authority: SBIRS 算法登记与实现边界
+Answers: SBIRS 用了哪些算法、各自实现到什么地步、边界在哪、哪些反直觉、哪些刻意不实现
 ---
 
 # SBIRS 算法登记
 
-本文是 SBIRS 算法清单与边界的权威。算法本身的逐步逻辑读代码（`src/sbirs_sensor/`）；本文只回答
-"用没用/到哪步/为什么不做"。模块级边界（输出归属、电源、能力决策）见 [boundaries.md](boundaries.md)，
-数据流与时序见 [data-flow.md](data-flow.md)。
+本文是天基红外系统（Space-Based Infrared System, SBIRS）模块算法与部件清单及实现边界的权威。算法本身的逐步代码逻辑读 `src/sbirs_sensor/`；本文回答“用没用 / 到哪步 / 边界在哪 / 哪些反直觉 / 哪些刻意不实现”。模块级边界（输出归属、电源、能力决策）见 [boundaries.md](boundaries.md)，数据流与时序见 [data-flow.md](data-flow.md)。
+
+SBIRS 模拟天基红外监视卫星的宽视场（WFOV）扫描探测、星下点/惯性稳定指向、单镜筒分时轮转窄视场（NFOV）精跟、星间交叉引导（Cross-Cue）以及 OPIR 验收日志派生。
+
+---
 
 ## 算法登记表
 
-| 算法 | 意图（一句话） | 实现状态 | 证据 |
+| 算法/部件 | 意图 / 核心转换 | 实现状态 | 证据与单测 |
 |---|---|---|---|
-| 目标状态机 | 7 状态管理 WFOV 发现→NFOV 捕获→持续跟踪全过程 | 生产可用 | [evidence: tests/unit/sbirs_sensor/sbirs_state_machine_test] |
-| WFOV 扫描搜索 | 推进扫描相位，执行几何/SNR 门控，输出带误差位置 | 生产可用 | [evidence: tests/unit/sbirs_sensor/sbirs_pipeline_test] |
-| NFOV 首次捕获 | WFOV cue 生成指向，限速 ATP 稳定后窗口+SNR 判捕获 | 生产可用 | [evidence: tests/unit/sbirs_sensor/sbirs_pipeline_test] |
-| 单镜筒 ATP | 全星共享一个光轴执行器（限速推进、settled/timeout、稳定时长），逐目标簿记捕获等待与门失败计数 | 生产可用 | [evidence: tests/unit/sbirs_sensor/sbirs_pointing_coordinator_test] |
-| NFOV 持续跟踪 | 捕获后闭环 ATP + 几何/SNR 门 + 滤波/真值驱动 | 生产可用 | [evidence: tests/unit/sbirs_sensor/sbirs_pipeline_test] |
-| EKF 滤波跟踪 | 6 维 CV 状态 / 2 维角度量测的扩展卡尔曼滤波 | 生产可用 | [evidence: tests/unit/sbirs_sensor/sbirs_ekf_baseline_test] |
-| IMM(EKF) 滤波 | 多模型交互，全场景 RMSE 改善 28-55% | 生产可用 | [evidence: tests/unit/sbirs_sensor/sbirs_imm_evaluation_test] |
-| 角度域线性 KF（实验） | 4 维 [az, ω_az, el, ω_el] 标准卡尔曼滤波；opt-in，默认不启用 | 实验接线 | [evidence: tests/unit/sbirs_sensor/sbirs_angle_cv_kf_test] |
-| Cue 预测 | 角度域两点 CV 提前量补偿 cue 延迟 | 生产可用 | [evidence: tests/unit/sbirs_sensor/sbirs_cue_predictor_test] |
-| NFOV 锁定集合与分时轮转 | 无配置上限锁定集合（优先级排序入列），固定顺序轮转服务；可保持精跟条数由跟踪门物理涌现 | 生产可用 | [evidence: tests/unit/sbirs_sensor/sbirs_scheduler_test] |
-| 地球遮挡门控 | 有限线段射线-地球球体判别穿地视线；判定核在 `common/geometry/EarthOccultation`，本模块薄封装 | 生产可用 | [evidence: tests/unit/sbirs_sensor/sbirs_foundation_test] [evidence: tests/unit/common/common_earth_occultation_test] |
-| Foundation 物理链路 | 辐射强度/透过率/接收功率/噪声/SNR 标量链 | 生产可用 | [evidence: tests/unit/sbirs_sensor/sbirs_foundation_test] |
-| 当前时刻最大探测距离 | WFOV 检测门限反解 d_max(t)=sqrt(I·A·τ_opt·τ_eff·η·t/(N·SNR_th))，逐目标进归属层 | 生产可用 | [evidence: tests/unit/sbirs_sensor/sbirs_radiative_transfer_test] |
-| 气象衰减 | 查表+加权叠加得透过率衰减因子 | 生产可用 | [evidence: tests/unit/sbirs_sensor/sbirs_environment_model_test] |
-| 误差模型 | 5 类误差（轨道/姿态/视场高斯 + 折射/滞后确定性；滞后随相对视线角速度 v_t−v_sat） | 生产可用 | [evidence: tests/unit/sbirs_sensor/sbirs_error_model_test] |
-| 时间相关指向扰动 | 整星共模 + 单通道 GM + 振动的 Gauss-Markov（单镜筒：通道扰动仅 0 号一份） | 生产可用 | [evidence: tests/unit/sbirs_sensor/sbirs_pointing_disturbance_test] |
-| 安装指向与稳定链 | 卫星姿态(Body→ECI)∘安装角(Body→Sensor)∘扫描指向合成实际光轴；体/惯性双稳定；传感器系限位；纯几何引擎在公共域 `src/common/geometry/BoresightChain` | 生产可用（阶段 2，2026-08-17） | [evidence: tests/unit/sbirs_sensor/sbirs_boresight_chain_test]、[evidence: tests/unit/common/common_boresight_chain_test] |
-| 安装失准误差模型 | 安装失准（常值偏置 + 运行期一次随机抽取的常值微扰）合成进 boresight 链影响实际光轴与门控；与量测域误差及时变扰动谱正交 | 生产可用（阶段 3，2026-08-17） | [evidence: tests/unit/sbirs_sensor/sbirs_boresight_chain_test]、[evidence: tests/unit/common/common_boresight_chain_test]、[evidence: tests/unit/sbirs_sensor/sbirs_pipeline_test] |
-| 2-D 俯仰栅格扫描 | 俯仰栅格（el 起止+步进角）与方位往复扫正交组合（2026-08-31 起牛耕式到边反向）；输出行中心 ECI 俯仰 | 生产可用（2026-08-31 往复化） | [evidence: tests/unit/sbirs_sensor/sbirs_pipeline_test] |
-| ECEF→ECI 旋转（GMST） | 周期入口按 UTC 儒略日算 GMST，把卫星/目标位置与卫星/目标速度（含 ω×r 输运项）旋到 ECI | 生产可用（共享域 1q/coordinate/inertial_transform.h，仅 SBIRS 消费） | [evidence: tests/unit/sbirs_sensor/sbirs_eci_transform_test] |
-| WFOV 地面覆盖区投影 | 实际扫描中心 ±半视场四角经指向链到 ECI，与地球圆球交会（最近正根），交点旋回 ECEF 取地心经纬度；指向太空的角记 miss | 生产可用（仅验收日志消费，2026-08-18） | [evidence: tests/unit/sbirs_sensor/sbirs_foundation_test] |
-| 焦平面脱靶量映射 | 目标相对 NFOV 指向中心的逐轴角差经 x=f·tan(Δaz)、y=f·tan(Δel) 映射为米/像素脱靶量 | 生产可用（仅验收日志消费，2026-08-18） | [evidence: tests/unit/sbirs_sensor/sbirs_foundation_test] |
-| 宽窄切换连续命中门 | 逐目标累计连续 WFOV 门通过次数，达到 `wide_to_narrow_required_consecutive_hits`（默认 1）才允许进入 NFOV 调度；门失败/消失清零，捕获清零 | 生产可用（默认 1 行为逐位不变，2026-08-18） | [evidence: tests/unit/sbirs_sensor/sbirs_pipeline_test] |
+| ECEF $\to$ ECI 旋转（GMST） | UTC 儒略日算 GMST，卫星/目标位置及含自转输运速度转 ECI | session-wired | [evidence: tests/unit/sbirs_sensor/sbirs_eci_transform_test.cpp] |
+| 地球遮挡门控 | 有限线段射线与球体求交，剔除穿地视线（不入 WFOV/SNR） | session-wired | [evidence: tests/unit/sbirs_sensor/sbirs_foundation_test.cpp] |
+| 公共安装指向与稳定链 | 姿态(Body$\to$ECI) $\circ$ 安装 $\circ$ 扫描合成光轴；体/惯性双稳定 | session-wired | [evidence: tests/unit/sbirs_sensor/sbirs_boresight_chain_test.cpp] |
+| 安装失准误差模型 | 运行内常值微扰合成入光轴链；与时变指向扰动和量测白噪谱正交 | session-wired | [evidence: tests/unit/sbirs_sensor/sbirs_boresight_chain_test.cpp] |
+| Foundation 标量辐射传输 | 辐射强度 $I$ + 几何距离 $\to$ 接收功率 $P_{\text{sig}}$ 与标量链路 | session-wired | [evidence: tests/unit/sbirs_sensor/sbirs_foundation_test.cpp] |
+| 现实噪声能量分母口径 | 积分时间内噪声能量分母，NEP + 像元 IFOV 背景光子起伏 RSS | session-wired | [evidence: tests/unit/sbirs_sensor/sbirs_noise_model_test.cpp] |
+| 壳段气团几何大气衰减 | 视线穿球对称大气壳（100 km 壳顶）弦长比 $\to \tau_{geo} = \tau_{\text{eff}}^X$ | session-wired | [evidence: tests/unit/sbirs_sensor/sbirs_environment_model_test.cpp] |
+| 当前时刻最大探测距离 | WFOV 门限闭式反解 $d_{\max}(t)$，逐目标随气团与快照变化进归属 | session-wired | [evidence: tests/unit/sbirs_sensor/sbirs_radiative_transfer_test.cpp] |
+| WFOV 宽视场多目标搜索 | 推进扫描相位，执行几何/SNR 门控，输出带误差观测位置 | session-wired | [evidence: tests/unit/sbirs_sensor/sbirs_pipeline_test.cpp] |
+| 星下点相对与往复栅格扫描 | nadir 相对基准 + 2-D 俯仰网格往复牛耕推进（到边反射折叠） | session-wired | [evidence: tests/unit/sbirs_sensor/sbirs_pipeline_test.cpp] |
+| 观测误差与时变指向扰动 | 5 类量测误差（RSS合成）+ 一阶高斯-马尔可夫实际光轴抖动 | session-wired | [evidence: tests/unit/sbirs_sensor/sbirs_error_model_test.cpp] |
+| 单镜筒分时轮转与无界集合 | 窄场单执行器轮转服务；同帧免费多跟；精跟容量由物理涌现 | session-wired | [evidence: tests/unit/sbirs_sensor/sbirs_scheduler_test.cpp] |
+| 单镜筒 ATP 光轴动力学 | 球面最短路径限速推进，依角转速折算当拍稳定时长与有效帧数 | session-wired | [evidence: tests/unit/sbirs_sensor/sbirs_pointing_coordinator_test.cpp] |
+| 星间 Cross-Cue 交叉提示 | 三角化他星宽场测角/距离后注入本星调度池，闭合双星时间断链 | session-wired | [evidence: tests/unit/sbirs_sensor/sbirs_pipeline_test.cpp] |
+| NFOV 首次捕获 | WFOV cue 两点 CV 提前量外推，延迟视线地心/卫星位移评估 | session-wired | [evidence: tests/unit/sbirs_sensor/sbirs_cue_predictor_test.cpp] |
+| 目标 7 状态机 | Undetected $\to$ Wide $\to$ Awaiting $\to$ 3类跟踪 $\to$ Lost 转移闭环 | session-wired | [evidence: tests/unit/sbirs_sensor/sbirs_state_machine_test.cpp] |
+| NFOV 持续闭环跟踪 | 统一闭环：命令 LOS $\to$ ATP 推进 $\to$ 窗口/SNR 门 $\to$ 滤波更新 | session-wired | [evidence: tests/unit/sbirs_sensor/sbirs_pipeline_test.cpp] |
+| 6D ECI CV 状态/2D 测角 EKF | 6 维 ECI 状态 / 纯 2 维角度量测卡尔曼滤波，被动红外不测距 | session-wired | [evidence: tests/unit/sbirs_sensor/sbirs_ekf_baseline_test.cpp] |
+| IMM(EKF) 交互多模型滤波 | 多模型自适应交互，机动目标全场景 RMSE 显著改善 | session-wired | [evidence: tests/unit/sbirs_sensor/sbirs_imm_evaluation_test.cpp] |
+| 角度域线性 KF（实验后端） | 4 维角度及变化率线性卡尔曼滤波（$kAngleCvKf$，显式选配） | experimental | [evidence: tests/unit/sbirs_sensor/sbirs_angle_cv_kf_test.cpp] |
+| 连续命中门控计数 | 连续通过 WFOV 四门计数达标方可入 NFOV，进跟踪后清零 | session-wired | [evidence: tests/unit/sbirs_sensor/sbirs_pipeline_test.cpp] |
+| OPIR 验收派生量输出 | WFOV 地面投影四角、驻留时间、脱靶量与角误差写入验收日志 | internal/受控 | [evidence: tests/unit/sbirs_sensor/sbirs_foundation_test.cpp] |
 
-## 安装指向与稳定链（阶段 2）
+实现状态说明：
+- **session-wired**：已接入 `SbirsPipeline` / `SbirsSession` 主链路，覆盖配置、执行周期、重放与集成。
+- **experimental**：可编译、有单元测试覆盖，显式选配且默认不启用，尚未完成全场景标定。
+- **internal/受控**：库内私有支撑能力或仅验收日志通道消费。
 
-- **意图**：对齐 AR 的 `platform_attitude + mount_angles + scan_center` 链路，把卫星姿态与
-  传感器安装角引入 SBIRS 内部光轴几何；输出 az/el **保持 ECI 极坐标参考不变**（安装矩阵只
-  影响内部光轴，消费方兼容）。
-- **实现边界**：
-  1. 组合关系：`actual_boresight = attitude(Body→ECI) ∘ mount(Body→Sensor) ∘ scan(传感器系)`；
-     纯几何引擎为公共域 `oneq::common::geometry::BoresightChain`（`src/common/geometry/`，
-     参考系无关），内部由公共库 `oneq::coordinate::{BuildRotationMatrix, Compose, Inverse}`
-     合成旋转矩阵（Z-Y-X 欧拉，正 pitch = 正仰角），传感器系 az/el 与 ECI 采用同一
-     `(cos(el)cos(az), cos(el)sin(az), sin(el))` 约定；`SbirsBoresightChain` 是
-     SBIRS 会话类型与引擎向量类型之间的薄适配层（两侧均为 double，无精度转换）。
-  2. 姿态为周期输入（Body→ECI，必填，零欧拉合法 = 体轴对齐 ECI）；安装角为初始化静态配置
-     （`SbirsOrientationConfig::mount_angles_deg`），不进 RuntimeConfigPatch。
-  3. 稳定方式两种：`kBodyStabilized`（默认）——扫描参数（`scan_start_az/span/el`）为传感器系
-     角度，姿态/安装直接旋转光轴足迹；`kInertialStabilized`——扫描参数为 ECI 参考方向，先得
-     期望 ECI 单位向量再经链路反解到传感器系（`Rᵀ` 旋转），物理上保持惯性方向稳定。
-  4. 传感器系扫描限位（默认 az [-180,180]、el [-90,90] 全开）约束 WFOV 扫描中心与 NFOV 命令；
-     WFOV 扫描弧段与中心俯仰须在限位窗口内（配置校验拒绝超窗配置）。
-  5. 共模/通道扰动与 NFOV settle 误差在**传感器系**叠加后形成实际指向；identity 链（零姿态 +
-     零安装角）下全部数值与历史逐位一致（203 例既有单测回归网）。
-  6. 门控作用点迁移：WFOV 门/越界诊断、NFOV 跟踪窗口与首捕窗口、NFOV 命令/初始 LOS 全部改在
-     传感器系执行；限位够不到时 actuator 停在限位边缘（AR 同款静默钳制语义），失败走既有
-     `kNfovAcquisitionFailed`/跟踪丢门路径。
-  7. EKF/cue/5 类量测误差/d_max 保持 ECI 参考不动（量测噪声不随安装链走；安装失准角误差是
-     阶段 3 范畴）。
-- **反直觉点（参考系分化）**：门控在传感器系、输出在 ECI——非零姿态下目标 ECI az/el 与传感器系
-  az/el 不同，但 raw output 仍报 ECI 参考（客户契约）；"探测与否"由传感器系几何决定，"报哪里"
-  由 ECI 惯性参考决定。
-- **COMMON 收敛决策（已执行，2026-08-20）**：安装矩阵链的需求面经现实仿真评估扩大
-  （AR/SBIRS 已有同语义链、ESR 现为角度加法近似、EOS 无安装配置），触发原"待第三模块
-  需要同语义时收敛"的登记条件——纯几何引擎按 `src/common/radar/ScanScheduleRuntime.h`
-  先例提取为 `src/common/geometry/BoresightChain`（参考系无关，公共单测
-  `tests/unit/common/common_boresight_chain_test.cpp` 守护）；SBIRS 侧保留薄适配层
-  （会话类型转换 + 传感器系限位钳制），行为与提取前一致（identity 链逐位不变）。
-  2026-08-21 ESR/EOS 接入完成：ESR 前端经 `EsrBoresightChain`（安装偏置取反入链——其语义为
-  光轴体方位/俯仰正偏置，与公共链 Body->Sensor 坐标旋转方向相反；角度加法近似升级为旋转合成），
-  EOS 经 `EosLookAngles` 委托（仅姿态链）；两模块沿用薄适配模式，稳定方式策略仍在各模块
-  （ESR/EOS 当前无稳定方式配置）。
-- **证据**：[evidence: tests/unit/sbirs_sensor/sbirs_boresight_chain_test]
-- **证据**：[evidence: tests/unit/sbirs_sensor/sbirs_pipeline_test]
+---
 
-## 安装失准误差模型（阶段 3）
+## 核心算法详述
 
-- **意图**：在阶段 2 合成链上叠加安装失准角误差，使实际光轴足迹与门控携带静态安装误差；
-  与量测域 `attitude_sigma_deg`（时刻输出误差）和指向扰动共模（时变 GM）**谱正交**，
-  "避免双重计模"的落点即此三域边界。
-- **实现边界**：
-  1. 组合关系扩展：`actual_boresight = attitude(Body→ECI) ∘ mount(Body→Sensor)
-     ∘ misalignment⁻¹ ∘ scan(传感器系)`——失准作用于传感器系内，等效安装偏置微扰
-     （与 mount 同语义不同来源）；旋转矩阵合成在公共域引擎
-     （`oneq::common::geometry::BoresightChain`）内复用 `oneq::coordinate`，链保持纯几何
-     （SBIRS 适配层与引擎均无随机源/时间演化状态，失准总量由 pipeline 抽好传入）。
-  2. 配置域：`SbirsOrientationConfig::misalignment`（`SbirsMisalignmentModel`，静态
-     会话配置，不进 RuntimeConfigPatch）——常值偏置 `bias_deg`（Z-Y-X，deg）+
-     随机微扰 1-σ `random_sigma_deg` + 独立种子 `random_seed`；默认全零 = 既有行为
-     逐位不变（226 例单测回归网）。
-  3. **时间结构（关键设计）**：随机微扰每次运行抽取一次（pipeline 构造/ApplyConfig 时，
-     `DrawMisalignmentTotal` 用配置种子做每轴一次 N(0,σ) 抽取），运行内为常值——
-     静态 vs 扰动共模的时变 GM（tau>0）谱不重叠，天然无双重计模；同种子确定性重抽
-     保证 replay 可复现与确定性 continuation（运行期失准进 pipeline 快照，
-     `Capture/RestoreRuntimeState` 往返）。
-  4. 作用域：只影响内部光轴几何（WFOV 门/NFOV ATP/限位钳制/输出扫描方位随链）；**不污染
-     量测输出、不进 `BuildMeasurementCovariance`**（量测 RSS 仍只含 orbit/attitude/fov +
-     折射 + 滞后）。
-  5. 校验：bias 三分量有限、`random_sigma_deg` 非负有限（`kInvalidMisalignment`）；
-     `random_seed` 不校验（0 归一化到 1，沿既有种子惯例）。
-- **与既有误差域的边界（避免双重计模）**：
+## 1. 几何前序与安装指向合成
+
+### 1.1 ECEF $\to$ ECI 惯性旋转（GMST）
+- **算法意图与调用时机**：SBIRS 统一在 ECI 惯性参考系中演化与输出（避免地球自转引起的科里奥利与离心加速度虚假耦合）。在每周期入口由 `SbirsPipeline` 读取 UTC 儒略日并执行坐标与速度变换。
+- **数学与物理模型**：
+  - 格林尼治平恒星时（GMST，IAU 1982 近似 / Vallado 式 3-47 的度数形式，与代码逐项一致）：
+    $$\theta_{\text{GMST}} = 280.46061837 + 360.98564736629 \cdot d + 0.000387933 \cdot T^2 - \frac{T^3}{38710000} \pmod{360^\circ}$$
+    其中 $d$ 为 J2000 历元（2451545.0）起的天数，$T = d / 36525$ 为儒略世纪数。
+  - 位置旋转：$\mathbf{r}_{\text{ECI}} = R_z(\theta_{\text{GMST}}) \mathbf{r}_{\text{ECEF}}$。
+  - 速度变换（含自转输运项）：
+    $$\mathbf{v}_{\text{ECI}} = R_z(\theta_{\text{GMST}}) \mathbf{v}_{\text{ECEF}} + \boldsymbol{\omega}_e \times \mathbf{r}_{\text{ECI}}$$
+    其中地面静止目标在赤道处的 ECI 输运速度达 $\sim 465\text{ m/s}$，不可忽略。
+- **实现边界**：变换保模长，球体相交与遮挡距离判定与帧无关；输出角度为 ECI 极坐标弧度（$\text{az} \in [0, 2\pi), \text{el} \in [-\pi/2, \pi/2]$）；共享域 API 位于 `include/1q/coordinate/inertial_transform.h`（仅 SBIRS 消费）。
+- **边界保护**：儒略日非法（非有限或 $\le 0$）时变换返回失败，不产生坐标。
+- **证据链**：[evidence: tests/unit/sbirs_sensor/sbirs_eci_transform_test.cpp]
+
+---
+
+### 1.2 地球遮挡门控 (Earth Occultation)
+- **算法意图与调用时机**：视线穿过地球时目标不可见。排在距离、视场与 SNR 门之前，短路穿地视线。
+- **数学与物理模型**：有限线段与地球均值圆球（$R_e = 6371\text{ km}$）求交。判定核委托公共域 `oneq::common::geometry::IsEarthOcculted`。
+- **实现边界**：纯几何通视判定，不含低空云层、大气折射弯曲与 DEM 地形。全链统一使用 ECI 几何坐标。不存在低空硬排除门——低空路径损耗只经透过率进 SNR，不在此处拦截。
+- **边界保护**：退化几何（线段外最近点）视为无遮挡——对地目标不因线段端点判交而误判。
+- **反直觉点**：**相切（余量 $= 0$）即算遮挡**——擦地视线被判不可见，排障时优先核对遮挡余量符号（负值 = 穿深）。
+- **证据链**：[evidence: tests/unit/sbirs_sensor/sbirs_foundation_test.cpp]、[evidence: tests/unit/common/common_earth_occultation_test.cpp]
+
+---
+
+### 1.3 公共域安装指向与稳定链 (Boresight Chain)
+- **算法意图与调用时机**：将卫星本体姿态、传感器机械安装角与扫描/跟踪指向合成为 ECI 下的实际物理光轴。
+- **数学与物理模型**：
+  $$\mathbf{u}_{\text{boresight}} = R_{\text{Body}\to\text{ECI}}(\text{attitude}) \circ R_{\text{Sensor}\to\text{Body}}(\text{mount}) \circ \mathbf{u}_{\text{sensor}}(\text{scan/track})$$
+  纯几何内核委托公共单源 `oneq::common::geometry::BoresightChain`（按 `ScanScheduleRuntime.h` 先例于 2026-08-20 收敛提取；ESR 2026-08-21 经 `EsrBoresightChain` 接入——安装偏置取反入链，EOS 经 `EosLookAngles` 委托仅姿态链）。**identity 链回归承诺**：零姿态 + 零安装角 + 零失准下全部数值与提取前历史逐位一致。
+- **稳定方式**：
+  - `kBodyStabilized`（默认）：扫描角在传感器系定义，姿态转动带动光轴足迹漂移。
+  - `kInertialStabilized`：扫描角在 ECI 惯性系定义，反解到传感器系施加转向（$R^T$ 旋转），物理保持惯性指向固定。
+- **反直觉点（参考系分化）**：门控在传感器系执行（受物理限位约束），输出报告在 ECI 惯性系（外部接口协议一致性）。
+- **证据链**：[evidence: tests/unit/sbirs_sensor/sbirs_boresight_chain_test.cpp]、[evidence: tests/unit/common/common_boresight_chain_test.cpp]
+
+---
+
+### 1.4 安装失准误差模型 (Misalignment Error Model)
+- **算法意图与调用时机**：模拟静态安装失准（常值偏置 + 随机抽取），作用于光轴链内部。
+- **数学与物理模型**：
+  $$\mathbf{u}_{\text{actual}} = R_{\text{Body}\to\text{ECI}}(\text{attitude}) \circ R_{\text{Sensor}\to\text{Body}}(\text{mount}) \circ R(\text{misalignment})^{-1} \circ \mathbf{u}(\text{scan})$$
+  失准由常值偏置 $\text{bias}$ 与一次性随机微扰 $\mathcal{N}(0, \sigma_{\text{misal}}^2)$ 构成。
+- **谱正交设计（杜绝双重计模）**：
 
 | 误差域 | 时间结构 | 作用点 | 流/种子 |
 |---|---|---|---|
-| 量测域（orbit/attitude/fov/range sigma） | 每周期白噪声重抽 | 量测输出（`ApplyAngularErrorModel`） | `error_model.random_seed` 派生 3 流 |
-| 指向扰动共模/通道 | 时变 GM（tau>0）+ 确定性振动 | 传感器系实际指向（加法叠加） | `pointing_disturbance.random_seed` 派生 |
-| 安装失准（阶段 3） | 运行内常值（一次抽取） | boresight 链合成（旋转合成） | `orientation.misalignment.random_seed` |
+| 量测域（orbit/attitude/fov/range sigma） | 每周期白噪声重抽 | 量测输出 | `error_model.random_seed` 派生 3 流 |
+| 指向扰动（共模/通道） | 时变 GM（tau>0）+ 确定性振动 | 传感器系实际指向（加法叠加） | `pointing_disturbance.random_seed` 派生 |
+| 安装失准 | 运行内常值（一次抽取） | boresight 链合成（旋转合成） | `orientation.misalignment.random_seed` |
 
-- **证据**：[evidence: tests/unit/sbirs_sensor/sbirs_boresight_chain_test]
-- **证据**：[evidence: tests/unit/sbirs_sensor/sbirs_pipeline_test]
+- **实现边界**：失准在 pipeline 构造/ApplyConfig 时抽取一次，运行内为常值；不进量测协方差 `BuildMeasurementCovariance`；默认全零 = 既有行为逐位不变。
+- **证据链**：[evidence: tests/unit/sbirs_sensor/sbirs_boresight_chain_test.cpp]
 
-## 目标状态机（7 状态）
+---
 
-- **意图**：每个目标独立维护一个状态机实例（以 `target_id` 为键），管理 WFOV 发现 → NFOV 首次捕获 →
-  三种互斥跟踪模式的全过程。这是 SBIRS 区别于 EOS（一次性 SNR 判定）的核心。
-- **状态枚举**：
+## 2. 探测物理链与环境模型
+
+### 2.1 标量红外辐射传输与现实噪声模型 (Radiative Transfer & Noise Model)
+- **算法意图与调用时机**：由目标红外辐射强度 $I_t$（W/sr）计算光学孔径接收功率与噪声能量，求解检测 SNR。由 `foundation` 命名空间自由函数（`SbirsRadiometry` / `SbirsNoiseModel`，如 `ComputeReceivedPowerW` / `ResolveEffectiveNoiseW`）驱动。
+- **数学与物理模型**：
+  1. 信号接收功率：
+     $$P_{\text{sig}} = \frac{I_t \cdot A_{\text{ap}} \cdot \tau_{\text{opt}} \cdot \tau_{geo} \cdot \eta}{d^2}$$
+  2. **现实噪声能量分母口径（2026-09-02 契约）**：
+     $$\text{SNR} = \frac{P_{\text{sig}} \cdot t_{\text{int}}}{N_{\text{eff}}}$$
+     $$N_{\text{eff}} = \sqrt{ (NEP \cdot t_{\text{int}})^2 + N_{\text{photon}}^2 + N_{\text{thermal}}^2 + (N_{\text{readout}} \cdot t_{\text{int}})^2 }$$
+     其中背景光子起伏能量 $N_{\text{photon}} = \sqrt{P_{\text{bg}} \cdot t_{\text{int}} \cdot E_{\text{ph}}}$，
+     像元视场接收背景功率 $P_{\text{bg}} = L_{\text{bg}} \cdot A_{\text{ap}} \cdot \tau_{\text{opt}} \cdot \Omega_{\text{pixel}}$，像元立体角 $\Omega_{\text{pixel}} = (d_{\text{pitch}} / f)^2$，单光子能量 $E_{\text{ph}} = hc / \lambda_{\text{center}}$。
+- **实现边界与工程简化**：背景辐射亮度默认 $2.0\text{ W/(sr}\cdot\text{m}^2\text{)}$（典型地球 MWIR 背景）；探测器热项仅在温度 $>0\text{ K}$ 时激活。标量链路不开展二维 PSF 衍射卷积。
+- **边界保护**：全部分量退化（NEP=0 且背景/热/读出全关，或积分时间 0）时，分母回退 NEP 标量下限 $\max(10^{-18}, \text{NEP})$，保证分母恒正。
+- **反直觉点**：废弃了历史 1 sr 全向背景视场口径（历史曾导致 SNR 虚低 4 个数量级），改用精确单个像元 IFOV 计算背景光子起伏。
+- **证据链**：[evidence: tests/unit/sbirs_sensor/sbirs_noise_model_test.cpp]
+
+---
+
+### 2.2 壳段气团几何大气衰减 (Shell-Segment Airmass Attenuation)
+- **算法意图与调用时机**：计算斜穿大气层时的有效几何透过率，在 `SbirsEnvironmentModel` 中实现。
+- **数学与物理模型**：
+  - 气团因子 $X$：视线在球对称大气壳（地表至 100 km 壳顶）内的穿壳弦长 $L_{\text{chord}}$ 与垂直壳厚 $H_{\text{shell}}$ 之比：
+    $$X = \text{clamp}\left( \frac{L_{\text{chord}}}{H_{\text{shell}}}, 0, 10 \right)$$
+  - 几何路径透过率：
+    $$\tau_{geo} = \tau_{\text{eff}}^X$$
+    其中 $\tau_{\text{eff}} = \tau_{\text{base}} \cdot (1 - A_{\text{total}})$ 为经天气/温湿度折减后的基准垂直透过率。
+- **边界行为**：纯空间视线（两端均在 100 km 壳顶外且不穿壳）$X = 0 \implies \tau_{geo} = 1.0$；地面目标垂直天顶观测 $X = 1 \implies \tau_{geo} = \tau_{\text{eff}}$。穿地路径由遮挡门先行阻断。
+- **证据链**：[evidence: tests/unit/sbirs_sensor/sbirs_environment_model_test.cpp]
+
+---
+
+### 2.3 当前时刻最大探测距离 (Maximum Detection Range)
+- **算法意图与调用时机**：根据本周期快照逆解探测距离极限，随归属帧输出供诊断。
+- **闭式解公式**：
+  $$d_{\max}(t) = \sqrt{ \frac{I_t \cdot A_{\text{ap}} \cdot \tau_{\text{opt}} \cdot \tau_{geo} \cdot \eta \cdot t_{\text{int}}}{N_{\text{eff}} \cdot \text{SNR}_{\text{th}}} }$$
+- **实现边界**：因 $\tau_{geo}$ 与 $N_{\text{eff}}$ 逐目标、逐周期变化，$d_{\max}(t)$ 呈现动态响应。
+- **边界保护**：任一输入（辐射强度、孔径、透过率、积分时间等）非正或非法时返回 0，不产生虚高距离。
+- **证据链**：[evidence: tests/unit/sbirs_sensor/sbirs_radiative_transfer_test.cpp]
+
+---
+
+## 3. 宽视场多目标搜索与指向扰动
+
+### 3.1 WFOV 扫描搜索与星下点相对基准
+- **算法意图与调用时机**：每周期常数时间推进宽场扫描相位，执行多目标捕获判断。
+- **几何门控顺序（代码实际顺序）**：地球遮挡 $\to$ 距离门（min/max range）$\to$ WFOV 视场门 $\to$ SNR 门。穿地/超距/出视场/弱信号逐门短路并写排除诊断。
+- **扫描模式**：
+  - **方位基准**：`kEciAbsolute`（ECI 绝对角）与 `kNadirRelative`（相对星下点方位 atan2(-y, -x) 的动态偏移）。nadir 模式每周期按「配置扇区 $\cap$ 地球可见窗」裁剪有效跨度（可见窗 = 星下点方位 $\pm(\arcsin(R/\lvert r\rvert) + \text{wfov}_{az}/2)$），相位原点恒为配置起点、只裁远端。
+  - **往复栅格推进**：2-D 栅格采用往复牛耕式折返（到边反射），消除锯齿大跳变；单行步进由 `scan_direction` 初始方向动态翻转。
+- **实现边界与工程简化**：
+  - 扫描相位用 `std::fmod` 常数时间推进；`span=360°` 跨 ±180° 不产生数轴断点。
+  - `kWideSearch` 只产生 channel=`-1` 的 WFOV 观测，不分配 NFOV；WFOV 带误差位置是仿真观测/cue，不是目标真值。
+- **反直觉点（扇区 patch 的相位处理）**：扇区 patch 后，当前绝对方位仍位于新有向半开区间时重算 phase 并保持指向（腿方向保留），否则 phase 归零转到新起点且腿复位初始方向；2-D 栅格 patch 下旧行中心 el 映射到新栅格最近行；从 SearchAndStare 切入时释放 NFOV/pointing/filter 绑定但**保留** scan phase、测量随机流与已有 WFOV cue 历史。
+- **证据链**：[evidence: tests/unit/sbirs_sensor/sbirs_pipeline_test.cpp]
+
+---
+
+### 3.2 观测误差模型与指向抖动 (Error & Disturbance Model)
+- **误差合成**：轨道、姿态与视场三项高斯误差按 RSS 合成，再与折射、动态滞后两项确定性误差 RSS 进量测协方差：
+  $$\sigma_{\text{angle}} = \sqrt{\sigma_{\text{orbit}}^2 + \sigma_{\text{attitude}}^2 + \sigma_{\text{fov}}^2 + \sigma_{\text{refraction}}^2 + \sigma_{\text{lag}}^2}$$
+- **动态滞后**：随相对视线角速度产生确定性滞后偏差，角速度取视线垂直分量投影 $\omega = \lvert \mathbf{v}_\perp \rvert / R$（目标速度未提供时取 0、卫星速度必填；卫星运动本身扫过视场也产生滞后）。
+- **指向扰动**：共模项（WFOV/NFOV 同步抖动）与通道项（NFOV 单镜筒抖动）通过一阶 Gauss-Markov 过程推进（相关时间 $\tau > 0$），叠加通道确定性振动项，作用于传感器系物理指向。单镜筒下通道扰动仅 0 号一份；**全部幅值默认 0**（无可追溯设备参数时不提供仓库级非零"真实 SBIRS"常数）；无目标时仍随仿真时间推进，普通 release/rebind 与无关字段 patch 不重置。
+- **证据链**：[evidence: tests/unit/sbirs_sensor/sbirs_error_model_test.cpp]、[evidence: tests/unit/sbirs_sensor/sbirs_pointing_disturbance_test.cpp]
+
+---
+
+## 4. 窄视场执行、调度与多星引导
+
+### 4.1 单镜筒分时轮转与无界锁定集合 (Single-Telescope NFOV Scheduler)
+- **算法意图与调用时机**：窄视场全星共享唯一光学镜筒。彻底废除 `max_concurrent_nfov_locks`，锁定集合无容量上限。由 `SbirsNfovScheduler` 仲裁。
+- **调度机制**：
+  1. 轮转推进：每周期固定服务集合中的一个目标：$\text{idx} = \text{rotation\_step} \pmod{\text{size}}$，步长单调递增。
+  2. **同帧免费多跟**：镜筒对准当前服务目标时，所有碰巧落入当前瞬时窄视场内的其他已锁定目标，**共享本周期的稳定测量帧**，帧数不发生摊薄。
+  3. 视场内候选免转动捕获：处于等待捕获状态的目标若已在当前瞬时视场内，直接执行捕获判决，无需镜筒重定向。
+  4. 物理容量涌现：分离目标在轮空周期记为门失败，连续轮空超过 `nfov_tracking_gate_loss_cycles`（默认 2）自动丢锁释放。
+- **反直觉点**：并发精跟目标数不是配置出来的，而是由执行器摆速、目标角间距与丢锁周期数共同涌现的物理结果。
+- **证据链**：[evidence: tests/unit/sbirs_sensor/sbirs_scheduler_test.cpp]
+
+---
+
+### 4.2 单镜筒 ATP 光轴动力学 (Pointing Actuator Dynamics)
+- **算法意图与调用时机**：`SbirsPointingActuator` 模拟执行器沿球面最短大圆路径以最大角速度转向。
+- **稳定时长与帧数折算**：
+  $$\Delta\theta = \arccos(\mathbf{u}_{\text{current}} \cdot \mathbf{u}_{\text{cmd}})$$
+  $$t_{\text{settled}} = \max\left(0.0,\; dt - \frac{\max(0.0, \Delta\theta - \theta_{\text{tol}})}{\omega_{\max}}\right)$$
+  $$\text{Frames} = \text{round}(f_{\text{frame}} \cdot t_{\text{settled}})$$
+  一步转不到位时，$t_{\text{settled}} = 0$，本周期有效测量帧数为 0。
+- **证据链**：[evidence: tests/unit/sbirs_sensor/sbirs_pointing_coordinator_test.cpp]
+
+---
+
+### 4.3 星间 Cross-Cue 交叉提示 (Cross-Cue Triangulation)
+- **算法意图与调用时机**：解决大椭圆/高轨下双星无法在窄视场中同时搜索到弱小目标的断链问题。由 `SbirsSession::SubmitExternalCue` 注入。
+- **几何三角化解算**：
+  受话星接收来源星测角视线与测距结果，利用来源星 ECEF 位置推导目标空间三维坐标，再反解受话星本星视线角，直接将目标作为外部候选注入本机调度池。
+- **证据链**：[evidence: tests/unit/sbirs_sensor/sbirs_pipeline_test.cpp]
+
+---
+
+## 5. 目标状态机与闭环滤波跟踪
+
+### 5.1 目标 7 状态机与转移规则
+```
+               [Undetected]
+                    │ (WFOV 首次命中四门)
+                    ▼
+             [WideCandidate] ◄────────────────┐
+                    │                         │
+                    │ (连续命中达标 → 入单镜筒  │ (ATP超时 /
+                    │  轮转集合)               │  连续门失败超限)
+                    ▼                         │
+        [AwaitingNfovAcquisition] ────────────┤
+                    │                         │
+                    │ (ATP稳定 + 延迟视线命中)  │
+                    ▼                         │
+   ┌────────────────┴────────────────┐        │
+   ▼                                 ▼        │
+[Strict/SensorLike]          [EstimatedTracking] ┘
+```
+- **转移条件**：
+  - `Undetected` $\to$ `WideCandidate`：WFOV **首次**命中（遮挡/距离/视场/SNR 四门通过）即无条件成立。
+  - `WideCandidate` $\to$ `AwaitingNfovAcquisition`：连续命中计数达 `wide_to_narrow_required_consecutive_hits`（默认 1 = 单次命中即入 NFOV 调度）才允许进入锁定集合。阈值取 3 时，目标第 1 次命中就已变为 `WideCandidate`，只是入 NFOV 推迟到第 3 拍——**连续命中门守卫的是进 NFOV 调度，不是进候选态**。
+  - `Awaiting` $\to$ `EstimatedTracking`：actuator settled 且视场覆盖延迟真值 LOS，且 SNR 达标。
+  - 跟踪丢锁：连续失败达 `nfov_tracking_gate_loss_cycles`（默认 2）退化回 `WideCandidate`。
+  - 任意 $\to$ `Lost`：目标消失或传感器关闭。
+- **逐状态输出语义（消费方契约）**：
 
 | 状态 | 含义 | 该状态下输出 |
 |---|---|---|
 | `Undetected` | 初始或未被任何视场发现 | 不输出 |
 | `WideCandidate` | WFOV 已发现，等待 NFOV 调度 | WFOV 检测记录 |
-| `AwaitingNfovAcquisition` | 已入 NFOV 锁定集合，等待轮转窗口推进 cue 和 ATP | 轮空周期输出 WFOV；本窗口 settled 后视捕获结果 |
-| `StrictTruthAssistedTracking` | 真值 LOS 驱动闭环 ATP | 捕获成功起输出真值；失视时 coasting |
-| `SensorLikeTruthAssistedTracking` | 真值 LOS 驱动，成功观测用独立误差流 | 门通过时输出带误差角度/诊断距离 |
-| `EstimatedTracking` | EKF/IMM 预测 LOS 驱动，门通过后才消费量测 | 门通过时输出滤波估计；失视时预测 coasting |
+| `AwaitingNfovAcquisition` | 已入 NFOV 锁定集合，等待轮转窗口 | 轮空周期输出 WFOV；本窗口 settled 后视捕获结果 |
+| `StrictTruthAssistedTracking` | 真值 LOS 驱动闭环 ATP（受物理门约束的 oracle） | 捕获成功起输出真值；失视时 coasting |
+| `SensorLikeTruthAssistedTracking` | 真值 LOS 驱动，成功观测用独立误差子流 | 门通过时输出带误差角度/诊断距离 |
+| `EstimatedTracking` | EKF/IMM 预测 LOS 驱动，门通过才消费量测 | 门通过时输出滤波估计；失视时预测 coasting |
 | `Lost` | 目标从场景消失或传感器关闭 | 不输出 |
 
-- **实现边界**：
-  1. 首次 NFOV 捕获**必须**使用 WFOV 输出的带误差位置，不得直接用真值位置。
-  2. 捕获成功后由 `SbirsTrackingMode` 三选一（默认 `kEstimated`）；三者使用独立状态枚举与稳定
-     attribution source。
-  3. 捕获失败不是独立状态；失败转移回 `WideCandidate` 并清除交接上下文。
-  4. 三个 tracking 状态→`WideCandidate` 的丢锁条件：几何或 SNR 门连续失败达
-     `nfov_tracking_gate_loss_cycles`（默认 2）。
-  5. 单镜筒分时轮转（2026-09-02）：多个目标可同时处于捕获/跟踪状态（锁定集合无配置上限），
-     但每周期镜筒只服务一个方向；分离目标轮空周期记门失败，连续超过
-     `nfov_tracking_gate_loss_cycles` 即丢锁——可保持精跟条数由此物理涌现。
-  6. 状态机是跨周期累积状态；snapshot/restore 由 pipeline 自身拥有，mutation 前验证全部 cross-owned
-     状态后原子恢复。
-- **反直觉点**：两个真值辅助态的命令来源均是真值，但实际 actuator LOS、NFOV 窗口与 SNR 门同样决定
-  是否存在有效量测——它**不是绕过光轴动力学和可见性的理想化输出路径**。
-- **证据**：[evidence: tests/unit/sbirs_sensor/sbirs_state_machine_test]
+- **TruthAssisted 边界**：Sensor-like 带噪输出不参与指向、几何/SNR 判门或状态转移（无反馈）；同一 measurement seed 经固定混合与 domain tag 派生 WFOV/cue、Estimated 量测与 Sensor-like 输出三个独立子流，snapshot 分别持久化——一个模式的采样不改变另一链路的未来样本。
+- **证据链**：[evidence: tests/unit/sbirs_sensor/sbirs_state_machine_test.cpp]
 
-### 状态转移条件
+---
 
-| 起点 → 终点 | 触发条件 |
-|---|---|
-| `Undetected` → `WideCandidate` | WFOV 视场内且 SNR ≥ 门限 |
-| `WideCandidate` → `AwaitingNfovAcquisition` | 连续命中达标即入锁定集合（单镜筒无并发截断） |
-| `AwaitingNfovAcquisition` 自循环 | ATP 未 settled 且等待 < `180°/max_slew_rate` |
-| `AwaitingNfovAcquisition` → Truth/Estimated | ATP settled 后窗口覆盖延迟真值 LOS + SNR 达标 |
-| `AwaitingNfovAcquisition` → `WideCandidate` | 窗口/SNR 失败或 ATP timeout |
-| tracking 自循环 | 门通过或失败次数未达阈值 |
-| tracking → `WideCandidate` | 连续失败达 `nfov_tracking_gate_loss_cycles` |
-| 任意 → `Lost` | 目标消失或传感器关闭 |
-
-## WFOV 宽视场多目标搜索
-
-- **意图**：每周期对输入场景所有目标执行 WFOV 扫描判断，输出带误差位置供 NFOV 首次捕获。
-- **实现边界**：
-  1. 几何门控顺序：地球遮挡 → WFOV FOV 门控 → 范围门控 → SNR 计算。
-  2. 扫描相位用 `std::fmod` 常数时间推进；`span=360°` 跨 ±180° 不产生数轴断点。
-  3. WFOV 搜索只处理输入场景中显式给出的目标列表，不从图像像素生成新目标。
-  4. WFOV 带误差位置是仿真观测/cue，不是目标真值，也不是外部 target identity。
-  5. `kWideSearch` 只产生 channel=`-1` 的 WFOV 观测，不分配 NFOV。
-  6. 扫描参数参考系（阶段 2 起）：体稳定下 `scan_start_az/scan_center_el` 为**传感器系**角度
-     （零姿态 + 零安装角下与 ECI 一致）；惯性稳定下为 ECI 参考方向，经链路反解到传感器系。
-     共模扰动与扫描限位在传感器系叠加/钳制后形成实际扫描中心。
-  7. 2-D 俯仰栅格（阶段 4 起）：`scan_el_start_deg/scan_el_span_deg/scan_el_step_deg` 与既有
-     方位环扫正交组合；`scan_el_span_deg=0` 默认单行模式（行中心恒为 `scan_center_el_deg`，
-     既有行为逐位不变）。行数 = `1 + floor(span/step)`，行中心 = `el_start + row·step`；
-     往复牛耕推进（2026-08-31 起替代锯齿）——每行到边反向，行内相位过 `scan_span`
-     （有效跨度）时行索引步进，行末回绕；`scan_direction` 语义 = 初始行进方向。
-     校验强制 `step ≤ wide_field_fov_el_deg`（无隙覆盖预算）；全幅面完成时间 ≈
-     `row_count × span/scan_rate` 秒。输出 `scan_elevation_rad` 为当前行中心
-     合成光轴的 ECI 俯仰（与 `scan_azimuth_rad` 同参考系）。
-  8. 扫描方位基准（2026-08-31 起）：`scan_azimuth_reference` 选择 `scan_start_az_deg` 的
-     语义——`kEciAbsolute`（默认）为 ECI 绝对方位 [0,360)，既有行为逐位不变；
-     `kNadirRelative` 为相对星下点方位的带符号偏移 (-360,360)，有效起点 =
-     normalize(星下点方位 + 偏移)，星下点方位 = atan2(-y,-x) 由当周期卫星 ECI 位置现算
-     （GEO 恒定；动轨道随位置漂移）。偏移 0 + 速率 0 = 视场钉在星下点的免推算凝视配置。
-     nadir 基准下 config 期跳过方位弧段限位静态检查（有效起点运行期才知），俯仰与限位
-     合法性检查保留；span/rate/direction/el 语义不变。
-  9. 往复扫描与跨度收敛（2026-08-31 起）：方位在 [起点, 起点+有效跨度] 内到边反射
-     （行程坐标 ∈ [0, 2·有效跨度) 折叠，去程/回程腿；相位→方位映射两腿同为
-     起点+dir·相位，反向由相位动态体现）。rate=0 时腿恒初始方向——凝视行为逐位不变。
-     nadir 模式每周期按"配置扇区 ∩ 地球可见窗"裁剪有效跨度：可见窗 = 星下点方位
-     ±(asin(R/|r|) + wfov_az/2)（R=6371km 与遮挡判定同口径；el=0 赤道近似，行 el 偏离
-     星下点俯仰的窗宽细化登记于 SBIRS-OQ-5），相位原点恒为配置起点、只裁远端；交集为空
-     （扇区整段不对地球）不收敛——属指向错配，防护归 SBIRS-OQ-5 告警登记。绝对模式
-     无锚不收敛。
-- **反直觉点（扇区 patch 的相位处理）**：扇区 patch 后，当前绝对方位仍位于新有向半开区间时重算 phase
-  并保持指向（腿方向保留），否则 phase 归零转到新起点且腿复位初始方向；2-D 栅格 patch 下旧行中心 el
-  映射到新栅格最近行（不在新栅格内则归零行）；rate-only patch 保持 phase。从 SearchAndStare 切入时释放
-  NFOV/pointing/filter 绑定但**保留** scan phase、测量随机流和已有 WFOV cue 历史。
-- **证据**：[evidence: tests/unit/sbirs_sensor/sbirs_pipeline_test]
-
-## NFOV 首次捕获
-
-- **意图**：对进入 `AwaitingNfovAcquisition` 的目标跨周期执行限速指向与首次捕获判定。
-- **实现边界**：
-  1. 指向生成用 `SbirsCuePredictor`：角度域两点有限差分估计角速度，生成
-     `u_cmd = u_measured + angular_rate × narrow_cue_latency_s`。命令**不消费目标真值速度**。
-  2. 窗口判定以 actuator 当前 LOS 为中心，叠加静态 `narrow_pointing_settle_error_deg`；
-     阶段 2 起窗口判定在**传感器系**执行（命令 = 实际指向经链转换的传感器系 az/el，
-     delayed truth = 延迟真值 ECI los 经链转换；identity 链下与历史逐位一致）。
-  3. cue 延迟对真实 LOS 的评估按延迟后相对几何线性平移：
-     `(p_target + v_target·τ) − (p_satellite + v_satellite·τ)`，卫星位移同样计入
-     （卫星速度必填，2026-08-17 起），不做积分轨道传播。
-  4. 失败/超时清除交接并回退 `WideCandidate`，产出 `capture_failure_reason` 诊断归属（不进 raw output）。
-- **反直觉点（cue 命令和 eligibility truth 都在 latency horizon 上评估）**：目标真实 LOS 在
-  `narrow_cue_latency_s > 0` 时按延迟时间线性外推后重算（目标与卫星位移都计入；目标无速度时
-  仅卫星位移生效）。因此捕获判定仍受 WFOV 误差、目标运动、卫星运动、
-  cue 延迟和 NFOV 视场大小影响，**不会因为窗口中心直接取测量值而恒成立**。
-- **证据**：[evidence: tests/unit/sbirs_sensor/sbirs_pipeline_test]
-- **证据**：[evidence: tests/unit/sbirs_sensor/sbirs_cue_predictor_test]
-
-### CA cue predictor（刻意拒绝接线）
-
-五样本角度二次最小二乘 CA 已完成 characterization：108 个无噪声持续加速组合中聚合 RMS 从 CV 的
-`0.068965 deg` 降为数值零；但在 `dt=0.1s`、`latency=0.5s`、`sigma=0.01deg` 的恒速场景，CA RMS/P95 为
-`0.141490/0.279187 deg`，**劣于** CV 的 `0.074132/0.141619 deg`，捕获率也从 `73.91%` 降至 `41.30%`。
-因未通过标称噪声零回退门，当前拒绝生产接线，不新增 CV/CA 配置、schema 或自动切换。
-
-[evidence: tests/unit/sbirs_sensor/sbirs_cue_ca_characterization_test]
-
-## 星间 cross-cue（交叉提示，2026-09-01）
-
-- **意图**：一颗星（发现星）宽场发现目标后，把"往这儿看"的量测递给他星（受话星），
-  受话星窄场直接转头，不等自家宽场扫描犁到——闭合窄视场（8.7°）下"两星无法在配对窗内
-  同时产出窄场数据"的时间断链（cross-cue Stage A 契约已删档，见 git 历史）。
-- **拓扑与口径**：星→地→星（地面站存储转发，固定滞后一周期）；递话内容=来源星宽场
-  带误差 ECI 测角 + 误差模型距离 + 来源星 ECEF 位置，不携带目标位置类合成量（裁定 2）。
-  受话星按 来源星位置 + 距离 × 视线方向 三角化目标 ECI 位置，再换算本星视线角。
-- **运行时输入**：`SbirsSession::SubmitExternalCue`（周期之间注入，不进每帧
-  `SbirsCycleInput`；回放/快照路径零接触——快照不含该队列，回放从不注入即逐位一致）。
-  非法 cue（非有限角度/非正距离/未知目标键）消费时丢弃并计 kInfo issue。
-- **门控语义**：自星宽场门（视场/SNR）失败但有外部引导的目标构造外部候选进同一调度池
-  （同池同规则：SNR↓→距离↑→ID↑；"引导来源"只记录不参与排序）；NFOV 捕获/跟踪/丢锁门
-  全部复用既有物理真值链路（不放松任何门限）。连续命中计数按外部引导到达累计。
-- **验证**：8.7° 宽场 + cross_cue 场景 双星配对 0/80 → 79/80，composite 0.226→0.408，
-  冒烟通过；24° 基线（默认关）逐位不回归（74/80、0.431）；单测 267 全绿。
-
-## 单镜筒 ATP（光轴执行，2026-09-02 单镜筒化）
-
-- **意图**：`SbirsPointingActuator` 把光轴表示为单位 LOS 向量，沿球面最短路径限速推进；窄场只有
-  一个镜筒——全星共享一个执行器，由轮转仲裁决定本周期服务于谁。
-- **实现边界**：
-  1. 限速 `narrow_pointing_max_slew_rate_deg_per_sec × dt`；一步可到达时直接落到命令向量，禁止过冲。
-  2. `narrow_pointing_settle_tolerance_deg` 判断 settled（默认 0.01 deg）；速率默认 30 deg/s。ATP 始终启用。
-  3. settled 后施加静态 `narrow_pointing_settle_error_deg`——这是与速率/容差独立的第三个物理量。
-  4. 本步稳定时长 `settled_duration_sec = dt − (夹角−容差)/转速`：转动期间帧作废，稳定后按剩余
-     时长计帧（`帧数 = round(frame_rate_hz × settled_duration)`）；一步转不完则该周期帧数为 0。
-  5. coordinator 持有唯一 actuator + 逐目标簿记（捕获等待时长、跟踪门连续失败计数）；锁定集合与
-     簿记归属一致（快照校验拒绝不一致恢复）。
-  6. 未 settled 且该目标累计等待达 `180°/max_slew_rate` 时产生 `kNfovPointingTimeout`，释放锁定并
-     禁止同周期重调度。
-  7. 首次捕获成功后清零捕获等待并晋级为 tracking。
-- **反直觉点（释放语义）**：普通释放只清逐目标簿记，镜筒视线保持原位（下一目标从当前位置续转）；
-  standby 才清空执行器与全部簿记。等待轮转窗口的 Awaiting 目标本周期不推进镜筒、不累计等待。
-- **证据**：[evidence: tests/unit/sbirs_sensor/sbirs_pointing_coordinator_test]
-- **证据**：[evidence: tests/unit/sbirs_sensor/sbirs_pointing_actuator_test]
-
-## NFOV 持续跟踪
-
-- **意图**：捕获成功后，三种互斥模式共享同一条闭环可见性链：命令 LOS → actuator 限速推进 → 有效 NFOV
-  中心 → 几何门 + SNR 门。
-- **实现边界**：
-  1. 单周期门失败（含轮转轮空/转动期间帧数为 0）不产生 raw 量测，进入 `Coasting` 诊断并保持锁定；
-     窄场行 `帧数=0`、融合 σ 记 0（单帧 σ 为硬件性质照常输出）。
-  2. 连续失败达 `nfov_tracking_gate_loss_cycles`（默认 2，必须 ≥1）才正式丢锁。
-  3. 三个 tracking 状态→`WideCandidate` 时输出 `kNfovTrackingGateLost` 并释放 scheduler/ATP/滤波状态。
-  4. runtime Strict↔Sensor-like 原地转换并保留 NFOV 锁；任一 Truth↔Estimated 释放不兼容跟踪状态。
-  5. 阶段 2 起命令链：ECI 命令 az/el（真值或 EKF 预测）→ 传感器系 + 限位钳制 → 链合成 ECI 单位
-     向量驱动 actuator（actuator 限速转向在 ECI 单位向量域，参考系无关，快照不变）；跟踪窗口在
-     传感器系比较。
-- **反直觉点（Estimated 的严格因果顺序）**：predict → actuator advance → geometry/SNR gate → correct。
+### 5.2 6 维 ECI CV 状态 / 2 维角度量测扩展卡尔曼滤波 (EKF)
+- **状态空间**：6 维 ECI 恒速模型 $\mathbf{x} = [x, v_x, y, v_y, z, v_z]^T$。
+- **量测模型**：纯 2 维角度 $\mathbf{z} = [\text{az}, \text{el}]^T$（弧度），拒绝虚构不可观测的距离大协方差。
+  $$\hat{\text{az}} = \text{atan2}(y_{\text{rel}}, x_{\text{rel}}), \quad \hat{\text{el}} = \text{atan2}(z_{\text{rel}}, \sqrt{x_{\text{rel}}^2 + y_{\text{rel}}^2})$$
+- **因果执行闭环**：
+  $$\text{Predict} \to \text{Actuator Slew} \to \text{Physical Gate} \to \text{Correct (Dynamic R)}$$
   门失败时滤波器只预测、不采样量测、不产生 NIS，并清零连续 NIS 超限计数。
-- **证据**：[evidence: tests/unit/sbirs_sensor/sbirs_pipeline_test]
+- **实现边界**：输出角度用滤波估计的 ECI 位置反解视线，但 SNR/range 仍走真值物理链；runtime patch 对已存在滤波器只让后续周期读取新 R/Q，**不重置**协方差与状态向量。
+- **反直觉点**：初始化均值采用 ECI 真值位置，后续滤波完全闭环于带噪声角度量测（仿真初始化工程简化）。
+- **证据链**：[evidence: tests/unit/sbirs_sensor/sbirs_ekf_baseline_test.cpp]
 
-### 两种 TruthAssisted 模式
+---
 
-1. **StrictTruthAssisted**：成功记录使用当前真值（受物理门约束的 oracle）。
-2. **SensorLikeTruthAssisted**：命令和状态转移与 Strict 相同；成功周期用独立随机子流生成带误差角度和
-   诊断距离。SNR 仍是物理链原值。
-3. **无反馈边界**：Sensor-like 带噪输出不参与指向、几何/SNR 判门或状态转移；门失败/coasting 不消费
-   Sensor-like 随机数。
-4. **随机流隔离**：同一 measurement seed 经固定混合与 domain tag 派生 WFOV/cue、Estimated 量测和
-   Sensor-like 输出三个子流，snapshot 分别保存。一个模式的采样不改变另一链路的未来样本。
+### 5.3 滤波后端选型与实验性角度滤波
 
-## EKF 滤波测量跟踪（EstimatedTracking）
+| 后端 | 状态 | 状态空间 | 适用场景与限制 |
+|---|---|---|---|
+| **EKF** (默认) | session-wired | 6D ECI 位置/速度 | 标称 CV 跟踪基线 |
+| **IMM(EKF)** | session-wired | 6D ECI 双模型交互 | 高机动助推段；全场景 RMSE 改善 28-55%（场景级评估结论，单测断言 imm < ekf） |
+| **AngleCvKf** | experimental | 4D 方位/俯仰及变化率 | 单星纯角度跟踪实验后端（用例 16）；公开检测记录不含变化率 |
+| SRIF | 未接线 | — | 线性 H helper 对 6D/2D 量测不兼容；先支持非线性量测再评估 |
+| UDKF | 未接线 | — | 绑定线性 H；UD 分解不解决非线性量测 |
+| CKF | 未实现 | — | 仓库无实现；需先提供 Jacobian 近似误差证据矩阵 |
 
-- **意图**：对 `EstimatedTracking` 状态的目标（默认），用扩展卡尔曼滤波做测量跟踪。
-- **实现边界**：
-  1. 状态空间：6 维 ECI 恒速 `[x,vx,y,vy,z,vz]`（CV 交错布局），复用 common 的转移模型
-     （2026-08 正式变更：输出参考系改为 ECI——pipeline 周期入口按 GMST 把真值从 ECEF
-     旋转到 ECI，滤波状态随之在 ECI 中演化；CV 对惯性系恒速目标更贴合，不含 ECEF 科氏耦合）。
-  2. 量测模型：2 维 `[az,el]`（弧度，ECI 极坐标），被动红外不测距。选纯 2 维角度而非 3 维 + 大 R 屏蔽 range。
-  3. 初始化（方案 A）：状态均值用输入场景真值经 ECEF→ECI 旋转后的位置 + 速度（速度含
-     ω×r 输运项，见 `include/1q/coordinate/inertial_transform.h`）；初始协方差由
-     `initial_position_std_m`/`initial_velocity_std_m_per_s` 构造。
-  4. 每周期因果闭环：SetSatellitePosition（ECI）→ predict → actuator advance → geometry/SNR gate → correct（动态 R）。
-  5. 输出角度用滤波估计的 ECI 位置 → 相对卫星 LOS → az/el（弧度，az∈[0,2π)、el∈[-π/2,π/2]）；
-     SNR/range 仍用真值物理链。
-  6. runtime patch 对已存在滤波器只让后续周期读取新 R/Q，**不重置**协方差和状态向量。
-- **反直觉点（真值初始化简化）**：EKF 首次捕获用真值位置初始化均值，后续 update 才用带误差测量——
-  这是仿真的 track initiation 简化，不得描述为完全无真值辅助的真实载荷跟踪器（见 SBIRS-OQ-4）。
-- **反直觉点（2 维量测的选择理由）**：选纯 2 维 `[az,el]` 而非 3 维 `[az,el,range]`+大 R——后者把不可观测
-  的 range 塞进量测向量需要用极大 R 屏蔽，语义不干净；纯 2 维直接表达"被动红外只测角"。
-- **证据**：[evidence: tests/unit/sbirs_sensor/sbirs_ekf_baseline_test]
-- **证据**：[evidence: tests/unit/sbirs_sensor/sbirs_pipeline_test]
+- **不做在线自动后端切换的理由**：① 可复现性优先——在线选型使同一想定因阈值微调走不同后端，结果不可比；② 选型判据（"目标是否机动"）仿真期真值已知，泄露到选型逻辑等同作弊；③ 可解释性——固定后端的误差谱可归因，自动切换引入不可归因的跳变。
 
-### NIS 诊断与丢锁
+- **NIS 诊断**：$\text{NIS} = \boldsymbol{\nu}^T S^{-1} \boldsymbol{\nu} \sim \chi^2(2)$，门限 5.99。超限持续超设定期数可触发丢锁。
+- **证据链**：[evidence: tests/unit/sbirs_sensor/sbirs_imm_evaluation_test.cpp]、[evidence: tests/unit/sbirs_sensor/sbirs_angle_cv_kf_test.cpp]
 
-1. NIS = `innovationᵀ · R⁻¹ · innovation`，χ² 自由度=量测维数（2），95% 门限 ≈5.99。
-2. NIS 持续偏高→模型失配（CV 在助推段失配）；持续偏低→R 偏大。
-3. 默认 NIS 只读不触发动作。当 `nis_gate_loss_cycles > 0` 时，连续 NIS 超门限达配置周期数后释放锁定。
-4. NIS 丢锁是确定性门限计数，不做概率抽样（行业标准做法，AR 模块同理）。
+---
 
-[evidence: tests/unit/sbirs_sensor/sbirs_pipeline_test]
+## 6. 验收派生量（OPIR 验收日志）
 
-## 滤波后端选型
+当启用 `ONEQ_ENABLE_OPIR_ACCEPTANCE_LOG`（CMake 开关，**默认 OFF**）时，逐周期向 `opir_acceptance.log` 写入：
+1. **WFOV 地面覆盖区投影**：实际扫描中心 $\pm$ 半视场四角经 boresight 链与地球求交，旋回 ECEF 提取地心经纬度（指向太空的角记 `miss`）。
+2. **驻留时间**：$T_{\text{dwell}} = \text{FOV}_{\text{az}} / \omega_{\text{scan}}$（rate=0 退化配置记 0）。
+3. **焦平面脱靶量**：逐轴小角投影 $\Delta x = f \cdot \tan(\Delta\text{az}), \Delta y = f \cdot \tan(\Delta\text{el})$（非畸变光学模型）。
+4. **目标信号能量**：$E = P_{\text{received}} \cdot t_{\text{int}}$（`ComputeSnr` 出参透出，不改 SNR 数值）。
+5. **宽窄切换连续命中计数**：逐目标累计连续通过 WFOV 四门的周期数；命中计数在候选创建点自增（当周期即计 1）；任一门失败/目标消失清零，捕获晋级进跟踪时清零（丢锁回宽场需重新积累）。
+6. **角定位误差（需求映射 3.2.1.6.3）**：宽场候选写测量角 $-$ 真值角；窄场跟踪写最终输出角（滤波/误差注入全部完成后）$-$ 真值角；方位差按最短角差回绕（wrap-aware）。
+- **边界**：全部派生量仅走日志，不进入公共输出帧。
+- **证据链**：[evidence: tests/unit/sbirs_sensor/sbirs_foundation_test.cpp]
 
-当前接线 EKF、IMM(EKF) 与实验性角度域线性 KF 三个后端，由 `estimated_backend` 选择。顶层模式与估计后端是两个正交枚举。
+---
 
-| 后端 | 生产状态 | 当前阻塞 | 重新进入门 |
-|------|:---:|------|------|
-| EKF | live | — | 当前默认 |
-| IMM(EKF) | live | — | 显式配置；全场景 RMSE 改善 28-55% |
-| AngleCvKf | experimental | 公开检测记录不含变化率；单星角度不估三维 | 显式 `kAngleCvKf`；用例 16 角度+变化率状态 |
-| SRIF | evaluation only | 线性 H helper 对 6D/2D 量测不兼容 | 先支持非线性量测，再证明 covariance/LLT 可复现失稳 |
-| UDKF | evaluation only | 绑定线性 H；UD 分解不解决非线性量测 | 先提供 6D/2D 非线性接口和优于 EKF 的证据 |
-| CKF | evaluation only | 仓库没有实现 | 提供 Jacobian 近似误差超门的场景矩阵和独立实现验证 |
+## 核心反直觉点与工程陷阱
 
-- **反直觉点（不做在线自动切换的理由）**：
-  1. **可复现性优先于智能性**：在线自动选型使同一想定因阈值微调走不同后端，结果不可比。
-  2. **选型决策依赖外部真知**："目标是否机动"等判据仿真期真值已知，泄露到选型逻辑等同作弊。
-  3. **可解释性**：工程评审需能追溯到具体后端与参数。
+> [!IMPORTANT]
+> 1. **参考系分化**：几何门控与物理限位在**传感器系**执行；但 raw output 测角与 EKF 估计严格报告于 **ECI 惯性极坐标系**。
+> 2. **单镜筒轮转释放语义**：普通目标释放仅清理该目标的状态簿记，镜筒当前 LOS 不复位（下一目标从当前视线续转）；仅进入 Standby 时光轴才归零。
+> 3. **同帧免费多跟不摊薄**：落入当前视场内的所有锁定目标共享同一批稳定采样帧，帧数不因目标数量增加而被摊薄。
+> 4. **真值辅助跟踪依旧受物理门控约束**：`StrictTruthAssisted` 与 `SensorLikeTruthAssisted` 的指向虽然由真值引导，但仍然要经过执行器动力学转向、视场窗口覆盖与物理 SNR 判门，绝非无条件直通的理想通道。
+> 5. **现实噪声分母采用能量基准**：噪声分母为积分时间内的噪声能量开方，不是功率相加；背景光子起伏严格受像元立体角 $\Omega_{\text{pixel}}$ 约束，背景亮度不乘以 $4\pi$ 或 $1\text{ sr}$。
+> 6. **纯 2 维角度 EKF 量测**：被动红外不可测距，直接采用 2 维量测 Jacobian，不采用人为设定超大协方差屏蔽伪距离。
+> 7. **首次捕获延迟视线评估**：捕获窗口是在延迟时间线（$\tau_{\text{latency}}$）上评估目标真实视线，卫星位移与目标位移均参与平移，不会因中心取测量值而必然捕获。
 
-[evidence: tests/unit/sbirs_sensor/sbirs_imm_evaluation_test]
-[evidence: tests/unit/sbirs_sensor/sbirs_angle_cv_kf_test]
+---
 
-### 角度域线性标准 KF（实验，`kAngleCvKf`）
+## 非目标（刻意不实现的算法）
 
-- **意图**：对连续方位/俯仰点迹做线性标准卡尔曼滤波，估计视线角及其变化率（用例 16）。
-- **实现边界**：
-  1. 状态 `[az, ω_az, el, ω_el]`（弧度）；量测线性提取 `[az, el]`；方位新息最短弧。
-  2. 默认仍为 EKF；仅显式配置 `estimated_backend=kAngleCvKf` 时进入。
-  3. 初始化只用当前角度点迹，变化率置 0；禁止场景真值三维位置/速度写入均值。
-  4. 选中时 NFOV 命令与 Estimated 输出 az/el 直接取滤波角，不经三维 LOS。
-  5. 公开 `SbirsDetectionRecord` 仍只报滤波后 az/el，不报变化率。
-- **反直觉点**：这不是把现有 6 维 ECI EKF 换成另一种非线性滤波器；状态空间停在角度，因为单星被动红外用线性 KF 不能唯一确定三维。
-- **证据**：[evidence: tests/unit/sbirs_sensor/sbirs_angle_cv_kf_test]
-
-## NFOV 锁定集合与分时轮转（2026-09-02 单镜筒化）
-
-- **意图**：窄场只有一个镜筒——锁定集合无配置上限（`max_concurrent_nfov_locks` 已删除），每周期按
-  固定顺序轮转服务一个目标；**同帧免费多跟**：当前视场内的其余锁定目标共享同一批稳定帧被同时量测，
-  帧数不随同帧目标数摊薄。可同时保持的精跟条数不再可配置，由轮转物理涌现：分离目标轮空周期记门
-  失败，连续超过 `nfov_tracking_gate_loss_cycles` 即丢锁释放（默认 2 → 稳态约容纳 2 个分离目标）。
-- **实现边界**：
-  1. 新候选入列即入锁定集合（无并发截断）；优先级排序只决定入列顺序。
-  2. 轮转服务顺序 = 有序锁定集合 `[rotation_step % size]`，每执行周期步进 +1；相同输入产生相同
-     轮转序列（replay 逐位可复现，rotation_step 进快照）。
-  3. 调度器不读取仿真目标名称，只使用状态、SNR、距离和 `target_id`。
-  4. `nfov_channel_id` 仅进 attribution 调试层（单镜筒下窄场相关行恒 0），不进 raw output。
-  5. **切换前置条件（2026-08-18）**：新候选进入调度须先满足连续 WFOV 命中门
-     `hits >= wide_to_narrow_required_consecutive_hits`（默认 1 行为不变；见"验收派生量"
-     节第 5 条）；已锁定/等待捕获目标不受该门影响。
-  6. **同帧免转动捕获**：已在当前窄视场内的 Awaiting 候选不占用轮转窗口，立即用当前实际指向尝试
-     捕获（镜筒不动）。
-- **优先级规则**（入列顺序；轮转服务按 ID 升序固定顺序）：
-  1. 已锁定目标保持在集合内（不受新候选影响）。
-  2. 新候选按 WFOV IR SNR 从高到低。
-  3. SNR 相同按距离从近到远。
-  4. 仍相同按 `target_id` 从小到大。
-- **证据**：[evidence: tests/unit/sbirs_sensor/sbirs_scheduler_test]
-- **证据**：[evidence: tests/unit/sbirs_sensor/sbirs_pipeline_test]（连续命中门控与轮转/同帧行为）
-
-## ECEF→ECI 惯性旋转（GMST）
-
-- **意图**：SBIRS 输出参考系为 ECI（2026-08 正式变更）。周期入口由输入 `utc_julian_day`
-  （UTC 儒略日，缺失即校验拒绝）计算 GMST，把卫星位置/速度（必填）与每个目标的
-  位置/速度旋转到 ECI；下游 LOS/az/el/遮挡/SNR/EKF 全链使用同一 ECI 几何。
-- **实现边界**：
-  1. GMST 用 IAU 1982 近似（Vallado 式 3-47），UT1 ≈ UTC、无章动/极移；对应方位误差
-     < 0.004°，符合仿真精度档（实现与边界见 `include/1q/coordinate/inertial_transform.h`）。
-  2. 速度含地球自转输运项 v_ECI = R3(θ)·v_ECEF + ω_e × r_ECI（地面静止目标在 ECI 中
-     仍有 ~0.46 km/s 速度，不可忽略）。
-  3. 旋转保模长与球体相交语义：遮挡/距离门与帧无关；az 平移 GMST、el 不变（绕 z 旋转）。
-  4. 输出角度为 ECI 极坐标弧度：az∈[0, 2π)、el∈[-π/2, π/2]；内部角度量纲保持 deg、
-     方位对称约定 (-180, 180]，输出边界统一换算。
-  5. 共享坐标域提供 `TryComputeGmstRad`/`TryEcefToEci`/`TryEcefVelocityToEci`，
-     当前仅 SBIRS 消费（EOS/AR/ESR 不受影响）。
-- **证据**：[evidence: tests/unit/sbirs_sensor/sbirs_eci_transform_test]
-
-## 地球遮挡门控
-
-- **意图**：天基传感器视线穿过地球时目标不可观测；WFOV 搜索前的必要几何门控。
-- **实现边界**：
-  1. 实现使用有限线段射线-地球球体判定（不用无限射线近似），避免方向符号误用。
-     判定核在 `oneq::common::geometry`（`IsEarthOcculted` / `ComputeEarthOccultationMarginM`），
-     SBIRS `SbirsGeometry` 为薄封装。
-  2. 地球遮挡在 WFOV FOV 门控和范围门控**之前**执行，避免对穿地视线做无意义 SNR 计算。
-  3. 该门控是帧级（遮挡角只依赖卫星位置）与目标级（夹角依赖目标视线方向）的混合。
-  4. 只回答 LOS 是否穿过地球球体，不负责地形、云图、临边散射或三维大气廓线。
-  5. 不存在"目标位于大气层以下且距离过远"硬 gate；低空/地面目标的路径损耗只通过标量透过率进入 SNR。
-  6. 必须使用一致的坐标输入，不能混用局部 FOV 坐标做地球相交判定。SBIRS 管线在
-     周期入口把 ECEF 输入统一旋转到 ECI（GMST），遮挡/距离/视场/SNR 全链使用同一
-     ECI 几何；旋转保模长与球体相交语义，门控结果与帧无关。
-- **证据**：[evidence: tests/unit/sbirs_sensor/sbirs_foundation_test]
-
-## 验收派生量（`opir_acceptance.log`，2026-08-22）
-
-- **意图**：满足需求映射 3.2.1.3 章节（OPIR 宽视场扫描探测与窄视场跟踪探测）与
-  3.2.1.6.3 角定位误差的验收信息
-  输出：把管线中间量与少量新增派生量经 `SBIRS_ACCEPTANCE_ITEM`（CMake 开关
-  `ONEQ_ENABLE_OPIR_ACCEPTANCE_LOG`，默认 OFF）写入 `opir_acceptance.log`，
-  四段同一行，人读验收材料。项表见 `docs/review/acceptance_item_catalog_2026-08-22.md`。
-- **派生量与公式**：
-  1. **WFOV 地面覆盖区**：实际扫描中心（传感器系，含共模扰动与限位钳制）± 半视场共 4 角，
-     每角经 boresight 链合成 ECI 视线后与地球圆球求交（半无限射线最近正根；
-     `TryIntersectRayWithSphere`），交点按周期 GMST 旋回 ECEF 取地心经纬度
-     （`ComputeGeocentricLatLonDeg`）；圆球模型与遮挡门控同口径（`kEarthRadiusM`），
-     指向太空的角记 `miss`。
-  2. **驻留时间**：`dwell_s = wide_field_fov_az_deg / scan_rate_deg_per_sec`（方位向扫描
-     穿越视场时间；`scan_rate=0` 退化配置记 0）。
-  3. **焦平面脱靶量**：目标传感器系角 − NFOV 实际指向角，逐轴 `x = f·tan(Δaz)`、
-     `y = f·tan(Δel)`（米），除以像元间距得像素（`ComputeFocalPlaneOffset`）；逐轴独立
-     小角投影，非畸变光学模型。
-  4. **目标信号能量**：`E = P_received · t_int`（`ComputeSnr` 出参透出，不改 SNR 数值）。
-  5. **宽窄切换连续命中计数**：逐目标累计连续通过 WFOV 四门（遮挡/距离/视场/SNR）的
-     周期数；任一门失败、目标消失或待机清零；**捕获成功进入跟踪时清零**（丢锁回宽场后
-     需重新积累）。进入 NFOV 调度的前置条件为 `hits >= wide_to_narrow_required_consecutive_hits`
-     （`SbirsSchedulerConfig`，默认 1 = 单次命中即调度，与既有行为逐位一致）。计数表进
-     `SbirsPipelineSnapshot`（capture/restore 完整）。
-  6. **角定位误差（需求映射 3.2.1.6.3）**：宽场候选写测量角 − 真值角；窄场跟踪写最终
-     输出角（滤波/误差注入全部完成后）− 真值角；方位差按最短角差回绕（wrap-aware）。
-     仅日志字段，不进任何输出结构。
-- **反直觉点**：
-  1. 覆盖区四角在**传感器系**加偏移再经链变换（含姿态/安装/失准），不是在 ECI 角度直接
-     加偏移——identity 链下两者才等价。
-  2. 连续命中计数在**候选创建点**自增（当周期即计 1），默认阈值 1 下新候选当周期即可调度，
-     行为与改造前逐位一致。
-  3. 驻留时间是配置派生标量（视场/速率），不依赖目标；与逐周期输出配对供验收核对。
-- **边界**：全部派生量仅走日志通道，不进 raw output/attribution/DebugView（boundaries.md
-  非目标 10）；开关 OFF 时宏与派生计算一并编译剪除。
-- **证据**：[evidence: tests/unit/sbirs_sensor/sbirs_foundation_test]
-- **证据**：[evidence: tests/unit/sbirs_sensor/sbirs_pipeline_test]
-
-## Foundation 物理链路
-
-- **意图**：目标辐射强度（W/sr）→ 接收功率、路径透过率、背景/探测器噪声和 SNR 门限的标量顺序计算。
-- **实现边界**：
-  1. foundation 算法可被单元测试直接覆盖，但不作为 public header、SPI 或 runtime plugin 暴露。
-  2. 目标红外签名由调用方以辐射强度 `radiant_intensity_w_per_sr` 直接提供（已折算温度/发射率/投影
-     面积），接收功率 `P_sig = I_t · A_ap · τ_opt · τ_atm · η / d²`；模块不再做 Planck 换算
-     （无温度输入）。
-  3. 第一版只实现标量链路，不实现图像帧、像元级背景图或多色分类器。
-  4. 标量 SNR 链不做像元级背景（仍无 PSF/MTF/成像几何）；焦平面脱靶量映射所需的
-     `focal_length_m`/`detector_pixel_pitch_m` 已加入 public hardware 与 replay schema，
-     但仅被验收日志消费（见"验收派生量"节），不进标量探测链路。
-  5. WFOV/NFOV 当前共享同一套波段、孔径、透过率、积分时间和噪声参数；两个通道差异由 FOV、调度/指向
-     和各自检测门限表达。
-  6. 复制自 EOS 的算法允许按天基场景修正常数和几何输入，但必须保持调用面由 `SbirsPipeline` 统一编排。
-  7. 当前时刻最大探测距离（合同指标 4，2026-08-17 起）：信号 ∝ 1/d² 且噪声不含距离项，
-     由 WFOV 检测门限闭式反解 `d_max = sqrt(I·A_ap·τ_opt·τ_geo·η·t_int/(N_eff·SNR_th))`；
-     τ_geo = τ_eff^X 为逐目标几何路径透过率（壳段气团，见"气象衰减模型"节），
-     N_eff 取当前周期快照，故逐目标、逐周期变化。输出进归属/诊断层
-     （`SbirsDetectionAttributionRecord::max_detection_range_m`），不进 raw output；
-     NFOV 门限版可由消费方按 `d_max·sqrt(wide_min/narrow_min)` 推导；SNR 门失败目标的
-     issue 消息附带 d_max 数值（人读）。
-  8. 噪声口径（2026-09-02 修订，冻结契约 sbirs-noise-realistic-snr）：各分量统一
-     "积分时间内噪声能量"分母（SNR = P_sig·t_int/N_eff），合成
-     `N_eff = sqrt((NEP·t)² + N_photon² + N_thermal² + (N_readout·t)²)`；
-     `N_photon = sqrt(P_bg·t·E_ph)`，`P_bg = L_bg·A_ap·τ_opt·Ω_pixel`（Ω_pixel=(像元间距/
-     焦距)²，E_ph=hc/λ_center 波段中心单色近似）；NEP 直接计入 RSS（非仅回退项）；热项
-     仅探测器温度 >0 计入（显式选配，默认 0）；背景亮度默认 2.0 W/(sr·m²)（地球 MWIR
-     典型，0=关闭光子项）。历史口径（光子项 1 sr 等效视场、缺 E_ph、热项默认 80 K 独占）
-     使 SNR 比真实背景限制系统低约 4 个数量级，已废弃。
-- **反直觉点**：只有独立成像模型同时具备 PSF/MTF、焦距与像元几何时，才可冻结其物理效应并增加结果
-  测试；不得先加占位字段再用任意归一化系数伪装生效。
-- **证据**：[evidence: tests/unit/sbirs_sensor/sbirs_foundation_test]
-- **证据**：[evidence: tests/unit/sbirs_sensor/sbirs_noise_model_test]
-- **证据**：[evidence: tests/unit/sbirs_sensor/sbirs_radiative_transfer_test]
-
-## 气象衰减模型
-
-- **意图**：将场景/大气观测映射为透过率衰减因子 `A_total`，作用于路径透过率。
-- **实现边界**：
-  1. 气象影响查表得各参数独立衰减比例（海浪/天气/温度/湿度/能见度）。
-  2. 加权叠加：独立项 `Σ(w_i·A_i)` + 交互项 `k_j·A_p·A_q`（默认 0 关闭）+ 常数修正。
-  3. `A_total ∈ [0,1]`，作用于 `τ_eff = τ·(1-A_total)`，只在透过率维度合成一次。
-  4. 第一版使用查表和加权叠加，不接入 MODTRAN/LOWTRAN 或三维天气场。
-  5. `base_atmospheric_transmittance` 是可标定标量，不声称实现 Beer-Lambert 廓线。
-  6. 壳段气团几何修正（2026-09-02 冻结契约，纯空间路径不扣大气衰减）：逐目标
-     `τ_geo = τ_eff^X`，气团因子 `X` = 视线在球对称大气壳（地球平均半径 +100 km 壳顶）
-     内的穿壳弦长 ÷ 垂直壳厚，夹取 [0,10]（低仰角防发散）；纯空间路径 `X=0 → τ=1`，
-     地面目标正对天顶 `X=1`（与垂直穿过大气的基准向后兼容）；穿地路径由遮挡门先行
-     排除，不进气团函数。SNR/d_max/衰减归因链全部改用 τ_geo。
-- **证据**：[evidence: tests/unit/sbirs_sensor/sbirs_environment_model_test]
-- **证据**：[evidence: tests/unit/sbirs_sensor/sbirs_pipeline_test]
-
-## 误差模型（WFOV 带误差位置）
-
-- **意图**：对 WFOV 输出的带误差位置生成 5 类误差（轨道/姿态/视场高斯 + 折射/滞后确定性）。
-- **实现边界**：
-  1. 误差叠加作用于 WFOV 输出层、NFOV cue、Estimated 校正量测和 Sensor-like 成功输出；Strict 输出不叠加。
-  2. 轨道/姿态/视场三项始终按 RSS 合成为唯一有效角度 1-σ；三项均为 0 表示不施加随机角误差。
-  3. 随机源 `SbirsRandomSource`（xorshift32 + Box-Muller）由固定 seed 经固定 domain 派生为 WFOV、Estimated、
-     Sensor-like 三个子流，状态分别随 snapshot 持久化。
-  4. 折射与动态滞后为确定性公式，滞后输入为相对视线角速度（v_target−v_satellite 推导，
-     目标速度未提供时取 0、卫星速度必填）；卫星运动本身扫过视场也产生滞后
-     （2026-08-17 起，此前卫星隐含静止）。
-  5. 距离误差只用于内部 cue/诊断链路，不进入 raw output。
-- **反直觉点**：误差模型生成的是观测/cue 误差，不改变输入目标真值。随机源必须可注入、可 snapshot
-  或可由 replay 固定，避免同一 trace 回放产生不同捕获结果。
-- **证据**：[evidence: tests/unit/sbirs_sensor/sbirs_error_model_test]
-
-### 时间相关姿态与指向扰动
-
-- **意图**：`SbirsPointingDisturbance` 建模实际光轴扰动——区别于量测域的 `attitude_sigma_deg`。
-- **实现边界**：
-  1. 两类随机状态采用一阶 Gauss-Markov 精确离散：共模项同周期移动 WFOV 和 NFOV 中心；通道项只
-     移动 NFOV（单镜筒：仅 0 号一份，不再按目标/通道区分）。
-  2. 共模状态每个 pipeline 一份；通道状态单份（0 号），不按目标持有。
-  3. 无目标时仍随仿真时间推进；普通 release/rebind 和无关字段 patch 不重置。
-  4. 全部幅值默认 0；没有可追溯设备参数时不提供仓库级非零"真实 SBIRS"常数。
-  5. 当前是**传感器系角度坐标系**的小角度扰动（阶段 2 起：WFOV 共模叠加在传感器系扫描中心、
-     NFOV 经链转换后叠加在传感器系指向），不含刚体姿态、角速度控制、反作用轮、饱和或机械耦合。
-  6. raw output 和滤波 R 不增加扰动字段；`nfov_pointing_error_deg` 表示合成后的总实际误差。
-- **证据**：[evidence: tests/unit/sbirs_sensor/sbirs_pointing_disturbance_test]
+1. **二维红外成像级仿真与多色分类器**：定位在标量辐射探测与光轴动力学，不生成图像阵列，不建模星载点源探测算法（如三帧差分/空域滤波）。
+2. **MODTRAN 高光谱三维大气剖面**：采用标量气象折减与壳段气团弦长近似，不进行逐波数辐射传输积分。
+3. **在线后端自动切换与参数在线自适应**：保持系统确定性与想定回放严格复现。
+4. **刚体反作用轮与星体姿态控制动力学**：光轴扰动采用一阶 Gauss-Markov 小角近似，不仿真卫星姿控飞轮力矩与控制回路。
+5. **CA cue predictor（已完成标定、刻意拒绝接线）**：五样本角度二次最小二乘 CA 在 108 个无噪声持续加速组合中聚合 RMS 优于 CV，但在标称噪声恒速场景（dt=0.1 s、latency=0.5 s、σ=0.01°）RMS/P95 为 0.141/0.279°，**劣于** CV 的 0.074/0.142°，捕获率从 73.91% 降至 41.30%——未通过标称噪声零回退门，拒绝生产接线，不新增 CV/CA 配置或自动切换。[evidence: tests/unit/sbirs_sensor/sbirs_cue_ca_characterization_test.cpp]
