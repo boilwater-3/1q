@@ -1,5 +1,5 @@
 ---
-Status: frozen
+Status: draft
 Date: 2026-09-03
 Review-Baseline: `evidence/rf-full-polarization` @ `fba3ea13`
 Authority: 过程脚手架记录（非耐久）；结论以 docs/common/contract.md、docs/common/session_contract.md
