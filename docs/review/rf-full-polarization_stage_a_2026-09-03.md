@@ -1,5 +1,5 @@
 ---
-Status: draft
+Status: frozen
 Date: 2026-09-03
 Review-Baseline: `evidence/rf-full-polarization` @ `fba3ea13`
 Authority: 过程脚手架记录（非耐久）；结论以 docs/common/contract.md、docs/common/session_contract.md
@@ -72,18 +72,62 @@ Authority: 过程脚手架记录（非耐久）；结论以 docs/common/contract
 
 ## §3 冻结契约（用户讨论结束后填写）
 
-<!-- 一行一项：
-1、允许范围：模块/目录、类/函数、测试与文档。
-2、明确禁止范围：公开头文件、跨模块类型、schema/回放、测试阈值、兼容层。
-3、行为边界：输入、输出、错误回退、生命周期。
-4、爆炸半径与回滚：下游消费方影响、回退难度（无损/破坏性/回滚注意点）。
-5、验收门：构建、聚焦测试、契约测试、特征化测试、探针转正（有回归价值的探针转正式测试）。
-6、非目标。
--->
+已证明的需求：
+- 全极化作为第六种极化工作模式进入两条枚举链；失配损耗配对表扩展全极化规则；模块放行范围仅 RIR。
+
+允许范围：
+- 公共头：include/1q/electromagnetics/RfLinkBudget.h——RfPolarization 已加 kFullPolarization=5（工作区既有改动转入本分支），枚举注释改"名义极化或极化工作模式"，kFullPolarization 配白话注释。
+- 公共头：include/1q/electromagnetics/RfScene.h——RfScenePolarization 加 kFullPolarization=5＋白话注释，枚举块配对规则注释同步全极化。
+- 实现：src/common/electromagnetics/RfLinkBudget.cpp——IsKnownPolarization、TryPolarizationLoss。
+- 实现：src/common/electromagnetics/RfScene.cpp——IsKnownPolarization、TryPolarizationLoss 同步。
+- 示例加载器：examples/common/config_loaders/remote_identification_radar/config_loader_common.h——RfScenePolarizationFromString 加 "kFullPolarization"。
+- 测试：tests/unit/common/common_rf_link_budget_test.cpp（全极化配对单测，探针转正）；tests/unit/common/common_rf_scene_test.cpp（RfScene 侧配对单测）；tests/replay/remote_identification_radar/rir_replay_session_test.cpp（scene_polarization=5 往返）。
+- 文档：Stage C 回写目标见 §4 清单。
+
+明确禁止范围：
+- AR/ESR/ECM 冻结：配置不放行（ESR 现有 0..4 上限校验保持不动即天然拒绝 5；AR/ECM 不加任何放行或校验改动）、加载器不加拼写、回放编解码不动。
+- 回放 schema：四个 .fbs 一律不动（极化字段全为 int，值 5 天然往返）。
+- 不新增 dual_channel/能力类字段，不新增兼容层。
+- 加载器未知字符串静默回退行为不改（既有行为，未立案）。
+- 所有默认值不变更：AR/RIR scene_polarization 默认 kHorizontal、ESR polarization 与 ECM transmit_polarization 默认 kUnpolarized、RfEmission/RfReceiverSite 默认 kUnpolarized、examples/scenes/scene_script.cpp 发射侧 kHorizontal 硬编码不动。
+- RIR 极化散射矩阵特性（双通道 RCS、acceptance-S）不动；极化捷变（时变极化）不做。
+- 测试阈值不放宽、不新增 skip。
+
+行为边界（失配损耗配对表，行=发射侧，列=接收侧）：
+- 固定极化 × 固定极化：现有三档规则不变（同值 0 / 同族互垂取 cross_polarization_isolation_db / 线圆互配 3.0103）。
+- 固定极化 × 全极化（全极化接收）：0 dB。
+- 全极化 × 固定极化（单极化接收）：3.0103 dB。
+- 全极化 × 全极化：0 dB。
+- 全极化 × 非极化、非极化 × 全极化：3.0103 dB（"任一侧非极化固定 3.0103 dB"公理不动）。
+- 全极化配对一律不进 cross_polarization_isolation_db 分支。
+- 输入：枚举值 5 为合法值；其余非法值拒绝行为不变（IsKnownPolarization 之外的路径零改动）。
+- RIR 实路径：scene_polarization 一个旋钮填收发两侧（同值），"kFullPolarization" 下 RIR 自配对 full/full＝0 dB。
+
+爆炸半径与回滚：
+- 下游影响：RIR 配置 JSON 可填 "kFullPolarization"；其余模块行为逐位不变；回放文件向后兼容（旧文件不含值 5）。
+- 回退难度：无损——纯加法改动，回滚＝删枚举值＋分支＋测试。
+
+验收门：
+- 构建：全量 cmake 构建（含 common、remote_identification_radar、examples）。
+- 聚焦测试：ctest unit::common、unit::remote_identification_radar 全绿。
+- 回放契约：RIR replay 测试全绿（含新增 scene_polarization=5 往返断言）。
+- 探针转正：两条枚举链的全极化配对单测＋RIR 回放值 5 往返断言。
+- 存量回归：3.0103 dB 与 cross_polarization_isolation 既有断言不变。
+
+非目标：
+- RIR 极化散射矩阵联动、极化捷变、AR/ESR/ECM 放行全极化、加载器回退行为整改、dual_channel 字段化建模。
 
 ## 修订记录
 
-<!-- 编号条目（修订 1、修订 2……）：日期、裁定内容、来源（用户指令/新证据）；不静默改写既有条目。 -->
+修订 1（2026-09-03，用户指令）：落点裁定＝两侧对称——RfPolarization（公共 API）与 RfScenePolarization（活跃链）同时加 kFullPolarization=5，语义一次冻结；矩阵第 2 项按此落地。
+修订 2（2026-09-03，用户指令）：全极化对固定极化＝0 dB 合并口径——全极化接收对 H/V/左旋/右旋任一固定极化 0 dB；单极化接收全极化发射 3.0103 dB；全极化对全极化 0 dB；全极化配对不进 cross_polarization_isolation_db 分支。
+修订 3（2026-09-03，用户指令）：全极化对非极化＝3.0103 dB 保守——"任一侧非极化固定 3.0103 dB"现有公理不动。
+修订 4（2026-09-03，用户指令）：场景字符串拼写取 "kFullPolarization"，与现有五个拼写同构。
+修订 5（2026-09-03，用户指令）：允许设置全极化的模块仅 RIR；AR/ESR/ECM 全部冻结——配置不放行、加载器不加拼写、回放不接。
+修订 6（2026-09-03，用户讨论确认）：枚举注释改为"名义极化或极化工作模式"，kFullPolarization 配白话注释（两条相互垂直的极化通道同时工作）。
+修订 7（2026-09-03，新证据）：RIR 会话校验现状不检查 scene_polarization 取值范围，加值后天然放行、校验层零改动；RIR 的 scene_polarization 一个旋钮同时填发射侧与接收侧（收发同值），全极化下 RIR 自配对为 full/full=0 dB。
+- **证据**：[evidence: src/remote_identification_radar/session/RirSessionConfigValidation.cpp]（仅查交叉隔离有限性）
+- **证据**：[evidence: src/remote_identification_radar/dwell/RirEmissionFactory.cpp]::RirEmissionFactory（emission->polarization = receiver.scene_polarization）
 
 ## §4 运行记录（Stage C 后填写）
 
