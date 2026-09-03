@@ -43,7 +43,7 @@
 有静态安装指向几何的模块（SBIRS / AR / ESR）另含顶层 `"orientation"`（初始化静态；
 不进 RuntimeConfigPatch）。EOS / RIR / SAR 保持四域，禁止空壳 orientation。
 
-详细字段说明见 `docs/common/usage.md`（1q 库消费指南）与 `docs/common/session_contract.md`（会话相关模块契约）。
+详细字段说明见 `docs/common/session_contract.md`（会话相关模块契约）。
 所有权规则见 `docs/common/contract.md`「条件五域配置所有权」。
 
 ### 物理链路提示
@@ -55,7 +55,7 @@ AR 始终使用物理探测链。`airborne_radar.json` 默认开启
 RIR 的 `remote_identification_radar.json` 默认**关闭**
 `rcs_physics.enable_physical_rcs`（2026-08-29 审计裁定）：探测 RCS 用场景声明值，
 与设计 SNR 表对账口径一致；需要视角相关 RCS 行为的场景显式开启（开启后探测 RCS
-不再等于声明值，见 docs/review/rir_ballistic_scene_log_audit_2026-08-29.md A2）。
+不再等于声明值；2026-08-29 审计记录已删档，见 git 历史）。
 
 `sar.json` 的 `sample_rate_hz`、`pulse_width_s` 与 `range_sample_count` 必须满足
 `ceil(pulse_width_s * sample_rate_hz) <= range_sample_count`。当前示例配置已按
@@ -84,5 +84,4 @@ RIR 的 `remote_identification_radar.json` 默认**关闭**
 `JsonReader` 的宽松转换规则处理。
 
 相关文档：
-- `docs/common/usage.md` — 1q 库消费指南
 - `docs/common/session_contract.md` — 会话相关模块契约（SessionConfig 直接赋值、RuntimeConfigPatch 显式 has_*、运行期配置提交策略、三层输出模型等）

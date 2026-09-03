@@ -288,7 +288,6 @@ Last-reviewed: 2026-08-23
   但俯仰中心 `scan_center_el_deg` 仍只能手工填绝对值；config 校验无"视场是否对着地球"的几何告警
   （方位基准裁决时方案 1 告警被 defer）。
   [evidence: include/1q/sbirs_sensor/config/SbirsMissionConfig.h]
-  [evidence: docs/review/sbirs-nadir-stare-mode_stage_a_2026-08-31.md]
 - **后果**：GEO 赤道轨道下星下点俯仰恒 ≈0，手填 0 恰为正确值，无痛点；非 GEO（倾斜/低轨）轨道下
   星下点俯仰 = −asin(z/|r|) 随位置漂移（可达数十度），手填值会持续偏离且无告警，复现"方位抄数配错"
   的同型故障。
@@ -305,7 +304,6 @@ Last-reviewed: 2026-08-23
   现实中各星独立开机、相位任意。
   [evidence: include/1q/sbirs_sensor/session/SbirsOutputTypes.h] ::SbirsDetectionRecord
   [evidence: src/sbirs_sensor/pipeline/SbirsPipeline.cpp] ::ApplyConfig
-  [evidence: docs/review/sbirs-dual-sat-timing_stage_a_2026-08-31.md]
 - **后果**：扫描模式下"哪一周期检出"是抽帧相位的人为产物；下游（融合/评估）拿不到测量时刻，
   只能以周期号为时间基准。当前由评估层配对窗（`dual_sat_pair_window_cycles`）在消费侧补偿，
   属权宜口径。
@@ -417,7 +415,6 @@ Last-reviewed: 2026-08-23
   [evidence: src/airborne_radar/signal/association/DataAssociation.h]
   [evidence: src/airborne_radar/signal/tracking/TrackLifecycleManager.h]
   [evidence: src/airborne_radar/decision/ThreatAssessmentEvaluator.cpp]
-  [evidence: docs/review/ar_remote_identification_radar_coupling_audit_2026-08-15.md]
 - **后果**：同一目标在 AR 内（LAPJV）与 fusion 内（按 association_key 再关联）被关联两次；
   传感器 public 输出同时承载估计产品（滤波航迹）与推演结论（识别标签），下游
   threat_assessment 的类型概率输入实际消费传感器回填的识别结论；估计层轨迹滤波立项时存在

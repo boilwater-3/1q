@@ -1,12 +1,12 @@
 # Review doc writing standard — docs/review/*.md
 
-审查文档是非规范性审查记录。参考范本：`docs/review/rule14_issue_list_unification_review_2026-08-07.md`
-（规则 14 统一问题列表迁移审查——本 skill 的母本）。
+审查文档是非规范性审查记录。参考范本：`docs/review/component_runtime_integration_review_2026-08-05.md`
+（组件运行期集成审查）。原母本 rule14 统一问题列表迁移审查已删档，见 git 历史。
 
 ## 文件与 frontmatter
 
 文件名：`docs/review/<topic>_review_<YYYY-MM-DD>.md`（topic kebab-case，如
-`rule14_issue_list_unification_review_2026-08-07`）。
+`component_runtime_integration_review_2026-08-05`）。
 
 ```yaml
 ---

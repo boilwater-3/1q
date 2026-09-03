@@ -78,7 +78,7 @@ Answers: 每个融合算法怎么实现、边界在哪、反直觉点是什么
 方位通道做 east→north 参考换算（az = wrap(90° − look_az)）。**观测原点**（2026-08-18
 修订 1/1a）：输入周期携带平台位置（ECEF 米制）时，适配器经 TryEcefToLla 换算填
 has_sensor_origin + origin（失败退化为无原点记录）→ 记录可参与三维方位滤波。
-**位置通道**（2026-08-27，`docs/review/rir-adapter-position_stage_a_2026-08-27.md`）：
+**位置通道**（2026-08-27 裁定，Stage A 记录已删档）：
 斜距有限且 >0 且原点换算成功时，按 `ComputeLookAngles` 逆运算（自东 az、出地平 el）
 还原东-北-天，再 TryEnuToEcef→TryEcefToLla 填 has_position；失败维持仅方位+原点。
 位置与方位并存（滤波位置优先，方位留给跨源仅方位关联）；量测噪声走

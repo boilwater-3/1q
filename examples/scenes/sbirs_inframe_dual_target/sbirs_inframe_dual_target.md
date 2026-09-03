@@ -1,7 +1,7 @@
 # sbirs_inframe_dual_target 同框双目标验证场景（期望表）
 
-派生自 `sbirs_triple_sat_fix_messages`（2026-09-02 单镜筒化验证，冻结契约
-`docs/review/sbirs-nfov-shared-pointing_stage_a_2026-09-02.md`）：三星配置不变，
+派生自 `sbirs_triple_sat_fix_messages`（2026-09-02 单镜筒化验证，冻结契约已删档、
+见 git 历史）：三星配置不变，
 两个目标改放同一处（经度 -85°、纬度 15°/15.4°，地面间隔 ≈0.4°）——从卫星 A/B 看
 间隔 <0.1°，恒处于彼此同一 8° 窄视场内；速度近平行，80 周期内漂移 <0.01°，全程
 同框。卫星 C（东经 95°）背对目标，无贡献（与原场景目标 1 相同）。

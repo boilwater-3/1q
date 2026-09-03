@@ -148,7 +148,7 @@ status/stage/reason/coasting/gate 语义派生，不直接公开 internal `Sbirs
    lifecycle/replay。
 4. `nfov_channel_id`：单镜筒编号（2026-09-02 单镜筒化后窄场相关行恒 0，-1 表示 WFOV/未占用；
    字段保留以稳定 replay 表与既有消费者）；进 attribution/lifecycle/debug，进 replay。
-5. cross-cue 诊断字段（2026-09-01，契约 docs/review/sbirs-cross-cue_stage_a_2026-09-01.md）：
+5. cross-cue 诊断字段（2026-09-01）：
    `cue_source_satellite_entity_id`（引导来源星，-1=自星宽场，随调度器通道持久、释放清除）、
    `measured_range_m`（误差模型距离，宽场段=candidate.measured_range_m，cross-cue 递话数据源）、
    `SbirsCycleResult.wide_cue_measurements`（每周期宽场候选带误差量测，组件据此构造递话）；
@@ -187,7 +187,7 @@ session 等价；这些性质只能由对应的 unit/integration/replay 测试�
 | 时间相关姿态抖动与指向误差 | implemented | 已接入共模 WFOV/NFOV 与单通道 NFOV（0 号，单镜筒）；零幅默认，不等同完整整星控制器 |
 | CA cue predictor | reject for wiring | 标称噪声和较长 latency 下放大误差、降低捕获率（73.91%→41.30%），未通过零回退门；不得接入 config/schema/pipeline |
 | 简化整星姿态动力学与执行机构约束 | defer | 必须先给出当前角度域模型无法满足的可复现失败和误差预算，再冻结共享平台姿态与逐通道光轴所有权 |
-| 多通道机械耦合与共享姿态资源 | implemented（单镜筒化，2026-09-02） | 独立 LOS 假设的可复现错误已坐实（三星场景分离 17.2° 双目标被同星双锁，几何+日志双探针；冻结契约 docs/review/sbirs-nfov-shared-pointing_stage_a_2026-09-02.md）后收口：窄场收敛为单执行器分时轮转 + 同帧免费多跟，`max_concurrent_nfov_locks` 删除，可保持精跟条数由跟踪门物理涌现；确定性轮转/失败归属/snapshot/replay 均有测试证据 |
+| 多通道机械耦合与共享姿态资源 | implemented（单镜筒化，2026-09-02） | 独立 LOS 假设的可复现错误已坐实（三星场景分离 17.2° 双目标被同星双锁，几何+日志双探针；冻结契约已删档、见 git 历史）后收口：窄场收敛为单执行器分时轮转 + 同帧免费多跟，`max_concurrent_nfov_locks` 删除，可保持精跟条数由跟踪门物理涌现；确定性轮转/失败归属/snapshot/replay 均有测试证据 |
 | 探测器像元、背景杂波与图像帧 | defer outside current product boundary | 仅在产品目标转为图像检测/TBD/NCC 且具备 PSF/MTF、焦距、像元几何、背景和独立物理真值时重开；归属独立 imaging 子系统 |
 | 验收信息日志（`opir_acceptance.log`） | implemented（编译期门控） | `ONEQ_ENABLE_OPIR_ACCEPTANCE_LOG` 默认 OFF 零开销；开启后写四段中文验收行，不进 `1q_library.log` |
 | WGS84 椭球地面投影 | reject（保持圆球单口径） | 覆盖区投影与遮挡判定共用 `kEarthRadiusM` 圆球；引入椭球须先给出双地球模型口径分叉的可复现验收失败 |

@@ -397,7 +397,6 @@ CMake 工程边界（target 作用域、Windows 验收）和测试架构（type�
 - `open_questions.md` —— 跨模块架构观察与待决项（非规定性：记录调查中发现但尚未定论的议题，不构成契约约束）。条目推进到有结论时，应回写为契约规则（进 contract.md）或模块设计（进对应 design.md），并从 open_questions.md 移除。
 - `rf_architecture.md` —— AR/ESR/ECM/RIR 公共 RF 工程架构设计描述（provenance、单周期交换时序、接收机影响分层）。
 - `issue_codes.md` —— 各模块 issue code 注册表的人读辅助目录（由各模块 `<Module>IssueCodes.h` 的 `@brief` 提取生成；机器消费以公开头文件常量为唯一事实来源）。
-- `usage.md` —— 当前已验证的构建、安装与外部消费指南；不得承诺尚未由 consumer 验证的打包方式。
 
 模块目录内不保留 `archive/`、`audits/`、`contracts/`、`design/`、`decisions/`、`workflow/`、`migration/` 等展开式历史目录。历史细节需要追溯时从 git 历史读取。
 

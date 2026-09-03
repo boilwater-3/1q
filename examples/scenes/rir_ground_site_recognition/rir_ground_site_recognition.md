@@ -6,7 +6,7 @@
 | --- | --- |
 | 场景文件 | `scenes/rir_ground_site_recognition/rir_ground_site_recognition.json` |
 | 场景意图 | 被测通道：RIR（主）+ ESR（辐射源作为干扰进入）+ Fusion；被测行为：S 波段地基识别雷达对极地过顶弹道中段目标的四维特征识别链（新增 `type: "ballistic"` 二体椭圆弹道弧线目标 × 5）+ 运行期指定任务 + 特征量测进融合（RIR 位置 + ESR 方位；2026-08-31 清场：SBIRS/SAR/AR/EOS 不再挂载，下表五源口径为 2026-08-29 实测存档） |
-| 设计依据 | `docs/review/rir_ballistic_scene_design_2026-08-28.md`（客户 testInfoOutput 12 句柄清洗后 5 弹道目标：208/210/227/231/249，ID 沿用客户句柄号）+ `docs/review/target_handle_trajectory_summary.md`；2026-08-29 探测架构还债（方向图恒开/主瓣覆盖门/TAS 跟踪驻留/增益-波束自洽，见设计文档 §7 修订行与 `docs/review/rir_ballistic_scene_log_audit_2026-08-29.md` A1/B5） |
+| 设计依据 | `docs/review/rir_ballistic_scene_design_2026-08-28.md`（客户 testInfoOutput 12 句柄清洗后 5 弹道目标：208/210/227/231/249，ID 沿用客户句柄号，轨迹汇总与 2026-08-29 探测架构还债审计已删档、见 git 历史；还债要点见设计文档 §7 修订行） |
 | 构建模式 | release（运动学回退） |
 | 日志模式 | delta + key（默认） |
 | 时间窗口 | `start_cycle=740`（跳过助推/远距空窗；绝对周期号不变，designate 仍在 751 起） |

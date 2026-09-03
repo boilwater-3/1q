@@ -615,8 +615,7 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
       satellite_eci.x_m, satellite_eci.y_m, satellite_eci.z_m};
   // 方位基准（2026-08-31）：kEciAbsolute 基准恒 0（行为逐位不变）；kNadirRelative
   // 星下点方位 = atan2(-y, -x)（-卫星位置向量），由当周期位置现算并落成员——
-  // GEO 恒定；动轨道随位置漂移，配置免推算（契约见 docs/review/
-  // sbirs-nadir-stare-mode_stage_a_2026-08-31.md）。
+  // GEO 恒定；动轨道随位置漂移，配置免推算（契约记录已删档，见 git 历史）。
   float scan_azimuth_base_deg = 0.0f;
   scan_wrap_span_deg_ = mission.scan_span_deg;
   if (mission.scan_azimuth_reference == config::SbirsScanAzimuthReference::kNadirRelative) {
@@ -789,8 +788,8 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
 
   // 往复式扫描推进（2026-08-31，牛耕式）：相位沿"行程坐标" travel ∈ [0, 2·wrap_span)
   // 推进 rate·dt 后折叠——去程 [0, span) 正走、回程 [span, 2span) 反走，到边反射
-  // 而非跳回起点（真实扫描机构行为；锯齿→往复的行为替换，契约见 docs/review/
-  // sbirs-scan-realism_stage_a_2026-08-31.md）。栅格行进=每次过界步进一行
+  // 而非跳回起点（真实扫描机构行为；锯齿→往复的行为替换，契约记录已删档、
+  // 见 git 历史）。栅格行进=每次过界步进一行
   // （crossings 计数与既有节奏同值：dt·rate=k·span 时相位/行序列与锯齿逐位重合）。
   // rate=0 时 travel 恒 0、腿恒初始方向——凝视行为逐位不变。
   const int row_count = ScanRowCount(mission);
