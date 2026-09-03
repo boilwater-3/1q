@@ -82,12 +82,13 @@ RIR 识别积累全量挂接于自持雷达链路（自发射 $\to$ 入射 $\to$
   - 核心公式（高斯波束展开近似，**仅主瓣段成立**；主瓣外公共核走 $\text{sinc}^2$ 副瓣包络连续延拓并以副瓣电平为下限，另有扫描损耗项）：
     $$G(\theta_t, \phi_t) = G_0 \cdot \exp\left( -2.776 \cdot \left[ \left(\frac{\Delta\theta}{\theta_{3\text{dB}}}\right)^2 + \left(\frac{\Delta\phi}{\phi_{3\text{dB}}}\right)^2 \right] \right)$$
     其中 $\Delta\theta = \text{wrap}_{180}(\theta_t - \theta_{\text{beam}})$ 为归一化方位差。
+- **主瓣模型类型（可选）**：`RirAntennaPatternModelType` 静态会话配置——`kGaussianMainLobe`（默认，上文公式）、`kCosinePower`（余弦幂近似）、`kSincPattern`（sinc² 均匀孔径理论解，**必须填物理孔径尺寸**）；类型只换主瓣衰减曲线，不改变波束中心指向与轴心增益能力锚，运行期不可切换；非法取值静默回退高斯主瓣。
 - **实现边界与工程简化**：
   - 波束状态解析委托公共单源 `common/radar/FrozenBeamResolve.h`。
   - 调度器给指向、RIR 信任指向：RIR 不会把给定波束中心吸附到目标位置。指向偏离目标即按实际离轴角真实衰减。
 - **边界保护**：目标位置退化（范数 $\le 0.1\text{ m}$）时视线角无效，增益安全回退为主瓣峰值 $G_0$（az=0/el=0 兜底角不做离轴衰减，AR 同口径）。
 - **反直觉点**：高斯公式只在主瓣内有效——深离轴目标的实际增益由副瓣电平下限决定，不会按高斯尾无限衰减。
-- **证据链**：[evidence: tests/unit/remote_identification_radar/rir_search_sector_test.cpp]
+- **证据链**：[evidence: tests/unit/remote_identification_radar/rir_search_sector_test.cpp]、[evidence: tests/unit/remote_identification_radar/rir_antenna_pattern_test.cpp]
 
 ---
 
@@ -321,6 +322,12 @@ RIR 识别积累全量挂接于自持雷达链路（自发射 $\to$ 入射 $\to$
 - **规则**：N=8 通道、2 脉冲 MTI、$\sigma_v = 0.25\text{ m/s}$ 为核内常量。
 - **边界与反直觉**：不进 SINR/Pd/航迹；无链路多普勒则干扰通道写 `无`；关验收开关时不求值。
 - **证据**：[evidence: tests/unit/common/common_mti_mtd_acceptance_bank_test.cpp]
+
+### A.6 验收旁路输出物组装 (RirAcceptanceRecords)
+- **意图**：验收旁路产物落盘，共三个：`log/rir_acceptance.log`（MTI/MTD 8 路派生、极化 L2 派生、运动特征/RCS 统计等列）、`log/rir_antenna_pattern.csv`（全向网格方向图导出，体积随波束宽变化）、`log/rir_scan_pattern.csv`（本周期波位序列）。
+- **规则**：CMake 验收开关门控，逐周期追加。
+- **边界与反直觉**：全部产物纯旁路——不进指向、不进识别、不进 SINR；`rir_scan_pattern.csv` 是调度结果导出而非指向输入。
+- **证据**：[evidence: tests/unit/remote_identification_radar/rir_acceptance_look_polar_test.cpp]
 
 ---
 

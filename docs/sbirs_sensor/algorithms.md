@@ -30,6 +30,7 @@ SBIRS 模拟天基红外监视卫星的宽视场（WFOV）扫描探测、星下�
 | 观测误差与时变指向扰动 | 5 类量测误差（RSS合成）+ 一阶高斯-马尔可夫实际光轴抖动 | session-wired | [evidence: tests/unit/sbirs_sensor/sbirs_error_model_test.cpp] |
 | 单镜筒分时轮转与无界集合 | 窄场单执行器轮转服务；同帧免费多跟；精跟容量由物理涌现 | session-wired | [evidence: tests/unit/sbirs_sensor/sbirs_scheduler_test.cpp] |
 | 单镜筒 ATP 光轴动力学 | 球面最短路径限速推进，依角转速折算当拍稳定时长与有效帧数 | session-wired | [evidence: tests/unit/sbirs_sensor/sbirs_pointing_coordinator_test.cpp] |
+| NFOV 高刷新率多帧融合 | ATP 帧数 $N$ 的独立角误差抽样均值 $\to$ 融合量测（随机 1-σ 按 $1/\sqrt{N}$ 收敛） | session-wired | [evidence: tests/unit/sbirs_sensor/sbirs_error_model_test.cpp] |
 | 星间 Cross-Cue 交叉提示 | 三角化他星宽场测角/距离后注入本星调度池，闭合双星时间断链 | session-wired | [evidence: tests/unit/sbirs_sensor/sbirs_pipeline_test.cpp] |
 | NFOV 首次捕获 | WFOV cue 两点 CV 提前量外推，延迟视线地心/卫星位移评估 | session-wired | [evidence: tests/unit/sbirs_sensor/sbirs_cue_predictor_test.cpp] |
 | 目标 7 状态机 | Undetected $\to$ Wide $\to$ Awaiting $\to$ 3类跟踪 $\to$ Lost 转移闭环 | session-wired | [evidence: tests/unit/sbirs_sensor/sbirs_state_machine_test.cpp] |
@@ -196,7 +197,12 @@ SBIRS 模拟天基红外监视卫星的宽视场（WFOV）扫描探测、星下�
   $$t_{\text{settled}} = \max\left(0.0,\; dt - \frac{\max(0.0, \Delta\theta - \theta_{\text{tol}})}{\omega_{\max}}\right)$$
   $$\text{Frames} = \text{round}(f_{\text{frame}} \cdot t_{\text{settled}})$$
   一步转不到位时，$t_{\text{settled}} = 0$，本周期有效测量帧数为 0。
-- **证据链**：[evidence: tests/unit/sbirs_sensor/sbirs_pointing_coordinator_test.cpp]
+- **NFOV 高刷新率多帧融合（2026-08-31 架构裁定：宽场只引导 / 窄场多帧融合 / 双星定位仅窄场）**：当周期有效帧数 $N > 1$ 时，$N$ 帧独立角误差抽样取均值融合为单周期量测，随机分量按 $1/\sqrt{N}$ 收敛：
+  $$\sigma_{\text{fused}} = \frac{\sigma_{\text{frame}}}{\sqrt{N}}$$
+  方位走最短角差累加（防 0°/360° 环绕）；折射/动态滞后为确定性公共偏差，**不参与**衰减；距离乘法误差保持单次抽样口径（融合只针对角量测）。
+- **边界保护**：帧数 $\le 1$ 时退化为单帧路径（行为与既有口径逐位一致）；帧数为 0 时融合量测为空。
+- **反直觉点**：多跟目标共享同一批稳定帧时，各目标按自己的 $N$ 独立融合——帧数是逐目标的稳定时长折算结果，不是全局常数。
+- **证据链**：[evidence: tests/unit/sbirs_sensor/sbirs_pointing_coordinator_test.cpp]、[evidence: tests/unit/sbirs_sensor/sbirs_error_model_test.cpp]
 
 ---
 
@@ -204,6 +210,7 @@ SBIRS 模拟天基红外监视卫星的宽视场（WFOV）扫描探测、星下�
 - **算法意图与调用时机**：解决大椭圆/高轨下双星无法在窄视场中同时搜索到弱小目标的断链问题。由 `SbirsSession::SubmitExternalCue` 注入。
 - **几何三角化解算**：
   受话星接收来源星测角视线与测距结果，利用来源星 ECEF 位置推导目标空间三维坐标，再反解受话星本星视线角，直接将目标作为外部候选注入本机调度池。
+- **拓扑与口径**：星 $\to$ 地 $\to$ 星（地面站存储转发，固定滞后一周期）；递话内容为来源星宽场量测，由编排层经 `SbirsSession::SubmitExternalCue` 运行期注入。
 - **证据链**：[evidence: tests/unit/sbirs_sensor/sbirs_pipeline_test.cpp]
 
 ---
