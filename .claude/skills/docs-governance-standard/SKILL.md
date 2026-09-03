@@ -114,6 +114,12 @@ Each doc file has a fixed skeleton. Read the matching reference before writing:
   with 编号/严重度/发现/证据 columns), §3 priority, §4 conclusion, and the
   **后续状态 block** appended after fixes land (finding → commit mapping, 暂缓项).
   → `references/review-doc.md`
+- `docs/<module>/design.md` 的"架构裁定与否决记录"专节（Architecture Decisions &
+  Rejection Log）— 由 `evidence-first-freeze-contract` Stage C 强制回写清单产生：
+  Stage A 判 `reject` 的冻结项在此留档。每条写明提议内容、否决原因、否决证据
+  （`- **证据**：[evidence: 路径]`，可 `::符号名`，禁行号）；一条一个条目，编号或
+  分小节，不写大段叙述。模块此前无此节时在 design.md 末尾新建；已收敛开放议题的
+  结论若为否决，迁回写时同落此节。
 - Commit messages for this work — `type(scope): description`, imperative, module
   scopes, `Co-Authored-By: Claude <noreply@anthropic.com>` trailer, docs commits carry
   a body listing what changed where.
