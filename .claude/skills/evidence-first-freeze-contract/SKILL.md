@@ -48,7 +48,7 @@ For every Tier 1 freeze item, answer four questions before editing production co
 1. **Stage A（证据矩阵）**：prove, reject, narrow, or defer the requirement; deliver the matrix as a script-initialized document on a new `evidence/<topic>` branch.
 2. **Discussion（用户裁定）**：the user rules on proposed decisions; rulings land in the document as numbered 修订记录 entries.
 3. **Contract Freeze（冻结契约）**：append the frozen contract to §3 of the same document before touching any production code.
-4. **Stage B（范围内实现）**：fork `feat/<topic>` from `evidence/<topic>` and implement only within the frozen scope.
+4. **Stage B（范围内实现）**：fork `feat/<topic>` from `evidence/<topic>`——fork 前须先经计划模式提交实现计划并获用户批准（见 Stage B Plan-approval gate）——then implement only within the frozen scope.
 5. **Stage C（验证与权威回写）**：run verifications, fulfill the 强制回写清单 below, and append the run record to §4 of the scaffold document.
 6. **Close-out（拆脚手架与合并）**：once the user asks to merge, remove the scaffold document on `feat/<topic>`, merge `--no-ff` into `main`, delete both process branches. Do not push unless asked.
 
@@ -213,7 +213,9 @@ Rules:
 
 ## Stage B: Implementation Gate
 
-Before editing code, fork the implementation branch `feat/<topic>` from `evidence/<topic>` (only after the user closes the discussion), then state:
+**Plan-approval gate (mandatory, 2026-09-03)**: after the contract is frozen and before writing any production code, enter plan mode（计划模式） and present the implementation plan for user approval; only after the user approves the plan may you fork `feat/<topic>` and edit code. The plan itself must state: the proven requirement, files/modules in scope and out of scope, implementation steps, commit split, and validation commands. If implementation hits a boundary not covered by the approved plan, stop and return to planning.
+
+Before editing code, fork the implementation branch `feat/<topic>` from `evidence/<topic>` (only after the user closes the discussion and approves the plan), then state:
 
 - the proven requirement;
 - the files or modules in scope;
