@@ -1,7 +1,7 @@
 # 跨模块契约
 
 Status: active
-Last-reviewed: 2026-08-23
+Last-reviewed: 2026-09-03
 Authority: common contract for all modules
 RF-Interference-Architecture: frozen target; AR/ESR/ECM/RIR RF v2 implemented (per-module status in each design.md)
 
@@ -10,18 +10,23 @@ RF-Interference-Architecture: frozen target; AR/ESR/ECM/RIR RF v2 implemented (p
 
 ## 证据优先开发模式
 
-对算法、架构、模块内部优化、输出语义、配置语义和 public API 相关改动，默认采用
+对算法、架构、模块内部优化、输出语义、配置语义、测试阈值和 public API 相关改动，默认采用
 `.claude/skills/evidence-first-freeze-contract` 定义的证据优先模式。
 
 强制规则：
 
-1. 先判定，再契约，再实现。
-2. Stage A 未得到 `pass` 或 `narrow` 判定时，不进入生产代码实现。
-3. Stage B 前必须冻结实现契约，明确允许范围、禁止范围、行为边界、验收条件和非目标。
+1. 先判定，再契约，再实现——任何级别都不得省略"证据先于实现"。
+2. 全流程门禁范围内的改动，Stage A 未得到 `pass` 或 `narrow` 判定时，不进入生产代码实现。
+3. 全流程门禁范围内的改动，Stage B 前必须冻结实现契约，明确允许范围、禁止范围、行为边界、验收条件和非目标。
 4. 实现只能覆盖已被证据证明的最小边界；不得借机扩大 public API、跨模块抽象、schema、Replay 落盘或兼容层。
 5. 验收失败时回到证据矩阵重新拆分原因；不得通过放宽阈值、扩大 skip 或弱化测试制造通过。
+6. 分级门禁（细则由 repo skill 维护）：
+   a. 全流程门禁：算法、架构、模块内部优化、输出语义、配置语义、public API、测试阈值类改动——证据分支 + Stage A 文档 + 冻结契约 + feat 分支。
+   b. 轻量内联门禁：零公共接口、零行为边界、零 schema、零测试阈值变更的模块内部小型改动（如私有辅助函数的局部整理）——不开独立文档，在提交信息内嵌迷你证据块（假设、探针结果、允许范围），证据仍须先于实现。
+   c. 无门禁：机械格式化；不改变行为的措辞修正；失败行为与验收条件均已在用户请求中明确的小修复。
+   d. 范围归属存疑时，一律按全流程门禁处理（就高不就低）。
 
-具体 evidence matrix、契约模板、输出格式和回写要求由 repo skill 维护；公共契约只规定该流程是高风险开发的默认门禁。
+具体 evidence matrix、契约模板、输出格式和回写要求由 repo skill 维护；公共契约规定分级门禁的存在与边界，防止轻量级被滥用为绕门通道。
 
 ## Public API 边界
 
